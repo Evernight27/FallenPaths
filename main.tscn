@@ -1,0 +1,42 @@
+[gd_scene load_steps=3 format=3 uid="uid://bqj8k3x7m2n4p"]
+
+[ext_resource type="Script" path="res://character.gd" id="1_1"]
+[ext_resource type="Script" path="res://main.gd" id="1_2"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(60, 60)
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_2")
+
+[node name="TileMap" type="TileMap" parent="."]
+format = 2
+layer_0/name = "Terrain"
+layer_0/enabled = true
+layer_0/modulate = Color(1, 1, 1, 1)
+layer_0/y_sort_enabled = false
+layer_0/y_sort_origin = 0
+layer_0/z_index = 0
+layer_1/name = "Data"
+layer_1/enabled = true
+layer_1/modulate = Color(1, 1, 1, 1)
+layer_1/y_sort_enabled = false
+layer_1/y_sort_origin = 0
+layer_1/z_index = 0
+
+[node name="Character" type="CharacterBody2D" parent="."]
+position = Vector2(32, 32)
+script = ExtResource("1_1")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Character"]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="ColorRect" type="ColorRect" parent="Character"]
+offset_left = -30.0
+offset_top = -30.0
+offset_right = 30.0
+offset_bottom = 30.0
+color = Color(1, 0.3, 0.3, 1)
+
+[node name="Camera2D" type="Camera2D" parent="Character"]
+enabled = true
