@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=2]
+[ext_resource path="res://species/SpeciesResource.gd" type="Script" id=1]
+
+[resource]
+script = ExtResource( 1 )
+name = "Goblin"
+head = 6
+chest = 10
+right_arm = 6
+left_arm = 6
+left_leg = 6
+right_leg = 6
+head_bone = 4
+chest_bone = 7
+right_arm_bone = 4
+left_arm_bone = 4
+left_leg_bone = 5
+right_leg_bone = 5
+strength = 6
+speed = 140
+description = "Small, sneaky, and quick."

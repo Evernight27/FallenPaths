@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=2]
+[ext_resource path="res://species/SpeciesResource.gd" type="Script" id=1]
+
+[resource]
+script = ExtResource( 1 )
+name = "Human"
+head = 15
+chest = 25
+right_arm = 15
+left_arm = 15
+left_leg = 15
+right_leg = 15
+head_bone = 8
+chest_bone = 20
+right_arm_bone = 8
+left_arm_bone = 8
+left_leg_bone = 20
+right_leg_bone = 20
+strength = 8
+speed = 120
+description = "Versatile and adaptable."
