@@ -200,6 +200,19 @@ func is_dead() -> bool:
 			return true
 	return false
 
+# Returns a short string describing why this entity is dead (for combat/debug logging). Call only when is_dead() is true.
+func get_death_reason() -> String:
+	if blood_volume <= _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD:
+		return "blood_loss (volume=%.1f <= threshold %.1f)" % [blood_volume, _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD]
+	for part in _get_vital_parts():
+		if _is_part_destroyed(part):
+			return "vital_part_destroyed (%s severed/crushed)" % part
+		var cut: int = body_cutting.get(part, 0)
+		var blunt: int = body_blunt.get(part, 0)
+		if cut <= 0 or blunt <= 0:
+			return "vital_part_zero (%s cut=%d blunt=%d)" % [part, cut, blunt]
+	return "unknown"
+
 # Optional penetration (mm RHA sharp, MPa blunt). If < 0, defaults are used when armor is present.
 # Damage above BONE_DAMAGE_THRESHOLD splits: fraction to bone (fracture/break); rest to tissue. Severance when tissue 0 and bone 0.
 # Returns { "final_type": SHARP/BLUNT, "final_amount": int } so caller can report the correct pool (e.g. when armor deflects sharp->blunt).
@@ -261,9 +274,12 @@ func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetrati
 		if blunt_pre_val > 0.0:
 			var result_blunt: Dictionary = armor_var.apply_damage(blunt_pre_val, DAMAGE_TYPE_BLUNT, 0.0, pen_b)
 			final_blunt += maxf(0.0, result_blunt.get("damage", 0.0))
+		print("[Damage apply] %s %s: armor on | pre cut=%.1f blunt=%.1f pen_s=%.2f pen_b=%.2f => post cut=%.1f blunt=%.1f" % [name, part, cut_pre_val, blunt_pre_val, pen_s, pen_b, final_cut, final_blunt])
 	else:
 		final_cut = cut_pre_val
 		final_blunt = blunt_pre_val
+		if cut_pre_val > 0.0 or blunt_pre_val > 0.0:
+			print("[Damage apply] %s %s: no armor | pre cut=%.1f blunt=%.1f => tissue cut=%.1f blunt=%.1f" % [name, part, cut_pre_val, blunt_pre_val, final_cut, final_blunt])
 
 	var total_final: float = final_cut + final_blunt
 	if total_final <= 0.0:
@@ -288,6 +304,7 @@ func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetrati
 	if total_final > 0.0:
 		to_cut = int(roundf(total_tissue * (final_cut / total_final)))
 		to_blunt = maxi(0, to_tissue_total - to_cut)
+	print("[Damage apply] %s %s (%s): bone threshold=%d fraction=%.2f => to_bone=%d to_tissue=%d (cut=%d blunt=%d)" % [name, part, sub_region, bone_threshold, bone_fraction, to_bone, to_tissue_total, to_cut, to_blunt])
 	body_cutting[part] = max(0, body_cutting[part] - to_cut)
 	body_blunt[part] = max(0, body_blunt[part] - to_blunt)
 	bone_health[part] = max(0, bone_health[part] - to_bone)

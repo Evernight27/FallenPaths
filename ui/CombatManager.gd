@@ -171,6 +171,10 @@ func _process(delta: float) -> void:
 			continue
 		if c.node.has_method("is_dead") and c.node.is_dead():
 			c.alive = false
+			var death_reason: String = ""
+			if c.node.has_method("get_death_reason"):
+				death_reason = c.node.get_death_reason()
+			print("[Combat] DEATH (tick): %s — %s" % [c.node.name if c.node else "id:%d" % c.id, death_reason])
 			emit_signal("action_resolved", c.id, -1, {"dmg": 0, "died": true, "part": "", "damage_type": "", "outcome": "bled_out", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0})
 			emit_signal("combat_ended", _check_for_winner(), c.node)
 			stop()
@@ -351,6 +355,10 @@ func _execute_attack(attacker_id: int) -> void:
 		var arm_mod: float = 1.0
 		if atk.node.has_method("get_attack_damage_modifier"):
 			arm_mod = atk.node.get_attack_damage_modifier()
+		# --- Damage equation (medical/physics debugging) ---
+		var v_m_s: float = WeaponDamageHelper.get_effective_velocity_m_s(weapon, attack_instance)
+		var ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(weapon, attack_instance)
+		var mass_kg: float = float(weapon.mass) if (weapon.get("mass") is float or weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 		pre_armor = WeaponDamageHelper.compute_pre_armor_damage(weapon, attack_instance, atk.stats.strength, arm_mod)
 		var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, attack_type, archetype)
 		pre_cut = pre_armor * cut_ratio
@@ -359,6 +367,8 @@ func _execute_attack(attacker_id: int) -> void:
 		var pen_blunt_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, DAMAGE_TYPE_BLUNT)
 		pen_sharp = pen_sharp_dict.get("penetration_sharp", -1.0)
 		pen_blunt = pen_blunt_dict.get("penetration_blunt", -1.0)
+		var str_mod: float = maxf(0.1, float(atk.stats.strength) / 10.0)
+		print("[Damage equation] %s -> %s | v=%.2f m/s, mass=%.2f kg, KE=%.1f J | strength_mod=%.2f arm_mod=%.2f cut_ratio=%.2f => pre_armor=%.1f (cut=%.1f blunt=%.1f) | pen_sharp=%.2f mm RHA pen_blunt=%.2f MPa" % [atk_name, tgt_name, v_m_s, mass_kg, ke_j, str_mod, arm_mod, cut_ratio, pre_armor, pre_cut, pre_blunt, pen_sharp, pen_blunt])
 	else:
 		var mod: float = 1.0
 		if atk.node != null and atk.node.has_method("get_attack_damage_modifier"):
@@ -396,7 +406,8 @@ func _execute_attack(attacker_id: int) -> void:
 
 	var health_after_cut: int = tgt.node.body_cutting.get(part, 0)
 	var health_after_blunt: int = tgt.node.body_blunt.get(part, 0)
-	print("[Combat] %s (%s) -> %s (%s) %s: cut %d blunt %d | cut %d->%d blunt %d->%d [%s]" % [atk_name, atk.side, tgt_name, tgt.side, part, final_cut, final_blunt, health_before_cut, health_after_cut, health_before_blunt, health_after_blunt, outcome])
+	var part_max: int = tgt.node.body_max.get(part, 0)
+	print("[Combat] %s (%s) -> %s (%s) %s: applied cut %d blunt %d (total %d) | part %s: cut %d->%d blunt %d->%d (max %d) [%s]" % [atk_name, atk.side, tgt_name, tgt.side, part, final_cut, final_blunt, actual_dmg, part, health_before_cut, health_after_cut, health_before_blunt, health_after_blunt, part_max, outcome])
 
 	var result_dict := {"dmg": actual_dmg, "died": false, "part": part, "damage_type": "SPLIT", "health_before_cut": health_before_cut, "health_after_cut": health_after_cut, "health_before_blunt": health_before_blunt, "health_after_blunt": health_after_blunt, "final_cut": final_cut, "final_blunt": final_blunt, "outcome": outcome}
 	# Legacy keys for UI that expects single pool
@@ -405,6 +416,10 @@ func _execute_attack(attacker_id: int) -> void:
 	if tgt.node.has_method("is_dead") and tgt.node.is_dead():
 		tgt.alive = false
 		result_dict.died = true
+		var death_reason: String = ""
+		if tgt.node.has_method("get_death_reason"):
+			death_reason = tgt.node.get_death_reason()
+		print("[Combat] DEATH: %s — %s" % [tgt_name, death_reason])
 		emit_signal("action_resolved", attacker_id, target_id, result_dict)
 		emit_signal("combat_ended", _check_for_winner(), tgt.node)
 		stop()

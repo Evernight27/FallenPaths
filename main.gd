@@ -10,6 +10,13 @@ func _tile_coords(pos: Vector2) -> Vector2i:
 	return Vector2i(floor((pos.x - 32) / 64.0), floor((pos.y - 32) / 64.0))
 
 func _ready():
+	# Match FallenFramework: fill screen — maximized window + stretch to viewport
+	var main_window = get_tree().root
+	main_window.content_scale_size = Vector2i(1920, 1080)
+	main_window.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	main_window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	main_window.mode = Window.MODE_MAXIMIZED
+
 	# Generate tile texture if it doesn't exist
 	_generate_tile_texture_if_needed()
 	

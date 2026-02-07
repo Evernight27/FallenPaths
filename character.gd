@@ -61,6 +61,9 @@ func equip_weapon(w) -> void:
 func is_dead() -> bool:
 	return _combat_body.is_dead() if _combat_body else true
 
+func get_death_reason() -> String:
+	return _combat_body.get_death_reason() if _combat_body else "no_combat_body"
+
 func take_damage(amount: int, part: String, damage_type: String = "BLUNT", penetration_sharp: float = -1.0, penetration_blunt: float = -1.0) -> Dictionary:
 	if _combat_body:
 		# CoreEntity.take_damage returns { final_type, final_amount }; linter may show stale void until project refresh
