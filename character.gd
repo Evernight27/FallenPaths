@@ -61,6 +61,12 @@ func equip_weapon(w) -> void:
 func is_dead() -> bool:
 	return _combat_body.is_dead() if _combat_body else true
 
+func is_incapacitated() -> bool:
+	return _combat_body.is_incapacitated() if _combat_body else false
+
+func get_performance_modifier() -> float:
+	return _combat_body.get_performance_modifier() if _combat_body else 1.0
+
 func get_death_reason() -> String:
 	return _combat_body.get_death_reason() if _combat_body else "no_combat_body"
 
@@ -91,12 +97,56 @@ func get_blood_volume() -> float:
 func get_total_bleeding_rate() -> float:
 	return _combat_body.get_total_bleeding_rate() if _combat_body else 0.0
 
+func get_wounded_parts() -> Array:
+	return _combat_body.get_wounded_parts() if _combat_body else []
+
 func get_wounds() -> Dictionary:
 	return _combat_body.get_wounds() if _combat_body else {}
+
+func get_wound_healing_progress(injury: Dictionary) -> float:
+	return _combat_body.get_wound_healing_progress(injury) if _combat_body else 0.0
+
+func get_game_time_seconds() -> float:
+	return _combat_body.get_game_time_seconds() if _combat_body else 0.0
 
 func apply_bandage(part: String, effectiveness: float = 1.0) -> void:
 	if _combat_body:
 		_combat_body.apply_bandage(part, effectiveness)
+
+func get_bandage_application_time_seconds() -> float:
+	return _combat_body.get_bandage_application_time_seconds() if _combat_body else 0.0
+
+func can_apply_direct_pressure(target_part: String) -> bool:
+	return _combat_body.can_apply_direct_pressure(target_part) if _combat_body else false
+
+func apply_direct_pressure(part: String) -> bool:
+	return _combat_body.apply_direct_pressure(part) if _combat_body else false
+
+func is_applying_direct_pressure() -> bool:
+	return _combat_body.is_applying_direct_pressure() if _combat_body else false
+
+func get_direct_pressure_part() -> String:
+	return _combat_body.get_direct_pressure_part() if _combat_body else ""
+
+func clear_direct_pressure() -> void:
+	if _combat_body:
+		_combat_body.clear_direct_pressure()
+
+func can_apply_tourniquet(part: String) -> bool:
+	return _combat_body.can_apply_tourniquet(part) if _combat_body else false
+
+func is_tourniquet_applied(part: String) -> bool:
+	return _combat_body.is_tourniquet_applied(part) if _combat_body else false
+
+func get_tourniquet_application_time_seconds() -> float:
+	return _combat_body.get_tourniquet_application_time_seconds() if _combat_body else 0.0
+
+func apply_tourniquet(part: String) -> bool:
+	return _combat_body.apply_tourniquet(part) if _combat_body else false
+
+func remove_tourniquet(part: String) -> void:
+	if _combat_body:
+		_combat_body.remove_tourniquet(part)
 
 func process_bleeding(seconds: float) -> void:
 	if _combat_body and _combat_body.has_method("process_bleeding"):
@@ -138,13 +188,13 @@ func _input(event) -> void:
 	if not is_moving and event is InputEventKey and event.pressed:
 		var input_direction = Vector2.ZERO
 		match event.keycode:
-			KEY_W:
+			KEY_W, KEY_UP:
 				input_direction = Vector2.UP
-			KEY_S:
+			KEY_S, KEY_DOWN:
 				input_direction = Vector2.DOWN
-			KEY_A:
+			KEY_A, KEY_LEFT:
 				input_direction = Vector2.LEFT
-			KEY_D:
+			KEY_D, KEY_RIGHT:
 				input_direction = Vector2.RIGHT
 		if input_direction != Vector2.ZERO:
 			var new_target = target_position + input_direction * TILE_SIZE

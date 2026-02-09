@@ -51,8 +51,8 @@ func start(p_players, p_enemies) -> void:
 	else:
 		enemies = [p_enemies]
 
-	# Hide the previous scene to prevent underlying UI from showing
-	if parent_scene != null:
+	# Hide the previous scene to prevent underlying UI from showing (Node has no visible; CanvasItem does)
+	if parent_scene != null and "visible" in parent_scene:
 		parent_scene.visible = false
 
 	_create_ui()
@@ -315,8 +315,8 @@ func _update_ui() -> void:
 				ctrl.name.text = str(c.node.name) if c.node != null else ctrl.name.text
 			if ctrl.gauge:
 				var state: String = c.get("state", "waiting")
-				# Action bar only shows fill when waiting (charging next turn); stays empty during swing/recovery
-				if state == "wind_up" or state == "recovering":
+				# Action bar only shows fill when waiting (charging next turn); stays empty during swing/medical/recovery
+				if state == "wind_up" or state == "medical_wind_up" or state == "recovering":
 					ctrl.gauge.value = 0.0
 				else:
 					ctrl.gauge.value = c.gauge
@@ -327,6 +327,9 @@ func _update_ui() -> void:
 				if state == "wind_up":
 					var remain: float = maxf(0.0, state_duration - state_timer)
 					ctrl.gauge_label.text = "Wind-up %.1fs" % remain
+				elif state == "medical_wind_up":
+					var remain: float = maxf(0.0, state_duration - state_timer)
+					ctrl.gauge_label.text = "Medical %.1fs" % remain
 				elif state == "recovering":
 					var remain: float = maxf(0.0, state_duration - state_timer)
 					ctrl.gauge_label.text = "Recov. %.1fs" % remain
@@ -387,13 +390,16 @@ func _on_turn_ready(combatant_id: int) -> void:
 					manager.resolve_action(combatant_id, c.id)
 					return
 		else:
-			# Prefer parry if available (first parry in list), else first action
+			# Prefer parry if available (first parry in list), else first action; pass options (e.g. target_part for medical)
 			var choice = actions[0]
 			for a in actions:
 				if a.get("move_id", "") != "" and WeaponConstants.is_parry_move(a.move_id):
 					choice = a
 					break
-			manager.resolve_action(combatant_id, choice.target_id, choice.get("move_id", ""))
+			var opts: Dictionary = {}
+			if choice.get("target_part", "") != "":
+				opts["target_part"] = choice.target_part
+			manager.resolve_action(combatant_id, choice.target_id, choice.get("move_id", ""), opts)
 
 func _append_combat_log(attacker_name: String, attacker_side: String, target_name: String, target_side: String, result: Dictionary) -> void:
 	if combat_log == null:

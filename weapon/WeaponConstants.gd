@@ -16,12 +16,12 @@ const BASELINE_CONTACT_CM: float = 2.0
 const BASELINE_MASS_KG: float = 1.0
 
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
-# 1 mm mild steel ≈ 55 J to penetrate (base); raised with velocity range so mm RHA per hit stays balanced.
-# Research: strike speeds 17–24 m/s; we use 6–18 m/s effective impact, J_PER_MM_RHA scaled so penetration similar.
-const J_PER_MM_RHA: float = 130.0
-# Effective impact velocity (m/s). Research: rod-like strikes 17.2–23.9 m/s; we use 6–18 m/s (derived from intensity).
+# 1 mm mild steel ≈ 55 J to penetrate (base). 80 gives more realistic penetration; 130 was harder to penetrate (balance).
+# Research: strike speeds 17–24 m/s; we use 6–20 m/s effective impact (BALANCING_INVESTIGATION.md).
+const J_PER_MM_RHA: float = 80.0
+# Effective impact velocity (m/s). Research: rod-like strikes 17.2–23.9 m/s; 20 allows near-peak strikes.
 const VELOCITY_MIN_M_S: float = 6.0
-const VELOCITY_MAX_M_S: float = 18.0
+const VELOCITY_MAX_M_S: float = 20.0
 # Pre-armor damage: scale * sqrt(KE) * strength_mod * arm_mod. Tuned so damage band matches old 2–12 m/s at scale 4.0.
 const DAMAGE_KE_SCALE: float = 2.6
 const DAMAGE_KE_MIN: float = 1.0
@@ -38,7 +38,8 @@ const CONTACT_DAMAGE_EXPONENT: float = 0.3
 const CONTACT_DAMAGE_FACTOR_MAX: float = 2.0
 # Blunt: impact pressure (MPa) = BLUNT_PRESSURE_SCALE * KE_J / A_m² / 1e6. A_m² = π*(d_cm/100/2)².
 const BLUNT_PRESSURE_SCALE: float = 500.0
-const MIN_BLUNT_AREA_M2: float = 1e-6
+# Floor so tiny contacts don't produce absurd MPa; 1 cm² min keeps normal blade areas unchanged (BALANCING_INVESTIGATION.md).
+const MIN_BLUNT_AREA_M2: float = 1e-4
 
 # --- Move pool (historical / HEMA-inspired) ---
 # Each move: id, name (UI), contact_type (stab/cut/blunt), archetype_id, base_cooldown.

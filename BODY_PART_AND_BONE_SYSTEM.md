@@ -92,3 +92,34 @@ Tissue and bone max values are in the same abstract scale as damage. To align wi
 You can later drive these from real-world estimates (e.g. J to cut/fracture) by scaling J into your game HP scale.
 
 Severance then corresponds to: enough cutting damage to remove all tissue **and** enough damage (from heavy hits) to reduce bone to 0, so the part is fully cut through.
+
+---
+
+## 9. Sub-regions vs health pools: one pool per part or per sub-region?
+
+You already use **sub_regions** for: hit location (weighted random), bone threshold/fraction, wound severity, bleeding/arterial multipliers, and stump level. The question: do you need **separate health pools per sub_region**, or is **one pool per body part** enough?
+
+### Current design: one pool per part
+
+- **Pools:** `body_cutting[part]`, `body_blunt[part]`, `bone_health[part]` for each **part** (head, chest, right_arm, left_arm, right_leg, left_leg). So 6 parts × 3 pool types = 18 values.
+- **Sub_region** is chosen per hit (weighted random) and used only for:
+  - **Modifiers:** bone threshold/fraction, severity, bleeding, arterial chance.
+  - **Metadata:** each wound stores `sub_region`; stump level uses the sub_region of the severing hit.
+- All damage to that part goes into the **same** pool. You never have "forearm at 0 but hand at full" — the whole arm is one pool. Severance is "whole part gone"; stump level (sub_region) only affects **how much** the stump bleeds, not which segment is gone.
+
+**You do not need to change this** if:
+
+- You're happy with "arm severed" as a single state (with level affecting stump bleeding and display).
+- You don't need gameplay where "hand destroyed, forearm still usable" is a distinct state.
+- You want to keep logic and tuning simple (one pool per part, sub_regions for flavor and modifiers).
+
+### Alternative: per–sub_region health pools
+
+- **Pools:** e.g. `body_cutting["right_arm_upper_arm"]`, `body_cutting["right_arm_forearm"]`, … (or a nested structure). Each sub_region has its own cutting, blunt, and (if you split bone by segment) bone pools. Damage is applied to the **specific** sub_region hit.
+- **Pros:** Finer granularity: "hand severed at wrist" vs "arm severed at elbow" as different pool states; "forearm crushed, hand OK"; per-segment functionality possible.
+- **Cons:** Many more pools and rules: e.g. 6 parts × ~3–4 sub_regions × 3 = 54+ values; you must define when "part" is severed (all sub_regions 0? or first segment 0 = that segment gone?); targeting, UI, armor, and balance all get more complex.
+
+### Recommendation
+
+- **Keep one health pool per body part** and continue using sub_regions for hit location, modifiers, wound metadata, and stump level. That already gives you level-accurate stump bleeding and region-specific wound behavior without per-sub_region pools.
+- **Switch to per–sub_region pools** only if you explicitly want distinct damage states per segment (e.g. "hand gone, forearm intact" as a different outcome from "whole arm gone") and are willing to maintain the extra complexity.

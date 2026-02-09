@@ -47,6 +47,47 @@ const BLOOD_VOLUME_RECOVERY_DURATION_SECONDS: float = 24.0 * 3600.0  # 24 hours 
 # Exponential healing: time constant τ = duration / EXPONENTIAL_HEAL_TAU_DIVISOR so that after duration seconds, ~95% healed (1 - e^(-3) ≈ 0.95).
 const EXPONENTIAL_HEAL_TAU_DIVISOR: float = 3.0
 
+# --- Per-wound healing (individual pain resolution and wound lifecycle) ---
+# Injury types: "cut", "crush", "bruise", "fracture" (BleedingConstants). Each wound gets its own healing duration by part + severity + type.
+# Bruises (contusions): closed injury; pain resolves by severity (small bump = days, deep contusion = ~2 weeks).
+# Fracture: bone injury from blunt; no bleed; pain resolves over bone-healing time (~6 weeks by part).
+# Cut/crush: use tissue duration by severity; part multipliers reflect vascularity/depth (head/chest slower).
+const WOUND_TYPE_BRUISE: String = "bruise"
+const WOUND_TYPE_FRACTURE: String = "fracture"
+
+# Bruise: duration to ~95% pain resolution by severity. Minor = small bump (~4 d); moderate–critical = deeper/larger, longer.
+# Minor bruise now comparable to minor cut (4 d); typical "2 weeks" for severe.
+const BRUISE_HEAL_DURATION_BY_SEVERITY: Dictionary = {
+	"minor": 4.0 * SECONDS_PER_DAY,    # ~4 days (small bruise)
+	"moderate": 8.0 * SECONDS_PER_DAY,  # ~8 days
+	"severe": 14.0 * SECONDS_PER_DAY,   # ~2 weeks (typical contusion)
+	"critical": 21.0 * SECONDS_PER_DAY  # ~3 weeks (deep/large contusion)
+}
+
+# Per-part multiplier for bruise resolution (scalp/face/trunk can linger; limbs typical).
+const BRUISE_PART_DURATION_MULTIPLIERS: Dictionary = {
+	"head": 1.2,
+	"chest": 1.1,
+	"right_arm": 1.0,
+	"left_arm": 1.0,
+	"right_leg": 1.0,
+	"left_leg": 1.0
+}
+
+# Crush (blunt with bleeding): same phases as tissue; use tissue duration.
+# Cut (laceration): full tissue duration by severity + part.
+# Fracture: bone-healing duration by part (~6 weeks); pain resolution follows bone healing.
+# Returns seconds to ~95% healing (pain resolution) for this wound. Used for per-wound pain decay and "resolved" removal.
+static func get_wound_healing_duration_seconds(part: String, severity: String, injury_type: String) -> float:
+	if injury_type == WOUND_TYPE_BRUISE:
+		var base: float = BRUISE_HEAL_DURATION_BY_SEVERITY.get(severity, 14.0 * SECONDS_PER_DAY)
+		var part_mult: float = BRUISE_PART_DURATION_MULTIPLIERS.get(part, 1.0)
+		return base * part_mult
+	if injury_type == WOUND_TYPE_FRACTURE:
+		return get_bone_heal_duration_seconds(part)
+	# Cut and crush: tissue-based duration (unique per body part and severity)
+	return get_tissue_heal_duration_seconds(part, severity)
+
 # --- Helpers ---
 static func get_tissue_heal_duration_seconds(part: String, severity: String) -> float:
 	var base: float = TISSUE_HEAL_DURATION_SECONDS.get(severity, 10.0 * SECONDS_PER_DAY)
