@@ -460,6 +460,7 @@ func _execute_attack(attacker_id: int) -> void:
 	var pre_armor: float = 0.0
 	var pen_sharp: float = -1.0
 	var pen_blunt: float = -1.0
+	var pen_blunt_momentum_per_area: float = -1.0
 	var pre_cut: float = 0.0
 	var pre_blunt: float = 0.0
 
@@ -475,18 +476,21 @@ func _execute_attack(attacker_id: int) -> void:
 		var arm_mod: float = 1.0
 		if atk.node.has_method("get_attack_damage_modifier"):
 			arm_mod = atk.node.get_attack_damage_modifier()
-		# --- Damage equation (medical/physics debugging) ---
+		# --- Damage equation: cut from KE + effective edge, blunt from momentum ---
 		var v_m_s: float = WeaponDamageHelper.get_effective_velocity_m_s(weapon, attack_instance)
 		var ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(weapon, attack_instance)
 		var mass_kg: float = float(weapon.mass) if (weapon.get("mass") is float or weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
-		pre_armor = WeaponDamageHelper.compute_pre_armor_damage(weapon, attack_instance, atk.stats.strength, arm_mod)
 		var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, attack_type, archetype)
-		pre_cut = pre_armor * cut_ratio
-		pre_blunt = pre_armor * (1.0 - cut_ratio)
+		var pre_cut_raw: float = WeaponDamageHelper.compute_pre_armor_cut(weapon, attack_instance, atk.stats.strength, arm_mod)
+		var pre_blunt_raw: float = WeaponDamageHelper.compute_pre_armor_blunt(weapon, attack_instance, atk.stats.strength, arm_mod)
+		pre_cut = pre_cut_raw * cut_ratio
+		pre_blunt = pre_blunt_raw * (1.0 - cut_ratio)
+		pre_armor = pre_cut + pre_blunt
 		var pen_sharp_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, DAMAGE_TYPE_SHARP)
 		var pen_blunt_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, DAMAGE_TYPE_BLUNT)
 		pen_sharp = pen_sharp_dict.get("penetration_sharp", -1.0)
 		pen_blunt = pen_blunt_dict.get("penetration_blunt", -1.0)
+		pen_blunt_momentum_per_area = pen_blunt_dict.get("penetration_blunt_momentum_per_area", -1.0)
 		var str_mod: float = maxf(0.1, float(atk.stats.strength) / 10.0)
 		var pa_power: float = pa.get("power", -1.0)
 		var pa_ft: float = pa.get("follow_through", -1.0)
@@ -507,7 +511,7 @@ func _execute_attack(attacker_id: int) -> void:
 
 	var take_result: Dictionary = {}
 	if tgt.node.has_method("take_damage_split"):
-		take_result = tgt.node.take_damage_split(pre_cut, pre_blunt, part, pen_sharp, pen_blunt)
+		take_result = tgt.node.take_damage_split(pre_cut, pre_blunt, part, pen_sharp, pen_blunt, pen_blunt_momentum_per_area)
 	else:
 		# Fallback: single stream (pre_cut or pre_blunt by ratio)
 		if pre_cut >= pre_blunt and tgt.node.has_method("take_damage"):
@@ -539,7 +543,7 @@ func _execute_attack(attacker_id: int) -> void:
 		outcome_note = "deflected (tissue_dmg %.0f < pre_armor*%.2f=%.1f)" % [float(final_cut + final_blunt), DEFLECTED_DAMAGE_RATIO, pre_armor * DEFLECTED_DAMAGE_RATIO]
 	print("[Combat] %s (%s) -> %s (%s) %s: applied cut=%d blunt=%d bone=%d (total %d) | part state: cut %d->%d blunt %d->%d bone %d->%d (max cut/blunt %d bone %d) | outcome: %s" % [atk_name, atk.side, tgt_name, tgt.side, part, final_cut, final_blunt, final_bone, actual_dmg, health_before_cut, health_after_cut, health_before_blunt, health_after_blunt, health_before_bone, health_after_bone, part_max, part_bone_max, outcome_note])
 
-	var result_dict := {"dmg": actual_dmg, "died": false, "part": part, "damage_type": "SPLIT", "health_before_cut": health_before_cut, "health_after_cut": health_after_cut, "health_before_blunt": health_before_blunt, "health_after_blunt": health_after_blunt, "health_before_bone": health_before_bone, "health_after_bone": health_after_bone, "final_cut": final_cut, "final_blunt": final_blunt, "final_bone": final_bone, "outcome": outcome}
+	var result_dict := {"dmg": actual_dmg, "died": false, "part": part, "damage_type": "SPLIT", "health_before_cut": health_before_cut, "health_after_cut": health_after_cut, "health_before_blunt": health_before_blunt, "health_after_blunt": health_after_blunt, "health_before_bone": health_before_bone, "health_after_bone": health_after_bone, "final_cut": final_cut, "final_blunt": final_blunt, "final_bone": final_bone, "outcome": outcome, "was_deflected": take_result.get("was_deflected", false)}
 	# Legacy keys for UI that expects single pool
 	result_dict["health_before"] = health_before_cut + health_before_blunt
 	result_dict["health_after"] = health_after_cut + health_after_blunt

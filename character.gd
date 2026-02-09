@@ -76,9 +76,9 @@ func take_damage(amount: int, part: String, damage_type: String = "BLUNT", penet
 		return _combat_body.take_damage(amount, part, damage_type, penetration_sharp, penetration_blunt)
 	return { "final_type": damage_type, "final_amount": 0 }
 
-func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt: float = -1.0) -> Dictionary:
+func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
 	if _combat_body:
-		return _combat_body.take_damage_split(cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt)
+		return _combat_body.take_damage_split(cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt, penetration_blunt_momentum_per_area)
 	return { "final_cut": 0, "final_blunt": 0 }
 
 func get_armor_for_part(part: String) -> Variant:

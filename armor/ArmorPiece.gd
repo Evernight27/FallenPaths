@@ -29,53 +29,78 @@ static func create_from_definition(piece_id: String) -> ArmorPiece:
 	return piece
 
 
-# Apply damage through all layers. Returns { damage: float, damage_type: String }.
-# penetration_sharp in mm RHA, penetration_blunt in MPa.
-func apply_damage(incoming_damage: float, damage_type: String, penetration_sharp: float, penetration_blunt: float) -> Dictionary:
+# Apply damage through all layers. Returns { damage, damage_type, was_deflected, deflected_blunt_amount }.
+# When SHARP deflects: return raw deflected blunt (one layer's transmission only); caller adds to blunt and runs once.
+# When BLUNT fails to penetrate a layer: rigid = pressure (pen_blunt vs blunt_resistance_mpa); cushion reduces transmission (Option B).
+# penetration_sharp in mm RHA, penetration_blunt in MPa. penetration_blunt_momentum_per_area in (kg·m/s)/m² for cushion.
+func apply_damage(incoming_damage: float, damage_type: String, penetration_sharp: float, penetration_blunt: float, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
 	var damage_remaining: float = incoming_damage
 	var current_damage_type: String = damage_type
 	var pen_rha: float = penetration_sharp
 	var pen_mpa: float = penetration_blunt
 	if damage_type == ArmorConstants.DAMAGE_TYPE_SHARP:
 		pen_mpa = penetration_sharp * ArmorConstants.RHA_TO_MPA
+	var was_deflected: bool = false
+	var incoming_was_sharp: bool = (damage_type == ArmorConstants.DAMAGE_TYPE_SHARP)
 
 	for i in range(layers.size()):
 		var layer: Dictionary = layers[i]
 		if _is_layer_destroyed(layer):
 			continue
-		var result := _process_layer(damage_remaining, current_damage_type, pen_rha, pen_mpa, layer)
+		var result := _process_layer(damage_remaining, current_damage_type, pen_rha, pen_mpa, layer, penetration_blunt_momentum_per_area)
 		damage_remaining = result.damage
 		current_damage_type = result.damage_type
 		if result.deflected:
-			break
+			was_deflected = true
+			if incoming_was_sharp:
+				# Sharp deflected: return raw blunt so caller can add to blunt component and run once.
+				var raw_blunt: float = maxf(0.0, damage_remaining)
+				return {
+					"damage": raw_blunt,
+					"damage_type": ArmorConstants.DAMAGE_TYPE_BLUNT,
+					"was_deflected": true,
+					"deflected_blunt_amount": raw_blunt
+				}
+			# Blunt "deflected" (pen < res): this layer applied transmission; continue to inner layers.
+			# Do not break — next iteration processes damage_remaining as blunt.
 		if damage_remaining <= 0.0:
 			break
 
-	return {"damage": maxf(0.0, damage_remaining), "damage_type": current_damage_type}
+	var deflected_blunt_amount: float = 0.0
+	if was_deflected and incoming_was_sharp and current_damage_type == ArmorConstants.DAMAGE_TYPE_BLUNT:
+		deflected_blunt_amount = maxf(0.0, damage_remaining)
+	return {
+		"damage": maxf(0.0, damage_remaining),
+		"damage_type": current_damage_type,
+		"was_deflected": was_deflected,
+		"deflected_blunt_amount": deflected_blunt_amount
+	}
 
 
-func _process_layer(damage: float, damage_type: String, pen_rha: float, pen_mpa: float, layer: Dictionary) -> Dictionary:
+func _process_layer(damage: float, damage_type: String, pen_rha: float, pen_mpa: float, layer: Dictionary, blunt_momentum_per_area: float = -1.0) -> Dictionary:
 	var sharp_res: float = layer.get("sharp_resistance_rha_mm", 0.0)
 	var blunt_res: float = layer.get("blunt_resistance_mpa", 0.0)
 	var current_pen: float = pen_rha if damage_type == ArmorConstants.DAMAGE_TYPE_SHARP else pen_mpa
 	var layer_res: float = sharp_res if damage_type == ArmorConstants.DAMAGE_TYPE_SHARP else blunt_res
 
 	if current_pen < layer_res:
-		# Deflection: sharp fails to penetrate; halve damage and convert to blunt
-		var after_deflect: float = damage / 2.0
-		var new_type: String = ArmorConstants.DAMAGE_TYPE_BLUNT
-		var blunt_pen: float = pen_mpa
-		if damage_type == ArmorConstants.DAMAGE_TYPE_SHARP:
-			blunt_pen = pen_rha * ArmorConstants.RHA_TO_MPA
-		# Test blunt against this layer (cap effectiveness at 1.0 to avoid amplifying damage)
-		if blunt_pen < blunt_res:
-			var effectiveness: float = clampf(blunt_pen / maxf(0.1, blunt_res), 0.0, 1.0)
-			after_deflect *= effectiveness * ArmorConstants.DEFLECTION_DAMAGE_REDUCTION
+		# Layer stops attack: convert to blunt (or reduce blunt). Sharp uses deflection_transmission.
+		# Blunt (Option B): rigid check was pen_mpa < blunt_res; transmission = base * (1 - cushion * momentum_factor).
+		var transmission: float
+		if damage_type == ArmorConstants.DAMAGE_TYPE_BLUNT:
+			var base_tx: float = layer.get("blunt_bat_transmission", ArmorConstants.BLUNT_BAT_TRANSMISSION)
+			var cushion: float = layer.get("blunt_cushion", 0.0)
+			if blunt_momentum_per_area < 0.0 or cushion <= 0.0:
+				transmission = base_tx * (1.0 - cushion)
+			else:
+				var thresh: float = ArmorConstants.BLUNT_CUSHION_MOMENTUM_THRESHOLD
+				var momentum_factor: float = clampf(1.0 - blunt_momentum_per_area / thresh, 0.0, 1.0)
+				transmission = base_tx * (1.0 - cushion * momentum_factor)
 		else:
-			var factor: float = clampf(1.0 - (blunt_res / maxf(0.1, blunt_pen)) * ArmorConstants.BLUNT_PENETRATION_REDUCTION, 0.0, 1.0)
-			after_deflect *= factor
+			transmission = layer.get("deflection_transmission", ArmorConstants.DEFLECTION_TRANSMISSION_DEFAULT)
+		var after_deflect: float = damage * transmission
 		_apply_durability_loss(layer, damage - after_deflect)
-		return {"damage": after_deflect, "damage_type": new_type, "deflected": true}
+		return {"damage": after_deflect, "damage_type": ArmorConstants.DAMAGE_TYPE_BLUNT, "deflected": true}
 	else:
 		# Penetration: reduce damage and continue to next layer (clamp factor so we never amplify)
 		var factor: float = clampf(1.0 - (layer_res / maxf(1.0, current_pen)) * ArmorConstants.PENETRATION_DAMAGE_REDUCTION_MAX, 0.0, 1.0)
@@ -90,6 +115,12 @@ func _is_layer_destroyed(layer: Dictionary) -> bool:
 
 
 func _apply_durability_loss(layer: Dictionary, damage_absorbed: float) -> void:
+	var sharp_res: float = layer.get("sharp_resistance_rha_mm", 0.0)
+	var blunt_res: float = layer.get("blunt_resistance_mpa", 0.0)
+	var armor_value: float = sharp_res + blunt_res / 10.0
+	var threshold: float = maxf(ArmorConstants.DURABILITY_MIN_DAMAGE_FLAT, armor_value * ArmorConstants.DURABILITY_MIN_DAMAGE_RATIO)
+	if damage_absorbed < threshold:
+		return
 	var rate: float = layer.get("durability_loss_rate", ArmorConstants.DURABILITY_LOSS_RATE)
 	var loss: float = damage_absorbed * rate
 	layer["durability"] = maxf(0.0, layer.get("durability", 100.0) - loss)

@@ -91,13 +91,13 @@ Your **blunt** and **durability_loss_rate** values can stay as they are; they al
 
 ## 5. Generic Layers (Current: cloth, leather, mail, plate only)
 
-Armor has been simplified to **four generic layers** with research-backed RHA/MPa:
+Armor uses **four generic layers** with physics- and research-aligned values. See **ARMOR_VALUES_PHYSICS_RESEARCH.md** for full rationale and sources.
 
-| Layer   | Sharp (mm RHA) | Blunt (MPa) | Durability loss | Sources / notes |
-|---------|----------------|-------------|-----------------|-----------------|
-| **Cloth**   | 0.5 | 8  | 0.20 | Minimal vs sharp; gambeson-style cushioning; tears fastest. |
-| **Leather** | 1.0 | 14 | 0.15 | Buff leather ~30 J (~0.55 mm equiv); layered leather better. |
-| **Mail**    | 2.0 | 10 | 0.12 | ~80–120 J for mail+padding; good vs slash, blunt transmits trauma. |
-| **Plate**   | 3.5 | 40 | 0.08 | Medieval plate ~1–4 mm RHA equiv; best blunt dispersion. |
+| Layer   | Sharp (mm RHA) | Blunt (MPa) | Deflection trans. | Durability loss | Notes |
+|---------|----------------|-------------|-------------------|-----------------|--------|
+| **Cloth**   | 0.5 | 16 | 0.16 | 0.22 | Minimal vs sharp; gambeson cushions well (BAT); tears fastest. |
+| **Leather** | 1.0 | 14 | 0.24 | 0.16 | Buff ~30 J, layered ~80 J; good blunt absorption. |
+| **Mail**    | 1.5 | 10 | 0.36 | 0.12 | 100–120 J with padding (1.5×80 J); poor vs blunt (trauma). |
+| **Plate**   | 3.5 | 40 | 0.46 | 0.07 | ~1–4 mm RHA; rigid → higher BAT; best blunt dispersion. |
 
-Piece IDs now use only these layers: e.g. `CUIRASS` = plate + cloth (legacy alias `CURASS` still works), `HAUBERK` = mail + cloth, `GAMBESON` = cloth, `LEATHER_BRACERS` = leather. Old IDs like `CURASS_STEEL` / `CURASS_IRON` were replaced by `CUIRASS`.
+Piece IDs use these layers only: e.g. `CUIRASS` = plate + cloth, `HAUBERK` = mail + cloth, `GAMBESON` = cloth, `LEATHER_BRACERS` = leather.

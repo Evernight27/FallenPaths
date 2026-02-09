@@ -57,10 +57,14 @@ const SEVERANCE_EARLY_LIMBS_ONLY: bool = true  # if true, only arms/legs can ear
 # tissue can go to 0 (mangled, unusable) but limb only detaches when a blow has "force to cut through" (e.g. sword chop).
 const MIN_DAMAGE_TO_SEVER: int = 4  # hits below this can reduce tissue/bone but cannot sever; leave bone at 1 if would sever
 
+# Deflected blunt (armor stopped sharp, transmitted force): below this damage or minor severity -> bruise (0 bleed), else crush.
+const DEFLECTION_BRUISE_THRESHOLD: int = 3
+
 # Pain and consciousness (Combat Extended–style). Action bar and hit chance use get_performance_modifier().
 var consciousness: float = 100.0       # true consciousness (incapacitation when < 10)
 var effective_consciousness: float = 100.0  # for combat (after pain shock)
 var _pain_shock_until_time: float = -1.0    # Time.get_ticks_msec()/1000.0 when shock ends; -1 = not in shock
+var _last_hit_impact: float = 0.0            # Total damage of last hit (for pain-shock duration scaling); cleared when shock is entered
 
 signal died
 signal creature_incapacitated
@@ -266,10 +270,15 @@ func get_total_pain() -> float:
 	return total
 
 func _get_blood_consciousness_modifier() -> float:
-	if blood_volume >= _PainConscious.BLOOD_CONSCIOUSNESS_THRESHOLD:
+	# ATLS-aligned: no effect above 85% remaining (Class I); linear ramp 85% -> 35% (death); max reduction at 35%.
+	if blood_volume >= _PainConscious.BLOOD_CONSCIOUSNESS_START_THRESHOLD:
 		return 1.0
-	var reduction: float = (_PainConscious.BLOOD_CONSCIOUSNESS_THRESHOLD - blood_volume) / _PainConscious.BLOOD_CONSCIOUSNESS_THRESHOLD
-	return maxf(0.0, 1.0 - reduction * _PainConscious.BLOOD_CONSCIOUSNESS_REDUCTION_MAX)
+	if blood_volume <= _PainConscious.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD:
+		return maxf(0.0, 1.0 - _PainConscious.BLOOD_CONSCIOUSNESS_REDUCTION_MAX)
+	var start: float = _PainConscious.BLOOD_CONSCIOUSNESS_START_THRESHOLD
+	var floor_t: float = _PainConscious.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD
+	var reduction: float = (start - blood_volume) / (start - floor_t) * _PainConscious.BLOOD_CONSCIOUSNESS_REDUCTION_MAX
+	return maxf(0.0, 1.0 - reduction)
 
 func _update_consciousness() -> void:
 	# 1) Base from head (proxy for brain)
@@ -295,13 +304,14 @@ func _update_consciousness() -> void:
 	else:
 		_pain_shock_until_time = -1.0
 		effective_consciousness = true_consciousness
-		# Roll for shock when pain above threshold
+		# Roll for shock when pain above threshold; duration scales with pain and impact of triggering move
 		if total_pain > _PainConscious.PAIN_SHOCK_THRESHOLD:
 			var risk: float = minf(1.0, (total_pain - _PainConscious.PAIN_SHOCK_THRESHOLD) * _PainConscious.PAIN_SHOCK_RISK_PER_POINT)
 			if randf() < risk:
-				var duration: float = _PainConscious.PAIN_SHOCK_DURATION_BASE * (total_pain / _PainConscious.PAIN_SHOCK_THRESHOLD)
+				var duration: float = _PainConscious.get_pain_shock_duration_seconds(total_pain, _last_hit_impact)
 				_pain_shock_until_time = now + duration
 				effective_consciousness = true_consciousness * (1.0 - _PainConscious.PAIN_SHOCK_CONSCIOUSNESS_REDUCTION / 100.0)
+				_last_hit_impact = 0.0  # consumed so bleed/healing updates don't reuse old impact
 	if true_consciousness < _PainConscious.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
 		emit_signal("creature_incapacitated")
 
@@ -401,10 +411,11 @@ func _get_severance_ease_factor(part: String) -> float:
 
 # Split damage: apply cut (SHARP) and blunt (BLUNT) streams; sharp deflected -> blunt. Bone split from total (Option B).
 # Severance ease applied: same hit does more effective damage to already-mangled parts (easier to dismember).
+# penetration_blunt_momentum_per_area: (kg·m/s)/m² for Option B cushion; -1 = not provided.
 # Returns { "final_cut": int, "final_blunt": int } = tissue amounts applied to each pool.
-func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt: float = -1.0) -> Dictionary:
+func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
 	if part not in body_cutting or part not in body_blunt or part not in bone_health:
-		return { "final_cut": 0, "final_blunt": 0 }
+		return { "final_cut": 0, "final_blunt": 0, "final_bone": 0, "was_deflected": false }
 	var cut_pre_val: float = maxf(0.0, cut_pre)
 	var blunt_pre_val: float = maxf(0.0, blunt_pre)
 	var armor_var: Variant = get_armor_for_part(part)
@@ -413,7 +424,10 @@ func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetrati
 
 	var final_cut: float = 0.0
 	var final_blunt: float = 0.0
+	var blunt_from_deflection: float = 0.0
+	var blunt_from_direct: float = 0.0
 	if armor_var != null and armor_var is ArmorPiece:
+		var deflected_raw: float = 0.0
 		if cut_pre_val > 0.0:
 			var result_cut: Dictionary = armor_var.apply_damage(cut_pre_val, DAMAGE_TYPE_SHARP, pen_s, pen_b)
 			var d: float = maxf(0.0, result_cut.get("damage", 0.0))
@@ -421,20 +435,25 @@ func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetrati
 			if dtype == DAMAGE_TYPE_SHARP:
 				final_cut += d
 			else:
-				final_blunt += d
-		if blunt_pre_val > 0.0:
-			var result_blunt: Dictionary = armor_var.apply_damage(blunt_pre_val, DAMAGE_TYPE_BLUNT, 0.0, pen_b)
-			final_blunt += maxf(0.0, result_blunt.get("damage", 0.0))
-		print("[Armor] %s %s: pre cut=%.1f blunt=%.1f | pen_sharp=%.2f mm RHA pen_blunt=%.1f MPa => post-armor cut=%.1f blunt=%.1f" % [name, part, cut_pre_val, blunt_pre_val, pen_s, pen_b, final_cut, final_blunt])
+				# Sharp deflected: raw blunt is returned; add to blunt component and run once below.
+				deflected_raw = result_cut.get("deflected_blunt_amount", d)
+				blunt_from_deflection = deflected_raw
+		blunt_from_direct = blunt_pre_val
+		var total_blunt: float = deflected_raw + blunt_pre_val
+		if total_blunt > 0.0:
+			var result_blunt: Dictionary = armor_var.apply_damage(total_blunt, DAMAGE_TYPE_BLUNT, 0.0, pen_b, penetration_blunt_momentum_per_area)
+			final_blunt = maxf(0.0, result_blunt.get("damage", 0.0))
+		print("[Armor] %s %s: pre cut=%.1f blunt=%.1f | deflected_raw=%.1f total_blunt=%.1f | pen_sharp=%.2f mm RHA pen_blunt=%.1f MPa => post-armor cut=%.1f blunt=%.1f (deflected=%.1f direct=%.1f)" % [name, part, cut_pre_val, blunt_pre_val, deflected_raw, total_blunt, pen_s, pen_b, final_cut, final_blunt, blunt_from_deflection, blunt_from_direct])
 	else:
 		final_cut = cut_pre_val
 		final_blunt = blunt_pre_val
+		blunt_from_direct = blunt_pre_val
 		if cut_pre_val > 0.0 or blunt_pre_val > 0.0:
 			print("[Armor] %s %s: no armor => post cut=%.1f blunt=%.1f" % [name, part, final_cut, final_blunt])
 
 	var total_final: float = final_cut + final_blunt
 	if total_final <= 0.0:
-		return { "final_cut": 0, "final_blunt": 0 }
+		return { "final_cut": 0, "final_blunt": 0, "final_bone": 0, "was_deflected": false }
 
 	# 2) Sub-region is chosen relative to the body part already hit: weighted random over this part's sub-regions only (SUB_REGION_WEIGHTS[part]).
 	var sub_region: String = _Bleeding.get_random_sub_region(part)
@@ -475,11 +494,25 @@ func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetrati
 	var blunt_after: int = body_blunt.get(part, 0)
 	var bone_after: int = bone_health.get(part, 0)
 	print("[Bone/tissue] %s %s (%s): total_post_armor=%.1f | threshold=%d fraction=%.2f => allocated bone=%d tissue=%d | severance_ease=%.2f => applied cut=%d blunt=%d bone=%d | part state: cut %d->%d blunt %d->%d bone %d->%d" % [name, part, sub_region, total_final, bone_threshold, bone_fraction, allocated_bone, to_tissue_total, severance_ease, to_cut, to_blunt, to_bone, cur_cut, cut_after, cur_blunt, blunt_after, cur_bone, bone_after])
-	# Wound tracking: tissue (cut/crush/bruise) and bone (fracture); same sub_region for this hit
+	# Wound tracking: tissue (cut/crush/bruise) and bone (fracture); same sub_region for this hit.
+	# Deflected blunt: low or minor -> bruise (0 bleed); else crush. Direct blunt -> always crush.
 	if to_cut > 0:
 		_add_wound(part, _Bleeding.INJURY_TYPE_CUT, float(to_cut), sub_region)
 	if to_blunt > 0:
-		_add_wound(part, _Bleeding.INJURY_TYPE_CRUSH, float(to_blunt), sub_region)
+		var total_blunt_source: float = blunt_from_deflection + blunt_from_direct
+		var to_blunt_deflected: int = 0
+		var to_blunt_direct: int = to_blunt
+		if total_blunt_source > 0.0 and blunt_from_deflection > 0.0:
+			to_blunt_deflected = int(roundf(float(to_blunt) * blunt_from_deflection / total_blunt_source))
+			to_blunt_direct = to_blunt - to_blunt_deflected
+		if to_blunt_deflected > 0:
+			var sev: String = _severity_from_damage(part, float(to_blunt_deflected), sub_region)
+			if to_blunt_deflected <= DEFLECTION_BRUISE_THRESHOLD or sev == _Bleeding.SEVERITY_MINOR:
+				_add_wound(part, _Bleeding.INJURY_TYPE_BRUISE, float(to_blunt_deflected), sub_region)
+			else:
+				_add_wound(part, _Bleeding.INJURY_TYPE_CRUSH, float(to_blunt_deflected), sub_region)
+		if to_blunt_direct > 0:
+			_add_wound(part, _Bleeding.INJURY_TYPE_CRUSH, float(to_blunt_direct), sub_region)
 	if to_bone > 0:
 		var fracture_severity: String = _severity_from_bone_damage(part, to_bone)
 		_add_wound(part, _Bleeding.INJURY_TYPE_FRACTURE, float(to_bone), sub_region, fracture_severity)
@@ -510,8 +543,9 @@ func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetrati
 	var vital := _get_vital_parts()
 	if part in vital and (body_cutting.get(part, 0) <= 0 or body_blunt.get(part, 0) <= 0):
 		emit_signal("died")
+	_last_hit_impact = float(total_damage_this_hit)  # so pain-shock duration can scale with impact of this move
 	_update_consciousness()
-	return { "final_cut": to_cut, "final_blunt": to_blunt, "final_bone": to_bone }
+	return { "final_cut": to_cut, "final_blunt": to_blunt, "final_bone": to_bone, "was_deflected": blunt_from_deflection > 0.0 }
 
 
 # --- Wound and bleeding (injury-based) ---
@@ -870,6 +904,8 @@ func process_healing(seconds: float) -> void:
 			var tau_blood: float = _Healing.BLOOD_VOLUME_RECOVERY_DURATION_SECONDS / _Healing.EXPONENTIAL_HEAL_TAU_DIVISOR
 			var add_blood: float = remain_blood * (1.0 - exp(-seconds / tau_blood))
 			blood_volume = minf(_Bleeding.MAX_BLOOD_VOLUME, blood_volume + add_blood)
+	# Pain and consciousness depend on wounds, head, and blood; refresh after all healing/time advance.
+	_update_consciousness()
 
 func _ready():
 	if species != null:
@@ -892,6 +928,7 @@ func _apply_species():
 	consciousness = 100.0
 	effective_consciousness = 100.0
 	_pain_shock_until_time = -1.0
+	_last_hit_impact = 0.0
 	if species != null:
 		for p in _get_body_part_list():
 			var m = species.get_body_part_max(p) if species.has_method("get_body_part_max") else 10

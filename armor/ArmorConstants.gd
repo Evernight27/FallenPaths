@@ -12,38 +12,61 @@ const DEFLECTION_DAMAGE_REDUCTION: float = 0.5
 const DURABILITY_LOSS_RATE: float = 0.1
 const RHA_TO_MPA: float = 0.6
 
-# --- Generic layer stats (cloth, leather, mail, plate only) ---
-# Sharp resistance: mm RHA equivalent (1 mm mild steel ≈ 55 J to penetrate).
-# Blunt resistance: MPa (relative; no direct medieval MPa data — ordering from literature).
-# Sources: A Commonplace Book / Williams (14th c. metallurgy); arrow vs mail/padding tests
-# (~80–120 J); buff leather ~30 J; gambeson/cloth minimal vs focused penetration.
+# Durability: no wear unless absorbed damage meets a minimum (vs layer "armor value" or flat floor).
+# armor_value = sharp_resistance_rha_mm + blunt_resistance_mpa / 10; threshold = max(flat, armor_value * ratio).
+const DURABILITY_MIN_DAMAGE_FLAT: float = 0.5
+const DURABILITY_MIN_DAMAGE_RATIO: float = 0.05
 
-# Cloth: thin fabric, gambeson padding, leg wraps. Minimal vs sharp; some blunt absorption.
+# --- Generic layer stats (cloth, leather, mail, plate only) ---
+# Sharp resistance: mm RHA equivalent. Penetration energy ≈ res × J_PER_MM_RHA (80 in WeaponConstants).
+# Blunt resistance: MPa (relative; no direct medieval MPa data — ordering from literature).
+# Deflection transmission: fraction of damage that becomes blunt when sharp fails (BAT: plate transmits more, cloth absorbs).
+# Durability: wear per damage absorbed; cloth tears fastest, plate lasts. See ARMOR_VALUES_PHYSICS_RESEARCH.md.
+
+const DEFLECTION_TRANSMISSION_DEFAULT: float = 0.5
+# When blunt fails to penetrate (pen < blunt_res): this fraction is transmitted as behind-armor trauma (BAT).
+# Higher than sharp so maces are more effective than swords vs plate (medieval logic).
+const BLUNT_BAT_TRANSMISSION: float = 0.75
+
+# Option B: rigid (pressure) vs cushion (momentum). blunt_resistance_mpa = pressure (KE/area) to deform layer.
+# blunt_cushion 0-1: when blunt deflects, transmission = base * (1 - cushion * momentum_factor). High cushion = padding absorbs.
+# When momentum/area (kg·m/s)/m² exceeds this, cushion is overwhelmed (heavy blows push through padding).
+const BLUNT_CUSHION_MOMENTUM_THRESHOLD: float = 3000.0  # (kg·m/s)/m²; tune so heavy mace can overwhelm gambeson
+
+# Cloth: gambeson padding, leg wraps, coif. Minimal vs sharp; good blunt absorption (cushioning). Tears fastest.
 const LAYER_CLOTH: Dictionary = {
 	"sharp_resistance_rha_mm": 0.5,
-	"blunt_resistance_mpa": 8.0,
-	"durability_loss_rate": 0.20
+	"blunt_resistance_mpa": 16.0,
+	"blunt_cushion": 0.8,
+	"durability_loss_rate": 0.22,
+	"deflection_transmission": 0.16
 }
 
-# Leather: buff coat, boiled leather, bracers. ~30 J to penetrate (buff) → ~0.55 mm equiv; layered better.
+# Leather: buff coat, boiled leather, bracers. ~30 J (buff) to ~80 J (layered); good blunt absorption.
 const LAYER_LEATHER: Dictionary = {
 	"sharp_resistance_rha_mm": 1.0,
 	"blunt_resistance_mpa": 14.0,
-	"durability_loss_rate": 0.15
+	"blunt_cushion": 0.5,
+	"durability_loss_rate": 0.16,
+	"deflection_transmission": 0.24
 }
 
-# Mail: chainmail. ~80 J to begin failure, ~100–120 J with padding; good vs slash, poor vs blunt (transmits trauma).
+# Mail: chainmail. 100–120 J with padding (→ 1.5 mm at 80 J/mm); good vs slash, poor vs blunt (transmits trauma).
 const LAYER_MAIL: Dictionary = {
-	"sharp_resistance_rha_mm": 2.0,
+	"sharp_resistance_rha_mm": 1.5,
 	"blunt_resistance_mpa": 10.0,
-	"durability_loss_rate": 0.12
+	"blunt_cushion": 0.2,
+	"durability_loss_rate": 0.12,
+	"deflection_transmission": 0.36
 }
 
-# Plate: generic metal (steel/iron). Medieval plate ~1–4 mm RHA equiv; 2.5 mm good steel ≈ 2.75 mm mild.
+# Plate: medieval steel/iron. ~1–4 mm RHA equiv; rigid → higher BAT transmission; little cushion (transmits).
 const LAYER_PLATE: Dictionary = {
 	"sharp_resistance_rha_mm": 3.5,
 	"blunt_resistance_mpa": 40.0,
-	"durability_loss_rate": 0.08
+	"blunt_cushion": 0.0,
+	"durability_loss_rate": 0.07,
+	"deflection_transmission": 0.46
 }
 
 # --- Armor piece definitions: one piece per body part, built from cloth/leather/mail/plate only ---

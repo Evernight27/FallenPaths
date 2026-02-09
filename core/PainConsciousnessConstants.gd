@@ -28,15 +28,22 @@ const PAIN_PERFORMANCE_EXTREME: float = 0.50   # -50%
 # Incapacitation when true consciousness < this (no longer able to act).
 const INCAPACITATION_CONSCIOUSNESS_THRESHOLD: float = 10.0
 
-# --- Blood → consciousness (below this blood % remaining, consciousness is reduced). ---
-const BLOOD_CONSCIOUSNESS_THRESHOLD: float = 50.0
-const BLOOD_CONSCIOUSNESS_REDUCTION_MAX: float = 0.5  # max 50% consciousness reduction from blood
+# --- Blood → consciousness (ATLS-aligned: effect starts at Class II, max at death threshold). ---
+# Below START: consciousness modifier ramps down; at FLOOR (death threshold) modifier = 1.0 - REDUCTION_MAX.
+# See BLOOD_LOSS_CONSCIOUSNESS_RESEARCH.md.
+const BLOOD_CONSCIOUSNESS_START_THRESHOLD: float = 85.0   # No effect above this (Class I: <15% lost)
+const BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD: float = 35.0   # Max reduction at/below this (align with BLOOD_LOSS_DEATH_THRESHOLD)
+const BLOOD_CONSCIOUSNESS_REDUCTION_MAX: float = 0.5     # At floor: modifier = 0.5 (50% of base)
 
 # --- Pain shock (temporary; reduces effective consciousness for combat, not incapacitation). ---
+# Research: Lighter impacts cause brief grogginess; more severe single impacts cause longer confusion/disorientation (Frontiers Neurology 2020, concussion/TBI). Acute stress reaction and traumatic shock duration scale with severity of the triggering insult (ATLS, StatPearls). Duration therefore scales with both cumulative pain and the impact of the move that triggered the shock.
 const PAIN_SHOCK_THRESHOLD: float = 50.0       # total pain > this: roll for shock
 const PAIN_SHOCK_RISK_PER_POINT: float = 0.02  # shock chance = (pain - threshold) * this, capped 0–1
-const PAIN_SHOCK_DURATION_BASE: float = 5.0    # base duration seconds; scaled by pain level
+const PAIN_SHOCK_DURATION_BASE: float = 5.0    # base duration seconds; scaled by pain level and impact
 const PAIN_SHOCK_CONSCIOUSNESS_REDUCTION: float = 80.0  # -80% effective consciousness while in shock
+# Impact scaling: larger single hit → longer shock (mechanoporation / acute stress magnitude). Reference damage for 1.0x impact factor; bigger hits multiply duration up to IMPACT_MAX_MULTIPLIER.
+const PAIN_SHOCK_DURATION_IMPACT_REFERENCE: float = 10.0   # damage of triggering hit vs this (e.g. 10 → 1.0x, 20 → 2.0x until cap)
+const PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER: float = 2.0  # max duration multiplier from impact (e.g. 2.0 = double duration for a heavy blow)
 
 # --- Performance floor (action bar and hit chance never below this). ---
 const MIN_PERFORMANCE_MODIFIER: float = 0.35
@@ -78,3 +85,12 @@ static func get_combined_performance_modifier(total_pain: float, consciousness: 
 	var pain_mod: float = get_pain_performance_modifier(total_pain)
 	var cons_mod: float = get_consciousness_performance_modifier(consciousness)
 	return maxf(MIN_PERFORMANCE_MODIFIER, pain_mod * cons_mod)
+
+# Duration (seconds) for pain shock: base * (pain/threshold) * impact_mult. Impact = total damage of the hit that triggered the roll; 0 when shock triggered by bleed/healing (no single move).
+static func get_pain_shock_duration_seconds(total_pain: float, triggering_hit_damage: float) -> float:
+	var pain_ratio: float = total_pain / PAIN_SHOCK_THRESHOLD if PAIN_SHOCK_THRESHOLD > 0.0 else 1.0
+	var base_duration: float = PAIN_SHOCK_DURATION_BASE * pain_ratio
+	if triggering_hit_damage <= 0.0:
+		return base_duration
+	var impact_mult: float = 1.0 + minf(triggering_hit_damage / PAIN_SHOCK_DURATION_IMPACT_REFERENCE, PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER - 1.0)
+	return base_duration * impact_mult

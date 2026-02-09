@@ -40,6 +40,22 @@ const CONTACT_DAMAGE_FACTOR_MAX: float = 2.0
 const BLUNT_PRESSURE_SCALE: float = 500.0
 # Floor so tiny contacts don't produce absurd MPa; 1 cm² min keeps normal blade areas unchanged (BALANCING_INVESTIGATION.md).
 const MIN_BLUNT_AREA_M2: float = 1e-4
+# For CUT moves, blunt stream uses at least this contact (cm) so the "slap" doesn't get blade pressure.
+const BLUNT_CUT_MIN_CONTACT_CM: float = 5.0
+# No weapon is 0% cutting: even maces can break skin (flanges/ridges). Floor for cut_ratio.
+const MIN_CUT_RATIO: float = 0.02
+
+# --- Effective edge (sharpness) for cutting ---
+# Sharpness 0-1: effective sharp contact = geometric / (SHARPNESS_FACTOR_MIN + (1 - SHARPNESS_FACTOR_MIN) * sharpness).
+# Sharpness 1 = geometric; sharpness 0 = geometric/0.2 (duller = wider effective contact = less penetration).
+const SHARPNESS_FACTOR_MIN: float = 0.2
+
+# --- Momentum-based blunt damage ---
+# Pre-armor blunt = DAMAGE_MOMENTUM_SCALE * (mass_kg * velocity_m_s) * strength_mod * arm_mod * contact_factor, clamped.
+# Tuned so typical mace (1.7 kg, 12 m/s) and sword blunt portion sit in same band as before.
+const DAMAGE_MOMENTUM_SCALE: float = 0.42
+const BLUNT_DAMAGE_MIN: float = 1.0
+const BLUNT_DAMAGE_MAX: float = 80.0
 
 # --- Move pool (historical / HEMA-inspired) ---
 # Each move: id, name (UI), contact_type (stab/cut/blunt), archetype_id, base_cooldown.
@@ -92,14 +108,11 @@ static func _move_definitions_build() -> Dictionary:
 	}
 
 # --- Weapon template definitions ---
-# Per weapon: mass, dimensions, blade_cut_ratio, melee_range, and "moves": array of { id, cooldown?, archetype_id? }.
-# Only move ids in "moves" can be used; cooldown/archetype_id override move default if set.
-# Movesets verified for appropriateness:
-#   SWORD (longsword/arming): thrust, oberhau/unterhau/slash, pommel, parry thrust/cut — Liechtenauer/KDF.
-#   AXE (battle axe): spike thrust, overhead/diagonal chop, poll strike, parry chop — Le Jeu de la Hache.
-#   MACE: blunt only — overhead, side, direct, parry strike (no stab/cut).
-#   DAGGER (rondel): quick/committed thrust, quick slash, pommel, parry thrust — Fiore/Talhoffer.
-#   SPEAR: forward/angled thrust, spearhead slash, pole swing, parry thrust — Fiore.
+# Per weapon: mass (kg), dimensions (cm), edge_width (cm, optional), blade_cut_ratio, melee_range, moves.
+# Dimensions: blade_width = edge contact for cuts; point_width = tip for thrusts; head_diameter = striking head for blunt.
+# edge_width = effective sharp contact for blunt weapons (flanges/ridges that can break skin); used for sharp-component penetration.
+# Data: Oakeshott/longsword 2–3 cm edge, 0.3–0.6 cm point; Le Jeu axe 3–4 cm edge, 0.5–1 cm spike; mace flanges 0.4–0.6 cm (Williams, Tod Cutler); Fiore/Talhoffer dagger ~1.5 cm edge, 0.2–0.4 cm point; spear 0.4–0.8 cm point.
+# No weapon has 0% cutting (MIN_CUT_RATIO); each component uses get_sharp_contact_cm / get_blunt_contact_cm for its damage type.
 static func get_all_weapon_ids() -> Array:
 	return ["SWORD", "AXE", "MACE", "DAGGER", "SPEAR"]
 
@@ -120,6 +133,7 @@ static func _weapon_definitions_build() -> Dictionary:
 			"blade_width": 2.0,
 			"point_width": 0.5,
 			"head_diameter": 0.0,
+			"edge_width": 0.0,
 			"blade_cut_ratio": 0.75,
 			"melee_range": 1.5,
 			"moves": [
@@ -139,6 +153,7 @@ static func _weapon_definitions_build() -> Dictionary:
 			"blade_width": 3.0,
 			"point_width": 0.8,
 			"head_diameter": 0.0,
+			"edge_width": 0.0,
 			"blade_cut_ratio": 0.6,
 			"melee_range": 1.5,
 			"moves": [
@@ -156,6 +171,7 @@ static func _weapon_definitions_build() -> Dictionary:
 			"blade_width": 0.0,
 			"point_width": 0.0,
 			"head_diameter": 8.0,
+			"edge_width": 0.5,
 			"blade_cut_ratio": 0.0,
 			"melee_range": 1.5,
 			"moves": [
@@ -172,6 +188,7 @@ static func _weapon_definitions_build() -> Dictionary:
 			"blade_width": 1.5,
 			"point_width": 0.3,
 			"head_diameter": 0.0,
+			"edge_width": 0.0,
 			"blade_cut_ratio": 0.9,
 			"melee_range": 0.8,
 			"moves": [
@@ -189,6 +206,7 @@ static func _weapon_definitions_build() -> Dictionary:
 			"blade_width": 2.5,
 			"point_width": 0.6,
 			"head_diameter": 0.0,
+			"edge_width": 0.0,
 			"blade_cut_ratio": 0.85,
 			"melee_range": 2.5,
 			"moves": [
