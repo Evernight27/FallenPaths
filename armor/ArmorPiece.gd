@@ -32,8 +32,9 @@ static func create_from_definition(piece_id: String) -> ArmorPiece:
 # Apply damage through all layers. Returns { damage, damage_type, was_deflected, deflected_blunt_amount }.
 # When SHARP deflects: return raw deflected blunt (one layer's transmission only); caller adds to blunt and runs once.
 # When BLUNT fails to penetrate a layer: rigid = pressure (pen_blunt vs blunt_resistance_mpa); cushion reduces transmission (Option B).
-# penetration_sharp in mm RHA, penetration_blunt in MPa. penetration_blunt_momentum_per_area in (kg·m/s)/m² for cushion.
-func apply_damage(incoming_damage: float, damage_type: String, penetration_sharp: float, penetration_blunt: float, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
+# penetration_sharp in mm RHA. penetration_blunt in MPa (Option 1: blend of KE/area + momentum/area for rigid). penetration_blunt_momentum_per_area in (kg·m/s)/m² for cushion (when < 0 or cushion 0, transmission = base_tx * (1 - cushion) only).
+# start_layer_index: when >0, skip outer layers (e.g. 1 after sharp deflected on layer 0 so deflected blunt is not reduced twice).
+func apply_damage(incoming_damage: float, damage_type: String, penetration_sharp: float, penetration_blunt: float, penetration_blunt_momentum_per_area: float = -1.0, start_layer_index: int = 0) -> Dictionary:
 	var damage_remaining: float = incoming_damage
 	var current_damage_type: String = damage_type
 	var pen_rha: float = penetration_sharp
@@ -43,7 +44,7 @@ func apply_damage(incoming_damage: float, damage_type: String, penetration_sharp
 	var was_deflected: bool = false
 	var incoming_was_sharp: bool = (damage_type == ArmorConstants.DAMAGE_TYPE_SHARP)
 
-	for i in range(layers.size()):
+	for i in range(start_layer_index, layers.size()):
 		var layer: Dictionary = layers[i]
 		if _is_layer_destroyed(layer):
 			continue
@@ -85,7 +86,8 @@ func _process_layer(damage: float, damage_type: String, pen_rha: float, pen_mpa:
 
 	if current_pen < layer_res:
 		# Layer stops attack: convert to blunt (or reduce blunt). Sharp uses deflection_transmission.
-		# Blunt (Option B): rigid check was pen_mpa < blunt_res; transmission = base * (1 - cushion * momentum_factor).
+		# Blunt cushion (physics): padding absorbs impulse (momentum). Transmission = base_tx * (1 - cushion * momentum_factor).
+		# momentum_factor = 1 - (p/A) / threshold, clamped [0,1]: low impulse/area → factor 1 (padding helps); high → factor 0 (padding overwhelmed).
 		var transmission: float
 		if damage_type == ArmorConstants.DAMAGE_TYPE_BLUNT:
 			var base_tx: float = layer.get("blunt_bat_transmission", ArmorConstants.BLUNT_BAT_TRANSMISSION)

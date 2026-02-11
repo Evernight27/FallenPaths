@@ -3,20 +3,23 @@ extends RefCounted
 
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
 
-# Effective impact velocity (m/s). Uses attack.velocity_m_s if >= 0, else derived from intensity and archetype.velocity_factor.
+# Single place for intensity -> m/s. Factor in [0.5, 1.0]; archetype.velocity_factor scales it. Result in VELOCITY_MIN_M_S..VELOCITY_MAX_M_S.
+static func velocity_m_s_from_intensity(intensity: float, archetype: Dictionary) -> float:
+	var intensity_val: float = clampf(intensity, 0.0, 1.0)
+	var factor: float = 0.5 + 0.5 * intensity_val
+	if archetype is Dictionary and archetype.has("velocity_factor"):
+		var vf: float = float(archetype.velocity_factor)
+		factor *= clampf(vf, 0.1, 1.5)
+	return WeaponConstants.VELOCITY_MIN_M_S + (WeaponConstants.VELOCITY_MAX_M_S - WeaponConstants.VELOCITY_MIN_M_S) * clampf(factor, 0.0, 1.0)
+
+# Effective impact velocity (m/s). Prefer attack.velocity_m_s if set (e.g. after partial parry); else derive from intensity via velocity_m_s_from_intensity.
 static func get_effective_velocity_m_s(_weapon: RefCounted, attack_instance: RefCounted) -> float:
 	var v = attack_instance.get("velocity_m_s")
 	if v is float and v >= 0.0:
 		return v
 	var i = attack_instance.get("intensity")
-	var intensity_val: float = i if i is float else 0.5
-	# factor in [0.5, 1.0]: low intensity = slower strike, high = full speed
-	var factor: float = 0.5 + 0.5 * intensity_val
 	var arch = attack_instance.get("archetype")
-	if arch is Dictionary and arch.has("velocity_factor"):
-		var vf: float = float(arch.velocity_factor)
-		factor *= clampf(vf, 0.1, 1.5)
-	return WeaponConstants.VELOCITY_MIN_M_S + (WeaponConstants.VELOCITY_MAX_M_S - WeaponConstants.VELOCITY_MIN_M_S) * clampf(factor, 0.0, 1.0)
+	return velocity_m_s_from_intensity(i if i is float else 0.5, arch if arch is Dictionary else {})
 
 
 # Kinetic energy (J) at impact: KE = ½ * mass_kg * velocity_m_s².
@@ -96,19 +99,21 @@ static func compute_penetration(weapon: RefCounted, attack_instance: RefCounted,
 		var pen_mpa_deflect: float = pen_mm_rha * ArmorConstants.RHA_TO_MPA
 		return { "penetration_sharp": pen_mm_rha, "penetration_blunt": pen_mpa_deflect }
 	else:
-		# Blunt: rigid check = pressure (KE/area) MPa; cushion uses momentum/area (kg·m/s)/m² for Option B.
+		# Blunt: Option 1 — rigid check = blend of pressure (KE/area) + momentum/area; cushion still uses momentum/area.
 		var contact_cm: float = _get_blunt_contact_cm(weapon, attack_type)
 		var d_m: float = contact_cm / 100.0 if contact_cm > 0 else 0.01
 		var A_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)
 		A_m2 = maxf(A_m2, WeaponConstants.MIN_BLUNT_AREA_M2)
 		var pressure_Pa: float = WeaponConstants.BLUNT_PRESSURE_SCALE * ke_j / A_m2
-		var pen_mpa: float = pressure_Pa / 1e6
+		var pressure_mpa: float = pressure_Pa / 1e6
 		var m = weapon.get("mass")
 		var mass_kg: float = float(m) if (m is float or m is int) else WeaponConstants.BASELINE_MASS_KG
 		var v: float = get_effective_velocity_m_s(weapon, attack_instance)
 		var momentum: float = mass_kg * v
 		var momentum_per_area: float = momentum / A_m2 if A_m2 > 0 else 0.0
-		return { "penetration_sharp": 0.0, "penetration_blunt": pen_mpa, "penetration_blunt_momentum_per_area": momentum_per_area }
+		var momentum_term_mpa: float = WeaponConstants.BLUNT_MOMENTUM_TO_MPA * momentum_per_area
+		var pen_blunt: float = WeaponConstants.BLUNT_PEN_ALPHA * pressure_mpa + WeaponConstants.BLUNT_PEN_BETA * momentum_term_mpa
+		return { "penetration_sharp": 0.0, "penetration_blunt": pen_blunt, "penetration_blunt_momentum_per_area": momentum_per_area }
 
 
 # Damage type for this attack (SHARP or BLUNT).

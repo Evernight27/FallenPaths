@@ -390,12 +390,8 @@ func _on_turn_ready(combatant_id: int) -> void:
 					manager.resolve_action(combatant_id, c.id)
 					return
 		else:
-			# Prefer parry if available (first parry in list), else first action; pass options (e.g. target_part for medical)
-			var choice = actions[0]
-			for a in actions:
-				if a.get("move_id", "") != "" and WeaponConstants.is_parry_move(a.move_id):
-					choice = a
-					break
+			# Weighted choice: parry preferred when opponent is winding up (not guaranteed).
+			var choice = manager.pick_weighted_action(actions, combatant_id)
 			var opts: Dictionary = {}
 			if choice.get("target_part", "") != "":
 				opts["target_part"] = choice.target_part

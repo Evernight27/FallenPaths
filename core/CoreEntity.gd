@@ -351,9 +351,10 @@ func get_death_reason() -> String:
 	return "unknown"
 
 # Optional penetration (mm RHA sharp, MPa blunt). If < 0, defaults are used when armor is present.
+# penetration_blunt_momentum_per_area: (kg·m/s)/m² for cushion when damage_type is BLUNT; -1 = use default (cushion uses base only).
 # Damage above BONE_DAMAGE_THRESHOLD splits: fraction to bone (fracture/break); rest to tissue. Severance when tissue 0 and bone 0.
 # Returns { "final_type": SHARP/BLUNT, "final_amount": int } so caller can report the correct pool (e.g. when armor deflects sharp->blunt).
-func take_damage(amount: int, part: String, damage_type: String = DAMAGE_TYPE_BLUNT, penetration_sharp: float = -1.0, penetration_blunt: float = -1.0) -> Dictionary:
+func take_damage(amount: int, part: String, damage_type: String = DAMAGE_TYPE_BLUNT, penetration_sharp: float = -1.0, penetration_blunt: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
 	if part not in body_cutting or part not in body_blunt or part not in bone_health:
 		return { "final_type": damage_type, "final_amount": 0 }
 	var final_amount: int = amount
@@ -362,7 +363,7 @@ func take_damage(amount: int, part: String, damage_type: String = DAMAGE_TYPE_BL
 	if armor != null and armor is ArmorPiece:
 		var pen_s: float = penetration_sharp if penetration_sharp >= 0.0 else ArmorConstants.DEFAULT_PENETRATION_SHARP
 		var pen_b: float = penetration_blunt if penetration_blunt >= 0.0 else ArmorConstants.DEFAULT_PENETRATION_BLUNT
-		var result: Dictionary = armor.apply_damage(float(amount), damage_type, pen_s, pen_b)
+		var result: Dictionary = armor.apply_damage(float(amount), damage_type, pen_s, pen_b, penetration_blunt_momentum_per_area)
 		final_amount = int(roundf(result.get("damage", float(amount))))
 		final_type = result.get("damage_type", damage_type)
 	var to_tissue: int = final_amount
@@ -441,7 +442,9 @@ func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetrati
 		blunt_from_direct = blunt_pre_val
 		var total_blunt: float = deflected_raw + blunt_pre_val
 		if total_blunt > 0.0:
-			var result_blunt: Dictionary = armor_var.apply_damage(total_blunt, DAMAGE_TYPE_BLUNT, 0.0, pen_b, penetration_blunt_momentum_per_area)
+			# If sharp deflected on outer layer, deflected blunt already passed that layer; start from inner layers to avoid double-reduction.
+			var start_layer: int = 1 if deflected_raw > 0.0 else 0
+			var result_blunt: Dictionary = armor_var.apply_damage(total_blunt, DAMAGE_TYPE_BLUNT, 0.0, pen_b, penetration_blunt_momentum_per_area, start_layer)
 			final_blunt = maxf(0.0, result_blunt.get("damage", 0.0))
 		print("[Armor] %s %s: pre cut=%.1f blunt=%.1f | deflected_raw=%.1f total_blunt=%.1f | pen_sharp=%.2f mm RHA pen_blunt=%.1f MPa => post-armor cut=%.1f blunt=%.1f (deflected=%.1f direct=%.1f)" % [name, part, cut_pre_val, blunt_pre_val, deflected_raw, total_blunt, pen_s, pen_b, final_cut, final_blunt, blunt_from_deflection, blunt_from_direct])
 	else:

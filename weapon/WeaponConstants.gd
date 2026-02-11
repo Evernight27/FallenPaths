@@ -36,8 +36,14 @@ const MIN_CONTACT_WIDTH_CM: float = 0.2
 # Contact area in damage: smaller contact -> more local damage. Cap factor so stab doesn't overscale.
 const CONTACT_DAMAGE_EXPONENT: float = 0.3
 const CONTACT_DAMAGE_FACTOR_MAX: float = 2.0
-# Blunt: impact pressure (MPa) = BLUNT_PRESSURE_SCALE * KE_J / A_m² / 1e6. A_m² = π*(d_cm/100/2)².
+# Blunt rigid check: Option 1 blend of pressure (KE/area) + impulse (momentum/area). pen_blunt = ALPHA*pressure_mpa + BETA*momentum_term_mpa.
+# pressure_mpa = (BLUNT_PRESSURE_SCALE * KE_J / A_m²) / 1e6. momentum_term_mpa = BLUNT_MOMENTUM_TO_MPA * (momentum / A_m²).
 const BLUNT_PRESSURE_SCALE: float = 500.0
+# Scale (kg·m/s)/m² into MPa band so blended pen_blunt matches layer blunt_resistance_mpa (10–40). Tune so mace vs plate feels right.
+const BLUNT_MOMENTUM_TO_MPA: float = 0.008
+# Weights for rigid check: alpha=pressure, beta=momentum. Heavy weapons penetrate rigid more at same KE when beta > 0.
+const BLUNT_PEN_ALPHA: float = 0.3
+const BLUNT_PEN_BETA: float = 0.7
 # Floor so tiny contacts don't produce absurd MPa; 1 cm² min keeps normal blade areas unchanged (BALANCING_INVESTIGATION.md).
 const MIN_BLUNT_AREA_M2: float = 1e-4
 # For CUT moves, blunt stream uses at least this contact (cm) so the "slap" doesn't get blade pressure.
@@ -75,36 +81,36 @@ static func is_parry_move(move_id: String) -> bool:
 static func _move_definitions_build() -> Dictionary:
 	return {
 		# Sword (Liechtenauer/KDF): thrust, Oberhau, Unterhau, horizontal (Zwerchau-style), pommel, explicit parry-counters
-		"thrust": { "name": "Point thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.2 },
-		"oberhau": { "name": "Downward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.4 },
-		"unterhau": { "name": "Upward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.2 },
-		"slash": { "name": "Horizontal cut (cross)", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.0 },
-		"pommel_strike": { "name": "Pommel strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_POMMEL, "base_cooldown": 1.8 },
-		"parry_thrust": { "name": "Parry and thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.0, "is_parry": true },
-		"parry_cut": { "name": "Parry and cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 1.9, "is_parry": true },
+		"thrust": {"name": "Point thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.2},
+		"oberhau": {"name": "Downward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.4},
+		"unterhau": {"name": "Upward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.2},
+		"slash": {"name": "Horizontal cut (cross)", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.0},
+		"pommel_strike": {"name": "Pommel strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_POMMEL, "base_cooldown": 1.8},
+		"parry_thrust": {"name": "Parry and thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.0, "is_parry": true},
+		"parry_cut": {"name": "Parry and cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 1.9, "is_parry": true},
 		# Axe (battle axe / Le Jeu de la Hache): spike, overhead chop, diagonal chop, poll, explicit parry-counter
-		"spike_thrust": { "name": "Spike thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 3.2 },
-		"overhead_chop": { "name": "Overhead chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 3.5 },
-		"diagonal_chop": { "name": "Diagonal chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 3.0 },
-		"poll_strike": { "name": "Back-of-head strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0 },
-		"parry_chop": { "name": "Parry and chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 3.0, "is_parry": true },
+		"spike_thrust": {"name": "Spike thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 3.2},
+		"overhead_chop": {"name": "Overhead chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 3.5},
+		"diagonal_chop": {"name": "Diagonal chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 3.0},
+		"poll_strike": {"name": "Back-of-head strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0},
+		"parry_chop": {"name": "Parry and chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 3.0, "is_parry": true},
 		# Mace: blunt only — overhead, side, direct, explicit parry-counter
-		"overhead_strike": { "name": "Overhead strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.5 },
-		"side_strike": { "name": "Side strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.2 },
-		"direct_blow": { "name": "Direct blow", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0 },
-		"parry_strike": { "name": "Parry and strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "is_parry": true },
+		"overhead_strike": {"name": "Overhead strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.5},
+		"side_strike": {"name": "Side strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.2},
+		"direct_blow": {"name": "Direct blow", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0},
+		"parry_strike": {"name": "Parry and strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "is_parry": true},
 		# Dagger / rondel (Fiore, Talhoffer): thrust, slash, pommel, explicit parry-counter
-		"quick_thrust": { "name": "Quick thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.7 },
-		"committed_thrust": { "name": "Strong thrust (armor-piercing)", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 1.0 },
-		"quick_slash": { "name": "Quick slash", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_QUICK_SLASH, "base_cooldown": 0.6 },
-		"dagger_pommel": { "name": "Pommel strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_POMMEL, "base_cooldown": 0.5 },
-		"parry_thrust_dagger": { "name": "Parry and thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.6, "is_parry": true },
+		"quick_thrust": {"name": "Quick thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.7},
+		"committed_thrust": {"name": "Strong thrust (armor-piercing)", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 1.0},
+		"quick_slash": {"name": "Quick slash", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_QUICK_SLASH, "base_cooldown": 0.6},
+		"dagger_pommel": {"name": "Pommel strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_POMMEL, "base_cooldown": 0.5},
+		"parry_thrust_dagger": {"name": "Parry and thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.6, "is_parry": true},
 		# Spear (Fiore): thrust, angled thrust, slash, pole swing (shaft), explicit parry-counter (no beat-and-thrust)
-		"spear_thrust": { "name": "Forward thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 3.0 },
-		"off_line_thrust": { "name": "Angled thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.8 },
-		"spear_slash": { "name": "Slash with spearhead", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.8 },
-		"pole_swing": { "name": "Pole swing (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 2.5 },
-		"parry_thrust_spear": { "name": "Parry and thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.7, "is_parry": true }
+		"spear_thrust": {"name": "Forward thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 3.0},
+		"off_line_thrust": {"name": "Angled thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.8},
+		"spear_slash": {"name": "Slash with spearhead", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.8},
+		"pole_swing": {"name": "Pole swing (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 2.5},
+		"parry_thrust_spear": {"name": "Parry and thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.7, "is_parry": true}
 	}
 
 # --- Weapon template definitions ---
@@ -132,18 +138,18 @@ static func _weapon_definitions_build() -> Dictionary:
 			"mass": 1.2,
 			"blade_width": 2.0,
 			"point_width": 0.5,
-			"head_diameter": 0.0,
+			"head_diameter": 3.0,
 			"edge_width": 0.0,
 			"blade_cut_ratio": 0.75,
 			"melee_range": 1.5,
 			"moves": [
-				{ "id": "thrust" },
-				{ "id": "oberhau" },
-				{ "id": "unterhau" },
-				{ "id": "slash" },
-				{ "id": "pommel_strike" },
-				{ "id": "parry_thrust" },
-				{ "id": "parry_cut" }
+				{"id": "thrust"},
+				{"id": "oberhau"},
+				{"id": "unterhau"},
+				{"id": "slash"},
+				{"id": "pommel_strike"},
+				{"id": "parry_thrust"},
+				{"id": "parry_cut"}
 			]
 		},
 		# Battle axe: spike, chops, poll, parry-counter (Le Jeu de la Hache style).
@@ -152,16 +158,16 @@ static func _weapon_definitions_build() -> Dictionary:
 			"mass": 1.5,
 			"blade_width": 3.0,
 			"point_width": 0.8,
-			"head_diameter": 0.0,
+			"head_diameter": 4.0,
 			"edge_width": 0.0,
 			"blade_cut_ratio": 0.6,
 			"melee_range": 1.5,
 			"moves": [
-				{ "id": "spike_thrust" },
-				{ "id": "overhead_chop" },
-				{ "id": "diagonal_chop" },
-				{ "id": "poll_strike" },
-				{ "id": "parry_chop" }
+				{"id": "spike_thrust"},
+				{"id": "overhead_chop"},
+				{"id": "diagonal_chop"},
+				{"id": "poll_strike"},
+				{"id": "parry_chop"}
 			]
 		},
 		# Mace: overhead, side, direct, parry-counter (blunt only).
@@ -175,10 +181,10 @@ static func _weapon_definitions_build() -> Dictionary:
 			"blade_cut_ratio": 0.0,
 			"melee_range": 1.5,
 			"moves": [
-				{ "id": "overhead_strike" },
-				{ "id": "side_strike" },
-				{ "id": "direct_blow" },
-				{ "id": "parry_strike" }
+				{"id": "overhead_strike"},
+				{"id": "side_strike"},
+				{"id": "direct_blow"},
+				{"id": "parry_strike"}
 			]
 		},
 		# Dagger / rondel: thrusts, slash, pommel, parry-counter (Fiore, Talhoffer).
@@ -187,16 +193,16 @@ static func _weapon_definitions_build() -> Dictionary:
 			"mass": 0.3,
 			"blade_width": 1.5,
 			"point_width": 0.3,
-			"head_diameter": 0.0,
+			"head_diameter": 2.5,
 			"edge_width": 0.0,
 			"blade_cut_ratio": 0.9,
 			"melee_range": 0.8,
 			"moves": [
-				{ "id": "quick_thrust" },
-				{ "id": "committed_thrust" },
-				{ "id": "quick_slash" },
-				{ "id": "dagger_pommel" },
-				{ "id": "parry_thrust_dagger" }
+				{"id": "quick_thrust"},
+				{"id": "committed_thrust"},
+				{"id": "quick_slash"},
+				{"id": "dagger_pommel"},
+				{"id": "parry_thrust_dagger"}
 			]
 		},
 		# Spear (Fiore): thrusts, slash, pole swing (shaft), parry-counter.
@@ -205,16 +211,16 @@ static func _weapon_definitions_build() -> Dictionary:
 			"mass": 1.8,
 			"blade_width": 2.5,
 			"point_width": 0.6,
-			"head_diameter": 0.0,
+			"head_diameter": 3.5,
 			"edge_width": 0.0,
 			"blade_cut_ratio": 0.85,
 			"melee_range": 2.5,
 			"moves": [
-				{ "id": "spear_thrust" },
-				{ "id": "off_line_thrust" },
-				{ "id": "spear_slash" },
-				{ "id": "pole_swing" },
-				{ "id": "parry_thrust_spear" }
+				{"id": "spear_thrust"},
+				{"id": "off_line_thrust"},
+				{"id": "spear_slash"},
+				{"id": "pole_swing"},
+				{"id": "parry_thrust_spear"}
 			]
 		}
 	}
@@ -243,25 +249,25 @@ static func _archetype_definitions_build() -> Dictionary:
 	return {
 		ARCHETYPE_STAB: {
 			"velocity_factor": 1.0,
-			"cut_ratio": -1.0,  # use weapon blade_cut_ratio
+			"cut_ratio": - 1.0, # use weapon blade_cut_ratio
 			"recovery_multiplier": 1.0,
 			"windup_multiplier": 1.0
 		},
 		ARCHETYPE_SLASH: {
 			"velocity_factor": 0.9,
-			"cut_ratio": -1.0,
+			"cut_ratio": - 1.0,
 			"recovery_multiplier": 1.0,
 			"windup_multiplier": 1.0
 		},
 		ARCHETYPE_OVERHEAD: {
 			"velocity_factor": 1.0,
-			"cut_ratio": -1.0,
+			"cut_ratio": - 1.0,
 			"recovery_multiplier": 1.2,
 			"windup_multiplier": 1.15
 		},
 		ARCHETYPE_QUICK_SLASH: {
 			"velocity_factor": 0.65,
-			"cut_ratio": -1.0,
+			"cut_ratio": - 1.0,
 			"recovery_multiplier": 0.85,
 			"windup_multiplier": 0.8
 		},

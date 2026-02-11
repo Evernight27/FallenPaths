@@ -21,6 +21,9 @@ var speed: int: get = _get_speed
 func get_effective_speed() -> int:
 	return _combat_body.get_effective_speed() if _combat_body else speed
 
+func get_leg_functionality() -> float:
+	return _combat_body.get_leg_functionality() if _combat_body else 1.0
+
 func _get_body_cutting() -> Dictionary:
 	return _combat_body.body_cutting if _combat_body else {}
 
@@ -70,10 +73,10 @@ func get_performance_modifier() -> float:
 func get_death_reason() -> String:
 	return _combat_body.get_death_reason() if _combat_body else "no_combat_body"
 
-func take_damage(amount: int, part: String, damage_type: String = "BLUNT", penetration_sharp: float = -1.0, penetration_blunt: float = -1.0) -> Dictionary:
+func take_damage(amount: int, part: String, damage_type: String = "BLUNT", penetration_sharp: float = -1.0, penetration_blunt: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
 	if _combat_body:
 		# CoreEntity.take_damage returns { final_type, final_amount }; linter may show stale void until project refresh
-		return _combat_body.take_damage(amount, part, damage_type, penetration_sharp, penetration_blunt)
+		return _combat_body.take_damage(amount, part, damage_type, penetration_sharp, penetration_blunt, penetration_blunt_momentum_per_area)
 	return { "final_type": damage_type, "final_amount": 0 }
 
 func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:

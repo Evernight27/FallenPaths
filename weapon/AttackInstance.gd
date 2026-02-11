@@ -2,8 +2,8 @@ class_name AttackInstance
 extends RefCounted
 
 # One resolved attack: which attack type (stab/cut/blunt) and how much
-# intensity (0–1) the unit committed. Drives impact velocity (KE/damage), wind-up, recovery.
-# velocity_m_s can be set explicitly or derived from intensity in WeaponDamageHelper.
+# intensity (0–1) the unit committed (wind-up, recovery). Impact speed is always velocity_m_s (m/s).
+# Creator sets velocity_m_s from WeaponDamageHelper.velocity_m_s_from_intensity or from physics (e.g. partial parry).
 # archetype: optional dict from WeaponConstants.get_archetype(id) with velocity_factor, cut_ratio, recovery_multiplier, windup_multiplier.
 
 var attack_type: String = "cut"

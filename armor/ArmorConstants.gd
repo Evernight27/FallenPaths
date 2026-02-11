@@ -7,8 +7,6 @@ const DAMAGE_TYPE_BLUNT: String = "BLUNT"
 
 # Armor calculation (deflection/penetration)
 const PENETRATION_DAMAGE_REDUCTION_MAX: float = 0.5
-const BLUNT_PENETRATION_REDUCTION: float = 0.3
-const DEFLECTION_DAMAGE_REDUCTION: float = 0.5
 const DURABILITY_LOSS_RATE: float = 0.1
 const RHA_TO_MPA: float = 0.6
 
@@ -24,20 +22,22 @@ const DURABILITY_MIN_DAMAGE_RATIO: float = 0.05
 # Durability: wear per damage absorbed; cloth tears fastest, plate lasts. See ARMOR_VALUES_PHYSICS_RESEARCH.md.
 
 const DEFLECTION_TRANSMISSION_DEFAULT: float = 0.5
-# When blunt fails to penetrate (pen < blunt_res): this fraction is transmitted as behind-armor trauma (BAT).
-# Higher than sharp so maces are more effective than swords vs plate (medieval logic).
-const BLUNT_BAT_TRANSMISSION: float = 0.75
+# When blunt fails to penetrate (pen < blunt_res): this fraction is transmitted as BAT. Fallback if layer omits blunt_bat_transmission.
+const BLUNT_BAT_TRANSMISSION: float = 0.65
 
 # Option B: rigid (pressure) vs cushion (momentum). blunt_resistance_mpa = pressure (KE/area) to deform layer.
 # blunt_cushion 0-1: when blunt deflects, transmission = base * (1 - cushion * momentum_factor). High cushion = padding absorbs.
 # When momentum/area (kg·m/s)/m² exceeds this, cushion is overwhelmed (heavy blows push through padding).
-const BLUNT_CUSHION_MOMENTUM_THRESHOLD: float = 3000.0  # (kg·m/s)/m²; tune so heavy mace can overwhelm gambeson
+# Example: mace 1.7 kg, 12 m/s, 8 cm head → p/A ≈ 20.4/0.005 ≈ 4080 (kg·m/s)/m² → above threshold.
+const BLUNT_CUSHION_MOMENTUM_THRESHOLD: float = 3000.0  # (kg·m/s)/m²
 
 # Cloth: gambeson padding, leg wraps, coif. Minimal vs sharp; good blunt absorption (cushioning). Tears fastest.
+# blunt_bat_transmission: low — padding absorbs impact; less force reaches body.
 const LAYER_CLOTH: Dictionary = {
 	"sharp_resistance_rha_mm": 0.5,
 	"blunt_resistance_mpa": 16.0,
 	"blunt_cushion": 0.8,
+	"blunt_bat_transmission": 0.50,
 	"durability_loss_rate": 0.22,
 	"deflection_transmission": 0.16
 }
@@ -47,6 +47,7 @@ const LAYER_LEATHER: Dictionary = {
 	"sharp_resistance_rha_mm": 1.0,
 	"blunt_resistance_mpa": 14.0,
 	"blunt_cushion": 0.5,
+	"blunt_bat_transmission": 0.58,
 	"durability_loss_rate": 0.16,
 	"deflection_transmission": 0.24
 }
@@ -56,6 +57,7 @@ const LAYER_MAIL: Dictionary = {
 	"sharp_resistance_rha_mm": 1.5,
 	"blunt_resistance_mpa": 10.0,
 	"blunt_cushion": 0.2,
+	"blunt_bat_transmission": 0.70,
 	"durability_loss_rate": 0.12,
 	"deflection_transmission": 0.36
 }
@@ -65,6 +67,7 @@ const LAYER_PLATE: Dictionary = {
 	"sharp_resistance_rha_mm": 3.5,
 	"blunt_resistance_mpa": 40.0,
 	"blunt_cushion": 0.0,
+	"blunt_bat_transmission": 0.80,
 	"durability_loss_rate": 0.07,
 	"deflection_transmission": 0.46
 }
@@ -77,9 +80,9 @@ static func get_armor_options_by_part() -> Dictionary:
 		"head": ["KETTLE_HELM", "LEATHER_CAP", "CLOTH_COIF"],
 		"chest": ["CUIRASS", "GAMBESON", "HAUBERK", "LEATHER_CUIRASS"],
 		"right_arm": ["VAMBRACES", "LEATHER_BRACERS", "ARM_WRAPS"],
-		"left_arm": ["VAMBRACES_LEFT"],
+		"left_arm": ["VAMBRACES_LEFT", "LEATHER_BRACERS_LEFT", "ARM_WRAPS_LEFT"],
 		"right_leg": ["GREAVES", "LEG_WRAPS", "LEATHER_GREAVES"],
-		"left_leg": ["GREAVES_LEFT"]
+		"left_leg": ["GREAVES_LEFT", "LEG_WRAPS_LEFT", "LEATHER_GREAVES_LEFT"]
 	}
 
 # Use get_piece_definition(piece_id) to get a definition with fresh layer copies.
@@ -147,9 +150,19 @@ static func _piece_definitions_build() -> Dictionary:
 			"body_part": "right_arm",
 			"layers": [LAYER_LEATHER.duplicate()]
 		},
+		"LEATHER_BRACERS_LEFT": {
+			"name": "Leather Bracers (L)",
+			"body_part": "left_arm",
+			"layers": [LAYER_LEATHER.duplicate()]
+		},
 		"ARM_WRAPS": {
 			"name": "Arm Wraps",
 			"body_part": "right_arm",
+			"layers": [LAYER_CLOTH.duplicate()]
+		},
+		"ARM_WRAPS_LEFT": {
+			"name": "Arm Wraps (L)",
+			"body_part": "left_arm",
 			"layers": [LAYER_CLOTH.duplicate()]
 		},
 		# Legs: greaves = plate + cloth; leather = leather; cloth = cloth
@@ -168,9 +181,19 @@ static func _piece_definitions_build() -> Dictionary:
 			"body_part": "right_leg",
 			"layers": [LAYER_CLOTH.duplicate()]
 		},
+		"LEG_WRAPS_LEFT": {
+			"name": "Leg Wraps (L)",
+			"body_part": "left_leg",
+			"layers": [LAYER_CLOTH.duplicate()]
+		},
 		"LEATHER_GREAVES": {
 			"name": "Leather Greaves",
 			"body_part": "right_leg",
+			"layers": [LAYER_LEATHER.duplicate()]
+		},
+		"LEATHER_GREAVES_LEFT": {
+			"name": "Leather Greaves (L)",
+			"body_part": "left_leg",
 			"layers": [LAYER_LEATHER.duplicate()]
 		}
 	}
