@@ -69,12 +69,12 @@ func show_party(members: Array) -> void:
 			for part in pair:
 				var mx = bm.get(part, 0)
 				if mx > 0:
-					var c_cur = bc.get(part, 0)
-					var b_cur = bb.get(part, 0)
-					var bo_cur = bone_h.get(part, 0)
+					var c_cur: float = bc.get(part, 0.0)
+					var b_cur: float = bb.get(part, 0.0)
+					var bo_cur: float = bone_h.get(part, 0.0)
 					var bo_mx = bone_m.get(part, 0)
 					var lbl = Label.new()
-					lbl.text = BODY_LABELS.get(part, part) + " C:" + str(c_cur) + "/" + str(mx) + " B:" + str(b_cur) + "/" + str(mx) + " Bo:" + str(bo_cur) + "/" + str(bo_mx)
+					lbl.text = BODY_LABELS.get(part, part) + " C:%.2f/%.0f B:%.2f/%.0f Bo:%.2f/%d" % [c_cur, mx, b_cur, mx, bo_cur, bo_mx]
 					lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 					h.add_child(lbl)
 			v.add_child(h)

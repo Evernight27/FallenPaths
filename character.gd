@@ -70,6 +70,12 @@ func is_incapacitated() -> bool:
 func get_performance_modifier() -> float:
 	return _combat_body.get_performance_modifier() if _combat_body else 1.0
 
+func get_dodge_chance() -> float:
+	return _combat_body.get_dodge_chance() if _combat_body else 0.0
+
+func get_effective_consciousness() -> float:
+	return _combat_body.get_effective_consciousness() if _combat_body else 100.0
+
 func get_death_reason() -> String:
 	return _combat_body.get_death_reason() if _combat_body else "no_combat_body"
 
@@ -100,6 +106,11 @@ func get_blood_volume() -> float:
 func get_total_bleeding_rate() -> float:
 	return _combat_body.get_total_bleeding_rate() if _combat_body else 0.0
 
+func get_medical_entity() -> Node:
+	if _combat_body:
+		return _combat_body
+	return self
+
 func get_wounded_parts() -> Array:
 	return _combat_body.get_wounded_parts() if _combat_body else []
 
@@ -124,6 +135,9 @@ func can_apply_direct_pressure(target_part: String) -> bool:
 
 func apply_direct_pressure(part: String) -> bool:
 	return _combat_body.apply_direct_pressure(part) if _combat_body else false
+
+func apply_direct_pressure_from_ally(part: String, performer_entity: Node = null) -> bool:
+	return _combat_body.apply_direct_pressure_from_ally(part, performer_entity) if _combat_body else false
 
 func is_applying_direct_pressure() -> bool:
 	return _combat_body.is_applying_direct_pressure() if _combat_body else false

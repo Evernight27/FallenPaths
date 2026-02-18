@@ -51,22 +51,22 @@ func _run_scripted_tests() -> void:
 	# Apply small repeated hits to wear down tissue; stop before severing
 	var hits: int = 0
 	while hits < 50:
-		var cut_left: int = entity.body_cutting.get(part, 0)
-		var blunt_left: int = entity.body_blunt.get(part, 0)
-		var bone_left: int = entity.bone_health.get(part, 0) if entity.get("bone_health") else 0
-		if cut_left <= 0 and blunt_left <= 0:
+		var cut_left: float = entity.body_cutting.get(part, 0.0)
+		var blunt_left: float = entity.body_blunt.get(part, 0.0)
+		var bone_left: float = entity.bone_health.get(part, 0.0) if entity.get("bone_health") else 0.0
+		if cut_left <= 0.0 and blunt_left <= 0.0:
 			break
-		if bone_left <= 0:
+		if bone_left <= 0.0:
 			print("  [TestBattle] right_arm severed during test (bone=0); stopping.")
 			break
 		entity.take_damage_split(2.0, 2.0, part, 2.0, 500.0)
 		hits += 1
-	var cut_after: int = entity.body_cutting.get(part, 0)
-	var blunt_after: int = entity.body_blunt.get(part, 0)
-	var bone_after: int = entity.bone_health.get(part, 0) if entity.get("bone_health") else 0
+	var cut_after: float = entity.body_cutting.get(part, 0.0)
+	var blunt_after: float = entity.body_blunt.get(part, 0.0)
+	var bone_after: float = entity.bone_health.get(part, 0.0) if entity.get("bone_health") else 0.0
 	var targetable: Array = entity.get_targetable_parts() if entity.has_method("get_targetable_parts") else []
-	var is_mangled: bool = (cut_after <= 0 and blunt_after <= 0 and bone_after > 0)
-	print("  right_arm after %d hits: cut=%d blunt=%d bone=%d | targetable=%s | mangled=%s" % [hits, cut_after, blunt_after, bone_after, str(targetable), is_mangled])
+	var is_mangled: bool = (cut_after <= 0.0 and blunt_after <= 0.0 and bone_after > 0.0)
+	print("  right_arm after %d hits: cut=%.2f blunt=%.2f bone=%.2f | targetable=%s | mangled=%s" % [hits, cut_after, blunt_after, bone_after, str(targetable), is_mangled])
 
 	# --- 2) Severed limb (left_leg): tissue 0, bone 0, stump wound ---
 	print("\n--- Test 2: Severed limb (left_leg) + stump wound ---")
@@ -145,13 +145,13 @@ func _log_state(entity: Node, label: String) -> void:
 	print("  targetable_parts=%s" % str(targetable))
 	print("  blood_volume=%.1f | total_bleeding_rate=%.3f | game_time=%.0f s" % [blood, bleed_rate, game_time])
 	for p in parts:
-		var c: int = entity.body_cutting.get(p, 0)
-		var b: int = entity.body_blunt.get(p, 0)
-		var bo: int = entity.bone_health.get(p, 0) if entity.get("bone_health") else 0
+		var c: float = entity.body_cutting.get(p, 0.0)
+		var b: float = entity.body_blunt.get(p, 0.0)
+		var bo: float = entity.bone_health.get(p, 0.0) if entity.get("bone_health") else 0.0
 		var cm: int = entity.body_max.get(p, 0)
 		var bm: int = entity.bone_max.get(p, 0) if entity.get("bone_max") else 0
 		var wcount: int = wounds.get(p, []).size()
-		print("  %s: cut=%d blunt=%d bone=%d (max c/b %d/%d) wounds=%d" % [p, c, b, bo, cm, bm, wcount])
+		print("  %s: cut=%.2f blunt=%.2f bone=%.2f (max c/b %d/%d) wounds=%d" % [p, c, b, bo, cm, bm, wcount])
 
 func _start_combat() -> void:
 	# Remove test dummy from tree (we'll create fresh entities for combat)

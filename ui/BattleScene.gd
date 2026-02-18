@@ -20,7 +20,7 @@ var end_battle_button: Button = null
 var _pending_winner: String = ""
 var _pending_defeated: Node = null
 const LOG_MAX_LINES := 80
-const MAIN_LIST_PATH := "CombatCanvasLayer/UIRoot/ContentVBox/MainHBox"
+const MAIN_LIST_PATH := "CombatCanvasLayer/UIRoot/ContentVBox/MainScroll/MainHBox"
 
 # UI nodes
 var canvas_layer: CanvasLayer
@@ -72,6 +72,10 @@ func start(p_players, p_enemies) -> void:
 	for en in enemies:
 		var eid = manager.register(en, "enemy")
 		_create_ui_row(eid, en, "enemy")
+	# Ensure ScrollContainer child has proper minimum size so scrolling works (wait for layout)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_update_scroll_content_size()
 	# connect signals
 	manager.connect("turn_ready", Callable(self, "_on_turn_ready"))
 	manager.connect("action_resolved", Callable(self, "_on_action_resolved"))
@@ -79,6 +83,21 @@ func start(p_players, p_enemies) -> void:
 	# start the manager
 	manager.start()
 	set_process(true)
+
+func _update_scroll_content_size() -> void:
+	var main_scroll = get_node_or_null("CombatCanvasLayer/UIRoot/ContentVBox/MainScroll")
+	var main_hbox = get_node_or_null(MAIN_LIST_PATH)
+	if main_hbox == null or not main_hbox is Control or main_scroll == null:
+		return
+	# ScrollContainer only shows scrollbar when child min size exceeds container size.
+	# get_combined_minimum_size() can be unreliable with nested containers, so we also
+	# calculate from actual row count (each combatant row ~180px).
+	var content_min = main_hbox.get_combined_minimum_size()
+	var row_count = players.size() + enemies.size()
+	var estimated_height = row_count * 180
+	var scroll_height = main_scroll.size.y
+	var min_height = maxf(maxf(content_min.y, estimated_height), scroll_height + 1)
+	main_hbox.custom_minimum_size = Vector2(content_min.x, min_height)
 
 func _create_ui() -> void:
 	# Canvas layer root (ensures UI is on top)
@@ -105,13 +124,22 @@ func _create_ui() -> void:
 	content_vbox.name = "ContentVBox"
 	content_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	content_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content_vbox.add_theme_constant_override("separation", 8)
 	ui_root.add_child(content_vbox)
 
-	# Main HBox to spread enemy/player UI left/right
+	# Scrollable area for enemy/player panels (scrolls when many combatants, combat log stays fixed below)
+	var main_scroll = ScrollContainer.new()
+	main_scroll.name = "MainScroll"
+	main_scroll.custom_minimum_size = Vector2(0, 260)
+	main_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	main_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	main_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	content_vbox.add_child(main_scroll)
+
 	var main_hbox = HBoxContainer.new()
 	main_hbox.name = "MainHBox"
-	main_hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content_vbox.add_child(main_hbox)
+	main_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_scroll.add_child(main_hbox)
 
 	# Left panel for enemies (list)
 	var enemy_panel = Panel.new()
@@ -124,7 +152,6 @@ func _create_ui() -> void:
 	enemy_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	enemy_panel.add_child(enemy_vbox)
 
-	# placeholder title
 	var enemy_title = Label.new()
 	enemy_title.text = "Enemies"
 	enemy_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -132,10 +159,10 @@ func _create_ui() -> void:
 
 	var enemy_list_vbox = VBoxContainer.new()
 	enemy_list_vbox.name = "EnemyList"
-	enemy_list_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	enemy_list_vbox.size_flags_vertical = Control.SIZE_SHRINK_END  # Size to content so ScrollContainer can scroll
 	enemy_vbox.add_child(enemy_list_vbox)
 
-	# spacer / separator between enemy and player panels
+	# Separator between enemy and player panels
 	var middle_sep = VSeparator.new()
 	middle_sep.name = "MiddleSeparator"
 	middle_sep.custom_minimum_size = Vector2(24, 0)
@@ -159,14 +186,15 @@ func _create_ui() -> void:
 
 	var player_list_vbox = VBoxContainer.new()
 	player_list_vbox.name = "PlayerList"
-	player_list_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	player_list_vbox.size_flags_vertical = Control.SIZE_SHRINK_END  # Size to content so ScrollContainer can scroll
 	player_vbox.add_child(player_list_vbox)
 
-	# Combat log panel (below main panels) — minimum width so text isn't collapsed to a thin strip
+	# Combat log panel (below main panels) — spacing above so it doesn't overlap
 	const LOG_MIN_WIDTH := 420
 	const LOG_MIN_HEIGHT := 140
 	var log_sep = HSeparator.new()
 	log_sep.name = "LogSeparator"
+	log_sep.custom_minimum_size = Vector2(0, 20)
 	content_vbox.add_child(log_sep)
 	var log_title = Label.new()
 	log_title.text = "Combat log"
@@ -247,6 +275,16 @@ func _create_ui_row(id: int, node: Node, side: String) -> void:
 	bleeding_lbl.add_theme_color_override("font_color", Color(0.9, 0.35, 0.35))
 	blood_row.add_child(bleeding_lbl)
 	row.add_child(blood_row)
+	# Consciousness and performance (pain/consciousness modifier for gauge fill, hit chance, etc.)
+	var consc_row = HBoxContainer.new()
+	consc_row.name = "ConsciousnessRow"
+	var consc_lbl = Label.new()
+	consc_lbl.name = "ConsciousnessLabel"
+	consc_lbl.text = "Pain: 0 | Consc: 100% | Perf: 100%"
+	consc_lbl.add_theme_font_size_override("font_size", 10)
+	consc_lbl.add_theme_color_override("font_color", Color(0.7, 0.85, 0.9))
+	consc_row.add_child(consc_lbl)
+	row.add_child(consc_row)
 	var equip_parts: Array = []
 	if node != null and node.has_method("get_weapon"):
 		var w = node.get_weapon()
@@ -302,7 +340,7 @@ func _create_ui_row(id: int, node: Node, side: String) -> void:
 		var list = get_node(MAIN_LIST_PATH + "/EnemyPanel/EnemyVBox/EnemyList") if has_node(MAIN_LIST_PATH + "/EnemyPanel/EnemyVBox/EnemyList") else null
 		if list:
 			list.add_child(row)
-	id_to_controls[id] = {"row": row, "name": name_lbl, "body_bars": body_bars, "body_labels": body_labels, "gauge": gauge, "gauge_label": gauge_lbl, "last_hit_label": last_hit_lbl, "blood_label": blood_lbl, "blood_bar": blood_bar, "bleeding_label": bleeding_lbl, "node": node}
+	id_to_controls[id] = {"row": row, "name": name_lbl, "body_bars": body_bars, "body_labels": body_labels, "gauge": gauge, "gauge_label": gauge_lbl, "last_hit_label": last_hit_lbl, "blood_label": blood_lbl, "blood_bar": blood_bar, "bleeding_label": bleeding_lbl, "consciousness_label": consc_lbl, "node": node}
 
 func _update_ui() -> void:
 	if manager == null:
@@ -345,6 +383,11 @@ func _update_ui() -> void:
 			if ctrl.get("bleeding_label"):
 				var rate: float = c.stats.get("total_bleeding_rate", 0.0)
 				ctrl.bleeding_label.text = "Bleeding: %.1f/s" % rate if rate > 0.0 else ""
+			if ctrl.get("consciousness_label"):
+				var pain: float = c.stats.get("total_pain", 0.0)
+				var consc: float = c.stats.get("effective_consciousness", 100.0)
+				var perf: float = c.stats.get("performance_modifier", 1.0)
+				ctrl.consciousness_label.text = "Pain: %.1f | Consc: %d%% | Perf: %d%%" % [pain, int(clampf(consc, 0.0, 100.0)), int(roundf(perf * 100.0))]
 			if "body_bars" in ctrl and ctrl.body_bars:
 				var bc: Dictionary = c.stats.get("body_cutting", {})
 				var bb: Dictionary = c.stats.get("body_blunt", {})
@@ -354,17 +397,17 @@ func _update_ui() -> void:
 				for part in BODY_PARTS:
 					if part in ctrl.body_bars:
 						var bar: ProgressBar = ctrl.body_bars[part]
-						var c_cur = bc.get(part, 0)
-						var b_cur = bb.get(part, 0)
+						var c_cur: float = bc.get(part, 0.0)
+						var b_cur: float = bb.get(part, 0.0)
 						var mx = max(1, bm.get(part, 1))
-						var worst = min(c_cur, b_cur)
+						var worst: float = minf(c_cur, b_cur)
 						bar.max_value = float(mx)
-						bar.value = float(worst)
+						bar.value = worst
 						bar.visible = mx > 0
 						if part in ctrl.get("body_labels", {}):
-							var bo_cur: int = bone_h.get(part, 0)
+							var bo_cur: float = bone_h.get(part, 0.0)
 							var bo_mx: int = bone_m.get(part, 0)
-							ctrl.body_labels[part].text = BODY_LABELS.get(part, part) + " C:%d/%d B:%d/%d Bo:%d/%d" % [c_cur, mx, b_cur, mx, bo_cur, bo_mx]
+							ctrl.body_labels[part].text = BODY_LABELS.get(part, part) + " C:%.2f/%.0f B:%.2f/%.0f Bo:%.2f/%d" % [c_cur, mx, b_cur, mx, bo_cur, bo_mx]
 							ctrl.body_labels[part].visible = mx > 0
 
 func _process(_delta: float) -> void:
@@ -416,6 +459,8 @@ func _append_combat_log(attacker_name: String, attacker_side: String, target_nam
 			line = "[color=gray]%s (%s) — %s had no targetable parts.[/color]" % [attacker_name, attacker_side, target_name]
 	elif outcome == "miss":
 		line = "[color=gray]%s (%s) → %s (%s): [b]Miss![/b][/color]" % [attacker_name, attacker_side, target_name, target_side]
+	elif outcome == "dodge":
+		line = "[color=green]%s (%s) → %s (%s): [b]Dodge![/b][/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "skip":
 		line = "[color=gray]%s (%s) — no functional arm; skips attack.[/color]" % [attacker_name, attacker_side]
 	elif outcome == "parry_deflect":
@@ -424,14 +469,14 @@ func _append_combat_log(attacker_name: String, attacker_side: String, target_nam
 		var type_label: String = "cut+blunt" if damage_type == "SPLIT" else damage_type
 		line = "%s (%s) → %s (%s) [%s] %s: [b]%d[/b] dmg [color=orange](deflected)[/color]" % [attacker_name, attacker_side, target_name, target_side, type_label, part_label, dmg]
 		if result.has("final_cut") and result.has("final_blunt"):
-			line += " (cut %d blunt %d)" % [result.final_cut, result.final_blunt]
+			line += " (cut %.2f blunt %.2f)" % [result.final_cut, result.final_blunt]
 		elif health_before >= 0 and health_after >= 0:
 			line += " (%d→%d)" % [health_before, health_after]
 	else:
 		var type_label: String = "cut+blunt" if damage_type == "SPLIT" else damage_type
 		line = "%s (%s) → %s (%s) [%s] %s: [b]%d[/b] dmg" % [attacker_name, attacker_side, target_name, target_side, type_label, part_label, dmg]
 		if result.has("final_cut") and result.has("final_blunt"):
-			line += " (cut %d blunt %d)" % [result.final_cut, result.final_blunt]
+			line += " (cut %.2f blunt %.2f)" % [result.final_cut, result.final_blunt]
 		if health_before >= 0 and health_after >= 0:
 			line += " (%d→%d)" % [health_before, health_after]
 		if died:

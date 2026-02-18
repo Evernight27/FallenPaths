@@ -49,6 +49,14 @@ const INTENSITY_STRENGTH_NORM := 12.0
 const INTENSITY_RANDOM_RANGE := 0.2
 const RECOVERY_AFTER_MEDICAL_S := 0.5  # short recovery after applying bandage/tourniquet/direct pressure
 
+# Medical moves that can be applied to self or allies. Add new medical actions here; extend _get_ally_medical_actions, _start_medical_action, and wind-up completion.
+const MEDICAL_MOVE_IDS: Array[String] = ["bandage_self", "apply_direct_pressure", "apply_tourniquet"]
+# Config for wind-up medical actions: move_id -> {duration_method, target_method, outcome}. Instant actions (e.g. direct_pressure) are handled separately.
+const _MEDICAL_WIND_UP_CONFIG: Dictionary = {
+	"bandage_self": {"duration_method": "get_bandage_application_time_seconds", "target_method": "apply_bandage", "outcome": "bandaged"},
+	"apply_tourniquet": {"duration_method": "get_tourniquet_application_time_seconds", "target_method": "apply_tourniquet", "outcome": "tourniquet_applied"}
+}
+
 # --- Parry: physics and timings (derived, not magic numbers) ---
 # Impulse balance: p_a = m_a * v_current (kg·m/s); v_current from velocity curve (progress²), so early parries face less momentum. c_d = m_d * v_parry * (strength/PARRY_STRENGTH_NORM). Full deflect when c_d >= p_a * PARRY_DEFLECT_THRESHOLD; else partial (remaining p → impact v = remaining/m_a).
 # Parry speed: defensive move is positioning, not full strike. Strike 17–24 m/s; parry ~40–60% of that. v_parry = VELOCITY_MAX_M_S * PARRY_V_FRACTION (same scale as attacks).
@@ -63,6 +71,8 @@ const PARRY_REACTION_S := 0.22                # reaction to initiate parry (s); 
 const PARRY_BLADE_MOVEMENT_S := 0.13          # base time to move blade into intercept (s); scaled by mass/strength
 const PARRY_MOVEMENT_MASS_STRENGTH_MIN := 0.5 # movement mult clamp: light weapon / strong user (min = faster parry)
 const PARRY_MOVEMENT_MASS_STRENGTH_MAX := 2.0 # movement mult clamp: heavy weapon / weak user (max = slower parry)
+# Pain/consciousness: scale durations and capacities; floor matches PainConsciousnessConstants.MIN_PERFORMANCE_MODIFIER
+const PERF_MOD_MIN := 0.35
 
 func _read_stats_from(node: Node) -> Dictionary:
 	var s := {
@@ -132,10 +142,22 @@ func get_combatants() -> Array:
 				stats.blood_volume = c.node.blood_volume
 			if c.node.has_method("get_total_bleeding_rate"):
 				stats.total_bleeding_rate = c.node.get_total_bleeding_rate()
+			if c.node.has_method("get_effective_consciousness"):
+				stats.effective_consciousness = c.node.get_effective_consciousness()
+			if c.node.has_method("get_performance_modifier"):
+				stats.performance_modifier = c.node.get_performance_modifier()
+			if c.node.has_method("get_total_pain"):
+				stats.total_pain = c.node.get_total_pain()
 		if not stats.has("blood_volume"):
 			stats.blood_volume = 100.0
 		if not stats.has("total_bleeding_rate"):
 			stats.total_bleeding_rate = 0.0
+		if not stats.has("effective_consciousness"):
+			stats.effective_consciousness = 100.0
+		if not stats.has("performance_modifier"):
+			stats.performance_modifier = 1.0
+		if not stats.has("total_pain"):
+			stats.total_pain = 0.0
 		out.append({
 			"id": c.id,
 			"node": c.node,
@@ -219,7 +241,18 @@ func _get_medical_urgency(c: Dictionary) -> float:
 	return clampf(raw, 0.0, 1.0)
 
 static func _is_medical_move(move_id: String) -> bool:
-	return move_id == "bandage_self" or move_id == "apply_direct_pressure" or move_id == "apply_tourniquet"
+	return move_id in MEDICAL_MOVE_IDS
+
+## Returns list of {move_id, target_part} for medical actions the performer can apply to the ally's part. Extend this when adding new medical moves.
+func _get_ally_medical_actions(performer: Dictionary, ally: Dictionary, part: String) -> Array:
+	var out: Array = []
+	var performer_has_arm: bool = performer.node.can_apply_direct_pressure("") if performer.node != null else false
+	out.append({ "move_id": "bandage_self", "target_part": part })
+	if performer_has_arm and performer.node.has_method("is_applying_direct_pressure") and not performer.node.is_applying_direct_pressure():
+		out.append({ "move_id": "apply_direct_pressure", "target_part": part })
+	if ally.node.has_method("can_apply_tourniquet") and ally.node.can_apply_tourniquet(part):
+		out.append({ "move_id": "apply_tourniquet", "target_part": part })
+	return out
 
 func get_available_actions(combatant_id: int) -> Array:
 	var c = _get_by_id(combatant_id)
@@ -241,21 +274,27 @@ func get_available_actions(combatant_id: int) -> Array:
 					if not opp.alive or opp.side == c.side:
 						continue
 					actions.append({ "target_id": opp.id, "move_id": move_id })
-	# Medical actions (self only): only when in danger of dying soon (low blood or bleeding will kill in MEDICAL_DANGER_SECONDS).
-	if c.node != null and _is_in_medical_danger(c) and c.node.has_method("get_wounded_parts"):
-		var wounded: Array = c.node.get_wounded_parts()
-		for part in wounded:
-			if part.is_empty():
+	# Medical actions (self and allies): when any ally is in danger of dying soon (low blood or bleeding will kill in MEDICAL_DANGER_SECONDS).
+	# To add new medical actions: add move_id to MEDICAL_MOVE_IDS, add availability in _get_ally_medical_actions, add duration/handler in _start_medical_action and wind-up completion.
+	if c.node != null and c.node.has_method("can_apply_direct_pressure"):
+		for ally in combatants:
+			if not ally.alive or ally.side != c.side or ally.node == null:
 				continue
-			actions.append({ "target_id": combatant_id, "move_id": "bandage_self", "target_part": part })
-			if c.node.has_method("can_apply_direct_pressure") and c.node.can_apply_direct_pressure(part) and c.node.has_method("is_applying_direct_pressure") and not c.node.is_applying_direct_pressure():
-				actions.append({ "target_id": combatant_id, "move_id": "apply_direct_pressure", "target_part": part })
-			if c.node.has_method("can_apply_tourniquet") and c.node.can_apply_tourniquet(part):
-				actions.append({ "target_id": combatant_id, "move_id": "apply_tourniquet", "target_part": part })
+			if not _is_in_medical_danger(ally):
+				continue
+			if not ally.node.has_method("get_wounded_parts"):
+				continue
+			var wounded: Array = ally.node.get_wounded_parts()
+			for part in wounded:
+				if part.is_empty():
+					continue
+				var tgt_id: int = ally.id
+				for act in _get_ally_medical_actions(c, ally, part):
+					actions.append({ "target_id": tgt_id, "move_id": act.move_id, "target_part": act.target_part })
 	var medical_count: int = 0
 	for a in actions:
 		var mid: String = a.get("move_id", "")
-		if mid == "bandage_self" or mid == "apply_direct_pressure" or mid == "apply_tourniquet":
+		if _is_medical_move(mid):
 			medical_count += 1
 	if medical_count > 0:
 		print("[Combat] get_available_actions: combatant_id=%d => %d total (%d medical: bandage/direct_pressure/tourniquet)" % [combatant_id, actions.size(), medical_count])
@@ -294,6 +333,7 @@ func pick_weighted_action(actions: Array, combatant_id: int = -1) -> Dictionary:
 	return actions[0]
 
 func _process(delta: float) -> void:
+	var victor: String = ""
 	# Bleeding and blood loss tick during combat here. Outside combat, they also advance on time (e.g. 1 min per move in main._advance_time_one_minute) for medical realism.
 	for c in combatants:
 		if not c.alive or c.node == null:
@@ -312,12 +352,14 @@ func _process(delta: float) -> void:
 				death_reason = c.node.get_death_reason()
 			print("[Combat] DEATH (tick): %s — %s" % [c.node.name if c.node else "id:%d" % c.id, death_reason])
 			emit_signal("action_resolved", c.id, -1, {"dmg": 0, "died": true, "part": "", "damage_type": "", "outcome": "bled_out", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0})
-			emit_signal("combat_ended", _check_for_winner(), c.node)
-			stop()
+			victor = _check_for_winner()
+			if not victor.is_empty():
+				emit_signal("combat_ended", victor, c.node)
+				stop()
 			return
-	var winner: String = _check_for_winner()
-	if not winner.is_empty():
-		emit_signal("combat_ended", winner, null)
+	victor = _check_for_winner()
+	if not victor.is_empty():
+		emit_signal("combat_ended", victor, null)
 		stop()
 		return
 	for c in combatants:
@@ -325,6 +367,20 @@ func _process(delta: float) -> void:
 			continue
 		if c.node != null and c.node.has_method("is_incapacitated") and c.node.is_incapacitated():
 			continue  # incapacitated: no gauge fill, cannot act
+		# Medical wind-up: cancel if target (ally) died during wind-up
+		if c.state == STATE_MEDICAL_WIND_UP:
+			var pm_check = c.get("pending_medical", {})
+			var tgt_cid_check: int = pm_check.get("target_combatant_id", c.id)
+			if tgt_cid_check != c.id:
+				var tgt_check = _get_by_id(tgt_cid_check)
+				if tgt_check == null or not tgt_check.alive or (tgt_check.node != null and tgt_check.node.has_method("is_dead") and tgt_check.node.is_dead()):
+					c.pending_medical = {}
+					c.state = STATE_WAITING
+					c.state_timer = 0.0
+					c.state_duration = 0.0
+					var who_name: String = c.node.name if c.node != null else "id:%d" % c.id
+					print("[Combat] Medical cancelled: %s (target died during wind-up)" % who_name)
+					continue
 		if c.state == STATE_WAITING:
 			# Gauge fill: base speed × pain/consciousness only (no leg; leg affects attack wind-up only).
 			var spd: float = float(c.stats.speed)
@@ -377,18 +433,29 @@ func _process(delta: float) -> void:
 				var tgt_cid: int = pm.get("target_combatant_id", c.id)
 				var tgt_c = _get_by_id(tgt_cid)
 				var who_m: String = c.node.name if c.node != null else "id:%d" % c.id
-				if tgt_c != null and tgt_c.node != null and not part.is_empty():
-					if med_id == "bandage_self" and tgt_c.node.has_method("apply_bandage"):
-						tgt_c.node.apply_bandage(part)
-						print("[Combat] Medical complete: %s bandaged %s => recovery %.1fs" % [who_m, part, RECOVERY_AFTER_MEDICAL_S])
-						emit_signal("action_resolved", c.id, tgt_cid, {"outcome": "bandaged", "part": part, "dmg": 0, "died": false})
-					elif med_id == "apply_tourniquet" and tgt_c.node.has_method("apply_tourniquet"):
-						if tgt_c.node.apply_tourniquet(part):
-							print("[Combat] Medical complete: %s applied tourniquet on %s => recovery %.1fs" % [who_m, part, RECOVERY_AFTER_MEDICAL_S])
-							emit_signal("action_resolved", c.id, tgt_cid, {"outcome": "tourniquet_applied", "part": part, "dmg": 0, "died": false})
+				# Recovery after medical (scaled by pain/consciousness)
+				var med_rec_dur: float = RECOVERY_AFTER_MEDICAL_S
+				var med_perf: float = 1.0
+				if c.node != null and c.node.has_method("get_performance_modifier"):
+					med_perf = c.node.get_performance_modifier()
+				if med_perf > 0.0:
+					med_rec_dur /= maxf(PERF_MOD_MIN, med_perf)
+				# Only apply if target is still alive (may have died during wind-up)
+				var tgt_alive: bool = tgt_c.alive and (not tgt_c.node.has_method("is_dead") or not tgt_c.node.is_dead())
+				if tgt_c != null and tgt_c.node != null and tgt_alive and not part.is_empty():
+					var wind_up_cfg = _MEDICAL_WIND_UP_CONFIG.get(med_id, {})
+					var target_method: String = wind_up_cfg.get("target_method", "")
+					if not target_method.is_empty():
+						var tgt_entity = tgt_c.node.get_medical_entity() if tgt_c.node.has_method("get_medical_entity") else tgt_c.node
+						if tgt_entity != null and tgt_entity.has_method(target_method):
+							var result = tgt_entity.call(target_method, part)
+							if result != false:  # apply_tourniquet returns bool; apply_bandage returns void
+								var outcome: String = wind_up_cfg.get("outcome", med_id)
+								print("[Combat] Medical complete: %s %s on %s => recovery %.1fs" % [who_m, med_id, part, med_rec_dur])
+								emit_signal("action_resolved", c.id, tgt_cid, {"outcome": outcome, "part": part, "dmg": 0, "died": false})
 				c.state = STATE_RECOVERING
 				c.state_timer = 0.0
-				c.state_duration = RECOVERY_AFTER_MEDICAL_S
+				c.state_duration = med_rec_dur
 		elif c.state == STATE_RECOVERING:
 			c.gauge = 0.0  # Action bar does not fill while recovering
 			c.state_timer += delta
@@ -404,8 +471,8 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 	var atk = _get_by_id(attacker_id)
 	if atk == null or atk.state != STATE_WAITING or atk.gauge < 100.0:
 		return
-	# Medical actions (target_id = combatant to apply on, usually self)
-	if move_id == "bandage_self" or move_id == "apply_direct_pressure" or move_id == "apply_tourniquet":
+	# Medical actions (target_id = combatant to apply on, self or ally)
+	if _is_medical_move(move_id):
 		var part: String = str(options.get("target_part", ""))
 		var who: String = atk.node.name if (atk.node != null) else "id:%d" % attacker_id
 		print("[Combat] Action: %s chose medical %s on part=%s (target_combatant_id=%d)" % [who, move_id, part, target_id])
@@ -441,36 +508,71 @@ static func _velocity_curve_factor(progress: float) -> float:
 	var p: float = clampf(progress, 0.0, 1.0)
 	return p * p
 
-func _recovery_duration(intensity: float, outcome: String, recovery_multiplier: float = 1.0) -> float:
+func _recovery_duration(intensity: float, outcome: String, recovery_multiplier: float = 1.0, perf_mod: float = 1.0) -> float:
 	var commitment: float = intensity
 	var extra: float = RECOVERY_EXTRA_HIT_S
 	if outcome == "deflected":
 		extra = RECOVERY_EXTRA_DEFLECTED_S
-	elif outcome == "miss":
+	elif outcome == "miss" or outcome == "dodge":
 		extra = RECOVERY_EXTRA_MISS_S
-	return (RECOVERY_BASE_S + RECOVERY_COMMITMENT_SCALE_S * commitment + extra) * maxf(0.5, recovery_multiplier)
+	var base: float = (RECOVERY_BASE_S + RECOVERY_COMMITMENT_SCALE_S * commitment + extra) * maxf(0.5, recovery_multiplier)
+	# Pain/consciousness: wounded entities recover slower
+	if perf_mod > 0.0:
+		base /= maxf(PERF_MOD_MIN, perf_mod)
+	return base
 
 func _start_medical_action(combatant_id: int, target_combatant_id: int, medical_id: String, target_part: String) -> void:
 	var c = _get_by_id(combatant_id)
 	var target_node = _get_by_id(target_combatant_id)
 	if c == null or target_node == null or target_node.node == null:
 		return
-	var duration: float = 0.0
 	var who_name: String = c.node.name if (c.node != null) else "id:%d" % combatant_id
+	# Bandage/tourniquet: performer stops holding direct pressure on anyone (new action)
+	if medical_id == "bandage_self" or medical_id == "apply_tourniquet":
+		if c.node != null and c.node.has_method("clear_direct_pressure"):
+			c.node.clear_direct_pressure()
+	var duration: float = 0.0
 	if medical_id == "apply_direct_pressure":
-		# Instant: apply now, then short recovery
-		if target_node.node.has_method("apply_direct_pressure") and target_node.node.apply_direct_pressure(target_part):
-			print("[Combat] Medical: %s applied direct_pressure on %s (instant) => recovery %.1fs" % [who_name, target_part, RECOVERY_AFTER_MEDICAL_S])
+		# Instant: apply now, then short recovery (scaled by pain/consciousness)
+		var med_rec_dur: float = RECOVERY_AFTER_MEDICAL_S
+		var med_perf: float = 1.0
+		if c.node != null and c.node.has_method("get_performance_modifier"):
+			med_perf = c.node.get_performance_modifier()
+		if med_perf > 0.0:
+			med_rec_dur /= maxf(PERF_MOD_MIN, med_perf)
+		var applied: bool = false
+		if target_combatant_id == combatant_id:
+			# Self
+			if target_node.node.has_method("apply_direct_pressure") and target_node.node.apply_direct_pressure(target_part):
+				applied = true
+		else:
+			# Ally: performer applies to target
+			var target_entity = target_node.node.get_medical_entity() if target_node.node.has_method("get_medical_entity") else target_node.node
+			var performer_entity = c.node.get_medical_entity() if (c.node != null and c.node.has_method("get_medical_entity")) else c.node
+			if target_entity != null and target_entity.has_method("apply_direct_pressure_from_ally") and target_entity.apply_direct_pressure_from_ally(target_part, performer_entity):
+				applied = true
+				if performer_entity != null and "direct_pressure_on_ally" in performer_entity:
+					performer_entity.direct_pressure_on_ally = {"node": target_entity, "part": target_part}
+		if applied:
+			print("[Combat] Medical: %s applied direct_pressure on %s (instant) => recovery %.1fs" % [who_name, target_part, med_rec_dur])
 			emit_signal("action_resolved", combatant_id, target_combatant_id, {"outcome": "direct_pressure", "part": target_part, "dmg": 0, "died": false})
 		c.gauge = 0.0
 		c.state = STATE_RECOVERING
 		c.state_timer = 0.0
-		c.state_duration = RECOVERY_AFTER_MEDICAL_S
+		c.state_duration = med_rec_dur
 		return
-	if medical_id == "bandage_self":
-		duration = target_node.node.get_bandage_application_time_seconds() if target_node.node.has_method("get_bandage_application_time_seconds") else 4.0
-	elif medical_id == "apply_tourniquet":
-		duration = target_node.node.get_tourniquet_application_time_seconds() if target_node.node.has_method("get_tourniquet_application_time_seconds") else 18.0
+	var wind_up_cfg = _MEDICAL_WIND_UP_CONFIG.get(medical_id, {})
+	var dur_method: String = wind_up_cfg.get("duration_method", "")
+	if not dur_method.is_empty() and target_node.node.has_method(dur_method):
+		duration = target_node.node.call(dur_method)
+	if duration <= 0.0 and not wind_up_cfg.is_empty():
+		duration = 4.0  # fallback for custom entities
+	# Pain/consciousness: wounded entities take longer to apply medical actions
+	var perf_mod: float = 1.0
+	if c.node != null and c.node.has_method("get_performance_modifier"):
+		perf_mod = c.node.get_performance_modifier()
+	if perf_mod > 0.0:
+		duration /= maxf(PERF_MOD_MIN, perf_mod)
 	print("[Combat] Medical: %s starting %s on part=%s => wind_up=%.1fs" % [who_name, medical_id, target_part, duration])
 	c.gauge = 0.0
 	c.state = STATE_MEDICAL_WIND_UP
@@ -489,7 +591,14 @@ func _get_parry_wind_up_duration(defender: Dictionary) -> float:
 	var str_val: float = float(defender.stats.get("strength", 10))
 	var mult: float = (m_d / WeaponConstants.BASELINE_MASS_KG) * (PARRY_STRENGTH_NORM / maxf(1.0, str_val))
 	mult = clampf(mult, PARRY_MOVEMENT_MASS_STRENGTH_MIN, PARRY_MOVEMENT_MASS_STRENGTH_MAX)
-	return reaction_s + PARRY_BLADE_MOVEMENT_S * mult
+	var base: float = reaction_s + PARRY_BLADE_MOVEMENT_S * mult
+	# Pain/consciousness: wounded defenders react slower to parry
+	var perf_mod: float = 1.0
+	if defender.node != null and defender.node.has_method("get_performance_modifier"):
+		perf_mod = defender.node.get_performance_modifier()
+	if perf_mod > 0.0:
+		base /= maxf(PERF_MOD_MIN, perf_mod)
+	return base
 
 # Parry has its own wind-up; resolution happens when parry completes (use attack momentum at that moment) or when attack lands first (use parry capacity scaled by parry progress).
 func _begin_parry(defender_id: int, attacker_id: int, move_id: String) -> void:
@@ -541,6 +650,12 @@ func _begin_attack_with_target(attacker_id: int, target_id: int, move_id: String
 	if atk.node != null and atk.node.has_method("get_leg_functionality"):
 		var leg: float = clampf(atk.node.get_leg_functionality(), WINDUP_LEG_MIN, 1.0)
 		wind_up_s /= leg
+	# Pain/consciousness: wounded attackers swing slower
+	var atk_perf_mod: float = 1.0
+	if atk.node != null and atk.node.has_method("get_performance_modifier"):
+		atk_perf_mod = atk.node.get_performance_modifier()
+	if atk_perf_mod > 0.0:
+		wind_up_s /= maxf(PERF_MOD_MIN, atk_perf_mod)
 	atk.gauge = 0.0
 	atk.state = STATE_WIND_UP
 	atk.state_timer = 0.0
@@ -550,6 +665,7 @@ func _begin_attack_with_target(attacker_id: int, target_id: int, move_id: String
 	print("[Combat] Power/commitment: %s | power=%.2f follow_through=%.2f => intensity=%.2f | windup_mult=%.2f => wind_up=%.2fs (recovery will use same intensity)" % [atk_name_log, power, follow_through, intensity, windup_mult, wind_up_s])
 
 func _execute_attack(attacker_id: int) -> void:
+	var w: String = ""
 	var atk = _get_by_id(attacker_id)
 	if atk == null:
 		return
@@ -576,9 +692,12 @@ func _execute_attack(attacker_id: int) -> void:
 
 	# No functional arm -> skip hit, go to recovery
 	var recovery_mult_skip: float = float(archetype.get("recovery_multiplier", 1.0))
+	var atk_perf_mod: float = 1.0
+	if atk.node != null and atk.node.has_method("get_performance_modifier"):
+		atk_perf_mod = atk.node.get_performance_modifier()
 	if atk.node != null and atk.node.has_method("get_attacking_arm"):
 		if atk.node.get_attacking_arm().is_empty():
-			var rec_dur_skip: float = _recovery_duration(intensity, "hit", recovery_mult_skip)
+			var rec_dur_skip: float = _recovery_duration(intensity, "hit", recovery_mult_skip, atk_perf_mod)
 			print("[Combat] %s has no functional arm; skips attack. intensity=%.2f => recovery=%.2fs" % [atk_name, intensity, rec_dur_skip])
 			emit_signal("action_resolved", attacker_id, target_id, {"dmg": 0, "died": false, "part": "", "damage_type": "", "outcome": "skip", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0})
 			atk.state = STATE_RECOVERING
@@ -592,8 +711,10 @@ func _execute_attack(attacker_id: int) -> void:
 	if targetable.is_empty():
 		tgt.alive = false
 		emit_signal("action_resolved", attacker_id, target_id, {"dmg": 0, "died": true, "part": "", "damage_type": "", "outcome": "defeated", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0})
-		emit_signal("combat_ended", _check_for_winner(), tgt.node)
-		stop()
+		w = _check_for_winner()
+		if not w.is_empty():
+			emit_signal("combat_ended", w, tgt.node)
+			stop()
 		return
 
 	# Roll miss before damage (pain/consciousness reduce hit chance; floor 35% performance)
@@ -606,13 +727,26 @@ func _execute_attack(attacker_id: int) -> void:
 	var miss_chance: float = 1.0 - effective_hit_chance
 	if randf() < miss_chance:
 		outcome = "miss"
-		var rec_dur: float = _recovery_duration(intensity, outcome, recovery_mult)
+		var rec_dur: float = _recovery_duration(intensity, outcome, recovery_mult, perf_mod)
 		print("[Combat] Recovery (miss): %s intensity=%.2f outcome=%s recovery_mult=%.2f => duration=%.2fs" % [atk_name, intensity, outcome, recovery_mult, rec_dur])
 		emit_signal("action_resolved", attacker_id, target_id, {"dmg": 0, "died": false, "part": "", "damage_type": "", "outcome": outcome, "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0})
 		atk.state = STATE_RECOVERING
 		atk.state_timer = 0.0
 		atk.state_duration = rec_dur
 		return
+
+	# Passive dodge: defender rolls dodge chance (speed, legs, pain/consciousness).
+	if tgt.node != null and tgt.node.has_method("get_dodge_chance"):
+		var dodge_chance: float = tgt.node.get_dodge_chance()
+		if dodge_chance > 0.0 and randf() < dodge_chance:
+			outcome = "dodge"
+			var rec_dur: float = _recovery_duration(intensity, outcome, recovery_mult, perf_mod)
+			print("[Combat] Recovery (dodge): %s intensity=%.2f outcome=%s recovery_mult=%.2f => duration=%.2fs" % [atk_name, intensity, outcome, recovery_mult, rec_dur])
+			emit_signal("action_resolved", attacker_id, target_id, {"dmg": 0, "died": false, "part": "", "damage_type": "", "outcome": outcome, "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0})
+			atk.state = STATE_RECOVERING
+			atk.state_timer = 0.0
+			atk.state_duration = rec_dur
+			return
 
 	# 1) Choose random body part (weighted by surface area/exposure). Sub-region is then chosen inside take_damage_split relative to this part.
 	var part: String = BodyPartConstants.get_weighted_random_part(targetable)
@@ -663,9 +797,9 @@ func _execute_attack(attacker_id: int) -> void:
 		print("[Damage equation] %s -> %s | fallback (unarmed): pre_armor=%.1f (cut=%.1f blunt=%.1f)" % [atk_name, tgt_name, pre_armor, pre_cut, pre_blunt])
 
 	# Read pools before for reporting (cut, blunt, bone)
-	var health_before_cut: int = tgt.node.body_cutting.get(part, 0)
-	var health_before_blunt: int = tgt.node.body_blunt.get(part, 0)
-	var health_before_bone: int = tgt.node.bone_health.get(part, 0) if tgt.node.get("bone_health") else 0
+	var health_before_cut: float = tgt.node.body_cutting.get(part, 0.0)
+	var health_before_blunt: float = tgt.node.body_blunt.get(part, 0.0)
+	var health_before_bone: float = tgt.node.bone_health.get(part, 0.0) if tgt.node.get("bone_health") else 0.0
 
 	var take_result: Dictionary = {}
 	if tgt.node.has_method("take_damage_split"):
@@ -673,38 +807,38 @@ func _execute_attack(attacker_id: int) -> void:
 	else:
 		# Fallback: single stream (pre_cut or pre_blunt by ratio). Pass momentum for cushion when blunt.
 		if pre_cut >= pre_blunt and tgt.node.has_method("take_damage"):
-			take_result = tgt.node.take_damage(int(roundf(pre_cut)), part, DAMAGE_TYPE_SHARP, pen_sharp, pen_blunt, -1.0)
-			take_result["final_cut"] = take_result.get("final_amount", 0)
-			take_result["final_blunt"] = 0
+			take_result = tgt.node.take_damage(pre_cut, part, DAMAGE_TYPE_SHARP, pen_sharp, pen_blunt, -1.0)
+			take_result["final_cut"] = take_result.get("final_amount", 0.0)
+			take_result["final_blunt"] = 0.0
 		else:
-			take_result = tgt.node.take_damage(int(roundf(pre_blunt)), part, DAMAGE_TYPE_BLUNT, -1.0, pen_blunt, pen_blunt_momentum_per_area)
-			take_result["final_cut"] = 0
-			take_result["final_blunt"] = take_result.get("final_amount", 0)
+			take_result = tgt.node.take_damage(pre_blunt, part, DAMAGE_TYPE_BLUNT, -1.0, pen_blunt, pen_blunt_momentum_per_area)
+			take_result["final_cut"] = 0.0
+			take_result["final_blunt"] = take_result.get("final_amount", 0.0)
 
-	var final_cut: int = take_result.get("final_cut", 0)
-	var final_blunt: int = take_result.get("final_blunt", 0)
-	var final_bone: int = take_result.get("final_bone", 0)
-	var actual_dmg: int = final_cut + final_blunt + final_bone
+	var final_cut: float = take_result.get("final_cut", 0.0)
+	var final_blunt: float = take_result.get("final_blunt", 0.0)
+	var final_bone: float = take_result.get("final_bone", 0.0)
+	var actual_dmg: int = int(roundf(final_cut + final_blunt + final_bone))
 	if outcome == "hit" and pre_armor > 0 and float(final_cut + final_blunt) < pre_armor * DEFLECTED_DAMAGE_RATIO:
 		outcome = "deflected"
 
 	tgt.stats.body_cutting = tgt.node.body_cutting.duplicate()
 	tgt.stats.body_blunt = tgt.node.body_blunt.duplicate()
 
-	var health_after_cut: int = tgt.node.body_cutting.get(part, 0)
-	var health_after_blunt: int = tgt.node.body_blunt.get(part, 0)
-	var health_after_bone: int = tgt.node.bone_health.get(part, 0) if tgt.node.get("bone_health") else 0
+	var health_after_cut: float = tgt.node.body_cutting.get(part, 0.0)
+	var health_after_blunt: float = tgt.node.body_blunt.get(part, 0.0)
+	var health_after_bone: float = tgt.node.bone_health.get(part, 0.0) if tgt.node.get("bone_health") else 0.0
 	var part_max: int = tgt.node.body_max.get(part, 0)
 	var part_bone_max: int = tgt.node.bone_max.get(part, 0) if tgt.node.get("bone_max") else 0
 	var outcome_note: String = outcome
 	if outcome == "deflected":
-		outcome_note = "deflected (tissue_dmg %.0f < pre_armor*%.2f=%.1f)" % [float(final_cut + final_blunt), DEFLECTED_DAMAGE_RATIO, pre_armor * DEFLECTED_DAMAGE_RATIO]
-	print("[Combat] %s (%s) -> %s (%s) %s: applied cut=%d blunt=%d bone=%d (total %d) | part state: cut %d->%d blunt %d->%d bone %d->%d (max cut/blunt %d bone %d) | outcome: %s" % [atk_name, atk.side, tgt_name, tgt.side, part, final_cut, final_blunt, final_bone, actual_dmg, health_before_cut, health_after_cut, health_before_blunt, health_after_blunt, health_before_bone, health_after_bone, part_max, part_bone_max, outcome_note])
+		outcome_note = "deflected (tissue_dmg %.2f < pre_armor*%.2f=%.1f)" % [final_cut + final_blunt, DEFLECTED_DAMAGE_RATIO, pre_armor * DEFLECTED_DAMAGE_RATIO]
+	print("[Combat] %s (%s) -> %s (%s) %s: applied cut=%.2f blunt=%.2f bone=%.2f (total %d) | part state: cut %.2f->%.2f blunt %.2f->%.2f bone %.2f->%.2f (max cut/blunt %d bone %d) | outcome: %s" % [atk_name, atk.side, tgt_name, tgt.side, part, final_cut, final_blunt, final_bone, actual_dmg, health_before_cut, health_after_cut, health_before_blunt, health_after_blunt, health_before_bone, health_after_bone, part_max, part_bone_max, outcome_note])
 
 	var result_dict := {"dmg": actual_dmg, "died": false, "part": part, "damage_type": "SPLIT", "health_before_cut": health_before_cut, "health_after_cut": health_after_cut, "health_before_blunt": health_before_blunt, "health_after_blunt": health_after_blunt, "health_before_bone": health_before_bone, "health_after_bone": health_after_bone, "final_cut": final_cut, "final_blunt": final_blunt, "final_bone": final_bone, "outcome": outcome, "was_deflected": take_result.get("was_deflected", false)}
 	# Legacy keys for UI that expects single pool
-	result_dict["health_before"] = health_before_cut + health_before_blunt
-	result_dict["health_after"] = health_after_cut + health_after_blunt
+	result_dict["health_before"] = int(roundf(health_before_cut + health_before_blunt))
+	result_dict["health_after"] = int(roundf(health_after_cut + health_after_blunt))
 	if tgt.node.has_method("is_dead") and tgt.node.is_dead():
 		tgt.alive = false
 		result_dict.died = true
@@ -713,18 +847,20 @@ func _execute_attack(attacker_id: int) -> void:
 			death_reason = tgt.node.get_death_reason()
 		print("[Combat] DEATH: %s — %s" % [tgt_name, death_reason])
 		emit_signal("action_resolved", attacker_id, target_id, result_dict)
-		emit_signal("combat_ended", _check_for_winner(), tgt.node)
-		stop()
+		w = _check_for_winner()
+		if not w.is_empty():
+			emit_signal("combat_ended", w, tgt.node)
+			stop()
 		return
-	var victor: String = _check_for_winner()
-	if not victor.is_empty():
+	w = _check_for_winner()
+	if not w.is_empty():
 		if tgt.node.has_method("is_incapacitated") and tgt.node.is_incapacitated():
 			print("[Combat] INCAPACITATED: %s (consciousness < 10%%)" % tgt_name)
 		emit_signal("action_resolved", attacker_id, target_id, result_dict)
-		emit_signal("combat_ended", victor, tgt.node)
+		emit_signal("combat_ended", w, tgt.node)
 		stop()
 		return
-	var rec_dur_final: float = _recovery_duration(intensity, outcome, recovery_mult)
+	var rec_dur_final: float = _recovery_duration(intensity, outcome, recovery_mult, perf_mod)
 	print("[Combat] Recovery (hit): %s intensity=%.2f outcome=%s recovery_mult=%.2f => duration=%.2fs" % [atk_name, intensity, outcome, recovery_mult, rec_dur_final])
 	emit_signal("action_resolved", attacker_id, target_id, result_dict)
 	atk.state = STATE_RECOVERING
@@ -768,7 +904,10 @@ func _resolve_parry_with_momentum(defender_id: int, attacker_id: int, move_id: S
 		return
 	var parry_intensity: float = pa.get("intensity", 0.5)
 	var recovery_mult: float = float(pa.get("archetype", {}).get("recovery_multiplier", 1.0))
-	var rec_dur_parry: float = _recovery_duration(parry_intensity, "miss", recovery_mult)
+	var atk_perf: float = 1.0
+	if attacker.node != null and attacker.node.has_method("get_performance_modifier"):
+		atk_perf = attacker.node.get_performance_modifier()
+	var rec_dur_parry: float = _recovery_duration(parry_intensity, "miss", recovery_mult, atk_perf)
 	attacker.pending_attack = {}
 	attacker.state = STATE_RECOVERING
 	attacker.state_timer = 0.0
@@ -804,6 +943,11 @@ func _resolve_parry_parry_ready_first(defender_id: int, attacker_id: int, move_i
 	var m_d: float = float(defender_weapon.mass) if defender_weapon else WeaponConstants.BASELINE_MASS_KG
 	var s_d: float = float(defender.stats.get("strength", 10))
 	var c_d: float = m_d * _get_parry_speed_m_s() * (s_d / PARRY_STRENGTH_NORM)
+	# Pain/consciousness: wounded defenders parry less effectively
+	var def_perf_mod: float = 1.0
+	if defender.node != null and defender.node.has_method("get_performance_modifier"):
+		def_perf_mod = defender.node.get_performance_modifier()
+	c_d *= maxf(PERF_MOD_MIN, def_perf_mod)
 	if PARRY_TECHNIQUE_VARIANCE > 0.0:
 		c_d *= randf_range(1.0 - PARRY_TECHNIQUE_VARIANCE, 1.0 + PARRY_TECHNIQUE_VARIANCE)
 	_resolve_parry_with_momentum(defender_id, attacker_id, move_id, p_a, c_d)
@@ -836,6 +980,11 @@ func _resolve_parry_at_impact(attacker_id: int, defender_id: int) -> void:
 	var m_d: float = float(defender_weapon.mass) if defender_weapon else WeaponConstants.BASELINE_MASS_KG
 	var s_d: float = float(defender.stats.get("strength", 10))
 	var c_d_full: float = m_d * _get_parry_speed_m_s() * (s_d / PARRY_STRENGTH_NORM)
+	# Pain/consciousness: wounded defenders parry less effectively
+	var def_perf_mod: float = 1.0
+	if defender.node != null and defender.node.has_method("get_performance_modifier"):
+		def_perf_mod = defender.node.get_performance_modifier()
+	c_d_full *= maxf(PERF_MOD_MIN, def_perf_mod)
 	if PARRY_TECHNIQUE_VARIANCE > 0.0:
 		c_d_full *= randf_range(1.0 - PARRY_TECHNIQUE_VARIANCE, 1.0 + PARRY_TECHNIQUE_VARIANCE)
 	var c_d: float = c_d_full * parry_progress
