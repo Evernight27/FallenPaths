@@ -19,7 +19,7 @@ func add_member(node: Node) -> void:
 	var body_max: Dictionary = {}
 	var bone_health: Dictionary = {}
 	var bone_max: Dictionary = {}
-	var member_strength = 0
+	var member_strength = 100
 	var member_agility = 100
 	var member_intelligence = 100
 	var member_endurance = 100
@@ -82,7 +82,7 @@ func get_members() -> Array:
 		var body_max: Dictionary = m.get("body_max", {}).duplicate()
 		var bone_health: Dictionary = m.get("bone_health", {}).duplicate()
 		var bone_max: Dictionary = m.get("bone_max", {}).duplicate()
-		var strength = m.get("strength", 0)
+		var strength = m.get("strength", 100)
 		var agility = m.get("agility", 100)
 		var intelligence = m.get("intelligence", 100)
 		var endurance = m.get("endurance", 100)

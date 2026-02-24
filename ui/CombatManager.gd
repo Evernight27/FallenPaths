@@ -12,10 +12,9 @@ const _Bleeding := preload("res://core/BleedingConstants.gd")
 const DAMAGE_TYPE_SHARP := "SHARP"
 const DAMAGE_TYPE_BLUNT := "BLUNT"
 
-# Attack state machine: waiting (gauge filling) -> wind_up (swing until impact) | medical_wind_up -> recovering (follow-through after hit/deflect/miss/medical)
+# Attack state machine: waiting (gauge filling) -> wind_up (swing until impact) | medical_wind_up -> recovering (follow-through after hit/deflect/miss/medical). Parry is passive (A4v3) only.
 const STATE_WAITING := "waiting"
 const STATE_WIND_UP := "wind_up"
-const STATE_PARRY_WIND_UP := "parry_wind_up"
 const STATE_MEDICAL_WIND_UP := "medical_wind_up"
 const STATE_RECOVERING := "recovering"
 
@@ -46,7 +45,7 @@ const DEFLECTED_DAMAGE_RATIO := 0.25
 
 # Intensity (0–1): derived from power and follow_through per attack; drives velocity, wind-up, recovery. Strength can bias power/follow_through later; for now both rolled.
 const INTENSITY_STRENGTH_SCALE := 0.5
-const INTENSITY_STRENGTH_NORM := 12.0
+const INTENSITY_STRENGTH_NORM := 100.0        # 100 = average (same scale as other stats)
 const INTENSITY_RANDOM_RANGE := 0.2
 const RECOVERY_AFTER_MEDICAL_S := 0.5  # short recovery after applying bandage/tourniquet/direct pressure
 
@@ -64,16 +63,28 @@ const _MEDICAL_WIND_UP_CONFIG: Dictionary = {
 # Parry wind-up: reaction (fixed, cognitive) + blade movement (scaled by weapon mass and strength). Lighter weapon / stronger user = faster into parry position.
 # Tuning: quadratic curve makes early parries easier (lower p_a). If full deflects feel too common, raise PARRY_DEFLECT_THRESHOLD (e.g. 1.1) or soften curve in _velocity_curve_factor (e.g. progress^1.5).
 const PARRY_V_FRACTION_OF_MAX_STRIKE := 0.5   # parry speed = WeaponConstants.VELOCITY_MAX_M_S * this (~10 m/s)
-const PARRY_STRENGTH_NORM := 10.0             # (strength/this) → 10 = normal human
+const PARRY_STRENGTH_NORM := 100.0            # (strength/this) → 100 = average (same scale as other stats: 50–150)
 const PARRY_DEFLECT_THRESHOLD := 1.0          # full deflect when c_d >= p_a * this (1.0 = impulse match)
 const PARRY_TECHNIQUE_VARIANCE := 0.1         # ±fraction on capacity (timing/placement)
 const PARRY_V_MIN_FRACTION := 0.2             # partial parry: impact v >= v_intent * this (residual glancing hit)
+# A4v3 passive parry: time_to_react (s) needed for 100% parry capacity; less time = scale capacity down.
+const PASSIVE_PARRY_MIN_TIME_FOR_FULL_S := 0.25
 const PARRY_REACTION_S := 0.22                # reaction to initiate parry (s); same for all (cognitive)
 const PARRY_BLADE_MOVEMENT_S := 0.13          # base time to move blade into intercept (s); scaled by mass/strength
 const PARRY_MOVEMENT_MASS_STRENGTH_MIN := 0.5 # movement mult clamp: light weapon / strong user (min = faster parry)
 const PARRY_MOVEMENT_MASS_STRENGTH_MAX := 2.0 # movement mult clamp: heavy weapon / weak user (max = slower parry)
 # Pain/consciousness: scale durations and capacities; floor matches PainConsciousnessConstants.MIN_PERFORMANCE_MODIFIER
 const PERF_MOD_MIN := 0.35
+
+# 3.2/3.3/3.4/3.5: Recovery phases, commitment window, state-dependent parry, off balance.
+# Commitment (3.3): defender's reaction window = wind_up * (1 - this); first fraction is "telegraph" before attack counts.
+const COMMITMENT_FRACTION := 0.2
+# Readiness (3.2/3.4): in RECOVERING, parry capacity scaled by lerp(early, late) over recovery progress. WAITING = 1.0.
+const RECOVERY_READINESS_EARLY := 0.5
+const RECOVERY_READINESS_LATE := 0.85
+# Off balance (3.5): after miss or full parry deflect, attacker is off balance for this many seconds; parry capacity mult while defender.
+const OFF_BALANCE_DURATION_S := 0.4
+const OFF_BALANCE_PARRY_CAPACITY_MULT := 0.7
 
 ## Returns the node that holds health/wounds (CoreEntity for enemies; CombatBody for Character). Use for all health reads.
 func _get_entity(node: Node) -> Node:
@@ -83,6 +94,22 @@ func _get_entity(node: Node) -> Node:
 		var e = node.get_medical_entity()
 		return e if e != null else node
 	return node
+
+## 3.2/3.4: Readiness multiplier for passive parry (no guard variable). WAITING = 1.0; RECOVERING = lerp(early, late) by progress.
+func _get_passive_parry_readiness(c: Dictionary) -> float:
+	if c.state == STATE_WAITING:
+		return 1.0
+	if c.state == STATE_RECOVERING:
+		var dur: float = c.get("state_duration", 0.001)
+		var t: float = c.get("state_timer", 0.0)
+		var progress: float = clampf(t / dur, 0.0, 1.0)
+		return lerpf(RECOVERY_READINESS_EARLY, RECOVERY_READINESS_LATE, progress)
+	return 0.0
+
+## 3.5: True if combatant is still in "off balance" window (after miss or parry deflect).
+func _is_off_balance(c: Dictionary) -> bool:
+	var until: float = c.get("off_balance_until", -1.0)
+	return until > 0.0 and Time.get_ticks_msec() / 1000.0 < until
 
 func _refresh_combatant_stats(c: Dictionary) -> void:
 	"""Keep combatant stats in sync with node (pain, consciousness, blood, etc.) for UI and gauge fill.
@@ -114,15 +141,23 @@ func _refresh_combatant_stats(c: Dictionary) -> void:
 		c.stats.effective_consciousness = entity.get_effective_consciousness()
 	if entity.has_method("get_performance_modifier"):
 		c.stats.performance_modifier = entity.get_performance_modifier()
+	# Keep combat-relevant attributes in sync (parry capacity uses strength; reaction time read live from node).
+	if "strength" in entity:
+		c.stats.strength = entity.strength
+	if "agility" in entity:
+		c.stats.agility = entity.agility
+	if "perception" in entity:
+		c.stats.perception = entity.perception
 
 func _read_stats_from(node: Node) -> Dictionary:
+	# Core stats: 50–150, 100 = average (SpeciesResource). Use stat/100.0 for multipliers.
 	var s := {
 		"body_cutting": {},
 		"body_blunt": {},
 		"body_max": {},
 		"bone_health": {},
 		"bone_max": {},
-		"strength": 1,
+		"strength": 100,
 		"agility": 100,
 		"intelligence": 100,
 		"endurance": 100,
@@ -236,21 +271,6 @@ func get_combatants() -> Array:
 		})
 	return out
 
-# Returns who (if any) is in wind_up targeting this defender. Parry moves are only valid when this is non-null.
-func _find_attacker_winding_up_on(defender_id: int):
-	for c in combatants:
-		if not c.alive:
-			continue
-		if c.state != STATE_WIND_UP:
-			continue
-		var pa = c.get("pending_attack", {})
-		if pa.get("target_id") == defender_id:
-			return c
-	return null
-
-# When choosing an action, parry moves get this weight vs 1 for others (so parry is chosen most of the time when available, not guaranteed).
-const PARRY_CHOICE_WEIGHT := 5.0
-
 # AI only considers medical actions when in danger of dying soon (low blood or high bleeding rate).
 const MEDICAL_DANGER_BLOOD_THRESHOLD := 55.0   # consider medical when blood volume <= this %
 const MEDICAL_DANGER_SECONDS := 90.0           # or when estimated time to blood-loss death <= this many seconds
@@ -260,7 +280,7 @@ const MEDICAL_URGENCY_RANDOM_MIN := 0.8        # urgency multiplied by randf_ran
 const MEDICAL_URGENCY_RANDOM_MAX := 1.2
 
 # Available actions: array of { "target_id": int, "move_id": String, optional "target_part": String }.
-# Parry moves only if someone is winding up on this combatant. Medical moves only when in medical danger.
+# Attack moves (non-parry) and medical when in danger. Parry is passive only (A4v3).
 func _is_in_medical_danger(c: Dictionary) -> bool:
 	var entity = _get_entity(c.node) if c.node != null else null
 	if entity == null:
@@ -331,16 +351,13 @@ func get_available_actions(combatant_id: int) -> Array:
 	var weapon = c.node.get_weapon() if (c.node != null and c.node.has_method("get_weapon")) else null
 	if weapon != null and weapon.has_method("get_available_attack_types"):
 		var move_ids: Array = weapon.get_available_attack_types()
-		var attacker_winding_up = _find_attacker_winding_up_on(combatant_id)
 		for move_id in move_ids:
 			if WeaponConstants.is_parry_move(move_id):
-				if attacker_winding_up != null:
-					actions.append({ "target_id": attacker_winding_up.id, "move_id": move_id })
-			else:
-				for opp in combatants:
-					if not opp.alive or opp.side == c.side:
-						continue
-					actions.append({ "target_id": opp.id, "move_id": move_id })
+				continue
+			for opp in combatants:
+				if not opp.alive or opp.side == c.side:
+					continue
+				actions.append({ "target_id": opp.id, "move_id": move_id })
 	# Medical actions (self and allies): when any ally is in danger of dying soon (low blood or bleeding will kill in MEDICAL_DANGER_SECONDS).
 	# To add new medical actions: add move_id to MEDICAL_MOVE_IDS, add availability in _get_ally_medical_actions, add duration/handler in _start_medical_action and wind-up completion.
 	if c.node != null and c.node.has_method("can_apply_direct_pressure"):
@@ -367,7 +384,7 @@ func get_available_actions(combatant_id: int) -> Array:
 		print("[Combat] get_available_actions: combatant_id=%d => %d total (%d medical: bandage/direct_pressure/tourniquet)" % [combatant_id, actions.size(), medical_count])
 	return actions
 
-# Pick one action from the list. Parry: PARRY_CHOICE_WEIGHT. Medical: 1..MEDICAL_URGENCY_WEIGHT_MAX by how hurt the combatant is (plus randomness). Others: 1.
+# Pick one action from the list. Medical: 1..MEDICAL_URGENCY_WEIGHT_MAX by urgency. Attacks: 1.
 # combatant_id required for medical weighting; if -1, medical gets weight 1.
 func pick_weighted_action(actions: Array, combatant_id: int = -1) -> Dictionary:
 	if actions.is_empty():
@@ -378,22 +395,14 @@ func pick_weighted_action(actions: Array, combatant_id: int = -1) -> Dictionary:
 	var total: float = 0.0
 	for a in actions:
 		var mid: String = a.get("move_id", "")
-		if WeaponConstants.is_parry_move(mid):
-			total += PARRY_CHOICE_WEIGHT
-		elif _is_medical_move(mid):
+		if _is_medical_move(mid):
 			total += medical_weight_base
 		else:
 			total += 1.0
 	var r: float = randf() * total
 	for a in actions:
 		var mid: String = a.get("move_id", "")
-		var w: float
-		if WeaponConstants.is_parry_move(mid):
-			w = PARRY_CHOICE_WEIGHT
-		elif _is_medical_move(mid):
-			w = medical_weight_base
-		else:
-			w = 1.0
+		var w: float = medical_weight_base if _is_medical_move(mid) else 1.0
 		if r < w:
 			return a
 		r -= w
@@ -479,21 +488,7 @@ func _process(delta: float) -> void:
 			c.gauge = 0.0  # Action bar does not fill while swinging
 			c.state_timer += delta
 			if c.state_timer >= c.state_duration:
-				var tgt = _get_by_id(c.pending_attack.get("target_id", -1))
-				if tgt != null and tgt.state == STATE_PARRY_WIND_UP and tgt.get("pending_parry", {}).get("attacker_id") == c.id:
-					_resolve_parry_at_impact(c.id, tgt.id)
-				else:
-					_execute_attack(c.id)
-		elif c.state == STATE_PARRY_WIND_UP:
-			c.gauge = 0.0
-			c.state_timer += delta
-			if c.state_timer >= c.state_duration:
-				var pp: Dictionary = c.get("pending_parry", {})
-				var attack_id: int = pp.get("attacker_id", -1)
-				var move_id: String = pp.get("move_id", "")
-				c.pending_parry = {}
-				if attack_id >= 0:
-					_resolve_parry_parry_ready_first(c.id, attack_id, move_id)
+				_execute_attack(c.id)
 		elif c.state == STATE_MEDICAL_WIND_UP:
 			c.gauge = 0.0
 			c.state_timer += delta
@@ -560,12 +555,6 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 	var tgt = _get_by_id(target_id)
 	if tgt == null or not tgt.alive:
 		return
-	if move_id != "" and WeaponConstants.is_parry_move(move_id):
-		if tgt.state == STATE_WIND_UP and tgt.get("pending_attack", {}).get("target_id") == attacker_id:
-			if atk.node != null and atk.node.has_method("clear_direct_pressure"):
-				atk.node.clear_direct_pressure()
-			_begin_parry(attacker_id, target_id, move_id)
-			return
 	# Normal attack: clear direct pressure (new action), then start attack
 	if atk.node != null and atk.node.has_method("clear_direct_pressure"):
 		if atk.node.has_method("is_applying_direct_pressure") and atk.node.is_applying_direct_pressure():
@@ -574,7 +563,7 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 	_begin_attack_with_target(attacker_id, target_id, move_id)
 
 func _intensity_from_stats(c: Dictionary) -> float:
-	var str_val: float = float(c.stats.get("strength", 10))
+	var str_val: float = float(c.stats.get("strength", 100))
 	var base: float = 0.2 + INTENSITY_STRENGTH_SCALE * (str_val / INTENSITY_STRENGTH_NORM)
 	return clampf(base + randf_range(-INTENSITY_RANDOM_RANGE, INTENSITY_RANDOM_RANGE), 0.1, 1.0)
 
@@ -672,42 +661,6 @@ func _start_medical_action(combatant_id: int, target_combatant_id: int, medical_
 	c.state_duration = duration
 	c.pending_medical = {"medical_id": medical_id, "target_part": target_part, "target_combatant_id": target_combatant_id}
 
-# Parry wind-up duration (s): reaction (fixed) + blade movement scaled by weapon mass and strength. Dagger faster than axe/hammer.
-func _get_parry_wind_up_duration(defender: Dictionary) -> float:
-	var reaction_s: float = PARRY_REACTION_S
-	var m_d: float = WeaponConstants.BASELINE_MASS_KG
-	if defender.node != null and defender.node.has_method("get_weapon"):
-		var w = defender.node.get_weapon()
-		if w != null and (w.get("mass") is float or w.get("mass") is int):
-			m_d = float(w.mass)
-	var str_val: float = float(defender.stats.get("strength", 10))
-	var mult: float = (m_d / WeaponConstants.BASELINE_MASS_KG) * (PARRY_STRENGTH_NORM / maxf(1.0, str_val))
-	mult = clampf(mult, PARRY_MOVEMENT_MASS_STRENGTH_MIN, PARRY_MOVEMENT_MASS_STRENGTH_MAX)
-	var base: float = reaction_s + PARRY_BLADE_MOVEMENT_S * mult
-	# Pain/consciousness: wounded defenders react slower to parry
-	var perf_mod: float = 1.0
-	if defender.node != null and defender.node.has_method("get_performance_modifier"):
-		perf_mod = defender.node.get_performance_modifier()
-	if perf_mod > 0.0:
-		base /= maxf(PERF_MOD_MIN, perf_mod)
-	return base
-
-# Parry has its own wind-up; resolution happens when parry completes (use attack momentum at that moment) or when attack lands first (use parry capacity scaled by parry progress).
-func _begin_parry(defender_id: int, attacker_id: int, move_id: String) -> void:
-	var defender = _get_by_id(defender_id)
-	var attacker = _get_by_id(attacker_id)
-	if defender == null or attacker == null or attacker.pending_attack.is_empty():
-		return
-	var wind_up_s: float = _get_parry_wind_up_duration(defender)
-	defender.gauge = 0.0
-	defender.state = STATE_PARRY_WIND_UP
-	defender.state_timer = 0.0
-	defender.state_duration = wind_up_s
-	defender.pending_parry = {"attacker_id": attacker_id, "move_id": move_id}
-	var def_name: String = defender.node.name if defender.node != null else "id:%d" % defender_id
-	var atk_name: String = attacker.node.name if attacker.node != null else "id:%d" % attacker_id
-	print("[Combat] Parry wind-up: %s getting blade in place vs %s (%.2fs)" % [def_name, atk_name, wind_up_s])
-
 func _begin_attack_with_target(attacker_id: int, target_id: int, move_id: String = "") -> void:
 	var atk = _get_by_id(attacker_id)
 	var tgt = _get_by_id(target_id)
@@ -752,7 +705,7 @@ func _begin_attack_with_target(attacker_id: int, target_id: int, move_id: String
 	atk.state = STATE_WIND_UP
 	atk.state_timer = 0.0
 	atk.state_duration = wind_up_s
-	atk.pending_attack = {"target_id": target_id, "intensity": intensity, "power": power, "follow_through": follow_through, "attack_type": attack_type, "archetype": archetype}
+	atk.pending_attack = {"target_id": target_id, "intensity": intensity, "power": power, "follow_through": follow_through, "attack_type": attack_type, "archetype": archetype, "wind_up_duration": wind_up_s}
 	var atk_name_log: String = atk.node.name if (atk.node != null) else "id:%d" % attacker_id
 	print("[Combat] Power/commitment: %s | power=%.2f follow_through=%.2f => intensity=%.2f | windup_mult=%.2f => wind_up=%.2fs (recovery will use same intensity)" % [atk_name_log, power, follow_through, intensity, windup_mult, wind_up_s])
 
@@ -771,7 +724,6 @@ func _execute_attack(attacker_id: int) -> void:
 	var attack_type: String = pa.get("attack_type", WeaponConstants.ATTACK_TYPE_CUT)
 	var archetype: Dictionary = pa.get("archetype", {})
 	var velocity_override: float = pa.get("velocity_m_s", -1.0)
-	atk.pending_attack = {}
 
 	var tgt = _get_by_id(target_id)
 	if tgt == null or not tgt.alive:
@@ -828,6 +780,7 @@ func _execute_attack(attacker_id: int) -> void:
 		atk.state = STATE_RECOVERING
 		atk.state_timer = 0.0
 		atk.state_duration = rec_dur
+		atk["off_balance_until"] = Time.get_ticks_msec() / 1000.0 + OFF_BALANCE_DURATION_S
 		return
 
 	# Passive dodge: defender rolls dodge chance (speed, legs, pain/consciousness).
@@ -842,6 +795,52 @@ func _execute_attack(attacker_id: int) -> void:
 			atk.state_timer = 0.0
 			atk.state_duration = rec_dur
 			return
+
+	# A4v3 passive parry: perception/state → reaction time; if noticed in time, parry attempt with effectiveness scaled by time_to_react.
+	# 3.3 commitment window: effective reaction window = wind_up * (1 - COMMITMENT_FRACTION). 3.2/3.4 readiness by state. 3.5 off balance penalty.
+	if not pa.get("passive_parry_attempted", false):
+		if tgt.state != STATE_WIND_UP and tgt.state != STATE_MEDICAL_WIND_UP:
+			var wind_up_duration: float = pa.get("wind_up_duration", 0.5)
+			var effective_wind_up: float = wind_up_duration * (1.0 - COMMITMENT_FRACTION)
+			if tgt.node != null and tgt.node.has_method("get_passive_parry_reaction_time") and tgt.node.has_method("get_weapon"):
+				var def_weapon = tgt.node.get_weapon()
+				if def_weapon != null and effective_wind_up > 0.0:
+					var reaction_time: float = tgt.node.get_passive_parry_reaction_time()
+					if reaction_time < effective_wind_up:
+						var time_to_react: float = effective_wind_up - reaction_time
+						var atk_weapon = atk.node.get_weapon() if (atk.node != null and atk.node.has_method("get_weapon")) else null
+						if atk_weapon != null:
+							var attack_instance = AttackInstance.new(attack_type, intensity)
+							attack_instance.archetype = archetype
+							attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else -1.0
+							var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
+							var m_a: float = float(atk_weapon.mass)
+							var p_a: float = m_a * v_intent
+							var m_d: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
+							var s_d: float = float(tgt.stats.get("strength", 100))
+							var c_d_full: float = m_d * _get_parry_speed_m_s() * (s_d / PARRY_STRENGTH_NORM)
+							var def_perf: float = 1.0
+							if tgt.node.has_method("get_performance_modifier"):
+								def_perf = tgt.node.get_performance_modifier()
+							c_d_full *= maxf(PERF_MOD_MIN, def_perf)
+							if PARRY_TECHNIQUE_VARIANCE > 0.0:
+								c_d_full *= randf_range(1.0 - PARRY_TECHNIQUE_VARIANCE, 1.0 + PARRY_TECHNIQUE_VARIANCE)
+							var capacity_mult: float = clampf(time_to_react / PASSIVE_PARRY_MIN_TIME_FOR_FULL_S, 0.0, 1.0)
+							var c_d: float = c_d_full * capacity_mult
+							var readiness: float = _get_passive_parry_readiness(tgt)
+							c_d *= readiness
+							var off_balance: bool = _is_off_balance(tgt)
+							if off_balance:
+								c_d *= OFF_BALANCE_PARRY_CAPACITY_MULT
+							pa["passive_parry_attempted"] = true
+							var def_name: String = tgt.node.name if tgt.node != null else "id:%d" % target_id
+							var ob: String = " off_balance" if off_balance else ""
+							print("[Combat] Passive parry (A4v3): %s noticed in time (reaction %.2fs < effective_wind_up %.2fs) => time_to_react=%.2fs capacity_mult=%.2f readiness=%.2f%s => c_d=%.1f vs p_a=%.1f" % [def_name, reaction_time, effective_wind_up, time_to_react, capacity_mult, readiness, ob, c_d, p_a])
+							_resolve_parry_with_momentum(target_id, attacker_id, "", p_a, c_d, true)
+							return
+
+	# Proceeding to damage: clear so re-entry from partial parry doesn't re-use stale pending_attack.
+	atk.pending_attack = {}
 
 	# 1) Choose random body part (weighted by surface area/exposure). Sub-region is then chosen inside take_damage_split relative to this part.
 	var part: String = BodyPartConstants.get_weighted_random_part(targetable)
@@ -882,7 +881,7 @@ func _execute_attack(attacker_id: int) -> void:
 		var pen_blunt_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, DAMAGE_TYPE_BLUNT, blunt_opts)
 		pen_blunt_momentum_per_area = pen_blunt_dict.get("penetration_blunt_momentum_per_area", -1.0)
 		blunt_contact_cm = pen_blunt_dict.get("blunt_contact_cm", -1.0)
-		var str_mod: float = maxf(0.1, float(atk.stats.strength) / 10.0)
+		var str_mod: float = maxf(0.1, float(atk.stats.strength) / 100.0)
 		var pa_power: float = pa.get("power", -1.0)
 		var pa_ft: float = pa.get("follow_through", -1.0)
 		print("[Damage equation] %s -> %s | power=%.2f follow_through=%.2f intensity=%.2f (drives v, KE, wind-up, recovery) | physics: v=%.2f m/s mass=%.2f kg KE=%.1f J | modifiers: strength=%.2f arm=%.2f cut_ratio=%.2f => pre_armor=%.1f (cut=%.1f blunt=%.1f) | pen_sharp=%.2f mm RHA | blunt: transmission only (momentum/A=%.0f)" % [atk_name, tgt_name, pa_power, pa_ft, intensity, v_m_s, mass_kg, ke_j, str_mod, arm_mod, cut_ratio, pre_armor, pre_cut, pre_blunt, pen_sharp, pen_blunt_momentum_per_area])
@@ -890,7 +889,8 @@ func _execute_attack(attacker_id: int) -> void:
 		var mod: float = 1.0
 		if atk.node != null and atk.node.has_method("get_attack_damage_modifier"):
 			mod = atk.node.get_attack_damage_modifier()
-		pre_armor = float(atk.stats.strength * mod)
+		# Unarmed: strength/100 = multiplier; scale so average (100) gives reasonable base (e.g. 8).
+		pre_armor = (float(atk.stats.strength) / 100.0) * 8.0 * mod
 		pre_blunt = pre_armor
 		pre_cut = 0.0
 		print("[Damage equation] %s -> %s | fallback (unarmed): pre_armor=%.1f (cut=%.1f blunt=%.1f)" % [atk_name, tgt_name, pre_armor, pre_cut, pre_blunt])
@@ -987,20 +987,18 @@ func _execute_attack(attacker_id: int) -> void:
 func _get_parry_speed_m_s() -> float:
 	return WeaponConstants.VELOCITY_MAX_M_S * PARRY_V_FRACTION_OF_MAX_STRIKE
 
-# Resolve parry using precomputed momentum and capacity (parry wind-up vs attack wind-up timing already applied by caller).
-func _resolve_parry_with_momentum(defender_id: int, attacker_id: int, move_id: String, p_a: float, c_d: float) -> void:
+# Resolve parry using precomputed momentum and capacity. Called only from passive parry (A4v3); defender returns to waiting (no counter-attack).
+func _resolve_parry_with_momentum(defender_id: int, attacker_id: int, _move_id: String, p_a: float, c_d: float, _skip_counter_attack: bool = true) -> void:
 	var defender = _get_by_id(defender_id)
 	var attacker = _get_by_id(attacker_id)
 	if defender == null or attacker == null or attacker.pending_attack.is_empty():
 		return
-	defender.pending_parry = {}
 	var pa = attacker.pending_attack
 	var attacker_weapon = attacker.node.get_weapon() if (attacker.node != null and attacker.node.has_method("get_weapon")) else null
 	if attacker_weapon == null:
 		defender.state = STATE_WAITING
 		defender.state_timer = 0.0
 		defender.state_duration = 0.0
-		_begin_attack_with_target(defender_id, attacker_id, move_id)
 		return
 	var m_a: float = float(attacker_weapon.mass)
 	var attack_instance = AttackInstance.new(pa.get("attack_type", WeaponConstants.ATTACK_TYPE_CUT), pa.get("intensity", 0.5))
@@ -1027,88 +1025,14 @@ func _resolve_parry_with_momentum(defender_id: int, attacker_id: int, move_id: S
 	attacker.state = STATE_RECOVERING
 	attacker.state_timer = 0.0
 	attacker.state_duration = rec_dur_parry
+	attacker["off_balance_until"] = Time.get_ticks_msec() / 1000.0 + OFF_BALANCE_DURATION_S
 	var def_name: String = defender.node.name if defender.node != null else "id:%d" % defender_id
 	var atk_name: String = attacker.node.name if attacker.node != null else "id:%d" % attacker_id
 	print("[Combat] Parry: %s parried %s (attacker momentum %.1f vs defender capacity %.1f). Attacker recovery: intensity=%.2f => %.2fs" % [def_name, atk_name, p_a, c_d, parry_intensity, rec_dur_parry])
 	emit_signal("action_resolved", defender_id, attacker_id, {"dmg": 0, "died": false, "part": "", "damage_type": "", "outcome": "parry_deflect", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0})
-	_begin_attack_with_target(defender_id, attacker_id, move_id)
-
-# Parry wind-up completed first: compare full parry capacity vs attack momentum at this moment (attack still building).
-func _resolve_parry_parry_ready_first(defender_id: int, attacker_id: int, move_id: String) -> void:
-	var defender = _get_by_id(defender_id)
-	var attacker = _get_by_id(attacker_id)
-	if defender == null or attacker == null or attacker.pending_attack.is_empty():
-		return
-	var pa = attacker.pending_attack
-	var progress: float = clampf(attacker.state_timer / maxf(0.001, attacker.state_duration), 0.0, 1.0)
-	var attack_instance = AttackInstance.new(pa.get("attack_type", WeaponConstants.ATTACK_TYPE_CUT), pa.get("intensity", 0.5))
-	attack_instance.archetype = pa.get("archetype", {})
-	var attacker_weapon = attacker.node.get_weapon() if (attacker.node != null and attacker.node.has_method("get_weapon")) else null
-	if attacker_weapon == null:
-		defender.state = STATE_WAITING
-		defender.state_timer = 0.0
-		defender.state_duration = 0.0
-		_begin_attack_with_target(defender_id, attacker_id, move_id)
-		return
-	var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(attacker_weapon, attack_instance)
-	var v_current: float = v_intent * _velocity_curve_factor(progress)
-	var m_a: float = float(attacker_weapon.mass)
-	var p_a: float = m_a * v_current
-	var defender_weapon = defender.node.get_weapon() if (defender.node != null and defender.node.has_method("get_weapon")) else null
-	var m_d: float = float(defender_weapon.mass) if defender_weapon else WeaponConstants.BASELINE_MASS_KG
-	var s_d: float = float(defender.stats.get("strength", 10))
-	var c_d: float = m_d * _get_parry_speed_m_s() * (s_d / PARRY_STRENGTH_NORM)
-	# Pain/consciousness: wounded defenders parry less effectively
-	var def_perf_mod: float = 1.0
-	if defender.node != null and defender.node.has_method("get_performance_modifier"):
-		def_perf_mod = defender.node.get_performance_modifier()
-	c_d *= maxf(PERF_MOD_MIN, def_perf_mod)
-	if PARRY_TECHNIQUE_VARIANCE > 0.0:
-		c_d *= randf_range(1.0 - PARRY_TECHNIQUE_VARIANCE, 1.0 + PARRY_TECHNIQUE_VARIANCE)
-	_resolve_parry_with_momentum(defender_id, attacker_id, move_id, p_a, c_d)
-
-# Attack wind-up completed first (attack lands): compare parry capacity scaled by how much of parry wind-up finished vs full attack momentum.
-func _resolve_parry_at_impact(attacker_id: int, defender_id: int) -> void:
-	var defender = _get_by_id(defender_id)
-	var attacker = _get_by_id(attacker_id)
-	if defender == null or attacker == null or attacker.pending_attack.is_empty():
-		_execute_attack(attacker_id)
-		return
-	var pp: Dictionary = defender.get("pending_parry", {})
-	var move_id: String = pp.get("move_id", "")
-	defender.pending_parry = {}
-	var parry_progress: float = clampf(defender.state_timer / maxf(0.001, defender.state_duration), 0.0, 1.0)
-	var pa = attacker.pending_attack
-	var attack_instance = AttackInstance.new(pa.get("attack_type", WeaponConstants.ATTACK_TYPE_CUT), pa.get("intensity", 0.5))
-	attack_instance.archetype = pa.get("archetype", {})
-	var attacker_weapon = attacker.node.get_weapon() if (attacker.node != null and attacker.node.has_method("get_weapon")) else null
-	if attacker_weapon == null:
-		defender.state = STATE_WAITING
-		defender.state_timer = 0.0
-		defender.state_duration = 0.0
-		_begin_attack_with_target(defender_id, attacker_id, move_id)
-		return
-	var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(attacker_weapon, attack_instance)
-	var m_a: float = float(attacker_weapon.mass)
-	var p_a: float = m_a * v_intent
-	var defender_weapon = defender.node.get_weapon() if (defender.node != null and defender.node.has_method("get_weapon")) else null
-	var m_d: float = float(defender_weapon.mass) if defender_weapon else WeaponConstants.BASELINE_MASS_KG
-	var s_d: float = float(defender.stats.get("strength", 10))
-	var c_d_full: float = m_d * _get_parry_speed_m_s() * (s_d / PARRY_STRENGTH_NORM)
-	# Pain/consciousness: wounded defenders parry less effectively
-	var def_perf_mod: float = 1.0
-	if defender.node != null and defender.node.has_method("get_performance_modifier"):
-		def_perf_mod = defender.node.get_performance_modifier()
-	c_d_full *= maxf(PERF_MOD_MIN, def_perf_mod)
-	if PARRY_TECHNIQUE_VARIANCE > 0.0:
-		c_d_full *= randf_range(1.0 - PARRY_TECHNIQUE_VARIANCE, 1.0 + PARRY_TECHNIQUE_VARIANCE)
-	var c_d: float = c_d_full * parry_progress
 	defender.state = STATE_WAITING
 	defender.state_timer = 0.0
 	defender.state_duration = 0.0
-	var def_name: String = defender.node.name if defender.node != null else "id:%d" % defender_id
-	print("[Combat] Parry at impact: %s parry was %.0f%% in place (capacity %.1f vs momentum %.1f)" % [def_name, parry_progress * 100.0, c_d, p_a])
-	_resolve_parry_with_momentum(defender_id, attacker_id, move_id, p_a, c_d)
 
 func _get_by_id(id: int):
 	for c in combatants:

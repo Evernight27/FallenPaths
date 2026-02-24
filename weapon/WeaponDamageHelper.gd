@@ -35,7 +35,7 @@ static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCou
 # Pre-armor CUT (sharp) from KE and effective edge: scale * sqrt(KE) * strength_mod * arm_mod * contact_factor(effective sharp), clamped.
 static func compute_pre_armor_cut(weapon: RefCounted, attack_instance: RefCounted, strength: int, arm_mod: float) -> float:
 	var ke_j: float = compute_kinetic_energy_j(weapon, attack_instance)
-	var strength_mod: float = maxf(0.1, float(strength) / 10.0)
+	var strength_mod: float = maxf(0.1, float(strength) / 100.0)
 	var raw: float = WeaponConstants.DAMAGE_KE_SCALE * sqrt(maxf(0.0, ke_j)) * strength_mod * arm_mod
 	var at: String = attack_instance.get("attack_type")
 	if at == null or not (at is String):
@@ -57,7 +57,7 @@ static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCoun
 	var mass_kg: float = float(m) if (m is float or m is int) else WeaponConstants.BASELINE_MASS_KG
 	var v: float = get_effective_velocity_m_s(weapon, attack_instance)
 	var momentum: float = mass_kg * v
-	var strength_mod: float = maxf(0.1, float(strength) / 10.0)
+	var strength_mod: float = maxf(0.1, float(strength) / 100.0)
 	var raw: float = WeaponConstants.DAMAGE_MOMENTUM_SCALE * momentum * strength_mod * arm_mod
 	var contact_cm: float = _get_blunt_contact_for_damage(weapon, attack_instance)
 	contact_cm = maxf(contact_cm, WeaponConstants.MIN_CONTACT_WIDTH_CM)

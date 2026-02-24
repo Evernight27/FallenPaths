@@ -43,7 +43,7 @@ func _get_bone_max() -> Dictionary:
 	return _combat_body.bone_max if _combat_body else {}
 
 func _get_strength() -> int:
-	return _combat_body.strength if _combat_body else 1
+	return _combat_body.strength if _combat_body else 100
 
 func _get_agility() -> int:
 	return _combat_body.agility if _combat_body else 100
@@ -96,6 +96,9 @@ func get_total_pain() -> float:
 
 func get_dodge_chance() -> float:
 	return _combat_body.get_dodge_chance() if _combat_body else 0.0
+
+func get_passive_parry_reaction_time() -> float:
+	return _combat_body.get_passive_parry_reaction_time() if _combat_body else 0.5
 
 func get_effective_consciousness() -> float:
 	return _combat_body.get_effective_consciousness() if _combat_body else 100.0

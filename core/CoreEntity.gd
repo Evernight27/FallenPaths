@@ -15,7 +15,7 @@ var body_blunt: Dictionary = {}
 var body_max: Dictionary = {}
 var bone_health: Dictionary = {}
 var bone_max: Dictionary = {}
-var strength: int = 0
+var strength: int = 100
 var agility: int = 100
 var intelligence: int = 100
 var endurance: int = 100
@@ -429,6 +429,17 @@ func get_hit_chance_performance_modifier() -> float:
 	# Regional: head pain impairs aim, focus, and reaction time
 	var head_pain_mod: float = _PainConscious.get_pain_performance_modifier(get_effective_pain_for_region("head"))
 	return maxf(_PainConscious.MIN_PERFORMANCE_MODIFIER, base * head_pain_mod)
+
+# Passive parry (A4v3): time (s) until defender "notices" an incoming attack. reaction_time = BASE / perception_factor; high perception = short reaction time.
+# Average stats: perception 100, consciousness 100 → perception_factor 1.0 → reaction 0.28 s. perception_norm clamped 0.2–1.5, perception_factor 0.15–1.0 → reaction time ceiling ~1.87 s, floor ~0.19 s.
+const PASSIVE_PARRY_BASE_REACTION_S: float = 0.28
+func get_passive_parry_reaction_time() -> float:
+	"""Seconds until this entity notices an incoming attack (for passive parry). Lower = faster reaction. Perception, consciousness, and head pain (focus) matter. Average (100/100) = 0.28 s; clamps give sensible min/max."""
+	var perception_norm: float = clampf(float(perception) / 100.0, 0.2, 1.5)
+	var consciousness_norm: float = clampf(get_effective_consciousness() / 100.0, 0.1, 1.0)
+	var head_pain_mod: float = _PainConscious.get_pain_performance_modifier(get_effective_pain_for_region("head"))
+	var perception_factor: float = clampf(perception_norm * consciousness_norm * head_pain_mod, 0.15, 1.0)
+	return PASSIVE_PARRY_BASE_REACTION_S / perception_factor
 
 # Passive dodge chance (0–1): agility + perception, leg functionality, and pain/consciousness. At 100 AGI+PER, full legs, full perf = DODGE_CHANCE_AT_FULL_SPEED.
 const DODGE_CHANCE_AT_FULL_SPEED: float = 0.08
@@ -1117,7 +1128,7 @@ func _apply_species():
 			body_blunt[p] = _round_tissue(float(m))
 			bone_max[p] = b
 			bone_health[p] = _round_tissue(float(b))
-		strength = species.get("strength") if "strength" in species else 8
+		strength = species.get("strength") if "strength" in species else 100
 		agility = species.get("agility") if "agility" in species else (species.get("speed") if "speed" in species else 100)
 		intelligence = species.get("intelligence") if "intelligence" in species else 100
 		endurance = species.get("endurance") if "endurance" in species else 100
@@ -1134,7 +1145,7 @@ func _apply_species():
 			body_blunt[p] = _round_tissue(12.0)
 			bone_max[p] = 8
 			bone_health[p] = _round_tissue(8.0)
-		strength = 1
+		strength = 100
 		agility = 100
 		intelligence = 100
 		endurance = 100

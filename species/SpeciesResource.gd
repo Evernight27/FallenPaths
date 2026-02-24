@@ -27,8 +27,8 @@ const VITAL_PARTS := ["head", "chest"]
 @export var left_arm_bone: int = 8
 @export var left_leg_bone: int = 12
 @export var right_leg_bone: int = 12
-# Core attributes (RimWorld-style: 100 = average, 50–150 range)
-@export var strength: int = 8       # Damage, parry (Paths scale: ~1–10 for damage mod)
+# Core attributes: one scale for all. 100 = average, 50–150 typical range → stat/100.0 gives 0.5–1.5 multiplier.
+@export var strength: int = 100     # Damage, parry (50–150: 100 = average)
 @export var agility: int = 100      # Gauge fill, dodge, cooldowns (50–150: 100 = average)
 @export var intelligence: int = 100 # Medical effectiveness modifier (50–150)
 @export var endurance: int = 100    # Damage resistance, pain shock resistance (50–150)

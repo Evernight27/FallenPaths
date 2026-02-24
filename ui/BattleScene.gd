@@ -445,7 +445,7 @@ func _on_turn_ready(combatant_id: int) -> void:
 					manager.resolve_action(combatant_id, c.id)
 					return
 		else:
-			# Weighted choice: parry preferred when opponent is winding up (not guaranteed).
+			# Weighted choice: medical by urgency, else attack.
 			var choice = manager.pick_weighted_action(actions, combatant_id)
 			var opts: Dictionary = {}
 			if choice.get("target_part", "") != "":
