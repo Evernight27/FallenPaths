@@ -11,6 +11,7 @@ var weapon_type: String = ""
 var mass: float = 1.0
 var blade_width: float = 2.0
 var point_width: float = 0.5
+var thrust_head_width: float = 0.0  # Width of head/shaft behind point; used for blunt momentum/area on thrusts.
 var head_diameter: float = 0.0
 # Optional: effective edge width for blunt weapons (flanges/ridges that can break skin). Used for sharp-component penetration on blunt moves.
 var edge_width: float = 0.0
@@ -34,6 +35,7 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 	w.mass = def.get("mass", WeaponConstants.BASELINE_MASS_KG)
 	w.blade_width = def.get("blade_width", WeaponConstants.BASELINE_CONTACT_CM)
 	w.point_width = def.get("point_width", 0.5)
+	w.thrust_head_width = def.get("thrust_head_width", 0.0)
 	w.head_diameter = def.get("head_diameter", 0.0)
 	w.edge_width = def.get("edge_width", 0.0)
 	w.melee_range = def.get("melee_range", 1.5)
@@ -50,12 +52,6 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 			var arch_id = entry.get("archetype_id", move_def.get("archetype_id", WeaponConstants.ARCHETYPE_SLASH))
 			w.attack_types[move_id] = { "cooldown": cooldown, "archetype_id": arch_id }
 	return w
-
-
-# Estimated pre-armor damage for UI (sample: intensity 0.5, strength 10, arm_mod 1.0).
-func get_estimated_pre_armor_damage(attack_type: String) -> float:
-	var sample := AttackInstance.new(attack_type, 0.5)
-	return WeaponDamageHelper.compute_pre_armor_damage(self, sample, 10, 1.0)
 
 
 func get_cooldown(move_id: String) -> float:
@@ -118,12 +114,16 @@ func get_effective_sharp_contact_cm(move_id: String) -> float:
 
 
 # Contact (cm) for the BLUNT damage component only. Uses the surface that actually hits for this attack.
-# Stab -> point (same as sharp: blunt from stabbing motion is through the tip); cut -> slap/flat; blunt -> head or fallback.
+# Stab -> geometric mean of point and thrust_head_width: both tip (initial puncture) and head (follow-through) influence area.
+# Cut -> slap/flat; blunt -> head or fallback.
 func get_blunt_contact_cm(move_id: String) -> float:
 	var ct: String = get_contact_type(move_id)
 	match ct:
 		WeaponConstants.ATTACK_TYPE_STAB:
-			return point_width if point_width > 0.0 else WeaponConstants.MIN_CONTACT_WIDTH_CM
+			var point: float = point_width if point_width > 0.0 else WeaponConstants.MIN_CONTACT_WIDTH_CM
+			if thrust_head_width > 0.0:
+				return sqrt(point * thrust_head_width)
+			return point
 		WeaponConstants.ATTACK_TYPE_CUT:
 			return maxf(blade_width, WeaponConstants.BLUNT_CUT_MIN_CONTACT_CM)
 		WeaponConstants.ATTACK_TYPE_BLUNT:

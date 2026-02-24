@@ -16,13 +16,13 @@ const DURABILITY_MIN_DAMAGE_FLAT: float = 0.5
 const DURABILITY_MIN_DAMAGE_RATIO: float = 0.05
 
 # --- Generic layer stats (cloth, leather, mail, plate only) ---
-# Sharp resistance: mm RHA equivalent. Penetration energy ≈ res × J_PER_MM_RHA (80 in WeaponConstants).
-# Blunt resistance: MPa (relative; no direct medieval MPa data — ordering from literature).
+# Sharp resistance: mm RHA equivalent. Nonlinear pen = (KE/55)^0.6 × area_factor (Williams).
+# Blunt: transmission-only (no penetration check). blunt_resistance_mpa kept for reference/durability; not used for rigid check.
 # Deflection transmission: fraction of damage that becomes blunt when sharp fails (BAT: plate transmits more, cloth absorbs).
 # Durability: wear per damage absorbed; cloth tears fastest, plate lasts. See ARMOR_VALUES_PHYSICS_RESEARCH.md.
 
 const DEFLECTION_TRANSMISSION_DEFAULT: float = 0.5
-# When blunt fails to penetrate (pen < blunt_res): this fraction is transmitted as BAT. Fallback if layer omits blunt_bat_transmission.
+# Blunt transmission: fraction of blunt damage that passes through layer (transmission-only model; no penetration).
 const BLUNT_BAT_TRANSMISSION: float = 0.65
 
 # Option B: rigid (pressure) vs cushion (momentum). blunt_resistance_mpa = pressure (KE/area) to deform layer.
@@ -31,43 +31,58 @@ const BLUNT_BAT_TRANSMISSION: float = 0.65
 # Example: mace 1.7 kg, 12 m/s, 8 cm head → p/A ≈ 20.4/0.005 ≈ 4080 (kg·m/s)/m² → above threshold.
 const BLUNT_CUSHION_MOMENTUM_THRESHOLD: float = 3000.0  # (kg·m/s)/m²
 
-# Cloth: gambeson padding, leg wraps, coif. Minimal vs sharp; good blunt absorption (cushioning). Tears fastest.
-# blunt_bat_transmission: low — padding absorbs impact; less force reaches body.
+# Area coupling for rigid layers: coupling = lerp(1, contact_cm/REFERENCE, rigidity). No clamp.
+# ArmorPiece uses WeaponConstants.get_blunt_coupling_reference_cm() (mean head_diameter from weapon defs).
+const BLUNT_COUPLING_REFERENCE_CM: float = 6.0  # fallback only
+# Rigidity >= this: apply area coupling. Below: no area effect (flexible).
+const RIGIDITY_THRESHOLD: float = 0.5
+# Warn when area_factor or transmission outside these (tuning check)
+const BLUNT_AREA_FACTOR_WARN_MIN: float = 0.05
+const BLUNT_AREA_FACTOR_WARN_MAX: float = 5.0
+const BLUNT_TRANSMISSION_WARN_MIN: float = 0.0
+const BLUNT_TRANSMISSION_WARN_MAX: float = 1.0
+
+# rigidity 0–1: area coupling for blunt. Rigid (plate) transmits more with large contact (mace); flexible (cloth) no effect.
+# Cloth: gambeson padding, leg wraps, coif. Williams: 50 J for 16 layers linen. pen=(50/55)^0.6 ≈ 0.9 mm.
 const LAYER_CLOTH: Dictionary = {
-	"sharp_resistance_rha_mm": 0.5,
+	"sharp_resistance_rha_mm": 0.9,
 	"blunt_resistance_mpa": 16.0,
 	"blunt_cushion": 0.8,
-	"blunt_bat_transmission": 0.50,
+	"blunt_bat_transmission": 0.45,
+	"rigidity": 0.0,
 	"durability_loss_rate": 0.22,
 	"deflection_transmission": 0.16
 }
 
-# Leather: buff coat, boiled leather, bracers. ~30 J (buff) to ~80 J (layered); good blunt absorption.
+# Leather: buff coat, boiled leather. Williams: buff 30 J, cuir-bouilli 20–30 J. pen=(30/55)^0.6 ≈ 0.6 mm.
 const LAYER_LEATHER: Dictionary = {
-	"sharp_resistance_rha_mm": 1.0,
+	"sharp_resistance_rha_mm": 0.6,
 	"blunt_resistance_mpa": 14.0,
 	"blunt_cushion": 0.5,
 	"blunt_bat_transmission": 0.58,
+	"rigidity": 0.2,
 	"durability_loss_rate": 0.16,
 	"deflection_transmission": 0.24
 }
 
-# Mail: chainmail. 100–120 J with padding (→ 1.5 mm at 80 J/mm); good vs slash, poor vs blunt (transmits trauma).
+# Mail: chainmail + jack. Williams: 80–120 J. pen=(120/55)^0.6 ≈ 1.5 mm.
 const LAYER_MAIL: Dictionary = {
 	"sharp_resistance_rha_mm": 1.5,
 	"blunt_resistance_mpa": 10.0,
 	"blunt_cushion": 0.2,
 	"blunt_bat_transmission": 0.70,
+	"rigidity": 0.2,
 	"durability_loss_rate": 0.12,
 	"deflection_transmission": 0.36
 }
 
-# Plate: medieval steel/iron. ~1–4 mm RHA equiv; rigid → higher BAT transmission; little cushion (transmits).
+# Plate: medieval steel. Williams: 2 mm=175 J, 3.5 mm≈380 J. Rigid → area coupling (mace > thrust).
 const LAYER_PLATE: Dictionary = {
 	"sharp_resistance_rha_mm": 3.5,
 	"blunt_resistance_mpa": 40.0,
 	"blunt_cushion": 0.0,
-	"blunt_bat_transmission": 0.80,
+	"blunt_bat_transmission": 0.72,
+	"rigidity": 1.0,
 	"durability_loss_rate": 0.07,
 	"deflection_transmission": 0.46
 }
@@ -200,4 +215,3 @@ static func _piece_definitions_build() -> Dictionary:
 
 # Default penetration when no weapon is specified (strength-scaled later)
 const DEFAULT_PENETRATION_SHARP: float = 5.0
-const DEFAULT_PENETRATION_BLUNT: float = 2.0

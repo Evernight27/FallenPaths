@@ -16,7 +16,3 @@ func _init(p_attack_type: String = "cut", p_intensity: float = 0.5, p_velocity_m
 	attack_type = p_attack_type
 	intensity = clampf(p_intensity, 0.0, 1.0)
 	velocity_m_s = p_velocity_m_s
-
-
-static func create(p_attack_type: String, p_intensity: float = 0.5, p_velocity_m_s: float = -1.0) -> AttackInstance:
-	return AttackInstance.new(p_attack_type, p_intensity, p_velocity_m_s)

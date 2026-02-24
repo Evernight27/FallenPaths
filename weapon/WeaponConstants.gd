@@ -16,14 +16,15 @@ const BASELINE_CONTACT_CM: float = 2.0
 const BASELINE_MASS_KG: float = 1.0
 
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
-# 1 mm mild steel ≈ 55 J to penetrate (base). 80 gives more realistic penetration; 130 was harder to penetrate (balance).
-# Research: strike speeds 17–24 m/s; we use 6–20 m/s effective impact (BALANCING_INVESTIGATION.md).
-const J_PER_MM_RHA: float = 80.0
-# Effective impact velocity (m/s). Research: rod-like strikes 17.2–23.9 m/s; 20 allows near-peak strikes.
+# Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J → E ∝ t^1.67. Nonlinear: pen = (KE/J_BASE)^PEN_EXPONENT.
+const J_PER_MM_BASE: float = 55.0  # Williams: 55 J for 1 mm mild steel
+const PENETRATION_EXPONENT: float = 0.6  # 1/1.67; thicker armor needs disproportionately more energy
+# Effective impact velocity (m/s). Research: rod-like strikes 17.2–24.2 m/s.
 const VELOCITY_MIN_M_S: float = 6.0
-const VELOCITY_MAX_M_S: float = 20.0
-# Pre-armor damage: scale * sqrt(KE) * strength_mod * arm_mod. Tuned so damage band matches old 2–12 m/s at scale 4.0.
-const DAMAGE_KE_SCALE: float = 2.6
+const VELOCITY_MAX_M_S: float = 24.0
+# Pre-armor damage: scale * sqrt(KE) * strength_mod * arm_mod. 2.0 aligns severance with research (~100 J arm, ~200 J leg).
+# See JOULES_FORCE_OPTIMAL_NUMBERS.md.
+const DAMAGE_KE_SCALE: float = 2.0
 const DAMAGE_KE_MIN: float = 1.0
 const DAMAGE_KE_MAX: float = 80.0
 # Cap penetration (mm RHA) from KE so very high energy doesn't trivialize armor.
@@ -36,15 +37,8 @@ const MIN_CONTACT_WIDTH_CM: float = 0.2
 # Contact area in damage: smaller contact -> more local damage. Cap factor so stab doesn't overscale.
 const CONTACT_DAMAGE_EXPONENT: float = 0.3
 const CONTACT_DAMAGE_FACTOR_MAX: float = 2.0
-# Blunt rigid check: Option 1 blend of pressure (KE/area) + impulse (momentum/area). pen_blunt = ALPHA*pressure_mpa + BETA*momentum_term_mpa.
-# pressure_mpa = (BLUNT_PRESSURE_SCALE * KE_J / A_m²) / 1e6. momentum_term_mpa = BLUNT_MOMENTUM_TO_MPA * (momentum / A_m²).
-const BLUNT_PRESSURE_SCALE: float = 500.0
-# Scale (kg·m/s)/m² into MPa band so blended pen_blunt matches layer blunt_resistance_mpa (10–40). Tune so mace vs plate feels right.
-const BLUNT_MOMENTUM_TO_MPA: float = 0.008
-# Weights for rigid check: alpha=pressure, beta=momentum. Heavy weapons penetrate rigid more at same KE when beta > 0.
-const BLUNT_PEN_ALPHA: float = 0.3
-const BLUNT_PEN_BETA: float = 0.7
-# Floor so tiny contacts don't produce absurd MPa; 1 cm² min keeps normal blade areas unchanged (BALANCING_INVESTIGATION.md).
+# Blunt: transmission-only (no rigid check). Obsolete: BLUNT_PRESSURE_SCALE, BLUNT_MOMENTUM_TO_MPA, BLUNT_PEN_* removed.
+# Floor so tiny contacts don't produce absurd momentum/area; 1 cm² min keeps normal blade areas unchanged.
 const MIN_BLUNT_AREA_M2: float = 1e-4
 # For CUT moves, blunt stream uses at least this contact (cm) so the "slap" doesn't get blade pressure.
 const BLUNT_CUT_MIN_CONTACT_CM: float = 5.0
@@ -116,8 +110,9 @@ static func _move_definitions_build() -> Dictionary:
 # --- Weapon template definitions ---
 # Per weapon: mass (kg), dimensions (cm), edge_width (cm, optional), blade_cut_ratio, melee_range, moves.
 # Dimensions: blade_width = edge contact for cuts; point_width = tip for thrusts; head_diameter = striking head for blunt.
+# thrust_head_width = width of head/shaft behind point (cm); used for blunt momentum/area on thrusts. Broader head = lower p/A.
 # edge_width = effective sharp contact for blunt weapons (flanges/ridges that can break skin); used for sharp-component penetration.
-# Data: Oakeshott/longsword 2–3 cm edge, 0.3–0.6 cm point; Le Jeu axe 3–4 cm edge, 0.5–1 cm spike; mace flanges 0.4–0.6 cm (Williams, Tod Cutler); Fiore/Talhoffer dagger ~1.5 cm edge, 0.2–0.4 cm point; spear 0.4–0.8 cm point.
+# Data: Oakeshott/longsword 2–3 cm edge, 0.3–0.6 cm point; Le Jeu axe 3–4 cm edge, 0.5–1 cm spike; mace flanges 0.4–0.6 cm (Williams, Tod Cutler); Fiore/Talhoffer dagger ~1.5 cm edge, 0.2–0.4 cm point; spear 0.4–0.8 cm point, head blade 2–3 cm.
 # No weapon has 0% cutting (MIN_CUT_RATIO); each component uses get_sharp_contact_cm / get_blunt_contact_cm for its damage type.
 static func get_all_weapon_ids() -> Array:
 	return ["SWORD", "AXE", "MACE", "DAGGER", "SPEAR"]
@@ -138,6 +133,7 @@ static func _weapon_definitions_build() -> Dictionary:
 			"mass": 1.2,
 			"blade_width": 2.0,
 			"point_width": 0.5,
+			"thrust_head_width": 2.0,
 			"head_diameter": 3.0,
 			"edge_width": 0.0,
 			"blade_cut_ratio": 0.75,
@@ -158,6 +154,7 @@ static func _weapon_definitions_build() -> Dictionary:
 			"mass": 1.5,
 			"blade_width": 3.0,
 			"point_width": 0.8,
+			"thrust_head_width": 1.5,
 			"head_diameter": 4.0,
 			"edge_width": 0.0,
 			"blade_cut_ratio": 0.6,
@@ -193,6 +190,7 @@ static func _weapon_definitions_build() -> Dictionary:
 			"mass": 0.3,
 			"blade_width": 1.5,
 			"point_width": 0.3,
+			"thrust_head_width": 1.0,
 			"head_diameter": 2.5,
 			"edge_width": 0.0,
 			"blade_cut_ratio": 0.9,
@@ -211,6 +209,7 @@ static func _weapon_definitions_build() -> Dictionary:
 			"mass": 1.8,
 			"blade_width": 2.5,
 			"point_width": 0.6,
+			"thrust_head_width": 2.5,
 			"head_diameter": 3.5,
 			"edge_width": 0.0,
 			"blade_cut_ratio": 0.85,
@@ -244,6 +243,18 @@ static func get_archetype(archetype_id: String) -> Dictionary:
 	if not all_arch.has(archetype_id):
 		return all_arch.get(ARCHETYPE_SLASH, {})
 	return all_arch[archetype_id].duplicate(true)
+
+# Reference for area coupling: larger contact (mace) vs smaller (pommel). Using max(head_diameter)
+# so the largest blunt weapon yields area_factor=1.0 and transmission stays <= blunt_bat_transmission.
+static func get_blunt_coupling_reference_cm() -> float:
+	var ids: Array = get_all_weapon_ids()
+	var max_hd: float = 0.0
+	for wid in ids:
+		var d: Dictionary = get_weapon_definition(wid)
+		var hd = d.get("head_diameter", 0.0)
+		if (hd is float or hd is int) and float(hd) > max_hd:
+			max_hd = float(hd)
+	return max_hd if max_hd > 0.0 else 6.0
 
 static func _archetype_definitions_build() -> Dictionary:
 	return {

@@ -16,10 +16,13 @@ var body_max: Dictionary: get = _get_body_max
 var bone_health: Dictionary: get = _get_bone_health
 var bone_max: Dictionary: get = _get_bone_max
 var strength: int: get = _get_strength
-var speed: int: get = _get_speed
+var agility: int: get = _get_agility
+var intelligence: int: get = _get_intelligence
+var endurance: int: get = _get_endurance
+var perception: int: get = _get_perception
 
 func get_effective_speed() -> int:
-	return _combat_body.get_effective_speed() if _combat_body else speed
+	return _combat_body.get_effective_speed() if _combat_body else agility
 
 func get_leg_functionality() -> float:
 	return _combat_body.get_leg_functionality() if _combat_body else 1.0
@@ -42,8 +45,20 @@ func _get_bone_max() -> Dictionary:
 func _get_strength() -> int:
 	return _combat_body.strength if _combat_body else 1
 
-func _get_speed() -> int:
-	return _combat_body.speed if _combat_body else 100
+func _get_agility() -> int:
+	return _combat_body.agility if _combat_body else 100
+
+func _get_intelligence() -> int:
+	return _combat_body.intelligence if _combat_body else 100
+
+func _get_endurance() -> int:
+	return _combat_body.endurance if _combat_body else 100
+
+func _get_perception() -> int:
+	return _combat_body.perception if _combat_body else 100
+
+func get_medical_effectiveness() -> float:
+	return _combat_body.get_medical_effectiveness() if _combat_body else 1.0
 
 func get_targetable_parts() -> Array:
 	return _combat_body.get_targetable_parts() if _combat_body else []
@@ -70,6 +85,15 @@ func is_incapacitated() -> bool:
 func get_performance_modifier() -> float:
 	return _combat_body.get_performance_modifier() if _combat_body else 1.0
 
+func get_action_bar_performance_modifier() -> float:
+	return _combat_body.get_action_bar_performance_modifier() if _combat_body else 1.0
+
+func get_hit_chance_performance_modifier() -> float:
+	return _combat_body.get_hit_chance_performance_modifier() if _combat_body else 1.0
+
+func get_total_pain() -> float:
+	return _combat_body.get_total_pain() if _combat_body else 0.0
+
 func get_dodge_chance() -> float:
 	return _combat_body.get_dodge_chance() if _combat_body else 0.0
 
@@ -79,19 +103,21 @@ func get_effective_consciousness() -> float:
 func get_death_reason() -> String:
 	return _combat_body.get_death_reason() if _combat_body else "no_combat_body"
 
-func take_damage(amount: int, part: String, damage_type: String = "BLUNT", penetration_sharp: float = -1.0, penetration_blunt: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
+func take_damage(amount: int, part: String, damage_type: String = "BLUNT", penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
 	if _combat_body:
-		# CoreEntity.take_damage returns { final_type, final_amount }; linter may show stale void until project refresh
-		return _combat_body.take_damage(amount, part, damage_type, penetration_sharp, penetration_blunt, penetration_blunt_momentum_per_area)
+		return _combat_body.take_damage(amount, part, damage_type, penetration_sharp, penetration_blunt_momentum_per_area)
 	return { "final_type": damage_type, "final_amount": 0 }
 
-func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
+func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0, blunt_contact_cm: float = -1.0) -> Dictionary:
 	if _combat_body:
-		return _combat_body.take_damage_split(cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt, penetration_blunt_momentum_per_area)
+		return _combat_body.take_damage_split(cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt_momentum_per_area, blunt_contact_cm)
 	return { "final_cut": 0, "final_blunt": 0 }
 
 func get_armor_for_part(part: String) -> Variant:
 	return _combat_body.get_armor_for_part(part) if _combat_body else null
+
+func get_armor_sharp_resistance_for_part(part: String) -> float:
+	return _combat_body.get_armor_sharp_resistance_for_part(part) if _combat_body else 0.0
 
 func get_armor_slots() -> Dictionary:
 	return _combat_body.get_armor_slots() if _combat_body else {}
@@ -110,6 +136,10 @@ func get_medical_entity() -> Node:
 	if _combat_body:
 		return _combat_body
 	return self
+
+func ensure_consciousness_current() -> void:
+	if _combat_body and _combat_body.has_method("ensure_consciousness_current"):
+		_combat_body.ensure_consciousness_current()
 
 func get_wounded_parts() -> Array:
 	return _combat_body.get_wounded_parts() if _combat_body else []

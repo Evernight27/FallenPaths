@@ -20,7 +20,10 @@ func add_member(node: Node) -> void:
 	var bone_health: Dictionary = {}
 	var bone_max: Dictionary = {}
 	var member_strength = 0
-	var member_speed = 0
+	var member_agility = 100
+	var member_intelligence = 100
+	var member_endurance = 100
+	var member_perception = 100
 
 	if node:
 		if "body_cutting" in node:
@@ -35,8 +38,16 @@ func add_member(node: Node) -> void:
 			bone_max = node.bone_max.duplicate()
 		if "strength" in node:
 			member_strength = node.strength
-		if "speed" in node:
-			member_speed = node.speed
+		if "agility" in node:
+			member_agility = node.agility
+		elif "speed" in node:
+			member_agility = node.speed
+		if "intelligence" in node:
+			member_intelligence = node.intelligence
+		if "endurance" in node:
+			member_endurance = node.endurance
+		if "perception" in node:
+			member_perception = node.perception
 
 	var m = {
 		"name": member_name,
@@ -46,7 +57,10 @@ func add_member(node: Node) -> void:
 		"bone_health": bone_health,
 		"bone_max": bone_max,
 		"strength": member_strength,
-		"speed": member_speed,
+		"agility": member_agility,
+		"intelligence": member_intelligence,
+		"endurance": member_endurance,
+		"perception": member_perception,
 		"node_ref": node
 	}
 	members.append(m)
@@ -69,7 +83,10 @@ func get_members() -> Array:
 		var bone_health: Dictionary = m.get("bone_health", {}).duplicate()
 		var bone_max: Dictionary = m.get("bone_max", {}).duplicate()
 		var strength = m.get("strength", 0)
-		var speed = m.get("speed", 0)
+		var agility = m.get("agility", 100)
+		var intelligence = m.get("intelligence", 100)
+		var endurance = m.get("endurance", 100)
+		var perception = m.get("perception", 100)
 		var weapon_name: String = ""
 		var armor_summary: Array = []
 		var blood_volume: float = 100.0
@@ -88,8 +105,16 @@ func get_members() -> Array:
 				bone_max = node_ref.bone_max.duplicate()
 			if "strength" in node_ref:
 				strength = node_ref.strength
-			if "speed" in node_ref:
-				speed = node_ref.speed
+			if "agility" in node_ref:
+				agility = node_ref.agility
+			elif "speed" in node_ref:
+				agility = node_ref.speed
+			if "intelligence" in node_ref:
+				intelligence = node_ref.intelligence
+			if "endurance" in node_ref:
+				endurance = node_ref.endurance
+			if "perception" in node_ref:
+				perception = node_ref.perception
 			if "blood_volume" in node_ref:
 				blood_volume = node_ref.blood_volume
 			if node_ref.has_method("get_total_bleeding_rate"):
@@ -112,7 +137,10 @@ func get_members() -> Array:
 			"bone_health": bone_health,
 			"bone_max": bone_max,
 			"strength": strength,
-			"speed": speed,
+			"agility": agility,
+			"intelligence": intelligence,
+			"endurance": endurance,
+			"perception": perception,
 			"weapon_name": weapon_name,
 			"armor_summary": armor_summary,
 			"blood_volume": blood_volume,

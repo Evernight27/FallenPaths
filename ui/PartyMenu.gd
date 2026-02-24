@@ -38,7 +38,7 @@ func show_party(members: Array) -> void:
 	for m in members:
 		var v = VBoxContainer.new()
 		var name_lbl = Label.new()
-		name_lbl.text = str(m.get("name", "Unknown")) + "  STR:" + str(m.get("strength", 0)) + " SPD:" + str(m.get("speed", 0))
+		name_lbl.text = str(m.get("name", "Unknown")) + "  STR:" + str(m.get("strength", 0)) + " AGI:" + str(m.get("agility", 100)) + " INT:" + str(m.get("intelligence", 100)) + " END:" + str(m.get("endurance", 100)) + " PER:" + str(m.get("perception", 100))
 		v.add_child(name_lbl)
 		# Blood volume and bleeding (medical realism)
 		var bv: float = m.get("blood_volume", 100.0)

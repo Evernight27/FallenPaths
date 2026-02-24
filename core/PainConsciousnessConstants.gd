@@ -4,25 +4,37 @@ extends RefCounted
 # Pain and consciousness (Combat Extended–style), adjusted for fallen-paths action-bar combat.
 # Used by CoreEntity and CombatManager for gauge fill, hit chance, and incapacitation.
 
-# --- Pain tiers (total pain points; from wounds: damage × severity multiplier summed) ---
-const PAIN_MODERATE: float = 20.0   # 20–40: moderate pain
-const PAIN_SEVERE: float = 40.0    # 40–60: severe
-const PAIN_EXTREME: float = 60.0   # 60–80: extreme
-const PAIN_INTOLERABLE: float = 80.0  # 80+: intolerable
+# --- Pain normalization: Method A (reference-based) vs Method B (normalized) ---
+# Method B (canonical): effective_pain = total_pain / pain_reference; per-species scaling; NRS thresholds 4/6/8/10.
+# Method A: raw total_pain vs fixed thresholds. Use only if you need global thresholds without species scaling.
+const USE_NORMALIZED_PAIN: bool = true  # Method B = canonical implementation
 
-# --- Pain → consciousness reduction (subtractive; applied after base × blood) ---
-const PAIN_CONSCIOUSNESS_REDUCTION_MINOR: float = 0.0    # pain < 20
-const PAIN_CONSCIOUSNESS_REDUCTION_MODERATE: float = 10.0  # 20–40: -10%
-const PAIN_CONSCIOUSNESS_REDUCTION_SEVERE: float = 25.0   # 40–60: -25%
-const PAIN_CONSCIOUSNESS_REDUCTION_EXTREME: float = 50.0  # 60–80: -50%
-const PAIN_CONSCIOUSNESS_REDUCTION_INTOLERABLE: float = 75.0  # 80+: -75%
+# --- Method A: Reference-based thresholds (when USE_NORMALIZED_PAIN = false) ---
+# PAIN_REFERENCE = typical pain from 1 moderate hit. Thresholds = NRS × PAIN_PER_NRS. Update when damage scale changes.
+const PAIN_REFERENCE_MODERATE_HIT: float = 6.0
+const PAIN_PER_NRS_POINT: float = 3.0  # total_pain / this ≈ NRS; research: NRS 4 = first effect
+const PAIN_MODERATE: float = PAIN_REFERENCE_MODERATE_HIT * 2.0   # ~12: ~2 moderate hits
+const PAIN_SEVERE: float = PAIN_REFERENCE_MODERATE_HIT * 4.0     # ~24
+const PAIN_EXTREME: float = PAIN_REFERENCE_MODERATE_HIT * 6.0    # ~36
+const PAIN_INTOLERABLE: float = PAIN_REFERENCE_MODERATE_HIT * 8.0  # ~48
+const PAIN_SHOCK_THRESHOLD_RAW: float = PAIN_REFERENCE_MODERATE_HIT * 5.0  # ~30
+const PAIN_SHOCK_RISK_PER_POINT_RAW: float = 0.02  # (pain - 30) * 0.02; 10 over = 20% risk
 
-# --- Pain → performance modifier (action bar fill, hit chance). Multiplier; 1.0 = no penalty. ---
+# --- Method B: Normalized thresholds (when USE_NORMALIZED_PAIN = true) ---
+# effective_pain = total_pain / get_pain_reference(entity). Fixed NRS-equivalent thresholds.
+const NRS_FIRST_EFFECT: float = 4.0   # research: NRS 4–5 = first functional impairment
+const NRS_MODERATE: float = 6.0
+const NRS_SEVERE: float = 8.0
+const NRS_INTOLERABLE: float = 10.0
+const NRS_SHOCK: float = 7.0
+const PAIN_SHOCK_RISK_PER_POINT_NORMALIZED: float = 0.15  # (effective - 7) * 0.15; 1 over = 15% risk
+
+# --- Pain → performance modifier (action bar fill, hit chance, wind-up, etc). Research-aligned; pain impairs function. ---
 const PAIN_PERFORMANCE_NONE: float = 0.0
-const PAIN_PERFORMANCE_MINOR: float = 0.05    # -5%
-const PAIN_PERFORMANCE_MODERATE: float = 0.15  # -15%
-const PAIN_PERFORMANCE_SEVERE: float = 0.30    # -30%
-const PAIN_PERFORMANCE_EXTREME: float = 0.50   # -50%
+const PAIN_PERFORMANCE_MINOR: float = 0.08    # -8% (NRS 4–6: first functional impairment)
+const PAIN_PERFORMANCE_MODERATE: float = 0.20  # -20% (NRS 6–8: moderate impairment)
+const PAIN_PERFORMANCE_SEVERE: float = 0.35   # -35% (NRS 8–10: severe impairment)
+const PAIN_PERFORMANCE_EXTREME: float = 0.50   # -50% (NRS 10+: extreme impairment)
 
 # --- Consciousness: direct scale (effective_consciousness / 100 = performance scale). ---
 # Incapacitation when true consciousness < this (no longer able to act).
@@ -37,8 +49,6 @@ const BLOOD_CONSCIOUSNESS_REDUCTION_MAX: float = 0.5     # At floor: modifier = 
 
 # --- Pain shock (temporary; reduces effective consciousness for combat, not incapacitation). ---
 # Research: Lighter impacts cause brief grogginess; more severe single impacts cause longer confusion/disorientation (Frontiers Neurology 2020, concussion/TBI). Acute stress reaction and traumatic shock duration scale with severity of the triggering insult (ATLS, StatPearls). Duration therefore scales with both cumulative pain and the impact of the move that triggered the shock.
-const PAIN_SHOCK_THRESHOLD: float = 50.0       # total pain > this: roll for shock
-const PAIN_SHOCK_RISK_PER_POINT: float = 0.02  # shock chance = (pain - threshold) * this, capped 0–1
 const PAIN_SHOCK_DURATION_BASE: float = 5.0    # base duration seconds; scaled by pain level and impact
 const PAIN_SHOCK_CONSCIOUSNESS_REDUCTION: float = 80.0  # -80% effective consciousness while in shock
 # Impact scaling: larger single hit → longer shock (mechanoporation / acute stress magnitude). Reference damage for 1.0x impact factor; bigger hits multiply duration up to IMPACT_MAX_MULTIPLIER.
@@ -48,7 +58,7 @@ const PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER: float = 2.0  # max duration mul
 # --- Performance floor (action bar and hit chance never below this). ---
 const MIN_PERFORMANCE_MODIFIER: float = 0.35
 
-# --- Per-injury pain: damage × this by severity (summed for get_total_pain). ---
+# --- Per-injury pain: damage × severity_mult × body_part_mult × injury_type_mult × (1 - healing). ---
 const SEVERITY_PAIN_MULTIPLIERS: Dictionary = {
 	"minor": 0.5,
 	"moderate": 1.0,
@@ -56,25 +66,84 @@ const SEVERITY_PAIN_MULTIPLIERS: Dictionary = {
 	"critical": 2.0
 }
 
-static func get_pain_consciousness_reduction(total_pain: float) -> float:
-	if total_pain < PAIN_MODERATE:
-		return PAIN_CONSCIOUSNESS_REDUCTION_MINOR
-	if total_pain < PAIN_SEVERE:
-		return PAIN_CONSCIOUSNESS_REDUCTION_MODERATE
-	if total_pain < PAIN_EXTREME:
-		return PAIN_CONSCIOUSNESS_REDUCTION_SEVERE
-	if total_pain < PAIN_INTOLERABLE:
-		return PAIN_CONSCIOUSNESS_REDUCTION_EXTREME
-	return PAIN_CONSCIOUSNESS_REDUCTION_INTOLERABLE
+# --- Body part pain multipliers (cortical representation + clinical pain salience). ---
+# Head/face/chest more salient; hands high; limbs baseline; feet lower. Research: somatosensory homunculus, wound pain.
+const BODY_PART_PAIN_MULTIPLIERS: Dictionary = {
+	"head": 1.4,
+	"chest": 1.25,
+	"right_arm": 1.0,
+	"left_arm": 1.0,
+	"right_leg": 0.95,
+	"left_leg": 0.95
+}
 
-static func get_pain_performance_modifier(total_pain: float) -> float:
-	if total_pain < PAIN_MODERATE:
+# --- Sub-region pain multipliers (hand, face, neck higher; foot lower). ---
+const SUB_REGION_PAIN_MULTIPLIERS: Dictionary = {
+	"head": {"scalp": 1.3, "face": 1.4, "neck": 1.35},
+	"chest": {"thoracic": 1.2, "abdominal": 1.15},
+	"right_arm": {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
+	"left_arm": {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
+	"right_leg": {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9},
+	"left_leg": {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9}
+}
+
+# --- Injury type pain multipliers (fracture/crush often more debilitating than cut). ---
+const INJURY_TYPE_PAIN_MULTIPLIERS: Dictionary = {
+	"cut": 1.0,
+	"crush": 1.15,
+	"bruise": 0.7,
+	"fracture": 1.35
+}
+
+# --- Stump (amputation site) pain: among the most severe acute pains. ---
+const STUMP_PAIN_MULTIPLIER: float = 1.5
+
+static func get_body_part_pain_multiplier(part: String) -> float:
+	return BODY_PART_PAIN_MULTIPLIERS.get(part, 1.0)
+
+static func get_sub_region_pain_multiplier(part: String, sub_region: String) -> float:
+	if sub_region.is_empty():
+		return 1.0
+	var subs: Dictionary = SUB_REGION_PAIN_MULTIPLIERS.get(part, {})
+	return subs.get(sub_region, 1.0)
+
+static func get_injury_type_pain_multiplier(injury_type: String) -> float:
+	return INJURY_TYPE_PAIN_MULTIPLIERS.get(injury_type, 1.0)
+
+static func get_stump_pain_multiplier(is_stump: bool) -> float:
+	return STUMP_PAIN_MULTIPLIER if is_stump else 1.0
+
+static func _get_pain_moderate_threshold() -> float:
+	return NRS_FIRST_EFFECT if USE_NORMALIZED_PAIN else PAIN_MODERATE
+
+static func _get_pain_severe_threshold() -> float:
+	return NRS_MODERATE if USE_NORMALIZED_PAIN else PAIN_SEVERE
+
+static func _get_pain_extreme_threshold() -> float:
+	return NRS_SEVERE if USE_NORMALIZED_PAIN else PAIN_EXTREME
+
+static func _get_pain_intolerable_threshold() -> float:
+	return NRS_INTOLERABLE if USE_NORMALIZED_PAIN else PAIN_INTOLERABLE
+
+static func get_pain_shock_threshold() -> float:
+	return NRS_SHOCK if USE_NORMALIZED_PAIN else PAIN_SHOCK_THRESHOLD_RAW
+
+static func get_pain_shock_risk_per_point() -> float:
+	return PAIN_SHOCK_RISK_PER_POINT_NORMALIZED if USE_NORMALIZED_PAIN else PAIN_SHOCK_RISK_PER_POINT_RAW
+
+static func get_pain_performance_modifier(pain_value: float) -> float:
+	"""pain_value is either raw total_pain (Method A) or effective_pain (Method B)."""
+	var mod_t: float = _get_pain_moderate_threshold()
+	var sev_t: float = _get_pain_severe_threshold()
+	var ext_t: float = _get_pain_extreme_threshold()
+	var int_t: float = _get_pain_intolerable_threshold()
+	if pain_value < mod_t:
 		return 1.0 - PAIN_PERFORMANCE_NONE
-	if total_pain < PAIN_SEVERE:
+	if pain_value < sev_t:
 		return 1.0 - PAIN_PERFORMANCE_MINOR
-	if total_pain < PAIN_EXTREME:
+	if pain_value < ext_t:
 		return 1.0 - PAIN_PERFORMANCE_MODERATE
-	if total_pain < PAIN_INTOLERABLE:
+	if pain_value < int_t:
 		return 1.0 - PAIN_PERFORMANCE_SEVERE
 	return 1.0 - PAIN_PERFORMANCE_EXTREME
 
@@ -87,8 +156,10 @@ static func get_combined_performance_modifier(total_pain: float, consciousness: 
 	return maxf(MIN_PERFORMANCE_MODIFIER, pain_mod * cons_mod)
 
 # Duration (seconds) for pain shock: base * (pain/threshold) * impact_mult. Impact = total damage of the hit that triggered the roll; 0 when shock triggered by bleed/healing (no single move).
-static func get_pain_shock_duration_seconds(total_pain: float, triggering_hit_damage: float) -> float:
-	var pain_ratio: float = total_pain / PAIN_SHOCK_THRESHOLD if PAIN_SHOCK_THRESHOLD > 0.0 else 1.0
+# pain_value is either raw total_pain (Method A) or effective_pain (Method B).
+static func get_pain_shock_duration_seconds(pain_value: float, triggering_hit_damage: float) -> float:
+	var thresh: float = get_pain_shock_threshold()
+	var pain_ratio: float = pain_value / thresh if thresh > 0.0 else 1.0
 	var base_duration: float = PAIN_SHOCK_DURATION_BASE * pain_ratio
 	if triggering_hit_damage <= 0.0:
 		return base_duration

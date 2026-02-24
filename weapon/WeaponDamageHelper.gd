@@ -49,6 +49,7 @@ static func compute_pre_armor_cut(weapon: RefCounted, attack_instance: RefCounte
 
 
 # Pre-armor BLUNT from momentum: scale * (mass * velocity) * strength_mod * arm_mod * contact_factor, clamped.
+# Uses blunt contact (head_diameter for blunt, max(blade, BLUNT_CUT_MIN) for cut slap, point for thrust).
 static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCounted, strength: int, arm_mod: float) -> float:
 	if weapon == null:
 		return 0.0
@@ -58,7 +59,7 @@ static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCoun
 	var momentum: float = mass_kg * v
 	var strength_mod: float = maxf(0.1, float(strength) / 10.0)
 	var raw: float = WeaponConstants.DAMAGE_MOMENTUM_SCALE * momentum * strength_mod * arm_mod
-	var contact_cm: float = _get_contact_width_for_damage(weapon, attack_instance)
+	var contact_cm: float = _get_blunt_contact_for_damage(weapon, attack_instance)
 	contact_cm = maxf(contact_cm, WeaponConstants.MIN_CONTACT_WIDTH_CM)
 	var contact_factor: float = pow(WeaponConstants.BASELINE_CONTACT_CM / contact_cm, WeaponConstants.CONTACT_DAMAGE_EXPONENT)
 	contact_factor = minf(contact_factor, WeaponConstants.CONTACT_DAMAGE_FACTOR_MAX)
@@ -66,54 +67,82 @@ static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCoun
 	return clampf(raw, WeaponConstants.BLUNT_DAMAGE_MIN, WeaponConstants.BLUNT_DAMAGE_MAX)
 
 
-# Pre-armor damage (legacy): cut from KE+edge * cut_ratio + blunt from momentum * (1-cut_ratio). Use compute_pre_armor_cut/blunt directly for physics split.
-static func compute_pre_armor_damage(weapon: RefCounted, attack_instance: RefCounted, strength: int, arm_mod: float) -> float:
-	var cut: float = compute_pre_armor_cut(weapon, attack_instance, strength, arm_mod)
-	var blunt: float = compute_pre_armor_blunt(weapon, attack_instance, strength, arm_mod)
-	var at: String = attack_instance.get("attack_type")
-	if at == null or not (at is String):
-		at = WeaponConstants.ATTACK_TYPE_CUT
-	var arch: Dictionary = attack_instance.get("archetype")
-	if arch == null:
-		arch = {}
-	var cr: float = get_cut_ratio(weapon, at, arch)
-	return cut * cr + blunt * (1.0 - cr)
-
-
 # Penetration (mm RHA sharp, MPa blunt). Physics: sharp uses contact area (smaller = deeper);
 # blunt uses impact pressure = scale * KE / area (MPa).
 # Returns { penetration_sharp, penetration_blunt }.
-static func compute_penetration(weapon: RefCounted, attack_instance: RefCounted, damage_type: String) -> Dictionary:
+# opts: optional { "armor_resistance_rha_mm": float, "pen_sharp_mm": float } — when both provided for thrusts, use energy-based contact.
+static func compute_penetration(weapon: RefCounted, attack_instance: RefCounted, damage_type: String, opts: Dictionary = {}) -> Dictionary:
+	var armor_resistance_rha_mm: float = float(opts.get("armor_resistance_rha_mm", -1.0)) if opts is Dictionary else -1.0
+	var pen_sharp_mm: float = float(opts.get("pen_sharp_mm", -1.0)) if opts is Dictionary else -1.0
 	var ke_j: float = compute_kinetic_energy_j(weapon, attack_instance)
 	var attack_type: String = attack_instance.get("attack_type")
 	if attack_type == null or not (attack_type is String):
 		attack_type = WeaponConstants.ATTACK_TYPE_CUT
 
 	if damage_type == WeaponConstants.DAMAGE_TYPE_SHARP:
-		# Sharp: pen = (KE / J_PER_MM_RHA) * (baseline / contact)^α. Contact = effective sharp (sharpness reduces effective width).
+		# Sharp: Williams nonlinear — pen = (KE/J_BASE)^exp * area_factor. E ∝ t^1.67 → pen ∝ KE^0.6.
 		var contact_cm: float = _get_effective_sharp_contact_cm(weapon, attack_type)
 		contact_cm = maxf(contact_cm, WeaponConstants.MIN_CONTACT_WIDTH_CM)
 		var area_factor: float = pow(WeaponConstants.BASELINE_CONTACT_CM / contact_cm, WeaponConstants.CONTACT_AREA_EXPONENT)
-		var pen_mm_rha: float = (ke_j / WeaponConstants.J_PER_MM_RHA) * area_factor
+		var pen_mm_rha: float = pow(ke_j / WeaponConstants.J_PER_MM_BASE, WeaponConstants.PENETRATION_EXPONENT) * area_factor
 		pen_mm_rha = minf(pen_mm_rha, WeaponConstants.PENETRATION_KE_CAP_MM_RHA)
 		var pen_mpa_deflect: float = pen_mm_rha * ArmorConstants.RHA_TO_MPA
 		return { "penetration_sharp": pen_mm_rha, "penetration_blunt": pen_mpa_deflect }
 	else:
-		# Blunt: Option 1 — rigid check = blend of pressure (KE/area) + momentum/area; cushion still uses momentum/area.
-		var contact_cm: float = _get_blunt_contact_cm(weapon, attack_type)
-		var d_m: float = contact_cm / 100.0 if contact_cm > 0 else 0.01
-		var A_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)
-		A_m2 = maxf(A_m2, WeaponConstants.MIN_BLUNT_AREA_M2)
-		var pressure_Pa: float = WeaponConstants.BLUNT_PRESSURE_SCALE * ke_j / A_m2
-		var pressure_mpa: float = pressure_Pa / 1e6
-		var m = weapon.get("mass")
-		var mass_kg: float = float(m) if (m is float or m is int) else WeaponConstants.BASELINE_MASS_KG
-		var v: float = get_effective_velocity_m_s(weapon, attack_instance)
-		var momentum: float = mass_kg * v
-		var momentum_per_area: float = momentum / A_m2 if A_m2 > 0 else 0.0
-		var momentum_term_mpa: float = WeaponConstants.BLUNT_MOMENTUM_TO_MPA * momentum_per_area
-		var pen_blunt: float = WeaponConstants.BLUNT_PEN_ALPHA * pressure_mpa + WeaponConstants.BLUNT_PEN_BETA * momentum_term_mpa
-		return { "penetration_sharp": 0.0, "penetration_blunt": pen_blunt, "penetration_blunt_momentum_per_area": momentum_per_area }
+		# Blunt: transmission-only. Returns momentum_per_area and contact_cm for area coupling.
+		var contact_cm: float = _get_blunt_contact_for_penetration(weapon, attack_instance, armor_resistance_rha_mm, pen_sharp_mm)
+		var momentum_per_area: float = _compute_blunt_momentum_per_area_with_contact(weapon, attack_instance, contact_cm)
+		return { "penetration_sharp": 0.0, "penetration_blunt": 0.0, "penetration_blunt_momentum_per_area": momentum_per_area, "blunt_contact_cm": contact_cm }
+
+
+# Blunt contact width (cm) for area-dependent transmission. Public for armor coupling.
+static func get_blunt_contact_cm(weapon: RefCounted, attack_instance: RefCounted) -> float:
+	if weapon == null:
+		return -1.0
+	var attack_type: String = attack_instance.get("attack_type")
+	if attack_type == null or not (attack_type is String):
+		attack_type = WeaponConstants.ATTACK_TYPE_CUT
+	return _get_blunt_contact_cm(weapon, attack_type)
+
+
+# Blunt contact for penetration: energy-based when armor_resistance_rha_mm and pen_sharp_mm provided (thrusts).
+# depth_factor = clamp(pen/armor, 0, 1); effective = point + (head - point) * depth_factor.
+static func _get_blunt_contact_for_penetration(weapon: RefCounted, attack_instance: RefCounted, armor_resistance_rha_mm: float = -1.0, pen_sharp_mm: float = -1.0) -> float:
+	var attack_type: String = attack_instance.get("attack_type")
+	if attack_type == null or not (attack_type is String):
+		attack_type = WeaponConstants.ATTACK_TYPE_CUT
+	if attack_type == WeaponConstants.ATTACK_TYPE_STAB and armor_resistance_rha_mm >= 0.0 and pen_sharp_mm >= 0.0 and weapon != null:
+		var pw = weapon.get("point_width")
+		var point: float = float(pw) if (pw is float or pw is int) else WeaponConstants.MIN_CONTACT_WIDTH_CM
+		if point <= 0.0:
+			point = WeaponConstants.MIN_CONTACT_WIDTH_CM
+		var hw = weapon.get("thrust_head_width")
+		var head: float = float(hw) if (hw is float or hw is int) else point
+		if head <= 0.0:
+			head = point
+		var armor_rha: float = maxf(armor_resistance_rha_mm, 0.1)
+		var depth_factor: float = clampf(pen_sharp_mm / armor_rha, 0.0, 1.0)
+		return point + (head - point) * depth_factor
+	return _get_blunt_contact_cm(weapon, attack_type)
+
+
+# Blunt cushion: momentum per area (kg·m/s)/m². Used by armor for transmission absorption.
+static func compute_blunt_momentum_per_area(weapon: RefCounted, attack_instance: RefCounted) -> float:
+	var contact_cm: float = get_blunt_contact_cm(weapon, attack_instance)
+	return _compute_blunt_momentum_per_area_with_contact(weapon, attack_instance, contact_cm) if contact_cm > 0 else -1.0
+
+
+static func _compute_blunt_momentum_per_area_with_contact(weapon: RefCounted, attack_instance: RefCounted, contact_cm: float) -> float:
+	if weapon == null or contact_cm <= 0.0:
+		return -1.0
+	var d_m: float = contact_cm / 100.0 if contact_cm > 0 else 0.01
+	var A_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)
+	A_m2 = maxf(A_m2, WeaponConstants.MIN_BLUNT_AREA_M2)
+	var m = weapon.get("mass")
+	var mass_kg: float = float(m) if (m is float or m is int) else WeaponConstants.BASELINE_MASS_KG
+	var v: float = get_effective_velocity_m_s(weapon, attack_instance)
+	var momentum: float = mass_kg * v
+	return momentum / A_m2 if A_m2 > 0 else 0.0
 
 
 # Damage type for this attack (SHARP or BLUNT).
@@ -129,15 +158,19 @@ static func _get_contact_width_cm(weapon: RefCounted, attack_type: String) -> fl
 		var ret = (weapon as Object).get_contact_width(attack_type)
 		if ret is float or ret is int:
 			return float(ret)
+	if weapon != null:
+		push_warning("[WeaponDamageHelper] Weapon lacks get_contact_width; using BASELINE_CONTACT_CM. Ensure weapon is Weapon instance from create_from_definition.")
 	return WeaponConstants.BASELINE_CONTACT_CM
 
 
-# Sharp-component contact (cm): point, blade, or edge/flange. Used when effective sharp not available.
+# Sharp-component contact (cm): point, blade, or edge/flange. Uses weapon get_sharp_contact_cm (blade_width, point_width, edge_width).
 static func _get_sharp_contact_cm(weapon: RefCounted, attack_type: String) -> float:
 	if weapon != null and weapon is Object and (weapon as Object).has_method("get_sharp_contact_cm"):
 		var ret = (weapon as Object).get_sharp_contact_cm(attack_type)
 		if ret is float or ret is int:
 			return maxf(float(ret), WeaponConstants.MIN_CONTACT_WIDTH_CM)
+	if weapon != null:
+		push_warning("[WeaponDamageHelper] Weapon lacks get_sharp_contact_cm; using fallback. Ensure weapon is Weapon instance.")
 	return maxf(_get_contact_width_cm(weapon, attack_type), WeaponConstants.MIN_CONTACT_WIDTH_CM)
 
 
@@ -150,16 +183,30 @@ static func _get_effective_sharp_contact_cm(weapon: RefCounted, attack_type: Str
 	return maxf(_get_sharp_contact_cm(weapon, attack_type), WeaponConstants.MIN_CONTACT_WIDTH_CM)
 
 
-# Blunt-component contact (cm): head, shaft, or slap (cut uses BLUNT_CUT_MIN). Used for blunt penetration only.
+# Blunt-component contact (cm): head, shaft, or slap (cut uses BLUNT_CUT_MIN). Used for blunt damage and penetration.
 static func _get_blunt_contact_cm(weapon: RefCounted, attack_type: String) -> float:
 	if weapon != null and weapon is Object and (weapon as Object).has_method("get_blunt_contact_cm"):
 		var ret = (weapon as Object).get_blunt_contact_cm(attack_type)
 		if ret is float or ret is int:
 			return float(ret)
+	if weapon != null:
+		push_warning("[WeaponDamageHelper] Weapon lacks get_blunt_contact_cm; using fallback. Ensure weapon is Weapon instance from create_from_definition.")
 	var contact_cm: float = _get_contact_width_cm(weapon, attack_type)
 	if attack_type == WeaponConstants.ATTACK_TYPE_CUT:
 		contact_cm = maxf(contact_cm, WeaponConstants.BLUNT_CUT_MIN_CONTACT_CM)
 	return contact_cm
+
+
+# Blunt contact for damage: archetype override or weapon get_blunt_contact_cm (uses actual blade_width, point_width, head_diameter).
+static func _get_blunt_contact_for_damage(weapon: RefCounted, attack_instance: RefCounted) -> float:
+	var arch = attack_instance.get("archetype")
+	if arch is Dictionary and arch.get("contact_override_cm", -1.0) >= 0.0:
+		return float(arch.contact_override_cm)
+	var at = attack_instance.get("attack_type")
+	if at is String:
+		return _get_blunt_contact_cm(weapon, at)
+	push_warning("[WeaponDamageHelper] attack_instance missing attack_type; using BASELINE_CONTACT_CM for blunt.")
+	return WeaponConstants.BASELINE_CONTACT_CM
 
 
 # Contact width for damage factor: archetype override or weapon default.

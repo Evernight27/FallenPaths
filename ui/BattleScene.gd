@@ -24,12 +24,6 @@ const MAIN_LIST_PATH := "CombatCanvasLayer/UIRoot/ContentVBox/MainScroll/MainHBo
 
 # UI nodes
 var canvas_layer: CanvasLayer
-var enemy_name_label: Label
-var enemy_health_bar: ProgressBar
-var enemy_speed_bar: ProgressBar
-var player_name_label: Label
-var player_health_bar: ProgressBar
-var player_speed_bar: ProgressBar
 
 func _ready() -> void:
 	# Processing will be enabled by start()
@@ -80,6 +74,7 @@ func start(p_players, p_enemies) -> void:
 	manager.connect("turn_ready", Callable(self, "_on_turn_ready"))
 	manager.connect("action_resolved", Callable(self, "_on_action_resolved"))
 	manager.connect("combat_ended", Callable(self, "_on_combat_ended"))
+	manager.connect("combatant_health_changed", Callable(self, "_on_combatant_health_changed"))
 	# start the manager
 	manager.start()
 	set_process(true)
@@ -222,6 +217,19 @@ func _create_ui() -> void:
 	style.set_content_margin_all(6)
 	combat_log.add_theme_stylebox_override("normal", style)
 	combat_log_scroll.add_child(combat_log)
+
+func _scroll_combat_log_to_bottom() -> void:
+	if combat_log_scroll == null:
+		return
+	# Layout updates next frame; scrollbar max_value is stale until then
+	call_deferred("_do_scroll_combat_log_to_bottom")
+
+func _do_scroll_combat_log_to_bottom() -> void:
+	if combat_log_scroll == null:
+		return
+	var vbar = combat_log_scroll.get_v_scroll_bar()
+	if vbar:
+		combat_log_scroll.scroll_vertical = int(vbar.max_value)
 
 func _create_ui_row(id: int, node: Node, side: String) -> void:
 	# Row: name, gauge, equipment (weapon + armor), then 6 body part bars
@@ -414,6 +422,10 @@ func _process(_delta: float) -> void:
 	# keep UI in sync with manager
 	_update_ui()
 
+func _on_combatant_health_changed(_combatant_id: int) -> void:
+	# Refresh UI when consciousness/pain/blood changes (driven by health_changed signal from entity)
+	_update_ui()
+
 func _on_turn_ready(combatant_id: int) -> void:
 	if manager == null:
 		return
@@ -445,7 +457,6 @@ func _append_combat_log(attacker_name: String, attacker_side: String, target_nam
 		return
 	var part: String = result.get("part", "")
 	var dmg: int = result.get("dmg", 0)
-	var damage_type: String = result.get("damage_type", "")
 	var died: bool = result.get("died", false)
 	var outcome: String = result.get("outcome", "hit")
 	var health_before: int = result.get("health_before", -1)
@@ -466,15 +477,13 @@ func _append_combat_log(attacker_name: String, attacker_side: String, target_nam
 	elif outcome == "parry_deflect":
 		line = "[color=cyan]%s (%s) parried %s (%s)'s attack.[/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "deflected":
-		var type_label: String = "cut+blunt" if damage_type == "SPLIT" else damage_type
-		line = "%s (%s) → %s (%s) [%s] %s: [b]%d[/b] dmg [color=orange](deflected)[/color]" % [attacker_name, attacker_side, target_name, target_side, type_label, part_label, dmg]
+		line = "%s (%s) → %s (%s) %s: [b]%d[/b] dmg [color=orange](deflected)[/color]" % [attacker_name, attacker_side, target_name, target_side, part_label, dmg]
 		if result.has("final_cut") and result.has("final_blunt"):
 			line += " (cut %.2f blunt %.2f)" % [result.final_cut, result.final_blunt]
 		elif health_before >= 0 and health_after >= 0:
 			line += " (%d→%d)" % [health_before, health_after]
 	else:
-		var type_label: String = "cut+blunt" if damage_type == "SPLIT" else damage_type
-		line = "%s (%s) → %s (%s) [%s] %s: [b]%d[/b] dmg" % [attacker_name, attacker_side, target_name, target_side, type_label, part_label, dmg]
+		line = "%s (%s) → %s (%s) %s: [b]%d[/b] dmg" % [attacker_name, attacker_side, target_name, target_side, part_label, dmg]
 		if result.has("final_cut") and result.has("final_blunt"):
 			line += " (cut %.2f blunt %.2f)" % [result.final_cut, result.final_blunt]
 		if health_before >= 0 and health_after >= 0:
@@ -487,10 +496,7 @@ func _append_combat_log(attacker_name: String, attacker_side: String, target_nam
 	var lines: PackedStringArray = text.split("\n")
 	if lines.size() > LOG_MAX_LINES:
 		combat_log.text = "\n".join(lines.slice(-LOG_MAX_LINES, lines.size()))
-	if combat_log_scroll:
-		var vbar = combat_log_scroll.get_v_scroll_bar()
-		if vbar:
-			combat_log_scroll.scroll_vertical = int(vbar.max_value)
+	_scroll_combat_log_to_bottom()
 
 func _on_action_resolved(attacker_id: int, target_id: int, result: Dictionary) -> void:
 	var caps = manager.get_combatants() if manager else []
@@ -524,6 +530,7 @@ func _on_combat_ended(winner_side: String, defeated_node: Node) -> void:
 	_pending_defeated = defeated_node
 	if combat_log:
 		combat_log.append_text("\n[color=yellow]——— Combat ended. Winner: %s ———[/color]\n" % winner_side)
+		_scroll_combat_log_to_bottom()
 	# Show "End battle" button so the player can review the log before closing
 	_show_end_battle_button()
 
@@ -539,6 +546,8 @@ func _show_end_battle_button() -> void:
 	end_battle_button.custom_minimum_size = Vector2(160, 44)
 	end_battle_button.pressed.connect(_on_end_battle_button_pressed)
 	content_vbox.add_child(end_battle_button)
+	# Button changes layout; scroll again after layout settles so "Combat ended" stays visible
+	call_deferred("_scroll_combat_log_to_bottom")
 
 func _on_end_battle_button_pressed() -> void:
 	emit_signal("battle_ended", _pending_winner, _pending_defeated)

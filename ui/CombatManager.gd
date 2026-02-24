@@ -3,6 +3,7 @@ extends Node
 signal turn_ready(combatant_id)
 signal action_resolved(attacker_id, target_id, result)
 signal combat_ended(winner_side, defeated_node)
+signal combatant_health_changed(combatant_id)
 
 var combatants := []
 
@@ -74,6 +75,46 @@ const PARRY_MOVEMENT_MASS_STRENGTH_MAX := 2.0 # movement mult clamp: heavy weapo
 # Pain/consciousness: scale durations and capacities; floor matches PainConsciousnessConstants.MIN_PERFORMANCE_MODIFIER
 const PERF_MOD_MIN := 0.35
 
+## Returns the node that holds health/wounds (CoreEntity for enemies; CombatBody for Character). Use for all health reads.
+func _get_entity(node: Node) -> Node:
+	if node == null:
+		return null
+	if node.has_method("get_medical_entity"):
+		var e = node.get_medical_entity()
+		return e if e != null else node
+	return node
+
+func _refresh_combatant_stats(c: Dictionary) -> void:
+	"""Keep combatant stats in sync with node (pain, consciousness, blood, etc.) for UI and gauge fill.
+	Uses _get_entity for unified health access (party Character -> CombatBody, enemies -> self)."""
+	if c.node == null:
+		return
+	var entity = _get_entity(c.node)
+	if entity == null:
+		return
+	if entity.has_method("ensure_consciousness_current"):
+		entity.ensure_consciousness_current()
+	if "body_cutting" in entity:
+		c.stats.body_cutting = entity.body_cutting.duplicate()
+	if "body_blunt" in entity:
+		c.stats.body_blunt = entity.body_blunt.duplicate()
+	if "bone_health" in entity:
+		c.stats.bone_health = entity.bone_health.duplicate()
+	if "bone_max" in entity:
+		c.stats.bone_max = entity.bone_max.duplicate()
+	if entity.has_method("get_blood_volume"):
+		c.stats.blood_volume = entity.get_blood_volume()
+	elif "blood_volume" in entity:
+		c.stats.blood_volume = entity.blood_volume
+	if entity.has_method("get_total_bleeding_rate"):
+		c.stats.total_bleeding_rate = entity.get_total_bleeding_rate()
+	if entity.has_method("get_total_pain"):
+		c.stats.total_pain = entity.get_total_pain()
+	if entity.has_method("get_effective_consciousness"):
+		c.stats.effective_consciousness = entity.get_effective_consciousness()
+	if entity.has_method("get_performance_modifier"):
+		c.stats.performance_modifier = entity.get_performance_modifier()
+
 func _read_stats_from(node: Node) -> Dictionary:
 	var s := {
 		"body_cutting": {},
@@ -82,7 +123,10 @@ func _read_stats_from(node: Node) -> Dictionary:
 		"bone_health": {},
 		"bone_max": {},
 		"strength": 1,
-		"speed": 100
+		"agility": 100,
+		"intelligence": 100,
+		"endurance": 100,
+		"perception": 100
 	}
 	if node == null:
 		return s
@@ -98,13 +142,22 @@ func _read_stats_from(node: Node) -> Dictionary:
 		s.bone_max = node.bone_max.duplicate()
 	if "strength" in node:
 		s.strength = node.strength
-	if "speed" in node:
-		s.speed = node.speed
+	if "agility" in node:
+		s.agility = node.agility
+	elif "speed" in node:
+		s.agility = node.speed
+	if "intelligence" in node:
+		s.intelligence = node.intelligence
+	if "endurance" in node:
+		s.endurance = node.endurance
+	if "perception" in node:
+		s.perception = node.perception
 	return s
 
 func register(node: Node, side: String) -> int:
 	var id = combatants.size()
-	var stats = _read_stats_from(node)
+	var entity = _get_entity(node)
+	var stats = _read_stats_from(entity if entity != null else node)
 	combatants.append({
 		"id": id,
 		"node": node,
@@ -117,7 +170,13 @@ func register(node: Node, side: String) -> int:
 		"state_duration": 0.0,
 		"pending_attack": {}
 	})
+	# Connect health_changed so UI can refresh when consciousness/pain/blood changes
+	if entity != null and entity.has_signal("health_changed"):
+		entity.health_changed.connect(_on_entity_health_changed.bind(id))
 	return id
+
+func _on_entity_health_changed(combatant_id: int) -> void:
+	emit_signal("combatant_health_changed", combatant_id)
 
 func start():
 	set_process(true)
@@ -130,24 +189,30 @@ func get_combatants() -> Array:
 	for c in combatants:
 		var stats = c.stats.duplicate()
 		if c.node != null:
-			if "body_cutting" in c.node:
-				stats.body_cutting = c.node.body_cutting.duplicate()
-			if "body_blunt" in c.node:
-				stats.body_blunt = c.node.body_blunt.duplicate()
-			if "bone_health" in c.node:
-				stats.bone_health = c.node.bone_health.duplicate()
-			if "bone_max" in c.node:
-				stats.bone_max = c.node.bone_max.duplicate()
-			if "blood_volume" in c.node:
-				stats.blood_volume = c.node.blood_volume
-			if c.node.has_method("get_total_bleeding_rate"):
-				stats.total_bleeding_rate = c.node.get_total_bleeding_rate()
-			if c.node.has_method("get_effective_consciousness"):
-				stats.effective_consciousness = c.node.get_effective_consciousness()
-			if c.node.has_method("get_performance_modifier"):
-				stats.performance_modifier = c.node.get_performance_modifier()
-			if c.node.has_method("get_total_pain"):
-				stats.total_pain = c.node.get_total_pain()
+			var entity = _get_entity(c.node)
+			if entity != null:
+				if entity.has_method("ensure_consciousness_current"):
+					entity.ensure_consciousness_current()
+				if "body_cutting" in entity:
+					stats.body_cutting = entity.body_cutting.duplicate()
+				if "body_blunt" in entity:
+					stats.body_blunt = entity.body_blunt.duplicate()
+				if "bone_health" in entity:
+					stats.bone_health = entity.bone_health.duplicate()
+				if "bone_max" in entity:
+					stats.bone_max = entity.bone_max.duplicate()
+				if entity.has_method("get_blood_volume"):
+					stats.blood_volume = entity.get_blood_volume()
+				elif "blood_volume" in entity:
+					stats.blood_volume = entity.blood_volume
+				if entity.has_method("get_total_bleeding_rate"):
+					stats.total_bleeding_rate = entity.get_total_bleeding_rate()
+				if entity.has_method("get_effective_consciousness"):
+					stats.effective_consciousness = entity.get_effective_consciousness()
+				if entity.has_method("get_performance_modifier"):
+					stats.performance_modifier = entity.get_performance_modifier()
+				if entity.has_method("get_total_pain"):
+					stats.total_pain = entity.get_total_pain()
 		if not stats.has("blood_volume"):
 			stats.blood_volume = 100.0
 		if not stats.has("total_bleeding_rate"):
@@ -197,16 +262,17 @@ const MEDICAL_URGENCY_RANDOM_MAX := 1.2
 # Available actions: array of { "target_id": int, "move_id": String, optional "target_part": String }.
 # Parry moves only if someone is winding up on this combatant. Medical moves only when in medical danger.
 func _is_in_medical_danger(c: Dictionary) -> bool:
-	if c.node == null:
+	var entity = _get_entity(c.node) if c.node != null else null
+	if entity == null:
 		return false
 	var bv: float = 100.0
-	if c.node.has_method("get_blood_volume"):
-		bv = c.node.get_blood_volume()
-	elif "blood_volume" in c.node:
-		bv = float(c.node.blood_volume)
+	if entity.has_method("get_blood_volume"):
+		bv = entity.get_blood_volume()
+	elif "blood_volume" in entity:
+		bv = float(entity.blood_volume)
 	if bv <= MEDICAL_DANGER_BLOOD_THRESHOLD:
 		return true
-	var rate: float = c.node.get_total_bleeding_rate() if c.node.has_method("get_total_bleeding_rate") else 0.0
+	var rate: float = entity.get_total_bleeding_rate() if entity.has_method("get_total_bleeding_rate") else 0.0
 	if rate <= 0.0:
 		return false
 	var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
@@ -217,20 +283,21 @@ func _is_in_medical_danger(c: Dictionary) -> bool:
 
 # 0..1: higher when more hurt (lower blood, shorter time to death). Only meaningful when in medical danger. Includes randomness.
 func _get_medical_urgency(c: Dictionary) -> float:
-	if c == null or c.node == null:
+	var entity = _get_entity(c.node) if (c != null and c.node != null) else null
+	if entity == null:
 		return 0.0
 	var bv: float = 100.0
-	if c.node.has_method("get_blood_volume"):
-		bv = c.node.get_blood_volume()
-	elif "blood_volume" in c.node:
-		bv = float(c.node.blood_volume)
+	if entity.has_method("get_blood_volume"):
+		bv = entity.get_blood_volume()
+	elif "blood_volume" in entity:
+		bv = float(entity.blood_volume)
 	var death_thresh: float = _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
 	# Urgency from blood: 1 at/below death threshold, 0 at MEDICAL_DANGER_BLOOD_THRESHOLD (55%)
 	var range_bv: float = MEDICAL_DANGER_BLOOD_THRESHOLD - death_thresh
 	var urgency_blood: float = 1.0 if bv <= death_thresh else clampf((MEDICAL_DANGER_BLOOD_THRESHOLD - bv) / maxf(0.01, range_bv), 0.0, 1.0)
 	# Urgency from time to death: 1 when <= 0 sec, 0 when >= MEDICAL_DANGER_SECONDS
 	var urgency_time: float = 0.0
-	var rate: float = c.node.get_total_bleeding_rate() if c.node.has_method("get_total_bleeding_rate") else 0.0
+	var rate: float = entity.get_total_bleeding_rate() if entity.has_method("get_total_bleeding_rate") else 0.0
 	if rate > 0.0:
 		var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
 		if loss_per_sec > 0.0:
@@ -342,6 +409,8 @@ func _process(delta: float) -> void:
 			c.node.process_bleeding(delta)
 		if c.node.has_method("process_blood_loss"):
 			c.node.process_blood_loss(delta)
+		# Refresh pain/consciousness/blood after tick so UI and gauge fill use current values.
+		_refresh_combatant_stats(c)
 	for c in combatants:
 		if not c.alive or c.node == null:
 			continue
@@ -382,11 +451,14 @@ func _process(delta: float) -> void:
 					print("[Combat] Medical cancelled: %s (target died during wind-up)" % who_name)
 					continue
 		if c.state == STATE_WAITING:
-			# Gauge fill: base speed × pain/consciousness only (no leg; leg affects attack wind-up only).
-			var spd: float = float(c.stats.speed)
+			# Gauge fill: base speed × performance. Use action bar modifier (chest pain) when available.
+			var spd: float = float(c.stats.get("agility", 100))
 			var fill_rate: float = spd * delta * 0.5
-			if c.node != null and c.node.has_method("get_performance_modifier"):
-				fill_rate *= c.node.get_performance_modifier()
+			if c.node != null:
+				if c.node.has_method("get_action_bar_performance_modifier"):
+					fill_rate *= c.node.get_action_bar_performance_modifier()
+				elif c.node.has_method("get_performance_modifier"):
+					fill_rate *= c.node.get_performance_modifier()
 			c.gauge = min(100.0, c.gauge + fill_rate)
 			if c.gauge >= 100.0:
 				if c.side == "player":
@@ -446,9 +518,16 @@ func _process(delta: float) -> void:
 					var wind_up_cfg = _MEDICAL_WIND_UP_CONFIG.get(med_id, {})
 					var target_method: String = wind_up_cfg.get("target_method", "")
 					if not target_method.is_empty():
-						var tgt_entity = tgt_c.node.get_medical_entity() if tgt_c.node.has_method("get_medical_entity") else tgt_c.node
+						var tgt_entity = _get_entity(tgt_c.node)
 						if tgt_entity != null and tgt_entity.has_method(target_method):
-							var result = tgt_entity.call(target_method, part)
+							var result = null
+							if target_method == "apply_bandage":
+								var perf_entity = _get_entity(c.node)
+								var eff: float = perf_entity.get_medical_effectiveness() if (perf_entity != null and perf_entity.has_method("get_medical_effectiveness")) else 1.0
+								tgt_entity.call(target_method, part, eff)
+								result = true
+							else:
+								result = tgt_entity.call(target_method, part)
 							if result != false:  # apply_tourniquet returns bool; apply_bandage returns void
 								var outcome: String = wind_up_cfg.get("outcome", med_id)
 								print("[Combat] Medical complete: %s %s on %s => recovery %.1fs" % [who_m, med_id, part, med_rec_dur])
@@ -531,6 +610,19 @@ func _start_medical_action(combatant_id: int, target_combatant_id: int, medical_
 	if medical_id == "bandage_self" or medical_id == "apply_tourniquet":
 		if c.node != null and c.node.has_method("clear_direct_pressure"):
 			c.node.clear_direct_pressure()
+		# Apply direct pressure to the part being bandaged/tourniqueted during wind-up (reduces bleeding while preparing)
+		if not target_part.is_empty():
+			var target_entity = _get_entity(target_node.node)
+			var performer_entity = _get_entity(c.node)
+			if target_entity != null and target_entity.has_method("get_wounds") and target_entity.get_wounds().has(target_part):
+				if target_combatant_id == combatant_id:
+					if target_entity.has_method("apply_direct_pressure") and target_entity.apply_direct_pressure(target_part):
+						print("[Combat] Medical: %s applying direct pressure on %s during %s wind-up" % [who_name, target_part, medical_id])
+				else:
+					if target_entity.has_method("apply_direct_pressure_from_ally") and target_entity.apply_direct_pressure_from_ally(target_part, performer_entity):
+						if performer_entity != null and "direct_pressure_on_ally" in performer_entity:
+							performer_entity.direct_pressure_on_ally = {"node": target_entity, "part": target_part}
+						print("[Combat] Medical: %s applying direct pressure on ally's %s during %s wind-up" % [who_name, target_part, medical_id])
 	var duration: float = 0.0
 	if medical_id == "apply_direct_pressure":
 		# Instant: apply now, then short recovery (scaled by pain/consciousness)
@@ -547,8 +639,8 @@ func _start_medical_action(combatant_id: int, target_combatant_id: int, medical_
 				applied = true
 		else:
 			# Ally: performer applies to target
-			var target_entity = target_node.node.get_medical_entity() if target_node.node.has_method("get_medical_entity") else target_node.node
-			var performer_entity = c.node.get_medical_entity() if (c.node != null and c.node.has_method("get_medical_entity")) else c.node
+			var target_entity = _get_entity(target_node.node)
+			var performer_entity = _get_entity(c.node)
 			if target_entity != null and target_entity.has_method("apply_direct_pressure_from_ally") and target_entity.apply_direct_pressure_from_ally(target_part, performer_entity):
 				applied = true
 				if performer_entity != null and "direct_pressure_on_ally" in performer_entity:
@@ -717,12 +809,15 @@ func _execute_attack(attacker_id: int) -> void:
 			stop()
 		return
 
-	# Roll miss before damage (pain/consciousness reduce hit chance; floor 35% performance)
+	# Roll miss before damage (pain/consciousness reduce hit chance; head pain adds regional penalty)
 	var outcome: String = "hit"
 	var recovery_mult: float = float(archetype.get("recovery_multiplier", 1.0))
 	var perf_mod: float = 1.0
-	if atk.node != null and atk.node.has_method("get_performance_modifier"):
-		perf_mod = atk.node.get_performance_modifier()
+	if atk.node != null:
+		if atk.node.has_method("get_hit_chance_performance_modifier"):
+			perf_mod = atk.node.get_hit_chance_performance_modifier()
+		elif atk.node.has_method("get_performance_modifier"):
+			perf_mod = atk.node.get_performance_modifier()
 	var effective_hit_chance: float = (1.0 - MISS_CHANCE_BASE) * perf_mod
 	var miss_chance: float = 1.0 - effective_hit_chance
 	if randf() < miss_chance:
@@ -752,8 +847,8 @@ func _execute_attack(attacker_id: int) -> void:
 	var part: String = BodyPartConstants.get_weighted_random_part(targetable)
 	var pre_armor: float = 0.0
 	var pen_sharp: float = -1.0
-	var pen_blunt: float = -1.0
 	var pen_blunt_momentum_per_area: float = -1.0
+	var blunt_contact_cm: float = -1.0
 	var pre_cut: float = 0.0
 	var pre_blunt: float = 0.0
 
@@ -779,14 +874,18 @@ func _execute_attack(attacker_id: int) -> void:
 		pre_blunt = pre_blunt_raw * (1.0 - cut_ratio)
 		pre_armor = pre_cut + pre_blunt
 		var pen_sharp_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, DAMAGE_TYPE_SHARP)
-		var pen_blunt_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, DAMAGE_TYPE_BLUNT)
 		pen_sharp = pen_sharp_dict.get("penetration_sharp", -1.0)
-		pen_blunt = pen_blunt_dict.get("penetration_blunt", -1.0)
+		var blunt_opts: Dictionary = {}
+		if tgt.node != null and tgt.node.has_method("get_armor_sharp_resistance_for_part"):
+			blunt_opts["armor_resistance_rha_mm"] = tgt.node.get_armor_sharp_resistance_for_part(part)
+		blunt_opts["pen_sharp_mm"] = pen_sharp
+		var pen_blunt_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, DAMAGE_TYPE_BLUNT, blunt_opts)
 		pen_blunt_momentum_per_area = pen_blunt_dict.get("penetration_blunt_momentum_per_area", -1.0)
+		blunt_contact_cm = pen_blunt_dict.get("blunt_contact_cm", -1.0)
 		var str_mod: float = maxf(0.1, float(atk.stats.strength) / 10.0)
 		var pa_power: float = pa.get("power", -1.0)
 		var pa_ft: float = pa.get("follow_through", -1.0)
-		print("[Damage equation] %s -> %s | power=%.2f follow_through=%.2f intensity=%.2f (drives v, KE, wind-up, recovery) | physics: v=%.2f m/s mass=%.2f kg KE=%.1f J | modifiers: strength=%.2f arm=%.2f cut_ratio=%.2f => pre_armor=%.1f (cut=%.1f blunt=%.1f) | penetration: sharp=%.2f mm RHA blunt=%.1f MPa" % [atk_name, tgt_name, pa_power, pa_ft, intensity, v_m_s, mass_kg, ke_j, str_mod, arm_mod, cut_ratio, pre_armor, pre_cut, pre_blunt, pen_sharp, pen_blunt])
+		print("[Damage equation] %s -> %s | power=%.2f follow_through=%.2f intensity=%.2f (drives v, KE, wind-up, recovery) | physics: v=%.2f m/s mass=%.2f kg KE=%.1f J | modifiers: strength=%.2f arm=%.2f cut_ratio=%.2f => pre_armor=%.1f (cut=%.1f blunt=%.1f) | pen_sharp=%.2f mm RHA | blunt: transmission only (momentum/A=%.0f)" % [atk_name, tgt_name, pa_power, pa_ft, intensity, v_m_s, mass_kg, ke_j, str_mod, arm_mod, cut_ratio, pre_armor, pre_cut, pre_blunt, pen_sharp, pen_blunt_momentum_per_area])
 	else:
 		var mod: float = 1.0
 		if atk.node != null and atk.node.has_method("get_attack_damage_modifier"):
@@ -803,15 +902,15 @@ func _execute_attack(attacker_id: int) -> void:
 
 	var take_result: Dictionary = {}
 	if tgt.node.has_method("take_damage_split"):
-		take_result = tgt.node.take_damage_split(pre_cut, pre_blunt, part, pen_sharp, pen_blunt, pen_blunt_momentum_per_area)
+		take_result = tgt.node.take_damage_split(pre_cut, pre_blunt, part, pen_sharp, pen_blunt_momentum_per_area, blunt_contact_cm)
 	else:
 		# Fallback: single stream (pre_cut or pre_blunt by ratio). Pass momentum for cushion when blunt.
 		if pre_cut >= pre_blunt and tgt.node.has_method("take_damage"):
-			take_result = tgt.node.take_damage(pre_cut, part, DAMAGE_TYPE_SHARP, pen_sharp, pen_blunt, -1.0)
+			take_result = tgt.node.take_damage(pre_cut, part, DAMAGE_TYPE_SHARP, pen_sharp, -1.0)
 			take_result["final_cut"] = take_result.get("final_amount", 0.0)
 			take_result["final_blunt"] = 0.0
 		else:
-			take_result = tgt.node.take_damage(pre_blunt, part, DAMAGE_TYPE_BLUNT, -1.0, pen_blunt, pen_blunt_momentum_per_area)
+			take_result = tgt.node.take_damage(pre_blunt, part, DAMAGE_TYPE_BLUNT, -1.0, pen_blunt_momentum_per_area)
 			take_result["final_cut"] = 0.0
 			take_result["final_blunt"] = take_result.get("final_amount", 0.0)
 
@@ -822,14 +921,30 @@ func _execute_attack(attacker_id: int) -> void:
 	if outcome == "hit" and pre_armor > 0 and float(final_cut + final_blunt) < pre_armor * DEFLECTED_DAMAGE_RATIO:
 		outcome = "deflected"
 
-	tgt.stats.body_cutting = tgt.node.body_cutting.duplicate()
-	tgt.stats.body_blunt = tgt.node.body_blunt.duplicate()
+	var tgt_entity = _get_entity(tgt.node)
+	if tgt_entity == null:
+		tgt_entity = tgt.node
+	tgt.stats.body_cutting = tgt_entity.body_cutting.duplicate()
+	tgt.stats.body_blunt = tgt_entity.body_blunt.duplicate()
+	# Keep pain/consciousness/performance in sync so UI (and any direct stats reads) stays current for all combatants.
+	if tgt_entity.has_method("get_total_pain"):
+		tgt.stats.total_pain = tgt_entity.get_total_pain()
+	if tgt_entity.has_method("get_effective_consciousness"):
+		tgt.stats.effective_consciousness = tgt_entity.get_effective_consciousness()
+	if tgt_entity.has_method("get_performance_modifier"):
+		tgt.stats.performance_modifier = tgt_entity.get_performance_modifier()
+	if tgt_entity.has_method("get_blood_volume"):
+		tgt.stats.blood_volume = tgt_entity.get_blood_volume()
+	elif "blood_volume" in tgt_entity:
+		tgt.stats.blood_volume = tgt_entity.blood_volume
+	if tgt_entity.has_method("get_total_bleeding_rate"):
+		tgt.stats.total_bleeding_rate = tgt_entity.get_total_bleeding_rate()
 
-	var health_after_cut: float = tgt.node.body_cutting.get(part, 0.0)
-	var health_after_blunt: float = tgt.node.body_blunt.get(part, 0.0)
-	var health_after_bone: float = tgt.node.bone_health.get(part, 0.0) if tgt.node.get("bone_health") else 0.0
-	var part_max: int = tgt.node.body_max.get(part, 0)
-	var part_bone_max: int = tgt.node.bone_max.get(part, 0) if tgt.node.get("bone_max") else 0
+	var health_after_cut: float = tgt_entity.body_cutting.get(part, 0.0)
+	var health_after_blunt: float = tgt_entity.body_blunt.get(part, 0.0)
+	var health_after_bone: float = tgt_entity.bone_health.get(part, 0.0) if tgt_entity.get("bone_health") else 0.0
+	var part_max: int = tgt_entity.body_max.get(part, 0)
+	var part_bone_max: int = tgt_entity.bone_max.get(part, 0) if tgt_entity.get("bone_max") else 0
 	var outcome_note: String = outcome
 	if outcome == "deflected":
 		outcome_note = "deflected (tissue_dmg %.2f < pre_armor*%.2f=%.1f)" % [final_cut + final_blunt, DEFLECTED_DAMAGE_RATIO, pre_armor * DEFLECTED_DAMAGE_RATIO]

@@ -49,9 +49,9 @@ func _ready():
 	
 	print("3x3 grid created!")
 	
-	# Randomize RNG and spawn enemy group (all enemies on same tile as one encounter)
+	# Randomize RNG and spawn two enemy encounters on different tiles (for testing medical continuity between battles)
 	rng.randomize()
-	_spawn_enemy_group(2)
+	_spawn_enemy_encounters(2, 2)
 	# Assign player species *before* party setup so party UI shows correct stats
 	if has_node("Character"):
 		var player = $Character
@@ -161,29 +161,42 @@ func _on_party_button_pressed() -> void:
 	if pm and menu:
 		menu.show_party(pm.get_members())
 
-func _spawn_enemy_group(count: int):
-	# Spawn a group of enemies on the same tile (one encounter per tile)
+func _spawn_enemy_encounters(num_encounters: int, enemies_per_encounter: int) -> void:
+	# Spawn multiple enemy groups on different tiles (one encounter per tile)
+	var excluded_tiles: Array = []
+	if has_node("Character"):
+		excluded_tiles.append(_tile_coords($Character.position))
+	for i in num_encounters:
+		var used_tile = _spawn_enemy_group(enemies_per_encounter, excluded_tiles)
+		if used_tile != null:
+			excluded_tiles.append(used_tile)
+
+func _spawn_enemy_group(count: int, excluded_tiles: Array = []) -> Variant:
+	# Spawn a group of enemies on the same tile (one encounter per tile). Returns tile used, or null if failed.
 	if enemy_scene == null:
 		enemy_scene = load("res://enemy/Enemy.tscn")
 	if enemy_scene == null:
 		print("No enemy scene found to spawn.")
-		return
-	# Pick one tile for the whole group, avoiding party's tile
-	var p_tile = Vector2i(-1, -1)
-	if has_node("Character"):
-		p_tile = _tile_coords($Character.position)
+		return null
+	# Pick one tile for the whole group, avoiding excluded tiles (player + already used)
 	var tx = 0
 	var ty = 0
 	var tries = 0
+	var tile = Vector2i(0, 0)
 	while true:
 		tx = rng.randi_range(0, 2)
 		ty = rng.randi_range(0, 2)
 		tries += 1
-		var tile = Vector2i(tx, ty)
-		if tile != p_tile:
+		tile = Vector2i(tx, ty)
+		var skip = false
+		for et in excluded_tiles:
+			if tile == et:
+				skip = true
+				break
+		if not skip:
 			break
 		if tries > 100:
-			break
+			return null
 	var tile_center = Vector2(tx * 64 + 32, ty * 64 + 32)
 	var species_paths := _get_available_species_paths()
 	if species_paths.is_empty():
@@ -201,6 +214,7 @@ func _spawn_enemy_group(count: int):
 			enemy.apply_species()
 		if enemy.has_method("equip_armor") and enemy.has_method("equip_weapon"):
 			_equip_random_equipment(enemy)
+	return tile
 
 func _on_player_moved():
 	var player = $Character

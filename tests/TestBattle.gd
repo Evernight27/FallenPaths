@@ -59,7 +59,7 @@ func _run_scripted_tests() -> void:
 		if bone_left <= 0.0:
 			print("  [TestBattle] right_arm severed during test (bone=0); stopping.")
 			break
-		entity.take_damage_split(2.0, 2.0, part, 2.0, 500.0)
+		entity.take_damage_split(2.0, 2.0, part, 2.0)
 		hits += 1
 	var cut_after: float = entity.body_cutting.get(part, 0.0)
 	var blunt_after: float = entity.body_blunt.get(part, 0.0)
@@ -77,7 +77,7 @@ func _run_scripted_tests() -> void:
 			break
 		if entity.has_method("_is_part_destroyed") and entity._is_part_destroyed(part):
 			break
-		entity.take_damage_split(6.0, 6.0, part, 3.0, 3000.0)
+		entity.take_damage_split(6.0, 6.0, part, 3.0)
 		hits += 1
 	var severed: bool = entity._is_part_severed(part) if entity.has_method("_is_part_severed") else false
 	var wounds: Dictionary = entity.get_wounds() if entity.has_method("get_wounds") else {}
@@ -87,7 +87,7 @@ func _run_scripted_tests() -> void:
 
 	# --- 3) Chest wounds (cut + blunt) ---
 	print("\n--- Test 3: Chest wounds (cut + blunt) ---")
-	entity.take_damage_split(5.0, 3.0, "chest", 2.5, 2500.0)
+	entity.take_damage_split(5.0, 3.0, "chest", 2.5)
 	wounds = entity.get_wounds() if entity.has_method("get_wounds") else {}
 	bleeding_rate = entity.get_total_bleeding_rate() if entity.has_method("get_total_bleeding_rate") else 0.0
 	var blood_before: float = entity.get("blood_volume") if entity.get("blood_volume") != null else entity.blood_volume
