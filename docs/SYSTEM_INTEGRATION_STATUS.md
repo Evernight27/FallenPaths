@@ -24,6 +24,12 @@ Verification that aggressive realism and pain systems are properly integrated. L
 3. **Damage:** CombatManager computes pre_cut, pre_blunt from WeaponDamageHelper; calls take_damage_split(pre_cut, pre_blunt, part, ...).
 4. **Pain:** CoreEntity.get_total_pain() sums wounds; get_effective_pain_for_thresholds() divides by species.get_pain_reference(body_max).
 
+## Combat Phases
+
+1. **Combat phase:** Fight to the death—attacks only, no medical actions. Bleeding and blood loss tick during combat.
+2. **Medical phase (player wins):** When all enemies eliminated, CombatManager emits `enemies_eliminated`; battle continues. Winning side performs medical actions (bandage, direct pressure, tourniquet). Bleeding continues until wounded are stabilized. "End battle" appears when `can_end_medical_phase()` (no one in medical danger).
+3. **Enemy wins:** Combat ends immediately; "End battle" shown right away.
+
 ---
 
 ## Legacy / Unused

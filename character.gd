@@ -156,12 +156,26 @@ func get_wound_healing_progress(injury: Dictionary) -> float:
 func get_game_time_seconds() -> float:
 	return _combat_body.get_game_time_seconds() if _combat_body else 0.0
 
-func apply_bandage(part: String, effectiveness: float = 1.0) -> void:
-	if _combat_body:
-		_combat_body.apply_bandage(part, effectiveness)
+func apply_bandage(part: String, effectiveness: float = 1.0) -> bool:
+	return _combat_body.apply_bandage(part, effectiveness) if _combat_body else false
+
+func can_apply_bandage(part: String) -> bool:
+	return _combat_body.can_apply_bandage(part) if _combat_body else false
 
 func get_bandage_application_time_seconds() -> float:
 	return _combat_body.get_bandage_application_time_seconds() if _combat_body else 0.0
+
+func get_bandage_application_time_seconds_for_part(part: String) -> float:
+	return _combat_body.get_bandage_application_time_seconds_for_part(part) if _combat_body else 0.0
+
+func can_apply_packing(part: String) -> bool:
+	return _combat_body.can_apply_packing(part) if _combat_body else false
+
+func apply_packing(part: String, effectiveness: float = 1.0) -> bool:
+	return _combat_body.apply_packing(part, effectiveness) if _combat_body else false
+
+func get_packing_application_time_seconds_for_part(part: String) -> float:
+	return _combat_body.get_packing_application_time_seconds_for_part(part) if _combat_body else 0.0
 
 func can_apply_direct_pressure(target_part: String) -> bool:
 	return _combat_body.can_apply_direct_pressure(target_part) if _combat_body else false
@@ -214,6 +228,15 @@ func apply_species() -> void:
 	if _combat_body and species != null:
 		_combat_body.species = species
 		_combat_body.apply_species()
+
+## Apply hero/party boost: stronger than baseline human (150 vs 100). Call after apply_species().
+func apply_party_boost() -> void:
+	if _combat_body:
+		_combat_body.strength = 150
+		_combat_body.agility = 150
+		_combat_body.intelligence = 150
+		_combat_body.endurance = 150
+		_combat_body.perception = 150
 
 func _ready() -> void:
 	target_position = position

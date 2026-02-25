@@ -26,6 +26,6 @@ Run the **Test Battle** scene to verify severance, mangled/destroyed parts, woun
 
 2. **Live combat**: Starts the normal battle UI with two entities (TestPlayer vs TestEnemy). You can attack/parry; damage, armor, bone/tissue, wounds, and bleeding use the same systems as the main game.
 
-3. **Post-combat**: When combat ends, logs the survivor’s state and runs one healing tick to show tissue/bone/blood recovery.
+3. **Post-combat**: When battle ends (after medical phase if player won—stabilize wounded, then click "End battle"), logs the survivor’s state and runs one healing tick to show tissue/bone/blood recovery.
 
 All steps print to the Godot **Output** panel so you can confirm numbers and behavior.

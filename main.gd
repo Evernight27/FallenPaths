@@ -21,6 +21,18 @@ func _get_available_species_paths() -> Array:
 			file = dir.get_next()
 	return paths
 
+## Species paths for enemy spawns only. Excludes human so party (human) has stat advantage.
+func _get_enemy_species_paths() -> Array:
+	var all_paths := _get_available_species_paths()
+	var out: Array = []
+	for p in all_paths:
+		if "human" in p.to_lower():
+			continue
+		out.append(p)
+	if out.is_empty():
+		out = ["res://species/goblin.tres"]
+	return out
+
 func _ready():
 	# Match FallenFramework: fill screen — maximized window + stretch to viewport
 	var main_window = get_tree().root
@@ -62,6 +74,8 @@ func _ready():
 				player.species = human_res
 				if player.has_method("apply_species"):
 					player.apply_species()
+				if player.has_method("apply_party_boost"):
+					player.apply_party_boost()
 		if player.has_method("equip_armor") and player.has_method("equip_weapon"):
 			_equip_random_equipment(player)
 		# Disable input for companion so only player controls movement (companion is hidden, part of party icon)
@@ -74,6 +88,8 @@ func _ready():
 					companion.species = human_res
 					if companion.has_method("apply_species"):
 						companion.apply_species()
+					if companion.has_method("apply_party_boost"):
+						companion.apply_party_boost()
 			if companion.has_method("equip_armor") and companion.has_method("equip_weapon"):
 				_equip_random_equipment(companion)
 	# Setup party manager (after species so snapshot has correct stats)
@@ -198,7 +214,7 @@ func _spawn_enemy_group(count: int, excluded_tiles: Array = []) -> Variant:
 		if tries > 100:
 			return null
 	var tile_center = Vector2(tx * 64 + 32, ty * 64 + 32)
-	var species_paths := _get_available_species_paths()
+	var species_paths := _get_enemy_species_paths()
 	if species_paths.is_empty():
 		species_paths = ["res://species/goblin.tres"]
 	for i in count:
@@ -319,8 +335,6 @@ func _start_combat(p_enemies: Array):
 	if battle.has_method("start"):
 		battle.start(players, p_enemies)
 	await get_tree().process_frame
-	print("--- Battle debug: instantiated & parented ---")
-	print("battle:", battle, " child_count:", battle.get_child_count())
 	# listen for end
 	if battle.has_signal("battle_ended"):
 		battle.connect("battle_ended", Callable(self, "_on_battle_ended"), CONNECT_ONE_SHOT)
@@ -333,6 +347,26 @@ func _on_battle_ended(winner: String, _defeated: Node) -> void:
 	var player_lost := (winner != "player")
 	if player_lost:
 		print("You were defeated.")
+		# Preserve camera position before removing player (avoid view jump when character is deleted)
+		if player != null and is_instance_valid(player) and player.has_node("Camera2D"):
+			var cam = player.get_node("Camera2D")
+			var cam_global_pos = cam.global_position
+			player.remove_child(cam)
+			add_child(cam)
+			cam.global_position = cam_global_pos
+			if cam.has_method("make_current"):
+				cam.make_current()
+		# Remove defeated player tokens from the map (don't leave dead bodies with enemies)
+		if player != null and is_instance_valid(player):
+			player.queue_free()
+		var pm_lost = get_meta("party_manager", null) if has_meta("party_manager") else null
+		if pm_lost != null and pm_lost.has_method("get_members"):
+			for member in pm_lost.get_members():
+				var node_ref = member.get("node_ref") if member is Dictionary else null
+				if is_instance_valid(node_ref) and node_ref is Node and node_ref != player:
+					node_ref.queue_free()
+		if has_meta("_combat_enemies"):
+			remove_meta("_combat_enemies")
 		# Optionally: get_tree().reload_current_scene() for full reset, or show game-over UI
 		return
 	# Player won: re-enable input and clean up

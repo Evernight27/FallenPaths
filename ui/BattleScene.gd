@@ -10,6 +10,8 @@ var parent_scene: Node = null
 const BODY_PARTS := ["head", "chest", "right_arm", "left_arm", "left_leg", "right_leg"]
 const BODY_LABELS := {"head": "Head", "chest": "Chest", "right_arm": "R.Arm", "left_arm": "L.Arm", "left_leg": "L.Leg", "right_leg": "R.Leg"}
 const PART_LINES := [["head", "chest"], ["right_arm", "left_arm"], ["left_leg", "right_leg"]]
+# Human-readable labels for medical actions in the action bar
+const MEDICAL_ACTION_LABELS := {"bandage_self": "Bandaging", "pack_wound": "Packing wound", "apply_tourniquet": "Applying tourniquet", "apply_direct_pressure": "Direct pressure"}
 
 # manager & combat ids
 var manager: Node = null
@@ -19,6 +21,7 @@ var combat_log_scroll: ScrollContainer = null
 var end_battle_button: Button = null
 var _pending_winner: String = ""
 var _pending_defeated: Node = null
+var _in_medical_phase: bool = false
 const LOG_MAX_LINES := 80
 const MAIN_LIST_PATH := "CombatCanvasLayer/UIRoot/ContentVBox/MainScroll/MainHBox"
 
@@ -74,6 +77,7 @@ func start(p_players, p_enemies) -> void:
 	manager.connect("turn_ready", Callable(self, "_on_turn_ready"))
 	manager.connect("action_resolved", Callable(self, "_on_action_resolved"))
 	manager.connect("combat_ended", Callable(self, "_on_combat_ended"))
+	manager.connect("enemies_eliminated", Callable(self, "_on_enemies_eliminated"))
 	manager.connect("combatant_health_changed", Callable(self, "_on_combatant_health_changed"))
 	# start the manager
 	manager.start()
@@ -221,7 +225,14 @@ func _create_ui() -> void:
 func _scroll_combat_log_to_bottom() -> void:
 	if combat_log_scroll == null:
 		return
-	# Layout updates next frame; scrollbar max_value is stale until then
+	# Layout updates over multiple frames; scrollbar max_value is stale until layout settles.
+	# Single defer is often insufficient (especially during medical phase when layout changes).
+	# Use double defer so we scroll after the RichTextLabel's fit_content has propagated.
+	call_deferred("_scroll_combat_log_to_bottom_deferred")
+
+func _scroll_combat_log_to_bottom_deferred() -> void:
+	if combat_log_scroll == null:
+		return
 	call_deferred("_do_scroll_combat_log_to_bottom")
 
 func _do_scroll_combat_log_to_bottom() -> void:
@@ -362,25 +373,33 @@ func _update_ui() -> void:
 			if ctrl.gauge:
 				var state: String = c.get("state", "waiting")
 				# Action bar only shows fill when waiting (charging next turn); stays empty during swing/medical/recovery
+				# receiving_medical_attention: gauge full (readied), cannot act until care finishes
 				if state == "wind_up" or state == "medical_wind_up" or state == "recovering":
 					ctrl.gauge.value = 0.0
 				else:
 					ctrl.gauge.value = c.gauge
 			if ctrl.get("gauge_label"):
-				var state: String = c.get("state", "waiting")
-				var state_timer: float = c.get("state_timer", 0.0)
-				var state_duration: float = c.get("state_duration", 0.0)
-				if state == "wind_up":
-					var remain: float = maxf(0.0, state_duration - state_timer)
-					ctrl.gauge_label.text = "Wind-up %.1fs" % remain
-				elif state == "medical_wind_up":
-					var remain: float = maxf(0.0, state_duration - state_timer)
-					ctrl.gauge_label.text = "Medical %.1fs" % remain
-				elif state == "recovering":
-					var remain: float = maxf(0.0, state_duration - state_timer)
-					ctrl.gauge_label.text = "Recov. %.1fs" % remain
+				if not c.alive:
+					ctrl.gauge_label.text = "Defeated"
 				else:
-					ctrl.gauge_label.text = "Ready!" if c.gauge >= 100.0 else "%d%%" % int(c.gauge)
+					var state: String = c.get("state", "waiting")
+					var state_timer: float = c.get("state_timer", 0.0)
+					var state_duration: float = c.get("state_duration", 0.0)
+					if state == "wind_up":
+						var remain: float = maxf(0.0, state_duration - state_timer)
+						ctrl.gauge_label.text = "Wind-up %.1fs" % remain
+					elif state == "medical_wind_up":
+						var remain: float = maxf(0.0, state_duration - state_timer)
+						var pm = c.get("pending_medical", {})
+						var med_label: String = MEDICAL_ACTION_LABELS.get(pm.get("medical_id", ""), "Medical")
+						ctrl.gauge_label.text = "%s %.1fs" % [med_label, remain]
+					elif state == "recovering":
+						var remain: float = maxf(0.0, state_duration - state_timer)
+						ctrl.gauge_label.text = "Recov. %.1fs" % remain
+					elif state == "receiving_medical_attention":
+						ctrl.gauge_label.text = "Receiving care"
+					else:
+						ctrl.gauge_label.text = "Ready!" if c.gauge >= 100.0 else "%d%%" % int(c.gauge)
 			# Blood volume and bleeding
 			if ctrl.get("blood_label"):
 				var bv: float = c.stats.get("blood_volume", 100.0)
@@ -421,6 +440,9 @@ func _update_ui() -> void:
 func _process(_delta: float) -> void:
 	# keep UI in sync with manager
 	_update_ui()
+	# Medical phase: show End battle when all wounded are stabilized
+	if _in_medical_phase and manager != null and manager.has_method("can_end_medical_phase") and manager.can_end_medical_phase():
+		_show_end_battle_button()
 
 func _on_combatant_health_changed(_combatant_id: int) -> void:
 	# Refresh UI when consciousness/pain/blood changes (driven by health_changed signal from entity)
@@ -440,10 +462,15 @@ func _on_turn_ready(combatant_id: int) -> void:
 	if me.side == "player":
 		var actions: Array = manager.get_available_actions(combatant_id)
 		if actions.is_empty():
+			# Combat phase: attack first available enemy. Medical phase: no enemies, skip turn.
 			for c in caps:
 				if c.side != "player" and c.alive:
 					manager.resolve_action(combatant_id, c.id)
 					return
+			# No valid target (e.g. medical phase with no wounded allies)
+			if manager.has_method("skip_turn"):
+				manager.skip_turn(combatant_id)
+			return
 		else:
 			# Weighted choice: medical by urgency, else attack.
 			var choice = manager.pick_weighted_action(actions, combatant_id)
@@ -476,6 +503,26 @@ func _append_combat_log(attacker_name: String, attacker_side: String, target_nam
 		line = "[color=gray]%s (%s) — no functional arm; skips attack.[/color]" % [attacker_name, attacker_side]
 	elif outcome == "parry_deflect":
 		line = "[color=cyan]%s (%s) parried %s (%s)'s attack.[/color]" % [attacker_name, attacker_side, target_name, target_side]
+	elif outcome == "direct_pressure":
+		line = "[color=teal]%s (%s) applied direct pressure on %s's %s.[/color]" % [attacker_name, attacker_side, target_name, part_label]
+	elif outcome == "bandaged":
+		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
+		line = "[color=teal]%s (%s) bandaged %s's %s successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
+	elif outcome == "bandage_failed":
+		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
+		line = "[color=orange]%s (%s) failed to properly bandage %s's %s (effectiveness: %d%%; partial effect; another can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
+	elif outcome == "packed":
+		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
+		line = "[color=teal]%s (%s) packed %s's %s with linen successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
+	elif outcome == "packing_failed":
+		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
+		line = "[color=orange]%s (%s) failed to properly pack %s's %s (effectiveness: %d%%; partial effect; another can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
+	elif outcome == "tourniquet_applied":
+		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
+		line = "[color=teal]%s (%s) applied tourniquet to %s's %s successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
+	elif outcome == "tourniquet_failed":
+		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
+		line = "[color=orange]%s (%s) failed to properly apply tourniquet to %s's %s (effectiveness: %d%%; not tight enough; can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
 	elif outcome == "deflected":
 		line = "%s (%s) → %s (%s) %s: [b]%d[/b] dmg [color=orange](deflected)[/color]" % [attacker_name, attacker_side, target_name, target_side, part_label, dmg]
 		if result.has("final_cut") and result.has("final_blunt"):
@@ -525,14 +572,24 @@ func _on_action_resolved(attacker_id: int, target_id: int, result: Dictionary) -
 			lbl.text = ""
 	_update_ui()
 
+func _on_enemies_eliminated(winner_side: String) -> void:
+	_pending_winner = winner_side
+	_pending_defeated = null
+	_in_medical_phase = true
+	if combat_log:
+		combat_log.append_text("\n[color=orange]——— Enemies eliminated. Medical phase: stabilize your wounded before ending. ———[/color]\n")
+		_scroll_combat_log_to_bottom()
+	# End battle button shown when can_end_medical_phase() (polled in _process)
+
 func _on_combat_ended(winner_side: String, defeated_node: Node) -> void:
 	_pending_winner = winner_side
 	_pending_defeated = defeated_node
 	if combat_log:
 		combat_log.append_text("\n[color=yellow]——— Combat ended. Winner: %s ———[/color]\n" % winner_side)
 		_scroll_combat_log_to_bottom()
-	# Show "End battle" button so the player can review the log before closing
-	_show_end_battle_button()
+	# Enemy won: show End battle immediately. Player won: handled by _on_enemies_eliminated (medical phase first).
+	if winner_side == "enemy":
+		_show_end_battle_button()
 
 func _show_end_battle_button() -> void:
 	if end_battle_button != null:
@@ -540,6 +597,9 @@ func _show_end_battle_button() -> void:
 	var content_vbox = get_node_or_null("CombatCanvasLayer/UIRoot/ContentVBox")
 	if content_vbox == null:
 		return
+	# Pause combat loop: no more gauge fills or turn cycling until End battle is pressed
+	if manager != null:
+		manager.set_process(false)
 	end_battle_button = Button.new()
 	end_battle_button.name = "EndBattleButton"
 	end_battle_button.text = "End battle"
@@ -550,6 +610,8 @@ func _show_end_battle_button() -> void:
 	call_deferred("_scroll_combat_log_to_bottom")
 
 func _on_end_battle_button_pressed() -> void:
+	if _in_medical_phase and manager != null and manager.has_method("finish_battle"):
+		manager.finish_battle()
 	emit_signal("battle_ended", _pending_winner, _pending_defeated)
 	queue_free()
 

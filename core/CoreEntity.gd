@@ -35,8 +35,15 @@ var wounds: Dictionary = {}  # part (String) -> Array of Dictionary
 var blood_volume: float = 100.0  # 0–100; death below _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
 # Tourniquet: limb parts only. part -> game_time when applied (for optional expiry). When set, that part's wounds do not contribute to blood loss.
 var tourniquet_applied: Dictionary = {}  # part (String) -> float (game_time_seconds when applied)
+# Bandaged parts: part -> true when bandage has been applied. Mutually exclusive with tourniquet per part (can't bandage a tourniqueted limb, can't tourniquet a bandaged limb).
+var bandaged_parts: Dictionary = {}  # part (String) -> bool
+# Packed parts: head/chest only; linen packed into wound cavity. Mutually exclusive with bandage/tourniquet per part.
+var packed_parts: Dictionary = {}  # part (String) -> bool
 # Direct pressure: part (String) the entity is currently holding pressure on; empty if not. Lasts until next action or bleeding on that part stops.
+# When ally holds pressure on us: direct_pressure_part + direct_pressure_held_by. When we hold on ourselves: self_direct_pressure_part.
 var direct_pressure_part: String = ""
+# Part we are holding pressure on ourselves (e.g. second wound while ally treats our first). Allows simultaneous ally + self pressure.
+var self_direct_pressure_part: String = ""
 # When holding pressure on an ally: {node: Node, part: String}. Cleared when performer releases or target's bleeding stops.
 var direct_pressure_on_ally: Dictionary = {}
 # When pressure is held on us by an ally: the performer's medical entity. Used to clear performer when our bleeding stops.
@@ -398,9 +405,9 @@ func _update_consciousness() -> void:
 				_last_hit_impact = 0.0  # consumed so bleed/healing updates don't reuse old impact
 	_consciousness_dirty = false
 	if old_consciousness != consciousness or old_effective != effective_consciousness:
-		emit_signal("health_changed")
+		call_deferred("emit_signal", "health_changed")
 	if true_consciousness < _PainConscious.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
-		emit_signal("creature_incapacitated")
+		call_deferred("emit_signal", "creature_incapacitated")
 
 func is_incapacitated() -> bool:
 	"""True when consciousness is below threshold (unconscious; cannot act, counts as defeated)."""
@@ -798,6 +805,19 @@ func get_total_bleeding_rate() -> float:
 		total += get_bleeding_rate_for_part(part)
 	return total
 
+"""Bleeding rate as if direct pressure were released. Excludes direct pressure benefit (temporary relief).
+Used to determine if entity has 'permanently' left immediate peril—bandage/packing/tourniquet count; direct pressure does not."""
+func get_permanent_bleeding_rate() -> float:
+	var total: float = 0.0
+	for part in wounds:
+		var rate: float = get_bleeding_rate_for_part(part)
+		if part == self_direct_pressure_part or part == direct_pressure_part:
+			# Reverse direct pressure reduction to get rate if released (temporary; doesn't count as permanent)
+			if rate > 0.0:
+				rate /= (1.0 - _Bleeding.DIRECT_PRESSURE_IMMEDIATE_REDUCTION)
+		total += rate
+	return total
+
 """Bleeding rate from a single part (0 if tourniquet on that part). Used to check when direct pressure can stop."""
 func get_bleeding_rate_for_part(part: String) -> float:
 	if tourniquet_applied.has(part):
@@ -858,11 +878,14 @@ func process_bleeding(delta: float) -> void:
 			wounds.erase(part)
 	# Direct pressure ends when bleeding on that part stops
 	if not direct_pressure_part.is_empty() and get_bleeding_rate_for_part(direct_pressure_part) <= _Bleeding.BLEEDING_RATE_EPSILON:
-		print("[Medical] %s direct_pressure auto-cleared: bleeding on %s stopped (rate <= epsilon)" % [name, direct_pressure_part])
+		print("[Medical] %s direct_pressure auto-cleared: bleeding on %s stopped (ally-held, rate <= epsilon)" % [name, direct_pressure_part])
 		if direct_pressure_held_by != null and "direct_pressure_on_ally" in direct_pressure_held_by:
 			direct_pressure_held_by.direct_pressure_on_ally = {}
 		direct_pressure_held_by = null
 		direct_pressure_part = ""
+	if not self_direct_pressure_part.is_empty() and get_bleeding_rate_for_part(self_direct_pressure_part) <= _Bleeding.BLEEDING_RATE_EPSILON:
+		print("[Medical] %s direct_pressure auto-cleared: bleeding on %s stopped (self-held, rate <= epsilon)" % [name, self_direct_pressure_part])
+		self_direct_pressure_part = ""
 
 func process_blood_loss(delta: float) -> void:
 	var total: float = get_total_bleeding_rate()
@@ -874,9 +897,20 @@ func process_blood_loss(delta: float) -> void:
 	if blood_volume <= _get_blood_loss_death_threshold():
 		emit_signal("died")
 
-"""Seconds the action system should delay before applying bandage effect (wrapping, securing)."""
+"""Seconds the action system should delay before applying bandage effect (wrapping, securing). Base time for one wound."""
 func get_bandage_application_time_seconds() -> float:
 	return _Bleeding.BANDAGE_APPLICATION_TIME_SECONDS
+
+"""Bandage duration for a specific part: base time + extra per additional wound. Treats all wounds on the part at once."""
+func get_bandage_application_time_seconds_for_part(part: String) -> float:
+	if part.is_empty() or not wounds.has(part):
+		return _Bleeding.BANDAGE_APPLICATION_TIME_SECONDS
+	var n: int = wounds[part].size()
+	if n <= 0:
+		return _Bleeding.BANDAGE_APPLICATION_TIME_SECONDS
+	var base: float = _Bleeding.BANDAGE_APPLICATION_TIME_SECONDS
+	var extra: float = _Bleeding.BANDAGE_PER_WOUND_EXTRA_SECONDS * max(0, n - 1)
+	return base + extra
 
 """Medical effectiveness from intelligence (100 INT = 1.0; 50 = 0.75, 150 = 1.25). Used for bandage, direct pressure."""
 func get_medical_effectiveness() -> float:
@@ -886,23 +920,146 @@ func get_medical_effectiveness() -> float:
 func get_tourniquet_application_time_seconds() -> float:
 	return _Bleeding.TOURNIQUET_APPLICATION_TIME_SECONDS
 
-func apply_bandage(part: String, effectiveness: float = 1.0) -> void:
+"""True if bandage can be applied to this part (has wounds, not tourniqueted, not bandaged, not packed)."""
+func can_apply_bandage(part: String) -> bool:
+	if part.is_empty() or not wounds.has(part) or wounds[part].is_empty():
+		return false
+	if tourniquet_applied.has(part):
+		return false  # tourniqueted limbs don't get bandaged
+	if bandaged_parts.has(part):
+		return false  # already bandaged
+	if packed_parts.has(part):
+		return false  # packed parts use packing, not bandage
+	return true
+
+"""Apply bandage to part. Returns true on success (full reduction, stabilized); false on failure (partial reduction, can retry). Medical skill (effectiveness) affects success chance."""
+func apply_bandage(part: String, effectiveness: float = 1.0) -> bool:
 	if part.is_empty() or not wounds.has(part):
-		return
+		return false
+	if tourniquet_applied.has(part):
+		return false  # tourniqueted limbs don't get bandaged
+	if bandaged_parts.has(part):
+		return false  # already bandaged
+	if packed_parts.has(part):
+		return false  # packed parts already treated
 	clear_direct_pressure()  # bandage is a new action; stop holding pressure
-	effectiveness = clampf(effectiveness, 0.0, 1.0)
-	var wound_count: int = wounds[part].size()
+	effectiveness = clampf(effectiveness, 0.0, 1.5)
+	var has_arterial: bool = false
 	for injury in wounds[part]:
-		var eff: float = effectiveness
 		if injury.get("is_arterial", false):
-			eff *= _Bleeding.BANDAGE_ARTERIAL_EFFECTIVENESS_MULT
-		var reduction: float = _Bleeding.BANDAGE_IMMEDIATE_REDUCTION * eff
-		var rate: float = injury.get("current_bleeding_rate", 0.0)
-		injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - reduction))
-		injury["is_stabilized"] = true
-		if _Bleeding.BANDAGE_STABILIZATION_DURATION > 0.0:
-			injury["stabilized_remaining_seconds"] = _Bleeding.BANDAGE_STABILIZATION_DURATION
-	print("[Medical] %s apply_bandage(%s) => %d wound(s) stabilized" % [name, part, wound_count])
+			has_arterial = true
+			break
+	var success_chance: float = _Bleeding.BANDAGE_SUCCESS_BASE_CHANCE
+	if has_arterial:
+		success_chance *= _Bleeding.BANDAGE_SUCCESS_ARTERIAL_MULT
+	success_chance *= effectiveness
+	success_chance = clampf(success_chance, 0.0, 1.0)
+	var roll: float = randf()
+	var success: bool = roll < success_chance
+	var wound_count: int = wounds[part].size()
+	if success:
+		for injury in wounds[part]:
+			var eff: float = effectiveness
+			if injury.get("is_arterial", false):
+				eff *= _Bleeding.BANDAGE_ARTERIAL_EFFECTIVENESS_MULT
+			var reduction: float = _Bleeding.BANDAGE_IMMEDIATE_REDUCTION * clampf(eff, 0.0, 1.0)
+			var rate: float = injury.get("current_bleeding_rate", 0.0)
+			injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - reduction))
+			injury["is_stabilized"] = true
+			if _Bleeding.BANDAGE_STABILIZATION_DURATION > 0.0:
+				injury["stabilized_remaining_seconds"] = _Bleeding.BANDAGE_STABILIZATION_DURATION
+		bandaged_parts[part] = true
+		print("[Medical] %s apply_bandage(%s) => success, %d wound(s) stabilized" % [name, part, wound_count])
+	else:
+		# Closeness to success: roll just above threshold = near-miss (high partial); roll near 1.0 = poor attempt (low partial). Scales 0-75% based on how close.
+		var closeness: float = 1.0
+		if success_chance < 1.0:
+			closeness = 1.0 - (roll - success_chance) / (1.0 - success_chance)
+			closeness = clampf(closeness, 0.0, 1.0)
+		var reduction: float = closeness * _Bleeding.BANDAGE_IMMEDIATE_REDUCTION
+		for injury in wounds[part]:
+			var eff: float = effectiveness
+			if injury.get("is_arterial", false):
+				eff *= _Bleeding.BANDAGE_ARTERIAL_EFFECTIVENESS_MULT
+			var wound_reduction: float = reduction * clampf(eff, 0.0, 1.0)
+			var rate: float = injury.get("current_bleeding_rate", 0.0)
+			injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - wound_reduction))
+			# No is_stabilized: wound uses natural clotting; another unit can retry bandage
+		print("[Medical] %s apply_bandage(%s) => failed (%.0f%% reduction), %d wound(s); can retry" % [name, part, reduction * 100, wound_count])
+	return success
+
+"""True if wound packing can be applied to this part (head/chest only; has wounds; not tourniqueted, bandaged, or packed)."""
+func can_apply_packing(part: String) -> bool:
+	if part not in _Bleeding.PACKING_PARTS:
+		return false
+	if not wounds.has(part) or wounds[part].is_empty():
+		return false
+	if tourniquet_applied.has(part):
+		return false
+	if bandaged_parts.has(part):
+		return false
+	if packed_parts.has(part):
+		return false
+	return true
+
+"""Pack wound with linen (head/chest). Returns true on success; false on failure (can retry). Medical skill affects success chance."""
+func apply_packing(part: String, effectiveness: float = 1.0) -> bool:
+	if not can_apply_packing(part):
+		return false
+	clear_direct_pressure()
+	effectiveness = clampf(effectiveness, 0.0, 1.5)
+	var has_arterial: bool = false
+	for injury in wounds[part]:
+		if injury.get("is_arterial", false):
+			has_arterial = true
+			break
+	var success_chance: float = _Bleeding.PACKING_SUCCESS_BASE_CHANCE
+	if has_arterial:
+		success_chance *= _Bleeding.PACKING_SUCCESS_ARTERIAL_MULT
+	success_chance *= effectiveness
+	success_chance = clampf(success_chance, 0.0, 1.0)
+	var roll: float = randf()
+	var success: bool = roll < success_chance
+	var wound_count: int = wounds[part].size()
+	if success:
+		for injury in wounds[part]:
+			var eff: float = effectiveness
+			if injury.get("is_arterial", false):
+				eff *= _Bleeding.PACKING_ARTERIAL_EFFECTIVENESS_MULT
+			var reduction: float = _Bleeding.PACKING_IMMEDIATE_REDUCTION * clampf(eff, 0.0, 1.0)
+			var rate: float = injury.get("current_bleeding_rate", 0.0)
+			injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - reduction))
+			injury["is_stabilized"] = true
+			if _Bleeding.BANDAGE_STABILIZATION_DURATION > 0.0:
+				injury["stabilized_remaining_seconds"] = _Bleeding.BANDAGE_STABILIZATION_DURATION
+		packed_parts[part] = true
+		print("[Medical] %s apply_packing(%s) => success, %d wound(s) packed with linen" % [name, part, wound_count])
+	else:
+		var closeness: float = 1.0
+		if success_chance < 1.0:
+			closeness = 1.0 - (roll - success_chance) / (1.0 - success_chance)
+			closeness = clampf(closeness, 0.0, 1.0)
+		var reduction: float = closeness * _Bleeding.PACKING_IMMEDIATE_REDUCTION
+		for injury in wounds[part]:
+			var eff: float = effectiveness
+			if injury.get("is_arterial", false):
+				eff *= _Bleeding.PACKING_ARTERIAL_EFFECTIVENESS_MULT
+			var wound_reduction: float = reduction * clampf(eff, 0.0, 1.0)
+			var rate: float = injury.get("current_bleeding_rate", 0.0)
+			injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - wound_reduction))
+		print("[Medical] %s apply_packing(%s) => failed (%.0f%% reduction), %d wound(s); can retry" % [name, part, reduction * 100, wound_count])
+	return success
+
+"""Seconds to pack wound (base + extra per additional wound)."""
+func get_packing_application_time_seconds_for_part(part: String) -> float:
+	if part.is_empty() or not wounds.has(part):
+		return _Bleeding.PACKING_APPLICATION_TIME_SECONDS
+	var n: int = wounds[part].size()
+	if n <= 0:
+		return _Bleeding.PACKING_APPLICATION_TIME_SECONDS
+	var base: float = _Bleeding.PACKING_APPLICATION_TIME_SECONDS
+	var extra: float = _Bleeding.PACKING_PER_WOUND_EXTRA_SECONDS * max(0, n - 1)
+	return base + extra
 
 """Returns the node that holds wounds/direct_pressure (self for CoreEntity; used when applying medical to allies)."""
 func get_medical_entity() -> Node:
@@ -913,20 +1070,28 @@ func ensure_consciousness_current() -> void:
 	if _consciousness_dirty:
 		_update_consciousness()
 
-"""Direct pressure: use a functional arm to apply pressure to the wound site. Stronger than bandage (80% reduction); requires at least one usable arm. Returns false if no functional arm or no wounds on part."""
-func can_apply_direct_pressure(_target_part: String) -> bool:
-	return not get_attacking_arm().is_empty()
+"""Direct pressure: use a functional arm to apply pressure to the wound site. Stronger than bandage (80% reduction); requires at least one usable arm.
+Cannot apply pressure to the same arm (left arm can't press left arm, right can't press right). Returns false if no functional arm, no wounds on part, or same-arm."""
+func can_apply_direct_pressure(target_part: String) -> bool:
+	var arm: String = get_attacking_arm()
+	if arm.is_empty():
+		return false
+	if target_part == "right_arm" or target_part == "left_arm":
+		if arm == target_part:
+			return false  # same arm cannot apply pressure to itself
+	return true
 
-"""Apply direct pressure to this entity's wounds (used when an ally applies pressure). performer_entity: who is holding (for clearing when bleeding stops)."""
+"""Apply direct pressure to this entity's wounds (used when an ally applies pressure). performer_entity: who is holding (for clearing when bleeding stops). Does not affect self_direct_pressure_part."""
 func apply_direct_pressure_from_ally(part: String, performer_entity: Node = null) -> bool:
 	if part.is_empty() or not wounds.has(part):
 		return false
-	var effectiveness: float = 1.0
+	var effectiveness: float = performer_entity.get_medical_effectiveness() if (performer_entity != null and performer_entity.has_method("get_medical_effectiveness")) else 1.0
+	effectiveness = clampf(effectiveness, 0.0, 1.5)
 	for injury in wounds[part]:
 		var eff: float = effectiveness
 		if injury.get("is_arterial", false):
 			eff *= _Bleeding.DIRECT_PRESSURE_ARTERIAL_EFFECTIVENESS_MULT
-		var reduction: float = _Bleeding.DIRECT_PRESSURE_IMMEDIATE_REDUCTION * eff
+		var reduction: float = _Bleeding.DIRECT_PRESSURE_IMMEDIATE_REDUCTION * clampf(eff, 0.0, 1.0)
 		var rate: float = injury.get("current_bleeding_rate", 0.0)
 		injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - reduction))
 		injury["is_stabilized"] = true
@@ -937,32 +1102,42 @@ func apply_direct_pressure_from_ally(part: String, performer_entity: Node = null
 	print("[Medical] direct_pressure_from_ally on %s => holding until performer releases or bleeding stops" % [part])
 	return true
 
-func apply_direct_pressure(part: String) -> bool:
+func apply_direct_pressure(part: String, effectiveness: float = -1.0) -> bool:
 	if part.is_empty() or not wounds.has(part):
 		return false
-	if get_attacking_arm().is_empty():
-		return false  # no functional arm to apply pressure
-	var effectiveness: float = 1.0
+	if not can_apply_direct_pressure(part):
+		return false  # no functional arm, or same arm (can't press own arm with that arm)
+	if effectiveness < 0.0:
+		effectiveness = get_medical_effectiveness()
+	effectiveness = clampf(effectiveness, 0.0, 1.5)
 	for injury in wounds[part]:
 		var eff: float = effectiveness
 		if injury.get("is_arterial", false):
 			eff *= _Bleeding.DIRECT_PRESSURE_ARTERIAL_EFFECTIVENESS_MULT
-		var reduction: float = _Bleeding.DIRECT_PRESSURE_IMMEDIATE_REDUCTION * eff
+		var reduction: float = _Bleeding.DIRECT_PRESSURE_IMMEDIATE_REDUCTION * clampf(eff, 0.0, 1.0)
 		var rate: float = injury.get("current_bleeding_rate", 0.0)
 		injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - reduction))
 		injury["is_stabilized"] = true
 		if _Bleeding.BANDAGE_STABILIZATION_DURATION > 0.0:
 			injury["stabilized_remaining_seconds"] = _Bleeding.BANDAGE_STABILIZATION_DURATION
-	direct_pressure_part = part  # holding pressure until next action or bleeding stops
-	print("[Medical] %s applying direct_pressure on %s => holding until next action or bleeding stops" % [name, part])
+	self_direct_pressure_part = part  # self-held; ally pressure (direct_pressure_part) unchanged
+	print("[Medical] %s applying direct_pressure on %s (self) => holding until next action or bleeding stops" % [name, part])
 	return true
 
 """True if entity is currently holding direct pressure on a part (self or ally; busy until cleared or bleeding stops)."""
 func is_applying_direct_pressure() -> bool:
-	return not direct_pressure_part.is_empty() or not direct_pressure_on_ally.is_empty()
+	return not direct_pressure_part.is_empty() or not self_direct_pressure_part.is_empty() or not direct_pressure_on_ally.is_empty()
 
-"""Part currently under direct pressure; empty string if none. Call clear_direct_pressure() when they take another action."""
+"""True if this part already has direct pressure (self-held or ally-held). Used to avoid offering redundant apply_direct_pressure."""
+func has_direct_pressure_on_part(part: String) -> bool:
+	return part == self_direct_pressure_part or part == direct_pressure_part
+
+"""Part we are applying pressure to (self or ally); empty if none. Call clear_direct_pressure() when they take another action."""
 func get_direct_pressure_part() -> String:
+	if not self_direct_pressure_part.is_empty():
+		return self_direct_pressure_part
+	if direct_pressure_on_ally.has("part"):
+		return direct_pressure_on_ally.get("part", "")
 	return direct_pressure_part
 
 """Call when the entity takes any other action (attack, bandage, tourniquet, move, etc.). Also cleared automatically when bleeding on the pressure part stops."""
@@ -972,8 +1147,11 @@ func clear_direct_pressure() -> void:
 		direct_pressure_held_by.direct_pressure_on_ally = {}
 		direct_pressure_held_by = null
 	if not direct_pressure_part.is_empty():
-		print("[Medical] %s clear_direct_pressure (was holding %s)" % [name, direct_pressure_part])
+		print("[Medical] %s clear_direct_pressure (ally was holding %s)" % [name, direct_pressure_part])
 	direct_pressure_part = ""
+	if not self_direct_pressure_part.is_empty():
+		print("[Medical] %s clear_direct_pressure (was self-holding %s)" % [name, self_direct_pressure_part])
+	self_direct_pressure_part = ""
 	# Release ally if we were holding pressure on them
 	if direct_pressure_on_ally.has("node") and direct_pressure_on_ally.has("part"):
 		var ally_entity = direct_pressure_on_ally.get("node")
@@ -985,20 +1163,56 @@ func clear_direct_pressure() -> void:
 			print("[Medical] %s released direct_pressure on ally's %s" % [name, ally_part])
 	direct_pressure_on_ally = {}
 
-"""Tourniquet: limb-only. Stops bleeding from that limb (wounds on part no longer contribute to blood loss). When removed or expired, bleeding can resume. CoTCCC/TCCC."""
+"""True if tourniquet is medically indicated for this limb: severe bleeding rate, severed limb (stump), or heavily damaged (severe/critical wounds). Bandage is default; tourniquet only when necessary per TCCC/CoTCCC."""
+func is_tourniquet_indicated_for_part(part: String) -> bool:
+	if part not in _Bleeding.LIMB_PARTS or not wounds.has(part) or wounds[part].is_empty():
+		return false
+	# Severed limb (amputation stump): tourniquet indicated per TCCC.
+	for injury in wounds[part]:
+		if injury.get("is_stump", false):
+			return true
+	# Heavily damaged: severe or critical wounds.
+	for injury in wounds[part]:
+		var sev: String = injury.get("severity", _Bleeding.SEVERITY_MODERATE)
+		if sev == _Bleeding.SEVERITY_SEVERE or sev == _Bleeding.SEVERITY_CRITICAL:
+			return true
+	# Severe bleeding rate: life-threatening hemorrhage.
+	if get_bleeding_rate_for_part(part) >= _Bleeding.TOURNIQUET_BLEEDING_RATE_THRESHOLD:
+		return true
+	return false
+
+"""Tourniquet: limb-only. Stops bleeding from that limb (all wounds on part excluded from blood loss). When removed or expired, bleeding can resume. CoTCCC/TCCC."""
 func can_apply_tourniquet(part: String) -> bool:
-	return part in _Bleeding.LIMB_PARTS
+	if part not in _Bleeding.LIMB_PARTS:
+		return false
+	if not wounds.has(part) or wounds[part].is_empty():
+		return false
+	if tourniquet_applied.has(part):
+		return false  # already tourniqueted
+	if bandaged_parts.has(part):
+		return false  # bandaged limbs don't get tourniqueted (mutually exclusive)
+	if packed_parts.has(part):
+		return false  # packed parts (head/chest) - tourniquet not applicable
+	return true
 
 func is_tourniquet_applied(part: String) -> bool:
 	return tourniquet_applied.has(part)
 
-func apply_tourniquet(part: String) -> bool:
+"""Apply tourniquet to limb. Returns true on success (bleeding stopped); false on failure (poor placement/tightness, can retry). Medical skill affects success chance."""
+func apply_tourniquet(part: String, effectiveness: float = 1.0) -> bool:
 	if not can_apply_tourniquet(part):
 		return false
-	clear_direct_pressure()  # tourniquet is a new action; stop holding pressure
-	tourniquet_applied[part] = _game_time_seconds
-	print("[Medical] %s apply_tourniquet(%s) => limb bleeding excluded from blood loss" % [name, part])
-	return true
+	effectiveness = clampf(effectiveness, 0.0, 1.5)
+	var success_chance: float = _Bleeding.TOURNIQUET_SUCCESS_BASE_CHANCE * effectiveness
+	success_chance = clampf(success_chance, 0.0, 1.0)
+	var success: bool = randf() < success_chance
+	if success:
+		clear_direct_pressure()  # tourniquet is a new action; stop holding pressure
+		tourniquet_applied[part] = _game_time_seconds
+		print("[Medical] %s apply_tourniquet(%s) => success, all wounds on limb excluded from blood loss" % [name, part])
+	else:
+		print("[Medical] %s apply_tourniquet(%s) => failed (not tight enough); can retry" % [name, part])
+	return success
 
 func remove_tourniquet(part: String) -> void:
 	tourniquet_applied.erase(part)
@@ -1030,6 +1244,8 @@ func process_healing(seconds: float) -> void:
 			i -= 1
 		if list.is_empty():
 			wounds.erase(part)
+			bandaged_parts.erase(part)
+			packed_parts.erase(part)
 
 	# Bandage stabilization expiry: subtract time from stabilized_remaining_seconds; clear is_stabilized when expired.
 	if _Bleeding.BANDAGE_STABILIZATION_DURATION > 0.0:
@@ -1111,7 +1327,10 @@ func _apply_species():
 	bone_max.clear()
 	wounds.clear()
 	tourniquet_applied.clear()
+	bandaged_parts.clear()
+	packed_parts.clear()
 	direct_pressure_part = ""
+	self_direct_pressure_part = ""
 	_game_time_seconds = 0.0
 	blood_volume = _Bleeding.MAX_BLOOD_VOLUME
 	consciousness = 100.0

@@ -161,8 +161,8 @@ const CLOTTING_SEVERITY_MULTIPLIERS: Dictionary = {
 	SEVERITY_SEVERE: 0.5,     # severe/critical: vessel involvement → clot slower
 	SEVERITY_CRITICAL: 0.25
 }
-# When bandaged: fast clotting for non-arterial. Arterial wounds still clot slower when bandaged (pressure helps but arterial pressure inhibits).
-const CLOTTING_RATE_STABILIZED: float = 0.15  # per second when bandaged; half-life ~4.6 s
+# When bandaged: clotting rate (Option A: tuned for ~2-5 min to hemostasis, research-based).
+const CLOTTING_RATE_STABILIZED: float = 0.006  # per second when bandaged; half-life ~2 min
 # Rate below this is treated as clotted (removal). Avoids relying on float underflow. MINOR_WOUND_BLEEDING_METHODS Method 4.
 const BLEEDING_RATE_EPSILON: float = 0.001
 
@@ -192,15 +192,31 @@ const ARTERIAL_CLOTTING_MULTIPLIER: float = 0.15  # arterial pressure inhibits c
 
 # --- Bandaging ---
 # Research: arterial wounds need direct pressure / tourniquets; simple bandages less effective (pressure inhibits clot). BLEEDING_MEDICAL_ACCURACY §9a.
-const BANDAGE_IMMEDIATE_REDUCTION: float = 0.6   # 60% immediate reduction when bandage applied (venous/capillary)
+# Option A: stronger reduction to compensate for slower clotting (2-5 min to hemostasis).
+const BANDAGE_IMMEDIATE_REDUCTION: float = 0.75  # 75% immediate reduction on success (venous/capillary)
 const BANDAGE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.5  # bandage less effective on arterial (50% of reduction); arterial often needs more than a simple bandage
-const BANDAGE_STABILIZATION_DURATION: float = 300.0  # seconds (optional; 0 = no expiry)
-# Time (seconds) to apply a bandage; action system should delay effect until this duration has passed.
+const BANDAGE_STABILIZATION_DURATION: float = 0.0  # 0 = no expiry; bandage stays effective until wound heals
+# Option B: success rate (research: conventional bandages ~32-70% hemostasis; medical skill affects outcome).
+const BANDAGE_SUCCESS_BASE_CHANCE: float = 0.7  # base success for venous/capillary
+const BANDAGE_SUCCESS_ARTERIAL_MULT: float = 0.6  # arterial harder to bandage successfully
+# Time (seconds) to apply a bandage to one wound; action system should delay effect until this duration has passed.
 const BANDAGE_APPLICATION_TIME_SECONDS: float = 4.0
+# Extra seconds per additional wound on the same body part (bandaging multiple wounds takes longer).
+const BANDAGE_PER_WOUND_EXTRA_SECONDS: float = 2.0
+
+# --- Wound packing (head/chest; deep cavity; linen/cloth stuffed into wound) ---
+# Medieval: Celsus, Albucasis, Crusades—packing wounds with lint, linen, cloth to control hemorrhage. For junctional/deep wounds where tourniquet cannot be used.
+const PACKING_PARTS: Array = ["head", "chest"]
+const PACKING_IMMEDIATE_REDUCTION: float = 0.85  # stronger than bandage for deep wounds
+const PACKING_ARTERIAL_EFFECTIVENESS_MULT: float = 0.55  # slightly better than bandage on arterial (reaches cavity)
+const PACKING_SUCCESS_BASE_CHANCE: float = 0.65  # harder technique than bandage
+const PACKING_SUCCESS_ARTERIAL_MULT: float = 0.6  # arterial harder to pack successfully
+const PACKING_APPLICATION_TIME_SECONDS: float = 10.0
+const PACKING_PER_WOUND_EXTRA_SECONDS: float = 3.0
 
 # --- Direct pressure (uses arm to apply pressure; stronger than bandage, requires functional arm) ---
 # First-line hemorrhage control: hands-on pressure. Stronger immediate reduction than bandage; still less effective on arterial.
-const DIRECT_PRESSURE_IMMEDIATE_REDUCTION: float = 0.8   # 80% reduction (vs bandage 60%)
+const DIRECT_PRESSURE_IMMEDIATE_REDUCTION: float = 0.8   # 80% reduction (vs bandage 75%)
 const DIRECT_PRESSURE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.7  # 70% of that on arterial (vs bandage 50%); arterial still harder to control
 # Bleeding rate ±variance at wound creation (simulates hit in more/less vascular spot). BLEEDING_MEDICAL_ACCURACY §10.
 const BLEEDING_RATE_VARIANCE_MIN: float = 0.9
@@ -208,11 +224,18 @@ const BLEEDING_RATE_VARIANCE_MAX: float = 1.1
 
 # --- Tourniquet (limb-only; stops arterial/venous flow when applied correctly) ---
 # Only limbs can be tourniqueted; head/chest/junctional need packing/direct pressure. CoTCCC, TCCC guidelines.
+# Historical: tourniquets used since Roman era for amputations; modern TCCC: life-threatening extremity hemorrhage,
+# traumatic amputation, arterial bleeding, uncontrolled bleeding. Bandages/direct pressure first-line for compressible hemorrhage.
+# Tourniquet indicated when: (1) limb bleeding rate >= this threshold (severe), (2) severed limb (stump), or (3) heavily damaged (severe/critical wounds).
 const LIMB_PARTS: Array = ["right_arm", "left_arm", "right_leg", "left_leg"]
+# Bleeding rate (abstract HP/s) above which tourniquet is appropriate. Severe cut base = 2.25; moderate = 1.2.
+const TOURNIQUET_BLEEDING_RATE_THRESHOLD: float = 2.0
 # Optional: max duration (seconds) before tourniquet should be released to assess limb; 0 = no expiry. Real-world ~2 h risk for limb.
 const TOURNIQUET_MAX_DURATION_SECONDS: float = 0.0  # 0 = no auto-expiry; set e.g. 7200 (2 h) for limb-ischemia risk
 # Time (seconds) to apply a tourniquet (positioning, tightening); action system should delay effect until this duration has passed.
 const TOURNIQUET_APPLICATION_TIME_SECONDS: float = 18.0
+# Success rate: tourniquets can fail if not tight enough or poorly placed. Training/medical skill affects outcome.
+const TOURNIQUET_SUCCESS_BASE_CHANCE: float = 0.85  # base success; proper application requires training
 
 # --- Severity thresholds (damage as fraction of part max) ---
 const SEVERITY_PERCENTAGE_CRITICAL: float = 0.75

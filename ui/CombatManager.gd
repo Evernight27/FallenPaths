@@ -3,9 +3,12 @@ extends Node
 signal turn_ready(combatant_id)
 signal action_resolved(attacker_id, target_id, result)
 signal combat_ended(winner_side, defeated_node)
+signal enemies_eliminated(winner_side)
 signal combatant_health_changed(combatant_id)
 
 var combatants := []
+var medical_phase: bool = false
+var medical_phase_winner: String = ""
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 
@@ -13,10 +16,12 @@ const DAMAGE_TYPE_SHARP := "SHARP"
 const DAMAGE_TYPE_BLUNT := "BLUNT"
 
 # Attack state machine: waiting (gauge filling) -> wind_up (swing until impact) | medical_wind_up -> recovering (follow-through after hit/deflect/miss/medical). Parry is passive (A4v3) only.
+# receiving_medical_attention: target of ally's medical action; gauge stays full (readied), cannot act until care finishes.
 const STATE_WAITING := "waiting"
 const STATE_WIND_UP := "wind_up"
 const STATE_MEDICAL_WIND_UP := "medical_wind_up"
 const STATE_RECOVERING := "recovering"
+const STATE_RECEIVING_MEDICAL_ATTENTION := "receiving_medical_attention"
 
 # Power and follow_through (0.2–1.0 each): rolled per attack; intensity = (0.5+0.5*power)*(0.5+0.5*follow_through) drives velocity, wind-up, and recovery.
 const POWER_MIN := 0.2
@@ -50,11 +55,12 @@ const INTENSITY_RANDOM_RANGE := 0.2
 const RECOVERY_AFTER_MEDICAL_S := 0.5  # short recovery after applying bandage/tourniquet/direct pressure
 
 # Medical moves that can be applied to self or allies. Add new medical actions here; extend _get_ally_medical_actions, _start_medical_action, and wind-up completion.
-const MEDICAL_MOVE_IDS: Array[String] = ["bandage_self", "apply_direct_pressure", "apply_tourniquet"]
-# Config for wind-up medical actions: move_id -> {duration_method, target_method, outcome}. Instant actions (e.g. direct_pressure) are handled separately.
+const MEDICAL_MOVE_IDS: Array[String] = ["bandage_self", "pack_wound", "apply_direct_pressure", "apply_tourniquet"]
+# Config for wind-up medical actions: move_id -> {duration_method, duration_takes_part, target_method, outcome}. Instant actions (e.g. direct_pressure) are handled separately.
 const _MEDICAL_WIND_UP_CONFIG: Dictionary = {
-	"bandage_self": {"duration_method": "get_bandage_application_time_seconds", "target_method": "apply_bandage", "outcome": "bandaged"},
-	"apply_tourniquet": {"duration_method": "get_tourniquet_application_time_seconds", "target_method": "apply_tourniquet", "outcome": "tourniquet_applied"}
+	"bandage_self": {"duration_method": "get_bandage_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_bandage", "outcome": "bandaged"},
+	"pack_wound": {"duration_method": "get_packing_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_packing", "outcome": "packed"},
+	"apply_tourniquet": {"duration_method": "get_tourniquet_application_time_seconds", "duration_takes_part": false, "target_method": "apply_tourniquet", "outcome": "tourniquet_applied"}
 }
 
 # --- Parry: physics and timings (derived, not magic numbers) ---
@@ -203,7 +209,8 @@ func register(node: Node, side: String) -> int:
 		"state": STATE_WAITING,
 		"state_timer": 0.0,
 		"state_duration": 0.0,
-		"pending_attack": {}
+		"pending_attack": {},
+		"receiving_medical_count": 0
 	})
 	# Connect health_changed so UI can refresh when consciousness/pain/blood changes
 	if entity != null and entity.has_signal("health_changed"):
@@ -214,10 +221,65 @@ func _on_entity_health_changed(combatant_id: int) -> void:
 	emit_signal("combatant_health_changed", combatant_id)
 
 func start():
+	medical_phase = false
+	medical_phase_winner = ""
 	set_process(true)
 
 func stop():
 	set_process(false)
+
+## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated (bandaged, packed, or tourniqueted). Used to gate "End battle" during medical phase.
+func can_end_medical_phase() -> bool:
+	if not medical_phase:
+		return false
+	for c in combatants:
+		if not c.alive or c.side != medical_phase_winner or c.node == null:
+			continue
+		if _is_in_medical_danger(c):
+			return false
+		if _has_untreated_wounds(c):
+			return false
+	return true
+
+## True if combatant has any wounded part that is not comprehensively treated (bandaged, packed, or tourniqueted). Direct pressure alone does not count.
+func _has_untreated_wounds(c: Dictionary) -> bool:
+	var entity = _get_entity(c.node) if c.node != null else null
+	if entity == null:
+		return false
+	if not entity.has_method("get_wounded_parts"):
+		return false
+	var wounded: Array = entity.get_wounded_parts()
+	if wounded.is_empty():
+		return false
+	var bandaged: Dictionary = entity.bandaged_parts if "bandaged_parts" in entity else {}
+	var packed: Dictionary = entity.packed_parts if "packed_parts" in entity else {}
+	var tourniqueted: Dictionary = entity.tourniquet_applied if "tourniquet_applied" in entity else {}
+	for part in wounded:
+		if bandaged.get(part, false) or packed.get(part, false) or tourniqueted.has(part):
+			continue
+		return true  # This wounded part has no comprehensive treatment
+	return false
+
+## Called when player clicks "End battle" during medical phase. Emits combat_ended and stops.
+func finish_battle() -> void:
+	emit_signal("combat_ended", medical_phase_winner, null)
+	stop()
+
+## Resets a combatant's gauge so they can "skip" when they have no available actions (e.g. medical phase with no wounded allies).
+func skip_turn(combatant_id: int) -> void:
+	var c = _get_by_id(combatant_id)
+	if c != null and c.state == STATE_WAITING:
+		c.gauge = 0.0
+
+## When player wins: enter medical phase, emit enemies_eliminated, keep battle running. When enemy wins: end immediately.
+func _end_combat_phase(winner: String, defeated_node: Node) -> void:
+	if winner == "enemy":
+		emit_signal("combat_ended", winner, defeated_node)
+		stop()
+	else:
+		medical_phase = true
+		medical_phase_winner = winner
+		emit_signal("enemies_eliminated", winner)
 
 func get_combatants() -> Array:
 	var out := []
@@ -274,6 +336,9 @@ func get_combatants() -> Array:
 # AI only considers medical actions when in danger of dying soon (low blood or high bleeding rate).
 const MEDICAL_DANGER_BLOOD_THRESHOLD := 55.0   # consider medical when blood volume <= this %
 const MEDICAL_DANGER_SECONDS := 90.0           # or when estimated time to blood-loss death <= this many seconds
+# Immediate peril: must self-treat first (about to bleed out). Injured-but-stable can still help others.
+const IMMEDIATE_PERIL_BLOOD_THRESHOLD := 42.0  # blood <= this = immediate peril
+const IMMEDIATE_PERIL_SECONDS := 45.0          # time to death <= this = immediate peril
 # When medical is available, weight scales from 1 to this as urgency (how close to death) increases; randomness applied so not guaranteed.
 const MEDICAL_URGENCY_WEIGHT_MAX := 6.0
 const MEDICAL_URGENCY_RANDOM_MIN := 0.8        # urgency multiplied by randf_range(MIN, MAX) for variance
@@ -300,6 +365,48 @@ func _is_in_medical_danger(c: Dictionary) -> bool:
 		return false
 	var time_to_death: float = (bv - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD) / loss_per_sec
 	return time_to_death <= MEDICAL_DANGER_SECONDS
+
+## Stricter than _is_in_medical_danger: about to bleed out. Must self-treat; cannot help others.
+func _is_in_immediate_peril(c: Dictionary) -> bool:
+	var entity = _get_entity(c.node) if c.node != null else null
+	if entity == null:
+		return false
+	var bv: float = 100.0
+	if entity.has_method("get_blood_volume"):
+		bv = entity.get_blood_volume()
+	elif "blood_volume" in entity:
+		bv = float(entity.blood_volume)
+	if bv <= IMMEDIATE_PERIL_BLOOD_THRESHOLD:
+		return true
+	var rate: float = entity.get_total_bleeding_rate() if entity.has_method("get_total_bleeding_rate") else 0.0
+	if rate <= 0.0:
+		return false
+	var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
+	if loss_per_sec <= 0.0:
+		return false
+	var time_to_death: float = (bv - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD) / loss_per_sec
+	return time_to_death <= IMMEDIATE_PERIL_SECONDS
+
+## True when entity has permanently left immediate peril: permanent bleeding rate (excluding direct pressure) is low enough to recover before death.
+## Direct pressure does not count—it is temporary; bandage/packing/tourniquet are permanent.
+func _has_left_immediate_peril_permanently(c: Dictionary) -> bool:
+	var entity = _get_entity(c.node) if c.node != null else null
+	if entity == null:
+		return false
+	var perm_rate: float = entity.get_permanent_bleeding_rate() if entity.has_method("get_permanent_bleeding_rate") else 0.0
+	if perm_rate <= _Bleeding.BLEEDING_RATE_EPSILON:
+		return true  # No permanent bleeding; will recover
+	var bv: float = 100.0
+	if entity.has_method("get_blood_volume"):
+		bv = entity.get_blood_volume()
+	elif "blood_volume" in entity:
+		bv = float(entity.blood_volume)
+	var loss_per_sec: float = perm_rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
+	if loss_per_sec <= 0.0:
+		return true
+	var time_to_death: float = (bv - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD) / loss_per_sec
+	# Recover before death = time to clot/stop bleeding is less than time to death. Conservative: need significant buffer.
+	return time_to_death > IMMEDIATE_PERIL_SECONDS * 2.0
 
 # 0..1: higher when more hurt (lower blood, shorter time to death). Only meaningful when in medical danger. Includes randomness.
 func _get_medical_urgency(c: Dictionary) -> float:
@@ -330,79 +437,202 @@ func _get_medical_urgency(c: Dictionary) -> float:
 static func _is_medical_move(move_id: String) -> bool:
 	return move_id in MEDICAL_MOVE_IDS
 
+## When bandage/pack/tourniquet fails: track failed part on target; if no one else can help, set pending_retry so performer retries.
+func _track_medical_failure_and_maybe_retry(performer: Dictionary, target: Dictionary, part: String, target_cid: int) -> void:
+	if target == null:
+		return
+	var failed: Array = target.get("failed_medical_parts", [])
+	if part not in failed:
+		failed.append(part)
+	target.failed_medical_parts = failed
+	var others: int = _count_others_who_can_perform_medical_on_target(performer.id, target_cid)
+	if others <= 0:
+		performer.pending_retry = {"target_id": target_cid, "part": part}
+
+## Count other combatants (excluding exclude_id) who can perform medical on target_id. Used to decide if performer should retry after failure.
+func _count_others_who_can_perform_medical_on_target(exclude_id: int, target_id: int) -> int:
+	var count: int = 0
+	for other in combatants:
+		if other.id == exclude_id or not other.alive or other.side != medical_phase_winner or other.node == null:
+			continue
+		if other.node.has_method("is_incapacitated") and other.node.is_incapacitated():
+			continue
+		var acts: Array = get_available_actions(other.id)
+		for a in acts:
+			if a.get("target_id", -1) == target_id:
+				count += 1
+				break
+	return count
+
+## Parts currently being treated on combatant_id by allies (bandage/tourniquet wind-up). Used so patient can hold pressure on other wounds.
+func _get_parts_being_treated_on(combatant_id: int) -> Array:
+	var out: Array = []
+	for other in combatants:
+		if other.state != STATE_MEDICAL_WIND_UP:
+			continue
+		var pm = other.get("pending_medical", {})
+		if pm.get("target_combatant_id", -1) == combatant_id:
+			var part: String = pm.get("target_part", "")
+			if not part.is_empty() and part not in out:
+				out.append(part)
+	return out
+
 ## Returns list of {move_id, target_part} for medical actions the performer can apply to the ally's part. Extend this when adding new medical moves.
+## When target is not in immediate peril and part was recently failed (bandage/pack/tourniquet), exclude redress actions so they don't retry.
 func _get_ally_medical_actions(performer: Dictionary, ally: Dictionary, part: String) -> Array:
 	var out: Array = []
+	var target_entity = _get_entity(ally.node) if ally.node != null else null
 	var performer_has_arm: bool = performer.node.can_apply_direct_pressure("") if performer.node != null else false
-	out.append({ "move_id": "bandage_self", "target_part": part })
-	if performer_has_arm and performer.node.has_method("is_applying_direct_pressure") and not performer.node.is_applying_direct_pressure():
-		out.append({ "move_id": "apply_direct_pressure", "target_part": part })
-	if ally.node.has_method("can_apply_tourniquet") and ally.node.can_apply_tourniquet(part):
-		out.append({ "move_id": "apply_tourniquet", "target_part": part })
+	var failed_parts: Array = ally.get("failed_medical_parts", [])
+	# Only skip redress when permanently safe (bleeding slowed by bandage/pack/tourniquet; direct pressure doesn't count)
+	var skip_redress: bool = _has_left_immediate_peril_permanently(ally) and part in failed_parts
+	if not skip_redress and target_entity != null and target_entity.has_method("can_apply_bandage") and target_entity.can_apply_bandage(part):
+		out.append({ "move_id": "bandage_self", "target_part": part })
+	if not skip_redress and target_entity != null and target_entity.has_method("can_apply_packing") and target_entity.can_apply_packing(part):
+		out.append({ "move_id": "pack_wound", "target_part": part })
+	# Don't offer apply_direct_pressure if target already has pressure on this part (self or ally)
+	if target_entity != null and target_entity.has_method("has_direct_pressure_on_part") and target_entity.has_direct_pressure_on_part(part):
+		pass  # skip direct pressure for this part
+	elif performer_has_arm and performer.node.has_method("is_applying_direct_pressure") and not performer.node.is_applying_direct_pressure():
+		# Self-application: can't use same arm (left can't press left, right can't press right)
+		if performer.id == ally.id and target_entity != null and not target_entity.can_apply_direct_pressure(part):
+			pass  # skip this part
+		else:
+			out.append({ "move_id": "apply_direct_pressure", "target_part": part })
+	# Tourniquet only when indicated: severe bleeding, severed limb, or heavily damaged. Bandage is default per TCCC.
+	if not skip_redress and target_entity != null and target_entity.has_method("can_apply_tourniquet") and target_entity.can_apply_tourniquet(part):
+		if target_entity.has_method("is_tourniquet_indicated_for_part") and target_entity.is_tourniquet_indicated_for_part(part):
+			out.append({ "move_id": "apply_tourniquet", "target_part": part })
 	return out
 
 func get_available_actions(combatant_id: int) -> Array:
 	var c = _get_by_id(combatant_id)
-	if c == null or not c.alive or c.state != STATE_WAITING or c.gauge < 100.0:
+	if c == null or not c.alive or c.gauge < 100.0:
+		return []
+	if c.state != STATE_WAITING and c.state != STATE_RECEIVING_MEDICAL_ATTENTION:
 		return []
 	if c.node != null and c.node.has_method("is_incapacitated") and c.node.is_incapacitated():
 		return []
 	var actions: Array = []
-	var weapon = c.node.get_weapon() if (c.node != null and c.node.has_method("get_weapon")) else null
-	if weapon != null and weapon.has_method("get_available_attack_types"):
-		var move_ids: Array = weapon.get_available_attack_types()
-		for move_id in move_ids:
-			if WeaponConstants.is_parry_move(move_id):
-				continue
-			for opp in combatants:
-				if not opp.alive or opp.side == c.side:
+	# Receiving medical care: can hold/switch direct pressure on wounds NOT being treated by ally and NOT already having pressure
+	if c.state == STATE_RECEIVING_MEDICAL_ATTENTION and medical_phase and c.side == medical_phase_winner:
+		if c.node != null and c.node.has_method("can_apply_direct_pressure") and c.node.has_method("get_wounded_parts"):
+			var parts_being_treated: Array = _get_parts_being_treated_on(combatant_id)
+			var entity = _get_entity(c.node)
+			for part in c.node.get_wounded_parts():
+				if part.is_empty() or part in parts_being_treated:
 					continue
-				actions.append({ "target_id": opp.id, "move_id": move_id })
-	# Medical actions (self and allies): when any ally is in danger of dying soon (low blood or bleeding will kill in MEDICAL_DANGER_SECONDS).
-	# To add new medical actions: add move_id to MEDICAL_MOVE_IDS, add availability in _get_ally_medical_actions, add duration/handler in _start_medical_action and wind-up completion.
-	if c.node != null and c.node.has_method("can_apply_direct_pressure"):
-		for ally in combatants:
-			if not ally.alive or ally.side != c.side or ally.node == null:
-				continue
-			if not _is_in_medical_danger(ally):
-				continue
-			if not ally.node.has_method("get_wounded_parts"):
-				continue
-			var wounded: Array = ally.node.get_wounded_parts()
-			for part in wounded:
-				if part.is_empty():
+				if entity != null and entity.has_method("has_direct_pressure_on_part") and entity.has_direct_pressure_on_part(part):
+					continue  # already holding pressure on this part
+				if entity != null and entity.has_method("can_apply_direct_pressure") and entity.can_apply_direct_pressure(part):
+					actions.append({ "target_id": combatant_id, "move_id": "apply_direct_pressure", "target_part": part })
+		return actions
+	# Combat phase: attacks only (fight to the death, no medical during combat).
+	# Medical phase: medical only for winning side (no enemies left to attack).
+	if not medical_phase:
+		var weapon = c.node.get_weapon() if (c.node != null and c.node.has_method("get_weapon")) else null
+		if weapon != null and weapon.has_method("get_available_attack_types"):
+			var move_ids: Array = weapon.get_available_attack_types()
+			for move_id in move_ids:
+				if WeaponConstants.is_parry_move(move_id):
 					continue
-				var tgt_id: int = ally.id
-				for act in _get_ally_medical_actions(c, ally, part):
-					actions.append({ "target_id": tgt_id, "move_id": act.move_id, "target_part": act.target_part })
+				for opp in combatants:
+					if not opp.alive or opp.side == c.side:
+						continue
+					actions.append({ "target_id": opp.id, "move_id": move_id })
+	else:
+		# Medical phase: immediate peril = self-treat only. Injured-but-stable = can help others, prioritize critical allies.
+		if c.side == medical_phase_winner and c.node != null and c.node.has_method("can_apply_direct_pressure"):
+			var immediate_peril: bool = _is_in_immediate_peril(c)
+			# Clear failed_medical_parts when ally has permanently left peril (bleeding slowed by bandage/pack/tourniquet; direct pressure doesn't count)
+			for ally in combatants:
+				if not ally.alive or ally.side != c.side:
+					continue
+				if _has_left_immediate_peril_permanently(ally) and ally.get("failed_medical_parts", []).size() > 0:
+					ally.failed_medical_parts = []
+					# Clear pending_retry on anyone who was going to retry this target
+					for other in combatants:
+						var pr = other.get("pending_retry", {})
+						if not pr.is_empty() and pr.get("target_id", -1) == ally.id:
+							other.pending_retry = {}
+			for ally in combatants:
+				if not ally.alive or ally.side != c.side or ally.node == null:
+					continue
+				if ally.side != medical_phase_winner:
+					continue
+				if not ally.node.has_method("get_wounded_parts"):
+					continue
+				# Immediate peril: must self-treat first. Injured-but-stable: can treat any ally (prioritize critical via pick_weighted_action).
+				if immediate_peril and ally.id != c.id:
+					continue
+				var wounded: Array = ally.node.get_wounded_parts()
+				for part in wounded:
+					if part.is_empty():
+						continue
+					var tgt_id: int = ally.id
+					for act in _get_ally_medical_actions(c, ally, part):
+						actions.append({ "target_id": tgt_id, "move_id": act.move_id, "target_part": act.target_part })
 	var medical_count: int = 0
 	for a in actions:
 		var mid: String = a.get("move_id", "")
 		if _is_medical_move(mid):
 			medical_count += 1
 	if medical_count > 0:
-		print("[Combat] get_available_actions: combatant_id=%d => %d total (%d medical: bandage/direct_pressure/tourniquet)" % [combatant_id, actions.size(), medical_count])
+		print("[Combat] get_available_actions: combatant_id=%d => %d total (%d medical: bandage/pack/direct_pressure/tourniquet)" % [combatant_id, actions.size(), medical_count])
 	return actions
 
-# Pick one action from the list. Medical: 1..MEDICAL_URGENCY_WEIGHT_MAX by urgency. Attacks: 1.
-# combatant_id required for medical weighting; if -1, medical gets weight 1.
+# Pick one action from the list. Medical: weight by TARGET's urgency (prioritize treating most critical ally). Attacks: 1.
+# For receiving care self direct pressure: weight by part's bleeding rate (prioritize most serious wound).
+# When pending_retry: performer is the only one who can help; strongly prefer retrying the failed part.
 func pick_weighted_action(actions: Array, combatant_id: int = -1) -> Dictionary:
 	if actions.is_empty():
 		return {}
-	var c = _get_by_id(combatant_id) if combatant_id >= 0 else null
-	var medical_urgency: float = _get_medical_urgency(c) if c != null else 0.0
-	var medical_weight_base: float = 1.0 + medical_urgency * (MEDICAL_URGENCY_WEIGHT_MAX - 1.0)
 	var total: float = 0.0
 	for a in actions:
 		var mid: String = a.get("move_id", "")
 		if _is_medical_move(mid):
-			total += medical_weight_base
+			var tgt = _get_by_id(a.get("target_id", -1))
+			var urgency: float = _get_medical_urgency(tgt) if tgt != null else 0.0
+			var w: float = 1.0 + urgency * (MEDICAL_URGENCY_WEIGHT_MAX - 1.0)
+			# Self direct pressure while receiving care: prioritize part with highest bleeding
+			if mid == "apply_direct_pressure" and a.get("target_id") == combatant_id and tgt != null:
+				var part: String = a.get("target_part", "")
+				if not part.is_empty() and tgt.node != null:
+					var entity = _get_entity(tgt.node)
+					if entity != null and entity.has_method("get_bleeding_rate_for_part"):
+						var rate: float = entity.get_bleeding_rate_for_part(part)
+						w += rate * 2.0
+			# Pending retry: only one who can help; strongly prefer retrying the failed part.
+			var pr = _get_by_id(combatant_id)
+			var pending = pr.get("pending_retry", {}) if pr != null else {}
+			if not pending.is_empty() and pending.get("target_id", -1) == a.get("target_id", -1) and pending.get("part", "") == a.get("target_part", ""):
+				if tgt != null and _is_in_immediate_peril(tgt):
+					w *= 20.0  # Strongly prefer retry when target is still in peril
+			total += w
 		else:
 			total += 1.0
 	var r: float = randf() * total
 	for a in actions:
 		var mid: String = a.get("move_id", "")
-		var w: float = medical_weight_base if _is_medical_move(mid) else 1.0
+		var w: float
+		if _is_medical_move(mid):
+			var tgt = _get_by_id(a.get("target_id", -1))
+			var urgency: float = _get_medical_urgency(tgt) if tgt != null else 0.0
+			w = 1.0 + urgency * (MEDICAL_URGENCY_WEIGHT_MAX - 1.0)
+			if mid == "apply_direct_pressure" and a.get("target_id") == combatant_id and tgt != null:
+				var part: String = a.get("target_part", "")
+				if not part.is_empty() and tgt.node != null:
+					var entity = _get_entity(tgt.node)
+					if entity != null and entity.has_method("get_bleeding_rate_for_part"):
+						var rate: float = entity.get_bleeding_rate_for_part(part)
+						w += rate * 2.0
+			var pr = _get_by_id(combatant_id)
+			var pending = pr.get("pending_retry", {}) if pr != null else {}
+			if not pending.is_empty() and pending.get("target_id", -1) == a.get("target_id", -1) and pending.get("part", "") == a.get("target_part", ""):
+				if tgt != null and _is_in_immediate_peril(tgt):
+					w *= 20.0
+		else:
+			w = 1.0
 		if r < w:
 			return a
 		r -= w
@@ -432,14 +662,14 @@ func _process(delta: float) -> void:
 			emit_signal("action_resolved", c.id, -1, {"dmg": 0, "died": true, "part": "", "damage_type": "", "outcome": "bled_out", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0})
 			victor = _check_for_winner()
 			if not victor.is_empty():
-				emit_signal("combat_ended", victor, c.node)
-				stop()
+				_end_combat_phase(victor, c.node)
 			return
 	victor = _check_for_winner()
 	if not victor.is_empty():
-		emit_signal("combat_ended", victor, null)
-		stop()
-		return
+		# Already in medical phase: don't re-emit enemies_eliminated (would spam combat log every frame)
+		if not (medical_phase and victor == medical_phase_winner):
+			_end_combat_phase(victor, null)
+			return
 	for c in combatants:
 		if not c.alive:
 			continue
@@ -452,6 +682,8 @@ func _process(delta: float) -> void:
 			if tgt_cid_check != c.id:
 				var tgt_check = _get_by_id(tgt_cid_check)
 				if tgt_check == null or not tgt_check.alive or (tgt_check.node != null and tgt_check.node.has_method("is_dead") and tgt_check.node.is_dead()):
+					if tgt_check != null:
+						tgt_check.receiving_medical_count = max(0, tgt_check.get("receiving_medical_count", 0) - 1)
 					c.pending_medical = {}
 					c.state = STATE_WAITING
 					c.state_timer = 0.0
@@ -459,7 +691,30 @@ func _process(delta: float) -> void:
 					var who_name: String = c.node.name if c.node != null else "id:%d" % c.id
 					print("[Combat] Medical cancelled: %s (target died during wind-up)" % who_name)
 					continue
-		if c.state == STATE_WAITING:
+		if c.state == STATE_RECEIVING_MEDICAL_ATTENTION:
+			c.gauge = 100.0  # Keep readied; can hold/switch direct pressure on other wounds
+			if c.side == "player":
+				# Throttle: same cooldown as AI so we don't spam turn_ready every frame
+				var cooldown: float = c.get("receiving_care_action_cooldown", 0.0) - delta
+				c.receiving_care_action_cooldown = cooldown
+				if cooldown <= 0.0:
+					var recv_actions: Array = get_available_actions(c.id)
+					if not recv_actions.is_empty():
+						emit_signal("turn_ready", c.id)
+			else:
+				# AI: throttle so they don't spam switch every frame
+				var cooldown: float = c.get("receiving_care_action_cooldown", 0.0) - delta
+				c.receiving_care_action_cooldown = cooldown
+				if cooldown <= 0.0:
+					var actions: Array = get_available_actions(c.id)
+					if not actions.is_empty():
+						var choice = pick_weighted_action(actions, c.id)
+						var opts: Dictionary = {}
+						if choice.get("target_part", "") != "":
+							opts["target_part"] = choice.target_part
+						resolve_action(c.id, c.id, choice.get("move_id", ""), opts)
+						c.receiving_care_action_cooldown = 0.5
+		elif c.state == STATE_WAITING:
 			# Gauge fill: base speed × performance. Use action bar modifier (chest pain) when available.
 			var spd: float = float(c.stats.get("agility", 100))
 			var fill_rate: float = spd * delta * 0.5
@@ -515,18 +770,54 @@ func _process(delta: float) -> void:
 					if not target_method.is_empty():
 						var tgt_entity = _get_entity(tgt_c.node)
 						if tgt_entity != null and tgt_entity.has_method(target_method):
+							var perf_entity = _get_entity(c.node)
+							var eff: float = perf_entity.get_medical_effectiveness() if (perf_entity != null and perf_entity.has_method("get_medical_effectiveness")) else 1.0
 							var result = null
 							if target_method == "apply_bandage":
-								var perf_entity = _get_entity(c.node)
-								var eff: float = perf_entity.get_medical_effectiveness() if (perf_entity != null and perf_entity.has_method("get_medical_effectiveness")) else 1.0
-								tgt_entity.call(target_method, part, eff)
-								result = true
+								result = tgt_entity.call(target_method, part, eff)
+							elif target_method == "apply_packing":
+								result = tgt_entity.call(target_method, part, eff)
+							elif target_method == "apply_tourniquet":
+								result = tgt_entity.call(target_method, part, eff)
 							else:
 								result = tgt_entity.call(target_method, part)
-							if result != false:  # apply_tourniquet returns bool; apply_bandage returns void
-								var outcome: String = wind_up_cfg.get("outcome", med_id)
+							var outcome: String
+							if target_method == "apply_bandage":
+								outcome = "bandaged" if result == true else "bandage_failed"
+								print("[Combat] Medical complete: %s %s on %s => %s, recovery %.1fs" % [who_m, med_id, part, outcome, med_rec_dur])
+								emit_signal("action_resolved", c.id, tgt_cid, {"outcome": outcome, "part": part, "dmg": 0, "died": false, "effectiveness": eff})
+								if result != true:
+									_track_medical_failure_and_maybe_retry(c, tgt_c, part, tgt_cid)
+								else:
+									c.pending_retry = {}
+							elif target_method == "apply_packing":
+								outcome = "packed" if result == true else "packing_failed"
+								print("[Combat] Medical complete: %s %s on %s => %s, recovery %.1fs" % [who_m, med_id, part, outcome, med_rec_dur])
+								emit_signal("action_resolved", c.id, tgt_cid, {"outcome": outcome, "part": part, "dmg": 0, "died": false, "effectiveness": eff})
+								if result != true:
+									_track_medical_failure_and_maybe_retry(c, tgt_c, part, tgt_cid)
+								else:
+									c.pending_retry = {}
+							elif target_method == "apply_tourniquet":
+								outcome = "tourniquet_applied" if result == true else "tourniquet_failed"
+								print("[Combat] Medical complete: %s %s on %s => %s, recovery %.1fs" % [who_m, med_id, part, outcome, med_rec_dur])
+								emit_signal("action_resolved", c.id, tgt_cid, {"outcome": outcome, "part": part, "dmg": 0, "died": false, "effectiveness": eff})
+								if result != true:
+									_track_medical_failure_and_maybe_retry(c, tgt_c, part, tgt_cid)
+								else:
+									c.pending_retry = {}
+							elif result != false:
+								outcome = wind_up_cfg.get("outcome", med_id)
 								print("[Combat] Medical complete: %s %s on %s => recovery %.1fs" % [who_m, med_id, part, med_rec_dur])
 								emit_signal("action_resolved", c.id, tgt_cid, {"outcome": outcome, "part": part, "dmg": 0, "died": false})
+				# Target finishes receiving care: ready to act immediately
+				if tgt_c != null and tgt_cid != c.id:
+					tgt_c.receiving_medical_count = max(0, tgt_c.get("receiving_medical_count", 0) - 1)
+					if tgt_c.receiving_medical_count <= 0:
+						tgt_c.state = STATE_WAITING
+						tgt_c.gauge = 100.0
+						if tgt_c.side == "player":
+							emit_signal("turn_ready", tgt_cid)
 				c.state = STATE_RECOVERING
 				c.state_timer = 0.0
 				c.state_duration = med_rec_dur
@@ -543,7 +834,24 @@ func _process(delta: float) -> void:
 # Called when player or AI chooses action. move_id optional; options can include "target_part" for medical actions.
 func resolve_action(attacker_id: int, target_id: int, move_id: String = "", options: Dictionary = {}) -> void:
 	var atk = _get_by_id(attacker_id)
-	if atk == null or atk.state != STATE_WAITING or atk.gauge < 100.0:
+	if atk == null or atk.gauge < 100.0:
+		return
+	# Receiving care: can hold/switch direct pressure on other wounds (no state change, no gauge drain)
+	if atk.state == STATE_RECEIVING_MEDICAL_ATTENTION and move_id == "apply_direct_pressure" and target_id == attacker_id:
+		var part: String = str(options.get("target_part", ""))
+		if part.is_empty():
+			return
+		var parts_being_treated: Array = _get_parts_being_treated_on(attacker_id)
+		if part in parts_being_treated:
+			return
+		var entity = _get_entity(atk.node)
+		if entity != null and entity.has_method("apply_direct_pressure") and entity.apply_direct_pressure(part):
+			var who: String = atk.node.name if atk.node != null else "id:%d" % attacker_id
+			print("[Combat] %s (receiving care) holding direct pressure on %s" % [who, part])
+			emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "direct_pressure", "part": part, "dmg": 0, "died": false})
+			atk.receiving_care_action_cooldown = 0.5  # Throttle next turn_ready; _process will re-emit when cooldown expires
+		return
+	if atk.state != STATE_WAITING:
 		return
 	# Medical actions (target_id = combatant to apply on, self or ally)
 	if _is_medical_move(move_id):
@@ -594,23 +902,27 @@ func _start_medical_action(combatant_id: int, target_combatant_id: int, medical_
 	var target_node = _get_by_id(target_combatant_id)
 	if c == null or target_node == null or target_node.node == null:
 		return
+	# Clear pending_retry when starting a different action (e.g. helping another ally)
+	var pr = c.get("pending_retry", {})
+	if not pr.is_empty() and (pr.get("target_id", -1) != target_combatant_id or pr.get("part", "") != target_part):
+		c.pending_retry = {}
 	var who_name: String = c.node.name if (c.node != null) else "id:%d" % combatant_id
 	# Bandage/tourniquet: performer stops holding direct pressure on anyone (new action)
-	if medical_id == "bandage_self" or medical_id == "apply_tourniquet":
+	if medical_id == "bandage_self" or medical_id == "pack_wound" or medical_id == "apply_tourniquet":
 		if c.node != null and c.node.has_method("clear_direct_pressure"):
 			c.node.clear_direct_pressure()
 		# Apply direct pressure to the part being bandaged/tourniqueted during wind-up (reduces bleeding while preparing)
 		if not target_part.is_empty():
-			var target_entity = _get_entity(target_node.node)
+			var tgt_entity = _get_entity(target_node.node)
 			var performer_entity = _get_entity(c.node)
-			if target_entity != null and target_entity.has_method("get_wounds") and target_entity.get_wounds().has(target_part):
+			if tgt_entity != null and tgt_entity.has_method("get_wounds") and tgt_entity.get_wounds().has(target_part):
 				if target_combatant_id == combatant_id:
-					if target_entity.has_method("apply_direct_pressure") and target_entity.apply_direct_pressure(target_part):
+					if tgt_entity.has_method("apply_direct_pressure") and tgt_entity.apply_direct_pressure(target_part):
 						print("[Combat] Medical: %s applying direct pressure on %s during %s wind-up" % [who_name, target_part, medical_id])
 				else:
-					if target_entity.has_method("apply_direct_pressure_from_ally") and target_entity.apply_direct_pressure_from_ally(target_part, performer_entity):
+					if tgt_entity.has_method("apply_direct_pressure_from_ally") and tgt_entity.apply_direct_pressure_from_ally(target_part, performer_entity):
 						if performer_entity != null and "direct_pressure_on_ally" in performer_entity:
-							performer_entity.direct_pressure_on_ally = {"node": target_entity, "part": target_part}
+							performer_entity.direct_pressure_on_ally = {"node": tgt_entity, "part": target_part}
 						print("[Combat] Medical: %s applying direct pressure on ally's %s during %s wind-up" % [who_name, target_part, medical_id])
 	var duration: float = 0.0
 	if medical_id == "apply_direct_pressure":
@@ -628,12 +940,12 @@ func _start_medical_action(combatant_id: int, target_combatant_id: int, medical_
 				applied = true
 		else:
 			# Ally: performer applies to target
-			var target_entity = _get_entity(target_node.node)
+			var tgt_ent = _get_entity(target_node.node)
 			var performer_entity = _get_entity(c.node)
-			if target_entity != null and target_entity.has_method("apply_direct_pressure_from_ally") and target_entity.apply_direct_pressure_from_ally(target_part, performer_entity):
+			if tgt_ent != null and tgt_ent.has_method("apply_direct_pressure_from_ally") and tgt_ent.apply_direct_pressure_from_ally(target_part, performer_entity):
 				applied = true
 				if performer_entity != null and "direct_pressure_on_ally" in performer_entity:
-					performer_entity.direct_pressure_on_ally = {"node": target_entity, "part": target_part}
+					performer_entity.direct_pressure_on_ally = {"node": tgt_ent, "part": target_part}
 		if applied:
 			print("[Combat] Medical: %s applied direct_pressure on %s (instant) => recovery %.1fs" % [who_name, target_part, med_rec_dur])
 			emit_signal("action_resolved", combatant_id, target_combatant_id, {"outcome": "direct_pressure", "part": target_part, "dmg": 0, "died": false})
@@ -644,8 +956,13 @@ func _start_medical_action(combatant_id: int, target_combatant_id: int, medical_
 		return
 	var wind_up_cfg = _MEDICAL_WIND_UP_CONFIG.get(medical_id, {})
 	var dur_method: String = wind_up_cfg.get("duration_method", "")
-	if not dur_method.is_empty() and target_node.node.has_method(dur_method):
-		duration = target_node.node.call(dur_method)
+	var dur_takes_part: bool = wind_up_cfg.get("duration_takes_part", false)
+	var target_entity = _get_entity(target_node.node)
+	if not dur_method.is_empty() and target_entity != null and target_entity.has_method(dur_method):
+		if dur_takes_part and not target_part.is_empty():
+			duration = target_entity.call(dur_method, target_part)
+		else:
+			duration = target_entity.call(dur_method)
 	if duration <= 0.0 and not wind_up_cfg.is_empty():
 		duration = 4.0  # fallback for custom entities
 	# Pain/consciousness: wounded entities take longer to apply medical actions
@@ -660,6 +977,11 @@ func _start_medical_action(combatant_id: int, target_combatant_id: int, medical_
 	c.state_timer = 0.0
 	c.state_duration = duration
 	c.pending_medical = {"medical_id": medical_id, "target_part": target_part, "target_combatant_id": target_combatant_id}
+	# Target (ally) enters receiving_medical_attention: gauge full, cannot act until care finishes
+	if target_combatant_id != combatant_id:
+		target_node.receiving_medical_count = target_node.get("receiving_medical_count", 0) + 1
+		target_node.state = STATE_RECEIVING_MEDICAL_ATTENTION
+		target_node.gauge = 100.0
 
 func _begin_attack_with_target(attacker_id: int, target_id: int, move_id: String = "") -> void:
 	var atk = _get_by_id(attacker_id)
@@ -757,8 +1079,7 @@ func _execute_attack(attacker_id: int) -> void:
 		emit_signal("action_resolved", attacker_id, target_id, {"dmg": 0, "died": true, "part": "", "damage_type": "", "outcome": "defeated", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0})
 		w = _check_for_winner()
 		if not w.is_empty():
-			emit_signal("combat_ended", w, tgt.node)
-			stop()
+			_end_combat_phase(w, tgt.node)
 		return
 
 	# Roll miss before damage (pain/consciousness reduce hit chance; head pain adds regional penalty)
@@ -964,16 +1285,14 @@ func _execute_attack(attacker_id: int) -> void:
 		emit_signal("action_resolved", attacker_id, target_id, result_dict)
 		w = _check_for_winner()
 		if not w.is_empty():
-			emit_signal("combat_ended", w, tgt.node)
-			stop()
+			_end_combat_phase(w, tgt.node)
 		return
 	w = _check_for_winner()
 	if not w.is_empty():
 		if tgt.node.has_method("is_incapacitated") and tgt.node.is_incapacitated():
 			print("[Combat] INCAPACITATED: %s (consciousness < 10%%)" % tgt_name)
 		emit_signal("action_resolved", attacker_id, target_id, result_dict)
-		emit_signal("combat_ended", w, tgt.node)
-		stop()
+		_end_combat_phase(w, tgt.node)
 		return
 	var rec_dur_final: float = _recovery_duration(intensity, outcome, recovery_mult, perf_mod)
 	print("[Combat] Recovery (hit): %s intensity=%.2f outcome=%s recovery_mult=%.2f => duration=%.2fs" % [atk_name, intensity, outcome, recovery_mult, rec_dur_final])
