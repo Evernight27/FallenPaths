@@ -1,0 +1,206 @@
+class_name EntityDamage
+extends RefCounted
+
+## Severance ease and full damage-split application. Entity must have: body_*, bone_*, wounds, endurance,
+## get_armor_for_part(part), _round_tissue(v), _get_vital_parts(), _is_part_severed(part), _get_pain_contribution_for_wound(...),
+## _last_hit_impact, _try_enter_pain_shock_from_hit(pain), _update_consciousness(), emit_signal("died").
+
+const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _EntityWounds := preload("res://core/EntityWounds.gd")
+const _ArmorConstants := preload("res://armor/ArmorConstants.gd")
+const _ArmorPieceScript := preload("res://armor/ArmorPiece.gd")
+const _BodyPartConstants := preload("res://core/BodyPartConstants.gd")
+
+# Damage resistance and severance (CoreEntity-aligned).
+const ENDURANCE_DAMAGE_RESISTANCE_PER_POINT: float = 0.0001
+const ENDURANCE_DAMAGE_RESISTANCE_MAX: float = 0.05
+const MIN_DAMAGE_TO_SEVER: int = 10
+const DEFLECTION_BRUISE_THRESHOLD: int = 3
+const SEVERANCE_EARLY_THRESHOLD: float = 0.18
+const SEVERANCE_EARLY_MAX_CHANCE: float = 0.65
+const SEVERANCE_EARLY_LIMBS_ONLY: bool = true
+const DAMAGE_TYPE_SHARP: String = "SHARP"
+const DAMAGE_TYPE_BLUNT: String = "BLUNT"
+
+# Severance ease: full-health limb resists dismemberment; already wounded/bone-damaged parts give way more easily.
+const SEVERANCE_EASE_MAX: float = 1.8
+const SEVERANCE_EASE_TISSUE_FACTOR: float = 0.4
+const SEVERANCE_EASE_BONE_FACTOR: float = 0.3
+const SEVERANCE_EASE_PER_WOUND: float = 0.04
+const SEVERANCE_EASE_WOUND_CAP: float = 0.25
+const SEVERANCE_EASE_SEVERITY_BONUS: Dictionary = { "minor": 0.0, "moderate": 0.05, "severe": 0.12, "critical": 0.20 }
+
+static func get_severance_ease_factor(entity: Node, part: String) -> float:
+	var max_tissue: int = entity.body_max.get(part, 1)
+	var max_bone: int = entity.bone_max.get(part, 1)
+	if max_tissue <= 0 or max_bone <= 0:
+		return 1.0
+	var cur_cut: float = entity.body_cutting.get(part, 0.0)
+	var cur_blunt: float = entity.body_blunt.get(part, 0.0)
+	var cur_bone: float = entity.bone_health.get(part, 0.0)
+	var tissue_ratio: float = (cur_cut + cur_blunt) / float(maxi(1, max_tissue * 2))
+	var bone_ratio: float = cur_bone / float(max_bone)
+	var wound_count: int = entity.wounds.get(part, []).size()
+	var wound_factor: float = minf(float(wound_count) * SEVERANCE_EASE_PER_WOUND, SEVERANCE_EASE_WOUND_CAP)
+	var worst_sev: String = _Bleeding.SEVERITY_MINOR
+	for injury in entity.wounds.get(part, []):
+		var sev: String = injury.get("severity", _Bleeding.SEVERITY_MINOR)
+		var order: Array = [_Bleeding.SEVERITY_MINOR, _Bleeding.SEVERITY_MODERATE, _Bleeding.SEVERITY_SEVERE, _Bleeding.SEVERITY_CRITICAL]
+		if order.find(sev) > order.find(worst_sev):
+			worst_sev = sev
+	var severity_bonus: float = SEVERANCE_EASE_SEVERITY_BONUS.get(worst_sev, 0.0)
+	var severance_ease: float = 1.0 + (1.0 - tissue_ratio) * SEVERANCE_EASE_TISSUE_FACTOR + (1.0 - bone_ratio) * SEVERANCE_EASE_BONE_FACTOR + wound_factor + severity_bonus
+	return clampf(severance_ease, 1.0, SEVERANCE_EASE_MAX)
+
+## Full damage-split application: armor, bone/tissue split, wounds, early severance, stump, vital death, pain shock.
+## Returns { "final_cut": float, "final_blunt": float, "final_bone": float, "was_deflected": bool }.
+static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0, blunt_contact_cm: float = -1.0) -> Dictionary:
+	if part not in entity.body_cutting or part not in entity.body_blunt or part not in entity.bone_health:
+		return { "final_cut": 0.0, "final_blunt": 0.0, "final_bone": 0.0, "was_deflected": false }
+	var cut_pre_val: float = maxf(0.0, cut_pre)
+	var blunt_pre_val: float = maxf(0.0, blunt_pre)
+	var end_resist: float = clampf(float(entity.endurance) * ENDURANCE_DAMAGE_RESISTANCE_PER_POINT, 0.0, ENDURANCE_DAMAGE_RESISTANCE_MAX)
+	cut_pre_val *= (1.0 - end_resist)
+	blunt_pre_val *= (1.0 - end_resist)
+	var armor_var: Variant = entity.get_armor_for_part(part)
+	var pen_s: float = penetration_sharp if penetration_sharp >= 0.0 else _ArmorConstants.DEFAULT_PENETRATION_SHARP
+	var final_cut: float = 0.0
+	var final_blunt: float = 0.0
+	var blunt_from_deflection: float = 0.0
+	var blunt_from_direct: float = 0.0
+	if armor_var != null and armor_var.get_script() == _ArmorPieceScript:
+		var deflected_raw: float = 0.0
+		if cut_pre_val > 0.0:
+			var result_cut: Dictionary = armor_var.apply_damage(cut_pre_val, DAMAGE_TYPE_SHARP, pen_s, -1.0, -1.0)
+			var d: float = maxf(0.0, result_cut.get("damage", 0.0))
+			var dtype: String = result_cut.get("damage_type", DAMAGE_TYPE_SHARP)
+			if dtype == DAMAGE_TYPE_SHARP:
+				final_cut += d
+			else:
+				deflected_raw = result_cut.get("transmitted_blunt_amount", result_cut.get("deflected_blunt_amount", d))
+				blunt_from_deflection = deflected_raw
+		blunt_from_direct = blunt_pre_val
+		if deflected_raw > 0.0 and blunt_pre_val > 0.0:
+			var result_deflected: Dictionary = armor_var.apply_damage(deflected_raw, DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 1)
+			var result_direct: Dictionary = armor_var.apply_damage(blunt_pre_val, DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 0)
+			final_blunt = maxf(0.0, result_deflected.get("damage", 0.0)) + maxf(0.0, result_direct.get("damage", 0.0))
+		elif deflected_raw > 0.0:
+			var result_blunt: Dictionary = armor_var.apply_damage(deflected_raw, DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 1)
+			final_blunt = maxf(0.0, result_blunt.get("damage", 0.0))
+		elif blunt_pre_val > 0.0:
+			var result_blunt: Dictionary = armor_var.apply_damage(blunt_pre_val, DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 0)
+			final_blunt = maxf(0.0, result_blunt.get("damage", 0.0))
+		print("[Armor] %s %s: pre cut=%.1f blunt=%.1f | transmitted_raw=%.1f direct_blunt=%.1f | pen_sharp=%.2f mm RHA | blunt: => post-armor cut=%.1f blunt=%.1f" % [entity.name, part, cut_pre_val, blunt_pre_val, deflected_raw, blunt_pre_val, pen_s, final_cut, final_blunt])
+	else:
+		final_cut = cut_pre_val
+		final_blunt = blunt_pre_val
+		blunt_from_direct = blunt_pre_val
+		if cut_pre_val > 0.0 or blunt_pre_val > 0.0:
+			print("[Armor] %s %s: no armor => post cut=%.1f blunt=%.1f" % [entity.name, part, final_cut, final_blunt])
+	var total_final: float = final_cut + final_blunt
+	if total_final <= 0.0:
+		return { "final_cut": 0.0, "final_blunt": 0.0, "final_bone": 0.0, "was_deflected": false }
+	var sub_region: String = _Bleeding.get_random_sub_region(part)
+	var to_tissue_total: float = total_final
+	var to_bone: float = 0.0
+	var bone_threshold: int = _BodyPartConstants.get_bone_damage_threshold(part, sub_region)
+	var bone_fraction: float = _BodyPartConstants.get_bone_damage_fraction(part, sub_region)
+	var bone_min: int = _BodyPartConstants.get_bone_damage_min(part)
+	if to_tissue_total >= float(bone_threshold):
+		var excess: float = to_tissue_total - float(bone_threshold)
+		to_bone = maxf(float(bone_min), entity._round_tissue(excess * bone_fraction))
+		to_tissue_total = maxf(0.0, total_final - to_bone)
+	var to_cut: float = 0.0
+	var to_blunt: float = 0.0
+	if total_final > 0.0:
+		to_cut = to_tissue_total * (final_cut / total_final)
+		to_blunt = maxf(0.0, to_tissue_total - to_cut)
+	var severance_ease: float = get_severance_ease_factor(entity, part)
+	var cur_cut: float = entity.body_cutting.get(part, 0.0)
+	var cur_blunt: float = entity.body_blunt.get(part, 0.0)
+	var cur_bone: float = entity.bone_health.get(part, 0.0)
+	var allocated_bone: float = to_bone
+	to_cut = minf(entity._round_tissue(to_cut * severance_ease), cur_cut)
+	to_blunt = minf(entity._round_tissue(to_blunt * severance_ease), cur_blunt)
+	to_bone = minf(entity._round_tissue(to_bone * severance_ease), cur_bone)
+	var total_damage_this_hit: float = to_cut + to_blunt + to_bone
+	if total_damage_this_hit < float(MIN_DAMAGE_TO_SEVER) and (cur_cut - to_cut) <= 0.0 and (cur_bone - to_bone) <= 0.0 and cur_bone > 0.0:
+		to_bone = maxf(0.0, cur_bone - 1.0)
+	entity.body_cutting[part] = entity._round_tissue(maxf(0.0, entity.body_cutting.get(part, 0.0) - to_cut))
+	entity.body_blunt[part] = entity._round_tissue(maxf(0.0, entity.body_blunt.get(part, 0.0) - to_blunt))
+	entity.bone_health[part] = entity._round_tissue(maxf(0.0, entity.bone_health.get(part, 0.0) - to_bone))
+	var cut_after: float = entity.body_cutting.get(part, 0.0)
+	var blunt_after: float = entity.body_blunt.get(part, 0.0)
+	var bone_after: float = entity.bone_health.get(part, 0.0)
+	print("[Bone/tissue] %s %s (%s): total_post_armor=%.1f | threshold=%d fraction=%.2f => allocated bone=%.2f tissue=%.2f | severance_ease=%.2f => applied cut=%.2f blunt=%.2f bone=%.2f | part state: cut %.2f->%.2f blunt %.2f->%.2f bone %.2f->%.2f" % [entity.name, part, sub_region, total_final, bone_threshold, bone_fraction, allocated_bone, to_tissue_total, severance_ease, to_cut, to_blunt, to_bone, cur_cut, cut_after, cur_blunt, blunt_after, cur_bone, bone_after])
+	if to_cut > 0.0:
+		_EntityWounds.add_wound(entity, part, _Bleeding.INJURY_TYPE_CUT, to_cut, sub_region)
+	if to_blunt > 0.0:
+		var total_blunt_source: float = blunt_from_deflection + blunt_from_direct
+		var to_blunt_deflected: float = 0.0
+		var to_blunt_direct: float = to_blunt
+		if total_blunt_source > 0.0 and blunt_from_deflection > 0.0:
+			to_blunt_deflected = to_blunt * blunt_from_deflection / total_blunt_source
+			to_blunt_direct = to_blunt - to_blunt_deflected
+		if to_blunt_deflected > 0.0:
+			var sev: String = _EntityWounds.severity_from_damage(entity, part, to_blunt_deflected, sub_region)
+			if to_blunt_deflected <= float(DEFLECTION_BRUISE_THRESHOLD) or sev == _Bleeding.SEVERITY_MINOR:
+				_EntityWounds.add_wound(entity, part, _Bleeding.INJURY_TYPE_BRUISE, to_blunt_deflected, sub_region)
+			else:
+				_EntityWounds.add_wound(entity, part, _Bleeding.INJURY_TYPE_CRUSH, to_blunt_deflected, sub_region)
+		if to_blunt_direct > 0.0:
+			_EntityWounds.add_wound(entity, part, _Bleeding.INJURY_TYPE_CRUSH, to_blunt_direct, sub_region)
+	if to_bone > 0.0:
+		var fracture_severity: String = _EntityWounds.severity_from_bone_damage(entity, part, to_bone)
+		_EntityWounds.add_wound(entity, part, _Bleeding.INJURY_TYPE_FRACTURE, to_bone, sub_region, fracture_severity)
+	if not entity._is_part_severed(part) and total_damage_this_hit >= float(MIN_DAMAGE_TO_SEVER):
+		if not SEVERANCE_EARLY_LIMBS_ONLY or part not in entity._get_vital_parts():
+			var max_cut: int = entity.body_max.get(part, 1)
+			var max_bone: int = entity.bone_max.get(part, 1)
+			var rem_cut: float = entity.body_cutting.get(part, 0.0)
+			var rem_bone: float = entity.bone_health.get(part, 0.0)
+			var combined_max: float = float(max_cut + max_bone)
+			if combined_max > 0.0:
+				var remaining_ratio: float = (rem_cut + rem_bone) / combined_max
+				if remaining_ratio < SEVERANCE_EARLY_THRESHOLD and remaining_ratio > 0.0:
+					var chance: float = (SEVERANCE_EARLY_THRESHOLD - remaining_ratio) / SEVERANCE_EARLY_THRESHOLD * SEVERANCE_EARLY_MAX_CHANCE
+					chance = clampf(chance, 0.0, 1.0)
+					if randf() < chance:
+						entity.body_cutting[part] = 0.0
+						entity.body_blunt[part] = 0.0
+						entity.bone_health[part] = 0.0
+						print("[Severance] %s %s: early severance triggered (remaining ratio < threshold) => part destroyed" % [entity.name, part])
+	if entity._is_part_severed(part):
+		entity.wounds[part] = _EntityWounds.create_stump_wound(entity, part, sub_region)
+	var vital: Array = entity._get_vital_parts()
+	if part in vital and (entity.body_cutting.get(part, 0.0) <= 0.0 or entity.body_blunt.get(part, 0.0) <= 0.0):
+		entity.emit_signal("died")
+	var pain_from_this_hit_raw: float = 0.0
+	if entity._is_part_severed(part):
+		var stump_damage: float = float(entity.body_max.get(part, 10))
+		pain_from_this_hit_raw = entity._get_pain_contribution_for_wound(part, stump_damage, _Bleeding.SEVERITY_CRITICAL, _Bleeding.INJURY_TYPE_CUT, sub_region, true)
+	else:
+		if to_cut > 0.0:
+			var sev_cut: String = _EntityWounds.severity_from_damage(entity, part, to_cut, sub_region)
+			pain_from_this_hit_raw += entity._get_pain_contribution_for_wound(part, to_cut, sev_cut, _Bleeding.INJURY_TYPE_CUT, sub_region, false)
+		if to_blunt > 0.0:
+			var total_blunt_source: float = blunt_from_deflection + blunt_from_direct
+			var to_blunt_deflected: float = 0.0
+			var to_blunt_direct: float = to_blunt
+			if total_blunt_source > 0.0 and blunt_from_deflection > 0.0:
+				to_blunt_deflected = to_blunt * blunt_from_deflection / total_blunt_source
+				to_blunt_direct = to_blunt - to_blunt_deflected
+			if to_blunt_deflected > 0.0:
+				var sev_def: String = _EntityWounds.severity_from_damage(entity, part, to_blunt_deflected, sub_region)
+				var itype_def: String = _Bleeding.INJURY_TYPE_BRUISE if (to_blunt_deflected <= float(DEFLECTION_BRUISE_THRESHOLD) or sev_def == _Bleeding.SEVERITY_MINOR) else _Bleeding.INJURY_TYPE_CRUSH
+				pain_from_this_hit_raw += entity._get_pain_contribution_for_wound(part, to_blunt_deflected, sev_def, itype_def, sub_region, false)
+			if to_blunt_direct > 0.0:
+				var sev_dir: String = _EntityWounds.severity_from_damage(entity, part, to_blunt_direct, sub_region)
+				pain_from_this_hit_raw += entity._get_pain_contribution_for_wound(part, to_blunt_direct, sev_dir, _Bleeding.INJURY_TYPE_CRUSH, sub_region, false)
+		if to_bone > 0.0:
+			var sev_bone: String = _EntityWounds.severity_from_bone_damage(entity, part, to_bone)
+			pain_from_this_hit_raw += entity._get_pain_contribution_for_wound(part, to_bone, sev_bone, _Bleeding.INJURY_TYPE_FRACTURE, sub_region, false)
+	entity._last_hit_impact = float(total_damage_this_hit)
+	entity._try_enter_pain_shock_from_hit(pain_from_this_hit_raw)
+	entity._update_consciousness()
+	return { "final_cut": to_cut, "final_blunt": to_blunt, "final_bone": to_bone, "was_deflected": blunt_from_deflection > 0.0 }

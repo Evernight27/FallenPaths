@@ -165,6 +165,8 @@ const CLOTTING_SEVERITY_MULTIPLIERS: Dictionary = {
 const CLOTTING_RATE_STABILIZED: float = 0.006  # per second when bandaged; half-life ~2 min
 # Rate below this is treated as clotted (removal). Avoids relying on float underflow. MINOR_WOUND_BLEEDING_METHODS Method 4.
 const BLEEDING_RATE_EPSILON: float = 0.001
+# Heuristic: effective clotting rate (per second) for "will they clot before dying?". Used when permanent bleeding is reduced (e.g. partial tourniquet). If perm_rate <= (blood_volume - death_threshold) * this / BLOOD_LOSS_RATE_MULTIPLIER, integrated loss stays below remaining buffer so they survive. Conservative (between severe and critical).
+const CLOTTING_SAFE_EFFECTIVE_RATE: float = 0.008
 
 # --- Arterial bleeding chance (research-based) ---
 # Penetrating (cut) wounds: depth/severity correlates with vessel involvement. Soft signs: 1 sign ~10% vascular injury, 2+ ~25%.
@@ -235,7 +237,11 @@ const TOURNIQUET_MAX_DURATION_SECONDS: float = 0.0  # 0 = no auto-expiry; set e.
 # Time (seconds) to apply a tourniquet (positioning, tightening); action system should delay effect until this duration has passed.
 const TOURNIQUET_APPLICATION_TIME_SECONDS: float = 18.0
 # Success rate: tourniquets can fail if not tight enough or poorly placed. Training/medical skill affects outcome.
-const TOURNIQUET_SUCCESS_BASE_CHANCE: float = 0.85  # base success; proper application requires training
+# Research: layperson first-attempt ~50% (CAT with video), some devices 17%; without formal training results poor (e.g. "Missing expectations" windlass study). Trained/CoTCCC much higher.
+const TOURNIQUET_SUCCESS_BASE_CHANCE: float = 0.85  # base success; medical skill scales this
+# When applied successfully, bleeding reduction scales with application effectiveness (skill/tightness/placement).
+# Perfect application can achieve near-complete occlusion; poor application leaves significant flow. residual_rate = raw_rate * (1 - effectiveness * this).
+const TOURNIQUET_REDUCTION_AT_FULL: float = 0.99  # at 1.0 effectiveness → 99% reduction; 0.5 effectiveness → 49.5% (partial occlusion)
 
 # --- Severity thresholds (damage as fraction of part max) ---
 const SEVERITY_PERCENTAGE_CRITICAL: float = 0.75

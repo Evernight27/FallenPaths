@@ -82,6 +82,9 @@ func is_dead() -> bool:
 func is_incapacitated() -> bool:
 	return _combat_body.is_incapacitated() if _combat_body else false
 
+func is_cowering() -> bool:
+	return _combat_body.is_cowering() if _combat_body else false
+
 func get_performance_modifier() -> float:
 	return _combat_body.get_performance_modifier() if _combat_body else 1.0
 

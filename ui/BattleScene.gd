@@ -6,10 +6,14 @@ var players: Array = []
 var enemies: Array = []
 var parent_scene: Node = null
 
-# Body part order for UI; layout matches party screen: rows of [head, chest], [arms], [legs]
+# Body part order for UI; two columns: left [head, right_arm, left_leg], right [chest, left_arm, right_leg]
 const BODY_PARTS := ["head", "chest", "right_arm", "left_arm", "left_leg", "right_leg"]
 const BODY_LABELS := {"head": "Head", "chest": "Chest", "right_arm": "R.Arm", "left_arm": "L.Arm", "left_leg": "L.Leg", "right_leg": "R.Leg"}
-const PART_LINES := [["head", "chest"], ["right_arm", "left_arm"], ["left_leg", "right_leg"]]
+const BODY_BAR_COLUMNS := [["head", "right_arm", "left_leg"], ["chest", "left_arm", "right_leg"]]
+const BODY_BAR_CELL_WIDTH := 56
+const BODY_BAR_HEIGHT := 12
+const GAUGE_WIDTH := 180
+const GAUGE_LABEL_MIN_WIDTH := 140
 # Human-readable labels for medical actions in the action bar
 const MEDICAL_ACTION_LABELS := {"bandage_self": "Bandaging", "pack_wound": "Packing wound", "apply_tourniquet": "Applying tourniquet", "apply_direct_pressure": "Direct pressure"}
 
@@ -22,6 +26,7 @@ var end_battle_button: Button = null
 var _pending_winner: String = ""
 var _pending_defeated: Node = null
 var _in_medical_phase: bool = false
+var _medical_phase_finished_announced: bool = false
 const LOG_MAX_LINES := 80
 const MAIN_LIST_PATH := "CombatCanvasLayer/UIRoot/ContentVBox/MainScroll/MainHBox"
 
@@ -188,12 +193,12 @@ func _create_ui() -> void:
 	player_list_vbox.size_flags_vertical = Control.SIZE_SHRINK_END  # Size to content so ScrollContainer can scroll
 	player_vbox.add_child(player_list_vbox)
 
-	# Combat log panel (below main panels) — spacing above so it doesn't overlap
-	const LOG_MIN_WIDTH := 420
-	const LOG_MIN_HEIGHT := 140
+	# Combat log panel (below main panels)
+	const LOG_MIN_WIDTH := 1260  # ~3× previous 420
+	const LOG_MIN_HEIGHT := 216  # ~3× previous 72
 	var log_sep = HSeparator.new()
 	log_sep.name = "LogSeparator"
-	log_sep.custom_minimum_size = Vector2(0, 20)
+	log_sep.custom_minimum_size = Vector2(0, 12)
 	content_vbox.add_child(log_sep)
 	var log_title = Label.new()
 	log_title.text = "Combat log"
@@ -202,7 +207,7 @@ func _create_ui() -> void:
 	combat_log_scroll = ScrollContainer.new()
 	combat_log_scroll.name = "CombatLogScroll"
 	combat_log_scroll.custom_minimum_size = Vector2(LOG_MIN_WIDTH, LOG_MIN_HEIGHT)
-	combat_log_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	combat_log_scroll.size_flags_vertical = Control.SIZE_SHRINK_END  # Don't expand; leave space for panels above
 	combat_log_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content_vbox.add_child(combat_log_scroll)
 	combat_log = RichTextLabel.new()
@@ -211,7 +216,7 @@ func _create_ui() -> void:
 	combat_log.fit_content = true
 	combat_log.scroll_following = true
 	combat_log.selection_enabled = false
-	combat_log.custom_minimum_size = Vector2(LOG_MIN_WIDTH, 120)
+	combat_log.custom_minimum_size = Vector2(LOG_MIN_WIDTH, 192)  # ~3× previous 64
 	combat_log.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	combat_log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# Ensure log is visible: dark background, light text
@@ -242,6 +247,14 @@ func _do_scroll_combat_log_to_bottom() -> void:
 	if vbar:
 		combat_log_scroll.scroll_vertical = int(vbar.max_value)
 
+func _progress_bar_background_style() -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.18, 0.18, 0.2, 0.95)
+	style.set_border_width_all(2)
+	style.border_color = Color(0.45, 0.45, 0.5)
+	style.set_corner_radius_all(2)
+	return style
+
 func _create_ui_row(id: int, node: Node, side: String) -> void:
 	# Row: name, gauge, equipment (weapon + armor), then 6 body part bars
 	var row = VBoxContainer.new()
@@ -250,19 +263,36 @@ func _create_ui_row(id: int, node: Node, side: String) -> void:
 	var name_lbl = Label.new()
 	name_lbl.text = str(node.name) if node != null else "Entity"
 	name_lbl.custom_minimum_size = Vector2(60, 0)
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_lbl.size_flags_horizontal = Control.SIZE_SHRINK_END
 	top_row.add_child(name_lbl)
+	# Gauge block expands to fill the row (to the left) so the bar never moves; label area gets all extra space
+	var gauge_block = HBoxContainer.new()
+	gauge_block.custom_minimum_size = Vector2(GAUGE_WIDTH + GAUGE_LABEL_MIN_WIDTH, 14)
+	gauge_block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gauge_block.add_theme_constant_override("separation", 4)
 	var gauge = ProgressBar.new()
 	gauge.min_value = 0.0
 	gauge.max_value = 100.0
 	gauge.value = 0.0
-	gauge.custom_minimum_size = Vector2(60, 14)
-	top_row.add_child(gauge)
+	gauge.custom_minimum_size = Vector2(GAUGE_WIDTH, 14)
+	gauge.size_flags_horizontal = Control.SIZE_SHRINK_END
+	gauge.add_theme_stylebox_override("background", _progress_bar_background_style())
+	gauge_block.add_child(gauge)
+	var gauge_lbl_wrapper = Control.new()
+	gauge_lbl_wrapper.custom_minimum_size = Vector2(GAUGE_LABEL_MIN_WIDTH, 0)
+	gauge_lbl_wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var gauge_lbl = Label.new()
 	gauge_lbl.name = "GaugeLabel"
 	gauge_lbl.text = "0%"
-	gauge_lbl.custom_minimum_size = Vector2(36, 0)
-	top_row.add_child(gauge_lbl)
+	gauge_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	gauge_lbl.offset_left = 0
+	gauge_lbl.offset_top = 0
+	gauge_lbl.offset_right = 0
+	gauge_lbl.offset_bottom = 14
+	gauge_lbl.clip_text = true
+	gauge_lbl_wrapper.add_child(gauge_lbl)
+	gauge_block.add_child(gauge_lbl_wrapper)
+	top_row.add_child(gauge_block)
 	row.add_child(top_row)
 	var last_hit_lbl = Label.new()
 	last_hit_lbl.name = "LastHitLabel"
@@ -286,6 +316,7 @@ func _create_ui_row(id: int, node: Node, side: String) -> void:
 	blood_bar.value = 100.0
 	blood_bar.custom_minimum_size = Vector2(60, 10)
 	blood_bar.show_percentage = false
+	blood_bar.add_theme_stylebox_override("background", _progress_bar_background_style())
 	blood_row.add_child(blood_bar)
 	var bleeding_lbl = Label.new()
 	bleeding_lbl.name = "BleedingLabel"
@@ -326,14 +357,16 @@ func _create_ui_row(id: int, node: Node, side: String) -> void:
 		equip_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		equip_lbl.custom_minimum_size = Vector2(0, 0)
 		row.add_child(equip_lbl)
-	var bars_vbox = VBoxContainer.new()
+	var bars_hbox = HBoxContainer.new()
+	bars_hbox.add_theme_constant_override("separation", 8)
 	var body_bars := {}
 	var body_labels := {}
-	for part_line in PART_LINES:
-		var bars_row = HBoxContainer.new()
-		for part in part_line:
+	for column_parts in BODY_BAR_COLUMNS:
+		var col_vbox = VBoxContainer.new()
+		col_vbox.add_theme_constant_override("separation", 2)
+		for part in column_parts:
 			var cell = VBoxContainer.new()
-			cell.custom_minimum_size = Vector2(48, 0)
+			cell.custom_minimum_size = Vector2(BODY_BAR_CELL_WIDTH, 0)
 			var lbl = Label.new()
 			lbl.name = "lbl_%s" % part
 			lbl.text = BODY_LABELS.get(part, part) + " 0/0"
@@ -344,13 +377,14 @@ func _create_ui_row(id: int, node: Node, side: String) -> void:
 			bar.min_value = 0.0
 			bar.max_value = 1.0
 			bar.value = 1.0
-			bar.custom_minimum_size = Vector2(48, 12)
+			bar.custom_minimum_size = Vector2(BODY_BAR_CELL_WIDTH, BODY_BAR_HEIGHT)
 			bar.show_percentage = false
+			bar.add_theme_stylebox_override("background", _progress_bar_background_style())
 			cell.add_child(bar)
 			body_bars[part] = bar
-			bars_row.add_child(cell)
-		bars_vbox.add_child(bars_row)
-	row.add_child(bars_vbox)
+			col_vbox.add_child(cell)
+		bars_hbox.add_child(col_vbox)
+	row.add_child(bars_hbox)
 	if side == "player":
 		var list = get_node(MAIN_LIST_PATH + "/PlayerPanel/PlayerVBox/PlayerList") if has_node(MAIN_LIST_PATH + "/PlayerPanel/PlayerVBox/PlayerList") else null
 		if list:
@@ -443,6 +477,21 @@ func _process(_delta: float) -> void:
 	# Medical phase: show End battle when all wounded are stabilized
 	if _in_medical_phase and manager != null and manager.has_method("can_end_medical_phase") and manager.can_end_medical_phase():
 		_show_end_battle_button()
+		# After medical actions are done and everyone is paused (no one in wind_up/medical_wind_up), announce once
+		if not _medical_phase_finished_announced and manager.has_method("get_combatants"):
+			var anyone_busy: bool = false
+			for c in manager.get_combatants():
+				if not c.get("alive", true):
+					continue  # Only alive combatants can be "busy"; dead enemies may still have wind_up state
+				var s: String = c.get("state", "waiting")
+				if s == "wind_up" or s == "medical_wind_up":
+					anyone_busy = true
+					break
+			if not anyone_busy:
+				_medical_phase_finished_announced = true
+				if combat_log:
+					combat_log.append_text("\n[color=green]——— Medical phase finished. You may end the battle. ———[/color]\n")
+					_scroll_combat_log_to_bottom()
 
 func _on_combatant_health_changed(_combatant_id: int) -> void:
 	# Refresh UI when consciousness/pain/blood changes (driven by health_changed signal from entity)
@@ -524,7 +573,9 @@ func _append_combat_log(attacker_name: String, attacker_side: String, target_nam
 		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
 		line = "[color=orange]%s (%s) failed to properly apply tourniquet to %s's %s (effectiveness: %d%%; not tight enough; can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
 	elif outcome == "deflected":
-		line = "%s (%s) → %s (%s) %s: [b]%d[/b] dmg [color=orange](deflected)[/color]" % [attacker_name, attacker_side, target_name, target_side, part_label, dmg]
+		line = "%s (%s) → %s (%s) %s: [b]%d[/b] dmg [color=green](deflected — all avoided)[/color]" % [attacker_name, attacker_side, target_name, target_side, part_label, dmg]
+	elif outcome == "glancing":
+		line = "%s (%s) → %s (%s) %s: [b]%d[/b] dmg [color=orange](glancing)[/color]" % [attacker_name, attacker_side, target_name, target_side, part_label, dmg]
 		if result.has("final_cut") and result.has("final_blunt"):
 			line += " (cut %.2f blunt %.2f)" % [result.final_cut, result.final_blunt]
 		elif health_before >= 0 and health_after >= 0:
@@ -576,6 +627,7 @@ func _on_enemies_eliminated(winner_side: String) -> void:
 	_pending_winner = winner_side
 	_pending_defeated = null
 	_in_medical_phase = true
+	_medical_phase_finished_announced = false
 	if combat_log:
 		combat_log.append_text("\n[color=orange]——— Enemies eliminated. Medical phase: stabilize your wounded before ending. ———[/color]\n")
 		_scroll_combat_log_to_bottom()

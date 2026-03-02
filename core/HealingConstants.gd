@@ -77,6 +77,9 @@ const BRUISE_PART_DURATION_MULTIPLIERS: Dictionary = {
 # Crush (blunt with bleeding): same phases as tissue; use tissue duration.
 # Cut (laceration): full tissue duration by severity + part.
 # Fracture: bone-healing duration by part (~6 weeks); pain resolution follows bone healing.
+# Wound is removed when healing progress >= this (~95% healed). Used by EntityHealing and pain resolution.
+const WOUND_RESOLVED_THRESHOLD: float = 0.95
+
 # Returns seconds to ~95% healing (pain resolution) for this wound. Used for per-wound pain decay and "resolved" removal.
 static func get_wound_healing_duration_seconds(part: String, severity: String, injury_type: String) -> float:
 	if injury_type == WOUND_TYPE_BRUISE:

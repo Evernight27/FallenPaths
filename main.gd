@@ -21,17 +21,12 @@ func _get_available_species_paths() -> Array:
 			file = dir.get_next()
 	return paths
 
-## Species paths for enemy spawns only. Excludes human so party (human) has stat advantage.
+## Species paths for enemy spawns. Can include human (generic human enemies) and goblin; party heroes use human + apply_party_boost (150) so they still outstat baseline human enemies (100).
 func _get_enemy_species_paths() -> Array:
 	var all_paths := _get_available_species_paths()
-	var out: Array = []
-	for p in all_paths:
-		if "human" in p.to_lower():
-			continue
-		out.append(p)
-	if out.is_empty():
-		out = ["res://species/goblin.tres"]
-	return out
+	if all_paths.is_empty():
+		return ["res://species/goblin.tres", "res://species/human.tres"]
+	return all_paths
 
 func _ready():
 	# Match FallenFramework: fill screen — maximized window + stretch to viewport

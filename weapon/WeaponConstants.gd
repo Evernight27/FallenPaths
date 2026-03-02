@@ -131,6 +131,7 @@ static func _weapon_definitions_build() -> Dictionary:
 		"SWORD": {
 			"name": "Sword",
 			"mass": 1.2,
+			"parry_speed_factor": 1.0,
 			"blade_width": 2.0,
 			"point_width": 0.5,
 			"thrust_head_width": 2.0,
@@ -152,6 +153,7 @@ static func _weapon_definitions_build() -> Dictionary:
 		"AXE": {
 			"name": "Axe",
 			"mass": 1.5,
+			"parry_speed_factor": 0.95,
 			"blade_width": 3.0,
 			"point_width": 0.8,
 			"thrust_head_width": 1.5,
@@ -171,6 +173,7 @@ static func _weapon_definitions_build() -> Dictionary:
 		"MACE": {
 			"name": "Mace",
 			"mass": 1.7,
+			"parry_speed_factor": 0.9,
 			"blade_width": 0.0,
 			"point_width": 0.0,
 			"head_diameter": 8.0,
@@ -188,6 +191,7 @@ static func _weapon_definitions_build() -> Dictionary:
 		"DAGGER": {
 			"name": "Dagger",
 			"mass": 0.3,
+			"parry_speed_factor": 1.2,
 			"blade_width": 1.5,
 			"point_width": 0.3,
 			"thrust_head_width": 1.0,
@@ -207,6 +211,7 @@ static func _weapon_definitions_build() -> Dictionary:
 		"SPEAR": {
 			"name": "Spear",
 			"mass": 1.8,
+			"parry_speed_factor": 1.0,
 			"blade_width": 2.5,
 			"point_width": 0.6,
 			"thrust_head_width": 2.5,
@@ -245,7 +250,7 @@ static func get_archetype(archetype_id: String) -> Dictionary:
 	return all_arch[archetype_id].duplicate(true)
 
 # Reference for area coupling: larger contact (mace) vs smaller (pommel). Using max(head_diameter)
-# so the largest blunt weapon yields area_factor=1.0 and transmission stays <= blunt_bat_transmission.
+# so the largest blunt weapon yields area_factor=1.0 and transmission stays <= layer blunt_transmission.
 static func get_blunt_coupling_reference_cm() -> float:
 	var ids: Array = get_all_weapon_ids()
 	var max_hd: float = 0.0
