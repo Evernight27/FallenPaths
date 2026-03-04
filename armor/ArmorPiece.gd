@@ -11,7 +11,7 @@ extends RefCounted
 
 var display_name: String = ""
 var body_part: String = ""
-# Each layer: { sharp_resistance_rha_mm, blunt_transmission, durability, max_durability, durability_loss_rate }; blunt_resistance_mpa optional (reference only, not used for durability).
+# Each layer: { sharp_resistance_rha_mm, blunt_transmission, durability, max_durability, durability_loss_rate }.
 var layers: Array = []
 
 

@@ -71,7 +71,7 @@ This document traces how attack, parry, and dodge data flow through the combat s
 | time_to_react | effective_wind_up - reaction_time | capacity_mult = clamp(time_to_react / PASSIVE_PARRY_MIN_TIME_FOR_FULL_S) |
 | parry_readiness | _get_passive_parry_readiness(tgt) | STATE_WAITING=1, RECOVERING=lerp(early, late) |
 | parry_off_balance | _is_off_balance(tgt) | c_d *= OFF_BALANCE_PARRY_CAPACITY_MULT if true |
-| choose_parry | can_parry_in_time && (p_a <= parry_c_d * PARRY_DODGE_STRENGTH_RATIO) | Prefer parry only when not outmatched |
+| choose_parry | Expected-damage comparison: parry when E_parry ≤ E_dodge and viable; dodge when E_dodge < E_parry or full_dodge_prob ≥ PARRY_PREFER_DODGE_FULL_THRESHOLD (0.12). PARRY_DODGE_STRENGTH_RATIO (2.2) for block viable. | See AttackResolver |
 
 **Connection check:** Parry uses defender’s **live** arm (get_attack_damage_modifier), **live** performance and reaction time (node methods). Defender strength is from **cached** tgt.stats (refreshed each frame in _process). So parry is correctly tied to arm health, reaction, and strength. OK.
 
@@ -79,7 +79,7 @@ This document traces how attack, parry, and dodge data flow through the combat s
 
 | Data | Source | Used for |
 |------|--------|----------|
-| p_a, c_d | Arguments (from _execute_attack) | deflected = (c_d >= p_a * PARRY_DEFLECT_THRESHOLD) |
+| p_a, c_d | Arguments (from _execute_attack) | deflected = (c_d >= p_a * PARRY_DEFLECT_THRESHOLD)  # 1.08 |
 | pa | attacker.pending_attack | intensity, attack_type, archetype for attack_instance; **not** velocity_m_s (v_intent = full) |
 | v_intent | WeaponDamageHelper.get_effective_velocity_m_s(attacker_weapon, attack_instance) | Full intent for v_min = v_intent * PARRY_V_MIN_FRACTION |
 | remaining_momentum | p_a - c_d | v_reduced = remaining_momentum / m_a |
@@ -106,14 +106,14 @@ This document traces how attack, parry, and dodge data flow through the combat s
 | Data | Source | Used for |
 |------|--------|----------|
 | dodge_chance | tgt.node.get_dodge_chance() | **CoreEntity: get_leg_functionality(), get_performance_modifier(), leg pain, agility, perception.** Character → _combat_body.get_dodge_chance(). |
-| dodge_roll | randf() | if dodge_roll < dodge_chance → outcome "dodge", return; else proceed to damage. |
+| dodge_roll | randf() | Tiers: roll < eff_dodge × DODGE_FULL_THRESHOLD (0.4) → full dodge; roll < eff_dodge → partial (parry_remaining_ratio); else → hit. |
 
 **CoreEntity.get_dodge_chance():**
 - leg = get_leg_functionality() (both legs, bone factor)
 - perf = get_performance_modifier() (pain/consciousness)
 - leg_pain_mod = pain modifier for region "legs"
 - dodge_stat_factor = (agility + perception) / 200, clamped 0.5..1.5
-- return DODGE_CHANCE_AT_FULL_SPEED * dodge_stat_factor * leg * perf * leg_pain_mod
+- return DODGE_CHANCE_AT_FULL_SPEED (0.10) * dodge_stat_factor * leg * perf * leg_pain_mod
 
 **Connection check:** Dodge is driven by leg health, leg pain, agility, perception, and general performance. All from the defender node (CoreEntity or Character→CombatBody). OK.
 

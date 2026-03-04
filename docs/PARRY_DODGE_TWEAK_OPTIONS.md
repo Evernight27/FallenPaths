@@ -9,7 +9,7 @@ This document investigates different ways to implement two tweaks:
 
 ## Context
 
-- **Parry** requires: defender has weapon, `reaction_time < effective_wind_up`, and (when choosing) `p_a <= c_d * PARRY_DODGE_STRENGTH_RATIO`. Goblins (perception 80) have reaction ~0.35 s; `effective_wind_up = wind_up * (1 - COMMITMENT_FRACTION)` (0.8). For wind_up 0.45 s → 0.36 s, so they are right on the edge; slightly shorter wind-ups → "cannot parry in time."
+- **Parry** requires: defender has weapon, `reaction_time < effective_wind_up`, and (when choosing) `p_a <= c_d * PARRY_DODGE_STRENGTH_RATIO (2.2)`. Goblins (perception 80) have reaction ~0.35 s; `effective_wind_up = wind_up * (1 - COMMITMENT_FRACTION)` (0.8). For wind_up 0.45 s → 0.36 s, so they are right on the edge; slightly shorter wind-ups → "cannot parry in time."
 - **Dodge** is `dodge_stat_factor * DODGE_CHANCE_AT_FULL_SPEED * leg * perf * leg_pain_mod`, clamped 0–1. Injured defenders can hit 0% dodge.
 - **Weapons:** Enemies (Enemy.tscn = CoreEntity) get a random weapon in `_equip_random_equipment`; `get_all_weapon_ids()` is non-empty, so the only way they have no weapon is if `Weapon.create_from_definition(weapon_id)` returns null (rare).
 
@@ -28,7 +28,7 @@ This document investigates different ways to implement two tweaks:
 **Side effects:** Perception also affects dodge (`(agility + perception) / 200`) and attacker hit chance when they attack. So this is a small “more alert / reactive” buff—fits Goblins; no redundancy.
 
 **Pros:** No new fields or code; one stat to tune; consistent with existing meaning of perception.  
-**Will they actually parry against 150-str party?** They *can* parry in time (reaction &lt; effective wind-up). But the defender only *chooses* parry when `p_a <= c_d * PARRY_DODGE_STRENGTH_RATIO` (1.4). Rough numbers: Goblin str 65 → typical `c_d` ~4–10; party str 150, weapon ~1.7 kg, v ~21 m/s → `p_a` ~36. So `c_d` would need ≥ 36/1.4 ≈ 26 for the Goblin to choose parry; their `c_d` is far below that. So against a 150-str party, Goblins will almost always choose dodge (“opponent stronger, prefer dodge”) and the party effectively avoids the parry—the Goblin never attempts it. Raising perception only makes parry *available*; it does not make weak defenders choose parry into much stronger attackers. To have Goblins sometimes parry (often partial) into the party, raise Goblin strength/weapon so `c_d` can approach that range, or relax `PARRY_DODGE_STRENGTH_RATIO`.
+**Will they actually parry against 150-str party?** They *can* parry in time (reaction &lt; effective wind-up). But the defender only *chooses* parry when `p_a <= c_d * PARRY_DODGE_STRENGTH_RATIO (2.2). Rough numbers: Goblin str 65 → typical `c_d` ~4–10; party str 150, weapon ~1.7 kg, v ~21 m/s → `p_a` ~36. So `c_d` would need ≥ 36/2.2 ≈ 16 for the Goblin to choose parry; their `c_d` is far below that. So against a 150-str party, Goblins will almost always choose dodge (“opponent stronger, prefer dodge”) and the party effectively avoids the parry—the Goblin never attempts it. Raising perception only makes parry *available*; it does not make weak defenders choose parry into much stronger attackers. To have Goblins sometimes parry (often partial) into the party, raise Goblin strength/weapon so `c_d` can approach that range, or relax `PARRY_DODGE_STRENGTH_RATIO`.
 
 **Cons:** None for this use case. Use Option A2 only if you want parry to improve without touching dodge or hit chance.
 

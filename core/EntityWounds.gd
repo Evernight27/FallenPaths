@@ -204,3 +204,19 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 	if not entity.self_direct_pressure_part.is_empty() and get_bleeding_rate_for_part(entity, entity.self_direct_pressure_part) <= _Bleeding.BLEEDING_RATE_EPSILON:
 		print("[Medical] %s direct_pressure auto-cleared: bleeding on %s stopped (self-held, rate <= epsilon)" % [entity.name, entity.self_direct_pressure_part])
 		entity.self_direct_pressure_part = ""
+
+# --- Process blood loss (drain from bleeding rate; death at threshold) ---
+## Entity must have: blood_volume, _update_consciousness (optional), emit_signal("died"), _get_blood_loss_death_threshold (optional).
+static func process_blood_loss(entity: Node, delta: float) -> void:
+	var total: float = get_total_bleeding_rate(entity)
+	if total <= 0.0:
+		return
+	var loss: float = total * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER * delta
+	entity.blood_volume = maxf(0.0, entity.blood_volume - loss)
+	if entity.has_method("_update_consciousness"):
+		entity._update_consciousness()
+	var threshold: float = _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+	if entity.has_method("_get_blood_loss_death_threshold"):
+		threshold = entity._get_blood_loss_death_threshold()
+	if entity.blood_volume <= threshold:
+		entity.emit_signal("died")

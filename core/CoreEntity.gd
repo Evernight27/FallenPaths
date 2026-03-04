@@ -120,6 +120,9 @@ func get_arm_functionality(part: String) -> float:
 func get_leg_functionality() -> float:
 	return _BodyPartQuery.get_leg_functionality(self)
 
+func get_part_dodge_modifier(part: String) -> float:
+	return _BodyPartQuery.get_part_dodge_modifier(self, part)
+
 # Effective speed for gauge fill / mobility: base agility × leg functionality (research: leg fracture → major mobility loss).
 func get_effective_speed() -> int:
 	var leg: float = get_leg_functionality()
@@ -324,14 +327,7 @@ func process_bleeding(delta: float) -> void:
 	_EntityWounds.process_bleeding(self, delta)
 
 func process_blood_loss(delta: float) -> void:
-	var total: float = _EntityWounds.get_total_bleeding_rate(self)
-	if total <= 0.0:
-		return
-	var loss: float = total * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER * delta
-	blood_volume = maxf(0.0, blood_volume - loss)
-	_update_consciousness()
-	if blood_volume <= _get_blood_loss_death_threshold():
-		emit_signal("died")
+	_EntityWounds.process_blood_loss(self, delta)
 
 # --- Medical: delegated to EntityMedical (core/EntityMedical.gd) ---
 

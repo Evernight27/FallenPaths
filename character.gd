@@ -100,6 +100,9 @@ func get_total_pain() -> float:
 func get_dodge_chance() -> float:
 	return _combat_body.get_dodge_chance() if _combat_body else 0.0
 
+func get_part_dodge_modifier(part: String) -> float:
+	return _combat_body.get_part_dodge_modifier(part) if _combat_body else 1.0
+
 func get_passive_parry_reaction_time() -> float:
 	return _combat_body.get_passive_parry_reaction_time() if _combat_body else 0.5
 
@@ -232,14 +235,15 @@ func apply_species() -> void:
 		_combat_body.species = species
 		_combat_body.apply_species()
 
-## Apply hero/party boost: stronger than baseline human (150 vs 100). Call after apply_species().
+## Apply hero/party stats: use 100 (human average) as baseline so combat is balanced around center.
+## Call after apply_species(). Overrides species so party matches enemy human baseline.
 func apply_party_boost() -> void:
 	if _combat_body:
-		_combat_body.strength = 150
-		_combat_body.agility = 150
-		_combat_body.intelligence = 150
-		_combat_body.endurance = 150
-		_combat_body.perception = 150
+		_combat_body.strength = 100
+		_combat_body.agility = 100
+		_combat_body.intelligence = 100
+		_combat_body.endurance = 100
+		_combat_body.perception = 100
 
 func _ready() -> void:
 	target_position = position

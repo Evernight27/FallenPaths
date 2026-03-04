@@ -23,7 +23,7 @@ Baseline: **Human** = 100 all stats (species average). **Goblin** = small humano
 | **Agility**  | 125  | **115** | Nimble and quick, but 125 was 25% above human (cartoonishly fast). 115 = clearly faster (gauge fill, dodge, recovery) without being superhuman. |
 | **Intelligence** | 70 | **70** | Crafty, opportunistic; not scholars. Unchanged. |
 | **Endurance**   | 70 | **70** | Less stamina and pain reserve than human. Unchanged. |
-| **Perception**  | 80 | **90** | “Sneaky” and alert; 90 puts reaction time in parry range (0.22/0.9 ≈ 0.24 s) and fits scouts/ambush. |
+| **Perception**  | 80 | **90** | “Sneaky” and alert; 90 puts reaction time in parry range (0.24/0.9 ≈ 0.27 s) and fits scouts/ambush. |
 
 ---
 

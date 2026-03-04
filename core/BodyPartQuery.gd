@@ -86,6 +86,20 @@ static func get_arm_functionality(entity: Node, part: String) -> float:
 	var bone_factor: float = get_bone_functionality_factor(entity, part)
 	return clampf(tissue * bone_factor, 0.0, 1.0)
 
+# --- Part-specific dodge modifier: attacked part's ability to get out of the way ---
+# Legs/arms: move that limb. Head/chest: bone factor (injury = harder to duck/twist).
+static func get_part_dodge_modifier(entity: Node, part: String) -> float:
+	if part == "left_leg" or part == "right_leg":
+		var leg_func: float = get_leg_functionality(entity)
+		return clampf(leg_func, 0.2, 1.0)
+	if part == "left_arm" or part == "right_arm":
+		var arm_func: float = get_arm_functionality(entity, part)
+		return clampf(arm_func, 0.2, 1.0)
+	if part == "head" or part == "chest":
+		var bone: float = get_bone_functionality_factor(entity, part)
+		return clampf(bone, 0.2, 1.0)
+	return 1.0
+
 # --- Leg functionality: min of both legs (both needed for gait); geometric mean when both damaged ---
 
 static func get_leg_functionality(entity: Node) -> float:

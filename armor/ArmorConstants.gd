@@ -8,7 +8,6 @@ const DAMAGE_TYPE_BLUNT: String = "BLUNT"
 # Armor: sharp penetration vs resistance; blunt transmission (no penetration). Durability loss per layer from absorbed damage.
 const PENETRATION_DAMAGE_REDUCTION_MAX: float = 0.5
 const DURABILITY_LOSS_RATE: float = 0.1
-const RHA_TO_MPA: float = 0.6
 
 # Durability: no wear unless absorbed damage meets a minimum. Sharp term: max(flat, sharp_resistance_rha_mm * ratio).
 # For blunt-origin absorbed damage, add (1 - blunt_transmission) * BLUNT_DURABILITY_THRESHOLD_RATIO so layers that absorb more blunt (padding) require more absorbed damage before wearing (research: energy absorption and degradation linked; padding designed to absorb repeated small blows).
@@ -18,7 +17,7 @@ const BLUNT_DURABILITY_THRESHOLD_RATIO: float = 0.5
 
 # --- Generic layer stats (cloth, leather, mail, plate only) ---
 # Sharp resistance: mm RHA equivalent. Nonlinear pen = (KE/55)^0.6 × area_factor (Williams).
-# Blunt: transmission-only (no penetration check). blunt_resistance_mpa kept in layer dicts for reference only; durability uses sharp_resistance_rha_mm only.
+# Blunt: transmission-only (no penetration check). Durability uses sharp_resistance_rha_mm and blunt_transmission.
 # Sharp deflect transmission: fraction of damage that becomes blunt when sharp is stopped by layer (plate transmits more, cloth absorbs).
 # Blunt transmission: fraction of blunt damage that passes through layer (transmission-only; no penetration).
 # Durability: wear per damage absorbed; cloth tears fastest, plate lasts. See ARMOR_VALUES_PHYSICS_RESEARCH.md.
@@ -48,7 +47,6 @@ const BLUNT_TRANSMISSION_WARN_MAX: float = 1.0
 # Cloth: gambeson padding, leg wraps, coif. Williams: 50 J for 16 layers linen. pen=(50/55)^0.6 ≈ 0.9 mm.
 const LAYER_CLOTH: Dictionary = {
 	"sharp_resistance_rha_mm": 0.9,
-	"blunt_resistance_mpa": 16.0,
 	"blunt_cushion": 0.8,
 	"blunt_transmission": 0.45,
 	"rigidity": 0.0,
@@ -59,7 +57,6 @@ const LAYER_CLOTH: Dictionary = {
 # Leather: buff coat, boiled leather. Williams: buff 30 J, cuir-bouilli 20–30 J. pen=(30/55)^0.6 ≈ 0.6 mm.
 const LAYER_LEATHER: Dictionary = {
 	"sharp_resistance_rha_mm": 0.6,
-	"blunt_resistance_mpa": 14.0,
 	"blunt_cushion": 0.5,
 	"blunt_transmission": 0.58,
 	"rigidity": 0.2,
@@ -70,7 +67,6 @@ const LAYER_LEATHER: Dictionary = {
 # Mail: chainmail + jack. Williams: 80–120 J. pen=(120/55)^0.6 ≈ 1.5 mm.
 const LAYER_MAIL: Dictionary = {
 	"sharp_resistance_rha_mm": 1.5,
-	"blunt_resistance_mpa": 10.0,
 	"blunt_cushion": 0.2,
 	"blunt_transmission": 0.70,
 	"rigidity": 0.2,
@@ -81,7 +77,6 @@ const LAYER_MAIL: Dictionary = {
 # Plate: medieval steel. Williams: 2 mm=175 J, 3.5 mm≈380 J. Rigid → area coupling (mace > thrust).
 const LAYER_PLATE: Dictionary = {
 	"sharp_resistance_rha_mm": 3.5,
-	"blunt_resistance_mpa": 40.0,
 	"blunt_cushion": 0.0,
 	"blunt_transmission": 0.72,
 	"rigidity": 1.0,

@@ -104,3 +104,51 @@ So: **healthy** numbers (low miss, modest dodge) and **injured** handling (perfo
 - **Injured:** Research supports **worse accuracy and reaction** when fatigued/injured; your **performance modifier** on hit chance and parry is in line with that.
 
 If you want to push closer to the HEMA band: ensure parry is attempted often when an attack is incoming (e.g. high parry choice weight when available) and that successful parries (full deflect) are a large share of those attempts when the defender is healthy and in time.
+
+---
+
+## 8. Dodge / void in HEMA and historical fencing (realism tuning)
+
+### What the research says
+
+**Historical sources:** Void (body displacement to avoid an attack) is a valid technique in Meyer, Capo Ferro, and other manuals. Terminology: retreat, girata (turn), inquartata, passes beneath. No manual gives numeric success rates.
+
+**ARMA (parrying essay):** "Voiding, deflecting and flat-of-the-blade parries are always preferable to direct blocking" and "movement and counter-action to void or displace or deflect attacks is superior to direct opposition parrying." They *demonstrate* evasion first to teach that defense is achieved more by effective movement than by meeting blows—but this is pedagogy, not a claim about frequency.
+
+**A Fencer's Ramblings:** Voids require *perfect* timing. Move too early → opponent adjusts and still hits. Move too late → you get hit. "The fencer must wait for the attack to come and only move at the last minute." Evasion is technically demanding and easy to mis-time.
+
+**HEMA contact data (Kopciuch):** Longsword: 57–80% of *contacts* are blade-blade (parry); 20–43% blade–armor/body. This counts *contacts only*. A complete void (no contact) does *not* appear in those stats—we don't know what fraction of attacks never make contact because of evasion.
+
+**Conclusion:** No source gives a quantitative "dodge/void success rate." Parry/blade contact dominates among contacts (57–80%). Void is attested as valid but hard (timing-sensitive). Realism supports a *modest* dodge base—less than parry—rather than making evasion competitive with or superior to parry.
+
+### Tuning for realism
+
+| Constant | Current | Realism range | Notes |
+|----------|---------|---------------|-------|
+| DODGE_CHANCE_AT_FULL_SPEED | **0.10** | Implemented | Modest void base per HEMA research. |
+| PARRY_PREFER_DODGE_FULL_THRESHOLD | **0.12** | Implemented | "Clean dodge likely" for high-agility defenders. |
+
+**Implemented:** DODGE_CHANCE_AT_FULL_SPEED 0.10, PARRY_PREFER_DODGE_FULL_THRESHOLD 0.12. Partial dodge tiers and expected-damage logic retained.
+
+---
+
+## 9. Flat-of-blade vs edge parry: is it modeled?
+
+**HEMA / ARMA principle:** Parries with cutting swords are made with the **flat** ("mit der flech"), not the edge. Edge-on-edge contact damages the blade (nicks, gouges) and risks fracture. Receiving on the flat deflects and dissipates force; the attacker's edge doesn't bite.
+
+### What the game models
+
+| Effect | Implementation | Location |
+|--------|-----------------|----------|
+| **Cut→blunt shift** | When a cut is partially parried (`parry_remaining_ratio < 1`), `redirect_shift = PARRY_CUT_TO_BLUNT_SHIFT * (1 - remaining_ratio)` reduces `cut_ratio` before damage. Deflected edge presents flat/slap; less sharp bite. | AttackResolver.gd:48–52, PARRY_CUT_TO_BLUNT_SHIFT 0.45 |
+| **Oblique penetration** | `pen_sharp` and `pen_blunt` scaled by angle factor `lerp(1, PARRY_PENETRATION_ANGLE_MIN, 1 - remaining_ratio)`. Oblique impact penetrates less. | AttackResolver.gd:65–71 |
+| **Velocity reduction** | `parry_remaining_ratio` drives impact velocity (and KE) on follow-through. Partial parry = less energy delivered. | Parry resolution → damage path |
+
+### What is not modeled
+
+- **Defender blade orientation:** The game does not explicitly track "defender used flat" vs "defender used edge." The *outcome* (reduced cut, more blunt, worse angle) is modeled without that state.
+- **Defender weapon durability:** Edge-on-edge parries would damage the defender's blade. No weapon wear/edge damage system exists.
+
+### Verdict
+
+**The flat-of-blade effect is replicated through outcome, not mechanism.** Deflected cuts already deal more blunt and less cut, with reduced penetration—matching "receive on flat → attacker's edge doesn't bite." Adding explicit flat-vs-edge state would add complexity for little gain: the damage pipeline already encodes the correct result. Modeling defender blade wear from edge parries would require a durability system; impact on defender body damage is negligible (the body-damage outcome is already correct).

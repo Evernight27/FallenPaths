@@ -3,6 +3,8 @@ extends RefCounted
 
 ## Computes pre-armor damage, applies take_damage_split, and builds the result dict for one attack.
 ## Manager must have: _get_entity(node), DAMAGE_TYPE_SHARP, DAMAGE_TYPE_BLUNT, GLANCING_DAMAGE_RATIO.
+## Parry: defensive move ~40–60% of max strike velocity (research).
+const PARRY_V_FRACTION_OF_MAX_STRIKE: float = 0.5
 ## Returns { "result_dict": Dictionary, "outcome": String, "recovery_duration": float }.
 ## Also updates tgt.stats (body_cutting, body_blunt, etc.) and tgt.alive/tgt.state if target died.
 
@@ -20,7 +22,8 @@ static func compute_and_apply_damage(
 	recovery_mult: float,
 	perf_mod: float,
 	power: float = -1.0,
-	follow_through: float = -1.0
+	follow_through: float = -1.0,
+	parry_remaining_ratio: float = 1.0
 ) -> Dictionary:
 	var atk_name: String = atk.node.name if atk.node != null else "id:%d" % attacker_id
 	var tgt_name: String = tgt.node.name if tgt.node != null else "id:%d" % target_id
@@ -42,6 +45,11 @@ static func compute_and_apply_damage(
 		var ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(weapon, attack_instance)
 		var mass_kg: float = float(weapon.mass) if (weapon.get("mass") is float or weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 		var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, attack_type, archetype)
+		# Physics: deflected cut presents flat/slap; edge doesn't bite. Shift cut→blunt on partial parry.
+		if attack_type == WeaponConstants.ATTACK_TYPE_CUT and velocity_override >= 0.0 and parry_remaining_ratio < 1.0:
+			var shift_const: float = manager.PARRY_CUT_TO_BLUNT_SHIFT if manager != null else 0.45
+			var redirect_shift: float = shift_const * (1.0 - parry_remaining_ratio)
+			cut_ratio = maxf(WeaponConstants.MIN_CUT_RATIO, cut_ratio - redirect_shift)
 		pre_cut = WeaponDamageHelper.compute_pre_armor_cut(weapon, attack_instance, atk.stats.strength, arm_mod) * cut_ratio
 		pre_blunt = WeaponDamageHelper.compute_pre_armor_blunt(weapon, attack_instance, atk.stats.strength, arm_mod) * (1.0 - cut_ratio)
 		pre_armor = pre_cut + pre_blunt
@@ -54,10 +62,20 @@ static func compute_and_apply_damage(
 		var pen_blunt_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, manager.DAMAGE_TYPE_BLUNT, blunt_opts)
 		pen_blunt_momentum_per_area = pen_blunt_dict.get("penetration_blunt_momentum_per_area", -1.0)
 		blunt_contact_cm = pen_blunt_dict.get("blunt_contact_cm", -1.0)
+		# Angle (deflection): separate from velocity. Oblique impact = less penetration (armor research).
+		if velocity_override >= 0.0 and parry_remaining_ratio < 1.0 and manager != null:
+			var angle_min: float = manager.PARRY_PENETRATION_ANGLE_MIN
+			var angle_factor: float = lerpf(1.0, angle_min, 1.0 - parry_remaining_ratio)
+			if pen_sharp >= 0.0:
+				pen_sharp *= angle_factor
+			if pen_blunt_momentum_per_area >= 0.0:
+				pen_blunt_momentum_per_area *= angle_factor
 		print("[Damage equation] %s -> %s | power=%.2f follow_through=%.2f intensity=%.2f | v=%.2f m/s mass=%.2f kg KE=%.1f J | strength=%.2f arm=%.2f cut_ratio=%.2f => pre_armor=%.1f (cut=%.1f blunt=%.1f) | pen_sharp=%.2f mm RHA" % [atk_name, tgt_name, power, follow_through, intensity, v_m_s, mass_kg, ke_j, float(atk.stats.strength) / 100.0, arm_mod, cut_ratio, pre_armor, pre_cut, pre_blunt, pen_sharp])
 	else:
 		var mod: float = atk.node.get_attack_damage_modifier() if (atk.node != null and atk.node.has_method("get_attack_damage_modifier")) else 1.0
 		pre_armor = (float(atk.stats.strength) / 100.0) * 8.0 * mod
+		if parry_remaining_ratio < 1.0:
+			pre_armor *= lerpf(0.5, 1.0, parry_remaining_ratio)
 		pre_blunt = pre_armor
 		pre_cut = 0.0
 		print("[Damage equation] %s -> %s | fallback (unarmed): pre_armor=%.1f (cut=%.1f blunt=%.1f)" % [atk_name, tgt_name, pre_armor, pre_cut, pre_blunt])
@@ -158,8 +176,15 @@ static func compute_and_apply_damage(
 		"recovery_duration": rec_dur
 	}
 
+## Parry speed (m/s): defensive move ~40–60% of max strike. Optional def_weapon.parry_speed_factor scales it.
+static func get_parry_speed_m_s(def_weapon = null) -> float:
+	var base_speed: float = WeaponConstants.VELOCITY_MAX_M_S * PARRY_V_FRACTION_OF_MAX_STRIKE
+	if def_weapon != null and (def_weapon.get("parry_speed_factor") is float or def_weapon.get("parry_speed_factor") is int):
+		base_speed *= clampf(float(def_weapon.parry_speed_factor), 0.5, 1.5)
+	return base_speed
+
 ## Full attack resolution: miss, dodge, parry (deflect/partial), or hit.
-## Manager must have: _get_by_id, STATE_*, _recovery_duration, _get_parry_speed_m_s, _velocity_curve_factor,
+## Manager must have: _get_by_id, STATE_*, _recovery_duration, _velocity_curve_factor,
 ## _get_passive_parry_readiness, _is_off_balance, MISS_CHANCE_BASE, HIT_CHANCE_*, COMMITMENT_FRACTION, PARRY_*, etc.
 ## Returns { "action": String, "target_id": int, "result_dict": {}, "recovery_duration": float, "outcome": String }.
 ## For parry_partial, mutates atk.pending_attack["velocity_m_s"]; manager must then set defender state and re-call _execute_attack.
@@ -221,68 +246,192 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var parry_capacity_mult: float = 0.0
 	var parry_readiness: float = 0.0
 	var parry_off_balance: bool = false
+	var late_parry: bool = false
 	if not already_used_defense and tgt.state != manager.STATE_WIND_UP and tgt.state != manager.STATE_MEDICAL_WIND_UP:
 		var wind_up_duration: float = pa.get("wind_up_duration", 0.5)
 		var effective_wind_up: float = wind_up_duration * (1.0 - manager.COMMITMENT_FRACTION)
 		if tgt.node != null and tgt.node.has_method("get_passive_parry_reaction_time") and tgt.node.has_method("get_weapon"):
 			var def_weapon = tgt.node.get_weapon()
 			if def_weapon != null and effective_wind_up > 0.0:
+				var atk_weapon = atk.node.get_weapon() if (atk.node != null and atk.node.has_method("get_weapon")) else null
 				var reaction_time: float = tgt.node.get_passive_parry_reaction_time()
-				if reaction_time < effective_wind_up:
-					var atk_weapon = atk.node.get_weapon() if (atk.node != null and atk.node.has_method("get_weapon")) else null
-					if atk_weapon != null:
-						can_parry_in_time = true
-						var attack_instance = AttackInstance.new(attack_type, intensity)
-						attack_instance.archetype = archetype
-						attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else -1.0
-						var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
-						var m_a: float = float(atk_weapon.mass)
-						parry_time_to_react = effective_wind_up - reaction_time
-						var parry_progress: float = 1.0 - clampf(parry_time_to_react / maxf(0.001, effective_wind_up), 0.0, 1.0)
-						parry_p_a = m_a * v_intent * manager._velocity_curve_factor(parry_progress)
-						var m_d: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
-						var s_d: float = float(tgt.stats.get("strength", 100))
-						var c_d_full: float = m_d * manager._get_parry_speed_m_s(def_weapon) * (s_d / manager.PARRY_STRENGTH_NORM)
-						var agi_d: float = float(tgt.stats.get("agility", 100))
-						c_d_full *= clampf(agi_d / 100.0, 0.7, 1.3)
-						var def_perf: float = 1.0
-						if tgt.node.has_method("get_performance_modifier"):
-							def_perf = tgt.node.get_performance_modifier()
-						c_d_full *= maxf(manager.PERF_MOD_MIN, def_perf)
-						var arm_mod: float = 1.0
-						if tgt.node.has_method("get_attack_damage_modifier"):
-							arm_mod = tgt.node.get_attack_damage_modifier()
-						c_d_full *= maxf(0.1, arm_mod)
-						var blade_movement_s: float = manager.PARRY_BLADE_MOVEMENT_S * clampf(m_d * manager.PARRY_STRENGTH_NORM / maxf(s_d, 1.0), manager.PARRY_MOVEMENT_MASS_STRENGTH_MIN, manager.PARRY_MOVEMENT_MASS_STRENGTH_MAX)
-						var effective_parry_time: float = maxf(0.0, parry_time_to_react - blade_movement_s)
-						parry_capacity_mult = clampf(effective_parry_time / manager.PASSIVE_PARRY_MIN_TIME_FOR_FULL_S, 0.0, 1.0)
-						parry_readiness = manager._get_passive_parry_readiness(tgt)
-						parry_off_balance = manager._is_off_balance(tgt)
-						parry_c_d = c_d_full * parry_capacity_mult * parry_readiness
-						if parry_off_balance:
-							parry_c_d *= manager.OFF_BALANCE_PARRY_CAPACITY_MULT
-						var now_s: float = Time.get_ticks_msec() / 1000.0
-						if tgt.get("parry_bonus_until", -1.0) > now_s:
-							parry_c_d *= 1.1
-	var choose_parry: bool = can_parry_in_time and parry_p_a <= parry_c_d * manager.PARRY_DODGE_STRENGTH_RATIO
+				if reaction_time < effective_wind_up and atk_weapon != null:
+					can_parry_in_time = true
+					var attack_instance = AttackInstance.new(attack_type, intensity)
+					attack_instance.archetype = archetype
+					attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else -1.0
+					var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
+					var m_a: float = float(atk_weapon.mass)
+					parry_time_to_react = effective_wind_up - reaction_time
+					var parry_progress: float = 1.0 - clampf(parry_time_to_react / maxf(0.001, effective_wind_up), 0.0, 1.0)
+					parry_p_a = m_a * v_intent * manager._velocity_curve_factor(parry_progress)
+					var m_d: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
+					var s_d: float = float(tgt.stats.get("strength", 100))
+					var c_d_full: float = m_d * get_parry_speed_m_s(def_weapon) * (s_d / manager.PARRY_STRENGTH_NORM)
+					var agi_d: float = float(tgt.stats.get("agility", 100))
+					c_d_full *= clampf(agi_d / 100.0, 0.7, 1.3)
+					var def_perf: float = 1.0
+					if tgt.node.has_method("get_performance_modifier"):
+						def_perf = tgt.node.get_performance_modifier()
+					c_d_full *= maxf(manager.PERF_MOD_MIN, def_perf)
+					var arm_mod: float = 1.0
+					if tgt.node.has_method("get_attack_damage_modifier"):
+						arm_mod = tgt.node.get_attack_damage_modifier()
+					c_d_full *= maxf(0.1, arm_mod)
+					var blade_movement_s: float = manager.PARRY_BLADE_MOVEMENT_S * clampf(m_d * manager.PARRY_STRENGTH_NORM / maxf(s_d, 1.0), manager.PARRY_MOVEMENT_MASS_STRENGTH_MIN, manager.PARRY_MOVEMENT_MASS_STRENGTH_MAX)
+					var effective_parry_time: float = maxf(0.0, parry_time_to_react - blade_movement_s)
+					parry_capacity_mult = clampf(effective_parry_time / manager.PASSIVE_PARRY_MIN_TIME_FOR_FULL_S, 0.0, 1.0)
+					parry_readiness = manager._get_passive_parry_readiness(tgt)
+					parry_off_balance = manager._is_off_balance(tgt)
+					parry_c_d = c_d_full * parry_capacity_mult * parry_readiness
+					if parry_off_balance:
+						parry_c_d *= manager.OFF_BALANCE_PARRY_CAPACITY_MULT
+					var now_s: float = Time.get_ticks_msec() / 1000.0
+					if tgt.get("parry_bonus_until", -1.0) > now_s:
+						parry_c_d *= 1.1
+				elif atk_weapon != null:
+					# Late parry: HEMA 57–80% of contacts blade-on-blade; defender gets reflexive/partial contact even when "too late"
+					can_parry_in_time = true
+					late_parry = true
+					var attack_instance = AttackInstance.new(attack_type, intensity)
+					attack_instance.archetype = archetype
+					attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else -1.0
+					var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
+					var m_a: float = float(atk_weapon.mass)
+					parry_p_a = m_a * v_intent * manager._velocity_curve_factor(1.0)
+					parry_time_to_react = 0.0
+					var m_d: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
+					var s_d: float = float(tgt.stats.get("strength", 100))
+					var c_d_full: float = m_d * get_parry_speed_m_s(def_weapon) * (s_d / manager.PARRY_STRENGTH_NORM)
+					var agi_d: float = float(tgt.stats.get("agility", 100))
+					c_d_full *= clampf(agi_d / 100.0, 0.7, 1.3)
+					var def_perf: float = 1.0
+					if tgt.node.has_method("get_performance_modifier"):
+						def_perf = tgt.node.get_performance_modifier()
+					c_d_full *= maxf(manager.PERF_MOD_MIN, def_perf)
+					var arm_mod: float = 1.0
+					if tgt.node.has_method("get_attack_damage_modifier"):
+						arm_mod = tgt.node.get_attack_damage_modifier()
+					c_d_full *= maxf(0.1, arm_mod)
+					parry_readiness = manager._get_passive_parry_readiness(tgt)
+					parry_off_balance = manager._is_off_balance(tgt)
+					parry_capacity_mult = manager.PARRY_LATE_CAPACITY_FLOOR
+					parry_c_d = c_d_full * parry_capacity_mult * parry_readiness
+					if parry_off_balance:
+						parry_c_d *= manager.OFF_BALANCE_PARRY_CAPACITY_MULT
+					var now_s: float = Time.get_ticks_msec() / 1000.0
+					if tgt.get("parry_bonus_until", -1.0) > now_s:
+						parry_c_d *= 1.1
+	var m_a_parry: float = 0.0
+	var m_d_parry: float = 0.0
+	var s_atk_parry: float = 100.0
+	var s_d_parry: float = 100.0
+	if can_parry_in_time:
+		var atk_w: Variant = atk.node.get_weapon() if (atk.node != null and atk.node.has_method("get_weapon")) else null
+		var def_w: Variant = tgt.node.get_weapon() if (tgt.node != null and tgt.node.has_method("get_weapon")) else null
+		if atk_w != null and def_w != null:
+			m_a_parry = float(atk_w.mass) if (atk_w.get("mass") is float or atk_w.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
+			m_d_parry = float(def_w.mass) if (def_w.get("mass") is float or def_w.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
+		s_atk_parry = float(atk.stats.get("strength", 100))
+		s_d_parry = float(tgt.stats.get("strength", 100))
+	var dodge_chance: float = 0.0
+	if tgt.node != null and tgt.node.has_method("get_dodge_chance"):
+		dodge_chance = tgt.node.get_dodge_chance()
+	var pcfg: Dictionary = manager._get_parry_config() if manager.has_method("_get_parry_config") else {}
+	var block_mass_t: float = pcfg.get("block_mass_threshold", 0.9)
+	var block_str_t: float = pcfg.get("block_str_threshold", 0.95)
+	var redirect_attempt: float = pcfg.get("redirect_attempt_ratio", 2.5)
+	var agi_scale: float = pcfg.get("redirect_attempt_agility_scale", 0.5)
+	var agi_d_attempt: float = float(tgt.stats.get("agility", 100))
+	var effective_redirect: float = redirect_attempt * (0.75 + agi_scale * clampf(agi_d_attempt / 100.0, 0.0, 1.5))
+	var is_block_parry: bool = m_d_parry >= m_a_parry * block_mass_t and s_d_parry >= s_atk_parry * block_str_t
+	var block_viable: bool = can_parry_in_time and parry_p_a <= parry_c_d * manager.PARRY_DODGE_STRENGTH_RATIO
+	var desperate_parry: bool = can_parry_in_time and dodge_chance < manager.PARRY_DESPERATE_DODGE_THRESHOLD
+	var redirect_viable: bool = can_parry_in_time and (parry_p_a <= parry_c_d * effective_redirect or desperate_parry)
+	var def_has_weapon: bool = tgt.node != null and tgt.node.has_method("get_weapon") and (tgt.node.get_weapon() if tgt.node != null else null) != null
+	var dodge_eval_part: String = BodyPartConstants.get_weighted_random_part(targetable) if not targetable.is_empty() else ""
+	var choose_parry: bool = false
+	if not def_has_weapon:
+		choose_parry = false
+	elif desperate_parry:
+		choose_parry = true
+	elif not can_parry_in_time:
+		choose_parry = false
+	elif can_parry_in_time and def_has_weapon:
+		var part_mod: float = 1.0
+		if tgt.node != null and tgt.node.has_method("get_part_dodge_modifier") and not dodge_eval_part.is_empty():
+			part_mod = tgt.node.get_part_dodge_modifier(dodge_eval_part)
+		var effective_dodge_chance: float = dodge_chance * part_mod
+		var full_dodge_prob: float = effective_dodge_chance * manager.DODGE_FULL_THRESHOLD
+		var partial_dodge_avg_ratio: float = (manager.DODGE_PARTIAL_RATIO_MIN + 1.0) * 0.5
+		var E_dodge: float = (1.0 - effective_dodge_chance) * 1.0 + effective_dodge_chance * (1.0 - manager.DODGE_FULL_THRESHOLD) * partial_dodge_avg_ratio
+		var parry_full: bool = is_block_parry and parry_c_d >= (parry_p_a * manager.PARRY_DEFLECT_THRESHOLD)
+		var r_bonus: float = pcfg.get("redirect_bonus", 0.18)
+		var r_scale: float = pcfg.get("redirect_skill_scale", 0.35)
+		var redirect_skill: float = clampf((float(tgt.stats.get("agility", 100)) + float(tgt.stats.get("perception", 100))) / 200.0, 0.5, 1.5)
+		var redirect_mult: float = 1.0 + r_bonus + (redirect_skill - 0.5) * r_scale
+		if attack_type == WeaponConstants.ATTACK_TYPE_STAB:
+			redirect_mult *= 1.0 + pcfg.get("redirect_thrust_bonus", 0.22)
+		elif attack_type == WeaponConstants.ATTACK_TYPE_BLUNT:
+			redirect_mult *= 1.0 - pcfg.get("redirect_blunt_penalty", 0.12)
+		if not is_block_parry and m_a_parry > 0.001 and m_d_parry < m_a_parry:
+			var mass_bonus: float = pcfg.get("mass_disparity_bonus", 0.18) * (1.0 - m_d_parry / m_a_parry)
+			redirect_mult *= 1.0 + mass_bonus
+		var parry_remaining_est: float = 1.0
+		if not parry_full and parry_p_a > 0.001:
+			parry_remaining_est = clampf(maxf(0.0, parry_p_a - parry_c_d * redirect_mult) / parry_p_a, 0.0, 1.0)
+		var glancing_exp: float = pcfg.get("glancing_exponent", 0.5)
+		var E_parry: float = 0.0 if parry_full else pow(parry_remaining_est, glancing_exp)
+		var dodge_better: bool = E_dodge < E_parry
+		var clean_dodge_likely: bool = full_dodge_prob >= manager.PARRY_PREFER_DODGE_FULL_THRESHOLD
+		choose_parry = late_parry or ((block_viable or redirect_viable) and not dodge_better and not clean_dodge_likely)
 	var defense_choice: String = "parry" if choose_parry else "dodge"
-	if not can_parry_in_time:
+	if not def_has_weapon:
+		print("[Combat] Defense choice: %s -> %s (unarmed; dodge only)" % [tgt_name, defense_choice])
+	elif not can_parry_in_time:
 		print("[Combat] Defense choice: %s -> %s (cannot parry in time; reaction too slow or no weapon)" % [tgt_name, defense_choice])
 	else:
-		print("[Combat] Defense choice: %s -> %s (can_parry_in_time p_a=%.1f c_d=%.1f ratio=%.2f %s)" % [tgt_name, defense_choice, parry_p_a, parry_c_d, parry_p_a / parry_c_d if parry_c_d > 0 else 0.0, "prefer parry" if choose_parry else "opponent stronger, prefer dodge"])
+		var parry_reason: String = "parry" if choose_parry else "dodge"
+		if late_parry:
+			parry_reason = "parry (late/reflex)"
+		elif choose_parry and desperate_parry and not (is_block_parry and block_viable) and parry_p_a > parry_c_d * effective_redirect:
+			parry_reason = "parry (desperate, dodge=%.2f)" % dodge_chance
+		elif not choose_parry and def_has_weapon:
+			parry_reason = "dodge (expected better or clean avoid likely)"
+		print("[Combat] Defense choice: %s -> %s (block=%s p_a=%.1f c_d=%.1f %s)" % [tgt_name, defense_choice, is_block_parry, parry_p_a, parry_c_d, parry_reason])
 
 	if already_used_defense:
 		print("[Combat] Partial parry follow-through: %s -> %s (no second defense, resolving damage)" % [atk_name, tgt_name])
 	elif defense_choice == "dodge":
-		if tgt.node != null and tgt.node.has_method("get_dodge_chance"):
-			var dodge_chance: float = tgt.node.get_dodge_chance()
-			var dodge_roll: float = randf()
-			if dodge_chance > 0.0 and dodge_roll < dodge_chance:
-				print("[Combat] Dodge: %s (defender) dodge=%.2f roll=%.3f => dodged" % [tgt_name, dodge_chance, dodge_roll])
+		var dodge_target_part: String = dodge_eval_part if not dodge_eval_part.is_empty() else BodyPartConstants.get_weighted_random_part(targetable)
+		var part_mod: float = 1.0
+		if tgt.node != null and tgt.node.has_method("get_part_dodge_modifier"):
+			part_mod = tgt.node.get_part_dodge_modifier(dodge_target_part)
+		var effective_dodge_chance: float = dodge_chance * part_mod
+		var dodge_roll: float = randf()
+		if effective_dodge_chance > 0.0:
+			if dodge_roll < effective_dodge_chance * manager.DODGE_FULL_THRESHOLD:
+				print("[Combat] Dodge: %s (defender) dodge=%.2f eff=%.2f roll=%.3f => full dodge" % [tgt_name, dodge_chance, effective_dodge_chance, dodge_roll])
 				var rec_dur: float = manager._recovery_duration(intensity, "dodge", recovery_mult, perf_mod, atk.stats.get("agility", 100))
 				return { "action": "dodge", "target_id": target_id, "recovery_duration": rec_dur }
-			elif dodge_chance > 0.0:
-				print("[Combat] Dodge: %s (defender) dodge=%.2f roll=%.3f => hit (no dodge)" % [tgt_name, dodge_chance, dodge_roll])
+			elif dodge_roll < effective_dodge_chance:
+				var partial_range: float = effective_dodge_chance * (1.0 - manager.DODGE_FULL_THRESHOLD)
+				var t: float = (dodge_roll - effective_dodge_chance * manager.DODGE_FULL_THRESHOLD) / partial_range if partial_range > 0.001 else 1.0
+				var dodge_remaining_ratio: float = lerpf(manager.DODGE_PARTIAL_RATIO_MIN, 1.0, clampf(t, 0.0, 1.0))
+				pa["parry_remaining_ratio"] = dodge_remaining_ratio
+				var atk_weapon = atk.node.get_weapon() if (atk.node != null and atk.node.has_method("get_weapon")) else null
+				if atk_weapon != null:
+					var attack_instance = AttackInstance.new(attack_type, intensity)
+					attack_instance.archetype = archetype
+					var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
+					var glancing_factor: float = pow(clampf(dodge_remaining_ratio, 0.0, 1.0), 0.5)
+					pa["velocity_m_s"] = v_intent * glancing_factor
+				else:
+					pa["velocity_m_s"] = -1.0
+				pa["partial_dodge_part"] = dodge_target_part
+				print("[Combat] Dodge: %s (defender) dodge=%.2f eff=%.2f roll=%.3f part=%s => partial (ratio=%.2f)" % [tgt_name, dodge_chance, effective_dodge_chance, dodge_roll, dodge_target_part, dodge_remaining_ratio])
+			else:
+				print("[Combat] Dodge: %s (defender) dodge=%.2f eff=%.2f roll=%.3f => hit (no dodge)" % [tgt_name, dodge_chance, effective_dodge_chance, dodge_roll])
 	elif defense_choice == "parry":
 		pa["passive_parry_attempted"] = true
 		var c_d_final: float = parry_c_d
@@ -292,38 +441,60 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 			var variance_eff: float = manager.PARRY_TECHNIQUE_VARIANCE * variance_scale
 			c_d_final *= randf_range(1.0 - variance_eff, 1.0 + variance_eff)
 		var def_name: String = tgt.node.name if tgt.node != null else "id:%d" % target_id
-		var ob: String = " off_balance" if parry_off_balance else ""
-		print("[Combat] Passive parry (A4v3): %s (reaction < wind_up) => time_to_react=%.2fs capacity_mult=%.2f readiness=%.2f%s => c_d=%.1f vs p_a=%.1f" % [def_name, parry_time_to_react, parry_capacity_mult, parry_readiness, ob, c_d_final, parry_p_a])
-		var deflected: bool = c_d_final >= (parry_p_a * manager.PARRY_DEFLECT_THRESHOLD)
-		if not deflected:
-			var p_a_threshold: float = parry_p_a * manager.PARRY_DEFLECT_THRESHOLD
-			print("[Combat] Parry result: partial (%s defended vs %s) c_d=%.1f < p_a*threshold=%.1f; attack continues with reduced velocity" % [def_name, atk_name, c_d_final, p_a_threshold])
-			var attacker_weapon = atk.node.get_weapon() if (atk.node != null and atk.node.has_method("get_weapon")) else null
-			var m_a: float = float(attacker_weapon.mass) if attacker_weapon != null else WeaponConstants.BASELINE_MASS_KG
-			var remaining_momentum: float = maxf(0.0, parry_p_a - c_d_final)
-			var v_reduced: float = remaining_momentum / m_a
-			var remaining_ratio: float = (parry_p_a - c_d_final) / parry_p_a if parry_p_a > 0.0 else 1.0
-			var attack_instance = AttackInstance.new(attack_type, intensity)
-			attack_instance.archetype = archetype
-			var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(attacker_weapon, attack_instance) if attacker_weapon != null else 10.0
-			var v_min_eff: float = v_intent * lerpf(manager.PARRY_V_MIN_NEAR_DEFLECT, manager.PARRY_V_MIN_FRACTION, clampf(remaining_ratio, 0.0, 1.0))
-			pa["velocity_m_s"] = maxf(v_reduced, v_min_eff)
-			return { "action": "parry_partial", "target_id": target_id }
-		var parry_intensity: float = pa.get("intensity", 0.5)
-		var atk_perf: float = 1.0
-		if atk.node != null and atk.node.has_method("get_performance_modifier"):
-			atk_perf = atk.node.get_performance_modifier()
-		var rec_dur_parry: float = manager._recovery_duration(parry_intensity, "miss", recovery_mult, atk_perf, atk.stats.get("agility", 100))
-		return { "action": "parry_deflect", "target_id": target_id, "recovery_duration": rec_dur_parry }
+		print("[Combat] Passive parry (redirect-default): %s block=%s%s => c_d=%.1f vs p_a=%.1f" % [def_name, is_block_parry, " off_balance" if parry_off_balance else "", c_d_final, parry_p_a])
+		var full_stop: bool = is_block_parry and c_d_final >= (parry_p_a * manager.PARRY_DEFLECT_THRESHOLD)
+		if full_stop:
+			var parry_intensity: float = pa.get("intensity", 0.5)
+			var atk_perf: float = 1.0
+			if atk.node != null and atk.node.has_method("get_performance_modifier"):
+				atk_perf = atk.node.get_performance_modifier()
+			var rec_dur: float = manager._recovery_duration(parry_intensity, "full_stop", recovery_mult, atk_perf, atk.stats.get("agility", 100))
+			print("[Combat] Parry result: full stop (%s blocked %s) => attacker recovery debuff" % [def_name, atk_name])
+			return { "action": "parry_deflect", "target_id": target_id, "recovery_duration": rec_dur }
+		var attacker_weapon = atk.node.get_weapon() if (atk.node != null and atk.node.has_method("get_weapon")) else null
+		var m_a: float = float(attacker_weapon.mass) if attacker_weapon != null else WeaponConstants.BASELINE_MASS_KG
+		var agi_d: float = float(tgt.stats.get("agility", 100))
+		var perc_d: float = float(tgt.stats.get("perception", 100))
+		var redirect_skill: float = clampf((agi_d + perc_d) / 200.0, 0.5, 1.5)
+		var r_bonus: float = pcfg.get("redirect_bonus", 0.18)
+		var r_scale: float = pcfg.get("redirect_skill_scale", 0.35)
+		var redirect_mult: float = 1.0 + r_bonus + (redirect_skill - 0.5) * r_scale
+		# Physics: thrust easiest to redirect (point diverts with lateral force); blunt hardest (momentum-based).
+		if attack_type == WeaponConstants.ATTACK_TYPE_STAB:
+			redirect_mult *= 1.0 + pcfg.get("redirect_thrust_bonus", 0.22)
+		elif attack_type == WeaponConstants.ATTACK_TYPE_BLUNT:
+			redirect_mult *= 1.0 - pcfg.get("redirect_blunt_penalty", 0.12)
+		# Mass disparity: light weapon deflects by angle (Fiore); can't absorb, so redirect capacity bonus.
+		if not is_block_parry and m_a_parry > 0.001 and m_d_parry < m_a_parry:
+			var mass_bonus: float = pcfg.get("mass_disparity_bonus", 0.18) * (1.0 - m_d_parry / m_a_parry)
+			redirect_mult *= 1.0 + mass_bonus
+		var effective_reduction: float = c_d_final * redirect_mult
+		var remaining_momentum: float = maxf(0.0, parry_p_a - effective_reduction)
+		var remaining_ratio: float = remaining_momentum / parry_p_a if parry_p_a > 0.0 else 0.0
+		var glancing_exp: float = pcfg.get("glancing_exponent", 0.5)
+		var glancing_factor: float = pow(clampf(remaining_ratio, 0.0, 1.0), glancing_exp)
+		var v_reduced: float = (parry_p_a * glancing_factor) / m_a
+		var attack_instance = AttackInstance.new(attack_type, intensity)
+		attack_instance.archetype = archetype
+		var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(attacker_weapon, attack_instance) if attacker_weapon != null else 10.0
+		var v_min_eff: float = v_intent * lerpf(manager.PARRY_V_MIN_NEAR_DEFLECT, manager.PARRY_V_MIN_FRACTION, clampf(remaining_ratio, 0.0, 1.0))
+		pa["velocity_m_s"] = maxf(v_reduced, v_min_eff)
+		pa["parry_remaining_ratio"] = remaining_ratio
+		print("[Combat] Parry result: redirect/partial (%s vs %s) skill=%.2f mult=%.2f => v_reduced" % [def_name, atk_name, redirect_skill, redirect_mult])
+		return { "action": "parry_partial", "target_id": target_id }
 
 	var power: float = pa.get("power", -1.0)
 	var follow_through: float = pa.get("follow_through", -1.0)
+	var parry_remaining_ratio: float = pa.get("parry_remaining_ratio", 1.0)
+	var dmg_velocity_override: float = pa.get("velocity_m_s", velocity_override)
+	var part: String = pa.get("partial_dodge_part", "")
+	if part.is_empty():
+		part = BodyPartConstants.get_weighted_random_part(targetable)
 	atk.pending_attack = {}
-	var part: String = BodyPartConstants.get_weighted_random_part(targetable)
 	var res: Dictionary = compute_and_apply_damage(
 		manager, attacker_id, target_id, atk, tgt, part,
-		intensity, attack_type, archetype, velocity_override, recovery_mult, perf_mod,
-		power, follow_through
+		intensity, attack_type, archetype, dmg_velocity_override, recovery_mult, perf_mod,
+		power, follow_through, parry_remaining_ratio
 	)
 	return {
 		"action": "hit",

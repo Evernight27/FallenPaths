@@ -168,8 +168,8 @@ static func get_effective_consciousness(entity: Node) -> float:
 
 # --- Parry and dodge (depend on consciousness and pain) ---
 
-const PASSIVE_PARRY_BASE_REACTION_S: float = 0.22
-const DODGE_CHANCE_AT_FULL_SPEED: float = 0.08
+const PASSIVE_PARRY_BASE_REACTION_S: float = 0.24
+const DODGE_CHANCE_AT_FULL_SPEED: float = 0.10  # HEMA: void is valid but timing-sensitive; research supports modest base (0.08–0.15)
 
 static func get_passive_parry_reaction_time(entity: Node) -> float:
 	var perception_norm: float = clampf(float(entity.perception) / 100.0, 0.2, 1.5)

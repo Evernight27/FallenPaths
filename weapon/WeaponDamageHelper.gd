@@ -67,9 +67,8 @@ static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCoun
 	return clampf(raw, WeaponConstants.BLUNT_DAMAGE_MIN, WeaponConstants.BLUNT_DAMAGE_MAX)
 
 
-# Penetration (mm RHA sharp, MPa blunt). Physics: sharp uses contact area (smaller = deeper);
-# blunt uses impact pressure = scale * KE / area (MPa).
-# Returns { penetration_sharp, penetration_blunt }.
+# Penetration: sharp (mm RHA from contact area); blunt uses momentum_per_area for cushion.
+# SHARP returns { penetration_sharp }. BLUNT returns { penetration_blunt_momentum_per_area, blunt_contact_cm }.
 # opts: optional { "armor_resistance_rha_mm": float, "pen_sharp_mm": float } — when both provided for thrusts, use energy-based contact.
 static func compute_penetration(weapon: RefCounted, attack_instance: RefCounted, damage_type: String, opts: Dictionary = {}) -> Dictionary:
 	var armor_resistance_rha_mm: float = float(opts.get("armor_resistance_rha_mm", -1.0)) if opts is Dictionary else -1.0
@@ -86,13 +85,12 @@ static func compute_penetration(weapon: RefCounted, attack_instance: RefCounted,
 		var area_factor: float = pow(WeaponConstants.BASELINE_CONTACT_CM / contact_cm, WeaponConstants.CONTACT_AREA_EXPONENT)
 		var pen_mm_rha: float = pow(ke_j / WeaponConstants.J_PER_MM_BASE, WeaponConstants.PENETRATION_EXPONENT) * area_factor
 		pen_mm_rha = minf(pen_mm_rha, WeaponConstants.PENETRATION_KE_CAP_MM_RHA)
-		var pen_mpa_deflect: float = pen_mm_rha * ArmorConstants.RHA_TO_MPA
-		return { "penetration_sharp": pen_mm_rha, "penetration_blunt": pen_mpa_deflect }
+		return { "penetration_sharp": pen_mm_rha }
 	else:
 		# Blunt: transmission-only. Returns momentum_per_area and contact_cm for area coupling.
 		var contact_cm: float = _get_blunt_contact_for_penetration(weapon, attack_instance, armor_resistance_rha_mm, pen_sharp_mm)
 		var momentum_per_area: float = _compute_blunt_momentum_per_area_with_contact(weapon, attack_instance, contact_cm)
-		return { "penetration_sharp": 0.0, "penetration_blunt": 0.0, "penetration_blunt_momentum_per_area": momentum_per_area, "blunt_contact_cm": contact_cm }
+		return { "penetration_blunt_momentum_per_area": momentum_per_area, "blunt_contact_cm": contact_cm }
 
 
 # Blunt contact width (cm) for area-dependent transmission. Public for armor coupling.

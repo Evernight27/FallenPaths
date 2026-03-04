@@ -9,8 +9,8 @@ This document investigates ways to improve **parry speed** (defender’s effecti
 - **Capacity:** `c_d = m_d * v_parry * (strength/100) * perf * arm_mod * capacity_mult * readiness * [off_balance]`.  
   `v_parry` is a **global constant** (`VELOCITY_MAX_M_S * 0.5` ≈ 12 m/s); defender weapon only contributes **mass** `m_d`.
 - **Attacker momentum:** `p_a = m_a * v_intent` (full intent velocity; no velocity curve at intercept time).
-- **Choice:** Parry is chosen when `can_parry_in_time` and `p_a <= c_d * PARRY_DODGE_STRENGTH_RATIO` (1.4).
-- **Resolve:** Full deflect if `c_d >= p_a * PARRY_DEFLECT_THRESHOLD` (1.0); else partial (reduced velocity, then damage).
+- **Choice:** Parry is chosen when `can_parry_in_time` and expected-damage comparison (PARRY_DODGE_STRENGTH_RATIO 2.2 for block viable).
+- **Resolve:** Full deflect if `c_d >= p_a * PARRY_DEFLECT_THRESHOLD` (1.08); else partial (reduced velocity, then damage).
 - **Unused constants:** `PARRY_BLADE_MOVEMENT_S`, `PARRY_MOVEMENT_MASS_STRENGTH_MIN/MAX` are defined but not used (design intent: blade movement time scaled by mass/strength).
 
 ---

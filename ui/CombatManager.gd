@@ -41,9 +41,10 @@ const WIND_UP_SCALE_S := 0.6
 const RECOVERY_BASE_S := 0.2
 const RECOVERY_COMMITMENT_SCALE_S := 0.5
 const RECOVERY_EXTRA_HIT_S := 0.0
-const RECOVERY_EXTRA_DEFLECTED_S := 0.15   # full deflect: no damage, short recovery
+const RECOVERY_EXTRA_DEFLECTED_S := 0.15   # full deflect (redirect): no damage, short recovery
 const RECOVERY_EXTRA_GLANCING_S := 0.25    # glancing: some damage got through
 const RECOVERY_EXTRA_MISS_S := 0.5
+const RECOVERY_EXTRA_FULL_STOP_S := 0.65   # full block: attacker staggered when blow is completely stopped
 
 # Leg functionality scales attack wind-up only (positioning/footwork). Min clamp avoids divide-by-zero.
 const WINDUP_LEG_MIN := 0.2
@@ -75,18 +76,16 @@ const _MEDICAL_WIND_UP_CONFIG: Dictionary = {
 
 # --- Parry: physics and timings (derived, not magic numbers) ---
 # Impulse balance: p_a = m_a * v_current (kg·m/s); v_current from velocity curve (progress²), so early parries face less momentum. c_d = m_d * v_parry * (strength/PARRY_STRENGTH_NORM). Full deflect when c_d >= p_a * PARRY_DEFLECT_THRESHOLD; else partial (remaining p → impact v = remaining/m_a).
-# Parry speed: defensive move is positioning, not full strike. Strike 17–24 m/s; parry ~40–60% of that. v_parry = VELOCITY_MAX_M_S * PARRY_V_FRACTION (same scale as attacks).
+# Parry speed: defensive move ~40–60% of max strike; now in AttackResolver.get_parry_speed_m_s().
 # Parry wind-up: reaction (fixed, cognitive) + blade movement (scaled by weapon mass and strength). Lighter weapon / stronger user = faster into parry position.
 # Tuning: quadratic curve makes early parries easier (lower p_a). If full deflects feel too common, raise PARRY_DEFLECT_THRESHOLD (e.g. 1.1) or soften curve in _velocity_curve_factor (e.g. progress^1.5).
-const PARRY_V_FRACTION_OF_MAX_STRIKE := 0.5   # parry speed = WeaponConstants.VELOCITY_MAX_M_S * this (~10 m/s)
 const PARRY_STRENGTH_NORM := 100.0            # (strength/this) → 100 = average (same scale as other stats: 50–150)
-const PARRY_DEFLECT_THRESHOLD := 1.0          # full deflect when c_d >= p_a * this (1.0 = impulse match)
-const PARRY_TECHNIQUE_VARIANCE := 0.1         # ±fraction on capacity (timing/placement)
+const PARRY_DEFLECT_THRESHOLD := 1.08         # full deflect when c_d >= p_a * this (1.08 = HEMA: more partials, fewer clean blocks)
+const PARRY_TECHNIQUE_VARIANCE := 0.15        # ±fraction on capacity (timing/placement; 0.15 = noisier, closer to HEMA)
 const PARRY_V_MIN_FRACTION := 0.2             # partial parry: impact v >= v_intent * this (residual glancing hit)
 const PARRY_V_MIN_NEAR_DEFLECT := 0.1         # when c_d almost matched p_a, residual velocity floor (softer partial)
 # A4v3 passive parry: time_to_react (s) needed for 100% parry capacity; less time = scale capacity down.
 const PASSIVE_PARRY_MIN_TIME_FOR_FULL_S := 0.25
-const PARRY_REACTION_S := 0.22                # reaction to initiate parry (s); same for all (cognitive)
 const PARRY_BLADE_MOVEMENT_S := 0.13          # base time to move blade into intercept (s); scaled by mass/strength
 const PARRY_MOVEMENT_MASS_STRENGTH_MIN := 0.5 # movement mult clamp: light weapon / strong user (min = faster parry)
 const PARRY_MOVEMENT_MASS_STRENGTH_MAX := 2.0 # movement mult clamp: heavy weapon / weak user (max = slower parry)
@@ -106,7 +105,32 @@ const OFF_BALANCE_PARRY_CAPACITY_MULT := 0.7
 const PARRY_BONUS_AFTER_DEFLECT_S := 2.0
 # Defender chooses dodge OR parry (not both). Parry if noticed in time and opponent not much stronger; else dodge.
 # If p_a > c_d * this, prefer dodge (opponent much stronger → dodging more efficient than attempting parry).
-const PARRY_DODGE_STRENGTH_RATIO := 1.4
+const PARRY_DODGE_STRENGTH_RATIO := 2.2
+# Paradigm: redirect default, block as exception. Full stop only when defender has weapon & strength advantage.
+const PARRY_BLOCK_MASS_THRESHOLD := 0.9   # m_d >= m_a * this to attempt block (else redirect)
+const PARRY_BLOCK_STR_THRESHOLD := 0.95  # s_d >= s_atk * this to attempt block (else redirect)
+const PARRY_REDIRECT_BONUS := 0.18       # redirect efficiency: c_d * (1 + this * skill) sheds more momentum
+const PARRY_REDIRECT_SKILL_SCALE := 0.35 # skill (agi+perc)/200 adds to redirect; 0.5->0.5, 1.5->0.525
+const PARRY_REDIRECT_ATTEMPT_RATIO := 3.5  # when redirecting, attempt parry if p_a <= c_d * this
+const PARRY_REDIRECT_ATTEMPT_AGILITY_SCALE := 0.5  # agility boosts attempt: ratio *= (0.75 + this * agi/100)
+const PARRY_GLANCING_EXPONENT := 0.5     # sqrt(remaining_ratio) for near-deflects
+# Physics: thrust easiest to redirect (point diverts with lateral force); blunt hardest (momentum-based).
+const PARRY_REDIRECT_THRUST_BONUS := 0.22   # thrust: +22% redirect efficiency (Sword STEM, ARMA)
+const PARRY_REDIRECT_BLUNT_PENALTY := 0.12  # blunt: -12% (angle matters less, harder to deflect)
+const PARRY_CUT_TO_BLUNT_SHIFT := 0.45      # deflected cut: shift cut→blunt per (1-remaining_ratio)
+# Penetration: velocity reduces KE (magnitude); angle (deflection) reduces effective pen separately (oblique impact).
+const PARRY_PENETRATION_ANGLE_MIN := 0.72  # near-deflect: pen *= lerp(1, this, 1-remaining_ratio)
+# Desperate parry: when dodge is nearly useless, attempt parry (often partial) anyway.
+const PARRY_DESPERATE_DODGE_THRESHOLD := 0.06  # dodge < this => prefer parry attempt
+# Parry vs dodge: expected-damage comparison. Prefer parry when possible, but dodge when it would mitigate more.
+const PARRY_PREFER_DODGE_FULL_THRESHOLD := 0.12  # full dodge prob >= this => "clean dodge likely"; lower so high-agi can trigger at modest base
+# Mass disparity: light weapons deflect by angle (Fiore); can't absorb, so redirect gets capacity bonus.
+const PARRY_MASS_DISPARITY_BONUS := 0.18   # when m_d < m_a: redirect_mult *= (1 + this * (1 - m_d/m_a))
+# Late parry: HEMA 57–80% of contacts are blade-on-blade. Even when "too late" for full parry, defender often gets reflexive/partial contact.
+const PARRY_LATE_CAPACITY_FLOOR := 0.22   # capacity multiplier when reaction_time >= effective_wind_up; results in partial deflect
+# Partial dodge: roll tiers (full/partial/hit). Agility, legs, and attacked part drive effective dodge chance.
+const DODGE_FULL_THRESHOLD := 0.4   # roll < dodge_chance * this => full dodge
+const DODGE_PARTIAL_RATIO_MIN := 0.4  # best partial dodge: 40% of attack gets through (glancing)
 
 ## Returns the node that holds health/wounds (CoreEntity for enemies; CombatBody for Character). Use for all health reads.
 func _get_entity(node: Node) -> Node:
@@ -116,6 +140,21 @@ func _get_entity(node: Node) -> Node:
 		var e = node.get_medical_entity()
 		return e if e != null else node
 	return node
+
+## Parry paradigm config for AttackResolver (redirect-default, block as exception).
+func _get_parry_config() -> Dictionary:
+	return {
+		"block_mass_threshold": PARRY_BLOCK_MASS_THRESHOLD,
+		"block_str_threshold": PARRY_BLOCK_STR_THRESHOLD,
+		"redirect_bonus": PARRY_REDIRECT_BONUS,
+		"redirect_skill_scale": PARRY_REDIRECT_SKILL_SCALE,
+		"redirect_attempt_ratio": PARRY_REDIRECT_ATTEMPT_RATIO,
+		"redirect_attempt_agility_scale": PARRY_REDIRECT_ATTEMPT_AGILITY_SCALE,
+		"glancing_exponent": PARRY_GLANCING_EXPONENT,
+		"redirect_thrust_bonus": PARRY_REDIRECT_THRUST_BONUS,
+		"redirect_blunt_penalty": PARRY_REDIRECT_BLUNT_PENALTY,
+		"mass_disparity_bonus": PARRY_MASS_DISPARITY_BONUS
+	}
 
 ## 3.2/3.4: Readiness multiplier for passive parry (no guard variable). WAITING = 1.0; RECOVERING = lerp(early, late) by progress.
 func _get_passive_parry_readiness(c: Dictionary) -> float:
@@ -811,6 +850,8 @@ func _recovery_duration(intensity: float, outcome: String, recovery_multiplier: 
 	var extra: float = RECOVERY_EXTRA_HIT_S
 	if outcome == "deflected":
 		extra = RECOVERY_EXTRA_DEFLECTED_S
+	elif outcome == "full_stop":
+		extra = RECOVERY_EXTRA_FULL_STOP_S
 	elif outcome == "glancing":
 		extra = RECOVERY_EXTRA_GLANCING_S
 	elif outcome == "miss" or outcome == "dodge":
@@ -1071,14 +1112,6 @@ func _execute_attack(attacker_id: int) -> void:
 			atk.state_timer = 0.0
 			atk.state_duration = result.recovery_duration
 		return
-
-# Parry speed (m/s) from same scale as strike velocity; defensive move ~40–60% of max strike (research).
-# Optional def_weapon: if it has parry_speed_factor, scale base speed (e.g. dagger 1.2, mace 0.9).
-func _get_parry_speed_m_s(def_weapon = null) -> float:
-	var base_speed: float = WeaponConstants.VELOCITY_MAX_M_S * PARRY_V_FRACTION_OF_MAX_STRIKE
-	if def_weapon != null and (def_weapon.get("parry_speed_factor") is float or def_weapon.get("parry_speed_factor") is int):
-		base_speed *= clampf(float(def_weapon.parry_speed_factor), 0.5, 1.5)
-	return base_speed
 
 func _get_by_id(id: int):
 	for c in combatants:

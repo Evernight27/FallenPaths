@@ -186,7 +186,7 @@ Already a static/RefCounted helper; no change needed. Keep damage constants in `
 | Module | Source | Priority | Dependencies |
 |--------|--------|----------|--------------|
 | EntityMedical | CoreEntity | 1 | BleedingConstants, entity wounds/state |
-| EntityWounds/Bleeding | CoreEntity | 2 | BleedingConstants |
+| EntityWounds/Bleeding | CoreEntity | 2 | BleedingConstants (includes process_blood_loss since modularization) |
 | EntityPainConsciousness | CoreEntity | 3 | PainConsciousnessConstants, species |
 | EntityHealing | CoreEntity | 4 | HealingConstants, BleedingConstants, wounds |
 | AttackResolver | CombatManager | 5 | WeaponDamageHelper, BodyPartConstants, CoreEntity |

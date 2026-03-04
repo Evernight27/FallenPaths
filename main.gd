@@ -21,7 +21,8 @@ func _get_available_species_paths() -> Array:
 			file = dir.get_next()
 	return paths
 
-## Species paths for enemy spawns. Can include human (generic human enemies) and goblin; party heroes use human + apply_party_boost (150) so they still outstat baseline human enemies (100).
+## Species paths for enemy spawns. Can include human (generic human enemies) and goblin.
+## Party uses human + apply_party_boost (100 = average) so combat balances around stat center.
 func _get_enemy_species_paths() -> Array:
 	var all_paths := _get_available_species_paths()
 	if all_paths.is_empty():

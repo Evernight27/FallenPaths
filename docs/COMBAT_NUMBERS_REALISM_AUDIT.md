@@ -20,8 +20,7 @@ This document checks that current constants and formulas still align with real-w
 
 | Constant / value | In-game | Research / reality | Verdict |
 |------------------|--------|---------------------|--------|
-| PASSIVE_PARRY_BASE_REACTION_S (CoreEntity) | **0.22 s** (220 ms) | Simple visual reaction time **~180–250 ms** typical. Base 0.22 s places “notice attack” in the research band. | **OK.** Matches typical visual RT range. |
-| PARRY_REACTION_S (CombatManager) | 0.22 s | Currently **unused** in code (only in comment). Matches “cognitive” reaction. | **No change needed.** Leave as comment or future use. |
+| PASSIVE_PARRY_BASE_REACTION_S (EntityPainConsciousness) | **0.24 s** (240 ms) | Simple visual reaction time **~180–250 ms** typical. Base 0.24 s places “notice attack” in the research band. | **OK.** Matches typical visual RT range. |
 | PARRY_BLADE_MOVEMENT_S | **0.13 s** | Explosive cut duration in research **250–350 ms**; defensive blade move is a shorter repositioning. 130 ms is plausible for “blade into line.” | **OK.** |
 | PASSIVE_PARRY_MIN_TIME_FOR_FULL_S | 0.25 s | Time *after* reaction to achieve full parry capacity. 0.25 s to get full capacity is reasonable. | **OK.** |
 | Blade movement mult (mass/strength) | 0.5–2.0× base | Heavy weapon / weak user = slower into position; light / strong = faster. | **OK.** Directionally correct. |
@@ -34,7 +33,7 @@ This document checks that current constants and formulas still align with real-w
 |--------------------|--------|---------------------|--------|
 | p_a = m × v (momentum) | kg·m/s | Standard: impulse = mass × velocity. | **OK.** |
 | c_d = m_d × v_parry × (strength/100) | Capacity scales with defender mass, parry speed, strength. | Parry “capacity” as impulse-like (force × time or momentum) is a reasonable abstraction for blade meeting blade. | **OK.** |
-| PARRY_DEFLECT_THRESHOLD = 1.0 | Full deflect when c_d ≥ p_a. | “Match” impulse for full stop is a simple, plausible rule. | **OK.** |
+| PARRY_DEFLECT_THRESHOLD = 1.08 | Full deflect when c_d ≥ p_a × this. | “Match” impulse for full stop is a simple, plausible rule. | **OK.** |
 | Time-of-intercept p_a (velocity curve) | p_a = m_a × v_intent × progress² (early parry → lower progress → lower p_a). | Blade accelerates into impact; early contact meets less momentum. | **OK.** Aligns with real kinematics. |
 | Agility scaling c_d | c_d × clamp(agi/100, 0.7, 1.3). | Faster defenders get blade into position more effectively; no direct citation but consistent with “quicker = better parry.” | **OK.** Modest range. |
 
@@ -56,7 +55,7 @@ This document checks that current constants and formulas still align with real-w
 | Constant | In-game | Research (COMBAT_PARRY_MISS_RESEARCH.md) | Verdict |
 |----------|--------|-------------------------------------------|--------|
 | MISS_CHANCE_BASE | 0.06 (6%) | No direct melee “miss %”; HEMA suggests most exchanges end in *some* contact. Low miss is plausible. | **OK.** |
-| DODGE_CHANCE_AT_FULL_SPEED | 0.08 (8%) | “Modest” dodge; research doesn’t give a number. | **OK.** |
+| DODGE_CHANCE_AT_FULL_SPEED | 0.10 | “Modest” dodge; research doesn’t give a number. | **OK.** (HEMA §8) |
 | Dodge floor (if added) | Optional 1–2% | Small floor for “flinch” avoids 0% when badly injured; realism trade-off. | **Design choice.** |
 
 ---
@@ -88,10 +87,10 @@ This document checks that current constants and formulas still align with real-w
 ## 8. Summary: values still align with real-life combat
 
 - **Velocity:** 6–24 m/s and parry at ~50% of max (with per-weapon 0.9–1.2) match typical strike/parry speed ranges and “defensive move slower than strike” idea.
-- **Reaction:** 0.22 s (220 ms) “notice attack” is in the typical visual RT band (180–250 ms). Blade movement 0.13 s and mass/strength scaling are plausible.
-- **Impulse/parry:** p_a and c_d use standard momentum; time-of-intercept (progress²) and full-deflect threshold 1.0 are consistent with real kinematics and HEMA-style blade-blade outcomes.
+- **Reaction:** 0.24 s (240 ms) “notice attack” is in the typical visual RT band (180–250 ms). Blade movement 0.13 s and mass/strength scaling are plausible.
+- **Impulse/parry:** p_a and c_d use standard momentum; time-of-intercept (progress²) and full-deflect threshold 1.08 are consistent with real kinematics and HEMA-style blade-blade outcomes.
 - **Damage/armor:** Existing research-backed numbers (55 J/mm, bone thresholds, KE scale, severance) are unchanged and still coherent.
-- **Miss/dodge:** Low base miss (6%) and modest dodge (8%) remain in line with COMBAT_PARRY_MISS_RESEARCH.md and HEMA “most contacts are defended or blade-blade” (57–80% defended for longsword).
+- **Miss/dodge:** Low base miss (6%) and modest dodge (10%) remain in line with COMBAT_PARRY_MISS_RESEARCH.md and HEMA “most contacts are defended or blade-blade” (57–80% defended for longsword).
 
 No constant changes are **required** for realism. Optional tuning only:
 
@@ -107,4 +106,4 @@ No constant changes are **required** for realism. Optional tuning only:
 - BodyPartConstants.gd — bone thresholds (skull 4–23 J, femoral ~35 J, etc.).
 - WeaponConstants.gd — “Research: rod-like strikes 17.2–24.2 m/s”; Williams 55 J/mm.
 - ArmorConstants.gd — Williams 50 J for 16 layers linen; blunt cushion threshold.
-- CoreEntity.gd — PASSIVE_PARRY_BASE_REACTION_S 0.22 (220 ms, research band 180–250 ms); DODGE_CHANCE_AT_FULL_SPEED 0.08.
+- EntityPainConsciousness.gd — PASSIVE_PARRY_BASE_REACTION_S 0.24; DODGE_CHANCE_AT_FULL_SPEED (see §8 of COMBAT_PARRY_MISS_RESEARCH for dodge realism).
