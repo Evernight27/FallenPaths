@@ -29,18 +29,16 @@ Result: Combatants with no usable arm no longer do a full wind-up then skip; the
 
 ---
 
-## 3. Partial parry gives defender a second full avoid roll
+## 3. Partial parry follow-through: twist dodge (IMPLEMENTED)
 
-**Problem:** After a partial parry (attack continues with reduced velocity), the same attack is re-resolved from the top of `_execute_attack`: new miss roll, new dodge roll, (and parry is not re-attempted because we proceed to damage). So the defender gets two independent chances to avoid (first: full parry; second: miss or dodge).
+**Problem:** After a partial parry, the attack continues with reduced velocity. The defender's body has already moved (twist, step) with the parry attempt. Should they get a second avoid chance?
 
-**Effect:** Partial parries are very strong: they reduce impact velocity *and* give another avoid roll. In your log, several partial parries were followed by a dodge on the second roll (e.g. Goblin2 -> Character partial parry, then Goblin2 -> Character dodge).
+**Implemented:** Twist dodge modeled on time and mobility at **start** of parry attempt (not after). Stored: `parry_twist_time_to_react`, `parry_twist_readiness`. `twist_capacity = time_factor × mobility × readiness`. Also: parry-quality scale (better parry → more twist benefit), attack-type mods (thrust −12%, cut +5%), part-specific modifier. Late parry gets 15% time floor for reflexive movement.
 
-**Options (design choice):**
-- **Keep as-is:** Glancing blow is easier to avoid; two chances is intentional.
-- **Single roll:** After partial parry, skip miss/dodge and go straight to damage with the reduced velocity (one avoid chain per attack).
-- **Weaker second roll:** e.g. half dodge chance on the follow-through.
-
-No change applied; leaving as design choice.
+**Alternatives considered:**
+- **No second roll:** Proceed straight to damage. Simpler; partial parry is the only mitigation.
+- **Partial tier on twist:** Full dodge / partial twist (further reduce remaining_ratio) / hit. More granular but complex.
+- **Scale by parry quality:** Better parry (lower remaining_ratio) → more residual slip. Plausible but adds parameters.
 
 ---
 
@@ -75,6 +73,48 @@ No change needed unless you want to tune how fast hit chance degrades with injur
 
 ---
 
+## 7. Recovery vs readiness (investigation)
+
+**Question:** Should recovery or readiness be scaled differently for different attacks?
+
+### Recovery tracking (attacker only)
+
+- **Who enters recovery:** The **attacker** (or medical performer). The defender never enters RECOVERING from parry or dodge; they go to WAITING immediately (parry_deflect gives `parry_bonus_until`).
+- **Recovery duration** (`_recovery_duration`):
+  - **Outcome:** hit (+0s). Deflected: base 0.1s + 0.15×intensity. Full_stop: base 0.5s + 0.35×intensity. Glancing (Method B): base 0.12s + (1−severity)×0.2×intensity; severity = tissue/(pre_armor×0.25). Miss/dodge: base 0.35s + 0.9×intensity.
+  - **Archetype:** `recovery_multiplier` per move (stab/slash 1.0, overhead 1.2, quick_slash 0.85, pommel 0.9, heavy_blunt 1.15)
+  - **Intensity** (commitment) scales base+extra; **agility** shortens; **perf_mod** (pain/consciousness) slows
+  - **Attack type** (cut/thrust/blunt): does **not** affect recovery duration directly; only via archetype (chosen by move_id)
+
+### Readiness (defender’s parry capacity when attacked)
+
+- **Definition:** `_get_passive_parry_readiness(c)` → WAITING = 1.0; RECOVERING = lerp(0.5, 0.85, progress) where `progress = state_timer / state_duration`.
+- **When it applies:** When the **defender** is in RECOVERING (e.g. just attacked or did medical) and someone attacks them.
+- **Uniform:** Same lerp(0.5, 0.85) for all recoveries. No stored “cause” (hit vs miss vs medical) and no incoming attack type.
+- **Attack type:** Cut/thrust/blunt affects parry redirect efficiency and twist dodge (thrust −12%, cut +5%), but **not** the readiness multiplier itself.
+
+### Gaps for scaling
+
+| Dimension | Current | Possible extension |
+|----------|---------|--------------------|
+| **Outcome-based readiness** | Same curve for any recovery cause | Different curves for “recovering from hit” vs “recovering from miss” (stunned vs off-balance) |
+| **Incoming attack type** | No effect on readiness | Thrust incoming → harder to react (lower readiness); cut → same or easier (more telegraph) |
+| **Recovery cause** | Not stored | Store `recovery_cause` (“attack_hit”, “attack_miss”, “attack_deflect”, “medical”) to drive readiness shape |
+| **Archetype vs attack type** | Recovery uses archetype only | Explicit thrust/cut/blunt scaling for recovery or readiness if desired |
+
+### Verdict
+
+- **Recovery duration** already scales by outcome and archetype; no per-attack-type scaling currently.
+- **Readiness** is uniform and independent of incoming attack type. To scale by attack type you would:
+  1. Pass the incoming `attack_type` (cut/thrust/blunt) into `_get_passive_parry_readiness` or the parry capacity calc.
+  2. Optionally store `recovery_cause` when entering RECOVERING and use it to shape the readiness curve (early hit vs early miss could differ).
+
+No code changes required unless you want attack-type or cause-dependent readiness.
+
+**Implemented:** Guard/readiness — when in WAITING, parry capacity × guard. Guard drops to 0.4 when attacking or doing medical; rises at 0.6/s when idle.
+
+---
+
 ## Summary
 
 | Issue | Severity | Status |
@@ -82,6 +122,6 @@ No change needed unless you want to tune how fast hit chance degrades with injur
 | Crippled attackers wind-up then skip | High | **Fixed** (no arm → no attack options; skip turn with short recovery) |
 | "Deflected" vs "glancing" | Medium | **Fixed** (deflected = all avoided; glancing = some got through) |
 | No arms → cowering/incapacitated | High | **Fixed** (STATE_COWERING; is_incapacitated includes cowering; clear when arms return) |
-| Partial parry double avoid roll | Design | Left as-is; optional tuning later |
+| Partial parry follow-through dodge | Design | **Implemented** (50% efficiency twist dodge) |
 | Goblin2 perf drop | Working | No change |
-| Medical move_id vs target | Low | Optional UX wording |
+| Medical move_id vs target | Low | **Fixed** (Bandaging ally, etc. in UI/logs) |

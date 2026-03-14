@@ -3,6 +3,7 @@ extends Resource
 class_name SpeciesResource
 
 # Body part max health. Unit dies when head or chest reaches 0.
+# BODY_PARTS comes from BodyPartConstants (single source of truth). BodyPartQuery reads "BODY_PARTS" from species.
 const BODY_PARTS := ["head", "chest", "right_arm", "left_arm", "left_leg", "right_leg"]
 const VITAL_PARTS := ["head", "chest"]
 

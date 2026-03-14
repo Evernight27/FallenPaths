@@ -10,7 +10,7 @@ extends RefCounted
 static func get_body_part_list(entity: Node) -> Array:
 	if entity.species != null and "BODY_PARTS" in entity.species:
 		return entity.species.BODY_PARTS.duplicate()
-	return ["head", "chest", "right_arm", "left_arm", "left_leg", "right_leg"]
+	return BodyPartConstants.BODY_PARTS.duplicate()
 
 static func get_vital_parts(entity: Node) -> Array:
 	if entity.species != null and "VITAL_PARTS" in entity.species:

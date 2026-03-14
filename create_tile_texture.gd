@@ -15,8 +15,8 @@ func _run():
 		image.set_pixel(63, y, border_color)
 	
 	# Save as PNG directly
-	var error = image.save_png("res://tile_texture.png")
+	var error = image.save_png(ResourcePaths.TILE_TEXTURE)
 	if error == OK:
-		print("Tile texture created successfully at res://tile_texture.png")
+		print("Tile texture created successfully at ", ResourcePaths.TILE_TEXTURE)
 	else:
 		print("Error creating tile texture: ", error)

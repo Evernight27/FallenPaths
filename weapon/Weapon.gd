@@ -25,6 +25,13 @@ var sharpness: float = 1.0
 # Move pool for this weapon: move_id -> { cooldown, archetype_id }. From def["moves"]; defaults from get_move().
 var attack_types: Dictionary = {}
 
+# Weapon part model (Level 4): per-part length, mass fraction, parry eligibility.
+# If empty, weapon uses legacy mode (whole-weapon mass for parry and attack).
+var parts: Array = []  # Array of {id, length_cm, mass_fraction, parry_eligible, striking_for}
+var parry_part_id: String = ""  # Which part parries; must match a part with parry_eligible true.
+# Bind riposte: contact types eligible for wind-up bonus. From def or inferred from is_parry moves.
+var bind_riposte_contact_types: Array = []
+
 
 static func create_from_definition(weapon_id: String) -> Weapon:
 	var def: Dictionary = WeaponConstants.get_weapon_definition(weapon_id)
@@ -43,6 +50,17 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 	w.melee_range = def.get("melee_range", 1.5)
 	w.blade_cut_ratio = def.get("blade_cut_ratio", 0.75)
 	w.sharpness = def.get("sharpness", 1.0)
+	var parts_arr = def.get("parts", [])
+	if parts_arr is Array and parts_arr.size() > 0:
+		for p in parts_arr:
+			if p is Dictionary:
+				w.parts.append(p.duplicate())
+		w.parry_part_id = str(def.get("parry_part_id", ""))
+		if w.parry_part_id.is_empty():
+			for p in w.parts:
+				if p is Dictionary and p.get("parry_eligible", false):
+					w.parry_part_id = str(p.get("id", ""))
+					break
 	var moves_arr = def.get("moves", [])
 	for entry in moves_arr:
 		if entry is Dictionary and entry.has("id"):
@@ -53,6 +71,18 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 			var cooldown = entry.get("cooldown", move_def.get("base_cooldown", WeaponConstants.DEFAULT_COOLDOWN))
 			var arch_id = entry.get("archetype_id", move_def.get("archetype_id", WeaponConstants.ARCHETYPE_SLASH))
 			w.attack_types[move_id] = { "cooldown": cooldown, "archetype_id": arch_id }
+	var brct: Variant = def.get("bind_riposte_contact_types", [])
+	if brct is Array and brct.size() > 0:
+		w.bind_riposte_contact_types = brct.duplicate()
+	else:
+		var seen: Dictionary = {}
+		for move_id in w.attack_types.keys():
+			if WeaponConstants.is_parry_move(move_id):
+				var m: Dictionary = WeaponConstants.get_move(move_id)
+				var ct: String = str(m.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
+				if not seen.get(ct, false):
+					seen[ct] = true
+					w.bind_riposte_contact_types.append(ct)
 	return w
 
 
@@ -166,3 +196,92 @@ func get_move_name(move_id: String) -> String:
 # True if this move is an explicit parry attack (deflect then counter).
 func is_parry_move(move_id: String) -> bool:
 	return WeaponConstants.is_parry_move(move_id)
+
+
+# --- Weapon part model (Level 4): parry and striking part mass ---
+
+func has_parts() -> bool:
+	return parts.size() > 0
+
+## Mass (kg) of the part used for parrying. Legacy: returns total mass.
+func get_parry_part_mass_kg() -> float:
+	if not has_parts() or parry_part_id.is_empty():
+		return mass
+	for p in parts:
+		if p is Dictionary and str(p.get("id", "")) == parry_part_id:
+			var frac: float = float(p.get("mass_fraction", 1.0))
+			return mass * clampf(frac, 0.0, 1.0)
+	return mass
+
+## Length (cm) of the parry part. Legacy: returns 0.
+func get_parry_part_length_cm() -> float:
+	if not has_parts() or parry_part_id.is_empty():
+		return 0.0
+	for p in parts:
+		if p is Dictionary and str(p.get("id", "")) == parry_part_id:
+			return float(p.get("length_cm", 0))
+	return 0.0
+
+## Mass (kg) of the part that strikes for the given contact_type. Legacy: returns total mass.
+func get_striking_part_mass_kg(contact_type: String) -> float:
+	if not has_parts():
+		return mass
+	var ct: String = contact_type.to_lower() if contact_type else WeaponConstants.ATTACK_TYPE_CUT
+	for p in parts:
+		if p is Dictionary:
+			var sf = p.get("striking_for", [])
+			if sf is Array and ct in sf:
+				var frac: float = float(p.get("mass_fraction", 1.0))
+				return mass * clampf(frac, 0.0, 1.0)
+	match ct:
+		WeaponConstants.ATTACK_TYPE_STAB:
+			for p in parts:
+				if p is Dictionary:
+					var pid: String = str(p.get("id", ""))
+					if pid in ["point", "blade", "spike", "head"]:
+						var frac: float = float(p.get("mass_fraction", 1.0))
+						return mass * clampf(frac, 0.0, 1.0)
+		WeaponConstants.ATTACK_TYPE_CUT:
+			for p in parts:
+				if p is Dictionary and str(p.get("id", "")) == "blade":
+					var frac: float = float(p.get("mass_fraction", 1.0))
+					return mass * clampf(frac, 0.0, 1.0)
+		WeaponConstants.ATTACK_TYPE_BLUNT:
+			for p in parts:
+				if p is Dictionary:
+					var pid: String = str(p.get("id", ""))
+					if pid in ["head", "haft"]:
+						var frac: float = float(p.get("mass_fraction", 1.0))
+						return mass * clampf(frac, 0.0, 1.0)
+	if parts.size() > 0 and parts[0] is Dictionary:
+		var frac: float = float(parts[0].get("mass_fraction", 1.0))
+		return mass * clampf(frac, 0.0, 1.0)
+	return mass
+
+## Parry contact type for modifier lookup: "blade"|"shaft"|"haft". Default "blade" for legacy/unknown.
+func get_parry_contact_type() -> String:
+	if not has_parts() or parry_part_id.is_empty():
+		return "blade"
+	var map: Dictionary = {"blade": "blade", "handle": "blade", "shaft": "shaft", "haft": "haft", "head": ""}
+	var t: String = map.get(parry_part_id.to_lower(), "blade")
+	return t if not t.is_empty() else "blade"
+
+## Strong fraction for blade parrying: portion of weapon near guard (forte). handle_length/total_length.
+## Only meaningful when parry_part_id is "blade". Shaft/haft use leverage factor instead. Returns 0.25 default for legacy.
+func get_parry_strong_fraction() -> float:
+	if not has_parts() or parry_part_id.is_empty():
+		return 0.25
+	if get_parry_contact_type() != "blade":
+		return 0.25
+	var handle_len: float = 0.0
+	var total: float = 0.0
+	for p in parts:
+		if p is Dictionary:
+			var plen: float = float(p.get("length_cm", 0))
+			total += plen
+			var pid: String = str(p.get("id", "")).to_lower()
+			if pid == "handle":
+				handle_len = plen
+	if total <= 0.0 or handle_len <= 0.0:
+		return 0.25
+	return clampf(handle_len / total, 0.1, 0.5)

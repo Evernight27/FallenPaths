@@ -130,6 +130,8 @@ If you want to push closer to the HEMA band: ensure parry is attempted often whe
 
 **Implemented:** DODGE_CHANCE_AT_FULL_SPEED 0.10, PARRY_PREFER_DODGE_FULL_THRESHOLD 0.12. Partial dodge tiers and expected-damage logic retained.
 
+**Partial parry follow-through:** Defender twisted with the parry attempt; body movement can slip the remainder. `PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY` (0.5) gives a reduced dodge roll on follow-through. Success = full dodge; failure = damage with parry-reduced velocity. See COMBAT_SYSTEM_ISSUES §3.
+
 ---
 
 ## 9. Flat-of-blade vs edge parry: is it modeled?

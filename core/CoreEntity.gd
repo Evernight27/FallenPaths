@@ -12,6 +12,7 @@ const _EntityPainConsciousness := preload("res://core/EntityPainConsciousness.gd
 const _EntityHealing := preload("res://core/EntityHealing.gd")
 const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 const _EntityDamage := preload("res://core/EntityDamage.gd")
+const _EntityEquipment := preload("res://core/EntityEquipment.gd")
 
 @export var species: Resource = null
 
@@ -131,61 +132,29 @@ func get_effective_speed() -> int:
 # Which arm is used to hold and attack with the weapon. Effectively swaps to the offhand when the
 # dominant arm is injured or destroyed and the offhand would be more effective (by effective damage).
 func get_attacking_arm() -> String:
-	var offhand: String = _get_offhand()
-	var dom_ok: bool = not is_arm_destroyed(dominant_hand)
-	var off_ok: bool = not is_arm_destroyed(offhand)
-	if not dom_ok and not off_ok:
-		return ""
-	if dom_ok and not off_ok:
-		return dominant_hand
-	if off_ok and not dom_ok:
-		return offhand
-	# Both usable: use whichever arm gives higher effective damage (swap to offhand if it's better).
-	var dom_eff: float = get_arm_functionality(dominant_hand) * 1.0
-	var off_eff: float = get_arm_functionality(offhand) * offhand_functionality
-	return dominant_hand if dom_eff >= off_eff else offhand
+	return _EntityEquipment.get_attacking_arm(self)
 
 func get_attack_damage_modifier() -> float:
-	var arm := get_attacking_arm()
-	if arm.is_empty():
-		return 0.0
-	var base: float = 1.0 if arm == dominant_hand else offhand_functionality
-	var arm_func: float = get_arm_functionality(arm)
-	# Regional: arm pain impairs strike force (guarding, motor inhibition)
-	var arm_pain_mod: float = _PainConscious.get_pain_performance_modifier(get_effective_pain_for_region("arms"))
-	return base * arm_func * arm_pain_mod
+	return _EntityEquipment.get_attack_damage_modifier(self)
 
 func get_armor_for_part(part: String) -> Variant:
-	return armor_slots.get(part, null)
-
+	return _EntityEquipment.get_armor_for_part(self, part)
 
 # Sharp resistance (mm RHA) of armor on this part. For energy-based thrust contact estimation.
 func get_armor_sharp_resistance_for_part(part: String) -> float:
-	var armor_var: Variant = get_armor_for_part(part)
-	if armor_var != null and armor_var is ArmorPiece:
-		return armor_var.get_outer_layer_sharp_resistance_rha_mm()
-	return 0.0
+	return _EntityEquipment.get_armor_sharp_resistance_for_part(self, part)
 
 func get_armor_slots() -> Dictionary:
-	return armor_slots.duplicate()
+	return _EntityEquipment.get_armor_slots(self)
 
 func equip_armor(part: String, piece: Variant) -> void:
-	if part.is_empty():
-		return
-	if piece == null:
-		armor_slots.erase(part)
-		return
-	if not (piece is ArmorPiece):
-		return
-	if piece.body_part != part:
-		return
-	armor_slots[part] = piece
+	_EntityEquipment.equip_armor(self, part, piece)
 
 func get_weapon():
-	return weapon
+	return _EntityEquipment.get_weapon(self)
 
 func equip_weapon(w) -> void:
-	weapon = w
+	_EntityEquipment.equip_weapon(self, w)
 
 func _get_blood_loss_death_threshold() -> float:
 	if species != null and species.get("blood_loss_death_threshold") != null and species.blood_loss_death_threshold >= 0.0:

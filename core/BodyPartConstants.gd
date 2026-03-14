@@ -1,6 +1,13 @@
 class_name BodyPartConstants
 extends RefCounted
 
+# --- Body part lists (single source of truth) ---
+# Used by SpeciesResource, BodyPartQuery, BattleScene, PartyMenu, PartyManager.
+const BODY_PARTS := ["head", "chest", "right_arm", "left_arm", "left_leg", "right_leg"]
+const BODY_LABELS := {"head": "Head", "chest": "Chest", "right_arm": "R.Arm", "left_arm": "L.Arm", "left_leg": "L.Leg", "right_leg": "R.Leg"}
+# Two-column layout for battle UI body bars: left [head, right_arm, left_leg], right [chest, left_arm, right_leg]
+const BODY_BAR_COLUMNS := [["head", "right_arm", "left_leg"], ["chest", "left_arm", "right_leg"]]
+
 # --- Per-body-part and per-sub-region bone damage (tissue vs bone split) ---
 # Research: skull fracture 4–23 J, femoral ~35 J, tibial ~25 J (PubMed 20803457; SciDirect long bone).
 # Sub-regions: scalp thin over skull; face facial bones; neck less bone; thoracic ribs; abdominal soft;
@@ -71,20 +78,28 @@ const BODY_PART_TARGET_WEIGHTS: Dictionary = {
 	"left_leg": 2.0   # each leg ~20%; large, stable target
 }
 
-# Pick one body part from targetable_parts with probability proportional to BODY_PART_TARGET_WEIGHTS.
+# Pick one body part from targetable_parts with optional preferred_parts bonus.
+# preferred_parts: Array of part names that get bonus weight (e.g. move's cut geometry).
+# preferred_mult: weight multiplier for parts in preferred_parts (1.0 = no bonus).
 # Returns "" if targetable_parts is empty. Parts not in weights get weight 1.0.
-static func get_weighted_random_part(targetable_parts: Array) -> String:
+static func get_weighted_random_part(targetable_parts: Array, preferred_parts: Array = [], preferred_mult: float = 1.0) -> String:
 	if targetable_parts.is_empty():
 		return ""
 	var total: float = 0.0
 	for part in targetable_parts:
-		total += float(BODY_PART_TARGET_WEIGHTS.get(part, 1.0))
+		var w: float = float(BODY_PART_TARGET_WEIGHTS.get(part, 1.0))
+		if preferred_parts.has(part) and preferred_mult > 1.0:
+			w *= preferred_mult
+		total += w
 	if total <= 0.0:
 		return targetable_parts[randi() % targetable_parts.size()]
 	var r: float = randf() * total
 	var acc: float = 0.0
 	for part in targetable_parts:
-		acc += float(BODY_PART_TARGET_WEIGHTS.get(part, 1.0))
+		var w: float = float(BODY_PART_TARGET_WEIGHTS.get(part, 1.0))
+		if preferred_parts.has(part) and preferred_mult > 1.0:
+			w *= preferred_mult
+		acc += w
 		if r < acc:
 			return part
 	return targetable_parts[targetable_parts.size() - 1]

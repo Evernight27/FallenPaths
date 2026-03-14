@@ -5,6 +5,7 @@ extends RefCounted
 ## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), _get_entity(node) -> Node.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 # AI / phase gating: consider medical when blood or time-to-death in danger zone.
 const MEDICAL_DANGER_BLOOD_THRESHOLD: float = 55.0
@@ -52,13 +53,13 @@ static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
 	var entity: Node = manager._get_entity(c.node) if c.node != null else null
 	if entity == null:
 		return false
-	var bv: float = _get_blood_volume(entity)
+	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
 	if bv <= MEDICAL_DANGER_BLOOD_THRESHOLD:
 		return true
-	var rate: float = entity.get_total_bleeding_rate() if entity.has_method("get_total_bleeding_rate") else 0.0
+	var rate: float = _EntityAccess.get_total_bleeding_rate_from_node(entity)
 	if rate <= 0.0:
 		return false
-	var perm_rate: float = entity.get_permanent_bleeding_rate() if entity.has_method("get_permanent_bleeding_rate") else rate
+	var perm_rate: float = _EntityAccess.get_permanent_bleeding_rate_from_node(entity, rate)
 	var buffer: float = bv - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
 	if buffer > 0.0 and perm_rate > 0.0:
 		var safe_rate: float = buffer * _Bleeding.CLOTTING_SAFE_EFFECTIVE_RATE / _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
@@ -75,10 +76,10 @@ static func is_in_immediate_peril(manager: Node, c: Dictionary) -> bool:
 	var entity: Node = manager._get_entity(c.node) if c.node != null else null
 	if entity == null:
 		return false
-	var bv: float = _get_blood_volume(entity)
+	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
 	if bv <= IMMEDIATE_PERIL_BLOOD_THRESHOLD:
 		return true
-	var rate: float = entity.get_total_bleeding_rate() if entity.has_method("get_total_bleeding_rate") else 0.0
+	var rate: float = _EntityAccess.get_total_bleeding_rate_from_node(entity)
 	if rate <= 0.0:
 		return false
 	var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
@@ -92,10 +93,10 @@ static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -
 	var entity: Node = manager._get_entity(c.node) if c.node != null else null
 	if entity == null:
 		return false
-	var perm_rate: float = entity.get_permanent_bleeding_rate() if entity.has_method("get_permanent_bleeding_rate") else 0.0
+	var perm_rate: float = _EntityAccess.get_permanent_bleeding_rate_from_node(entity, 0.0)
 	if perm_rate <= _Bleeding.BLEEDING_RATE_EPSILON:
 		return true
-	var bv: float = _get_blood_volume(entity)
+	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
 	var buffer: float = bv - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
 	if buffer > 0.0:
 		var safe_rate: float = buffer * _Bleeding.CLOTTING_SAFE_EFFECTIVE_RATE / _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
@@ -112,12 +113,12 @@ static func get_medical_urgency(manager: Node, c: Dictionary) -> float:
 	var entity: Node = manager._get_entity(c.node) if (c != null and c.node != null) else null
 	if entity == null:
 		return 0.0
-	var bv: float = _get_blood_volume(entity)
+	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
 	var death_thresh: float = _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
 	var range_bv: float = MEDICAL_DANGER_BLOOD_THRESHOLD - death_thresh
 	var urgency_blood: float = 1.0 if bv <= death_thresh else clampf((MEDICAL_DANGER_BLOOD_THRESHOLD - bv) / maxf(0.01, range_bv), 0.0, 1.0)
 	var urgency_time: float = 0.0
-	var rate: float = entity.get_total_bleeding_rate() if entity.has_method("get_total_bleeding_rate") else 0.0
+	var rate: float = _EntityAccess.get_total_bleeding_rate_from_node(entity)
 	if rate > 0.0:
 		var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
 		if loss_per_sec > 0.0:
@@ -150,9 +151,3 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
 			out.append({ "move_id": "apply_tourniquet", "target_part": part })
 	return out
 
-static func _get_blood_volume(entity: Node) -> float:
-	if entity.has_method("get_blood_volume"):
-		return entity.get_blood_volume()
-	if "blood_volume" in entity:
-		return float(entity.blood_volume)
-	return 100.0
