@@ -26,6 +26,15 @@ static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary
 	_add_attack_target_part(fallback, manager)
 	return fallback
 
+## Build opts dict from AI choice (target_part, feint_part) for resolve_action. Shared by all pick-and-resolve callers.
+static func opts_from_choice(choice: Dictionary) -> Dictionary:
+	var opts: Dictionary = {}
+	if choice.get("target_part", "") != "":
+		opts["target_part"] = choice.target_part
+	if choice.get("feint_part", "") != "":
+		opts["feint_part"] = choice.feint_part
+	return opts
+
 ## Returns weight for action (medical: urgency + direct pressure bleed + pending retry; attack: 1).
 static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
 	var mid: String = a.get("move_id", "")
@@ -52,6 +61,10 @@ static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) 
 static func _add_attack_target_part(choice: Dictionary, manager: Node) -> void:
 	if manager._is_medical_move(choice.get("move_id", "")):
 		return
+	if choice.get("move_id", "") == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		return  # Close attempt targets a combatant, not a body part
+	if choice.get("move_id", "") == CombatConstants.MOVE_ID_SWAP_RANK:
+		return  # Swap rank targets swap partner, not a body part
 	var tgt_id: int = choice.get("target_id", -1)
 	var tgt = manager._get_by_id(tgt_id)
 	if tgt == null or tgt.node == null or not tgt.node.has_method("get_targetable_parts"):
@@ -61,7 +74,7 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node) -> void:
 		return
 	var move_def: Dictionary = WeaponConstants.get_move(choice.get("move_id", ""))
 	var atk_line: String = move_def.get("attack_line", "high")
-	var guard_line: String = tgt.get("guard_line", "high")
+	var guard_line: String = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)
 	var path: Array = CombatConstants.get_attack_path(atk_line, guard_line)
 	var align_ctx: Dictionary = {"attack_angle_deg": CombatConstants.line_to_angle(atk_line), "guard_angle_deg": CombatConstants.get_guard_angle_deg(tgt)}
 	var alignment: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx)

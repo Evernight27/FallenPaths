@@ -34,20 +34,59 @@ static func build(manager: Node, combatant_id: int) -> Array:
 					actions.append({ "target_id": combatant_id, "move_id": "apply_direct_pressure", "target_part": part })
 		return actions
 
-	# Combat phase: attacks only. Medical phase: medical only for winning side.
+	# Combat phase: attacks and swap rank. Phase 2: filter by distance. Phase 3: rank + formation targeting.
 	if not medical_phase:
-		var can_attack: bool = not _EntityAccess.get_attacking_arm(c).is_empty()
-		if can_attack:
+		var fid: String = c.get("formation_id", "")
+		var formations_dict: Dictionary = manager.formations
+		var our_formation: Dictionary = formations_dict.get(fid, {})
+		var our_rank: int = c.get("rank", 0)
+		var our_file: int = c.get("file", 0)
+		# Phase 3: Rank 0 melee only; rank 1+ cannot melee (support/ranged; no ranged yet → swap rank).
+		var can_melee: bool = our_rank == 0 and not _EntityAccess.get_attacking_arm(c).is_empty()
+		if can_melee:
 			var weapon = _EntityAccess.get_weapon(c)
 			if weapon != null and weapon.has_method("get_available_attack_types"):
+				var melee_range: float = float(weapon.melee_range)
+				var can_attack_from_mid: bool = melee_range >= CombatConstants.REACH_MID_MIN
 				var move_ids: Array = weapon.get_available_attack_types()
-				for move_id in move_ids:
-					if WeaponConstants.is_parry_move(move_id):
+				for opp in combatants:
+					if not opp.alive or opp.side == c.side:
 						continue
-					for opp in combatants:
-						if not opp.alive or opp.side == c.side:
-							continue
-						actions.append({ "target_id": opp.id, "move_id": move_id })
+					# Phase 3: Formation targeting — opponent must be in rank 0 (front) of their formation to melee.
+					var opp_fid: String = opp.get("formation_id", "")
+					var opp_formation: Dictionary = manager.formations.get(opp_fid, {}) if manager.formations else {}
+					var opp_rank: int = opp.get("rank", 0)
+					if not our_formation.is_empty() and not opp_formation.is_empty():
+						if opp_rank != 0:
+							continue  # Can only melee front rank of enemy formation
+						# effective_distance = |Δfile| × avg_spacing; weapon must reach effective_distance × REACH_SAFETY_FACTOR
+						var our_spacing: float = CombatConstants.get_spacing_from_density(our_formation.get("density", "normal"))
+						var opp_spacing: float = CombatConstants.get_spacing_from_density(opp_formation.get("density", "normal"))
+						var avg_spacing: float = (our_spacing + opp_spacing) * 0.5
+						var opp_file: int = opp.get("file", 0)
+						var eff_dist: float = absf(float(our_file - opp_file)) * avg_spacing * CombatConstants.REACH_SAFETY_FACTOR
+						if melee_range < eff_dist:
+							continue  # Out of reach
+					var dist: String = c.get("distance_to", {}).get(opp.id, CombatConstants.DISTANCE_LONG)
+					if dist == CombatConstants.DISTANCE_CLOSE or (dist == CombatConstants.DISTANCE_MID and can_attack_from_mid):
+						for move_id in move_ids:
+							if WeaponConstants.is_parry_move(move_id):
+								continue
+							actions.append({ "target_id": opp.id, "move_id": move_id })
+					elif dist in [CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
+						actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
+		# Phase 3: Swap rank — available when formation has >1 rank and ally in same file, other rank.
+		if not our_formation.is_empty() and our_formation.get("ranks", 1) > 1:
+			var partner_file: int = our_file
+			var other_rank: int = 1 - our_rank if our_rank == 0 else 0
+			for ally in combatants:
+				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
+					continue
+				if ally.get("state", "") in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
+					continue  # Partner busy
+				if ally.get("rank", 0) == other_rank and ally.get("file", 0) == partner_file:
+					actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_SWAP_RANK })
+					break
 	else:
 		if c.side == medical_phase_winner and c.node != null and c.node.has_method("can_apply_direct_pressure"):
 			var immediate_peril: bool = manager._is_in_immediate_peril(c)

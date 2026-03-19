@@ -4,6 +4,10 @@ extends RefCounted
 ## Combat timing calculations: intensity, wind-up, recovery, velocity curve.
 ## Extracted from CombatManager for reuse by AttackResolver and other systems.
 
+## Current time in seconds (Time.get_ticks_msec() / 1000.0). Single source for combat time checks.
+static func now_seconds() -> float:
+	return Time.get_ticks_msec() / 1000.0
+
 static func intensity_from_stats(c: Dictionary) -> float:
 	var str_val: float = float(c.stats.get("strength", 100))
 	var base: float = 0.2 + CombatConstants.INTENSITY_STRENGTH_SCALE * (str_val / CombatConstants.INTENSITY_STRENGTH_NORM)

@@ -41,7 +41,7 @@ static func get_passive_parry_readiness(c: Dictionary) -> float:
 ## True if combatant is still in "off balance" window (after miss or parry deflect).
 static func is_off_balance(c: Dictionary) -> bool:
 	var until: float = c.get("off_balance_until", -1.0)
-	return until > 0.0 and Time.get_ticks_msec() / 1000.0 < until
+	return until > 0.0 and CombatTiming.now_seconds() < until
 
 ## Parry speed (m/s): defensive move ~40–60% of max strike. Optional def_weapon.parry_speed_factor scales it.
 static func get_parry_speed_m_s(def_weapon = null) -> float:

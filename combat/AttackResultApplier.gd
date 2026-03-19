@@ -66,7 +66,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk.state = CombatConstants.STATE_RECOVERING
 			atk.state_timer = 0.0
 			atk.state_duration = result.recovery_duration
-			atk["off_balance_until"] = Time.get_ticks_msec() / 1000.0 + CombatConstants.OFF_BALANCE_DURATION_S
+			atk["off_balance_until"] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
 		return
 	if action == "dodge":
 		empty_result["outcome"] = "dodge"
@@ -87,7 +87,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			var move_id: String = pa.get("attack_type", "")
 			var move_def: Dictionary = WeaponConstants.get_move(move_id) if not move_id.is_empty() else {}
 			var atk_line: String = pa.get("effective_attack_line", move_def.get("attack_line", "high"))
-			var dodge_guard: String = CombatConstants.DODGE_END_GUARD_FROM_ATTACK.get(atk_line, tgt.get("guard_line", "high"))
+			var dodge_guard: String = CombatConstants.DODGE_END_GUARD_FROM_ATTACK.get(atk_line, tgt.get("guard_line", CombatConstants.GUARD_DEFAULT))
 			_GuardUpdater.set_guard_from_line(tgt, dodge_guard)
 			if CombatConstants.COMBAT_DEBUG:
 				CombatDebug.log("guard_line %s: -> %s (dodged %s)" % ["id:%d" % tgt.get("id", -1), dodge_guard, atk_line])
@@ -98,7 +98,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk["last_move_id"] = pa_deflect.get("attack_type", "")
 			atk["effective_attack_line"] = pa_deflect.get("effective_attack_line", "")
 			# HEMA: store defender's guard and parry_clash_context for bind vs deflect.
-			atk["defender_guard_line_at_parry"] = tgt.get("guard_line", "high") if tgt != null else ""
+			atk["defender_guard_line_at_parry"] = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT) if tgt != null else ""
 			atk["parry_clash_context"] = result.get("parry_clash_context", {})
 			atk.pending_attack = {}
 			atk["recovery_cause"] = "attack_deflect"
@@ -106,7 +106,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk.state = CombatConstants.STATE_RECOVERING
 			atk.state_timer = 0.0
 			atk.state_duration = result.recovery_duration
-			atk["off_balance_until"] = Time.get_ticks_msec() / 1000.0 + CombatConstants.OFF_BALANCE_DURATION_S
+			atk["off_balance_until"] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
 		if tgt != null:
 			_consume_stamina(tgt, CombatConstants.STAMINA_PARRY_COST)
 			# Weapon position: defender's blade met attacker's; blade ends in attack line.
@@ -114,7 +114,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			var move_id: String = atk.get("last_move_id", "")
 			var eff_line: String = atk.get("effective_attack_line", "")
 			_GuardUpdater.set_guard_from_move(tgt, move_id, eff_line)
-			tgt["parry_bonus_until"] = Time.get_ticks_msec() / 1000.0 + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
+			tgt["parry_bonus_until"] = CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
 			var clash: Dictionary = result.get("parry_clash_context", {})
 			var arch_id: String = clash.get("archetype_id", "")
 			var can_bind: bool = arch_id.is_empty() or arch_id not in CombatConstants.ARCHETYPES_NEVER_BIND
@@ -161,6 +161,14 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			winner = manager._check_for_winner()
 			if not winner.is_empty():
 				manager._end_combat_phase(winner, tgt.node if tgt != null else null)
+			# Attacker still needs recovery (killing blow); otherwise they stay in WIND_UP and never get another turn.
+			if atk != null and atk.alive:
+				_consume_stamina(atk, CombatConstants.STAMINA_ATTACK_COST_BASE)
+				atk["effective_attack_line"] = atk.get("effective_attack_line", "")
+				atk["recovery_cause"] = "attack_hit"
+				atk.state = CombatConstants.STATE_RECOVERING
+				atk.state_timer = 0.0
+				atk.state_duration = result.get("recovery_duration", 0.5)
 			return
 		winner = manager._check_for_winner()
 		if not winner.is_empty():
@@ -168,8 +176,16 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				var reason: String = "consciousness < 10%%"
 				if tgt.node.has_method("is_cowering") and tgt.node.is_cowering():
 					reason = "cowering (no functional arms)"
-				print("[Combat] INCAPACITATED: %s (%s)" % [tgt.node.name if tgt.node != null else target_id, reason])
+				print("[Combat] INCAPACITATED: %s (%s)" % [_EntityAccess.get_display_name(tgt, target_id), reason])
 			manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
+			# Attacker still needs recovery; otherwise they stay in WIND_UP
+			if atk != null and atk.alive:
+				_consume_stamina(atk, CombatConstants.STAMINA_ATTACK_COST_BASE)
+				atk["effective_attack_line"] = atk.get("effective_attack_line", "")
+				atk["recovery_cause"] = "attack_hit"
+				atk.state = CombatConstants.STATE_RECOVERING
+				atk.state_timer = 0.0
+				atk.state_duration = result.get("recovery_duration", 0.5)
 			manager._end_combat_phase(winner, tgt.node if tgt != null else null)
 			return
 		_Afterblow.try_afterblow(manager, attacker_id, target_id, result_dict, intensity)

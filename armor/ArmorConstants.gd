@@ -1,9 +1,10 @@
 class_name ArmorConstants
 extends RefCounted
 
-# Damage types (must match CoreEntity / CombatManager)
-const DAMAGE_TYPE_SHARP: String = "SHARP"
-const DAMAGE_TYPE_BLUNT: String = "BLUNT"
+const _Combat := preload("res://combat/CombatConstants.gd")
+# Damage types (canonical in CombatConstants)
+const DAMAGE_TYPE_SHARP: String = _Combat.DAMAGE_TYPE_SHARP
+const DAMAGE_TYPE_BLUNT: String = _Combat.DAMAGE_TYPE_BLUNT
 
 # Armor: sharp penetration vs resistance; blunt transmission (no penetration). Durability loss per layer from absorbed damage.
 const PENETRATION_DAMAGE_REDUCTION_MAX: float = 0.5

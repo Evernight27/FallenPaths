@@ -4,6 +4,9 @@ extends RefCounted
 ## Formats combat action results as BBCode strings for the combat log.
 ## BattleScene calls format_action_line() and appends the result to RichTextLabel.
 
+static func _eff_pct(result: Dictionary) -> int:
+	return int(roundf(result.get("effectiveness", 1.0) * 100.0))
+
 static func format_action_line(attacker_name: String, attacker_side: String, target_name: String, target_side: String, result: Dictionary) -> String:
 	var part: String = result.get("part", "")
 	var dmg: int = result.get("dmg", 0)
@@ -28,23 +31,21 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 	elif outcome == "direct_pressure":
 		return "[color=teal]%s (%s) applied direct pressure on %s's %s.[/color]" % [attacker_name, attacker_side, target_name, part_label]
 	elif outcome == "bandaged":
-		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
-		return "[color=teal]%s (%s) bandaged %s's %s successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
+		return "[color=teal]%s (%s) bandaged %s's %s successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
 	elif outcome == "bandage_failed":
-		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
-		return "[color=orange]%s (%s) failed to properly bandage %s's %s (effectiveness: %d%%; partial effect; another can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
+		return "[color=orange]%s (%s) failed to properly bandage %s's %s (effectiveness: %d%%; partial effect; another can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
 	elif outcome == "packed":
-		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
-		return "[color=teal]%s (%s) packed %s's %s with linen successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
+		return "[color=teal]%s (%s) packed %s's %s with linen successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
 	elif outcome == "packing_failed":
-		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
-		return "[color=orange]%s (%s) failed to properly pack %s's %s (effectiveness: %d%%; partial effect; another can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
+		return "[color=orange]%s (%s) failed to properly pack %s's %s (effectiveness: %d%%; partial effect; another can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
 	elif outcome == "tourniquet_applied":
-		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
-		return "[color=teal]%s (%s) applied tourniquet to %s's %s successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
+		return "[color=teal]%s (%s) applied tourniquet to %s's %s successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
 	elif outcome == "tourniquet_failed":
-		var eff_pct: int = int(roundf(result.get("effectiveness", 1.0) * 100.0))
-		return "[color=orange]%s (%s) failed to properly apply tourniquet to %s's %s (effectiveness: %d%%; not tight enough; can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, eff_pct]
+		return "[color=orange]%s (%s) failed to properly apply tourniquet to %s's %s (effectiveness: %d%%; not tight enough; can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
+	elif outcome == "close_success":
+		return "[color=teal]%s (%s) closed the distance on %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
+	elif outcome == "close_failed":
+		return "[color=gray]%s (%s) failed to close on %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "deflected":
 		return "%s (%s) → %s (%s) %s: [b]%d[/b] dmg [color=green](deflected — all avoided)[/color]" % [attacker_name, attacker_side, target_name, target_side, part_label, dmg]
 	elif outcome == "glancing":

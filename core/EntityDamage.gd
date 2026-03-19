@@ -10,6 +10,7 @@ const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _ArmorConstants := preload("res://armor/ArmorConstants.gd")
 const _ArmorPieceScript := preload("res://armor/ArmorPiece.gd")
 const _BodyPartConstants := preload("res://core/BodyPartConstants.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 
 # Damage resistance and severance (CoreEntity-aligned).
 const ENDURANCE_DAMAGE_RESISTANCE_PER_POINT: float = 0.0001
@@ -19,8 +20,6 @@ const DEFLECTION_BRUISE_THRESHOLD: int = 3
 const SEVERANCE_EARLY_THRESHOLD: float = 0.18
 const SEVERANCE_EARLY_MAX_CHANCE: float = 0.65
 const SEVERANCE_EARLY_LIMBS_ONLY: bool = true
-const DAMAGE_TYPE_SHARP: String = "SHARP"
-const DAMAGE_TYPE_BLUNT: String = "BLUNT"
 
 # Severance ease: full-health limb resists dismemberment; already wounded/bone-damaged parts give way more easily.
 const SEVERANCE_EASE_MAX: float = 1.8
@@ -71,24 +70,24 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 	if armor_var != null and armor_var.get_script() == _ArmorPieceScript:
 		var deflected_raw: float = 0.0
 		if cut_pre_val > 0.0:
-			var result_cut: Dictionary = armor_var.apply_damage(cut_pre_val, DAMAGE_TYPE_SHARP, pen_s, -1.0, -1.0)
+			var result_cut: Dictionary = armor_var.apply_damage(cut_pre_val, _CombatConstants.DAMAGE_TYPE_SHARP, pen_s, -1.0, -1.0)
 			var d: float = maxf(0.0, result_cut.get("damage", 0.0))
-			var dtype: String = result_cut.get("damage_type", DAMAGE_TYPE_SHARP)
-			if dtype == DAMAGE_TYPE_SHARP:
+			var dtype: String = result_cut.get("damage_type", _CombatConstants.DAMAGE_TYPE_SHARP)
+			if dtype == _CombatConstants.DAMAGE_TYPE_SHARP:
 				final_cut += d
 			else:
 				deflected_raw = result_cut.get("transmitted_blunt_amount", result_cut.get("deflected_blunt_amount", d))
 				blunt_from_deflection = deflected_raw
 		blunt_from_direct = blunt_pre_val
 		if deflected_raw > 0.0 and blunt_pre_val > 0.0:
-			var result_deflected: Dictionary = armor_var.apply_damage(deflected_raw, DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 1)
-			var result_direct: Dictionary = armor_var.apply_damage(blunt_pre_val, DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 0)
+			var result_deflected: Dictionary = armor_var.apply_damage(deflected_raw, _CombatConstants.DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 1)
+			var result_direct: Dictionary = armor_var.apply_damage(blunt_pre_val, _CombatConstants.DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 0)
 			final_blunt = maxf(0.0, result_deflected.get("damage", 0.0)) + maxf(0.0, result_direct.get("damage", 0.0))
 		elif deflected_raw > 0.0:
-			var result_blunt: Dictionary = armor_var.apply_damage(deflected_raw, DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 1)
+			var result_blunt: Dictionary = armor_var.apply_damage(deflected_raw, _CombatConstants.DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 1)
 			final_blunt = maxf(0.0, result_blunt.get("damage", 0.0))
 		elif blunt_pre_val > 0.0:
-			var result_blunt: Dictionary = armor_var.apply_damage(blunt_pre_val, DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 0)
+			var result_blunt: Dictionary = armor_var.apply_damage(blunt_pre_val, _CombatConstants.DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 0)
 			final_blunt = maxf(0.0, result_blunt.get("damage", 0.0))
 		print("[Armor] %s %s: pre cut=%.1f blunt=%.1f | transmitted_raw=%.1f direct_blunt=%.1f | pen_sharp=%.2f mm RHA | blunt: => post-armor cut=%.1f blunt=%.1f" % [entity.name, part, cut_pre_val, blunt_pre_val, deflected_raw, blunt_pre_val, pen_s, final_cut, final_blunt])
 	else:
@@ -174,7 +173,10 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 		entity.wounds[part] = _EntityWounds.create_stump_wound(entity, part, sub_region)
 	var vital: Array = entity._get_vital_parts()
 	if part in vital and (entity.body_cutting.get(part, 0.0) <= 0.0 or entity.body_blunt.get(part, 0.0) <= 0.0):
-		entity.emit_signal("died")
+		if entity.has_method("notify_died"):
+			entity.notify_died()
+		else:
+			entity.emit_signal("died")
 	var pain_from_this_hit_raw: float = 0.0
 	if entity._is_part_severed(part):
 		var stump_damage: float = float(entity.body_max.get(part, 10))

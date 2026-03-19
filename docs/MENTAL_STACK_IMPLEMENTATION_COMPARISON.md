@@ -131,7 +131,7 @@ A detailed comparison of proposed mental stack approaches against how real games
 
 - **get_available_actions:** Returns flat list of {target_id, move_id, target_part}
 - **pick_weighted_action:** Medical actions get urgency-based weight; attacks get weight 1.0. Weighted random selection.
-- **Combat phase:** No parry as explicit action in combat phase (parry is when someone winds up on you — see PARRY_DESIGN_OPTIONS)
+- **Combat phase:** No parry as explicit action in combat phase (parry is when someone winds up on you — see PARRY_SYSTEM_OPTIONS)
 - **Medical phase:** Urgency, pending_retry, bleeding rate already drive weights
 
 ### Gaps

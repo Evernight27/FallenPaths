@@ -69,6 +69,17 @@ Investigation into different ways to integrate five combat features: feint (tele
 
 **Suggested path:** **C** (telegraph delay) is lowest effort and improves tempo without new mechanics. **A** if you want explicit feint moves and mind-games.
 
+### Feint A vs D: Integration Differences
+
+| Aspect | A (Explicit Two-Phase) | D (Parry Bait / Guard Zone) |
+|--------|------------------------|------------------------------|
+| **Prerequisite** | None | guard_zone system |
+| **Defender state** | Uses existing parry choice; feint affects parry capacity when defender "guarded wrong" | Requires defender to have guard_zone; feint = bait guard to wrong zone |
+| **Standalone** | Yes — can add feint without other systems | No — blocked on guard_zone |
+| **AI complexity** | AI must choose feint_part, target_part; decide when to feint | AI must "fall for" feints (guard telegraph); attacker exploits |
+
+**Verdict:** **A** is self-contained and can be added immediately. **D** is cleaner conceptually but requires guard_zone.
+
 ---
 
 ## 2. Counter Window (Tempo / Partial Gauge Interrupt)
@@ -131,6 +142,18 @@ Investigation into different ways to integrate five combat features: feint (tele
 | Defensive only | D | Medium |
 
 **Suggested path:** **A** for full tempo play. **B** if counters feel too frequent. Requires: `_is_enemy_winding_up_on_me`, counter action in available_actions, resolution order (counter first).
+
+### Flurries of Blows (Counter Interaction)
+
+**HEMA:** Rapid successive attacks. 70–90% of exchanges end in some hit. Double hits 7–40%. Binding enables quick thrusts.
+
+**Flurry options:**
+- **1. Emergent from counter:** Counter creates one extra exchange per wind-up. Natural limit from gauge cost. Low effort.
+- **2. Explicit sub-phase:** Enter `STATE_IN_FLURRY` after attack resolves. High effort.
+- **3. Riposte chain:** After parry_deflect, defender's next attack has 50% wind-up. Medium effort. Complementary with counter.
+- **4. Binding state:** parry_deflect → bound. While bound, short thrusts only. High effort.
+
+**Suggested:** Implement counter window first. Flurries emerge from repeated counter opportunities (Option 1). Add riposte chain for more flow.
 
 ---
 
@@ -312,6 +335,19 @@ Investigation into different ways to integrate five combat features: feint (tele
 
 **Suggested path:** **B** (weighted roll) — low effort, good payoff. Add `attack_lines` only to diagonal moves (oberhau, unterhau, diagonal_chop, maybe slash). Others keep single `attack_line`.
 
+### B vs C: Side-by-Side Comparison
+
+| Aspect | B (Fixed Weighted) | C (Alignment-Weighted) |
+|--------|---------------------|-------------------------|
+| **Roll input** | Move only | Move + defender guard_line |
+| **Probabilities** | Constant per move | Vary by defender |
+| **Defender agency** | None | High — defender's guard influences outcome |
+| **Realism** | "Blade path varies" | "Blade meets defender's guard where it is" |
+| **Tactical depth** | Low | High |
+| **Tuning** | One table per diagonal move | Table per (move, guard_line) — 4× more cells |
+
+**Verdict:** **B** is simpler and adds variance. **C** is more tactical and realistic.
+
 ---
 
 ## 6. Implementation Order & Dependencies
@@ -349,7 +385,6 @@ Investigation into different ways to integrate five combat features: feint (tele
 
 ## References
 
-- COMBAT_ISSUES_TODO_INVESTIGATION.md (§2, §5, §7, §8)
 - HEMA_ZONES_FEINTS_FLURRIES_INVESTIGATION.md
 - KINGDOM_COME_ABSTRACT_REPLICATION_INVESTIGATION.md
 - PassiveParryContext.gd (get_passive_parry_readiness)

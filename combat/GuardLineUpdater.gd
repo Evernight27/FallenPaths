@@ -6,6 +6,7 @@ extends RefCounted
 ## Call whenever a weapon is used (attack completes, parry deflects, parry partial, etc).
 
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Sets combatant guard_line to deflected position (blade was knocked aside by parry).
 ## Angle-based: bilateral deflection — blade deflects "away from" defender's blade.
@@ -49,13 +50,13 @@ static func set_guard_deflected(c: Dictionary, move_id: String, effective_line_o
 	else:
 		line = CombatConstants.DEFLECTED_GUARD_FROM_ATTACK.get(atk_line, atk_line)
 		blend = 1.0
-	var prev: String = c.get("guard_line", "high")
+	var prev: String = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
 	c["guard_line"] = line
 	c["guard_deflect_blend"] = blend
 	c["guard_deflect_from_line"] = atk_line
 	_sync_guard_zone_from_line(c, line)
 	if CombatConstants.COMBAT_DEBUG:
-		var name_s: String = c.node.name if c.get("node") != null else "id:%d" % c.get("id", -1)
+		var name_s: String = _EntityAccess.get_display_name(c)
 		var kind: String = "bind" if line == atk_line else "deflect"
 		var angle_info: String = ""
 		if not clash_context.is_empty() and clash_context.get("attack_angle_deg", null) is float:
@@ -73,26 +74,26 @@ static func set_guard_from_move(c: Dictionary, move_id: String, effective_line_o
 		if not move_def.is_empty():
 			line = move_def.get("attack_line", "")
 	if not line.is_empty():
-		var prev: String = c.get("guard_line", "high")
+		var prev: String = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
 		c["guard_line"] = line
 		c.erase("guard_deflect_blend")
 		c.erase("guard_deflect_from_line")
 		_sync_guard_zone_from_line(c, line)
 		if CombatConstants.COMBAT_DEBUG:
-			var name_s: String = c.node.name if c.get("node") != null else "id:%d" % c.get("id", -1)
+			var name_s: String = _EntityAccess.get_display_name(c)
 			_CombatDebug.log("guard_line %s: %s -> %s (move=%s)" % [name_s, prev, line, move_id])
 
 ## Sets combatant guard_line directly from line (e.g. when we have effective_attack_line from diagonal roll).
 static func set_guard_from_line(c: Dictionary, line: String) -> void:
 	if line.is_empty():
 		return
-	var prev: String = c.get("guard_line", "high")
+	var prev: String = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
 	c["guard_line"] = line
 	c.erase("guard_deflect_blend")
 	c.erase("guard_deflect_from_line")
 	_sync_guard_zone_from_line(c, line)
 	if CombatConstants.COMBAT_DEBUG:
-		var name_s: String = c.node.name if c.get("node") != null else "id:%d" % c.get("id", -1)
+		var name_s: String = _EntityAccess.get_display_name(c)
 		_CombatDebug.log("guard_line %s: %s -> %s (from_line)" % [name_s, prev, line])
 
 ## Keeps guard_zone consistent with guard_line when blade position changes from outcome.

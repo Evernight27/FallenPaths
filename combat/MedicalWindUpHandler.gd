@@ -11,7 +11,7 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 	var part: String = pm.get("target_part", "")
 	var tgt_cid: int = pm.get("target_combatant_id", c.id)
 	var tgt_c = manager._get_by_id(tgt_cid)
-	var who_m: String = c.node.name if c.node != null else "id:%d" % c.id
+	var who_m: String = _EntityAccess.get_display_name(c)
 	# Recovery after medical (scaled by pain/consciousness)
 	var med_rec_dur: float = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 	var med_perf: float = 1.0

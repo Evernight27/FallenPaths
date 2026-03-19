@@ -7,6 +7,7 @@ extends RefCounted
 
 const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
 const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 # Part relevance for hindrance (attacking arm from pending; supporting leg from stance)
 static func _get_part_relevance(hit_part: String, attacking_arm: String, supporting_leg: String) -> float:
@@ -88,7 +89,7 @@ static func _cancel_pending(_manager: Node, tgt: Dictionary) -> void:
 	tgt.state = CombatConstants.STATE_RECOVERING
 	tgt.state_timer = 0.0
 	tgt.state_duration = CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S
-	var tgt_name: String = tgt.node.name if tgt.node != null else "id:%d" % tgt.get("id", -1)
+	var tgt_name: String = _EntityAccess.get_display_name(tgt)
 	print("[Combat] Afterblow: %s hindered — swing cancelled" % tgt_name)
 
 static func _execute_afterblow(manager: Node, tgt: Dictionary, hindrance: float) -> bool:
@@ -96,7 +97,7 @@ static func _execute_afterblow(manager: Node, tgt: Dictionary, hindrance: float)
 	var damage_mult: float = 1.0 - hindrance
 	pa["afterblow_damage_mult"] = maxf(0.2, damage_mult)
 	var tgt_id: int = tgt.get("id", -1)
-	var tgt_name: String = tgt.node.name if tgt.node != null else "id:%d" % tgt_id
+	var tgt_name: String = _EntityAccess.get_display_name(tgt, tgt_id)
 	print("[Combat] Afterblow: %s completes swing (hindrance=%.2f => dmg_mult=%.2f)" % [tgt_name, hindrance, pa["afterblow_damage_mult"]])
 	manager._execute_attack(tgt_id)
 	return true

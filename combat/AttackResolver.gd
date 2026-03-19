@@ -27,14 +27,14 @@ static func compute_and_apply_damage(
 	velocity_override: float,
 	recovery_mult: float,
 	perf_mod: float,
-	power: float = -1.0,
-	follow_through: float = -1.0,
+	_power: float = -1.0,
+	_follow_through: float = -1.0,
 	parry_remaining_ratio: float = 1.0,
 	afterblow_damage_mult: float = 1.0,
 	alignment: float = 1.0
 ) -> Dictionary:
-	var atk_name: String = atk.node.name if atk.node != null else "id:%d" % attacker_id
-	var tgt_name: String = tgt.node.name if tgt.node != null else "id:%d" % target_id
+	var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
+	var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 	var pre_armor: float = 0.0
 	var pen_sharp: float = -1.0
 	var pen_blunt_momentum_per_area: float = -1.0
@@ -49,9 +49,9 @@ static func compute_and_apply_damage(
 		attack_instance.archetype = archetype
 		attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else WeaponDamageHelper.velocity_m_s_from_intensity(intensity, archetype)
 		var arm_mod: float = atk.node.get_attack_damage_modifier() if atk.node.has_method("get_attack_damage_modifier") else 1.0
-		var v_m_s: float = WeaponDamageHelper.get_effective_velocity_m_s(weapon, attack_instance)
-		var ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(weapon, attack_instance)
-		var mass_kg: float = float(weapon.mass) if (weapon.get("mass") is float or weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
+		var _v_m_s: float = WeaponDamageHelper.get_effective_velocity_m_s(weapon, attack_instance)
+		var _ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(weapon, attack_instance)
+		var _mass_kg: float = float(weapon.mass) if (weapon.get("mass") is float or weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 		var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, attack_type, archetype)
 		# Physics: deflected cut presents flat/slap; edge doesn't bite. Shift cut→blunt on partial parry.
 		if attack_type == WeaponConstants.ATTACK_TYPE_CUT and velocity_override >= 0.0 and parry_remaining_ratio < 1.0:
@@ -103,6 +103,10 @@ static func compute_and_apply_damage(
 	var stamina_dmg_mult: float = lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(atk_st_ratio))
 	pre_cut *= stamina_dmg_mult
 	pre_blunt *= stamina_dmg_mult
+	# Phase 2: Stance modifier (defensive ×0.85, aggressive ×1.2, etc.)
+	var stance_dmg_mult: float = CombatConstants.get_stance_modifier(atk.get("stance", CombatConstants.STANCE_BALANCED), "damage")
+	pre_cut *= stance_dmg_mult
+	pre_blunt *= stance_dmg_mult
 	pre_armor = pre_cut + pre_blunt
 	if stamina_dmg_mult < 1.0:
 		_debug("stamina_fatigue dmg_mult=%.2f => pre_armor=%.1f" % [stamina_dmg_mult, pre_armor])
@@ -232,8 +236,8 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var tgt = manager._get_by_id(target_id)
 	if tgt == null or not tgt.alive:
 		return { "action": "skip", "target_id": target_id, "recovery_duration": 0.0 }
-	var atk_name: String = atk.node.name if atk.node != null else "id:%d" % attacker_id
-	var tgt_name: String = tgt.node.name if tgt.node != null else "id:%d" % target_id
+	var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
+	var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 	_debug("attack %s -> %s %s" % [atk_name, tgt_name, attack_type])
 
 	var recovery_mult: float = float(archetype.get("recovery_multiplier", 1.0))
@@ -263,7 +267,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var move_def_pre: Dictionary = WeaponConstants.get_move(attack_type)
 	var atk_line_base: String = move_def_pre.get("attack_line", "high")
 	if CombatConstants.DIAGONAL_WEIGHTS.has(attack_type):
-		var guard_line_def: String = tgt.get("guard_line", "high")
+		var guard_line_def: String = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)
 		var weights: Variant = CombatConstants.DIAGONAL_WEIGHTS[attack_type].get(guard_line_def, {})
 		if weights is Dictionary and not weights.is_empty():
 			atk_line_base = _weighted_roll_attack_line(weights)
@@ -280,20 +284,20 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	pa["arc_span_deg"] = CombatConstants.angle_diff_deg(arc_start, pa["arc_end_deg"])
 
 	var dc: Dictionary = _DefenseChoice.choose_defense(pa, atk, tgt, targetable, attack_type, archetype, velocity_override)
-	var already_used_defense: bool = pa.get("passive_parry_attempted", false)
+	var _already_used_defense: bool = pa.get("passive_parry_attempted", false)
 	var defense_choice: String = dc.defense
 	var can_parry_in_time: bool = dc.can_parry_in_time
 	var parry_p_a: float = dc.parry_p_a
 	var parry_c_d: float = dc.parry_c_d
-	var parry_time_to_react: float = dc.parry_time_to_react
+	var _parry_time_to_react: float = dc.parry_time_to_react
 	var parry_readiness: float = dc.parry_readiness
-	var parry_off_balance: bool = dc.parry_off_balance
+	var _parry_off_balance: bool = dc.parry_off_balance
 	var late_parry: bool = dc.late_parry
 	var is_block_parry: bool = dc.is_block_parry
-	var m_a_parry: float = dc.m_a_parry
-	var m_d_parry: float = dc.m_d_parry
+	var _m_a_parry: float = dc.m_a_parry
+	var _m_d_parry: float = dc.m_d_parry
 	var dodge_chance: float = dc.dodge_chance
-	var dodge_eval_part: String = dc.dodge_eval_part
+	var _dodge_eval_part: String = dc.dodge_eval_part
 	var effective_redirect: float = dc.effective_redirect
 	var def_has_weapon: bool = _EntityAccess.has_weapon(tgt)
 	if not def_has_weapon:
@@ -301,13 +305,13 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	elif not can_parry_in_time:
 		_debug("defense %s no parry time -> %s" % [tgt_name, defense_choice])
 	else:
-		var parry_reason: String = "parry" if defense_choice == "parry" else "dodge"
+		var _parry_reason: String = "parry" if defense_choice == "parry" else "dodge"
 		if late_parry:
-			parry_reason = "parry (late/reflex)"
+			_parry_reason = "parry (late/reflex)"
 		elif defense_choice == "parry" and dodge_chance < CombatConstants.PARRY_DESPERATE_DODGE_THRESHOLD and not (is_block_parry and parry_p_a <= parry_c_d * CombatConstants.PARRY_DODGE_STRENGTH_RATIO) and parry_p_a > parry_c_d * effective_redirect:
-			parry_reason = "parry (desperate, dodge=%.2f)" % dodge_chance
+			_parry_reason = "parry (desperate, dodge=%.2f)" % dodge_chance
 		elif defense_choice == "dodge" and def_has_weapon:
-			parry_reason = "dodge (expected better or clean avoid likely)"
+			_parry_reason = "dodge (expected better or clean avoid likely)"
 		_debug("defense %s -> %s block=%s p_a=%.1f c_d=%.1f" % [tgt_name, defense_choice, is_block_parry, parry_p_a, parry_c_d])
 
 	var defense_result = _DefenseResolution.resolve(
@@ -324,7 +328,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var dmg_velocity_override: float = pa.get("velocity_m_s", velocity_override)
 	var move_def: Dictionary = WeaponConstants.get_move(attack_type)
 	var atk_line: String = pa.get("effective_attack_line", move_def.get("attack_line", "high"))
-	var guard_line: String = tgt.get("guard_line", "high")
+	var guard_line: String = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)
 	var atk_angle: float = pa.get("attack_angle_deg", CombatConstants.line_to_angle(atk_line))
 	var wobble_hit: Dictionary = {}
 	if pa.get("passive_parry_attempted", false):

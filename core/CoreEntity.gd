@@ -12,6 +12,7 @@ const _EntityPainConsciousness := preload("res://core/EntityPainConsciousness.gd
 const _EntityHealing := preload("res://core/EntityHealing.gd")
 const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 const _EntityDamage := preload("res://core/EntityDamage.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _EntityEquipment := preload("res://core/EntityEquipment.gd")
 
 @export var species: Resource = null
@@ -76,8 +77,18 @@ signal died
 signal creature_incapacitated
 signal health_changed
 
-const DAMAGE_TYPE_SHARP := "SHARP"
-const DAMAGE_TYPE_BLUNT := "BLUNT"
+## Called by EntityDamage and EntityWounds when entity dies (vital part destroyed or blood loss). Centralizes emission.
+func notify_died() -> void:
+	emit_signal("died")
+
+## Called by EntityPainConsciousness when consciousness drops below incapacitation threshold.
+## CombatManager connects this so UI refreshes; Phase 5 formation logic can react (fall back, plug gap).
+func notify_creature_incapacitated() -> void:
+	creature_incapacitated.emit()
+
+## Called by EntityPainConsciousness when consciousness/pain changes. UI refreshes via CombatManager.
+func notify_health_changed() -> void:
+	health_changed.emit()
 
 func _get_body_part_list() -> Array:
 	return _BodyPartQuery.get_body_part_list(self)
@@ -249,15 +260,15 @@ func get_death_reason() -> String:
 
 # Legacy single-stream entry point: delegates to take_damage_split so all armor transmission/durability and wounds use one path.
 # Returns { "final_type": SHARP/BLUNT, "final_amount": float } for callers that expect the old shape.
-func take_damage(amount: float, part: String, damage_type: String = DAMAGE_TYPE_BLUNT, penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
+func take_damage(amount: float, part: String, damage_type: String = _CombatConstants.DAMAGE_TYPE_BLUNT, penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
 	var amount_val: float = maxf(0.0, amount)
-	var cut_pre: float = amount_val if damage_type == DAMAGE_TYPE_SHARP else 0.0
-	var blunt_pre: float = amount_val if damage_type == DAMAGE_TYPE_BLUNT else 0.0
+	var cut_pre: float = amount_val if damage_type == _CombatConstants.DAMAGE_TYPE_SHARP else 0.0
+	var blunt_pre: float = amount_val if damage_type == _CombatConstants.DAMAGE_TYPE_BLUNT else 0.0
 	var split_result: Dictionary = take_damage_split(cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt_momentum_per_area, -1.0)
 	var fc: float = split_result.get("final_cut", 0.0)
 	var fb: float = split_result.get("final_blunt", 0.0)
 	var final_amount: float = fc + fb
-	var final_type: String = DAMAGE_TYPE_SHARP if fc >= fb and fc > 0.0 else DAMAGE_TYPE_BLUNT
+	var final_type: String = _CombatConstants.DAMAGE_TYPE_SHARP if fc >= fb and fc > 0.0 else _CombatConstants.DAMAGE_TYPE_BLUNT
 	return { "final_type": final_type, "final_amount": final_amount }
 
 

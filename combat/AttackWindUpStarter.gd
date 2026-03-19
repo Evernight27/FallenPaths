@@ -13,7 +13,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	if atk == null or tgt == null or not tgt.alive:
 		return
 	if atk.node != null and atk.node.has_method("get_attacking_arm") and atk.node.get_attacking_arm().is_empty():
-		var atk_name_skip: String = atk.node.name if atk.node != null else "id:%d" % attacker_id
+		var atk_name_skip: String = _EntityAccess.get_display_name(atk, attacker_id)
 		print("[Combat] %s has no functional arm; skip attack (short recovery)." % atk_name_skip)
 		atk.state = CombatConstants.STATE_RECOVERING
 		atk.state_timer = 0.0
@@ -107,4 +107,4 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	var atk_name_log: String = atk.node.name if (atk.node != null) else "id:%d" % attacker_id
 	if CombatConstants.COMBAT_DEBUG:
 		var angle_info: String = " [atk=%.0f° guard=%.0f°]" % [align_ctx["attack_angle_deg"], align_ctx["guard_angle_deg"]]
-		CombatDebug.log("%s | guard=%s atk_line=%s align=%.2f trans=%.2f%s | wind_up=%.2fs" % [atk_name_log, atk.get("guard_line", "high"), attack_line, align, trans_mult, angle_info, wind_up_s])
+		CombatDebug.log("%s | guard=%s atk_line=%s align=%.2f trans=%.2f%s | wind_up=%.2fs" % [atk_name_log, atk.get("guard_line", CombatConstants.GUARD_DEFAULT), attack_line, align, trans_mult, angle_info, wind_up_s])

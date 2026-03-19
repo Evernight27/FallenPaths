@@ -20,6 +20,15 @@ static func get_entity_from_manager(manager: Node, combatant: Dictionary) -> Nod
 		return manager._get_entity(node)
 	return node
 
+## Returns display name for logging/debug: node.name if available, else "id:{id}". Pass fallback_id when combatant may be null.
+static func get_display_name(combatant: Variant, fallback_id: int = -1) -> String:
+	if combatant == null or not (combatant is Dictionary):
+		return "id:%d" % fallback_id
+	var node = combatant.get("node", null)
+	if node != null:
+		return str(node.name)
+	return "id:%d" % combatant.get("id", fallback_id)
+
 ## Returns true if combatant's node has a weapon.
 static func has_weapon(combatant: Dictionary) -> bool:
 	return get_weapon(combatant) != null

@@ -151,6 +151,8 @@ const READINESS_BY_CAUSE: Dictionary = {
 # Guard zone (body-part): which zone defender chooses to protect. Parry bonus when guarded, penalty when unguarded.
 const GUARD_ZONE_BONUS := 1.4
 const GUARD_ZONE_UNGUARDED_PENALTY := 0.75
+# Default guard/attack line when combatant or move lacks explicit value.
+const GUARD_DEFAULT := "high"
 # Part → primary guard line (for guard_zone/guard_line sync)
 const PART_TO_LINE: Dictionary = {"head": "high", "chest": "high", "left_arm": "left", "right_arm": "right", "left_leg": "low", "right_leg": "low"}
 # Line → default body part (for syncing guard_zone when guard_line changes from outcome)
@@ -172,6 +174,8 @@ const PREFERRED_PART_BONUS_MULT := 1.5
 const COMBAT_DEBUG := false
 # Calibration: when true, log alignment, parry_c_d, variance, remaining_ratio for tuning to HEMA 57–80% parry share.
 const COMBAT_DEBUG_CALIBRATION := false
+# Event tracking: when true, log EVENT_ACTION_READY skips, attempt_close, and turn scheduling so "frozen" units are traceable.
+const COMBAT_EVENT_DEBUG := true
 
 # Stamina (separate pool): attack/parry consume; refill when idle. At 0: parry penalty, attack damage reduction.
 const STAMINA_MAX := 100.0
@@ -187,6 +191,105 @@ const STAMINA_FACTOR_POWER := 0.6
 ## Returns 0-1. At 100% stamina → 1; at 0% → 0. Curve ramps down faster below ~25%.
 static func stamina_factor(ratio: float) -> float:
 	return pow(clampf(ratio, 0.0, 1.0), STAMINA_FACTOR_POWER)
+
+## Agility+perception stat factor (0.5–1.5). Used for mobility, redirect skill, dodge.
+static func stats_factor_agi_perc(agi: float, perc: float) -> float:
+	return clampf((agi + perc) / 200.0, 0.5, 1.5)
+
+## Glancing factor from remaining ratio. Used for partial dodge/parry velocity reduction.
+static func glancing_factor(ratio: float, exponent: float = PARRY_GLANCING_EXPONENT) -> float:
+	return pow(clampf(ratio, 0.0, 1.0), exponent)
+
+## Parry redirect multiplier from parry config, attacker/defender stats, attack type, mass disparity.
+static func compute_parry_redirect_mult(pcfg: Dictionary, agi: float, perc: float, attack_type: String, is_block_parry: bool, m_a: float, m_d: float) -> float:
+	var r_bonus: float = pcfg.get("redirect_bonus", PARRY_REDIRECT_BONUS)
+	var r_scale: float = pcfg.get("redirect_skill_scale", PARRY_REDIRECT_SKILL_SCALE)
+	var redirect_skill: float = stats_factor_agi_perc(agi, perc)
+	var redirect_mult: float = 1.0 + r_bonus + (redirect_skill - 0.5) * r_scale
+	if attack_type == "stab":
+		redirect_mult *= 1.0 + pcfg.get("redirect_thrust_bonus", PARRY_REDIRECT_THRUST_BONUS)
+	elif attack_type == "blunt":
+		redirect_mult *= 1.0 - pcfg.get("redirect_blunt_penalty", PARRY_REDIRECT_BLUNT_PENALTY)
+	if not is_block_parry and m_a > 0.001 and m_d < m_a:
+		var mass_bonus: float = pcfg.get("mass_disparity_bonus", PARRY_MASS_DISPARITY_BONUS) * (1.0 - m_d / m_a)
+		redirect_mult *= 1.0 + mass_bonus
+	return redirect_mult
+
+# Event queue (Phase 1). See docs/IMPLEMENTATION_OUTLINE.md, STAMINA_SYSTEM_IMPLEMENTATION_PLAN.
+# Event queue (Phase 1). Resolve at combat_clock; tie-break: agility desc, then combatant_id asc.
+const EVENT_ACTION_READY := "action_ready"
+const EVENT_MELEE_ATTACK := "melee_attack"
+const EVENT_RECOVERY_END := "recovery_end"
+const EVENT_SWAP_RANK_RESOLVE := "swap_rank_resolve"
+# Time to "ready" from idle: replicates gauge fill. agility 100 -> ~2s. Stagger for combat start.
+const COOLDOWN_ACTION_READY_BASE := 2.0
+
+# FF4 Formation + Stance (Phase 0 prep). See docs/IMPLEMENTATION_OUTLINE.md.
+const SPACING_TIGHT := 0.9
+const SPACING_NORMAL := 1.2
+const SPACING_LOOSE := 1.8
+const REACH_SAFETY_FACTOR := 0.8
+const FLANK_PARRY_MOD := 0.8
+const REAR_PARRY_MOD := 0.7
+const STANCE_DEFENSIVE := "defensive"
+const STANCE_BALANCED := "balanced"
+const STANCE_AGGRESSIVE := "aggressive"
+const STANCE_CONTROLLING := "controlling"
+const STANCE_MIN_STAMINA_AGGRESSIVE := 25.0
+const STANCE_MIN_STAMINA_CONTROLLING := 20.0
+# Swap rank / fall back: time-based, no stamina. Lane: clear=1.0, crowded=1.3, blocked=1.6. Pressure: defensive=0.9, neutral=1.0, aggressive=1.3.
+const BASE_FALL_BACK_S := 1.0
+const LANE_MOD_CLEAR := 1.0
+const LANE_MOD_CROWDED := 1.3
+const LANE_MOD_BLOCKED := 1.6
+const PRESSURE_MOD_DEFENSIVE := 0.9
+const PRESSURE_MOD_NEUTRAL := 1.0
+const PRESSURE_MOD_AGGRESSIVE := 1.3
+const STATE_FALLING_BACK := "falling_back"
+const STATE_SWAP_RANK := "swap_rank"
+const MOVE_ID_SWAP_RANK := "swap_rank"
+# Ambush (Phase 6). Set on encounter when starting combat.
+const AMBUSH_TYPE_NONE := "none"
+const AMBUSH_TYPE_FULL := "full"
+const AMBUSH_TYPE_PARTIAL := "partial"
+
+# Phase 2: Distance bands. Pair-wise for unformed; zone-based in Phase 4.
+const DISTANCE_CLOSE := "close"
+const DISTANCE_MID := "mid"
+const DISTANCE_LONG := "long"
+const REACH_MID_MIN := 1.2  # Spear can attack from mid; shorter weapons need close.
+const MOVE_ID_ATTEMPT_CLOSE := "attempt_close"
+# Stance modifiers (Phase 2). See COMBAT_STANCE_STATES_INVESTIGATION.md.
+const STANCE_MOD_PARRY: Dictionary = {"defensive": 1.2, "balanced": 1.0, "aggressive": 0.8, "controlling": 1.0}
+const STANCE_MOD_EVASION: Dictionary = {"defensive": 1.15, "balanced": 1.0, "aggressive": 0.85, "controlling": 1.0}
+const STANCE_MOD_DAMAGE: Dictionary = {"defensive": 0.85, "balanced": 1.0, "aggressive": 1.2, "controlling": 0.95}
+const STANCE_MOD_CLOSE_ATTEMPT: Dictionary = {"defensive": 0.9, "balanced": 1.0, "aggressive": 1.1, "controlling": 1.0}
+const STANCE_MOD_OPPONENT_CLOSE: float = 0.9   # Controlling makes opponent close attempt harder
+const STANCE_MOD_OPPONENT_DISENGAGE: float = 0.85  # Controlling makes opponent disengage harder
+# Density modifier for close attempt (defender evasion). tight=easier to close, loose=harder.
+const DENSITY_CLOSE_MOD: Dictionary = {"tight": 0.8, "normal": 1.0, "loose": 1.2}
+
+## Returns stance modifier for given effect. Default 1.0 if stance unknown.
+static func get_stance_modifier(stance: String, effect: String) -> float:
+	var m: Dictionary = {}
+	match effect:
+		"parry": m = STANCE_MOD_PARRY
+		"evasion": m = STANCE_MOD_EVASION
+		"damage": m = STANCE_MOD_DAMAGE
+		"close_attempt": m = STANCE_MOD_CLOSE_ATTEMPT
+		_: return 1.0
+	return m.get(stance, 1.0)
+
+## Returns density modifier for close attempt (applied to defender evasion).
+static func get_density_close_mod(density: String) -> float:
+	return DENSITY_CLOSE_MOD.get(density, 1.0)
+
+## Returns spacing_m for formation targeting (effective_distance). tight=0.9, normal=1.2, loose=1.8.
+static func get_spacing_from_density(density: String) -> float:
+	match density:
+		"tight": return SPACING_TIGHT
+		"loose": return SPACING_LOOSE
+		_: return SPACING_NORMAL
 
 # Diagonal line roll (C: alignment-weighted): weights per (move_id, defender_guard_line) for diagonal moves.
 # oberhau crosses high+left; defender high guard → more likely high. Format: { "line": weight }
@@ -389,7 +492,7 @@ static func get_attack_angle_deg(attack_line: String, add_variance: bool = true,
 ## wobble_context: parry_readiness (0-1), defender_mass_kg (optional). When readiness < 1, adds ±wobble (defender reacting).
 ## Heavier defender weapon = more inertia = more wobble when reacting.
 static func get_guard_angle_deg(combatant: Dictionary, wobble_context: Dictionary = {}) -> float:
-	var line: String = combatant.get("guard_line", "high")
+	var line: String = combatant.get("guard_line", GUARD_DEFAULT)
 	var blend: float = combatant.get("guard_deflect_blend", 0.0)
 	var base_angle: float
 	if blend <= 0.0:
@@ -426,11 +529,11 @@ static func get_line_alignment_with_deflect(attack_line: String, combatant: Dict
 	guard_a = get_guard_angle_deg(combatant, wobble_context)
 	if atk_a is float:
 		return maxf(PARRY_ALIGNMENT_FLOOR, get_alignment_from_angles(float(atk_a), float(guard_a)))
-	var guard_line: String = combatant.get("guard_line", "high")
+	var guard_line: String = combatant.get("guard_line", GUARD_DEFAULT)
 	var blend: float = combatant.get("guard_deflect_blend", 0.0)
 	if blend <= 0.0:
 		return get_line_alignment(attack_line, guard_line)
-	var from_line: String = combatant.get("guard_deflect_from_line", guard_line)
+	var from_line: String = combatant.get("guard_deflect_from_line", GUARD_DEFAULT)
 	var align_from: float = get_line_alignment(attack_line, from_line)
 	var align_to: float = get_line_alignment(attack_line, guard_line)
 	return lerpf(align_from, align_to, blend)

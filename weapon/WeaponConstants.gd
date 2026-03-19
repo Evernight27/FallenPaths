@@ -1,9 +1,10 @@
 class_name WeaponConstants
 extends RefCounted
 
-# Damage types (must match ArmorConstants / CoreEntity)
-const DAMAGE_TYPE_SHARP: String = "SHARP"
-const DAMAGE_TYPE_BLUNT: String = "BLUNT"
+const _Combat := preload("res://combat/CombatConstants.gd")
+# Damage types (canonical in CombatConstants)
+const DAMAGE_TYPE_SHARP: String = _Combat.DAMAGE_TYPE_SHARP
+const DAMAGE_TYPE_BLUNT: String = _Combat.DAMAGE_TYPE_BLUNT
 
 # Attack types: stab (point), cut/slash (edge), blunt/swing (head).
 # Contact area per attack: stab -> point_width, cut -> blade_width, blunt -> head_diameter.

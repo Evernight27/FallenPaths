@@ -7,19 +7,15 @@ extends RefCounted
 static func handle(manager: Node, combatant_id: int) -> void:
 	if manager == null:
 		return
-	var caps = manager.get_combatants()
-	var me: Dictionary = {}
-	for c in caps:
-		if c.id == combatant_id:
-			me = c
-			break
-	if me.is_empty():
+	var me: Dictionary = manager._get_by_id(combatant_id) if manager.has_method("_get_by_id") else {}
+	if me == null or me.is_empty():
 		return
 	if me.side != "player":
 		return
 	var actions: Array = manager.get_available_actions(combatant_id)
 	if actions.is_empty():
 		# Combat phase: attack first available enemy. Medical phase: no enemies, skip turn.
+		var caps = manager.get_combatants()
 		for c in caps:
 			if c.side != "player" and c.alive:
 				manager.resolve_action(combatant_id, c.id)
@@ -29,7 +25,5 @@ static func handle(manager: Node, combatant_id: int) -> void:
 			manager.skip_turn(combatant_id)
 		return
 	var choice = CombatAIActionPicker.pick(actions, combatant_id, manager)
-	var opts: Dictionary = {}
-	if choice.get("target_part", "") != "":
-		opts["target_part"] = choice.target_part
+	var opts: Dictionary = CombatAIActionPicker.opts_from_choice(choice)
 	manager.resolve_action(combatant_id, choice.target_id, choice.get("move_id", ""), opts)

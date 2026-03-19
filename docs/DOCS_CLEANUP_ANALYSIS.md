@@ -2,6 +2,14 @@
 
 Analysis of 68 docs in `/docs` to identify files that are **invalidated**, **already complete**, or **superseded** and can be removed to reduce clutter.
 
+**Cleanup executed:** March 2025 — 20 documents removed per recommendations below.
+
+**Consolidation executed:** March 2025 — additional cleanup:
+- **Deleted (5):** STAMINA_ENGAGEMENT_GATE_AND_DISTANCE_OPTIONS, ENGAGEMENT_FLURRY_IMPLEMENTATION_OPTIONS, ENGAGEMENT_ALTERNATIVE_PARADIGMS_AND_REFERENCE_SYSTEMS, DOMINIONS_CHAINMAIL_ZOC_HYBRID_INVESTIGATION, MEN_OF_WAR_ZOC_COMPARISON_INVESTIGATION
+- **Deleted (1):** FEINT_STAMINA_COUNTER_FLURRY_DEEP_INVESTIGATION (merged into FEINT_COUNTER_STAMINA_READINESS_DIAGONAL)
+- **Deleted (3):** PARRY_DESIGN_OPTIONS, PARRY_IMPROVEMENT_OPTIONS, PARRY_DODGE_TWEAK_OPTIONS (merged into PARRY_SYSTEM_OPTIONS)
+- **Created:** PARRY_SYSTEM_OPTIONS.md (consolidated parry design, improvement, and tweak options)
+
 ---
 
 ## Summary: Documents Safe to Remove

@@ -7,6 +7,7 @@ extends RefCounted
 const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
 const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _CombatTiming := preload("res://combat/CombatTiming.gd")
 
 ## Returns dict with: defense, can_parry_in_time, parry_p_a, parry_c_d, parry_time_to_react,
 ## parry_readiness, parry_off_balance, late_parry, is_block_parry, m_a_parry, m_d_parry,
@@ -42,6 +43,7 @@ static func choose_defense(
 	result.dodge_eval_part = BodyPartConstants.get_weighted_random_part(targetable) if not targetable.is_empty() else ""
 
 	var dodge_chance: float = _EntityAccess.get_dodge_chance(tgt)
+	dodge_chance *= CombatConstants.get_stance_modifier(tgt.get("stance", CombatConstants.STANCE_BALANCED), "evasion")
 	result.dodge_chance = dodge_chance
 
 	var already_used_defense: bool = pa.get("passive_parry_attempted", false)
@@ -104,12 +106,12 @@ static func choose_defense(
 				var st_ratio: float = clampf(tgt.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio))
 				if CombatConstants.COMBAT_DEBUG:
-					var dbg_tgt: String = tgt.node.name if tgt.get("node") != null else "id:%d" % tgt.get("id", -1)
-					CombatDebug.log("parry_align %s guard=%s atk=%s align=%.2f" % [dbg_tgt, tgt.get("guard_line", "high"), move_def.get("attack_line", "high"), _al])
+					var dbg_tgt: String = _EntityAccess.get_display_name(tgt)
+					CombatDebug.log("parry_align %s guard=%s atk=%s align=%.2f" % [dbg_tgt, tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), move_def.get("attack_line", "high"), _al])
 				var cal_suffix: String = ""
 				if not align_ctx.is_empty():
 					cal_suffix = " atk_deg=%.0f guard_deg=%.0f" % [align_ctx.get("attack_angle_deg", 0.0), align_ctx.get("guard_angle_deg", 0.0)]
-				CombatDebug.calibration_log("parry_pre atk_line=%s guard=%s align=%.3f parry_c_d=%.2f%s" % [WeaponConstants.get_move(attack_type).get("attack_line", "high"), tgt.get("guard_line", "high"), _al, parry_c_d, cal_suffix])
+				CombatDebug.calibration_log("parry_pre atk_line=%s guard=%s align=%.3f parry_c_d=%.2f%s" % [WeaponConstants.get_move(attack_type).get("attack_line", "high"), tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), _al, parry_c_d, cal_suffix])
 			elif atk_weapon != null:
 				# Late parry: reflexive/partial contact when "too late"
 				can_parry_in_time = true
@@ -152,7 +154,7 @@ static func choose_defense(
 				var st_ratio_late: float = clampf(tgt.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio_late))
 				if CombatConstants.COMBAT_DEBUG:
-					CombatDebug.log("parry_align late %s align=%.2f" % [tgt.get("guard_line", "high"), _al])
+					CombatDebug.log("parry_align late %s align=%.2f" % [tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), _al])
 
 	result.can_parry_in_time = can_parry_in_time
 	result.parry_p_a = parry_p_a
@@ -180,9 +182,9 @@ static func choose_defense(
 				var strong_frac: float = def_w_arch.get_parry_strong_fraction() if def_w_arch.has_method("get_parry_strong_fraction") else 0.25
 				full_strong_mod *= 1.0 + CombatConstants.DEFENDER_STRONG_BONUS * strong_frac * weak_exp
 			var strong_mod: float = lerpf(1.0, full_strong_mod, contact_quality)
-			result.parry_c_d = parry_c_d * strong_mod
-		else:
-			result.parry_c_d = parry_c_d
+			parry_c_d *= strong_mod
+		parry_c_d *= CombatConstants.get_stance_modifier(tgt.get("stance", CombatConstants.STANCE_BALANCED), "parry")
+		result.parry_c_d = parry_c_d
 
 	# Mass/strength for block check (total mass for both); m_a_velocity for partial parry v_reduced (striking mass when parts).
 	var m_a_parry: float = 0.0
@@ -231,22 +233,14 @@ static func choose_defense(
 		var partial_dodge_avg_ratio: float = (CombatConstants.DODGE_PARTIAL_RATIO_MIN + 1.0) * 0.5
 		var E_dodge: float = (1.0 - effective_dodge_chance) * 1.0 + effective_dodge_chance * (1.0 - CombatConstants.DODGE_FULL_THRESHOLD) * partial_dodge_avg_ratio
 		var parry_full: bool = result.is_block_parry and result.parry_c_d >= (result.parry_p_a * CombatConstants.PARRY_DEFLECT_THRESHOLD)
-		var r_bonus: float = parry_cfg.get("redirect_bonus", 0.18)
-		var r_scale: float = parry_cfg.get("redirect_skill_scale", 0.35)
-		var redirect_skill: float = clampf((float(tgt.stats.get("agility", 100)) + float(tgt.stats.get("perception", 100))) / 200.0, 0.5, 1.5)
-		var redirect_mult: float = 1.0 + r_bonus + (redirect_skill - 0.5) * r_scale
-		if attack_type == WeaponConstants.ATTACK_TYPE_STAB:
-			redirect_mult *= 1.0 + parry_cfg.get("redirect_thrust_bonus", 0.22)
-		elif attack_type == WeaponConstants.ATTACK_TYPE_BLUNT:
-			redirect_mult *= 1.0 - parry_cfg.get("redirect_blunt_penalty", 0.12)
-		if not result.is_block_parry and m_a_parry > 0.001 and m_d_parry < m_a_parry:
-			var mass_bonus: float = parry_cfg.get("mass_disparity_bonus", 0.18) * (1.0 - m_d_parry / m_a_parry)
-			redirect_mult *= 1.0 + mass_bonus
+		var agi_d: float = float(tgt.stats.get("agility", 100))
+		var perc_d: float = float(tgt.stats.get("perception", 100))
+		var redirect_mult: float = CombatConstants.compute_parry_redirect_mult(parry_cfg, agi_d, perc_d, attack_type, result.is_block_parry, m_a_parry, m_d_parry)
 		var parry_remaining_est: float = 1.0
 		if not parry_full and result.parry_p_a > 0.001:
 			parry_remaining_est = clampf(maxf(0.0, result.parry_p_a - result.parry_c_d * redirect_mult) / result.parry_p_a, 0.0, 1.0)
 		var glancing_exp: float = parry_cfg.get("glancing_exponent", 0.5)
-		var E_parry: float = 0.0 if parry_full else pow(parry_remaining_est, glancing_exp)
+		var E_parry: float = 0.0 if parry_full else CombatConstants.glancing_factor(parry_remaining_est, glancing_exp)
 		var dodge_better: bool = E_dodge < E_parry
 		var clean_dodge_likely: bool = full_dodge_prob >= CombatConstants.PARRY_PREFER_DODGE_FULL_THRESHOLD
 		choose_parry = late_parry or ((block_viable or redirect_viable) and not dodge_better and not clean_dodge_likely)
@@ -306,15 +300,16 @@ static func _get_leverage_factor(def_weapon, alignment: float) -> float:
 	return lerpf(CombatConstants.PARRY_LEVERAGE_FLOOR, 1.0, alignment)
 
 static func _get_parry_capacity_mult(def_weapon, tgt: Dictionary, parry_time_to_react: float) -> float:
-	var m_d: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
+	# Weapon objects use direct properties; Object.get() takes 1 arg (no default like Dictionary).
+	var m_d: float = float(def_weapon.mass) if def_weapon != null else WeaponConstants.BASELINE_MASS_KG
 	var s_d: float = float(tgt.stats.get("strength", 100))
-	var speed_f: float = clampf(float(def_weapon.get("parry_speed_factor", 1.0)), 0.5, 1.5)
+	var speed_f: float = clampf(float(def_weapon.parry_speed_factor), 0.5, 1.5)
 	var blade_movement_s: float = (CombatConstants.PARRY_BLADE_MOVEMENT_S * clampf(m_d * CombatConstants.PARRY_STRENGTH_NORM / maxf(s_d, 1.0), CombatConstants.PARRY_MOVEMENT_MASS_STRENGTH_MIN, CombatConstants.PARRY_MOVEMENT_MASS_STRENGTH_MAX)) / speed_f
 	var effective_parry_time: float = maxf(0.0, parry_time_to_react - blade_movement_s)
 	return clampf(effective_parry_time / CombatConstants.PASSIVE_PARRY_MIN_TIME_FOR_FULL_S, 0.0, 1.0)
 
 static func _parry_bonus_if_active(tgt: Dictionary) -> float:
-	var now_s: float = Time.get_ticks_msec() / 1000.0
+	var now_s: float = _CombatTiming.now_seconds()
 	if tgt.get("parry_bonus_until", -1.0) > now_s:
 		return 1.1
 	return 1.0
@@ -331,7 +326,7 @@ static func _guard_zone_modifier(pa: Dictionary, tgt: Dictionary, targetable: Ar
 		return 1.0
 	var move_def: Dictionary = WeaponConstants.get_move(attack_type)
 	var attack_line: String = move_def.get("attack_line", "high")
-	var guard_line: String = tgt.get("guard_line", "high")
+	var guard_line: String = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)
 	var intended: String = str(pa.get("target_part", ""))
 	var expected_part: String = _PathResolver.resolve_hit_part(attack_line, guard_line, targetable, {}, intended, tgt)
 	if expected_part.is_empty():

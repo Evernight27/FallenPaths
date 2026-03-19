@@ -3,6 +3,9 @@ extends Node
 signal battle_ended(winner: String, defeated: Node)
 
 const _TurnReadyHandler := preload("res://ui/TurnReadyHandler.gd")
+const _FormationPreset := preload("res://combat/FormationPreset.gd")
+const _FormationLayoutBuilder := preload("res://ui/FormationLayoutBuilder.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 var players: Array = []
 var enemies: Array = []
@@ -26,7 +29,9 @@ func _ready() -> void:
 	# Processing will be enabled by start()
 	set_process(false)
 
-func start(p_players, p_enemies) -> void:
+## Start battle. Optional p_player_formation and p_enemy_formation: { files, ranks, density }.
+## When omitted, uses world meta "party_formation" / "enemy_formation" or defaults from count.
+func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_formation: Dictionary = {}) -> void:
 	# Accept either a single Node or an Array of Nodes for each side
 	if p_players == null:
 		players = []
@@ -65,6 +70,16 @@ func start(p_players, p_enemies) -> void:
 	for en in enemies:
 		var eid = manager.register(en, "enemy")
 		CombatantRowBuilder.create_row(eid, en, enemy_list, id_to_controls)
+	# Formation presets: use provided or default from count
+	var player_preset: Dictionary = p_player_formation if not p_player_formation.is_empty() else _FormationPreset.default_for_count(players.size())
+	var enemy_preset: Dictionary = p_enemy_formation if not p_enemy_formation.is_empty() else _FormationPreset.default_for_count(enemies.size())
+	# Start manager (builds formations, assigns rank/file when presets provided)
+	manager.start(player_preset, enemy_preset)
+	# Apply formation layout: reparent rows into rank×file grids with spacing
+	if enemy_list != null:
+		_FormationLayoutBuilder.apply_formation_layout(manager, enemy_list, id_to_controls, enemy_preset, "enemy")
+	if player_list != null:
+		_FormationLayoutBuilder.apply_formation_layout(manager, player_list, id_to_controls, player_preset, "player")
 	# Ensure ScrollContainer child has proper minimum size so scrolling works (wait for layout)
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -75,8 +90,6 @@ func start(p_players, p_enemies) -> void:
 	manager.connect("combat_ended", Callable(self, "_on_combat_ended"))
 	manager.connect("enemies_eliminated", Callable(self, "_on_enemies_eliminated"))
 	manager.connect("combatant_health_changed", Callable(self, "_on_combatant_health_changed"))
-	# start the manager
-	manager.start()
 	set_process(true)
 
 func _update_scroll_content_size() -> void:
@@ -170,18 +183,12 @@ func _append_combat_log(attacker_name: String, attacker_side: String, target_nam
 	_scroll_combat_log_to_bottom()
 
 func _on_action_resolved(attacker_id: int, target_id: int, result: Dictionary) -> void:
-	var caps = manager.get_combatants() if manager else []
-	var atk_name: String = "?"
-	var atk_side: String = ""
-	var tgt_name: String = "?"
-	var tgt_side: String = ""
-	for c in caps:
-		if c.id == attacker_id:
-			atk_name = str(c.node.name) if c.node != null else "id:%d" % attacker_id
-			atk_side = c.side
-		if c.id == target_id:
-			tgt_name = str(c.node.name) if c.node != null else "id:%d" % target_id
-			tgt_side = c.side
+	var atk = manager._get_by_id(attacker_id) if manager and manager.has_method("_get_by_id") else null
+	var tgt = manager._get_by_id(target_id) if manager and manager.has_method("_get_by_id") else null
+	var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
+	var atk_side: String = atk.get("side", "") if atk != null else ""
+	var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
+	var tgt_side: String = tgt.get("side", "") if tgt != null else ""
 	_append_combat_log(atk_name, atk_side, tgt_name, tgt_side, result)
 	# Show last hit on target row
 	var part: String = result.get("part", "")
@@ -201,6 +208,7 @@ func _on_enemies_eliminated(winner_side: String) -> void:
 	_pending_defeated = null
 	_in_medical_phase = true
 	_medical_phase_finished_announced = false
+	print("[Combat] BattleScene: enemies_eliminated => medical phase started, winner=%s" % winner_side)
 	if combat_log:
 		combat_log.append_text("\n[color=orange]——— Enemies eliminated. Medical phase: stabilize your wounded before ending. ———[/color]\n")
 		_scroll_combat_log_to_bottom()
@@ -209,6 +217,8 @@ func _on_enemies_eliminated(winner_side: String) -> void:
 func _on_combat_ended(winner_side: String, defeated_node: Node) -> void:
 	_pending_winner = winner_side
 	_pending_defeated = defeated_node
+	var def_name: String = str(defeated_node.name) if defeated_node != null else "null"
+	print("[Combat] BattleScene: combat_ended => winner=%s defeated=%s" % [winner_side, def_name])
 	if combat_log:
 		combat_log.append_text("\n[color=yellow]——— Combat ended. Winner: %s ———[/color]\n" % winner_side)
 		_scroll_combat_log_to_bottom()
@@ -222,6 +232,7 @@ func _show_end_battle_button() -> void:
 	var content_vbox = get_node_or_null("CombatCanvasLayer/UIRoot/ContentVBox")
 	if content_vbox == null:
 		return
+	print("[Combat] BattleScene: showing End battle button, pausing manager (can_end_medical_phase=true)")
 	# Pause combat loop: no more gauge fills or turn cycling until End battle is pressed
 	if manager != null:
 		manager.set_process(false)

@@ -26,15 +26,21 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 
 	await world.get_tree().process_frame
 	if battle.has_method("start"):
-		battle.start(players, enemies)
+		var party_formation: Dictionary = world.get_meta("party_formation", {}) if world.has_meta("party_formation") else {}
+		var enemy_formation: Dictionary = world.get_meta("enemy_formation", {}) if world.has_meta("enemy_formation") else {}
+		battle.start(players, enemies, party_formation, enemy_formation)
 	await world.get_tree().process_frame
 	if battle.has_signal("battle_ended"):
 		battle.connect("battle_ended", Callable(world, "_on_battle_ended"), CONNECT_ONE_SHOT)
 
 static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -> void:
+	var def_name: String = str(defeated.name) if defeated != null else "null"
+	print("[Combat] handle_battle_ended: winner=%s defeated=%s" % [winner, def_name])
 	await world.get_tree().process_frame
 	var player = world.get_node_or_null("Character")
 	var player_lost := (winner != "player")
+	var outcome: String = "defeat" if player_lost else "victory"
+	print("[Combat] handle_battle_ended: player_lost=%s => %s" % [player_lost, outcome])
 
 	if player_lost:
 		BattleEndHandler.handle_defeat(world, player, winner)

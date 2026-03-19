@@ -23,36 +23,7 @@ static func get_wound_healing_progress(entity: Node, injury: Dictionary) -> floa
 
 # --- Severity (used when adding wounds from damage) ---
 
-static func severity_from_damage(entity: Node, part: String, damage: float, sub_region: String = "") -> String:
-	var max_hp: float = float(entity.body_max.get(part, 10))
-	if max_hp <= 0.0:
-		return _Bleeding.SEVERITY_MODERATE
-	var effective_damage: float = damage * _Bleeding.get_severity_modifier(part, sub_region)
-	var pct: float = effective_damage / max_hp
-	var sev_pct: String = _Bleeding.SEVERITY_MINOR
-	if pct >= _Bleeding.SEVERITY_PERCENTAGE_CRITICAL:
-		sev_pct = _Bleeding.SEVERITY_CRITICAL
-	elif pct >= _Bleeding.SEVERITY_PERCENTAGE_SEVERE:
-		sev_pct = _Bleeding.SEVERITY_SEVERE
-	elif pct >= _Bleeding.SEVERITY_PERCENTAGE_MODERATE:
-		sev_pct = _Bleeding.SEVERITY_MODERATE
-	var sev_abs: String = _Bleeding.SEVERITY_MINOR
-	if effective_damage >= _Bleeding.SEVERITY_ABSOLUTE_CRITICAL:
-		sev_abs = _Bleeding.SEVERITY_CRITICAL
-	elif effective_damage >= _Bleeding.SEVERITY_ABSOLUTE_SEVERE:
-		sev_abs = _Bleeding.SEVERITY_SEVERE
-	elif effective_damage >= _Bleeding.SEVERITY_ABSOLUTE_MINOR:
-		sev_abs = _Bleeding.SEVERITY_MODERATE
-	var order: Array = [_Bleeding.SEVERITY_MINOR, _Bleeding.SEVERITY_MODERATE, _Bleeding.SEVERITY_SEVERE, _Bleeding.SEVERITY_CRITICAL]
-	var i_pct: int = order.find(sev_pct)
-	var i_abs: int = order.find(sev_abs)
-	return order[maxi(i_pct, i_abs)]
-
-static func severity_from_bone_damage(entity: Node, part: String, bone_damage: float) -> String:
-	var max_bone: float = float(entity.bone_max.get(part, 1))
-	if max_bone <= 0.0:
-		return _Bleeding.SEVERITY_MODERATE
-	var pct: float = bone_damage / max_bone
+static func _severity_from_pct(pct: float) -> String:
 	if pct >= _Bleeding.SEVERITY_PERCENTAGE_CRITICAL:
 		return _Bleeding.SEVERITY_CRITICAL
 	if pct >= _Bleeding.SEVERITY_PERCENTAGE_SEVERE:
@@ -60,6 +31,33 @@ static func severity_from_bone_damage(entity: Node, part: String, bone_damage: f
 	if pct >= _Bleeding.SEVERITY_PERCENTAGE_MODERATE:
 		return _Bleeding.SEVERITY_MODERATE
 	return _Bleeding.SEVERITY_MINOR
+
+static func _severity_from_abs(effective_damage: float) -> String:
+	if effective_damage >= _Bleeding.SEVERITY_ABSOLUTE_CRITICAL:
+		return _Bleeding.SEVERITY_CRITICAL
+	if effective_damage >= _Bleeding.SEVERITY_ABSOLUTE_SEVERE:
+		return _Bleeding.SEVERITY_SEVERE
+	if effective_damage >= _Bleeding.SEVERITY_ABSOLUTE_MINOR:
+		return _Bleeding.SEVERITY_MODERATE
+	return _Bleeding.SEVERITY_MINOR
+
+static func severity_from_damage(entity: Node, part: String, damage: float, sub_region: String = "") -> String:
+	var max_hp: float = float(entity.body_max.get(part, 10))
+	if max_hp <= 0.0:
+		return _Bleeding.SEVERITY_MODERATE
+	var effective_damage: float = damage * _Bleeding.get_severity_modifier(part, sub_region)
+	var pct: float = effective_damage / max_hp
+	var sev_pct: String = _severity_from_pct(pct)
+	var sev_abs: String = _severity_from_abs(effective_damage)
+	var order: Array = [_Bleeding.SEVERITY_MINOR, _Bleeding.SEVERITY_MODERATE, _Bleeding.SEVERITY_SEVERE, _Bleeding.SEVERITY_CRITICAL]
+	return order[maxi(order.find(sev_pct), order.find(sev_abs))]
+
+static func severity_from_bone_damage(entity: Node, part: String, bone_damage: float) -> String:
+	var max_bone: float = float(entity.bone_max.get(part, 1))
+	if max_bone <= 0.0:
+		return _Bleeding.SEVERITY_MODERATE
+	var pct: float = bone_damage / max_bone
+	return _severity_from_pct(pct)
 
 # --- Add wound / stump wound ---
 
@@ -219,4 +217,7 @@ static func process_blood_loss(entity: Node, delta: float) -> void:
 	if entity.has_method("_get_blood_loss_death_threshold"):
 		threshold = entity._get_blood_loss_death_threshold()
 	if entity.blood_volume <= threshold:
-		entity.emit_signal("died")
+		if entity.has_method("notify_died"):
+			entity.notify_died()
+		else:
+			entity.emit_signal("died")

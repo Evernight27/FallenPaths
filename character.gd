@@ -256,7 +256,7 @@ func _ready() -> void:
 
 func _on_combat_body_died() -> void:
 	# Battle UI will emit battle_ended(winner, defeated); main.gd handles outcome there.
-	print("Player died.")
+	print("[Combat] Player character died (Character combat body died signal: %s)" % name)
 
 func _snap_to_grid(pos: Vector2) -> Vector2:
 	return Vector2(

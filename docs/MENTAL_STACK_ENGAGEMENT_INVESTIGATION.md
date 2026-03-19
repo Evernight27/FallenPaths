@@ -263,7 +263,7 @@ This mirrors HEMA "binding" or "corps-à-corps" — close-quarters exchange wher
 - **CombatManager:** Gauge-based readiness; states `WAITING`, `WIND_UP`, `RECOVERING`, etc.
 - **pick_weighted_action:** Medical by urgency; attacks equal weight (1.0)
 - **get_available_actions:** Attack options = (move_id, target_id) for each weapon move and each enemy
-- **Parry:** Active choice when someone winding up (or passive per PARRY_DESIGN_OPTIONS)
+- **Parry:** Active choice when someone winding up (or passive per PARRY_SYSTEM_OPTIONS)
 
 ### Hooks for Mental Stack
 
@@ -289,4 +289,4 @@ This mirrors HEMA "binding" or "corps-à-corps" — close-quarters exchange wher
 - Fire Emblem Engage Break: weapon triangle, counter prevention
 - NWN2 Flurry: 2-second combat units, attacks per flurry
 - Yomi: [Smogon "Yomi and You"](https://www.smogon.com/forums/threads/yomi-and-you.11746/) (read/counter-read)
-- Current code: `CombatManager.gd`, `AttackResolver.gd`, `BattleScene.gd`, `PARRY_DESIGN_OPTIONS.md`
+- Current code: `CombatManager.gd`, `AttackResolver.gd`, `BattleScene.gd`, `PARRY_SYSTEM_OPTIONS.md`

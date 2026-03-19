@@ -3,6 +3,9 @@ extends RefCounted
 
 ## Sets up party manager, party menu, and Party button. Used by main.gd.
 ## world: the main scene (Node2D) - must have Character and optionally Character/Companion.
+## Also sets default party_formation for combat (FF4 formation UI). Customize via world meta.
+
+const _FormationPreset := preload("res://combat/FormationPreset.gd")
 
 static func setup_party(world: Node2D) -> void:
 	var party_manager_script = load(ResourcePaths.PARTY_MANAGER)
@@ -30,6 +33,8 @@ static func setup_party(world: Node2D) -> void:
 
 	world.set_meta("party_manager", pm)
 	world.set_meta("party_menu", party_menu)
+	# Default party formation for combat (2×ceil(n/2), normal density). BattleScene uses this when starting combat.
+	world.set_meta("party_formation", _FormationPreset.default_for_count(pm.get_members().size()))
 
 static func _get_or_create_overlay(root: Node) -> CanvasLayer:
 	for child in root.get_children():

@@ -24,7 +24,7 @@ static func create_row(id: int, node: Node, list: Control, id_to_controls: Dicti
 	gauge_block.add_theme_constant_override("separation", 4)
 	var gauge = ProgressBar.new()
 	gauge.min_value = 0.0
-	gauge.max_value = 100.0
+	gauge.max_value = 100.0  # Stamina 0-100 (Phase 1: bar shows stamina)
 	gauge.value = 0.0
 	gauge.custom_minimum_size = Vector2(BattleUIConstants.GAUGE_WIDTH, 14)
 	gauge.size_flags_horizontal = Control.SIZE_SHRINK_END

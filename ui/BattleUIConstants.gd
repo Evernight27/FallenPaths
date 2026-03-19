@@ -7,8 +7,8 @@ extends RefCounted
 # Body bar dimensions
 const BODY_BAR_CELL_WIDTH := 56
 const BODY_BAR_HEIGHT := 12
-const GAUGE_WIDTH := 180
-const GAUGE_LABEL_MIN_WIDTH := 140
+const GAUGE_WIDTH := 160
+const GAUGE_LABEL_MIN_WIDTH := 90
 
 # Combat log
 const LOG_MAX_LINES := 80

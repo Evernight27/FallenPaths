@@ -8,6 +8,7 @@ extends RefCounted
 
 const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
+const _CombatTiming := preload("res://combat/CombatTiming.gd")
 
 # --- Pain contribution (single wound; used for pain-shock from hit) ---
 
@@ -113,7 +114,7 @@ static func try_enter_pain_shock_from_hit(entity: Node, pain_from_this_hit_raw: 
 	var risk: float = minf(1.0, (pain_value - shock_thresh) * _PainConscious.get_pain_shock_risk_per_point())
 	if randf() >= risk:
 		return
-	var now: float = Time.get_ticks_msec() / 1000.0
+	var now: float = _CombatTiming.now_seconds()
 	var duration: float = _PainConscious.get_pain_shock_duration_seconds(pain_value, entity._last_hit_impact)
 	entity._pain_shock_until_time = now + duration
 	entity._last_hit_impact = 0.0
@@ -131,7 +132,7 @@ static func update_consciousness(entity: Node) -> void:
 	var old_consciousness: float = entity.consciousness
 	var old_effective: float = entity.effective_consciousness
 	entity.consciousness = true_consciousness
-	var now: float = Time.get_ticks_msec() / 1000.0
+	var now: float = _CombatTiming.now_seconds()
 	if entity._pain_shock_until_time >= 0.0 and now < entity._pain_shock_until_time:
 		entity.effective_consciousness = true_consciousness * (1.0 - _PainConscious.PAIN_SHOCK_CONSCIOUSNESS_REDUCTION / 100.0)
 	else:
@@ -139,9 +140,15 @@ static func update_consciousness(entity: Node) -> void:
 		entity.effective_consciousness = true_consciousness
 	entity._consciousness_dirty = false
 	if old_consciousness != entity.consciousness or old_effective != entity.effective_consciousness:
-		entity.health_changed.emit()
+		if entity.has_method("notify_health_changed"):
+			entity.notify_health_changed()
+		else:
+			entity.health_changed.emit()
 	if true_consciousness < _PainConscious.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
-		entity.creature_incapacitated.emit()
+		if entity.has_method("notify_creature_incapacitated"):
+			entity.notify_creature_incapacitated()
+		else:
+			entity.creature_incapacitated.emit()
 
 # --- Performance modifiers ---
 

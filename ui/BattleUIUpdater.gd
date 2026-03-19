@@ -10,13 +10,9 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 	if ctrl.name:
 		ctrl.name.text = str(c.node.name) if c.node != null else ctrl.name.text
 	if ctrl.gauge:
-		var state: String = c.get("state", "waiting")
-		# Action bar only shows fill when waiting (charging next turn); stays empty during swing/medical/recovery
-		# receiving_medical_attention: gauge full (readied), cannot act until care finishes
-		if state == "wind_up" or state == "medical_wind_up" or state == "recovering":
-			ctrl.gauge.value = 0.0
-		else:
-			ctrl.gauge.value = c.gauge
+		# Phase 1: Show stamina (0-100) instead of gauge. Gauge kept for compatibility (e.g. receiving_medical).
+		var stamina: float = c.get("stamina", CombatConstants.STAMINA_MAX)
+		ctrl.gauge.value = stamina
 	if ctrl.get("gauge_label"):
 		if not c.alive:
 			ctrl.gauge_label.text = "Defeated"
@@ -24,23 +20,27 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 			var state: String = c.get("state", "waiting")
 			var state_timer: float = c.get("state_timer", 0.0)
 			var state_duration: float = c.get("state_duration", 0.0)
+			var remain: float = maxf(0.0, state_duration - state_timer)
 			if state == "wind_up":
-				var remain: float = maxf(0.0, state_duration - state_timer)
 				ctrl.gauge_label.text = "Wind-up %.1fs" % remain
 			elif state == "medical_wind_up":
-				var remain: float = maxf(0.0, state_duration - state_timer)
 				var pm = c.get("pending_medical", {})
 				var mid: String = pm.get("medical_id", "")
 				var tgt_cid: int = pm.get("target_combatant_id", c.id)
 				var med_label: String = BattleUIConstants.MEDICAL_ACTION_LABELS_ALLY.get(mid, BattleUIConstants.MEDICAL_ACTION_LABELS.get(mid, "Medical")) if tgt_cid != c.id else BattleUIConstants.MEDICAL_ACTION_LABELS.get(mid, "Medical")
 				ctrl.gauge_label.text = "%s %.1fs" % [med_label, remain]
 			elif state == "recovering":
-				var remain: float = maxf(0.0, state_duration - state_timer)
 				ctrl.gauge_label.text = "Recov. %.1fs" % remain
+			elif state == CombatConstants.STATE_SWAP_RANK:
+				ctrl.gauge_label.text = "Swap %.1fs" % remain
 			elif state == "receiving_medical_attention":
 				ctrl.gauge_label.text = "Receiving care"
+			elif c.get("status_override", "").is_empty() == false:
+				# Event tracking: show closing/next-turn status so unit doesn't look frozen
+				ctrl.gauge_label.text = str(c.status_override)
 			else:
-				var base: String = "Ready!" if c.gauge >= 100.0 else "%d%%" % int(c.gauge)
+				# Phase 1: Event-driven ready. Gauge set to 100 when EVENT_ACTION_READY fires.
+				var base: String = "Ready!" if c.gauge >= 100.0 else "Stm %d%%" % int(c.get("stamina", 100))
 				if CombatConstants.COMBAT_DEBUG and c.get("guard_angle_deg", null) is float:
 					base += " %.0f°" % float(c.guard_angle_deg)
 				ctrl.gauge_label.text = base
@@ -74,5 +74,5 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 				bar.value = worst
 				bar.visible = mx > 0
 				if part in ctrl.get("body_labels", {}):
-					ctrl.body_labels[part].text = _RowFormatter.format_body_part(part, bc, bb, bm, bone_h, bone_m)
+					ctrl.body_labels[part].text = _RowFormatter.format_body_part_compact(part, bc, bb, bm, bone_h, bone_m)
 					ctrl.body_labels[part].visible = mx > 0
