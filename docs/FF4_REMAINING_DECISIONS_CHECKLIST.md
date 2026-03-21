@@ -38,7 +38,7 @@ Complete each choice below. Once filled, the plan is ready for implementation.
 
 **Fall back:** Combination of (b) and (c). Expand with realistic movement:
 - **Drag back:** Units in rear ranks can drag damaged units from front to clear the frontline. Causes distraction deficit for the unit in that space or clearing it. Requires adjacent units to hold formation for movement to occur.
-- **Step over fallen:** Units can step over fallen friends — reduced footing, quicker transition; may prevent foe from finishing the wounded unit.
+- **Step over fallen:** Units can step over fallen friends — reduced footing (×1.15–1.25 duration), but movement allowed. Dead/wounded stay tracked in slot as ground obstacles; they do NOT block allies from advancing. May prevent foe from finishing the wounded unit.
 - **Multi-unit same spot:** Allow multiple units in same slot when dragging/transitioning, with appropriate deficits (distraction, footing).
 - (b) Disengage + move to rear zone; (c) Full retreat when appropriate.
 

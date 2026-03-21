@@ -5,11 +5,14 @@ signal action_resolved(attacker_id, target_id, result)
 signal combat_ended(winner_side, defeated_node)
 signal enemies_eliminated(winner_side)
 signal combatant_health_changed(combatant_id)
+signal formation_changed(side)
+signal turn_resolved(combatant_id)  # Combatant has committed their action (attacked, skipped, swapped, etc.)
 
 var combatants := []
 var medical_phase: bool = false
 var medical_phase_winner: String = ""
 # FF4 migration Phase 0: event queue (array → min-heap in Phase 1), combat clock, encounter, formations.
+# Hybrid model: Signals (formation_changed, turn_resolved) drive when to schedule; heap executes at resolve_at.
 var event_queue: Array = []
 var combat_clock: float = 0.0
 var encounter: Dictionary = {}
@@ -128,8 +131,8 @@ func _build_formations_and_assign_slots(player_formation: Dictionary, enemy_form
 		p_ranks = int(ceilf(float(maxi(1, player_count)) / float(maxi(1, p_files))))
 	if e_preset.has("front_count") or not e_preset.has("ranks"):
 		e_ranks = int(ceilf(float(maxi(1, enemy_count)) / float(maxi(1, e_files))))
-	formations["player"] = {"files": p_files, "ranks": p_ranks, "density": p_preset.get("density", "normal"), "side": "player", "slots": {}, "zone_control": {}}
-	formations["enemy"] = {"files": e_files, "ranks": e_ranks, "density": e_preset.get("density", "normal"), "side": "enemy", "slots": {}, "zone_control": {}}
+	formations["player"] = {"files": p_files, "ranks": p_ranks, "density": p_preset.get("density", "normal"), "side": "player", "slots": {}, "slot_obstacles": {}, "zone_control": {}}
+	formations["enemy"] = {"files": e_files, "ranks": e_ranks, "density": e_preset.get("density", "normal"), "side": "enemy", "slots": {}, "slot_obstacles": {}, "zone_control": {}}
 	# Fill rank 0 first (spawn order): first files units -> rank 0, next files -> rank 1, etc.
 	var pi: int = 0
 	var ei: int = 0
@@ -150,12 +153,47 @@ func _build_formations_and_assign_slots(player_formation: Dictionary, enemy_form
 			c.formation_id = "enemy"
 			formations["enemy"].slots[Vector2i(r, f)] = c.id
 			ei += 1
-	# Phase 2: Initialize pair-wise distance_to. All opponents start at mid (spear can attack; others need close).
+	# Phase 2: Initialize distance_to from formation position (rank/file).
+	_update_distance_to_from_formations()
+
+## Phase 2+3: Update distance_to for all combatants from formation position. Call after slots change (start, plug, swap).
+## Back rank (our_rank>0) = LONG; Rank 0 vs rank 0, adjacent file = MID (or preserve CLOSE); else LONG.
+func _update_distance_to_from_formations() -> void:
 	for c in combatants:
-		c.distance_to = {}
+		if not c.has("distance_to"):
+			c.distance_to = {}
+		var our_rank: int = c.get("rank", 0)
+		var our_file: int = c.get("file", 0)
 		for opp in combatants:
-			if opp.side != c.side and opp.alive:
+			if opp.side == c.side or not opp.alive:
+				continue
+			var opp_rank: int = opp.get("rank", 0)
+			var opp_file: int = opp.get("file", 0)
+			# Back rank cannot engage — LONG to everyone.
+			if our_rank > 0:
+				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
+				continue
+			# Preserve CLOSE (achieved via attempt_close).
+			var cur: String = c.distance_to.get(opp.id, CombatConstants.DISTANCE_MID)
+			if cur == CombatConstants.DISTANCE_CLOSE:
+				continue
+			# Opponent in back — not a melee target; LONG.
+			if opp_rank > 0:
+				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
+				continue
+			# Both rank 0: MID if adjacent file (|Δfile| ≤ 1), else LONG.
+			var df: int = int(absf(float(our_file - opp_file)))
+			if df <= 1:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_MID
+			else:
+				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
+	# Sync opposing direction (atk.distance_to[tgt] implies tgt.distance_to[atk] for CLOSE only).
+	for c in combatants:
+		for opp in combatants:
+			if opp.side == c.side or not opp.alive:
+				continue
+			if c.distance_to.get(opp.id, "") == CombatConstants.DISTANCE_CLOSE:
+				opp.distance_to[c.id] = CombatConstants.DISTANCE_CLOSE
 
 ## Phase 1: Schedule EVENT_ACTION_READY for each alive combatant at combat start.
 ## Stagger by agility: faster units ready sooner. Tie-break: agility desc, then combatant_id asc.
@@ -163,13 +201,7 @@ func _schedule_initial_action_ready_events() -> void:
 	for c in combatants:
 		if not c.alive or _EntityAccess.is_incapacitated(c):
 			continue
-		var cooldown: float = _action_ready_cooldown(c)
-		_schedule_event({
-			"type": CombatConstants.EVENT_ACTION_READY,
-			"combatant_id": c.id,
-			"resolve_at": combat_clock + cooldown,
-			"data": {}
-		})
+		_schedule_action_ready(c.id, _action_ready_cooldown(c))
 
 ## Cooldown until next ACTION_READY. Replicates gauge fill: agility 100 -> ~2s.
 ## Off-balance adds tempo penalty (slower recovery). Performance modifier from pain/consciousness.
@@ -244,37 +276,8 @@ func _handle_action_ready(c: Dictionary) -> void:
 	else:
 		var actions: Array = get_available_actions(c.id)
 		if actions.is_empty():
-			var tgt = _find_first_opponent(c.side)
-			if tgt != null:
-				var can_attack: bool = true
-				if c.node != null and c.node.has_method("get_attacking_arm"):
-					can_attack = not c.node.get_attacking_arm().is_empty()
-				if can_attack:
-					_WindUpStarter.start(self, c.id, tgt.id)
-					_schedule_event({
-						"type": CombatConstants.EVENT_MELEE_ATTACK,
-						"combatant_id": c.id,
-						"resolve_at": combat_clock + c.state_duration,
-						"data": {}
-					})
-				else:
-					var who_skip: String = _EntityAccess.get_display_name(c)
-					print("[Combat] %s has no functional arm; skip turn (short recovery)." % who_skip)
-					_StateHandlers.enter_short_recovery(c)
-					_schedule_event({
-						"type": CombatConstants.EVENT_RECOVERY_END,
-						"combatant_id": c.id,
-						"resolve_at": combat_clock + 0.8,
-						"data": {}
-					})
-			else:
-				# No opponents left; schedule next ready
-				_schedule_event({
-					"type": CombatConstants.EVENT_ACTION_READY,
-					"combatant_id": c.id,
-					"resolve_at": combat_clock + _action_ready_cooldown(c),
-					"data": {}
-				})
+			# No valid actions (rank 1 with no swap partner, out of range, etc.). Skip turn.
+			skip_turn(c.id)
 		else:
 			var choice = CombatAIActionPicker.pick(actions, c.id, self)
 			var opts: Dictionary = CombatAIActionPicker.opts_from_choice(choice)
@@ -299,13 +302,7 @@ func _handle_recovery_end(c: Dictionary) -> void:
 		return
 	_StateHandlers.complete_recovery(c)
 	if c.state == CombatConstants.STATE_WAITING:
-		var cooldown: float = _action_ready_cooldown(c)
-		_schedule_event({
-			"type": CombatConstants.EVENT_ACTION_READY,
-			"combatant_id": c.id,
-			"resolve_at": combat_clock + cooldown,
-			"data": {}
-		})
+		_schedule_action_ready(c.id, _action_ready_cooldown(c))
 	elif c.state == CombatConstants.STATE_COWERING:
 		# Cowering: no EVENT_ACTION_READY until they leave cowering (process_incapacitation handles)
 		pass
@@ -327,18 +324,20 @@ func finish_battle() -> void:
 	emit_signal("combat_ended", medical_phase_winner, null)
 	stop()
 
-## Resets a combatant's turn so they can "skip" when they have no available actions (e.g. medical phase with no wounded allies).
-## Phase 1: Schedule EVENT_ACTION_READY at short cooldown instead of gauge.
+## Resets a combatant's turn so they can "skip" when they have no available actions.
+## Back rank (rank 1+) with no swap/melee: wait longer (reserve) to avoid spamming skip every 0.5s.
+## formation_changed schedules ready for promoted units; they act soon after plug.
 func skip_turn(combatant_id: int) -> void:
 	var c = _get_by_id(combatant_id)
-	if c != null and c.state == CombatConstants.STATE_WAITING:
-		c.gauge = 0.0
-		_schedule_event({
-			"type": CombatConstants.EVENT_ACTION_READY,
-			"combatant_id": combatant_id,
-			"resolve_at": combat_clock + 0.5,
-			"data": {}
-		})
+	if c == null or c.state != CombatConstants.STATE_WAITING:
+		return
+	emit_signal("turn_resolved", combatant_id)
+	c.gauge = 0.0
+	var delay: float = CombatConstants.READY_DELAY_SKIP_DEFAULT_S
+	if c.get("rank", 0) > 0:
+		# Back rank with no actions — wait in reserve (formation_changed reschedules promoted on plug).
+		delay = CombatConstants.READY_DELAY_SKIP_BACK_RANK_S
+	_schedule_action_ready(combatant_id, delay)
 
 ## When player wins: enter medical phase, emit enemies_eliminated, keep battle running. When enemy wins: end immediately.
 func _end_combat_phase(winner: String, defeated_node: Node) -> void:
@@ -404,6 +403,33 @@ func _get_next_action_ready_at(combatant_id: int) -> float:
 			if at > combat_clock and (best < 0.0 or at < best):
 				best = at
 	return best
+
+## Remove any pending EVENT_ACTION_READY for combatant_id from the event queue.
+func _cancel_pending_action_ready(combatant_id: int) -> void:
+	event_queue = event_queue.filter(func(ev: Dictionary) -> bool:
+		return not (ev.get("type", "") == CombatConstants.EVENT_ACTION_READY and ev.get("combatant_id", -1) == combatant_id)
+	)
+
+## Centralized ACTION_READY scheduling. Always cancels pending first to avoid duplicate turns.
+func _schedule_action_ready(combatant_id: int, delay_s: float) -> void:
+	_cancel_pending_action_ready(combatant_id)
+	_schedule_event({
+		"type": CombatConstants.EVENT_ACTION_READY,
+		"combatant_id": combatant_id,
+		"resolve_at": combat_clock + delay_s,
+		"data": {}
+	})
+
+## On formation change, reschedule back-rank WAITING units so they re-check actions sooner.
+func _reschedule_back_rank_turns(fid: String) -> void:
+	for c in combatants:
+		if not c.alive or c.get("formation_id", "") != fid:
+			continue
+		if c.get("rank", 0) <= 0 or c.state != CombatConstants.STATE_WAITING:
+			continue
+		if _EntityAccess.is_incapacitated(c):
+			continue
+		_schedule_action_ready(c.id, CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
 
 # Available actions: array of { "target_id": int, "move_id": String, optional "target_part": String }.
 # Attack moves (non-parry) and medical when in danger. Parry is passive only (A4v3).
@@ -539,6 +565,7 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 			var who: String = _EntityAccess.get_display_name(atk, attacker_id)
 			print("[Combat] %s (receiving care) holding direct pressure on %s" % [who, part])
 			emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "direct_pressure", "part": part, "dmg": 0, "died": false})
+			emit_signal("turn_resolved", attacker_id)
 		return
 	if atk.state != CombatConstants.STATE_WAITING:
 		return
@@ -549,6 +576,7 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 		var tgt_desc: String = "ally" if target_id != attacker_id else "self"
 		print("[Combat] Action: %s chose medical %s on part=%s (%s)" % [who, move_id, part, tgt_desc])
 		MedicalActionStarter.start(self, attacker_id, target_id, move_id, part)
+		emit_signal("turn_resolved", attacker_id)
 		return
 	var tgt = _get_by_id(target_id)
 	if tgt == null or not tgt.alive:
@@ -560,10 +588,12 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 			var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 			print("[Combat] %s attempting to close on %s (weapon range too short for mid)" % [atk_name, tgt_name])
 		_resolve_close_attempt(attacker_id, target_id)
+		emit_signal("turn_resolved", attacker_id)
 		return
 	# Phase 3: Swap rank — time-based; no stamina. Swap positions with ally in same file, other rank.
 	if move_id == CombatConstants.MOVE_ID_SWAP_RANK:
 		_start_swap_rank(attacker_id, target_id)
+		emit_signal("turn_resolved", attacker_id)
 		return
 	# Normal attack: clear direct pressure (new action), then start attack
 	if atk.node != null and atk.node.has_method("clear_direct_pressure"):
@@ -576,6 +606,7 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 	if options.has("feint_part"):
 		opts["feint_part"] = options.feint_part
 	_WindUpStarter.start(self, attacker_id, target_id, move_id, opts)
+	emit_signal("turn_resolved", attacker_id)
 	# Phase 1: Schedule EVENT_MELEE_ATTACK for event-driven resolution
 	# _WindUpStarter mutates atk (state, state_duration); atk is reference so already updated
 	if atk.state == CombatConstants.STATE_WIND_UP and atk.state_duration > 0.0:
@@ -589,18 +620,18 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 func _execute_attack(attacker_id: int) -> void:
 	var result: Dictionary = _AttackResolver.resolve_attack(self, attacker_id)
 	_AttackResultApplier.apply_result(self, attacker_id, result)
+	# Phase 3: Plug on death — when target died, update formation (slot_obstacles, promote rank 1 if rank 0 died).
+	var tgt_id: int = result.get("target_id", -1)
+	if tgt_id >= 0:
+		var tgt = _get_by_id(tgt_id)
+		if tgt != null and not tgt.alive:
+			_on_combatant_died(tgt)
 	# Option D: CombatManager owns flow. After parry, defender gets EVENT_ACTION_READY.
 	var action: String = result.get("action", "")
-	var tgt_id: int = result.get("target_id", -1)
 	if action in ["parry_deflect", "parry_partial"] and tgt_id >= 0:
 		var tgt = _get_by_id(tgt_id)
 		if tgt != null and tgt.alive and tgt.state == CombatConstants.STATE_WAITING:
-			_schedule_event({
-				"type": CombatConstants.EVENT_ACTION_READY,
-				"combatant_id": tgt_id,
-				"resolve_at": combat_clock + 0.02,
-				"data": {}
-			})
+			_schedule_action_ready(tgt_id, CombatConstants.READY_DELAY_PARRY_RIPOSTE_S)
 
 ## Phase 2: Resolve close attempt — roll engagement_pressure vs defender evasion. Success → both distance_to = close.
 func _resolve_close_attempt(attacker_id: int, target_id: int) -> void:
@@ -627,18 +658,13 @@ func _resolve_close_attempt(attacker_id: int, target_id: int) -> void:
 	if CombatConstants.COMBAT_EVENT_DEBUG:
 		var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 		var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
-		print("[Combat] Close attempt %s → %s: %s (next turn in 0.3s)" % [atk_name, tgt_name, "success" if success else "failed"])
+		print("[Combat] Close attempt %s → %s: %s (next turn in %.1fs)" % [atk_name, tgt_name, "success" if success else "failed", CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S])
 	emit_signal("action_resolved", attacker_id, target_id, {"outcome": "close_success" if success else "close_failed", "dmg": 0, "died": false})
 	if success:
 		atk.distance_to[target_id] = CombatConstants.DISTANCE_CLOSE
 		tgt.distance_to[attacker_id] = CombatConstants.DISTANCE_CLOSE
-	atk["action_cooldown_until"] = combat_clock + 0.3  # UI can show "Closing X.Xs"
-	_schedule_event({
-		"type": CombatConstants.EVENT_ACTION_READY,
-		"combatant_id": attacker_id,
-		"resolve_at": combat_clock + 0.3,
-		"data": {}
-	})
+	atk["action_cooldown_until"] = combat_clock + CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S  # UI can show "Closing X.Xs"
+	_schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S)
 
 ## Phase 3: Start swap rank — time-based, no stamina. Both units enter STATE_SWAP_RANK until resolve.
 func _start_swap_rank(initiator_id: int, partner_id: int) -> void:
@@ -658,6 +684,9 @@ func _start_swap_rank(initiator_id: int, partner_id: int) -> void:
 	var f1: int = partner.get("file", 0)
 	if f0 != f1 or abs(r0 - r1) != 1:
 		return  # Must be same file, adjacent rank
+	# Only front can initiate, except when front is incapacitated (back can plug forward).
+	if r0 >= r1 and not _EntityAccess.is_incapacitated(partner):
+		return
 	var lane_mod: float = CombatConstants.LANE_MOD_CLEAR
 	var pressure_mod: float = CombatConstants.PRESSURE_MOD_NEUTRAL
 	var agi: float = float(init.stats.get("agility", 100))
@@ -718,12 +747,63 @@ func _handle_swap_rank_resolve(ev: Dictionary) -> void:
 		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
 		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
 		print("[Combat] %s and %s swapped rank" % [n0, n1])
-	_schedule_event({
-		"type": CombatConstants.EVENT_ACTION_READY,
-		"combatant_id": initiator_id,
-		"resolve_at": combat_clock + _action_ready_cooldown(init),
-		"data": {}
-	})
+	_update_distance_to_from_formations()
+	emit_signal("formation_changed", fid)
+	_reschedule_back_rank_turns(fid)
+	_schedule_action_ready(initiator_id, _action_ready_cooldown(init))
+	# Partner moved to front — schedule soon (same as plug) so they can act.
+	if partner != null and partner.alive and not _EntityAccess.is_incapacitated(partner):
+		_schedule_action_ready(partner_id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
+
+## Phase 3: Plug on death — track dead in slot_obstacles; when rank 0 dies, promote rank 1 in same file.
+## Dead/wounded stay tracked (non-blocking); allies can step over. Prevents formation from breaking.
+func _on_combatant_died(c: Dictionary) -> void:
+	var fid: String = c.get("formation_id", "")
+	var formation: Dictionary = formations.get(fid, {})
+	if formation.is_empty():
+		return
+	var r: int = c.get("rank", 0)
+	var f: int = c.get("file", 0)
+	var slots: Dictionary = formation.get("slots", {})
+	var obstacles: Dictionary = formation.get("slot_obstacles", {})
+	# Remove from slots (primary occupant)
+	slots.erase(Vector2i(r, f))
+	# Add to slot_obstacles (ground obstacle; tracked, non-blocking)
+	var key := Vector2i(r, f)
+	if not obstacles.has(key):
+		obstacles[key] = []
+	obstacles[key].append(c.id)
+	# Plug: when any rank dies, cascade from that rank to fill vacancies (promote from behind).
+	if formation.get("ranks", 1) > 1:
+		var formation_ranks: int = formation.get("ranks", 1)
+		for fill_rank in range(formation_ranks):
+			if slots.has(Vector2i(fill_rank, f)):
+				continue  # Slot filled
+			var next_rank: int = fill_rank + 1
+			if next_rank >= formation_ranks:
+				break
+			var promoted = null
+			for ally in combatants:
+				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
+					continue
+				if ally.get("rank", 0) == next_rank and ally.get("file", 0) == f:
+					promoted = ally
+					break
+			if promoted == null:
+				break
+			slots.erase(Vector2i(next_rank, f))
+			promoted.rank = fill_rank
+			promoted.file = f
+			slots[Vector2i(fill_rank, f)] = promoted.id
+			if CombatConstants.COMBAT_EVENT_DEBUG:
+				var name_p: String = _EntityAccess.get_display_name(promoted, promoted.get("id", -1))
+				print("[Combat] Plug: %s advanced to rank %d (file %d) after ally fell" % [name_p, fill_rank, f])
+			# Schedule EVENT_ACTION_READY so promoted unit can act soon (no long wait).
+			_schedule_action_ready(promoted.id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
+	_update_distance_to_from_formations()
+	# Always emit so formation layout/diagram refresh (remove dead from grid, show plug result)
+	emit_signal("formation_changed", fid)
+	_reschedule_back_rank_turns(fid)
 
 func _get_by_id(id: int):
 	for c in combatants:

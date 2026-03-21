@@ -25,13 +25,34 @@ static func create(parent: Node) -> Dictionary:
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	ui_root.add_child(overlay)
 
-	# Content on top: main panels + combat log (so panels and log are visible above overlay)
+	# Content on top: formation diagram, main panels, combat log
 	var content_vbox = VBoxContainer.new()
 	content_vbox.name = "ContentVBox"
 	content_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	content_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content_vbox.add_theme_constant_override("separation", 8)
 	ui_root.add_child(content_vbox)
+
+	# Formation diagram: compact rank×file view (enemies | party) — shows positions, updates on swap
+	var formation_header = Label.new()
+	formation_header.text = "Formation (Front / Back)"
+	formation_header.add_theme_font_size_override("font_size", 12)
+	formation_header.add_theme_color_override("font_color", Color(0.7, 0.75, 0.8))
+	formation_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content_vbox.add_child(formation_header)
+	var formation_hbox = HBoxContainer.new()
+	formation_hbox.name = "FormationDiagramHBox"
+	formation_hbox.add_theme_constant_override("separation", 16)
+	formation_hbox.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	content_vbox.add_child(formation_hbox)
+
+	# Creature stats: static list, never moves (separate from formation diagram above)
+	var stats_header = Label.new()
+	stats_header.text = "Creature stats"
+	stats_header.add_theme_font_size_override("font_size", 12)
+	stats_header.add_theme_color_override("font_color", Color(0.7, 0.75, 0.8))
+	stats_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content_vbox.add_child(stats_header)
 
 	# Scrollable area for enemy/player panels (scrolls when many combatants, combat log stays fixed below)
 	var main_scroll = ScrollContainer.new()
@@ -45,9 +66,10 @@ static func create(parent: Node) -> Dictionary:
 	var main_hbox = HBoxContainer.new()
 	main_hbox.name = "MainHBox"
 	main_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_hbox.add_theme_constant_override("separation", 16)
 	main_scroll.add_child(main_hbox)
 
-	# Left panel for enemies (list)
+	# Column 1: Enemies panel
 	var enemy_panel = Panel.new()
 	enemy_panel.name = "EnemyPanel"
 	enemy_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -63,18 +85,15 @@ static func create(parent: Node) -> Dictionary:
 	enemy_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	enemy_vbox.add_child(enemy_title)
 
-	var enemy_list_vbox = VBoxContainer.new()
-	enemy_list_vbox.name = "EnemyList"
-	enemy_list_vbox.size_flags_vertical = Control.SIZE_SHRINK_END
-	enemy_vbox.add_child(enemy_list_vbox)
+	var enemy_list = GridContainer.new()
+	enemy_list.name = "EnemyList"
+	enemy_list.columns = 2
+	enemy_list.add_theme_constant_override("h_separation", 12)
+	enemy_list.add_theme_constant_override("v_separation", 8)
+	enemy_list.size_flags_vertical = Control.SIZE_SHRINK_END
+	enemy_vbox.add_child(enemy_list)
 
-	# Separator between enemy and player panels
-	var middle_sep = VSeparator.new()
-	middle_sep.name = "MiddleSeparator"
-	middle_sep.custom_minimum_size = Vector2(24, 0)
-	main_hbox.add_child(middle_sep)
-
-	# Right panel for players (list)
+	# Column 2: Party panel
 	var player_panel = Panel.new()
 	player_panel.name = "PlayerPanel"
 	player_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -90,10 +109,13 @@ static func create(parent: Node) -> Dictionary:
 	player_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	player_vbox.add_child(player_title)
 
-	var player_list_vbox = VBoxContainer.new()
-	player_list_vbox.name = "PlayerList"
-	player_list_vbox.size_flags_vertical = Control.SIZE_SHRINK_END
-	player_vbox.add_child(player_list_vbox)
+	var player_list = GridContainer.new()
+	player_list.name = "PlayerList"
+	player_list.columns = 2
+	player_list.add_theme_constant_override("h_separation", 12)
+	player_list.add_theme_constant_override("v_separation", 8)
+	player_list.size_flags_vertical = Control.SIZE_SHRINK_END
+	player_vbox.add_child(player_list)
 
 	# Combat log panel (below main panels)
 	var log_sep = HSeparator.new()
@@ -129,5 +151,6 @@ static func create(parent: Node) -> Dictionary:
 	return {
 		"canvas_layer": canvas_layer,
 		"combat_log": combat_log,
-		"combat_log_scroll": combat_log_scroll
+		"combat_log_scroll": combat_log_scroll,
+		"formation_diagram_hbox": formation_hbox
 	}

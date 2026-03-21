@@ -4,6 +4,7 @@ signal battle_ended(winner: String, defeated: Node)
 
 const _TurnReadyHandler := preload("res://ui/TurnReadyHandler.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
+const _FormationDiagramBuilder := preload("res://ui/FormationDiagramBuilder.gd")
 const _FormationLayoutBuilder := preload("res://ui/FormationLayoutBuilder.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
@@ -24,6 +25,13 @@ var _medical_phase_finished_announced: bool = false
 
 # UI nodes
 var canvas_layer: CanvasLayer
+var formation_diagram_hbox: Control = null
+var formation_diagram_enemy: Control = null
+var formation_diagram_player: Control = null
+var _player_list: Control = null
+var _enemy_list: Control = null
+var _player_preset: Dictionary = {}
+var _enemy_preset: Dictionary = {}
 
 func _ready() -> void:
 	# Processing will be enabled by start()
@@ -62,34 +70,41 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 	manager = mgr_script.new()
 	add_child(manager)
 	# register combatants
-	var player_list = get_node_or_null(BattleUIConstants.MAIN_LIST_PATH + "/PlayerPanel/PlayerVBox/PlayerList")
-	var enemy_list = get_node_or_null(BattleUIConstants.MAIN_LIST_PATH + "/EnemyPanel/EnemyVBox/EnemyList")
+	_player_list = get_node_or_null(BattleUIConstants.MAIN_LIST_PATH + "/PlayerPanel/PlayerVBox/PlayerList")
+	_enemy_list = get_node_or_null(BattleUIConstants.MAIN_LIST_PATH + "/EnemyPanel/EnemyVBox/EnemyList")
 	for pl in players:
 		var pid = manager.register(pl, "player")
-		CombatantRowBuilder.create_row(pid, pl, player_list, id_to_controls)
+		CombatantRowBuilder.create_row(pid, pl, _player_list, id_to_controls)
 	for en in enemies:
 		var eid = manager.register(en, "enemy")
-		CombatantRowBuilder.create_row(eid, en, enemy_list, id_to_controls)
+		CombatantRowBuilder.create_row(eid, en, _enemy_list, id_to_controls)
 	# Formation presets: use provided or default from count
-	var player_preset: Dictionary = p_player_formation if not p_player_formation.is_empty() else _FormationPreset.default_for_count(players.size())
-	var enemy_preset: Dictionary = p_enemy_formation if not p_enemy_formation.is_empty() else _FormationPreset.default_for_count(enemies.size())
-	# Start manager (builds formations, assigns rank/file when presets provided)
-	manager.start(player_preset, enemy_preset)
-	# Apply formation layout: reparent rows into rank×file grids with spacing
-	if enemy_list != null:
-		_FormationLayoutBuilder.apply_formation_layout(manager, enemy_list, id_to_controls, enemy_preset, "enemy")
-	if player_list != null:
-		_FormationLayoutBuilder.apply_formation_layout(manager, player_list, id_to_controls, player_preset, "player")
-	# Ensure ScrollContainer child has proper minimum size so scrolling works (wait for layout)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	_update_scroll_content_size()
-	# connect signals
+	_player_preset = p_player_formation if not p_player_formation.is_empty() else _FormationPreset.default_for_count(players.size())
+	_enemy_preset = p_enemy_formation if not p_enemy_formation.is_empty() else _FormationPreset.default_for_count(enemies.size())
+	# Connect signals BEFORE manager.start() so turn_ready is never missed (robustness)
 	manager.connect("turn_ready", Callable(self, "_on_turn_ready"))
 	manager.connect("action_resolved", Callable(self, "_on_action_resolved"))
 	manager.connect("combat_ended", Callable(self, "_on_combat_ended"))
 	manager.connect("enemies_eliminated", Callable(self, "_on_enemies_eliminated"))
 	manager.connect("combatant_health_changed", Callable(self, "_on_combatant_health_changed"))
+	manager.connect("formation_changed", Callable(self, "_on_formation_changed"))
+	# Start manager (builds formations, assigns rank/file)
+	manager.start(_player_preset, _enemy_preset)
+	# Apply formation layout: creature rows in rank×file grid; diagram: compact Front/Back view
+	_apply_formation_layout("player")
+	_apply_formation_layout("enemy")
+	if formation_diagram_hbox != null:
+		formation_diagram_enemy = _FormationDiagramBuilder.create(manager, _enemy_preset, "enemy")
+		formation_diagram_player = _FormationDiagramBuilder.create(manager, _player_preset, "player")
+		formation_diagram_hbox.add_child(formation_diagram_enemy)
+		var sep = VSeparator.new()
+		sep.custom_minimum_size = Vector2(12, 0)
+		formation_diagram_hbox.add_child(sep)
+		formation_diagram_hbox.add_child(formation_diagram_player)
+	# Ensure ScrollContainer child has proper minimum size so scrolling works (wait for layout)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_update_scroll_content_size()
 	set_process(true)
 
 func _update_scroll_content_size() -> void:
@@ -112,6 +127,7 @@ func _create_ui() -> void:
 	canvas_layer = layout.canvas_layer
 	combat_log = layout.combat_log
 	combat_log_scroll = layout.combat_log_scroll
+	formation_diagram_hbox = layout.get("formation_diagram_hbox", null)
 
 func _scroll_combat_log_to_bottom() -> void:
 	if combat_log_scroll == null:
@@ -166,6 +182,19 @@ func _process(_delta: float) -> void:
 func _on_combatant_health_changed(_combatant_id: int) -> void:
 	# Refresh UI when consciousness/pain/blood changes (driven by health_changed signal from entity)
 	_update_ui()
+
+func _apply_formation_layout(side: String) -> void:
+	var list_parent: Control = _player_list if side == "player" else _enemy_list
+	var preset: Dictionary = _player_preset if side == "player" else _enemy_preset
+	if list_parent != null and manager != null and not preset.is_empty():
+		_FormationLayoutBuilder.apply_formation_layout(manager, list_parent, id_to_controls, preset, side)
+
+func _on_formation_changed(side: String) -> void:
+	_apply_formation_layout(side)
+	if side == "player" and formation_diagram_player != null:
+		_FormationDiagramBuilder.refresh(formation_diagram_player)
+	elif side == "enemy" and formation_diagram_enemy != null:
+		_FormationDiagramBuilder.refresh(formation_diagram_enemy)
 
 func _on_turn_ready(combatant_id: int) -> void:
 	_TurnReadyHandler.handle(manager, combatant_id)

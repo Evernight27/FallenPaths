@@ -73,7 +73,7 @@ effective_attacker_hold = attacker.hold_strength / density_modifier(density)  # 
 
 | Mechanism | Roman | Medieval | Abstraction |
 |-----------|-------|----------|-------------|
-| **Death in rank** | Man behind steps up | Neighbors close; reserve fills | Slot becomes empty; plug attempt |
+| **Death in rank** | Man behind steps up | Neighbors close; reserve fills | Slot: dead stays as ground obstacle (tracked); rank 1 advances over body; footing worse but movement allowed |
 | **Plugging** | Principes advance | Immediate lateral close | Roll or automatic: adjacent/reserve fills gap |
 | **Rotation** | Exhausted fall back through gaps | Fresh from rear replace front | Rank swap or fall back action |
 | **File shift** | Rare (maniples moved as blocks) | Lateral on command for curve | File shift action when formation bends |
@@ -81,10 +81,11 @@ effective_attacker_hold = attacker.hold_strength / density_modifier(density)  # 
 
 ### Recommended Variable System for FF4
 
-1. **On unit death in rank 0:** Slot opens. **Plug attempt** (automatic): adjacent file units shift inward? Or rank 1 advances? Depends on formation type.
+1. **On unit death in rank 0:** Dead/wounded unit stays tracked in slot as **ground obstacle** (does not block movement). **Plug attempt** (automatic): rank 1 advances into slot, stepping over the body. Footing modifier applies (×1.15–1.25 duration) but movement succeeds.
    - **Roman-style:** Rank 1 (principes) advances into slot. Rotation.
    - **Medieval-style:** Left/right neighbors shift to close gap; reserve fills from rear.
    - **Abstract:** `formation.plug_rule = "rank_advance"|"lateral_close"|"both"`. Default: rank_advance (simplest).
+   - **Ground obstacles:** Dead/incapacitated in slot = tracked for awareness (medical, finishing); do NOT block; apply footing modifier when stepping over.
 
 2. **Plugging success:** Not automatic. Roll or threshold:
    - `plug_chance = f(adjacent_units_alive, reserve_units, formation_cohesion)`
@@ -383,7 +384,8 @@ Our (R1,F1) can: support our (R0,F1); ranged attack any in range; or wait.
 | `combatant.file` | Combatant | Column |
 | `formation.files` | Formation | Width |
 | `formation.ranks` | Formation | Depth |
-| `formation.slots` | Formation | (rank, file) → combatant_id or null |
+| `formation.slots` | Formation | (rank, file) → combatant_id or null (primary occupant) |
+| `formation.slot_obstacles` | Formation | (rank, file) → Array of combatant_ids (dead/incapacitated on ground; tracked, non-blocking) |
 | `combatant.occupied_zone_id` | Combatant | If incursion: which enemy zone we occupy |
 | `get_engageable_targets(combatant)` | Helper | Returns enemy combatants this unit can legally engage (by file/rank/zone) |
 | `get_supportable_allies(combatant)` | Helper | Returns allied combatants this unit can help (adjacent) |
@@ -428,6 +430,7 @@ Given all decisions:
 | `side` | Yes | player/enemy |
 | `facing` | Yes (ambush) | front/left/right/rear |
 | `slots` | Yes | (rank, file) → combatant_id |
+| `slot_obstacles` | Yes | (rank, file) → Array of combatant_ids (dead/incapacitated; non-blocking, footing modifier) |
 | `gaps` | Yes (breakthrough) | (rank, file) open slots |
 | `plug_rule` | Yes | rank_advance / lateral_close / both |
 

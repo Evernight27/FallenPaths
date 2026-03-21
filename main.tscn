@@ -66,5 +66,62 @@ color = Color(0.3, 0.5, 1, 1)
 [node name="CombatBody" type="Node2D" parent="Character/Companion"]
 script = ExtResource("1_4")
 
+[node name="Companion2" type="CharacterBody2D" parent="Character"]
+position = Vector2(0, 0)
+visible = false
+script = ExtResource("1_1")
+species = ExtResource("1_3")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Character/Companion2"]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="ColorRect" type="ColorRect" parent="Character/Companion2"]
+offset_left = -30.0
+offset_top = -30.0
+offset_right = 30.0
+offset_bottom = 30.0
+color = Color(0.3, 0.5, 1, 1)
+
+[node name="CombatBody" type="Node2D" parent="Character/Companion2"]
+script = ExtResource("1_4")
+
+[node name="Companion3" type="CharacterBody2D" parent="Character"]
+position = Vector2(0, 0)
+visible = false
+script = ExtResource("1_1")
+species = ExtResource("1_3")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Character/Companion3"]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="ColorRect" type="ColorRect" parent="Character/Companion3"]
+offset_left = -30.0
+offset_top = -30.0
+offset_right = 30.0
+offset_bottom = 30.0
+color = Color(0.3, 0.5, 1, 1)
+
+[node name="CombatBody" type="Node2D" parent="Character/Companion3"]
+script = ExtResource("1_4")
+
+[node name="Companion4" type="CharacterBody2D" parent="Character"]
+position = Vector2(0, 0)
+visible = false
+script = ExtResource("1_1")
+species = ExtResource("1_3")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Character/Companion4"]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="ColorRect" type="ColorRect" parent="Character/Companion4"]
+offset_left = -30.0
+offset_top = -30.0
+offset_right = 30.0
+offset_bottom = 30.0
+color = Color(0.3, 0.5, 1, 1)
+
+[node name="CombatBody" type="Node2D" parent="Character/Companion4"]
+script = ExtResource("1_4")
+
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 ; Moved PartyButton creation to main.gd to match framework behavior (anchored Control on overlay)

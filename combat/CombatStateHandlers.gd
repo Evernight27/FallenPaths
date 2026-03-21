@@ -22,6 +22,9 @@ static func process_death_tick(manager: Node, c: Dictionary) -> String:
 	if c.node.has_method("get_death_reason"):
 		death_reason = c.node.get_death_reason()
 	print("[Combat] DEATH (tick): %s — %s" % [CombatantEntityAccess.get_display_name(c), death_reason])
+	# Phase 3: Plug on death — update formation (slot_obstacles, promote rank 1 if rank 0 died).
+	if manager.has_method("_on_combatant_died"):
+		manager._on_combatant_died(c)
 	manager.emit_signal("action_resolved", c.id, -1, {"dmg": 0, "died": true, "part": "", "damage_type": "", "outcome": "bled_out", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0})
 	return manager._check_for_winner()
 
@@ -36,14 +39,9 @@ static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 		var who_name: String = CombatantEntityAccess.get_display_name(c)
 		print("[Combat] %s no longer cowering (arm functionality returned)." % who_name)
-		# Option A: Schedule EVENT_ACTION_READY so they can act
-		if manager.has_method("_schedule_event"):
-			manager._schedule_event({
-				"type": CombatConstants.EVENT_ACTION_READY,
-				"combatant_id": c.id,
-				"resolve_at": manager.combat_clock + 0.05,
-				"data": {}
-			})
+		# Schedule ACTION_READY so they can act (use centralized scheduling to avoid duplicates)
+		if manager.has_method("_schedule_action_ready"):
+			manager._schedule_action_ready(c.id, 0.05)
 		return false
 	return true  # incapacitated: skip
 
@@ -103,14 +101,9 @@ static func process_medical_wind_up_cancel(manager: Node, c: Dictionary) -> bool
 	c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	var who_name: String = CombatantEntityAccess.get_display_name(c)
 	print("[Combat] Medical cancelled: %s (target died during wind-up)" % who_name)
-	# Phase 1: Schedule EVENT_ACTION_READY so they can act
-	if manager.has_method("_schedule_event"):
-		manager._schedule_event({
-			"type": CombatConstants.EVENT_ACTION_READY,
-			"combatant_id": c.id,
-			"resolve_at": manager.combat_clock + 0.05,
-			"data": {}
-		})
+	# Schedule ACTION_READY so they can act (use centralized scheduling to avoid duplicates)
+	if manager.has_method("_schedule_action_ready"):
+		manager._schedule_action_ready(c.id, 0.05)
 	return true
 
 static func process_receiving_medical(manager: Node, c: Dictionary, delta: float) -> void:

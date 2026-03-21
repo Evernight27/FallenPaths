@@ -223,6 +223,13 @@ const EVENT_RECOVERY_END := "recovery_end"
 const EVENT_SWAP_RANK_RESOLVE := "swap_rank_resolve"
 # Time to "ready" from idle: replicates gauge fill. agility 100 -> ~2s. Stagger for combat start.
 const COOLDOWN_ACTION_READY_BASE := 2.0
+# Seconds until EVENT_ACTION_READY. Prefix READY_DELAY_ = delay until next turn check.
+const READY_DELAY_SKIP_DEFAULT_S := 0.5    # Skip (no actions): front rank
+const READY_DELAY_SKIP_BACK_RANK_S := 2.0 # Skip (no actions): back rank "in reserve"
+const READY_DELAY_FORMATION_RECHECK_S := 0.2  # formation_changed → back rank re-evaluates
+const READY_DELAY_AFTER_PROMOTION_S := 0.15   # Plug/swap → promoted unit acts soon
+const READY_DELAY_PARRY_RIPOSTE_S := 0.02    # Parry deflect/partial → defender riposte
+const READY_DELAY_CLOSE_ATTEMPT_S := 0.3     # Close attempt → next turn
 
 # FF4 Formation + Stance (Phase 0 prep). See docs/IMPLEMENTATION_OUTLINE.md.
 const SPACING_TIGHT := 0.9

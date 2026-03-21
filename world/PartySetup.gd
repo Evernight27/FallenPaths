@@ -15,8 +15,10 @@ static func setup_party(world: Node2D) -> void:
 	world.get_tree().root.add_child(pm)
 	if world.has_node("Character"):
 		pm.add_member(world.get_node("Character"))
-	if world.has_node("Character/Companion"):
-		pm.add_member(world.get_node("Character/Companion"))
+	for i in range(1, 5):
+		var path = "Character/Companion" + ("" if i == 1 else str(i))
+		if world.has_node(path):
+			pm.add_member(world.get_node(path))
 
 	var party_menu_script = load(ResourcePaths.PARTY_MENU)
 	if not party_menu_script:

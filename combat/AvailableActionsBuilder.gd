@@ -75,16 +75,25 @@ static func build(manager: Node, combatant_id: int) -> Array:
 							actions.append({ "target_id": opp.id, "move_id": move_id })
 					elif dist in [CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
 						actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
-		# Phase 3: Swap rank — available when formation has >1 rank and ally in same file, other rank.
-		if not our_formation.is_empty() and our_formation.get("ranks", 1) > 1:
-			var partner_file: int = our_file
-			var other_rank: int = 1 - our_rank if our_rank == 0 else 0
+		# Phase 3: Swap rank — front can initiate to disengage; back can initiate only when front is incapacitated.
+		# Rank N may swap with rank N+1 to disengage. Back rank can swap with incapacitated front (plug forward).
+		var formation_ranks: int = our_formation.get("ranks", 1)
+		if not our_formation.is_empty() and formation_ranks > 1:
 			for ally in combatants:
 				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
 					continue
 				if ally.get("state", "") in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
 					continue  # Partner busy
-				if ally.get("rank", 0) == other_rank and ally.get("file", 0) == partner_file:
+				var partner_rank: int = ally.get("rank", 0)
+				var partner_file: int = ally.get("file", 0)
+				if partner_file != our_file or abs(partner_rank - our_rank) != 1:
+					continue  # Must be same file, adjacent rank
+				# Can we initiate? Front→back (disengage) when partner healthy; back→front when front incapacitated.
+				# Do NOT allow front to swap with incapacitated back — that would put the only fighter in the rear.
+				var we_are_front: bool = partner_rank > our_rank
+				var partner_incapacitated: bool = _EntityAccess.is_incapacitated(ally)
+				var we_plug_forward: bool = partner_rank < our_rank and partner_incapacitated
+				if (we_are_front and not partner_incapacitated) or we_plug_forward:
 					actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_SWAP_RANK })
 					break
 	else:

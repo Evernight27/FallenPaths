@@ -14,13 +14,8 @@ static func handle(manager: Node, combatant_id: int) -> void:
 		return
 	var actions: Array = manager.get_available_actions(combatant_id)
 	if actions.is_empty():
-		# Combat phase: attack first available enemy. Medical phase: no enemies, skip turn.
-		var caps = manager.get_combatants()
-		for c in caps:
-			if c.side != "player" and c.alive:
-				manager.resolve_action(combatant_id, c.id)
-				return
-		# No valid target (e.g. medical phase with no wounded allies)
+		# No valid actions (rank 1 with no swap partner, out of range, medical phase with no wounded).
+		# Skip turn instead of attacking — we cannot perform any action.
 		if manager.has_method("skip_turn"):
 			manager.skip_turn(combatant_id)
 		return

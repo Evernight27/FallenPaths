@@ -35,11 +35,51 @@ static func opts_from_choice(choice: Dictionary) -> Dictionary:
 		opts["feint_part"] = choice.feint_part
 	return opts
 
-## Returns weight for action (medical: urgency + direct pressure bleed + pending retry; attack: 1).
+## Returns weight for action. Medical: urgency + direct pressure bleed + pending retry.
+## Combat: attack/attempt_close = use stamina (exhausted less likely to engage); swap_rank = fitness only (no stamina).
 static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
 	var mid: String = a.get("move_id", "")
-	if not manager._is_medical_move(mid):
+	if manager._is_medical_move(mid):
+		return _get_medical_weight(a, combatant_id, manager)
+	# Combat actions: attack, attempt_close, swap_rank
+	var c = manager._get_by_id(combatant_id)
+	if c == null:
 		return 1.0
+	if mid == CombatConstants.MOVE_ID_SWAP_RANK:
+		var partner_id: int = a.get("target_id", -1)
+		var partner = manager._get_by_id(partner_id) if partner_id >= 0 else null
+		var partner_incapacitated: bool = partner != null and CombatantEntityAccess.is_incapacitated(partner)
+		if partner_incapacitated:
+			# Back rank plugging forward — partner (front) is incapacitated; strongly prefer.
+			return 1.0
+		# Front unit disengaging (retreat). Base on performance+health only: more injured = backward priority.
+		# Fitness = ability to attack: performance modifier × health (blood). Lower = should be in back.
+		var our_fitness: float = _get_positioning_fitness(c)
+		var partner_fitness: float = _get_positioning_fitness(partner) if partner != null else 1.0
+		# Avoid ping-pong: when fitness are very similar, disallow swap (would oscillate).
+		var diff: float = absf(our_fitness - partner_fitness)
+		if diff < 0.08:
+			return 0.02
+		# Front should disengage only when we are MORE injured/less capable than partner.
+		if partner_fitness <= our_fitness:
+			# Partner is equally or more injured — swapping would put worse fighter in front.
+			return 0.02
+		# Partner is fitter; we should go to back. Prefer when we're clearly worse.
+		return 1.0 if our_fitness < 0.5 else 0.7
+	# Attack or attempt_close: engaging the enemy — use stamina (exhausted units less likely to act)
+	var stamina_ratio: float = clampf(c.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+	return 0.85 if stamina_ratio < 0.2 else 1.0
+
+## Fitness for formation positioning: performance (attack capability) × health (blood). Higher = more able to fight.
+## Used for swap rank: lowest fitness should be in back. Does not use stamina/action-ready.
+static func _get_positioning_fitness(c: Dictionary) -> float:
+	var perf: float = CombatantEntityAccess.get_performance_modifier(c)
+	var node = c.get("node", null)
+	var health: float = clampf(CombatantEntityAccess.get_blood_volume_from_node(node) / 100.0, 0.0, 1.0) if node != null else 1.0
+	return perf * health
+
+static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
+	var mid: String = a.get("move_id", "")
 	var tgt = manager._get_by_id(a.get("target_id", -1))
 	var urgency: float = manager._get_medical_urgency(tgt) if tgt != null else 0.0
 	var w: float = 1.0 + urgency * (MedicalPhaseController.MEDICAL_URGENCY_WEIGHT_MAX - 1.0)

@@ -11,9 +11,12 @@ const DENSITY_NORMAL := "normal"
 const DENSITY_LOOSE := "loose"
 
 # UI pixel spacing by density (GridContainer h_separation, v_separation)
+# h = file-to-file (lateral); v = rank-to-rank (depth). Ranks typically closer than files.
 const SPACING_TIGHT_PX := 8
 const SPACING_NORMAL_PX := 16
 const SPACING_LOOSE_PX := 28
+## Ratio of v_separation to h_separation. <1 = ranks closer than files (formation depth < width).
+const RANK_VS_FILE_SPACING_RATIO := 0.65
 
 ## Returns preset dict. Default: 2 files, ceil(count/2) ranks, normal density.
 ## Use for_front_count when you want explicit front-line count (e.g. 4 in front, 2 ranks behind).
@@ -33,7 +36,7 @@ static func for_front_count(count: int, front_count: int, density: String = DENS
 	var ranks: int = int(ceilf(float(count) / float(files)))
 	return {"files": files, "ranks": ranks, "density": density}
 
-## Returns pixel separation for GridContainer from density.
+## Returns horizontal (file-to-file) pixel separation for GridContainer from density.
 static func separation_px_from_density(density: String) -> int:
 	match density:
 		DENSITY_TIGHT:
@@ -42,3 +45,7 @@ static func separation_px_from_density(density: String) -> int:
 			return SPACING_LOOSE_PX
 		_:
 			return SPACING_NORMAL_PX
+
+## Returns vertical (rank-to-rank) pixel separation. Ranks closer than files for formation depth.
+static func v_separation_px_from_density(density: String) -> int:
+	return int(separation_px_from_density(density) * RANK_VS_FILE_SPACING_RATIO)

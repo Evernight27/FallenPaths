@@ -1,6 +1,7 @@
 extends Node2D
 
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
+const _EncounterNode := preload("res://world/EncounterNode.gd")
 
 @onready var tilemap: TileMap = $TileMap
 
@@ -41,7 +42,7 @@ func _ready():
 	
 	# Randomize RNG and spawn two enemy encounters on different tiles (for testing medical continuity between battles)
 	rng.randomize()
-	EncounterSpawner.spawn_encounters(self, rng, 2, 2, enemy_scene)
+	EncounterSpawner.spawn_encounters(self, rng, 2, 5, enemy_scene)
 	# Assign player and companion species/equipment before party setup so party UI shows correct stats
 	PlayerCompanionSetup.setup_player_and_companion(self, rng)
 	# Setup party manager, party menu, and Party button (after species so snapshot has correct stats)
@@ -61,25 +62,21 @@ func _on_party_button_pressed() -> void:
 func _on_player_moved():
 	var player = $Character
 	var p_tile = _tile_coords(player.position)
-	var party_nodes: Array = []
-	var pm = get_meta("party_manager", null) if has_meta("party_manager") else null
-	if pm != null and pm.has_method("get_members"):
-		for member in pm.get_members():
-			var node_ref = member.get("node_ref") if member is Dictionary else null
-			if is_instance_valid(node_ref):
-				party_nodes.append(node_ref)
-	var enemies_on_tile: Array = []
-	for child in get_children():
-		if child in party_nodes:
-			continue
-		if child is Node2D and child.has_method("take_damage"):
-			var e_tile = _tile_coords(child.position)
-			if e_tile == p_tile:
-				enemies_on_tile.append(child)
-	if not enemies_on_tile.is_empty():
-		await CombatFlow.start_combat(self, enemies_on_tile)
+	# Detect encounter on tile (one marker per encounter; enemies spawn when combat starts)
+	var encounter = _get_encounter_on_tile(p_tile)
+	if encounter != null:
+		var enemies: Array = encounter.spawn_enemies(self, rng)
+		encounter.queue_free()
+		if not enemies.is_empty():
+			await CombatFlow.start_combat(self, enemies)
 		return
 	_advance_time_one_minute()
+
+func _get_encounter_on_tile(tile: Vector2i) -> Node:
+	for child in get_children():
+		if child.get_script() == _EncounterNode and _tile_coords(child.position) == tile:
+			return child
+	return null
 
 func _advance_time_one_minute() -> void:
 	const SECONDS_PER_MOVE: float = 60.0

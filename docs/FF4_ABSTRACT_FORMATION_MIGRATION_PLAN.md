@@ -459,8 +459,9 @@ Before implementation, decide the shape of the data.
 { "files": int, "ranks": int, "density": "tight"|"normal"|"loose" }
 ```
 
-**UI layout:**
-- Replace vertical lists with GridContainers when formations exist
+**UI layout (implemented):**
+- Replace vertical lists with GridContainers when formations exist (FormationLayoutBuilder)
+- Compact formation diagram (FormationDiagramBuilder): rank×file overview with Front/Back labels; updates on formation_changed (e.g. swap rank)
 - Columns = files; rows = ranks (rank 0 = front)
 - Slot spacing: tight=8px, normal=16px, loose=24px (or scale from CombatConstants.SPACING_*)
 - Empty slots: placeholder Control to preserve grid structure
