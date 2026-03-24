@@ -156,6 +156,8 @@ static func choose_defense(
 				if CombatConstants.COMBAT_DEBUG:
 					CombatDebug.log("parry_align late %s align=%.2f" % [tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), _al])
 
+	parry_c_d *= pa.get("zone_engagement_parry_mult", 1.0)
+
 	result.can_parry_in_time = can_parry_in_time
 	result.parry_p_a = parry_p_a
 	result.parry_c_d = parry_c_d

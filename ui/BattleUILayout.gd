@@ -85,6 +85,7 @@ static func create(parent: Node) -> Dictionary:
 	enemy_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	enemy_vbox.add_child(enemy_title)
 
+	# Two columns: registration order is row-major (left, right, next row — unchanged when formation updates)
 	var enemy_list = GridContainer.new()
 	enemy_list.name = "EnemyList"
 	enemy_list.columns = 2

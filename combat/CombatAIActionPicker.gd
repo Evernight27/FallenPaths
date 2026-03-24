@@ -51,21 +51,27 @@ static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) 
 		var partner_incapacitated: bool = partner != null and CombatantEntityAccess.is_incapacitated(partner)
 		if partner_incapacitated:
 			# Back rank plugging forward — partner (front) is incapacitated; strongly prefer.
-			return 1.0
-		# Front unit disengaging (retreat). Base on performance+health only: more injured = backward priority.
-		# Fitness = ability to attack: performance modifier × health (blood). Lower = should be in back.
+			return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
+		# Front disengaging: only when relief is necessary (clear fitness gap, critical state, or unusable weapon arm).
 		var our_fitness: float = _get_positioning_fitness(c)
 		var partner_fitness: float = _get_positioning_fitness(partner) if partner != null else 1.0
-		# Avoid ping-pong: when fitness are very similar, disallow swap (would oscillate).
-		var diff: float = absf(our_fitness - partner_fitness)
-		if diff < 0.08:
-			return 0.02
-		# Front should disengage only when we are MORE injured/less capable than partner.
-		if partner_fitness <= our_fitness:
-			# Partner is equally or more injured — swapping would put worse fighter in front.
-			return 0.02
-		# Partner is fitter; we should go to back. Prefer when we're clearly worse.
-		return 1.0 if our_fitness < 0.5 else 0.7
+		var gap: float = partner_fitness - our_fitness
+		var low: float = CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
+		var high: float = CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
+		if gap <= 0.0:
+			return low
+		# Front cannot wield in rank 0 — must yield if partner can fight.
+		if CombatantEntityAccess.get_attacking_arm(c).is_empty():
+			if partner != null and not CombatantEntityAccess.get_attacking_arm(partner).is_empty():
+				return high
+			return low
+		# Critically unfit: smaller gap to partner is enough to justify relief.
+		if our_fitness <= CombatConstants.SWAP_RANK_AI_CRITICAL_FITNESS and gap >= CombatConstants.SWAP_RANK_AI_URGENT_MIN_GAP:
+			return high
+		# Otherwise require a clear fitness advantage (not a marginal difference).
+		if gap >= CombatConstants.SWAP_RANK_AI_MIN_FITNESS_GAP:
+			return high
+		return low
 	# Attack or attempt_close: engaging the enemy — use stamina (exhausted units less likely to act)
 	var stamina_ratio: float = clampf(c.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 	return 0.85 if stamina_ratio < 0.2 else 1.0

@@ -7,6 +7,7 @@ const _DefenseResolution := preload("res://combat/DefenseResolutionHandler.gd")
 const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 const _StatsSync := preload("res://combat/CombatantStatsSync.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.COMBAT_DEBUG:
@@ -282,6 +283,15 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	pa["attack_angle_deg"] = CombatConstants.get_attack_angle_deg(atk_line_base, true, move_def_pre, var_ctx)
 	pa["arc_end_deg"] = pa["attack_angle_deg"]
 	pa["arc_span_deg"] = CombatConstants.angle_diff_deg(arc_start, pa["arc_end_deg"])
+
+	var zone_mult: float = _ZoneOfControl.get_engagement_parry_multiplier(manager, attacker_id, target_id)
+	pa["zone_engagement_parry_mult"] = zone_mult
+	if zone_mult <= CombatConstants.REAR_PARRY_MOD + 0.001:
+		tgt["engagement_angle"] = "rear"
+	elif zone_mult <= CombatConstants.FLANK_PARRY_MOD + 0.001:
+		tgt["engagement_angle"] = "flank"
+	else:
+		tgt["engagement_angle"] = "front"
 
 	var dc: Dictionary = _DefenseChoice.choose_defense(pa, atk, tgt, targetable, attack_type, archetype, velocity_override)
 	var _already_used_defense: bool = pa.get("passive_parry_attempted", false)

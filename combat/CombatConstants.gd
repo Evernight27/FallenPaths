@@ -238,6 +238,12 @@ const SPACING_LOOSE := 1.8
 const REACH_SAFETY_FACTOR := 0.8
 const FLANK_PARRY_MOD := 0.8
 const REAR_PARRY_MOD := 0.7
+# Phase 4: ZoC — zone control thresholds and cross-zone support (tune in playtests).
+const ZOC_ACCESS_THRESHOLD := 0.55
+const ZOC_FRONT_SUPPORT_TO_FLANK := 0.35
+const ZOC_FLANK_SUPPORT_TO_FRONT := 0.25
+const ZOC_REAR_SUPPORT_FROM_FRONT := 0.2
+const ZOC_CASUALTY_PER_BODY := 0.12
 const STANCE_DEFENSIVE := "defensive"
 const STANCE_BALANCED := "balanced"
 const STANCE_AGGRESSIVE := "aggressive"
@@ -255,6 +261,15 @@ const PRESSURE_MOD_AGGRESSIVE := 1.3
 const STATE_FALLING_BACK := "falling_back"
 const STATE_SWAP_RANK := "swap_rank"
 const MOVE_ID_SWAP_RANK := "swap_rank"
+# Swap rank AI (CombatAIActionPicker): relief only when necessary — not marginal fitness differences.
+const SWAP_RANK_AI_LOW_WEIGHT := 0.02
+const SWAP_RANK_AI_HIGH_WEIGHT := 1.0
+## Partner must exceed our composite fitness (perf × blood norm) by at least this much for a routine relief.
+const SWAP_RANK_AI_MIN_FITNESS_GAP := 0.20
+## Below this our_fitness, treat as dangerously unfit: partner need only be ahead by URGENT_MIN_GAP.
+const SWAP_RANK_AI_CRITICAL_FITNESS := 0.42
+## When our_fitness is at/under CRITICAL, partner must be at least this much fitter (smaller than MIN_FITNESS_GAP).
+const SWAP_RANK_AI_URGENT_MIN_GAP := 0.10
 # Ambush (Phase 6). Set on encounter when starting combat.
 const AMBUSH_TYPE_NONE := "none"
 const AMBUSH_TYPE_FULL := "full"

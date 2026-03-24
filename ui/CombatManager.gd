@@ -29,6 +29,7 @@ const _StandingHelper := preload("res://combat/CombatStandingHelper.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
+const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 
 ## Returns the node that holds health/wounds (CoreEntity for enemies; CombatBody for Character). Use for all health reads.
 func _get_entity(node: Node) -> Node:
@@ -153,11 +154,15 @@ func _build_formations_and_assign_slots(player_formation: Dictionary, enemy_form
 			c.formation_id = "enemy"
 			formations["enemy"].slots[Vector2i(r, f)] = c.id
 			ei += 1
-	# Phase 2: Initialize distance_to from formation position (rank/file).
+	_recompute_zoc_and_distance()
+
+## Phase 4: Recompute zone control, assign zone_id, then distance bands.
+func _recompute_zoc_and_distance() -> void:
+	_ZoneOfControl.recompute_all(self)
 	_update_distance_to_from_formations()
 
-## Phase 2+3: Update distance_to for all combatants from formation position. Call after slots change (start, plug, swap).
-## Back rank (our_rank>0) = LONG; Rank 0 vs rank 0, adjacent file = MID (or preserve CLOSE); else LONG.
+## Phase 2+3+4: Update distance_to for all combatants from formation position. Call via _recompute_zoc_and_distance after slots change.
+## Back rank (our_rank>0) = LONG; Rank 0 vs rank 0, |Δfile| within mid_reach = MID (Phase 4: wider when front ZoC weak); else LONG.
 func _update_distance_to_from_formations() -> void:
 	for c in combatants:
 		if not c.has("distance_to"):
@@ -181,9 +186,10 @@ func _update_distance_to_from_formations() -> void:
 			if opp_rank > 0:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
 				continue
-			# Both rank 0: MID if adjacent file (|Δfile| ≤ 1), else LONG.
+			# Both rank 0: MID within mid_reach files (Phase 4: 2 when either front zone is weak vs wide lines).
 			var df: int = int(absf(float(our_file - opp_file)))
-			if df <= 1:
+			var mid_reach: int = _ZoneOfControl.mid_reach_files(self, c, opp)
+			if df <= mid_reach:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_MID
 			else:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
@@ -747,7 +753,7 @@ func _handle_swap_rank_resolve(ev: Dictionary) -> void:
 		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
 		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
 		print("[Combat] %s and %s swapped rank" % [n0, n1])
-	_update_distance_to_from_formations()
+	_recompute_zoc_and_distance()
 	emit_signal("formation_changed", fid)
 	_reschedule_back_rank_turns(fid)
 	_schedule_action_ready(initiator_id, _action_ready_cooldown(init))
@@ -800,7 +806,7 @@ func _on_combatant_died(c: Dictionary) -> void:
 				print("[Combat] Plug: %s advanced to rank %d (file %d) after ally fell" % [name_p, fill_rank, f])
 			# Schedule EVENT_ACTION_READY so promoted unit can act soon (no long wait).
 			_schedule_action_ready(promoted.id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
-	_update_distance_to_from_formations()
+	_recompute_zoc_and_distance()
 	# Always emit so formation layout/diagram refresh (remove dead from grid, show plug result)
 	emit_signal("formation_changed", fid)
 	_reschedule_back_rank_turns(fid)

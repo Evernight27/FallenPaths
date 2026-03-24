@@ -3,8 +3,9 @@ extends RefCounted
 
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 
-## Builds formation grid UI: rank×file layout with unit spacing from formation density.
-## Reparents existing combatant rows from VBoxContainers into GridContainers by (rank, file).
+## Optional: rank×file grid layout for combatant stat rows (not used by BattleScene — stats stay in registration order).
+## Formation positions use FormationDiagramBuilder. Kept for tests or alternate UIs.
+## Reparents existing combatant rows from list parents into GridContainers by (rank, file).
 
 ## Converts list containers to formation grids. Remarents rows into grid in (rank, file) order.
 ## Supports re-apply: when grid already exists, extracts rows from it and rebuilds.
@@ -107,13 +108,13 @@ static func apply_formation_layout(
 				if row != null:
 					_modulate_dead_row(row)
 					slot_vbox.add_child(row)
-			# Alive occupant or placeholder
+			# Alive occupant, or placeholder only when slot is truly empty (no dead, no living)
 			var c = slot_to_combatant.get(key, null)
 			if c != null:
 				var row = id_to_row.get(c.get("id", -1), null)
 				if row != null:
 					slot_vbox.add_child(row)
-			else:
+			elif dead_list.is_empty():
 				slot_vbox.add_child(_make_placeholder(rank, file))
 			grid.add_child(slot_vbox)
 			grid.move_child(slot_vbox, insert_idx)

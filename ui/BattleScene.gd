@@ -5,7 +5,6 @@ signal battle_ended(winner: String, defeated: Node)
 const _TurnReadyHandler := preload("res://ui/TurnReadyHandler.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _FormationDiagramBuilder := preload("res://ui/FormationDiagramBuilder.gd")
-const _FormationLayoutBuilder := preload("res://ui/FormationLayoutBuilder.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 var players: Array = []
@@ -90,9 +89,8 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 	manager.connect("formation_changed", Callable(self, "_on_formation_changed"))
 	# Start manager (builds formations, assigns rank/file)
 	manager.start(_player_preset, _enemy_preset)
-	# Apply formation layout: creature rows in rank×file grid; diagram: compact Front/Back view
-	_apply_formation_layout("player")
-	_apply_formation_layout("enemy")
+	# Creature stats: fixed registration order (rows stay in list order; no reparent on formation change).
+	# Formation positions: FormationDiagramBuilder only.
 	if formation_diagram_hbox != null:
 		formation_diagram_enemy = _FormationDiagramBuilder.create(manager, _enemy_preset, "enemy")
 		formation_diagram_player = _FormationDiagramBuilder.create(manager, _player_preset, "player")
@@ -183,14 +181,7 @@ func _on_combatant_health_changed(_combatant_id: int) -> void:
 	# Refresh UI when consciousness/pain/blood changes (driven by health_changed signal from entity)
 	_update_ui()
 
-func _apply_formation_layout(side: String) -> void:
-	var list_parent: Control = _player_list if side == "player" else _enemy_list
-	var preset: Dictionary = _player_preset if side == "player" else _enemy_preset
-	if list_parent != null and manager != null and not preset.is_empty():
-		_FormationLayoutBuilder.apply_formation_layout(manager, list_parent, id_to_controls, preset, side)
-
 func _on_formation_changed(side: String) -> void:
-	_apply_formation_layout(side)
 	if side == "player" and formation_diagram_player != null:
 		_FormationDiagramBuilder.refresh(formation_diagram_player)
 	elif side == "enemy" and formation_diagram_enemy != null:
