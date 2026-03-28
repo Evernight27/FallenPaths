@@ -170,11 +170,13 @@ const GUARD_TRANSITION_COST_SCALE := 0.4
 # AI target selection: preferred_parts from move get this weight multiplier (cut geometry).
 const PREFERRED_PART_BONUS_MULT := 1.5
 
-# Debug: when true, log combat resolution events. Disable in release to avoid log overflow.
+# Debug: when true, log detailed melee resolution (AttackResolver hit lines, parry paths, wind-up skips). Verbose.
 const COMBAT_DEBUG := false
 # Calibration: when true, log alignment, parry_c_d, variance, remaining_ratio for tuning to HEMA 57–80% parry share.
 const COMBAT_DEBUG_CALIBRATION := false
-# Event tracking: when true, log EVENT_ACTION_READY skips, attempt_close, and turn scheduling so "frozen" units are traceable.
+# Flow / feature testing: turns, available actions + AI pick, skip/wait/pass, close attempts, formation move start/resolve,
+# EVENT_ACTION_READY skips, formation aborts, medical action lists. Prefix: [Combat.Flow] via CombatDebug.flow_log.
+# Disable in release to reduce console noise. For per-hit damage lines, enable COMBAT_DEBUG.
 const COMBAT_EVENT_DEBUG := true
 
 # Stamina (separate pool): attack/parry consume; refill when idle. At 0: parry penalty, attack damage reduction.
@@ -221,6 +223,8 @@ const EVENT_ACTION_READY := "action_ready"
 const EVENT_MELEE_ATTACK := "melee_attack"
 const EVENT_RECOVERY_END := "recovery_end"
 const EVENT_SWAP_RANK_RESOLVE := "swap_rank_resolve"
+const EVENT_FALL_BACK_SOLO_RESOLVE := "fall_back_solo_resolve"
+const EVENT_ROTATE_FILE_RESOLVE := "rotate_file_resolve"
 # Time to "ready" from idle: replicates gauge fill. agility 100 -> ~2s. Stagger for combat start.
 const COOLDOWN_ACTION_READY_BASE := 2.0
 # Seconds until EVENT_ACTION_READY. Prefix READY_DELAY_ = delay until next turn check.
@@ -244,6 +248,22 @@ const ZOC_FRONT_SUPPORT_TO_FLANK := 0.35
 const ZOC_FLANK_SUPPORT_TO_FRONT := 0.25
 const ZOC_REAR_SUPPORT_FROM_FRONT := 0.2
 const ZOC_CASUALTY_PER_BODY := 0.12
+## Phase 6: Incursion pressure (front-rank imbalance) reduces raw zone strength before cross-zone blend.
+const ZOC_INCURSION_ZONE_PENALTY := 0.38
+## Weak front ZoC (both lines) scales geometric pair distance down — lines feel closer, easier to bridge.
+const ZOC_GEOMETRIC_EXTENT_MIN := 0.78
+## Getting hit during formation move extends duration (reaction/stagger), does not cancel.
+const FORMATION_HIT_REACTION_EXTRA_S := 0.38
+## Armor mass vs ~full medieval kit; lerps formation-move duration toward FORMATION_ARMOR_MAX_SLOW_MULT.
+const FORMATION_ARMOR_MASS_REF_KG := 28.0
+const FORMATION_ARMOR_MAX_SLOW_MULT := 1.35
+## Phase 6: Surround — cap divisor for defense split (checklist §4).
+const SURROUND_MAX_SPLIT_DIVISOR := 4
+## At perception 0, awareness factor floor when multiple engaging threats.
+const SURROUND_AWARENESS_AT_LOW_PERCEPTION := 0.65
+## Phase 6: Incursion pressure per extra enemy front-rank fighter vs ours (clamped).
+const INCURSION_PRESSURE_PER_RANK_ADVANTAGE := 0.12
+const INCURSION_PRESSURE_MAX := 0.45
 const STANCE_DEFENSIVE := "defensive"
 const STANCE_BALANCED := "balanced"
 const STANCE_AGGRESSIVE := "aggressive"
@@ -258,9 +278,22 @@ const LANE_MOD_BLOCKED := 1.6
 const PRESSURE_MOD_DEFENSIVE := 0.9
 const PRESSURE_MOD_NEUTRAL := 1.0
 const PRESSURE_MOD_AGGRESSIVE := 1.3
+## Step over fallen: extra duration multiplier when slot_obstacles present (Part 4.5).
+const FOOTING_STEP_OVER_MIN := 1.15
+const FOOTING_STEP_OVER_MAX := 1.25
+## Drag wounded to rear — slower than quick swap.
+const DRAG_BACK_DURATION_MULT := 1.15
 const STATE_FALLING_BACK := "falling_back"
 const STATE_SWAP_RANK := "swap_rank"
 const MOVE_ID_SWAP_RANK := "swap_rank"
+## Phase 5: formation movement (time-based, no stamina).
+const MOVE_ID_DRAG_BACK := "drag_back"
+const MOVE_ID_FALL_BACK := "fall_back"
+const MOVE_ID_ROTATE_FILE := "rotate_file"
+## Swap / drag / fall back / rotate — used so "only formation moves" still offers wait.
+const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = [MOVE_ID_SWAP_RANK, MOVE_ID_DRAG_BACK, MOVE_ID_FALL_BACK, MOVE_ID_ROTATE_FILE]
+## Explicit no-op: pass turn, schedule next action_ready (same delays as skip_turn).
+const MOVE_ID_WAIT := "wait"
 # Swap rank AI (CombatAIActionPicker): relief only when necessary — not marginal fitness differences.
 const SWAP_RANK_AI_LOW_WEIGHT := 0.02
 const SWAP_RANK_AI_HIGH_WEIGHT := 1.0
@@ -274,6 +307,10 @@ const SWAP_RANK_AI_URGENT_MIN_GAP := 0.10
 const AMBUSH_TYPE_NONE := "none"
 const AMBUSH_TYPE_FULL := "full"
 const AMBUSH_TYPE_PARTIAL := "partial"
+## Phase 4: When true (e.g. lore protection circle), ZoC flank/rear bonuses and mid-reach widening are disabled.
+const ENCOUNTER_PROTECTION_CIRCLE_ACTIVE := "protection_circle_active"
+## Phase 6: Which side suffers ambush penalties (typically "player" when monsters ambush party).
+const ENCOUNTER_AMBUSHED_SIDE := "ambushed_side"
 
 # Phase 2: Distance bands. Pair-wise for unformed; zone-based in Phase 4.
 const DISTANCE_CLOSE := "close"

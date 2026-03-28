@@ -52,7 +52,8 @@ const LAYER_CLOTH: Dictionary = {
 	"blunt_transmission": 0.45,
 	"rigidity": 0.0,
 	"durability_loss_rate": 0.22,
-	"sharp_deflect_transmission": 0.16
+	"sharp_deflect_transmission": 0.16,
+	"mass_kg": 0.45
 }
 
 # Leather: buff coat, boiled leather. Williams: buff 30 J, cuir-bouilli 20–30 J. pen=(30/55)^0.6 ≈ 0.6 mm.
@@ -62,7 +63,8 @@ const LAYER_LEATHER: Dictionary = {
 	"blunt_transmission": 0.58,
 	"rigidity": 0.2,
 	"durability_loss_rate": 0.16,
-	"sharp_deflect_transmission": 0.24
+	"sharp_deflect_transmission": 0.24,
+	"mass_kg": 1.05
 }
 
 # Mail: chainmail + jack. Williams: 80–120 J. pen=(120/55)^0.6 ≈ 1.5 mm.
@@ -72,7 +74,8 @@ const LAYER_MAIL: Dictionary = {
 	"blunt_transmission": 0.70,
 	"rigidity": 0.2,
 	"durability_loss_rate": 0.12,
-	"sharp_deflect_transmission": 0.36
+	"sharp_deflect_transmission": 0.36,
+	"mass_kg": 2.45
 }
 
 # Plate: medieval steel. Williams: 2 mm=175 J, 3.5 mm≈380 J. Rigid → area coupling (mace > thrust).
@@ -82,7 +85,8 @@ const LAYER_PLATE: Dictionary = {
 	"blunt_transmission": 0.72,
 	"rigidity": 1.0,
 	"durability_loss_rate": 0.07,
-	"sharp_deflect_transmission": 0.46
+	"sharp_deflect_transmission": 0.46,
+	"mass_kg": 4.85
 }
 
 # --- Armor piece definitions: one piece per body part, built from cloth/leather/mail/plate only ---

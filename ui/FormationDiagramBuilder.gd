@@ -3,6 +3,7 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
 ## Builds a compact visual formation diagram: rank×file grid with unit names.
 ## Shows Front (rank 0) and Back (rank 1+) so formation changes (swap rank, etc.) are trackable.
@@ -30,6 +31,13 @@ static func create(manager: Node, preset: Dictionary, side: String) -> Control:
 	title.add_theme_color_override("font_color", Color(0.9, 0.85, 0.8))
 	vbox.add_child(title)
 
+	var zoc_line = Label.new()
+	zoc_line.name = "ZocLine"
+	zoc_line.add_theme_font_size_override("font_size", 10)
+	zoc_line.add_theme_color_override("font_color", Color(0.55, 0.62, 0.68))
+	zoc_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(zoc_line)
+
 	var grid = GridContainer.new()
 	var files: int = preset.get("files", 1)
 	var density: String = preset.get("density", "normal")
@@ -44,6 +52,7 @@ static func create(manager: Node, preset: Dictionary, side: String) -> Control:
 	root.set_meta("_formation_side", side)
 	root.set_meta("_formation_preset", preset)
 	root.set_meta("_formation_grid", grid)
+	root.set_meta("_zoc_line", zoc_line)
 
 	_refresh_internal(root)
 	return root
@@ -60,11 +69,18 @@ static func _refresh_internal(diagram_root: Control) -> void:
 	var manager: Node = diagram_root.get_meta("_formation_manager", null)
 	var side: String = diagram_root.get_meta("_formation_side", "")
 	var preset: Dictionary = diagram_root.get_meta("_formation_preset", {})
+	var zoc_line: Label = diagram_root.get_meta("_zoc_line", null)
+	if zoc_line != null:
+		zoc_line.text = ZoneOfControl.format_zone_control_line(manager, side)
 	if grid == null or manager == null or not manager.has_method("get_combatants"):
 		return
 
 	var files: int = preset.get("files", 1)
 	var ranks: int = preset.get("ranks", 1)
+	var formation: Dictionary = {}
+	if "formations" in manager and manager.formations is Dictionary:
+		formation = manager.formations.get(side, {})
+	var slot_map: Dictionary = formation.get("slots", {})
 
 	# Map (rank, file) -> combatant
 	var slot_to_combatant: Dictionary = {}
@@ -91,14 +107,35 @@ static func _refresh_internal(diagram_root: Control) -> void:
 		grid.add_child(rank_label)
 
 		for file in range(files):
-			var c = slot_to_combatant.get(Vector2i(rank, file), null)
+			var key := Vector2i(rank, file)
+			var occ: Array = _FormationSlots.normalize_cell(slot_map.get(key, []))
 			var cell = Label.new()
-			if c != null:
-				cell.text = _EntityAccess.get_display_name(c, c.get("id", -1))
-				cell.add_theme_color_override("font_color", Color(0.95, 0.9, 0.85))
+			if not occ.is_empty():
+				var names: Array = []
+				for cid in occ:
+					var oc = manager._get_by_id(int(cid)) if manager.has_method("_get_by_id") else null
+					if oc != null and oc.get("alive", false):
+						names.append(_EntityAccess.get_display_name(oc, oc.get("id", -1)))
+				if names.is_empty():
+					cell.text = "—"
+					cell.add_theme_color_override("font_color", Color(0.4, 0.42, 0.45))
+				elif names.size() == 1:
+					cell.text = str(names[0])
+					cell.add_theme_color_override("font_color", Color(0.95, 0.9, 0.85))
+				else:
+					var joined: String = str(names[0])
+					for i in range(1, names.size()):
+						joined += " / " + str(names[i])
+					cell.text = joined
+					cell.add_theme_color_override("font_color", Color(0.95, 0.9, 0.85))
 			else:
-				cell.text = "—"
-				cell.add_theme_color_override("font_color", Color(0.4, 0.42, 0.45))
+				var c = slot_to_combatant.get(key, null)
+				if c != null:
+					cell.text = _EntityAccess.get_display_name(c, c.get("id", -1))
+					cell.add_theme_color_override("font_color", Color(0.95, 0.9, 0.85))
+				else:
+					cell.text = "—"
+					cell.add_theme_color_override("font_color", Color(0.4, 0.42, 0.45))
 			cell.add_theme_font_size_override("font_size", 12)
 			cell.custom_minimum_size = Vector2(72, 0)
 			grid.add_child(cell)

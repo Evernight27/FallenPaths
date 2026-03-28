@@ -30,6 +30,8 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
+const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
 ## Returns the node that holds health/wounds (CoreEntity for enemies; CombatBody for Character). Use for all health reads.
 func _get_entity(node: Node) -> Node:
@@ -39,6 +41,54 @@ func _get_entity(node: Node) -> Node:
 		var e = node.get_medical_entity()
 		return e if e != null else node
 	return node
+
+
+func _armor_mass_duration_multiplier_for_node(node: Node) -> float:
+	if node == null:
+		return 1.0
+	var m: float = _EntityAccess.get_total_armor_mass_kg_from_node(node)
+	var ref: float = CombatConstants.FORMATION_ARMOR_MASS_REF_KG
+	var t: float = clampf(m / ref, 0.0, 1.5)
+	return lerpf(1.0, CombatConstants.FORMATION_ARMOR_MAX_SLOW_MULT, t)
+
+
+## Defender (or anyone) struck while in formation move: extend timer and event — does not cancel.
+func apply_formation_hit_reaction_if_needed(combatant_id: int, intensity: float = 0.5) -> void:
+	var c = _get_by_id(combatant_id)
+	if c == null or not c.alive:
+		return
+	var st: String = c.get("state", "")
+	if st != CombatConstants.STATE_SWAP_RANK and st != CombatConstants.STATE_FALLING_BACK:
+		return
+	var extra: float = CombatConstants.FORMATION_HIT_REACTION_EXTRA_S * lerpf(0.4, 1.2, clampf(intensity, 0.0, 1.0))
+	c.state_duration += extra
+	var pid: int = int(c.get("formation_move_partner_id", -1))
+	if pid >= 0:
+		var p = _get_by_id(pid)
+		if p != null and p.alive:
+			var pst: String = p.get("state", "")
+			if pst == CombatConstants.STATE_SWAP_RANK or pst == CombatConstants.STATE_FALLING_BACK:
+				p.state_duration += extra
+	_bump_formation_resolve_events(combatant_id, extra)
+
+
+func _bump_formation_resolve_events(for_combatant_id: int, extra_s: float) -> void:
+	for ev in event_queue:
+		var t: String = ev.get("type", "")
+		var cid: int = ev.get("combatant_id", -1)
+		var data: Dictionary = ev.get("data", {})
+		var bump: bool = false
+		if t == CombatConstants.EVENT_SWAP_RANK_RESOLVE:
+			if cid == for_combatant_id or int(data.get("partner_id", -1)) == for_combatant_id:
+				bump = true
+		elif t == CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE and cid == for_combatant_id:
+			bump = true
+		elif t == CombatConstants.EVENT_ROTATE_FILE_RESOLVE:
+			if cid == for_combatant_id or int(data.get("partner_id", -1)) == for_combatant_id:
+				bump = true
+		if bump:
+			ev["resolve_at"] = float(ev.get("resolve_at", 0.0)) + extra_s
+	event_queue.sort_custom(_event_sort)
 
 func _refresh_combatant_stats(c: Dictionary) -> void:
 	"""Keep combatant stats in sync with node (pain, consciousness, blood, etc.) for UI and gauge fill.
@@ -95,13 +145,24 @@ func _on_entity_health_changed(combatant_id: int) -> void:
 
 ## Start combat. Optional player_formation and enemy_formation presets: { files, ranks, density }.
 ## When provided, builds formations and assigns rank/file to combatants (spawn order).
+## Phase 4: Set encounter before start() for ZoC flags (e.g. CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE).
 func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	medical_phase = false
 	medical_phase_winner = ""
 	event_queue.clear()
 	combat_clock = 0.0
+	var default_enc := {
+		"ambush_type": CombatConstants.AMBUSH_TYPE_NONE,
+		"ambush_penalty": 0.0,
+		CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE: false,
+		CombatConstants.ENCOUNTER_AMBUSHED_SIDE: "player",
+	}
 	if encounter.is_empty():
-		encounter = {"ambush_type": CombatConstants.AMBUSH_TYPE_NONE, "ambush_penalty": 0.0}
+		encounter = default_enc.duplicate(true)
+	else:
+		for k in default_enc.keys():
+			if not encounter.has(k):
+				encounter[k] = default_enc[k]
 	formations.clear()
 	# Build formations from presets and assign rank/file (always; use defaults when preset empty)
 	_build_formations_and_assign_slots(player_formation, enemy_formation)
@@ -144,7 +205,7 @@ func _build_formations_and_assign_slots(player_formation: Dictionary, enemy_form
 			c.rank = r
 			c.file = f
 			c.formation_id = "player"
-			formations["player"].slots[Vector2i(r, f)] = c.id
+			_FormationSlots.slot_set_single(formations["player"].slots, Vector2i(r, f), c.id)
 			pi += 1
 		else:
 			var r: int = int(floorf(ei / float(e_files)))
@@ -152,17 +213,20 @@ func _build_formations_and_assign_slots(player_formation: Dictionary, enemy_form
 			c.rank = r
 			c.file = f
 			c.formation_id = "enemy"
-			formations["enemy"].slots[Vector2i(r, f)] = c.id
+			_FormationSlots.slot_set_single(formations["enemy"].slots, Vector2i(r, f), c.id)
 			ei += 1
+	_FormationSlots.normalize_formation_slots(formations["player"])
+	_FormationSlots.normalize_formation_slots(formations["enemy"])
 	_recompute_zoc_and_distance()
 
-## Phase 4: Recompute zone control, assign zone_id, then distance bands.
+## Phase 4–6: Incursion pressure from front-rank imbalance, then zone control, assign zone_id, distance bands.
 func _recompute_zoc_and_distance() -> void:
+	_TacticalCombat.recompute_incursion_pressure(self)
 	_ZoneOfControl.recompute_all(self)
 	_update_distance_to_from_formations()
 
-## Phase 2+3+4: Update distance_to for all combatants from formation position. Call via _recompute_zoc_and_distance after slots change.
-## Back rank (our_rank>0) = LONG; Rank 0 vs rank 0, |Δfile| within mid_reach = MID (Phase 4: wider when front ZoC weak); else LONG.
+## Phase 2+3+4: Update distance_to from formation position. Call via _recompute_zoc_and_distance after slots change.
+## MID only if |Δfile| within mid_reach (ZoC) AND max weapon reach ≥ geometric spacing (short weapons don’t get “mid” vs far files).
 func _update_distance_to_from_formations() -> void:
 	for c in combatants:
 		if not c.has("distance_to"):
@@ -186,10 +250,12 @@ func _update_distance_to_from_formations() -> void:
 			if opp_rank > 0:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
 				continue
-			# Both rank 0: MID within mid_reach files (Phase 4: 2 when either front zone is weak vs wide lines).
+			# Both rank 0: candidate MID from file offset + ZoC mid_reach; require weapon reach to bridge spacing.
 			var df: int = int(absf(float(our_file - opp_file)))
 			var mid_reach: int = _ZoneOfControl.mid_reach_files(self, c, opp)
-			if df <= mid_reach:
+			var eff_dist: float = _ActionsBuilder.effective_pair_eff_dist(self, c, opp)
+			var reach_here: float = maxf(_ActionsBuilder.melee_weapon_reach(c), _ActionsBuilder.melee_weapon_reach(opp))
+			if df <= mid_reach and reach_here >= eff_dist:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_MID
 			else:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
@@ -255,7 +321,8 @@ func _handle_event(ev: Dictionary) -> void:
 	var ev_type: String = ev.get("type", "")
 	var cid: int = ev.get("combatant_id", -1)
 	var c = _get_by_id(cid)
-	if c != null and not c.alive:
+	# Swap resolve must run even if initiator died (bleed tick) so partner can leave STATE_SWAP_RANK.
+	if ev_type != CombatConstants.EVENT_SWAP_RANK_RESOLVE and ev_type != CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE and ev_type != CombatConstants.EVENT_ROTATE_FILE_RESOLVE and c != null and not c.alive:
 		return
 	match ev_type:
 		CombatConstants.EVENT_ACTION_READY:
@@ -266,6 +333,10 @@ func _handle_event(ev: Dictionary) -> void:
 			_handle_recovery_end(c)
 		CombatConstants.EVENT_SWAP_RANK_RESOLVE:
 			_handle_swap_rank_resolve(ev)
+		CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE:
+			_handle_fall_back_solo_resolve(ev)
+		CombatConstants.EVENT_ROTATE_FILE_RESOLVE:
+			_handle_rotate_file_resolve(ev)
 
 func _handle_action_ready(c: Dictionary) -> void:
 	if c == null or not c.alive or _EntityAccess.is_incapacitated(c):
@@ -282,11 +353,12 @@ func _handle_action_ready(c: Dictionary) -> void:
 	else:
 		var actions: Array = get_available_actions(c.id)
 		if actions.is_empty():
-			# No valid actions (rank 1 with no swap partner, out of range, etc.). Skip turn.
-			skip_turn(c.id)
+			# No valid actions (e.g. medical phase). Pass without explicit wait.
+			skip_turn(c.id, "pass", "no available actions")
 		else:
 			var choice = CombatAIActionPicker.pick(actions, c.id, self)
 			var opts: Dictionary = CombatAIActionPicker.opts_from_choice(choice)
+			CombatDebug.flow_log_turn("enemy", c.id, actions, choice)
 			resolve_action(c.id, choice.target_id, choice.get("move_id", ""), opts)
 
 func _handle_melee_attack(c: Dictionary) -> void:
@@ -333,10 +405,19 @@ func finish_battle() -> void:
 ## Resets a combatant's turn so they can "skip" when they have no available actions.
 ## Back rank (rank 1+) with no swap/melee: wait longer (reserve) to avoid spamming skip every 0.5s.
 ## formation_changed schedules ready for promoted units; they act soon after plug.
-func skip_turn(combatant_id: int) -> void:
+## log_outcome: "wait" = explicit pass; "pass" = no actions available (CombatLogFormatter).
+func skip_turn(combatant_id: int, log_outcome: String = "pass", flow_reason: String = "") -> void:
 	var c = _get_by_id(combatant_id)
 	if c == null or c.state != CombatConstants.STATE_WAITING:
 		return
+	var extra: String = (" (%s)" % flow_reason) if not flow_reason.is_empty() else ""
+	CombatDebug.flow_log("skip_turn id=%d outcome=%s rank=%d%s" % [combatant_id, log_outcome, c.get("rank", 0), extra])
+	emit_signal("action_resolved", combatant_id, combatant_id, {
+		"outcome": log_outcome,
+		"dmg": 0,
+		"died": false,
+		"rank": c.get("rank", 0)
+	})
 	emit_signal("turn_resolved", combatant_id)
 	c.gauge = 0.0
 	var delay: float = CombatConstants.READY_DELAY_SKIP_DEFAULT_S
@@ -544,7 +625,7 @@ func _process(delta: float) -> void:
 			_StateHandlers.process_medical_wind_up(self, c, delta)
 		elif c.state == CombatConstants.STATE_RECOVERING:
 			_StateHandlers.process_recovering(self, c, delta)
-		elif c.state == CombatConstants.STATE_SWAP_RANK:
+		elif c.state == CombatConstants.STATE_SWAP_RANK or c.state == CombatConstants.STATE_FALLING_BACK:
 			# Advance timer for UI; event fires when resolve_at reached
 			c.state_timer = minf(c.state_timer + delta, c.get("state_duration", 1.0))
 
@@ -575,11 +656,16 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 		return
 	if atk.state != CombatConstants.STATE_WAITING:
 		return
+	# Pass turn — same scheduling as skip_turn (front vs back rank delay).
+	if move_id == CombatConstants.MOVE_ID_WAIT:
+		skip_turn(attacker_id, "wait", "explicit wait move")
+		return
 	# Medical actions (target_id = combatant to apply on, self or ally)
 	if _is_medical_move(move_id):
 		var part: String = str(options.get("target_part", ""))
 		var who: String = _EntityAccess.get_display_name(atk, attacker_id)
 		var tgt_desc: String = "ally" if target_id != attacker_id else "self"
+		CombatDebug.flow_log("resolve_action id=%d medical %s part=%s (%s)" % [attacker_id, move_id, part, tgt_desc])
 		print("[Combat] Action: %s chose medical %s on part=%s (%s)" % [who, move_id, part, tgt_desc])
 		MedicalActionStarter.start(self, attacker_id, target_id, move_id, part)
 		emit_signal("turn_resolved", attacker_id)
@@ -589,6 +675,7 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 		return
 	# Phase 2: Close action — roll engagement_pressure vs defender evasion.
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		CombatDebug.flow_log("resolve_action id=%d move=attempt_close target_id=%d" % [attacker_id, target_id])
 		if CombatConstants.COMBAT_EVENT_DEBUG:
 			var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 			var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
@@ -596,11 +683,29 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 		_resolve_close_attempt(attacker_id, target_id)
 		emit_signal("turn_resolved", attacker_id)
 		return
-	# Phase 3: Swap rank — time-based; no stamina. Swap positions with ally in same file, other rank.
+	# Phase 3–5: Formation movement — time-based; no stamina.
+	if move_id in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK, CombatConstants.MOVE_ID_ROTATE_FILE]:
+		CombatDebug.flow_log("resolve_action id=%d formation move_id=%s target_id=%d" % [attacker_id, move_id, target_id])
 	if move_id == CombatConstants.MOVE_ID_SWAP_RANK:
-		_start_swap_rank(attacker_id, target_id)
+		_start_formation_pair_move(attacker_id, target_id, "swap_rank")
 		emit_signal("turn_resolved", attacker_id)
 		return
+	if move_id == CombatConstants.MOVE_ID_DRAG_BACK:
+		_start_formation_pair_move(attacker_id, target_id, "drag_back")
+		emit_signal("turn_resolved", attacker_id)
+		return
+	if move_id == CombatConstants.MOVE_ID_FALL_BACK:
+		if target_id == attacker_id:
+			_start_fall_back_solo(attacker_id)
+		else:
+			_start_formation_pair_move(attacker_id, target_id, "fall_back_pair")
+		emit_signal("turn_resolved", attacker_id)
+		return
+	if move_id == CombatConstants.MOVE_ID_ROTATE_FILE:
+		_start_rotate_file(attacker_id, target_id)
+		emit_signal("turn_resolved", attacker_id)
+		return
+	CombatDebug.flow_log("resolve_action id=%d melee move_id=%s target_id=%d" % [attacker_id, move_id, target_id])
 	# Normal attack: clear direct pressure (new action), then start attack
 	if atk.node != null and atk.node.has_method("clear_direct_pressure"):
 		if atk.node.has_method("is_applying_direct_pressure") and atk.node.is_applying_direct_pressure():
@@ -655,6 +760,7 @@ func _resolve_close_attempt(attacker_id: int, target_id: int) -> void:
 	pressure *= CombatConstants.get_stance_modifier(atk.get("stance", CombatConstants.STANCE_BALANCED), "close_attempt")
 	var evasion: float = agi_def * CombatConstants.stamina_factor(st_def / CombatConstants.STAMINA_MAX)
 	evasion *= CombatConstants.get_stance_modifier(tgt.get("stance", CombatConstants.STANCE_BALANCED), "evasion")
+	evasion *= _TacticalCombat.ambush_defense_multiplier(self, tgt)
 	if tgt.get("stance", "") == CombatConstants.STANCE_CONTROLLING:
 		evasion /= CombatConstants.STANCE_MOD_OPPONENT_CLOSE  # Attacker close harder vs controlling
 	var fid: String = tgt.get("formation_id", "")
@@ -672,11 +778,11 @@ func _resolve_close_attempt(attacker_id: int, target_id: int) -> void:
 	atk["action_cooldown_until"] = combat_clock + CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S  # UI can show "Closing X.Xs"
 	_schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S)
 
-## Phase 3: Start swap rank — time-based, no stamina. Both units enter STATE_SWAP_RANK until resolve.
-func _start_swap_rank(initiator_id: int, partner_id: int) -> void:
+## Phase 3–5: Formation pair move — adjacent ranks swap (swap_rank, drag_back, fall_back_pair).
+func _start_formation_pair_move(initiator_id: int, partner_id: int, move_kind: String) -> void:
 	var init = _get_by_id(initiator_id)
 	var partner = _get_by_id(partner_id)
-	if init == null or partner == null or not partner.alive:
+	if init == null or partner == null or not init.alive or not partner.alive:
 		return
 	if init.side != partner.side or init.get("formation_id", "") != partner.get("formation_id", ""):
 		return
@@ -689,14 +795,99 @@ func _start_swap_rank(initiator_id: int, partner_id: int) -> void:
 	var f0: int = init.get("file", 0)
 	var f1: int = partner.get("file", 0)
 	if f0 != f1 or abs(r0 - r1) != 1:
-		return  # Must be same file, adjacent rank
-	# Only front can initiate, except when front is incapacitated (back can plug forward).
-	if r0 >= r1 and not _EntityAccess.is_incapacitated(partner):
 		return
-	var lane_mod: float = CombatConstants.LANE_MOD_CLEAR
-	var pressure_mod: float = CombatConstants.PRESSURE_MOD_NEUTRAL
+	# Adjacent same-file swap is symmetric (resolve exchanges ranks). Tactical gating is in AvailableActionsBuilder
+	# (disengage front→back, plug when front incap, relief back→front when fitter). Do not block deeper initiator here.
+	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(self, fid, f0)
+	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(self, fid)
 	var agi: float = float(init.stats.get("agility", 100))
-	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_mod * pressure_mod
+	var kind_mult: float = CombatConstants.DRAG_BACK_DURATION_MULT if move_kind == "drag_back" else 1.0
+	var armor_mult: float = maxf(_armor_mass_duration_multiplier_for_node(init.node), _armor_mass_duration_multiplier_for_node(partner.node))
+	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * kind_mult * armor_mult
+	var use_falling: bool = move_kind == "drag_back" or move_kind == "fall_back_pair"
+	var st: String = CombatConstants.STATE_FALLING_BACK if use_falling else CombatConstants.STATE_SWAP_RANK
+	var slots: Dictionary = formation.get("slots", {})
+	var r_lo: int = mini(r0, r1)
+	var r_hi: int = maxi(r0, r1)
+	var id_at_lo: int = init.id if init.get("rank", 0) == r_lo else partner.id
+	var id_at_hi: int = init.id if init.get("rank", 0) == r_hi else partner.id
+	_FormationSlots.begin_adjacent_rank_pair_move(slots, r_lo, r_hi, f0, id_at_lo, id_at_hi)
+	init["formation_move_partner_id"] = partner_id
+	partner["formation_move_partner_id"] = initiator_id
+	init.state = st
+	init.state_timer = 0.0
+	init.state_duration = duration
+	partner.state = st
+	partner.state_timer = 0.0
+	partner.state_duration = duration
+	if CombatConstants.COMBAT_EVENT_DEBUG:
+		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
+		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
+		print("[Combat] %s formation move (%s) with %s (%.2fs, lane×foot×%.2f pressure×%.2f)" % [n0, move_kind, n1, duration, lane_foot, pressure_mod])
+	_schedule_event({
+		"type": CombatConstants.EVENT_SWAP_RANK_RESOLVE,
+		"combatant_id": initiator_id,
+		"resolve_at": combat_clock + duration,
+		"data": {"partner_id": partner_id, "move_kind": move_kind}
+	})
+
+
+func _start_fall_back_solo(initiator_id: int) -> void:
+	var init = _get_by_id(initiator_id)
+	if init == null or not init.alive:
+		return
+	var fid: String = init.get("formation_id", "")
+	var formation: Dictionary = formations.get(fid, {})
+	if formation.is_empty():
+		return
+	var ranks: int = formation.get("ranks", 1)
+	if ranks <= 1 or init.get("rank", 0) != 0:
+		return
+	var f: int = init.get("file", 0)
+	var slots: Dictionary = formation.get("slots", {})
+	if _FormationSlots.slot_has_any(slots, Vector2i(1, f)):
+		return
+	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(self, fid, f)
+	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(self, fid)
+	var agi: float = float(init.stats.get("agility", 100))
+	var armor_mult: float = _armor_mass_duration_multiplier_for_node(init.node)
+	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * armor_mult
+	init["formation_move_partner_id"] = -1
+	init.state = CombatConstants.STATE_FALLING_BACK
+	init.state_timer = 0.0
+	init.state_duration = duration
+	if CombatConstants.COMBAT_EVENT_DEBUG:
+		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
+		print("[Combat] %s falling back solo (%.2fs)" % [n0, duration])
+	_schedule_event({
+		"type": CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE,
+		"combatant_id": initiator_id,
+		"resolve_at": combat_clock + duration,
+		"data": {}
+	})
+
+
+func _start_rotate_file(initiator_id: int, partner_id: int) -> void:
+	var init = _get_by_id(initiator_id)
+	var partner = _get_by_id(partner_id)
+	if init == null or partner == null or not init.alive or not partner.alive:
+		return
+	if init.side != partner.side or init.get("formation_id", "") != partner.get("formation_id", ""):
+		return
+	if init.get("rank", 0) != 0 or partner.get("rank", 0) != 0:
+		return
+	var f0: int = init.get("file", 0)
+	var f1: int = partner.get("file", 0)
+	if abs(f0 - f1) != 1:
+		return
+	var fid: String = init.get("formation_id", "")
+	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(self, fid, f0)
+	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(self, fid)
+	var agi: float = float(init.stats.get("agility", 100))
+	var armor_mult: float = maxf(_armor_mass_duration_multiplier_for_node(init.node), _armor_mass_duration_multiplier_for_node(partner.node))
+	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * armor_mult
+	init["formation_move_partner_id"] = partner_id
+	partner["formation_move_partner_id"] = initiator_id
 	init.state = CombatConstants.STATE_SWAP_RANK
 	init.state_timer = 0.0
 	init.state_duration = duration
@@ -706,60 +897,190 @@ func _start_swap_rank(initiator_id: int, partner_id: int) -> void:
 	if CombatConstants.COMBAT_EVENT_DEBUG:
 		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
 		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
-		print("[Combat] %s swapping rank with %s (%.2fs)" % [n0, n1, duration])
-	emit_signal("action_resolved", initiator_id, partner_id, {"outcome": "swap_rank_start", "dmg": 0, "died": false})
+		print("[Combat] %s rotating file with %s (%.2fs)" % [n0, n1, duration])
 	_schedule_event({
-		"type": CombatConstants.EVENT_SWAP_RANK_RESOLVE,
+		"type": CombatConstants.EVENT_ROTATE_FILE_RESOLVE,
 		"combatant_id": initiator_id,
 		"resolve_at": combat_clock + duration,
 		"data": {"partner_id": partner_id}
 	})
 
-## Phase 3: Complete swap rank — swap rank/file of both combatants and update formation slots.
+
+func _formation_pair_state_ok(c) -> bool:
+	return c != null and c.get("state", "") in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]
+
+
+## Clear formation pair move on survivors when resolve is invalid (partner died, interrupt, etc.).
+func _abort_formation_pair(init, partner) -> void:
+	var iid: int = init.get("id", -1) if init != null else -1
+	var pid: int = partner.get("id", -1) if partner != null else -1
+	CombatDebug.flow_log("formation_pair abort (reset to waiting) initiator_id=%d partner_id=%d" % [iid, pid])
+	if init != null:
+		init.erase("formation_move_partner_id")
+	if partner != null:
+		partner.erase("formation_move_partner_id")
+	if init != null and partner != null:
+		var fid: String = str(init.get("formation_id", ""))
+		if not fid.is_empty() and init.get("formation_id", "") == partner.get("formation_id", ""):
+			var formation: Dictionary = formations.get(fid, {})
+			var slots: Dictionary = formation.get("slots", {})
+			_FormationSlots.remove_combatant_from_slots(slots, init.id)
+			_FormationSlots.remove_combatant_from_slots(slots, partner.id)
+			if init.get("alive", false):
+				_FormationSlots.slot_set_single(slots, Vector2i(init.get("rank", 0), init.get("file", 0)), init.id)
+			if partner.get("alive", false):
+				_FormationSlots.slot_set_single(slots, Vector2i(partner.get("rank", 0), partner.get("file", 0)), partner.id)
+	if init != null and init.get("alive", false) and _formation_pair_state_ok(init):
+		init.state = CombatConstants.STATE_WAITING
+	if partner != null and partner.get("alive", false) and _formation_pair_state_ok(partner):
+		partner.state = CombatConstants.STATE_WAITING
+
+## Phase 3–5: Complete formation pair move — swap adjacent ranks; outcome depends on move_kind.
 func _handle_swap_rank_resolve(ev: Dictionary) -> void:
 	var initiator_id: int = ev.get("combatant_id", -1)
-	var partner_id: int = ev.get("data", {}).get("partner_id", -1)
+	var data: Dictionary = ev.get("data", {})
+	var partner_id: int = data.get("partner_id", -1)
+	var move_kind: String = data.get("move_kind", "swap_rank")
 	var init = _get_by_id(initiator_id)
 	var partner = _get_by_id(partner_id)
 	if init == null:
-		if partner != null and partner.state == CombatConstants.STATE_SWAP_RANK:
+		if partner != null and _formation_pair_state_ok(partner):
 			partner.state = CombatConstants.STATE_WAITING
 		return
-	if partner == null or init.state != CombatConstants.STATE_SWAP_RANK:
+	if partner == null:
+		if _formation_pair_state_ok(init):
+			init.state = CombatConstants.STATE_WAITING
+		return
+	if not init.alive or not partner.alive:
+		_abort_formation_pair(init, partner)
+		if init != null and init.alive:
+			_schedule_action_ready(initiator_id, _action_ready_cooldown(init))
+		if partner != null and partner.alive:
+			_schedule_action_ready(partner_id, _action_ready_cooldown(partner))
+		return
+	if not _formation_pair_state_ok(init) or not _formation_pair_state_ok(partner):
+		_abort_formation_pair(init, partner)
+		if init != null and init.alive:
+			_schedule_action_ready(initiator_id, _action_ready_cooldown(init))
+		if partner != null and partner.alive:
+			_schedule_action_ready(partner_id, _action_ready_cooldown(partner))
 		return
 	var fid: String = init.get("formation_id", "")
 	var formation: Dictionary = formations.get(fid, {})
 	if formation.is_empty():
-		init.state = CombatConstants.STATE_WAITING
-		if partner != null:
-			partner.state = CombatConstants.STATE_WAITING
+		_abort_formation_pair(init, partner)
 		return
 	var slots: Dictionary = formation.get("slots", {})
 	var r0: int = init.get("rank", 0)
 	var r1: int = partner.get("rank", 0)
 	var f0: int = init.get("file", 0)
 	var f1: int = partner.get("file", 0)
-	slots.erase(Vector2i(r0, f0))
-	slots.erase(Vector2i(r1, f1))
+	_FormationSlots.remove_combatant_from_slots(slots, init.id)
+	_FormationSlots.remove_combatant_from_slots(slots, partner.id)
 	init.rank = r1
 	init.file = f1
 	partner.rank = r0
 	partner.file = f0
-	slots[Vector2i(r1, f1)] = init.id
-	slots[Vector2i(r0, f0)] = partner.id
+	_FormationSlots.slot_set_single(slots, Vector2i(init.rank, init.file), init.id)
+	_FormationSlots.slot_set_single(slots, Vector2i(partner.rank, partner.file), partner.id)
+	init.erase("formation_move_partner_id")
+	partner.erase("formation_move_partner_id")
 	init.state = CombatConstants.STATE_WAITING
 	partner.state = CombatConstants.STATE_WAITING
+	var outcome: String = "swap_rank_complete"
+	match move_kind:
+		"drag_back":
+			outcome = "drag_back_complete"
+		"fall_back_pair":
+			outcome = "fall_back_complete"
+		_:
+			outcome = "swap_rank_complete"
+	CombatDebug.flow_log("formation_pair_resolve id=%d <-> %d move_kind=%s outcome=%s" % [initiator_id, partner_id, move_kind, outcome])
+	emit_signal("action_resolved", initiator_id, partner_id, {"outcome": outcome, "dmg": 0, "died": false, "move_kind": move_kind})
 	if CombatConstants.COMBAT_EVENT_DEBUG:
 		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
 		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
-		print("[Combat] %s and %s swapped rank" % [n0, n1])
+		print("[Combat] %s and %s finished formation move (%s)" % [n0, n1, move_kind])
 	_recompute_zoc_and_distance()
 	emit_signal("formation_changed", fid)
 	_reschedule_back_rank_turns(fid)
 	_schedule_action_ready(initiator_id, _action_ready_cooldown(init))
-	# Partner moved to front — schedule soon (same as plug) so they can act.
 	if partner != null and partner.alive and not _EntityAccess.is_incapacitated(partner):
 		_schedule_action_ready(partner_id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
+
+
+func _handle_fall_back_solo_resolve(ev: Dictionary) -> void:
+	var initiator_id: int = ev.get("combatant_id", -1)
+	var init = _get_by_id(initiator_id)
+	if init == null or not init.alive:
+		return
+	if init.get("state", "") != CombatConstants.STATE_FALLING_BACK:
+		return
+	var fid: String = init.get("formation_id", "")
+	var formation: Dictionary = formations.get(fid, {})
+	if formation.is_empty():
+		init.state = CombatConstants.STATE_WAITING
+		return
+	var f: int = init.get("file", 0)
+	var slots: Dictionary = formation.get("slots", {})
+	if _FormationSlots.slot_has_any(slots, Vector2i(1, f)):
+		CombatDebug.flow_log("fall_back_solo_resolve id=%d aborted: rear slot (1,%d) occupied" % [initiator_id, f])
+		init.state = CombatConstants.STATE_WAITING
+		_schedule_action_ready(initiator_id, _action_ready_cooldown(init))
+		return
+	_FormationSlots.remove_combatant_from_slots(slots, initiator_id)
+	init.rank = 1
+	_FormationSlots.slot_set_single(slots, Vector2i(1, f), initiator_id)
+	init.erase("formation_move_partner_id")
+	init.state = CombatConstants.STATE_WAITING
+	CombatDebug.flow_log("fall_back_solo_resolve id=%d complete rank 0->1 file %d" % [initiator_id, f])
+	emit_signal("action_resolved", initiator_id, initiator_id, {"outcome": "fall_back_solo_complete", "dmg": 0, "died": false})
+	_recompute_zoc_and_distance()
+	emit_signal("formation_changed", fid)
+	_reschedule_back_rank_turns(fid)
+	_schedule_action_ready(initiator_id, _action_ready_cooldown(init))
+
+
+func _handle_rotate_file_resolve(ev: Dictionary) -> void:
+	var initiator_id: int = ev.get("combatant_id", -1)
+	var partner_id: int = ev.get("data", {}).get("partner_id", -1)
+	var init = _get_by_id(initiator_id)
+	var partner = _get_by_id(partner_id)
+	if init == null or partner == null or not init.alive or not partner.alive:
+		_abort_formation_pair(init, partner)
+		return
+	if not _formation_pair_state_ok(init) or not _formation_pair_state_ok(partner):
+		_abort_formation_pair(init, partner)
+		if init != null and init.alive:
+			_schedule_action_ready(initiator_id, _action_ready_cooldown(init))
+		if partner != null and partner.alive:
+			_schedule_action_ready(partner_id, _action_ready_cooldown(partner))
+		return
+	var fid: String = init.get("formation_id", "")
+	var formation: Dictionary = formations.get(fid, {})
+	if formation.is_empty():
+		_abort_formation_pair(init, partner)
+		return
+	var slots: Dictionary = formation.get("slots", {})
+	var f0: int = init.get("file", 0)
+	var f1: int = partner.get("file", 0)
+	_FormationSlots.remove_combatant_from_slots(slots, init.id)
+	_FormationSlots.remove_combatant_from_slots(slots, partner.id)
+	init.file = f1
+	partner.file = f0
+	_FormationSlots.slot_set_single(slots, Vector2i(0, init.file), init.id)
+	_FormationSlots.slot_set_single(slots, Vector2i(0, partner.file), partner.id)
+	init.erase("formation_move_partner_id")
+	partner.erase("formation_move_partner_id")
+	init.state = CombatConstants.STATE_WAITING
+	partner.state = CombatConstants.STATE_WAITING
+	CombatDebug.flow_log("rotate_file_resolve id=%d <-> %d complete files %d <-> %d" % [initiator_id, partner_id, f0, f1])
+	emit_signal("action_resolved", initiator_id, partner_id, {"outcome": "rotate_file_complete", "dmg": 0, "died": false})
+	_recompute_zoc_and_distance()
+	emit_signal("formation_changed", fid)
+	_reschedule_back_rank_turns(fid)
+	_schedule_action_ready(initiator_id, _action_ready_cooldown(init))
+	_schedule_action_ready(partner_id, _action_ready_cooldown(partner))
 
 ## Phase 3: Plug on death — track dead in slot_obstacles; when rank 0 dies, promote rank 1 in same file.
 ## Dead/wounded stay tracked (non-blocking); allies can step over. Prevents formation from breaking.
@@ -772,8 +1093,7 @@ func _on_combatant_died(c: Dictionary) -> void:
 	var f: int = c.get("file", 0)
 	var slots: Dictionary = formation.get("slots", {})
 	var obstacles: Dictionary = formation.get("slot_obstacles", {})
-	# Remove from slots (primary occupant)
-	slots.erase(Vector2i(r, f))
+	_FormationSlots.remove_combatant_from_slots(slots, c.id)
 	# Add to slot_obstacles (ground obstacle; tracked, non-blocking)
 	var key := Vector2i(r, f)
 	if not obstacles.has(key):
@@ -783,7 +1103,7 @@ func _on_combatant_died(c: Dictionary) -> void:
 	if formation.get("ranks", 1) > 1:
 		var formation_ranks: int = formation.get("ranks", 1)
 		for fill_rank in range(formation_ranks):
-			if slots.has(Vector2i(fill_rank, f)):
+			if _FormationSlots.slot_has_any(slots, Vector2i(fill_rank, f)):
 				continue  # Slot filled
 			var next_rank: int = fill_rank + 1
 			if next_rank >= formation_ranks:
@@ -797,10 +1117,10 @@ func _on_combatant_died(c: Dictionary) -> void:
 					break
 			if promoted == null:
 				break
-			slots.erase(Vector2i(next_rank, f))
+			_FormationSlots.remove_combatant_from_slots(slots, promoted.id)
 			promoted.rank = fill_rank
 			promoted.file = f
-			slots[Vector2i(fill_rank, f)] = promoted.id
+			_FormationSlots.slot_set_single(slots, Vector2i(fill_rank, f), promoted.id)
 			if CombatConstants.COMBAT_EVENT_DEBUG:
 				var name_p: String = _EntityAccess.get_display_name(promoted, promoted.get("id", -1))
 				print("[Combat] Plug: %s advanced to rank %d (file %d) after ally fell" % [name_p, fill_rank, f])

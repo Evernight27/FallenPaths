@@ -97,32 +97,36 @@ Master implementation guide for the combat system migration. Consolidates decisi
 - [x] Build formations from presets (party + enemy) at combat start
 - [x] Filter targeting: rank 0 melee; rank 1 ranged/support
 - [x] Formation targeting: weapon.melee_range >= effective_distance (|Δfile| × spacing_m × REACH_SAFETY_FACTOR)
-- [x] Add swap rank action (time-based event delay; fixed lane_mod=1.0, pressure_mod=1.0 for now; dynamic in Phase 5)
+- [x] Add swap rank action (time-based event delay; lane × footing × opponent pressure from `ZoneOfControl`; see Phase 5)
 - [x] **Formation UI:** Visual rank×file grid with unit spacing (tight/normal/loose); FormationLayoutBuilder + FormationDiagramBuilder (compact diagram updates on formation_changed)
 - [x] **Plug on death (rank advance):** When rank 0 unit dies, rank 1 in same file automatically advances to rank 0. Prevents units from being stuck unable to melee. Required before Phase 4 for accurate testing. See `docs/FF4_FORMATION_DISTANCE_AMBUSH_BREAKTHROUGH_INVESTIGATION.md` §2 (plug_rule: rank_advance).
-- [x] **Dead/wounded in slots (tracked, non-blocking):** Dead or incapacitated units remain tracked in their slot as ground obstacles (`slot_obstacles`). They do NOT block movement—allies can step over them. Footing modifier (×1.15–1.25) when moving through slot with bodies → Phase 5 (Step over fallen).
+- [x] **Dead/wounded in slots (tracked, non-blocking):** `slot_obstacles`; non-blocking. **Footing:** `ZoneOfControl.get_footing_duration_multiplier` (Phase 5) scales formation-move duration when bodies present in column.
 
 ### Phase 4: ZoC
-- [ ] Zone control calculation per zone (front, left, right, rear)
-- [ ] Flank access when control < threshold
-- [ ] Engagement angle assignment (from zone occupancy or pack approach)
-- [ ] Zone-based distance for formation vs formation (hybrid)
+- [x] Zone control calculation per zone (front, left, right, rear) — `ZoneOfControl.recompute_zone_control`, cross-zone support
+- [x] Flank access when control < threshold — `ZOC_ACCESS_THRESHOLD` in `get_engagement_parry_multiplier` / `_engagement_parry_mult_zoc`
+- [x] Engagement angle assignment — `AttackResolver` sets defender `engagement_angle` from zone parry mult; pack fallback when not ZoC pair
+- [x] Zone-based distance for formation vs formation (hybrid) — pair-wise `distance_to` + `mid_reach_files` when both lines wide and front ZoC weak
+- [x] Optional encounter flag `protection_circle_active` — disables ZoC flank/rear and mid-reach widening (`CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE`)
+- [x] Formation diagram shows ZoC summary line (`FormationDiagramBuilder` + `ZoneOfControl.format_zone_control_line`)
+- [ ] **Not yet in code (Part 2 “Full ZoC” text):** **incursion** term in zone strength (enemy presence reducing control). **Optional:** zone **extent** scaling distance (investigation doc); casualties are modeled via `slot_obstacles` + `ZOC_CASUALTY_PER_BODY`.
 
 ### Phase 5: Formation Actions
-- [ ] Fall back: disengage + move to rear zone or full retreat; duration per movement model
-- [ ] **Swap rank — lane clarity:** Replace fixed lane_mod with dynamic `get_lane_clarity(formation, rank, file)`. Clear=1.0×, crowded=1.3×, blocked=1.6×. See `docs/MEDIEVAL_FORMATION_MOVEMENT_SWITCHING_INVESTIGATION.md` §2.3.
-- [ ] **Swap rank — pressure modifier:** Replace fixed pressure_mod with dynamic `get_opponent_pressure(opponent)`. Defensive=0.9×, neutral=1.0×, aggressive=1.3×. See `docs/MEDIEVAL_FORMATION_MOVEMENT_SWITCHING_INVESTIGATION.md` §2.4.
-- [ ] **Swap rank — UI (optional):** Show swap duration or reason (e.g. "1.2s (crowded)") when lane/pressure are dynamic.
-- [ ] Drag back: rear ranks pull wounded from front (distraction deficit)
-- [ ] Step over fallen: footing modifier when moving through slot with dead/wounded (×1.15–1.25 duration). Bodies tracked, non-blocking. See Part 4.5.
-- [ ] Multi-unit same slot with deficits
-- [ ] Rotate: rank shift, file shift (advanced)
+- [x] Fall back — `_start_fall_back_solo` (empty rank-1 slot) and `fall_back_pair` via `_start_formation_pair_move`; `EVENT_FALL_BACK_SOLO_RESOLVE` / `_handle_fall_back_solo_resolve`
+- [x] **Lane clarity** — `ZoneOfControl.get_swap_lane_duration_multiplier` (clear / crowded / blocked + density tweak), composed with footing via `get_lane_and_footing_duration_multiplier`
+- [x] **Opponent pressure** — `ZoneOfControl.get_opponent_pressure_duration_multiplier` (defensive / neutral / aggressive)
+- [ ] **Swap / move UI (optional):** Show duration or lane/pressure reason (e.g. “1.2s (crowded)”) on formation diagram or row
+- [x] Drag back — `move_kind == "drag_back"` in `_start_formation_pair_move`; `DRAG_BACK_DURATION_MULT`; builder + AI offer `MOVE_ID_DRAG_BACK`
+- [x] Step over fallen — `get_footing_duration_multiplier` (bodies in `slot_obstacles`); tracked non-blocking bodies from Phase 3 plug
+- [ ] **Multi-unit same slot with deficits** — not implemented (design-only; no dual occupancy + distraction stat)
+- [x] Rotate — `_start_rotate_file` (adjacent files, rank 0); `EVENT_ROTATE_FILE_RESOLVE`
+- [ ] **Duration model vs outline:** Part 2 lists `armor_factor` in movement duration — **not** applied in `CombatManager` (only agility × lane × pressure × kind_mult). **Hit interrupt** during `STATE_SWAP_RANK` / `STATE_FALLING_BACK` — **not** wired (moves complete unless partner dies / resolve aborts).
 
 ### Phase 6: Tactical Features
-- [ ] Ambush: formation facing, penalties (per plan)
-- [ ] Surround: defense splitting, awareness factor
-- [ ] Breakthrough: plug vs incursion contest (incursion when plug fails; requires ZoC). Basic plug on death is Phase 3.
-- [ ] Flanking: ZoC-based + pack fallback; apply modifiers
+- [x] **Ambush** — `encounter.ambush_type` / `ambush_penalty` / `ambushed_side`; `TacticalCombat.ambush_defense_multiplier` on defender parry/dodge and close-attempt evasion (`CombatManager._resolve_close_attempt`)
+- [x] **Surround** — `TacticalCombat.count_engaging_threats` + split ÷ min(threats, `SURROUND_MAX_SPLIT_DIVISOR`) × perception awareness on parry and dodge (`DefenseChoiceResolver`)
+- [x] **Incursion pressure (light)** — `TacticalCombat.recompute_incursion_pressure` from front-rank count imbalance; reduces raw zone strength (`ZoneOfControl._raw_zone_strength`). Full **plug vs incursion contest** on failed plug still deferred.
+- [x] **Flanking** — implemented in Phase 4 (`ZoneOfControl.get_engagement_parry_multiplier`, pack fallback); Phase 6 checklist satisfied by that + surround/ambush layering
 
 ---
 

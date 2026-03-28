@@ -8,6 +8,7 @@ const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
 const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
+const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 
 ## Returns dict with: defense, can_parry_in_time, parry_p_a, parry_c_d, parry_time_to_react,
 ## parry_readiness, parry_off_balance, late_parry, is_block_parry, m_a_parry, m_d_parry,
@@ -44,6 +45,9 @@ static func choose_defense(
 
 	var dodge_chance: float = _EntityAccess.get_dodge_chance(tgt)
 	dodge_chance *= CombatConstants.get_stance_modifier(tgt.get("stance", CombatConstants.STANCE_BALANCED), "evasion")
+	var surround_n: int = int(pa.get("surround_threat_count", 1))
+	dodge_chance *= pa.get("tactical_ambush_mult", 1.0)
+	dodge_chance *= _TacticalCombat.surround_defense_multiplier(tgt, surround_n)
 	result.dodge_chance = dodge_chance
 
 	var already_used_defense: bool = pa.get("passive_parry_attempted", false)
@@ -105,6 +109,8 @@ static func choose_defense(
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
 				var st_ratio: float = clampf(tgt.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio))
+				parry_c_d *= _TacticalCombat.surround_defense_multiplier(tgt, int(pa.get("surround_threat_count", 1)))
+				parry_c_d *= pa.get("tactical_ambush_mult", 1.0)
 				if CombatConstants.COMBAT_DEBUG:
 					var dbg_tgt: String = _EntityAccess.get_display_name(tgt)
 					CombatDebug.log("parry_align %s guard=%s atk=%s align=%.2f" % [dbg_tgt, tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), move_def.get("attack_line", "high"), _al])
@@ -153,6 +159,8 @@ static func choose_defense(
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
 				var st_ratio_late: float = clampf(tgt.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio_late))
+				parry_c_d *= _TacticalCombat.surround_defense_multiplier(tgt, int(pa.get("surround_threat_count", 1)))
+				parry_c_d *= pa.get("tactical_ambush_mult", 1.0)
 				if CombatConstants.COMBAT_DEBUG:
 					CombatDebug.log("parry_align late %s align=%.2f" % [tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), _al])
 

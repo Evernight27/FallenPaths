@@ -35,6 +35,42 @@ static func opts_from_choice(choice: Dictionary) -> Dictionary:
 		opts["feint_part"] = choice.feint_part
 	return opts
 
+## True when front→back disengage swap is tactically justified (matches high-weight rules in _get_action_weight).
+## Plug-forward (incapacitated partner) is handled separately in AvailableActionsBuilder.
+static func is_disengage_swap_tactically_allowed(c: Dictionary, partner: Dictionary) -> bool:
+	if partner == null or partner.is_empty():
+		return false
+	if CombatantEntityAccess.is_incapacitated(partner):
+		return false
+	var our_fitness: float = _get_positioning_fitness(c)
+	var partner_fitness: float = _get_positioning_fitness(partner)
+	var gap: float = partner_fitness - our_fitness
+	if gap <= 0.0:
+		return false
+	if CombatantEntityAccess.get_attacking_arm(c).is_empty():
+		return not CombatantEntityAccess.get_attacking_arm(partner).is_empty()
+	if our_fitness <= CombatConstants.SWAP_RANK_AI_CRITICAL_FITNESS and gap >= CombatConstants.SWAP_RANK_AI_URGENT_MIN_GAP:
+		return true
+	return gap >= CombatConstants.SWAP_RANK_AI_MIN_FITNESS_GAP
+
+## True when deeper rank (higher rank #) should swap forward with the rank ahead (relief / rotation).
+## Mirror of is_disengage_swap_tactically_allowed: we are fitter than the fighter in front of us.
+static func is_relief_swap_tactically_allowed(c: Dictionary, partner: Dictionary) -> bool:
+	if partner == null or partner.is_empty():
+		return false
+	if CombatantEntityAccess.is_incapacitated(partner):
+		return false
+	var our_fitness: float = _get_positioning_fitness(c)
+	var partner_fitness: float = _get_positioning_fitness(partner)
+	var gap: float = our_fitness - partner_fitness
+	if gap <= 0.0:
+		return false
+	if CombatantEntityAccess.get_attacking_arm(partner).is_empty():
+		return not CombatantEntityAccess.get_attacking_arm(c).is_empty()
+	if partner_fitness <= CombatConstants.SWAP_RANK_AI_CRITICAL_FITNESS and gap >= CombatConstants.SWAP_RANK_AI_URGENT_MIN_GAP:
+		return true
+	return gap >= CombatConstants.SWAP_RANK_AI_MIN_FITNESS_GAP
+
 ## Returns weight for action. Medical: urgency + direct pressure bleed + pending retry.
 ## Combat: attack/attempt_close = use stamina (exhausted less likely to engage); swap_rank = fitness only (no stamina).
 static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
@@ -45,33 +81,29 @@ static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) 
 	var c = manager._get_by_id(combatant_id)
 	if c == null:
 		return 1.0
-	if mid == CombatConstants.MOVE_ID_SWAP_RANK:
+	if mid == CombatConstants.MOVE_ID_WAIT:
+		return 1.0
+	if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get("target_id", -1) == combatant_id:
+		return 0.65  # Solo step to rear — situational
+	if mid == CombatConstants.MOVE_ID_ROTATE_FILE:
+		return 0.55
+	if mid in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK]:
 		var partner_id: int = a.get("target_id", -1)
 		var partner = manager._get_by_id(partner_id) if partner_id >= 0 else null
 		var partner_incapacitated: bool = partner != null and CombatantEntityAccess.is_incapacitated(partner)
 		if partner_incapacitated:
 			# Back rank plugging forward — partner (front) is incapacitated; strongly prefer.
 			return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
-		# Front disengaging: only when relief is necessary (clear fitness gap, critical state, or unusable weapon arm).
-		var our_fitness: float = _get_positioning_fitness(c)
-		var partner_fitness: float = _get_positioning_fitness(partner) if partner != null else 1.0
-		var gap: float = partner_fitness - our_fitness
-		var low: float = CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
-		var high: float = CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
-		if gap <= 0.0:
-			return low
-		# Front cannot wield in rank 0 — must yield if partner can fight.
-		if CombatantEntityAccess.get_attacking_arm(c).is_empty():
-			if partner != null and not CombatantEntityAccess.get_attacking_arm(partner).is_empty():
-				return high
-			return low
-		# Critically unfit: smaller gap to partner is enough to justify relief.
-		if our_fitness <= CombatConstants.SWAP_RANK_AI_CRITICAL_FITNESS and gap >= CombatConstants.SWAP_RANK_AI_URGENT_MIN_GAP:
-			return high
-		# Otherwise require a clear fitness advantage (not a marginal difference).
-		if gap >= CombatConstants.SWAP_RANK_AI_MIN_FITNESS_GAP:
-			return high
-		return low
+		if partner != null and c.get("rank", 0) > partner.get("rank", 0):
+			# Deeper rank swapping up (relief) — only swap_rank is offered for this path in builder.
+			if mid != CombatConstants.MOVE_ID_SWAP_RANK:
+				return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
+			if is_relief_swap_tactically_allowed(c, partner):
+				return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
+			return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
+		if partner != null and is_disengage_swap_tactically_allowed(c, partner):
+			return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
+		return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
 	# Attack or attempt_close: engaging the enemy — use stamina (exhausted units less likely to act)
 	var stamina_ratio: float = clampf(c.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 	return 0.85 if stamina_ratio < 0.2 else 1.0
@@ -109,8 +141,15 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node) -> void:
 		return
 	if choice.get("move_id", "") == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return  # Close attempt targets a combatant, not a body part
-	if choice.get("move_id", "") == CombatConstants.MOVE_ID_SWAP_RANK:
-		return  # Swap rank targets swap partner, not a body part
+	if choice.get("move_id", "") in [
+		CombatConstants.MOVE_ID_SWAP_RANK,
+		CombatConstants.MOVE_ID_DRAG_BACK,
+		CombatConstants.MOVE_ID_FALL_BACK,
+		CombatConstants.MOVE_ID_ROTATE_FILE,
+	]:
+		return
+	if choice.get("move_id", "") == CombatConstants.MOVE_ID_WAIT:
+		return
 	var tgt_id: int = choice.get("target_id", -1)
 	var tgt = manager._get_by_id(tgt_id)
 	if tgt == null or tgt.node == null or not tgt.node.has_method("get_targetable_parts"):

@@ -202,4 +202,6 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		if tgt != null and tgt.alive:
 			# Defender was hit; stagger/dropped guard — blade ends low. Sync guard_zone.
 			_GuardUpdater.set_guard_from_line(tgt, "low")
+			if manager.has_method("apply_formation_hit_reaction_if_needed"):
+				manager.apply_formation_hit_reaction_if_needed(target_id, intensity)
 		return

@@ -33,6 +33,8 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 				ctrl.gauge_label.text = "Recov. %.1fs" % remain
 			elif state == CombatConstants.STATE_SWAP_RANK:
 				ctrl.gauge_label.text = "Swap %.1fs" % remain
+			elif state == CombatConstants.STATE_FALLING_BACK:
+				ctrl.gauge_label.text = "Fall back %.1fs" % remain
 			elif state == "receiving_medical_attention":
 				ctrl.gauge_label.text = "Receiving care"
 			elif c.get("status_override", "").is_empty() == false:

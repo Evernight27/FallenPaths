@@ -33,6 +33,39 @@ static func create_from_definition(piece_id: String) -> ArmorPiece:
 	return piece
 
 
+## Total mass (kg) from layer mass_kg fields — sum matches full kit when all pieces equipped (typical harness ~15–28 kg).
+## Body-part scale: same layer defs are reused for vambraces vs cuirass; smaller regions carry less steel/textile.
+func get_total_mass_kg() -> float:
+	var t: float = 0.0
+	for layer in layers:
+		if layer is Dictionary:
+			t += float(layer.get("mass_kg", _default_mass_kg_for_layer(layer)))
+	return t * _body_part_mass_scale(body_part)
+
+
+func _body_part_mass_scale(part: String) -> float:
+	match part:
+		"chest":
+			return 1.0
+		"head":
+			return 0.58
+		"right_arm", "left_arm":
+			return 0.4
+		"right_leg", "left_leg":
+			return 0.48
+		_:
+			return 0.5
+
+
+func _default_mass_kg_for_layer(layer: Dictionary) -> float:
+	var rig: float = float(layer.get("rigidity", 0.0))
+	if rig >= 0.95:
+		return 4.5
+	if rig >= 0.2:
+		return 2.0
+	return 0.45
+
+
 # Apply damage through all layers. Returns { damage, damage_type, was_deflected, transmitted_blunt_amount }.
 # When SHARP is stopped by a layer: fraction transmitted as blunt (one layer's transmission); caller adds to blunt and runs once.
 # BLUNT: transmission-only. Uses blunt_transmission + cushion (momentum_per_area) + area coupling (rigid layers).

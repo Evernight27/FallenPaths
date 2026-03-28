@@ -66,6 +66,19 @@ static func get_armor_summary_from_node(node: Node) -> Array:
 			names.append(piece.display_name)
 	return names
 
+
+## Sum of equipped ArmorPiece.get_total_mass_kg() — formation moves, encumbrance tuning.
+static func get_total_armor_mass_kg_from_node(node: Node) -> float:
+	if node == null or not node.has_method("get_armor_slots"):
+		return 0.0
+	var slots: Dictionary = node.get_armor_slots()
+	var total: float = 0.0
+	for part in slots.keys():
+		var piece = slots[part]
+		if piece != null and piece.has_method("get_total_mass_kg"):
+			total += piece.get_total_mass_kg()
+	return total
+
 ## Returns performance modifier (pain/consciousness) from combatant's node. Default 1.0 if unavailable.
 static func get_performance_modifier(combatant: Dictionary) -> float:
 	var node = combatant.get("node", null)

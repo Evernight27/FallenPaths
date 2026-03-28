@@ -17,8 +17,9 @@ static func handle(manager: Node, combatant_id: int) -> void:
 		# No valid actions (rank 1 with no swap partner, out of range, medical phase with no wounded).
 		# Skip turn instead of attacking — we cannot perform any action.
 		if manager.has_method("skip_turn"):
-			manager.skip_turn(combatant_id)
+			manager.skip_turn(combatant_id, "pass", "no available actions")
 		return
 	var choice = CombatAIActionPicker.pick(actions, combatant_id, manager)
 	var opts: Dictionary = CombatAIActionPicker.opts_from_choice(choice)
+	CombatDebug.flow_log_turn("player", combatant_id, actions, choice)
 	manager.resolve_action(combatant_id, choice.target_id, choice.get("move_id", ""), opts)

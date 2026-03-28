@@ -8,6 +8,7 @@ const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 const _StatsSync := preload("res://combat/CombatantStatsSync.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
+const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.COMBAT_DEBUG:
@@ -292,6 +293,9 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		tgt["engagement_angle"] = "flank"
 	else:
 		tgt["engagement_angle"] = "front"
+
+	pa["surround_threat_count"] = _TacticalCombat.count_engaging_threats(manager, target_id)
+	pa["tactical_ambush_mult"] = _TacticalCombat.ambush_defense_multiplier(manager, tgt)
 
 	var dc: Dictionary = _DefenseChoice.choose_defense(pa, atk, tgt, targetable, attack_type, archetype, velocity_override)
 	var _already_used_defense: bool = pa.get("passive_parry_attempted", false)

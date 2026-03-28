@@ -124,6 +124,9 @@ static func process_receiving_medical(manager: Node, c: Dictionary, delta: float
 			if not actions.is_empty():
 				var choice = CombatAIActionPicker.pick(actions, c.id, manager)
 				var opts: Dictionary = CombatAIActionPicker.opts_from_choice(choice)
+				CombatDebug.flow_log("receiving_care enemy id=%d actions=[%s] => pick %s" % [
+					c.id, CombatDebug.format_actions_compact(actions), choice.get("move_id", "")
+				])
 				manager.resolve_action(c.id, c.id, choice.get("move_id", ""), opts)
 				c.receiving_care_action_cooldown = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 

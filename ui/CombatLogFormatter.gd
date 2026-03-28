@@ -18,6 +18,8 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 	if died and dmg == 0:
 		if outcome == "bled_out":
 			return "[color=red]%s (%s) — %s bled out.[/color]" % [attacker_name, attacker_side, target_name]
+		elif outcome == "defeated":
+			return "[color=red]%s (%s) — %s (%s) is defeated.[/color]" % [attacker_name, attacker_side, target_name, target_side]
 		else:
 			return "[color=gray]%s (%s) — %s had no targetable parts.[/color]" % [attacker_name, attacker_side, target_name]
 	elif outcome == "miss":
@@ -26,6 +28,23 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		return "[color=green]%s (%s) → %s (%s): [b]Dodge![/b][/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "skip":
 		return "[color=gray]%s (%s) — no functional arm; skips attack.[/color]" % [attacker_name, attacker_side]
+	elif outcome == "wait":
+		return "[color=gray]%s (%s) waits.[/color]" % [attacker_name, attacker_side]
+	elif outcome == "pass":
+		var rank: int = int(result.get("rank", 0))
+		if rank > 0:
+			return "[color=gray]%s (%s) holds in reserve (no action available).[/color]" % [attacker_name, attacker_side]
+		return "[color=gray]%s (%s) passes (no action available).[/color]" % [attacker_name, attacker_side]
+	elif outcome == "swap_rank_complete":
+		return "[color=gray]%s (%s) and %s (%s) swapped ranks.[/color]" % [attacker_name, attacker_side, target_name, target_side]
+	elif outcome == "drag_back_complete":
+		return "[color=gray]%s (%s) and %s (%s) dragged back (formation).[/color]" % [attacker_name, attacker_side, target_name, target_side]
+	elif outcome == "fall_back_complete":
+		return "[color=gray]%s (%s) and %s (%s) fell back together.[/color]" % [attacker_name, attacker_side, target_name, target_side]
+	elif outcome == "fall_back_solo_complete":
+		return "[color=gray]%s (%s) fell back to the second rank.[/color]" % [attacker_name, attacker_side]
+	elif outcome == "rotate_file_complete":
+		return "[color=gray]%s (%s) and %s (%s) rotated files (front rank).[/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "parry_deflect":
 		return "[color=cyan]%s (%s) parried %s (%s)'s attack.[/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "direct_pressure":
