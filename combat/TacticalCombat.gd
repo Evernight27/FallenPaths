@@ -6,6 +6,7 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
 ## Enemy front-rank units that could actually land a melee strike on the defender (weapon reach + spacing + band).
 ## Not merely “MID distance” from formation geometry — matches AvailableActionsBuilder.can_melee_threaten.
@@ -53,7 +54,7 @@ static func ambush_defense_multiplier(manager: Node, defender: Dictionary) -> fl
 		p *= 0.5
 	return 1.0 - p
 
-## Incursion pressure 0..1 from local front-rank imbalance (enemy has more active front fighters than we do).
+## Global incursion 0..INCURSION_PRESSURE_MAX from front-rank imbalance; lane_stress_by_file from dual occupancy + density (not bodies — those are obs_pen in ZoC).
 static func recompute_incursion_pressure(manager: Node) -> void:
 	if manager == null or not manager.get("formations"):
 		return
@@ -67,6 +68,31 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 		var delta: int = opp_front - our_front
 		var pressure: float = clampf(float(delta) * CombatConstants.INCURSION_PRESSURE_PER_RANK_ADVANTAGE, 0.0, CombatConstants.INCURSION_PRESSURE_MAX)
 		formation["incursion_pressure"] = pressure
+		_recompute_lane_stress_by_file(manager, formation)
+
+
+static func _recompute_lane_stress_by_file(manager: Node, formation: Dictionary) -> void:
+	var files: int = maxi(1, formation.get("files", 1))
+	var ranks: int = maxi(1, formation.get("ranks", 1))
+	var slots: Dictionary = formation.get("slots", {})
+	var density: String = str(formation.get("density", "normal"))
+	var by_file: Dictionary = {}
+	for f in range(files):
+		var has_dual: bool = false
+		for r in range(ranks):
+			if _FormationSlots.living_count_in_slot(manager, slots, Vector2i(r, f)) >= 2:
+				has_dual = true
+				break
+		var stress: float = 0.0
+		if has_dual:
+			stress += CombatConstants.LANE_STRESS_DUAL_LIVING
+		match density:
+			"tight":
+				stress += CombatConstants.LANE_STRESS_DENSITY_TIGHT
+			"loose":
+				stress += CombatConstants.LANE_STRESS_DENSITY_LOOSE
+		by_file[f] = clampf(stress, 0.0, 1.0)
+	formation["lane_stress_by_file"] = by_file
 
 static func _count_front_rank_alive(manager: Node, formation_key: String) -> int:
 	var n: int = 0

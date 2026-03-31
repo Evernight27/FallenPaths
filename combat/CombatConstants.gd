@@ -250,6 +250,16 @@ const ZOC_REAR_SUPPORT_FROM_FRONT := 0.2
 const ZOC_CASUALTY_PER_BODY := 0.12
 ## Phase 6: Incursion pressure (front-rank imbalance) reduces raw zone strength before cross-zone blend.
 const ZOC_INCURSION_ZONE_PENALTY := 0.38
+## Lane stress fills only headroom above global incursion (same 0..INCURSION_PRESSURE_MAX scale) — avoids double-counting with global rank-delta.
+const INCURSION_LANE_HEADROOM_FACTOR := 0.88
+## Local lane stress 0..1 from formation (dual living in a cell, density). Not slot_obstacles — those stay in ZOC_CASUALTY_PER_BODY only.
+const LANE_STRESS_DUAL_LIVING := 0.42
+const LANE_STRESS_DENSITY_TIGHT := 0.12
+const LANE_STRESS_DENSITY_LOOSE := -0.07
+## How strongly incursion penalty applies per zone (rear echelon less exposed to “line buckling” than front).
+const ZOC_INCURSION_EXPOSURE_FRONT := 1.0
+const ZOC_INCURSION_EXPOSURE_FLANK := 0.9
+const ZOC_INCURSION_EXPOSURE_REAR := 0.36
 ## Weak front ZoC (both lines) scales geometric pair distance down — lines feel closer, easier to bridge.
 const ZOC_GEOMETRIC_EXTENT_MIN := 0.78
 ## Getting hit during formation move extends duration (reaction/stagger), does not cancel.
@@ -292,6 +302,16 @@ const MOVE_ID_FALL_BACK := "fall_back"
 const MOVE_ID_ROTATE_FILE := "rotate_file"
 ## Swap / drag / fall back / rotate — used so "only formation moves" still offers wait.
 const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = [MOVE_ID_SWAP_RANK, MOVE_ID_DRAG_BACK, MOVE_ID_FALL_BACK, MOVE_ID_ROTATE_FILE]
+## Incursion plan: line break / charge-through — not formation pair moves (see BREACH_MOVE_IDS).
+const MOVE_ID_CRASH := "crash"
+const BREACH_MOVE_IDS: Array[String] = [MOVE_ID_CRASH]
+## Tactical rank penetration (0 = at their front line). Not armor RHA penetration.
+const TACTICAL_PENETRATION_DEPTH_MAX := 2
+## Crash attempt: stamina + cooldown (§10.2 A5); tune with BreachResolver / AI.
+const CRASH_STAMINA_COST := 15.0
+const CRASH_COOLDOWN_S := 4.0
+## Phase D: sector-weighted surround load vs legacy integer threat count (INCURSION_BREACH_MIGRATION_PLAN §10.3 B2).
+const FEATURE_SECTOR_SURROUND_LOAD := false
 ## Explicit no-op: pass turn, schedule next action_ready (same delays as skip_turn).
 const MOVE_ID_WAIT := "wait"
 # Swap rank AI (CombatAIActionPicker): relief only when necessary — not marginal fitness differences.

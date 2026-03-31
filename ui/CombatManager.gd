@@ -131,6 +131,9 @@ func register(node: Node, side: String) -> int:
 		"occupied_zone_id": "",
 		"stance": CombatConstants.STANCE_BALANCED,
 		"stance_preference": "balanced",
+		# Incursion / breach (see docs/INCURSION_BREACH_MIGRATION_PLAN.md Phase B).
+		"tactical_penetration_depth": 0,
+		"crash_cooldown_until": 0.0,
 	})
 	# Connect health_changed so UI can refresh when consciousness/pain/blood changes
 	if entity != null and entity.has_signal("health_changed"):
@@ -142,6 +145,16 @@ func register(node: Node, side: String) -> int:
 
 func _on_entity_health_changed(combatant_id: int) -> void:
 	emit_signal("combatant_health_changed", combatant_id)
+
+## Clears tactical breach / penetration (combat end, new encounter, medical phase handoff). Non-persisted fields (§10.3 B3).
+func _reset_tactical_breach_state() -> void:
+	for c in combatants:
+		c["tactical_penetration_depth"] = 0
+		c["crash_cooldown_until"] = 0.0
+	for fid in formations.keys():
+		var f: Dictionary = formations[fid]
+		if not f.is_empty():
+			f["breached_files"] = {}
 
 ## Start combat. Optional player_formation and enemy_formation presets: { files, ranks, density }.
 ## When provided, builds formations and assigns rank/file to combatants (spawn order).
@@ -166,6 +179,7 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	formations.clear()
 	# Build formations from presets and assign rank/file (always; use defaults when preset empty)
 	_build_formations_and_assign_slots(player_formation, enemy_formation)
+	_reset_tactical_breach_state()
 	# Phase 1: Schedule initial EVENT_ACTION_READY for each alive combatant (staggered by agility).
 	_schedule_initial_action_ready_events()
 	set_process(true)
@@ -193,8 +207,8 @@ func _build_formations_and_assign_slots(player_formation: Dictionary, enemy_form
 		p_ranks = int(ceilf(float(maxi(1, player_count)) / float(maxi(1, p_files))))
 	if e_preset.has("front_count") or not e_preset.has("ranks"):
 		e_ranks = int(ceilf(float(maxi(1, enemy_count)) / float(maxi(1, e_files))))
-	formations["player"] = {"files": p_files, "ranks": p_ranks, "density": p_preset.get("density", "normal"), "side": "player", "slots": {}, "slot_obstacles": {}, "zone_control": {}}
-	formations["enemy"] = {"files": e_files, "ranks": e_ranks, "density": e_preset.get("density", "normal"), "side": "enemy", "slots": {}, "slot_obstacles": {}, "zone_control": {}}
+	formations["player"] = {"files": p_files, "ranks": p_ranks, "density": p_preset.get("density", "normal"), "side": "player", "slots": {}, "slot_obstacles": {}, "zone_control": {}, "breached_files": {}}
+	formations["enemy"] = {"files": e_files, "ranks": e_ranks, "density": e_preset.get("density", "normal"), "side": "enemy", "slots": {}, "slot_obstacles": {}, "zone_control": {}, "breached_files": {}}
 	# Fill rank 0 first (spawn order): first files units -> rank 0, next files -> rank 1, etc.
 	var pi: int = 0
 	var ei: int = 0
@@ -386,6 +400,7 @@ func _handle_recovery_end(c: Dictionary) -> void:
 		pass
 
 func stop():
+	_reset_tactical_breach_state()
 	set_process(false)
 
 ## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated (bandaged, packed, or tourniqueted). Used to gate "End battle" during medical phase.
@@ -428,6 +443,7 @@ func skip_turn(combatant_id: int, log_outcome: String = "pass", flow_reason: Str
 
 ## When player wins: enter medical phase, emit enemies_eliminated, keep battle running. When enemy wins: end immediately.
 func _end_combat_phase(winner: String, defeated_node: Node) -> void:
+	_reset_tactical_breach_state()
 	var alive_by_side: Dictionary = {}
 	for c in combatants:
 		if c.alive:
@@ -465,7 +481,11 @@ func get_combatants() -> Array:
 			"alive": c.alive,
 			"state": c.get("state", CombatConstants.STATE_WAITING),
 			"state_timer": c.get("state_timer", 0.0),
-			"state_duration": c.get("state_duration", 0.0)
+			"state_duration": c.get("state_duration", 0.0),
+			"tactical_penetration_depth": mini(
+				maxi(0, int(c.get("tactical_penetration_depth", 0))),
+				CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX
+			),
 		}
 		if CombatConstants.COMBAT_DEBUG:
 			item["guard_line"] = c.get("guard_line", CombatConstants.GUARD_DEFAULT)

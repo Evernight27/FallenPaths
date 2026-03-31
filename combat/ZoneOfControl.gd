@@ -105,9 +105,61 @@ static func _raw_zone_strength(manager: Node, fid: String, zone: String) -> floa
 	var base: float = alive_n / maxf(1.0, cap)
 	var obs: float = float(_obstacle_count_in_zone(manager, fid, zone))
 	var obs_pen: float = minf(0.55, float(CombatConstants.ZOC_CASUALTY_PER_BODY) * obs)
-	var inc: float = float(formation.get("incursion_pressure", 0.0))
-	var inc_pen: float = inc * CombatConstants.ZOC_INCURSION_ZONE_PENALTY
+	var max_p: float = CombatConstants.INCURSION_PRESSURE_MAX
+	var inc_g: float = clampf(float(formation.get("incursion_pressure", 0.0)), 0.0, max_p)
+	var lane_z: float = _lane_stress_for_zone(formation, zone)
+	var scaled_lane: float = lane_z * max_p
+	var headroom: float = 0.0
+	if max_p > 0.0001:
+		headroom = 1.0 - (inc_g / max_p)
+	var lane_add: float = scaled_lane * headroom * CombatConstants.INCURSION_LANE_HEADROOM_FACTOR
+	var inc_combined: float = clampf(inc_g + lane_add, 0.0, max_p)
+	var exposure: float = _zone_incursion_exposure(zone)
+	var inc_pen: float = inc_combined * CombatConstants.ZOC_INCURSION_ZONE_PENALTY * exposure
 	return maxf(0.0, base - obs_pen - inc_pen)
+
+
+## 0..1 per-file lane stress (dual living + density only). Zone aggregate for merging with global incursion — not bodies (see obs_pen).
+static func _lane_stress_for_zone(formation: Dictionary, zone: String) -> float:
+	var ls: Dictionary = formation.get("lane_stress_by_file", {})
+	if ls.is_empty():
+		return 0.0
+	var files: int = maxi(1, formation.get("files", 1))
+	match zone:
+		ZONE_LEFT_FLANK:
+			return float(ls.get(0, 0.0))
+		ZONE_RIGHT_FLANK:
+			return float(ls.get(files - 1, 0.0))
+		ZONE_FRONT:
+			if files <= 1:
+				return float(ls.get(0, 0.0))
+			if files == 2:
+				return (float(ls.get(0, 0.0)) + float(ls.get(1, 0.0))) * 0.5
+			var sum: float = 0.0
+			var n: int = 0
+			for f in range(1, files - 1):
+				sum += float(ls.get(f, 0.0))
+				n += 1
+			return sum / float(maxi(1, n))
+		ZONE_REAR:
+			var mx: float = 0.0
+			for f in range(files):
+				mx = maxf(mx, float(ls.get(f, 0.0)))
+			return mx
+		_:
+			return 0.0
+
+
+static func _zone_incursion_exposure(zone: String) -> float:
+	match zone:
+		ZONE_FRONT:
+			return CombatConstants.ZOC_INCURSION_EXPOSURE_FRONT
+		ZONE_LEFT_FLANK, ZONE_RIGHT_FLANK:
+			return CombatConstants.ZOC_INCURSION_EXPOSURE_FLANK
+		ZONE_REAR:
+			return CombatConstants.ZOC_INCURSION_EXPOSURE_REAR
+		_:
+			return 1.0
 
 ## Mutates formations[*].zone_control with keys front, left_flank, right_flank, rear (0..1).
 static func recompute_zone_control(manager: Node) -> void:

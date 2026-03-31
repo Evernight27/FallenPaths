@@ -136,6 +136,7 @@ When defender must choose which attack to parry:
 
 ## Notes
 
+- **Incursion & breach (tactical evolution):** When approved, follow `docs/INCURSION_BREACH_MIGRATION_PLAN.md` (prerequisites §4, phases §5, checklist §9).
 - **Master outline:** See `docs/IMPLEMENTATION_OUTLINE.md` for consolidated phase-by-phase implementation guide.
 - **Parry choice** triggers only when defender cannot parry both attacks (capacity/time insufficient). If they can parry all, no choice.
 - **Wind-up extended phase:** Attacker's weapon counts as extended after commit point. See investigation Part 4b.
