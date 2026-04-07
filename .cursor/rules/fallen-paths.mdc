@@ -1,0 +1,14 @@
+---
+description: Fallen Paths Godot layout — where combat and core logic live
+alwaysApply: true
+---
+
+# Project map (Godot 4.x)
+
+- **Combat orchestrator:** `combat/CombatManager.gd` — Node with `combatants`, `event_queue`, signals. Keeps registration, `start()`, and thin `func` forwards. Loaded via `core/ResourcePaths.gd` → `COMBAT_MANAGER`.
+- **Combat subsystems (preload from manager or call static):** `CombatProcessTick`, `CombatEventScheduler`, `CombatEventDispatch`, `CombatResolveAction`, `CombatEngagementResolver`, `CombatFormationFlow`, `CombatFormationSetup`, `CombatDistanceBands`, `CombatCombatantsSnapshot` (UI rows), `CombatMedicalCoordination` (retry / parts under treatment), `AttackResolver`, `AvailableActionsBuilder`, `MedicalPhaseController`, etc. under `combat/`.
+- **Tuning:** `combat/CombatConstants.gd` is large by design (single source of numeric constants).
+- **Entities:** `core/CoreEntity.gd` plus `EntityMedical`, `EntityDamage`, `EntityWounds`, …
+- **Battle UI:** `ui/BattleScene.gd`, `BattleUIUpdater.gd`, row/diagram builders under `ui/`.
+
+When adding behavior, extend the **smallest** existing module that owns that concern; avoid growing `CombatManager.gd` beyond orchestration and public API.

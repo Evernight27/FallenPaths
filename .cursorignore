@@ -1,0 +1,6 @@
+# Reduce indexer noise (regenerable / binary-heavy)
+.godot/
+
+# Godot import sidecars (one per asset; rarely needed for script edits)
+**/*.import
+

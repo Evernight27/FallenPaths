@@ -83,6 +83,12 @@ static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) 
 		return 1.0
 	if mid == CombatConstants.MOVE_ID_WAIT:
 		return 1.0
+	if mid == CombatConstants.MOVE_ID_CRASH:
+		var via: float = CombatConstants.crash_breach_viability(c)
+		var stamina_ratio_c: float = clampf(c.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+		var sr_c: float = 0.78 if stamina_ratio_c < 0.32 else 1.0
+		var shaped: float = pow(via, CombatConstants.CRASH_AI_VIABILITY_EXPONENT)
+		return CombatConstants.CRASH_AI_WEIGHT_CAP * shaped * sr_c
 	if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get("target_id", -1) == combatant_id:
 		return 0.65  # Solo step to rear — situational
 	if mid == CombatConstants.MOVE_ID_ROTATE_FILE:
@@ -141,6 +147,8 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node) -> void:
 		return
 	if choice.get("move_id", "") == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return  # Close attempt targets a combatant, not a body part
+	if choice.get("move_id", "") == CombatConstants.MOVE_ID_CRASH:
+		return
 	if choice.get("move_id", "") in [
 		CombatConstants.MOVE_ID_SWAP_RANK,
 		CombatConstants.MOVE_ID_DRAG_BACK,

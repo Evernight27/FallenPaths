@@ -2,7 +2,7 @@ class_name TacticalCombat
 extends RefCounted
 
 ## Phase 6: Ambush penalties, surround (multi-threat defense split + perception), incursion pressure for ZoC.
-## See docs/IMPLEMENTATION_OUTLINE.md Phase 6, FF4_FORMATION_DISTANCE_AMBUSH_BREAKTHROUGH_INVESTIGATION.md.
+## See docs/COMBAT_ROADMAP_AND_STAMINA.md Phase 6; formations/ambush — docs/TACTICAL_FORMATIONS_FF4.md.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")

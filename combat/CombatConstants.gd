@@ -217,7 +217,7 @@ static func compute_parry_redirect_mult(pcfg: Dictionary, agi: float, perc: floa
 		redirect_mult *= 1.0 + mass_bonus
 	return redirect_mult
 
-# Event queue (Phase 1). See docs/IMPLEMENTATION_OUTLINE.md, STAMINA_SYSTEM_IMPLEMENTATION_PLAN.
+# Event queue (Phase 1). See docs/COMBAT_ROADMAP_AND_STAMINA.md (stamina + event queue sections).
 # Event queue (Phase 1). Resolve at combat_clock; tie-break: agility desc, then combatant_id asc.
 const EVENT_ACTION_READY := "action_ready"
 const EVENT_MELEE_ATTACK := "melee_attack"
@@ -235,7 +235,7 @@ const READY_DELAY_AFTER_PROMOTION_S := 0.15   # Plug/swap → promoted unit acts
 const READY_DELAY_PARRY_RIPOSTE_S := 0.02    # Parry deflect/partial → defender riposte
 const READY_DELAY_CLOSE_ATTEMPT_S := 0.3     # Close attempt → next turn
 
-# FF4 Formation + Stance (Phase 0 prep). See docs/IMPLEMENTATION_OUTLINE.md.
+# FF4 Formation + Stance (Phase 0 prep). See docs/COMBAT_ROADMAP_AND_STAMINA.md.
 const SPACING_TIGHT := 0.9
 const SPACING_NORMAL := 1.2
 const SPACING_LOOSE := 1.8
@@ -310,7 +310,7 @@ const TACTICAL_PENETRATION_DEPTH_MAX := 2
 ## Crash attempt: stamina + cooldown (§10.2 A5); tune with BreachResolver / AI.
 const CRASH_STAMINA_COST := 15.0
 const CRASH_COOLDOWN_S := 4.0
-## Phase D: sector-weighted surround load vs legacy integer threat count (INCURSION_BREACH_MIGRATION_PLAN §10.3 B2).
+## Phase D: sector-weighted surround load vs legacy integer threat count (docs/TACTICAL_ZONES_BREACH_MOVEMENT.md, incursion section §10.3 B2).
 const FEATURE_SECTOR_SURROUND_LOAD := false
 ## Explicit no-op: pass turn, schedule next action_ready (same delays as skip_turn).
 const MOVE_ID_WAIT := "wait"

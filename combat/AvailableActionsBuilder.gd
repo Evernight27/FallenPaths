@@ -4,6 +4,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 ## Builds available actions for a combatant (attacks, medical). Manager must have: _get_by_id, _get_entity,
 ## _get_parts_being_treated_on, _get_ally_medical_actions, _is_in_immediate_peril, _has_left_immediate_peril_permanently,
 ## combatants, medical_phase, medical_phase_winner.
@@ -115,10 +116,14 @@ static func build(manager: Node, combatant_id: int) -> Array:
 						# Out of swing reach (file spacing) — still offer close attempts (do not skip the opponent entirely).
 						if dist in [CombatConstants.DISTANCE_CLOSE, CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
 							actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
+					if _crash_action_eligible(manager, c, opp, melee_range, can_attack_from_mid, eff_dist, in_swing_range, dist):
+						actions.append({"target_id": opp.id, "move_id": CombatConstants.MOVE_ID_CRASH})
 		# Phase 3: Swap rank — front→back disengage; plug when front incap; deeper→shallow relief (same column).
 		# With 3+ depth ranks, middle/back rows must be able to swap toward the front or they only get wait.
+		# Breach congestion: open-lane formation moves withheld while breached_files marks active plugging (incursion plan §11).
 		var formation_ranks: int = our_formation.get("ranks", 1)
-		if not our_formation.is_empty() and formation_ranks > 1:
+		var breach_clogs: bool = not our_formation.is_empty() and _FormationBreachRules.breach_clogs_open_lanes(our_formation)
+		if not our_formation.is_empty() and formation_ranks > 1 and not breach_clogs:
 			for ally in combatants:
 				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
 					continue
@@ -149,7 +154,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 							actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_FALL_BACK })
 					break
 		# Phase 5: rotate file — front rank only, adjacent files, both must be free to coordinate.
-		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0:
+		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_clogs:
 			for ally in combatants:
 				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
 					continue
@@ -161,7 +166,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 					continue
 				actions.append({"target_id": ally.id, "move_id": CombatConstants.MOVE_ID_ROTATE_FILE})
 		# Phase 5: fall back solo — step to rear rank when that slot is empty.
-		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0:
+		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_clogs:
 			var slots_check: Dictionary = our_formation.get("slots", {})
 			if not _FormationSlots.slot_has_any(slots_check, Vector2i(1, our_file)):
 				actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK})
@@ -203,6 +208,38 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		CombatDebug.flow_log("get_available_actions id=%d => %d actions (%d medical)" % [combatant_id, actions.size(), medical_count])
 	return actions
 
+
+## Crash (breach): in weapon reach, at close or mid-with-reach; stamina, cooldown, depth cap (Phase C).
+static func _crash_action_eligible(
+	manager: Node,
+	c: Dictionary,
+	_opp: Dictionary,
+	_melee_range: float,
+	can_attack_from_mid: bool,
+	_eff_dist: float,
+	in_swing_range: bool,
+	dist: String
+) -> bool:
+	if CombatConstants.crash_breach_viability(c) < CombatConstants.CRASH_BREACH_VIABILITY_MIN:
+		return false
+	if int(c.get("tactical_penetration_depth", 0)) >= CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX:
+		return false
+	if float(c.get("stamina", 0.0)) < CombatConstants.CRASH_STAMINA_COST:
+		return false
+	var clock: float = 0.0
+	if manager != null:
+		var cc: Variant = manager.get("combat_clock")
+		if cc != null:
+			clock = float(cc)
+	if clock < float(c.get("crash_cooldown_until", 0.0)):
+		return false
+	if not in_swing_range:
+		return false
+	if dist == CombatConstants.DISTANCE_CLOSE:
+		return true
+	if dist == CombatConstants.DISTANCE_MID and can_attack_from_mid:
+		return true
+	return false
 
 ## When no combat actions exist, or only formation movement moves remain, offer wait (avoid ping-pong).
 static func _append_combat_wait_if_needed(actions: Array, combatant_id: int) -> void:

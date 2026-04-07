@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Phase 4: Zone of control per formation (front, left_flank, right_flank, rear).
 ## Control 0..1 from alive/capacity, casualties in slots, and cross-zone support.
-## See docs/IMPLEMENTATION_OUTLINE.md Phase 4.
+## See docs/COMBAT_ROADMAP_AND_STAMINA.md Phase 4.
 
 const ZONE_FRONT := "front"
 const ZONE_LEFT_FLANK := "left_flank"

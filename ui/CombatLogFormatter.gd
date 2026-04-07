@@ -65,6 +65,17 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		return "[color=teal]%s (%s) closed the distance on %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "close_failed":
 		return "[color=gray]%s (%s) failed to close on %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
+	elif outcome == "crash_success":
+		return "[color=orange]%s (%s) crashed the line against %s (%s) (tactical depth %d).[/color]" % [attacker_name, attacker_side, target_name, target_side, int(result.get("tactical_penetration_depth", 1))]
+	elif outcome == "crash_failed":
+		var rsn: String = str(result.get("reason", ""))
+		if rsn == "stamina":
+			return "[color=gray]%s (%s) could not crash %s (%s) — too exhausted.[/color]" % [attacker_name, attacker_side, target_name, target_side]
+		if rsn == "max_depth":
+			return "[color=gray]%s (%s) is already committed forward vs %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
+		if rsn == "not_viable":
+			return "[color=gray]%s (%s) will not risk a line crash vs %s (%s) — too light or unready.[/color]" % [attacker_name, attacker_side, target_name, target_side]
+		return "[color=gray]%s (%s) failed to break through %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "deflected":
 		return "%s (%s) → %s (%s) %s: [b]%d[/b] dmg [color=green](deflected — all avoided)[/color]" % [attacker_name, attacker_side, target_name, target_side, part_label, dmg]
 	elif outcome == "glancing":
