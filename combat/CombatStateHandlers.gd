@@ -115,7 +115,7 @@ static func process_receiving_medical(manager: Node, c: Dictionary, delta: float
 		if cooldown <= 0.0 and not pending:
 			var recv_actions: Array = manager.get_available_actions(c.id)
 			if not recv_actions.is_empty():
-				manager.emit_signal("turn_ready", c.id)
+				manager.notify_turn_ready(c.id)
 				c.receiving_care_turn_pending = true
 				c.receiving_care_action_cooldown = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 	else:

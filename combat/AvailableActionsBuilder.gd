@@ -54,6 +54,8 @@ static func can_melee_threaten(manager: Node, attacker: Dictionary, defender: Di
 	return false
 
 static func build(manager: Node, combatant_id: int) -> Array:
+	var log_fid: String = ""
+	var log_breach_blocks_moves: bool = false
 	var c = manager._get_by_id(combatant_id)
 	if c == null or not c.alive or c.gauge < 100.0:
 		return []
@@ -121,9 +123,12 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		# Phase 3: Swap rank — front→back disengage; plug when front incap; deeper→shallow relief (same column).
 		# With 3+ depth ranks, middle/back rows must be able to swap toward the front or they only get wait.
 		# Breach congestion: open-lane formation moves withheld while breached_files marks active plugging (incursion plan §11).
+		# Skirmish (collapsed line) can uncleg moves; see FormationBreachRules.breach_blocks_open_lane_moves.
 		var formation_ranks: int = our_formation.get("ranks", 1)
-		var breach_clogs: bool = not our_formation.is_empty() and _FormationBreachRules.breach_clogs_open_lanes(our_formation)
-		if not our_formation.is_empty() and formation_ranks > 1 and not breach_clogs:
+		var breach_blocks_moves: bool = not our_formation.is_empty() and _FormationBreachRules.breach_blocks_open_lane_moves(manager, our_formation)
+		log_fid = fid
+		log_breach_blocks_moves = breach_blocks_moves
+		if not our_formation.is_empty() and formation_ranks > 1 and not breach_blocks_moves:
 			for ally in combatants:
 				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
 					continue
@@ -154,7 +159,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 							actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_FALL_BACK })
 					break
 		# Phase 5: rotate file — front rank only, adjacent files, both must be free to coordinate.
-		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_clogs:
+		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_blocks_moves:
 			for ally in combatants:
 				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
 					continue
@@ -166,7 +171,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 					continue
 				actions.append({"target_id": ally.id, "move_id": CombatConstants.MOVE_ID_ROTATE_FILE})
 		# Phase 5: fall back solo — step to rear rank when that slot is empty.
-		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_clogs:
+		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_blocks_moves:
 			var slots_check: Dictionary = our_formation.get("slots", {})
 			if not _FormationSlots.slot_has_any(slots_check, Vector2i(1, our_file)):
 				actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK})
@@ -201,11 +206,62 @@ static func build(manager: Node, combatant_id: int) -> Array:
 						actions.append({ "target_id": tgt_id, "move_id": act.move_id, "target_part": act.target_part })
 	var medical_count: int = 0
 	for a in actions:
-		var mid: String = a.get("move_id", "")
+		var mid: String = str(a.get("move_id", ""))
 		if mid in CombatConstants.MEDICAL_MOVE_IDS:
 			medical_count += 1
-	if medical_count > 0 and CombatConstants.COMBAT_EVENT_DEBUG:
-		CombatDebug.flow_log("get_available_actions id=%d => %d actions (%d medical)" % [combatant_id, actions.size(), medical_count])
+	if CombatConstants.COMBAT_EVENT_DEBUG:
+		var crash_count: int = 0
+		for a in actions:
+			if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_CRASH:
+				crash_count += 1
+		CombatDebug.flow_log(
+			"get_available_actions id=%d side=%s state=%s rank=%d file=%d fid=%s breach_blocks_moves=%s med_phase=%s crash_viab=%.3f => %d actions (medical=%d crash=%d) [%s]"
+			% [
+				combatant_id,
+				str(c.get("side", "")),
+				str(c.get("state", "")),
+				c.get("rank", 0),
+				c.get("file", 0),
+				log_fid,
+				log_breach_blocks_moves,
+				medical_phase,
+				CombatConstants.crash_breach_viability(c),
+				actions.size(),
+				medical_count,
+				crash_count,
+				CombatDebug.format_actions_compact(actions)
+			]
+		)
+		if (
+			not medical_phase
+			and c.get("rank", 0) == 0
+			and not _EntityAccess.get_attacking_arm(c).is_empty()
+			and crash_count == 0
+			and CombatConstants.crash_breach_viability(c) >= CombatConstants.CRASH_BREACH_VIABILITY_MIN
+		):
+			var clock: float = 0.0
+			var ccv: Variant = manager.get("combat_clock")
+			if ccv != null:
+				clock = float(ccv)
+			CombatDebug.flow_log(
+				(
+					"crash_not_in_action_list id=%d reason=%s viability=%.3f depth=%d max_depth=%d stamina=%.1f cost=%.1f "
+					+ "cd_until=%.2f clock=%.2f breach_blocks_moves=%s skirmish=%s"
+				)
+				% [
+					combatant_id,
+					_crash_absent_primary_reason(manager, c),
+					CombatConstants.crash_breach_viability(c),
+					int(c.get("tactical_penetration_depth", 0)),
+					CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX,
+					float(c.get("stamina", 0.0)),
+					CombatConstants.CRASH_STAMINA_COST,
+					float(c.get("crash_cooldown_until", 0.0)),
+					clock,
+					log_breach_blocks_moves,
+					_FormationBreachRules.is_skirmish_line_engagement(manager)
+				]
+			)
 	return actions
 
 
@@ -240,6 +296,52 @@ static func _crash_action_eligible(
 	if dist == CombatConstants.DISTANCE_MID and can_attack_from_mid:
 		return true
 	return false
+
+
+## Why crash was not listed despite front rank + viability (for COMBAT_EVENT_DEBUG). Breach clog does not gate crash.
+static func _crash_absent_primary_reason(manager: Node, c: Dictionary) -> String:
+	if int(c.get("tactical_penetration_depth", 0)) >= CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX:
+		return "at_max_penetration_depth"
+	if float(c.get("stamina", 0.0)) < CombatConstants.CRASH_STAMINA_COST:
+		return "low_stamina"
+	var clock: float = 0.0
+	if manager != null:
+		var cc: Variant = manager.get("combat_clock")
+		if cc != null:
+			clock = float(cc)
+	if clock < float(c.get("crash_cooldown_until", 0.0)):
+		return "crash_cooldown"
+	var weapon = _EntityAccess.get_weapon(c)
+	if weapon == null or not weapon.has_method("get_available_attack_types"):
+		return "no_melee_weapon_profile"
+	var melee_range: float = float(weapon.melee_range)
+	var can_attack_from_mid: bool = melee_range >= CombatConstants.REACH_MID_MIN
+	var saw_front_enemy: bool = false
+	var first_reason: String = ""
+	for opp in manager.combatants:
+		if not opp.get("alive", false) or opp.get("side", "") == c.get("side", ""):
+			continue
+		if opp.get("rank", 0) != 0:
+			continue
+		saw_front_enemy = true
+		var eff_dist: float = effective_pair_eff_dist(manager, c, opp)
+		var in_swing: bool = melee_range >= eff_dist
+		var dist: String = str(c.get("distance_to", {}).get(opp.get("id", -1), CombatConstants.DISTANCE_LONG))
+		if _crash_action_eligible(manager, c, opp, melee_range, can_attack_from_mid, eff_dist, in_swing, dist):
+			return "crash_eligible_but_missing_bug"
+		if first_reason.is_empty():
+			if not in_swing:
+				first_reason = "out_of_swing_range"
+			elif dist == CombatConstants.DISTANCE_LONG:
+				first_reason = "distance_long"
+			elif dist == CombatConstants.DISTANCE_MID and not can_attack_from_mid:
+				first_reason = "distance_mid_short_weapon"
+			else:
+				first_reason = "distance_band_%s" % dist
+	if not saw_front_enemy:
+		return "no_front_rank_enemy"
+	return first_reason if not first_reason.is_empty() else "unknown"
+
 
 ## When no combat actions exist, or only formation movement moves remain, offer wait (avoid ping-pong).
 static func _append_combat_wait_if_needed(actions: Array, combatant_id: int) -> void:

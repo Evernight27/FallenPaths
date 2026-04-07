@@ -8,6 +8,14 @@ signal combatant_health_changed(combatant_id)
 signal formation_changed(side)
 signal turn_resolved(combatant_id)  # Combatant has committed their action (attacked, skipped, swapped, etc.)
 
+## Player side became ready to act; UI / TurnReadyHandler listen on `turn_ready`. Subsystems call this instead of `emit_signal` on the manager node.
+func notify_turn_ready(combatant_id: int) -> void:
+	emit_signal("turn_ready", combatant_id)
+
+## Formation slots/ranks changed for `formation_id` (plug, pair resolve, rotate, death). Subsystems call this instead of `emit_signal` on the manager node.
+func notify_formation_changed(formation_id: String) -> void:
+	emit_signal("formation_changed", formation_id)
+
 var combatants := []
 var medical_phase: bool = false
 var medical_phase_winner: String = ""

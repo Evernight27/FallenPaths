@@ -7,6 +7,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 
 ## Enemy front-rank units that could actually land a melee strike on the defender (weapon reach + spacing + band).
 ## Not merely “MID distance” from formation geometry — matches AvailableActionsBuilder.can_melee_threaten.
@@ -69,6 +70,26 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 		var pressure: float = clampf(float(delta) * CombatConstants.INCURSION_PRESSURE_PER_RANK_ADVANTAGE, 0.0, CombatConstants.INCURSION_PRESSURE_MAX)
 		formation["incursion_pressure"] = pressure
 		_recompute_lane_stress_by_file(manager, formation)
+		if CombatConstants.COMBAT_EVENT_DEBUG:
+			var bf: Dictionary = formation.get("breached_files", {})
+			var raw_clog: bool = _FormationBreachRules.breach_clogs_open_lanes(formation)
+			var blocks_moves: bool = _FormationBreachRules.breach_blocks_open_lane_moves(manager, formation)
+			var skirm: bool = _FormationBreachRules.is_skirmish_line_engagement(manager)
+			CombatDebug.flow_log(
+				(
+					"incursion_snapshot fid=%s pressure=%.3f lane_stress[%s] breached[%s] "
+					+ "breach_raw_clogs=%s breach_blocks_moves=%s skirmish=%s"
+				)
+				% [
+					fid,
+					float(formation.get("incursion_pressure", 0.0)),
+					CombatDebug.format_lane_stress(formation.get("lane_stress_by_file", {})),
+					CombatDebug.format_breached_files(bf),
+					raw_clog,
+					blocks_moves,
+					skirm
+				]
+			)
 
 
 static func _recompute_lane_stress_by_file(manager: Node, formation: Dictionary) -> void:

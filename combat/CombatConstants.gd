@@ -175,7 +175,10 @@ const COMBAT_DEBUG := false
 # Calibration: when true, log alignment, parry_c_d, variance, remaining_ratio for tuning to HEMA 57–80% parry share.
 const COMBAT_DEBUG_CALIBRATION := false
 # Flow / feature testing: turns, available actions + AI pick, skip/wait/pass, close attempts, formation move start/resolve,
-# EVENT_ACTION_READY skips, formation aborts, medical action lists. Prefix: [Combat.Flow] via CombatDebug.flow_log.
+# EVENT_ACTION_READY skips, formation aborts, medical action lists; incursion (incursion_snapshot: pressure, lane_stress,
+# breached_files, breach_raw_clogs / breach_blocks_moves / skirmish); crash (contest_crash, crash_blocked, crash_not_in_action_list);
+# breach block details on
+# formation moves. Prefix: [Combat.Flow] via CombatDebug.flow_log; crash summaries also [Combat] in CombatEngagementResolver.
 # Disable in release to reduce console noise. For per-hit damage lines, enable COMBAT_DEBUG.
 const COMBAT_EVENT_DEBUG := true
 
@@ -256,6 +259,9 @@ const INCURSION_LANE_HEADROOM_FACTOR := 0.88
 const LANE_STRESS_DUAL_LIVING := 0.42
 const LANE_STRESS_DENSITY_TIGHT := 0.12
 const LANE_STRESS_DENSITY_LOOSE := -0.07
+## FormationBreachRules.breach_local_lane_stress_bonus: extra lane stress from breached_files severity (0..1), capped before merge.
+const LANE_STRESS_BREACH_LOCAL_SCALE := 0.45
+const LANE_STRESS_BREACH_LOCAL_BONUS_MAX := 0.28
 ## How strongly incursion penalty applies per zone (rear echelon less exposed to “line buckling” than front).
 const ZOC_INCURSION_EXPOSURE_FRONT := 1.0
 const ZOC_INCURSION_EXPOSURE_FLANK := 0.9
@@ -310,8 +316,71 @@ const TACTICAL_PENETRATION_DEPTH_MAX := 2
 ## Crash attempt: stamina + cooldown (§10.2 A5); tune with BreachResolver / AI.
 const CRASH_STAMINA_COST := 15.0
 const CRASH_COOLDOWN_S := 4.0
+## BreachResolver: reach_ratio = melee_range / eff_dist clamp (drive scaling).
+const CRASH_DRIVE_REACH_MIN := 0.78
+const CRASH_DRIVE_REACH_MAX := 1.62
+## ZoC term added to defender hold (scaled by formation zone_control front).
+const CRASH_HOLD_BODY_REF := 52.0
+const CRASH_HOLD_ZOC_WEIGHT := 0.4
+## Clamp drive/(drive+hold) before roll so contests stay playable at extremes.
+const CRASH_SUCCESS_P_MIN := 0.14
+const CRASH_SUCCESS_P_MAX := 0.9
+## Delay until next action_ready after a crash attempt (success or fail).
+const READY_DELAY_CRASH_ATTEMPT_S := 0.35
+## crash_breach_viability(): normalize strength × stamina_curve × close_attempt stance to 0..1.
+const CRASH_VIABILITY_BASE_REF := 108.0
+## Minimum viability to offer / resolve crash (gates AvailableActionsBuilder + CombatEngagementResolver).
+const CRASH_BREACH_VIABILITY_MIN := 0.36
+## AI weight for MOVE_ID_CRASH: pow(viability, exp) × cap × stamina shaping (CombatAIActionPicker).
+const CRASH_AI_VIABILITY_EXPONENT := 1.28
+const CRASH_AI_WEIGHT_CAP := 2.15
+
+## IncursionBreachTest (and similar): fixed global RNG seed + crash AI bias + queued contest rolls so breach/clog code always runs.
+static var _incursion_breach_harness_active: bool = false
+static var _crash_test_roll_queue: Array = []
+static var _crash_test_roll_idx: int = 0
+static var _crash_test_queue_exhaustion_warned: bool = false
+
+static func set_incursion_breach_harness_active(on: bool) -> void:
+	_incursion_breach_harness_active = on
+
+static func is_incursion_breach_harness_active() -> bool:
+	return _incursion_breach_harness_active
+
+## Queued values replace randf() in BreachResolver while the queue lasts (0.0 => success vs any legal p_win; 1.0 => fail).
+static func begin_breach_crash_test_rolls(success_count: int = 96) -> void:
+	_crash_test_roll_queue.clear()
+	_crash_test_roll_idx = 0
+	_crash_test_queue_exhaustion_warned = false
+	for _i in success_count:
+		_crash_test_roll_queue.append(0.0)
+
+static func clear_breach_crash_test_rolls() -> void:
+	_crash_test_roll_queue.clear()
+	_crash_test_roll_idx = 0
+	_crash_test_queue_exhaustion_warned = false
+
+static func warn_crash_test_roll_queue_exhausted_once() -> void:
+	if _crash_test_queue_exhaustion_warned:
+		return
+	_crash_test_queue_exhaustion_warned = true
+	push_warning(
+		"Incursion breach harness: crash contest roll queue empty; contests are non-deterministic until combat ends or begin_breach_crash_test_rolls() is called again."
+	)
+
+static func has_queued_breach_crash_roll() -> bool:
+	return _crash_test_roll_idx < _crash_test_roll_queue.size()
+
+static func take_queued_breach_crash_roll() -> float:
+	var v: float = float(_crash_test_roll_queue[_crash_test_roll_idx])
+	_crash_test_roll_idx += 1
+	return v
+
 ## Phase D: sector-weighted surround load vs legacy integer threat count (docs/TACTICAL_ZONES_BREACH_MOVEMENT.md, incursion section §10.3 B2).
 const FEATURE_SECTOR_SURROUND_LOAD := false
+## Endgame / skirmish: when the front-rank "line" has collapsed (at most one fighter per side on rank 0, or one side has no rank-0),
+## `breached_files` still affects ZoC lane stress but no longer blocks swap / rotate / fall_back (FormationBreachRules.breach_blocks_open_lane_moves).
+const FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES := true
 ## Explicit no-op: pass turn, schedule next action_ready (same delays as skip_turn).
 const MOVE_ID_WAIT := "wait"
 # Swap rank AI (CombatAIActionPicker): relief only when necessary — not marginal fitness differences.
@@ -358,6 +427,20 @@ static func get_stance_modifier(stance: String, effect: String) -> float:
 		"close_attempt": m = STANCE_MOD_CLOSE_ATTEMPT
 		_: return 1.0
 	return m.get(stance, 1.0)
+
+## 0..1: attacker-side "can meaningfully try a breach" from strength, stamina, and close_attempt stance (no pair geometry).
+## BreachResolver still contests vs defender; this gates listing and resolving crash.
+static func crash_breach_viability(c: Dictionary) -> float:
+	if c.is_empty():
+		return 0.0
+	var stats_var: Variant = c.get("stats", {})
+	var str_a: float = 100.0
+	if typeof(stats_var) == TYPE_DICTIONARY:
+		str_a = float((stats_var as Dictionary).get("strength", 100))
+	var st_atk: float = float(c.get("stamina", STAMINA_MAX))
+	var stance: String = str(c.get("stance", STANCE_BALANCED))
+	var base: float = str_a * stamina_factor(st_atk / STAMINA_MAX) * get_stance_modifier(stance, "close_attempt")
+	return clampf(base / CRASH_VIABILITY_BASE_REF, 0.0, 1.0)
 
 ## Returns density modifier for close attempt (applied to defender evasion).
 static func get_density_close_mod(density: String) -> float:

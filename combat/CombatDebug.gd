@@ -39,3 +39,23 @@ static func flow_log_turn(side: String, combatant_id: int, actions: Array, choic
 	flow_log("turn side=%s id=%d actions=[%s] => pick move_id=%s target_id=%d" % [
 		side, combatant_id, act_str, choice.get("move_id", ""), choice.get("target_id", -1)
 	])
+
+
+## breached_files keys may be int or String from serialization paths; values 0..1
+static func format_breached_files(bf: Dictionary) -> String:
+	if bf.is_empty():
+		return ""
+	var parts: PackedStringArray = []
+	for k in bf.keys():
+		parts.append("%s:%.2f" % [str(k), float(bf[k])])
+	return "; ".join(parts)
+
+
+## lane_stress_by_file or similar: file index -> float
+static func format_lane_stress(by_file: Dictionary) -> String:
+	if by_file.is_empty():
+		return ""
+	var parts: PackedStringArray = []
+	for k in by_file.keys():
+		parts.append("f%s=%.2f" % [str(k), float(by_file[k])])
+	return ", ".join(parts)

@@ -267,7 +267,7 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
 		print("[Combat] %s and %s finished formation move (%s)" % [n0, n1, move_kind])
 	manager._recompute_zoc_and_distance()
-	manager.emit_signal("formation_changed", fid)
+	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)
 	manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
 	if partner != null and partner.alive and not _EntityAccess.is_incapacitated(partner):
@@ -301,7 +301,7 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 	CombatDebug.flow_log("fall_back_solo_resolve id=%d complete rank 0->1 file %d" % [initiator_id, f])
 	manager.emit_signal("action_resolved", initiator_id, initiator_id, {"outcome": "fall_back_solo_complete", "dmg": 0, "died": false})
 	manager._recompute_zoc_and_distance()
-	manager.emit_signal("formation_changed", fid)
+	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)
 	manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
 
@@ -342,7 +342,7 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 	CombatDebug.flow_log("rotate_file_resolve id=%d <-> %d complete files %d <-> %d" % [initiator_id, partner_id, f0, f1])
 	manager.emit_signal("action_resolved", initiator_id, partner_id, {"outcome": "rotate_file_complete", "dmg": 0, "died": false})
 	manager._recompute_zoc_and_distance()
-	manager.emit_signal("formation_changed", fid)
+	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)
 	manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
 	manager._schedule_action_ready(partner_id, manager._action_ready_cooldown(partner))
@@ -388,5 +388,5 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 				print("[Combat] Plug: %s advanced to rank %d (file %d) after ally fell" % [name_p, fill_rank, f])
 			manager._schedule_action_ready(promoted.id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
 	manager._recompute_zoc_and_distance()
-	manager.emit_signal("formation_changed", fid)
+	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)

@@ -75,8 +75,15 @@ static func contest_crash(manager: Node, attacker_id: int, defender_id: int) -> 
 	var hold: float = hold_body + zoc_hold
 
 	var denom: float = drive + maxf(hold, 1.0)
-	var p_ok: float = clampf(drive / denom, CombatConstants.CRASH_SUCCESS_P_MIN, CombatConstants.CRASH_SUCCESS_P_MAX)
-	var ok: bool = randf() < p_ok
+	var p_win: float = clampf(drive / denom, CombatConstants.CRASH_SUCCESS_P_MIN, CombatConstants.CRASH_SUCCESS_P_MAX)
+	var roll: float
+	if CombatConstants.has_queued_breach_crash_roll():
+		roll = CombatConstants.take_queued_breach_crash_roll()
+	else:
+		if CombatConstants.is_incursion_breach_harness_active():
+			CombatConstants.warn_crash_test_roll_queue_exhausted_once()
+		roll = randf()
+	var ok: bool = roll < p_win
 
 	out["drive"] = drive
 	out["hold"] = hold
@@ -91,4 +98,26 @@ static func contest_crash(manager: Node, attacker_id: int, defender_id: int) -> 
 	else:
 		out["tactical_penetration_depth"] = old_depth
 		out["breach_severity"] = 0.0
+	if CombatConstants.COMBAT_EVENT_DEBUG:
+		CombatDebug.flow_log(
+			"contest_crash atk=%d def=%d ok=%s p_win=%.3f roll=%.3f drive=%.2f hold=%.2f reach_ratio=%.3f eff_dist=%.2f melee_range=%.2f front_z=%.3f old_depth=%d new_depth=%d sev=%.2f file=%d fid=%s"
+			% [
+				attacker_id,
+				defender_id,
+				ok,
+				p_win,
+				roll,
+				drive,
+				hold,
+				reach_ratio,
+				eff_dist,
+				melee_range,
+				front_z,
+				old_depth,
+				int(out["tactical_penetration_depth"]),
+				float(out["breach_severity"]),
+				int(out["defender_file"]),
+				fid_def
+			]
+		)
 	return out

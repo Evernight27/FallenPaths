@@ -6,6 +6,9 @@ extends RefCounted
 static func start_combat(world: Node2D, enemies: Array) -> void:
 	var players: Array = _gather_players(world)
 	if players.is_empty():
+		push_warning(
+			"CombatFlow.start_combat: no living players (check world meta 'party_manager', get_members(), node_ref)."
+		)
 		return
 	for p in players:
 		if p.has_method("set_process_input"):

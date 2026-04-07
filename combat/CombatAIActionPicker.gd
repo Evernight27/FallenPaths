@@ -84,6 +84,8 @@ static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) 
 	if mid == CombatConstants.MOVE_ID_WAIT:
 		return 1.0
 	if mid == CombatConstants.MOVE_ID_CRASH:
+		if CombatConstants.is_incursion_breach_harness_active():
+			return 1.0e9
 		var via: float = CombatConstants.crash_breach_viability(c)
 		var stamina_ratio_c: float = clampf(c.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 		var sr_c: float = 0.78 if stamina_ratio_c < 0.32 else 1.0

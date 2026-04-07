@@ -75,7 +75,7 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 			tgt_c.gauge = 100.0
 			tgt_c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 			if tgt_c.side == "player":
-				manager.emit_signal("turn_ready", tgt_cid)
+				manager.notify_turn_ready(tgt_cid)
 	c.state = CombatConstants.STATE_RECOVERING
 	c.state_timer = 0.0
 	c.state_duration = med_rec_dur

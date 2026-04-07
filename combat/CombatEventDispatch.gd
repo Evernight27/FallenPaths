@@ -44,7 +44,7 @@ static func handle_action_ready(manager: Node, c: Dictionary) -> void:
 	c.gauge = 100.0
 	c.erase("action_cooldown_until")
 	if c.side == "player":
-		manager.emit_signal("turn_ready", c.id)
+		manager.notify_turn_ready(c.id)
 	else:
 		var actions: Array = manager.get_available_actions(c.id)
 		if actions.is_empty():
