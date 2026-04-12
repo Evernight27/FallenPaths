@@ -27,6 +27,8 @@ var canvas_layer: CanvasLayer
 var formation_diagram_hbox: Control = null
 var formation_diagram_enemy: Control = null
 var formation_diagram_player: Control = null
+var _enemy_engagement_label: Label = null
+var _player_engagement_label: Label = null
 var _player_list: Control = null
 var _enemy_list: Control = null
 var _player_preset: Dictionary = {}
@@ -87,6 +89,7 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 	manager.connect("enemies_eliminated", Callable(self, "_on_enemies_eliminated"))
 	manager.connect("combatant_health_changed", Callable(self, "_on_combatant_health_changed"))
 	manager.connect("formation_changed", Callable(self, "_on_formation_changed"))
+	manager.connect("engagement_state_changed", Callable(self, "_on_engagement_state_changed"))
 	# Test scenes: connect monitors before manager.start() so no turn is missed (same rationale as signals above).
 	if parent_scene != null and parent_scene.has_meta("incursion_breach_harness_connect"):
 		var harness_hook: Variant = parent_scene.get_meta("incursion_breach_harness_connect")
@@ -99,11 +102,28 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 	if formation_diagram_hbox != null:
 		formation_diagram_enemy = _FormationDiagramBuilder.create(manager, _enemy_preset, "enemy")
 		formation_diagram_player = _FormationDiagramBuilder.create(manager, _player_preset, "player")
-		formation_diagram_hbox.add_child(formation_diagram_enemy)
+		var enemy_col := VBoxContainer.new()
+		enemy_col.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_enemy_engagement_label = Label.new()
+		_enemy_engagement_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_enemy_engagement_label.add_theme_font_size_override("font_size", 11)
+		_enemy_engagement_label.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
+		enemy_col.add_child(_enemy_engagement_label)
+		enemy_col.add_child(formation_diagram_enemy)
+		formation_diagram_hbox.add_child(enemy_col)
 		var sep = VSeparator.new()
 		sep.custom_minimum_size = Vector2(12, 0)
 		formation_diagram_hbox.add_child(sep)
-		formation_diagram_hbox.add_child(formation_diagram_player)
+		var player_col := VBoxContainer.new()
+		player_col.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_player_engagement_label = Label.new()
+		_player_engagement_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_player_engagement_label.add_theme_font_size_override("font_size", 11)
+		_player_engagement_label.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
+		player_col.add_child(_player_engagement_label)
+		player_col.add_child(formation_diagram_player)
+		formation_diagram_hbox.add_child(player_col)
+		_sync_engagement_labels_from_manager()
 	# Ensure ScrollContainer child has proper minimum size so scrolling works (wait for layout)
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -191,6 +211,31 @@ func _on_formation_changed(side: String) -> void:
 		_FormationDiagramBuilder.refresh(formation_diagram_player)
 	elif side == "enemy" and formation_diagram_enemy != null:
 		_FormationDiagramBuilder.refresh(formation_diagram_enemy)
+
+
+func _on_engagement_state_changed(_formation_id: String, _line_cohesion: float, _engagement_posture: String) -> void:
+	_sync_engagement_labels_from_manager()
+
+
+func _sync_engagement_labels_from_manager() -> void:
+	if manager == null:
+		return
+	var fm: Variant = manager.get("formations")
+	if fm == null or typeof(fm) != TYPE_DICTIONARY:
+		return
+	var fd: Dictionary = fm as Dictionary
+	if _enemy_engagement_label != null:
+		_enemy_engagement_label.text = _format_engagement_line(fd.get("enemy", {}))
+	if _player_engagement_label != null:
+		_player_engagement_label.text = _format_engagement_line(fd.get("player", {}))
+
+
+func _format_engagement_line(form: Dictionary) -> String:
+	if form.is_empty():
+		return "—"
+	var posture: String = str(form.get("engagement_posture", "—"))
+	var coh: float = float(form.get("line_cohesion", 0.0))
+	return "%s · cohesion %d%%" % [posture.capitalize(), int(roundf(coh * 100.0))]
 
 func _on_turn_ready(combatant_id: int) -> void:
 	_TurnReadyHandler.handle(manager, combatant_id)

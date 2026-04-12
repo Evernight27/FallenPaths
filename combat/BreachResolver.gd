@@ -9,6 +9,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
+const _IntrusionGeometry := preload("res://combat/CombatIntrusionGeometry.gd")
 
 static func clamp_tactical_penetration_depth(depth: int) -> int:
 	return mini(maxi(0, depth), CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX)
@@ -72,7 +73,8 @@ static func contest_crash(manager: Node, attacker_id: int, defender_id: int) -> 
 	hold_body *= CombatConstants.get_density_close_mod(density)
 	hold_body *= _TacticalCombat.ambush_defense_multiplier(manager, def)
 	var zoc_hold: float = CombatConstants.CRASH_HOLD_BODY_REF * front_z * CombatConstants.CRASH_HOLD_ZOC_WEIGHT
-	var hold: float = hold_body + zoc_hold
+	var neighbor_hold: float = _IntrusionGeometry.crash_neighbor_hold_support(manager, def, formation_def)
+	var hold: float = hold_body + zoc_hold + neighbor_hold
 
 	var denom: float = drive + maxf(hold, 1.0)
 	var p_win: float = clampf(drive / denom, CombatConstants.CRASH_SUCCESS_P_MIN, CombatConstants.CRASH_SUCCESS_P_MAX)

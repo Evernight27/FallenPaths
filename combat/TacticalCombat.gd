@@ -64,8 +64,8 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 		if formation.is_empty():
 			continue
 		var opp_side: String = "enemy" if fid == "player" else "player"
-		var our_front: int = _count_front_rank_alive(manager, fid)
-		var opp_front: int = _count_front_rank_alive(manager, opp_side)
+		var our_front: int = _FormationBreachRules.count_front_rank_alive(manager, fid)
+		var opp_front: int = _FormationBreachRules.count_front_rank_alive(manager, opp_side)
 		var delta: int = opp_front - our_front
 		var pressure: float = clampf(float(delta) * CombatConstants.INCURSION_PRESSURE_PER_RANK_ADVANTAGE, 0.0, CombatConstants.INCURSION_PRESSURE_MAX)
 		formation["incursion_pressure"] = pressure
@@ -115,16 +115,3 @@ static func _recompute_lane_stress_by_file(manager: Node, formation: Dictionary)
 		by_file[f] = clampf(stress, 0.0, 1.0)
 	formation["lane_stress_by_file"] = by_file
 
-static func _count_front_rank_alive(manager: Node, formation_key: String) -> int:
-	var n: int = 0
-	for c in manager.combatants:
-		if not c.get("alive", false):
-			continue
-		if c.get("formation_id", "") != formation_key:
-			continue
-		if c.get("rank", 0) != 0:
-			continue
-		if _EntityAccess.is_incapacitated(c):
-			continue
-		n += 1
-	return n

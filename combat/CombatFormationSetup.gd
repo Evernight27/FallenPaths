@@ -29,8 +29,32 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 		p_ranks = int(ceilf(float(maxi(1, player_count)) / float(maxi(1, p_files))))
 	if e_preset.has("front_count") or not e_preset.has("ranks"):
 		e_ranks = int(ceilf(float(maxi(1, enemy_count)) / float(maxi(1, e_files))))
-	manager.formations["player"] = {"files": p_files, "ranks": p_ranks, "density": p_preset.get("density", "normal"), "side": "player", "slots": {}, "slot_obstacles": {}, "zone_control": {}, "breached_files": {}}
-	manager.formations["enemy"] = {"files": e_files, "ranks": e_ranks, "density": e_preset.get("density", "normal"), "side": "enemy", "slots": {}, "slot_obstacles": {}, "zone_control": {}, "breached_files": {}}
+	manager.formations["player"] = {
+		"files": p_files,
+		"ranks": p_ranks,
+		"density": p_preset.get("density", "normal"),
+		"side": "player",
+		"slots": {},
+		"slot_obstacles": {},
+		"zone_control": {},
+		"breached_files": {},
+		"line_cohesion": 1.0,
+		"engagement_posture": CombatConstants.ENGAGEMENT_POSTURE_LINE,
+		"morale_cohesion_factor": 1.0,
+	}
+	manager.formations["enemy"] = {
+		"files": e_files,
+		"ranks": e_ranks,
+		"density": e_preset.get("density", "normal"),
+		"side": "enemy",
+		"slots": {},
+		"slot_obstacles": {},
+		"zone_control": {},
+		"breached_files": {},
+		"line_cohesion": 1.0,
+		"engagement_posture": CombatConstants.ENGAGEMENT_POSTURE_LINE,
+		"morale_cohesion_factor": 1.0,
+	}
 	var pi: int = 0
 	var ei: int = 0
 	for c in manager.combatants:

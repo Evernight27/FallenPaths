@@ -6,6 +6,7 @@ signal combat_ended(winner_side, defeated_node)
 signal enemies_eliminated(winner_side)
 signal combatant_health_changed(combatant_id)
 signal formation_changed(side)
+signal engagement_state_changed(formation_id: String, line_cohesion: float, engagement_posture: String)
 signal turn_resolved(combatant_id)  # Combatant has committed their action (attacked, skipped, swapped, etc.)
 
 ## Player side became ready to act; UI / TurnReadyHandler listen on `turn_ready`. Subsystems call this instead of `emit_signal` on the manager node.
@@ -15,6 +16,15 @@ func notify_turn_ready(combatant_id: int) -> void:
 ## Formation slots/ranks changed for `formation_id` (plug, pair resolve, rotate, death). Subsystems call this instead of `emit_signal` on the manager node.
 func notify_formation_changed(formation_id: String) -> void:
 	emit_signal("formation_changed", formation_id)
+
+
+func notify_engagement_state_changed(formation_id: String, line_cohesion: float, engagement_posture: String) -> void:
+	emit_signal("engagement_state_changed", formation_id, line_cohesion, engagement_posture)
+	if CombatConstants.COMBAT_EVENT_DEBUG:
+		CombatDebug.flow_log(
+			"engagement_state_changed fid=%s cohesion=%.3f posture=%s"
+			% [formation_id, line_cohesion, engagement_posture]
+		)
 
 var combatants := []
 var medical_phase: bool = false
@@ -44,6 +54,7 @@ const _EngagementResolver := preload("res://combat/CombatEngagementResolver.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _CombatantsSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
+const _FormationEngagement := preload("res://combat/CombatFormationEngagement.gd")
 
 ## Returns the node that holds health/wounds (CoreEntity for enemies; CombatBody for Character). Use for all health reads.
 func _get_entity(node: Node) -> Node:
@@ -112,6 +123,9 @@ func register(node: Node, side: String) -> int:
 		# Incursion / breach (see docs/TACTICAL_ZONES_BREACH_MOVEMENT.md Phase B).
 		"tactical_penetration_depth": 0,
 		"crash_cooldown_until": 0.0,
+		"engagement_role": CombatConstants.ENGAGEMENT_ROLE_LINE,
+		"intrusion_host_fid": "",
+		"intrusion_anchor_file": -1,
 	})
 	# Connect health_changed so UI can refresh when consciousness/pain/blood changes
 	if entity != null and entity.has_signal("health_changed"):
@@ -129,10 +143,15 @@ func _reset_tactical_breach_state() -> void:
 	for c in combatants:
 		c["tactical_penetration_depth"] = 0
 		c["crash_cooldown_until"] = 0.0
+		c["engagement_role"] = CombatConstants.ENGAGEMENT_ROLE_LINE
+		c["intrusion_host_fid"] = ""
+		c["intrusion_anchor_file"] = -1
 	for fid in formations.keys():
 		var f: Dictionary = formations[fid]
 		if not f.is_empty():
 			f["breached_files"] = {}
+	if not formations.is_empty():
+		_FormationEngagement.recompute_all(self)
 
 ## Start combat. Optional player_formation and enemy_formation presets: { files, ranks, density }.
 ## When provided, builds formations and assigns rank/file to combatants (spawn order).
@@ -167,6 +186,7 @@ func _recompute_zoc_and_distance() -> void:
 	_TacticalCombat.recompute_incursion_pressure(self)
 	_ZoneOfControl.recompute_all(self)
 	_DistanceBands.update_distance_to_from_formations(self)
+	_FormationEngagement.recompute_all(self)
 
 func _schedule_initial_action_ready_events() -> void:
 	_EventScheduler.schedule_initial_action_ready_events(self)

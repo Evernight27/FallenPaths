@@ -378,9 +378,34 @@ static func take_queued_breach_crash_roll() -> float:
 
 ## Phase D: sector-weighted surround load vs legacy integer threat count (docs/TACTICAL_ZONES_BREACH_MOVEMENT.md, incursion section §10.3 B2).
 const FEATURE_SECTOR_SURROUND_LOAD := false
-## Endgame / skirmish: when the front-rank "line" has collapsed (at most one fighter per side on rank 0, or one side has no rank-0),
+## Endgame / skirmish: when the front-rank "line" has collapsed (see SKIRMISH_* below),
 ## `breached_files` still affects ZoC lane stress but no longer blocks swap / rotate / fall_back (FormationBreachRules.breach_blocks_open_lane_moves).
+## This is not a global "battle mode": only breach→formation-move gating uses it (not AI, crash, or incursion math).
 const FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES := true
+## Rank-0 (non-incapacitated) headcount per side used by FormationBreachRules.is_skirmish_line_engagement.
+## When both sides have at least one rank-0 fighter, skirmish iff each side has at most this many. Default 1 → only a clean 1v1 contact is skirmish; 2v1 / 1v2 / 2v2 stay "formation line" for clog purposes.
+const SKIRMISH_MAX_FRONT_FIGHTERS_PER_SIDE := 1
+## If true, skirmish when either side has zero rank-0 fighters (everyone deeper, or one side wiped from the front rank).
+const SKIRMISH_WHEN_EITHER_SIDE_ZERO_FRONT := true
+
+## --- Engagement / line cohesion / posture (docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) ---
+const ENGAGEMENT_POSTURE_LINE := "line"
+const ENGAGEMENT_POSTURE_OPEN := "open"
+const ENGAGEMENT_POSTURE_DUEL := "duel"
+## Combatant: normal rank/file vs crashed-through and lodged in opponent context (slots TBD).
+const ENGAGEMENT_ROLE_LINE := "line"
+const ENGAGEMENT_ROLE_INTRUDED := "intruded"
+## Cohesion = (COHESION_BASE_FLOOR + COHESION_FILL_SCALE * front_fill) * (1 - COHESION_BREACH_WEIGHT * avg_breach) * morale_cohesion_factor
+const COHESION_BREACH_WEIGHT := 0.45
+const COHESION_BASE_FLOOR := 0.35
+const COHESION_FILL_SCALE := 0.65
+## At or above this cohesion (and not duel), posture shows LINE.
+const LINE_COHESION_POSTURE_LINE_MIN := 0.58
+## Crash: adjacent rank-0 allies in same formation add hold (gap closure). Capped by CRASH_NEIGHBOR_MAX_COUNT.
+const CRASH_NEIGHBOR_HOLD_BASE := 22.0
+const CRASH_NEIGHBOR_MAX_COUNT := 2
+const CRASH_NEIGHBOR_REACH_REF_M := 2.2
+
 ## Explicit no-op: pass turn, schedule next action_ready (same delays as skip_turn).
 const MOVE_ID_WAIT := "wait"
 # Swap rank AI (CombatAIActionPicker): relief only when necessary — not marginal fitness differences.

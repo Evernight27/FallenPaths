@@ -88,6 +88,9 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 		atk["tactical_penetration_depth"] = int(res.get("tactical_penetration_depth", 1))
 		var fid_b: String = str(res.get("defender_formation_id", ""))
 		var f_b: int = int(res.get("defender_file", 0))
+		atk["engagement_role"] = CombatConstants.ENGAGEMENT_ROLE_INTRUDED
+		atk["intrusion_host_fid"] = fid_b
+		atk["intrusion_anchor_file"] = f_b
 		var sev: float = float(res.get("breach_severity", 0.7))
 		if not fid_b.is_empty() and manager.formations.has(fid_b):
 			var form_b: Dictionary = manager.formations[fid_b]
@@ -97,6 +100,10 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 			var prev: float = float(bf.get(f_b, bf.get(str(f_b), 0.0)))
 			bf[f_b] = maxf(prev, sev)
 		manager._recompute_zoc_and_distance()
+		if atk.get("formation_id", "") != fid_b and manager.has_method("notify_formation_changed"):
+			manager.notify_formation_changed(str(atk.get("formation_id", "")))
+		if not fid_b.is_empty():
+			manager.notify_formation_changed(fid_b)
 	if CombatConstants.COMBAT_EVENT_DEBUG:
 		var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 		var tgt_name: String = _EntityAccess.get_display_name(tgt, defender_id)

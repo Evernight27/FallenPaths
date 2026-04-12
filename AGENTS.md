@@ -14,3 +14,5 @@ Godot **4.x** project. Primary language: **GDScript**.
 - Battle UI: `ui/BattleScene.gd` and related `ui/*Battle*`, `ui/*Combat*`, `ui/*Formation*`.
 
 When changing combat flow, prefer editing the **focused module** rather than inflating `CombatManager.gd`.
+
+**Implementation order (all combat plans):** `docs/IMPLEMENTATION_ORDER.md` (last verified vs repo: 2026-04-07). **Engagement / line cohesion:** `combat/CombatFormationEngagement.gd` (`CombatManager.engagement_state_changed`). **Gap / crash neighbors / intruder geometry:** `combat/CombatIntrusionGeometry.gd`. Detail: `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`.

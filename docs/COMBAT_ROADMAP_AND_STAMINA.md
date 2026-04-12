@@ -11,10 +11,38 @@ Consolidated documentation. Each section keeps its **original filename** in the 
 5. [BACK_RANK_WAIT_EVENT_LISTENER_VS_FIXED_COOLDOWN_INVESTIGATION.md](#back-rank-wait-event-listener-vs-fixed-cooldown-investigation)
 6. [MODULARIZATION_POSSIBILITIES.md](#modularization-possibilities)
 7. [COMBAT_SYSTEM_ISSUES.md](#combat-system-issues)
+8. [ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) — line cohesion, posture (LINE/OPEN/DUEL), intrusion geometry, crash neighbor hold
 
 ---
 
-**Doc map:** `PHYSICS_DAMAGE_AND_FLOW.md` · `TACTICAL_FORMATIONS_FF4.md` · `TACTICAL_ZONES_BREACH_MOVEMENT.md` · `PARRY_BIND_AND_WEAPON_GEOMETRY.md` · `PARRY_DEFLECT_AND_CALIBRATION.md` · `GUARDS_LINES_AFTERBLOW.md` · `AI_ENGAGEMENT_STANCE_AND_FEINTS.md` · `HEMA_ROADMAP_AND_SOURCES.md` · `MEDICAL_PAIN_INCAPACITATION.md`
+## Master implementation order
+
+**Use [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md)** for the **cross-plan sequence** (Tier 0 → 7): engagement geometry (P3+), tactical doc sync, parry stack, AI, physics, medical, research.
+
+This file’s **Part 1** table is the **historical phase map** (0–6) embedded in the consolidated roadmap; **active** formation/breach/cohesion work follows **Tier 1** in `IMPLEMENTATION_ORDER.md` and detail in `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`.
+
+**Plans vs repo:** Tier tables and engagement checklists were **reconciled with the codebase on 2026-04-07**. Part 3 checklist below was **aligned to shipped code** in the same pass (formation dict, incursion, hybrid gauge). Historical **stamina migration** prose farther down may still describe an alternate design — see **Current architecture snapshot** and the **Archived** banner on the stamina plan section.
+
+---
+
+## Current architecture snapshot (shipped, 2026)
+
+Use this as the **source of truth** for what the repo does today. For **what to build next**, use `docs/IMPLEMENTATION_ORDER.md` and `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`.
+
+| Layer | Behavior |
+|-------|----------|
+| **Time / turns** | `CombatManager`: `combat_clock`, min-heap **`event_queue`**, **`CombatEventScheduler`** / **`CombatProcessTick`**. Per-combatant **`gauge`** fills toward **`EVENT_ACTION_READY`** (hybrid model — gauge was **not** removed). |
+| **Combatant** | `STATE_WAITING` (and wind-up / medical / formation-move states as applicable), `rank` / `file` / `formation_id`, `distance_to`, stances, stamina, **`tactical_penetration_depth`**, **`crash_cooldown_until`**, **`engagement_role`**, **`intrusion_host_fid`**, **`intrusion_anchor_file`**. |
+| **Formations** | `formations[fid]`: `files`, `ranks`, `density`, `slots`, `slot_obstacles`, `zone_control`, `breached_files`, **`incursion_pressure`** (recomputed), **`line_cohesion`**, **`engagement_posture`**, **`morale_cohesion_factor`**. |
+| **ZoC & incursion** | **`ZoneOfControl.recompute_all`**; **`TacticalCombat.recompute_incursion_pressure`** (rank-0 imbalance) feeds **`incursion_pressure`** into raw zone strength. |
+| **Crash / breach** | **`BreachResolver.contest_crash`**, **`CombatEngagementResolver.resolve_crash_attempt`**; defender **`breached_files`**; **`CombatIntrusionGeometry.crash_neighbor_hold_support`** on hold. |
+| **Skirmish / clog** | **`FormationBreachRules`**: `breach_blocks_open_lane_moves` + **`FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES`**. |
+| **Engagement UI** | **`CombatFormationEngagement.recompute_all`**; **`CombatManager.engagement_state_changed`**; **`BattleScene`** formation labels. |
+| **Medical** | Medical phase + coordination modules unchanged in scope here. |
+
+---
+
+**Doc map:** `IMPLEMENTATION_ORDER.md` · `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` · `PHYSICS_DAMAGE_AND_FLOW.md` · `TACTICAL_FORMATIONS_FF4.md` · `TACTICAL_ZONES_BREACH_MOVEMENT.md` · `PARRY_BIND_AND_WEAPON_GEOMETRY.md` · `PARRY_DEFLECT_AND_CALIBRATION.md` · `GUARDS_LINES_AFTERBLOW.md` · `AI_ENGAGEMENT_STANCE_AND_FEINTS.md` · `HEMA_ROADMAP_AND_SOURCES.md` · `MEDICAL_PAIN_INCAPACITATION.md`
 
 <a id="implementation-outline"></a>
 
@@ -31,12 +59,13 @@ Master implementation guide for the combat system migration. Consolidates decisi
 | Phase | Focus | Depends On | Key Deliverables |
 |-------|-------|------------|------------------|
 | **0** | Prep: data structures, constants | — | Combatant fields, formation structure, event queue |
-| **1** | Event queue (replace gauge) | Phase 0 | Min-heap, EVENT_ACTION_READY, stamina UI |
+| **1** | Event queue + action ready | Phase 0 | Min-heap, `EVENT_ACTION_READY`, **gauge** hybrid, stamina UI |
 | **2** | Distance bands | Phase 0 | Close/mid/long, roll vs evasion to close |
 | **3** | Formations | Phase 0, 1 | Rank/file, targeting filter, swap rank, plug on death |
 | **4** | Zone of control (ZoC) | Phase 3 | Zone control, flank access, engagement angle |
 | **5** | Formation actions | Phase 3 | Fall back, rotate, drag back, step over; swap rank lane_clarity + pressure_mod |
-| **6** | Tactical features | Phase 3–4 | Ambush, surround, breakthrough, flanking |
+| **6** | Tactical features | Phase 3–4 | Ambush, surround, incursion pressure, flanking (ZoC) |
+| **7** | Engagement geometry (ongoing) | Phase 3–6 | Line cohesion, posture, crash neighbor hold, intrusion slots/distance — `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`, `docs/IMPLEMENTATION_ORDER.md` Tier 1 |
 
 ---
 
@@ -54,7 +83,7 @@ Master implementation guide for the combat system migration. Consolidates decisi
 
 ### ZoC
 - **Phase:** 4 (after formations)
-- **Type:** Full ZoC (D) — control = units + adjacent_support - incursion - casualties
+- **Type:** Full ZoC (D) — control = units + adjacent_support − **incursion** (rank-0 imbalance) − casualties / lane stress / breach local stress (`ZoneOfControl` + `TacticalCombat.recompute_incursion_pressure`)
 
 ### Formation Actions (Movement — Time-Based)
 - **Swap rank / Fall back:** Time-based, **no stamina cost**. Duration = base × lane_modifier × pressure_modifier. See `docs/TACTICAL_ZONES_BREACH_MOVEMENT.md`.
@@ -95,17 +124,17 @@ Master implementation guide for the combat system migration. Consolidates decisi
 
 ### Phase 0: Prep
 - [x] Add formation/rank/file constants to CombatConstants (spacing, REACH_SAFETY_FACTOR, stances, movement duration)
-- [x] Add combatant fields: rank, file, formation_id, distance_to, engaged_with_id, engagement_angle, zone_id, occupied_zone_id, stance, stance_preference
-- [x] Add formation structure (inline dict): files, ranks, density, zone_control, facing, slots, gaps, plug_rule
+- [x] Add combatant fields: rank, file, formation_id, distance_to, engaged_with_id, engagement_angle, zone_id, occupied_zone_id, stance, stance_preference; plus breach/incursion **`tactical_penetration_depth`**, **`crash_cooldown_until`**, **`engagement_role`**, **`intrusion_host_fid`**, **`intrusion_anchor_file`**
+- [x] Add formation structure (inline dict): `files`, `ranks`, `density`, `slots`, `slot_obstacles`, `zone_control`, `breached_files`, `line_cohesion`, `engagement_posture`, `morale_cohesion_factor`; **`incursion_pressure`** set at runtime by `TacticalCombat.recompute_incursion_pressure` (see `CombatFormationSetup.gd`)
 - [x] Add event_queue (array → min-heap in Phase 1), combat_clock to CombatManager
 - [x] Add encounter dict (ambush_type, ambush_penalty)
 
 ### Phase 1: Event Queue
 - [x] Implement min-heap event queue processing
-- [x] EVENT_ACTION_READY → turn_ready / AI pick
-- [x] Replace gauge-driven ready with event-driven
-- [x] Update UI: stamina instead of gauge
-- [x] **Hybrid event model:** Signals (formation_changed, turn_resolved) drive scheduling; _schedule_action_ready centralizes ACTION_READY with cancel-before-schedule to avoid duplicates. See `docs/COMBAT_ROADMAP_AND_STAMINA.md`.
+- [x] `EVENT_ACTION_READY` → turn_ready / AI pick
+- [x] **Hybrid ready path:** combatant **`gauge`** fills to 100 → `EVENT_ACTION_READY` scheduled (not a pure “remove gauge” migration); wind-up / medical / formation-move states still use timing labels on the same bar row (`BattleUIUpdater`)
+- [x] **UI:** Progress bar shows **stamina** (0–100) on the legacy `gauge` widget; text label shows ready vs wind-up / medical / swap / fall back
+- [x] **Hybrid event model:** Signals (`formation_changed`, `turn_resolved`, …) drive scheduling; `_schedule_action_ready` centralizes ACTION_READY with cancel-before-schedule to avoid duplicates (`CombatManager`)
 
 ### Phase 2: Distance Bands
 - [x] Add distance_to[target_id] or distance_bands storage
@@ -131,7 +160,7 @@ Master implementation guide for the combat system migration. Consolidates decisi
 - [x] Zone-based distance for formation vs formation (hybrid) — pair-wise `distance_to` + `mid_reach_files` when both lines wide and front ZoC weak
 - [x] Optional encounter flag `protection_circle_active` — disables ZoC flank/rear and mid-reach widening (`CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE`)
 - [x] Formation diagram shows ZoC summary line (`FormationDiagramBuilder` + `ZoneOfControl.format_zone_control_line`)
-- [ ] **Not yet in code (Part 2 “Full ZoC” text):** **incursion** term in zone strength (enemy presence reducing control). **Optional:** zone **extent** scaling distance (investigation doc); casualties are modeled via `slot_obstacles` + `ZOC_CASUALTY_PER_BODY`.
+- [x] **Incursion in zone strength** — `formation.incursion_pressure` from front-rank imbalance, blended in `_raw_zone_strength` (`ZoneOfControl` + `TacticalCombat.recompute_incursion_pressure`). Casualties: `slot_obstacles` + `ZOC_CASUALTY_PER_BODY`. **Optional / not modeled:** separate zone **extent** scaling distance (investigation-only).
 
 ### Phase 5: Formation Actions
 - [x] Fall back — `_start_fall_back_solo` (empty rank-1 slot) and `fall_back_pair` via `_start_formation_pair_move`; `EVENT_FALL_BACK_SOLO_RESOLVE` / `_handle_fall_back_solo_resolve`
@@ -147,16 +176,20 @@ Master implementation guide for the combat system migration. Consolidates decisi
 ### Phase 6: Tactical Features
 - [x] **Ambush** — `encounter.ambush_type` / `ambush_penalty` / `ambushed_side`; `TacticalCombat.ambush_defense_multiplier` on defender parry/dodge and close-attempt evasion (`CombatManager._resolve_close_attempt`)
 - [x] **Surround** — `TacticalCombat.count_engaging_threats` + split ÷ min(threats, `SURROUND_MAX_SPLIT_DIVISOR`) × perception awareness on parry and dodge (`DefenseChoiceResolver`)
-- [x] **Incursion pressure (light)** — `TacticalCombat.recompute_incursion_pressure` from front-rank count imbalance; reduces raw zone strength (`ZoneOfControl._raw_zone_strength`). Full **plug vs incursion contest** on failed plug still deferred.
+- [x] **Incursion pressure** — `TacticalCombat.recompute_incursion_pressure` from front-rank count imbalance; reduces raw zone strength (`ZoneOfControl._raw_zone_strength`). **Deferred:** explicit **plug vs incursion contest** roll on failed plug (design-only).
+- [x] **Crash / breach v1** — `BreachResolver`, `CombatEngagementResolver`; neighbor hold (`CombatIntrusionGeometry`); skirmish-aware breach move clog (`FormationBreachRules`).
+- [x] **Line cohesion & posture** — `CombatFormationEngagement`, `CombatManager.engagement_state_changed`, UI labels (`BattleScene`). **Next:** intrusion slots + vacancy plug + intruder distance bands (`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` P3–P4).
 - [x] **Flanking** — implemented in Phase 4 (`ZoneOfControl.get_engagement_parry_multiplier`, pack fallback); Phase 6 checklist satisfied by that + surround/ambush layering
 
 ---
 
 ## Part 4: Phase Order — Critical for Testing
 
-**Plug on death (rank advance)** is a Phase 3 item that must be completed before Phase 4. Without it, when a rank 0 unit dies, the rank 1 unit in that file cannot advance and is stuck unable to melee—breaking formation combat. Implement when rank 0 dies: remove dead unit from slots; promote rank 1 in same file to rank 0; emit formation_changed. Simple automatic plug (no roll); full plug vs incursion contest is Phase 6.
+**Plug on death (rank advance)** — **shipped** (`CombatFormationFlow.on_combatant_died`). Rank 0 dies → obstacle recorded → rank 1 in same file promotes to rank 0 → `formation_changed`.
 
-**Phase 5 features** (lane clarity, pressure modifier, fall back, drag back, rotate) can wait until after Phase 4. They refine formation behavior but do not block basic testing.
+**Vacancy plug** (empty rank-0 without death, e.g. intruder leaves home slot) — **not shipped**; see `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` P3.
+
+**Phase 5** formation actions — **shipped** for core moves (see Part 3 Phase 5 checklist). Optional UI / armor duration / hit-interrupt items remain.
 
 ### Part 4.5: Dead/Wounded in Slots — Tracked but Non-Blocking
 
@@ -178,11 +211,13 @@ Master implementation guide for the combat system migration. Consolidates decisi
 
 | Item | When |
 |------|------|
-| Multi-target (close slots, AI weighting, defense split max) | Implementation |
+| **Intrusion slots + vacancy plug + intruder distance** | `IMPLEMENTATION_ORDER.md` Tier 1.2–1.4 |
+| Multi-target (close slots, AI weighting, defense split max) | After stable targeting |
 | Parry choice (threat scoring) | Multi-target phase |
-| Disengagement investigation (health/morale/rout) | Phase 5 |
-| ZoC extent modifier on reach | Phase 4+ |
+| Disengagement investigation (health/morale/rout) | Posture / morale (Tier 1.4–1.6) |
+| ZoC extent modifier on reach | Investigation / optional |
 | Leader abilities (formation flexibility) | Later |
+| **Explicit plug vs incursion contest roll** | Design-only; not in code |
 
 ---
 
@@ -190,9 +225,11 @@ Master implementation guide for the combat system migration. Consolidates decisi
 
 | Document | Role |
 |----------|------|
-| **COMBAT_ROADMAP_AND_STAMINA.md** (this bundle) | Locked decisions + phase checklist + stamina/events |
+| **`docs/IMPLEMENTATION_ORDER.md`** | **Canonical build order** (Tier 0–7) |
+| **`docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** | Line cohesion, posture, intrusion roadmap (Tier 1) |
+| **COMBAT_ROADMAP_AND_STAMINA.md** (this bundle) | Historical phases + locked decisions + stamina investigations |
 | **TACTICAL_FORMATIONS_FF4.md** | FF4 spec, distance, ambush, breakthrough |
-| **TACTICAL_ZONES_BREACH_MOVEMENT.md** | ZoC, surround, flanking, breach migration |
+| **TACTICAL_ZONES_BREACH_MOVEMENT.md** | ZoC, surround, flanking, breach narrative (sync with engagement plan Tier 2) |
 | **AI_ENGAGEMENT_STANCE_AND_FEINTS.md** | Stances, footwork, melee AI, mental stack |
 
 ---
@@ -228,6 +265,8 @@ Master implementation guide for the combat system migration. Consolidates decisi
 ## Source: `STAMINA_SYSTEM_IMPLEMENTATION_PLAN.md`
 
 ## Stamina-Based Combat: Implementation Plan (Distance Bands + Event Queue)
+
+> **Archived vs shipped (2026):** The sections below were written as a **migration plan** (e.g. remove gauge, `STATE_IDLE`, flurry state machine). The **shipped** game uses **`STATE_WAITING`**, **`gauge`** + **`EVENT_ACTION_READY`**, and the modules listed in **Current architecture snapshot**. Use this stamina document for **curve / pacing / investigation** and for historical context — **not** as a literal description of the current main loop unless cross-checked with `combat/CombatManager.gd`.
 
 ### Design Decision: Chosen Approach
 
@@ -444,6 +483,8 @@ func _process(delta: float) -> void:
 | 18 | **Player "wait" or pass** | Player must be able to pass (recover stamina, let enemies act). Action "wait" schedules EVENT_ACTION_READY at now + WAIT_DURATION (e.g. 0.5s) without spending stamina on attack. |
 
 #### 4.5 Migration Order (Suggested)
+
+> **Not executed as-written:** items such as “Disable gauge fill” and “Phase 4: Cleanup — remove `STATE_WAITING` / gauge” describe an alternate end state. The repo kept the hybrid model in **Current architecture snapshot**.
 
 1. **Phase 0: Prep**
    - Add armor_burden to armor/combatant

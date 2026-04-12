@@ -13,6 +13,16 @@ Consolidated documentation. Each section keeps its **original filename** in the 
 
 ---
 
+## Implementation status (vs current code)
+
+**Canonical build order:** `docs/IMPLEMENTATION_ORDER.md`. **Engagement / cohesion / neighbor crash hold / skirmish breach clog:** `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` (Tier 1).
+
+**Tier 2 (this bundle):** Narrative and investigation sections below are **not yet fully reconciled** with neighbor hold (`CombatIntrusionGeometry`), per-formation cohesion/posture, or future **vacancy plug / intruder slots**. When extending breach/incursion text, cross-check those modules and update this note.
+
+**Last reviewed for cross-links:** 2026-04-07.
+
+---
+
 <a id="zone-of-control-quantum-positioning-investigation"></a>
 
 ## Source: `ZONE_OF_CONTROL_QUANTUM_POSITIONING_INVESTIGATION.md`
