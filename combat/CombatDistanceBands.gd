@@ -18,13 +18,22 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 				continue
 			var opp_rank: int = opp.get("rank", 0)
 			var opp_file: int = opp.get("file", 0)
-			if our_rank > 0:
+			# Intruders sit on host depth ranks but still contest the broken front line vs host rank-0.
+			var c_intruded_on_host_opp: bool = (
+				str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
+				and str(opp.get("formation_id", "")) == str(c.get("intrusion_host_fid", ""))
+			)
+			if our_rank > 0 and not c_intruded_on_host_opp:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
 				continue
 			var cur: String = c.distance_to.get(opp.id, CombatConstants.DISTANCE_MID)
 			if cur == CombatConstants.DISTANCE_CLOSE:
 				continue
-			if opp_rank > 0:
+			var opp_intruded_on_host_c: bool = (
+				str(opp.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
+				and str(c.get("formation_id", "")) == str(opp.get("intrusion_host_fid", ""))
+			)
+			if opp_rank > 0 and not opp_intruded_on_host_c:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
 				continue
 			var df: int = int(absf(float(our_file - opp_file)))

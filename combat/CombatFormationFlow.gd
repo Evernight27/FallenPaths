@@ -2,11 +2,16 @@ class_name CombatFormationFlow
 extends RefCounted
 
 ## Formation moves, resolve events, slot plug on death, hit reaction delays on pending formation events.
+##
+## Plug order (see docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md §4): **intrusion slot writes** first (crash success),
+## then **vacancy plug** on the home formation (empty rank-0 without death). **Death plug** stays in
+## `on_combatant_died` only; same-tick ordering avoids mixing vacancy with death removal.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 
 
 static func apply_hit_reaction_if_needed(manager: Node, combatant_id: int, intensity: float = 0.5) -> void:
@@ -51,6 +56,10 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 	var init = manager._get_by_id(initiator_id)
 	var partner = manager._get_by_id(partner_id)
 	if init == null or partner == null or not init.alive or not partner.alive:
+		return
+	if str(init.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		return
+	if str(partner.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
 		return
 	if init.side != partner.side or init.get("formation_id", "") != partner.get("formation_id", ""):
 		return
@@ -102,6 +111,8 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 	var init = manager._get_by_id(initiator_id)
 	if init == null or not init.alive:
 		return
+	if str(init.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		return
 	var fid: String = init.get("formation_id", "")
 	var formation: Dictionary = manager.formations.get(fid, {})
 	if formation.is_empty():
@@ -137,6 +148,10 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 	var init = manager._get_by_id(initiator_id)
 	var partner = manager._get_by_id(partner_id)
 	if init == null or partner == null or not init.alive or not partner.alive:
+		return
+	if str(init.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		return
+	if str(partner.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
 		return
 	if init.side != partner.side or init.get("formation_id", "") != partner.get("formation_id", ""):
 		return
@@ -348,16 +363,126 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 	manager._schedule_action_ready(partner_id, manager._action_ready_cooldown(partner))
 
 
+## After crash success: clear intruder from home `slots`, place in host anchor **column** at first free rank ≥ 1 (behind their line), align rank/file, vacancy plug home column.
+static func apply_intrusion_after_crash_success(
+	manager: Node,
+	atk: Dictionary,
+	_defender_id: int,
+	defender_formation_id: String,
+	defender_file: int,
+	breach_severity: float = -1.0
+) -> void:
+	if manager == null or atk.is_empty():
+		return
+	var fid_a: String = str(atk.get("formation_id", ""))
+	if fid_a.is_empty() or defender_formation_id.is_empty():
+		return
+	var form_a: Dictionary = manager.formations.get(fid_a, {})
+	var form_b: Dictionary = manager.formations.get(defender_formation_id, {})
+	if form_a.is_empty() or form_b.is_empty():
+		return
+	var aid: int = int(atk.get("id", -1))
+	if aid < 0:
+		return
+	var stored_home: int = int(atk.get("intrusion_source_file", -1))
+	var first_intrusion: bool = stored_home < 0
+	var home_vacancy_file: int = int(atk.get("file", 0)) if first_intrusion else stored_home
+	for fk in manager.formations.keys():
+		var fd: Dictionary = manager.formations[fk]
+		if fd.is_empty():
+			continue
+		_FormationSlots.remove_combatant_from_slots(fd.get("slots", {}), aid)
+	var slots_b: Dictionary = form_b.get("slots", {})
+	var host_ranks: int = maxi(1, int(form_b.get("ranks", 1)))
+	var placed_rank: int = _FormationSlots.place_intruder_behind_front_line(slots_b, host_ranks, defender_file, aid)
+	atk["rank"] = placed_rank
+	atk["file"] = defender_file
+	var sev_use: float = breach_severity
+	if sev_use < 0.0:
+		var bf0: Dictionary = form_b.get("breached_files", {})
+		sev_use = float(bf0.get(defender_file, bf0.get(str(defender_file), 0.7)))
+	_IntrusionWedge.upsert_from_intrusion(
+		form_b,
+		defender_file,
+		aid,
+		sev_use,
+		int(atk.get("tactical_penetration_depth", 0)),
+		CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX
+	)
+	atk["lane_offset"] = clampf(
+		CombatConstants.INTRUSION_INTRUDER_LANE_OFFSET_BIAS,
+		-CombatConstants.LANE_OFFSET_ABS_MAX,
+		CombatConstants.LANE_OFFSET_ABS_MAX
+	)
+	if first_intrusion:
+		atk["intrusion_source_file"] = home_vacancy_file
+		apply_vacancy_plug_same_file(manager, fid_a, home_vacancy_file)
+	manager._reschedule_back_rank_turns(fid_a)
+	manager._reschedule_back_rank_turns(defender_formation_id)
+
+
+## Promote shallowest empty cells in one file column (no death, no slot_obstacles). Caller runs ZoC/distance if needed.
+static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) -> void:
+	var formation: Dictionary = manager.formations.get(fid, {})
+	if formation.is_empty():
+		return
+	var formation_ranks: int = formation.get("ranks", 1)
+	if formation_ranks <= 1:
+		return
+	var slots: Dictionary = formation.get("slots", {})
+	var side_wanted: String = str(formation.get("side", ""))
+	for fill_rank in range(formation_ranks):
+		if _FormationSlots.slot_has_any(slots, Vector2i(fill_rank, file)):
+			continue
+		var next_rank: int = fill_rank + 1
+		if next_rank >= formation_ranks:
+			break
+		var promoted = null
+		for ally in manager.combatants:
+			if not ally.get("alive", false) or str(ally.get("side", "")) != side_wanted:
+				continue
+			if str(ally.get("formation_id", "")) != fid:
+				continue
+			if str(ally.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+				continue
+			if int(ally.get("rank", 0)) == next_rank and int(ally.get("file", 0)) == file:
+				promoted = ally
+				break
+		if promoted == null:
+			break
+		_FormationSlots.remove_combatant_from_slots(slots, promoted.id)
+		promoted.rank = fill_rank
+		promoted.file = file
+		promoted["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
+		_FormationSlots.slot_set_single(slots, Vector2i(fill_rank, file), promoted.id)
+		if CombatConstants.COMBAT_EVENT_DEBUG:
+			var name_p: String = _EntityAccess.get_display_name(promoted, promoted.get("id", -1))
+			print("[Combat] Vacancy plug: %s advanced to rank %d (file %d)" % [name_p, fill_rank, file])
+		manager._schedule_action_ready(promoted.id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
+
+
 static func on_combatant_died(manager: Node, c: Dictionary) -> void:
+	_IntrusionWedge.remove_intruder_from_all_wedges(manager, int(c.get("id", -1)))
 	var fid: String = c.get("formation_id", "")
 	var formation: Dictionary = manager.formations.get(fid, {})
 	if formation.is_empty():
 		return
 	var r: int = c.get("rank", 0)
 	var f: int = c.get("file", 0)
+	if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		var src_f: int = int(c.get("intrusion_source_file", -1))
+		if src_f >= 0:
+			f = src_f
+			r = 0
+	# Intruders may occupy host `slots` while `formation_id` stays home — strip from every formation first.
+	for fk in manager.formations.keys():
+		var fd: Dictionary = manager.formations[fk]
+		if fd.is_empty():
+			continue
+		var s: Dictionary = fd.get("slots", {})
+		_FormationSlots.remove_combatant_from_slots(s, c.id)
 	var slots: Dictionary = formation.get("slots", {})
 	var obstacles: Dictionary = formation.get("slot_obstacles", {})
-	_FormationSlots.remove_combatant_from_slots(slots, c.id)
 	var key := Vector2i(r, f)
 	if not obstacles.has(key):
 		obstacles[key] = []
@@ -382,6 +507,7 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 			_FormationSlots.remove_combatant_from_slots(slots, promoted.id)
 			promoted.rank = fill_rank
 			promoted.file = f
+			promoted["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
 			_FormationSlots.slot_set_single(slots, Vector2i(fill_rank, f), promoted.id)
 			if CombatConstants.COMBAT_EVENT_DEBUG:
 				var name_p: String = _EntityAccess.get_display_name(promoted, promoted.get("id", -1))

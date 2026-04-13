@@ -15,11 +15,11 @@ Consolidated documentation. Each section keeps its **original filename** in the 
 
 ## Implementation status (vs current code)
 
-**Canonical build order:** `docs/IMPLEMENTATION_ORDER.md`. **Engagement / cohesion / neighbor crash hold / skirmish breach clog:** `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` (Tier 1).
+**Combat implementation plan (sequence + Tier 1 coding steps):** `docs/IMPLEMENTATION_ORDER.md`. **Tier 1 design spec** (fields, plugs): `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`.
 
-**Tier 2 (this bundle):** Narrative and investigation sections below are **not yet fully reconciled** with neighbor hold (`CombatIntrusionGeometry`), per-formation cohesion/posture, or future **vacancy plug / intruder slots**. When extending breach/incursion text, cross-check those modules and update this note.
+**Tier 2 (this bundle):** Narrative and investigation sections below are **not yet fully reconciled** with neighbor hold (`CombatIntrusionGeometry`), per-formation cohesion/posture, or implemented/planned **vacancy plug, intruder slots, and `lane_offset` / effective-pair distance** (`IMPLEMENTATION_ORDER` Tier 1.2–1.3). When extending breach/incursion text, cross-check those modules and update this note.
 
-**Last reviewed for cross-links:** 2026-04-07.
+**Last reviewed for cross-links:** 2026-04-07. **Plan note:** Tier **2.1** doc sync is scheduled **after Tier 1.3** (`IMPLEMENTATION_ORDER.md`).
 
 ---
 

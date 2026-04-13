@@ -4,6 +4,7 @@ extends RefCounted
 ## Line cohesion (0..1) and engagement posture per formation. See docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md.
 
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 
 
 static func recompute_all(manager: Node) -> void:
@@ -37,15 +38,31 @@ static func _avg_breach_severity(form: Dictionary) -> float:
 	return s / float(maxi(1, n))
 
 
+static func _avg_wedge_pressure(form: Dictionary) -> float:
+	var byf: Dictionary = form.get("intrusion_wedge_by_file", {})
+	if byf.is_empty():
+		return 0.0
+	var s: float = 0.0
+	var n: int = 0
+	for w in byf.values():
+		if typeof(w) != TYPE_DICTIONARY:
+			continue
+		s += clampf(float((w as Dictionary).get(_IntrusionWedge.FIELD_PRESSURE, 0.0)), 0.0, 1.0)
+		n += 1
+	return s / float(maxi(1, n))
+
+
 static func _compute_line_cohesion(manager: Node, fid: String, form: Dictionary) -> float:
 	var n_front: int = _FormationBreachRules.count_front_rank_alive(manager, fid)
 	var files: int = maxi(1, int(form.get("files", 1)))
 	var front_fill: float = clampf(float(n_front) / float(files), 0.0, 1.0)
 	var breach_avg: float = _avg_breach_severity(form)
+	var wedge_avg: float = _avg_wedge_pressure(form)
+	var breach_eff: float = maxf(breach_avg, wedge_avg)
 	var morale: float = clampf(float(form.get("morale_cohesion_factor", 1.0)), 0.15, 1.0)
 	var raw: float = (
 		(CombatConstants.COHESION_BASE_FLOOR + CombatConstants.COHESION_FILL_SCALE * front_fill)
-		* (1.0 - CombatConstants.COHESION_BREACH_WEIGHT * breach_avg)
+		* (1.0 - CombatConstants.COHESION_BREACH_WEIGHT * breach_eff)
 		* morale
 	)
 	return clampf(raw, 0.0, 1.0)

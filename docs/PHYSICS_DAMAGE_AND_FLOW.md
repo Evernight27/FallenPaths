@@ -82,11 +82,9 @@ After implementing the 4-line guard system (Liechtenauer: high, low, left, right
 
 ---
 
-## 4. Arm Interpose (BP6) — **Implemented**
+## 4. Arm interpose (BP6) — **not in current code**
 
-**Implemented:** When hit part would be head, roll `p_interpose = INTERPOSE_BASE × exposure(attack_line, guard_line)`. If success, redirect to left_arm or right_arm. Exposure table in CombatConstants.INTERPOSE_EXPOSURE; INTERPOSE_BASE = 0.10.
-
-**Location:** AttackResolver.gd (before compute_and_apply_damage).
+The separate interpose roll and `CombatConstants.INTERPOSE_*` tables were **removed**; limb-before-head ordering is handled via **`ATTACK_PATHS_BY_GUARD`** and related path logic in `CombatConstants.gd` / `AttackResolver.gd` (guard-dependent intercept order), not a dedicated `p_interpose` constant.
 
 ---
 
@@ -881,8 +879,8 @@ Switch the armor system so that:
 
 | File | Relevant Constants |
 |------|-------------------|
-| `armor/ArmorConstants.gd` | DEFLECTION_TRANSMISSION_DEFAULT, BLUNT_BAT_TRANSMISSION, BLUNT_CUSHION_MOMENTUM_THRESHOLD, layer blunt_bat_transmission, deflection_transmission |
-| `weapon/WeaponConstants.gd` | BLUNT_PRESSURE_SCALE, BLUNT_MOMENTUM_TO_MPA, MIN_BLUNT_AREA_M2, etc. |
+| `armor/ArmorConstants.gd` | `SHARP_DEFLECT_TRANSMISSION_DEFAULT`, `BLUNT_TRANSMISSION_DEFAULT`, `BLUNT_CUSHION_MOMENTUM_THRESHOLD`; layer JSON may still use legacy keys `blunt_bat_transmission` / `deflection_transmission` (see `ArmorPiece.gd` fallbacks) |
+| `weapon/WeaponConstants.gd` | `MIN_BLUNT_AREA_M2`, blunt coupling / move defs (obsolete rigid blunt penetration constants removed from code) |
 
 ---
 
@@ -906,7 +904,7 @@ Switch the armor system so that:
 # In _process_layer, when damage_type == BLUNT:
 # ALWAYS deflect (transmission) — never penetrate
 if damage_type == ArmorConstants.DAMAGE_TYPE_BLUNT:
-    var base_tx: float = layer.get("blunt_bat_transmission", ArmorConstants.BLUNT_BAT_TRANSMISSION)
+    var base_tx: float = layer.get("blunt_transmission", layer.get("blunt_bat_transmission", ArmorConstants.BLUNT_TRANSMISSION_DEFAULT))
     var cushion: float = layer.get("blunt_cushion", 0.0)
     if blunt_momentum_per_area < 0.0 or cushion <= 0.0:
         transmission = base_tx * (1.0 - cushion)

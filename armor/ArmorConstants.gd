@@ -24,9 +24,7 @@ const BLUNT_DURABILITY_THRESHOLD_RATIO: float = 0.5
 # Durability: wear per damage absorbed; cloth tears fastest, plate lasts. See ARMOR_VALUES_PHYSICS_RESEARCH.md.
 
 const SHARP_DEFLECT_TRANSMISSION_DEFAULT: float = 0.5
-const DEFLECTION_TRANSMISSION_DEFAULT: float = 0.5  # Legacy alias
 const BLUNT_TRANSMISSION_DEFAULT: float = 0.65
-const BLUNT_BAT_TRANSMISSION: float = 0.65  # Legacy alias
 
 # blunt_cushion 0-1: transmission = base * (1 - cushion * momentum_factor). High cushion = padding absorbs.
 # When momentum/area (kg·m/s)/m² exceeds this, cushion is overwhelmed (heavy blows push through padding).

@@ -20,6 +20,8 @@ const _CoreEntityScript := preload("res://core/CoreEntity.gd")
 const _ResourcePaths := preload("res://core/ResourcePaths.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 
 const _HARNESS_RNG_SEED := 0x1CA501
 
@@ -82,7 +84,7 @@ func _connect_incursion_harness_monitor(mgr: Node) -> void:
 			_harness_on_combat_ended(mgr, winner, defeated as Node)
 	)
 
-func _harness_on_action_resolved(mgr: Node, _attacker_id: int, target_id: int, result: Dictionary) -> void:
+func _harness_on_action_resolved(mgr: Node, attacker_id: int, target_id: int, result: Dictionary) -> void:
 	if str(result.get("outcome", "")) != "crash_success":
 		return
 	if not mgr.has_method("_get_by_id"):
@@ -110,6 +112,64 @@ func _harness_on_action_resolved(mgr: Node, _attacker_id: int, target_id: int, r
 			"IncursionBreachTest: non-empty breached_files but breach_clogs_open_lanes=false (FormationBreachRules out of sync?). bf=%s"
 			% bf
 		)
+	var atk: Variant = mgr._get_by_id(attacker_id)
+	if atk == null:
+		push_error("IncursionBreachTest: crash_success but attacker id=%d missing" % attacker_id)
+		return
+	var atk_fid: String = str(atk.get("formation_id", ""))
+	var host_fid: String = str(atk.get("intrusion_host_fid", ""))
+	var anchor: int = int(atk.get("intrusion_anchor_file", -1))
+	if host_fid.is_empty() or anchor < 0:
+		push_error("IncursionBreachTest: crash_success but intrusion_host_fid / intrusion_anchor_file missing")
+		return
+	var slots_home: Dictionary = mgr.formations.get(atk_fid, {}).get("slots", {})
+	for k in slots_home.keys():
+		var occ: Array = _FormationSlots.normalize_cell(slots_home[k])
+		if attacker_id in occ:
+			push_error(
+				"IncursionBreachTest: intruder id=%d still listed in home formation %s slots key=%s occ=%s"
+				% [attacker_id, atk_fid, str(k), str(occ)]
+			)
+	var slots_host: Dictionary = mgr.formations.get(host_fid, {}).get("slots", {})
+	var host_ranks: int = maxi(1, int(mgr.formations.get(host_fid, {}).get("ranks", 1)))
+	var occ_front: Array = _FormationSlots.normalize_cell(slots_host.get(Vector2i(0, anchor), []))
+	if host_ranks > 1:
+		if occ_front.has(attacker_id):
+			push_error(
+				"IncursionBreachTest: intruder id=%d must not occupy host front (0,%d) when ranks=%d (through-line placement)"
+				% [attacker_id, anchor, host_ranks]
+			)
+		var placed := false
+		for rk in range(1, host_ranks):
+			var occ_r: Array = _FormationSlots.normalize_cell(slots_host.get(Vector2i(rk, anchor), []))
+			if occ_r.has(attacker_id):
+				placed = true
+				break
+		if not placed:
+			push_error(
+				"IncursionBreachTest: intruder id=%d not in host %s anchor column file=%d for ranks 1..%d"
+				% [attacker_id, host_fid, anchor, host_ranks - 1]
+			)
+	else:
+		if not occ_front.has(attacker_id):
+			push_error(
+				"IncursionBreachTest: intruder id=%d not in host %s slots at (0,%d) occ=%s (single-rank host)"
+				% [attacker_id, host_fid, anchor, str(occ_front)]
+			)
+	var wedges: Dictionary = mgr.formations.get(host_fid, {}).get("intrusion_wedge_by_file", {})
+	var wedge_raw: Variant = wedges.get(anchor, wedges.get(str(anchor), null))
+	if wedge_raw == null or typeof(wedge_raw) != TYPE_DICTIONARY:
+		push_error(
+			"IncursionBreachTest: host formation %s missing intrusion_wedge_by_file[%d] after crash_success"
+			% [host_fid, anchor]
+		)
+	else:
+		var wedge: Dictionary = wedge_raw as Dictionary
+		if int(wedge.get(_IntrusionWedge.FIELD_INTRUDER_ID, -999)) != attacker_id:
+			push_error(
+				"IncursionBreachTest: wedge intruder_id mismatch at file %d (expected id=%d wedge=%s)"
+				% [anchor, attacker_id, str(wedge)]
+			)
 	set_meta("_harness_ok_breach", true)
 	print(
 		"[IncursionBreachTest] Harness: crash_success + breached_files fid=%s bf=%s breach_clogs_open_lanes=%s incursion_pressure=%.3f lane_stress=%s"

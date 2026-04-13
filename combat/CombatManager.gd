@@ -29,8 +29,8 @@ func notify_engagement_state_changed(formation_id: String, line_cohesion: float,
 var combatants := []
 var medical_phase: bool = false
 var medical_phase_winner: String = ""
-# FF4 migration Phase 0: event queue (array → min-heap in Phase 1), combat clock, encounter, formations.
-# Hybrid model: Signals (formation_changed, turn_resolved) drive when to schedule; heap executes at resolve_at.
+# Event queue (min-heap), combat clock, encounter, formations.
+# Hybrid: signals (`formation_changed`, `turn_resolved`, …) decide when to schedule; heap runs events at `resolve_at`.
 var event_queue: Array = []
 var combat_clock: float = 0.0
 var encounter: Dictionary = {}
@@ -55,6 +55,7 @@ const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _CombatantsSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _FormationEngagement := preload("res://combat/CombatFormationEngagement.gd")
+const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 
 ## Returns the node that holds health/wounds (CoreEntity for enemies; CombatBody for Character). Use for all health reads.
 func _get_entity(node: Node) -> Node:
@@ -126,6 +127,8 @@ func register(node: Node, side: String) -> int:
 		"engagement_role": CombatConstants.ENGAGEMENT_ROLE_LINE,
 		"intrusion_host_fid": "",
 		"intrusion_anchor_file": -1,
+		"intrusion_source_file": -1,
+		"lane_offset": CombatConstants.LANE_OFFSET_DEFAULT,
 	})
 	# Connect health_changed so UI can refresh when consciousness/pain/blood changes
 	if entity != null and entity.has_signal("health_changed"):
@@ -146,10 +149,13 @@ func _reset_tactical_breach_state() -> void:
 		c["engagement_role"] = CombatConstants.ENGAGEMENT_ROLE_LINE
 		c["intrusion_host_fid"] = ""
 		c["intrusion_anchor_file"] = -1
+		c["intrusion_source_file"] = -1
+		c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
 	for fid in formations.keys():
 		var f: Dictionary = formations[fid]
 		if not f.is_empty():
 			f["breached_files"] = {}
+			_IntrusionWedge.clear_all_wedges_in_formation(f)
 	if not formations.is_empty():
 		_FormationEngagement.recompute_all(self)
 

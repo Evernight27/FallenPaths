@@ -1,5 +1,7 @@
 # Combat Roadmap And Stamina
 
+**Implementation sequencing:** Use **`docs/IMPLEMENTATION_ORDER.md`** (combat implementation plan — Tier 1 expanded steps through Tier 7). This file is a **consolidated bundle** (history, stamina, optional phase checklists), not the primary execution plan.
+
 Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
 
 ## Contents
@@ -17,17 +19,13 @@ Consolidated documentation. Each section keeps its **original filename** in the 
 
 ## Master implementation order
 
-**Use [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md)** for the **cross-plan sequence** (Tier 0 → 7): engagement geometry (P3+), tactical doc sync, parry stack, AI, physics, medical, research.
-
-This file’s **Part 1** table is the **historical phase map** (0–6) embedded in the consolidated roadmap; **active** formation/breach/cohesion work follows **Tier 1** in `IMPLEMENTATION_ORDER.md` and detail in `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`.
-
-**Plans vs repo:** Tier tables and engagement checklists were **reconciled with the codebase on 2026-04-07**. Part 3 checklist below was **aligned to shipped code** in the same pass (formation dict, incursion, hybrid gauge). Historical **stamina migration** prose farther down may still describe an alternate design — see **Current architecture snapshot** and the **Archived** banner on the stamina plan section.
+**Execute:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) (tiers 0–7, Tier 1 expanded). **Tier 1 spec** (plugs, fields, tuning): [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) §4–§6. **This bundle:** Part 1 = historical phase map (0–6); Part 3 = optional granular checklists; stamina sections may be **Archived** vs hybrid gauge — use **Current architecture snapshot** below.
 
 ---
 
 ## Current architecture snapshot (shipped, 2026)
 
-Use this as the **source of truth** for what the repo does today. For **what to build next**, use `docs/IMPLEMENTATION_ORDER.md` and `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`.
+Table: **runtime behavior today**. Same **Tier 0 module anchors** as `IMPLEMENTATION_ORDER.md` Tier 0 (no need to maintain two module lists).
 
 | Layer | Behavior |
 |-------|----------|
@@ -178,7 +176,7 @@ Master implementation guide for the combat system migration. Consolidates decisi
 - [x] **Surround** — `TacticalCombat.count_engaging_threats` + split ÷ min(threats, `SURROUND_MAX_SPLIT_DIVISOR`) × perception awareness on parry and dodge (`DefenseChoiceResolver`)
 - [x] **Incursion pressure** — `TacticalCombat.recompute_incursion_pressure` from front-rank count imbalance; reduces raw zone strength (`ZoneOfControl._raw_zone_strength`). **Deferred:** explicit **plug vs incursion contest** roll on failed plug (design-only).
 - [x] **Crash / breach v1** — `BreachResolver`, `CombatEngagementResolver`; neighbor hold (`CombatIntrusionGeometry`); skirmish-aware breach move clog (`FormationBreachRules`).
-- [x] **Line cohesion & posture** — `CombatFormationEngagement`, `CombatManager.engagement_state_changed`, UI labels (`BattleScene`). **Next:** intrusion slots + vacancy plug + intruder distance bands (`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` P3–P4).
+- [x] **Line cohesion & posture** — `CombatFormationEngagement`, `CombatManager.engagement_state_changed`, UI labels (`BattleScene`). **P3 (Tier 1.2) shipped** — intrusion slots + vacancy plug. **Next coding:** `docs/IMPLEMENTATION_ORDER.md` **Tier 1.3 (P4)** — **`intrusion_wedge_by_file`** + **`lane_offset`** + intruder-aware **`effective_pair_eff_dist`** / bands (wedge consumed throughout); spec `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §4–§6.
 - [x] **Flanking** — implemented in Phase 4 (`ZoneOfControl.get_engagement_parry_multiplier`, pack fallback); Phase 6 checklist satisfied by that + surround/ambush layering
 
 ---
@@ -187,7 +185,7 @@ Master implementation guide for the combat system migration. Consolidates decisi
 
 **Plug on death (rank advance)** — **shipped** (`CombatFormationFlow.on_combatant_died`). Rank 0 dies → obstacle recorded → rank 1 in same file promotes to rank 0 → `formation_changed`.
 
-**Vacancy plug** (empty rank-0 without death, e.g. intruder leaves home slot) — **not shipped**; see `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` P3.
+**Vacancy plug** (empty rank-0 without death, e.g. intruder leaves home slot) — **shipped** (`CombatFormationFlow.apply_vacancy_plug_same_file` on intrusion); spec **`docs/IMPLEMENTATION_ORDER.md` Tier 1.2** + engagement plan §4.
 
 **Phase 5** formation actions — **shipped** for core moves (see Part 3 Phase 5 checklist). Optional UI / armor duration / hit-interrupt items remain.
 
@@ -211,7 +209,8 @@ Master implementation guide for the combat system migration. Consolidates decisi
 
 | Item | When |
 |------|------|
-| **Intrusion slots + vacancy plug + intruder distance** | `IMPLEMENTATION_ORDER.md` Tier 1.2–1.4 |
+| **Intrusion slots + vacancy plug (P3)** | **Shipped** — `IMPLEMENTATION_ORDER` milestone **1.2 Done** |
+| **Intrusion wedge + lane offsets + intruder-aware distance (P4)** | **Next** — `IMPLEMENTATION_ORDER` Tier **1.3**; posture **1.4+** after |
 | Multi-target (close slots, AI weighting, defense split max) | After stable targeting |
 | Parry choice (threat scoring) | Multi-target phase |
 | Disengagement investigation (health/morale/rout) | Posture / morale (Tier 1.4–1.6) |
@@ -225,8 +224,8 @@ Master implementation guide for the combat system migration. Consolidates decisi
 
 | Document | Role |
 |----------|------|
-| **`docs/IMPLEMENTATION_ORDER.md`** | **Canonical build order** (Tier 0–7) |
-| **`docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** | Line cohesion, posture, intrusion roadmap (Tier 1) |
+| **`docs/IMPLEMENTATION_ORDER.md`** | **Combat implementation plan** (Tier 0–7; Tier 1 expanded steps) |
+| **`docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** | Tier 1 **spec** (checklist §2, plug §4, data dict §5) |
 | **COMBAT_ROADMAP_AND_STAMINA.md** (this bundle) | Historical phases + locked decisions + stamina investigations |
 | **TACTICAL_FORMATIONS_FF4.md** | FF4 spec, distance, ambush, breakthrough |
 | **TACTICAL_ZONES_BREACH_MOVEMENT.md** | ZoC, surround, flanking, breach narrative (sync with engagement plan Tier 2) |

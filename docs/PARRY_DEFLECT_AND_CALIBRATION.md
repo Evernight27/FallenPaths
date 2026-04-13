@@ -783,7 +783,7 @@ This requires passing `defender_guard_line` into `set_guard_deflected` (or the e
 
 | Concept | Physics | Implemented |
 |---------|---------|-------------|
-| Deflection direction | Depends on parry geometry; same (bind), adjacent (lateral shed), or opposite (strong block) | Geometry-based: `get_deflected_line_from_geometry(attack_line, defender_guard)` |
+| Deflection direction | Depends on parry geometry; same (bind), adjacent (lateral shed), or opposite (strong block) | Angle-based: `CombatConstants.get_deflected_line_from_angles(...)` (discrete geometry helpers removed from code) |
 | Same-line parry | Blades bind in same line | Bind → attacker blade stays in attack line |
 | Adjacent defender (45°) | Lateral shed — deflect to other adjacent | 45° angular displacement (plausible) |
 | Opposite defender (90°) | Strong block drives blade through | 90° to opposite line |

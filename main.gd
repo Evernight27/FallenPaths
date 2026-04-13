@@ -1,5 +1,8 @@
 extends Node2D
 
+## Overworld → `CombatFlow.start_combat` → `BattleScene` / `CombatManager` (same stack as breach harness).
+## For deterministic **crash / intrusion / vacancy (Tier 1.2 P3)** checks, run `res://test/IncursionBreachTest.tscn` as the project main scene or open it and use Run Current Scene.
+
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _EncounterNode := preload("res://world/EncounterNode.gd")
 

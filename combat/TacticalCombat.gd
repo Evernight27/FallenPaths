@@ -8,6 +8,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 
 ## Enemy front-rank units that could actually land a melee strike on the defender (weapon reach + spacing + band).
 ## Not merely “MID distance” from formation geometry — matches AvailableActionsBuilder.can_melee_threaten.
@@ -112,6 +113,9 @@ static func _recompute_lane_stress_by_file(manager: Node, formation: Dictionary)
 				stress += CombatConstants.LANE_STRESS_DENSITY_TIGHT
 			"loose":
 				stress += CombatConstants.LANE_STRESS_DENSITY_LOOSE
+		var breach_b: float = _FormationBreachRules.breach_local_lane_stress_bonus(formation, f)
+		var wedge_b: float = _IntrusionWedge.lane_stress_bonus_from_wedge(formation, f)
+		stress += maxf(breach_b, wedge_b)
 		by_file[f] = clampf(stress, 0.0, 1.0)
 	formation["lane_stress_by_file"] = by_file
 

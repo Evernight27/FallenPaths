@@ -5,21 +5,72 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 ## Builds available actions for a combatant (attacks, medical). Manager must have: _get_by_id, _get_entity,
 ## _get_parts_being_treated_on, _get_ally_medical_actions, _is_in_immediate_peril, _has_left_immediate_peril_permanently,
 ## combatants, medical_phase, medical_phase_winner.
 
-## Geometric separation along files: |Δfile| × avg_spacing × REACH_SAFETY_FACTOR (same as melee targeting).
+static func _formation_id_for_pair_geometry(manager: Node, c: Dictionary) -> String:
+	if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		var hf: String = str(c.get("intrusion_host_fid", ""))
+		if not hf.is_empty() and not manager.formations.get(hf, {}).is_empty():
+			return hf
+	return str(c.get("formation_id", ""))
+
+
+static func _wedge_distance_pull(manager: Node, a: Dictionary, b: Dictionary, half_width_spacing: float) -> float:
+	var host_fid: String = ""
+	var anchor_f: int = -1
+	if str(a.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		host_fid = str(a.get("intrusion_host_fid", ""))
+		anchor_f = int(a.get("intrusion_anchor_file", -1))
+	elif str(b.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		host_fid = str(b.get("intrusion_host_fid", ""))
+		anchor_f = int(b.get("intrusion_anchor_file", -1))
+	if host_fid.is_empty() or anchor_f < 0:
+		return 0.0
+	var form: Dictionary = manager.formations.get(host_fid, {})
+	if form.is_empty():
+		return 0.0
+	var p: float = _IntrusionWedge.pressure_at_file(form, anchor_f)
+	if p <= 0.0001:
+		return 0.0
+	return p * half_width_spacing * CombatConstants.EFF_DIST_WEDGE_PRESSURE_PULL
+
+
+## Geometric separation along files + lane_offset lateral metric − wedge pull (intrusion corridor).
 static func effective_pair_eff_dist(manager: Node, a: Dictionary, b: Dictionary) -> float:
+	var fid_a: String = _formation_id_for_pair_geometry(manager, a)
+	var fid_b: String = _formation_id_for_pair_geometry(manager, b)
+	var fa: Dictionary = manager.formations.get(fid_a, {})
+	var fb: Dictionary = manager.formations.get(fid_b, {})
 	var df: float = absf(float(a.get("file", 0) - b.get("file", 0)))
-	var fa: Dictionary = manager.formations.get(a.get("formation_id", ""), {})
-	var fb: Dictionary = manager.formations.get(b.get("formation_id", ""), {})
 	if fa.is_empty() or fb.is_empty():
 		return df * CombatConstants.SPACING_NORMAL * CombatConstants.REACH_SAFETY_FACTOR
 	var sa: float = CombatConstants.get_spacing_from_density(fa.get("density", "normal"))
 	var sb: float = CombatConstants.get_spacing_from_density(fb.get("density", "normal"))
-	var base: float = df * (sa + sb) * 0.5 * CombatConstants.REACH_SAFETY_FACTOR
-	return base * _ZoneOfControl.geometric_reach_extent_multiplier(manager, a, b)
+	var half_width: float = (sa + sb) * 0.5
+	var base: float = df * half_width * CombatConstants.REACH_SAFETY_FACTOR
+	var loa: float = clampf(
+		float(a.get("lane_offset", 0.0)),
+		-CombatConstants.LANE_OFFSET_ABS_MAX,
+		CombatConstants.LANE_OFFSET_ABS_MAX
+	)
+	var lob: float = clampf(
+		float(b.get("lane_offset", 0.0)),
+		-CombatConstants.LANE_OFFSET_ABS_MAX,
+		CombatConstants.LANE_OFFSET_ABS_MAX
+	)
+	var lateral_frac: float = absf(loa - lob)
+	var lateral: float = (
+		lateral_frac
+		* CombatConstants.EFF_DIST_LANE_OFFSET_FILE_EQUIV
+		* half_width
+		* CombatConstants.REACH_SAFETY_FACTOR
+	)
+	var wedge_pull: float = _wedge_distance_pull(manager, a, b, half_width)
+	var pre_zoc: float = maxf(0.04, base + lateral - wedge_pull)
+	return pre_zoc * _ZoneOfControl.geometric_reach_extent_multiplier(manager, a, b)
 
 static func melee_weapon_reach(c: Dictionary) -> float:
 	var w = _EntityAccess.get_weapon(c)
@@ -126,9 +177,10 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		# Skirmish (collapsed line) can uncleg moves; see FormationBreachRules.breach_blocks_open_lane_moves.
 		var formation_ranks: int = our_formation.get("ranks", 1)
 		var breach_blocks_moves: bool = not our_formation.is_empty() and _FormationBreachRules.breach_blocks_open_lane_moves(manager, our_formation)
+		var is_intruded: bool = str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
 		log_fid = fid
 		log_breach_blocks_moves = breach_blocks_moves
-		if not our_formation.is_empty() and formation_ranks > 1 and not breach_blocks_moves:
+		if not our_formation.is_empty() and formation_ranks > 1 and not breach_blocks_moves and not is_intruded:
 			for ally in combatants:
 				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
 					continue
@@ -159,7 +211,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 							actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_FALL_BACK })
 					break
 		# Phase 5: rotate file — front rank only, adjacent files, both must be free to coordinate.
-		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_blocks_moves:
+		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_blocks_moves and not is_intruded:
 			for ally in combatants:
 				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
 					continue
@@ -171,7 +223,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 					continue
 				actions.append({"target_id": ally.id, "move_id": CombatConstants.MOVE_ID_ROTATE_FILE})
 		# Phase 5: fall back solo — step to rear rank when that slot is empty.
-		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_blocks_moves:
+		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_blocks_moves and not is_intruded:
 			var slots_check: Dictionary = our_formation.get("slots", {})
 			if not _FormationSlots.slot_has_any(slots_check, Vector2i(1, our_file)):
 				actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK})

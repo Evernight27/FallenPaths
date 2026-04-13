@@ -262,6 +262,18 @@ const LANE_STRESS_DENSITY_LOOSE := -0.07
 ## FormationBreachRules.breach_local_lane_stress_bonus: extra lane stress from breached_files severity (0..1), capped before merge.
 const LANE_STRESS_BREACH_LOCAL_SCALE := 0.45
 const LANE_STRESS_BREACH_LOCAL_BONUS_MAX := 0.28
+## `intrusion_wedge_by_file` lane stress (Tier 1.3); merged with breach_local via max() in TacticalCombat.
+const LANE_STRESS_WEDGE_SCALE := 0.5
+const LANE_STRESS_WEDGE_BONUS_MAX := 0.32
+## Per-combatant lateral metric (engagement plan §4.2). Bounded; 0 = column center.
+const LANE_OFFSET_DEFAULT := 0.0
+const LANE_OFFSET_ABS_MAX := 0.5
+## Intruder bias toward +file seam after crash (sign matches engagement doc).
+const INTRUSION_INTRUDER_LANE_OFFSET_BIAS := 0.12
+## effective_pair_eff_dist: |Δlane_offset| as fraction of a file spacing equivalent before ZoC mult.
+const EFF_DIST_LANE_OFFSET_FILE_EQUIV := 0.42
+## Pull effective distance down when wedge pressure high (breach corridor).
+const EFF_DIST_WEDGE_PRESSURE_PULL := 0.62
 ## How strongly incursion penalty applies per zone (rear echelon less exposed to “line buckling” than front).
 const ZOC_INCURSION_EXPOSURE_FRONT := 1.0
 const ZOC_INCURSION_EXPOSURE_FLANK := 0.9
@@ -487,16 +499,6 @@ const DIAGONAL_WEIGHTS: Dictionary = {
 	"diagonal_chop": {"high": {"high": 0.65, "low": 0.5, "left": 0.7, "right": 0.5}, "low": {"high": 0.5, "low": 0.6, "left": 0.65, "right": 0.55}, "left": {"high": 0.55, "low": 0.5, "left": 0.7, "right": 0.5}, "right": {"high": 0.5, "low": 0.55, "left": 0.5, "right": 0.65}},
 	"slash": {"high": {"high": 0.55, "low": 0.5, "left": 0.65, "right": 0.55}, "low": {"high": 0.5, "low": 0.55, "left": 0.6, "right": 0.55}, "left": {"high": 0.55, "low": 0.5, "left": 0.7, "right": 0.5}, "right": {"high": 0.5, "low": 0.55, "left": 0.5, "right": 0.65}},
 	"side_strike": {"high": {"high": 0.5, "low": 0.5, "left": 0.65, "right": 0.65}, "low": {"high": 0.5, "low": 0.5, "left": 0.6, "right": 0.6}, "left": {"high": 0.55, "low": 0.55, "left": 0.65, "right": 0.5}, "right": {"high": 0.55, "low": 0.55, "left": 0.5, "right": 0.65}}
-}
-
-# Arm interpose (BP6): superseded by guard-dependent paths (ATTACK_PATHS_BY_GUARD).
-# Path puts arms first when guard is high; no separate interpose roll. Kept for reference.
-const INTERPOSE_BASE := 0.10
-const INTERPOSE_EXPOSURE: Dictionary = {
-	"high": {"high": 1.2, "low": 0.4, "left": 0.9, "right": 0.9},
-	"low": {"high": 0.4, "low": 1.2, "left": 0.9, "right": 0.9},
-	"left": {"high": 0.8, "low": 0.8, "left": 1.1, "right": 0.5},
-	"right": {"high": 0.8, "low": 0.8, "left": 0.5, "right": 1.1}
 }
 
 # Option 6: Path + Guard Intercept — blade path per attack_line; guard determines intercept point.
@@ -725,47 +727,6 @@ static func get_line_alignment_with_deflect(attack_line: String, combatant: Dict
 	var align_to: float = get_line_alignment(attack_line, guard_line)
 	return lerpf(align_from, align_to, blend)
 
-## [DEPRECATED] Superseded by get_deflected_line_from_angles (angle-based, bilateral).
-## Physics-based deflection: blade ends where parry geometry dictates.
-## Same line (0°): bind — blade stays in attack line.
-## Adjacent defender (45°): lateral shed — deflect to other adjacent (45° movement, plausible for single contact).
-## Opposite defender (90°): strong block — deflect to opposite (90° movement, head-on impact).
-static func get_deflected_line_from_geometry(attack_line: String, defender_guard_line: String) -> String:
-	if attack_line == defender_guard_line:
-		return attack_line  # Bind
-	var adjacents: Variant = LINE_ADJACENTS.get(attack_line, [])
-	if adjacents is Array:
-		var adj_arr: Array = adjacents
-		# Defender adjacent (45°)? Shed to the other adjacent — smaller angular displacement.
-		if defender_guard_line in adj_arr:
-			for a in adj_arr:
-				if a != defender_guard_line:
-					return str(a)
-	# Defender opposite (90°): strong block drives blade through to opposite line.
-	return DEFLECTED_GUARD_FROM_ATTACK.get(attack_line, attack_line)
-
-## [DEPRECATED] Superseded by get_deflected_line_from_angles (uses get_deflection_magnitude_deg).
-## HEMA: severity modulates opposite-defender outcome. Low severity → 45° (adjacent); high → 90° (opposite).
-## attack_type: stab/cut/blunt use different thresholds.
-static func get_deflected_line_with_severity(attack_line: String, defender_guard_line: String, severity: float, attack_type: String) -> String:
-	if attack_line == defender_guard_line:
-		return attack_line
-	var adjacents: Variant = LINE_ADJACENTS.get(attack_line, [])
-	if adjacents is Array:
-		var adj_arr: Array = adjacents
-		if defender_guard_line in adj_arr:
-			for a in adj_arr:
-				if a != defender_guard_line:
-					return str(a)
-	var thr: float = PARRY_OPPOSITE_DEFLECT_SEVERITY_CUT
-	if attack_type == "stab":
-		thr = PARRY_OPPOSITE_DEFLECT_SEVERITY_THRUST
-	elif attack_type == "blunt":
-		thr = PARRY_OPPOSITE_DEFLECT_SEVERITY_BLUNT
-	if severity < thr:
-		var adj: Array = adjacents if adjacents is Array else []
-		return adj[0] if adj.size() > 0 else attack_line
-	return DEFLECTED_GUARD_FROM_ATTACK.get(attack_line, attack_line)
 const DODGE_FULL_THRESHOLD := 0.4
 const DODGE_PARTIAL_RATIO_MIN := 0.4
 const PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY := 0.5

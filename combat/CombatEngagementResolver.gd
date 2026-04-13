@@ -6,6 +6,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _BreachResolver := preload("res://combat/BreachResolver.gd")
+const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 
 
 static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: int) -> void:
@@ -99,6 +100,7 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 			var bf: Dictionary = form_b["breached_files"]
 			var prev: float = float(bf.get(f_b, bf.get(str(f_b), 0.0)))
 			bf[f_b] = maxf(prev, sev)
+		_FormationFlow.apply_intrusion_after_crash_success(manager, atk, defender_id, fid_b, f_b, sev)
 		manager._recompute_zoc_and_distance()
 		if atk.get("formation_id", "") != fid_b and manager.has_method("notify_formation_changed"):
 			manager.notify_formation_changed(str(atk.get("formation_id", "")))

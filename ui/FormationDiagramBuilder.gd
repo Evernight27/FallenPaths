@@ -89,6 +89,8 @@ static func _refresh_internal(diagram_root: Control) -> void:
 			continue
 		if not c.get("alive", true):
 			continue
+		if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+			continue
 		var r: int = c.get("rank", 0)
 		var f: int = c.get("file", 0)
 		slot_to_combatant[Vector2i(r, f)] = c

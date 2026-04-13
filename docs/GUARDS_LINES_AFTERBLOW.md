@@ -758,7 +758,9 @@ var attack_line: String = "high" if r < 0.65 else "left"
 
 ---
 
-#### Option P6: Arm Interpose — Exposure Model (BP6)
+#### Option P6: Arm interpose — exposure model (BP6) — **not shipped as this roll**
+
+**Repo today:** There is no `INTERPOSE_BASE` / `INTERPOSE_EXPOSURE` in `CombatConstants.gd`. Limb-before-head behavior is modeled with **`ATTACK_PATHS_BY_GUARD`** and related path logic, not a separate `p_interpose` roll. The pseudocode below is **design / calibration reference** only.
 
 **Derivation:** Arm intercepts head strike when arm is in the blade path. Guard determines arm position: high guard = arms raised = more in path of high attack. Exposure = P(arm in path | target, guard).
 
@@ -805,13 +807,13 @@ if randf() < p_interpose:
 | BP3 | variance_eff = 0.08 × clamp(1/alignment, 1, 2.5) (Option P2) | PARRY_GEOMETRY_VARIANCE_BASE = 0.08 |
 | BP3 | c_d_final *= randf_range(1 − v, 1 + v) | — |
 | BP5 | remaining_ratio += (1 − alignment) × 0.35; clamp 1 (Option P3) | GEOMETRIC_LEAK_MAX = 0.35 |
-| BP6 | Optional: p_interpose = 0.10 × exposure (Option P6) | INTERPOSE_BASE = 0.10 |
+| BP6 | Optional design: p_interpose = 0.10 × exposure (Option P6) | **Not in code** — path-by-guard instead |
 
 **Constants derived:**
 - **0.15 floor:** Retains ~15% parry effect at 90° (glancing/lucky contact).
 - **0.08 variance base:** ±8% at perfect alignment; scales up when wrong.
 - **0.35 leak max:** At zero alignment, add up to 35% to remaining ratio (severe but not instant death).
-- **0.10 interpose base:** ~10% arm intercept when exposure=1; scales with guard.
+- **0.10 interpose base (Option P6 design only):** Not a live constant; see BP6 row above.
 
 ---
 
@@ -825,7 +827,7 @@ if randf() < p_interpose:
 | **Constants** | Tune to feel | Derive from cos, 1/align |
 | **Calibration** | Manual | HEMA 57–80% as target |
 | **Diagonal** | Random or primary | Trajectory weights |
-| **Interpose** | Fixed per guard | Exposure × base |
+| **Interpose** | Fixed per guard (historical) | Path-by-guard in shipped code |
 
 **Recommendation:** Use physics-based (4B) for BP1–BP5. Constants (floor, leak max, variance base) can still be tuned, but the **form** (cos, 1/align, etc.) is fixed by physics.
 
@@ -1230,7 +1232,9 @@ Verify that the 45° and 90° angles, guard positions, attack lines, and deflect
 
 ### 2. Deflection Logic
 
-#### 2.1 get_deflected_line_from_geometry(attack_line, defender_guard_line)
+#### 2.1 Discrete deflection cases (reference; shipped code uses angles)
+
+**Runtime:** `CombatConstants.get_deflected_line_from_angles` — the old `get_deflected_line_from_geometry` / `get_deflected_line_with_severity` helpers were removed. The table below is still the **intended** bind / lateral / opposite behavior.
 
 | Condition | Result | Angular Displacement |
 |-----------|--------|----------------------|
@@ -1328,9 +1332,9 @@ Dodge moves defender to "opposite" — e.g. duck high attack → end in low. Sam
 
 **Oberhau** has attack_line "high" but crosses high+left. DIAGONAL_WEIGHTS rolls for effective_attack_line ∈ {high, low, left, right}. The geometry then uses effective_attack_line. ✓ Correct.
 
-#### 5.2 get_deflected_line_with_severity — Adjacent Choice
+#### 5.2 Angle-based deflection — adjacent choice (historical note)
 
-When opposite-defender and low severity, we return `adj[0]` (first adjacent). For high attack, adjacents = [left, right]. We always pick left. **Asymmetry:** Should we pick based on defender's side? E.g. defender left → deflect to right (away). Currently we pick deterministically. **Minor:** Could add defender-aware choice for slightly more realism.
+The removed severity-based discrete helper always picked `adj[0]` for low-severity opposite-defender cases. **`get_deflected_line_from_angles`** uses continuous magnitude; optional future tuning: defender-aware lateral bias (same design question as before).
 
 #### 5.3 slash attack_line = "left"
 
@@ -1379,7 +1383,7 @@ All cases covered. ✓
 | LINE_ANGLE_DEG | ✓ Correct | 0/45/90 match alignment cos(θ); symmetric |
 | LINE_ADJACENTS | ✓ Correct | Cross topology; symmetric |
 | DEFLECTED_GUARD_FROM_ATTACK | ✓ Correct | Opposite pairs consistent |
-| get_deflected_line_from_geometry | ✓ Correct | Same→bind, adjacent→lateral, opposite→through |
+| get_deflected_line_from_angles | ✓ Shipped | Same→bind, adjacent→lateral, opposite→through (bilateral angles) |
 | Move attack_line | ✓ Correct | All moves map to 4 lines |
 | PART_TO_LINE / LINE_TO_DEFAULT_PART | ✓ Correct | Body ↔ line consistent |
 | DIAGONAL_WEIGHTS | ✓ Correct | Diagonal moves resolve to 4 lines |
@@ -1388,8 +1392,8 @@ All cases covered. ✓
 #### Recommendations
 
 1. **No changes required** for core geometry — the model is internally consistent and physically grounded.
-2. **Optional refinement:** In `get_deflected_line_with_severity`, when returning adjacent for low-severity opposite-defender case, consider deflecting "away from defender" (e.g. defender left → deflect to right) instead of always `adj[0]`. Would require passing defender_guard_line into the adjacent choice.
-3. **Documentation:** Add a comment in CombatConstants above LINE_ANGLE_DEG and LINE_ADJACENTS explaining the cross topology and the physical interpretation (blade orientation at contact).
+2. **Optional refinement:** In **`get_deflected_line_from_angles`** / magnitude path, consider defender-aware lateral bias when the guard is adjacent (same asymmetry question as the old discrete helper).
+3. **Documentation:** `LINE_ANGLE_DEG` / `LINE_ADJACENTS` in `CombatConstants.gd` — extend comments there if the cross topology needs more context for readers.
 
 ---
 
