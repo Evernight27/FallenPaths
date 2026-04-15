@@ -122,18 +122,9 @@ static func compute_and_apply_damage(
 	var health_before_blunt: float = tgt.node.body_blunt.get(part, 0.0)
 	var health_before_bone: float = tgt.node.bone_health.get(part, 0.0) if tgt.node.get("bone_health") else 0.0
 
-	var take_result: Dictionary = {}
-	if tgt.node.has_method("take_damage_split"):
-		take_result = tgt.node.take_damage_split(pre_cut, pre_blunt, part, pen_sharp, pen_blunt_momentum_per_area, blunt_contact_cm)
-	else:
-		if pre_cut >= pre_blunt and tgt.node.has_method("take_damage"):
-			take_result = tgt.node.take_damage(pre_cut, part, CombatConstants.DAMAGE_TYPE_SHARP, pen_sharp, -1.0)
-			take_result["final_cut"] = take_result.get("final_amount", 0.0)
-			take_result["final_blunt"] = 0.0
-		else:
-			take_result = tgt.node.take_damage(pre_blunt, part, CombatConstants.DAMAGE_TYPE_BLUNT, -1.0, pen_blunt_momentum_per_area)
-			take_result["final_cut"] = 0.0
-			take_result["final_blunt"] = take_result.get("final_amount", 0.0)
+	var take_result: Dictionary = tgt.node.take_damage_split(
+		pre_cut, pre_blunt, part, pen_sharp, pen_blunt_momentum_per_area, blunt_contact_cm
+	)
 
 	var final_cut: float = take_result.get("final_cut", 0.0)
 	var final_blunt: float = take_result.get("final_blunt", 0.0)

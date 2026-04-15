@@ -181,6 +181,9 @@ const COMBAT_DEBUG_CALIBRATION := false
 # formation moves. Prefix: [Combat.Flow] via CombatDebug.flow_log; crash summaries also [Combat] in CombatEngagementResolver.
 # Disable in release to reduce console noise. For per-hit damage lines, enable COMBAT_DEBUG.
 const COMBAT_EVENT_DEBUG := true
+# When true with a debug build, `CombatFormationFlow` logs if vacancy reconcile leaves an empty rank-0 column
+# while a non-intruded ally still sits deeper in that column (should never happen after `reconcile_vacancy_plugs_*`).
+const COMBAT_FORMATION_INVARIANT_DEBUG := false
 
 # Stamina (separate pool): attack/parry consume; refill when idle. At 0: parry penalty, attack damage reduction.
 const STAMINA_MAX := 100.0
@@ -265,6 +268,12 @@ const LANE_STRESS_BREACH_LOCAL_BONUS_MAX := 0.28
 ## `intrusion_wedge_by_file` lane stress (Tier 1.3); merged with breach_local via max() in TacticalCombat.
 const LANE_STRESS_WEDGE_SCALE := 0.5
 const LANE_STRESS_WEDGE_BONUS_MAX := 0.32
+## Vacancy reconcile: lateral slides can open a hole in a neighbor file; repeat until stable (safety cap).
+const FORMATION_VACANCY_RECONCILE_MAX_ROUNDS := 16
+## Plug priority: `pow(effectiveness_0_1, EXPONENT) * 1/(1 + PROXIMITY_WEIGHT * step_count)`. Higher EXPONENT makes injured fighters fall off nonlinearly so fitter units in other lanes/ranks can win despite extra steps.
+const FORMATION_PLUG_EFFECTIVENESS_EXPONENT := 2.6
+## Larger = proximity matters less relative to effectiveness (able-bodied farther can override closer wounded).
+const FORMATION_PLUG_PROXIMITY_WEIGHT := 0.28
 ## Per-combatant lateral metric (engagement plan §4.2). Bounded; 0 = column center.
 const LANE_OFFSET_DEFAULT := 0.0
 const LANE_OFFSET_ABS_MAX := 0.5

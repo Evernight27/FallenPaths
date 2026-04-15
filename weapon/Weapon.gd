@@ -26,7 +26,7 @@ var sharpness: float = 1.0
 var attack_types: Dictionary = {}
 
 # Weapon part model (Level 4): per-part length, mass fraction, parry eligibility.
-# If empty, weapon uses legacy mode (whole-weapon mass for parry and attack).
+# Definitions always provide parts; empty array is filled in create_from_definition with one whole-weapon part.
 var parts: Array = []  # Array of {id, length_cm, mass_fraction, parry_eligible, striking_for}
 var parry_part_id: String = ""  # Which part parries; must match a part with parry_eligible true.
 # Bind riposte: contact types eligible for wind-up bonus. From def or inferred from is_parry moves.
@@ -61,6 +61,19 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 				if p is Dictionary and p.get("parry_eligible", false):
 					w.parry_part_id = str(p.get("id", ""))
 					break
+	if w.parts.is_empty():
+		var len_cm: float = maxf(30.0, w.melee_range * 60.0)
+		w.parts = [
+			{
+				"id": "weapon",
+				"length_cm": len_cm,
+				"mass_fraction": 1.0,
+				"parry_eligible": true,
+				"striking_for": [WeaponConstants.ATTACK_TYPE_STAB, WeaponConstants.ATTACK_TYPE_CUT, WeaponConstants.ATTACK_TYPE_BLUNT]
+			}
+		]
+		if w.parry_part_id.is_empty():
+			w.parry_part_id = "weapon"
 	var moves_arr = def.get("moves", [])
 	for entry in moves_arr:
 		if entry is Dictionary and entry.has("id"):
@@ -203,7 +216,7 @@ func is_parry_move(move_id: String) -> bool:
 func has_parts() -> bool:
 	return parts.size() > 0
 
-## Mass (kg) of the part used for parrying. Legacy: returns total mass.
+## Mass (kg) of the part used for parrying. Without parts, uses total weapon mass.
 func get_parry_part_mass_kg() -> float:
 	if not has_parts() or parry_part_id.is_empty():
 		return mass
@@ -213,7 +226,7 @@ func get_parry_part_mass_kg() -> float:
 			return mass * clampf(frac, 0.0, 1.0)
 	return mass
 
-## Length (cm) of the parry part. Legacy: returns 0.
+## Length (cm) of the parry part. Without parts, returns 0.
 func get_parry_part_length_cm() -> float:
 	if not has_parts() or parry_part_id.is_empty():
 		return 0.0
@@ -222,7 +235,7 @@ func get_parry_part_length_cm() -> float:
 			return float(p.get("length_cm", 0))
 	return 0.0
 
-## Mass (kg) of the part that strikes for the given contact_type. Legacy: returns total mass.
+## Mass (kg) of the part that strikes for the given contact_type. Without parts, uses total mass.
 func get_striking_part_mass_kg(contact_type: String) -> float:
 	if not has_parts():
 		return mass
@@ -258,7 +271,7 @@ func get_striking_part_mass_kg(contact_type: String) -> float:
 		return mass * clampf(frac, 0.0, 1.0)
 	return mass
 
-## Parry contact type for modifier lookup: "blade"|"shaft"|"haft". Default "blade" for legacy/unknown.
+## Parry contact type for modifier lookup: "blade"|"shaft"|"haft". Default "blade" when unknown.
 func get_parry_contact_type() -> String:
 	if not has_parts() or parry_part_id.is_empty():
 		return "blade"
@@ -267,7 +280,7 @@ func get_parry_contact_type() -> String:
 	return t if not t.is_empty() else "blade"
 
 ## Strong fraction for blade parrying: portion of weapon near guard (forte). handle_length/total_length.
-## Only meaningful when parry_part_id is "blade". Shaft/haft use leverage factor instead. Returns 0.25 default for legacy.
+## Only meaningful when parry_part_id is "blade". Shaft/haft use leverage factor instead. Returns 0.25 when unknown.
 func get_parry_strong_fraction() -> float:
 	if not has_parts() or parry_part_id.is_empty():
 		return 0.25

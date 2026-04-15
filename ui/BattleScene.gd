@@ -102,18 +102,6 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 	if formation_diagram_hbox != null:
 		formation_diagram_enemy = _FormationDiagramBuilder.create(manager, _enemy_preset, "enemy")
 		formation_diagram_player = _FormationDiagramBuilder.create(manager, _player_preset, "player")
-		var enemy_col := VBoxContainer.new()
-		enemy_col.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		_enemy_engagement_label = Label.new()
-		_enemy_engagement_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_enemy_engagement_label.add_theme_font_size_override("font_size", 11)
-		_enemy_engagement_label.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
-		enemy_col.add_child(_enemy_engagement_label)
-		enemy_col.add_child(formation_diagram_enemy)
-		formation_diagram_hbox.add_child(enemy_col)
-		var sep = VSeparator.new()
-		sep.custom_minimum_size = Vector2(12, 0)
-		formation_diagram_hbox.add_child(sep)
 		var player_col := VBoxContainer.new()
 		player_col.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_player_engagement_label = Label.new()
@@ -123,6 +111,18 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 		player_col.add_child(_player_engagement_label)
 		player_col.add_child(formation_diagram_player)
 		formation_diagram_hbox.add_child(player_col)
+		var sep = VSeparator.new()
+		sep.custom_minimum_size = Vector2(12, 0)
+		formation_diagram_hbox.add_child(sep)
+		var enemy_col := VBoxContainer.new()
+		enemy_col.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_enemy_engagement_label = Label.new()
+		_enemy_engagement_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_enemy_engagement_label.add_theme_font_size_override("font_size", 11)
+		_enemy_engagement_label.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
+		enemy_col.add_child(_enemy_engagement_label)
+		enemy_col.add_child(formation_diagram_enemy)
+		formation_diagram_hbox.add_child(enemy_col)
 		_sync_engagement_labels_from_manager()
 	# Ensure ScrollContainer child has proper minimum size so scrolling works (wait for layout)
 	await get_tree().process_frame

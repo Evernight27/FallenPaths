@@ -33,7 +33,7 @@ static func create(parent: Node) -> Dictionary:
 	content_vbox.add_theme_constant_override("separation", 8)
 	ui_root.add_child(content_vbox)
 
-	# Formation diagram: compact rank×file view (enemies | party) — shows positions, updates on swap
+	# Formation diagram: compact rank×file view (party | enemies) — shows positions, updates on swap
 	var formation_header = Label.new()
 	formation_header.text = "Formation (Front / Back)"
 	formation_header.add_theme_font_size_override("font_size", 12)
@@ -69,7 +69,31 @@ static func create(parent: Node) -> Dictionary:
 	main_hbox.add_theme_constant_override("separation", 16)
 	main_scroll.add_child(main_hbox)
 
-	# Column 1: Enemies panel
+	# Column 1: Party panel (left)
+	var player_panel = Panel.new()
+	player_panel.name = "PlayerPanel"
+	player_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_hbox.add_child(player_panel)
+
+	var player_vbox = VBoxContainer.new()
+	player_vbox.name = "PlayerVBox"
+	player_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	player_panel.add_child(player_vbox)
+
+	var player_title = Label.new()
+	player_title.text = "Party"
+	player_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	player_vbox.add_child(player_title)
+
+	var player_list = GridContainer.new()
+	player_list.name = "PlayerList"
+	player_list.columns = 2
+	player_list.add_theme_constant_override("h_separation", 12)
+	player_list.add_theme_constant_override("v_separation", 8)
+	player_list.size_flags_vertical = Control.SIZE_SHRINK_END
+	player_vbox.add_child(player_list)
+
+	# Column 2: Enemies panel (right)
 	var enemy_panel = Panel.new()
 	enemy_panel.name = "EnemyPanel"
 	enemy_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -93,30 +117,6 @@ static func create(parent: Node) -> Dictionary:
 	enemy_list.add_theme_constant_override("v_separation", 8)
 	enemy_list.size_flags_vertical = Control.SIZE_SHRINK_END
 	enemy_vbox.add_child(enemy_list)
-
-	# Column 2: Party panel
-	var player_panel = Panel.new()
-	player_panel.name = "PlayerPanel"
-	player_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	main_hbox.add_child(player_panel)
-
-	var player_vbox = VBoxContainer.new()
-	player_vbox.name = "PlayerVBox"
-	player_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	player_panel.add_child(player_vbox)
-
-	var player_title = Label.new()
-	player_title.text = "Party"
-	player_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	player_vbox.add_child(player_title)
-
-	var player_list = GridContainer.new()
-	player_list.name = "PlayerList"
-	player_list.columns = 2
-	player_list.add_theme_constant_override("h_separation", 12)
-	player_list.add_theme_constant_override("v_separation", 8)
-	player_list.size_flags_vertical = Control.SIZE_SHRINK_END
-	player_vbox.add_child(player_list)
 
 	# Combat log panel (below main panels)
 	var log_sep = HSeparator.new()

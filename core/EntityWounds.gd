@@ -7,6 +7,7 @@ extends RefCounted
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _Healing := preload("res://core/HealingConstants.gd")
+const _EntityMedical := preload("res://core/EntityMedical.gd")
 
 # --- Wound healing progress (used by pain and process_healing) ---
 
@@ -130,10 +131,9 @@ static func get_bleeding_rate_for_part(entity: Node, part: String) -> float:
 		raw += injury.get("current_bleeding_rate", 0.0)
 	if not entity.tourniquet_applied.has(part):
 		return raw
-	var data = entity.tourniquet_applied[part]
-	var eff: float = 1.0
-	if data is Dictionary:
-		eff = data.get("effectiveness", 1.0)
+	_EntityMedical.ensure_tourniquet_dict_entry(entity, part)
+	var data: Dictionary = entity.tourniquet_applied[part]
+	var eff: float = float(data.get("effectiveness", 1.0))
 	var reduction: float = eff * _Bleeding.TOURNIQUET_REDUCTION_AT_FULL
 	return raw * (1.0 - reduction)
 

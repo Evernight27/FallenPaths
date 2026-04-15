@@ -112,11 +112,6 @@ func get_effective_consciousness() -> float:
 func get_death_reason() -> String:
 	return _combat_body.get_death_reason() if _combat_body else "no_combat_body"
 
-func take_damage(amount: int, part: String, damage_type: String = "BLUNT", penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
-	if _combat_body:
-		return _combat_body.take_damage(amount, part, damage_type, penetration_sharp, penetration_blunt_momentum_per_area)
-	return { "final_type": damage_type, "final_amount": 0 }
-
 func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0, blunt_contact_cm: float = -1.0) -> Dictionary:
 	if _combat_body:
 		return _combat_body.take_damage_split(cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt_momentum_per_area, blunt_contact_cm)

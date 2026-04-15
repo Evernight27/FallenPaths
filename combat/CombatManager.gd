@@ -14,8 +14,21 @@ func notify_turn_ready(combatant_id: int) -> void:
 	emit_signal("turn_ready", combatant_id)
 
 ## Formation slots/ranks changed for `formation_id` (plug, pair resolve, rotate, death). Subsystems call this instead of `emit_signal` on the manager node.
+## Re-runs **vacancy plug** on every file of **both** formations (fills empty shallow cells when deeper non-intruded allies exist),
+## then `_recompute_zoc_and_distance()` if anything promoted. Many callers already `_recompute_zoc_and_distance()` before this;
+## that is safe and cheap when nothing moved. Emits `formation_changed` for the triggering side and for any other formation that changed.
 func notify_formation_changed(formation_id: String) -> void:
+	var reconciled_fids: Array = []
+	for fk in formations.keys():
+		if _FormationFlow.reconcile_vacancy_plugs_formation(self, str(fk)):
+			reconciled_fids.append(str(fk))
+	if not reconciled_fids.is_empty():
+		_recompute_zoc_and_distance()
 	emit_signal("formation_changed", formation_id)
+	for rfid in reconciled_fids:
+		if str(rfid) != formation_id:
+			emit_signal("formation_changed", rfid)
+	_FormationFlow.debug_verify_vacancy_invariants_after_reconcile(self)
 
 
 func notify_engagement_state_changed(formation_id: String, line_cohesion: float, engagement_posture: String) -> void:
@@ -311,7 +324,10 @@ func _get_parts_being_treated_on(combatant_id: int) -> Array:
 func _get_ally_medical_actions(performer: Dictionary, ally: Dictionary, part: String) -> Array:
 	return _MedicalPhase.get_ally_medical_actions(self, performer, ally, part)
 
+## Ensures vacancy reconcile before listing actions (covers paths that mutated slots without `notify_formation_changed`). Idempotent when lines are full.
 func get_available_actions(combatant_id: int) -> Array:
+	if _FormationFlow.reconcile_vacancy_plugs_all_formations(self):
+		_recompute_zoc_and_distance()
 	return _ActionsBuilder.build(self, combatant_id)
 
 func _process(delta: float) -> void:

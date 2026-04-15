@@ -7,6 +7,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _BreachResolver := preload("res://combat/BreachResolver.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
+const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 
 
 static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: int) -> void:
@@ -98,7 +99,7 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 			if not form_b.has("breached_files"):
 				form_b["breached_files"] = {}
 			var bf: Dictionary = form_b["breached_files"]
-			var prev: float = float(bf.get(f_b, bf.get(str(f_b), 0.0)))
+			var prev: float = _FormationBreachRules.breached_file_severity(bf, f_b)
 			bf[f_b] = maxf(prev, sev)
 		_FormationFlow.apply_intrusion_after_crash_success(manager, atk, defender_id, fid_b, f_b, sev)
 		manager._recompute_zoc_and_distance()

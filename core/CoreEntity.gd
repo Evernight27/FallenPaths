@@ -41,8 +41,8 @@ var weapon = null
 # Pain contribution = damage × severity_mult × (1 - healing_progress); wounds are removed when progress >= _Healing.WOUND_RESOLVED_THRESHOLD.
 var wounds: Dictionary = {}  # part (String) -> Array of Dictionary
 var blood_volume: float = 100.0  # 0–100; death below _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
-# Tourniquet: limb parts only. part -> { "applied_at": float, "effectiveness": float } or legacy float (game_time when applied). Effectiveness 0–1 scales bleeding reduction.
-var tourniquet_applied: Dictionary = {}  # part (String) -> Dict or float (backward compat)
+# Tourniquet: limb parts only. part -> { "applied_at": float, "effectiveness": float }. Effectiveness 0–1 scales bleeding reduction.
+var tourniquet_applied: Dictionary = {}  # part (String) -> Dictionary
 # Bandaged parts: part -> true when bandage has been applied. Mutually exclusive with tourniquet per part (can't bandage a tourniqueted limb, can't tourniquet a bandaged limb).
 var bandaged_parts: Dictionary = {}  # part (String) -> bool
 # Packed parts: head/chest only; linen packed into wound cavity. Mutually exclusive with bandage/tourniquet per part.
@@ -257,20 +257,6 @@ func get_death_reason() -> String:
 		if cut <= 0.0 or blunt <= 0.0:
 			return "vital_part_zero (%s cut=%.2f blunt=%.2f)" % [part, cut, blunt]
 	return "unknown"
-
-# Legacy single-stream entry point: delegates to take_damage_split so all armor transmission/durability and wounds use one path.
-# Returns { "final_type": SHARP/BLUNT, "final_amount": float } for callers that expect the old shape.
-func take_damage(amount: float, part: String, damage_type: String = _CombatConstants.DAMAGE_TYPE_BLUNT, penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0) -> Dictionary:
-	var amount_val: float = maxf(0.0, amount)
-	var cut_pre: float = amount_val if damage_type == _CombatConstants.DAMAGE_TYPE_SHARP else 0.0
-	var blunt_pre: float = amount_val if damage_type == _CombatConstants.DAMAGE_TYPE_BLUNT else 0.0
-	var split_result: Dictionary = take_damage_split(cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt_momentum_per_area, -1.0)
-	var fc: float = split_result.get("final_cut", 0.0)
-	var fb: float = split_result.get("final_blunt", 0.0)
-	var final_amount: float = fc + fb
-	var final_type: String = _CombatConstants.DAMAGE_TYPE_SHARP if fc >= fb and fc > 0.0 else _CombatConstants.DAMAGE_TYPE_BLUNT
-	return { "final_type": final_type, "final_amount": final_amount }
-
 
 func _get_severance_ease_factor(part: String) -> float:
 	return _EntityDamage.get_severance_ease_factor(self, part)

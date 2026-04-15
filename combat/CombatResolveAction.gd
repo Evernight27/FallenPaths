@@ -68,7 +68,17 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	if move_id in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK, CombatConstants.MOVE_ID_ROTATE_FILE]:
 		var fid_mv: String = atk.get("formation_id", "")
 		var f_mv: Dictionary = manager.formations.get(fid_mv, {})
-		if _FormationBreachRules.breach_blocks_open_lane_moves(manager, f_mv):
+		var breach_blocked: bool = false
+		if move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id:
+			breach_blocked = _FormationBreachRules.breach_blocks_open_lane_moves(manager, f_mv)
+		else:
+			var partner_mv = manager._get_by_id(target_id)
+			if partner_mv == null or not partner_mv.alive:
+				return
+			breach_blocked = _FormationBreachRules.resolve_blocks_formation_move(
+				manager, f_mv, move_id, atk, partner_mv
+			)
+		if breach_blocked:
 			CombatDebug.flow_log(
 				"resolve_action formation move blocked breach_blocks_moves id=%d move=%s fid=%s breached[%s]"
 				% [

@@ -15,7 +15,13 @@ extends RefCounted
 ## | 2+           | 2+          | no |
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _CombatAIActionPicker := preload("res://combat/CombatAIActionPicker.gd")
 const _BREACH_ACTIVE_EPSILON := 0.001
+
+## Severity at a file index; keys may be int or string (serialization). Prefer int when writing.
+static func breached_file_severity(breached_files: Dictionary, file_index: int) -> float:
+	return float(breached_files.get(file_index, breached_files.get(str(file_index), 0.0)))
+
 
 ## Canonical rank-0 count for player / enemy formations (shared with TacticalCombat.incursion pressure).
 static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
@@ -45,7 +51,9 @@ static func is_skirmish_line_engagement(manager: Node) -> bool:
 	return p <= cap and e <= cap
 
 
-## Whether open-lane formation moves should be withheld for this formation (swap / rotate / fall_back). Honors skirmish uncleg when enabled.
+## Whether open-lane formation moves should be withheld for **listing** disengage / fall-back (see `AvailableActionsBuilder`).
+## Plug/relief `swap_rank` and same-rank `rotate_file` can still resolve via `resolve_blocks_formation_move`.
+## Honors skirmish uncleg when enabled.
 static func breach_blocks_open_lane_moves(manager: Node, formation: Dictionary) -> bool:
 	if formation.is_empty() or not breach_clogs_open_lanes(formation):
 		return false
@@ -63,10 +71,63 @@ static func breach_clogs_open_lanes(formation: Dictionary) -> bool:
 			return true
 	return false
 
+## Adjacent-rank swap to step over an incapacitated front neighbor (same column).
+static func is_plug_forward_adjacent_rank_swap(initiator: Dictionary, partner: Dictionary) -> bool:
+	var ri: int = int(initiator.get("rank", 0))
+	var rp: int = int(partner.get("rank", 0))
+	if abs(ri - rp) != 1:
+		return false
+	var r_front: int = mini(ri, rp)
+	var front: Dictionary = initiator if ri == r_front else partner
+	return _EntityAccess.is_incapacitated(front)
+
+
+## Adjacent-rank relief rotation: deeper rank swaps toward the front when tactically justified.
+static func is_relief_adjacent_rank_swap(initiator: Dictionary, partner: Dictionary) -> bool:
+	var ri: int = int(initiator.get("rank", 0))
+	var rp: int = int(partner.get("rank", 0))
+	if abs(ri - rp) != 1:
+		return false
+	if _EntityAccess.is_incapacitated(initiator) or _EntityAccess.is_incapacitated(partner):
+		return false
+	var deeper: Dictionary = initiator if ri > rp else partner
+	var shallower: Dictionary = partner if ri > rp else initiator
+	return _CombatAIActionPicker.is_relief_swap_tactically_allowed(deeper, shallower)
+
+
+static func is_plug_or_relief_adjacent_rank_swap(initiator: Dictionary, partner: Dictionary) -> bool:
+	return is_plug_forward_adjacent_rank_swap(initiator, partner) or is_relief_adjacent_rank_swap(
+		initiator, partner
+	)
+
+
+## Formation move resolution while lanes are clogged: allow row plugging / relief and same-rank line rotation; block disengage-style moves.
+static func resolve_blocks_formation_move(
+	manager: Node,
+	formation: Dictionary,
+	move_id: String,
+	initiator: Dictionary,
+	partner: Dictionary
+) -> bool:
+	if formation.is_empty() or not breach_clogs_open_lanes(formation):
+		return false
+	if CombatConstants.FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES and is_skirmish_line_engagement(manager):
+		return false
+	match move_id:
+		CombatConstants.MOVE_ID_ROTATE_FILE:
+			return false
+		CombatConstants.MOVE_ID_SWAP_RANK:
+			return not is_plug_or_relief_adjacent_rank_swap(initiator, partner)
+		CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK:
+			return true
+		_:
+			return false
+
+
 ## Extra lane stress from plugging / crowding at a breached file (physics-flavored bump). Capped before merge into 0..1 lane stress.
 static func breach_local_lane_stress_bonus(formation: Dictionary, file_index: int) -> float:
 	var bf: Dictionary = formation.get("breached_files", {})
-	var raw: float = float(bf.get(file_index, bf.get(str(file_index), 0.0)))
+	var raw: float = breached_file_severity(bf, file_index)
 	if raw <= _BREACH_ACTIVE_EPSILON:
 		return 0.0
 	var add: float = raw * CombatConstants.LANE_STRESS_BREACH_LOCAL_SCALE

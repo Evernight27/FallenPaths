@@ -11,6 +11,7 @@ const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _Healing := preload("res://core/HealingConstants.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _EntityPainConsciousness := preload("res://core/EntityPainConsciousness.gd")
+const _EntityMedical := preload("res://core/EntityMedical.gd")
 
 # --- Main entry: advance game time and run all healing logic ---
 
@@ -18,16 +19,6 @@ static func process_healing(entity: Node, seconds: float) -> void:
 	if seconds <= 0.0:
 		return
 	entity._game_time_seconds += seconds
-
-	# Backfill legacy wounds: give them created_at and healing_duration so they participate in per-wound healing
-	for part in entity.wounds.keys():
-		for injury in entity.wounds[part]:
-			if injury.get("created_at_game_time", -1.0) < 0.0:
-				injury["created_at_game_time"] = entity._game_time_seconds
-			if injury.get("healing_duration_seconds", 0.0) <= 0.0:
-				var sev: String = injury.get("severity", _Bleeding.SEVERITY_MODERATE)
-				var itype: String = injury.get("injury_type", _Bleeding.INJURY_TYPE_CRUSH)
-				injury["healing_duration_seconds"] = _Healing.get_wound_healing_duration_seconds(part, sev, itype)
 
 	# Remove resolved wounds (healing progress >= threshold); pain has effectively resolved
 	for part in entity.wounds.keys():
@@ -55,8 +46,9 @@ static func process_healing(entity: Node, seconds: float) -> void:
 	# Tourniquet expiry: if max duration > 0, release TQ after duration (limb ischemia risk). Bleeding can resume.
 	if _Bleeding.TOURNIQUET_MAX_DURATION_SECONDS > 0.0:
 		for part in entity.tourniquet_applied.keys():
-			var data = entity.tourniquet_applied[part]
-			var applied_at: float = (data as Dictionary).get("applied_at", 0.0) if data is Dictionary else float(data)
+			_EntityMedical.ensure_tourniquet_dict_entry(entity, part)
+			var data: Dictionary = entity.tourniquet_applied[part]
+			var applied_at: float = float(data.get("applied_at", 0.0))
 			if entity._game_time_seconds - applied_at >= _Bleeding.TOURNIQUET_MAX_DURATION_SECONDS:
 				entity.tourniquet_applied.erase(part)
 

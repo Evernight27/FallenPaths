@@ -104,6 +104,41 @@ static func can_melee_threaten(manager: Node, attacker: Dictionary, defender: Di
 		return true
 	return false
 
+
+## Melee / close / crash vs opponents whose `rank` matches `opp_rank_required` (0 = front line; 1 = stalemate fallback when no rank-0 enemy exists).
+static func _append_melee_vs_enemy_line_rank(
+	manager: Node,
+	c: Dictionary,
+	combatants: Array,
+	actions: Array,
+	move_ids: Array,
+	melee_range: float,
+	can_attack_from_mid: bool,
+	opp_rank_required: int
+) -> void:
+	for opp in combatants:
+		if not opp.alive or opp.side == c.side:
+			continue
+		if int(opp.get("rank", 0)) != opp_rank_required:
+			continue
+		var eff_dist: float = effective_pair_eff_dist(manager, c, opp)
+		var in_swing_range: bool = melee_range >= eff_dist
+		var dist: String = c.get("distance_to", {}).get(opp.id, CombatConstants.DISTANCE_LONG)
+		if in_swing_range:
+			if dist == CombatConstants.DISTANCE_CLOSE or (dist == CombatConstants.DISTANCE_MID and can_attack_from_mid):
+				for move_id in move_ids:
+					if WeaponConstants.is_parry_move(move_id):
+						continue
+					actions.append({ "target_id": opp.id, "move_id": move_id })
+			elif dist in [CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
+				actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
+		else:
+			if dist in [CombatConstants.DISTANCE_CLOSE, CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
+				actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
+		if _crash_action_eligible(manager, c, opp, melee_range, can_attack_from_mid, eff_dist, in_swing_range, dist):
+			actions.append({"target_id": opp.id, "move_id": CombatConstants.MOVE_ID_CRASH})
+
+
 static func build(manager: Node, combatant_id: int) -> Array:
 	var log_fid: String = ""
 	var log_breach_blocks_moves: bool = false
@@ -148,76 +183,90 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				var melee_range: float = float(weapon.melee_range)
 				var can_attack_from_mid: bool = melee_range >= CombatConstants.REACH_MID_MIN
 				var move_ids: Array = weapon.get_available_attack_types()
-				for opp in combatants:
-					if not opp.alive or opp.side == c.side:
+				_append_melee_vs_enemy_line_rank(
+					manager, c, combatants, actions, move_ids, melee_range, can_attack_from_mid, 0
+				)
+				var any_enemy_rank0: bool = false
+				for opp_chk in combatants:
+					if not opp_chk.alive or opp_chk.side == c.side:
 						continue
-					var opp_rank: int = opp.get("rank", 0)
-					if opp_rank != 0:
-						continue  # Melee only vs enemy front rank
-					var eff_dist: float = effective_pair_eff_dist(manager, c, opp)
-					var in_swing_range: bool = melee_range >= eff_dist
-					var dist: String = c.get("distance_to", {}).get(opp.id, CombatConstants.DISTANCE_LONG)
-					if in_swing_range:
-						if dist == CombatConstants.DISTANCE_CLOSE or (dist == CombatConstants.DISTANCE_MID and can_attack_from_mid):
-							for move_id in move_ids:
-								if WeaponConstants.is_parry_move(move_id):
-									continue
-								actions.append({ "target_id": opp.id, "move_id": move_id })
-						elif dist in [CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
-							actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
-					else:
-						# Out of swing reach (file spacing) — still offer close attempts (do not skip the opponent entirely).
-						if dist in [CombatConstants.DISTANCE_CLOSE, CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
-							actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
-					if _crash_action_eligible(manager, c, opp, melee_range, can_attack_from_mid, eff_dist, in_swing_range, dist):
-						actions.append({"target_id": opp.id, "move_id": CombatConstants.MOVE_ID_CRASH})
+					if int(opp_chk.get("rank", 0)) == 0:
+						any_enemy_rank0 = true
+						break
+				# Stalemate safety: `CombatFormationFlow` reconcile should guarantee a rank-0 enemy when possible; if not, avoid soft-lock.
+				if not any_enemy_rank0:
+					_append_melee_vs_enemy_line_rank(
+						manager, c, combatants, actions, move_ids, melee_range, can_attack_from_mid, 1
+					)
 		# Phase 3: Swap rank — front→back disengage; plug when front incap; deeper→shallow relief (same column).
 		# With 3+ depth ranks, middle/back rows must be able to swap toward the front or they only get wait.
-		# Breach congestion: open-lane formation moves withheld while breached_files marks active plugging (incursion plan §11).
+		# Breach congestion: disengage / retreat withheld; plug-forward and relief swaps still allowed (FormationBreachRules.resolve_blocks_formation_move).
+		# Same-rank rotate_file is line movement and stays available under breach (see Phase 5).
 		# Skirmish (collapsed line) can uncleg moves; see FormationBreachRules.breach_blocks_open_lane_moves.
 		var formation_ranks: int = our_formation.get("ranks", 1)
 		var breach_blocks_moves: bool = not our_formation.is_empty() and _FormationBreachRules.breach_blocks_open_lane_moves(manager, our_formation)
 		var is_intruded: bool = str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
 		log_fid = fid
 		log_breach_blocks_moves = breach_blocks_moves
-		if not our_formation.is_empty() and formation_ranks > 1 and not breach_blocks_moves and not is_intruded:
-			for ally in combatants:
-				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
-					continue
-				if ally.get("state", "") in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
-					continue  # Partner busy
-				var partner_rank: int = ally.get("rank", 0)
-				var partner_file: int = ally.get("file", 0)
-				if partner_file != our_file or abs(partner_rank - our_rank) != 1:
-					continue  # Must be same file, adjacent rank
-				var we_are_front: bool = partner_rank > our_rank
-				var partner_incapacitated: bool = _EntityAccess.is_incapacitated(ally)
-				var we_plug_forward: bool = partner_rank < our_rank and partner_incapacitated
-				var relief_swap: bool = our_rank > partner_rank and not partner_incapacitated \
-					and CombatAIActionPicker.is_relief_swap_tactically_allowed(c, ally)
-				if (we_are_front and not partner_incapacitated) or we_plug_forward or relief_swap:
-					var allow_swap: bool = false
-					if we_plug_forward:
-						allow_swap = true
-					elif relief_swap:
-						allow_swap = true
-					elif we_are_front:
-						allow_swap = CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, ally)
+		if not our_formation.is_empty() and formation_ranks > 1 and not is_intruded:
+			if not breach_blocks_moves:
+				for ally in combatants:
+					if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
+						continue
+					if ally.get("state", "") in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
+						continue  # Partner busy
+					var partner_rank: int = ally.get("rank", 0)
+					var partner_file: int = ally.get("file", 0)
+					if partner_file != our_file or abs(partner_rank - our_rank) != 1:
+						continue  # Must be same file, adjacent rank
+					var we_are_front: bool = partner_rank > our_rank
+					var partner_incapacitated: bool = _EntityAccess.is_incapacitated(ally)
+					var we_plug_forward: bool = partner_rank < our_rank and partner_incapacitated
+					var relief_swap: bool = our_rank > partner_rank and not partner_incapacitated \
+						and CombatAIActionPicker.is_relief_swap_tactically_allowed(c, ally)
+					if (we_are_front and not partner_incapacitated) or we_plug_forward or relief_swap:
+						var allow_swap: bool = false
+						if we_plug_forward:
+							allow_swap = true
+						elif relief_swap:
+							allow_swap = true
+						elif we_are_front:
+							allow_swap = CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, ally)
+						if allow_swap:
+							actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_SWAP_RANK })
+							# Drag / fall_back_pair are front-line retreat flavors; relief rotation uses quick swap only.
+							if not we_plug_forward and we_are_front:
+								actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_DRAG_BACK })
+								actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_FALL_BACK })
+						break
+			else:
+				for ally in combatants:
+					if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
+						continue
+					if ally.get("state", "") in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
+						continue
+					var partner_rank: int = ally.get("rank", 0)
+					var partner_file: int = ally.get("file", 0)
+					if partner_file != our_file or abs(partner_rank - our_rank) != 1:
+						continue
+					var partner_incapacitated: bool = _EntityAccess.is_incapacitated(ally)
+					var we_plug_forward: bool = partner_rank < our_rank and partner_incapacitated
+					var relief_swap: bool = our_rank > partner_rank and not partner_incapacitated \
+						and CombatAIActionPicker.is_relief_swap_tactically_allowed(c, ally)
+					if not we_plug_forward and not relief_swap:
+						continue
+					var allow_swap: bool = we_plug_forward or relief_swap
 					if allow_swap:
 						actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_SWAP_RANK })
-						# Drag / fall_back_pair are front-line retreat flavors; relief rotation uses quick swap only.
-						if not we_plug_forward and we_are_front:
-							actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_DRAG_BACK })
-							actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_FALL_BACK })
 					break
-		# Phase 5: rotate file — front rank only, adjacent files, both must be free to coordinate.
-		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_blocks_moves and not is_intruded:
+		# Phase 5: rotate file — same depth, adjacent files (line movement at any rank).
+		if not our_formation.is_empty() and formation_ranks > 1 and not is_intruded:
 			for ally in combatants:
 				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
 					continue
 				if ally.get("state", "") in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
 					continue
-				if ally.get("rank", 0) != 0:
+				if ally.get("rank", 0) != our_rank:
 					continue
 				if abs(ally.get("file", 0) - our_file) != 1:
 					continue
@@ -368,29 +417,38 @@ static func _crash_absent_primary_reason(manager: Node, c: Dictionary) -> String
 		return "no_melee_weapon_profile"
 	var melee_range: float = float(weapon.melee_range)
 	var can_attack_from_mid: bool = melee_range >= CombatConstants.REACH_MID_MIN
-	var saw_front_enemy: bool = false
-	var first_reason: String = ""
+	var any_enemy_rank0: bool = false
 	for opp in manager.combatants:
 		if not opp.get("alive", false) or opp.get("side", "") == c.get("side", ""):
 			continue
-		if opp.get("rank", 0) != 0:
-			continue
-		saw_front_enemy = true
-		var eff_dist: float = effective_pair_eff_dist(manager, c, opp)
-		var in_swing: bool = melee_range >= eff_dist
-		var dist: String = str(c.get("distance_to", {}).get(opp.get("id", -1), CombatConstants.DISTANCE_LONG))
-		if _crash_action_eligible(manager, c, opp, melee_range, can_attack_from_mid, eff_dist, in_swing, dist):
-			return "crash_eligible_but_missing_bug"
-		if first_reason.is_empty():
-			if not in_swing:
-				first_reason = "out_of_swing_range"
-			elif dist == CombatConstants.DISTANCE_LONG:
-				first_reason = "distance_long"
-			elif dist == CombatConstants.DISTANCE_MID and not can_attack_from_mid:
-				first_reason = "distance_mid_short_weapon"
-			else:
-				first_reason = "distance_band_%s" % dist
-	if not saw_front_enemy:
+		if int(opp.get("rank", 0)) == 0:
+			any_enemy_rank0 = true
+			break
+	var ranks_to_check: Array = [0] if any_enemy_rank0 else [1]
+	var saw_line_enemy: bool = false
+	var first_reason: String = ""
+	for rank_req in ranks_to_check:
+		for opp in manager.combatants:
+			if not opp.get("alive", false) or opp.get("side", "") == c.get("side", ""):
+				continue
+			if int(opp.get("rank", 0)) != rank_req:
+				continue
+			saw_line_enemy = true
+			var eff_dist: float = effective_pair_eff_dist(manager, c, opp)
+			var in_swing: bool = melee_range >= eff_dist
+			var dist: String = str(c.get("distance_to", {}).get(opp.get("id", -1), CombatConstants.DISTANCE_LONG))
+			if _crash_action_eligible(manager, c, opp, melee_range, can_attack_from_mid, eff_dist, in_swing, dist):
+				return "crash_eligible_but_missing_bug"
+			if first_reason.is_empty():
+				if not in_swing:
+					first_reason = "out_of_swing_range"
+				elif dist == CombatConstants.DISTANCE_LONG:
+					first_reason = "distance_long"
+				elif dist == CombatConstants.DISTANCE_MID and not can_attack_from_mid:
+					first_reason = "distance_mid_short_weapon"
+				else:
+					first_reason = "distance_band_%s" % dist
+	if not saw_line_enemy:
 		return "no_front_rank_enemy"
 	return first_reason if not first_reason.is_empty() else "unknown"
 
