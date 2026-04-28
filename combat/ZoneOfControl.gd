@@ -25,6 +25,22 @@ static func is_zoc_flanking_enabled(manager: Node) -> bool:
 		return true
 	return not bool((enc as Dictionary).get(_ENCOUNTER_PROTECTION_CIRCLE_KEY, false))
 
+
+## Intruders use **host** formation ZoC (they occupy host `slots`); line fighters use `formation_id`.
+## When `manager` is non-null, missing/empty host formation dict falls back to home `formation_id` (stale-flag guard; same rule as pair-distance geometry).
+static func formation_id_for_zone_geometry(manager: Node, c: Dictionary) -> String:
+	if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		var hf: String = str(c.get("intrusion_host_fid", ""))
+		if not hf.is_empty():
+			if manager != null and manager.get("formations"):
+				var fm: Dictionary = manager.formations
+				if not fm.get(hf, {}).is_empty():
+					return hf
+			else:
+				return hf
+	return str(c.get("formation_id", ""))
+
+
 ## Rank 0: front center, left/right edge, or whole front when files==1. Rank 1+: rear.
 static func zone_for_cell(files: int, _ranks: int, rank: int, file: int) -> String:
 	if rank > 0:
@@ -119,7 +135,7 @@ static func _raw_zone_strength(manager: Node, fid: String, zone: String) -> floa
 	return maxf(0.0, base - obs_pen - inc_pen)
 
 
-## 0..1 per-file lane stress (dual living + density only). Zone aggregate for merging with global incursion — not bodies (see obs_pen).
+## 0..1 per-file lane stress. Written by TacticalCombat (dual living, density, breach_local, intrusion wedge); ZoC reads it here — not bodies (see obs_pen).
 static func _lane_stress_for_zone(formation: Dictionary, zone: String) -> float:
 	var ls: Dictionary = formation.get("lane_stress_by_file", {})
 	if ls.is_empty():
@@ -273,8 +289,8 @@ static func _engagement_parry_mult_pack_fallback(atk: Dictionary, tgt: Dictionar
 static func geometric_reach_extent_multiplier(manager: Node, our: Dictionary, opp: Dictionary) -> float:
 	if not is_zoc_flanking_enabled(manager):
 		return 1.0
-	var fo: Dictionary = manager.formations.get(our.get("formation_id", ""), {})
-	var fe: Dictionary = manager.formations.get(opp.get("formation_id", ""), {})
+	var fo: Dictionary = manager.formations.get(formation_id_for_zone_geometry(manager, our), {})
+	var fe: Dictionary = manager.formations.get(formation_id_for_zone_geometry(manager, opp), {})
 	if fo.is_empty() or fe.is_empty():
 		return 1.0
 	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:
@@ -289,8 +305,8 @@ static func geometric_reach_extent_multiplier(manager: Node, our: Dictionary, op
 static func mid_reach_files(manager: Node, our: Dictionary, opp: Dictionary) -> int:
 	if not is_zoc_flanking_enabled(manager):
 		return 1
-	var fo: Dictionary = manager.formations.get(our.get("formation_id", ""), {})
-	var fe: Dictionary = manager.formations.get(opp.get("formation_id", ""), {})
+	var fo: Dictionary = manager.formations.get(formation_id_for_zone_geometry(manager, our), {})
+	var fe: Dictionary = manager.formations.get(formation_id_for_zone_geometry(manager, opp), {})
 	if fo.is_empty() or fe.is_empty():
 		return 1
 	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:

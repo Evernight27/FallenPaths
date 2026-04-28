@@ -1,6 +1,8 @@
 class_name PassiveParryContext
 extends RefCounted
 
+const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
+
 ## Parry paradigm config and readiness helpers for AttackResolver.
 ## Decouples parry/dodge logic from CombatManager.
 
@@ -43,9 +45,20 @@ static func is_off_balance(c: Dictionary) -> bool:
 	var until: float = c.get("off_balance_until", -1.0)
 	return until > 0.0 and CombatTiming.now_seconds() < until
 
-## Parry speed (m/s): defensive move ~40–60% of max strike. Optional def_weapon.parry_speed_factor scales it.
+## Parry speed (m/s): defensive move ~40–60% of this weapon's resolved strike-band ceiling (ImpactVelocityModel).
+## Shaft/haft parries use the blunt band; blade uses cut. Optional def_weapon.parry_speed_factor scales it.
 static func get_parry_speed_m_s(def_weapon = null) -> float:
-	var base_speed: float = WeaponConstants.VELOCITY_MAX_M_S * CombatConstants.PARRY_V_FRACTION_OF_MAX_STRIKE
-	if def_weapon != null and (def_weapon.get("parry_speed_factor") is float or def_weapon.get("parry_speed_factor") is int):
-		base_speed *= clampf(float(def_weapon.parry_speed_factor), 0.5, 1.5)
+	var ref_contact: String = WeaponConstants.ATTACK_TYPE_CUT
+	if def_weapon != null and def_weapon.has_method("get_parry_contact_type"):
+		var pct: String = str(def_weapon.get_parry_contact_type())
+		if pct == "shaft" or pct == "haft":
+			ref_contact = WeaponConstants.ATTACK_TYPE_BLUNT
+	var band_max: float = _ImpactVelocityModel.unarmed_velocity_band_m_s().y
+	if def_weapon != null and def_weapon.has_method("get_impact_velocity_band_m_s"):
+		band_max = def_weapon.get_impact_velocity_band_m_s(ref_contact).y
+	var base_speed: float = band_max * CombatConstants.PARRY_V_FRACTION_OF_MAX_STRIKE
+	if def_weapon != null:
+		var psf: Variant = def_weapon.parry_speed_factor
+		if psf is float or psf is int:
+			base_speed *= clampf(float(psf), 0.5, 1.5)
 	return base_speed

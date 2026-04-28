@@ -4,7 +4,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Handles completion of medical wind-up: apply bandage/packing/tourniquet, emit outcome, track retry.
-## Manager must have: _get_entity, _track_medical_failure_and_maybe_retry, emit_signal, get.
+## Manager must have: get_health_entity (via CombatantEntityAccess), _track_medical_failure_and_maybe_retry, emit_signal, get.
 
 static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 	var med_id: String = pm.get("medical_id", "")
@@ -25,9 +25,9 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 		var wind_up_cfg = CombatConstants.MEDICAL_WIND_UP_CONFIG.get(med_id, {})
 		var target_method: String = wind_up_cfg.get("target_method", "")
 		if not target_method.is_empty():
-			var tgt_entity = manager._get_entity(tgt_c.node)
+			var tgt_entity = _EntityAccess.get_entity_from_manager(manager, tgt_c)
 			if tgt_entity != null and tgt_entity.has_method(target_method):
-				var perf_entity = manager._get_entity(c.node)
+				var perf_entity = _EntityAccess.get_entity_from_manager(manager, c)
 				var eff: float = _EntityAccess.get_medical_effectiveness_from_node(perf_entity)
 				var result = null
 				if target_method == "apply_bandage":

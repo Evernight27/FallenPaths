@@ -249,7 +249,7 @@ static func can_apply_tourniquet(entity: Node, part: String) -> bool:
 		return false
 	return true
 
-## Migrates legacy float timestamp storage to { "applied_at", "effectiveness" } (e.g. old saves).
+## Normalizes float timestamp storage to { "applied_at", "effectiveness" } (e.g. older save data).
 static func ensure_tourniquet_dict_entry(entity: Node, part: String) -> void:
 	if not entity.tourniquet_applied.has(part):
 		return

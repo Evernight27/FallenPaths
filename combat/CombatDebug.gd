@@ -19,6 +19,12 @@ static func flow_log(msg: String) -> void:
 	if CombatConstants.COMBAT_EVENT_DEBUG:
 		print("[Combat.Flow] ", msg)
 
+
+## Vacancy plug / rank-0 reconcile. Toggle `CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG`.
+static func formation_vacancy_log(msg: String) -> void:
+	if CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG:
+		print("[Combat.Formation] ", msg)
+
 ## One-line summary of build() output for logs (move_id@target_id[:part]).
 static func format_actions_compact(actions: Array) -> String:
 	var parts: PackedStringArray = []

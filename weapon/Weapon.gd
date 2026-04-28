@@ -1,6 +1,8 @@
 class_name Weapon
 extends RefCounted
 
+const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
+
 # Template-backed weapon instance. Load from WeaponConstants; can later add
 # durability, quality, modifications for customisable weapons.
 
@@ -31,6 +33,10 @@ var parts: Array = []  # Array of {id, length_cm, mass_fraction, parry_eligible,
 var parry_part_id: String = ""  # Which part parries; must match a part with parry_eligible true.
 # Bind riposte: contact types eligible for wind-up bonus. From def or inferred from is_parry moves.
 var bind_riposte_contact_types: Array = []
+## Tier C: optional per-contact velocity bands (m/s). Keys: stab | cut | blunt → Vector2(min,max) or {"min":f,"max":f}.
+var impact_velocity_bands: Dictionary = {}
+## Strike realism defaults (station, coupling, blunt pressure); see StrikeRealismProfile.gd.
+var strike_physics: Dictionary = {}
 
 
 static func create_from_definition(weapon_id: String) -> Weapon:
@@ -96,7 +102,18 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 				if not seen.get(ct, false):
 					seen[ct] = true
 					w.bind_riposte_contact_types.append(ct)
+	var ivb: Variant = def.get("impact_velocity_bands", {})
+	if ivb is Dictionary:
+		w.impact_velocity_bands = ivb.duplicate(true)
+	var sp: Variant = def.get("strike_physics", {})
+	if sp is Dictionary:
+		w.strike_physics = sp.duplicate(true)
 	return w
+
+
+## Resolved impact speed band (m/s) for Tier A–C model. contact_type: stab | cut | blunt.
+func get_impact_velocity_band_m_s(contact_type: String) -> Vector2:
+	return _ImpactVelocityModel.resolve_band_m_s(self, contact_type)
 
 
 func get_cooldown(move_id: String) -> float:
@@ -106,10 +123,9 @@ func get_cooldown(move_id: String) -> float:
 	return float(m.get("base_cooldown", WeaponConstants.DEFAULT_COOLDOWN))
 
 
-# Contact type for this move (stab/cut/blunt); from move definition.
+# Contact type for this move (stab/cut/blunt); canonical resolver (move id or bare contact).
 func get_contact_type(move_id: String) -> String:
-	var m = WeaponConstants.get_move(move_id)
-	return str(m.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
+	return WeaponConstants.contact_type_for_move_id(move_id)
 
 
 # Contact area (cm) for this move: stab -> point, cut -> blade, blunt -> head.

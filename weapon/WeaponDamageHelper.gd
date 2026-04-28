@@ -1,35 +1,72 @@
 class_name WeaponDamageHelper
 extends RefCounted
 
-# --- Option C: Kinetic energy (J) drives both damage and penetration ---
+const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
 
-# Single place for intensity -> m/s. Factor in [0.5, 1.0]; archetype.velocity_factor scales it. Result in VELOCITY_MIN_M_S..VELOCITY_MAX_M_S.
-static func velocity_m_s_from_intensity(intensity: float, archetype: Dictionary) -> float:
-	var intensity_val: float = clampf(intensity, 0.0, 1.0)
+# --- Option C: Kinetic energy (J) drives both damage and penetration ---
+# Impact speed: Tier A defaults + Tier B geometry + Tier C weapon.impact_velocity_bands; see ImpactVelocityModel.gd.
+
+static func move_id_from_attack_instance(attack_instance: RefCounted) -> String:
+	var v: Variant = attack_instance.get("attack_type")
+	return str(v) if v is String else ""
+
+
+static func _attack_float_or_default(attack_instance: RefCounted, prop: String, default_val: float) -> float:
+	if attack_instance == null:
+		return default_val
+	var v: Variant = attack_instance.get(prop)
+	if v is float or v is int:
+		return float(v)
+	return default_val
+
+
+## Mass (kg) participating in impact speed for KE / momentum (striking part when known; aligns with parry p_a).
+static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> float:
+	if weapon == null:
+		return 0.35
+	var move_id: String = move_id_from_attack_instance(attack_instance)
+	var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
+	if weapon.has_method("get_striking_part_mass_kg"):
+		return maxf(0.02, float(weapon.get_striking_part_mass_kg(ct)))
+	var m: Variant = weapon.get("mass")
+	return float(m) if (m is float or m is int) else WeaponConstants.BASELINE_MASS_KG
+
+
+# Single place for intensity -> m/s. Factor in [0.5, 1.0]; archetype.velocity_factor scales it; band from weapon + move.
+static func velocity_m_s_from_intensity(intensity: float, archetype: Dictionary, weapon: RefCounted = null, move_id: String = "") -> float:
+	var int0: float = clampf(intensity, 0.0, 1.0)
+	var curve: float = 1.0
+	if archetype is Dictionary and archetype.has("velocity_intensity_curve"):
+		curve = clampf(float(archetype.velocity_intensity_curve), 0.55, 1.5)
+	var intensity_val: float = pow(int0, curve)
 	var factor: float = 0.5 + 0.5 * intensity_val
 	if archetype is Dictionary and archetype.has("velocity_factor"):
 		var vf: float = float(archetype.velocity_factor)
 		factor *= clampf(vf, 0.1, 1.5)
-	return WeaponConstants.VELOCITY_MIN_M_S + (WeaponConstants.VELOCITY_MAX_M_S - WeaponConstants.VELOCITY_MIN_M_S) * clampf(factor, 0.0, 1.0)
+	var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
+	var band: Vector2 = _ImpactVelocityModel.resolve_band_m_s(weapon, ct)
+	return band.x + (band.y - band.x) * clampf(factor, 0.0, 1.0)
 
-# Effective impact velocity (m/s). Prefer attack.velocity_m_s if set (e.g. after partial parry); else derive from intensity via velocity_m_s_from_intensity.
-static func get_effective_velocity_m_s(_weapon: RefCounted, attack_instance: RefCounted) -> float:
+
+# Effective impact velocity (m/s). Prefer attack.velocity_m_s if set (e.g. after partial parry); else derive from intensity.
+static func get_effective_velocity_m_s(weapon: RefCounted, attack_instance: RefCounted) -> float:
 	var v = attack_instance.get("velocity_m_s")
 	if v is float and v >= 0.0:
 		return v
 	var i = attack_instance.get("intensity")
 	var arch = attack_instance.get("archetype")
-	return velocity_m_s_from_intensity(i if i is float else 0.5, arch if arch is Dictionary else {})
+	var move_id: String = move_id_from_attack_instance(attack_instance)
+	return velocity_m_s_from_intensity(i if i is float else 0.5, arch if arch is Dictionary else {}, weapon, move_id)
 
 
-# Kinetic energy (J) at impact: KE = ½ * mass_kg * velocity_m_s².
+# Kinetic energy (J) at impact: KE = ½ * strike_mass * velocity² (strike mass matches parry striking mass).
 static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCounted) -> float:
 	if weapon == null:
 		return 0.0
-	var m = weapon.get("mass")
-	var mass_kg: float = float(m) if (m is float or m is int) else WeaponConstants.BASELINE_MASS_KG
+	var mass_kg: float = strike_mass_kg(weapon, attack_instance)
 	var v: float = get_effective_velocity_m_s(weapon, attack_instance)
-	return 0.5 * mass_kg * v * v
+	var e_mult: float = _attack_float_or_default(attack_instance, "strike_energy_mult", 1.0)
+	return 0.5 * mass_kg * v * v * maxf(0.05, e_mult)
 
 
 # Pre-armor CUT (sharp) from KE and effective edge: scale * sqrt(KE) * strength_mod * arm_mod * contact_factor(effective sharp), clamped.
@@ -53,10 +90,10 @@ static func compute_pre_armor_cut(weapon: RefCounted, attack_instance: RefCounte
 static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCounted, strength: int, arm_mod: float) -> float:
 	if weapon == null:
 		return 0.0
-	var m = weapon.get("mass")
-	var mass_kg: float = float(m) if (m is float or m is int) else WeaponConstants.BASELINE_MASS_KG
+	var mass_kg: float = strike_mass_kg(weapon, attack_instance)
 	var v: float = get_effective_velocity_m_s(weapon, attack_instance)
-	var momentum: float = mass_kg * v
+	var p_mult: float = _attack_float_or_default(attack_instance, "strike_momentum_mult", 1.0)
+	var momentum: float = mass_kg * v * maxf(0.05, p_mult)
 	var strength_mod: float = maxf(0.1, float(strength) / 100.0)
 	var raw: float = WeaponConstants.DAMAGE_MOMENTUM_SCALE * momentum * strength_mod * arm_mod
 	var contact_cm: float = _get_blunt_contact_for_damage(weapon, attack_instance)
@@ -109,7 +146,8 @@ static func _get_blunt_contact_for_penetration(weapon: RefCounted, attack_instan
 	var attack_type: String = attack_instance.get("attack_type")
 	if attack_type == null or not (attack_type is String):
 		attack_type = WeaponConstants.ATTACK_TYPE_CUT
-	if attack_type == WeaponConstants.ATTACK_TYPE_STAB and armor_resistance_rha_mm >= 0.0 and pen_sharp_mm >= 0.0 and weapon != null:
+	var contact_pen: String = WeaponConstants.contact_type_for_move_id(attack_type)
+	if contact_pen == WeaponConstants.ATTACK_TYPE_STAB and armor_resistance_rha_mm >= 0.0 and pen_sharp_mm >= 0.0 and weapon != null:
 		var pw = weapon.get("point_width")
 		var point: float = float(pw) if (pw is float or pw is int) else WeaponConstants.MIN_CONTACT_WIDTH_CM
 		if point <= 0.0:
@@ -136,10 +174,10 @@ static func _compute_blunt_momentum_per_area_with_contact(weapon: RefCounted, at
 	var d_m: float = contact_cm / 100.0 if contact_cm > 0 else 0.01
 	var A_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)
 	A_m2 = maxf(A_m2, WeaponConstants.MIN_BLUNT_AREA_M2)
-	var m = weapon.get("mass")
-	var mass_kg: float = float(m) if (m is float or m is int) else WeaponConstants.BASELINE_MASS_KG
+	var mass_kg: float = strike_mass_kg(weapon, attack_instance)
 	var v: float = get_effective_velocity_m_s(weapon, attack_instance)
-	var momentum: float = mass_kg * v
+	var p_mult: float = _attack_float_or_default(attack_instance, "strike_momentum_mult", 1.0)
+	var momentum: float = mass_kg * v * maxf(0.05, p_mult)
 	return momentum / A_m2 if A_m2 > 0 else 0.0
 
 
@@ -190,7 +228,8 @@ static func _get_blunt_contact_cm(weapon: RefCounted, attack_type: String) -> fl
 	if weapon != null:
 		push_warning("[WeaponDamageHelper] Weapon lacks get_blunt_contact_cm; using fallback. Ensure weapon is Weapon instance from create_from_definition.")
 	var contact_cm: float = _get_contact_width_cm(weapon, attack_type)
-	if attack_type == WeaponConstants.ATTACK_TYPE_CUT:
+	var contact_fallback: String = WeaponConstants.contact_type_for_move_id(attack_type)
+	if contact_fallback == WeaponConstants.ATTACK_TYPE_CUT:
 		contact_cm = maxf(contact_cm, WeaponConstants.BLUNT_CUT_MIN_CONTACT_CM)
 	return contact_cm
 

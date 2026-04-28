@@ -16,7 +16,7 @@ const VITAL_PARTS := ["head", "chest"]
 @export var name: String = "Unknown"
 @export var head: int = 10       # human ~9% of total; goblin larger share
 @export var chest: int = 30      # human largest; scale per species
-# Limb totals tuned for KE realism: arm 20 (100 J sever), leg 28 (200 J sever). See JOULES_FORCE_OPTIMAL_NUMBERS.md.
+# Limb totals tuned for KE realism: arm 20 (100 J sever), leg 28 (200 J sever). See docs/PHYSICS_DAMAGE_AND_FLOW.md.
 @export var right_arm: int = 12
 @export var left_arm: int = 12
 @export var left_leg: int = 16

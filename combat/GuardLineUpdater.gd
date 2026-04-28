@@ -7,13 +7,12 @@ extends RefCounted
 
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-
 ## Sets combatant guard_line to deflected position (blade was knocked aside by parry).
 ## Angle-based: bilateral deflection — blade deflects "away from" defender's blade.
 ## Bind: parry_control high → blade stays; else magnitude from alignment/severity.
 ## effective_line_override: use when available (e.g. diagonal roll); else from move.
 ## defender_guard_line: defender's guard at parry.
-## clash_context: optional {parry_control, severity, attack_type, defender_guard_line, alignment, attack_angle_deg} for HEMA bind/deflect.
+## clash_context: optional {parry_control, severity, attack_type (move_id), contact_type (stab|cut|blunt), defender_guard_line, alignment, attack_angle_deg} for HEMA bind/deflect.
 static func set_guard_deflected(c: Dictionary, move_id: String, effective_line_override: String = "", defender_guard_line: String = "", clash_context: Dictionary = {}) -> void:
 	var atk_line: String = effective_line_override
 	if atk_line.is_empty() and not move_id.is_empty():
@@ -29,7 +28,12 @@ static func set_guard_deflected(c: Dictionary, move_id: String, effective_line_o
 	var arch_id: String = clash_context.get("archetype_id", "")
 	var can_bind: bool = arch_id.is_empty() or arch_id not in CombatConstants.ARCHETYPES_NEVER_BIND
 	var severity: float = clash_context.get("severity", 1.0)
-	var attack_type: String = clash_context.get("attack_type", "cut")
+	# Prefer explicit contact_type from clash (e.g. parry_deflect); else derive from move_id in attack_type.
+	var ct_ctx: String = str(clash_context.get("contact_type", "")).to_lower().strip_edges()
+	var attack_move_id: String = str(clash_context.get("attack_type", "cut"))
+	var deflect_contact: String = ct_ctx
+	if ct_ctx != WeaponConstants.ATTACK_TYPE_STAB and ct_ctx != WeaponConstants.ATTACK_TYPE_CUT and ct_ctx != WeaponConstants.ATTACK_TYPE_BLUNT:
+		deflect_contact = WeaponConstants.contact_type_for_move_id(attack_move_id)
 	var line: String
 	var blend: float = 0.0
 	if not clash_context.is_empty() and can_bind and parry_control >= CombatConstants.PARRY_BIND_CONTROL_THRESHOLD:
@@ -39,7 +43,7 @@ static func set_guard_deflected(c: Dictionary, move_id: String, effective_line_o
 		var atk_angle: float = clash_context.get("attack_angle_deg", CombatConstants.line_to_angle(atk_line))
 		var guard_angle: float = clash_context.get("guard_angle_deg", CombatConstants.line_to_angle(def_guard))
 		var alignment: float = clash_context.get("alignment", CombatConstants.get_line_alignment(atk_line, def_guard))
-		line = CombatConstants.get_deflected_line_from_angles(atk_angle, guard_angle, severity, attack_type, alignment)
+		line = CombatConstants.get_deflected_line_from_angles(atk_angle, guard_angle, severity, deflect_contact, alignment)
 		blend = severity
 	elif not defender_guard_line.is_empty():
 		var atk_angle: float = CombatConstants.line_to_angle(atk_line)

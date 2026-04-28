@@ -208,15 +208,16 @@ static func stats_factor_agi_perc(agi: float, perc: float) -> float:
 static func glancing_factor(ratio: float, exponent: float = PARRY_GLANCING_EXPONENT) -> float:
 	return pow(clampf(ratio, 0.0, 1.0), exponent)
 
-## Parry redirect multiplier from parry config, attacker/defender stats, attack type, mass disparity.
-static func compute_parry_redirect_mult(pcfg: Dictionary, agi: float, perc: float, attack_type: String, is_block_parry: bool, m_a: float, m_d: float) -> float:
+## Parry redirect multiplier from parry config, attacker/defender stats, contact type (stab|cut|blunt), mass disparity.
+static func compute_parry_redirect_mult(pcfg: Dictionary, agi: float, perc: float, contact_type: String, is_block_parry: bool, m_a: float, m_d: float) -> float:
 	var r_bonus: float = pcfg.get("redirect_bonus", PARRY_REDIRECT_BONUS)
 	var r_scale: float = pcfg.get("redirect_skill_scale", PARRY_REDIRECT_SKILL_SCALE)
 	var redirect_skill: float = stats_factor_agi_perc(agi, perc)
 	var redirect_mult: float = 1.0 + r_bonus + (redirect_skill - 0.5) * r_scale
-	if attack_type == "stab":
+	var ct: String = str(contact_type).to_lower()
+	if ct == "stab":
 		redirect_mult *= 1.0 + pcfg.get("redirect_thrust_bonus", PARRY_REDIRECT_THRUST_BONUS)
-	elif attack_type == "blunt":
+	elif ct == "blunt":
 		redirect_mult *= 1.0 - pcfg.get("redirect_blunt_penalty", PARRY_REDIRECT_BLUNT_PENALTY)
 	if not is_block_parry and m_a > 0.001 and m_d < m_a:
 		var mass_bonus: float = pcfg.get("mass_disparity_bonus", PARRY_MASS_DISPARITY_BONUS) * (1.0 - m_d / m_a)
@@ -267,22 +268,44 @@ const LANE_STRESS_BREACH_LOCAL_SCALE := 0.45
 const LANE_STRESS_BREACH_LOCAL_BONUS_MAX := 0.28
 ## `intrusion_wedge_by_file` lane stress (Tier 1.3); merged with breach_local via max() in TacticalCombat.
 const LANE_STRESS_WEDGE_SCALE := 0.5
+## Lane stress addend from wedge depth (0..1) at file; summed with pressure before cap in `CombatIntrusionWedge.lane_stress_bonus_from_wedge`.
+const LANE_STRESS_WEDGE_DEPTH_SCALE := 0.22
 const LANE_STRESS_WEDGE_BONUS_MAX := 0.32
 ## Vacancy reconcile: lateral slides can open a hole in a neighbor file; repeat until stable (safety cap).
 const FORMATION_VACANCY_RECONCILE_MAX_ROUNDS := 16
+## Inner promotion chain per file per vacancy/death plug pass (one rank step + restart shallow scan per iteration).
+const FORMATION_VACANCY_MICRO_STEPS_MAX := 24
+## After an automatic vacancy/death plug moves a unit, that unit cannot be chosen as a plug donor again until this many seconds of `combat_clock` elapse (damps tick-by-tick lateral / chain thrash; abstract, not a long “realistic” delay).
+const FORMATION_AUTOFILL_REPOSITION_COOLDOWN_S := 0.35
 ## Plug priority: `pow(effectiveness_0_1, EXPONENT) * 1/(1 + PROXIMITY_WEIGHT * step_count)`. Higher EXPONENT makes injured fighters fall off nonlinearly so fitter units in other lanes/ranks can win despite extra steps.
 const FORMATION_PLUG_EFFECTIVENESS_EXPONENT := 2.6
 ## Larger = proximity matters less relative to effectiveness (able-bodied farther can override closer wounded).
 const FORMATION_PLUG_PROXIMITY_WEIGHT := 0.28
+## When false (default), per-move Vacancy plug / death Plug `[Combat]` lines are suppressed; keeps logs usable with `COMBAT_EVENT_DEBUG` on.
+const COMBAT_FORMATION_PLUG_MOVE_DEBUG := false
+## When true, logs vacancy promotions and rank-0 holes still empty after reconcile (independent of `COMBAT_EVENT_DEBUG`).
+const COMBAT_FORMATION_VACANCY_DEBUG := false
+## Extra priority score for filling **rank 0** holes so the front line closes before lateral shuffles when scores tie.
+const FORMATION_PLUG_RANK0_URGENCY_BONUS := 0.75
 ## Per-combatant lateral metric (engagement plan §4.2). Bounded; 0 = column center.
 const LANE_OFFSET_DEFAULT := 0.0
 const LANE_OFFSET_ABS_MAX := 0.5
 ## Intruder bias toward +file seam after crash (sign matches engagement doc).
 const INTRUSION_INTRUDER_LANE_OFFSET_BIAS := 0.12
+## Small opposite nudge for anchor rank-0 host defender at breach file (§4.2 anti-overlap with intruder seam bias).
+const INTRUSION_ANCHOR_LANE_OFFSET_NUDGE := 0.06
 ## effective_pair_eff_dist: |Δlane_offset| as fraction of a file spacing equivalent before ZoC mult.
 const EFF_DIST_LANE_OFFSET_FILE_EQUIV := 0.42
 ## Pull effective distance down when wedge pressure high (breach corridor).
 const EFF_DIST_WEDGE_PRESSURE_PULL := 0.62
+## Additional pull from wedge depth (0..1) at anchor; stacks with pressure term in `effective_pair_eff_dist`.
+const EFF_DIST_WEDGE_DEPTH_PULL := 0.28
+## `CombatDistanceBands`: MID vs LONG uses `effective_pair_file_spacing_equivalent` vs `mid_reach_files`; slack avoids float edge flicker with lane_offset / wedge pull.
+const DIST_BAND_MID_FILE_EQUIV_SLACK := 0.38
+## Bystander path: max wedge pressure at each combatant's home formation + file (scaled vs intruder anchor pull).
+const EFF_DIST_WEDGE_BYSTANDER_MULT := 0.44
+## Adjacent-file wedge pressure mixed into `pressure_at_file` (canonical corridor spill).
+const INTRUSION_WEDGE_NEIGHBOR_FALLOFF := 0.34
 ## How strongly incursion penalty applies per zone (rear echelon less exposed to “line buckling” than front).
 const ZOC_INCURSION_EXPOSURE_FRONT := 1.0
 const ZOC_INCURSION_EXPOSURE_FLANK := 0.9
@@ -355,6 +378,10 @@ const CRASH_BREACH_VIABILITY_MIN := 0.36
 ## AI weight for MOVE_ID_CRASH: pow(viability, exp) × cap × stamina shaping (CombatAIActionPicker).
 const CRASH_AI_VIABILITY_EXPONENT := 1.28
 const CRASH_AI_WEIGHT_CAP := 2.15
+## `CombatAIActionPicker`: scales crash action weight from this unit’s formation `engagement_posture` (Tier 1.4 test hook).
+const CRASH_AI_POSTURE_OPEN_EXTRA_MULT := 1.12
+const CRASH_AI_POSTURE_LINE_EXTRA_MULT := 0.94
+const CRASH_AI_POSTURE_DUEL_EXTRA_MULT := 1.0
 
 ## IncursionBreachTest (and similar): fixed global RNG seed + crash AI bias + queued contest rolls so breach/clog code always runs.
 static var _incursion_breach_harness_active: bool = false
@@ -397,7 +424,7 @@ static func take_queued_breach_crash_roll() -> float:
 	_crash_test_roll_idx += 1
 	return v
 
-## Phase D: sector-weighted surround load vs legacy integer threat count (docs/TACTICAL_ZONES_BREACH_MOVEMENT.md, incursion section §10.3 B2).
+## Phase D: sector-weighted surround load vs integer-only threat count (docs/TACTICAL_ZONES_BREACH_MOVEMENT.md, incursion section §10.3 B2).
 const FEATURE_SECTOR_SURROUND_LOAD := false
 ## Endgame / skirmish: when the front-rank "line" has collapsed (see SKIRMISH_* below),
 ## `breached_files` still affects ZoC lane stress but no longer blocks swap / rotate / fall_back (FormationBreachRules.breach_blocks_open_lane_moves).
@@ -413,6 +440,9 @@ const SKIRMISH_WHEN_EITHER_SIDE_ZERO_FRONT := true
 const ENGAGEMENT_POSTURE_LINE := "line"
 const ENGAGEMENT_POSTURE_OPEN := "open"
 const ENGAGEMENT_POSTURE_DUEL := "duel"
+## LINE↔OPEN hysteresis (Tier 1.4): cohesion must reach **L_in** to flip OPEN→LINE; must fall below **L_out** to flip LINE→OPEN (`L_in` > `L_out`).
+const LINE_COHESION_POSTURE_ENTER_LINE_MIN := 0.62
+const LINE_COHESION_POSTURE_LEAVE_LINE_BELOW := 0.50
 ## Combatant: normal rank/file vs crashed-through and lodged in opponent context (slots TBD).
 const ENGAGEMENT_ROLE_LINE := "line"
 const ENGAGEMENT_ROLE_INTRUDED := "intruded"
@@ -420,8 +450,18 @@ const ENGAGEMENT_ROLE_INTRUDED := "intruded"
 const COHESION_BREACH_WEIGHT := 0.45
 const COHESION_BASE_FLOOR := 0.35
 const COHESION_FILL_SCALE := 0.65
-## At or above this cohesion (and not duel), posture shows LINE.
-const LINE_COHESION_POSTURE_LINE_MIN := 0.58
+## Optional `line_discipline` tag on **encounter** or **formation preset** (formation wins): shifts hysteresis band for testing / data.
+const LINE_DISCIPLINE_STRICT := "strict"
+const LINE_DISCIPLINE_NORMAL := "normal"
+const LINE_DISCIPLINE_LOOSE := "loose"
+## Extra (Δ enter threshold, Δ leave threshold) from `line_discipline_posture_extra_deltas` — strict = stickier LINE (higher both).
+static func line_discipline_posture_extra_deltas(discipline: String) -> Vector2:
+	var d: String = str(discipline).strip_edges().to_lower()
+	if d == LINE_DISCIPLINE_STRICT:
+		return Vector2(0.03, 0.04)
+	if d == LINE_DISCIPLINE_LOOSE:
+		return Vector2(-0.03, -0.04)
+	return Vector2.ZERO
 ## Crash: adjacent rank-0 allies in same formation add hold (gap closure). Capped by CRASH_NEIGHBOR_MAX_COUNT.
 const CRASH_NEIGHBOR_HOLD_BASE := 22.0
 const CRASH_NEIGHBOR_MAX_COUNT := 2
@@ -443,6 +483,11 @@ const AMBUSH_TYPE_NONE := "none"
 const AMBUSH_TYPE_FULL := "full"
 const AMBUSH_TYPE_PARTIAL := "partial"
 ## Phase 4: When true (e.g. lore protection circle), ZoC flank/rear bonuses and mid-reach widening are disabled.
+## Optional float deltas added to `LINE_COHESION_POSTURE_ENTER_LINE_MIN` / `LINE_COHESION_POSTURE_LEAVE_LINE_BELOW` (Tier 1.4 testing / encounter data).
+const ENCOUNTER_KEY_POSTURE_ENTER_DELTA := "engagement_posture_enter_delta"
+const ENCOUNTER_KEY_POSTURE_LEAVE_DELTA := "engagement_posture_leave_delta"
+## String: `line_discipline` = `LINE_DISCIPLINE_*` — encounter-wide default; overridden by per-formation `line_discipline` from preset.
+const ENCOUNTER_KEY_LINE_DISCIPLINE := "line_discipline"
 const ENCOUNTER_PROTECTION_CIRCLE_ACTIVE := "protection_circle_active"
 ## Phase 6: Which side suffers ambush penalties (typically "player" when monsters ambush party).
 const ENCOUNTER_AMBUSHED_SIDE := "ambushed_side"
@@ -645,12 +690,13 @@ static func get_deflected_angle_bilateral(attack_angle_deg: float, guard_angle_d
 	return cw if dist_cw > dist_ccw else ccw
 
 ## Deflection magnitude (deg) from alignment and severity. Lower alignment → larger deflection.
-static func get_deflection_magnitude_deg(alignment: float, severity: float, attack_type: String) -> float:
+## contact_type: stab | cut | blunt (not move_id; callers may pass move_id only if they normalize first).
+static func get_deflection_magnitude_deg(alignment: float, severity: float, contact_type: String) -> float:
 	var base := (1.0 - alignment) * 90.0 * severity
 	var mult: float = 1.0
-	if attack_type == "stab":
+	if contact_type == "stab":
 		mult = 1.15
-	elif attack_type == "blunt":
+	elif contact_type == "blunt":
 		mult = 0.9
 	return base * mult * randf_range(0.9, 1.1)
 
@@ -711,8 +757,9 @@ static func get_guard_angle_deg(combatant: Dictionary, wobble_context: Dictionar
 	return fmod(base_angle + 360.0, 360.0)
 
 ## Deflected line from bilateral angle-based deflection. Replaces discrete geometry with continuous physics.
-static func get_deflected_line_from_angles(attack_angle_deg: float, guard_angle_deg: float, severity: float, attack_type: String, alignment: float) -> String:
-	var mag := get_deflection_magnitude_deg(alignment, severity, attack_type)
+## contact_type: stab | cut | blunt for magnitude scaling (not move_id).
+static func get_deflected_line_from_angles(attack_angle_deg: float, guard_angle_deg: float, severity: float, contact_type: String, alignment: float) -> String:
+	var mag := get_deflection_magnitude_deg(alignment, severity, contact_type)
 	var deflected := get_deflected_angle_bilateral(attack_angle_deg, guard_angle_deg, mag)
 	return angle_to_nearest_line(deflected)
 

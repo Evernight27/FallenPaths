@@ -42,6 +42,9 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 		"line_cohesion": 1.0,
 		"engagement_posture": CombatConstants.ENGAGEMENT_POSTURE_LINE,
 		"morale_cohesion_factor": 1.0,
+		"discipline_posture_enter_delta": float(p_preset.get("discipline_posture_enter_delta", 0.0)),
+		"discipline_posture_leave_delta": float(p_preset.get("discipline_posture_leave_delta", 0.0)),
+		"line_discipline": str(p_preset.get("line_discipline", "")),
 	}
 	manager.formations["enemy"] = {
 		"files": e_files,
@@ -56,6 +59,9 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 		"line_cohesion": 1.0,
 		"engagement_posture": CombatConstants.ENGAGEMENT_POSTURE_LINE,
 		"morale_cohesion_factor": 1.0,
+		"discipline_posture_enter_delta": float(e_preset.get("discipline_posture_enter_delta", 0.0)),
+		"discipline_posture_leave_delta": float(e_preset.get("discipline_posture_leave_delta", 0.0)),
+		"line_discipline": str(e_preset.get("line_discipline", "")),
 	}
 	var pi: int = 0
 	var ei: int = 0

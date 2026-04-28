@@ -22,6 +22,9 @@ const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
+const _FileKeys := preload("res://combat/CombatFileKeyedDict.gd")
+const _AvailableActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 
 const _HARNESS_RNG_SEED := 0x1CA501
 
@@ -157,7 +160,8 @@ func _harness_on_action_resolved(mgr: Node, attacker_id: int, target_id: int, re
 				% [attacker_id, host_fid, anchor, str(occ_front)]
 			)
 	var wedges: Dictionary = mgr.formations.get(host_fid, {}).get("intrusion_wedge_by_file", {})
-	var wedge_raw: Variant = wedges.get(anchor, wedges.get(str(anchor), null))
+	var wedge_raw: Variant = _FileKeys.get_value(wedges, anchor, null)
+	var wedge_ok: bool = false
 	if wedge_raw == null or typeof(wedge_raw) != TYPE_DICTIONARY:
 		push_error(
 			"IncursionBreachTest: host formation %s missing intrusion_wedge_by_file[%d] after crash_success"
@@ -170,7 +174,52 @@ func _harness_on_action_resolved(mgr: Node, attacker_id: int, target_id: int, re
 				"IncursionBreachTest: wedge intruder_id mismatch at file %d (expected id=%d wedge=%s)"
 				% [anchor, attacker_id, str(wedge)]
 			)
-	set_meta("_harness_ok_breach", true)
+		else:
+			wedge_ok = true
+			var host_form: Dictionary = mgr.formations.get(host_fid, {})
+			var p_raw: float = clampf(float(wedge.get(_IntrusionWedge.FIELD_PRESSURE, 0.0)), 0.0, 1.0)
+			var nfiles: int = maxi(1, int(host_form.get("files", 1)))
+			if anchor + 1 < nfiles and p_raw > 0.05:
+				var p_next: float = _IntrusionWedge.pressure_at_file(host_form, anchor + 1)
+				var floor_n: float = p_raw * _CombatConstants.INTRUSION_WEDGE_NEIGHBOR_FALLOFF - 0.03
+				if p_next + 1e-4 < floor_n:
+					push_error(
+						"IncursionBreachTest: neighbor wedge spill weak anchor_p=%.3f neighbor_p=%.3f floor=%.3f"
+						% [p_raw, p_next, floor_n]
+					)
+					wedge_ok = false
+			var lo: float = float(atk.get("lane_offset", 0.0))
+			var lo_exp: float = _CombatConstants.INTRUSION_INTRUDER_LANE_OFFSET_BIAS
+			if absf(lo - lo_exp) > 0.02:
+				push_error(
+					"IncursionBreachTest: intruder lane_offset=%.3f expected ~%.3f" % [lo, lo_exp]
+				)
+				wedge_ok = false
+			var def_dict: Dictionary = def as Dictionary
+			var atk_dict: Dictionary = atk as Dictionary
+			var eff_id: float = _AvailableActionsBuilder.effective_pair_eff_dist(mgr, atk_dict, def_dict)
+			if is_nan(eff_id) or is_inf(eff_id) or eff_id <= 0.0:
+				push_error("IncursionBreachTest: effective_pair_eff_dist intruder↔defender invalid %.4f" % eff_id)
+				wedge_ok = false
+			var eff_eq: float = _AvailableActionsBuilder.effective_pair_file_spacing_equivalent(mgr, atk_dict, def_dict)
+			if is_nan(eff_eq) or is_inf(eff_eq) or eff_eq < 0.0:
+				push_error(
+					"IncursionBreachTest: effective_pair_file_spacing_equivalent intruder↔defender invalid %.4f" % eff_eq
+				)
+				wedge_ok = false
+	if wedge_ok:
+		# Fill system: global vacancy reconcile must be idempotent when state is already consistent.
+		var moved_once: bool = _FormationFlow.reconcile_vacancy_plugs_all_formations(mgr)
+		var moved_twice: bool = _FormationFlow.reconcile_vacancy_plugs_all_formations(mgr)
+		if moved_twice:
+			push_error(
+				"IncursionBreachTest: second consecutive reconcile_vacancy_plugs_all_formations moved units (not idempotent)"
+			)
+			wedge_ok = false
+		if moved_once and mgr.has_method("_recompute_zoc_and_distance"):
+			mgr._recompute_zoc_and_distance()
+	if wedge_ok:
+		set_meta("_harness_ok_breach", true)
 	print(
 		"[IncursionBreachTest] Harness: crash_success + breached_files fid=%s bf=%s breach_clogs_open_lanes=%s incursion_pressure=%.3f lane_stress=%s"
 		% [fid_def, bf, clogs, pressure, lane_stress]

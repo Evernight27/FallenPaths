@@ -8,7 +8,13 @@ const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 
 static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 	if ctrl.name:
-		ctrl.name.text = str(c.node.name) if c.node != null else ctrl.name.text
+		var base_name: String = str(c.node.name) if c.node != null else ctrl.name.text
+		if c.get("alive", true) and str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+			base_name += " · intruded"
+			var lo: float = absf(float(c.get("lane_offset", 0.0)))
+			if lo >= 0.02:
+				base_name += " (lane %.2f)" % float(c.get("lane_offset", 0.0))
+		ctrl.name.text = base_name
 	if ctrl.gauge:
 		# Phase 1: Show stamina (0-100) instead of gauge. Gauge kept for compatibility (e.g. receiving_medical).
 		var stamina: float = c.get("stamina", CombatConstants.STAMINA_MAX)

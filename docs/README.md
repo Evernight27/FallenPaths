@@ -1,12 +1,12 @@
 # Combat documentation (consolidated)
 
-**Start here — full logical implementation plan:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — baseline → Tier 1 (**P3 Done** in repo; **next coding P4** **intrusion wedge** + `lane_offset` + distance) **expanded steps + gates** → tiers 2–7.
+**Start here — full logical implementation plan:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — baseline → Tier 1 (**P3 + P4 shipped**; **1.4** hysteresis + discipline tags **partial**; **morale 1.5** not wired) + optional **2.1** tactical doc prose sync → tiers 2–7.
 
 ## Streamlined reading order
 
 | If you need… | Read… |
 |--------------|--------|
-| **Single plan before coding** | [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — dependency chain; **Tier 1.2 P3 Done**; **Tier 1.3 P4 next** (**wedge** + `lane_offset` + distance); gates for P3 re-audit vs P4. |
+| **Single plan before coding** | [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — dependency chain; **Tier 1.3 P4 Done**; **Tier 1.4 P5 Partial** (hysteresis + deltas + `line_discipline`; richer tags **Todo**); **1.6 Partial** (crash AI vs posture). |
 | **Tier 1 spec** (fields, plug taxonomy, tuning) | [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) — §4–§6; §2 is verification mirror (sequencing is in `IMPLEMENTATION_ORDER`). |
 | **Shipped baseline** (modules per subsystem) | Tier 0 in `IMPLEMENTATION_ORDER.md` — overlaps [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) **Current architecture snapshot**. |
 | **Historical phases + stamina / investigations** | [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) — long bundle; snapshot at top for “today.” |
@@ -18,7 +18,7 @@
 
 **1 master order** (`IMPLEMENTATION_ORDER.md`) **+ 12** markdown files below (consolidated bundles and standalone plans). Consolidated bundles list original filenames under `## Source:` for provenance.
 
-**Plan sync:** Engagement + tier order were checked against the repo **2026-04-07**; Tier **1.3** plan expanded **2026-04-13** (**wedge-first** P4: `intrusion_wedge_by_file` + `lane_offset` + distance). See “Last verified” / plan notes in `IMPLEMENTATION_ORDER.md` and `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`.
+**Plan sync:** **2026-04-27** pass — milestones, morale deferral, `ZoneOfControl.formation_id_for_zone_geometry(manager, c)` single source for intruder host fid in ZoC + pair distance. See “Last verified” in `IMPLEMENTATION_ORDER.md` and `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`.
 
 | File | Topics |
 |------|--------|

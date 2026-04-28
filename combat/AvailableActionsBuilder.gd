@@ -6,16 +6,12 @@ const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
-## Builds available actions for a combatant (attacks, medical). Manager must have: _get_by_id, _get_entity,
+## Builds available actions for a combatant (attacks, medical). Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess),
 ## _get_parts_being_treated_on, _get_ally_medical_actions, _is_in_immediate_peril, _has_left_immediate_peril_permanently,
 ## combatants, medical_phase, medical_phase_winner.
 
 static func _formation_id_for_pair_geometry(manager: Node, c: Dictionary) -> String:
-	if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
-		var hf: String = str(c.get("intrusion_host_fid", ""))
-		if not hf.is_empty() and not manager.formations.get(hf, {}).is_empty():
-			return hf
-	return str(c.get("formation_id", ""))
+	return _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
 
 
 static func _wedge_distance_pull(manager: Node, a: Dictionary, b: Dictionary, half_width_spacing: float) -> float:
@@ -33,9 +29,65 @@ static func _wedge_distance_pull(manager: Node, a: Dictionary, b: Dictionary, ha
 	if form.is_empty():
 		return 0.0
 	var p: float = _IntrusionWedge.pressure_at_file(form, anchor_f)
-	if p <= 0.0001:
+	var dep: float = _IntrusionWedge.depth_at_file(form, anchor_f)
+	if p <= 0.0001 and dep <= 0.0001:
 		return 0.0
-	return p * half_width_spacing * CombatConstants.EFF_DIST_WEDGE_PRESSURE_PULL
+	return p * half_width_spacing * CombatConstants.EFF_DIST_WEDGE_PRESSURE_PULL \
+		+ dep * half_width_spacing * CombatConstants.EFF_DIST_WEDGE_DEPTH_PULL
+
+
+## Wedge dict lives on **host** formation; intruders keep home `formation_id` but physically sit on host columns.
+## Pressure (x) and depth (y) at this combatant’s engagement column (host wedge + anchor when intruded).
+static func _wedge_pressure_depth_at_combatant_column(manager: Node, c: Dictionary) -> Vector2:
+	if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		var hf: String = str(c.get("intrusion_host_fid", ""))
+		if hf.is_empty():
+			return Vector2.ZERO
+		var form_i: Dictionary = manager.formations.get(hf, {})
+		if form_i.is_empty():
+			return Vector2.ZERO
+		var fi_i: int = int(c.get("intrusion_anchor_file", c.get("file", 0)))
+		return Vector2(_IntrusionWedge.pressure_at_file(form_i, fi_i), _IntrusionWedge.depth_at_file(form_i, fi_i))
+	var fid: String = str(c.get("formation_id", ""))
+	if fid.is_empty():
+		return Vector2.ZERO
+	var form: Dictionary = manager.formations.get(fid, {})
+	if form.is_empty():
+		return Vector2.ZERO
+	var fi: int = int(c.get("file", 0))
+	return Vector2(_IntrusionWedge.pressure_at_file(form, fi), _IntrusionWedge.depth_at_file(form, fi))
+
+
+## Corridor pull when neither side uses intruder anchor path: wedge on someone's home column still tightens reach.
+static func _wedge_bystander_corridor_pull(manager: Node, a: Dictionary, b: Dictionary, half_width_spacing: float) -> float:
+	var va: Vector2 = _wedge_pressure_depth_at_combatant_column(manager, a)
+	var vb: Vector2 = _wedge_pressure_depth_at_combatant_column(manager, b)
+	var p: float = maxf(va.x, vb.x)
+	var dep: float = maxf(va.y, vb.y)
+	if p <= 0.0001 and dep <= 0.0001:
+		return 0.0
+	var m: float = CombatConstants.EFF_DIST_WEDGE_BYSTANDER_MULT
+	return p * half_width_spacing * CombatConstants.EFF_DIST_WEDGE_PRESSURE_PULL * m \
+		+ dep * half_width_spacing * CombatConstants.EFF_DIST_WEDGE_DEPTH_PULL * m
+
+
+## Continuous "file spacing" units matching `effective_pair_eff_dist` / (half_width * REACH_SAFETY * ZoC geom mult). For MID/LONG band gates vs integer `mid_reach_files`.
+static func effective_pair_file_spacing_equivalent(manager: Node, a: Dictionary, b: Dictionary) -> float:
+	var fid_a: String = _formation_id_for_pair_geometry(manager, a)
+	var fid_b: String = _formation_id_for_pair_geometry(manager, b)
+	var fa: Dictionary = manager.formations.get(fid_a, {})
+	var fb: Dictionary = manager.formations.get(fid_b, {})
+	var df_fb: float = absf(float(a.get("file", 0) - b.get("file", 0)))
+	if fa.is_empty() or fb.is_empty():
+		return df_fb
+	var sa: float = CombatConstants.get_spacing_from_density(fa.get("density", "normal"))
+	var sb: float = CombatConstants.get_spacing_from_density(fb.get("density", "normal"))
+	var half_width: float = (sa + sb) * 0.5
+	if half_width < 1e-5:
+		return df_fb
+	var zoc_m: float = _ZoneOfControl.geometric_reach_extent_multiplier(manager, a, b)
+	var denom: float = half_width * CombatConstants.REACH_SAFETY_FACTOR * maxf(0.001, zoc_m)
+	return effective_pair_eff_dist(manager, a, b) / denom
 
 
 ## Geometric separation along files + lane_offset lateral metric − wedge pull (intrusion corridor).
@@ -68,7 +120,10 @@ static func effective_pair_eff_dist(manager: Node, a: Dictionary, b: Dictionary)
 		* half_width
 		* CombatConstants.REACH_SAFETY_FACTOR
 	)
-	var wedge_pull: float = _wedge_distance_pull(manager, a, b, half_width)
+	var wedge_pull: float = maxf(
+		_wedge_distance_pull(manager, a, b, half_width),
+		_wedge_bystander_corridor_pull(manager, a, b, half_width)
+	)
 	var pre_zoc: float = maxf(0.04, base + lateral - wedge_pull)
 	return pre_zoc * _ZoneOfControl.geometric_reach_extent_multiplier(manager, a, b)
 
@@ -78,13 +133,57 @@ static func melee_weapon_reach(c: Dictionary) -> float:
 		return 0.0
 	return float(w.melee_range)
 
+
+## Front-line vs front-line, intruder vs host rank-0, or host rank-0 vs intruder in host `slots` (P4 breach geometry).
+static func _melee_pair_rank_allowed(attacker: Dictionary, defender: Dictionary) -> bool:
+	var ar: int = int(attacker.get("rank", 0))
+	var dr: int = int(defender.get("rank", 0))
+	var ai: bool = str(attacker.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
+	var di: bool = str(defender.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
+	var ahf: String = str(attacker.get("intrusion_host_fid", ""))
+	var dhf: String = str(defender.get("intrusion_host_fid", ""))
+	if ar == 0 and dr == 0 and not ai and not di:
+		return true
+	if ai and not ahf.is_empty() and str(defender.get("formation_id", "")) == ahf and dr == 0:
+		return true
+	if di and not dhf.is_empty() and str(attacker.get("formation_id", "")) == dhf and ar == 0:
+		return true
+	return false
+
+
+## Host formation for “who is this column on?” — intruders occupy host `slots` while `formation_id` stays home (P4).
+static func _actor_host_fid_for_melee_targeting(actor: Dictionary) -> String:
+	if str(actor.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		var hf: String = str(actor.get("intrusion_host_fid", ""))
+		if not hf.is_empty():
+			return hf
+	return str(actor.get("formation_id", ""))
+
+
+## `opp_rank_required` 0/1 file rank, or intruder lodged on actor’s host line (any depth) for 0/1 stalemate passes.
+static func _opp_matches_melee_rank_target(actor: Dictionary, opp: Dictionary, opp_rank_required: int) -> bool:
+	if not opp.get("alive", false) or opp.get("side", "") == actor.get("side", ""):
+		return false
+	var host_fid: String = _actor_host_fid_for_melee_targeting(actor)
+	var ornk: int = int(opp.get("rank", 0))
+	var opp_intr_on_actor_host: bool = (
+		str(opp.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
+		and str(opp.get("intrusion_host_fid", "")) == host_fid
+	)
+	if ornk == opp_rank_required:
+		return true
+	if opp_rank_required <= 1 and opp_intr_on_actor_host:
+		return true
+	return false
+
+
 ## True if attacker could list a non-parry melee strike vs defender (weapon reach + distance band vs build()).
 static func can_melee_threaten(manager: Node, attacker: Dictionary, defender: Dictionary) -> bool:
 	if not attacker.get("alive", false) or not defender.get("alive", false):
 		return false
 	if attacker.get("side", "") == defender.get("side", ""):
 		return false
-	if attacker.get("rank", 0) != 0 or defender.get("rank", 0) != 0:
+	if not _melee_pair_rank_allowed(attacker, defender):
 		return false
 	if _EntityAccess.get_attacking_arm(attacker).is_empty():
 		return false
@@ -117,9 +216,7 @@ static func _append_melee_vs_enemy_line_rank(
 	opp_rank_required: int
 ) -> void:
 	for opp in combatants:
-		if not opp.alive or opp.side == c.side:
-			continue
-		if int(opp.get("rank", 0)) != opp_rank_required:
+		if not _opp_matches_melee_rank_target(c, opp, opp_rank_required):
 			continue
 		var eff_dist: float = effective_pair_eff_dist(manager, c, opp)
 		var in_swing_range: bool = melee_range >= eff_dist
@@ -158,7 +255,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 	if c.state == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION and medical_phase and c.side == medical_phase_winner:
 		if c.node != null and c.node.has_method("can_apply_direct_pressure") and c.node.has_method("get_wounded_parts"):
 			var parts_being_treated: Array = manager._get_parts_being_treated_on(combatant_id)
-			var entity = manager._get_entity(c.node)
+			var entity = _EntityAccess.get_entity_from_manager(manager, c)
 			for part in c.node.get_wounded_parts():
 				if part.is_empty() or part in parts_being_treated:
 					continue
@@ -175,8 +272,9 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		var our_formation: Dictionary = formations_dict.get(fid, {})
 		var our_rank: int = c.get("rank", 0)
 		var our_file: int = c.get("file", 0)
-		# Phase 3: Rank 0 melee only; rank 1+ cannot melee (support/ranged; no ranged yet → swap rank).
-		var can_melee: bool = our_rank == 0 and not _EntityAccess.get_attacking_arm(c).is_empty()
+		var c_intruded: bool = str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
+		# Phase 3: Rank 0 melee; intruders may strike host rank-0 from depth (P4 distance + bands).
+		var can_melee: bool = (our_rank == 0 or c_intruded) and not _EntityAccess.get_attacking_arm(c).is_empty()
 		if can_melee:
 			var weapon = _EntityAccess.get_weapon(c)
 			if weapon != null and weapon.has_method("get_available_attack_types"):
@@ -188,9 +286,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				)
 				var any_enemy_rank0: bool = false
 				for opp_chk in combatants:
-					if not opp_chk.alive or opp_chk.side == c.side:
-						continue
-					if int(opp_chk.get("rank", 0)) == 0:
+					if _opp_matches_melee_rank_target(c, opp_chk, 0):
 						any_enemy_rank0 = true
 						break
 				# Stalemate safety: `CombatFormationFlow` reconcile should guarantee a rank-0 enemy when possible; if not, avoid soft-lock.
@@ -205,10 +301,9 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		# Skirmish (collapsed line) can uncleg moves; see FormationBreachRules.breach_blocks_open_lane_moves.
 		var formation_ranks: int = our_formation.get("ranks", 1)
 		var breach_blocks_moves: bool = not our_formation.is_empty() and _FormationBreachRules.breach_blocks_open_lane_moves(manager, our_formation)
-		var is_intruded: bool = str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
 		log_fid = fid
 		log_breach_blocks_moves = breach_blocks_moves
-		if not our_formation.is_empty() and formation_ranks > 1 and not is_intruded:
+		if not our_formation.is_empty() and formation_ranks > 1 and not c_intruded:
 			if not breach_blocks_moves:
 				for ally in combatants:
 					if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
@@ -260,7 +355,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 						actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_SWAP_RANK })
 					break
 		# Phase 5: rotate file — same depth, adjacent files (line movement at any rank).
-		if not our_formation.is_empty() and formation_ranks > 1 and not is_intruded:
+		if not our_formation.is_empty() and formation_ranks > 1 and not c_intruded:
 			for ally in combatants:
 				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
 					continue
@@ -272,9 +367,9 @@ static func build(manager: Node, combatant_id: int) -> Array:
 					continue
 				actions.append({"target_id": ally.id, "move_id": CombatConstants.MOVE_ID_ROTATE_FILE})
 		# Phase 5: fall back solo — step to rear rank when that slot is empty.
-		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_blocks_moves and not is_intruded:
+		if not our_formation.is_empty() and formation_ranks > 1 and our_rank == 0 and not breach_blocks_moves and not c_intruded:
 			var slots_check: Dictionary = our_formation.get("slots", {})
-			if not _FormationSlots.slot_has_any(slots_check, Vector2i(1, our_file)):
+			if not _FormationSlots.slot_has_any_living_occupant(manager, slots_check, Vector2i(1, our_file)):
 				actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK})
 		_append_combat_wait_if_needed(actions, combatant_id)
 	else:
@@ -333,9 +428,10 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				CombatDebug.format_actions_compact(actions)
 			]
 		)
+		var dbg_intruded: bool = str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
 		if (
 			not medical_phase
-			and c.get("rank", 0) == 0
+			and (int(c.get("rank", 0)) == 0 or dbg_intruded)
 			and not _EntityAccess.get_attacking_arm(c).is_empty()
 			and crash_count == 0
 			and CombatConstants.crash_breach_viability(c) >= CombatConstants.CRASH_BREACH_VIABILITY_MIN
@@ -419,9 +515,7 @@ static func _crash_absent_primary_reason(manager: Node, c: Dictionary) -> String
 	var can_attack_from_mid: bool = melee_range >= CombatConstants.REACH_MID_MIN
 	var any_enemy_rank0: bool = false
 	for opp in manager.combatants:
-		if not opp.get("alive", false) or opp.get("side", "") == c.get("side", ""):
-			continue
-		if int(opp.get("rank", 0)) == 0:
+		if _opp_matches_melee_rank_target(c, opp, 0):
 			any_enemy_rank0 = true
 			break
 	var ranks_to_check: Array = [0] if any_enemy_rank0 else [1]
@@ -429,9 +523,7 @@ static func _crash_absent_primary_reason(manager: Node, c: Dictionary) -> String
 	var first_reason: String = ""
 	for rank_req in ranks_to_check:
 		for opp in manager.combatants:
-			if not opp.get("alive", false) or opp.get("side", "") == c.get("side", ""):
-				continue
-			if int(opp.get("rank", 0)) != rank_req:
+			if not _opp_matches_melee_rank_target(c, opp, rank_req):
 				continue
 			saw_line_enemy = true
 			var eff_dist: float = effective_pair_eff_dist(manager, c, opp)

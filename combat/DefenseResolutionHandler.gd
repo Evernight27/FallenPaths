@@ -7,6 +7,7 @@ extends RefCounted
 const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.COMBAT_DEBUG:
@@ -77,9 +78,10 @@ static func _resolve_partial_parry_follow_through(
 	var twist_capacity: float = time_factor * mobility_factor * twist_readiness
 	var follow_eff: float = CombatConstants.PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY
 	var attack_type_mod: float = 1.0
-	if attack_type == WeaponConstants.ATTACK_TYPE_STAB:
+	var twist_ct: String = _WeaponConstants.contact_type_for_move_id(attack_type)
+	if twist_ct == WeaponConstants.ATTACK_TYPE_STAB:
 		attack_type_mod = 1.0 - CombatConstants.PARRY_FOLLOW_THROUGH_THRUST_PENALTY
-	elif attack_type == WeaponConstants.ATTACK_TYPE_CUT:
+	elif twist_ct == WeaponConstants.ATTACK_TYPE_CUT:
 		attack_type_mod = 1.0 + CombatConstants.PARRY_FOLLOW_THROUGH_CUT_BONUS
 	var twist_partial_min: float = CombatConstants.PARRY_FOLLOW_THROUGH_PARTIAL_MIN
 	var parry_ratio: float = pa.get("parry_remaining_ratio", 1.0)
@@ -137,6 +139,7 @@ static func _resolve_dodge(
 				var attack_instance = AttackInstance.new(attack_type, intensity)
 				attack_instance.archetype = archetype
 				var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
+				v_intent *= _StrikeRealism.velocity_intent_mult_from_pa(pa, atk_weapon, attack_type, float(pa.get("intensity", intensity)), archetype)
 				var glancing_factor: float = CombatConstants.glancing_factor(dodge_remaining_ratio, 0.5)
 				pa["velocity_m_s"] = v_intent * glancing_factor
 			else:
@@ -207,7 +210,7 @@ static func _resolve_parry(
 		var readiness_factor: float = parry_readiness * (CombatConstants.PARRY_OFF_BALANCE_CONTROL_FACTOR if parry_off_balance else 1.0)
 		var timing_factor: float = CombatConstants.PARRY_LATE_CONTROL_FACTOR if late_parry else 1.0
 		var parry_control: float = clampf(margin_factor * _alignment * readiness_factor * timing_factor, 0.0, 1.0)
-		if attack_type == _WeaponConstants.ATTACK_TYPE_STAB:
+		if _WeaponConstants.contact_type_for_move_id(attack_type) == WeaponConstants.ATTACK_TYPE_STAB:
 			parry_control *= CombatConstants.PARRY_THRUST_CONTROL_MULT
 		var severity: float = clampf((margin_ratio - 1.0) / 1.0, 0.0, 1.0)
 		var atk_angle_at_contact: float = CombatConstants.get_arc_angle_at_progress(arc_start, arc_end, _parry_progress) if arc_end >= -900.0 else CombatConstants.line_to_angle(eff_atk_line)
@@ -227,6 +230,7 @@ static func _resolve_parry(
 			"parry_off_balance": parry_off_balance,
 			"is_block_parry": is_block_parry,
 			"attack_type": attack_type,
+			"contact_type": _WeaponConstants.contact_type_for_move_id(attack_type),
 			"effective_attack_line": eff_atk_line,
 			"severity": severity,
 			"attack_angle_deg": atk_angle_at_contact
@@ -237,7 +241,7 @@ static func _resolve_parry(
 	var attacker_weapon = _EntityAccess.get_weapon(atk)
 	var agi_d: float = float(tgt.stats.get("agility", 100))
 	var perc_d: float = float(tgt.stats.get("perception", 100))
-	var redirect_mult: float = CombatConstants.compute_parry_redirect_mult(pcfg, agi_d, perc_d, attack_type, is_block_parry, m_a_parry, m_d_parry)
+	var redirect_mult: float = CombatConstants.compute_parry_redirect_mult(pcfg, agi_d, perc_d, _WeaponConstants.contact_type_for_move_id(attack_type), is_block_parry, m_a_parry, m_d_parry)
 	var effective_reduction: float = c_d_final * redirect_mult
 	var remaining_momentum: float = maxf(0.0, parry_p_a - effective_reduction)
 	var remaining_ratio: float = remaining_momentum / parry_p_a if parry_p_a > 0.0 else 0.0
@@ -251,7 +255,9 @@ static func _resolve_parry(
 	var v_reduced: float = (parry_p_a * glancing_factor) / maxf(0.001, m_a_vel)
 	var attack_instance = AttackInstance.new(attack_type, intensity)
 	attack_instance.archetype = archetype
-	var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(attacker_weapon, attack_instance) if attacker_weapon != null else 10.0
+	var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(attacker_weapon, attack_instance)
+	if attacker_weapon != null:
+		v_intent *= _StrikeRealism.velocity_intent_mult_from_pa(pa, attacker_weapon, attack_type, float(pa.get("intensity", intensity)), archetype)
 	var v_min_eff: float = v_intent * lerpf(CombatConstants.PARRY_V_MIN_NEAR_DEFLECT, CombatConstants.PARRY_V_MIN_FRACTION, clampf(remaining_ratio, 0.0, 1.0))
 	pa["velocity_m_s"] = maxf(v_reduced, v_min_eff)
 	pa["parry_remaining_ratio"] = remaining_ratio

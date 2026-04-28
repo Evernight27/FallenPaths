@@ -730,7 +730,7 @@ Verification that aggressive realism and pain systems are properly integrated. L
 
 1. **Battle start:** main.gd → BattleScene.start(players, enemies)
 2. **Entities:** Character has CombatBody (CoreEntity); Enemy is CoreEntity. Both get species (human.tres / goblin.tres) and call apply_species().
-3. **Damage:** CombatManager computes pre_cut, pre_blunt from WeaponDamageHelper; calls take_damage_split(pre_cut, pre_blunt, part, ...).
+3. **Damage:** `AttackResolver` / `WeaponDamageHelper` compute pre_cut, pre_blunt; the target’s node receives **`take_damage_split(pre_cut, pre_blunt, part, ...)`** only (no single-stream **`take_damage`** on **`CoreEntity`**).
 4. **Pain:** CoreEntity.get_total_pain() sums wounds; get_effective_pain_for_thresholds() divides by species.get_pain_reference(body_max).
 
 ### Combat Phases
@@ -745,7 +745,8 @@ Verification that aggressive realism and pain systems are properly integrated. L
 
 | Item | Notes |
 |------|-------|
-| *(none)* | Legacy Combat.gd/Combat.tscn removed; BattleScene/CombatManager is the sole combat system. |
+| `CoreEntity.take_damage` / single-stream damage | Removed; use **`take_damage_split`** only. |
+| `ui/CombatManager.gd` | Removed; orchestration is **`combat/CombatManager.gd`** + **`ui/BattleScene.gd`**. |
 
 ---
 
@@ -806,7 +807,7 @@ Nodes that participate in combat (Character, CoreEntity, CombatBody) must implem
 
 | Method | Purpose |
 |--------|---------|
-| `get_medical_entity()` | Returns health-holding node (Character → CombatBody) |
+| `get_medical_entity()` | Returns health-holding node (Character → CombatBody); battle code resolves via **`CombatManager.get_health_entity`** / **`CombatantEntityAccess`** |
 | `get_blood_volume()` | Blood level |
 | `get_total_bleeding_rate()` | Bleeding rate |
 | `get_wounded_parts()` | Parts with wounds |
@@ -820,8 +821,7 @@ Nodes that participate in combat (Character, CoreEntity, CombatBody) must implem
 
 | Method | Purpose |
 |--------|---------|
-| `take_damage_split(cut, blunt, part, ...)` | Apply damage |
-| `take_damage(amount, part, type, ...)` | Legacy single-stream |
+| `take_damage_split(cut, blunt, part, ...)` | Apply damage (sole entry on **`CoreEntity`** / combat bodies) |
 | `process_bleeding(delta)` | Advance bleeding |
 | `process_blood_loss(delta)` | Advance blood loss |
 
@@ -853,11 +853,9 @@ Switch the armor system so that:
 
 | Location | Method | Damage Type | Penetration Used |
 |----------|--------|-------------|------------------|
-| `ui/CombatManager.gd` | `_execute_attack` | Split (cut + blunt) | pen_sharp, pen_blunt, pen_blunt_momentum_per_area |
-| `ui/CombatManager.gd` | Fallback (no weapon) | Single stream | pen_sharp, pen_blunt for take_damage |
-| `core/CoreEntity.gd` | `take_damage_split` | Split | Passes to armor.apply_damage |
-| `core/CoreEntity.gd` | `take_damage` | Single | Passes to armor.apply_damage |
-| `character.gd` | Passthrough | — | Forwards to _combat_body |
+| `combat/AttackResolver.gd` | `compute_and_apply_damage` | Split (cut + blunt) | pen_sharp, pen_blunt, pen_blunt_momentum_per_area → **`take_damage_split`** on target node |
+| `core/CoreEntity.gd` | `take_damage_split` | Split | Passes to armor / **`EntityDamage`** |
+| `character.gd` | Passthrough | — | Forwards **`take_damage_split`** to **`_combat_body`** |
 | *(removed)* | Combat.gd was legacy; BattleScene/CombatManager is sole combat system | — | — |
 | `tests/TestBattle.gd` | Scripted tests | Split | pen_sharp, pen_blunt (500, 3000, 2500) |
 
@@ -1001,13 +999,9 @@ Update the print to not imply pen_blunt matters for blunt: e.g. "pen_sharp=%.2f 
 
 ---
 
-### Phase 7: CoreEntity.take_damage (Single Stream)
+### Phase 7: ~~CoreEntity.take_damage (Single Stream)~~ **Removed**
 
-#### 7.1 Blunt-Only Damage
-
-**Current:** `armor.apply_damage(amount_val, DAMAGE_TYPE_BLUNT, pen_s, pen_b, penetration_blunt_momentum_per_area)`.
-
-**New:** Same. Armor ignores pen_b for rigid check. If `penetration_blunt_momentum_per_area` is -1 (not provided), cushion uses base only. **Ensure** callers that deal blunt-only damage (e.g. fallback unarmed) pass a sensible momentum_per_area or -1. CombatManager fallback uses `take_damage(pre_blunt, ..., DAMAGE_TYPE_BLUNT, -1.0, pen_blunt, -1.0)` — momentum -1 is fine, cushion will use base.
+**Current code:** `CoreEntity.take_damage` was removed; all combat damage goes through **`take_damage_split`**. Blunt-only strikes use **`take_damage_split(0.0, blunt_pre, part, ...)`** (or cut+blunt as computed). If `penetration_blunt_momentum_per_area` is -1 (not provided), cushion uses base only. **`combat/AttackResolver.gd`** is the combat entry that calls **`take_damage_split`** on the target node.
 
 ---
 
@@ -1098,10 +1092,10 @@ Add note that the chosen fix is "Blunt = Transmission Only" — removes need for
 - [x] Blunt cushion: momentum_per_area still affects transmission when cushion > 0.
 - [x] Multi-layer armor: blunt applies transmission per layer, damage reduces through stack.
 - [x] No pen_blunt explosion: pen_blunt no longer used for rigid check.
-- [x] take_damage (single stream) BLUNT: works with momentum -1 (base transmission).
-- [x] take_damage_split: deflected + direct blunt both use transmission.
+- [x] ~~take_damage (single stream)~~ removed; blunt-only uses **`take_damage_split`** with momentum -1 where applicable.
+- [x] `take_damage_split`: deflected + direct blunt both use transmission.
 - [ ] TestBattle: scripted tests pass or expectations updated (run in Godot editor).
-- [x] CombatManager fallback (no weapon): still works.
+- [x] Unarmed / weaponless paths resolve through **`AttackResolver`** + **`take_damage_split`** (no separate single-stream API).
 
 ---
 

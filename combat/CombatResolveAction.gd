@@ -27,7 +27,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		var parts_being_treated: Array = manager._get_parts_being_treated_on(attacker_id)
 		if part in parts_being_treated:
 			return
-		var entity = manager._get_entity(atk.node)
+		var entity = _EntityAccess.get_entity_from_manager(manager, atk)
 		if entity != null and entity.has_method("apply_direct_pressure") and entity.apply_direct_pressure(part):
 			var who: String = _EntityAccess.get_display_name(atk, attacker_id)
 			print("[Combat] %s (receiving care) holding direct pressure on %s" % [who, part])
@@ -56,7 +56,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		if CombatConstants.COMBAT_EVENT_DEBUG:
 			var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 			var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
-			print("[Combat] %s attempting to close on %s (weapon range too short for mid)" % [atk_name, tgt_name])
+			print("[Combat] %s attempting to close on %s (tactical distance — pressure vs evasion roll)" % [atk_name, tgt_name])
 		manager._resolve_close_attempt(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return

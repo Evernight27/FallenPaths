@@ -4,6 +4,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 
 ## Builds a compact visual formation diagram: rank×file grid with unit names.
 ## Shows Front (rank 0) and Back (rank 1+) so formation changes (swap rank, etc.) are trackable.
@@ -47,12 +48,18 @@ static func create(manager: Node, preset: Dictionary, side: String) -> Control:
 	grid.name = "FormationDiagramGrid"
 	vbox.add_child(grid)
 
+	var wedge_strip = HBoxContainer.new()
+	wedge_strip.name = "WedgeCorridorStrip"
+	wedge_strip.add_theme_constant_override("separation", 6)
+	vbox.add_child(wedge_strip)
+
 	# Store references for refresh
 	root.set_meta("_formation_manager", manager)
 	root.set_meta("_formation_side", side)
 	root.set_meta("_formation_preset", preset)
 	root.set_meta("_formation_grid", grid)
 	root.set_meta("_zoc_line", zoc_line)
+	root.set_meta("_wedge_strip", wedge_strip)
 
 	_refresh_internal(root)
 	return root
@@ -117,7 +124,13 @@ static func _refresh_internal(diagram_root: Control) -> void:
 				for cid in occ:
 					var oc = manager._get_by_id(int(cid)) if manager.has_method("_get_by_id") else null
 					if oc != null and oc.get("alive", false):
-						names.append(_EntityAccess.get_display_name(oc, oc.get("id", -1)))
+						var nm: String = _EntityAccess.get_display_name(oc, oc.get("id", -1))
+						# Host grid can list intruders (home formation_id) or dual cells; tag so UI matches combat truth.
+						var intruded: bool = str(oc.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
+						var home_fid: String = str(oc.get("formation_id", ""))
+						if intruded or home_fid != side:
+							nm += " [intr.]"
+						names.append(nm)
 				if names.is_empty():
 					cell.text = "—"
 					cell.add_theme_color_override("font_color", Color(0.4, 0.42, 0.45))
@@ -141,3 +154,30 @@ static func _refresh_internal(diagram_root: Control) -> void:
 			cell.add_theme_font_size_override("font_size", 12)
 			cell.custom_minimum_size = Vector2(72, 0)
 			grid.add_child(cell)
+
+	var wstrip: Variant = diagram_root.get_meta("_wedge_strip", null)
+	if wstrip != null and wstrip is HBoxContainer:
+		for ch in (wstrip as HBoxContainer).get_children():
+			ch.queue_free()
+		var wlab0 := Label.new()
+		wlab0.text = "Corridor"
+		wlab0.add_theme_font_size_override("font_size", 10)
+		wlab0.add_theme_color_override("font_color", Color(0.55, 0.58, 0.62))
+		wlab0.custom_minimum_size = Vector2(48, 0)
+		(wstrip as HBoxContainer).add_child(wlab0)
+		for fi in range(files):
+			var pr: float = _IntrusionWedge.pressure_at_file(formation, fi)
+			var wc := Label.new()
+			var bars: Array = ["▁", "▂", "▃", "▄", "▅", "▆", "▇"]
+			if pr < 0.035:
+				wc.text = "·"
+			else:
+				wc.text = str(bars[clampi(int(pr * 7.0), 0, 6)])
+			wc.add_theme_font_size_override("font_size", 11)
+			wc.add_theme_color_override(
+				"font_color",
+				Color(0.88, 0.52, 0.42) if pr >= 0.22 else Color(0.5, 0.52, 0.55)
+			)
+			wc.tooltip_text = "Intrusion wedge pressure (file %d): %.0f%%" % [fi, pr * 100.0]
+			wc.custom_minimum_size = Vector2(72, 0)
+			(wstrip as HBoxContainer).add_child(wc)

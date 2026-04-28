@@ -1,8 +1,8 @@
 # Engagement: line cohesion, posture, intrusion geometry
 
-**Status:** In progress — P3 **intrusion slots + vacancy plug** shipped in repo; **next:** P4 **intrusion wedge (canonical)** + per-combatant **`lane_offset`** (metric projection from the wedge seam) + intruder-aware **`effective_pair_eff_dist`** / bands (`IMPLEMENTATION_ORDER` Tier 1.3).
+**Status:** P3–P4 **shipped**; P5 **partial** — hysteresis, posture deltas, **`line_discipline`** / encounter `line_discipline`; **`morale_cohesion_factor`** remains **1.0** until morale module (**Tier 1.5**). Optional: richer tags, **2.1** tactical doc narrative sync.
 
-**Last verified against repo:** 2026-04-07. **Spec addendum:** 2026-04-13 — **§4.1 intrusion wedge** (canonical) + **§4.2 lane metric `lane_offset`** + P4 distance integration. **2026-04-13 (c):** **Wedge-first** — breach geometry is authoritative on the **formation** as `intrusion_wedge_by_file`; `slots` remain occupation/plug truth; distance and stress **consume the wedge throughout**, not only dual-cell occupancy.
+**Last verified against repo:** 2026-04-27. **Spec addendum:** 2026-04-13 — **§4.1 intrusion wedge** + **§4.2 `lane_offset`** + distance. **2026-04-27:** Doc + code alignment — host formation id for ZoC/pair geometry centralized in **`ZoneOfControl.formation_id_for_zone_geometry`**; legacy **`LINE_COHESION_POSTURE_LINE_MIN`** constant removed (use **`LINE_COHESION_POSTURE_ENTER_LINE_MIN`** / **`LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`** + discipline deltas only).
 
 **Execution plan (ordered steps, exit criteria, implementation gate):** **`docs/IMPLEMENTATION_ORDER.md`** — Tier 1 expanded (P3–P7). Treat that file as the **single logical plan** before and during implementation.
 
@@ -22,8 +22,8 @@ Work should generally follow this chain so each layer has inputs from the layer 
 3. **Crash contest (gap vs line)** — `BreachResolver` hold/drive; **local** neighbor support (`CombatIntrusionGeometry`).
 4. **Intrusion as geometry** — combatant role + host/anchor; **empty attacker slot**; **intruder in defender `slots`** (occupancy / plugs / diagram); **vacancy plug** distinct from death plug; **intrusion wedge** on the defender formation (§4.1) as the **canonical** description of the torn sector (depth, pressure, lateral extent)—not inferred only from co-occupied cells.
 5. **Pair distance** — `AvailableActionsBuilder.effective_pair_eff_dist` (used by `CombatDistanceBands`, `BreachResolver`, …) uses **wedge-aware** geometry: per-file wedge state **plus** per-combatant **`lane_offset`** as the **lateral metric** clamped/derived from the wedge seam (P4). Integer `file` / `slots` stay topology; wedge + offsets are the **continuous** breach model.
-6. **Morale & encounter tags** — feed `morale_cohesion_factor` and posture thresholds; **cohesion inputs should prefer wedge + `breached_files`** over ad-hoc slot heuristics where both exist.
-7. **AI & tests** — consume posture/cohesion where useful; extend harnesses when crash or wedge geometry changes.
+6. **Encounter tags (Tier 1.4)** — posture threshold deltas + **`line_discipline`** (see `CombatConstants` / `CombatFormationEngagement._effective_posture_thresholds`). **Morale (Tier 1.5)** — will drive `morale_cohesion_factor` (currently fixed **1.0**). **Cohesion inputs** prefer wedge + **`breached_files`** over ad-hoc slot heuristics where both exist.
+7. **AI & tests** — e.g. **`CombatAIActionPicker`** crash weight vs **`engagement_posture`**; extend harnesses when crash or wedge geometry changes.
 
 ---
 
@@ -66,7 +66,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 | On crash success: set `intruded` + host + anchor | **Done** | `CombatEngagementResolver`; `notify_formation_changed` for attacker & defender formations. |
 | Remove intruder from own `slots` / empty rank-0 hole on attacker side | **Done** | `CombatFormationFlow.apply_intrusion_after_crash_success` + vacancy plug on home file. |
 | Represent intruder in defender `slots` (occupancy) | **Done** | `FormationSlots.place_intruder_behind_front_line` (rear ranks when depth > 1); plugs/diagram use `slots`. |
-| Per-formation **intrusion wedge** (`intrusion_wedge_by_file`) | **Todo** | **P4 canonical** breach corridor; written on crash success; decay/clear when breach heals; see §4.1. |
+| Per-formation **intrusion wedge** (`intrusion_wedge_by_file`) | **Done** | **P4** canonical breach corridor; writers/readers + tests; see §4.1. |
 
 ### 2.4 Plug taxonomy & formation flow
 
@@ -80,18 +80,18 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 
 | Item | State | Notes |
 |------|:-----:|-------|
-| `AvailableActionsBuilder.effective_pair_eff_dist` (+ `CombatDistanceBands` callers) for `CombatConstants.ENGAGEMENT_ROLE_INTRUDED` | **Todo** | P4: wedge-aware separation + anchor semantics + **`lane_offset`**; bands/crash consumers read same geometry. |
-| Per-formation **`intrusion_wedge_by_file`** | **Todo** | Tier 1.3: authoritative breach state; feeds stress, cohesion, eff dist; §4.1. |
-| Per-combatant `lane_offset` (bounded float; default 0) | **Todo** | Tier 1.3: **metric projection** along the line (seam bias from wedge); see §4.2. |
-| Intrusion / plug **repack** rules for `lane_offset` + wedge | **Todo** | Plugs and intruder clear/update wedge entries; clamp offsets; optional wedge decay over time. |
-| **`lane_stress_by_file` / ZoC** use wedge | **Todo** | Refactor from dual-cell-only heuristics where appropriate: wedge pressure contributes even without dual occupancy (`TacticalCombat`, `ZoneOfControl`). |
+| `AvailableActionsBuilder.effective_pair_eff_dist` (+ `CombatDistanceBands` callers) for `CombatConstants.ENGAGEMENT_ROLE_INTRUDED` | **Done** | Wedge + anchor + `lane_offset`; bands use file-spacing equivalent; ZoC host geometry for intruders. |
+| Per-formation **`intrusion_wedge_by_file`** | **Done** | Authoritative breach state; stress, cohesion, eff dist, UI corridor strip; §4.1. |
+| Per-combatant `lane_offset` (bounded float; default 0) | **Done** | Seam bias + repack on plugs/moves; anchor peer nudge §4.2. |
+| Intrusion / plug **repack** rules for `lane_offset` + wedge | **Done** | Wedge cleared on death/reset; offsets repacked in `CombatFormationFlow`. |
+| **`lane_stress_by_file` / ZoC** use wedge | **Done** | `TacticalCombat` + `ZoneOfControl` lane stress; intruder host ZoC id for geometry. |
 
 ### 2.6 Cohesion & posture refinement
 
 | Item | State | Notes |
 |------|:-----:|-------|
-| LINE ↔ OPEN hysteresis (`L_in` > `L_out`) | **Todo** | Constants + stored band or last posture in formation dict. |
-| Encounter / army tags (discipline, default open/line) | **Todo** | Bias thresholds or `morale_cohesion_factor` baseline. |
+| LINE ↔ OPEN hysteresis (`L_in` > `L_out`) | **Done** | `CombatConstants.LINE_COHESION_POSTURE_ENTER_LINE_MIN` / `LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`; prior `engagement_posture` on formation dict. |
+| Encounter / army tags (discipline, default open/line) | **Partial** | `encounter`: `engagement_posture_enter_delta` / `engagement_posture_leave_delta` / `line_discipline` (`ENCOUNTER_KEY_LINE_DISCIPLINE`); preset: `discipline_posture_*_delta`, `line_discipline`. **Morale not wired** (factor stays 1.0). |
 | Per-side asymmetric posture (open army vs line) | **Todo** | Current posture is per formation but duel/line/open rules are still coarse. |
 
 ### 2.7 Morale
@@ -104,9 +104,9 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 
 | Item | State | Notes |
 |------|:-----:|-------|
-| `CombatAIActionPicker` weights from posture | **Todo** | Optional after posture is stable. |
+| `CombatAIActionPicker` weights from posture | **Partial** | Crash (`MOVE_ID_CRASH`) weight multiplier from side **`engagement_posture`**; further moves / cohesion coupling optional. |
 | `IncursionBreachTest` / harness updates for neighbor hold | **Optional** | Re-baseline if `p_win` expectations are asserted. |
-| Sync `TACTICAL_ZONES_BREACH_MOVEMENT.md` with this plan | **Todo** | Tier 2.1 after **1.3+**: breach vs incursion vs **wedge + slots + `lane_offset` / distance** (`IMPLEMENTATION_ORDER`). |
+| Sync `TACTICAL_ZONES_BREACH_MOVEMENT.md` with this plan | **Partial** | **2026-04-27:** implementation banner updated (P3–P4 in code); bundled investigation sections may still use pre-wedge language — edit when touching those sections (**Tier 2.1**). |
 
 ---
 
@@ -177,6 +177,8 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 | `morale_cohesion_factor` | float | Morale hook; default **1.0**. |
 | `breached_files` | Dictionary | Per-file breach severity (existing); **wedge writer** may initialize from this; long term avoid duplicating two conflicting severities—document which is canonical in code comments. |
 | `intrusion_wedge_by_file` | Dictionary | **P4.** File → wedge dict (§4.1): canonical breach corridor for stress, cohesion, distance, UI. |
+| `discipline_posture_enter_delta` / `discipline_posture_leave_delta` | float | **Tier 1.4.** From preset; added to hysteresis thresholds. |
+| `line_discipline` | String | **Tier 1.4.** `strict` / `normal` / `loose` (`CombatConstants.LINE_DISCIPLINE_*`); empty = no extra shift. |
 
 ### Per combatant (`CombatManager` combatant dict)
 
@@ -193,12 +195,13 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 
 ## 6. Tuning
 
-All numeric defaults for cohesion, posture threshold, and neighbor hold live in **`combat/CombatConstants.gd`** (`COHESION_*`, `LINE_COHESION_POSTURE_LINE_MIN`, `CRASH_NEIGHBOR_*`). **P4** adds **wedge** tuning (pressure/depth clamp, neighbor file falloff, decay half-life), lane-offset and lateral-distance tuning (e.g. `LANE_OFFSET_MAX`, seam bias, minimum pairwise lateral separation, lateral and wedge-depth scale inside `effective_pair_eff_dist`). Tune by playtest after P3–P4 land.
+All numeric defaults for cohesion, posture **hysteresis** (**`LINE_COHESION_POSTURE_ENTER_LINE_MIN`** / **`LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`**), discipline shifts, and neighbor hold live in **`combat/CombatConstants.gd`** (`COHESION_*`, `CRASH_NEIGHBOR_*`, `CRASH_AI_POSTURE_*`, wedge / `lane_offset` / `EFF_DIST_*`). Tune by playtest.
 
 ---
 
 ## 7. Changelog (plan doc only)
 
+- **2026-04-27:** §1–§2.6/§2.8 status (P5 partial, 1.6 partial AI, 2.1 banner partial); §5 `line_discipline` + posture deltas; §6 tuning list; morale explicitly deferred (field 1.0).
 - **2026-04-13 (c):** **Wedge-first P4** — new §4.1 wedge (`intrusion_wedge_by_file`), §4.2 lane coupling + distance note, dependency §1 and §2.5 rows, §5–§6; slots described as occupancy only; `breached_files` note on single canonical severity.
 - **2026-04-13 (b):** §2.3–§2.4 P3 items → **Done** (mirror `IMPLEMENTATION_ORDER` milestone 1.2).
 - **2026-04-13:** Lane metric offset spec (later **§4.2** after wedge renumber); §2.5 rows; §5 `lane_offset` + `intrusion_source_file`; §6 P4 tuning note. Aligns with `IMPLEMENTATION_ORDER.md` Tier 1.3 rework.

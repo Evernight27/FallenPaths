@@ -6,10 +6,20 @@ extends RefCounted
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _EventDispatch := preload("res://combat/CombatEventDispatch.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 
 static func tick(manager: Node, delta: float) -> void:
 	manager.combat_clock += delta
 	_EventDispatch.process_event_queue(manager)
+	if _FormationFlow.reconcile_vacancy_plugs_all_formations(manager):
+		manager._recompute_zoc_and_distance()
+		if manager.formations is Dictionary:
+			for fk in manager.formations.keys():
+				manager._reschedule_back_rank_turns(str(fk))
+		if manager.formations.has("player"):
+			manager.emit_signal("formation_changed", "player")
+		if manager.formations.has("enemy"):
+			manager.emit_signal("formation_changed", "enemy")
 	var victor: String = ""
 	for c in manager.combatants:
 		if not c.alive or c.node == null:

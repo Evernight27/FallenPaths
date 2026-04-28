@@ -5,6 +5,7 @@ extends RefCounted
 
 const _StatsSync := preload("res://combat/CombatantStatsSync.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 
 static func build(manager: Node) -> Array:
@@ -12,7 +13,7 @@ static func build(manager: Node) -> Array:
 	for c in manager.combatants:
 		var stats = c.stats.duplicate()
 		if c.node != null:
-			var entity = manager._get_entity(c.node)
+			var entity = _EntityAccess.get_entity_from_manager(manager, c)
 			if entity != null:
 				_StatsSync.sync_from_entity(entity, stats)
 		_StatsSync.ensure_defaults(stats)

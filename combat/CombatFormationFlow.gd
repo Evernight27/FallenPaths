@@ -7,15 +7,85 @@ extends RefCounted
 ## then **vacancy plug** on the home formation (empty rank-0 without death). **Death plug** stays in
 ## `on_combatant_died` only; same-tick ordering avoids mixing vacancy with death removal.
 ##
+## **Fill vs wedge/posture:** vacancy/death/pair moves are **orthogonal** to `intrusion_wedge_by_file` and engagement posture;
+## they only share `lane_offset` repack when rank/file changes. Wedge does not drive who promotes — **slots + rules** do.
+##
 ## **Global vacancy reconcile:** `reconcile_vacancy_plugs_formation` / `reconcile_vacancy_plugs_all_formations` promote
 ## shallow holes across every file column. `CombatManager.notify_formation_changed` and `get_available_actions` call
 ## these so rank-0 gaps do not persist off-intrusion paths; work is idempotent when the line is already filled.
+## Per hole: **best vertical** and **best lateral** are scored independently, then `_resolve_optimal_plug_vertical_vs_lateral`
+## picks vertical whenever the same column has an adjacent-rank donor (depth funnels before same-rank lateral).
+## `apply_vacancy_plug_same_file` scans **deepest empty rank first** so a gap under the front is closed from the rear before rank-0 considers lateral.
+## Donors are **reserved** for the reconcile pass so the same unit is not assigned to two holes.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
+const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+
+const _VACANCY_LATERAL_EDGE_META := "_vacancy_lateral_edges"
+const _VACANCY_PLUG_RESERVED_DONORS_META := "_vacancy_plug_reserved_donors"
+
+
+## Tier 1.3 P4: after rank/file changes from plugs or formation moves, keep `lane_offset` bounded (§4.2 repack).
+## Intruders keep seam bias; line fighters reset to column center.
+static func repack_lane_offset_after_rank_file_change(c: Dictionary) -> void:
+	if c.is_empty():
+		return
+	if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		c["lane_offset"] = clampf(
+			CombatConstants.INTRUSION_INTRUDER_LANE_OFFSET_BIAS,
+			-CombatConstants.LANE_OFFSET_ABS_MAX,
+			CombatConstants.LANE_OFFSET_ABS_MAX
+		)
+	else:
+		c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
+
+
+static func _vacancy_lateral_begin_tracking(manager: Node) -> void:
+	manager.set_meta(_VACANCY_LATERAL_EDGE_META, [])
+	manager.set_meta(_VACANCY_PLUG_RESERVED_DONORS_META, {})
+
+
+static func _vacancy_lateral_end_tracking(manager: Node) -> void:
+	if manager.has_meta(_VACANCY_LATERAL_EDGE_META):
+		manager.remove_meta(_VACANCY_LATERAL_EDGE_META)
+	if manager.has_meta(_VACANCY_PLUG_RESERVED_DONORS_META):
+		manager.remove_meta(_VACANCY_PLUG_RESERVED_DONORS_META)
+
+
+static func _vacancy_plug_reserved_donors(manager: Node) -> Dictionary:
+	if manager.has_meta(_VACANCY_PLUG_RESERVED_DONORS_META):
+		return manager.get_meta(_VACANCY_PLUG_RESERVED_DONORS_META) as Dictionary
+	return {}
+
+
+## True if this unit already slid donor→hole this pass; blocks immediate slide back (stops 0↔1 ping-pong).
+static func _vacancy_lateral_is_reverse_blocked(
+	manager: Node,
+	ally_id: int,
+	donor_file: int,
+	hole_file: int,
+	rk: int
+) -> bool:
+	if not manager.has_meta(_VACANCY_LATERAL_EDGE_META):
+		return false
+	var arr: Array = manager.get_meta(_VACANCY_LATERAL_EDGE_META) as Array
+	for e in arr:
+		if int(e.get("id", -9)) != ally_id:
+			continue
+		if int(e.get("rk", -9)) != rk:
+			continue
+		if int(e.get("src_f", -9)) == hole_file and int(e.get("dst_f", -9)) == donor_file:
+			return true
+	return false
+
+
+static func _vacancy_lateral_record_edge(manager: Node, ally_id: int, src_f: int, dst_f: int, rk: int) -> void:
+	var arr: Array = manager.get_meta(_VACANCY_LATERAL_EDGE_META) as Array
+	arr.append({"id": ally_id, "src_f": src_f, "dst_f": dst_f, "rk": rk})
 
 
 static func apply_hit_reaction_if_needed(manager: Node, combatant_id: int, intensity: float = 0.5) -> void:
@@ -126,7 +196,7 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 		return
 	var f: int = init.get("file", 0)
 	var slots: Dictionary = formation.get("slots", {})
-	if _FormationSlots.slot_has_any(slots, Vector2i(1, f)):
+	if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(1, f)):
 		return
 	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
 	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
@@ -267,6 +337,8 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	init.file = f1
 	partner.rank = r0
 	partner.file = f0
+	repack_lane_offset_after_rank_file_change(init)
+	repack_lane_offset_after_rank_file_change(partner)
 	_FormationSlots.slot_set_single(slots, Vector2i(init.rank, init.file), init.id)
 	_FormationSlots.slot_set_single(slots, Vector2i(partner.rank, partner.file), partner.id)
 	init.erase("formation_move_partner_id")
@@ -309,13 +381,14 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 		return
 	var f: int = init.get("file", 0)
 	var slots: Dictionary = formation.get("slots", {})
-	if _FormationSlots.slot_has_any(slots, Vector2i(1, f)):
+	if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(1, f)):
 		CombatDebug.flow_log("fall_back_solo_resolve id=%d aborted: rear slot (1,%d) occupied" % [initiator_id, f])
 		init.state = CombatConstants.STATE_WAITING
 		manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
 		return
 	_FormationSlots.remove_combatant_from_slots(slots, initiator_id)
 	init.rank = 1
+	repack_lane_offset_after_rank_file_change(init)
 	_FormationSlots.slot_set_single(slots, Vector2i(1, f), initiator_id)
 	init.erase("formation_move_partner_id")
 	init.state = CombatConstants.STATE_WAITING
@@ -355,6 +428,8 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 	_FormationSlots.remove_combatant_from_slots(slots, partner.id)
 	init.file = f1
 	partner.file = f0
+	repack_lane_offset_after_rank_file_change(init)
+	repack_lane_offset_after_rank_file_change(partner)
 	_FormationSlots.slot_set_single(slots, Vector2i(r_rot, init.file), init.id)
 	_FormationSlots.slot_set_single(slots, Vector2i(r_rot, partner.file), partner.id)
 	init.erase("formation_move_partner_id")
@@ -401,13 +476,13 @@ static func apply_intrusion_after_crash_success(
 		_FormationSlots.remove_combatant_from_slots(fd.get("slots", {}), aid)
 	var slots_b: Dictionary = form_b.get("slots", {})
 	var host_ranks: int = maxi(1, int(form_b.get("ranks", 1)))
-	var placed_rank: int = _FormationSlots.place_intruder_behind_front_line(slots_b, host_ranks, defender_file, aid)
+	var placed_rank: int = _FormationSlots.place_intruder_behind_front_line(manager, slots_b, host_ranks, defender_file, aid)
 	atk["rank"] = placed_rank
 	atk["file"] = defender_file
 	var sev_use: float = breach_severity
 	if sev_use < 0.0:
 		var bf0: Dictionary = form_b.get("breached_files", {})
-		sev_use = float(bf0.get(defender_file, bf0.get(str(defender_file), 0.7)))
+		sev_use = _FormationBreachRules.breached_file_severity(bf0, defender_file, 0.7)
 	_IntrusionWedge.upsert_from_intrusion(
 		form_b,
 		defender_file,
@@ -416,11 +491,8 @@ static func apply_intrusion_after_crash_success(
 		int(atk.get("tactical_penetration_depth", 0)),
 		CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX
 	)
-	atk["lane_offset"] = clampf(
-		CombatConstants.INTRUSION_INTRUDER_LANE_OFFSET_BIAS,
-		-CombatConstants.LANE_OFFSET_ABS_MAX,
-		CombatConstants.LANE_OFFSET_ABS_MAX
-	)
+	repack_lane_offset_after_rank_file_change(atk)
+	_nudge_anchor_rank0_lane_offset_for_intrusion(manager, defender_formation_id, defender_file, aid)
 	if first_intrusion:
 		atk["intrusion_source_file"] = home_vacancy_file
 		apply_vacancy_plug_same_file(manager, fid_a, home_vacancy_file)
@@ -428,7 +500,66 @@ static func apply_intrusion_after_crash_success(
 	manager._reschedule_back_rank_turns(defender_formation_id)
 
 
-## First living non-intruded occupant in `slots` at `key` for this formation side (dual cells: first valid).
+## §4.2: nudge anchor rank-0 defender on host file slightly opposite intruder seam bias (anti-overlap).
+static func _nudge_anchor_rank0_lane_offset_for_intrusion(
+	manager: Node,
+	defender_formation_id: String,
+	anchor_file: int,
+	intruder_id: int
+) -> void:
+	if manager == null or not manager.has_method("_get_by_id"):
+		return
+	var form_b: Dictionary = manager.formations.get(defender_formation_id, {})
+	if form_b.is_empty():
+		return
+	var slots_b: Dictionary = form_b.get("slots", {})
+	var occ: Array = _FormationSlots.normalize_cell(slots_b.get(Vector2i(0, anchor_file), []))
+	for did in occ:
+		var cid: int = int(did)
+		if cid == intruder_id:
+			continue
+		var defc: Variant = manager._get_by_id(cid)
+		if defc == null or not (defc as Dictionary).get("alive", false):
+			continue
+		var d: Dictionary = defc as Dictionary
+		if str(d.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+			continue
+		if int(d.get("rank", 0)) != 0:
+			continue
+		if str(d.get("formation_id", "")) != defender_formation_id:
+			continue
+		var cur: float = float(d.get("lane_offset", 0.0))
+		d["lane_offset"] = clampf(
+			cur - CombatConstants.INTRUSION_ANCHOR_LANE_OFFSET_NUDGE,
+			-CombatConstants.LANE_OFFSET_ABS_MAX,
+			CombatConstants.LANE_OFFSET_ABS_MAX
+		)
+		break
+
+
+## Busy combatants must not be picked as vacancy donors (would fight slot state during swaps / wind-up).
+## Units just moved by automatic plug also sit out briefly so reconcile ticks cannot ping-pong them as donors.
+static func _is_ineligible_vacancy_donor(manager: Node, c: Dictionary) -> bool:
+	var st: String = str(c.get("state", ""))
+	if st in [
+		CombatConstants.STATE_SWAP_RANK,
+		CombatConstants.STATE_FALLING_BACK,
+		CombatConstants.STATE_WIND_UP,
+		CombatConstants.STATE_RECOVERING,
+		CombatConstants.STATE_MEDICAL_WIND_UP,
+		CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION,
+		CombatConstants.STATE_COWERING,
+	]:
+		return true
+	var until: float = float(c.get("formation_autofill_cooldown_until", -1.0))
+	if until >= 0.0 and manager != null:
+		var clk: float = float(manager.combat_clock)
+		if clk < until:
+			return true
+	return false
+
+
+## First living non-intruded occupant in `slots` at `key` for this formation side (dual cells: try each id; skip busy donors).
 static func _combatant_from_slot_primary_living(
 	manager: Node,
 	slots: Dictionary,
@@ -448,6 +579,8 @@ static func _combatant_from_slot_primary_living(
 			continue
 		if skip_intruded and str(ally.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
 			continue
+		if _is_ineligible_vacancy_donor(manager, ally):
+			continue
 		return ally
 	return null
 
@@ -458,12 +591,16 @@ static func _plug_effectiveness_score(manager: Node, c: Dictionary) -> float:
 		return -100.0
 	var perf: float = clampf(_EntityAccess.get_performance_modifier(c), 0.0, 2.0)
 	var leg: float = clampf(_EntityAccess.get_leg_functionality(c), 0.0, 1.0)
+	if is_nan(perf) or is_inf(perf):
+		perf = 1.0
+	if is_nan(leg) or is_inf(leg):
+		leg = 1.0
 	var blood_f: float = 1.0
-	var node = c.get("node")
-	if manager != null and manager.has_method("_get_entity") and node != null:
-		var ent = manager._get_entity(node)
-		if ent != null:
-			blood_f = clampf(_EntityAccess.get_blood_volume_from_node(ent) / 100.0, 0.0, 1.0)
+	var ent: Node = _EntityAccess.get_entity_from_manager(manager, c)
+	if ent != null:
+		blood_f = clampf(_EntityAccess.get_blood_volume_from_node(ent) / 100.0, 0.0, 1.0)
+	if is_nan(blood_f) or is_inf(blood_f):
+		blood_f = 1.0
 	return perf * 0.45 + leg * 0.35 + blood_f * 0.2
 
 
@@ -476,17 +613,152 @@ static func _plug_effectiveness_normalized_0_1(manager: Node, c: Dictionary) -> 
 
 
 ## Single score: nonlinear penalty on low effectiveness can override raw proximity when fit allies exist elsewhere.
-static func _plug_priority_score(manager: Node, prox_steps: int, c: Dictionary) -> float:
+## `fill_rank`: when 0 (front row hole), adds urgency so the line closes before lateral shuffles when scores are close.
+static func _plug_priority_score(manager: Node, prox_steps: int, c: Dictionary, fill_rank: int = -1) -> float:
 	var eff_n: float = _plug_effectiveness_normalized_0_1(manager, c)
+	if is_nan(eff_n) or is_inf(eff_n):
+		eff_n = 0.0
 	var exp_n: float = CombatConstants.FORMATION_PLUG_EFFECTIVENESS_EXPONENT
+	if is_nan(exp_n) or is_inf(exp_n) or exp_n <= 0.0:
+		exp_n = 2.0
 	var nonlinear: float = pow(eff_n, exp_n)
 	var w: float = CombatConstants.FORMATION_PLUG_PROXIMITY_WEIGHT
+	if is_nan(w) or is_inf(w) or w < 0.0:
+		w = 0.28
 	var prox_factor: float = 1.0 / (1.0 + w * float(max(0, prox_steps)))
-	return nonlinear * prox_factor
+	var pri: float = nonlinear * prox_factor
+	if fill_rank == 0:
+		pri += CombatConstants.FORMATION_PLUG_RANK0_URGENCY_BONUS
+	if is_nan(pri) or is_inf(pri):
+		return 0.0
+	return pri
 
 
-## Chooses who fills `(fill_rank, file)`: every **vertical** occupant above the hole (all ranks) plus **lateral** same-rank neighbors.
-## Picks max `_plug_priority_score` (nonlinear effectiveness × proximity softness) so injured closer ranks lose to able-bodied farther lanes/rows.
+## Best vertical option for this hole (same column, deeper ranks). Evaluated separately from lateral.
+## When `adjacent_rank_only`, only `fill_rank + 1` is considered so one move cannot skip a rank (avoids mid-column holes + early `break` starving deeper fills).
+static func _evaluate_best_vertical_plug_for_cell(
+	manager: Node,
+	fid: String,
+	slots: Dictionary,
+	fill_rank: int,
+	file: int,
+	formation_ranks: int,
+	side_wanted: String,
+	skip_intruded: bool,
+	reserved: Dictionary,
+	adjacent_rank_only: bool = true
+) -> Dictionary:
+	var best: Dictionary = {}
+	var best_pri: float = -1.0
+	const rank_tie_eps: float = 1e-4
+	var search_end: int = formation_ranks
+	if adjacent_rank_only:
+		search_end = mini(fill_rank + 2, formation_ranks)
+	for search_rank in range(fill_rank + 1, search_end):
+		var ally_v: Variant = _combatant_from_slot_primary_living(
+			manager, slots, Vector2i(search_rank, file), fid, side_wanted, skip_intruded
+		)
+		if ally_v == null:
+			continue
+		var aid: int = int(ally_v.get("id", -1))
+		if reserved.get(aid, false):
+			continue
+		var prox: int = search_rank - fill_rank
+		var pri: float = _plug_priority_score(manager, prox, ally_v, fill_rank)
+		var cand: Dictionary = {
+			"ally": ally_v,
+			"kind": "vertical",
+			"from_rank": search_rank,
+			"from_file": file,
+			"prox": prox,
+			"pri": pri,
+		}
+		if best.is_empty() or pri > best_pri + rank_tie_eps:
+			best = cand
+			best_pri = pri
+		elif absf(pri - best_pri) <= rank_tie_eps:
+			if search_rank < int(best.get("from_rank", 999)):
+				best = cand
+				best_pri = pri
+	return best
+
+
+## Best lateral option for this hole (same rank, adjacent files). Evaluated separately from vertical.
+static func _evaluate_best_lateral_plug_for_cell(
+	manager: Node,
+	fid: String,
+	slots: Dictionary,
+	fill_rank: int,
+	file: int,
+	nfiles: int,
+	side_wanted: String,
+	skip_intruded: bool,
+	reserved: Dictionary
+) -> Dictionary:
+	var best: Dictionary = {}
+	var best_pri: float = -1.0
+	const file_tie_eps: float = 1e-4
+	for dfile in [-1, 1]:
+		var nf: int = file + dfile
+		if nf < 0 or nf >= nfiles:
+			continue
+		if not _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(fill_rank, nf)):
+			continue
+		var ally_l: Variant = _combatant_from_slot_primary_living(
+			manager, slots, Vector2i(fill_rank, nf), fid, side_wanted, skip_intruded
+		)
+		if ally_l == null:
+			continue
+		var aid: int = int(ally_l.get("id", -1))
+		if reserved.get(aid, false):
+			continue
+		if _vacancy_lateral_is_reverse_blocked(manager, aid, nf, file, fill_rank):
+			continue
+		var pri: float = _plug_priority_score(manager, 1, ally_l, fill_rank)
+		var cand: Dictionary = {
+			"ally": ally_l,
+			"kind": "lateral",
+			"from_rank": fill_rank,
+			"from_file": nf,
+			"prox": 1,
+			"pri": pri,
+		}
+		if best.is_empty() or pri > best_pri + file_tie_eps:
+			best = cand
+			best_pri = pri
+		elif absf(pri - best_pri) <= file_tie_eps:
+			if nf < int(best.get("from_file", 999)):
+				best = cand
+				best_pri = pri
+	return best
+
+
+## Pick exactly one move after independent vertical vs lateral scores.
+## If the hole's **column** has a legal vertical donor (same file, one rank deeper), always use it so the stack promotes before sideways shuffle.
+static func _resolve_optimal_plug_vertical_vs_lateral(vert: Dictionary, lat: Dictionary) -> Dictionary:
+	if vert.is_empty() and lat.is_empty():
+		return {}
+	if vert.is_empty():
+		return lat
+	if lat.is_empty():
+		return vert
+	return vert
+
+
+## Strips scoring fields; `_apply_plug_move` only needs ally/kind/from_rank/from_file.
+static func _plug_move_for_apply(move: Dictionary) -> Dictionary:
+	if move.is_empty():
+		return {}
+	return {
+		"ally": move["ally"],
+		"kind": move["kind"],
+		"from_rank": move.get("from_rank", 0),
+		"from_file": move.get("from_file", 0),
+		"prox": move.get("prox", 0),
+	}
+
+
+## Resolves one hole: compute best vertical and best lateral independently, then choose optimal (not mixed candidate list).
 static func _select_best_plug_move_for_empty_cell(
 	manager: Node,
 	fid: String,
@@ -496,42 +768,26 @@ static func _select_best_plug_move_for_empty_cell(
 	formation_ranks: int,
 	nfiles: int,
 	side_wanted: String,
-	skip_intruded: bool
+	skip_intruded: bool,
+	reserved: Dictionary,
+	adjacent_vertical_only: bool = true
 ) -> Dictionary:
-	var candidates: Array = []
-	for search_rank in range(fill_rank + 1, formation_ranks):
-		var ally_v: Variant = _combatant_from_slot_primary_living(
-			manager, slots, Vector2i(search_rank, file), fid, side_wanted, skip_intruded
-		)
-		if ally_v != null:
-			candidates.append(
-				{"ally": ally_v, "kind": "vertical", "from_rank": search_rank, "from_file": file, "prox": search_rank - fill_rank}
-			)
-	for dfile in [-1, 1]:
-		var nf: int = file + dfile
-		if nf < 0 or nf >= nfiles:
-			continue
-		if not _FormationSlots.slot_has_any(slots, Vector2i(fill_rank, nf)):
-			continue
-		var ally_l: Variant = _combatant_from_slot_primary_living(
-			manager, slots, Vector2i(fill_rank, nf), fid, side_wanted, skip_intruded
-		)
-		if ally_l == null:
-			continue
-		candidates.append(
-			{"ally": ally_l, "kind": "lateral", "from_rank": fill_rank, "from_file": nf, "prox": 1}
-		)
-	if candidates.is_empty():
-		return {}
-	var best: Dictionary = candidates[0]
-	var best_pri: float = _plug_priority_score(manager, int(best["prox"]), best["ally"])
-	for i in range(1, candidates.size()):
-		var cand: Dictionary = candidates[i]
-		var pri: float = _plug_priority_score(manager, int(cand["prox"]), cand["ally"])
-		if pri > best_pri:
-			best = cand
-			best_pri = pri
-	return best
+	var vert: Dictionary = _evaluate_best_vertical_plug_for_cell(
+		manager,
+		fid,
+		slots,
+		fill_rank,
+		file,
+		formation_ranks,
+		side_wanted,
+		skip_intruded,
+		reserved,
+		adjacent_vertical_only
+	)
+	var lat: Dictionary = _evaluate_best_lateral_plug_for_cell(
+		manager, fid, slots, fill_rank, file, nfiles, side_wanted, skip_intruded, reserved
+	)
+	return _plug_move_for_apply(_resolve_optimal_plug_vertical_vs_lateral(vert, lat))
 
 
 static func _apply_plug_move(
@@ -548,9 +804,14 @@ static func _apply_plug_move(
 	_FormationSlots.remove_combatant_from_slots(slots, ally.id)
 	ally.rank = fill_rank
 	ally.file = file
-	ally["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
+	repack_lane_offset_after_rank_file_change(ally)
 	_FormationSlots.slot_set_single(slots, Vector2i(fill_rank, file), ally.id)
-	if CombatConstants.COMBAT_EVENT_DEBUG:
+	ally["formation_autofill_cooldown_until"] = (
+		float(manager.combat_clock) + CombatConstants.FORMATION_AUTOFILL_REPOSITION_COOLDOWN_S
+	)
+	if kind == "lateral" and manager.has_meta(_VACANCY_LATERAL_EDGE_META):
+		_vacancy_lateral_record_edge(manager, int(ally.get("id", -1)), from_f, file, fill_rank)
+	if CombatConstants.COMBAT_FORMATION_PLUG_MOVE_DEBUG:
 		var name_p: String = _EntityAccess.get_display_name(ally, ally.get("id", -1))
 		if kind == "lateral":
 			print(
@@ -558,6 +819,12 @@ static func _apply_plug_move(
 			)
 		else:
 			print("[Combat] %s: %s advanced to rank %d (file %d)" % [log_prefix, name_p, fill_rank, file])
+	elif CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG and str(log_prefix).begins_with("Vacancy"):
+		var name_v: String = _EntityAccess.get_display_name(ally, ally.get("id", -1))
+		CombatDebug.formation_vacancy_log("%s: %s → rank %d file %d (%s)" % [log_prefix, name_v, fill_rank, file, kind])
+	if manager.has_meta(_VACANCY_PLUG_RESERVED_DONORS_META):
+		var rd: Dictionary = manager.get_meta(_VACANCY_PLUG_RESERVED_DONORS_META) as Dictionary
+		rd[int(ally.get("id", -1))] = true
 	manager._schedule_action_ready(ally.id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
 
 
@@ -575,17 +842,62 @@ static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) 
 	var side_wanted: String = str(formation.get("side", ""))
 	var nfiles: int = int(formation.get("files", 1))
 	var any_promoted: bool = false
-	for fill_rank in range(formation_ranks):
-		if _FormationSlots.slot_has_any(slots, Vector2i(fill_rank, file)):
-			continue
-		var move: Dictionary = _select_best_plug_move_for_empty_cell(
-			manager, fid, slots, fill_rank, file, formation_ranks, nfiles, side_wanted, true
-		)
-		if move.is_empty():
+	var micro_max: int = CombatConstants.FORMATION_VACANCY_MICRO_STEPS_MAX
+	for _micro in range(micro_max):
+		var moved_step: bool = false
+		# Deepest empty rank first so rank-1.. gaps are closed from the rear before rank-0 (avoids lateral into the front while the same file still has depth below).
+		for fill_rank in range(formation_ranks - 1, -1, -1):
+			if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(fill_rank, file)):
+				continue
+			var reserved: Dictionary = _vacancy_plug_reserved_donors(manager)
+			var move: Dictionary = _select_best_plug_move_for_empty_cell(
+				manager, fid, slots, fill_rank, file, formation_ranks, nfiles, side_wanted, true, reserved
+			)
+			if move.is_empty():
+				continue
+			_apply_plug_move(manager, slots, move, fill_rank, file, "Vacancy plug")
+			any_promoted = true
+			moved_step = true
 			break
-		_apply_plug_move(manager, slots, move, fill_rank, file, "Vacancy plug")
-		any_promoted = true
+		if not moved_step:
+			break
 	return any_promoted
+
+
+## When `COMBAT_FORMATION_VACANCY_DEBUG`, log rank-0 holes that still have no living slot occupant while an eligible deeper ally exists.
+static func _log_rank0_vacancy_gaps_if_debug(manager: Node, fid: String) -> void:
+	if not CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG:
+		return
+	var formation: Dictionary = manager.formations.get(fid, {})
+	if formation.is_empty():
+		return
+	var formation_ranks: int = int(formation.get("ranks", 1))
+	if formation_ranks <= 1:
+		return
+	var slots: Dictionary = formation.get("slots", {})
+	var nfiles: int = int(formation.get("files", 1))
+	var side_wanted: String = str(formation.get("side", ""))
+	for file in range(nfiles):
+		if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
+			continue
+		for ally in manager.combatants:
+			if not ally.get("alive", false):
+				continue
+			if str(ally.get("side", "")) != side_wanted:
+				continue
+			if str(ally.get("formation_id", "")) != fid:
+				continue
+			if str(ally.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+				continue
+			if int(ally.get("file", 0)) != file or int(ally.get("rank", 0)) < 1:
+				continue
+			if _is_ineligible_vacancy_donor(manager, ally):
+				continue
+			CombatDebug.formation_vacancy_log(
+				"rank0 gap fid=%s file=%d donor id=%d state=%s rank=%d (slots out of sync or plug blocked)"
+				% [fid, file, ally.get("id", -1), str(ally.get("state", "")), int(ally.get("rank", 0))]
+			)
+			break
 
 
 ## Run vacancy plug on every file column so empty front cells do not persist while deeper ranks are alive (avoids soft deadlock: no enemy rank 0 while enemies remain).
@@ -594,9 +906,15 @@ static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> boo
 	var formation: Dictionary = manager.formations.get(fid, {})
 	if formation.is_empty():
 		return false
+	var slots_prune: Dictionary = formation.get("slots", {})
+	if _FormationSlots.prune_dead_ids_from_formation_slots(manager, slots_prune):
+		CombatDebug.formation_vacancy_log("pruned dead occupant ids from slots fid=%s" % fid)
+	_vacancy_lateral_begin_tracking(manager)
 	var nfiles: int = int(formation.get("files", 1))
 	var any: bool = false
-	for _round in range(CombatConstants.FORMATION_VACANCY_RECONCILE_MAX_ROUNDS):
+	var max_rounds: int = CombatConstants.FORMATION_VACANCY_RECONCILE_MAX_ROUNDS
+	var exhausted_unstable: bool = false
+	for ri in range(max_rounds):
 		var round_changed: bool = false
 		for file in range(nfiles):
 			if apply_vacancy_plug_same_file(manager, fid, file):
@@ -604,6 +922,15 @@ static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> boo
 				any = true
 		if not round_changed:
 			break
+		if ri == max_rounds - 1:
+			exhausted_unstable = true
+	_vacancy_lateral_end_tracking(manager)
+	if exhausted_unstable and OS.is_debug_build():
+		push_warning(
+			"CombatFormationFlow: vacancy reconcile used all %d rounds with a change on the last round (fid=%s). Slots may still have holes; check plug rules or raise FORMATION_VACANCY_RECONCILE_MAX_ROUNDS."
+			% [max_rounds, fid]
+		)
+	_log_rank0_vacancy_gaps_if_debug(manager, fid)
 	return any
 
 
@@ -634,7 +961,7 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
 		var nfiles: int = int(formation.get("files", 1))
 		var side_wanted: String = str(formation.get("side", ""))
 		for file in range(nfiles):
-			if _FormationSlots.slot_has_any(slots, Vector2i(0, file)):
+			if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
 				continue
 			var has_promotable_deeper: bool = false
 			for ally in manager.combatants:
@@ -645,6 +972,8 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
 				if str(ally.get("formation_id", "")) != fid:
 					continue
 				if str(ally.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+					continue
+				if _is_ineligible_vacancy_donor(manager, ally):
 					continue
 				if int(ally.get("file", 0)) == file and int(ally.get("rank", 0)) >= 1:
 					has_promotable_deeper = true
@@ -677,6 +1006,7 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 		var s: Dictionary = fd.get("slots", {})
 		_FormationSlots.remove_combatant_from_slots(s, c.id)
 	var slots: Dictionary = formation.get("slots", {})
+	_FormationSlots.prune_dead_ids_from_formation_slots(manager, slots)
 	var obstacles: Dictionary = formation.get("slot_obstacles", {})
 	var key := Vector2i(r, f)
 	if not obstacles.has(key):
@@ -685,15 +1015,25 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 	if formation.get("ranks", 1) > 1:
 		var formation_ranks: int = formation.get("ranks", 1)
 		var nfiles_death: int = int(formation.get("files", 1))
-		for fill_rank in range(formation_ranks):
-			if _FormationSlots.slot_has_any(slots, Vector2i(fill_rank, f)):
-				continue
-			var move_d: Dictionary = _select_best_plug_move_for_empty_cell(
-				manager, fid, slots, fill_rank, f, formation_ranks, nfiles_death, str(c.side), true
-			)
-			if move_d.is_empty():
+		_vacancy_lateral_begin_tracking(manager)
+		var micro_max_d: int = CombatConstants.FORMATION_VACANCY_MICRO_STEPS_MAX
+		for _micro_d in range(micro_max_d):
+			var moved_step_d: bool = false
+			for fill_rank in range(formation_ranks - 1, -1, -1):
+				if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(fill_rank, f)):
+					continue
+				var reserved_d: Dictionary = _vacancy_plug_reserved_donors(manager)
+				var move_d: Dictionary = _select_best_plug_move_for_empty_cell(
+					manager, fid, slots, fill_rank, f, formation_ranks, nfiles_death, str(c.side), true, reserved_d
+				)
+				if move_d.is_empty():
+					continue
+				_apply_plug_move(manager, slots, move_d, fill_rank, f, "Plug")
+				moved_step_d = true
 				break
-			_apply_plug_move(manager, slots, move_d, fill_rank, f, "Plug")
+			if not moved_step_d:
+				break
+		_vacancy_lateral_end_tracking(manager)
 	manager._recompute_zoc_and_distance()
 	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)

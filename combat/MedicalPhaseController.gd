@@ -2,7 +2,7 @@ class_name MedicalPhaseController
 extends RefCounted
 
 ## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, and ally medical actions.
-## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), _get_entity(node) -> Node.
+## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), get_health_entity(node) -> Node (or use CombatantEntityAccess).
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -31,7 +31,7 @@ static func can_end_medical_phase(manager: Node) -> bool:
 
 ## True if combatant has any wounded part not comprehensively treated (bandaged, packed, or tourniqueted).
 static func has_untreated_wounds(manager: Node, c: Dictionary) -> bool:
-	var entity: Node = manager._get_entity(c.node) if c.node != null else null
+	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
 	if entity == null:
 		return false
 	if not entity.has_method("get_wounded_parts"):
@@ -50,7 +50,7 @@ static func has_untreated_wounds(manager: Node, c: Dictionary) -> bool:
 
 ## True when blood volume or estimated time to blood-loss death is in danger zone (consider medical).
 static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
-	var entity: Node = manager._get_entity(c.node) if c.node != null else null
+	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
 	if entity == null:
 		return false
 	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
@@ -73,7 +73,7 @@ static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
 
 ## Stricter than is_in_medical_danger: about to bleed out; must self-treat first.
 static func is_in_immediate_peril(manager: Node, c: Dictionary) -> bool:
-	var entity: Node = manager._get_entity(c.node) if c.node != null else null
+	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
 	if entity == null:
 		return false
 	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
@@ -90,7 +90,7 @@ static func is_in_immediate_peril(manager: Node, c: Dictionary) -> bool:
 
 ## True when entity has permanently left immediate peril (permanent bleeding rate low enough to recover).
 static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -> bool:
-	var entity: Node = manager._get_entity(c.node) if c.node != null else null
+	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
 	if entity == null:
 		return false
 	var perm_rate: float = _EntityAccess.get_permanent_bleeding_rate_from_node(entity, 0.0)
@@ -110,7 +110,7 @@ static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -
 
 ## 0..1: higher when more hurt (lower blood, shorter time to death). Includes randomness.
 static func get_medical_urgency(manager: Node, c: Dictionary) -> float:
-	var entity: Node = manager._get_entity(c.node) if (c != null and c.node != null) else null
+	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
 	if entity == null:
 		return 0.0
 	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
@@ -131,7 +131,7 @@ static func get_medical_urgency(manager: Node, c: Dictionary) -> float:
 ## Returns list of { move_id, target_part } for medical actions the performer can apply to the ally's part.
 static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally: Dictionary, part: String) -> Array:
 	var out: Array = []
-	var target_entity: Node = manager._get_entity(ally.node) if ally.node != null else null
+	var target_entity: Node = _EntityAccess.get_entity_from_manager(manager, ally)
 	var performer_has_arm: bool = performer.node.can_apply_direct_pressure("") if (performer.node != null and performer.node.has_method("can_apply_direct_pressure")) else false
 	var failed_parts: Array = ally.get("failed_medical_parts", [])
 	var skip_redress: bool = has_left_immediate_peril_permanently(manager, ally) and part in failed_parts

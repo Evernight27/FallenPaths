@@ -70,7 +70,12 @@ const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _FormationEngagement := preload("res://combat/CombatFormationEngagement.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 
-## Returns the node that holds health/wounds (CoreEntity for enemies; CombatBody for Character). Use for all health reads.
+## Scene combat node → health/wounds/stats holder (e.g. Character → CoreEntity). Subsystems should use **`CombatantEntityAccess.get_health_entity_from_node`** / **`get_entity_from_manager`**.
+func get_health_entity(node: Node) -> Node:
+	return _get_entity(node)
+
+
+## Private implementation for **`get_health_entity`**; do not call from other classes.
 func _get_entity(node: Node) -> Node:
 	if node == null:
 		return null
@@ -95,17 +100,17 @@ func apply_formation_hit_reaction_if_needed(combatant_id: int, intensity: float 
 
 func _refresh_combatant_stats(c: Dictionary) -> void:
 	"""Keep combatant stats in sync with node (pain, consciousness, blood, etc.) for UI and gauge fill.
-	Uses _get_entity for unified health access (party Character -> CombatBody, enemies -> self)."""
+	Uses get_health_entity / CombatantEntityAccess for unified health access (party Character -> CombatBody, enemies -> self)."""
 	if c.node == null:
 		return
-	var entity = _get_entity(c.node)
+	var entity = _EntityAccess.get_health_entity_from_node(self, c.node)
 	if entity == null:
 		return
 	_StatsSync.sync_from_entity(entity, c.stats)
 
 func register(node: Node, side: String) -> int:
 	var id = combatants.size()
-	var entity = _get_entity(node)
+	var entity = _EntityAccess.get_health_entity_from_node(self, node)
 	var stats = _StatsSync.sync_from_entity_for_register(entity if entity != null else node)
 	combatants.append({
 		"id": id,
@@ -183,6 +188,9 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	var default_enc := {
 		"ambush_type": CombatConstants.AMBUSH_TYPE_NONE,
 		"ambush_penalty": 0.0,
+		CombatConstants.ENCOUNTER_KEY_POSTURE_ENTER_DELTA: 0.0,
+		CombatConstants.ENCOUNTER_KEY_POSTURE_LEAVE_DELTA: 0.0,
+		CombatConstants.ENCOUNTER_KEY_LINE_DISCIPLINE: "",
 		CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE: false,
 		CombatConstants.ENCOUNTER_AMBUSHED_SIDE: "player",
 	}

@@ -16,11 +16,12 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CombatAIActionPicker := preload("res://combat/CombatAIActionPicker.gd")
+const _FileKeys := preload("res://combat/CombatFileKeyedDict.gd")
 const _BREACH_ACTIVE_EPSILON := 0.001
 
 ## Severity at a file index; keys may be int or string (serialization). Prefer int when writing.
-static func breached_file_severity(breached_files: Dictionary, file_index: int) -> float:
-	return float(breached_files.get(file_index, breached_files.get(str(file_index), 0.0)))
+static func breached_file_severity(breached_files: Dictionary, file_index: int, default_if_missing: float = 0.0) -> float:
+	return float(_FileKeys.get_value(breached_files, file_index, default_if_missing))
 
 
 ## Canonical rank-0 count for player / enemy formations (shared with TacticalCombat.incursion pressure).

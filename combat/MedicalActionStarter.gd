@@ -4,7 +4,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Starts a medical action: direct pressure (instant or during wind-up), bandage/tourniquet/pack wind-up.
-## Manager must have: _get_by_id, _get_entity, emit_signal.
+## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), emit_signal.
 
 static func start(manager: Node, combatant_id: int, target_combatant_id: int, medical_id: String, target_part: String) -> void:
 	var c = manager._get_by_id(combatant_id)
@@ -22,8 +22,8 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 			c.node.clear_direct_pressure()
 		# Apply direct pressure to the part being bandaged/tourniqueted during wind-up (reduces bleeding while preparing)
 		if not target_part.is_empty():
-			var tgt_entity = manager._get_entity(target_node.node)
-			var performer_entity = manager._get_entity(c.node)
+			var tgt_entity = _EntityAccess.get_entity_from_manager(manager, target_node)
+			var performer_entity = _EntityAccess.get_entity_from_manager(manager, c)
 			if tgt_entity != null and tgt_entity.has_method("get_wounds") and tgt_entity.get_wounds().has(target_part):
 				if target_combatant_id == combatant_id:
 					if tgt_entity.has_method("apply_direct_pressure") and tgt_entity.apply_direct_pressure(target_part):
@@ -49,8 +49,8 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 				applied = true
 		else:
 			# Ally: performer applies to target
-			var tgt_ent = manager._get_entity(target_node.node)
-			var performer_entity = manager._get_entity(c.node)
+			var tgt_ent = _EntityAccess.get_entity_from_manager(manager, target_node)
+			var performer_entity = _EntityAccess.get_entity_from_manager(manager, c)
 			if tgt_ent != null and tgt_ent.has_method("apply_direct_pressure_from_ally") and tgt_ent.apply_direct_pressure_from_ally(target_part, performer_entity):
 				applied = true
 				if performer_entity != null and "direct_pressure_on_ally" in performer_entity:
@@ -67,7 +67,7 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 	var wind_up_cfg = CombatConstants.MEDICAL_WIND_UP_CONFIG.get(medical_id, {})
 	var dur_method: String = wind_up_cfg.get("duration_method", "")
 	var dur_takes_part: bool = wind_up_cfg.get("duration_takes_part", false)
-	var target_entity = manager._get_entity(target_node.node)
+	var target_entity = _EntityAccess.get_entity_from_manager(manager, target_node)
 	if not dur_method.is_empty() and target_entity != null and target_entity.has_method(dur_method):
 		if dur_takes_part and not target_part.is_empty():
 			duration = target_entity.call(dur_method, target_part)
@@ -82,7 +82,7 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 	if perf_mod > 0.0:
 		duration /= maxf(CombatConstants.PERF_MOD_MIN, perf_mod)
 	# Intelligence (medical effectiveness): higher INT shortens medical wind-up
-	var perf_entity = manager._get_entity(c.node)
+	var perf_entity = _EntityAccess.get_entity_from_manager(manager, c)
 	var med_eff: float = _EntityAccess.get_medical_effectiveness_from_node(perf_entity)
 	if med_eff > 0.0:
 		duration /= maxf(0.5, med_eff)

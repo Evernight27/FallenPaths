@@ -17,9 +17,9 @@ Consolidated documentation. Each section keeps its **original filename** in the 
 
 **Combat implementation plan (sequence + Tier 1 coding steps):** `docs/IMPLEMENTATION_ORDER.md`. **Tier 1 design spec** (fields, plugs): `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`.
 
-**Tier 2 (this bundle):** Narrative and investigation sections below are **not yet fully reconciled** with neighbor hold (`CombatIntrusionGeometry`), per-formation cohesion/posture, or implemented/planned **vacancy plug, intruder slots, and `lane_offset` / effective-pair distance** (`IMPLEMENTATION_ORDER` Tier 1.2–1.3). When extending breach/incursion text, cross-check those modules and update this note.
+**Tier 2 (this bundle):** **As of 2026-04-27**, **Tier 1.2–1.3** behaviors are **implemented** in code: vacancy plug, intruder on defender `slots`, **`intrusion_wedge_by_file`**, **`lane_offset`**, **`AvailableActionsBuilder.effective_pair_eff_dist`**, neighbor hold, cohesion/posture. **Narrative sections below** (investigation prose) may still describe older “planned” states — when editing a section, align it with `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` and `combat/` sources (**ongoing Tier 2.1** cleanup).
 
-**Last reviewed for cross-links:** 2026-04-07. **Plan note:** Tier **2.1** doc sync is scheduled **after Tier 1.3** (`IMPLEMENTATION_ORDER.md`).
+**Last reviewed for cross-links:** 2026-04-27. **Plan note:** Full prose pass = **`IMPLEMENTATION_ORDER.md`** Tier **2.1** (optional, section-by-section).
 
 ---
 

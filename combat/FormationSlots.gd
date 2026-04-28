@@ -30,6 +30,34 @@ static func slot_has_any(slots: Dictionary, key: Vector2i) -> bool:
 	return not normalize_cell(slots.get(key, [])).is_empty()
 
 
+## True if at least one **living** combatant occupies the cell (dead ids alone do not count).
+static func slot_has_any_living_occupant(manager: Node, slots: Dictionary, key: Vector2i) -> bool:
+	return living_count_in_slot(manager, slots, key) > 0
+
+
+## Remove dead combatant ids from slot arrays and erase emptied cells. Returns whether `slots` changed.
+static func prune_dead_ids_from_formation_slots(manager: Node, slots: Dictionary) -> bool:
+	if manager == null or not manager.has_method("_get_by_id"):
+		return false
+	var changed: bool = false
+	for k in slots.keys().duplicate():
+		var arr: Array = normalize_cell(slots.get(k, []))
+		if arr.is_empty():
+			continue
+		var kept: Array = []
+		for cid in arr:
+			var c = manager._get_by_id(int(cid))
+			if c != null and c.get("alive", false):
+				kept.append(int(cid))
+		if kept.size() != arr.size():
+			changed = true
+		if kept.is_empty():
+			slots.erase(k)
+		else:
+			slots[k] = kept
+	return changed
+
+
 static func slot_primary_id(slots: Dictionary, key: Vector2i) -> int:
 	var arr: Array = normalize_cell(slots.get(key, []))
 	if arr.is_empty():
@@ -56,24 +84,26 @@ static func slot_add_intruder_at_rank0(slots: Dictionary, file: int, intruder_id
 
 
 ## Place intruder in host column behind rank 0 when possible. Returns combatant `rank` (host grid index).
-static func place_intruder_behind_front_line(slots: Dictionary, formation_ranks: int, file: int, intruder_id: int) -> int:
+## Uses **living** occupancy so dead-only cells do not block the first free rear rank.
+static func place_intruder_behind_front_line(manager: Node, slots: Dictionary, formation_ranks: int, file: int, intruder_id: int) -> int:
 	if formation_ranks <= 1:
 		slot_add_intruder_at_rank0(slots, file, intruder_id)
 		return 0
 	for r in range(1, formation_ranks):
 		var key := Vector2i(r, file)
-		if not slot_has_any(slots, key):
+		if not slot_has_any_living_occupant(manager, slots, key):
 			slot_set_single(slots, key, intruder_id)
 			return r
 	var deepest := Vector2i(formation_ranks - 1, file)
 	var cur: Array = normalize_cell(slots.get(deepest, []))
 	if cur.has(intruder_id):
 		return formation_ranks - 1
-	if cur.is_empty():
+	if living_count_in_slot(manager, slots, deepest) == 0:
 		slot_set_single(slots, deepest, intruder_id)
 	else:
 		var merged: Array = cur.duplicate()
-		merged.append(intruder_id)
+		if not merged.has(intruder_id):
+			merged.append(intruder_id)
 		slots[deepest] = merged
 	return formation_ranks - 1
 

@@ -11,14 +11,21 @@ static func get_weapon(combatant: Dictionary) -> Variant:
 		return null
 	return node.get_weapon()
 
-## Returns entity (health/wounds holder) from manager. Use manager._get_entity(combatant.node) when manager available.
-static func get_entity_from_manager(manager: Node, combatant: Dictionary) -> Node:
-	var node = combatant.get("node", null)
+## Resolves the health/wounds holder for a combat scene node (e.g. Character → CoreEntity). Prefers **`manager.get_health_entity(node)`** (see **`CombatManager`**).
+static func get_health_entity_from_node(manager: Node, node: Node) -> Node:
 	if node == null:
 		return null
-	if manager.has_method("_get_entity"):
+	if manager != null and manager.has_method("get_health_entity"):
+		return manager.get_health_entity(node)
+	if manager != null and manager.has_method("_get_entity"):
 		return manager._get_entity(node)
 	return node
+
+
+## Returns entity from combatant dict (same resolution as get_health_entity_from_node on combatant.node).
+static func get_entity_from_manager(manager: Node, combatant: Dictionary) -> Node:
+	var node: Node = combatant.get("node", null) as Node
+	return get_health_entity_from_node(manager, node)
 
 ## Returns display name for logging/debug: node.name if available, else "id:{id}". Pass fallback_id when combatant may be null.
 static func get_display_name(combatant: Variant, fallback_id: int = -1) -> String:

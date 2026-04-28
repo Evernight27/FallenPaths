@@ -2,9 +2,10 @@ class_name AttackWindUpStarter
 extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 
 ## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.
-## Manager must have: _get_by_id, get_entity via _get_entity.
+## Manager must have: _get_by_id; health reads go through CombatantEntityAccess + manager.get_health_entity.
 ## Mutates attacker combatant in place.
 
 static func start(manager: Node, attacker_id: int, target_id: int, move_id: String = "", options: Dictionary = {}) -> void:
@@ -94,6 +95,10 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	# arc_intended_deg: intended target angle (no variance) — lets systems query blade position during wind-up.
 	var arc_intended_deg: float = align_ctx["attack_angle_deg"]
 	var pa: Dictionary = {"target_id": target_id, "intensity": intensity, "power": power, "follow_through": follow_through, "attack_type": attack_type, "archetype": archetype, "wind_up_duration": wind_up_s, "arc_start_deg": arc_start_deg, "arc_intended_deg": arc_intended_deg}
+	if weapon != null:
+		pa["impact_blade_station"] = _StrikeRealism.roll_blade_station(weapon, attack_type, intensity)
+		pa["strike_measure_ratio"] = _StrikeRealism.measure_ratio(manager, atk, tgt, weapon)
+		pa["move_contact_type"] = WeaponConstants.contact_type_for_move_id(attack_type)
 	var target_part: String = str(options.get("target_part", ""))
 	var feint_part: String = str(options.get("feint_part", ""))
 	if not target_part.is_empty():

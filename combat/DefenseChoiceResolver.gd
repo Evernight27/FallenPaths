@@ -9,6 +9,7 @@ const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
+const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 
 ## Returns dict with: defense, can_parry_in_time, parry_p_a, parry_c_d, parry_time_to_react,
 ## parry_readiness, parry_off_balance, late_parry, is_block_parry, m_a_parry, m_d_parry,
@@ -80,6 +81,7 @@ static func choose_defense(
 				attack_instance.archetype = archetype
 				attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else -1.0
 				var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
+				v_intent *= _StrikeRealism.velocity_intent_mult_from_pa(pa, atk_weapon, attack_type, float(pa.get("intensity", 0.5)), archetype)
 				parry_time_to_react = effective_wind_up - reaction_time
 				var parry_progress: float = 1.0 - clampf(parry_time_to_react / maxf(0.001, effective_wind_up), 0.0, 1.0)
 				parry_p_a = m_a_striking * v_intent * CombatTiming.velocity_curve_factor(parry_progress)
@@ -129,6 +131,7 @@ static func choose_defense(
 				attack_instance.archetype = archetype
 				attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else -1.0
 				var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
+				v_intent *= _StrikeRealism.velocity_intent_mult_from_pa(pa, atk_weapon, attack_type, float(pa.get("intensity", 0.5)), archetype)
 				parry_p_a = m_a_striking_late * v_intent * CombatTiming.velocity_curve_factor(1.0)
 				parry_time_to_react = 0.0
 				parry_c_d = _compute_parry_c_d(def_weapon, tgt, contact_type_late)
@@ -245,7 +248,7 @@ static func choose_defense(
 		var parry_full: bool = result.is_block_parry and result.parry_c_d >= (result.parry_p_a * CombatConstants.PARRY_DEFLECT_THRESHOLD)
 		var agi_d: float = float(tgt.stats.get("agility", 100))
 		var perc_d: float = float(tgt.stats.get("perception", 100))
-		var redirect_mult: float = CombatConstants.compute_parry_redirect_mult(parry_cfg, agi_d, perc_d, attack_type, result.is_block_parry, m_a_parry, m_d_parry)
+		var redirect_mult: float = CombatConstants.compute_parry_redirect_mult(parry_cfg, agi_d, perc_d, WeaponConstants.contact_type_for_move_id(attack_type), result.is_block_parry, m_a_parry, m_d_parry)
 		var parry_remaining_est: float = 1.0
 		if not parry_full and result.parry_p_a > 0.001:
 			parry_remaining_est = clampf(maxf(0.0, result.parry_p_a - result.parry_c_d * redirect_mult) / result.parry_p_a, 0.0, 1.0)

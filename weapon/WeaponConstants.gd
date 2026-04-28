@@ -20,11 +20,11 @@ const BASELINE_MASS_KG: float = 1.0
 # Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J → E ∝ t^1.67. Nonlinear: pen = (KE/J_BASE)^PEN_EXPONENT.
 const J_PER_MM_BASE: float = 55.0  # Williams: 55 J for 1 mm mild steel
 const PENETRATION_EXPONENT: float = 0.6  # 1/1.67; thicker armor needs disproportionately more energy
-# Effective impact velocity (m/s). Research: rod-like strikes 17.2–24.2 m/s.
+# Global impact speed floor/ceiling (m/s): fallback when a weapon template has no Tier-A band entry; ImpactVelocityModel uses these (see ImpactVelocityModel._tier_a_default_band).
 const VELOCITY_MIN_M_S: float = 6.0
 const VELOCITY_MAX_M_S: float = 24.0
 # Pre-armor damage: scale * sqrt(KE) * strength_mod * arm_mod. 2.0 aligns severance with research (~100 J arm, ~200 J leg).
-# See JOULES_FORCE_OPTIMAL_NUMBERS.md.
+# Severance tuning narrative: docs/PHYSICS_DAMAGE_AND_FLOW.md (embedded RESEARCHED_NUMBERS / damage tables).
 const DAMAGE_KE_SCALE: float = 2.0
 const DAMAGE_KE_MIN: float = 1.0
 const DAMAGE_KE_MAX: float = 80.0
@@ -38,7 +38,7 @@ const MIN_CONTACT_WIDTH_CM: float = 0.2
 # Contact area in damage: smaller contact -> more local damage. Cap factor so stab doesn't overscale.
 const CONTACT_DAMAGE_EXPONENT: float = 0.3
 const CONTACT_DAMAGE_FACTOR_MAX: float = 2.0
-# Blunt: transmission-only (no rigid check). Obsolete: BLUNT_PRESSURE_SCALE, BLUNT_MOMENTUM_TO_MPA, BLUNT_PEN_* removed.
+# Blunt: transmission-only (no rigid check). Older blunt rigid-penetration constants were removed in favor of this model.
 # Floor so tiny contacts don't produce absurd momentum/area; 1 cm² min keeps normal blade areas unchanged.
 const MIN_BLUNT_AREA_M2: float = 1e-4
 # For CUT moves, blunt stream uses at least this contact (cm) so the "slap" doesn't get blade pressure.
@@ -76,6 +76,22 @@ static func is_parry_move(move_id: String) -> bool:
 static func is_feint_move(move_id: String) -> bool:
 	var m = get_move(move_id)
 	return m.get("is_feint", false) == true
+
+
+## move_id (e.g. thrust, oberhau) -> stab | cut | blunt. Bare stab/cut/blunt pass through unchanged.
+## Single source for combat + velocity; ImpactVelocityModel.contact_type_from_move_id delegates here.
+static func contact_type_for_move_id(move_id: String) -> String:
+	var key: String = str(move_id).to_lower().strip_edges()
+	if key == ATTACK_TYPE_STAB or key == ATTACK_TYPE_CUT or key == ATTACK_TYPE_BLUNT:
+		return key
+	var md: Dictionary = get_move(move_id)
+	if md.is_empty():
+		return ATTACK_TYPE_CUT
+	var ct: String = str(md.get("contact_type", ATTACK_TYPE_CUT)).to_lower()
+	if ct == ATTACK_TYPE_STAB or ct == ATTACK_TYPE_CUT or ct == ATTACK_TYPE_BLUNT:
+		return ct
+	return ATTACK_TYPE_CUT
+
 
 static func _move_definitions_build() -> Dictionary:
 	# attack_line: Liechtenauer 4 lines — high (0°), low (180°), left (270°), right (90°). Blade path, not body target.
@@ -121,6 +137,7 @@ static func _move_definitions_build() -> Dictionary:
 # Dimensions: blade_width = edge contact for cuts; point_width = tip for thrusts; head_diameter = striking head for blunt.
 # thrust_head_width = width of head/shaft behind point (cm); used for blunt momentum/area on thrusts. Broader head = lower p/A.
 # edge_width = effective sharp contact for blunt weapons (flanges/ridges that can break skin); used for sharp-component penetration.
+# impact_velocity_bands (optional): Tier C overrides — keys stab|cut|blunt → {"min":m/s,"max":m/s} or Vector2; see ImpactVelocityModel.gd.
 # Data: Oakeshott/longsword 2–3 cm edge, 0.3–0.6 cm point; Le Jeu axe 3–4 cm edge, 0.5–1 cm spike; mace flanges 0.4–0.6 cm (Williams, Tod Cutler); Fiore/Talhoffer dagger ~1.5 cm edge, 0.2–0.4 cm point; spear 0.4–0.8 cm point, head blade 2–3 cm.
 # No weapon has 0% cutting (MIN_CUT_RATIO); each component uses get_sharp_contact_cm / get_blunt_contact_cm for its damage type.
 static func get_all_weapon_ids() -> Array:
@@ -153,6 +170,17 @@ static func _weapon_definitions_build() -> Dictionary:
 				{"id": "handle", "length_cm": 30, "mass_fraction": 0.4, "parry_eligible": false}
 			],
 			"parry_part_id": "blade",
+			"strike_physics": {
+				"station_mean": 0.54,
+				"station_spread": 0.1,
+				"station_cut_vel_guard": 0.9,
+				"station_cut_vel_tip": 1.06,
+				"coupling_stab": 0.9,
+				"coupling_cut": 0.84,
+				"coupling_blunt": 0.96,
+				"blunt_pressure": 1.0,
+				"blunt_head_ref_cm": 6.0
+			},
 			"moves": [
 				{"id": "thrust"},
 				{"id": "oberhau"},
@@ -183,6 +211,17 @@ static func _weapon_definitions_build() -> Dictionary:
 				{"id": "haft", "length_cm": 90, "mass_fraction": 0.45, "parry_eligible": true, "striking_for": ["blunt"]}
 			],
 			"parry_part_id": "haft",
+			"strike_physics": {
+				"station_mean": 0.58,
+				"station_spread": 0.12,
+				"station_cut_vel_guard": 0.88,
+				"station_cut_vel_tip": 1.07,
+				"coupling_stab": 0.88,
+				"coupling_cut": 0.86,
+				"coupling_blunt": 0.98,
+				"blunt_pressure": 1.05,
+				"blunt_head_ref_cm": 6.0
+			},
 			"moves": [
 				{"id": "spike_thrust"},
 				{"id": "overhead_chop"},
@@ -207,6 +246,17 @@ static func _weapon_definitions_build() -> Dictionary:
 				{"id": "shaft", "length_cm": 55, "mass_fraction": 0.3, "parry_eligible": true}
 			],
 			"parry_part_id": "shaft",
+			"strike_physics": {
+				"station_mean": 0.62,
+				"station_spread": 0.09,
+				"station_cut_vel_guard": 0.92,
+				"station_cut_vel_tip": 1.04,
+				"coupling_stab": 0.95,
+				"coupling_cut": 0.92,
+				"coupling_blunt": 1.06,
+				"blunt_pressure": 1.14,
+				"blunt_head_ref_cm": 6.0
+			},
 			"moves": [
 				{"id": "overhead_strike"},
 				{"id": "side_strike"},
@@ -231,6 +281,17 @@ static func _weapon_definitions_build() -> Dictionary:
 				{"id": "handle", "length_cm": 12, "mass_fraction": 0.45, "parry_eligible": false}
 			],
 			"parry_part_id": "blade",
+			"strike_physics": {
+				"station_mean": 0.52,
+				"station_spread": 0.08,
+				"station_cut_vel_guard": 0.91,
+				"station_cut_vel_tip": 1.1,
+				"coupling_stab": 0.94,
+				"coupling_cut": 0.88,
+				"coupling_blunt": 0.9,
+				"blunt_pressure": 0.95,
+				"blunt_head_ref_cm": 6.0
+			},
 			"moves": [
 				{"id": "quick_thrust"},
 				{"id": "committed_thrust"},
@@ -256,6 +317,20 @@ static func _weapon_definitions_build() -> Dictionary:
 				{"id": "shaft", "length_cm": 200, "mass_fraction": 0.85, "parry_eligible": true, "striking_for": ["blunt"]}
 			],
 			"parry_part_id": "shaft",
+			"impact_velocity_bands": {
+				"stab": {"min": 5.5, "max": 21.0}
+			},
+			"strike_physics": {
+				"station_mean": 0.48,
+				"station_spread": 0.11,
+				"station_cut_vel_guard": 0.89,
+				"station_cut_vel_tip": 1.05,
+				"coupling_stab": 0.91,
+				"coupling_cut": 0.87,
+				"coupling_blunt": 0.99,
+				"blunt_pressure": 1.02,
+				"blunt_head_ref_cm": 6.0
+			},
 			"moves": [
 				{"id": "spear_thrust"},
 				{"id": "off_line_thrust"},
@@ -302,36 +377,42 @@ static func _archetype_definitions_build() -> Dictionary:
 	return {
 		ARCHETYPE_STAB: {
 			"velocity_factor": 1.0,
+			"velocity_intensity_curve": 0.95,
 			"cut_ratio": - 1.0, # use weapon blade_cut_ratio
 			"recovery_multiplier": 1.0,
 			"windup_multiplier": 1.0
 		},
 		ARCHETYPE_SLASH: {
 			"velocity_factor": 0.9,
+			"velocity_intensity_curve": 1.04,
 			"cut_ratio": - 1.0,
 			"recovery_multiplier": 1.0,
 			"windup_multiplier": 1.0
 		},
 		ARCHETYPE_OVERHEAD: {
 			"velocity_factor": 1.0,
+			"velocity_intensity_curve": 1.1,
 			"cut_ratio": - 1.0,
 			"recovery_multiplier": 1.2,
 			"windup_multiplier": 1.15
 		},
 		ARCHETYPE_QUICK_SLASH: {
 			"velocity_factor": 0.65,
+			"velocity_intensity_curve": 0.8,
 			"cut_ratio": - 1.0,
 			"recovery_multiplier": 0.85,
 			"windup_multiplier": 0.8
 		},
 		ARCHETYPE_POMMEL: {
 			"velocity_factor": 0.7,
+			"velocity_intensity_curve": 0.88,
 			"cut_ratio": 0.05,
 			"recovery_multiplier": 0.9,
 			"windup_multiplier": 0.85
 		},
 		ARCHETYPE_HEAVY_BLUNT: {
 			"velocity_factor": 1.0,
+			"velocity_intensity_curve": 1.12,
 			"cut_ratio": 0.05,
 			"recovery_multiplier": 1.15,
 			"windup_multiplier": 1.1

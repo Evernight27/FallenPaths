@@ -6,7 +6,9 @@ extends RefCounted
 ## Self direct pressure: weight by part's bleeding rate (prioritize most serious wound).
 ## Pending retry: strongly prefer retrying the failed part when target is still in peril.
 ## For attacks: adds target_part from path when pathway allows (unguarded bonus).
-## Manager must have: _get_by_id, _get_entity, _is_medical_move, _get_medical_urgency, _is_in_immediate_peril.
+## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), _is_medical_move, _get_medical_urgency, _is_in_immediate_peril.
+
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary:
 	if actions.is_empty():
@@ -90,7 +92,8 @@ static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) 
 		var stamina_ratio_c: float = clampf(c.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 		var sr_c: float = 0.78 if stamina_ratio_c < 0.32 else 1.0
 		var shaped: float = pow(via, CombatConstants.CRASH_AI_VIABILITY_EXPONENT)
-		return CombatConstants.CRASH_AI_WEIGHT_CAP * shaped * sr_c
+		var pst_m: float = _crash_weight_posture_mult(manager, c)
+		return CombatConstants.CRASH_AI_WEIGHT_CAP * shaped * sr_c * pst_m
 	if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get("target_id", -1) == combatant_id:
 		return 0.65  # Solo step to rear — situational
 	if mid == CombatConstants.MOVE_ID_ROTATE_FILE:
@@ -124,6 +127,27 @@ static func _get_positioning_fitness(c: Dictionary) -> float:
 	var health: float = clampf(CombatantEntityAccess.get_blood_volume_from_node(node) / 100.0, 0.0, 1.0) if node != null else 1.0
 	return perf * health
 
+
+static func _crash_weight_posture_mult(manager: Node, c: Dictionary) -> float:
+	var fid: String = str(c.get("formation_id", ""))
+	if fid.is_empty() or manager == null:
+		return 1.0
+	var fm: Variant = manager.get("formations")
+	if fm == null or typeof(fm) != TYPE_DICTIONARY:
+		return 1.0
+	var fd: Dictionary = (fm as Dictionary).get(fid, {})
+	if fd.is_empty():
+		return 1.0
+	var pst: String = str(fd.get("engagement_posture", ""))
+	if pst == CombatConstants.ENGAGEMENT_POSTURE_OPEN:
+		return CombatConstants.CRASH_AI_POSTURE_OPEN_EXTRA_MULT
+	if pst == CombatConstants.ENGAGEMENT_POSTURE_LINE:
+		return CombatConstants.CRASH_AI_POSTURE_LINE_EXTRA_MULT
+	if pst == CombatConstants.ENGAGEMENT_POSTURE_DUEL:
+		return CombatConstants.CRASH_AI_POSTURE_DUEL_EXTRA_MULT
+	return 1.0
+
+
 static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
 	var mid: String = a.get("move_id", "")
 	var tgt = manager._get_by_id(a.get("target_id", -1))
@@ -133,7 +157,7 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 	if mid == "apply_direct_pressure" and a.get("target_id") == combatant_id and tgt != null:
 		var part: String = a.get("target_part", "")
 		if not part.is_empty() and tgt.node != null:
-			var entity = manager._get_entity(tgt.node)
+			var entity = _EntityAccess.get_entity_from_manager(manager, tgt)
 			if entity != null and entity.has_method("get_bleeding_rate_for_part"):
 				w += entity.get_bleeding_rate_for_part(part) * 2.0
 	# Pending retry: only one who can help; strongly prefer retrying the failed part.

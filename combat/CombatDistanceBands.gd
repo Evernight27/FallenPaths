@@ -1,7 +1,7 @@
 class_name CombatDistanceBands
 extends RefCounted
 
-## MID/LONG/CLOSE bands from rank, file spacing, ZoC mid_reach, and weapon reach.
+## MID/LONG/CLOSE bands from rank, `effective_pair_eff_dist`, `effective_pair_file_spacing_equivalent`, ZoC `mid_reach_files`, and weapon reach.
 
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
@@ -12,12 +12,10 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 		if not c.has("distance_to"):
 			c.distance_to = {}
 		var our_rank: int = c.get("rank", 0)
-		var our_file: int = c.get("file", 0)
 		for opp in manager.combatants:
 			if opp.side == c.side or not opp.alive:
 				continue
 			var opp_rank: int = opp.get("rank", 0)
-			var opp_file: int = opp.get("file", 0)
 			# Intruders sit on host depth ranks but still contest the broken front line vs host rank-0.
 			var c_intruded_on_host_opp: bool = (
 				str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
@@ -36,11 +34,12 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 			if opp_rank > 0 and not opp_intruded_on_host_c:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
 				continue
-			var df: int = int(absf(float(our_file - opp_file)))
 			var mid_reach: int = _ZoneOfControl.mid_reach_files(manager, c, opp)
 			var eff_dist: float = _ActionsBuilder.effective_pair_eff_dist(manager, c, opp)
 			var reach_here: float = maxf(_ActionsBuilder.melee_weapon_reach(c), _ActionsBuilder.melee_weapon_reach(opp))
-			if df <= mid_reach and reach_here >= eff_dist:
+			var eff_files: float = _ActionsBuilder.effective_pair_file_spacing_equivalent(manager, c, opp)
+			var within_mid_files: bool = eff_files <= float(mid_reach) + CombatConstants.DIST_BAND_MID_FILE_EQUIV_SLACK
+			if within_mid_files and reach_here >= eff_dist:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_MID
 			else:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG

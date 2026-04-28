@@ -9,6 +9,7 @@ const _StatsSync := preload("res://combat/CombatantStatsSync.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
+const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.COMBAT_DEBUG:
@@ -33,8 +34,10 @@ static func compute_and_apply_damage(
 	_follow_through: float = -1.0,
 	parry_remaining_ratio: float = 1.0,
 	afterblow_damage_mult: float = 1.0,
-	alignment: float = 1.0
+	alignment: float = 1.0,
+	strike_mods: Dictionary = {}
 ) -> Dictionary:
+	var sm: Dictionary = strike_mods
 	var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 	var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 	var pre_armor: float = 0.0
@@ -49,19 +52,23 @@ static func compute_and_apply_damage(
 	if weapon != null and weapon.has_method("get_available_attack_types"):
 		var attack_instance = AttackInstance.new(attack_type, intensity)
 		attack_instance.archetype = archetype
-		attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else WeaponDamageHelper.velocity_m_s_from_intensity(intensity, archetype)
+		attack_instance.strike_energy_mult = float(sm.get("strike_energy_mult", 1.0))
+		attack_instance.strike_momentum_mult = float(sm.get("strike_momentum_mult", 1.0))
+		attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else WeaponDamageHelper.velocity_m_s_from_intensity(intensity, archetype, weapon, attack_type)
 		var arm_mod: float = atk.node.get_attack_damage_modifier() if atk.node.has_method("get_attack_damage_modifier") else 1.0
 		var _v_m_s: float = WeaponDamageHelper.get_effective_velocity_m_s(weapon, attack_instance)
 		var _ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(weapon, attack_instance)
-		var _mass_kg: float = float(weapon.mass) if (weapon.get("mass") is float or weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 		var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, attack_type, archetype)
 		# Physics: deflected cut presents flat/slap; edge doesn't bite. Shift cut→blunt on partial parry.
-		if attack_type == WeaponConstants.ATTACK_TYPE_CUT and velocity_override >= 0.0 and parry_remaining_ratio < 1.0:
+		var move_contact: String = weapon.get_contact_type(attack_type) if weapon.has_method("get_contact_type") else WeaponConstants.ATTACK_TYPE_CUT
+		if move_contact == WeaponConstants.ATTACK_TYPE_CUT and velocity_override >= 0.0 and parry_remaining_ratio < 1.0:
 			var shift_const: float = CombatConstants.PARRY_CUT_TO_BLUNT_SHIFT
 			var redirect_shift: float = shift_const * (1.0 - parry_remaining_ratio)
 			cut_ratio = maxf(WeaponConstants.MIN_CUT_RATIO, cut_ratio - redirect_shift)
 		pre_cut = WeaponDamageHelper.compute_pre_armor_cut(weapon, attack_instance, atk.stats.strength, arm_mod) * cut_ratio
 		pre_blunt = WeaponDamageHelper.compute_pre_armor_blunt(weapon, attack_instance, atk.stats.strength, arm_mod) * (1.0 - cut_ratio)
+		pre_cut *= float(sm.get("cut_damage_mult", 1.0))
+		pre_blunt *= float(sm.get("blunt_damage_mult", 1.0))
 		pre_armor = pre_cut + pre_blunt
 		var pen_sharp_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, CombatConstants.DAMAGE_TYPE_SHARP)
 		pen_sharp = pen_sharp_dict.get("penetration_sharp", -1.0)
@@ -90,6 +97,10 @@ static func compute_and_apply_damage(
 					pen_sharp *= angle_factor
 				if pen_blunt_momentum_per_area >= 0.0:
 					pen_blunt_momentum_per_area *= angle_factor
+		if pen_sharp >= 0.0:
+			pen_sharp *= float(sm.get("sharp_penetration_mult", 1.0))
+		if pen_blunt_momentum_per_area >= 0.0:
+			pen_blunt_momentum_per_area *= float(sm.get("blunt_momentum_pa_mult", 1.0))
 		_debug("dmg %s->%s part=%s pre_armor=%.1f cut=%.1f blunt=%.1f pen=%.2f" % [atk_name, tgt_name, part, pre_armor, pre_cut, pre_blunt, pen_sharp])
 	else:
 		var mod: float = atk.node.get_attack_damage_modifier() if (atk.node != null and atk.node.has_method("get_attack_damage_modifier")) else 1.0
@@ -141,7 +152,7 @@ static func compute_and_apply_damage(
 			var ratio_denom: float = pre_armor * CombatConstants.GLANCING_DAMAGE_RATIO
 			glancing_severity = clampf(tissue_dmg / maxf(ratio_denom, 0.001), 0.0, 1.0)
 
-	var tgt_entity = manager._get_entity(tgt.node)
+	var tgt_entity: Node = _EntityAccess.get_health_entity_from_node(manager, tgt.node)
 	if tgt_entity == null:
 		tgt_entity = tgt.node
 	_StatsSync.sync_from_entity(tgt_entity, tgt.stats)
@@ -287,6 +298,12 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 
 	pa["surround_threat_count"] = _TacticalCombat.count_engaging_threats(manager, target_id)
 	pa["tactical_ambush_mult"] = _TacticalCombat.ambush_defense_multiplier(manager, tgt)
+	if atk_weapon != null:
+		pa["strike_measure_ratio"] = _StrikeRealism.measure_ratio(manager, atk, tgt, atk_weapon)
+		if str(pa.get("move_contact_type", "")).is_empty():
+			pa["move_contact_type"] = WeaponConstants.contact_type_for_move_id(attack_type)
+	else:
+		pa["strike_measure_ratio"] = 1.0
 
 	var dc: Dictionary = _DefenseChoice.choose_defense(pa, atk, tgt, targetable, attack_type, archetype, velocity_override)
 	var _already_used_defense: bool = pa.get("passive_parry_attempted", false)
@@ -357,11 +374,16 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 			part = BodyPartConstants.get_weighted_random_part(targetable)
 	atk["last_move_id"] = pa.get("attack_type", "")
 	atk["effective_attack_line"] = pa.get("effective_attack_line", "")
+	var strike_mods: Dictionary = {}
+	if atk_weapon != null:
+		strike_mods = _StrikeRealism.compute_strike_modifiers(
+			manager, atk, tgt, atk_weapon, attack_type, intensity, archetype, hit_alignment, parry_remaining_ratio, pa
+		)
 	atk.pending_attack = {}
 	var res: Dictionary = compute_and_apply_damage(
 		manager, attacker_id, target_id, atk, tgt, part,
 		intensity, attack_type, archetype, dmg_velocity_override, recovery_mult, perf_mod,
-		power, follow_through, parry_remaining_ratio, afterblow_damage_mult, hit_alignment
+		power, follow_through, parry_remaining_ratio, afterblow_damage_mult, hit_alignment, strike_mods
 	)
 	return {
 		"action": "hit",

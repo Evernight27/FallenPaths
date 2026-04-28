@@ -3,6 +3,8 @@ extends RefCounted
 
 ## Builds formation presets for party and enemy. Used by CombatFlow, BattleScene, CombatManager.
 ## Preset: { files: int, ranks: int, density: String } — Option A: files = front-line count, ranks = depth.
+## Optional **discipline** (Tier 1.4): `line_discipline` (`CombatConstants.LINE_DISCIPLINE_*`), optional float
+## `discipline_posture_enter_delta` / `discipline_posture_leave_delta` — copied onto formation dict for `CombatFormationEngagement`.
 ## Fill order: rank 0 first (primary melee), then rank 1, etc. See FORMATION_FILE_DENSITY_SURVIVABILITY_INVESTIGATION.
 ## Density spacing: tight→compact UI, normal→default, loose→wide.
 
