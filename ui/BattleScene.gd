@@ -90,11 +90,6 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 	manager.connect("combatant_health_changed", Callable(self, "_on_combatant_health_changed"))
 	manager.connect("formation_changed", Callable(self, "_on_formation_changed"))
 	manager.connect("engagement_state_changed", Callable(self, "_on_engagement_state_changed"))
-	# Test scenes: connect monitors before manager.start() so no turn is missed (same rationale as signals above).
-	if parent_scene != null and parent_scene.has_meta("incursion_breach_harness_connect"):
-		var harness_hook: Variant = parent_scene.get_meta("incursion_breach_harness_connect")
-		if harness_hook is Callable:
-			(harness_hook as Callable).call(manager)
 	# Start manager (builds formations, assigns rank/file)
 	manager.start(_player_preset, _enemy_preset)
 	# Creature stats: fixed registration order (rows stay in list order; no reparent on formation change).

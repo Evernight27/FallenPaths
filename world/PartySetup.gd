@@ -35,7 +35,7 @@ static func setup_party(world: Node2D) -> void:
 
 	world.set_meta("party_manager", pm)
 	world.set_meta("party_menu", party_menu)
-	# Default party formation for combat (2×ceil(n/2), normal density). BattleScene uses this when starting combat.
+	# Default party formation for combat (up to 5 wide, depth ceil(n/5); BattleScene uses when starting combat).
 	world.set_meta("party_formation", _FormationPreset.default_for_count(pm.get_members().size()))
 
 static func _get_or_create_overlay(root: Node) -> CanvasLayer:

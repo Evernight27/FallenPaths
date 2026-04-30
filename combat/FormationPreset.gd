@@ -20,13 +20,15 @@ const SPACING_LOOSE_PX := 28
 ## Ratio of v_separation to h_separation. <1 = ranks closer than files (formation depth < width).
 const RANK_VS_FILE_SPACING_RATIO := 0.65
 
-## Returns preset dict. Default: 2 files, ceil(count/2) ranks, normal density.
-## Use for_front_count when you want explicit front-line count (e.g. 4 in front, 2 ranks behind).
+## Returns preset dict. Default: up to **5** files (front line), ranks = ceil(count/files).
+## Fills one rank first (1–5 units = single line), then adds depth (e.g. 7 → 5+2, 15 → 5×3).
+## Use for_front_count when you need a different front width than this cap.
 static func default_for_count(count: int, density: String = DENSITY_NORMAL) -> Dictionary:
 	if count <= 0:
 		return {"files": 1, "ranks": 1, "density": density}
-	var files: int = min(2, count)
-	var ranks: int = int(ceil(float(count) / float(files)))
+	const MAX_DEFAULT_FRONT_FILES := 5
+	var files: int = mini(MAX_DEFAULT_FRONT_FILES, count)
+	var ranks: int = int(ceilf(float(count) / float(files)))
 	return {"files": files, "ranks": ranks, "density": density}
 
 ## Returns preset with explicit front-line count. files = front_count, ranks = ceil(count/front_count).

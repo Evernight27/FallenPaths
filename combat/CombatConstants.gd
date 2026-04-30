@@ -277,6 +277,8 @@ const FORMATION_VACANCY_RECONCILE_MAX_ROUNDS := 16
 const FORMATION_VACANCY_MICRO_STEPS_MAX := 24
 ## After an automatic vacancy/death plug moves a unit, that unit cannot be chosen as a plug donor again until this many seconds of `combat_clock` elapse (damps tick-by-tick lateral / chain thrash; abstract, not a long “realistic” delay).
 const FORMATION_AUTOFILL_REPOSITION_COOLDOWN_S := 0.35
+## Vacancy **lateral** slide: block immediately sliding back (hole reopens in donor file) across ticks. Pass-local meta alone cannot stop this because reconcile runs every frame + get_available_actions.
+const FORMATION_VACANCY_LATERAL_REVERSE_LOCK_S := 1.2
 ## Plug priority: `pow(effectiveness_0_1, EXPONENT) * 1/(1 + PROXIMITY_WEIGHT * step_count)`. Higher EXPONENT makes injured fighters fall off nonlinearly so fitter units in other lanes/ranks can win despite extra steps.
 const FORMATION_PLUG_EFFECTIVENESS_EXPONENT := 2.6
 ## Larger = proximity matters less relative to effectiveness (able-bodied farther can override closer wounded).
@@ -343,6 +345,10 @@ const FOOTING_STEP_OVER_MIN := 1.15
 const FOOTING_STEP_OVER_MAX := 1.25
 ## Drag wounded to rear — slower than quick swap.
 const DRAG_BACK_DURATION_MULT := 1.15
+## After a formation pair-move abort, block immediate re-issue for the same unit briefly (prevents retry thrash loops under pressure/hit-interrupt churn).
+const FORMATION_PAIR_ABORT_RETRY_COOLDOWN_S := 0.7
+## Rotate-file anti-thrash: brief cooldown after a completed same-rank file swap so front units don't ping-pong lanes every turn.
+const FORMATION_ROTATE_FILE_RETRY_COOLDOWN_S := 0.8
 const STATE_FALLING_BACK := "falling_back"
 const STATE_SWAP_RANK := "swap_rank"
 const MOVE_ID_SWAP_RANK := "swap_rank"
@@ -382,6 +388,10 @@ const CRASH_AI_WEIGHT_CAP := 2.15
 const CRASH_AI_POSTURE_OPEN_EXTRA_MULT := 1.12
 const CRASH_AI_POSTURE_LINE_EXTRA_MULT := 0.94
 const CRASH_AI_POSTURE_DUEL_EXTRA_MULT := 1.0
+## Simultaneous line-breach (crash) intruders per **side**; keeps intrusion a single heavy-infantry role, not a line-wide rush.
+const MAX_INTRUDERS_PER_SIDE := 1
+## Minimum equipped armor mass (kg) to attempt crash intrusion — light skirmishers do not open the line alone.
+const CRASH_INTRUSION_MIN_ARMOR_MASS_KG := 12.5
 
 ## IncursionBreachTest (and similar): fixed global RNG seed + crash AI bias + queued contest rolls so breach/clog code always runs.
 static var _incursion_breach_harness_active: bool = false
@@ -426,14 +436,34 @@ static func take_queued_breach_crash_roll() -> float:
 
 ## Phase D: sector-weighted surround load vs integer-only threat count (docs/TACTICAL_ZONES_BREACH_MOVEMENT.md, incursion section §10.3 B2).
 const FEATURE_SECTOR_SURROUND_LOAD := false
-## Endgame / skirmish: when the front-rank "line" has collapsed (see SKIRMISH_* below),
+## Endgame / skirmish: when the front-rank "line" has collapsed (see ENGAGEMENT_MODE_* cutoffs below),
 ## `breached_files` still affects ZoC lane stress but no longer blocks swap / rotate / fall_back (FormationBreachRules.breach_blocks_open_lane_moves).
-## This is not a global "battle mode": only breach→formation-move gating uses it (not AI, crash, or incursion math).
+## Mode transitions are computed from live front-rank counts/fill each tick; existing intruders persist, but new crash/incursion can be gated by mode.
 const FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES := true
-## Rank-0 (non-incapacitated) headcount per side used by FormationBreachRules.is_skirmish_line_engagement.
-## When both sides have at least one rank-0 fighter, skirmish iff each side has at most this many. Default 1 → only a clean 1v1 contact is skirmish; 2v1 / 1v2 / 2v2 stay "formation line" for clog purposes.
-const SKIRMISH_MAX_FRONT_FIGHTERS_PER_SIDE := 1
-## If true, skirmish when either side has zero rank-0 fighters (everyone deeper, or one side wiped from the front rank).
+## Engagement-mode names from live front-rank state.
+const ENGAGEMENT_MODE_FORMATION := "formation"
+const ENGAGEMENT_MODE_SKIRMISH := "skirmish"
+const ENGAGEMENT_MODE_DUEL := "duel"
+## Stable numeric ids for telemetry/tests/UI filters.
+## 0 = duel, 1 = skirmish, 2 = formation.
+const ENGAGEMENT_MODE_CODE_DUEL := 0
+const ENGAGEMENT_MODE_CODE_SKIRMISH := 1
+const ENGAGEMENT_MODE_CODE_FORMATION := 2
+## Option 2 (Tier 1.7): historical active-count bands (alive + not incapacitated on each side) gate mode eligibility.
+## Duel-cap: if either side is at/under this active count, force duel/skirmish behavior and block new formation-mode activation.
+const ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE := 2
+## Formation requires both sides at/above this active count in addition to front/fill thresholds.
+const ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE := 4
+## DUEL when both sides have this many (or fewer) effective front fighters.
+const DUEL_MAX_FRONT_FIGHTERS_PER_SIDE := 1
+## FORMATION requires at least this many effective front fighters per side.
+const FORMATION_MIN_FRONT_FIGHTERS_PER_SIDE := 2
+## FORMATION also requires this minimum front-fill ratio per side: front_alive / formation.files.
+const FORMATION_MIN_FRONT_FILL_RATIO := 0.67
+## Hysteresis leave threshold for FORMATION: stay in formation mode until line thins below this (prevents mode jitter near thresholds).
+const FORMATION_LEAVE_MIN_FRONT_FIGHTERS_PER_SIDE := 1
+const FORMATION_LEAVE_MIN_FRONT_FILL_RATIO := 0.45
+## If true, mode is SKIRMISH when either side has zero effective front fighters.
 const SKIRMISH_WHEN_EITHER_SIDE_ZERO_FRONT := true
 
 ## --- Engagement / line cohesion / posture (docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) ---
@@ -498,6 +528,25 @@ const DISTANCE_MID := "mid"
 const DISTANCE_LONG := "long"
 const REACH_MID_MIN := 1.2  # Spear can attack from mid; shorter weapons need close.
 const MOVE_ID_ATTEMPT_CLOSE := "attempt_close"
+## Formation doctrine for hybrid targeting (CombatDoctrine / CombatTargetScoring).
+const DOCTRINE_DEFAULT := "default"
+const DOCTRINE_PINCH_CENTER := "pinch_center"
+const DOCTRINE_HOLD_LANE := "hold_lane"
+## Seconds: AI "sticks" to last offensive target (hysteresis).
+const DOCTRINE_COMMITMENT_DURATION_S := 4.5
+const DOCTRINE_COMMIT_MATCH_WEIGHT_MULT := 1.28
+const DOCTRINE_FILE_OPPOSED_WEIGHT_MULT := 1.42
+## Extra weight toward enemy-line center when PINCH + wing has no file-opposed rank-0 target.
+const DOCTRINE_PINCH_INWARD_BIAS_PER_FILE := 0.18
+## Larger = geometry matters less in soft score (1/(1+eff*k)).
+const DOCTRINE_SOFT_DISTANCE_SCALE := 0.55
+## Normalizer for how many allies already committed on same defender.
+const DOCTRINE_PRESSURE_COUNT_REF := 3.0
+const DOCTRINE_PRESSURE_DECAY_PER_ALLY := 0.22
+## HOLD_LANE: demote non-file-opposed rank-0 targets.
+const DOCTRINE_HOLD_LANE_OFF_FILE_MULT := 0.58
+const DOCTRINE_AI_WEIGHT_MULT_MIN := 0.35
+const DOCTRINE_AI_WEIGHT_MULT_MAX := 2.6
 # Stance modifiers (Phase 2). See COMBAT_STANCE_STATES_INVESTIGATION.md.
 const STANCE_MOD_PARRY: Dictionary = {"defensive": 1.2, "balanced": 1.0, "aggressive": 0.8, "controlling": 1.0}
 const STANCE_MOD_EVASION: Dictionary = {"defensive": 1.15, "balanced": 1.0, "aggressive": 0.85, "controlling": 1.0}

@@ -37,8 +37,9 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 
 | Item | State | Notes |
 |------|:-----:|-------|
-| `FormationBreachRules.breach_clogs_open_lanes` vs `breach_blocks_open_lane_moves` | **Done** | Raw breach marks vs move lock; skirmish unclegs via `FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES` + `is_skirmish_line_engagement`. |
+| `FormationBreachRules.breach_clogs_open_lanes` vs `breach_blocks_open_lane_moves` | **Done** | Raw breach marks vs move lock; skirmish unclegs via `FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES` + `is_skirmish_line_engagement` (`CombatEngagementMode` source). |
 | `AvailableActionsBuilder` / `CombatResolveAction` use `breach_blocks_open_lane_moves` | **Done** | Formation moves respect skirmish-aware clog. |
+| Engagement mode Option 2 baseline (`duel` cap + `formation` min by active counts) | **Partial** | `CombatEngagementMode.snapshot` now includes `player_active` / `enemy_active`; mode classifier gates by active-count bands + front/fill + hysteresis + intrusion grace. Remaining work is P9 runtime soak/telemetry lock. |
 
 ### 2.1 Foundation & visibility
 
@@ -106,6 +107,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 |------|:-----:|-------|
 | `CombatAIActionPicker` weights from posture | **Partial** | Crash (`MOVE_ID_CRASH`) weight multiplier from side **`engagement_posture`**; further moves / cohesion coupling optional. |
 | `IncursionBreachTest` / harness updates for neighbor hold | **Optional** | Re-baseline if `p_win` expectations are asserted. |
+| Engagement mode regression harness checks (historical count bands + hysteresis invariants) | **Partial** | `IncursionBreachTest` validates mode/count-band consistency, compares tactical vs harness mode snapshots, and emits transition/error telemetry counters; still needs long-run multi-seed soak scenarios. |
 | Sync `TACTICAL_ZONES_BREACH_MOVEMENT.md` with this plan | **Partial** | **2026-04-27:** implementation banner updated (P3–P4 in code); bundled investigation sections may still use pre-wedge language — edit when touching those sections (**Tier 2.1**). |
 
 ---

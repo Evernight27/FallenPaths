@@ -9,10 +9,13 @@ extends RefCounted
 ## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), _is_medical_move, _get_medical_urgency, _is_in_immediate_peril.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
+const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 
 static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary:
 	if actions.is_empty():
 		return {}
+	_TargetScoring.prune_expired_commitments(manager)
 	var total: float = 0.0
 	for a in actions:
 		total += _get_action_weight(a, combatant_id, manager)
@@ -88,6 +91,8 @@ static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) 
 	if mid == CombatConstants.MOVE_ID_CRASH:
 		if CombatConstants.is_incursion_breach_harness_active():
 			return 1.0e9
+		if not _EngagementMode.crash_intrusion_attacker_allowed(manager, c):
+			return 0.0
 		var via: float = CombatConstants.crash_breach_viability(c)
 		var stamina_ratio_c: float = clampf(c.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 		var sr_c: float = 0.78 if stamina_ratio_c < 0.32 else 1.0
@@ -115,9 +120,10 @@ static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) 
 		if partner != null and is_disengage_swap_tactically_allowed(c, partner):
 			return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
 		return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
-	# Attack or attempt_close: engaging the enemy — use stamina (exhausted units less likely to act)
+	# Attack or attempt_close: engaging the enemy — use stamina + hybrid targeting (doctrine, file, pressure).
 	var stamina_ratio: float = clampf(c.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
-	return 0.85 if stamina_ratio < 0.2 else 1.0
+	var base_stamina: float = 0.85 if stamina_ratio < 0.2 else 1.0
+	return base_stamina * _TargetScoring.ai_targeting_weight_mult(manager, combatant_id, a)
 
 ## Fitness for formation positioning: performance (attack capability) × health (blood). Higher = more able to fight.
 ## Used for swap rank: lowest fitness should be in back. Does not use stamina/action-ready.

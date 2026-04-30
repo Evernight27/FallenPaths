@@ -4,6 +4,7 @@ extends RefCounted
 ## Line cohesion (0..1) and engagement posture per formation. See docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md.
 
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 
 
@@ -69,9 +70,16 @@ static func _avg_wedge_depth(form: Dictionary) -> float:
 
 
 static func _compute_line_cohesion(manager: Node, fid: String, form: Dictionary) -> float:
-	var n_front: int = _FormationBreachRules.count_front_rank_alive(manager, fid)
-	var files: int = maxi(1, int(form.get("files", 1)))
-	var front_fill: float = clampf(float(n_front) / float(files), 0.0, 1.0)
+	var snap: Dictionary = _EngagementMode.snapshot(manager)
+	var front_fill: float = 0.0
+	if fid == "player":
+		front_fill = float(snap.get("player_front_fill", 0.0))
+	elif fid == "enemy":
+		front_fill = float(snap.get("enemy_front_fill", 0.0))
+	else:
+		var n_front: int = _FormationBreachRules.count_front_rank_alive(manager, fid)
+		var files: int = maxi(1, int(form.get("files", 1)))
+		front_fill = clampf(float(n_front) / float(files), 0.0, 1.0)
 	var breach_avg: float = _avg_breach_severity(form)
 	var wedge_avg: float = maxf(_avg_wedge_pressure(form), _avg_wedge_depth(form))
 	var breach_eff: float = maxf(breach_avg, wedge_avg)
@@ -110,9 +118,8 @@ static func _effective_posture_thresholds(manager: Node, form: Dictionary) -> Ve
 
 
 static func _compute_posture(manager: Node, _fid: String, cohesion: float, form: Dictionary) -> String:
-	var p: int = _FormationBreachRules.count_front_rank_alive(manager, "player")
-	var e: int = _FormationBreachRules.count_front_rank_alive(manager, "enemy")
-	if p >= 1 and e >= 1 and p <= 1 and e <= 1:
+	var mode_now: String = str(_EngagementMode.snapshot(manager).get("raw_mode", "skirmish"))
+	if mode_now == "duel":
 		return CombatConstants.ENGAGEMENT_POSTURE_DUEL
 	var prev: String = str(form.get("engagement_posture", ""))
 	var thr: Vector2 = _effective_posture_thresholds(manager, form)
@@ -129,3 +136,5 @@ static func _compute_posture(manager: Node, _fid: String, cohesion: float, form:
 	if cohesion >= l_in:
 		return CombatConstants.ENGAGEMENT_POSTURE_LINE
 	return CombatConstants.ENGAGEMENT_POSTURE_OPEN
+
+

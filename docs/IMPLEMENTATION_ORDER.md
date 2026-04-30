@@ -89,10 +89,12 @@ flowchart LR
 | 1.4 | **P5** | LINE↔OPEN hysteresis; encounter / discipline tags | **Partial** (hysteresis + posture **deltas** + **`line_discipline`** / `ENCOUNTER_KEY_LINE_DISCIPLINE`; richer tags / asymmetric posture **Todo**) |
 | 1.5 | **P6** | Morale → `morale_cohesion_factor` | **Todo** |
 | 1.6 | **P7** | AI posture hooks; harness / tests; optional | **Partial** (crash pick weight vs `engagement_posture`; cohesion-wide AI **Todo**) |
+| 1.7 | **P8** | Engagement mode realism **Option 2** (historical count bands + front/fill/hysteresis gate) | **Partial** (active-count band classifier + harness assertions landed; soak/regression pending) |
+| 1.8 | **P9** | Post-P8 soak/regression + telemetry lock before doctrine expansion | **Partial** (harness telemetry counters + tactical/harness snapshot sync checks landed; multi-seed soak pending) |
 
-**Single status column (Tier 1):** The **Status** column here is authoritative for milestones **1.1–1.6**. When you ship a step, update this table first, then align the matching **Done/Todo** rows in `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §2 (verification mirror only — same facts, no second sequence).
+**Single status column (Tier 1):** The **Status** column here is authoritative for milestones **1.1–1.8**. When you ship a step, update this table first, then align the matching **Done/Todo** rows in `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §2 (verification mirror only — same facts, no second sequence).
 
-**Next coding step:** Tier **1.4 (P5)** — optional **richer encounter/army tags**; **Tier 2.1** — refresh **`TACTICAL_ZONES_BREACH_MOVEMENT.md`** implementation banner + cross-links to wedge / `lane_offset` / vacancy (narrative sections may still be older voice). **Morale (1.5)** only after playtest. **P4** shipped (2026-04).
+**Next coding step:** Continue Tier **1.8 (P9)** soak/regression runs. **Telemetry lock is partially implemented** (mode transition counters, invalid-action/error counters, tactical↔harness mode snapshot mismatch checks, final summary payload); finish multi-seed runtime sweeps before Option 4.
 
 **After 1.3:** Tier **2.1** — align `TACTICAL_ZONES_BREACH_MOVEMENT.md` with implemented intrusion + **wedge + `lane_offset` / distance** language (see dependency chain item 10).
 
@@ -187,6 +189,73 @@ No sequencing work unless fixing regressions. Shipped includes: skirmish-aware `
 - `CombatAIActionPicker` weights from posture/cohesion when rules stable.
 - Re-baseline `IncursionBreachTest` / harness if assertions pin `p_win`.
 - Doc sync item: engagement plan §2.8 cross-ref Tier 2.
+
+---
+
+### Tier 1.7 — P8: Engagement mode realism baseline (ship Option 2)
+
+**Goal:** Enforce historically plausible mode minimums without losing transition stability already built in.
+
+**Implementation rule:** Use **total active combatants per side** for baseline eligibility (historical numbers), then require existing **front/fill + hysteresis** checks before `formation` becomes active.
+
+**Required behavior contract:**
+
+- `duel` cap when either side remains in very low-count bands (historical small engagement).
+- `skirmish` default for medium counts and mixed frontage.
+- `formation` allowed only when both sides satisfy historical count minimums **and** front/fill thresholds.
+- Keep current **active intrusion grace** so mode does not snap mid-incursion unless line collapses to zero-front or duel floor.
+
+**Exit criteria:**
+
+- [ ] No test case yields `formation` while historical count minimum is unmet.
+- [ ] Transition hysteresis assertions pass (no mode jitter at threshold edges).
+- [ ] Crash/incursion gating remains consistent (`incursion_allowed` only when resolved mode is formation).
+- [ ] Existing intrusion/vacancy/plug tests remain green.
+
+---
+
+### Tier 1.8 — P9: Soak, telemetry lock, regression gate (before Option 4)
+
+**Goal:** Validate P8 in long-running, mixed-size battles before adding doctrine complexity.
+
+**Required checks:**
+
+1. Multi-seed soak runs show no mode flip-flop jitter.
+2. UI strips/labels remain consistent during rapid attrition and intrusion clear.
+3. Crash availability never leaks outside legal mode/rank rules.
+4. Tactical and harness mode snapshots stay identical at same tick.
+
+**Exit criteria:**
+
+- [ ] P8 metrics stable across representative scenarios (small, medium, large engagements).
+- [ ] No unresolved regressions in `IncursionBreachTest` harness assertions.
+- [ ] Debug telemetry fields required for balancing are present and readable.
+
+---
+
+### Option 4 expansion timing (after Tier 1.8)
+
+Implement full doctrine-aware mode behavior (**Option 4**) only after P9 stability:
+
+1. Add doctrine metadata with conservative defaults (no behavior change when unset).
+2. Pilot one doctrine variant behind a feature flag.
+3. Expand doctrine matrix after telemetry confirms no classifier regressions.
+
+This keeps realism gains from Option 2 while avoiding early balance explosion.
+
+---
+
+### Data points to track (must-have before broad testing)
+
+- Per-side **active alive count** (baseline historical band input).
+- Per-side **front alive count** and **front fill ratio** (activation + hysteresis input).
+- **Resolved mode** vs **raw mode** at tick time.
+- **Resolved mode code** vs **raw mode code** (`duel=0`, `skirmish=1`, `formation=2`) for stable harness/UI assertions.
+- **`incursion_allowed`** boolean and **active intrusion count**.
+- Mode transition event (`prev -> next`) with same-tick snapshot payload.
+- Invalid-action guard counters (e.g., crash offered/used outside legal mode or rank).
+
+If these are complete and stable in logs/harness, you are moving on the correct data points.
 
 ---
 

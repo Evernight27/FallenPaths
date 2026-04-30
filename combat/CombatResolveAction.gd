@@ -4,8 +4,10 @@ extends RefCounted
 ## Player/AI action dispatch: medical, close, crash, formation moves, melee wind-up scheduling.
 
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 
 
 static func is_medical_move(move_id: String) -> bool:
@@ -58,14 +60,28 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 			print("[Combat] %s attempting to close on %s (tactical distance — pressure vs evasion roll)" % [atk_name, tgt_name])
 		manager._resolve_close_attempt(attacker_id, target_id)
+		_TargetScoring.on_combat_commitment(manager, attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
 	if move_id == CombatConstants.MOVE_ID_CRASH:
+		if int(atk.get("rank", 0)) != 0:
+			return
+		if str(atk.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+			return
 		CombatDebug.flow_log("resolve_action id=%d move=crash target_id=%d" % [attacker_id, target_id])
 		manager._resolve_crash_attempt(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
 	if move_id in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK, CombatConstants.MOVE_ID_ROTATE_FILE]:
+		var move_policy: Dictionary = _EngagementMode.movement_policy(manager)
+		if move_id == CombatConstants.MOVE_ID_SWAP_RANK and not bool(move_policy.get("allow_swap_rank", false)):
+			return
+		if move_id == CombatConstants.MOVE_ID_DRAG_BACK and not bool(move_policy.get("allow_drag_back", false)):
+			return
+		if move_id == CombatConstants.MOVE_ID_FALL_BACK and not bool(move_policy.get("allow_fall_back", false)):
+			return
+		if move_id == CombatConstants.MOVE_ID_ROTATE_FILE and not bool(move_policy.get("allow_rotate_file", false)):
+			return
 		var fid_mv: String = atk.get("formation_id", "")
 		var f_mv: Dictionary = manager.formations.get(fid_mv, {})
 		var breach_blocked: bool = false
@@ -106,6 +122,10 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
 	if move_id == CombatConstants.MOVE_ID_ROTATE_FILE:
+		if int(atk.get("rank", 0)) != 0:
+			return
+		if str(atk.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+			return
 		manager._start_rotate_file(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
@@ -120,6 +140,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	if options.has("feint_part"):
 		opts["feint_part"] = options.feint_part
 	_WindUpStarter.start(manager, attacker_id, target_id, move_id, opts)
+	_TargetScoring.on_combat_commitment(manager, attacker_id, target_id)
 	manager.emit_signal("turn_resolved", attacker_id)
 	if atk.state == CombatConstants.STATE_WIND_UP and atk.state_duration > 0.0:
 		manager._schedule_event({

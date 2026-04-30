@@ -17,6 +17,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CombatAIActionPicker := preload("res://combat/CombatAIActionPicker.gd")
 const _FileKeys := preload("res://combat/CombatFileKeyedDict.gd")
+const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _BREACH_ACTIVE_EPSILON := 0.001
 
 ## Severity at a file index; keys may be int or string (serialization). Prefer int when writing.
@@ -27,14 +28,14 @@ static func breached_file_severity(breached_files: Dictionary, file_index: int, 
 ## Canonical rank-0 count for player / enemy formations (shared with TacticalCombat.incursion pressure).
 static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
 	var n: int = 0
-	if manager == null or not manager.has_method("_get_by_id"):
+	if manager == null:
 		return 0
 	for c in manager.combatants:
 		if not c.get("alive", false):
 			continue
-		if c.get("formation_id", "") != formation_key:
+		if str(c.get("formation_id", "")) != formation_key:
 			continue
-		if c.get("rank", 0) != 0:
+		if int(c.get("rank", 0)) != 0:
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue
@@ -42,14 +43,18 @@ static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
 	return n
 
 
-## True when there is no real two-sided rank-0 line (duel, cleanup, or one side's front row empty). Used to relax breach-based formation move locks.
+static func engagement_mode(manager: Node) -> String:
+	return _EngagementMode.engagement_mode(manager)
+
+
+## True when there is no robust two-sided line (duel/skirmish). Used to relax breach-based formation move locks.
 static func is_skirmish_line_engagement(manager: Node) -> bool:
-	var p: int = count_front_rank_alive(manager, "player")
-	var e: int = count_front_rank_alive(manager, "enemy")
-	if CombatConstants.SKIRMISH_WHEN_EITHER_SIDE_ZERO_FRONT and (p == 0 or e == 0):
-		return true
-	var cap: int = CombatConstants.SKIRMISH_MAX_FRONT_FIGHTERS_PER_SIDE
-	return p <= cap and e <= cap
+	return engagement_mode(manager) != "formation"
+
+
+## Crash/incursion should only open in full formation mode; existing intruders may still fight from depth.
+static func incursion_allowed(manager: Node) -> bool:
+	return _EngagementMode.incursion_allowed(manager)
 
 
 ## Whether open-lane formation moves should be withheld for **listing** disengage / fall-back (see `AvailableActionsBuilder`).

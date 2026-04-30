@@ -48,6 +48,8 @@ var event_queue: Array = []
 var combat_clock: float = 0.0
 var encounter: Dictionary = {}
 var formations: Dictionary = {}
+## Per `formation_id` (e.g. player / enemy): CombatConstants.DOCTRINE_* — hybrid targeting + AI weights.
+var formation_doctrine: Dictionary = {}
 
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _AttackResolver := preload("res://combat/AttackResolver.gd")
@@ -69,6 +71,8 @@ const _CombatantsSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _FormationEngagement := preload("res://combat/CombatFormationEngagement.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
+const _Doctrine := preload("res://combat/CombatDoctrine.gd")
+const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 
 ## Scene combat node → health/wounds/stats holder (e.g. Character → CoreEntity). Subsystems should use **`CombatantEntityAccess.get_health_entity_from_node`** / **`get_entity_from_manager`**.
 func get_health_entity(node: Node) -> Node:
@@ -147,6 +151,8 @@ func register(node: Node, side: String) -> int:
 		"intrusion_anchor_file": -1,
 		"intrusion_source_file": -1,
 		"lane_offset": CombatConstants.LANE_OFFSET_DEFAULT,
+		"doctrine_target_commit_id": -1,
+		"doctrine_commit_until": 0.0,
 	})
 	# Connect health_changed so UI can refresh when consciousness/pain/blood changes
 	if entity != null and entity.has_signal("health_changed"):
@@ -201,8 +207,11 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 			if not encounter.has(k):
 				encounter[k] = default_enc[k]
 	formations.clear()
+	formation_doctrine.clear()
 	# Build formations from presets and assign rank/file (always; use defaults when preset empty)
 	_FormationSetup.build_formations_and_assign_slots(self, player_formation, enemy_formation)
+	for fk in formations.keys():
+		formation_doctrine[str(fk)] = CombatConstants.DOCTRINE_DEFAULT
 	_reset_tactical_breach_state()
 	# Phase 1: Schedule initial EVENT_ACTION_READY for each alive combatant (staggered by agility).
 	_schedule_initial_action_ready_events()
@@ -338,6 +347,17 @@ func get_available_actions(combatant_id: int) -> Array:
 		_recompute_zoc_and_distance()
 	return _ActionsBuilder.build(self, combatant_id)
 
+
+## Set tactical doctrine for one formation (player / enemy). Clears commitments on that line.
+func set_formation_doctrine(formation_id: String, doctrine: String) -> void:
+	var fid: String = str(formation_id)
+	formation_doctrine[fid] = _Doctrine.normalize(doctrine)
+	_Doctrine.clear_commitments_for_side(self, fid)
+
+
+func get_formation_doctrine(formation_id: String) -> String:
+	return _Doctrine.doctrine_for_fid(self, str(formation_id))
+
 func _process(delta: float) -> void:
 	_ProcessTick.tick(self, delta)
 
@@ -395,6 +415,7 @@ func _handle_rotate_file_resolve(ev: Dictionary) -> void:
 
 
 func _on_combatant_died(c: Dictionary) -> void:
+	_TargetScoring.invalidate_commitments_to_dead(self, int(c.get("id", -1)))
 	_FormationFlow.on_combatant_died(self, c)
 
 func _get_by_id(id: int):

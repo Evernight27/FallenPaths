@@ -8,6 +8,7 @@ const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _BreachResolver := preload("res://combat/BreachResolver.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 
 
 static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: int) -> void:
@@ -49,6 +50,21 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 	var tgt = manager._get_by_id(defender_id)
 	if atk == null or tgt == null or not tgt.alive:
 		return
+	if not _EngagementMode.incursion_allowed(manager):
+		var mode_now: String = _EngagementMode.engagement_mode(manager)
+		if CombatConstants.COMBAT_EVENT_DEBUG:
+			CombatDebug.flow_log(
+				"crash_blocked id=%d->%d reason=engagement_mode_%s"
+				% [attacker_id, defender_id, mode_now]
+			)
+		manager.emit_signal(
+			"action_resolved",
+			attacker_id,
+			defender_id,
+			{"outcome": "crash_failed", "dmg": 0, "died": false, "reason": "engagement_mode_%s" % mode_now}
+		)
+		manager._schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CRASH_ATTEMPT_S)
+		return
 	if float(atk.get("stamina", 0.0)) < CombatConstants.CRASH_STAMINA_COST:
 		if CombatConstants.COMBAT_EVENT_DEBUG:
 			CombatDebug.flow_log(
@@ -79,6 +95,18 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 				]
 			)
 		manager.emit_signal("action_resolved", attacker_id, defender_id, {"outcome": "crash_failed", "dmg": 0, "died": false, "reason": "not_viable"})
+		manager._schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CRASH_ATTEMPT_S)
+		return
+	var intr_block: String = _EngagementMode.crash_intrusion_attacker_block_reason(manager, atk)
+	if not intr_block.is_empty():
+		if CombatConstants.COMBAT_EVENT_DEBUG:
+			CombatDebug.flow_log("crash_blocked id=%d->%d reason=%s" % [attacker_id, defender_id, intr_block])
+		manager.emit_signal(
+			"action_resolved",
+			attacker_id,
+			defender_id,
+			{"outcome": "crash_failed", "dmg": 0, "died": false, "reason": intr_block}
+		)
 		manager._schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CRASH_ATTEMPT_S)
 		return
 	var res: Dictionary = _BreachResolver.contest_crash(manager, attacker_id, defender_id)

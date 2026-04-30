@@ -8,7 +8,15 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
+
+static func _mode_code(mode_name: String) -> int:
+	if mode_name == CombatConstants.ENGAGEMENT_MODE_FORMATION:
+		return int(CombatConstants.ENGAGEMENT_MODE_CODE_FORMATION)
+	if mode_name == CombatConstants.ENGAGEMENT_MODE_DUEL:
+		return int(CombatConstants.ENGAGEMENT_MODE_CODE_DUEL)
+	return int(CombatConstants.ENGAGEMENT_MODE_CODE_SKIRMISH)
 
 ## Enemy front-rank units that could actually land a melee strike on the defender (weapon reach + spacing + band).
 ## Not merely “MID distance” from formation geometry — matches AvailableActionsBuilder.can_melee_threaten.
@@ -60,13 +68,42 @@ static func ambush_defense_multiplier(manager: Node, defender: Dictionary) -> fl
 static func recompute_incursion_pressure(manager: Node) -> void:
 	if manager == null or not manager.get("formations"):
 		return
+	var snap: Dictionary = _EngagementMode.snapshot(manager)
+	var p_front: int = int(snap.get("player_front", 0))
+	var e_front: int = int(snap.get("enemy_front", 0))
+	var mode_now: String = _EngagementMode.engagement_mode(manager)
+	var mode_now_code: int = _mode_code(mode_now)
+	var raw_mode: String = str(snap.get("raw_mode", "skirmish"))
+	var incursion_ok: bool = _EngagementMode.incursion_allowed(manager)
+	if manager != null:
+		var mode_snap: Dictionary = snap.duplicate()
+		mode_snap["mode"] = mode_now
+		mode_snap["mode_code"] = mode_now_code
+		mode_snap["incursion_allowed"] = incursion_ok
+		mode_snap["combat_clock"] = float(manager.get("combat_clock"))
+		manager.set_meta("_tactical_mode_snapshot", mode_snap)
+	var mode_line: String = (
+		"mode=%s(%d) raw=%s(%d) incursion_allowed=%s active[player=%d enemy=%d] front[player=%d enemy=%d] fill[player=%.2f enemy=%.2f]"
+		% [
+			mode_now,
+			mode_now_code,
+			raw_mode,
+			int(snap.get("raw_mode_code", _mode_code(raw_mode))),
+			incursion_ok,
+			int(snap.get("player_active", 0)),
+			int(snap.get("enemy_active", 0)),
+			p_front,
+			e_front,
+			float(snap.get("player_front_fill", 0.0)),
+			float(snap.get("enemy_front_fill", 0.0)),
+		]
+	)
 	for fid in ["player", "enemy"]:
 		var formation: Dictionary = manager.formations.get(fid, {})
 		if formation.is_empty():
 			continue
-		var opp_side: String = "enemy" if fid == "player" else "player"
-		var our_front: int = _FormationBreachRules.count_front_rank_alive(manager, fid)
-		var opp_front: int = _FormationBreachRules.count_front_rank_alive(manager, opp_side)
+		var our_front: int = p_front if fid == "player" else e_front
+		var opp_front: int = e_front if fid == "player" else p_front
 		var delta: int = opp_front - our_front
 		var pressure: float = clampf(float(delta) * CombatConstants.INCURSION_PRESSURE_PER_RANK_ADVANTAGE, 0.0, CombatConstants.INCURSION_PRESSURE_MAX)
 		formation["incursion_pressure"] = pressure
@@ -79,7 +116,7 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 			CombatDebug.flow_log(
 				(
 					"incursion_snapshot fid=%s pressure=%.3f lane_stress[%s] breached[%s] "
-					+ "breach_raw_clogs=%s breach_blocks_moves=%s skirmish=%s"
+					+ "breach_raw_clogs=%s breach_blocks_moves=%s skirmish=%s mode_state[%s] front_alive=%d intruders[%s]"
 				)
 				% [
 					fid,
@@ -88,7 +125,10 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 					CombatDebug.format_breached_files(bf),
 					raw_clog,
 					blocks_moves,
-					skirm
+					skirm,
+					mode_line,
+					our_front,
+					_format_intruders_on_host(manager, fid, int(formation.get("files", 1)))
 				]
 			)
 
@@ -118,4 +158,33 @@ static func _recompute_lane_stress_by_file(manager: Node, formation: Dictionary)
 		stress += maxf(breach_b, wedge_b)
 		by_file[f] = clampf(stress, 0.0, 1.0)
 	formation["lane_stress_by_file"] = by_file
+
+
+static func _format_intruders_on_host(manager: Node, host_fid: String, files: int) -> String:
+	if manager == null:
+		return "—"
+	var by_file: Dictionary = {}
+	for c in manager.combatants:
+		if not c.get("alive", false):
+			continue
+		if str(c.get("engagement_role", "")) != CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+			continue
+		if str(c.get("intrusion_host_fid", "")) != host_fid:
+			continue
+		var file_i: int = int(c.get("intrusion_anchor_file", c.get("file", 0)))
+		if file_i < 0 or file_i >= maxi(1, files):
+			continue
+		if not by_file.has(file_i):
+			by_file[file_i] = 0
+		by_file[file_i] = int(by_file[file_i]) + 1
+	if by_file.is_empty():
+		return "—"
+	var parts: Array[String] = []
+	for fi in range(maxi(1, files)):
+		var n: int = int(by_file.get(fi, 0))
+		if n > 0:
+			parts.append("f%d:%d" % [fi, n])
+	return "; ".join(parts)
+
+
 

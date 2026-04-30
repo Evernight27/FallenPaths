@@ -1,12 +1,12 @@
 # Combat documentation (consolidated)
 
-**Start here — full logical implementation plan:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — baseline → Tier 1 (**P3 + P4 shipped**; **1.4** hysteresis + discipline tags **partial**; **morale 1.5** not wired) + optional **2.1** tactical doc prose sync → tiers 2–7.
+**Start here — full logical implementation plan:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — baseline → Tier 1 (**P3 + P4 shipped**; **1.4** hysteresis + discipline tags **partial**; **1.7 Option 2 historical engagement bands + gating partial in code, soak pending**; **morale 1.5** not wired) + optional **2.1** tactical doc prose sync → tiers 2–7.
 
 ## Streamlined reading order
 
 | If you need… | Read… |
 |--------------|--------|
-| **Single plan before coding** | [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — dependency chain; **Tier 1.3 P4 Done**; **Tier 1.4 P5 Partial** (hysteresis + deltas + `line_discipline`; richer tags **Todo**); **1.6 Partial** (crash AI vs posture). |
+| **Single plan before coding** | [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — dependency chain; **Tier 1.3 P4 Done**; **Tier 1.4 P5 Partial** (hysteresis + deltas + `line_discipline`; richer tags **Todo**); **1.6 Partial** (crash AI vs posture); **1.7 Partial** (Option 2 classifier + harness checks), **1.8** soak gate before Option 4. |
 | **Tier 1 spec** (fields, plug taxonomy, tuning) | [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) — §4–§6; §2 is verification mirror (sequencing is in `IMPLEMENTATION_ORDER`). |
 | **Shipped baseline** (modules per subsystem) | Tier 0 in `IMPLEMENTATION_ORDER.md` — overlaps [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) **Current architecture snapshot**. |
 | **Historical phases + stamina / investigations** | [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) — long bundle; snapshot at top for “today.” |

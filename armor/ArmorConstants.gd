@@ -94,15 +94,29 @@ static func get_armor_options_by_part() -> Dictionary:
 	return {
 		"head": ["KETTLE_HELM", "LEATHER_CAP", "CLOTH_COIF"],
 		"chest": ["CUIRASS", "GAMBESON", "HAUBERK", "LEATHER_CUIRASS"],
-		"right_arm": ["VAMBRACES", "LEATHER_BRACERS", "ARM_WRAPS"],
+		"right_arm": ["VAMBRACES_RIGHT", "LEATHER_BRACERS_RIGHT", "ARM_WRAPS_RIGHT"],
 		"left_arm": ["VAMBRACES_LEFT", "LEATHER_BRACERS_LEFT", "ARM_WRAPS_LEFT"],
-		"right_leg": ["GREAVES", "LEG_WRAPS", "LEATHER_GREAVES"],
+		"right_leg": ["GREAVES_RIGHT", "LEG_WRAPS_RIGHT", "LEATHER_GREAVES_RIGHT"],
 		"left_leg": ["GREAVES_LEFT", "LEG_WRAPS_LEFT", "LEATHER_GREAVES_LEFT"]
 	}
 
 # Use get_piece_definition(piece_id) to get a definition with fresh layer copies.
 static func get_piece_definition(piece_id: String) -> Dictionary:
 	var id_normalized := piece_id
+	match piece_id:
+		# Back-compat aliases for older generic right-side IDs.
+		"VAMBRACES":
+			id_normalized = "VAMBRACES_RIGHT"
+		"LEATHER_BRACERS":
+			id_normalized = "LEATHER_BRACERS_RIGHT"
+		"ARM_WRAPS":
+			id_normalized = "ARM_WRAPS_RIGHT"
+		"GREAVES":
+			id_normalized = "GREAVES_RIGHT"
+		"LEG_WRAPS":
+			id_normalized = "LEG_WRAPS_RIGHT"
+		"LEATHER_GREAVES":
+			id_normalized = "LEATHER_GREAVES_RIGHT"
 	var all := _piece_definitions_build()
 	if not all.has(id_normalized):
 		return {}
@@ -148,8 +162,8 @@ static func _piece_definitions_build() -> Dictionary:
 			"layers": [LAYER_LEATHER.duplicate()]
 		},
 		# Arms: vambraces = plate + cloth; leather bracers = leather; cloth = cloth
-		"VAMBRACES": {
-			"name": "Vambraces",
+		"VAMBRACES_RIGHT": {
+			"name": "Vambraces (R)",
 			"body_part": "right_arm",
 			"layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
 		},
@@ -158,8 +172,8 @@ static func _piece_definitions_build() -> Dictionary:
 			"body_part": "left_arm",
 			"layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
 		},
-		"LEATHER_BRACERS": {
-			"name": "Leather Bracers",
+		"LEATHER_BRACERS_RIGHT": {
+			"name": "Leather Bracers (R)",
 			"body_part": "right_arm",
 			"layers": [LAYER_LEATHER.duplicate()]
 		},
@@ -168,8 +182,8 @@ static func _piece_definitions_build() -> Dictionary:
 			"body_part": "left_arm",
 			"layers": [LAYER_LEATHER.duplicate()]
 		},
-		"ARM_WRAPS": {
-			"name": "Arm Wraps",
+		"ARM_WRAPS_RIGHT": {
+			"name": "Arm Wraps (R)",
 			"body_part": "right_arm",
 			"layers": [LAYER_CLOTH.duplicate()]
 		},
@@ -179,8 +193,8 @@ static func _piece_definitions_build() -> Dictionary:
 			"layers": [LAYER_CLOTH.duplicate()]
 		},
 		# Legs: greaves = plate + cloth; leather = leather; cloth = cloth
-		"GREAVES": {
-			"name": "Greaves",
+		"GREAVES_RIGHT": {
+			"name": "Greaves (R)",
 			"body_part": "right_leg",
 			"layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
 		},
@@ -189,8 +203,8 @@ static func _piece_definitions_build() -> Dictionary:
 			"body_part": "left_leg",
 			"layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
 		},
-		"LEG_WRAPS": {
-			"name": "Leg Wraps",
+		"LEG_WRAPS_RIGHT": {
+			"name": "Leg Wraps (R)",
 			"body_part": "right_leg",
 			"layers": [LAYER_CLOTH.duplicate()]
 		},
@@ -199,8 +213,8 @@ static func _piece_definitions_build() -> Dictionary:
 			"body_part": "left_leg",
 			"layers": [LAYER_CLOTH.duplicate()]
 		},
-		"LEATHER_GREAVES": {
-			"name": "Leather Greaves",
+		"LEATHER_GREAVES_RIGHT": {
+			"name": "Leather Greaves (R)",
 			"body_part": "right_leg",
 			"layers": [LAYER_LEATHER.duplicate()]
 		},

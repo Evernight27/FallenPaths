@@ -42,7 +42,13 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 			if within_mid_files and reach_here >= eff_dist:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_MID
 			else:
-				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
+				# (C) Attacker reach already covers geometric separation — treat as mid so strike
+				# listing matches geometry (avoids LONG + in_swing_range → only attempt_close).
+				var atk_reach_only: float = _ActionsBuilder.melee_weapon_reach(c)
+				if atk_reach_only + 1e-4 >= eff_dist:
+					c.distance_to[opp.id] = CombatConstants.DISTANCE_MID
+				else:
+					c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
 	for c in manager.combatants:
 		for opp in manager.combatants:
 			if opp.side == c.side or not opp.alive:
