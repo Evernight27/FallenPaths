@@ -111,6 +111,23 @@ static func get_attacking_arm(combatant: Dictionary) -> String:
 		return ""
 	return node.get_attacking_arm()
 
+
+## True when formation **retreat** (disengage swap, drag/fall_back pair, solo fall_back) is justified by injury or peril — not fatigue-only composite fitness.
+static func retreat_formation_body_damage_warranted(c: Dictionary, manager: Node) -> bool:
+	if c.is_empty():
+		return false
+	if get_attacking_arm(c).is_empty():
+		return true
+	var node: Variant = c.get("node", null)
+	if node == null:
+		return false
+	if get_blood_volume_from_node(node as Node) < CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX:
+		return true
+	if manager != null and manager.has_method("_is_in_immediate_peril") and manager._is_in_immediate_peril(c):
+		return true
+	return false
+
+
 ## Returns leg functionality 0–1. Default 1.0 if unavailable.
 static func get_leg_functionality(combatant: Dictionary) -> float:
 	var node = combatant.get("node", null)

@@ -17,6 +17,36 @@ static func _formation_id_for_pair_geometry(manager: Node, c: Dictionary) -> Str
 	return _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
 
 
+## Self-target `fall_back` into empty same-file rank-1: strict/normal discipline forbids; `loose` allows only when desperate/peril and line closure policy matches action builder.
+static func solo_fall_back_action_legal(manager: Node, atk: Dictionary) -> bool:
+	if manager == null or atk.is_empty():
+		return false
+	if int(atk.get("rank", 0)) != 0:
+		return false
+	if str(atk.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		return false
+	if _in_pair_abort_cooldown(manager, atk):
+		return false
+	var fid: String = str(atk.get("formation_id", ""))
+	var our_formation: Dictionary = manager.formations.get(fid, {})
+	if our_formation.is_empty():
+		return false
+	if int(our_formation.get("ranks", 1)) <= 1:
+		return false
+	if _FormationBreachRules.breach_blocks_open_lane_moves(manager, our_formation):
+		return false
+	var disc: String = CombatFormationEngagement.effective_line_discipline(manager, our_formation)
+	if not CombatConstants.line_discipline_allows_solo_fall_back(disc):
+		return false
+	var our_file: int = int(atk.get("file", 0))
+	var slots_check: Dictionary = our_formation.get("slots", {})
+	if _FormationSlots.slot_has_any_living_occupant(manager, slots_check, Vector2i(1, our_file)):
+		return false
+	if _FormationFlow.formation_has_frontline_fill_opportunity(manager, fid):
+		return false
+	return _EntityAccess.retreat_formation_body_damage_warranted(atk, manager)
+
+
 static func _wedge_distance_pull(manager: Node, a: Dictionary, b: Dictionary, half_width_spacing: float) -> float:
 	var host_fid: String = ""
 	var anchor_f: int = -1
@@ -234,6 +264,17 @@ static func can_melee_threaten(manager: Node, attacker: Dictionary, defender: Di
 	return false
 
 
+## Per-pair failed-close backoff: logic-gates `attempt_close` off the action list until `CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S` elapses.
+static func _close_attempt_pair_blocked(manager: Node, attacker: Dictionary, defender_id: int) -> bool:
+	var d: Dictionary = attacker.get("close_block_until_by_target_id", {}) as Dictionary
+	if d.is_empty():
+		return false
+	var until: Variant = d.get(defender_id, -1.0)
+	if float(until) < 0.0:
+		return false
+	return float(manager.combat_clock) < float(until)
+
+
 ## Melee / close / crash vs opponents whose `rank` matches `opp_rank_required` (0 = front line; 1 = stalemate fallback when no rank-0 enemy exists).
 static func _append_melee_vs_enemy_line_rank(
 	manager: Node,
@@ -256,10 +297,12 @@ static func _append_melee_vs_enemy_line_rank(
 						continue
 					actions.append({ "target_id": opp.id, "move_id": move_id })
 			elif dist in [CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
-				actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
+				if not _close_attempt_pair_blocked(manager, c, opp.id):
+					actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
 		else:
 			if dist in [CombatConstants.DISTANCE_CLOSE, CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
-				actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
+				if not _close_attempt_pair_blocked(manager, c, opp.id):
+					actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
 		if _crash_action_eligible(manager, c, opp, melee_range, can_attack_from_mid, eff_dist, in_swing_range, dist):
 			actions.append({"target_id": opp.id, "move_id": CombatConstants.MOVE_ID_CRASH})
 
@@ -329,20 +372,14 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		# Phase 3: Swap rank — front→back disengage; plug when front incap; deeper→shallow relief (same column).
 		# With 3+ depth ranks, middle/back rows must be able to swap toward the front or they only get wait.
 		# Breach congestion: disengage / retreat withheld; plug-forward and relief swaps still allowed (FormationBreachRules.resolve_blocks_formation_move).
-		# Same-rank rotate_file is line movement and stays available under breach (see Phase 5).
 		# Skirmish (collapsed line) can uncleg moves; see FormationBreachRules.breach_blocks_open_lane_moves.
 		var formation_ranks: int = our_formation.get("ranks", 1)
 		var breach_blocks_moves: bool = not our_formation.is_empty() and _FormationBreachRules.breach_blocks_open_lane_moves(manager, our_formation)
 		var pair_abort_blocked: bool = _in_pair_abort_cooldown(manager, c)
-		var rotate_blocked: bool = _in_rotate_file_cooldown(manager, c)
-		var frontline_fill_required: bool = _FormationFlow.formation_has_frontline_fill_opportunity(
-			manager, fid
-		)
 		var move_policy: Dictionary = _EngagementMode.movement_policy(manager)
 		var can_swap_rank: bool = bool(move_policy.get("allow_swap_rank", false))
 		var can_drag_back: bool = bool(move_policy.get("allow_drag_back", false))
 		var can_fall_back: bool = bool(move_policy.get("allow_fall_back", false))
-		var can_rotate_file: bool = bool(move_policy.get("allow_rotate_file", false))
 		log_fid = fid
 		log_breach_blocks_moves = breach_blocks_moves
 		if (
@@ -374,7 +411,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 						elif relief_swap:
 							allow_swap = true
 						elif we_are_front:
-							allow_swap = CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, ally)
+							allow_swap = CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, ally, manager)
 						if allow_swap:
 							actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_SWAP_RANK })
 							# Drag / fall_back_pair are front-line retreat flavors; relief rotation uses quick swap only.
@@ -402,32 +439,9 @@ static func build(manager: Node, combatant_id: int) -> Array:
 					if allow_swap:
 						actions.append({ "target_id": ally.id, "move_id": CombatConstants.MOVE_ID_SWAP_RANK })
 					break
-		# Phase 5: rotate file — restrict to front rank only.
-		# Back-rank lane shuffles can oscillate and fight against vacancy compaction;
-		# rear movement should happen via swap/plug, not constant lateral rotate ping-pong.
-		if (
-			not our_formation.is_empty()
-			and formation_ranks > 1
-			and not c_intruded
-			and our_rank == 0
-			and not pair_abort_blocked
-			and not rotate_blocked
-			and not frontline_fill_required
-			and can_rotate_file
-		):
-			for ally in combatants:
-				if not ally.alive or ally.side != c.side or ally.get("formation_id", "") != fid:
-					continue
-				if ally.get("state", "") in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
-					continue
-				if _in_rotate_file_cooldown(manager, ally):
-					continue
-				if ally.get("rank", 0) != our_rank:
-					continue
-				if abs(ally.get("file", 0) - our_file) != 1:
-					continue
-				actions.append({"target_id": ally.id, "move_id": CombatConstants.MOVE_ID_ROTATE_FILE})
-		# Phase 5: fall back solo — step to rear rank when that slot is empty.
+		# Lateral front-row moves are **not** offered as voluntary actions: `CombatFormationFlow.reconcile_vacancy_plugs_*`
+		# closes rank-0 holes with scored lateral plugs only when a hole exists.
+		# Phase 5: fall back solo — only under `line_discipline` loose; strict/normal use paired relief only.
 		if (
 			not our_formation.is_empty()
 			and formation_ranks > 1
@@ -436,10 +450,9 @@ static func build(manager: Node, combatant_id: int) -> Array:
 			and not c_intruded
 			and not pair_abort_blocked
 			and can_fall_back
+			and solo_fall_back_action_legal(manager, c)
 		):
-			var slots_check: Dictionary = our_formation.get("slots", {})
-			if not _FormationSlots.slot_has_any_living_occupant(manager, slots_check, Vector2i(1, our_file)):
-				actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK})
+			actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK})
 		_append_combat_wait_if_needed(actions, combatant_id)
 	else:
 		if c.side == medical_phase_winner and c.node != null and c.node.has_method("can_apply_direct_pressure"):
@@ -474,7 +487,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		var mid: String = str(a.get("move_id", ""))
 		if mid in CombatConstants.MEDICAL_MOVE_IDS:
 			medical_count += 1
-	if CombatConstants.COMBAT_EVENT_DEBUG:
+	if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
 		var crash_count: int = 0
 		for a in actions:
 			if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_CRASH:
@@ -516,7 +529,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				)
 				% [
 					combatant_id,
-					_crash_absent_primary_reason(manager, c),
+					crash_absent_primary_reason(manager, c),
 					CombatConstants.crash_breach_viability(c),
 					int(c.get("tactical_penetration_depth", 0)),
 					CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX,
@@ -573,8 +586,8 @@ static func _crash_action_eligible(
 	return false
 
 
-## Why crash was not listed despite front rank + viability (for COMBAT_EVENT_DEBUG). Breach clog does not gate crash.
-static func _crash_absent_primary_reason(manager: Node, c: Dictionary) -> String:
+## Why crash was not listed despite front rank + viability (for verbose flow logs / UI hints). Breach clog does not gate crash.
+static func crash_absent_primary_reason(manager: Node, c: Dictionary) -> String:
 	var block: String = _EngagementMode.crash_intrusion_attacker_block_reason(manager, c)
 	if not block.is_empty():
 		return block
@@ -629,6 +642,69 @@ static func _crash_absent_primary_reason(manager: Node, c: Dictionary) -> String
 	return first_reason if not first_reason.is_empty() else "unknown"
 
 
+static func format_crash_absent_reason_for_ui(reason_key: String) -> String:
+	var k: String = str(reason_key)
+	if k.begins_with("engagement_mode_"):
+		var m: String = k.trim_prefix("engagement_mode_")
+		return "Breach rush unavailable: %s" % _EngagementMode.mode_display_name(m)
+	match k:
+		"intruder_cap":
+			return "Breach rush unavailable: intruder cap (heavy armor role)"
+		"light_armor":
+			return "Breach rush unavailable: armor too light"
+		"at_max_penetration_depth":
+			return "Breach rush unavailable: at max penetration depth"
+		"low_stamina":
+			return "Breach rush unavailable: low stamina"
+		"crash_cooldown":
+			return "Breach rush unavailable: crash on cooldown"
+		"no_melee_weapon_profile":
+			return "Breach rush unavailable: no melee weapon"
+		"no_front_rank_enemy":
+			return "Breach rush unavailable: no valid front target"
+		"out_of_swing_range":
+			return "Breach rush unavailable: out of weapon reach"
+		"distance_long":
+			return "Breach rush unavailable: target too far"
+		"distance_mid_short_weapon":
+			return "Breach rush unavailable: mid band, weapon too short"
+		"unknown":
+			return "Breach rush unavailable"
+		_:
+			if k.begins_with("distance_band_"):
+				return "Breach rush unavailable: spacing (%s)" % k.trim_prefix("distance_band_")
+			return "Breach rush unavailable (%s)" % k
+
+
+## Player UI / combat log: one line when crash is absent but breach viability suggests it matters.
+static func player_crash_absence_hint_if_missing(manager: Node, c: Dictionary, actions: Array) -> String:
+	if manager == null or c.is_empty():
+		return ""
+	if str(c.get("side", "")) != "player":
+		return ""
+	if bool(manager.medical_phase):
+		return ""
+	# Crash intrusion is native front rank only (`_crash_action_eligible`); skip hints for intruders / rear ranks.
+	if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		return ""
+	if int(c.get("rank", 0)) != 0:
+		return ""
+	if _EntityAccess.get_attacking_arm(c).is_empty():
+		return ""
+	var crash_count: int = 0
+	for a in actions:
+		if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_CRASH:
+			crash_count += 1
+	if crash_count > 0:
+		return ""
+	if CombatConstants.crash_breach_viability(c) < CombatConstants.CRASH_BREACH_VIABILITY_MIN:
+		return ""
+	var raw: String = crash_absent_primary_reason(manager, c)
+	if raw.is_empty() or raw == "crash_eligible_but_missing_bug":
+		return ""
+	return format_crash_absent_reason_for_ui(raw)
+
+
 ## When no combat actions exist, or only formation movement moves remain, offer wait (avoid ping-pong).
 static func _append_combat_wait_if_needed(actions: Array, combatant_id: int) -> void:
 	if actions.is_empty():
@@ -644,19 +720,6 @@ static func _in_pair_abort_cooldown(manager: Node, c: Dictionary) -> bool:
 	if manager == null:
 		return false
 	var until: float = float(c.get("formation_pair_abort_cooldown_until", -1.0))
-	if until < 0.0:
-		return false
-	var clock: float = 0.0
-	var cc: Variant = manager.get("combat_clock")
-	if cc != null:
-		clock = float(cc)
-	return clock < until
-
-
-static func _in_rotate_file_cooldown(manager: Node, c: Dictionary) -> bool:
-	if manager == null:
-		return false
-	var until: float = float(c.get("formation_rotate_file_cooldown_until", -1.0))
 	if until < 0.0:
 		return false
 	var clock: float = 0.0

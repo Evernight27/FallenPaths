@@ -3,7 +3,8 @@ extends RefCounted
 
 ## Conditional combat logging. Only logs when CombatConstants.COMBAT_DEBUG is true.
 ## calibration_log: logs when COMBAT_DEBUG_CALIBRATION is true (alignment, parry_c_d, variance, etc.).
-## flow_log: logs when COMBAT_EVENT_DEBUG is true — turns, actions list, picks, skip/wait, resolve entry (feature testing).
+## flow_log: logs when COMBAT_EVENT_DEBUG and COMBAT_EVENT_DEBUG_VERBOSE — action lists, incursion snapshots, resolves.
+## flow_log_turn: logs turn pick line when COMBAT_EVENT_DEBUG alone is true.
 
 static func log(msg: String) -> void:
 	if CombatConstants.COMBAT_DEBUG:
@@ -14,9 +15,9 @@ static func calibration_log(msg: String) -> void:
 	if CombatConstants.COMBAT_DEBUG_CALIBRATION:
 		print("[Combat.Cal] ", msg)
 
-## High-level flow: available actions, AI pick, skip/wait, resolve_action branches. Toggle CombatConstants.COMBAT_EVENT_DEBUG.
+## Verbose flow (action lists, incursion snapshots, formation resolves). Requires `COMBAT_EVENT_DEBUG_VERBOSE`.
 static func flow_log(msg: String) -> void:
-	if CombatConstants.COMBAT_EVENT_DEBUG:
+	if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
 		print("[Combat.Flow] ", msg)
 
 
@@ -42,9 +43,10 @@ static func flow_log_turn(side: String, combatant_id: int, actions: Array, choic
 	if not CombatConstants.COMBAT_EVENT_DEBUG:
 		return
 	var act_str: String = format_actions_compact(actions)
-	flow_log("turn side=%s id=%d actions=[%s] => pick move_id=%s target_id=%d" % [
-		side, combatant_id, act_str, choice.get("move_id", ""), choice.get("target_id", -1)
-	])
+	print(
+		"[Combat.Flow] turn side=%s id=%d actions=[%s] => pick move_id=%s target_id=%d"
+		% [side, combatant_id, act_str, choice.get("move_id", ""), choice.get("target_id", -1)]
+	)
 
 
 ## breached_files keys may be int or String from serialization paths; values 0..1

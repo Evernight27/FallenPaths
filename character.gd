@@ -8,6 +8,8 @@ signal moved
 # Combat/body stats live on the CombatBody child (CoreEntity); we expose them so
 # combat and UI that read this node still work.
 @export var species: Resource = null
+## True for the player-controlled lead only. Companions stay false. Set in scene and/or `PlayerCompanionSetup`; copied into combatant dict on `CombatManager.register`.
+@export var is_party_leader: bool = false
 @onready var _combat_body: CoreEntity = $CombatBody
 
 var body_cutting: Dictionary: get = _get_body_cutting
@@ -251,7 +253,8 @@ func _ready() -> void:
 
 func _on_combat_body_died() -> void:
 	# Battle UI will emit battle_ended(winner, defeated); main.gd handles outcome there.
-	print("[Combat] Player character died (Character combat body died signal: %s)" % name)
+	var role: String = "Protagonist" if is_party_leader else "Party member"
+	print("[Combat] %s lost combat body (node: %s)" % [role, name])
 
 func _snap_to_grid(pos: Vector2) -> Vector2:
 	return Vector2(

@@ -92,21 +92,29 @@ static func _compute_line_cohesion(manager: Node, fid: String, form: Dictionary)
 	return clampf(raw, 0.0, 1.0)
 
 
+## Resolved `line_discipline` for this formation: preset field wins; else encounter `ENCOUNTER_KEY_LINE_DISCIPLINE`.
+static func effective_line_discipline(manager: Node, form: Dictionary) -> String:
+	var disc_enc: String = ""
+	if manager != null:
+		var enc: Variant = manager.get("encounter")
+		if enc != null and typeof(enc) == TYPE_DICTIONARY:
+			disc_enc = str((enc as Dictionary).get(CombatConstants.ENCOUNTER_KEY_LINE_DISCIPLINE, "")).strip_edges().to_lower()
+	var disc_form: String = str(form.get("line_discipline", "")).strip_edges().to_lower()
+	return disc_form if not disc_form.is_empty() else disc_enc
+
+
 static func _effective_posture_thresholds(manager: Node, form: Dictionary) -> Vector2:
 	var l_in: float = CombatConstants.LINE_COHESION_POSTURE_ENTER_LINE_MIN
 	var l_out: float = CombatConstants.LINE_COHESION_POSTURE_LEAVE_LINE_BELOW
-	var disc_enc: String = ""
 	if manager != null:
 		var enc: Variant = manager.get("encounter")
 		if enc != null and typeof(enc) == TYPE_DICTIONARY:
 			var ed: Dictionary = enc as Dictionary
 			l_in += float(ed.get(CombatConstants.ENCOUNTER_KEY_POSTURE_ENTER_DELTA, 0.0))
 			l_out += float(ed.get(CombatConstants.ENCOUNTER_KEY_POSTURE_LEAVE_DELTA, 0.0))
-			disc_enc = str(ed.get(CombatConstants.ENCOUNTER_KEY_LINE_DISCIPLINE, "")).strip_edges().to_lower()
 	l_in += float(form.get("discipline_posture_enter_delta", 0.0))
 	l_out += float(form.get("discipline_posture_leave_delta", 0.0))
-	var disc_form: String = str(form.get("line_discipline", "")).strip_edges().to_lower()
-	var disc_pick: String = disc_form if not disc_form.is_empty() else disc_enc
+	var disc_pick: String = effective_line_discipline(manager, form)
 	var disc_xy: Vector2 = CombatConstants.line_discipline_posture_extra_deltas(disc_pick)
 	l_in += disc_xy.x
 	l_out += disc_xy.y

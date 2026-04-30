@@ -108,7 +108,7 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 		var pressure: float = clampf(float(delta) * CombatConstants.INCURSION_PRESSURE_PER_RANK_ADVANTAGE, 0.0, CombatConstants.INCURSION_PRESSURE_MAX)
 		formation["incursion_pressure"] = pressure
 		_recompute_lane_stress_by_file(manager, formation)
-		if CombatConstants.COMBAT_EVENT_DEBUG:
+		if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
 			var bf: Dictionary = formation.get("breached_files", {})
 			var raw_clog: bool = _FormationBreachRules.breach_clogs_open_lanes(formation)
 			var blocks_moves: bool = _FormationBreachRules.breach_blocks_open_lane_moves(manager, formation)

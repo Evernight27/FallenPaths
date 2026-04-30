@@ -36,8 +36,9 @@ const BLUNT_CUSHION_MOMENTUM_THRESHOLD: float = 3000.0  # (kg·m/s)/m²
 const BLUNT_COUPLING_REFERENCE_CM: float = 6.0  # fallback only
 # Rigidity >= this: apply area coupling. Below: no area effect (flexible).
 const RIGIDITY_THRESHOLD: float = 0.5
-# Warn when area_factor or transmission outside these (tuning check)
-const BLUNT_AREA_FACTOR_WARN_MIN: float = 0.05
+# Warn when area_factor or transmission outside these (tuning check).
+# Min: narrow stab / point vs max head_diameter reference (e.g. 0.2 cm / 8 cm); not a data error.
+const BLUNT_AREA_FACTOR_WARN_MIN: float = 0.02
 const BLUNT_AREA_FACTOR_WARN_MAX: float = 5.0
 const BLUNT_TRANSMISSION_WARN_MIN: float = 0.0
 const BLUNT_TRANSMISSION_WARN_MAX: float = 1.0

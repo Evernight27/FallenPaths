@@ -10,6 +10,8 @@ func _ready():
 	pass
 
 func add_member(node: Node) -> void:
+	if members.size() >= CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP:
+		return
 	members.append(_Snapshot.init_from_node(node))
 	emit_signal("party_updated")
 

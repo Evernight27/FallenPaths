@@ -1,7 +1,8 @@
 class_name CombatAIActionPicker
 extends RefCounted
 
-## Picks one action from available actions using weighted randomness.
+## Picks one action from available actions using weighted randomness. **Combat move choice is fully AI-driven:**
+## weights combine stamina + `CombatTargetScoring` (doctrine, file bias, commitment, distributed pressure). No human pick path.
 ## Medical: weight by TARGET's urgency (prioritize treating most critical ally). Attacks: 1.
 ## Self direct pressure: weight by part's bleeding rate (prioritize most serious wound).
 ## Pending retry: strongly prefer retrying the failed part when target is still in peril.
@@ -42,10 +43,15 @@ static func opts_from_choice(choice: Dictionary) -> Dictionary:
 
 ## True when front→back disengage swap is tactically justified (matches high-weight rules in _get_action_weight).
 ## Plug-forward (incapacitated partner) is handled separately in AvailableActionsBuilder.
-static func is_disengage_swap_tactically_allowed(c: Dictionary, partner: Dictionary) -> bool:
+## `manager`: required for body-damage / peril gate (fatigue alone must not justify retreat).
+static func is_disengage_swap_tactically_allowed(
+	c: Dictionary, partner: Dictionary, manager: Node
+) -> bool:
 	if partner == null or partner.is_empty():
 		return false
 	if CombatantEntityAccess.is_incapacitated(partner):
+		return false
+	if not CombatantEntityAccess.retreat_formation_body_damage_warranted(c, manager):
 		return false
 	var our_fitness: float = _get_positioning_fitness(c)
 	var partner_fitness: float = _get_positioning_fitness(partner)
@@ -100,7 +106,8 @@ static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) 
 		var pst_m: float = _crash_weight_posture_mult(manager, c)
 		return CombatConstants.CRASH_AI_WEIGHT_CAP * shaped * sr_c * pst_m
 	if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get("target_id", -1) == combatant_id:
-		return 0.65  # Solo step to rear — situational
+		# Offered only when desperate / peril (AvailableActionsBuilder); keep below routine wait.
+		return 0.45
 	if mid == CombatConstants.MOVE_ID_ROTATE_FILE:
 		return 0.55
 	if mid in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK]:
@@ -117,7 +124,7 @@ static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) 
 			if is_relief_swap_tactically_allowed(c, partner):
 				return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
 			return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
-		if partner != null and is_disengage_swap_tactically_allowed(c, partner):
+		if partner != null and is_disengage_swap_tactically_allowed(c, partner, manager):
 			return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
 		return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
 	# Attack or attempt_close: engaging the enemy — use stamina + hybrid targeting (doctrine, file, pressure).

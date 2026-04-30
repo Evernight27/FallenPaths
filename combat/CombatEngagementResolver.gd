@@ -9,6 +9,7 @@ const _BreachResolver := preload("res://combat/BreachResolver.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
+const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 
 
 static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: int) -> void:
@@ -38,9 +39,16 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 		var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 		print("[Combat] Close attempt %s → %s: %s (next turn in %.1fs)" % [atk_name, tgt_name, "success" if success else "failed", CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S])
 	manager.emit_signal("action_resolved", attacker_id, target_id, {"outcome": "close_success" if success else "close_failed", "dmg": 0, "died": false})
+	var blk: Dictionary = atk.get("close_block_until_by_target_id", {}) as Dictionary
 	if success:
 		atk.distance_to[target_id] = CombatConstants.DISTANCE_CLOSE
 		tgt.distance_to[attacker_id] = CombatConstants.DISTANCE_CLOSE
+		blk.erase(target_id)
+		atk["close_block_until_by_target_id"] = blk
+		_TargetScoring.on_combat_commitment(manager, attacker_id, target_id)
+	else:
+		blk[target_id] = float(manager.combat_clock) + CombatConstants.CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S
+		atk["close_block_until_by_target_id"] = blk
 	atk["action_cooldown_until"] = manager.combat_clock + CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S
 	manager._schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S)
 

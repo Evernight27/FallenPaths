@@ -21,6 +21,7 @@ static func build(manager: Node) -> Array:
 			"id": c.id,
 			"node": c.node,
 			"side": c.side,
+			"formation_id": str(c.get("formation_id", "")),
 			"rank": c.get("rank", 0),
 			"file": c.get("file", 0),
 			"stats": stats,
@@ -34,10 +35,19 @@ static func build(manager: Node) -> Array:
 				maxi(0, int(c.get("tactical_penetration_depth", 0))),
 				CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX
 			),
+			"engagement_role": str(c.get("engagement_role", CombatConstants.ENGAGEMENT_ROLE_LINE)),
+			"intrusion_host_fid": str(c.get("intrusion_host_fid", "")),
+			"intrusion_anchor_file": int(c.get("intrusion_anchor_file", -1)),
+			"lane_offset": float(c.get("lane_offset", 0.0)),
 		}
 		if CombatConstants.COMBAT_DEBUG:
 			item["guard_line"] = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
 			item["guard_angle_deg"] = CombatConstants.get_guard_angle_deg(c)
+		var pm_raw: Variant = c.get("pending_medical", {})
+		if pm_raw is Dictionary:
+			item["pending_medical"] = (pm_raw as Dictionary).duplicate(true)
+		else:
+			item["pending_medical"] = {}
 		var crash_cd_until: float = float(c.get("crash_cooldown_until", 0.0))
 		var action_cd_until: float = float(c.get("action_cooldown_until", 0.0))
 		if crash_cd_until > manager.combat_clock:

@@ -1,7 +1,9 @@
 class_name CombatDoctrine
 extends RefCounted
 
-## Per-formation intent: steers hybrid targeting (CombatTargetScoring) + clears commitments on change.
+## Per-formation **intent** (doctrine): steers hybrid targeting weights + ordering via `CombatTargetScoring` / `CombatAIActionPicker`.
+## Orthogonal to **crash** (breach intrusion): crash uses `CombatEngagementMode`, stamina, armor mass, and `BreachResolver`;
+## doctrine does not gate crash listing — they stay separate to avoid one system silently overriding breach eligibility.
 
 static func normalize(doctrine: String) -> String:
 	var d: String = str(doctrine).strip_edges().to_lower()
@@ -32,3 +34,10 @@ static func clear_commitments_for_side(manager: Node, formation_id: String) -> v
 			continue
 		c["doctrine_target_commit_id"] = -1
 		c["doctrine_commit_until"] = 0.0
+		c["close_block_until_by_target_id"] = {}
+
+
+## Placeholder for a future **automatic doctrine** hook (e.g. hollow enemy center → `PINCH_CENTER`).
+## Call from a single orchestration point once triggers are defined; keep empty until then.
+static func evaluate_automatic_doctrine(_manager: Node) -> void:
+	pass

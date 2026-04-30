@@ -2,7 +2,7 @@ class_name PartySetup
 extends RefCounted
 
 ## Sets up party manager, party menu, and Party button. Used by main.gd.
-## world: the main scene (Node2D) - must have Character and optionally Character/Companion.
+## world: the main scene (Node2D) - Character plus Character/Companion … up to party size under `CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP`.
 ## Also sets default party_formation for combat (FF4 formation UI). Customize via world meta.
 
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
@@ -15,7 +15,9 @@ static func setup_party(world: Node2D) -> void:
 	world.get_tree().root.add_child(pm)
 	if world.has_node("Character"):
 		pm.add_member(world.get_node("Character"))
-	for i in range(1, 5):
+	for i in range(1, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP):
+		if pm.get_members().size() >= CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP:
+			break
 		var path = "Character/Companion" + ("" if i == 1 else str(i))
 		if world.has_node(path):
 			pm.add_member(world.get_node(path))
@@ -35,7 +37,7 @@ static func setup_party(world: Node2D) -> void:
 
 	world.set_meta("party_manager", pm)
 	world.set_meta("party_menu", party_menu)
-	# Default party formation for combat (up to 5 wide, depth ceil(n/5); BattleScene uses when starting combat).
+	# Default party formation for combat (front width capped in FormationPreset; BattleScene uses when starting combat).
 	world.set_meta("party_formation", _FormationPreset.default_for_count(pm.get_members().size()))
 
 static func _get_or_create_overlay(root: Node) -> CanvasLayer:

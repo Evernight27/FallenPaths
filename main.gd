@@ -44,7 +44,7 @@ func _ready():
 	
 	# Randomize RNG and spawn two enemy encounters on different tiles (for testing medical continuity between battles)
 	rng.randomize()
-	EncounterSpawner.spawn_encounters(self, rng, 2, 5, enemy_scene)
+	EncounterSpawner.spawn_encounters(self, rng, 2, 7, enemy_scene)
 	# Assign player and companion species/equipment before party setup so party UI shows correct stats
 	PlayerCompanionSetup.setup_player_and_companion(self, rng)
 	# Setup party manager, party menu, and Party button (after species so snapshot has correct stats)

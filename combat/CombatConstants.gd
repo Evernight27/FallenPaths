@@ -174,13 +174,14 @@ const PREFERRED_PART_BONUS_MULT := 1.5
 const COMBAT_DEBUG := false
 # Calibration: when true, log alignment, parry_c_d, variance, remaining_ratio for tuning to HEMA 57–80% parry share.
 const COMBAT_DEBUG_CALIBRATION := false
-# Flow / feature testing: turns, available actions + AI pick, skip/wait/pass, close attempts, formation move start/resolve,
-# EVENT_ACTION_READY skips, formation aborts, medical action lists; incursion (incursion_snapshot: pressure, lane_stress,
-# breached_files, breach_raw_clogs / breach_blocks_moves / skirmish); crash (contest_crash, crash_blocked, crash_not_in_action_list);
-# breach block details on
-# formation moves. Prefix: [Combat.Flow] via CombatDebug.flow_log; crash summaries also [Combat] in CombatEngagementResolver.
+# Flow / feature testing: with `COMBAT_EVENT_DEBUG` alone — turn pick lines (`CombatDebug.flow_log_turn`) and `[Combat.Flow]` prints from `flow_log_turn` only.
+# With `COMBAT_EVENT_DEBUG_VERBOSE` also true — `CombatDebug.flow_log` (get_available_actions, incursion_snapshot, resolve_action, skip_turn, formation resolves),
+# `[Combat]` formation move banners, and `EVENT_ACTION_READY skipped` (state not waiting). Crash summaries may still use `[Combat]` in `CombatEngagementResolver`.
 # Disable in release to reduce console noise. For per-hit damage lines, enable COMBAT_DEBUG.
-const COMBAT_EVENT_DEBUG := true
+const COMBAT_EVENT_DEBUG := false
+## When true with `COMBAT_EVENT_DEBUG`, enables verbose `CombatDebug.flow_log` and related high-frequency prints (see block comment above).
+## Turn pick lines (`flow_log_turn`) still print when only `COMBAT_EVENT_DEBUG` is true.
+const COMBAT_EVENT_DEBUG_VERBOSE := false
 # When true with a debug build, `CombatFormationFlow` logs if vacancy reconcile leaves an empty rank-0 column
 # while a non-intruded ally still sits deeper in that column (should never happen after `reconcile_vacancy_plugs_*`).
 const COMBAT_FORMATION_INVARIANT_DEBUG := false
@@ -466,6 +467,11 @@ const FORMATION_LEAVE_MIN_FRONT_FILL_RATIO := 0.45
 ## If true, mode is SKIRMISH when either side has zero effective front fighters.
 const SKIRMISH_WHEN_EITHER_SIDE_ZERO_FRONT := true
 
+## Default front-line width (files) for `FormationPreset.default_for_count`; raise after playtest.
+const FORMATION_MAX_FRONT_FILES_DEFAULT := 5
+## Hard cap on fighters per side in one engagement (party, encounter spawn, preset counts).
+const FORMATION_UNIT_COUNT_HARD_CAP := 15
+
 ## --- Engagement / line cohesion / posture (docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) ---
 const ENGAGEMENT_POSTURE_LINE := "line"
 const ENGAGEMENT_POSTURE_OPEN := "open"
@@ -492,6 +498,13 @@ static func line_discipline_posture_extra_deltas(discipline: String) -> Vector2:
 	if d == LINE_DISCIPLINE_LOOSE:
 		return Vector2(-0.03, -0.04)
 	return Vector2.ZERO
+
+
+## Rank-0 self `fall_back` into an **empty** same-file rear slot: only `loose`. Strict/normal/empty require paired swap/drag/fall_back_pair (replacement in file).
+static func line_discipline_allows_solo_fall_back(discipline: String) -> bool:
+	return str(discipline).strip_edges().to_lower() == LINE_DISCIPLINE_LOOSE
+## Paired disengage (swap_rank / drag / fall_back to rear) and solo fall_back: require real injury (blood this low, no usable arm, or immediate peril) — not low stamina / composite fitness alone.
+const FORMATION_RETREAT_BLOOD_VOLUME_MAX := 94.0
 ## Crash: adjacent rank-0 allies in same formation add hold (gap closure). Capped by CRASH_NEIGHBOR_MAX_COUNT.
 const CRASH_NEIGHBOR_HOLD_BASE := 22.0
 const CRASH_NEIGHBOR_MAX_COUNT := 2
@@ -528,6 +541,8 @@ const DISTANCE_MID := "mid"
 const DISTANCE_LONG := "long"
 const REACH_MID_MIN := 1.2  # Spear can attack from mid; shorter weapons need close.
 const MOVE_ID_ATTEMPT_CLOSE := "attempt_close"
+## After a **failed** close vs a defender, `attempt_close` vs that same defender is withheld until `combat_clock` passes this (per attacker–defender pair). Turn spacing uses `READY_DELAY_CLOSE_ATTEMPT_S` separately.
+const CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S := 1.65
 ## Formation doctrine for hybrid targeting (CombatDoctrine / CombatTargetScoring).
 const DOCTRINE_DEFAULT := "default"
 const DOCTRINE_PINCH_CENTER := "pinch_center"

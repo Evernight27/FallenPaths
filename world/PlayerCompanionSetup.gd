@@ -8,12 +8,14 @@ static func setup_player_and_companion(world: Node2D, rng: RandomNumberGenerator
 	if not world.has_node("Character"):
 		return
 	var player = world.get_node("Character")
+	player.is_party_leader = true
 	_setup_character(player, rng)
 
-	for i in range(1, 5):
+	for i in range(1, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP):
 		var path = "Character/Companion" + ("" if i == 1 else str(i))
 		if world.has_node(path):
 			var companion = world.get_node(path)
+			companion.is_party_leader = false
 			companion.set_process_input(false)
 			_setup_character(companion, rng)
 

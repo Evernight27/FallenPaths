@@ -8,6 +8,7 @@ signal combatant_health_changed(combatant_id)
 signal formation_changed(side)
 signal engagement_state_changed(formation_id: String, line_cohesion: float, engagement_posture: String)
 signal turn_resolved(combatant_id)  # Combatant has committed their action (attacked, skipped, swapped, etc.)
+signal combat_ui_hint(message: String)
 
 ## Player side became ready to act; UI / TurnReadyHandler listen on `turn_ready`. Subsystems call this instead of `emit_signal` on the manager node.
 func notify_turn_ready(combatant_id: int) -> void:
@@ -33,11 +34,21 @@ func notify_formation_changed(formation_id: String) -> void:
 
 func notify_engagement_state_changed(formation_id: String, line_cohesion: float, engagement_posture: String) -> void:
 	emit_signal("engagement_state_changed", formation_id, line_cohesion, engagement_posture)
-	if CombatConstants.COMBAT_EVENT_DEBUG:
+	if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
 		CombatDebug.flow_log(
 			"engagement_state_changed fid=%s cohesion=%.3f posture=%s"
 			% [formation_id, line_cohesion, engagement_posture]
 		)
+
+
+func notify_combat_ui_hint(message: String) -> void:
+	var m: String = str(message).strip_edges()
+	if m.is_empty():
+		return
+	if has_meta(_META_LAST_COMBAT_UI_HINT) and str(get_meta(_META_LAST_COMBAT_UI_HINT, "")) == m:
+		return
+	set_meta(_META_LAST_COMBAT_UI_HINT, m)
+	emit_signal("combat_ui_hint", m)
 
 var combatants := []
 var medical_phase: bool = false
@@ -73,6 +84,9 @@ const _FormationEngagement := preload("res://combat/CombatFormationEngagement.gd
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
+
+## Consecutive duplicate `combat_ui_hint` lines suppressed (same string back-to-back across turns).
+const _META_LAST_COMBAT_UI_HINT := "_fp_last_combat_ui_hint_dedupe"
 
 ## Scene combat node → health/wounds/stats holder (e.g. Character → CoreEntity). Subsystems should use **`CombatantEntityAccess.get_health_entity_from_node`** / **`get_entity_from_manager`**.
 func get_health_entity(node: Node) -> Node:
@@ -153,6 +167,10 @@ func register(node: Node, side: String) -> int:
 		"lane_offset": CombatConstants.LANE_OFFSET_DEFAULT,
 		"doctrine_target_commit_id": -1,
 		"doctrine_commit_until": 0.0,
+		## defender_id -> combat_clock until which `attempt_close` vs that defender is logic-gated off (failed close backoff).
+		"close_block_until_by_target_id": {},
+		## Copied from character `is_party_leader` (player lead only); enemies always false.
+		"is_party_leader": (side == "player" and node != null and node.get("is_party_leader") == true),
 	})
 	# Connect health_changed so UI can refresh when consciousness/pain/blood changes
 	if entity != null and entity.has_signal("health_changed"):
@@ -213,6 +231,8 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	for fk in formations.keys():
 		formation_doctrine[str(fk)] = CombatConstants.DOCTRINE_DEFAULT
 	_reset_tactical_breach_state()
+	if has_meta(_META_LAST_COMBAT_UI_HINT):
+		remove_meta(_META_LAST_COMBAT_UI_HINT)
 	# Phase 1: Schedule initial EVENT_ACTION_READY for each alive combatant (staggered by agility).
 	_schedule_initial_action_ready_events()
 	set_process(true)
@@ -235,6 +255,8 @@ func _schedule_event(ev: Dictionary) -> void:
 
 func stop():
 	_reset_tactical_breach_state()
+	if has_meta(_META_LAST_COMBAT_UI_HINT):
+		remove_meta(_META_LAST_COMBAT_UI_HINT)
 	set_process(false)
 
 ## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated (bandaged, packed, or tourniqueted). Used to gate "End battle" during medical phase.
@@ -345,6 +367,13 @@ func _get_ally_medical_actions(performer: Dictionary, ally: Dictionary, part: St
 func get_available_actions(combatant_id: int) -> Array:
 	if _FormationFlow.reconcile_vacancy_plugs_all_formations(self):
 		_recompute_zoc_and_distance()
+		# Match CombatProcessTick: plugs changed slots/ZoC — UI must refresh; skip notify_* to avoid a second full reconcile pass.
+		for fk in formations.keys():
+			_reschedule_back_rank_turns(str(fk))
+		if formations.has("player"):
+			emit_signal("formation_changed", "player")
+		if formations.has("enemy"):
+			emit_signal("formation_changed", "enemy")
 	return _ActionsBuilder.build(self, combatant_id)
 
 
@@ -361,8 +390,8 @@ func get_formation_doctrine(formation_id: String) -> String:
 func _process(delta: float) -> void:
 	_ProcessTick.tick(self, delta)
 
-# Called when player or AI chooses action. move_id optional; options can include "target_part" for medical actions.
-# Phase 1: Event-driven; combatant is ready when EVENT_ACTION_READY fired (state == WAITING).
+## Resolves one chosen action. **Combat targeting is AI-driven:** `turn_ready` / `EVENT_ACTION_READY` build `get_available_actions`
+## then `CombatAIActionPicker.pick` chooses move+target (player and enemy); there is no parallel human target-selection path.
 func resolve_action(attacker_id: int, target_id: int, move_id: String = "", options: Dictionary = {}) -> void:
 	_ResolveAction.resolve(self, attacker_id, target_id, move_id, options)
 
@@ -415,7 +444,7 @@ func _handle_rotate_file_resolve(ev: Dictionary) -> void:
 
 
 func _on_combatant_died(c: Dictionary) -> void:
-	_TargetScoring.invalidate_commitments_to_dead(self, int(c.get("id", -1)))
+	_TargetScoring.clear_all_targeting_state_for_dead_defender(self, int(c.get("id", -1)))
 	_FormationFlow.on_combatant_died(self, c)
 
 func _get_by_id(id: int):

@@ -43,9 +43,9 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 				ctrl.gauge_label.text = "Fall back %.1fs" % remain
 			elif state == "receiving_medical_attention":
 				ctrl.gauge_label.text = "Receiving care"
-			elif c.get("status_override", "").is_empty() == false:
+			elif not str(c.get("status_override", "")).is_empty():
 				# Event tracking: show closing/next-turn status so unit doesn't look frozen
-				ctrl.gauge_label.text = str(c.status_override)
+				ctrl.gauge_label.text = str(c.get("status_override", ""))
 			else:
 				# Phase 1: Event-driven ready. Gauge set to 100 when EVENT_ACTION_READY fires.
 				var base: String = "Ready!" if c.gauge >= 100.0 else "Stm %d%%" % int(c.get("stamina", 100))

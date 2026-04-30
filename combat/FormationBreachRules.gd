@@ -25,22 +25,9 @@ static func breached_file_severity(breached_files: Dictionary, file_index: int, 
 	return float(_FileKeys.get_value(breached_files, file_index, default_if_missing))
 
 
-## Canonical rank-0 count for player / enemy formations (shared with TacticalCombat.incursion pressure).
+## Canonical rank-0 count for player / enemy formations (native line only; matches `CombatEngagementMode.snapshot`).
 static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
-	var n: int = 0
-	if manager == null:
-		return 0
-	for c in manager.combatants:
-		if not c.get("alive", false):
-			continue
-		if str(c.get("formation_id", "")) != formation_key:
-			continue
-		if int(c.get("rank", 0)) != 0:
-			continue
-		if _EntityAccess.is_incapacitated(c):
-			continue
-		n += 1
-	return n
+	return _EngagementMode.count_front_rank_alive(manager, formation_key)
 
 
 static func engagement_mode(manager: Node) -> String:

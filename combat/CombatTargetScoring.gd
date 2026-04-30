@@ -1,20 +1,33 @@
 class_name CombatTargetScoring
 extends RefCounted
 
-## Hybrid targeting: file-opposed ordering (A), soft geometry + doctrine (B), AI weight mults;
-## distributed pressure from allied commitments; prune stale commitments (hysteresis TTL on actor).
+## Hybrid targeting (AI logic gates only — see `CombatManager.resolve_action` / `TurnReadyHandler`).
+##
+## **Data flow (high level):**
+## 1. `CombatManager.start` → `formation_doctrine` defaults; combatants get commitment + close-block dicts.
+## 2. `_recompute_zoc_and_distance` → `CombatDistanceBands` (incl. reach/band alignment) → pair `distance_to`.
+## 3. `get_available_actions` → `AvailableActionsBuilder` (ordered opponents, `attempt_close` gated by `_close_attempt_pair_blocked`).
+## 4. `CombatAIActionPicker.pick` → `ai_targeting_weight_mult` (doctrine, file, commitment, pressure) × stamina.
+## 5. `CombatResolveAction` → melee wind-up → `on_combat_commitment`; close → `CombatEngagementResolver` (success → commitment + clear close block; fail → per-target cooldown).
+## 6. `set_formation_doctrine` → clears commitments on that formation (doctrine change); death → `clear_all_targeting_state_for_dead_defender`.
+##
+## **Doctrine vs crash:** `DOCTRINE_PINCH_CENTER` / `HOLD_LANE` steer **listed** melee/close weights and ordering only. **Crash** is a separate breach move (stamina, armor mass, engagement mode); it does not read doctrine today — no conflicting state, just independent logic gates.
 
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 
 
-static func invalidate_commitments_to_dead(manager: Node, dead_id: int) -> void:
+static func clear_all_targeting_state_for_dead_defender(manager: Node, dead_id: int) -> void:
 	if manager == null or dead_id < 0:
 		return
 	for c in manager.combatants:
 		if int(c.get("doctrine_target_commit_id", -1)) == dead_id:
 			c["doctrine_target_commit_id"] = -1
+		var blk: Dictionary = c.get("close_block_until_by_target_id", {}) as Dictionary
+		if blk.has(dead_id):
+			blk.erase(dead_id)
+			c["close_block_until_by_target_id"] = blk
 
 
 static func prune_expired_commitments(manager: Node) -> void:

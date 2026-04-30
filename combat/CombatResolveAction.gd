@@ -60,7 +60,6 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 			print("[Combat] %s attempting to close on %s (tactical distance — pressure vs evasion roll)" % [atk_name, tgt_name])
 		manager._resolve_close_attempt(attacker_id, target_id)
-		_TargetScoring.on_combat_commitment(manager, attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
 	if move_id == CombatConstants.MOVE_ID_CRASH:
@@ -84,6 +83,13 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			return
 		var fid_mv: String = atk.get("formation_id", "")
 		var f_mv: Dictionary = manager.formations.get(fid_mv, {})
+		if move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id:
+			if not AvailableActionsBuilder.solo_fall_back_action_legal(manager, atk):
+				CombatDebug.flow_log(
+					"resolve_action solo fall_back rejected id=%d fid=%s (discipline/state/breach/fill)"
+					% [attacker_id, fid_mv]
+				)
+				return
 		var breach_blocked: bool = false
 		if move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id:
 			breach_blocked = _FormationBreachRules.breach_blocks_open_lane_moves(manager, f_mv)

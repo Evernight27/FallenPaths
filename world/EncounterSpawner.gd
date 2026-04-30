@@ -45,7 +45,7 @@ static func _spawn_encounter_marker(parent: Node, rng: RandomNumberGenerator, en
 		var tile_center = Vector2(tx * TILE_SIZE + 32, ty * TILE_SIZE + 32)
 		var encounter = _EncounterNodeScript.new()
 		encounter.position = tile_center
-		encounter.enemy_count = enemy_count
+		encounter.enemy_count = mini(enemy_count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
 		encounter.enemy_scene = scene
 		parent.add_child(encounter)
 		return tile

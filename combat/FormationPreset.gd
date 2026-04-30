@@ -3,8 +3,9 @@ extends RefCounted
 
 ## Builds formation presets for party and enemy. Used by CombatFlow, BattleScene, CombatManager.
 ## Preset: { files: int, ranks: int, density: String } — Option A: files = front-line count, ranks = depth.
-## Optional **discipline** (Tier 1.4): `line_discipline` (`CombatConstants.LINE_DISCIPLINE_*`), optional float
-## `discipline_posture_enter_delta` / `discipline_posture_leave_delta` — copied onto formation dict for `CombatFormationEngagement`.
+## Optional **discipline** (Tier 1.4): `line_discipline` (`CombatConstants.LINE_DISCIPLINE_*`; formation overrides encounter).
+## Posture: `discipline_posture_*_delta` + hysteresis via `CombatFormationEngagement`. Movement: only `loose` allows
+## rank-0 solo `fall_back` into an empty same-file rear; `strict` / `normal` / empty use paired swap/drag/fall_back_pair only.
 ## Fill order: rank 0 first (primary melee), then rank 1, etc. See FORMATION_FILE_DENSITY_SURVIVABILITY_INVESTIGATION.
 ## Density spacing: tight→compact UI, normal→default, loose→wide.
 
@@ -20,15 +21,14 @@ const SPACING_LOOSE_PX := 28
 ## Ratio of v_separation to h_separation. <1 = ranks closer than files (formation depth < width).
 const RANK_VS_FILE_SPACING_RATIO := 0.65
 
-## Returns preset dict. Default: up to **5** files (front line), ranks = ceil(count/files).
-## Fills one rank first (1–5 units = single line), then adds depth (e.g. 7 → 5+2, 15 → 5×3).
-## Use for_front_count when you need a different front width than this cap.
+## Returns preset dict. Default: front line up to `CombatConstants.FORMATION_MAX_FRONT_FILES_DEFAULT`, ranks = ceil(n/files).
+## Count is clamped to `CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP`. Use for_front_count for an explicit front width.
 static func default_for_count(count: int, density: String = DENSITY_NORMAL) -> Dictionary:
 	if count <= 0:
 		return {"files": 1, "ranks": 1, "density": density}
-	const MAX_DEFAULT_FRONT_FILES := 5
-	var files: int = mini(MAX_DEFAULT_FRONT_FILES, count)
-	var ranks: int = int(ceilf(float(count) / float(files)))
+	var n: int = mini(count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
+	var files: int = mini(CombatConstants.FORMATION_MAX_FRONT_FILES_DEFAULT, n)
+	var ranks: int = maxi(1, int(ceilf(float(n) / float(files))))
 	return {"files": files, "ranks": ranks, "density": density}
 
 ## Returns preset with explicit front-line count. files = front_count, ranks = ceil(count/front_count).
@@ -36,8 +36,9 @@ static func default_for_count(count: int, density: String = DENSITY_NORMAL) -> D
 static func for_front_count(count: int, front_count: int, density: String = DENSITY_NORMAL) -> Dictionary:
 	if count <= 0 or front_count <= 0:
 		return {"files": 1, "ranks": 1, "density": density}
-	var files: int = mini(front_count, count)
-	var ranks: int = int(ceilf(float(count) / float(files)))
+	var n: int = mini(count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
+	var files: int = mini(front_count, n)
+	var ranks: int = maxi(1, int(ceilf(float(n) / float(files))))
 	return {"files": files, "ranks": ranks, "density": density}
 
 ## Returns horizontal (file-to-file) pixel separation for GridContainer from density.

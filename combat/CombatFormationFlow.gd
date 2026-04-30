@@ -26,6 +26,7 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 
 const _VACANCY_LATERAL_EDGE_META := "_vacancy_lateral_edges"
 const _VACANCY_PLUG_RESERVED_DONORS_META := "_vacancy_plug_reserved_donors"
@@ -195,7 +196,7 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 	partner.state = st
 	partner.state_timer = 0.0
 	partner.state_duration = duration
-	if CombatConstants.COMBAT_EVENT_DEBUG:
+	if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
 		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
 		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
 		print("[Combat] %s formation move (%s) with %s (%.2fs, lane×foot×%.2f pressure×%.2f)" % [n0, move_kind, n1, duration, lane_foot, pressure_mod])
@@ -233,7 +234,7 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 	init.state = CombatConstants.STATE_FALLING_BACK
 	init.state_timer = 0.0
 	init.state_duration = duration
-	if CombatConstants.COMBAT_EVENT_DEBUG:
+	if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
 		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
 		print("[Combat] %s falling back solo (%.2fs)" % [n0, duration])
 	manager._schedule_event({
@@ -277,7 +278,7 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 	partner.state = CombatConstants.STATE_SWAP_RANK
 	partner.state_timer = 0.0
 	partner.state_duration = duration
-	if CombatConstants.COMBAT_EVENT_DEBUG:
+	if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
 		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
 		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
 		print("[Combat] %s rotating file with %s (%.2fs)" % [n0, n1, duration])
@@ -312,6 +313,9 @@ static func abort_pair(manager: Node, init, partner) -> void:
 				_FormationSlots.slot_set_single(slots, Vector2i(init.get("rank", 0), init.get("file", 0)), init.id)
 			if partner.get("alive", false):
 				_FormationSlots.slot_set_single(slots, Vector2i(partner.get("rank", 0), partner.get("file", 0)), partner.id)
+			manager._recompute_zoc_and_distance()
+			manager.notify_formation_changed(fid)
+			manager._reschedule_back_rank_turns(fid)
 	if init != null and init.get("alive", false) and pair_state_ok(init):
 		init.state = CombatConstants.STATE_WAITING
 	if partner != null and partner.get("alive", false) and pair_state_ok(partner):
@@ -391,7 +395,7 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 			outcome = "swap_rank_complete"
 	CombatDebug.flow_log("formation_pair_resolve id=%d <-> %d move_kind=%s outcome=%s" % [initiator_id, partner_id, move_kind, outcome])
 	manager.emit_signal("action_resolved", initiator_id, partner_id, {"outcome": outcome, "dmg": 0, "died": false, "move_kind": move_kind})
-	if CombatConstants.COMBAT_EVENT_DEBUG:
+	if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
 		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
 		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
 		print("[Combat] %s and %s finished formation move (%s)" % [n0, n1, move_kind])
@@ -1051,6 +1055,125 @@ static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) 
 	return any_promoted
 
 
+## Skirmish: pack natives to contiguous files so stragglers are addressable. **Formation (shield wall):** do not
+## compact — vacancy plugs already fill empty cells; contiguous repack was shifting rank-0 fighters sideways
+## whenever `front_n / nfiles` dipped barely below `FORMATION_MIN_FRONT_FILL_RATIO` (e.g. 2/3-wide line),
+## which reads as units swapping files instead of holding ground until a slot is actually empty.
+static func _should_compact_native_line_files(manager: Node, _fid: String) -> bool:
+	if manager == null:
+		return false
+	if str(_EngagementMode.engagement_mode(manager)) == str(CombatConstants.ENGAGEMENT_MODE_FORMATION):
+		return false
+	return true
+
+
+static func _formation_has_blocking_formation_motion_for_compact(manager: Node, fid: String) -> bool:
+	for c in manager.combatants:
+		if not c.get("alive", false):
+			continue
+		if str(c.get("formation_id", "")) != fid:
+			continue
+		if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+			continue
+		var st: String = str(c.get("state", ""))
+		if st == CombatConstants.STATE_SWAP_RANK or st == CombatConstants.STATE_FALLING_BACK:
+			return true
+	return false
+
+
+## After removing `native_id` from all cells, write it at `key` while preserving intruders / foreign-formation ids in that cell.
+static func _slot_place_native_merging_intruders(
+	manager: Node,
+	slots: Dictionary,
+	fid: String,
+	rank: int,
+	file_col: int,
+	native_id: int
+) -> void:
+	var nat = manager._get_by_id(native_id) if manager.has_method("_get_by_id") else null
+	if nat == null or not nat.get("alive", false):
+		return
+	var key := Vector2i(rank, file_col)
+	_FormationSlots.remove_combatant_from_slots(slots, native_id)
+	var merged: Array = []
+	var cur: Array = _FormationSlots.normalize_cell(slots.get(key, []))
+	for cid in cur:
+		var oc = manager._get_by_id(int(cid)) if manager.has_method("_get_by_id") else null
+		if oc == null or not oc.get("alive", false):
+			continue
+		if str(oc.get("formation_id", "")) != fid or str(oc.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+			merged.append(int(cid))
+	if not merged.has(native_id):
+		merged.append(native_id)
+	slots[key] = merged
+	nat["rank"] = rank
+	nat["file"] = file_col
+	repack_lane_offset_after_rank_file_change(nat)
+	nat["formation_autofill_cooldown_until"] = (
+		float(manager.combat_clock) + CombatConstants.FORMATION_AUTOFILL_REPOSITION_COOLDOWN_S
+	)
+	nat["formation_autofill_last_move_clock"] = float(manager.combat_clock)
+	nat.erase("formation_vacancy_lateral_last_from_file")
+	nat.erase("formation_vacancy_lateral_last_to_file")
+	nat.erase("formation_vacancy_lateral_reverse_lock_until")
+	manager._schedule_action_ready(native_id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
+
+
+## Pack non-intruded `formation_id` natives to files `0..n-1` per rank (stable sort by current file, then id).
+## Returns true if any combatant moved or slots were repaired.
+static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> bool:
+	if manager == null or not _should_compact_native_line_files(manager, fid):
+		return false
+	if _formation_has_blocking_formation_motion_for_compact(manager, fid):
+		return false
+	var formation: Dictionary = manager.formations.get(fid, {})
+	if formation.is_empty():
+		return false
+	var slots: Dictionary = formation.get("slots", {})
+	var side_wanted: String = str(formation.get("side", ""))
+	var formation_ranks: int = maxi(1, int(formation.get("ranks", 1)))
+	var any: bool = false
+	for rank in range(formation_ranks):
+		var natives: Array = []
+		for c in manager.combatants:
+			if not c.get("alive", false):
+				continue
+			if str(c.get("formation_id", "")) != fid:
+				continue
+			if str(c.get("side", "")) != side_wanted:
+				continue
+			if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+				continue
+			if int(c.get("rank", 0)) != rank:
+				continue
+			natives.append(c)
+		if natives.is_empty():
+			continue
+		natives.sort_custom(
+			func(a: Dictionary, b: Dictionary) -> bool:
+				var af: int = int(a.get("file", 0))
+				var bf: int = int(b.get("file", 0))
+				if af != bf:
+					return af < bf
+				return int(a.get("id", 0)) < int(b.get("id", 0))
+		)
+		var i: int = 0
+		for nat in natives:
+			var nid: int = int(nat.get("id", -1))
+			var new_f: int = i
+			i += 1
+			var key := Vector2i(rank, new_f)
+			var need: bool = int(nat.get("file", 0)) != new_f
+			if not need:
+				var occ: Array = _FormationSlots.normalize_cell(slots.get(key, []))
+				need = not occ.has(nid)
+			if not need:
+				continue
+			_slot_place_native_merging_intruders(manager, slots, fid, rank, new_f, nid)
+			any = true
+	return any
+
+
 ## When `COMBAT_FORMATION_VACANCY_DEBUG`, log rank-0 holes that still have no living slot occupant while an eligible deeper ally exists.
 static func _log_rank0_vacancy_gaps_if_debug(manager: Node, fid: String) -> void:
 	if not CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG:
@@ -1112,6 +1235,8 @@ static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> boo
 		if ri == max_rounds - 1:
 			exhausted_unstable = true
 	_vacancy_lateral_end_tracking(manager)
+	if compact_native_line_files_if_thinned(manager, fid):
+		any = true
 	if exhausted_unstable and OS.is_debug_build():
 		push_warning(
 			"CombatFormationFlow: vacancy reconcile used all %d rounds with a change on the last round (fid=%s). Slots may still have holes; check plug rules or raise FORMATION_VACANCY_RECONCILE_MAX_ROUNDS."

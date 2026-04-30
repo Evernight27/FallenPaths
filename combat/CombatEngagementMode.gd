@@ -23,14 +23,34 @@ static func mode_code(mode_name: String) -> int:
 			return int(CombatConstants.ENGAGEMENT_MODE_CODE_SKIRMISH)
 
 
+## Human-readable engagement label for battle UI (resolved mode, not raw classifier).
+static func mode_display_name(mode_name: String) -> String:
+	match str(mode_name):
+		_MODE_FORMATION:
+			return "Formation line"
+		_MODE_DUEL:
+			return "Duel"
+		_:
+			return "Skirmish"
+
+
+## Rank-0 **native** line for this formation: same `side` as the formation owner (excludes enemy intruders on host files).
 static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
 	var n: int = 0
 	if manager == null:
 		return 0
+	var native_side: String = formation_key
+	var fm: Variant = manager.get("formations")
+	if fm != null and typeof(fm) == TYPE_DICTIONARY:
+		var form: Dictionary = (fm as Dictionary).get(formation_key, {})
+		if not form.is_empty():
+			native_side = str(form.get("side", formation_key))
 	for c in manager.combatants:
 		if not c.get("alive", false):
 			continue
 		if str(c.get("formation_id", "")) != formation_key:
+			continue
+		if str(c.get("side", "")) != native_side:
 			continue
 		if int(c.get("rank", 0)) != 0:
 			continue

@@ -6,6 +6,7 @@ const _TurnReadyHandler := preload("res://ui/TurnReadyHandler.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _FormationDiagramBuilder := preload("res://ui/FormationDiagramBuilder.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 
 var players: Array = []
 var enemies: Array = []
@@ -90,6 +91,7 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 	manager.connect("combatant_health_changed", Callable(self, "_on_combatant_health_changed"))
 	manager.connect("formation_changed", Callable(self, "_on_formation_changed"))
 	manager.connect("engagement_state_changed", Callable(self, "_on_engagement_state_changed"))
+	manager.connect("combat_ui_hint", Callable(self, "_on_combat_ui_hint"))
 	# Start manager (builds formations, assigns rank/file)
 	manager.start(_player_preset, _enemy_preset)
 	# Creature stats: fixed registration order (rows stay in list order; no reparent on formation change).
@@ -228,9 +230,19 @@ func _sync_engagement_labels_from_manager() -> void:
 func _format_engagement_line(form: Dictionary) -> String:
 	if form.is_empty():
 		return "—"
+	var mode_disp: String = "—"
+	if manager != null:
+		mode_disp = _EngagementMode.mode_display_name(_EngagementMode.engagement_mode(manager))
 	var posture: String = str(form.get("engagement_posture", "—"))
 	var coh: float = float(form.get("line_cohesion", 0.0))
-	return "%s · cohesion %d%%" % [posture.capitalize(), int(roundf(coh * 100.0))]
+	return "%s · %s · cohesion %d%%" % [mode_disp, posture.capitalize(), int(roundf(coh * 100.0))]
+
+
+func _on_combat_ui_hint(message: String) -> void:
+	if combat_log == null or str(message).strip_edges().is_empty():
+		return
+	combat_log.append_text("[color=#aab0c0]%s[/color]\n" % str(message))
+	_scroll_combat_log_to_bottom()
 
 func _on_turn_ready(combatant_id: int) -> void:
 	_TurnReadyHandler.handle(manager, combatant_id)

@@ -17,4 +17,6 @@ Godot **4.x** project. Primary language: **GDScript**.
 
 When changing combat flow, prefer editing the **focused module** rather than inflating `CombatManager.gd`.
 
+Debug: `COMBAT_EVENT_DEBUG` enables turn-summary `[Combat.Flow]` lines; add `COMBAT_EVENT_DEBUG_VERBOSE` for per-action lists and formation/incursion spam (`CombatConstants.gd`). Player lead is flagged on `Character` via `is_party_leader` (scene + `PlayerCompanionSetup`); combatants carry `is_party_leader` from `CombatManager.register`.
+
 **Combat plan index:** `docs/README.md`. **Execute:** `docs/IMPLEMENTATION_ORDER.md` — **P3 + P4 shipped**; **P5 partial** (hysteresis, posture deltas, `line_discipline`); **`morale_cohesion_factor`** fixed **1.0** until morale module. **Intruder host formation id** for ZoC + pair geometry: **`ZoneOfControl.formation_id_for_zone_geometry(manager, c)`** (also used by **`AvailableActionsBuilder`**). Optional **2.1** tactical doc prose. **Spec:** `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §4–§6. **Code:** `combat/CombatFormationFlow.gd`, `combat/CombatFormationEngagement.gd`, `combat/ZoneOfControl.gd`, `combat/TacticalCombat.gd`, `combat/AvailableActionsBuilder.gd`, `combat/CombatIntrusionWedge.gd`, `combat/CombatIntrusionGeometry.gd`.

@@ -30,8 +30,10 @@ func spawn_enemies(parent: Node, rng: RandomNumberGenerator) -> Array:
 	var species_paths := _get_species_paths()
 	if species_paths.is_empty():
 		species_paths = [ResourcePaths.GOBLIN_SPECIES]
+	var cap: int = CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP
+	var n: int = mini(enemy_count, cap)
 	var enemies: Array = []
-	for i in enemy_count:
+	for i in n:
 		var enemy = scene.instantiate()
 		enemy.position = position
 		var species_res_path = species_paths[rng.randi() % species_paths.size()]

@@ -49,7 +49,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 | Per-formation `engagement_posture` (`line` / `open` / `duel`) | **Done** | Duel = both sides exactly one rank-0 fighter; line/open from cohesion threshold. |
 | Formation init keys in `CombatFormationSetup` | **Done** | Includes `morale_cohesion_factor`. |
 | `CombatManager._recompute_zoc_and_distance()` runs engagement recompute | **Done** | After incursion + ZoC + distance bands. |
-| `engagement_state_changed` + `notify_engagement_state_changed` | **Done** | Emitted only when cohesion or posture changes; `CombatDebug.flow_log` gated by `COMBAT_EVENT_DEBUG`. |
+| `engagement_state_changed` + `notify_engagement_state_changed` | **Done** | Emitted only when cohesion or posture changes; `CombatDebug.flow_log` for cohesion/posture lines requires `COMBAT_EVENT_DEBUG` and `COMBAT_EVENT_DEBUG_VERBOSE` (see `CombatConstants.gd`). |
 | Battle UI: label under each formation diagram | **Done** | `BattleScene` — posture + cohesion %. |
 
 ### 2.2 Crash / gap (local “hold the gap”)

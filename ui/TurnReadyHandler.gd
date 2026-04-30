@@ -1,8 +1,10 @@
 class_name TurnReadyHandler
 extends RefCounted
 
-## Handles turn_ready for player side: auto-attack when no actions, else pick via CombatAIActionPicker and resolve.
-## BattleScene connects to manager.turn_ready and delegates here (enemies are handled directly in CombatStateHandlers).
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+
+## Player-side `turn_ready`: **only AI logic gates** — `get_available_actions` then `CombatAIActionPicker.pick`; no separate player target UI.
+## Same pattern as enemies (`CombatEventDispatch`). BattleScene connects `turn_ready` here.
 
 static func handle(manager: Node, combatant_id: int) -> void:
 	if manager == null:
@@ -13,6 +15,9 @@ static func handle(manager: Node, combatant_id: int) -> void:
 	if me.side != "player":
 		return
 	var actions: Array = manager.get_available_actions(combatant_id)
+	var crash_hint: String = _ActionsBuilder.player_crash_absence_hint_if_missing(manager, me, actions)
+	if not crash_hint.is_empty() and manager.has_method("notify_combat_ui_hint"):
+		manager.notify_combat_ui_hint(crash_hint)
 	if actions.is_empty():
 		# No valid actions (rank 1 with no swap partner, out of range, medical phase with no wounded).
 		# Skip turn instead of attacking — we cannot perform any action.
