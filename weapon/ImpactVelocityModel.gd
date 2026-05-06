@@ -11,9 +11,9 @@ const _W := preload("res://weapon/WeaponConstants.gd")
 const ABS_VELOCITY_MIN_M_S := 2.0
 const ABS_VELOCITY_MAX_M_S := 30.0
 
-## Unarmed strike band (m/s): gameplay + loose boxing/karate speed order; not sword literature.
-const UNARMED_VELOCITY_MIN_M_S := 3.0
-const UNARMED_VELOCITY_MAX_M_S := 11.0
+## Unarmed strike band (m/s): trained hand peak speeds often ~6–9 m/s; band allows fatigue/weak shots.
+const UNARMED_VELOCITY_MIN_M_S := 4.5
+const UNARMED_VELOCITY_MAX_M_S := 10.0
 
 const _REFERENCE_STRIKE_RADIUS_M := 0.52
 

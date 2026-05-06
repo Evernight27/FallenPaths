@@ -19,7 +19,7 @@ static func handle(manager: Node, combatant_id: int) -> void:
 	if not crash_hint.is_empty() and manager.has_method("notify_combat_ui_hint"):
 		manager.notify_combat_ui_hint(crash_hint)
 	if actions.is_empty():
-		# No valid actions (rank 1 with no swap partner, out of range, medical phase with no wounded).
+		# No valid actions (e.g. reserve rank with no swap/melee, out of range, medical phase with no wounded).
 		# Skip turn instead of attacking — we cannot perform any action.
 		if manager.has_method("skip_turn"):
 			manager.skip_turn(combatant_id, "pass", "no available actions")

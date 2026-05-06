@@ -29,7 +29,19 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 					if tgt_entity.has_method("apply_direct_pressure") and tgt_entity.apply_direct_pressure(target_part):
 						print("[Combat] Medical: %s applying direct pressure on %s during %s wind-up" % [who_name, target_part, medical_id])
 				else:
-					if tgt_entity.has_method("apply_direct_pressure_from_ally") and tgt_entity.apply_direct_pressure_from_ally(target_part, performer_entity):
+					var stacked: bool = (
+						tgt_entity.has_method("stack_assist_pressure_during_ally_treatment")
+						and tgt_entity.stack_assist_pressure_during_ally_treatment(target_part, performer_entity)
+					)
+					if stacked:
+						print(
+							"[Combat] Medical: %s assisting pressure on ally's %s during %s wind-up (helper still holding)"
+							% [who_name, target_part, medical_id]
+						)
+					elif (
+						tgt_entity.has_method("apply_direct_pressure_from_ally")
+						and tgt_entity.apply_direct_pressure_from_ally(target_part, performer_entity)
+					):
 						if performer_entity != null and "direct_pressure_on_ally" in performer_entity:
 							performer_entity.direct_pressure_on_ally = {"node": tgt_entity, "part": target_part}
 						print("[Combat] Medical: %s applying direct pressure on ally's %s during %s wind-up" % [who_name, target_part, medical_id])

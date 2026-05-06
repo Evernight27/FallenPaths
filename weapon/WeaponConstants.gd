@@ -312,6 +312,7 @@ static func _weapon_definitions_build() -> Dictionary:
 			"edge_width": 0.0,
 			"blade_cut_ratio": 0.85,
 			"melee_range": 2.5,
+			"depth_melee_eligible": true,
 			"parts": [
 				{"id": "head", "length_cm": 25, "mass_fraction": 0.15, "parry_eligible": false, "striking_for": ["stab", "cut"]},
 				{"id": "shaft", "length_cm": 200, "mass_fraction": 0.85, "parry_eligible": true, "striking_for": ["blunt"]}

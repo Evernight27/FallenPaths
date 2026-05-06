@@ -6,7 +6,7 @@ extends RefCounted
 ## **Data flow (high level):**
 ## 1. `CombatManager.start` → `formation_doctrine` defaults; combatants get commitment + close-block dicts.
 ## 2. `_recompute_zoc_and_distance` → `CombatDistanceBands` (incl. reach/band alignment) → pair `distance_to`.
-## 3. `get_available_actions` → `AvailableActionsBuilder` (ordered opponents, `attempt_close` gated by `_close_attempt_pair_blocked`).
+## 3. `get_available_actions` → `AvailableActionsBuilder` (ordered opponents; MID+geometric reach lists melee, `attempt_close` mainly LONG / out-of-reach, gated by `_close_attempt_pair_blocked`).
 ## 4. `CombatAIActionPicker.pick` → `ai_targeting_weight_mult` (doctrine, file, commitment, pressure) × stamina.
 ## 5. `CombatResolveAction` → melee wind-up → `on_combat_commitment`; close → `CombatEngagementResolver` (success → commitment + clear close block; fail → per-target cooldown).
 ## 6. `set_formation_doctrine` → clears commitments on that formation (doctrine change); death → `clear_all_targeting_state_for_dead_defender`.
@@ -71,6 +71,18 @@ static func is_file_opposed_rank0_pair(actor: Dictionary, opp: Dictionary) -> bo
 	return int(actor.get("file", 0)) == int(opp.get("file", 0))
 
 
+## File-opposed to **our** front rank (rank-0 actor, or same-file rank-0 partner when actor is depth polearm).
+static func is_melee_file_opposed_priority(manager: Node, actor: Dictionary, opp: Dictionary) -> bool:
+	if is_file_opposed_rank0_pair(actor, opp):
+		return true
+	if manager == null or not _ActionsBuilder.depth_polearm_lane_open(manager, actor):
+		return false
+	var front: Dictionary = _ActionsBuilder.same_file_living_rank0_ally(manager, actor)
+	if front.is_empty():
+		return false
+	return is_file_opposed_rank0_pair(front, opp)
+
+
 static func wing_lacks_file_opposed(manager: Node, actor: Dictionary) -> bool:
 	if int(actor.get("rank", 0)) != 0:
 		return false
@@ -82,7 +94,7 @@ static func wing_lacks_file_opposed(manager: Node, actor: Dictionary) -> bool:
 			continue
 		if _EntityAccess.is_incapacitated(opp):
 			continue
-		if not _ActionsBuilder._opp_matches_melee_rank_target(actor, opp, 0):
+		if not _ActionsBuilder._opp_matches_melee_rank_target(manager, actor, opp, 0):
 			continue
 		if is_file_opposed_rank0_pair(actor, opp):
 			return false
@@ -135,7 +147,7 @@ static func hold_lane_mult(manager: Node, actor: Dictionary, opp: Dictionary) ->
 	var doc: String = _Doctrine.doctrine_for_fid(manager, str(actor.get("formation_id", "")))
 	if doc != CombatConstants.DOCTRINE_HOLD_LANE:
 		return 1.0
-	if is_file_opposed_rank0_pair(actor, opp):
+	if is_melee_file_opposed_priority(manager, actor, opp):
 		return 1.0
 	return CombatConstants.DOCTRINE_HOLD_LANE_OFF_FILE_MULT
 
@@ -171,8 +183,8 @@ static func commitment_match_mult(actor: Dictionary, target_id: int) -> float:
 	return 1.0
 
 
-static func file_opposed_mult(actor: Dictionary, opp: Dictionary) -> float:
-	if is_file_opposed_rank0_pair(actor, opp):
+static func file_opposed_mult(manager: Node, actor: Dictionary, opp: Dictionary) -> float:
+	if manager != null and is_melee_file_opposed_priority(manager, actor, opp):
 		return CombatConstants.DOCTRINE_FILE_OPPOSED_WEIGHT_MULT
 	return 1.0
 
@@ -209,7 +221,7 @@ static func ai_targeting_weight_mult(manager: Node, attacker_id: int, action: Di
 	var w: float = soft_geometry_score(manager, atk, opp)
 	w *= pinch_score_mult(manager, atk, opp)
 	w *= hold_lane_mult(manager, atk, opp)
-	w *= file_opposed_mult(atk, opp)
+	w *= file_opposed_mult(manager, atk, opp)
 	w *= commitment_match_mult(atk, tid)
 	w *= distributed_pressure_mult(manager, atk, tid)
 	return clampf(w, CombatConstants.DOCTRINE_AI_WEIGHT_MULT_MIN, CombatConstants.DOCTRINE_AI_WEIGHT_MULT_MAX)
@@ -224,14 +236,14 @@ static func ordered_melee_opponents(
 ) -> Array:
 	var raw: Array = []
 	for opp in combatants:
-		if not _ActionsBuilder._opp_matches_melee_rank_target(actor, opp, opp_rank_required):
+		if not _ActionsBuilder._opp_matches_melee_rank_target(manager, actor, opp, opp_rank_required):
 			continue
 		raw.append(opp)
 	if raw.size() <= 1:
 		return raw
 	raw.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var afo: bool = is_file_opposed_rank0_pair(actor, a)
-		var bfo: bool = is_file_opposed_rank0_pair(actor, b)
+		var afo: bool = is_melee_file_opposed_priority(manager, actor, a)
+		var bfo: bool = is_melee_file_opposed_priority(manager, actor, b)
 		if afo != bfo:
 			return afo
 		var sa: float = soft_geometry_score(manager, actor, a) * pinch_score_mult(manager, actor, a)

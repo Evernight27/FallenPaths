@@ -17,6 +17,15 @@ static func _formation_id_for_pair_geometry(manager: Node, c: Dictionary) -> Str
 	return _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
 
 
+static func formation_density_label(manager: Node, fid: String) -> String:
+	if manager == null or fid.is_empty():
+		return "normal"
+	var form: Dictionary = manager.formations.get(fid, {}) as Dictionary
+	if form.is_empty():
+		return "normal"
+	return str(form.get("density", "normal"))
+
+
 ## Self-target `fall_back` into empty same-file rank-1: strict/normal discipline forbids; `loose` allows only when desperate/peril and line closure policy matches action builder.
 static func solo_fall_back_action_legal(manager: Node, atk: Dictionary) -> bool:
 	if manager == null or atk.is_empty():
@@ -167,8 +176,147 @@ static func melee_weapon_reach(c: Dictionary) -> float:
 	return float(w.melee_range)
 
 
-## Front-line vs front-line; intruder vs host rank-0; host **any depth** vs intruder on that host formation; intruders strike rank-0 hosts.
-static func _melee_pair_rank_allowed(attacker: Dictionary, defender: Dictionary) -> bool:
+## Living same-file rank-0 ally on home formation (opens spear / polearm lane from depth).
+static func same_file_living_rank0_ally(manager: Node, c: Dictionary) -> Dictionary:
+	if manager == null or c.is_empty():
+		return {}
+	var fid: String = str(c.get("formation_id", ""))
+	if fid.is_empty():
+		return {}
+	var f: int = int(c.get("file", 0))
+	var side: String = str(c.get("side", ""))
+	for x in manager.combatants:
+		if not x.get("alive", false):
+			continue
+		if str(x.get("side", "")) != side:
+			continue
+		if str(x.get("formation_id", "")) != fid:
+			continue
+		if int(x.get("rank", 0)) != 0:
+			continue
+		if int(x.get("file", 0)) != f:
+			continue
+		if _EntityAccess.is_incapacitated(x):
+			continue
+		return x
+	return {}
+
+
+## Tier 1.9 (P10): home depth rank + `depth_melee_eligible` weapon + same-file front rank alive.
+static func depth_polearm_lane_open(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c.is_empty():
+		return false
+	if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		return false
+	if int(c.get("rank", 0)) <= 0:
+		return false
+	if _EntityAccess.get_attacking_arm(c).is_empty():
+		return false
+	var w: Variant = _EntityAccess.get_weapon(c)
+	if w == null or not (w is Weapon) or not (w as Weapon).depth_melee_eligible:
+		return false
+	return not same_file_living_rank0_ally(manager, c).is_empty()
+
+
+## Enemy rank 0 lies within the depth-thrust **lateral window** vs our same-file rank-0 partner (channel / angle).
+## Does not check weapon reach or distance band — use with `can_melee_threaten` / action build.
+static func depth_polearm_threatens_line_target(front_rank0_ally: Dictionary, opp: Dictionary) -> bool:
+	if front_rank0_ally.is_empty() or opp.is_empty():
+		return false
+	if int(front_rank0_ally.get("rank", 0)) != 0 or int(opp.get("rank", 0)) != 0:
+		return false
+	if str(front_rank0_ally.get("side", "")) == str(opp.get("side", "")):
+		return false
+	if not opp.get("alive", false):
+		return false
+	if _EntityAccess.is_incapacitated(opp):
+		return false
+	var df: int = absi(int(opp.get("file", 0)) - int(front_rank0_ally.get("file", 0)))
+	return df <= int(CombatConstants.DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES)
+
+
+static func depth_polearm_valid_line_threat(manager: Node, attacker: Dictionary, opp: Dictionary) -> bool:
+	if manager == null or attacker.is_empty() or opp.is_empty():
+		return false
+	if not depth_polearm_lane_open(manager, attacker):
+		return false
+	var front: Dictionary = same_file_living_rank0_ally(manager, attacker)
+	return depth_polearm_threatens_line_target(front, opp)
+
+
+## Suffix for `get_available_actions` line only (back-rank depth polearm geometry); empty if N/A.
+static func _format_depth_polearm_melee_context(manager: Node, c: Dictionary, wpn: Weapon, combatants: Array) -> String:
+	var lane_open: bool = depth_polearm_lane_open(manager, c)
+	var front: Dictionary = same_file_living_rank0_ally(manager, c)
+	var front_id: int = int(front.get("id", -1)) if not front.is_empty() else -1
+	var dens: String = formation_density_label(manager, str(c.get("formation_id", "")))
+	var melee_range: float = float(wpn.melee_range)
+	var bits: PackedStringArray = []
+	for opp in _TargetScoring.ordered_melee_opponents(manager, c, combatants, 0):
+		var eff: float = effective_pair_eff_dist(manager, c, opp)
+		var dist: String = str(c.get("distance_to", {}).get(opp.id, CombatConstants.DISTANCE_LONG))
+		var swing: bool = melee_range >= eff
+		var line_ok: bool = false
+		if not front.is_empty():
+			line_ok = depth_polearm_threatens_line_target(front, opp)
+		var threaten: bool = swing and line_ok and can_melee_threaten(manager, c, opp)
+		bits.append(
+			"opp%d eff=%.2f dist=%s reach_ok=%s line_ok=%s threaten=%s"
+			% [opp.id, eff, dist, swing, line_ok, threaten]
+		)
+	if bits.is_empty():
+		for opp in combatants:
+			if not opp.get("alive", false) or str(opp.get("side", "")) == str(c.get("side", "")):
+				continue
+			if int(opp.get("rank", 0)) != 0:
+				continue
+			var eff: float = effective_pair_eff_dist(manager, c, opp)
+			var dist: String = str(c.get("distance_to", {}).get(opp.id, CombatConstants.DISTANCE_LONG))
+			var swing: bool = melee_range >= eff
+			bits.append(
+				"opp%d eff=%.2f dist=%s reach_ok=%s (no spear lane — geometry only)"
+				% [opp.id, eff, dist, swing]
+			)
+		if bits.is_empty():
+			bits.append("(no enemy rank-0)")
+	return (
+		" | polearm id=%d %s rank=%d file=%d reach_m=%.2f lane_open=%s front_ally=%d dens=%s || %s"
+		% [
+			c.get("id", -1),
+			wpn.display_name,
+			int(c.get("rank", 0)),
+			int(c.get("file", 0)),
+			melee_range,
+			lane_open,
+			front_id,
+			dens,
+			" ; ".join(bits)
+		]
+	)
+
+
+## Over-shoulder (tight/normal density) vs open (loose) lane — filters targetable parts for depth thrusts.
+static func depth_polearm_targetable_parts_filter(manager: Node, attacker: Dictionary, targetable: Array) -> Array:
+	if targetable.is_empty() or manager == null or attacker.is_empty():
+		return targetable
+	if not depth_polearm_lane_open(manager, attacker):
+		return targetable
+	if int(attacker.get("rank", 0)) <= 0:
+		return targetable
+	var dens: String = formation_density_label(manager, str(attacker.get("formation_id", "")))
+	if dens == "loose":
+		return targetable
+	var out: Array = []
+	for p in targetable:
+		if p == "left_leg" or p == "right_leg":
+			continue
+		out.append(p)
+	return out if not out.is_empty() else targetable
+
+
+## Front-line vs front-line; intruder vs host rank-0; host **any depth** vs intruder on that host formation; intruders strike rank-0 hosts;
+## depth polearm vs enemy rank 0 within `DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES` of the same-file rank-0 partner (Tier 1.9).
+static func _melee_pair_rank_allowed(manager: Node, attacker: Dictionary, defender: Dictionary) -> bool:
 	var ar: int = int(attacker.get("rank", 0))
 	var dr: int = int(defender.get("rank", 0))
 	var ai: bool = str(attacker.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
@@ -181,6 +329,9 @@ static func _melee_pair_rank_allowed(attacker: Dictionary, defender: Dictionary)
 		return true
 	if di and not dhf.is_empty() and str(attacker.get("formation_id", "")) == dhf:
 		return true
+	if manager != null and ar > 0 and not ai and dr == 0 and not di and depth_polearm_lane_open(manager, attacker):
+		var front_ally: Dictionary = same_file_living_rank0_ally(manager, attacker)
+		return depth_polearm_threatens_line_target(front_ally, defender)
 	return false
 
 
@@ -194,8 +345,8 @@ static func _actor_host_fid_for_melee_targeting(actor: Dictionary) -> String:
 
 
 ## `opp_rank_required` 0/1 file rank, or intruder lodged on actor’s host line (any depth) for 0/1 stalemate passes.
-## Home rank > 0 must not use the rank-0 line pass to pick **non-intruding** enemy rank 0 (reach still gates intruders).
-static func _opp_matches_melee_rank_target(actor: Dictionary, opp: Dictionary, opp_rank_required: int) -> bool:
+## Home rank > 0 may pick enemy rank 0 in the depth lateral window when **depth polearm lane** is open (Tier 1.9); else only intruders on host.
+static func _opp_matches_melee_rank_target(manager: Node, actor: Dictionary, opp: Dictionary, opp_rank_required: int) -> bool:
 	if not opp.get("alive", false) or opp.get("side", "") == actor.get("side", ""):
 		return false
 	var host_fid: String = _actor_host_fid_for_melee_targeting(actor)
@@ -211,7 +362,11 @@ static func _opp_matches_melee_rank_target(actor: Dictionary, opp: Dictionary, o
 			and str(actor.get("engagement_role", "")) != CombatConstants.ENGAGEMENT_ROLE_INTRUDED
 			and not opp_intr_on_actor_host
 		):
-			return false
+			if manager == null or not depth_polearm_lane_open(manager, actor):
+				return false
+			var front_ally: Dictionary = same_file_living_rank0_ally(manager, actor)
+			if not depth_polearm_threatens_line_target(front_ally, opp):
+				return false
 		return true
 	if opp_rank_required <= 1 and opp_intr_on_actor_host:
 		return true
@@ -243,7 +398,7 @@ static func can_melee_threaten(manager: Node, attacker: Dictionary, defender: Di
 		return false
 	if attacker.get("side", "") == defender.get("side", ""):
 		return false
-	if not _melee_pair_rank_allowed(attacker, defender):
+	if not _melee_pair_rank_allowed(manager, attacker, defender):
 		return false
 	if _EntityAccess.get_attacking_arm(attacker).is_empty():
 		return false
@@ -251,17 +406,13 @@ static func can_melee_threaten(manager: Node, attacker: Dictionary, defender: Di
 	if weapon == null or not weapon.has_method("get_available_attack_types"):
 		return false
 	var melee_range: float = float(weapon.melee_range)
-	var can_attack_from_mid: bool = melee_range >= CombatConstants.REACH_MID_MIN
 	var eff_dist: float = effective_pair_eff_dist(manager, attacker, defender)
 	var in_swing_range: bool = melee_range >= eff_dist
 	var dist: String = str(attacker.get("distance_to", {}).get(defender.get("id", -1), CombatConstants.DISTANCE_LONG))
 	if not in_swing_range:
 		return false
-	if dist == CombatConstants.DISTANCE_CLOSE:
-		return true
-	if dist == CombatConstants.DISTANCE_MID and can_attack_from_mid:
-		return true
-	return false
+	# CLOSE always; MID if geometric reach clears eff_dist (step-in / lunge — not only polearm REACH_MID_MIN).
+	return dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID
 
 
 ## Per-pair failed-close backoff: logic-gates `attempt_close` off the action list until `CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S` elapses.
@@ -283,7 +434,6 @@ static func _append_melee_vs_enemy_line_rank(
 	actions: Array,
 	move_ids: Array,
 	melee_range: float,
-	can_attack_from_mid: bool,
 	opp_rank_required: int
 ) -> void:
 	for opp in _TargetScoring.ordered_melee_opponents(manager, c, combatants, opp_rank_required):
@@ -291,19 +441,19 @@ static func _append_melee_vs_enemy_line_rank(
 		var in_swing_range: bool = melee_range >= eff_dist
 		var dist: String = c.get("distance_to", {}).get(opp.id, CombatConstants.DISTANCE_LONG)
 		if in_swing_range:
-			if dist == CombatConstants.DISTANCE_CLOSE or (dist == CombatConstants.DISTANCE_MID and can_attack_from_mid):
+			if dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID:
 				for move_id in move_ids:
 					if WeaponConstants.is_parry_move(move_id):
 						continue
 					actions.append({ "target_id": opp.id, "move_id": move_id })
-			elif dist in [CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
+			elif dist == CombatConstants.DISTANCE_LONG:
 				if not _close_attempt_pair_blocked(manager, c, opp.id):
 					actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
 		else:
 			if dist in [CombatConstants.DISTANCE_CLOSE, CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
 				if not _close_attempt_pair_blocked(manager, c, opp.id):
 					actions.append({ "target_id": opp.id, "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
-		if _crash_action_eligible(manager, c, opp, melee_range, can_attack_from_mid, eff_dist, in_swing_range, dist):
+		if _crash_action_eligible(manager, c, opp, in_swing_range, dist):
 			actions.append({"target_id": opp.id, "move_id": CombatConstants.MOVE_ID_CRASH})
 
 
@@ -344,30 +494,30 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		var our_rank: int = c.get("rank", 0)
 		var our_file: int = c.get("file", 0)
 		var c_intruded: bool = str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
-		# Phase 3: Rank 0 melee; intruders from depth; home ranks ≥1 may melee **enemy intruders on this formation** (reach + pair rules).
+		# Phase 3: Rank 0 melee; intruders from depth; home ranks ≥1 vs intruders on formation; depth polearm vs line (Tier 1.9).
 		var can_melee: bool = (
 			our_rank == 0
 			or c_intruded
 			or _host_formation_has_enemy_intruder(combatants, c)
+			or depth_polearm_lane_open(manager, c)
 		) and not _EntityAccess.get_attacking_arm(c).is_empty()
 		if can_melee:
 			var weapon = _EntityAccess.get_weapon(c)
 			if weapon != null and weapon.has_method("get_available_attack_types"):
 				var melee_range: float = float(weapon.melee_range)
-				var can_attack_from_mid: bool = melee_range >= CombatConstants.REACH_MID_MIN
 				var move_ids: Array = weapon.get_available_attack_types()
 				_append_melee_vs_enemy_line_rank(
-					manager, c, combatants, actions, move_ids, melee_range, can_attack_from_mid, 0
+					manager, c, combatants, actions, move_ids, melee_range, 0
 				)
 				var any_enemy_rank0: bool = false
 				for opp_chk in combatants:
-					if _opp_matches_melee_rank_target(c, opp_chk, 0):
+					if _opp_matches_melee_rank_target(manager, c, opp_chk, 0):
 						any_enemy_rank0 = true
 						break
 				# Stalemate safety: `CombatFormationFlow` reconcile should guarantee a rank-0 enemy when possible; if not, avoid soft-lock.
 				if not any_enemy_rank0:
 					_append_melee_vs_enemy_line_rank(
-						manager, c, combatants, actions, move_ids, melee_range, can_attack_from_mid, 1
+						manager, c, combatants, actions, move_ids, melee_range, 1
 					)
 		# Phase 3: Swap rank — front→back disengage; plug when front incap; deeper→shallow relief (same column).
 		# With 3+ depth ranks, middle/back rows must be able to swap toward the front or they only get wait.
@@ -476,8 +626,11 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				if immediate_peril and ally.id != c.id:
 					continue
 				var wounded: Array = ally.node.get_wounded_parts()
+				var parts_being_treated: Array = manager._get_parts_being_treated_on(ally.id)
 				for part in wounded:
 					if part.is_empty():
+						continue
+					if part in parts_being_treated:
 						continue
 					var tgt_id: int = ally.id
 					for act in manager._get_ally_medical_actions(c, ally, part):
@@ -487,13 +640,24 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		var mid: String = str(a.get("move_id", ""))
 		if mid in CombatConstants.MEDICAL_MOVE_IDS:
 			medical_count += 1
-	if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
+	if CombatDebug.flow_verbose_enabled():
 		var crash_count: int = 0
 		for a in actions:
 			if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_CRASH:
 				crash_count += 1
+		var polearm_extra: String = ""
+		if not medical_phase:
+			var rpv: int = int(c.get("rank", 0))
+			var intrv: bool = str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
+			if rpv > 0 and not intrv and not _EntityAccess.get_attacking_arm(c).is_empty():
+				var w_pv: Variant = _EntityAccess.get_weapon(c)
+				if w_pv is Weapon and (w_pv as Weapon).depth_melee_eligible:
+					polearm_extra = _format_depth_polearm_melee_context(manager, c, w_pv as Weapon, combatants)
 		CombatDebug.flow_log(
-			"get_available_actions id=%d side=%s state=%s rank=%d file=%d fid=%s breach_blocks_moves=%s med_phase=%s crash_viab=%.3f => %d actions (medical=%d crash=%d) [%s]"
+			(
+				"get_available_actions id=%d side=%s state=%s rank=%d file=%d fid=%s breach_blocks_moves=%s med_phase=%s "
+				+ "crash_viab=%.3f => %d actions (medical=%d crash=%d) [%s]%s"
+			)
 			% [
 				combatant_id,
 				str(c.get("side", "")),
@@ -507,8 +671,10 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				actions.size(),
 				medical_count,
 				crash_count,
-				CombatDebug.format_actions_compact(actions)
-			]
+				CombatDebug.format_actions_compact(actions),
+				polearm_extra
+			],
+			"get_available_actions:%d" % combatant_id
 		)
 		var dbg_intruded: bool = str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
 		if (
@@ -539,19 +705,17 @@ static func build(manager: Node, combatant_id: int) -> Array:
 					clock,
 					log_breach_blocks_moves,
 					_FormationBreachRules.is_skirmish_line_engagement(manager)
-				]
+				],
+				"crash_not_in_list:%d" % combatant_id
 			)
 	return actions
 
 
-## Crash (breach): in weapon reach, at close or mid-with-reach; stamina, cooldown, depth cap (Phase C).
+## Crash (breach): in weapon reach, at close or mid with geometric reach; stamina, cooldown, depth cap (Phase C).
 static func _crash_action_eligible(
 	manager: Node,
 	c: Dictionary,
 	_opp: Dictionary,
-	_melee_range: float,
-	can_attack_from_mid: bool,
-	_eff_dist: float,
 	in_swing_range: bool,
 	dist: String
 ) -> bool:
@@ -563,8 +727,6 @@ static func _crash_action_eligible(
 	if not _EngagementMode.crash_intrusion_attacker_allowed(manager, c):
 		return false
 	if not _EngagementMode.incursion_allowed(manager):
-		return false
-	if CombatConstants.crash_breach_viability(c) < CombatConstants.CRASH_BREACH_VIABILITY_MIN:
 		return false
 	if int(c.get("tactical_penetration_depth", 0)) >= CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX:
 		return false
@@ -579,11 +741,7 @@ static func _crash_action_eligible(
 		return false
 	if not in_swing_range:
 		return false
-	if dist == CombatConstants.DISTANCE_CLOSE:
-		return true
-	if dist == CombatConstants.DISTANCE_MID and can_attack_from_mid:
-		return true
-	return false
+	return dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID
 
 
 ## Why crash was not listed despite front rank + viability (for verbose flow logs / UI hints). Breach clog does not gate crash.
@@ -609,10 +767,9 @@ static func crash_absent_primary_reason(manager: Node, c: Dictionary) -> String:
 	if weapon == null or not weapon.has_method("get_available_attack_types"):
 		return "no_melee_weapon_profile"
 	var melee_range: float = float(weapon.melee_range)
-	var can_attack_from_mid: bool = melee_range >= CombatConstants.REACH_MID_MIN
 	var any_enemy_rank0: bool = false
 	for opp in manager.combatants:
-		if _opp_matches_melee_rank_target(c, opp, 0):
+		if _opp_matches_melee_rank_target(manager, c, opp, 0):
 			any_enemy_rank0 = true
 			break
 	var ranks_to_check: Array = [0] if any_enemy_rank0 else [1]
@@ -620,21 +777,19 @@ static func crash_absent_primary_reason(manager: Node, c: Dictionary) -> String:
 	var first_reason: String = ""
 	for rank_req in ranks_to_check:
 		for opp in manager.combatants:
-			if not _opp_matches_melee_rank_target(c, opp, rank_req):
+			if not _opp_matches_melee_rank_target(manager, c, opp, rank_req):
 				continue
 			saw_line_enemy = true
 			var eff_dist: float = effective_pair_eff_dist(manager, c, opp)
 			var in_swing: bool = melee_range >= eff_dist
 			var dist: String = str(c.get("distance_to", {}).get(opp.get("id", -1), CombatConstants.DISTANCE_LONG))
-			if _crash_action_eligible(manager, c, opp, melee_range, can_attack_from_mid, eff_dist, in_swing, dist):
+			if _crash_action_eligible(manager, c, opp, in_swing, dist):
 				return "crash_eligible_but_missing_bug"
 			if first_reason.is_empty():
 				if not in_swing:
 					first_reason = "out_of_swing_range"
 				elif dist == CombatConstants.DISTANCE_LONG:
 					first_reason = "distance_long"
-				elif dist == CombatConstants.DISTANCE_MID and not can_attack_from_mid:
-					first_reason = "distance_mid_short_weapon"
 				else:
 					first_reason = "distance_band_%s" % dist
 	if not saw_line_enemy:
@@ -648,10 +803,14 @@ static func format_crash_absent_reason_for_ui(reason_key: String) -> String:
 		var m: String = k.trim_prefix("engagement_mode_")
 		return "Breach rush unavailable: %s" % _EngagementMode.mode_display_name(m)
 	match k:
+		"intrusion_disabled":
+			return "Breach rush unavailable: intrusions disabled (development flag)"
 		"intruder_cap":
 			return "Breach rush unavailable: intruder cap (heavy armor role)"
 		"light_armor":
-			return "Breach rush unavailable: armor too light"
+			return "Breach rush unavailable: need heavy armor (mass)"
+		"low_breach_power":
+			return "Breach rush unavailable: not strong enough for a line breach"
 		"at_max_penetration_depth":
 			return "Breach rush unavailable: at max penetration depth"
 		"low_stamina":
@@ -666,8 +825,6 @@ static func format_crash_absent_reason_for_ui(reason_key: String) -> String:
 			return "Breach rush unavailable: out of weapon reach"
 		"distance_long":
 			return "Breach rush unavailable: target too far"
-		"distance_mid_short_weapon":
-			return "Breach rush unavailable: mid band, weapon too short"
 		"unknown":
 			return "Breach rush unavailable"
 		_:

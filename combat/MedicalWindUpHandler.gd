@@ -28,7 +28,14 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 			var tgt_entity = _EntityAccess.get_entity_from_manager(manager, tgt_c)
 			if tgt_entity != null and tgt_entity.has_method(target_method):
 				var perf_entity = _EntityAccess.get_entity_from_manager(manager, c)
+				var had_treatment_assist: bool = (
+					tgt_entity.get("direct_pressure_assist_held_by") != null
+					and tgt_entity.direct_pressure_assist_held_by != null
+				)
 				var eff: float = _EntityAccess.get_medical_effectiveness_from_node(perf_entity)
+				if had_treatment_assist:
+					eff += CombatConstants.MEDICAL_ASSISTED_TREATMENT_EFFICIENCY_BONUS
+					eff = clampf(eff, 0.0, 1.5)
 				var result = null
 				if target_method == "apply_bandage":
 					result = tgt_entity.call(target_method, part, eff)

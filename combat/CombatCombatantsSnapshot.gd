@@ -10,6 +10,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 static func build(manager: Node) -> Array:
 	var out: Array = []
+	var next_ready: Dictionary = _EventScheduler.build_next_action_ready_times(manager)
 	for c in manager.combatants:
 		var stats = c.stats.duplicate()
 		if c.node != null:
@@ -54,8 +55,8 @@ static func build(manager: Node) -> Array:
 			item["status_override"] = "Crash CD %.1fs" % (crash_cd_until - manager.combat_clock)
 		elif action_cd_until > manager.combat_clock:
 			item["status_override"] = "Closing %.1fs" % (action_cd_until - manager.combat_clock)
-		else:
-			var next_at: float = _EventScheduler.get_next_action_ready_at(manager, c.id)
+		elif next_ready.has(c.id):
+			var next_at: float = float(next_ready[c.id])
 			if next_at > manager.combat_clock:
 				item["status_override"] = "Next: %.1fs" % (next_at - manager.combat_clock)
 		out.append(item)

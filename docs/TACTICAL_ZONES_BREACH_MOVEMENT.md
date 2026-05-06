@@ -336,7 +336,7 @@ Investigation of how to combine row/file formation combat with surround tactics�
 
 **Formation combat (rows + files):**
 - Assumes two formations facing each other in lines
-- Combat is front-on; rank 0 vs rank 0, spears from rank 1
+- Combat is front-on: **rank 0** is the primary line; **depth-rank polearm** (spear lane) vs enemy rank 0 is **`IMPLEMENTATION_ORDER.md` Tier 1.9 (P10)** — **Todo** in code; not yet general melee from rank ≥ 1
 - Works for shield walls, phalanx-style engagement
 
 **Surround / multi-angle:**

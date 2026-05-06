@@ -100,7 +100,7 @@ static func contest_crash(manager: Node, attacker_id: int, defender_id: int) -> 
 	else:
 		out["tactical_penetration_depth"] = old_depth
 		out["breach_severity"] = 0.0
-	if CombatConstants.COMBAT_EVENT_DEBUG:
+	if CombatDebug.flow_verbose_enabled():
 		CombatDebug.flow_log(
 			"contest_crash atk=%d def=%d ok=%s p_win=%.3f roll=%.3f drive=%.2f hold=%.2f reach_ratio=%.3f eff_dist=%.2f melee_range=%.2f front_z=%.3f old_depth=%d new_depth=%d sev=%.2f file=%d fid=%s"
 			% [

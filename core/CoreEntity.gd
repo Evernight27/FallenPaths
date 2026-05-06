@@ -56,6 +56,8 @@ var self_direct_pressure_part: String = ""
 var direct_pressure_on_ally: Dictionary = {}
 # When pressure is held on us by an ally: the performer's medical entity. Used to clear performer when our bleeding stops.
 var direct_pressure_held_by: Node = null
+# Optional second ally pressing the same part during stabilizing treatment wind-up (helper holds, medic treats).
+var direct_pressure_assist_held_by: Node = null
 
 # Game time (seconds) for per-wound healing and pain decay. Advanced in process_healing(seconds).
 var _game_time_seconds: float = 0.0
@@ -262,8 +264,8 @@ func _get_severance_ease_factor(part: String) -> float:
 	return _EntityDamage.get_severance_ease_factor(self, part)
 
 # Split damage: apply cut (SHARP) and blunt (BLUNT) streams; armor, bone/tissue split, wounds, pain shock in EntityDamage.
-func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0, blunt_contact_cm: float = -1.0) -> Dictionary:
-	return _EntityDamage.apply_damage_split(self, cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt_momentum_per_area, blunt_contact_cm)
+func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0, blunt_contact_cm: float = -1.0, extras: Dictionary = {}) -> Dictionary:
+	return _EntityDamage.apply_damage_split(self, cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt_momentum_per_area, blunt_contact_cm, extras)
 
 
 # --- Wounds and bleeding: delegated to EntityWounds (core/EntityWounds.gd) ---
@@ -339,6 +341,9 @@ func can_apply_direct_pressure(target_part: String) -> bool:
 func apply_direct_pressure_from_ally(part: String, performer_entity: Node = null) -> bool:
 	return _EntityMedical.apply_direct_pressure_from_ally(self, part, performer_entity)
 
+func stack_assist_pressure_during_ally_treatment(part: String, assist_entity: Node = null) -> bool:
+	return _EntityMedical.stack_assist_pressure_during_ally_treatment(self, part, assist_entity)
+
 func apply_direct_pressure(part: String, effectiveness: float = -1.0) -> bool:
 	return _EntityMedical.apply_direct_pressure(self, part, effectiveness)
 
@@ -393,6 +398,7 @@ func _apply_species():
 	packed_parts.clear()
 	direct_pressure_part = ""
 	self_direct_pressure_part = ""
+	direct_pressure_assist_held_by = null
 	_game_time_seconds = 0.0
 	blood_volume = _Bleeding.MAX_BLOOD_VOLUME
 	consciousness = 100.0

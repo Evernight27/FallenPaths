@@ -19,6 +19,8 @@ var head_diameter: float = 0.0
 # Optional: effective edge width for blunt weapons (flanges/ridges that can break skin). Used for sharp-component penetration on blunt moves.
 var edge_width: float = 0.0
 var melee_range: float = 1.5
+## Tier 1.9: may strike enemy front rank from home depth when same-file rank 0 is alive (spear lane rules).
+var depth_melee_eligible: bool = false
 # Cut ratio 0-1 for slash/cut (rest blunt). Blunt attacks use archetype; floor MIN_CUT_RATIO so no weapon is 0% cut.
 var blade_cut_ratio: float = 0.75
 # Edge sharpness 0-1: 1 = keen (small effective contact), 0 = dull (wider effective contact). Used for effective edge width in cutting.
@@ -54,6 +56,7 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 	w.head_diameter = def.get("head_diameter", 0.0)
 	w.edge_width = def.get("edge_width", 0.0)
 	w.melee_range = def.get("melee_range", 1.5)
+	w.depth_melee_eligible = bool(def.get("depth_melee_eligible", false))
 	w.blade_cut_ratio = def.get("blade_cut_ratio", 0.75)
 	w.sharpness = def.get("sharpness", 1.0)
 	var parts_arr = def.get("parts", [])

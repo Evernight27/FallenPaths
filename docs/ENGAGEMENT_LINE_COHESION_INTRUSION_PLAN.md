@@ -1,8 +1,8 @@
 # Engagement: line cohesion, posture, intrusion geometry
 
-**Status:** P3–P4 **shipped**; P5 **partial** — hysteresis, posture deltas, **`line_discipline`** / encounter `line_discipline`; **`morale_cohesion_factor`** remains **1.0** until morale module (**Tier 1.5**). Optional: richer tags, **2.1** tactical doc narrative sync.
+**Status:** P3–P4 **shipped**; P5 **done** for posture; **P6 (Tier 1.5)** **`morale_cohesion_factor`** wired via **`CombatMoraleCohesion`** + encounter/combatant inputs. **Tier 1.9 (P10)** depth-rank polearm + spear lanes — **Todo** (spec rows §2.5; steps in **`IMPLEMENTATION_ORDER.md`**). Optional: extra encounter-only tags, **2.1** tactical doc narrative sync.
 
-**Last verified against repo:** 2026-04-27. **Spec addendum:** 2026-04-13 — **§4.1 intrusion wedge** + **§4.2 `lane_offset`** + distance. **2026-04-27:** Doc + code alignment — host formation id for ZoC/pair geometry centralized in **`ZoneOfControl.formation_id_for_zone_geometry`**; legacy **`LINE_COHESION_POSTURE_LINE_MIN`** constant removed (use **`LINE_COHESION_POSTURE_ENTER_LINE_MIN`** / **`LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`** + discipline deltas only).
+**Last verified against repo:** 2026-05-06. **Playtest gate:** `CombatConstants.FEATURE_LINE_CRASH_INTRUSION` defaults **`false`** — no new line-crash intrusions in-game; **do not treat §2 verification or §4–§6 as a call to add new intrusion behavior** until that flag is **true** and `docs/IMPLEMENTATION_ORDER.md` **Development gate** says you are resuming the intrusion track (main plan focus stays **1.5–1.9**, Tier **3**, non-intrusion docs until then). **Spec addendum:** 2026-04-13 — **§4.1 intrusion wedge** + **§4.2 `lane_offset`** + distance. **2026-04-27:** Doc + code alignment — host formation id for ZoC/pair geometry centralized in **`ZoneOfControl.formation_id_for_zone_geometry`**; legacy **`LINE_COHESION_POSTURE_LINE_MIN`** constant removed (use **`LINE_COHESION_POSTURE_ENTER_LINE_MIN`** / **`LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`** + discipline deltas only). **2026-05-01:** §**2.5** adds **Tier 1.9 (P10)** verification rows for depth-rank polearm + spear lanes (see **`IMPLEMENTATION_ORDER.md`** §Tier 1.9).
 
 **Execution plan (ordered steps, exit criteria, implementation gate):** **`docs/IMPLEMENTATION_ORDER.md`** — Tier 1 expanded (P3–P7). Treat that file as the **single logical plan** before and during implementation.
 
@@ -86,20 +86,25 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 | Per-combatant `lane_offset` (bounded float; default 0) | **Done** | Seam bias + repack on plugs/moves; anchor peer nudge §4.2. |
 | Intrusion / plug **repack** rules for `lane_offset` + wedge | **Done** | Wedge cleared on death/reset; offsets repacked in `CombatFormationFlow`. |
 | **`lane_stress_by_file` / ZoC** use wedge | **Done** | `TacticalCombat` + `ZoneOfControl` lane stress; intruder host ZoC id for geometry. |
+| **Depth-rank polearm melee** (rank ≥ 1 home, same-file living rank 0, depth-eligible weapon) | **Partial** | `AvailableActionsBuilder` + `_melee_pair_rank_allowed` / `_opp_matches_melee_rank_target`; **`SPEAR`** flagged in `WeaponConstants`. |
+| **`distance_to` for depth polearm vs line** (no blanket LONG when eligible) | **Partial** | **`CombatDistanceBands`**: skip rank>0→LONG when `depth_polearm_lane_open`. |
+| **Front-rank melee at MID** (not only polearm `REACH_MID_MIN`) | **Done** | **`AvailableActionsBuilder`** + **`can_melee_threaten`**: strikes when `melee_range >= effective_pair_eff_dist`; `attempt_close` for LONG / out of reach; crash at MID uses same geometric gate. |
+| **Spear lanes → part / target gating** (over-shoulder vs open) | **Partial** | **`depth_polearm_targetable_parts_filter`**: tight/normal = no legs; loose = full; `AttackResolver` + `CombatAIActionPicker`. Richer `lane_type` **Todo**. |
+| **`depth_melee_eligible` (or equivalent) on weapon** | **Done** | `Weapon.gd` + **`SPEAR`** definition only (extend per weapon as needed). |
 
 ### 2.6 Cohesion & posture refinement
 
 | Item | State | Notes |
 |------|:-----:|-------|
 | LINE ↔ OPEN hysteresis (`L_in` > `L_out`) | **Done** | `CombatConstants.LINE_COHESION_POSTURE_ENTER_LINE_MIN` / `LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`; prior `engagement_posture` on formation dict. |
-| Encounter / army tags (discipline, default open/line) | **Partial** | `encounter`: `engagement_posture_enter_delta` / `engagement_posture_leave_delta` / `line_discipline` (`ENCOUNTER_KEY_LINE_DISCIPLINE`); preset: `discipline_posture_*_delta`, `line_discipline`. **Morale not wired** (factor stays 1.0). |
-| Per-side asymmetric posture (open army vs line) | **Todo** | Current posture is per formation but duel/line/open rules are still coarse. |
+| Encounter / army tags (discipline, default open/line) | **Done** | `encounter`: posture deltas / `line_discipline` / optional `posture_asymmetry_strength`; **morale cohesion** `morale_cohesion_player` / `morale_cohesion_enemy`. Preset: `discipline_posture_*_delta`, `line_discipline`. |
+| Per-side asymmetric posture (open army vs line) | **Done** | `CombatFormationEngagement`: two-pass cohesion; `L_in`/`L_out` nudge from `our_coh − opp_coh` (`POSTURE_ASYMMETRY_COH_COUPLE_STRENGTH` + encounter key). |
 
 ### 2.7 Morale
 
 | Item | State | Notes |
 |------|:-----:|-------|
-| Morale system driving `morale_cohesion_factor` | **Todo** | Placeholder 1.0 until morale module exists. |
+| Morale system driving `morale_cohesion_factor` | **Done** | **`CombatMoraleCohesion`**: encounter **`morale_cohesion_player`** / **`morale_cohesion_enemy`** or mean of combatant **`morale_cohesion`** (see `CombatManager.register`). |
 
 ### 2.8 AI, tests, cross-doc
 
@@ -176,7 +181,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 |-------|------|---------|
 | `line_cohesion` | float 0..1 | Continuous line solidity. |
 | `engagement_posture` | String | Same strings as `CombatConstants.ENGAGEMENT_POSTURE_*` (UI + future rules). |
-| `morale_cohesion_factor` | float | Morale hook; default **1.0**. |
+| `morale_cohesion_factor` | float | **Tier 1.5.** Refreshed each engagement recompute by **`CombatMoraleCohesion`**; clamped **0.15–1.0**. |
 | `breached_files` | Dictionary | Per-file breach severity (existing); **wedge writer** may initialize from this; long term avoid duplicating two conflicting severities—document which is canonical in code comments. |
 | `intrusion_wedge_by_file` | Dictionary | **P4.** File → wedge dict (§4.1): canonical breach corridor for stress, cohesion, distance, UI. |
 | `discipline_posture_enter_delta` / `discipline_posture_leave_delta` | float | **Tier 1.4.** From preset; added to hysteresis thresholds. |
@@ -190,6 +195,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 | `intrusion_host_fid` | String | Defender `formation_id` when intruded; else `""`. |
 | `intrusion_anchor_file` | int | Defender file index when intruded; else **-1**. |
 | `intrusion_source_file` | int | Home-formation file column when intruded (death/vacancy column); **-1** when not intruded. |
+| `morale_cohesion` | float 0..1 | **Tier 1.5.** Per fighter; averaged per side into `morale_cohesion_factor` when encounter override absent; optional **`node.morale_cohesion`** at register. |
 | `lane_offset` | float | **P4.** Lateral position within the line at the combatant’s current engagement column; bounded; **0** = column center; **biased from wedge seam** where applicable (§4.1–§4.2). Sign convention fixed in code + §4.2. |
 | `tactical_penetration_depth` | int | Abstract depth (existing); optional small weight in P4 distance term. |
 
@@ -197,12 +203,14 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 
 ## 6. Tuning
 
-All numeric defaults for cohesion, posture **hysteresis** (**`LINE_COHESION_POSTURE_ENTER_LINE_MIN`** / **`LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`**), discipline shifts, and neighbor hold live in **`combat/CombatConstants.gd`** (`COHESION_*`, `CRASH_NEIGHBOR_*`, `CRASH_AI_POSTURE_*`, wedge / `lane_offset` / `EFF_DIST_*`). Tune by playtest.
+All numeric defaults for cohesion, posture **hysteresis** (**`LINE_COHESION_POSTURE_ENTER_LINE_MIN`** / **`LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`**), **opponent-relative posture coupling** (`POSTURE_ASYMMETRY_COH_COUPLE_STRENGTH`; encounter **`posture_asymmetry_strength`**), discipline shifts, and neighbor hold live in **`combat/CombatConstants.gd`** (`COHESION_*`, `CRASH_NEIGHBOR_*`, `CRASH_AI_POSTURE_*`, wedge / `lane_offset` / `EFF_DIST_*`). Tune by playtest.
 
 ---
 
 ## 7. Changelog (plan doc only)
 
+- **2026-05-06 (b):** §2.7 Tier 1.5 morale → **`CombatMoraleCohesion`**; §5 `morale_cohesion` / encounter keys; status banner.
+- **2026-05-06:** §2.6 P5 asymmetric posture **Done** (`POSTURE_ASYMMETRY_*`, two-pass `recompute_all`); §6 tuning note; status banner P5 done for posture.
 - **2026-04-27:** §1–§2.6/§2.8 status (P5 partial, 1.6 partial AI, 2.1 banner partial); §5 `line_discipline` + posture deltas; §6 tuning list; morale explicitly deferred (field 1.0).
 - **2026-04-13 (c):** **Wedge-first P4** — new §4.1 wedge (`intrusion_wedge_by_file`), §4.2 lane coupling + distance note, dependency §1 and §2.5 rows, §5–§6; slots described as occupancy only; `breached_files` note on single canonical severity.
 - **2026-04-13 (b):** §2.3–§2.4 P3 items → **Done** (mirror `IMPLEMENTATION_ORDER` milestone 1.2).

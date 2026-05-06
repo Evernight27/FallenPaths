@@ -7,6 +7,7 @@ const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _FormationDiagramBuilder := preload("res://ui/FormationDiagramBuilder.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
+const _Weapon := preload("res://weapon/Weapon.gd")
 
 var players: Array = []
 var enemies: Array = []
@@ -72,8 +73,8 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 	manager = mgr_script.new()
 	add_child(manager)
 	# register combatants
-	_player_list = get_node_or_null(BattleUIConstants.MAIN_LIST_PATH + "/PlayerPanel/PlayerVBox/PlayerList")
-	_enemy_list = get_node_or_null(BattleUIConstants.MAIN_LIST_PATH + "/EnemyPanel/EnemyVBox/EnemyList")
+	_player_list = get_node_or_null(BattleUIConstants.MAIN_LIST_PATH + "/PlayerStatsScroll/PlayerPanel/PlayerVBox/PlayerList")
+	_enemy_list = get_node_or_null(BattleUIConstants.MAIN_LIST_PATH + "/EnemyStatsScroll/EnemyPanel/EnemyVBox/EnemyList")
 	for pl in players:
 		var pid = manager.register(pl, "player")
 		CombatantRowBuilder.create_row(pid, pl, _player_list, id_to_controls)
@@ -94,6 +95,8 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 	manager.connect("combat_ui_hint", Callable(self, "_on_combat_ui_hint"))
 	# Start manager (builds formations, assigns rank/file)
 	manager.start(_player_preset, _enemy_preset)
+	if CombatConstants.DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT:
+		_apply_debug_depth_polearm_loadout(manager)
 	# Creature stats: fixed registration order (rows stay in list order; no reparent on formation change).
 	# Formation positions: FormationDiagramBuilder only.
 	if formation_diagram_hbox != null:
@@ -128,19 +131,49 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 	set_process(true)
 
 func _update_scroll_content_size() -> void:
-	var main_scroll = get_node_or_null("CombatCanvasLayer/UIRoot/ContentVBox/MainScroll")
-	var main_hbox = get_node_or_null(BattleUIConstants.MAIN_LIST_PATH)
-	if main_hbox == null or not main_hbox is Control or main_scroll == null:
+	var base := BattleUIConstants.MAIN_LIST_PATH
+	var player_scroll: ScrollContainer = get_node_or_null(base + "/PlayerStatsScroll") as ScrollContainer
+	var enemy_scroll: ScrollContainer = get_node_or_null(base + "/EnemyStatsScroll") as ScrollContainer
+	var player_vbox: Control = get_node_or_null(base + "/PlayerStatsScroll/PlayerPanel/PlayerVBox") as Control
+	var enemy_vbox: Control = get_node_or_null(base + "/EnemyStatsScroll/EnemyPanel/EnemyVBox") as Control
+	if player_scroll == null or enemy_scroll == null or player_vbox == null or enemy_vbox == null:
 		return
-	# ScrollContainer only shows scrollbar when child min size exceeds container size.
+	_apply_stats_scroll_min_size(player_scroll, player_vbox, players.size())
+	_apply_stats_scroll_min_size(enemy_scroll, enemy_vbox, enemies.size())
+
+
+func _apply_stats_scroll_min_size(scroll: ScrollContainer, inner_vbox: Control, row_count: int) -> void:
+	# ScrollContainer only shows scrollbar when child min size exceeds viewport.
 	# get_combined_minimum_size() can be unreliable with nested containers, so we also
-	# calculate from actual row count (each combatant row ~180px).
-	var content_min = main_hbox.get_combined_minimum_size()
-	var row_count = players.size() + enemies.size()
-	var estimated_height = row_count * 180
-	var scroll_height = main_scroll.size.y
-	var min_height = maxf(maxf(content_min.y, estimated_height), scroll_height + 1)
-	main_hbox.custom_minimum_size = Vector2(content_min.x, min_height)
+	# estimate from row count (each combatant row ~180px).
+	var content_min := inner_vbox.get_combined_minimum_size()
+	var estimated_height := row_count * 180
+	var scroll_height := scroll.size.y
+	if scroll_height <= 1.0:
+		var p: Control = scroll.get_parent() as Control
+		if p != null:
+			scroll_height = p.size.y
+	if scroll_height <= 1.0:
+		scroll_height = 260.0
+	var min_height := maxf(maxf(content_min.y, estimated_height), scroll_height + 1.0)
+	inner_vbox.custom_minimum_size = Vector2(content_min.x, min_height)
+
+## Tier 1.9 playtest: rank > 0 fighters get `SPEAR` (formation presets are unchanged).
+func _apply_debug_depth_polearm_loadout(mgr: Node) -> void:
+	if mgr == null:
+		return
+	for c in mgr.combatants:
+		if not c.get("alive", false):
+			continue
+		if int(c.get("rank", 0)) <= 0:
+			continue
+		var n: Variant = c.get("node", null)
+		if n == null or not (n is Node) or not (n as Node).has_method("equip_weapon"):
+			continue
+		var w: Weapon = _Weapon.create_from_definition("SPEAR")
+		if w != null:
+			(n as Node).call("equip_weapon", w)
+
 
 func _create_ui() -> void:
 	var layout = BattleUILayout.create(self)
@@ -169,24 +202,26 @@ func _do_scroll_combat_log_to_bottom() -> void:
 	if vbar:
 		combat_log_scroll.scroll_vertical = int(vbar.max_value)
 
-func _update_ui() -> void:
+## Builds the combatant snapshot once and refreshes rows. Returns the snapshot for reuse in the same frame.
+func _update_ui() -> Array:
 	if manager == null:
-		return
-	var caps = manager.get_combatants()
+		return []
+	var caps: Array = manager.get_combatants()
 	for c in caps:
 		if c.id in id_to_controls:
 			BattleUIUpdater.update_combatant_row(id_to_controls[c.id], c)
+	return caps
 
 func _process(_delta: float) -> void:
-	# keep UI in sync with manager
-	_update_ui()
+	# keep UI in sync with manager (single snapshot per frame)
+	var caps: Array = _update_ui()
 	# Medical phase: show End battle when all wounded are stabilized
 	if _in_medical_phase and manager != null and manager.has_method("can_end_medical_phase") and manager.can_end_medical_phase():
 		_show_end_battle_button()
 		# After medical actions are done and everyone is paused (no one in wind_up/medical_wind_up), announce once
-		if not _medical_phase_finished_announced and manager.has_method("get_combatants"):
+		if not _medical_phase_finished_announced:
 			var anyone_busy: bool = false
-			for c in manager.get_combatants():
+			for c in caps:
 				if not c.get("alive", true):
 					continue  # Only alive combatants can be "busy"; dead enemies may still have wind_up state
 				var s: String = c.get("state", "waiting")
@@ -267,14 +302,16 @@ func _on_action_resolved(attacker_id: int, target_id: int, result: Dictionary) -
 	var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 	var tgt_side: String = tgt.get("side", "") if tgt != null else ""
 	_append_combat_log(atk_name, atk_side, tgt_name, tgt_side, result)
-	# Show last hit on target row
+	# Show last hit on target row (prefers total_physical so fractional chips still show)
 	var part: String = result.get("part", "")
 	var dmg: int = result.get("dmg", 0)
+	var phys_chip: float = float(result.get("total_physical", -1.0))
+	var show_hit: bool = not part.is_empty() and (dmg > 0 or (phys_chip >= 0.0 and phys_chip > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS))
 	if target_id in id_to_controls and id_to_controls[target_id].get("last_hit_label"):
 		var lbl: Label = id_to_controls[target_id].last_hit_label
-		if part and dmg > 0:
-			lbl.text = "Hit: %s -%d" % [BodyPartConstants.BODY_LABELS.get(part, part), dmg]
-		elif result.get("died", false) and dmg == 0:
+		if show_hit:
+			lbl.text = "Hit: %s -%s" % [BodyPartConstants.BODY_LABELS.get(part, part), CombatLogFormatter.format_resolved_damage(result)]
+		elif result.get("died", false) and not show_hit:
 			lbl.text = "No targetable parts"
 		else:
 			lbl.text = ""

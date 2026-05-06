@@ -6,18 +6,31 @@ extends RefCounted
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
+const _MoraleCohesion := preload("res://combat/CombatMoraleCohesion.gd")
 
 
 static func recompute_all(manager: Node) -> void:
 	if manager == null or not manager.get("formations"):
 		return
 	var fm: Dictionary = manager.formations
+	_MoraleCohesion.apply_to_formations(manager)
+	# Single engagement snapshot for fill + raw_mode (avoids repeating full combatant scans per formation).
+	var snap: Dictionary = _EngagementMode.snapshot(manager)
+	# Two-pass: both sides use the same tick’s cohesions for opponent-relative posture thresholds (Tier 1.4 asymmetric coupling).
+	var coh_by_fid: Dictionary = {}
+	for fid in ["player", "enemy"]:
+		var form0: Dictionary = fm.get(fid, {})
+		if form0.is_empty():
+			continue
+		coh_by_fid[fid] = _compute_line_cohesion(manager, fid, form0, snap)
 	for fid in ["player", "enemy"]:
 		var form: Dictionary = fm.get(fid, {})
 		if form.is_empty():
 			continue
-		var coh: float = _compute_line_cohesion(manager, fid, form)
-		var posture: String = _compute_posture(manager, fid, coh, form)
+		var coh: float = float(coh_by_fid.get(fid, 0.0))
+		var opp_fid: String = "enemy" if fid == "player" else "player"
+		var opp_coh: float = float(coh_by_fid.get(opp_fid, coh))
+		var posture: String = _compute_posture(manager, fid, coh, form, opp_coh, snap)
 		var prev_c: float = float(form.get("line_cohesion", -1.0))
 		var prev_p: String = str(form.get("engagement_posture", ""))
 		form["line_cohesion"] = coh
@@ -69,8 +82,9 @@ static func _avg_wedge_depth(form: Dictionary) -> float:
 	return s / float(maxi(1, n))
 
 
-static func _compute_line_cohesion(manager: Node, fid: String, form: Dictionary) -> float:
-	var snap: Dictionary = _EngagementMode.snapshot(manager)
+static func _compute_line_cohesion(
+	manager: Node, fid: String, form: Dictionary, snap: Dictionary
+) -> float:
 	var front_fill: float = 0.0
 	if fid == "player":
 		front_fill = float(snap.get("player_front_fill", 0.0))
@@ -83,7 +97,11 @@ static func _compute_line_cohesion(manager: Node, fid: String, form: Dictionary)
 	var breach_avg: float = _avg_breach_severity(form)
 	var wedge_avg: float = maxf(_avg_wedge_pressure(form), _avg_wedge_depth(form))
 	var breach_eff: float = maxf(breach_avg, wedge_avg)
-	var morale: float = clampf(float(form.get("morale_cohesion_factor", 1.0)), 0.15, 1.0)
+	var morale: float = clampf(
+		float(form.get("morale_cohesion_factor", 1.0)),
+		CombatConstants.MORALE_COHESION_FACTOR_MIN,
+		1.0
+	)
 	var raw: float = (
 		(CombatConstants.COHESION_BASE_FLOOR + CombatConstants.COHESION_FILL_SCALE * front_fill)
 		* (1.0 - CombatConstants.COHESION_BREACH_WEIGHT * breach_eff)
@@ -103,7 +121,21 @@ static func effective_line_discipline(manager: Node, form: Dictionary) -> String
 	return disc_form if not disc_form.is_empty() else disc_enc
 
 
-static func _effective_posture_thresholds(manager: Node, form: Dictionary) -> Vector2:
+static func _posture_asymmetry_couple_strength(manager: Node) -> float:
+	var base: float = float(CombatConstants.POSTURE_ASYMMETRY_COH_COUPLE_STRENGTH)
+	if manager == null:
+		return base
+	var enc: Variant = manager.get("encounter")
+	if enc != null and typeof(enc) == TYPE_DICTIONARY:
+		var ed: Dictionary = enc as Dictionary
+		if ed.has(CombatConstants.ENCOUNTER_KEY_POSTURE_ASYMMETRY_STRENGTH):
+			return float(ed[CombatConstants.ENCOUNTER_KEY_POSTURE_ASYMMETRY_STRENGTH])
+	return base
+
+
+static func _effective_posture_thresholds(
+	manager: Node, form: Dictionary, our_coh: float = NAN, opp_coh: float = NAN
+) -> Vector2:
 	var l_in: float = CombatConstants.LINE_COHESION_POSTURE_ENTER_LINE_MIN
 	var l_out: float = CombatConstants.LINE_COHESION_POSTURE_LEAVE_LINE_BELOW
 	if manager != null:
@@ -118,6 +150,11 @@ static func _effective_posture_thresholds(manager: Node, form: Dictionary) -> Ve
 	var disc_xy: Vector2 = CombatConstants.line_discipline_posture_extra_deltas(disc_pick)
 	l_in += disc_xy.x
 	l_out += disc_xy.y
+	var k: float = _posture_asymmetry_couple_strength(manager)
+	if k > 0.0001 and not is_nan(our_coh) and not is_nan(opp_coh):
+		var delta: float = k * (our_coh - opp_coh)
+		l_in -= delta
+		l_out += delta
 	l_in = clampf(l_in, 0.40, 0.92)
 	l_out = clampf(l_out, 0.28, 0.88)
 	if l_in <= l_out + 0.03:
@@ -125,12 +162,14 @@ static func _effective_posture_thresholds(manager: Node, form: Dictionary) -> Ve
 	return Vector2(l_in, l_out)
 
 
-static func _compute_posture(manager: Node, _fid: String, cohesion: float, form: Dictionary) -> String:
-	var mode_now: String = str(_EngagementMode.snapshot(manager).get("raw_mode", "skirmish"))
+static func _compute_posture(
+	manager: Node, _fid: String, cohesion: float, form: Dictionary, opp_coh: float, snap: Dictionary
+) -> String:
+	var mode_now: String = str(snap.get("raw_mode", "skirmish"))
 	if mode_now == "duel":
 		return CombatConstants.ENGAGEMENT_POSTURE_DUEL
 	var prev: String = str(form.get("engagement_posture", ""))
-	var thr: Vector2 = _effective_posture_thresholds(manager, form)
+	var thr: Vector2 = _effective_posture_thresholds(manager, form, cohesion, opp_coh)
 	var l_in: float = thr.x
 	var l_out: float = thr.y
 	if prev.is_empty() or prev == CombatConstants.ENGAGEMENT_POSTURE_DUEL:

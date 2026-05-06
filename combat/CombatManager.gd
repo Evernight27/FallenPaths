@@ -15,29 +15,27 @@ func notify_turn_ready(combatant_id: int) -> void:
 	emit_signal("turn_ready", combatant_id)
 
 ## Formation slots/ranks changed for `formation_id` (plug, pair resolve, rotate, death). Subsystems call this instead of `emit_signal` on the manager node.
-## Re-runs **vacancy plug** on every file of **both** formations (fills empty shallow cells when deeper non-intruded allies exist),
-## then `_recompute_zoc_and_distance()` if anything promoted. Many callers already `_recompute_zoc_and_distance()` before this;
-## that is safe and cheap when nothing moved. Emits `formation_changed` for the triggering side and for any other formation that changed.
+## Vacancy reconcile: dirty-only (see `COMBAT_VACANCY_RECONCILE_DIRTY_ONLY`) or all formations each call. Then `_recompute_zoc_and_distance()` via follow-up if anything promoted.
+## Emits `formation_changed` for the triggering side and for any other formation that changed.
 func notify_formation_changed(formation_id: String) -> void:
-	var reconciled_fids: Array = []
-	for fk in formations.keys():
-		if _FormationFlow.reconcile_vacancy_plugs_formation(self, str(fk)):
-			reconciled_fids.append(str(fk))
-	if not reconciled_fids.is_empty():
-		_recompute_zoc_and_distance()
+	if CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
+		mark_formation_vacancy_dirty(formation_id)
+	var snap: Dictionary = _EventScheduler.snapshot_rank_file_placements(self)
+	var reconciled_fids: Array = _FormationFlow.reconcile_vacancy_plugs(self)
+	_FormationFlow.finish_vacancy_reconcile_follow_up(self, reconciled_fids, snap, false)
 	emit_signal("formation_changed", formation_id)
 	for rfid in reconciled_fids:
 		if str(rfid) != formation_id:
 			emit_signal("formation_changed", rfid)
-	_FormationFlow.debug_verify_vacancy_invariants_after_reconcile(self)
 
 
 func notify_engagement_state_changed(formation_id: String, line_cohesion: float, engagement_posture: String) -> void:
 	emit_signal("engagement_state_changed", formation_id, line_cohesion, engagement_posture)
-	if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
+	if CombatDebug.flow_verbose_enabled():
 		CombatDebug.flow_log(
 			"engagement_state_changed fid=%s cohesion=%.3f posture=%s"
-			% [formation_id, line_cohesion, engagement_posture]
+			% [formation_id, line_cohesion, engagement_posture],
+			"engagement_state:%s" % formation_id
 		)
 
 
@@ -50,6 +48,23 @@ func notify_combat_ui_hint(message: String) -> void:
 	set_meta(_META_LAST_COMBAT_UI_HINT, m)
 	emit_signal("combat_ui_hint", m)
 
+
+func mark_formation_vacancy_dirty(formation_id: String) -> void:
+	if not CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
+		return
+	var fk: String = str(formation_id)
+	if fk.is_empty():
+		return
+	_vacancy_dirty_fids[fk] = true
+
+
+func mark_all_formations_vacancy_dirty() -> void:
+	if not CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
+		return
+	for k in formations.keys():
+		_vacancy_dirty_fids[str(k)] = true
+
+
 var combatants := []
 var medical_phase: bool = false
 var medical_phase_winner: String = ""
@@ -61,6 +76,9 @@ var encounter: Dictionary = {}
 var formations: Dictionary = {}
 ## Per `formation_id` (e.g. player / enemy): CombatConstants.DOCTRINE_* — hybrid targeting + AI weights.
 var formation_doctrine: Dictionary = {}
+## When `COMBAT_VACANCY_RECONCILE_DIRTY_ONLY`: keys are formation_id strings pending `reconcile_vacancy_plugs_formation` for that line only.
+var _vacancy_dirty_fids: Dictionary = {}
+var _combat_tick_index: int = 0
 
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _AttackResolver := preload("res://combat/AttackResolver.gd")
@@ -130,6 +148,11 @@ func register(node: Node, side: String) -> int:
 	var id = combatants.size()
 	var entity = _EntityAccess.get_health_entity_from_node(self, node)
 	var stats = _StatsSync.sync_from_entity_for_register(entity if entity != null else node)
+	var morale_c: float = 1.0
+	if node != null:
+		var raw_m: Variant = node.get("morale_cohesion")
+		if raw_m != null:
+			morale_c = clampf(float(raw_m), 0.0, 1.0)
 	combatants.append({
 		"id": id,
 		"node": node,
@@ -171,6 +194,8 @@ func register(node: Node, side: String) -> int:
 		"close_block_until_by_target_id": {},
 		## Copied from character `is_party_leader` (player lead only); enemies always false.
 		"is_party_leader": (side == "player" and node != null and node.get("is_party_leader") == true),
+		## Tier 1.5: 0..1 input to side mean `morale_cohesion_factor` when encounter override absent; default neutral.
+		"morale_cohesion": morale_c,
 	})
 	# Connect health_changed so UI can refresh when consciousness/pain/blood changes
 	if entity != null and entity.has_signal("health_changed"):
@@ -205,10 +230,15 @@ func _reset_tactical_breach_state() -> void:
 ## When provided, builds formations and assigns rank/file to combatants (spawn order).
 ## Phase 4: Set encounter before start() for ZoC flags (e.g. CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE).
 func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
+	CombatDebug.clear_flow_log_dedup()
+	_combat_tick_index = 0
+	_vacancy_dirty_fids.clear()
 	medical_phase = false
 	medical_phase_winner = ""
 	event_queue.clear()
 	combat_clock = 0.0
+	if has_meta(_TacticalCombat.META_COMBAT_TELEMETRY):
+		remove_meta(_TacticalCombat.META_COMBAT_TELEMETRY)
 	var default_enc := {
 		"ambush_type": CombatConstants.AMBUSH_TYPE_NONE,
 		"ambush_penalty": 0.0,
@@ -228,6 +258,7 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	formation_doctrine.clear()
 	# Build formations from presets and assign rank/file (always; use defaults when preset empty)
 	_FormationSetup.build_formations_and_assign_slots(self, player_formation, enemy_formation)
+	mark_all_formations_vacancy_dirty()
 	for fk in formations.keys():
 		formation_doctrine[str(fk)] = CombatConstants.DOCTRINE_DEFAULT
 	_reset_tactical_breach_state()
@@ -254,6 +285,8 @@ func _schedule_event(ev: Dictionary) -> void:
 	_EventScheduler.schedule_event(self, ev)
 
 func stop():
+	CombatDebug.clear_flow_log_dedup()
+	_vacancy_dirty_fids.clear()
 	_reset_tactical_breach_state()
 	if has_meta(_META_LAST_COMBAT_UI_HINT):
 		remove_meta(_META_LAST_COMBAT_UI_HINT)
@@ -282,7 +315,10 @@ func skip_turn(combatant_id: int, log_outcome: String = "pass", flow_reason: Str
 	if c == null or c.state != CombatConstants.STATE_WAITING:
 		return
 	var extra: String = (" (%s)" % flow_reason) if not flow_reason.is_empty() else ""
-	CombatDebug.flow_log("skip_turn id=%d outcome=%s rank=%d%s" % [combatant_id, log_outcome, c.get("rank", 0), extra])
+	CombatDebug.flow_log(
+		"skip_turn id=%d outcome=%s rank=%d%s" % [combatant_id, log_outcome, c.get("rank", 0), extra],
+		"skip_turn:%d" % combatant_id
+	)
 	emit_signal("action_resolved", combatant_id, combatant_id, {
 		"outcome": log_outcome,
 		"dmg": 0,
@@ -363,17 +399,13 @@ func _get_parts_being_treated_on(combatant_id: int) -> Array:
 func _get_ally_medical_actions(performer: Dictionary, ally: Dictionary, part: String) -> Array:
 	return _MedicalPhase.get_ally_medical_actions(self, performer, ally, part)
 
-## Ensures vacancy reconcile before listing actions (covers paths that mutated slots without `notify_formation_changed`). Idempotent when lines are full.
+## Ensures vacancy reconcile before listing actions. With dirty-only mode, marks **all** lines first so this stays a full pass (covers slot writes that skipped `notify_formation_changed`); per-frame tick uses dirty set only.
 func get_available_actions(combatant_id: int) -> Array:
-	if _FormationFlow.reconcile_vacancy_plugs_all_formations(self):
-		_recompute_zoc_and_distance()
-		# Match CombatProcessTick: plugs changed slots/ZoC — UI must refresh; skip notify_* to avoid a second full reconcile pass.
-		for fk in formations.keys():
-			_reschedule_back_rank_turns(str(fk))
-		if formations.has("player"):
-			emit_signal("formation_changed", "player")
-		if formations.has("enemy"):
-			emit_signal("formation_changed", "enemy")
+	if CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
+		mark_all_formations_vacancy_dirty()
+	var snap: Dictionary = _EventScheduler.snapshot_rank_file_placements(self)
+	var changed_fids: Array = _FormationFlow.reconcile_vacancy_plugs(self)
+	_FormationFlow.finish_vacancy_reconcile_follow_up(self, changed_fids, snap, true)
 	return _ActionsBuilder.build(self, combatant_id)
 
 

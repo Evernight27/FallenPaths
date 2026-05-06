@@ -10,6 +10,9 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
+const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.COMBAT_DEBUG:
@@ -35,7 +38,8 @@ static func compute_and_apply_damage(
 	parry_remaining_ratio: float = 1.0,
 	afterblow_damage_mult: float = 1.0,
 	alignment: float = 1.0,
-	strike_mods: Dictionary = {}
+	strike_mods: Dictionary = {},
+	strike_physics_ctx: Dictionary = {}
 ) -> Dictionary:
 	var sm: Dictionary = strike_mods
 	var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
@@ -46,6 +50,7 @@ static func compute_and_apply_damage(
 	var blunt_contact_cm: float = -1.0
 	var pre_cut: float = 0.0
 	var pre_blunt: float = 0.0
+	var strike_ke_j: float = -1.0
 
 	var weapon = _EntityAccess.get_weapon(atk)
 
@@ -54,10 +59,17 @@ static func compute_and_apply_damage(
 		attack_instance.archetype = archetype
 		attack_instance.strike_energy_mult = float(sm.get("strike_energy_mult", 1.0))
 		attack_instance.strike_momentum_mult = float(sm.get("strike_momentum_mult", 1.0))
-		attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else WeaponDamageHelper.velocity_m_s_from_intensity(intensity, archetype, weapon, attack_type)
+		var v_base: float = velocity_override if velocity_override >= 0.0 else WeaponDamageHelper.velocity_m_s_from_intensity(intensity, archetype, weapon, attack_type)
+		attack_instance.velocity_m_s = v_base
+		attack_instance.velocity_m_s *= _StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
+		var atk_st_ratio_w: float = clampf(atk.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+		var stamina_vel_scale: float = sqrt(lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(atk_st_ratio_w)))
+		attack_instance.velocity_m_s *= stamina_vel_scale
+		if afterblow_damage_mult < 1.0:
+			attack_instance.velocity_m_s *= sqrt(maxf(0.04, afterblow_damage_mult))
+		attack_instance.velocity_m_s = clampf(attack_instance.velocity_m_s, _ImpactVelocityModel.ABS_VELOCITY_MIN_M_S, _ImpactVelocityModel.ABS_VELOCITY_MAX_M_S)
 		var arm_mod: float = atk.node.get_attack_damage_modifier() if atk.node.has_method("get_attack_damage_modifier") else 1.0
-		var _v_m_s: float = WeaponDamageHelper.get_effective_velocity_m_s(weapon, attack_instance)
-		var _ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(weapon, attack_instance)
+		var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, part)
 		var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, attack_type, archetype)
 		# Physics: deflected cut presents flat/slap; edge doesn't bite. Shift cut→blunt on partial parry.
 		var move_contact: String = weapon.get_contact_type(attack_type) if weapon.has_method("get_contact_type") else WeaponConstants.ATTACK_TYPE_CUT
@@ -66,7 +78,7 @@ static func compute_and_apply_damage(
 			var redirect_shift: float = shift_const * (1.0 - parry_remaining_ratio)
 			cut_ratio = maxf(WeaponConstants.MIN_CUT_RATIO, cut_ratio - redirect_shift)
 		pre_cut = WeaponDamageHelper.compute_pre_armor_cut(weapon, attack_instance, atk.stats.strength, arm_mod) * cut_ratio
-		pre_blunt = WeaponDamageHelper.compute_pre_armor_blunt(weapon, attack_instance, atk.stats.strength, arm_mod) * (1.0 - cut_ratio)
+		pre_blunt = WeaponDamageHelper.compute_pre_armor_blunt(weapon, attack_instance, atk.stats.strength, arm_mod, target_mass) * (1.0 - cut_ratio)
 		pre_cut *= float(sm.get("cut_damage_mult", 1.0))
 		pre_blunt *= float(sm.get("blunt_damage_mult", 1.0))
 		pre_armor = pre_cut + pre_blunt
@@ -76,6 +88,7 @@ static func compute_and_apply_damage(
 		if tgt.node != null and tgt.node.has_method("get_armor_sharp_resistance_for_part"):
 			blunt_opts["armor_resistance_rha_mm"] = tgt.node.get_armor_sharp_resistance_for_part(part)
 		blunt_opts["pen_sharp_mm"] = pen_sharp
+		blunt_opts["target_effective_mass_kg"] = target_mass
 		var pen_blunt_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, CombatConstants.DAMAGE_TYPE_BLUNT, blunt_opts)
 		pen_blunt_momentum_per_area = pen_blunt_dict.get("penetration_blunt_momentum_per_area", -1.0)
 		blunt_contact_cm = pen_blunt_dict.get("blunt_contact_cm", -1.0)
@@ -101,56 +114,60 @@ static func compute_and_apply_damage(
 			pen_sharp *= float(sm.get("sharp_penetration_mult", 1.0))
 		if pen_blunt_momentum_per_area >= 0.0:
 			pen_blunt_momentum_per_area *= float(sm.get("blunt_momentum_pa_mult", 1.0))
-		_debug("dmg %s->%s part=%s pre_armor=%.1f cut=%.1f blunt=%.1f pen=%.2f" % [atk_name, tgt_name, part, pre_armor, pre_cut, pre_blunt, pen_sharp])
+		strike_ke_j = WeaponDamageHelper.compute_kinetic_energy_j(weapon, attack_instance)
+		_debug("dmg %s->%s part=%s pre_armor=%.1f cut=%.1f blunt=%.1f pen=%.2f ke_j=%.1f" % [atk_name, tgt_name, part, pre_armor, pre_cut, pre_blunt, pen_sharp, strike_ke_j])
 	else:
 		var mod: float = atk.node.get_attack_damage_modifier() if (atk.node != null and atk.node.has_method("get_attack_damage_modifier")) else 1.0
-		pre_armor = (float(atk.stats.strength) / 100.0) * 8.0 * mod
+		pre_armor = WeaponDamageHelper.unarmed_base_pre_armor(atk.stats.strength, mod)
 		if parry_remaining_ratio < 1.0:
 			pre_armor *= lerpf(0.5, 1.0, parry_remaining_ratio)
+		var atk_st_ratio_u: float = clampf(atk.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+		var stamina_u: float = sqrt(lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(atk_st_ratio_u)))
+		var afterblow_u: float = sqrt(maxf(0.04, afterblow_damage_mult))
+		pre_armor *= _StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx) * stamina_u * afterblow_u
 		pre_blunt = pre_armor
 		pre_cut = 0.0
 		_debug("dmg %s->%s unarmed pre_armor=%.1f" % [atk_name, tgt_name, pre_armor])
 
-	# Stamina: non-linear fatigue curve — damage scales with stamina_factor (exhausted = weaker strikes)
-	var atk_st_ratio: float = clampf(atk.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
-	var stamina_dmg_mult: float = lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(atk_st_ratio))
-	pre_cut *= stamina_dmg_mult
-	pre_blunt *= stamina_dmg_mult
-	# Phase 2: Stance modifier (defensive ×0.85, aggressive ×1.2, etc.)
+	# Stance modifier (defensive ×0.85, aggressive ×1.2, etc.) — commitment, not raw speed.
 	var stance_dmg_mult: float = CombatConstants.get_stance_modifier(atk.get("stance", CombatConstants.STANCE_BALANCED), "damage")
 	pre_cut *= stance_dmg_mult
 	pre_blunt *= stance_dmg_mult
 	pre_armor = pre_cut + pre_blunt
-	if stamina_dmg_mult < 1.0:
-		_debug("stamina_fatigue dmg_mult=%.2f => pre_armor=%.1f" % [stamina_dmg_mult, pre_armor])
-	if afterblow_damage_mult < 1.0:
-		pre_cut *= afterblow_damage_mult
-		pre_blunt *= afterblow_damage_mult
-		pre_armor = pre_cut + pre_blunt
-		_debug("afterblow dmg_mult=%.2f => pre_armor=%.1f" % [afterblow_damage_mult, pre_armor])
 
 	var health_before_cut: float = tgt.node.body_cutting.get(part, 0.0)
 	var health_before_blunt: float = tgt.node.body_blunt.get(part, 0.0)
 	var health_before_bone: float = tgt.node.bone_health.get(part, 0.0) if tgt.node.get("bone_health") else 0.0
 
+	var dmg_extras: Dictionary = {}
+	if strike_ke_j >= 0.0:
+		dmg_extras["strike_ke_j"] = strike_ke_j
 	var take_result: Dictionary = tgt.node.take_damage_split(
-		pre_cut, pre_blunt, part, pen_sharp, pen_blunt_momentum_per_area, blunt_contact_cm
+		pre_cut, pre_blunt, part, pen_sharp, pen_blunt_momentum_per_area, blunt_contact_cm, dmg_extras
 	)
 
 	var final_cut: float = take_result.get("final_cut", 0.0)
 	var final_blunt: float = take_result.get("final_blunt", 0.0)
 	var final_bone: float = take_result.get("final_bone", 0.0)
-	var actual_dmg: int = int(roundf(final_cut + final_blunt + final_bone))
+	# total_physical: authoritative chip for UI/logs. dmg: int rounded for compact compat.
+	var total_physical: float = final_cut + final_blunt + final_bone
+	var actual_dmg: int = int(roundf(total_physical))
 	var tissue_dmg: float = final_cut + final_blunt
 	var outcome: String = "hit"
 	var glancing_severity: float = -1.0
+	var mech_post_armor: float = float(take_result.get("mechanical_post_armor", -1.0))
+	var glance_denom: float = pre_armor
+	if mech_post_armor > 0.0:
+		glance_denom = mech_post_armor
 	if pre_armor > 0:
-		if actual_dmg <= 0:
+		if total_physical <= CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
 			outcome = "deflected"
-		elif tissue_dmg < pre_armor * CombatConstants.GLANCING_DAMAGE_RATIO:
+		elif tissue_dmg < glance_denom * CombatConstants.GLANCING_DAMAGE_RATIO:
 			outcome = "glancing"
-			var ratio_denom: float = pre_armor * CombatConstants.GLANCING_DAMAGE_RATIO
+			var ratio_denom: float = glance_denom * CombatConstants.GLANCING_DAMAGE_RATIO
 			glancing_severity = clampf(tissue_dmg / maxf(ratio_denom, 0.001), 0.0, 1.0)
+
+	var rounded_zero_chip: bool = actual_dmg == 0 and total_physical > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS
 
 	var tgt_entity: Node = _EntityAccess.get_health_entity_from_node(manager, tgt.node)
 	if tgt_entity == null:
@@ -166,11 +183,36 @@ static func compute_and_apply_damage(
 	if outcome == "deflected":
 		outcome_note = "deflected (all damage avoided)"
 	elif outcome == "glancing":
-		outcome_note = "glancing (tissue_dmg %.2f < pre_armor*%.2f=%.1f)" % [tissue_dmg, CombatConstants.GLANCING_DAMAGE_RATIO, pre_armor * CombatConstants.GLANCING_DAMAGE_RATIO]
-	print("[Combat] %s (%s) -> %s (%s) %s: applied cut=%.2f blunt=%.2f bone=%.2f (total %d) | part state: cut %.2f->%.2f blunt %.2f->%.2f bone %.2f->%.2f (max cut/blunt %d bone %d) | outcome: %s" % [atk_name, atk.side, tgt_name, tgt.side, part, final_cut, final_blunt, final_bone, actual_dmg, health_before_cut, health_after_cut, health_before_blunt, health_after_blunt, health_before_bone, health_after_bone, part_max, part_bone_max, outcome_note])
+		outcome_note = "glancing (tissue_dmg %.2f < post_armor_mech*%.2f=%.2f; pre_armor=%.1f)" % [tissue_dmg, CombatConstants.GLANCING_DAMAGE_RATIO, glance_denom * CombatConstants.GLANCING_DAMAGE_RATIO, pre_armor]
+	if rounded_zero_chip:
+		outcome_note = "%s | sub-threshold chip (phys %.4f rounds to 0)" % [outcome_note, total_physical]
+
+	var total_disp: String = str(actual_dmg)
+	if rounded_zero_chip:
+		total_disp = "0 (~%.3f phys)" % total_physical
+	elif absf(total_physical - float(actual_dmg)) > 0.01:
+		total_disp = "%d (phys %.3f)" % [actual_dmg, total_physical]
+
+	if CombatConstants.COMBAT_DEBUG:
+		var depth_extra: String = ""
+		if int(atk.get("rank", 0)) > 0 and _ActionsBuilder.depth_polearm_lane_open(manager, atk):
+			var cls: float = _StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
+			depth_extra = " | depth_polearm rank=%d closing_spd=%.3f tgt_angle=%s" % [
+				int(atk.get("rank", 0)),
+				cls,
+				str(tgt.get("engagement_angle", "?"))
+			]
+		var hit_line: String = (
+			"[Combat] %s (%s) -> %s (%s) %s | cut=%.2f blunt=%.2f bone=%.2f | total=%s | outcome: %s%s"
+			% [atk_name, atk.side, tgt_name, tgt.side, part, final_cut, final_blunt, final_bone, total_disp, outcome_note, depth_extra]
+		)
+		print(hit_line)
+		if CombatConstants.COMBAT_DEBUG_CALIBRATION:
+			print("  └ part state: cut %.2f→%.2f blunt %.2f→%.2f bone %.2f→%.2f | max c/b %d bone %d" % [health_before_cut, health_after_cut, health_before_blunt, health_after_blunt, health_before_bone, health_after_bone, part_max, part_bone_max])
 
 	var result_dict: Dictionary = {
 		"dmg": actual_dmg,
+		"total_physical": total_physical,
 		"died": false,
 		"part": part,
 		"damage_type": "SPLIT",
@@ -184,8 +226,11 @@ static func compute_and_apply_damage(
 		"final_blunt": final_blunt,
 		"final_bone": final_bone,
 		"outcome": outcome,
+		# Armor sharp→blunt conversion; unrelated to outcome "deflected" (no net physical chip).
 		"was_deflected": take_result.get("was_deflected", false),
-		"was_glancing": outcome == "glancing"
+		"was_glancing": outcome == "glancing",
+		"mechanical_post_armor": mech_post_armor,
+		"rounded_zero_chip": rounded_zero_chip
 	}
 	result_dict["health_before"] = int(roundf(health_before_cut + health_before_blunt))
 	result_dict["health_after"] = int(roundf(health_after_cut + health_after_blunt))
@@ -252,6 +297,26 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		return { "action": "skip", "target_id": target_id, "recovery_duration": rec_dur_skip }
 
 	var targetable: Array = _EntityAccess.get_targetable_parts(tgt)
+	if targetable.is_empty():
+		return { "action": "defeated", "target_id": target_id }
+	var want_depth_part_log: bool = (
+		CombatDebug.flow_verbose_enabled()
+		and int(atk.get("rank", 0)) > 0
+		and _ActionsBuilder.depth_polearm_lane_open(manager, atk)
+	)
+	var n_targetable_before: int = targetable.size() if want_depth_part_log else 0
+	targetable = _ActionsBuilder.depth_polearm_targetable_parts_filter(manager, atk, targetable)
+	if want_depth_part_log and targetable.size() < n_targetable_before:
+		CombatDebug.flow_log(
+			"depth_polearm_resolve_parts atk=%d tgt=%d dens=%s parts=%s"
+			% [
+				attacker_id,
+				target_id,
+				_ActionsBuilder.formation_density_label(manager, str(atk.get("formation_id", ""))),
+				str(targetable)
+			],
+			"depth_polearm_resolve:%d:%d" % [attacker_id, target_id]
+		)
 	if targetable.is_empty():
 		return { "action": "defeated", "target_id": target_id }
 
@@ -379,11 +444,15 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		strike_mods = _StrikeRealism.compute_strike_modifiers(
 			manager, atk, tgt, atk_weapon, attack_type, intensity, archetype, hit_alignment, parry_remaining_ratio, pa
 		)
+	var strike_phys_ctx: Dictionary = {
+		"tactical_ambush_mult": float(pa.get("tactical_ambush_mult", 1.0))
+	}
 	atk.pending_attack = {}
 	var res: Dictionary = compute_and_apply_damage(
 		manager, attacker_id, target_id, atk, tgt, part,
 		intensity, attack_type, archetype, dmg_velocity_override, recovery_mult, perf_mod,
-		power, follow_through, parry_remaining_ratio, afterblow_damage_mult, hit_alignment, strike_mods
+		power, follow_through, parry_remaining_ratio, afterblow_damage_mult, hit_alignment, strike_mods,
+		strike_phys_ctx
 	)
 	return {
 		"action": "hit",

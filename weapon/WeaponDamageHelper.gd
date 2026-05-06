@@ -3,8 +3,87 @@ extends RefCounted
 
 const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
 
+## Default effective target mass (kg) when no species / unknown part (mid-torso order of magnitude).
+const DEFAULT_BLUNT_TARGET_MASS_KG := 14.0
+## Human default tissue sum (human.tres); used only to scale inferred body mass from other species.
+const _REFERENCE_SPECIES_TISSUE_SUM := 96.0
+## Reference adult mass (kg) when tissue sum matches _REFERENCE_SPECIES_TISSUE_SUM.
+const _REFERENCE_ADULT_BODY_MASS_KG := 75.0
+## Segment mass as fraction of body mass (Plagenhoef / de Leva style; single-side limb, head, trunk slice).
+const _PART_BODY_MASS_FRACTION := {
+	"head": 0.068,
+	"chest": 0.28,
+	"right_arm": 0.052,
+	"left_arm": 0.052,
+	"right_leg": 0.161,
+	"left_leg": 0.161,
+}
+## Fist/hand effective mass × nominal hand speed × coupling → same abstract scale as previous (strength/100)*8 at ~100 STR.
+const UNARMED_FIST_EFFECTIVE_MASS_KG := 0.55
+const UNARMED_TYPICAL_HAND_SPEED_M_S := 7.0
+const UNARMED_MOMENTUM_TO_PREARMOR := 2.10
+
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
 # Impact speed: Tier A defaults + Tier B geometry + Tier C weapon.impact_velocity_bands; see ImpactVelocityModel.gd.
+
+## Two-body collision: effective mass for linear momentum when target presents finite inertia (blunt).
+static func reduced_mass_pair_kg(m_weapon: float, m_target: float) -> float:
+	var mw: float = maxf(0.02, m_weapon)
+	var mt: float = maxf(0.05, m_target)
+	return (mw * mt) / (mw + mt)
+
+
+static func _species_tissue_sum(sp: Object) -> float:
+	var h: Variant = sp.get("head")
+	var ch: Variant = sp.get("chest")
+	var ra: Variant = sp.get("right_arm")
+	var la: Variant = sp.get("left_arm")
+	var ll: Variant = sp.get("left_leg")
+	var rl: Variant = sp.get("right_leg")
+	var s: float = 0.0
+	for v in [h, ch, ra, la, ll, rl]:
+		if v is int or v is float:
+			s += float(v)
+	return maxf(1.0, s)
+
+
+static func reference_body_mass_kg_from_species(sp: Object) -> float:
+	if sp == null:
+		return _REFERENCE_ADULT_BODY_MASS_KG
+	var custom: Variant = sp.get("reference_body_mass_kg")
+	if custom is float or custom is int:
+		var cm: float = float(custom)
+		if cm > 0.0:
+			return clampf(cm, 28.0, 140.0)
+	var sum_t: float = _species_tissue_sum(sp)
+	return clampf(_REFERENCE_ADULT_BODY_MASS_KG * sum_t / maxf(1.0, _REFERENCE_SPECIES_TISSUE_SUM), 32.0, 120.0)
+
+
+## Unarmed pre-armor at full stance mod 1.0: ~ (STR/100)*8 in legacy units; derived from fist effective mass × hand speed.
+static func unarmed_base_pre_armor(strength: int, mod: float) -> float:
+	var st: float = maxf(0.1, float(strength) / 100.0)
+	return st * mod * UNARMED_FIST_EFFECTIVE_MASS_KG * UNARMED_TYPICAL_HAND_SPEED_M_S * UNARMED_MOMENTUM_TO_PREARMOR
+
+
+## Target-side effective mass for two-body blunt momentum (species or node hook).
+static func effective_blunt_target_mass_kg(tgt: Dictionary, part: String = "") -> float:
+	var node: Variant = tgt.get("node", null)
+	if node != null and (node as Object).has_method("get_effective_blunt_target_mass_kg"):
+		return maxf(1.0, float((node as Object).get_effective_blunt_target_mass_kg(part)))
+	if node != null and "species" in node:
+		var sp: Variant = (node as Object).get("species")
+		if sp != null:
+			var em: Variant = sp.get("effective_blunt_target_mass_kg")
+			if em is float or em is int:
+				var emf: float = float(em)
+				if emf > 0.0:
+					return maxf(1.0, emf)
+			var m_body: float = reference_body_mass_kg_from_species(sp as Object)
+			var p: String = part if not part.is_empty() else "chest"
+			var frac: float = float(_PART_BODY_MASS_FRACTION.get(p, 0.19))
+			return maxf(1.0, m_body * frac)
+	return DEFAULT_BLUNT_TARGET_MASS_KG
+
 
 static func move_id_from_attack_instance(attack_instance: RefCounted) -> String:
 	var v: Variant = attack_instance.get("attack_type")
@@ -87,10 +166,13 @@ static func compute_pre_armor_cut(weapon: RefCounted, attack_instance: RefCounte
 
 # Pre-armor BLUNT from momentum: scale * (mass * velocity) * strength_mod * arm_mod * contact_factor, clamped.
 # Uses blunt contact (head_diameter for blunt, max(blade, BLUNT_CUT_MIN) for cut slap, point for thrust).
-static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCounted, strength: int, arm_mod: float) -> float:
+# target_effective_mass_kg: when > 0, use reduced mass with strike mass for more realistic impulse coupling.
+static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCounted, strength: int, arm_mod: float, target_effective_mass_kg: float = -1.0) -> float:
 	if weapon == null:
 		return 0.0
 	var mass_kg: float = strike_mass_kg(weapon, attack_instance)
+	if target_effective_mass_kg > 0.0:
+		mass_kg = reduced_mass_pair_kg(mass_kg, target_effective_mass_kg)
 	var v: float = get_effective_velocity_m_s(weapon, attack_instance)
 	var p_mult: float = _attack_float_or_default(attack_instance, "strike_momentum_mult", 1.0)
 	var momentum: float = mass_kg * v * maxf(0.05, p_mult)
@@ -126,7 +208,8 @@ static func compute_penetration(weapon: RefCounted, attack_instance: RefCounted,
 	else:
 		# Blunt: transmission-only. Returns momentum_per_area and contact_cm for area coupling.
 		var contact_cm: float = _get_blunt_contact_for_penetration(weapon, attack_instance, armor_resistance_rha_mm, pen_sharp_mm)
-		var momentum_per_area: float = _compute_blunt_momentum_per_area_with_contact(weapon, attack_instance, contact_cm)
+		var tgt_m: float = float(opts.get("target_effective_mass_kg", -1.0)) if opts is Dictionary else -1.0
+		var momentum_per_area: float = _compute_blunt_momentum_per_area_with_contact(weapon, attack_instance, contact_cm, tgt_m)
 		return { "penetration_blunt_momentum_per_area": momentum_per_area, "blunt_contact_cm": contact_cm }
 
 
@@ -168,13 +251,15 @@ static func compute_blunt_momentum_per_area(weapon: RefCounted, attack_instance:
 	return _compute_blunt_momentum_per_area_with_contact(weapon, attack_instance, contact_cm) if contact_cm > 0 else -1.0
 
 
-static func _compute_blunt_momentum_per_area_with_contact(weapon: RefCounted, attack_instance: RefCounted, contact_cm: float) -> float:
+static func _compute_blunt_momentum_per_area_with_contact(weapon: RefCounted, attack_instance: RefCounted, contact_cm: float, target_effective_mass_kg: float = -1.0) -> float:
 	if weapon == null or contact_cm <= 0.0:
 		return -1.0
 	var d_m: float = contact_cm / 100.0 if contact_cm > 0 else 0.01
 	var A_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)
 	A_m2 = maxf(A_m2, WeaponConstants.MIN_BLUNT_AREA_M2)
 	var mass_kg: float = strike_mass_kg(weapon, attack_instance)
+	if target_effective_mass_kg > 0.0:
+		mass_kg = reduced_mass_pair_kg(mass_kg, target_effective_mass_kg)
 	var v: float = get_effective_velocity_m_s(weapon, attack_instance)
 	var p_mult: float = _attack_float_or_default(attack_instance, "strike_momentum_mult", 1.0)
 	var momentum: float = mass_kg * v * maxf(0.05, p_mult)

@@ -3,15 +3,17 @@ extends RefCounted
 
 ## Picks one action from available actions using weighted randomness. **Combat move choice is fully AI-driven:**
 ## weights combine stamina + `CombatTargetScoring` (doctrine, file bias, commitment, distributed pressure). No human pick path.
-## Medical: weight by TARGET's urgency (prioritize treating most critical ally). Attacks: 1.
-## Self direct pressure: weight by part's bleeding rate (prioritize most serious wound).
+## Medical: deterministic urgency + per-part threat; bandage/pack/tourniquet favor high `get_medical_effectiveness`, pressure favors lower skill.
 ## Pending retry: strongly prefer retrying the failed part when target is still in peril.
 ## For attacks: adds target_part from path when pathway allows (unguarded bonus).
-## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), _is_medical_move, _get_medical_urgency, _is_in_immediate_peril.
+## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), _is_medical_move, _is_in_immediate_peril.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 
 static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary:
 	if actions.is_empty():
@@ -25,11 +27,11 @@ static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary
 		var w: float = _get_action_weight(a, combatant_id, manager)
 		if r < w:
 			var choice: Dictionary = a.duplicate()
-			_add_attack_target_part(choice, manager)
+			_add_attack_target_part(choice, manager, combatant_id)
 			return choice
 		r -= w
 	var fallback: Dictionary = actions[0].duplicate()
-	_add_attack_target_part(fallback, manager)
+	_add_attack_target_part(fallback, manager, combatant_id)
 	return fallback
 
 ## Build opts dict from AI choice (target_part, feint_part) for resolve_action. Shared by all pick-and-resolve callers.
@@ -130,7 +132,21 @@ static func _get_action_weight(a: Dictionary, combatant_id: int, manager: Node) 
 	# Attack or attempt_close: engaging the enemy — use stamina + hybrid targeting (doctrine, file, pressure).
 	var stamina_ratio: float = clampf(c.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 	var base_stamina: float = 0.85 if stamina_ratio < 0.2 else 1.0
-	return base_stamina * _TargetScoring.ai_targeting_weight_mult(manager, combatant_id, a)
+	var polearm_lane: float = _depth_polearm_action_weight_mult(manager, c, mid)
+	return base_stamina * _TargetScoring.ai_targeting_weight_mult(manager, combatant_id, a) * polearm_lane
+
+## Tier 1.9 (P10): when depth spear lane is open, prefer thrusts; de-emphasize closing (thrust works from MID).
+static func _depth_polearm_action_weight_mult(manager: Node, c: Dictionary, move_id: String) -> float:
+	if manager == null or c.is_empty() or not _ActionsBuilder.depth_polearm_lane_open(manager, c):
+		return 1.0
+	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		return CombatConstants.DEPTH_POLEARM_AI_ATTEMPT_CLOSE_MULT
+	var ct: String = _WeaponConstants.contact_type_for_move_id(move_id)
+	if ct == _WeaponConstants.ATTACK_TYPE_STAB:
+		return CombatConstants.DEPTH_POLEARM_AI_STAB_WEIGHT_MULT
+	if ct == _WeaponConstants.ATTACK_TYPE_CUT or ct == _WeaponConstants.ATTACK_TYPE_BLUNT:
+		return CombatConstants.DEPTH_POLEARM_AI_NON_STAB_WEIGHT_MULT
+	return 1.0
 
 ## Fitness for formation positioning: performance (attack capability) × health (blood). Higher = more able to fight.
 ## Used for swap rank: lowest fitness should be in back. Does not use stamina/action-ready.
@@ -164,24 +180,33 @@ static func _crash_weight_posture_mult(manager: Node, c: Dictionary) -> float:
 static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
 	var mid: String = a.get("move_id", "")
 	var tgt = manager._get_by_id(a.get("target_id", -1))
-	var urgency: float = manager._get_medical_urgency(tgt) if tgt != null else 0.0
-	var w: float = 1.0 + urgency * (MedicalPhaseController.MEDICAL_URGENCY_WEIGHT_MAX - 1.0)
-	# Self direct pressure while receiving care: prioritize part with highest bleeding
-	if mid == "apply_direct_pressure" and a.get("target_id") == combatant_id and tgt != null:
-		var part: String = a.get("target_part", "")
-		if not part.is_empty() and tgt.node != null:
-			var entity = _EntityAccess.get_entity_from_manager(manager, tgt)
-			if entity != null and entity.has_method("get_bleeding_rate_for_part"):
-				w += entity.get_bleeding_rate_for_part(part) * 2.0
+	var performer = manager._get_by_id(combatant_id)
+	var perf_entity: Node = _EntityAccess.get_entity_from_manager(manager, performer) if performer != null else null
+	var eff_raw: float = _EntityAccess.get_medical_effectiveness_from_node(perf_entity)
+	var eff: float = clampf(eff_raw, _MedicalPhase.MEDICAL_AI_EFF_CLAMP_MIN, _MedicalPhase.MEDICAL_AI_EFF_CLAMP_MAX)
+	var urgency: float = _MedicalPhase.get_medical_urgency_deterministic(manager, tgt) if tgt != null else 0.0
+	var part: String = str(a.get("target_part", ""))
+	var part_threat: float = 0.0
+	if tgt != null and not part.is_empty():
+		part_threat = _MedicalPhase.get_part_intervention_threat(manager, tgt, part)
+	var w: float = 1.0 + urgency * (_MedicalPhase.MEDICAL_URGENCY_WEIGHT_MAX - 1.0)
+	w += part_threat * _MedicalPhase.MEDICAL_AI_PART_THREAT_MULT
+	var advanced: bool = mid in ["bandage_self", "pack_wound", "apply_tourniquet"]
+	if advanced:
+		w *= pow(eff, _MedicalPhase.MEDICAL_AI_ADVANCED_SKILL_EXP)
+	elif mid == "apply_direct_pressure":
+		var span: float = maxf(_MedicalPhase.MEDICAL_AI_EFF_CLAMP_MAX - _MedicalPhase.MEDICAL_AI_EFF_CLAMP_MIN, 0.01)
+		var t: float = clampf((eff - _MedicalPhase.MEDICAL_AI_EFF_CLAMP_MIN) / span, 0.0, 1.0)
+		w *= lerpf(_MedicalPhase.MEDICAL_AI_PRESSURE_LOW_SKILL_MULT, _MedicalPhase.MEDICAL_AI_PRESSURE_HIGH_SKILL_MULT, t)
 	# Pending retry: only one who can help; strongly prefer retrying the failed part.
-	var pr = manager._get_by_id(combatant_id)
+	var pr = performer
 	var pending = pr.get("pending_retry", {}) if pr != null else {}
 	if not pending.is_empty() and pending.get("target_id", -1) == a.get("target_id", -1) and pending.get("part", "") == a.get("target_part", ""):
 		if tgt != null and manager._is_in_immediate_peril(tgt):
 			w *= 20.0
-	return w
+	return maxf(w, 0.001)
 
-static func _add_attack_target_part(choice: Dictionary, manager: Node) -> void:
+static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_id: int) -> void:
 	if manager._is_medical_move(choice.get("move_id", "")):
 		return
 	if choice.get("move_id", "") == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
@@ -202,6 +227,11 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node) -> void:
 	if tgt == null or tgt.node == null or not tgt.node.has_method("get_targetable_parts"):
 		return
 	var targetable: Array = tgt.node.get_targetable_parts()
+	if targetable.is_empty():
+		return
+	var atk_pick = manager._get_by_id(attacker_id)
+	if atk_pick != null:
+		targetable = _ActionsBuilder.depth_polearm_targetable_parts_filter(manager, atk_pick, targetable)
 	if targetable.is_empty():
 		return
 	var move_def: Dictionary = WeaponConstants.get_move(choice.get("move_id", ""))

@@ -37,9 +37,12 @@ static func handle_action_ready(manager: Node, c: Dictionary) -> void:
 	if c == null or not c.alive or _EntityAccess.is_incapacitated(c):
 		return
 	if c.state != CombatConstants.STATE_WAITING:
-		if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
+		if CombatDebug.flow_verbose_enabled():
 			var who: String = _EntityAccess.get_display_name(c) if c != null else "?"
-			print("[Combat] EVENT_ACTION_READY skipped: %s (state=%s — hit/interrupted before turn; will act after recovery)" % [who, c.state])
+			CombatDebug.flow_log(
+				"EVENT_ACTION_READY skipped %s (id=%d state=%s)" % [who, c.id, c.state],
+				"action_ready_skip:%d" % c.id
+			)
 		return
 	c.gauge = 100.0
 	c.erase("action_cooldown_until")

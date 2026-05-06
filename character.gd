@@ -114,10 +114,10 @@ func get_effective_consciousness() -> float:
 func get_death_reason() -> String:
 	return _combat_body.get_death_reason() if _combat_body else "no_combat_body"
 
-func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0, blunt_contact_cm: float = -1.0) -> Dictionary:
+func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0, blunt_contact_cm: float = -1.0, extras: Dictionary = {}) -> Dictionary:
 	if _combat_body:
-		return _combat_body.take_damage_split(cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt_momentum_per_area, blunt_contact_cm)
-	return { "final_cut": 0, "final_blunt": 0 }
+		return _combat_body.take_damage_split(cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt_momentum_per_area, blunt_contact_cm, extras)
+	return { "final_cut": 0, "final_blunt": 0, "final_bone": 0.0, "was_deflected": false, "mechanical_post_armor": 0.0 }
 
 func get_armor_for_part(part: String) -> Variant:
 	return _combat_body.get_armor_for_part(part) if _combat_body else null

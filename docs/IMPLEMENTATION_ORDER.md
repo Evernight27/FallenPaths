@@ -2,9 +2,19 @@
 
 **Purpose:** One **logical plan** from baseline → active work → later tiers. **Implementation phase:** execute **top to bottom**; within Tier 1, follow **numbered steps** in order unless a step is marked optional.
 
-**Last verified against repo:** 2026-04-27 (combat `*.gd` + `ui/BattleScene.gd`; docs aligned with shipped Tier **1.3–1.4** and deferred morale). **Pre–Tier 1.2 doc audit:** Tier 1.1 claims and module paths cross-checked against current `combat/` + `ui/BattleScene.gd` (distance helper ownership corrected below).
+**Last verified against repo:** 2026-05-06 (combat `*.gd` + `ui/BattleScene.gd`; **`FEATURE_LINE_CRASH_INTRUSION`** default **off** — see development gate below). **Front-rank MID melee:** strikes are listed when `melee_range >= effective_pair_eff_dist` (not only weapons ≥ `REACH_MID_MIN`); `REACH_MID_MIN` remains the depth-polearm / AI bias threshold. **Pre–Tier 1.2 doc audit:** Tier 1.1 claims and module paths cross-checked against current `combat/` + `ui/BattleScene.gd` (distance helper ownership corrected below).
 
-**Plan update 2026-04-13:** Tier **1.3 (P4)** — **`intrusion_wedge_by_file`**, **`lane_offset`**, **`effective_pair_eff_dist`**, wedge consumers (cohesion, lane stress, ZoC, bands, UI). **Plan update 2026-04-27:** Tier **1.4 (P5)** — LINE↔OPEN **hysteresis**, encounter + formation **posture deltas**, **`line_discipline`** / `ENCOUNTER_KEY_LINE_DISCIPLINE`; **`morale_cohesion_factor`** stays **1.0** in data until **Tier 1.5** (no encounter morale baseline wired). **Tier 1.6** partial: **`CombatAIActionPicker`** crash weight scales with side **`engagement_posture`**. Spec: `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §4–§6.
+### Development gate: line crash / intrusions (temporary)
+
+**Flag:** `CombatConstants.FEATURE_LINE_CRASH_INTRUSION` (**default `false`**).
+
+**Behavior while false:** No **new** line-crash intrusions — crash is not offered in `AvailableActionsBuilder`, `CombatEngagementMode.incursion_allowed` is always false, and `resolve_crash_attempt` resolves as `crash_failed` with reason `intrusion_disabled`. **Engagement mode** (duel / skirmish / formation) still classifies as before; cohesion, posture, wedge fields, vacancy plugs, and intruder-related **code** remain in the repo for saves and future work.
+
+**Plan focus until this flag is set `true`:** Tier **1.5** (morale hook), **1.6** (non-crash AI weights), **1.7–1.8** (engagement mode soak, telemetry lock, `CombatRegressionHarness`), **1.9** (depth polearm / spear lanes), Tier **3** melee depth, and general balance/docs that do **not** require live intrusion playtests. **Defer:** intrusion-centric verification passes, Tier **2.1** prose that exists mainly to teach wedge/intruder fiction, and re-baselining any test that assumes crash success in formation — do those **after** flipping the flag and dedicating time to intrusion polish.
+
+**When setting the flag `true`:** Run `CombatRegressionHarness.run_all()`, exercise formation-line crash in playtests, refresh `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §2 verification rows if needed, and complete Tier **2.1** intrusion language in `TACTICAL_ZONES_BREACH_MOVEMENT.md`.
+
+**Plan update 2026-04-13:** Tier **1.3 (P4)** — **`intrusion_wedge_by_file`**, **`lane_offset`**, **`effective_pair_eff_dist`**, wedge consumers (cohesion, lane stress, ZoC, bands, UI). **Plan update 2026-04-27:** Tier **1.4 (P5)** — LINE↔OPEN **hysteresis**, encounter + formation **posture deltas**, **`line_discipline`** / `ENCOUNTER_KEY_LINE_DISCIPLINE`; **`morale_cohesion_factor`** stays **1.0** in data until **Tier 1.5** (no encounter morale baseline wired). **Tier 1.6** partial: **`CombatAIActionPicker`** crash weight scales with side **`engagement_posture`**. **Plan update 2026-05-01:** Tier **1.9 (P10)** — depth-rank **polearm reach** + **spear lanes** (roadmap Option C + Part 7); canonical spec steps in this file §**Tier 1.9** and engagement plan §**2.5** (new rows). Spec: `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §4–§6.
 
 **Depth references (not sequencing):** Stamina, HEMA research, parry bind math, long ZoC investigations — see [Plan inventory](#plan-inventory-all-combat-markdown) and `docs/README.md`.
 
@@ -16,7 +26,7 @@
 |---------|-----|
 | [Dependency chain](#dependency-chain-execution-logic) | Why Tier 1.3 blocks Tier 3, etc. |
 | [Tier 0](#tier-0--baseline-shipped--maintain) | What is already shipped; module anchors |
-| [Tier 1 expanded](#tier-1--engagement-geometry-active-track) | **Shipped:** Tier **1.3 (P4)**; **active polish:** Tier **1.4 (P5)** partial; P3 steps remain for reference / regressions |
+| [Tier 1 expanded](#tier-1--engagement-geometry-active-track) | **Shipped:** **1.3 (P4)**; **active:** **1.4** partial, **1.7–1.8** soak/mode, **1.9 (P10)** depth polearm **Todo**; P3 steps remain for reference / regressions |
 | [Implementation phase gate](#implementation-phase-gate) | Checklists before Tier **1.2** and (recommended) Tier **1.3** code |
 | [Tiers 2–7](#tier-2--tactical-docs--zoc-narrative-sync) | Everything after engagement geometry |
 | [Plan inventory](#plan-inventory-all-combat-markdown) | Where design depth lives |
@@ -37,17 +47,22 @@ Work must respect this ordering (later items assume earlier ones):
 8. **Posture polish** — hysteresis, encounter/discipline tags → **Tier 1.4** (`morale_cohesion_factor` field exists at **1.0**; no morale **system** until **1.5**).
 9. **AI / tests** → **Tier 1.6** (optional; partial: crash AI vs posture; broader weights + harness baselines later).
 10. **Doc sync (Tier 2.1)** → **`TACTICAL_ZONES_BREACH_MOVEMENT.md`** narrative vs code — after **1.3+** so copy matches **wedge + slots + `lane_offset` / distance** (not only P3 slots). **Tier 2.2** (`TACTICAL_FORMATIONS_FF4.md` intruder/vacancy blurb) may still ship **after 1.2**; see Tier 2 table.
-11. **Parry / melee depth** → **Tier 3** (after **1.3** so range work is not redone).
+11. **Depth-rank polearm reach (P10)** → **Tier 1.9** — second-and-deeper ranks with **qualifying reach** may melee **through** a living same-file rank-0 ally under **lane rules**; **`CombatDistanceBands`** and **`AvailableActionsBuilder`** must agree on `distance_to` + `can_melee` + opponent rank filters. Depends on **1.3** (stable `effective_pair_eff_dist`). **Recommended:** ship **before** Tier **3.2** if spear lanes change preferred parts / parry geometry.
+12. **Parry / melee depth** → **Tier 3** (after **1.3** so range work is not redone; after **1.9** if parry must account for depth thrusts).
+
+**While `FEATURE_LINE_CRASH_INTRUSION` is false:** Items **3–7** are **dependency / shipped-code** relationships (what already exists and what consumes it), **not** a mandate to implement more intrusion surface area now. Do **not** start **new** intrusion features (extra wedge rules, new crash outcomes, slot/plug extensions, UI devoted to live breach play) or Tier **2.1** / **2.2** copy that mainly teaches intruder fiction until the flag is **true** and you are explicitly resuming that track (see [Development gate](#development-gate-line-crash--intrusions-temporary)).
 
 ```mermaid
 flowchart LR
   T0[Tier 0 baseline]
   T12[Tier 1.2 P3 done]
   T13[Tier 1.3 P4 wedge + lane + dist]
+  T19[Tier 1.9 P10 depth polearm]
   T14[Tier 1.4 posture then 1.5 morale]
   T2[Tier 2 docs]
   T3[Tier 3 parry]
   T0 --> T12 --> T13 --> T14
+  T13 --> T19
   T13 --> T2
   T13 --> T3
 ```
@@ -65,7 +80,7 @@ flowchart LR
 | Orchestration | `CombatManager.gd`, `CombatProcessTick.gd`, `CombatEventScheduler.gd`, `CombatEventDispatch.gd` |
 | Formations | `CombatFormationSetup.gd`, `CombatFormationFlow.gd`, `FormationSlots.gd`, `FormationPreset.gd` |
 | Actions / targeting | `AvailableActionsBuilder.gd`, `CombatResolveAction.gd`, `CombatEngagementResolver.gd` |
-| Distance / ZoC | `CombatDistanceBands.gd`, `ZoneOfControl.gd`, `TacticalCombat.gd` |
+| Distance bands / ZoC | `CombatDistanceBands.gd`, `ZoneOfControl.gd`, `TacticalCombat.gd` |
 | Breach / crash | `BreachResolver.gd`, `FormationBreachRules.gd` |
 | Engagement v1 | `CombatFormationEngagement.gd`, `CombatIntrusionGeometry.gd` |
 | Medical | `MedicalPhaseController.gd`, `CombatMedicalCoordination.gd` (and related) |
@@ -86,17 +101,20 @@ flowchart LR
 | 1.1 | P0–P2 | Cohesion, posture, UI, neighbor crash hold, intruder **flags** | **Done** |
 | 1.2 | **P3** | Vacancy plug (≠ death plug) + attacker slot release + intruder on defender | **Done** |
 | 1.3 | **P4** | **`intrusion_wedge_by_file`** (canonical) + `lane_offset` (wedge seam projection) + `effective_pair_eff_dist` (+ callers); cohesion / lane stress / ZoC / UI **consume wedge** | **Done** |
-| 1.4 | **P5** | LINE↔OPEN hysteresis; encounter / discipline tags | **Partial** (hysteresis + posture **deltas** + **`line_discipline`** / `ENCOUNTER_KEY_LINE_DISCIPLINE`; richer tags / asymmetric posture **Todo**) |
-| 1.5 | **P6** | Morale → `morale_cohesion_factor` | **Todo** |
+| 1.4 | **P5** | LINE↔OPEN hysteresis; encounter / discipline tags; opponent-relative asymmetric posture | **Done** (`POSTURE_ASYMMETRY_COH_COUPLE_STRENGTH` + encounter `posture_asymmetry_strength`; optional richer encounter-only tags remain data-driven) |
+| 1.5 | **P6** | Morale → `morale_cohesion_factor` | **Done** (`CombatMoraleCohesion`; encounter overrides + combatant `morale_cohesion` mean) |
 | 1.6 | **P7** | AI posture hooks; harness / tests; optional | **Partial** (crash pick weight vs `engagement_posture`; cohesion-wide AI **Todo**) |
 | 1.7 | **P8** | Engagement mode realism **Option 2** (historical count bands + front/fill/hysteresis gate) | **Partial** (active-count band classifier + harness assertions landed; soak/regression pending) |
 | 1.8 | **P9** | Post-P8 soak/regression + telemetry lock before doctrine expansion | **Partial** (harness telemetry counters + tactical/harness snapshot sync checks landed; multi-seed soak pending) |
+| 1.9 | **P10** | Depth-rank polearm reach + spear lanes (Option C + Part 7) | **Partial** (core: `depth_melee_eligible`, bands + `AvailableActionsBuilder`, part filter tight/normal vs loose; harness soak **Todo**) |
 
-**Single status column (Tier 1):** The **Status** column here is authoritative for milestones **1.1–1.8**. When you ship a step, update this table first, then align the matching **Done/Todo** rows in `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §2 (verification mirror only — same facts, no second sequence).
+**Single status column (Tier 1):** The **Status** column here is authoritative for milestones **1.1–1.9**. When you ship a step, update this table first, then align the matching **Done/Todo** rows in `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §2 (verification mirror only — same facts, no second sequence).
 
-**Next coding step:** Continue Tier **1.8 (P9)** soak/regression runs. **Telemetry lock is partially implemented** (mode transition counters, invalid-action/error counters, tactical↔harness mode snapshot mismatch checks, final summary payload); finish multi-seed runtime sweeps before Option 4.
+**Next coding step (while `FEATURE_LINE_CRASH_INTRUSION` is false):** Prioritize Tier **1.8 (P9)** soak/regression (`CombatRegressionHarness`, telemetry lock) and/or Tier **1.9 (P10)** depth polearm — **without** requiring live intrusion scenarios. When the flag is flipped back on, return to intrusion-heavy verification and Tier **2.1** intrusion narrative sync as listed below.
 
-**After 1.3:** Tier **2.1** — align `TACTICAL_ZONES_BREACH_MOVEMENT.md` with implemented intrusion + **wedge + `lane_offset` / distance** language (see dependency chain item 10).
+**Telemetry lock is partially implemented** (mode transition counters, invalid-action/error counters, tactical↔harness mode snapshot mismatch checks, final summary payload); finish multi-seed runtime sweeps before Option 4.
+
+**After 1.3 (and after `FEATURE_LINE_CRASH_INTRUSION` is true):** Tier **2.1** — align `TACTICAL_ZONES_BREACH_MOVEMENT.md` with implemented intrusion + **wedge + `lane_offset` / distance** language (see dependency chain item 10).
 
 ---
 
@@ -170,17 +188,20 @@ No sequencing work unless fixing regressions. Shipped includes: skirmish-aware `
 **Depends on:** 1.3 recommended (stable geometry for playtest).
 
 - Constants for LINE↔OPEN **hysteresis** (`L_in` > `L_out`) + optional stored band on formation dict — **Done** (`CombatConstants.LINE_COHESION_POSTURE_ENTER_LINE_MIN` / `LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`; prior posture read from formation dict each tick in `CombatFormationEngagement._compute_posture`).
-- **Encounter / discipline tags** bias thresholds — **Done:** posture enter/leave deltas, `line_discipline` + `CombatConstants.line_discipline_posture_extra_deltas` (encounter default + formation preset override). **Todo:** richer tags / asymmetric posture nuance (see engagement plan §2.6–§2.7).
+- **Encounter / discipline tags** bias thresholds — **Done:** posture enter/leave deltas, `line_discipline` + `CombatConstants.line_discipline_posture_extra_deltas` (encounter default + formation preset override).
+- **Per-side asymmetric posture** — **Done:** `CombatFormationEngagement` computes both cohesions first, then applies `delta = strength × (our_coh − opp_coh)` to `L_in`/`L_out` (`CombatConstants.POSTURE_ASYMMETRY_COH_COUPLE_STRENGTH`; encounter **`posture_asymmetry_strength`** to override or set **0** to disable). Stronger line (higher cohesion) leans LINE; weaker leans OPEN.
 
-**Exit criteria:** Posture does not flip every tick at threshold edge; tags read from agreed encounter hook.
+**Exit criteria:** Posture does not flip every tick at threshold edge; tags read from agreed encounter hook; mirrored battles keep matching postures (`CombatRegressionHarness._run_posture_mirror_symmetric`).
 
 ---
 
 ### Tier 1.5 — P6: Morale → cohesion
 
-- Morale module (or minimal hook) drives **`morale_cohesion_factor`** (placeholder 1.0 until wired).
+- **`CombatMoraleCohesion.apply_to_formations`** runs at the start of **`CombatFormationEngagement.recompute_all`**: writes each formation’s **`morale_cohesion_factor`** (clamped **`MORALE_COHESION_FACTOR_MIN`..1**).
+- **Encounter** (per-side override, wins over combatants): **`morale_cohesion_player`**, **`morale_cohesion_enemy`** (`CombatConstants.ENCOUNTER_KEY_*`).
+- **Combatants:** dict **`morale_cohesion`** 0..1 (default **1.0**); **`CombatManager.register`** seeds from **`node.morale_cohesion`** when present. Side **mean** over alive, non-incapacitated fighters when encounter key absent.
 
-**Exit criteria:** Changing morale changes `line_cohesion` input path without breaking defaults.
+**Exit criteria:** Changing morale inputs changes `line_cohesion` without breaking defaults; **`CombatRegressionHarness._run_morale_cohesion_affects_line_cohesion`** passes.
 
 ---
 
@@ -230,6 +251,42 @@ No sequencing work unless fixing regressions. Shipped includes: skirmish-aware `
 - [ ] P8 metrics stable across representative scenarios (small, medium, large engagements).
 - [ ] No unresolved regressions in `IncursionBreachTest` harness assertions.
 - [ ] Debug telemetry fields required for balancing are present and readable.
+
+---
+
+### Tier 1.9 — P10: Depth-rank polearm reach + spear lanes
+
+**Goal:** Units in **rank ≥ 1** on their **home** formation can contribute **melee** against eligible enemies when they wield a **depth-capable** weapon (polearm / long reach), **through** a **living same-file rank-0** ally, using abstract **lanes** (over-shoulder vs open) that constrain targeting and parts — per `docs/COMBAT_ROADMAP_AND_STAMINA.md` Part 6 Option C and Part 7 (this tier **replaces** the obsolete checklist line “rank 0 melee; rank 1 ranged/support”).
+
+**Depends on:** Tier **1.3** (P4) — `effective_pair_eff_dist`, wedge, `lane_offset`, band consumers.
+
+**Primary modules:** `AvailableActionsBuilder.gd` (`can_melee`, `_opp_matches_melee_rank_target`, `_append_melee_vs_enemy_line_rank`), `CombatDistanceBands.gd` (today forces `DISTANCE_LONG` for all pairs when `our_rank > 0` and not intruder-on-host), `WeaponConstants.gd` / `Weapon.gd` (explicit **depth_melee_eligible** flag or threshold vs `REACH_MID_MIN` + weapon family), `AttackResolver.gd` / hit-part path (respect **`spear_lane`** or `allowed_parts` from formation + lane type), `CombatConstants.gd` (tuning). Optional: formation dict **`spear_lane_profile`** or derive lane mix from `density` + `line_discipline` + `engagement_posture`.
+
+**Design contract (v1 — refine in code comments):**
+
+1. **Depth melee eligible:** Only weapons marked or inferred as polearms (e.g. `melee_range >= REACH_MID_MIN` is necessary but not sufficient — use explicit list or `weapon_type` tag to avoid longsword edge cases).
+2. **Same file:** Depth striker’s `file` matches a **living** ally at `rank == 0` in the same `formation_id` (front rank “opens” the lane). If front is empty, vacancy/death plug already promotes — depth should not bypass plugs.
+3. **Opponent targeting:** Enemy **rank 0** in an opposing **frontage** pair (same rules as today for “who is on the line”), unless intruder rules already widen targets; no extra reach to arbitrary files until lane math allows (defer multi-file thrusts if needed).
+4. **Lanes:** **Over-shoulder** → restrict preferred / allowed parts (upper body); **open** → full part table (see roadmap Part 7 table). Lane type is a function of formation preset + density + optional wedge gap (document the resolver order in code).
+5. **Distance bands:** For eligible depth pairs, compute `distance_to` so **MID** is achievable when geometry + reach match (remove or narrow the blanket `our_rank > 0 → LONG` branch for this case only).
+6. **Safety:** Optional obstruction / friendly-risk hook stays **off** in v1 unless trivial; document follow-up in roadmap §6.6.
+
+**Ordered steps:**
+
+1. **Spec lock** — Add §2.5 rows in `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` (verification mirror); define `depth_melee_eligible` in one place (`WeaponConstants` or `CombatConstants`).
+2. **`CombatDistanceBands`** — Conditional path: home rank ≥ 1 + depth-eligible weapon + same-file living rank-0 → run normal band logic vs line opponents; otherwise keep current LONG shortcut.
+3. **`AvailableActionsBuilder`** — Extend `can_melee` and `_opp_matches_melee_rank_target` (and `_melee_pair_rank_allowed` if needed) so depth polearms may target enemy rank 0 under the same-file rule; keep intrusion / intruder exceptions from double-counting.
+4. **Spear lane → parts** — Thread lane type into attack resolution (minimal: `allowed_parts` filter on thrust/stab for depth rank); align with `TacticalCombat` / UI only if required for playtest.
+5. **AI** — `CombatAIActionPicker`: weight depth thrust targets when new actions appear; avoid always-on crash into friendlies.
+6. **Tests** — Harness or unit-style scenario: two-rank file, spear in rank 1, enemy rank 0 front — expects non-empty melee actions and MID/CLOSE band consistent with reach.
+
+**Exit criteria:**
+
+- [ ] Depth polearm in rank ≥ 1 receives melee strike actions vs eligible enemy rank 0 when same-file rank 0 is living.
+- [ ] Non-polearm depth ranks unchanged (reserve / swap / intrusion-only melee as today).
+- [ ] `distance_to` and `get_available_actions` stay consistent (no LONG band + listed strikes mismatch).
+- [ ] Part restrictions apply for over-shoulder vs open lane (logged or asserted in test).
+- [ ] `IncursionBreachTest` / intrusion scenarios still pass (no regression on intruder targeting).
 
 ---
 
@@ -326,7 +383,7 @@ Then implement **1.3.1 → 1.3.12** in order (or the current numbered block in *
 
 | Step | Deliverable | Depends on |
 |------|-------------|------------|
-| 3.1 | Stable **distance + targeting** after intruder P4 (wedge + offsets) | Tier 1.3 |
+| 3.1 | Stable **distance + targeting** after intruder P4 (wedge + offsets) + depth polearm when **1.9** ships | Tier 1.3; **1.9** before parry if depth changes threat geometry |
 | 3.2 | Parry / bind / deflect per those docs | 3.1 |
 | 3.3 | Guard line / afterblow | 3.2 |
 
@@ -389,6 +446,7 @@ Then implement **1.3.1 → 1.3.12** in order (or the current numbered block in *
 
 ## Changelog
 
+- **2026-05-01:** **Tier 1.9 (P10)** — depth-rank polearm reach + spear lanes; dependency chain items **11–12**; milestone **1.9 Todo**; Tier **3.1** wording; Tier 0 table row **`Distance bands / ZoC`** label; top **Last verified** + **Plan update 2026-05-01**; legacy roadmap targeting superseded via cross-links. **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN` §2.5**, **`COMBAT_ROADMAP`** Part 3 checklist + Part 6/7, **`README`**, **`TACTICAL_ZONES`** investigation blurb aligned.
 - **2026-04-13 (c):** **Wedge-first P4** — dependency chain items **6–7** (wedge, then lane+dist); mermaid **T13** label; milestone **1.3** deliverable; Tier **1.3** title, design intent, ordered steps **1.3.1–1.3.12**, exit criteria, gate, quick-reference **per formation** field, Tier **2.1** / **3.1** / plan inventory wording; top **Plan update** paragraph. Engagement plan §4.1–§4.2 mirror (separate file).
 - **2026-04-13 (b):** Milestone **1.2 → Done** (P3 shipped in code); Tier **1.2** exit criteria checked; **Next coding** callout → Tier **1.3**; implementation gate split (**P3 re-audit** vs **P4 gate**); plug table + dependency item 5 + Tier 1.3 “depends on” aligned. Engagement §2 mirror updated same pass.
 - **2026-04-13:** Dependency chain item **9** + mermaid: **Tier 2.1** doc sync follows **1.3+** (not 1.2 alone); **`T13 --> T2`** edge replaces `T12 --> T2`. Added **recommended gate before Tier 1.3** (§4.1, sign convention, P2 exit). Plan inventory + roadmap/tactical bundle cross-notes aligned.

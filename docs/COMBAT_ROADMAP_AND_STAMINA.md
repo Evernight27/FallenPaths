@@ -58,7 +58,7 @@ Master implementation guide for the combat system migration. Consolidates decisi
 |-------|-------|------------|------------------|
 | **0** | Prep: data structures, constants | — | Combatant fields, formation structure, event queue |
 | **1** | Event queue + action ready | Phase 0 | Min-heap, `EVENT_ACTION_READY`, **gauge** hybrid, stamina UI |
-| **2** | Distance bands | Phase 0 | Close/mid/long, roll vs evasion to close |
+| **2** | Distance bands | Phase 0 | Close/mid/long; `attempt_close` when out of reach; mid strikes when `melee_range >= effective_pair_eff_dist` |
 | **3** | Formations | Phase 0, 1 | Rank/file, targeting filter, swap rank, plug on death |
 | **4** | Zone of control (ZoC) | Phase 3 | Zone control, flank access, engagement angle |
 | **5** | Formation actions | Phase 3 | Fall back, rotate, drag back, step over; swap rank lane_clarity + pressure_mod |
@@ -71,6 +71,7 @@ Master implementation guide for the combat system migration. Consolidates decisi
 
 ### Distance Bands
 - **Model:** Hybrid (C) — pair-wise for unformed, zone-based for formations
+- **Mid + reach (shipped):** Front-rank melee at band **mid** lists strikes when weapon reach clears `effective_pair_eff_dist` (see `AvailableActionsBuilder` / `can_melee_threaten`); not limited to spears/`REACH_MID_MIN`.
 - **Close attempt:** Roll vs evasion (engagement_pressure vs defender evasion). Tie in stats. **Stances** modify close, damage, parry, disengage. See `docs/AI_ENGAGEMENT_STANCE_AND_FEINTS.md`.
 
 ### Stance System (Phase 0 Data, Phase 2 Effects)
@@ -144,7 +145,7 @@ Master implementation guide for the combat system migration. Consolidates decisi
 ### Phase 3: Formations
 - [x] Assign rank/file at combat start (spawn order; Option A: files = front count, rank 0 first)
 - [x] Build formations from presets (party + enemy) at combat start
-- [x] Filter targeting: rank 0 melee; rank 1 ranged/support
+- [x] Filter targeting: **shipped v1** — rank-0-centric melee + intrusion exceptions (`AvailableActionsBuilder`, `CombatDistanceBands`). **Superseded plan:** depth-rank **polearm** reach + spear lanes → **`docs/IMPLEMENTATION_ORDER.md` Tier 1.9 (P10)** (replaces legacy “rank 1 = ranged only” wording).
 - [x] Formation targeting: weapon.melee_range >= effective_distance (|Δfile| × spacing_m × REACH_SAFETY_FACTOR)
 - [x] Add swap rank action (time-based event delay; lane × footing × opponent pressure from `ZoneOfControl`; see Phase 5)
 - [x] **Formation UI:** Visual rank×file grid with unit spacing (tight/normal/loose); FormationLayoutBuilder + FormationDiagramBuilder (compact diagram updates on formation_changed)
@@ -176,7 +177,7 @@ Master implementation guide for the combat system migration. Consolidates decisi
 - [x] **Surround** — `TacticalCombat.count_engaging_threats` + split ÷ min(threats, `SURROUND_MAX_SPLIT_DIVISOR`) × perception awareness on parry and dodge (`DefenseChoiceResolver`)
 - [x] **Incursion pressure** — `TacticalCombat.recompute_incursion_pressure` from front-rank count imbalance; reduces raw zone strength (`ZoneOfControl._raw_zone_strength`). **Deferred:** explicit **plug vs incursion contest** roll on failed plug (design-only).
 - [x] **Crash / breach v1** — `BreachResolver`, `CombatEngagementResolver`; neighbor hold (`CombatIntrusionGeometry`); skirmish-aware breach move clog (`FormationBreachRules`).
-- [x] **Line cohesion & posture** — `CombatFormationEngagement`, `CombatManager.engagement_state_changed`, UI labels (`BattleScene`). **P3 (Tier 1.2) shipped** — intrusion slots + vacancy plug. **Next coding:** `docs/IMPLEMENTATION_ORDER.md` **Tier 1.3 (P4)** — **`intrusion_wedge_by_file`** + **`lane_offset`** + intruder-aware **`effective_pair_eff_dist`** / bands (wedge consumed throughout); spec `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §4–§6.
+- [x] **Line cohesion & posture** — `CombatFormationEngagement`, `CombatManager.engagement_state_changed`, UI labels (`BattleScene`). **P3–P4 shipped** (intrusion slots, vacancy plug, wedge + `lane_offset` + eff dist). **Active plan:** `docs/IMPLEMENTATION_ORDER.md` — **1.8** soak/telemetry, **1.9** depth-rank polearm + spear lanes, **1.4/1.5** posture/morale per milestone table.
 - [x] **Flanking** — implemented in Phase 4 (`ZoneOfControl.get_engagement_parry_multiplier`, pack fallback); Phase 6 checklist satisfied by that + surround/ambush layering
 
 ---
@@ -284,8 +285,8 @@ Master implementation guide for the combat system migration. Consolidates decisi
 | Band | Melee | Ranged | Magic (future) | Notes |
 |------|-------|--------|----------------|-------|
 | **Close** | ✓ Full | ✗ No (or disadvantaged) | Touch only | Engagement; bind; flurry |
-| **Mid** | Spear only (long reach) | ✓ Effective | Projectile spells | Default for ranged |
-| **Long** | ✗ No | ✓ Reduced accuracy | Long-range spells | Out of melee threat |
+| **Mid** | Melee if `melee_range >= effective_pair_eff_dist`; else spear/ranged/magic | ✓ Effective | Projectile spells | Default for ranged |
+| **Long** | ✗ No (melee uses `attempt_close` until in range / close band) | ✓ Reduced accuracy | Long-range spells | Out of melee threat |
 
 #### Per-Pair State
 
@@ -297,7 +298,7 @@ distance_band: String  # "close", "mid", "long"
 # Transitions:
 #   long → mid:   Ranged closes; or melee "approach" (spends stamina)
 #   long → close: Melee "close" action succeeds vs defender evasion
-#   mid → close:  Melee "close" succeeds
+#   mid → close:  Melee "close" succeeds (optional if already striking from mid via reach)
 #   close → mid:  Defender disengages (roll vs hold)
 #   close → long: Defender flees (agile/light more likely)
 #   mid → long:   Either retreats
@@ -305,7 +306,8 @@ distance_band: String  # "close", "mid", "long"
 
 #### Band Transitions (Melee)
 
-- **To close:** Attacker rolls `engagement_pressure` vs `defender.evasion`. Success → close.
+- **Strike from mid (no transition):** When pair band is **mid** and `melee_range >= effective_pair_eff_dist`, normal melee actions apply (`AvailableActionsBuilder`).
+- **To close:** Attacker rolls `engagement_pressure` vs `defender.evasion`. Success → close (used when strikes are not listed, or to tighten engagement).
   - `evasion = agility * (1 - armor_burden) * stamina_factor`
   - `engagement_pressure = strength * stamina_factor * reach_factor`
 - **From close (disengage):** Defender rolls `disengage_ability` vs `attacker.hold_strength`.
@@ -317,9 +319,11 @@ distance_band: String  # "close", "mid", "long"
 
 | Weapon | Close | Mid | Long |
 |--------|-------|-----|------|
-| Dagger (0.8m) | ✓ | ✗ | ✗ |
-| Sword, Axe, Mace (1.5m) | ✓ | ✗ | ✗ |
+| Dagger (0.8m) | ✓ | ✓ if geometry clears `effective_pair_eff_dist` | ✗ |
+| Sword, Axe, Mace (1.5m) | ✓ | ✓ if geometry clears `effective_pair_eff_dist` | ✗ |
 | Spear (2.5m) | ✓ | ✓ | ✗ |
+
+*Implementation:* “Clears” = `melee_range >= effective_pair_eff_dist` for that attacker–defender pair (formation spacing, ZoC, wedge, lane offset). `REACH_MID_MIN` is an **AI / depth-polearm** bias, not the gate for listing mid strikes.
 
 ---
 
@@ -530,7 +534,7 @@ const FLURRY_STAMINA_FLOOR := 15.0
 
 # Distance band thresholds (for weapon reach)
 const REACH_CLOSE_MAX := 1.2   # Dagger, sword, axe, mace
-const REACH_MID_MIN := 1.2     # Spear at mid
+const REACH_MID_MIN := 1.2     # AI/depth polearm bias; mid strikes use effective_pair_eff_dist in code
 const REACH_MID_MAX := 2.5
 const REACH_LONG_MIN := 2.5    # Out of melee
 ```
@@ -579,13 +583,13 @@ const CLOSE_SLOTS_PER_TARGET := 3  # Realistic: 2–3 can surround one
 - Weight targets by "how many allies already on them": `weight *= 1.0 / (1 + num_allies_close_to_target)`
 - Strongly prefer underutilized targets. Reduces bunching without slots.
 
-**Option C: Formation rank (simple)**
+**Option C: Formation rank (simple) — scheduled as Tier 1.9 (P10)**
 - Each combatant has `rank: int` (0 = front, 1 = second, 2 = back).
-- Only rank 0 can be "close" to enemy rank 0. Rank 1 can be close if rank 0 ahead is dead.
-- Spear at rank 1 can attack from "mid" (reach over ally).
-- Requires assigning ranks at combat start (by side, by agility, or by spawn order).
+- Only rank 0 is **always** eligible for line melee; rank ≥ 1 gains **polearm depth melee** only under **`IMPLEMENTATION_ORDER.md`** Tier **1.9** (same-file living rank 0, lane rules, weapon tag).
+- Spear (depth-eligible weapon) at rank 1 attacks from abstract **mid** / effective reach **over** the file’s front rank — not generic “rank 1 ranged.”
+- Ranks assigned at combat start (existing); **A** (close slot limit) and **B** (AI target weighting) remain complementary — they do not replace **C**.
 
-**Recommendation:** Start with **A** (slot limit). Add **B** (target weighting) to AI for smoother distribution. Defer **C** unless formation matters for gameplay.
+**Recommendation:** Implement **C** via **Tier 1.9**; keep **A** + **B** as listed in §6.1–6.2 for bunching and AI distribution.
 
 ---
 
@@ -670,9 +674,9 @@ const CLOSE_SLOTS_PER_TARGET := 3  # Realistic: 2–3 can surround one
 
 ---
 
-### Part 7: Spear Lane Targeting (Deferred — Design Note)
+### Part 7: Spear Lane Targeting (Design — ships with Tier 1.9)
 
-**Implement later.** Different shields and formations should define which lanes spears can attack through. Lane type constrains which body parts the spear can target.
+**Execution:** **`docs/IMPLEMENTATION_ORDER.md` Tier 1.9 (P10)** with exit criteria + **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §2.5** verification rows. Different shields and formations define which lanes spears attack through; lane type constrains body parts.
 
 #### Lane Types (Shield/Formation Design)
 
@@ -690,8 +694,8 @@ const CLOSE_SLOTS_PER_TARGET := 3  # Realistic: 2–3 can surround one
 
 #### Implementation Note
 
-- `AttackPathResolver` / hit-part selection would receive `lane_type` or `allowed_parts` from the formation when resolving spear thrusts from rank 1.
-- Defer until rows+files formation system is in place.
+- `AttackResolver` / hit-part selection receives `lane_type` or `allowed_parts` from formation context when resolving **depth-rank** spear thrusts (rank ≥ 1, Tier 1.9).
+- **Rows × files** and intruder geometry are **already** in repo; remaining work is **1.9** code paths, not more topology.
 
 ---
 

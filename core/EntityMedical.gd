@@ -6,6 +6,7 @@ extends RefCounted
 ## Entity must implement: get_attacking_arm(), get_bleeding_rate_for_part(part), get_medical_effectiveness(), get_game_time_seconds()
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 # --- Shared wound treatment (bandage, packing) ---
@@ -76,6 +77,7 @@ static func _get_application_time_for_part(entity: Node, part: String, base_seco
 		return base_seconds
 	return base_seconds + per_wound_extra * max(0, n - 1)
 
+## Ally- or self-held direct pressure on this part does **not** block bandaging; `apply_bandage` clears pressure when the dressing is applied.
 static func can_apply_bandage(entity: Node, part: String) -> bool:
 	if part.is_empty() or not entity.wounds.has(part) or entity.wounds[part].is_empty():
 		return false
@@ -151,6 +153,51 @@ static func _apply_direct_pressure_to_wounds(entity: Node, part: String, effecti
 		if _Bleeding.BANDAGE_STABILIZATION_DURATION > 0.0:
 			injury["stabilized_remaining_seconds"] = _Bleeding.BANDAGE_STABILIZATION_DURATION
 
+## Drops pressure **only** on `part` (ally-held or self). Other limbs keep their hold.
+## Lets one unit hold bleeding while another applies a bandage/pack/tourniquet; the next pressure application on this part replaces the prior holder cleanly.
+static func release_direct_pressure_on_part(entity: Node, part: String) -> void:
+	if part.is_empty():
+		return
+	if entity.direct_pressure_part == part:
+		if entity.direct_pressure_held_by != null and "direct_pressure_on_ally" in entity.direct_pressure_held_by:
+			entity.direct_pressure_held_by.direct_pressure_on_ally = {}
+		entity.direct_pressure_held_by = null
+		if entity.get("direct_pressure_assist_held_by") != null:
+			var assist: Variant = entity.direct_pressure_assist_held_by
+			if assist != null and "direct_pressure_on_ally" in assist:
+				assist.direct_pressure_on_ally = {}
+			entity.direct_pressure_assist_held_by = null
+		entity.direct_pressure_part = ""
+	if entity.self_direct_pressure_part == part:
+		entity.self_direct_pressure_part = ""
+
+## Helper already holds `part`; treater stacks extra pressure + `direct_pressure_assist_held_by` without displacing the helper.
+static func stack_assist_pressure_during_ally_treatment(entity: Node, part: String, assist_entity: Node = null) -> bool:
+	if part.is_empty() or not entity.wounds.has(part):
+		return false
+	if entity.direct_pressure_part != part or entity.direct_pressure_held_by == null:
+		return false
+	if assist_entity == null or entity.direct_pressure_held_by == assist_entity:
+		return false
+	if entity.get("direct_pressure_assist_held_by") != null and entity.direct_pressure_assist_held_by != null:
+		return false
+	if entity.bandaged_parts.has(part) or entity.packed_parts.has(part):
+		return false
+	if entity.tourniquet_applied.has(part) and entity.get_bleeding_rate_for_part(part) <= _Bleeding.BLEEDING_RATE_EPSILON:
+		return false
+	var eff: float = (
+		_EntityAccess.get_medical_effectiveness_from_node(assist_entity) * _CombatConstants.DIRECT_PRESSURE_TREATMENT_ASSIST_MULT
+	)
+	_apply_direct_pressure_to_wounds(entity, part, eff)
+	entity.direct_pressure_assist_held_by = assist_entity
+	if assist_entity != null and "direct_pressure_on_ally" in assist_entity:
+		assist_entity.direct_pressure_on_ally = {"node": entity, "part": part}
+	print(
+		"[Medical] treatment_assist_pressure: %s stacks on %s (helper retains hold, assist mult=%.2f)"
+		% [entity.name, part, _CombatConstants.DIRECT_PRESSURE_TREATMENT_ASSIST_MULT]
+	)
+	return true
+
 static func can_apply_direct_pressure(entity: Node, target_part: String) -> bool:
 	if entity.bandaged_parts.has(target_part) or entity.packed_parts.has(target_part):
 		return false
@@ -172,6 +219,7 @@ static func apply_direct_pressure_from_ally(entity: Node, part: String, performe
 		return false
 	if entity.tourniquet_applied.has(part) and entity.get_bleeding_rate_for_part(part) <= _Bleeding.BLEEDING_RATE_EPSILON:
 		return false
+	release_direct_pressure_on_part(entity, part)
 	var effectiveness: float = _EntityAccess.get_medical_effectiveness_from_node(performer_entity)
 	_apply_direct_pressure_to_wounds(entity, part, effectiveness)
 	entity.direct_pressure_part = part
@@ -184,6 +232,7 @@ static func apply_direct_pressure(entity: Node, part: String, effectiveness: flo
 		return false
 	if not can_apply_direct_pressure(entity, part):
 		return false
+	release_direct_pressure_on_part(entity, part)
 	if effectiveness < 0.0:
 		effectiveness = _EntityAccess.get_medical_effectiveness_from_node(entity)
 	_apply_direct_pressure_to_wounds(entity, part, effectiveness)
@@ -205,6 +254,11 @@ static func get_direct_pressure_part(entity: Node) -> String:
 	return entity.direct_pressure_part
 
 static func clear_direct_pressure(entity: Node) -> void:
+	if entity.get("direct_pressure_assist_held_by") != null and entity.direct_pressure_assist_held_by != null:
+		var assist_clear: Variant = entity.direct_pressure_assist_held_by
+		if assist_clear != null and "direct_pressure_on_ally" in assist_clear:
+			assist_clear.direct_pressure_on_ally = {}
+		entity.direct_pressure_assist_held_by = null
 	if entity.direct_pressure_held_by != null and "direct_pressure_on_ally" in entity.direct_pressure_held_by:
 		entity.direct_pressure_held_by.direct_pressure_on_ally = {}
 		entity.direct_pressure_held_by = null
@@ -221,6 +275,11 @@ static func clear_direct_pressure(entity: Node) -> void:
 			ally_entity.direct_pressure_part = ""
 			if "direct_pressure_held_by" in ally_entity:
 				ally_entity.direct_pressure_held_by = null
+			if ally_entity.get("direct_pressure_assist_held_by") != null:
+				var asst_rel: Variant = ally_entity.direct_pressure_assist_held_by
+				if asst_rel != null and "direct_pressure_on_ally" in asst_rel:
+					asst_rel.direct_pressure_on_ally = {}
+				ally_entity.direct_pressure_assist_held_by = null
 			print("[Medical] %s released direct_pressure on ally's %s" % [entity.name, ally_part])
 	entity.direct_pressure_on_ally = {}
 

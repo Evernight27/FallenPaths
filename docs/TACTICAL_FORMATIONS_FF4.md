@@ -110,12 +110,12 @@ Distance bands replace x,y positions with abstract ranges that determine what at
 | Band | Who can attack | Who can be targeted |
 |------|----------------|---------------------|
 | **Close** | Melee (sword, axe, mace, dagger), spear | Anyone at close |
-| **Mid** | Spear (long reach), ranged, magic | Anyone at mid or long |
+| **Mid** | Melee whose `melee_range` clears pair `effective_pair_eff_dist` (step-in/lunge), spear, ranged, magic | Anyone at mid or long |
 | **Long** | Ranged (reduced), magic | Anyone at long |
 
 **How distance changes during combat:**
 
-- **Closing:** Melee at mid/long must succeed at a "close" action (e.g. roll vs defender evasion) to become close. Spear at mid can attack without closing.
+- **Closing / reach:** At **mid**, if geometric reach covers the pair (`melee_range >= effective_pair_eff_dist` in `AvailableActionsBuilder`), melee strikes are listed without a prior `attempt_close`. At **long** (or out of reach), `attempt_close` (roll vs evasion) is still used to enter **close** or to close distance when strikes are not yet listed. Native polearm-at-mid **AI** bias still uses `REACH_MID_MIN` in `CombatAIActionPicker` for depth ranks.
 - **Disengaging:** At close, defender can attempt disengage (roll vs attacker hold); success → mid or long.
 - **Approach:** Some systems have an "approach" step (long→mid) before close; others jump long→close in one roll.
 
@@ -133,7 +133,7 @@ Distance bands replace x,y positions with abstract ranges that determine what at
 - **Opponent can block:** Defender spends reaction to deny close. Adds defender choice.
 
 **Design goals:**
-- Melee needs close; spear can attack from mid; ranged from mid/long
+- Melee at **close** always; at **mid**, melee when reach geometry allows (shipped); ranged from mid/long
 - Band transitions: approach (long→mid→close), disengage (close→mid→long)
 - Per attacker–defender pair or per formation zone
 
@@ -145,7 +145,7 @@ Distance bands replace x,y positions with abstract ranges that determine what at
 | **B: Zone-based** | Distance derived from zone adjacency. Same zone = close; adjacent = mid; else long. Ties to ZoC. | Medium |
 | **C: Hybrid** | Pair-wise for unformed/pack; zone-based for formation vs formation. | Medium |
 
-**Close attempt:** When attacker at mid/long wants to melee, they must "close" (roll vs evasion? fixed success?).
+**Close attempt:** When attacker cannot list strikes (typically **long** or **mid** but `melee_range < effective_pair_eff_dist`), `attempt_close` advances engagement (roll vs evasion).
 
 **Expansion — Open space vs shield wall (per user):** Units with lots of space + long-range weapons = easier to avoid engagement/disengage. Shield walls (close proximity, no movement room) = harder to avoid/disengage. Add formation `density` (loose/normal/tight): modulates close attempt (defender evasion) and disengage (defender roll). See `docs/TACTICAL_FORMATIONS_FF4.md` Part 1.
 

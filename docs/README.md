@@ -1,12 +1,14 @@
 # Combat documentation (consolidated)
 
-**Start here — full logical implementation plan:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — baseline → Tier 1 (**P3 + P4 shipped**; **1.4** hysteresis + discipline tags **partial**; **1.7 Option 2 historical engagement bands + gating partial in code, soak pending**; **morale 1.5** not wired) + optional **2.1** tactical doc prose sync → tiers 2–7.
+**Start here — full logical implementation plan:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — baseline → Tier 1 (**P3 + P4 + 1.4 + 1.5 shipped**; **1.9 P10** depth-rank polearm + spear lanes **Todo**; **1.7 Option 2** partial, soak pending) + optional **2.1** tactical doc prose sync → tiers 2–7.
+
+**Line crash / intrusions:** `CombatConstants.FEATURE_LINE_CRASH_INTRUSION` defaults **`false`** — no new breach intrusions until you enable it; see the **Development gate** section in `IMPLEMENTATION_ORDER.md`.
 
 ## Streamlined reading order
 
 | If you need… | Read… |
 |--------------|--------|
-| **Single plan before coding** | [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — dependency chain; **Tier 1.3 P4 Done**; **Tier 1.4 P5 Partial** (hysteresis + deltas + `line_discipline`; richer tags **Todo**); **1.6 Partial** (crash AI vs posture); **1.7 Partial** (Option 2 classifier + harness checks), **1.8** soak gate before Option 4. |
+| **Single plan before coding** | [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — dependency chain; **Tier 1.3–1.5 Done**; **1.9 P10 Todo** (depth polearm + spear lanes); **1.6 Partial**; **1.7–1.8** soak/telemetry. |
 | **Tier 1 spec** (fields, plug taxonomy, tuning) | [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) — §4–§6; §2 is verification mirror (sequencing is in `IMPLEMENTATION_ORDER`). |
 | **Shipped baseline** (modules per subsystem) | Tier 0 in `IMPLEMENTATION_ORDER.md` — overlaps [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) **Current architecture snapshot**. |
 | **Historical phases + stamina / investigations** | [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) — long bundle; snapshot at top for “today.” |
@@ -18,7 +20,7 @@
 
 **1 master order** (`IMPLEMENTATION_ORDER.md`) **+ 12** markdown files below (consolidated bundles and standalone plans). Consolidated bundles list original filenames under `## Source:` for provenance.
 
-**Plan sync:** **2026-04-27** pass — milestones, morale deferral, `ZoneOfControl.formation_id_for_zone_geometry(manager, c)` single source for intruder host fid in ZoC + pair distance. See “Last verified” in `IMPLEMENTATION_ORDER.md` and `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`.
+**Plan sync:** **2026-05-06** — **`FEATURE_LINE_CRASH_INTRUSION`** default **off** (development gate in `IMPLEMENTATION_ORDER.md`). Tier **1.5 (P6)** `CombatMoraleCohesion` → `morale_cohesion_factor`. Tier **1.9 (P10)** depth-rank polearm + spear lanes; legacy “rank 1 ranged only” superseded in `COMBAT_ROADMAP_AND_STAMINA.md` Phase 3 checklist + Part 6/7. **Mid-band melee:** front-rank strikes at **mid** when reach clears `effective_pair_eff_dist` (not only `REACH_MID_MIN`). See “Last verified” in `IMPLEMENTATION_ORDER.md` and `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §2.5.
 
 | File | Topics |
 |------|--------|

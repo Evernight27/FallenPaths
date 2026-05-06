@@ -14,7 +14,7 @@ const GAUGE_LABEL_MIN_WIDTH := 90
 const LOG_MAX_LINES := 80
 const LOG_MIN_WIDTH := 1260
 const LOG_MIN_HEIGHT := 216
-const MAIN_LIST_PATH := "CombatCanvasLayer/UIRoot/ContentVBox/MainScroll/MainHBox"
+const MAIN_LIST_PATH := "CombatCanvasLayer/UIRoot/ContentVBox/MainHBox"
 
 # Human-readable labels for medical actions in the action bar (self-target)
 const MEDICAL_ACTION_LABELS := {"bandage_self": "Bandaging", "pack_wound": "Packing wound", "apply_tourniquet": "Applying tourniquet", "apply_direct_pressure": "Direct pressure"}

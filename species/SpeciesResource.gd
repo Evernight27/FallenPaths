@@ -40,6 +40,10 @@ const VITAL_PARTS := ["head", "chest"]
 # Lets different species be more/less tolerant: e.g. death at 40% = more fragile, 30% = more resilient.
 @export var blood_loss_death_threshold: float = -1.0    # death when remaining <= this; -1 = use global default
 @export var blood_loss_critical_threshold: float = -1.0  # critical state when remaining <= this; -1 = use global default
+## Reduced-momentum blunt partner mass (kg). When > 0, overrides segment-based mass from body size.
+@export var effective_blunt_target_mass_kg: float = -1.0
+## Adult-scale body mass (kg) for blunt segment masses. -1 = infer from tissue totals vs human reference (see WeaponDamageHelper).
+@export var reference_body_mass_kg: float = -1.0
 
 # Pain reference for normalized pain (Method B). Typical pain from 1 moderate hit for this species.
 # Smaller species get higher severity per damage → more pain per hit. -1 = auto-compute from body proportions.

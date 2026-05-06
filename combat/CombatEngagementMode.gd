@@ -162,6 +162,8 @@ static func active_intruder_count_for_side(manager: Node, side: String) -> int:
 
 ## Empty if this unit may attempt crash intrusion; otherwise a short reason for logs / debug.
 static func crash_intrusion_attacker_block_reason(manager: Node, attacker: Dictionary) -> String:
+	if not CombatConstants.FEATURE_LINE_CRASH_INTRUSION:
+		return "intrusion_disabled"
 	if attacker.is_empty():
 		return "no_attacker"
 	var side: String = str(attacker.get("side", ""))
@@ -173,6 +175,8 @@ static func crash_intrusion_attacker_block_reason(manager: Node, attacker: Dicti
 	var mass: float = _EntityAccess.get_total_armor_mass_kg_from_node(node)
 	if mass + 0.001 < float(CombatConstants.CRASH_INTRUSION_MIN_ARMOR_MASS_KG):
 		return "light_armor"
+	if CombatConstants.crash_breach_viability(attacker) + 0.0001 < float(CombatConstants.CRASH_BREACH_VIABILITY_MIN):
+		return "low_breach_power"
 	return ""
 
 
@@ -253,6 +257,8 @@ static func engagement_mode(manager: Node) -> String:
 
 
 static func incursion_allowed(manager: Node) -> bool:
+	if not CombatConstants.FEATURE_LINE_CRASH_INTRUSION:
+		return false
 	return engagement_mode(manager) == _MODE_FORMATION
 
 
@@ -268,7 +274,7 @@ static func movement_policy(manager: Node) -> Dictionary:
 		"mode": mode_now,
 		"mode_code": mode_code(mode_now),
 		"active_intrusions": intrusions,
-		"allow_crash": mode_now == _MODE_FORMATION,
+		"allow_crash": mode_now == _MODE_FORMATION and CombatConstants.FEATURE_LINE_CRASH_INTRUSION,
 		"allow_swap_rank": allow_line_maneuvers,
 		"allow_drag_back": allow_line_maneuvers,
 		"allow_fall_back": allow_line_maneuvers,

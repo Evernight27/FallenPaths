@@ -54,26 +54,28 @@ static func create(parent: Node) -> Dictionary:
 	stats_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content_vbox.add_child(stats_header)
 
-	# Scrollable area for enemy/player panels (scrolls when many combatants, combat log stays fixed below)
-	var main_scroll = ScrollContainer.new()
-	main_scroll.name = "MainScroll"
-	main_scroll.custom_minimum_size = Vector2(0, 260)
-	main_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	main_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	main_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	content_vbox.add_child(main_scroll)
-
+	# Party | Enemies: separate vertical scroll per side (independent scroll positions)
 	var main_hbox = HBoxContainer.new()
 	main_hbox.name = "MainHBox"
+	main_hbox.custom_minimum_size = Vector2(0, 260)
+	main_hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	main_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	main_hbox.add_theme_constant_override("separation", 16)
-	main_scroll.add_child(main_hbox)
+	content_vbox.add_child(main_hbox)
 
-	# Column 1: Party panel (left)
-	var player_panel = Panel.new()
+	var player_stats_scroll = ScrollContainer.new()
+	player_stats_scroll.name = "PlayerStatsScroll"
+	player_stats_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	player_stats_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	player_stats_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	player_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	main_hbox.add_child(player_stats_scroll)
+
+	# Column 1: Party (PanelContainer sizes to child — plain Panel does not, so ScrollContainer got ~0 content height)
+	var player_panel = PanelContainer.new()
 	player_panel.name = "PlayerPanel"
 	player_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	main_hbox.add_child(player_panel)
+	player_stats_scroll.add_child(player_panel)
 
 	var player_vbox = VBoxContainer.new()
 	player_vbox.name = "PlayerVBox"
@@ -93,11 +95,19 @@ static func create(parent: Node) -> Dictionary:
 	player_list.size_flags_vertical = Control.SIZE_SHRINK_END
 	player_vbox.add_child(player_list)
 
-	# Column 2: Enemies panel (right)
-	var enemy_panel = Panel.new()
+	var enemy_stats_scroll = ScrollContainer.new()
+	enemy_stats_scroll.name = "EnemyStatsScroll"
+	enemy_stats_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	enemy_stats_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	enemy_stats_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	enemy_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	main_hbox.add_child(enemy_stats_scroll)
+
+	# Column 2: Enemies
+	var enemy_panel = PanelContainer.new()
 	enemy_panel.name = "EnemyPanel"
 	enemy_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	main_hbox.add_child(enemy_panel)
+	enemy_stats_scroll.add_child(enemy_panel)
 
 	var enemy_vbox = VBoxContainer.new()
 	enemy_vbox.name = "EnemyVBox"

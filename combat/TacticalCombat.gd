@@ -11,6 +11,9 @@ const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 
+## Tier 1.8 (P9): counters on the combat manager for soak / debug (mode transitions, illegal crash resolves).
+const META_COMBAT_TELEMETRY := "_combat_telemetry"
+
 static func _mode_code(mode_name: String) -> int:
 	if mode_name == CombatConstants.ENGAGEMENT_MODE_FORMATION:
 		return int(CombatConstants.ENGAGEMENT_MODE_CODE_FORMATION)
@@ -75,12 +78,15 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 	var mode_now_code: int = _mode_code(mode_now)
 	var raw_mode: String = str(snap.get("raw_mode", "skirmish"))
 	var incursion_ok: bool = _EngagementMode.incursion_allowed(manager)
+	_telemetry_after_mode_resolve(manager, mode_now)
 	if manager != null:
 		var mode_snap: Dictionary = snap.duplicate()
 		mode_snap["mode"] = mode_now
 		mode_snap["mode_code"] = mode_now_code
 		mode_snap["incursion_allowed"] = incursion_ok
 		mode_snap["combat_clock"] = float(manager.get("combat_clock"))
+		if manager.has_meta(META_COMBAT_TELEMETRY):
+			mode_snap["telemetry"] = (manager.get_meta(META_COMBAT_TELEMETRY) as Dictionary).duplicate()
 		manager.set_meta("_tactical_mode_snapshot", mode_snap)
 	var mode_line: String = (
 		"mode=%s(%d) raw=%s(%d) incursion_allowed=%s active[player=%d enemy=%d] front[player=%d enemy=%d] fill[player=%.2f enemy=%.2f]"
@@ -108,7 +114,7 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 		var pressure: float = clampf(float(delta) * CombatConstants.INCURSION_PRESSURE_PER_RANK_ADVANTAGE, 0.0, CombatConstants.INCURSION_PRESSURE_MAX)
 		formation["incursion_pressure"] = pressure
 		_recompute_lane_stress_by_file(manager, formation)
-		if CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE:
+		if CombatDebug.flow_verbose_enabled():
 			var bf: Dictionary = formation.get("breached_files", {})
 			var raw_clog: bool = _FormationBreachRules.breach_clogs_open_lanes(formation)
 			var blocks_moves: bool = _FormationBreachRules.breach_blocks_open_lane_moves(manager, formation)
@@ -129,7 +135,8 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 					mode_line,
 					our_front,
 					_format_intruders_on_host(manager, fid, int(formation.get("files", 1)))
-				]
+				],
+				"incursion_snapshot:%s" % fid
 			)
 
 
@@ -186,5 +193,46 @@ static func _format_intruders_on_host(manager: Node, host_fid: String, files: in
 			parts.append("f%d:%d" % [fi, n])
 	return "; ".join(parts)
 
+
+static func _telemetry_after_mode_resolve(manager: Node, mode_now: String) -> void:
+	if manager == null:
+		return
+	var tel: Dictionary
+	if manager.has_meta(META_COMBAT_TELEMETRY):
+		tel = (manager.get_meta(META_COMBAT_TELEMETRY) as Dictionary).duplicate()
+	else:
+		tel = {
+			"engagement_mode_transitions": 0,
+			"invalid_crash_resolve_blocked": 0,
+			"last_resolved_mode": "",
+			"last_mode_transition": {},
+		}
+	var prev: String = str(tel.get("last_resolved_mode", ""))
+	if prev != "" and prev != mode_now:
+		tel["engagement_mode_transitions"] = int(tel.get("engagement_mode_transitions", 0)) + 1
+		tel["last_mode_transition"] = {
+			"from": prev,
+			"to": mode_now,
+			"at": float(manager.combat_clock),
+		}
+	tel["last_resolved_mode"] = mode_now
+	manager.set_meta(META_COMBAT_TELEMETRY, tel)
+
+
+static func record_invalid_crash_resolve_blocked(manager: Node) -> void:
+	if manager == null:
+		return
+	var tel: Dictionary
+	if manager.has_meta(META_COMBAT_TELEMETRY):
+		tel = (manager.get_meta(META_COMBAT_TELEMETRY) as Dictionary).duplicate()
+	else:
+		tel = {
+			"engagement_mode_transitions": 0,
+			"invalid_crash_resolve_blocked": 0,
+			"last_resolved_mode": "",
+			"last_mode_transition": {},
+		}
+	tel["invalid_crash_resolve_blocked"] = int(tel.get("invalid_crash_resolve_blocked", 0)) + 1
+	manager.set_meta(META_COMBAT_TELEMETRY, tel)
 
 

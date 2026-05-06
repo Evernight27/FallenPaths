@@ -17,6 +17,7 @@ static func get_health_entity_from_node(manager: Node, node: Node) -> Node:
 		return null
 	if manager != null and manager.has_method("get_health_entity"):
 		return manager.get_health_entity(node)
+	# Test doubles / stubs without get_health_entity: prefer implementing get_health_entity on the manager.
 	if manager != null and manager.has_method("_get_entity"):
 		return manager._get_entity(node)
 	return node

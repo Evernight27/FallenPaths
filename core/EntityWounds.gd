@@ -9,6 +9,12 @@ const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _Healing := preload("res://core/HealingConstants.gd")
 const _EntityMedical := preload("res://core/EntityMedical.gd")
 
+# Impact KE coupling for wounds (tune with weapon KE bands in WeaponDamageHelper / ImpactVelocityModel).
+# ~55 J aligns with typical one-handed cut/thrust order of magnitude used in WeaponConstants / armor docs.
+const _IMPACT_KE_REF_J := 55.0
+const _SEVERITY_KE_BLEND := 0.28
+const _BLEED_KE_BLEND := 0.32
+
 # --- Wound healing progress (used by pain and process_healing) ---
 
 static func get_wound_healing_progress(entity: Node, injury: Dictionary) -> float:
@@ -42,11 +48,14 @@ static func _severity_from_abs(effective_damage: float) -> String:
 		return _Bleeding.SEVERITY_MODERATE
 	return _Bleeding.SEVERITY_MINOR
 
-static func severity_from_damage(entity: Node, part: String, damage: float, sub_region: String = "") -> String:
+static func severity_from_damage(entity: Node, part: String, damage: float, sub_region: String = "", impact_ke_j: float = -1.0) -> String:
 	var max_hp: float = float(entity.body_max.get(part, 10))
 	if max_hp <= 0.0:
 		return _Bleeding.SEVERITY_MODERATE
-	var effective_damage: float = damage * _Bleeding.get_severity_modifier(part, sub_region)
+	var ke_mult: float = 1.0
+	if impact_ke_j >= 0.0:
+		ke_mult = 1.0 + _SEVERITY_KE_BLEND * minf(impact_ke_j / maxf(1.0, _IMPACT_KE_REF_J), 2.0)
+	var effective_damage: float = damage * ke_mult * _Bleeding.get_severity_modifier(part, sub_region)
 	var pct: float = effective_damage / max_hp
 	var sev_pct: String = _severity_from_pct(pct)
 	var sev_abs: String = _severity_from_abs(effective_damage)
@@ -62,15 +71,17 @@ static func severity_from_bone_damage(entity: Node, part: String, bone_damage: f
 
 # --- Add wound / stump wound ---
 
-static func add_wound(entity: Node, part: String, injury_type: String, damage: float, sub_region: String = "", severity_override: String = "") -> void:
+static func add_wound(entity: Node, part: String, injury_type: String, damage: float, sub_region: String = "", severity_override: String = "", impact_ke_j: float = -1.0) -> void:
 	if part.is_empty() or damage <= 0.0:
 		return
-	var severity: String = severity_override if not severity_override.is_empty() else severity_from_damage(entity, part, damage, sub_region)
+	var severity: String = severity_override if not severity_override.is_empty() else severity_from_damage(entity, part, damage, sub_region, impact_ke_j)
 	if injury_type == _Bleeding.INJURY_TYPE_CRUSH and severity == _Bleeding.SEVERITY_MINOR:
 		injury_type = _Bleeding.INJURY_TYPE_BRUISE
 	var base_rate: float = _Bleeding.get_bleeding_rate(injury_type, severity, part, sub_region)
 	if base_rate < 0.0:
 		base_rate = 0.0
+	if base_rate > 0.0 and injury_type == _Bleeding.INJURY_TYPE_CUT and impact_ke_j >= 0.0:
+		base_rate *= 1.0 + _BLEED_KE_BLEND * minf(impact_ke_j / maxf(1.0, _IMPACT_KE_REF_J), 2.0)
 	if base_rate > 0.0:
 		base_rate *= randf_range(_Bleeding.BLEEDING_RATE_VARIANCE_MIN, _Bleeding.BLEEDING_RATE_VARIANCE_MAX)
 	var is_arterial: bool = randf() < _Bleeding.get_arterial_chance(severity, injury_type, part, sub_region) if base_rate > 0.0 else false
@@ -120,6 +131,25 @@ static func create_stump_wound(entity: Node, part: String, sub_region: String) -
 		"is_stump": true
 	}
 	return [injury]
+
+
+static func has_stump_wound(entity: Node, part: String) -> bool:
+	if part.is_empty() or not entity.wounds.has(part):
+		return false
+	for injury in entity.wounds[part]:
+		if bool(injury.get("is_stump", false)):
+			return true
+	return false
+
+
+## Replace existing wounds with a single severance stump wound once.
+## If a stump wound already exists, keep current wound state (do not reset bleed timers/chances).
+static func ensure_stump_wound(entity: Node, part: String, sub_region: String = "") -> void:
+	if part.is_empty():
+		return
+	if has_stump_wound(entity, part):
+		return
+	entity.wounds[part] = create_stump_wound(entity, part, sub_region)
 
 # --- Bleeding rate getters ---
 
@@ -198,6 +228,11 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 		if entity.direct_pressure_held_by != null and "direct_pressure_on_ally" in entity.direct_pressure_held_by:
 			entity.direct_pressure_held_by.direct_pressure_on_ally = {}
 		entity.direct_pressure_held_by = null
+		if entity.get("direct_pressure_assist_held_by") != null and entity.direct_pressure_assist_held_by != null:
+			var asst_auto: Variant = entity.direct_pressure_assist_held_by
+			if asst_auto != null and "direct_pressure_on_ally" in asst_auto:
+				asst_auto.direct_pressure_on_ally = {}
+			entity.direct_pressure_assist_held_by = null
 		entity.direct_pressure_part = ""
 	if not entity.self_direct_pressure_part.is_empty() and get_bleeding_rate_for_part(entity, entity.self_direct_pressure_part) <= _Bleeding.BLEEDING_RATE_EPSILON:
 		print("[Medical] %s direct_pressure auto-cleared: bleeding on %s stopped (self-held, rate <= epsilon)" % [entity.name, entity.self_direct_pressure_part])

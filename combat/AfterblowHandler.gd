@@ -54,11 +54,8 @@ static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, resu
 		attacking_arm = tgt.node.get_attacking_arm()
 	if attacking_arm.is_empty():
 		return false
-	var arm_destroyed: bool = _BodyPartQuery.is_part_destroyed(tgt.node, attacking_arm) if tgt.node != null else false
-	var arm_bone_broken: bool = false
-	if tgt.node != null and tgt.node.get("bone_health"):
-		arm_bone_broken = tgt.node.bone_health.get(attacking_arm, 1.0) <= 0.0
-	if hit_part == attacking_arm and (arm_destroyed or arm_bone_broken):
+	var arm_inoperable: bool = _BodyPartQuery.is_arm_destroyed(tgt.node, attacking_arm) if tgt.node != null else true
+	if hit_part == attacking_arm and arm_inoperable:
 		_cancel_pending(manager, tgt)
 		return false
 	if hit_part == "head" and tgt.node != null and tgt.node.has_method("is_incapacitated") and tgt.node.is_incapacitated():
@@ -89,15 +86,16 @@ static func _cancel_pending(_manager: Node, tgt: Dictionary) -> void:
 	tgt.state = CombatConstants.STATE_RECOVERING
 	tgt.state_timer = 0.0
 	tgt.state_duration = CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S
-	var tgt_name: String = _EntityAccess.get_display_name(tgt)
-	print("[Combat] Afterblow: %s hindered — swing cancelled" % tgt_name)
+	if CombatDebug.flow_verbose_enabled():
+		CombatDebug.flow_log("afterblow %s hindered swing_cancelled" % _EntityAccess.get_display_name(tgt))
 
 static func _execute_afterblow(manager: Node, tgt: Dictionary, hindrance: float) -> bool:
 	var pa: Dictionary = tgt.pending_attack
 	var damage_mult: float = 1.0 - hindrance
 	pa["afterblow_damage_mult"] = maxf(0.2, damage_mult)
 	var tgt_id: int = tgt.get("id", -1)
-	var tgt_name: String = _EntityAccess.get_display_name(tgt, tgt_id)
-	print("[Combat] Afterblow: %s completes swing (hindrance=%.2f => dmg_mult=%.2f)" % [tgt_name, hindrance, pa["afterblow_damage_mult"]])
+	if CombatDebug.flow_verbose_enabled():
+		var tgt_name: String = _EntityAccess.get_display_name(tgt, tgt_id)
+		CombatDebug.flow_log("afterblow %s completes hindrance=%.2f dmg_mult=%.2f" % [tgt_name, hindrance, pa["afterblow_damage_mult"]])
 	manager._execute_attack(tgt_id)
 	return true

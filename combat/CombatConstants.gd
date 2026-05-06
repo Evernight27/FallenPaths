@@ -45,6 +45,8 @@ const MISS_CHANCE_BASE := 0.06
 const HIT_CHANCE_PERCEPTION_MIN := 0.8
 const HIT_CHANCE_PERCEPTION_MAX := 1.2
 const GLANCING_DAMAGE_RATIO := 0.25
+## Sum of final cut+blunt+bone at or below this is treated as no physical damage (outcome + UI).
+const PHYSICAL_DAMAGE_ZERO_EPS := 1e-4
 
 # Intensity
 const INTENSITY_STRENGTH_SCALE := 0.5
@@ -54,6 +56,10 @@ const INTENSITY_RANDOM_RANGE := 0.2
 
 # Medical
 const MEDICAL_MOVE_IDS: Array[String] = ["bandage_self", "pack_wound", "apply_direct_pressure", "apply_tourniquet"]
+## Extra pressure pass from the treater while an ally already holds the wound (bandage/pack/tourniquet wind-up). Scales treater medical effectiveness into `EntityMedical._apply_direct_pressure_to_wounds`.
+const DIRECT_PRESSURE_TREATMENT_ASSIST_MULT := 0.55
+## Additive to treater effectiveness when completing wind-up with `direct_pressure_assist_held_by` set (helper + treater).
+const MEDICAL_ASSISTED_TREATMENT_EFFICIENCY_BONUS := 0.12
 
 # Parry (defensive move ~40–60% of max strike; research)
 const PARRY_V_FRACTION_OF_MAX_STRIKE := 0.5
@@ -170,32 +176,41 @@ const GUARD_TRANSITION_COST_SCALE := 0.4
 # AI target selection: preferred_parts from move get this weight multiplier (cut geometry).
 const PREFERRED_PART_BONUS_MULT := 1.5
 
-# Debug: when true, log detailed melee resolution (AttackResolver hit lines, parry paths, wind-up skips). Verbose.
-const COMBAT_DEBUG := false
+# Debug: when true, log detailed melee resolution (per-hit damage line, EntityDamage armor/bone traces, parry paths, wind-up skips). Verbose.
+# On for local validation (spear / back-rank damage, armor traces); set false for quiet runs / release-like testing.
+const COMBAT_DEBUG := true
 # Calibration: when true, log alignment, parry_c_d, variance, remaining_ratio for tuning to HEMA 57–80% parry share.
 const COMBAT_DEBUG_CALIBRATION := false
 # Flow / feature testing: with `COMBAT_EVENT_DEBUG` alone — turn pick lines (`CombatDebug.flow_log_turn`) and `[Combat.Flow]` prints from `flow_log_turn` only.
 # With `COMBAT_EVENT_DEBUG_VERBOSE` also true — `CombatDebug.flow_log` (get_available_actions, incursion_snapshot, resolve_action, skip_turn, formation resolves),
 # `[Combat]` formation move banners, and `EVENT_ACTION_READY skipped` (state not waiting). Crash summaries may still use `[Combat]` in `CombatEngagementResolver`.
-# Disable in release to reduce console noise. For per-hit damage lines, enable COMBAT_DEBUG.
-const COMBAT_EVENT_DEBUG := false
+# Disable in release to reduce console noise. Per-hit stdout damage + armor/bone traces: enable COMBAT_DEBUG; extra before/after part state: COMBAT_DEBUG_CALIBRATION.
+# On for full combat pipeline + depth-polearm `[Combat.Flow]` lines; pair with COMBAT_EVENT_DEBUG_VERBOSE.
+const COMBAT_EVENT_DEBUG := true
 ## When true with `COMBAT_EVENT_DEBUG`, enables verbose `CombatDebug.flow_log` and related high-frequency prints (see block comment above).
 ## Turn pick lines (`flow_log_turn`) still print when only `COMBAT_EVENT_DEBUG` is true.
-const COMBAT_EVENT_DEBUG_VERBOSE := false
+const COMBAT_EVENT_DEBUG_VERBOSE := true
+## With verbose flow: `CombatDebug.flow_log(msg, dedupe_key)` omits a line when it matches the previous line for the same key (UI / tick polling). Set false to log every emission.
+const COMBAT_FLOW_LOG_SUPPRESS_REPEATED := true
+## When true, vacancy plug reconcile runs only on formations marked dirty (`CombatManager.mark_formation_vacancy_dirty`), not every frame on both lines. Set false to restore always-reconcile-all behavior (e.g. regression debugging).
+const COMBAT_VACANCY_RECONCILE_DIRTY_ONLY := true
+## 0 = off. If N > 0, every N combat ticks all formations are marked vacancy-dirty (safety valve if a code path forgets to mark).
+const COMBAT_VACANCY_DIRTY_SAFETY_EVERY_N_FRAMES := 0
 # When true with a debug build, `CombatFormationFlow` logs if vacancy reconcile leaves an empty rank-0 column
 # while a non-intruded ally still sits deeper in that column (should never happen after `reconcile_vacancy_plugs_*`).
 const COMBAT_FORMATION_INVARIANT_DEBUG := false
 
-# Stamina (separate pool): attack/parry consume; refill when idle. At 0: parry penalty, attack damage reduction.
+# Stamina (separate pool): attack/parry consume; refill when idle.
+# Realism target: stamina shapes execution quality without dominating combat length.
 const STAMINA_MAX := 100.0
-const STAMINA_REFILL_RATE := 12.0  # per second when idle
-const STAMINA_ATTACK_COST_BASE := 8.0
-const STAMINA_PARRY_COST := 10.0
+const STAMINA_REFILL_RATE := 6.5   # per second when idle
+const STAMINA_ATTACK_COST_BASE := 12.0
+const STAMINA_PARRY_COST := 12.0
 const STAMINA_AT_ZERO_PARRY_MULT := 0.5
-const STAMINA_AT_ZERO_DAMAGE_MULT := 0.6
-# Non-linear fatigue: power 0.6 — sharp drop below ~25% stamina (exercise science).
+const STAMINA_AT_ZERO_DAMAGE_MULT := 0.7
+# Non-linear fatigue: moderate curve; low stamina hurts quality but is not a hard cliff.
 # Used everywhere stamina affects outcome: variance, parry, damage.
-const STAMINA_FACTOR_POWER := 0.6
+const STAMINA_FACTOR_POWER := 0.65
 
 ## Returns 0-1. At 100% stamina → 1; at 0% → 0. Curve ramps down faster below ~25%.
 static func stamina_factor(ratio: float) -> float:
@@ -290,6 +305,8 @@ const COMBAT_FORMATION_PLUG_MOVE_DEBUG := false
 const COMBAT_FORMATION_VACANCY_DEBUG := false
 ## Extra priority score for filling **rank 0** holes so the front line closes before lateral shuffles when scores tie.
 const FORMATION_PLUG_RANK0_URGENCY_BONUS := 0.75
+## Added to `READY_DELAY_AFTER_PROMOTION_S` per file of horizontal travel when a **rear** rank plugs a rank-0 hole from another file (reserves sidestep before stepping up; front rank no longer shuffles sideways first).
+const FORMATION_PLUG_REAR_CROSS_FILE_READY_PER_FILE_S := 0.18
 ## Per-combatant lateral metric (engagement plan §4.2). Bounded; 0 = column center.
 const LANE_OFFSET_DEFAULT := 0.0
 const LANE_OFFSET_ABS_MAX := 0.5
@@ -331,8 +348,8 @@ const STANCE_DEFENSIVE := "defensive"
 const STANCE_BALANCED := "balanced"
 const STANCE_AGGRESSIVE := "aggressive"
 const STANCE_CONTROLLING := "controlling"
-const STANCE_MIN_STAMINA_AGGRESSIVE := 25.0
-const STANCE_MIN_STAMINA_CONTROLLING := 20.0
+const STANCE_MIN_STAMINA_AGGRESSIVE := 30.0
+const STANCE_MIN_STAMINA_CONTROLLING := 24.0
 # Swap rank / fall back: time-based, no stamina. Lane: clear=1.0, crowded=1.3, blocked=1.6. Pressure: defensive=0.9, neutral=1.0, aggressive=1.3.
 const BASE_FALL_BACK_S := 1.0
 const LANE_MOD_CLEAR := 1.0
@@ -365,7 +382,7 @@ const BREACH_MOVE_IDS: Array[String] = [MOVE_ID_CRASH]
 ## Tactical rank penetration (0 = at their front line). Not armor RHA penetration.
 const TACTICAL_PENETRATION_DEPTH_MAX := 2
 ## Crash attempt: stamina + cooldown (§10.2 A5); tune with BreachResolver / AI.
-const CRASH_STAMINA_COST := 15.0
+const CRASH_STAMINA_COST := 20.0
 const CRASH_COOLDOWN_S := 4.0
 ## BreachResolver: reach_ratio = melee_range / eff_dist clamp (drive scaling).
 const CRASH_DRIVE_REACH_MIN := 0.78
@@ -381,7 +398,8 @@ const READY_DELAY_CRASH_ATTEMPT_S := 0.35
 ## crash_breach_viability(): normalize strength × stamina_curve × close_attempt stance to 0..1.
 const CRASH_VIABILITY_BASE_REF := 108.0
 ## Minimum viability to offer / resolve crash (gates AvailableActionsBuilder + CombatEngagementResolver).
-const CRASH_BREACH_VIABILITY_MIN := 0.36
+## With default ref 108: balanced 100 STR at full stamina is just below this — need aggressive stance, ~105+ STR, and/or higher stamina.
+const CRASH_BREACH_VIABILITY_MIN := 0.93
 ## AI weight for MOVE_ID_CRASH: pow(viability, exp) × cap × stamina shaping (CombatAIActionPicker).
 const CRASH_AI_VIABILITY_EXPONENT := 1.28
 const CRASH_AI_WEIGHT_CAP := 2.15
@@ -389,10 +407,17 @@ const CRASH_AI_WEIGHT_CAP := 2.15
 const CRASH_AI_POSTURE_OPEN_EXTRA_MULT := 1.12
 const CRASH_AI_POSTURE_LINE_EXTRA_MULT := 0.94
 const CRASH_AI_POSTURE_DUEL_EXTRA_MULT := 1.0
+## Tier 1.9 (P10): depth rank + open spear lane — AI favors thrusts over cuts/closes (CombatAIActionPicker).
+const DEPTH_POLEARM_AI_STAB_WEIGHT_MULT := 1.35
+const DEPTH_POLEARM_AI_NON_STAB_WEIGHT_MULT := 0.9
+const DEPTH_POLEARM_AI_ATTEMPT_CLOSE_MULT := 0.82
+## Tier 1.9: max |Δfile| between **same-file rank-0 ally** and **enemy rank 0** for depth polearm lane thrusts.
+## 0 = only the opposed file; 1 = immediate neighbor files (reach + `effective_pair_eff_dist` still gate strikes).
+const DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES := 1
 ## Simultaneous line-breach (crash) intruders per **side**; keeps intrusion a single heavy-infantry role, not a line-wide rush.
 const MAX_INTRUDERS_PER_SIDE := 1
-## Minimum equipped armor mass (kg) to attempt crash intrusion — light skirmishers do not open the line alone.
-const CRASH_INTRUSION_MIN_ARMOR_MASS_KG := 12.5
+## Minimum equipped armor mass (kg) to attempt crash intrusion — heavy harness only (typical full kit ~15–28 kg).
+const CRASH_INTRUSION_MIN_ARMOR_MASS_KG := 26.5
 
 ## IncursionBreachTest (and similar): fixed global RNG seed + crash AI bias + queued contest rolls so breach/clog code always runs.
 static var _incursion_breach_harness_active: bool = false
@@ -441,6 +466,11 @@ const FEATURE_SECTOR_SURROUND_LOAD := false
 ## `breached_files` still affects ZoC lane stress but no longer blocks swap / rotate / fall_back (FormationBreachRules.breach_blocks_open_lane_moves).
 ## Mode transitions are computed from live front-rank counts/fill each tick; existing intruders persist, but new crash/incursion can be gated by mode.
 const FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES := true
+## Line crash → breach intrusion (Tier 1.2–1.4 slot/wedge path). When **false**, new intrusions **cannot** start: crash is not listed and `resolve_crash_attempt` no-ops with reason `intrusion_disabled`.
+## Intruder geometry, wedge, and vacancy-plug code remain; enable when resuming intrusion polish (`docs/IMPLEMENTATION_ORDER.md` — development gate).
+const FEATURE_LINE_CRASH_INTRUSION := false
+## **Dev:** After `CombatManager.start`, `BattleScene` re-equips combatants with **rank > 0** with `SPEAR` (formations unchanged — same `FormationPreset.default_for_count` as usual). Set **true** only for depth-polearm / spear-lane debugging.
+const DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT := false
 ## Engagement-mode names from live front-rank state.
 const ENGAGEMENT_MODE_FORMATION := "formation"
 const ENGAGEMENT_MODE_SKIRMISH := "skirmish"
@@ -479,11 +509,16 @@ const ENGAGEMENT_POSTURE_DUEL := "duel"
 ## LINE↔OPEN hysteresis (Tier 1.4): cohesion must reach **L_in** to flip OPEN→LINE; must fall below **L_out** to flip LINE→OPEN (`L_in` > `L_out`).
 const LINE_COHESION_POSTURE_ENTER_LINE_MIN := 0.62
 const LINE_COHESION_POSTURE_LEAVE_LINE_BELOW := 0.50
+## When **> 0**, each side’s `L_in`/`L_out` shift from **relative** cohesion vs the opponent (`delta = strength * (our_coh - opp_coh)`):
+## stronger line → easier LINE (lower `L_in`, higher `L_out`); weaker → easier OPEN. Set encounter `posture_asymmetry_strength` to **0** to disable.
+const POSTURE_ASYMMETRY_COH_COUPLE_STRENGTH := 0.12
 ## Combatant: normal rank/file vs crashed-through and lodged in opponent context (slots TBD).
 const ENGAGEMENT_ROLE_LINE := "line"
 const ENGAGEMENT_ROLE_INTRUDED := "intruded"
 ## Cohesion = (COHESION_BASE_FLOOR + COHESION_FILL_SCALE * front_fill) * (1 - COHESION_BREACH_WEIGHT * avg_breach) * morale_cohesion_factor
 const COHESION_BREACH_WEIGHT := 0.45
+## Floor for `morale_cohesion_factor` (matches `CombatFormationEngagement` clamp).
+const MORALE_COHESION_FACTOR_MIN := 0.15
 const COHESION_BASE_FLOOR := 0.35
 const COHESION_FILL_SCALE := 0.65
 ## Optional `line_discipline` tag on **encounter** or **formation preset** (formation wins): shifts hysteresis band for testing / data.
@@ -531,6 +566,11 @@ const ENCOUNTER_KEY_POSTURE_ENTER_DELTA := "engagement_posture_enter_delta"
 const ENCOUNTER_KEY_POSTURE_LEAVE_DELTA := "engagement_posture_leave_delta"
 ## String: `line_discipline` = `LINE_DISCIPLINE_*` — encounter-wide default; overridden by per-formation `line_discipline` from preset.
 const ENCOUNTER_KEY_LINE_DISCIPLINE := "line_discipline"
+## Optional float override for `POSTURE_ASYMMETRY_COH_COUPLE_STRENGTH` (0 = no opponent-relative posture coupling).
+const ENCOUNTER_KEY_POSTURE_ASYMMETRY_STRENGTH := "posture_asymmetry_strength"
+## Tier 1.5: direct `morale_cohesion_factor` for that side’s formation (0.15–1.0); overrides combatant mean when set on `manager.encounter`.
+const ENCOUNTER_KEY_MORALE_COHESION_PLAYER := "morale_cohesion_player"
+const ENCOUNTER_KEY_MORALE_COHESION_ENEMY := "morale_cohesion_enemy"
 const ENCOUNTER_PROTECTION_CIRCLE_ACTIVE := "protection_circle_active"
 ## Phase 6: Which side suffers ambush penalties (typically "player" when monsters ambush party).
 const ENCOUNTER_AMBUSHED_SIDE := "ambushed_side"
@@ -539,7 +579,7 @@ const ENCOUNTER_AMBUSHED_SIDE := "ambushed_side"
 const DISTANCE_CLOSE := "close"
 const DISTANCE_MID := "mid"
 const DISTANCE_LONG := "long"
-const REACH_MID_MIN := 1.2  # Spear can attack from mid; shorter weapons need close.
+const REACH_MID_MIN := 1.2  # AI/depth polearm bias; shorts still strike at MID when melee_range >= effective_pair_eff_dist.
 const MOVE_ID_ATTEMPT_CLOSE := "attempt_close"
 ## After a **failed** close vs a defender, `attempt_close` vs that same defender is withheld until `combat_clock` passes this (per attacker–defender pair). Turn spacing uses `READY_DELAY_CLOSE_ATTEMPT_S` separately.
 const CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S := 1.65
@@ -686,7 +726,7 @@ const LINE_ANGLE_DEG: Dictionary = {
 const LINE_TO_ANGLE_DEG: Dictionary = {"high": 0.0, "right": 90.0, "low": 180.0, "left": 270.0}
 const ANGLE_VARIANCE_DEG: float = 8.0  # Default ±deg human error; overridden per move by angle_variance_deg.
 # Fatigue/readiness/off-balance: variance multiplier. At stamina 0, mult = STAMINA_AT_ZERO_VARIANCE_MULT.
-const ANGLE_VARIANCE_STAMINA_AT_ZERO_MULT: float = 1.5
+const ANGLE_VARIANCE_STAMINA_AT_ZERO_MULT: float = 1.6
 const ANGLE_VARIANCE_OFF_BALANCE_MULT: float = 1.35
 # Mass: heavier weapons harder to control. Reference 1.0 kg; mass 1.8 kg adds ~8% variance.
 const ANGLE_VARIANCE_MASS_REFERENCE_KG: float = 1.0

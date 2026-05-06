@@ -2,6 +2,7 @@ class_name CombatDistanceBands
 extends RefCounted
 
 ## MID/LONG/CLOSE bands from rank, `effective_pair_eff_dist`, `effective_pair_file_spacing_equivalent`, ZoC `mid_reach_files`, and weapon reach.
+## Strike eligibility vs a pair at MID also requires `AvailableActionsBuilder` geometric check (`melee_range >= effective_pair_eff_dist`); not only `REACH_MID_MIN`.
 
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
@@ -22,8 +23,9 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 				and str(opp.get("formation_id", "")) == str(c.get("intrusion_host_fid", ""))
 			)
 			if our_rank > 0 and not c_intruded_on_host_opp:
-				c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
-				continue
+				if not _ActionsBuilder.depth_polearm_lane_open(manager, c):
+					c.distance_to[opp.id] = CombatConstants.DISTANCE_LONG
+					continue
 			var cur: String = c.distance_to.get(opp.id, CombatConstants.DISTANCE_MID)
 			if cur == CombatConstants.DISTANCE_CLOSE:
 				continue
@@ -43,7 +45,7 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 				c.distance_to[opp.id] = CombatConstants.DISTANCE_MID
 			else:
 				# (C) Attacker reach already covers geometric separation — treat as mid so strike
-				# listing matches geometry (avoids LONG + in_swing_range → only attempt_close).
+				# Promote to MID when attacker's reach alone covers separation (keeps bands aligned with `can_melee_threaten` / action list).
 				var atk_reach_only: float = _ActionsBuilder.melee_weapon_reach(c)
 				if atk_reach_only + 1e-4 >= eff_dist:
 					c.distance_to[opp.id] = CombatConstants.DISTANCE_MID

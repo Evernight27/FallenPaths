@@ -45,8 +45,8 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		var part: String = str(options.get("target_part", ""))
 		var who: String = _EntityAccess.get_display_name(atk, attacker_id)
 		var tgt_desc: String = "ally" if target_id != attacker_id else "self"
-		CombatDebug.flow_log("resolve_action id=%d medical %s part=%s (%s)" % [attacker_id, move_id, part, tgt_desc])
-		print("[Combat] Action: %s chose medical %s on part=%s (%s)" % [who, move_id, part, tgt_desc])
+		if not CombatDebug.flow_verbose_enabled():
+			print("[Combat] Action: %s chose medical %s on part=%s (%s)" % [who, move_id, part, tgt_desc])
 		MedicalActionStarter.start(manager, attacker_id, target_id, move_id, part)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
@@ -54,8 +54,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	if tgt == null or not tgt.alive:
 		return
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-		CombatDebug.flow_log("resolve_action id=%d move=attempt_close target_id=%d" % [attacker_id, target_id])
-		if CombatConstants.COMBAT_EVENT_DEBUG:
+		if not CombatDebug.flow_verbose_enabled() and CombatConstants.COMBAT_EVENT_DEBUG:
 			var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 			var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 			print("[Combat] %s attempting to close on %s (tactical distance — pressure vs evasion roll)" % [atk_name, tgt_name])
@@ -67,7 +66,6 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			return
 		if str(atk.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
 			return
-		CombatDebug.flow_log("resolve_action id=%d move=crash target_id=%d" % [attacker_id, target_id])
 		manager._resolve_crash_attempt(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
@@ -87,7 +85,8 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			if not AvailableActionsBuilder.solo_fall_back_action_legal(manager, atk):
 				CombatDebug.flow_log(
 					"resolve_action solo fall_back rejected id=%d fid=%s (discipline/state/breach/fill)"
-					% [attacker_id, fid_mv]
+					% [attacker_id, fid_mv],
+					"solo_fall_back_reject:%d" % attacker_id
 				)
 				return
 		var breach_blocked: bool = false
@@ -108,10 +107,10 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 					move_id,
 					fid_mv,
 					CombatDebug.format_breached_files(f_mv.get("breached_files", {}))
-				]
+				],
+				"formation_move_block:%d:%s" % [attacker_id, move_id]
 			)
 			return
-		CombatDebug.flow_log("resolve_action id=%d formation move_id=%s target_id=%d" % [attacker_id, move_id, target_id])
 	if move_id == CombatConstants.MOVE_ID_SWAP_RANK:
 		manager._start_formation_pair_move(attacker_id, target_id, "swap_rank")
 		manager.emit_signal("turn_resolved", attacker_id)
@@ -135,10 +134,17 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		manager._start_rotate_file(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
-	CombatDebug.flow_log("resolve_action id=%d melee move_id=%s target_id=%d" % [attacker_id, move_id, target_id])
 	if atk.node != null and atk.node.has_method("clear_direct_pressure"):
 		if atk.node.has_method("is_applying_direct_pressure") and atk.node.is_applying_direct_pressure():
-			print("[Combat] %s taking another action => clear_direct_pressure (was holding %s)" % [atk.node.name if atk.node else "id:%d" % attacker_id, atk.node.get_direct_pressure_part() if atk.node.has_method("get_direct_pressure_part") else "?"])
+			CombatDebug.flow_log(
+				"clear_direct_pressure id=%d %s (was %s)"
+				% [
+					attacker_id,
+					atk.node.name if atk.node else "?",
+					atk.node.get_direct_pressure_part() if atk.node.has_method("get_direct_pressure_part") else "?"
+				],
+				"clear_direct_pressure:%d" % attacker_id
+			)
 		atk.node.clear_direct_pressure()
 	var opts: Dictionary = {}
 	if options.has("target_part"):
