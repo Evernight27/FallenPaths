@@ -2,6 +2,8 @@ class_name FormationLayoutBuilder
 extends RefCounted
 
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
 ## Optional: rank×file grid layout for combatant stat rows (not used by BattleScene — stats stay in registration order).
 ## Formation positions use FormationDiagramBuilder. Kept for tests or alternate UIs.
@@ -21,7 +23,7 @@ static func apply_formation_layout(
 	# from combatant count (e.g. front_count, or preset.ranks missing), causing preset mismatch.
 	var formation: Dictionary = {}
 	if "formations" in manager and manager.formations is Dictionary:
-		formation = manager.formations.get(side, {})
+		formation = _FormationSlots.formation_record_read(manager.formations, side)
 	var files: int = formation.get("files", preset.get("files", 1))
 	var ranks: int = formation.get("ranks", preset.get("ranks", 1))
 	var density: String = formation.get("density", preset.get("density", "normal"))
@@ -34,12 +36,12 @@ static func apply_formation_layout(
 	var slot_to_dead: Dictionary = {}
 	var combatants: Array = manager.get_combatants() if manager.has_method("get_combatants") else []
 	for c in combatants:
-		if c.get("side", "") != side:
+		if _EntityAccess.side_str(c) != side:
 			continue
-		var r: int = c.get("rank", 0)
-		var f: int = c.get("file", 0)
+		var r: int = _EntityAccess.rank_int(c)
+		var f: int = _EntityAccess.file_int(c)
 		var key := Vector2i(r, f)
-		if not c.get("alive", true):
+		if not _EntityAccess.alive_bool(c, true):
 			if not slot_to_dead.has(key):
 				slot_to_dead[key] = []
 			slot_to_dead[key].append(c)
@@ -104,14 +106,14 @@ static func apply_formation_layout(
 			# Dead at this slot first (defeated stay where they fell)
 			var dead_list: Array = slot_to_dead.get(key, [])
 			for dc in dead_list:
-				var row = id_to_row.get(dc.get("id", -1), null)
+				var row = id_to_row.get(_EntityAccess.id_int(dc), null)
 				if row != null:
 					_modulate_dead_row(row)
 					slot_vbox.add_child(row)
 			# Alive occupant, or placeholder only when slot is truly empty (no dead, no living)
 			var c = slot_to_combatant.get(key, null)
 			if c != null:
-				var row = id_to_row.get(c.get("id", -1), null)
+				var row = id_to_row.get(_EntityAccess.id_int(c), null)
 				if row != null:
 					slot_vbox.add_child(row)
 			elif dead_list.is_empty():

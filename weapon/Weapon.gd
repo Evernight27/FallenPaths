@@ -41,6 +41,32 @@ var impact_velocity_bands: Dictionary = {}
 var strike_physics: Dictionary = {}
 
 
+static func _normalize_part_id(raw_id: Variant) -> String:
+	return str(raw_id).to_lower().strip_edges()
+
+
+static func parry_part_id_from_parts(parts_arr: Array, preferred_id: String = "") -> String:
+	var wanted: String = _normalize_part_id(preferred_id)
+	if not wanted.is_empty():
+		for p in parts_arr:
+			if p is Dictionary and _normalize_part_id((p as Dictionary).get("id", "")) == wanted:
+				if bool((p as Dictionary).get("parry_eligible", false)):
+					return str((p as Dictionary).get("id", ""))
+				break
+	for p in parts_arr:
+		if p is Dictionary and bool((p as Dictionary).get("parry_eligible", false)):
+			return str((p as Dictionary).get("id", ""))
+	var best_id: String = ""
+	var best_fraction: float = -1.0
+	for p in parts_arr:
+		if p is Dictionary:
+			var frac: float = float((p as Dictionary).get("mass_fraction", 0.0))
+			if frac > best_fraction:
+				best_fraction = frac
+				best_id = str((p as Dictionary).get("id", ""))
+	return best_id
+
+
 static func create_from_definition(weapon_id: String) -> Weapon:
 	var def: Dictionary = WeaponConstants.get_weapon_definition(weapon_id)
 	if def.is_empty():
@@ -64,12 +90,7 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 		for p in parts_arr:
 			if p is Dictionary:
 				w.parts.append(p.duplicate())
-		w.parry_part_id = str(def.get("parry_part_id", ""))
-		if w.parry_part_id.is_empty():
-			for p in w.parts:
-				if p is Dictionary and p.get("parry_eligible", false):
-					w.parry_part_id = str(p.get("id", ""))
-					break
+		w.parry_part_id = parry_part_id_from_parts(w.parts, str(def.get("parry_part_id", "")))
 	if w.parts.is_empty():
 		var len_cm: float = maxf(30.0, w.melee_range * 60.0)
 		w.parts = [
@@ -94,15 +115,25 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 			var arch_id = entry.get("archetype_id", move_def.get("archetype_id", WeaponConstants.ARCHETYPE_SLASH))
 			w.attack_types[move_id] = { "cooldown": cooldown, "archetype_id": arch_id }
 	var brct: Variant = def.get("bind_riposte_contact_types", [])
+	var valid_bind_contacts: Dictionary = {
+		WeaponConstants.ATTACK_TYPE_STAB: true,
+		WeaponConstants.ATTACK_TYPE_CUT: true,
+		WeaponConstants.ATTACK_TYPE_BLUNT: true
+	}
 	if brct is Array and brct.size() > 0:
-		w.bind_riposte_contact_types = brct.duplicate()
+		var seen_override: Dictionary = {}
+		for raw_ct in brct:
+			var ct_override: String = str(raw_ct).to_lower().strip_edges()
+			if valid_bind_contacts.get(ct_override, false) and not seen_override.get(ct_override, false):
+				seen_override[ct_override] = true
+				w.bind_riposte_contact_types.append(ct_override)
 	else:
 		var seen: Dictionary = {}
 		for move_id in w.attack_types.keys():
 			if WeaponConstants.is_parry_move(move_id):
 				var m: Dictionary = WeaponConstants.get_move(move_id)
-				var ct: String = str(m.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
-				if not seen.get(ct, false):
+				var ct: String = str(m.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT)).to_lower().strip_edges()
+				if valid_bind_contacts.get(ct, false) and not seen.get(ct, false):
 					seen[ct] = true
 					w.bind_riposte_contact_types.append(ct)
 	var ivb: Variant = def.get("impact_velocity_bands", {})
@@ -239,8 +270,9 @@ func has_parts() -> bool:
 func get_parry_part_mass_kg() -> float:
 	if not has_parts() or parry_part_id.is_empty():
 		return mass
+	var wanted_part_id: String = _normalize_part_id(parry_part_id)
 	for p in parts:
-		if p is Dictionary and str(p.get("id", "")) == parry_part_id:
+		if p is Dictionary and _normalize_part_id(p.get("id", "")) == wanted_part_id:
 			var frac: float = float(p.get("mass_fraction", 1.0))
 			return mass * clampf(frac, 0.0, 1.0)
 	return mass
@@ -249,8 +281,9 @@ func get_parry_part_mass_kg() -> float:
 func get_parry_part_length_cm() -> float:
 	if not has_parts() or parry_part_id.is_empty():
 		return 0.0
+	var wanted_part_id: String = _normalize_part_id(parry_part_id)
 	for p in parts:
-		if p is Dictionary and str(p.get("id", "")) == parry_part_id:
+		if p is Dictionary and _normalize_part_id(p.get("id", "")) == wanted_part_id:
 			return float(p.get("length_cm", 0))
 	return 0.0
 
@@ -258,31 +291,33 @@ func get_parry_part_length_cm() -> float:
 func get_striking_part_mass_kg(contact_type: String) -> float:
 	if not has_parts():
 		return mass
-	var ct: String = contact_type.to_lower() if contact_type else WeaponConstants.ATTACK_TYPE_CUT
+	var ct: String = contact_type.to_lower().strip_edges() if contact_type else WeaponConstants.ATTACK_TYPE_CUT
 	for p in parts:
 		if p is Dictionary:
 			var sf = p.get("striking_for", [])
-			if sf is Array and ct in sf:
-				var frac: float = float(p.get("mass_fraction", 1.0))
-				return mass * clampf(frac, 0.0, 1.0)
+			if sf is Array:
+				for listed in sf:
+					if str(listed).to_lower().strip_edges() == ct:
+						var frac: float = float(p.get("mass_fraction", 1.0))
+						return mass * clampf(frac, 0.0, 1.0)
 	match ct:
 		WeaponConstants.ATTACK_TYPE_STAB:
 			for p in parts:
 				if p is Dictionary:
-					var pid: String = str(p.get("id", ""))
+					var pid: String = _normalize_part_id(p.get("id", ""))
 					if pid in ["point", "blade", "spike", "head"]:
 						var frac: float = float(p.get("mass_fraction", 1.0))
 						return mass * clampf(frac, 0.0, 1.0)
 		WeaponConstants.ATTACK_TYPE_CUT:
 			for p in parts:
-				if p is Dictionary and str(p.get("id", "")) == "blade":
+				if p is Dictionary and _normalize_part_id(p.get("id", "")) == "blade":
 					var frac: float = float(p.get("mass_fraction", 1.0))
 					return mass * clampf(frac, 0.0, 1.0)
 		WeaponConstants.ATTACK_TYPE_BLUNT:
 			for p in parts:
 				if p is Dictionary:
-					var pid: String = str(p.get("id", ""))
-					if pid in ["head", "haft"]:
+					var pid: String = _normalize_part_id(p.get("id", ""))
+					if pid in ["head", "haft", "shaft"]:
 						var frac: float = float(p.get("mass_fraction", 1.0))
 						return mass * clampf(frac, 0.0, 1.0)
 	if parts.size() > 0 and parts[0] is Dictionary:
@@ -295,7 +330,7 @@ func get_parry_contact_type() -> String:
 	if not has_parts() or parry_part_id.is_empty():
 		return "blade"
 	var map: Dictionary = {"blade": "blade", "handle": "blade", "shaft": "shaft", "haft": "haft", "head": ""}
-	var t: String = map.get(parry_part_id.to_lower(), "blade")
+	var t: String = map.get(_normalize_part_id(parry_part_id), "blade")
 	return t if not t.is_empty() else "blade"
 
 ## Strong fraction for blade parrying: portion of weapon near guard (forte). handle_length/total_length.
@@ -311,7 +346,7 @@ func get_parry_strong_fraction() -> float:
 		if p is Dictionary:
 			var plen: float = float(p.get("length_cm", 0))
 			total += plen
-			var pid: String = str(p.get("id", "")).to_lower()
+			var pid: String = _normalize_part_id(p.get("id", ""))
 			if pid == "handle":
 				handle_len = plen
 	if total <= 0.0 or handle_len <= 0.0:

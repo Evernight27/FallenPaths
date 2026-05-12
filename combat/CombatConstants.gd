@@ -29,6 +29,8 @@ const WIND_UP_SCALE_S := 0.6
 const RECOVERY_BASE_S := 0.2
 const RECOVERY_COMMITMENT_SCALE_S := 0.5
 const RECOVERY_EXTRA_HIT_S := 0.0
+## Outcome `negligible` (contact with sub-threshold rounded HP chip): slightly shorter recovery than a counted hit.
+const RECOVERY_EXTRA_NEGLIGIBLE_CHIP_S := -0.06
 const RECOVERY_EXTRA_DEFLECTED_BASE_S := 0.1
 const RECOVERY_DEFLECT_MOMENTUM_SCALE_S := 0.15
 const RECOVERY_EXTRA_GLANCING_BASE_S := 0.12
@@ -240,8 +242,39 @@ static func compute_parry_redirect_mult(pcfg: Dictionary, agi: float, perc: floa
 		redirect_mult *= 1.0 + mass_bonus
 	return redirect_mult
 
-# Event queue (Phase 1). See docs/COMBAT_ROADMAP_AND_STAMINA.md (stamina + event queue sections).
-# Event queue (Phase 1). Resolve at combat_clock; tie-break: agility desc, then combatant_id asc.
+
+## Tier 3.2: **`c_d_final` / (`parry_p_a * PARRY_DEFLECT_THRESHOLD`)** — shared by **`parry_control`**, **`severity`**, and **`parry_clash_context.margin_ratio`** (`DefenseResolutionHandler`).
+static func parry_deflect_margin_ratio(c_d_final: float, parry_p_a: float) -> float:
+	return c_d_final / maxf(parry_p_a * PARRY_DEFLECT_THRESHOLD, 0.01)
+
+
+## Tier 3.2: Deflection blend driver in **`parry_clash_context.severity`** / **`GuardLineUpdater.set_guard_deflected`** (from **`margin_ratio`** via **`parry_deflect_margin_ratio`** when **`severity`** omitted).
+static func parry_deflect_severity_from_margin_ratio(margin_ratio: float) -> float:
+	return clampf((margin_ratio - 1.0) / 1.0, 0.0, 1.0)
+
+
+## Tier 3.2: **`parry_deflect`** full-stop bind vs deflect score (`parry_clash_context.parry_control`; **`DefenseResolutionHandler`**). Uses post-variance **`c_d_final`**. **`contact_type`**: `stab` | `cut` | `blunt` (from **`WeaponConstants.contact_type_for_move_id`**).
+static func parry_control_for_bind_deflect(
+	c_d_final: float,
+	parry_p_a: float,
+	alignment: float,
+	parry_readiness: float,
+	parry_off_balance: bool,
+	late_parry: bool,
+	contact_type: String
+) -> float:
+	var margin_ratio: float = parry_deflect_margin_ratio(c_d_final, parry_p_a)
+	var margin_factor: float = clampf(margin_ratio, 0.5, 2.0)
+	var readiness_factor: float = parry_readiness * (PARRY_OFF_BALANCE_CONTROL_FACTOR if parry_off_balance else 1.0)
+	var timing_factor: float = PARRY_LATE_CONTROL_FACTOR if late_parry else 1.0
+	var p: float = clampf(margin_factor * alignment * readiness_factor * timing_factor, 0.0, 1.0)
+	var ct: String = str(contact_type).to_lower().strip_edges()
+	if ct == "stab":
+		p *= PARRY_THRUST_CONTROL_MULT
+	return p
+
+
+# Event queue (Phase 1). See docs/COMBAT_ROADMAP_AND_STAMINA.md (stamina + event queue sections). Resolve at combat_clock; tie-break: agility desc, then combatant_id asc.
 const EVENT_ACTION_READY := "action_ready"
 const EVENT_MELEE_ATTACK := "melee_attack"
 const EVENT_RECOVERY_END := "recovery_end"
@@ -265,6 +298,12 @@ const SPACING_LOOSE := 1.8
 const REACH_SAFETY_FACTOR := 0.8
 const FLANK_PARRY_MOD := 0.8
 const REAR_PARRY_MOD := 0.7
+## Pack / protection-circle fallback: flank parry mod when `effective_pair_file_spacing_equivalent` ≥ this (Tier 3.1 — wedge/lane-aware; matches integer |Δfile|≥2 at default spacing).
+const PARRY_FLANK_EFFECTIVE_FILES_MIN := 2.0
+## Abstract strike **measure**: `melee_range / max(effective_pair_eff_dist, floor)` then clamp (Tier 3.1 — `AvailableActionsBuilder.strike_measure_ratio_*`, `StrikeRealismProfile.measure_ratio`).
+const STRIKE_MEASURE_EFF_DIST_FLOOR := 0.2
+const STRIKE_MEASURE_RATIO_MIN := 0.75
+const STRIKE_MEASURE_RATIO_MAX := 1.12
 # Phase 4: ZoC — zone control thresholds and cross-zone support (tune in playtests).
 const ZOC_ACCESS_THRESHOLD := 0.55
 const ZOC_FRONT_SUPPORT_TO_FLANK := 0.35
@@ -407,13 +446,74 @@ const CRASH_AI_WEIGHT_CAP := 2.15
 const CRASH_AI_POSTURE_OPEN_EXTRA_MULT := 1.12
 const CRASH_AI_POSTURE_LINE_EXTRA_MULT := 0.94
 const CRASH_AI_POSTURE_DUEL_EXTRA_MULT := 1.0
+## Tier 1.6 (P7): crash pick vs formation `line_cohesion` — ragged line hedges breach attempts; solid line slightly commits.
+const CRASH_AI_COHESION_LOW_MULT := 0.78
+const CRASH_AI_COHESION_HIGH_MULT := 1.06
+## Tier 1.6 (P7): `CombatTargetScoring.ai_targeting_weight_mult` — melee/close: resolved **`engagement_mode`**, our posture+cohesion + **opponent** formation (**`ZoneOfControl.formation_id_for_zone_geometry`** for intruders), stance (non-crash).
+const AI_TARGETING_LINE_COH_LO_MULT := 0.94
+const AI_TARGETING_LINE_COH_HI_MULT := 1.03
+const AI_TARGETING_OPEN_COH_TIGHT_MULT := 1.0
+const AI_TARGETING_OPEN_COH_LOOSE_MULT := 1.06
+## Tier 1.6 breadth: hostile pick vs **opponent** LINE `line_cohesion` (solid enemy wall → slight hedge; ragged → press).
+const AI_TARGETING_OPP_LINE_COH_SOLID_MULT := 0.96
+const AI_TARGETING_OPP_LINE_COH_RAGGED_MULT := 1.04
+## Dispersed enemy posture (OPEN/DUEL) — small isolation / pick-off nudge.
+const AI_TARGETING_OPP_OPEN_DUEL_MULT := 1.03
+## Tier 1.6 breadth: listed hostile weight vs **target file** `breached_files` severity (lerp from 1.0 at sev=0 to this at sev=1).
+const AI_TARGETING_OPP_BREACH_FILE_MULT_MAX := 1.10
+## Tier 1.6 / 1.7: resolved `CombatEngagementMode.engagement_mode` on listed hostile weights (`CombatTargetScoring`).
+const AI_TARGETING_ENGAGEMENT_MODE_DUEL_MULT := 1.04
+const AI_TARGETING_ENGAGEMENT_MODE_SKIRMISH_MULT := 1.0
+const AI_TARGETING_ENGAGEMENT_MODE_FORMATION_MULT := 1.025
+## Tier 1.6: `hostile_pair_targeting_weight_mult` scales down listed hostile picks vs **incapacitated** defenders (still valid targets if actions list them).
+const AI_TARGETING_INCAP_HOSTILE_MULT := 0.42
 ## Tier 1.9 (P10): depth rank + open spear lane — AI favors thrusts over cuts/closes (CombatAIActionPicker).
 const DEPTH_POLEARM_AI_STAB_WEIGHT_MULT := 1.35
 const DEPTH_POLEARM_AI_NON_STAB_WEIGHT_MULT := 0.9
 const DEPTH_POLEARM_AI_ATTEMPT_CLOSE_MULT := 0.82
+## Tier 1.9: depth rank + open lane — formation **`doctrine`** scales stab vs cut listing weights (`CombatAIActionPicker._depth_polearm_action_weight_mult`).
+const DEPTH_POLEARM_AI_DOCTRINE_PINCH_STAB_MULT := 1.08
+const DEPTH_POLEARM_AI_DOCTRINE_HOLD_STAB_MULT := 0.94
+const DEPTH_POLEARM_AI_DOCTRINE_PINCH_NON_STAB_MULT := 0.92
+const DEPTH_POLEARM_AI_DOCTRINE_HOLD_NON_STAB_MULT := 1.06
+## Tier 1.9: **`DOCTRINE_PROBING`** — depth stab/cut weights between **hold** and **pinch** (listed actions only).
+const DEPTH_POLEARM_AI_DOCTRINE_PROBING_STAB_MULT := 1.01
+const DEPTH_POLEARM_AI_DOCTRINE_PROBING_NON_STAB_MULT := 0.99
 ## Tier 1.9: max |Δfile| between **same-file rank-0 ally** and **enemy rank 0** for depth polearm lane thrusts.
 ## 0 = only the opposed file; 1 = immediate neighbor files (reach + `effective_pair_eff_dist` still gate strikes).
 const DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES := 1
+## Tier 1.9: max(pressure, depth) at this file ≥ this → depth spear may target legs even when density is tight/normal (wedge gap).
+const DEPTH_SPEAR_WEDGE_OPEN_LANE_MIN := 0.38
+## Tier 3.1: depth spear **over-shoulder** lane (`depth_polearm_allows_low_targets` false) — defender parry capacity vs that thrust line.
+const DEPTH_SPEAR_TIGHT_LANE_PARRY_C_D_MULT := 1.06
+## Tier 3.1: depth spear **open** lane + stab — attacker momentum seen at parry (full high/low envelope).
+const DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT := 1.05
+## Tier 3.1: depth rank stab through an open spear lane — closing-speed proxy (`StrikePhysics`, `AttackResolver` ctx).
+## Tight (**`over_shoulder`**) lane depth stabs use neutral **1.0** in `StrikePhysics.depth_polearm_thrust_closing_factor` (no extra closing bonus vs open).
+const DEPTH_SPEAR_THRUST_CLOSING_SPEED_MULT := 1.03
+## Tier 1.9 / 3.1: `pa["depth_polearm_lane_type"]` when **`depth_polearm_attack`** (empty string when not depth polearm). Mirrors **`depth_polearm_allows_low_targets`** for consumers that prefer a string lane id.
+const DEPTH_POLEARM_LANE_TYPE_OPEN := "open"
+const DEPTH_POLEARM_LANE_TYPE_OVER_SHOULDER := "over_shoulder"
+## Formation dict `spear_lane_profile` preset key + normalized values (`CombatFormationSetup` / `AvailableActionsBuilder.depth_polearm_lane_allows_low_targets`).
+const FORMATION_KEY_SPEAR_LANE_PROFILE := "spear_lane_profile"
+## Optional on **`CombatManager.start(player_formation, enemy_formation)`** preset dicts: wins over encounter doctrine for that side (same normalize path as **`set_formation_doctrine`**). Canonical key **`FORMATION_PRESET_KEY_DOCTRINE`**; if empty after strip, **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**.
+const FORMATION_PRESET_KEY_DOCTRINE := "formation_doctrine"
+## Short preset alias when **`FORMATION_PRESET_KEY_DOCTRINE`** is missing or whitespace-only.
+const FORMATION_PRESET_KEY_DOCTRINE_ALT := "doctrine"
+const SPEAR_LANE_PROFILE_AUTO := ""
+const SPEAR_LANE_PROFILE_OPEN := "open"
+const SPEAR_LANE_PROFILE_RESTRICTED := "restricted"
+
+
+static func normalize_spear_lane_profile(raw: Variant) -> String:
+	var s: String = str(raw).strip_edges().to_lower()
+	if s.is_empty() or s == "auto" or s == "default":
+		return SPEAR_LANE_PROFILE_AUTO
+	if s in ["open", "full", "wide", "lanes_open"]:
+		return SPEAR_LANE_PROFILE_OPEN
+	if s in ["restricted", "over_shoulder", "shoulder", "shoulder_only", "tight_lanes"]:
+		return SPEAR_LANE_PROFILE_RESTRICTED
+	return SPEAR_LANE_PROFILE_AUTO
 ## Simultaneous line-breach (crash) intruders per **side**; keeps intrusion a single heavy-infantry role, not a line-wide rush.
 const MAX_INTRUDERS_PER_SIDE := 1
 ## Minimum equipped armor mass (kg) to attempt crash intrusion — heavy harness only (typical full kit ~15–28 kg).
@@ -460,8 +560,23 @@ static func take_queued_breach_crash_roll() -> float:
 	_crash_test_roll_idx += 1
 	return v
 
-## Phase D: sector-weighted surround load vs integer-only threat count (docs/TACTICAL_ZONES_BREACH_MOVEMENT.md, incursion section §10.3 B2).
-const FEATURE_SECTOR_SURROUND_LOAD := false
+## Phase D: sector-weighted surround load vs integer-only threat count (docs/TACTICAL_ZONES_BREACH_MOVEMENT.md, incursion section §10.3 B2; Tier 3.1).
+## Default **false** (integer `surround_threat_count` path). **`set_feature_sector_surround_load`** for harness / dev soaks; ship **true** only after tuning.
+static var _feature_sector_surround_load: bool = false
+
+
+static func is_feature_sector_surround_load() -> bool:
+	return _feature_sector_surround_load
+
+
+static func set_feature_sector_surround_load(on: bool) -> void:
+	_feature_sector_surround_load = on
+## First `SURROUND_SECTOR_LOAD_FREE` units of summed threat weight incur no surround split (one primary engagement axis).
+const SURROUND_SECTOR_LOAD_FREE := 1.0
+## After free allowance: `mult = 1/(1 + k * excess)` before perception; `k=1` matches integer-only `1/n` when each threat weight is 1.
+const SURROUND_SECTOR_LOAD_K := 1.0
+## Minimum per threatening enemy weight = clamp(`effective_pair_file_spacing_equivalent` / `PARRY_FLANK_EFFECTIVE_FILES_MIN`, min, 1).
+const SURROUND_SECTOR_WEIGHT_MIN := 0.35
 ## Endgame / skirmish: when the front-rank "line" has collapsed (see ENGAGEMENT_MODE_* cutoffs below),
 ## `breached_files` still affects ZoC lane stress but no longer blocks swap / rotate / fall_back (FormationBreachRules.breach_blocks_open_lane_moves).
 ## Mode transitions are computed from live front-rank counts/fill each tick; existing intruders persist, but new crash/incursion can be gated by mode.
@@ -469,6 +584,8 @@ const FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES := true
 ## Line crash → breach intrusion (Tier 1.2–1.4 slot/wedge path). When **false**, new intrusions **cannot** start: crash is not listed and `resolve_crash_attempt` no-ops with reason `intrusion_disabled`.
 ## Intruder geometry, wedge, and vacancy-plug code remain; enable when resuming intrusion polish (`docs/IMPLEMENTATION_ORDER.md` — development gate).
 const FEATURE_LINE_CRASH_INTRUSION := false
+## Option 4 pilot: `CombatDoctrine.evaluate_automatic_doctrine` may set **`pinch_center`** from a hollow enemy front (only when formation doctrine is still **default**). Default **false** — no behavior change.
+const FEATURE_AUTOMATIC_DOCTRINE := false
 ## **Dev:** After `CombatManager.start`, `BattleScene` re-equips combatants with **rank > 0** with `SPEAR` (formations unchanged — same `FormationPreset.default_for_count` as usual). Set **true** only for depth-polearm / spear-lane debugging.
 const DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT := false
 ## Engagement-mode names from live front-rank state.
@@ -571,9 +688,27 @@ const ENCOUNTER_KEY_POSTURE_ASYMMETRY_STRENGTH := "posture_asymmetry_strength"
 ## Tier 1.5: direct `morale_cohesion_factor` for that side’s formation (0.15–1.0); overrides combatant mean when set on `manager.encounter`.
 const ENCOUNTER_KEY_MORALE_COHESION_PLAYER := "morale_cohesion_player"
 const ENCOUNTER_KEY_MORALE_COHESION_ENEMY := "morale_cohesion_enemy"
+## Tier 1.9: optional initial **`CombatManager.set_formation_doctrine`** for each side when **`start()`** runs (non-empty after strip; unknown strings → **`DOCTRINE_DEFAULT`** via normalize).
+const ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER := "formation_doctrine_player"
+const ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY := "formation_doctrine_enemy"
+## Optional encounter aliases: read only when the canonical **`ENCOUNTER_KEY_FORMATION_DOCTRINE_*`** value is missing or empty after **`strip_edges`** (canonical still wins if non-empty).
+const ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT := "doctrine_player"
+const ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT := "doctrine_enemy"
 const ENCOUNTER_PROTECTION_CIRCLE_ACTIVE := "protection_circle_active"
 ## Phase 6: Which side suffers ambush penalties (typically "player" when monsters ambush party).
 const ENCOUNTER_AMBUSHED_SIDE := "ambushed_side"
+
+## Tier 1.9: canonical + optional alt string keys on a dict (**`strip_edges`** each); non-empty canonical wins.
+static func formation_doctrine_string_from_dict(source: Dictionary, primary_key: String, alt_key: String) -> String:
+	var s: String = str(source.get(primary_key, "")).strip_edges()
+	if s.is_empty():
+		s = str(source.get(alt_key, "")).strip_edges()
+	return s
+
+
+## Tier 1.9: encounter doctrine seed — delegates to **`formation_doctrine_string_from_dict`**.
+static func encounter_formation_doctrine_string(encounter: Dictionary, primary_key: String, alt_key: String) -> String:
+	return formation_doctrine_string_from_dict(encounter, primary_key, alt_key)
 
 # Phase 2: Distance bands. Pair-wise for unformed; zone-based in Phase 4.
 const DISTANCE_CLOSE := "close"
@@ -587,6 +722,8 @@ const CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S := 1.65
 const DOCTRINE_DEFAULT := "default"
 const DOCTRINE_PINCH_CENTER := "pinch_center"
 const DOCTRINE_HOLD_LANE := "hold_lane"
+## Optional: measured thrusts / feints — depth spear listing weights only (no pinch inward / hold off-file hedge).
+const DOCTRINE_PROBING := "probing"
 ## Seconds: AI "sticks" to last offensive target (hysteresis).
 const DOCTRINE_COMMITMENT_DURATION_S := 4.5
 const DOCTRINE_COMMIT_MATCH_WEIGHT_MULT := 1.28
@@ -607,6 +744,8 @@ const STANCE_MOD_PARRY: Dictionary = {"defensive": 1.2, "balanced": 1.0, "aggres
 const STANCE_MOD_EVASION: Dictionary = {"defensive": 1.15, "balanced": 1.0, "aggressive": 0.85, "controlling": 1.0}
 const STANCE_MOD_DAMAGE: Dictionary = {"defensive": 0.85, "balanced": 1.0, "aggressive": 1.2, "controlling": 0.95}
 const STANCE_MOD_CLOSE_ATTEMPT: Dictionary = {"defensive": 0.9, "balanced": 1.0, "aggressive": 1.1, "controlling": 1.0}
+## Tier 4.1: `CombatTargetScoring.ai_targeting_weight_mult` — hostile melee/close pick only (not medical / formation moves).
+const STANCE_MOD_AI_MELEE_FOCUS: Dictionary = {"defensive": 0.92, "balanced": 1.0, "aggressive": 1.1, "controlling": 0.98}
 const STANCE_MOD_OPPONENT_CLOSE: float = 0.9   # Controlling makes opponent close attempt harder
 const STANCE_MOD_OPPONENT_DISENGAGE: float = 0.85  # Controlling makes opponent disengage harder
 # Density modifier for close attempt (defender evasion). tight=easier to close, loose=harder.
@@ -620,6 +759,7 @@ static func get_stance_modifier(stance: String, effect: String) -> float:
 		"evasion": m = STANCE_MOD_EVASION
 		"damage": m = STANCE_MOD_DAMAGE
 		"close_attempt": m = STANCE_MOD_CLOSE_ATTEMPT
+		"ai_melee_focus": m = STANCE_MOD_AI_MELEE_FOCUS
 		_: return 1.0
 	return m.get(stance, 1.0)
 
@@ -628,12 +768,9 @@ static func get_stance_modifier(stance: String, effect: String) -> float:
 static func crash_breach_viability(c: Dictionary) -> float:
 	if c.is_empty():
 		return 0.0
-	var stats_var: Variant = c.get("stats", {})
-	var str_a: float = 100.0
-	if typeof(stats_var) == TYPE_DICTIONARY:
-		str_a = float((stats_var as Dictionary).get("strength", 100))
-	var st_atk: float = float(c.get("stamina", STAMINA_MAX))
-	var stance: String = str(c.get("stance", STANCE_BALANCED))
+	var str_a: float = float(CombatantEntityAccess.stats_dict(c).get("strength", 100))
+	var st_atk: float = CombatantEntityAccess.stamina_float(c)
+	var stance: String = CombatantEntityAccess.stance_str(c)
 	var base: float = str_a * stamina_factor(st_atk / STAMINA_MAX) * get_stance_modifier(stance, "close_attempt")
 	return clampf(base / CRASH_VIABILITY_BASE_REF, 0.0, 1.0)
 
@@ -804,6 +941,30 @@ static func get_deflection_magnitude_deg(alignment: float, severity: float, cont
 		mult = 0.9
 	return base * mult * randf_range(0.9, 1.1)
 
+
+static func parry_opposite_deflect_severity_threshold(contact_type: String) -> float:
+	var ct: String = str(contact_type).to_lower().strip_edges()
+	if ct == "stab":
+		return PARRY_OPPOSITE_DEFLECT_SEVERITY_THRUST
+	if ct == "blunt":
+		return PARRY_OPPOSITE_DEFLECT_SEVERITY_BLUNT
+	return PARRY_OPPOSITE_DEFLECT_SEVERITY_CUT
+
+
+static func _adjacent_line_away_from_guard(attack_line: String, guard_angle_deg: float) -> String:
+	var adj_raw: Variant = LINE_ADJACENTS.get(attack_line, [])
+	if not (adj_raw is Array) or (adj_raw as Array).is_empty():
+		return attack_line
+	var best_line: String = str((adj_raw as Array)[0])
+	var best_dist: float = -1.0
+	for candidate in (adj_raw as Array):
+		var line: String = str(candidate)
+		var dist: float = angle_diff_deg(line_to_angle(line), guard_angle_deg)
+		if dist > best_dist:
+			best_dist = dist
+			best_line = line
+	return best_line
+
 ## Returns alignment 0..1 from attack_line vs guard_line. Floor PARRY_ALIGNMENT_FLOOR for lucky intercept.
 static func get_line_alignment(attack_line: String, guard_line: String) -> float:
 	var def_row: Variant = LINE_ANGLE_DEG.get(guard_line, {})
@@ -863,6 +1024,16 @@ static func get_guard_angle_deg(combatant: Dictionary, wobble_context: Dictionar
 ## Deflected line from bilateral angle-based deflection. Replaces discrete geometry with continuous physics.
 ## contact_type: stab | cut | blunt for magnitude scaling (not move_id).
 static func get_deflected_line_from_angles(attack_angle_deg: float, guard_angle_deg: float, severity: float, contact_type: String, alignment: float) -> String:
+	var atk_line: String = angle_to_nearest_line(attack_angle_deg)
+	var guard_line: String = angle_to_nearest_line(guard_angle_deg)
+	if atk_line == guard_line:
+		return atk_line
+	var opposite_line: String = str(DEFLECTED_GUARD_FROM_ATTACK.get(atk_line, atk_line))
+	if guard_line == opposite_line:
+		var threshold: float = parry_opposite_deflect_severity_threshold(contact_type)
+		if severity >= threshold:
+			return opposite_line
+		return _adjacent_line_away_from_guard(atk_line, guard_angle_deg)
 	var mag := get_deflection_magnitude_deg(alignment, severity, contact_type)
 	var deflected := get_deflected_angle_bilateral(attack_angle_deg, guard_angle_deg, mag)
 	return angle_to_nearest_line(deflected)

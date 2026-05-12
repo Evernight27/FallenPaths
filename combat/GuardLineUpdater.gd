@@ -12,7 +12,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 ## Bind: parry_control high → blade stays; else magnitude from alignment/severity.
 ## effective_line_override: use when available (e.g. diagonal roll); else from move.
 ## defender_guard_line: defender's guard at parry.
-## clash_context: optional {parry_control, severity, attack_type (move_id), contact_type (stab|cut|blunt), defender_guard_line, alignment, attack_angle_deg} for HEMA bind/deflect.
+## clash_context: optional {parry_control, severity (else derived from margin_ratio via `CombatConstants.parry_deflect_severity_from_margin_ratio`), attack_type (move_id), contact_type (stab|cut|blunt), defender_guard_line, alignment, attack_angle_deg, parry_time_to_react, parry_readiness, late_parry, parry_off_balance, margin_ratio, kinematic_delivery, strike_velocity_m_s, strike_kinetic_energy_j, strike_measure_ratio, …} for HEMA bind/deflect / calibration.
 static func set_guard_deflected(c: Dictionary, move_id: String, effective_line_override: String = "", defender_guard_line: String = "", clash_context: Dictionary = {}) -> void:
 	var atk_line: String = effective_line_override
 	if atk_line.is_empty() and not move_id.is_empty():
@@ -27,7 +27,11 @@ static func set_guard_deflected(c: Dictionary, move_id: String, effective_line_o
 	var parry_control: float = clash_context.get("parry_control", 1.0)
 	var arch_id: String = clash_context.get("archetype_id", "")
 	var can_bind: bool = arch_id.is_empty() or arch_id not in CombatConstants.ARCHETYPES_NEVER_BIND
-	var severity: float = clash_context.get("severity", 1.0)
+	var severity: float = 1.0
+	if clash_context.has("severity"):
+		severity = float(clash_context["severity"])
+	elif clash_context.has("margin_ratio"):
+		severity = CombatConstants.parry_deflect_severity_from_margin_ratio(float(clash_context["margin_ratio"]))
 	# Prefer explicit contact_type from clash (e.g. parry_deflect); else derive from move_id in attack_type.
 	var ct_ctx: String = str(clash_context.get("contact_type", "")).to_lower().strip_edges()
 	var attack_move_id: String = str(clash_context.get("attack_type", "cut"))

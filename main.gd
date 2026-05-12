@@ -103,4 +103,3 @@ func _print_node_tree(node: Node, indent: String = "") -> void:
 	print(indent, node.name, "<", node.get_class(), ">")
 	for child in node.get_children():
 		_print_node_tree(child, indent + "  ")
-

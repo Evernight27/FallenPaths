@@ -1,7 +1,13 @@
 class_name WeaponDamageHelper
 extends RefCounted
 
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
+const _SwingPhysics := preload("res://weapon/WeaponSwingPhysics.gd")
+## Physics-leaning intensity mapping: low commitment stays near lower band, full commitment still reaches cap.
+const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.2
+## Rotational KE uses min(full I, m_strike r²); latter matches ½ m_strike v² for rigid v = ω r (point-mass ceiling).
+const INERTIA_KE_STRIKE_CAP_MULT := 1.0
 
 ## Default effective target mass (kg) when no species / unknown part (mid-torso order of magnitude).
 const DEFAULT_BLUNT_TARGET_MASS_KG := 14.0
@@ -59,19 +65,19 @@ static func reference_body_mass_kg_from_species(sp: Object) -> float:
 	return clampf(_REFERENCE_ADULT_BODY_MASS_KG * sum_t / maxf(1.0, _REFERENCE_SPECIES_TISSUE_SUM), 32.0, 120.0)
 
 
-## Unarmed pre-armor at full stance mod 1.0: ~ (STR/100)*8 in legacy units; derived from fist effective mass × hand speed.
-static func unarmed_base_pre_armor(strength: int, mod: float) -> float:
+## Unarmed pre-armor at full stance mod 1.0: ~ (STR/100)*8 in historical calibration units; derived from fist effective mass × hand speed.
+static func unarmed_base_pre_armor(strength: float, mod: float) -> float:
 	var st: float = maxf(0.1, float(strength) / 100.0)
 	return st * mod * UNARMED_FIST_EFFECTIVE_MASS_KG * UNARMED_TYPICAL_HAND_SPEED_M_S * UNARMED_MOMENTUM_TO_PREARMOR
 
 
 ## Target-side effective mass for two-body blunt momentum (species or node hook).
 static func effective_blunt_target_mass_kg(tgt: Dictionary, part: String = "") -> float:
-	var node: Variant = tgt.get("node", null)
-	if node != null and (node as Object).has_method("get_effective_blunt_target_mass_kg"):
-		return maxf(1.0, float((node as Object).get_effective_blunt_target_mass_kg(part)))
-	if node != null and "species" in node:
-		var sp: Variant = (node as Object).get("species")
+	var n: Node = _EntityAccess.scene_node(tgt)
+	if n != null and n.has_method("get_effective_blunt_target_mass_kg"):
+		return maxf(1.0, float(n.get_effective_blunt_target_mass_kg(part)))
+	if n != null and "species" in n:
+		var sp: Variant = n.get("species")
 		if sp != null:
 			var em: Variant = sp.get("effective_blunt_target_mass_kg")
 			if em is float or em is int:
@@ -111,20 +117,70 @@ static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> f
 	return float(m) if (m is float or m is int) else WeaponConstants.BASELINE_MASS_KG
 
 
-# Single place for intensity -> m/s. Factor in [0.5, 1.0]; archetype.velocity_factor scales it; band from weapon + move.
-static func velocity_m_s_from_intensity(intensity: float, archetype: Dictionary, weapon: RefCounted = null, move_id: String = "") -> float:
+## Thrust / swing / mixed from archetype; if missing, infer from move contact (stab → thrust).
+static func kinematic_delivery(archetype: Dictionary, move_id: String) -> String:
+	var arch: Dictionary = archetype if archetype is Dictionary else {}
+	var raw: Variant = arch.get("kinematic_delivery", "")
+	if raw is String:
+		var s: String = str(raw).strip_edges().to_lower()
+		if s == WeaponConstants.KINEMATIC_DELIVERY_THRUST or s == WeaponConstants.KINEMATIC_DELIVERY_SWING or s == WeaponConstants.KINEMATIC_DELIVERY_MIXED:
+			return s
+	var ct0: String = WeaponConstants.contact_type_for_move_id(move_id)
+	if ct0 == WeaponConstants.ATTACK_TYPE_STAB:
+		return WeaponConstants.KINEMATIC_DELIVERY_THRUST
+	return WeaponConstants.KINEMATIC_DELIVERY_SWING
+
+
+static func _velocity_intensity_g(intensity: float, archetype: Dictionary) -> float:
 	var int0: float = clampf(intensity, 0.0, 1.0)
 	var curve: float = 1.0
 	if archetype is Dictionary and archetype.has("velocity_intensity_curve"):
 		curve = clampf(float(archetype.velocity_intensity_curve), 0.55, 1.5)
 	var intensity_val: float = pow(int0, curve)
-	var factor: float = 0.5 + 0.5 * intensity_val
+	var factor: float = INTENSITY_VELOCITY_FLOOR_FACTOR + (1.0 - INTENSITY_VELOCITY_FLOOR_FACTOR) * intensity_val
 	if archetype is Dictionary and archetype.has("velocity_factor"):
 		var vf: float = float(archetype.velocity_factor)
 		factor *= clampf(vf, 0.1, 1.5)
+	return clampf(factor, 0.0, 1.0)
+
+
+static func _velocity_linear_from_g(weapon: RefCounted, move_id: String, g: float) -> float:
 	var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
 	var band: Vector2 = _ImpactVelocityModel.resolve_band_m_s(weapon, ct)
-	return band.x + (band.y - band.x) * clampf(factor, 0.0, 1.0)
+	return band.x + (band.y - band.x) * g
+
+
+static func _velocity_swing_from_g(weapon: RefCounted, move_id: String, g: float) -> float:
+	var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
+	var band: Vector2 = _ImpactVelocityModel.resolve_band_m_s(weapon, ct)
+	if weapon != null and weapon.has_method("has_parts") and weapon.has_parts():
+		var r: float = _SwingPhysics.strike_lever_arm_m(weapon, ct)
+		var w_min: float = band.x / r
+		var w_max: float = band.y / r
+		var omega: float = w_min + (w_max - w_min) * g
+		return clampf(omega * r, _ImpactVelocityModel.ABS_VELOCITY_MIN_M_S, _ImpactVelocityModel.ABS_VELOCITY_MAX_M_S)
+	return _velocity_linear_from_g(weapon, move_id, g)
+
+
+# Single place for intensity -> m/s. Thrust: linear band. Swing: ω–lever. Mixed: kinematic_mixed_blend.
+static func velocity_m_s_from_intensity(intensity: float, archetype: Dictionary, weapon: RefCounted = null, move_id: String = "") -> float:
+	var arch: Dictionary = archetype if archetype is Dictionary else {}
+	var g: float = _velocity_intensity_g(intensity, arch)
+	var delivery: String = kinematic_delivery(arch, move_id)
+	match delivery:
+		WeaponConstants.KINEMATIC_DELIVERY_THRUST:
+			return _velocity_linear_from_g(weapon, move_id, g)
+		WeaponConstants.KINEMATIC_DELIVERY_SWING:
+			return _velocity_swing_from_g(weapon, move_id, g)
+		WeaponConstants.KINEMATIC_DELIVERY_MIXED:
+			var b: float = 0.5
+			if arch.has("kinematic_mixed_blend"):
+				var bm: Variant = arch.get("kinematic_mixed_blend")
+				if bm is float or bm is int:
+					b = clampf(float(bm), 0.0, 1.0)
+			return lerpf(_velocity_linear_from_g(weapon, move_id, g), _velocity_swing_from_g(weapon, move_id, g), b)
+		_:
+			return _velocity_swing_from_g(weapon, move_id, g)
 
 
 # Effective impact velocity (m/s). Prefer attack.velocity_m_s if set (e.g. after partial parry); else derive from intensity.
@@ -138,18 +194,55 @@ static func get_effective_velocity_m_s(weapon: RefCounted, attack_instance: RefC
 	return velocity_m_s_from_intensity(i if i is float else 0.5, arch if arch is Dictionary else {}, weapon, move_id)
 
 
-# Kinetic energy (J) at impact: KE = ½ * strike_mass * velocity² (strike mass matches parry striking mass).
+static func _ke_thrust_point_mass(weapon: RefCounted, attack_instance: RefCounted, v: float, e_mult: float) -> float:
+	var m_strike: float = strike_mass_kg(weapon, attack_instance)
+	return 0.5 * m_strike * v * v * maxf(0.05, e_mult)
+
+
+static func _ke_swing_rotational(weapon: RefCounted, attack_instance: RefCounted, v: float, e_mult: float) -> float:
+	var move_id: String = move_id_from_attack_instance(attack_instance)
+	var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
+	if weapon.has_method("has_parts") and weapon.has_parts():
+		var I_full: float = _SwingPhysics.inertia_about_grip_kg_m2(weapon)
+		var m_strike: float = strike_mass_kg(weapon, attack_instance)
+		var r: float = _SwingPhysics.strike_lever_arm_m(weapon, ct)
+		var I_cap: float = maxf(_SwingPhysics.MIN_INERTIA_KG_M2, m_strike * r * r * INERTIA_KE_STRIKE_CAP_MULT)
+		var I_use: float = minf(I_full, I_cap)
+		var omega: float = _SwingPhysics.omega_from_tip_speed(v, r)
+		return _SwingPhysics.rotational_ke_j(I_use, omega) * maxf(0.05, e_mult)
+	return _ke_thrust_point_mass(weapon, attack_instance, v, e_mult)
+
+
+# Kinetic energy (J): thrust → ½ m_strike v²; swing → ½ I ω² (capped I); mixed → blend. Unarmed/no parts uses thrust path on swing fallback.
 static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCounted) -> float:
 	if weapon == null:
 		return 0.0
-	var mass_kg: float = strike_mass_kg(weapon, attack_instance)
 	var v: float = get_effective_velocity_m_s(weapon, attack_instance)
 	var e_mult: float = _attack_float_or_default(attack_instance, "strike_energy_mult", 1.0)
-	return 0.5 * mass_kg * v * v * maxf(0.05, e_mult)
+	var move_id: String = move_id_from_attack_instance(attack_instance)
+	var arch: Dictionary = attack_instance.get("archetype") if attack_instance.get("archetype") is Dictionary else {}
+	var delivery: String = kinematic_delivery(arch, move_id)
+	match delivery:
+		WeaponConstants.KINEMATIC_DELIVERY_THRUST:
+			return _ke_thrust_point_mass(weapon, attack_instance, v, e_mult)
+		WeaponConstants.KINEMATIC_DELIVERY_SWING:
+			return _ke_swing_rotational(weapon, attack_instance, v, e_mult)
+		WeaponConstants.KINEMATIC_DELIVERY_MIXED:
+			var b: float = 0.5
+			if arch.has("kinematic_mixed_blend"):
+				var bm: Variant = arch.get("kinematic_mixed_blend")
+				if bm is float or bm is int:
+					b = clampf(float(bm), 0.0, 1.0)
+			return lerpf(
+				_ke_thrust_point_mass(weapon, attack_instance, v, e_mult),
+				_ke_swing_rotational(weapon, attack_instance, v, e_mult),
+				b)
+		_:
+			return _ke_swing_rotational(weapon, attack_instance, v, e_mult)
 
 
 # Pre-armor CUT (sharp) from KE and effective edge: scale * sqrt(KE) * strength_mod * arm_mod * contact_factor(effective sharp), clamped.
-static func compute_pre_armor_cut(weapon: RefCounted, attack_instance: RefCounted, strength: int, arm_mod: float) -> float:
+static func compute_pre_armor_cut(weapon: RefCounted, attack_instance: RefCounted, strength: float, arm_mod: float) -> float:
 	var ke_j: float = compute_kinetic_energy_j(weapon, attack_instance)
 	var strength_mod: float = maxf(0.1, float(strength) / 100.0)
 	var raw: float = WeaponConstants.DAMAGE_KE_SCALE * sqrt(maxf(0.0, ke_j)) * strength_mod * arm_mod
@@ -167,7 +260,7 @@ static func compute_pre_armor_cut(weapon: RefCounted, attack_instance: RefCounte
 # Pre-armor BLUNT from momentum: scale * (mass * velocity) * strength_mod * arm_mod * contact_factor, clamped.
 # Uses blunt contact (head_diameter for blunt, max(blade, BLUNT_CUT_MIN) for cut slap, point for thrust).
 # target_effective_mass_kg: when > 0, use reduced mass with strike mass for more realistic impulse coupling.
-static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCounted, strength: int, arm_mod: float, target_effective_mass_kg: float = -1.0) -> float:
+static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCounted, strength: float, arm_mod: float, target_effective_mass_kg: float = -1.0) -> float:
 	if weapon == null:
 		return 0.0
 	var mass_kg: float = strike_mass_kg(weapon, attack_instance)

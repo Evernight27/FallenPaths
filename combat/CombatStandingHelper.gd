@@ -10,21 +10,22 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 static func get_standing_by_side(combatants: Array) -> Dictionary:
 	var standing: Dictionary = {}
 	for c in combatants:
-		if not c.alive:
+		if not _EntityAccess.alive_bool(c):
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue
-		standing[c.side] = standing.get(c.side, 0) + 1
+		var sd: String = _EntityAccess.side_str(c)
+		standing[sd] = standing.get(sd, 0) + 1
 	return standing
 
 ## Returns first opponent (standing combatant on different side). Null if none.
 static func get_first_opponent(combatants: Array, side: String) -> Variant:
 	for c in combatants:
-		if not c.alive:
+		if not _EntityAccess.alive_bool(c):
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue
-		if c.side != side:
+		if _EntityAccess.side_str(c) != side:
 			return c
 	return null
 
@@ -33,8 +34,9 @@ static func get_winner(combatants: Array) -> String:
 	var standing: Dictionary = get_standing_by_side(combatants)
 	var sides_list: Array = []
 	for c in combatants:
-		if c.side not in sides_list:
-			sides_list.append(c.side)
+		var sdc: String = _EntityAccess.side_str(c)
+		if sdc not in sides_list:
+			sides_list.append(sdc)
 	if sides_list.size() >= 2:
 		var a: int = standing.get(sides_list[0], 0)
 		var b: int = standing.get(sides_list[1], 0)

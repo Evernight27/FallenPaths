@@ -36,10 +36,10 @@ static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, resu
 	var tgt = manager._get_by_id(target_id) if manager.has_method("_get_by_id") else null
 	if tgt == null:
 		return false
-	var pa: Dictionary = tgt.get("pending_attack", {})
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(tgt, "pending_attack")
 	if pa.is_empty():
 		return false
-	if tgt.get("state", "") != CombatConstants.STATE_WIND_UP:
+	if _EntityAccess.state_str(tgt) != CombatConstants.STATE_WIND_UP:
 		return false
 	var hit_part: String = result_dict.get("part", "")
 	var outcome: String = result_dict.get("outcome", "hit")
@@ -49,16 +49,17 @@ static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, resu
 	var total_dmg: float = final_cut + final_blunt + final_bone
 
 	# Immediate disqualifiers
+	var tgt_n: Node = _EntityAccess.scene_node(tgt)
 	var attacking_arm: String = ""
-	if tgt.node != null and tgt.node.has_method("get_attacking_arm"):
-		attacking_arm = tgt.node.get_attacking_arm()
+	if tgt_n != null and tgt_n.has_method("get_attacking_arm"):
+		attacking_arm = tgt_n.get_attacking_arm()
 	if attacking_arm.is_empty():
 		return false
-	var arm_inoperable: bool = _BodyPartQuery.is_arm_destroyed(tgt.node, attacking_arm) if tgt.node != null else true
+	var arm_inoperable: bool = _BodyPartQuery.is_arm_destroyed(tgt_n, attacking_arm) if tgt_n != null else true
 	if hit_part == attacking_arm and arm_inoperable:
 		_cancel_pending(manager, tgt)
 		return false
-	if hit_part == "head" and tgt.node != null and tgt.node.has_method("is_incapacitated") and tgt.node.is_incapacitated():
+	if hit_part == "head" and tgt_n != null and tgt_n.has_method("is_incapacitated") and tgt_n.is_incapacitated():
 		_cancel_pending(manager, tgt)
 		return false
 
@@ -66,9 +67,9 @@ static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, resu
 	if outcome == "deflected":
 		# Not hindered — allow
 		return _execute_afterblow(manager, tgt, 0.0)
-	var part_relevance: float = _get_part_relevance(hit_part, attacking_arm, _get_supporting_leg(tgt.node))
+	var part_relevance: float = _get_part_relevance(hit_part, attacking_arm, _get_supporting_leg(tgt_n))
 	var severity: float = clampf(total_dmg / CombatConstants.AFTERBLOW_DAMAGE_HINDER_THRESHOLD, 0.0, 1.5)
-	var outcome_mult: float = 0.6 if outcome == "glancing" else 1.0
+	var outcome_mult: float = 0.6 if outcome == "glancing" or outcome == "negligible" else 1.0
 	var hindrance: float = clampf(part_relevance * severity * intensity * outcome_mult, 0.0, 1.0)
 
 	if hindrance >= CombatConstants.AFTERBLOW_HINDRANCE_BLOCK:
@@ -90,10 +91,10 @@ static func _cancel_pending(_manager: Node, tgt: Dictionary) -> void:
 		CombatDebug.flow_log("afterblow %s hindered swing_cancelled" % _EntityAccess.get_display_name(tgt))
 
 static func _execute_afterblow(manager: Node, tgt: Dictionary, hindrance: float) -> bool:
-	var pa: Dictionary = tgt.pending_attack
+	var pa: Dictionary = _EntityAccess.nested_dictionary_for_mutation(tgt, "pending_attack")
 	var damage_mult: float = 1.0 - hindrance
 	pa["afterblow_damage_mult"] = maxf(0.2, damage_mult)
-	var tgt_id: int = tgt.get("id", -1)
+	var tgt_id: int = _EntityAccess.id_int(tgt)
 	if CombatDebug.flow_verbose_enabled():
 		var tgt_name: String = _EntityAccess.get_display_name(tgt, tgt_id)
 		CombatDebug.flow_log("afterblow %s completes hindrance=%.2f dmg_mult=%.2f" % [tgt_name, hindrance, pa["afterblow_damage_mult"]])

@@ -8,6 +8,7 @@ const _EventDispatch := preload("res://combat/CombatEventDispatch.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 static func tick(manager: Node, delta: float) -> void:
 	manager.combat_clock += delta
@@ -25,16 +26,22 @@ static func tick(manager: Node, delta: float) -> void:
 	_FormationFlow.finish_vacancy_reconcile_follow_up(manager, changed_fids, snap, true)
 	var victor: String = ""
 	for c in manager.combatants:
-		if not c.alive or c.node == null:
+		if not _EntityAccess.alive_bool(c):
 			continue
-		_EntityTimeAdvance.advance(c.node, delta, false)
+		var adv_node: Node = _EntityAccess.scene_node(c)
+		if adv_node == null:
+			continue
+		_EntityTimeAdvance.advance(adv_node, delta, false)
 		manager._refresh_combatant_stats(c)
 	for c in manager.combatants:
-		if not c.alive or c.node == null:
+		if not _EntityAccess.alive_bool(c):
+			continue
+		var death_node: Node = _EntityAccess.scene_node(c)
+		if death_node == null:
 			continue
 		victor = _StateHandlers.process_death_tick(manager, c)
 		if not victor.is_empty():
-			manager._end_combat_phase(victor, c.node)
+			manager._end_combat_phase(victor, death_node)
 			return
 	victor = manager._check_for_winner()
 	if not victor.is_empty():
@@ -42,21 +49,24 @@ static func tick(manager: Node, delta: float) -> void:
 			manager._end_combat_phase(victor, null)
 			return
 	for c in manager.combatants:
-		if not c.alive:
+		if not _EntityAccess.alive_bool(c):
 			continue
 		if _StateHandlers.process_incapacitation(manager, c):
 			continue
 		if _StateHandlers.process_medical_wind_up_cancel(manager, c):
 			continue
-		if c.state == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
+		if _EntityAccess.state_str(c) == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
 			_StateHandlers.process_receiving_medical(manager, c, delta)
-		elif c.state == CombatConstants.STATE_WAITING:
+		elif _EntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
 			_StateHandlers.process_waiting(manager, c, delta)
-		elif c.state == CombatConstants.STATE_WIND_UP:
+		elif _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
 			_StateHandlers.process_wind_up(manager, c, delta)
-		elif c.state == CombatConstants.STATE_MEDICAL_WIND_UP:
+		elif _EntityAccess.state_str(c) == CombatConstants.STATE_MEDICAL_WIND_UP:
 			_StateHandlers.process_medical_wind_up(manager, c, delta)
-		elif c.state == CombatConstants.STATE_RECOVERING:
+		elif _EntityAccess.state_str(c) == CombatConstants.STATE_RECOVERING:
 			_StateHandlers.process_recovering(manager, c, delta)
-		elif c.state == CombatConstants.STATE_SWAP_RANK or c.state == CombatConstants.STATE_FALLING_BACK:
+		elif (
+			_EntityAccess.state_str(c) == CombatConstants.STATE_SWAP_RANK
+			or _EntityAccess.state_str(c) == CombatConstants.STATE_FALLING_BACK
+		):
 			c.state_timer = minf(c.state_timer + delta, c.get("state_duration", 1.0))

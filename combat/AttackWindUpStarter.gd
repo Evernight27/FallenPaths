@@ -3,6 +3,7 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 
 ## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.
 ## Manager must have: _get_by_id; health reads go through CombatantEntityAccess + manager.get_health_entity.
@@ -11,9 +12,10 @@ const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 static func start(manager: Node, attacker_id: int, target_id: int, move_id: String = "", options: Dictionary = {}) -> void:
 	var atk = manager._get_by_id(attacker_id)
 	var tgt = manager._get_by_id(target_id)
-	if atk == null or tgt == null or not tgt.alive:
+	if atk == null or tgt == null or not _EntityAccess.alive_bool(tgt):
 		return
-	if atk.node != null and atk.node.has_method("get_attacking_arm") and atk.node.get_attacking_arm().is_empty():
+	var atk_n: Node = _EntityAccess.scene_node(atk)
+	if atk_n != null and atk_n.has_method("get_attacking_arm") and atk_n.get_attacking_arm().is_empty():
 		var atk_name_skip: String = _EntityAccess.get_display_name(atk, attacker_id)
 		print("[Combat] %s has no functional arm; skip attack (short recovery)." % atk_name_skip)
 		atk.state = CombatConstants.STATE_RECOVERING
@@ -71,18 +73,18 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 				mult = CombatConstants.PARRY_BIND_RIPOSTE_MULT_FALLBACK
 			wind_up_s *= mult
 	# Leg functionality: longer wind-up when legs injured (harder to get into position to attack).
-	if atk.node != null and atk.node.has_method("get_leg_functionality"):
-		var leg: float = clampf(atk.node.get_leg_functionality(), CombatConstants.WINDUP_LEG_MIN, 1.0)
+	if atk_n != null and atk_n.has_method("get_leg_functionality"):
+		var leg: float = clampf(atk_n.get_leg_functionality(), CombatConstants.WINDUP_LEG_MIN, 1.0)
 		wind_up_s /= leg
 	# Pain/consciousness: wounded attackers swing slower
 	var atk_perf_mod: float = 1.0
-	if atk.node != null and atk.node.has_method("get_performance_modifier"):
-		atk_perf_mod = atk.node.get_performance_modifier()
+	if atk_n != null and atk_n.has_method("get_performance_modifier"):
+		atk_perf_mod = atk_n.get_performance_modifier()
 	if atk_perf_mod > 0.0:
 		wind_up_s /= maxf(CombatConstants.PERF_MOD_MIN, atk_perf_mod)
 	# Agility: higher agility shortens wind-up (faster into position)
-	var atk_agi: int = atk.stats.get("agility", 100)
-	wind_up_s /= clampf(float(atk_agi) / 100.0, 0.7, 1.3)
+	var atk_agi: float = float(_EntityAccess.stats_dict(atk).get("agility", 100))
+	wind_up_s /= clampf(atk_agi / 100.0, 0.7, 1.3)
 	atk.gauge = 0.0
 	atk["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	atk.erase("guard_deflect_blend")
@@ -97,19 +99,25 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	var pa: Dictionary = {"target_id": target_id, "intensity": intensity, "power": power, "follow_through": follow_through, "attack_type": attack_type, "archetype": archetype, "wind_up_duration": wind_up_s, "arc_start_deg": arc_start_deg, "arc_intended_deg": arc_intended_deg}
 	if weapon != null:
 		pa["impact_blade_station"] = _StrikeRealism.roll_blade_station(weapon, attack_type, intensity)
-		pa["strike_measure_ratio"] = _StrikeRealism.measure_ratio(manager, atk, tgt, weapon)
-		pa["move_contact_type"] = WeaponConstants.contact_type_for_move_id(attack_type)
 	var target_part: String = str(options.get("target_part", ""))
 	var feint_part: String = str(options.get("feint_part", ""))
 	if not target_part.is_empty():
 		pa["target_part"] = target_part
 	if not feint_part.is_empty():
 		pa["feint_part"] = feint_part
+	# Tier 3.1: pair geometry + depth lane flags (`AvailableActionsBuilder.stamp_attack_pair_geometry_on_dict`; re-stamped each resolve).
+	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(manager, atk, tgt, pa)
+	if weapon != null:
+		# After stamp so **`strike_measure_ratio`** uses the same **`effective_pair_eff_dist`** as parry / resolve.
+		pa["strike_measure_ratio"] = _ActionsBuilder.strike_measure_ratio_for_attack_pair(
+			manager, atk, tgt, weapon, float(pa.get("effective_pair_eff_dist", -1.0))
+		)
+		pa["move_contact_type"] = WeaponConstants.contact_type_for_move_id(attack_type)
 	atk.pending_attack = pa
 	# Feint D: defender reacts to telegraph at wind-up start. If feint, they guard feint_part; else they guard target_part.
-	var telegraph_part: String = pa.get("feint_part", pa.get("target_part", "head"))
+	var telegraph_part: String = str(pa.get("feint_part", pa.get("target_part", "head")))
 	tgt["guard_zone"] = telegraph_part
-	var atk_name_log: String = atk.node.name if (atk.node != null) else "id:%d" % attacker_id
+	var atk_name_log: String = (str(atk_n.name) if atk_n != null else "id:%d" % attacker_id)
 	if CombatConstants.COMBAT_DEBUG:
 		var angle_info: String = " [atk=%.0f° guard=%.0f°]" % [align_ctx["attack_angle_deg"], align_ctx["guard_angle_deg"]]
 		CombatDebug.log("%s | guard=%s atk_line=%s align=%.2f trans=%.2f%s | wind_up=%.2fs" % [atk_name_log, atk.get("guard_line", CombatConstants.GUARD_DEFAULT), attack_line, align, trans_mult, angle_info, wind_up_s])

@@ -2,6 +2,8 @@
 
 Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
 
+**Plan / code:** Part geometry feeds `AttackResolver` / `WeaponDamageHelper`; strike KE and tip speed follow Tier **3.0** kinematic delivery (`docs/IMPLEMENTATION_ORDER.md` Tier 3 + `weapon/*.gd`).
+
 ## Contents
 
 1. [WEAPON_PART_LENGTH_PARRY_CONTACT_INVESTIGATION.md](#weapon-part-length-parry-contact-investigation)

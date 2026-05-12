@@ -2,6 +2,8 @@
 
 Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
 
+**Plan / code:** Stance, footwork, melee AI → **`docs/IMPLEMENTATION_ORDER.md`** Tier **4** (after Tier **1** geometry + wedge/distance). Does **not** replace the master plan or Tier 1 milestone table. **Shipped Tier 4.1 hook:** **`CombatConstants`** stance modifiers **`ai_melee_focus`** → **`CombatTargetScoring.stance_ai_targeting_mult`** on hostile listed actions (with Tier **1.6** engagement + opponent formation multipliers — see **`AGENTS.md`**).
+
 ## Contents
 
 1. [FEINT_COUNTER_STAMINA_READINESS_DIAGONAL_INVESTIGATION.md](#feint-counter-stamina-readiness-diagonal-investigation)

@@ -9,11 +9,10 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 static func track_failure_and_maybe_retry(manager: Node, performer: Dictionary, target: Dictionary, part: String, target_cid: int) -> void:
 	if target == null:
 		return
-	var failed: Array = target.get("failed_medical_parts", [])
+	var failed: Array = _EntityAccess.nested_array_for_mutation(target, "failed_medical_parts")
 	if part not in failed:
 		failed.append(part)
-	target.failed_medical_parts = failed
-	var others: int = count_others_who_can_perform_medical_on_target(manager, performer.id, target_cid)
+	var others: int = count_others_who_can_perform_medical_on_target(manager, _EntityAccess.id_int(performer), target_cid)
 	if others <= 0:
 		performer.pending_retry = {"target_id": target_cid, "part": part}
 
@@ -21,11 +20,16 @@ static func track_failure_and_maybe_retry(manager: Node, performer: Dictionary, 
 static func count_others_who_can_perform_medical_on_target(manager: Node, exclude_id: int, target_id: int) -> int:
 	var count: int = 0
 	for other in manager.combatants:
-		if other.id == exclude_id or not other.alive or other.side != manager.medical_phase_winner or other.node == null:
+		if (
+			_EntityAccess.id_int(other) == exclude_id
+			or not _EntityAccess.alive_bool(other)
+			or _EntityAccess.side_str(other) != manager.medical_phase_winner
+			or _EntityAccess.scene_node(other) == null
+		):
 			continue
 		if _EntityAccess.is_incapacitated(other):
 			continue
-		var acts: Array = manager.get_available_actions(other.id)
+		var acts: Array = manager.get_available_actions(_EntityAccess.id_int(other))
 		for a in acts:
 			if a.get("target_id", -1) == target_id:
 				count += 1
@@ -36,9 +40,12 @@ static func count_others_who_can_perform_medical_on_target(manager: Node, exclud
 static func get_parts_being_treated_on(manager: Node, combatant_id: int) -> Array:
 	var out: Array = []
 	for other in manager.combatants:
-		if other.state != CombatConstants.STATE_MEDICAL_WIND_UP:
+		if _EntityAccess.state_str(other) != CombatConstants.STATE_MEDICAL_WIND_UP:
 			continue
-		var pm = other.get("pending_medical", {})
+		var pm_raw: Variant = other.get("pending_medical", null)
+		if typeof(pm_raw) != TYPE_DICTIONARY:
+			continue
+		var pm: Dictionary = pm_raw as Dictionary
 		if pm.get("target_combatant_id", -1) == combatant_id:
 			var part: String = pm.get("target_part", "")
 			if not part.is_empty() and part not in out:

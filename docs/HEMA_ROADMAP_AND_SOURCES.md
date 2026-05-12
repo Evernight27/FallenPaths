@@ -2,6 +2,8 @@
 
 Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
 
+**Plan / code:** Research / fidelity backlog → **`IMPLEMENTATION_ORDER.md`** Tier **7** (**non-blocking**). Feeds design for lower tiers; does not override milestone **Status** or dependency chain.
+
 ## Contents
 
 1. [HEMA_SYSTEM_CHANGES_IMPLEMENTATION_ROADMAP.md](#hema-system-changes-implementation-roadmap)

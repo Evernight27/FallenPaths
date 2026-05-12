@@ -7,6 +7,7 @@ const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _FormationDiagramBuilder := preload("res://ui/FormationDiagramBuilder.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 
 var players: Array = []
@@ -40,7 +41,7 @@ func _ready() -> void:
 	# Processing will be enabled by start()
 	set_process(false)
 
-## Start battle. Optional p_player_formation and p_enemy_formation: { files, ranks, density }.
+## Start battle. Optional p_player_formation and p_enemy_formation: { files, ranks, density, optional **`CombatConstants.FORMATION_PRESET_KEY_DOCTRINE`** or **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**, … }.
 ## When omitted, uses world meta "party_formation" / "enemy_formation" or defaults from count.
 func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_formation: Dictionary = {}) -> void:
 	# Accept either a single Node or an Array of Nodes for each side
@@ -163,16 +164,16 @@ func _apply_debug_depth_polearm_loadout(mgr: Node) -> void:
 	if mgr == null:
 		return
 	for c in mgr.combatants:
-		if not c.get("alive", false):
+		if not _EntityAccess.alive_bool(c):
 			continue
-		if int(c.get("rank", 0)) <= 0:
+		if _EntityAccess.rank_int(c) <= 0:
 			continue
-		var n: Variant = c.get("node", null)
-		if n == null or not (n is Node) or not (n as Node).has_method("equip_weapon"):
+		var n: Node = _EntityAccess.scene_node(c)
+		if n == null or not n.has_method("equip_weapon"):
 			continue
 		var w: Weapon = _Weapon.create_from_definition("SPEAR")
 		if w != null:
-			(n as Node).call("equip_weapon", w)
+			n.call("equip_weapon", w)
 
 
 func _create_ui() -> void:
@@ -208,8 +209,9 @@ func _update_ui() -> Array:
 		return []
 	var caps: Array = manager.get_combatants()
 	for c in caps:
-		if c.id in id_to_controls:
-			BattleUIUpdater.update_combatant_row(id_to_controls[c.id], c)
+		var cid_ui: int = _EntityAccess.id_int(c)
+		if cid_ui in id_to_controls:
+			BattleUIUpdater.update_combatant_row(id_to_controls[cid_ui], c)
 	return caps
 
 func _process(_delta: float) -> void:
@@ -222,9 +224,9 @@ func _process(_delta: float) -> void:
 		if not _medical_phase_finished_announced:
 			var anyone_busy: bool = false
 			for c in caps:
-				if not c.get("alive", true):
+				if not _EntityAccess.alive_bool(c, true):
 					continue  # Only alive combatants can be "busy"; dead enemies may still have wind_up state
-				var s: String = c.get("state", "waiting")
+				var s: String = _EntityAccess.state_str(c, "waiting")
 				if s == "wind_up" or s == "medical_wind_up":
 					anyone_busy = true
 					break
@@ -255,14 +257,13 @@ func _sync_engagement_labels_from_manager() -> void:
 	var fm: Variant = manager.get("formations")
 	if fm == null or typeof(fm) != TYPE_DICTIONARY:
 		return
-	var fd: Dictionary = fm as Dictionary
 	if _enemy_engagement_label != null:
-		_enemy_engagement_label.text = _format_engagement_line(fd.get("enemy", {}))
+		_enemy_engagement_label.text = _format_engagement_line(_FormationSlots.formation_record_read(fm, "enemy"), "enemy")
 	if _player_engagement_label != null:
-		_player_engagement_label.text = _format_engagement_line(fd.get("player", {}))
+		_player_engagement_label.text = _format_engagement_line(_FormationSlots.formation_record_read(fm, "player"), "player")
 
 
-func _format_engagement_line(form: Dictionary) -> String:
+func _format_engagement_line(form: Dictionary, formation_id: String) -> String:
 	if form.is_empty():
 		return "—"
 	var mode_disp: String = "—"
@@ -270,7 +271,12 @@ func _format_engagement_line(form: Dictionary) -> String:
 		mode_disp = _EngagementMode.mode_display_name(_EngagementMode.engagement_mode(manager))
 	var posture: String = str(form.get("engagement_posture", "—"))
 	var coh: float = float(form.get("line_cohesion", 0.0))
-	return "%s · %s · cohesion %d%%" % [mode_disp, posture.capitalize(), int(roundf(coh * 100.0))]
+	var line: String = "%s · %s · cohesion %d%%" % [mode_disp, posture.capitalize(), int(roundf(coh * 100.0))]
+	if manager != null and manager.has_method("get_formation_doctrine"):
+		var doc: String = str(manager.get_formation_doctrine(formation_id))
+		if doc != CombatConstants.DOCTRINE_DEFAULT and not doc.is_empty():
+			line += " · %s" % doc.replace("_", " ").capitalize()
+	return line
 
 
 func _on_combat_ui_hint(message: String) -> void:
@@ -298,9 +304,9 @@ func _on_action_resolved(attacker_id: int, target_id: int, result: Dictionary) -
 	var atk = manager._get_by_id(attacker_id) if manager and manager.has_method("_get_by_id") else null
 	var tgt = manager._get_by_id(target_id) if manager and manager.has_method("_get_by_id") else null
 	var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
-	var atk_side: String = atk.get("side", "") if atk != null else ""
+	var atk_side: String = _EntityAccess.side_str(atk) if atk != null else ""
 	var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
-	var tgt_side: String = tgt.get("side", "") if tgt != null else ""
+	var tgt_side: String = _EntityAccess.side_str(tgt) if tgt != null else ""
 	_append_combat_log(atk_name, atk_side, tgt_name, tgt_side, result)
 	# Show last hit on target row (prefers total_physical so fractional chips still show)
 	var part: String = result.get("part", "")
@@ -310,7 +316,7 @@ func _on_action_resolved(attacker_id: int, target_id: int, result: Dictionary) -
 	if target_id in id_to_controls and id_to_controls[target_id].get("last_hit_label"):
 		var lbl: Label = id_to_controls[target_id].last_hit_label
 		if show_hit:
-			lbl.text = "Hit: %s -%s" % [BodyPartConstants.BODY_LABELS.get(part, part), CombatLogFormatter.format_resolved_damage(result)]
+			lbl.text = CombatLogFormatter.format_last_hit_on_target_row(result)
 		elif result.get("died", false) and not show_hit:
 			lbl.text = "No targetable parts"
 		else:

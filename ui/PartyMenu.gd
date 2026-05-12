@@ -2,6 +2,7 @@ extends PopupPanel
 
 # Simple party menu that displays member info (body parts: cutting + blunt)
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 var content_vbox: VBoxContainer
 
 func _ready() -> void:
@@ -52,11 +53,11 @@ func show_party(members: Array) -> void:
 			var armor_lbl = Label.new()
 			armor_lbl.text = "Armor: " + ", ".join(armor_summary)
 			v.add_child(armor_lbl)
-		var bc: Dictionary = m.get("body_cutting", {})
-		var bb: Dictionary = m.get("body_blunt", {})
-		var bm: Dictionary = m.get("body_max", {})
-		var bone_h: Dictionary = m.get("bone_health", {})
-		var bone_m: Dictionary = m.get("bone_max", {})
+		var bc: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_cutting")
+		var bb: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_blunt")
+		var bm: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_max")
+		var bone_h: Dictionary = _EntityAccess.nested_dictionary_read(m, "bone_health")
+		var bone_m: Dictionary = _EntityAccess.nested_dictionary_read(m, "bone_max")
 		for pair in _RowFormatter.PART_LINES:
 			var h = HBoxContainer.new()
 			for part in pair:

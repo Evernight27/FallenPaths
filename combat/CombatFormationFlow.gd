@@ -39,7 +39,7 @@ const _VACANCY_PLUG_RESERVED_DONORS_META := "_vacancy_plug_reserved_donors"
 static func repack_lane_offset_after_rank_file_change(c: Dictionary) -> void:
 	if c.is_empty():
 		return
-	if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+	if _ZoneOfControl.is_intruded(c):
 		c["lane_offset"] = clampf(
 			CombatConstants.INTRUSION_INTRUDER_LANE_OFFSET_BIAS,
 			-CombatConstants.LANE_OFFSET_ABS_MAX,
@@ -79,7 +79,7 @@ static func _vacancy_lateral_is_reverse_blocked(
 		return false
 	var arr: Array = manager.get_meta(_VACANCY_LATERAL_EDGE_META) as Array
 	for e in arr:
-		if int(e.get("id", -9)) != ally_id:
+		if _EntityAccess.id_int(e, -9) != ally_id:
 			continue
 		if int(e.get("rk", -9)) != rk:
 			continue
@@ -98,7 +98,7 @@ static func _vacancy_lateral_undo_blocked_persistent(
 ) -> bool:
 	if manager == null or ally.is_empty():
 		return false
-	if int(ally.get("rank", -9)) != fill_rank:
+	if _EntityAccess.rank_int(ally, -9) != fill_rank:
 		return false
 	if not ally.has("formation_vacancy_lateral_reverse_lock_until"):
 		return false
@@ -119,9 +119,9 @@ static func _vacancy_lateral_record_edge(manager: Node, ally_id: int, src_f: int
 
 static func apply_hit_reaction_if_needed(manager: Node, combatant_id: int, intensity: float = 0.5) -> void:
 	var c = manager._get_by_id(combatant_id)
-	if c == null or not c.alive:
+	if c == null or not _EntityAccess.alive_bool(c):
 		return
-	var st: String = c.get("state", "")
+	var st: String = _EntityAccess.state_str(c)
 	if st != CombatConstants.STATE_SWAP_RANK and st != CombatConstants.STATE_FALLING_BACK:
 		return
 	var extra: float = CombatConstants.FORMATION_HIT_REACTION_EXTRA_S * lerpf(0.4, 1.2, clampf(intensity, 0.0, 1.0))
@@ -129,8 +129,8 @@ static func apply_hit_reaction_if_needed(manager: Node, combatant_id: int, inten
 	var pid: int = int(c.get("formation_move_partner_id", -1))
 	if pid >= 0:
 		var p = manager._get_by_id(pid)
-		if p != null and p.alive:
-			var pst: String = p.get("state", "")
+		if p != null and _EntityAccess.alive_bool(p):
+			var pst: String = _EntityAccess.state_str(p)
 			if pst == CombatConstants.STATE_SWAP_RANK or pst == CombatConstants.STATE_FALLING_BACK:
 				p.state_duration += extra
 	bump_resolve_events(manager, combatant_id, extra)
@@ -138,9 +138,12 @@ static func apply_hit_reaction_if_needed(manager: Node, combatant_id: int, inten
 
 static func bump_resolve_events(manager: Node, for_combatant_id: int, extra_s: float) -> void:
 	for ev in manager.event_queue:
+		if typeof(ev) != TYPE_DICTIONARY:
+			continue
 		var t: String = ev.get("type", "")
 		var cid: int = ev.get("combatant_id", -1)
-		var data: Dictionary = ev.get("data", {})
+		var data_raw: Variant = ev.get("data", null)
+		var data: Dictionary = data_raw if data_raw is Dictionary else {}
 		var bump: bool = false
 		if t == CombatConstants.EVENT_SWAP_RANK_RESOLVE:
 			if cid == for_combatant_id or int(data.get("partner_id", -1)) == for_combatant_id:
@@ -158,37 +161,40 @@ static func bump_resolve_events(manager: Node, for_combatant_id: int, extra_s: f
 static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, move_kind: String) -> void:
 	var init = manager._get_by_id(initiator_id)
 	var partner = manager._get_by_id(partner_id)
-	if init == null or partner == null or not init.alive or not partner.alive:
+	if init == null or partner == null or not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
 		return
-	if str(init.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+	if _ZoneOfControl.is_intruded(init):
 		return
-	if str(partner.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+	if _ZoneOfControl.is_intruded(partner):
 		return
-	if init.side != partner.side or init.get("formation_id", "") != partner.get("formation_id", ""):
+	if _EntityAccess.side_str(init) != _EntityAccess.side_str(partner) or _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
 		return
-	var fid: String = init.get("formation_id", "")
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var fid: String = _EntityAccess.formation_id_str(init)
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty() or formation.get("ranks", 1) <= 1:
 		return
-	var r0: int = init.get("rank", 0)
-	var r1: int = partner.get("rank", 0)
-	var f0: int = init.get("file", 0)
-	var f1: int = partner.get("file", 0)
+	var r0: int = _EntityAccess.rank_int(init)
+	var r1: int = _EntityAccess.rank_int(partner)
+	var f0: int = _EntityAccess.file_int(init)
+	var f1: int = _EntityAccess.file_int(partner)
 	if f0 != f1 or abs(r0 - r1) != 1:
 		return
 	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
 	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
-	var agi: float = float(init.stats.get("agility", 100))
+	var agi: float = float(_EntityAccess.stats_dict(init).get("agility", 100))
 	var kind_mult: float = CombatConstants.DRAG_BACK_DURATION_MULT if move_kind == "drag_back" else 1.0
-	var armor_mult: float = maxf(manager._armor_mass_duration_multiplier_for_node(init.node), manager._armor_mass_duration_multiplier_for_node(partner.node))
+	var armor_mult: float = maxf(
+		manager._armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init)),
+		manager._armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(partner))
+	)
 	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * kind_mult * armor_mult
 	var use_falling: bool = move_kind == "drag_back" or move_kind == "fall_back_pair"
 	var st: String = CombatConstants.STATE_FALLING_BACK if use_falling else CombatConstants.STATE_SWAP_RANK
-	var slots: Dictionary = formation.get("slots", {})
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	var r_lo: int = mini(r0, r1)
 	var r_hi: int = maxi(r0, r1)
-	var id_at_lo: int = init.id if init.get("rank", 0) == r_lo else partner.id
-	var id_at_hi: int = init.id if init.get("rank", 0) == r_hi else partner.id
+	var id_at_lo: int = _EntityAccess.id_int(init) if _EntityAccess.rank_int(init) == r_lo else _EntityAccess.id_int(partner)
+	var id_at_hi: int = _EntityAccess.id_int(init) if _EntityAccess.rank_int(init) == r_hi else _EntityAccess.id_int(partner)
 	_FormationSlots.begin_adjacent_rank_pair_move(slots, r_lo, r_hi, f0, id_at_lo, id_at_hi)
 	init["formation_move_partner_id"] = partner_id
 	partner["formation_move_partner_id"] = initiator_id
@@ -205,6 +211,7 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 			"formation_move_start %s (%d) %s with %s (%d) (%.2fs lane×foot×%.2f pressure×%.2f)"
 			% [n0, initiator_id, move_kind, n1, partner_id, duration, lane_foot, pressure_mod]
 		)
+	_EventScheduler.cancel_pending_swap_rank_pair_events(manager, initiator_id, partner_id)
 	manager._schedule_event({
 		"type": CombatConstants.EVENT_SWAP_RANK_RESOLVE,
 		"combatant_id": initiator_id,
@@ -215,25 +222,25 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 
 static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 	var init = manager._get_by_id(initiator_id)
-	if init == null or not init.alive:
+	if init == null or not _EntityAccess.alive_bool(init):
 		return
-	if str(init.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+	if _ZoneOfControl.is_intruded(init):
 		return
-	var fid: String = init.get("formation_id", "")
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var fid: String = _EntityAccess.formation_id_str(init)
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return
 	var ranks: int = formation.get("ranks", 1)
-	if ranks <= 1 or init.get("rank", 0) != 0:
+	if ranks <= 1 or _EntityAccess.rank_int(init) != 0:
 		return
-	var f: int = init.get("file", 0)
-	var slots: Dictionary = formation.get("slots", {})
+	var f: int = _EntityAccess.file_int(init)
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(1, f)):
 		return
 	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
 	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
-	var agi: float = float(init.stats.get("agility", 100))
-	var armor_mult: float = manager._armor_mass_duration_multiplier_for_node(init.node)
+	var agi: float = float(_EntityAccess.stats_dict(init).get("agility", 100))
+	var armor_mult: float = manager._armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init))
 	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * armor_mult
 	init["formation_move_partner_id"] = -1
 	init.state = CombatConstants.STATE_FALLING_BACK
@@ -253,27 +260,30 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int) -> void:
 	var init = manager._get_by_id(initiator_id)
 	var partner = manager._get_by_id(partner_id)
-	if init == null or partner == null or not init.alive or not partner.alive:
+	if init == null or partner == null or not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
 		return
-	if str(init.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+	if _ZoneOfControl.is_intruded(init):
 		return
-	if str(partner.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+	if _ZoneOfControl.is_intruded(partner):
 		return
-	if init.side != partner.side or init.get("formation_id", "") != partner.get("formation_id", ""):
+	if _EntityAccess.side_str(init) != _EntityAccess.side_str(partner) or _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
 		return
-	var r_init: int = int(init.get("rank", 0))
-	var r_partner: int = int(partner.get("rank", 0))
+	var r_init: int = _EntityAccess.rank_int(init)
+	var r_partner: int = _EntityAccess.rank_int(partner)
 	if r_init != r_partner:
 		return
-	var f0: int = init.get("file", 0)
-	var f1: int = partner.get("file", 0)
+	var f0: int = _EntityAccess.file_int(init)
+	var f1: int = _EntityAccess.file_int(partner)
 	if abs(f0 - f1) != 1:
 		return
-	var fid: String = init.get("formation_id", "")
+	var fid: String = _EntityAccess.formation_id_str(init)
 	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
 	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
-	var agi: float = float(init.stats.get("agility", 100))
-	var armor_mult: float = maxf(manager._armor_mass_duration_multiplier_for_node(init.node), manager._armor_mass_duration_multiplier_for_node(partner.node))
+	var agi: float = float(_EntityAccess.stats_dict(init).get("agility", 100))
+	var armor_mult: float = maxf(
+		manager._armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init)),
+		manager._armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(partner))
+	)
 	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * armor_mult
 	init["formation_move_partner_id"] = partner_id
 	partner["formation_move_partner_id"] = initiator_id
@@ -296,46 +306,48 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 
 
 static func pair_state_ok(c) -> bool:
-	return c != null and c.get("state", "") in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]
+	return c != null and _EntityAccess.state_str(c) in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]
 
 
-static func abort_pair(manager: Node, init, partner) -> void:
-	var iid: int = init.get("id", -1) if init != null else -1
-	var pid: int = partner.get("id", -1) if partner != null else -1
-	CombatDebug.flow_log("formation_pair abort (reset to waiting) initiator_id=%d partner_id=%d" % [iid, pid])
+static func abort_pair(manager: Node, init, partner, reason: String = "") -> void:
+	var iid: int = _EntityAccess.id_int(init) if init != null else -1
+	var pid: int = _EntityAccess.id_int(partner) if partner != null else -1
+	var rs: String = (" reason=%s" % reason) if not reason.is_empty() else ""
+	CombatDebug.flow_log("formation_pair abort (reset to waiting) initiator_id=%d partner_id=%d%s" % [iid, pid, rs])
 	if init != null:
 		init.erase("formation_move_partner_id")
 	if partner != null:
 		partner.erase("formation_move_partner_id")
 	if init != null and partner != null:
-		var fid: String = str(init.get("formation_id", ""))
-		if not fid.is_empty() and init.get("formation_id", "") == partner.get("formation_id", ""):
-			var formation: Dictionary = manager.formations.get(fid, {})
-			var slots: Dictionary = formation.get("slots", {})
-			_FormationSlots.remove_combatant_from_slots(slots, init.id)
-			_FormationSlots.remove_combatant_from_slots(slots, partner.id)
-			if init.get("alive", false):
-				_FormationSlots.slot_set_single(slots, Vector2i(init.get("rank", 0), init.get("file", 0)), init.id)
-			if partner.get("alive", false):
-				_FormationSlots.slot_set_single(slots, Vector2i(partner.get("rank", 0), partner.get("file", 0)), partner.id)
+		var fid: String = _EntityAccess.formation_id_str(init)
+		if not fid.is_empty() and _EntityAccess.formation_id_str(init) == _EntityAccess.formation_id_str(partner):
+			var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+			var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+			_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(init))
+			_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(partner))
+			if _EntityAccess.alive_bool(init):
+				_FormationSlots.slot_set_single(slots, Vector2i(_EntityAccess.rank_int(init), _EntityAccess.file_int(init)), _EntityAccess.id_int(init))
+			if _EntityAccess.alive_bool(partner):
+				_FormationSlots.slot_set_single(slots, Vector2i(_EntityAccess.rank_int(partner), _EntityAccess.file_int(partner)), _EntityAccess.id_int(partner))
 			manager._recompute_zoc_and_distance()
 			manager.notify_formation_changed(fid)
 			manager._reschedule_back_rank_turns(fid)
-	if init != null and init.get("alive", false) and pair_state_ok(init):
+	if init != null and _EntityAccess.alive_bool(init) and pair_state_ok(init):
 		init.state = CombatConstants.STATE_WAITING
-	if partner != null and partner.get("alive", false) and pair_state_ok(partner):
+	if partner != null and _EntityAccess.alive_bool(partner) and pair_state_ok(partner):
 		partner.state = CombatConstants.STATE_WAITING
 	# Keep a brief local guard after abort so the same pair does not instantly requeue under churn.
 	var until: float = float(manager.combat_clock) + 0.7
-	if init != null and init.get("alive", false):
+	if init != null and _EntityAccess.alive_bool(init):
 		init["formation_pair_abort_cooldown_until"] = until
-	if partner != null and partner.get("alive", false):
+	if partner != null and _EntityAccess.alive_bool(partner):
 		partner["formation_pair_abort_cooldown_until"] = until
 
 
 static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	var initiator_id: int = ev.get("combatant_id", -1)
-	var data: Dictionary = ev.get("data", {})
+	var data_raw: Variant = ev.get("data", null)
+	var data: Dictionary = data_raw if data_raw is Dictionary else {}
 	var partner_id: int = data.get("partner_id", -1)
 	var move_kind: String = data.get("move_kind", "swap_rank")
 	var init = manager._get_by_id(initiator_id)
@@ -348,40 +360,50 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 		if pair_state_ok(init):
 			init.state = CombatConstants.STATE_WAITING
 		return
-	if not init.alive or not partner.alive:
-		abort_pair(manager, init, partner)
-		if init != null and init.alive:
+	if not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
+		abort_pair(manager, init, partner, "swap_rank_resolve_not_alive")
+		if init != null and _EntityAccess.alive_bool(init):
 			manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
-		if partner != null and partner.alive:
+		if partner != null and _EntityAccess.alive_bool(partner):
 			manager._schedule_action_ready(partner_id, manager._action_ready_cooldown(partner))
 		return
 	if not pair_state_ok(init) or not pair_state_ok(partner):
-		abort_pair(manager, init, partner)
-		if init != null and init.alive:
+		var si: String = _EntityAccess.state_str(init) if init != null else "null"
+		var sp: String = _EntityAccess.state_str(partner) if partner != null else "null"
+		abort_pair(manager, init, partner, "swap_rank_resolve_pair_state init=%s partner=%s" % [si, sp])
+		if init != null and _EntityAccess.alive_bool(init):
 			manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
-		if partner != null and partner.alive:
+		if partner != null and _EntityAccess.alive_bool(partner):
 			manager._schedule_action_ready(partner_id, manager._action_ready_cooldown(partner))
 		return
-	var fid: String = init.get("formation_id", "")
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var fid: String = _EntityAccess.formation_id_str(init)
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
-		abort_pair(manager, init, partner)
+		abort_pair(manager, init, partner, "swap_rank_resolve_formation_empty fid=%s" % fid)
 		return
-	var slots: Dictionary = formation.get("slots", {})
-	var r0: int = init.get("rank", 0)
-	var r1: int = partner.get("rank", 0)
-	var f0: int = init.get("file", 0)
-	var f1: int = partner.get("file", 0)
-	_FormationSlots.remove_combatant_from_slots(slots, init.id)
-	_FormationSlots.remove_combatant_from_slots(slots, partner.id)
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+	var r0: int = _EntityAccess.rank_int(init)
+	var r1: int = _EntityAccess.rank_int(partner)
+	var f0: int = _EntityAccess.file_int(init)
+	var f1: int = _EntityAccess.file_int(partner)
+	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(init))
+	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(partner))
 	init.rank = r1
 	init.file = f1
 	partner.rank = r0
 	partner.file = f0
 	repack_lane_offset_after_rank_file_change(init)
 	repack_lane_offset_after_rank_file_change(partner)
-	_FormationSlots.slot_set_single(slots, Vector2i(init.rank, init.file), init.id)
-	_FormationSlots.slot_set_single(slots, Vector2i(partner.rank, partner.file), partner.id)
+	_FormationSlots.slot_set_single(
+		slots,
+		Vector2i(_EntityAccess.rank_int(init), _EntityAccess.file_int(init)),
+		_EntityAccess.id_int(init)
+	)
+	_FormationSlots.slot_set_single(
+		slots,
+		Vector2i(_EntityAccess.rank_int(partner), _EntityAccess.file_int(partner)),
+		_EntityAccess.id_int(partner)
+	)
 	init.erase("formation_move_partner_id")
 	partner.erase("formation_move_partner_id")
 	# Mirror CombatConstants rotate anti-thrash window; keep literal fallback to avoid stale analyzer symbol caches.
@@ -410,24 +432,24 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)
 	manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
-	if partner != null and partner.alive and not _EntityAccess.is_incapacitated(partner):
+	if partner != null and _EntityAccess.alive_bool(partner) and not _EntityAccess.is_incapacitated(partner):
 		manager._schedule_action_ready(partner_id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
 
 
 static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void:
 	var initiator_id: int = ev.get("combatant_id", -1)
 	var init = manager._get_by_id(initiator_id)
-	if init == null or not init.alive:
+	if init == null or not _EntityAccess.alive_bool(init):
 		return
-	if init.get("state", "") != CombatConstants.STATE_FALLING_BACK:
+	if _EntityAccess.state_str(init) != CombatConstants.STATE_FALLING_BACK:
 		return
-	var fid: String = init.get("formation_id", "")
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var fid: String = _EntityAccess.formation_id_str(init)
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		init.state = CombatConstants.STATE_WAITING
 		return
-	var f: int = init.get("file", 0)
-	var slots: Dictionary = formation.get("slots", {})
+	var f: int = _EntityAccess.file_int(init)
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(1, f)):
 		CombatDebug.flow_log("fall_back_solo_resolve id=%d aborted: rear slot (1,%d) occupied" % [initiator_id, f])
 		init.state = CombatConstants.STATE_WAITING
@@ -449,36 +471,49 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 
 static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 	var initiator_id: int = ev.get("combatant_id", -1)
-	var partner_id: int = ev.get("data", {}).get("partner_id", -1)
+	var partner_id: int = -1
+	var ev_data: Variant = ev.get("data", null)
+	if typeof(ev_data) == TYPE_DICTIONARY:
+		partner_id = int((ev_data as Dictionary).get("partner_id", -1))
 	var init = manager._get_by_id(initiator_id)
 	var partner = manager._get_by_id(partner_id)
-	if init == null or partner == null or not init.alive or not partner.alive:
-		abort_pair(manager, init, partner)
+	if init == null or partner == null or not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
+		abort_pair(manager, init, partner, "rotate_file_resolve_null_or_dead")
 		return
 	if not pair_state_ok(init) or not pair_state_ok(partner):
-		abort_pair(manager, init, partner)
-		if init != null and init.alive:
+		var si2: String = _EntityAccess.state_str(init) if init != null else "null"
+		var sp2: String = _EntityAccess.state_str(partner) if partner != null else "null"
+		abort_pair(manager, init, partner, "rotate_file_resolve_pair_state init=%s partner=%s" % [si2, sp2])
+		if init != null and _EntityAccess.alive_bool(init):
 			manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
-		if partner != null and partner.alive:
+		if partner != null and _EntityAccess.alive_bool(partner):
 			manager._schedule_action_ready(partner_id, manager._action_ready_cooldown(partner))
 		return
-	var fid: String = init.get("formation_id", "")
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var fid: String = _EntityAccess.formation_id_str(init)
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
-		abort_pair(manager, init, partner)
+		abort_pair(manager, init, partner, "rotate_file_resolve_formation_empty fid=%s" % fid)
 		return
-	var slots: Dictionary = formation.get("slots", {})
-	var f0: int = init.get("file", 0)
-	var f1: int = partner.get("file", 0)
-	var r_rot: int = int(init.get("rank", 0))
-	_FormationSlots.remove_combatant_from_slots(slots, init.id)
-	_FormationSlots.remove_combatant_from_slots(slots, partner.id)
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+	var f0: int = _EntityAccess.file_int(init)
+	var f1: int = _EntityAccess.file_int(partner)
+	var r_rot: int = _EntityAccess.rank_int(init)
+	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(init))
+	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(partner))
 	init.file = f1
 	partner.file = f0
 	repack_lane_offset_after_rank_file_change(init)
 	repack_lane_offset_after_rank_file_change(partner)
-	_FormationSlots.slot_set_single(slots, Vector2i(r_rot, init.file), init.id)
-	_FormationSlots.slot_set_single(slots, Vector2i(r_rot, partner.file), partner.id)
+	_FormationSlots.slot_set_single(
+		slots,
+		Vector2i(r_rot, _EntityAccess.file_int(init)),
+		_EntityAccess.id_int(init)
+	)
+	_FormationSlots.slot_set_single(
+		slots,
+		Vector2i(r_rot, _EntityAccess.file_int(partner)),
+		_EntityAccess.id_int(partner)
+	)
 	init.erase("formation_move_partner_id")
 	partner.erase("formation_move_partner_id")
 	init.state = CombatConstants.STATE_WAITING
@@ -503,39 +538,42 @@ static func apply_intrusion_after_crash_success(
 ) -> void:
 	if manager == null or atk.is_empty():
 		return
-	var fid_a: String = str(atk.get("formation_id", ""))
+	var fid_a: String = _EntityAccess.formation_id_str(atk)
 	if fid_a.is_empty() or defender_formation_id.is_empty():
 		return
-	var form_a: Dictionary = manager.formations.get(fid_a, {})
-	var form_b: Dictionary = manager.formations.get(defender_formation_id, {})
+	var form_a: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid_a)
+	var form_b: Dictionary = _FormationSlots.formation_record_read(manager.formations, defender_formation_id)
 	if form_a.is_empty() or form_b.is_empty():
 		return
-	var aid: int = int(atk.get("id", -1))
+	var aid: int = _EntityAccess.id_int(atk)
 	if aid < 0:
 		return
 	var stored_home: int = int(atk.get("intrusion_source_file", -1))
 	var first_intrusion: bool = stored_home < 0
-	var home_vacancy_file: int = int(atk.get("file", 0)) if first_intrusion else stored_home
+	var home_vacancy_file: int = _EntityAccess.file_int(atk) if first_intrusion else stored_home
 	for fk in manager.formations.keys():
-		var fd: Dictionary = manager.formations[fk]
+		var raw_fd_strip: Variant = manager.formations.get(fk, null)
+		if raw_fd_strip == null or not (raw_fd_strip is Dictionary):
+			continue
+		var fd: Dictionary = raw_fd_strip as Dictionary
 		if fd.is_empty():
 			continue
-		_FormationSlots.remove_combatant_from_slots(fd.get("slots", {}), aid)
-	var slots_b: Dictionary = form_b.get("slots", {})
+		_FormationSlots.remove_combatant_from_slots(_FormationSlots.formation_slots_dict(fd), aid)
+	var slots_b: Dictionary = _FormationSlots.formation_slots_dict(form_b)
 	var host_ranks: int = maxi(1, int(form_b.get("ranks", 1)))
 	var placed_rank: int = _FormationSlots.place_intruder_behind_front_line(manager, slots_b, host_ranks, defender_file, aid)
 	atk["rank"] = placed_rank
 	atk["file"] = defender_file
 	var sev_use: float = breach_severity
 	if sev_use < 0.0:
-		var bf0: Dictionary = form_b.get("breached_files", {})
+		var bf0: Dictionary = _FormationSlots.formation_nested_dictionary_read(form_b, "breached_files")
 		sev_use = _FormationBreachRules.breached_file_severity(bf0, defender_file, 0.7)
 	_IntrusionWedge.upsert_from_intrusion(
 		form_b,
 		defender_file,
 		aid,
 		sev_use,
-		int(atk.get("tactical_penetration_depth", 0)),
+		_EntityAccess.tactical_penetration_depth_int(atk),
 		CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX
 	)
 	repack_lane_offset_after_rank_file_change(atk)
@@ -556,24 +594,24 @@ static func _nudge_anchor_rank0_lane_offset_for_intrusion(
 ) -> void:
 	if manager == null or not manager.has_method("_get_by_id"):
 		return
-	var form_b: Dictionary = manager.formations.get(defender_formation_id, {})
+	var form_b: Dictionary = _FormationSlots.formation_record_read(manager.formations, defender_formation_id)
 	if form_b.is_empty():
 		return
-	var slots_b: Dictionary = form_b.get("slots", {})
+	var slots_b: Dictionary = _FormationSlots.formation_slots_dict(form_b)
 	var occ: Array = _FormationSlots.normalize_cell(slots_b.get(Vector2i(0, anchor_file), []))
 	for did in occ:
 		var cid: int = int(did)
 		if cid == intruder_id:
 			continue
 		var defc: Variant = manager._get_by_id(cid)
-		if defc == null or not (defc as Dictionary).get("alive", false):
+		if defc == null or not _EntityAccess.alive_bool(defc as Dictionary):
 			continue
 		var d: Dictionary = defc as Dictionary
-		if str(d.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		if _ZoneOfControl.is_intruded(d):
 			continue
-		if int(d.get("rank", 0)) != 0:
+		if _EntityAccess.rank_int(d) != 0:
 			continue
-		if str(d.get("formation_id", "")) != defender_formation_id:
+		if _EntityAccess.formation_id_str(d) != defender_formation_id:
 			continue
 		var cur: float = float(d.get("lane_offset", 0.0))
 		d["lane_offset"] = clampf(
@@ -587,10 +625,10 @@ static func _nudge_anchor_rank0_lane_offset_for_intrusion(
 static func _formation_has_rank0_hole(manager: Node, fid: String) -> bool:
 	if manager == null:
 		return false
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return false
-	var slots: Dictionary = formation.get("slots", {})
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	var nfiles: int = maxi(1, int(formation.get("files", 1)))
 	for file in range(nfiles):
 		if not _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
@@ -603,15 +641,15 @@ static func _formation_has_rank0_hole(manager: Node, fid: String) -> bool:
 static func formation_has_frontline_fill_opportunity(manager: Node, fid: String) -> bool:
 	if manager == null:
 		return false
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return false
 	var formation_ranks: int = int(formation.get("ranks", 1))
 	if formation_ranks <= 1:
 		return false
-	var slots: Dictionary = formation.get("slots", {})
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	var nfiles: int = maxi(1, int(formation.get("files", 1)))
-	var side_wanted: String = str(formation.get("side", ""))
+	var side_wanted: String = _FormationSlots.formation_side_str(formation)
 	for file in range(nfiles):
 		if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
 			continue
@@ -627,7 +665,7 @@ static func formation_has_frontline_fill_opportunity(manager: Node, fid: String)
 ## Busy combatants must not be picked as vacancy donors (would fight slot state during swaps / wind-up).
 ## Units just moved by automatic plug also sit out briefly so reconcile ticks cannot ping-pong them as donors.
 static func _is_ineligible_vacancy_donor(manager: Node, c: Dictionary) -> bool:
-	var st: String = str(c.get("state", ""))
+	var st: String = _EntityAccess.state_str(c)
 	if st in [
 		CombatConstants.STATE_SWAP_RANK,
 		CombatConstants.STATE_FALLING_BACK,
@@ -647,9 +685,9 @@ static func _is_ineligible_vacancy_donor(manager: Node, c: Dictionary) -> bool:
 		if absf(last_move_clk - clk) < 0.0001:
 			return true
 		if clk < until:
-			var fid: String = str(c.get("formation_id", ""))
+			var fid_geom: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
 			# Frontline-first override: if rank 0 has holes, let reserves donate even during autofill cooldown.
-			if not _formation_has_rank0_hole(manager, fid):
+			if not _formation_has_rank0_hole(manager, fid_geom):
 				return true
 	return false
 
@@ -666,13 +704,13 @@ static func _combatant_from_slot_primary_living(
 	var arr: Array = _FormationSlots.normalize_cell(slots.get(key, []))
 	for cid in arr:
 		var ally = manager._get_by_id(int(cid)) if manager.has_method("_get_by_id") else null
-		if ally == null or not ally.get("alive", false):
+		if ally == null or not _EntityAccess.alive_bool(ally):
 			continue
-		if str(ally.get("side", "")) != side_wanted:
+		if _EntityAccess.side_str(ally) != side_wanted:
 			continue
-		if str(ally.get("formation_id", "")) != fid:
+		if _ZoneOfControl.formation_id_for_zone_geometry(manager, ally) != fid:
 			continue
-		if skip_intruded and str(ally.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		if skip_intruded and _ZoneOfControl.is_intruded(ally):
 			continue
 		if _is_ineligible_vacancy_donor(manager, ally):
 			continue
@@ -734,7 +772,7 @@ static func _plug_priority_score(manager: Node, prox_steps: int, c: Dictionary, 
 ## is not a legal donor (wind-up, reserved elsewhere, intruder-only cell, etc.) and keep scanning so a deeper
 ## reserve can still plug the hole without forcing a front-rank lateral shuffle. Stop at the first **eligible,
 ## unreserved** donor (closest promotable native — do not jump over them to pull someone even deeper).
-## When false, scan the full column and keep the best-scoring eligible donor (legacy multi-step semantics).
+## When false, scan the full column and keep the best-scoring eligible donor (full-column donor scan).
 static func _evaluate_best_vertical_plug_for_cell(
 	manager: Node,
 	fid: String,
@@ -762,7 +800,7 @@ static func _evaluate_best_vertical_plug_for_cell(
 			if ally_v == null:
 				search_rank += 1
 				continue
-			var aid: int = int(ally_v.get("id", -1))
+			var aid: int = _EntityAccess.id_int(ally_v)
 			if reserved.get(aid, false):
 				search_rank += 1
 				continue
@@ -791,7 +829,7 @@ static func _evaluate_best_vertical_plug_for_cell(
 		)
 		if ally_v2 == null:
 			continue
-		var aid2: int = int(ally_v2.get("id", -1))
+		var aid2: int = _EntityAccess.id_int(ally_v2)
 		if reserved.get(aid2, false):
 			continue
 		var prox2: int = search_rank - fill_rank
@@ -867,7 +905,7 @@ static func _evaluate_best_rear_infill_for_rank0_hole(
 			)
 			if ally_r == null:
 				continue
-			var aid: int = int(ally_r.get("id", -1))
+			var aid: int = _EntityAccess.id_int(ally_r)
 			if reserved.get(aid, false):
 				continue
 			if not _rear_infill_hole_column_passable(
@@ -904,7 +942,7 @@ static func _evaluate_best_rear_infill_for_rank0_hole(
 					elif file_dist == best_fd and nf < best_nf:
 						best = cand
 						best_pri = pri
-					elif file_dist == best_fd and nf == best_nf and aid < int((best.get("ally", {}) as Dictionary).get("id", 999999)):
+					elif file_dist == best_fd and nf == best_nf and aid < _EntityAccess.id_int(_EntityAccess.nested_dictionary_read(best, "ally"), 999999):
 						best = cand
 						best_pri = pri
 	return best
@@ -937,7 +975,7 @@ static func _evaluate_best_lateral_plug_for_cell(
 		)
 		if ally_l == null:
 			continue
-		var aid: int = int(ally_l.get("id", -1))
+		var aid: int = _EntityAccess.id_int(ally_l)
 		if reserved.get(aid, false):
 			continue
 		if _vacancy_lateral_is_reverse_blocked(manager, aid, nf, file, fill_rank):
@@ -1052,11 +1090,11 @@ static func _apply_plug_move(
 	var ally: Dictionary = move["ally"]
 	var kind: String = str(move.get("kind", "vertical"))
 	var from_f: int = int(move.get("from_file", 0))
-	_FormationSlots.remove_combatant_from_slots(slots, ally.id)
+	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(ally))
 	ally.rank = fill_rank
 	ally.file = file
 	repack_lane_offset_after_rank_file_change(ally)
-	_FormationSlots.slot_set_single(slots, Vector2i(fill_rank, file), ally.id)
+	_FormationSlots.slot_set_single(slots, Vector2i(fill_rank, file), _EntityAccess.id_int(ally))
 	ally["formation_autofill_cooldown_until"] = (
 		float(manager.combat_clock) + CombatConstants.FORMATION_AUTOFILL_REPOSITION_COOLDOWN_S
 	)
@@ -1068,13 +1106,13 @@ static func _apply_plug_move(
 			float(manager.combat_clock) + CombatConstants.FORMATION_VACANCY_LATERAL_REVERSE_LOCK_S
 		)
 		if manager.has_meta(_VACANCY_LATERAL_EDGE_META):
-			_vacancy_lateral_record_edge(manager, int(ally.get("id", -1)), from_f, file, fill_rank)
+			_vacancy_lateral_record_edge(manager, _EntityAccess.id_int(ally), from_f, file, fill_rank)
 	else:
 		ally.erase("formation_vacancy_lateral_last_from_file")
 		ally.erase("formation_vacancy_lateral_last_to_file")
 		ally.erase("formation_vacancy_lateral_reverse_lock_until")
 	if CombatConstants.COMBAT_FORMATION_PLUG_MOVE_DEBUG:
-		var name_p: String = _EntityAccess.get_display_name(ally, ally.get("id", -1))
+		var name_p: String = _EntityAccess.get_display_name(ally, _EntityAccess.id_int(ally))
 		if kind == "lateral":
 			print(
 				"[Combat] %s: %s slid file %d → %d (rank %d)" % [log_prefix, name_p, from_f, file, fill_rank]
@@ -1089,16 +1127,16 @@ static func _apply_plug_move(
 		else:
 			print("[Combat] %s: %s advanced to rank %d (file %d)" % [log_prefix, name_p, fill_rank, file])
 	elif CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG and str(log_prefix).begins_with("Vacancy"):
-		var name_v: String = _EntityAccess.get_display_name(ally, ally.get("id", -1))
+		var name_v: String = _EntityAccess.get_display_name(ally, _EntityAccess.id_int(ally))
 		CombatDebug.formation_vacancy_log("%s: %s → rank %d file %d (%s)" % [log_prefix, name_v, fill_rank, file, kind])
 	if manager.has_meta(_VACANCY_PLUG_RESERVED_DONORS_META):
 		var rd: Dictionary = manager.get_meta(_VACANCY_PLUG_RESERVED_DONORS_META) as Dictionary
-		rd[int(ally.get("id", -1))] = true
+		rd[_EntityAccess.id_int(ally)] = true
 	var ready_delay: float = CombatConstants.READY_DELAY_AFTER_PROMOTION_S
 	if kind == "rear_infill":
 		var fdist: int = abs(int(from_f) - int(file))
 		ready_delay += float(fdist) * CombatConstants.FORMATION_PLUG_REAR_CROSS_FILE_READY_PER_FILE_S
-	manager._schedule_action_ready(ally.id, ready_delay)
+	manager._schedule_action_ready(_EntityAccess.id_int(ally), ready_delay)
 
 
 ## True when this file has a living occupant strictly deeper than `rank_i`.
@@ -1192,14 +1230,14 @@ static func _rank0_lateral_slide_allowed(
 ## Priority = `pow(effectiveness01, EXP) / (1 + W*proximity_steps)` so heavy injury nonlinearly defers plugging when fitter allies exist in other ranks or files.
 ## Returns true if any combatant moved.
 static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) -> bool:
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return false
 	var formation_ranks: int = formation.get("ranks", 1)
 	if formation_ranks <= 1:
 		return false
-	var slots: Dictionary = formation.get("slots", {})
-	var side_wanted: String = str(formation.get("side", ""))
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+	var side_wanted: String = _FormationSlots.formation_side_str(formation)
 	var nfiles: int = int(formation.get("files", 1))
 	var any_promoted: bool = false
 	var micro_max: int = CombatConstants.FORMATION_VACANCY_MICRO_STEPS_MAX
@@ -1250,7 +1288,7 @@ static func _should_compact_native_line_files(manager: Node, fid: String) -> boo
 	if manager == null:
 		return false
 	if str(_EngagementMode.engagement_mode(manager)) == str(CombatConstants.ENGAGEMENT_MODE_FORMATION):
-		var formation: Dictionary = manager.formations.get(fid, {})
+		var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 		if formation.is_empty():
 			return false
 		if not _formation_has_rank0_hole(manager, fid):
@@ -1259,8 +1297,8 @@ static func _should_compact_native_line_files(manager: Node, fid: String) -> boo
 		if formation_ranks <= 1:
 			return true
 		var nfiles: int = maxi(1, int(formation.get("files", 1)))
-		var slots: Dictionary = formation.get("slots", {})
-		var side_wanted: String = str(formation.get("side", ""))
+		var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+		var side_wanted: String = _FormationSlots.formation_side_str(formation)
 		return not _formation_has_any_promotable_rear_donor(
 			manager, slots, formation_ranks, nfiles, fid, side_wanted, true
 		)
@@ -1269,13 +1307,11 @@ static func _should_compact_native_line_files(manager: Node, fid: String) -> boo
 
 static func _formation_has_blocking_formation_motion_for_compact(manager: Node, fid: String) -> bool:
 	for c in manager.combatants:
-		if not c.get("alive", false):
+		if not _EntityAccess.alive_bool(c):
 			continue
-		if str(c.get("formation_id", "")) != fid:
+		if _ZoneOfControl.formation_id_for_zone_geometry(manager, c) != fid:
 			continue
-		if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
-			continue
-		var st: String = str(c.get("state", ""))
+		var st: String = _EntityAccess.state_str(c)
 		if st == CombatConstants.STATE_SWAP_RANK or st == CombatConstants.STATE_FALLING_BACK:
 			return true
 	return false
@@ -1291,7 +1327,7 @@ static func _slot_place_native_merging_intruders(
 	native_id: int
 ) -> void:
 	var nat = manager._get_by_id(native_id) if manager.has_method("_get_by_id") else null
-	if nat == null or not nat.get("alive", false):
+	if nat == null or not _EntityAccess.alive_bool(nat):
 		return
 	var key := Vector2i(rank, file_col)
 	_FormationSlots.remove_combatant_from_slots(slots, native_id)
@@ -1299,9 +1335,9 @@ static func _slot_place_native_merging_intruders(
 	var cur: Array = _FormationSlots.normalize_cell(slots.get(key, []))
 	for cid in cur:
 		var oc = manager._get_by_id(int(cid)) if manager.has_method("_get_by_id") else null
-		if oc == null or not oc.get("alive", false):
+		if oc == null or not _EntityAccess.alive_bool(oc):
 			continue
-		if str(oc.get("formation_id", "")) != fid or str(oc.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		if _EntityAccess.formation_id_str(oc) != fid or _ZoneOfControl.is_intruded(oc):
 			merged.append(int(cid))
 	if not merged.has(native_id):
 		merged.append(native_id)
@@ -1326,44 +1362,44 @@ static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> 
 		return false
 	if _formation_has_blocking_formation_motion_for_compact(manager, fid):
 		return false
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return false
-	var slots: Dictionary = formation.get("slots", {})
-	var side_wanted: String = str(formation.get("side", ""))
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+	var side_wanted: String = _FormationSlots.formation_side_str(formation)
 	var formation_ranks: int = maxi(1, int(formation.get("ranks", 1)))
 	var any: bool = false
 	for rank in range(formation_ranks):
 		var natives: Array = []
 		for c in manager.combatants:
-			if not c.get("alive", false):
+			if not _EntityAccess.alive_bool(c):
 				continue
-			if str(c.get("formation_id", "")) != fid:
+			if _EntityAccess.formation_id_str(c) != fid:
 				continue
-			if str(c.get("side", "")) != side_wanted:
+			if _EntityAccess.side_str(c) != side_wanted:
 				continue
-			if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+			if _ZoneOfControl.is_intruded(c):
 				continue
-			if int(c.get("rank", 0)) != rank:
+			if _EntityAccess.rank_int(c) != rank:
 				continue
 			natives.append(c)
 		if natives.is_empty():
 			continue
 		natives.sort_custom(
 			func(a: Dictionary, b: Dictionary) -> bool:
-				var af: int = int(a.get("file", 0))
-				var bf: int = int(b.get("file", 0))
+				var af: int = _EntityAccess.file_int(a)
+				var bf: int = _EntityAccess.file_int(b)
 				if af != bf:
 					return af < bf
-				return int(a.get("id", 0)) < int(b.get("id", 0))
+				return _EntityAccess.id_int(a, 0) < _EntityAccess.id_int(b, 0)
 		)
 		var i: int = 0
 		for nat in natives:
-			var nid: int = int(nat.get("id", -1))
+			var nid: int = _EntityAccess.id_int(nat)
 			var new_f: int = i
 			i += 1
 			var key := Vector2i(rank, new_f)
-			var need: bool = int(nat.get("file", 0)) != new_f
+			var need: bool = _EntityAccess.file_int(nat) != new_f
 			if not need:
 				var occ: Array = _FormationSlots.normalize_cell(slots.get(key, []))
 				need = not occ.has(nid)
@@ -1378,34 +1414,34 @@ static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> 
 static func _log_rank0_vacancy_gaps_if_debug(manager: Node, fid: String) -> void:
 	if not CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG:
 		return
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return
 	var formation_ranks: int = int(formation.get("ranks", 1))
 	if formation_ranks <= 1:
 		return
-	var slots: Dictionary = formation.get("slots", {})
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	var nfiles: int = int(formation.get("files", 1))
-	var side_wanted: String = str(formation.get("side", ""))
+	var side_wanted: String = _FormationSlots.formation_side_str(formation)
 	for file in range(nfiles):
 		if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
 			continue
 		for ally in manager.combatants:
-			if not ally.get("alive", false):
+			if not _EntityAccess.alive_bool(ally):
 				continue
-			if str(ally.get("side", "")) != side_wanted:
+			if _EntityAccess.side_str(ally) != side_wanted:
 				continue
-			if str(ally.get("formation_id", "")) != fid:
+			if _EntityAccess.formation_id_str(ally) != fid:
 				continue
-			if str(ally.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+			if _ZoneOfControl.is_intruded(ally):
 				continue
-			if int(ally.get("file", 0)) != file or int(ally.get("rank", 0)) < 1:
+			if _EntityAccess.file_int(ally) != file or _EntityAccess.rank_int(ally) < 1:
 				continue
 			if _is_ineligible_vacancy_donor(manager, ally):
 				continue
 			CombatDebug.formation_vacancy_log(
 				"rank0 gap fid=%s file=%d donor id=%d state=%s rank=%d (slots out of sync or plug blocked)"
-				% [fid, file, ally.get("id", -1), str(ally.get("state", "")), int(ally.get("rank", 0))]
+				% [fid, file, _EntityAccess.id_int(ally), _EntityAccess.state_str(ally), _EntityAccess.rank_int(ally)]
 			)
 			break
 
@@ -1416,10 +1452,10 @@ static func _log_rank0_vacancy_gaps_if_debug(manager: Node, fid: String) -> void
 ## neighbor's front fighter into a shallow hole before that neighbor's own rank-0 gap is closed — that pattern
 ## read as the line scooting over and then back when the center finally pulls a reserve.
 static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> bool:
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return false
-	var slots_prune: Dictionary = formation.get("slots", {})
+	var slots_prune: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	if _FormationSlots.prune_dead_ids_from_formation_slots(manager, slots_prune):
 		CombatDebug.formation_vacancy_log("pruned dead occupant ids from slots fid=%s" % fid)
 	_vacancy_lateral_begin_tracking(manager)
@@ -1492,7 +1528,7 @@ static func reconcile_vacancy_plugs_dirty_fids(manager: Node) -> Array:
 	to_proc.sort_custom(func(a, b): return str(a) < str(b))
 	for fk_any in to_proc:
 		var fk: String = str(fk_any)
-		if not manager.formations.has(fk):
+		if _FormationSlots.formation_record_read(manager.formations, fk).is_empty():
 			continue
 		if reconcile_vacancy_plugs_formation(manager, fk):
 			changed_fids.append(fk)
@@ -1536,68 +1572,74 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
 		return
 	if not OS.is_debug_build():
 		return
-	for fid in manager.formations.keys():
-		var formation: Dictionary = manager.formations[fid]
+	for fid_key in manager.formations.keys():
+		var raw_form_dbg: Variant = manager.formations.get(fid_key, null)
+		if raw_form_dbg == null or not (raw_form_dbg is Dictionary):
+			continue
+		var formation: Dictionary = raw_form_dbg as Dictionary
 		if formation.is_empty():
 			continue
+		var fid_str: String = str(fid_key)
 		var formation_ranks: int = int(formation.get("ranks", 1))
 		if formation_ranks <= 1:
 			continue
-		var slots: Dictionary = formation.get("slots", {})
+		var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 		var nfiles: int = int(formation.get("files", 1))
-		var side_wanted: String = str(formation.get("side", ""))
+		var side_wanted: String = _FormationSlots.formation_side_str(formation)
 		for file in range(nfiles):
 			if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
 				continue
 			var has_promotable_deeper: bool = false
 			for ally in manager.combatants:
-				if not ally.get("alive", false):
+				if not _EntityAccess.alive_bool(ally):
 					continue
-				if str(ally.get("side", "")) != side_wanted:
+				if _EntityAccess.side_str(ally) != side_wanted:
 					continue
-				if str(ally.get("formation_id", "")) != fid:
+				if _EntityAccess.formation_id_str(ally) != fid_str:
 					continue
-				if str(ally.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+				if _ZoneOfControl.is_intruded(ally):
 					continue
 				if _is_ineligible_vacancy_donor(manager, ally):
 					continue
-				if int(ally.get("file", 0)) == file and int(ally.get("rank", 0)) >= 1:
+				if _EntityAccess.file_int(ally) == file and _EntityAccess.rank_int(ally) >= 1:
 					has_promotable_deeper = true
 					break
 			if has_promotable_deeper:
 				push_error(
 					"CombatFormationFlow: vacancy invariant failed after reconcile (rank 0 empty, deeper non-intruded ally) fid=%s file=%d"
-					% [fid, file]
+					% [fid_str, file]
 				)
 
 
 static func on_combatant_died(manager: Node, c: Dictionary) -> void:
-	_IntrusionWedge.remove_intruder_from_all_wedges(manager, int(c.get("id", -1)))
-	var fid: String = c.get("formation_id", "")
-	var formation: Dictionary = manager.formations.get(fid, {})
-	if formation.is_empty():
-		return
-	var r: int = c.get("rank", 0)
-	var f: int = c.get("file", 0)
-	if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
-		var src_f: int = int(c.get("intrusion_source_file", -1))
-		if src_f >= 0:
-			f = src_f
-			r = 0
+	_IntrusionWedge.remove_intruder_from_all_wedges(manager, _EntityAccess.id_int(c))
+	var fid_home: String = _EntityAccess.formation_id_str(c)
+	var fid_geom: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
 	# Intruders may occupy host `slots` while `formation_id` stays home — strip from every formation first.
 	for fk in manager.formations.keys():
-		var fd: Dictionary = manager.formations[fk]
+		var raw_fd_death: Variant = manager.formations.get(fk, null)
+		if raw_fd_death == null or not (raw_fd_death is Dictionary):
+			continue
+		var fd: Dictionary = raw_fd_death as Dictionary
 		if fd.is_empty():
 			continue
-		var s: Dictionary = fd.get("slots", {})
-		_FormationSlots.remove_combatant_from_slots(s, c.id)
-	var slots: Dictionary = formation.get("slots", {})
+		var s: Dictionary = _FormationSlots.formation_slots_dict(fd)
+		_FormationSlots.remove_combatant_from_slots(s, _EntityAccess.id_int(c))
+	var formation: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, fid_geom)
+	if formation.is_empty():
+		return
+	## Corpse obstacle + vacancy micro-plug run on the **host** grid (`fid_geom`); roster home is `fid_home`.
+	var r: int = _EntityAccess.rank_int(c)
+	var f: int = _EntityAccess.file_int(c)
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	_FormationSlots.prune_dead_ids_from_formation_slots(manager, slots)
-	var obstacles: Dictionary = formation.get("slot_obstacles", {})
+	if not formation.has("slot_obstacles"):
+		formation["slot_obstacles"] = {}
+	var obstacles: Dictionary = formation["slot_obstacles"] as Dictionary
 	var key := Vector2i(r, f)
 	if not obstacles.has(key):
 		obstacles[key] = []
-	obstacles[key].append(c.id)
+	obstacles[key].append(_EntityAccess.id_int(c))
 	if formation.get("ranks", 1) > 1:
 		var formation_ranks: int = formation.get("ranks", 1)
 		var nfiles_death: int = int(formation.get("files", 1))
@@ -1614,15 +1656,16 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 					continue
 				var reserved_d: Dictionary = _vacancy_plug_reserved_donors(manager)
 				var allow_lateral_d: bool = true
+				var side_death: String = _FormationSlots.formation_side_str(formation)
 				var move_d: Dictionary = _select_best_plug_move_for_empty_cell(
 					manager,
-					fid,
+					fid_geom,
 					slots,
 					fill_rank,
 					f,
 					formation_ranks,
 					nfiles_death,
-					str(c.side),
+					side_death,
 					true,
 					reserved_d,
 					true,
@@ -1639,5 +1682,9 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 	manager._recompute_zoc_and_distance()
 	if CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
 		manager.mark_all_formations_vacancy_dirty()
-	manager.notify_formation_changed(fid)
-	manager._reschedule_back_rank_turns(fid)
+	manager.notify_formation_changed(fid_geom)
+	if fid_home != fid_geom and manager.has_method("notify_formation_changed"):
+		manager.notify_formation_changed(fid_home)
+	manager._reschedule_back_rank_turns(fid_geom)
+	if fid_home != fid_geom:
+		manager._reschedule_back_rank_turns(fid_home)

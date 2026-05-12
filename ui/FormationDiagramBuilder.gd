@@ -5,6 +5,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
+const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 
 ## Builds a compact visual formation diagram: rank×file grid with unit names.
 ## Shows Front (rank 0) and Back (rank 1+) so formation changes (swap rank, etc.) are trackable.
@@ -98,8 +99,8 @@ static func _refresh_internal(diagram_root: Control) -> void:
 	var ranks: int = preset.get("ranks", 1)
 	var formation: Dictionary = {}
 	if "formations" in manager and manager.formations is Dictionary:
-		formation = manager.formations.get(side, {})
-	var slot_map: Dictionary = formation.get("slots", {})
+		formation = _FormationSlots.formation_record_read(manager.formations, side)
+	var slot_map: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "slots")
 	# Keep diagram bounds synced with actual slot occupancy (not just preset), so deep swaps/plugs remain visible.
 	for k in slot_map.keys():
 		if typeof(k) == TYPE_VECTOR2I:
@@ -112,25 +113,21 @@ static func _refresh_internal(diagram_root: Control) -> void:
 	var intruders_by_file: Dictionary = {}
 	var deployed_intruders: Array = []
 	for c in manager.get_combatants():
-		if c.get("side", "") != side:
+		if _EntityAccess.side_str(c) != side:
 			# Intruders physically occupying this side's formation are rendered in a dedicated strip.
-			if (
-				c.get("alive", true)
-				and str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
-				and str(c.get("intrusion_host_fid", "")) == side
-			):
-				var ifile: int = int(c.get("intrusion_anchor_file", c.get("file", 0)))
+			if _EntityAccess.alive_bool(c, true) and _ZoneOfControl.intruder_on_host_formation(c, side):
+				var ifile: int = _EntityAccess.intrusion_anchor_or_file_int(c)
 				if not intruders_by_file.has(ifile):
 					intruders_by_file[ifile] = []
 				(intruders_by_file[ifile] as Array).append(c)
 			continue
-		if not c.get("alive", true):
+		if not _EntityAccess.alive_bool(c, true):
 			continue
-		if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		if _ZoneOfControl.is_intruded(c):
 			deployed_intruders.append(c)
 			continue
-		var r: int = c.get("rank", 0)
-		var f: int = c.get("file", 0)
+		var r: int = _EntityAccess.rank_int(c)
+		var f: int = _EntityAccess.file_int(c)
 		slot_to_combatant[Vector2i(r, f)] = c
 
 	# Clear existing children
@@ -155,11 +152,11 @@ static func _refresh_internal(diagram_root: Control) -> void:
 				var names: Array = []
 				for cid in occ:
 					var oc = manager._get_by_id(int(cid)) if manager.has_method("_get_by_id") else null
-					if oc != null and oc.get("alive", false):
-						var nm: String = _EntityAccess.get_display_name(oc, oc.get("id", -1))
+					if oc != null and _EntityAccess.alive_bool(oc):
+						var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))
 						# Host grid can list intruders (home formation_id) or dual cells; tag so UI matches combat truth.
-						var intruded: bool = str(oc.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
-						var home_fid: String = str(oc.get("formation_id", ""))
+						var intruded: bool = _ZoneOfControl.is_intruded(oc)
+						var home_fid: String = _EntityAccess.formation_id_str(oc)
 						if intruded or home_fid != side:
 							in_lane_intruders.append(oc)
 							continue
@@ -179,7 +176,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 			else:
 				var c = slot_to_combatant.get(key, null)
 				if c != null:
-					cell.text = _EntityAccess.get_display_name(c, c.get("id", -1))
+					cell.text = _EntityAccess.get_display_name(c, _EntityAccess.id_int(c))
 					cell.add_theme_color_override("font_color", Color(0.95, 0.9, 0.85))
 				else:
 					cell.text = "—"
@@ -237,8 +234,8 @@ static func _refresh_internal(diagram_root: Control) -> void:
 			else:
 				var names_i: Array = []
 				for ic in in_list:
-					var nm_i: String = _EntityAccess.get_display_name(ic, int(ic.get("id", -1)))
-					var d: int = int(ic.get("tactical_penetration_depth", 0))
+					var nm_i: String = _EntityAccess.get_display_name(ic, _EntityAccess.id_int(ic))
+					var d: int = _EntityAccess.tactical_penetration_depth_int(ic)
 					names_i.append("%s(d%d)" % [nm_i, d])
 				intr_label.text = str(names_i[0]) if names_i.size() == 1 else "%s +%d" % [str(names_i[0]), names_i.size() - 1]
 				intr_label.add_theme_color_override("font_color", Color(0.92, 0.62, 0.5))
@@ -267,10 +264,10 @@ static func _refresh_internal(diagram_root: Control) -> void:
 		else:
 			for cdi in deployed_intruders:
 				var item := Label.new()
-				var nm_d: String = _EntityAccess.get_display_name(cdi, int(cdi.get("id", -1)))
-				var host_d: String = str(cdi.get("intrusion_host_fid", ""))
-				var file_d: int = int(cdi.get("intrusion_anchor_file", cdi.get("file", 0)))
-				var depth_d: int = int(cdi.get("tactical_penetration_depth", 0))
+				var nm_d: String = _EntityAccess.get_display_name(cdi, _EntityAccess.id_int(cdi))
+				var host_d: String = _ZoneOfControl.intrusion_host_fid(cdi)
+				var file_d: int = _EntityAccess.intrusion_anchor_or_file_int(cdi)
+				var depth_d: int = _EntityAccess.tactical_penetration_depth_int(cdi)
 				item.text = "%s@%s:f%d(d%d)" % [nm_d, host_d, file_d, depth_d]
 				item.add_theme_font_size_override("font_size", 11)
 				item.add_theme_color_override("font_color", Color(0.72, 0.82, 0.95))

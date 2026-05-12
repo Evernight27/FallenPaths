@@ -1,12 +1,10 @@
 # Engagement: line cohesion, posture, intrusion geometry
 
-**Status:** P3–P4 **shipped**; P5 **done** for posture; **P6 (Tier 1.5)** **`morale_cohesion_factor`** wired via **`CombatMoraleCohesion`** + encounter/combatant inputs. **Tier 1.9 (P10)** depth-rank polearm + spear lanes — **Todo** (spec rows §2.5; steps in **`IMPLEMENTATION_ORDER.md`**). Optional: extra encounter-only tags, **2.1** tactical doc narrative sync.
+**Status (Tier 1 milestones):** Authoritative **Done / Partial** → **`docs/IMPLEMENTATION_ORDER.md`** [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary). §2 is a **verification mirror** (edit **after** that table).
 
-**Last verified against repo:** 2026-05-06. **Playtest gate:** `CombatConstants.FEATURE_LINE_CRASH_INTRUSION` defaults **`false`** — no new line-crash intrusions in-game; **do not treat §2 verification or §4–§6 as a call to add new intrusion behavior** until that flag is **true** and `docs/IMPLEMENTATION_ORDER.md` **Development gate** says you are resuming the intrusion track (main plan focus stays **1.5–1.9**, Tier **3**, non-intrusion docs until then). **Spec addendum:** 2026-04-13 — **§4.1 intrusion wedge** + **§4.2 `lane_offset`** + distance. **2026-04-27:** Doc + code alignment — host formation id for ZoC/pair geometry centralized in **`ZoneOfControl.formation_id_for_zone_geometry`**; legacy **`LINE_COHESION_POSTURE_LINE_MIN`** constant removed (use **`LINE_COHESION_POSTURE_ENTER_LINE_MIN`** / **`LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`** + discipline deltas only). **2026-05-01:** §**2.5** adds **Tier 1.9 (P10)** verification rows for depth-rank polearm + spear lanes (see **`IMPLEMENTATION_ORDER.md`** §Tier 1.9).
+**Last verified against repo:** 2026-05-11 ( **`CombatDistanceBands`** depth-lane per-pass cache (plan changelog (l)); **`depth_polearm_lane_allows_low_targets`** optional **`fid`/dict + `assume_depth_lane_open`**; stamped **`pa["depth_polearm_lane_type"]`**; **`DefenseChoiceResolver`** / **`StrikePhysics`** lane semantics + **`strike_phys_ctx`** — **`IMPLEMENTATION_ORDER`** changelog 2026-05-11 (f)–(l); Tier **1.9** exit-criteria **harness map** in that file). **Spec addendum:** 2026-04-13 — **§4.1** wedge + **§4.2** `lane_offset` + distance. **2026-04-27:** **`ZoneOfControl.formation_id_for_zone_geometry`**; posture thresholds (**`LINE_COHESION_POSTURE_ENTER_LINE_MIN`** / **`LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`**, discipline deltas — legacy **`LINE_COHESION_POSTURE_LINE_MIN`** removed). **2026-05-01:** §**2.5** Tier **1.9** rows (canonical steps in **`IMPLEMENTATION_ORDER`** §Tier 1.9). **2026-05-09:** **Tier 3.0** kinematics → plan + `weapon/` only. **2026-05-10:** AI hostile weights + crash cohesion/posture use **`formation_id_for_zone_geometry`** for intruders; engagement-mode + opponent-formation multipliers; depth spear listing weights × **`formation_doctrine`**. **2026-05-11:** hostile listed weights add **`opponent_breach_file_targeting_mult`** (`breached_files` at target **`file`**); harness **`_run_ai_targeting_breach_file_mult`**; **`ZoneOfControl.formation_dict_for_zone_geometry`** for formation-record reads on the tactical line.
 
-**Execution plan (ordered steps, exit criteria, implementation gate):** **`docs/IMPLEMENTATION_ORDER.md`** — Tier 1 expanded (P3–P7). Treat that file as the **single logical plan** before and during implementation.
-
-**This file’s role:** **Specification** for Tier 1 — dependency narrative §1, verification tables §2, plug taxonomy §4, data dictionary §5, tuning §6. Do **not** duplicate sequencing or milestone status outside `IMPLEMENTATION_ORDER.md` (update the plan there when you close a step).
+**Plan / code:** Tier 1 **spec** — §1 narrative dependency, §2 verification mirror, §4–§6 plugs / dictionary / tuning. **P-step order, milestone Status, Development gate, `FEATURE_LINE_CRASH_INTRUSION`, Tier 3+** → **`IMPLEMENTATION_ORDER.md`** only (no live intrusion expansion from this doc while the flag is **false**).
 
 **Related code:** `combat/CombatFormationEngagement.gd`, `combat/CombatIntrusionGeometry.gd`, `combat/BreachResolver.gd`, `combat/CombatEngagementResolver.gd`, `combat/CombatManager.gd`, `combat/CombatFormationSetup.gd`, `ui/BattleScene.gd`  
 **Related docs:** `docs/TACTICAL_ZONES_BREACH_MOVEMENT.md`, `combat/CombatConstants.gd` (tuning), `combat/FormationBreachRules.gd` (skirmish / breach clog).
@@ -15,6 +13,8 @@
 
 ## 1. Logical dependency order (read top → bottom)
 
+**If this list disagrees with [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic), the plan wins** — this section is a readable narrative for the spec, not a second execution log.
+
 Work should generally follow this chain so each layer has inputs from the layer above:
 
 1. **Formation truth** — `slots`, `rank`/`file`, plug-on-death (`CombatFormationFlow`), incursion + ZoC (`TacticalCombat`, `ZoneOfControl`).
@@ -22,14 +22,14 @@ Work should generally follow this chain so each layer has inputs from the layer 
 3. **Crash contest (gap vs line)** — `BreachResolver` hold/drive; **local** neighbor support (`CombatIntrusionGeometry`).
 4. **Intrusion as geometry** — combatant role + host/anchor; **empty attacker slot**; **intruder in defender `slots`** (occupancy / plugs / diagram); **vacancy plug** distinct from death plug; **intrusion wedge** on the defender formation (§4.1) as the **canonical** description of the torn sector (depth, pressure, lateral extent)—not inferred only from co-occupied cells.
 5. **Pair distance** — `AvailableActionsBuilder.effective_pair_eff_dist` (used by `CombatDistanceBands`, `BreachResolver`, …) uses **wedge-aware** geometry: per-file wedge state **plus** per-combatant **`lane_offset`** as the **lateral metric** clamped/derived from the wedge seam (P4). Integer `file` / `slots` stay topology; wedge + offsets are the **continuous** breach model.
-6. **Encounter tags (Tier 1.4)** — posture threshold deltas + **`line_discipline`** (see `CombatConstants` / `CombatFormationEngagement._effective_posture_thresholds`). **Morale (Tier 1.5)** — will drive `morale_cohesion_factor` (currently fixed **1.0**). **Cohesion inputs** prefer wedge + **`breached_files`** over ad-hoc slot heuristics where both exist.
-7. **AI & tests** — e.g. **`CombatAIActionPicker`** crash weight vs **`engagement_posture`**; extend harnesses when crash or wedge geometry changes.
+6. **Encounter tags (Tier 1.4)** — posture threshold deltas + **`line_discipline`** (see `CombatConstants` / `CombatFormationEngagement._effective_posture_thresholds`). **Morale (Tier 1.5)** — **`CombatMoraleCohesion`** → `morale_cohesion_factor` (encounter + combatant inputs; see §5 / milestone table in **`IMPLEMENTATION_ORDER.md`**). **Cohesion inputs** prefer wedge + **`breached_files`** over ad-hoc slot heuristics where both exist.
+7. **AI & tests** — **`CombatAIActionPicker`** + **`CombatTargetScoring`**: crash weight vs posture/cohesion (formation dict via **`ZoneOfControl.formation_id_for_zone_geometry`** for intruders); hostile listed weights (engagement mode, our + opponent posture/cohesion, **`breached_files`** severity at target **`file`**, doctrine pinch/hold/probing, stance); depth spear stab/cut × **`formation_doctrine`**; harnesses in **`CombatRegressionHarness`**. Extend when crash or wedge geometry changes.
 
 ---
 
 ## 2. Current state checklist
 
-> **Sequencing:** Milestone table and **P3–P7 numbered steps** live in **`docs/IMPLEMENTATION_ORDER.md` (Tier 1 expanded).** Update that file when status changes. The tables below are the **spec verification** view (what each area must satisfy when done).
+> **Mirror only:** Change **`Status` / Done / Partial / Todo** here **after** updating **`docs/IMPLEMENTATION_ORDER.md`** [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary). These tables are **verification** (what must hold when an item is **Done**), not a second milestone column.
 
 Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` / `_OPEN` / `_DUEL` (used in formation dict + UI).
 
@@ -39,7 +39,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 |------|:-----:|-------|
 | `FormationBreachRules.breach_clogs_open_lanes` vs `breach_blocks_open_lane_moves` | **Done** | Raw breach marks vs move lock; skirmish unclegs via `FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES` + `is_skirmish_line_engagement` (`CombatEngagementMode` source). |
 | `AvailableActionsBuilder` / `CombatResolveAction` use `breach_blocks_open_lane_moves` | **Done** | Formation moves respect skirmish-aware clog. |
-| Engagement mode Option 2 baseline (`duel` cap + `formation` min by active counts) | **Partial** | `CombatEngagementMode.snapshot` now includes `player_active` / `enemy_active`; mode classifier gates by active-count bands + front/fill + hysteresis + intrusion grace. Remaining work is P9 runtime soak/telemetry lock. |
+| Engagement mode Option 2 baseline (`duel` cap + `formation` min by active counts) | **Partial** | `CombatEngagementMode.snapshot` + `clear_resolved_mode_cache` on `CombatManager.start()`. Harness: active-count exhaustive (no `formation` below `ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE`), second-`start()` duel reset, cold `resolved formation` ⇒ `can_enter_formation_from_snapshot`. Optional: long UI soak. |
 
 ### 2.1 Foundation & visibility
 
@@ -56,8 +56,8 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 
 | Item | State | Notes |
 |------|:-----:|-------|
-| `CombatIntrusionGeometry.crash_neighbor_hold_support` | **Done** | Adjacent rank-0 allies, weapon reach scale, cap 2. |
-| `BreachResolver` adds neighbor hold to defender hold | **Done** | Global `front_z` + body unchanged. |
+| `CombatIntrusionGeometry.crash_neighbor_hold_support` | **Done** | Adjacent rank-0 allies on **host** line (`formation_id_for_zone_geometry`); weapon reach scale; cap 2. |
+| `BreachResolver` adds neighbor hold to defender hold | **Done** | `formation_def` / output fid from defender **host** geometry; global `front_z` + body unchanged. |
 
 ### 2.3 Intrusion state (flags only)
 
@@ -86,10 +86,10 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 | Per-combatant `lane_offset` (bounded float; default 0) | **Done** | Seam bias + repack on plugs/moves; anchor peer nudge §4.2. |
 | Intrusion / plug **repack** rules for `lane_offset` + wedge | **Done** | Wedge cleared on death/reset; offsets repacked in `CombatFormationFlow`. |
 | **`lane_stress_by_file` / ZoC** use wedge | **Done** | `TacticalCombat` + `ZoneOfControl` lane stress; intruder host ZoC id for geometry. |
-| **Depth-rank polearm melee** (rank ≥ 1 home, same-file living rank 0, depth-eligible weapon) | **Partial** | `AvailableActionsBuilder` + `_melee_pair_rank_allowed` / `_opp_matches_melee_rank_target`; **`SPEAR`** flagged in `WeaponConstants`. |
-| **`distance_to` for depth polearm vs line** (no blanket LONG when eligible) | **Partial** | **`CombatDistanceBands`**: skip rank>0→LONG when `depth_polearm_lane_open`. |
+| **Depth-rank polearm melee** (rank ≥ 1 home, same-file living rank 0, depth-eligible weapon) | **Partial** | `AvailableActionsBuilder` + `_melee_pair_rank_allowed` / `_opp_matches_melee_rank_target` (both call **`depth_polearm_valid_line_threat`** for home depth vs enemy rank 0); **`SPEAR`** flagged in `WeaponConstants`. **`same_file_living_rank0_ally`** excludes incapacitated rank-0 (**`_run_depth_polearm_lane_open_false_when_same_file_rank0_incap`**). **`CombatRegressionHarness._run_depth_polearm_band_vs_actions_fuzz`** (multi-seed threaten ⇒ band + listed strike); **`_run_depth_polearm_threatens_line_target_pure_guards`** (**`depth_polearm_threatens_line_target`** minimal dicts — lateral max + guards); **`_run_depth_polearm_valid_line_threat_false_when_lane_closed`** (**`depth_polearm_valid_line_threat`** vs **`depth_polearm_lane_open`**); **`_run_depth_polearm_valid_line_threat_agrees_with_threatens_when_lane_open`** (**`depth_polearm_valid_line_threat`** vs **`depth_polearm_threatens_line_target`** when lane open); **`_run_depth_polearm_opp_matches_rank0_agrees_with_valid_line_threat`** (**`_opp_matches_melee_rank_target(..., 0)`** vs **`depth_polearm_valid_line_threat`**); **`_run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_threat`** (**`_melee_pair_rank_allowed`** vs **`valid_line_threat`**); **`_run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_depth`** (**`can_melee_threaten`** ⇒ **`valid_line_threat`**); **`depth_polearm_has_valid_line_threat_to_any_rank0_hostile`** gates **`CombatAIActionPicker`** depth stab / **`attempt_close`** weights; **`_run_depth_polearm_ai_weight_mult_requires_valid_line_to_any_rank0`**. |
+| **`distance_to` for depth polearm vs line** (no blanket LONG when eligible) | **Partial** | **`CombatDistanceBands`**: skip rank>0→LONG when `depth_polearm_lane_open` via **`depth_polearm_lane_open_by_combatant_id`** (same semantics as **`AvailableActionsBuilder.depth_polearm_lane_open`** with **`formation_id_for_zone_geometry`** `fid`, less O(n²) churn). Harness **`CombatRegressionHarness._run_depth_polearm_lane_cache_matches_builder`**. **`_run_depth_polearm_band_vs_actions_fuzz`** ties `distance_to` to `get_available_actions` when `can_melee_threaten`. |
 | **Front-rank melee at MID** (not only polearm `REACH_MID_MIN`) | **Done** | **`AvailableActionsBuilder`** + **`can_melee_threaten`**: strikes when `melee_range >= effective_pair_eff_dist`; `attempt_close` for LONG / out of reach; crash at MID uses same geometric gate. |
-| **Spear lanes → part / target gating** (over-shoulder vs open) | **Partial** | **`depth_polearm_targetable_parts_filter`**: tight/normal = no legs; loose = full; `AttackResolver` + `CombatAIActionPicker`. Richer `lane_type` **Todo**. |
+| **Spear lanes → part / target gating** (over-shoulder vs open) | **Partial** | **`depth_polearm_targetable_parts_filter`** (harnesses **`CombatRegressionHarness._run_depth_polearm_parts_filter_tracks_allows_low`**, **`_run_depth_polearm_parts_filter_wedge_opens_legs_strict_tight`**, **`_run_depth_polearm_restricted_profile_requires_wedge_for_allows_low`**, **`_run_depth_polearm_parts_filter_pass_through_when_no_depth_lane_use`**) + **`depth_polearm_lane_allows_low_targets`** (optional **`fid`/formation dict + `assume_depth_lane_open`** when caller already ran lane open; harness **`CombatRegressionHarness._run_depth_polearm_allows_low_formation_dict_cache_matches_null`** for **`formation_dict_cache`** vs **`null`**; **`_run_depth_polearm_allows_low_assume_skips_closed_lane_guard`** for **`assume_depth_lane_open`** vs lane-closed early exit; **`_run_depth_polearm_allows_low_assume_agrees_when_lane_open`** for assume **false**/**true** parity when lane open; **`_run_depth_polearm_allows_low_zone_geometry_fid_round_trip`** for **`zone_geometry_fid`** **`""`** vs explicit **`fid`** (`assume_depth_lane_open` **false + true**)): loose = full table; tight/normal = no legs unless **`intrusion_wedge_by_file`** pressure/depth at column ≥ **`DEPTH_SPEAR_WEDGE_OPEN_LANE_MIN`**; `AttackResolver` + `CombatAIActionPicker`. **Listing weights:** depth rank + open lane → stab vs cut mults × **`formation_doctrine`** (`DEPTH_POLEARM_AI_DOCTRINE_*`). **`pa["depth_polearm_lane_type"]`** (`CombatConstants` **open** / **over_shoulder**) for parry + **`strike_phys_ctx`** (includes **`depth_polearm_allows_low_targets`**) + **`StrikePhysics.depth_polearm_thrust_closing_factor`** (explicit lane ids; empty / unknown lane → **`allows_low`**); harnesses **`CombatRegressionHarness._run_depth_polearm_allows_low_targets_strict_tight_when_lane_open`** (**strict**/**tight** vs **`spear_lane_profile` open**), **`_run_stamp_attack_pair_geometry_depth_lane_flags_consistent`**, **`_run_stamp_attack_pair_geometry_depth_defaults_non_depth_attack`** (**`stamp_attack_pair_geometry_on_dict`** depth **`pa`** defaults). Richer doctrine **Todo**. |
 | **`depth_melee_eligible` (or equivalent) on weapon** | **Done** | `Weapon.gd` + **`SPEAR`** definition only (extend per weapon as needed). |
 
 ### 2.6 Cohesion & posture refinement
@@ -110,20 +110,20 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 
 | Item | State | Notes |
 |------|:-----:|-------|
-| `CombatAIActionPicker` weights from posture | **Partial** | Crash (`MOVE_ID_CRASH`) weight multiplier from side **`engagement_posture`**; further moves / cohesion coupling optional. |
+| `CombatAIActionPicker` / `CombatTargetScoring` | **Partial** | Crash + listed-hostile consumers use **`ZoneOfControl.formation_dict_for_zone_geometry`** ( **`formation_id_for_zone_geometry`** `fid` → `formations[fid]`). Crash: **`crash_line_cohesion_weight_mult`** + **`_crash_weight_posture_mult`**. Hostile listed: **`posture_cohesion_targeting_mult`**, **`opponent_formation_targeting_mult`**, **`opponent_breach_file_targeting_mult`** (`breached_files` at target **`file`**), **`engagement_mode_targeting_mult`**, **`stance_ai_targeting_mult`**, doctrine pinch/hold/probing + commitment + pressure; **`pick`** prunes commitments once then **`ai_targeting_weight_mult(..., skip_prune)`**. Depth spear: **`_depth_polearm_action_weight_mult`** × doctrine. Harness **`_run_ai_targeting_breach_file_mult`**. Further coupling optional. |
 | `IncursionBreachTest` / harness updates for neighbor hold | **Optional** | Re-baseline if `p_win` expectations are asserted. |
-| Engagement mode regression harness checks (historical count bands + hysteresis invariants) | **Partial** | `IncursionBreachTest` validates mode/count-band consistency, compares tactical vs harness mode snapshots, and emits transition/error telemetry counters; still needs long-run multi-seed soak scenarios. |
-| Sync `TACTICAL_ZONES_BREACH_MOVEMENT.md` with this plan | **Partial** | **2026-04-27:** implementation banner updated (P3–P4 in code); bundled investigation sections may still use pre-wedge language — edit when touching those sections (**Tier 2.1**). |
+| Engagement mode regression harness checks (historical count bands + hysteresis invariants) | **Partial** | `IncursionBreachTest` + **`CombatRegressionHarness`**: multi-seed classifier + attrition monotone + telemetry lock + depth polearm band/actions fuzz. Optional: longer scheduled soaks / UI strips under attrition. |
+| Sync `TACTICAL_ZONES_BREACH_MOVEMENT.md` with this plan | **Partial** | **2026-04-27:** implementation banner (P3–P4 in code). **2026-05-09:** banner + **Tier 1.9** **Partial** pointer + `Last reviewed`; bundled investigation prose may still lag — **Tier 2.1** cleanup when editing sections. |
 
 ---
 
 ## 3. Roadmap phases (P0–P7)
 
-**Milestone names, status, and implementation steps** are maintained in **`docs/IMPLEMENTATION_ORDER.md`** — Tier 1 milestone summary + Tier 1.1–1.6 sections. §1 dependency order here matches that plan.
+**Historical label index** — **current** ordering + **Status** → **`IMPLEMENTATION_ORDER.md`** Tier 1 expanded + [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) (§1 narrative aligns with that plan’s [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic)).
 
 ---
 
-## 4. Plug taxonomy (spec — implementation in P3)
+## 4. Plug taxonomy (spec — P3–P4 **shipped** in code)
 
 | Kind | Trigger | Owner |
 |------|---------|--------|
@@ -143,7 +143,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 | **Minimum wedge fields** (v1; extend in code + here when shipped) | `pressure` (float 0..1, breach intensity), `depth` (float 0..1, how far “through” the line), `intruder_id` (int, primary occupant of the breach; **-1** if cleared). Optional: `halfwidth_files` (float, lateral blur for neighbors), `updated_at` (combat clock) for decay. |
 | **Writer** | On **crash success**, same tick as slot writes: upsert wedge at **`intrusion_anchor_file`** (and optionally neighbor files scaled by `halfwidth_files`). Initialize from `breach_severity` / existing `breached_files[file]` where practical so one code path owns severity. |
 | **Readers (wedge throughout)** | `CombatFormationEngagement` (cohesion), `TacticalCombat._recompute_lane_stress_by_file` (stress from wedge + optional dual), `ZoneOfControl` (if lane stress or frontage uses wedge), `AvailableActionsBuilder.effective_pair_eff_dist`, `CombatDistanceBands`, `BreachResolver` as needed, formation diagram / battle UI (glyph or shading by file). |
-| **Clear / decay** | On intruder death, retreat, or scripted breach heal: reduce `pressure`/`depth`, remove key when below epsilon, or clear `intruder_id`; keep **`breached_files`** in sync if it remains a parallel summary for debug or legacy. |
+| **Clear / decay** | On intruder death, retreat, or scripted breach heal: reduce `pressure`/`depth`, remove key when below epsilon, or clear `intruder_id`; keep **`breached_files`** in sync with wedge/clog rules (parallel summary consumed by **`FormationBreachRules`**, lane stress, **`CombatTargetScoring.opponent_breach_file_targeting_mult`**, and debug). |
 | **Invariant** | No consumer should assume “breach = dual living in column only”; **wedge may be non-zero while `slots` show a solo intruder** in depth ranks. |
 
 ### 4.2 Lane metric offset (P4 — with `effective_pair_eff_dist`)
@@ -209,6 +209,9 @@ All numeric defaults for cohesion, posture **hysteresis** (**`LINE_COHESION_POST
 
 ## 7. Changelog (plan doc only)
 
+- **2026-05-11:** §2.5 spear-lane row — **`pa["depth_polearm_lane_type"]`** shipped (parry + **`strike_phys_ctx`**); **`StrikePhysics.depth_polearm_thrust_closing_factor`** uses lane id (**`IMPLEMENTATION_ORDER`** (g)–(h)); banner `Last verified` aligned.
+- **2026-05-11 (c):** **`DefenseChoiceResolver._depth_polearm_lane_is_open`** empty-key fix + **`strike_phys_ctx`** **`allows_low`** + **`StrikePhysics`** unknown-lane fallback (**`IMPLEMENTATION_ORDER`** (j)–(k)).
+- **2026-05-09:** Top banner `Last verified` + playtest gate + plan-focus; **Tier 3** / **3.0** sequencing and shipped status **only** in **`IMPLEMENTATION_ORDER.md`**; **1.9** status banner **Partial** (not full **Todo** — §2.5 + master milestone table); addendum line for **Tier 3.0** `weapon/` modules (not Tier 1 spec body). §2.8 tactical-zones sync note + §3 roadmap pointer (**1.1–1.9**). §4 plug taxonomy title — P3–P4 **shipped** (was “implementation in P3”).
 - **2026-05-06 (b):** §2.7 Tier 1.5 morale → **`CombatMoraleCohesion`**; §5 `morale_cohesion` / encounter keys; status banner.
 - **2026-05-06:** §2.6 P5 asymmetric posture **Done** (`POSTURE_ASYMMETRY_*`, two-pass `recompute_all`); §6 tuning note; status banner P5 done for posture.
 - **2026-04-27:** §1–§2.6/§2.8 status (P5 partial, 1.6 partial AI, 2.1 banner partial); §5 `line_discipline` + posture deltas; §6 tuning list; morale explicitly deferred (field 1.0).

@@ -1,8 +1,10 @@
 # Combat Roadmap And Stamina
 
-**Implementation sequencing:** Use **`docs/IMPLEMENTATION_ORDER.md`** (combat implementation plan — Tier 1 expanded steps through Tier 7). This file is a **consolidated bundle** (history, stamina, optional phase checklists), not the primary execution plan.
+**Implementation sequencing:** **`docs/IMPLEMENTATION_ORDER.md`** (tiers 0–7, Tier 1 expanded). **Tier 1 spec** (plugs, fields, tuning): **`docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** §4–§6. This file is a **bundle** (history, stamina, Part 3 checklists) — not a second execution order.
 
 Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
+
+**Plan / code:** Part 3 phase checklists are **historical / optional**. On conflict, **`IMPLEMENTATION_ORDER.md`** wins; Tier 1 **fields** defer to **`ENGAGEMENT_*`**. **Current architecture snapshot** ↔ plan **Tier 0** module list only (one list).
 
 ## Contents
 
@@ -14,12 +16,6 @@ Consolidated documentation. Each section keeps its **original filename** in the 
 6. [MODULARIZATION_POSSIBILITIES.md](#modularization-possibilities)
 7. [COMBAT_SYSTEM_ISSUES.md](#combat-system-issues)
 8. [ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) — line cohesion, posture (LINE/OPEN/DUEL), intrusion geometry, crash neighbor hold
-
----
-
-## Master implementation order
-
-**Execute:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) (tiers 0–7, Tier 1 expanded). **Tier 1 spec** (plugs, fields, tuning): [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) §4–§6. **This bundle:** Part 1 = historical phase map (0–6); Part 3 = optional granular checklists; stamina sections may be **Archived** vs hybrid gauge — use **Current architecture snapshot** below.
 
 ---
 
@@ -37,10 +33,11 @@ Table: **runtime behavior today**. Same **Tier 0 module anchors** as `IMPLEMENTA
 | **Skirmish / clog** | **`FormationBreachRules`**: `breach_blocks_open_lane_moves` + **`FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES`**. |
 | **Engagement UI** | **`CombatFormationEngagement.recompute_all`**; **`CombatManager.engagement_state_changed`**; **`BattleScene`** formation labels. |
 | **Medical** | Medical phase + coordination modules unchanged in scope here. |
+| **AI pick & targeting** | **`CombatAIActionPicker.pick`** + **`CombatTargetScoring`** (listed hostile weights: doctrine file bias, engagement mode, posture+cohesion, opponent formation, stance; intruders use **`ZoneOfControl.formation_id_for_zone_geometry`** for formation-state reads). Depth rank + open spear lane: stab/cut weights × **`formation_doctrine`**. See **`AGENTS.md`**, **`IMPLEMENTATION_ORDER`** Tier 1.6 / 1.9. |
 
 ---
 
-**Doc map:** `IMPLEMENTATION_ORDER.md` · `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` · `PHYSICS_DAMAGE_AND_FLOW.md` · `TACTICAL_FORMATIONS_FF4.md` · `TACTICAL_ZONES_BREACH_MOVEMENT.md` · `PARRY_BIND_AND_WEAPON_GEOMETRY.md` · `PARRY_DEFLECT_AND_CALIBRATION.md` · `GUARDS_LINES_AFTERBLOW.md` · `AI_ENGAGEMENT_STANCE_AND_FEINTS.md` · `HEMA_ROADMAP_AND_SOURCES.md` · `MEDICAL_PAIN_INCAPACITATION.md`
+**Doc map** (same tier flow as `docs/README.md` / plan inventory): `IMPLEMENTATION_ORDER.md` · `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` · `TACTICAL_ZONES_BREACH_MOVEMENT.md` · `TACTICAL_FORMATIONS_FF4.md` · `AI_ENGAGEMENT_STANCE_AND_FEINTS.md` · `PARRY_BIND_AND_WEAPON_GEOMETRY.md` · `PARRY_DEFLECT_AND_CALIBRATION.md` · `GUARDS_LINES_AFTERBLOW.md` · `PHYSICS_DAMAGE_AND_FLOW.md` · `MEDICAL_PAIN_INCAPACITATION.md` · `HEMA_ROADMAP_AND_SOURCES.md`
 
 <a id="implementation-outline"></a>
 
@@ -132,7 +129,7 @@ Master implementation guide for the combat system migration. Consolidates decisi
 - [x] Implement min-heap event queue processing
 - [x] `EVENT_ACTION_READY` → turn_ready / AI pick
 - [x] **Hybrid ready path:** combatant **`gauge`** fills to 100 → `EVENT_ACTION_READY` scheduled (not a pure “remove gauge” migration); wind-up / medical / formation-move states still use timing labels on the same bar row (`BattleUIUpdater`)
-- [x] **UI:** Progress bar shows **stamina** (0–100) on the legacy `gauge` widget; text label shows ready vs wind-up / medical / swap / fall back
+- [x] **UI:** Progress bar shows **stamina** (0–100) on the hybrid **`gauge`** field; text label shows ready vs wind-up / medical / swap / fall back
 - [x] **Hybrid event model:** Signals (`formation_changed`, `turn_resolved`, …) drive scheduling; `_schedule_action_ready` centralizes ACTION_READY with cancel-before-schedule to avoid duplicates (`CombatManager`)
 
 ### Phase 2: Distance Bands
@@ -177,7 +174,7 @@ Master implementation guide for the combat system migration. Consolidates decisi
 - [x] **Surround** — `TacticalCombat.count_engaging_threats` + split ÷ min(threats, `SURROUND_MAX_SPLIT_DIVISOR`) × perception awareness on parry and dodge (`DefenseChoiceResolver`)
 - [x] **Incursion pressure** — `TacticalCombat.recompute_incursion_pressure` from front-rank count imbalance; reduces raw zone strength (`ZoneOfControl._raw_zone_strength`). **Deferred:** explicit **plug vs incursion contest** roll on failed plug (design-only).
 - [x] **Crash / breach v1** — `BreachResolver`, `CombatEngagementResolver`; neighbor hold (`CombatIntrusionGeometry`); skirmish-aware breach move clog (`FormationBreachRules`).
-- [x] **Line cohesion & posture** — `CombatFormationEngagement`, `CombatManager.engagement_state_changed`, UI labels (`BattleScene`). **P3–P4 shipped** (intrusion slots, vacancy plug, wedge + `lane_offset` + eff dist). **Active plan:** `docs/IMPLEMENTATION_ORDER.md` — **1.8** soak/telemetry, **1.9** depth-rank polearm + spear lanes, **1.4/1.5** posture/morale per milestone table.
+- [x] **Line cohesion & posture** — `CombatFormationEngagement`, `CombatManager.engagement_state_changed`, UI labels (`BattleScene`). **P3–P4 shipped** (intrusion slots, vacancy plug, wedge + `lane_offset` + eff dist). **1.4–1.5** posture/morale **Done** (see plan). **Active / partial:** `docs/IMPLEMENTATION_ORDER.md` — **1.8** soak/telemetry, **1.9** depth polearm (**Partial**).
 - [x] **Flanking** — implemented in Phase 4 (`ZoneOfControl.get_engagement_parry_multiplier`, pack fallback); Phase 6 checklist satisfied by that + surround/ambush layering
 
 ---
@@ -211,7 +208,7 @@ Master implementation guide for the combat system migration. Consolidates decisi
 | Item | When |
 |------|------|
 | **Intrusion slots + vacancy plug (P3)** | **Shipped** — `IMPLEMENTATION_ORDER` milestone **1.2 Done** |
-| **Intrusion wedge + lane offsets + intruder-aware distance (P4)** | **Next** — `IMPLEMENTATION_ORDER` Tier **1.3**; posture **1.4+** after |
+| **Intrusion wedge + lane offsets + intruder-aware distance (P4)** | **Shipped** — `IMPLEMENTATION_ORDER` milestone **1.3 Done**; follow **1.8–1.9** + Tier **3** there (not this table) |
 | Multi-target (close slots, AI weighting, defense split max) | After stable targeting |
 | Parry choice (threat scoring) | Multi-target phase |
 | Disengagement investigation (health/morale/rout) | Posture / morale (Tier 1.4–1.6) |

@@ -2,6 +2,8 @@
 
 Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
 
+**Plan / code:** `p_a` uses `WeaponDamageHelper.get_effective_velocity_m_s`; cut and penetration use `compute_kinetic_energy_j` (thrust vs swing vs mixed per **`kinematic_delivery`** — **`docs/IMPLEMENTATION_ORDER.md`** Tier **3.0**, **shipped**). Final bind/strike-energy calibration → Tier **3.2** after **3.0** + distance (**3.1**).
+
 ## Contents
 
 1. [HEMA_DEFLECTION_IMPLEMENTATION_INVESTIGATION.md](#hema-deflection-implementation-investigation)
@@ -1157,8 +1159,8 @@ This document investigates **different ways** redirect can be implemented and ho
 |------|-------|--------|
 | AttackResolver | `velocity_override` from pa | passed to compute_and_apply_damage |
 | AttackInstance | `velocity_m_s = velocity_override` | KE, momentum derived from v |
-| WeaponDamageHelper | `get_effective_velocity_m_s` | `KE = ½ m v²`, momentum = m·v |
-| pre_cut | KE | ∝ sqrt(KE) ∝ v |
+| WeaponDamageHelper | `get_effective_velocity_m_s`, `compute_kinetic_energy_j` | Thrust: linear **v** from band, `KE = ½ m_strike v²`. Swing: tip **v** with ω–lever, rotational `KE` (capped **I**). Mixed: archetype `kinematic_mixed_blend`. Momentum uses **m_strike × v** (same **v** as intent). |
+| pre_cut | KE | ∝ sqrt(KE) ( **`KE`** from `compute_kinetic_energy_j`, delivery-dependent) |
 | pre_blunt | momentum | ∝ m·v ∝ v |
 | penetration | KE, momentum | ∝ KE^0.6 (sharp), momentum/area (blunt) |
 

@@ -2,6 +2,8 @@
 
 Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
 
+**Plan / code:** Pain / wounds / flee extensions → **`IMPLEMENTATION_ORDER.md`** Tier **6** (avoid blocking formation busy states). **`MedicalPhaseController`**, **`CombatMedicalCoordination`** — see Tier 0 table in the plan.
+
 ## Contents
 
 1. [PAIN_SHOCK_INVESTIGATION.md](#pain-shock-investigation)

@@ -2,6 +2,7 @@ class_name PassiveParryContext
 extends RefCounted
 
 const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Parry paradigm config and readiness helpers for AttackResolver.
 ## Decouples parry/dodge logic from CombatManager.
@@ -26,10 +27,10 @@ static func get_parry_config() -> Dictionary:
 ## Readiness multiplier for passive parry. WAITING = 1.0 × guard; RECOVERING = lerp(early, late) by progress.
 ## Uses READINESS_BY_CAUSE for cause-specific curves (attack_hit = more stunned, attack_miss = off-balance, etc.).
 static func get_passive_parry_readiness(c: Dictionary) -> float:
-	if c.state == CombatConstants.STATE_WAITING:
+	if _EntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
 		var guard: float = clampf(c.get("guard", 1.0), 0.0, 1.0)
 		return guard
-	if c.state == CombatConstants.STATE_RECOVERING:
+	if _EntityAccess.state_str(c) == CombatConstants.STATE_RECOVERING:
 		var dur: float = c.get("state_duration", 0.001)
 		var t: float = c.get("state_timer", 0.0)
 		var progress: float = clampf(t / dur, 0.0, 1.0)

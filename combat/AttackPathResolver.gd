@@ -1,6 +1,8 @@
 class_name AttackPathResolver
 extends RefCounted
 
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+
 ## Option 6: Path + Guard Intercept — hit part selection from blade trajectory.
 ## Path varies by (attack_line, guard_line): defender posture determines what's in the blade's way.
 ## High guard vs high attack = arms first; low guard vs high attack = head exposed first.
@@ -46,7 +48,7 @@ static func resolve_hit_part(attack_line: String, guard_line: String, targetable
 		part_weights[p] = 1.0
 	var recovery_cause: String = defender_ctx.get("recovery_cause", "")
 	var passive_parry: bool = defender_ctx.get("passive_parry_attempted", false)
-	if recovery_cause == "attack_hit" and defender_ctx.get("state", "") == CombatConstants.STATE_RECOVERING:
+	if recovery_cause == "attack_hit" and _EntityAccess.state_str(defender_ctx) == CombatConstants.STATE_RECOVERING:
 		# Staggered: center mass (chest) more likely
 		if part_weights.has("chest"):
 			part_weights["chest"] = 1.5

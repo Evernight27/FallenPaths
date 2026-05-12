@@ -5,13 +5,14 @@ extends RefCounted
 
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 
 static func build_formations_and_assign_slots(manager: Node, player_formation: Dictionary, enemy_formation: Dictionary) -> void:
 	var player_count: int = 0
 	var enemy_count: int = 0
 	for c in manager.combatants:
-		if c.side == "player":
+		if _EntityAccess.side_str(c) == "player":
 			player_count += 1
 		else:
 			enemy_count += 1
@@ -45,6 +46,9 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 		"discipline_posture_enter_delta": float(p_preset.get("discipline_posture_enter_delta", 0.0)),
 		"discipline_posture_leave_delta": float(p_preset.get("discipline_posture_leave_delta", 0.0)),
 		"line_discipline": str(p_preset.get("line_discipline", "")),
+		CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE: CombatConstants.normalize_spear_lane_profile(
+			p_preset.get(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE, "")
+		),
 	}
 	manager.formations["enemy"] = {
 		"files": e_files,
@@ -62,17 +66,22 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 		"discipline_posture_enter_delta": float(e_preset.get("discipline_posture_enter_delta", 0.0)),
 		"discipline_posture_leave_delta": float(e_preset.get("discipline_posture_leave_delta", 0.0)),
 		"line_discipline": str(e_preset.get("line_discipline", "")),
+		CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE: CombatConstants.normalize_spear_lane_profile(
+			e_preset.get(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE, "")
+		),
 	}
+	var form_player: Dictionary = manager.formations["player"]
+	var form_enemy: Dictionary = manager.formations["enemy"]
 	var pi: int = 0
 	var ei: int = 0
 	for c in manager.combatants:
-		if c.side == "player":
+		if _EntityAccess.side_str(c) == "player":
 			var r: int = int(floorf(pi / float(p_files)))
 			var f: int = pi % p_files
 			c.rank = r
 			c.file = f
 			c.formation_id = "player"
-			_FormationSlots.slot_set_single(manager.formations["player"].slots, Vector2i(r, f), c.id)
+			_FormationSlots.slot_set_single(_FormationSlots.formation_slots_dict(form_player), Vector2i(r, f), _EntityAccess.id_int(c))
 			pi += 1
 		else:
 			var r2: int = int(floorf(ei / float(e_files)))
@@ -80,8 +89,8 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 			c.rank = r2
 			c.file = f2
 			c.formation_id = "enemy"
-			_FormationSlots.slot_set_single(manager.formations["enemy"].slots, Vector2i(r2, f2), c.id)
+			_FormationSlots.slot_set_single(_FormationSlots.formation_slots_dict(form_enemy), Vector2i(r2, f2), _EntityAccess.id_int(c))
 			ei += 1
-	_FormationSlots.normalize_formation_slots(manager.formations["player"])
-	_FormationSlots.normalize_formation_slots(manager.formations["enemy"])
+	_FormationSlots.normalize_formation_slots(form_player)
+	_FormationSlots.normalize_formation_slots(form_enemy)
 	manager._recompute_zoc_and_distance()

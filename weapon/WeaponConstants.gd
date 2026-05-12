@@ -356,6 +356,11 @@ const ARCHETYPE_QUICK_SLASH: String = "quick_slash"
 const ARCHETYPE_POMMEL: String = "pommel_strike"
 const ARCHETYPE_HEAVY_BLUNT: String = "heavy_blunt"
 
+## Kinematic delivery for `WeaponDamageHelper` (abstract — no unit positions): thrust = linear band + point-mass KE; swing = ω–lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
+const KINEMATIC_DELIVERY_THRUST := "thrust"
+const KINEMATIC_DELIVERY_SWING := "swing"
+const KINEMATIC_DELIVERY_MIXED := "mixed"
+
 static func get_archetype(archetype_id: String) -> Dictionary:
 	var all_arch := _archetype_definitions_build()
 	if not all_arch.has(archetype_id):
@@ -381,41 +386,47 @@ static func _archetype_definitions_build() -> Dictionary:
 			"velocity_intensity_curve": 0.95,
 			"cut_ratio": - 1.0, # use weapon blade_cut_ratio
 			"recovery_multiplier": 1.0,
-			"windup_multiplier": 1.0
+			"windup_multiplier": 1.0,
+			"kinematic_delivery": KINEMATIC_DELIVERY_THRUST
 		},
 		ARCHETYPE_SLASH: {
 			"velocity_factor": 0.9,
 			"velocity_intensity_curve": 1.04,
 			"cut_ratio": - 1.0,
 			"recovery_multiplier": 1.0,
-			"windup_multiplier": 1.0
+			"windup_multiplier": 1.0,
+			"kinematic_delivery": KINEMATIC_DELIVERY_SWING
 		},
 		ARCHETYPE_OVERHEAD: {
 			"velocity_factor": 1.0,
 			"velocity_intensity_curve": 1.1,
 			"cut_ratio": - 1.0,
 			"recovery_multiplier": 1.2,
-			"windup_multiplier": 1.15
+			"windup_multiplier": 1.15,
+			"kinematic_delivery": KINEMATIC_DELIVERY_SWING
 		},
 		ARCHETYPE_QUICK_SLASH: {
 			"velocity_factor": 0.65,
 			"velocity_intensity_curve": 0.8,
 			"cut_ratio": - 1.0,
 			"recovery_multiplier": 0.85,
-			"windup_multiplier": 0.8
+			"windup_multiplier": 0.8,
+			"kinematic_delivery": KINEMATIC_DELIVERY_SWING
 		},
 		ARCHETYPE_POMMEL: {
 			"velocity_factor": 0.7,
 			"velocity_intensity_curve": 0.88,
 			"cut_ratio": 0.05,
 			"recovery_multiplier": 0.9,
-			"windup_multiplier": 0.85
+			"windup_multiplier": 0.85,
+			"kinematic_delivery": KINEMATIC_DELIVERY_SWING
 		},
 		ARCHETYPE_HEAVY_BLUNT: {
 			"velocity_factor": 1.0,
 			"velocity_intensity_curve": 1.12,
 			"cut_ratio": 0.05,
 			"recovery_multiplier": 1.15,
-			"windup_multiplier": 1.1
+			"windup_multiplier": 1.1,
+			"kinematic_delivery": KINEMATIC_DELIVERY_SWING
 		}
 	}

@@ -2,6 +2,8 @@
 
 Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
 
+**Plan / code:** FF4-style formation abstractions extend at **`IMPLEMENTATION_ORDER.md`** Tier **2.2**. Core rank/file/slots truth is already **Tier 1** / `combat/` — this bundle is design depth, not a second execution order.
+
 ## Contents
 
 1. [FF4_ABSTRACT_FORMATION_MIGRATION_PLAN.md](#ff4-abstract-formation-migration-plan)
@@ -33,7 +35,7 @@ A structured plan to migrate the combat system to an **FF4-like abstract row/for
 | FF4 Concept | Our Abstract Equivalent |
 |-------------|--------------------------|
 | Front row | Rank 0 (primary melee) |
-| Back row | Rank 1 (support: ranged, magic, heals) |
+| Deeper ranks | Rank 1+ (support, rotation, swap; **depth-eligible polearms** may melee through same-file rank 0 — see **`IMPLEMENTATION_ORDER`** Tier **1.9**; not “rank 1 ranged only”) |
 | Row swap | Formation action (swap rank) |
 | Formation presets | Formation template (width, depth, density) |
 | No positions | Zone ID + rank + file |

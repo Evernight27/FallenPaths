@@ -5,31 +5,32 @@ extends RefCounted
 ## See docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 
 
-## Extra hold (same units as BreachResolver body+ZoC) from adjacent rank-0 allies on defender's file line.
+## Extra hold (same units as BreachResolver body+ZoC) from adjacent rank-0 allies on defender's **host** file line (`formation_id_for_zone_geometry`).
 static func crash_neighbor_hold_support(manager: Node, defender: Dictionary, formation_def: Dictionary) -> float:
 	if manager == null or defender.is_empty() or formation_def.is_empty():
 		return 0.0
-	var fid: String = str(defender.get("formation_id", ""))
+	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, defender)
 	if fid.is_empty():
 		return 0.0
-	var f0: int = int(defender.get("file", 0))
-	var did: int = int(defender.get("id", -1))
+	var f0: int = _EntityAccess.file_int(defender)
+	var did: int = _EntityAccess.id_int(defender)
 	var bonus: float = 0.0
 	var added: int = 0
 	for c in manager.combatants:
-		if not c.get("alive", false):
+		if not _EntityAccess.alive_bool(c):
 			continue
-		if str(c.get("formation_id", "")) != fid:
+		if _ZoneOfControl.formation_id_for_zone_geometry(manager, c) != fid:
 			continue
-		if int(c.get("rank", 0)) != 0:
+		if _EntityAccess.rank_int(c) != 0:
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue
-		if int(c.get("id", -2)) == did:
+		if _EntityAccess.id_int(c, -2) == did:
 			continue
-		if abs(int(c.get("file", 0)) - f0) != 1:
+		if abs(_EntityAccess.file_int(c) - f0) != 1:
 			continue
 		var w = _EntityAccess.get_weapon(c)
 		var reach_m: float = float(w.melee_range) if w != null else 1.5

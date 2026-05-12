@@ -17,13 +17,7 @@ static func _phys(weapon: RefCounted) -> Dictionary:
 
 
 static func measure_ratio(manager: Node, atk: Dictionary, tgt: Dictionary, weapon: RefCounted) -> float:
-	if manager == null or weapon == null:
-		return 1.0
-	var eff: float = _ActionsBuilder.effective_pair_eff_dist(manager, atk, tgt)
-	eff = maxf(eff, 0.2)
-	var melee: float = float(weapon.melee_range) if (weapon.melee_range is float or weapon.melee_range is int) else 1.5
-	var r: float = melee / eff
-	return clampf(r, 0.75, 1.12)
+	return _ActionsBuilder.strike_measure_ratio_for_attack_pair(manager, atk, tgt, weapon, -1.0)
 
 
 static func roll_blade_station(weapon: RefCounted, move_id: String, intensity: float) -> float:
@@ -115,7 +109,15 @@ static func compute_strike_modifiers(
 	var contact: String = _W.contact_type_for_move_id(move_id)
 	var phys: Dictionary = _phys(weapon)
 	var station: float = blade_station_from_pa(pa, weapon, move_id, intensity)
-	var meas: float = float(pa.get("strike_measure_ratio", measure_ratio(manager, atk, tgt, weapon)))
+	var eff_ov: float = -1.0
+	if not pa.is_empty():
+		var ve: Variant = pa.get("effective_pair_eff_dist", null)
+		if ve is float or ve is int:
+			eff_ov = float(ve)
+	var meas_default: float = _ActionsBuilder.strike_measure_ratio_for_attack_pair(
+		manager, atk, tgt, weapon, eff_ov
+	)
+	var meas: float = float(pa.get("strike_measure_ratio", meas_default))
 	var vel_m: float = _station_velocity_mult(contact, station, phys) * _measure_velocity_mult(contact, meas)
 	var coup: float = _coupling(contact, phys)
 	var obliq: float = _obliquity_factor(hit_alignment, parry_remaining_ratio)

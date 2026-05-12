@@ -8,10 +8,19 @@ extends RefCounted
 ## - duel: tiny 1v1 front contact
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _MODE_FORMATION := "formation"
 const _MODE_SKIRMISH := "skirmish"
 const _MODE_DUEL := "duel"
 const _MODE_CACHE_META := "_engagement_mode_cached"
+
+
+## Clear resolved-mode hysteresis on `CombatManager.start()` (or tests) so a new battle does not inherit prior `formation` stickiness.
+static func clear_resolved_mode_cache(manager: Node) -> void:
+	if manager != null and manager.has_meta(_MODE_CACHE_META):
+		manager.remove_meta(_MODE_CACHE_META)
+
 
 static func mode_code(mode_name: String) -> int:
 	match mode_name:
@@ -42,17 +51,17 @@ static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
 	var native_side: String = formation_key
 	var fm: Variant = manager.get("formations")
 	if fm != null and typeof(fm) == TYPE_DICTIONARY:
-		var form: Dictionary = (fm as Dictionary).get(formation_key, {})
+		var form: Dictionary = _FormationSlots.formation_record_read(fm, formation_key)
 		if not form.is_empty():
-			native_side = str(form.get("side", formation_key))
+			native_side = _FormationSlots.formation_side_str(form, formation_key)
 	for c in manager.combatants:
-		if not c.get("alive", false):
+		if not _EntityAccess.alive_bool(c):
 			continue
-		if str(c.get("formation_id", "")) != formation_key:
+		if _EntityAccess.formation_id_str(c) != formation_key:
 			continue
-		if str(c.get("side", "")) != native_side:
+		if _EntityAccess.side_str(c) != native_side:
 			continue
-		if int(c.get("rank", 0)) != 0:
+		if _EntityAccess.rank_int(c) != 0:
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue
@@ -63,7 +72,7 @@ static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
 static func _front_files_for_side(manager: Node, side: String) -> int:
 	if manager == null:
 		return 1
-	var form: Dictionary = manager.formations.get(side, {})
+	var form: Dictionary = _FormationSlots.formation_record_read(manager.formations, side)
 	if form.is_empty():
 		return 1
 	return maxi(1, int(form.get("files", 1)))
@@ -74,9 +83,9 @@ static func count_active_for_side(manager: Node, side: String) -> int:
 	if manager == null:
 		return 0
 	for c in manager.combatants:
-		if not c.get("alive", false):
+		if not _EntityAccess.alive_bool(c):
 			continue
-		if str(c.get("side", "")) != side:
+		if _EntityAccess.side_str(c) != side:
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue
@@ -134,9 +143,9 @@ static func active_intrusions_count(manager: Node) -> int:
 		return 0
 	var n: int = 0
 	for c in manager.combatants:
-		if not c.get("alive", false):
+		if not _EntityAccess.alive_bool(c):
 			continue
-		if str(c.get("engagement_role", "")) != CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		if not _ZoneOfControl.is_intruded(c):
 			continue
 		n += 1
 	return n
@@ -148,13 +157,13 @@ static func active_intruder_count_for_side(manager: Node, side: String) -> int:
 	if manager == null or side.is_empty():
 		return 0
 	for c in manager.combatants:
-		if not c.get("alive", false):
+		if not _EntityAccess.alive_bool(c):
 			continue
-		if str(c.get("side", "")) != side:
+		if _EntityAccess.side_str(c) != side:
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue
-		if str(c.get("engagement_role", "")) != CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		if not _ZoneOfControl.is_intruded(c):
 			continue
 		n += 1
 	return n
@@ -166,13 +175,13 @@ static func crash_intrusion_attacker_block_reason(manager: Node, attacker: Dicti
 		return "intrusion_disabled"
 	if attacker.is_empty():
 		return "no_attacker"
-	var side: String = str(attacker.get("side", ""))
+	var side: String = _EntityAccess.side_str(attacker)
 	if side.is_empty():
 		return "no_side"
 	if active_intruder_count_for_side(manager, side) >= int(CombatConstants.MAX_INTRUDERS_PER_SIDE):
 		return "intruder_cap"
-	var node: Variant = attacker.get("node", null)
-	var mass: float = _EntityAccess.get_total_armor_mass_kg_from_node(node)
+	var n: Node = _EntityAccess.scene_node(attacker)
+	var mass: float = _EntityAccess.get_total_armor_mass_kg_from_node(n)
 	if mass + 0.001 < float(CombatConstants.CRASH_INTRUSION_MIN_ARMOR_MASS_KG):
 		return "light_armor"
 	if CombatConstants.crash_breach_viability(attacker) + 0.0001 < float(CombatConstants.CRASH_BREACH_VIABILITY_MIN):

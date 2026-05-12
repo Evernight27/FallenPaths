@@ -1,2 +1,3 @@
 # Normalize EOL for all files that Git considers text files.
+# Index paths always use forward slashes (combat/Foo.gd), including on Windows.
 * text=auto eol=lf

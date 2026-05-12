@@ -23,12 +23,22 @@ const MEDICAL_AI_PRESSURE_HIGH_SKILL_MULT := 0.66
 const MEDICAL_AI_EFF_CLAMP_MIN := 0.3
 const MEDICAL_AI_EFF_CLAMP_MAX := 1.5
 
+## Same threshold as bleed-out death (`CoreEntity._get_blood_loss_death_threshold` / `EntityWounds`).
+static func _blood_loss_death_threshold_for_entity(entity: Node) -> float:
+	if entity != null and entity.has_method("_get_blood_loss_death_threshold"):
+		return float(entity._get_blood_loss_death_threshold())
+	return _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+
 ## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated.
 static func can_end_medical_phase(manager: Node) -> bool:
 	if not manager.medical_phase:
 		return false
 	for c in manager.combatants:
-		if not c.alive or c.side != manager.medical_phase_winner or c.node == null:
+		if (
+			not _EntityAccess.alive_bool(c)
+			or _EntityAccess.side_str(c) != manager.medical_phase_winner
+			or _EntityAccess.scene_node(c) == null
+		):
 			continue
 		if is_in_medical_danger(manager, c):
 			return false
@@ -67,7 +77,8 @@ static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
 	if rate <= 0.0:
 		return false
 	var perm_rate: float = _EntityAccess.get_permanent_bleeding_rate_from_node(entity, rate)
-	var buffer: float = bv - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+	var death_thresh: float = _blood_loss_death_threshold_for_entity(entity)
+	var buffer: float = bv - death_thresh
 	if buffer > 0.0 and perm_rate > 0.0:
 		var safe_rate: float = buffer * _Bleeding.CLOTTING_SAFE_EFFECTIVE_RATE / _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
 		if perm_rate <= safe_rate:
@@ -75,7 +86,7 @@ static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
 	var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
 	if loss_per_sec <= 0.0:
 		return false
-	var time_to_death: float = (bv - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD) / loss_per_sec
+	var time_to_death: float = (bv - death_thresh) / loss_per_sec
 	return time_to_death <= MEDICAL_DANGER_SECONDS
 
 ## Stricter than is_in_medical_danger: about to bleed out; must self-treat first.
@@ -92,7 +103,8 @@ static func is_in_immediate_peril(manager: Node, c: Dictionary) -> bool:
 	var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
 	if loss_per_sec <= 0.0:
 		return false
-	var time_to_death: float = (bv - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD) / loss_per_sec
+	var death_thresh_im: float = _blood_loss_death_threshold_for_entity(entity)
+	var time_to_death: float = (bv - death_thresh_im) / loss_per_sec
 	return time_to_death <= IMMEDIATE_PERIL_SECONDS
 
 ## True when entity has permanently left immediate peril (permanent bleeding rate low enough to recover).
@@ -104,7 +116,8 @@ static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -
 	if perm_rate <= _Bleeding.BLEEDING_RATE_EPSILON:
 		return true
 	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
-	var buffer: float = bv - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+	var death_thresh_pp: float = _blood_loss_death_threshold_for_entity(entity)
+	var buffer: float = bv - death_thresh_pp
 	if buffer > 0.0:
 		var safe_rate: float = buffer * _Bleeding.CLOTTING_SAFE_EFFECTIVE_RATE / _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
 		if perm_rate <= safe_rate:
@@ -112,7 +125,7 @@ static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -
 	var loss_per_sec: float = perm_rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
 	if loss_per_sec <= 0.0:
 		return true
-	var time_to_death: float = (bv - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD) / loss_per_sec
+	var time_to_death: float = (bv - death_thresh_pp) / loss_per_sec
 	return time_to_death > IMMEDIATE_PERIL_SECONDS * 2.0
 
 ## 0..1: higher when more hurt (lower blood, shorter time to death). Includes randomness.
@@ -121,15 +134,15 @@ static func get_medical_urgency(manager: Node, c: Dictionary) -> float:
 	if entity == null:
 		return 0.0
 	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
-	var death_thresh: float = _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
-	var range_bv: float = MEDICAL_DANGER_BLOOD_THRESHOLD - death_thresh
-	var urgency_blood: float = 1.0 if bv <= death_thresh else clampf((MEDICAL_DANGER_BLOOD_THRESHOLD - bv) / maxf(0.01, range_bv), 0.0, 1.0)
+	var death_thresh_u: float = _blood_loss_death_threshold_for_entity(entity)
+	var range_bv: float = MEDICAL_DANGER_BLOOD_THRESHOLD - death_thresh_u
+	var urgency_blood: float = 1.0 if bv <= death_thresh_u else clampf((MEDICAL_DANGER_BLOOD_THRESHOLD - bv) / maxf(0.01, range_bv), 0.0, 1.0)
 	var urgency_time: float = 0.0
 	var rate: float = _EntityAccess.get_total_bleeding_rate_from_node(entity)
 	if rate > 0.0:
 		var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
 		if loss_per_sec > 0.0:
-			var time_to_death: float = (bv - death_thresh) / loss_per_sec
+			var time_to_death: float = (bv - death_thresh_u) / loss_per_sec
 			urgency_time = 1.0 if time_to_death <= 0.0 else clampf(1.0 - time_to_death / MEDICAL_DANGER_SECONDS, 0.0, 1.0)
 	var raw: float = maxf(urgency_blood, urgency_time)
 	raw *= randf_range(MEDICAL_URGENCY_RANDOM_MIN, MEDICAL_URGENCY_RANDOM_MAX)
@@ -141,15 +154,15 @@ static func get_medical_urgency_deterministic(manager: Node, c: Dictionary) -> f
 	if entity == null:
 		return 0.0
 	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
-	var death_thresh: float = _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
-	var range_bv: float = MEDICAL_DANGER_BLOOD_THRESHOLD - death_thresh
-	var urgency_blood: float = 1.0 if bv <= death_thresh else clampf((MEDICAL_DANGER_BLOOD_THRESHOLD - bv) / maxf(0.01, range_bv), 0.0, 1.0)
+	var death_thresh_ud: float = _blood_loss_death_threshold_for_entity(entity)
+	var range_bv: float = MEDICAL_DANGER_BLOOD_THRESHOLD - death_thresh_ud
+	var urgency_blood: float = 1.0 if bv <= death_thresh_ud else clampf((MEDICAL_DANGER_BLOOD_THRESHOLD - bv) / maxf(0.01, range_bv), 0.0, 1.0)
 	var urgency_time: float = 0.0
 	var rate: float = _EntityAccess.get_total_bleeding_rate_from_node(entity)
 	if rate > 0.0:
 		var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
 		if loss_per_sec > 0.0:
-			var time_to_death: float = (bv - death_thresh) / loss_per_sec
+			var time_to_death: float = (bv - death_thresh_ud) / loss_per_sec
 			urgency_time = 1.0 if time_to_death <= 0.0 else clampf(1.0 - time_to_death / MEDICAL_DANGER_SECONDS, 0.0, 1.0)
 	return clampf(maxf(urgency_blood, urgency_time), 0.0, 1.0)
 
@@ -183,8 +196,10 @@ static func get_part_intervention_threat(manager: Node, c: Dictionary, part: Str
 static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally: Dictionary, part: String) -> Array:
 	var out: Array = []
 	var target_entity: Node = _EntityAccess.get_entity_from_manager(manager, ally)
-	var performer_has_arm: bool = performer.node.can_apply_direct_pressure("") if (performer.node != null and performer.node.has_method("can_apply_direct_pressure")) else false
-	var failed_parts: Array = ally.get("failed_medical_parts", [])
+	var perf_n: Node = _EntityAccess.scene_node(performer)
+	var performer_has_arm: bool = perf_n.can_apply_direct_pressure("") if (perf_n != null and perf_n.has_method("can_apply_direct_pressure")) else false
+	var fp_raw: Variant = ally.get("failed_medical_parts", null)
+	var failed_parts: Array = (fp_raw as Array) if fp_raw is Array else []
 	var skip_redress: bool = has_left_immediate_peril_permanently(manager, ally) and part in failed_parts
 	# Bandage / pack / tourniquet stay available while someone holds direct pressure on this part (classic first aid).
 	if not skip_redress and target_entity != null and target_entity.has_method("can_apply_bandage") and target_entity.can_apply_bandage(part):
@@ -193,8 +208,8 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
 		out.append({ "move_id": "pack_wound", "target_part": part })
 	if target_entity != null and target_entity.has_method("has_direct_pressure_on_part") and target_entity.has_direct_pressure_on_part(part):
 		pass
-	elif performer_has_arm and performer.node.has_method("is_applying_direct_pressure") and not performer.node.is_applying_direct_pressure():
-		if performer.id == ally.id and target_entity != null and not target_entity.can_apply_direct_pressure(part):
+	elif performer_has_arm and perf_n != null and perf_n.has_method("is_applying_direct_pressure") and not perf_n.is_applying_direct_pressure():
+		if _EntityAccess.id_int(performer) == _EntityAccess.id_int(ally) and target_entity != null and not target_entity.can_apply_direct_pressure(part):
 			pass
 		else:
 			out.append({ "move_id": "apply_direct_pressure", "target_part": part })

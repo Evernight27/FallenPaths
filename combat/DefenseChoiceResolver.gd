@@ -11,6 +11,39 @@ const _CombatTiming := preload("res://combat/CombatTiming.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 
+
+## Tier 3.1: `AttackResolver` / **`AvailableActionsBuilder.stamp_attack_pair_geometry_on_dict`** set **`depth_polearm_attack`**, **`depth_polearm_allows_low_targets`**, and **`depth_polearm_lane_type`** when rank≥1 depth spear lane is live.
+static func _depth_polearm_lane_is_open(pa: Dictionary) -> bool:
+	## `stamp_attack_pair_geometry_on_dict` always sets the key (often `""`). Empty / unknown → `allows_low`
+	## (legacy `pa`); explicit ids match **`CombatConstants`** (`open` / `over_shoulder`).
+	var lt: String = str(pa.get("depth_polearm_lane_type", "")).strip_edges()
+	if lt == "open":
+		return true
+	if lt == "over_shoulder":
+		return false
+	return bool(pa.get("depth_polearm_allows_low_targets", true))
+
+
+static func depth_spear_tight_lane_parry_c_d_mult(pa: Dictionary) -> float:
+	if not bool(pa.get("depth_polearm_attack", false)):
+		return 1.0
+	if _depth_polearm_lane_is_open(pa):
+		return 1.0
+	return CombatConstants.DEPTH_SPEAR_TIGHT_LANE_PARRY_C_D_MULT
+
+
+static func depth_spear_open_lane_stab_parry_p_a_mult(pa: Dictionary, attack_type: String) -> float:
+	if not bool(pa.get("depth_polearm_attack", false)):
+		return 1.0
+	if not _depth_polearm_lane_is_open(pa):
+		return 1.0
+	var md: Dictionary = WeaponConstants.get_move(attack_type)
+	var ct: String = str(md.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT)).to_lower()
+	if ct != WeaponConstants.ATTACK_TYPE_STAB:
+		return 1.0
+	return CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT
+
+
 ## Returns dict with: defense, can_parry_in_time, parry_p_a, parry_c_d, parry_time_to_react,
 ## parry_readiness, parry_off_balance, late_parry, is_block_parry, m_a_parry, m_d_parry,
 ## s_atk_parry, s_d_parry, dodge_chance, dodge_eval_part, effective_redirect
@@ -45,14 +78,18 @@ static func choose_defense(
 	result.dodge_eval_part = BodyPartConstants.get_weighted_random_part(targetable) if not targetable.is_empty() else ""
 
 	var dodge_chance: float = _EntityAccess.get_dodge_chance(tgt)
-	dodge_chance *= CombatConstants.get_stance_modifier(tgt.get("stance", CombatConstants.STANCE_BALANCED), "evasion")
-	var surround_n: int = int(pa.get("surround_threat_count", 1))
+	dodge_chance *= CombatConstants.get_stance_modifier(_EntityAccess.stance_str(tgt), "evasion")
 	dodge_chance *= pa.get("tactical_ambush_mult", 1.0)
-	dodge_chance *= _TacticalCombat.surround_defense_multiplier(tgt, surround_n)
+	dodge_chance *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
 	result.dodge_chance = dodge_chance
 
 	var already_used_defense: bool = pa.get("passive_parry_attempted", false)
-	if already_used_defense or tgt.state == CombatConstants.STATE_WIND_UP or tgt.state == CombatConstants.STATE_MEDICAL_WIND_UP:
+	var st_def: String = _EntityAccess.state_str(tgt)
+	if (
+		already_used_defense
+		or st_def == CombatConstants.STATE_WIND_UP
+		or st_def == CombatConstants.STATE_MEDICAL_WIND_UP
+	):
 		result.effective_redirect = _get_effective_redirect(tgt)
 		return result
 
@@ -66,12 +103,13 @@ static func choose_defense(
 	var parry_readiness: float = 0.0
 	var parry_off_balance: bool = false
 	var late_parry: bool = false
+	var tgt_n: Node = _EntityAccess.scene_node(tgt)
 
-	if tgt.node != null and tgt.node.has_method("get_passive_parry_reaction_time") and _EntityAccess.has_weapon(tgt):
+	if tgt_n != null and tgt_n.has_method("get_passive_parry_reaction_time") and _EntityAccess.has_weapon(tgt):
 		var def_weapon = _EntityAccess.get_weapon(tgt)
 		if def_weapon != null and effective_wind_up > 0.0:
 			var atk_weapon = _EntityAccess.get_weapon(atk)
-			var reaction_time: float = tgt.node.get_passive_parry_reaction_time()
+			var reaction_time: float = tgt_n.get_passive_parry_reaction_time()
 			if reaction_time < effective_wind_up and atk_weapon != null:
 				can_parry_in_time = true
 				var move_def: Dictionary = WeaponConstants.get_move(attack_type)
@@ -109,9 +147,9 @@ static func choose_defense(
 				var _al: float = _get_line_alignment(attack_type, tgt, pa.get("effective_attack_line", ""), align_ctx)
 				parry_c_d *= _get_contact_geometry(_al, def_weapon)
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
-				var st_ratio: float = clampf(tgt.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+				var st_ratio: float = clampf(_EntityAccess.stamina_float(tgt) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio))
-				parry_c_d *= _TacticalCombat.surround_defense_multiplier(tgt, int(pa.get("surround_threat_count", 1)))
+				parry_c_d *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
 				parry_c_d *= pa.get("tactical_ambush_mult", 1.0)
 				if CombatConstants.COMBAT_DEBUG:
 					var dbg_tgt: String = _EntityAccess.get_display_name(tgt)
@@ -160,13 +198,15 @@ static func choose_defense(
 				var _al: float = _get_line_alignment(attack_type, tgt, pa.get("effective_attack_line", ""), align_ctx_late)
 				parry_c_d *= _get_contact_geometry(_al, def_weapon)
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
-				var st_ratio_late: float = clampf(tgt.get("stamina", CombatConstants.STAMINA_MAX) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+				var st_ratio_late: float = clampf(_EntityAccess.stamina_float(tgt) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio_late))
-				parry_c_d *= _TacticalCombat.surround_defense_multiplier(tgt, int(pa.get("surround_threat_count", 1)))
+				parry_c_d *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
 				parry_c_d *= pa.get("tactical_ambush_mult", 1.0)
 				if CombatConstants.COMBAT_DEBUG:
 					CombatDebug.log("parry_align late %s align=%.2f" % [tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), _al])
 
+	parry_p_a *= depth_spear_open_lane_stab_parry_p_a_mult(pa, attack_type)
+	parry_c_d *= depth_spear_tight_lane_parry_c_d_mult(pa)
 	parry_c_d *= pa.get("zone_engagement_parry_mult", 1.0)
 
 	result.can_parry_in_time = can_parry_in_time
@@ -189,14 +229,16 @@ static func choose_defense(
 			var arch_id: String = atk_w_arch.get_archetype_id(attack_type)
 			var pct: String = def_w_arch.get_parry_contact_type() if def_w_arch != null and def_w_arch.has_method("get_parry_contact_type") else "blade"
 			# Blade-on-blade: archetype weak exposure + defender forte matter. Shaft/haft: leverage only — no blade weak to catch.
-			var full_strong_mod: float = parry_cfg.get("strong_contact_by_arch", {}).get(arch_id, 1.0) if pct == "blade" else 1.0
+			var sc_raw: Variant = parry_cfg.get("strong_contact_by_arch", null)
+			var sc_map: Dictionary = sc_raw if sc_raw is Dictionary else {}
+			var full_strong_mod: float = float(sc_map.get(arch_id, 1.0)) if pct == "blade" else 1.0
 			if pct == "blade":
 				var weak_exp: float = float(CombatConstants.WEAK_EXPOSURE_BY_ARCH.get(arch_id, 0.5))
 				var strong_frac: float = def_w_arch.get_parry_strong_fraction() if def_w_arch.has_method("get_parry_strong_fraction") else 0.25
 				full_strong_mod *= 1.0 + CombatConstants.DEFENDER_STRONG_BONUS * strong_frac * weak_exp
 			var strong_mod: float = lerpf(1.0, full_strong_mod, contact_quality)
 			parry_c_d *= strong_mod
-		parry_c_d *= CombatConstants.get_stance_modifier(tgt.get("stance", CombatConstants.STANCE_BALANCED), "parry")
+		parry_c_d *= CombatConstants.get_stance_modifier(_EntityAccess.stance_str(tgt), "parry")
 		result.parry_c_d = parry_c_d
 
 	# Mass/strength for block check (total mass for both); m_a_velocity for partial parry v_reduced (striking mass when parts).
@@ -214,8 +256,8 @@ static func choose_defense(
 			var move_def_mass: Dictionary = WeaponConstants.get_move(attack_type)
 			var ct_mass: String = str(move_def_mass.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
 			m_a_velocity = float(atk_w.get_striking_part_mass_kg(ct_mass)) if atk_w.has_method("has_parts") and atk_w.has_parts() else float(atk_w.mass)
-		s_atk_parry = float(atk.stats.get("strength", 100))
-		s_d_parry = float(tgt.stats.get("strength", 100))
+		s_atk_parry = float(_EntityAccess.stats_dict(atk).get("strength", 100))
+		s_d_parry = float(_EntityAccess.stats_dict(tgt).get("strength", 100))
 	result.m_a_parry = m_a_parry
 	result.m_d_parry = m_d_parry
 	result.m_a_velocity = m_a_velocity
@@ -246,8 +288,8 @@ static func choose_defense(
 		var partial_dodge_avg_ratio: float = (CombatConstants.DODGE_PARTIAL_RATIO_MIN + 1.0) * 0.5
 		var E_dodge: float = (1.0 - effective_dodge_chance) * 1.0 + effective_dodge_chance * (1.0 - CombatConstants.DODGE_FULL_THRESHOLD) * partial_dodge_avg_ratio
 		var parry_full: bool = result.is_block_parry and result.parry_c_d >= (result.parry_p_a * CombatConstants.PARRY_DEFLECT_THRESHOLD)
-		var agi_d: float = float(tgt.stats.get("agility", 100))
-		var perc_d: float = float(tgt.stats.get("perception", 100))
+		var agi_d: float = float(_EntityAccess.stats_dict(tgt).get("agility", 100))
+		var perc_d: float = float(_EntityAccess.stats_dict(tgt).get("perception", 100))
 		var redirect_mult: float = CombatConstants.compute_parry_redirect_mult(parry_cfg, agi_d, perc_d, WeaponConstants.contact_type_for_move_id(attack_type), result.is_block_parry, m_a_parry, m_d_parry)
 		var parry_remaining_est: float = 1.0
 		if not parry_full and result.parry_p_a > 0.001:
@@ -264,7 +306,7 @@ static func _get_effective_redirect(tgt: Dictionary) -> float:
 	var pcfg: Dictionary = _PassiveParry.get_parry_config()
 	var redirect_attempt: float = pcfg.get("redirect_attempt_ratio", 2.5)
 	var agi_scale: float = pcfg.get("redirect_attempt_agility_scale", 0.5)
-	var agi_d_attempt: float = float(tgt.stats.get("agility", 100))
+	var agi_d_attempt: float = float(_EntityAccess.stats_dict(tgt).get("agility", 100))
 	return redirect_attempt * (0.75 + agi_scale * clampf(agi_d_attempt / 100.0, 0.0, 1.5))
 
 static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String = "") -> float:
@@ -272,24 +314,26 @@ static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String
 	var m_total: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 	# Full weapon mass matters: inertia and geometry. Blend parry-part (contact) with total (leverage).
 	var m_d: float = lerpf(m_parry_part, m_total, CombatConstants.PARRY_INERTIA_BLEND) if def_weapon.has_method("has_parts") and def_weapon.has_parts() else m_total
-	var s_d: float = float(tgt.stats.get("strength", 100))
+	var s_d: float = float(_EntityAccess.stats_dict(tgt).get("strength", 100))
 	var c_d_full: float = m_d * PassiveParryContext.get_parry_speed_m_s(def_weapon) * (s_d / CombatConstants.PARRY_STRENGTH_NORM)
-	var agi_d: float = float(tgt.stats.get("agility", 100))
+	var agi_d: float = float(_EntityAccess.stats_dict(tgt).get("agility", 100))
 	c_d_full *= clampf(agi_d / 100.0, 0.7, 1.3)
 	var def_perf: float = _EntityAccess.get_performance_modifier(tgt)
 	c_d_full *= maxf(CombatConstants.PERF_MOD_MIN, def_perf)
 	var arm_mod: float = 1.0
-	if tgt.node.has_method("get_attack_damage_modifier"):
-		arm_mod = tgt.node.get_attack_damage_modifier()
+	var tgt_parry_n: Node = _EntityAccess.scene_node(tgt)
+	if tgt_parry_n != null and tgt_parry_n.has_method("get_attack_damage_modifier"):
+		arm_mod = tgt_parry_n.get_attack_damage_modifier()
 	c_d_full *= maxf(0.1, arm_mod)
 	if def_weapon.has_method("get_parry_contact_type") and def_weapon.has_parts():
 		var pct: String = def_weapon.get_parry_contact_type()
 		c_d_full *= CombatConstants.PARRY_CONTACT_MODIFIERS.get(pct, 1.0)
-	if not contact_type.is_empty() and "weapon_type" in def_weapon:
-		var def_type: String = str(def_weapon.weapon_type).to_upper()
+	var contact_key: String = str(contact_type).to_lower().strip_edges()
+	if not contact_key.is_empty():
+		var def_type: String = str(def_weapon.get("weapon_type")).to_upper()
 		var mod_dict: Variant = CombatConstants.PARRY_DEF_VS_ATK_MOD.get(def_type, {})
 		if mod_dict is Dictionary:
-			var mult: float = float(mod_dict.get(contact_type, 1.0))
+			var mult: float = float(mod_dict.get(contact_key, 1.0))
 			c_d_full *= mult
 	return c_d_full
 
@@ -315,7 +359,7 @@ static func _get_leverage_factor(def_weapon, alignment: float) -> float:
 static func _get_parry_capacity_mult(def_weapon, tgt: Dictionary, parry_time_to_react: float) -> float:
 	# Weapon objects use direct properties; Object.get() takes 1 arg (no default like Dictionary).
 	var m_d: float = float(def_weapon.mass) if def_weapon != null else WeaponConstants.BASELINE_MASS_KG
-	var s_d: float = float(tgt.stats.get("strength", 100))
+	var s_d: float = float(_EntityAccess.stats_dict(tgt).get("strength", 100))
 	var speed_f: float = clampf(float(def_weapon.parry_speed_factor), 0.5, 1.5)
 	var blade_movement_s: float = (CombatConstants.PARRY_BLADE_MOVEMENT_S * clampf(m_d * CombatConstants.PARRY_STRENGTH_NORM / maxf(s_d, 1.0), CombatConstants.PARRY_MOVEMENT_MASS_STRENGTH_MIN, CombatConstants.PARRY_MOVEMENT_MASS_STRENGTH_MAX)) / speed_f
 	var effective_parry_time: float = maxf(0.0, parry_time_to_react - blade_movement_s)

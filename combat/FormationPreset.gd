@@ -4,6 +4,7 @@ extends RefCounted
 ## Builds formation presets for party and enemy. Used by CombatFlow, BattleScene, CombatManager.
 ## Preset: { files: int, ranks: int, density: String } — Option A: files = front-line count, ranks = depth.
 ## Optional **discipline** (Tier 1.4): `line_discipline` (`CombatConstants.LINE_DISCIPLINE_*`; formation overrides encounter).
+## Optional **doctrine** (Tier 1.9): **`FORMATION_PRESET_KEY_DOCTRINE`** (`formation_doctrine`) or **`FORMATION_PRESET_KEY_DOCTRINE_ALT`** (`doctrine`) on the preset dict passed to **`CombatManager.start`** — overrides encounter doctrine for that side (after encounter canonical + alt read on **`start()`**).
 ## Posture: `discipline_posture_*_delta` + hysteresis via `CombatFormationEngagement`. Movement: only `loose` allows
 ## rank-0 solo `fall_back` into an empty same-file rear; `strict` / `normal` / empty use paired swap/drag/fall_back_pair only.
 ## Fill order: rank 0 first (primary melee), then rank 1, etc. See FORMATION_FILE_DENSITY_SURVIVABILITY_INVESTIGATION.

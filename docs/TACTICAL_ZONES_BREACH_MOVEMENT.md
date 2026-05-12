@@ -2,6 +2,8 @@
 
 Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
 
+**Plan / code:** ZoC / breach **narrative** → **`IMPLEMENTATION_ORDER.md`** Tier **2.1** (optional prose sync). **Factual** sequencing, wedge, distance, **1.9** → plan + **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** — see **Implementation status** below.
+
 ## Contents
 
 1. [ZONE_OF_CONTROL_QUANTUM_POSITIONING_INVESTIGATION.md](#zone-of-control-quantum-positioning-investigation)
@@ -15,11 +17,11 @@ Consolidated documentation. Each section keeps its **original filename** in the 
 
 ## Implementation status (vs current code)
 
-**Combat implementation plan (sequence + Tier 1 coding steps):** `docs/IMPLEMENTATION_ORDER.md`. **Tier 1 design spec** (fields, plugs): `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`.
+**Milestone Status** → **`IMPLEMENTATION_ORDER.md`** [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) only (see bundle **Plan / code**).
 
-**Tier 2 (this bundle):** **As of 2026-04-27**, **Tier 1.2–1.3** behaviors are **implemented** in code: vacancy plug, intruder on defender `slots`, **`intrusion_wedge_by_file`**, **`lane_offset`**, **`AvailableActionsBuilder.effective_pair_eff_dist`**, neighbor hold, cohesion/posture. **Narrative sections below** (investigation prose) may still describe older “planned” states — when editing a section, align it with `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` and `combat/` sources (**ongoing Tier 2.1** cleanup).
+**Tier 2 (this bundle vs code):** P3–P4 intrusion stack **shipped** (vacancy plug, intruder `slots`, **`intrusion_wedge_by_file`**, **`lane_offset`**, **`effective_pair_eff_dist`**, neighbor hold, cohesion/posture). **1.9** depth polearm / spear lanes: see plan **milestone summary** + engagement §2.5 — do not treat investigation prose below as status. **AI / listed weights:** where formation posture or cohesion drives **`CombatTargetScoring`** / crash AI, intruders resolve formation dict keys with **`ZoneOfControl.formation_id_for_zone_geometry`** (same as ZoC pair geometry). **Narrative sections** may lag code; align edits with spec + `combat/` (**Tier 2.1** cleanup in the plan).
 
-**Last reviewed for cross-links:** 2026-04-27. **Plan note:** Full prose pass = **`IMPLEMENTATION_ORDER.md`** Tier **2.1** (optional, section-by-section).
+**Last reviewed:** 2026-05-10.
 
 ---
 
@@ -336,7 +338,7 @@ Investigation of how to combine row/file formation combat with surround tactics�
 
 **Formation combat (rows + files):**
 - Assumes two formations facing each other in lines
-- Combat is front-on: **rank 0** is the primary line; **depth-rank polearm** (spear lane) vs enemy rank 0 is **`IMPLEMENTATION_ORDER.md` Tier 1.9 (P10)** — **Todo** in code; not yet general melee from rank ≥ 1
+- Combat is front-on: **rank 0** is the primary line; **depth-rank polearm** (spear lane) vs enemy rank 0 is **`IMPLEMENTATION_ORDER.md` Tier 1.9 (P10)** — **Partial** in code (core depth melee + targeting; not full “any rank ≥ 1 general melee”); see milestone table + engagement spec §2.5
 - Works for shield walls, phalanx-style engagement
 
 **Surround / multi-angle:**
@@ -718,7 +720,7 @@ Investigation of how the formation system can support:
 
 Player/encounter should be able to choose:
 - **Front-line count:** How many units in rank 0 (primary melee)
-- **Reserve depth:** How many ranks behind (rank 1+ for support, ranged, rotation)
+- **Reserve depth:** How many ranks behind (rank 1+ for support, rotation, **depth polearm melee** where Tier **1.9** applies — not rank-1-ranged-only)
 
 #### Option A: Files × Ranks with Explicit Fill
 
@@ -1234,7 +1236,7 @@ These items are **not** afterthoughts—they constrain **Phase A** (gate) and ho
 
 | Item | Requirement |
 |------|-------------|
-| **Feature toggle** | **Name** the flag in code + doc: **legacy surround count** vs **sector threat load** (Phase D). |
+| **Feature toggle** | **`CombatConstants.is_feature_sector_surround_load()`** (default **false**; **`set_feature_sector_surround_load(on)`** for harness / dev soaks): **off** = integer threat count path; **on** = sector weight sum + `1/(1+k·excess)` (`TacticalCombat`, `AttackResolver`, `DefenseChoiceResolver`). |
 | **Telemetry / debug** | At least one line or overlay: `inc_g`, `lane_z`, `breach_stress`, `surround_load` (per tick or per attack). |
 | **`CombatDebug`** | **`CombatDebug.flow_log`** / **`COMBAT_DEBUG`** branches for **breach/crash** outcomes, consistent with **attack** / **formation** logs. |
 | **Event queue** | New **`EVENT_*`** for crash/breach must respect **FF4 §6** ordering (agility, then **`combatant_id`**) and avoid starving **`EVENT_ACTION_READY`**. |
@@ -1294,7 +1296,7 @@ Each phase lists **tasks**. **§4** holds cross-cutting requirements; phases sho
 
 **Files:** `TacticalCombat.gd`, `AttackResolver.gd`, `DefenseChoiceResolver.gd` as needed.
 
-**Migration:** Legacy **count** behind toggle until tuning stabilizes.
+**Migration:** Keep **`is_feature_sector_surround_load`** **false** until sector weights are tuned; harness compares sector path to integer path when needed (`CombatRegressionHarness._run_surround_*`, **`_run_sector_surround_feature_flag_respects_runtime_toggle`**).
 
 ---
 
@@ -1415,7 +1417,7 @@ Use this as the **single** execution list; detailed rules live in **§4** and ph
 | # | Decision | Proposed default (v1) |
 |---|----------|------------------------|
 | B1 | **Phase F:** incursion stack | **Add** `local_breach_stress[file]` (or per-side dict) into ZoC merge **without** removing `incursion_pressure` until tuned; preserve headroom merge. |
-| B2 | **§4.5 Surround:** float load vs integer `n` | **Toggle:** legacy **count** path default **on**; when `FEATURE_SECTOR_SURROUND_LOAD` (name TBD) is on, use **load →** `1/(1+k·load)` and **stop** using integer split for that path (document single rule—no double semantics). |
+| B2 | **§4.5 Surround:** float load vs integer `n` | **Shipped:** **`CombatConstants.is_feature_sector_surround_load()`** (**default `false`**; **`set_feature_sector_surround_load`**) — **off** = integer `surround_threat_count`; **on** = `surround_threat_weight_sum` + sector curve (single rule per path; see `TacticalCombat.surround_defense_multiplier_from_pa`). |
 | B3 | **Save/load** | New tactical fields **non-persisted** until you add serialize hooks (reset on load). |
 
 #### 10.4 Double-count / stacking (deliverable summary)

@@ -4,12 +4,14 @@ extends RefCounted
 ## Combat timing calculations: intensity, wind-up, recovery, velocity curve.
 ## Extracted from CombatManager for reuse by AttackResolver and other systems.
 
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+
 ## Current time in seconds (Time.get_ticks_msec() / 1000.0). Single source for combat time checks.
 static func now_seconds() -> float:
 	return Time.get_ticks_msec() / 1000.0
 
 static func intensity_from_stats(c: Dictionary) -> float:
-	var str_val: float = float(c.stats.get("strength", 100))
+	var str_val: float = float(_EntityAccess.stats_dict(c).get("strength", 100))
 	var base: float = 0.2 + CombatConstants.INTENSITY_STRENGTH_SCALE * (str_val / CombatConstants.INTENSITY_STRENGTH_NORM)
 	return clampf(base + randf_range(-CombatConstants.INTENSITY_RANDOM_RANGE, CombatConstants.INTENSITY_RANDOM_RANGE), 0.1, 1.0)
 
@@ -28,6 +30,8 @@ static func recovery_duration(intensity: float, outcome: String, recovery_multip
 	var extra: float = CombatConstants.RECOVERY_EXTRA_HIT_S
 	if outcome == "deflected":
 		extra = CombatConstants.RECOVERY_EXTRA_DEFLECTED_BASE_S + CombatConstants.RECOVERY_DEFLECT_MOMENTUM_SCALE_S * commitment
+	elif outcome == "negligible":
+		extra = CombatConstants.RECOVERY_EXTRA_NEGLIGIBLE_CHIP_S
 	elif outcome == "full_stop":
 		extra = CombatConstants.RECOVERY_EXTRA_FULL_STOP_BASE_S + CombatConstants.RECOVERY_FULL_STOP_COMMITMENT_SCALE_S * commitment
 	elif outcome == "glancing":

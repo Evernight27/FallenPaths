@@ -2,6 +2,8 @@
 
 Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
 
+**Plan / code:** Flow tables reference **`AttackResolver`**, **`WeaponDamageHelper`**; impact **v** / **KE** use thrust vs swing (**`kinematic_delivery`** — **`docs/IMPLEMENTATION_ORDER.md`** Tier **3.0**, **shipped**). Broader audits & integration sequencing → same file **Tier 5** (this bundle’s role in [plan inventory](IMPLEMENTATION_ORDER.md#plan-inventory-all-combat-markdown)).
+
 ## Contents
 
 1. [PHYSICS_REALISM_DECISIONS_INVESTIGATION.md](#physics-realism-decisions-investigation)
@@ -608,7 +610,7 @@ This document traces how attack, parry, and dodge data flow through the combat s
 | reaction_time | tgt.node.get_passive_parry_reaction_time() | **CoreEntity: perception, consciousness, head pain.** Character → _combat_body. |
 | can_parry_in_time | reaction_time < effective_wind_up && def_weapon && atk_weapon | Whether parry is an option |
 | atk_weapon | atk.node.get_weapon() | m_a, v_intent → p_a |
-| v_intent | WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance) | p_a = m_a * v_intent |
+| v_intent | WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance) | p_a = m_a * v_intent; **v_intent** is thrust vs swing vs mixed per archetype (**Tier 3.0** in `IMPLEMENTATION_ORDER.md`; `WeaponDamageHelper.kinematic_delivery`) |
 | attack_instance (parry) | New(attack_type, intensity, archetype, velocity_override or -1) | **First hit: velocity_override = -1 → full-speed intent for p_a.** Correct. |
 | p_a | m_a * v_intent | Attacker momentum; compared to c_d and written on partial parry (reduced v) |
 | def_weapon | tgt.node.get_weapon() | m_d for c_d |
@@ -621,6 +623,8 @@ This document traces how attack, parry, and dodge data flow through the combat s
 | choose_parry | Expected-damage comparison: parry when E_parry ≤ E_dodge and viable; dodge when E_dodge < E_parry or full_dodge_prob ≥ PARRY_PREFER_DODGE_FULL_THRESHOLD (0.12). PARRY_DODGE_STRENGTH_RATIO (2.2) for block viable. | See AttackResolver |
 
 **Connection check:** Parry uses defender’s **live** arm (get_attack_damage_modifier), **live** performance and reaction time (node methods). Defender strength is from **cached** tgt.stats (refreshed each frame in _process). So parry is correctly tied to arm health, reaction, and strength. OK.
+
+**KE / cut damage:** After parry follow-through, damage uses the same **`v`** pipeline; **`compute_kinetic_energy_j`** matches **`kinematic_delivery`** (thrust point-mass vs swing rotational vs mixed) — see `PARRY_DEFLECT_AND_CALIBRATION.md` §1.2 table, not a single `½ m v²` for all strikes.
 
 #### 2.2 Resolve parry (_resolve_parry_with_momentum)
 

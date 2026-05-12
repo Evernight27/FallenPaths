@@ -4,6 +4,7 @@ const _MgrScript := preload("res://combat/CombatManager.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _CoreEntity := preload("res://core/CoreEntity.gd")
 const _TurnReadyHandler := preload("res://ui/TurnReadyHandler.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 const DT := 0.05
 const MAX_SIM_TIME_S := 120.0
@@ -105,9 +106,9 @@ func _run_single_sim(player_n: int, enemy_n: int, files: int, ranks: int, seed_v
 		var any_below_20: bool = false
 		var any_below_10: bool = false
 		for c in mgr.combatants:
-			if not bool(c.get("alive", false)):
+			if not _EntityAccess.alive_bool(c):
 				continue
-			var s: float = float(c.get("stamina", 100.0))
+			var s: float = _EntityAccess.stamina_float(c)
 			min_stamina = minf(min_stamina, s)
 			stam_sum += s
 			alive_count += 1
@@ -157,7 +158,7 @@ func _free_manager(mgr: Node) -> void:
 	if mgr == null:
 		return
 	for c in mgr.combatants:
-		var n: Variant = c.get("node", null)
-		if n is Node:
-			(n as Node).queue_free()
+		var n: Node = _EntityAccess.scene_node(c)
+		if n != null:
+			n.queue_free()
 	mgr.queue_free()

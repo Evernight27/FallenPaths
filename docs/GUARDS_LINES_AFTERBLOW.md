@@ -2,6 +2,8 @@
 
 Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
 
+**Plan / code:** Line guard & afterblow ship under **`docs/IMPLEMENTATION_ORDER.md`** Tier **3.3** (after **3.2** parry/bind). Strike intensity / hindrance hooks assume **`WeaponDamageHelper`** (**Tier 3.0** kinematic delivery).
+
 ## Contents
 
 1. [LINE_GUARD_AND_AFTERBLOW_IMPLEMENTATION.md](#line-guard-and-afterblow-implementation)

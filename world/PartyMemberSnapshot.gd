@@ -32,11 +32,11 @@ static func snapshot_from_member(member: Dictionary) -> Dictionary:
 	else:
 		result = {
 			"name": member.get("name", "Unknown"),
-			"body_cutting": member.get("body_cutting", {}).duplicate(),
-			"body_blunt": member.get("body_blunt", {}).duplicate(),
-			"body_max": member.get("body_max", {}).duplicate(),
-			"bone_health": member.get("bone_health", {}).duplicate(),
-			"bone_max": member.get("bone_max", {}).duplicate(),
+			"body_cutting": _duplicate_if_dictionary(member.get("body_cutting", null)),
+			"body_blunt": _duplicate_if_dictionary(member.get("body_blunt", null)),
+			"body_max": _duplicate_if_dictionary(member.get("body_max", null)),
+			"bone_health": _duplicate_if_dictionary(member.get("bone_health", null)),
+			"bone_max": _duplicate_if_dictionary(member.get("bone_max", null)),
 			"strength": member.get("strength", 100),
 			"agility": member.get("agility", 100),
 			"intelligence": member.get("intelligence", 100),
@@ -49,6 +49,12 @@ static func snapshot_from_member(member: Dictionary) -> Dictionary:
 		}
 	result["node_ref"] = node_ref
 	return result
+
+static func _duplicate_if_dictionary(v: Variant) -> Dictionary:
+	if v is Dictionary:
+		return (v as Dictionary).duplicate()
+	return {}
+
 
 static func _read_from_node(node: Node) -> Dictionary:
 	# Use CombatantStatsSync for base stats — single source of truth with combat registration.

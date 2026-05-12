@@ -16,6 +16,7 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CombatAIActionPicker := preload("res://combat/CombatAIActionPicker.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FileKeys := preload("res://combat/CombatFileKeyedDict.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _BREACH_ACTIVE_EPSILON := 0.001
@@ -56,7 +57,7 @@ static func breach_blocks_open_lane_moves(manager: Node, formation: Dictionary) 
 
 
 static func breach_clogs_open_lanes(formation: Dictionary) -> bool:
-	var bf: Dictionary = formation.get("breached_files", {})
+	var bf: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "breached_files")
 	if bf.is_empty():
 		return false
 	for v in bf.values():
@@ -66,8 +67,8 @@ static func breach_clogs_open_lanes(formation: Dictionary) -> bool:
 
 ## Adjacent-rank swap to step over an incapacitated front neighbor (same column).
 static func is_plug_forward_adjacent_rank_swap(initiator: Dictionary, partner: Dictionary) -> bool:
-	var ri: int = int(initiator.get("rank", 0))
-	var rp: int = int(partner.get("rank", 0))
+	var ri: int = _EntityAccess.rank_int(initiator)
+	var rp: int = _EntityAccess.rank_int(partner)
 	if abs(ri - rp) != 1:
 		return false
 	var r_front: int = mini(ri, rp)
@@ -77,8 +78,8 @@ static func is_plug_forward_adjacent_rank_swap(initiator: Dictionary, partner: D
 
 ## Adjacent-rank relief rotation: deeper rank swaps toward the front when tactically justified.
 static func is_relief_adjacent_rank_swap(initiator: Dictionary, partner: Dictionary) -> bool:
-	var ri: int = int(initiator.get("rank", 0))
-	var rp: int = int(partner.get("rank", 0))
+	var ri: int = _EntityAccess.rank_int(initiator)
+	var rp: int = _EntityAccess.rank_int(partner)
 	if abs(ri - rp) != 1:
 		return false
 	if _EntityAccess.is_incapacitated(initiator) or _EntityAccess.is_incapacitated(partner):
@@ -119,7 +120,7 @@ static func resolve_blocks_formation_move(
 
 ## Extra lane stress from plugging / crowding at a breached file (physics-flavored bump). Capped before merge into 0..1 lane stress.
 static func breach_local_lane_stress_bonus(formation: Dictionary, file_index: int) -> float:
-	var bf: Dictionary = formation.get("breached_files", {})
+	var bf: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "breached_files")
 	var raw: float = breached_file_severity(bf, file_index)
 	if raw <= _BREACH_ACTIVE_EPSILON:
 		return 0.0

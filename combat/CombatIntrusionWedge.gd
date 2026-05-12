@@ -7,6 +7,7 @@ extends RefCounted
 ## **Single writer:** upsert/clear from `CombatFormationFlow.apply_intrusion_after_crash_success` + wedge removal on intruder death / tactical reset (`CombatIntrusionWedge` / `CombatManager._reset_tactical_breach_state`). `breached_files` stays parallel summary for clog rules; wedge is canonical for stress/cohesion/distance.
 
 const _FileKeys := preload("res://combat/CombatFileKeyedDict.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
 const FIELD_PRESSURE := "pressure"
 const FIELD_DEPTH := "depth"
@@ -56,7 +57,7 @@ static func _raw_depth_at_file_key(byf: Dictionary, file: int) -> float:
 
 
 static func pressure_at_file(formation: Dictionary, file: int) -> float:
-	var byf: Dictionary = formation.get("intrusion_wedge_by_file", {})
+	var byf: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "intrusion_wedge_by_file")
 	if byf.is_empty():
 		return 0.0
 	var base: float = _raw_pressure_at_file_key(byf, file)
@@ -68,7 +69,7 @@ static func pressure_at_file(formation: Dictionary, file: int) -> float:
 
 
 static func depth_at_file(formation: Dictionary, file: int) -> float:
-	var byf: Dictionary = formation.get("intrusion_wedge_by_file", {})
+	var byf: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "intrusion_wedge_by_file")
 	if byf.is_empty():
 		return 0.0
 	var base: float = _raw_depth_at_file_key(byf, file)
@@ -94,10 +95,16 @@ static func remove_intruder_from_all_wedges(manager: Node, intruder_id: int) -> 
 		return
 	var fm: Dictionary = manager.formations
 	for fid in fm.keys():
-		var form: Dictionary = fm[fid]
+		var raw_form: Variant = fm.get(fid, null)
+		if raw_form == null or not (raw_form is Dictionary):
+			continue
+		var form: Dictionary = raw_form as Dictionary
 		if form.is_empty():
 			continue
-		var byf: Dictionary = form.get("intrusion_wedge_by_file", {})
+		var byf_raw: Variant = form.get("intrusion_wedge_by_file", null)
+		if typeof(byf_raw) != TYPE_DICTIONARY:
+			continue
+		var byf: Dictionary = byf_raw as Dictionary
 		if byf.is_empty():
 			continue
 		var to_erase: Array = []

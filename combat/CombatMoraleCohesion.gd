@@ -5,6 +5,7 @@ extends RefCounted
 ## Priority: encounter per-side override → mean of combatant `morale_cohesion` (alive, not incapacitated) → 1.0.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
 
 static func apply_to_formations(manager: Node) -> void:
@@ -13,10 +14,10 @@ static func apply_to_formations(manager: Node) -> void:
 	var fm: Dictionary = manager.formations
 	var enc: Dictionary = manager.encounter if typeof(manager.encounter) == TYPE_DICTIONARY else {}
 	for fid in ["player", "enemy"]:
-		var form: Dictionary = fm.get(fid, {})
+		var form: Dictionary = _FormationSlots.formation_record_read(fm, fid)
 		if form.is_empty():
 			continue
-		var side: String = str(form.get("side", fid))
+		var side: String = _FormationSlots.formation_side_str(form, fid)
 		var factor: float = _resolve_morale_cohesion_factor(manager, enc, side)
 		form["morale_cohesion_factor"] = clampf(factor, CombatConstants.MORALE_COHESION_FACTOR_MIN, 1.0)
 
@@ -36,9 +37,9 @@ static func _average_combatant_morale_cohesion(manager: Node, side: String) -> f
 	var n: int = 0
 	var s: float = 0.0
 	for c in manager.combatants:
-		if not c.get("alive", false):
+		if not _EntityAccess.alive_bool(c):
 			continue
-		if str(c.get("side", "")) != side:
+		if _EntityAccess.side_str(c) != side:
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue

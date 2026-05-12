@@ -4,9 +4,11 @@ extends RefCounted
 ## Line cohesion (0..1) and engagement posture per formation. See docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md.
 
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _MoraleCohesion := preload("res://combat/CombatMoraleCohesion.gd")
+const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
 
 
 static func recompute_all(manager: Node) -> void:
@@ -19,12 +21,12 @@ static func recompute_all(manager: Node) -> void:
 	# Two-pass: both sides use the same tick’s cohesions for opponent-relative posture thresholds (Tier 1.4 asymmetric coupling).
 	var coh_by_fid: Dictionary = {}
 	for fid in ["player", "enemy"]:
-		var form0: Dictionary = fm.get(fid, {})
+		var form0: Dictionary = _FormationSlots.formation_record_read(fm, fid)
 		if form0.is_empty():
 			continue
 		coh_by_fid[fid] = _compute_line_cohesion(manager, fid, form0, snap)
 	for fid in ["player", "enemy"]:
-		var form: Dictionary = fm.get(fid, {})
+		var form: Dictionary = _FormationSlots.formation_record_read(fm, fid)
 		if form.is_empty():
 			continue
 		var coh: float = float(coh_by_fid.get(fid, 0.0))
@@ -39,6 +41,8 @@ static func recompute_all(manager: Node) -> void:
 		if changed and manager.has_method("notify_engagement_state_changed"):
 			manager.notify_engagement_state_changed(fid, coh, posture)
 
+	_CombatDoctrine.evaluate_automatic_doctrine(manager)
+
 
 static func _avg_numeric_values_clamped_0_1(values: Array) -> float:
 	if values.is_empty():
@@ -50,12 +54,12 @@ static func _avg_numeric_values_clamped_0_1(values: Array) -> float:
 
 
 static func _avg_breach_severity(form: Dictionary) -> float:
-	var bf: Dictionary = form.get("breached_files", {})
+	var bf: Dictionary = _FormationSlots.formation_nested_dictionary_read(form, "breached_files")
 	return _avg_numeric_values_clamped_0_1(bf.values())
 
 
 static func _avg_wedge_pressure(form: Dictionary) -> float:
-	var byf: Dictionary = form.get("intrusion_wedge_by_file", {})
+	var byf: Dictionary = _FormationSlots.formation_nested_dictionary_read(form, "intrusion_wedge_by_file")
 	if byf.is_empty():
 		return 0.0
 	var s: float = 0.0
@@ -69,7 +73,7 @@ static func _avg_wedge_pressure(form: Dictionary) -> float:
 
 
 static func _avg_wedge_depth(form: Dictionary) -> float:
-	var byf: Dictionary = form.get("intrusion_wedge_by_file", {})
+	var byf: Dictionary = _FormationSlots.formation_nested_dictionary_read(form, "intrusion_wedge_by_file")
 	if byf.is_empty():
 		return 0.0
 	var s: float = 0.0

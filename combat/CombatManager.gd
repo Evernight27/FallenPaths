@@ -74,7 +74,8 @@ var event_queue: Array = []
 var combat_clock: float = 0.0
 var encounter: Dictionary = {}
 var formations: Dictionary = {}
-## Per `formation_id` (e.g. player / enemy): CombatConstants.DOCTRINE_* — hybrid targeting + AI weights.
+## Per `formation_id` (e.g. player / enemy): `CombatConstants.DOCTRINE_*` — hybrid targeting + AI weights.
+## Seeded in `start()`: defaults, then encounter doctrine via **`CombatConstants.encounter_formation_doctrine_string`**, then preset via **`CombatConstants.formation_doctrine_string_from_dict`** (**`FORMATION_PRESET_KEY_DOCTRINE`** + alt **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**, wins per side); runtime changes via `set_formation_doctrine`.
 var formation_doctrine: Dictionary = {}
 ## When `COMBAT_VACANCY_RECONCILE_DIRTY_ONLY`: keys are formation_id strings pending `reconcile_vacancy_plugs_formation` for that line only.
 var _vacancy_dirty_fids: Dictionary = {}
@@ -102,6 +103,7 @@ const _FormationEngagement := preload("res://combat/CombatFormationEngagement.gd
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
 ## Consecutive duplicate `combat_ui_hint` lines suppressed (same string back-to-back across turns).
 const _META_LAST_COMBAT_UI_HINT := "_fp_last_combat_ui_hint_dedupe"
@@ -137,12 +139,13 @@ func apply_formation_hit_reaction_if_needed(combatant_id: int, intensity: float 
 func _refresh_combatant_stats(c: Dictionary) -> void:
 	"""Keep combatant stats in sync with node (pain, consciousness, blood, etc.) for UI and gauge fill.
 	Uses get_health_entity / CombatantEntityAccess for unified health access (party Character -> CombatBody, enemies -> self)."""
-	if c.node == null:
+	var n: Node = _EntityAccess.scene_node(c)
+	if n == null:
 		return
-	var entity = _EntityAccess.get_health_entity_from_node(self, c.node)
+	var entity = _EntityAccess.get_health_entity_from_node(self, n)
 	if entity == null:
 		return
-	_StatsSync.sync_from_entity(entity, c.stats)
+	_StatsSync.sync_from_entity(entity, _EntityAccess.stats_dict_for_mutation(c))
 
 func register(node: Node, side: String) -> int:
 	var id = combatants.size()
@@ -219,14 +222,17 @@ func _reset_tactical_breach_state() -> void:
 		c["intrusion_source_file"] = -1
 		c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
 	for fid in formations.keys():
-		var f: Dictionary = formations[fid]
+		var raw_f: Variant = formations.get(fid, null)
+		if raw_f == null or not (raw_f is Dictionary):
+			continue
+		var f: Dictionary = raw_f as Dictionary
 		if not f.is_empty():
 			f["breached_files"] = {}
 			_IntrusionWedge.clear_all_wedges_in_formation(f)
 	if not formations.is_empty():
 		_FormationEngagement.recompute_all(self)
 
-## Start combat. Optional player_formation and enemy_formation presets: { files, ranks, density }.
+## Start combat. Optional player_formation and enemy_formation presets: { files, ranks, density, optional **`CombatConstants.FORMATION_PRESET_KEY_DOCTRINE`** or **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**, … }.
 ## When provided, builds formations and assigns rank/file to combatants (spawn order).
 ## Phase 4: Set encounter before start() for ZoC flags (e.g. CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE).
 func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
@@ -237,6 +243,7 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	medical_phase_winner = ""
 	event_queue.clear()
 	combat_clock = 0.0
+	CombatEngagementMode.clear_resolved_mode_cache(self)
 	if has_meta(_TacticalCombat.META_COMBAT_TELEMETRY):
 		remove_meta(_TacticalCombat.META_COMBAT_TELEMETRY)
 	var default_enc := {
@@ -245,6 +252,10 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 		CombatConstants.ENCOUNTER_KEY_POSTURE_ENTER_DELTA: 0.0,
 		CombatConstants.ENCOUNTER_KEY_POSTURE_LEAVE_DELTA: 0.0,
 		CombatConstants.ENCOUNTER_KEY_LINE_DISCIPLINE: "",
+		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER: "",
+		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY: "",
+		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT: "",
+		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT: "",
 		CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE: false,
 		CombatConstants.ENCOUNTER_AMBUSHED_SIDE: "player",
 	}
@@ -261,6 +272,34 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	mark_all_formations_vacancy_dirty()
 	for fk in formations.keys():
 		formation_doctrine[str(fk)] = CombatConstants.DOCTRINE_DEFAULT
+	var doc_p0: String = CombatConstants.encounter_formation_doctrine_string(
+		encounter,
+		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER,
+		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT
+	)
+	if not doc_p0.is_empty():
+		set_formation_doctrine("player", doc_p0)
+	var doc_e0: String = CombatConstants.encounter_formation_doctrine_string(
+		encounter,
+		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY,
+		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT
+	)
+	if not doc_e0.is_empty():
+		set_formation_doctrine("enemy", doc_e0)
+	var doc_p1: String = CombatConstants.formation_doctrine_string_from_dict(
+		player_formation,
+		CombatConstants.FORMATION_PRESET_KEY_DOCTRINE,
+		CombatConstants.FORMATION_PRESET_KEY_DOCTRINE_ALT
+	)
+	if not doc_p1.is_empty():
+		set_formation_doctrine("player", doc_p1)
+	var doc_e1: String = CombatConstants.formation_doctrine_string_from_dict(
+		enemy_formation,
+		CombatConstants.FORMATION_PRESET_KEY_DOCTRINE,
+		CombatConstants.FORMATION_PRESET_KEY_DOCTRINE_ALT
+	)
+	if not doc_e1.is_empty():
+		set_formation_doctrine("enemy", doc_e1)
 	_reset_tactical_breach_state()
 	if has_meta(_META_LAST_COMBAT_UI_HINT):
 		remove_meta(_META_LAST_COMBAT_UI_HINT)
@@ -312,23 +351,23 @@ func finish_battle() -> void:
 ## log_outcome: "wait" = explicit pass; "pass" = no actions available (CombatLogFormatter).
 func skip_turn(combatant_id: int, log_outcome: String = "pass", flow_reason: String = "") -> void:
 	var c = _get_by_id(combatant_id)
-	if c == null or c.state != CombatConstants.STATE_WAITING:
+	if c == null or _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 		return
 	var extra: String = (" (%s)" % flow_reason) if not flow_reason.is_empty() else ""
 	CombatDebug.flow_log(
-		"skip_turn id=%d outcome=%s rank=%d%s" % [combatant_id, log_outcome, c.get("rank", 0), extra],
+		"skip_turn id=%d outcome=%s rank=%d%s" % [combatant_id, log_outcome, _EntityAccess.rank_int(c), extra],
 		"skip_turn:%d" % combatant_id
 	)
 	emit_signal("action_resolved", combatant_id, combatant_id, {
 		"outcome": log_outcome,
 		"dmg": 0,
 		"died": false,
-		"rank": c.get("rank", 0)
+		"rank": _EntityAccess.rank_int(c)
 	})
 	emit_signal("turn_resolved", combatant_id)
 	c.gauge = 0.0
 	var delay: float = CombatConstants.READY_DELAY_SKIP_DEFAULT_S
-	if c.get("rank", 0) > 0:
+	if _EntityAccess.rank_int(c) > 0:
 		# Back rank with no actions — wait in reserve (formation_changed reschedules promoted on plug).
 		delay = CombatConstants.READY_DELAY_SKIP_BACK_RANK_S
 	_schedule_action_ready(combatant_id, delay)
@@ -338,8 +377,9 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 	_reset_tactical_breach_state()
 	var alive_by_side: Dictionary = {}
 	for c in combatants:
-		if c.alive:
-			alive_by_side[c.side] = alive_by_side.get(c.side, 0) + 1
+		if _EntityAccess.alive_bool(c):
+			var sd: String = _EntityAccess.side_str(c)
+			alive_by_side[sd] = alive_by_side.get(sd, 0) + 1
 	var def_node: String = str(defeated_node.name) if defeated_node != null else "null"
 	print("[Combat] Phase end: winner=%s defeated_node=%s alive_by_side=%s" % [winner, def_node, alive_by_side])
 	if winner == "enemy":
@@ -414,6 +454,10 @@ func set_formation_doctrine(formation_id: String, doctrine: String) -> void:
 	var fid: String = str(formation_id)
 	formation_doctrine[fid] = _Doctrine.normalize(doctrine)
 	_Doctrine.clear_commitments_for_side(self, fid)
+	var fd: Dictionary = _FormationSlots.formation_record_read(formations, fid)
+	var coh: float = float(fd.get("line_cohesion", 1.0))
+	var pst: String = str(fd.get("engagement_posture", ""))
+	notify_engagement_state_changed(fid, coh, pst)
 
 
 func get_formation_doctrine(formation_id: String) -> String:
@@ -434,13 +478,17 @@ func _execute_attack(attacker_id: int) -> void:
 	var tgt_id: int = result.get("target_id", -1)
 	if tgt_id >= 0:
 		var tgt = _get_by_id(tgt_id)
-		if tgt != null and not tgt.alive:
+		if tgt != null and not _EntityAccess.alive_bool(tgt):
 			_on_combatant_died(tgt)
 	# Option D: CombatManager owns flow. After parry, defender gets EVENT_ACTION_READY.
 	var action: String = result.get("action", "")
 	if action in ["parry_deflect", "parry_partial"] and tgt_id >= 0:
 		var tgt = _get_by_id(tgt_id)
-		if tgt != null and tgt.alive and tgt.state == CombatConstants.STATE_WAITING:
+		if (
+			tgt != null
+			and _EntityAccess.alive_bool(tgt)
+			and _EntityAccess.state_str(tgt) == CombatConstants.STATE_WAITING
+		):
 			_schedule_action_ready(tgt_id, CombatConstants.READY_DELAY_PARRY_RIPOSTE_S)
 
 func _resolve_close_attempt(attacker_id: int, target_id: int) -> void:
@@ -476,12 +524,12 @@ func _handle_rotate_file_resolve(ev: Dictionary) -> void:
 
 
 func _on_combatant_died(c: Dictionary) -> void:
-	_TargetScoring.clear_all_targeting_state_for_dead_defender(self, int(c.get("id", -1)))
+	_TargetScoring.clear_all_targeting_state_for_dead_defender(self, _EntityAccess.id_int(c))
 	_FormationFlow.on_combatant_died(self, c)
 
 func _get_by_id(id: int):
 	for c in combatants:
-		if c.id == id:
+		if _EntityAccess.id_int(c) == id:
 			return c
 	return null
 

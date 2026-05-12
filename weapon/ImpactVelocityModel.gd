@@ -31,7 +31,7 @@ static var _default_bands: Dictionary = {
 	"MACE": {
 		"stab": Vector2(6.0, 18.0),
 		"cut": Vector2(7.0, 20.0),
-		"blunt": Vector2(7.5, 24.0)
+		"blunt": Vector2(7.0, 20.5)
 	},
 	"DAGGER": {
 		"stab": Vector2(4.0, 18.0),
@@ -41,11 +41,12 @@ static var _default_bands: Dictionary = {
 	"SPEAR": {
 		"stab": Vector2(5.0, 20.0),
 		"cut": Vector2(5.5, 17.5),
-		"blunt": Vector2(6.0, 19.0)
+		"blunt": Vector2(5.5, 17.5)
 	}
 }
 
 
+## Historical name: callers should prefer `WeaponConstants.contact_type_for_move_id`; this forwards there.
 static func contact_type_from_move_id(move_id: String) -> String:
 	return WeaponConstants.contact_type_for_move_id(move_id)
 

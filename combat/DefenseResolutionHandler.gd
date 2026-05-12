@@ -2,6 +2,7 @@ class_name DefenseResolutionHandler
 extends RefCounted
 
 ## Resolves defense outcomes: partial parry follow-through (twist dodge), full/partial dodge, parry deflect/partial.
+## **`parry_deflect`** full-stop and **`parry_partial`** follow-through both attach a **`parry_clash_context`** dict on the returned result (partial adds **`remaining_ratio`** / **`geometric_leak`**; Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**).
 ## Returns a result dict to return from resolve_attack, or null to fall through to hit.
 
 const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
@@ -72,8 +73,8 @@ static func _resolve_partial_parry_follow_through(
 		time_factor = 0.15
 	var leg: float = _EntityAccess.get_leg_functionality(tgt)
 	var perf: float = _EntityAccess.get_performance_modifier(tgt)
-	var agi: float = float(tgt.stats.get("agility", 100))
-	var perc: float = float(tgt.stats.get("perception", 100))
+	var agi: float = float(_EntityAccess.stats_dict(tgt).get("agility", 100))
+	var perc: float = float(_EntityAccess.stats_dict(tgt).get("perception", 100))
 	var mobility_factor: float = leg * perf * CombatConstants.stats_factor_agi_perc(agi, perc)
 	var twist_capacity: float = time_factor * mobility_factor * twist_readiness
 	var follow_eff: float = CombatConstants.PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY
@@ -95,7 +96,7 @@ static func _resolve_partial_parry_follow_through(
 	if effective_follow_dodge > 0.0:
 		if dodge_roll_follow < effective_follow_dodge * CombatConstants.DODGE_FULL_THRESHOLD:
 			_debug("twist_full_dodge %s->%s eff=%.2f" % [atk_name, tgt_name, effective_follow_dodge])
-			var rec_dur: float = CombatTiming.recovery_duration(intensity, "dodge", recovery_mult, perf_mod, atk.stats.get("agility", 100))
+			var rec_dur: float = CombatTiming.recovery_duration(intensity, "dodge", recovery_mult, perf_mod, _EntityAccess.stats_dict(atk).get("agility", 100))
 			return { "action": "dodge", "target_id": target_id, "recovery_duration": rec_dur }
 		elif dodge_roll_follow < effective_follow_dodge:
 			var partial_range: float = effective_follow_dodge * (1.0 - CombatConstants.DODGE_FULL_THRESHOLD)
@@ -127,7 +128,7 @@ static func _resolve_dodge(
 	if effective_dodge_chance > 0.0:
 		if dodge_roll < effective_dodge_chance * CombatConstants.DODGE_FULL_THRESHOLD:
 			_debug("dodge_full %s eff=%.2f" % [tgt_name, effective_dodge_chance])
-			var rec_dur: float = CombatTiming.recovery_duration(intensity, "dodge", recovery_mult, perf_mod, atk.stats.get("agility", 100))
+			var rec_dur: float = CombatTiming.recovery_duration(intensity, "dodge", recovery_mult, perf_mod, _EntityAccess.stats_dict(atk).get("agility", 100))
 			return { "action": "dodge", "target_id": target_id, "recovery_duration": rec_dur }
 		elif dodge_roll < effective_dodge_chance:
 			var partial_range: float = effective_dodge_chance * (1.0 - CombatConstants.DODGE_FULL_THRESHOLD)
@@ -181,7 +182,7 @@ static func _resolve_parry(
 	var _alignment: float = CombatConstants.get_line_alignment_with_deflect(_attack_line, tgt, _align_ctx)
 	var c_d_final: float = parry_c_d
 	if CombatConstants.PARRY_TECHNIQUE_VARIANCE > 0.0:
-		var agi_var: float = float(tgt.stats.get("agility", 100))
+		var agi_var: float = float(_EntityAccess.stats_dict(tgt).get("agility", 100))
 		var variance_scale: float = clampf(1.0 - 0.5 * (agi_var - 100.0) / 100.0, 0.5, 1.0)
 		var variance_eff: float = CombatConstants.PARRY_TECHNIQUE_VARIANCE * variance_scale
 		var geom_scale: float = clampf(1.0 / maxf(0.2, _alignment), 1.0, 2.5)
@@ -202,45 +203,70 @@ static func _resolve_parry(
 	if full_stop:
 		var parry_intensity: float = pa.get("intensity", 0.5)
 		var atk_perf: float = _EntityAccess.get_performance_modifier(atk)
-		var rec_dur: float = CombatTiming.recovery_duration(parry_intensity, "full_stop", recovery_mult, atk_perf, atk.stats.get("agility", 100))
+		var rec_dur: float = CombatTiming.recovery_duration(parry_intensity, "full_stop", recovery_mult, atk_perf, _EntityAccess.stats_dict(atk).get("agility", 100))
 		# HEMA parry_clash_context: bind vs deflect, severity for magnitude.
 		var eff_atk_line: String = pa.get("effective_attack_line", _attack_line)
-		var margin_ratio: float = c_d_final / maxf(parry_p_a * CombatConstants.PARRY_DEFLECT_THRESHOLD, 0.01)
-		var margin_factor: float = clampf(margin_ratio, 0.5, 2.0)
-		var readiness_factor: float = parry_readiness * (CombatConstants.PARRY_OFF_BALANCE_CONTROL_FACTOR if parry_off_balance else 1.0)
-		var timing_factor: float = CombatConstants.PARRY_LATE_CONTROL_FACTOR if late_parry else 1.0
-		var parry_control: float = clampf(margin_factor * _alignment * readiness_factor * timing_factor, 0.0, 1.0)
-		if _WeaponConstants.contact_type_for_move_id(attack_type) == WeaponConstants.ATTACK_TYPE_STAB:
-			parry_control *= CombatConstants.PARRY_THRUST_CONTROL_MULT
-		var severity: float = clampf((margin_ratio - 1.0) / 1.0, 0.0, 1.0)
+		var margin_ratio: float = CombatConstants.parry_deflect_margin_ratio(c_d_final, parry_p_a)
+		var contact_ct: String = _WeaponConstants.contact_type_for_move_id(attack_type)
+		var parry_control: float = CombatConstants.parry_control_for_bind_deflect(
+			c_d_final, parry_p_a, _alignment, parry_readiness, parry_off_balance, late_parry, contact_ct
+		)
+		var severity: float = CombatConstants.parry_deflect_severity_from_margin_ratio(margin_ratio)
 		var atk_angle_at_contact: float = CombatConstants.get_arc_angle_at_progress(arc_start, arc_end, _parry_progress) if arc_end >= -900.0 else CombatConstants.line_to_angle(eff_atk_line)
 		var def_weapon_ctx = _EntityAccess.get_weapon(tgt)
 		var atk_weapon_ctx = _EntityAccess.get_weapon(atk)
 		var arch_id: String = atk_weapon_ctx.get_archetype_id(attack_type) if atk_weapon_ctx != null and atk_weapon_ctx.has_method("get_archetype_id") else ""
 		var def_mass_ctx: float = float(def_weapon_ctx.mass) if def_weapon_ctx != null and (def_weapon_ctx.get("mass") is float or def_weapon_ctx.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 		var _wobble_ctx: Dictionary = {"parry_readiness": parry_readiness, "defender_mass_kg": def_mass_ctx}
+		# Tier 3.0: same intent velocity + KE path as partial parry (`WeaponDamageHelper` + `StrikeRealismProfile`).
+		var attack_instance_fs := AttackInstance.new(attack_type, intensity)
+		attack_instance_fs.archetype = archetype
+		var kinematic_delivery_str: String = WeaponDamageHelper.kinematic_delivery(archetype, attack_type)
+		var strike_velocity_m_s: float = -1.0
+		var strike_kinetic_energy_j: float = 0.0
+		if atk_weapon_ctx != null:
+			var v_intent_fs: float = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon_ctx, attack_instance_fs)
+			v_intent_fs *= _StrikeRealism.velocity_intent_mult_from_pa(
+				pa, atk_weapon_ctx, attack_type, float(pa.get("intensity", intensity)), archetype
+			)
+			strike_velocity_m_s = v_intent_fs
+			attack_instance_fs.velocity_m_s = v_intent_fs
+			strike_kinetic_energy_j = WeaponDamageHelper.compute_kinetic_energy_j(atk_weapon_ctx, attack_instance_fs)
+		var strike_measure_ratio_v: float = float(pa.get("strike_measure_ratio", -1.0))
 		var parry_clash_context: Dictionary = {
 			"archetype_id": arch_id,
 			"parry_control": parry_control,
+			"parry_p_a": parry_p_a,
+			"parry_c_d": parry_c_d,
+			"c_d_final": c_d_final,
+			"m_a_parry": m_a_parry,
+			"m_d_parry": m_d_parry,
+			"m_a_velocity": m_a_velocity,
 			"margin_ratio": margin_ratio,
 			"alignment": _alignment,
 			"defender_guard_line": _guard_line,
 			"guard_angle_deg": CombatConstants.get_guard_angle_deg(tgt, _wobble_ctx),
+			"parry_time_to_react": parry_time_to_react,
+			"parry_readiness": parry_readiness,
 			"late_parry": late_parry,
 			"parry_off_balance": parry_off_balance,
 			"is_block_parry": is_block_parry,
 			"attack_type": attack_type,
-			"contact_type": _WeaponConstants.contact_type_for_move_id(attack_type),
+			"contact_type": contact_ct,
 			"effective_attack_line": eff_atk_line,
 			"severity": severity,
-			"attack_angle_deg": atk_angle_at_contact
+			"attack_angle_deg": atk_angle_at_contact,
+			"kinematic_delivery": kinematic_delivery_str,
+			"strike_velocity_m_s": strike_velocity_m_s,
+			"strike_kinetic_energy_j": strike_kinetic_energy_j,
+			"strike_measure_ratio": strike_measure_ratio_v
 		}
 		_debug("parry_deflect %s blocked %s ctrl=%.2f" % [def_name, atk_name, parry_control])
 		CombatDebug.calibration_log("outcome=parry_deflect")
 		return { "action": "parry_deflect", "target_id": target_id, "recovery_duration": rec_dur, "parry_clash_context": parry_clash_context }
 	var attacker_weapon = _EntityAccess.get_weapon(atk)
-	var agi_d: float = float(tgt.stats.get("agility", 100))
-	var perc_d: float = float(tgt.stats.get("perception", 100))
+	var agi_d: float = float(_EntityAccess.stats_dict(tgt).get("agility", 100))
+	var perc_d: float = float(_EntityAccess.stats_dict(tgt).get("perception", 100))
 	var redirect_mult: float = CombatConstants.compute_parry_redirect_mult(pcfg, agi_d, perc_d, _WeaponConstants.contact_type_for_move_id(attack_type), is_block_parry, m_a_parry, m_d_parry)
 	var effective_reduction: float = c_d_final * redirect_mult
 	var remaining_momentum: float = maxf(0.0, parry_p_a - effective_reduction)
@@ -262,4 +288,75 @@ static func _resolve_parry(
 	pa["velocity_m_s"] = maxf(v_reduced, v_min_eff)
 	pa["parry_remaining_ratio"] = remaining_ratio
 	_debug("parry_partial %s vs %s ratio=%.2f" % [def_name, atk_name, remaining_ratio])
-	return { "action": "parry_partial", "target_id": target_id }
+	# Same calibration surface as full-stop deflect, plus partial-only momentum leak fields.
+	# Tier 3.0 KE uses **`pa["velocity_m_s"]`** after the partial reduction (follow-through strike).
+	var eff_atk_line_p: String = pa.get("effective_attack_line", _attack_line)
+	var margin_ratio_p: float = CombatConstants.parry_deflect_margin_ratio(c_d_final, parry_p_a)
+	var contact_ct_p: String = _WeaponConstants.contact_type_for_move_id(attack_type)
+	var parry_control_p: float = CombatConstants.parry_control_for_bind_deflect(
+		c_d_final, parry_p_a, _alignment, parry_readiness, parry_off_balance, late_parry, contact_ct_p
+	)
+	var severity_p: float = CombatConstants.parry_deflect_severity_from_margin_ratio(margin_ratio_p)
+	var atk_angle_partial: float = (
+		CombatConstants.get_arc_angle_at_progress(arc_start, arc_end, _parry_progress)
+		if arc_end >= -900.0
+		else CombatConstants.line_to_angle(eff_atk_line_p)
+	)
+	var def_weapon_p = _EntityAccess.get_weapon(tgt)
+	var atk_weapon_p = _EntityAccess.get_weapon(atk)
+	var arch_id_p: String = (
+		atk_weapon_p.get_archetype_id(attack_type)
+		if atk_weapon_p != null and atk_weapon_p.has_method("get_archetype_id")
+		else ""
+	)
+	var def_mass_p: float = (
+		float(def_weapon_p.mass)
+		if def_weapon_p != null and (def_weapon_p.get("mass") is float or def_weapon_p.get("mass") is int)
+		else WeaponConstants.BASELINE_MASS_KG
+	)
+	var _wobble_p: Dictionary = {"parry_readiness": parry_readiness, "defender_mass_kg": def_mass_p}
+	var guard_angle_p: float = CombatConstants.get_guard_angle_deg(tgt, _wobble_p)
+	var kinematic_delivery_str_p: String = WeaponDamageHelper.kinematic_delivery(archetype, attack_type)
+	var strike_v_partial: float = float(pa.get("velocity_m_s", 0.0))
+	var attack_instance_p := AttackInstance.new(attack_type, intensity)
+	attack_instance_p.archetype = archetype
+	attack_instance_p.velocity_m_s = strike_v_partial
+	var strike_ke_p: float = 0.0
+	if attacker_weapon != null:
+		strike_ke_p = WeaponDamageHelper.compute_kinetic_energy_j(attacker_weapon, attack_instance_p)
+	var strike_measure_ratio_p: float = float(pa.get("strike_measure_ratio", -1.0))
+	var parry_clash_context_partial: Dictionary = {
+		"archetype_id": arch_id_p,
+		"parry_control": parry_control_p,
+		"parry_p_a": parry_p_a,
+		"parry_c_d": parry_c_d,
+		"c_d_final": c_d_final,
+		"m_a_parry": m_a_parry,
+		"m_d_parry": m_d_parry,
+		"m_a_velocity": m_a_velocity,
+		"margin_ratio": margin_ratio_p,
+		"alignment": _alignment,
+		"defender_guard_line": _guard_line,
+		"guard_angle_deg": guard_angle_p,
+		"parry_time_to_react": parry_time_to_react,
+		"parry_readiness": parry_readiness,
+		"late_parry": late_parry,
+		"parry_off_balance": parry_off_balance,
+		"is_block_parry": is_block_parry,
+		"attack_type": attack_type,
+		"contact_type": contact_ct_p,
+		"effective_attack_line": eff_atk_line_p,
+		"severity": severity_p,
+		"attack_angle_deg": atk_angle_partial,
+		"kinematic_delivery": kinematic_delivery_str_p,
+		"strike_velocity_m_s": strike_v_partial,
+		"strike_kinetic_energy_j": strike_ke_p,
+		"strike_measure_ratio": strike_measure_ratio_p,
+		"remaining_ratio": remaining_ratio,
+		"geometric_leak": geometric_leak,
+	}
+	return {
+		"action": "parry_partial",
+		"target_id": target_id,
+		"parry_clash_context": parry_clash_context_partial,
+	}

@@ -9,17 +9,21 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 static func start(manager: Node, combatant_id: int, target_combatant_id: int, medical_id: String, target_part: String) -> void:
 	var c = manager._get_by_id(combatant_id)
 	var target_node = manager._get_by_id(target_combatant_id)
-	if c == null or target_node == null or target_node.node == null:
+	var c_nd: Node = _EntityAccess.scene_node(c) if c != null else null
+	var tgt_nd: Node = _EntityAccess.scene_node(target_node) if target_node != null else null
+	if c == null or target_node == null or tgt_nd == null:
 		return
 	# Clear pending_retry when starting a different action (e.g. helping another ally)
-	var pr = c.get("pending_retry", {})
-	if not pr.is_empty() and (pr.get("target_id", -1) != target_combatant_id or pr.get("part", "") != target_part):
-		c.pending_retry = {}
-	var who_name: String = c.node.name if (c.node != null) else "id:%d" % combatant_id
+	var pr_raw: Variant = c.get("pending_retry", null)
+	if typeof(pr_raw) == TYPE_DICTIONARY:
+		var pr: Dictionary = pr_raw as Dictionary
+		if not pr.is_empty() and (pr.get("target_id", -1) != target_combatant_id or pr.get("part", "") != target_part):
+			c["pending_retry"] = {}
+	var who_name: String = str(c_nd.name) if c_nd != null else "id:%d" % combatant_id
 	# Bandage/tourniquet: performer stops holding direct pressure on anyone (new action)
 	if medical_id == "bandage_self" or medical_id == "pack_wound" or medical_id == "apply_tourniquet":
-		if c.node != null and c.node.has_method("clear_direct_pressure"):
-			c.node.clear_direct_pressure()
+		if c_nd != null and c_nd.has_method("clear_direct_pressure"):
+			c_nd.clear_direct_pressure()
 		# Apply direct pressure to the part being bandaged/tourniqueted during wind-up (reduces bleeding while preparing)
 		if not target_part.is_empty():
 			var tgt_entity = _EntityAccess.get_entity_from_manager(manager, target_node)
@@ -50,14 +54,14 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 		# Instant: apply now, then short recovery (scaled by pain/consciousness)
 		var med_rec_dur: float = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 		var med_perf: float = 1.0
-		if c.node != null and c.node.has_method("get_performance_modifier"):
-			med_perf = c.node.get_performance_modifier()
+		if c_nd != null and c_nd.has_method("get_performance_modifier"):
+			med_perf = c_nd.get_performance_modifier()
 		if med_perf > 0.0:
 			med_rec_dur /= maxf(CombatConstants.PERF_MOD_MIN, med_perf)
 		var applied: bool = false
 		if target_combatant_id == combatant_id:
 			# Self
-			if target_node.node.has_method("apply_direct_pressure") and target_node.node.apply_direct_pressure(target_part):
+			if tgt_nd.has_method("apply_direct_pressure") and tgt_nd.apply_direct_pressure(target_part):
 				applied = true
 		else:
 			# Ally: performer applies to target
@@ -76,7 +80,8 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 		c.state_timer = 0.0
 		c.state_duration = med_rec_dur
 		return
-	var wind_up_cfg = CombatConstants.MEDICAL_WIND_UP_CONFIG.get(medical_id, {})
+	var wind_raw: Variant = CombatConstants.MEDICAL_WIND_UP_CONFIG.get(medical_id, {})
+	var wind_up_cfg: Dictionary = wind_raw if wind_raw is Dictionary else {}
 	var dur_method: String = wind_up_cfg.get("duration_method", "")
 	var dur_takes_part: bool = wind_up_cfg.get("duration_takes_part", false)
 	var target_entity = _EntityAccess.get_entity_from_manager(manager, target_node)
@@ -89,8 +94,8 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 		duration = 4.0  # fallback for custom entities
 	# Pain/consciousness: wounded entities take longer to apply medical actions
 	var perf_mod: float = 1.0
-	if c.node != null and c.node.has_method("get_performance_modifier"):
-		perf_mod = c.node.get_performance_modifier()
+	if c_nd != null and c_nd.has_method("get_performance_modifier"):
+		perf_mod = c_nd.get_performance_modifier()
 	if perf_mod > 0.0:
 		duration /= maxf(CombatConstants.PERF_MOD_MIN, perf_mod)
 	# Intelligence (medical effectiveness): higher INT shortens medical wind-up

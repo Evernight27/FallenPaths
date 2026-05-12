@@ -2,6 +2,7 @@ class_name TurnReadyHandler
 extends RefCounted
 
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Player-side `turn_ready`: **only AI logic gates** — `get_available_actions` then `CombatAIActionPicker.pick`; no separate player target UI.
 ## Same pattern as enemies (`CombatEventDispatch`). BattleScene connects `turn_ready` here.
@@ -9,10 +10,13 @@ const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 static func handle(manager: Node, combatant_id: int) -> void:
 	if manager == null:
 		return
-	var me: Dictionary = manager._get_by_id(combatant_id) if manager.has_method("_get_by_id") else {}
-	if me == null or me.is_empty():
+	var me_raw: Variant = manager._get_by_id(combatant_id) if manager.has_method("_get_by_id") else null
+	if me_raw == null or not (me_raw is Dictionary):
 		return
-	if me.side != "player":
+	var me: Dictionary = me_raw as Dictionary
+	if me.is_empty():
+		return
+	if _EntityAccess.side_str(me) != "player":
 		return
 	var actions: Array = manager.get_available_actions(combatant_id)
 	var crash_hint: String = _ActionsBuilder.player_crash_absence_hint_if_missing(manager, me, actions)

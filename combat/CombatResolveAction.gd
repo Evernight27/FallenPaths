@@ -8,6 +8,8 @@ const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
+const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
 
 static func is_medical_move(move_id: String) -> bool:
@@ -18,9 +20,13 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	var atk = manager._get_by_id(attacker_id)
 	if atk == null:
 		return
-	if atk.state == CombatConstants.STATE_WAITING and atk.gauge < 100.0 and not manager.medical_phase:
+	if _EntityAccess.state_str(atk) == CombatConstants.STATE_WAITING and _EntityAccess.gauge_float(atk) < 100.0 and not manager.medical_phase:
 		return
-	if atk.state == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION and move_id == "apply_direct_pressure" and target_id == attacker_id:
+	if (
+		_EntityAccess.state_str(atk) == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
+		and move_id == "apply_direct_pressure"
+		and target_id == attacker_id
+	):
 		atk.receiving_care_turn_pending = false
 		atk.receiving_care_action_cooldown = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 		var part: String = str(options.get("target_part", ""))
@@ -36,7 +42,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "direct_pressure", "part": part, "dmg": 0, "died": false})
 			manager.emit_signal("turn_resolved", attacker_id)
 		return
-	if atk.state != CombatConstants.STATE_WAITING:
+	if _EntityAccess.state_str(atk) != CombatConstants.STATE_WAITING:
 		return
 	if move_id == CombatConstants.MOVE_ID_WAIT:
 		manager.skip_turn(attacker_id, "wait", "explicit wait move")
@@ -51,7 +57,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
 	var tgt = manager._get_by_id(target_id)
-	if tgt == null or not tgt.alive:
+	if tgt == null or not _EntityAccess.alive_bool(tgt):
 		return
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		if not CombatDebug.flow_verbose_enabled() and CombatConstants.COMBAT_EVENT_DEBUG:
@@ -62,9 +68,9 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
 	if move_id == CombatConstants.MOVE_ID_CRASH:
-		if int(atk.get("rank", 0)) != 0:
+		if _EntityAccess.rank_int(atk) != 0:
 			return
-		if str(atk.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		if _ZoneOfControl.is_intruded(atk):
 			return
 		manager._resolve_crash_attempt(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
@@ -79,8 +85,8 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			return
 		if move_id == CombatConstants.MOVE_ID_ROTATE_FILE and not bool(move_policy.get("allow_rotate_file", false)):
 			return
-		var fid_mv: String = atk.get("formation_id", "")
-		var f_mv: Dictionary = manager.formations.get(fid_mv, {})
+		var fid_mv: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, atk)
+		var f_mv: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, atk, fid_mv)
 		if move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id:
 			if not AvailableActionsBuilder.solo_fall_back_action_legal(manager, atk):
 				CombatDebug.flow_log(
@@ -94,7 +100,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			breach_blocked = _FormationBreachRules.breach_blocks_open_lane_moves(manager, f_mv)
 		else:
 			var partner_mv = manager._get_by_id(target_id)
-			if partner_mv == null or not partner_mv.alive:
+			if partner_mv == null or not _EntityAccess.alive_bool(partner_mv):
 				return
 			breach_blocked = _FormationBreachRules.resolve_blocks_formation_move(
 				manager, f_mv, move_id, atk, partner_mv
@@ -106,7 +112,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 					attacker_id,
 					move_id,
 					fid_mv,
-					CombatDebug.format_breached_files(f_mv.get("breached_files", {}))
+					CombatDebug.format_breached_files(_FormationSlots.formation_nested_dictionary_read(f_mv, "breached_files"))
 				],
 				"formation_move_block:%d:%s" % [attacker_id, move_id]
 			)
@@ -127,25 +133,30 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
 	if move_id == CombatConstants.MOVE_ID_ROTATE_FILE:
-		if int(atk.get("rank", 0)) != 0:
+		if _EntityAccess.rank_int(atk) != 0:
 			return
-		if str(atk.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		if _ZoneOfControl.is_intruded(atk):
 			return
 		manager._start_rotate_file(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
-	if atk.node != null and atk.node.has_method("clear_direct_pressure"):
-		if atk.node.has_method("is_applying_direct_pressure") and atk.node.is_applying_direct_pressure():
+	var atk_clear_n: Node = _EntityAccess.scene_node(atk)
+	if atk_clear_n != null and atk_clear_n.has_method("clear_direct_pressure"):
+		if atk_clear_n.has_method("is_applying_direct_pressure") and atk_clear_n.is_applying_direct_pressure():
 			CombatDebug.flow_log(
 				"clear_direct_pressure id=%d %s (was %s)"
 				% [
 					attacker_id,
-					atk.node.name if atk.node else "?",
-					atk.node.get_direct_pressure_part() if atk.node.has_method("get_direct_pressure_part") else "?"
+					str(atk_clear_n.name),
+					(
+						str(atk_clear_n.get_direct_pressure_part())
+						if atk_clear_n.has_method("get_direct_pressure_part")
+						else "?"
+					)
 				],
 				"clear_direct_pressure:%d" % attacker_id
 			)
-		atk.node.clear_direct_pressure()
+		atk_clear_n.clear_direct_pressure()
 	var opts: Dictionary = {}
 	if options.has("target_part"):
 		opts["target_part"] = options.target_part
@@ -154,7 +165,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	_WindUpStarter.start(manager, attacker_id, target_id, move_id, opts)
 	_TargetScoring.on_combat_commitment(manager, attacker_id, target_id)
 	manager.emit_signal("turn_resolved", attacker_id)
-	if atk.state == CombatConstants.STATE_WIND_UP and atk.state_duration > 0.0:
+	if _EntityAccess.state_str(atk) == CombatConstants.STATE_WIND_UP and atk.state_duration > 0.0:
 		manager._schedule_event({
 			"type": CombatConstants.EVENT_MELEE_ATTACK,
 			"combatant_id": attacker_id,

@@ -3,6 +3,8 @@ extends RefCounted
 
 ## Phase 4: Zone of control per formation (front, left_flank, right_flank, rear).
 ## Control 0..1 from alive/capacity, casualties in slots, and cross-zone support.
+## **`assign_combatant_zones`**, **`count_alive_in_zone`** (zone strength), and ZoC **engagement parry** use **`formation_dict_for_zone_geometry`** / **`formation_id_for_zone_geometry`**
+## so intruders read **host** `files`/`ranks`/`zone_control` (their `rank`/`file` are on the defender grid; home `formation_id` stays roster-side).
 ## See docs/COMBAT_ROADMAP_AND_STAMINA.md Phase 4.
 
 const ZONE_FRONT := "front"
@@ -12,6 +14,7 @@ const ZONE_REAR := "rear"
 ## Same value as CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE (encounter dict key).
 const _ENCOUNTER_PROTECTION_CIRCLE_KEY := "protection_circle_active"
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 static func all_zones() -> Array:
 	return [ZONE_FRONT, ZONE_LEFT_FLANK, ZONE_RIGHT_FLANK, ZONE_REAR]
@@ -26,19 +29,63 @@ static func is_zoc_flanking_enabled(manager: Node) -> bool:
 	return not bool((enc as Dictionary).get(_ENCOUNTER_PROTECTION_CIRCLE_KEY, false))
 
 
+## `engagement_role` is intruded on a host formation (P4 wedge / crash lodging).
+static func is_intruded(c: Dictionary) -> bool:
+	return str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
+
+
+## `intrusion_host_fid` as string (empty if unset).
+static func intrusion_host_fid(c: Dictionary) -> String:
+	return str(c.get("intrusion_host_fid", ""))
+
+
 ## Intruders use **host** formation ZoC (they occupy host `slots`); line fighters use `formation_id`.
 ## When `manager` is non-null, missing/empty host formation dict falls back to home `formation_id` (stale-flag guard; same rule as pair-distance geometry).
 static func formation_id_for_zone_geometry(manager: Node, c: Dictionary) -> String:
-	if str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
-		var hf: String = str(c.get("intrusion_host_fid", ""))
+	if is_intruded(c):
+		var hf: String = intrusion_host_fid(c)
 		if not hf.is_empty():
 			if manager != null and manager.get("formations"):
 				var fm: Dictionary = manager.formations
-				if not fm.get(hf, {}).is_empty():
+				var host_form: Variant = fm.get(hf, null)
+				if host_form is Dictionary and not (host_form as Dictionary).is_empty():
 					return hf
 			else:
 				return hf
-	return str(c.get("formation_id", ""))
+	return _EntityAccess.formation_id_str(c)
+
+
+## Read-only: **`manager.formations[fid]`** for **`formation_id_for_zone_geometry(manager, combatant)`**. `{}` if missing.
+## Use for posture, **`breached_files`**, crash AI cohesion/posture, and listed hostile breach weights — one path with intruder host-line **`fid`**.
+## When **`zone_geometry_fid`** is non-empty, it must be **`formation_id_for_zone_geometry(manager, combatant)`** from the same call site (skips a second resolution).
+static func formation_dict_for_zone_geometry(
+	manager: Node, combatant: Dictionary, zone_geometry_fid: String = ""
+) -> Dictionary:
+	if manager == null or combatant.is_empty():
+		return {}
+	var fid: String = (
+		zone_geometry_fid
+		if not zone_geometry_fid.is_empty()
+		else formation_id_for_zone_geometry(manager, combatant)
+	)
+	if fid.is_empty():
+		return {}
+	return _FormationSlots.formation_record_read(manager.formations, fid)
+
+
+## Intruder whose `intrusion_host_fid` is set and equals `host_fid` (home formation column / host line id).
+static func intruder_on_host_formation(intruder: Dictionary, host_fid: String) -> bool:
+	if not is_intruded(intruder):
+		return false
+	var hid: String = intrusion_host_fid(intruder)
+	if hid.is_empty():
+		return false
+	return hid == str(host_fid)
+
+
+## True when `intruder` is lodged on `home_fighter`'s home formation (`formation_id`).
+static func intruder_contests_home_line_fighter(intruder: Dictionary, home_fighter: Dictionary) -> bool:
+	return intruder_on_host_formation(intruder, _EntityAccess.formation_id_str(home_fighter))
 
 
 ## Rank 0: front center, left/right edge, or whole front when files==1. Rank 1+: rear.
@@ -53,27 +100,30 @@ static func zone_for_cell(files: int, _ranks: int, rank: int, file: int) -> Stri
 		return ZONE_RIGHT_FLANK
 	return ZONE_FRONT
 
-static func _count_alive_in_zone(manager: Node, fid: String, zone: String) -> int:
-	var formation: Dictionary = manager.formations.get(fid, {})
+## Alive combatants whose **zone geometry** formation is `fid` (host line for intruders; home `formation_id` otherwise), in `zone`.
+static func count_alive_in_zone(manager: Node, fid: String, zone: String) -> int:
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return 0
 	var files: int = formation.get("files", 1)
 	var ranks: int = formation.get("ranks", 1)
 	var n: int = 0
 	for c in manager.combatants:
-		if not c.alive or c.get("formation_id", "") != fid:
+		if not _EntityAccess.alive_bool(c):
 			continue
-		if zone_for_cell(files, ranks, c.get("rank", 0), c.get("file", 0)) == zone:
+		if formation_id_for_zone_geometry(manager, c) != fid:
+			continue
+		if zone_for_cell(files, ranks, _EntityAccess.rank_int(c), _EntityAccess.file_int(c)) == zone:
 			n += 1
 	return n
 
 static func _obstacle_count_in_zone(manager: Node, fid: String, zone: String) -> int:
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return 0
 	var files: int = formation.get("files", 1)
 	var ranks: int = formation.get("ranks", 1)
-	var obstacles: Dictionary = formation.get("slot_obstacles", {})
+	var obstacles: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "slot_obstacles")
 	var total: int = 0
 	for key in obstacles:
 		if not key is Vector2i:
@@ -81,8 +131,9 @@ static func _obstacle_count_in_zone(manager: Node, fid: String, zone: String) ->
 		var ri: int = key.x
 		var fi: int = key.y
 		if zone_for_cell(files, ranks, ri, fi) == zone:
-			var arr: Array = obstacles[key]
-			total += arr.size()
+			var oc: Variant = obstacles[key]
+			if oc is Array:
+				total += (oc as Array).size()
 	return total
 
 static func _capacity_for_zone(files: int, ranks: int, zone: String) -> int:
@@ -103,7 +154,7 @@ static func _capacity_for_zone(files: int, ranks: int, zone: String) -> int:
 			return 1
 
 static func _raw_zone_strength(manager: Node, fid: String, zone: String) -> float:
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return 0.0
 	var files: int = formation.get("files", 1)
@@ -111,12 +162,12 @@ static func _raw_zone_strength(manager: Node, fid: String, zone: String) -> floa
 	var alive_n: float
 	var cap: float
 	if zone == ZONE_FRONT and files == 2:
-		var l: float = float(_count_alive_in_zone(manager, fid, ZONE_LEFT_FLANK))
-		var r: float = float(_count_alive_in_zone(manager, fid, ZONE_RIGHT_FLANK))
+		var l: float = float(count_alive_in_zone(manager, fid, ZONE_LEFT_FLANK))
+		var r: float = float(count_alive_in_zone(manager, fid, ZONE_RIGHT_FLANK))
 		alive_n = (l + r) * 0.5
 		cap = float(maxi(1, ranks))
 	else:
-		alive_n = float(_count_alive_in_zone(manager, fid, zone))
+		alive_n = float(count_alive_in_zone(manager, fid, zone))
 		cap = float(_capacity_for_zone(files, ranks, zone))
 	var base: float = alive_n / maxf(1.0, cap)
 	var obs: float = float(_obstacle_count_in_zone(manager, fid, zone))
@@ -137,7 +188,7 @@ static func _raw_zone_strength(manager: Node, fid: String, zone: String) -> floa
 
 ## 0..1 per-file lane stress. Written by TacticalCombat (dual living, density, breach_local, intrusion wedge); ZoC reads it here — not bodies (see obs_pen).
 static func _lane_stress_for_zone(formation: Dictionary, zone: String) -> float:
-	var ls: Dictionary = formation.get("lane_stress_by_file", {})
+	var ls: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "lane_stress_by_file")
 	if ls.is_empty():
 		return 0.0
 	var files: int = maxi(1, formation.get("files", 1))
@@ -180,7 +231,7 @@ static func _zone_incursion_exposure(zone: String) -> float:
 ## Mutates formations[*].zone_control with keys front, left_flank, right_flank, rear (0..1).
 static func recompute_zone_control(manager: Node) -> void:
 	for fid in ["player", "enemy"]:
-		var formation: Dictionary = manager.formations.get(fid, {})
+		var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 		if formation.is_empty():
 			continue
 		var base: Dictionary = {}
@@ -206,17 +257,17 @@ static func recompute_zone_control(manager: Node) -> void:
 
 static func assign_combatant_zones(manager: Node) -> void:
 	for c in manager.combatants:
-		if not c.alive:
+		if not _EntityAccess.alive_bool(c):
 			continue
-		var fid: String = c.get("formation_id", "")
-		if fid.is_empty() or not manager.formations.has(fid):
+		# Intruders use host formation grid (`rank`/`file` on defender slots); home `formation_id` stays roster side.
+		var formation: Dictionary = formation_dict_for_zone_geometry(manager, c)
+		if formation.is_empty():
 			c["zone_id"] = ""
 			c["occupied_zone_id"] = ""
 			continue
-		var formation: Dictionary = manager.formations.get(fid, {})
 		var files: int = formation.get("files", 1)
 		var ranks: int = formation.get("ranks", 1)
-		var zid: String = zone_for_cell(files, ranks, c.get("rank", 0), c.get("file", 0))
+		var zid: String = zone_for_cell(files, ranks, _EntityAccess.rank_int(c), _EntityAccess.file_int(c))
 		c["zone_id"] = zid
 		c["occupied_zone_id"] = zid
 
@@ -230,8 +281,8 @@ static func format_zone_control_line(manager: Node, _side: String) -> String:
 		return ""
 	if not is_zoc_flanking_enabled(manager):
 		return "ZoC: off (protection circle)"
-	var formation: Dictionary = manager.formations.get(_side, {})
-	var zc: Dictionary = formation.get("zone_control", {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, _side)
+	var zc: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "zone_control")
 	if zc.is_empty():
 		return ""
 	var f: float = float(zc.get(ZONE_FRONT, 0.0))
@@ -241,34 +292,37 @@ static func format_zone_control_line(manager: Node, _side: String) -> String:
 	return "ZoC  F:%.2f  L:%.2f  R:%.2f  rear:%.2f" % [f, l, r, rr]
 
 ## Formation vs formation (both files >= 2): ZoC-based flank/rear parry mult on defender.
-## Otherwise pack-style fallback: |Δfile| >= 2 => flank mod.
+## Otherwise pack-style fallback: effective file spacing (wedge/lane_offset-aware) ≥ `PARRY_FLANK_EFFECTIVE_FILES_MIN`, else |Δfile| ≥ 2 (Tier 3.1).
 static func get_engagement_parry_multiplier(manager: Node, attacker_id: int, defender_id: int) -> float:
 	var atk = manager._get_by_id(attacker_id)
 	var tgt = manager._get_by_id(defender_id)
 	if atk == null or tgt == null:
 		return 1.0
 	if not is_zoc_flanking_enabled(manager):
-		return _engagement_parry_mult_pack_fallback(atk, tgt)
-	if _should_use_zoc_for_pair(manager, atk, tgt):
-		return _engagement_parry_mult_zoc(manager, tgt)
-	return _engagement_parry_mult_pack_fallback(atk, tgt)
+		return _engagement_parry_mult_pack_fallback(manager, atk, tgt)
+	if _EntityAccess.side_str(atk) == _EntityAccess.side_str(tgt):
+		return _engagement_parry_mult_pack_fallback(manager, atk, tgt)
+	var fa: Dictionary = formation_dict_for_zone_geometry(manager, atk)
+	var fd: Dictionary = formation_dict_for_zone_geometry(manager, tgt)
+	if _zoc_pair_uses_wide_line_geometry(fa, fd):
+		return _engagement_parry_mult_zoc(manager, tgt, fd)
+	return _engagement_parry_mult_pack_fallback(manager, atk, tgt)
 
-static func _should_use_zoc_for_pair(manager: Node, atk: Dictionary, tgt: Dictionary) -> bool:
-	if atk.side == tgt.side:
-		return false
-	var fa: Dictionary = manager.formations.get(atk.get("formation_id", ""), {})
-	var fd: Dictionary = manager.formations.get(tgt.get("formation_id", ""), {})
-	if fa.is_empty() or fd.is_empty():
-		return false
-	return fa.get("files", 1) >= 2 and fd.get("files", 1) >= 2
 
-static func _engagement_parry_mult_zoc(manager: Node, defender: Dictionary) -> float:
-	var fid: String = defender.get("formation_id", "")
-	var formation: Dictionary = manager.formations.get(fid, {})
-	var zc: Dictionary = formation.get("zone_control", {})
+static func _zoc_pair_uses_wide_line_geometry(f_atk: Dictionary, f_def: Dictionary) -> bool:
+	if f_atk.is_empty() or f_def.is_empty():
+		return false
+	return f_atk.get("files", 1) >= 2 and f_def.get("files", 1) >= 2
+
+
+static func _engagement_parry_mult_zoc(_manager: Node, defender: Dictionary, defender_formation: Dictionary) -> float:
+	var formation: Dictionary = defender_formation
+	if formation.is_empty():
+		return 1.0
+	var zc: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "zone_control")
 	var files: int = formation.get("files", 1)
-	var fd: int = defender.get("file", 0)
-	var rank: int = defender.get("rank", 0)
+	var fd: int = _EntityAccess.file_int(defender)
+	var rank: int = _EntityAccess.rank_int(defender)
 	var thresh: float = CombatConstants.ZOC_ACCESS_THRESHOLD
 	if zc.get(ZONE_REAR, 1.0) < thresh and rank == 0:
 		return CombatConstants.REAR_PARRY_MOD
@@ -278,8 +332,15 @@ static func _engagement_parry_mult_zoc(manager: Node, defender: Dictionary) -> f
 		return CombatConstants.FLANK_PARRY_MOD
 	return 1.0
 
-static func _engagement_parry_mult_pack_fallback(atk: Dictionary, tgt: Dictionary) -> float:
-	var df: int = int(absf(float(atk.get("file", 0) - tgt.get("file", 0))))
+static func _engagement_parry_mult_pack_fallback(manager: Node, atk: Dictionary, tgt: Dictionary) -> float:
+	if manager != null:
+		# Runtime load avoids parse cycle: AvailableActionsBuilder preloads ZoneOfControl.
+		var ab: Variant = load("res://combat/AvailableActionsBuilder.gd")
+		if ab != null:
+			var eff: float = ab.effective_pair_file_spacing_equivalent(manager, atk, tgt)
+			if eff + 1e-4 >= CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN:
+				return CombatConstants.FLANK_PARRY_MOD
+	var df: int = int(absf(float(_EntityAccess.file_int(atk) - _EntityAccess.file_int(tgt))))
 	if df >= 2:
 		return CombatConstants.FLANK_PARRY_MOD
 	return 1.0
@@ -289,14 +350,14 @@ static func _engagement_parry_mult_pack_fallback(atk: Dictionary, tgt: Dictionar
 static func geometric_reach_extent_multiplier(manager: Node, our: Dictionary, opp: Dictionary) -> float:
 	if not is_zoc_flanking_enabled(manager):
 		return 1.0
-	var fo: Dictionary = manager.formations.get(formation_id_for_zone_geometry(manager, our), {})
-	var fe: Dictionary = manager.formations.get(formation_id_for_zone_geometry(manager, opp), {})
+	var fo: Dictionary = formation_dict_for_zone_geometry(manager, our)
+	var fe: Dictionary = formation_dict_for_zone_geometry(manager, opp)
 	if fo.is_empty() or fe.is_empty():
 		return 1.0
 	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:
 		return 1.0
-	var wp: float = float(fo.get("zone_control", {}).get(ZONE_FRONT, 1.0))
-	var we: float = float(fe.get("zone_control", {}).get(ZONE_FRONT, 1.0))
+	var wp: float = float(_FormationSlots.formation_nested_dictionary_read(fo, "zone_control").get(ZONE_FRONT, 1.0))
+	var we: float = float(_FormationSlots.formation_nested_dictionary_read(fe, "zone_control").get(ZONE_FRONT, 1.0))
 	var m: float = minf(wp, we)
 	return lerpf(CombatConstants.ZOC_GEOMETRIC_EXTENT_MIN, 1.0, m)
 
@@ -305,14 +366,14 @@ static func geometric_reach_extent_multiplier(manager: Node, our: Dictionary, op
 static func mid_reach_files(manager: Node, our: Dictionary, opp: Dictionary) -> int:
 	if not is_zoc_flanking_enabled(manager):
 		return 1
-	var fo: Dictionary = manager.formations.get(formation_id_for_zone_geometry(manager, our), {})
-	var fe: Dictionary = manager.formations.get(formation_id_for_zone_geometry(manager, opp), {})
+	var fo: Dictionary = formation_dict_for_zone_geometry(manager, our)
+	var fe: Dictionary = formation_dict_for_zone_geometry(manager, opp)
 	if fo.is_empty() or fe.is_empty():
 		return 1
 	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:
 		return 1
-	var wp: float = float(fo.get("zone_control", {}).get(ZONE_FRONT, 1.0))
-	var we: float = float(fe.get("zone_control", {}).get(ZONE_FRONT, 1.0))
+	var wp: float = float(_FormationSlots.formation_nested_dictionary_read(fo, "zone_control").get(ZONE_FRONT, 1.0))
+	var we: float = float(_FormationSlots.formation_nested_dictionary_read(fe, "zone_control").get(ZONE_FRONT, 1.0))
 	if minf(wp, we) < CombatConstants.ZOC_ACCESS_THRESHOLD:
 		return 2
 	return 1
@@ -320,24 +381,24 @@ static func mid_reach_files(manager: Node, our: Dictionary, opp: Dictionary) -> 
 
 ## Phase 5: Swap rank / fall-back duration — lane clarity (bodies, density). See MEDIEVAL_FORMATION_MOVEMENT_SWITCHING_INVESTIGATION §2.3.
 static func get_swap_lane_duration_multiplier(manager: Node, fid: String, file: int) -> float:
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return CombatConstants.LANE_MOD_CLEAR
 	var ranks: int = formation.get("ranks", 1)
-	var obstacles: Dictionary = formation.get("slot_obstacles", {})
+	var obstacles: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "slot_obstacles")
 	var obs_here: int = 0
 	var key0 := Vector2i(0, file)
 	var key1 := Vector2i(1, file)
-	if obstacles.has(key0):
-		obs_here += obstacles[key0].size()
-	if ranks > 1 and obstacles.has(key1):
-		obs_here += obstacles[key1].size()
+	if obstacles.has(key0) and obstacles[key0] is Array:
+		obs_here += (obstacles[key0] as Array).size()
+	if ranks > 1 and obstacles.has(key1) and obstacles[key1] is Array:
+		obs_here += (obstacles[key1] as Array).size()
 	var lane: float = CombatConstants.LANE_MOD_CLEAR
 	if obs_here >= 2:
 		lane = CombatConstants.LANE_MOD_BLOCKED
 	elif obs_here >= 1:
 		lane = CombatConstants.LANE_MOD_CROWDED
-	var slots: Dictionary = formation.get("slots", {})
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	if _FormationSlots.living_count_in_slot(manager, slots, key0) >= 2:
 		lane = maxf(lane, CombatConstants.LANE_MOD_CROWDED)
 	if ranks > 1 and _FormationSlots.living_count_in_slot(manager, slots, key1) >= 2:
@@ -352,10 +413,10 @@ static func get_swap_lane_duration_multiplier(manager: Node, fid: String, file: 
 
 ## Phase 5: Opponent pressure on this formation — aggressive front line slows disengage. See investigation §2.4.
 static func get_opponent_pressure_duration_multiplier(manager: Node, fid: String) -> float:
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return CombatConstants.PRESSURE_MOD_NEUTRAL
-	var our_side: String = formation.get("side", "")
+	var our_side: String = _FormationSlots.formation_side_str(formation)
 	if our_side.is_empty():
 		return CombatConstants.PRESSURE_MOD_NEUTRAL
 	var opp_side: String = "enemy" if our_side == "player" else "player"
@@ -364,18 +425,18 @@ static func get_opponent_pressure_duration_multiplier(manager: Node, fid: String
 	var aggressive: bool = false
 	var all_defensive: bool = true
 	for c in manager.combatants:
-		if not c.alive or c.side != opp_side:
+		if not _EntityAccess.alive_bool(c) or _EntityAccess.side_str(c) != opp_side:
 			continue
-		if c.get("rank", 0) != 0:
+		if _EntityAccess.rank_int(c) != 0:
 			continue
 		front_count += 1
-		stam_sum += float(c.get("stamina", CombatConstants.STAMINA_MAX))
-		var st: String = c.get("state", "")
+		stam_sum += _EntityAccess.stamina_float(c)
+		var st: String = _EntityAccess.state_str(c)
 		if st == CombatConstants.STATE_WIND_UP or st == CombatConstants.STATE_RECOVERING:
 			aggressive = true
 			all_defensive = false
-		var stance: String = c.get("stance", CombatConstants.STANCE_BALANCED)
-		if stance == CombatConstants.STANCE_AGGRESSIVE and float(c.get("stamina", 0.0)) >= CombatConstants.STANCE_MIN_STAMINA_AGGRESSIVE:
+		var stance: String = _EntityAccess.stance_str(c)
+		if stance == CombatConstants.STANCE_AGGRESSIVE and _EntityAccess.stamina_float(c, 0.0) >= CombatConstants.STANCE_MIN_STAMINA_AGGRESSIVE:
 			aggressive = true
 		if stance != CombatConstants.STANCE_DEFENSIVE:
 			all_defensive = false
@@ -391,16 +452,16 @@ static func get_opponent_pressure_duration_multiplier(manager: Node, fid: String
 
 ## Phase 5: Step over fallen — extra duration when slot_obstacles (bodies) in this file column.
 static func get_footing_duration_multiplier(manager: Node, fid: String, file: int) -> float:
-	var formation: Dictionary = manager.formations.get(fid, {})
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
 	if formation.is_empty():
 		return 1.0
 	var ranks: int = formation.get("ranks", 1)
-	var obstacles: Dictionary = formation.get("slot_obstacles", {})
+	var obstacles: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "slot_obstacles")
 	var total: int = 0
 	for r in range(ranks):
 		var k := Vector2i(r, file)
-		if obstacles.has(k):
-			total += obstacles[k].size()
+		if obstacles.has(k) and obstacles[k] is Array:
+			total += (obstacles[k] as Array).size()
 	if total <= 0:
 		return 1.0
 	var t: float = clampf(float(total) / 4.0, 0.0, 1.0)

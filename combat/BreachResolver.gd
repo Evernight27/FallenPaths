@@ -7,6 +7,7 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _IntrusionGeometry := preload("res://combat/CombatIntrusionGeometry.gd")
@@ -26,21 +27,23 @@ static func contest_crash(manager: Node, attacker_id: int, defender_id: int) -> 
 	}
 	if manager == null or not manager.has_method("_get_by_id"):
 		return out
-	var atk: Dictionary = manager._get_by_id(attacker_id)
-	var def: Dictionary = manager._get_by_id(defender_id)
+	var atk: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(attacker_id))
+	var def: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(defender_id))
 	if atk.is_empty() or def.is_empty():
 		return out
-	if not atk.get("alive", false) or not def.get("alive", false):
+	if not _EntityAccess.alive_bool(atk) or not _EntityAccess.alive_bool(def):
 		return out
-	if atk.get("side", "") == def.get("side", ""):
+	if _EntityAccess.side_str(atk) == _EntityAccess.side_str(def):
 		return out
 	if _EntityAccess.is_incapacitated(atk) or _EntityAccess.is_incapacitated(def):
 		return out
-	var old_depth: int = int(atk.get("tactical_penetration_depth", 0))
+	var old_depth: int = _EntityAccess.tactical_penetration_depth_int(atk)
+	var fid_geom: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, def)
+	var formation_def: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, def, fid_geom)
 	if old_depth >= CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX:
 		out["tactical_penetration_depth"] = old_depth
-		out["defender_file"] = int(def.get("file", 0))
-		out["defender_formation_id"] = str(def.get("formation_id", ""))
+		out["defender_file"] = _EntityAccess.file_int(def)
+		out["defender_formation_id"] = fid_geom
 		return out
 
 	var weapon = _EntityAccess.get_weapon(atk)
@@ -51,24 +54,19 @@ static func contest_crash(manager: Node, attacker_id: int, defender_id: int) -> 
 		CombatConstants.CRASH_DRIVE_REACH_MIN,
 		CombatConstants.CRASH_DRIVE_REACH_MAX
 	)
-	var str_a: float = float(atk.stats.get("strength", 100))
-	var st_atk: float = float(atk.get("stamina", CombatConstants.STAMINA_MAX))
+	var str_a: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
+	var st_atk: float = _EntityAccess.stamina_float(atk)
 	var drive: float = str_a * CombatConstants.stamina_factor(st_atk / CombatConstants.STAMINA_MAX) * reach_ratio
-	drive *= CombatConstants.get_stance_modifier(str(atk.get("stance", CombatConstants.STANCE_BALANCED)), "close_attempt")
+	drive *= CombatConstants.get_stance_modifier(_EntityAccess.stance_str(atk), "close_attempt")
 
-	var fid_def: String = str(def.get("formation_id", ""))
-	var fm: Variant = manager.get("formations")
-	var formation_def: Dictionary = {}
-	if fm != null and typeof(fm) == TYPE_DICTIONARY:
-		formation_def = (fm as Dictionary).get(fid_def, {})
-	var zc: Dictionary = formation_def.get("zone_control", {})
+	var zc: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation_def, "zone_control")
 	var front_z: float = clampf(float(zc.get(_ZoneOfControl.ZONE_FRONT, 0.55)), 0.12, 1.0)
 
-	var str_d: float = float(def.stats.get("strength", 100))
-	var agi_d: float = float(def.stats.get("agility", 100))
-	var st_def: float = float(def.get("stamina", CombatConstants.STAMINA_MAX))
+	var str_d: float = float(_EntityAccess.stats_dict(def).get("strength", 100))
+	var agi_d: float = float(_EntityAccess.stats_dict(def).get("agility", 100))
+	var st_def: float = _EntityAccess.stamina_float(def)
 	var hold_body: float = (str_d * 0.52 + agi_d * 0.48) * CombatConstants.stamina_factor(st_def / CombatConstants.STAMINA_MAX)
-	hold_body *= CombatConstants.get_stance_modifier(str(def.get("stance", CombatConstants.STANCE_BALANCED)), "evasion")
+	hold_body *= CombatConstants.get_stance_modifier(_EntityAccess.stance_str(def), "evasion")
 	var density: String = str(formation_def.get("density", "normal"))
 	hold_body *= CombatConstants.get_density_close_mod(density)
 	hold_body *= _TacticalCombat.ambush_defense_multiplier(manager, def)
@@ -89,8 +87,8 @@ static func contest_crash(manager: Node, attacker_id: int, defender_id: int) -> 
 
 	out["drive"] = drive
 	out["hold"] = hold
-	out["defender_formation_id"] = fid_def
-	out["defender_file"] = int(def.get("file", 0))
+	out["defender_formation_id"] = fid_geom
+	out["defender_file"] = _EntityAccess.file_int(def)
 	out["ok"] = ok
 	if ok:
 		out["tactical_penetration_depth"] = clamp_tactical_penetration_depth(old_depth + 1)
@@ -119,7 +117,7 @@ static func contest_crash(manager: Node, attacker_id: int, defender_id: int) -> 
 				int(out["tactical_penetration_depth"]),
 				float(out["breach_severity"]),
 				int(out["defender_file"]),
-				fid_def
+				fid_geom
 			]
 		)
 	return out
