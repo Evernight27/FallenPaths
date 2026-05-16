@@ -9,6 +9,8 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 ## Manager must have: get_available_actions, resolve_action, emit_signal, _get_by_id, _find_first_opponent, _execute_attack.
 
 const _MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _Attention := preload("res://combat/CombatAttention.gd")
 
 ## Checks if combatant died this tick (e.g. bled out). Mutates c, emits action_resolved if died.
 ## Returns victor string if battle should end (non-empty), else "".
@@ -53,16 +55,20 @@ static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
 	return true  # incapacitated: skip
 
 ## Enters short recovery (no arm, skip turn). For event-driven flow.
-static func enter_short_recovery(c: Dictionary) -> void:
+## When **`manager`** is set and **`c.pending_attack`** is non-empty, clears defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (Tier 4.2) like **`complete_recovery`**.
+static func enter_short_recovery(c: Dictionary, manager: Node = null) -> void:
 	c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	c.state = CombatConstants.STATE_RECOVERING
 	c.state_timer = 0.0
 	c.state_duration = 0.8
 	c.gauge = 0.0
+	var pa_short: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
 	c.pending_attack = {}
+	if manager != null and not pa_short.is_empty():
+		_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa_short)
 
 ## Completes recovery: guard update, state -> WAITING or COWERING. For event-driven flow.
-static func complete_recovery(c: Dictionary) -> void:
+static func complete_recovery(manager: Node, c: Dictionary) -> void:
 	c.gauge = 0.0
 	c.state_timer = 0.0
 	c.state_duration = 0.0
@@ -79,7 +85,10 @@ static func complete_recovery(c: Dictionary) -> void:
 		c.erase("parry_clash_context")
 	else:
 		GuardLineUpdater.set_guard_from_move(c, move_id, eff_line)
+	var pa_before: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
 	c.pending_attack = {}
+	if manager != null and not pa_before.is_empty():
+		_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa_before)
 	var rec_node: Node = _EntityAccess.scene_node(c)
 	if rec_node != null and rec_node.has_method("get_attacking_arm") and rec_node.get_attacking_arm().is_empty():
 		c.state = CombatConstants.STATE_COWERING
@@ -165,6 +174,8 @@ static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void
 	c["guard"] = minf(1.0, g + CombatConstants.GUARD_RISE_RATE * delta)
 	var s: float = _EntityAccess.stamina_float(c)
 	c["stamina"] = minf(CombatConstants.STAMINA_MAX, s + CombatConstants.STAMINA_REFILL_RATE * delta)
+	_CounterTempo.process_waiting(_manager, c)
+	_Attention.refresh_for_waiting_tick(_manager, c)
 
 static func process_wind_up(_manager: Node, c: Dictionary, delta: float) -> void:
 	c.gauge = 0.0

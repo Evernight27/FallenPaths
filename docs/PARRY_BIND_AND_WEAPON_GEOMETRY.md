@@ -1,8 +1,8 @@
 # Parry Bind And Weapon Geometry
 
-Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
+**Plan / code:** Part geometry → `AttackResolver` / `WeaponDamageHelper`; Tier **3.0** kinematics → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-3--melee-depth-parry--weapon--guards) + `weapon/*.gd`. Bind/riposte depth → **Tier 3.1–3.2** in the same plan table.
 
-**Plan / code:** Part geometry feeds `AttackResolver` / `WeaponDamageHelper`; strike KE and tip speed follow Tier **3.0** kinematic delivery (`docs/IMPLEMENTATION_ORDER.md` Tier 3 + `weapon/*.gd`).
+Consolidated sections; each has **`Source:`** for provenance.
 
 ## Contents
 

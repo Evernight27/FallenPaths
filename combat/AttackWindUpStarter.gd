@@ -4,8 +4,13 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _Attention := preload("res://combat/CombatAttention.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 ## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.
+## Replaces **`atk.pending_attack`**: clears the prior wind-up’s defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (if any) before assigning the new **`pa`**.
+## **`is_feint`** moves may apply **`feint_windup_duration_mult`** from **`WeaponConstants.get_move`** (extra **`state_duration`** / **`pa.wind_up_duration`** vs honest cut at same rolls) and optional **`feint_target_reveal_at_progress`** (stamped on **`pa`** for **`DefenseChoiceResolver._feint_readiness_reveal_mult`**).
 ## Manager must have: _get_by_id; health reads go through CombatantEntityAccess + manager.get_health_entity.
 ## Mutates attacker combatant in place.
 
@@ -18,6 +23,9 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	if atk_n != null and atk_n.has_method("get_attacking_arm") and atk_n.get_attacking_arm().is_empty():
 		var atk_name_skip: String = _EntityAccess.get_display_name(atk, attacker_id)
 		print("[Combat] %s has no functional arm; skip attack (short recovery)." % atk_name_skip)
+		var old_pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
+		if not old_pa.is_empty():
+			clear_incoming_attack_telegraph_from_pa(manager, old_pa)
 		atk.state = CombatConstants.STATE_RECOVERING
 		atk.state_timer = 0.0
 		atk.state_duration = 0.8
@@ -53,6 +61,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	# Guard transition: blade must move from current guard to attack line. Physics: angular distance (angle-based).
 	var move_def: Dictionary = WeaponConstants.get_move(attack_type)
 	var attack_line: String = move_def.get("attack_line", "high")
+	_Footwork.apply_attack_step_on_windup(atk, attack_line)
 	var arc_start_deg: float = CombatConstants.get_guard_angle_deg(atk)
 	var align_ctx: Dictionary = {
 		"attack_angle_deg": CombatConstants.line_to_angle(attack_line),
@@ -85,6 +94,17 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	# Agility: higher agility shortens wind-up (faster into position)
 	var atk_agi: float = float(_EntityAccess.stats_dict(atk).get("agility", 100))
 	wind_up_s /= clampf(atk_agi / 100.0, 0.7, 1.3)
+	var feint_windup_mult: float = 1.0
+	if move_def.get("is_feint", false):
+		feint_windup_mult = float(move_def.get("feint_windup_duration_mult", 1.0))
+		if feint_windup_mult > 0.0:
+			wind_up_s *= feint_windup_mult
+	var counter_tempo: bool = bool(options.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false))
+	if counter_tempo:
+		wind_up_s *= CombatConstants.COUNTER_TEMPO_WINDUP_MULT
+	var riposte_m: float = _CounterTempo.riposte_chain_windup_mult(manager, atk, target_id)
+	if riposte_m < 1.0:
+		wind_up_s *= riposte_m
 	atk.gauge = 0.0
 	atk["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	atk.erase("guard_deflect_blend")
@@ -113,11 +133,44 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 			manager, atk, tgt, weapon, float(pa.get("effective_pair_eff_dist", -1.0))
 		)
 		pa["move_contact_type"] = WeaponConstants.contact_type_for_move_id(attack_type)
+	if move_def.get("is_feint", false):
+		pa["feint_windup_duration_mult"] = feint_windup_mult
+		var reveal_at: float = float(move_def.get("feint_target_reveal_at_progress", 0.0))
+		if reveal_at > 0.0:
+			pa["feint_target_reveal_at_progress"] = clampf(reveal_at, 0.0, 1.0)
+	if counter_tempo:
+		pa[CombatConstants.PA_KEY_COUNTER_TEMPO] = true
+	if riposte_m < 1.0:
+		pa[CombatConstants.PA_KEY_RIPOSTE_CHAIN] = true
+		_CounterTempo.clear_riposte_chain(atk)
+	var prev_pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
+	if not prev_pa.is_empty():
+		clear_incoming_attack_telegraph_from_pa(manager, prev_pa)
 	atk.pending_attack = pa
 	# Feint D: defender reacts to telegraph at wind-up start. If feint, they guard feint_part; else they guard target_part.
 	var telegraph_part: String = str(pa.get("feint_part", pa.get("target_part", "head")))
 	tgt["guard_zone"] = telegraph_part
+	tgt[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = telegraph_part
+	_Attention.set_focus_from_incoming_telegraph(tgt, telegraph_part)
+	var hit_part_log: String = str(pa.get("target_part", "")).strip_edges()
+	if not hit_part_log.is_empty():
+		_Attention.record_attack_toward_defender(manager, attacker_id, tgt, hit_part_log)
+	_CounterTempo.on_attacker_wind_up_started(manager, attacker_id, tgt, wind_up_s)
 	var atk_name_log: String = (str(atk_n.name) if atk_n != null else "id:%d" % attacker_id)
 	if CombatConstants.COMBAT_DEBUG:
 		var angle_info: String = " [atk=%.0f° guard=%.0f°]" % [align_ctx["attack_angle_deg"], align_ctx["guard_angle_deg"]]
 		CombatDebug.log("%s | guard=%s atk_line=%s align=%.2f trans=%.2f%s | wind_up=%.2fs" % [atk_name_log, atk.get("guard_line", CombatConstants.GUARD_DEFAULT), attack_line, align, trans_mult, angle_info, wind_up_s])
+
+
+## Clears Tier 4.2 **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** on the defender targeted by **`pa`** when that attack's `pending_attack` is consumed.
+static func clear_incoming_attack_telegraph_from_pa(manager: Node, pa: Dictionary) -> void:
+	if manager == null or pa.is_empty():
+		return
+	var tid: int = int(pa.get("target_id", -1))
+	if tid < 0 or not manager.has_method("_get_by_id"):
+		return
+	var t: Variant = manager._get_by_id(tid)
+	if t != null and t is Dictionary:
+		var def_d: Dictionary = t as Dictionary
+		def_d.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
+		def_d.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)

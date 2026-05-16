@@ -1,8 +1,8 @@
 # Medical Pain Incapacitation
 
-Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
+**Plan / code:** Pain / wounds / flee → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-6--medical--pain-extensions) **Tier 6** (avoid blocking formation busy states). **`MedicalPhaseController`**, **`CombatMedicalCoordination`** — see plan [Tier 0](IMPLEMENTATION_ORDER.md#tier-0--baseline-shipped--maintain).
 
-**Plan / code:** Pain / wounds / flee extensions → **`IMPLEMENTATION_ORDER.md`** Tier **6** (avoid blocking formation busy states). **`MedicalPhaseController`**, **`CombatMedicalCoordination`** — see Tier 0 table in the plan.
+Consolidated sections; each has **`Source:`** for provenance.
 
 ## Contents
 

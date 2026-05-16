@@ -1,8 +1,8 @@
 # Tactical Formations Ff4
 
-Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
+**Plan / code:** Design depth for **`IMPLEMENTATION_ORDER.md`** Tier **2.2**; rank/file/slots **truth** is Tier 1 / `combat/` — not a second execution order.
 
-**Plan / code:** FF4-style formation abstractions extend at **`IMPLEMENTATION_ORDER.md`** Tier **2.2**. Core rank/file/slots truth is already **Tier 1** / `combat/` — this bundle is design depth, not a second execution order.
+Consolidated sections; each has **`Source:`** for provenance.
 
 ## Contents
 
@@ -487,10 +487,12 @@ Before implementation, decide the shape of the data.
 **Preset sources:**
 - **Party:** PartyManager.formation_preset or world meta "party_formation". Default: 2×ceil(n/2), normal density.
 - **Enemy:** Encounter formation or derived: 2×ceil(n/2), normal density. Future: per-encounter preset.
+- **Encounter tuning (optional):** world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** — `Dictionary` passed into **`BattleScene.start`** as **`p_encounter`** / read from **`parent_scene`**; seeds **`CombatManager.encounter`** (doctrine, depth polearm AI mults, posture, morale, ambush, …).
 
 **CombatFlow/BattleScene:**
-- `battle.start(players, enemies, player_formation_preset, enemy_formation_preset)`
-- CombatManager receives presets, builds formations, assigns rank/file at start
+- `battle.start(players, enemies, player_formation_preset, enemy_formation_preset, encounter_preset)`
+- **`encounter_preset`:** optional; when empty, **`BattleScene`** may still read **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** from **`parent_scene`** (world) if set.
+- CombatManager receives formation presets + encounter dict, builds formations, assigns rank/file at **`start()`**
 - FormationLayoutBuilder arranges combatant rows in grid by rank/file
 
 ---

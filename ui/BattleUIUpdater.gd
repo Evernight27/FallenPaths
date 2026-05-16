@@ -4,6 +4,8 @@ extends RefCounted
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _Attention := preload("res://combat/CombatAttention.gd")
 
 ## Updates a single combatant's UI row: gauge, state label, blood, consciousness, body bars.
 ## ctrl = id_to_controls[id], c = combatant dict from manager.get_combatants().
@@ -51,11 +53,23 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 				# Event tracking: show closing/next-turn status so unit doesn't look frozen
 				ctrl.gauge_label.text = str(c.get("status_override", ""))
 			else:
-				# Phase 1: Event-driven ready. Gauge set to 100 when EVENT_ACTION_READY fires.
-				var base: String = "Ready!" if _EntityAccess.gauge_float(c) >= 100.0 else "Stm %d%%" % int(_EntityAccess.stamina_float(c))
-				if CombatConstants.COMBAT_DEBUG and c.get("guard_angle_deg", null) is float:
-					base += " %.0f°" % float(c.get("guard_angle_deg"))
-				ctrl.gauge_label.text = base
+				var tempo_hint: String = str(c.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, ""))
+				var attn_hint: String = ""
+				if _Attention.enabled():
+					attn_hint = str(c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "")).strip_edges()
+				var attn_suffix: String = (" · " + attn_hint) if not attn_hint.is_empty() else ""
+				if tempo_hint == "counter_ready" and _CounterTempo.enabled():
+					ctrl.gauge_label.text = "Counter!" + attn_suffix
+				elif tempo_hint == "counter_winding" and _CounterTempo.enabled():
+					ctrl.gauge_label.text = "Seize tempo…" + attn_suffix
+				elif not attn_hint.is_empty():
+					ctrl.gauge_label.text = attn_hint
+				else:
+					# Phase 1: Event-driven ready. Gauge set to 100 when EVENT_ACTION_READY fires.
+					var base: String = "Ready!" if _EntityAccess.gauge_float(c) >= 100.0 else "Stm %d%%" % int(_EntityAccess.stamina_float(c))
+					if CombatConstants.COMBAT_DEBUG and c.get("guard_angle_deg", null) is float:
+						base += " %.0f°" % float(c.get("guard_angle_deg"))
+					ctrl.gauge_label.text = base
 	# Blood volume and bleeding
 	var s_row: Dictionary = _EntityAccess.stats_dict(c)
 	var bv: float = s_row.get("blood_volume", 100.0)

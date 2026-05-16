@@ -13,6 +13,7 @@ const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 
 ## Tier 1.8 (P9): counters on the combat manager for soak / debug (mode transitions, illegal crash / melee / close resolves).
+## Keys are stable for logs, **`_tactical_mode_snapshot["telemetry"]`**, and **`CombatRegressionHarness`** (`_run_telemetry_*`).
 const META_COMBAT_TELEMETRY := "_combat_telemetry"
 
 

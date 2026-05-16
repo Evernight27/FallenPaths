@@ -9,6 +9,8 @@ const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _Attention := preload("res://combat/CombatAttention.gd")
 ## Builds available actions for a combatant (attacks, medical). Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess),
 ## _get_parts_being_treated_on, _get_ally_medical_actions, _is_in_immediate_peril, _has_left_immediate_peril_permanently,
 ## combatants, medical_phase, medical_phase_winner.
@@ -322,7 +324,7 @@ static func _format_depth_polearm_melee_context(manager: Node, c: Dictionary, wp
 	)
 
 
-## Loose density, optional **`spear_lane_profile`**, **`CombatFormationEngagement.effective_line_discipline`** + formation **`engagement_posture`** (when profile is **auto**), or intrusion **wedge** opens low targets; else over-shoulder (tight/normal).
+## Loose density, optional **`spear_lane_profile`**, **`CombatFormationEngagement.effective_line_discipline`** + formation **`engagement_posture`** (when profile is **auto**): **OPEN** or **DUEL** posture can open low targets under tight/normal density; **LINE** + normal/strict discipline + tight stays over-shoulder unless wedge / loose density / loose discipline / explicit **open**/**restricted** profile. Intrusion **wedge** opens lows per restricted rules.
 ## **`zone_geometry_fid`** / **`formation_dict_cache`**: same contract as **`formation_dict_for_zone_geometry`** (skip duplicate reads).
 ## **`assume_depth_lane_open`**: caller already verified **`depth_polearm_lane_open`** (e.g. **`stamp_attack_pair_geometry_on_dict`**, **`depth_polearm_targetable_parts_filter`**).
 static func depth_polearm_lane_allows_low_targets(
@@ -594,8 +596,14 @@ static func build(manager: Node, combatant_id: int) -> Array:
 	var log_fid: String = ""
 	var log_breach_blocks_moves: bool = false
 	var c = manager._get_by_id(combatant_id)
-	if c == null or not _EntityAccess.alive_bool(c) or _EntityAccess.gauge_float(c) < 100.0:
+	if c == null or not _EntityAccess.alive_bool(c):
 		return []
+	var counter_tempo: bool = false
+	if _EntityAccess.gauge_float(c) < 100.0:
+		if _CounterTempo.can_act(manager, c):
+			counter_tempo = true
+		else:
+			return []
 	if (
 		_EntityAccess.state_str(c) != CombatConstants.STATE_WAITING
 		and _EntityAccess.state_str(c) != CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
@@ -751,6 +759,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 			and solo_fall_back_action_legal(manager, c)
 		):
 			actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK})
+		_append_focus_line_actions_if_needed(manager, c, combatant_id, actions)
 		_append_combat_wait_if_needed(actions, combatant_id)
 	else:
 		var c_press_node: Node = _EntityAccess.scene_node(c)
@@ -871,6 +880,8 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				],
 				"crash_not_in_list:%d" % combatant_id
 			)
+	if counter_tempo:
+		return _CounterTempo.filter_actions_for_counter_tempo(actions)
 	return actions
 
 
@@ -1027,6 +1038,16 @@ static func player_crash_absence_hint_if_missing(manager: Node, c: Dictionary, a
 	if raw.is_empty() or raw == "crash_eligible_but_missing_bug":
 		return ""
 	return format_crash_absent_reason_for_ui(raw)
+
+
+## Tier 4.3.7: self-target guard-line / focus retarget while waiting.
+static func _append_focus_line_actions_if_needed(
+	manager: Node, c: Dictionary, combatant_id: int, actions: Array
+) -> void:
+	if not _Attention.enabled() or c.is_empty():
+		return
+	for move_id in CombatConstants.FOCUS_LINE_MOVE_IDS:
+		actions.append({"target_id": combatant_id, "move_id": move_id})
 
 
 ## When no combat actions exist, or only formation movement moves remain, offer wait (avoid ping-pong).

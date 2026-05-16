@@ -101,7 +101,10 @@ static func _move_definitions_build() -> Dictionary:
 		# Sword (Liechtenauer/KDF): thrust, Oberhau, Unterhau, horizontal (Zwerchau-style), pommel, parry-counters
 		"thrust": {"name": "Point thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.2, "attack_line": "high", "preferred_parts": ["chest"]},
 		"oberhau": {"name": "Downward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.4, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 10},
-		"oberhau_feint": {"name": "Feint high, cut low", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.6, "attack_line": "high", "preferred_parts": ["head"], "is_feint": true, "angle_variance_deg": 12},
+		# Tier 4.2: optional feint_windup_duration_mult (>1) — extra wind-up vs same-archetype honest cut (two-line commitment cost).
+		"oberhau_feint": {"name": "Feint high, cut low", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.6, "attack_line": "high", "preferred_parts": ["head"], "is_feint": true, "feint_windup_duration_mult": 1.1, "feint_target_reveal_at_progress": 0.45, "angle_variance_deg": 12},
+		# Tier 4.2: stab feint — feint_target_reveal_at_progress earlier than oberhau_feint (faster thrust telegraph); feint_windup_duration_mult < cut feint (stab archetype already tighter).
+		"thrust_feint": {"name": "Feint line, thrust true", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.4, "attack_line": "high", "preferred_parts": ["chest"], "is_feint": true, "feint_windup_duration_mult": 1.07, "feint_target_reveal_at_progress": 0.4, "angle_variance_deg": 9},
 		"unterhau": {"name": "Upward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.2, "attack_line": "low", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 10},
 		"slash": {"name": "Horizontal cut (cross)", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.0, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm", "chest"], "angle_variance_deg": 10},
 		"pommel_strike": {"name": "Pommel strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_POMMEL, "base_cooldown": 1.8, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 9},
@@ -185,6 +188,7 @@ static func _weapon_definitions_build() -> Dictionary:
 				{"id": "thrust"},
 				{"id": "oberhau"},
 				{"id": "oberhau_feint"},
+				{"id": "thrust_feint"},
 				{"id": "unterhau"},
 				{"id": "slash"},
 				{"id": "pommel_strike"},

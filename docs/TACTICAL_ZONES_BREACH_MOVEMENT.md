@@ -1,8 +1,8 @@
 # Tactical Zones Breach Movement
 
-Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
+**Plan / code:** Narrative + investigations — **`IMPLEMENTATION_ORDER.md`** Tier **2.1** when syncing copy to code. **Facts** (wedge, `lane_offset`, 1.9, sequencing) → that plan + **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`**. **Implementation status** (below) defers milestone **Status** to the plan [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) only.
 
-**Plan / code:** ZoC / breach **narrative** → **`IMPLEMENTATION_ORDER.md`** Tier **2.1** (optional prose sync). **Factual** sequencing, wedge, distance, **1.9** → plan + **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** — see **Implementation status** below.
+Consolidated sections; each has **`Source:`** for provenance.
 
 ## Contents
 
@@ -21,7 +21,7 @@ Consolidated documentation. Each section keeps its **original filename** in the 
 
 **Tier 2 (this bundle vs code):** P3–P4 intrusion stack **shipped** (vacancy plug, intruder `slots`, **`intrusion_wedge_by_file`**, **`lane_offset`**, **`effective_pair_eff_dist`**, neighbor hold, cohesion/posture). **1.9** depth polearm / spear lanes: see plan **milestone summary** + engagement §2.5 — do not treat investigation prose below as status. **AI / listed weights:** where formation posture or cohesion drives **`CombatTargetScoring`** / crash AI, intruders resolve formation dict keys with **`ZoneOfControl.formation_id_for_zone_geometry`** (same as ZoC pair geometry). **Narrative sections** may lag code; align edits with spec + `combat/` (**Tier 2.1** cleanup in the plan).
 
-**Last reviewed:** 2026-05-10.
+**Last reviewed (bundle header):** 2026-05-12 — wording only; code parity → plan milestone table + engagement §2.5.
 
 ---
 
@@ -338,7 +338,7 @@ Investigation of how to combine row/file formation combat with surround tactics�
 
 **Formation combat (rows + files):**
 - Assumes two formations facing each other in lines
-- Combat is front-on: **rank 0** is the primary line; **depth-rank polearm** (spear lane) vs enemy rank 0 is **`IMPLEMENTATION_ORDER.md` Tier 1.9 (P10)** — **Partial** in code (core depth melee + targeting; not full “any rank ≥ 1 general melee”); see milestone table + engagement spec §2.5
+- Combat is front-on: **rank 0** is the primary line; **depth-rank polearm** (spear lane) vs enemy rank 0 is **`IMPLEMENTATION_ORDER.md` Tier 1.9 (P10)** — **Done** for shipped depth-spear lanes + **auto**/preset **`spear_lane_profile`** (still not arbitrary “any rank ≥ 1 general melee”); see milestone table + engagement spec §2.5
 - Works for shield walls, phalanx-style engagement
 
 **Surround / multi-angle:**

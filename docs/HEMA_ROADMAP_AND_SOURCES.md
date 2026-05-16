@@ -1,8 +1,8 @@
 # Hema Roadmap And Sources
 
-Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
+**Plan / code:** Research / fidelity backlog → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-7--research--fidelity-non-blocking) **Tier 7** (**non-blocking**). Feeds design only; does not override milestone **Status** or the [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic).
 
-**Plan / code:** Research / fidelity backlog → **`IMPLEMENTATION_ORDER.md`** Tier **7** (**non-blocking**). Feeds design for lower tiers; does not override milestone **Status** or dependency chain.
+Consolidated sections; each has **`Source:`** for provenance.
 
 ## Contents
 

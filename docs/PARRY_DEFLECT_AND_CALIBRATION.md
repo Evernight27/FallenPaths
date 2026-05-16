@@ -1,8 +1,8 @@
 # Parry Deflect And Calibration
 
-Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.
+**Plan / code:** `p_a` / `WeaponDamageHelper` velocity + KE (**`kinematic_delivery`**, Tier **3.0** — [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-3--melee-depth-parry--weapon--guards)). Distance / strike-measure stack for parry → **Tier 3.1** [**Done**](IMPLEMENTATION_ORDER.md#tier-31-strike-measure-stamped-geometry). Parry/bind/deflect calibration + **`parry_clash_context`** → **Tier 3.2** [**Done**](IMPLEMENTATION_ORDER.md#tier-32-parry-bind-deflect). Line guards / afterblow → **Tier 3.3** [**Done**](IMPLEMENTATION_ORDER.md#tier-33-guard-line-afterblow).
 
-**Plan / code:** `p_a` uses `WeaponDamageHelper.get_effective_velocity_m_s`; cut and penetration use `compute_kinetic_energy_j` (thrust vs swing vs mixed per **`kinematic_delivery`** — **`docs/IMPLEMENTATION_ORDER.md`** Tier **3.0**, **shipped**). Final bind/strike-energy calibration → Tier **3.2** after **3.0** + distance (**3.1**).
+Consolidated sections; each has **`Source:`** for provenance.
 
 ## Contents
 

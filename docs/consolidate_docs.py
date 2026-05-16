@@ -139,7 +139,10 @@ def build_merged(new_name: str, sources: list[str]) -> str:
     title = new_name.replace("_", " ").replace(".md", "").title()
     intro = (
         f"# {title}\n\n"
-        "Consolidated documentation. Each section keeps its **original filename** in the `Source` line for provenance.\n\n"
+        "**Plan / code:** Sequencing + milestone **Status** → **`docs/IMPLEMENTATION_ORDER.md`** "
+        "([plan inventory](IMPLEMENTATION_ORDER.md#plan-inventory-all-combat-markdown) names this bundle’s tier). "
+        "This file is **merged investigations** — not a second execution order.\n\n"
+        "Consolidated sections; each has **`Source:`** for provenance.\n\n"
         "## Contents\n\n"
     )
     toc_lines = []
@@ -194,7 +197,7 @@ def main() -> None:
         print(f"removed {p.name}")
 
     patch_gd_files()
-    print("done. (Add **Doc map** to COMBAT_ROADMAP top if regenerating from older outlines.)")
+    print("done. Re-add tier-specific **Plan / code** links in each bundle header if needed (see plan inventory).")
 
 
 if __name__ == "__main__":

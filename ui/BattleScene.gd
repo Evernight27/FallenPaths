@@ -41,9 +41,16 @@ func _ready() -> void:
 	# Processing will be enabled by start()
 	set_process(false)
 
-## Start battle. Optional p_player_formation and p_enemy_formation: { files, ranks, density, optional **`CombatConstants.FORMATION_PRESET_KEY_DOCTRINE`** or **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**, … }.
+## Start battle. Optional p_player_formation and p_enemy_formation: { files, ranks, density, optional **`CombatConstants.FORMATION_PRESET_KEY_DOCTRINE`** or **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**, optional **`CombatConstants.FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS`**, … }.
 ## When omitted, uses world meta "party_formation" / "enemy_formation" or defaults from count.
-func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_formation: Dictionary = {}) -> void:
+## Optional p_encounter: merged into **`CombatManager.encounter`** before **`manager.start()`** (same keys as **`CombatManager.start`** default_enc — doctrine, **`depth_polearm_ai_doctrine_mults_*`**, posture deltas, …). If empty, reads **`parent_scene`** meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when present (**`CombatFlow.start_combat`** can set it on the world).
+func start(
+	p_players,
+	p_enemies,
+	p_player_formation: Dictionary = {},
+	p_enemy_formation: Dictionary = {},
+	p_encounter: Dictionary = {}
+) -> void:
 	# Accept either a single Node or an Array of Nodes for each side
 	if p_players == null:
 		players = []
@@ -94,7 +101,16 @@ func start(p_players, p_enemies, p_player_formation: Dictionary = {}, p_enemy_fo
 	manager.connect("formation_changed", Callable(self, "_on_formation_changed"))
 	manager.connect("engagement_state_changed", Callable(self, "_on_engagement_state_changed"))
 	manager.connect("combat_ui_hint", Callable(self, "_on_combat_ui_hint"))
-	# Start manager (builds formations, assigns rank/file)
+	var encounter_src: Dictionary = {}
+	if not p_encounter.is_empty():
+		encounter_src = p_encounter.duplicate(true)
+	elif parent_scene != null and parent_scene.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER):
+		var em: Variant = parent_scene.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
+		if em != null and em is Dictionary:
+			encounter_src = (em as Dictionary).duplicate(true)
+	if not encounter_src.is_empty():
+		manager.encounter = encounter_src
+	# Start manager (builds formations, assigns rank/file; merges encounter defaults)
 	manager.start(_player_preset, _enemy_preset)
 	if CombatConstants.DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT:
 		_apply_debug_depth_polearm_loadout(manager)

@@ -94,6 +94,9 @@ static func _execute_afterblow(manager: Node, tgt: Dictionary, hindrance: float)
 	var pa: Dictionary = _EntityAccess.nested_dictionary_for_mutation(tgt, "pending_attack")
 	var damage_mult: float = 1.0 - hindrance
 	pa["afterblow_damage_mult"] = maxf(0.2, damage_mult)
+	# Headless regression only: `CombatRegressionHarness` sets **`_harness_record_afterblow_damage_mult`** on the manager.
+	if manager != null and manager.has_meta("_harness_record_afterblow_damage_mult"):
+		manager.set_meta("_harness_last_afterblow_damage_mult", float(pa["afterblow_damage_mult"]))
 	var tgt_id: int = _EntityAccess.id_int(tgt)
 	if CombatDebug.flow_verbose_enabled():
 		var tgt_name: String = _EntityAccess.get_display_name(tgt, tgt_id)

@@ -76,6 +76,8 @@ const PARRY_MOVEMENT_MASS_STRENGTH_MIN := 0.5
 const PARRY_MOVEMENT_MASS_STRENGTH_MAX := 2.0
 const PERF_MOD_MIN := 0.35
 const COMMITMENT_FRACTION := 0.2
+## Tier 4.2 tempo: when **`pending_attack`** / **`pa`** has a non-empty **`feint_part`**, passive parry timing uses this larger committed fraction (shorter **`effective_wind_up`**) vs **`COMMITMENT_FRACTION`** — more opaque early commitment on feint telegraphs.
+const COMMITMENT_FRACTION_FEINT := 0.35
 const RECOVERY_READINESS_EARLY := 0.5
 const RECOVERY_READINESS_LATE := 0.85
 const OFF_BALANCE_DURATION_S := 0.4
@@ -165,6 +167,131 @@ const GUARD_DEFAULT := "high"
 const PART_TO_LINE: Dictionary = {"head": "high", "chest": "high", "left_arm": "left", "right_arm": "right", "left_leg": "low", "right_leg": "low"}
 # Line → default body part (for syncing guard_zone when guard_line changes from outcome)
 const LINE_TO_DEFAULT_PART: Dictionary = {"high": "head", "low": "left_leg", "left": "left_arm", "right": "right_arm"}
+## Tier 4.2 (Feint D): wind-up telegraph body part on defender; cleared when that incoming attack's `pending_attack` ends — survives `GuardLineUpdater` overwriting `guard_zone`.
+const COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART := "incoming_attack_telegraph_part"
+## Tier 4.2 short-horizon tempo: on **`attacker`**, maps **`str(defender_id)` → int** last **`CombatManager`** combat tick when that defender **`parry_deflect`**'d this attacker. Drives feint-move listing pressure in **`CombatAIActionPicker._get_action_weight`**; cleared on **`hit`** to that defender and on **`CombatManager.start()`**.
+const COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK := "ai_feint_opp_last_parry_deflect_tick_by_id"
+## Tier 4.2 counter-tempo pilot: combat clock until defender may spend partial gauge vs incoming **`STATE_WIND_UP`** on them (**`CounterTempo`**).
+const COMBATANT_KEY_COUNTER_WINDOW_UNTIL := "counter_window_until"
+const ACTION_KEY_COUNTER_TEMPO := "counter_tempo"
+const PA_KEY_COUNTER_TEMPO := "counter_tempo"
+## Partial gauge: minimum to start a counter-tempo melee; cost spent on resolve (**`CounterTempo.spend_gauge`**).
+const COUNTER_TEMPO_GAUGE_THRESHOLD := 50.0
+const COUNTER_TEMPO_GAUGE_COST := 50.0
+## Incoming wind-up window length = attacker **`wind_up_s`** × this fraction (HEMA roadmap ~0.8).
+const COUNTER_TEMPO_WINDOW_FRACTION := 0.8
+## Tier 4.2 Approach B: defender counter-tempo only after incoming **`STATE_WIND_UP`** progress ≥ this (committed cut). **`0`** disables.
+const COUNTER_TEMPO_MIN_INCOMING_WINDUP_PROGRESS := 0.5
+## Set when **`EVENT_ACTION_READY`** / **`notify_turn_ready`** was scheduled for an open counter window (cleared with window).
+const COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED := "counter_tempo_ready_signaled"
+## Optional UI hint from **`CounterTempo.process_waiting`**: **`counter_winding`** | **`counter_ready`**.
+const COMBATANT_KEY_COUNTER_TEMPO_UI_HINT := "counter_tempo_ui_hint"
+## Counter-attack wind-up multiplier vs a normal attack at the same rolls.
+const COUNTER_TEMPO_WINDUP_MULT := 0.65
+const COUNTER_TEMPO_ACTION_READY_DELAY_S := 0.02
+const COUNTER_TEMPO_INCOMING_DEFER_AFTER_COUNTER_S := 0.001
+## Tier 4.2 counter-tempo AI: boost listed actions flagged **`ACTION_KEY_COUNTER_TEMPO`**; extra nudge vs the incoming wind-up attacker; damp feints mid-tempo.
+const AI_COUNTER_TEMPO_LISTING_WEIGHT_MULT := 1.35
+const AI_COUNTER_TEMPO_INCOMING_TARGET_MULT := 1.12
+const AI_COUNTER_TEMPO_FEINT_DAMP_MULT := 0.88
+## Tier 4.2 riposte chain: after **`parry_deflect`**, next attack vs that attacker within window uses shorter wind-up.
+const COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL := "riposte_chain_until"
+const COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID := "riposte_chain_target_id"
+const PA_KEY_RIPOSTE_CHAIN := "riposte_chain"
+const RIPOSTE_CHAIN_WINDOW_S := 1.5
+const RIPOSTE_CHAIN_WINDUP_MULT := 0.5
+static var _feature_counter_tempo_enabled: bool = true
+
+
+static func is_feature_counter_tempo_enabled() -> bool:
+	return _feature_counter_tempo_enabled
+
+
+static func set_feature_counter_tempo_load(enabled: bool) -> void:
+	_feature_counter_tempo_enabled = enabled
+
+## Tier 4.3 combat attention + mental stack (default on; harness may toggle).
+const COMBATANT_KEY_FOCUS_PART := "focus_part"
+const COMBATANT_KEY_FOCUS_INTENSITY := "focus_intensity"
+const COMBATANT_KEY_ATTENTION_LOAD := "attention_load"
+const COMBATANT_KEY_YOMI_BY_ATTACKER := "yomi_by_attacker"
+## Tier 4.3 UI: short row hint from **`CombatAttention.refresh_for_waiting_tick`** (focus line + effective % + load %).
+const COMBATANT_KEY_ATTENTION_UI_HINT := "attention_ui_hint"
+## Tier 4.3 debug: last mental-stack layer that picked (**`MentalStackDecider`**); cleared when stack does not pick.
+const COMBATANT_KEY_MENTAL_STACK_LAYER := "mental_stack_layer"
+const FOCUS_INTENSITY_DEFAULT := 1.0
+const ATTENTION_LOAD_TELEGRAPH_WEIGHT := 0.45
+const ATTENTION_LOAD_PERIL_WEIGHT := 0.4
+const ATTENTION_LOAD_COUNTER_WEIGHT := 0.25
+const ATTENTION_LOAD_FOCUS_PENALTY := 0.55
+const FOCUS_WRONG_LINE_READTHROUGH_MULT := 0.82
+const FOCUS_CORRECT_LINE_READTHROUGH_MULT := 1.06
+const YOMI_FEINT_LISTING_MIN_LINE_COUNT := 2
+const YOMI_FEINT_LISTING_MULT_PER_LINE_COUNT := 0.04
+const YOMI_FEINT_LISTING_MULT_CAP := 1.25
+## AI defender focus drift toward attacker's habitual line (see **`CombatAttention.apply_yomi_focus_drift`**).
+const YOMI_FOCUS_DRIFT_MIN_LINE_COUNT := 2
+const YOMI_FOCUS_DRIFT_INTENSITY := 0.78
+static var _feature_combat_attention_enabled: bool = true
+static var _feature_mental_stack_ai_enabled: bool = true
+
+
+static func is_feature_combat_attention_enabled() -> bool:
+	return _feature_combat_attention_enabled
+
+
+static func set_feature_combat_attention_load(enabled: bool) -> void:
+	_feature_combat_attention_enabled = enabled
+
+
+static func is_feature_mental_stack_ai_enabled() -> bool:
+	return _feature_mental_stack_ai_enabled
+
+
+static func is_focus_line_move(move_id: String) -> bool:
+	return str(move_id) in FOCUS_LINE_MOVE_IDS
+
+
+static func is_feature_position_angle_footwork_enabled() -> bool:
+	return _feature_position_angle_footwork_enabled
+
+
+static func set_feature_position_angle_footwork_load(enabled: bool) -> void:
+	_feature_position_angle_footwork_enabled = enabled
+
+
+static func position_angle_offset_deg_for_attack_line(line: String) -> float:
+	return float(POSITION_ANGLE_OFFSET_DEG_BY_LINE.get(str(line).strip_edges(), 0.0))
+
+
+static func guard_line_for_focus_move_id(move_id: String) -> String:
+	match str(move_id):
+		MOVE_ID_FOCUS_HIGH:
+			return "high"
+		MOVE_ID_FOCUS_LOW:
+			return "low"
+		MOVE_ID_FOCUS_LEFT:
+			return "left"
+		MOVE_ID_FOCUS_RIGHT:
+			return "right"
+		_:
+			return ""
+
+
+static func set_feature_mental_stack_ai_load(enabled: bool) -> void:
+	_feature_mental_stack_ai_enabled = enabled
+
+## With feint: if **`parry_readiness * get_stance_modifier(stance, "feint_readthrough")`** ≥ this, treat defender guard focus as the real line for guard-zone parry mult (see **`DefenseChoiceResolver._guard_zone_modifier`**).
+const FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD := 0.9
+## Tier 4.2 telegraph delay: while attacker **`STATE_WIND_UP`** progress is below **`feint_target_reveal_at_progress`** (move + stamped on **`pa`**), **`DefenseChoiceResolver._feint_readiness_reveal_mult`** lerps passive readiness from this toward **1.0** for feint read-through, dodge telegraph, guard-zone, reported **`parry_readiness`**, and passive-parry guard-angle wobble in **`choose_defense`** (**`DefenseResolutionHandler`** reads the same **`dc.parry_readiness`**). Feint-move **listing** in **`CombatAIActionPicker._get_action_weight`** omits this mult. **`0.5`** ≈ early wind-up still bait-heavy.
+const FEINT_PRE_REVEAL_READINESS_MULT := 0.5
+## Tier 4.2: **`DefenseChoiceResolver.choose_defense`** may set **`dodge_eval_part`** to **`pa.feint_part`** (telegraph bait) when defender does not read through the feint. Harness-only **`pa`** override: **`PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS`** (**0..1**).
+const FEINT_TELEGRAPH_DODGE_EVAL_BIAS := 0.55
+## Headless harness only: **`DefenseChoiceResolver.choose_defense`** may read this **`pa`** key (**0..1**) to override **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS`**.
+const PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS := "_harness_feint_dodge_eval_bias"
+## After harness override: multiplies effective feint dodge telegraph bias from defender **`distance_to[attacker]`** (**`DefenseChoiceResolver._apply_feint_telegraph_bias_to_dodge_eval_part`**). LONG = slightly more time to read real line; CLOSE = slightly more “bite” on telegraph.
+const FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_CLOSE := 1.08
+const FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_LONG := 0.88
 
 # 4-line guard (Liechtenauer): physics-based parry alignment
 # alignment = cos(θ); parry capacity ∝ alignment; variance ∝ 1/alignment; leak ∝ (1-alignment)
@@ -217,6 +344,20 @@ const STAMINA_FACTOR_POWER := 0.65
 ## Returns 0-1. At 100% stamina → 1; at 0% → 0. Curve ramps down faster below ~25%.
 static func stamina_factor(ratio: float) -> float:
 	return pow(clampf(ratio, 0.0, 1.0), STAMINA_FACTOR_POWER)
+
+
+## Tier 4.2 footwork / tempo: defender stamina curve for **readiness reporting** (feint read-through, guard-zone, dodge telegraph, feint-move listing **`pr_def`**) — same **`lerpf(STAMINA_AT_ZERO_PARRY_MULT, 1.0, stamina_factor(ratio))`** as post-alignment parry capacity uses once on **`parry_c_d`**. **`DefenseChoiceResolver._defender_passive_readiness_stamina_mult`** reads **`stamina / STAMINA_MAX`** from the combatant dict.
+static func defender_passive_readiness_stamina_mult_from_ratio(stamina_ratio: float) -> float:
+	var st_ratio: float = clampf(stamina_ratio, 0.0, 1.0)
+	return lerpf(STAMINA_AT_ZERO_PARRY_MULT, 1.0, stamina_factor(st_ratio))
+
+
+## Tier 4.2 tempo: committed fraction for passive parry **`effective_wind_up`** in **`DefenseChoiceResolver.choose_defense`** / **`DefenseResolutionHandler`** — non-empty **`feint_part`** uses **`COMMITMENT_FRACTION_FEINT`** (shorter reactive window vs plain **`COMMITMENT_FRACTION`**).
+static func commitment_fraction_for_pending_attack(pa: Dictionary) -> float:
+	if not str(pa.get("feint_part", "")).strip_edges().is_empty():
+		return COMMITMENT_FRACTION_FEINT
+	return COMMITMENT_FRACTION
+
 
 ## Agility+perception stat factor (0.5–1.5). Used for mobility, redirect skill, dodge.
 static func stats_factor_agi_perc(agi: float, perc: float) -> float:
@@ -326,6 +467,9 @@ const LANE_STRESS_WEDGE_SCALE := 0.5
 ## Lane stress addend from wedge depth (0..1) at file; summed with pressure before cap in `CombatIntrusionWedge.lane_stress_bonus_from_wedge`.
 const LANE_STRESS_WEDGE_DEPTH_SCALE := 0.22
 const LANE_STRESS_WEDGE_BONUS_MAX := 0.32
+## --- Tier 1.3 P4 freeze: `intrusion_wedge_by_file` + `lane_offset` (`docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §4.1–4.2; `docs/IMPLEMENTATION_ORDER.md` Tier 1.3 gate) ---
+## **`intrusion_wedge_by_file`**: on each `manager.formations[fid]`, a `Dictionary` mapping **file index** → wedge `Dictionary`. **Minimum v1 keys** on each wedge (writers use `CombatIntrusionWedge.FIELD_PRESSURE` / `FIELD_DEPTH` / `FIELD_INTRUDER_ID` — same string literals everywhere): **`pressure`** 0..1, **`depth`** 0..1, **`intruder_id`** int (primary intruder at anchor; **-1** when cleared). Optional halfwidth / clock fields are **not** in v1; extend here + §4.1 table + `CombatIntrusionWedge` together if added.
+## **`lane_offset`**: per-combatant float; **lateral offset within the nominal file column** feeding `AvailableActionsBuilder.effective_pair_eff_dist` (`EFF_DIST_LANE_OFFSET_FILE_EQUIV`). **Range:** clamp every writer/read to **`[-LANE_OFFSET_ABS_MAX, LANE_OFFSET_ABS_MAX]`** (currently **[-0.5, 0.5]**). **0** = column center. **Sign:** **positive** = toward **increasing file index** (+file / “enemy-right” on default symmetric grids). `CombatFormationFlow.repack_lane_offset_after_rank_file_change` + intrusion nudges + `CombatManager.register` defaults must stay inside this interval.
 ## Vacancy reconcile: lateral slides can open a hole in a neighbor file; repeat until stable (safety cap).
 const FORMATION_VACANCY_RECONCILE_MAX_ROUNDS := 16
 ## Inner promotion chain per file per vacancy/death plug pass (one rank step + restart shallow scan per iteration).
@@ -346,10 +490,10 @@ const COMBAT_FORMATION_VACANCY_DEBUG := false
 const FORMATION_PLUG_RANK0_URGENCY_BONUS := 0.75
 ## Added to `READY_DELAY_AFTER_PROMOTION_S` per file of horizontal travel when a **rear** rank plugs a rank-0 hole from another file (reserves sidestep before stepping up; front rank no longer shuffles sideways first).
 const FORMATION_PLUG_REAR_CROSS_FILE_READY_PER_FILE_S := 0.18
-## Per-combatant lateral metric (engagement plan §4.2). Bounded; 0 = column center.
+## Per-combatant lateral metric — see **Tier 1.3 P4 freeze** block above (§4.2).
 const LANE_OFFSET_DEFAULT := 0.0
 const LANE_OFFSET_ABS_MAX := 0.5
-## Intruder bias toward +file seam after crash (sign matches engagement doc).
+## Intruder seam bias after crash (positive = +file; must stay within `LANE_OFFSET_ABS_MAX` after clamp).
 const INTRUSION_INTRUDER_LANE_OFFSET_BIAS := 0.12
 ## Small opposite nudge for anchor rank-0 host defender at breach file (§4.2 anti-overlap with intruder seam bias).
 const INTRUSION_ANCHOR_LANE_OFFSET_NUDGE := 0.06
@@ -467,6 +611,25 @@ const AI_TARGETING_ENGAGEMENT_MODE_SKIRMISH_MULT := 1.0
 const AI_TARGETING_ENGAGEMENT_MODE_FORMATION_MULT := 1.025
 ## Tier 1.6: `hostile_pair_targeting_weight_mult` scales down listed hostile picks vs **incapacitated** defenders (still valid targets if actions list them).
 const AI_TARGETING_INCAP_HOSTILE_MULT := 0.42
+## Tier 4.2: **`CombatAIActionPicker._get_action_weight`** — **`WeaponConstants.is_feint_move(move_id)`** hostile attacks get this multiplier (AI listing only).
+const AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT := 1.06
+## Tier 4.2: on top of **`AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`**, feint hostile weights scale by **`lerpf(1.0, this, pr_def)`** where **`pr_def`** = **`clampf(get_passive_parry_readiness × passive_parry_readiness_incoming_contact_mult × defender_passive_readiness_stamina_mult_from_ratio(stamina/STAMINA_MAX), 0, 1)`** on the defender (WAITING uses **`guard`**).
+const AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT := 1.10
+## Tier 4.2: when attacker **`stamina / STAMINA_MAX` < `AI_FEINT_LISTING_STAMINA_GATE`**, multiply feint listing only by **`lerpf(AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO, 1.0, stamina_ratio / gate)`** (gassed attackers list feints less).
+const AI_FEINT_LISTING_STAMINA_GATE := 0.30
+const AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO := 0.86
+## Tier 4.2: formation **`doctrine`** **`probing`** — multiply feint-move listing weight only (**`CombatDoctrine.doctrine_for_fid`** on attacker **`formation_id`**).
+const AI_FEINT_LISTING_DOCTRINE_PROBING_MULT := 1.04
+## Tier 4.2: formation **`doctrine`** **`pinch_center`** — feint listing nudge (inward-pressure doctrine; AI listing only).
+const AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT := 1.03
+## Tier 4.2: formation **`doctrine`** **`hold_lane`** — feint listing dampen (disciplined line; AI listing only).
+const AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT := 0.97
+## Tier 4.2: after defender **`parry_deflect`**, feint-move listing vs that defender scales up to this mult while **`CombatManager.get_combat_tick_index() - stored_tick ≤ AI_FEINT_LISTING_OPP_PARRY_DEFLECT_RECENCY_TICKS`** (then lerps to **1**).
+const AI_FEINT_LISTING_OPP_PARRY_DEFLECT_PRESSURE_TOP_MULT := 1.05
+## Tier 4.2: combat ticks over which **`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_PRESSURE_TOP_MULT`** lerps back to **1** after a **`parry_deflect`** (see **`CombatProcessTick`**).
+const AI_FEINT_LISTING_OPP_PARRY_DEFLECT_RECENCY_TICKS := 8
+## Tier 4.2: defender **`PassiveParryContext.is_off_balance`** while **`STATE_WAITING`** — multiply feint-move listing vs that defender (footwork / tempo).
+const AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT := 1.06
 ## Tier 1.9 (P10): depth rank + open spear lane — AI favors thrusts over cuts/closes (CombatAIActionPicker).
 const DEPTH_POLEARM_AI_STAB_WEIGHT_MULT := 1.35
 const DEPTH_POLEARM_AI_NON_STAB_WEIGHT_MULT := 0.9
@@ -479,6 +642,20 @@ const DEPTH_POLEARM_AI_DOCTRINE_HOLD_NON_STAB_MULT := 1.06
 ## Tier 1.9: **`DOCTRINE_PROBING`** — depth stab/cut weights between **hold** and **pinch** (listed actions only).
 const DEPTH_POLEARM_AI_DOCTRINE_PROBING_STAB_MULT := 1.01
 const DEPTH_POLEARM_AI_DOCTRINE_PROBING_NON_STAB_MULT := 0.99
+## Optional encounter / preset overrides for the six doctrine multipliers above (`CombatManager.start`, Tier 1.9).
+const DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB := "pinch_stab"
+const DEPTH_POLEARM_AI_MULT_KEY_HOLD_STAB := "hold_stab"
+const DEPTH_POLEARM_AI_MULT_KEY_PROBING_STAB := "probing_stab"
+const DEPTH_POLEARM_AI_MULT_KEY_PINCH_NON_STAB := "pinch_non_stab"
+const DEPTH_POLEARM_AI_MULT_KEY_HOLD_NON_STAB := "hold_non_stab"
+const DEPTH_POLEARM_AI_MULT_KEY_PROBING_NON_STAB := "probing_non_stab"
+## Encounter dict: per-side Dictionary merged after defaults, before preset (preset wins on overlap).
+const ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_PLAYER := "depth_polearm_ai_doctrine_mults_player"
+const ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY := "depth_polearm_ai_doctrine_mults_enemy"
+## Preset dict passed to **`CombatManager.start`**: wins over encounter for that formation side.
+const FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS := "depth_polearm_ai_doctrine_mults"
+const DEPTH_POLEARM_AI_MULT_OVERRIDE_MIN := 0.5
+const DEPTH_POLEARM_AI_MULT_OVERRIDE_MAX := 1.5
 ## Tier 1.9: max |Δfile| between **same-file rank-0 ally** and **enemy rank 0** for depth polearm lane thrusts.
 ## 0 = only the opposed file; 1 = immediate neighbor files (reach + `effective_pair_eff_dist` still gate strikes).
 const DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES := 1
@@ -664,6 +841,33 @@ const CRASH_NEIGHBOR_REACH_REF_M := 2.2
 
 ## Explicit no-op: pass turn, schedule next action_ready (same delays as skip_turn).
 const MOVE_ID_WAIT := "wait"
+## Tier 4.3.7: retarget mental **`focus_part`** + **`guard_line`** while waiting (no strike).
+const MOVE_ID_FOCUS_HIGH := "focus_high"
+const MOVE_ID_FOCUS_LOW := "focus_low"
+const MOVE_ID_FOCUS_LEFT := "focus_left"
+const MOVE_ID_FOCUS_RIGHT := "focus_right"
+const FOCUS_LINE_MOVE_IDS: Array[String] = [
+	MOVE_ID_FOCUS_HIGH,
+	MOVE_ID_FOCUS_LOW,
+	MOVE_ID_FOCUS_LEFT,
+	MOVE_ID_FOCUS_RIGHT,
+]
+const AI_FOCUS_LINE_BASE_WEIGHT := 0.06
+const AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT := 6.0
+const AI_FOCUS_LINE_ALREADY_FOCUSED_WEIGHT := 0.02
+const YOMI_PARRY_DEFLECT_FEINT_LISTING_MULT_PER := 0.035
+const YOMI_PARRY_DEFLECT_FEINT_LISTING_MULT_CAP := 1.18
+const YOMI_DEFENSE_READINESS_MULT_PER_PARRY_DEFLECT := 0.04
+const YOMI_DEFENSE_READINESS_MULT_CAP := 1.14
+## Tier 4.4: attacker step-on-wind-up lateral angle nudge (degrees); cleared when attack ends / combat restarts.
+const COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG := "position_angle_offset_deg"
+const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
+	"high": 0.0,
+	"low": 6.0,
+	"left": 14.0,
+	"right": -14.0,
+}
+static var _feature_position_angle_footwork_enabled: bool = false
 # Swap rank AI (CombatAIActionPicker): relief only when necessary — not marginal fitness differences.
 const SWAP_RANK_AI_LOW_WEIGHT := 0.02
 const SWAP_RANK_AI_HIGH_WEIGHT := 1.0
@@ -697,6 +901,8 @@ const ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT := "doctrine_enemy"
 const ENCOUNTER_PROTECTION_CIRCLE_ACTIVE := "protection_circle_active"
 ## Phase 6: Which side suffers ambush penalties (typically "player" when monsters ambush party).
 const ENCOUNTER_AMBUSHED_SIDE := "ambushed_side"
+## Optional on **world** `Node` before **`CombatFlow.start_combat`**: `Dictionary` copied into **`CombatManager.encounter`** before **`CombatManager.start()`** (**`BattleScene.start`** reads **`parent_scene.get_meta(WORLD_META_COMBAT_ENCOUNTER)`** when the 5th `p_encounter` arg is empty).
+const WORLD_META_COMBAT_ENCOUNTER := "combat_encounter"
 
 ## Tier 1.9: canonical + optional alt string keys on a dict (**`strip_edges`** each); non-empty canonical wins.
 static func formation_doctrine_string_from_dict(source: Dictionary, primary_key: String, alt_key: String) -> String:
@@ -710,10 +916,158 @@ static func formation_doctrine_string_from_dict(source: Dictionary, primary_key:
 static func encounter_formation_doctrine_string(encounter: Dictionary, primary_key: String, alt_key: String) -> String:
 	return formation_doctrine_string_from_dict(encounter, primary_key, alt_key)
 
+
+## Tier 1.9: baseline depth-spear **doctrine** mults (encounter / preset may override via **`merge_depth_polearm_ai_doctrine_mults`**).
+static func default_depth_polearm_ai_doctrine_mults_dict() -> Dictionary:
+	return {
+		DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB: DEPTH_POLEARM_AI_DOCTRINE_PINCH_STAB_MULT,
+		DEPTH_POLEARM_AI_MULT_KEY_HOLD_STAB: DEPTH_POLEARM_AI_DOCTRINE_HOLD_STAB_MULT,
+		DEPTH_POLEARM_AI_MULT_KEY_PROBING_STAB: DEPTH_POLEARM_AI_DOCTRINE_PROBING_STAB_MULT,
+		DEPTH_POLEARM_AI_MULT_KEY_PINCH_NON_STAB: DEPTH_POLEARM_AI_DOCTRINE_PINCH_NON_STAB_MULT,
+		DEPTH_POLEARM_AI_MULT_KEY_HOLD_NON_STAB: DEPTH_POLEARM_AI_DOCTRINE_HOLD_NON_STAB_MULT,
+		DEPTH_POLEARM_AI_MULT_KEY_PROBING_NON_STAB: DEPTH_POLEARM_AI_DOCTRINE_PROBING_NON_STAB_MULT,
+	}
+
+
+static func merge_depth_polearm_ai_doctrine_mults(base: Dictionary, overlay: Variant) -> Dictionary:
+	var out: Dictionary = base.duplicate(true)
+	if overlay == null or not overlay is Dictionary:
+		return out
+	var keys: Array = [
+		DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB,
+		DEPTH_POLEARM_AI_MULT_KEY_HOLD_STAB,
+		DEPTH_POLEARM_AI_MULT_KEY_PROBING_STAB,
+		DEPTH_POLEARM_AI_MULT_KEY_PINCH_NON_STAB,
+		DEPTH_POLEARM_AI_MULT_KEY_HOLD_NON_STAB,
+		DEPTH_POLEARM_AI_MULT_KEY_PROBING_NON_STAB,
+	]
+	var o: Dictionary = overlay as Dictionary
+	for k in keys:
+		if not o.has(k):
+			continue
+		var v: Variant = o[k]
+		var tv: int = typeof(v)
+		if tv == TYPE_FLOAT or tv == TYPE_INT:
+			var f: float = float(v)
+			if f > 0.0:
+				out[k] = clampf(f, DEPTH_POLEARM_AI_MULT_OVERRIDE_MIN, DEPTH_POLEARM_AI_MULT_OVERRIDE_MAX)
+	return out
+
+
+## Defaults → encounter side → preset (**`FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS`** wins on overlap).
+static func depth_polearm_ai_doctrine_mults_for_encounter_and_preset(
+	encounter: Dictionary, preset: Dictionary, formation_id: String
+) -> Dictionary:
+	var base: Dictionary = default_depth_polearm_ai_doctrine_mults_dict()
+	var enc_key: String = (
+		ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_PLAYER
+		if str(formation_id) == "player"
+		else ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY
+	)
+	var after_enc: Dictionary = merge_depth_polearm_ai_doctrine_mults(base, encounter.get(enc_key))
+	var preset_overlay: Variant = preset.get(FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS)
+	return merge_depth_polearm_ai_doctrine_mults(after_enc, preset_overlay)
+
 # Phase 2: Distance bands. Pair-wise for unformed; zone-based in Phase 4.
 const DISTANCE_CLOSE := "close"
 const DISTANCE_MID := "mid"
 const DISTANCE_LONG := "long"
+## Tier 4.2 footwork: **`DefenseChoiceResolver.choose_defense`** — defender **`distance_to[attacker]`** nudges passive parry capacity (no angle deltas) and dodge chance at CLOSE / LONG. Does not replace **`CombatDistanceBands`** writers; reads snapshot on defender dict.
+const DEFENSE_SPACING_PARRY_MULT_CLOSE := 1.04
+const DEFENSE_SPACING_PARRY_MULT_LONG := 0.92
+const DEFENSE_SPACING_DODGE_MULT_CLOSE := 0.94
+const DEFENSE_SPACING_DODGE_MULT_LONG := 1.06
+## Tier 4.2 footwork / tempo: unstable base after a hit — **`DefenseChoiceResolver.choose_defense`** scales reported **`dodge_chance`** when defender **`STATE_RECOVERING`** (orthogonal to pair **`distance_to`** spacing and passive readiness curves on **`parry_c_d`**).
+const DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT := 1.05
+## Tier 4.2 footwork / tempo: per-**`recovery_cause`** multiplier on reported **`dodge_chance`** while **`STATE_RECOVERING`** (after spacing). Keys align with **`READINESS_BY_CAUSE`** / **`PassiveParryContext`**; unknown causes use **`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT`**.
+const DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE: Dictionary = {
+	"attack_hit": 1.05,
+	"attack_miss": 1.09,
+	"attack_deflect": 1.06,
+	"skip": 1.05,
+	"medical": 1.04,
+}
+## Tier 4.2 footwork / tempo: settled **`STATE_WAITING`** (not off-balance) — reported **`dodge_chance`** after spacing; skipped when **`PassiveParryContext.is_off_balance`**.
+const DEFENSE_FOOTWORK_WAITING_DODGE_MULT := 1.02
+## Tier 4.2 footwork / tempo: settled **`STATE_WAITING`** defender (not off-balance) — damp feint-move listing vs that target (inverse pressure to **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`** on dodge).
+const AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT := 0.98
+## Tier 4.2 footwork / tempo: **`STATE_RECOVERING`** defender (not off-balance) — base feint-listing damp (**`ai_feint_listing_defender_recovering_footwork_mult_for_cause`** uses **`1.0 / defense_footwork_recovering_dodge_mult_for_cause`** per **`recovery_cause`**).
+const AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT := 1.0 / DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT
+
+
+## Tier 4.2 footwork: **`CombatAIActionPicker`** feint-move listing scales defender-readiness lerp input (**`pr_def`**) by defender **`distance_to[attacker_id]`** (after passive × incoming × stamina), aligned with feint dodge telegraph spacing.
+const AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE := 1.05
+const AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG := 0.94
+## Tier 4.2 footwork / tempo: after **`PassiveParryContext.get_passive_parry_readiness`**, **`DefenseChoiceResolver.choose_defense`** scales readiness by **incoming** move **`contact_type`** (stab telegraphs less in the abstract window).
+const PASSIVE_PARRY_READINESS_INCOMING_CUT_MULT := 1.0
+const PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT := 0.88
+const PASSIVE_PARRY_READINESS_INCOMING_BLUNT_MULT := 1.0
+
+
+static func defense_footwork_recovering_dodge_mult_for_cause(cause: String) -> float:
+	var k: String = str(cause).strip_edges()
+	var v: Variant = DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE.get(k, DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT)
+	if v is float or v is int:
+		return float(v)
+	return DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT
+
+
+## Tier 4.2 footwork / tempo: inverse of **`defense_footwork_recovering_dodge_mult_for_cause`** for feint-move listing vs **`STATE_RECOVERING`** defender.
+static func ai_feint_listing_defender_recovering_footwork_mult_for_cause(cause: String) -> float:
+	var dodge_m: float = defense_footwork_recovering_dodge_mult_for_cause(cause)
+	if dodge_m <= 1e-9:
+		return AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT
+	return 1.0 / dodge_m
+
+
+## Tier 4.2 footwork / tempo: scales passive parry readiness by incoming move **`contact_type`** (**`DefenseChoiceResolver.choose_defense`**, **`CombatAIActionPicker`** feint listing **`pr_def`** before **`distance_to`** spacing mult). Feint listing also applies **`defender_passive_readiness_stamina_mult_from_ratio`** after passive × **`contact_type`** (same curve as **`DefenseChoiceResolver`** readiness reporting). Uses string keys only (no **`WeaponConstants`** import — avoids load cycle).
+static func passive_parry_readiness_incoming_contact_mult(contact_type: String) -> float:
+	var ct: String = str(contact_type).to_lower().strip_edges()
+	if ct == "stab":
+		return PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT
+	if ct == "blunt":
+		return PASSIVE_PARRY_READINESS_INCOMING_BLUNT_MULT
+	return PASSIVE_PARRY_READINESS_INCOMING_CUT_MULT
+
+
+## Tier 4.2 footwork: read defender **`distance_to[attacker_id]`** for **`CombatAIActionPicker`** / tests (same string set as **`DefenseChoiceResolver`**).
+static func defender_distance_band_to_attacker_id(defender: Dictionary, attacker_id: int) -> String:
+	if attacker_id < 0:
+		return DISTANCE_MID
+	var dm: Variant = defender.get("distance_to", {})
+	if dm is Dictionary:
+		var raw: String = str(dm.get(attacker_id, DISTANCE_MID))
+		if raw == DISTANCE_CLOSE or raw == DISTANCE_MID or raw == DISTANCE_LONG:
+			return raw
+	return DISTANCE_MID
+
+
+## Tier 4.2 footwork: multiplier on feint-listing **`pr_def`** from **`defender_distance_band_to_attacker_id`**.
+static func ai_feint_listing_defender_readiness_spacing_mult(defender: Dictionary, attacker_id: int) -> float:
+	match defender_distance_band_to_attacker_id(defender, attacker_id):
+		DISTANCE_CLOSE:
+			return AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE
+		DISTANCE_LONG:
+			return AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG
+		_:
+			return 1.0
+
+
+## Tier 4.2 footwork: scales **`parry_readiness_for_feint`** only for **`_feint_guard_reads_real_line`** in **`DefenseChoiceResolver._guard_zone_modifier`** (LONG slightly easier read-through vs telegraph; CLOSE slightly harder).
+const FEINT_GUARD_ZONE_READINESS_SPACING_MULT_CLOSE := 0.98
+const FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG := 1.04
+
+
+static func feint_guard_zone_readiness_spacing_mult(defender: Dictionary, attacker_id: int) -> float:
+	match defender_distance_band_to_attacker_id(defender, attacker_id):
+		DISTANCE_CLOSE:
+			return FEINT_GUARD_ZONE_READINESS_SPACING_MULT_CLOSE
+		DISTANCE_LONG:
+			return FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG
+		_:
+			return 1.0
+
+
 const REACH_MID_MIN := 1.2  # AI/depth polearm bias; shorts still strike at MID when melee_range >= effective_pair_eff_dist.
 const MOVE_ID_ATTEMPT_CLOSE := "attempt_close"
 ## After a **failed** close vs a defender, `attempt_close` vs that same defender is withheld until `combat_clock` passes this (per attacker–defender pair). Turn spacing uses `READY_DELAY_CLOSE_ATTEMPT_S` separately.
@@ -746,6 +1100,15 @@ const STANCE_MOD_DAMAGE: Dictionary = {"defensive": 0.85, "balanced": 1.0, "aggr
 const STANCE_MOD_CLOSE_ATTEMPT: Dictionary = {"defensive": 0.9, "balanced": 1.0, "aggressive": 1.1, "controlling": 1.0}
 ## Tier 4.1: `CombatTargetScoring.ai_targeting_weight_mult` — hostile melee/close pick only (not medical / formation moves).
 const STANCE_MOD_AI_MELEE_FOCUS: Dictionary = {"defensive": 0.92, "balanced": 1.0, "aggressive": 1.1, "controlling": 0.98}
+## Tier 4.2: scales with passive parry readiness for feint telegraph read-through in **`DefenseChoiceResolver._guard_zone_modifier`** (defensive / controlling read feints a bit better).
+const STANCE_MOD_FEINT_READTHROUGH: Dictionary = {"defensive": 1.06, "balanced": 1.0, "aggressive": 0.95, "controlling": 1.04}
+## Tier 4.2: attacker stance nudges **feint-move** listing weight only in **`CombatAIActionPicker._get_action_weight`** (plain attacks unchanged).
+const STANCE_MOD_AI_FEINT_LISTING: Dictionary = {
+	"defensive": 0.94,
+	"balanced": 1.0,
+	"aggressive": 1.02,
+	"controlling": 1.06,
+}
 const STANCE_MOD_OPPONENT_CLOSE: float = 0.9   # Controlling makes opponent close attempt harder
 const STANCE_MOD_OPPONENT_DISENGAGE: float = 0.85  # Controlling makes opponent disengage harder
 # Density modifier for close attempt (defender evasion). tight=easier to close, loose=harder.
@@ -760,6 +1123,8 @@ static func get_stance_modifier(stance: String, effect: String) -> float:
 		"damage": m = STANCE_MOD_DAMAGE
 		"close_attempt": m = STANCE_MOD_CLOSE_ATTEMPT
 		"ai_melee_focus": m = STANCE_MOD_AI_MELEE_FOCUS
+		"feint_readthrough": m = STANCE_MOD_FEINT_READTHROUGH
+		"ai_feint_listing": m = STANCE_MOD_AI_FEINT_LISTING
 		_: return 1.0
 	return m.get(stance, 1.0)
 

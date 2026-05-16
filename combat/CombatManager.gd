@@ -77,6 +77,8 @@ var formations: Dictionary = {}
 ## Per `formation_id` (e.g. player / enemy): `CombatConstants.DOCTRINE_*` — hybrid targeting + AI weights.
 ## Seeded in `start()`: defaults, then encounter doctrine via **`CombatConstants.encounter_formation_doctrine_string`**, then preset via **`CombatConstants.formation_doctrine_string_from_dict`** (**`FORMATION_PRESET_KEY_DOCTRINE`** + alt **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**, wins per side); runtime changes via `set_formation_doctrine`.
 var formation_doctrine: Dictionary = {}
+## Per `formation_id`: merged depth-spear doctrine mults (**`CombatConstants.default_depth_polearm_ai_doctrine_mults_dict`** + encounter + preset at **`start()`**).
+var depth_polearm_ai_doctrine_mults_by_fid: Dictionary = {}
 ## When `COMBAT_VACANCY_RECONCILE_DIRTY_ONLY`: keys are formation_id strings pending `reconcile_vacancy_plugs_formation` for that line only.
 var _vacancy_dirty_fids: Dictionary = {}
 var _combat_tick_index: int = 0
@@ -90,6 +92,8 @@ const _StandingHelper := preload("res://combat/CombatStandingHelper.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
+const _Attention := preload("res://combat/CombatAttention.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _FormationSetup := preload("res://combat/CombatFormationSetup.gd")
@@ -111,6 +115,11 @@ const _META_LAST_COMBAT_UI_HINT := "_fp_last_combat_ui_hint_dedupe"
 ## Scene combat node → health/wounds/stats holder (e.g. Character → CoreEntity). Subsystems should use **`CombatantEntityAccess.get_health_entity_from_node`** / **`get_entity_from_manager`**.
 func get_health_entity(node: Node) -> Node:
 	return _get_entity(node)
+
+
+## Monotonic combat tick (**`CombatProcessTick`**); used for short-horizon AI signals (e.g. Tier **4.2** feint listing after **`parry_deflect`**).
+func get_combat_tick_index() -> int:
+	return _combat_tick_index
 
 
 ## Private implementation for **`get_health_entity`**; do not call from other classes.
@@ -233,6 +242,7 @@ func _reset_tactical_breach_state() -> void:
 		_FormationEngagement.recompute_all(self)
 
 ## Start combat. Optional player_formation and enemy_formation presets: { files, ranks, density, optional **`CombatConstants.FORMATION_PRESET_KEY_DOCTRINE`** or **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**, … }.
+## Clears **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** on each combatant (Tier 4.2) so a second **`start()`** on the same manager does not carry feint telegraph from a prior encounter.
 ## When provided, builds formations and assigns rank/file to combatants (spawn order).
 ## Phase 4: Set encounter before start() for ZoC flags (e.g. CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE).
 func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
@@ -256,6 +266,8 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY: "",
 		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT: "",
 		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT: "",
+		CombatConstants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_PLAYER: {},
+		CombatConstants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY: {},
 		CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE: false,
 		CombatConstants.ENCOUNTER_AMBUSHED_SIDE: "player",
 	}
@@ -300,9 +312,33 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	)
 	if not doc_e1.is_empty():
 		set_formation_doctrine("enemy", doc_e1)
+	depth_polearm_ai_doctrine_mults_by_fid.clear()
+	for _fk in formations.keys():
+		var fks: String = str(_fk)
+		var preset_side: Dictionary = (
+			player_formation if fks == "player" else enemy_formation
+		)
+		depth_polearm_ai_doctrine_mults_by_fid[fks] = (
+			CombatConstants.depth_polearm_ai_doctrine_mults_for_encounter_and_preset(
+				encounter, preset_side, fks
+			)
+		)
 	_reset_tactical_breach_state()
 	if has_meta(_META_LAST_COMBAT_UI_HINT):
 		remove_meta(_META_LAST_COMBAT_UI_HINT)
+	# Tier 4.2: drop stale incoming feint telegraph on encounter (re)start — same combatant dicts may persist across `start()`.
+	for c in combatants:
+		if c is Dictionary:
+			var cd: Dictionary = c as Dictionary
+			cd.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
+			cd.erase(CombatConstants.COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK)
+			cd.erase(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL)
+			cd.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED)
+			cd.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
+			cd.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL)
+			cd.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID)
+			_Attention.clear_focus_and_yomi(cd)
+			_Footwork.clear_position_offset(cd)
 	# Phase 1: Schedule initial EVENT_ACTION_READY for each alive combatant (staggered by agility).
 	_schedule_initial_action_ready_events()
 	set_process(true)
@@ -462,6 +498,19 @@ func set_formation_doctrine(formation_id: String, doctrine: String) -> void:
 
 func get_formation_doctrine(formation_id: String) -> String:
 	return _Doctrine.doctrine_for_fid(self, str(formation_id))
+
+
+## Tier 1.9: effective depth-spear listing mult for **`key`** (`CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_*`) after encounter + preset merge at **`start()`**.
+func get_depth_polearm_ai_doctrine_mult(formation_id: String, key: String) -> float:
+	var fid: String = str(formation_id)
+	var by_fid: Variant = depth_polearm_ai_doctrine_mults_by_fid.get(fid)
+	if by_fid != null and by_fid is Dictionary:
+		var d: Dictionary = by_fid as Dictionary
+		if d.has(key):
+			return float(d[key])
+	var fallback: Dictionary = CombatConstants.default_depth_polearm_ai_doctrine_mults_dict()
+	return float(fallback.get(key, 1.0))
+
 
 func _process(delta: float) -> void:
 	_ProcessTick.tick(self, delta)

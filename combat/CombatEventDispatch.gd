@@ -100,7 +100,7 @@ static func handle_melee_attack(manager: Node, c: Dictionary) -> void:
 static func handle_recovery_end(manager: Node, c: Dictionary) -> void:
 	if c.is_empty() or not _EntityAccess.alive_bool(c) or _EntityAccess.state_str(c) != CombatConstants.STATE_RECOVERING:
 		return
-	_StateHandlers.complete_recovery(c)
+	_StateHandlers.complete_recovery(manager, c)
 	if _EntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
 		manager._schedule_action_ready(_EntityAccess.id_int(c), manager._action_ready_cooldown(c))
 	elif _EntityAccess.state_str(c) == CombatConstants.STATE_COWERING:

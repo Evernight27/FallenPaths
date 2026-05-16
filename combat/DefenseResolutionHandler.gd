@@ -168,7 +168,7 @@ static func _resolve_parry(
 	# Arc tracking: use blade position at parry contact for alignment (where blades meet).
 	var _parry_progress: float = 1.0
 	if not late_parry:
-		var eff_wind: float = pa.get("wind_up_duration", 0.5) * (1.0 - CombatConstants.COMMITMENT_FRACTION)
+		var eff_wind: float = pa.get("wind_up_duration", 0.5) * (1.0 - CombatConstants.commitment_fraction_for_pending_attack(pa))
 		_parry_progress = 1.0 - clampf(parry_time_to_react / maxf(0.001, eff_wind), 0.0, 1.0)
 	var _align_ctx: Dictionary = {}
 	var arc_start: float = pa.get("arc_start_deg", 0.0)

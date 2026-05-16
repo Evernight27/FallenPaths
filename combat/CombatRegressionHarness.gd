@@ -2,6 +2,8 @@ class_name CombatRegressionHarness
 extends RefCounted
 
 ## Manual / editor-invoked checks for Tier 1.5–1.9 (morale cohesion, engagement classifier, depth polearm, ZoC intruder zones).
+## Tier 4.2: **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry`**, **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust`**, **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone`**, **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust`**, **`_run_feint_windup_duration_mult_extends_state_duration_vs_oberhau`**, **`_run_feint_windup_duration_mult_extends_state_duration_vs_thrust`**, **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target`**, **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target_thrust`**, **`_run_feint_move_ai_distinct_feint_and_target_parts`**, **`_run_feint_move_ai_distinct_feint_and_target_parts_thrust`**, **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau`**, **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard_thrust`**, **`_run_feint_move_listing_spacing_long_dampens_vs_mid`**, **`_run_feint_move_listing_spacing_close_boosts_vs_mid`**, **`_run_feint_move_listing_spacing_long_dampens_vs_mid_when_defender_recovering`**, **`_run_feint_move_listing_spacing_close_boosts_vs_mid_when_defender_recovering`**, **`_run_feint_move_listing_readiness_recovery_curve_when_defender_recovering`**, **`_run_feint_move_listing_stamina_low_dampens_feint_weight`**, **`_run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp`**, **`_run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult`**, **`_run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult`**, **`_run_feint_move_listing_doctrine_probing_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default`**, **`_run_feint_move_listing_stance_ai_feint_mult_ordering`**, **`_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight`**, **`_run_feint_move_listing_defender_off_balance_boosts_feint_weight`**, **`_run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance`**, **`_run_feint_move_listing_recovering_footwork_dampens_vs_settled_waiting`**, **`_run_feint_move_listing_recovery_cause_orders_recovering_footwork_mult`, **`_run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally`****, **`_run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally`**, **`_run_feint_opts_from_choice_and_non_feint_attack_no_feint_part`**, **`_run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readjust_bonus`**, **`_run_feint_guard_zone_readthrough_par_bonus_when_readiness_high`**, **`_run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid`**, **`_run_feint_guard_zone_readthrough_spacing_close_dampens_vs_mid`**, **`_run_feint_target_reveal_progress_scales_readiness_mult`**, **`_run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough`**, **`_feint_guard_zone_sample_global_seed_for_modifier`** (PathResolver RNG seed scan), **`_run_feint_second_windup_clears_prior_telegraph_before_restamp`**, **`_run_feint_telegraph_scrubbed_on_combat_manager_restart`**; footwork / pair spacing — **`_run_defense_spacing_band_modulates_parry_and_dodge`**, **`_run_defense_footwork_recovering_boosts_dodge_vs_waiting`**, **`_run_defense_footwork_recovery_cause_orders_recovering_dodge_mult`**, **`_run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_close`**, **`_run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balance`**, **`_run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_close`**, **`_run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid`**, **`_run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_long_vs_mid`**, **`_run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid`**, **`_run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut`**, **`_run_defender_low_stamina_scales_passive_parry_readiness_in_choose_defense`**, **`_run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_feint`**, **`_run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina`**, **`_run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally`** (**`DefenseChoiceResolver`**, **`CombatAIActionPicker`**, **`distance_to`**, **`DEFENSE_SPACING_*`**, **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**, **`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**, **`FEINT_GUARD_ZONE_READINESS_SPACING_*`**, **`feint_guard_zone_readiness_spacing_mult`**, **`CombatConstants.passive_parry_readiness_incoming_contact_mult`**, **`WeaponConstants`** **`thrust_feint`**).
+## Tier 3.3: afterblow — **`_run_afterblow_deflected_triggers_full_resolve_hit`**, **`_run_afterblow_low_hindrance_allow_triggers_resolve_hit`** (fixed **`seed(1)`**, harness meta for mult); **`_run_afterblow_mid_hindrance_rand_cancel`** (**`seed(2)`**); **`_run_afterblow_mid_hindrance_rand_executes_hit`** (**`seed(0)`**, mult **0.55**); **`_afterblow_harness_seed_pending_cut`**. Hit reaction — **`_run_hit_applier_sets_defender_guard_low_after_hit`** (**`AttackResultApplier`** **`hit`** → **`GuardLineUpdater.set_guard_from_line`** low).
 ## `incursion_allowed` expectations respect `CombatConstants.FEATURE_LINE_CRASH_INTRUSION`.
 ## Does not require a running battle scene. Example:
 ##   var r := CombatRegressionHarness.run_all()
@@ -20,11 +22,17 @@ const _FormationEngagement := preload("res://combat/CombatFormationEngagement.gd
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _IntrusionGeometry := preload("res://combat/CombatIntrusionGeometry.gd")
 const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
+const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
 const _DefenseResolution := preload("res://combat/DefenseResolutionHandler.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _Attention := preload("res://combat/CombatAttention.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _MentalStack := preload("res://combat/MentalStackDecider.gd")
+const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
 const _AttackResultApplier := preload("res://combat/AttackResultApplier.gd")
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
@@ -34,7 +42,8 @@ const _CombatLogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _AttackResolver := preload("res://combat/AttackResolver.gd")
 const _DistanceBands := preload("res://combat/CombatDistanceBands.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
-## Tier 3.2: full-stop **`parry_deflect`** — keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
+const _AfterblowHandler := preload("res://combat/AfterblowHandler.gd")
+## Tier 3.2: full-stop **`parry_deflect`** — keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_hit_applier_sets_defender_guard_low_after_hit`** locks defender **`guard_line`** / **`guard_zone`** after **`hit`**; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
 const PARRY_CLASH_CONTEXT_KEYS_FULL_STOP: Array[String] = [
 	"archetype_id",
 	"parry_control",
@@ -64,8 +73,73 @@ const PARRY_CLASH_CONTEXT_KEYS_FULL_STOP: Array[String] = [
 	"strike_measure_ratio",
 ]
 
+## Tier 4.2: global **`seed`** for **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone`** (wind-up rolls); refresh if Godot RNG drifts.
+const _FEINT_WINDUP_HARNESS_SEED: int = 20260514
+## Tier 4.2: global **`seed`** for **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target`** (non-feint **`oberhau`** + **`target_part`** only).
+const _FEINT_WINDUP_TARGET_ONLY_HARNESS_SEED: int = 20260515
+## After harnesses that call **`seed(...)`** for local control, restore global RNG so later **`run_all()`** entries stay order-stable (matches **`_windup_duration_for_bind_test`** post-**`AttackWindUpStarter.start`** restore).
+const _HARNESS_RESTORE_GLOBAL_SEED: int = 90210
+
+
+## Tier 4.2 harness helper: matches **`CombatAIActionPicker._get_action_weight`** feint-listing **`read_m`** (**`pr_def`** chain before stance / low-stamina / doctrine / deflect / off-balance terms).
+static func _feint_listing_read_m_expect_for_move_on_target(
+	tgt_enemy: Dictionary,
+	combatant_id_for_spacing: int,
+	feint_move_id: String
+) -> float:
+	var pr_def: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(tgt_enemy), 0.0, 1.0)
+	var ct: String = str(
+		WeaponConstants.get_move(feint_move_id).get("contact_type", WeaponConstants.ATTACK_TYPE_CUT)
+	)
+	pr_def = clampf(pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct), 0.0, 1.0)
+	pr_def = clampf(
+		pr_def
+		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
+			_EntityAccess.stamina_float(tgt_enemy) / CombatConstants.STAMINA_MAX
+		),
+		0.0,
+		1.0
+	)
+	pr_def = clampf(
+		pr_def
+		* CombatConstants.ai_feint_listing_defender_readiness_spacing_mult(
+			tgt_enemy, combatant_id_for_spacing
+		),
+		0.0,
+		1.0
+	)
+	return lerpf(1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_def)
+
+
+## Defender footwork on feint listing (off-balance / recovering / settled waiting); **1** otherwise.
+static func _feint_listing_defender_footwork_state_mult_for_target(tgt_enemy: Dictionary) -> float:
+	if _PassiveParryCtx.is_off_balance(tgt_enemy):
+		return 1.0
+	var st: String = str(tgt_enemy.get("state", ""))
+	if st == CombatConstants.STATE_RECOVERING:
+		return CombatConstants.ai_feint_listing_defender_recovering_footwork_mult_for_cause(
+			str(tgt_enemy.get("recovery_cause", "skip"))
+		)
+	if st == CombatConstants.STATE_WAITING:
+		return CombatConstants.AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT
+	return 1.0
+
+
+## Defender-side feint-listing mult: readiness lerp × footwork state mult (when applicable).
+static func _feint_listing_target_readiness_and_footwork_mult(
+	tgt_enemy: Dictionary,
+	combatant_id_for_spacing: int,
+	feint_move_id: String
+) -> float:
+	return (
+		_feint_listing_read_m_expect_for_move_on_target(tgt_enemy, combatant_id_for_spacing, feint_move_id)
+		* _feint_listing_defender_footwork_state_mult_for_target(tgt_enemy)
+	)
+
+
 static func run_all() -> Dictionary:
 	var failures: PackedStringArray = PackedStringArray()
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
 	_run_next_action_ready_map_matches_per_id(failures)
 	_run_vacancy_reconcile_follow_up_regression(failures)
 	_run_vacancy_reconcile_after_front_death(failures)
@@ -84,6 +158,7 @@ static func run_all() -> Dictionary:
 	_run_posture_mirror_symmetric(failures)
 	_run_morale_cohesion_affects_line_cohesion(failures)
 	_run_crash_ai_cohesion_weight_monotone(failures)
+	_run_crash_ai_posture_mult_with_cached_fd(failures)
 	_run_engagement_classifier_multi_seed(failures)
 	_run_engagement_active_count_gate_exhaustive(failures)
 	_run_engagement_mode_cache_reset_on_second_start(failures)
@@ -130,6 +205,98 @@ static func run_all() -> Dictionary:
 	_run_ai_targeting_engagement_mode_mult(failures)
 	_run_hostile_pair_cached_engagement_mode_matches_live(failures)
 	_run_ai_targeting_stance_mult_ordering(failures)
+	_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone(failures)
+	_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust(failures)
+	_run_feint_windup_duration_mult_extends_state_duration_vs_oberhau(failures)
+	_run_feint_windup_duration_mult_extends_state_duration_vs_thrust(failures)
+	_run_feint_windup_target_only_sets_defender_guard_zone_to_target(failures)
+	_run_feint_windup_target_only_sets_defender_guard_zone_to_target_thrust(failures)
+	_run_feint_move_ai_distinct_feint_and_target_parts(failures)
+	_run_feint_move_ai_distinct_feint_and_target_parts_thrust(failures)
+	_run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau(failures)
+	_run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust(failures)
+	_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard(failures)
+	_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard_thrust(failures)
+	_run_feint_move_listing_spacing_long_dampens_vs_mid(failures)
+	_run_feint_move_listing_spacing_close_boosts_vs_mid(failures)
+	_run_feint_move_listing_spacing_long_dampens_vs_mid_when_defender_recovering(failures)
+	_run_feint_move_listing_spacing_close_boosts_vs_mid_when_defender_recovering(failures)
+	_run_feint_move_listing_readiness_recovery_curve_when_defender_recovering(failures)
+	_run_feint_move_listing_stamina_low_dampens_feint_weight(failures)
+	_run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp(failures)
+	_run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult(failures)
+	_run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult(failures)
+	_run_feint_move_listing_doctrine_probing_multiplies_feint_weight(failures)
+	_run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weight(failures)
+	_run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default(failures)
+	_run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance(failures)
+	_run_feint_move_listing_recovering_footwork_dampens_vs_settled_waiting(failures)
+	_run_feint_move_listing_recovery_cause_orders_recovering_footwork_mult(failures)
+	_run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally(failures)
+	_run_counter_tempo_window_opens_on_incoming_wind_up(failures)
+	_run_counter_tempo_lists_melee_actions_when_window_open(failures)
+	_run_counter_tempo_spend_gauge_subtracts_cost(failures)
+	_run_counter_tempo_defers_incoming_melee_until_after_counter_wind_up(failures)
+	_run_counter_tempo_abort_cancels_pending_incoming_melee(failures)
+	_run_counter_tempo_wind_up_stamps_pa_and_shortens_duration(failures)
+	_run_counter_tempo_ai_listing_boosts_counter_and_prefers_plain_over_feint(failures)
+	_run_counter_tempo_progress_gate_blocks_can_act_until_half_wind_up(failures)
+	_run_counter_tempo_process_waiting_schedules_ready_when_progress_gate_met(failures)
+	_run_counter_tempo_ui_hint_winding_then_ready(failures)
+	_run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain(failures)
+	_run_attention_being_wind_up_targeted_when_telegraph_set(failures)
+	_run_attention_counter_tempo_salience_matches_can_act(failures)
+	_run_attention_load_stacks_peril_and_incoming(failures)
+	_run_focus_intensity_scales_feint_readthrough_and_guard_zone(failures)
+	_run_attention_load_dampens_focus_effective_readiness(failures)
+	_run_mental_stack_medical_overrides_attack(failures)
+	_run_mental_stack_incoming_windup_prefers_defense(failures)
+	_run_mental_stack_counter_over_plain_attack_when_window_open(failures)
+	_run_mental_stack_attack_layer_matches_legacy_weights(failures)
+	_run_yomi_guard_tendency_boosts_feint_after_repeated_high(failures)
+	_run_yomi_updates_on_parry_deflect_clears_on_hit(failures)
+	_run_attention_ui_hint_formats_when_telegraph_set(failures)
+	_run_attention_refresh_waiting_tick_stamps_ui_hint(failures)
+	_run_yomi_focus_drift_sets_habitual_part_on_ai(failures)
+	_run_yomi_focus_drift_keeps_habit_when_telegraph_line_mismatches(failures)
+	_run_guard_from_move_syncs_focus_part_with_guard_line(failures)
+	_run_mental_stack_stamps_layer_on_medical_pick(failures)
+	_run_focus_line_actions_listed_when_attention_enabled(failures)
+	_run_focus_line_resolve_sets_guard_and_focus(failures)
+	_run_focus_line_party_leader_prefers_telegraph_match(failures)
+	_run_yomi_parry_deflect_boosts_feint_listing_mult(failures)
+	_run_yomi_defense_readiness_mult_boosts_after_parry_deflect(failures)
+	_run_attention_ui_hint_includes_mental_stack_layer(failures)
+	_run_footwork_attack_step_offset_stamped_on_windup(failures)
+	_run_footwork_offset_shifts_attack_angle_deg(failures)
+	_run_footwork_offset_scrubbed_on_combat_start(failures)
+	_run_feint_move_listing_stance_ai_feint_mult_ordering(failures)
+	_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight(failures)
+	_run_feint_move_listing_defender_off_balance_boosts_feint_weight(failures)
+	_run_feint_opts_from_choice_and_non_feint_attack_no_feint_part(failures)
+	_run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readjust_bonus(failures)
+	_run_feint_guard_zone_readthrough_par_bonus_when_readiness_high(failures)
+	_run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid(failures)
+	_run_feint_guard_zone_readthrough_spacing_close_dampens_vs_mid(failures)
+	_run_feint_target_reveal_progress_scales_readiness_mult(failures)
+	_run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough(failures)
+	_run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_long_vs_mid(failures)
+	_run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid(failures)
+	_run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid(failures)
+	_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry(failures)
+	_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust(failures)
+	_run_defense_spacing_band_modulates_parry_and_dodge(failures)
+	_run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures)
+	_run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(failures)
+	_run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_close(failures)
+	_run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balance(failures)
+	_run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_close(failures)
+	_run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut(failures)
+	_run_defender_low_stamina_scales_passive_parry_readiness_in_choose_defense(failures)
+	_run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_feint(failures)
+	_run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina(failures)
+	_run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally(failures)
+	_run_feint_telegraph_scrubbed_on_combat_manager_restart(failures)
 	_run_ai_targeting_incap_hostile_mult(failures)
 	_run_no_hostile_actions_listed_vs_incap_enemy(failures)
 	_run_stalemate_melee_rank1_when_rank0_incap(failures)
@@ -142,6 +309,7 @@ static func run_all() -> Dictionary:
 	_run_action_resolved_parry_deflect_payload_includes_clash_context(failures)
 	_run_action_resolved_parry_partial_payload_includes_clash_context(failures)
 	_run_hit_clears_attacker_parry_calibration_fields(failures)
+	_run_hit_applier_sets_defender_guard_low_after_hit(failures)
 	_run_parry_partial_bind_riposte_flags_when_aligned(failures)
 	_run_depth_spear_thrust_closing_factor_invariant(failures)
 	_run_spear_lane_profile_preset_normalized(failures)
@@ -167,6 +335,7 @@ static func run_all() -> Dictionary:
 	_run_depth_polearm_auto_lane_discipline_posture(failures)
 	_run_wing_lacks_depth_polearm(failures)
 	_run_depth_polearm_doctrine_action_weights(failures)
+	_run_depth_polearm_ai_doctrine_mults_encounter_preset(failures)
 	_run_depth_polearm_ai_weight_mult_requires_valid_line_to_any_rank0(failures)
 	_run_doctrine_hollow_center_pinch_heuristic(failures)
 	_run_doctrine_hollow_center_intruder_fills_center(failures)
@@ -183,6 +352,20 @@ static func run_all() -> Dictionary:
 	_run_weapon_part_mass_model_normalized(failures)
 	_run_weapon_parry_part_selection_fallbacks(failures)
 	_run_weapon_striking_part_mass_model(failures)
+	_run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_swing(failures)
+	_run_kinematic_delivery_velocity_from_intensity_bridges_get_effective_and_monotone(failures)
+	_run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_with_speed(failures)
+	_run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_rises(failures)
+	_run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_cut_sqrt(failures)
+	_run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and_mpa(failures)
+	_run_kinematic_delivery_strike_mult_cross_coupling_ke_vs_blunt_isolated(failures)
+	_run_kinematic_delivery_penetration_oblique_angle_factor_attack_resolver(failures)
+	_run_kinematic_delivery_compute_damage_oblique_penetration_integration(failures)
+	_run_kinematic_delivery_compute_damage_strike_mods_penetration_integration(failures)
+	_run_kinematic_delivery_line_alignment_with_deflect_branches(failures)
+	_run_kinematic_delivery_deflected_angle_bilateral_and_line_angle_helpers(failures)
+	_run_kinematic_delivery_deflected_line_from_angles_same_line_bind(failures)
+	_run_kinematic_delivery_angle_diff_and_alignment_from_angles_helpers(failures)
 	_run_weapon_blade_strong_fraction(failures)
 	_run_bind_riposte_contact_types_normalized(failures)
 	_run_bind_riposte_contact_multipliers(failures)
@@ -192,6 +375,14 @@ static func run_all() -> Dictionary:
 	_run_parry_partial_clash_context_calibration_fields(failures)
 	_run_parry_control_bind_deflect_formula(failures)
 	_run_guard_line_deflected_severity_from_margin_ratio(failures)
+	_run_guard_from_move_sets_guard_line_and_zone(failures)
+	_run_afterblow_no_pending_returns_false(failures)
+	_run_afterblow_wrong_state_returns_false(failures)
+	_run_afterblow_hindrance_block_cancels_pending(failures)
+	_run_afterblow_deflected_triggers_full_resolve_hit(failures)
+	_run_afterblow_low_hindrance_allow_triggers_resolve_hit(failures)
+	_run_afterblow_mid_hindrance_rand_cancel(failures)
+	_run_afterblow_mid_hindrance_rand_executes_hit(failures)
 	return {"ok": failures.is_empty(), "failures": failures}
 
 
@@ -305,6 +496,12 @@ static func _free_manager(mgr: Node) -> void:
 	mgr.queue_free()
 
 
+## **`seed(_HARNESS_RESTORE_GLOBAL_SEED)`** then **`_free_manager(mgr)`** — use after harness blocks that set **`seed(3312)`** / **`seed(3313)`** (parry clash calibration), **`seed(1205)`** (parry opposite deflect tail), **`seed(0)`** / **`seed(1)`** / **`seed(2)`** (afterblow fixtures), **`seed(_FEINT_WINDUP_HARNESS_SEED)`** (feint wind-up + duration-mult vs **`oberhau`**) / scan **`seed(0..4095)`**, or **`seed(90210)`** (**`_windup_duration_for_bind_test`**), so **`run_all()`** stays order-stable.
+static func _free_manager_restore_global_rng(mgr: Node) -> void:
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	_free_manager(mgr)
+
+
 static func _windup_duration_for_bind_test(weapon_id: String, move_id: String, bind: bool) -> float:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity(weapon_id), "player")
@@ -319,7 +516,7 @@ static func _windup_duration_for_bind_test(weapon_id: String, move_id: String, b
 	seed(90210)
 	_WindUpStarter.start(mgr, p_id, e_id, move_id)
 	var dur: float = float(p.get("state_duration", 0.0))
-	_free_manager(mgr)
+	_free_manager_restore_global_rng(mgr)
 	return dur
 
 
@@ -1145,7 +1342,8 @@ static func _run_front_rank_pair_melee_listed(failures: PackedStringArray) -> vo
 
 
 static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
-	# 1v1 → duel classifier
+	# Tier 1.8 (P9): small / medium / large representative headcounts — raw classifier + tactical snapshot stay aligned.
+	# Small: 1v1 → duel classifier
 	var d: Node = _MgrScript.new()
 	d.register(_new_entity("SWORD"), "player")
 	d.register(_new_entity("SWORD"), "enemy")
@@ -1155,8 +1353,29 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 		_fail(failures, "engagement: 1v1 expected raw duel, got %s" % str(s1.get("raw_mode", "")))
 	if _EngagementMode.incursion_allowed(d):
 		_fail(failures, "engagement: incursion must be disallowed in duel")
+	if _EngagementMode.can_enter_formation_from_snapshot(s1):
+		_fail(failures, "engagement: 1v1 snap must not claim formation-eligible")
+	_assert_tactical_snapshot_matches(failures, d, "engagement small 1v1")
 	_free_manager(d)
-	# 4v4 two-wide line → formation-classifier band (Option 2 minimums)
+	# Medium: 3v3 wide front (active 3 < formation floor) → skirmish, not duel (multi-file front)
+	var m: Node = _MgrScript.new()
+	for _i in 3:
+		m.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		m.register(_new_entity("SWORD"), "enemy")
+	m.start({"files": 3, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	var s3: Dictionary = _EngagementMode.snapshot(m)
+	if str(s3.get("raw_mode", "")) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+		_fail(
+			failures,
+			"engagement: 3v3 three-wide expected raw skirmish, got %s snap=%s"
+			% [str(s3.get("raw_mode", "")), str(s3)]
+		)
+	if _EngagementMode.can_enter_formation_from_snapshot(s3):
+		_fail(failures, "engagement: 3v3 snap must not claim formation-eligible (below active floor)")
+	_assert_tactical_snapshot_matches(failures, m, "engagement medium 3v3")
+	_free_manager(m)
+	# Large: 4v4 two-wide line → formation-classifier band (Option 2 minimums)
 	var f: Node = _MgrScript.new()
 	for _i in 4:
 		f.register(_new_entity("SWORD"), "player")
@@ -1170,6 +1389,8 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 			"engagement: 4v4 two-file line expected raw formation, got %s snap=%s"
 			% [str(s4.get("raw_mode", "")), str(s4)]
 		)
+	if not _EngagementMode.can_enter_formation_from_snapshot(s4):
+		_fail(failures, "engagement: 4v4 formation snap must satisfy can_enter_formation_from_snapshot")
 	var mode_f: String = _EngagementMode.engagement_mode(f)
 	var inc_expect_f: bool = (
 		CombatConstants.FEATURE_LINE_CRASH_INTRUSION
@@ -1186,6 +1407,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 				mode_f
 			]
 		)
+	_assert_tactical_snapshot_matches(failures, f, "engagement large 4v4")
 	_free_manager(f)
 
 
@@ -1271,6 +1493,55 @@ static func _run_crash_ai_cohesion_weight_monotone(failures: PackedStringArray) 
 	_free_manager(mgr)
 
 
+## Tier 1.6 (P7): **`CombatAIActionPicker._crash_weight_posture_mult`** — cached **`formation_dict`** matches null overload; **LINE** / **OPEN** / **DUEL** match **`CRASH_AI_POSTURE_*`**; unknown posture → **1.0**.
+static func _run_crash_ai_posture_mult_with_cached_fd(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 2, "density": "normal"}, {"files": 2, "ranks": 2, "density": "normal"})
+	var c: Dictionary = mgr.combatants[0]
+	var fd_live: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, c)
+	var w_null: float = _AIPicker._crash_weight_posture_mult(mgr, c, null)
+	var w_live: float = _AIPicker._crash_weight_posture_mult(mgr, c, fd_live)
+	if not is_equal_approx(w_null, w_live):
+		_fail(
+			failures,
+			"crash_ai_post: null fd_cache vs live formation_dict mismatch %.6f vs %.6f" % [w_null, w_live]
+		)
+	var fd_line: Dictionary = fd_live.duplicate(true)
+	fd_line["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_LINE
+	var m_line: float = _AIPicker._crash_weight_posture_mult(mgr, c, fd_line)
+	if not is_equal_approx(m_line, CombatConstants.CRASH_AI_POSTURE_LINE_EXTRA_MULT):
+		_fail(
+			failures,
+			"crash_ai_post: LINE mult want %.4f got %.4f" % [CombatConstants.CRASH_AI_POSTURE_LINE_EXTRA_MULT, m_line]
+		)
+	var fd_open: Dictionary = fd_live.duplicate(true)
+	fd_open["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_OPEN
+	var m_open: float = _AIPicker._crash_weight_posture_mult(mgr, c, fd_open)
+	if not is_equal_approx(m_open, CombatConstants.CRASH_AI_POSTURE_OPEN_EXTRA_MULT):
+		_fail(
+			failures,
+			"crash_ai_post: OPEN mult want %.4f got %.4f" % [CombatConstants.CRASH_AI_POSTURE_OPEN_EXTRA_MULT, m_open]
+		)
+	var fd_duel: Dictionary = fd_live.duplicate(true)
+	fd_duel["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_DUEL
+	var m_duel: float = _AIPicker._crash_weight_posture_mult(mgr, c, fd_duel)
+	if not is_equal_approx(m_duel, CombatConstants.CRASH_AI_POSTURE_DUEL_EXTRA_MULT):
+		_fail(
+			failures,
+			"crash_ai_post: DUEL mult want %.4f got %.4f" % [CombatConstants.CRASH_AI_POSTURE_DUEL_EXTRA_MULT, m_duel]
+		)
+	var fd_unk: Dictionary = fd_live.duplicate(true)
+	fd_unk["engagement_posture"] = "unknown_posture_xyz"
+	var m_unk: float = _AIPicker._crash_weight_posture_mult(mgr, c, fd_unk)
+	if not is_equal_approx(m_unk, 1.0):
+		_fail(failures, "crash_ai_post: unknown posture should return 1.0 got %.4f" % m_unk)
+	_free_manager(mgr)
+
+
 ## Tier 1.8: no crash breach action in lists while `FEATURE_LINE_CRASH_INTRUSION` is false.
 static func _run_no_crash_actions_when_intrusion_disabled(failures: PackedStringArray) -> void:
 	if CombatConstants.FEATURE_LINE_CRASH_INTRUSION:
@@ -1296,7 +1567,7 @@ static func _run_no_crash_actions_when_intrusion_disabled(failures: PackedString
 	_free_manager(mgr)
 
 
-## Tier 1.9 auto profile: `line_discipline` / `engagement_posture` steer over-shoulder vs open when `spear_lane_profile` is auto.
+## Tier 1.9 auto profile: `line_discipline` / `engagement_posture` steer over-shoulder vs open when `spear_lane_profile` is auto (**OPEN** and **DUEL** open lows under tight when not strict-only).
 static func _run_depth_polearm_auto_lane_discipline_posture(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -1332,6 +1603,33 @@ static func _run_depth_polearm_auto_lane_discipline_posture(failures: PackedStri
 	var f_open_post: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if not f_open_post.has("left_leg"):
 		_fail(failures, "depth_auto_lane: OPEN posture + tight should allow legs (got %s)" % str(f_open_post))
+	mgr.formations["player"]["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_DUEL
+	var f_duel_post: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	if not f_duel_post.has("left_leg"):
+		_fail(failures, "depth_auto_lane: DUEL posture + tight should allow legs (got %s)" % str(f_duel_post))
+	# LINE posture + normal discipline + tight: auto profile stays over-shoulder (stamped `pa` agrees).
+	mgr.formations["player"]["density"] = "tight"
+	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_NORMAL
+	mgr.formations["player"]["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_LINE
+	_IntrusionWedge.clear_all_wedges_in_formation(mgr.formations["player"])
+	var f_line_norm: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	if f_line_norm.has("left_leg") or f_line_norm.has("right_leg"):
+		_fail(
+			failures,
+			"depth_auto_lane: LINE posture + normal discipline + tight should filter legs (got %s)"
+			% str(f_line_norm)
+		)
+	var pa_ln: Dictionary = {}
+	var en0: Dictionary = mgr.combatants[2]
+	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, depth, en0, pa_ln)
+	if bool(pa_ln.get("depth_polearm_allows_low_targets", true)):
+		_fail(failures, "depth_auto_lane: stamped allows_low false for LINE+normal+tight depth attack")
+	if str(pa_ln.get("depth_polearm_lane_type", "")) != CombatConstants.DEPTH_POLEARM_LANE_TYPE_OVER_SHOULDER:
+		_fail(
+			failures,
+			"depth_auto_lane: stamped lane_type over_shoulder got %s"
+			% str(pa_ln.get("depth_polearm_lane_type"))
+		)
 	# Empty formation field falls back to encounter discipline (same as posture / fall-back policy).
 	mgr.formations["player"]["line_discipline"] = ""
 	mgr.formations["player"]["density"] = "tight"
@@ -1427,6 +1725,93 @@ static func _run_depth_polearm_doctrine_action_weights(failures: PackedStringArr
 			% [w_pinch_slash, w_probe_slash, w_hold_slash]
 		)
 	_free_manager(mgr)
+
+
+## Tier 1.9: optional encounter + preset **`depth_polearm_ai_doctrine_mults`** merged at **`CombatManager.start`** (preset wins; clamp **`DEPTH_POLEARM_AI_MULT_OVERRIDE_*`**).
+static func _run_depth_polearm_ai_doctrine_mults_encounter_preset(failures: PackedStringArray) -> void:
+	var pinch_k: String = CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB
+	var pinch_def: float = CombatConstants.DEPTH_POLEARM_AI_DOCTRINE_PINCH_STAB_MULT
+	var merged_clamp: Dictionary = CombatConstants.merge_depth_polearm_ai_doctrine_mults(
+		CombatConstants.default_depth_polearm_ai_doctrine_mults_dict(),
+		{pinch_k: 9.0}
+	)
+	if not is_equal_approx(float(merged_clamp[pinch_k]), CombatConstants.DEPTH_POLEARM_AI_MULT_OVERRIDE_MAX):
+		_fail(
+			failures,
+			"depth_ai_mults: clamp max want %.4f got %.4f"
+			% [CombatConstants.DEPTH_POLEARM_AI_MULT_OVERRIDE_MAX, float(merged_clamp[pinch_k])]
+		)
+	var mgr0: Node = _MgrScript.new()
+	mgr0.register(_new_entity("SWORD"), "player")
+	mgr0.register(_new_entity("SPEAR"), "player")
+	mgr0.register(_new_entity("SWORD"), "enemy")
+	mgr0.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var depth0: Dictionary = mgr0.combatants[1]
+	if not _ActionsBuilder.depth_polearm_lane_open(mgr0, depth0):
+		_fail(failures, "depth_ai_mults: expected open depth polearm lane (baseline)")
+		_free_manager(mgr0)
+		return
+	mgr0.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
+	var w0: float = _AIPicker._depth_polearm_action_weight_mult(mgr0, depth0, "spear_thrust")
+	if not is_equal_approx(w0, CombatConstants.DEPTH_POLEARM_AI_STAB_WEIGHT_MULT * pinch_def):
+		_fail(failures, "depth_ai_mults: baseline pinch stab mult mismatch got %.6f" % w0)
+	var mgr1: Node = _MgrScript.new()
+	mgr1.encounter[CombatConstants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_PLAYER] = {pinch_k: 1.26}
+	mgr1.register(_new_entity("SWORD"), "player")
+	mgr1.register(_new_entity("SPEAR"), "player")
+	mgr1.register(_new_entity("SWORD"), "enemy")
+	mgr1.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var depth1: Dictionary = mgr1.combatants[1]
+	mgr1.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
+	var w1: float = _AIPicker._depth_polearm_action_weight_mult(mgr1, depth1, "spear_thrust")
+	var expect_enc: float = CombatConstants.DEPTH_POLEARM_AI_STAB_WEIGHT_MULT * 1.26
+	if not is_equal_approx(w1, expect_enc):
+		_fail(failures, "depth_ai_mults: encounter pinch override want %.6f got %.6f" % [expect_enc, w1])
+	if not is_equal_approx(w1 / w0, 1.26 / pinch_def):
+		_fail(failures, "depth_ai_mults: encounter ratio vs default pinch")
+	var p_preset: Dictionary = {
+		"files": 1,
+		"ranks": 2,
+		"density": "normal",
+		CombatConstants.FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS: {pinch_k: 1.44},
+	}
+	var mgr2: Node = _MgrScript.new()
+	mgr2.encounter[CombatConstants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_PLAYER] = {pinch_k: 1.2}
+	mgr2.register(_new_entity("SWORD"), "player")
+	mgr2.register(_new_entity("SPEAR"), "player")
+	mgr2.register(_new_entity("SWORD"), "enemy")
+	mgr2.start(p_preset, {"files": 1, "ranks": 1, "density": "normal"})
+	var depth2: Dictionary = mgr2.combatants[1]
+	mgr2.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
+	var w2: float = _AIPicker._depth_polearm_action_weight_mult(mgr2, depth2, "spear_thrust")
+	var expect_preset: float = CombatConstants.DEPTH_POLEARM_AI_STAB_WEIGHT_MULT * 1.44
+	if not is_equal_approx(w2, expect_preset):
+		_fail(
+			failures,
+			"depth_ai_mults: preset should win over encounter want %.6f got %.6f" % [expect_preset, w2]
+		)
+	var mgr3: Node = _MgrScript.new()
+	mgr3.encounter[CombatConstants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY] = {pinch_k: 1.11}
+	mgr3.register(_new_entity("SWORD"), "player")
+	mgr3.register(_new_entity("SPEAR"), "player")
+	mgr3.register(_new_entity("SWORD"), "enemy")
+	mgr3.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	if not is_equal_approx(mgr3.get_depth_polearm_ai_doctrine_mult("enemy", pinch_k), 1.11):
+		_fail(
+			failures,
+			"depth_ai_mults: enemy encounter mult got %s"
+			% str(mgr3.get_depth_polearm_ai_doctrine_mult("enemy", pinch_k))
+		)
+	if not is_equal_approx(mgr3.get_depth_polearm_ai_doctrine_mult("player", pinch_k), pinch_def):
+		_fail(
+			failures,
+			"depth_ai_mults: player pinch should stay default got %s"
+			% str(mgr3.get_depth_polearm_ai_doctrine_mult("player", pinch_k))
+		)
+	_free_manager(mgr0)
+	_free_manager(mgr1)
+	_free_manager(mgr2)
+	_free_manager(mgr3)
 
 
 ## Tier 1.9: **`CombatAIActionPicker._depth_polearm_action_weight_mult`** stays neutral (**1.0**) when no **`depth_polearm_valid_line_threat`** to any hostile rank 0 (lane may still be open); boosts stab when **3-wide** yields ≥1 valid line.
@@ -4326,6 +4711,65 @@ static func _run_hit_clears_attacker_parry_calibration_fields(failures: PackedSt
 	_free_manager(mgr)
 
 
+## **`AttackResultApplier`**: **`hit`** sets defender **`guard_line`** low and syncs **`guard_zone`** via **`GuardLineUpdater.set_guard_from_line`** (stagger / dropped guard).
+static func _run_hit_applier_sets_defender_guard_low_after_hit(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var e: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(e)
+	p.state = CombatConstants.STATE_WAITING
+	p.pending_attack = {}
+	p["guard_line"] = "high"
+	p["guard_zone"] = "head"
+	e.state = CombatConstants.STATE_WIND_UP
+	e.pending_attack = {
+		"target_id": p_id,
+		"attack_type": "thrust",
+		"intensity": 0.5,
+		"effective_attack_line": "high",
+	}
+	var rd: Dictionary = {
+		"dmg": 2,
+		"died": false,
+		"part": "chest",
+		"outcome": "hit",
+		"damage_type": "cut",
+		"health_before": 100,
+		"health_after": 98,
+		"final_cut": 1.0,
+		"final_blunt": 1.0,
+		"final_bone": 0.0,
+		"total_physical": 2.0,
+	}
+	_AttackResultApplier.apply_result(
+		mgr,
+		e_id,
+		{
+			"action": "hit",
+			"target_id": p_id,
+			"intensity": 0.2,
+			"recovery_duration": 0.45,
+			"result_dict": rd,
+		}
+	)
+	if str(p.get("guard_line", "")) != "low":
+		_fail(
+			failures,
+			"hit_guard_reaction: defender guard_line want low got %s" % str(p.get("guard_line", ""))
+		)
+	var want_zone: String = CombatConstants.LINE_TO_DEFAULT_PART.get("low", "")
+	if str(p.get("guard_zone", "")) != want_zone:
+		_fail(
+			failures,
+			"hit_guard_reaction: defender guard_zone want %s got %s" % [want_zone, str(p.get("guard_zone", ""))]
+		)
+	_free_manager(mgr)
+
+
 ## **`parry_partial`**: defender **`parry_was_bind`** / **`parry_against_id`** when alignment ≥ partial threshold and clash **`parry_control`** crosses bind threshold; cleared when misaligned or control low (misaligned path **`erase`**s stale **`parry_was_bind`**).
 static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedStringArray) -> void:
 	var _apply_partial_bind := func(
@@ -4591,7 +5035,4232 @@ static func _run_ordered_melee_opponents_commitment_tiebreak(failures: PackedStr
 	_free_manager(mgr)
 
 
-## Tier 4.1: `stance_ai_targeting_mult` orders defensive < balanced < aggressive.
+## Tier 4.2: **`AttackWindUpStarter.start`** with **`feint_part`** / **`target_part`** options stamps **`pending_attack`** (incl. **`feint_target_reveal_at_progress`** when the move defines it), sets defender **`guard_zone`** to the telegraph (**`feint_part`** when present). Uses **`CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED`** for stable upstream wind-up rolls; restores **`_HARNESS_RESTORE_GLOBAL_SEED`** before teardown.
+static func _run_feint_windup_options_stamp_pa_and_telegraph_guard_zone(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var e: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(e)
+	e["guard_zone"] = "chest"
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(
+		mgr,
+		p_id,
+		e_id,
+		"oberhau_feint",
+		{"target_part": "left_leg", "feint_part": "head"}
+	)
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(p, "pending_attack")
+	if str(pa.get("target_part", "")) != "left_leg":
+		_fail(failures, "feint_windup: pending target_part want left_leg got %s" % str(pa.get("target_part", "")))
+	if str(pa.get("feint_part", "")) != "head":
+		_fail(failures, "feint_windup: pending feint_part want head got %s" % str(pa.get("feint_part", "")))
+	if str(e.get("guard_zone", "")) != "head":
+		_fail(
+			failures,
+			"feint_windup: defender guard_zone telegraph want head got %s" % str(e.get("guard_zone", ""))
+		)
+	if str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")) != "head":
+		_fail(
+			failures,
+			"feint_windup: defender incoming telegraph want head got %s"
+			% str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, ""))
+		)
+	var reveal_expect: float = float(WeaponConstants.get_move("oberhau_feint").get("feint_target_reveal_at_progress", 0.0))
+	if reveal_expect <= 0.0:
+		_fail(failures, "feint_windup: oberhau_feint should define feint_target_reveal_at_progress > 0")
+	if not pa.has("feint_target_reveal_at_progress"):
+		_fail(failures, "feint_windup: pending_attack should stamp feint_target_reveal_at_progress")
+	if not is_equal_approx(float(pa.get("feint_target_reveal_at_progress", -1.0)), reveal_expect):
+		_fail(
+			failures,
+			"feint_windup: feint_target_reveal_at_progress want %s got %s"
+			% [str(reveal_expect), str(pa.get("feint_target_reveal_at_progress", ""))]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: same as **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone`**, for stab **`thrust_feint`** on **SWORD** ( **`feint_windup_duration_mult`** stamp + telegraph keys).
+static func _run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var e: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(e)
+	e["guard_zone"] = "chest"
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(
+		mgr,
+		p_id,
+		e_id,
+		"thrust_feint",
+		{"target_part": "chest", "feint_part": "head"}
+	)
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(p, "pending_attack")
+	if str(pa.get("attack_type", "")) != "thrust_feint":
+		_fail(
+			failures,
+			"feint_windup_thrust: pending attack_type want thrust_feint got %s" % str(pa.get("attack_type", ""))
+		)
+	if str(pa.get("target_part", "")) != "chest":
+		_fail(failures, "feint_windup_thrust: pending target_part want chest got %s" % str(pa.get("target_part", "")))
+	if str(pa.get("feint_part", "")) != "head":
+		_fail(failures, "feint_windup_thrust: pending feint_part want head got %s" % str(pa.get("feint_part", "")))
+	if str(pa.get("move_contact_type", "")) != WeaponConstants.ATTACK_TYPE_STAB:
+		_fail(
+			failures,
+			"feint_windup_thrust: move_contact_type want stab got %s" % str(pa.get("move_contact_type", ""))
+		)
+	if str(e.get("guard_zone", "")) != "head":
+		_fail(
+			failures,
+			"feint_windup_thrust: defender guard_zone telegraph want head got %s" % str(e.get("guard_zone", ""))
+		)
+	if str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")) != "head":
+		_fail(
+			failures,
+			"feint_windup_thrust: defender incoming telegraph want head got %s"
+			% str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, ""))
+		)
+	var mdef: Dictionary = WeaponConstants.get_move("thrust_feint")
+	var mult_expect: float = float(mdef.get("feint_windup_duration_mult", 1.0))
+	if mult_expect <= 1.0:
+		_fail(failures, "feint_windup_thrust: thrust_feint should define feint_windup_duration_mult > 1")
+	if not pa.has("feint_windup_duration_mult"):
+		_fail(failures, "feint_windup_thrust: pending_attack should stamp feint_windup_duration_mult")
+	if not is_equal_approx(float(pa.get("feint_windup_duration_mult", 0.0)), mult_expect):
+		_fail(
+			failures,
+			"feint_windup_thrust: feint_windup_duration_mult want %s got %s"
+			% [str(mult_expect), str(pa.get("feint_windup_duration_mult", ""))]
+		)
+	var reveal_expect: float = float(mdef.get("feint_target_reveal_at_progress", 0.0))
+	if reveal_expect <= 0.0:
+		_fail(failures, "feint_windup_thrust: thrust_feint should define feint_target_reveal_at_progress > 0")
+	if not pa.has("feint_target_reveal_at_progress"):
+		_fail(failures, "feint_windup_thrust: pending_attack should stamp feint_target_reveal_at_progress")
+	if not is_equal_approx(float(pa.get("feint_target_reveal_at_progress", -1.0)), reveal_expect):
+		_fail(
+			failures,
+			"feint_windup_thrust: feint_target_reveal_at_progress want %s got %s"
+			% [str(reveal_expect), str(pa.get("feint_target_reveal_at_progress", ""))]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: **`WeaponConstants`** move **`feint_windup_duration_mult`** on **`is_feint`** cuts extends **`AttackWindUpStarter.start`** **`state_duration`** / **`pending_attack.wind_up_duration`** vs **`oberhau`** at the same global seed; stamps **`pa["feint_windup_duration_mult"]`** and **`pa["feint_target_reveal_at_progress"]`** when defined.
+static func _run_feint_windup_duration_mult_extends_state_duration_vs_oberhau(failures: PackedStringArray) -> void:
+	var mdef: Dictionary = WeaponConstants.get_move("oberhau_feint")
+	var mult_expect: float = float(mdef.get("feint_windup_duration_mult", 1.0))
+	if mult_expect <= 1.0:
+		_fail(failures, "feint_windup_mult: oberhau_feint should define feint_windup_duration_mult > 1")
+	var mgr_o: Node = _MgrScript.new()
+	mgr_o.register(_new_entity("SWORD"), "player")
+	mgr_o.register(_new_entity("SWORD"), "enemy")
+	mgr_o.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var po: Dictionary = mgr_o.combatants[0]
+	var eo: Dictionary = mgr_o.combatants[1]
+	var po_id: int = _EntityAccess.id_int(po)
+	var eo_id: int = _EntityAccess.id_int(eo)
+	eo["guard_zone"] = "chest"
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(mgr_o, po_id, eo_id, "oberhau", {"target_part": "chest"})
+	var d_o: float = float(po.get("state_duration", 0.0))
+	var mgr_f: Node = _MgrScript.new()
+	mgr_f.register(_new_entity("SWORD"), "player")
+	mgr_f.register(_new_entity("SWORD"), "enemy")
+	mgr_f.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var pf: Dictionary = mgr_f.combatants[0]
+	var ef: Dictionary = mgr_f.combatants[1]
+	var pf_id: int = _EntityAccess.id_int(pf)
+	var ef_id: int = _EntityAccess.id_int(ef)
+	ef["guard_zone"] = "chest"
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(mgr_f, pf_id, ef_id, "oberhau_feint", {"target_part": "chest", "feint_part": "head"})
+	var d_f: float = float(pf.get("state_duration", 0.0))
+	var pa_f: Dictionary = _EntityAccess.nested_dictionary_read(pf, "pending_attack")
+	if not pa_f.has("feint_windup_duration_mult"):
+		_fail(failures, "feint_windup_mult: pending_attack should stamp feint_windup_duration_mult")
+	var reveal_f: float = float(mdef.get("feint_target_reveal_at_progress", 0.0))
+	if reveal_f <= 0.0:
+		_fail(failures, "feint_windup_mult: oberhau_feint should define feint_target_reveal_at_progress > 0")
+	if not pa_f.has("feint_target_reveal_at_progress"):
+		_fail(failures, "feint_windup_mult: pending_attack should stamp feint_target_reveal_at_progress")
+	if not is_equal_approx(float(pa_f.get("feint_target_reveal_at_progress", -1.0)), reveal_f):
+		_fail(
+			failures,
+			"feint_windup_mult: feint_target_reveal_at_progress want %s got %s"
+			% [str(reveal_f), str(pa_f.get("feint_target_reveal_at_progress", ""))]
+		)
+	if not is_equal_approx(float(pa_f.get("feint_windup_duration_mult", 0.0)), mult_expect):
+		_fail(
+			failures,
+			"feint_windup_mult: pa feint_windup_duration_mult want %s got %s" % [str(mult_expect), str(pa_f.get("feint_windup_duration_mult", ""))]
+		)
+	if not is_equal_approx(float(pa_f.get("wind_up_duration", 0.0)), d_f):
+		_fail(
+			failures,
+			"feint_windup_mult: wind_up_duration should match state_duration got pa=%s state=%s"
+			% [str(pa_f.get("wind_up_duration", "")), str(d_f)]
+		)
+	var want_f: float = d_o * mult_expect
+	if absf(d_f - want_f) > 0.0001:
+		_fail(
+			failures,
+			"feint_windup_mult: feint state_duration want ~ d_oberhau*mult got d_f=%s d_o=%s mult=%s"
+			% [str(d_f), str(d_o), str(mult_expect)]
+		)
+	_free_manager_restore_global_rng(mgr_o)
+	_free_manager_restore_global_rng(mgr_f)
+
+
+## Tier 4.2: **`WeaponConstants`** **`thrust_feint`** **`feint_windup_duration_mult`** extends **`AttackWindUpStarter.start`** **`state_duration`** / **`pending_attack.wind_up_duration`** vs honest **`thrust`** at the same global seed; stamps **`pa["feint_windup_duration_mult"]`** and **`feint_target_reveal_at_progress`** when defined.
+static func _run_feint_windup_duration_mult_extends_state_duration_vs_thrust(failures: PackedStringArray) -> void:
+	var mdef: Dictionary = WeaponConstants.get_move("thrust_feint")
+	var mult_expect: float = float(mdef.get("feint_windup_duration_mult", 1.0))
+	if mult_expect <= 1.0:
+		_fail(failures, "feint_windup_mult_thrust: thrust_feint should define feint_windup_duration_mult > 1")
+	var mgr_t: Node = _MgrScript.new()
+	mgr_t.register(_new_entity("SWORD"), "player")
+	mgr_t.register(_new_entity("SWORD"), "enemy")
+	mgr_t.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var pt: Dictionary = mgr_t.combatants[0]
+	var et: Dictionary = mgr_t.combatants[1]
+	var pt_id: int = _EntityAccess.id_int(pt)
+	var et_id: int = _EntityAccess.id_int(et)
+	et["guard_zone"] = "chest"
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(mgr_t, pt_id, et_id, "thrust", {"target_part": "chest"})
+	var d_t: float = float(pt.get("state_duration", 0.0))
+	var mgr_tf: Node = _MgrScript.new()
+	mgr_tf.register(_new_entity("SWORD"), "player")
+	mgr_tf.register(_new_entity("SWORD"), "enemy")
+	mgr_tf.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var ptf: Dictionary = mgr_tf.combatants[0]
+	var etf: Dictionary = mgr_tf.combatants[1]
+	var ptf_id: int = _EntityAccess.id_int(ptf)
+	var etf_id: int = _EntityAccess.id_int(etf)
+	etf["guard_zone"] = "chest"
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(mgr_tf, ptf_id, etf_id, "thrust_feint", {"target_part": "chest", "feint_part": "head"})
+	var d_tf: float = float(ptf.get("state_duration", 0.0))
+	var pa_tf: Dictionary = _EntityAccess.nested_dictionary_read(ptf, "pending_attack")
+	if not pa_tf.has("feint_windup_duration_mult"):
+		_fail(failures, "feint_windup_mult_thrust: pending_attack should stamp feint_windup_duration_mult")
+	var reveal_tf: float = float(mdef.get("feint_target_reveal_at_progress", 0.0))
+	if reveal_tf <= 0.0:
+		_fail(failures, "feint_windup_mult_thrust: thrust_feint should define feint_target_reveal_at_progress > 0")
+	if not pa_tf.has("feint_target_reveal_at_progress"):
+		_fail(failures, "feint_windup_mult_thrust: pending_attack should stamp feint_target_reveal_at_progress")
+	if not is_equal_approx(float(pa_tf.get("feint_target_reveal_at_progress", -1.0)), reveal_tf):
+		_fail(
+			failures,
+			"feint_windup_mult_thrust: feint_target_reveal_at_progress want %s got %s"
+			% [str(reveal_tf), str(pa_tf.get("feint_target_reveal_at_progress", ""))]
+		)
+	if not is_equal_approx(float(pa_tf.get("feint_windup_duration_mult", 0.0)), mult_expect):
+		_fail(
+			failures,
+			"feint_windup_mult_thrust: pa feint_windup_duration_mult want %s got %s"
+			% [str(mult_expect), str(pa_tf.get("feint_windup_duration_mult", ""))]
+		)
+	if not is_equal_approx(float(pa_tf.get("wind_up_duration", 0.0)), d_tf):
+		_fail(
+			failures,
+			"feint_windup_mult_thrust: wind_up_duration should match state_duration got pa=%s state=%s"
+			% [str(pa_tf.get("wind_up_duration", "")), str(d_tf)]
+		)
+	var want_tf: float = d_t * mult_expect
+	if absf(d_tf - want_tf) > 0.0001:
+		_fail(
+			failures,
+			"feint_windup_mult_thrust: feint state_duration want ~ d_thrust*mult got d_tf=%s d_t=%s mult=%s"
+			% [str(d_tf), str(d_t), str(mult_expect)]
+		)
+	_free_manager_restore_global_rng(mgr_t)
+	_free_manager_restore_global_rng(mgr_tf)
+
+
+## Tier 4.2: **`AttackWindUpStarter.start`** with **`target_part`** only (no **`feint_part`**) stamps **`pending_attack`** and sets defender **`guard_zone`** to **`target_part`** (non-feint **`oberhau`**). Uses **`_FEINT_WINDUP_TARGET_ONLY_HARNESS_SEED`** for stable wind-up rolls.
+static func _run_feint_windup_target_only_sets_defender_guard_zone_to_target(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var e: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(e)
+	e["guard_zone"] = "chest"
+	seed(_FEINT_WINDUP_TARGET_ONLY_HARNESS_SEED)
+	_WindUpStarter.start(mgr, p_id, e_id, "oberhau", {"target_part": "left_leg"})
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(p, "pending_attack")
+	if str(pa.get("target_part", "")) != "left_leg":
+		_fail(
+			failures,
+			"feint_windup_target_only: pending target_part want left_leg got %s" % str(pa.get("target_part", ""))
+		)
+	if pa.has("feint_part") and str(pa.get("feint_part", "")) != "":
+		_fail(
+			failures,
+			"feint_windup_target_only: should not stamp non-empty feint_part got %s" % str(pa.get("feint_part", ""))
+		)
+	if pa.has("feint_target_reveal_at_progress"):
+		_fail(
+			failures,
+			"feint_windup_target_only: plain oberhau should not stamp feint_target_reveal_at_progress"
+		)
+	if str(e.get("guard_zone", "")) != "left_leg":
+		_fail(
+			failures,
+			"feint_windup_target_only: defender guard_zone telegraph want left_leg got %s" % str(e.get("guard_zone", ""))
+		)
+	if str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")) != "left_leg":
+		_fail(
+			failures,
+			"feint_windup_target_only: defender incoming telegraph want left_leg got %s"
+			% str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, ""))
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: same as **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target`**, for honest **`thrust`** (no **`feint_target_reveal_at_progress`** on **`pending_attack`**).
+static func _run_feint_windup_target_only_sets_defender_guard_zone_to_target_thrust(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var e: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(e)
+	e["guard_zone"] = "chest"
+	seed(_FEINT_WINDUP_TARGET_ONLY_HARNESS_SEED)
+	_WindUpStarter.start(mgr, p_id, e_id, "thrust", {"target_part": "left_leg"})
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(p, "pending_attack")
+	if str(pa.get("target_part", "")) != "left_leg":
+		_fail(
+			failures,
+			"feint_windup_target_only_thrust: pending target_part want left_leg got %s" % str(pa.get("target_part", ""))
+		)
+	if pa.has("feint_part") and str(pa.get("feint_part", "")) != "":
+		_fail(
+			failures,
+			"feint_windup_target_only_thrust: should not stamp non-empty feint_part got %s" % str(pa.get("feint_part", ""))
+		)
+	if pa.has("feint_target_reveal_at_progress"):
+		_fail(
+			failures,
+			"feint_windup_target_only_thrust: plain thrust should not stamp feint_target_reveal_at_progress"
+		)
+	if str(e.get("guard_zone", "")) != "left_leg":
+		_fail(
+			failures,
+			"feint_windup_target_only_thrust: defender guard_zone telegraph want left_leg got %s" % str(e.get("guard_zone", ""))
+		)
+	if str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")) != "left_leg":
+		_fail(
+			failures,
+			"feint_windup_target_only_thrust: defender incoming telegraph want left_leg got %s"
+			% str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, ""))
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: **`CombatAIActionPicker._add_attack_target_part`** for **`is_feint`** moves picks **`feint_part`** ≠ **`target_part`** when at least two targetable parts exist (bounded **`seed(0..4095)`** search on Godot **4.6.stable**). Restores **`_HARNESS_RESTORE_GLOBAL_SEED`** after the scan so **`run_all()`** order stays stable.
+static func _run_feint_move_ai_distinct_feint_and_target_parts(failures: PackedStringArray) -> void:
+	if not WeaponConstants.is_feint_move("oberhau_feint"):
+		_fail(failures, "feint_ai: WeaponConstants.is_feint_move(oberhau_feint) should be true")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var e: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(e)
+	mgr._recompute_zoc_and_distance()
+	var found: bool = false
+	for s in range(4096):
+		seed(s)
+		var choice: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+		_AIPicker._add_attack_target_part(choice, mgr, p_id)
+		var tp: String = str(choice.get("target_part", ""))
+		var fp: String = str(choice.get("feint_part", ""))
+		if not tp.is_empty() and not fp.is_empty() and fp != tp:
+			found = true
+			break
+	if not found:
+		_fail(
+			failures,
+			"feint_ai: no seed in 0..4095 produced distinct non-empty feint_part and target_part for oberhau_feint"
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: same as **`_run_feint_move_ai_distinct_feint_and_target_parts`**, for **`thrust_feint`** on **SWORD**.
+static func _run_feint_move_ai_distinct_feint_and_target_parts_thrust(failures: PackedStringArray) -> void:
+	if not WeaponConstants.is_feint_move("thrust_feint"):
+		_fail(failures, "feint_ai_thrust: WeaponConstants.is_feint_move(thrust_feint) should be true")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var e: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(e)
+	mgr._recompute_zoc_and_distance()
+	var found: bool = false
+	for s in range(4096):
+		seed(s)
+		var choice: Dictionary = {"move_id": "thrust_feint", "target_id": e_id}
+		_AIPicker._add_attack_target_part(choice, mgr, p_id)
+		var tp: String = str(choice.get("target_part", ""))
+		var fp: String = str(choice.get("feint_part", ""))
+		if not tp.is_empty() and not fp.is_empty() and fp != tp:
+			found = true
+			break
+	if not found:
+		_fail(
+			failures,
+			"feint_ai_thrust: no seed in 0..4095 produced distinct non-empty feint_part and target_part for thrust_feint"
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: **`CombatAIActionPicker._get_action_weight`** — **`oberhau_feint`** vs same-target **`oberhau`** scales by **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** (SWORD 1v1 fixture).
+static func _run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	mgr._recompute_zoc_and_distance()
+	## Pin defender readiness to **0** (WAITING **`guard`**); isolates base **`AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** vs readiness lerp harness.
+	mgr.combatants[1]["guard"] = 0.0
+	mgr.combatants[1]["state"] = CombatConstants.STATE_WAITING
+	var enemy: Dictionary = mgr.combatants[1]
+	enemy["off_balance_until"] = -1.0
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var read_m: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "oberhau_feint")
+	var settled_m: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
+	var w_plain: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want: float = (
+		w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m * settled_m
+	)
+	if absf(w_feint - want) > 0.0001 * maxf(1.0, absf(w_plain)):
+		_fail(
+			failures,
+			"feint_listing_w: want feint weight %.6f (plain*mult) got %.6f plain=%.6f mult=%s"
+			% [want, w_feint, w_plain, str(CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT)]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: same as **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau`**, for **`thrust_feint`** vs **`thrust`**.
+static func _run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	mgr._recompute_zoc_and_distance()
+	var enemy: Dictionary = mgr.combatants[1]
+	enemy["guard"] = 0.0
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["off_balance_until"] = -1.0
+	var a_plain: Dictionary = {"move_id": "thrust", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "thrust_feint", "target_id": e_id}
+	var read_m: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "thrust_feint")
+	var settled_m: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
+	var w_plain: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want: float = (
+		w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m * settled_m
+	)
+	if absf(w_feint - want) > 0.0001 * maxf(1.0, absf(w_plain)):
+		_fail(
+			failures,
+			"feint_listing_w_thrust: want feint weight %.6f (plain*mult) got %.6f plain=%.6f mult=%s"
+			% [want, w_feint, w_plain, str(CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT)]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: feint listing mult × **`lerpf(1, AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, passive_readiness)`** vs low defender **`guard`** (SWORD 1v1).
+static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var enemy: Dictionary = mgr.combatants[1]
+	mgr._recompute_zoc_and_distance()
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["guard"] = 0.0
+	enemy["off_balance_until"] = -1.0
+	var w_plain_lo: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_lo: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var read_m_lo: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "oberhau_feint")
+	var settled_m_lo: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
+	var want_lo: float = (
+		w_plain_lo * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m_lo * settled_m_lo
+	)
+	if absf(w_feint_lo - want_lo) > 0.0001 * maxf(1.0, absf(w_plain_lo)):
+		_fail(
+			failures,
+			"feint_read_list lo: want feint weight %.6f (plain*base) got %.6f plain=%.6f"
+			% [want_lo, w_feint_lo, w_plain_lo]
+		)
+	enemy["guard"] = 1.0
+	var w_plain_hi: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_hi: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var read_m_hi: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "oberhau_feint")
+	var settled_m_hi: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
+	var stance_m_hi: float = CombatConstants.get_stance_modifier(
+		_EntityAccess.stance_str(mgr.combatants[0]), "ai_feint_listing"
+	)
+	var want_hi: float = (
+		w_plain_hi
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* read_m_hi
+		* settled_m_hi
+		* stance_m_hi
+	)
+	if absf(w_feint_hi - want_hi) > 0.0001 * maxf(1.0, absf(w_plain_hi)):
+		_fail(
+			failures,
+			"feint_read_list hi: want feint weight %.6f got %.6f plain=%.6f read_m=%.6f stance_m=%.6f"
+			% [want_hi, w_feint_hi, w_plain_hi, read_m_hi, stance_m_hi]
+		)
+	if not is_equal_approx(w_plain_lo, w_plain_hi):
+		_fail(
+			failures,
+			"feint_read_list: plain oberhau weight should not depend on defender guard lo=%.6f hi=%.6f"
+			% [w_plain_lo, w_plain_hi]
+		)
+	if w_feint_hi <= w_feint_lo + 0.0001:
+		_fail(
+			failures,
+			"feint_read_list: want feint_hi > feint_lo got lo=%.6f hi=%.6f" % [w_feint_lo, w_feint_hi]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: same as **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard`**, for **`thrust`** / **`thrust_feint`** (stab **`contact_type`** on readiness lerp).
+static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard_thrust(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var enemy: Dictionary = mgr.combatants[1]
+	mgr._recompute_zoc_and_distance()
+	var a_plain: Dictionary = {"move_id": "thrust", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "thrust_feint", "target_id": e_id}
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["guard"] = 0.0
+	enemy["off_balance_until"] = -1.0
+	var w_plain_lo: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_lo: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var read_m_lo_t: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "thrust_feint")
+	var settled_m_lo_t: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
+	var want_lo: float = (
+		w_plain_lo
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* read_m_lo_t
+		* settled_m_lo_t
+	)
+	if absf(w_feint_lo - want_lo) > 0.0001 * maxf(1.0, absf(w_plain_lo)):
+		_fail(
+			failures,
+			"feint_read_list_thrust lo: want feint weight %.6f (plain*base) got %.6f plain=%.6f"
+			% [want_lo, w_feint_lo, w_plain_lo]
+		)
+	enemy["guard"] = 1.0
+	var w_plain_hi: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_hi: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var read_m_hi_t: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "thrust_feint")
+	var settled_m_hi_t: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
+	var stance_m_hi_t: float = CombatConstants.get_stance_modifier(
+		_EntityAccess.stance_str(mgr.combatants[0]), "ai_feint_listing"
+	)
+	var want_hi: float = (
+		w_plain_hi
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* read_m_hi_t
+		* settled_m_hi_t
+		* stance_m_hi_t
+	)
+	if absf(w_feint_hi - want_hi) > 0.0001 * maxf(1.0, absf(w_plain_hi)):
+		_fail(
+			failures,
+			"feint_read_list_thrust hi: want feint weight %.6f got %.6f plain=%.6f read_m=%.6f stance_m=%.6f"
+			% [want_hi, w_feint_hi, w_plain_hi, read_m_hi_t, stance_m_hi_t]
+		)
+	if not is_equal_approx(w_plain_lo, w_plain_hi):
+		_fail(
+			failures,
+			"feint_read_list_thrust: plain thrust weight should not depend on defender guard lo=%.6f hi=%.6f"
+			% [w_plain_lo, w_plain_hi]
+		)
+	if w_feint_hi <= w_feint_lo + 0.0001:
+		_fail(
+			failures,
+			"feint_read_list_thrust: want feint_hi > feint_lo got lo=%.6f hi=%.6f" % [w_feint_lo, w_feint_hi]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: feint listing — LONG **`distance_to[attacker]`** on defender damps readiness lerp vs MID (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG`**).
+static func _run_feint_move_listing_spacing_long_dampens_vs_mid(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(enemy)
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["guard"] = 0.55
+	mgr._recompute_zoc_and_distance()
+	var mdef: Dictionary = WeaponConstants.get_move("oberhau_feint")
+	var ct: String = str(mdef.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
+	var pr_def: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(enemy), 0.0, 1.0)
+	pr_def = clampf(pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct), 0.0, 1.0)
+	pr_def = clampf(
+		pr_def
+		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
+			_EntityAccess.stamina_float(enemy) / CombatConstants.STAMINA_MAX
+		),
+		0.0,
+		1.0
+	)
+	var pr_long: float = clampf(
+		pr_def * CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG, 0.0, 1.0
+	)
+	var read_m: float = lerpf(
+		1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_def
+	)
+	var read_l: float = lerpf(
+		1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_long
+	)
+	var want_ratio: float = read_l / read_m
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_MID
+	var w_plain_m: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_m: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_LONG
+	var w_plain_l: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_l: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_plain_m - w_plain_l) > 0.0002 * maxf(1.0, absf(w_plain_m)):
+		_fail(
+			failures,
+			"feint_list_sp_long: plain oberhau should ignore defender distance band m=%.6f l=%.6f"
+			% [w_plain_m, w_plain_l]
+		)
+	elif w_feint_l >= w_feint_m - 1e-9:
+		_fail(
+			failures,
+			"feint_list_sp_long: want feint_LONG < feint_MID got m=%.6f l=%.6f" % [w_feint_m, w_feint_l]
+		)
+	else:
+		var got_ratio: float = (w_feint_l / w_plain_l) / (w_feint_m / w_plain_m)
+		if absf(got_ratio - want_ratio) > 0.0005 * maxf(1.0, absf(want_ratio)):
+			_fail(
+				failures,
+				"feint_list_sp_long: ratio want %.6f got %.6f (feint m=%.6f l=%.6f pr_def=%.6f)"
+				% [want_ratio, got_ratio, w_feint_m, w_feint_l, pr_def]
+			)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: feint listing — CLOSE **`distance_to[attacker]`** on defender boosts readiness lerp vs MID (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE`**).
+static func _run_feint_move_listing_spacing_close_boosts_vs_mid(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(enemy)
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["guard"] = 0.55
+	mgr._recompute_zoc_and_distance()
+	var mdef: Dictionary = WeaponConstants.get_move("oberhau_feint")
+	var ct: String = str(mdef.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
+	var pr_def: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(enemy), 0.0, 1.0)
+	pr_def = clampf(pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct), 0.0, 1.0)
+	pr_def = clampf(
+		pr_def
+		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
+			_EntityAccess.stamina_float(enemy) / CombatConstants.STAMINA_MAX
+		),
+		0.0,
+		1.0
+	)
+	var pr_close: float = clampf(
+		pr_def * CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE, 0.0, 1.0
+	)
+	var read_m: float = lerpf(
+		1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_def
+	)
+	var read_c: float = lerpf(
+		1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_close
+	)
+	var want_ratio: float = read_c / read_m
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_MID
+	var w_plain_m: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_m: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_CLOSE
+	var w_plain_c: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_c: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_plain_m - w_plain_c) > 0.0002 * maxf(1.0, absf(w_plain_m)):
+		_fail(
+			failures,
+			"feint_list_sp_close: plain oberhau should ignore defender distance band m=%.6f c=%.6f"
+			% [w_plain_m, w_plain_c]
+		)
+	elif w_feint_c <= w_feint_m + 1e-9:
+		_fail(
+			failures,
+			"feint_list_sp_close: want feint_CLOSE > feint_MID got m=%.6f c=%.6f" % [w_feint_m, w_feint_c]
+		)
+	else:
+		var got_ratio: float = (w_feint_c / w_plain_c) / (w_feint_m / w_plain_m)
+		if absf(got_ratio - want_ratio) > 0.0005 * maxf(1.0, absf(want_ratio)):
+			_fail(
+				failures,
+				"feint_list_sp_close: ratio want %.6f got %.6f (feint m=%.6f c=%.6f pr_def=%.6f)"
+				% [want_ratio, got_ratio, w_feint_m, w_feint_c, pr_def]
+			)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: feint listing — LONG damps vs MID when defender **`STATE_RECOVERING`** (**`READINESS_BY_CAUSE`**, not **`guard`**); same **`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`** as WAITING.
+static func _run_feint_move_listing_spacing_long_dampens_vs_mid_when_defender_recovering(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(enemy)
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	enemy["state"] = CombatConstants.STATE_RECOVERING
+	enemy["recovery_cause"] = "attack_hit"
+	enemy["state_duration"] = 2.0
+	enemy["state_timer"] = 1.0
+	mgr._recompute_zoc_and_distance()
+	var mdef: Dictionary = WeaponConstants.get_move("oberhau_feint")
+	var ct: String = str(mdef.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
+	var pr_def: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(enemy), 0.0, 1.0)
+	pr_def = clampf(pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct), 0.0, 1.0)
+	pr_def = clampf(
+		pr_def
+		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
+			_EntityAccess.stamina_float(enemy) / CombatConstants.STAMINA_MAX
+		),
+		0.0,
+		1.0
+	)
+	var pr_long: float = clampf(
+		pr_def * CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG, 0.0, 1.0
+	)
+	var read_m: float = lerpf(
+		1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_def
+	)
+	var read_l: float = lerpf(
+		1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_long
+	)
+	var want_ratio: float = read_l / read_m
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_MID
+	var w_plain_m: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_m: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_LONG
+	var w_plain_l: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_l: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_plain_m - w_plain_l) > 0.0002 * maxf(1.0, absf(w_plain_m)):
+		_fail(
+			failures,
+			"feint_list_sp_long_recov: plain oberhau should ignore defender distance band m=%.6f l=%.6f"
+			% [w_plain_m, w_plain_l]
+		)
+	elif w_feint_l >= w_feint_m - 1e-9:
+		_fail(
+			failures,
+			"feint_list_sp_long_recov: want feint_LONG < feint_MID got m=%.6f l=%.6f" % [w_feint_m, w_feint_l]
+		)
+	else:
+		var got_ratio: float = (w_feint_l / w_plain_l) / (w_feint_m / w_plain_m)
+		if absf(got_ratio - want_ratio) > 0.0005 * maxf(1.0, absf(want_ratio)):
+			_fail(
+				failures,
+				"feint_list_sp_long_recov: ratio want %.6f got %.6f (feint m=%.6f l=%.6f pr_def=%.6f)"
+				% [want_ratio, got_ratio, w_feint_m, w_feint_l, pr_def]
+			)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: feint listing — CLOSE boosts vs MID when defender **`STATE_RECOVERING`**; same spacing mults as WAITING harness.
+static func _run_feint_move_listing_spacing_close_boosts_vs_mid_when_defender_recovering(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(enemy)
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	enemy["state"] = CombatConstants.STATE_RECOVERING
+	enemy["recovery_cause"] = "attack_hit"
+	enemy["state_duration"] = 2.0
+	enemy["state_timer"] = 1.0
+	mgr._recompute_zoc_and_distance()
+	var mdef: Dictionary = WeaponConstants.get_move("oberhau_feint")
+	var ct: String = str(mdef.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
+	var pr_def: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(enemy), 0.0, 1.0)
+	pr_def = clampf(pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct), 0.0, 1.0)
+	pr_def = clampf(
+		pr_def
+		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
+			_EntityAccess.stamina_float(enemy) / CombatConstants.STAMINA_MAX
+		),
+		0.0,
+		1.0
+	)
+	var pr_close: float = clampf(
+		pr_def * CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE, 0.0, 1.0
+	)
+	var read_m: float = lerpf(
+		1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_def
+	)
+	var read_c: float = lerpf(
+		1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_close
+	)
+	var want_ratio: float = read_c / read_m
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_MID
+	var w_plain_m: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_m: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_CLOSE
+	var w_plain_c: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_c: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_plain_m - w_plain_c) > 0.0002 * maxf(1.0, absf(w_plain_m)):
+		_fail(
+			failures,
+			"feint_list_sp_close_recov: plain oberhau should ignore defender distance band m=%.6f c=%.6f"
+			% [w_plain_m, w_plain_c]
+		)
+	elif w_feint_c <= w_feint_m + 1e-9:
+		_fail(
+			failures,
+			"feint_list_sp_close_recov: want feint_CLOSE > feint_MID got m=%.6f c=%.6f" % [w_feint_m, w_feint_c]
+		)
+	else:
+		var got_ratio: float = (w_feint_c / w_plain_c) / (w_feint_m / w_plain_m)
+		if absf(got_ratio - want_ratio) > 0.0005 * maxf(1.0, absf(want_ratio)):
+			_fail(
+				failures,
+				"feint_list_sp_close_recov: ratio want %.6f got %.6f (feint m=%.6f c=%.6f pr_def=%.6f)"
+				% [want_ratio, got_ratio, w_feint_m, w_feint_c, pr_def]
+			)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: defender **`STATE_RECOVERING`** — feint listing uses **`PassiveParryContext.get_passive_parry_readiness`** × **`READINESS_BY_CAUSE`** (not **`guard`**).
+static func _run_feint_move_listing_readiness_recovery_curve_when_defender_recovering(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(enemy)
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	enemy["state"] = CombatConstants.STATE_RECOVERING
+	enemy["recovery_cause"] = "attack_hit"
+	enemy["state_duration"] = 2.0
+	enemy["state_timer"] = 1.0
+	mgr._recompute_zoc_and_distance()
+	var pr: float = _PassiveParryCtx.get_passive_parry_readiness(enemy)
+	var curve: Array = CombatConstants.READINESS_BY_CAUSE["attack_hit"]
+	var want_pr: float = lerpf(curve[0], curve[1], 0.5)
+	if not is_equal_approx(pr, want_pr):
+		_fail(
+			failures,
+			"feint_list_recov: passive readiness want %.6f got %.6f" % [want_pr, pr]
+		)
+	var target_m: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+	var stance_m: float = CombatConstants.get_stance_modifier(
+		CombatConstants.STANCE_BALANCED, "ai_feint_listing"
+	)
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var w_plain: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want_feint: float = (
+		w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * target_m * stance_m
+	)
+	if absf(w_feint - want_feint) > 0.0001 * maxf(1.0, absf(w_plain)):
+		_fail(
+			failures,
+			"feint_list_recov: want feint %.6f got %.6f plain=%.6f target_m=%.6f"
+			% [want_feint, w_feint, w_plain, target_m]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: low attacker **`stamina`** dampens feint listing only (**`AI_FEINT_LISTING_STAMINA_*`**); defender **`guard`** **0**, **`balanced`**.
+static func _run_feint_move_listing_stamina_low_dampens_feint_weight(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var enemy: Dictionary = mgr.combatants[1]
+	var e_id: int = _EntityAccess.id_int(enemy)
+	enemy["guard"] = 0.0
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["off_balance_until"] = -1.0
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	player["stamina"] = CombatConstants.STAMINA_MAX * 0.1
+	mgr._recompute_zoc_and_distance()
+	var stamina_ratio: float = clampf(
+		_EntityAccess.stamina_float(player) / CombatConstants.STAMINA_MAX, 0.0, 1.0
+	)
+	var st_stamina: float = lerpf(
+		CombatConstants.AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO,
+		1.0,
+		stamina_ratio / CombatConstants.AI_FEINT_LISTING_STAMINA_GATE
+	)
+	var target_m: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var w_plain: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want: float = (
+		w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * target_m * st_stamina
+	)
+	if absf(w_feint - want) > 0.0001 * maxf(1.0, absf(w_plain)):
+		_fail(
+			failures,
+			"feint_list_stam: want feint %.6f got %.6f plain=%.6f st_stamina=%.6f"
+			% [want, w_feint, w_plain, st_stamina]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks × **`hold_lane`** doctrine (**`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`**).
+static func _run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var enemy: Dictionary = mgr.combatants[1]
+	var e_id: int = _EntityAccess.id_int(enemy)
+	enemy["guard"] = 0.0
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["off_balance_until"] = -1.0
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	player["stamina"] = CombatConstants.STAMINA_MAX * 0.1
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_HOLD_LANE)
+	mgr._recompute_zoc_and_distance()
+	var stamina_ratio: float = clampf(
+		_EntityAccess.stamina_float(player) / CombatConstants.STAMINA_MAX, 0.0, 1.0
+	)
+	var st_stamina: float = lerpf(
+		CombatConstants.AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO,
+		1.0,
+		stamina_ratio / CombatConstants.AI_FEINT_LISTING_STAMINA_GATE
+	)
+	var target_m: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var w_plain: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want: float = (
+		w_plain
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* target_m
+		* st_stamina
+		* CombatConstants.AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT
+	)
+	if absf(w_feint - want) > 0.0001 * maxf(1.0, absf(w_plain)):
+		_fail(
+			failures,
+			"feint_list_stam_hold: want feint %.6f got %.6f plain=%.6f st_stamina=%.6f hold=%s"
+			% [
+				want,
+				w_feint,
+				w_plain,
+				st_stamina,
+				str(CombatConstants.AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT),
+			]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks × **`probing`** (**`AI_FEINT_LISTING_DOCTRINE_PROBING_MULT`**).
+static func _run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var enemy: Dictionary = mgr.combatants[1]
+	var e_id: int = _EntityAccess.id_int(enemy)
+	enemy["guard"] = 0.0
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["off_balance_until"] = -1.0
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	player["stamina"] = CombatConstants.STAMINA_MAX * 0.1
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PROBING)
+	mgr._recompute_zoc_and_distance()
+	var stamina_ratio: float = clampf(
+		_EntityAccess.stamina_float(player) / CombatConstants.STAMINA_MAX, 0.0, 1.0
+	)
+	var st_stamina: float = lerpf(
+		CombatConstants.AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO,
+		1.0,
+		stamina_ratio / CombatConstants.AI_FEINT_LISTING_STAMINA_GATE
+	)
+	var target_m: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var w_plain: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want: float = (
+		w_plain
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* target_m
+		* st_stamina
+		* CombatConstants.AI_FEINT_LISTING_DOCTRINE_PROBING_MULT
+	)
+	if absf(w_feint - want) > 0.0001 * maxf(1.0, absf(w_plain)):
+		_fail(
+			failures,
+			"feint_list_stam_probe: want feint %.6f got %.6f plain=%.6f st_stamina=%.6f probe=%s"
+			% [
+				want,
+				w_feint,
+				w_plain,
+				st_stamina,
+				str(CombatConstants.AI_FEINT_LISTING_DOCTRINE_PROBING_MULT),
+			]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks × **`pinch_center`** (**`AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT`**).
+static func _run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var enemy: Dictionary = mgr.combatants[1]
+	var e_id: int = _EntityAccess.id_int(enemy)
+	enemy["guard"] = 0.0
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["off_balance_until"] = -1.0
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	player["stamina"] = CombatConstants.STAMINA_MAX * 0.1
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
+	mgr._recompute_zoc_and_distance()
+	var stamina_ratio: float = clampf(
+		_EntityAccess.stamina_float(player) / CombatConstants.STAMINA_MAX, 0.0, 1.0
+	)
+	var st_stamina: float = lerpf(
+		CombatConstants.AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO,
+		1.0,
+		stamina_ratio / CombatConstants.AI_FEINT_LISTING_STAMINA_GATE
+	)
+	var target_m: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var w_plain: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want: float = (
+		w_plain
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* target_m
+		* st_stamina
+		* CombatConstants.AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT
+	)
+	if absf(w_feint - want) > 0.0001 * maxf(1.0, absf(w_plain)):
+		_fail(
+			failures,
+			"feint_list_stam_pinch: want feint %.6f got %.6f plain=%.6f st_stamina=%.6f pinch=%s"
+			% [
+				want,
+				w_feint,
+				w_plain,
+				st_stamina,
+				str(CombatConstants.AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT),
+			]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: short-horizon **`parry_deflect`** memory on **`attacker`** boosts feint-move listing vs that defender (**`(qo)`**).
+static func _run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	mgr.combatants[1]["guard"] = 0.0
+	mgr.combatants[1]["state"] = CombatConstants.STATE_WAITING
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	mgr._recompute_zoc_and_distance()
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var w_before: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	_AIPicker.record_opp_parry_deflect_for_feint_listing(mgr, player, e_id)
+	var w_after: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want_boost: float = (
+		w_before * CombatConstants.AI_FEINT_LISTING_OPP_PARRY_DEFLECT_PRESSURE_TOP_MULT
+	)
+	if absf(w_after - want_boost) > 0.0001 * maxf(1.0, absf(w_before)):
+		_fail(
+			failures,
+			"feint_list_parry_recent: want feint %.6f got %.6f before=%.6f top=%s"
+			% [
+				want_boost,
+				w_after,
+				w_before,
+				str(CombatConstants.AI_FEINT_LISTING_OPP_PARRY_DEFLECT_PRESSURE_TOP_MULT),
+			]
+		)
+	var tick_now: int = mgr.get_combat_tick_index()
+	player[CombatConstants.COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK] = {
+		str(e_id): tick_now - maxi(100, CombatConstants.AI_FEINT_LISTING_OPP_PARRY_DEFLECT_RECENCY_TICKS + 2)
+	}
+	var w_stale: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_stale - w_before) > 0.0001 * maxf(1.0, absf(w_before)):
+		_fail(
+			failures,
+			"feint_list_parry_stale: want feint %.6f got %.6f before=%.6f"
+			% [w_before, w_stale, w_before]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: defender **`off_balance_until`** ( **`PassiveParryContext.is_off_balance`** ) boosts feint-move listing vs that defender (**`(qp)`**).
+static func _run_feint_move_listing_defender_off_balance_boosts_feint_weight(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var enemy: Dictionary = mgr.combatants[1]
+	var e_id: int = _EntityAccess.id_int(enemy)
+	enemy["guard"] = 0.0
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["off_balance_until"] = -1.0
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	mgr._recompute_zoc_and_distance()
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var w_balanced: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	enemy["off_balance_until"] = _CombatTiming.now_seconds() + 10.0
+	var w_off: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want_off: float = (
+		w_balanced
+		* CombatConstants.AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT
+		/ CombatConstants.AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT
+	)
+	if absf(w_off - want_off) > 0.0001 * maxf(1.0, absf(w_balanced)):
+		_fail(
+			failures,
+			"feint_list_off_balance: want feint %.6f got %.6f settled_base=%.6f"
+			% [want_off, w_off, w_balanced]
+		)
+	enemy["off_balance_until"] = _CombatTiming.now_seconds() - 1.0
+	var w_cleared: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_cleared - w_balanced) > 0.0001 * maxf(1.0, absf(w_balanced)):
+		_fail(
+			failures,
+			"feint_list_off_balance_clear: want feint %.6f got %.6f base=%.6f"
+			% [w_balanced, w_cleared, w_balanced]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: settled **`STATE_WAITING`** (not off-balance) dampens feint listing (**`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**); off-balance uses **`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** instead.
+static func _run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var enemy: Dictionary = mgr.combatants[1]
+	var e_id: int = _EntityAccess.id_int(enemy)
+	enemy["guard"] = 0.0
+	enemy["state"] = CombatConstants.STATE_WAITING
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	mgr._recompute_zoc_and_distance()
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	enemy["off_balance_until"] = -1.0
+	var w_plain_settled: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_settled: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	enemy["off_balance_until"] = _CombatTiming.now_seconds() + 10.0
+	var w_plain_off: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_off: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_plain_settled - w_plain_off) > 0.0002 * maxf(1.0, absf(w_plain_settled)):
+		_fail(
+			failures,
+			"feint_list_settled_fw: plain oberhau should ignore footwork m=%.6f off=%.6f"
+			% [w_plain_settled, w_plain_off]
+		)
+	elif w_feint_settled >= w_feint_off - 1e-9:
+		_fail(
+			failures,
+			"feint_list_settled_fw: want feint_settled < feint_off got settled=%.6f off=%.6f"
+			% [w_feint_settled, w_feint_off]
+		)
+	else:
+		var got_ratio: float = (w_feint_settled / w_plain_settled) / (w_feint_off / w_plain_off)
+		var want_ratio: float = (
+			CombatConstants.AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT
+			/ CombatConstants.AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT
+		)
+		if absf(got_ratio - want_ratio) > 0.0005 * maxf(1.0, absf(want_ratio)):
+			_fail(
+				failures,
+				"feint_list_settled_fw: ratio want %.6f got %.6f (settled=%.6f off=%.6f)"
+				% [want_ratio, got_ratio, w_feint_settled, w_feint_off]
+			)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: **`STATE_RECOVERING`** (not off-balance) dampens feint listing (**`AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT`**) vs settled **`STATE_WAITING`** at same **`guard`** (readiness lerp differs; ratio isolates footwork mults).
+static func _run_feint_move_listing_recovering_footwork_dampens_vs_settled_waiting(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var enemy: Dictionary = mgr.combatants[1]
+	var e_id: int = _EntityAccess.id_int(enemy)
+	enemy["guard"] = 0.55
+	enemy["off_balance_until"] = -1.0
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	mgr._recompute_zoc_and_distance()
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	enemy["state"] = CombatConstants.STATE_WAITING
+	var w_plain_wait: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_wait: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	enemy["state"] = CombatConstants.STATE_RECOVERING
+	enemy["recovery_cause"] = "attack_hit"
+	enemy["state_duration"] = 2.0
+	enemy["state_timer"] = 1.0
+	var w_plain_rec: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_rec: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_plain_wait - w_plain_rec) > 0.0002 * maxf(1.0, absf(w_plain_wait)):
+		_fail(
+			failures,
+			"feint_list_recov_fw: plain oberhau should match wait=%.6f rec=%.6f"
+			% [w_plain_wait, w_plain_rec]
+		)
+		_free_manager_restore_global_rng(mgr)
+		return
+	enemy["state"] = CombatConstants.STATE_WAITING
+	var read_wait: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "oberhau_feint")
+	enemy["state"] = CombatConstants.STATE_RECOVERING
+	enemy["recovery_cause"] = "attack_hit"
+	enemy["state_timer"] = 1.0
+	var read_rec: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "oberhau_feint")
+	var got_ratio: float = (w_feint_rec / w_plain_rec) / (w_feint_wait / w_plain_wait)
+	var want_ratio: float = (
+		(read_rec / read_wait)
+		* (
+			CombatConstants.AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT
+			/ CombatConstants.AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT
+		)
+	)
+	if absf(got_ratio - want_ratio) > 0.0005 * maxf(1.0, absf(want_ratio)):
+		_fail(
+			failures,
+			"feint_list_recov_fw: ratio want %.6f got %.6f (wait=%.6f rec=%.6f read_w=%.6f read_r=%.6f)"
+			% [want_ratio, got_ratio, w_feint_wait, w_feint_rec, read_wait, read_rec]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: **`recovery_cause`** selects **`ai_feint_listing_defender_recovering_footwork_mult_for_cause`** (inverse of dodge **`defense_footwork_recovering_dodge_mult_for_cause`**); **`attack_miss`** damps listing more than **`attack_hit`** at shared **`guard`** / timer.
+static func _run_feint_move_listing_recovery_cause_orders_recovering_footwork_mult(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var enemy: Dictionary = mgr.combatants[1]
+	var e_id: int = _EntityAccess.id_int(enemy)
+	enemy["guard"] = 0.55
+	enemy["off_balance_until"] = -1.0
+	enemy["state"] = CombatConstants.STATE_RECOVERING
+	enemy["state_duration"] = 1.0
+	enemy["state_timer"] = 0.25
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	mgr._recompute_zoc_and_distance()
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	enemy["recovery_cause"] = "attack_hit"
+	var w_plain_hit: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_hit: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	enemy["recovery_cause"] = "attack_miss"
+	var w_plain_miss: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_miss: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_plain_hit - w_plain_miss) > 0.0002 * maxf(1.0, absf(w_plain_hit)):
+		_fail(
+			failures,
+			"feint_list_cause_fw: plain should match hit=%.6f miss=%.6f" % [w_plain_hit, w_plain_miss]
+		)
+		_free_manager_restore_global_rng(mgr)
+		return
+	enemy["recovery_cause"] = "attack_hit"
+	var read_hit: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "oberhau_feint")
+	enemy["recovery_cause"] = "attack_miss"
+	var read_miss: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "oberhau_feint")
+	var foot_hit: float = CombatConstants.ai_feint_listing_defender_recovering_footwork_mult_for_cause("attack_hit")
+	var foot_miss: float = CombatConstants.ai_feint_listing_defender_recovering_footwork_mult_for_cause("attack_miss")
+	var got_ratio: float = (w_feint_miss / w_plain_miss) / (w_feint_hit / w_plain_hit)
+	var want_ratio: float = (read_miss / read_hit) * (foot_miss / foot_hit)
+	if absf(got_ratio - want_ratio) > 0.0005 * maxf(1.0, absf(want_ratio)):
+		_fail(
+			failures,
+			"feint_list_cause_fw: ratio want %.6f got %.6f foot_hit=%.6f foot_miss=%.6f"
+			% [want_ratio, got_ratio, foot_hit, foot_miss]
+		)
+	elif foot_miss >= foot_hit - 1e-9:
+		_fail(
+			failures,
+			"feint_list_cause_fw: want foot_miss < foot_hit got hit=%.6f miss=%.6f"
+			% [foot_hit, foot_miss]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: on **`STATE_RECOVERING`**, feint-listing **`read_m`** (spacing in **`pr_def`**) × **`ai_feint_listing_defender_recovering_footwork_mult_for_cause`** stack orthogonally — **`attack_hit`** at MID vs **`attack_miss`** at LONG.
+static func _run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var enemy: Dictionary = mgr.combatants[1]
+	var e_id: int = _EntityAccess.id_int(enemy)
+	enemy["guard"] = 0.55
+	enemy["off_balance_until"] = -1.0
+	enemy["state"] = CombatConstants.STATE_RECOVERING
+	enemy["state_duration"] = 1.0
+	enemy["state_timer"] = 0.25
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	mgr._recompute_zoc_and_distance()
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	enemy["recovery_cause"] = "attack_hit"
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_MID
+	var w_plain_hit_mid: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_hit_mid: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	enemy["recovery_cause"] = "attack_miss"
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_LONG
+	var w_plain_miss_long: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_miss_long: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_plain_hit_mid - w_plain_miss_long) > 0.0002 * maxf(1.0, absf(w_plain_hit_mid)):
+		_fail(
+			failures,
+			"feint_list_recov_stack: plain should match hit_mid=%.6f miss_long=%.6f"
+			% [w_plain_hit_mid, w_plain_miss_long]
+		)
+		_free_manager_restore_global_rng(mgr)
+		return
+	enemy["recovery_cause"] = "attack_hit"
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_MID
+	var target_hit_mid: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+	enemy["recovery_cause"] = "attack_miss"
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_LONG
+	var target_miss_long: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+	var got_ratio: float = (w_feint_miss_long / w_plain_miss_long) / (w_feint_hit_mid / w_plain_hit_mid)
+	var want_ratio: float = target_miss_long / target_hit_mid
+	if absf(got_ratio - want_ratio) > 0.0005 * maxf(1.0, absf(want_ratio)):
+		_fail(
+			failures,
+			"feint_list_recov_stack: ratio want %.6f got %.6f t_hit_mid=%.6f t_miss_long=%.6f"
+			% [want_ratio, got_ratio, target_hit_mid, target_miss_long]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Harness helper: set incoming attacker wind-up progress for **`COUNTER_TEMPO_MIN_INCOMING_WINDUP_PROGRESS`** tests.
+static func _harness_counter_tempo_set_incoming_progress(
+	mgr: Node, attacker_id: int, fraction: float
+) -> void:
+	var atk: Dictionary = mgr._get_by_id(attacker_id)
+	if atk == null:
+		return
+	var dur: float = float(atk.get("state_duration", 0.0))
+	if dur <= 0.0:
+		atk["state_duration"] = 1.0
+		dur = 1.0
+	atk["state_timer"] = clampf(fraction, 0.0, 1.0) * dur
+
+
+## Tier 4.2 counter-tempo pilot: incoming wind-up opens defender **`COMBATANT_KEY_COUNTER_WINDOW_UNTIL`**.
+static func _run_counter_tempo_window_opens_on_incoming_wind_up(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	mgr.combat_clock = 1.0
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau", {"target_part": "chest"})
+	var until: float = float(def.get(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL, -1.0))
+	var want_until: float = 1.0 + float(atk.get("state_duration", 0.0)) * CombatConstants.COUNTER_TEMPO_WINDOW_FRACTION
+	if absf(until - want_until) > 0.0002:
+		_fail(
+			failures,
+			"counter_tempo_window: until want %.4f got %.4f dur=%.4f"
+			% [want_until, until, float(atk.get("state_duration", 0.0))]
+		)
+	if _CounterTempo.incoming_attacker_id(mgr, def_id) != atk_id:
+		_fail(failures, "counter_tempo_window: incoming attacker id mismatch")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 counter-tempo: **`AvailableActionsBuilder`** lists melee-only **`counter_tempo`** actions when window open.
+static func _run_counter_tempo_lists_melee_actions_when_window_open(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	def["gauge"] = 55.0
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.55)
+	mgr._schedule_event({
+		"type": CombatConstants.EVENT_MELEE_ATTACK,
+		"combatant_id": atk_id,
+		"resolve_at": mgr.combat_clock + float(atk.get("state_duration", 0.0)),
+		"data": {}
+	})
+	var actions: Array = _ActionsBuilder.build(mgr, def_id)
+	if actions.is_empty():
+		_fail(failures, "counter_tempo_list: expected counter actions")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var saw_counter: bool = false
+	var saw_close: bool = false
+	for raw in actions:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		if bool(a.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
+			saw_counter = true
+		if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+			saw_close = true
+	if not saw_counter:
+		_fail(failures, "counter_tempo_list: no action flagged counter_tempo")
+	if saw_close:
+		_fail(failures, "counter_tempo_list: close should be filtered out")
+	_free_manager_restore_global_rng(mgr)
+
+
+static func _run_counter_tempo_spend_gauge_subtracts_cost(failures: PackedStringArray) -> void:
+	var c: Dictionary = {"gauge": 60.0}
+	_CounterTempo.spend_gauge(c)
+	if absf(_EntityAccess.gauge_float(c) - 10.0) > 0.001:
+		_fail(
+			failures,
+			"counter_tempo_spend: want gauge 10 got %.4f" % _EntityAccess.gauge_float(c)
+		)
+
+
+## Tier 4.2 counter-tempo: counter **`EVENT_MELEE_ATTACK`** resolves before deferred incoming melee.
+static func _run_counter_tempo_defers_incoming_melee_until_after_counter_wind_up(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	mgr.combat_clock = 0.0
+	def["gauge"] = 60.0
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.55)
+	var incoming_at: float = mgr.combat_clock + float(atk.get("state_duration", 0.0))
+	_EventScheduler.schedule_event(mgr, {
+		"type": CombatConstants.EVENT_MELEE_ATTACK,
+		"combatant_id": atk_id,
+		"resolve_at": incoming_at,
+		"data": {}
+	})
+	mgr.resolve_action(
+		def_id,
+		atk_id,
+		"oberhau",
+		{CombatConstants.ACTION_KEY_COUNTER_TEMPO: true, "target_part": "chest"}
+	)
+	var counter_at: float = _EventScheduler.get_pending_melee_attack_resolve_at(mgr, def_id)
+	var incoming_at1: float = _EventScheduler.get_pending_melee_attack_resolve_at(mgr, atk_id)
+	var counter_end: float = mgr.combat_clock + float(def.get("state_duration", 0.0))
+	if counter_at < 0.0:
+		_fail(failures, "counter_tempo_defer: counter melee not scheduled")
+	if incoming_at1 < counter_end + CombatConstants.COUNTER_TEMPO_INCOMING_DEFER_AFTER_COUNTER_S - 0.0001:
+		_fail(
+			failures,
+			"counter_tempo_defer: incoming %.4f should be >= %.4f counter_at=%.4f"
+			% [incoming_at1, counter_end, counter_at]
+		)
+	if counter_at >= incoming_at1:
+		_fail(
+			failures,
+			"counter_tempo_defer: counter should resolve before incoming got c=%.4f in=%.4f"
+			% [counter_at, incoming_at1]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+static func _run_counter_tempo_abort_cancels_pending_incoming_melee(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	_EventScheduler.schedule_event(mgr, {
+		"type": CombatConstants.EVENT_MELEE_ATTACK,
+		"combatant_id": atk_id,
+		"resolve_at": mgr.combat_clock + 1.0,
+		"data": {}
+	})
+	_CounterTempo.abort_attacker_wind_up(mgr, atk_id)
+	if _EventScheduler.get_pending_melee_attack_resolve_at(mgr, atk_id) >= 0.0:
+		_fail(failures, "counter_tempo_abort: incoming melee should be cancelled")
+	if _EntityAccess.state_str(atk) == CombatConstants.STATE_WIND_UP:
+		_fail(failures, "counter_tempo_abort: attacker should not remain in wind_up")
+	if def.has(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL):
+		_fail(failures, "counter_tempo_abort: defender window should clear")
+	_free_manager_restore_global_rng(mgr)
+
+
+static func _run_counter_tempo_wind_up_stamps_pa_and_shortens_duration(failures: PackedStringArray) -> void:
+	var mgr_n: Node = _MgrScript.new()
+	mgr_n.register(_new_entity("SWORD"), "player")
+	mgr_n.register(_new_entity("SWORD"), "enemy")
+	mgr_n.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var pn: Dictionary = mgr_n.combatants[0]
+	var en: Dictionary = mgr_n.combatants[1]
+	var pn_id: int = _EntityAccess.id_int(pn)
+	var en_id: int = _EntityAccess.id_int(en)
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(mgr_n, pn_id, en_id, "oberhau", {"target_part": "chest"})
+	var d_plain: float = float(pn.get("state_duration", 0.0))
+	var mgr_c: Node = _MgrScript.new()
+	mgr_c.register(_new_entity("SWORD"), "player")
+	mgr_c.register(_new_entity("SWORD"), "enemy")
+	mgr_c.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var pc: Dictionary = mgr_c.combatants[0]
+	var ec: Dictionary = mgr_c.combatants[1]
+	var pc_id: int = _EntityAccess.id_int(pc)
+	var ec_id: int = _EntityAccess.id_int(ec)
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(
+		mgr_c,
+		pc_id,
+		ec_id,
+		"oberhau",
+		{"target_part": "chest", CombatConstants.ACTION_KEY_COUNTER_TEMPO: true}
+	)
+	var d_counter: float = float(pc.get("state_duration", 0.0))
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(pc, "pending_attack")
+	if not pa.get(CombatConstants.PA_KEY_COUNTER_TEMPO, false):
+		_fail(failures, "counter_tempo_windup: pa should stamp counter_tempo")
+	var want_c: float = d_plain * CombatConstants.COUNTER_TEMPO_WINDUP_MULT
+	if absf(d_counter - want_c) > 0.0002:
+		_fail(
+			failures,
+			"counter_tempo_windup: duration want %.4f got %.4f plain=%.4f"
+			% [want_c, d_counter, d_plain]
+		)
+	_free_manager_restore_global_rng(mgr_n)
+	_free_manager_restore_global_rng(mgr_c)
+
+
+## Tier 4.2 counter-tempo AI: flagged actions × **`AI_COUNTER_TEMPO_*`**; plain **>** feint on incoming target during window.
+static func _run_counter_tempo_ai_listing_boosts_counter_and_prefers_plain_over_feint(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var def: Dictionary = mgr.combatants[0]
+	var atk: Dictionary = mgr.combatants[1]
+	var def_id: int = _EntityAccess.id_int(def)
+	var atk_id: int = _EntityAccess.id_int(atk)
+	def["gauge"] = 60.0
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	var a_plain: Dictionary = {
+		"move_id": "oberhau",
+		"target_id": atk_id,
+		CombatConstants.ACTION_KEY_COUNTER_TEMPO: true,
+	}
+	var a_feint: Dictionary = {
+		"move_id": "oberhau_feint",
+		"target_id": atk_id,
+		CombatConstants.ACTION_KEY_COUNTER_TEMPO: true,
+	}
+	var w_plain: float = _AIPicker._get_action_weight(a_plain, def_id, mgr, true)
+	var w_feint: float = _AIPicker._get_action_weight(a_feint, def_id, mgr, true)
+	var base_mult: float = (
+		CombatConstants.AI_COUNTER_TEMPO_LISTING_WEIGHT_MULT
+		* CombatConstants.AI_COUNTER_TEMPO_INCOMING_TARGET_MULT
+	)
+	if w_plain < w_feint:
+		_fail(
+			failures,
+			"counter_tempo_ai: plain should beat feint got plain=%.6f feint=%.6f" % [w_plain, w_feint]
+		)
+	var a_no_flag: Dictionary = {"move_id": "oberhau", "target_id": atk_id}
+	var w_no_flag: float = _AIPicker._get_action_weight(a_no_flag, def_id, mgr, true)
+	if w_plain <= w_no_flag * base_mult * 0.99:
+		_fail(
+			failures,
+			"counter_tempo_ai: counter flag should boost vs plain listing got counter=%.6f no_flag=%.6f want>%f"
+			% [w_plain, w_no_flag, w_no_flag * base_mult * 0.99]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 Approach B: **`COUNTER_TEMPO_MIN_INCOMING_WINDUP_PROGRESS`** blocks **`can_act`** until incoming wind-up is far enough along.
+static func _run_counter_tempo_progress_gate_blocks_can_act_until_half_wind_up(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	def["gauge"] = 60.0
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.2)
+	if _CounterTempo.can_act(mgr, def):
+		_fail(failures, "counter_tempo_gate: can_act should be false at 20% wind-up")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.49)
+	if _CounterTempo.can_act(mgr, def):
+		_fail(failures, "counter_tempo_gate: can_act should be false at 49% wind-up")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.51)
+	if not _CounterTempo.can_act(mgr, def):
+		_fail(failures, "counter_tempo_gate: can_act should be true at 51% wind-up")
+	if _ActionsBuilder.build(mgr, def_id).is_empty():
+		_fail(failures, "counter_tempo_gate: build should list counter actions at 51%")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: **`CounterTempo.process_waiting`** schedules ready once progress gate opens (not at wind-up start).
+static func _run_counter_tempo_process_waiting_schedules_ready_when_progress_gate_met(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	def["gauge"] = 60.0
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.1)
+	if bool(def.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED, false)):
+		_fail(failures, "counter_tempo_wait: should not signal ready at 10% wind-up")
+	_CounterTempo.process_waiting(mgr, def)
+	if bool(def.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED, false)):
+		_fail(failures, "counter_tempo_wait: process_waiting should not signal at 10%")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.55)
+	_CounterTempo.process_waiting(mgr, def)
+	if not bool(def.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED, false)):
+		_fail(failures, "counter_tempo_wait: should signal ready after 55% wind-up")
+	_free_manager_restore_global_rng(mgr)
+
+
+static func _run_counter_tempo_ui_hint_winding_then_ready(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	def["gauge"] = 60.0
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.2)
+	_CounterTempo.process_waiting(mgr, def)
+	if str(def.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, "")) != "counter_winding":
+		_fail(
+			failures,
+			"counter_tempo_ui: want counter_winding got %s"
+			% str(def.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, ""))
+		)
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.6)
+	_CounterTempo.process_waiting(mgr, def)
+	if str(def.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, "")) != "counter_ready":
+		_fail(
+			failures,
+			"counter_tempo_ui: want counter_ready got %s"
+			% str(def.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, ""))
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 riposte chain: **`grant_riposte_chain`** after deflect → next wind-up vs that attacker × **`RIPOSTE_CHAIN_WINDUP_MULT`**.
+static func _run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain(
+	failures: PackedStringArray
+) -> void:
+	var mgr_p: Node = _MgrScript.new()
+	mgr_p.register(_new_entity("SWORD"), "player")
+	mgr_p.register(_new_entity("SWORD"), "enemy")
+	mgr_p.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var def_p: Dictionary = mgr_p.combatants[0]
+	var atk_p: Dictionary = mgr_p.combatants[1]
+	var def_p_id: int = _EntityAccess.id_int(def_p)
+	var atk_p_id: int = _EntityAccess.id_int(atk_p)
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(mgr_p, def_p_id, atk_p_id, "oberhau", {"target_part": "chest"})
+	var d_plain: float = float(def_p.get("state_duration", 0.0))
+	var mgr_r: Node = _MgrScript.new()
+	mgr_r.register(_new_entity("SWORD"), "player")
+	mgr_r.register(_new_entity("SWORD"), "enemy")
+	mgr_r.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var def_r: Dictionary = mgr_r.combatants[0]
+	var atk_r: Dictionary = mgr_r.combatants[1]
+	var def_r_id: int = _EntityAccess.id_int(def_r)
+	var atk_r_id: int = _EntityAccess.id_int(atk_r)
+	_CounterTempo.grant_riposte_chain(mgr_r, def_r, atk_r_id)
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(mgr_r, def_r_id, atk_r_id, "oberhau", {"target_part": "chest"})
+	var d_rip: float = float(def_r.get("state_duration", 0.0))
+	var pa_r: Dictionary = _EntityAccess.nested_dictionary_read(def_r, "pending_attack")
+	if not pa_r.get(CombatConstants.PA_KEY_RIPOSTE_CHAIN, false):
+		_fail(failures, "riposte_chain: pending_attack should stamp riposte_chain")
+	var want_r: float = d_plain * CombatConstants.RIPOSTE_CHAIN_WINDUP_MULT
+	if absf(d_rip - want_r) > 0.0002:
+		_fail(
+			failures,
+			"riposte_chain: duration want %.4f got %.4f plain=%.4f"
+			% [want_r, d_rip, d_plain]
+		)
+	if def_r.has(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL):
+		_fail(failures, "riposte_chain: riposte window should be consumed after wind-up start")
+	_free_manager_restore_global_rng(mgr_p)
+	_free_manager_restore_global_rng(mgr_r)
+
+
+## Tier 4.3: salience — telegraph part implies wind-up targeted.
+static func _run_attention_being_wind_up_targeted_when_telegraph_set(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau_feint", {"target_part": "chest", "feint_part": "head"})
+	if not _Attention.is_being_wind_up_targeted(mgr, def_id):
+		_fail(failures, "attention_wind_up_targeted: expected true when telegraph set")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3: counter salience tracks **`CounterTempo.can_act`**.
+static func _run_attention_counter_tempo_salience_matches_can_act(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	def["gauge"] = 55.0
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.55)
+	var can: bool = _CounterTempo.can_act(mgr, def)
+	var sal: bool = _Attention.has_actionable_counter_tempo(mgr, def)
+	if sal != can:
+		_fail(failures, "attention_counter_salience: want %s got %s" % [str(can), str(sal)])
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3: peril + incoming telegraph stack **`attention_load`**.
+static func _run_attention_load_stacks_peril_and_incoming(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var medic: Dictionary = mgr.combatants[0]
+	var ally: Dictionary = mgr.combatants[1]
+	var atk: Dictionary = mgr.combatants[2]
+	var medic_id: int = _EntityAccess.id_int(medic)
+	var ally_id: int = _EntityAccess.id_int(ally)
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+	if ally_ent != null:
+		ally_ent.blood_volume = 30.0
+	_WindUpStarter.start(mgr, atk_id, medic_id, "oberhau")
+	_Attention.refresh_salience(mgr, medic_id)
+	var load: float = _Attention.get_attention_load(medic)
+	var want_min: float = (
+		CombatConstants.ATTENTION_LOAD_TELEGRAPH_WEIGHT
+		+ CombatConstants.ATTENTION_LOAD_PERIL_WEIGHT
+	) * 0.99
+	if load < want_min:
+		_fail(
+			failures,
+			"attention_load_stack: want load >= %.4f got %.4f" % [want_min, load]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3: wrong-line focus dampens feint read-through line mult vs correct-line focus.
+static func _run_focus_intensity_scales_feint_readthrough_and_guard_zone(
+	failures: PackedStringArray
+) -> void:
+	var def: Dictionary = {
+		"guard_zone": "head",
+		"guard": 0.95,
+		"stance": CombatConstants.STANCE_BALANCED,
+		"state": CombatConstants.STATE_WAITING,
+		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
+		CombatConstants.COMBATANT_KEY_FOCUS_PART: "head",
+		CombatConstants.COMBATANT_KEY_FOCUS_INTENSITY: 1.0,
+	}
+	var pa: Dictionary = {"feint_part": "head", "target_part": "chest", "attack_type": "oberhau_feint"}
+	var wrong_m: float = _Attention.focus_line_mult_for_feint(def, pa)
+	_Attention.set_focus(def, "chest")
+	var right_m: float = _Attention.focus_line_mult_for_feint(def, pa)
+	if wrong_m >= right_m:
+		_fail(
+			failures,
+			"focus_line_mult: wrong %.4f should be < correct %.4f" % [wrong_m, right_m]
+		)
+	if absf(wrong_m - CombatConstants.FOCUS_WRONG_LINE_READTHROUGH_MULT) > 0.0001:
+		_fail(failures, "focus_line_mult wrong: want %.4f got %.4f" % [CombatConstants.FOCUS_WRONG_LINE_READTHROUGH_MULT, wrong_m])
+
+
+## Tier 4.3: high **`attention_load`** reduces **`focus_effective`**.
+static func _run_attention_load_dampens_focus_effective_readiness(failures: PackedStringArray) -> void:
+	var c: Dictionary = {CombatConstants.COMBATANT_KEY_FOCUS_INTENSITY: 1.0}
+	c[CombatConstants.COMBATANT_KEY_ATTENTION_LOAD] = 0.0
+	var fe_clear: float = _Attention.focus_effective(c)
+	c[CombatConstants.COMBATANT_KEY_ATTENTION_LOAD] = 1.0
+	var fe_load: float = _Attention.focus_effective(c)
+	var want_load: float = 1.0 - CombatConstants.ATTENTION_LOAD_FOCUS_PENALTY
+	if absf(fe_clear - 1.0) > 0.0001:
+		_fail(failures, "focus_effective clear: want 1.0 got %.4f" % fe_clear)
+	if absf(fe_load - want_load) > 0.0001:
+		_fail(failures, "focus_effective load: want %.4f got %.4f" % [want_load, fe_load])
+
+
+## Tier 4.3: mental stack L1 picks medical when ally in peril.
+static func _run_mental_stack_medical_overrides_attack(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var medic: Dictionary = mgr.combatants[0]
+	var ally: Dictionary = mgr.combatants[1]
+	var medic_id: int = _EntityAccess.id_int(medic)
+	var ally_id: int = _EntityAccess.id_int(ally)
+	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+	if ally_ent != null:
+		ally_ent.blood_volume = 30.0
+	mgr.medical_phase = true
+	mgr.medical_phase_winner = "player"
+	var actions: Array = [
+		{"move_id": "oberhau", "target_id": _EntityAccess.id_int(mgr.combatants[2])},
+		{
+			"move_id": "apply_direct_pressure",
+			"target_id": ally_id,
+			"target_part": "chest",
+		},
+	]
+	var picked: Dictionary = _MentalStack.try_pick(actions, medic_id, mgr)
+	if picked.is_empty():
+		_fail(failures, "mental_stack_medical: expected stack pick")
+		_free_manager_restore_global_rng(mgr)
+		return
+	if not mgr._is_medical_move(str(picked.get("move_id", ""))):
+		_fail(
+			failures,
+			"mental_stack_medical: want medical move got %s" % str(picked.get("move_id", ""))
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3: incoming wind-up restricts picks to counter or melee vs attacker.
+static func _run_mental_stack_incoming_windup_prefers_defense(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var def: Dictionary = mgr.combatants[0]
+	var atk: Dictionary = mgr.combatants[1]
+	var def_id: int = _EntityAccess.id_int(def)
+	var atk_id: int = _EntityAccess.id_int(atk)
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	var actions: Array = [
+		{"move_id": "oberhau", "target_id": atk_id},
+		{"move_id": "wait"},
+	]
+	var picked: Dictionary = _MentalStack.try_pick(actions, def_id, mgr)
+	if picked.is_empty():
+		_fail(failures, "mental_stack_incoming: expected stack pick")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var tid: int = int(picked.get("target_id", -1))
+	if bool(picked.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
+		pass
+	elif tid != atk_id:
+		_fail(
+			failures,
+			"mental_stack_incoming: pick should target incoming attacker %d got target %d move %s"
+			% [atk_id, tid, str(picked.get("move_id", ""))]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3: counter window open → stack prefers counter-tempo listing.
+static func _run_mental_stack_counter_over_plain_attack_when_window_open(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var def: Dictionary = mgr.combatants[0]
+	var atk: Dictionary = mgr.combatants[1]
+	var def_id: int = _EntityAccess.id_int(def)
+	var atk_id: int = _EntityAccess.id_int(atk)
+	def["gauge"] = 55.0
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.55)
+	mgr._schedule_event({
+		"type": CombatConstants.EVENT_MELEE_ATTACK,
+		"combatant_id": atk_id,
+		"resolve_at": mgr.combat_clock + float(atk.get("state_duration", 0.0)),
+		"data": {},
+	})
+	var actions: Array = _ActionsBuilder.build(mgr, def_id)
+	var saw_counter: bool = false
+	for raw in actions:
+		if typeof(raw) == TYPE_DICTIONARY and bool((raw as Dictionary).get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
+			saw_counter = true
+			break
+	if not saw_counter:
+		_fail(failures, "mental_stack_counter: expected counter_tempo in action list")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var picked: Dictionary = _MentalStack.try_pick(actions, def_id, mgr)
+	if picked.is_empty():
+		_fail(failures, "mental_stack_counter: expected stack pick")
+		_free_manager_restore_global_rng(mgr)
+		return
+	if not bool(picked.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
+		_fail(
+			failures,
+			"mental_stack_counter: want counter_tempo action got %s" % str(picked.get("move_id", ""))
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3: no salience → **`try_pick`** empty; attack weights unchanged with stack off.
+static func _run_mental_stack_attack_layer_matches_legacy_weights(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var a: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var actions: Array = [a]
+	var stacked: Dictionary = _MentalStack.try_pick(actions, p_id, mgr)
+	if not stacked.is_empty():
+		_fail(failures, "mental_stack_legacy: try_pick should be empty without salience")
+	var w: float = _AIPicker._get_action_weight(a, p_id, mgr, true)
+	CombatConstants.set_feature_mental_stack_ai_load(false)
+	var stacked_off: Dictionary = _MentalStack.try_pick(actions, p_id, mgr)
+	var w_off: float = _AIPicker._get_action_weight(a, p_id, mgr, true)
+	CombatConstants.set_feature_mental_stack_ai_load(true)
+	if not stacked_off.is_empty():
+		_fail(failures, "mental_stack_legacy: try_pick off should stay empty")
+	if absf(w - w_off) > 0.0001 * maxf(1.0, absf(w)):
+		_fail(failures, "mental_stack_legacy: weight changed %.6f vs %.6f" % [w, w_off])
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3: repeated high-line attacks raise yomi feint mult on that line.
+static func _run_yomi_guard_tendency_boosts_feint_after_repeated_high(failures: PackedStringArray) -> void:
+	var def: Dictionary = {}
+	var atk_id: int = 7
+	_Attention.record_attack_toward_defender(null, atk_id, def, "head")
+	_Attention.record_attack_toward_defender(null, atk_id, def, "head")
+	var m0: float = _Attention.yomi_feint_listing_mult(def, atk_id, "head")
+	_Attention.record_attack_toward_defender(null, atk_id, def, "head")
+	var m1: float = _Attention.yomi_feint_listing_mult(def, atk_id, "head")
+	if m1 <= m0 or m0 <= 1.0:
+		_fail(
+			failures,
+			"yomi_feint: mult should rise above 1.0 got m0=%.4f m1=%.4f" % [m0, m1]
+		)
+
+
+## Tier 4.3 UI: **`format_attention_ui_hint`** includes telegraph + focus when incoming.
+static func _run_attention_ui_hint_formats_when_telegraph_set(failures: PackedStringArray) -> void:
+	var def: Dictionary = {
+		"guard_zone": "head",
+		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
+		CombatConstants.COMBATANT_KEY_FOCUS_PART: "head",
+		CombatConstants.COMBATANT_KEY_FOCUS_INTENSITY: 1.0,
+		CombatConstants.COMBATANT_KEY_ATTENTION_LOAD: 0.2,
+	}
+	var hint: String = _Attention.format_attention_ui_hint(def)
+	if not hint.contains("Tel head"):
+		_fail(failures, "attention_ui_hint: want Tel head in '%s'" % hint)
+	if not hint.contains("Focus head"):
+		_fail(failures, "attention_ui_hint: want Focus head in '%s'" % hint)
+	if not hint.contains("Load"):
+		_fail(failures, "attention_ui_hint: want Load segment in '%s'" % hint)
+
+
+## Tier 4.3 UI: **`refresh_for_waiting_tick`** stamps **`COMBATANT_KEY_ATTENTION_UI_HINT`**.
+static func _run_attention_refresh_waiting_tick_stamps_ui_hint(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	_WindUpStarter.start(mgr, _EntityAccess.id_int(atk), _EntityAccess.id_int(def), "oberhau_feint", {"target_part": "chest", "feint_part": "head"})
+	_StateHandlers.process_waiting(mgr, def, 0.05)
+	var hint: String = str(def.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, ""))
+	if hint.is_empty():
+		_fail(failures, "attention_ui_refresh: expected non-empty attention_ui_hint")
+	_WindUpStarter.clear_incoming_attack_telegraph_from_pa(
+		mgr, _EntityAccess.nested_dictionary_read(atk, "pending_attack")
+	)
+	if def.has(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT):
+		_fail(failures, "attention_ui_refresh: hint should clear when telegraph cleared")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3: yomi habit line sets AI **`focus_part`** on drift.
+static func _run_yomi_focus_drift_sets_habitual_part_on_ai(failures: PackedStringArray) -> void:
+	var def: Dictionary = {"side": "enemy", "is_party_leader": false}
+	var atk_id: int = 11
+	_Attention.record_attack_toward_defender(null, atk_id, def, "head")
+	_Attention.record_attack_toward_defender(null, atk_id, def, "head")
+	_Attention.apply_yomi_focus_drift(null, def, atk_id)
+	if _Attention.get_focus_part(def) != "head":
+		_fail(
+			failures,
+			"yomi_focus_drift: want focus head got %s" % _Attention.get_focus_part(def)
+		)
+
+
+## Tier 4.3: mismatched feint telegraph line keeps habitual focus (not bait part).
+static func _run_yomi_focus_drift_keeps_habit_when_telegraph_line_mismatches(
+	failures: PackedStringArray
+) -> void:
+	var def: Dictionary = {
+		"side": "enemy",
+		"is_party_leader": false,
+		CombatConstants.COMBATANT_KEY_FOCUS_PART: "chest",
+		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "left_arm",
+	}
+	var atk_id: int = 12
+	_Attention.record_attack_toward_defender(null, atk_id, def, "head")
+	_Attention.record_attack_toward_defender(null, atk_id, def, "head")
+	_Attention.apply_yomi_focus_drift(null, def, atk_id)
+	if _Attention.get_focus_part(def) != "head":
+		_fail(
+			failures,
+			"yomi_focus_drift_mismatch: want habit head got %s" % _Attention.get_focus_part(def)
+		)
+
+
+## Tier 4.3: explicit guard move updates **`focus_part`** with **`guard_zone`**.
+static func _run_guard_from_move_syncs_focus_part_with_guard_line(failures: PackedStringArray) -> void:
+	var c: Dictionary = {
+		"guard_line": CombatConstants.GUARD_DEFAULT,
+		"guard_zone": "head",
+		CombatConstants.COMBATANT_KEY_FOCUS_PART: "chest",
+	}
+	_GuardLineUpdater.set_guard_from_line(c, "low")
+	if str(c.get("guard_zone", "")) != "left_leg":
+		_fail(failures, "guard_focus_sync: want guard_zone left_leg got %s" % str(c.get("guard_zone")))
+	if _Attention.get_focus_part(c) != "left_leg":
+		_fail(
+			failures,
+			"guard_focus_sync: want focus left_leg got %s" % _Attention.get_focus_part(c)
+		)
+
+
+## Tier 4.3: mental stack stamps **`COMBATANT_KEY_MENTAL_STACK_LAYER`** on layer pick.
+static func _run_mental_stack_stamps_layer_on_medical_pick(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var medic: Dictionary = mgr.combatants[0]
+	var ally: Dictionary = mgr.combatants[1]
+	var medic_id: int = _EntityAccess.id_int(medic)
+	var ally_id: int = _EntityAccess.id_int(ally)
+	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+	if ally_ent != null:
+		ally_ent.blood_volume = 30.0
+	mgr.medical_phase = true
+	mgr.medical_phase_winner = "player"
+	var actions: Array = [
+		{"move_id": "oberhau", "target_id": _EntityAccess.id_int(mgr.combatants[2])},
+		{"move_id": "apply_direct_pressure", "target_id": ally_id, "target_part": "chest"},
+	]
+	var picked: Dictionary = _MentalStack.try_pick(actions, medic_id, mgr)
+	if picked.is_empty():
+		_fail(failures, "mental_stack_layer: expected stack pick")
+		_free_manager_restore_global_rng(mgr)
+		return
+	if str(medic.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) != "medical":
+		_fail(
+			failures,
+			"mental_stack_layer: want medical got %s"
+			% str(medic.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3.7: focus-line moves listed when combat attention is on.
+static func _run_focus_line_actions_listed_when_attention_enabled(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var pid: int = _EntityAccess.id_int(player)
+	player["state"] = CombatConstants.STATE_WAITING
+	player["gauge"] = 100.0
+	var actions: Array = _ActionsBuilder.build(mgr, pid)
+	var found: int = 0
+	for raw in actions:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		if CombatConstants.is_focus_line_move(str(a.get("move_id", ""))):
+			found += 1
+	if found != CombatConstants.FOCUS_LINE_MOVE_IDS.size():
+		_fail(failures, "focus_line_list: want %d focus moves got %d" % [CombatConstants.FOCUS_LINE_MOVE_IDS.size(), found])
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3.7: **`resolve_action`** on **`focus_high`** sets guard + focus.
+static func _run_focus_line_resolve_sets_guard_and_focus(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var pid: int = _EntityAccess.id_int(player)
+	player["state"] = CombatConstants.STATE_WAITING
+	player["gauge"] = 100.0
+	player["guard_line"] = "low"
+	player[CombatConstants.COMBATANT_KEY_FOCUS_PART] = "left_leg"
+	mgr.resolve_action(pid, pid, CombatConstants.MOVE_ID_FOCUS_HIGH, {})
+	if str(player.get("guard_line", "")) != "high":
+		_fail(failures, "focus_line_resolve: want guard_line high got %s" % str(player.get("guard_line")))
+	if _Attention.get_focus_part(player) != "head":
+		_fail(
+			failures,
+			"focus_line_resolve: want focus head got %s" % _Attention.get_focus_part(player)
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3.7: party lead weights telegraph-matching focus line above other focus lines.
+static func _run_focus_line_party_leader_prefers_telegraph_match(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var pid: int = _EntityAccess.id_int(player)
+	player["is_party_leader"] = true
+	player["guard_line"] = "low"
+	player[CombatConstants.COMBATANT_KEY_FOCUS_PART] = "left_leg"
+	player[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
+	var w_match: float = _AIPicker._get_action_weight(
+		{"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": pid}, pid, mgr, true
+	)
+	var w_other: float = _AIPicker._get_action_weight(
+		{"move_id": CombatConstants.MOVE_ID_FOCUS_LOW, "target_id": pid}, pid, mgr, true
+	)
+	if w_match <= w_other:
+		_fail(
+			failures,
+			"focus_line_leader: telegraph match weight %.4f should exceed other line %.4f"
+			% [w_match, w_other]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3.8: yomi **`parry_deflect`** raises defender reported readiness vs that attacker.
+static func _run_yomi_defense_readiness_mult_boosts_after_parry_deflect(
+	failures: PackedStringArray
+) -> void:
+	var def: Dictionary = {}
+	var atk_id: int = 14
+	var m0: float = _Attention.yomi_defense_readiness_mult(def, atk_id)
+	_Attention.record_parry_deflect_on_attacker_memory(def, atk_id)
+	var m1: float = _Attention.yomi_defense_readiness_mult(def, atk_id)
+	if m1 <= m0 or m0 != 1.0:
+		_fail(
+			failures,
+			"yomi_defense_readiness: want rise from 1.0 got m0=%.4f m1=%.4f" % [m0, m1]
+		)
+
+
+## Tier 4.4: wind-up stamps per-line **`position_angle_offset_deg`** on attacker.
+static func _run_footwork_attack_step_offset_stamped_on_windup(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var atk: Dictionary = {}
+	_Footwork.apply_attack_step_on_windup(atk, "left")
+	var off: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	if absf(off - CombatConstants.position_angle_offset_deg_for_attack_line("left")) > 0.01:
+		_fail(failures, "footwork_windup: want left-line offset got %.2f" % off)
+
+
+## Tier 4.4: offset rotates reported attack angle for parry alignment.
+static func _run_footwork_offset_shifts_attack_angle_deg(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var atk: Dictionary = {
+		CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG: (
+			CombatConstants.position_angle_offset_deg_for_attack_line("left")
+		),
+	}
+	var base_deg: float = CombatConstants.line_to_angle("left")
+	var shifted: float = _Footwork.apply_offset_to_angle_deg(base_deg, atk)
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	var want: float = fmod(
+		base_deg + CombatConstants.position_angle_offset_deg_for_attack_line("left") + 360.0,
+		360.0
+	)
+	if absf(shifted - want) > 0.05:
+		_fail(failures, "footwork_angle: want %.2f got %.2f" % [want, shifted])
+
+
+## Tier 4.4: **`CombatManager.start()`** scrubs position offset.
+static func _run_footwork_offset_scrubbed_on_combat_start(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	var atk: Dictionary = mgr.combatants[0]
+	atk[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = 12.0
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	if atk.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
+		_fail(failures, "footwork_scrub: offset should clear on start")
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.3.8: attention UI hint shows last mental-stack layer stamp.
+static func _run_attention_ui_hint_includes_mental_stack_layer(failures: PackedStringArray) -> void:
+	var def: Dictionary = {
+		CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER: "incoming",
+		CombatConstants.COMBATANT_KEY_FOCUS_PART: "head",
+		CombatConstants.COMBATANT_KEY_FOCUS_INTENSITY: 1.0,
+	}
+	var hint: String = _Attention.format_attention_ui_hint(def)
+	if not hint.contains("Stack incoming"):
+		_fail(failures, "attention_ui_stack: want Stack incoming in '%s'" % hint)
+
+
+## Tier 4.3.7: yomi **`parry_deflect`** count boosts feint listing mult.
+static func _run_yomi_parry_deflect_boosts_feint_listing_mult(failures: PackedStringArray) -> void:
+	var def: Dictionary = {}
+	var atk_id: int = 13
+	_Attention.record_parry_deflect_on_attacker_memory(def, atk_id)
+	var m0: float = _Attention.yomi_parry_deflect_feint_listing_mult(def, atk_id)
+	_Attention.record_parry_deflect_on_attacker_memory(def, atk_id)
+	var m1: float = _Attention.yomi_parry_deflect_feint_listing_mult(def, atk_id)
+	if m1 <= m0 or m0 <= 1.0:
+		_fail(
+			failures,
+			"yomi_parry_deflect_feint: mult should rise got m0=%.4f m1=%.4f" % [m0, m1]
+		)
+
+
+## Tier 4.3: **`parry_deflect`** increments yomi; **`hit`** clears attacker entry.
+static func _run_yomi_updates_on_parry_deflect_clears_on_hit(failures: PackedStringArray) -> void:
+	var def: Dictionary = {}
+	var atk_id: int = 3
+	_Attention.record_parry_deflect_on_attacker_memory(def, atk_id)
+	var root: Dictionary = def.get(CombatConstants.COMBATANT_KEY_YOMI_BY_ATTACKER, {}) as Dictionary
+	var entry: Dictionary = root.get(str(atk_id), {}) as Dictionary
+	if int(entry.get("parry_deflect", 0)) != 1:
+		_fail(failures, "yomi_parry: want parry_deflect count 1")
+	_Attention.clear_yomi_for_attacker(def, atk_id)
+	if def.has(CombatConstants.COMBATANT_KEY_YOMI_BY_ATTACKER):
+		_fail(failures, "yomi_clear: yomi root should be empty after clear")
+
+
+## Tier 4.2: **`CombatManager.set_formation_doctrine("player", probing)`** multiplies feint listing by **`AI_FEINT_LISTING_DOCTRINE_PROBING_MULT`**; then **`hold_lane`** applies **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`** only (no probing mult).
+static func _run_feint_move_listing_doctrine_probing_multiplies_feint_weight(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var enemy: Dictionary = mgr.combatants[1]
+	var e_id: int = _EntityAccess.id_int(enemy)
+	enemy["guard"] = 0.0
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["off_balance_until"] = -1.0
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PROBING)
+	mgr._recompute_zoc_and_distance()
+	var target_m: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var w_plain_p: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_p: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want_p: float = (
+		w_plain_p
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* target_m
+		* CombatConstants.AI_FEINT_LISTING_DOCTRINE_PROBING_MULT
+	)
+	if absf(w_feint_p - want_p) > 0.0001 * maxf(1.0, absf(w_plain_p)):
+		_fail(
+			failures,
+			"feint_list_probe: want feint %.6f got %.6f plain=%.6f mult=%s"
+			% [
+				want_p,
+				w_feint_p,
+				w_plain_p,
+				str(CombatConstants.AI_FEINT_LISTING_DOCTRINE_PROBING_MULT),
+			]
+		)
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_HOLD_LANE)
+	mgr._recompute_zoc_and_distance()
+	var w_plain_h: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_h: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want_h: float = (
+		w_plain_h
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* target_m
+		* CombatConstants.AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT
+	)
+	if absf(w_feint_h - want_h) > 0.0001 * maxf(1.0, absf(w_plain_h)):
+		_fail(
+			failures,
+			"feint_list_hold: want feint %.6f got %.6f plain=%.6f (hold_lane feint damp only)"
+			% [want_h, w_feint_h, w_plain_h]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: **`CombatManager.set_formation_doctrine("player", pinch_center)`** multiplies feint listing by **`AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT`**; then **`hold_lane`** applies **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`** only (no pinch mult).
+static func _run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weight(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var enemy: Dictionary = mgr.combatants[1]
+	var e_id: int = _EntityAccess.id_int(enemy)
+	enemy["guard"] = 0.0
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["off_balance_until"] = -1.0
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
+	mgr._recompute_zoc_and_distance()
+	var target_m: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var w_plain_z: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_z: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want_z: float = (
+		w_plain_z
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* target_m
+		* CombatConstants.AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT
+	)
+	if absf(w_feint_z - want_z) > 0.0001 * maxf(1.0, absf(w_plain_z)):
+		_fail(
+			failures,
+			"feint_list_pinch: want feint %.6f got %.6f plain=%.6f mult=%s"
+			% [
+				want_z,
+				w_feint_z,
+				w_plain_z,
+				str(CombatConstants.AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT),
+			]
+		)
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_HOLD_LANE)
+	mgr._recompute_zoc_and_distance()
+	var w_plain_h: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_h: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var want_h: float = (
+		w_plain_h
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* target_m
+		* CombatConstants.AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT
+	)
+	if absf(w_feint_h - want_h) > 0.0001 * maxf(1.0, absf(w_plain_h)):
+		_fail(
+			failures,
+			"feint_list_hold_after_pinch: want feint %.6f got %.6f plain=%.6f (hold_lane feint damp only)"
+			% [want_h, w_feint_h, w_plain_h]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: **`hold_lane`** feint listing × **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`** vs explicit **`default`** (ratio **`w_feint/w_plain`**).
+static func _run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	mgr.combatants[1]["guard"] = 0.0
+	mgr.combatants[1]["state"] = CombatConstants.STATE_WAITING
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
+	mgr._recompute_zoc_and_distance()
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var w_plain_d: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_d: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_plain_d) < 1e-9:
+		_fail(failures, "feint_hold_vs_def: plain weight near zero")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var ratio_def: float = w_feint_d / w_plain_d
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_HOLD_LANE)
+	mgr._recompute_zoc_and_distance()
+	var w_plain_h: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_h: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if absf(w_plain_h) < 1e-9:
+		_fail(failures, "feint_hold_vs_def: plain weight near zero (hold)")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var ratio_hold: float = w_feint_h / w_plain_h
+	var want_ratio: float = ratio_def * CombatConstants.AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT
+	if absf(ratio_hold - want_ratio) > 0.0001 * maxf(1.0, absf(ratio_def)):
+		_fail(
+			failures,
+			"feint_hold_vs_def: want ratio %.6f got %.6f ratio_def=%.6f mult=%s"
+			% [
+				want_ratio,
+				ratio_hold,
+				ratio_def,
+				str(CombatConstants.AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT),
+			]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: attacker **`stance`** × **`get_stance_modifier(..., "ai_feint_listing")`** on feint listing; settled WAITING × **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`** + full **`read_m`** chain via **`_feint_listing_read_m_expect_for_move_on_target`**.
+static func _run_feint_move_listing_stance_ai_feint_mult_ordering(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	mgr.combatants[1]["guard"] = 0.0
+	mgr.combatants[1]["state"] = CombatConstants.STATE_WAITING
+	mgr.combatants[1]["off_balance_until"] = -1.0
+	mgr._recompute_zoc_and_distance()
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var enemy: Dictionary = mgr.combatants[1]
+	var target_m: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+	player["stance"] = CombatConstants.STANCE_CONTROLLING
+	var w_plain_c: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_c: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var mult_c: float = CombatConstants.get_stance_modifier(
+		CombatConstants.STANCE_CONTROLLING, "ai_feint_listing"
+	)
+	var want_c: float = (
+		w_plain_c * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * target_m * mult_c
+	)
+	if absf(w_feint_c - want_c) > 0.0001 * maxf(1.0, absf(w_plain_c)):
+		_fail(
+			failures,
+			"feint_stance_list ctrl: want feint %.6f (plain*base*stance) got %.6f plain=%.6f mult=%s"
+			% [want_c, w_feint_c, w_plain_c, str(mult_c)]
+		)
+	player["stance"] = CombatConstants.STANCE_DEFENSIVE
+	var w_plain_d: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_d: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var mult_d: float = CombatConstants.get_stance_modifier(
+		CombatConstants.STANCE_DEFENSIVE, "ai_feint_listing"
+	)
+	var want_d: float = (
+		w_plain_d * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * target_m * mult_d
+	)
+	if absf(w_feint_d - want_d) > 0.0001 * maxf(1.0, absf(w_plain_d)):
+		_fail(
+			failures,
+			"feint_stance_list def: want feint %.6f got %.6f plain=%.6f mult=%s"
+			% [want_d, w_feint_d, w_plain_d, str(mult_d)]
+		)
+	var r_c: float = w_feint_c / w_plain_c
+	var r_d: float = w_feint_d / w_plain_d
+	if r_c <= r_d + 1e-6:
+		_fail(
+			failures,
+			"feint_stance_list: want controlling feint/plain ratio > defensive got c=%.6f d=%.6f"
+			% [r_c, r_d]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: **`CombatAIActionPicker.opts_from_choice`** omits empty **`feint_part`**; non-**`is_feint`** **`_add_attack_target_part`** does not introduce **`feint_part`** on the choice dict.
+static func _run_feint_opts_from_choice_and_non_feint_attack_no_feint_part(failures: PackedStringArray) -> void:
+	var c_target_only: Dictionary = {"move_id": "oberhau", "target_id": 1, "target_part": "chest"}
+	var o_target: Dictionary = _AIPicker.opts_from_choice(c_target_only)
+	if not o_target.has("target_part") or str(o_target.get("target_part", "")) != "chest":
+		_fail(failures, "feint_opts: expected target_part chest in opts got %s" % str(o_target))
+	if o_target.has("feint_part"):
+		_fail(failures, "feint_opts: non-feint choice should omit feint_part got %s" % str(o_target))
+	var c_with_feint: Dictionary = {
+		"move_id": "oberhau_feint",
+		"target_id": 1,
+		"target_part": "chest",
+		"feint_part": "head"
+	}
+	var o_both: Dictionary = _AIPicker.opts_from_choice(c_with_feint)
+	if str(o_both.get("feint_part", "")) != "head":
+		_fail(failures, "feint_opts: should forward non-empty feint_part got %s" % str(o_both))
+	var c_thrust_feint: Dictionary = {
+		"move_id": "thrust_feint",
+		"target_id": 1,
+		"target_part": "chest",
+		"feint_part": "head",
+	}
+	var o_thrust_feint: Dictionary = _AIPicker.opts_from_choice(c_thrust_feint)
+	if str(o_thrust_feint.get("feint_part", "")) != "head":
+		_fail(failures, "feint_opts: thrust_feint should forward non-empty feint_part got %s" % str(o_thrust_feint))
+	var c_empty_feint: Dictionary = {
+		"move_id": "oberhau_feint",
+		"target_id": 1,
+		"target_part": "chest",
+		"feint_part": ""
+	}
+	var o_no_feint: Dictionary = _AIPicker.opts_from_choice(c_empty_feint)
+	if o_no_feint.has("feint_part"):
+		_fail(failures, "feint_opts: empty feint_part should be omitted got %s" % str(o_no_feint))
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var e: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(e)
+	mgr._recompute_zoc_and_distance()
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var choice: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	_AIPicker._add_attack_target_part(choice, mgr, p_id)
+	if str(choice.get("target_part", "")).is_empty():
+		_fail(failures, "feint_neg: expected oberhau target_part from _add_attack_target_part")
+	if choice.has("feint_part") and str(choice.get("feint_part", "")) != "":
+		_fail(
+			failures,
+			"feint_neg: non-feint oberhau must not set non-empty feint_part got %s" % str(choice.get("feint_part", ""))
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 harness helper: **`AttackPathResolver`** uses **`randf`** in **`resolve_hit_part`** — find a global RNG seed in **0..16383** so **`DefenseChoiceResolver._guard_zone_modifier`** returns **`want_mult`**. Pass **`parry_readiness_for_feint` < 0** for the legacy 4-arg call. Pass **`atk_id_for_spacing` < 0** (default) unless the scan must use the optional spacing arg on **`_guard_zone_modifier`**.
+static func _feint_guard_zone_sample_global_seed_for_modifier(
+	pa: Dictionary,
+	tgt: Dictionary,
+	parts: Array,
+	move_id: String,
+	parry_readiness_for_feint: float,
+	want_mult: float,
+	atk_id_for_spacing: int = -1
+) -> int:
+	for s: int in range(16384):
+		seed(s)
+		var m: float
+		if parry_readiness_for_feint < 0.0:
+			m = _DefenseChoice._guard_zone_modifier(pa, tgt, parts, move_id)
+		elif atk_id_for_spacing < 0:
+			m = _DefenseChoice._guard_zone_modifier(pa, tgt, parts, move_id, parry_readiness_for_feint)
+		else:
+			m = _DefenseChoice._guard_zone_modifier(pa, tgt, parts, move_id, parry_readiness_for_feint, atk_id_for_spacing)
+		if is_equal_approx(m, want_mult):
+			return s
+	return -1
+
+
+## Tier 4.2: **`DefenseChoiceResolver._guard_zone_modifier`** — feint telegraph mismatch → **`GUARD_ZONE_UNGUARDED_PENALTY`**; defender **`guard_zone`** moved to real line → **`GUARD_ZONE_BONUS`**; non-feint unchanged. **`AttackPathResolver`** uses **`randf`** — scan stable seeds per fixture, then restore global RNG.
+static func _run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readjust_bonus(failures: PackedStringArray) -> void:
+	var parts: Array = ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"]
+	var pa_feint: Dictionary = {
+		"feint_part": "head",
+		"target_part": "left_leg",
+		"attack_type": "oberhau_feint",
+	}
+	var tgt_baited: Dictionary = {
+		"guard_zone": "head",
+		"guard_line": "high",
+		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
+	}
+	var bait_seed: int = _feint_guard_zone_sample_global_seed_for_modifier(
+		pa_feint,
+		tgt_baited,
+		parts,
+		"oberhau_feint",
+		-1.0,
+		CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
+	)
+	if bait_seed < 0:
+		_fail(failures, "feint_guard_zone: no PathResolver seed yields bait penalty in 0..16383")
+		seed(_HARNESS_RESTORE_GLOBAL_SEED)
+		return
+	seed(bait_seed)
+	var m_pen: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_baited, parts, "oberhau_feint")
+	if not is_equal_approx(m_pen, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY):
+		_fail(
+			failures,
+			"feint_guard_zone: baited want penalty %.2f got %.2f" % [CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY, m_pen]
+		)
+	var tgt_readjust: Dictionary = {
+		"guard_zone": "left_leg",
+		"guard_line": "low",
+		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
+	}
+	var readjust_bonus_seed: int = _feint_guard_zone_sample_global_seed_for_modifier(
+		pa_feint,
+		tgt_readjust,
+		parts,
+		"oberhau_feint",
+		-1.0,
+		CombatConstants.GUARD_ZONE_BONUS
+	)
+	if readjust_bonus_seed < 0:
+		_fail(failures, "feint_guard_zone: no PathResolver seed yields readjust bonus in 0..16383")
+		seed(_HARNESS_RESTORE_GLOBAL_SEED)
+		return
+	seed(readjust_bonus_seed)
+	var m_ok: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_readjust, parts, "oberhau_feint")
+	if not is_equal_approx(m_ok, CombatConstants.GUARD_ZONE_BONUS):
+		_fail(failures, "feint_guard_zone: readjust want bonus %.2f got %.2f" % [CombatConstants.GUARD_ZONE_BONUS, m_ok])
+	var pa_plain: Dictionary = {"target_part": "head", "attack_type": "oberhau"}
+	var tgt_plain: Dictionary = {"guard_zone": "head", "guard_line": "high"}
+	var plain_bonus_seed: int = _feint_guard_zone_sample_global_seed_for_modifier(
+		pa_plain,
+		tgt_plain,
+		parts,
+		"oberhau",
+		-1.0,
+		CombatConstants.GUARD_ZONE_BONUS
+	)
+	if plain_bonus_seed < 0:
+		_fail(failures, "feint_guard_zone: no PathResolver seed yields non-feint bonus in 0..16383")
+		seed(_HARNESS_RESTORE_GLOBAL_SEED)
+		return
+	seed(plain_bonus_seed)
+	var m_plain: float = _DefenseChoice._guard_zone_modifier(pa_plain, tgt_plain, parts, "oberhau")
+	if not is_equal_approx(m_plain, CombatConstants.GUARD_ZONE_BONUS):
+		_fail(failures, "feint_guard_zone: non-feint want bonus %.2f got %.2f" % [CombatConstants.GUARD_ZONE_BONUS, m_plain])
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+
+
+## Tier 4.2: high passive parry readiness + stance can read real line despite **`guard_zone`** still on telegraph (**`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** × **`get_stance_modifier(..., "feint_readthrough")`**). **`AttackPathResolver`** **`randf`** — scan a bait seed for telegraph mismatch, then **`seed(bait_seed)`** before each **`_guard_zone_modifier`** so **`expected_part`** matches across cases.
+static func _run_feint_guard_zone_readthrough_par_bonus_when_readiness_high(failures: PackedStringArray) -> void:
+	var parts: Array = ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"]
+	var pa_feint: Dictionary = {
+		"feint_part": "head",
+		"target_part": "left_leg",
+		"attack_type": "oberhau_feint",
+	}
+	var tgt_baited: Dictionary = {
+		"guard_zone": "head",
+		"guard_line": "high",
+		"stance": "defensive",
+		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
+	}
+	var bait_seed: int = _feint_guard_zone_sample_global_seed_for_modifier(
+		pa_feint,
+		tgt_baited,
+		parts,
+		"oberhau_feint",
+		-1.0,
+		CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
+	)
+	if bait_seed < 0:
+		_fail(failures, "feint_readthrough: no PathResolver seed yields bait penalty in 0..16383")
+		seed(_HARNESS_RESTORE_GLOBAL_SEED)
+		return
+	seed(bait_seed)
+	var m_legacy: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_baited, parts, "oberhau_feint")
+	if not is_equal_approx(m_legacy, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY):
+		_fail(
+			failures,
+			"feint_readthrough: legacy (no readiness arg) want penalty %.2f got %.2f" % [CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY, m_legacy]
+		)
+	seed(bait_seed)
+	var m_full: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_baited, parts, "oberhau_feint", 1.0)
+	if not is_equal_approx(m_full, CombatConstants.GUARD_ZONE_BONUS):
+		_fail(failures, "feint_readthrough: readiness 1 defensive want bonus %.2f got %.2f" % [CombatConstants.GUARD_ZONE_BONUS, m_full])
+	seed(bait_seed)
+	var m_mid: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_baited, parts, "oberhau_feint", 0.86)
+	if not is_equal_approx(m_mid, CombatConstants.GUARD_ZONE_BONUS):
+		_fail(failures, "feint_readthrough: readiness 0.86 defensive want bonus got %.2f" % m_mid)
+	seed(bait_seed)
+	var m_low: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_baited, parts, "oberhau_feint", 0.82)
+	if not is_equal_approx(m_low, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY):
+		_fail(failures, "feint_readthrough: readiness 0.82 defensive want penalty got %.2f" % m_low)
+	var tgt_agg: Dictionary = {
+		"guard_zone": "head",
+		"guard_line": "high",
+		"stance": "aggressive",
+		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
+	}
+	seed(bait_seed)
+	var m_agg: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_agg, parts, "oberhau_feint", 0.88)
+	if not is_equal_approx(m_agg, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY):
+		_fail(failures, "feint_readthrough: aggressive 0.88 want penalty got %.2f" % m_agg)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+
+
+## Tier 4.2: **`defender_distance_to` LONG** scales **`parry_readiness_for_feint`** before **`_feint_guard_reads_real_line`** in **`_guard_zone_modifier`** (**`FEINT_GUARD_ZONE_READINESS_SPACING_MULT_*`**); same base readiness at **MID** stays sub-threshold, **LONG** crosses (**defensive** × **`STANCE_MOD_FEINT_READTHROUGH`**).
+static func _run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid(failures: PackedStringArray) -> void:
+	var parts: Array = ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"]
+	var pa_feint: Dictionary = {
+		"feint_part": "head",
+		"target_part": "left_leg",
+		"attack_type": "oberhau_feint",
+	}
+	var atk_id: int = 42
+	var tgt_baited_base: Dictionary = {
+		"guard_zone": "head",
+		"guard_line": "high",
+		"stance": "defensive",
+		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
+	}
+	var tgt_mid: Dictionary = tgt_baited_base.duplicate(true)
+	tgt_mid["distance_to"] = {atk_id: CombatConstants.DISTANCE_MID}
+	var tgt_long: Dictionary = tgt_baited_base.duplicate(true)
+	tgt_long["distance_to"] = {atk_id: CombatConstants.DISTANCE_LONG}
+	var bait_seed: int = _feint_guard_zone_sample_global_seed_for_modifier(
+		pa_feint,
+		tgt_baited_base,
+		parts,
+		"oberhau_feint",
+		-1.0,
+		CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
+	)
+	if bait_seed < 0:
+		_fail(failures, "feint_gz_spacing: no PathResolver seed yields bait penalty in 0..16383")
+		seed(_HARNESS_RESTORE_GLOBAL_SEED)
+		return
+	var pr_spacing: float = 0.845
+	seed(bait_seed)
+	var m_mid: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_mid, parts, "oberhau_feint", pr_spacing, atk_id)
+	seed(bait_seed)
+	var m_long: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_long, parts, "oberhau_feint", pr_spacing, atk_id)
+	if not is_equal_approx(m_mid, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY):
+		_fail(
+			failures,
+			"feint_gz_spacing: mid want penalty %.2f got %.2f" % [CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY, m_mid]
+		)
+	if not is_equal_approx(m_long, CombatConstants.GUARD_ZONE_BONUS):
+		_fail(failures, "feint_gz_spacing: long want bonus %.2f got %.2f" % [CombatConstants.GUARD_ZONE_BONUS, m_long])
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+
+
+## Tier 4.2: **`defender_distance_to` CLOSE** scales **`parry_readiness_for_feint`** down before **`_feint_guard_reads_real_line`**; same base readiness at **MID** clears the gate, **CLOSE** falls below (**defensive** × **`STANCE_MOD_FEINT_READTHROUGH`**).
+static func _run_feint_guard_zone_readthrough_spacing_close_dampens_vs_mid(failures: PackedStringArray) -> void:
+	var parts: Array = ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"]
+	var pa_feint: Dictionary = {
+		"feint_part": "head",
+		"target_part": "left_leg",
+		"attack_type": "oberhau_feint",
+	}
+	var atk_id: int = 43
+	var tgt_baited_base: Dictionary = {
+		"guard_zone": "head",
+		"guard_line": "high",
+		"stance": "defensive",
+		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
+	}
+	var tgt_mid: Dictionary = tgt_baited_base.duplicate(true)
+	tgt_mid["distance_to"] = {atk_id: CombatConstants.DISTANCE_MID}
+	var tgt_close: Dictionary = tgt_baited_base.duplicate(true)
+	tgt_close["distance_to"] = {atk_id: CombatConstants.DISTANCE_CLOSE}
+	var bait_seed: int = _feint_guard_zone_sample_global_seed_for_modifier(
+		pa_feint,
+		tgt_baited_base,
+		parts,
+		"oberhau_feint",
+		-1.0,
+		CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
+	)
+	if bait_seed < 0:
+		_fail(failures, "feint_gz_spacing_close: no PathResolver seed yields bait penalty in 0..16383")
+		seed(_HARNESS_RESTORE_GLOBAL_SEED)
+		return
+	var pr_spacing: float = 0.855
+	seed(bait_seed)
+	var m_mid: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_mid, parts, "oberhau_feint", pr_spacing, atk_id)
+	seed(bait_seed)
+	var m_close: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_close, parts, "oberhau_feint", pr_spacing, atk_id)
+	if not is_equal_approx(m_mid, CombatConstants.GUARD_ZONE_BONUS):
+		_fail(
+			failures,
+			"feint_gz_spacing_close: mid want bonus %.2f got %.2f" % [CombatConstants.GUARD_ZONE_BONUS, m_mid]
+		)
+	if not is_equal_approx(m_close, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY):
+		_fail(
+			failures,
+			"feint_gz_spacing_close: close want penalty %.2f got %.2f" % [CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY, m_close]
+		)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+
+
+## Tier 4.2 telegraph delay: **`DefenseChoiceResolver._feint_readiness_reveal_mult`** — early wind-up damps toward **`FEINT_PRE_REVEAL_READINESS_MULT`** until progress ≥ **`feint_target_reveal_at_progress`** (**`WeaponConstants`** / **`pa`**); no feint / reveal **0** → **1.0**; **`choose_defense`** **`parry_readiness`** echoes the same mult when feint passive parry applies.
+static func _run_feint_target_reveal_progress_scales_readiness_mult(failures: PackedStringArray) -> void:
+	var pa: Dictionary = {"feint_part": "head", "attack_type": "oberhau_feint"}
+	var atk0: Dictionary = {
+		"state": CombatConstants.STATE_WIND_UP,
+		"state_timer": 0.0,
+		"state_duration": 1.0,
+	}
+	var reveal: float = float(WeaponConstants.get_move("oberhau_feint").get("feint_target_reveal_at_progress", 0.45))
+	var m0: float = _DefenseChoice._feint_readiness_reveal_mult(pa, atk0)
+	var want0: float = lerpf(CombatConstants.FEINT_PRE_REVEAL_READINESS_MULT, 1.0, 0.0)
+	if not is_equal_approx(m0, want0):
+		_fail(failures, "feint_reveal t=0 want %.6f got %.6f" % [want0, m0])
+	var atk_half: Dictionary = atk0.duplicate()
+	atk_half["state_timer"] = reveal * 0.5 * atk0["state_duration"]
+	var m_h: float = _DefenseChoice._feint_readiness_reveal_mult(pa, atk_half)
+	var want_h: float = lerpf(CombatConstants.FEINT_PRE_REVEAL_READINESS_MULT, 1.0, 0.5)
+	if not is_equal_approx(m_h, want_h):
+		_fail(failures, "feint_reveal half window want %.6f got %.6f" % [want_h, m_h])
+	var atk_edge: Dictionary = atk0.duplicate()
+	atk_edge["state_timer"] = reveal * atk0["state_duration"]
+	if not is_equal_approx(_DefenseChoice._feint_readiness_reveal_mult(pa, atk_edge), 1.0):
+		_fail(failures, "feint_reveal at reveal_at want 1.0")
+	var atk_late: Dictionary = atk0.duplicate()
+	atk_late["state_timer"] = 0.99
+	if not is_equal_approx(_DefenseChoice._feint_readiness_reveal_mult(pa, atk_late), 1.0):
+		_fail(failures, "feint_reveal late want 1.0")
+	var pa_no_feint: Dictionary = {"feint_part": "", "attack_type": "oberhau"}
+	if _DefenseChoice._feint_readiness_reveal_mult(pa_no_feint, atk0) != 1.0:
+		_fail(failures, "feint_reveal empty feint_part want 1.0")
+	var pa_off: Dictionary = {
+		"feint_part": "head",
+		"feint_target_reveal_at_progress": 0.0,
+		"attack_type": "oberhau_feint",
+	}
+	if _DefenseChoice._feint_readiness_reveal_mult(pa_off, atk0) != 1.0:
+		_fail(failures, "feint_reveal explicit zero want 1.0")
+	var atk_rec: Dictionary = atk0.duplicate()
+	atk_rec["state"] = CombatConstants.STATE_RECOVERING
+	if _DefenseChoice._feint_readiness_reveal_mult(pa, atk_rec) != 1.0:
+		_fail(failures, "feint_reveal non-wind_up attacker want 1.0")
+	var pa_stab: Dictionary = {"feint_part": "chest", "attack_type": "thrust_feint"}
+	var reveal_stab: float = float(WeaponConstants.get_move("thrust_feint").get("feint_target_reveal_at_progress", 0.4))
+	if not is_equal_approx(reveal_stab, 0.4):
+		_fail(failures, "feint_reveal thrust_feint move want reveal 0.4 got %.6f" % reveal_stab)
+	var atk_stab_half: Dictionary = atk0.duplicate()
+	atk_stab_half["state_timer"] = reveal_stab * 0.5 * atk0["state_duration"]
+	var m_stab_h: float = _DefenseChoice._feint_readiness_reveal_mult(pa_stab, atk_stab_half)
+	if not is_equal_approx(m_stab_h, want_h):
+		_fail(
+			failures,
+			"feint_reveal thrust half window want %.6f got %.6f" % [want_h, m_stab_h]
+		)
+	# choose_defense: reported parry_readiness scales by same mult during feint wind-up early vs late.
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.44
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["guard_zone"] = "chest"
+	defender["guard_line"] = "high"
+	defender["stamina"] = CombatConstants.STAMINA_MAX
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+	var def_n2: Node = _EntityAccess.scene_node(defender)
+	var parts2: Array = (
+		def_n2.get_targetable_parts()
+		if def_n2 != null and def_n2.has_method("get_targetable_parts")
+		else []
+	)
+	if parts2.is_empty():
+		_fail(failures, "feint_reveal choose_def: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_fe: Dictionary = WeaponConstants.get_move("oberhau_feint")
+	var arch_fe: Dictionary = WeaponConstants.get_archetype(
+		str(move_fe.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa_cd: Dictionary = {
+		"attack_type": "oberhau_feint",
+		"feint_part": "head",
+		"target_part": "chest",
+		"intensity": 0.55,
+		"wind_up_duration": 0.95,
+		"tactical_ambush_mult": 1.0,
+	}
+	attacker["state"] = CombatConstants.STATE_WIND_UP
+	attacker["state_duration"] = 1.0
+	attacker["state_timer"] = 0.0
+	seed(92003)
+	var dc_e: Dictionary = _DefenseChoice.choose_defense(pa_cd, attacker, defender, parts2, "oberhau_feint", arch_fe, -1.0)
+	attacker["state_timer"] = 0.99
+	seed(92003)
+	var dc_l2: Dictionary = _DefenseChoice.choose_defense(pa_cd, attacker, defender, parts2, "oberhau_feint", arch_fe, -1.0)
+	var pr_e: float = float(dc_e.get("parry_readiness", -1.0))
+	var pr_l2: float = float(dc_l2.get("parry_readiness", -1.0))
+	if pr_e <= 1e-8 or pr_l2 <= 1e-8:
+		_fail(
+			failures,
+			"feint_reveal choose_def: parry_readiness too small pr_e=%.6f pr_l=%.6f" % [pr_e, pr_l2]
+		)
+		_free_manager_restore_global_rng(mgr)
+		return
+	if not is_equal_approx(pr_e / pr_l2, want0):
+		_fail(
+			failures,
+			"feint_reveal choose_def: early/late readiness ratio want %.6f got %.6f (pr_e=%.6f pr_l=%.6f)"
+			% [want0, pr_e / pr_l2, pr_e, pr_l2]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: **`DefenseChoiceResolver.choose_defense`** — when **`feint_part`** is set and defender does not read through (**`guard` × stance `feint_readthrough` < `FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`**), **`dodge_eval_part`** can follow the telegraph; harness sets **`pa[CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS]`** to **1.0** for a deterministic assert.
+static func _run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.5
+	defender["state"] = CombatConstants.STATE_WAITING
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty():
+		_fail(failures, "feint_dodge_eval: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	if not parts.has("left_leg"):
+		_fail(failures, "feint_dodge_eval: fixture needs left_leg in targetable")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau_feint")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau_feint",
+		"feint_part": "left_leg",
+		"target_part": "chest",
+		"intensity": 0.6,
+		"wind_up_duration": 1.0,
+		"tactical_ambush_mult": 1.0,
+		CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS: 1.0,
+	}
+	seed(1337)
+	var dc: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau_feint", arch, -1.0)
+	if str(dc.get("dodge_eval_part", "")) != "left_leg":
+		_fail(
+			failures,
+			"feint_dodge_eval: want dodge_eval_part left_leg (telegraph bait) got %s" % str(dc.get("dodge_eval_part", ""))
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: **`feint_guard_zone_readiness_spacing_mult`** on **`pr_rt`** for **`_feint_guard_reads_real_line`** in **`_apply_feint_telegraph_bias_to_dodge_eval_part`** — defensive **`guard`** × **`STANCE_MOD_FEINT_READTHROUGH`** fails at **MID** (**`DISTANCE_MID`**) but clears at **LONG** (**`FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG`**). Same global **`seed(s)`** before each **`choose_defense`**: **LONG** keeps the initial **`BodyPartConstants.get_weighted_random_part`** draw (scan for **≠** **`left_leg`**); **MID** with harness bias **1.0** always telegraphs **`dodge_eval_part`** to **`feint_part`**.
+static func _run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_long_vs_mid(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "defensive"
+	defender["guard"] = 0.83
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["stamina"] = CombatConstants.STAMINA_MAX
+	var dm: Dictionary = _EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty() or not parts.has("left_leg"):
+		_fail(failures, "feint_tele_dodge_gz_spacing: need left_leg in targetable")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau_feint")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau_feint",
+		"feint_part": "left_leg",
+		"target_part": "chest",
+		"intensity": 0.6,
+		"wind_up_duration": 1.0,
+		"tactical_ambush_mult": 1.0,
+		CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS: 1.0,
+	}
+	var found_seed: int = -1
+	var initial_part: String = ""
+	for s in range(0, 65536):
+		seed(s)
+		dm[atk_id] = CombatConstants.DISTANCE_LONG
+		var dc_l: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau_feint", arch, -1.0)
+		var p_l: String = str(dc_l.get("dodge_eval_part", ""))
+		if p_l == "left_leg":
+			continue
+		seed(s)
+		dm[atk_id] = CombatConstants.DISTANCE_MID
+		var dc_m: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau_feint", arch, -1.0)
+		if str(dc_m.get("dodge_eval_part", "")) == "left_leg":
+			found_seed = s
+			initial_part = p_l
+			break
+	if found_seed < 0:
+		_fail(failures, "feint_tele_dodge_gz_spacing: no seed in 0..65535 yields non-left_leg initial at LONG + telegraph left_leg at MID")
+		_free_manager_restore_global_rng(mgr)
+		return
+	seed(found_seed)
+	dm[atk_id] = CombatConstants.DISTANCE_LONG
+	var dc_long: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau_feint", arch, -1.0)
+	seed(found_seed)
+	dm[atk_id] = CombatConstants.DISTANCE_MID
+	var dc_mid: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau_feint", arch, -1.0)
+	if str(dc_mid.get("dodge_eval_part", "")) != "left_leg":
+		_fail(
+			failures,
+			"feint_tele_dodge_gz_spacing: mid want left_leg got %s (seed=%d)" % [str(dc_mid.get("dodge_eval_part", "")), found_seed]
+		)
+	if str(dc_long.get("dodge_eval_part", "")) != initial_part or initial_part == "left_leg":
+		_fail(
+			failures,
+			"feint_tele_dodge_gz_spacing: long want initial %s got %s (seed=%d)"
+			% [initial_part, str(dc_long.get("dodge_eval_part", "")), found_seed]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: LONG **`distance_to[attacker]`** scales feint dodge telegraph bias down vs MID (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_LONG`**) so the same RNG draw can take telegraph bite at MID but not at LONG.
+static func _run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.5
+	defender["state"] = CombatConstants.STATE_WAITING
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty() or not parts.has("left_leg"):
+		_fail(failures, "feint_telegraph_spacing: need left_leg in targetable")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau_feint")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau_feint",
+		"feint_part": "left_leg",
+		"target_part": "chest",
+		"intensity": 0.6,
+		"wind_up_duration": 1.0,
+		"tactical_ambush_mult": 1.0,
+		CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS: 0.85,
+	}
+	var eff_mid: float = 0.85
+	var eff_long: float = 0.85 * CombatConstants.FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_LONG
+	var de_mid: String = ""
+	var de_long: String = ""
+	var ok_spacing: bool = false
+	for s in range(0, 65536):
+		seed(s)
+		_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+		var dc_mid: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau_feint", arch, -1.0)
+		seed(s)
+		_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_LONG
+		var dc_long: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau_feint", arch, -1.0)
+		de_mid = str(dc_mid.get("dodge_eval_part", ""))
+		de_long = str(dc_long.get("dodge_eval_part", ""))
+		if de_mid == "left_leg" and de_long != "left_leg":
+			ok_spacing = true
+			break
+	if not ok_spacing:
+		_fail(
+			failures,
+			"feint_telegraph_spacing: no seed in 0..65535 with mid=left_leg long!=left_leg (eff_mid=%.4f eff_long=%.4f last mid=%s long=%s)"
+			% [eff_mid, eff_long, de_mid, de_long]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: CLOSE **`distance_to[attacker]`** scales feint dodge telegraph bias up vs MID (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_CLOSE`**) so the same RNG draw can skip telegraph bite at MID but take it at CLOSE.
+static func _run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.5
+	defender["state"] = CombatConstants.STATE_WAITING
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty() or not parts.has("left_leg"):
+		_fail(failures, "feint_telegraph_spacing_close: need left_leg in targetable")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau_feint")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau_feint",
+		"feint_part": "left_leg",
+		"target_part": "chest",
+		"intensity": 0.6,
+		"wind_up_duration": 1.0,
+		"tactical_ambush_mult": 1.0,
+		CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS: 0.85,
+	}
+	var eff_mid: float = 0.85
+	var eff_close: float = clampf(
+		0.85 * CombatConstants.FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_CLOSE, 0.0, 1.0
+	)
+	var de_mid: String = ""
+	var de_close: String = ""
+	var ok_spacing: bool = false
+	for s in range(0, 65536):
+		seed(s)
+		_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+		var dc_mid: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau_feint", arch, -1.0)
+		seed(s)
+		_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_CLOSE
+		var dc_close: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau_feint", arch, -1.0)
+		de_mid = str(dc_mid.get("dodge_eval_part", ""))
+		de_close = str(dc_close.get("dodge_eval_part", ""))
+		if de_mid != "left_leg" and de_close == "left_leg":
+			ok_spacing = true
+			break
+	if not ok_spacing:
+		_fail(
+			failures,
+			"feint_telegraph_spacing_close: no seed in 0..65535 with mid!=left_leg close=left_leg (eff_mid=%.4f eff_close=%.4f last mid=%s close=%s)"
+			% [eff_mid, eff_close, de_mid, de_close]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 tempo: non-empty **`feint_part`** → **`CombatConstants.COMMITMENT_FRACTION_FEINT`** — same **`wind_up_duration`** and defender **`reaction_time`** can yield on-time plain parry vs late feint parry (bracket duration between the two **`effective_wind_up`** thresholds).
+static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.5
+	defender["state"] = CombatConstants.STATE_WAITING
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty():
+		_fail(failures, "feint_commitment: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_plain: Dictionary = WeaponConstants.get_move("oberhau")
+	var arch_plain: Dictionary = WeaponConstants.get_archetype(
+		str(move_plain.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var move_feint: Dictionary = WeaponConstants.get_move("oberhau_feint")
+	var arch_feint: Dictionary = WeaponConstants.get_archetype(
+		str(move_feint.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var r_time: float = def_n.get_passive_parry_reaction_time()
+	var cf: float = CombatConstants.COMMITMENT_FRACTION
+	var cff: float = CombatConstants.COMMITMENT_FRACTION_FEINT
+	var w_up: float = (r_time / maxf(1e-6, 1.0 - cf) + r_time / maxf(1e-6, 1.0 - cff)) * 0.5
+	var eff_plain: float = w_up * (1.0 - cf)
+	var eff_feint: float = w_up * (1.0 - cff)
+	if eff_plain <= r_time or eff_feint >= r_time:
+		_fail(
+			failures,
+			"feint_commitment: bracket r=%.4f w=%.4f eff_plain=%.4f eff_feint=%.4f want plain>r feint<r"
+			% [r_time, w_up, eff_plain, eff_feint]
+		)
+		_free_manager_restore_global_rng(mgr)
+		return
+	var pa_plain: Dictionary = {
+		"attack_type": "oberhau",
+		"target_part": "chest",
+		"intensity": 0.55,
+		"wind_up_duration": w_up,
+		"tactical_ambush_mult": 1.0,
+	}
+	var pa_feint: Dictionary = {
+		"attack_type": "oberhau_feint",
+		"feint_part": "head",
+		"target_part": "chest",
+		"intensity": 0.55,
+		"wind_up_duration": w_up,
+		"tactical_ambush_mult": 1.0,
+	}
+	seed(44002)
+	var dc_plain: Dictionary = _DefenseChoice.choose_defense(
+		pa_plain, attacker, defender, parts, "oberhau", arch_plain, -1.0
+	)
+	seed(44002)
+	var dc_feint: Dictionary = _DefenseChoice.choose_defense(
+		pa_feint, attacker, defender, parts, "oberhau_feint", arch_feint, -1.0
+	)
+	if bool(dc_plain.get("late_parry", false)):
+		_fail(
+			failures,
+			"feint_commitment: plain oberhau want on-time parry late_parry=false got late=%s"
+			% str(dc_plain.get("late_parry", false))
+		)
+	elif not bool(dc_feint.get("late_parry", false)):
+		_fail(
+			failures,
+			"feint_commitment: feint want late_parry=true got late=%s" % str(dc_feint.get("late_parry", false))
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 tempo: same bracket as **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry`**, for **`thrust`** vs **`thrust_feint`** (**stab** archetypes).
+static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.5
+	defender["state"] = CombatConstants.STATE_WAITING
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty():
+		_fail(failures, "feint_commitment_thrust: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_plain: Dictionary = WeaponConstants.get_move("thrust")
+	var arch_plain: Dictionary = WeaponConstants.get_archetype(
+		str(move_plain.get("archetype_id", WeaponConstants.ARCHETYPE_STAB))
+	)
+	var move_feint: Dictionary = WeaponConstants.get_move("thrust_feint")
+	var arch_feint: Dictionary = WeaponConstants.get_archetype(
+		str(move_feint.get("archetype_id", WeaponConstants.ARCHETYPE_STAB))
+	)
+	var r_time: float = def_n.get_passive_parry_reaction_time()
+	var cf: float = CombatConstants.COMMITMENT_FRACTION
+	var cff: float = CombatConstants.COMMITMENT_FRACTION_FEINT
+	var w_up: float = (r_time / maxf(1e-6, 1.0 - cf) + r_time / maxf(1e-6, 1.0 - cff)) * 0.5
+	var eff_plain: float = w_up * (1.0 - cf)
+	var eff_feint: float = w_up * (1.0 - cff)
+	if eff_plain <= r_time or eff_feint >= r_time:
+		_fail(
+			failures,
+			"feint_commitment_thrust: bracket r=%.4f w=%.4f eff_plain=%.4f eff_feint=%.4f want plain>r feint<r"
+			% [r_time, w_up, eff_plain, eff_feint]
+		)
+		_free_manager_restore_global_rng(mgr)
+		return
+	var pa_plain: Dictionary = {
+		"attack_type": "thrust",
+		"target_part": "chest",
+		"intensity": 0.55,
+		"wind_up_duration": w_up,
+		"tactical_ambush_mult": 1.0,
+	}
+	var pa_feint: Dictionary = {
+		"attack_type": "thrust_feint",
+		"feint_part": "head",
+		"target_part": "chest",
+		"intensity": 0.55,
+		"wind_up_duration": w_up,
+		"tactical_ambush_mult": 1.0,
+	}
+	seed(44002)
+	var dc_plain: Dictionary = _DefenseChoice.choose_defense(
+		pa_plain, attacker, defender, parts, "thrust", arch_plain, -1.0
+	)
+	seed(44002)
+	var dc_feint: Dictionary = _DefenseChoice.choose_defense(
+		pa_feint, attacker, defender, parts, "thrust_feint", arch_feint, -1.0
+	)
+	if bool(dc_plain.get("late_parry", false)):
+		_fail(
+			failures,
+			"feint_commitment_thrust: plain thrust want on-time parry late_parry=false got late=%s"
+			% str(dc_plain.get("late_parry", false))
+		)
+	elif not bool(dc_feint.get("late_parry", false)):
+		_fail(
+			failures,
+			"feint_commitment_thrust: thrust_feint want late_parry=true got late=%s" % str(dc_feint.get("late_parry", false))
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork: **`DefenseChoiceResolver.choose_defense`** — defender **`distance_to[attacker]`** scales **`parry_c_d`** (CLOSE / LONG vs MID) and **`dodge_chance`** at CLOSE / LONG (**`CombatConstants.DEFENSE_SPACING_*`**).
+static func _run_defense_spacing_band_modulates_parry_and_dodge(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.4
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["guard_zone"] = "chest"
+	defender["guard_line"] = "high"
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty():
+		_fail(failures, "defense_spacing: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau",
+		"target_part": "chest",
+		"intensity": 0.55,
+		"wind_up_duration": 0.95,
+		"tactical_ambush_mult": 1.0,
+	}
+	seed(91001)
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+	var dc_mid: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_LONG
+	seed(91001)
+	var dc_long: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
+	var cd_mid: float = float(dc_mid.get("parry_c_d", 0.0))
+	var cd_long: float = float(dc_long.get("parry_c_d", 0.0))
+	var dodge_mid: float = float(dc_mid.get("dodge_chance", 0.0))
+	var dodge_long: float = float(dc_long.get("dodge_chance", 0.0))
+	if cd_mid < 1.0:
+		_fail(failures, "defense_spacing: mid parry_c_d too small %.3f" % cd_mid)
+	elif not is_equal_approx(cd_long / cd_mid, CombatConstants.DEFENSE_SPACING_PARRY_MULT_LONG):
+		_fail(
+			failures,
+			"defense_spacing: parry_c_d long/mid want ratio %.3f got %.3f"
+			% [CombatConstants.DEFENSE_SPACING_PARRY_MULT_LONG, cd_long / cd_mid]
+		)
+	elif dodge_mid <= 1e-6:
+		_fail(failures, "defense_spacing: mid dodge_chance too small")
+	elif not is_equal_approx(dodge_long / dodge_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_LONG):
+		_fail(
+			failures,
+			"defense_spacing: dodge long/mid want ratio %.3f got %.3f"
+			% [CombatConstants.DEFENSE_SPACING_DODGE_MULT_LONG, dodge_long / dodge_mid]
+		)
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_CLOSE
+	seed(91001)
+	var dc_close: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
+	var cd_close: float = float(dc_close.get("parry_c_d", 0.0))
+	var dodge_close: float = float(dc_close.get("dodge_chance", 0.0))
+	if not is_equal_approx(cd_close / cd_mid, CombatConstants.DEFENSE_SPACING_PARRY_MULT_CLOSE):
+		_fail(
+			failures,
+			"defense_spacing: parry_c_d close/mid want ratio %.3f got %.3f"
+			% [CombatConstants.DEFENSE_SPACING_PARRY_MULT_CLOSE, cd_close / cd_mid]
+		)
+	elif not is_equal_approx(dodge_close / dodge_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE):
+		_fail(
+			failures,
+			"defense_spacing: dodge close/mid want ratio %.3f got %.3f"
+			% [CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE, dodge_close / dodge_mid]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork / tempo: **`STATE_RECOVERING`** defender gets recovering dodge mult vs off-balance **`STATE_WAITING`** baseline (no settled waiting-footwork mult).
+static func _run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.4
+	defender["guard_zone"] = "chest"
+	defender["guard_line"] = "high"
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["off_balance_until"] = _CombatTiming.now_seconds() + 10.0
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty():
+		_fail(failures, "defense_footwork_recovering: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau",
+		"target_part": "chest",
+		"intensity": 0.55,
+		"wind_up_duration": 0.95,
+		"tactical_ambush_mult": 1.0,
+	}
+	seed(91002)
+	var dc_wait: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
+	defender["state"] = CombatConstants.STATE_RECOVERING
+	defender["state_duration"] = 1.0
+	defender["state_timer"] = 0.25
+	defender["recovery_cause"] = "attack_hit"
+	seed(91002)
+	var dc_rec: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
+	var d_wait: float = float(dc_wait.get("dodge_chance", 0.0))
+	var d_rec: float = float(dc_rec.get("dodge_chance", 0.0))
+	if d_wait <= 1e-6:
+		_fail(failures, "defense_footwork_recovering: waiting dodge_chance too small %.6f" % d_wait)
+	elif not is_equal_approx(
+		d_rec / d_wait, CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_hit")
+	):
+		_fail(
+			failures,
+			"defense_footwork_recovering: dodge rec/wait want ratio %.3f got %.3f"
+			% [
+				CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_hit"),
+				d_rec / d_wait,
+			]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork / tempo: **`recovery_cause`** selects **`CombatConstants.defense_footwork_recovering_dodge_mult_for_cause`** (**`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE`**) on reported **`dodge_chance`**; **`attack_miss`** > **`attack_hit`** at same **`distance_to`** / seed.
+static func _run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.4
+	defender["guard_zone"] = "chest"
+	defender["guard_line"] = "high"
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["off_balance_until"] = _CombatTiming.now_seconds() + 10.0
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty():
+		_fail(failures, "defense_footwork_cause: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau",
+		"target_part": "chest",
+		"intensity": 0.55,
+		"wind_up_duration": 0.95,
+		"tactical_ambush_mult": 1.0,
+	}
+	seed(91003)
+	var d_wait: float = float(
+		_DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0).get("dodge_chance", 0.0)
+	)
+	defender["state"] = CombatConstants.STATE_RECOVERING
+	defender["state_duration"] = 1.0
+	defender["state_timer"] = 0.25
+	defender["recovery_cause"] = "attack_hit"
+	seed(91003)
+	var d_hit: float = float(
+		_DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0).get("dodge_chance", 0.0)
+	)
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["recovery_cause"] = "skip"
+	defender["state_duration"] = 0.0
+	defender["state_timer"] = 0.0
+	defender["state"] = CombatConstants.STATE_RECOVERING
+	defender["state_duration"] = 1.0
+	defender["state_timer"] = 0.25
+	defender["recovery_cause"] = "attack_miss"
+	seed(91003)
+	var d_miss: float = float(
+		_DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0).get("dodge_chance", 0.0)
+	)
+	var m_hit: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_hit")
+	var m_miss: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_miss")
+	if d_wait <= 1e-6:
+		_fail(failures, "defense_footwork_cause: waiting dodge_chance too small %.6f" % d_wait)
+	elif not is_equal_approx(d_hit / d_wait, m_hit):
+		_fail(
+			failures,
+			"defense_footwork_cause: hit rec/wait want %.4f got %.4f" % [m_hit, d_hit / d_wait]
+		)
+	elif not is_equal_approx(d_miss / d_wait, m_miss):
+		_fail(
+			failures,
+			"defense_footwork_cause: miss rec/wait want %.4f got %.4f" % [m_miss, d_miss / d_wait]
+		)
+	elif not is_equal_approx(d_miss / d_hit, m_miss / m_hit):
+		_fail(
+			failures,
+			"defense_footwork_cause: miss/hit ratio want %.4f got %.4f" % [m_miss / m_hit, d_miss / d_hit]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork / tempo: **`STATE_RECOVERING`** — pair **`distance_to`** spacing (**`DEFENSE_SPACING_DODGE_MULT_*`**) multiplies before **`defense_footwork_recovering_dodge_mult_for_cause`**; LONG/CLOSE vs MID ratios match WAITING spacing harness at fixed cause.
+static func _run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_close(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.4
+	defender["guard_zone"] = "chest"
+	defender["guard_line"] = "high"
+	defender["state"] = CombatConstants.STATE_RECOVERING
+	defender["state_duration"] = 1.0
+	defender["state_timer"] = 0.25
+	defender["recovery_cause"] = "attack_hit"
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty():
+		_fail(failures, "defense_footwork_rec_spacing: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau",
+		"target_part": "chest",
+		"intensity": 0.55,
+		"wind_up_duration": 0.95,
+		"tactical_ambush_mult": 1.0,
+	}
+	seed(91004)
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+	var d_mid: float = float(
+		_DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0).get("dodge_chance", 0.0)
+	)
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_LONG
+	seed(91004)
+	var d_long: float = float(
+		_DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0).get("dodge_chance", 0.0)
+	)
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_CLOSE
+	seed(91004)
+	var d_close: float = float(
+		_DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0).get("dodge_chance", 0.0)
+	)
+	if d_mid <= 1e-6:
+		_fail(failures, "defense_footwork_rec_spacing: mid dodge_chance too small %.6f" % d_mid)
+	elif not is_equal_approx(d_long / d_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_LONG):
+		_fail(
+			failures,
+			"defense_footwork_rec_spacing: long/mid want %.4f got %.4f"
+			% [CombatConstants.DEFENSE_SPACING_DODGE_MULT_LONG, d_long / d_mid]
+		)
+	elif not is_equal_approx(d_close / d_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE):
+		_fail(
+			failures,
+			"defense_footwork_rec_spacing: close/mid want %.4f got %.4f"
+			% [CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE, d_close / d_mid]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork / tempo: settled **`STATE_WAITING`** (not off-balance) gets **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`** on reported **`dodge_chance`** after spacing.
+static func _run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balance(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.4
+	defender["guard_zone"] = "chest"
+	defender["guard_line"] = "high"
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["off_balance_until"] = -1.0
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty():
+		_fail(failures, "defense_footwork_waiting: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau",
+		"target_part": "chest",
+		"intensity": 0.55,
+		"wind_up_duration": 0.95,
+		"tactical_ambush_mult": 1.0,
+	}
+	seed(91005)
+	var d_settled: float = float(
+		_DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0).get("dodge_chance", 0.0)
+	)
+	defender["off_balance_until"] = _CombatTiming.now_seconds() + 10.0
+	seed(91005)
+	var d_off: float = float(
+		_DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0).get("dodge_chance", 0.0)
+	)
+	if d_off <= 1e-6:
+		_fail(failures, "defense_footwork_waiting: off-balance dodge_chance too small %.6f" % d_off)
+	elif not is_equal_approx(d_settled / d_off, CombatConstants.DEFENSE_FOOTWORK_WAITING_DODGE_MULT):
+		_fail(
+			failures,
+			"defense_footwork_waiting: settled/off want ratio %.4f got %.4f"
+			% [CombatConstants.DEFENSE_FOOTWORK_WAITING_DODGE_MULT, d_settled / d_off]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork / tempo: settled **`STATE_WAITING`** — pair **`distance_to`** spacing multiplies before **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`**.
+static func _run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_close(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.4
+	defender["guard_zone"] = "chest"
+	defender["guard_line"] = "high"
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["off_balance_until"] = -1.0
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty():
+		_fail(failures, "defense_footwork_wait_spacing: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau",
+		"target_part": "chest",
+		"intensity": 0.55,
+		"wind_up_duration": 0.95,
+		"tactical_ambush_mult": 1.0,
+	}
+	seed(91006)
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+	var d_mid: float = float(
+		_DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0).get("dodge_chance", 0.0)
+	)
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_LONG
+	seed(91006)
+	var d_long: float = float(
+		_DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0).get("dodge_chance", 0.0)
+	)
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_CLOSE
+	seed(91006)
+	var d_close: float = float(
+		_DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0).get("dodge_chance", 0.0)
+	)
+	if d_mid <= 1e-6:
+		_fail(failures, "defense_footwork_wait_spacing: mid dodge_chance too small %.6f" % d_mid)
+	elif not is_equal_approx(d_long / d_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_LONG):
+		_fail(
+			failures,
+			"defense_footwork_wait_spacing: long/mid want %.4f got %.4f"
+			% [CombatConstants.DEFENSE_SPACING_DODGE_MULT_LONG, d_long / d_mid]
+		)
+	elif not is_equal_approx(d_close / d_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE):
+		_fail(
+			failures,
+			"defense_footwork_wait_spacing: close/mid want %.4f got %.4f"
+			% [CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE, d_close / d_mid]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork / tempo: incoming stab **`contact_type`** scales passive **`parry_readiness`** after guard (**`PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT`** vs cut baseline) in **`DefenseChoiceResolver.choose_defense`**.
+static func _run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.44
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["guard_zone"] = "chest"
+	defender["guard_line"] = "high"
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty():
+		_fail(failures, "incoming_contact_readiness: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_ober: Dictionary = WeaponConstants.get_move("oberhau")
+	var arch_ober: Dictionary = WeaponConstants.get_archetype(
+		str(move_ober.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var move_spear: Dictionary = WeaponConstants.get_move("spear_thrust")
+	var arch_spear: Dictionary = WeaponConstants.get_archetype(
+		str(move_spear.get("archetype_id", WeaponConstants.ARCHETYPE_STAB))
+	)
+	var pa_base: Dictionary = {
+		"intensity": 0.55,
+		"wind_up_duration": 0.95,
+		"tactical_ambush_mult": 1.0,
+	}
+	seed(92001)
+	var pa_cut: Dictionary = pa_base.duplicate()
+	pa_cut["attack_type"] = "oberhau"
+	var dc_cut: Dictionary = _DefenseChoice.choose_defense(pa_cut, attacker, defender, parts, "oberhau", arch_ober, -1.0)
+	var pa_stab: Dictionary = pa_base.duplicate()
+	pa_stab["attack_type"] = "spear_thrust"
+	seed(92001)
+	var dc_stab: Dictionary = _DefenseChoice.choose_defense(pa_stab, attacker, defender, parts, "spear_thrust", arch_spear, -1.0)
+	var pr_c: float = float(dc_cut.get("parry_readiness", -1.0))
+	var pr_s: float = float(dc_stab.get("parry_readiness", -1.0))
+	if pr_c <= 1e-6:
+		_fail(failures, "incoming_contact_readiness: cut parry_readiness too small %.4f" % pr_c)
+	elif not is_equal_approx(pr_s / pr_c, CombatConstants.PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT):
+		_fail(
+			failures,
+			"incoming_contact_readiness: stab/cut readiness ratio want %.4f got %.4f (pr_cut=%.4f pr_stab=%.4f)"
+			% [CombatConstants.PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT, pr_s / pr_c, pr_c, pr_s]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2 footwork / tempo: defender **`stamina`** scales **`choose_defense`** **`parry_readiness`** (feint read-through / guard-zone / dodge telegraph) via **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** (**`DefenseChoiceResolver._defender_passive_readiness_stamina_mult`**), not the **`pr_base`** term in **`parry_c_d *= parry_capacity_mult * pr_base`**.
+static func _run_defender_low_stamina_scales_passive_parry_readiness_in_choose_defense(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(attacker)
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.44
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["guard_zone"] = "chest"
+	defender["guard_line"] = "high"
+	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = (
+		def_n.get_targetable_parts()
+		if def_n != null and def_n.has_method("get_targetable_parts")
+		else []
+	)
+	if parts.is_empty():
+		_fail(failures, "def_stam_readiness: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	defender["stamina"] = CombatConstants.STAMINA_MAX
+	var move_ober: Dictionary = WeaponConstants.get_move("oberhau")
+	var arch_ober: Dictionary = WeaponConstants.get_archetype(
+		str(move_ober.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau",
+		"intensity": 0.55,
+		"wind_up_duration": 0.95,
+		"tactical_ambush_mult": 1.0,
+	}
+	seed(92002)
+	var dc_hi: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch_ober, -1.0)
+	defender["stamina"] = 0.0
+	seed(92002)
+	var dc_lo: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch_ober, -1.0)
+	var pr_hi: float = float(dc_hi.get("parry_readiness", -1.0))
+	var pr_lo: float = float(dc_lo.get("parry_readiness", -1.0))
+	var want: float = lerpf(
+		CombatConstants.STAMINA_AT_ZERO_PARRY_MULT,
+		1.0,
+		CombatConstants.stamina_factor(0.0)
+	) / lerpf(
+		CombatConstants.STAMINA_AT_ZERO_PARRY_MULT,
+		1.0,
+		CombatConstants.stamina_factor(1.0)
+	)
+	if pr_hi <= 1e-6:
+		_fail(failures, "def_stam_readiness: full-stamina parry_readiness too small %.4f" % pr_hi)
+	elif not is_equal_approx(pr_lo / pr_hi, want):
+		_fail(
+			failures,
+			"def_stam_readiness: low/full readiness ratio want %.4f got %.4f (pr_lo=%.4f pr_hi=%.4f)"
+			% [want, pr_lo / pr_hi, pr_lo, pr_hi]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: **`CombatAIActionPicker._get_action_weight`** — feint listing applies **`passive_parry_readiness_incoming_contact_mult`** to defender readiness: stab feint (**`thrust_feint`**) vs cut feint (**`oberhau_feint`**) at defender **`guard`** **1.0** (**SWORD** 1v1).
+static func _run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_feint(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var enemy: Dictionary = mgr.combatants[1]
+	mgr._recompute_zoc_and_distance()
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["guard"] = 1.0
+	if not WeaponConstants.is_feint_move("thrust_feint"):
+		_fail(failures, "feint_list_incoming_ct: thrust_feint should register as is_feint")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var a_plain_c: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint_c: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var a_plain_s: Dictionary = {"move_id": "thrust", "target_id": e_id}
+	var a_feint_s: Dictionary = {"move_id": "thrust_feint", "target_id": e_id}
+	var wpc: float = _AIPicker._get_action_weight(a_plain_c, p_id, mgr, true)
+	var wfc: float = _AIPicker._get_action_weight(a_feint_c, p_id, mgr, true)
+	var wps: float = _AIPicker._get_action_weight(a_plain_s, p_id, mgr, true)
+	var wfs: float = _AIPicker._get_action_weight(a_feint_s, p_id, mgr, true)
+	if wpc <= 1e-8 or wps <= 1e-8:
+		_fail(failures, "feint_list_incoming_ct: plain weights too small pc=%.8f ps=%.8f" % [wpc, wps])
+		_free_manager_restore_global_rng(mgr)
+		return
+	var boost_c: float = wfc / wpc
+	var boost_s: float = wfs / wps
+	if boost_s >= boost_c - 1e-5:
+		_fail(
+			failures,
+			"feint_list_incoming_ct: stab feint/thrust plain boost %.6f should be < cut feint/oberhau plain %.6f"
+			% [boost_s, boost_c]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: **`CombatAIActionPicker._get_action_weight`** — feint listing defender readiness matches **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** after passive × incoming **`contact_type`** ( **`w_feint_lo` / `w_feint_hi` == read_m ratio**; attacker stamina full).
+static func _run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	player["stamina"] = CombatConstants.STAMINA_MAX
+	enemy["stance"] = CombatConstants.STANCE_BALANCED
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["guard"] = 0.44
+	mgr._recompute_zoc_and_distance()
+	var ct_mv: String = str(
+		WeaponConstants.get_move("oberhau_feint").get("contact_type", WeaponConstants.ATTACK_TYPE_CUT)
+	)
+	var pr_base: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(enemy), 0.0, 1.0)
+	pr_base = clampf(
+		pr_base * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct_mv), 0.0, 1.0
+	)
+	enemy["stamina"] = CombatConstants.STAMINA_MAX
+	var pr_hi: float = clampf(
+		pr_base
+		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
+			_EntityAccess.stamina_float(enemy) / CombatConstants.STAMINA_MAX
+		),
+		0.0,
+		1.0
+	)
+	var read_hi: float = lerpf(
+		1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_hi
+	)
+	enemy["stamina"] = 0.0
+	var pr_lo: float = clampf(
+		pr_base
+		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
+			_EntityAccess.stamina_float(enemy) / CombatConstants.STAMINA_MAX
+		),
+		0.0,
+		1.0
+	)
+	var read_lo: float = lerpf(
+		1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_lo
+	)
+	var want: float = read_lo / read_hi
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	enemy["stamina"] = CombatConstants.STAMINA_MAX
+	var w_plain_hi: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_hi: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	enemy["stamina"] = 0.0
+	var w_plain_lo: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var w_feint_lo: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if not is_equal_approx(w_plain_lo, w_plain_hi):
+		_fail(
+			failures,
+			"feint_list_def_stam: plain weight should not depend on defender stamina lo=%.6f hi=%.6f"
+			% [w_plain_lo, w_plain_hi]
+		)
+	elif w_feint_hi <= 1e-8:
+		_fail(failures, "feint_list_def_stam: full-stamina feint weight too small %.8f" % w_feint_hi)
+	elif not is_equal_approx(w_feint_lo / w_feint_hi, want):
+		_fail(
+			failures,
+			"feint_list_def_stam: feint weight ratio want %.6f got %.6f (w_lo=%.6f w_hi=%.6f)"
+			% [want, w_feint_lo / w_feint_hi, w_feint_lo, w_feint_hi]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: defender low stamina on feint **`read_m`** × attacker low stamina on **`AI_FEINT_LISTING_STAMINA_*`** multiply independently (**`w_ll/w_ml` == `w_lm/w_mm`** for **`oberhau_feint`**).
+static func _run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	player["stance"] = CombatConstants.STANCE_BALANCED
+	enemy["stance"] = CombatConstants.STANCE_BALANCED
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["guard"] = 0.44
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	player["stamina"] = CombatConstants.STAMINA_MAX
+	enemy["stamina"] = CombatConstants.STAMINA_MAX
+	mgr._recompute_zoc_and_distance()
+	var w_mm: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	player["stamina"] = CombatConstants.STAMINA_MAX * 0.1
+	enemy["stamina"] = CombatConstants.STAMINA_MAX
+	mgr._recompute_zoc_and_distance()
+	var w_ml: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	player["stamina"] = CombatConstants.STAMINA_MAX
+	enemy["stamina"] = 0.0
+	mgr._recompute_zoc_and_distance()
+	var w_lm: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	player["stamina"] = CombatConstants.STAMINA_MAX * 0.1
+	enemy["stamina"] = 0.0
+	mgr._recompute_zoc_and_distance()
+	var w_ll: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	if w_mm <= 1e-8 or w_ml <= 1e-8:
+		_fail(
+			failures,
+			"feint_list_stam_ortho: feint weights too small mm=%.8f ml=%.8f" % [w_mm, w_ml]
+		)
+		_free_manager_restore_global_rng(mgr)
+		return
+	var lhs: float = w_ll / w_ml
+	var rhs: float = w_lm / w_mm
+	if not is_equal_approx(lhs, rhs):
+		_fail(
+			failures,
+			"feint_list_stam_ortho: w_ll/w_ml %.6f vs w_lm/w_mm %.6f (mm=%.6f ml=%.6f lm=%.6f ll=%.6f)"
+			% [lhs, rhs, w_mm, w_ml, w_lm, w_ll]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: second **`AttackWindUpStarter.start`** without resolve clears prior defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** then restamps for the new wind-up.
+static func _run_feint_second_windup_clears_prior_telegraph_before_restamp(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var e: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(e)
+	e["guard_zone"] = "chest"
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(
+		mgr,
+		p_id,
+		e_id,
+		"oberhau_feint",
+		{"target_part": "left_leg", "feint_part": "head"}
+	)
+	if str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")) != "head":
+		_fail(
+			failures,
+			"feint_rewind: first telegraph want head got %s"
+			% str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, ""))
+		)
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(
+		mgr,
+		p_id,
+		e_id,
+		"oberhau_feint",
+		{"target_part": "right_leg", "feint_part": "chest"}
+	)
+	if str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")) != "chest":
+		_fail(
+			failures,
+			"feint_rewind: second telegraph want chest got %s"
+			% str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, ""))
+		)
+	if str(e.get("guard_zone", "")) != "chest":
+		_fail(failures, "feint_rewind: second guard_zone telegraph want chest got %s" % str(e.get("guard_zone", "")))
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.2: **`CombatManager.start`** erases **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** on all combatants (second **`start()`** without re-**`register`**).
+static func _run_feint_telegraph_scrubbed_on_combat_manager_restart(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var e: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(e)
+	e["guard_zone"] = "chest"
+	seed(_FEINT_WINDUP_HARNESS_SEED)
+	_WindUpStarter.start(
+		mgr,
+		p_id,
+		e_id,
+		"oberhau_feint",
+		{"target_part": "left_leg", "feint_part": "head"}
+	)
+	if str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")) != "head":
+		_fail(
+			failures,
+			"feint_restart: expected telegraph head before second start got %s"
+			% str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, ""))
+		)
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	if e.has(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART):
+		_fail(
+			failures,
+			"feint_restart: second start should scrub incoming telegraph key got %s"
+			% str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, ""))
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.1: `stance_ai_targeting_mult` orders defensive < balanced < aggressive. Plan: `docs/IMPLEMENTATION_ORDER.md` Tier 4.1 exit criteria.
 static func _run_ai_targeting_stance_mult_ordering(failures: PackedStringArray) -> void:
 	var m_def: float = _TargetScoring.stance_ai_targeting_mult({"stance": CombatConstants.STANCE_DEFENSIVE})
 	var m_bal: float = _TargetScoring.stance_ai_targeting_mult({"stance": CombatConstants.STANCE_BALANCED})
@@ -4822,7 +9491,2216 @@ static func _run_weapon_striking_part_mass_model(failures: PackedStringArray) ->
 		_fail(failures, "weapon_striking_parts: axe stab mass %.3f want %.3f" % [axe_stab, axe.mass * 0.15])
 
 
-## Tier 3.2: blade strong/weak fraction uses handle length over total blade weapon length.
+## Tier 3.0 (+ Tier 5 damage-flow anchor): **`WeaponDamageHelper.kinematic_delivery`** overrides move inference; **`kinematic_mixed_blend`** **0** / **1** KE + effective velocity match pure thrust / swing at the same move + intensity; interior blend **0.5** velocity = **`lerp`** of pure thrust vs pure swing speeds; mixed blend **0.5** KE = **`lerp`** of thrust vs swing KE **at that same blended `v`** (not **`lerp`** of pure-mode KE at each mode’s **`v`**). Repeats the mixed **0** / **0.5** / **1** bracket checks on **AXE** **`diagonal_chop`** and **DAGGER** **`quick_slash`** (extra cut fixtures; **`spear_slash`** can degenerate thrust/swing KE at some intensities).
+static func _run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_swing(
+	failures: PackedStringArray
+) -> void:
+	var empty: Dictionary = {}
+	if WeaponDamageHelper.kinematic_delivery(empty, "thrust") != WeaponConstants.KINEMATIC_DELIVERY_THRUST:
+		_fail(failures, "kin_del: empty arch + thrust move should infer thrust")
+	if WeaponDamageHelper.kinematic_delivery(empty, "oberhau") != WeaponConstants.KINEMATIC_DELIVERY_SWING:
+		_fail(failures, "kin_del: empty arch + cut move should infer swing")
+	var arch_thrust_override: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	if WeaponDamageHelper.kinematic_delivery(arch_thrust_override, "oberhau") != WeaponConstants.KINEMATIC_DELIVERY_THRUST:
+		_fail(failures, "kin_del: thrust archetype should override cut move to thrust")
+	var arch_swing_override: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	if WeaponDamageHelper.kinematic_delivery(arch_swing_override, "thrust") != WeaponConstants.KINEMATIC_DELIVERY_SWING:
+		_fail(failures, "kin_del: swing archetype should override stab move to swing")
+	if (
+		WeaponDamageHelper.kinematic_delivery({"kinematic_delivery": "mixed"}, "thrust")
+		!= WeaponConstants.KINEMATIC_DELIVERY_MIXED
+	):
+		_fail(failures, "kin_del: mixed archetype should win over stab inference")
+	var sword: Weapon = _Weapon.create_from_definition("SWORD")
+	if sword == null:
+		_fail(failures, "kin_del_mixed: missing sword")
+		return
+	const move_id: String = "oberhau"
+	const inten: float = 0.55
+	var ai_thrust: AttackInstance = AttackInstance.new(move_id, inten)
+	ai_thrust.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	var ai_swing: AttackInstance = AttackInstance.new(move_id, inten)
+	ai_swing.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var ai_mix0: AttackInstance = AttackInstance.new(move_id, inten)
+	ai_mix0.archetype = {
+		"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
+		"kinematic_mixed_blend": 0.0
+	}
+	var ai_mix1: AttackInstance = AttackInstance.new(move_id, inten)
+	ai_mix1.archetype = {
+		"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
+		"kinematic_mixed_blend": 1.0
+	}
+	var v_th: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, ai_thrust)
+	var v_sw: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, ai_swing)
+	var v_m0: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, ai_mix0)
+	var v_m1: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, ai_mix1)
+	if absf(v_m0 - v_th) > 0.001:
+		_fail(
+			failures,
+			"kin_del_mixed: mixed blend 0 velocity %.6f should match thrust velocity %.6f" % [v_m0, v_th]
+		)
+	if absf(v_m1 - v_sw) > 0.001:
+		_fail(
+			failures,
+			"kin_del_mixed: mixed blend 1 velocity %.6f should match swing velocity %.6f" % [v_m1, v_sw]
+		)
+	var ai_mix_mid: AttackInstance = AttackInstance.new(move_id, inten)
+	ai_mix_mid.archetype = {
+		"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
+		"kinematic_mixed_blend": 0.5
+	}
+	var v_mid: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, ai_mix_mid)
+	var want_mid_v: float = lerpf(v_th, v_sw, 0.5)
+	if absf(v_mid - want_mid_v) > 0.001:
+		_fail(
+			failures,
+			"kin_del_mixed: mixed blend 0.5 velocity %.6f want lerp(thrust,swing,0.5)=%.6f" % [v_mid, want_mid_v]
+		)
+	var ke_mid: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_mix_mid)
+	var ai_th_pin: AttackInstance = AttackInstance.new(move_id, inten)
+	ai_th_pin.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	ai_th_pin.velocity_m_s = v_mid
+	var ai_sw_pin: AttackInstance = AttackInstance.new(move_id, inten)
+	ai_sw_pin.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ai_sw_pin.velocity_m_s = v_mid
+	var ke_th_at_mid_v: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_th_pin)
+	var ke_sw_at_mid_v: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_sw_pin)
+	var want_ke_mid: float = lerpf(ke_th_at_mid_v, ke_sw_at_mid_v, 0.5)
+	if absf(ke_mid - want_ke_mid) > 0.001:
+		_fail(
+			failures,
+			"kin_del_mixed: mixed blend 0.5 KE %.6f want lerp(thrust_ke(v_mid),swing_ke(v_mid),0.5)=%.6f"
+			% [ke_mid, want_ke_mid]
+		)
+	var ke_th: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_thrust)
+	var ke_sw: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_swing)
+	var ke_m0: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_mix0)
+	var ke_m1: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_mix1)
+	if ke_th <= 0.05 or ke_sw <= 0.05:
+		_fail(failures, "kin_del_mixed: expected positive KE thrust=%.4f swing=%.4f" % [ke_th, ke_sw])
+	if absf(ke_m0 - ke_th) > 0.001:
+		_fail(
+			failures,
+			"kin_del_mixed: mixed blend 0 KE %.6f should match thrust KE %.6f" % [ke_m0, ke_th]
+		)
+	if absf(ke_m1 - ke_sw) > 0.001:
+		_fail(
+			failures,
+			"kin_del_mixed: mixed blend 1 KE %.6f should match swing KE %.6f" % [ke_m1, ke_sw]
+		)
+	## Second weapon: AXE + diagonal_chop (cut) — same mixed brackets (Tier 5.1); avoids **`spear_slash`** thrust/swing KE degeneracy at some intensities.
+	var axe: Weapon = _Weapon.create_from_definition("AXE")
+	if axe == null:
+		_fail(failures, "kin_del_axe: missing axe")
+		return
+	const move_chop: String = "diagonal_chop"
+	var ai_ax_thrust: AttackInstance = AttackInstance.new(move_chop, inten)
+	ai_ax_thrust.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	var ai_ax_swing: AttackInstance = AttackInstance.new(move_chop, inten)
+	ai_ax_swing.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var ai_ax_m0: AttackInstance = AttackInstance.new(move_chop, inten)
+	ai_ax_m0.archetype = {
+		"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
+		"kinematic_mixed_blend": 0.0
+	}
+	var ai_ax_m1: AttackInstance = AttackInstance.new(move_chop, inten)
+	ai_ax_m1.archetype = {
+		"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
+		"kinematic_mixed_blend": 1.0
+	}
+	var v_ax_th: float = WeaponDamageHelper.get_effective_velocity_m_s(axe, ai_ax_thrust)
+	var v_ax_sw: float = WeaponDamageHelper.get_effective_velocity_m_s(axe, ai_ax_swing)
+	var v_ax_m0: float = WeaponDamageHelper.get_effective_velocity_m_s(axe, ai_ax_m0)
+	var v_ax_m1: float = WeaponDamageHelper.get_effective_velocity_m_s(axe, ai_ax_m1)
+	if absf(v_ax_m0 - v_ax_th) > 0.001:
+		_fail(
+			failures,
+			"kin_del_axe: mixed blend 0 velocity %.6f should match thrust %.6f" % [v_ax_m0, v_ax_th]
+		)
+	if absf(v_ax_m1 - v_ax_sw) > 0.001:
+		_fail(
+			failures,
+			"kin_del_axe: mixed blend 1 velocity %.6f should match swing %.6f" % [v_ax_m1, v_ax_sw]
+		)
+	var ai_ax_mid: AttackInstance = AttackInstance.new(move_chop, inten)
+	ai_ax_mid.archetype = {
+		"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
+		"kinematic_mixed_blend": 0.5
+	}
+	var v_ax_mid: float = WeaponDamageHelper.get_effective_velocity_m_s(axe, ai_ax_mid)
+	var want_ax_mid_v: float = lerpf(v_ax_th, v_ax_sw, 0.5)
+	if absf(v_ax_mid - want_ax_mid_v) > 0.001:
+		_fail(
+			failures,
+			"kin_del_axe: mixed blend 0.5 velocity %.6f want lerp(thrust,swing,0.5)=%.6f" % [v_ax_mid, want_ax_mid_v]
+		)
+	var ke_ax_mid: float = WeaponDamageHelper.compute_kinetic_energy_j(axe, ai_ax_mid)
+	var ai_ax_th_pin: AttackInstance = AttackInstance.new(move_chop, inten)
+	ai_ax_th_pin.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	ai_ax_th_pin.velocity_m_s = v_ax_mid
+	var ai_ax_sw_pin: AttackInstance = AttackInstance.new(move_chop, inten)
+	ai_ax_sw_pin.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ai_ax_sw_pin.velocity_m_s = v_ax_mid
+	var ke_ax_th_at_mid: float = WeaponDamageHelper.compute_kinetic_energy_j(axe, ai_ax_th_pin)
+	var ke_ax_sw_at_mid: float = WeaponDamageHelper.compute_kinetic_energy_j(axe, ai_ax_sw_pin)
+	var want_ax_ke_mid: float = lerpf(ke_ax_th_at_mid, ke_ax_sw_at_mid, 0.5)
+	if absf(ke_ax_mid - want_ax_ke_mid) > 0.001:
+		_fail(
+			failures,
+			"kin_del_axe: mixed blend 0.5 KE %.6f want lerp(thrust_ke(v_mid),swing_ke(v_mid),0.5)=%.6f"
+			% [ke_ax_mid, want_ax_ke_mid]
+		)
+	var ke_ax_th: float = WeaponDamageHelper.compute_kinetic_energy_j(axe, ai_ax_thrust)
+	var ke_ax_sw: float = WeaponDamageHelper.compute_kinetic_energy_j(axe, ai_ax_swing)
+	var ke_ax_m0: float = WeaponDamageHelper.compute_kinetic_energy_j(axe, ai_ax_m0)
+	var ke_ax_m1: float = WeaponDamageHelper.compute_kinetic_energy_j(axe, ai_ax_m1)
+	if ke_ax_th <= 0.05 or ke_ax_sw <= 0.05:
+		_fail(failures, "kin_del_axe: expected positive KE thrust=%.4f swing=%.4f" % [ke_ax_th, ke_ax_sw])
+	if absf(ke_ax_m0 - ke_ax_th) > 0.001:
+		_fail(
+			failures,
+			"kin_del_axe: mixed blend 0 KE %.6f should match thrust KE %.6f" % [ke_ax_m0, ke_ax_th]
+		)
+	if absf(ke_ax_m1 - ke_ax_sw) > 0.001:
+		_fail(
+			failures,
+			"kin_del_axe: mixed blend 1 KE %.6f should match swing KE %.6f" % [ke_ax_m1, ke_ax_sw]
+		)
+	## Third weapon: DAGGER + quick_slash (cut) — same mixed brackets (Tier 5.1 light weapon coverage).
+	var dagger: Weapon = _Weapon.create_from_definition("DAGGER")
+	if dagger == null:
+		_fail(failures, "kin_del_dagger: missing dagger")
+		return
+	const move_slash: String = "quick_slash"
+	var ai_dg_thrust: AttackInstance = AttackInstance.new(move_slash, inten)
+	ai_dg_thrust.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	var ai_dg_swing: AttackInstance = AttackInstance.new(move_slash, inten)
+	ai_dg_swing.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var ai_dg_m0: AttackInstance = AttackInstance.new(move_slash, inten)
+	ai_dg_m0.archetype = {
+		"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
+		"kinematic_mixed_blend": 0.0
+	}
+	var ai_dg_m1: AttackInstance = AttackInstance.new(move_slash, inten)
+	ai_dg_m1.archetype = {
+		"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
+		"kinematic_mixed_blend": 1.0
+	}
+	var v_dg_th: float = WeaponDamageHelper.get_effective_velocity_m_s(dagger, ai_dg_thrust)
+	var v_dg_sw: float = WeaponDamageHelper.get_effective_velocity_m_s(dagger, ai_dg_swing)
+	var v_dg_m0: float = WeaponDamageHelper.get_effective_velocity_m_s(dagger, ai_dg_m0)
+	var v_dg_m1: float = WeaponDamageHelper.get_effective_velocity_m_s(dagger, ai_dg_m1)
+	if absf(v_dg_m0 - v_dg_th) > 0.001:
+		_fail(
+			failures,
+			"kin_del_dagger: mixed blend 0 velocity %.6f should match thrust %.6f" % [v_dg_m0, v_dg_th]
+		)
+	if absf(v_dg_m1 - v_dg_sw) > 0.001:
+		_fail(
+			failures,
+			"kin_del_dagger: mixed blend 1 velocity %.6f should match swing %.6f" % [v_dg_m1, v_dg_sw]
+		)
+	var ai_dg_mid: AttackInstance = AttackInstance.new(move_slash, inten)
+	ai_dg_mid.archetype = {
+		"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
+		"kinematic_mixed_blend": 0.5
+	}
+	var v_dg_mid: float = WeaponDamageHelper.get_effective_velocity_m_s(dagger, ai_dg_mid)
+	var want_dg_mid_v: float = lerpf(v_dg_th, v_dg_sw, 0.5)
+	if absf(v_dg_mid - want_dg_mid_v) > 0.001:
+		_fail(
+			failures,
+			"kin_del_dagger: mixed blend 0.5 velocity %.6f want lerp(thrust,swing,0.5)=%.6f" % [v_dg_mid, want_dg_mid_v]
+		)
+	var ke_dg_mid: float = WeaponDamageHelper.compute_kinetic_energy_j(dagger, ai_dg_mid)
+	var ai_dg_th_pin: AttackInstance = AttackInstance.new(move_slash, inten)
+	ai_dg_th_pin.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	ai_dg_th_pin.velocity_m_s = v_dg_mid
+	var ai_dg_sw_pin: AttackInstance = AttackInstance.new(move_slash, inten)
+	ai_dg_sw_pin.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ai_dg_sw_pin.velocity_m_s = v_dg_mid
+	var ke_dg_th_at_mid: float = WeaponDamageHelper.compute_kinetic_energy_j(dagger, ai_dg_th_pin)
+	var ke_dg_sw_at_mid: float = WeaponDamageHelper.compute_kinetic_energy_j(dagger, ai_dg_sw_pin)
+	var want_dg_ke_mid: float = lerpf(ke_dg_th_at_mid, ke_dg_sw_at_mid, 0.5)
+	if absf(ke_dg_mid - want_dg_ke_mid) > 0.001:
+		_fail(
+			failures,
+			"kin_del_dagger: mixed blend 0.5 KE %.6f want lerp(thrust_ke(v_mid),swing_ke(v_mid),0.5)=%.6f"
+			% [ke_dg_mid, want_dg_ke_mid]
+		)
+	var ke_dg_th: float = WeaponDamageHelper.compute_kinetic_energy_j(dagger, ai_dg_thrust)
+	var ke_dg_sw: float = WeaponDamageHelper.compute_kinetic_energy_j(dagger, ai_dg_swing)
+	var ke_dg_m0: float = WeaponDamageHelper.compute_kinetic_energy_j(dagger, ai_dg_m0)
+	var ke_dg_m1: float = WeaponDamageHelper.compute_kinetic_energy_j(dagger, ai_dg_m1)
+	if ke_dg_th <= 0.05 or ke_dg_sw <= 0.05:
+		_fail(failures, "kin_del_dagger: expected positive KE thrust=%.4f swing=%.4f" % [ke_dg_th, ke_dg_sw])
+	if absf(ke_dg_m0 - ke_dg_th) > 0.001:
+		_fail(
+			failures,
+			"kin_del_dagger: mixed blend 0 KE %.6f should match thrust KE %.6f" % [ke_dg_m0, ke_dg_th]
+		)
+	if absf(ke_dg_m1 - ke_dg_sw) > 0.001:
+		_fail(
+			failures,
+			"kin_del_dagger: mixed blend 1 KE %.6f should match swing KE %.6f" % [ke_dg_m1, ke_dg_sw]
+		)
+
+
+## Tier 5.1: **`velocity_m_s_from_intensity`** must match **`get_effective_velocity_m_s`** when **`AttackInstance.velocity_m_s` < 0** (derived path). Intensity **0.05 → 0.95** increases speed where expected: **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (inferred swing, thrust override, mixed **`kinematic_mixed_blend` 0.35**), **SPEAR** **`spear_thrust`** (inferred thrust), **MACE** **`direct_blow`** (blunt → swing path).
+static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effective_and_monotone(
+	failures: PackedStringArray
+) -> void:
+	var sword: Weapon = _Weapon.create_from_definition("SWORD")
+	if sword == null:
+		_fail(failures, "kin_vel_bridge: missing sword")
+		return
+	const move_id: String = "oberhau"
+	const arch_empty: Dictionary = {}
+	const arch_thrust: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	const arch_mixed: Dictionary = {
+		"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
+		"kinematic_mixed_blend": 0.35
+	}
+	for inten in [0.22, 0.78]:
+		var ai: AttackInstance = AttackInstance.new(move_id, inten)
+		ai.archetype = arch_empty
+		var v_from_i: float = WeaponDamageHelper.velocity_m_s_from_intensity(inten, arch_empty, sword, move_id)
+		var v_eff: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, ai)
+		if absf(v_eff - v_from_i) > 0.001:
+			_fail(
+				failures,
+				"kin_vel_bridge: swing inferred inten=%.2f get_effective=%.6f want velocity_from_intensity=%.6f"
+				% [inten, v_eff, v_from_i]
+			)
+		var ai_t: AttackInstance = AttackInstance.new(move_id, inten)
+		ai_t.archetype = arch_thrust
+		var v_t_i: float = WeaponDamageHelper.velocity_m_s_from_intensity(inten, arch_thrust, sword, move_id)
+		var v_t_e: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, ai_t)
+		if absf(v_t_e - v_t_i) > 0.001:
+			_fail(
+				failures,
+				"kin_vel_bridge: thrust override inten=%.2f get_effective=%.6f want velocity_from_intensity=%.6f"
+				% [inten, v_t_e, v_t_i]
+			)
+		var ai_m: AttackInstance = AttackInstance.new(move_id, inten)
+		ai_m.archetype = arch_mixed
+		var v_m_i: float = WeaponDamageHelper.velocity_m_s_from_intensity(inten, arch_mixed, sword, move_id)
+		var v_m_e: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, ai_m)
+		if absf(v_m_e - v_m_i) > 0.001:
+			_fail(
+				failures,
+				"kin_vel_bridge: mixed inten=%.2f get_effective=%.6f want velocity_from_intensity=%.6f"
+				% [inten, v_m_e, v_m_i]
+			)
+	var v_sw_lo: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.05, arch_empty, sword, move_id)
+	var v_sw_hi: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.95, arch_empty, sword, move_id)
+	if v_sw_lo > v_sw_hi + 0.0001:
+		_fail(
+			failures,
+			"kin_vel_mono: swing inferred v(0.05)=%.6f > v(0.95)=%.6f" % [v_sw_lo, v_sw_hi]
+		)
+	if v_sw_hi - v_sw_lo < 0.01:
+		_fail(
+			failures,
+			"kin_vel_mono: swing inferred expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [v_sw_hi - v_sw_lo]
+		)
+	var v_th_lo: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.05, arch_thrust, sword, move_id)
+	var v_th_hi: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.95, arch_thrust, sword, move_id)
+	if v_th_lo > v_th_hi + 0.0001:
+		_fail(
+			failures,
+			"kin_vel_mono: thrust override v(0.05)=%.6f > v(0.95)=%.6f" % [v_th_lo, v_th_hi]
+		)
+	if v_th_hi - v_th_lo < 0.01:
+		_fail(
+			failures,
+			"kin_vel_mono: thrust override expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [v_th_hi - v_th_lo]
+		)
+	var v_mx_lo: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.05, arch_mixed, sword, move_id)
+	var v_mx_hi: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.95, arch_mixed, sword, move_id)
+	if v_mx_lo > v_mx_hi + 0.0001:
+		_fail(
+			failures,
+			"kin_vel_mono: mixed blend v(0.05)=%.6f > v(0.95)=%.6f" % [v_mx_lo, v_mx_hi]
+		)
+	if v_mx_hi - v_mx_lo < 0.01:
+		_fail(
+			failures,
+			"kin_vel_mono: mixed blend expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [v_mx_hi - v_mx_lo]
+		)
+	## Stab-inferred thrust: SPEAR + spear_thrust (linear band).
+	var spear: Weapon = _Weapon.create_from_definition("SPEAR")
+	if spear == null:
+		_fail(failures, "kin_vel_bridge: missing spear")
+		return
+	const move_spear: String = "spear_thrust"
+	for inten_sp in [0.31, 0.69]:
+		var ai_sp: AttackInstance = AttackInstance.new(move_spear, inten_sp)
+		ai_sp.archetype = arch_empty
+		var v_sp_i: float = WeaponDamageHelper.velocity_m_s_from_intensity(inten_sp, arch_empty, spear, move_spear)
+		var v_sp_e: float = WeaponDamageHelper.get_effective_velocity_m_s(spear, ai_sp)
+		if absf(v_sp_e - v_sp_i) > 0.001:
+			_fail(
+				failures,
+				"kin_vel_bridge: spear thrust inferred inten=%.2f get_effective=%.6f want velocity_from_intensity=%.6f"
+				% [inten_sp, v_sp_e, v_sp_i]
+			)
+	var v_sp_lo: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.05, arch_empty, spear, move_spear)
+	var v_sp_hi: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.95, arch_empty, spear, move_spear)
+	if v_sp_lo > v_sp_hi + 0.0001:
+		_fail(
+			failures,
+			"kin_vel_mono: spear thrust v(0.05)=%.6f > v(0.95)=%.6f" % [v_sp_lo, v_sp_hi]
+		)
+	if v_sp_hi - v_sp_lo < 0.01:
+		_fail(
+			failures,
+			"kin_vel_mono: spear thrust expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [v_sp_hi - v_sp_lo]
+		)
+	## Blunt contact → swing kinematic path: MACE + direct_blow.
+	var mace: Weapon = _Weapon.create_from_definition("MACE")
+	if mace == null:
+		_fail(failures, "kin_vel_bridge: missing mace")
+		return
+	const move_mace: String = "direct_blow"
+	for inten_mc in [0.28, 0.72]:
+		var ai_mc: AttackInstance = AttackInstance.new(move_mace, inten_mc)
+		ai_mc.archetype = arch_empty
+		var v_mc_i: float = WeaponDamageHelper.velocity_m_s_from_intensity(inten_mc, arch_empty, mace, move_mace)
+		var v_mc_e: float = WeaponDamageHelper.get_effective_velocity_m_s(mace, ai_mc)
+		if absf(v_mc_e - v_mc_i) > 0.001:
+			_fail(
+				failures,
+				"kin_vel_bridge: mace blunt inten=%.2f get_effective=%.6f want velocity_from_intensity=%.6f"
+				% [inten_mc, v_mc_e, v_mc_i]
+			)
+	var v_mc_lo: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.05, arch_empty, mace, move_mace)
+	var v_mc_hi: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.95, arch_empty, mace, move_mace)
+	if v_mc_lo > v_mc_hi + 0.0001:
+		_fail(
+			failures,
+			"kin_vel_mono: mace blunt v(0.05)=%.6f > v(0.95)=%.6f" % [v_mc_lo, v_mc_hi]
+		)
+	if v_mc_hi - v_mc_lo < 0.01:
+		_fail(
+			failures,
+			"kin_vel_mono: mace blunt expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [v_mc_hi - v_mc_lo]
+		)
+	for blade_spec: Dictionary in [
+		{"def": "AXE", "move": "diagonal_chop", "pfx": "kin_vel_ax"},
+		{"def": "DAGGER", "move": "quick_slash", "pfx": "kin_vel_dg"},
+	]:
+		var w_b: Weapon = _Weapon.create_from_definition(str(blade_spec["def"]))
+		if w_b == null:
+			_fail(failures, "%s: missing %s" % [str(blade_spec["pfx"]), str(blade_spec["def"])])
+			return
+		var m_b: String = str(blade_spec["move"])
+		var tag: String = str(blade_spec["pfx"])
+		for inten_b in [0.22, 0.78]:
+			var ai_b: AttackInstance = AttackInstance.new(m_b, inten_b)
+			ai_b.archetype = arch_empty
+			var vfi: float = WeaponDamageHelper.velocity_m_s_from_intensity(inten_b, arch_empty, w_b, m_b)
+			var vfe: float = WeaponDamageHelper.get_effective_velocity_m_s(w_b, ai_b)
+			if absf(vfe - vfi) > 0.001:
+				_fail(
+					failures,
+					"%s: swing inferred inten=%.2f get_effective=%.6f want velocity_from_intensity=%.6f"
+					% [tag, inten_b, vfe, vfi]
+				)
+			var ai_bt: AttackInstance = AttackInstance.new(m_b, inten_b)
+			ai_bt.archetype = arch_thrust
+			var vti: float = WeaponDamageHelper.velocity_m_s_from_intensity(inten_b, arch_thrust, w_b, m_b)
+			var vte: float = WeaponDamageHelper.get_effective_velocity_m_s(w_b, ai_bt)
+			if absf(vte - vti) > 0.001:
+				_fail(
+					failures,
+					"%s: thrust override inten=%.2f get_effective=%.6f want velocity_from_intensity=%.6f"
+					% [tag, inten_b, vte, vti]
+				)
+			var ai_bm: AttackInstance = AttackInstance.new(m_b, inten_b)
+			ai_bm.archetype = arch_mixed
+			var vmi: float = WeaponDamageHelper.velocity_m_s_from_intensity(inten_b, arch_mixed, w_b, m_b)
+			var vme: float = WeaponDamageHelper.get_effective_velocity_m_s(w_b, ai_bm)
+			if absf(vme - vmi) > 0.001:
+				_fail(
+					failures,
+					"%s: mixed inten=%.2f get_effective=%.6f want velocity_from_intensity=%.6f"
+					% [tag, inten_b, vme, vmi]
+				)
+		var vb_sw_lo: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.05, arch_empty, w_b, m_b)
+		var vb_sw_hi: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.95, arch_empty, w_b, m_b)
+		if vb_sw_lo > vb_sw_hi + 0.0001:
+			_fail(
+				failures,
+				"%s: swing inferred v(0.05)=%.6f > v(0.95)=%.6f" % [tag, vb_sw_lo, vb_sw_hi]
+			)
+		if vb_sw_hi - vb_sw_lo < 0.01:
+			_fail(
+				failures,
+				"%s: swing inferred expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [tag, vb_sw_hi - vb_sw_lo]
+			)
+		var vb_th_lo: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.05, arch_thrust, w_b, m_b)
+		var vb_th_hi: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.95, arch_thrust, w_b, m_b)
+		if vb_th_lo > vb_th_hi + 0.0001:
+			_fail(
+				failures,
+				"%s: thrust override v(0.05)=%.6f > v(0.95)=%.6f" % [tag, vb_th_lo, vb_th_hi]
+			)
+		if vb_th_hi - vb_th_lo < 0.01:
+			_fail(
+				failures,
+				"%s: thrust override expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [tag, vb_th_hi - vb_th_lo]
+			)
+		var vb_mx_lo: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.05, arch_mixed, w_b, m_b)
+		var vb_mx_hi: float = WeaponDamageHelper.velocity_m_s_from_intensity(0.95, arch_mixed, w_b, m_b)
+		if vb_mx_lo > vb_mx_hi + 0.0001:
+			_fail(
+				failures,
+				"%s: mixed blend v(0.05)=%.6f > v(0.95)=%.6f" % [tag, vb_mx_lo, vb_mx_hi]
+			)
+		if vb_mx_hi - vb_mx_lo < 0.01:
+			_fail(
+				failures,
+				"%s: mixed blend expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [tag, vb_mx_hi - vb_mx_lo]
+			)
+
+
+## Tier 5.1: **`compute_pre_armor_cut`** scales with **`sqrt(KE)`** at fixed strength/**`arm_mod`** when **`velocity_m_s`** pins tip speed (no clamp skew) — **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (swing). **`compute_pre_armor_blunt`** rises with pinned speed on **MACE** **`direct_blow`** (momentum path).
+static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_with_speed(
+	failures: PackedStringArray
+) -> void:
+	const strength: float = 100.0
+	const arm_mod: float = 1.0
+	var sword: Weapon = _Weapon.create_from_definition("SWORD")
+	if sword == null:
+		_fail(failures, "kin_pre_armor: missing sword")
+		return
+	const move_cut: String = "oberhau"
+	var ai_lo: AttackInstance = AttackInstance.new(move_cut, 0.5)
+	ai_lo.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ai_lo.velocity_m_s = 8.0
+	var ai_hi: AttackInstance = AttackInstance.new(move_cut, 0.5)
+	ai_hi.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ai_hi.velocity_m_s = 15.0
+	var ke_lo: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_lo)
+	var ke_hi: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_hi)
+	var cut_lo: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_lo, strength, arm_mod)
+	var cut_hi: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_hi, strength, arm_mod)
+	if ke_hi <= ke_lo + 1e-4:
+		_fail(failures, "kin_pre_armor_cut: expected ke_hi > ke_lo got lo=%.4f hi=%.4f" % [ke_lo, ke_hi])
+	if cut_hi <= cut_lo + 1e-4:
+		_fail(
+			failures,
+			"kin_pre_armor_cut: cut_hi should exceed cut_lo (got lo=%.4f hi=%.4f)" % [cut_lo, cut_hi]
+		)
+	var want_ratio: float = sqrt(ke_hi / ke_lo)
+	var got_ratio: float = cut_hi / cut_lo
+	if absf(got_ratio - want_ratio) > 0.03:
+		_fail(
+			failures,
+			"kin_pre_armor_cut: cut ratio %.4f want sqrt(ke) ratio %.4f (ke lo=%.4f hi=%.4f)"
+			% [got_ratio, want_ratio, ke_lo, ke_hi]
+		)
+	const arch_swing_cut: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	for cfx: Dictionary in [
+		{"def": "AXE", "move": "diagonal_chop", "pfx": "kin_pre_armor_cut_ax", "v_lo": 8.0, "v_hi": 15.0},
+		{"def": "DAGGER", "move": "quick_slash", "pfx": "kin_pre_armor_cut_dg", "v_lo": 8.0, "v_hi": 15.0},
+	]:
+		var w_c: Weapon = _Weapon.create_from_definition(str(cfx["def"]))
+		if w_c == null:
+			_fail(failures, "%s: missing %s" % [str(cfx["pfx"]), str(cfx["def"])])
+			return
+		var m_c: String = str(cfx["move"])
+		var pfx_c: String = str(cfx["pfx"])
+		var v_lo_c: float = float(cfx["v_lo"])
+		var v_hi_c: float = float(cfx["v_hi"])
+		var c_lo: AttackInstance = AttackInstance.new(m_c, 0.5)
+		c_lo.archetype = arch_swing_cut
+		c_lo.velocity_m_s = v_lo_c
+		var c_hi: AttackInstance = AttackInstance.new(m_c, 0.5)
+		c_hi.archetype = arch_swing_cut
+		c_hi.velocity_m_s = v_hi_c
+		var ke_lo_c: float = WeaponDamageHelper.compute_kinetic_energy_j(w_c, c_lo)
+		var ke_hi_c: float = WeaponDamageHelper.compute_kinetic_energy_j(w_c, c_hi)
+		var cut_lo_c: float = WeaponDamageHelper.compute_pre_armor_cut(w_c, c_lo, strength, arm_mod)
+		var cut_hi_c: float = WeaponDamageHelper.compute_pre_armor_cut(w_c, c_hi, strength, arm_mod)
+		if ke_hi_c <= ke_lo_c + 1e-4:
+			_fail(
+				failures,
+				"%s: expected ke_hi > ke_lo got lo=%.4f hi=%.4f" % [pfx_c, ke_lo_c, ke_hi_c]
+			)
+		if cut_hi_c <= cut_lo_c + 1e-4:
+			_fail(
+				failures,
+				"%s: cut_hi should exceed cut_lo (lo=%.4f hi=%.4f)" % [pfx_c, cut_lo_c, cut_hi_c]
+			)
+		var want_r_c: float = sqrt(ke_hi_c / ke_lo_c)
+		var got_r_c: float = cut_hi_c / cut_lo_c
+		if absf(got_r_c - want_r_c) > 0.03:
+			_fail(
+				failures,
+				"%s: cut ratio %.4f want sqrt(ke) ratio %.4f (ke lo=%.4f hi=%.4f)"
+				% [pfx_c, got_r_c, want_r_c, ke_lo_c, ke_hi_c]
+			)
+	var mace: Weapon = _Weapon.create_from_definition("MACE")
+	if mace == null:
+		_fail(failures, "kin_pre_armor: missing mace")
+		return
+	const move_blunt: String = "direct_blow"
+	var b_lo: AttackInstance = AttackInstance.new(move_blunt, 0.5)
+	b_lo.velocity_m_s = 6.0
+	var b_hi: AttackInstance = AttackInstance.new(move_blunt, 0.5)
+	b_hi.velocity_m_s = 14.0
+	var blunt_lo: float = WeaponDamageHelper.compute_pre_armor_blunt(mace, b_lo, strength, arm_mod)
+	var blunt_hi: float = WeaponDamageHelper.compute_pre_armor_blunt(mace, b_hi, strength, arm_mod)
+	if blunt_hi <= blunt_lo + 1e-4:
+		_fail(
+			failures,
+			"kin_pre_armor_blunt: blunt_hi should exceed blunt_lo (lo=%.4f hi=%.4f)" % [blunt_lo, blunt_hi]
+		)
+
+
+## Tier 5.1: **`compute_penetration`** — **SHARP** **`penetration_sharp`** scales as **`(KE / J_BASE)^PENETRATION_EXPONENT`** × area factor (same move, pinned **`velocity_m_s`**) on **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (swing); **BLUNT** returns **`penetration_blunt_momentum_per_area`** increasing with pinned **`v`** on **MACE** **`direct_blow`**.
+static func _run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_rises(
+	failures: PackedStringArray
+) -> void:
+	var sword: Weapon = _Weapon.create_from_definition("SWORD")
+	if sword == null:
+		_fail(failures, "kin_pen: missing sword")
+		return
+	const move_cut: String = "oberhau"
+	var ai_lo: AttackInstance = AttackInstance.new(move_cut, 0.5)
+	ai_lo.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ai_lo.velocity_m_s = 9.0
+	var ai_hi: AttackInstance = AttackInstance.new(move_cut, 0.5)
+	ai_hi.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ai_hi.velocity_m_s = 16.0
+	var ke_lo: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_lo)
+	var ke_hi: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_hi)
+	if ke_lo < 0.5:
+		_fail(failures, "kin_pen_sharp: ke_lo unexpectedly small %.4f" % ke_lo)
+	if ke_hi <= ke_lo + 1e-4:
+		_fail(failures, "kin_pen_sharp: expected ke_hi > ke_lo lo=%.4f hi=%.4f" % [ke_lo, ke_hi])
+	var pen_lo: float = float(
+		WeaponDamageHelper.compute_penetration(sword, ai_lo, WeaponConstants.DAMAGE_TYPE_SHARP, {}).get(
+			"penetration_sharp", -1.0
+		)
+	)
+	var pen_hi: float = float(
+		WeaponDamageHelper.compute_penetration(sword, ai_hi, WeaponConstants.DAMAGE_TYPE_SHARP, {}).get(
+			"penetration_sharp", -1.0
+		)
+	)
+	if pen_lo <= 0.0 or pen_hi <= pen_lo + 1e-6:
+		_fail(failures, "kin_pen_sharp: expected rising pen lo=%.6f hi=%.6f" % [pen_lo, pen_hi])
+	var want_ratio: float = pow(ke_hi / ke_lo, WeaponConstants.PENETRATION_EXPONENT)
+	var got_ratio: float = pen_hi / pen_lo
+	if absf(got_ratio - want_ratio) > 0.05:
+		_fail(
+			failures,
+			"kin_pen_sharp: pen ratio %.4f want ke^exp ratio %.4f (ke lo=%.4f hi=%.4f exp=%.3f)"
+			% [got_ratio, want_ratio, ke_lo, ke_hi, WeaponConstants.PENETRATION_EXPONENT]
+		)
+	const arch_swing_pen: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	const pen_v_lo: float = 9.0
+	const pen_v_hi: float = 16.0
+	for pfx_row: Dictionary in [
+		{"def": "AXE", "move": "diagonal_chop", "pfx": "kin_pen_sharp_ax"},
+		{"def": "DAGGER", "move": "quick_slash", "pfx": "kin_pen_sharp_dg"},
+	]:
+		var w_p: Weapon = _Weapon.create_from_definition(str(pfx_row["def"]))
+		if w_p == null:
+			_fail(failures, "%s: missing %s" % [str(pfx_row["pfx"]), str(pfx_row["def"])])
+			return
+		var m_p: String = str(pfx_row["move"])
+		var pfx_p: String = str(pfx_row["pfx"])
+		var p_lo: AttackInstance = AttackInstance.new(m_p, 0.5)
+		p_lo.archetype = arch_swing_pen
+		p_lo.velocity_m_s = pen_v_lo
+		var p_hi: AttackInstance = AttackInstance.new(m_p, 0.5)
+		p_hi.archetype = arch_swing_pen
+		p_hi.velocity_m_s = pen_v_hi
+		var ke_lo_p: float = WeaponDamageHelper.compute_kinetic_energy_j(w_p, p_lo)
+		var ke_hi_p: float = WeaponDamageHelper.compute_kinetic_energy_j(w_p, p_hi)
+		if ke_lo_p < 0.05:
+			_fail(failures, "%s: ke_lo unexpectedly small %.4f" % [pfx_p, ke_lo_p])
+		if ke_hi_p <= ke_lo_p + 1e-4:
+			_fail(
+				failures,
+				"%s: expected ke_hi > ke_lo lo=%.4f hi=%.4f" % [pfx_p, ke_lo_p, ke_hi_p]
+			)
+		var pen_lo_p: float = float(
+			WeaponDamageHelper.compute_penetration(w_p, p_lo, WeaponConstants.DAMAGE_TYPE_SHARP, {}).get(
+				"penetration_sharp", -1.0
+			)
+		)
+		var pen_hi_p: float = float(
+			WeaponDamageHelper.compute_penetration(w_p, p_hi, WeaponConstants.DAMAGE_TYPE_SHARP, {}).get(
+				"penetration_sharp", -1.0
+			)
+		)
+		if pen_lo_p <= 0.0 or pen_hi_p <= pen_lo_p + 1e-6:
+			_fail(failures, "%s: expected rising pen lo=%.6f hi=%.6f" % [pfx_p, pen_lo_p, pen_hi_p])
+		var want_rp: float = pow(ke_hi_p / ke_lo_p, WeaponConstants.PENETRATION_EXPONENT)
+		var got_rp: float = pen_hi_p / pen_lo_p
+		if absf(got_rp - want_rp) > 0.05:
+			_fail(
+				failures,
+				"%s: pen ratio %.4f want ke^exp ratio %.4f (ke lo=%.4f hi=%.4f exp=%.3f)"
+				% [pfx_p, got_rp, want_rp, ke_lo_p, ke_hi_p, WeaponConstants.PENETRATION_EXPONENT]
+			)
+	var mace: Weapon = _Weapon.create_from_definition("MACE")
+	if mace == null:
+		_fail(failures, "kin_pen: missing mace")
+		return
+	const move_blunt: String = "direct_blow"
+	var b_lo: AttackInstance = AttackInstance.new(move_blunt, 0.5)
+	b_lo.velocity_m_s = 7.0
+	var b_hi: AttackInstance = AttackInstance.new(move_blunt, 0.5)
+	b_hi.velocity_m_s = 13.0
+	var d_lo: Dictionary = WeaponDamageHelper.compute_penetration(mace, b_lo, WeaponConstants.DAMAGE_TYPE_BLUNT, {})
+	var d_hi: Dictionary = WeaponDamageHelper.compute_penetration(mace, b_hi, WeaponConstants.DAMAGE_TYPE_BLUNT, {})
+	var mpa_lo: float = float(d_lo.get("penetration_blunt_momentum_per_area", -1.0))
+	var mpa_hi: float = float(d_hi.get("penetration_blunt_momentum_per_area", -1.0))
+	if mpa_lo <= 0.0 or mpa_hi <= mpa_lo + 1e-6:
+		_fail(
+			failures,
+			"kin_pen_blunt: expected rising momentum/area lo=%.4f hi=%.4f" % [mpa_lo, mpa_hi]
+		)
+
+
+## Tier 5.1: **`strike_energy_mult`** scales **`compute_kinetic_energy_j`** linearly (**`maxf(0.05, mult)`**); **`compute_pre_armor_cut`** ratio tracks **`sqrt(KE)`** at the same pinned **`v`** (swing — **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`**). Same ratios on **`mixed`** + **`kinematic_mixed_blend` 0.5** with intensity-derived **`v`** (**`velocity_m_s` < 0**) — **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`**.
+static func _run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_cut_sqrt(
+	failures: PackedStringArray
+) -> void:
+	const strength: float = 100.0
+	const arm_mod: float = 1.0
+	var sword: Weapon = _Weapon.create_from_definition("SWORD")
+	if sword == null:
+		_fail(failures, "kin_e_mult: missing sword")
+		return
+	const move_id: String = "oberhau"
+	const mult_hi: float = 1.5625
+	var ai_1: AttackInstance = AttackInstance.new(move_id, 0.5)
+	ai_1.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ai_1.velocity_m_s = 11.0
+	ai_1.strike_energy_mult = 1.0
+	var ai_2: AttackInstance = AttackInstance.new(move_id, 0.5)
+	ai_2.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ai_2.velocity_m_s = 11.0
+	ai_2.strike_energy_mult = mult_hi
+	var ke_1: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_1)
+	var ke_2: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_2)
+	if ke_1 <= 0.01:
+		_fail(failures, "kin_e_mult: ke_1 too small %.6f" % ke_1)
+	var ke_ratio: float = ke_2 / ke_1
+	if absf(ke_ratio - mult_hi) > 0.02:
+		_fail(failures, "kin_e_mult: ke ratio %.6f want strike_energy ratio %.4f" % [ke_ratio, mult_hi])
+	var cut_1: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_1, strength, arm_mod)
+	var cut_2: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_2, strength, arm_mod)
+	var want_cut_ratio: float = sqrt(mult_hi)
+	var cut_ratio: float = cut_2 / cut_1
+	if absf(cut_ratio - want_cut_ratio) > 0.04:
+		_fail(
+			failures,
+			"kin_e_mult: cut ratio %.4f want sqrt(mult)=%.4f (cut1=%.4f cut2=%.4f)"
+			% [cut_ratio, want_cut_ratio, cut_1, cut_2]
+		)
+	const pin_v: float = 11.0
+	const arch_swing: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	for pin_fx: Dictionary in [
+		{"def": "AXE", "move": "diagonal_chop", "pfx": "kin_e_mult_pin_ax"},
+		{"def": "DAGGER", "move": "quick_slash", "pfx": "kin_e_mult_pin_dg"},
+	]:
+		var wp: Weapon = _Weapon.create_from_definition(str(pin_fx["def"]))
+		if wp == null:
+			_fail(failures, "%s: missing %s" % [str(pin_fx["pfx"]), str(pin_fx["def"])])
+			return
+		var mp: String = str(pin_fx["move"])
+		var pfxp: String = str(pin_fx["pfx"])
+		var pi1: AttackInstance = AttackInstance.new(mp, 0.5)
+		pi1.archetype = arch_swing
+		pi1.velocity_m_s = pin_v
+		pi1.strike_energy_mult = 1.0
+		var pi2: AttackInstance = AttackInstance.new(mp, 0.5)
+		pi2.archetype = arch_swing
+		pi2.velocity_m_s = pin_v
+		pi2.strike_energy_mult = mult_hi
+		var kpe1: float = WeaponDamageHelper.compute_kinetic_energy_j(wp, pi1)
+		var kpe2: float = WeaponDamageHelper.compute_kinetic_energy_j(wp, pi2)
+		if kpe1 <= 0.01:
+			_fail(failures, "%s: ke_1 too small %.6f" % [pfxp, kpe1])
+		var kpe_r: float = kpe2 / kpe1
+		if absf(kpe_r - mult_hi) > 0.02:
+			_fail(failures, "%s: ke ratio %.6f want %.4f" % [pfxp, kpe_r, mult_hi])
+		var cpe1: float = WeaponDamageHelper.compute_pre_armor_cut(wp, pi1, strength, arm_mod)
+		var cpe2: float = WeaponDamageHelper.compute_pre_armor_cut(wp, pi2, strength, arm_mod)
+		var cpe_rr: float = cpe2 / cpe1
+		if absf(cpe_rr - want_cut_ratio) > 0.04:
+			_fail(
+				failures,
+				"%s: cut ratio %.4f want sqrt(mult)=%.4f (cut1=%.4f cut2=%.4f)"
+				% [pfxp, cpe_rr, want_cut_ratio, cpe1, cpe2]
+			)
+	const mixed_inten: float = 0.53
+	const arch_mix: Dictionary = {
+		"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
+		"kinematic_mixed_blend": 0.5
+	}
+	var ai_mix_1: AttackInstance = AttackInstance.new(move_id, mixed_inten, -1.0)
+	ai_mix_1.archetype = arch_mix
+	ai_mix_1.strike_energy_mult = 1.0
+	var ai_mix_2: AttackInstance = AttackInstance.new(move_id, mixed_inten, -1.0)
+	ai_mix_2.archetype = arch_mix
+	ai_mix_2.strike_energy_mult = mult_hi
+	var ke_mix_1: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_mix_1)
+	var ke_mix_2: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_mix_2)
+	if ke_mix_1 <= 0.01:
+		_fail(failures, "kin_e_mult_mix: ke_mix_1 too small %.6f" % ke_mix_1)
+	var ke_mix_ratio: float = ke_mix_2 / ke_mix_1
+	if absf(ke_mix_ratio - mult_hi) > 0.02:
+		_fail(
+			failures,
+			"kin_e_mult_mix: ke ratio %.6f want strike_energy ratio %.4f" % [ke_mix_ratio, mult_hi]
+		)
+	var cut_mix_1: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_mix_1, strength, arm_mod)
+	var cut_mix_2: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_mix_2, strength, arm_mod)
+	var want_cut_mix_ratio: float = sqrt(mult_hi)
+	var cut_mix_ratio: float = cut_mix_2 / cut_mix_1
+	if absf(cut_mix_ratio - want_cut_mix_ratio) > 0.04:
+		_fail(
+			failures,
+			"kin_e_mult_mix: cut ratio %.4f want sqrt(mult)=%.4f (cut1=%.4f cut2=%.4f)"
+			% [cut_mix_ratio, want_cut_mix_ratio, cut_mix_1, cut_mix_2]
+		)
+	for fx: Dictionary in [
+		{"def": "AXE", "move": "diagonal_chop", "pfx": "kin_e_mult_mix_ax"},
+		{"def": "DAGGER", "move": "quick_slash", "pfx": "kin_e_mult_mix_dg"},
+	]:
+		var w_ex: Weapon = _Weapon.create_from_definition(str(fx["def"]))
+		if w_ex == null:
+			_fail(failures, "%s: missing %s" % [str(fx["pfx"]), str(fx["def"])])
+			return
+		var m_ex: String = str(fx["move"])
+		var pfx: String = str(fx["pfx"])
+		var wx1: AttackInstance = AttackInstance.new(m_ex, mixed_inten, -1.0)
+		wx1.archetype = arch_mix
+		wx1.strike_energy_mult = 1.0
+		var wx2: AttackInstance = AttackInstance.new(m_ex, mixed_inten, -1.0)
+		wx2.archetype = arch_mix
+		wx2.strike_energy_mult = mult_hi
+		var kx1: float = WeaponDamageHelper.compute_kinetic_energy_j(w_ex, wx1)
+		var kx2: float = WeaponDamageHelper.compute_kinetic_energy_j(w_ex, wx2)
+		if kx1 <= 0.01:
+			_fail(failures, "%s: ke_1 too small %.6f" % [pfx, kx1])
+		var kx_r: float = kx2 / kx1
+		if absf(kx_r - mult_hi) > 0.02:
+			_fail(failures, "%s: ke ratio %.6f want %.4f" % [pfx, kx_r, mult_hi])
+		var cx1: float = WeaponDamageHelper.compute_pre_armor_cut(w_ex, wx1, strength, arm_mod)
+		var cx2: float = WeaponDamageHelper.compute_pre_armor_cut(w_ex, wx2, strength, arm_mod)
+		var cx_rr: float = cx2 / cx1
+		if absf(cx_rr - want_cut_mix_ratio) > 0.04:
+			_fail(
+				failures,
+				"%s: cut ratio %.4f want sqrt(mult)=%.4f (cut1=%.4f cut2=%.4f)"
+				% [pfx, cx_rr, want_cut_mix_ratio, cx1, cx2]
+			)
+
+
+## Tier 5.1: **`strike_momentum_mult`** scales blunt momentum linearly (**`maxf(0.05, mult)`**); **`compute_pre_armor_blunt`** and **`compute_penetration`** **BLUNT** **`penetration_blunt_momentum_per_area`** track the same ratio at pinned **`v`** (**MACE** **`direct_blow`**, plus cut swing **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** — **DAGGER** uses a higher pinned **`v`** than **10** m/s so blunt clears **`WeaponConstants.BLUNT_DAMAGE_MIN`** for both mults; **SWORD** / **AXE** stay at **10** m/s).
+static func _run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and_mpa(
+	failures: PackedStringArray
+) -> void:
+	const strength: float = 100.0
+	const arm_mod: float = 1.0
+	var mace: Weapon = _Weapon.create_from_definition("MACE")
+	if mace == null:
+		_fail(failures, "kin_p_mult: missing mace")
+		return
+	const move_id: String = "direct_blow"
+	const p_hi: float = 1.65
+	var b_1: AttackInstance = AttackInstance.new(move_id, 0.5)
+	b_1.velocity_m_s = 10.0
+	b_1.strike_momentum_mult = 1.0
+	var b_2: AttackInstance = AttackInstance.new(move_id, 0.5)
+	b_2.velocity_m_s = 10.0
+	b_2.strike_momentum_mult = p_hi
+	var blunt_1: float = WeaponDamageHelper.compute_pre_armor_blunt(mace, b_1, strength, arm_mod)
+	var blunt_2: float = WeaponDamageHelper.compute_pre_armor_blunt(mace, b_2, strength, arm_mod)
+	if blunt_1 <= 0.01:
+		_fail(failures, "kin_p_mult: blunt_1 too small %.4f" % blunt_1)
+	var blunt_ratio: float = blunt_2 / blunt_1
+	if absf(blunt_ratio - p_hi) > 0.03:
+		_fail(
+			failures,
+			"kin_p_mult: blunt ratio %.4f want strike_momentum_mult ratio %.4f"
+			% [blunt_ratio, p_hi]
+		)
+	var d_1: Dictionary = WeaponDamageHelper.compute_penetration(mace, b_1, WeaponConstants.DAMAGE_TYPE_BLUNT, {})
+	var d_2: Dictionary = WeaponDamageHelper.compute_penetration(mace, b_2, WeaponConstants.DAMAGE_TYPE_BLUNT, {})
+	var mpa_1: float = float(d_1.get("penetration_blunt_momentum_per_area", -1.0))
+	var mpa_2: float = float(d_2.get("penetration_blunt_momentum_per_area", -1.0))
+	if mpa_1 <= 0.0:
+		_fail(failures, "kin_p_mult: mpa_1 invalid %.4f" % mpa_1)
+	var mpa_ratio: float = mpa_2 / mpa_1
+	if absf(mpa_ratio - p_hi) > 0.03:
+		_fail(
+			failures,
+			"kin_p_mult: mpa ratio %.4f want %.4f (mpa1=%.4f mpa2=%.4f)"
+			% [mpa_ratio, p_hi, mpa_1, mpa_2]
+		)
+	const arch_sw_bl: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	const v_pin_mo: float = 10.0
+	for cb: Dictionary in [
+		{"def": "SWORD", "move": "oberhau", "pfx": "kin_p_mult_cb_sw"},
+		{"def": "AXE", "move": "diagonal_chop", "pfx": "kin_p_mult_cb_ax"},
+		# Light blade: raise pinned **`v`** so raw blunt clears **`BLUNT_DAMAGE_MIN`** for both mults (narrow blade
+		# otherwise clamps both samples to **1.0** → ratio **1.0**).
+		{"def": "DAGGER", "move": "quick_slash", "pfx": "kin_p_mult_cb_dg", "v": 20.0},
+	]:
+		var wcb: Weapon = _Weapon.create_from_definition(str(cb["def"]))
+		if wcb == null:
+			_fail(failures, "%s: missing %s" % [str(cb["pfx"]), str(cb["def"])])
+			return
+		var mvb: String = str(cb["move"])
+		var tcb: String = str(cb["pfx"])
+		var v_this: float = float(cb.get("v", v_pin_mo))
+		var str_this: float = float(cb.get("strength", strength))
+		var sb1: AttackInstance = AttackInstance.new(mvb, 0.5)
+		sb1.archetype = arch_sw_bl
+		sb1.velocity_m_s = v_this
+		sb1.strike_momentum_mult = 1.0
+		var sb2: AttackInstance = AttackInstance.new(mvb, 0.5)
+		sb2.archetype = arch_sw_bl
+		sb2.velocity_m_s = v_this
+		sb2.strike_momentum_mult = p_hi
+		var bl1: float = WeaponDamageHelper.compute_pre_armor_blunt(wcb, sb1, str_this, arm_mod)
+		var bl2: float = WeaponDamageHelper.compute_pre_armor_blunt(wcb, sb2, str_this, arm_mod)
+		if bl1 <= 0.001:
+			_fail(failures, "%s: blunt_1 too small %.4f" % [tcb, bl1])
+		var bl_r: float = bl2 / bl1
+		if absf(bl_r - p_hi) > 0.03:
+			_fail(
+				failures,
+				"%s: blunt ratio %.4f want strike_momentum_mult ratio %.4f"
+				% [tcb, bl_r, p_hi]
+			)
+		var db1: Dictionary = WeaponDamageHelper.compute_penetration(
+			wcb, sb1, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		)
+		var db2: Dictionary = WeaponDamageHelper.compute_penetration(
+			wcb, sb2, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		)
+		var mpb1: float = float(db1.get("penetration_blunt_momentum_per_area", -1.0))
+		var mpb2: float = float(db2.get("penetration_blunt_momentum_per_area", -1.0))
+		if mpb1 <= 0.0:
+			_fail(failures, "%s: mpa_1 invalid %.4f" % [tcb, mpb1])
+		var mpb_r: float = mpb2 / mpb1
+		if absf(mpb_r - p_hi) > 0.03:
+			_fail(
+				failures,
+				"%s: mpa ratio %.4f want %.4f (mpa1=%.4f mpa2=%.4f)" % [tcb, mpb_r, p_hi, mpb1, mpb2]
+			)
+
+
+## Tier 5.1: **`strike_momentum_mult`** must not change **`compute_kinetic_energy_j`** (pinned **`velocity_m_s`** or derived **`velocity_m_s` < 0** on **SWORD** / **AXE** / **DAGGER** swing, **MACE** blunt→swing, **SPEAR** thrust), **SHARP** **`compute_penetration`** / **`compute_pre_armor_cut`** (pinned **`v`** or same derived-**`v`** **`sv_p_*`**, **`sp_p_*`**, **`mv_p_*`**, **`ax_p_*`**, **`dg_p_*`** pairs), or derived **`get_effective_velocity_m_s`** (`AttackInstance.velocity_m_s` < 0; **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`**, **MACE** **`direct_blow`**, **SPEAR** **`spear_thrust`**); pinned **`v`**: **`get_effective_velocity_m_s`** ⊥ **`strike_momentum_mult`** (**SWORD** **`ai_*_p`**, **`wcx_pm`** **AXE** / **DAGGER**); **`strike_energy_mult`** must not change **`compute_pre_armor_blunt`** (pinned **`v`** or derived **`velocity_m_s` < 0** on **MACE** **`mv_e_*`**, **SPEAR** **`sp_e_*`**, **SWORD** **`sv_e_*`**, **AXE** **`ax_sv_e_*`**, **DAGGER** **`dg_sv_e_*`**, incl. **`target_effective_mass_kg`** reduced-mass + opts), **BLUNT** **`compute_penetration`** **`penetration_blunt_momentum_per_area`** (same), or derived **`get_effective_velocity_m_s`** (**SWORD** + **MACE** + **SPEAR** + **AXE** + **DAGGER**); pinned **`v`**: **`get_effective_velocity_m_s`** ⊥ **`strike_energy_mult`** (**SWORD** **`sw_*`**, **`swx`** **AXE** / **DAGGER**) — same blunt-channel ⊥ on **MACE** **`direct_blow`** and **SWORD** / **AXE** / **DAGGER** cut swing (pinned **`v`**) — orthogonal energy vs momentum paths.
+static func _run_kinematic_delivery_strike_mult_cross_coupling_ke_vs_blunt_isolated(
+	failures: PackedStringArray
+) -> void:
+	var sword: Weapon = _Weapon.create_from_definition("SWORD")
+	if sword == null:
+		_fail(failures, "kin_cross: missing sword")
+		return
+	var w_axe: Weapon = _Weapon.create_from_definition("AXE")
+	var w_dagger: Weapon = _Weapon.create_from_definition("DAGGER")
+	if w_axe == null or w_dagger == null:
+		_fail(failures, "kin_cross: missing axe or dagger")
+		return
+	const strength: float = 100.0
+	const arm_mod: float = 1.0
+	const move_cut: String = "oberhau"
+	var ai_lo_p: AttackInstance = AttackInstance.new(move_cut, 0.5)
+	ai_lo_p.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ai_lo_p.velocity_m_s = 10.0
+	ai_lo_p.strike_energy_mult = 1.0
+	ai_lo_p.strike_momentum_mult = 1.0
+	var ai_hi_p: AttackInstance = AttackInstance.new(move_cut, 0.5)
+	ai_hi_p.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ai_hi_p.velocity_m_s = 10.0
+	ai_hi_p.strike_energy_mult = 1.0
+	ai_hi_p.strike_momentum_mult = 4.25
+	var ke_lo_p: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_lo_p)
+	var ke_hi_p: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_hi_p)
+	if absf(ke_hi_p - ke_lo_p) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: KE should ignore strike_momentum_mult (lo=%.6f hi=%.6f)" % [ke_lo_p, ke_hi_p]
+		)
+	var pen_lo_p: float = float(
+		WeaponDamageHelper.compute_penetration(sword, ai_lo_p, WeaponConstants.DAMAGE_TYPE_SHARP, {}).get(
+			"penetration_sharp", -1.0
+		)
+	)
+	var pen_hi_p: float = float(
+		WeaponDamageHelper.compute_penetration(sword, ai_hi_p, WeaponConstants.DAMAGE_TYPE_SHARP, {}).get(
+			"penetration_sharp", -1.0
+		)
+	)
+	if absf(pen_hi_p - pen_lo_p) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: SHARP penetration_sharp should ignore strike_momentum_mult (lo=%.6f hi=%.6f)"
+			% [pen_lo_p, pen_hi_p]
+		)
+	var cut_lo_pm: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_lo_p, 100.0, 1.0)
+	var cut_hi_pm: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_hi_p, 100.0, 1.0)
+	if absf(cut_hi_pm - cut_lo_pm) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: compute_pre_armor_cut should ignore strike_momentum_mult (lo=%.6f hi=%.6f)"
+			% [cut_lo_pm, cut_hi_pm]
+		)
+	var ev_sw_pm_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, ai_lo_p)
+	var ev_sw_pm_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, ai_hi_p)
+	if absf(ev_sw_pm_hi - ev_sw_pm_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: pinned get_effective_velocity_m_s should ignore strike_momentum_mult (sword lo=%.6f hi=%.6f)"
+			% [ev_sw_pm_lo, ev_sw_pm_hi]
+		)
+	const v_pin_cross: float = 10.0
+	var ev_wx_pm_lo: float
+	var ev_wx_pm_hi: float
+	for wcx_pm: Dictionary in [
+		{"w": w_axe, "move": "diagonal_chop", "pfx": "kin_cross_ax_pm"},
+		{"w": w_dagger, "move": "quick_slash", "pfx": "kin_cross_dg_pm"},
+	]:
+		var wp: Weapon = wcx_pm["w"] as Weapon
+		var mv: String = str(wcx_pm["move"])
+		var pfx: String = str(wcx_pm["pfx"])
+		var lo_x: AttackInstance = AttackInstance.new(mv, 0.5)
+		lo_x.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+		lo_x.velocity_m_s = v_pin_cross
+		lo_x.strike_energy_mult = 1.0
+		lo_x.strike_momentum_mult = 1.0
+		var hi_x: AttackInstance = AttackInstance.new(mv, 0.5)
+		hi_x.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+		hi_x.velocity_m_s = v_pin_cross
+		hi_x.strike_energy_mult = 1.0
+		hi_x.strike_momentum_mult = 4.25
+		var ke_lo_x: float = WeaponDamageHelper.compute_kinetic_energy_j(wp, lo_x)
+		var ke_hi_x: float = WeaponDamageHelper.compute_kinetic_energy_j(wp, hi_x)
+		if absf(ke_hi_x - ke_lo_x) > 0.0001:
+			_fail(
+				failures,
+				"%s: KE should ignore strike_momentum_mult (lo=%.6f hi=%.6f)" % [pfx, ke_lo_x, ke_hi_x]
+			)
+		var pen_lo_x: float = float(
+			WeaponDamageHelper.compute_penetration(
+				wp, lo_x, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+			).get("penetration_sharp", -1.0)
+		)
+		var pen_hi_x: float = float(
+			WeaponDamageHelper.compute_penetration(
+				wp, hi_x, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+			).get("penetration_sharp", -1.0)
+		)
+		if absf(pen_hi_x - pen_lo_x) > 0.0001:
+			_fail(
+				failures,
+				"%s: SHARP penetration_sharp should ignore strike_momentum_mult (lo=%.6f hi=%.6f)"
+				% [pfx, pen_lo_x, pen_hi_x]
+			)
+		var cut_lo_x: float = WeaponDamageHelper.compute_pre_armor_cut(wp, lo_x, strength, arm_mod)
+		var cut_hi_x: float = WeaponDamageHelper.compute_pre_armor_cut(wp, hi_x, strength, arm_mod)
+		if absf(cut_hi_x - cut_lo_x) > 0.0001:
+			_fail(
+				failures,
+				"%s: compute_pre_armor_cut should ignore strike_momentum_mult (lo=%.6f hi=%.6f)"
+				% [pfx, cut_lo_x, cut_hi_x]
+			)
+		ev_wx_pm_lo = WeaponDamageHelper.get_effective_velocity_m_s(wp, lo_x)
+		ev_wx_pm_hi = WeaponDamageHelper.get_effective_velocity_m_s(wp, hi_x)
+		if absf(ev_wx_pm_hi - ev_wx_pm_lo) > 0.0001:
+			_fail(
+				failures,
+				"%s: pinned get_effective_velocity_m_s should ignore strike_momentum_mult (lo=%.6f hi=%.6f)"
+				% [pfx, ev_wx_pm_lo, ev_wx_pm_hi]
+			)
+	var sv_p_lo: AttackInstance = AttackInstance.new(move_cut, 0.63)
+	sv_p_lo.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	sv_p_lo.strike_energy_mult = 1.0
+	sv_p_lo.strike_momentum_mult = 1.0
+	var sv_p_hi: AttackInstance = AttackInstance.new(move_cut, 0.63)
+	sv_p_hi.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	sv_p_hi.strike_energy_mult = 1.0
+	sv_p_hi.strike_momentum_mult = 4.25
+	var ev_p_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, sv_p_lo)
+	var ev_p_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, sv_p_hi)
+	if absf(ev_p_hi - ev_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: derived get_effective_velocity_m_s should ignore strike_momentum_mult (lo=%.6f hi=%.6f)"
+			% [ev_p_lo, ev_p_hi]
+		)
+	const move_ax: String = "diagonal_chop"
+	var ax_p_lo: AttackInstance = AttackInstance.new(move_ax, 0.63)
+	ax_p_lo.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ax_p_lo.strike_energy_mult = 1.0
+	ax_p_lo.strike_momentum_mult = 1.0
+	var ax_p_hi: AttackInstance = AttackInstance.new(move_ax, 0.63)
+	ax_p_hi.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ax_p_hi.strike_energy_mult = 1.0
+	ax_p_hi.strike_momentum_mult = 4.25
+	const move_dg: String = "quick_slash"
+	var dg_p_lo: AttackInstance = AttackInstance.new(move_dg, 0.63)
+	dg_p_lo.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	dg_p_lo.strike_energy_mult = 1.0
+	dg_p_lo.strike_momentum_mult = 1.0
+	var dg_p_hi: AttackInstance = AttackInstance.new(move_dg, 0.63)
+	dg_p_hi.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	dg_p_hi.strike_energy_mult = 1.0
+	dg_p_hi.strike_momentum_mult = 4.25
+	var ev_ax_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(w_axe, ax_p_lo)
+	var ev_ax_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(w_axe, ax_p_hi)
+	if absf(ev_ax_hi - ev_ax_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: derived get_effective_velocity_m_s should ignore strike_momentum_mult (axe lo=%.6f hi=%.6f)"
+			% [ev_ax_lo, ev_ax_hi]
+		)
+	var ev_dg_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(w_dagger, dg_p_lo)
+	var ev_dg_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(w_dagger, dg_p_hi)
+	if absf(ev_dg_hi - ev_dg_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: derived get_effective_velocity_m_s should ignore strike_momentum_mult (dagger lo=%.6f hi=%.6f)"
+			% [ev_dg_lo, ev_dg_hi]
+		)
+	var mace: Weapon = _Weapon.create_from_definition("MACE")
+	if mace == null:
+		_fail(failures, "kin_cross: missing mace")
+		return
+	var spear: Weapon = _Weapon.create_from_definition("SPEAR")
+	if spear == null:
+		_fail(failures, "kin_cross: missing spear")
+		return
+	const move_bl: String = "direct_blow"
+	var b_lo_e: AttackInstance = AttackInstance.new(move_bl, 0.5)
+	b_lo_e.velocity_m_s = 10.0
+	b_lo_e.strike_energy_mult = 1.0
+	b_lo_e.strike_momentum_mult = 1.0
+	var b_hi_e: AttackInstance = AttackInstance.new(move_bl, 0.5)
+	b_hi_e.velocity_m_s = 10.0
+	b_hi_e.strike_energy_mult = 3.1
+	b_hi_e.strike_momentum_mult = 1.0
+	var mv_e_lo: AttackInstance = AttackInstance.new(move_bl, 0.58)
+	mv_e_lo.strike_energy_mult = 1.0
+	mv_e_lo.strike_momentum_mult = 1.0
+	var mv_e_hi: AttackInstance = AttackInstance.new(move_bl, 0.58)
+	mv_e_hi.strike_energy_mult = 3.1
+	mv_e_hi.strike_momentum_mult = 1.0
+	var ev_e_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(mace, mv_e_lo)
+	var ev_e_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(mace, mv_e_hi)
+	if absf(ev_e_hi - ev_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: derived get_effective_velocity_m_s should ignore strike_energy_mult (mace lo=%.6f hi=%.6f)"
+			% [ev_e_lo, ev_e_hi]
+		)
+	var mv_p_lo: AttackInstance = AttackInstance.new(move_bl, 0.57)
+	mv_p_lo.strike_energy_mult = 1.0
+	mv_p_lo.strike_momentum_mult = 1.0
+	var mv_p_hi: AttackInstance = AttackInstance.new(move_bl, 0.57)
+	mv_p_hi.strike_energy_mult = 1.0
+	mv_p_hi.strike_momentum_mult = 2.85
+	var ev_m_p_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(mace, mv_p_lo)
+	var ev_m_p_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(mace, mv_p_hi)
+	if absf(ev_m_p_hi - ev_m_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: derived get_effective_velocity_m_s should ignore strike_momentum_mult (mace lo=%.6f hi=%.6f)"
+			% [ev_m_p_lo, ev_m_p_hi]
+		)
+	const move_thr: String = "spear_thrust"
+	var sp_p_lo: AttackInstance = AttackInstance.new(move_thr, 0.56)
+	sp_p_lo.strike_energy_mult = 1.0
+	sp_p_lo.strike_momentum_mult = 1.0
+	var sp_p_hi: AttackInstance = AttackInstance.new(move_thr, 0.56)
+	sp_p_hi.strike_energy_mult = 1.0
+	sp_p_hi.strike_momentum_mult = 3.5
+	var ev_sp_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(spear, sp_p_lo)
+	var ev_sp_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(spear, sp_p_hi)
+	if absf(ev_sp_hi - ev_sp_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: derived get_effective_velocity_m_s should ignore strike_momentum_mult (spear lo=%.6f hi=%.6f)"
+			% [ev_sp_lo, ev_sp_hi]
+		)
+	var sp_e_lo: AttackInstance = AttackInstance.new(move_thr, 0.54)
+	sp_e_lo.strike_energy_mult = 1.0
+	sp_e_lo.strike_momentum_mult = 1.0
+	var sp_e_hi: AttackInstance = AttackInstance.new(move_thr, 0.54)
+	sp_e_hi.strike_energy_mult = 2.7
+	sp_e_hi.strike_momentum_mult = 1.0
+	var ev_ste_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(spear, sp_e_lo)
+	var ev_ste_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(spear, sp_e_hi)
+	if absf(ev_ste_hi - ev_ste_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: derived get_effective_velocity_m_s should ignore strike_energy_mult (spear lo=%.6f hi=%.6f)"
+			% [ev_ste_lo, ev_ste_hi]
+		)
+	var ke_sv_der_lo: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, sv_p_lo)
+	var ke_sv_der_hi: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, sv_p_hi)
+	if absf(ke_sv_der_hi - ke_sv_der_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: KE should ignore strike_momentum_mult (swing derived v lo=%.6f hi=%.6f)"
+			% [ke_sv_der_lo, ke_sv_der_hi]
+		)
+	var ke_mv_der_lo: float = WeaponDamageHelper.compute_kinetic_energy_j(mace, mv_p_lo)
+	var ke_mv_der_hi: float = WeaponDamageHelper.compute_kinetic_energy_j(mace, mv_p_hi)
+	if absf(ke_mv_der_hi - ke_mv_der_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: KE should ignore strike_momentum_mult (mace swing derived v lo=%.6f hi=%.6f)"
+			% [ke_mv_der_lo, ke_mv_der_hi]
+		)
+	var ke_sp_der_lo: float = WeaponDamageHelper.compute_kinetic_energy_j(spear, sp_p_lo)
+	var ke_sp_der_hi: float = WeaponDamageHelper.compute_kinetic_energy_j(spear, sp_p_hi)
+	if absf(ke_sp_der_hi - ke_sp_der_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: KE should ignore strike_momentum_mult (spear thrust derived v lo=%.6f hi=%.6f)"
+			% [ke_sp_der_lo, ke_sp_der_hi]
+		)
+	var ke_ax_der_lo: float = WeaponDamageHelper.compute_kinetic_energy_j(w_axe, ax_p_lo)
+	var ke_ax_der_hi: float = WeaponDamageHelper.compute_kinetic_energy_j(w_axe, ax_p_hi)
+	if absf(ke_ax_der_hi - ke_ax_der_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: KE should ignore strike_momentum_mult (axe swing derived v lo=%.6f hi=%.6f)"
+			% [ke_ax_der_lo, ke_ax_der_hi]
+		)
+	var ke_dg_der_lo: float = WeaponDamageHelper.compute_kinetic_energy_j(w_dagger, dg_p_lo)
+	var ke_dg_der_hi: float = WeaponDamageHelper.compute_kinetic_energy_j(w_dagger, dg_p_hi)
+	if absf(ke_dg_der_hi - ke_dg_der_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: KE should ignore strike_momentum_mult (dagger swing derived v lo=%.6f hi=%.6f)"
+			% [ke_dg_der_lo, ke_dg_der_hi]
+		)
+	var pen_sv_p_lo: float = float(
+		WeaponDamageHelper.compute_penetration(
+			sword, sv_p_lo, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+		).get("penetration_sharp", -1.0)
+	)
+	var pen_sv_p_hi: float = float(
+		WeaponDamageHelper.compute_penetration(
+			sword, sv_p_hi, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+		).get("penetration_sharp", -1.0)
+	)
+	if absf(pen_sv_p_hi - pen_sv_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: SHARP penetration_sharp should ignore strike_momentum_mult (swing derived v lo=%.6f hi=%.6f)"
+			% [pen_sv_p_lo, pen_sv_p_hi]
+		)
+	var cut_sv_p_lo: float = WeaponDamageHelper.compute_pre_armor_cut(sword, sv_p_lo, strength, arm_mod)
+	var cut_sv_p_hi: float = WeaponDamageHelper.compute_pre_armor_cut(sword, sv_p_hi, strength, arm_mod)
+	if absf(cut_sv_p_hi - cut_sv_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: compute_pre_armor_cut should ignore strike_momentum_mult (swing derived v lo=%.6f hi=%.6f)"
+			% [cut_sv_p_lo, cut_sv_p_hi]
+		)
+	var pen_ax_p_lo: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_axe, ax_p_lo, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+		).get("penetration_sharp", -1.0)
+	)
+	var pen_ax_p_hi: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_axe, ax_p_hi, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+		).get("penetration_sharp", -1.0)
+	)
+	if absf(pen_ax_p_hi - pen_ax_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: SHARP penetration_sharp should ignore strike_momentum_mult (axe derived v lo=%.6f hi=%.6f)"
+			% [pen_ax_p_lo, pen_ax_p_hi]
+		)
+	var cut_ax_p_lo: float = WeaponDamageHelper.compute_pre_armor_cut(w_axe, ax_p_lo, strength, arm_mod)
+	var cut_ax_p_hi: float = WeaponDamageHelper.compute_pre_armor_cut(w_axe, ax_p_hi, strength, arm_mod)
+	if absf(cut_ax_p_hi - cut_ax_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: compute_pre_armor_cut should ignore strike_momentum_mult (axe derived v lo=%.6f hi=%.6f)"
+			% [cut_ax_p_lo, cut_ax_p_hi]
+		)
+	var pen_dg_p_lo: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_dagger, dg_p_lo, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+		).get("penetration_sharp", -1.0)
+	)
+	var pen_dg_p_hi: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_dagger, dg_p_hi, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+		).get("penetration_sharp", -1.0)
+	)
+	if absf(pen_dg_p_hi - pen_dg_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: SHARP penetration_sharp should ignore strike_momentum_mult (dagger derived v lo=%.6f hi=%.6f)"
+			% [pen_dg_p_lo, pen_dg_p_hi]
+		)
+	var cut_dg_p_lo: float = WeaponDamageHelper.compute_pre_armor_cut(w_dagger, dg_p_lo, strength, arm_mod)
+	var cut_dg_p_hi: float = WeaponDamageHelper.compute_pre_armor_cut(w_dagger, dg_p_hi, strength, arm_mod)
+	if absf(cut_dg_p_hi - cut_dg_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: compute_pre_armor_cut should ignore strike_momentum_mult (dagger derived v lo=%.6f hi=%.6f)"
+			% [cut_dg_p_lo, cut_dg_p_hi]
+		)
+	var pen_sp_p_lo: float = float(
+		WeaponDamageHelper.compute_penetration(
+			spear, sp_p_lo, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+		).get("penetration_sharp", -1.0)
+	)
+	var pen_sp_p_hi: float = float(
+		WeaponDamageHelper.compute_penetration(
+			spear, sp_p_hi, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+		).get("penetration_sharp", -1.0)
+	)
+	if absf(pen_sp_p_hi - pen_sp_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: SHARP penetration_sharp should ignore strike_momentum_mult (spear thrust derived v lo=%.6f hi=%.6f)"
+			% [pen_sp_p_lo, pen_sp_p_hi]
+		)
+	var cut_sp_p_lo: float = WeaponDamageHelper.compute_pre_armor_cut(spear, sp_p_lo, strength, arm_mod)
+	var cut_sp_p_hi: float = WeaponDamageHelper.compute_pre_armor_cut(spear, sp_p_hi, strength, arm_mod)
+	if absf(cut_sp_p_hi - cut_sp_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: compute_pre_armor_cut should ignore strike_momentum_mult (spear thrust derived v lo=%.6f hi=%.6f)"
+			% [cut_sp_p_lo, cut_sp_p_hi]
+		)
+	var pen_mv_p_lo: float = float(
+		WeaponDamageHelper.compute_penetration(
+			mace, mv_p_lo, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+		).get("penetration_sharp", -1.0)
+	)
+	var pen_mv_p_hi: float = float(
+		WeaponDamageHelper.compute_penetration(
+			mace, mv_p_hi, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+		).get("penetration_sharp", -1.0)
+	)
+	if absf(pen_mv_p_hi - pen_mv_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: SHARP penetration_sharp should ignore strike_momentum_mult (mace swing derived v lo=%.6f hi=%.6f)"
+			% [pen_mv_p_lo, pen_mv_p_hi]
+		)
+	var cut_mv_p_lo: float = WeaponDamageHelper.compute_pre_armor_cut(mace, mv_p_lo, strength, arm_mod)
+	var cut_mv_p_hi: float = WeaponDamageHelper.compute_pre_armor_cut(mace, mv_p_hi, strength, arm_mod)
+	if absf(cut_mv_p_hi - cut_mv_p_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: compute_pre_armor_cut should ignore strike_momentum_mult (mace swing derived v lo=%.6f hi=%.6f)"
+			% [cut_mv_p_lo, cut_mv_p_hi]
+		)
+	var blunt_lo_e: float = WeaponDamageHelper.compute_pre_armor_blunt(mace, b_lo_e, strength, arm_mod)
+	var blunt_hi_e: float = WeaponDamageHelper.compute_pre_armor_blunt(mace, b_hi_e, strength, arm_mod)
+	if absf(blunt_hi_e - blunt_lo_e) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: blunt pre-armor should ignore strike_energy_mult (lo=%.6f hi=%.6f)"
+			% [blunt_lo_e, blunt_hi_e]
+		)
+	var mpa_lo_e: float = float(
+		WeaponDamageHelper.compute_penetration(mace, b_lo_e, WeaponConstants.DAMAGE_TYPE_BLUNT, {}).get(
+			"penetration_blunt_momentum_per_area", -1.0
+		)
+	)
+	var mpa_hi_e: float = float(
+		WeaponDamageHelper.compute_penetration(mace, b_hi_e, WeaponConstants.DAMAGE_TYPE_BLUNT, {}).get(
+			"penetration_blunt_momentum_per_area", -1.0
+		)
+	)
+	if absf(mpa_hi_e - mpa_lo_e) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: BLUNT mpa should ignore strike_energy_mult (lo=%.6f hi=%.6f)" % [mpa_lo_e, mpa_hi_e]
+		)
+	const tgt_kg_blunt: float = 73.0
+	var blunt_lo_e_rm: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		mace, b_lo_e, strength, arm_mod, tgt_kg_blunt
+	)
+	var blunt_hi_e_rm: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		mace, b_hi_e, strength, arm_mod, tgt_kg_blunt
+	)
+	if absf(blunt_hi_e_rm - blunt_lo_e_rm) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: blunt pre-armor (reduced mass) should ignore strike_energy_mult (lo=%.6f hi=%.6f)"
+			% [blunt_lo_e_rm, blunt_hi_e_rm]
+		)
+	var opts_rm: Dictionary = {"target_effective_mass_kg": 68.0}
+	var mpa_lo_e_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			mace, b_lo_e, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_hi_e_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			mace, b_hi_e, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_hi_e_rm - mpa_lo_e_rm) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: BLUNT mpa (target mass opts) should ignore strike_energy_mult (lo=%.6f hi=%.6f)"
+			% [mpa_lo_e_rm, mpa_hi_e_rm]
+		)
+	var blunt_mv_e_lo: float = WeaponDamageHelper.compute_pre_armor_blunt(mace, mv_e_lo, strength, arm_mod)
+	var blunt_mv_e_hi: float = WeaponDamageHelper.compute_pre_armor_blunt(mace, mv_e_hi, strength, arm_mod)
+	if absf(blunt_mv_e_hi - blunt_mv_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: blunt pre-armor should ignore strike_energy_mult (mace derived v lo=%.6f hi=%.6f)"
+			% [blunt_mv_e_lo, blunt_mv_e_hi]
+		)
+	var mpa_mv_e_lo: float = float(
+		WeaponDamageHelper.compute_penetration(
+			mace, mv_e_lo, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_mv_e_hi: float = float(
+		WeaponDamageHelper.compute_penetration(
+			mace, mv_e_hi, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_mv_e_hi - mpa_mv_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: BLUNT mpa should ignore strike_energy_mult (mace derived v lo=%.6f hi=%.6f)"
+			% [mpa_mv_e_lo, mpa_mv_e_hi]
+		)
+	var blunt_mv_e_rm_lo: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		mace, mv_e_lo, strength, arm_mod, tgt_kg_blunt
+	)
+	var blunt_mv_e_rm_hi: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		mace, mv_e_hi, strength, arm_mod, tgt_kg_blunt
+	)
+	if absf(blunt_mv_e_rm_hi - blunt_mv_e_rm_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: blunt pre-armor (reduced mass) should ignore strike_energy_mult (mace derived v lo=%.6f hi=%.6f)"
+			% [blunt_mv_e_rm_lo, blunt_mv_e_rm_hi]
+		)
+	var mpa_mv_e_lo_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			mace, mv_e_lo, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_mv_e_hi_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			mace, mv_e_hi, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_mv_e_hi_rm - mpa_mv_e_lo_rm) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: BLUNT mpa (target mass opts) should ignore strike_energy_mult (mace derived v lo=%.6f hi=%.6f)"
+			% [mpa_mv_e_lo_rm, mpa_mv_e_hi_rm]
+		)
+	var blunt_sp_e_lo: float = WeaponDamageHelper.compute_pre_armor_blunt(spear, sp_e_lo, strength, arm_mod)
+	var blunt_sp_e_hi: float = WeaponDamageHelper.compute_pre_armor_blunt(spear, sp_e_hi, strength, arm_mod)
+	if absf(blunt_sp_e_hi - blunt_sp_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: blunt pre-armor should ignore strike_energy_mult (spear derived v lo=%.6f hi=%.6f)"
+			% [blunt_sp_e_lo, blunt_sp_e_hi]
+		)
+	var mpa_sp_e_lo: float = float(
+		WeaponDamageHelper.compute_penetration(
+			spear, sp_e_lo, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_sp_e_hi: float = float(
+		WeaponDamageHelper.compute_penetration(
+			spear, sp_e_hi, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_sp_e_hi - mpa_sp_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: BLUNT mpa should ignore strike_energy_mult (spear derived v lo=%.6f hi=%.6f)"
+			% [mpa_sp_e_lo, mpa_sp_e_hi]
+		)
+	var sw_lo_e: AttackInstance = AttackInstance.new(move_cut, 0.5)
+	sw_lo_e.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	sw_lo_e.velocity_m_s = 10.0
+	sw_lo_e.strike_energy_mult = 1.0
+	sw_lo_e.strike_momentum_mult = 1.0
+	var sw_hi_e: AttackInstance = AttackInstance.new(move_cut, 0.5)
+	sw_hi_e.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	sw_hi_e.velocity_m_s = 10.0
+	sw_hi_e.strike_energy_mult = 3.1
+	sw_hi_e.strike_momentum_mult = 1.0
+	var ev_pin_sw_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, sw_lo_e)
+	var ev_pin_sw_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, sw_hi_e)
+	if absf(ev_pin_sw_hi - ev_pin_sw_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: pinned get_effective_velocity_m_s should ignore strike_energy_mult (sword lo=%.6f hi=%.6f)"
+			% [ev_pin_sw_lo, ev_pin_sw_hi]
+		)
+	var s_blunt_lo: float = WeaponDamageHelper.compute_pre_armor_blunt(sword, sw_lo_e, strength, arm_mod)
+	var s_blunt_hi: float = WeaponDamageHelper.compute_pre_armor_blunt(sword, sw_hi_e, strength, arm_mod)
+	if absf(s_blunt_hi - s_blunt_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: sword blunt pre-armor should ignore strike_energy_mult (lo=%.6f hi=%.6f)"
+			% [s_blunt_lo, s_blunt_hi]
+		)
+	const tgt_kg_sword: float = 71.0
+	var s_blunt_lo_rm: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		sword, sw_lo_e, strength, arm_mod, tgt_kg_sword
+	)
+	var s_blunt_hi_rm: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		sword, sw_hi_e, strength, arm_mod, tgt_kg_sword
+	)
+	if absf(s_blunt_hi_rm - s_blunt_lo_rm) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: sword blunt pre-armor (reduced mass) should ignore strike_energy_mult (lo=%.6f hi=%.6f)"
+			% [s_blunt_lo_rm, s_blunt_hi_rm]
+		)
+	var mpa_s_lo: float = float(
+		WeaponDamageHelper.compute_penetration(
+			sword, sw_lo_e, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_s_hi: float = float(
+		WeaponDamageHelper.compute_penetration(
+			sword, sw_hi_e, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_s_hi - mpa_s_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: sword BLUNT mpa should ignore strike_energy_mult (lo=%.6f hi=%.6f)"
+			% [mpa_s_lo, mpa_s_hi]
+		)
+	var mpa_s_lo_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			sword, sw_lo_e, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_s_hi_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			sword, sw_hi_e, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_s_hi_rm - mpa_s_lo_rm) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: sword BLUNT mpa (target mass opts) should ignore strike_energy_mult (lo=%.6f hi=%.6f)"
+			% [mpa_s_lo_rm, mpa_s_hi_rm]
+		)
+	var sv_e_lo: AttackInstance = AttackInstance.new(move_cut, 0.61)
+	sv_e_lo.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	sv_e_lo.strike_energy_mult = 1.0
+	sv_e_lo.strike_momentum_mult = 1.0
+	var sv_e_hi: AttackInstance = AttackInstance.new(move_cut, 0.61)
+	sv_e_hi.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	sv_e_hi.strike_energy_mult = 3.1
+	sv_e_hi.strike_momentum_mult = 1.0
+	var ev_s_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, sv_e_lo)
+	var ev_s_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, sv_e_hi)
+	if absf(ev_s_hi - ev_s_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: derived get_effective_velocity_m_s should ignore strike_energy_mult (sword lo=%.6f hi=%.6f)"
+			% [ev_s_lo, ev_s_hi]
+		)
+	var blunt_sv_e_lo: float = WeaponDamageHelper.compute_pre_armor_blunt(sword, sv_e_lo, strength, arm_mod)
+	var blunt_sv_e_hi: float = WeaponDamageHelper.compute_pre_armor_blunt(sword, sv_e_hi, strength, arm_mod)
+	if absf(blunt_sv_e_hi - blunt_sv_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: blunt pre-armor should ignore strike_energy_mult (sword derived v lo=%.6f hi=%.6f)"
+			% [blunt_sv_e_lo, blunt_sv_e_hi]
+		)
+	var blunt_sv_e_rm_lo: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		sword, sv_e_lo, strength, arm_mod, tgt_kg_sword
+	)
+	var blunt_sv_e_rm_hi: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		sword, sv_e_hi, strength, arm_mod, tgt_kg_sword
+	)
+	if absf(blunt_sv_e_rm_hi - blunt_sv_e_rm_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: blunt pre-armor (reduced mass) should ignore strike_energy_mult (sword derived v lo=%.6f hi=%.6f)"
+			% [blunt_sv_e_rm_lo, blunt_sv_e_rm_hi]
+		)
+	var mpa_sv_e_lo: float = float(
+		WeaponDamageHelper.compute_penetration(
+			sword, sv_e_lo, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_sv_e_hi: float = float(
+		WeaponDamageHelper.compute_penetration(
+			sword, sv_e_hi, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_sv_e_hi - mpa_sv_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: sword BLUNT mpa should ignore strike_energy_mult (derived v lo=%.6f hi=%.6f)"
+			% [mpa_sv_e_lo, mpa_sv_e_hi]
+		)
+	var mpa_sv_e_lo_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			sword, sv_e_lo, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_sv_e_hi_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			sword, sv_e_hi, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_sv_e_hi_rm - mpa_sv_e_lo_rm) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: sword BLUNT mpa (target mass opts) should ignore strike_energy_mult (derived v lo=%.6f hi=%.6f)"
+			% [mpa_sv_e_lo_rm, mpa_sv_e_hi_rm]
+		)
+	for swx: Dictionary in [
+		{
+			"w": w_axe,
+			"move": "diagonal_chop",
+			"v": 10.0,
+			"pfx": "kin_cross_ax_sw_e",
+			"tgt_kg": 71.0,
+		},
+		{
+			"w": w_dagger,
+			"move": "quick_slash",
+			"v": 20.0,
+			"pfx": "kin_cross_dg_sw_e",
+			"tgt_kg": 71.0,
+		},
+	]:
+		var wx: Weapon = swx["w"] as Weapon
+		var mvx: String = str(swx["move"])
+		var pfxx: String = str(swx["pfx"])
+		var vx: float = float(swx["v"])
+		var tk: float = float(swx["tgt_kg"])
+		var slo: AttackInstance = AttackInstance.new(mvx, 0.5)
+		slo.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+		slo.velocity_m_s = vx
+		slo.strike_energy_mult = 1.0
+		slo.strike_momentum_mult = 1.0
+		var shi: AttackInstance = AttackInstance.new(mvx, 0.5)
+		shi.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+		shi.velocity_m_s = vx
+		shi.strike_energy_mult = 3.1
+		shi.strike_momentum_mult = 1.0
+		var ev_pin_wx_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(wx, slo)
+		var ev_pin_wx_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(wx, shi)
+		if absf(ev_pin_wx_hi - ev_pin_wx_lo) > 0.0001:
+			_fail(
+				failures,
+				"%s: pinned get_effective_velocity_m_s should ignore strike_energy_mult (lo=%.6f hi=%.6f)"
+				% [pfxx, ev_pin_wx_lo, ev_pin_wx_hi]
+			)
+		var bl0: float = WeaponDamageHelper.compute_pre_armor_blunt(wx, slo, strength, arm_mod)
+		var bl1: float = WeaponDamageHelper.compute_pre_armor_blunt(wx, shi, strength, arm_mod)
+		if absf(bl1 - bl0) > 0.0001:
+			_fail(
+				failures,
+				"%s: blunt pre-armor should ignore strike_energy_mult (lo=%.6f hi=%.6f)" % [pfxx, bl0, bl1]
+			)
+		var bl0r: float = WeaponDamageHelper.compute_pre_armor_blunt(wx, slo, strength, arm_mod, tk)
+		var bl1r: float = WeaponDamageHelper.compute_pre_armor_blunt(wx, shi, strength, arm_mod, tk)
+		if absf(bl1r - bl0r) > 0.0001:
+			_fail(
+				failures,
+				"%s: blunt pre-armor (reduced mass) should ignore strike_energy_mult (lo=%.6f hi=%.6f)"
+				% [pfxx, bl0r, bl1r]
+			)
+		var mp0: float = float(
+			WeaponDamageHelper.compute_penetration(wx, slo, WeaponConstants.DAMAGE_TYPE_BLUNT, {}).get(
+				"penetration_blunt_momentum_per_area", -1.0
+			)
+		)
+		var mp1: float = float(
+			WeaponDamageHelper.compute_penetration(wx, shi, WeaponConstants.DAMAGE_TYPE_BLUNT, {}).get(
+				"penetration_blunt_momentum_per_area", -1.0
+			)
+		)
+		if absf(mp1 - mp0) > 0.0001:
+			_fail(
+				failures,
+				"%s: BLUNT mpa should ignore strike_energy_mult (lo=%.6f hi=%.6f)" % [pfxx, mp0, mp1]
+			)
+		var mp0r: float = float(
+			WeaponDamageHelper.compute_penetration(
+				wx, slo, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+			).get("penetration_blunt_momentum_per_area", -1.0)
+		)
+		var mp1r: float = float(
+			WeaponDamageHelper.compute_penetration(
+				wx, shi, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+			).get("penetration_blunt_momentum_per_area", -1.0)
+		)
+		if absf(mp1r - mp0r) > 0.0001:
+			_fail(
+				failures,
+				"%s: BLUNT mpa (target mass opts) should ignore strike_energy_mult (lo=%.6f hi=%.6f)"
+				% [pfxx, mp0r, mp1r]
+			)
+	var ax_sv_e_lo: AttackInstance = AttackInstance.new(move_ax, 0.61)
+	ax_sv_e_lo.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ax_sv_e_lo.strike_energy_mult = 1.0
+	ax_sv_e_lo.strike_momentum_mult = 1.0
+	var ax_sv_e_hi: AttackInstance = AttackInstance.new(move_ax, 0.61)
+	ax_sv_e_hi.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	ax_sv_e_hi.strike_energy_mult = 3.1
+	ax_sv_e_hi.strike_momentum_mult = 1.0
+	var ev_ax_e_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(w_axe, ax_sv_e_lo)
+	var ev_ax_e_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(w_axe, ax_sv_e_hi)
+	if absf(ev_ax_e_hi - ev_ax_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: derived get_effective_velocity_m_s should ignore strike_energy_mult (axe lo=%.6f hi=%.6f)"
+			% [ev_ax_e_lo, ev_ax_e_hi]
+		)
+	var blunt_ax_sv_e_lo: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		w_axe, ax_sv_e_lo, strength, arm_mod
+	)
+	var blunt_ax_sv_e_hi: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		w_axe, ax_sv_e_hi, strength, arm_mod
+	)
+	if absf(blunt_ax_sv_e_hi - blunt_ax_sv_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: blunt pre-armor should ignore strike_energy_mult (axe derived v lo=%.6f hi=%.6f)"
+			% [blunt_ax_sv_e_lo, blunt_ax_sv_e_hi]
+		)
+	var blunt_ax_sv_e_rm_lo: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		w_axe, ax_sv_e_lo, strength, arm_mod, 71.0
+	)
+	var blunt_ax_sv_e_rm_hi: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		w_axe, ax_sv_e_hi, strength, arm_mod, 71.0
+	)
+	if absf(blunt_ax_sv_e_rm_hi - blunt_ax_sv_e_rm_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: blunt pre-armor (reduced mass) should ignore strike_energy_mult (axe derived v lo=%.6f hi=%.6f)"
+			% [blunt_ax_sv_e_rm_lo, blunt_ax_sv_e_rm_hi]
+		)
+	var mpa_ax_sv_e_lo: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_axe, ax_sv_e_lo, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_ax_sv_e_hi: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_axe, ax_sv_e_hi, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_ax_sv_e_hi - mpa_ax_sv_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: axe BLUNT mpa should ignore strike_energy_mult (derived v lo=%.6f hi=%.6f)"
+			% [mpa_ax_sv_e_lo, mpa_ax_sv_e_hi]
+		)
+	var mpa_ax_sv_e_lo_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_axe, ax_sv_e_lo, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_ax_sv_e_hi_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_axe, ax_sv_e_hi, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_ax_sv_e_hi_rm - mpa_ax_sv_e_lo_rm) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: axe BLUNT mpa (target mass opts) should ignore strike_energy_mult (derived v lo=%.6f hi=%.6f)"
+			% [mpa_ax_sv_e_lo_rm, mpa_ax_sv_e_hi_rm]
+		)
+	var dg_sv_e_lo: AttackInstance = AttackInstance.new(move_dg, 0.61)
+	dg_sv_e_lo.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	dg_sv_e_lo.strike_energy_mult = 1.0
+	dg_sv_e_lo.strike_momentum_mult = 1.0
+	var dg_sv_e_hi: AttackInstance = AttackInstance.new(move_dg, 0.61)
+	dg_sv_e_hi.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	dg_sv_e_hi.strike_energy_mult = 3.1
+	dg_sv_e_hi.strike_momentum_mult = 1.0
+	var ev_dg_e_lo: float = WeaponDamageHelper.get_effective_velocity_m_s(w_dagger, dg_sv_e_lo)
+	var ev_dg_e_hi: float = WeaponDamageHelper.get_effective_velocity_m_s(w_dagger, dg_sv_e_hi)
+	if absf(ev_dg_e_hi - ev_dg_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: derived get_effective_velocity_m_s should ignore strike_energy_mult (dagger lo=%.6f hi=%.6f)"
+			% [ev_dg_e_lo, ev_dg_e_hi]
+		)
+	var blunt_dg_sv_e_lo: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		w_dagger, dg_sv_e_lo, strength, arm_mod
+	)
+	var blunt_dg_sv_e_hi: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		w_dagger, dg_sv_e_hi, strength, arm_mod
+	)
+	if absf(blunt_dg_sv_e_hi - blunt_dg_sv_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: blunt pre-armor should ignore strike_energy_mult (dagger derived v lo=%.6f hi=%.6f)"
+			% [blunt_dg_sv_e_lo, blunt_dg_sv_e_hi]
+		)
+	var blunt_dg_sv_e_rm_lo: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		w_dagger, dg_sv_e_lo, strength, arm_mod, 71.0
+	)
+	var blunt_dg_sv_e_rm_hi: float = WeaponDamageHelper.compute_pre_armor_blunt(
+		w_dagger, dg_sv_e_hi, strength, arm_mod, 71.0
+	)
+	if absf(blunt_dg_sv_e_rm_hi - blunt_dg_sv_e_rm_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: blunt pre-armor (reduced mass) should ignore strike_energy_mult (dagger derived v lo=%.6f hi=%.6f)"
+			% [blunt_dg_sv_e_rm_lo, blunt_dg_sv_e_rm_hi]
+		)
+	var mpa_dg_sv_e_lo: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_dagger, dg_sv_e_lo, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_dg_sv_e_hi: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_dagger, dg_sv_e_hi, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_dg_sv_e_hi - mpa_dg_sv_e_lo) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: dagger BLUNT mpa should ignore strike_energy_mult (derived v lo=%.6f hi=%.6f)"
+			% [mpa_dg_sv_e_lo, mpa_dg_sv_e_hi]
+		)
+	var mpa_dg_sv_e_lo_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_dagger, dg_sv_e_lo, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	var mpa_dg_sv_e_hi_rm: float = float(
+		WeaponDamageHelper.compute_penetration(
+			w_dagger, dg_sv_e_hi, WeaponConstants.DAMAGE_TYPE_BLUNT, opts_rm
+		).get("penetration_blunt_momentum_per_area", -1.0)
+	)
+	if absf(mpa_dg_sv_e_hi_rm - mpa_dg_sv_e_lo_rm) > 0.0001:
+		_fail(
+			failures,
+			"kin_cross: dagger BLUNT mpa (target mass opts) should ignore strike_energy_mult (derived v lo=%.6f hi=%.6f)"
+			% [mpa_dg_sv_e_lo_rm, mpa_dg_sv_e_hi_rm]
+		)
+
+
+## Tier 5.1 (optional long-tail): **`AttackResolver.penetration_oblique_angle_factor`** matches parry vs misaligned-guard **`lerp`** rules; **`velocity_override` < 0** ⇒ **1** (no penetration oblique here).
+static func _run_kinematic_delivery_penetration_oblique_angle_factor_attack_resolver(
+	failures: PackedStringArray
+) -> void:
+	const tol: float = 0.00001
+	var amin: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
+	var ascale: float = CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
+	var f_neg: float = _AttackResolver.penetration_oblique_angle_factor(-1.0, 0.0, 0.0)
+	if absf(f_neg - 1.0) > tol:
+		_fail(failures, "kin_oblique: vo<0 should be 1 got %.6f" % f_neg)
+	var f_clean: float = _AttackResolver.penetration_oblique_angle_factor(10.0, 1.0, 1.0)
+	if absf(f_clean - 1.0) > tol:
+		_fail(failures, "kin_oblique: full parry+align should be 1 got %.6f" % f_clean)
+	var f_parry_half: float = _AttackResolver.penetration_oblique_angle_factor(0.0, 0.5, 1.0)
+	var w_parry_half: float = lerpf(1.0, amin, 0.5)
+	if absf(f_parry_half - w_parry_half) > tol:
+		_fail(
+			failures,
+			"kin_oblique: parry 0.5 want %.6f got %.6f" % [w_parry_half, f_parry_half]
+		)
+	var f_align_edge: float = _AttackResolver.penetration_oblique_angle_factor(5.0, 1.0, 0.0)
+	var t_align: float = (1.0 - 0.0) * ascale
+	var w_align: float = lerpf(1.0, amin, t_align)
+	if absf(f_align_edge - w_align) > tol:
+		_fail(
+			failures,
+			"kin_oblique: align 0 parry=1 want %.6f got %.6f" % [w_align, f_align_edge]
+		)
+	var f_parry_zero: float = _AttackResolver.penetration_oblique_angle_factor(5.0, 0.0, 1.0)
+	var w_pz: float = lerpf(1.0, amin, 1.0)
+	if absf(f_parry_zero - w_pz) > tol:
+		_fail(failures, "kin_oblique: parry 0 want %.6f got %.6f" % [w_pz, f_parry_zero])
+	var f_parry_wins: float = _AttackResolver.penetration_oblique_angle_factor(5.0, 0.25, 0.0)
+	var w_pw: float = lerpf(1.0, amin, 0.75)
+	if absf(f_parry_wins - w_pw) > tol:
+		_fail(
+			failures,
+			"kin_oblique: parry 0.25+align0 should use parry branch want %.6f got %.6f"
+			% [w_pw, f_parry_wins]
+		)
+	var f_align_mid: float = _AttackResolver.penetration_oblique_angle_factor(3.0, 1.0, 0.5)
+	var t_mid: float = (1.0 - 0.5) * ascale
+	var w_mid: float = lerpf(1.0, amin, t_mid)
+	if absf(f_align_mid - w_mid) > tol:
+		_fail(failures, "kin_oblique: align 0.5 want %.6f got %.6f" % [w_mid, f_align_mid])
+
+
+## Shared Tier **5.1** harness helper: one **`compute_and_apply_damage`** hit with meta-exposed pens (fresh manager each call).
+static func _kin_dmg_pen_sample(vo: float, parry_r: float, align: float, strike_mods: Dictionary) -> Vector2:
+	var intensity: float = 0.62
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var m: Node = _MgrScript.new()
+	m.set_meta(_HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
+	m.register(_new_entity("SWORD"), "player")
+	m.register(_new_entity("SWORD"), "enemy")
+	m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = m.combatants[0]
+	var tgt: Dictionary = m.combatants[1]
+	var aid: int = _EntityAccess.id_int(atk)
+	var tid: int = _EntityAccess.id_int(tgt)
+	var res: Dictionary = _AttackResolver.compute_and_apply_damage(
+		m,
+		aid,
+		tid,
+		atk,
+		tgt,
+		"chest",
+		intensity,
+		"oberhau",
+		arch,
+		vo,
+		1.0,
+		1.0,
+		-1.0,
+		-1.0,
+		parry_r,
+		1.0,
+		align,
+		strike_mods,
+		{}
+	)
+	var rd: Dictionary = res.get("result_dict", {}) as Dictionary
+	var ps: float = float(rd.get("penetration_sharp_applied", -999.0))
+	var pb: float = float(rd.get("penetration_blunt_mpa_applied", -999.0))
+	_free_manager(m)
+	return Vector2(ps, pb)
+
+
+## Tier 5.1 (optional long-tail): **`compute_and_apply_damage`** applies the same oblique factor to **SHARP** / **BLUNT** penetration as **`penetration_oblique_angle_factor`** (fresh manager per sample; manager meta **`_harness_expose_penetration_applied`** → **`penetration_sharp_applied`** / **`penetration_blunt_mpa_applied`** on **`result_dict`**).
+static func _run_kinematic_delivery_compute_damage_oblique_penetration_integration(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	var amin: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
+	var ascale: float = CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
+	var want_parry_half: float = lerpf(1.0, amin, 0.5)
+	var want_align_zero: float = lerpf(1.0, amin, ascale)
+
+	var base: Vector2 = _kin_dmg_pen_sample(vo_pin, 1.0, 1.0, {})
+	if base.x <= 0.001:
+		_fail(failures, "kin_dmg_pen: baseline pen_sharp too small %.6f" % base.x)
+	if base.y <= 0.0:
+		_fail(failures, "kin_dmg_pen: baseline pen_blunt_mpa invalid %.6f" % base.y)
+
+	var parry_half: Vector2 = _kin_dmg_pen_sample(vo_pin, 0.5, 1.0, {})
+	var r_ps_ph: float = parry_half.x / base.x
+	var r_pb_ph: float = parry_half.y / base.y
+	if absf(r_ps_ph - want_parry_half) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_pen: parry 0.5 sharp ratio %.4f want %.4f (base=%.4f half=%.4f)"
+			% [r_ps_ph, want_parry_half, base.x, parry_half.x]
+		)
+	if absf(r_pb_ph - want_parry_half) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_pen: parry 0.5 blunt mpa ratio %.4f want %.4f (base=%.4f half=%.4f)"
+			% [r_pb_ph, want_parry_half, base.y, parry_half.y]
+		)
+
+	var align_zero: Vector2 = _kin_dmg_pen_sample(vo_pin, 1.0, 0.0, {})
+	var r_ps_az: float = align_zero.x / base.x
+	var r_pb_az: float = align_zero.y / base.y
+	if absf(r_ps_az - want_align_zero) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_pen: align 0 sharp ratio %.4f want %.4f (base=%.4f az=%.4f)"
+			% [r_ps_az, want_align_zero, base.x, align_zero.x]
+		)
+	if absf(r_pb_az - want_align_zero) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_pen: align 0 blunt mpa ratio %.4f want %.4f (base=%.4f az=%.4f)"
+			% [r_pb_az, want_align_zero, base.y, align_zero.y]
+		)
+
+	var base_der: Vector2 = _kin_dmg_pen_sample(-1.0, 1.0, 1.0, {})
+	var parry_der: Vector2 = _kin_dmg_pen_sample(-1.0, 0.5, 1.0, {})
+	if base_der.x <= 0.001:
+		_fail(failures, "kin_dmg_pen: derived-v baseline pen_sharp too small %.6f" % base_der.x)
+	if absf(parry_der.x / base_der.x - 1.0) > 0.02 or absf(parry_der.y / base_der.y - 1.0) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_pen: vo<0 parry 0.5 should not scale pens (base s=%.4f b=%.4f vs half s=%.4f b=%.4f)"
+			% [base_der.x, base_der.y, parry_der.x, parry_der.y]
+		)
+
+
+## Tier 5.1 (optional long-tail): **`strike_mods`** — **`sharp_penetration_mult`** / **`blunt_momentum_pa_mult`** scale applied pens in **`compute_and_apply_damage`** (orthogonal; compose after oblique); **`cut_damage_mult`** / **`blunt_damage_mult`** do not (full hit or partial parry — **`_kin_dmg_pen_sample`**).
+static func _run_kinematic_delivery_compute_damage_strike_mods_penetration_integration(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	const mult_sharp: float = 1.35
+	const mult_blunt: float = 1.22
+	var base: Vector2 = _kin_dmg_pen_sample(vo_pin, 1.0, 1.0, {})
+	if base.x <= 0.001:
+		_fail(failures, "kin_dmg_pen_sm: baseline pen_sharp too small %.6f" % base.x)
+	if base.y <= 0.0:
+		_fail(failures, "kin_dmg_pen_sm: baseline pen_blunt_mpa invalid %.6f" % base.y)
+	var only_sharp: Vector2 = _kin_dmg_pen_sample(
+		vo_pin, 1.0, 1.0, {"sharp_penetration_mult": mult_sharp}
+	)
+	if absf(only_sharp.x / base.x - mult_sharp) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_pen_sm: sharp mult ratio %.4f want %.4f (base=%.4f sm=%.4f)"
+			% [only_sharp.x / base.x, mult_sharp, base.x, only_sharp.x]
+		)
+	if absf(only_sharp.y / base.y - 1.0) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_pen_sm: sharp mult should not scale blunt mpa (ratio %.4f)"
+			% (only_sharp.y / base.y)
+		)
+	var only_blunt: Vector2 = _kin_dmg_pen_sample(
+		vo_pin, 1.0, 1.0, {"blunt_momentum_pa_mult": mult_blunt}
+	)
+	if absf(only_blunt.x / base.x - 1.0) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_pen_sm: blunt mult should not scale sharp pen (ratio %.4f)"
+			% (only_blunt.x / base.x)
+		)
+	if absf(only_blunt.y / base.y - mult_blunt) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_pen_sm: blunt mpa mult ratio %.4f want %.4f"
+			% [only_blunt.y / base.y, mult_blunt]
+		)
+	var both: Vector2 = _kin_dmg_pen_sample(
+		vo_pin,
+		1.0,
+		1.0,
+		{"sharp_penetration_mult": mult_sharp, "blunt_momentum_pa_mult": mult_blunt}
+	)
+	if absf(both.x / base.x - mult_sharp) > 0.02 or absf(both.y / base.y - mult_blunt) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_pen_sm: both mults want sharp×%.2f blunt×%.2f got ratios %.4f %.4f"
+			% [mult_sharp, mult_blunt, both.x / base.x, both.y / base.y]
+		)
+	var half_base: Vector2 = _kin_dmg_pen_sample(vo_pin, 0.5, 1.0, {})
+	var half_sharp: Vector2 = _kin_dmg_pen_sample(
+		vo_pin, 0.5, 1.0, {"sharp_penetration_mult": mult_sharp}
+	)
+	if half_base.x <= 0.001:
+		_fail(failures, "kin_dmg_pen_sm: oblique baseline pen_sharp too small %.6f" % half_base.x)
+	if absf(half_sharp.x / half_base.x - mult_sharp) > 0.03:
+		_fail(
+			failures,
+			"kin_dmg_pen_sm: oblique+sharp_mult ratio %.4f want %.4f"
+			% [half_sharp.x / half_base.x, mult_sharp]
+		)
+	var dmg_shape: Vector2 = _kin_dmg_pen_sample(
+		vo_pin,
+		1.0,
+		1.0,
+		{"cut_damage_mult": 1.55, "blunt_damage_mult": 0.72}
+	)
+	if absf(dmg_shape.x - base.x) > 0.0001 or absf(dmg_shape.y - base.y) > 0.0001:
+		_fail(
+			failures,
+			"kin_dmg_pen_sm: cut/blunt_damage_mult must not change applied pens (base s=%.6f b=%.6f vs dmg s=%.6f b=%.6f)"
+			% [base.x, base.y, dmg_shape.x, dmg_shape.y]
+		)
+	var half_dmg_shape: Vector2 = _kin_dmg_pen_sample(
+		vo_pin,
+		0.5,
+		1.0,
+		{"cut_damage_mult": 1.88, "blunt_damage_mult": 0.61}
+	)
+	if absf(half_dmg_shape.x - half_base.x) > 0.0001 or absf(half_dmg_shape.y - half_base.y) > 0.0001:
+		_fail(
+			failures,
+			"kin_dmg_pen_sm: cut/blunt_damage_mult under partial parry must not change applied pens (half s=%.6f b=%.6f vs dmg s=%.6f b=%.6f)"
+			% [half_base.x, half_base.y, half_dmg_shape.x, half_dmg_shape.y]
+		)
+
+
+## Tier 5.1 (optional long-tail): **`CombatConstants.get_line_alignment_with_deflect`** — continuous cos(θ) vs attack-angle-only vs discrete **`get_line_alignment`** vs **`guard_deflect_blend`** lerp.
+static func _run_kinematic_delivery_line_alignment_with_deflect_branches(
+	failures: PackedStringArray
+) -> void:
+	const atk_deg: float = 30.0
+	const guard_deg: float = 45.0
+	var both_ctx: Dictionary = {"attack_angle_deg": atk_deg, "guard_angle_deg": guard_deg}
+	var want_both: float = CombatConstants.get_line_alignment_with_deflect(
+		"high",
+		{},
+		both_ctx,
+		{}
+	)
+	var exp_both: float = maxf(
+		CombatConstants.PARRY_ALIGNMENT_FLOOR,
+		CombatConstants.get_alignment_from_angles(atk_deg, guard_deg)
+	)
+	if absf(want_both - exp_both) > 0.0001:
+		_fail(
+			failures,
+			"line_align_deflect: both angles want %.6f got %.6f" % [exp_both, want_both]
+		)
+	var def_low: Dictionary = {"guard_line": "low"}
+	var only_atk_ctx: Dictionary = {"attack_angle_deg": atk_deg}
+	var g_deg: float = CombatConstants.get_guard_angle_deg(def_low, {})
+	var want_only_atk: float = CombatConstants.get_line_alignment_with_deflect(
+		"high",
+		def_low,
+		only_atk_ctx,
+		{}
+	)
+	var exp_only_atk: float = maxf(
+		CombatConstants.PARRY_ALIGNMENT_FLOOR,
+		CombatConstants.get_alignment_from_angles(atk_deg, g_deg)
+	)
+	if absf(want_only_atk - exp_only_atk) > 0.0001:
+		_fail(
+			failures,
+			"line_align_deflect: attack_angle only want %.6f got %.6f (guard_deg=%.4f)"
+			% [exp_only_atk, want_only_atk, g_deg]
+		)
+	var want_discrete: float = CombatConstants.get_line_alignment_with_deflect("high", def_low, {}, {})
+	var exp_discrete: float = CombatConstants.get_line_alignment("high", "low")
+	if absf(want_discrete - exp_discrete) > 0.0001:
+		_fail(
+			failures,
+			"line_align_deflect: discrete want %.6f got %.6f" % [exp_discrete, want_discrete]
+		)
+	var def_blend: Dictionary = {
+		"guard_line": "low",
+		"guard_deflect_from_line": "high",
+		"guard_deflect_blend": 0.5,
+	}
+	var want_blend: float = CombatConstants.get_line_alignment_with_deflect("high", def_blend, {}, {})
+	var a_from: float = CombatConstants.get_line_alignment("high", "high")
+	var a_to: float = CombatConstants.get_line_alignment("high", "low")
+	var exp_blend: float = lerpf(a_from, a_to, 0.5)
+	if absf(want_blend - exp_blend) > 0.0001:
+		_fail(
+			failures,
+			"line_align_deflect: blend 0.5 want %.6f got %.6f" % [exp_blend, want_blend]
+		)
+
+
+## Tier 5.1 (optional long-tail): deterministic angle helpers used by deflection magnitude path — **`get_deflected_angle_bilateral`**, **`angle_to_nearest_line`**, **`line_to_angle`** (no RNG).
+static func _run_kinematic_delivery_deflected_angle_bilateral_and_line_angle_helpers(
+	failures: PackedStringArray
+) -> void:
+	if CombatConstants.angle_to_nearest_line(0.0) != "high":
+		_fail(failures, "kin_line_angle: 0° want high got %s" % CombatConstants.angle_to_nearest_line(0.0))
+	if CombatConstants.angle_to_nearest_line(90.0) != "right":
+		_fail(failures, "kin_line_angle: 90° want right got %s" % CombatConstants.angle_to_nearest_line(90.0))
+	if CombatConstants.angle_to_nearest_line(180.0) != "low":
+		_fail(failures, "kin_line_angle: 180° want low got %s" % CombatConstants.angle_to_nearest_line(180.0))
+	if CombatConstants.angle_to_nearest_line(270.0) != "left":
+		_fail(failures, "kin_line_angle: 270° want left got %s" % CombatConstants.angle_to_nearest_line(270.0))
+	if CombatConstants.angle_to_nearest_line(360.0) != "high":
+		_fail(failures, "kin_line_angle: 360° want high got %s" % CombatConstants.angle_to_nearest_line(360.0))
+	for ln in ["high", "right", "low", "left"]:
+		var a: float = CombatConstants.line_to_angle(ln)
+		if CombatConstants.angle_to_nearest_line(a) != ln:
+			_fail(
+				failures,
+				"kin_line_angle: round-trip line %s angle %.1f → %s"
+				% [ln, a, CombatConstants.angle_to_nearest_line(a)]
+			)
+	var b1: float = CombatConstants.get_deflected_angle_bilateral(0.0, 270.0, 10.0)
+	if absf(b1 - 10.0) > 0.0001:
+		_fail(failures, "kin_bilateral: (0,270,10) want 10 got %.4f" % b1)
+	var b2: float = CombatConstants.get_deflected_angle_bilateral(200.0, 0.0, 15.0)
+	if absf(b2 - fmod(200.0 - 15.0 + 360.0, 360.0)) > 0.0001:
+		_fail(failures, "kin_bilateral: (200,0,15) want ccw 185 got %.4f" % b2)
+	var b3: float = CombatConstants.get_deflected_angle_bilateral(0.0, 200.0, 5.0)
+	if absf(b3 - 5.0) > 0.0001:
+		_fail(failures, "kin_bilateral: (0,200,5) want cw 5 got %.4f" % b3)
+
+
+## Tier 5.1 (optional long-tail): **`CombatConstants.get_deflected_line_from_angles`** same-line early return (bind) — skips magnitude RNG.
+static func _run_kinematic_delivery_deflected_line_from_angles_same_line_bind(
+	failures: PackedStringArray
+) -> void:
+	var hi: String = CombatConstants.get_deflected_line_from_angles(10.0, 350.0, 1.0, "cut", 0.5)
+	if hi != "high":
+		_fail(failures, "kin_deflect_same: high bind want high got %s" % hi)
+	var rt: String = CombatConstants.get_deflected_line_from_angles(100.0, 110.0, 0.0, "stab", 0.2)
+	if rt != "right":
+		_fail(failures, "kin_deflect_same: right bind want right got %s" % rt)
+	var lo: String = CombatConstants.get_deflected_line_from_angles(200.0, 190.0, 0.7, "blunt", 0.9)
+	if lo != "low":
+		_fail(failures, "kin_deflect_same: low bind want low got %s" % lo)
+	var lf: String = CombatConstants.get_deflected_line_from_angles(270.0, 280.0, 0.3, "cut", 1.0)
+	if lf != "left":
+		_fail(failures, "kin_deflect_same: left bind want left got %s" % lf)
+
+
+## Tier 5.1: **`CombatConstants.angle_diff_deg`** (shortest arc 0–180) + **`get_alignment_from_angles`** (cos θ floor).
+static func _run_kinematic_delivery_angle_diff_and_alignment_from_angles_helpers(
+	failures: PackedStringArray
+) -> void:
+	if CombatConstants.angle_diff_deg(350.0, 10.0) != 20.0:
+		_fail(
+			failures,
+			"kin_angle_diff: 350→10 want 20 got %.4f" % CombatConstants.angle_diff_deg(350.0, 10.0)
+		)
+	if CombatConstants.angle_diff_deg(10.0, 350.0) != 20.0:
+		_fail(
+			failures,
+			"kin_angle_diff: 10→350 want 20 got %.4f" % CombatConstants.angle_diff_deg(10.0, 350.0)
+		)
+	if CombatConstants.angle_diff_deg(0.0, 180.0) != 180.0:
+		_fail(
+			failures,
+			"kin_angle_diff: 0→180 want 180 got %.4f" % CombatConstants.angle_diff_deg(0.0, 180.0)
+		)
+	if CombatConstants.angle_diff_deg(400.0, 40.0) != 0.0:
+		_fail(
+			failures,
+			"kin_angle_diff: 400→40 (wrap) want 0 got %.4f" % CombatConstants.angle_diff_deg(400.0, 40.0)
+		)
+	var a1: float = CombatConstants.get_alignment_from_angles(0.0, 0.0)
+	if absf(a1 - 1.0) > 0.0001:
+		_fail(failures, "kin_align_from_angles: 0,0 want 1 got %.6f" % a1)
+	var a2: float = CombatConstants.get_alignment_from_angles(0.0, 180.0)
+	if absf(a2 - CombatConstants.PARRY_ALIGNMENT_FLOOR) > 0.0001:
+		_fail(failures, "kin_align_from_angles: 0,180 want floor %.4f got %.6f" % [CombatConstants.PARRY_ALIGNMENT_FLOOR, a2])
+	var a3: float = CombatConstants.get_alignment_from_angles(0.0, 60.0)
+	if absf(a3 - 0.5) > 0.0001:
+		_fail(failures, "kin_align_from_angles: 0,60 want 0.5 got %.6f" % a3)
+
+
 static func _run_weapon_blade_strong_fraction(failures: PackedStringArray) -> void:
 	var sword: Weapon = _Weapon.create_from_definition("SWORD")
 	var dagger: Weapon = _Weapon.create_from_definition("DAGGER")
@@ -4972,6 +11850,7 @@ static func _run_parry_opposite_deflect_thresholds(failures: PackedStringArray) 
 	)
 	if adjacent_guard not in CombatConstants.LINE_ADJACENTS["high"]:
 		_fail(failures, "parry_deflect_threshold: adjacent guard should stay adjacent, got %s" % adjacent_guard)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
 
 
 ## Tier 3.2: defender weapon type × attack contact modifiers apply through Weapon object fields.
@@ -5145,7 +12024,7 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 	)
 	if not (res_unstamped is Dictionary) or res_unstamped.get("action", "") != "parry_deflect":
 		_fail(failures, "parry_clash_context unstamped: expected parry_deflect result")
-		_free_manager(mgr)
+		_free_manager_restore_global_rng(mgr)
 		return
 	var clash_un: Dictionary = res_unstamped.get("parry_clash_context", {})
 	if not clash_un.has("strike_measure_ratio") or absf(float(clash_un.get("strike_measure_ratio", 0.0)) - (-1.0)) > 0.001:
@@ -5154,12 +12033,12 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 			"parry_clash_context unstamped: strike_measure_ratio want -1 got %s"
 			% str(clash_un.get("strike_measure_ratio", "missing"))
 		)
-		_free_manager(mgr)
+		_free_manager_restore_global_rng(mgr)
 		return
 	for _sk_un: String in PARRY_CLASH_CONTEXT_KEYS_FULL_STOP:
 		if not clash_un.has(_sk_un):
 			_fail(failures, "parry_clash_context unstamped: missing key %s" % _sk_un)
-			_free_manager(mgr)
+			_free_manager_restore_global_rng(mgr)
 			return
 	seed(3312)
 	var pa1: Dictionary = pa_template.duplicate(true)
@@ -5191,17 +12070,17 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 	)
 	if not (result is Dictionary) or result.get("action", "") != "parry_deflect":
 		_fail(failures, "parry_clash_context: expected parry_deflect result")
-		_free_manager(mgr)
+		_free_manager_restore_global_rng(mgr)
 		return
 	var clash: Dictionary = result.get("parry_clash_context", {})
 	if clash.is_empty():
 		_fail(failures, "parry_clash_context: missing context")
-		_free_manager(mgr)
+		_free_manager_restore_global_rng(mgr)
 		return
 	for _sk: String in PARRY_CLASH_CONTEXT_KEYS_FULL_STOP:
 		if not clash.has(_sk):
 			_fail(failures, "parry_clash_context: missing key %s" % _sk)
-			_free_manager(mgr)
+			_free_manager_restore_global_rng(mgr)
 			return
 	var expected: Dictionary = {
 		"parry_p_a": parry_p_a,
@@ -5267,7 +12146,9 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 			failures,
 			"parry_clash_context: archetype_id want %s got %s" % [want_arch, str(clash.get("archetype_id", ""))]
 		)
-	var eff_wind: float = float(pa_template.get("wind_up_duration", 0.5)) * (1.0 - CombatConstants.COMMITMENT_FRACTION)
+	var eff_wind: float = float(pa_template.get("wind_up_duration", 0.5)) * (
+		1.0 - CombatConstants.commitment_fraction_for_pending_attack(pa_template)
+	)
 	var parry_prog: float = 1.0
 	if not bool(dc.get("late_parry", false)):
 		parry_prog = 1.0 - clampf(float(dc.get("parry_time_to_react", 0.0)) / maxf(0.001, eff_wind), 0.0, 1.0)
@@ -5389,17 +12270,17 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 	)
 	if not (result2 is Dictionary) or result2.get("action", "") != "parry_deflect":
 		_fail(failures, "parry_clash_context late: expected parry_deflect result")
-		_free_manager(mgr)
+		_free_manager_restore_global_rng(mgr)
 		return
 	var clash2: Dictionary = result2.get("parry_clash_context", {})
 	if clash2.is_empty():
 		_fail(failures, "parry_clash_context late: missing context")
-		_free_manager(mgr)
+		_free_manager_restore_global_rng(mgr)
 		return
 	for _sk: String in PARRY_CLASH_CONTEXT_KEYS_FULL_STOP:
 		if not clash2.has(_sk):
 			_fail(failures, "parry_clash_context late: missing key %s" % _sk)
-			_free_manager(mgr)
+			_free_manager_restore_global_rng(mgr)
 			return
 	if not bool(clash2.get("late_parry", false)) or not bool(clash2.get("parry_off_balance", false)):
 		_fail(failures, "parry_clash_context: late/off_balance should be true on second fixture")
@@ -5502,7 +12383,7 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 			"parry_clash_context late: strike_measure_ratio %.6f want %.6f"
 			% [float(clash2.get("strike_measure_ratio", -999.0)), float(pa2.get("strike_measure_ratio", -1.0))]
 		)
-	_free_manager(mgr)
+	_free_manager_restore_global_rng(mgr)
 
 
 ## Tier 3.2 + 3.0: **`parry_partial`** — **`parry_clash_context`** mirrors full-stop keys plus **`remaining_ratio`** / **`geometric_leak`**; Tier **3.0** KE uses reduced **`pa["velocity_m_s"]`** (not intent-speed from **`_parry_clash_context_expected_strike_kinematics`**).
@@ -5570,21 +12451,21 @@ static func _run_parry_partial_clash_context_calibration_fields(failures: Packed
 	)
 	if not (res_partial is Dictionary) or str((res_partial as Dictionary).get("action", "")) != "parry_partial":
 		_fail(failures, "parry_partial_clash: expected parry_partial result")
-		_free_manager(mgr2)
+		_free_manager_restore_global_rng(mgr2)
 		return
 	var clash_partial: Dictionary = (res_partial as Dictionary).get("parry_clash_context", {}) as Dictionary
 	if clash_partial.is_empty():
 		_fail(failures, "parry_partial_clash: missing parry_clash_context")
-		_free_manager(mgr2)
+		_free_manager_restore_global_rng(mgr2)
 		return
 	for _sk_part: String in PARRY_CLASH_CONTEXT_KEYS_FULL_STOP:
 		if not clash_partial.has(_sk_part):
 			_fail(failures, "parry_partial_clash: missing key %s" % _sk_part)
-			_free_manager(mgr2)
+			_free_manager_restore_global_rng(mgr2)
 			return
 	if not clash_partial.has("remaining_ratio") or not clash_partial.has("geometric_leak"):
 		_fail(failures, "parry_partial_clash: missing remaining_ratio or geometric_leak")
-		_free_manager(mgr2)
+		_free_manager_restore_global_rng(mgr2)
 		return
 	if absf(float(clash_partial.get("remaining_ratio", -1.0)) - float(pa_partial.get("parry_remaining_ratio", -2.0))) > 1e-5:
 		_fail(
@@ -5641,7 +12522,7 @@ static func _run_parry_partial_clash_context_calibration_fields(failures: Packed
 			"parry_partial_clash: strike_measure_ratio %.6f want %.6f"
 			% [float(clash_partial["strike_measure_ratio"]), float(pa_partial.get("strike_measure_ratio", -1.0))]
 		)
-	_free_manager(mgr2)
+	_free_manager_restore_global_rng(mgr2)
 
 
 ## Tier 3.2: **`CombatConstants.parry_control_for_bind_deflect`** pure formula corner cases.
@@ -5705,6 +12586,318 @@ static func _run_guard_line_deflected_severity_from_margin_ratio(failures: Packe
 			failures,
 			"guard_deflect_blend: explicit severity should win when both keys set (want 0.11 got %.4f)" % float(c2.get("guard_deflect_blend", -1.0))
 		)
+
+
+## Godot **4.6.stable** global RNG: **`seed(1)`** yields **`attack_hit`** on the afterblow execute path for the SWORD 1v1 **`_afterblow_harness_seed_pending_cut`** fixture (avoids scanning thousands of seeds in **`run_all()`**).
+const _AFTERBLOW_EXECUTE_HIT_SEED: int = 1
+## **`seed(2)`**: hybrid hindrance in **(ALLOW, BLOCK)** and first **`randf()` < hindrance** → **`try_afterblow` false** + **`_cancel_pending`** (chest **`final_cut` 11.25**).
+const _AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED: int = 2
+## **`seed(0)`**: same fixture + chest **`final_cut` 11.25** → **`randf() ≥ hindrance`** → **`_execute_afterblow`** (**`afterblow_damage_mult` 0.55**) + **`attack_hit`** resolve.
+const _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED: int = 0
+const _HARNESS_META_RECORD_AFTERBLOW_MULT := "_harness_record_afterblow_damage_mult"
+const _HARNESS_META_LAST_AFTERBLOW_MULT := "_harness_last_afterblow_damage_mult"
+const _HARNESS_META_EXPOSE_PENETRATION_APPLIED := "_harness_expose_penetration_applied"
+
+
+## Tier 3.3 harness: deterministic **`pending_attack`** (cut + stamped geometry) so **`AfterblowHandler`** → **`_execute_attack`** does not depend on wind-up RNG.
+static func _afterblow_harness_seed_pending_cut(mgr: Node, attacker_index: int, defender_index: int) -> void:
+	var atk: Dictionary = mgr.combatants[attacker_index]
+	var defc: Dictionary = mgr.combatants[defender_index]
+	var weapon = _EntityAccess.get_weapon(atk)
+	var attack_type: String = WeaponConstants.ATTACK_TYPE_CUT
+	if weapon != null and weapon.has_method("get_available_attack_types"):
+		var types_a: Array = weapon.get_available_attack_types()
+		if types_a.has(WeaponConstants.ATTACK_TYPE_CUT):
+			attack_type = WeaponConstants.ATTACK_TYPE_CUT
+		elif not types_a.is_empty():
+			attack_type = str(types_a[0])
+	var archetype: Dictionary = WeaponConstants.get_archetype(WeaponConstants.ARCHETYPE_SLASH)
+	if weapon != null and weapon.has_method("get_archetype_id"):
+		archetype = WeaponConstants.get_archetype(weapon.get_archetype_id(attack_type))
+	var pa: Dictionary = {
+		"target_id": _EntityAccess.id_int(defc),
+		"intensity": 0.88,
+		"power": 0.72,
+		"follow_through": 0.68,
+		"attack_type": attack_type,
+		"archetype": archetype,
+	}
+	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, atk, defc, pa)
+	if weapon != null:
+		pa["strike_measure_ratio"] = _ActionsBuilder.strike_measure_ratio_for_attack_pair(
+			mgr, atk, defc, weapon, float(pa.get("effective_pair_eff_dist", -1.0))
+		)
+		pa["move_contact_type"] = WeaponConstants.contact_type_for_move_id(attack_type)
+	else:
+		pa["strike_measure_ratio"] = 1.0
+	atk["state"] = CombatConstants.STATE_WIND_UP
+	atk["state_timer"] = 0.0
+	atk["state_duration"] = 0.5
+	atk["pending_attack"] = pa
+
+
+## Tier 3.3: **`outcome` == `"deflected"`** → **`_execute_afterblow`** (**hindrance 0**) → **`CombatManager._execute_attack`**; fixed **`seed(1)`** (**`_AFTERBLOW_EXECUTE_HIT_SEED`**) must yield **`recovery_cause` == `attack_hit`** and **`afterblow_damage_mult` == 1.0** (via harness meta on manager).
+static func _run_afterblow_deflected_triggers_full_resolve_hit(failures: PackedStringArray) -> void:
+	seed(_AFTERBLOW_EXECUTE_HIT_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.set_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT, true)
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr._recompute_zoc_and_distance()
+	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
+	var atk: Dictionary = mgr.combatants[1]
+	var tid: int = _EntityAccess.id_int(atk)
+	var rd: Dictionary = {
+		"part": "chest",
+		"outcome": "deflected",
+		"final_cut": 0.0,
+		"final_blunt": 0.0,
+		"final_bone": 0.0,
+	}
+	if not _AfterblowHandler.try_afterblow(mgr, 0, tid, rd, 1.0):
+		_fail(failures, "afterblow_deflected_hit: try_afterblow false (seed=%d)" % _AFTERBLOW_EXECUTE_HIT_SEED)
+		mgr.remove_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT)
+		if mgr.has_meta(_HARNESS_META_LAST_AFTERBLOW_MULT):
+			mgr.remove_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)
+		_free_manager_restore_global_rng(mgr)
+		return
+	if str(atk.get("recovery_cause", "")) != "attack_hit":
+		_fail(
+			failures,
+			"afterblow_deflected_hit: want recovery_cause attack_hit got %s (seed=%d)"
+			% [str(atk.get("recovery_cause", "")), _AFTERBLOW_EXECUTE_HIT_SEED]
+		)
+	if _EntityAccess.state_str(atk) != CombatConstants.STATE_RECOVERING:
+		_fail(
+			failures,
+			"afterblow_deflected_hit: want recovering got %s (seed=%d)"
+			% [_EntityAccess.state_str(atk), _AFTERBLOW_EXECUTE_HIT_SEED]
+		)
+	if not _EntityAccess.nested_dictionary_read(atk, "pending_attack").is_empty():
+		_fail(failures, "afterblow_deflected_hit: pending_attack not empty (seed=%d)" % _AFTERBLOW_EXECUTE_HIT_SEED)
+	if not mgr.has_meta(_HARNESS_META_LAST_AFTERBLOW_MULT):
+		_fail(failures, "afterblow_deflected_hit: missing harness afterblow mult meta (seed=%d)" % _AFTERBLOW_EXECUTE_HIT_SEED)
+	elif not is_equal_approx(float(mgr.get_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)), 1.0):
+		_fail(
+			failures,
+			"afterblow_deflected_hit: want afterblow_damage_mult 1.0 got %s (seed=%d)"
+			% [str(mgr.get_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)), _AFTERBLOW_EXECUTE_HIT_SEED]
+		)
+	mgr.remove_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT)
+	mgr.remove_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 3.3: low hybrid hindrance (**≤ `AFTERBLOW_HINDRANCE_ALLOW`**) → **`_execute_afterblow`** stamps **`afterblow_damage_mult` < 1.0**; same fixed seed + **`attack_hit`** resolve.
+static func _run_afterblow_low_hindrance_allow_triggers_resolve_hit(failures: PackedStringArray) -> void:
+	seed(_AFTERBLOW_EXECUTE_HIT_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.set_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT, true)
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr._recompute_zoc_and_distance()
+	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
+	var atk: Dictionary = mgr.combatants[1]
+	var tid: int = _EntityAccess.id_int(atk)
+	var rd: Dictionary = {
+		"part": "chest",
+		"outcome": "hit",
+		"final_cut": 5.0,
+		"final_blunt": 0.0,
+		"final_bone": 0.0,
+	}
+	if not _AfterblowHandler.try_afterblow(mgr, 0, tid, rd, 1.0):
+		_fail(failures, "afterblow_allow_hit: try_afterblow false (seed=%d)" % _AFTERBLOW_EXECUTE_HIT_SEED)
+		mgr.remove_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT)
+		if mgr.has_meta(_HARNESS_META_LAST_AFTERBLOW_MULT):
+			mgr.remove_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)
+		_free_manager_restore_global_rng(mgr)
+		return
+	if str(atk.get("recovery_cause", "")) != "attack_hit":
+		_fail(
+			failures,
+			"afterblow_allow_hit: want recovery_cause attack_hit got %s (seed=%d)"
+			% [str(atk.get("recovery_cause", "")), _AFTERBLOW_EXECUTE_HIT_SEED]
+		)
+	if not mgr.has_meta(_HARNESS_META_LAST_AFTERBLOW_MULT):
+		_fail(failures, "afterblow_allow_hit: missing harness afterblow mult meta (seed=%d)" % _AFTERBLOW_EXECUTE_HIT_SEED)
+	elif not is_equal_approx(float(mgr.get_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)), 0.8):
+		_fail(
+			failures,
+			"afterblow_allow_hit: want afterblow_damage_mult 0.8 (hindrance 0.2) got %s (seed=%d)"
+			% [str(mgr.get_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)), _AFTERBLOW_EXECUTE_HIT_SEED]
+		)
+	mgr.remove_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT)
+	mgr.remove_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 3.3: hindrance strictly between **`AFTERBLOW_HINDRANCE_ALLOW`** and **`AFTERBLOW_HINDRANCE_BLOCK`** → **`randf() < hindrance`** cancels (**`_cancel_pending`**, **`try_afterblow` false**); fixed **`seed(2)`** on the same fixture + chest **`final_cut` 11.25** (hybrid hindrance **0.45**).
+static func _run_afterblow_mid_hindrance_rand_cancel(failures: PackedStringArray) -> void:
+	seed(_AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr._recompute_zoc_and_distance()
+	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
+	var atk: Dictionary = mgr.combatants[1]
+	var tid: int = _EntityAccess.id_int(atk)
+	var rd: Dictionary = {
+		"part": "chest",
+		"outcome": "hit",
+		"final_cut": 11.25,
+		"final_blunt": 0.0,
+		"final_bone": 0.0,
+	}
+	if _AfterblowHandler.try_afterblow(mgr, 0, tid, rd, 1.0):
+		_fail(
+			failures,
+			"afterblow_mid_rand_cancel: try_afterblow should be false (seed=%d)"
+			% _AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED
+		)
+		_free_manager_restore_global_rng(mgr)
+		return
+	if _EntityAccess.state_str(atk) != CombatConstants.STATE_RECOVERING:
+		_fail(
+			failures,
+			"afterblow_mid_rand_cancel: want recovering got %s (seed=%d)"
+			% [_EntityAccess.state_str(atk), _AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED]
+		)
+	if not _EntityAccess.nested_dictionary_read(atk, "pending_attack").is_empty():
+		_fail(failures, "afterblow_mid_rand_cancel: pending_attack should clear (seed=%d)" % _AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED)
+	if absf(float(atk.get("state_duration", 0.0)) - CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S) > 0.0001:
+		_fail(
+			failures,
+			"afterblow_mid_rand_cancel: state_duration want AFTERBLOW_CANCELLED_RECOVERY_S got %s (seed=%d)"
+			% [str(atk.get("state_duration")), _AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 3.3: middle hindrance + **`randf() ≥ hindrance`** → **`_execute_afterblow`** (**`afterblow_damage_mult` 0.55**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
+static func _run_afterblow_mid_hindrance_rand_executes_hit(failures: PackedStringArray) -> void:
+	seed(_AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.set_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT, true)
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr._recompute_zoc_and_distance()
+	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
+	var atk: Dictionary = mgr.combatants[1]
+	var tid: int = _EntityAccess.id_int(atk)
+	var rd: Dictionary = {
+		"part": "chest",
+		"outcome": "hit",
+		"final_cut": 11.25,
+		"final_blunt": 0.0,
+		"final_bone": 0.0,
+	}
+	if not _AfterblowHandler.try_afterblow(mgr, 0, tid, rd, 1.0):
+		_fail(
+			failures,
+			"afterblow_mid_rand_execute: try_afterblow should be true (seed=%d)"
+			% _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED
+		)
+		mgr.remove_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT)
+		if mgr.has_meta(_HARNESS_META_LAST_AFTERBLOW_MULT):
+			mgr.remove_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)
+		_free_manager_restore_global_rng(mgr)
+		return
+	if str(atk.get("recovery_cause", "")) != "attack_hit":
+		_fail(
+			failures,
+			"afterblow_mid_rand_execute: want recovery_cause attack_hit got %s (seed=%d)"
+			% [str(atk.get("recovery_cause", "")), _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED]
+		)
+	if not mgr.has_meta(_HARNESS_META_LAST_AFTERBLOW_MULT):
+		_fail(failures, "afterblow_mid_rand_execute: missing harness afterblow mult meta (seed=%d)" % _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED)
+	elif not is_equal_approx(float(mgr.get_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)), 0.55):
+		_fail(
+			failures,
+			"afterblow_mid_rand_execute: want afterblow_damage_mult 0.55 got %s (seed=%d)"
+			% [str(mgr.get_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)), _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED]
+		)
+	mgr.remove_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT)
+	mgr.remove_meta(_HARNESS_META_LAST_AFTERBLOW_MULT)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 3.3: **`GuardLineUpdater.set_guard_from_move`** copies move **`attack_line`** into **`guard_line`** and syncs **`guard_zone`** (clears deflect keys).
+static func _run_guard_from_move_sets_guard_line_and_zone(failures: PackedStringArray) -> void:
+	var c: Dictionary = {"guard_line": "low", "guard_zone": "left_leg", "combatant_id": 901, "alive": true}
+	_GuardLineUpdater.set_guard_from_move(c, "oberhau", "")
+	if str(c.get("guard_line", "")) != "high":
+		_fail(failures, "guard_from_move: oberhau want guard_line high got %s" % str(c.get("guard_line")))
+	if c.has("guard_deflect_blend") or c.has("guard_deflect_from_line"):
+		_fail(failures, "guard_from_move: should clear deflect keys")
+	if str(c.get("guard_zone", "")) != "head":
+		_fail(failures, "guard_from_move: LINE_TO_DEFAULT_PART high -> head want head got %s" % str(c.get("guard_zone")))
+
+
+## Tier 3.3: **`AfterblowHandler.try_afterblow`** — no **`pending_attack`** → **false** (no **`_execute_attack`**).
+static func _run_afterblow_no_pending_returns_false(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var tgt: Dictionary = mgr.combatants[1]
+	tgt["pending_attack"] = {}
+	tgt["state"] = CombatConstants.STATE_WIND_UP
+	var tid: int = _EntityAccess.id_int(tgt)
+	if _AfterblowHandler.try_afterblow(mgr, 0, tid, {"part": "chest", "outcome": "hit", "final_cut": 1.0}, 1.0):
+		_fail(failures, "afterblow_no_pending: expected false")
+	_free_manager(mgr)
+
+
+## Tier 3.3: **`AfterblowHandler.try_afterblow`** — not **`STATE_WIND_UP`** → **false**.
+static func _run_afterblow_wrong_state_returns_false(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var tgt: Dictionary = mgr.combatants[1]
+	tgt["pending_attack"] = {"target_id": 0, "attack_type": "thrust"}
+	tgt["state"] = CombatConstants.STATE_WAITING
+	var tid: int = _EntityAccess.id_int(tgt)
+	if _AfterblowHandler.try_afterblow(mgr, 0, tid, {"part": "chest", "outcome": "hit", "final_cut": 1.0}, 1.0):
+		_fail(failures, "afterblow_wrong_state: expected false")
+	_free_manager(mgr)
+
+
+## Tier 3.3: **`AfterblowHandler`** hybrid hindrance ≥ **`AFTERBLOW_HINDRANCE_BLOCK`** cancels **`pending_attack`** (no **`_execute_attack`**).
+static func _run_afterblow_hindrance_block_cancels_pending(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var tgt: Dictionary = mgr.combatants[1]
+	tgt["state"] = CombatConstants.STATE_WIND_UP
+	tgt["pending_attack"] = {"target_id": 0, "attack_type": "thrust"}
+	var tid: int = _EntityAccess.id_int(tgt)
+	var rd: Dictionary = {
+		"part": "right_arm",
+		"outcome": "hit",
+		"final_cut": 40.0,
+		"final_blunt": 0.0,
+		"final_bone": 0.0,
+	}
+	if _AfterblowHandler.try_afterblow(mgr, 0, tid, rd, 1.0):
+		_fail(failures, "afterblow_block: expected false (hindered cancel)")
+	if _EntityAccess.state_str(tgt) != CombatConstants.STATE_RECOVERING:
+		_fail(failures, "afterblow_block: want recovering got %s" % str(tgt.get("state")))
+	if not _EntityAccess.nested_dictionary_read(tgt, "pending_attack").is_empty():
+		_fail(failures, "afterblow_block: pending_attack should clear")
+	if absf(float(tgt.get("state_duration", 0.0)) - CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S) > 0.0001:
+		_fail(
+			failures,
+			"afterblow_block: state_duration want AFTERBLOW_CANCELLED_RECOVERY_S got %s"
+			% str(tgt.get("state_duration"))
+		)
+	_free_manager(mgr)
 
 
 static func _run_parry_pack_flank_effective_spacing(failures: PackedStringArray) -> void:

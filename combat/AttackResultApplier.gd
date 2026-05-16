@@ -2,15 +2,20 @@ class_name AttackResultApplier
 extends RefCounted
 
 ## Applies AttackResolver result to combatant state: skip, defeated, miss, dodge, parry_deflect, parry_partial, hit.
-## **`parry_deflect`**: **`action_resolved`** emits **`target_id`**, **`attacker_id`**, then payload ( **`parry_clash_context`** copied when resolver supplied a dict — **`BattleScene`** parameter names follow slot order).
+## **`parry_deflect`**: records **`CombatConstants.COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`** on **`attacker`** for Tier **4.2** feint listing pressure vs **`target_id`**; **`action_resolved`** emits **`target_id`**, **`attacker_id`**, then payload ( **`parry_clash_context`** copied when resolver supplied a dict — **`BattleScene`** parameter names follow slot order).
 ## **`parry_partial`**: **`action_resolved`** emits **`target_id`**, **`attacker_id`**, then payload (**defender**, **attacker**, same slot order as **`parry_deflect`**); then **`_execute_attack`** continues the strike. Resolver **`parry_clash_context`** is copied onto the **attacker** dict and onto the emitted payload when present. When the defender meets the same blade-alignment gate used for guard updates and clash **`parry_control`** crosses the bind threshold (**`PARRY_BIND_CONTROL_THRESHOLD`**), set **`parry_was_bind`**, **`parry_against_id`**, **`parry_bonus_until`** on the defender like **`parry_deflect`** so bind-riposte wind-up can apply; aligned but sub-threshold control sets **`parry_was_bind`** false; misaligned partial **`erase`**s those keys (clears stale bind state).
 ## Manager must have: emit_signal, _get_by_id, _check_for_winner, _end_combat_phase, _execute_attack.
-## Updates guard_line (weapon position) whenever weapon is used: attack, parry. **`hit`** clears **`parry_clash_context`** / **`defender_guard_line_at_parry`** on the attacker (stale partial-parry calibration after follow-through).
+## **`hit`**: clears **`parry_clash_context`** / **`defender_guard_line_at_parry`** on the attacker (stale partial-parry calibration after follow-through); clears Tier **4.2** feint listing parry-deflect memory for **`target_id`**.
 
 const _Afterblow := preload("res://combat/AfterblowHandler.gd")
+const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
 const _GuardUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _Attention := preload("res://combat/CombatAttention.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 static func _log_outcome(action: String, atk_id: int, tgt_id: int) -> void:
 	if CombatConstants.COMBAT_DEBUG:
@@ -25,6 +30,24 @@ static func _consume_stamina(c: Dictionary, amount: float) -> void:
 
 static func _pending_attack_read(atk: Dictionary) -> Dictionary:
 	return _EntityAccess.nested_dictionary_read(atk, "pending_attack")
+
+
+static func _clear_attacker_pending_attack(atk: Dictionary, manager: Node) -> void:
+	if atk == null:
+		return
+	var pa0: Dictionary = _pending_attack_read(atk)
+	_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa0)
+	_Footwork.clear_position_offset(atk)
+	atk.pending_attack = {}
+
+
+static func _abort_incoming_wind_up_if_target_died(manager: Node, target_id: int) -> void:
+	if manager == null or target_id < 0:
+		return
+	var tgt: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(target_id))
+	if tgt.is_empty() or _EntityAccess.alive_bool(tgt):
+		return
+	_CounterTempo.abort_attacker_wind_up(manager, target_id)
 
 
 ## Parry outcomes default the defender to waiting. Paired formation moves (`swap_rank` / drag / fall_back_pair)
@@ -60,11 +83,11 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				atk.state = CombatConstants.STATE_RECOVERING
 				atk.state_timer = 0.0
 				atk.state_duration = result.recovery_duration
-				atk.pending_attack = {}
+				_clear_attacker_pending_attack(atk, manager)
 			else:
 				atk.state = CombatConstants.STATE_WAITING
 				atk.gauge = 0.0
-				atk.pending_attack = {}
+				_clear_attacker_pending_attack(atk, manager)
 		return
 	if action == "defeated":
 		if tgt != null:
@@ -72,13 +95,14 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			tgt.state = CombatConstants.STATE_DEAD
 		if atk != null:
 			# Resolver abort (e.g. no targetable parts): do not leave attacker stuck in WIND_UP with stale `pending_attack`.
-			atk.pending_attack = {}
+			_clear_attacker_pending_attack(atk, manager)
 			atk.state = CombatConstants.STATE_WAITING
 			atk.gauge = 0.0
 			atk.state_timer = 0.0
 			atk.state_duration = 0.0
 		empty_result["outcome"] = "defeated"
 		empty_result["died"] = true
+		_abort_incoming_wind_up_if_target_died(manager, target_id)
 		manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
 		var winner: String = manager._check_for_winner()
 		if not winner.is_empty():
@@ -98,7 +122,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk.state_timer = 0.0
 			atk.state_duration = result.recovery_duration
 			atk["off_balance_until"] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
-			atk.pending_attack = {}
+			_clear_attacker_pending_attack(atk, manager)
 		return
 	if action == "dodge":
 		empty_result["outcome"] = "dodge"
@@ -125,7 +149,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			if CombatConstants.COMBAT_DEBUG:
 				CombatDebug.log("guard_line %s: -> %s (dodged %s)" % ["id:%d" % _EntityAccess.id_int(tgt), dodge_guard, atk_line])
 		if atk != null:
-			atk.pending_attack = {}
+			_clear_attacker_pending_attack(atk, manager)
 		return
 	if action == "parry_deflect":
 		if atk != null:
@@ -136,7 +160,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk["defender_guard_line_at_parry"] = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT) if tgt != null else ""
 			var atk_clash_raw: Variant = result.get("parry_clash_context", null)
 			atk["parry_clash_context"] = atk_clash_raw if atk_clash_raw is Dictionary else {}
-			atk.pending_attack = {}
+			_clear_attacker_pending_attack(atk, manager)
 			atk["recovery_cause"] = "attack_deflect"
 			_consume_stamina(atk, CombatConstants.STAMINA_ATTACK_COST_BASE)
 			atk.state = CombatConstants.STATE_RECOVERING
@@ -151,6 +175,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			var eff_line: String = atk.get("effective_attack_line", "") if atk != null else ""
 			_GuardUpdater.set_guard_from_move(tgt, move_id, eff_line)
 			tgt["parry_bonus_until"] = CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
+			_CounterTempo.grant_riposte_chain(manager, tgt, attacker_id)
 			var clash_raw: Variant = result.get("parry_clash_context", null)
 			var clash: Dictionary = clash_raw if clash_raw is Dictionary else {}
 			var arch_id: String = clash.get("archetype_id", "")
@@ -163,6 +188,10 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		if clash_emit is Dictionary:
 			empty_result["parry_clash_context"] = clash_emit
 		_log_outcome("parry_deflect", attacker_id, target_id)
+		if atk != null:
+			_AIPicker.record_opp_parry_deflect_for_feint_listing(manager, atk, target_id)
+		if tgt != null:
+			_Attention.record_parry_deflect_on_attacker_memory(tgt, attacker_id)
 		manager.emit_signal("action_resolved", target_id, attacker_id, empty_result)
 		return
 	if action == "parry_partial":
@@ -226,11 +255,15 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		if atk != null:
 			atk.erase("parry_clash_context")
 			atk.erase("defender_guard_line_at_parry")
+			_AIPicker.clear_feint_listing_opp_parry_deflect_for_target(atk, target_id)
+		if tgt != null:
+			_Attention.clear_yomi_for_attacker(tgt, attacker_id)
 		var rd_raw: Variant = result.get("result_dict", null)
 		var result_dict: Dictionary = rd_raw if rd_raw is Dictionary else {}
 		var intensity: float = result.get("intensity", 0.5)
 		var winner: String = ""
 		if result_dict.get("died", false):
+			_abort_incoming_wind_up_if_target_died(manager, target_id)
 			manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
 			winner = manager._check_for_winner()
 			if not winner.is_empty():

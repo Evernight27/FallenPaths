@@ -1,18 +1,16 @@
 # Combat documentation (consolidated)
 
-**Start here — authoritative sequence + status:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md). Use its [Document map](IMPLEMENTATION_ORDER.md#document-map-read-order) for **section order inside the plan** (dependency chain → Tier 0 → Tier 1 → …). This README is a **topic index** only.
+**Start here:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — milestone **Status**, [Development gate](IMPLEMENTATION_ORDER.md#development-gate-line-crash--intrusions-temporary), [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic), [Tier 3.1 strike measure / stamped `pa`](IMPLEMENTATION_ORDER.md#tier-31-strike-measure-stamped-geometry) (**Done**), [Tier 3.2 parry / bind / deflect](IMPLEMENTATION_ORDER.md#tier-32-parry-bind-deflect) (**Done**), [Tier 3.3 guard / afterblow](IMPLEMENTATION_ORDER.md#tier-33-guard-line-afterblow) (**Done**), [Tier 4.1 AI posture + stance weights](IMPLEMENTATION_ORDER.md#tier-41-posture--stance-weights-ai-listing) (**Done**), [Tier 4.2 Feint D](IMPLEMENTATION_ORDER.md#tier-42-feint-d-telegraph-ai) (**Partial**), [Tier 5.1 angles / damage-flow audits](IMPLEMENTATION_ORDER.md#tier-51-angles-damage-flow-audits) (**Done**; optional long-tail **[ ]** in plan), [Tier 1.9 harness map](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes) + exhaustive `_run_*` registry [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) + [Changelog](IMPLEMENTATION_ORDER.md#changelog). [Document map](IMPLEMENTATION_ORDER.md#document-map-read-order) = read order inside the plan. **Companion bundles:** first lines are **`Plan / code`** + **`Source:`** provenance — read those before long investigations. This file is a **topic index** only.
 
-## Streamlined reading order
-
-Rows are **by task** (not the same order as sections inside `IMPLEMENTATION_ORDER.md` — use the [Document map](IMPLEMENTATION_ORDER.md#document-map-read-order) for that).
+### By task
 
 | If you need… | Read… |
 |--------------|--------|
-| **How to read the plan file** | [Document map](IMPLEMENTATION_ORDER.md#document-map-read-order) in `IMPLEMENTATION_ORDER.md` |
 | **Line-crash intrusions gate** (`FEATURE_LINE_CRASH_INTRUSION`, default **false**) | [Development gate](IMPLEMENTATION_ORDER.md#development-gate-line-crash--intrusions-temporary) in `IMPLEMENTATION_ORDER.md` only |
-| **Single plan before coding** | [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) only — full milestone column in that file (includes **Tier 3.0** vs **3.1–3.3**). |
+| **Single plan before coding** | [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) only — full milestone column in that file (**Tier 3.0** shipped; **3.1** / **3.2** / **3.3** **Done** — [3.3 exit](IMPLEMENTATION_ORDER.md#tier-33-guard-line-afterblow); **4.1** **Done** — [4.1 exit](IMPLEMENTATION_ORDER.md#tier-41-posture--stance-weights-ai-listing); **4.2** **Done** — [4.2 exit](IMPLEMENTATION_ORDER.md#tier-42-feint-d-telegraph-ai); **4.3** **Done** — [4.3 mental stack + attention](IMPLEMENTATION_ORDER.md#tier-43-mental-stack--combat-attention); **5.1** **Done** — [5.1 exit](IMPLEMENTATION_ORDER.md#tier-51-angles-damage-flow-audits); optional **5.1** long-tail **[ ]** in plan only). |
 | **Headless combat regression harness** | Command in [`AGENTS.md`](../AGENTS.md); VS Code / Cursor task **Run Combat Regression Harness (headless)** in [`.vscode/tasks.json`](../.vscode/tasks.json) (uses **`godotTools.editorPath.godot4`** in [`.vscode/settings.json`](../.vscode/settings.json)). |
-| **Tier 1 spec** (fields, plug taxonomy, tuning) | [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) — §4–§6; §2 is verification mirror (sequencing is in `IMPLEMENTATION_ORDER`). |
+| **Exhaustive `_run_*` harness names** (Tier 1.6–1.9 depth polearm, targeting, Tier **3.1** surround + wind-up overlap, Tier **3.2** parry/bind, Tier **3.3** guard/afterblow, Tier **4.1** stance / crash posture, Tier **4.2** feint, Tier **5.1** kinematic + angle stack) | [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) + [Tier 1.9 anchor](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes) + [Tier 3.1 exit criteria](IMPLEMENTATION_ORDER.md#tier-31-strike-measure-stamped-geometry) + [Tier 3.2 exit criteria](IMPLEMENTATION_ORDER.md#tier-32-parry-bind-deflect) + [Tier 3.3 exit criteria](IMPLEMENTATION_ORDER.md#tier-33-guard-line-afterblow) + [Tier 4.1 exit criteria](IMPLEMENTATION_ORDER.md#tier-41-posture--stance-weights-ai-listing) + [Tier 4.2 exit criteria](IMPLEMENTATION_ORDER.md#tier-42-feint-d-telegraph-ai) + [Tier 5.1 exit criteria](IMPLEMENTATION_ORDER.md#tier-51-angles-damage-flow-audits) in [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) + [Changelog](IMPLEMENTATION_ORDER.md#changelog) |
+| **Tier 1 spec** (fields, plug taxonomy, tuning) | [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) — §4–§6; §1 → master [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic); §2 verification mirror |
 | **Shipped baseline** (modules per subsystem) | Tier 0 in `IMPLEMENTATION_ORDER.md` — overlaps [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) **Current architecture snapshot**. |
 | **Historical phases + stamina / investigations** | [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) — long bundle; snapshot at top for “today.” |
 | **ZoC / breach narrative** | [`TACTICAL_ZONES_BREACH_MOVEMENT.md`](TACTICAL_ZONES_BREACH_MOVEMENT.md) — Tier 2 sync in `IMPLEMENTATION_ORDER` after P3+. |
@@ -20,25 +18,22 @@ Rows are **by task** (not the same order as sections inside `IMPLEMENTATION_ORDE
 
 ---
 
-**1** master plan (`IMPLEMENTATION_ORDER.md`) **+ 12** companion markdown files. Order below matches [plan inventory](IMPLEMENTATION_ORDER.md#plan-inventory-all-combat-markdown) (tier flow, not alphabetical). Consolidated bundles list original filenames under `## Source:` for provenance.
-
-**Index sync:** **2026-05-11** — roles align with plan inventory; factual “last verified” claims → **`IMPLEMENTATION_ORDER`** header. **`CombatRegressionHarness.run_all()`** + VS Code task → streamlined table row + **`AGENTS.md`**. Tier **1.9** headless regression coverage (incl. **`_run_doctrine_normalize_and_manager_roundtrip`**, **`_run_ai_targeting_incap_hostile_mult`**, **`_run_surround_defense_multiplier_from_pa_both_paths`**, **`_run_surround_live_weight_sum_matches_from_pa_sector_path`**, **`_run_surround_single_threat_int_and_sector_neutral`**, **`_run_hostile_pair_distributed_pressure_ally_commit`**, **`_run_targeting_hold_lane_off_file_mult`**, **`_run_targeting_pinch_center_inward_bonus`**, **`_run_targeting_commitment_match_mult`**, **`_run_targeting_soft_geometry_eff_dist_formula`**, **`_run_targeting_prune_expired_doctrine_commitment`**, **`_run_targeting_prune_commitment_when_target_dies`**, **`_run_targeting_clear_all_state_for_dead_defender`**) → **`IMPLEMENTATION_ORDER`** **Harness map** under §Tier 1.9 exit criteria (not duplicated here). Tier 1 checklist mirror → **`ENGAGEMENT_*`** §2 / §2.5 only. AI targeting stack (`CombatTargetScoring` incl. **`opponent_breach_file_targeting_mult`**, `CombatAIActionPicker`, intruder **`formation_id_for_zone_geometry`**, shared **`ZoneOfControl.formation_dict_for_zone_geometry`**) → **`AGENTS.md`** + **`.cursor/rules/fallen-paths.mdc`**.
+**13** markdown files in the table below (master plan + topic bundles + harness registry; order = [plan inventory](IMPLEMENTATION_ORDER.md#plan-inventory-all-combat-markdown)). Tier 1 checklist mirror → **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** §2 / §2.5.
 
 | File | Topics |
 |------|--------|
 | [**IMPLEMENTATION_ORDER.md**](IMPLEMENTATION_ORDER.md) | **Combat implementation plan** — logical sequence, Tier 1 expanded steps, gate before coding |
-| [ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) | Tier 1 **spec** — §4–§6; **Plan / code** + §2 **mirrors** plan milestone **Status** |
+| [ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) | Tier 1 **spec** — §4–§6; §1 → master plan dependency chain; §2 **mirrors** milestone **Status** |
 | [COMBAT_ROADMAP_AND_STAMINA.md](COMBAT_ROADMAP_AND_STAMINA.md) | Phases, stamina, snapshot; **Plan / code** — plan overrides Part 3 checklists |
 | [TACTICAL_ZONES_BREACH_MOVEMENT.md](TACTICAL_ZONES_BREACH_MOVEMENT.md) | ZoC, surround, flanking, breach narrative; **Tier 2.1** |
 | [TACTICAL_FORMATIONS_FF4.md](TACTICAL_FORMATIONS_FF4.md) | FF4 abstract model, distance, ambush; **Tier 2.2** |
-| [AI_ENGAGEMENT_STANCE_AND_FEINTS.md](AI_ENGAGEMENT_STANCE_AND_FEINTS.md) | Stances, footwork, melee AI, feint/stamina; **Tier 4** |
-| [PARRY_BIND_AND_WEAPON_GEOMETRY.md](PARRY_BIND_AND_WEAPON_GEOMETRY.md) | Weapon parts, bind/riposte vs HEMA; **Tier 3.0** / **3.1** |
-| [PARRY_DEFLECT_AND_CALIBRATION.md](PARRY_DEFLECT_AND_CALIBRATION.md) | Deflection, parry options, calibration; **Tier 3.0** / **3.2** |
-| [GUARDS_LINES_AFTERBLOW.md](GUARDS_LINES_AFTERBLOW.md) | Line guard, afterblow; **Tier 3.3** |
-| [PHYSICS_DAMAGE_AND_FLOW.md](PHYSICS_DAMAGE_AND_FLOW.md) | Attack→damage flow, audits; **Tier 5** + **3.0** in pipeline |
+| [AI_ENGAGEMENT_STANCE_AND_FEINTS.md](AI_ENGAGEMENT_STANCE_AND_FEINTS.md) | Stances, footwork, melee AI, feint/stamina; **Tier 4** — **4.1** [**Done**](IMPLEMENTATION_ORDER.md#tier-41-posture--stance-weights-ai-listing); **4.2** [**Partial**](IMPLEMENTATION_ORDER.md#tier-42-feint-d-telegraph-ai) — [footwork / tempo live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-partial) (**`DEFENSE_SPACING_*`**, **`DEFENSE_FOOTWORK_*`**, **`_run_defense_spacing_`**, **`_run_defense_footwork_`**) |
+| [PARRY_BIND_AND_WEAPON_GEOMETRY.md](PARRY_BIND_AND_WEAPON_GEOMETRY.md) | Weapon parts, bind/riposte vs HEMA; **Tier 3.0** / **3.1–3.2** (**[3.1](IMPLEMENTATION_ORDER.md#tier-31-strike-measure-stamped-geometry)** / **[3.2](IMPLEMENTATION_ORDER.md#tier-32-parry-bind-deflect)** **Done** — distance + bind stack) |
+| [PARRY_DEFLECT_AND_CALIBRATION.md](PARRY_DEFLECT_AND_CALIBRATION.md) | Deflection, parry options, calibration; **Tier 3.0** / **3.2** (**[3.2 Done](IMPLEMENTATION_ORDER.md#tier-32-parry-bind-deflect)**) / **3.3** (**[Done](IMPLEMENTATION_ORDER.md#tier-33-guard-line-afterblow)**) |
+| [GUARDS_LINES_AFTERBLOW.md](GUARDS_LINES_AFTERBLOW.md) | Line guard, afterblow; **Tier 3.3** (**Shipped / code anchors**, **Reading guide**, **Live path** at top) |
+| [PHYSICS_DAMAGE_AND_FLOW.md](PHYSICS_DAMAGE_AND_FLOW.md) | Attack→damage flow, audits; **Tier 5** + **3.0** in pipeline; **5.1** [**Done**](IMPLEMENTATION_ORDER.md#tier-51-angles-damage-flow-audits) (kinematic harness + optional long-tail **[ ]** in plan) |
 | [MEDICAL_PAIN_INCAPACITATION.md](MEDICAL_PAIN_INCAPACITATION.md) | Pain, wounds, flee; **Tier 6** |
 | [HEMA_ROADMAP_AND_SOURCES.md](HEMA_ROADMAP_AND_SOURCES.md) | HEMA roadmap, sources; **Tier 7** (non-blocking) |
+| [REGRESSION_HARNESS_MAP_TIER19.md](REGRESSION_HARNESS_MAP_TIER19.md) | Exhaustive **`CombatRegressionHarness`** `_run_*` names (Tier **1.6–1.9** depth polearm, targeting, surround) — not sequencing |
 
 **Regenerate** (requires restoring individual sources from git history): `python3 docs/consolidate_docs.py`
-
-Typical size: ~1.1k–1.9k lines per bundle (manageable for editor/AI context).

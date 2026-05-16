@@ -10,6 +10,8 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 
 
 static func is_medical_move(move_id: String) -> bool:
@@ -20,8 +22,14 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	var atk = manager._get_by_id(attacker_id)
 	if atk == null:
 		return
-	if _EntityAccess.state_str(atk) == CombatConstants.STATE_WAITING and _EntityAccess.gauge_float(atk) < 100.0 and not manager.medical_phase:
-		return
+	var use_counter_tempo: bool = bool(options.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false))
+	if (
+		_EntityAccess.state_str(atk) == CombatConstants.STATE_WAITING
+		and _EntityAccess.gauge_float(atk) < 100.0
+		and not manager.medical_phase
+	):
+		if not (use_counter_tempo and _CounterTempo.can_act(manager, atk)):
+			return
 	if (
 		_EntityAccess.state_str(atk) == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
 		and move_id == "apply_direct_pressure"
@@ -46,6 +54,14 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		return
 	if move_id == CombatConstants.MOVE_ID_WAIT:
 		manager.skip_turn(attacker_id, "wait", "explicit wait move")
+		return
+	if CombatConstants.is_focus_line_move(move_id):
+		var focus_line: String = CombatConstants.guard_line_for_focus_move_id(move_id)
+		if focus_line.is_empty():
+			return
+		_GuardLineUpdater.set_guard_from_line(atk, focus_line)
+		manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "focus_line", "line": focus_line})
+		manager.emit_signal("turn_resolved", attacker_id)
 		return
 	if is_medical_move(move_id):
 		var part: String = str(options.get("target_part", ""))
@@ -162,6 +178,13 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		opts["target_part"] = options.target_part
 	if options.has("feint_part"):
 		opts["feint_part"] = options.feint_part
+	if use_counter_tempo:
+		opts[CombatConstants.ACTION_KEY_COUNTER_TEMPO] = true
+		_CounterTempo.spend_gauge(atk)
+		_CounterTempo.clear_window(atk)
+	var incoming_attacker_id: int = -1
+	if use_counter_tempo:
+		incoming_attacker_id = _CounterTempo.incoming_attacker_id(manager, attacker_id)
 	_WindUpStarter.start(manager, attacker_id, target_id, move_id, opts)
 	_TargetScoring.on_combat_commitment(manager, attacker_id, target_id)
 	manager.emit_signal("turn_resolved", attacker_id)
@@ -172,3 +195,5 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			"resolve_at": manager.combat_clock + atk.state_duration,
 			"data": {}
 		})
+		if use_counter_tempo and incoming_attacker_id >= 0:
+			_CounterTempo.defer_incoming_melee_after_counter(manager, attacker_id, incoming_attacker_id)

@@ -2,6 +2,7 @@ class_name CombatFlow
 extends RefCounted
 
 ## Handles combat initiation and battle-end cleanup. Used by main.gd.
+## Optional world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** (`"combat_encounter"`): copied into **`BattleScene.start`** → **`CombatManager.encounter`** before **`start()`** (doctrine, depth polearm AI mults, posture, morale, … — see **`CombatManager`** default_enc in **`CombatManager.gd`**).
 
 static func start_combat(world: Node2D, enemies: Array) -> void:
 	var players: Array = _gather_players(world)
@@ -31,7 +32,12 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 	if battle.has_method("start"):
 		var party_formation: Dictionary = world.get_meta("party_formation", {}) if world.has_meta("party_formation") else {}
 		var enemy_formation: Dictionary = world.get_meta("enemy_formation", {}) if world.has_meta("enemy_formation") else {}
-		battle.start(players, enemies, party_formation, enemy_formation)
+		var combat_encounter: Dictionary = (
+			world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {})
+			if world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
+			else {}
+		)
+		battle.start(players, enemies, party_formation, enemy_formation, combat_encounter)
 	await world.get_tree().process_frame
 	if battle.has_signal("battle_ended"):
 		battle.connect("battle_ended", Callable(world, "_on_battle_ended"), CONNECT_ONE_SHOT)

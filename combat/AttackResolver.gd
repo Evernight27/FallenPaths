@@ -13,10 +13,32 @@ const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
 const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
+const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.COMBAT_DEBUG:
 		CombatDebug.log(msg)
+
+
+## Multiplier applied to sharp/blunt penetration for oblique incidence (parry/deflect or misaligned guard).
+## When `velocity_override` < 0, intensity-derived speed is used and this factor stays **1** (no oblique scaling here).
+static func penetration_oblique_angle_factor(
+	velocity_override: float, parry_remaining_ratio: float, alignment: float
+) -> float:
+	if velocity_override < 0.0:
+		return 1.0
+	var angle_factor: float = 1.0
+	if parry_remaining_ratio < 1.0:
+		var angle_min_p: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
+		angle_factor = lerpf(1.0, angle_min_p, 1.0 - parry_remaining_ratio)
+	elif parry_remaining_ratio >= 1.0 and alignment < 1.0:
+		var align_scale: float = CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
+		var angle_min_a: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
+		angle_factor = lerpf(1.0, angle_min_a, (1.0 - alignment) * align_scale)
+	return angle_factor
+
+
 ## Returns { "result_dict": Dictionary, "outcome": String, "recovery_duration": float }.
 ## Also updates tgt.stats (body_cutting, body_blunt, etc.) and tgt.alive/tgt.state if target died.
 
@@ -96,23 +118,14 @@ static func compute_and_apply_damage(
 		pen_blunt_momentum_per_area = pen_blunt_dict.get("penetration_blunt_momentum_per_area", -1.0)
 		blunt_contact_cm = pen_blunt_dict.get("blunt_contact_cm", -1.0)
 		# Angle (deflection): oblique impact = less penetration (armor research).
-		# Two sources: (1) parry/dodge contact deflects blade; (2) misaligned guard on direct hit = blade hits at angle.
-		var angle_factor: float = 1.0
-		if velocity_override >= 0.0:
-			if parry_remaining_ratio < 1.0:
-				# Parry or dodge deflected blade.
-				var angle_min: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
-				angle_factor = lerpf(1.0, angle_min, 1.0 - parry_remaining_ratio)
-			elif parry_remaining_ratio >= 1.0 and alignment < 1.0:
-				# Direct hit, no parry: misaligned guard = blade hits at oblique angle.
-				var align_scale: float = CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
-				var angle_min: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
-				angle_factor = lerpf(1.0, angle_min, (1.0 - alignment) * align_scale)
-			if angle_factor < 1.0:
-				if pen_sharp >= 0.0:
-					pen_sharp *= angle_factor
-				if pen_blunt_momentum_per_area >= 0.0:
-					pen_blunt_momentum_per_area *= angle_factor
+		var angle_factor: float = penetration_oblique_angle_factor(
+			velocity_override, parry_remaining_ratio, alignment
+		)
+		if angle_factor < 1.0:
+			if pen_sharp >= 0.0:
+				pen_sharp *= angle_factor
+			if pen_blunt_momentum_per_area >= 0.0:
+				pen_blunt_momentum_per_area *= angle_factor
 		if pen_sharp >= 0.0:
 			pen_sharp *= float(sm.get("sharp_penetration_mult", 1.0))
 		if pen_blunt_momentum_per_area >= 0.0:
@@ -260,6 +273,10 @@ static func compute_and_apply_damage(
 	}
 	result_dict["health_before"] = int(roundf(health_before_cut + health_before_blunt))
 	result_dict["health_after"] = int(roundf(health_after_cut + health_after_blunt))
+	# Headless harness only: `CombatRegressionHarness` sets meta on the manager before `compute_and_apply_damage`.
+	if manager != null and bool(manager.get_meta("_harness_expose_penetration_applied", false)):
+		result_dict["penetration_sharp_applied"] = pen_sharp
+		result_dict["penetration_blunt_mpa_applied"] = pen_blunt_momentum_per_area
 
 	if tgt_n != null and tgt_n.has_method("is_dead") and tgt_n.is_dead():
 		tgt.alive = false
@@ -392,6 +409,8 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var atk_weapon = _EntityAccess.get_weapon(atk)
 	var_ctx["weapon_mass_kg"] = float(atk_weapon.mass) if atk_weapon != null and (atk_weapon.get("mass") is float or atk_weapon.get("mass") is int) else CombatConstants.ANGLE_VARIANCE_MASS_REFERENCE_KG
 	pa["attack_angle_deg"] = CombatConstants.get_attack_angle_deg(atk_line_base, true, move_def_pre, var_ctx)
+	pa["attack_angle_deg"] = _Footwork.apply_offset_to_angle_deg(pa["attack_angle_deg"], atk)
+	pa["position_angle_offset_deg"] = _Footwork.get_attacker_offset_deg(atk)
 	pa["arc_end_deg"] = pa["attack_angle_deg"]
 	pa["arc_span_deg"] = CombatConstants.angle_diff_deg(arc_start, pa["arc_end_deg"])
 
@@ -498,6 +517,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		"depth_polearm_lane_type": str(pa.get("depth_polearm_lane_type", "")),
 		"depth_polearm_allows_low_targets": bool(pa.get("depth_polearm_allows_low_targets", true)),
 	}
+	_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa)
 	atk.pending_attack = {}
 	var res: Dictionary = compute_and_apply_damage(
 		manager, attacker_id, target_id, atk, tgt, part,

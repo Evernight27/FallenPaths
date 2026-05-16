@@ -75,6 +75,54 @@ static func build_next_action_ready_times(manager: Node) -> Dictionary:
 	return best_by_id
 
 
+static func get_pending_melee_attack_resolve_at(manager: Node, combatant_id: int) -> float:
+	if manager == null or combatant_id < 0:
+		return -1.0
+	for ev in manager.event_queue:
+		if typeof(ev) != TYPE_DICTIONARY:
+			continue
+		var evd: Dictionary = ev as Dictionary
+		if (
+			evd.get("type", "") == CombatConstants.EVENT_MELEE_ATTACK
+			and int(evd.get("combatant_id", -1)) == combatant_id
+		):
+			return float(evd.get("resolve_at", -1.0))
+	return -1.0
+
+
+static func set_pending_melee_attack_resolve_at(
+	manager: Node, combatant_id: int, resolve_at: float
+) -> bool:
+	if manager == null or combatant_id < 0:
+		return false
+	for ev in manager.event_queue:
+		if typeof(ev) != TYPE_DICTIONARY:
+			continue
+		var evd: Dictionary = ev as Dictionary
+		if (
+			evd.get("type", "") == CombatConstants.EVENT_MELEE_ATTACK
+			and int(evd.get("combatant_id", -1)) == combatant_id
+		):
+			evd["resolve_at"] = resolve_at
+			sort_event_queue(manager)
+			return true
+	return false
+
+
+static func cancel_pending_melee_attack(manager: Node, combatant_id: int) -> void:
+	if manager == null or combatant_id < 0:
+		return
+	manager.event_queue = manager.event_queue.filter(func(ev: Variant) -> bool:
+		if typeof(ev) != TYPE_DICTIONARY:
+			return false
+		var evc: Dictionary = ev as Dictionary
+		return not (
+			evc.get("type", "") == CombatConstants.EVENT_MELEE_ATTACK
+			and int(evc.get("combatant_id", -1)) == combatant_id
+		)
+	)
+
+
 static func cancel_pending_action_ready(manager: Node, combatant_id: int) -> void:
 	manager.event_queue = manager.event_queue.filter(func(ev: Variant) -> bool:
 		if typeof(ev) != TYPE_DICTIONARY:

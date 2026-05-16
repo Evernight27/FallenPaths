@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Sets up party manager, party menu, and Party button. Used by main.gd.
 ## world: the main scene (Node2D) - Character plus Character/Companion … up to party size under `CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP`.
-## Also sets default party_formation for combat (FF4 formation UI). Customize via world meta.
+## Also sets default party_formation for combat (FF4 formation UI). Optional encounter dict: set world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** before **`CombatFlow.start_combat`** (same keys as **`CombatManager`** encounter defaults — see **`CombatManager.gd`** **`start()`**). Customize via world meta.
 
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 

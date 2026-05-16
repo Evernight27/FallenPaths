@@ -3,8 +3,16 @@ extends RefCounted
 
 ## Given attack params and defender state, chooses parry vs dodge and computes parry capacity/timing.
 ## Pure function: returns a dict of computed values; caller handles resolution and mutation.
+## Tier 4.2: **`_guard_zone_modifier`** may treat the real hit line as the defender's guard focus when passive **`parry_readiness`** × stance **`feint_readthrough`** clears **`CombatConstants.FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** (omit extra arg → legacy / static calls).
+## Tier 4.2 footwork: pair **`distance_to[attacker]`** scales **`parry_c_d`** (CLOSE / LONG vs MID) and **`dodge_chance`** at CLOSE / LONG (**`CombatConstants.DEFENSE_SPACING_*`**); **`STATE_RECOVERING`** / settled **`STATE_WAITING`** scale reported **`dodge_chance`** via **`defense_footwork_recovering_dodge_mult_for_cause`** / **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`** (waiting skipped when off-balance); feint-only spacing on dodge telegraph (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**), AI feint-listing readiness (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**), and **`_guard_zone_modifier`** read-through (**`FEINT_GUARD_ZONE_READINESS_SPACING_*`**, **`feint_guard_zone_readiness_spacing_mult`**).
+## Tier 4.2 tempo: non-empty **`feint_part`** on **`pa`** uses **`CombatConstants.commitment_fraction_for_pending_attack`** (larger committed fraction → shorter **`effective_wind_up`** for passive parry timing vs plain attacks).
+## Tier 4.2 telegraph delay: optional **`feint_target_reveal_at_progress`** on feint moves (stamped on **`pa`** in **`AttackWindUpStarter`**) scales feint read-through / dodge-telegraph readiness via **`CombatConstants.FEINT_PRE_REVEAL_READINESS_MULT`** until wind-up progress reaches that fraction (**`_feint_readiness_reveal_mult`**).
+## Incoming **`contact_type`** (stab/cut/blunt) scales passive parry readiness after **`PassiveParryContext.get_passive_parry_readiness`** (**`CombatConstants.passive_parry_readiness_incoming_contact_mult`**).
+## Defender **`stamina`** scales the **readiness** used for feint read-through / guard-zone / dodge telegraph (**`_defender_passive_readiness_stamina_mult`** → **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`**) without folding into **`parry_c_d`'s** `pr_base` term (post-alignment stamina curve still applies once to **`parry_c_d`**). Reported **`choose_defense`** **`parry_readiness`** applies **`_feint_readiness_reveal_mult`** for non-empty **`feint_part`**; passive-parry **alignment wobble** uses the same (**`pr_guard_feint`** / **`pr_guard_feint_late`**) so **`DefenseResolutionHandler`** matches **`choose_defense`**. **`CombatAIActionPicker`** feint-move listing: defender-readiness lerp (**`read_m`**, incl. **`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`** on **`pr_def`**) then defender footwork (**`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** / **`ai_feint_listing_defender_recovering_footwork_mult_for_cause`** / **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**) — orthogonal to dodge footwork on **`dodge_chance`** above.
 
 const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
+const _Attention := preload("res://combat/CombatAttention.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
@@ -46,7 +54,8 @@ static func depth_spear_open_lane_stab_parry_p_a_mult(pa: Dictionary, attack_typ
 
 ## Returns dict with: defense, can_parry_in_time, parry_p_a, parry_c_d, parry_time_to_react,
 ## parry_readiness, parry_off_balance, late_parry, is_block_parry, m_a_parry, m_d_parry,
-## s_atk_parry, s_d_parry, dodge_chance, dodge_eval_part, effective_redirect
+## s_atk_parry, s_d_parry, dodge_chance, dodge_eval_part (may track **`feint_part`** telegraph when not read-through), effective_redirect.
+## **`parry_readiness`** (result): passive readiness × stamina curve × **`_feint_readiness_reveal_mult`** when **`feint_part`** is non-empty (else unchanged); matches feint dodge-telegraph / guard-zone reporting. Passive-parry **guard-angle wobble** uses **`pr_guard_feint`** / **`pr_guard_feint_late`** (same product) so angle noise tracks telegraph delay; **`parry_c_d`** still uses undamped **`pr_base`** in **`parry_capacity_mult * pr_base`**.
 static func choose_defense(
 	pa: Dictionary,
 	atk: Dictionary,
@@ -76,11 +85,22 @@ static func choose_defense(
 		"effective_redirect": 2.5
 	}
 	result.dodge_eval_part = BodyPartConstants.get_weighted_random_part(targetable) if not targetable.is_empty() else ""
+	_apply_feint_telegraph_bias_to_dodge_eval_part(pa, tgt, atk, targetable, result, attack_type)
 
 	var dodge_chance: float = _EntityAccess.get_dodge_chance(tgt)
 	dodge_chance *= CombatConstants.get_stance_modifier(_EntityAccess.stance_str(tgt), "evasion")
 	dodge_chance *= pa.get("tactical_ambush_mult", 1.0)
 	dodge_chance *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
+	dodge_chance *= _spacing_band_dodge_chance_mult(tgt, atk)
+	if _EntityAccess.state_str(tgt) == CombatConstants.STATE_RECOVERING:
+		dodge_chance *= CombatConstants.defense_footwork_recovering_dodge_mult_for_cause(
+			str(tgt.get("recovery_cause", "skip"))
+		)
+	elif (
+		_EntityAccess.state_str(tgt) == CombatConstants.STATE_WAITING
+		and not _PassiveParry.is_off_balance(tgt)
+	):
+		dodge_chance *= CombatConstants.DEFENSE_FOOTWORK_WAITING_DODGE_MULT
 	result.dodge_chance = dodge_chance
 
 	var already_used_defense: bool = pa.get("passive_parry_attempted", false)
@@ -94,7 +114,8 @@ static func choose_defense(
 		return result
 
 	var wind_up_duration: float = pa.get("wind_up_duration", 0.5)
-	var effective_wind_up: float = wind_up_duration * (1.0 - CombatConstants.COMMITMENT_FRACTION)
+	var comm_frac: float = CombatConstants.commitment_fraction_for_pending_attack(pa)
+	var effective_wind_up: float = wind_up_duration * (1.0 - comm_frac)
 	var can_parry_in_time: bool = false
 	var parry_p_a: float = 0.0
 	var parry_c_d: float = 0.0
@@ -126,23 +147,41 @@ static func choose_defense(
 				var c_d_full: float = _compute_parry_c_d(def_weapon, tgt, contact_type)
 				parry_capacity_mult = _get_parry_capacity_mult(def_weapon, tgt, parry_time_to_react)
 				parry_c_d = c_d_full
-				parry_readiness = _PassiveParry.get_passive_parry_readiness(tgt)
+				var pr_base: float = _PassiveParry.get_passive_parry_readiness(tgt)
+				pr_base *= CombatConstants.passive_parry_readiness_incoming_contact_mult(contact_type)
+				var st_rd: float = _defender_passive_readiness_stamina_mult(tgt)
+				var yomi_rd: float = _Attention.yomi_defense_readiness_mult(tgt, _EntityAccess.id_int(atk))
+				parry_readiness = clampf(
+					pr_base * st_rd * _Attention.focus_effective(tgt) * yomi_rd, 0.0, 1.0
+				)
+				var pr_guard_feint: float = (
+					parry_readiness
+					* _feint_readiness_reveal_mult(pa, atk)
+					* _Attention.focus_line_mult_for_feint(tgt, pa)
+				)
 				parry_off_balance = _PassiveParry.is_off_balance(tgt)
-				parry_c_d *= parry_capacity_mult * parry_readiness
+				parry_c_d *= parry_capacity_mult * pr_base
 				if parry_off_balance:
 					parry_c_d *= CombatConstants.OFF_BALANCE_PARRY_CAPACITY_MULT
 				parry_c_d *= _parry_bonus_if_active(tgt)
 				# Guard zone: parry bonus when target_part == guard_zone, penalty when unguarded (feint D).
-				parry_c_d *= _guard_zone_modifier(pa, tgt, targetable, attack_type)
+				parry_c_d *= _guard_zone_modifier(
+					pa, tgt, targetable, attack_type, pr_guard_feint, _EntityAccess.id_int(atk)
+				)
 				# BP2: angle-based alignment — parry capacity ∝ cos(θ). Use blade position at parry contact, not arc end.
 				# Arc tracking: weapon angle at parry_progress = where blade will be when defender meets it.
 				var align_ctx: Dictionary = {}
 				var arc_start: float = pa.get("arc_start_deg", 0.0)
 				var arc_end: float = pa.get("arc_end_deg", pa.get("attack_angle_deg", -999.0))
 				if arc_end >= -900.0:
-					var attack_angle_at_contact: float = CombatConstants.get_arc_angle_at_progress(arc_start, arc_end, parry_progress)
+					var attack_angle_at_contact: float = CombatConstants.get_arc_angle_at_progress(
+						arc_start, arc_end, parry_progress
+					)
+					attack_angle_at_contact = _Footwork.apply_offset_to_angle_deg(
+						attack_angle_at_contact, atk
+					)
 					var def_mass: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
-					var wobble: Dictionary = {"parry_readiness": parry_readiness, "defender_mass_kg": def_mass}
+					var wobble: Dictionary = {"parry_readiness": pr_guard_feint, "defender_mass_kg": def_mass}
 					align_ctx = {"attack_angle_deg": attack_angle_at_contact, "guard_angle_deg": CombatConstants.get_guard_angle_deg(tgt, wobble)}
 				var _al: float = _get_line_alignment(attack_type, tgt, pa.get("effective_attack_line", ""), align_ctx)
 				parry_c_d *= _get_contact_geometry(_al, def_weapon)
@@ -179,21 +218,45 @@ static func choose_defense(
 				if arc_span > CombatConstants.ARC_SPAN_LATE_PARRY_THRESHOLD_DEG:
 					var span_factor: float = clampf((arc_span - CombatConstants.ARC_SPAN_LATE_PARRY_THRESHOLD_DEG) / 90.0, 0.0, 1.0)
 					parry_c_d *= 1.0 - CombatConstants.ARC_SPAN_LATE_PARRY_PENALTY_MAX * span_factor
-				parry_readiness = _PassiveParry.get_passive_parry_readiness(tgt)
+				var pr_base_late: float = _PassiveParry.get_passive_parry_readiness(tgt)
+				pr_base_late *= CombatConstants.passive_parry_readiness_incoming_contact_mult(contact_type_late)
+				var yomi_rd_late: float = _Attention.yomi_defense_readiness_mult(
+					tgt, _EntityAccess.id_int(atk)
+				)
+				parry_readiness = clampf(
+					pr_base_late
+					* _defender_passive_readiness_stamina_mult(tgt)
+					* _Attention.focus_effective(tgt)
+					* yomi_rd_late,
+					0.0,
+					1.0
+				)
+				var pr_guard_feint_late: float = (
+					parry_readiness
+					* _feint_readiness_reveal_mult(pa, atk)
+					* _Attention.focus_line_mult_for_feint(tgt, pa)
+				)
 				parry_off_balance = _PassiveParry.is_off_balance(tgt)
 				if parry_off_balance:
 					parry_c_d *= CombatConstants.OFF_BALANCE_PARRY_CAPACITY_MULT
 				parry_c_d *= _parry_bonus_if_active(tgt)
 				# Guard zone: parry bonus when target_part == guard_zone, penalty when unguarded (feint D).
-				parry_c_d *= _guard_zone_modifier(pa, tgt, targetable, attack_type)
+				parry_c_d *= _guard_zone_modifier(
+					pa, tgt, targetable, attack_type, pr_guard_feint_late, _EntityAccess.id_int(atk)
+				)
 				# BP2: angle-based alignment for late parry. Arc at progress 1.0 = impact (blade at arc_end).
 				var align_ctx_late: Dictionary = {}
 				var arc_start_late: float = pa.get("arc_start_deg", 0.0)
 				var arc_end_late: float = pa.get("arc_end_deg", pa.get("attack_angle_deg", -999.0))
 				if arc_end_late >= -900.0:
-					var attack_angle_at_impact: float = CombatConstants.get_arc_angle_at_progress(arc_start_late, arc_end_late, 1.0)
+					var attack_angle_at_impact: float = CombatConstants.get_arc_angle_at_progress(
+						arc_start_late, arc_end_late, 1.0
+					)
+					attack_angle_at_impact = _Footwork.apply_offset_to_angle_deg(
+						attack_angle_at_impact, atk
+					)
 					var def_mass_late: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
-					var wobble_late: Dictionary = {"parry_readiness": parry_readiness, "defender_mass_kg": def_mass_late}
+					var wobble_late: Dictionary = {"parry_readiness": pr_guard_feint_late, "defender_mass_kg": def_mass_late}
 					align_ctx_late = {"attack_angle_deg": attack_angle_at_impact, "guard_angle_deg": CombatConstants.get_guard_angle_deg(tgt, wobble_late)}
 				var _al: float = _get_line_alignment(attack_type, tgt, pa.get("effective_attack_line", ""), align_ctx_late)
 				parry_c_d *= _get_contact_geometry(_al, def_weapon)
@@ -208,12 +271,18 @@ static func choose_defense(
 	parry_p_a *= depth_spear_open_lane_stab_parry_p_a_mult(pa, attack_type)
 	parry_c_d *= depth_spear_tight_lane_parry_c_d_mult(pa)
 	parry_c_d *= pa.get("zone_engagement_parry_mult", 1.0)
+	parry_c_d *= _spacing_band_parry_capacity_mult(tgt, atk)
 
 	result.can_parry_in_time = can_parry_in_time
 	result.parry_p_a = parry_p_a
 	result.parry_c_d = parry_c_d
 	result.parry_time_to_react = parry_time_to_react
-	result.parry_readiness = parry_readiness
+	if can_parry_in_time and not str(pa.get("feint_part", "")).strip_edges().is_empty():
+		result.parry_readiness = clampf(
+			parry_readiness * _feint_readiness_reveal_mult(pa, atk), 0.0, 1.0
+		)
+	else:
+		result.parry_readiness = parry_readiness
 	result.parry_off_balance = parry_off_balance
 	result.late_parry = late_parry
 
@@ -376,10 +445,141 @@ static func _get_line_alignment(attack_type: String, tgt: Dictionary, effective_
 	var attack_line: String = effective_attack_line_override if not effective_attack_line_override.is_empty() else move_def.get("attack_line", "high")
 	return CombatConstants.get_line_alignment_with_deflect(attack_line, tgt, alignment_context)
 
+static func _defender_spacing_band_to_attacker(tgt: Dictionary, atk: Dictionary) -> String:
+	return CombatConstants.defender_distance_band_to_attacker_id(tgt, _EntityAccess.id_int(atk))
+
+
+static func _spacing_band_parry_capacity_mult(tgt: Dictionary, atk: Dictionary) -> float:
+	match _defender_spacing_band_to_attacker(tgt, atk):
+		CombatConstants.DISTANCE_CLOSE:
+			return CombatConstants.DEFENSE_SPACING_PARRY_MULT_CLOSE
+		CombatConstants.DISTANCE_LONG:
+			return CombatConstants.DEFENSE_SPACING_PARRY_MULT_LONG
+		_:
+			return 1.0
+
+
+static func _spacing_band_dodge_chance_mult(tgt: Dictionary, atk: Dictionary) -> float:
+	match _defender_spacing_band_to_attacker(tgt, atk):
+		CombatConstants.DISTANCE_CLOSE:
+			return CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE
+		CombatConstants.DISTANCE_LONG:
+			return CombatConstants.DEFENSE_SPACING_DODGE_MULT_LONG
+		_:
+			return 1.0
+
+
+static func _feint_telegraph_dodge_spacing_mult(tgt: Dictionary, atk: Dictionary) -> float:
+	match _defender_spacing_band_to_attacker(tgt, atk):
+		CombatConstants.DISTANCE_CLOSE:
+			return CombatConstants.FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_CLOSE
+		CombatConstants.DISTANCE_LONG:
+			return CombatConstants.FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_LONG
+		_:
+			return 1.0
+
+
+## Tier 4.2 telegraph delay (Feint “C”): until attacker wind-up progress ≥ **`feint_target_reveal_at_progress`**, damp readiness used for feint read-through / dodge telegraph / guard-zone bait resolution (**`1.0`** = disabled). If **`pa`** has **`feint_target_reveal_at_progress`** and it is **≤ 0**, delay is off; if the key is absent, read the fraction from **`WeaponConstants.get_move(attack_type)`**.
+static func _feint_readiness_reveal_mult(pa: Dictionary, atk: Dictionary) -> float:
+	var fp: String = str(pa.get("feint_part", "")).strip_edges()
+	if fp.is_empty():
+		return 1.0
+	var reveal_at: float = 0.0
+	if pa.has("feint_target_reveal_at_progress"):
+		reveal_at = clampf(float(pa["feint_target_reveal_at_progress"]), 0.0, 1.0)
+		if reveal_at <= 0.0:
+			return 1.0
+	else:
+		var mid: String = str(pa.get("attack_type", "")).strip_edges()
+		if not mid.is_empty():
+			reveal_at = clampf(
+				float(WeaponConstants.get_move(mid).get("feint_target_reveal_at_progress", 0.0)),
+				0.0,
+				1.0
+			)
+		if reveal_at <= 0.0:
+			return 1.0
+	if _EntityAccess.state_str(atk) != CombatConstants.STATE_WIND_UP:
+		return 1.0
+	var dur: float = float(atk.get("state_duration", 0.0))
+	var t: float = float(atk.get("state_timer", 0.0))
+	var denom: float = maxf(0.001, dur)
+	var p: float = clampf(t / denom, 0.0, 1.0)
+	if p >= reveal_at:
+		return 1.0
+	return lerpf(
+		CombatConstants.FEINT_PRE_REVEAL_READINESS_MULT,
+		1.0,
+		p / maxf(0.001, reveal_at)
+	)
+
+
+## Tier 4.2 footwork / tempo: same curve as post-alignment **`parry_c_d`** stamina (**`STAMINA_AT_ZERO_PARRY_MULT`** + **`stamina_factor`**) applied to **readiness** (feint read-through, guard-zone, dodge telegraph). Not multiplied into **`pr_base`** in **`parry_c_d *= parry_capacity_mult * pr_base`** — avoids double-applying stamina to passive parry capacity.
+static func _defender_passive_readiness_stamina_mult(tgt: Dictionary) -> float:
+	return CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
+		_EntityAccess.stamina_float(tgt) / CombatConstants.STAMINA_MAX
+	)
+
+
+static func _feint_guard_reads_real_line(tgt: Dictionary, parry_readiness: float) -> bool:
+	var stance: String = _EntityAccess.stance_str(tgt)
+	var sm: float = CombatConstants.get_stance_modifier(stance, "feint_readthrough")
+	return parry_readiness * sm >= CombatConstants.FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD
+
+
+## When **`pa.feint_part`** is set and defender does not read through the feint, **`dodge_eval_part`** may follow the telegraph (dodge “bites” on bait). **`pa[CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS]`** (**0..1**) overrides **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS`** for regression only; then **`distance_to[attacker]`** scales bias (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**). Read-through uses the same **`feint_guard_zone_readiness_spacing_mult`** as **`_guard_zone_modifier`** vs **`_EntityAccess.id_int(atk)`** ( **`attacker_id` < 0** → MID / **1.0** ). **`attack_type_for_contact`**: incoming move id for stab/cut/blunt readiness scaling; if empty, uses **`pa["attack_type"]`**.
+static func _apply_feint_telegraph_bias_to_dodge_eval_part(
+	pa: Dictionary, tgt: Dictionary, atk: Dictionary, targetable: Array, result: Dictionary, attack_type_for_contact: String = ""
+) -> void:
+	if targetable.is_empty():
+		return
+	var fp: String = str(pa.get("feint_part", "")).strip_edges()
+	if fp.is_empty() or not targetable.has(fp):
+		return
+	var pr: float = _PassiveParry.get_passive_parry_readiness(tgt)
+	var atk_type_for_ct: String = str(attack_type_for_contact).strip_edges()
+	if atk_type_for_ct.is_empty():
+		atk_type_for_ct = str(pa.get("attack_type", "")).strip_edges()
+	var ct_for_pr: String = ""
+	if not atk_type_for_ct.is_empty():
+		ct_for_pr = str(WeaponConstants.get_move(atk_type_for_ct).get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
+	pr *= CombatConstants.passive_parry_readiness_incoming_contact_mult(ct_for_pr)
+	pr *= _defender_passive_readiness_stamina_mult(tgt)
+	pr *= _Attention.focus_effective(tgt)
+	pr *= _Attention.yomi_defense_readiness_mult(tgt, _EntityAccess.id_int(atk))
+	pr *= _feint_readiness_reveal_mult(pa, atk)
+	pr *= _Attention.focus_line_mult_for_feint(tgt, pa)
+	pr = clampf(pr, 0.0, 1.0)
+	var pr_rt: float = clampf(
+		pr * CombatConstants.feint_guard_zone_readiness_spacing_mult(tgt, _EntityAccess.id_int(atk)),
+		0.0,
+		1.0
+	)
+	if _feint_guard_reads_real_line(tgt, pr_rt):
+		return
+	var bias: float = CombatConstants.FEINT_TELEGRAPH_DODGE_EVAL_BIAS
+	var ho: Variant = pa.get(CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS, -1.0)
+	if ho is float or ho is int:
+		var ob: float = float(ho)
+		if ob >= 0.0:
+			bias = clampf(ob, 0.0, 1.0)
+	bias = clampf(bias * _feint_telegraph_dodge_spacing_mult(tgt, atk), 0.0, 1.0)
+	if bias > 0.0 and randf() < bias:
+		result.dodge_eval_part = fp
+
+
 ## Guard zone modifier: bonus when defender guards the hit part, penalty when unguarded (feint D).
-static func _guard_zone_modifier(pa: Dictionary, tgt: Dictionary, targetable: Array, attack_type: String) -> float:
-	var guard_zone: String = str(tgt.get("guard_zone", "head"))
-	if guard_zone.is_empty():
+## **`parry_readiness_for_feint`**: pass passive parry readiness from **`choose_defense`**; **`< 0`** skips feint read-through (legacy / harness static calls). **`atk_id_for_feint_spacing`**: defender **`distance_to[atk_id]`** scales readiness only for read-through (**`-1`** = omit footwork, default).
+static func _guard_zone_modifier(
+	pa: Dictionary,
+	tgt: Dictionary,
+	targetable: Array,
+	attack_type: String,
+	parry_readiness_for_feint: float = -1.0,
+	atk_id_for_feint_spacing: int = -1
+) -> float:
+	var gz: String = str(tgt.get("guard_zone", "head"))
+	if gz.is_empty():
 		return 1.0
 	var move_def: Dictionary = WeaponConstants.get_move(attack_type)
 	var attack_line: String = move_def.get("attack_line", "high")
@@ -388,6 +588,25 @@ static func _guard_zone_modifier(pa: Dictionary, tgt: Dictionary, targetable: Ar
 	var expected_part: String = _PathResolver.resolve_hit_part(attack_line, guard_line, targetable, {}, intended, tgt)
 	if expected_part.is_empty():
 		return 1.0
-	if expected_part == guard_zone:
+	var feint_part: String = str(pa.get("feint_part", ""))
+	var gz_eval: String = gz
+	var pr_fe_rt: float = parry_readiness_for_feint
+	if atk_id_for_feint_spacing >= 0 and pr_fe_rt >= 0.0:
+		pr_fe_rt = clampf(
+			parry_readiness_for_feint
+			* CombatConstants.feint_guard_zone_readiness_spacing_mult(tgt, atk_id_for_feint_spacing),
+			0.0,
+			1.0
+		)
+	if not feint_part.is_empty() and parry_readiness_for_feint >= 0.0 and _feint_guard_reads_real_line(tgt, pr_fe_rt):
+		gz_eval = expected_part
+	if not feint_part.is_empty():
+		var tele: String = str(tgt.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, feint_part))
+		if tele.is_empty():
+			tele = feint_part
+		# Still aligned with wind-up telegraph while real line lands elsewhere → baited / wrong focus.
+		if gz_eval == tele and expected_part != tele:
+			return CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
+	if expected_part == gz_eval:
 		return CombatConstants.GUARD_ZONE_BONUS
 	return CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
