@@ -783,6 +783,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		):
 			actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK})
 		if formation_retreat_only:
+			# Cowering retreat: do not require stable_line `allow_fall_back` (casualties can set intrusions>0).
 			if (
 				not our_formation.is_empty()
 				and formation_ranks > 1
@@ -790,7 +791,6 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				and not breach_blocks_moves
 				and not c_intruded
 				and not pair_abort_blocked
-				and can_fall_back
 				and _EntityAccess.can_flee_or_fall_back(c)
 				and solo_fall_back_action_legal(manager, c)
 			):
