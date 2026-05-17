@@ -4,18 +4,17 @@
 
 **Single source of truth (avoid forking):** Milestone **Status**, **Development gate**, and **dependency chain** live **only** in this file. **`docs/README.md`** is a **topic index** (no parallel status column). **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** §2 **mirrors** Tier 1 **Status** from the [milestone summary](#milestone-summary) here. **`docs/COMBAT_ROADMAP_AND_STAMINA.md`** — legacy **IMPLEMENTATION_OUTLINE** Parts **1–3** are **collapsed** in `<details>`; **Part 3** phase checklists remain **historical** — if they disagree with this plan, **this file wins**.
 
-**Last verified (code + `CombatRegressionHarness.run_all()`):** 2026-05-16 (Tier **5.1** **Done** (exit-gated §5.1 **[x]**; optional long-tail **[ ]**) — kinematic + oblique penetration + **`compute_and_apply_damage`** pen integration + **`strike_mods`** pen + damage-shape orthogonality incl. partial parry + **`get_line_alignment_with_deflect`** + **`get_deflected_angle_bilateral`** / quadrant line-angle harnesses + **`get_deflected_line_from_angles`** same-line bind + **`angle_diff_deg`** / **`get_alignment_from_angles`** + damage-flow + mult isolation; Tier **4.2** **`feint_windup_duration_mult`** + **`feint_target_reveal_at_progress`** + **`DefenseChoiceResolver._feint_readiness_reveal_mult`** (**`parry_readiness`**, guard-angle wobble, dodge telegraph, guard-zone) + **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS`** / **`choose_defense`** dodge telegraph + **`CombatConstants.COMMITMENT_FRACTION_FEINT`** / **`commitment_fraction_for_pending_attack`** (non-empty **`feint_part`**) + pair **`distance_to`** **`DEFENSE_SPACING_*`** (**`_run_defense_spacing_band_modulates_parry_and_dodge`**, **`_run_defense_footwork_recovering_boosts_dodge_vs_waiting`**, **`_run_defense_footwork_recovery_cause_orders_recovering_dodge_mult`**, **`_run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_close`**, **`_run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balance`**, **`_run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_close`**, **`_run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance`**, **`_run_feint_move_listing_recovering_footwork_dampens_vs_settled_waiting`**, **`_run_feint_move_listing_recovery_cause_orders_recovering_footwork_mult`**, **`_run_feint_telegraph_spacing_*`**, **`_run_feint_move_listing_spacing_*`**, **`_run_feint_guard_zone_readthrough_spacing_*`**) + **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** (**`_run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut`**, **`_run_defender_low_stamina_scales_passive_parry_readiness_in_choose_defense`**, **`_run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_feint`**, **`_run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina`**, **`_run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally`**, **`WeaponConstants`** **`thrust_feint`**) + **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** + **`AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT`** + **`AI_FEINT_LISTING_STAMINA_GATE`** + **`AI_FEINT_LISTING_DOCTRINE_PROBING_MULT`** / **`AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT`** / **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`** / **`STANCE_MOD_AI_FEINT_LISTING`** / **`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** / **`CombatAIActionPicker._get_action_weight`** + harnesses **`_run_feint_windup_duration_mult_extends_state_duration_vs_oberhau`**, **`_run_feint_windup_duration_mult_extends_state_duration_vs_thrust`**, **`_run_feint_target_reveal_progress_scales_readiness_mult`**, **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone`**, **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust`**, **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target_thrust`**, **`_run_feint_move_ai_distinct_feint_and_target_parts_thrust`**, **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust`**, **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust`**, **`_run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough`**, **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry`**, **`_run_defense_spacing_band_modulates_parry_and_dodge`**, **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard_thrust`**, **`_run_feint_move_listing_readiness_recovery_curve_when_defender_recovering`**, **`_run_feint_move_listing_stamina_low_dampens_feint_weight`**, **`_run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp`**, **`_run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult`**, **`_run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult`**, **`_run_feint_move_listing_doctrine_probing_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default`**, **`_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight`**, **`_run_feint_move_listing_defender_off_balance_boosts_feint_weight`**, **`_run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance`**, **`_run_feint_move_listing_recovering_footwork_dampens_vs_settled_waiting`**, **`_run_feint_move_listing_recovery_cause_orders_recovering_footwork_mult`**, **`_run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally`**, **`_run_feint_move_listing_stance_ai_feint_mult_ordering`**) — `combat/*.gd`, `ui/BattleScene.gd`, `world/CombatFlow.gd`, `weapon/WeaponDamageHelper.gd`, `WeaponConstants.gd`; **Godot 4.6**; **`.vscode/settings.json`** → **`godotTools.editorPath.godot4`** (VS Code task **Run Combat Regression Harness (headless)**); CLI `godot -s res://scripts/run_combat_regression_harness.gd`. **`FEATURE_LINE_CRASH_INTRUSION`** default **off** → [Development gate](#development-gate-line-crash--intrusions-temporary).
+**Last verified (code + `CombatRegressionHarness.run_all()`):** 2026-05-16 — **Godot 4.6**; harness via VS Code task **Run Combat Regression Harness (headless)** or `godot -s res://scripts/run_combat_regression_harness.gd`. Shipped-tier pointers → [milestone summary](#milestone-summary) + per-tier exit criteria (grep harness names in [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md), not duplicated here). **`FEATURE_LINE_CRASH_INTRUSION`** default **off** → [Development gate](#development-gate-line-crash--intrusions-temporary).
 
-**Documentation pass:** 2026-05-12 — reduced cross-file duplication only; **re-run the harness** before treating any date as a fresh code pass.
+**Documentation pass:** 2026-05-17 (**doc-i**) — milestone **Status** column is short; harness grep only in registry + bundle live-path tables.
 
-**What shipped (pointers):** Intruder geometry via **`formation_id_for_zone_geometry`** / **`formation_dict_for_zone_geometry`** (ZoC, targeting, parry). Tier **1.8** invalid melee/close resolve counters + telemetry harnesses. Formation pair moves: parry preserves **`swap_rank`** / **`falling_back`**; stale **`swap_rank_resolve`** cleared; pair abort logging — see **`CombatRegressionHarness`** **`_run_parry_preserves_formation_pair_state`**, **`_run_cancel_stale_swap_rank_resolve_events`**, **`_run_swap_rank_resolve_completes_rank_swap`**. Tier **3.0** **`kinematic_delivery`** → [Tier 3](#tier-3--melee-depth-parry--weapon--guards) + [dependency chain](#dependency-chain-execution-logic) item **12**. Tier **3.1** strike measure + stamped pair geometry → [§Tier 3.1](#tier-31-strike-measure-stamped-geometry) + [Changelog](#changelog) **(m)–(af)**, **(cg)**. Tier **3.2** parry/bind/deflect + **`parry_clash_context`** → [§Tier 3.2](#tier-32-parry-bind-deflect) + [Changelog](#changelog) (weapon-part + clash rows). Tier **3.3** guard line / afterblow — **Done** → [§Tier 3.3](#tier-33-guard-line-afterblow) + [Changelog](#changelog) **2026-05-13 (f)**, **(g)**, **(h)**, **(i)**, **(j)**, **(k)**. **Tier 4.1** posture + stance on AI listing weights — **Done** → [§Tier 4.1](#tier-41-posture--stance-weights-ai-listing) + [Changelog](#changelog) **(l)**. **Tier 4.2** Feint D (wind-up **`guard_zone`** + **`incoming_attack_telegraph_part`**, **`CombatManager.start`** scrub, **`DefenseChoiceResolver._guard_zone_modifier`** + passive feint read-through + **`choose_defense`** telegraph **`dodge_eval_part`** bias, pair **`distance_to`** **`DEFENSE_SPACING_*`** on passive parry/dodge eval, AI **`feint_part`** / **`opts_from_choice`**, move **`feint_windup_duration_mult`**, **`COMMITMENT_FRACTION_FEINT`** / **`commitment_fraction_for_pending_attack`** (passive-parry **`effective_wind_up`**), **`AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** × defender-readiness lerp × attacker **`get_stance_modifier(..., "ai_feint_listing")`** × low-stamina feint dampening × **`probing`** / **`pinch_center`** / **`hold_lane`** doctrine (**`AI_FEINT_LISTING_DOCTRINE_PROBING_MULT`**, **`AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT`**, **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`**) on feint moves in **`_get_action_weight`**) — **Partial** → [§Tier 4.2](#tier-42-feint-d-telegraph-ai) + [Changelog](#changelog) **(m)**, **(u)**, **(v)**, **(w)**, **(x)**, **(y)**, **(z)**, **(qb)**, **(qc)**, **(qd)**, **(qe)**, **(qf)**, **(qg)**, **(qh)**, **(ql)**, **(qm)**, **(qn)**, **(qo)**, **(qp)**, **(qq)**, **(qzr)**, **(qr)**, **(qs)**, **(qt)**, **(qu)**, **(qv)**, **(qw)**, **(qi)**, **(qj)**, **(qk)**. **(qx)** feint **distance_to** spacing harnesses; **Tier 5.1** kinematic delivery + mixed KE / velocity brackets + continuous-angle helpers — **Done** → [§Tier 5.1](#tier-51-angles-damage-flow-audits) + [Changelog](#changelog) **(n)**, **(o)**, **(aa)**, **(ac)**, **(ad)**, **(ae)**, **(af)**, **(pu)**, **(ag)**, **(ah)**, **(an)**, **(as)**, **(pt)**, **(ps)**, **(pr)**, **(pq)**, **(ba)**, **(bc)**, **(be)**, **(bg)**, **(bh)**, **(bi)**, **(bk)**, **(bl)**, **(bm)**, **(bn)**, **(bo)**, **(bp)**, **(pv)**, **(pw)**, **(px)**, **(pz)**, **(py)**, **(pp)**, **(po)**, **(pi)**, **(pj)**, **(pk)**, **(pl)**, **(pm)**, **(pn)**, **(ph)**, **(pc)**, **(pd)**, **(pe)**, **(pf)**, **(pg)**, **(qa)**. Front-rank **MID** melee when `melee_range >= effective_pair_eff_dist`. Depth spear + listed-hostile harness names: **[Tier 1.9 harness map](#tier-19--p10-depth-rank-polearm-reach--spear-lanes)** + [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) + **[Changelog](#changelog)** (2026-05-11 **(f)–(l)**, **(m)–(cq)**; surround **(af)**). **`is_feature_sector_surround_load`** default **off**.
+<a id="development-gate-line-crash--intrusions-temporary"></a>
+
 ### Development gate: line crash / intrusions (temporary)
 
 **Flag:** `CombatConstants.FEATURE_LINE_CRASH_INTRUSION` (**default `false`**).
 
 **Behavior while false:** No **new** line-crash intrusions — crash is not offered in `AvailableActionsBuilder`, `CombatEngagementMode.incursion_allowed` is always false, and `resolve_crash_attempt` resolves as `crash_failed` with reason `intrusion_disabled`. **Engagement mode** (duel / skirmish / formation) still classifies as before; cohesion, posture, wedge fields, vacancy plugs, and intruder-related **code** remain in the repo for saves and future work.
-
-**Plan focus until this flag is set `true`:** Tier **4.4** deferred footwork or Tier **5.1** optional long-tail — [Tier 4.3](#tier-43-mental-stack--combat-attention) **Done**; tune **`ATTENTION_*`** / **`FOCUS_*`** / yomi in playtests as needed. Tier **3** — **3.0** shipped; **3.1** / **3.2** / **3.3** **Done** (guard / afterblow harnesses + **`_run_hit_applier_sets_defender_guard_low_after_hit`** — [Tier 3.3 exit criteria](#tier-33-guard-line-afterblow); **`GUARDS_LINES_AFTERBLOW.md`** **Reading guide** + **Live path** summary — [Changelog](#changelog) **(k)**). **Tier 4.1** **Done** — [Tier 4.1 exit criteria](#tier-41-posture--stance-weights-ai-listing); **Tier 4.2** **Done** — [Tier 4.2 exit criteria](#tier-42-feint-d-telegraph-ai) (Feint D harnesses incl. **`feint_windup_duration_mult`**, **`choose_defense`** telegraph **`dodge_eval_part`**, **`AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** + defender-readiness lerp + attacker **`ai_feint_listing`** stance + low-stamina feint dampening + **`probing`** / **`pinch_center`** / **`hold_lane`** doctrine feint mults + recent **`parry_deflect`** → feint listing (**`(qo)`**); defender **`off_balance_until`** / **`is_off_balance`** → feint listing (**`(qp)`**); pair **`distance_to`** **`DEFENSE_SPACING_*`** **(qq)**; incoming **`contact_type`** passive readiness **(qr)**; defender stamina on **`choose_defense`** / feint listing **(qs)(qt)**; feint stamina orthogonality **(qu)**; shared stamina curve **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** **(qv)**; feint **`COMMITMENT_FRACTION_FEINT`** / passive-parry **`effective_wind_up`** **(qw)** — [Changelog](#changelog) **(m)**, **(qb)**, **(qc)**, **(qd)**, **(qe)**, **(qf)**, **(qg)**, **(qh)**, **(ql)**, **(qm)**, **(qn)**, **(qo)**, **(qp)**, **(qq)**, **(qr)**, **(qs)**, **(qt)**, **(qu)**, **(qv)**, **(qw)**, **(qi)**, **(qj)**, **(qk)**). **Tier 5.1** **Done** — [Tier 5.1](#tier-51-angles-damage-flow-audits) (`WeaponDamageHelper` kinematic + damage-flow harnesses + mult cross-coupling + **`AttackResolver.penetration_oblique_angle_factor`** harness **(pm)** + **`compute_and_apply_damage`** oblique pen integration **(pn)** + **`strike_mods`** pen + damage-shape orthogonality **(ph)**, **(pc)**, **(pd)** + **`CombatConstants.get_line_alignment_with_deflect`** branches **(pe)** + **`get_deflected_angle_bilateral`** / quadrant helpers **(pf)** + **`get_deflected_line_from_angles`** same-line bind **(pg)** + **`angle_diff_deg`** / **`get_alignment_from_angles`** **(qa)** — [Changelog](#changelog) **(n)**, **(o)**, **(aa)**, **(ac)**, **(ad)**, **(ae)**, **(af)**, **(pu)**, **(ag)**, **(ah)**, **(an)**, **(as)**, **(pt)**, **(ps)**, **(pr)**, **(pq)**, **(ba)**, **(bc)**, **(be)**, **(bg)**, **(bh)**, **(bi)**, **(bk)**, **(bl)**, **(bm)**, **(bn)**, **(bo)**, **(bp)**, **(pv)**, **(pw)**, **(px)**, **(pz)**, **(py)**, **(pp)**, **(po)**, **(pi)**, **(pj)**, **(pk)**, **(pl)**, **(pm)**, **(pn)**, **(ph)**, **(pc)**, **(pd)**, **(pe)**, **(pf)**, **(pg)**, **(qa)**). Balance/docs that do **not** require live intrusion playtests. **Tier 1.9** depth polearm is **Done** for shipped exit criteria (**`auto`** spear lane = wedge + **`effective_line_discipline`** + **`density`** + **`engagement_posture`** in **`AvailableActionsBuilder.depth_polearm_lane_allows_low_targets`** — harness **`_run_depth_polearm_auto_lane_discipline_posture`**); optional longer scheduled UI soaks remain. **Tier 1.6** (**Done**): optional extra **`CombatTargetScoring`** coupling remains exploratory. **Defer:** intrusion-centric verification passes, Tier **2.1** prose that exists mainly to teach wedge/intruder fiction, and re-baselining any test that assumes crash success in formation — do those **after** flipping the flag and dedicating time to intrusion polish.
 
 **When setting the flag `true`:** Run `CombatRegressionHarness.run_all()`, exercise formation-line crash in playtests, refresh `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §2 verification rows if needed, and complete Tier **2.1** intrusion language in `TACTICAL_ZONES_BREACH_MOVEMENT.md`.
 
@@ -27,19 +26,20 @@
 
 ## Document map (read order)
 
-| Section | Use |
-|---------|-----|
-| [Dependency chain](#dependency-chain-execution-logic) | Why Tier 1.3 blocks Tier 3, Tier **4.3** after **4.2**, etc. |
-| [Tier 4.3 (mental stack + attention)](#tier-43-mental-stack--combat-attention) | Focus / salience / AI layers / yomi — **next** Tier **4** track |
-| [Tier 0](#tier-0--baseline-shipped--maintain) | What is already shipped; module anchors |
-| [Tier 1 expanded](#tier-1--engagement-geometry-active-track) | [Milestone summary](#milestone-summary) — authoritative **Status** for **1.1–1.9** (see top **Single source of truth**). Expanded P-steps below = reference / regressions. |
-| [Tier 3.1 (strike measure + stamped `pa`)](#tier-31-strike-measure-stamped-geometry) | **Done** — exit **[x]** + harness grep index for distance/parry stack (**`STRIKE_MEASURE_*`**, **`effective_pair_*`**, flank parry spacing, optional sector surround) |
-| [Tier 3.2 (parry / bind / deflect)](#tier-32-parry-bind-deflect) | **Done** — exit **[x]** + harness grep index (**`_run_parry_*`**, **`_run_bind_riposte_*`**, **`_run_weapon_*`**, **`_run_guard_line_*`**, **`PARRY_CLASH_CONTEXT_KEYS_FULL_STOP`**) |
-| [Tier 3.3 (guard line / afterblow)](#tier-33-guard-line-afterblow) | **Done** — **`_run_guard_from_move_*`**, **`_run_afterblow_*`**, **`_run_hit_applier_sets_defender_guard_low_after_hit`** (seeds **0/1/2** on mid/execute afterblow paths); **`GUARDS_LINES_AFTERBLOW.md`** **Shipped / code anchors** |
-| [Tier 5.1 (angles / damage-flow audits — kinematic harness)](#tier-51-angles-damage-flow-audits) | **Done** — **`_run_kinematic_delivery_*`**; **`PHYSICS_DAMAGE_AND_FLOW.md`** ([Kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit), [Angles / pipeline remaining](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-angles-pipeline-remaining) checklist **checked** in plan **(pl)**); optional long-tail exit still **[ ]** |
-| [Implementation phase gate](#implementation-phase-gate) | Checklists before Tier **1.2** and (recommended) Tier **1.3** code |
-| [Tiers 2–7](#tier-2--tactical-docs--zoc-narrative-sync) | Everything after engagement geometry |
-| [Plan inventory](#plan-inventory-all-combat-markdown) | Where design depth lives |
+| # | Section | Use |
+|---|---------|-----|
+| 1 | [Development gate](#development-gate-line-crash--intrusions-temporary) | **`FEATURE_LINE_CRASH_INTRUSION`** (default **false**) |
+| 2 | [Next coding step](#next-coding-step) | Active work while flag is **false** |
+| 3 | [Dependency chain](#dependency-chain-execution-logic) | Cross-tier ordering |
+| 4 | [Milestone summary](#milestone-summary) | Tier **1.1–1.9** **Status** (only status column) |
+| 5 | [Tier 0](#tier-0--baseline-shipped--maintain) | Baseline modules — extend, do not replace |
+| 6 | [Tier 1 expanded](#tier-1--engagement-geometry-active-track) | P-step detail + [ENGAGEMENT spec](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) §4–§6 |
+| 7 | [Tiers 2–7](#tier-2--tactical-docs--zoc-narrative-sync) | Doc sync · medical · research |
+| 8 | **Tier 3** (**Done**) | Plan [§3.1–3.3](#tier-31-strike-measure-stamped-geometry) · live paths [3.1](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) · [3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) · [3.3](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) |
+| 9 | **Tier 4** | Plan [§4](#tier-4--ai--stance) (**Done**) · live paths [4.1](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path)–[4.4](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path) |
+| 10 | [Tier 5.1](#tier-51-angles-damage-flow-audits) | **Done** · [kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) |
+| 11 | [Implementation phase gate](#implementation-phase-gate) | Re-audit **P3** / **P4** only when changing slots or wedge |
+| 12 | [Plan inventory](#plan-inventory-all-combat-markdown) | All `docs/*.md` bundles · [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) |
 
 ---
 
@@ -64,7 +64,7 @@ Work must respect this ordering (later items assume earlier ones):
 15. **Combat attention state** — per-combatant **`focus_part`** + **`focus_intensity`** (and optional **`attention_load`**) unify **`guard_zone`**, passive readiness, feint read-through, and UI → **Tier 4.3.2** (depends **4.2** Feint D + counter-tempo telegraph keys; **defense before AI stack** so player + defender math share one model).
 16. **AI mental stack** — prioritized layers in **`CombatAIActionPicker.pick`** (medical → counter → defend vs incoming → attack utility → fallback **`pick_weighted_action`**) → **Tier 4.3.3** (depends **4.3.1** probes + **4.1** listing weights; **4.3.2** optional for layer “focus steal” penalties).
 17. **Yomi / guard tendency** — per-opponent memory (guard line, parry habit, feint vulnerability) feeds focus drift + feint listing → **Tier 4.3.4** (depends **4.3.2** + **4.3.3** + **4.2** explicit feints).
-18. **Deferred (not 4.3):** probabilistic plain-attack feint (investigation Approach B — **rejected** as primary mechanic); **`STATE_IN_FLURRY`** / bind expansion (needs engagement contract); full **position-angle** footwork (Tier **4.4** or Tier **5** optional); stamina-as-gauge overhaul → **`COMBAT_ROADMAP_AND_STAMINA.md`**.
+18. **Deferred (not 4.3):** probabilistic plain-attack feint (**rejected**); **`STATE_IN_FLURRY`** / bind expansion; stamina-as-gauge overhaul → **`COMBAT_ROADMAP_AND_STAMINA.md`**. **Tier 4.4** position-angle footwork is **shipped** (production flag default **on**).
 
 **While `FEATURE_LINE_CRASH_INTRUSION` is false:** Items **3–7** are **dependency / shipped-code** relationships (what already exists and what consumes it), **not** a mandate to implement more intrusion surface area now. Do **not** start **new** intrusion features (extra wedge rules, new crash outcomes, slot/plug extensions, UI devoted to live breach play) or Tier **2.1** / **2.2** copy that mainly teaches intruder fiction until the flag is **true** and you are explicitly resuming that track (see [Development gate](#development-gate-line-crash--intrusions-temporary)).
 
@@ -101,7 +101,7 @@ flowchart LR
 |------|-----------------|
 | Orchestration | `CombatManager.gd`, `CombatProcessTick.gd`, `CombatEventScheduler.gd`, `CombatEventDispatch.gd` |
 | Formations | `CombatFormationSetup.gd`, `CombatFormationFlow.gd`, `FormationSlots.gd`, `FormationPreset.gd` |
-| Actions / targeting | `AvailableActionsBuilder.gd` (`effective_pair_*`, `strike_measure_ratio_*`; **`CombatConstants.STRIKE_MEASURE_*`**), `CombatResolveAction.gd`, `CombatEngagementResolver.gd`, `CombatTargetScoring.gd`, `CombatAIActionPicker.gd`, `CombatDoctrine.gd` — regression harness names for listed weights / depth polearm: [Tier 1.9 harness map](#tier-19--p10-depth-rank-polearm-reach--spear-lanes) + [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) |
+| Actions / targeting | `AvailableActionsBuilder.gd`, `CombatTargetScoring.gd`, `CombatAIActionPicker.gd`, `CombatDoctrine.gd` — depth polearm: [§1.9 live path](#tier-19--p10-depth-rank-polearm-reach--spear-lanes) |
 | Distance bands / ZoC | `CombatDistanceBands.gd` (**`depth_polearm_lane_open_by_combatant_id`** + **`update_distance_to_from_formations`**), `ZoneOfControl.gd` (`formation_id_for_zone_geometry`, `formation_dict_for_zone_geometry`), `TacticalCombat.gd` |
 | Breach / crash | `BreachResolver.gd`, `FormationBreachRules.gd` |
 | Engagement v1 | `CombatFormationEngagement.gd`, `CombatIntrusionGeometry.gd` |
@@ -117,6 +117,8 @@ flowchart LR
 
 **Spec depth (field names, plug taxonomy, tuning):** `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §4–§6.
 
+<a id="milestone-summary"></a>
+
 ### Milestone summary
 
 | Step | Phase | Deliverable | Status |
@@ -124,26 +126,24 @@ flowchart LR
 | 1.1 | P0–P2 | Cohesion, posture, UI, neighbor crash hold, intruder **flags** | **Done** |
 | 1.2 | **P3** | Vacancy plug (≠ death plug) + attacker slot release + intruder on defender | **Done** |
 | 1.3 | **P4** | **`intrusion_wedge_by_file`** (canonical) + `lane_offset` (wedge seam projection) + `effective_pair_eff_dist` (+ callers); cohesion / lane stress / ZoC / UI **consume wedge** | **Done** |
-| 1.4 | **P5** | LINE↔OPEN hysteresis; encounter / discipline tags; opponent-relative asymmetric posture | **Done** (`POSTURE_ASYMMETRY_COH_COUPLE_STRENGTH` + encounter `posture_asymmetry_strength`; optional richer encounter-only tags remain data-driven) |
-| 1.5 | **P6** | Morale → `morale_cohesion_factor` | **Done** (`CombatMoraleCohesion`; encounter overrides + combatant `morale_cohesion` mean) |
-| 1.6 | **P7** | AI posture hooks; harness / tests; optional | **Done** — `CombatAIActionPicker` / `CombatTargetScoring`: crash + listed hostile weights (posture, cohesion, doctrine pinch/hold/probing, commitment, distributed pressure, engagement-mode cache, file-opposed sort, soft geometry, **`opponent_breach_file_targeting_mult`**, intruder **`formation_id_for_zone_geometry`** / **`formation_dict_for_zone_geometry`**); **`_crash_weight_posture_mult`** + **`crash_line_cohesion_weight_mult`** harnesses (**`_run_crash_ai_posture_mult_with_cached_fd`**, **`_run_crash_ai_cohesion_weight_monotone`**). Further non-crash coupling optional. **Harnesses:** [Tier 1.9 harness map](#tier-19--p10-depth-rank-polearm-reach--spear-lanes) + [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) (Tier **1.6** rows); `CombatRegressionHarness.gd` — prefixes **`_run_targeting_`**, **`_run_hostile_pair_`**, **`_run_ally_pressure_`**, **`_run_ai_targeting_`**, **`_run_crash_ai_`**. |
-| 1.7 | **P8** | Engagement mode realism **Option 2** (historical count bands + front/fill/hysteresis gate) | **Done** (classifier + **active-count exhaustive** + **mode cache reset on `start()`** + cold `resolved`⇔`can_enter` in harness; `_run_engagement_scenarios` small/medium/large + tactical snapshot; optional longer UI soak still open) |
-| 1.8 | **P9** | Post-P8 soak/regression + telemetry lock before doctrine expansion | **Done** (telemetry counters + snapshot sync + **multi-seed** classifier / attrition / **cold-start telemetry lock** in `CombatRegressionHarness`; long UI soak optional) |
-| 1.9 | **P10** | Depth-rank polearm reach + spear lanes (Option C + Part 7) | **Done** — lanes + bands + actions + AI + **`spear_lane_profile`** presets + **auto** mix (**`depth_polearm_lane_allows_low_targets`**: wedge, discipline, density, **OPEN**/**DUEL** posture — **`_run_depth_polearm_auto_lane_discipline_posture`**); **`pa["depth_polearm_lane_type"]`**; **`StrikePhysics.depth_polearm_thrust_closing_factor`**; doctrine stab/cut listing weights + encounter/preset **`depth_polearm_ai_doctrine_mults`**. Optional: longer scheduled UI soaks / balance sweeps only. **Harnesses:** [Tier 1.9 harness map](#tier-19--p10-depth-rank-polearm-reach--spear-lanes) + [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md); `CombatRegressionHarness.gd` — prefix **`_run_depth_polearm`**, **`_run_weapon_depth`**, **`_run_spear_lane`**, **`_run_stamp_attack_pair_geometry_depth`**, **`_run_front_rank_pair_melee_listed`**. |
+| 1.4 | **P5** | Posture hysteresis + encounter tags | **Done** |
+| 1.5 | **P6** | Morale → `morale_cohesion_factor` | **Done** |
+| 1.6 | **P7** | AI listed-hostile + crash weights | **Done** |
+| 1.7 | **P8** | Engagement mode Option 2 | **Done** |
+| 1.8 | **P9** | Telemetry lock + soak gate | **Done** |
+| 1.9 | **P10** | Depth-rank polearm + spear lanes | **Done** — [§1.9 live path](#tier-19--p10-depth-rank-polearm-reach--spear-lanes) |
 
 **Status column (Tier 1):** Same rule as **Single source of truth** (top). When you ship, edit this table first, then **`ENGAGEMENT_*`** §2 rows (mirror).
 
-**Next coding step (while `FEATURE_LINE_CRASH_INTRUSION` is false):** Tier **4.4** playtest + optional **`set_feature_position_angle_footwork_load(true)`** default-on sign-off, or Tier **5.1** optional long-tail — [§Tier 4.3](#tier-43-mental-stack--combat-attention) **Done**; **Tier 4.2** **Done** — [§Tier 4.2](#tier-42-feint-d-telegraph-ai). **Tier 5.1** exit-gated work is **Done** (optional long-tail + **Contents** scan remains **[ ]** in [§5.1](#tier-51-angles-damage-flow-audits)). If RNG behavior changes on another engine build, refresh afterblow harness seeds **0 / 1 / 2** (**`CombatRegressionHarness._AFTERBLOW_*_SEED`**). Keep **`run_all()`** green. **Tier 3.2** anchors: [§Tier 3.2](#tier-32-parry-bind-deflect) + **[Changelog](#changelog)**. **Parry distance (3.1):** [§Tier 3.1](#tier-31-strike-measure-stamped-geometry). **Flag true:** Tier **2.1** prose + intrusion verification (gate above). **Sector surround (3.1, default off):** **`is_feature_sector_surround_load`** — [Changelog](#changelog) **(af)**.
+<a id="next-coding-step"></a>
 
-**Telemetry lock:** counters + tactical↔harness snapshot checks + **`CombatRegressionHarness`** multi-seed (**classifier**, **attrition monotone**, **cold-start telemetry** vs resolved mode) are in place; long scheduled UI soak / playtest passes remain optional before Option 4.
-
-**After 1.3 (and after `FEATURE_LINE_CRASH_INTRUSION` is true):** Tier **2.1** — align `TACTICAL_ZONES_BREACH_MOVEMENT.md` with implemented intrusion + **wedge + `lane_offset` / distance** language (see dependency chain item 10).
+**Next coding step (while `FEATURE_LINE_CRASH_INTRUSION` is false):** [Tier **5.1**](#tier-51-angles-damage-flow-audits) optional long-tail **[ ]** · long UI soak on position-angle footwork (optional). When flag **true:** [Tier **2.1**](#tier-2--tactical-docs--zoc-narrative-sync) + intrusion playtests ([gate](#development-gate-line-crash--intrusions-temporary)). **Maintain:** `run_all()` green (afterblow fixed seeds **0 / 1 / 2** if RNG drifts). Tier **1.7–1.8** telemetry harnesses shipped.
 
 ---
 
 ### Tier 1.1 — Shipped (maintain only)
 
-No sequencing work unless fixing regressions. Shipped includes: skirmish-aware `breach_blocks_open_lane_moves`; `CombatFormationEngagement.recompute_all`; `CombatIntrusionGeometry.crash_neighbor_hold_support`; crash success sets `engagement_role` / `intrusion_host_fid` / `intrusion_anchor_file`; `BattleScene` cohesion/posture labels.
+No sequencing work unless fixing regressions. Verification rows → [`ENGAGEMENT_*` §2.1–2.2](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md#21-foundation--visibility).
 
 ---
 
@@ -155,12 +155,7 @@ No sequencing work unless fixing regressions. Shipped includes: skirmish-aware `
 
 **Shipped (audit / regressions only):** Intruder in defender **`slots`**; clear attacker home on crash success; **`intrusion_*`** fields consistent with occupancy; **vacancy vs death** plug order (slot writes first — spec in **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** §4 + `CombatFormationFlow` comments); **`notify_formation_changed`** / **`reconcile_vacancy_plugs_*`** then ZoC + bands + cohesion. Extend **`IncursionBreachTest`** when changing this surface.
 
-**Exit criteria (all required):**
-
-- [x] Intruder does not occupy attacker home slot after successful intrusion resolution.
-- [x] Intruder represented on defender side per §4 contract.
-- [x] Vacancy plug implemented and ordered vs death plug (documented in `CombatFormationFlow` or helper).
-- [x] No desync between `slots`, `engagement_role`, and host/anchor fields after recompute.
+**Exit criteria:** **Done** **[x]** — [`ENGAGEMENT_*` §2.3–2.4](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md#23-intrusion-state-flags-only) + §4 plug rules; re-audit via [Tier 1.2 gate](#tier-12-gate-use-when-changing-p3) when changing P3.
 
 ---
 
@@ -172,124 +167,44 @@ No sequencing work unless fixing regressions. Shipped includes: skirmish-aware `
 
 **Shipped (audit / regressions only):** **`intrusion_wedge_by_file`** = canonical breach sector; **`slots`** = occupancy only; **`lane_offset`** seam bias + repack (§4.2); **`effective_pair_eff_dist`** = `|Δfile|` + lateral + wedge term + intruder host geometry (**`ENGAGEMENT_*` §4.1–§4.2**). Writers on crash success; consumers across cohesion, lane stress, ZoC, bands, actions, optional UI. No gap-column **`slots`** in P4.
 
-**Exit criteria:**
-
-- [x] `intrusion_wedge_by_file` exists on each formation dict, bounded writers, cleared on reset; crash success produces expected wedge at anchor.
-- [x] `lane_offset` exists on every combatant dict, bounded; crash + plugs do not leave NaNs or out-of-range values.
-- [x] `CombatFormationEngagement`, `TacticalCombat` lane stress, and (where applicable) `ZoneOfControl` **read wedge** per spec.
-- [x] `AvailableActionsBuilder.effective_pair_eff_dist` uses `|Δfile|` + offsets + wedge term; path accounts for `CombatConstants.ENGAGEMENT_ROLE_INTRUDED`.
-- [x] `CombatDistanceBands` and `BreachResolver` behave coherently (no deadlocks / all-mid artifacts in smoke scenarios).
-- [x] `AvailableActionsBuilder` does not offer impossible melee due to wrong band for intruders.
+**Exit criteria:** **Done** **[x]** — [`ENGAGEMENT_*` §2.5](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md#25-distance--targeting) + §4.1–4.2; re-audit via [Tier 1.3 gate](#tier-13-gate-p4) when changing P4.
 
 ---
 
-### Tier 1.4 — P5: Posture polish
+### Tier 1.4–1.6 — Shipped (maintain)
 
-**Depends on:** 1.3 recommended (stable geometry for playtest).
-
-- Constants for LINE↔OPEN **hysteresis** (`L_in` > `L_out`) + optional stored band on formation dict — **Done** (`CombatConstants.LINE_COHESION_POSTURE_ENTER_LINE_MIN` / `LINE_COHESION_POSTURE_LEAVE_LINE_BELOW`; prior posture read from formation dict each tick in `CombatFormationEngagement._compute_posture`).
-- **Encounter / discipline tags** bias thresholds — **Done:** posture enter/leave deltas, `line_discipline` + `CombatConstants.line_discipline_posture_extra_deltas` (encounter default + formation preset override).
-- **Per-side asymmetric posture** — **Done:** `CombatFormationEngagement` computes both cohesions first, then applies `delta = strength × (our_coh − opp_coh)` to `L_in`/`L_out` (`CombatConstants.POSTURE_ASYMMETRY_COH_COUPLE_STRENGTH`; encounter **`posture_asymmetry_strength`** to override or set **0** to disable). Stronger line (higher cohesion) leans LINE; weaker leans OPEN.
-
-**Exit criteria:** Posture does not flip every tick at threshold edge; tags read from agreed encounter hook; mirrored battles keep matching postures (`CombatRegressionHarness._run_posture_mirror_symmetric`).
+**P5–P7** — [`ENGAGEMENT_*` §2.6–2.8](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md#26-cohesion--posture-refinement). Registry Tier **1.6** · grep **`_run_posture_`**, **`_run_morale_`**, **`_run_targeting_`**, **`_run_ai_targeting_`**, **`_run_crash_ai_`**. Broader non-crash AI coupling remains optional.
 
 ---
 
-### Tier 1.5 — P6: Morale → cohesion
+<a id="tier-17-18--shipped-maintain"></a>
 
-- **`CombatMoraleCohesion.apply_to_formations`** runs at the start of **`CombatFormationEngagement.recompute_all`**: writes each formation’s **`morale_cohesion_factor`** (clamped **`MORALE_COHESION_FACTOR_MIN`..1**).
-- **Encounter** (per-side override, wins over combatants): **`morale_cohesion_player`**, **`morale_cohesion_enemy`** (`CombatConstants.ENCOUNTER_KEY_*`).
-- **Combatants:** dict **`morale_cohesion`** 0..1 (default **1.0**); **`CombatManager.register`** seeds from **`node.morale_cohesion`** when present. Side **mean** over alive, non-incapacitated fighters when encounter key absent.
+### Tier 1.7–1.8 — Shipped (maintain)
 
-**Exit criteria:** Changing morale inputs changes `line_cohesion` without breaking defaults; **`CombatRegressionHarness._run_morale_cohesion_affects_line_cohesion`** passes.
+**P8–P9** — engagement mode Option 2 + telemetry lock. **Exit:** **Done** **[x]** — [`ENGAGEMENT_*` §2.0](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md#20-skirmish-vs-breach-clog-formation-moves) · registry Tier **1.7–1.8** · grep **`_run_engagement_`**, **`_run_telemetry_`**. Editor **`IncursionBreachTest`** optional; CI uses headless **`run_all()`**.
 
 ---
 
-### Tier 1.6 — P7: AI & tests (optional)
-
-- **`CombatAIActionPicker`** + **`CombatTargetScoring`:** crash weights vs posture / **`line_cohesion`** (**`crash_line_cohesion_weight_mult`**, **`_crash_weight_posture_mult`**, formation dict via **`ZoneOfControl.formation_id_for_zone_geometry`** for intruders); listed-hostile path (**`hostile_pair_targeting_weight_mult`**, cached **`engagement_mode_targeting_mult`**, **`file_opposed_mult`**, **`ordered_melee_opponents`**, optional **`formation_dict_cache`** on posture / opponent / breach mults, **`ally_pressure_count`** gated on **`_melee_pair_rank_allowed`** + **`depth_polearm_valid_line_threat`**, **`wing_lacks_file_opposed`** / **`pinch_score_mult`** vs **`depth_polearm_lane_open`**, **`opponent_breach_file_targeting_mult`**, **`AI_TARGETING_INCAP_HOSTILE_MULT`**, **`pick`** + **`ai_targeting_weight_mult(..., skip_prune)`**). **Harness names:** [Tier 1.9 harness map](#tier-19--p10-depth-rank-polearm-reach--spear-lanes) + [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) (Tier **1.6** bullets); crash posture + cohesion: **`_run_crash_ai_posture_mult_with_cached_fd`**, **`_run_crash_ai_cohesion_weight_monotone`**; `CombatRegressionHarness.gd` — prefixes **`_run_targeting_`**, **`_run_hostile_pair_`**, **`_run_ally_pressure_`**, **`_run_ai_targeting_`**, **`_run_crash_ai_`**.
-- Broader `CombatTargetScoring` / non-crash coupling remains optional. Re-baseline editor scene tests if assertions pin `p_win`. Doc sync: engagement plan §2.8 ↔ Tier 2.
-
----
-
-### Tier 1.7 — P8: Engagement mode realism baseline (ship Option 2)
-
-**Goal:** Enforce historically plausible mode minimums without losing transition stability already built in.
-
-**Implementation rule:** Use **total active combatants per side** for baseline eligibility (historical numbers), then require existing **front/fill + hysteresis** checks before `formation` becomes active.
-
-**Required behavior contract:**
-
-- `duel` cap when either side remains in very low-count bands (historical small engagement).
-- `skirmish` default for medium counts and mixed frontage.
-- `formation` allowed only when both sides satisfy historical count minimums **and** front/fill thresholds.
-- Keep current **active intrusion grace** so mode does not snap mid-incursion unless line collapses to zero-front or duel floor.
-
-**Exit criteria:**
-
-- [x] No test case yields `formation` while historical count minimum is unmet (`CombatRegressionHarness._run_engagement_active_count_gate_exhaustive` + classifier cold `resolved` ⇒ `can_enter_formation_from_snapshot`).
-- [x] Transition hysteresis assertions pass (no mode jitter at threshold edges) (`_run_engagement_attrition_monotone` + idempotent `engagement_mode` in classifier fuzz).
-- [x] Crash/incursion gating remains consistent (`incursion_allowed` only when resolved mode is formation) (classifier fuzz + `_run_no_crash_actions_when_intrusion_disabled` when flag false).
-- [x] Intrusion / vacancy / plug regression path: **`CombatRegressionHarness.run_all()`** — **`_run_vacancy_reconcile_follow_up_regression`**, **`_run_vacancy_reconcile_after_front_death`**, **`_run_intruder_zone_id_uses_host_grid`**, **`_run_intruder_death_obstacle_on_host_formation`**, plus intrusion notes under [harness map](REGRESSION_HARNESS_MAP_TIER19.md) bullet **5** (historical editor **`IncursionBreachTest`** name = run headless harness when touching formation flow).
-
----
-
-### Tier 1.8 — P9: Soak, telemetry lock, regression gate (before Option 4)
-
-**Goal:** Validate P8 in long-running, mixed-size battles before adding doctrine complexity.
-
-**Required checks:**
-
-1. Multi-seed soak runs show no mode flip-flop jitter.
-2. UI strips/labels remain consistent during rapid attrition and intrusion clear.
-3. Crash availability never leaks outside legal mode/rank rules.
-4. Tactical and harness mode snapshots stay identical at same tick.
-
-**Exit criteria:**
-
-- [x] P8 metrics stable across representative scenarios (small, medium, large engagements): **`CombatRegressionHarness._run_engagement_scenarios`** (1v1 duel, 3v3 skirmish wide front, 4v4 formation + **`_assert_tactical_snapshot_matches`**) plus **`_run_engagement_classifier_multi_seed`**, **`_run_engagement_active_count_gate_exhaustive`**, **`_run_engagement_attrition_monotone`**, **`_run_telemetry_lock_multi_seed`**.
-- [x] No unresolved regressions in automated formation / intrusion assertions: same harness suite as Tier **1.7** exit item (editor **`IncursionBreachTest`** superseded by headless **`run_all()`** for CI).
-- [x] Debug telemetry fields present and documented: **`TacticalCombat._new_combat_telemetry_dict`** keys (`engagement_mode_transitions`, `invalid_*`, `automatic_doctrine_pinch_count`, …); locked by **`_run_telemetry_lock_multi_seed`**, **`_run_combat_telemetry_crash_blocked`**, **`_run_telemetry_invalid_melee_resolve_blocked`**, **`_run_telemetry_invalid_close_resolve_blocked`**, **`_run_telemetry_automatic_doctrine_pinch_record`**.
-
----
+<a id="tier-19--p10-depth-rank-polearm-reach--spear-lanes"></a>
 
 ### Tier 1.9 — P10: Depth-rank polearm reach + spear lanes
 
 **Goal:** Units in **rank ≥ 1** on their **home** formation can contribute **melee** against eligible enemies when they wield a **depth-capable** weapon (polearm / long reach), **through** a **living same-file rank-0** ally, using abstract **lanes** (over-shoulder vs open) that constrain targeting and parts — per `docs/COMBAT_ROADMAP_AND_STAMINA.md` Part 6 Option C and Part 7 (this tier **replaces** the obsolete checklist line “rank 0 melee; rank 1 ranged/support”).
 
-**Depends on:** Tier **1.3** (P4) — `effective_pair_eff_dist`, wedge, `lane_offset`, band consumers.
+**Depends on:** Tier **1.3** (P4).
 
-**Primary modules:** `AvailableActionsBuilder.gd` (`can_melee`, `_opp_matches_melee_rank_target`, `_append_melee_vs_enemy_line_rank`, **`depth_polearm_lane_allows_low_targets`** + **`spear_lane_profile`**, **`depth_polearm_targetable_parts_filter`**, **`stamp_attack_pair_geometry_on_dict`** — sets **`depth_polearm_lane_type`** on **`pa`**), `CombatFormationSetup.gd` (preset → formation dict), `CombatDistanceBands.gd` (rank>0 → **`DISTANCE_LONG`** unless **`depth_polearm_lane_open`**; lane predicate **cached once per combatant** per `update_distance_to_from_formations` pass), `WeaponConstants.gd` / `Weapon.gd` (explicit **depth_melee_eligible** flag or threshold vs `REACH_MID_MIN` + weapon family), `AttackResolver.gd` / hit-part path (depth polearm part filter + **`pa`** geometry flags), `CombatConstants.gd` (tuning). **Auto** profile (default empty / **`normalize_spear_lane_profile`** → auto): wedge gap + **`CombatFormationEngagement.effective_line_discipline`** + **`density`** + **`engagement_posture`** (**OPEN** / **DUEL** allow lows under tight when not strict-blocked) — locked by **`_run_depth_polearm_auto_lane_discipline_posture`**.
+| Layer | Module | Role |
+|-------|--------|------|
+| Melee / lanes | `AvailableActionsBuilder` | `depth_polearm_lane_open`, line threat, part filter, `stamp_attack_pair_geometry_on_dict` |
+| Bands | `CombatDistanceBands` | `depth_polearm_lane_open_by_combatant_id`, `distance_to` |
+| Weapons | `Weapon.gd` / `WeaponConstants` | `depth_melee_eligible` (**SPEAR**) |
+| AI / resolve | `CombatAIActionPicker`, `AttackResolver` | doctrine mults, lane type on **`pa`** |
 
-**Design + shipped path:** Field names, plug rules, lane resolver order, and verification rows live in **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** §2.5 + §4–§6; design tables in **`COMBAT_ROADMAP_AND_STAMINA.md`** Part 6–7. **What landed when** → **[Changelog](#changelog)** (depth polearm / **`pa["depth_polearm_lane_type"]`** / bands / AI — **(f)–(l)** onward). **Regression names** → [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md).
+**Spec:** [`ENGAGEMENT_*` §2.5](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md#25-distance--targeting) · design tables **`COMBAT_ROADMAP_AND_STAMINA.md`** Part 6–7.
 
-**Exit criteria:**
+**Exit criteria:** **Done** **[x]** — grep **`_run_depth_polearm`**, **`_run_spear_lane_`** · [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) registry bullets **1–4**.
 
-- [x] Depth polearm in rank ≥ 1 receives listed melee vs eligible enemy rank 0 with living same-file rank 0: **`_run_depth_polearm`**, **`_run_depth_polearm_band_vs_actions_fuzz`**, **`_run_front_rank_pair_melee_listed`**.
-- [x] Non-polearm depth ranks unchanged: **`_run_depth_polearm`** (rank-1 sword vs rank-0 line), **`_run_depth_polearm_lane_open_false_for_non_eligible_weapon`**, **`_run_weapon_depth_melee_eligible_fixture`**.
-- [x] `distance_to` and `get_available_actions` / **`can_melee_threaten`** stay consistent: **`_run_depth_polearm`**, **`_run_depth_polearm_reciprocal_distance_bands`**, **`_run_windup_pending_attack_pair_geometry`**, **`_run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_depth`**.
-- [x] Part restrictions for tight vs open / wedge / **`spear_lane_profile`**: **`_run_depth_polearm`** (filter + profiles), **`_run_depth_polearm_parts_filter_*`**, **`_run_stamp_attack_pair_geometry_depth_lane_flags_consistent`**, **`_run_depth_spear_tight_lane_parry_mult_invariant`** (lane id vs parry).
-- [x] Intruder targeting / host grid without rank-0 depth-lane abuse: **`_run_intruder_zone_id_uses_host_grid`**, **`_run_depth_polearm_lane_open_false_when_intruded`**, **`_run_depth_polearm_lane_open_zone_geometry_fid_round_trip`** (intruded branch).
-
-**Regression index (grep-first):** `combat/CombatRegressionHarness.gd` — `_run_depth_polearm`, `_run_targeting_`, `_run_surround_`, `_run_encounter_formation_`, `_run_doctrine_`, `_run_parry_`, `_run_ai_targeting_`, `_run_crash_ai_`, `_run_telemetry_`.
-
-**Headless harness map (`CombatRegressionHarness.run_all`):** Use **`godot --headless --path <project> -s res://scripts/run_combat_regression_harness.gd`**. **Exhaustive `_run_*` names** (depth polearm, Tier **1.6** targeting, doctrine, surround, intrusion harness notes) live in **[`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md)** — update that file when you add harness cases so this section stays short. **Grep in `combat/CombatRegressionHarness.gd`:** see **Regression index** above. Narrative + dated entries: **[Changelog](#changelog)**.
-
----
-
-### Option 4 expansion timing (after Tier 1.8)
-
-Doctrine-aware **Option 4** only after P9 stability: conservative defaults → one pilot flag → expand matrix after telemetry is clean (avoids early balance explosion).
-
----
-
-### Data points to track (must-have before broad testing)
-
-- Per-side **active alive count**; **front alive count** + **front fill ratio**; **resolved** vs **raw** mode (+ stable int codes `duel=0` / `skirmish=1` / `formation=2`).
-- **`incursion_allowed`**, **active intrusion count**, mode transition events with snapshot payload.
-- **`invalid_melee_resolve_blocked`** / **`invalid_close_resolve_blocked`** (`TacticalCombat.record_*`) when resolve paths violate **`can_melee_threaten`** / **`DISTANCE_LONG`**.
-
-If these are complete and stable in logs/harness, you are moving on the correct data points.
+**Later (post–1.8):** doctrine Option 4 expansion only after telemetry harnesses stay clean. **Telemetry fields** locked by **`_run_engagement_*`** / **`_run_telemetry_*`** (`TacticalCombat` counters, mode snapshots).
 
 ---
 
@@ -299,9 +214,11 @@ Canonical plug taxonomy + data dictionary → **`ENGAGEMENT_LINE_COHESION_INTRUS
 
 ---
 
+<a id="implementation-phase-gate"></a>
+
 ## Implementation phase gate
 
-**P3 status:** Tier **1.2** is **Done** in repo (intrusion slot writes, vacancy plug, harness checks). Use the **Tier 1.2** checklist below only when **re-auditing or changing P3**; otherwise jump to **[Tier 1.3 gate](#tier-13-gate-p4)** for the next implementation work.
+**Active coding** (flag **false**): none on Tier **4** (4.4 production default **on**). **Re-audit only** when changing P3/P4 slots or wedge — checklists below (Tier **1.2** / **1.3** **Done** in repo).
 
 ### Tier 1.2 gate (use when changing P3)
 
@@ -328,7 +245,7 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 1. Set the step’s **Status** in the [milestone summary](#milestone-summary) table above to **Done** (if fully complete).
 2. Update the corresponding rows in **`docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §2** so Done/Todo matches reality.
-3. Check off **exit criteria** for that step in this file when all bullets are true.
+3. Mark **exit criteria** for that step **Done** **[x]** in this file when shipped.
 4. **Tier 2** (`TACTICAL_ZONES_*`, `TACTICAL_FORMATIONS_FF4`): update only when this file’s Tier 2 table says so (e.g. **2.1** after **1.3+**, **2.2** after **1.2**) — do not maintain a parallel “next work” list there.
 
 ---
@@ -344,81 +261,30 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 ## Tier 3 — Melee depth (parry / weapon / guards)
 
-**Plans:** `PARRY_BIND_AND_WEAPON_GEOMETRY.md`, `PARRY_DEFLECT_AND_CALIBRATION.md`, `GUARDS_LINES_AFTERBLOW.md`
-
 | Step | Deliverable | Depends on |
 |------|-------------|------------|
-| 3.0 | Thrust vs swing **kinematic delivery** (archetype `kinematic_delivery` + optional `kinematic_mixed_blend`; `WeaponDamageHelper` velocity + KE paths; `WeaponSwingPhysics` for swing) | Tier 0 weapon stack (`WeaponConstants`, `ImpactVelocityModel`) |
-| 3.1 | Stable **distance + targeting** for parry/bands after P4 + **1.9** depth lanes: stamped **`effective_pair_*`**, **`strike_measure_ratio`**, pack flank parry spacing, optional sector surround (default **off**), depth-spear parry/closing invariants | **Done** — [Tier 3.1 exit criteria](#tier-31-strike-measure-stamped-geometry); Changelog **(m)–(af)**, **(cg)**; [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) (surround + wind-up / depth overlap). Optional: longer UI soaks; enable **`is_feature_sector_surround_load`** in production when signed off. | Tier 1.3; chain **11**; **Tier 4.1** / **4.2** **Done**; **4.3** next (**Tier 5.1** **Done**; optional long-tail **[ ]**) |
-| 3.2 | Parry / bind / deflect: weapon parts + contact modifiers, bind-riposte sets, opposite-line deflect thresholds, **`parry_clash_context`** (incl. **3.0** kinematics + **3.1** **`strike_measure_ratio`**), guard-line deflect severity, formation pair moves | **Done** — [Tier 3.2 exit criteria](#tier-32-parry-bind-deflect); historical detail in Changelog **2026-05-10**–**(cg)**. Optional: broader balance soaks after **3.0** strike-energy lock for production tuning. | 3.1; **3.0** before final production bind-energy tuning |
-| 3.3 | Guard line / afterblow — **Done** — [exit criteria](#tier-33-guard-line-afterblow): **`set_guard_from_move`** + **`AfterblowHandler`** harnesses + **`_run_hit_applier_sets_defender_guard_low_after_hit`**. | 3.2 |
+| 3.0 | Thrust vs swing **kinematic delivery** (`WeaponConstants`, `WeaponDamageHelper`, `WeaponSwingPhysics`) | Tier **0** weapons |
+| 3.1 | Strike measure + stamped pair geometry — **Done** · [exit](#tier-31-strike-measure-stamped-geometry) · [live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) | **1.3**; chain **11** |
+| 3.2 | Parry / bind / deflect + **`parry_clash_context`** — **Done** · [exit](#tier-32-parry-bind-deflect) · [live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) | **3.1**; **3.0** |
+| 3.3 | Guard line / afterblow — **Done** · [exit](#tier-33-guard-line-afterblow) · [live path](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) | **3.2** |
 
 <a id="tier-31-strike-measure-stamped-geometry"></a>
 
-### Tier 3.1 — Strike measure + stamped pair geometry (parry / distance consumers)
+### Tier 3.1 — Strike measure + stamped pair geometry
 
-**Goal:** Parry, distance bands, and calibration read the same **wedge/lane-aware** pair metrics as listing and resolve: stamped **`effective_pair_eff_dist`**, **`effective_pair_file_spacing_equivalent`**, **`strike_measure_ratio`**, depth-spear **`pa`** lane keys; optional **sector** surround path behind **`CombatConstants.is_feature_sector_surround_load`** (default **false**).
-
-**Primary modules:** `AvailableActionsBuilder.gd`, `AttackWindUpStarter.gd`, `AttackResolver.gd`, `CombatDistanceBands.gd`, `ZoneOfControl.gd`, `TacticalCombat.gd`, `DefenseChoiceResolver.gd`, `StrikePhysics.gd`, `DefenseResolutionHandler.gd`, `CombatConstants.gd`.
-
-**Exit criteria:**
-
-- [x] Wind-up **`pending_attack`** geometry keys match live builder (**`_run_windup_pending_attack_pair_geometry`**).
-- [x] **`STRIKE_MEASURE_*`** formula + post-stamp **`strike_measure_ratio`** on rank-0 and depth paths (**`_run_strike_measure_constants_sanity`**, wind-up harness rows; **`AttackResolver`** / wind-up stamp order after **`stamp_attack_pair_geometry_on_dict`**).
-- [x] Pack flank parry uses **`effective_pair_file_spacing_equivalent`** vs **`PARRY_FLANK_EFFECTIVE_FILES_MIN`** (**`_run_parry_pack_flank_effective_spacing`**).
-- [x] Sector surround harnesses + runtime toggle (**`_run_surround_*`**, **`_run_sector_surround_feature_flag_respects_runtime_toggle`** — Changelog **(af)**).
-- [x] Depth-spear parry / thrust closing invariants vs stamped **`pa`** (**`_run_depth_spear_*`**, **`_run_stamp_attack_pair_geometry_depth_*`** — Tier **1.9** [harness map](#tier-19--p10-depth-rank-polearm-reach--spear-lanes) overlap).
-
-**Regression index (grep-first):** `combat/CombatRegressionHarness.gd` — **`_run_windup_pending_attack_pair_geometry`**, **`_run_strike_measure_constants_sanity`**, **`_run_parry_pack_flank_effective_spacing`**, **`_run_surround_`**, **`_run_sector_surround_`**, **`_run_depth_spear_`**, **`_run_stamp_attack_pair_geometry_depth`**. Narrative + dated entries: **[Changelog](#changelog)** **(m)–(af)**, **(cg)**; surround + Tier **1.9** depth names in **[`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md)**.
-
-**Optional:** longer scheduled UI soaks; flip **`is_feature_sector_surround_load`** in production when design signs off.
+**Exit criteria:** **Done** **[x]** — [§3.1 live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) · registry (surround + depth stamp rows).
 
 <a id="tier-32-parry-bind-deflect"></a>
 
-### Tier 3.2 — Parry / bind / deflect (calibration + clash payloads)
+### Tier 3.2 — Parry / bind / deflect
 
-**Goal:** Weapon-part mass and contact model, bind-riposte contact data, deflect thresholds, defender-vs-attack modifiers, and **`parry_clash_context`** (full-stop + partial) carry stable calibration fields including Tier **3.0** strike kinematics and Tier **3.1** **`strike_measure_ratio`** when stamped; guard-line deflect blends follow margin severity; formation pair moves survive parry.
-
-**Primary modules:** `DefenseResolutionHandler.gd`, `DefenseChoiceResolver.gd`, `WeaponDamageHelper.gd`, `StrikeRealismProfile.gd`, `Weapon.gd` / `WeaponConstants.gd`, `GuardLineUpdater.gd`, `CombatLogFormatter.gd`, `AttackResolver.gd`, `AttackResultApplier.gd`, `CombatFormationFlow.gd` (pair moves).
-
-**Exit criteria:**
-
-- [x] Weapon part mass fractions, parry-part fallback, striking-part mass, blade strong fraction (**`_run_weapon_part_mass_model_normalized`**, **`_run_weapon_parry_part_selection_fallbacks`**, **`_run_weapon_striking_part_mass_model`**, **`_run_weapon_blade_strong_fraction`**).
-- [x] Bind-riposte contact sets + speed multipliers (**`_run_bind_riposte_contact_types_normalized`**, **`_run_bind_riposte_contact_multipliers`**).
-- [x] Opposite-line deflect thresholds + defender weapon × attack contact modifiers (**`_run_parry_opposite_deflect_thresholds`**, **`_run_parry_defender_vs_attack_modifiers`**).
-- [x] **`parry_clash_context`** full-stop + partial key sets vs resolver + **3.0** / **3.1** fields (**`_run_parry_clash_context_calibration_fields`**, **`_run_parry_partial_clash_context_calibration_fields`**, **`_run_parry_deflect_formatter_clash_context_branches`**, **`_run_parry_partial_formatter_clash_context_branches`**).
-- [x] **`action_resolved`** payloads + **`hit`** clears stale calibration (**`_run_action_resolved_parry_deflect_payload_includes_clash_context`**, **`_run_action_resolved_parry_partial_payload_includes_clash_context`**, **`_run_hit_clears_attacker_parry_calibration_fields`**).
-- [x] Bind-riposte alignment flags vs **`parry_control`** (**`_run_parry_partial_bind_riposte_flags_when_aligned`**).
-- [x] **`CombatConstants.parry_control_for_bind_deflect`** formula (**`_run_parry_control_bind_deflect_formula`**).
-- [x] **`GuardLineUpdater.set_guard_deflected`** severity from margin ratio (**`_run_guard_line_deflected_severity_from_margin_ratio`**).
-- [x] Formation pair / swap-rank invariants with parry (**`_run_parry_preserves_formation_pair_state`**, **`_run_cancel_stale_swap_rank_resolve_events`**, **`_run_swap_rank_resolve_completes_rank_swap`**).
-
-**Regression index (grep-first):** `combat/CombatRegressionHarness.gd` — **`_run_parry_`**, **`_run_bind_riposte_`**, **`_run_weapon_part_mass_model_normalized`**, **`_run_weapon_parry_part_selection_fallbacks`**, **`_run_weapon_striking_part_mass_model`**, **`_run_weapon_blade_strong_fraction`**, **`_run_guard_line_deflected_severity_from_margin_ratio`**, **`_run_action_resolved_parry_`**, **`_run_hit_clears_attacker_parry_calibration_fields`**. Full-stop key list: **`PARRY_CLASH_CONTEXT_KEYS_FULL_STOP`** in this file. Narrative: **[Changelog](#changelog)** (search **parry**, **bind**, **clash**, **weapon part**).
-
-**Optional:** longer balance soaks; final strike-energy production tuning after **3.0** lock-in for bind/deflect feel.
+**Exit criteria:** **Done** **[x]** — [§3.2 live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) · investigations → [`PARRY_DEFLECT_AND_CALIBRATION.md`](PARRY_DEFLECT_AND_CALIBRATION.md).
 
 <a id="tier-33-guard-line-afterblow"></a>
 
-### Tier 3.3 — Guard line dynamics + afterblow (shipped paths + harness)
+### Tier 3.3 — Guard line + afterblow
 
-**Goal:** `GuardLineUpdater` keeps **`guard_line`** / **`guard_zone`** aligned with move outcomes; **`AfterblowHandler`** gates completing a defender’s **`pending_attack`** after being hit (`AttackResultApplier` → **`try_afterblow`**), using hybrid hindrance vs **`AFTERBLOW_*`** constants.
-
-**Primary modules:** `GuardLineUpdater.gd`, `AfterblowHandler.gd`, `AttackResultApplier.gd`, `AttackResolver.gd` (**`afterblow_damage_mult`**), `CombatConstants.gd` (**`AFTERBLOW_*`**, **`LINE_TO_DEFAULT_PART`**).
-
-**Exit criteria:**
-
-- [x] **`GuardLineUpdater.set_guard_from_move`** stamps **`guard_line`** from move **`attack_line`** and syncs **`guard_zone`** (**`_run_guard_from_move_sets_guard_line_and_zone`**).
-- [x] **`AfterblowHandler.try_afterblow`** early outs: empty **`pending_attack`**, non-**`wind_up`** state (**`_run_afterblow_no_pending_returns_false`**, **`_run_afterblow_wrong_state_returns_false`**).
-- [x] **`deflected`** → **`_execute_afterblow`** (**hindrance 0**, **`afterblow_damage_mult` 1.0**) → **`CombatManager._execute_attack`** through **`AttackResolver`** / **`AttackResultApplier`** — harness **`_run_afterblow_deflected_triggers_full_resolve_hit`** (**`seed(1)`**, **`recovery_cause` == `attack_hit`**, meta **`_harness_last_afterblow_damage_mult`**).
-- [x] Low hindrance (**≤ `AFTERBLOW_HINDRANCE_ALLOW`**) allow branch → **`_execute_afterblow`** with **hindrance > 0** (stamps **`afterblow_damage_mult` 0.8** before resolve) — harness **`_run_afterblow_low_hindrance_allow_triggers_resolve_hit`** (same fixed seed + **`attack_hit`** + meta assert).
-- [x] Middle hindrance (**`AFTERBLOW_HINDRANCE_ALLOW` < h < `AFTERBLOW_HINDRANCE_BLOCK`**) + **`randf() < hindrance`** → **`_cancel_pending`**, **`try_afterblow` false** — **`_run_afterblow_mid_hindrance_rand_cancel`** (**`seed(2)`**, chest **`final_cut` 11.25** → **h = 0.45**).
-- [x] Same middle hindrance + **`randf() ≥ hindrance`** → **`_execute_afterblow`** (**`afterblow_damage_mult` 0.55**) + **`attack_hit`** — **`_run_afterblow_mid_hindrance_rand_executes_hit`** (**`seed(0)`**).
-- [x] Hindrance ≥ **`AFTERBLOW_HINDRANCE_BLOCK`** clears **`pending_attack`**, sets **`STATE_RECOVERING`**, **`state_duration`** = **`AFTERBLOW_CANCELLED_RECOVERY_S`** (**`_run_afterblow_hindrance_block_cancels_pending`** — no **`_execute_attack`** on this branch).
-- [x] Hit reaction sets defender guard low via **`GuardLineUpdater.set_guard_from_line`** in **`AttackResultApplier`** — harness **`_run_hit_applier_sets_defender_guard_low_after_hit`**.
-
-**Regression index (grep-first):** `combat/CombatRegressionHarness.gd` — **`_run_guard_from_move_`**, **`_run_afterblow_`**, **`_run_hit_applier_sets_defender_guard_low_after_hit`**, plus **`_run_guard_line_deflected_severity_from_margin_ratio`** (Tier **3.2** deflect blend). Narrative: **`GUARDS_LINES_AFTERBLOW.md`** (top **Reading guide** / **Live path**) + [Changelog](#changelog) **2026-05-13 (f)**, **(g)**, **(h)**, **(i)**, **(j)**, **(k)**.
-
-**Optional:** if Godot / RNG changes break fixed seeds **`CombatRegressionHarness._AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED`** (**0**), **`_AFTERBLOW_EXECUTE_HIT_SEED`** (**1**), or **`_AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED`** (**2**), re-pick **`seed(n)`** (or temporarily restore a bounded seed search in the harness).
+**Exit criteria:** **Done** **[x]** — [§3.3 live path](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) · registry Tier **3.3** (afterblow seeds **0 / 1 / 2** if RNG drifts).
 
 ---
 
@@ -430,88 +296,22 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 | Step | Deliverable | Depends on |
 |------|-------------|------------|
-| 4.1 | **Done** — [exit criteria](#tier-41-posture--stance-weights-ai-listing): formation **posture** + **line cohesion** on our listed-hostile weights (**`CombatTargetScoring.posture_cohesion_targeting_mult`**); **opponent** formation posture+cohesion; combatant **stance** **`ai_melee_focus`** → **`stance_ai_targeting_mult`**; crash intrusion listing × **`CombatAIActionPicker._crash_weight_posture_mult`**. Harnesses **`_run_ai_targeting_stance_mult_ordering`**, **`_run_crash_ai_posture_mult_with_cached_fd`** ([registry](REGRESSION_HARNESS_MAP_TIER19.md)). | After **1.4**; **1.5** optional before tuning |
-| 4.2 | **Done** — [exit criteria](#tier-42-feint-d-telegraph-ai): Feint D wind-up **`feint_part`** / **`target_part`** on **`pending_attack`** + defender **`guard_zone`** + **`incoming_attack_telegraph_part`** (cleared when pending ends); **`DefenseChoiceResolver._guard_zone_modifier`** bait vs readjust + passive read-through vs telegraph (**`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`**, stance **`feint_readthrough`**); **`DefenseChoiceResolver.choose_defense`** may bias **`dodge_eval_part`** toward **`feint_part`** when defender does not read through (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS`**, harness **`CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS`**) — **`_run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough`**; non-empty **`feint_part`** passive-parry **`effective_wind_up`** (**`CombatConstants.COMMITMENT_FRACTION_FEINT`**, **`commitment_fraction_for_pending_attack`** — **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry`**); AI **`is_feint`** moves pick distinct **`feint_part`** vs **`target_part`** when multiple parts targetable; **`opts_from_choice`** + non-**`is_feint`** **`_add_attack_target_part`** guards; optional **`WeaponConstants`** move **`feint_windup_duration_mult`** on **`is_feint`** attacks (**`AttackWindUpStarter`** extends **`state_duration`** / **`pa.wind_up_duration`** — **`_run_feint_windup_duration_mult_extends_state_duration_vs_oberhau`**); **`CombatAIActionPicker._get_action_weight`** × **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** × **`lerpf(1, AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, passive_parry_readiness × passive_parry_readiness_incoming_contact_mult)`** × **`get_stance_modifier(attacker, "ai_feint_listing")`** × low-stamina feint dampening (**`AI_FEINT_LISTING_STAMINA_GATE`**, **`AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO`**) × **`probing`** / **`pinch_center`** / **`hold_lane`** doctrine (**`AI_FEINT_LISTING_DOCTRINE_PROBING_MULT`**, **`AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT`**, **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`**, **`CombatDoctrine.doctrine_for_fid`**) for **`WeaponConstants.is_feint_move`** attacks (not **`MOVE_ID_ATTEMPT_CLOSE`**) — **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard`**, **`_run_feint_move_listing_readiness_recovery_curve_when_defender_recovering`**, **`_run_feint_move_listing_stamina_low_dampens_feint_weight`**, **`_run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp`**, **`_run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult`**, **`_run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult`**, **`_run_feint_move_listing_doctrine_probing_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default`**, **`_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight`**, **`_run_feint_move_listing_defender_off_balance_boosts_feint_weight`**, **`_run_feint_move_listing_stance_ai_feint_mult_ordering`**. Harnesses (**`_run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut`**, **`_run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_feint`**, **`_run_feint_windup_*`**, **`_run_feint_guard_zone_modifier_*`**, **`_run_feint_guard_zone_readthrough_*`**, **`_run_feint_move_ai_distinct_feint_and_target_parts`**, **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard`**, **`_run_feint_move_listing_readiness_recovery_curve_when_defender_recovering`**, **`_run_feint_move_listing_stamina_low_dampens_feint_weight`**, **`_run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp`**, **`_run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult`**, **`_run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult`**, **`_run_feint_move_listing_doctrine_probing_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default`**, **`_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight`**, **`_run_feint_move_listing_defender_off_balance_boosts_feint_weight`**, **`_run_feint_move_listing_stance_ai_feint_mult_ordering`**, **`_run_feint_opts_from_choice_and_non_feint_attack_no_feint_part`**). Counter-tempo + riposte + feint/footwork/spacing exits **(qq)–(rak)**. Investigations without exit rows → [Tier 4.3](#tier-43-mental-stack--combat-attention) + [Tier 4.4](#tier-44-spatial-footwork-deferred) (deferred). | 4.1 |
-| 4.3 | **Done** — [exit criteria](#tier-43-mental-stack--combat-attention): salience probes → combat attention (**`focus_part`**, **`focus_intensity`**, load) → AI mental stack layers → yomi / guard tendency. Design depth: **`AI_ENGAGEMENT_STANCE_AND_FEINTS.md`** [mental stack investigation](#mental-stack-engagement-investigation) + [implementation comparison](#mental-stack-implementation-comparison). | **4.2** **Done**; **4.1**; Tier **3.3** afterblow (optional layer); medical (**Tier 6** independent) |
-| 4.4 | **Deferred** — [Tier 4.4](#tier-44-spatial-footwork-deferred): symmetric **position-angle** footwork / step-on-attack (investigation FOOTWORK §3.3–3.4); not required for mental-stack pillar. | **4.3** recommended first; Tier **5** optional angle work |
+| 4.1 | **Done** — [exit criteria](#tier-41-posture--stance-weights-ai-listing) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path) | After **1.4**; **1.5** optional |
+| 4.2 | **Done** — [exit](#tier-42-feint-d-telegraph-ai) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-shipped) | **4.1** |
+| 4.3 | **Done** — [exit criteria](#tier-43-mental-stack--combat-attention) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-43-mental-stack--combat-attention-live-path) | **4.2**; **4.1**; medical (**Tier 6**) independent |
+| 4.4 | **Done** — [exit criteria](#tier-44-spatial-footwork-deferred) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path); grep **`_run_footwork_`**; flag default **on** | **4.3**; Tier **5** optional |
 
 <a id="tier-41-posture--stance-weights-ai-listing"></a>
 
 ### Tier 4.1 — Posture + stance weights (AI listing)
 
-**Goal:** AI attack / close weights reflect formation line posture and cohesion, individual stance aggression, and (for crash) line posture — without duplicating Tier **1.6** hostile-pair geometry elsewhere.
-
-**Primary modules:** `CombatTargetScoring.gd` (**`ai_targeting_weight_mult`**, **`posture_cohesion_targeting_mult`**, **`opponent_formation_targeting_mult`**, **`stance_ai_targeting_mult`**), `CombatAIActionPicker.gd` (**`_crash_weight_posture_mult`**, **`pick`** / **`_get_action_weight`**), `CombatConstants.gd` (**`STANCE_MOD_AI_MELEE_FOCUS`**, **`CRASH_AI_POSTURE_*_EXTRA_MULT`**, …).
-
-**Exit criteria:**
-
-- [x] **Our** formation posture + cohesion scale listed-hostile targeting (**`posture_cohesion_targeting_mult`** — Tier **1.6**; intruder-aware **`formation_dict_for_zone_geometry`**).
-- [x] **Opponent** formation posture + cohesion hedge / press on listed weights (**`opponent_formation_targeting_mult`**).
-- [x] **Stance** (**`ai_melee_focus`**) monotonic ordering defensive < balanced < aggressive (**`_run_ai_targeting_stance_mult_ordering`**).
-- [x] Crash listing weight × posture mult vs **`CRASH_AI_POSTURE_*`** with cached formation dict (**`_run_crash_ai_posture_mult_with_cached_fd`**).
-
-**Regression index (grep-first):** `combat/CombatRegressionHarness.gd` — **`_run_ai_targeting_stance_mult_ordering`**, **`_run_crash_ai_posture_mult_with_cached_fd`**; broader AI / targeting: **`_run_ai_targeting_`**, **`_run_targeting_`**, **`_run_crash_ai_`**. Narrative: **`AI_ENGAGEMENT_STANCE_AND_FEINTS.md`** (top **Shipped (4.1)**) + [Changelog](#changelog) **(l)**.
+**Exit criteria:** **Done** **[x]** — [§4.1 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path) · registry Tier **4.1** / **1.6**.
 
 <a id="tier-42-feint-d-telegraph-ai"></a>
 
 ### Tier 4.2 — Feint D (telegraph) + AI feint picks
 
-**Goal:** Defender reacts to the telegraphed part at wind-up start; **`is_feint`** attacks can carry a **`feint_part`** separate from the real **`target_part`**; AI assigns both when the move definition marks **`is_feint`**.
-
-**Primary modules:** `CombatManager.gd` (**`start()`** scrubs **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** and **`COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`** on every combatant), `AttackWindUpStarter.gd` (options → **`pending_attack`** + defender **`guard_zone`** + **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`**; optional **`feint_windup_duration_mult`** / **`feint_target_reveal_at_progress`** on **`is_feint`** moves; clear via **`clear_incoming_attack_telegraph_from_pa`** when **`pending_attack`** ends or is replaced), `DefenseChoiceResolver.gd` (**`choose_defense`** telegraph **`dodge_eval_part`** bias vs **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS`**; incoming **`contact_type`** → **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** on passive readiness after **`PassiveParryContext.get_passive_parry_readiness`**; defender **`stamina`** → **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** (**`DefenseChoiceResolver._defender_passive_readiness_stamina_mult`**) on reported **`parry_readiness`** / feint dodge telegraph / guard-zone passive paths (**`STAMINA_AT_ZERO_PARRY_MULT`** × **`stamina_factor`**, not folded into the **`pr_base`** factor in **`parry_c_d *= parry_capacity_mult * pr_base`**; reported **`parry_readiness`** and passive-parry guard-angle wobble share **`_feint_readiness_reveal_mult`** with dodge-telegraph / guard-zone feint paths); non-empty **`feint_part`** on **`pa`** → **`CombatConstants.commitment_fraction_for_pending_attack`** (**`COMMITMENT_FRACTION_FEINT`** vs **`COMMITMENT_FRACTION`**) for passive parry **`effective_wind_up`** (**`DefenseResolutionHandler`** parry-twist arc progress matches); pair **`distance_to[attacker]`** band → **`DEFENSE_SPACING_*`** on **`parry_c_d`** / **`dodge_chance`**; while **`STATE_RECOVERING`**, reported **`dodge_chance`** also × **`defense_footwork_recovering_dodge_mult_for_cause`** (**`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE`**, after spacing; not **`parry_c_d`**); same band scales feint dodge telegraph **`dodge_eval_part`** bias (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**, **`_feint_telegraph_dodge_spacing_mult`**; **`_feint_readiness_reveal_mult`** (early wind-up vs **`feint_target_reveal_at_progress`**); AI feint-move listing defender-readiness lerp (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**, **`CombatConstants.ai_feint_listing_defender_readiness_spacing_mult`**); **`_guard_zone_modifier`** passive read-through gate vs pair spacing (**`FEINT_GUARD_ZONE_READINESS_SPACING_*`**, **`feint_guard_zone_readiness_spacing_mult`**, attacker id from **`choose_defense`**); **`_feint_guard_reads_real_line`** — feint bait vs readjusted **`guard_zone`** vs passive read-through from **`choose_defense`** readiness), `CombatConstants.gd` (**`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`**, **`FEINT_PRE_REVEAL_READINESS_MULT`**, **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS`**, **`PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS`**, **`COMMITMENT_FRACTION`**, **`COMMITMENT_FRACTION_FEINT`**, **`commitment_fraction_for_pending_attack`**, **`DEFENSE_SPACING_PARRY_MULT_CLOSE`**, **`DEFENSE_SPACING_PARRY_MULT_LONG`**, **`DEFENSE_SPACING_DODGE_MULT_LONG`**, **`DEFENSE_SPACING_DODGE_MULT_CLOSE`**, **`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT`**, **`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE`**, **`defense_footwork_recovering_dodge_mult_for_cause`**, **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`**, **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**, **`AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT`**, **`ai_feint_listing_defender_recovering_footwork_mult_for_cause`**, **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_CLOSE`**, **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_LONG`**, **`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_CLOSE`**, **`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_LONG`**, **`FEINT_GUARD_ZONE_READINESS_SPACING_MULT_CLOSE`**, **`FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG`**, **`defender_distance_band_to_attacker_id`**, **`PASSIVE_PARRY_READINESS_INCOMING_CUT_MULT`**, **`PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT`**, **`PASSIVE_PARRY_READINESS_INCOMING_BLUNT_MULT`**, **`AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`**, **`AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT`**, **`AI_FEINT_LISTING_STAMINA_GATE`**, **`AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO`**, **`AI_FEINT_LISTING_DOCTRINE_PROBING_MULT`**, **`AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT`**, **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`**, **`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_PRESSURE_TOP_MULT`**, **`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_RECENCY_TICKS`**, **`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`**, **`COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`**, **`STANCE_MOD_AI_FEINT_LISTING`**, **`STANCE_MOD_FEINT_READTHROUGH`**, **`get_stance_modifier(..., "feint_readthrough" | "ai_feint_listing")`**), `CombatAIActionPicker.gd` (**`_add_attack_target_part`**, **`_get_action_weight`** feint-move listing mult × **`PassiveParryContext.get_passive_parry_readiness`** × **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** × **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** on target × attacker stance **`ai_feint_listing`** × low-stamina dampening × **`CombatDoctrine.doctrine_for_fid`** **`probing`** / **`pinch_center`** / **`hold_lane`** × defender footwork on feint listing (**`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** / **`ai_feint_listing_defender_recovering_footwork_mult_for_cause`** / **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**) × recent **`parry_deflect`** pressure, `CombatDoctrine.gd` (**`doctrine_for_fid`**), `WeaponConstants.gd` (**`is_feint_move`**, **`oberhau_feint`**, **`thrust_feint`**, per-move **`feint_windup_duration_mult`**, **`feint_target_reveal_at_progress`**), `CombatResolveAction.gd` / **`opts_from_choice`** path (player + AI **`feint_part`** forwarding — existing), `AttackResultApplier.gd` / **`AttackResolver.gd`** / **`CombatStateHandlers.complete_recovery`** (pending clear + telegraph erase; **`parry_deflect`** / **`hit`** feint-memory hooks).
-
-**Exit criteria:**
-
-- [x] **`AttackWindUpStarter.start(..., move_id, { target_part, feint_part })`** stamps **`pending_attack.target_part`** / **`feint_part`** and sets defender **`guard_zone`** to **`feint_part`** when present — harnesses **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone`** (cut **`oberhau_feint`**) + **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust`** (stab **`thrust_feint`**, incl. **`feint_windup_duration_mult`** stamp) (**`CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED`** for stable upstream wind-up rolls).
-- [x] **`AttackWindUpStarter.start`** with **`target_part`** only (no **`feint_part`**) sets defender **`guard_zone`** to **`target_part`** on non-feint cut — harness **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target`** (**`_FEINT_WINDUP_TARGET_ONLY_HARNESS_SEED`**) + stab parallel **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target_thrust`**.
-- [x] **`WeaponConstants`** **`thrust_feint`** **`feint_windup_duration_mult`** extends **`AttackWindUpStarter.start`** wind-up vs honest **`thrust`** at the same seed; stamps **`pending_attack.feint_windup_duration_mult`** / **`feint_target_reveal_at_progress`** — harness **`_run_feint_windup_duration_mult_extends_state_duration_vs_thrust`** (**`_FEINT_WINDUP_HARNESS_SEED`**).
-- [x] **`CombatAIActionPicker._add_attack_target_part`** on **`oberhau_feint`** yields non-empty **`feint_part` ≠ `target_part`** for some global seed in **0..4095** — harness **`_run_feint_move_ai_distinct_feint_and_target_parts`**; same for **`thrust_feint`** — **`_run_feint_move_ai_distinct_feint_and_target_parts_thrust`**.
-- [x] **`CombatAIActionPicker.opts_from_choice`** includes **`feint_part`** only when non-empty; omits it for normal attacks and for empty string — harness **`_run_feint_opts_from_choice_and_non_feint_attack_no_feint_part`**.
-- [x] **`CombatAIActionPicker._add_attack_target_part`** on non-**`is_feint`** **`oberhau`** does not set a non-empty **`feint_part`** — same harness.
-- [x] **`DefenseChoiceResolver._guard_zone_modifier`**: feint telegraph mismatch → **`GUARD_ZONE_UNGUARDED_PENALTY`**; defender readjusts **`guard_zone`** to resolved line → bonus — harness **`_run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readjust_bonus`** (asserts **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** on wind-up harnesses).
-- [x] Second **`AttackWindUpStarter.start`** without resolve clears prior defender telegraph before restamping **`pending_attack`** — harness **`_run_feint_second_windup_clears_prior_telegraph_before_restamp`**.
-- [x] **`CombatManager.start`** scrubs **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** on all combatants — harness **`_run_feint_telegraph_scrubbed_on_combat_manager_restart`**.
-- [x] Passive feint read-through: high **`parry_readiness`** × stance **`feint_readthrough`** vs **`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** lets **`_guard_zone_modifier`** treat guard focus as the real hit line despite telegraph **`guard_zone`** — harness **`_run_feint_guard_zone_readthrough_par_bonus_when_readiness_high`** (omit readiness arg → legacy static / harness calls unchanged).
-- [x] **`DefenseChoiceResolver.choose_defense`**: when **`feint_part`** is set and defender does not read through (**`PassiveParryContext.get_passive_parry_readiness`** × stance **`feint_readthrough` < `FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`**), **`dodge_eval_part`** may follow the telegraph at **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS`** (harness **`CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS`** override) — harness **`_run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough`** (**`(qc)`**).
-- [x] **`CombatAIActionPicker._get_action_weight`**: for non-**`MOVE_ID_ATTEMPT_CLOSE`** actions where **`WeaponConstants.is_feint_move(move_id)`**, weight scales by **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** vs same-target non-feint counterpart — harnesses **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau`**, **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust`** (**`(qd)`**).
-- [x] Same path: feint listing also scales by **`lerpf(1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_def)`** where **`pr_def`** = **`clampf(get_passive_parry_readiness(defender) × passive_parry_readiness_incoming_contact_mult(move contact_type) × CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(stamina/STAMINA_MAX), 0, 1)`** (WAITING readiness from **`guard`**) — harnesses **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard`** (**`oberhau`**) + **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard_thrust`** (**`thrust`**) (**`(qe)`**).
-- [x] Same path: attacker **`CombatConstants.get_stance_modifier(stance, "ai_feint_listing")`** (**`STANCE_MOD_AI_FEINT_LISTING`**) — controlling **>** defensive feint/plain ratio at pinned defender **`guard`** **0** — harness **`_run_feint_move_listing_stance_ai_feint_mult_ordering`** (**`(qf)`**).
-- [x] Same path: defender **`STATE_RECOVERING`** — readiness from **`CombatConstants.READINESS_BY_CAUSE`** via **`PassiveParryContext.get_passive_parry_readiness`** — harness **`_run_feint_move_listing_readiness_recovery_curve_when_defender_recovering`** (**`(qg)`**).
-- [x] Same path: low attacker **`stamina / STAMINA_MAX`** dampens feint listing only (**`AI_FEINT_LISTING_STAMINA_GATE`**, **`AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO`**) — harness **`_run_feint_move_listing_stamina_low_dampens_feint_weight`** (**`(qh)`**).
-- [x] Same path: low stamina stacks with **`hold_lane`** feint doctrine damp (**`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`**) — harness **`_run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp`** (**`(ql)`**).
-- [x] Same path: low stamina stacks with **`probing`** feint doctrine mult (**`AI_FEINT_LISTING_DOCTRINE_PROBING_MULT`**) — harness **`_run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult`** (**`(qm)`**).
-- [x] Same path: low stamina stacks with **`pinch_center`** feint doctrine mult (**`AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT`**) — harness **`_run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult`** (**`(qn)`**).
-- [x] Same path: formation doctrine **`probing`** multiplies feint listing (**`AI_FEINT_LISTING_DOCTRINE_PROBING_MULT`**, **`CombatDoctrine.doctrine_for_fid`**) — harness **`_run_feint_move_listing_doctrine_probing_multiplies_feint_weight`** (**`(qi)`**).
-- [x] Same path: formation doctrine **`pinch_center`** multiplies feint listing (**`AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT`**, **`CombatDoctrine.doctrine_for_fid`**) — harness **`_run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weight`** (**`(qj)`**).
-- [x] Same path: formation doctrine **`hold_lane`** dampens feint listing (**`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`**, **`CombatDoctrine.doctrine_for_fid`**) — harnesses **`_run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default`**, probing/pinch second-phase **`hold_lane`** asserts (**`(qk)`**).
-- [x] Same path: recent defender **`parry_deflect`** vs this attacker (**`AttackResultApplier`** → **`CombatAIActionPicker.record_opp_parry_deflect_for_feint_listing`**, **`CombatManager.get_combat_tick_index`**, **`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_*`**, **`COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`**; **`hit`** clears via **`clear_feint_listing_opp_parry_deflect_for_target`**) — harness **`_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight`** (**`(qo)`**).
-- [x] Same path: defender **`off_balance_until`** / **`PassiveParryContext.is_off_balance`** boosts feint-move listing vs that defender (**`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`**) — harness **`_run_feint_move_listing_defender_off_balance_boosts_feint_weight`** (**`(qp)`**).
-- [x] Footwork / tempo — recovering defender (**`STATE_RECOVERING`**) gets **`CombatConstants.DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT`** on reported **`dodge_chance`** in **`DefenseChoiceResolver.choose_defense`** (after pair **`distance_to`** spacing; orthogonal to passive-readiness curves on **`parry_c_d`**) — harness **`_run_defense_footwork_recovering_boosts_dodge_vs_waiting`** (**`(qzr)`**).
-- [x] Footwork / tempo — **`recovery_cause`** selects **`CombatConstants.defense_footwork_recovering_dodge_mult_for_cause`** (**`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE`**, fallback **`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT`**) on reported **`dodge_chance`** while **`STATE_RECOVERING`** — harness **`_run_defense_footwork_recovery_cause_orders_recovering_dodge_mult`** (**`(qzs)`**).
-- [x] Footwork / tempo — **`STATE_RECOVERING`** + pair **`distance_to`**: **`DEFENSE_SPACING_DODGE_MULT_LONG`** / **`DEFENSE_SPACING_DODGE_MULT_CLOSE`** multiply reported **`dodge_chance`** before **`defense_footwork_recovering_dodge_mult_for_cause`** (same stack order as WAITING spacing) — harness **`_run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_close`** (**`(qzt)`**).
-- [x] Footwork / pair spacing (reads **`CombatDistanceBands`** snapshot **`distance_to[attacker]`** on defender, no angle deltas): LONG damps passive **`parry_c_d`**, LONG boosts **`dodge_chance`**, CLOSE slightly buffs **`parry_c_d`** vs MID — **`DefenseChoiceResolver`** + **`CombatConstants.DEFENSE_SPACING_*`** — harness **`_run_defense_spacing_band_modulates_parry_and_dodge`** (**`(qq)`**).
-- [x] Incoming **`contact_type`** (stab/cut/blunt) scales passive parry readiness after **`PassiveParryContext.get_passive_parry_readiness`** in **`DefenseChoiceResolver.choose_defense`** and feint-move listing readiness in **`CombatAIActionPicker._get_action_weight`** (**`CombatConstants.passive_parry_readiness_incoming_contact_mult`**, **`PASSIVE_PARRY_READINESS_INCOMING_*_MULT`**); **`WeaponConstants`** stab feint **`thrust_feint`** on **SWORD** — harnesses **`_run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut`**, **`_run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_feint`** (**`(qr)`**).
-- [x] Defender low **`stamina`**: passive-readiness **reporting** (**`parry_readiness`**, feint dodge telegraph path, guard-zone modifier) scales by **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** (**`DefenseChoiceResolver._defender_passive_readiness_stamina_mult`** delegates; **`lerpf(STAMINA_AT_ZERO_PARRY_MULT, 1.0, stamina_factor(ratio))`**) without applying stamina inside the **`pr_base`** term used in **`parry_c_d *= parry_capacity_mult * pr_base`** — harness **`_run_defender_low_stamina_scales_passive_parry_readiness_in_choose_defense`** (**`(qs)`**).
-- [x] Feint-move listing: defender readiness lerp input uses **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** after passive × incoming **`contact_type`** (attacker **`AI_FEINT_LISTING_STAMINA_*`** dampening unchanged) — harness **`_run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina`** (**`(qt)`**).
-- [x] Same path: defender low stamina (**`read_m`**) × attacker low stamina (**`AI_FEINT_LISTING_STAMINA_*`**) multiply orthogonally on feint weight — harness **`_run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally`** (**`(qu)`**).
-- [x] **`DefenseChoiceResolver.choose_defense`** / **`DefenseResolutionHandler`**: non-empty **`feint_part`** on **`pa`** uses **`CombatConstants.COMMITMENT_FRACTION_FEINT`** via **`commitment_fraction_for_pending_attack`** — shorter passive-parry **`effective_wind_up`** than plain **`COMMITMENT_FRACTION`** at the same **`wind_up_duration`** — harnesses **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry`** (**`oberhau`** / **`oberhau_feint`**) + **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust`** (**`thrust`** / **`thrust_feint`**) (**`(qw)`**).
-- [x] Pair **`distance_to[attacker]`** (via **`CombatConstants.defender_distance_band_to_attacker_id`**) also scales feint-specific paths beyond **`DEFENSE_SPACING_*`**: dodge telegraph **`dodge_eval_part`** bias (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**, harnesses **`_run_feint_telegraph_spacing_*`**); AI feint-move listing defender-readiness lerp (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**, harnesses **`_run_feint_move_listing_spacing_*`**); passive read-through gate inside **`_guard_zone_modifier`** (**`FEINT_GUARD_ZONE_READINESS_SPACING_*`**, harnesses **`_run_feint_guard_zone_readthrough_spacing_*`**) — (**`(qx)`**).
-- [x] Feint listing spacing (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**) applies when defender **`STATE_RECOVERING`** (**`READINESS_BY_CAUSE`**, same ratio math as WAITING) — harnesses **`_run_feint_move_listing_spacing_long_dampens_vs_mid_when_defender_recovering`**, **`_run_feint_move_listing_spacing_close_boosts_vs_mid_when_defender_recovering`** (**`(qzu)`**).
-- [x] Footwork / tempo — settled **`STATE_WAITING`** (not off-balance) gets **`CombatConstants.DEFENSE_FOOTWORK_WAITING_DODGE_MULT`** on reported **`dodge_chance`** after spacing; recovering harness baselines use off-balance WAITING — harnesses **`_run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balance`**, **`_run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_close`** (**`(qzv)`**).
-- [x] Feint listing — settled **`STATE_WAITING`** (not off-balance) dampens feint-move listing (**`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**, inverse pressure to defender dodge footwork; mutually exclusive with **`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`**) — harness **`_run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance`** (**`(qzw)`**).
-- [x] Feint listing — **`STATE_RECOVERING`** (not off-balance) dampens feint-move listing (**`AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT`**, inverse pressure to base **`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT`** on dodge; mutually exclusive with off-balance / settled waiting footwork) — harness **`_run_feint_move_listing_recovering_footwork_dampens_vs_settled_waiting`** (**`(qzx)`**).
-- [x] Feint listing — **`recovery_cause`** on **`STATE_RECOVERING`** selects **`CombatConstants.ai_feint_listing_defender_recovering_footwork_mult_for_cause`** (inverse of **`defense_footwork_recovering_dodge_mult_for_cause`**) — harness **`_run_feint_move_listing_recovery_cause_orders_recovering_footwork_mult`** (**`(qzy)`**).
-- [x] Feint listing — recovering **`read_m`** (spacing in **`pr_def`**) × per-cause footwork multiply orthogonally on **`STATE_RECOVERING`** — harness **`_run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally`** (**`(qzz)`**).
-- [x] Counter-tempo pilot — incoming wind-up opens **`COMBATANT_KEY_COUNTER_WINDOW_UNTIL`**; defender melee at **`COUNTER_TEMPO_GAUGE_THRESHOLD`**+ spends **`COUNTER_TEMPO_GAUGE_COST`**, shorter wind-up (**`COUNTER_TEMPO_WINDUP_MULT`**), defers incoming **`EVENT_MELEE_ATTACK`** — harnesses **`_run_counter_tempo_window_opens_on_incoming_wind_up`**, **`_run_counter_tempo_lists_melee_actions_when_window_open`**, **`_run_counter_tempo_spend_gauge_subtracts_cost`**, **`_run_counter_tempo_defers_incoming_melee_until_after_counter_wind_up`**, **`_run_counter_tempo_abort_cancels_pending_incoming_melee`**, **`_run_counter_tempo_wind_up_stamps_pa_and_shortens_duration`** (**`(raa)`**–**(raf)`**).
-- [x] Counter-tempo AI listing — **`CounterTempo.counter_tempo_listing_weight_mult`** on **`CombatAIActionPicker._get_action_weight`** (**`AI_COUNTER_TEMPO_LISTING_WEIGHT_MULT`**, incoming-target + feint damp) — harness **`_run_counter_tempo_ai_listing_boosts_counter_and_prefers_plain_over_feint`** (**`(rag)`**).
-- [x] Riposte chain — **`CounterTempo.grant_riposte_chain`** on **`parry_deflect`**; next wind-up vs that attacker × **`RIPOSTE_CHAIN_WINDUP_MULT`** (**`AttackWindUpStarter`**, stamps **`pa.riposte_chain`**, consumes window) — harness **`_run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain`** (**`(rah)`**).
-- [x] Counter-tempo Approach B — **`COUNTER_TEMPO_MIN_INCOMING_WINDUP_PROGRESS`** gates **`can_act`** / listing until incoming wind-up is committed; **`process_waiting`** schedules ready + UI hint — harnesses **`_run_counter_tempo_progress_gate_blocks_can_act_until_half_wind_up`**, **`_run_counter_tempo_process_waiting_schedules_ready_when_progress_gate_met`**, **`_run_counter_tempo_ui_hint_winding_then_ready`** (**`(rai)`**–**(rak)`**).
-- [x] Optional **telegraph delay** (Feint “C”): until attacker **`STATE_WIND_UP`** progress reaches per-move **`feint_target_reveal_at_progress`** (stamped on **`pa`**, **`WeaponConstants`** + **`AttackWindUpStarter`**), feint read-through / dodge telegraph / guard-zone bait / reported **`parry_readiness`** / passive-parry guard-angle wobble use readiness × **`lerp(FEINT_PRE_REVEAL_READINESS_MULT, 1, progress/reveal_at)`** via **`DefenseChoiceResolver._feint_readiness_reveal_mult`** (**`DefenseResolutionHandler`** clash wobble matches **`dc.parry_readiness`**) — harness **`_run_feint_target_reveal_progress_scales_readiness_mult`** (**`(qy)`**/**`(qzb)`**/**`(qzc)`** in [Changelog](#changelog)).
-- [x] Broader investigations **re-homed** — mental stack + attention → [Tier 4.3](#tier-43-mental-stack--combat-attention); symmetric position footwork → [Tier 4.4](#tier-44-spatial-footwork-deferred); probabilistic plain-attack feint → **deferred / rejected** (see **4.3** design note).
-
-**Optional:** if Godot / RNG changes break **`CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED`**, **`_FEINT_WINDUP_TARGET_ONLY_HARNESS_SEED`**, or the **0..4095** search in **`_run_feint_move_ai_distinct_feint_and_target_parts`**, re-pick seeds / widen the search bound. Feint harnesses call **`seed(_HARNESS_RESTORE_GLOBAL_SEED)`** before **`_free_manager`** so later **`run_all()`** tests do not inherit the scan’s final **`seed(s)`**.
-
-**Regression index (grep-first):** `combat/CombatRegressionHarness.gd` — **`_run_feint_`**, **`_run_feint_windup_*`**, **`_run_feint_move_listing_*`**, **`_run_feint_guard_zone_*`**, **`_run_feint_telegraph_*`**, **`_run_defense_spacing_*`**, **`_run_defense_footwork_*`**, **`_run_counter_tempo_`**, **`_run_riposte_chain_*`**, **`_run_passive_parry_readiness_*`**, **`_run_feint_commitment_fraction_*`**, **`_run_feint_target_reveal_progress_scales_readiness_mult`**. Narrative: **`AI_ENGAGEMENT_STANCE_AND_FEINTS.md`** [Tier 4.2 live path](#tier-42-footwork--tempo--live-path-partial) + [Changelog](#changelog) **(m)**, **(qb)–(qw)**, **(qx)**, **(qi)–(qk)**, **(qq)**, **(qzr)–(qzz)**, **(raa)–(rak)**.
+**Exit criteria:** **Done** **[x]** — [§4.2 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-shipped) · registry Tier **4.2**. **Rejected:** probabilistic plain-attack feint. **Optional:** re-pick **`_FEINT_WINDUP_*_HARNESS_SEED`** if Godot RNG drifts.
 
 ---
 
@@ -519,132 +319,13 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 ### Tier 4.3 — Mental stack & combat attention
 
-**Status:** **Done** (exit **4.3.1–4.3.5** harnessed).
+**North star:** Salience picks the AI layer; **focus** (`focus_part` + `focus_intensity`, damped by **`attention_load`**) scales defense read-through and reported readiness.
 
-**North star:** Combatants manage **competing information** (who is winding up on me, ally peril, counter window, telegraphed line, real hit line). **Focus intensity** on one fact scales how strongly that fact drives **defense** and **AI** choices — mis-prioritization and mis-focus are the failure mode, not hidden RNG.
+**Modules + design depth:** [§4.3 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-43-mental-stack--combat-attention-live-path) · stack/schema prose → [`AI_ENGAGEMENT` investigations](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#mental-stack-engagement-investigation) (not duplicated here).
 
-**Design depth (not sequencing):** `docs/AI_ENGAGEMENT_STANCE_AND_FEINTS.md` — [mental stack investigation](#mental-stack-engagement-investigation), [implementation comparison](#mental-stack-implementation-comparison). **Rejects as primary mechanic:** probabilistic plain-attack feint (investigation §1 Approach B) — undermines intentional Feint D + readable focus.
+**Depends on:** **4.2** **Done** · **4.1** (listing in stack layer 4). **Rejects:** probabilistic plain-attack feint (Feint D is explicit **`feint_part`**).
 
-**Depends on:** [Tier 4.2](#tier-42-feint-d-telegraph-ai) **Done** (`feint_part`, telegraph, read-through, counter-tempo, riposte); [Tier 4.1](#tier-41-posture--stance-weights-ai-listing) (listing weights inside stack layer 4); Tier **3.3** afterblow (optional future “PRESSURING” layer); medical APIs (**`MedicalPhaseController`**, independent of Tier **6** extensions).
-
-**Does not block:** Tier **5.1** optional long-tail; Tier **6** medical; Tier **7** research; intrusion work when flag flips.
-
-#### Conceptual model (two coupled layers)
-
-| Layer | Role | Player-visible? |
-|-------|------|-----------------|
-| **Mental stack (salience)** | Ordered **which problem am I solving first?** — medical → counter → incoming wind-up → peel → best attack | Optional debug UI |
-| **Combat attention (focus)** | **How hard am I focusing on which fact?** — `focus_part` + `focus_intensity` (0–1), reduced by **attention_load** when multiple salient facts compete | Guard / focus UI on battle row |
-
-**Existing code this subsumes (do not fork):**
-
-| Today | Becomes |
-|-------|---------|
-| **`guard_zone`** / **`guard_line`** | Default **`focus_part`** when player/AI does not override; still synced by **`GuardLineUpdater`** |
-| **`PassiveParryContext.get_passive_parry_readiness`** | Base alertness; × **`focus_intensity`** when evaluating incoming telegraph / feint |
-| **`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** | Effective threshold scales with focus on **real** line vs telegraph |
-| **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** | Salience input + focus target candidate |
-| **`CounterTempo`** window + progress gate | Stack layer **2**; counter actions steal focus from passive guard |
-| **`CombatAIActionPicker`** feint listing mults | Layer **4** utility; yomi (**4.3.4**) biases feint vs commit |
-
-#### Sub-step order (execute top → bottom)
-
-| Step | Deliverable | Why this order |
-|------|-------------|----------------|
-| **4.3.1** | **Salience probes** — `CombatAttention.gd` (or `CombatSalience.gd`): **`is_being_wind_up_targeted(manager, id)`** (defender has telegraph or pending attacker targets me), **`has_actionable_counter_tempo`**, **`ally_immediate_peril`**, **`count_salient_threats`** → **`attention_load`** stub | Layer conditions + load formula need facts before focus keys exist; reuses **`CounterTempo.incoming_attacker_id`**, telegraph part, **`MedicalPhaseController.is_in_immediate_peril`** |
-| **4.3.2** | **Combat attention state** — combatant keys (see schema below); **`focus_intensity_effective`** = base × load penalty; wire **`DefenseChoiceResolver`** + reported **`parry_readiness`** + **`_guard_zone_modifier`**; player guard move updates **`focus_part`** | Defense is the core “focus on a point” loop; AI can mirror keys before stack refactor |
-| **4.3.3** | **AI mental stack** — **`MentalStackDecider.decide_action(actions, id, manager)`** called from **`CombatAIActionPicker.pick`**; prioritized layers (see table below); layer 4 = existing **`CombatTargetScoring`** / **`_get_action_weight`** on pruned subset | Halo-style overrides without float-tuning medical vs parry; **`get_available_actions`** unchanged |
-| **4.3.4** | **Yomi / tendency** — per-attacker memory (guard line counts, recent parry/deflect, preferred target parts); focus drift (**4.3.6**) + feint listing / layer-4 weights | Needs feints + focus model so “they always cover high” is punishable |
-| **4.3.5** | **Optional UI** — battle row focus indicator + debug stack trace (`COMBAT_EVENT_DEBUG`) | Polish after harnesses green |
-
-#### Proposed combatant schema (`CombatConstants` keys)
-
-| Key | Type | Writer | Readers |
-|-----|------|--------|---------|
-| **`COMBATANT_KEY_FOCUS_PART`** | `String` | Player guard / AI policy / yomi drift | **`DefenseChoiceResolver`**, UI |
-| **`COMBATANT_KEY_FOCUS_INTENSITY`** | `float` 0–1 | Set on guard; decay under load; bump on counter-ready | Defense, feint read-through effective threshold |
-| **`COMBATANT_KEY_ATTENTION_LOAD`** | `float` 0–1 | **`CombatAttention.recompute_load`** each tick or on salience change | Scales effective focus; caps read-through |
-| **`COMBATANT_KEY_YOMI_BY_ATTACKER`** | `Dictionary` | **`AttackResultApplier`** on parry/hit; prune on death | **`CombatAIActionPicker`**, focus drift (**4.3.4**) |
-
-**Load formula (tunable):** `attention_load = clampf(w_telegraph + w_peril + w_counter, 0, 1)` where each term is 0/1 from **4.3.1** probes × constants in **`CombatConstants`**.  
-**Effective focus:** `focus_effective = focus_intensity * (1.0 - ATTENTION_LOAD_FOCUS_PENALTY * attention_load)`.
-
-#### AI mental stack layers (default registry)
-
-| Priority | Condition (4.3.1) | Decision |
-|----------|-------------------|----------|
-| 1 | Ally immediate peril + medical actions | Restrict to medical; existing medical weighting |
-| 2 | Counter tempo actionable (**`CounterTempo.can_act`**) + counter in list | Prefer **`counter_tempo`** actions (existing mults) |
-| 3 | Incoming wind-up on me + parry/dodge in list | Restrict to defense + counter; weight parry/dodge high |
-| 4 | Attack options | **`pick_weighted_action`** on attacks with **`CombatTargetScoring`** / **`_get_action_weight`** |
-| 5 | Fallback | Current **`pick_weighted_action`** on full list |
-
-**Future (not 4.3 exit):** `ENGAGED` / flurry layer between 3 and 4 when exchange contract exists.
-
-#### Primary modules (new + touch)
-
-| Module | Responsibility |
-|--------|----------------|
-| **`combat/CombatAttention.gd`** (new) | Salience probes, load, focus effective helpers |
-| **`combat/MentalStackDecider.gd`** (new) | Layer registry + **`decide_action`** |
-| **`combat/CombatConstants.gd`** | Keys + **`ATTENTION_*`** / **`MENTAL_STACK_*`** tuning |
-| **`combat/DefenseChoiceResolver.gd`** | Multiply readiness / read-through by **`focus_effective`** |
-| **`combat/CombatAIActionPicker.gd`** | **`pick`** → stack decider |
-| **`combat/AttackResultApplier.gd`** | Yomi updates (**4.3.4**) |
-| **`ui/BattleUIUpdater.gd`** | Optional focus display (**4.3.5**) |
-| **`combat/CombatManager.gd`** | Scrub yomi/focus on **`start()`** (like telegraph scrub) |
-
-#### Exit criteria
-
-**4.3.1 — Salience probes**
-
-- [x] **`CombatAttention.is_being_wind_up_targeted`** true when defender has **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** from live incoming **`pending_attack`** — harness **`_run_attention_being_wind_up_targeted_when_telegraph_set`** (**`(ral)`**).
-- [x] **`CombatAttention.has_actionable_counter_tempo`** matches **`CounterTempo.can_act`** after progress gate — harness **`_run_attention_counter_tempo_salience_matches_can_act`** (**`(ram)`**).
-- [x] **`CombatAttention.attention_load`** increases when peril + telegraph both active — harness **`_run_attention_load_stacks_peril_and_incoming`** (**`(ran)`**).
-
-**4.3.2 — Focus state + defense**
-
-- [x] **`CombatManager.start()`** scrubs focus + yomi keys on all combatants (**`CombatAttention.clear_focus_and_yomi`**).
-- [x] Wind-up telegraph sets **`focus_part`** + intensity; **`GuardLineUpdater`** seeds focus from **`guard_zone`** when unset.
-- [x] Wrong-line focus on feint telegraph vs real line scales read-through — harness **`_run_focus_intensity_scales_feint_readthrough_and_guard_zone`** (**`(rao)`**).
-- [x] High **`attention_load`** reduces **`focus_effective`** (and reported **`parry_readiness`** via **`focus_effective`**) — harness **`_run_attention_load_dampens_focus_effective_readiness`** (**`(rap)`**).
-
-**4.3.3 — AI mental stack**
-
-- [x] **`MentalStackDecider`** layer 1 chooses medical over attack when ally in peril — harness **`_run_mental_stack_medical_overrides_attack`** (**`(raq)`**).
-- [x] Layer 3 restricts to counter or melee vs incoming attacker when wind-up targeted — harness **`_run_mental_stack_incoming_windup_prefers_defense`** (**`(rar)`**).
-- [x] Layer 2 prefers counter when window open — harness **`_run_mental_stack_counter_over_plain_attack_when_window_open`** (**`(ras)`**).
-- [x] No salience → **`try_pick`** empty; attack weights unchanged when stack disabled — harness **`_run_mental_stack_attack_layer_matches_legacy_weights`** (**`(rat)`**).
-
-**4.3.4 — Yomi**
-
-- [x] Repeated high-line attacks raise yomi feint listing mult — harness **`_run_yomi_guard_tendency_boosts_feint_after_repeated_high`** (**`(rau)`**); wind-up records **`target_part`** line toward defender.
-- [x] **`parry_deflect`** increments yomi; **`hit`** clears attacker entry — harness **`_run_yomi_updates_on_parry_deflect_clears_on_hit`** (**`(rav)`**).
-
-**4.3.5 — UI**
-
-- [x] Battle row shows focus + load via **`COMBATANT_KEY_ATTENTION_UI_HINT`** (**`CombatAttention.refresh_for_waiting_tick`** in **`CombatStateHandlers.process_waiting`**, **`BattleUIUpdater`**) — harnesses **`_run_attention_ui_hint_formats_when_telegraph_set`**, **`_run_attention_refresh_waiting_tick_stamps_ui_hint`** (**`(raw)`**–**(rax)`**).
-
-**4.3.6 — Yomi focus drift + guard/focus sync + stack debug (post-exit polish)**
-
-- [x] **`CombatAttention.apply_yomi_focus_drift`** (AI non party-lead): habitual line → **`focus_part`**; mismatched feint telegraph keeps habit — harnesses **`_run_yomi_focus_drift_sets_habitual_part_on_ai`**, **`_run_yomi_focus_drift_keeps_habit_when_telegraph_line_mismatches`** (**`(ray)`**–**(raz)`**); called from **`refresh_for_waiting_tick`**.
-- [x] **`GuardLineUpdater.set_guard_from_move` / `set_guard_from_line`** sync **`focus_part`** with guard line — harness **`_run_guard_from_move_syncs_focus_part_with_guard_line`** (**`(raa)`**).
-- [x] **`MentalStackDecider`** stamps **`COMBATANT_KEY_MENTAL_STACK_LAYER`** + **`CombatDebug.flow_log`** when verbose — harness **`_run_mental_stack_stamps_layer_on_medical_pick`** (**`(rab)`**).
-
-**4.3.7 — Player focus-line commands + yomi parry habit**
-
-- [x] **`FOCUS_LINE_MOVE_IDS`** (`focus_high` / `low` / `left` / `right`) listed in **`AvailableActionsBuilder`**; **`CombatResolveAction`** → **`GuardLineUpdater.set_guard_from_line`** (syncs **`focus_part`**) — harnesses **`_run_focus_line_actions_listed_when_attention_enabled`**, **`_run_focus_line_resolve_sets_guard_and_focus`** (**`(rac)`**–**(rad)`**).
-- [x] Party lead AI prefers telegraph-matching focus line — harness **`_run_focus_line_party_leader_prefers_telegraph_match`** (**`(rae)`**).
-- [x] **`yomi_parry_deflect_feint_listing_mult`** on feint listing — harness **`_run_yomi_parry_deflect_boosts_feint_listing_mult`** (**`(raf)`**).
-
-**4.3.8 — Yomi defense + stack UI polish**
-
-- [x] **`yomi_defense_readiness_mult`** in **`DefenseChoiceResolver.choose_defense`** (reported **`parry_readiness`** + feint dodge telegraph path) — harness **`_run_yomi_defense_readiness_mult_boosts_after_parry_deflect`** (**`(raj)`**).
-- [x] **`format_attention_ui_hint`** shows persistent **`COMBATANT_KEY_MENTAL_STACK_LAYER`** — harness **`_run_attention_ui_hint_includes_mental_stack_layer`** (**`(rak)`**); layer no longer cleared at start of each **`try_pick`**.
-
-**Regression index (grep-first):** `combat/CombatRegressionHarness.gd` — **`_run_attention_`**, **`_run_focus_`**, **`_run_focus_line_`**, **`_run_mental_stack_`**, **`_run_yomi_`**. Add rows to [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) when first harness lands.
-
-**Integration with shipped 4.2:** Do not replace Feint D; **`focus_part`** is the defender’s **belief**, **`guard_zone`** is **shown commitment**, telegraph is **attacker’s bait**. Read-through remains skill + **`focus_effective`** × stance **`feint_readthrough`**.
+**Exit criteria:** **Done** **[x]** — [§4.3 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-43-mental-stack--combat-attention-live-path) · registry Tier **4.3**.
 
 ---
 
@@ -652,63 +333,11 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 ### Tier 4.4 — Spatial footwork
 
-**Status:** **Partial** — **4.4.1–4.4.3** shipped (feature-flagged, default **off**); playtest / default-on deferred.
+**Scope:** **position-angle offset** (step-on-attack, defender parry/dodge step) — production flag default **on** (`is_feature_position_angle_footwork_enabled()`). Pair **`distance_to`** spacing lives under **4.2** ([live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-shipped)).
 
-**Scope:** Investigation FOOTWORK §3.3–3.4 — **position-angle offset**, step-on-attack, symmetric defender step. **Note:** pair **`distance_to`** CLOSE/MID/LONG + **`DEFENSE_SPACING_*`** already shipped under **4.2**.
+**Depends on:** **4.3** **Done**.
 
-**Depends on:** **4.3** **Done**; optional overlap with Tier **5** angle audits.
-
-#### 4.4.1 — Step-on-attack angle offset (pilot)
-
-| Piece | Module |
-|-------|--------|
-| **`CombatFootwork.gd`** | **`apply_attack_step_on_windup`**, **`apply_offset_to_angle_deg`**, **`clear_position_offset`** |
-| **`AttackWindUpStarter`** | Stamp offset from move **`attack_line`** |
-| **`DefenseChoiceResolver`** | Parry contact **`attack_angle_deg`** += attacker offset |
-| **`AttackResolver`** | Resolved **`pa.attack_angle_deg`** + **`pa.position_angle_offset_deg`** |
-| **`AttackResultApplier`** / **`CombatManager.start()`** | Clear offset when attack ends / combat restarts |
-
-**Flag:** **`CombatConstants.is_feature_position_angle_footwork_enabled()`** (default **`false`**; harness **`set_feature_position_angle_footwork_load`**).
-
-**Exit criteria (4.4.1)**
-
-- [x] Left-line wind-up stamps **`COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG`** — harness **`_run_footwork_attack_step_offset_stamped_on_windup`** (**`(saa)`**).
-- [x] Offset shifts attack angle — harness **`_run_footwork_offset_shifts_attack_angle_deg`** (**`(sab)`**).
-- [x] **`CombatManager.start()`** scrubs offset — harness **`_run_footwork_offset_scrubbed_on_combat_start`** (**`(sac)`**).
-
-#### 4.4.2 — Defender step on parry/dodge
-
-| Piece | Module |
-|-------|--------|
-| **`CombatFootwork.gd`** | **`apply_defender_step_on_parry`**, **`apply_defender_step_on_dodge`**, **`guard_angle_deg`** |
-| **`DefenseChoiceResolver`** | Parry alignment uses **`guard_angle_deg`**; commits parry vs dodge step at defense pick |
-| **`DefenseResolutionHandler`** / **`AttackResolver`** | Parry/hit alignment + clash context use footwork guard angle |
-| **`AttackResultApplier`** | **`_clear_defender_footwork`** on dodge / parry_deflect / miss / hit |
-
-**Exit criteria (4.4.2)**
-
-- [x] Parry commits scaled offset from **`guard_line`** — harness **`_run_footwork_defender_parry_step_stamps_offset`** (**`(sad)`**).
-- [x] Offset shifts guard angle — harness **`_run_footwork_defender_offset_shifts_guard_angle_deg`** (**`(sae)`**).
-- [x] Dodge commits scaled offset from eval-part line — harness **`_run_footwork_defender_dodge_step_stamps_offset`** (**`(saf)`**).
-- [x] Exchange end scrubs defender offset — harness **`_run_footwork_defender_offset_scrubbed_after_exchange`** (**`(sag)`**).
-
-#### 4.4.3 — UI position display
-
-| Piece | Module |
-|-------|--------|
-| **`CombatFootwork.gd`** | **`format_position_angle_ui_hint`**, **`refresh_ui_hint`** (stamped on step / clear) |
-| **`BattleUIUpdater.gd`** | Appends hint on wind-up, recovering, waiting (with attention/tempo) |
-| **`CombatCombatantsSnapshot.gd`** | Exposes **`position_angle_offset_deg`** + **`position_angle_ui_hint`** when flag on |
-
-**Exit criteria (4.4.3)**
-
-- [x] Offset formats signed degrees — harness **`_run_footwork_ui_hint_formats_offset`** (**`(sah)`**).
-- [x] Clear offset clears hint key — harness **`_run_footwork_ui_hint_clears_on_clear_position_offset`** (**`(sai)`**).
-- [x] Snapshot includes hint when enabled — harness **`_run_footwork_snapshot_includes_position_hint_when_enabled`** (**`(saj)`**).
-
-**Deferred:** production default **on** after playtest.
-
-**Regression index:** **`_run_footwork_*`** in `combat/CombatRegressionHarness.gd`.
+**Exit criteria:** **Done** **[x]** — [§4.4 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path) · registry Tier **4.4** · grep **`_run_footwork_`**.
 
 ---
 
@@ -720,35 +349,13 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 | Step | Deliverable | Depends on |
 |------|-------------|------------|
-| 5.1 | **Done** — [exit criteria](#tier-51-angles-damage-flow-audits): **`WeaponDamageHelper.kinematic_delivery`** thrust/swing/mixed routing + **`kinematic_mixed_blend`** **0**/**1** KE and **`get_effective_velocity_m_s`** brackets + blend **0.5** velocity **`lerp`** + blend **0.5** KE **`lerp`** at blended **`v`** on **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, and **DAGGER** **`quick_slash`** (**`_run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_swing`**); **`velocity_m_s_from_intensity`** bridges **`get_effective_velocity_m_s`** when **`velocity_m_s` < 0** + intensity monotonicity (**`_run_kinematic_delivery_velocity_from_intensity_bridges_get_effective_and_monotone`** — **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`**, **SPEAR** **`spear_thrust`**, **MACE** **`direct_blow`**); **`compute_pre_armor_cut`** ∝ **`sqrt(KE)`** (pinned **`v`** — **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`**) + **`compute_pre_armor_blunt`** rises with pinned **`v`** (**`_run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_with_speed`**); **`compute_penetration`** **SHARP** **`penetration_sharp`** ∝ **`(KE/J_BASE)^PENETRATION_EXPONENT`** (pinned **`v`** — **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`**) + **BLUNT** **`penetration_blunt_momentum_per_area`** vs pinned **`v`** (**`_run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_rises`**); **`strike_energy_mult`** scales **`compute_kinetic_energy_j`** linearly and cut ratio **`sqrt(mult)`** at pinned swing (**SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`**) (**`_run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_cut_sqrt`** — incl. **`mixed`** **`kinematic_mixed_blend` 0.5** + derived **`v`** on **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`**); **`strike_momentum_mult`** scales **`compute_pre_armor_blunt`** and **BLUNT** **`penetration_blunt_momentum_per_area`** linearly at pinned **`v`** on **MACE** **`direct_blow`** and cut swing **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (**`_run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and_mpa`**; **DAGGER** pinned **`v`** above **10** m/s so blunt clears **`BLUNT_DAMAGE_MIN`** / max clamps); **`strike_momentum_mult`** does not affect **`compute_kinetic_energy_j`**, **SHARP** **`penetration_sharp`**, or **`compute_pre_armor_cut`**; **`strike_energy_mult`** does not affect **`compute_pre_armor_blunt`** or **BLUNT** **`penetration_blunt_momentum_per_area`** (**`_run_kinematic_delivery_strike_mult_cross_coupling_ke_vs_blunt_isolated`**, incl. **`target_effective_mass_kg`** reduced-mass blunt pre-armor + **BLUNT** **`compute_penetration`** opts on **MACE** **`direct_blow`** and **SWORD** /**AXE** /**DAGGER** cut swing blunt contact; derived **`get_effective_velocity_m_s`** ⊥ **`strike_momentum_mult`** / **`strike_energy_mult`** when **`velocity_m_s` < 0** (**SWORD** /**AXE** /**DAGGER** swing + **MACE** inferred swing for blunt move + **SPEAR** **`spear_thrust`** thrust); pinned **`v`**: **`get_effective_velocity_m_s`** ⊥ **`strike_energy_mult`** / **`strike_momentum_mult`** (**SWORD** /**AXE** /**DAGGER** cut swing)). **`compute_kinetic_energy_j`** ⊥ **`strike_momentum_mult`** with derived **`v`** — same **`_run_kinematic_delivery_strike_mult_cross_coupling_ke_vs_blunt_isolated`**. **`strike_energy_mult`** ⊥ blunt pre-armor + **BLUNT** **`mpa`** with derived **`v`** (**MACE** **`mv_e_*`**, **SPEAR** **`sp_e_*`**, **SWORD** **`sv_e_*`**) — same harness. **SHARP** **`penetration_sharp`** + **`compute_pre_armor_cut`** ⊥ **`strike_momentum_mult`** with derived **`v`** — same harness. Narrative ([Kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit), [Angles / pipeline remaining](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-angles-pipeline-remaining)) in **`PHYSICS_DAMAGE_AND_FLOW.md`**; narrative checklist **checked** in [exit criteria](#tier-51-angles-damage-flow-audits) (**(pl)**); §5.1 **exit-gated** rows **[x]** (incl. **(qa)** **`angle_diff_deg`** / **`get_alignment_from_angles`**). **Optional** long-tail + **Contents** reconciliation row **stays [ ]**. | Tier 3.2 (after **3.0** so KE / velocity audits match thrust vs swing) |
+| 5.1 | Kinematic delivery + damage-flow audits — **Done** · [exit](#tier-51-angles-damage-flow-audits) · [kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) | **3.2**; **3.0** |
 
 <a id="tier-51-angles-damage-flow-audits"></a>
 
 ### Tier 5.1 — Angles, damage flow, audits
 
-**Goal:** Lock abstract strike kinematics (**Tier 3.0**) into regression where they feed damage and parry calibration; extend angle / pipeline audits per **`PHYSICS_DAMAGE_AND_FLOW.md`**. Narrative damage-flow checklist + code read-through anchors: [Angles / pipeline remaining](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-angles-pipeline-remaining) — [Changelog](#changelog) **(po)**–**(pk)**.
-
-**Primary modules:** `WeaponDamageHelper.gd` (**`kinematic_delivery`**, **`velocity_m_s_from_intensity`**, **`get_effective_velocity_m_s`**, **`compute_kinetic_energy_j`** (+ **`strike_energy_mult`**), **`compute_pre_armor_cut`**, **`compute_pre_armor_blunt`** (+ **`strike_momentum_mult`**), **`compute_penetration`**), `WeaponConstants.gd` (**`KINEMATIC_DELIVERY_*`**, move **`contact_type`** inference), `AttackResolver.gd` / parry clash context (existing Tier **3.2** harnesses).
-
-**Exit criteria:**
-
-- [x] **`kinematic_delivery`**: empty archetype infers stab→thrust / cut→swing; archetype string overrides move inference; explicit **`mixed`** wins over stab inference — harness **`_run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_swing`** (prefix **`_run_kinematic_delivery_`**).
-- [x] **`compute_kinetic_energy_j`** on a **SWORD** **`oberhau`** fixture: **`kinematic_mixed_blend` 0** matches pure **`kinematic_delivery: thrust`**; blend **1** matches pure **`swing`** at the same intensity; blend **0.5** = **`lerp`** of thrust vs swing KE **at the mixed effective `v`** (pinned-velocity decomposition), not **`lerp`** of each pure-mode KE — same harness.
-- [x] **`get_effective_velocity_m_s`** on the same fixture: mixed blend **0**/**1** match thrust/swing speeds; blend **0.5** matches **`lerp`** of those speeds — same harness.
-- [x] Same **`compute_kinetic_energy_j`** / **`get_effective_velocity_m_s`** mixed **0** / **0.5** / **1** bracket + pinned-**`v`** KE **`lerp`** invariants on **AXE** **`diagonal_chop`** — same harness (second weapon fixture).
-- [x] Same mixed **0** / **0.5** / **1** bracket + pinned-**`v`** KE **`lerp`** invariants on **DAGGER** **`quick_slash`** — same harness (third weapon fixture; light-weapon coverage).
-- [x] **`velocity_m_s_from_intensity`** matches **`get_effective_velocity_m_s`** when **`AttackInstance.velocity_m_s` < 0** (derived speed), and intensity **0.05 → 0.95** increases derived speed for inferred swing, thrust override, and mixed delivery on **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, and **DAGGER** **`quick_slash`**, plus inferred thrust on **SPEAR** **`spear_thrust`** and blunt→swing on **MACE** **`direct_blow`** — harness **`_run_kinematic_delivery_velocity_from_intensity_bridges_get_effective_and_monotone`** ([Changelog](#changelog) **(ae)**, **(af)**, **(pu)**).
-- [x] **`compute_pre_armor_cut`** ratio matches **`sqrt(KE_hi / KE_lo)`** (within tolerance) for pinned **`velocity_m_s`** and fixed strength/**`arm_mod`** on **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, and **DAGGER** **`quick_slash`** (swing); **`compute_pre_armor_blunt`** increases with pinned speed on **MACE** **`direct_blow`** — harness **`_run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_with_speed`** ([Changelog](#changelog) **(ag)**, **(pw)**).
-- [x] **`compute_penetration`**: **SHARP** **`penetration_sharp`** ratio matches **`(KE_hi/KE_lo)^PENETRATION_EXPONENT`** (within tolerance) for pinned **`v`** on **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, and **DAGGER** **`quick_slash`** (swing, same **`v_lo`/`v_hi`** as **SWORD**); **BLUNT** **`penetration_blunt_momentum_per_area`** rises with pinned **`v`** on **MACE** **`direct_blow`** — harness **`_run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_rises`** ([Changelog](#changelog) **(ah)**, **(pv)**).
-- [x] **`strike_energy_mult`** scales **`compute_kinetic_energy_j`** linearly at fixed pinned **`v`** with **`compute_pre_armor_cut`** ≈ **`sqrt(strike_energy_mult)`** when only mult differs — **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (swing, same pinned **`v`** as **SWORD** block); same linear KE + **`sqrt(mult)`** cut scaling on **`mixed`** **`kinematic_mixed_blend` 0.5** with intensity-derived **`v`** (**`velocity_m_s` < 0**) — **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** — harness **`_run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_cut_sqrt`** ([Changelog](#changelog) **(px)**, **(pz)**, **(py)**).
-- [x] **`strike_momentum_mult`** scales **`compute_pre_armor_blunt`** and **BLUNT** **`penetration_blunt_momentum_per_area`** linearly at fixed pinned **`v`** on **MACE** **`direct_blow`** and on cut swing **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (**`kinematic_delivery: swing`**; **SWORD** / **AXE** same pinned **`v`** as **MACE** block; **DAGGER** higher pinned **`v`** so blunt clears **`BLUNT_DAMAGE_MIN`** / stays off clamp ceilings) — harness **`_run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and_mpa`** ([Changelog](#changelog) **(as)**, **(pt)**).
-- [x] **`strike_momentum_mult`** does not change **`compute_kinetic_energy_j`** (also when **`velocity_m_s` < 0** — **`compute_kinetic_energy_j`** ⊥ **`strike_momentum_mult`** on **SWORD** / **AXE** / **DAGGER** swing, **MACE** blunt→swing, **SPEAR** thrust); **`strike_energy_mult`** does not change **`compute_pre_armor_blunt`** at fixed pinned **`v`** or with derived **`velocity_m_s` < 0** (also with **`target_effective_mass_kg`** reduced-mass blunt) or **BLUNT** **`penetration_blunt_momentum_per_area`** with opts **`target_effective_mass_kg`** — harness **`_run_kinematic_delivery_strike_mult_cross_coupling_ke_vs_blunt_isolated`** (also **SHARP** **`penetration_sharp`** ⊥ **`strike_momentum_mult`**; **`compute_pre_armor_cut`** ⊥ **`strike_momentum_mult`** — incl. derived **`v`** on **SWORD** / **AXE** / **DAGGER** / **MACE** / **SPEAR**; **BLUNT** **`penetration_blunt_momentum_per_area`** ⊥ **`strike_energy_mult`**; same blunt-channel ⊥ on **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (**DAGGER** pinned **`v` = 20** on **`strike_energy_mult`** ⊥ blunt rows); derived **`get_effective_velocity_m_s`** ⊥ both mults when **`velocity_m_s` < 0** — incl. **SPEAR** **`spear_thrust`** thrust; pinned **`v`**: **`get_effective_velocity_m_s`** ⊥ **`strike_energy_mult`** on **SWORD** / **AXE** / **DAGGER**; pinned **`v`**: **`get_effective_velocity_m_s`** ⊥ **`strike_momentum_mult`** on **SWORD** / **AXE** / **DAGGER** — [Changelog](#changelog) **(ps)**, **(pr)**, **(pq)**, **(ba)**, **(bc)**, **(be)**, **(bg)**, **(bh)**, **(bi)**, **(bk)**, **(bl)**, **(bm)**, **(bn)**, **(bo)**, **(bp)**).
-- [x] **Tier 5.1 kinematic harness ↔ narrative audit:** invariant summary + cross-links in **`PHYSICS_DAMAGE_AND_FLOW.md`** ([Tier 5.1 — Kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit)) — [Changelog](#changelog) **(pp)**.
-- [x] **Tier 5.1 narrative damage-flow checklist (angles / pipeline / penetration / entity):** **`PHYSICS_DAMAGE_AND_FLOW.md`** [Angles / pipeline remaining](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-angles-pipeline-remaining) — table + read-through anchors; complements [Kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit). [Changelog](#changelog) **(po)**–**(pk)** (anchors), **(pl)** (exit split: checked vs optional tail).
-- [x] **`angle_diff_deg`** (shortest arc **0–180°**) + **`get_alignment_from_angles`** (cos θ with **`PARRY_ALIGNMENT_FLOOR`**) — harness **`_run_kinematic_delivery_angle_diff_and_alignment_from_angles_helpers`** ([Changelog](#changelog) **(qa)**).
-- [ ] Optional deeper angle integration + long-tail damage-flow work — new harnesses, editor soaks, line-by-line reconciliation of every embedded **Contents** investigation vs live code; not exit-gated here. **Examples:** **`_run_kinematic_delivery_penetration_oblique_angle_factor_attack_resolver`** (**`AttackResolver.penetration_oblique_angle_factor`**) — [Changelog](#changelog) **(pm)**; **`_run_kinematic_delivery_compute_damage_oblique_penetration_integration`** (**`compute_and_apply_damage`** + manager meta **`_harness_expose_penetration_applied`**) — **(pn)**; **`_run_kinematic_delivery_compute_damage_strike_mods_penetration_integration`** (**`strike_mods`** pen mults + **`cut_damage_mult`**/**`blunt_damage_mult`** ⊥ pens, incl. partial parry — **(ph)**, **(pc)**, **(pd)**); **`_run_kinematic_delivery_line_alignment_with_deflect_branches`** (**`CombatConstants.get_line_alignment_with_deflect`**) — **(pe)**; **`_run_kinematic_delivery_deflected_angle_bilateral_and_line_angle_helpers`** (**`get_deflected_angle_bilateral`**, **`angle_to_nearest_line`**, **`line_to_angle`**) — **(pf)**; **`_run_kinematic_delivery_deflected_line_from_angles_same_line_bind`** (**`get_deflected_line_from_angles`** same-line bind) — **(pg)**; **`_run_kinematic_delivery_angle_diff_and_alignment_from_angles_helpers`** — **(qa)**.
-
-**Regression index (grep-first):** `combat/CombatRegressionHarness.gd` — **`_run_kinematic_delivery_`**. Narrative: **`PHYSICS_DAMAGE_AND_FLOW.md`** + [Changelog](#changelog) **(n)**, **(aa)**, **(ad)**, **(ae)**, **(af)**, **(pu)**, **(ag)**, **(ah)**, **(an)**, **(as)**, **(pt)**, **(ps)**, **(pr)**, **(pq)**, **(ba)**, **(bc)**, **(be)**, **(bg)**, **(bh)**, **(bi)**, **(bk)**, **(bl)**, **(bm)**, **(bn)**, **(bo)**, **(bp)**, **(pv)**, **(pw)**, **(px)**, **(pz)**, **(py)**, **(pp)**, **(po)**, **(pi)**, **(pj)**, **(pk)**, **(pl)**, **(pm)**, **(pn)**, **(ph)**, **(pc)**, **(pd)**, **(pe)**, **(pf)**, **(pg)**, **(qa)**.
+**Exit criteria:** **Done** **[x]** — [Kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) · [pipeline checklist](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-angles-pipeline-remaining) · registry Tier **5.1**. **Optional long-tail** **[ ]** — editor soaks / investigation reconciliation; not exit-gated.
 
 ---
 
@@ -774,15 +381,16 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 |----------|------|
 | **This file** | **Logical plan + execution order** |
 | `README.md` | Index + by-task table (**not** milestone **Status**); **13** linked files in its file table (master plan + **11** merged bundles + **`REGRESSION_HARNESS_MAP_TIER19.md`**); bundles: **`Plan / code`** + **`Source:`** skim; IDE pointers → `AGENTS.md`, `.cursor/rules/fallen-paths.mdc` |
-| `REGRESSION_HARNESS_MAP_TIER19.md` | Exhaustive **`CombatRegressionHarness`** `_run_*` registry for Tier **1.6–1.9** depth polearm + targeting + surround, plus Tier **3.3** guard/afterblow + **4.1** stance / crash posture + **4.2** feint/counter + **4.3** attention/stack/yomi (when added) + **5.1** kinematic harness names — linked from [Tier 1.9](#tier-19--p10-depth-rank-polearm-reach--spear-lanes), [Tier 3.3](#tier-33-guard-line-afterblow), [Tier 4.1](#tier-41-posture--stance-weights-ai-listing), [Tier 4.2](#tier-42-feint-d-telegraph-ai), [Tier 4.3](#tier-43-mental-stack--combat-attention), and [Tier 5.1](#tier-51-angles-damage-flow-audits); keep in sync when adding harnesses. **Discover in code** also names **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust`**, **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target_thrust`**, **`_run_feint_move_ai_distinct_feint_and_target_parts_thrust`**, **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard_thrust`**, **`_run_feint_windup_duration_mult_extends_state_duration_vs_thrust`**, **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust`**, **`_run_feint_target_reveal_progress_scales_readiness_mult`** + **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry`** (full Tier **4.2** set: grep **`_run_feint_`**) |
+| `REGRESSION_HARNESS_MAP_TIER19.md` | Exhaustive **`_run_*` registry** + tier index → live paths — **keep in sync** when adding harnesses |
 | `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` | Tier 1 **spec**: §1 → master [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic); §2 mirror; §4–§6 plugs / dictionary / tuning |
 | `COMBAT_ROADMAP_AND_STAMINA.md` | Historical phases, stamina, snapshot; top **Plan / code** — plan overrides checklists |
-| `TACTICAL_ZONES_BREACH_MOVEMENT.md` | ZoC / breach narrative — **Tier 2.1**; top **Plan / code** + **Implementation status** |
+| `TACTICAL_ZONES_BREACH_MOVEMENT.md` | ZoC / breach narrative — **Tier 2.1** (sync when intrusion gate **true**) |
 | `TACTICAL_FORMATIONS_FF4.md` | FF4 formation model — Tier **2.2**; top **Plan / code** |
-| `AI_ENGAGEMENT_STANCE_AND_FEINTS.md` | Tier **4**; **4.1** [**Done**](#tier-41-posture--stance-weights-ai-listing); **4.2** [**Done**](#tier-42-feint-d-telegraph-ai); **4.3** [**Not started**](#tier-43-mental-stack--combat-attention) (mental stack + focus — [investigation](#mental-stack-engagement-investigation)); **4.4** deferred spatial footwork; top **Plan / code** → Tier **4** vs Tier **1** |
-| `PARRY_BIND_AND_WEAPON_GEOMETRY.md`, `PARRY_DEFLECT_AND_CALIBRATION.md` | Tier **3.1–3.2** (**Done** — [§3.1](IMPLEMENTATION_ORDER.md#tier-31-strike-measure-stamped-geometry) / [§3.2](IMPLEMENTATION_ORDER.md#tier-32-parry-bind-deflect)); top **Plan / code** → **3.0**; **`weapon/*.gd`** implements **3.0** |
-| `GUARDS_LINES_AFTERBLOW.md` | Tier **3.3**; top **Plan / code** + **Shipped / code anchors** + **Reading guide** / **Live path** (live modules + harness grep) → Tier **3** + **3.0** |
-| `PHYSICS_DAMAGE_AND_FLOW.md` | Tier **5**; **5.1** [**Done**](#tier-51-angles-damage-flow-audits) (kinematic harness + [Kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) + [Angles / pipeline remaining](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-angles-pipeline-remaining) checklist **checked** **(pl)**; optional long-tail **[ ]**); **`WeaponDamageHelper`** / **3.0** in flow; top **Plan / code** |
+| `AI_ENGAGEMENT_STANCE_AND_FEINTS.md` | Tier **4** investigations + live-path tables [4.1](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path)–[4.4](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path); **Status** → plan §§ [4.1](#tier-41-posture--stance-weights-ai-listing)–[4.4](#tier-44-spatial-footwork-deferred) only |
+| `PARRY_BIND_AND_WEAPON_GEOMETRY.md` | Tier **3.1–3.2** [live paths](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path); **`weapon/*.gd`** = **3.0** |
+| `PARRY_DEFLECT_AND_CALIBRATION.md` | Deflect calibration investigations → [3.2 live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) |
+| `GUARDS_LINES_AFTERBLOW.md` | Tier **3.3** — [live path](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) at top; investigations below |
+| `PHYSICS_DAMAGE_AND_FLOW.md` | Tier **5.1** — [kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit); investigations below |
 | `MEDICAL_PAIN_INCAPACITATION.md` | Tier **6**; top **Plan / code** |
 | `HEMA_ROADMAP_AND_SOURCES.md` | Tier **7** (non-blocking); top **Plan / code** |
 
@@ -790,6 +398,16 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 ## Changelog
 
+- **2026-05-17 (4.4-on):** Tier **4.4** production default **on** for **`is_feature_position_angle_footwork_enabled()`**; plan/registry **Done**; next coding step → Tier **5.1** optional / UI soak.
+- **2026-05-17 (doc-i):** Seventh pass — merged Tier **1.4–1.8** shipped sections; milestone table grep removed; Tier **3**/**4**/**5.1** exit → live path + registry only; implementation gate points at **4.4**; **`ENGAGEMENT_*`** §2.5/§2.0/§2.8 shortened; bundle Contents order (**`PARRY_BIND`**, **`GUARDS`**, **`PHYSICS`**); registry discover line → tier index.
+- **2026-05-17 (doc-h):** Sixth pass — slim milestone **1.4–1.9** + **4.3**/**4.4** plan bodies → live paths + registry; **§1.9** module table + merged telemetry note; **1.2**/**1.3** exit → ENGAGEMENT pointers; **`AI_ENGAGEMENT`** Contents before live paths; registry tier index table; **`README`** Tier **1.9** live-path row.
+- **2026-05-17 (doc-g):** Cross-doc audit — fixed missing **`#tier-19--p10-depth-rank-polearm-reach--spear-lanes`** anchor; slim Tier **1.4–1.9** + **3.x** + **4.1** exit lists → live paths + registry; shortened **`ENGAGEMENT_*`** §2.5 / §2.8; collapsed **`PHYSICS`** pipeline read-through; deduped **`AGENTS.md`** / **`.cursor/rules`** harness/status blobs.
+- **2026-05-17 (doc-f):** Fifth pass — reordered [document map](#document-map-read-order); removed **What shipped** block; fixed Tier **3** / **5** summary tables; slim **4.2** / **4.3** / **5.1** exit criteria → live paths + harness registry; **`GUARDS`** unified live path; deduped **`ENGAGEMENT`** header.
+- **2026-05-17 (doc-e):** Fourth pass — fixed **`#implementation-phase-gate`** anchor; slim Tier **5.1** summary row; **`PARRY_BIND`** [3.1](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) / [3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) live paths; dependency chain **18** clarifies **4.4** shipped vs deferred; **`PHYSICS`** / **`ENGAGEMENT`** / **`TACTICAL_ZONES`** wording; **`README`** plan+gate row merge.
+- **2026-05-17 (doc-d):** Dedup — Tier **1** milestone rows **1.6–1.9** + Tier **4** summary table slimmed (details in exit criteria + live paths only); merged duplicate **Plan focus** into [#next-coding-step](#next-coding-step); added anchors **`milestone-summary`**, **`development-gate-line-crash--intrusions-temporary`**, **`next-coding-step`**; **`README`** link fixes.
+- **2026-05-17 (doc-c):** Live-path parity — **`AI_ENGAGEMENT`** [4.1](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path); **`GUARDS_LINES_AFTERBLOW`** anchor **`tier-33-guard-line-afterblow-live-path`**; plan document map + Tier **3** intro; **`README`** / **`REGRESSION_HARNESS_MAP`** / **`PARRY_DEFLECT`** / **`COMBAT_ROADMAP`** headers.
+- **2026-05-17 (doc-b):** **`AI_ENGAGEMENT_STANCE_AND_FEINTS.md`** [Tier 4.3 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-43-mental-stack--combat-attention-live-path); plan document map + Tier **4.3** regression index; **`README`** live-path row includes **4.3**.
+- **2026-05-17 (doc):** Doc pass — slim plan top blocks; **`AI_ENGAGEMENT_STANCE_AND_FEINTS.md`** [4.2](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-shipped) + [4.4](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path) live-path tables; **`REGRESSION_HARNESS_MAP_TIER19.md`** Tier **4** paragraphs reordered **4.1→4.2→4.3→4.4**; **`README`**, **`AGENTS.md`**, **`.cursor/rules/fallen-paths.mdc`**, **`PHYSICS_DAMAGE_AND_FLOW.md`** defer milestone **Status** to plan [milestone summary](#milestone-summary) (grep prefixes only).
 - **2026-05-16 (raw–rax):** **Tier 4.3 UI** — **`COMBATANT_KEY_ATTENTION_UI_HINT`**, **`CombatAttention.refresh_for_waiting_tick`**, **`BattleUIUpdater`** focus/load row text; harnesses **`_run_attention_ui_hint_formats_when_telegraph_set`**, **`_run_attention_refresh_waiting_tick_stamps_ui_hint`**. Tier **4.3** **Done**.
 - **2026-05-16 (saa–sac):** **Tier 4.4.1** — **`CombatFootwork`** step-on-attack **`position_angle_offset_deg`** (flag default **off**); **`AttackWindUpStarter`**, **`DefenseChoiceResolver`**, **`AttackResolver`**, scrub on resolve/start; harnesses **`_run_footwork_*`**.
 - **2026-05-16 (raj–rak):** **Tier 4.3.8** — **`yomi_defense_readiness_mult`** on **`choose_defense`**; mental-stack layer in attention UI hint; harnesses **`_run_yomi_defense_readiness_mult_boosts_after_parry_deflect`**, **`_run_attention_ui_hint_includes_mental_stack_layer`**.

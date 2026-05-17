@@ -1,14 +1,41 @@
 # Ai Engagement Stance And Feints
 
-**Plan / code:** Stance, footwork, melee AI → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-4--ai--stance) **Tier 4** (after Tier **1**). **4.1** [**Done**](IMPLEMENTATION_ORDER.md#tier-41-posture--stance-weights-ai-listing). **4.2** [**Done**](IMPLEMENTATION_ORDER.md#tier-42-feint-d-telegraph-ai) — Feint D + counter-tempo + riposte + spacing/footwork exits. **4.3** [**Done**](IMPLEMENTATION_ORDER.md#tier-43-mental-stack--combat-attention) — **`CombatAttention.gd`**, **`MentalStackDecider.gd`**, focus/load/yomi + row hint **`COMBATANT_KEY_ATTENTION_UI_HINT`**; harness **`_run_attention_*`**, **`_run_mental_stack_*`**, **`_run_yomi_*`**. **4.4** deferred position footwork. Investigations below remain design depth; sequencing → plan **§4.3**. **4.2 shipped:** Feint D wind-up telegraph + AI **`feint_part`** (**`_run_feint_*`** harnesses); pair **`distance_to`** footwork (**`DEFENSE_SPACING_*`**, **`_run_defense_spacing_band_modulates_parry_and_dodge`**; recovering **`dodge_chance`** **`DEFENSE_FOOTWORK_*`** / **`_run_defense_footwork_*`** — [live path table](#tier-42-footwork--tempo--live-path-partial)); incoming **`contact_type`** scales passive readiness in **`DefenseChoiceResolver.choose_defense`** + feint listing (**`CombatConstants.passive_parry_readiness_incoming_contact_mult`**, **`_run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut`**, **`_run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_feint`**, **`WeaponConstants`** **`thrust_feint`**); defender **`stamina`** on passive-readiness **reporting** (**`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** / **`DefenseChoiceResolver._defender_passive_readiness_stamina_mult`**, **`_run_defender_low_stamina_scales_passive_parry_readiness_in_choose_defense`**, **`_run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina`**, **`_run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally`**); optional move-data **`feint_windup_duration_mult`** (**`AttackWindUpStarter`**, **`_run_feint_windup_duration_mult_extends_state_duration_vs_oberhau`**); optional **`feint_target_reveal_at_progress`** (**`AttackWindUpStarter`** stamp on **`pending_attack`**, **`DefenseChoiceResolver._feint_readiness_reveal_mult`**, **`CombatConstants.FEINT_PRE_REVEAL_READINESS_MULT`**, **`_run_feint_target_reveal_progress_scales_readiness_mult`**, wind-up harnesses **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone`** / **`_run_feint_windup_duration_mult_extends_state_duration_vs_oberhau`** / **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target`**); listing bias **`AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** × defender passive readiness (**`WAITING`** **`guard`**, **`STATE_RECOVERING`** **`READINESS_BY_CAUSE`**, **`PassiveParryContext`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard`**, **`_run_feint_move_listing_readiness_recovery_curve_when_defender_recovering`**) × attacker stance **`STANCE_MOD_AI_FEINT_LISTING`** (**`_run_feint_move_listing_stance_ai_feint_mult_ordering`**) × low-stamina feint dampening (**`_run_feint_move_listing_stamina_low_dampens_feint_weight`**, **`_run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp`**, **`_run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult`**, **`_run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult`**) × **`probing`** / **`pinch_center`** / **`hold_lane`** doctrine (**`AI_FEINT_LISTING_DOCTRINE_PROBING_MULT`**, **`AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT`**, **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`**, **`_run_feint_move_listing_doctrine_probing_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default`**) × short-horizon defender **`parry_deflect`** signal (**`COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`**, **`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_*`**, **`_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight`**); footwork / richer defender feint responses still open. Does **not** replace milestone **Status**. **Shipped (4.1):** **`CombatConstants`** stance **`ai_melee_focus`** → **`CombatTargetScoring.stance_ai_targeting_mult`** on listed hostiles (stacks with Tier **1.6** posture+cohesion + crash **`_crash_weight_posture_mult`** — **`AGENTS.md`** + plan [Tier 1.9 harness map](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes) / [Tier 4.1](IMPLEMENTATION_ORDER.md#tier-41-posture--stance-weights-ai-listing)). **Shipped (4.2 partial):** **`AttackWindUpStarter`** options → **`pending_attack`** (incl. **`feint_target_reveal_at_progress`** when the move defines it) + defender **`guard_zone`** + **`CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`**; optional **`feint_windup_duration_mult`** on **`is_feint`** moves; **`DefenseChoiceResolver`** **`choose_defense`** telegraph **`dodge_eval_part`** bias (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS`**) when defender does not read through; pair **`distance_to[attacker]`** → **`DEFENSE_SPACING_*`** on **`parry_c_d`** / **`dodge_chance`**; same bands scale feint dodge telegraph (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**, **`_run_feint_telegraph_spacing_*`**), feint-listing readiness (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**, **`_run_feint_move_listing_spacing_*`**), and **`_guard_zone_modifier`** read-through (**`FEINT_GUARD_ZONE_READINESS_SPACING_*`**, **`feint_guard_zone_readiness_spacing_mult`**, **`_run_feint_guard_zone_readthrough_spacing_*`**); incoming **`contact_type`** → **`passive_parry_readiness_incoming_contact_mult`** on passive readiness + feint listing (**`thrust_feint`** on **SWORD**); defender **`stamina`** scales reported readiness (**`parry_readiness`**, telegraph dodge bias, guard-zone modifier) without folding into the **`pr_base`** **`parry_c_d`** product; **`_guard_zone_modifier`** feint bait vs readjusted zone + passive read-through (**`parry_readiness`** × stance vs **`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`**); **`CombatAIActionPicker._add_attack_target_part`** for **`is_feint`** moves; **`CombatAIActionPicker._get_action_weight`** × **`AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** × readiness lerp (**`PassiveParryContext.get_passive_parry_readiness`** × **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** × **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`**) × **`get_stance_modifier(..., "ai_feint_listing")`** × low-stamina feint dampening (**`_run_feint_move_listing_stamina_low_dampens_feint_weight`**, **`_run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp`**, **`_run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult`**, **`_run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult`**) × **`probing`** / **`pinch_center`** / **`hold_lane`** doctrine feint mults for feint-move listing; **`AttackResultApplier`** records recent defender **`parry_deflect`** vs this attacker (**`COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`**, cleared on **`hit`**) so listing briefly favors feints vs that defender (**`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_*`**, **`_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight`**) — [Tier 4.2](IMPLEMENTATION_ORDER.md#tier-42-feint-d-telegraph-ai).
+**Plan / code:** Tier **4** → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-4--ai--stance) ([milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) is the only **Status** column). This file = **live-path tables** (modules + grep) + **investigations** below.
 
-Consolidated sections; each has **`Source:`** for provenance.
+| Step | Plan | Live-path / registry |
+|------|------|----------------------|
+| **4.1** | [Done](IMPLEMENTATION_ORDER.md#tier-41-posture--stance-weights-ai-listing) | [Posture / stance table](#tier-41-posture--stance-weights-ai-listing-live-path) — **`_run_ai_targeting_`**, **`_run_crash_ai_`** |
+| **4.2** | [Done](IMPLEMENTATION_ORDER.md#tier-42-feint-d-telegraph-ai) | [Spacing / tempo table](#tier-42-footwork--tempo--live-path-shipped) — **`_run_feint_`**, **`_run_defense_spacing_`**, **`_run_counter_tempo_`** |
+| **4.3** | [Done](IMPLEMENTATION_ORDER.md#tier-43-mental-stack--combat-attention) | [Attention / stack table](#tier-43-mental-stack--combat-attention-live-path) — **`_run_attention_`**, **`_run_focus_`**, **`_run_mental_stack_`**, **`_run_yomi_`** |
+| **4.4** | [Done](IMPLEMENTATION_ORDER.md#tier-44-spatial-footwork-deferred) | [Position-angle table](#tier-44-position-angle-footwork-live-path) — **`_run_footwork_`** |
+
+## Contents
+
+1. [Tier 4.1 live path](#tier-41-posture--stance-weights-ai-listing-live-path)
+2. [Tier 4.2 live path](#tier-42-footwork--tempo--live-path-shipped)
+3. [Tier 4.3 live path](#tier-43-mental-stack--combat-attention-live-path)
+4. [Tier 4.4 live path](#tier-44-position-angle-footwork-live-path)
+5. Investigations — [`Source:`](#feint-counter-stamina-readiness-diagonal-investigation) sections below
+
+---
+
+<a id="tier-41-posture--stance-weights-ai-listing-live-path"></a>
+
+## Tier 4.1 posture + stance weights — live path (shipped)
+
+**Reader:** listed-hostile melee weights multiply by **our** formation posture+cohesion, **opponent** formation posture+cohesion, combatant **stance** (`ai_melee_focus`), and (crash only) line posture. Intruders read formation state via **`ZoneOfControl.formation_id_for_zone_geometry`** / **`formation_dict_for_zone_geometry`**.
+
+| Layer | Module | Role | Harnesses (grep) |
+|-------|--------|------|------------------|
+| Listed hostile weights | `CombatTargetScoring.gd` | **`ai_targeting_weight_mult`**, **`posture_cohesion_targeting_mult`**, **`opponent_formation_targeting_mult`**, **`stance_ai_targeting_mult`**, **`opponent_breach_file_targeting_mult`** | **`_run_ai_targeting_stance_mult_ordering`**; broader **`_run_ai_targeting_`**, **`_run_targeting_`**, **`_run_hostile_pair_`** |
+| Crash listing | `CombatAIActionPicker.gd` | **`_crash_weight_posture_mult`**, **`crash_line_cohesion_weight_mult`** | **`_run_crash_ai_posture_mult_with_cached_fd`**, **`_run_crash_ai_cohesion_weight_monotone`** |
+| Intruder geometry | `ZoneOfControl.gd` | Host-line **`formation_dict_for_zone_geometry`** for posture / breach reads | (shared with Tier **1.6** harnesses above) |
+
+<a id="tier-42-footwork--tempo--live-path-shipped"></a>
 
 ## Tier 4.2 footwork / tempo — live path (shipped)
 
-**Plan / harness anchor:** [Tier 4.2 exit criteria](IMPLEMENTATION_ORDER.md#tier-42-feint-d-telegraph-ai) · exhaustive names in [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) · grep **`_run_defense_spacing_`**, **`_run_defense_footwork_`** in `combat/CombatRegressionHarness.gd`.
-
-**Reader:** pair **`distance_to[attacker]`** on the defender (`CombatDistanceBands` snapshot) nudges passive defense in **`DefenseChoiceResolver.choose_defense`**. Feint-specific spacing (telegraph dodge bias, AI feint-listing readiness, guard read-through) uses separate **`FEINT_*_SPACING_*`** / **`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`** constants — see **Shipped (4.2 partial)** in the header above. **Recovering** defenders get an extra multiplier on **reported `dodge_chance` only** (not on **`parry_c_d`** readiness curves).
+**Reader:** pair **`distance_to[attacker]`** on the defender (`CombatDistanceBands` snapshot) nudges passive defense in **`DefenseChoiceResolver.choose_defense`**. Feint-specific spacing uses **`FEINT_*_SPACING_*`** / **`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**. **Recovering** defenders get an extra multiplier on **reported `dodge_chance` only** (not **`parry_c_d`** readiness curves). **Position-angle steps** (attack/defender offset on arc) → [§4.4 table](#tier-44-position-angle-footwork-live-path) (orthogonal to pair spacing).
 
 | Layer | Module | Constants | Harnesses (grep) |
 |-------|--------|-----------|------------------|
@@ -24,16 +51,38 @@ Consolidated sections; each has **`Source:`** for provenance.
 
 **`dodge_chance` stack in `choose_defense` (reported value):** base × stance evasion × ambush × surround × **`_spacing_band_dodge_chance_mult`** → if **`STATE_RECOVERING`**, × **`defense_footwork_recovering_dodge_mult_for_cause(recovery_cause)`**; elif settled **`STATE_WAITING`**, × **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`**.
 
-**Still open (investigations below):** richer symmetric footwork / position vectors, probabilistic feint misdirection without explicit **`feint_part`**.
+**Still open (investigations below):** probabilistic feint misdirection without explicit **`feint_part`**.
 
-## Contents
+<a id="tier-43-mental-stack--combat-attention-live-path"></a>
 
-1. [FEINT_COUNTER_STAMINA_READINESS_DIAGONAL_INVESTIGATION.md](#feint-counter-stamina-readiness-diagonal-investigation)
-2. [COMBAT_STANCE_STATES_INVESTIGATION.md](#combat-stance-states-investigation)
-3. [FOOTWORK_POSITIONING_INVESTIGATION.md](#footwork-positioning-investigation)
-4. [MELEE_SIMULATION_AI_INVESTIGATION.md](#melee-simulation-ai-investigation)
-5. [MENTAL_STACK_ENGAGEMENT_INVESTIGATION.md](#mental-stack-engagement-investigation)
-6. [MENTAL_STACK_IMPLEMENTATION_COMPARISON.md](#mental-stack-implementation-comparison)
+## Tier 4.3 mental stack & combat attention — live path (shipped)
+
+**Reader:** **Salience** (who matters now) picks the AI layer; **focus** (`focus_part` + `focus_intensity`, damped by **`attention_load`**) scales feint read-through and reported **`parry_readiness`**. Pair spacing / feint telegraph → [§4.2](#tier-42-footwork--tempo--live-path-shipped); arc step offsets → [§4.4](#tier-44-position-angle-footwork-live-path).
+
+| Layer | Module | Role | Harnesses (grep) |
+|-------|--------|------|------------------|
+| Salience + load | `CombatAttention.gd` | **`is_being_wind_up_targeted`**, **`has_actionable_counter_tempo`**, **`attention_load`**, **`focus_effective`**, UI hint refresh | **`_run_attention_being_wind_up_targeted_when_telegraph_set`**, **`_run_attention_counter_tempo_salience_matches_can_act`**, **`_run_attention_load_stacks_peril_and_incoming`**, **`_run_attention_load_dampens_focus_effective_readiness`**, **`_run_attention_ui_hint_*`**, **`_run_attention_refresh_waiting_tick_stamps_ui_hint`** |
+| Focus on defense | `DefenseChoiceResolver.gd`, `GuardLineUpdater.gd` | Read-through / readiness × **`focus_effective`**; guard moves sync **`focus_part`** | **`_run_focus_intensity_scales_feint_readthrough_and_guard_zone`**, **`_run_guard_from_move_syncs_focus_part_with_guard_line`** |
+| AI stack | `MentalStackDecider.gd`, `CombatAIActionPicker.gd` | Layered **`decide_action`** before weighted attack pick | **`_run_mental_stack_medical_overrides_attack`**, **`_run_mental_stack_incoming_windup_prefers_defense`**, **`_run_mental_stack_counter_over_plain_attack_when_window_open`**, **`_run_mental_stack_attack_layer_matches_legacy_weights`**, **`_run_mental_stack_stamps_layer_on_medical_pick`** |
+| Focus-line commands | `AvailableActionsBuilder.gd`, `CombatResolveAction.gd` | Listed **`focus_*`** retarget; party-lead telegraph bias | **`_run_focus_line_actions_listed_when_attention_enabled`**, **`_run_focus_line_resolve_sets_guard_and_focus`**, **`_run_focus_line_party_leader_prefers_telegraph_match`** |
+| Yomi memory | `CombatAttention.gd`, `AttackWindUpStarter.gd`, `AttackResultApplier.gd`, `CombatAIActionPicker.gd` | Per-attacker habit; feint listing / readiness mults | **`_run_yomi_guard_tendency_boosts_feint_after_repeated_high`**, **`_run_yomi_updates_on_parry_deflect_clears_on_hit`**, **`_run_yomi_focus_drift_*`**, **`_run_yomi_parry_deflect_boosts_feint_listing_mult`**, **`_run_yomi_defense_readiness_mult_boosts_after_parry_deflect`** |
+| Lifecycle | `CombatManager.start()` | **`CombatAttention.clear_focus_and_yomi`** on combat start | (covered by focus/yomi harnesses + telegraph scrub in **4.2**) |
+
+<a id="tier-44-position-angle-footwork-live-path"></a>
+
+## Tier 4.4 position-angle footwork — live path (shipped)
+
+**Reader:** abstract **±deg offset** on arc geometry (not world positions). Gated by **`CombatConstants.is_feature_position_angle_footwork_enabled()`** (production default **on**; harness **`set_feature_position_angle_footwork_load`** toggles for isolation). Pair **CLOSE/MID/LONG** spacing remains under [§4.2](#tier-42-footwork--tempo--live-path-shipped).
+
+| Layer | Module | Role | Harnesses (grep) |
+|-------|--------|------|------------------|
+| Feature flag | `CombatConstants.gd` | **`is_feature_position_angle_footwork_enabled()`** / load setter | all **`_run_footwork_*`** wrap flag on/off |
+| Step + offset math | `CombatFootwork.gd` | **`apply_attack_step_on_windup`**, **`apply_defender_step_on_parry`**, **`apply_defender_step_on_dodge`**, **`apply_offset_to_angle_deg`**, **`guard_angle_deg`**, **`clear_position_offset`** | **`_run_footwork_attack_step_offset_stamped_on_windup`**, **`_run_footwork_offset_shifts_attack_angle_deg`**, **`_run_footwork_defender_parry_step_stamps_offset`**, **`_run_footwork_defender_offset_shifts_guard_angle_deg`**, **`_run_footwork_defender_dodge_step_stamps_offset`**, **`_run_footwork_guard_line_for_body_part_maps_legs_and_chest`**, **`_run_footwork_choose_defense_dodge_does_not_keep_parry_offset`** |
+| Wind-up stamp | `AttackWindUpStarter.gd` | Attack line → attacker offset | **`_run_footwork_windup_arc_intended_includes_attacker_step`** |
+| Defense pick | `DefenseChoiceResolver.gd` | Parry alignment + commit parry/dodge step | **`_run_footwork_arc_contact_applies_offset_once`** |
+| Resolve / arc | `AttackResolver.gd`, `WeaponSwingPhysics.gd` | **`pa.position_angle_offset_deg`**, arc end / contact angle | **`_run_footwork_arc_end_fallback_prefers_intended_over_attack_angle`**, **`_run_footwork_partial_follow_through_freezes_resolve_angles`** |
+| Lifecycle scrub | `CombatManager.start()`, `AttackResultApplier.gd` | Clear offset on restart / exchange end | **`_run_footwork_offset_scrubbed_on_combat_start`**, **`_run_footwork_defender_offset_scrubbed_after_exchange`** |
+| UI | `CombatFootwork.gd`, `BattleUIUpdater.gd`, `CombatCombatantsSnapshot.gd` | **`format_position_angle_ui_hint`**, snapshot fields | **`_run_footwork_ui_hint_formats_offset`**, **`_run_footwork_ui_hint_clears_on_clear_position_offset`**, **`_run_footwork_snapshot_includes_position_hint_when_enabled`** |
 
 ---
 
@@ -49,7 +98,9 @@ Investigation into different ways to integrate five combat features: feint (tele
 
 ## 1. Feint (Telegraph vs Real Target)
 
-**Current (code):** Tier **4.2** **Partial** — explicit **`is_feint`** moves carry **`feint_part`** (telegraph) and **`target_part`** on **`pending_attack`**; defender **`guard_zone`** + **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`**; **`DefenseChoiceResolver`** / AI feint listing (`_get_action_weight` mults, doctrine, stance, stamina, recent **`parry_deflect`** vs this attacker). Non-empty **`feint_part`** also shortens passive-parry **`effective_wind_up`** vs plain attacks (**`CombatConstants.COMMITMENT_FRACTION_FEINT`**, **`commitment_fraction_for_pending_attack`**). Optional **`feint_target_reveal_at_progress`** + **`DefenseChoiceResolver._feint_readiness_reveal_mult`** damp feint read-through / dodge telegraph / guard-zone / reported **`parry_readiness`** / passive-parry guard-angle wobble until wind-up progress reaches the reveal fraction. Plain attacks: **`target_part`** committed at wind-up as before. Plan + harnesses: [Tier 4.2](IMPLEMENTATION_ORDER.md#tier-42-feint-d-telegraph-ai). **Open (this doc):** probabilistic misdirection (Approach **B**), full counter-tempo spend (counter window §2), richer symmetric footwork (merged footwork §3 / plan open row); Approach **C** (telegraph delay only) is **partially** shipped via **`feint_target_reveal_at_progress`** (not “hide **`target_part`** until 50%” without the feint split).
+**Shipped in code:** see [§4.2 live path](#tier-42-footwork--tempo--live-path-shipped) (not this investigation).
+
+**Open in this investigation doc only:** probabilistic misdirection (Approach **B**, rejected as primary); Approach **C** partial via **`feint_target_reveal_at_progress`** (not full “hide target until 50%” without **`feint_part`** split).
 
 **HEMA:** Feint = threaten line A to draw parry; disengage; hit line B. Single-tempo action (Giganti: cavazione baits response).
 
@@ -631,7 +682,7 @@ combatant.stance_preference: "cautious" | "reckless" | "tactical" | "balanced"  
 
 ## Footwork and Positioning: Implementation Approaches
 
-**Shipped slice (Tier 4.2):** pair **`distance_to`** bands + recovering **`dodge_chance`** — see [Tier 4.2 footwork / tempo — live path (partial)](#tier-42-footwork--tempo--live-path-partial) and plan [§4.2](IMPLEMENTATION_ORDER.md#tier-42-feint-d-telegraph-ai). Sections below are **design options**; not all are implemented.
+**Shipped slice (Tier 4.2):** pair **`distance_to`** bands + recovering **`dodge_chance`** — see [Tier 4.2 live path](#tier-42-footwork--tempo--live-path-shipped). Position-angle steps → [§4.4](#tier-44-position-angle-footwork-live-path). Sections below are **design options**; not all are implemented.
 
 ### Purpose
 
@@ -1060,6 +1111,8 @@ For **physics-based** games, decisions are often simpler (Exanima: "when to stri
 ---
 
 <a id="mental-stack-engagement-investigation"></a>
+
+**Shipped slice (Tier 4.3):** salience + focus + AI stack + yomi — see [Tier 4.3 live path](#tier-43-mental-stack--combat-attention-live-path). **`STATE_IN_FLURRY`** / bind expansion below remain **design options**.
 
 ## Source: `MENTAL_STACK_ENGAGEMENT_INVESTIGATION.md`
 

@@ -58,9 +58,7 @@ static func build(manager: Node) -> Array:
 			var off_deg: float = _Footwork.get_defender_offset_deg(c)
 			if absf(off_deg) >= 0.01:
 				item["position_angle_offset_deg"] = off_deg
-			var fw_hint: String = str(
-				c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT, "")
-			).strip_edges()
+			var fw_hint: String = _Footwork.get_ui_hint(c)
 			if not fw_hint.is_empty():
 				item["position_angle_ui_hint"] = fw_hint
 		var pm_raw: Variant = c.get("pending_medical", null)

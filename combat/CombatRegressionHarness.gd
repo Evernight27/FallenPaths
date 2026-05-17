@@ -41,6 +41,8 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
 const _CombatLogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _AttackResolver := preload("res://combat/AttackResolver.gd")
+const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
+const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 const _DistanceBands := preload("res://combat/CombatDistanceBands.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _AfterblowHandler := preload("res://combat/AfterblowHandler.gd")
@@ -141,6 +143,7 @@ static func _feint_listing_target_readiness_and_footwork_mult(
 static func run_all() -> Dictionary:
 	var failures: PackedStringArray = PackedStringArray()
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	_run_next_action_ready_map_matches_per_id(failures)
 	_run_vacancy_reconcile_follow_up_regression(failures)
 	_run_vacancy_reconcile_after_front_death(failures)
@@ -170,6 +173,8 @@ static func run_all() -> Dictionary:
 	_run_combat_telemetry_crash_blocked(failures)
 	_run_telemetry_invalid_melee_resolve_blocked(failures)
 	_run_telemetry_invalid_close_resolve_blocked(failures)
+	_run_attempt_close_listed_only_at_long(failures)
+	_run_attempt_close_ai_weight_zero_when_not_long(failures)
 	_run_close_contest_failed_emits_reason(failures)
 	_run_resolve_close_no_emit_when_target_incap(failures)
 	_run_resolve_crash_no_emit_when_target_incap(failures)
@@ -277,13 +282,16 @@ static func run_all() -> Dictionary:
 	_run_footwork_defender_offset_scrubbed_after_exchange(failures)
 	_run_footwork_ui_hint_formats_offset(failures)
 	_run_footwork_ui_hint_clears_on_clear_position_offset(failures)
+	_run_footwork_ui_hint_clears_on_combat_start(failures)
 	_run_footwork_snapshot_includes_position_hint_when_enabled(failures)
+	_run_footwork_snapshot_ui_hint_from_unstamped_offset(failures)
 	_run_footwork_guard_line_for_body_part_maps_legs_and_chest(failures)
 	_run_footwork_choose_defense_dodge_does_not_keep_parry_offset(failures)
 	_run_footwork_arc_contact_applies_offset_once(failures)
 	_run_footwork_arc_end_fallback_prefers_intended_over_attack_angle(failures)
 	_run_footwork_windup_arc_intended_includes_attacker_step(failures)
 	_run_footwork_partial_follow_through_freezes_resolve_angles(failures)
+	_run_footwork_disabled_skips_windup_stamp(failures)
 	_run_feint_move_listing_stance_ai_feint_mult_ordering(failures)
 	_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight(failures)
 	_run_feint_move_listing_defender_off_balance_boosts_feint_weight(failures)
@@ -380,6 +388,18 @@ static func run_all() -> Dictionary:
 	_run_kinematic_delivery_deflected_angle_bilateral_and_line_angle_helpers(failures)
 	_run_kinematic_delivery_deflected_line_from_angles_same_line_bind(failures)
 	_run_kinematic_delivery_angle_diff_and_alignment_from_angles_helpers(failures)
+	_run_kinematic_delivery_path_lookup_discrete_from_angles_continuous_alignment(failures)
+	_run_kinematic_delivery_guard_deflect_blend_guard_angle_and_attack_only_align(failures)
+	_run_kinematic_delivery_compute_penetration_return_keys_and_thrust_blunt_contact(failures)
+	_run_kinematic_delivery_attack_angle_deg_no_variance_deterministic(failures)
+	_run_kinematic_delivery_compute_damage_velocity_and_entity_split(failures)
+	_run_kinematic_delivery_alignment_context_guard_angle_only_uses_combatant_guard(failures)
+	_run_kinematic_delivery_parry_v_intent_effective_velocity_base(failures)
+	_run_kinematic_delivery_guard_wobble_readiness_shifts_guard_angle(failures)
+	_run_kinematic_delivery_compute_damage_strike_ke_and_blunt_contact_exposed(failures)
+	_run_kinematic_delivery_alignment_both_angles_ignores_wobble(failures)
+	_run_kinematic_delivery_attack_angle_only_wobble_changes_alignment(failures)
+	_run_kinematic_delivery_partial_parry_strike_ke_unchanged_pen_scaled(failures)
 	_run_weapon_blade_strong_fraction(failures)
 	_run_bind_riposte_contact_types_normalized(failures)
 	_run_bind_riposte_contact_multipliers(failures)
@@ -397,6 +417,7 @@ static func run_all() -> Dictionary:
 	_run_afterblow_low_hindrance_allow_triggers_resolve_hit(failures)
 	_run_afterblow_mid_hindrance_rand_cancel(failures)
 	_run_afterblow_mid_hindrance_rand_executes_hit(failures)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	return {"ok": failures.is_empty(), "failures": failures}
 
 
@@ -6540,18 +6561,24 @@ static func _run_counter_tempo_lists_melee_actions_when_window_open(failures: Pa
 		return
 	var saw_counter: bool = false
 	var saw_close: bool = false
+	var saw_focus: bool = false
 	for raw in actions:
 		if typeof(raw) != TYPE_DICTIONARY:
 			continue
 		var a: Dictionary = raw as Dictionary
 		if bool(a.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
 			saw_counter = true
-		if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		var mid: String = str(a.get("move_id", ""))
+		if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 			saw_close = true
+		if CombatConstants.is_focus_line_move(mid):
+			saw_focus = true
 	if not saw_counter:
 		_fail(failures, "counter_tempo_list: no action flagged counter_tempo")
 	if saw_close:
 		_fail(failures, "counter_tempo_list: close should be filtered out")
+	if saw_focus:
+		_fail(failures, "counter_tempo_list: focus_line should be filtered out")
 	_free_manager_restore_global_rng(mgr)
 
 
@@ -7339,7 +7366,7 @@ static func _run_footwork_attack_step_offset_stamped_on_windup(failures: PackedS
 	var atk: Dictionary = {}
 	_Footwork.apply_attack_step_on_windup(atk, "left")
 	var off: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if absf(off - CombatConstants.position_angle_offset_deg_for_attack_line("left")) > 0.01:
 		_fail(failures, "footwork_windup: want left-line offset got %.2f" % off)
 
@@ -7354,7 +7381,7 @@ static func _run_footwork_offset_shifts_attack_angle_deg(failures: PackedStringA
 	}
 	var base_deg: float = CombatConstants.line_to_angle("left")
 	var shifted: float = _Footwork.apply_offset_to_angle_deg(base_deg, atk)
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var want: float = fmod(
 		base_deg + CombatConstants.position_angle_offset_deg_for_attack_line("left") + 360.0,
 		360.0
@@ -7374,7 +7401,7 @@ static func _run_footwork_offset_scrubbed_on_combat_start(failures: PackedString
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	if atk.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
 		_fail(failures, "footwork_scrub: offset should clear on start")
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	_free_manager_restore_global_rng(mgr)
 
 
@@ -7384,7 +7411,7 @@ static func _run_footwork_defender_parry_step_stamps_offset(failures: PackedStri
 	var def: Dictionary = {}
 	_Footwork.apply_defender_step_on_parry(def, "left")
 	var off: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var want: float = CombatConstants.position_angle_defender_offset_deg_for_line(
 		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
 	)
@@ -7405,7 +7432,7 @@ static func _run_footwork_defender_offset_shifts_guard_angle_deg(failures: Packe
 	}
 	var base_deg: float = CombatConstants.get_guard_angle_deg(def, {})
 	var shifted: float = _Footwork.guard_angle_deg(def, {})
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var want: float = fmod(
 		base_deg
 		+ CombatConstants.position_angle_defender_offset_deg_for_line(
@@ -7424,7 +7451,7 @@ static func _run_footwork_defender_dodge_step_stamps_offset(failures: PackedStri
 	var def: Dictionary = {}
 	_Footwork.apply_defender_step_on_dodge(def, "left_arm")
 	var off: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var want: float = CombatConstants.position_angle_defender_offset_deg_for_line(
 		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
 	)
@@ -7448,7 +7475,7 @@ static func _run_footwork_defender_offset_scrubbed_after_exchange(failures: Pack
 	)
 	if def.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
 		_fail(failures, "footwork_def_scrub: defender offset should clear after dodge")
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	_free_manager_restore_global_rng(mgr)
 
 
@@ -7458,7 +7485,7 @@ static func _run_footwork_ui_hint_formats_offset(failures: PackedStringArray) ->
 	var atk: Dictionary = {}
 	_Footwork.apply_attack_step_on_windup(atk, "left")
 	var hint: String = _Footwork.format_position_angle_ui_hint(atk)
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var want: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
 	if hint != "Step +%.0f°" % want:
 		_fail(failures, "footwork_ui_hint: want 'Step +%.0f°' got '%s'" % [want, hint])
@@ -7470,11 +7497,30 @@ static func _run_footwork_ui_hint_clears_on_clear_position_offset(failures: Pack
 	var c: Dictionary = {}
 	_Footwork.apply_attack_step_on_windup(c, "right")
 	_Footwork.clear_position_offset(c)
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT):
 		_fail(failures, "footwork_ui_hint_clear: hint key should be erased")
 	if _Footwork.format_position_angle_ui_hint(c) != "":
 		_fail(failures, "footwork_ui_hint_clear: format should be empty")
+	if _Footwork.get_ui_hint(c) != "":
+		_fail(failures, "footwork_ui_hint_clear: get_ui_hint should be empty")
+
+
+## Tier 4.4.3: combat start scrubs stamped footwork UI hint (via clear_position_offset).
+static func _run_footwork_ui_hint_clears_on_combat_start(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	var atk: Dictionary = mgr.combatants[0]
+	_Footwork.apply_attack_step_on_windup(atk, "left")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	_free_manager_restore_global_rng(mgr)
+	if atk.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT):
+		_fail(failures, "footwork_ui_hint_start: hint key should be erased on combat start")
+	if _Footwork.get_ui_hint(atk) != "":
+		_fail(failures, "footwork_ui_hint_start: get_ui_hint should be empty after start")
 
 
 ## Tier 4.4.3: combatant snapshot exposes offset + hint when footwork flag on.
@@ -7485,7 +7531,7 @@ static func _run_footwork_snapshot_includes_position_hint_when_enabled(failures:
 	var atk: Dictionary = mgr.combatants[0]
 	_Footwork.apply_attack_step_on_windup(atk, "left")
 	var rows: Array = _CombatSnapshot.build(mgr)
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	_free_manager_restore_global_rng(mgr)
 	if rows.is_empty():
 		_fail(failures, "footwork_snapshot: expected one row")
@@ -7493,14 +7539,39 @@ static func _run_footwork_snapshot_includes_position_hint_when_enabled(failures:
 	var row: Dictionary = rows[0]
 	if not row.has("position_angle_offset_deg"):
 		_fail(failures, "footwork_snapshot: missing position_angle_offset_deg")
-	if str(row.get("position_angle_ui_hint", "")) != str(
-		atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT, "")
-	):
+	var want_hint: String = _Footwork.get_ui_hint(atk)
+	if str(row.get("position_angle_ui_hint", "")) != want_hint:
 		_fail(
 			failures,
-			"footwork_snapshot: ui hint mismatch row='%s' combatant='%s'"
-			% [row.get("position_angle_ui_hint", ""), atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT, "")]
+			"footwork_snapshot: ui hint mismatch row='%s' want='%s'"
+			% [row.get("position_angle_ui_hint", ""), want_hint]
 		)
+
+
+## Tier 4.4.3: snapshot derives UI hint from offset when stamp key missing.
+static func _run_footwork_snapshot_ui_hint_from_unstamped_offset(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var atk: Dictionary = mgr.combatants[0]
+	var off: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
+	atk[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = off
+	atk.erase(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT)
+	var rows: Array = _CombatSnapshot.build(mgr)
+	var want_hint: String = _Footwork.get_ui_hint(atk)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	_free_manager_restore_global_rng(mgr)
+	if rows.is_empty():
+		_fail(failures, "footwork_snapshot_unstamped: expected one row")
+		return
+	var row: Dictionary = rows[0]
+	if str(row.get("position_angle_ui_hint", "")) != want_hint:
+		_fail(
+			failures,
+			"footwork_snapshot_unstamped: want '%s' got '%s'" % [want_hint, row.get("position_angle_ui_hint", "")]
+		)
+	if absf(float(row.get("position_angle_offset_deg", 0.0)) - off) > 0.01:
+		_fail(failures, "footwork_snapshot_unstamped: offset deg missing or wrong")
 
 
 ## Tier 4.4: body-part → guard line for dodge step direction.
@@ -7530,7 +7601,7 @@ static func _run_footwork_choose_defense_dodge_does_not_keep_parry_offset(
 	var want_dodge: float = CombatConstants.position_angle_defender_offset_deg_for_line(
 		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
 	)
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if absf(parry_off - dodge_off) < 0.01:
 		_fail(
 			failures,
@@ -7555,10 +7626,12 @@ static func _run_footwork_arc_end_fallback_prefers_intended_over_attack_angle(
 		"attack_angle_deg": fmod(90.0 + off + 360.0, 360.0),
 	}
 	var end: float = CombatConstants.arc_end_deg_for_contact_geometry(pa)
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if absf(end - 90.0) > 0.05:
 		_fail(failures, "footwork_arc_end_fb: want intended 90 got %.2f" % end)
-	var at_contact: float = CombatConstants.get_arc_angle_at_progress(pa, 1.0)
+	var arc_start: float = float(pa.get("arc_start_deg", 0.0))
+	var arc_end: float = CombatConstants.arc_end_deg_for_contact_geometry(pa)
+	var at_contact: float = CombatConstants.get_arc_angle_at_progress(arc_start, arc_end, 1.0)
 	var atk: Dictionary = {CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG: off}
 	at_contact = _Footwork.apply_offset_to_angle_deg(at_contact, atk)
 	var doubled: float = _Footwork.apply_offset_to_angle_deg(90.0 + off, atk)
@@ -7586,7 +7659,7 @@ static func _run_footwork_partial_follow_through_freezes_resolve_angles(
 	}
 	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
 	_AttackResolver.stamp_resolve_angle_geometry_on_pa(pa, atk, "high", move_def, 0.0)
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if absf(float(pa.get("attack_angle_deg", -1.0)) - 201.0) > 0.05:
 		_fail(
 			failures,
@@ -7623,13 +7696,13 @@ static func _run_footwork_windup_arc_intended_includes_attacker_step(failures: P
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	seed(42)
 	_WindUpStarter.start(mgr, p_id, e_id, "oberhau", {"target_part": "chest"})
-	_restore_global_rng()
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
 	var atk: Dictionary = mgr._get_by_id(p_id)
 	var pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
 	var intended: float = float(pa.get("arc_intended_deg", -999.0))
 	var off: float = CombatConstants.position_angle_offset_deg_for_attack_line("high")
 	var want: float = fmod(CombatConstants.line_to_angle("high") + off + 360.0, 360.0)
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	_free_manager_restore_global_rng(mgr)
 	if intended < -900.0:
 		_fail(failures, "footwork_windup_intended: missing arc_intended_deg")
@@ -7656,7 +7729,7 @@ static func _run_footwork_arc_contact_applies_offset_once(failures: PackedString
 		), 1.0),
 		atk
 	)
-	CombatConstants.set_feature_position_angle_footwork_load(false)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var want: float = fmod(arc_end_base + float(atk.get(
 		CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0
 	)) + 360.0, 360.0)
@@ -7667,6 +7740,16 @@ static func _run_footwork_arc_contact_applies_offset_once(failures: PackedString
 			failures,
 			"footwork_arc_once: double-apply would match got %.2f (want distinct)" % at_contact
 		)
+
+
+## Tier 4.4: flag off — step-on-windup does not stamp offset (restore production default after).
+static func _run_footwork_disabled_skips_windup_stamp(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	var atk: Dictionary = {}
+	_Footwork.apply_attack_step_on_windup(atk, "left")
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	if atk.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
+		_fail(failures, "footwork_disabled: offset must not stamp when flag off")
 
 
 ## Tier 4.3.8: attention UI hint shows last mental-stack layer stamp.
@@ -12008,6 +12091,771 @@ static func _run_kinematic_delivery_angle_diff_and_alignment_from_angles_helpers
 		_fail(failures, "kin_align_from_angles: 0,60 want 0.5 got %.6f" % a3)
 
 
+## Tier 5.1 (optional long-tail): **`AttackPathResolver.resolve_hit_part`** contract — when both angles present, path keys use **`angle_to_nearest_line`** (discrete **`ATTACK_PATHS_BY_GUARD`**); alignment still uses continuous **`get_line_alignment_with_deflect`** (not discrete **`get_line_alignment(attack_line, guard_line)`**). Mirrors resolver intercept math (no RNG).
+static func _run_kinematic_delivery_path_lookup_discrete_from_angles_continuous_alignment(
+	failures: PackedStringArray
+) -> void:
+	const atk_deg: float = 90.0
+	const guard_deg: float = 0.0
+	const atk_line_str: String = "high"
+	const guard_line_str: String = "high"
+	var align_ctx: Dictionary = {"attack_angle_deg": atk_deg, "guard_angle_deg": guard_deg}
+	var atk_line_path: String = CombatConstants.angle_to_nearest_line(atk_deg)
+	var guard_line_path: String = CombatConstants.angle_to_nearest_line(guard_deg)
+	if atk_line_path != "right" or guard_line_path != "high":
+		_fail(
+			failures,
+			"kin_path_angle_split: quantize want right/high got %s/%s"
+			% [atk_line_path, guard_line_path]
+		)
+	var path_from_angles: Array = CombatConstants.get_attack_path(atk_line_path, guard_line_path)
+	var path_from_strings: Array = CombatConstants.get_attack_path(atk_line_str, guard_line_str)
+	if path_from_angles.is_empty() or path_from_strings.is_empty():
+		_fail(failures, "kin_path_angle_split: empty path (angles=%s strings=%s)" % [path_from_angles, path_from_strings])
+		return
+	if path_from_angles[0] == path_from_strings[0]:
+		_fail(
+			failures,
+			"kin_path_angle_split: first segment must differ (angle path %s vs string path %s)"
+			% [path_from_angles[0], path_from_strings[0]]
+		)
+	var defender: Dictionary = {"guard_line": guard_line_str}
+	var align_cont: float = CombatConstants.get_line_alignment_with_deflect(
+		atk_line_str,
+		defender,
+		align_ctx,
+		{}
+	)
+	var align_discrete: float = CombatConstants.get_line_alignment(atk_line_str, guard_line_str)
+	var exp_cont: float = maxf(
+		CombatConstants.PARRY_ALIGNMENT_FLOOR,
+		CombatConstants.get_alignment_from_angles(atk_deg, guard_deg)
+	)
+	if absf(align_cont - exp_cont) > 0.0001:
+		_fail(
+			failures,
+			"kin_path_angle_split: continuous align want %.6f got %.6f" % [exp_cont, align_cont]
+		)
+	if absf(align_discrete - 1.0) > 0.0001:
+		_fail(
+			failures,
+			"kin_path_angle_split: discrete high/high want 1 got %.6f" % align_discrete
+		)
+	if align_cont >= align_discrete - 0.0001:
+		_fail(
+			failures,
+			"kin_path_angle_split: continuous %.6f must be < discrete %.6f" % [align_cont, align_discrete]
+		)
+	var intercept_cont: int = _kin_path_intercept_max_index(path_from_angles, align_cont)
+	var intercept_disc: int = _kin_path_intercept_max_index(path_from_strings, align_discrete)
+	if intercept_cont <= intercept_disc:
+		_fail(
+			failures,
+			"kin_path_angle_split: low continuous align ⇒ later intercept (cont=%d disc=%d)"
+			% [intercept_cont, intercept_disc]
+		)
+	var partial_ctx: Dictionary = {"attack_angle_deg": atk_deg}
+	var path_partial: Array = CombatConstants.get_attack_path(atk_line_str, guard_line_str)
+	if path_partial[0] != path_from_strings[0]:
+		_fail(
+			failures,
+			"kin_path_angle_split: guard_angle only must keep string path first=%s got %s"
+			% [path_from_strings[0], path_partial[0]]
+		)
+
+
+static func _kin_path_intercept_max_index(path: Array, alignment: float) -> int:
+	var intercept_max: int = int(
+		lerpf(
+			float(CombatConstants.PATH_INTERCEPT_EARLY_MAX),
+			float(path.size() - 1),
+			1.0 - alignment
+		)
+	)
+	return clampi(intercept_max, 0, path.size() - 1)
+
+
+## Tier 5.1 (optional long-tail): **`get_guard_angle_deg`** lerps **`guard_deflect_from_line` → `guard_line`**; **`get_line_alignment_with_deflect`** attack-angle-only branch uses that blended guard (not discrete **`guard_line`** alone).
+static func _run_kinematic_delivery_guard_deflect_blend_guard_angle_and_attack_only_align(
+	failures: PackedStringArray
+) -> void:
+	var def_blend: Dictionary = {
+		"guard_line": "low",
+		"guard_deflect_from_line": "high",
+		"guard_deflect_blend": 0.5,
+	}
+	var g_blend: float = CombatConstants.get_guard_angle_deg(def_blend, {"parry_readiness": 1.0})
+	var exp_blend_deg: float = lerpf(
+		CombatConstants.line_to_angle("high"),
+		CombatConstants.line_to_angle("low"),
+		0.5
+	)
+	if absf(g_blend - exp_blend_deg) > 0.0001:
+		_fail(
+			failures,
+			"kin_guard_blend: guard angle want %.4f got %.4f" % [exp_blend_deg, g_blend]
+		)
+	var def_static: Dictionary = {"guard_line": "low"}
+	var g_static: float = CombatConstants.get_guard_angle_deg(def_static, {"parry_readiness": 1.0})
+	if absf(g_static - CombatConstants.line_to_angle("low")) > 0.0001:
+		_fail(
+			failures,
+			"kin_guard_blend: no blend want low %.1f got %.4f" % [CombatConstants.line_to_angle("low"), g_static]
+		)
+	var atk_match: float = 90.0
+	var align_match: float = CombatConstants.get_line_alignment_with_deflect(
+		"high",
+		def_blend,
+		{"attack_angle_deg": atk_match},
+		{"parry_readiness": 1.0}
+	)
+	var exp_match: float = maxf(
+		CombatConstants.PARRY_ALIGNMENT_FLOOR,
+		CombatConstants.get_alignment_from_angles(atk_match, g_blend)
+	)
+	if absf(align_match - exp_match) > 0.0001:
+		_fail(
+			failures,
+			"kin_guard_blend: attack-only align@90° want %.6f got %.6f (guard=%.4f)"
+			% [exp_match, align_match, g_blend]
+		)
+	# 10° vs blended guard (~90°) stays above PARRY_ALIGNMENT_FLOOR; static low (~180°) floors.
+	const atk_mid: float = 10.0
+	var align_blend_mid: float = CombatConstants.get_line_alignment_with_deflect(
+		"high",
+		def_blend,
+		{"attack_angle_deg": atk_mid},
+		{"parry_readiness": 1.0}
+	)
+	var exp_blend_mid: float = maxf(
+		CombatConstants.PARRY_ALIGNMENT_FLOOR,
+		CombatConstants.get_alignment_from_angles(atk_mid, g_blend)
+	)
+	if absf(align_blend_mid - exp_blend_mid) > 0.0001:
+		_fail(
+			failures,
+			"kin_guard_blend: attack-only align@10° want %.6f got %.6f" % [exp_blend_mid, align_blend_mid]
+		)
+	var align_static_mid: float = CombatConstants.get_line_alignment_with_deflect(
+		"high",
+		def_static,
+		{"attack_angle_deg": atk_mid},
+		{"parry_readiness": 1.0}
+	)
+	if align_static_mid >= align_blend_mid - 0.0001:
+		_fail(
+			failures,
+			"kin_guard_blend: static low guard should align lower than blended (static=%.6f blend=%.6f)"
+			% [align_static_mid, align_blend_mid]
+		)
+
+
+## Tier 5.1 (optional long-tail): **`WeaponDamageHelper.compute_penetration`** return keys match **`AttackResolver`** consumption — **SHARP** **`penetration_sharp`** only; **BLUNT** **`penetration_blunt_momentum_per_area`** + **`blunt_contact_cm`** (bare + thrust depth coupling via **`armor_resistance_rha_mm`** / **`pen_sharp_mm`**).
+static func _run_kinematic_delivery_compute_penetration_return_keys_and_thrust_blunt_contact(
+	failures: PackedStringArray
+) -> void:
+	var sword: Weapon = _Weapon.create_from_definition("SWORD")
+	var mace: Weapon = _Weapon.create_from_definition("MACE")
+	var spear: Weapon = _Weapon.create_from_definition("SPEAR")
+	if sword == null or mace == null or spear == null:
+		_fail(failures, "kin_pen_keys: missing sword/mace/spear")
+		return
+	var ai_cut: AttackInstance = AttackInstance.new("oberhau", 0.55)
+	ai_cut.velocity_m_s = 11.0
+	var d_sharp: Dictionary = WeaponDamageHelper.compute_penetration(
+		sword, ai_cut, WeaponConstants.DAMAGE_TYPE_SHARP, {}
+	)
+	if not d_sharp.has("penetration_sharp"):
+		_fail(failures, "kin_pen_keys: SHARP dict missing penetration_sharp keys=%s" % str(d_sharp.keys()))
+	if d_sharp.has("penetration_blunt_momentum_per_area") or d_sharp.has("blunt_contact_cm"):
+		_fail(
+			failures,
+			"kin_pen_keys: SHARP dict must not include blunt keys keys=%s" % str(d_sharp.keys())
+		)
+	var ai_blunt: AttackInstance = AttackInstance.new("direct_blow", 0.5)
+	ai_blunt.velocity_m_s = 10.0
+	var d_blunt: Dictionary = WeaponDamageHelper.compute_penetration(
+		mace, ai_blunt, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+	)
+	if not d_blunt.has("penetration_blunt_momentum_per_area"):
+		_fail(failures, "kin_pen_keys: BLUNT dict missing penetration_blunt_momentum_per_area")
+	if not d_blunt.has("blunt_contact_cm"):
+		_fail(failures, "kin_pen_keys: BLUNT dict missing blunt_contact_cm")
+	var want_bc: float = WeaponDamageHelper.get_blunt_contact_cm(mace, ai_blunt)
+	var got_bc: float = float(d_blunt.get("blunt_contact_cm", -1.0))
+	if got_bc <= 0.0:
+		_fail(failures, "kin_pen_keys: blunt_contact_cm must be > 0 got %.4f" % got_bc)
+	if absf(got_bc - want_bc) > 0.0001:
+		_fail(
+			failures,
+			"kin_pen_keys: blunt_contact_cm want %.4f got %.4f" % [want_bc, got_bc]
+		)
+	var pen_mpa: float = float(d_blunt.get("penetration_blunt_momentum_per_area", -1.0))
+	if pen_mpa <= 0.0:
+		_fail(failures, "kin_pen_keys: penetration_blunt_momentum_per_area must be > 0 got %.6f" % pen_mpa)
+	var ai_thrust: AttackInstance = AttackInstance.new("spear_thrust", 0.6)
+	ai_thrust.velocity_m_s = 12.0
+	ai_thrust.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	var pen_sharp_sp: float = float(
+		WeaponDamageHelper.compute_penetration(spear, ai_thrust, WeaponConstants.DAMAGE_TYPE_SHARP, {}).get(
+			"penetration_sharp", -1.0
+		)
+	)
+	if pen_sharp_sp <= 0.001:
+		_fail(failures, "kin_pen_keys: spear thrust pen_sharp too small %.6f" % pen_sharp_sp)
+	const armor_rha: float = 10.0
+	var pen_for_blunt: float = pen_sharp_sp * 0.5
+	var d_thrust_blunt: Dictionary = WeaponDamageHelper.compute_penetration(
+		spear,
+		ai_thrust,
+		WeaponConstants.DAMAGE_TYPE_BLUNT,
+		{
+			"armor_resistance_rha_mm": armor_rha,
+			"pen_sharp_mm": pen_for_blunt,
+			"target_effective_mass_kg": 14.0,
+		}
+	)
+	var point_w: float = maxf(float(spear.point_width), WeaponConstants.MIN_CONTACT_WIDTH_CM)
+	var head_w: float = float(spear.thrust_head_width)
+	if head_w <= 0.0:
+		head_w = point_w
+	var depth: float = clampf(pen_for_blunt / armor_rha, 0.0, 1.0)
+	var want_thrust_bc: float = point_w + (head_w - point_w) * depth
+	var got_thrust_bc: float = float(d_thrust_blunt.get("blunt_contact_cm", -1.0))
+	if absf(got_thrust_bc - want_thrust_bc) > 0.0001:
+		_fail(
+			failures,
+			"kin_pen_keys: thrust depth-coupled blunt_contact want %.4f got %.4f (depth=%.3f)"
+			% [want_thrust_bc, got_thrust_bc, depth]
+		)
+	if head_w > point_w + 0.01 and depth > 0.01 and depth < 0.99:
+		var bare_thrust_bc: float = WeaponDamageHelper.get_blunt_contact_cm(spear, ai_thrust)
+		if absf(got_thrust_bc - bare_thrust_bc) < 0.0001:
+			_fail(
+				failures,
+				"kin_pen_keys: depth-coupled contact should differ from bare (bare=%.4f coupled=%.4f depth=%.3f)"
+				% [bare_thrust_bc, got_thrust_bc, depth]
+		 )
+
+
+## Tier 5.1 (optional long-tail): **`get_attack_angle_deg(..., add_variance=false)`** matches **`line_to_angle`**; **`variance_context`** ignored without variance RNG.
+static func _run_kinematic_delivery_attack_angle_deg_no_variance_deterministic(
+	failures: PackedStringArray
+) -> void:
+	for ln in ["high", "right", "low", "left"]:
+		var want: float = CombatConstants.line_to_angle(ln)
+		var got: float = CombatConstants.get_attack_angle_deg(ln, false, {}, {})
+		if absf(got - want) > 0.0001:
+			_fail(
+				failures,
+				"kin_atk_angle_nv: line %s want %.1f got %.4f" % [ln, want, got]
+			)
+	seed(90211)
+	var with_ctx: float = CombatConstants.get_attack_angle_deg(
+		"high",
+		false,
+		{},
+		{"stamina_ratio": 0.05, "off_balance": true, "weapon_mass_kg": 4.0}
+	)
+	seed(90211)
+	var bare: float = CombatConstants.get_attack_angle_deg("high", false, {}, {})
+	if absf(with_ctx - bare) > 0.0001:
+		_fail(
+			failures,
+			"kin_atk_angle_nv: variance_context must not affect add_variance=false (ctx=%.4f bare=%.4f)"
+			% [with_ctx, bare]
+		)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+
+
+## Replicate **`AttackResolver.compute_and_apply_damage`** velocity assembly (not parry **`v_intent`**).
+static func _kin_expected_damage_velocity_m_s(
+	mgr: Node,
+	atk: Dictionary,
+	tgt: Dictionary,
+	intensity: float,
+	arch: Dictionary,
+	move_id: String,
+	velocity_override: float,
+	afterblow_damage_mult: float
+) -> float:
+	var weapon: Weapon = _EntityAccess.get_weapon(atk) as Weapon
+	if weapon == null:
+		return -1.0
+	var v_base: float = (
+		velocity_override
+		if velocity_override >= 0.0
+		else WeaponDamageHelper.velocity_m_s_from_intensity(intensity, arch, weapon, move_id)
+	)
+	var v: float = v_base * _StrikePhysics.closing_speed_multiplier(mgr, atk, tgt, {})
+	var st_ratio: float = clampf(
+		_EntityAccess.stamina_float(atk) / CombatConstants.STAMINA_MAX, 0.0, 1.0
+	)
+	v *= sqrt(
+		lerpf(
+			CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT,
+			1.0,
+			CombatConstants.stamina_factor(st_ratio)
+		)
+	)
+	if afterblow_damage_mult < 1.0:
+		v *= sqrt(maxf(0.04, afterblow_damage_mult))
+	return clampf(v, _ImpactVelocityModel.ABS_VELOCITY_MIN_M_S, _ImpactVelocityModel.ABS_VELOCITY_MAX_M_S)
+
+
+static func _kin_pen_sharp_at_velocity(
+	weapon: Weapon,
+	move_id: String,
+	arch: Dictionary,
+	intensity: float,
+	v_m_s: float,
+	strike_mods: Dictionary = {}
+) -> float:
+	var ai: AttackInstance = AttackInstance.new(move_id, intensity)
+	ai.archetype = arch
+	ai.velocity_m_s = v_m_s
+	ai.strike_energy_mult = float(strike_mods.get("strike_energy_mult", 1.0))
+	ai.strike_momentum_mult = float(strike_mods.get("strike_momentum_mult", 1.0))
+	return float(
+		WeaponDamageHelper.compute_penetration(weapon, ai, WeaponConstants.DAMAGE_TYPE_SHARP, {}).get(
+			"penetration_sharp", -1.0
+		)
+	)
+
+
+## Tier 5.1 (optional long-tail): hit damage **`velocity_m_s`** path matches **`WeaponDamageHelper`** at replicated effective **`v`**; **`compute_and_apply_damage`** → **`take_damage_split`** contract (**`damage_type` SPLIT**, **`mechanical_post_armor`**, tissue delta).
+static func _run_kinematic_delivery_compute_damage_velocity_and_entity_split(
+	failures: PackedStringArray
+) -> void:
+	const intensity: float = 0.62
+	const move_id: String = "oberhau"
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var sword: Weapon = _Weapon.create_from_definition("SWORD")
+	if sword == null:
+		_fail(failures, "kin_dmg_v_entity: missing sword")
+		return
+	var m: Node = _MgrScript.new()
+	m.set_meta(_HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
+	m.register(_new_entity("SWORD"), "player")
+	m.register(_new_entity("SWORD"), "enemy")
+	m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = m.combatants[0]
+	var tgt: Dictionary = m.combatants[1]
+	var tgt_n: Node = _EntityAccess.scene_node(tgt)
+	if tgt_n == null:
+		_fail(failures, "kin_dmg_v_entity: missing target node")
+		_free_manager(m)
+		return
+	var cut_before: float = float(tgt_n.body_cutting.get("chest", 0.0))
+	for case in [
+		{"vo": -1.0, "label": "derived"},
+		{"vo": 11.0, "label": "pinned"},
+	]:
+		var vo: float = float(case["vo"])
+		var v_exp: float = _kin_expected_damage_velocity_m_s(
+			m, atk, tgt, intensity, arch, move_id, vo, 1.0
+		)
+		var pen_exp: float = _kin_pen_sharp_at_velocity(sword, move_id, arch, intensity, v_exp, {})
+		var pen_int: float = _kin_dmg_pen_sample(vo, 1.0, 1.0, {}).x
+		if pen_exp <= 0.001:
+			_fail(failures, "kin_dmg_v_entity: %s pen_exp too small %.6f" % [case["label"], pen_exp])
+		elif absf(pen_int / pen_exp - 1.0) > 0.02:
+			_fail(
+				failures,
+				"kin_dmg_v_entity: %s pen ratio %.4f want ~1 (int=%.4f exp=%.4f v=%.4f)"
+				% [case["label"], pen_int / pen_exp, pen_int, pen_exp, v_exp]
+			)
+	var res: Dictionary = _AttackResolver.compute_and_apply_damage(
+		m,
+		_EntityAccess.id_int(atk),
+		_EntityAccess.id_int(tgt),
+		atk,
+		tgt,
+		"chest",
+		intensity,
+		move_id,
+		arch,
+		11.0,
+		1.0,
+		1.0,
+		-1.0,
+		-1.0,
+		1.0,
+		1.0,
+		1.0,
+		{},
+		{}
+	)
+	var rd: Dictionary = res.get("result_dict", {}) as Dictionary
+	if str(rd.get("damage_type", "")) != "SPLIT":
+		_fail(failures, "kin_dmg_v_entity: damage_type want SPLIT got %s" % str(rd.get("damage_type")))
+	if float(rd.get("mechanical_post_armor", -1.0)) < 0.0:
+		_fail(
+			failures,
+			"kin_dmg_v_entity: mechanical_post_armor missing (EntityDamage path not taken?)"
+		)
+	var total_phys: float = float(rd.get("total_physical", 0.0))
+	var final_cut: float = float(rd.get("final_cut", 0.0))
+	var cut_after: float = float(tgt_n.body_cutting.get("chest", 0.0))
+	if total_phys > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS and final_cut > 0.0 and cut_after >= cut_before:
+		_fail(
+			failures,
+			"kin_dmg_v_entity: chest cut should drop on hit (before=%.2f after=%.2f final_cut=%.2f)"
+			% [cut_before, cut_after, final_cut]
+		)
+	_free_manager(m)
+
+
+## Tier 5.1 (optional long-tail): **`alignment_context.guard_angle_deg` alone is ignored** — without **`attack_angle_deg`**, **`get_line_alignment_with_deflect`** uses **`get_guard_angle_deg`** / discrete **`guard_line`** (not the context guard angle).
+static func _run_kinematic_delivery_alignment_context_guard_angle_only_uses_combatant_guard(
+	failures: PackedStringArray
+) -> void:
+	var defender: Dictionary = {"guard_line": "right"}
+	var ctx_guard_only: Dictionary = {"guard_angle_deg": 180.0}
+	var got: float = CombatConstants.get_line_alignment_with_deflect(
+		"high",
+		defender,
+		ctx_guard_only,
+		{"parry_readiness": 1.0}
+	)
+	var exp_discrete: float = CombatConstants.get_line_alignment("high", "right")
+	if absf(got - exp_discrete) > 0.0001:
+		_fail(
+			failures,
+			"kin_align_ctx: guard_angle only want discrete high/right %.6f got %.6f"
+			% [exp_discrete, got]
+		)
+	var wrong_ctx_pair: float = maxf(
+		CombatConstants.PARRY_ALIGNMENT_FLOOR,
+		CombatConstants.get_alignment_from_angles(0.0, 180.0)
+	)
+	if absf(got - wrong_ctx_pair) < 0.0001:
+		_fail(
+			failures,
+			"kin_align_ctx: must not pair line high° with context guard 180° alone (floor %.6f)"
+			% wrong_ctx_pair
+		)
+	if exp_discrete <= CombatConstants.PARRY_ALIGNMENT_FLOOR + 0.01:
+		_fail(
+			failures,
+			"kin_align_ctx: fixture needs discrete align above floor (got %.6f)" % exp_discrete
+		)
+
+
+## Tier 5.1 (optional long-tail): parry **`v_intent`** base is **`WeaponDamageHelper.get_effective_velocity_m_s`** × **`StrikeRealismProfile.velocity_intent_mult_from_pa`** (pinned station); damage **KE** uses effective **`v`** without intent mult.
+static func _run_kinematic_delivery_parry_v_intent_effective_velocity_base(
+	failures: PackedStringArray
+) -> void:
+	var sword: Weapon = _Weapon.create_from_definition("SWORD")
+	if sword == null:
+		_fail(failures, "kin_parry_v: missing sword")
+		return
+	const move_id: String = "oberhau"
+	const intensity: float = 0.62
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var ai_derived: AttackInstance = AttackInstance.new(move_id, intensity)
+	ai_derived.archetype = arch
+	ai_derived.velocity_m_s = -1.0
+	var v_eff: float = WeaponDamageHelper.get_effective_velocity_m_s(sword, ai_derived)
+	var v_from_i: float = WeaponDamageHelper.velocity_m_s_from_intensity(intensity, arch, sword, move_id)
+	if absf(v_eff - v_from_i) > 0.0001:
+		_fail(
+			failures,
+			"kin_parry_v: derived v_eff want %.6f got %.6f" % [v_from_i, v_eff]
+		)
+	var ai_pin: AttackInstance = AttackInstance.new(move_id, intensity)
+	ai_pin.archetype = arch
+	ai_pin.velocity_m_s = 10.0
+	if absf(WeaponDamageHelper.get_effective_velocity_m_s(sword, ai_pin) - 10.0) > 0.0001:
+		_fail(failures, "kin_parry_v: pinned v_eff should be 10")
+	var pa_tip: Dictionary = {"impact_blade_station": 0.92, "strike_measure_ratio": 1.0}
+	var pa_guard: Dictionary = {"impact_blade_station": 0.12, "strike_measure_ratio": 1.0}
+	var mult_tip: float = _StrikeRealism.velocity_intent_mult_from_pa(
+		pa_tip, sword, move_id, intensity, arch
+	)
+	var mult_guard: float = _StrikeRealism.velocity_intent_mult_from_pa(
+		pa_guard, sword, move_id, intensity, arch
+	)
+	if mult_tip <= mult_guard + 0.0001:
+		_fail(
+			failures,
+			"kin_parry_v: cut tip station mult %.4f should exceed guard %.4f" % [mult_tip, mult_guard]
+		)
+	var v_intent_tip: float = v_eff * mult_tip
+	var ke_damage: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_derived)
+	var ai_intent: AttackInstance = AttackInstance.new(move_id, intensity)
+	ai_intent.archetype = arch
+	ai_intent.velocity_m_s = v_intent_tip
+	var ke_at_intent: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_intent)
+	if ke_at_intent <= ke_damage + 1e-4:
+		_fail(
+			failures,
+			"kin_parry_v: intent v should raise KE (damage=%.4f intent=%.4f)" % [ke_damage, ke_at_intent]
+		)
+	var ratio_v: float = v_intent_tip / maxf(v_eff, 0.001)
+	var ratio_ke: float = ke_at_intent / maxf(ke_damage, 0.001)
+	if absf(ratio_ke - ratio_v * ratio_v) > 0.08:
+		_fail(
+			failures,
+			"kin_parry_v: KE ratio %.4f want ~(v ratio)^2 %.4f" % [ratio_ke, ratio_v * ratio_v]
+		)
+
+
+## Tier 5.1 (optional long-tail): **`get_guard_angle_deg`** wobble when **`parry_readiness` < 1** (seeded); readiness **1** matches **`line_to_angle(guard_line)`** without blend.
+static func _run_kinematic_delivery_guard_wobble_readiness_shifts_guard_angle(
+	failures: PackedStringArray
+) -> void:
+	var defender: Dictionary = {"guard_line": "high"}
+	var wobble_ctx_full: Dictionary = {"parry_readiness": 1.0}
+	var stable: float = CombatConstants.get_guard_angle_deg(defender, wobble_ctx_full)
+	if absf(stable - CombatConstants.line_to_angle("high")) > 0.0001:
+		_fail(
+			failures,
+			"kin_guard_wobble: readiness 1 want high %.1f got %.4f"
+			% [CombatConstants.line_to_angle("high"), stable]
+		)
+	seed(44001)
+	var wobble_ctx_low: Dictionary = {"parry_readiness": 0.0}
+	var wobbled: float = CombatConstants.get_guard_angle_deg(defender, wobble_ctx_low)
+	if absf(wobbled - stable) < 0.05:
+		_fail(
+			failures,
+			"kin_guard_wobble: readiness 0 should shift angle (stable=%.4f wobbled=%.4f)"
+			% [stable, wobbled]
+		)
+	var max_shift: float = CombatConstants.GUARD_WOBBLE_MAX_DEG + 0.01
+	if CombatConstants.angle_diff_deg(wobbled, stable) > max_shift:
+		_fail(
+			failures,
+			"kin_guard_wobble: shift %.4f exceeds max wobble %.4f"
+			% [CombatConstants.angle_diff_deg(wobbled, stable), CombatConstants.GUARD_WOBBLE_MAX_DEG]
+		)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+
+
+## One **`compute_and_apply_damage`** sample with harness meta exposing pens + **`strike_ke_j`** + **`blunt_contact_cm`**.
+static func _kin_dmg_integration_sample(
+	vo: float,
+	parry_r: float,
+	align: float,
+	strike_mods: Dictionary
+) -> Dictionary:
+	var intensity: float = 0.62
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var m: Node = _MgrScript.new()
+	m.set_meta(_HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
+	m.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+	m.register(_new_entity("SWORD"), "player")
+	m.register(_new_entity("SWORD"), "enemy")
+	m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = m.combatants[0]
+	var tgt: Dictionary = m.combatants[1]
+	var res: Dictionary = _AttackResolver.compute_and_apply_damage(
+		m,
+		_EntityAccess.id_int(atk),
+		_EntityAccess.id_int(tgt),
+		atk,
+		tgt,
+		"chest",
+		intensity,
+		"oberhau",
+		arch,
+		vo,
+		1.0,
+		1.0,
+		-1.0,
+		-1.0,
+		parry_r,
+		1.0,
+		align,
+		strike_mods,
+		{}
+	)
+	var rd: Dictionary = res.get("result_dict", {}) as Dictionary
+	return {
+		"mgr": m,
+		"atk": atk,
+		"tgt": tgt,
+		"intensity": intensity,
+		"arch": arch,
+		"pen_sharp": float(rd.get("penetration_sharp_applied", -999.0)),
+		"pen_blunt_mpa": float(rd.get("penetration_blunt_mpa_applied", -999.0)),
+		"strike_ke_j": float(rd.get("strike_ke_j_applied", -999.0)),
+		"blunt_contact_cm": float(rd.get("blunt_contact_cm_applied", -999.0)),
+	}
+
+
+## Tier 5.1 (optional long-tail): **`compute_and_apply_damage`** exposed **`strike_ke_j_applied`** matches **`compute_kinetic_energy_j`** at assembled **`v`**; **`blunt_contact_cm_applied`** matches **`compute_penetration`** **BLUNT** dict (same armor opts as resolver).
+static func _run_kinematic_delivery_compute_damage_strike_ke_and_blunt_contact_exposed(
+	failures: PackedStringArray
+) -> void:
+	const move_id: String = "oberhau"
+	const vo_pin: float = 11.0
+	var sample: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var m: Node = sample["mgr"] as Node
+	var atk: Dictionary = sample["atk"] as Dictionary
+	var tgt: Dictionary = sample["tgt"] as Dictionary
+	var intensity: float = float(sample["intensity"])
+	var arch: Dictionary = sample["arch"] as Dictionary
+	var v_asm: float = _kin_expected_damage_velocity_m_s(
+		m, atk, tgt, intensity, arch, move_id, vo_pin, 1.0
+	)
+	var weapon: Weapon = _EntityAccess.get_weapon(atk) as Weapon
+	if weapon == null:
+		_fail(failures, "kin_dmg_kin_exposed: missing weapon")
+		_free_manager(m)
+		return
+	var ai: AttackInstance = AttackInstance.new(move_id, intensity)
+	ai.archetype = arch
+	ai.velocity_m_s = v_asm
+	var ke_want: float = WeaponDamageHelper.compute_kinetic_energy_j(weapon, ai)
+	var ke_got: float = float(sample["strike_ke_j"])
+	if ke_want <= 0.5:
+		_fail(failures, "kin_dmg_kin_exposed: ke_want too small %.4f" % ke_want)
+	elif absf(ke_got / ke_want - 1.0) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_kin_exposed: strike_ke_j ratio %.4f want 1 (got=%.4f want=%.4f v=%.4f)"
+			% [ke_got / ke_want, ke_got, ke_want, v_asm]
+		)
+	var pen_sharp_raw: float = float(
+		WeaponDamageHelper.compute_penetration(weapon, ai, WeaponConstants.DAMAGE_TYPE_SHARP, {}).get(
+			"penetration_sharp", -1.0
+		)
+	)
+	var blunt_opts: Dictionary = {
+		"pen_sharp_mm": pen_sharp_raw,
+		"target_effective_mass_kg": WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, "chest"),
+	}
+	var tgt_n: Node = _EntityAccess.scene_node(tgt)
+	if tgt_n != null and tgt_n.has_method("get_armor_sharp_resistance_for_part"):
+		blunt_opts["armor_resistance_rha_mm"] = tgt_n.get_armor_sharp_resistance_for_part("chest")
+	var bc_want: float = float(
+		WeaponDamageHelper.compute_penetration(
+			weapon, ai, WeaponConstants.DAMAGE_TYPE_BLUNT, blunt_opts
+		).get("blunt_contact_cm", -1.0)
+	)
+	var bc_got: float = float(sample["blunt_contact_cm"])
+	if bc_want <= 0.0:
+		_fail(failures, "kin_dmg_kin_exposed: blunt_contact_cm want > 0 got %.4f" % bc_want)
+	elif absf(bc_got - bc_want) > 0.0001:
+		_fail(
+			failures,
+			"kin_dmg_kin_exposed: blunt_contact_cm want %.4f got %.4f" % [bc_want, bc_got]
+		)
+	if float(sample["pen_sharp"]) <= 0.001:
+		_fail(failures, "kin_dmg_kin_exposed: pen_sharp_applied missing/too small")
+	_free_manager(m)
+
+
+## Tier 5.1 (optional long-tail): both angles in **`alignment_context`** ⇒ continuous cos(θ); **`wobble_context`** ignored.
+static func _run_kinematic_delivery_alignment_both_angles_ignores_wobble(
+	failures: PackedStringArray
+) -> void:
+	const atk_deg: float = 30.0
+	const guard_deg: float = 45.0
+	var both_ctx: Dictionary = {"attack_angle_deg": atk_deg, "guard_angle_deg": guard_deg}
+	var stable: float = CombatConstants.get_line_alignment_with_deflect(
+		"high",
+		{},
+		both_ctx,
+		{"parry_readiness": 1.0}
+	)
+	seed(44002)
+	var wobbled: float = CombatConstants.get_line_alignment_with_deflect(
+		"high",
+		{},
+		both_ctx,
+		{"parry_readiness": 0.0}
+	)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var exp: float = maxf(
+		CombatConstants.PARRY_ALIGNMENT_FLOOR,
+		CombatConstants.get_alignment_from_angles(atk_deg, guard_deg)
+	)
+	if absf(stable - exp) > 0.0001:
+		_fail(failures, "kin_align_wobble_both: stable want %.6f got %.6f" % [exp, stable])
+	if absf(wobbled - stable) > 0.0001:
+		_fail(
+			failures,
+			"kin_align_wobble_both: wobble must not change both-angle align (stable=%.6f wobbled=%.6f)"
+			% [stable, wobbled]
+		)
+
+
+## Tier 5.1 (optional long-tail): attack-angle-only branch uses **`get_guard_angle_deg`** wobble — low **`parry_readiness`** changes alignment vs readiness **1**.
+static func _run_kinematic_delivery_attack_angle_only_wobble_changes_alignment(
+	failures: PackedStringArray
+) -> void:
+	var defender: Dictionary = {"guard_line": "high"}
+	var atk_only: Dictionary = {"attack_angle_deg": 0.0}
+	var stable: float = CombatConstants.get_line_alignment_with_deflect(
+		"right",
+		defender,
+		atk_only,
+		{"parry_readiness": 1.0}
+	)
+	seed(44003)
+	var wobbled: float = CombatConstants.get_line_alignment_with_deflect(
+		"right",
+		defender,
+		atk_only,
+		{"parry_readiness": 0.0}
+	)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var g_stable: float = CombatConstants.get_guard_angle_deg(defender, {"parry_readiness": 1.0})
+	var exp_stable: float = maxf(
+		CombatConstants.PARRY_ALIGNMENT_FLOOR,
+		CombatConstants.get_alignment_from_angles(0.0, g_stable)
+	)
+	if absf(stable - exp_stable) > 0.0001:
+		_fail(
+			failures,
+			"kin_align_wobble_atk: stable want %.6f got %.6f" % [exp_stable, stable]
+		)
+	if absf(wobbled - stable) < 0.0001:
+		_fail(
+			failures,
+			"kin_align_wobble_atk: readiness 0 should change align (stable=%.6f wobbled=%.6f)"
+			% [stable, wobbled]
+		)
+
+
+## Tier 5.1 (optional long-tail): partial parry scales applied pens but not assembled **`strike_ke_j`** (pinned **`velocity_override`**).
+static func _run_kinematic_delivery_partial_parry_strike_ke_unchanged_pen_scaled(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	var full: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var half: Dictionary = _kin_dmg_integration_sample(vo_pin, 0.5, 1.0, {})
+	var ke_full: float = float(full["strike_ke_j"])
+	var ke_half: float = float(half["strike_ke_j"])
+	var pen_full: float = float(full["pen_sharp"])
+	var pen_half: float = float(half["pen_sharp"])
+	_free_manager(full["mgr"] as Node)
+	_free_manager(half["mgr"] as Node)
+	if ke_full <= 0.5:
+		_fail(failures, "kin_partial_parry: ke_full too small %.4f" % ke_full)
+	if absf(ke_half / ke_full - 1.0) > 0.02:
+		_fail(
+			failures,
+			"kin_partial_parry: strike_ke_j should ignore parry (full=%.4f half=%.4f)"
+			% [ke_full, ke_half]
+		)
+	if pen_half >= pen_full - 0.0001:
+		_fail(
+			failures,
+			"kin_partial_parry: pen_sharp should drop (full=%.4f half=%.4f)" % [pen_full, pen_half]
+		)
+	var want_ratio: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
+	want_ratio = lerpf(1.0, want_ratio, 0.5)
+	if absf(pen_half / pen_full - want_ratio) > 0.03:
+		_fail(
+			failures,
+			"kin_partial_parry: pen ratio %.4f want %.4f" % [pen_half / pen_full, want_ratio]
+		)
+
+
 static func _run_weapon_blade_strong_fraction(failures: PackedStringArray) -> void:
 	var sword: Weapon = _Weapon.create_from_definition("SWORD")
 	var dagger: Weapon = _Weapon.create_from_definition("DAGGER")
@@ -12904,6 +13752,7 @@ const _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED: int = 0
 const _HARNESS_META_RECORD_AFTERBLOW_MULT := "_harness_record_afterblow_damage_mult"
 const _HARNESS_META_LAST_AFTERBLOW_MULT := "_harness_last_afterblow_damage_mult"
 const _HARNESS_META_EXPOSE_PENETRATION_APPLIED := "_harness_expose_penetration_applied"
+const _HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinematics"
 
 
 ## Tier 3.3 harness: deterministic **`pending_attack`** (cut + stamped geometry) so **`AfterblowHandler`** → **`_execute_attack`** does not depend on wind-up RNG.
@@ -13293,6 +14142,96 @@ static func _run_telemetry_invalid_melee_resolve_blocked(failures: PackedStringA
 		var tel: Dictionary = mgr.get_meta(_TacticalCombat.META_COMBAT_TELEMETRY) as Dictionary
 		if int(tel.get("invalid_melee_resolve_blocked", 0)) < 1:
 			_fail(failures, "telemetry_melee_geom: expected invalid_melee_resolve_blocked >= 1 got %s" % str(tel))
+	_free_manager(mgr)
+
+
+## Tier 1.8: `attempt_close` is not listed when pair band is MID/CLOSE (matches `resolve_close_attempt` LONG-only).
+static func _run_attempt_close_listed_only_at_long(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr._recompute_zoc_and_distance()
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var p: Dictionary = mgr.combatants[0]
+	var en: Dictionary = mgr.combatants[1]
+	if typeof(p.get("distance_to", null)) != TYPE_DICTIONARY:
+		p["distance_to"] = {}
+	if typeof(en.get("distance_to", null)) != TYPE_DICTIONARY:
+		en["distance_to"] = {}
+	p["gauge"] = 100.0
+	en["gauge"] = 100.0
+	(p["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_MID
+	(en["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_MID
+	var acts_mid: Array = _ActionsBuilder.build(mgr, p_id)
+	for raw in acts_mid:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+			if int(a.get("target_id", -1)) == e_id:
+				_fail(
+					failures,
+					"attempt_close_list: must not list close vs MID opponent (target %d)" % e_id
+				)
+				_free_manager(mgr)
+				return
+	(p["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_LONG
+	(en["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_LONG
+	var acts_long: Array = _ActionsBuilder.build(mgr, p_id)
+	var saw_close: bool = false
+	for raw in acts_long:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		if (
+			str(a.get("move_id", "")) == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
+			and int(a.get("target_id", -1)) == e_id
+		):
+			saw_close = true
+			break
+	if not saw_close:
+		_fail(failures, "attempt_close_list: expected attempt_close vs LONG opponent")
+	_free_manager(mgr)
+
+
+## Tier 1.8: `CombatAIActionPicker` must not weight stale `attempt_close` at MID/CLOSE (defense in depth vs listing).
+static func _run_attempt_close_ai_weight_zero_when_not_long(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr._recompute_zoc_and_distance()
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var p: Dictionary = mgr.combatants[0]
+	var en: Dictionary = mgr.combatants[1]
+	if typeof(p.get("distance_to", null)) != TYPE_DICTIONARY:
+		p["distance_to"] = {}
+	if typeof(en.get("distance_to", null)) != TYPE_DICTIONARY:
+		en["distance_to"] = {}
+	p["gauge"] = 100.0
+	en["gauge"] = 100.0
+	var a_close: Dictionary = {
+		"target_id": e_id,
+		"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
+	}
+	(p["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_MID
+	(en["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_MID
+	if _AIPicker._get_action_weight(a_close, p_id, mgr, true) > 0.001:
+		_fail(
+			failures,
+			"attempt_close_weight: MID band should zero weight got %.6f"
+			% _AIPicker._get_action_weight(a_close, p_id, mgr, true)
+		)
+		_free_manager(mgr)
+		return
+	(p["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_LONG
+	(en["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_LONG
+	var w_long: float = _AIPicker._get_action_weight(a_close, p_id, mgr, true)
+	if w_long <= 0.001:
+		_fail(failures, "attempt_close_weight: LONG band should allow positive weight got %.6f" % w_long)
 	_free_manager(mgr)
 
 

@@ -872,7 +872,8 @@ const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
 ## Tier 4.4.2: defender step scales (symmetric to attacker step-on-wind-up; still flag-gated).
 const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY := 0.55
 const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE := 0.85
-static var _feature_position_angle_footwork_enabled: bool = false
+## Production default on (2026-05-17): pilot tuned via `_run_footwork_*`; harness still toggles via load setter.
+static var _feature_position_angle_footwork_enabled: bool = true
 
 
 static func position_angle_defender_offset_deg_for_line(line: String, scale: float) -> float:
