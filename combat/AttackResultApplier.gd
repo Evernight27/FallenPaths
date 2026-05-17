@@ -291,9 +291,9 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			return
 		winner = manager._check_for_winner()
 		if not winner.is_empty():
-			if tgt != null and tgt_scene != null and tgt_scene.has_method("is_incapacitated") and tgt_scene.is_incapacitated():
+			if tgt != null and _EntityAccess.is_incapacitated(tgt):
 				var reason: String = "consciousness < 10%%"
-				if tgt_scene.has_method("is_cowering") and tgt_scene.is_cowering():
+				if _EntityAccess.is_cowering(tgt):
 					reason = "cowering (no functional arms)"
 				print("[Combat] INCAPACITATED: %s (%s)" % [_EntityAccess.get_display_name(tgt, target_id), reason])
 			manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)

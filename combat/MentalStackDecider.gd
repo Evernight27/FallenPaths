@@ -87,6 +87,10 @@ static func _filter_incoming_threat_actions(actions: Array, incoming_attacker_id
 			out.append(a)
 			continue
 		if incoming_attacker_id >= 0 and int(a.get("target_id", -1)) == incoming_attacker_id:
-			if not str(a.get("move_id", "")) in CombatConstants.MEDICAL_MOVE_IDS:
-				out.append(a)
+			var mid: String = str(a.get("move_id", ""))
+			if mid in CombatConstants.MEDICAL_MOVE_IDS:
+				continue
+			if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+				continue
+			out.append(a)
 	return out

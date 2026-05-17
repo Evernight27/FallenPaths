@@ -118,6 +118,8 @@ static func is_counter_tempo_melee_action(move_id: String) -> bool:
 		return false
 	if move_id == CombatConstants.MOVE_ID_CRASH:
 		return false
+	if CombatConstants.is_focus_line_move(move_id):
+		return false
 	return true
 
 
@@ -165,7 +167,7 @@ static func try_schedule_counter_tempo_ready(manager: Node, defender: Dictionary
 
 
 static func on_attacker_wind_up_started(
-	manager: Node, attacker_id: int, defender: Dictionary, wind_up_s: float
+	manager: Node, _attacker_id: int, defender: Dictionary, wind_up_s: float
 ) -> void:
 	if not enabled() or manager == null or defender == null:
 		return
@@ -181,20 +183,20 @@ static func on_attacker_wind_up_started(
 
 
 static func defer_incoming_melee_after_counter(
-	manager: Node, counter_id: int, incoming_attacker_id: int
+	manager: Node, counter_id: int, deferred_attacker_id: int
 ) -> void:
-	if manager == null or counter_id < 0 or incoming_attacker_id < 0:
+	if manager == null or counter_id < 0 or deferred_attacker_id < 0:
 		return
 	var counter: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(counter_id))
 	if counter.is_empty():
 		return
 	var counter_end: float = float(manager.combat_clock) + float(counter.get("state_duration", 0.0))
 	var defer_to: float = counter_end + CombatConstants.COUNTER_TEMPO_INCOMING_DEFER_AFTER_COUNTER_S
-	var incoming_at: float = _EventScheduler.get_pending_melee_attack_resolve_at(manager, incoming_attacker_id)
+	var incoming_at: float = _EventScheduler.get_pending_melee_attack_resolve_at(manager, deferred_attacker_id)
 	if incoming_at < 0.0:
 		return
 	if incoming_at < defer_to:
-		_EventScheduler.set_pending_melee_attack_resolve_at(manager, incoming_attacker_id, defer_to)
+		_EventScheduler.set_pending_melee_attack_resolve_at(manager, deferred_attacker_id, defer_to)
 
 
 static func abort_attacker_wind_up(manager: Node, attacker_id: int) -> void:

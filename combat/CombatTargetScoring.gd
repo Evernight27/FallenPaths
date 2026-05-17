@@ -6,7 +6,7 @@ extends RefCounted
 ## **Data flow (high level):**
 ## 1. `CombatManager.start` → `formation_doctrine` defaults; combatants get commitment + close-block dicts.
 ## 2. `_recompute_zoc_and_distance` → `CombatDistanceBands` (incl. reach/band alignment) → pair `distance_to`.
-## 3. `get_available_actions` → `AvailableActionsBuilder` (ordered opponents; MID+geometric reach lists melee, `attempt_close` mainly LONG / out-of-reach, gated by `_close_attempt_pair_blocked`).
+## 3. `get_available_actions` → `AvailableActionsBuilder` (ordered opponents; MID+geometric reach lists melee; `attempt_close` only at LONG via `_attempt_close_listed_for_pair`, gated by `_close_attempt_pair_blocked`; picker weight 0 if stale).
 ## 4. `CombatAIActionPicker.pick` → prune once → `ai_targeting_weight_mult(..., skip_prune=true)` (doctrine, file, commitment, pressure, **engagement mode**, our posture+cohesion, **opponent** formation, **opponent file breach** severity, stance, **incap** defender hedge) × stamina × depth-spear move weights (incl. doctrine stab/cut nudge). **`ally_pressure_count`** for rank>0 uses **`AvailableActionsBuilder._melee_pair_rank_allowed`** to the committed defender (not **`depth_polearm_lane_open`** alone).
 ## 5. `CombatResolveAction` → melee wind-up → `on_combat_commitment`; close → `CombatEngagementResolver` (success → commitment + clear close block; fail → per-target cooldown).
 ## 6. `set_formation_doctrine` → clears commitments on that formation (doctrine change); death → `clear_all_targeting_state_for_dead_defender`.

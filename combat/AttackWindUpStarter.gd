@@ -19,8 +19,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	var tgt = manager._get_by_id(target_id)
 	if atk == null or tgt == null or not _EntityAccess.alive_bool(tgt):
 		return
-	var atk_n: Node = _EntityAccess.scene_node(atk)
-	if atk_n != null and atk_n.has_method("get_attacking_arm") and atk_n.get_attacking_arm().is_empty():
+	if _EntityAccess.get_attacking_arm(atk).is_empty():
 		var atk_name_skip: String = _EntityAccess.get_display_name(atk, attacker_id)
 		print("[Combat] %s has no functional arm; skip attack (short recovery)." % atk_name_skip)
 		var old_pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
@@ -41,11 +40,11 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	var weapon = _EntityAccess.get_weapon(atk)
 	var attack_type: String = WeaponConstants.ATTACK_TYPE_CUT
 	var archetype: Dictionary = WeaponConstants.get_archetype(WeaponConstants.ARCHETYPE_SLASH)
-	if weapon != null and weapon.has_method("get_available_attack_types"):
-		if move_id != "" and weapon.get_available_attack_types().has(move_id):
+	if _EntityAccess.weapon_has_attack_types(weapon):
+		var types_arr: Array = _EntityAccess.weapon_attack_types(weapon)
+		if move_id != "" and types_arr.has(move_id):
 			attack_type = move_id
 		else:
-			var types_arr: Array = weapon.get_available_attack_types()
 			var non_parry: Array = []
 			for mid in types_arr:
 				if not WeaponConstants.is_parry_move(mid):
@@ -85,13 +84,10 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 				mult = CombatConstants.PARRY_BIND_RIPOSTE_MULT_FALLBACK
 			wind_up_s *= mult
 	# Leg functionality: longer wind-up when legs injured (harder to get into position to attack).
-	if atk_n != null and atk_n.has_method("get_leg_functionality"):
-		var leg: float = clampf(atk_n.get_leg_functionality(), CombatConstants.WINDUP_LEG_MIN, 1.0)
-		wind_up_s /= leg
+	var leg: float = clampf(_EntityAccess.get_leg_functionality(atk), CombatConstants.WINDUP_LEG_MIN, 1.0)
+	wind_up_s /= leg
 	# Pain/consciousness: wounded attackers swing slower
-	var atk_perf_mod: float = 1.0
-	if atk_n != null and atk_n.has_method("get_performance_modifier"):
-		atk_perf_mod = atk_n.get_performance_modifier()
+	var atk_perf_mod: float = _EntityAccess.get_performance_modifier(atk)
 	if atk_perf_mod > 0.0:
 		wind_up_s /= maxf(CombatConstants.PERF_MOD_MIN, atk_perf_mod)
 	# Agility: higher agility shortens wind-up (faster into position)
@@ -159,7 +155,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	if not hit_part_log.is_empty():
 		_Attention.record_attack_toward_defender(manager, attacker_id, tgt, hit_part_log)
 	_CounterTempo.on_attacker_wind_up_started(manager, attacker_id, tgt, wind_up_s)
-	var atk_name_log: String = (str(atk_n.name) if atk_n != null else "id:%d" % attacker_id)
+	var atk_name_log: String = _EntityAccess.get_display_name(atk, attacker_id)
 	if CombatConstants.COMBAT_DEBUG:
 		var angle_info: String = " [atk=%.0f° guard=%.0f°]" % [align_ctx["attack_angle_deg"], align_ctx["guard_angle_deg"]]
 		CombatDebug.log("%s | guard=%s atk_line=%s align=%.2f trans=%.2f%s | wind_up=%.2fs" % [atk_name_log, atk.get("guard_line", CombatConstants.GUARD_DEFAULT), attack_line, align, trans_mult, angle_info, wind_up_s])

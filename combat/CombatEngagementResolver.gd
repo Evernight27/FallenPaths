@@ -21,7 +21,7 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 		return
 	if _EntityAccess.is_incapacitated(atk) or _EntityAccess.is_incapacitated(tgt):
 		return
-	# `attempt_close` is only listed at LONG; resolving at MID/CLOSE is stale/illegal (Tier 1.8 telemetry).
+	# `attempt_close` is only listed at LONG (`AvailableActionsBuilder._attempt_close_listed_for_pair`); MID/CLOSE resolve is telemetry-only.
 	var band: String = str(
 		_EntityAccess.nested_dictionary_read(atk, "distance_to").get(
 			target_id, CombatConstants.DISTANCE_LONG

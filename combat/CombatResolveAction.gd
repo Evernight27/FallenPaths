@@ -12,6 +12,7 @@ const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 
 
 static func is_medical_move(move_id: String) -> bool:
@@ -50,7 +51,10 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "direct_pressure", "part": part, "dmg": 0, "died": false})
 			manager.emit_signal("turn_resolved", attacker_id)
 		return
-	if _EntityAccess.state_str(atk) != CombatConstants.STATE_WAITING:
+	if (
+		_EntityAccess.state_str(atk) != CombatConstants.STATE_WAITING
+		and _EntityAccess.state_str(atk) != CombatConstants.STATE_COWERING
+	):
 		return
 	if move_id == CombatConstants.MOVE_ID_WAIT:
 		manager.skip_turn(attacker_id, "wait", "explicit wait move")
@@ -76,6 +80,16 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	if tgt == null or not _EntityAccess.alive_bool(tgt):
 		return
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		var dist_close: String = str(
+			_EntityAccess.nested_dictionary_read(atk, "distance_to").get(
+				target_id, CombatConstants.DISTANCE_LONG
+			)
+		)
+		if not _ActionsBuilder._attempt_close_listed_for_pair(manager, atk, target_id, dist_close):
+			# Stale UI / scripted resolve: same blocked path as `CombatEngagementResolver` (telemetry).
+			manager._resolve_close_attempt(attacker_id, target_id)
+			manager.emit_signal("turn_resolved", attacker_id)
+			return
 		if not CombatDebug.flow_verbose_enabled() and CombatConstants.COMBAT_EVENT_DEBUG:
 			var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 			var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
@@ -98,7 +112,17 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		if move_id == CombatConstants.MOVE_ID_DRAG_BACK and not bool(move_policy.get("allow_drag_back", false)):
 			return
 		if move_id == CombatConstants.MOVE_ID_FALL_BACK and not bool(move_policy.get("allow_fall_back", false)):
-			return
+			# Cowering solo retreat is listed without stable-line policy (`formation_retreat_only` in builder).
+			var cowering_solo_retreat: bool = (
+				target_id == attacker_id
+				and (
+					_EntityAccess.state_str(atk) == CombatConstants.STATE_COWERING
+					or _EntityAccess.is_cowering(atk)
+				)
+				and AvailableActionsBuilder.solo_fall_back_action_legal(manager, atk)
+			)
+			if not cowering_solo_retreat:
+				return
 		if move_id == CombatConstants.MOVE_ID_ROTATE_FILE and not bool(move_policy.get("allow_rotate_file", false)):
 			return
 		var fid_mv: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, atk)
@@ -156,23 +180,18 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		manager._start_rotate_file(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
-	var atk_clear_n: Node = _EntityAccess.scene_node(atk)
-	if atk_clear_n != null and atk_clear_n.has_method("clear_direct_pressure"):
-		if atk_clear_n.has_method("is_applying_direct_pressure") and atk_clear_n.is_applying_direct_pressure():
-			CombatDebug.flow_log(
-				"clear_direct_pressure id=%d %s (was %s)"
-				% [
-					attacker_id,
-					str(atk_clear_n.name),
-					(
-						str(atk_clear_n.get_direct_pressure_part())
-						if atk_clear_n.has_method("get_direct_pressure_part")
-						else "?"
-					)
-				],
-				"clear_direct_pressure:%d" % attacker_id
-			)
-		atk_clear_n.clear_direct_pressure()
+	if _EntityAccess.is_applying_direct_pressure_scene(atk):
+		var pressure_part: String = _EntityAccess.get_direct_pressure_part_scene(atk)
+		CombatDebug.flow_log(
+			"clear_direct_pressure id=%d %s (was %s)"
+			% [
+				attacker_id,
+				_EntityAccess.get_display_name(atk, attacker_id),
+				pressure_part if not pressure_part.is_empty() else "?"
+			],
+			"clear_direct_pressure:%d" % attacker_id
+		)
+	_EntityAccess.clear_direct_pressure_scene(atk)
 	var opts: Dictionary = {}
 	if options.has("target_part"):
 		opts["target_part"] = options.target_part

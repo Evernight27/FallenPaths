@@ -50,16 +50,14 @@ static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, resu
 
 	# Immediate disqualifiers
 	var tgt_n: Node = _EntityAccess.scene_node(tgt)
-	var attacking_arm: String = ""
-	if tgt_n != null and tgt_n.has_method("get_attacking_arm"):
-		attacking_arm = tgt_n.get_attacking_arm()
+	var attacking_arm: String = _EntityAccess.get_attacking_arm(tgt)
 	if attacking_arm.is_empty():
 		return false
 	var arm_inoperable: bool = _BodyPartQuery.is_arm_destroyed(tgt_n, attacking_arm) if tgt_n != null else true
 	if hit_part == attacking_arm and arm_inoperable:
 		_cancel_pending(manager, tgt)
 		return false
-	if hit_part == "head" and tgt_n != null and tgt_n.has_method("is_incapacitated") and tgt_n.is_incapacitated():
+	if hit_part == "head" and _EntityAccess.is_incapacitated(tgt):
 		_cancel_pending(manager, tgt)
 		return false
 

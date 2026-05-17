@@ -65,49 +65,51 @@ static func opts_from_choice(choice: Dictionary) -> Dictionary:
 		opts[CombatConstants.ACTION_KEY_COUNTER_TEMPO] = true
 	return opts
 
+## Shared swap-rank fitness gate: `disengage` = front yields to fitter rear; relief = rear replaces exhausted front.
+static func _swap_rank_fitness_swap_allowed(
+	c: Dictionary, partner: Dictionary, manager: Node, disengage: bool
+) -> bool:
+	if partner == null or partner.is_empty():
+		return false
+	if _EntityAccess.is_incapacitated(partner):
+		return false
+	if disengage and not _EntityAccess.retreat_formation_body_damage_warranted(c, manager):
+		return false
+	var our_fitness: float = _get_positioning_fitness(c)
+	var partner_fitness: float = _get_positioning_fitness(partner)
+	var gap: float = (partner_fitness - our_fitness) if disengage else (our_fitness - partner_fitness)
+	if gap <= 0.0:
+		return false
+	if disengage:
+		if _EntityAccess.get_attacking_arm(c).is_empty():
+			return not _EntityAccess.get_attacking_arm(partner).is_empty()
+	else:
+		if _EntityAccess.get_attacking_arm(partner).is_empty():
+			return not _EntityAccess.get_attacking_arm(c).is_empty()
+	var stressed_fitness: float = our_fitness if disengage else partner_fitness
+	if (
+		stressed_fitness <= CombatConstants.SWAP_RANK_AI_CRITICAL_FITNESS
+		and gap >= CombatConstants.SWAP_RANK_AI_URGENT_MIN_GAP
+	):
+		return true
+	return gap >= CombatConstants.SWAP_RANK_AI_MIN_FITNESS_GAP
+
+
 ## True when front→back disengage swap is tactically justified (matches high-weight rules in _get_action_weight).
 ## Plug-forward (incapacitated partner) is handled separately in AvailableActionsBuilder.
 ## `manager`: required for body-damage / peril gate (fatigue alone must not justify retreat).
 static func is_disengage_swap_tactically_allowed(
 	c: Dictionary, partner: Dictionary, manager: Node
 ) -> bool:
-	if partner == null or partner.is_empty():
-		return false
-	if CombatantEntityAccess.is_incapacitated(partner):
-		return false
-	if not CombatantEntityAccess.retreat_formation_body_damage_warranted(c, manager):
-		return false
-	var our_fitness: float = _get_positioning_fitness(c)
-	var partner_fitness: float = _get_positioning_fitness(partner)
-	var gap: float = partner_fitness - our_fitness
-	if gap <= 0.0:
-		return false
-	if CombatantEntityAccess.get_attacking_arm(c).is_empty():
-		return not CombatantEntityAccess.get_attacking_arm(partner).is_empty()
-	if our_fitness <= CombatConstants.SWAP_RANK_AI_CRITICAL_FITNESS and gap >= CombatConstants.SWAP_RANK_AI_URGENT_MIN_GAP:
-		return true
-	return gap >= CombatConstants.SWAP_RANK_AI_MIN_FITNESS_GAP
+	return _swap_rank_fitness_swap_allowed(c, partner, manager, true)
+
 
 ## True when deeper rank (higher rank #) should swap forward with the rank ahead (relief / rotation).
-## Mirror of is_disengage_swap_tactically_allowed: we are fitter than the fighter in front of us.
 static func is_relief_swap_tactically_allowed(c: Dictionary, partner: Dictionary) -> bool:
-	if partner == null or partner.is_empty():
-		return false
-	if CombatantEntityAccess.is_incapacitated(partner):
-		return false
-	var our_fitness: float = _get_positioning_fitness(c)
-	var partner_fitness: float = _get_positioning_fitness(partner)
-	var gap: float = our_fitness - partner_fitness
-	if gap <= 0.0:
-		return false
-	if CombatantEntityAccess.get_attacking_arm(partner).is_empty():
-		return not CombatantEntityAccess.get_attacking_arm(c).is_empty()
-	if partner_fitness <= CombatConstants.SWAP_RANK_AI_CRITICAL_FITNESS and gap >= CombatConstants.SWAP_RANK_AI_URGENT_MIN_GAP:
-		return true
-	return gap >= CombatConstants.SWAP_RANK_AI_MIN_FITNESS_GAP
+	return _swap_rank_fitness_swap_allowed(c, partner, null, false)
 
 ## Returns weight for action. Medical: urgency + direct pressure bleed + pending retry.
-## Combat: attack/attempt_close = use stamina (exhausted less likely to engage); swap_rank = fitness only (no stamina).
+## Combat: attack/attempt_close = use stamina (exhausted less likely to engage); `attempt_close` weight 0 unless LONG + not close-blocked; swap_rank = fitness only (no stamina).
 ## `skip_targeting_prune`: pass **true** when `pick()` already called `prune_expired_commitments` (avoids O(actions) redundant prunes).
 static func _get_action_weight(
 	a: Dictionary, combatant_id: int, manager: Node, skip_targeting_prune: bool = false
@@ -138,14 +140,30 @@ static func _get_action_weight(
 		var coh_m: float = crash_line_cohesion_weight_mult(manager, c, fd_crash)
 		return CombatConstants.CRASH_AI_WEIGHT_CAP * shaped * sr_c * pst_m * coh_m
 	if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get("target_id", -1) == combatant_id:
+		if (
+			_EntityAccess.state_str(c) == CombatConstants.STATE_COWERING
+			or _EntityAccess.is_cowering(c)
+		):
+			return CombatConstants.COWERING_SOLO_FALL_BACK_AI_WEIGHT
 		# Offered only when desperate / peril (AvailableActionsBuilder); keep below routine wait.
 		return 0.45
 	if mid == CombatConstants.MOVE_ID_ROTATE_FILE:
 		return 0.55
+	if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		var tgt_id_close: int = int(a.get("target_id", -1))
+		if tgt_id_close < 0:
+			return 0.0
+		var dist_close: String = str(
+			_EntityAccess.nested_dictionary_read(c, "distance_to").get(
+				tgt_id_close, CombatConstants.DISTANCE_LONG
+			)
+		)
+		if not _ActionsBuilder._attempt_close_listed_for_pair(manager, c, tgt_id_close, dist_close):
+			return 0.0
 	if mid in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK]:
 		var partner_id: int = a.get("target_id", -1)
 		var partner = manager._get_by_id(partner_id) if partner_id >= 0 else null
-		var partner_incapacitated: bool = partner != null and CombatantEntityAccess.is_incapacitated(partner)
+		var partner_incapacitated: bool = partner != null and _EntityAccess.is_incapacitated(partner)
 		if partner_incapacitated:
 			# Back rank plugging forward — partner (front) is incapacitated; strongly prefer.
 			return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
@@ -323,9 +341,9 @@ static func _depth_polearm_action_weight_mult(manager: Node, c: Dictionary, move
 ## Fitness for formation positioning: performance (attack capability) × health (blood). Higher = more able to fight.
 ## Used for swap rank: lowest fitness should be in back. Does not use stamina/action-ready.
 static func _get_positioning_fitness(c: Dictionary) -> float:
-	var perf: float = CombatantEntityAccess.get_performance_modifier(c)
-	var n: Node = CombatantEntityAccess.scene_node(c)
-	var health: float = clampf(CombatantEntityAccess.get_blood_volume_from_node(n) / 100.0, 0.0, 1.0) if n != null else 1.0
+	var perf: float = _EntityAccess.get_performance_modifier(c)
+	var n: Node = _EntityAccess.scene_node(c)
+	var health: float = clampf(_EntityAccess.get_blood_volume_from_node(n) / 100.0, 0.0, 1.0) if n != null else 1.0
 	return perf * health
 
 
@@ -474,10 +492,9 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
 		return
 	var tgt_id: int = choice.get("target_id", -1)
 	var tgt = manager._get_by_id(tgt_id)
-	var tgt_n: Node = _EntityAccess.scene_node(tgt) if tgt != null else null
-	if tgt == null or tgt_n == null or not tgt_n.has_method("get_targetable_parts"):
+	if tgt == null:
 		return
-	var targetable: Array = tgt_n.get_targetable_parts()
+	var targetable: Array = _EntityAccess.get_targetable_parts(tgt)
 	if targetable.is_empty():
 		return
 	var atk_pick = manager._get_by_id(attacker_id)

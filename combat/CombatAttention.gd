@@ -75,8 +75,8 @@ static func focus_effective(c: Dictionary) -> float:
 	var fi: float = get_focus_intensity(c)
 	if not enabled():
 		return fi
-	var load: float = get_attention_load(c)
-	return clampf(fi * (1.0 - CombatConstants.ATTENTION_LOAD_FOCUS_PENALTY * load), 0.0, 1.0)
+	var attention_load: float = get_attention_load(c)
+	return clampf(fi * (1.0 - CombatConstants.ATTENTION_LOAD_FOCUS_PENALTY * attention_load), 0.0, 1.0)
 
 
 static func refresh_salience(manager: Node, combatant_id: int) -> void:
@@ -85,14 +85,14 @@ static func refresh_salience(manager: Node, combatant_id: int) -> void:
 	var c: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
 	if c.is_empty():
 		return
-	var load: float = 0.0
+	var attention_load: float = 0.0
 	if is_being_wind_up_targeted(manager, combatant_id):
-		load += CombatConstants.ATTENTION_LOAD_TELEGRAPH_WEIGHT
+		attention_load += CombatConstants.ATTENTION_LOAD_TELEGRAPH_WEIGHT
 	if ally_in_immediate_peril(manager, combatant_id):
-		load += CombatConstants.ATTENTION_LOAD_PERIL_WEIGHT
+		attention_load += CombatConstants.ATTENTION_LOAD_PERIL_WEIGHT
 	if has_actionable_counter_tempo(manager, c):
-		load += CombatConstants.ATTENTION_LOAD_COUNTER_WEIGHT
-	c[CombatConstants.COMBATANT_KEY_ATTENTION_LOAD] = clampf(load, 0.0, 1.0)
+		attention_load += CombatConstants.ATTENTION_LOAD_COUNTER_WEIGHT
+	c[CombatConstants.COMBATANT_KEY_ATTENTION_LOAD] = clampf(attention_load, 0.0, 1.0)
 
 
 ## Row label fragment: telegraphed line, focus part + effective %, optional load %.
@@ -100,11 +100,11 @@ static func format_attention_ui_hint(c: Dictionary) -> String:
 	if not enabled() or c == null:
 		return ""
 	var tele: String = str(c.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")).strip_edges()
-	var load: float = get_attention_load(c)
+	var attention_load: float = get_attention_load(c)
 	var stack_layer: String = str(
 		c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")
 	).strip_edges()
-	if tele.is_empty() and load < 0.05 and stack_layer.is_empty():
+	if tele.is_empty() and attention_load < 0.05 and stack_layer.is_empty():
 		return ""
 	var chunks: PackedStringArray = []
 	if not tele.is_empty():
@@ -112,8 +112,8 @@ static func format_attention_ui_hint(c: Dictionary) -> String:
 	var fp: String = get_focus_part(c)
 	var fe_pct: int = int(roundf(focus_effective(c) * 100.0))
 	chunks.append("Focus %s %d%%" % [fp, fe_pct])
-	if load >= 0.08:
-		chunks.append("Load %d%%" % int(roundf(load * 100.0)))
+	if attention_load >= 0.08:
+		chunks.append("Load %d%%" % int(roundf(attention_load * 100.0)))
 	if not stack_layer.is_empty():
 		chunks.append("Stack %s" % stack_layer)
 	return " · ".join(chunks)
@@ -197,7 +197,7 @@ static func _yomi_root(defender: Dictionary) -> Dictionary:
 
 
 static func record_attack_toward_defender(
-	manager: Node, attacker_id: int, defender: Dictionary, target_part: String
+	_manager: Node, attacker_id: int, defender: Dictionary, target_part: String
 ) -> void:
 	if not enabled() or defender == null or attacker_id < 0:
 		return
