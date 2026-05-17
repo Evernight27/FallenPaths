@@ -308,7 +308,7 @@ static func choose_defense(
 		var contact_quality: float = CombatConstants.PARRY_LATE_CAPACITY_FLOOR if late_parry else (_get_parry_capacity_mult(_def_w, tgt, parry_time_to_react) if _def_w != null else 0.5)
 		if atk_w_arch != null and atk_w_arch.has_method("get_archetype_id"):
 			var arch_id: String = atk_w_arch.get_archetype_id(attack_type)
-			var pct: String = def_w_arch.get_parry_contact_type() if def_w_arch != null and def_w_arch.has_method("get_parry_contact_type") else "blade"
+			var pct: String = _EntityAccess.weapon_parry_contact_type(def_w_arch)
 			# Blade-on-blade: archetype weak exposure + defender forte matter. Shaft/haft: leverage only — no blade weak to catch.
 			var sc_raw: Variant = parry_cfg.get("strong_contact_by_arch", null)
 			var sc_map: Dictionary = sc_raw if sc_raw is Dictionary else {}
@@ -434,7 +434,7 @@ static func _get_contact_geometry(alignment: float, def_weapon) -> float:
 static func _get_leverage_factor(def_weapon, alignment: float) -> float:
 	if not def_weapon.has_method("has_parts") or not def_weapon.has_parts():
 		return 1.0
-	var pct: String = def_weapon.get_parry_contact_type() if def_weapon.has_method("get_parry_contact_type") else "blade"
+	var pct: String = _EntityAccess.weapon_parry_contact_type(def_weapon)
 	if pct != "shaft" and pct != "haft":
 		return 1.0
 	var len_cm: float = def_weapon.get_parry_part_length_cm() if def_weapon.has_method("get_parry_part_length_cm") else 0.0
