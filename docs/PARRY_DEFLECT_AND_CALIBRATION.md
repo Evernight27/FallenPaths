@@ -1,6 +1,6 @@
 # Parry Deflect And Calibration
 
-**Plan / code:** `p_a` / `WeaponDamageHelper` velocity + KE (**`kinematic_delivery`**, Tier **3.0** — [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-3--melee-depth-parry--weapon--guards)). Distance / strike-measure stack for parry → **Tier 3.1** [**Done**](IMPLEMENTATION_ORDER.md#tier-31-strike-measure-stamped-geometry). Parry/bind/deflect calibration + **`parry_clash_context`** → **Tier 3.2** [**Done**](IMPLEMENTATION_ORDER.md#tier-32-parry-bind-deflect). Line guards / afterblow → **Tier 3.3** [**Done**](IMPLEMENTATION_ORDER.md#tier-33-guard-line-afterblow).
+**Plan / code:** Deflect / calibration **investigations** only — module map is [Tier 3.2 live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) (shared with [`PARRY_BIND_AND_WEAPON_GEOMETRY.md`](PARRY_BIND_AND_WEAPON_GEOMETRY.md)). **Status** → plan [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary).
 
 Consolidated sections; each has **`Source:`** for provenance.
 

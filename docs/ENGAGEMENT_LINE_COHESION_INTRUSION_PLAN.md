@@ -1,16 +1,12 @@
 # Engagement: line cohesion, posture, intrusion geometry
 
-**Status (Tier 1 milestones):** Authoritative **Done / Partial** → **`docs/IMPLEMENTATION_ORDER.md`** [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary). §2 is a **verification mirror** (edit **after** that table).
+**Status (Tier 1 milestones):** Mirrors **`IMPLEMENTATION_ORDER.md`** [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) only — §2 is a **verification mirror** (edit **after** that table).
 
-**Last verified (code):** 2026-01-28 — same scope as **`IMPLEMENTATION_ORDER.md`** header (depth lanes, engagement P8 harness rows, telemetry keys). Harness names → [Changelog](IMPLEMENTATION_ORDER.md#changelog) **(f)–(l)** + [Tier 1.9 harness map](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes) + [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md). **Documentation:** 2026-05-12 — §1 shortened; spec history → **§7** below; §2.5 depth polearm / spear lane rows mirror plan **Done** (no duplicated `_run_*` lists here).
+**Harness names:** [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) only (not listed in §2). **Doc pass:** 2026-05-17 — §2 = verification mirror; spec history → **§7**.
 
 **Plan / code:** Tier 1 **spec** — §1 pointer to master plan dependency chain, §2 verification mirror, §4–§6 plugs / dictionary / tuning. **P-step order, milestone Status, Development gate, `FEATURE_LINE_CRASH_INTRUSION`, Tier 3+** → **`IMPLEMENTATION_ORDER.md`** only (no live intrusion expansion from this doc while the flag is **false**).
 
-**Related:** `combat/CombatFormationEngagement.gd`, `CombatIntrusionGeometry.gd`, `BreachResolver.gd`, `CombatEngagementResolver.gd`, `CombatManager.gd`, `CombatFormationSetup.gd`, `FormationBreachRules.gd`, `ui/BattleScene.gd` · `docs/TACTICAL_ZONES_BREACH_MOVEMENT.md` · tuning in `combat/CombatConstants.gd`.
-
----
-
-**Execution order** (numbered chain, gates, harness map) lives in **`IMPLEMENTATION_ORDER.md`** [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic) + [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary). **Concept stack for this spec:** formation **`slots`** + death/vacancy plugs → **`line_cohesion`** / **`engagement_posture`** → crash / **`BreachResolver`** + **`CombatIntrusionGeometry`** → intrusion roles + **`intrusion_wedge_by_file`** + **`lane_offset`** → **`effective_pair_eff_dist`** → encounter / morale (§5, Tier 1.4–1.5 in the plan) → **`CombatAIActionPicker`** / **`CombatTargetScoring`** (intruder reads via **`formation_id_for_zone_geometry`**). If anything disagrees with the master dependency chain, **that file wins**.
+**Concept stack:** **`slots`** + plugs → **`line_cohesion`** / **`engagement_posture`** → crash / wedge / **`lane_offset`** → **`effective_pair_eff_dist`** → morale → AI (intruder reads via **`formation_id_for_zone_geometry`**). **Modules:** `CombatFormationEngagement`, `CombatIntrusionGeometry`, `BreachResolver`, `CombatEngagementResolver`, `CombatManager`, `FormationBreachRules`, `ui/BattleScene` · `TACTICAL_ZONES_BREACH_MOVEMENT.md` · `CombatConstants.gd`.
 
 ---
 
@@ -26,7 +22,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 |------|:-----:|-------|
 | `FormationBreachRules.breach_clogs_open_lanes` vs `breach_blocks_open_lane_moves` | **Done** | Raw breach marks vs move lock; skirmish unclegs via `FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES` + `is_skirmish_line_engagement` (`CombatEngagementMode` source). |
 | `AvailableActionsBuilder` / `CombatResolveAction` use `breach_blocks_open_lane_moves` | **Done** | Formation moves respect skirmish-aware clog. |
-| Engagement mode Option 2 baseline (`duel` cap + `formation` min by active counts) | **Partial** | `CombatEngagementMode.snapshot` + `clear_resolved_mode_cache` on `CombatManager.start()`. Harness: active-count exhaustive (no `formation` below `ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE`), second-`start()` duel reset, cold `resolved formation` ⇒ `can_enter_formation_from_snapshot`. Optional: long UI soak. |
+| Engagement mode Option 2 baseline (`duel` cap + `formation` min by active counts) | **Done** | `CombatEngagementMode.snapshot` + `clear_resolved_mode_cache` on `CombatManager.start()`. Harness → registry Tier **1.7–1.8**. |
 
 ### 2.1 Foundation & visibility
 
@@ -73,11 +69,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 | Per-combatant `lane_offset` (bounded float; default 0) | **Done** | Seam bias + repack on plugs/moves; anchor peer nudge §4.2. |
 | Intrusion / plug **repack** rules for `lane_offset` + wedge | **Done** | Wedge cleared on death/reset; offsets repacked in `CombatFormationFlow`. |
 | **`lane_stress_by_file` / ZoC** use wedge | **Done** | `TacticalCombat` + `ZoneOfControl` lane stress; intruder host ZoC id for geometry. |
-| **Depth-rank polearm melee** (rank ≥ 1 home, same-file living rank 0, depth-eligible weapon) | **Done** | **`AvailableActionsBuilder`** + **`_melee_pair_rank_allowed`** / **`_opp_matches_melee_rank_target`** → **`depth_polearm_valid_line_threat`** vs enemy rank 0; **`SPEAR`** in **`WeaponConstants`**. **`same_file_living_rank0_ally`** excludes incap rank-0. **`depth_polearm_has_valid_line_threat_to_any_rank0_hostile`** gates **`CombatAIActionPicker`** depth stab / **`attempt_close`** weights. **`IMPLEMENTATION_ORDER.md`** Tier **1.9** exit criteria + [Tier 1.9 harness map](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes). |
-| **`distance_to` for depth polearm vs line** (no blanket LONG when eligible) | **Done** | **`CombatDistanceBands`**: skip rank>0→LONG when lane open via **`depth_polearm_lane_open_by_combatant_id`** (matches **`AvailableActionsBuilder.depth_polearm_lane_open`** + **`formation_id_for_zone_geometry`**). Fuzz ties **`distance_to`** to **`get_available_actions`** when **`can_melee_threaten`**. Harness names → same [Tier 1.9 harness map](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes). |
-| **Front-rank melee at MID** (not only polearm `REACH_MID_MIN`) | **Done** | **`AvailableActionsBuilder`** + **`can_melee_threaten`**: strikes when `melee_range >= effective_pair_eff_dist`; `attempt_close` for LONG / out of reach; crash at MID uses same geometric gate. |
-| **Spear lanes → part / target gating** (over-shoulder vs open) | **Done** | **`depth_polearm_targetable_parts_filter`** + **`depth_polearm_lane_allows_low_targets`** (optional **`formation_dict_cache`**, **`assume_depth_lane_open`**, **`zone_geometry_fid`** — harnesses on [Tier 1.9 harness map](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes)); loose = full table; tight/normal = no legs unless **`intrusion_wedge_by_file`** at column ≥ **`DEPTH_SPEAR_WEDGE_OPEN_LANE_MIN`** or **auto** profile opens via discipline / density / **OPEN**/**DUEL** posture (**`_run_depth_polearm_auto_lane_discipline_posture`**). **`AttackResolver`** + **`CombatAIActionPicker`**; listing stab vs cut × **`formation_doctrine`** (defaults + encounter/preset **`depth_polearm_ai_doctrine_mults`**). **`pa["depth_polearm_lane_type"]`** (**open** / **over_shoulder**) → parry + **`strike_phys_ctx`** + **`StrikePhysics.depth_polearm_thrust_closing_factor`**. |
-| **`depth_melee_eligible` (or equivalent) on weapon** | **Done** | `Weapon.gd` + **`SPEAR`** definition only (extend per weapon as needed). |
+| **Depth-rank polearm + spear lanes (P10)** | **Done** | Builder + bands + weapon **`depth_melee_eligible`** + stamped **`pa`** lane keys + doctrine AI mults. Plan [§1.9](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes) · registry bullets **1–4**. |
 
 ### 2.6 Cohesion & posture refinement
 
@@ -97,10 +89,10 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 
 | Item | State | Notes |
 |------|:-----:|-------|
-| `CombatAIActionPicker` / `CombatTargetScoring` | **Done** | Crash + listed-hostile consumers use **`ZoneOfControl.formation_dict_for_zone_geometry`**. Crash: **`crash_line_cohesion_weight_mult`** + **`_crash_weight_posture_mult`** (harness **`_run_crash_ai_cohesion_weight_monotone`**, **`_run_crash_ai_posture_mult_with_cached_fd`**). Hostile listed: posture / opponent formation / breach-file / engagement mode / stance / doctrine + commitment + pressure; **`pick`** then **`ai_targeting_weight_mult(..., skip_prune)`**. Depth spear: **`_depth_polearm_action_weight_mult`** × doctrine. Harness registry → [Tier 1.9 harness map](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes) + [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md). Optional: extra non-crash **`CombatTargetScoring`** coupling beyond current harnesses. |
-| `IncursionBreachTest` / harness updates for neighbor hold | **Optional** | Prefer **`CombatRegressionHarness.run_all()`** headless for CI; re-baseline any editor scene test if `p_win` expectations are asserted. |
-| Engagement mode regression harness checks (historical count bands + hysteresis invariants) | **Done** | **`CombatRegressionHarness`**: **`_run_engagement_scenarios`** (1v1 / 3v3 / 4v4 + tactical snapshot), multi-seed classifier, attrition monotone, telemetry lock, active-count gate, depth polearm band/actions fuzz. Optional: longer scheduled UI soaks / live **`IncursionBreachTest`** scene. |
-| Sync `TACTICAL_ZONES_BREACH_MOVEMENT.md` with this plan | **Partial** | **2026-04-27:** implementation banner (P3–P4 in code). **2026-05-09:** banner + plan **Tier 1.9** pointer (was **Partial**; milestone **1.9** **Done** per plan **2026-01-28**); bundled investigation prose may still lag — **Tier 2.1** cleanup when editing sections. |
+| `CombatAIActionPicker` / `CombatTargetScoring` | **Done** | Intruder-aware geometry; crash + listed-hostile + depth spear × doctrine. Registry Tier **1.6**. |
+| `IncursionBreachTest` / neighbor hold | **Optional** | Prefer headless **`run_all()`** for CI. |
+| Engagement + telemetry harness | **Done** | Registry Tier **1.7–1.8** · plan [§1.7–1.8](IMPLEMENTATION_ORDER.md#tier-17-18--shipped-maintain). |
+| Sync `TACTICAL_ZONES_BREACH_MOVEMENT.md` | **Partial** | **Tier 2.1** when intrusion gate **true**; banner may lag investigation prose. |
 
 ---
 

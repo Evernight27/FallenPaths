@@ -1,16 +1,25 @@
 # Guards Lines Afterblow
 
-**Plan / code:** Line guard & afterblow → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-3--melee-depth-parry--weapon--guards) **Tier 3.3** (after **3.2**). Strike hooks assume **`WeaponDamageHelper`** (**Tier 3.0** `kinematic_delivery`).
+**Plan / code:** Milestone **Status** → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#milestone-summary) only. Tier **3.3** exit + harness grep in the plan; one-screen map below. Investigations below = design depth.
 
-**Shipped / code anchors (audit 2026-05):** `GuardLineUpdater.gd` (**`set_guard_from_move`**, **`set_guard_deflected`**, **`set_guard_from_line`**), `AfterblowHandler.gd` (**`try_afterblow`**, hybrid hindrance vs **`CombatConstants.AFTERBLOW_*`**; headless harness may set manager meta **`_harness_record_afterblow_damage_mult`** → **`_harness_last_afterblow_damage_mult`**), `AttackResultApplier.gd` (**`hit`** → **`AfterblowHandler.try_afterblow`** then **`GuardLineUpdater.set_guard_from_line`** low on the defender + optional **`CombatManager.apply_formation_hit_reaction_if_needed`**), `AttackResolver.gd` (**`afterblow_damage_mult`** on **`pa`** before resolve). **Regression:** `combat/CombatRegressionHarness.gd` — grep **`_run_guard_from_move_`**, **`_run_afterblow_`**, **`_run_hit_applier_sets_defender_guard_low_after_hit`**; fixed RNG seeds **0 / 1 / 2** on Godot **4.6.stable** (`_AFTERBLOW_*_SEED` consts in harness).
+<a id="tier-33-guard-line-afterblow-live-path"></a>
 
-**Reading guide:** Treat **this Shipped block** (and [Tier 3.3 exit criteria](IMPLEMENTATION_ORDER.md#tier-33-guard-line-afterblow) in **`IMPLEMENTATION_ORDER.md`**) as the implementation contract. Everything from [Contents](#contents) downward is **merged historical investigation** (options, prose tables, `Source:` filenames); it may lag the codebase—use it for intent and HEMA framing, not as a spec.
+## Tier 3.3 — guard line / afterblow (live path)
 
-**Live path (one screen):** Defender must be **`STATE_WIND_UP`** with a non-empty **`pending_attack`** for **`try_afterblow`** to run. Hindrance blends part relevance (hit part vs attacking arm / head / chest / supporting leg / limbs), damage severity vs **`AFTERBLOW_DAMAGE_HINDER_THRESHOLD`**, **`intensity`**, and outcome weight (**`glancing`/`negligible`** reduce hindrance). **`outcome == "deflected"`** skips the blend and executes at hindrance **0**. Above **`AFTERBLOW_HINDRANCE_BLOCK`** → **`_cancel_pending`** (no **`_execute_attack`**). Between allow and block thresholds → **`randf() < hindrance`** cancels; else **`_execute_afterblow`** stamps **`afterblow_damage_mult`** on **`pa`** and calls **`CombatManager._execute_attack`**. After that path (and when no early winner/kill branch), **`hit`** lowers the struck defender’s blade line via **`set_guard_from_line(..., "low")`** and syncs **`guard_zone`** from **`LINE_TO_DEFAULT_PART`**.
+| Layer | Module | Role |
+|-------|--------|------|
+| Guard line | `GuardLineUpdater` | `set_guard_from_move`, `set_guard_deflected`, `set_guard_from_line` |
+| Afterblow | `AfterblowHandler` | `try_afterblow` — hindrance vs `AFTERBLOW_*`; deflected → hindrance **0** |
+| Hit path | `AttackResultApplier` | `hit` → afterblow then `set_guard_from_line(..., "low")` on defender |
+| Resolve | `AttackResolver` | `afterblow_damage_mult` on `pa` |
 
-Consolidated sections; each has **`Source:`** for provenance.
+**Afterblow gate:** defender **`STATE_WIND_UP`** + non-empty **`pending_attack`**. Above **`AFTERBLOW_HINDRANCE_BLOCK`** → cancel pending; mid band → RNG vs hindrance; else execute with stamped mult.
 
-## Contents
+**Harness (grep):** `_run_guard_from_move_`, `_run_afterblow_`, `_run_hit_applier_sets_defender_guard_low_after_hit` · registry [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) · afterblow RNG seeds **0 / 1 / 2** (`_AFTERBLOW_*_SEED` in harness).
+
+---
+
+## Contents (investigations)
 
 1. [LINE_GUARD_AND_AFTERBLOW_IMPLEMENTATION.md](#line-guard-and-afterblow-implementation)
 2. [GUARD_LINE_DYNAMICS_INVESTIGATION.md](#guard-line-dynamics-investigation)

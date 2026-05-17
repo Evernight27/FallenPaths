@@ -1,0 +1,22 @@
+﻿Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+Godot_v4.6-stable_win64.exe : SCRIPT ERROR: Parse Error: Function 
+"_run_medical_mobility_cowering_ai_pick_favors_fall_back()" not found in base self.
+At C:\Users\Marshall\AppData\Local\Temp\ps-script-3d9a205e-5f29-4d96-894b-0ba9270faf9d.ps1:75 char:1
++ & "e:\Godot_v4.6-stable_win64.exe" --headless --path "e:\FallenPaths\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (SCRIPT ERROR: P...d in base self.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   at: GDScript::reload (res://combat/CombatRegressionHarness.gd:441)
+SCRIPT ERROR: Parse Error: Function "_run_medical_mobility_cowering_arm_recovery_clears_state()" not found in base 
+self.
+   at: GDScript::reload (res://combat/CombatRegressionHarness.gd:442)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://scripts/run_combat_regression_harness.gd:0)
+ERROR: Failed to load script "res://scripts/run_combat_regression_harness.gd" with error "Compilation failed".
+   at: load (modules/gdscript/gdscript.cpp:2907)
+SCRIPT ERROR: Invalid call. Nonexistent function 'run_all' in base 'GDScript'.
+   at: _init (res://scripts/run_combat_regression_harness.gd:4)
+   GDScript backtrace (most recent call first):
+       [0] _init (res://scripts/run_combat_regression_harness.gd:4)

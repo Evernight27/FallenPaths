@@ -1,10 +1,47 @@
 # Parry Bind And Weapon Geometry
 
-**Plan / code:** Part geometry → `AttackResolver` / `WeaponDamageHelper`; Tier **3.0** kinematics → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-3--melee-depth-parry--weapon--guards) + `weapon/*.gd`. Bind/riposte depth → **Tier 3.1–3.2** in the same plan table.
+**Plan / code:** **Status** → plan [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) only. **Live paths** below · investigations have **`Source:`** provenance.
 
-Consolidated sections; each has **`Source:`** for provenance.
+| Step | Live path |
+|------|-----------|
+| **3.1** | [Strike measure](#tier-31-strike-measure-live-path) |
+| **3.2** | [Parry / bind](#tier-32-parry-bind-live-path) |
 
-## Contents
+---
+
+<a id="tier-31-strike-measure-live-path"></a>
+
+## Tier 3.1 — strike measure (live path)
+
+| Layer | Module | Role |
+|-------|--------|------|
+| Pair geometry | `AvailableActionsBuilder` | `stamp_attack_pair_geometry_on_dict`, `strike_measure_ratio_for_attack_pair` |
+| Wind-up | `AttackWindUpStarter` | stamps on pending attack |
+| Spacing | `CombatDistanceBands`, `CombatConstants` | `STRIKE_MEASURE_*`, `distance_to` |
+| Surround (flag off) | `TacticalCombat` | sector surround when `is_feature_sector_surround_load` |
+
+**Harness (grep):** `_run_windup_pending_attack_pair_geometry`, `_run_strike_measure_constants_sanity`, `_run_surround_`, `_run_depth_polearm_`, `_run_stamp_attack_pair_geometry_depth` · registry [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md).
+
+---
+
+<a id="tier-32-parry-bind-live-path"></a>
+
+## Tier 3.2 — parry / bind / deflect (live path)
+
+| Layer | Module | Role |
+|-------|--------|------|
+| Clash context | `DefenseResolutionHandler` | `parry_clash_context` keys (`PARRY_CLASH_CONTEXT_KEYS_FULL_STOP` in harness) |
+| Passive defense | `DefenseChoiceResolver` | `choose_defense`, spacing, feint telegraph |
+| Guard deflect | `GuardLineUpdater` | `set_guard_deflected` severity |
+| Weapon parts | `Weapon.gd`, `WeaponConstants` | part mass / parry contact |
+
+**Harness (grep):** `_run_parry_`, `_run_bind_riposte_`, `_run_weapon_part_mass_model_normalized` · deflect detail → [`PARRY_DEFLECT_AND_CALIBRATION.md`](PARRY_DEFLECT_AND_CALIBRATION.md).
+
+---
+
+## Contents (investigations)
+
+---
 
 1. [WEAPON_PART_LENGTH_PARRY_CONTACT_INVESTIGATION.md](#weapon-part-length-parry-contact-investigation)
 2. [WEAPON_PART_MODEL_IMPLEMENTATION_PLAN.md](#weapon-part-model-implementation-plan)

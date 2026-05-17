@@ -1,6 +1,6 @@
 # Combat Roadmap And Stamina
 
-**Plan / code:** **`docs/IMPLEMENTATION_ORDER.md`** wins on sequencing; Tier 1 **fields** → **`docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** §4–§6. This file is a **bundle** (stamina, investigations, Part 1–3 legacy tables) — not a second execution order. **Architecture snapshot** below matches plan **Tier 0** only (one module list).
+**Plan / code:** Milestone **Status** → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#milestone-summary) only. Tier 1 **fields** → [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) §4–§6. This file = stamina + investigations + collapsed legacy outlines — **not** execution order. **Tier 0** snapshot below matches the plan [Tier 0](IMPLEMENTATION_ORDER.md#tier-0--baseline-shipped--maintain) module list.
 
 Consolidated sections; each has **`Source:`** for provenance.
 
@@ -19,7 +19,7 @@ Consolidated sections; each has **`Source:`** for provenance.
 
 ## Current architecture snapshot (shipped)
 
-**Tier 0 parity:** Same anchors as [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-0--baseline-shipped--maintain) — do not maintain a divergent module list here.
+**Modules:** [`IMPLEMENTATION_ORDER.md` Tier 0](IMPLEMENTATION_ORDER.md#tier-0--baseline-shipped--maintain). Below = runtime behavior snapshot only.
 
 | Layer | Behavior |
 |-------|----------|
@@ -34,8 +34,6 @@ Consolidated sections; each has **`Source:`** for provenance.
 | **AI pick & targeting** | **`CombatAIActionPicker.pick`** + **`CombatTargetScoring`**; intruders → **`ZoneOfControl.formation_id_for_zone_geometry`**. Depth spear listing × **`formation_doctrine`**. Harness registry → **`IMPLEMENTATION_ORDER.md`** [Tier 1.9](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes) + [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md). |
 
 ---
-
-**Doc map:** Same tier-ordered file list as [`docs/README.md`](README.md) + plan [inventory](IMPLEMENTATION_ORDER.md#plan-inventory-all-combat-markdown) — no separate canonical list here.
 
 <a id="implementation-outline"></a>
 
