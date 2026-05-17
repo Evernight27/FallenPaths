@@ -11,6 +11,7 @@ extends RefCounted
 
 const _MgrScript := preload("res://combat/CombatManager.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
+const _ArmorPiece := preload("res://armor/ArmorPiece.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -46,6 +47,7 @@ const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 const _DistanceBands := preload("res://combat/CombatDistanceBands.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _AfterblowHandler := preload("res://combat/AfterblowHandler.gd")
+const _KinematicTail := preload("res://combat/CombatRegressionHarnessKinematicTail.gd")
 ## Tier 3.2: full-stop **`parry_deflect`** — keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_hit_applier_sets_defender_guard_low_after_hit`** locks defender **`guard_line`** / **`guard_zone`** after **`hit`**; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
 const PARRY_CLASH_CONTEXT_KEYS_FULL_STOP: Array[String] = [
 	"archetype_id",
@@ -419,7 +421,16 @@ static func run_all() -> Dictionary:
 	_run_kinematic_delivery_strike_energy_mult_integration_pre_cut_not_pen(failures)
 	_run_kinematic_delivery_afterblow_mult_scales_strike_ke_via_velocity(failures)
 	_run_kinematic_delivery_angle_to_nearest_line_boundaries(failures)
+	_KinematicTail.run(failures)
+	_run_kinematic_delivery_closing_speed_engagement_angle_scales_strike_ke(failures)
+	_run_kinematic_delivery_armored_chest_reduces_tissue_and_reports_mech_post_armor(failures)
+	_run_kinematic_delivery_unarmed_pre_blunt_matches_helper(failures)
 	_run_weapon_blade_strong_fraction(failures)
+	_run_medical_mobility_can_flee_leg_and_consciousness(failures)
+	_run_medical_mobility_cowering_mobile_not_skipped_in_process_incap(failures)
+	_run_medical_mobility_cowering_mobile_solo_fall_back_legal(failures)
+	_run_medical_mobility_cowering_lists_fall_back_in_formation_mode(failures)
+	_run_medical_pain_shock_susceptibility_mult_from_effective_pain(failures)
 	_run_bind_riposte_contact_types_normalized(failures)
 	_run_bind_riposte_contact_multipliers(failures)
 	_run_parry_opposite_deflect_thresholds(failures)
@@ -537,6 +548,14 @@ static func _new_entity(weapon_id: String) -> CoreEntity:
 	var w: Weapon = _Weapon.create_from_definition(weapon_id)
 	if w != null:
 		e.equip_weapon(w)
+	return e
+
+
+static func _new_entity_unarmed() -> CoreEntity:
+	var e := CoreEntity.new()
+	e.apply_species()
+	e.dominant_hand = "right_arm"
+	e.offhand_functionality = 1.0
 	return e
 
 
@@ -12684,22 +12703,34 @@ static func _kin_dmg_integration_sample(
 	strike_mods: Dictionary,
 	weapon_id: String = "SWORD",
 	move_id: String = "oberhau",
-	afterblow_mult: float = 1.0
+	afterblow_mult: float = 1.0,
+	arch_override: Dictionary = {},
+	tgt_overrides: Dictionary = {},
+	tgt_chest_armor_id: String = ""
 ) -> Dictionary:
 	var intensity: float = 0.62
-	var arch: Dictionary = (
-		{"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
-		if move_id == "spear_thrust"
-		else {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
-	)
+	var arch: Dictionary = arch_override
+	if arch.is_empty():
+		arch = (
+			{"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+			if move_id == "spear_thrust"
+			else {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+		)
 	var m: Node = _MgrScript.new()
 	m.set_meta(_HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
 	m.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
 	m.register(_new_entity(weapon_id), "player")
-	m.register(_new_entity(weapon_id), "enemy")
+	var tgt_ent: CoreEntity = _new_entity(weapon_id)
+	if not tgt_chest_armor_id.is_empty():
+		var ap: Variant = _ArmorPiece.create_from_definition(tgt_chest_armor_id)
+		if ap != null:
+			tgt_ent.equip_armor("chest", ap)
+	m.register(tgt_ent, "enemy")
 	m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var atk: Dictionary = m.combatants[0]
 	var tgt: Dictionary = m.combatants[1]
+	for ok in tgt_overrides:
+		tgt[ok] = tgt_overrides[ok]
 	var res: Dictionary = _AttackResolver.compute_and_apply_damage(
 		m,
 		_EntityAccess.id_int(atk),
@@ -12739,6 +12770,8 @@ static func _kin_dmg_integration_sample(
 		"pre_blunt": float(rd.get("pre_blunt_applied", -999.0)),
 		"final_cut": float(rd.get("final_cut", -999.0)),
 		"final_blunt": float(rd.get("final_blunt", -999.0)),
+		"mechanical_post_armor": float(rd.get("mechanical_post_armor", -999.0)),
+		"total_physical": float(rd.get("total_physical", -999.0)),
 	}
 
 
@@ -13527,6 +13560,326 @@ static func _run_kinematic_delivery_angle_to_nearest_line_boundaries(
 		_fail(failures, "kin_line_bound: 314.9° want left")
 	if CombatConstants.angle_to_nearest_line(315.0) != "high":
 		_fail(failures, "kin_line_bound: 315.0° want high")
+
+
+
+## Tier 5.1 (optional long-tail): **`StrikePhysics.closing_speed_multiplier`** — target **`engagement_angle`** rear > flank > front scales exposed **`strike_ke_j`** (~**v²**).
+static func _run_kinematic_delivery_closing_speed_engagement_angle_scales_strike_ke(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	var front: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {}, "SWORD", "oberhau", 1.0, {}, {"engagement_angle": "front"}
+	)
+	var flank: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {}, "SWORD", "oberhau", 1.0, {}, {"engagement_angle": "flank"}
+	)
+	var rear: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {}, "SWORD", "oberhau", 1.0, {}, {"engagement_angle": "rear"}
+	)
+	var ke_front: float = float(front["strike_ke_j"])
+	var ke_flank: float = float(flank["strike_ke_j"])
+	var ke_rear: float = float(rear["strike_ke_j"])
+	var cls_front: float = _StrikePhysics.closing_speed_multiplier(
+		front["mgr"] as Node, front["atk"] as Dictionary, front["tgt"] as Dictionary, {}
+	)
+	var cls_rear: float = _StrikePhysics.closing_speed_multiplier(
+		rear["mgr"] as Node, rear["atk"] as Dictionary, rear["tgt"] as Dictionary, {}
+	)
+	_free_manager(front["mgr"] as Node)
+	_free_manager(flank["mgr"] as Node)
+	_free_manager(rear["mgr"] as Node)
+	if ke_front <= 1.0:
+		_fail(failures, "kin_close_ang: front strike_ke too small %.4f" % ke_front)
+	if ke_flank <= ke_front + 0.5:
+		_fail(
+			failures,
+			"kin_close_ang: flank ke %.4f should exceed front %.4f" % [ke_flank, ke_front]
+		)
+	if ke_rear <= ke_flank + 0.5:
+		_fail(
+			failures,
+			"kin_close_ang: rear ke %.4f should exceed flank %.4f" % [ke_rear, ke_flank]
+		)
+	var ratio_ke: float = ke_rear / maxf(ke_front, 0.001)
+	var ratio_want: float = (cls_rear / maxf(cls_front, 0.001)) ** 2.0
+	if absf(ratio_ke - ratio_want) > 0.06:
+		_fail(
+			failures,
+			"kin_close_ang: ke ratio %.4f want ~(cls ratio)^2 %.4f (cls front=%.4f rear=%.4f)"
+			% [ratio_ke, ratio_want, cls_front, cls_rear]
+		)
+
+
+## Tier 5.1 (optional long-tail): chest **CUIRASS** — **`mechanical_post_armor` > 0**; tissue chip below unarmored at same pinned **`vo`**.
+static func _run_kinematic_delivery_armored_chest_reduces_tissue_and_reports_mech_post_armor(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	var bare: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var armored: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {}, "SWORD", "oberhau", 1.0, {}, {}, "CUIRASS"
+	)
+	var tissue_bare: float = float(bare["final_cut"]) + float(bare["final_blunt"])
+	var tissue_arm: float = float(armored["final_cut"]) + float(armored["final_blunt"])
+	var mech_arm: float = float(armored["mechanical_post_armor"])
+	_free_manager(bare["mgr"] as Node)
+	_free_manager(armored["mgr"] as Node)
+	if mech_arm <= CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
+		_fail(
+			failures,
+			"kin_armor_chest: mechanical_post_armor want > 0 got %.4f" % mech_arm
+		)
+	if tissue_bare <= CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
+		_fail(failures, "kin_armor_chest: unarmored fixture should chip tissue (got %.4f)" % tissue_bare)
+	if tissue_arm >= tissue_bare - 0.5:
+		_fail(
+			failures,
+			"kin_armor_chest: cuirass should reduce tissue (bare=%.4f armored=%.4f mech=%.4f)"
+			% [tissue_bare, tissue_arm, mech_arm]
+		)
+
+
+## Tier 5.1 (optional long-tail): unarmed **`compute_and_apply_damage`** — **`pre_blunt_applied`** matches **`unarmed_base_pre_armor`** × closing × stamina × stance (no **`strike_ke_j`**).
+static func _run_kinematic_delivery_unarmed_pre_blunt_matches_helper(
+	failures: PackedStringArray
+) -> void:
+	const intensity: float = 0.62
+	const move_id: String = "punch"
+	var m: Node = _MgrScript.new()
+	m.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+	m.register(_new_entity_unarmed(), "player")
+	m.register(_new_entity("SWORD"), "enemy")
+	m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = m.combatants[0]
+	var tgt: Dictionary = m.combatants[1]
+	var arch: Dictionary = {}
+	var res: Dictionary = _AttackResolver.compute_and_apply_damage(
+		m,
+		_EntityAccess.id_int(atk),
+		_EntityAccess.id_int(tgt),
+		atk,
+		tgt,
+		"chest",
+		intensity,
+		move_id,
+		arch,
+		-1.0,
+		1.0,
+		1.0,
+		-1.0,
+		-1.0,
+		1.0,
+		1.0,
+		1.0,
+		{},
+		{}
+	)
+	var rd: Dictionary = res.get("result_dict", {}) as Dictionary
+	var pre_blunt: float = float(rd.get("pre_blunt_applied", -999.0))
+	var strike_ke: float = float(rd.get("strike_ke_j_applied", -999.0))
+	var atk_n: Node = _EntityAccess.scene_node(atk)
+	var mod: float = atk_n.get_attack_damage_modifier() if (atk_n != null and atk_n.has_method("get_attack_damage_modifier")) else 1.0
+	var strength: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
+	var base: float = WeaponDamageHelper.unarmed_base_pre_armor(strength, mod)
+	var st_ratio: float = clampf(
+		_EntityAccess.stamina_float(atk) / CombatConstants.STAMINA_MAX, 0.0, 1.0
+	)
+	var stamina_u: float = sqrt(
+		lerpf(
+			CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT,
+			1.0,
+			CombatConstants.stamina_factor(st_ratio)
+		)
+	)
+	var closing: float = _StrikePhysics.closing_speed_multiplier(m, atk, tgt, {})
+	var stance: float = CombatConstants.get_stance_modifier(_EntityAccess.stance_str(atk), "damage")
+	var want: float = base * closing * stamina_u * stance
+	_free_manager(m)
+	if strike_ke >= 0.0:
+		_fail(
+			failures,
+			"kin_unarmed: strike_ke_j should stay unset (got %.4f)" % strike_ke
+		)
+	if pre_blunt < 0.0:
+		_fail(failures, "kin_unarmed: pre_blunt_applied missing")
+	elif absf(pre_blunt / want - 1.0) > 0.04:
+		_fail(
+			failures,
+			"kin_unarmed: pre_blunt ratio %.4f want 1 (got=%.4f want=%.4f base=%.4f)"
+			% [pre_blunt / want, pre_blunt, want, base]
+		)
+
+
+static func _harness_destroy_limb(entity: CoreEntity, part: String) -> void:
+	entity.body_cutting[part] = 0.0
+	entity.body_blunt[part] = 0.0
+	if entity.bone_health.has(part):
+		entity.bone_health[part] = 0.0
+
+
+## Tier 6.1: **`can_flee_or_fall_back`** — leg **`MOBILITY_FLEE_THRESHOLD`** and unconscious gate.
+static func _run_medical_mobility_can_flee_leg_and_consciousness(failures: PackedStringArray) -> void:
+	var mobile: CoreEntity = _new_entity("SWORD")
+	if not mobile.can_flee_or_fall_back():
+		_fail(failures, "med_mobility: healthy entity should flee")
+	mobile.consciousness = 5.0
+	mobile._consciousness_dirty = false
+	if mobile.can_flee_or_fall_back():
+		_fail(failures, "med_mobility: unconscious should not flee")
+	var immobile: CoreEntity = _new_entity("SWORD")
+	_harness_destroy_limb(immobile, "left_leg")
+	_harness_destroy_limb(immobile, "right_leg")
+	if immobile.get_leg_functionality() >= PainConsciousnessConstants.MOBILITY_FLEE_THRESHOLD:
+		_fail(
+			failures,
+			"med_mobility: destroyed legs want leg < %.2f got %.3f"
+			% [PainConsciousnessConstants.MOBILITY_FLEE_THRESHOLD, immobile.get_leg_functionality()]
+		)
+	if immobile.can_flee_or_fall_back():
+		_fail(failures, "med_mobility: leg-destroyed should not flee")
+
+
+## Tier 6.1: mobile cowering (no arms, legs ok) is not skipped by **`process_incapacitation`**.
+static func _run_medical_mobility_cowering_mobile_not_skipped_in_process_incap(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	c.state = CombatConstants.STATE_COWERING
+	if _StateHandlers.process_incapacitation(mgr, c):
+		_fail(failures, "med_mobility: mobile cowering should not skip tick")
+	_harness_destroy_limb(ent, "left_leg")
+	_harness_destroy_limb(ent, "right_leg")
+	if not _StateHandlers.process_incapacitation(mgr, c):
+		_fail(failures, "med_mobility: immobile cowering should skip tick")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.1: cowering rank-0 with legs may list solo **`fall_back`** when line discipline is loose.
+static func _run_medical_mobility_cowering_mobile_solo_fall_back_legal(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE},
+		{"files": 1, "ranks": 1}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	c.state = CombatConstants.STATE_COWERING
+	c.gauge = 100.0
+	if not ent.is_cowering():
+		_fail(failures, "med_mobility_fb: expected cowering after arm loss")
+	if not _ActionsBuilder.solo_fall_back_action_legal(mgr, c):
+		_fail(failures, "med_mobility_fb: solo fall_back should be legal for mobile cowering")
+	_harness_destroy_limb(ent, "left_leg")
+	_harness_destroy_limb(ent, "right_leg")
+	if _ActionsBuilder.solo_fall_back_action_legal(mgr, c):
+		_fail(failures, "med_mobility_fb: immobile cowering must not allow solo fall_back")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.1: formation engagement — mobile cowering rank-0 lists **`fall_back`** in **`AvailableActionsBuilder.build`**.
+static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 5:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{
+			"files": 2,
+			"ranks": 3,
+			"line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE,
+			"density": "normal",
+		},
+		{"files": 2, "ranks": 2, "density": "normal"}
+	)
+	var rear_victim_id: int = -1
+	for c in mgr.combatants:
+		if (
+			_EntityAccess.side_str(c) == "player"
+			and _EntityAccess.rank_int(c) == 1
+			and _EntityAccess.file_int(c) == 0
+		):
+			rear_victim_id = _EntityAccess.id_int(c)
+			break
+	if rear_victim_id < 0:
+		_fail(failures, "med_mobility_list: setup missing rank-1 file-0 player")
+		return
+	_soak_kill_combatant(mgr, rear_victim_id)
+	if _EngagementMode.engagement_mode(mgr) != CombatConstants.ENGAGEMENT_MODE_FORMATION:
+		_fail(
+			failures,
+			"med_mobility_list: want formation mode after casualty got %s"
+			% _EngagementMode.engagement_mode(mgr)
+		)
+	var front_c: Dictionary = {}
+	for c in mgr.combatants:
+		if (
+			_EntityAccess.side_str(c) == "player"
+			and _EntityAccess.rank_int(c) == 0
+			and _EntityAccess.file_int(c) == 0
+		):
+			front_c = c
+			break
+	if front_c.is_empty():
+		_fail(failures, "med_mobility_list: missing living player rank-0 file-0")
+		return
+	var policy: Dictionary = _EngagementMode.movement_policy(mgr)
+	if not bool(policy.get("allow_fall_back", false)):
+		_fail(failures, "med_mobility_list: formation policy must allow fall_back")
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	front_c.state = CombatConstants.STATE_COWERING
+	front_c.gauge = 100.0
+	if not ent.is_cowering():
+		_fail(failures, "med_mobility_list: expected cowering on rank-0")
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(front_c))
+	var has_fb: bool = false
+	for a in acts:
+		if a.get("move_id", "") == CombatConstants.MOVE_ID_FALL_BACK:
+			has_fb = true
+			break
+	if not has_fb:
+		_fail(
+			failures,
+			"med_mobility_list: expected fall_back in build (acts=%s legal=%s)"
+			% [str(acts), _ActionsBuilder.solo_fall_back_action_legal(mgr, front_c)]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.1: cumulative effective pain scales pain-shock **chance** (0.8×–1.2×); hit pain remains primary.
+static func _run_medical_pain_shock_susceptibility_mult_from_effective_pain(
+	failures: PackedStringArray
+) -> void:
+	var low: float = PainConsciousnessConstants.get_pain_shock_susceptibility_mult(3.0)
+	var at_first: float = PainConsciousnessConstants.get_pain_shock_susceptibility_mult(
+		PainConsciousnessConstants.NRS_FIRST_EFFECT
+	)
+	var mid: float = PainConsciousnessConstants.get_pain_shock_susceptibility_mult(6.0)
+	var high: float = PainConsciousnessConstants.get_pain_shock_susceptibility_mult(9.0)
+	if absf(low - 0.8) > 0.0001 or absf(at_first - 0.8) > 0.0001:
+		_fail(failures, "med_shock_sus: low pain want 0.8 got low=%.3f first=%.3f" % [low, at_first])
+	if absf(high - 1.2) > 0.0001:
+		_fail(failures, "med_shock_sus: high pain want 1.2 got %.3f" % high)
+	if mid <= 0.8 or mid >= 1.2:
+		_fail(failures, "med_shock_sus: mid pain want between 0.8 and 1.2 got %.3f" % mid)
 
 
 static func _run_weapon_blade_strong_fraction(failures: PackedStringArray) -> void:

@@ -398,6 +398,7 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 ## Changelog
 
+- **2026-05-17 (harness-split):** **`CombatRegressionHarnessKinematicTail.gd`** — Tier **5.1** optional long-tail kinematic tests split from main harness (Godot compile size); **`run_all`** calls **`_KinematicTail.run`**.
 - **2026-05-17 (4.4-ui):** Battle UI soak — **`BattleUIUpdater`** gauge tooltips (footwork / attention / counter-tempo), wider gauge label, footwork on swap/fall-back/**`status_override`**; **`FormationDiagramBuilder`** arc-step cell tooltips; **`BattleScene`** refreshes diagrams when footwork signature changes; **`CombatCombatantsSnapshot`** exports **`attention_ui_hint`** / **`counter_tempo_ui_hint`**; harness **`_run_combat_snapshot_exports_attention_ui_hint_when_stamped`**.
 - **2026-05-17 (4.4-on):** Tier **4.4** production default **on** for **`is_feature_position_angle_footwork_enabled()`**; plan/registry **Done**; next coding step → Tier **5.1** optional / UI soak.
 - **2026-05-17 (doc-i):** Seventh pass — merged Tier **1.4–1.8** shipped sections; milestone table grep removed; Tier **3**/**4**/**5.1** exit → live path + registry only; implementation gate points at **4.4**; **`ENGAGEMENT_*`** §2.5/§2.0/§2.8 shortened; bundle Contents order (**`PARRY_BIND`**, **`GUARDS`**, **`PHYSICS`**); registry discover line → tier index.
