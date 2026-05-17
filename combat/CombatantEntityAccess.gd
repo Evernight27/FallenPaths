@@ -235,6 +235,68 @@ static func get_hit_chance_performance_modifier(combatant: Dictionary) -> float:
 		return node.get_performance_modifier()
 	return 1.0
 
+## Action-bar / gauge fill performance. Falls back to get_performance_modifier when unavailable.
+static func get_action_bar_performance_modifier(combatant: Dictionary) -> float:
+	var node = node_variant(combatant)
+	if node == null:
+		return 1.0
+	if node.has_method("get_action_bar_performance_modifier"):
+		return node.get_action_bar_performance_modifier()
+	if node.has_method("get_performance_modifier"):
+		return node.get_performance_modifier()
+	return 1.0
+
+## True when the scene node reports dead (bleed-out, fatal wound, etc.).
+static func is_dead(combatant: Dictionary) -> bool:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("is_dead"):
+		return false
+	return node.is_dead()
+
+
+## `alive` combatant flag and not `is_dead` on the scene node.
+static func is_alive_in_combat(combatant: Dictionary) -> bool:
+	return alive_bool(combatant) and not is_dead(combatant)
+
+
+## Death log string from node; empty when unavailable.
+static func get_death_reason(combatant: Dictionary) -> String:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("get_death_reason"):
+		return ""
+	return str(node.get_death_reason())
+
+
+## Arm functionality / injury damage scale for strikes and parry capacity. Default 1.0.
+static func get_attack_damage_modifier(combatant: Dictionary) -> float:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("get_attack_damage_modifier"):
+		return 1.0
+	return float(node.get_attack_damage_modifier())
+
+
+static func has_passive_parry_reaction_time(combatant: Dictionary) -> bool:
+	var node = node_variant(combatant)
+	return node != null and node.has_method("get_passive_parry_reaction_time")
+
+
+## Passive parry reaction window (seconds). Default 0.0 when node lacks the method.
+static func get_passive_parry_reaction_time(combatant: Dictionary) -> float:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("get_passive_parry_reaction_time"):
+		return 0.0
+	return float(node.get_passive_parry_reaction_time())
+
+
+## Sets `blunt_opts["armor_resistance_rha_mm"]` when the defender node exposes armor RHA for `part`.
+static func apply_armor_sharp_resistance_to_blunt_opts(
+	blunt_opts: Dictionary, defender: Dictionary, part: String
+) -> void:
+	var node: Node = scene_node(defender)
+	if node != null and node.has_method("get_armor_sharp_resistance_for_part"):
+		blunt_opts["armor_resistance_rha_mm"] = node.get_armor_sharp_resistance_for_part(part)
+
+
 ## Returns attacking arm (e.g. "right_arm") or "" if none. Empty = no functional arm.
 static func get_attacking_arm(combatant: Dictionary) -> String:
 	var node = node_variant(combatant)
@@ -279,6 +341,27 @@ static func is_incapacitated(combatant: Dictionary) -> bool:
 	if node == null or not node.has_method("is_incapacitated"):
 		return false
 	return node.is_incapacitated()
+
+## True when consciousness is below incapacitation floor (unconscious; cannot act or move).
+static func is_unconscious(combatant: Dictionary) -> bool:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("is_unconscious"):
+		return false
+	return node.is_unconscious()
+
+## True when unit has no functional attacking arm (cowering posture on entity).
+static func is_cowering(combatant: Dictionary) -> bool:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("is_cowering"):
+		return false
+	return node.is_cowering()
+
+## True when unit can disengage via formation retreat (leg mobility + not unconscious). Cowering may qualify.
+static func can_flee_or_fall_back(combatant: Dictionary) -> bool:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("can_flee_or_fall_back"):
+		return false
+	return node.can_flee_or_fall_back()
 
 ## Returns part-specific dodge modifier. Default 1.0 if unavailable.
 static func get_part_dodge_modifier(combatant: Dictionary, part: String) -> float:

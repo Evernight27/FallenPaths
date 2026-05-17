@@ -51,14 +51,21 @@ static func handle_event(manager: Node, ev: Dictionary) -> void:
 
 
 static func handle_action_ready(manager: Node, c: Dictionary) -> void:
-	if c.is_empty() or not _EntityAccess.alive_bool(c) or _EntityAccess.is_incapacitated(c):
+	if c.is_empty() or not _EntityAccess.alive_bool(c) or _EntityAccess.is_unconscious(c):
 		return
-	if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+	var state: String = _EntityAccess.state_str(c)
+	var mobile_cower_retreat: bool = (
+		state == CombatConstants.STATE_COWERING
+		and _EntityAccess.can_flee_or_fall_back(c)
+	)
+	if _EntityAccess.is_incapacitated(c) and not mobile_cower_retreat:
+		return
+	if state != CombatConstants.STATE_WAITING and not mobile_cower_retreat:
 		if CombatDebug.flow_verbose_enabled():
 			var who: String = _EntityAccess.get_display_name(c)
 			var cid: int = _EntityAccess.id_int(c)
 			CombatDebug.flow_log(
-				"EVENT_ACTION_READY skipped %s (id=%d state=%s)" % [who, cid, _EntityAccess.state_str(c)],
+				"EVENT_ACTION_READY skipped %s (id=%d state=%s)" % [who, cid, state],
 				"action_ready_skip:%d" % cid
 			)
 		return
@@ -104,4 +111,5 @@ static func handle_recovery_end(manager: Node, c: Dictionary) -> void:
 	if _EntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
 		manager._schedule_action_ready(_EntityAccess.id_int(c), manager._action_ready_cooldown(c))
 	elif _EntityAccess.state_str(c) == CombatConstants.STATE_COWERING:
-		pass
+		if _EntityAccess.can_flee_or_fall_back(c):
+			manager._schedule_action_ready(_EntityAccess.id_int(c), manager._action_ready_cooldown(c))

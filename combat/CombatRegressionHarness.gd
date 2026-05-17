@@ -286,8 +286,13 @@ static func run_all() -> Dictionary:
 	_run_footwork_ui_hint_formats_offset(failures)
 	_run_footwork_ui_hint_clears_on_clear_position_offset(failures)
 	_run_footwork_ui_hint_clears_on_combat_start(failures)
+	_run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures)
+	_run_footwork_diagram_label_suffix_compact(failures)
 	_run_footwork_snapshot_includes_position_hint_when_enabled(failures)
 	_run_footwork_snapshot_ui_hint_from_unstamped_offset(failures)
+	_run_footwork_snapshot_omits_position_when_disabled(failures)
+	_run_combat_snapshot_exports_attention_ui_hint_when_stamped(failures)
+	_run_combat_snapshot_exports_counter_tempo_ui_hint_when_stamped(failures)
 	_run_footwork_guard_line_for_body_part_maps_legs_and_chest(failures)
 	_run_footwork_choose_defense_dodge_does_not_keep_parry_offset(failures)
 	_run_footwork_arc_contact_applies_offset_once(failures)
@@ -429,6 +434,9 @@ static func run_all() -> Dictionary:
 	_run_medical_mobility_cowering_action_ready_fills_gauge_for_mobile(failures)
 	_run_medical_mobility_cowering_mobile_solo_fall_back_legal(failures)
 	_run_medical_mobility_cowering_lists_fall_back_in_formation_mode(failures)
+	_run_medical_mobility_cowering_resolve_solo_fall_back_without_movement_policy(failures)
+	_run_medical_mobility_cowering_depth_lists_wait_not_fall_back(failures)
+	_run_medical_mobility_cowering_player_retreat_ui_hint(failures)
 	_run_medical_pain_shock_susceptibility_mult_from_effective_pain(failures)
 	_run_bind_riposte_contact_types_normalized(failures)
 	_run_bind_riposte_contact_multipliers(failures)
@@ -7528,6 +7536,31 @@ static func _run_footwork_ui_hint_formats_offset(failures: PackedStringArray) ->
 		_fail(failures, "footwork_ui_hint: want 'Step +%.0f°' got '%s'" % [want, hint])
 
 
+## Tier 4.4.3: compact diagram suffix for single-occupant formation cells.
+static func _run_footwork_diagram_label_suffix_compact(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var c: Dictionary = {}
+	_Footwork.apply_attack_step_on_windup(c, "left")
+	var want: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
+	var sfx: String = _Footwork.get_diagram_label_suffix(c)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	if sfx != " · +%.0f°" % want:
+		_fail(failures, "footwork_diagram_suffix: want ' · +%.0f°' got '%s'" % [want, sfx])
+
+
+## Tier 4.4.3: stale stamped hint yields live offset when they disagree.
+static func _run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var c: Dictionary = {}
+	_Footwork.apply_attack_step_on_windup(c, "right")
+	c[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT] = "Step +99°"
+	var live: String = _Footwork.get_ui_hint(c)
+	var want_live: String = _Footwork.format_position_angle_ui_hint(c)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	if live != want_live:
+		_fail(failures, "footwork_stale_stamp: want '%s' got '%s'" % [want_live, live])
+
+
 ## Tier 4.4.3: clearing offset clears stamped UI hint key.
 static func _run_footwork_ui_hint_clears_on_clear_position_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
@@ -7632,6 +7665,52 @@ static func _run_combat_snapshot_exports_attention_ui_hint_when_stamped(
 			failures,
 			"snapshot_attention: row='%s' want='%s'"
 			% [rows[0].get("attention_ui_hint", ""), stamped]
+		)
+
+
+## Tier 4.4 UI soak: snapshot copies stamped counter-tempo hint for gauge consumers.
+static func _run_combat_snapshot_exports_counter_tempo_ui_hint_when_stamped(
+	failures: PackedStringArray
+) -> void:
+	CombatConstants.set_feature_counter_tempo_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var def: Dictionary = mgr.combatants[0]
+	var stamped: String = "counter_ready"
+	def[CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT] = stamped
+	var rows: Array = _CombatSnapshot.build(mgr)
+	CombatConstants.set_feature_counter_tempo_load(true)
+	_free_manager_restore_global_rng(mgr)
+	if rows.is_empty():
+		_fail(failures, "snapshot_counter_tempo: expected one row")
+		return
+	if str(rows[0].get("counter_tempo_ui_hint", "")) != stamped:
+		_fail(
+			failures,
+			"snapshot_counter_tempo: row='%s' want='%s'"
+			% [rows[0].get("counter_tempo_ui_hint", ""), stamped]
+		)
+
+
+## Tier 4.4.3: snapshot omits position-angle fields when footwork flag off.
+static func _run_footwork_snapshot_omits_position_when_disabled(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var atk: Dictionary = mgr.combatants[0]
+	_Footwork.apply_attack_step_on_windup(atk, "left")
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	var rows: Array = _CombatSnapshot.build(mgr)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	_free_manager_restore_global_rng(mgr)
+	if rows.is_empty():
+		_fail(failures, "footwork_snapshot_disabled: expected one row")
+		return
+	var row: Dictionary = rows[0]
+	if row.has("position_angle_offset_deg") or row.has("position_angle_ui_hint"):
+		_fail(
+			failures,
+			"footwork_snapshot_disabled: should omit position_angle keys when flag off"
 		)
 
 
@@ -13790,6 +13869,170 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 				str(mp.get("mode", "")),
 			]
 		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.1: cowering solo **`fall_back`** resolves when movement policy blocks routine line retreat.
+static func _run_medical_mobility_cowering_resolve_solo_fall_back_without_movement_policy(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE},
+		{"files": 1, "ranks": 1}
+	)
+	mgr.set_meta("_engagement_mode_cached", CombatConstants.ENGAGEMENT_MODE_SKIRMISH)
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	ent.blood_volume = CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX - 5.0
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	c.state = CombatConstants.STATE_COWERING
+	c.gauge = 100.0
+	if not _ActionsBuilder.solo_fall_back_action_legal(mgr, c):
+		_fail(failures, "med_resolve_fb: setup solo fall_back should be legal")
+		return
+	if bool(_EngagementMode.movement_policy(mgr).get("allow_fall_back", false)):
+		_fail(failures, "med_resolve_fb: want skirmish policy to block routine fall_back")
+		return
+	var cid: int = _EntityAccess.id_int(c)
+	mgr.resolve_action(cid, cid, CombatConstants.MOVE_ID_FALL_BACK, {})
+	if _EntityAccess.state_str(c) != CombatConstants.STATE_FALLING_BACK:
+		_fail(
+			failures,
+			"med_resolve_fb: cowering solo fall_back should start (state=%s)"
+			% _EntityAccess.state_str(c)
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.1: rank-1 mobile cowering lists **wait** only (no solo **fall_back**); avoids empty action soft-lock.
+static func _run_medical_mobility_cowering_depth_lists_wait_not_fall_back(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 2:
+		mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE},
+		{"files": 1, "ranks": 1}
+	)
+	var players: Array = []
+	for row in mgr.combatants:
+		if _EntityAccess.side_str(row) == "player":
+			players.append(row)
+	if players.size() < 2:
+		_fail(failures, "med_mobility_depth: need 2 players got %d" % players.size())
+		return
+	var c: Dictionary = players[1]
+	if _EntityAccess.rank_int(c) != 1:
+		_fail(
+			failures,
+			"med_mobility_depth: second player want rank 1 got rank=%d"
+			% _EntityAccess.rank_int(c)
+		)
+		return
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	c.state = CombatConstants.STATE_COWERING
+	c.gauge = 100.0
+	if not ent.can_flee_or_fall_back():
+		_fail(failures, "med_mobility_depth: want mobile cowering legs ok")
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
+	var has_wait: bool = false
+	var has_fb: bool = false
+	for a in acts:
+		var mid: String = str(a.get("move_id", ""))
+		if mid == CombatConstants.MOVE_ID_WAIT:
+			has_wait = true
+		if mid == CombatConstants.MOVE_ID_FALL_BACK:
+			has_fb = true
+	if not has_wait:
+		_fail(failures, "med_mobility_depth: rank-1 cowering want wait in build (acts=%s)" % str(acts))
+	if has_fb:
+		_fail(failures, "med_mobility_depth: rank-1 cowering must not solo fall_back")
+	var depth_hint: String = _ActionsBuilder.player_cowering_retreat_hint_if_applicable(mgr, c, acts)
+	if depth_hint.is_empty() or not depth_hint.contains("holding position"):
+		_fail(
+			failures,
+			"med_mobility_depth: wait-only cowering want holding-position hint got '%s'"
+			% depth_hint
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.1: player UI hint when cowering with mobile legs (mirrors crash-absence hint path).
+static func _run_medical_mobility_cowering_player_retreat_ui_hint(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 5:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{
+			"files": 2,
+			"ranks": 3,
+			"line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE,
+			"density": "normal",
+		},
+		{"files": 2, "ranks": 2, "density": "normal"}
+	)
+	var _hint_id_at := func(rank: int, file: int) -> int:
+		for row in mgr.combatants:
+			if (
+				_EntityAccess.side_str(row) == "player"
+				and _EntityAccess.rank_int(row) == rank
+				and _EntityAccess.file_int(row) == file
+			):
+				return _EntityAccess.id_int(row)
+		return -1
+	var deep_id: int = _hint_id_at.call(2, 0)
+	if deep_id >= 0:
+		_soak_kill_combatant(mgr, deep_id)
+	var rear_id: int = _hint_id_at.call(1, 0)
+	if rear_id < 0:
+		_fail(failures, "med_mobility_hint: setup missing rank-1 file-0")
+		return
+	_soak_kill_combatant(mgr, rear_id)
+	if mgr.has_method("notify_formation_changed"):
+		mgr.notify_formation_changed("player")
+	var front_c: Dictionary = {}
+	for row in mgr.combatants:
+		if (
+			_EntityAccess.side_str(row) == "player"
+			and _EntityAccess.rank_int(row) == 0
+			and _EntityAccess.file_int(row) == 0
+		):
+			front_c = row
+			break
+	if front_c.is_empty():
+		_fail(failures, "med_mobility_hint: missing rank-0 file-0")
+		return
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	front_c.state = CombatConstants.STATE_COWERING
+	front_c.gauge = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(front_c))
+	var fb_hint: String = _ActionsBuilder.player_cowering_retreat_hint_if_applicable(mgr, front_c, acts)
+	if fb_hint.is_empty() or not fb_hint.contains("fall back"):
+		_fail(failures, "med_mobility_hint: fall_back listed want retreat hint got '%s'" % fb_hint)
+	var enemy_c: Dictionary = {}
+	for row in mgr.combatants:
+		if _EntityAccess.side_str(row) == "enemy":
+			enemy_c = row
+			break
+	var enemy_hint: String = _ActionsBuilder.player_cowering_retreat_hint_if_applicable(
+		mgr, enemy_c, acts
+	)
+	if not enemy_hint.is_empty():
+		_fail(failures, "med_mobility_hint: enemy must not get player retreat hint")
 	_free_manager_restore_global_rng(mgr)
 
 

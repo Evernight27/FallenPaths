@@ -84,6 +84,12 @@ func is_dead() -> bool:
 func is_incapacitated() -> bool:
 	return _combat_body.is_incapacitated() if _combat_body else false
 
+func is_unconscious() -> bool:
+	return _combat_body.is_unconscious() if _combat_body else false
+
+func can_flee_or_fall_back() -> bool:
+	return _combat_body.can_flee_or_fall_back() if _combat_body else false
+
 func is_cowering() -> bool:
 	return _combat_body.is_cowering() if _combat_body else false
 

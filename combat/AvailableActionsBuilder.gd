@@ -795,6 +795,8 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				and solo_fall_back_action_legal(manager, c)
 			):
 				actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK})
+			# Rank > 0 cowering cannot solo fall_back; still offer wait so ticks do not soft-lock.
+			_append_combat_wait_if_needed(actions, combatant_id)
 			return actions
 		_append_focus_line_actions_if_needed(manager, c, combatant_id, actions)
 		_append_combat_wait_if_needed(actions, combatant_id)
@@ -1080,6 +1082,38 @@ static func player_crash_absence_hint_if_missing(manager: Node, c: Dictionary, a
 	if raw.is_empty() or raw == "crash_eligible_but_missing_bug":
 		return ""
 	return format_crash_absent_reason_for_ui(raw)
+
+
+## Player UI: cowering (no arms) with mobile legs — note when solo **fall_back** is listed vs wait-only.
+static func player_cowering_retreat_hint_if_applicable(
+	manager: Node, c: Dictionary, actions: Array
+) -> String:
+	if manager == null or c.is_empty():
+		return ""
+	if _EntityAccess.side_str(c) != "player":
+		return ""
+	if bool(manager.medical_phase):
+		return ""
+	if (
+		_EntityAccess.state_str(c) != CombatConstants.STATE_COWERING
+		and not _EntityAccess.is_cowering(c)
+	):
+		return ""
+	if not _EntityAccess.can_flee_or_fall_back(c):
+		return ""
+	var has_fall_back: bool = false
+	var has_wait: bool = false
+	for a in actions:
+		var mid: String = str(a.get("move_id", ""))
+		if mid == CombatConstants.MOVE_ID_FALL_BACK:
+			has_fall_back = true
+		elif mid == CombatConstants.MOVE_ID_WAIT:
+			has_wait = true
+	if has_fall_back:
+		return "No arms — fall back is available (rear rank in your file must be clear)."
+	if has_wait:
+		return "No arms — holding position (fall back blocked: policy, breach, or rear rank occupied)."
+	return ""
 
 
 ## Tier 4.3.7: self-target guard-line / focus retarget while waiting.

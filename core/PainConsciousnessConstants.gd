@@ -28,6 +28,9 @@ const NRS_SEVERE: float = 8.0
 const NRS_INTOLERABLE: float = 10.0
 const NRS_SHOCK: float = 7.0
 const PAIN_SHOCK_RISK_PER_POINT_NORMALIZED: float = 0.15  # (effective - 7) * 0.15; 1 over = 15% risk
+# Cumulative pain susceptibility (Tier 6.1): scales shock **chance** only; hit pain stays primary (Option C + B).
+const PAIN_SHOCK_SUSCEPTIBILITY_MULT_LOW: float = 0.8   # at/below NRS_FIRST_EFFECT
+const PAIN_SHOCK_SUSCEPTIBILITY_MULT_HIGH: float = 1.2  # at/above NRS_SEVERE
 
 # --- Pain → performance modifier (action bar fill, hit chance, wind-up, etc). Research-aligned; pain impairs function. ---
 const PAIN_PERFORMANCE_NONE: float = 0.0
@@ -39,6 +42,8 @@ const PAIN_PERFORMANCE_EXTREME: float = 0.50   # -50% (NRS 10+: extreme impairme
 # --- Consciousness: direct scale (effective_consciousness / 100 = performance scale). ---
 # Incapacitation when true consciousness < this (no longer able to act).
 const INCAPACITATION_CONSCIOUSNESS_THRESHOLD: float = 10.0
+# Leg functionality below this ⇒ cannot walk for formation retreat (flee / fall_back). Tier 6.1.
+const MOBILITY_FLEE_THRESHOLD: float = 0.2
 
 # --- Blood → consciousness (ATLS-aligned: effect starts at Class II, max at death threshold). ---
 # Below START: consciousness modifier ramps down; at FLOOR (death threshold) modifier = 1.0 - REDUCTION_MAX.
@@ -130,6 +135,15 @@ static func get_pain_shock_threshold() -> float:
 
 static func get_pain_shock_risk_per_point() -> float:
 	return PAIN_SHOCK_RISK_PER_POINT_NORMALIZED if USE_NORMALIZED_PAIN else PAIN_SHOCK_RISK_PER_POINT_RAW
+
+static func get_pain_shock_susceptibility_mult(effective_pain: float) -> float:
+	if effective_pain <= NRS_FIRST_EFFECT:
+		return PAIN_SHOCK_SUSCEPTIBILITY_MULT_LOW
+	if effective_pain >= NRS_SEVERE:
+		return PAIN_SHOCK_SUSCEPTIBILITY_MULT_HIGH
+	var span: float = maxf(NRS_SEVERE - NRS_FIRST_EFFECT, 0.001)
+	var t: float = clampf((effective_pain - NRS_FIRST_EFFECT) / span, 0.0, 1.0)
+	return lerpf(PAIN_SHOCK_SUSCEPTIBILITY_MULT_LOW, PAIN_SHOCK_SUSCEPTIBILITY_MULT_HIGH, t)
 
 static func get_pain_performance_modifier(pain_value: float) -> float:
 	"""pain_value is either raw total_pain (Method A) or effective_pain (Method B)."""

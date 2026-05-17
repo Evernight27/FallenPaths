@@ -1,11 +1,31 @@
 # Medical Pain Incapacitation
 
-**Plan / code:** Pain / wounds / flee → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-6--medical--pain-extensions) **Tier 6** (avoid blocking formation busy states). **`MedicalPhaseController`**, **`CombatMedicalCoordination`** — see plan [Tier 0](IMPLEMENTATION_ORDER.md#tier-0--baseline-shipped--maintain).
+**Plan / code:** Pain / wounds / flee → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-6--medical--pain-extensions) **Tier 6** (avoid blocking formation busy states). Milestone **Status** → [plan milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) only. **`MedicalPhaseController`**, **`CombatMedicalCoordination`** — see plan [Tier 0](IMPLEMENTATION_ORDER.md#tier-0--baseline-shipped--maintain).
+
+<a id="tier-61-mobility-pain-shock-live-path"></a>
+
+## Tier 6.1 — mobility, cowering retreat, pain-shock susceptibility (live path)
+
+**Reader:** **Cowering** = no functional arms (`is_cowering()`), not immobile. **Unconscious** (`is_unconscious()`) skips combat ticks and action listing. **Mobile cowering** (legs ≥ **`MOBILITY_FLEE_THRESHOLD`**) may **`fall_back`** in formation when **`solo_fall_back_action_legal`** passes (loose discipline, empty same-file rank-1, per-file frontline plug check). **`formation_retreat_only`** in **`AvailableActionsBuilder.build`** lists retreat without stable-line **`allow_fall_back`**; **`CombatEventDispatch.handle_action_ready`** fills gauge for mobile cowering only.
+
+| Layer | Module | Role | Harnesses (grep) |
+|-------|--------|------|------------------|
+| Mobility gate | `PainConsciousnessConstants.gd`, `CoreEntity.gd` | **`MOBILITY_FLEE_THRESHOLD`** (0.2); **`can_flee_or_fall_back()`**; **`is_unconscious()`** vs **`is_incapacitated()`** | **`_run_medical_mobility_can_flee_leg_and_consciousness`** |
+| Combat access | `CombatantEntityAccess.gd` | **`can_flee_or_fall_back`**, **`is_unconscious`**, **`is_cowering`** on combatant dicts | (above) |
+| Tick / events | `CombatStateHandlers.gd`, `CombatEventScheduler.gd`, `CombatEventDispatch.gd` | Mobile cowering not skipped in **`process_incapacitation`**; unconscious-only scheduling; **`ACTION_READY`** for mobile cowering | **`_run_medical_mobility_cowering_mobile_not_skipped_in_process_incap`**, **`_run_medical_mobility_cowering_action_ready_fills_gauge_for_mobile`** |
+| Formation retreat | `AvailableActionsBuilder.gd`, `CombatFormationFlow.gd`, `CombatResolveAction.gd` | **`formation_retreat_only`** listing; **`solo_fall_back_action_legal`** + per-file plug check; resolve bypasses **`allow_fall_back`** when cowering | **`_run_medical_mobility_cowering_mobile_solo_fall_back_legal`**, **`_run_medical_mobility_cowering_lists_fall_back_in_formation_mode`**, **`_run_medical_mobility_cowering_resolve_solo_fall_back_without_movement_policy`** |
+| Player UI | `AvailableActionsBuilder.gd`, `TurnReadyHandler.gd` | **`player_cowering_retreat_hint_if_applicable`** → **`combat_ui_hint`** on player **`turn_ready`** | **`_run_medical_mobility_cowering_player_retreat_ui_hint`** |
+| Pain shock | `EntityPainConsciousness.gd` | Hit pain drives chance/duration (Option C); **`get_pain_shock_susceptibility_mult`** (0.8×–1.2× from total effective pain) on chance only | **`_run_medical_pain_shock_susceptibility_mult_from_effective_pain`** |
+
+**Harness (registry):** [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) Tier **6.1** paragraph · grep **`_run_medical_`**.
+
+---
 
 Consolidated sections; each has **`Source:`** for provenance.
 
 ## Contents
 
+0. [Tier 6.1 live path](#tier-61-mobility-pain-shock-live-path)
 1. [PAIN_SHOCK_INVESTIGATION.md](#pain-shock-investigation)
 2. [PAIN_MEDICAL_RESEARCH_SYNTHESIS.md](#pain-medical-research-synthesis)
 3. [WOUND_PACKING_MEDIEVAL_RESEARCH.md](#wound-packing-medieval-research)
@@ -125,7 +145,8 @@ So: shock is **triggered** by a hit (correct), but **chance and duration** are d
 
 **Option C (implemented):**
 
-1. _get_pain_contribution_for_wound() returns raw pain for one wound. In apply_damage we sum that for cut/blunt/bone (or stump if severed) into pain_from_this_hit_raw and call _try_enter_pain_shock_from_hit(pain_from_this_hit_raw). “pain from this hit”2. `_try_enter_pain_shock_from_hit(pain_from_this_hit_raw)` normalizes with `_get_pain_reference()`; chance and duration use this hit's pain only (duration also uses `_last_hit_impact`). Total pain is no longer used for shock.
+1. **`_get_pain_contribution_for_wound()`** returns raw pain for one wound. In **`apply_damage`**, sum cut/blunt/bone (or stump if severed) into **`pain_from_this_hit_raw`** and call **`_try_enter_pain_shock_from_hit(pain_from_this_hit_raw)`**.
+2. **`EntityPainConsciousness.try_enter_pain_shock_from_hit`**: chance and duration use **this hit’s** normalized pain (duration also uses **`_last_hit_impact`**). **Chance** is multiplied by **`get_pain_shock_susceptibility_mult(get_effective_pain_for_thresholds())`** (0.8× at low total pain → 1.2× at high; NRS 4–8 lerp). Total pain does **not** replace hit pain as the trigger.
 
 ---
 
@@ -364,11 +385,14 @@ Investigation of when units can flee or fall back vs when they must cower, and h
 - When arm functionality returns → `process_incapacitation` sets `STATE_WAITING` and schedules `EVENT_ACTION_READY`.
 - **consciousness < 10:** Unit is effectively unconscious; cannot act at all.
 
-#### What's Missing
+#### Shipped (Tier 6.1 — live path)
 
-- **Leg-based mobility:** `get_leg_functionality()` exists but is not used for incapacitation. A unit with destroyed legs but functional arms would still be "not cowering" — they can't move.
-- **Flee / fall back:** These are formation actions (Phase 5). No check today for "can this unit move?" when deciding if flee/fall back is available.
-- **Cowering semantics:** Currently cowering = "can't fight" (no arms). Not "can't move" (no legs). A unit with no arms but good legs is cowering in place — they *could* theoretically flee or fall back if formation actions existed.
+See [§6.1 live path](#tier-61-mobility-pain-shock-live-path): **`can_flee_or_fall_back()`**, formation **`fall_back`** for mobile cowering, unconscious vs cowering combat gates. Investigation prose below remains design context.
+
+#### What remains optional / out of scope for 6.1
+
+- **Flee** (full disengage retreat) duration / pressure tuning — see **`TACTICAL_FORMATIONS_FF4.md`** / movement investigations.
+- **Wound packing** and other medical-phase extensions — investigations in this bundle only.
 
 ---
 

@@ -53,9 +53,7 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 	if medical_id == "apply_direct_pressure":
 		# Instant: apply now, then short recovery (scaled by pain/consciousness)
 		var med_rec_dur: float = CombatConstants.RECOVERY_AFTER_MEDICAL_S
-		var med_perf: float = 1.0
-		if c_nd != null and c_nd.has_method("get_performance_modifier"):
-			med_perf = c_nd.get_performance_modifier()
+		var med_perf: float = _EntityAccess.get_performance_modifier(c)
 		if med_perf > 0.0:
 			med_rec_dur /= maxf(CombatConstants.PERF_MOD_MIN, med_perf)
 		var applied: bool = false
@@ -93,9 +91,7 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 	if duration <= 0.0 and not wind_up_cfg.is_empty():
 		duration = 4.0  # fallback for custom entities
 	# Pain/consciousness: wounded entities take longer to apply medical actions
-	var perf_mod: float = 1.0
-	if c_nd != null and c_nd.has_method("get_performance_modifier"):
-		perf_mod = c_nd.get_performance_modifier()
+	var perf_mod: float = _EntityAccess.get_performance_modifier(c)
 	if perf_mod > 0.0:
 		duration /= maxf(CombatConstants.PERF_MOD_MIN, perf_mod)
 	# Intelligence (medical effectiveness): higher INT shortens medical wind-up

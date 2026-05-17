@@ -170,13 +170,7 @@ static func action_ready_cooldown(c: Dictionary) -> float:
 	var off_until: float = c.get("off_balance_until", -1.0)
 	if off_until > CombatTiming.now_seconds():
 		cooldown /= CombatConstants.OFF_BALANCE_GAUGE_FILL_MULT
-	var perf_mod: float = 1.0
-	var sched_node: Node = _EntityAccess.scene_node(c)
-	if sched_node != null:
-		if sched_node.has_method("get_action_bar_performance_modifier"):
-			perf_mod = sched_node.get_action_bar_performance_modifier()
-		elif sched_node.has_method("get_performance_modifier"):
-			perf_mod = sched_node.get_performance_modifier()
+	var perf_mod: float = _EntityAccess.get_action_bar_performance_modifier(c)
 	if perf_mod > 0.0:
 		cooldown /= maxf(CombatConstants.PERF_MOD_MIN, perf_mod)
 	return cooldown
@@ -184,7 +178,7 @@ static func action_ready_cooldown(c: Dictionary) -> float:
 
 static func schedule_initial_action_ready_events(manager: Node) -> void:
 	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c) or _EntityAccess.is_incapacitated(c):
+		if not _EntityAccess.alive_bool(c) or _EntityAccess.is_unconscious(c):
 			continue
 		schedule_action_ready(manager, _EntityAccess.id_int(c), action_ready_cooldown(c))
 
@@ -195,7 +189,7 @@ static func reschedule_back_rank_turns(manager: Node, fid: String) -> void:
 			continue
 		if _EntityAccess.rank_int(c) <= 0 or _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 			continue
-		if _EntityAccess.is_incapacitated(c):
+		if _EntityAccess.is_unconscious(c):
 			continue
 		schedule_action_ready(manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
 
@@ -263,6 +257,6 @@ static func reschedule_formation_recheck_for_moved_back_ranks(manager: Node, mov
 			continue
 		if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 			continue
-		if _EntityAccess.is_incapacitated(c):
+		if _EntityAccess.is_unconscious(c):
 			continue
 		schedule_action_ready(manager, cid, CombatConstants.READY_DELAY_FORMATION_RECHECK_S)

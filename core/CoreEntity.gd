@@ -212,9 +212,19 @@ func _update_consciousness() -> void:
 func is_cowering() -> bool:
 	return get_attacking_arm().is_empty()
 
-func is_incapacitated() -> bool:
+## True when blood/head trauma has dropped true consciousness below the incapacitation floor (cannot act or move).
+func is_unconscious() -> bool:
 	ensure_consciousness_current()
-	if consciousness < _PainConscious.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
+	return consciousness < _PainConscious.INCAPACITATION_CONSCIOUSNESS_THRESHOLD
+
+## Formation retreat (flee / fall_back): not unconscious and legs functional enough to walk. Cowering (no arms) may still retreat when mobile.
+func can_flee_or_fall_back() -> bool:
+	if is_unconscious():
+		return false
+	return get_leg_functionality() >= _PainConscious.MOBILITY_FLEE_THRESHOLD
+
+func is_incapacitated() -> bool:
+	if is_unconscious():
 		return true
 	return is_cowering()
 

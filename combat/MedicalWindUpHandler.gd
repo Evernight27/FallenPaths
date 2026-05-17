@@ -11,22 +11,15 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 	var part: String = pm.get("target_part", "")
 	var tgt_cid: int = pm.get("target_combatant_id", _EntityAccess.id_int(c))
 	var tgt_c = manager._get_by_id(tgt_cid)
-	var c_nd: Node = _EntityAccess.scene_node(c)
 	var tgt_nd: Node = _EntityAccess.scene_node(tgt_c) if tgt_c != null else null
 	var who_m: String = _EntityAccess.get_display_name(c)
 	# Recovery after medical (scaled by pain/consciousness)
 	var med_rec_dur: float = CombatConstants.RECOVERY_AFTER_MEDICAL_S
-	var med_perf: float = 1.0
-	if c_nd != null and c_nd.has_method("get_performance_modifier"):
-		med_perf = c_nd.get_performance_modifier()
+	var med_perf: float = _EntityAccess.get_performance_modifier(c)
 	if med_perf > 0.0:
 		med_rec_dur /= maxf(CombatConstants.PERF_MOD_MIN, med_perf)
 	# Only apply if target is still alive (may have died during wind-up)
-	var tgt_alive: bool = (
-		tgt_c != null
-		and _EntityAccess.alive_bool(tgt_c)
-		and (tgt_nd == null or not tgt_nd.has_method("is_dead") or not tgt_nd.is_dead())
-	)
+	var tgt_alive: bool = tgt_c != null and _EntityAccess.is_alive_in_combat(tgt_c)
 	if tgt_c != null and tgt_nd != null and tgt_alive and not part.is_empty():
 		var wind_raw: Variant = CombatConstants.MEDICAL_WIND_UP_CONFIG.get(med_id, {})
 		var wind_up_cfg: Dictionary = wind_raw if wind_raw is Dictionary else {}

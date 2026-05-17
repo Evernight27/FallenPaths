@@ -112,6 +112,10 @@ static func try_enter_pain_shock_from_hit(entity: Node, pain_from_this_hit_raw: 
 	if pain_value <= shock_thresh:
 		return
 	var risk: float = minf(1.0, (pain_value - shock_thresh) * _PainConscious.get_pain_shock_risk_per_point())
+	var suscept: float = _PainConscious.get_pain_shock_susceptibility_mult(
+		get_effective_pain_for_thresholds(entity)
+	)
+	risk = minf(1.0, risk * suscept)
 	if randf() >= risk:
 		return
 	var now: float = _CombatTiming.now_seconds()

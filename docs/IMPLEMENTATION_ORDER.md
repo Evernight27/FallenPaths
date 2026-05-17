@@ -365,7 +365,17 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 | Step | Deliverable | Depends on |
 |------|-------------|------------|
-| 6.1 | Extensions as needed | Independent; avoid conflicting with formation busy states |
+| 6.1 | **Done** — [exit criteria](#tier-61-mobility-pain-shock-extensions) · [live path](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) | Independent; avoid conflicting with formation busy states |
+
+<a id="tier-61-mobility-pain-shock-extensions"></a>
+
+### Tier 6.1 — Mobility, cowering retreat, pain-shock susceptibility
+
+**Scope:** Leg mobility gate for formation retreat; unconscious vs mobile cowering in ticks, scheduling, and action listing; Option C pain shock with total-pain **susceptibility** on chance only.
+
+**Modules + harness grep:** [§6.1 live path](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) · registry Tier **6.1**.
+
+**Exit criteria:** **Done** **[x]** — grep **`_run_medical_`** · **`run_all()`** green.
 
 ---
 
@@ -391,15 +401,17 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 | `PARRY_DEFLECT_AND_CALIBRATION.md` | Deflect calibration investigations → [3.2 live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) |
 | `GUARDS_LINES_AFTERBLOW.md` | Tier **3.3** — [live path](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) at top; investigations below |
 | `PHYSICS_DAMAGE_AND_FLOW.md` | Tier **5.1** — [kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit); investigations below |
-| `MEDICAL_PAIN_INCAPACITATION.md` | Tier **6**; top **Plan / code** |
+| `MEDICAL_PAIN_INCAPACITATION.md` | Tier **6** [6.1 live path](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path); investigations below |
 | `HEMA_ROADMAP_AND_SOURCES.md` | Tier **7** (non-blocking); top **Plan / code** |
 
 ---
 
 ## Changelog
 
+- **2026-05-17 (6.1-done):** Tier **6.1** **Done** — mobility / cowering retreat live path in **`MEDICAL_PAIN_INCAPACITATION.md`**; **`handle_action_ready`** for mobile cowering; harness **`_run_medical_mobility_cowering_action_ready_fills_gauge_for_mobile`**; plan exit + registry.
 - **2026-05-17 (6.1-fb):** Solo **`fall_back`** uses per-file frontline plug check (**`formation_has_frontline_fill_opportunity_at_file`**) so vacancy in another lane does not block cowering retreat; **`run_all()`** green.
 - **2026-05-17 (harness-split):** **`CombatRegressionHarnessKinematicTail.gd`** — Tier **5.1** optional long-tail kinematic tests split from main harness (Godot compile size); **`run_all`** calls **`_KinematicTail.run`**.
+- **2026-05-17 (4.4-ui3):** Diagram labels **`Name · +14°`** (**`get_diagram_label_suffix`**); **cowering** gauge footwork; diagram refresh when footwork flag off; gauge width **128**; death scrub + defeated tooltips; harness snapshot wiring + **`_run_footwork_diagram_label_suffix_compact`**, **`_run_footwork_ui_hint_stale_stamp_prefers_live_offset`**, **`_run_footwork_snapshot_omits_position_when_disabled`**.
 - **2026-05-17 (4.4-ui):** Battle UI soak — **`BattleUIUpdater`** gauge tooltips (footwork / attention / counter-tempo), wider gauge label, footwork on swap/fall-back/**`status_override`**; **`FormationDiagramBuilder`** arc-step cell tooltips; **`BattleScene`** refreshes diagrams when footwork signature changes; **`CombatCombatantsSnapshot`** exports **`attention_ui_hint`** / **`counter_tempo_ui_hint`**; harness **`_run_combat_snapshot_exports_attention_ui_hint_when_stamped`**.
 - **2026-05-17 (4.4-on):** Tier **4.4** production default **on** for **`is_feature_position_angle_footwork_enabled()`**; plan/registry **Done**; next coding step → Tier **5.1** optional / UI soak.
 - **2026-05-17 (doc-i):** Seventh pass — merged Tier **1.4–1.8** shipped sections; milestone table grep removed; Tier **3**/**4**/**5.1** exit → live path + registry only; implementation gate points at **4.4**; **`ENGAGEMENT_*`** §2.5/§2.0/§2.8 shortened; bundle Contents order (**`PARRY_BIND`**, **`GUARDS`**, **`PHYSICS`**); registry discover line → tier index.

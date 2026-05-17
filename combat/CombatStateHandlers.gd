@@ -17,15 +17,12 @@ const _Attention := preload("res://combat/CombatAttention.gd")
 static func process_death_tick(manager: Node, c: Dictionary) -> String:
 	if not _EntityAccess.alive_bool(c) or _EntityAccess.scene_node(c) == null:
 		return ""
-	var death_node: Node = _EntityAccess.scene_node(c)
-	if not (death_node.has_method("is_dead") and death_node.is_dead()):
+	if not _EntityAccess.is_dead(c):
 		return ""
 	c.alive = false
 	c.state = CombatConstants.STATE_DEAD
-	var death_reason: String = ""
-	if death_node.has_method("get_death_reason"):
-		death_reason = death_node.get_death_reason()
-	print("[Combat] DEATH (tick): %s — %s" % [CombatantEntityAccess.get_display_name(c), death_reason])
+	var death_reason: String = _EntityAccess.get_death_reason(c)
+	print("[Combat] DEATH (tick): %s — %s" % [_EntityAccess.get_display_name(c), death_reason])
 	# Phase 3: Plug on death — update formation (slot_obstacles, promote rank 1 if rank 0 died).
 	if manager.has_method("_on_combatant_died"):
 		manager._on_combatant_died(c)
@@ -34,25 +31,30 @@ static func process_death_tick(manager: Node, c: Dictionary) -> String:
 
 ## Handles cowering recovery when arm functionality returns. Returns true if combatant should be skipped (incapacitated).
 static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
-	var inc_node: Node = _EntityAccess.scene_node(c)
-	if inc_node == null or not inc_node.has_method("is_incapacitated") or not inc_node.is_incapacitated():
+	if _EntityAccess.scene_node(c) == null:
 		return false
+	if _EntityAccess.is_unconscious(c):
+		return true
 	# Cowering: when arm functionality returns, leave cowering state
 	if (
 		_EntityAccess.state_str(c) == CombatConstants.STATE_COWERING
-		and inc_node.has_method("is_cowering")
-		and not inc_node.is_cowering()
+		and not _EntityAccess.is_cowering(c)
 	):
 		c.state = CombatConstants.STATE_WAITING
 		c.gauge = 0.0
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
-		var who_name: String = CombatantEntityAccess.get_display_name(c)
+		var who_name: String = _EntityAccess.get_display_name(c)
 		print("[Combat] %s no longer cowering (arm functionality returned)." % who_name)
 		# Schedule ACTION_READY so they can act (use centralized scheduling to avoid duplicates)
 		if manager.has_method("_schedule_action_ready"):
 			manager._schedule_action_ready(_EntityAccess.id_int(c), 0.05)
 		return false
-	return true  # incapacitated: skip
+	# Mobile cowering (no arms, functional legs): allow ticks so formation retreat can be offered
+	if _EntityAccess.is_cowering(c):
+		return not _EntityAccess.can_flee_or_fall_back(c)
+	if _EntityAccess.is_incapacitated(c):
+		return true
+	return false
 
 ## Enters short recovery (no arm, skip turn). For event-driven flow.
 ## When **`manager`** is set and **`c.pending_attack`** is non-empty, clears defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (Tier 4.2) like **`complete_recovery`**.
@@ -89,11 +91,21 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
 	c.pending_attack = {}
 	if manager != null and not pa_before.is_empty():
 		_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa_before)
-	var rec_node: Node = _EntityAccess.scene_node(c)
-	if rec_node != null and rec_node.has_method("get_attacking_arm") and rec_node.get_attacking_arm().is_empty():
+	if _EntityAccess.get_attacking_arm(c).is_empty():
 		c.state = CombatConstants.STATE_COWERING
-		var who_name: String = CombatantEntityAccess.get_display_name(c)
+		var who_name: String = _EntityAccess.get_display_name(c)
 		print("[Combat] %s is cowering (no functional arms)." % who_name)
+		if (
+			manager != null
+			and manager.has_method("_schedule_action_ready")
+			and _EntityAccess.can_flee_or_fall_back(c)
+		):
+			var delay: float = (
+				manager._action_ready_cooldown(c)
+				if manager.has_method("_action_ready_cooldown")
+				else 0.05
+			)
+			manager._schedule_action_ready(_EntityAccess.id_int(c), delay)
 	else:
 		c.state = CombatConstants.STATE_WAITING
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
@@ -117,16 +129,7 @@ static func process_medical_wind_up_cancel(manager: Node, c: Dictionary) -> bool
 	if tgt_cid_check == _EntityAccess.id_int(c):
 		return false
 	var tgt_check = manager._get_by_id(tgt_cid_check)
-	var tgt_chk_n: Node = _EntityAccess.scene_node(tgt_check) if tgt_check != null else null
-	if (
-		tgt_check != null
-		and _EntityAccess.alive_bool(tgt_check)
-		and (
-			tgt_chk_n == null
-			or not tgt_chk_n.has_method("is_dead")
-			or not tgt_chk_n.is_dead()
-		)
-	):
+	if tgt_check != null and _EntityAccess.is_alive_in_combat(tgt_check):
 		return false
 	if tgt_check != null:
 		tgt_check.receiving_medical_count = max(0, tgt_check.get("receiving_medical_count", 0) - 1)
@@ -135,7 +138,7 @@ static func process_medical_wind_up_cancel(manager: Node, c: Dictionary) -> bool
 	c.state_timer = 0.0
 	c.state_duration = 0.0
 	c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
-	var who_name: String = CombatantEntityAccess.get_display_name(c)
+	var who_name: String = _EntityAccess.get_display_name(c)
 	print("[Combat] Medical cancelled: %s (target died during wind-up)" % who_name)
 	# Schedule ACTION_READY so they can act (use centralized scheduling to avoid duplicates)
 	if manager.has_method("_schedule_action_ready"):
