@@ -1,25 +1,6 @@
 # Physics Damage And Flow
 
-**Plan / code:** `AttackResolver` / `WeaponDamageHelper`; thrust vs swing (**`kinematic_delivery`**, Tier **3.0** — [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-3--melee-depth-parry--weapon--guards)). **Tier 5.1** [**Done**](IMPLEMENTATION_ORDER.md#tier-51-angles-damage-flow-audits) (exit-gated checklist **[x]**; optional long-tail **[ ]** in plan only) — headless harnesses in `combat/CombatRegressionHarness.gd` (prefix **`_run_kinematic_delivery_`**); exhaustive names on the Tier **5.1** line in [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md). Narrative: [Tier 5.1 — Kinematic audit](#tier-51-kinematic-audit) (harness-aligned invariants) and [Tier 5.1 — Angles / pipeline (narrative checklist)](#tier-51-angles-pipeline-remaining) (damage-flow checklist + read-through anchors — **checked** in plan [exit criteria](IMPLEMENTATION_ORDER.md#tier-51-angles-damage-flow-audits) **(pl)**; optional long-tail row still **[ ]** there). Broader angle / pipeline audits → [Tier 5](IMPLEMENTATION_ORDER.md#tier-5--damage--physics-polish) + [plan inventory](IMPLEMENTATION_ORDER.md#plan-inventory-all-combat-markdown).
-
-Consolidated sections; each has **`Source:`** for provenance.
-
-## Contents
-
-0. [Tier 5.1 — Kinematic audit (regression)](#tier-51-kinematic-audit)
-1. [PHYSICS_REALISM_DECISIONS_INVESTIGATION.md](#physics-realism-decisions-investigation)
-2. [ANGLE_SYSTEM_INTEGRATION_STATUS.md](#angle-system-integration-status)
-3. [PHYSICS_SYSTEMS_OPTIMAL_STRUCTURE_INVESTIGATION.md](#physics-systems-optimal-structure-investigation)
-4. [COMBAT_ATTACK_PARRY_DODGE_FLOW.md](#combat-attack-parry-dodge-flow)
-5. [SYSTEM_INTEGRATION_STATUS.md](#system-integration-status)
-6. [COMBAT_ENTITY_INTERFACE.md](#combat-entity-interface)
-7. [SHARP_PENETRATION_BLUNT_TRANSMISSION_PLAN.md](#sharp-penetration-blunt-transmission-plan)
-8. [CONTACT_TYPE_MULTIPLIERS_INTEGRATION_INVESTIGATION.md](#contact-type-multipliers-integration-investigation)
-9. [SUBREGION_MULTIPLIER_AUDIT.md](#subregion-multiplier-audit)
-10. [RESEARCHED_NUMBERS_HEALTH_SYSTEM_COHERENCE.md](#researched-numbers-health-system-coherence)
-11. [COMBAT_NUMBERS_REALISM_AUDIT.md](#combat-numbers-realism-audit)
-12. [GOBLIN_STATS_REALISM.md](#goblin-stats-realism)
-13. [Tier 5.1 — Angles / pipeline (narrative checklist)](#tier-51-angles-pipeline-remaining)
+**Plan / code:** **Status** → plan [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) only. **Live paths:** [Kinematic audit](#tier-51-kinematic-audit) · [Pipeline checklist](#tier-51-angles-pipeline-remaining) · grep **`_run_kinematic_delivery_`** in registry.
 
 ---
 
@@ -27,9 +8,7 @@ Consolidated sections; each has **`Source:`** for provenance.
 
 ## Tier 5.1 — Kinematic audit (regression)
 
-**Purpose:** One place in this file that states what the Tier **5.1** harness suite already locks in code, so damage-flow readers do not have to reverse-engineer `WeaponDamageHelper.gd` from scattered sections above.
-
-**Sources of truth:** [Tier 5.1 exit criteria](IMPLEMENTATION_ORDER.md#tier-51-angles-damage-flow-audits) and [Changelog](IMPLEMENTATION_ORDER.md#changelog) in **`IMPLEMENTATION_ORDER.md`**; harness names on the Tier **5.1** paragraph in **`REGRESSION_HARNESS_MAP_TIER19.md`**.
+**Purpose:** What Tier **5.1** harnesses lock — see table below. **Sources:** plan [§5.1 exit](IMPLEMENTATION_ORDER.md#tier-51-angles-damage-flow-audits) · registry Tier **5.1** paragraph.
 
 **Locked behaviors (`_run_kinematic_delivery_*`):**
 
@@ -46,9 +25,34 @@ Consolidated sections; each has **`Source:`** for provenance.
 | **Line alignment + deflect blend** | **`CombatConstants.get_line_alignment_with_deflect`**: both **`attack_angle_deg`** + **`guard_angle_deg`** ⇒ **`get_alignment_from_angles`** with **`PARRY_ALIGNMENT_FLOOR`**; attack-angle-only uses **`get_guard_angle_deg`**; no angles + blend **0** ⇒ discrete **`get_line_alignment`**; **`guard_deflect_blend`** lerps between **`get_line_alignment(attack, from_line)`** and **`get_line_alignment(attack, guard_line)`**. Harness **`_run_kinematic_delivery_line_alignment_with_deflect_branches`**. |
 | **Bilateral deflection + line quadrants** | **`get_deflected_angle_bilateral`**: cw vs ccw by larger shortest angular distance from **`guard_angle_deg`** (feeds **`get_deflected_line_from_angles`** magnitude path). **`angle_to_nearest_line`** / **`line_to_angle`** cardinal round-trips. Harness **`_run_kinematic_delivery_deflected_angle_bilateral_and_line_angle_helpers`** (deterministic; complements seeded **`_run_parry_opposite_deflect_thresholds`**). |
 | **Deflected line — same-line bind** | **`get_deflected_line_from_angles`**: when attack and guard angles map to the same **`angle_to_nearest_line`**, returns that line immediately (no **`get_deflection_magnitude_deg`** / RNG). Harness **`_run_kinematic_delivery_deflected_line_from_angles_same_line_bind`**. |
-| **Angle diff + cos alignment** | **`angle_diff_deg`** shortest arc **0–180°** (wrap-safe); **`get_alignment_from_angles`** = **`maxf(PARRY_ALIGNMENT_FLOOR, cos(θ))`**. Harness **`_run_kinematic_delivery_angle_diff_and_alignment_from_angles_helpers`**. |
+| **Angle diff + cos alignment** | **`angle_diff_deg`** shortest arc **0–180°** (wrap-safe); **`get_alignment_from_angles`** = **`maxf(PARRY_ALIGNMENT_FLOOR, cos(θ))`**. Harnesses **`_run_kinematic_delivery_angle_diff_and_alignment_from_angles_helpers`**, **`_run_kinematic_delivery_angle_diff_symmetry_and_zero`** (tail). |
+| **Paths + wobble** | **`get_attack_path`** / fallbacks; **`attack_angle_deg`** variance; guard wobble vs readiness/mass. Harnesses in main harness + tail (**`_run_kinematic_delivery_get_attack_path_*`**, **`_run_kinematic_delivery_attack_angle_*`**, **`_run_kinematic_delivery_guard_wobble_*`**). |
+| **`compute_and_apply_damage` integration** | Assembled **`v`** → pre-armor / pens / **`strike_ke_j`**; partial parry cut→blunt; oblique + strike_mods compose; meta **`_harness_expose_penetration_applied`** / **`_harness_expose_damage_kinematics`**. Shared **`_kin_dmg_integration_sample`**; grep **`_run_kinematic_delivery_compute_damage_*`**, **`_run_kinematic_delivery_partial_parry_*`**, **`_run_kinematic_delivery_misaligned_*`**. |
+| **Closing speed (`StrikePhysics`)** | **`closing_speed_multiplier`**: **`engagement_angle`**, **`strike_physics_ctx`** depth-polearm open-lane stab (not **`over_shoulder`** / cut **`attack_type`**), **`depth_polearm_allows_low_targets` false** blocks non-open lane boost, **`tactical_ambush_mult`**. Rank-1 **`stamp_attack_pair_geometry_on_dict`** → same ctx as **`AttackResolver`**. Harnesses **`_run_kinematic_delivery_closing_speed_engagement_angle_scales_strike_ke`**, **`_run_kinematic_delivery_depth_polearm_thrust_ctx_scales_strike_ke`**, **`_run_kinematic_delivery_depth_polearm_allows_low_false_no_closing_boost`**, **`_run_kinematic_delivery_pa_stamp_open_lane_strike_ke_matches_manual_ctx`**, **`_run_kinematic_delivery_tactical_ambush_mult_scales_strike_ke`** (tail). |
+| **Entity / armor sample** | **`take_damage_split`** contract; chest **GAMBESON** / **CUIRASS** / **HAUBERK** below bare tissue at pinned **`vo`** with **`mechanical_post_armor` > 0** (piece ordering not asserted on **oberhau**). Harnesses **`_run_kinematic_delivery_compute_damage_velocity_and_entity_split`**, **`_run_kinematic_delivery_entity_split_final_fields_on_hit`**, **`_run_kinematic_delivery_armored_chest_reduces_tissue_and_reports_mech_post_armor`**, **`_run_kinematic_delivery_gambeson_and_cuirass_chest_both_below_bare`** (tail). |
+| **Unarmed damage** | No weapon: **`unarmed_base_pre_armor`** × closing × stamina × stance; partial parry **`lerp(0.5,1,r)`**. Tail **`_run_kinematic_delivery_unarmed_pre_blunt_matches_helper`**, **`_run_kinematic_delivery_unarmed_partial_parry_scales_pre_blunt`**. |
 
-**Out of scope here:** Full parry calibration tables, armor layering, and every **`LINE_ANGLE_DEG`** consumer beyond this helper’s branch routing — still covered by linked investigations in **Contents** or by combat docs; the abstract strike kinematics path above remains “audit-complete” against harnesses.
+**Harness layout:** Exit-gated tests in **`CombatRegressionHarness.gd`**; optional long-tail in **`CombatRegressionHarnessKinematicTail.gd`** (**`CombatRegressionHarness._KinematicTail.run`**). Registry → **`REGRESSION_HARNESS_MAP_TIER19.md`** Tier **5.1** paragraph.
+
+**Out of scope here:** Full parry calibration, exhaustive armor layering per part, editor soaks, and every **`LINE_ANGLE_DEG`** consumer beyond harnessed helpers — see investigations below.
+
+---
+
+## Contents (investigations)
+
+1. [PHYSICS_REALISM_DECISIONS_INVESTIGATION.md](#physics-realism-decisions-investigation)
+2. [ANGLE_SYSTEM_INTEGRATION_STATUS.md](#angle-system-integration-status)
+3. [PHYSICS_SYSTEMS_OPTIMAL_STRUCTURE_INVESTIGATION.md](#physics-systems-optimal-structure-investigation)
+4. [COMBAT_ATTACK_PARRY_DODGE_FLOW.md](#combat-attack-parry-dodge-flow)
+5. [SYSTEM_INTEGRATION_STATUS.md](#system-integration-status)
+6. [COMBAT_ENTITY_INTERFACE.md](#combat-entity-interface)
+7. [SHARP_PENETRATION_BLUNT_TRANSMISSION_PLAN.md](#sharp-penetration-blunt-transmission-plan)
+8. [CONTACT_TYPE_MULTIPLIERS_INTEGRATION_INVESTIGATION.md](#contact-type-multipliers-integration-investigation)
+9. [SUBREGION_MULTIPLIER_AUDIT.md](#subregion-multiplier-audit)
+10. [RESEARCHED_NUMBERS_HEALTH_SYSTEM_COHERENCE.md](#researched-numbers-health-system-coherence)
+11. [COMBAT_NUMBERS_REALISM_AUDIT.md](#combat-numbers-realism-audit)
+12. [GOBLIN_STATS_REALISM.md](#goblin-stats-realism)
+13. [Tier 5.1 — Angles / pipeline (narrative checklist)](#tier-51-angles-pipeline-remaining)
 
 ---
 
@@ -65,15 +69,7 @@ Consolidated sections; each has **`Source:`** for provenance.
 | Sharp / blunt penetration | [Sharp penetration / blunt transmission plan](#sharp-penetration-blunt-transmission-plan) | Match **`WeaponDamageHelper.compute_penetration`** return keys (**`penetration_sharp`**, **`penetration_blunt_momentum_per_area`**, **`blunt_contact_cm`**) to **`AttackResolver.compute_and_apply_damage`** post-processing (angle/oblique **`angle_factor`**, strike mods) — see **Penetration → armor** anchors below. |
 | Entity / armor interface | [Combat entity interface](#combat-entity-interface) | Confirm split path: **`AttackResolver`** → **`CoreEntity.take_damage_split`** → **`EntityDamage.apply_damage_split`** — see **Entity split damage** anchors below. |
 
-**Production code anchors (read-through, 2026-05-13):** **`combat/DefenseChoiceResolver.gd`** — **`WeaponDamageHelper.get_effective_velocity_m_s`** for parry **`v_intent`**. **`combat/AttackResolver.gd`** **`compute_and_apply_damage`** — sets **`AttackInstance.velocity_m_s`** from **`velocity_override`** if **`>= 0`**, else **`WeaponDamageHelper.velocity_m_s_from_intensity`** (then closing-speed / stamina / afterblow clamps); **`WeaponDamageHelper.compute_pre_armor_cut`**, **`compute_pre_armor_blunt`**, **`compute_penetration`**, **`compute_kinetic_energy_j`** each resolve **`v`** via **`get_effective_velocity_m_s`** (**`weapon/WeaponDamageHelper.gd`**). Embedded flow tables in [Combat attack, parry, dodge flow](#combat-attack-parry-dodge-flow) (subsections **1.2–1.3**) stay the narrative source.
-
-**Angles vs discrete lines (read-through, 2026-05-13):** **`combat/CombatConstants.gd`** **`get_line_alignment_with_deflect`** — continuous **`get_alignment_from_angles`** when **`alignment_context`** has both **`attack_angle_deg`** and **`guard_angle_deg`** as **`float`**; else **`attack_angle_deg`** only with **`get_guard_angle_deg`**; else discrete **`get_line_alignment(attack_line, guard_line)`** with optional **`guard_deflect_blend`** **`lerp`**. **`combat/AttackPathResolver.gd`** **`resolve_hit_part`** — when both angle keys are **`float`**, **`angle_to_nearest_line`** maps each to **4-line** strings for **`get_attack_path`** / **`ATTACK_PATHS_BY_GUARD`**; then **`get_line_alignment_with_deflect`** for intercept alignment (still receives full **`alignment_context`**).
-
-**Penetration → armor (read-through, 2026-05-13):** **`combat/AttackResolver.gd`** **`compute_and_apply_damage`** — **`WeaponDamageHelper.compute_penetration`** for **SHARP** (no opts dict on that call) and **BLUNT** (opts: **`armor_resistance_rha_mm`**, **`pen_sharp_mm`**, **`target_effective_mass_kg`** when available). **`angle_factor`** = **`AttackResolver.penetration_oblique_angle_factor(velocity_override, parry_remaining_ratio, alignment)`** (stays **1** when **`velocity_override` < 0** — intensity-derived path); when **&lt; 1**, scales **`pen_sharp`** and **`pen_blunt_momentum_per_area`** for partial parry or misaligned-guard oblique incidence. Optional **`strike_mods`** mults **`sharp_penetration_mult`**, **`blunt_momentum_pa_mult`**; **`cut_damage_mult`** / **`blunt_damage_mult`** apply to pre-armor tissue only (not to applied pens). **`_harness_expose_penetration_applied`** on the combat manager copies applied pens into **`result_dict`** **`penetration_sharp_applied`** / **`penetration_blunt_mpa_applied`** (not used in production UI).
-
-**Entity split damage (read-through, 2026-05-13):** **`combat/AttackResolver.gd`** calls **`tgt_n.take_damage_split(pre_cut, pre_blunt, part, pen_sharp, pen_blunt_momentum_per_area, blunt_contact_cm, dmg_extras)`**; **`core/CoreEntity.gd`** **`take_damage_split`** forwards to **`EntityDamage.apply_damage_split`** (armor, bone/tissue, wounds per existing **`EntityDamage`** design).
-
-**Dedicated combat docs (authoritative for parry/bind/guard):** `docs/PARRY_DEFLECT_AND_CALIBRATION.md`, `docs/PARRY_BIND_AND_WEAPON_GEOMETRY.md`, `docs/GUARDS_LINES_AFTERBLOW.md` — Tier **3.2–3.3** harnesses live under **`CombatRegressionHarness`** **`_run_parry_*`**, **`_run_guard_*`**, **`_run_afterblow_*`**; update this checklist when a change crosses **`WeaponDamageHelper`** and angle or parry calibration.
+**Code read-through:** Summarized in [Kinematic audit](#tier-51-kinematic-audit) (alignment branches, oblique penetration, entity split). Narrative flow tables → [Combat attack, parry, dodge flow](#combat-attack-parry-dodge-flow). Tier **3** live paths → [3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path), [3.3](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path).
 
 ---
 
@@ -88,6 +84,8 @@ After implementing the 4-line guard system (Liechtenauer: high, low, left, right
 ---
 
 ## 1. What Is Implemented (4-Line System)
+
+> **Historical snapshot** — current contract is Tier **3.2–3.3** + [Kinematic audit](#tier-51-kinematic-audit). Do not treat this table as milestone **Status**.
 
 | Component | Status | Location |
 |-----------|--------|----------|

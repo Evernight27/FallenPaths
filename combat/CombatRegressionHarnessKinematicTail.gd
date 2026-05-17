@@ -7,6 +7,7 @@ const _MgrScript := preload("res://combat/CombatManager.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _AttackResolver := preload("res://combat/AttackResolver.gd")
 const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinematics"
 
 
@@ -28,6 +29,7 @@ static func run(failures: PackedStringArray) -> void:
 	_run_kinematic_delivery_tactical_ambush_mult_scales_strike_ke(failures)
 	_run_kinematic_delivery_gambeson_and_cuirass_chest_both_below_bare(failures)
 	_run_kinematic_delivery_depth_polearm_allows_low_false_no_closing_boost(failures)
+	_run_kinematic_delivery_pa_stamp_open_lane_strike_ke_matches_manual_ctx(failures)
 
 
 static func _run_kinematic_delivery_line_to_angle_unknown_line_returns_zero(
@@ -344,9 +346,19 @@ static func _run_kinematic_delivery_gambeson_and_cuirass_chest_both_below_bare(
 		CombatRegressionHarness._fail(
 			failures, "kin_armor_grad: bare fixture should chip (got %.4f)" % tissue_bare
 		)
-	for label: String in ["cuirass", "gambeson"]:
-		var tissue: float = tissue_cuir if label == "cuirass" else tissue_gam
-		var mech: float = mech_cuir if label == "cuirass" else mech_gam
+	var hauberk: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {}, "SWORD", "oberhau", 1.0, {}, {}, "HAUBERK"
+	)
+	var tissue_hau: float = float(hauberk["final_cut"]) + float(hauberk["final_blunt"])
+	var mech_hau: float = float(hauberk["mechanical_post_armor"])
+	CombatRegressionHarness._free_manager(hauberk["mgr"] as Node)
+	for label: String in ["cuirass", "gambeson", "hauberk"]:
+		var tissue: float = (
+			tissue_cuir if label == "cuirass" else (tissue_gam if label == "gambeson" else tissue_hau)
+		)
+		var mech: float = (
+			mech_cuir if label == "cuirass" else (mech_gam if label == "gambeson" else mech_hau)
+		)
 		if mech <= CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
 			CombatRegressionHarness._fail(
 				failures, "kin_armor_grad: %s mechanical_post_armor want > 0 got %.4f" % [label, mech]
@@ -429,7 +441,7 @@ static func _run_kinematic_delivery_unarmed_pre_blunt_matches_helper(
 	var pre_blunt: float = float(rd.get("pre_blunt_applied", -999.0))
 	var strike_ke: float = float(rd.get("strike_ke_j_applied", -999.0))
 	var atk_n: Node = _EntityAccess.scene_node(atk)
-	var mod: float = atk_n.get_attack_damage_modifier() if (atk_n != null and atk_n.has_method("get_attack_damage_modifier")) else 1.0
+	var mod: float = _EntityAccess.get_attack_damage_modifier(atk)
 	var strength: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
 	var base: float = WeaponDamageHelper.unarmed_base_pre_armor(strength, mod)
 	var st_ratio: float = clampf(
@@ -446,10 +458,10 @@ static func _run_kinematic_delivery_unarmed_pre_blunt_matches_helper(
 	var stance: float = CombatConstants.get_stance_modifier(_EntityAccess.stance_str(atk), "damage")
 	var want: float = base * closing * stamina_u * stance
 	CombatRegressionHarness._free_manager(m)
-	if strike_ke >= 0.0:
+	if strike_ke > -0.5:
 		CombatRegressionHarness._fail(
 			failures,
-			"kin_unarmed: strike_ke_j should stay unset (got %.4f)" % strike_ke
+			"kin_unarmed: strike_ke_j_applied should stay unset (got %.4f)" % strike_ke
 		)
 	if pre_blunt < 0.0:
 		CombatRegressionHarness._fail(failures, "kin_unarmed: pre_blunt_applied missing")
@@ -712,4 +724,112 @@ static func _run_kinematic_delivery_depth_polearm_allows_low_false_no_closing_bo
 			failures,
 			"kin_depth_allow_low: default allows_low true should boost ke (neutral=%.4f allow=%.4f)"
 			% [ke_neutral, ke_allow]
+		)
+
+
+static func _strike_physics_ctx_from_pa(pa: Dictionary, attack_type: String) -> Dictionary:
+	return {
+		"tactical_ambush_mult": float(pa.get("tactical_ambush_mult", 1.0)),
+		"attack_type": attack_type,
+		"depth_polearm_attack": bool(pa.get("depth_polearm_attack", false)),
+		"depth_polearm_lane_type": str(pa.get("depth_polearm_lane_type", "")),
+		"depth_polearm_allows_low_targets": bool(pa.get("depth_polearm_allows_low_targets", true)),
+	}
+
+
+static func _kin_strike_ke_on_manager(
+	mgr: Node,
+	atk: Dictionary,
+	tgt: Dictionary,
+	move_id: String,
+	vo_pin: float,
+	strike_physics_ctx: Dictionary
+) -> float:
+	mgr.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	var res: Dictionary = _AttackResolver.compute_and_apply_damage(
+		mgr,
+		_EntityAccess.id_int(atk),
+		_EntityAccess.id_int(tgt),
+		atk,
+		tgt,
+		"chest",
+		0.62,
+		move_id,
+		arch,
+		vo_pin,
+		1.0,
+		1.0,
+		-1.0,
+		-1.0,
+		1.0,
+		1.0,
+		1.0,
+		{},
+		strike_physics_ctx
+	)
+	return float(res.get("result_dict", {}).get("strike_ke_j_applied", -999.0))
+
+
+## Tier 5.1 (optional long-tail): rank-1 depth **`stamp_attack_pair_geometry_on_dict`** → **`strike_physics_ctx`** matches **`AttackResolver`**; open lane **`strike_ke_j`** matches manual ctx.
+static func _run_kinematic_delivery_pa_stamp_open_lane_strike_ke_matches_manual_ctx(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	const move_id: String = "spear_thrust"
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
+	var depth: Dictionary = mgr.combatants[1]
+	var enemy: Dictionary = mgr.combatants[2]
+	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+		CombatRegressionHarness._fail(failures, "kin_pa_stamp: expected open depth polearm lane")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var pa: Dictionary = {"attack_type": move_id, "tactical_ambush_mult": 1.0}
+	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, depth, enemy, pa)
+	if not bool(pa.get("depth_polearm_attack", false)):
+		CombatRegressionHarness._fail(failures, "kin_pa_stamp: depth_polearm_attack want true after stamp")
+	if str(pa.get("depth_polearm_lane_type", "")) != CombatConstants.DEPTH_POLEARM_LANE_TYPE_OPEN:
+		CombatRegressionHarness._fail(
+			failures,
+			"kin_pa_stamp: lane_type want open got %s" % str(pa.get("depth_polearm_lane_type", ""))
+		)
+	var ctx_from_pa: Dictionary = _strike_physics_ctx_from_pa(pa, move_id)
+	var manual_ctx: Dictionary = {
+		"tactical_ambush_mult": 1.0,
+		"depth_polearm_attack": true,
+		"attack_type": move_id,
+		"depth_polearm_lane_type": "open",
+		"depth_polearm_allows_low_targets": true,
+	}
+	for key in manual_ctx:
+		if ctx_from_pa.get(key) != manual_ctx.get(key):
+			CombatRegressionHarness._fail(
+				failures,
+				"kin_pa_stamp: ctx[%s] want %s got %s"
+				% [key, str(manual_ctx[key]), str(ctx_from_pa.get(key))]
+			)
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	var weapon: Weapon = _EntityAccess.get_weapon(depth) as Weapon
+	var ke_got: float = _kin_strike_ke_on_manager(mgr, depth, enemy, move_id, vo_pin, ctx_from_pa)
+	var v_asm: float = CombatRegressionHarness._kin_expected_damage_velocity_m_s(
+		mgr, depth, enemy, 0.62, arch, move_id, vo_pin, 1.0, ctx_from_pa
+	)
+	var ai: AttackInstance = AttackInstance.new(move_id, 0.62)
+	ai.archetype = arch
+	ai.velocity_m_s = v_asm
+	var ke_want: float = WeaponDamageHelper.compute_kinetic_energy_j(weapon, ai) if weapon != null else -1.0
+	CombatRegressionHarness._free_manager(mgr)
+	if ke_got <= 1.0:
+		CombatRegressionHarness._fail(failures, "kin_pa_stamp: stamped ke too small %.4f" % ke_got)
+	if weapon == null:
+		CombatRegressionHarness._fail(failures, "kin_pa_stamp: missing spear weapon")
+	elif absf(ke_got / ke_want - 1.0) > 0.03:
+		CombatRegressionHarness._fail(
+			failures,
+			"kin_pa_stamp: strike_ke_j ratio %.4f want 1 (got=%.4f want=%.4f v=%.4f)"
+			% [ke_got / ke_want, ke_got, ke_want, v_asm]
 		)

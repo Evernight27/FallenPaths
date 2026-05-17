@@ -78,7 +78,7 @@ static func compute_and_apply_damage(
 
 	var weapon = _EntityAccess.get_weapon(atk)
 
-	if weapon != null and weapon.has_method("get_available_attack_types"):
+	if _EntityAccess.weapon_has_attack_types(weapon):
 		var attack_instance = AttackInstance.new(attack_type, intensity)
 		attack_instance.archetype = archetype
 		attack_instance.strike_energy_mult = float(sm.get("strike_energy_mult", 1.0))
@@ -92,7 +92,7 @@ static func compute_and_apply_damage(
 		if afterblow_damage_mult < 1.0:
 			attack_instance.velocity_m_s *= sqrt(maxf(0.04, afterblow_damage_mult))
 		attack_instance.velocity_m_s = clampf(attack_instance.velocity_m_s, _ImpactVelocityModel.ABS_VELOCITY_MIN_M_S, _ImpactVelocityModel.ABS_VELOCITY_MAX_M_S)
-		var arm_mod: float = atk_n.get_attack_damage_modifier() if (atk_n != null and atk_n.has_method("get_attack_damage_modifier")) else 1.0
+		var arm_mod: float = _EntityAccess.get_attack_damage_modifier(atk)
 		var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, part)
 		var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, attack_type, archetype)
 		# Physics: deflected cut presents flat/slap; edge doesn't bite. Shift cut→blunt on partial parry.
@@ -110,8 +110,7 @@ static func compute_and_apply_damage(
 		var pen_sharp_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, CombatConstants.DAMAGE_TYPE_SHARP)
 		pen_sharp = pen_sharp_dict.get("penetration_sharp", -1.0)
 		var blunt_opts: Dictionary = {}
-		if tgt_n != null and tgt_n.has_method("get_armor_sharp_resistance_for_part"):
-			blunt_opts["armor_resistance_rha_mm"] = tgt_n.get_armor_sharp_resistance_for_part(part)
+		_EntityAccess.apply_armor_sharp_resistance_to_blunt_opts(blunt_opts, tgt, part)
 		blunt_opts["pen_sharp_mm"] = pen_sharp
 		blunt_opts["target_effective_mass_kg"] = target_mass
 		var pen_blunt_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, CombatConstants.DAMAGE_TYPE_BLUNT, blunt_opts)
@@ -133,7 +132,7 @@ static func compute_and_apply_damage(
 		strike_ke_j = WeaponDamageHelper.compute_kinetic_energy_j(weapon, attack_instance)
 		_debug("dmg %s->%s part=%s pre_armor=%.1f cut=%.1f blunt=%.1f pen=%.2f ke_j=%.1f" % [atk_name, tgt_name, part, pre_armor, pre_cut, pre_blunt, pen_sharp, strike_ke_j])
 	else:
-		var mod: float = atk_n.get_attack_damage_modifier() if (atk_n != null and atk_n.has_method("get_attack_damage_modifier")) else 1.0
+		var mod: float = _EntityAccess.get_attack_damage_modifier(atk)
 		pre_armor = WeaponDamageHelper.unarmed_base_pre_armor(
 			float(_EntityAccess.stats_dict(atk).get("strength", 100)), mod
 		)
@@ -277,15 +276,17 @@ static func compute_and_apply_damage(
 	if manager != null and bool(manager.get_meta("_harness_expose_penetration_applied", false)):
 		result_dict["penetration_sharp_applied"] = pen_sharp
 		result_dict["penetration_blunt_mpa_applied"] = pen_blunt_momentum_per_area
+	if manager != null and bool(manager.get_meta("_harness_expose_damage_kinematics", false)):
+		result_dict["strike_ke_j_applied"] = strike_ke_j
+		result_dict["blunt_contact_cm_applied"] = blunt_contact_cm
+		result_dict["pre_cut_applied"] = pre_cut
+		result_dict["pre_blunt_applied"] = pre_blunt
 
-	if tgt_n != null and tgt_n.has_method("is_dead") and tgt_n.is_dead():
+	if _EntityAccess.is_dead(tgt):
 		tgt.alive = false
 		tgt.state = CombatConstants.STATE_DEAD
 		result_dict["died"] = true
-		var death_reason: String = ""
-		if tgt_n.has_method("get_death_reason"):
-			death_reason = tgt_n.get_death_reason()
-		print("[Combat] DEATH: %s — %s" % [tgt_name, death_reason])
+		print("[Combat] DEATH: %s — %s" % [tgt_name, _EntityAccess.get_death_reason(tgt)])
 
 	var rec_dur: float = CombatTiming.recovery_duration(intensity, outcome, recovery_mult, perf_mod, _EntityAccess.stats_dict(atk).get("agility", 100), glancing_severity)
 	return {
@@ -395,8 +396,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 
 	var atk_wep: Variant = _EntityAccess.get_weapon(atk)
 	if (
-		atk_wep != null
-		and atk_wep.has_method("get_available_attack_types")
+		_EntityAccess.weapon_has_attack_types(atk_wep)
 		and not _ActionsBuilder.can_melee_threaten(manager, atk, tgt)
 	):
 		_TacticalCombat.record_invalid_melee_resolve_blocked(manager)
