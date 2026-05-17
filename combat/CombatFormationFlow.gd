@@ -662,6 +662,32 @@ static func formation_has_frontline_fill_opportunity(manager: Node, fid: String)
 	return false
 
 
+## Same as **`formation_has_frontline_fill_opportunity`**, but only for one **file** column (solo **`fall_back`** uses this so an empty front cell in another lane does not block retreat).
+static func formation_has_frontline_fill_opportunity_at_file(
+	manager: Node, fid: String, file: int
+) -> bool:
+	if manager == null or file < 0:
+		return false
+	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	if formation.is_empty():
+		return false
+	var formation_ranks: int = int(formation.get("ranks", 1))
+	if formation_ranks <= 1:
+		return false
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+	var nfiles: int = maxi(1, int(formation.get("files", 1)))
+	if file >= nfiles:
+		return false
+	if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
+		return false
+	var side_wanted: String = _FormationSlots.formation_side_str(formation)
+	var reserved: Dictionary = {}
+	var move: Dictionary = _select_best_plug_move_for_empty_cell(
+		manager, fid, slots, 0, file, formation_ranks, nfiles, side_wanted, true, reserved, true, true
+	)
+	return not move.is_empty()
+
+
 ## Busy combatants must not be picked as vacancy donors (would fight slot state during swaps / wind-up).
 ## Units just moved by automatic plug also sit out briefly so reconcile ticks cannot ping-pong them as donors.
 static func _is_ineligible_vacancy_donor(manager: Node, c: Dictionary) -> bool:

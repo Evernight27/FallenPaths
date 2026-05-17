@@ -425,6 +425,7 @@ static func run_all() -> Dictionary:
 	_run_kinematic_delivery_closing_speed_engagement_angle_scales_strike_ke(failures)
 	_run_kinematic_delivery_armored_chest_reduces_tissue_and_reports_mech_post_armor(failures)
 	_run_kinematic_delivery_unarmed_pre_blunt_matches_helper(failures)
+	_run_kinematic_delivery_depth_polearm_thrust_ctx_scales_strike_ke(failures)
 	_run_weapon_blade_strong_fraction(failures)
 	_run_medical_mobility_can_flee_leg_and_consciousness(failures)
 	_run_medical_mobility_cowering_mobile_not_skipped_in_process_incap(failures)
@@ -12439,7 +12440,8 @@ static func _kin_expected_damage_velocity_m_s(
 	arch: Dictionary,
 	move_id: String,
 	velocity_override: float,
-	afterblow_damage_mult: float
+	afterblow_damage_mult: float,
+	strike_physics_ctx: Dictionary = {}
 ) -> float:
 	var weapon: Weapon = _EntityAccess.get_weapon(atk) as Weapon
 	if weapon == null:
@@ -12449,7 +12451,7 @@ static func _kin_expected_damage_velocity_m_s(
 		if velocity_override >= 0.0
 		else WeaponDamageHelper.velocity_m_s_from_intensity(intensity, arch, weapon, move_id)
 	)
-	var v: float = v_base * _StrikePhysics.closing_speed_multiplier(mgr, atk, tgt, {})
+	var v: float = v_base * _StrikePhysics.closing_speed_multiplier(mgr, atk, tgt, strike_physics_ctx)
 	var st_ratio: float = clampf(
 		_EntityAccess.stamina_float(atk) / CombatConstants.STAMINA_MAX, 0.0, 1.0
 	)
@@ -12706,7 +12708,8 @@ static func _kin_dmg_integration_sample(
 	afterblow_mult: float = 1.0,
 	arch_override: Dictionary = {},
 	tgt_overrides: Dictionary = {},
-	tgt_chest_armor_id: String = ""
+	tgt_chest_armor_id: String = "",
+	strike_physics_ctx: Dictionary = {}
 ) -> Dictionary:
 	var intensity: float = 0.62
 	var arch: Dictionary = arch_override
@@ -12750,7 +12753,7 @@ static func _kin_dmg_integration_sample(
 		afterblow_mult,
 		align,
 		strike_mods,
-		{}
+		strike_physics_ctx
 	)
 	var rd: Dictionary = res.get("result_dict", {}) as Dictionary
 	return {
@@ -12762,6 +12765,7 @@ static func _kin_dmg_integration_sample(
 		"move_id": move_id,
 		"weapon_id": weapon_id,
 		"afterblow_mult": afterblow_mult,
+		"strike_physics_ctx": strike_physics_ctx,
 		"pen_sharp": float(rd.get("penetration_sharp_applied", -999.0)),
 		"pen_blunt_mpa": float(rd.get("penetration_blunt_mpa_applied", -999.0)),
 		"strike_ke_j": float(rd.get("strike_ke_j_applied", -999.0)),
@@ -13711,6 +13715,124 @@ static func _run_kinematic_delivery_unarmed_pre_blunt_matches_helper(
 		)
 
 
+## Tier 5.1 (optional long-tail): **`strike_physics_ctx`** depth-polearm open-lane stab raises **`strike_ke_j`**; cut **`attack_type`** / **`over_shoulder`** lane do not.
+static func _run_kinematic_delivery_depth_polearm_thrust_ctx_scales_strike_ke(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	const move_id: String = "spear_thrust"
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+	var neutral: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {}, "SPEAR", move_id, 1.0, arch
+	)
+	var depth_open: Dictionary = _kin_dmg_integration_sample(
+		vo_pin,
+		1.0,
+		1.0,
+		{},
+		"SPEAR",
+		move_id,
+		1.0,
+		arch,
+		{},
+		"",
+		{
+			"depth_polearm_attack": true,
+			"attack_type": move_id,
+			"depth_polearm_lane_type": "open",
+		}
+	)
+	var depth_cut: Dictionary = _kin_dmg_integration_sample(
+		vo_pin,
+		1.0,
+		1.0,
+		{},
+		"SPEAR",
+		move_id,
+		1.0,
+		arch,
+		{},
+		"",
+		{
+			"depth_polearm_attack": true,
+			"attack_type": "spear_slash",
+			"depth_polearm_lane_type": "open",
+		}
+	)
+	var depth_shoulder: Dictionary = _kin_dmg_integration_sample(
+		vo_pin,
+		1.0,
+		1.0,
+		{},
+		"SPEAR",
+		move_id,
+		1.0,
+		arch,
+		{},
+		"",
+		{
+			"depth_polearm_attack": true,
+			"attack_type": move_id,
+			"depth_polearm_lane_type": "over_shoulder",
+		}
+	)
+	var ke_neutral: float = float(neutral["strike_ke_j"])
+	var ke_open: float = float(depth_open["strike_ke_j"])
+	var ke_cut: float = float(depth_cut["strike_ke_j"])
+	var ke_shoulder: float = float(depth_shoulder["strike_ke_j"])
+	var ctx_open: Dictionary = depth_open["strike_physics_ctx"] as Dictionary
+	var cls_open: float = _StrikePhysics.closing_speed_multiplier(
+		depth_open["mgr"] as Node,
+		depth_open["atk"] as Dictionary,
+		depth_open["tgt"] as Dictionary,
+		ctx_open
+	)
+	var cls_neutral: float = _StrikePhysics.closing_speed_multiplier(
+		neutral["mgr"] as Node,
+		neutral["atk"] as Dictionary,
+		neutral["tgt"] as Dictionary,
+		{}
+	)
+	_free_manager(neutral["mgr"] as Node)
+	_free_manager(depth_open["mgr"] as Node)
+	_free_manager(depth_cut["mgr"] as Node)
+	_free_manager(depth_shoulder["mgr"] as Node)
+	if ke_neutral <= 1.0:
+		_fail(failures, "kin_depth_close: neutral strike_ke too small %.4f" % ke_neutral)
+	if ke_open <= ke_neutral + 0.5:
+		_fail(
+			failures,
+			"kin_depth_close: open lane ke %.4f should exceed neutral %.4f"
+			% [ke_open, ke_neutral]
+		)
+	if absf(ke_cut / ke_neutral - 1.0) > 0.03:
+		_fail(
+			failures,
+			"kin_depth_close: cut attack_type should not boost thrust ke (ratio %.4f)"
+			% [ke_cut / ke_neutral]
+		)
+	if absf(ke_shoulder / ke_neutral - 1.0) > 0.03:
+		_fail(
+			failures,
+			"kin_depth_close: over_shoulder lane should not boost (ratio %.4f)"
+			% [ke_shoulder / ke_neutral]
+		)
+	var ratio_ke: float = ke_open / maxf(ke_neutral, 0.001)
+	var ratio_want: float = (cls_open / maxf(cls_neutral, 0.001)) ** 2.0
+	if absf(ratio_ke - ratio_want) > 0.06:
+		_fail(
+			failures,
+			"kin_depth_close: ke ratio %.4f want ~(cls ratio)^2 %.4f (cls neutral=%.4f open=%.4f)"
+			% [ratio_ke, ratio_want, cls_neutral, cls_open]
+		)
+	if absf(cls_open - CombatConstants.DEPTH_SPEAR_THRUST_CLOSING_SPEED_MULT) > 0.0001:
+		_fail(
+			failures,
+			"kin_depth_close: open cls want %.4f got %.4f"
+			% [CombatConstants.DEPTH_SPEAR_THRUST_CLOSING_SPEED_MULT, cls_open]
+		)
+
+
 static func _harness_destroy_limb(entity: CoreEntity, part: String) -> void:
 	entity.body_cutting[part] = 0.0
 	entity.body_blunt[part] = 0.0
@@ -13799,6 +13921,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 		mgr.register(_new_entity("SWORD"), "player")
 	for _j in 4:
 		mgr.register(_new_entity("SWORD"), "enemy")
+	# Five players on 2×3 — kill rank-2 file-0 before rank-1 file-0 so vacancy plug does not refill solo fall_back slot.
 	mgr.start(
 		{
 			"files": 2,
@@ -13808,19 +13931,32 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 		},
 		{"files": 2, "ranks": 2, "density": "normal"}
 	)
-	var rear_victim_id: int = -1
-	for c in mgr.combatants:
-		if (
-			_EntityAccess.side_str(c) == "player"
-			and _EntityAccess.rank_int(c) == 1
-			and _EntityAccess.file_int(c) == 0
-		):
-			rear_victim_id = _EntityAccess.id_int(c)
-			break
+	var fid: String = "player"
+	var _med_list_id_at := func(rank: int, file: int) -> int:
+		for c in mgr.combatants:
+			if (
+				_EntityAccess.side_str(c) == "player"
+				and _EntityAccess.rank_int(c) == rank
+				and _EntityAccess.file_int(c) == file
+			):
+				return _EntityAccess.id_int(c)
+		return -1
+	var deep_id: int = _med_list_id_at.call(2, 0)
+	if deep_id >= 0:
+		_soak_kill_combatant(mgr, deep_id)
+	var rear_victim_id: int = _med_list_id_at.call(1, 0)
 	if rear_victim_id < 0:
 		_fail(failures, "med_mobility_list: setup missing rank-1 file-0 player")
 		return
 	_soak_kill_combatant(mgr, rear_victim_id)
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(
+		_FormationSlots.formation_record_read(mgr.formations, fid)
+	)
+	if _FormationSlots.slot_has_any_living_occupant(mgr, slots, Vector2i(1, 0)):
+		_fail(failures, "med_mobility_list: rank-1 file-0 must be vacant for solo fall_back")
+		return
+	if mgr.has_method("notify_formation_changed"):
+		mgr.notify_formation_changed("player")
 	if _EngagementMode.engagement_mode(mgr) != CombatConstants.ENGAGEMENT_MODE_FORMATION:
 		_fail(
 			failures,
@@ -13843,12 +13979,31 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 	if not bool(policy.get("allow_fall_back", false)):
 		_fail(failures, "med_mobility_list: formation policy must allow fall_back")
 	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	ent.blood_volume = CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX - 5.0
 	_harness_destroy_limb(ent, "right_arm")
 	_harness_destroy_limb(ent, "left_arm")
 	front_c.state = CombatConstants.STATE_COWERING
 	front_c.gauge = 100.0
 	if not ent.is_cowering():
 		_fail(failures, "med_mobility_list: expected cowering on rank-0")
+	var form: Dictionary = _FormationSlots.formation_record_read(mgr.formations, fid)
+	var our_file: int = _EntityAccess.file_int(front_c)
+	if _FormationFlow.formation_has_frontline_fill_opportunity_at_file(mgr, fid, our_file):
+		_fail(
+			failures,
+			"med_mobility_list: unexpected rank-0 plug at file %d blocks solo fall_back"
+			% our_file
+		)
+	if not _ActionsBuilder.solo_fall_back_action_legal(mgr, front_c):
+		_fail(
+			failures,
+			"med_mobility_list: solo fall_back illegal (rank=%d file=%d disc=%s)"
+			% [
+				_EntityAccess.rank_int(front_c),
+				_EntityAccess.file_int(front_c),
+				CombatFormationEngagement.effective_line_discipline(mgr, form),
+			]
+		)
 	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(front_c))
 	var has_fb: bool = false
 	for a in acts:
@@ -13856,10 +14011,17 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 			has_fb = true
 			break
 	if not has_fb:
+		var mp: Dictionary = _EngagementMode.movement_policy(mgr)
 		_fail(
 			failures,
-			"med_mobility_list: expected fall_back in build (acts=%s legal=%s)"
-			% [str(acts), _ActionsBuilder.solo_fall_back_action_legal(mgr, front_c)]
+			"med_mobility_list: expected fall_back in build (acts=%s legal=%s flee=%s allow_fb=%s state=%s)"
+			% [
+				str(acts),
+				_ActionsBuilder.solo_fall_back_action_legal(mgr, front_c),
+				_EntityAccess.can_flee_or_fall_back(front_c),
+				bool(mp.get("allow_fall_back", false)),
+				_EntityAccess.state_str(front_c),
+			]
 		)
 	_free_manager_restore_global_rng(mgr)
 

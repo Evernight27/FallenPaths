@@ -28,14 +28,16 @@ static func formation_density_label(manager: Node, fid: String) -> String:
 static func solo_fall_back_action_legal(manager: Node, atk: Dictionary) -> bool:
 	if manager == null or atk.is_empty():
 		return false
+	if not _EntityAccess.can_flee_or_fall_back(atk):
+		return false
 	if _EntityAccess.rank_int(atk) != 0:
 		return false
 	if _ZoneOfControl.is_intruded(atk):
 		return false
 	if _in_pair_abort_cooldown(manager, atk):
 		return false
-	var fid: String = _EntityAccess.formation_id_str(atk)
-	var our_formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, atk)
+	var our_formation: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, atk, fid)
 	if our_formation.is_empty():
 		return false
 	if int(our_formation.get("ranks", 1)) <= 1:
@@ -49,7 +51,7 @@ static func solo_fall_back_action_legal(manager: Node, atk: Dictionary) -> bool:
 	var slots_check: Dictionary = _FormationSlots.formation_slots_dict(our_formation)
 	if _FormationSlots.slot_has_any_living_occupant(manager, slots_check, Vector2i(1, our_file)):
 		return false
-	if _FormationFlow.formation_has_frontline_fill_opportunity(manager, fid):
+	if _FormationFlow.formation_has_frontline_fill_opportunity_at_file(manager, fid, our_file):
 		return false
 	return _EntityAccess.retreat_formation_body_damage_warranted(atk, manager)
 
@@ -557,6 +559,15 @@ static func _close_attempt_pair_blocked(manager: Node, attacker: Dictionary, def
 	return float(manager.combat_clock) < float(until)
 
 
+## `CombatEngagementResolver.resolve_close_attempt` only contests at LONG; never list close at MID/CLOSE.
+static func _attempt_close_listed_for_pair(
+	manager: Node, attacker: Dictionary, defender_id: int, dist: String
+) -> bool:
+	if dist != CombatConstants.DISTANCE_LONG:
+		return false
+	return not _close_attempt_pair_blocked(manager, attacker, defender_id)
+
+
 ## Melee / close / crash vs opponents whose `rank` matches `opp_rank_required` (0 = front line; 1 = stalemate fallback when no rank-0 enemy exists).
 static func _append_melee_vs_enemy_line_rank(
 	manager: Node,
@@ -581,13 +592,11 @@ static func _append_melee_vs_enemy_line_rank(
 					if WeaponConstants.is_parry_move(move_id):
 						continue
 					actions.append({ "target_id": _EntityAccess.id_int(opp), "move_id": move_id })
-			elif dist == CombatConstants.DISTANCE_LONG:
-				if not _close_attempt_pair_blocked(manager, c, _EntityAccess.id_int(opp)):
-					actions.append({ "target_id": _EntityAccess.id_int(opp), "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
+			elif _attempt_close_listed_for_pair(manager, c, _EntityAccess.id_int(opp), dist):
+				actions.append({ "target_id": _EntityAccess.id_int(opp), "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
 		else:
-			if dist in [CombatConstants.DISTANCE_CLOSE, CombatConstants.DISTANCE_MID, CombatConstants.DISTANCE_LONG]:
-				if not _close_attempt_pair_blocked(manager, c, _EntityAccess.id_int(opp)):
-					actions.append({ "target_id": _EntityAccess.id_int(opp), "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
+			if _attempt_close_listed_for_pair(manager, c, _EntityAccess.id_int(opp), dist):
+				actions.append({ "target_id": _EntityAccess.id_int(opp), "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE })
 		if _crash_action_eligible(manager, c, opp, in_swing_range, dist):
 			actions.append({"target_id": _EntityAccess.id_int(opp), "move_id": CombatConstants.MOVE_ID_CRASH})
 
@@ -599,18 +608,24 @@ static func build(manager: Node, combatant_id: int) -> Array:
 	if c == null or not _EntityAccess.alive_bool(c):
 		return []
 	var counter_tempo: bool = false
+	# Gauge fills to 100 on `EVENT_ACTION_READY` only; sub-100 without counter window → no actions (not ready).
 	if _EntityAccess.gauge_float(c) < 100.0:
 		if _CounterTempo.can_act(manager, c):
 			counter_tempo = true
 		else:
 			return []
+	var state: String = _EntityAccess.state_str(c)
 	if (
-		_EntityAccess.state_str(c) != CombatConstants.STATE_WAITING
-		and _EntityAccess.state_str(c) != CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
+		state != CombatConstants.STATE_WAITING
+		and state != CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
+		and state != CombatConstants.STATE_COWERING
 	):
 		return []
-	if _EntityAccess.is_incapacitated(c):
+	if _EntityAccess.is_unconscious(c):
 		return []
+	var formation_retreat_only: bool = (
+		state == CombatConstants.STATE_COWERING or _EntityAccess.is_cowering(c)
+	)
 	var actions: Array = []
 	var combatants: Array = manager.combatants
 	var medical_phase: bool = manager.medical_phase
@@ -644,11 +659,15 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		var c_intruded: bool = _ZoneOfControl.is_intruded(c)
 		# Phase 3: Rank 0 melee; intruders from depth; home ranks ≥1 vs intruders on formation; depth polearm vs line (Tier 1.9).
 		var can_melee: bool = (
-			our_rank == 0
-			or c_intruded
-			or _host_formation_has_enemy_intruder(combatants, c)
-			or depth_polearm_lane_open(manager, c)
-		) and not _EntityAccess.get_attacking_arm(c).is_empty()
+			not formation_retreat_only
+			and (
+				our_rank == 0
+				or c_intruded
+				or _host_formation_has_enemy_intruder(combatants, c)
+				or depth_polearm_lane_open(manager, c)
+			)
+			and not _EntityAccess.get_attacking_arm(c).is_empty()
+		)
 		if can_melee:
 			var weapon = _EntityAccess.get_weapon(c)
 			if weapon != null and weapon.has_method("get_available_attack_types"):
@@ -681,10 +700,12 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		log_fid = fid
 		log_breach_blocks_moves = breach_blocks_moves
 		if (
-			not our_formation.is_empty()
+			not formation_retreat_only
+			and not our_formation.is_empty()
 			and formation_ranks > 1
 			and not c_intruded
 			and not pair_abort_blocked
+			and _EntityAccess.can_flee_or_fall_back(c)
 			and (can_swap_rank or can_drag_back)
 		):
 			if not breach_blocks_moves:
@@ -749,16 +770,32 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		# closes rank-0 holes with scored lateral plugs only when a hole exists.
 		# Phase 5: fall back solo — only under `line_discipline` loose; strict/normal use paired relief only.
 		if (
-			not our_formation.is_empty()
+			not formation_retreat_only
+			and not our_formation.is_empty()
 			and formation_ranks > 1
 			and our_rank == 0
 			and not breach_blocks_moves
 			and not c_intruded
 			and not pair_abort_blocked
 			and can_fall_back
+			and _EntityAccess.can_flee_or_fall_back(c)
 			and solo_fall_back_action_legal(manager, c)
 		):
 			actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK})
+		if formation_retreat_only:
+			if (
+				not our_formation.is_empty()
+				and formation_ranks > 1
+				and our_rank == 0
+				and not breach_blocks_moves
+				and not c_intruded
+				and not pair_abort_blocked
+				and can_fall_back
+				and _EntityAccess.can_flee_or_fall_back(c)
+				and solo_fall_back_action_legal(manager, c)
+			):
+				actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK})
+			return actions
 		_append_focus_line_actions_if_needed(manager, c, combatant_id, actions)
 		_append_combat_wait_if_needed(actions, combatant_id)
 	else:
@@ -807,14 +844,17 @@ static func build(manager: Node, combatant_id: int) -> Array:
 					var tgt_id: int = _EntityAccess.id_int(ally)
 					for act in manager._get_ally_medical_actions(c, ally, part):
 						actions.append({ "target_id": tgt_id, "move_id": act.move_id, "target_part": act.target_part })
+	var result_actions: Array = actions
+	if counter_tempo:
+		result_actions = _CounterTempo.filter_actions_for_counter_tempo(actions)
 	var medical_count: int = 0
-	for a in actions:
+	for a in result_actions:
 		var mid: String = str(a.get("move_id", ""))
 		if mid in CombatConstants.MEDICAL_MOVE_IDS:
 			medical_count += 1
 	if CombatDebug.flow_verbose_enabled():
 		var crash_count: int = 0
-		for a in actions:
+		for a in result_actions:
 			if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_CRASH:
 				crash_count += 1
 		var polearm_extra: String = ""
@@ -825,10 +865,13 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				var w_pv: Variant = _EntityAccess.get_weapon(c)
 				if w_pv is Weapon and (w_pv as Weapon).depth_melee_eligible:
 					polearm_extra = _format_depth_polearm_melee_context(manager, c, w_pv as Weapon, combatants)
+		var counter_filter_note: String = ""
+		if counter_tempo and result_actions.size() != actions.size():
+			counter_filter_note = " counter_tempo=%d->%d" % [actions.size(), result_actions.size()]
 		CombatDebug.flow_log(
 			(
 				"get_available_actions id=%d side=%s state=%s rank=%d file=%d fid=%s breach_blocks_moves=%s med_phase=%s "
-				+ "crash_viab=%.3f => %d actions (medical=%d crash=%d) [%s]%s"
+				+ "crash_viab=%.3f => %d actions (medical=%d crash=%d) [%s]%s%s"
 			)
 			% [
 				combatant_id,
@@ -840,11 +883,12 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				log_breach_blocks_moves,
 				medical_phase,
 				CombatConstants.crash_breach_viability(c),
-				actions.size(),
+				result_actions.size(),
 				medical_count,
 				crash_count,
-				CombatDebug.format_actions_compact(actions),
-				polearm_extra
+				CombatDebug.format_actions_compact(result_actions),
+				polearm_extra,
+				counter_filter_note
 			],
 			"get_available_actions:%d" % combatant_id
 		)
@@ -880,9 +924,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				],
 				"crash_not_in_list:%d" % combatant_id
 			)
-	if counter_tempo:
-		return _CounterTempo.filter_actions_for_counter_tempo(actions)
-	return actions
+	return result_actions
 
 
 ## Crash (breach): in weapon reach, at close or mid with geometric reach; stamina, cooldown, depth cap (Phase C).
@@ -1042,7 +1084,7 @@ static func player_crash_absence_hint_if_missing(manager: Node, c: Dictionary, a
 
 ## Tier 4.3.7: self-target guard-line / focus retarget while waiting.
 static func _append_focus_line_actions_if_needed(
-	manager: Node, c: Dictionary, combatant_id: int, actions: Array
+	_manager: Node, c: Dictionary, combatant_id: int, actions: Array
 ) -> void:
 	if not _Attention.enabled() or c.is_empty():
 		return
