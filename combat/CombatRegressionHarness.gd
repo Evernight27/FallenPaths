@@ -400,6 +400,25 @@ static func run_all() -> Dictionary:
 	_run_kinematic_delivery_alignment_both_angles_ignores_wobble(failures)
 	_run_kinematic_delivery_attack_angle_only_wobble_changes_alignment(failures)
 	_run_kinematic_delivery_partial_parry_strike_ke_unchanged_pen_scaled(failures)
+	_run_kinematic_delivery_compute_damage_pre_armor_matches_helper_at_assembled_v(failures)
+	_run_kinematic_delivery_partial_parry_cut_to_blunt_shift(failures)
+	_run_kinematic_delivery_derived_velocity_no_cut_to_blunt_shift_on_partial_parry(failures)
+	_run_kinematic_delivery_misaligned_guard_scales_pen_not_pre_armor(failures)
+	_run_kinematic_delivery_get_attack_path_fallback_to_attack_paths(failures)
+	_run_kinematic_delivery_strike_mods_damage_mults_scale_pre_armor_only(failures)
+	_run_kinematic_delivery_stab_partial_parry_no_cut_to_blunt_shift(failures)
+	_run_kinematic_delivery_partial_parry_misalign_oblique_parry_branch_wins(failures)
+	_run_kinematic_delivery_blunt_momentum_mult_scales_pen_not_pre_armor(failures)
+	_run_kinematic_delivery_get_attack_path_unknown_attack_line_fallback(failures)
+	_run_kinematic_delivery_sharp_penetration_mult_scales_pen_not_pre_cut(failures)
+	_run_kinematic_delivery_attack_angle_deg_variance_stamina_spreads(failures)
+	_run_kinematic_delivery_partial_parry_align_compose_on_pen_not_pre_armor_mix(failures)
+	_run_kinematic_delivery_entity_split_final_fields_on_hit(failures)
+	_run_kinematic_delivery_mace_blunt_partial_parry_no_cut_to_blunt_shift(failures)
+	_run_kinematic_delivery_misaligned_guard_scales_sharp_and_blunt_pen(failures)
+	_run_kinematic_delivery_strike_energy_mult_integration_pre_cut_not_pen(failures)
+	_run_kinematic_delivery_afterblow_mult_scales_strike_ke_via_velocity(failures)
+	_run_kinematic_delivery_angle_to_nearest_line_boundaries(failures)
 	_run_weapon_blade_strong_fraction(failures)
 	_run_bind_riposte_contact_types_normalized(failures)
 	_run_bind_riposte_contact_multipliers(failures)
@@ -7574,6 +7593,30 @@ static func _run_footwork_snapshot_ui_hint_from_unstamped_offset(failures: Packe
 		_fail(failures, "footwork_snapshot_unstamped: offset deg missing or wrong")
 
 
+## Tier 4.4 UI soak: snapshot copies stamped attention hint for gauge/diagram consumers.
+static func _run_combat_snapshot_exports_attention_ui_hint_when_stamped(
+	failures: PackedStringArray
+) -> void:
+	CombatConstants.set_feature_combat_attention_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var def: Dictionary = mgr.combatants[0]
+	var stamped: String = "Tel head · Focus head 80%"
+	def[CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT] = stamped
+	var rows: Array = _CombatSnapshot.build(mgr)
+	CombatConstants.set_feature_combat_attention_load(false)
+	_free_manager_restore_global_rng(mgr)
+	if rows.is_empty():
+		_fail(failures, "snapshot_attention: expected one row")
+		return
+	if str(rows[0].get("attention_ui_hint", "")) != stamped:
+		_fail(
+			failures,
+			"snapshot_attention: row='%s' want='%s'"
+			% [rows[0].get("attention_ui_hint", ""), stamped]
+		)
+
+
 ## Tier 4.4: body-part → guard line for dodge step direction.
 static func _run_footwork_guard_line_for_body_part_maps_legs_and_chest(failures: PackedStringArray) -> void:
 	if CombatConstants.guard_line_for_body_part("right_leg") != "low":
@@ -12633,20 +12676,27 @@ static func _run_kinematic_delivery_guard_wobble_readiness_shifts_guard_angle(
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
 
 
-## One **`compute_and_apply_damage`** sample with harness meta exposing pens + **`strike_ke_j`** + **`blunt_contact_cm`**.
+## One **`compute_and_apply_damage`** sample with harness meta exposing pens + **`strike_ke_j`** + **`blunt_contact_cm`** (+ pre-armor when kinematics meta set).
 static func _kin_dmg_integration_sample(
 	vo: float,
 	parry_r: float,
 	align: float,
-	strike_mods: Dictionary
+	strike_mods: Dictionary,
+	weapon_id: String = "SWORD",
+	move_id: String = "oberhau",
+	afterblow_mult: float = 1.0
 ) -> Dictionary:
 	var intensity: float = 0.62
-	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var arch: Dictionary = (
+		{"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
+		if move_id == "spear_thrust"
+		else {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	)
 	var m: Node = _MgrScript.new()
 	m.set_meta(_HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
 	m.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
-	m.register(_new_entity("SWORD"), "player")
-	m.register(_new_entity("SWORD"), "enemy")
+	m.register(_new_entity(weapon_id), "player")
+	m.register(_new_entity(weapon_id), "enemy")
 	m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var atk: Dictionary = m.combatants[0]
 	var tgt: Dictionary = m.combatants[1]
@@ -12658,7 +12708,7 @@ static func _kin_dmg_integration_sample(
 		tgt,
 		"chest",
 		intensity,
-		"oberhau",
+		move_id,
 		arch,
 		vo,
 		1.0,
@@ -12666,7 +12716,7 @@ static func _kin_dmg_integration_sample(
 		-1.0,
 		-1.0,
 		parry_r,
-		1.0,
+		afterblow_mult,
 		align,
 		strike_mods,
 		{}
@@ -12678,10 +12728,17 @@ static func _kin_dmg_integration_sample(
 		"tgt": tgt,
 		"intensity": intensity,
 		"arch": arch,
+		"move_id": move_id,
+		"weapon_id": weapon_id,
+		"afterblow_mult": afterblow_mult,
 		"pen_sharp": float(rd.get("penetration_sharp_applied", -999.0)),
 		"pen_blunt_mpa": float(rd.get("penetration_blunt_mpa_applied", -999.0)),
 		"strike_ke_j": float(rd.get("strike_ke_j_applied", -999.0)),
 		"blunt_contact_cm": float(rd.get("blunt_contact_cm_applied", -999.0)),
+		"pre_cut": float(rd.get("pre_cut_applied", -999.0)),
+		"pre_blunt": float(rd.get("pre_blunt_applied", -999.0)),
+		"final_cut": float(rd.get("final_cut", -999.0)),
+		"final_blunt": float(rd.get("final_blunt", -999.0)),
 	}
 
 
@@ -12854,6 +12911,622 @@ static func _run_kinematic_delivery_partial_parry_strike_ke_unchanged_pen_scaled
 			failures,
 			"kin_partial_parry: pen ratio %.4f want %.4f" % [pen_half / pen_full, want_ratio]
 		)
+
+
+static func _kin_expected_pre_armor_cut_blunt(
+	weapon: Weapon,
+	atk: Dictionary,
+	tgt: Dictionary,
+	move_id: String,
+	intensity: float,
+	arch: Dictionary,
+	v_m_s: float,
+	parry_r: float,
+	strike_mods: Dictionary
+) -> Vector2:
+	var ai: AttackInstance = AttackInstance.new(move_id, intensity)
+	ai.archetype = arch
+	ai.velocity_m_s = v_m_s
+	var atk_n: Node = _EntityAccess.scene_node(atk)
+	var arm_mod: float = (
+		atk_n.get_attack_damage_modifier()
+		if atk_n != null and atk_n.has_method("get_attack_damage_modifier")
+		else 1.0
+	)
+	var atk_str: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
+	var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, "chest")
+	var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, move_id, arch)
+	if (
+		weapon.get_contact_type(move_id) == WeaponConstants.ATTACK_TYPE_CUT
+		and v_m_s >= 0.0
+		and parry_r < 1.0
+	):
+		var redirect: float = CombatConstants.PARRY_CUT_TO_BLUNT_SHIFT * (1.0 - parry_r)
+		cut_ratio = maxf(WeaponConstants.MIN_CUT_RATIO, cut_ratio - redirect)
+	var pre_cut: float = (
+		WeaponDamageHelper.compute_pre_armor_cut(weapon, ai, atk_str, arm_mod)
+		* cut_ratio
+		* float(strike_mods.get("cut_damage_mult", 1.0))
+	)
+	var pre_blunt: float = (
+		WeaponDamageHelper.compute_pre_armor_blunt(weapon, ai, atk_str, arm_mod, target_mass)
+		* (1.0 - cut_ratio)
+		* float(strike_mods.get("blunt_damage_mult", 1.0))
+	)
+	var stance_mult: float = CombatConstants.get_stance_modifier(_EntityAccess.stance_str(atk), "damage")
+	return Vector2(pre_cut * stance_mult, pre_blunt * stance_mult)
+
+
+## Tier 5.1 (optional long-tail): exposed **`pre_cut_applied`** / **`pre_blunt_applied`** match **`WeaponDamageHelper`** at assembled **`v`** (incl. parry cut→blunt shift + stance).
+static func _run_kinematic_delivery_compute_damage_pre_armor_matches_helper_at_assembled_v(
+	failures: PackedStringArray
+) -> void:
+	const move_id: String = "oberhau"
+	const vo_pin: float = 11.0
+	const intensity: float = 0.62
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	for case in [
+		{"parry_r": 1.0, "label": "clean"},
+		{"parry_r": 0.5, "label": "partial_parry"},
+	]:
+		var sample: Dictionary = _kin_dmg_integration_sample(vo_pin, float(case["parry_r"]), 1.0, {})
+		var m: Node = sample["mgr"] as Node
+		var atk: Dictionary = sample["atk"] as Dictionary
+		var tgt: Dictionary = sample["tgt"] as Dictionary
+		var weapon: Weapon = _EntityAccess.get_weapon(atk) as Weapon
+		if weapon == null:
+			_fail(failures, "kin_pre_armor: missing weapon (%s)" % case["label"])
+			_free_manager(m)
+			return
+		var v_asm: float = _kin_expected_damage_velocity_m_s(
+			m, atk, tgt, intensity, arch, move_id, vo_pin, 1.0
+		)
+		var want: Vector2 = _kin_expected_pre_armor_cut_blunt(
+			weapon, atk, tgt, move_id, intensity, arch, v_asm, float(case["parry_r"]), {}
+		)
+		var got_cut: float = float(sample["pre_cut"])
+		var got_blunt: float = float(sample["pre_blunt"])
+		if got_cut < 0.0 or got_blunt < 0.0:
+			_fail(failures, "kin_pre_armor: missing pre_armor meta (%s)" % case["label"])
+		elif absf(got_cut / maxf(want.x, 0.001) - 1.0) > 0.03:
+			_fail(
+				failures,
+				"kin_pre_armor: %s pre_cut ratio %.4f (got=%.4f want=%.4f)"
+				% [case["label"], got_cut / want.x, got_cut, want.x]
+			)
+		elif absf(got_blunt / maxf(want.y, 0.001) - 1.0) > 0.03:
+			_fail(
+				failures,
+				"kin_pre_armor: %s pre_blunt ratio %.4f (got=%.4f want=%.4f)"
+				% [case["label"], got_blunt / want.y, got_blunt, want.y]
+			)
+		_free_manager(m)
+
+
+## Tier 5.1 (optional long-tail): partial parry on cut (**`velocity_override` ≥ 0**) shifts **`PARRY_CUT_TO_BLUNT_SHIFT`** — **`pre_blunt_applied`** rises vs clean parry; **`pre_cut_applied`** falls.
+static func _run_kinematic_delivery_partial_parry_cut_to_blunt_shift(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	var clean: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var partial: Dictionary = _kin_dmg_integration_sample(vo_pin, 0.5, 1.0, {})
+	var pre_cut_clean: float = float(clean["pre_cut"])
+	var pre_cut_part: float = float(partial["pre_cut"])
+	var pre_blunt_clean: float = float(clean["pre_blunt"])
+	var pre_blunt_part: float = float(partial["pre_blunt"])
+	_free_manager(clean["mgr"] as Node)
+	_free_manager(partial["mgr"] as Node)
+	if pre_cut_clean <= 0.1 or pre_blunt_clean < 0.0:
+		_fail(failures, "kin_cut_blunt_shift: clean pre_armor invalid cut=%.4f blunt=%.4f" % [pre_cut_clean, pre_blunt_clean])
+	if pre_cut_part >= pre_cut_clean - 0.01:
+		_fail(
+			failures,
+			"kin_cut_blunt_shift: partial parry should reduce pre_cut (clean=%.4f partial=%.4f)"
+			% [pre_cut_clean, pre_cut_part]
+		)
+	if pre_blunt_part <= pre_blunt_clean + 0.01:
+		_fail(
+			failures,
+			"kin_cut_blunt_shift: partial parry should raise pre_blunt (clean=%.4f partial=%.4f)"
+			% [pre_blunt_clean, pre_blunt_part]
+		)
+	var share_clean: float = pre_cut_clean / maxf(pre_cut_clean + pre_blunt_clean, 0.001)
+	var share_part: float = pre_cut_part / maxf(pre_cut_part + pre_blunt_part, 0.001)
+	if share_part >= share_clean - 0.01:
+		_fail(
+			failures,
+			"kin_cut_blunt_shift: cut share should drop (clean=%.4f partial=%.4f)"
+			% [share_clean, share_part]
+		)
+
+
+## Tier 5.1 (optional long-tail): **`velocity_override` < 0** — partial parry does not apply **`PARRY_CUT_TO_BLUNT_SHIFT`** (pre-armor mix unchanged; pens already ⊥ oblique).
+static func _run_kinematic_delivery_derived_velocity_no_cut_to_blunt_shift_on_partial_parry(
+	failures: PackedStringArray
+) -> void:
+	var clean: Dictionary = _kin_dmg_integration_sample(-1.0, 1.0, 1.0, {})
+	var partial: Dictionary = _kin_dmg_integration_sample(-1.0, 0.5, 1.0, {})
+	_free_manager(clean["mgr"] as Node)
+	_free_manager(partial["mgr"] as Node)
+	if absf(float(clean["pre_cut"]) - float(partial["pre_cut"])) > 0.02:
+		_fail(
+			failures,
+			"kin_derived_no_shift: pre_cut should match (clean=%.4f partial=%.4f)"
+			% [float(clean["pre_cut"]), float(partial["pre_cut"])]
+		)
+	if absf(float(clean["pre_blunt"]) - float(partial["pre_blunt"])) > 0.02:
+		_fail(
+			failures,
+			"kin_derived_no_shift: pre_blunt should match (clean=%.4f partial=%.4f)"
+			% [float(clean["pre_blunt"]), float(partial["pre_blunt"])]
+		)
+
+
+## Tier 5.1 (optional long-tail): misaligned guard (**`alignment` 0**, full parry) scales pens via oblique factor but not **`pre_cut_applied`** / **`pre_blunt_applied`** (pinned **`vo`**).
+static func _run_kinematic_delivery_misaligned_guard_scales_pen_not_pre_armor(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	var aligned: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var misaligned: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 0.0, {})
+	_free_manager(aligned["mgr"] as Node)
+	_free_manager(misaligned["mgr"] as Node)
+	if absf(float(aligned["pre_cut"]) - float(misaligned["pre_cut"])) > 0.02:
+		_fail(
+			failures,
+			"kin_misalign: pre_cut should be unchanged (aligned=%.4f misaligned=%.4f)"
+			% [float(aligned["pre_cut"]), float(misaligned["pre_cut"])]
+		)
+	if absf(float(aligned["pre_blunt"]) - float(misaligned["pre_blunt"])) > 0.02:
+		_fail(
+			failures,
+			"kin_misalign: pre_blunt should be unchanged (aligned=%.4f misaligned=%.4f)"
+			% [float(aligned["pre_blunt"]), float(misaligned["pre_blunt"])]
+		)
+	var want_pen_ratio: float = lerpf(
+		1.0,
+		CombatConstants.PARRY_PENETRATION_ANGLE_MIN,
+		CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
+	)
+	var pen_ratio: float = float(misaligned["pen_sharp"]) / maxf(float(aligned["pen_sharp"]), 0.001)
+	if absf(pen_ratio - want_pen_ratio) > 0.03:
+		_fail(
+			failures,
+			"kin_misalign: pen_sharp ratio %.4f want %.4f" % [pen_ratio, want_pen_ratio]
+		)
+
+
+## Tier 5.1 (optional long-tail): **`get_attack_path`** unknown guard line falls back to **`ATTACK_PATHS[attack_line]`** (not **`ATTACK_PATHS_BY_GUARD`**).
+static func _run_kinematic_delivery_get_attack_path_fallback_to_attack_paths(
+	failures: PackedStringArray
+) -> void:
+	var by_guard: Array = CombatConstants.get_attack_path("high", "low")
+	var fallback: Array = CombatConstants.get_attack_path("high", "__no_such_guard__")
+	var want: Array = CombatConstants.ATTACK_PATHS.get("high", CombatConstants.ATTACK_PATH_HIGH)
+	if fallback.is_empty():
+		_fail(failures, "kin_attack_path: fallback path empty")
+	if str(fallback) != str(want):
+		_fail(
+			failures,
+			"kin_attack_path: fallback want ATTACK_PATHS[high] got %s" % str(fallback)
+		)
+	if str(by_guard) == str(fallback):
+		_fail(failures, "kin_attack_path: guard-specific path should differ from fallback")
+
+
+## Tier 5.1 (optional long-tail): **`strike_mods`** **`cut_damage_mult`** / **`blunt_damage_mult`** scale pre-armor only (not **`penetration_sharp_applied`**).
+static func _run_kinematic_delivery_strike_mods_damage_mults_scale_pre_armor_only(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	const cut_mult: float = 1.4
+	const blunt_mult: float = 1.25
+	var base: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var shaped: Dictionary = _kin_dmg_integration_sample(
+		vo_pin,
+		1.0,
+		1.0,
+		{"cut_damage_mult": cut_mult, "blunt_damage_mult": blunt_mult}
+	)
+	_free_manager(base["mgr"] as Node)
+	_free_manager(shaped["mgr"] as Node)
+	if absf(float(shaped["pre_cut"]) / float(base["pre_cut"]) - cut_mult) > 0.03:
+		_fail(
+			failures,
+			"kin_dmg_mults: pre_cut ratio %.4f want %.4f"
+			% [float(shaped["pre_cut"]) / float(base["pre_cut"]), cut_mult]
+		)
+	if absf(float(shaped["pre_blunt"]) / float(base["pre_blunt"]) - blunt_mult) > 0.03:
+		_fail(
+			failures,
+			"kin_dmg_mults: pre_blunt ratio %.4f want %.4f"
+			% [float(shaped["pre_blunt"]) / float(base["pre_blunt"]), blunt_mult]
+		)
+	if absf(float(shaped["pen_sharp"]) / float(base["pen_sharp"]) - 1.0) > 0.02:
+		_fail(
+			failures,
+			"kin_dmg_mults: pen_sharp should ignore damage mults (base=%.4f shaped=%.4f)"
+			% [float(base["pen_sharp"]), float(shaped["pen_sharp"])]
+		)
+
+
+## Tier 5.1 (optional long-tail): **STAB** contact — partial parry at pinned **`vo`** does not apply cut→blunt shift (**`PARRY_CUT_TO_BLUNT`** is cut-only).
+static func _run_kinematic_delivery_stab_partial_parry_no_cut_to_blunt_shift(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	var clean: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {}, "SPEAR", "spear_thrust"
+	)
+	var partial: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 0.5, 1.0, {}, "SPEAR", "spear_thrust"
+	)
+	_free_manager(clean["mgr"] as Node)
+	_free_manager(partial["mgr"] as Node)
+	if absf(float(clean["pre_cut"]) - float(partial["pre_cut"])) > 0.02:
+		_fail(
+			failures,
+			"kin_stab_no_shift: thrust pre_cut should match (clean=%.4f partial=%.4f)"
+			% [float(clean["pre_cut"]), float(partial["pre_cut"])]
+		)
+	if absf(float(clean["pre_blunt"]) - float(partial["pre_blunt"])) > 0.02:
+		_fail(
+			failures,
+			"kin_stab_no_shift: thrust pre_blunt should match (clean=%.4f partial=%.4f)"
+			% [float(clean["pre_blunt"]), float(partial["pre_blunt"])]
+		)
+
+
+## Tier 5.1 (optional long-tail): partial parry + misaligned guard — oblique factor uses **parry** branch (not alignment-only branch).
+static func _run_kinematic_delivery_partial_parry_misalign_oblique_parry_branch_wins(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	const parry_r: float = 0.25
+	const amin: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
+	var base: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var both: Dictionary = _kin_dmg_integration_sample(vo_pin, parry_r, 0.0, {})
+	var align_only: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 0.0, {})
+	_free_manager(base["mgr"] as Node)
+	_free_manager(both["mgr"] as Node)
+	_free_manager(align_only["mgr"] as Node)
+	var want_parry_branch: float = lerpf(1.0, amin, 1.0 - parry_r)
+	var want_align_branch: float = lerpf(
+		1.0,
+		amin,
+		(1.0 - 0.0) * CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
+	)
+	var ratio_both: float = float(both["pen_sharp"]) / maxf(float(base["pen_sharp"]), 0.001)
+	var ratio_align: float = float(align_only["pen_sharp"]) / maxf(float(base["pen_sharp"]), 0.001)
+	if absf(ratio_both - want_parry_branch) > 0.03:
+		_fail(
+			failures,
+			"kin_oblique_parry_wins: parry+align pen ratio %.4f want parry branch %.4f"
+			% [ratio_both, want_parry_branch]
+		)
+	if absf(ratio_both - ratio_align) < 0.02:
+		_fail(
+			failures,
+			"kin_oblique_parry_wins: parry+align should differ from align-only (both=%.4f align=%.4f)"
+			% [ratio_both, ratio_align]
+		)
+	if want_parry_branch >= want_align_branch - 0.001:
+		_fail(
+			failures,
+			"kin_oblique_parry_wins: fixture want parry branch > align branch (%.4f vs %.4f)"
+			% [want_parry_branch, want_align_branch]
+		)
+
+
+## Tier 5.1 (optional long-tail): **`blunt_momentum_pa_mult`** scales **`penetration_blunt_mpa_applied`** only (not **`pre_blunt_applied`**).
+static func _run_kinematic_delivery_blunt_momentum_mult_scales_pen_not_pre_armor(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	const mult: float = 1.28
+	var base: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var shaped: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {"blunt_momentum_pa_mult": mult}
+	)
+	_free_manager(base["mgr"] as Node)
+	_free_manager(shaped["mgr"] as Node)
+	if float(base["pen_blunt_mpa"]) <= 0.0:
+		_fail(failures, "kin_blunt_pa_mult: baseline blunt mpa invalid %.6f" % float(base["pen_blunt_mpa"]))
+	if absf(float(shaped["pen_blunt_mpa"]) / float(base["pen_blunt_mpa"]) - mult) > 0.03:
+		_fail(
+			failures,
+			"kin_blunt_pa_mult: pen blunt mpa ratio %.4f want %.4f"
+			% [float(shaped["pen_blunt_mpa"]) / float(base["pen_blunt_mpa"]), mult]
+		)
+	if absf(float(shaped["pre_blunt"]) / float(base["pre_blunt"]) - 1.0) > 0.03:
+		_fail(
+			failures,
+			"kin_blunt_pa_mult: pre_blunt should ignore blunt_momentum_pa_mult (base=%.4f shaped=%.4f)"
+			% [float(base["pre_blunt"]), float(shaped["pre_blunt"])]
+		)
+
+
+## Tier 5.1 (optional long-tail): unknown **`attack_line`** → **`ATTACK_PATH_HIGH`** default.
+static func _run_kinematic_delivery_get_attack_path_unknown_attack_line_fallback(
+	failures: PackedStringArray
+) -> void:
+	var path: Array = CombatConstants.get_attack_path("__no_such_attack__", "low")
+	if str(path) != str(CombatConstants.ATTACK_PATH_HIGH):
+		_fail(
+			failures,
+			"kin_attack_path_atk: want ATTACK_PATH_HIGH got %s" % str(path)
+		)
+
+
+## Tier 5.1 (optional long-tail): **`sharp_penetration_mult`** scales **`penetration_sharp_applied`** only (not **`pre_cut_applied`**).
+static func _run_kinematic_delivery_sharp_penetration_mult_scales_pen_not_pre_cut(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	const mult: float = 1.33
+	var base: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var shaped: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {"sharp_penetration_mult": mult}
+	)
+	_free_manager(base["mgr"] as Node)
+	_free_manager(shaped["mgr"] as Node)
+	if float(base["pen_sharp"]) <= 0.001:
+		_fail(failures, "kin_sharp_pen_mult: baseline pen too small %.6f" % float(base["pen_sharp"]))
+	if absf(float(shaped["pen_sharp"]) / float(base["pen_sharp"]) - mult) > 0.03:
+		_fail(
+			failures,
+			"kin_sharp_pen_mult: pen ratio %.4f want %.4f"
+			% [float(shaped["pen_sharp"]) / float(base["pen_sharp"]), mult]
+		)
+	if absf(float(shaped["pre_cut"]) / float(base["pre_cut"]) - 1.0) > 0.03:
+		_fail(
+			failures,
+			"kin_sharp_pen_mult: pre_cut should ignore sharp_penetration_mult (base=%.4f shaped=%.4f)"
+			% [float(base["pre_cut"]), float(shaped["pre_cut"])]
+		)
+
+
+## Tier 5.1 (optional long-tail): **`get_attack_angle_deg(..., add_variance=true)`** — low **`stamina_ratio`** in **`variance_context`** widens spread vs full stamina (seeded).
+static func _run_kinematic_delivery_attack_angle_deg_variance_stamina_spreads(
+	failures: PackedStringArray
+) -> void:
+	seed(44005)
+	var full_stam: float = CombatConstants.get_attack_angle_deg(
+		"high", true, {}, {"stamina_ratio": 1.0}
+	)
+	seed(44005)
+	var low_stam: float = CombatConstants.get_attack_angle_deg(
+		"high", true, {}, {"stamina_ratio": 0.05}
+	)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	if absf(full_stam - low_stam) < 0.05:
+		_fail(
+			failures,
+			"kin_atk_angle_var: low stamina should shift angle vs full (full=%.4f low=%.4f)"
+			% [full_stam, low_stam]
+		)
+	if CombatConstants.angle_diff_deg(full_stam, CombatConstants.line_to_angle("high")) > 25.0:
+		_fail(
+			failures,
+			"kin_atk_angle_var: full-stamina draw far from line high (%.4f)" % full_stam
+		)
+
+
+## Tier 5.1 (optional long-tail): partial parry shifts pre-armor only; misalign scales pens only; **(parry, align)** uses parry oblique branch when **`parry_r` < 1** (align does not change pen when parry branch already set).
+static func _run_kinematic_delivery_partial_parry_align_compose_on_pen_not_pre_armor_mix(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	const parry_r: float = 0.25
+	const amin: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
+	const ascale: float = CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
+	var clean: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var parry_only: Dictionary = _kin_dmg_integration_sample(vo_pin, parry_r, 1.0, {})
+	var both: Dictionary = _kin_dmg_integration_sample(vo_pin, parry_r, 0.0, {})
+	var align_only: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 0.0, {})
+	_free_manager(clean["mgr"] as Node)
+	_free_manager(parry_only["mgr"] as Node)
+	_free_manager(both["mgr"] as Node)
+	_free_manager(align_only["mgr"] as Node)
+	if absf(float(parry_only["pre_cut"]) - float(both["pre_cut"])) > 0.02:
+		_fail(
+			failures,
+			"kin_parry_align_mix: pre_cut parry-only vs both (%.4f vs %.4f)"
+			% [float(parry_only["pre_cut"]), float(both["pre_cut"])]
+		)
+	if absf(float(parry_only["pre_blunt"]) - float(both["pre_blunt"])) > 0.02:
+		_fail(
+			failures,
+			"kin_parry_align_mix: pre_blunt parry-only vs both (%.4f vs %.4f)"
+			% [float(parry_only["pre_blunt"]), float(both["pre_blunt"])]
+		)
+	if absf(float(parry_only["pen_sharp"]) - float(both["pen_sharp"])) > 0.02:
+		_fail(
+			failures,
+			"kin_parry_align_mix: pen parry-only vs both should match (%.4f vs %.4f)"
+			% [float(parry_only["pen_sharp"]), float(both["pen_sharp"])]
+		)
+	if float(parry_only["pre_cut"]) >= float(clean["pre_cut"]) - 0.01:
+		_fail(
+			failures,
+			"kin_parry_align_mix: partial parry should lower pre_cut (clean=%.4f parry=%.4f)"
+			% [float(clean["pre_cut"]), float(parry_only["pre_cut"])]
+		)
+	if absf(float(align_only["pre_cut"]) - float(clean["pre_cut"])) > 0.02:
+		_fail(
+			failures,
+			"kin_parry_align_mix: misalign alone should not change pre_cut"
+		)
+	var pen_r_parry: float = float(parry_only["pen_sharp"]) / maxf(float(clean["pen_sharp"]), 0.001)
+	var pen_r_align: float = float(align_only["pen_sharp"]) / maxf(float(clean["pen_sharp"]), 0.001)
+	var want_parry: float = lerpf(1.0, amin, 1.0 - parry_r)
+	var want_align: float = lerpf(1.0, amin, (1.0 - 0.0) * ascale)
+	if absf(pen_r_parry - want_parry) > 0.03:
+		_fail(
+			failures,
+			"kin_parry_align_mix: parry pen ratio %.4f want %.4f" % [pen_r_parry, want_parry]
+		)
+	if absf(pen_r_align - want_align) > 0.03:
+		_fail(
+			failures,
+			"kin_parry_align_mix: align pen ratio %.4f want %.4f" % [pen_r_align, want_align]
+		)
+	if absf(pen_r_parry - pen_r_align) < 0.01:
+		_fail(
+			failures,
+			"kin_parry_align_mix: fixture should distinguish parry %.2f vs align-only (both %.4f)"
+			% [parry_r, pen_r_parry]
+		)
+
+
+## Tier 5.1 (optional long-tail): entity split — **`final_cut` / `final_blunt`** on **`result_dict`** from one chest hit; tissue chip > 0.
+static func _run_kinematic_delivery_entity_split_final_fields_on_hit(
+	failures: PackedStringArray
+) -> void:
+	var sample: Dictionary = _kin_dmg_integration_sample(11.0, 1.0, 1.0, {})
+	_free_manager(sample["mgr"] as Node)
+	var final_cut: float = float(sample["final_cut"])
+	var final_blunt: float = float(sample["final_blunt"])
+	if final_cut < 0.0 or final_blunt < 0.0:
+		_fail(
+			failures,
+			"kin_entity_final: missing final_cut/final_blunt (cut=%.4f blunt=%.4f)"
+			% [final_cut, final_blunt]
+		)
+	var tissue: float = final_cut + final_blunt
+	if tissue <= CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
+		_fail(
+			failures,
+			"kin_entity_final: tissue chip too small (cut=%.4f blunt=%.4f)" % [final_cut, final_blunt]
+		)
+
+
+## Tier 5.1 (optional long-tail): **BLUNT** contact (**MACE** **`direct_blow`**) — no cut→blunt shift on partial parry at pinned **`vo`**.
+static func _run_kinematic_delivery_mace_blunt_partial_parry_no_cut_to_blunt_shift(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	var clean: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {}, "MACE", "direct_blow"
+	)
+	var partial: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 0.5, 1.0, {}, "MACE", "direct_blow"
+	)
+	_free_manager(clean["mgr"] as Node)
+	_free_manager(partial["mgr"] as Node)
+	if absf(float(clean["pre_cut"]) - float(partial["pre_cut"])) > 0.02:
+		_fail(
+			failures,
+			"kin_mace_no_shift: blunt pre_cut should match (clean=%.4f partial=%.4f)"
+			% [float(clean["pre_cut"]), float(partial["pre_cut"])]
+		)
+	if absf(float(clean["pre_blunt"]) - float(partial["pre_blunt"])) > 0.02:
+		_fail(
+			failures,
+			"kin_mace_no_shift: blunt pre_blunt should match (clean=%.4f partial=%.4f)"
+			% [float(clean["pre_blunt"]), float(partial["pre_blunt"])]
+		)
+
+
+## Tier 5.1 (optional long-tail): misaligned guard scales **SHARP** and **BLUNT** **`penetration_*_applied`** equally (pinned **`vo`**, full parry).
+static func _run_kinematic_delivery_misaligned_guard_scales_sharp_and_blunt_pen(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	var aligned: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var misaligned: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 0.0, {})
+	_free_manager(aligned["mgr"] as Node)
+	_free_manager(misaligned["mgr"] as Node)
+	var want: float = lerpf(
+		1.0,
+		CombatConstants.PARRY_PENETRATION_ANGLE_MIN,
+		CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
+	)
+	var r_sharp: float = float(misaligned["pen_sharp"]) / maxf(float(aligned["pen_sharp"]), 0.001)
+	var r_blunt: float = float(misaligned["pen_blunt_mpa"]) / maxf(float(aligned["pen_blunt_mpa"]), 0.001)
+	if absf(r_sharp - want) > 0.03:
+		_fail(failures, "kin_misalign_both: sharp ratio %.4f want %.4f" % [r_sharp, want])
+	if absf(r_blunt - want) > 0.03:
+		_fail(failures, "kin_misalign_both: blunt mpa ratio %.4f want %.4f" % [r_blunt, want])
+
+
+## Tier 5.1 (optional long-tail): **`strike_mods.strike_energy_mult`** in **`compute_and_apply_damage`** — **`strike_ke_j`** ∝ mult; **`pre_cut`** ∝ **`sqrt(mult)`**; **`penetration_sharp`** ∝ **`mult^PENETRATION_EXPONENT`** (via KE).
+static func _run_kinematic_delivery_strike_energy_mult_integration_pre_cut_not_pen(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	const mult: float = 1.45
+	var base: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
+	var shaped: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {"strike_energy_mult": mult}
+	)
+	_free_manager(base["mgr"] as Node)
+	_free_manager(shaped["mgr"] as Node)
+	var ke_ratio: float = float(shaped["strike_ke_j"]) / maxf(float(base["strike_ke_j"]), 0.001)
+	var cut_ratio: float = float(shaped["pre_cut"]) / maxf(float(base["pre_cut"]), 0.001)
+	var pen_ratio: float = float(shaped["pen_sharp"]) / maxf(float(base["pen_sharp"]), 0.001)
+	if absf(ke_ratio - mult) > 0.03:
+		_fail(
+			failures,
+			"kin_energy_mult_int: ke ratio %.4f want %.4f" % [ke_ratio, mult]
+		)
+	if absf(cut_ratio - sqrt(mult)) > 0.05:
+		_fail(
+			failures,
+			"kin_energy_mult_int: pre_cut ratio %.4f want sqrt(mult) %.4f"
+			% [cut_ratio, sqrt(mult)]
+		)
+	var want_pen: float = pow(mult, WeaponConstants.PENETRATION_EXPONENT)
+	if absf(pen_ratio - want_pen) > 0.06:
+		_fail(
+			failures,
+			"kin_energy_mult_int: pen ratio %.4f want mult^exp %.4f"
+			% [pen_ratio, want_pen]
+		)
+
+
+## Tier 5.1 (optional long-tail): **`afterblow_damage_mult`** scales assembled **`v`** (sqrt) → **`strike_ke_j_applied`** (~linear in mult).
+static func _run_kinematic_delivery_afterblow_mult_scales_strike_ke_via_velocity(
+	failures: PackedStringArray
+) -> void:
+	const vo_pin: float = 11.0
+	const ab_mult: float = 0.64
+	var clean: Dictionary = _kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {}, "SWORD", "oberhau", 1.0)
+	var hindered: Dictionary = _kin_dmg_integration_sample(
+		vo_pin, 1.0, 1.0, {}, "SWORD", "oberhau", ab_mult
+	)
+	_free_manager(clean["mgr"] as Node)
+	_free_manager(hindered["mgr"] as Node)
+	var ke_ratio: float = float(hindered["strike_ke_j"]) / maxf(float(clean["strike_ke_j"]), 0.001)
+	var want_ke: float = ab_mult
+	if absf(ke_ratio - want_ke) > 0.06:
+		_fail(
+			failures,
+			"kin_afterblow: ke ratio %.4f want ~%.4f (clean=%.2f hindered=%.2f)"
+			% [ke_ratio, want_ke, float(clean["strike_ke_j"]), float(hindered["strike_ke_j"])]
+		)
+
+
+## Tier 5.1 (optional long-tail): **`angle_to_nearest_line`** quadrant boundaries at **45° / 135° / 225° / 315°**.
+static func _run_kinematic_delivery_angle_to_nearest_line_boundaries(
+	failures: PackedStringArray
+) -> void:
+	if CombatConstants.angle_to_nearest_line(44.9) != "high":
+		_fail(failures, "kin_line_bound: 44.9° want high")
+	if CombatConstants.angle_to_nearest_line(45.0) != "right":
+		_fail(failures, "kin_line_bound: 45.0° want right")
+	if CombatConstants.angle_to_nearest_line(134.9) != "right":
+		_fail(failures, "kin_line_bound: 134.9° want right")
+	if CombatConstants.angle_to_nearest_line(135.0) != "low":
+		_fail(failures, "kin_line_bound: 135.0° want low")
+	if CombatConstants.angle_to_nearest_line(224.9) != "low":
+		_fail(failures, "kin_line_bound: 224.9° want low")
+	if CombatConstants.angle_to_nearest_line(225.0) != "left":
+		_fail(failures, "kin_line_bound: 225.0° want left")
+	if CombatConstants.angle_to_nearest_line(314.9) != "left":
+		_fail(failures, "kin_line_bound: 314.9° want left")
+	if CombatConstants.angle_to_nearest_line(315.0) != "high":
+		_fail(failures, "kin_line_bound: 315.0° want high")
 
 
 static func _run_weapon_blade_strong_fraction(failures: PackedStringArray) -> void:

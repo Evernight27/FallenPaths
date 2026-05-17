@@ -9,6 +9,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 var players: Array = []
 var enemies: Array = []
@@ -36,6 +37,7 @@ var _player_list: Control = null
 var _enemy_list: Control = null
 var _player_preset: Dictionary = {}
 var _enemy_preset: Dictionary = {}
+var _diagram_footwork_sig: String = ""
 
 func _ready() -> void:
 	# Processing will be enabled by start()
@@ -70,6 +72,7 @@ func start(
 	if parent_scene != null and "visible" in parent_scene:
 		parent_scene.visible = false
 
+	_diagram_footwork_sig = ""
 	_create_ui()
 	_update_ui()
 
@@ -228,7 +231,35 @@ func _update_ui() -> Array:
 		var cid_ui: int = _EntityAccess.id_int(c)
 		if cid_ui in id_to_controls:
 			BattleUIUpdater.update_combatant_row(id_to_controls[cid_ui], c)
+	_sync_formation_diagrams_for_footwork(caps)
 	return caps
+
+
+func _footwork_diagram_signature(caps: Array) -> String:
+	var parts: PackedStringArray = []
+	for raw in caps:
+		if raw == null or typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var c: Dictionary = raw as Dictionary
+		var hint: String = _Footwork.get_ui_hint(c)
+		if hint.is_empty():
+			continue
+		parts.append("%d:%s" % [_EntityAccess.id_int(c), hint])
+	parts.sort()
+	return "|".join(parts)
+
+
+func _sync_formation_diagrams_for_footwork(caps: Array) -> void:
+	if not _Footwork.enabled():
+		return
+	var sig: String = _footwork_diagram_signature(caps)
+	if sig == _diagram_footwork_sig:
+		return
+	_diagram_footwork_sig = sig
+	if formation_diagram_player != null:
+		_FormationDiagramBuilder.refresh(formation_diagram_player)
+	if formation_diagram_enemy != null:
+		_FormationDiagramBuilder.refresh(formation_diagram_enemy)
 
 func _process(_delta: float) -> void:
 	# keep UI in sync with manager (single snapshot per frame)

@@ -8,6 +8,8 @@ const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _Attention := preload("res://combat/CombatAttention.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
 
 
 static func build(manager: Node) -> Array:
@@ -61,6 +63,18 @@ static func build(manager: Node) -> Array:
 			var fw_hint: String = _Footwork.get_ui_hint(c)
 			if not fw_hint.is_empty():
 				item["position_angle_ui_hint"] = fw_hint
+		if _Attention.enabled():
+			var attn_hint: String = str(
+				c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "")
+			).strip_edges()
+			if not attn_hint.is_empty():
+				item["attention_ui_hint"] = attn_hint
+		if _CounterTempo.enabled():
+			var tempo_hint: String = str(
+				c.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, "")
+			).strip_edges()
+			if not tempo_hint.is_empty():
+				item["counter_tempo_ui_hint"] = tempo_hint
 		var pm_raw: Variant = c.get("pending_medical", null)
 		if pm_raw is Dictionary:
 			item["pending_medical"] = (pm_raw as Dictionary).duplicate(true)

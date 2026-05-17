@@ -6,6 +6,7 @@ const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 ## Builds a compact visual formation diagram: rank×file grid with unit names.
 ## Shows Front (rank 0) and Back (rank 1+) so formation changes (swap rank, etc.) are trackable.
@@ -84,6 +85,26 @@ static func refresh(diagram_root: Control) -> void:
 	_refresh_internal(diagram_root)
 
 
+static func _append_footwork_tooltip(cell: Label, combatants: Array) -> void:
+	if not _Footwork.enabled() or cell == null:
+		return
+	var lines: PackedStringArray = []
+	for raw in combatants:
+		if raw == null or typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var oc: Dictionary = raw as Dictionary
+		var fw: String = _Footwork.get_ui_hint(oc)
+		if fw.is_empty():
+			continue
+		var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))
+		lines.append("%s: %s" % [nm, fw])
+	if lines.is_empty():
+		return
+	var extra: String = "\n".join(lines)
+	var base: String = str(cell.tooltip_text).strip_edges()
+	cell.tooltip_text = extra if base.is_empty() else "%s\n%s" % [base, extra]
+
+
 static func _refresh_internal(diagram_root: Control) -> void:
 	var grid: GridContainer = diagram_root.get_meta("_formation_grid", null)
 	var manager: Node = diagram_root.get_meta("_formation_manager", null)
@@ -147,6 +168,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 			var key := Vector2i(rank, file)
 			var occ: Array = _FormationSlots.normalize_cell(slot_map.get(key, []))
 			var in_lane_intruders: Array = []
+			var footwork_sources: Array = []
 			var cell = Label.new()
 			if not occ.is_empty():
 				var names: Array = []
@@ -161,6 +183,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 							in_lane_intruders.append(oc)
 							continue
 						names.append(nm)
+						footwork_sources.append(oc)
 				if names.is_empty():
 					cell.text = "—"
 					cell.add_theme_color_override("font_color", Color(0.4, 0.42, 0.45))
@@ -178,6 +201,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 				if c != null:
 					cell.text = _EntityAccess.get_display_name(c, _EntityAccess.id_int(c))
 					cell.add_theme_color_override("font_color", Color(0.95, 0.9, 0.85))
+					footwork_sources.append(c)
 				else:
 					cell.text = "—"
 					cell.add_theme_color_override("font_color", Color(0.4, 0.42, 0.45))
@@ -185,6 +209,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 			cell.custom_minimum_size = Vector2(72, 0)
 			if not in_lane_intruders.is_empty():
 				cell.tooltip_text = "Intruder(s) in this lane are shown below in Intruders."
+			_append_footwork_tooltip(cell, footwork_sources)
 			grid.add_child(cell)
 
 	var wstrip: Variant = diagram_root.get_meta("_wedge_strip", null)

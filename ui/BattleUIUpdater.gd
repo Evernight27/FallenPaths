@@ -20,6 +20,32 @@ static func _append_footwork_hint(base: String, c: Dictionary) -> String:
 	return base + _footwork_hint_suffix(c)
 
 
+static func _sync_gauge_label(ctrl: Dictionary, c: Dictionary, text: String) -> void:
+	if not ctrl.get("gauge_label"):
+		return
+	ctrl.gauge_label.text = text
+	var tips: PackedStringArray = []
+	var fw: String = _Footwork.get_ui_hint(c)
+	if not fw.is_empty():
+		tips.append("Arc footwork (position-angle step): %s" % fw)
+	if _Attention.enabled():
+		var attn: String = str(
+			c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "")
+		).strip_edges()
+		if attn.is_empty():
+			attn = str(c.get("attention_ui_hint", "")).strip_edges()
+		if not attn.is_empty():
+			tips.append("Attention: %s" % attn)
+	var tempo: String = str(c.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, "")).strip_edges()
+	if tempo.is_empty():
+		tempo = str(c.get("counter_tempo_ui_hint", "")).strip_edges()
+	if tempo == "counter_ready" and _CounterTempo.enabled():
+		tips.append("Counter window open — seize tempo.")
+	elif tempo == "counter_winding" and _CounterTempo.enabled():
+		tips.append("Incoming wind-up — counter window building.")
+	ctrl.gauge_label.tooltip_text = "\n".join(tips)
+
+
 static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 	if ctrl.name:
 		var row_node: Node = _EntityAccess.scene_node(c)
@@ -36,57 +62,65 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 		ctrl.gauge.value = stamina
 	if ctrl.get("gauge_label"):
 		if not _EntityAccess.alive_bool(c):
-			ctrl.gauge_label.text = "Defeated"
+			_sync_gauge_label(ctrl, c, "Defeated")
 		else:
 			var state: String = _EntityAccess.state_str(c, "waiting")
 			var state_timer: float = c.get("state_timer", 0.0)
 			var state_duration: float = c.get("state_duration", 0.0)
 			var remain: float = maxf(0.0, state_duration - state_timer)
 			if state == "wind_up":
-				ctrl.gauge_label.text = _append_footwork_hint("Wind-up %.1fs" % remain, c)
+				_sync_gauge_label(ctrl, c, _append_footwork_hint("Wind-up %.1fs" % remain, c))
 			elif state == "medical_wind_up":
 				var pm: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_medical")
 				var mid: String = pm.get("medical_id", "")
 				var self_id: int = _EntityAccess.id_int(c)
 				var tgt_cid: int = pm.get("target_combatant_id", self_id)
 				var med_label: String = BattleUIConstants.MEDICAL_ACTION_LABELS_ALLY.get(mid, BattleUIConstants.MEDICAL_ACTION_LABELS.get(mid, "Medical")) if tgt_cid != self_id else BattleUIConstants.MEDICAL_ACTION_LABELS.get(mid, "Medical")
-				ctrl.gauge_label.text = "%s %.1fs" % [med_label, remain]
+				_sync_gauge_label(ctrl, c, "%s %.1fs" % [med_label, remain])
 			elif state == "recovering":
-				ctrl.gauge_label.text = _append_footwork_hint("Recov. %.1fs" % remain, c)
+				_sync_gauge_label(ctrl, c, _append_footwork_hint("Recov. %.1fs" % remain, c))
 			elif state == CombatConstants.STATE_SWAP_RANK:
-				ctrl.gauge_label.text = "Swap %.1fs" % remain
+				_sync_gauge_label(ctrl, c, _append_footwork_hint("Swap %.1fs" % remain, c))
 			elif state == CombatConstants.STATE_FALLING_BACK:
-				ctrl.gauge_label.text = "Fall back %.1fs" % remain
+				_sync_gauge_label(ctrl, c, _append_footwork_hint("Fall back %.1fs" % remain, c))
 			elif state == "receiving_medical_attention":
-				ctrl.gauge_label.text = "Receiving care"
+				_sync_gauge_label(ctrl, c, "Receiving care")
 			elif not str(c.get("status_override", "")).is_empty():
 				# Event tracking: show closing/next-turn status so unit doesn't look frozen
-				ctrl.gauge_label.text = _append_footwork_hint(str(c.get("status_override", "")), c)
+				_sync_gauge_label(
+					ctrl, c, _append_footwork_hint(str(c.get("status_override", "")), c)
+				)
 			else:
-				var tempo_hint: String = str(c.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, ""))
+				var tempo_hint: String = str(
+					c.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, "")
+				).strip_edges()
+				if tempo_hint.is_empty():
+					tempo_hint = str(c.get("counter_tempo_ui_hint", "")).strip_edges()
 				var attn_hint: String = ""
 				if _Attention.enabled():
 					attn_hint = str(c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "")).strip_edges()
+					if attn_hint.is_empty():
+						attn_hint = str(c.get("attention_ui_hint", "")).strip_edges()
 				var foot_suffix: String = _footwork_hint_suffix(c)
 				var attn_suffix: String = (" · " + attn_hint) if not attn_hint.is_empty() else ""
 				if tempo_hint == "counter_ready" and _CounterTempo.enabled():
-					ctrl.gauge_label.text = "Counter!" + attn_suffix + foot_suffix
+					_sync_gauge_label(ctrl, c, "Counter!" + attn_suffix + foot_suffix)
 				elif tempo_hint == "counter_winding" and _CounterTempo.enabled():
-					ctrl.gauge_label.text = "Seize tempo…" + attn_suffix + foot_suffix
+					_sync_gauge_label(ctrl, c, "Seize tempo…" + attn_suffix + foot_suffix)
 				elif not attn_hint.is_empty():
-					ctrl.gauge_label.text = attn_hint + foot_suffix
+					_sync_gauge_label(ctrl, c, attn_hint + foot_suffix)
 				elif not foot_suffix.is_empty():
 					var base_fw: String = (
 						"Ready!" if _EntityAccess.gauge_float(c) >= 100.0
 						else "Stm %d%%" % int(_EntityAccess.stamina_float(c))
 					)
-					ctrl.gauge_label.text = base_fw + foot_suffix
+					_sync_gauge_label(ctrl, c, base_fw + foot_suffix)
 				else:
 					# Phase 1: Event-driven ready. Gauge set to 100 when EVENT_ACTION_READY fires.
 					var base: String = "Ready!" if _EntityAccess.gauge_float(c) >= 100.0 else "Stm %d%%" % int(_EntityAccess.stamina_float(c))
 					if CombatConstants.COMBAT_DEBUG and c.get("guard_angle_deg", null) is float:
 						base += " %.0f°" % float(c.get("guard_angle_deg"))
-					ctrl.gauge_label.text = base
+					_sync_gauge_label(ctrl, c, base)
 	# Blood volume and bleeding
 	var s_row: Dictionary = _EntityAccess.stats_dict(c)
 	var bv: float = s_row.get("blood_volume", 100.0)

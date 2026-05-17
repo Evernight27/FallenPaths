@@ -137,7 +137,7 @@ flowchart LR
 
 <a id="next-coding-step"></a>
 
-**Next coding step (while `FEATURE_LINE_CRASH_INTRUSION` is false):** [Tier **5.1**](#tier-51-angles-damage-flow-audits) optional long-tail **[ ]** · long UI soak on position-angle footwork (optional). When flag **true:** [Tier **2.1**](#tier-2--tactical-docs--zoc-narrative-sync) + intrusion playtests ([gate](#development-gate-line-crash--intrusions-temporary)). **Maintain:** `run_all()` green (afterblow fixed seeds **0 / 1 / 2** if RNG drifts). Tier **1.7–1.8** telemetry harnesses shipped.
+**Next coding step (while `FEATURE_LINE_CRASH_INTRUSION` is false):** [Tier **5.1**](#tier-51-angles-damage-flow-audits) optional long-tail **[ ]** · editor playtest on battle UI (footwork row + diagram tooltips shipped 2026-05-17). When flag **true:** [Tier **2.1**](#tier-2--tactical-docs--zoc-narrative-sync) + intrusion playtests ([gate](#development-gate-line-crash--intrusions-temporary)). **Maintain:** `run_all()` green (afterblow fixed seeds **0 / 1 / 2** if RNG drifts). Tier **1.7–1.8** telemetry harnesses shipped.
 
 ---
 
@@ -398,6 +398,7 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 ## Changelog
 
+- **2026-05-17 (4.4-ui):** Battle UI soak — **`BattleUIUpdater`** gauge tooltips (footwork / attention / counter-tempo), wider gauge label, footwork on swap/fall-back/**`status_override`**; **`FormationDiagramBuilder`** arc-step cell tooltips; **`BattleScene`** refreshes diagrams when footwork signature changes; **`CombatCombatantsSnapshot`** exports **`attention_ui_hint`** / **`counter_tempo_ui_hint`**; harness **`_run_combat_snapshot_exports_attention_ui_hint_when_stamped`**.
 - **2026-05-17 (4.4-on):** Tier **4.4** production default **on** for **`is_feature_position_angle_footwork_enabled()`**; plan/registry **Done**; next coding step → Tier **5.1** optional / UI soak.
 - **2026-05-17 (doc-i):** Seventh pass — merged Tier **1.4–1.8** shipped sections; milestone table grep removed; Tier **3**/**4**/**5.1** exit → live path + registry only; implementation gate points at **4.4**; **`ENGAGEMENT_*`** §2.5/§2.0/§2.8 shortened; bundle Contents order (**`PARRY_BIND`**, **`GUARDS`**, **`PHYSICS`**); registry discover line → tier index.
 - **2026-05-17 (doc-h):** Sixth pass — slim milestone **1.4–1.9** + **4.3**/**4.4** plan bodies → live paths + registry; **§1.9** module table + merged telemetry note; **1.2**/**1.3** exit → ENGAGEMENT pointers; **`AI_ENGAGEMENT`** Contents before live paths; registry tier index table; **`README`** Tier **1.9** live-path row.
