@@ -32,6 +32,13 @@ static func formation_nested_dictionary_read(formation: Dictionary, key: String)
 
 ## Read-only: `formations[fid]` when it is a Dictionary; `{}` if missing, wrong-typed, or `formations` is not a Dictionary.
 ## Avoids treating non-dict slots as formation records and avoids chained `.get(..., {}).method` failures on bad saves/tests.
+## Read-only: `manager.formations[fid]` when present and dict-shaped.
+static func formation_record_for_manager(manager: Node, fid: String) -> Dictionary:
+	if manager == null or fid.is_empty():
+		return {}
+	return formation_record_read(manager.formations, fid)
+
+
 static func formation_record_read(formations: Variant, fid: String) -> Dictionary:
 	if formations == null or not (formations is Dictionary):
 		return {}

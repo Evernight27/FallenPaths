@@ -79,13 +79,8 @@ static func react_attacking_arm_lost_if_needed(manager: Node, c: Dictionary) -> 
 		st = _EntityAccess.state_str(c)
 	_EventScheduler.cancel_pending_action_ready(manager, cid)
 	if st in [CombatConstants.STATE_WAITING, CombatConstants.STATE_COWERING]:
-		if _EntityAccess.can_flee_or_fall_back(c) and manager.has_method("_schedule_action_ready"):
-			var delay: float = (
-				manager._action_ready_cooldown(c)
-				if manager.has_method("_action_ready_cooldown")
-				else 0.05
-			)
-			manager._schedule_action_ready(cid, delay)
+		if _EntityAccess.can_flee_or_fall_back(c):
+			_EventScheduler.schedule_action_ready_for_combatant(manager, c)
 
 
 static func filter_actions_for_retreat_only(actions: Array, c: Dictionary) -> Array:

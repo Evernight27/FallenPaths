@@ -299,9 +299,7 @@ static func _strike_kinematics_for_parry_clash(
 	archetype: Dictionary,
 	strike_velocity_m_s: float = -999.0
 ) -> Dictionary:
-	var arch_id: String = ""
-	if atk_weapon != null and atk_weapon.has_method("get_archetype_id"):
-		arch_id = atk_weapon.get_archetype_id(attack_type)
+	var arch_id: String = _EntityAccess.weapon_archetype_id(atk_weapon, attack_type, "")
 	var kinematic_delivery_str: String = WeaponDamageHelper.kinematic_delivery(archetype, attack_type)
 	var strike_v: float = strike_velocity_m_s
 	var strike_ke: float = 0.0

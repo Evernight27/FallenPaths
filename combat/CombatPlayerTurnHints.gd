@@ -6,7 +6,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _CrashActions := preload("res://combat/CombatCrashActions.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 
@@ -46,10 +46,10 @@ static func crash_absence_hint_if_missing(manager: Node, c: Dictionary, actions:
 		return ""
 	if CombatConstants.crash_breach_viability(c) < CombatConstants.CRASH_BREACH_VIABILITY_MIN:
 		return ""
-	var raw: String = _ActionsBuilder.crash_absent_primary_reason(manager, c)
+	var raw: String = _CrashActions.crash_absent_primary_reason(manager, c)
 	if raw.is_empty() or raw == "crash_eligible_but_missing_bug":
 		return ""
-	return _ActionsBuilder.format_crash_absent_reason_for_ui(raw)
+	return _CrashActions.format_crash_absent_reason_for_ui(raw)
 
 
 ## Cowering (no arms) with mobile legs — when solo **fall_back** is listed vs wait-only.

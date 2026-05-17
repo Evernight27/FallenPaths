@@ -23,7 +23,7 @@ static func apply_formation_layout(
 	# from combatant count (e.g. front_count, or preset.ranks missing), causing preset mismatch.
 	var formation: Dictionary = {}
 	if "formations" in manager and manager.formations is Dictionary:
-		formation = _FormationSlots.formation_record_read(manager.formations, side)
+		formation = _FormationSlots.formation_record_for_manager(manager, side)
 	var files: int = formation.get("files", preset.get("files", 1))
 	var ranks: int = formation.get("ranks", preset.get("ranks", 1))
 	var density: String = formation.get("density", preset.get("density", "normal"))

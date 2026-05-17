@@ -10,7 +10,7 @@ const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 
 # Part relevance for hindrance (attacking arm from pending; supporting leg from stance)
 static func _get_part_relevance(hit_part: String, attacking_arm: String, supporting_leg: String) -> float:
@@ -96,7 +96,7 @@ static func _abort_afterblow_wind_up_no_arm(manager: Node, target_id: int, tgt: 
 	if manager == null or tgt.is_empty() or target_id < 0:
 		return
 	_CounterTempo.abort_attacker_wind_up(manager, target_id)
-	_ActionsBuilder.react_attacking_arm_lost_if_needed(manager, tgt)
+	_MobilityRetreat.react_attacking_arm_lost_if_needed(manager, tgt)
 
 
 static func _cancel_pending(manager: Node, tgt: Dictionary) -> void:

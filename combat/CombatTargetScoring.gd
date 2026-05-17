@@ -14,6 +14,7 @@ extends RefCounted
 ## **Doctrine vs crash:** `DOCTRINE_PINCH_CENTER` / `HOLD_LANE` steer **listed** melee/close weights and ordering; `DOCTRINE_PROBING` nudges **depth spear** stab/cut listing weights only. **Crash** is a separate breach move (stamina, armor mass, engagement mode); it does not read doctrine today — no conflicting state, just independent logic gates.
 
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
@@ -87,7 +88,7 @@ static func _depth_lane_open_resolved(
 	var fid: String = zone_geometry_fid
 	if fid.is_empty():
 		fid = _ZoneOfControl.formation_id_for_zone_geometry(manager, actor)
-	return _ActionsBuilder.depth_polearm_lane_open(manager, actor, fid)
+	return _DepthPolearm.depth_polearm_lane_open(manager, actor, fid)
 
 
 ## File-opposed to **our** front rank (rank-0 actor, or same-file rank-0 partner when actor is depth polearm).
@@ -102,7 +103,7 @@ static func is_melee_file_opposed_priority(
 		return true
 	if manager == null or not _depth_lane_open_resolved(manager, actor, depth_lane_open_cache, zone_geometry_fid):
 		return false
-	var front: Dictionary = _ActionsBuilder.same_file_living_rank0_ally(manager, actor, zone_geometry_fid)
+	var front: Dictionary = _DepthPolearm.same_file_living_rank0_ally(manager, actor, zone_geometry_fid)
 	if front.is_empty():
 		return false
 	return is_file_opposed_rank0_pair(front, opp)
@@ -120,7 +121,7 @@ static func wing_lacks_file_opposed(
 	if _EntityAccess.rank_int(actor) != 0:
 		if not _depth_lane_open_resolved(manager, actor, depth_lane_open_cache, zone_geometry_fid):
 			return false
-		var front: Dictionary = _ActionsBuilder.same_file_living_rank0_ally(manager, actor, zone_geometry_fid)
+		var front: Dictionary = _DepthPolearm.same_file_living_rank0_ally(manager, actor, zone_geometry_fid)
 		if front.is_empty():
 			return false
 		ref = front
@@ -402,7 +403,7 @@ static func hostile_pair_targeting_weight_mult(
 	var fd_opp: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, opp, fid_opp)
 	var depth_lane_atk: Variant = null
 	if _EntityAccess.rank_int(atk) > 0:
-		depth_lane_atk = _ActionsBuilder.depth_polearm_lane_open(manager, atk, fid_atk)
+		depth_lane_atk = _DepthPolearm.depth_polearm_lane_open(manager, atk, fid_atk)
 	var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, atk, opp, fd_atk, fd_opp)
 	var w: float = soft_geometry_score(manager, atk, opp, pair_geom.get("eff_dist"))
 	w *= pinch_score_mult(manager, atk, opp, depth_lane_atk, fid_atk)
@@ -462,7 +463,7 @@ static func ordered_melee_opponents(
 	var fid_actor: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, actor)
 	var depth_lane_actor: Variant = null
 	if _EntityAccess.rank_int(actor) > 0:
-		depth_lane_actor = _ActionsBuilder.depth_polearm_lane_open(manager, actor, fid_actor)
+		depth_lane_actor = _DepthPolearm.depth_polearm_lane_open(manager, actor, fid_actor)
 	raw.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var afo: bool = is_melee_file_opposed_priority(manager, actor, a, depth_lane_actor, fid_actor)
 		var bfo: bool = is_melee_file_opposed_priority(manager, actor, b, depth_lane_actor, fid_actor)

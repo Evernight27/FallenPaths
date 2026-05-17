@@ -178,7 +178,7 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 		]
 	)
 	for fid in ["player", "enemy"]:
-		var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+		var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 		if formation.is_empty():
 			continue
 		var our_front: int = p_front if fid == "player" else e_front

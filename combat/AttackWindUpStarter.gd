@@ -4,6 +4,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
@@ -23,10 +24,10 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		return
 	if _MedicalPhase.combat_resolution_blocked(manager):
 		return
-	if _ActionsBuilder.cannot_commit_melee(atk):
+	if _MobilityRetreat.cannot_commit_melee(atk):
 		var atk_name_skip: String = _EntityAccess.get_display_name(atk, attacker_id)
 		print("[Combat] %s has no functional arm; skip attack (short recovery)." % atk_name_skip)
-		_ActionsBuilder.sync_cowering_state_if_no_functional_arm(atk)
+		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(atk)
 		_StateHandlers.enter_short_recovery(atk, manager)
 		if manager != null and atk.state_duration > 0.0:
 			manager._schedule_event({

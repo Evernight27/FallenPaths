@@ -162,7 +162,7 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 		atk["intrusion_anchor_file"] = f_b
 		var sev: float = float(res.get("breach_severity", 0.7))
 		if not fid_b.is_empty():
-			var form_b: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid_b)
+			var form_b: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid_b)
 			if not form_b.is_empty():
 				if not form_b.has("breached_files"):
 					form_b["breached_files"] = {}

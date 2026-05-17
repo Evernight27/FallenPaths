@@ -70,7 +70,7 @@ static func formation_dict_for_zone_geometry(
 	)
 	if fid.is_empty():
 		return {}
-	return _FormationSlots.formation_record_read(manager.formations, fid)
+	return _FormationSlots.formation_record_for_manager(manager, fid)
 
 
 ## Intruder whose `intrusion_host_fid` is set and equals `host_fid` (home formation column / host line id).
@@ -102,7 +102,7 @@ static func zone_for_cell(files: int, _ranks: int, rank: int, file: int) -> Stri
 
 ## Alive combatants whose **zone geometry** formation is `fid` (host line for intruders; home `formation_id` otherwise), in `zone`.
 static func count_alive_in_zone(manager: Node, fid: String, zone: String) -> int:
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return 0
 	var files: int = formation.get("files", 1)
@@ -118,7 +118,7 @@ static func count_alive_in_zone(manager: Node, fid: String, zone: String) -> int
 	return n
 
 static func _obstacle_count_in_zone(manager: Node, fid: String, zone: String) -> int:
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return 0
 	var files: int = formation.get("files", 1)
@@ -154,7 +154,7 @@ static func _capacity_for_zone(files: int, ranks: int, zone: String) -> int:
 			return 1
 
 static func _raw_zone_strength(manager: Node, fid: String, zone: String) -> float:
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return 0.0
 	var files: int = formation.get("files", 1)
@@ -231,7 +231,7 @@ static func _zone_incursion_exposure(zone: String) -> float:
 ## Mutates formations[*].zone_control with keys front, left_flank, right_flank, rear (0..1).
 static func recompute_zone_control(manager: Node) -> void:
 	for fid in ["player", "enemy"]:
-		var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+		var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 		if formation.is_empty():
 			continue
 		var base: Dictionary = {}
@@ -281,7 +281,7 @@ static func format_zone_control_line(manager: Node, _side: String) -> String:
 		return ""
 	if not is_zoc_flanking_enabled(manager):
 		return "ZoC: off (protection circle)"
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, _side)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, _side)
 	var zc: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "zone_control")
 	if zc.is_empty():
 		return ""
@@ -419,7 +419,7 @@ static func mid_reach_files(
 
 ## Phase 5: Swap rank / fall-back duration — lane clarity (bodies, density). See MEDIEVAL_FORMATION_MOVEMENT_SWITCHING_INVESTIGATION §2.3.
 static func get_swap_lane_duration_multiplier(manager: Node, fid: String, file: int) -> float:
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return CombatConstants.LANE_MOD_CLEAR
 	var ranks: int = formation.get("ranks", 1)
@@ -451,7 +451,7 @@ static func get_swap_lane_duration_multiplier(manager: Node, fid: String, file: 
 
 ## Phase 5: Opponent pressure on this formation — aggressive front line slows disengage. See investigation §2.4.
 static func get_opponent_pressure_duration_multiplier(manager: Node, fid: String) -> float:
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return CombatConstants.PRESSURE_MOD_NEUTRAL
 	var our_side: String = _FormationSlots.formation_side_str(formation)
@@ -490,7 +490,7 @@ static func get_opponent_pressure_duration_multiplier(manager: Node, fid: String
 
 ## Phase 5: Step over fallen — extra duration when slot_obstacles (bodies) in this file column.
 static func get_footing_duration_multiplier(manager: Node, fid: String, file: int) -> float:
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return 1.0
 	var ranks: int = formation.get("ranks", 1)

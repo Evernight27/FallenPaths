@@ -137,7 +137,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 	var ranks: int = preset.get("ranks", 1)
 	var formation: Dictionary = {}
 	if "formations" in manager and manager.formations is Dictionary:
-		formation = _FormationSlots.formation_record_read(manager.formations, side)
+		formation = _FormationSlots.formation_record_for_manager(manager, side)
 	var slot_map: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "slots")
 	# Keep diagram bounds synced with actual slot occupancy (not just preset), so deep swaps/plugs remain visible.
 	for k in slot_map.keys():

@@ -50,7 +50,7 @@ static func enemy_line_hollow_center_for_pinch(manager: Node, our_formation_id: 
 	if manager == null:
 		return false
 	var opp_fid: String = "enemy" if str(our_formation_id) == "player" else "player"
-	var fd: Dictionary = _FormationSlots.formation_record_read(manager.formations, opp_fid)
+	var fd: Dictionary = _FormationSlots.formation_record_for_manager(manager, opp_fid)
 	if fd.is_empty():
 		return false
 	var nfiles: int = maxi(1, int(fd.get("files", 1)))

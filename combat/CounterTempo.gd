@@ -13,7 +13,7 @@ const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 
 const _FORMATION_MOVE_IDS: Array[String] = [
@@ -86,7 +86,7 @@ static func can_act(manager: Node, c: Dictionary) -> bool:
 		return false
 	if not _EntityAccess.alive_bool(c) or _EntityAccess.is_incapacitated(c):
 		return false
-	if _ActionsBuilder.cannot_commit_melee(c):
+	if _MobilityRetreat.cannot_commit_melee(c):
 		return false
 	if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 		return false
@@ -129,7 +129,7 @@ static func is_counter_tempo_melee_action(move_id: String) -> bool:
 
 static func filter_actions_for_counter_tempo(actions: Array, c: Dictionary = {}) -> Array:
 	if not c.is_empty():
-		actions = _ActionsBuilder.filter_actions_for_retreat_only(actions, c)
+		actions = _MobilityRetreat.filter_actions_for_retreat_only(actions, c)
 	var out: Array = []
 	for raw in actions:
 		if typeof(raw) != TYPE_DICTIONARY:
@@ -180,8 +180,7 @@ static func try_schedule_counter_tempo_ready(manager: Node, defender: Dictionary
 	defender[CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED] = true
 	var def_id: int = _EntityAccess.id_int(defender)
 	var delay_s: float = CombatConstants.COUNTER_TEMPO_ACTION_READY_DELAY_S
-	if manager.has_method("_schedule_action_ready"):
-		manager._schedule_action_ready(def_id, delay_s)
+	_EventScheduler.schedule_action_ready(manager, def_id, delay_s)
 	if _EntityAccess.side_str(defender) == "player" and manager.has_method("notify_turn_ready"):
 		manager.notify_turn_ready(def_id)
 

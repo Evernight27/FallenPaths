@@ -96,7 +96,7 @@ static func _repack_lane_offset_after_rank_file_change(c: Dictionary) -> void:
 static func _formation_has_rank0_hole(manager: Node, fid: String) -> bool:
 	if manager == null:
 		return false
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return false
 	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
@@ -112,7 +112,7 @@ static func _formation_has_rank0_hole(manager: Node, fid: String) -> bool:
 static func formation_has_frontline_fill_opportunity(manager: Node, fid: String) -> bool:
 	if manager == null:
 		return false
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return false
 	var formation_ranks: int = int(formation.get("ranks", 1))
@@ -139,7 +139,7 @@ static func formation_has_frontline_fill_opportunity_at_file(
 ) -> bool:
 	if manager == null or file < 0:
 		return false
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return false
 	var formation_ranks: int = int(formation.get("ranks", 1))
@@ -727,7 +727,7 @@ static func _rank0_lateral_slide_allowed(
 ## Priority = `pow(effectiveness01, EXP) / (1 + W*proximity_steps)` so heavy injury nonlinearly defers plugging when fitter allies exist in other ranks or files.
 ## Returns true if any combatant moved.
 static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) -> bool:
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return false
 	var formation_ranks: int = formation.get("ranks", 1)
@@ -785,7 +785,7 @@ static func _should_compact_native_line_files(manager: Node, fid: String) -> boo
 	if manager == null:
 		return false
 	if str(_EngagementMode.engagement_mode(manager)) == str(CombatConstants.ENGAGEMENT_MODE_FORMATION):
-		var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+		var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 		if formation.is_empty():
 			return false
 		if not _formation_has_rank0_hole(manager, fid):
@@ -859,7 +859,7 @@ static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> 
 		return false
 	if _formation_has_blocking_formation_motion_for_compact(manager, fid):
 		return false
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return false
 	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
@@ -911,7 +911,7 @@ static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> 
 static func _log_rank0_vacancy_gaps_if_debug(manager: Node, fid: String) -> void:
 	if not CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG:
 		return
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return
 	var formation_ranks: int = int(formation.get("ranks", 1))
@@ -949,7 +949,7 @@ static func _log_rank0_vacancy_gaps_if_debug(manager: Node, fid: String) -> void
 ## neighbor's front fighter into a shallow hole before that neighbor's own rank-0 gap is closed â€” that pattern
 ## read as the line scooting over and then back when the center finally pulls a reserve.
 static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> bool:
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return false
 	var slots_prune: Dictionary = _FormationSlots.formation_slots_dict(formation)
@@ -1025,7 +1025,7 @@ static func reconcile_vacancy_plugs_dirty_fids(manager: Node) -> Array:
 	to_proc.sort_custom(func(a, b): return str(a) < str(b))
 	for fk_any in to_proc:
 		var fk: String = str(fk_any)
-		if _FormationSlots.formation_record_read(manager.formations, fk).is_empty():
+		if _FormationSlots.formation_record_for_manager(manager, fk).is_empty():
 			continue
 		if reconcile_vacancy_plugs_formation(manager, fk):
 			changed_fids.append(fk)
@@ -1070,7 +1070,7 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
 	if not OS.is_debug_build():
 		return
 	for fid_key in manager.formations.keys():
-		var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, str(fid_key))
+		var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, str(fid_key))
 		if formation.is_empty():
 			continue
 		var fid_str: String = str(fid_key)
@@ -1103,3 +1103,52 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
 					"CombatFormationFlow: vacancy invariant failed after reconcile (rank 0 empty, deeper non-intruded ally) fid=%s file=%d"
 					% [fid_str, file]
 				)
+
+
+## Death-triggered same-file micro-plug (bounded steps) after corpse is written to **`slot_obstacles`**.
+static func run_death_column_micro_plug(
+	manager: Node,
+	formation: Dictionary,
+	fid_geom: String,
+	slots: Dictionary,
+	death_file: int
+) -> void:
+	if formation.get("ranks", 1) <= 1:
+		return
+	var formation_ranks: int = int(formation.get("ranks", 1))
+	var nfiles_death: int = int(formation.get("files", 1))
+	_vacancy_lateral_begin_tracking(manager)
+	var micro_max_d: int = CombatConstants.FORMATION_VACANCY_MICRO_STEPS_MAX
+	for _micro_d in range(micro_max_d):
+		var moved_step_d: bool = false
+		for fill_rank in range(formation_ranks - 1, -1, -1):
+			if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(fill_rank, death_file)):
+				continue
+			if fill_rank > 0 and not _has_living_deeper_in_file(
+				manager, slots, fill_rank, death_file, formation_ranks
+			):
+				continue
+			var reserved_d: Dictionary = _vacancy_plug_reserved_donors(manager)
+			var side_death: String = _FormationSlots.formation_side_str(formation)
+			var move_d: Dictionary = _select_best_plug_move_for_empty_cell(
+				manager,
+				fid_geom,
+				slots,
+				fill_rank,
+				death_file,
+				formation_ranks,
+				nfiles_death,
+				side_death,
+				true,
+				reserved_d,
+				true,
+				true
+			)
+			if move_d.is_empty():
+				continue
+			_apply_plug_move(manager, slots, move_d, fill_rank, death_file, "Plug")
+			moved_step_d = true
+			break
+		if not moved_step_d:
+			break
+	_vacancy_lateral_end_tracking(manager)

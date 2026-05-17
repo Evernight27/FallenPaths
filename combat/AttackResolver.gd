@@ -11,6 +11,7 @@ const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
 const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
@@ -382,7 +383,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		return { "action": "defeated", "target_id": target_id }
 	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(manager, atk, tgt, pa)
 	var n_targetable_before: int = targetable.size()
-	targetable = _ActionsBuilder.depth_polearm_targetable_parts_filter(manager, atk, targetable, pa)
+	targetable = _DepthPolearm.depth_polearm_targetable_parts_filter(manager, atk, targetable, pa)
 	if (
 		CombatDebug.flow_verbose_enabled()
 		and bool(pa.get("depth_polearm_attack", false))

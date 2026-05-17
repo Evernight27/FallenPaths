@@ -8,6 +8,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _AttackResolver := preload("res://combat/AttackResolver.gd")
 const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
@@ -790,7 +791,7 @@ static func _run_kinematic_delivery_pa_stamp_open_lane_strike_ke_matches_manual_
 	mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
 	var depth: Dictionary = mgr.combatants[1]
 	var enemy: Dictionary = mgr.combatants[2]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		CombatRegressionHarness._fail(failures, "kin_pa_stamp: expected open depth polearm lane")
 		CombatRegressionHarness._free_manager(mgr)
 		return
@@ -1373,11 +1374,7 @@ static func _run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_fo
 		return
 	var move_def: Dictionary = WeaponConstants.get_move(attack_type)
 	var contact_type: String = str(move_def.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
-	var m_a: float = (
-		float(atk_weapon.get_striking_part_mass_kg(contact_type))
-		if atk_weapon.has_method("has_parts") and atk_weapon.has_parts()
-		else float(atk_weapon.mass)
-	)
+	var m_a: float = _EntityAccess.weapon_striking_mass_kg(atk_weapon, contact_type)
 	var comm_frac: float = CombatConstants.commitment_fraction_for_pending_attack(pa)
 	var effective_wind_up: float = wind_up * (1.0 - comm_frac)
 	var reaction_time: float = _EntityAccess.get_passive_parry_reaction_time(defender)

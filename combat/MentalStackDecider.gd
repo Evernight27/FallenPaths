@@ -7,7 +7,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 
@@ -23,8 +23,8 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 	var c: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
 	if c.is_empty():
 		return {}
-	if _ActionsBuilder.cannot_commit_melee(c):
-		var retreat_only: Array = _ActionsBuilder.filter_actions_for_retreat_only(actions, c)
+	if _MobilityRetreat.cannot_commit_melee(c):
+		var retreat_only: Array = _MobilityRetreat.filter_actions_for_retreat_only(actions, c)
 		if retreat_only.is_empty():
 			return {}
 		return _AIPicker.pick_weighted(retreat_only, combatant_id, manager)

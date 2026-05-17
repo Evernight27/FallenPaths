@@ -8,7 +8,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 
 
 static func compare_events(manager: Node, a: Variant, b: Variant) -> bool:
@@ -229,11 +229,21 @@ static func schedule_action_ready(manager: Node, combatant_id: int, delay_s: flo
 	var c_ready: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
 	if (
 		not c_ready.is_empty()
-		and _ActionsBuilder.cannot_commit_melee(c_ready)
+		and _MobilityRetreat.cannot_commit_melee(c_ready)
 		and not _EntityAccess.can_flee_or_fall_back(c_ready)
 	):
 		return
 	schedule_event(manager, ev)
+
+
+## `delay_s < 0` uses **`action_ready_cooldown(c)`** (same as **`CombatManager._action_ready_cooldown`**).
+static func schedule_action_ready_for_combatant(
+	manager: Node, c: Dictionary, delay_s: float = -1.0
+) -> void:
+	if manager == null or c.is_empty():
+		return
+	var delay: float = delay_s if delay_s >= 0.0 else action_ready_cooldown(c)
+	schedule_action_ready(manager, _EntityAccess.id_int(c), delay)
 
 
 static func action_ready_cooldown(c: Dictionary) -> float:

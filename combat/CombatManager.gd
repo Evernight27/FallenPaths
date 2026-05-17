@@ -84,6 +84,7 @@ var _vacancy_dirty_fids: Dictionary = {}
 var _combat_tick_index: int = 0
 
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _AttackResolver := preload("res://combat/AttackResolver.gd")
 const _AttackResultApplier := preload("res://combat/AttackResultApplier.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
@@ -527,14 +528,14 @@ func _process(delta: float) -> void:
 func resolve_action(attacker_id: int, target_id: int, move_id: String = "", options: Dictionary = {}) -> void:
 	var c_resolve: Variant = _get_by_id(attacker_id)
 	if c_resolve is Dictionary:
-		_ActionsBuilder.sync_cowering_state_if_no_functional_arm(c_resolve as Dictionary)
+		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(c_resolve as Dictionary)
 	_ResolveAction.resolve(self, attacker_id, target_id, move_id, options)
 
 func _execute_attack(attacker_id: int) -> void:
 	if _MedicalPhase.combat_resolution_blocked(self):
 		return
 	var atk_exec = _get_by_id(attacker_id)
-	if atk_exec != null and _ActionsBuilder.cannot_commit_melee(atk_exec):
+	if atk_exec != null and _MobilityRetreat.cannot_commit_melee(atk_exec):
 		return
 	var result: Dictionary = _AttackResolver.resolve_attack(self, attacker_id)
 	_AttackResultApplier.apply_result(self, attacker_id, result)
@@ -552,7 +553,7 @@ func _execute_attack(attacker_id: int) -> void:
 			tgt != null
 			and _EntityAccess.alive_bool(tgt)
 			and _EntityAccess.state_str(tgt) == CombatConstants.STATE_WAITING
-			and not _ActionsBuilder.cannot_commit_melee(tgt)
+			and not _MobilityRetreat.cannot_commit_melee(tgt)
 			and not (_MedicalPhase.combat_resolution_blocked(self) and _MedicalPhase.is_losing_side(self, tgt))
 		):
 			_schedule_action_ready(tgt_id, CombatConstants.READY_DELAY_PARRY_RIPOSTE_S)

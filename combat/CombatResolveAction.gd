@@ -13,6 +13,7 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 
 
 static func is_medical_move(move_id: String) -> bool:
@@ -60,10 +61,10 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		and _EntityAccess.state_str(atk) != CombatConstants.STATE_COWERING
 	):
 		return
-	_ActionsBuilder.sync_cowering_state_if_no_functional_arm(atk)
+	_MobilityRetreat.sync_cowering_state_if_no_functional_arm(atk)
 	if (
-		_ActionsBuilder.cannot_commit_melee(atk)
-		and not _ActionsBuilder.resolve_move_allowed_when_cannot_melee(move_id, target_id, attacker_id)
+		_MobilityRetreat.cannot_commit_melee(atk)
+		and not _MobilityRetreat.resolve_move_allowed_when_cannot_melee(move_id, target_id, attacker_id)
 	):
 		return
 	if move_id == CombatConstants.MOVE_ID_WAIT:
@@ -125,7 +126,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			# Cowering solo retreat is listed without stable-line policy (`formation_retreat_only` in builder).
 			var cowering_solo_retreat: bool = (
 				target_id == attacker_id
-				and _ActionsBuilder.formation_retreat_only_for(atk)
+				and _MobilityRetreat.formation_retreat_only_for(atk)
 				and AvailableActionsBuilder.solo_fall_back_action_legal(manager, atk)
 			)
 			if not cowering_solo_retreat:
@@ -199,7 +200,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			"clear_direct_pressure:%d" % attacker_id
 		)
 	_EntityAccess.clear_direct_pressure_scene(atk)
-	if _ActionsBuilder.cannot_commit_melee(atk):
+	if _MobilityRetreat.cannot_commit_melee(atk):
 		return
 	var opts: Dictionary = {}
 	if options.has("target_part"):

@@ -15,6 +15,8 @@ const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
+const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
 const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
@@ -27,7 +29,7 @@ static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary
 	if actions.is_empty():
 		return {}
 	var c_pick: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
-	actions = _ActionsBuilder.filter_actions_for_retreat_only(actions, c_pick)
+	actions = _MobilityRetreat.filter_actions_for_retreat_only(actions, c_pick)
 	if actions.is_empty():
 		return {}
 	var stacked: Dictionary = _MentalStack.try_pick(actions, combatant_id, manager)
@@ -43,7 +45,7 @@ static func pick_weighted(actions: Array, combatant_id: int, manager: Node) -> D
 	if actions.is_empty():
 		return {}
 	var c_pick: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
-	actions = _ActionsBuilder.filter_actions_for_retreat_only(actions, c_pick)
+	actions = _MobilityRetreat.filter_actions_for_retreat_only(actions, c_pick)
 	if actions.is_empty():
 		return {}
 	_TargetScoring.prune_expired_commitments(manager)
@@ -170,8 +172,8 @@ static func _get_action_weight(
 	if c == null:
 		return 1.0
 	if (
-		_ActionsBuilder.cannot_commit_melee(c)
-		and not _ActionsBuilder.resolve_move_allowed_when_cannot_melee(
+		_MobilityRetreat.cannot_commit_melee(c)
+		and not _MobilityRetreat.resolve_move_allowed_when_cannot_melee(
 			mid, int(a.get("target_id", -1)), combatant_id
 		)
 	):
@@ -202,7 +204,7 @@ static func _get_action_weight(
 			* _doomed_skirmish_offense_weight_mult(manager, c)
 		)
 	if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get("target_id", -1) == combatant_id:
-		if _ActionsBuilder.formation_retreat_only_for(c):
+		if _MobilityRetreat.formation_retreat_only_for(c):
 			return CombatConstants.COWERING_SOLO_FALL_BACK_AI_WEIGHT
 		# Offered only when desperate / peril (AvailableActionsBuilder); keep below routine wait.
 		return 0.45
@@ -385,9 +387,9 @@ static func _depth_polearm_action_weight_mult(manager: Node, c: Dictionary, move
 	if manager == null or c.is_empty():
 		return 1.0
 	var fid_depth: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
-	if not _ActionsBuilder.depth_polearm_lane_open(manager, c, fid_depth):
+	if not _DepthPolearm.depth_polearm_lane_open(manager, c, fid_depth):
 		return 1.0
-	if not _ActionsBuilder.depth_polearm_has_valid_line_threat_to_any_rank0_hostile(manager, c, manager.combatants):
+	if not _DepthPolearm.depth_polearm_has_valid_line_threat_to_any_rank0_hostile(manager, c, manager.combatants):
 		return 1.0
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return CombatConstants.DEPTH_POLEARM_AI_ATTEMPT_CLOSE_MULT
@@ -592,7 +594,7 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
 		return
 	var atk_pick = manager._get_by_id(attacker_id)
 	if atk_pick != null:
-		targetable = _ActionsBuilder.depth_polearm_targetable_parts_filter(manager, atk_pick, targetable)
+		targetable = _DepthPolearm.depth_polearm_targetable_parts_filter(manager, atk_pick, targetable)
 	if targetable.is_empty():
 		return
 	var move_def: Dictionary = WeaponConstants.get_move(choice.get("move_id", ""))

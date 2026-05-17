@@ -135,7 +135,7 @@ static func choose_defense(
 				var parry_eval_step_deg: float = _Footwork.parry_eval_step_deg_for_defender(tgt)
 				var move_def: Dictionary = WeaponConstants.get_move(attack_type)
 				var contact_type: String = str(move_def.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
-				var m_a_striking: float = float(atk_weapon.get_striking_part_mass_kg(contact_type)) if atk_weapon.has_method("has_parts") and atk_weapon.has_parts() else float(atk_weapon.mass)
+				var m_a_striking: float = _EntityAccess.weapon_striking_mass_kg(atk_weapon, contact_type)
 				var attack_instance = AttackInstance.new(attack_type, pa.get("intensity", 0.5))
 				attack_instance.archetype = archetype
 				attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else -1.0
@@ -208,7 +208,7 @@ static func choose_defense(
 				var parry_eval_step_deg_late: float = _Footwork.parry_eval_step_deg_for_defender(tgt)
 				var move_def_late: Dictionary = WeaponConstants.get_move(attack_type)
 				var contact_type_late: String = str(move_def_late.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
-				var m_a_striking_late: float = float(atk_weapon.get_striking_part_mass_kg(contact_type_late)) if atk_weapon.has_method("has_parts") and atk_weapon.has_parts() else float(atk_weapon.mass)
+				var m_a_striking_late: float = _EntityAccess.weapon_striking_mass_kg(atk_weapon, contact_type_late)
 				var attack_instance = AttackInstance.new(attack_type, pa.get("intensity", 0.5))
 				attack_instance.archetype = archetype
 				attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else -1.0
@@ -303,8 +303,8 @@ static func choose_defense(
 		var def_w_arch = _EntityAccess.get_weapon(tgt)
 		var _def_w: Variant = def_w_arch if def_w_arch != null else _EntityAccess.get_weapon(tgt)
 		var contact_quality: float = CombatConstants.PARRY_LATE_CAPACITY_FLOOR if late_parry else (_get_parry_capacity_mult(_def_w, tgt, parry_time_to_react) if _def_w != null else 0.5)
-		if atk_w_arch != null and atk_w_arch.has_method("get_archetype_id"):
-			var arch_id: String = atk_w_arch.get_archetype_id(attack_type)
+		if atk_w_arch != null:
+			var arch_id: String = _EntityAccess.weapon_archetype_id(atk_w_arch, attack_type)
 			var pct: String = _EntityAccess.weapon_parry_contact_type(def_w_arch)
 			# Blade-on-blade: archetype weak exposure + defender forte matter. Shaft/haft: leverage only — no blade weak to catch.
 			var sc_raw: Variant = parry_cfg.get("strong_contact_by_arch", null)
@@ -312,7 +312,7 @@ static func choose_defense(
 			var full_strong_mod: float = float(sc_map.get(arch_id, 1.0)) if pct == "blade" else 1.0
 			if pct == "blade":
 				var weak_exp: float = float(CombatConstants.WEAK_EXPOSURE_BY_ARCH.get(arch_id, 0.5))
-				var strong_frac: float = def_w_arch.get_parry_strong_fraction() if def_w_arch.has_method("get_parry_strong_fraction") else 0.25
+				var strong_frac: float = _EntityAccess.weapon_parry_strong_fraction(def_w_arch)
 				full_strong_mod *= 1.0 + CombatConstants.DEFENDER_STRONG_BONUS * strong_frac * weak_exp
 			var strong_mod: float = lerpf(1.0, full_strong_mod, contact_quality)
 			parry_c_d *= strong_mod
@@ -333,7 +333,7 @@ static func choose_defense(
 			m_d_parry = _EntityAccess.weapon_mass_kg(def_w)
 			var move_def_mass: Dictionary = WeaponConstants.get_move(attack_type)
 			var ct_mass: String = str(move_def_mass.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
-			m_a_velocity = float(atk_w.get_striking_part_mass_kg(ct_mass)) if atk_w.has_method("has_parts") and atk_w.has_parts() else float(atk_w.mass)
+			m_a_velocity = _EntityAccess.weapon_striking_mass_kg(atk_w, ct_mass)
 		s_atk_parry = float(_EntityAccess.stats_dict(atk).get("strength", 100))
 		s_d_parry = float(_EntityAccess.stats_dict(tgt).get("strength", 100))
 	result.m_a_parry = m_a_parry
@@ -397,14 +397,14 @@ static func _get_effective_redirect(tgt: Dictionary) -> float:
 	return redirect_attempt * (0.75 + agi_scale * clampf(agi_d_attempt / 100.0, 0.0, 1.5))
 
 static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String = "") -> float:
-	var m_parry_part: float = (
-		float(def_weapon.get_parry_part_mass_kg())
-		if def_weapon.has_method("has_parts") and def_weapon.has_parts()
-		else _EntityAccess.weapon_mass_kg(def_weapon)
-	)
+	var m_parry_part: float = _EntityAccess.weapon_parry_part_mass_kg(def_weapon)
 	var m_total: float = _EntityAccess.weapon_mass_kg(def_weapon)
 	# Full weapon mass matters: inertia and geometry. Blend parry-part (contact) with total (leverage).
-	var m_d: float = lerpf(m_parry_part, m_total, CombatConstants.PARRY_INERTIA_BLEND) if def_weapon.has_method("has_parts") and def_weapon.has_parts() else m_total
+	var m_d: float = (
+		lerpf(m_parry_part, m_total, CombatConstants.PARRY_INERTIA_BLEND)
+		if _EntityAccess.weapon_has_parts(def_weapon)
+		else m_total
+	)
 	var s_d: float = float(_EntityAccess.stats_dict(tgt).get("strength", 100))
 	var c_d_full: float = m_d * PassiveParryContext.get_parry_speed_m_s(def_weapon) * (s_d / CombatConstants.PARRY_STRENGTH_NORM)
 	var agi_d: float = float(_EntityAccess.stats_dict(tgt).get("agility", 100))
@@ -412,8 +412,8 @@ static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String
 	var def_perf: float = _EntityAccess.get_performance_modifier(tgt)
 	c_d_full *= maxf(CombatConstants.PERF_MOD_MIN, def_perf)
 	c_d_full *= maxf(0.1, _EntityAccess.get_attack_damage_modifier(tgt))
-	if def_weapon.has_method("get_parry_contact_type") and def_weapon.has_parts():
-		var pct: String = def_weapon.get_parry_contact_type()
+	if _EntityAccess.weapon_has_parts(def_weapon):
+		var pct: String = _EntityAccess.weapon_parry_contact_type(def_weapon)
 		c_d_full *= CombatConstants.PARRY_CONTACT_MODIFIERS.get(pct, 1.0)
 	var contact_key: String = str(contact_type).to_lower().strip_edges()
 	if not contact_key.is_empty():
@@ -433,12 +433,12 @@ static func _get_contact_geometry(alignment: float, def_weapon) -> float:
 ## Leverage factor: where along shaft/haft the blow lands. Good alignment = defender controlled contact = strong (near hands).
 ## Poor alignment = contact could be weak (far from hands). Blade/handle: 1.0 (uniform).
 static func _get_leverage_factor(def_weapon, alignment: float) -> float:
-	if not def_weapon.has_method("has_parts") or not def_weapon.has_parts():
+	if not _EntityAccess.weapon_has_parts(def_weapon):
 		return 1.0
 	var pct: String = _EntityAccess.weapon_parry_contact_type(def_weapon)
 	if pct != "shaft" and pct != "haft":
 		return 1.0
-	var len_cm: float = def_weapon.get_parry_part_length_cm() if def_weapon.has_method("get_parry_part_length_cm") else 0.0
+	var len_cm: float = _EntityAccess.weapon_parry_part_length_cm(def_weapon)
 	if len_cm < CombatConstants.PARRY_LEVERAGE_LONG_PART_CM:
 		return 1.0
 	return lerpf(CombatConstants.PARRY_LEVERAGE_FLOOR, 1.0, alignment)

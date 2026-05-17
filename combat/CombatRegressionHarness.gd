@@ -13,6 +13,8 @@ const _MgrScript := preload("res://combat/CombatManager.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _ArmorPiece := preload("res://armor/ArmorPiece.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
+const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
@@ -293,6 +295,7 @@ static func run_all() -> Dictionary:
 	_run_footwork_ui_hint_clears_on_combat_start(failures)
 	_run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures)
 	_run_combat_ui_hints_footwork_stale_stamp_prefers_live_offset(failures)
+	_run_combat_ui_hints_gauge_tooltip_counter_ready(failures)
 	_run_footwork_ui_hint_ignores_orphan_stamp_without_offset(failures)
 	_run_footwork_diagram_label_suffix_compact(failures)
 	_run_footwork_snapshot_includes_position_hint_when_enabled(failures)
@@ -953,7 +956,7 @@ static func _run_depth_polearm_band_vs_actions_fuzz(failures: PackedStringArray)
 			_free_manager(mgr)
 			continue
 		var depth: Dictionary = mgr.combatants[depth_idx]
-		if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+		if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 			_fail(failures, "depth_polearm_band_acts seed=%d: expected open lane pf=%d fs=%d" % [scenario_seed, pf, fs])
 			_free_manager(mgr)
 			continue
@@ -967,7 +970,7 @@ static func _run_depth_polearm_band_vs_actions_fuzz(failures: PackedStringArray)
 				continue
 			if _EntityAccess.rank_int(c, -1) != 0:
 				continue
-			if not _ActionsBuilder.depth_polearm_valid_line_threat(mgr, depth, c):
+			if not _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, c):
 				continue
 			if not _ActionsBuilder.can_melee_threaten(mgr, depth, c):
 				continue
@@ -1019,7 +1022,7 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
 	mgr.start(p_preset, e_preset)
 	var depth: Dictionary = mgr.combatants[1]
 	var enemy: Dictionary = mgr.combatants[2]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_polearm: expected open lane (rank-1 spear + rank-0 ally)")
 	if _ActionsBuilder.can_melee_threaten(mgr, depth, enemy) != true:
 		_fail(failures, "depth_polearm: can_melee_threaten should be true vs file-opposed rank-0")
@@ -1057,26 +1060,26 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
 	mgr.formations["player"]["density"] = "tight"
 	var parts_in: Array = ["head", "chest", "left_leg", "right_leg"]
-	var filt_tight: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var filt_tight: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if filt_tight.has("left_leg") or filt_tight.has("right_leg"):
 		_fail(failures, "depth_polearm: tight lane should filter leg targets (got %s)" % str(filt_tight))
 	var df: int = _EntityAccess.file_int(depth, 0)
 	_IntrusionWedge.upsert_from_intrusion(mgr.formations["player"], df, 999_999, 0.92, 2, 2)
-	var filt_wedge_gap: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var filt_wedge_gap: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if not filt_wedge_gap.has("left_leg") and not filt_wedge_gap.has("right_leg"):
 		_fail(
 			failures,
 			"depth_polearm: intrusion wedge at file should open low targets in tight lane (got %s)" % str(filt_wedge_gap)
 		)
 	mgr.formations["player"]["density"] = "loose"
-	var filt_loose: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var filt_loose: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if not filt_loose.has("left_leg"):
 		_fail(failures, "depth_polearm: loose lane should keep leg targets available")
 	# Optional `spear_lane_profile` on formation (Tier 1.9): open on tight without wedge; restricted on loose without wedge.
 	_IntrusionWedge.clear_all_wedges_in_formation(mgr.formations["player"])
 	mgr.formations["player"]["density"] = "tight"
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
-	var filt_prof_open: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var filt_prof_open: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if not filt_prof_open.has("left_leg"):
 		_fail(
 			failures,
@@ -1084,7 +1087,7 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
 		)
 	mgr.formations["player"]["density"] = "loose"
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_RESTRICTED
-	var filt_prof_rest: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var filt_prof_rest: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if filt_prof_rest.has("left_leg") or filt_prof_rest.has("right_leg"):
 		_fail(
 			failures,
@@ -1106,7 +1109,7 @@ static func _run_depth_polearm_reciprocal_distance_bands(failures: PackedStringA
 	var en_depth: Dictionary = mgr.combatants[2]
 	var pid: int = _EntityAccess.id_int(player)
 	var did: int = _EntityAccess.id_int(en_depth)
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, en_depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, en_depth):
 		_fail(failures, "depth_polearm_recip: expected enemy depth spear lane open")
 	if not _ActionsBuilder.can_melee_threaten(mgr, en_depth, player):
 		_fail(failures, "depth_polearm_recip: enemy spear should melee-threaten player rank-0")
@@ -1128,7 +1131,7 @@ static func _run_depth_polearm_reciprocal_distance_bands(failures: PackedStringA
 	var pl2: Dictionary = mgr2.combatants[0]
 	var en_deep_sword: Dictionary = mgr2.combatants[2]
 	var eid2: int = _EntityAccess.id_int(en_deep_sword)
-	if _ActionsBuilder.depth_polearm_lane_open(mgr2, en_deep_sword):
+	if _DepthPolearm.depth_polearm_lane_open(mgr2, en_deep_sword):
 		_fail(failures, "depth_polearm_recip: rank-1 sword must not have open polearm lane")
 	var band_r0_to_r1: String = str(_EntityAccess.nested_dictionary_read(pl2, "distance_to").get(eid2, ""))
 	if band_r0_to_r1 != CombatConstants.DISTANCE_LONG:
@@ -1154,13 +1157,13 @@ static func _run_depth_polearm_only_file_opposed_line(failures: PackedStringArra
 	var en_f0: Dictionary = mgr.combatants[2]
 	var en_f1: Dictionary = mgr.combatants[3]
 	var en_f2: Dictionary = mgr.combatants[4]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_polearm_file: expected open lane")
 	if not _ActionsBuilder.can_melee_threaten(mgr, depth, en_f0):
 		_fail(failures, "depth_polearm_file: should threaten file-opposed rank-0")
-	if not _ActionsBuilder.depth_polearm_valid_line_threat(mgr, depth, en_f1):
+	if not _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, en_f1):
 		_fail(failures, "depth_polearm_file: neighbor file should be in lateral thrust window")
-	if _ActionsBuilder.depth_polearm_valid_line_threat(mgr, depth, en_f2):
+	if _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, en_f2):
 		_fail(failures, "depth_polearm_file: file+2 beyond DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES must not count as lane target")
 	if _ActionsBuilder.can_melee_threaten(mgr, depth, en_f2):
 		_fail(failures, "depth_polearm_file: must not melee-threaten rank-0 two files over")
@@ -1171,23 +1174,23 @@ static func _run_depth_polearm_only_file_opposed_line(failures: PackedStringArra
 static func _run_depth_polearm_threatens_line_target_pure_guards(failures: PackedStringArray) -> void:
 	var front: Dictionary = {"rank": 0, "file": 1, "side": "player", "alive": true}
 	var opp_line: Dictionary = {"rank": 0, "file": 1, "side": "enemy", "alive": true}
-	if _ActionsBuilder.depth_polearm_threatens_line_target({}, opp_line):
+	if _DepthPolearm.depth_polearm_threatens_line_target({}, opp_line):
 		_fail(failures, "threatens_pure: empty front ally → false")
-	if _ActionsBuilder.depth_polearm_threatens_line_target(front, {}):
+	if _DepthPolearm.depth_polearm_threatens_line_target(front, {}):
 		_fail(failures, "threatens_pure: empty opp → false")
 	var ally_same: Dictionary = {"rank": 0, "file": 2, "side": "player", "alive": true}
-	if _ActionsBuilder.depth_polearm_threatens_line_target(front, ally_same):
+	if _DepthPolearm.depth_polearm_threatens_line_target(front, ally_same):
 		_fail(failures, "threatens_pure: same-side rank-0 → false")
 	var opp_deep: Dictionary = {"rank": 1, "file": 1, "side": "enemy", "alive": true}
-	if _ActionsBuilder.depth_polearm_threatens_line_target(front, opp_deep):
+	if _DepthPolearm.depth_polearm_threatens_line_target(front, opp_deep):
 		_fail(failures, "threatens_pure: enemy rank≠0 → false")
 	var opp_dead: Dictionary = {"rank": 0, "file": 1, "side": "enemy", "alive": false}
-	if _ActionsBuilder.depth_polearm_threatens_line_target(front, opp_dead):
+	if _DepthPolearm.depth_polearm_threatens_line_target(front, opp_dead):
 		_fail(failures, "threatens_pure: dead enemy → false")
-	if not _ActionsBuilder.depth_polearm_threatens_line_target(front, opp_line):
+	if not _DepthPolearm.depth_polearm_threatens_line_target(front, opp_line):
 		_fail(failures, "threatens_pure: file-opposed same file → true")
 	var opp_near: Dictionary = {"rank": 0, "file": 2, "side": "enemy", "alive": true}
-	if not _ActionsBuilder.depth_polearm_threatens_line_target(front, opp_near):
+	if not _DepthPolearm.depth_polearm_threatens_line_target(front, opp_near):
 		_fail(failures, "threatens_pure: neighbor within lateral max → true")
 	var max_lat: int = int(CombatConstants.DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES)
 	var opp_beyond: Dictionary = {
@@ -1196,7 +1199,7 @@ static func _run_depth_polearm_threatens_line_target_pure_guards(failures: Packe
 		"side": "enemy",
 		"alive": true
 	}
-	if _ActionsBuilder.depth_polearm_threatens_line_target(front, opp_beyond):
+	if _DepthPolearm.depth_polearm_threatens_line_target(front, opp_beyond):
 		_fail(failures, "threatens_pure: beyond lateral max → false")
 
 
@@ -1210,20 +1213,20 @@ static func _run_depth_polearm_valid_line_threat_false_when_lane_closed(failures
 	mgr._recompute_zoc_and_distance()
 	var depth: Dictionary = mgr.combatants[1]
 	var en: Dictionary = mgr.combatants[2]
-	if _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "valid_lt_lane: rank-1 sword should not open depth polearm lane")
 		_free_manager(mgr)
 		return
-	var front: Dictionary = _ActionsBuilder.same_file_living_rank0_ally(mgr, depth)
+	var front: Dictionary = _DepthPolearm.same_file_living_rank0_ally(mgr, depth)
 	if front.is_empty():
 		_fail(failures, "valid_lt_lane: missing same-file rank-0 ally")
 		_free_manager(mgr)
 		return
-	if not _ActionsBuilder.depth_polearm_threatens_line_target(front, en):
+	if not _DepthPolearm.depth_polearm_threatens_line_target(front, en):
 		_fail(failures, "valid_lt_lane: expected geometric line threat rank-0 vs rank-0 same column")
 		_free_manager(mgr)
 		return
-	if _ActionsBuilder.depth_polearm_valid_line_threat(mgr, depth, en):
+	if _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, en):
 		_fail(failures, "valid_lt_lane: closed lane must force valid_line_threat false")
 	_free_manager(mgr)
 
@@ -1238,11 +1241,11 @@ static func _run_depth_polearm_valid_line_threat_agrees_with_threatens_when_lane
 	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
 	mgr._recompute_zoc_and_distance()
 	var depth: Dictionary = mgr.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "valid_lt_agree: expected open depth polearm lane")
 		_free_manager(mgr)
 		return
-	var front: Dictionary = _ActionsBuilder.same_file_living_rank0_ally(mgr, depth)
+	var front: Dictionary = _DepthPolearm.same_file_living_rank0_ally(mgr, depth)
 	if front.is_empty():
 		_fail(failures, "valid_lt_agree: missing same-file rank-0 ally")
 		_free_manager(mgr)
@@ -1250,8 +1253,8 @@ static func _run_depth_polearm_valid_line_threat_agrees_with_threatens_when_lane
 	for c in mgr.combatants:
 		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
 			continue
-		var vlt: bool = _ActionsBuilder.depth_polearm_valid_line_threat(mgr, depth, c)
-		var thr: bool = _ActionsBuilder.depth_polearm_threatens_line_target(front, c)
+		var vlt: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, c)
+		var thr: bool = _DepthPolearm.depth_polearm_threatens_line_target(front, c)
 		if vlt != thr:
 			_fail(
 				failures,
@@ -1271,7 +1274,7 @@ static func _run_depth_polearm_opp_matches_rank0_agrees_with_valid_line_threat(f
 	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
 	mgr._recompute_zoc_and_distance()
 	var depth: Dictionary = mgr.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "opp_match_vlt: expected open depth polearm lane")
 		_free_manager(mgr)
 		return
@@ -1279,7 +1282,7 @@ static func _run_depth_polearm_opp_matches_rank0_agrees_with_valid_line_threat(f
 		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
 			continue
 		var om: bool = _ActionsBuilder._opp_matches_melee_rank_target(mgr, depth, c, 0)
-		var vlt: bool = _ActionsBuilder.depth_polearm_valid_line_threat(mgr, depth, c)
+		var vlt: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, c)
 		if om != vlt:
 			_fail(
 				failures,
@@ -1299,7 +1302,7 @@ static func _run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_th
 	mgr_open.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
 	mgr_open._recompute_zoc_and_distance()
 	var depth_open: Dictionary = mgr_open.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr_open, depth_open):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr_open, depth_open):
 		_fail(failures, "mpra_vlt: open fixture expected depth polearm lane")
 		_free_manager(mgr_open)
 		return
@@ -1307,7 +1310,7 @@ static func _run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_th
 		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
 			continue
 		var pr: bool = _ActionsBuilder._melee_pair_rank_allowed(mgr_open, depth_open, c)
-		var vlt: bool = _ActionsBuilder.depth_polearm_valid_line_threat(mgr_open, depth_open, c)
+		var vlt: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr_open, depth_open, c)
 		if pr != vlt:
 			_fail(
 				failures,
@@ -1321,7 +1324,7 @@ static func _run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_th
 	mgr_closed.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	mgr_closed._recompute_zoc_and_distance()
 	var depth_closed: Dictionary = mgr_closed.combatants[1]
-	if _ActionsBuilder.depth_polearm_lane_open(mgr_closed, depth_closed):
+	if _DepthPolearm.depth_polearm_lane_open(mgr_closed, depth_closed):
 		_fail(failures, "mpra_vlt: closed fixture expected lane closed")
 		_free_manager(mgr_closed)
 		return
@@ -1329,7 +1332,7 @@ static func _run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_th
 		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
 			continue
 		var pr2: bool = _ActionsBuilder._melee_pair_rank_allowed(mgr_closed, depth_closed, c)
-		var vlt2: bool = _ActionsBuilder.depth_polearm_valid_line_threat(mgr_closed, depth_closed, c)
+		var vlt2: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr_closed, depth_closed, c)
 		if pr2 != vlt2:
 			_fail(
 				failures,
@@ -1348,7 +1351,7 @@ static func _run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_d
 	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
 	mgr._recompute_zoc_and_distance()
 	var depth: Dictionary = mgr.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "cm_vlt: expected open depth polearm lane")
 		_free_manager(mgr)
 		return
@@ -1362,7 +1365,7 @@ static func _run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_d
 			continue
 		if (
 			_ActionsBuilder.can_melee_threaten(mgr, depth, c)
-			and not _ActionsBuilder.depth_polearm_valid_line_threat(mgr, depth, c)
+			and not _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, c)
 		):
 			_fail(failures, "cm_vlt: can_melee_threaten without valid_line id=%d" % _EntityAccess.id_int(c))
 	_free_manager(mgr)
@@ -1374,7 +1377,7 @@ static func _run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_d
 	mgr2._recompute_zoc_and_distance()
 	var depth_sw: Dictionary = mgr2.combatants[1]
 	var en: Dictionary = mgr2.combatants[2]
-	if _ActionsBuilder.depth_polearm_valid_line_threat(mgr2, depth_sw, en):
+	if _DepthPolearm.depth_polearm_valid_line_threat(mgr2, depth_sw, en):
 		_fail(failures, "cm_vlt: closed lane expected valid_line false")
 		_free_manager(mgr2)
 		return
@@ -1409,12 +1412,12 @@ static func _run_depth_polearm_layout_fuzz(failures: PackedStringArray) -> void:
 			_free_manager(mgr)
 			continue
 		var depth: Dictionary = mgr.combatants[depth_idx]
-		var lane_open: bool = _ActionsBuilder.depth_polearm_lane_open(mgr, depth)
+		var lane_open: bool = _DepthPolearm.depth_polearm_lane_open(mgr, depth)
 		if not lane_open:
 			_fail(failures, "depth_polearm_fuzz seed=%d: expected open lane pf=%d fs=%d" % [scenario_seed, pf, fs])
 			_free_manager(mgr)
 			continue
-		var front: Dictionary = _ActionsBuilder.same_file_living_rank0_ally(mgr, depth)
+		var front: Dictionary = _DepthPolearm.same_file_living_rank0_ally(mgr, depth)
 		if front.is_empty():
 			_fail(failures, "depth_polearm_fuzz seed=%d: missing front ally" % scenario_seed)
 			_free_manager(mgr)
@@ -1427,7 +1430,7 @@ static func _run_depth_polearm_layout_fuzz(failures: PackedStringArray) -> void:
 				continue
 			var lat: int = absi(_EntityAccess.file_int(c) - ff)
 			var geo_ok: bool = lat <= max_lat
-			var vlt: bool = _ActionsBuilder.depth_polearm_valid_line_threat(mgr, depth, c)
+			var vlt: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, c)
 			if vlt != geo_ok:
 				_fail(
 					failures,
@@ -1715,17 +1718,17 @@ static func _run_depth_polearm_auto_lane_discipline_posture(failures: PackedStri
 	_IntrusionWedge.clear_all_wedges_in_formation(mgr.formations["player"])
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_AUTO
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
-	var f_strict: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var f_strict: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if f_strict.has("left_leg") or f_strict.has("right_leg"):
 		_fail(failures, "depth_auto_lane: strict discipline + tight should filter legs (got %s)" % str(f_strict))
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_LOOSE
-	var f_loose_disc: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var f_loose_disc: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if not f_loose_disc.has("left_leg"):
 		_fail(failures, "depth_auto_lane: loose discipline + tight should allow legs (got %s)" % str(f_loose_disc))
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_NORMAL
 	mgr.formations["player"]["density"] = "loose"
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
-	var f_loose_dens_strict: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var f_loose_dens_strict: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if f_loose_dens_strict.has("left_leg") or f_loose_dens_strict.has("right_leg"):
 		_fail(
 			failures,
@@ -1734,11 +1737,11 @@ static func _run_depth_polearm_auto_lane_discipline_posture(failures: PackedStri
 	mgr.formations["player"]["density"] = "tight"
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_NORMAL
 	mgr.formations["player"]["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_OPEN
-	var f_open_post: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var f_open_post: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if not f_open_post.has("left_leg"):
 		_fail(failures, "depth_auto_lane: OPEN posture + tight should allow legs (got %s)" % str(f_open_post))
 	mgr.formations["player"]["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_DUEL
-	var f_duel_post: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var f_duel_post: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if not f_duel_post.has("left_leg"):
 		_fail(failures, "depth_auto_lane: DUEL posture + tight should allow legs (got %s)" % str(f_duel_post))
 	# LINE posture + normal discipline + tight: auto profile stays over-shoulder (stamped `pa` agrees).
@@ -1746,7 +1749,7 @@ static func _run_depth_polearm_auto_lane_discipline_posture(failures: PackedStri
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_NORMAL
 	mgr.formations["player"]["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_LINE
 	_IntrusionWedge.clear_all_wedges_in_formation(mgr.formations["player"])
-	var f_line_norm: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var f_line_norm: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if f_line_norm.has("left_leg") or f_line_norm.has("right_leg"):
 		_fail(
 			failures,
@@ -1770,7 +1773,7 @@ static func _run_depth_polearm_auto_lane_discipline_posture(failures: PackedStri
 	mgr.formations["player"]["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_LINE
 	mgr.encounter[CombatConstants.ENCOUNTER_KEY_LINE_DISCIPLINE] = CombatConstants.LINE_DISCIPLINE_STRICT
 	_IntrusionWedge.clear_all_wedges_in_formation(mgr.formations["player"])
-	var f_enc_strict: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var f_enc_strict: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if f_enc_strict.has("left_leg") or f_enc_strict.has("right_leg"):
 		_fail(
 			failures,
@@ -1823,7 +1826,7 @@ static func _run_depth_polearm_doctrine_action_weights(failures: PackedStringArr
 	mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var depth: Dictionary = mgr.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_doc_weights: expected open depth polearm lane")
 		_free_manager(mgr)
 		return
@@ -1881,7 +1884,7 @@ static func _run_depth_polearm_ai_doctrine_mults_encounter_preset(failures: Pack
 	mgr0.register(_new_entity("SWORD"), "enemy")
 	mgr0.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var depth0: Dictionary = mgr0.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr0, depth0):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr0, depth0):
 		_fail(failures, "depth_ai_mults: expected open depth polearm lane (baseline)")
 		_free_manager(mgr0)
 		return
@@ -1958,14 +1961,14 @@ static func _run_depth_polearm_ai_weight_mult_requires_valid_line_to_any_rank0(f
 	mgr_far.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
 	mgr_far._recompute_zoc_and_distance()
 	var depth_far: Dictionary = mgr_far.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr_far, depth_far):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr_far, depth_far):
 		_fail(failures, "ai_vlt_any: expected open lane")
 		_free_manager(mgr_far)
 		return
 	for i in range(2, 5):
 		(mgr_far.combatants[i] as Dictionary)["file"] = 7 + i
 	mgr_far._recompute_zoc_and_distance()
-	if _ActionsBuilder.depth_polearm_has_valid_line_threat_to_any_rank0_hostile(mgr_far, depth_far, mgr_far.combatants):
+	if _DepthPolearm.depth_polearm_has_valid_line_threat_to_any_rank0_hostile(mgr_far, depth_far, mgr_far.combatants):
 		_fail(failures, "ai_vlt_any: expected no valid-line rank-0 hostile after pushing files")
 		_free_manager(mgr_far)
 		return
@@ -1987,7 +1990,7 @@ static func _run_depth_polearm_ai_weight_mult_requires_valid_line_to_any_rank0(f
 	mgr3.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
 	mgr3._recompute_zoc_and_distance()
 	var depth3: Dictionary = mgr3.combatants[1]
-	if not _ActionsBuilder.depth_polearm_has_valid_line_threat_to_any_rank0_hostile(mgr3, depth3, mgr3.combatants):
+	if not _DepthPolearm.depth_polearm_has_valid_line_threat_to_any_rank0_hostile(mgr3, depth3, mgr3.combatants):
 		_fail(failures, "ai_vlt_any: standard 3-wide should have ≥1 valid-line rank-0 target")
 		_free_manager(mgr3)
 		return
@@ -2721,7 +2724,7 @@ static func _run_depth_polearm_lane_open_false_for_non_eligible_weapon(failures:
 	var e_preset := {"files": 1, "ranks": 1, "density": "normal"}
 	mgr.start(p_preset, e_preset)
 	var depth_sw: Dictionary = mgr.combatants[1]
-	if _ActionsBuilder.depth_polearm_lane_open(mgr, depth_sw):
+	if _DepthPolearm.depth_polearm_lane_open(mgr, depth_sw):
 		_fail(
 			failures,
 			"depth_lane_non_eligible: rank-1 sword must not open depth polearm lane (rank-0 ally present)"
@@ -2741,7 +2744,7 @@ static func _run_depth_polearm_lane_open_false_when_intruded(failures: PackedStr
 	p["intrusion_host_fid"] = "enemy"
 	p["rank"] = 1
 	p["file"] = 0
-	if _ActionsBuilder.depth_polearm_lane_open(mgr, p):
+	if _DepthPolearm.depth_polearm_lane_open(mgr, p):
 		_fail(
 			failures,
 			"depth_lane_intruded: intruded rank-1 spear must not open home depth polearm lane"
@@ -2758,7 +2761,7 @@ static func _run_depth_polearm_lane_open_false_at_rank_zero(failures: PackedStri
 	var front: Dictionary = mgr.combatants[0]
 	if _EntityAccess.rank_int(front) != 0:
 		_fail(failures, "depth_lane_r0: expected player spear at rank 0 got rank %s" % str(_EntityAccess.rank_int(front)))
-	if _ActionsBuilder.depth_polearm_lane_open(mgr, front):
+	if _DepthPolearm.depth_polearm_lane_open(mgr, front):
 		_fail(failures, "depth_lane_r0: rank-0 spear must not open depth polearm lane")
 	_free_manager(mgr)
 
@@ -2789,7 +2792,7 @@ static func _run_depth_polearm_lane_open_false_without_living_same_file_rank0(fa
 		return
 	front_f1["alive"] = false
 	mgr._recompute_zoc_and_distance()
-	if _ActionsBuilder.depth_polearm_lane_open(mgr, depth_f1):
+	if _DepthPolearm.depth_polearm_lane_open(mgr, depth_f1):
 		_fail(
 			failures,
 			"depth_lane_no_r0: rank-1 spear file 1 must not open lane when same-file rank-0 is dead"
@@ -2803,7 +2806,7 @@ static func _run_depth_polearm_lane_open_false_without_living_same_file_rank0(fa
 			break
 	if depth_f0.is_empty():
 		_fail(failures, "depth_lane_no_r0: expected player rank-1 at file 0")
-	elif not _ActionsBuilder.depth_polearm_lane_open(mgr, depth_f0):
+	elif not _DepthPolearm.depth_polearm_lane_open(mgr, depth_f0):
 		_fail(
 			failures,
 			"depth_lane_no_r0: rank-1 spear file 0 should still open lane (living same-file rank-0 at file 0)"
@@ -2867,7 +2870,7 @@ static func _run_depth_polearm_lane_open_false_when_same_file_rank0_incap(failur
 		_fail(failures, "depth_lane_r0_incap: rank-0 ally should read incapacitated")
 		_free_manager(mgr)
 		return
-	if _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(
 			failures,
 			"depth_lane_r0_incap: rank-1 spear must not open lane when same-file rank-0 is incapacitated"
@@ -2888,8 +2891,8 @@ static func _run_depth_polearm_lane_open_zone_geometry_fid_round_trip(failures: 
 		if not _EntityAccess.alive_bool(c):
 			continue
 		var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, c)
-		var o_default: bool = _ActionsBuilder.depth_polearm_lane_open(mgr, c, "")
-		var o_explicit: bool = _ActionsBuilder.depth_polearm_lane_open(mgr, c, fid)
+		var o_default: bool = _DepthPolearm.depth_polearm_lane_open(mgr, c, "")
+		var o_explicit: bool = _DepthPolearm.depth_polearm_lane_open(mgr, c, fid)
 		if o_default != o_explicit:
 			_fail(
 				failures,
@@ -2913,8 +2916,8 @@ static func _run_depth_polearm_lane_open_zone_geometry_fid_round_trip(failures: 
 		if not _EntityAccess.alive_bool(c):
 			continue
 		var fid_i: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr_i, c)
-		var o_def_i: bool = _ActionsBuilder.depth_polearm_lane_open(mgr_i, c, "")
-		var o_exp_i: bool = _ActionsBuilder.depth_polearm_lane_open(mgr_i, c, fid_i)
+		var o_def_i: bool = _DepthPolearm.depth_polearm_lane_open(mgr_i, c, "")
+		var o_exp_i: bool = _DepthPolearm.depth_polearm_lane_open(mgr_i, c, fid_i)
 		if o_def_i != o_exp_i:
 			_fail(
 				failures,
@@ -2934,7 +2937,7 @@ static func _run_depth_polearm_allows_low_targets_strict_tight_when_lane_open(fa
 	var e_preset := {"files": 1, "ranks": 1, "density": "normal"}
 	mgr.start(p_preset, e_preset)
 	var depth: Dictionary = mgr.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_allows_low: expected open depth polearm lane for setup")
 		_free_manager(mgr)
 		return
@@ -2942,10 +2945,10 @@ static func _run_depth_polearm_allows_low_targets_strict_tight_when_lane_open(fa
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
 	mgr.formations["player"]["density"] = "tight"
 	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
-	if _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth):
+	if _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth):
 		_fail(failures, "depth_allows_low: strict+tight+lane open+no wedge should not allow low targets")
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
-	if not _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth):
 		_fail(failures, "depth_allows_low: spear_lane_profile open should allow low targets on tight formation")
 	_free_manager(mgr)
 
@@ -2961,7 +2964,7 @@ static func _run_stamp_attack_pair_geometry_depth_lane_flags_consistent(failures
 	mgr.start(p_preset, e_preset)
 	var depth: Dictionary = mgr.combatants[1]
 	var enemy: Dictionary = mgr.combatants[2]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "stamp_depth_geom: expected open depth polearm lane")
 		_free_manager(mgr)
 		return
@@ -2971,7 +2974,7 @@ static func _run_stamp_attack_pair_geometry_depth_lane_flags_consistent(failures
 	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
 	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
 	var fd: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
-	var live_tight: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true)
+	var live_tight: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true)
 	var pa: Dictionary = {}
 	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, depth, enemy, pa)
 	if bool(pa.get("depth_polearm_attack", false)) != true:
@@ -2992,7 +2995,7 @@ static func _run_stamp_attack_pair_geometry_depth_lane_flags_consistent(failures
 		_fail(failures, "stamp_depth_geom: lane_type=%s expected %s (strict tight)" % [lt, expect_lt])
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
 	fd = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
-	var live_open: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true)
+	var live_open: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true)
 	var pa2: Dictionary = {}
 	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, depth, enemy, pa2)
 	if bool(pa2.get("depth_polearm_allows_low_targets", false)) != live_open:
@@ -3041,7 +3044,7 @@ static func _run_stamp_attack_pair_geometry_depth_defaults_non_depth_attack(fail
 		_fail(failures, "stamp_depth_def: expected rank-1 sword")
 		_free_manager(m1)
 		return
-	if _ActionsBuilder.depth_polearm_lane_open(m1, atk1):
+	if _DepthPolearm.depth_polearm_lane_open(m1, atk1):
 		_fail(failures, "stamp_depth_def: rank-1 sword should not open depth lane")
 		_free_manager(m1)
 		return
@@ -3061,7 +3064,7 @@ static func _run_depth_polearm_parts_filter_tracks_allows_low(failures: PackedSt
 	var e_preset := {"files": 1, "ranks": 1, "density": "normal"}
 	mgr.start(p_preset, e_preset)
 	var depth: Dictionary = mgr.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_parts_al: expected open depth polearm lane")
 		_free_manager(mgr)
 		return
@@ -3072,16 +3075,16 @@ static func _run_depth_polearm_parts_filter_tracks_allows_low(failures: PackedSt
 	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
 	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
 	var fd: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
-	if _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
+	if _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
 		_fail(failures, "depth_parts_al: strict+tight should not allow low targets before filter assert")
-	var filt_tight: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var filt_tight: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if filt_tight.has("left_leg") or filt_tight.has("right_leg"):
 		_fail(failures, "depth_parts_al: filter should drop legs when allows_low false (got %s)" % str(filt_tight))
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
 	fd = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
-	if not _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
+	if not _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
 		_fail(failures, "depth_parts_al: open profile should allow low targets before filter assert")
-	var filt_open: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var filt_open: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if not filt_open.has("left_leg") or not filt_open.has("right_leg"):
 		_fail(failures, "depth_parts_al: filter should keep legs when allows_low true (got %s)" % str(filt_open))
 	_free_manager(mgr)
@@ -3097,7 +3100,7 @@ static func _run_depth_polearm_parts_filter_wedge_opens_legs_strict_tight(failur
 	var e_preset := {"files": 1, "ranks": 1, "density": "normal"}
 	mgr.start(p_preset, e_preset)
 	var depth: Dictionary = mgr.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_parts_wedge: expected open depth polearm lane")
 		_free_manager(mgr)
 		return
@@ -3109,10 +3112,10 @@ static func _run_depth_polearm_parts_filter_wedge_opens_legs_strict_tight(failur
 	_IntrusionWedge.upsert_from_intrusion(mgr.formations["player"], df, 999_999, 0.92, 2, 2)
 	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
 	var fd: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
-	if not _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
+	if not _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
 		_fail(failures, "depth_parts_wedge: intrusion wedge should open low targets under strict+tight")
 	var parts_in: Array = ["head", "chest", "left_leg", "right_leg"]
-	var filt: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var filt: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if not filt.has("left_leg") or not filt.has("right_leg"):
 		_fail(failures, "depth_parts_wedge: filter should keep legs when wedge opens lane (got %s)" % str(filt))
 	_free_manager(mgr)
@@ -3128,7 +3131,7 @@ static func _run_depth_polearm_restricted_profile_requires_wedge_for_allows_low(
 	var e_preset := {"files": 1, "ranks": 1, "density": "normal"}
 	mgr.start(p_preset, e_preset)
 	var depth: Dictionary = mgr.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_prof_rest: expected open depth polearm lane")
 		_free_manager(mgr)
 		return
@@ -3140,18 +3143,18 @@ static func _run_depth_polearm_restricted_profile_requires_wedge_for_allows_low(
 	)
 	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
 	var fd: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
-	if _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
+	if _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
 		_fail(failures, "depth_prof_rest: restricted + loose should not allow lows without wedge")
 	var parts_in: Array = ["head", "left_leg", "right_leg"]
-	var filt_no_w: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var filt_no_w: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if filt_no_w.has("left_leg") or filt_no_w.has("right_leg"):
 		_fail(failures, "depth_prof_rest: filter should drop legs without wedge (got %s)" % str(filt_no_w))
 	var df: int = _EntityAccess.file_int(depth, 0)
 	_IntrusionWedge.upsert_from_intrusion(mgr.formations["player"], df, 999_999, 0.92, 2, 2)
 	fd = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
-	if not _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
+	if not _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
 		_fail(failures, "depth_prof_rest: wedge should allow lows under restricted profile")
-	var filt_w: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
+	var filt_w: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if not filt_w.has("left_leg") or not filt_w.has("right_leg"):
 		_fail(failures, "depth_prof_rest: filter should keep legs after wedge (got %s)" % str(filt_w))
 	_free_manager(mgr)
@@ -3167,7 +3170,7 @@ static func _run_depth_polearm_allows_low_formation_dict_cache_matches_null(fail
 	var e_preset := {"files": 1, "ranks": 1, "density": "normal"}
 	mgr.start(p_preset, e_preset)
 	var depth: Dictionary = mgr.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_al_fd_cache: expected open depth polearm lane")
 		_free_manager(mgr)
 		return
@@ -3178,8 +3181,8 @@ static func _run_depth_polearm_allows_low_formation_dict_cache_matches_null(fail
 	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
 	var fd: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
 	var fd_dup: Dictionary = fd.duplicate(true)
-	var a_tight: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
-	var b_tight: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd_dup, true)
+	var a_tight: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
+	var b_tight: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd_dup, true)
 	if a_tight != b_tight:
 		_fail(
 			failures,
@@ -3188,8 +3191,8 @@ static func _run_depth_polearm_allows_low_formation_dict_cache_matches_null(fail
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
 	fd = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
 	fd_dup = fd.duplicate(true)
-	var a_open: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
-	var b_open: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd_dup, true)
+	var a_open: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
+	var b_open: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd_dup, true)
 	if a_open != b_open:
 		_fail(
 			failures,
@@ -3210,7 +3213,7 @@ static func _run_depth_polearm_parts_filter_pass_through_when_no_depth_lane_use(
 		_free_manager(m0)
 		return
 	var parts0: Array = ["head", "left_leg", "right_leg"]
-	var out0: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(m0, atk0, parts0)
+	var out0: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(m0, atk0, parts0)
 	if out0 != parts0:
 		_fail(failures, "depth_parts_pass: rank-0 should not filter parts (got %s)" % str(out0))
 	_free_manager(m0)
@@ -3225,12 +3228,12 @@ static func _run_depth_polearm_parts_filter_pass_through_when_no_depth_lane_use(
 		_fail(failures, "depth_parts_pass: expected rank-1 sword")
 		_free_manager(m1)
 		return
-	if _ActionsBuilder.depth_polearm_lane_open(m1, atk1):
+	if _DepthPolearm.depth_polearm_lane_open(m1, atk1):
 		_fail(failures, "depth_parts_pass: rank-1 sword should not open depth lane")
 		_free_manager(m1)
 		return
 	var parts1: Array = ["head", "left_leg"]
-	var out1: Array = _ActionsBuilder.depth_polearm_targetable_parts_filter(m1, atk1, parts1)
+	var out1: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(m1, atk1, parts1)
 	if out1 != parts1:
 		_fail(failures, "depth_parts_pass: lane closed should not filter parts (got %s)" % str(out1))
 	_free_manager(m1)
@@ -3248,7 +3251,7 @@ static func _run_depth_polearm_allows_low_assume_skips_closed_lane_guard(failure
 		_fail(failures, "depth_al_assume: expected rank-1 depth combatant")
 		_free_manager(mgr)
 		return
-	if _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_al_assume: rank-1 sword must not open depth polearm lane")
 		_free_manager(mgr)
 		return
@@ -3257,8 +3260,8 @@ static func _run_depth_polearm_allows_low_assume_skips_closed_lane_guard(failure
 	mgr.formations["player"]["density"] = "tight"
 	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
 	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
-	var without_assume: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, false)
-	var with_assume: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
+	var without_assume: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, false)
+	var with_assume: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
 	if not without_assume:
 		_fail(
 			failures,
@@ -3282,7 +3285,7 @@ static func _run_depth_polearm_allows_low_assume_agrees_when_lane_open(failures:
 	mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var depth: Dictionary = mgr.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_al_agree: expected open depth polearm lane")
 		_free_manager(mgr)
 		return
@@ -3291,8 +3294,8 @@ static func _run_depth_polearm_allows_low_assume_agrees_when_lane_open(failures:
 	mgr.formations["player"]["density"] = "tight"
 	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
 	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
-	var tight_no_assume: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, false)
-	var tight_with_assume: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
+	var tight_no_assume: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, false)
+	var tight_with_assume: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
 	if tight_no_assume != tight_with_assume:
 		_fail(
 			failures,
@@ -3300,8 +3303,8 @@ static func _run_depth_polearm_allows_low_assume_agrees_when_lane_open(failures:
 			% [str(tight_no_assume), str(tight_with_assume)]
 		)
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
-	var open_no_assume: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, false)
-	var open_with_assume: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
+	var open_no_assume: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, false)
+	var open_with_assume: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
 	if open_no_assume != open_with_assume:
 		_fail(
 			failures,
@@ -3345,8 +3348,8 @@ static func _assert_depth_polearm_allows_low_fid_round_trip_slice(
 			if not _EntityAccess.alive_bool(c):
 				continue
 			var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, c)
-			var via_empty: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, c, "", null, assume_open)
-			var via_fid: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr, c, fid, null, assume_open)
+			var via_empty: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, c, "", null, assume_open)
+			var via_fid: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, c, fid, null, assume_open)
 			if via_empty != via_fid:
 				_fail(
 					failures,
@@ -3376,7 +3379,7 @@ static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: P
 			_fail(failures, "%s: alive id=%d missing from lane cache" % [ctx, cid])
 			continue
 		var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, c)
-		var live: bool = _ActionsBuilder.depth_polearm_lane_open(mgr, c, fid)
+		var live: bool = _DepthPolearm.depth_polearm_lane_open(mgr, c, fid)
 		if bool(by_id[cid]) != live:
 			_fail(
 				failures,
@@ -3730,7 +3733,7 @@ static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures:
 	mgr_far.combat_clock = 10.0
 	mgr_far._recompute_zoc_and_distance()
 	var depth_far: Dictionary = mgr_far.combatants[1]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr_far, depth_far):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr_far, depth_far):
 		_fail(failures, "ally_press_dep: far layout expected open depth lane")
 		_free_manager(mgr_far)
 		return
@@ -3844,7 +3847,7 @@ static func _run_targeting_file_opposed_mult(failures: PackedStringArray) -> voi
 	en_off["file"] = 1
 	en_off["rank"] = 0
 	mgr2._recompute_zoc_and_distance()
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr2, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr2, depth):
 		_fail(failures, "file_opposed_mult_depth: expected depth spear lane open")
 		_free_manager(mgr2)
 		return
@@ -4472,7 +4475,7 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 	mgr2._recompute_zoc_and_distance()
 	var depth: Dictionary = mgr2.combatants[1]
 	var en: Dictionary = mgr2.combatants[2]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr2, depth):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr2, depth):
 		_fail(failures, "windup_geom: expected depth polearm lane open")
 	else:
 		var d_id: int = _EntityAccess.id_int(depth)
@@ -4501,7 +4504,7 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 					"windup_geom: depth file_spacing_eq stamp %.4f vs builder %.4f"
 					% [float(pa1.get("effective_pair_file_spacing_equivalent", -1.0)), want_space1]
 				)
-			var want_allow: bool = _ActionsBuilder.depth_polearm_lane_allows_low_targets(mgr2, depth)
+			var want_allow: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr2, depth)
 			if bool(pa1.get("depth_polearm_allows_low_targets", not want_allow)) != want_allow:
 				_fail(
 					failures,
@@ -4536,7 +4539,7 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 	mgr3._recompute_zoc_and_distance()
 	var depth3: Dictionary = mgr3.combatants[1]
 	var en30: Dictionary = mgr3.combatants[2]
-	if not _ActionsBuilder.depth_polearm_lane_open(mgr3, depth3):
+	if not _DepthPolearm.depth_polearm_lane_open(mgr3, depth3):
 		_fail(failures, "windup_geom: 3-file enemy expected depth polearm lane open")
 	elif not _ActionsBuilder.can_melee_threaten(mgr3, depth3, en30):
 		_fail(failures, "windup_geom: 3-file enemy depth should melee-threaten file-opposed rank-0")
@@ -7982,6 +7985,17 @@ static func _run_combat_ui_hints_footwork_stale_stamp_prefers_live_offset(failur
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if live != want_live:
 		_fail(failures, "ui_hints_footwork_stale: want '%s' got '%s'" % [want_live, live])
+
+
+## Tier 4.2 / 4.4: **`CombatUiHints.gauge_tooltip_lines`** reads stamped counter-tempo row keys.
+static func _run_combat_ui_hints_gauge_tooltip_counter_ready(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_counter_tempo_load(true)
+	var c: Dictionary = {"counter_tempo_ui_hint": "counter_ready"}
+	var tips: PackedStringArray = _UiHints.gauge_tooltip_lines(c)
+	var joined: String = "\n".join(tips)
+	CombatConstants.set_feature_counter_tempo_load(true)
+	if not joined.contains("Counter window open"):
+		_fail(failures, "ui_hints_gauge_counter: want counter open tip got '%s'" % joined)
 
 
 ## Tier 4.4 UI: stamped hint without offset is ignored (row/diagram stay blank).
@@ -15251,7 +15265,7 @@ static func _run_medical_mobility_cowering_react_after_hit_arm_loss(
 	_EventScheduler.schedule_action_ready(mgr, def_id, 0.2)
 	_harness_destroy_limb(def_ent, "right_arm")
 	_harness_destroy_limb(def_ent, "left_arm")
-	_ActionsBuilder.react_attacking_arm_lost_if_needed(mgr, def)
+	_MobilityRetreat.react_attacking_arm_lost_if_needed(mgr, def)
 	if _EntityAccess.state_str(def) != CombatConstants.STATE_COWERING:
 		_fail(
 			failures,
@@ -15441,13 +15455,13 @@ static func _run_medical_mobility_cowering_parry_deflect_clears_bind_without_arm
 static func _run_medical_mobility_cowering_is_offensive_move_id_helper(
 	failures: PackedStringArray
 ) -> void:
-	if not _ActionsBuilder.is_offensive_melee_move_id("overhead_strike"):
+	if not _MobilityRetreat.is_offensive_melee_move_id("overhead_strike"):
 		_fail(failures, "med_mobility_off_id: strike should be offensive")
-	if _ActionsBuilder.is_offensive_melee_move_id(CombatConstants.MOVE_ID_WAIT):
+	if _MobilityRetreat.is_offensive_melee_move_id(CombatConstants.MOVE_ID_WAIT):
 		_fail(failures, "med_mobility_off_id: wait must not be offensive")
-	if _ActionsBuilder.is_offensive_melee_move_id(CombatConstants.MOVE_ID_FALL_BACK):
+	if _MobilityRetreat.is_offensive_melee_move_id(CombatConstants.MOVE_ID_FALL_BACK):
 		_fail(failures, "med_mobility_off_id: fall_back must not be offensive")
-	if not _ActionsBuilder.is_offensive_melee_move_id(CombatConstants.MOVE_ID_CRASH):
+	if not _MobilityRetreat.is_offensive_melee_move_id(CombatConstants.MOVE_ID_CRASH):
 		_fail(failures, "med_mobility_off_id: crash should be offensive")
 
 

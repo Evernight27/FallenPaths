@@ -158,7 +158,7 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 	if _EntityAccess.side_str(init) != _EntityAccess.side_str(partner) or _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
 		return
 	var fid: String = _EntityAccess.formation_id_str(init)
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty() or formation.get("ranks", 1) <= 1:
 		return
 	var r0: int = _EntityAccess.rank_int(init)
@@ -217,7 +217,7 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 	if _ZoneOfControl.is_intruded(init):
 		return
 	var fid: String = _EntityAccess.formation_id_str(init)
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return
 	var ranks: int = formation.get("ranks", 1)
@@ -313,7 +313,7 @@ static func abort_pair(manager: Node, init, partner, reason: String = "") -> voi
 	if init != null and partner != null:
 		var fid: String = _EntityAccess.formation_id_str(init)
 		if not fid.is_empty() and _EntityAccess.formation_id_str(init) == _EntityAccess.formation_id_str(partner):
-			var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+			var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 			var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 			_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(init))
 			_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(partner))
@@ -374,21 +374,21 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	if not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
 		abort_pair(manager, init, partner, "swap_rank_resolve_not_alive")
 		if init != null and _EntityAccess.alive_bool(init):
-			manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
+			_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 		if partner != null and _EntityAccess.alive_bool(partner):
-			manager._schedule_action_ready(partner_id, manager._action_ready_cooldown(partner))
+			_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
 		return
 	if not pair_state_ok(init) or not pair_state_ok(partner):
 		var si: String = _EntityAccess.state_str(init) if init != null else "null"
 		var sp: String = _EntityAccess.state_str(partner) if partner != null else "null"
 		abort_pair(manager, init, partner, "swap_rank_resolve_pair_state init=%s partner=%s" % [si, sp])
 		if init != null and _EntityAccess.alive_bool(init):
-			manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
+			_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 		if partner != null and _EntityAccess.alive_bool(partner):
-			manager._schedule_action_ready(partner_id, manager._action_ready_cooldown(partner))
+			_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
 		return
 	var fid: String = _EntityAccess.formation_id_str(init)
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		abort_pair(manager, init, partner, "swap_rank_resolve_formation_empty fid=%s" % fid)
 		return
@@ -442,9 +442,11 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	manager._recompute_zoc_and_distance()
 	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)
-	manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
+	_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 	if partner != null and _EntityAccess.alive_bool(partner) and not _EntityAccess.is_incapacitated(partner):
-		manager._schedule_action_ready(partner_id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
+		_EventScheduler.schedule_action_ready(
+			manager, partner_id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S
+		)
 
 
 static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void:
@@ -457,7 +459,7 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 	if _EntityAccess.state_str(init) != CombatConstants.STATE_FALLING_BACK:
 		return
 	var fid: String = _EntityAccess.formation_id_str(init)
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		init.state = CombatConstants.STATE_WAITING
 		return
@@ -466,7 +468,7 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 	if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(1, f)):
 		CombatDebug.flow_log("fall_back_solo_resolve id=%d aborted: rear slot (1,%d) occupied" % [initiator_id, f])
 		init.state = CombatConstants.STATE_WAITING
-		manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
+		_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 		return
 	_FormationSlots.remove_combatant_from_slots(slots, initiator_id)
 	init.rank = 1
@@ -479,7 +481,7 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 	manager._recompute_zoc_and_distance()
 	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)
-	manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
+	_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 
 
 static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
@@ -500,12 +502,12 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 		var sp2: String = _EntityAccess.state_str(partner) if partner != null else "null"
 		abort_pair(manager, init, partner, "rotate_file_resolve_pair_state init=%s partner=%s" % [si2, sp2])
 		if init != null and _EntityAccess.alive_bool(init):
-			manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
+			_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 		if partner != null and _EntityAccess.alive_bool(partner):
-			manager._schedule_action_ready(partner_id, manager._action_ready_cooldown(partner))
+			_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
 		return
 	var fid: String = _EntityAccess.formation_id_str(init)
-	var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		abort_pair(manager, init, partner, "rotate_file_resolve_formation_empty fid=%s" % fid)
 		return
@@ -538,8 +540,8 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 	manager._recompute_zoc_and_distance()
 	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)
-	manager._schedule_action_ready(initiator_id, manager._action_ready_cooldown(init))
-	manager._schedule_action_ready(partner_id, manager._action_ready_cooldown(partner))
+	_EventScheduler.schedule_action_ready_for_combatant(manager, init)
+	_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
 
 
 ## After crash success: clear intruder from home `slots`, place in host anchor **column** at first free rank â‰¥ 1 (behind their line), align rank/file, vacancy plug home column.
@@ -556,8 +558,8 @@ static func apply_intrusion_after_crash_success(
 	var fid_a: String = _EntityAccess.formation_id_str(atk)
 	if fid_a.is_empty() or defender_formation_id.is_empty():
 		return
-	var form_a: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid_a)
-	var form_b: Dictionary = _FormationSlots.formation_record_read(manager.formations, defender_formation_id)
+	var form_a: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid_a)
+	var form_b: Dictionary = _FormationSlots.formation_record_for_manager(manager, defender_formation_id)
 	if form_a.is_empty() or form_b.is_empty():
 		return
 	var aid: int = _EntityAccess.id_int(atk)
@@ -567,7 +569,7 @@ static func apply_intrusion_after_crash_success(
 	var first_intrusion: bool = stored_home < 0
 	var home_vacancy_file: int = _EntityAccess.file_int(atk) if first_intrusion else stored_home
 	for fk in manager.formations.keys():
-		var fd: Dictionary = _FormationSlots.formation_record_read(manager.formations, str(fk))
+		var fd: Dictionary = _FormationSlots.formation_record_for_manager(manager, str(fk))
 		if fd.is_empty():
 			continue
 		_FormationSlots.remove_combatant_from_slots(_FormationSlots.formation_slots_dict(fd), aid)
@@ -606,7 +608,7 @@ static func _nudge_anchor_rank0_lane_offset_for_intrusion(
 ) -> void:
 	if manager == null or not manager.has_method("_get_by_id"):
 		return
-	var form_b: Dictionary = _FormationSlots.formation_record_read(manager.formations, defender_formation_id)
+	var form_b: Dictionary = _FormationSlots.formation_record_for_manager(manager, defender_formation_id)
 	if form_b.is_empty():
 		return
 	var slots_b: Dictionary = _FormationSlots.formation_slots_dict(form_b)
@@ -640,7 +642,7 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 	var fid_geom: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
 	# Intruders may occupy host `slots` while `formation_id` stays home â€” strip from every formation first.
 	for fk in manager.formations.keys():
-		var fd: Dictionary = _FormationSlots.formation_record_read(manager.formations, str(fk))
+		var fd: Dictionary = _FormationSlots.formation_record_for_manager(manager, str(fk))
 		if fd.is_empty():
 			continue
 		var s: Dictionary = _FormationSlots.formation_slots_dict(fd)
@@ -661,44 +663,7 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 		obstacles[key] = []
 	obstacles[key].append(_EntityAccess.id_int(c))
 	if formation.get("ranks", 1) > 1:
-		var formation_ranks: int = formation.get("ranks", 1)
-		var nfiles_death: int = int(formation.get("files", 1))
-		_VacancyPlugs._vacancy_lateral_begin_tracking(manager)
-		var micro_max_d: int = CombatConstants.FORMATION_VACANCY_MICRO_STEPS_MAX
-		for _micro_d in range(micro_max_d):
-			var moved_step_d: bool = false
-			for fill_rank in range(formation_ranks - 1, -1, -1):
-				if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(fill_rank, f)):
-					continue
-				if fill_rank > 0 and not _VacancyPlugs._has_living_deeper_in_file(
-					manager, slots, fill_rank, f, formation_ranks
-				):
-					continue
-				var reserved_d: Dictionary = _VacancyPlugs._vacancy_plug_reserved_donors(manager)
-				var allow_lateral_d: bool = true
-				var side_death: String = _FormationSlots.formation_side_str(formation)
-				var move_d: Dictionary = _VacancyPlugs._select_best_plug_move_for_empty_cell(
-					manager,
-					fid_geom,
-					slots,
-					fill_rank,
-					f,
-					formation_ranks,
-					nfiles_death,
-					side_death,
-					true,
-					reserved_d,
-					true,
-					allow_lateral_d
-				)
-				if move_d.is_empty():
-					continue
-				_VacancyPlugs._apply_plug_move(manager, slots, move_d, fill_rank, f, "Plug")
-				moved_step_d = true
-				break
-			if not moved_step_d:
-				break
-		_VacancyPlugs._vacancy_lateral_end_tracking(manager)
+		_VacancyPlugs.run_death_column_micro_plug(manager, formation, fid_geom, slots, f)
 	manager._recompute_zoc_and_distance()
 	if CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
 		manager.mark_all_formations_vacancy_dirty()

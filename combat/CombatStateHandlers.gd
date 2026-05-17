@@ -14,6 +14,7 @@ const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
+const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 
 ## Checks if combatant died this tick (e.g. bled out). Mutates c, emits action_resolved if died.
 ## Returns victor string if battle should end (non-empty), else "".
@@ -48,9 +49,7 @@ static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 		var who_name: String = _EntityAccess.get_display_name(c)
 		print("[Combat] %s no longer cowering (arm functionality returned)." % who_name)
-		# Schedule ACTION_READY so they can act (use centralized scheduling to avoid duplicates)
-		if manager.has_method("_schedule_action_ready"):
-			manager._schedule_action_ready(_EntityAccess.id_int(c), 0.05)
+		_EventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
 		return false
 	# Mobile cowering (no arms, functional legs): allow ticks so formation retreat can be offered
 	if _EntityAccess.is_cowering(c):
@@ -114,8 +113,7 @@ static func process_medical_wind_up_cancel(manager: Node, c: Dictionary) -> bool
 		c.state_timer = 0.0
 		c.state_duration = 0.0
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
-		if manager.has_method("_schedule_action_ready"):
-			manager._schedule_action_ready(_EntityAccess.id_int(c), 0.05)
+		_EventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
 		return true
 	var pm_check: Dictionary = pm_raw_check as Dictionary
 	var tgt_cid_check: int = pm_check.get("target_combatant_id", _EntityAccess.id_int(c))
@@ -133,9 +131,7 @@ static func process_medical_wind_up_cancel(manager: Node, c: Dictionary) -> bool
 	c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	var who_name: String = _EntityAccess.get_display_name(c)
 	print("[Combat] Medical cancelled: %s (target died during wind-up)" % who_name)
-	# Schedule ACTION_READY so they can act (use centralized scheduling to avoid duplicates)
-	if manager.has_method("_schedule_action_ready"):
-		manager._schedule_action_ready(_EntityAccess.id_int(c), 0.05)
+	_EventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
 	return true
 
 static func process_receiving_medical(manager: Node, c: Dictionary, delta: float) -> void:

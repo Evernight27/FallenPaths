@@ -5,7 +5,7 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
@@ -64,9 +64,9 @@ static func handle_action_ready(manager: Node, c: Dictionary) -> void:
 		return
 	if _MedicalPhase.combat_resolution_blocked(manager) and _MedicalPhase.is_losing_side(manager, c):
 		return
-	_ActionsBuilder.sync_cowering_state_if_no_functional_arm(c)
+	_MobilityRetreat.sync_cowering_state_if_no_functional_arm(c)
 	var state: String = _EntityAccess.state_str(c)
-	var retreat_only: bool = _ActionsBuilder.formation_retreat_only_for(c)
+	var retreat_only: bool = _MobilityRetreat.formation_retreat_only_for(c)
 	var mobile_retreat_ready: bool = retreat_only and _EntityAccess.can_flee_or_fall_back(c)
 	if _EntityAccess.is_incapacitated(c) and not mobile_retreat_ready:
 		return
@@ -100,7 +100,7 @@ static func handle_melee_attack(manager: Node, c: Dictionary) -> void:
 		return
 	if c.is_empty() or not _EntityAccess.alive_bool(c) or _EntityAccess.state_str(c) != CombatConstants.STATE_WIND_UP:
 		return
-	if _ActionsBuilder.cannot_commit_melee(c):
+	if _MobilityRetreat.cannot_commit_melee(c):
 		_CounterTempo.abort_attacker_wind_up(manager, _EntityAccess.id_int(c))
 		return
 	manager._execute_attack(_EntityAccess.id_int(c))
@@ -128,8 +128,9 @@ static func handle_recovery_end(manager: Node, c: Dictionary) -> void:
 	var cid: int = _EntityAccess.id_int(c)
 	_EventScheduler.cancel_pending_action_ready(manager, cid)
 	_StateHandlers.complete_recovery(manager, c)
-	if _EntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
-		manager._schedule_action_ready(cid, manager._action_ready_cooldown(c))
-	elif _EntityAccess.state_str(c) == CombatConstants.STATE_COWERING:
-		if _EntityAccess.can_flee_or_fall_back(c):
-			manager._schedule_action_ready(cid, manager._action_ready_cooldown(c))
+	if _EntityAccess.state_str(c) in [CombatConstants.STATE_WAITING, CombatConstants.STATE_COWERING]:
+		if (
+			_EntityAccess.state_str(c) == CombatConstants.STATE_WAITING
+			or _EntityAccess.can_flee_or_fall_back(c)
+		):
+			_EventScheduler.schedule_action_ready_for_combatant(manager, c)

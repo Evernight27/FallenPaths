@@ -157,9 +157,7 @@ static func halt_losing_side_combat(manager: Node) -> void:
 
 ## Same threshold as bleed-out death (`CoreEntity._get_blood_loss_death_threshold` / `EntityWounds`).
 static func _blood_loss_death_threshold_for_entity(entity: Node) -> float:
-	if entity != null and entity.has_method("_get_blood_loss_death_threshold"):
-		return float(entity._get_blood_loss_death_threshold())
-	return _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+	return _EntityAccess.entity_blood_loss_death_threshold(entity)
 
 ## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated.
 static func can_end_medical_phase(manager: Node) -> bool:
@@ -180,13 +178,11 @@ static func can_end_medical_phase(manager: Node) -> bool:
 
 ## True if combatant has any wounded part not comprehensively treated (bandaged, packed, or tourniqueted).
 static func has_untreated_wounds(manager: Node, c: Dictionary) -> bool:
+	var wounded: Array = _EntityAccess.entity_get_wounded_parts(manager, c)
+	if wounded.is_empty():
+		return false
 	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
 	if entity == null:
-		return false
-	if not entity.has_method("get_wounded_parts"):
-		return false
-	var wounded: Array = entity.get_wounded_parts()
-	if wounded.is_empty():
 		return false
 	var bandaged: Dictionary = entity.bandaged_parts if "bandaged_parts" in entity else {}
 	var packed: Dictionary = entity.packed_parts if "packed_parts" in entity else {}
@@ -305,9 +301,7 @@ static func get_part_intervention_threat(manager: Node, c: Dictionary, part: Str
 	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
 	if entity == null:
 		return 0.0
-	var rate: float = 0.0
-	if entity.has_method("get_bleeding_rate_for_part"):
-		rate = float(entity.get_bleeding_rate_for_part(part))
+	var rate: float = _EntityAccess.entity_bleeding_rate_for_part(manager, c, part)
 	var bonus: float = 0.0
 	if "wounds" in entity and entity.wounds is Dictionary and entity.wounds.has(part):
 		for injury in entity.wounds[part]:
@@ -320,33 +314,39 @@ static func get_part_intervention_threat(manager: Node, c: Dictionary, part: Str
 				bonus += 1.6
 			elif sev == _Bleeding.SEVERITY_SEVERE:
 				bonus += 0.85
-	if entity.has_method("is_tourniquet_indicated_for_part") and entity.is_tourniquet_indicated_for_part(part):
+	if _EntityAccess.entity_is_tourniquet_indicated_for_part(manager, c, part):
 		bonus += 1.15
 	return rate * 3.5 + bonus
 
 ## Returns list of { move_id, target_part } for medical actions the performer can apply to the ally's part.
 static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally: Dictionary, part: String) -> Array:
 	var out: Array = []
-	var target_entity: Node = _EntityAccess.get_entity_from_manager(manager, ally)
-	var perf_n: Node = _EntityAccess.scene_node(performer)
-	var performer_has_arm: bool = perf_n.can_apply_direct_pressure("") if (perf_n != null and perf_n.has_method("can_apply_direct_pressure")) else false
 	var fp_raw: Variant = ally.get("failed_medical_parts", null)
 	var failed_parts: Array = (fp_raw as Array) if fp_raw is Array else []
 	var skip_redress: bool = has_left_immediate_peril_permanently(manager, ally) and part in failed_parts
 	# Bandage / pack / tourniquet stay available while someone holds direct pressure on this part (classic first aid).
-	if not skip_redress and target_entity != null and target_entity.has_method("can_apply_bandage") and target_entity.can_apply_bandage(part):
+	if not skip_redress and _EntityAccess.entity_can_apply_bandage(manager, ally, part):
 		out.append({ "move_id": "bandage_self", "target_part": part })
-	if not skip_redress and target_entity != null and target_entity.has_method("can_apply_packing") and target_entity.can_apply_packing(part):
+	if not skip_redress and _EntityAccess.entity_can_apply_packing(manager, ally, part):
 		out.append({ "move_id": "pack_wound", "target_part": part })
-	if target_entity != null and target_entity.has_method("has_direct_pressure_on_part") and target_entity.has_direct_pressure_on_part(part):
+	if _EntityAccess.entity_has_direct_pressure_on_part(manager, ally, part):
 		pass
-	elif performer_has_arm and perf_n != null and perf_n.has_method("is_applying_direct_pressure") and not perf_n.is_applying_direct_pressure():
-		if _EntityAccess.id_int(performer) == _EntityAccess.id_int(ally) and target_entity != null and not target_entity.can_apply_direct_pressure(part):
+	elif (
+		_EntityAccess.scene_can_apply_direct_pressure(performer, "")
+		and not _EntityAccess.is_applying_direct_pressure_scene(performer)
+	):
+		if (
+			_EntityAccess.id_int(performer) == _EntityAccess.id_int(ally)
+			and not _EntityAccess.entity_can_apply_direct_pressure(manager, ally, part)
+		):
 			pass
 		else:
 			out.append({ "move_id": "apply_direct_pressure", "target_part": part })
-	if not skip_redress and target_entity != null and target_entity.has_method("can_apply_tourniquet") and target_entity.can_apply_tourniquet(part):
-		if target_entity.has_method("is_tourniquet_indicated_for_part") and target_entity.is_tourniquet_indicated_for_part(part):
-			out.append({ "move_id": "apply_tourniquet", "target_part": part })
+	if (
+		not skip_redress
+		and _EntityAccess.entity_can_apply_tourniquet(manager, ally, part)
+		and _EntityAccess.entity_is_tourniquet_indicated_for_part(manager, ally, part)
+	):
+		out.append({ "move_id": "apply_tourniquet", "target_part": part })
 	return out
 

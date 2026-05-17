@@ -72,7 +72,7 @@ static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
 static func _front_files_for_side(manager: Node, side: String) -> int:
 	if manager == null:
 		return 1
-	var form: Dictionary = _FormationSlots.formation_record_read(manager.formations, side)
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, side)
 	if form.is_empty():
 		return 1
 	return maxi(1, int(form.get("files", 1)))

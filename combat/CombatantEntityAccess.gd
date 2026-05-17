@@ -1,6 +1,8 @@
 class_name CombatantEntityAccess
 extends RefCounted
 
+const _Bleeding := preload("res://core/BleedingConstants.gd")
+
 ## Centralized access to combatant node/entity for weapon, armor, performance, etc.
 ## Reduces repeated node.has_method("get_weapon") patterns across AttackResolver, DefenseChoiceResolver, etc.
 
@@ -92,14 +94,49 @@ static func parry_wobble_context_for_combatant(combatant: Dictionary, parry_read
 	return parry_wobble_context(get_weapon(combatant), parry_readiness)
 
 
+static func weapon_archetype_id(
+	weapon: Variant, move_id: String, default_id: String = WeaponConstants.ARCHETYPE_SLASH
+) -> String:
+	if weapon == null or not weapon.has_method("get_archetype_id"):
+		return default_id
+	return str(weapon.get_archetype_id(move_id))
+
+
 static func weapon_archetype_for_move(
 	weapon: Variant,
 	move_id: String,
 	default_archetype_id: String = WeaponConstants.ARCHETYPE_SLASH
 ) -> Dictionary:
-	if weapon == null or not weapon.has_method("get_archetype_id"):
-		return WeaponConstants.get_archetype(default_archetype_id)
-	return WeaponConstants.get_archetype(weapon.get_archetype_id(move_id))
+	return WeaponConstants.get_archetype(weapon_archetype_id(weapon, move_id, default_archetype_id))
+
+
+static func weapon_has_parts(weapon: Variant) -> bool:
+	return weapon != null and weapon.has_method("has_parts") and weapon.has_parts()
+
+
+static func weapon_parry_strong_fraction(weapon: Variant, default_frac: float = 0.25) -> float:
+	if weapon == null or not weapon.has_method("get_parry_strong_fraction"):
+		return default_frac
+	return float(weapon.get_parry_strong_fraction())
+
+
+static func weapon_parry_part_length_cm(weapon: Variant, default_len: float = 0.0) -> float:
+	if weapon == null or not weapon.has_method("get_parry_part_length_cm"):
+		return default_len
+	return float(weapon.get_parry_part_length_cm())
+
+
+## Striking-segment mass for parry/block; falls back to total weapon mass or baseline.
+static func weapon_striking_mass_kg(weapon: Variant, contact_type: String = "") -> float:
+	if weapon_has_parts(weapon):
+		return float(weapon.get_striking_part_mass_kg(contact_type))
+	return weapon_mass_kg(weapon)
+
+
+static func weapon_parry_part_mass_kg(weapon: Variant) -> float:
+	if weapon_has_parts(weapon) and weapon.has_method("get_parry_part_mass_kg"):
+		return float(weapon.get_parry_part_mass_kg())
+	return weapon_mass_kg(weapon)
 
 
 static func weapon_parry_contact_type(weapon: Variant, default_pct: String = "blade") -> String:
@@ -154,6 +191,65 @@ static func entity_has_wound_part(manager: Node, combatant: Dictionary, part: St
 	if entity == null or not entity.has_method("get_wounds"):
 		return false
 	return entity.get_wounds().has(part)
+
+
+static func entity_get_wounded_parts(manager: Node, combatant: Dictionary) -> Array:
+	var entity: Node = get_entity_from_manager(manager, combatant)
+	if entity == null or not entity.has_method("get_wounded_parts"):
+		return []
+	return entity.get_wounded_parts()
+
+
+static func entity_bleeding_rate_for_part(
+	manager: Node, combatant: Dictionary, part: String
+) -> float:
+	var entity: Node = get_entity_from_manager(manager, combatant)
+	if entity == null or not entity.has_method("get_bleeding_rate_for_part"):
+		return 0.0
+	return float(entity.get_bleeding_rate_for_part(part))
+
+
+static func entity_can_apply_bandage(manager: Node, combatant: Dictionary, part: String) -> bool:
+	var entity: Node = get_entity_from_manager(manager, combatant)
+	if entity == null or not entity.has_method("can_apply_bandage"):
+		return false
+	return entity.can_apply_bandage(part)
+
+
+static func entity_can_apply_packing(manager: Node, combatant: Dictionary, part: String) -> bool:
+	var entity: Node = get_entity_from_manager(manager, combatant)
+	if entity == null or not entity.has_method("can_apply_packing"):
+		return false
+	return entity.can_apply_packing(part)
+
+
+static func entity_can_apply_tourniquet(manager: Node, combatant: Dictionary, part: String) -> bool:
+	var entity: Node = get_entity_from_manager(manager, combatant)
+	if entity == null or not entity.has_method("can_apply_tourniquet"):
+		return false
+	return entity.can_apply_tourniquet(part)
+
+
+static func entity_is_tourniquet_indicated_for_part(
+	manager: Node, combatant: Dictionary, part: String
+) -> bool:
+	var entity: Node = get_entity_from_manager(manager, combatant)
+	if entity == null or not entity.has_method("is_tourniquet_indicated_for_part"):
+		return false
+	return entity.is_tourniquet_indicated_for_part(part)
+
+
+static func entity_blood_loss_death_threshold(entity: Node) -> float:
+	if entity != null and entity.has_method("_get_blood_loss_death_threshold"):
+		return float(entity._get_blood_loss_death_threshold())
+	return _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+
+
+static func scene_can_apply_direct_pressure(combatant: Dictionary, part: String) -> bool:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("can_apply_direct_pressure"):
+		return false
+	return node.can_apply_direct_pressure(part)
 
 
 static func entity_apply_direct_pressure(manager: Node, combatant: Dictionary, part: String) -> bool:
@@ -516,10 +612,10 @@ static func is_unconscious(combatant: Dictionary) -> bool:
 		return false
 	return node.is_unconscious()
 
-## Tier 6.1: arm loss during combat — sync cowering, cancel stale turns, abort wind-up (see **`AvailableActionsBuilder`**).
+## Tier 6.1: arm loss during combat — sync cowering, cancel stale turns, abort wind-up (see **`CombatMobilityRetreat`**).
 static func react_attacking_arm_lost_if_needed(manager: Node, combatant: Dictionary) -> void:
-	const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
-	_ActionsBuilder.react_attacking_arm_lost_if_needed(manager, combatant)
+	const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
+	_MobilityRetreat.react_attacking_arm_lost_if_needed(manager, combatant)
 
 
 ## True when unit has no functional attacking arm (cowering posture on entity).

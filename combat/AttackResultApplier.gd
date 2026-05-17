@@ -16,7 +16,7 @@ const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 static func _log_outcome(action: String, atk_id: int, tgt_id: int) -> void:
@@ -198,7 +198,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			var eff_line: String = atk.get("effective_attack_line", "") if atk != null else ""
 			_GuardUpdater.set_guard_from_move(tgt, move_id, eff_line)
 			tgt["parry_bonus_until"] = CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
-			if not _ActionsBuilder.cannot_commit_melee(tgt):
+			if not _MobilityRetreat.cannot_commit_melee(tgt):
 				_CounterTempo.grant_riposte_chain(manager, tgt, attacker_id)
 				var clash_raw: Variant = result.get("parry_clash_context", null)
 				var clash: Dictionary = clash_raw if clash_raw is Dictionary else {}
