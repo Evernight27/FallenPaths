@@ -241,16 +241,22 @@ func _footwork_diagram_signature(caps: Array) -> String:
 		if raw == null or typeof(raw) != TYPE_DICTIONARY:
 			continue
 		var c: Dictionary = raw as Dictionary
-		var hint: String = _Footwork.get_ui_hint(c)
-		if hint.is_empty():
+		var sfx: String = _Footwork.get_diagram_label_suffix(c)
+		if sfx.is_empty():
 			continue
-		parts.append("%d:%s" % [_EntityAccess.id_int(c), hint])
+		parts.append("%d:%s" % [_EntityAccess.id_int(c), sfx.strip_edges()])
 	parts.sort()
 	return "|".join(parts)
 
 
 func _sync_formation_diagrams_for_footwork(caps: Array) -> void:
 	if not _Footwork.enabled():
+		if not _diagram_footwork_sig.is_empty():
+			_diagram_footwork_sig = ""
+			if formation_diagram_player != null:
+				_FormationDiagramBuilder.refresh(formation_diagram_player)
+			if formation_diagram_enemy != null:
+				_FormationDiagramBuilder.refresh(formation_diagram_enemy)
 		return
 	var sig: String = _footwork_diagram_signature(caps)
 	if sig == _diagram_footwork_sig:

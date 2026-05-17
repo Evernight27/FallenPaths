@@ -82,7 +82,7 @@
 | Defense pick | `DefenseChoiceResolver.gd` | Parry alignment + commit parry/dodge step | **`_run_footwork_arc_contact_applies_offset_once`** |
 | Resolve / arc | `AttackResolver.gd`, `WeaponSwingPhysics.gd` | **`pa.position_angle_offset_deg`**, arc end / contact angle | **`_run_footwork_arc_end_fallback_prefers_intended_over_attack_angle`**, **`_run_footwork_partial_follow_through_freezes_resolve_angles`** |
 | Lifecycle scrub | `CombatManager.start()`, `AttackResultApplier.gd` | Clear offset on restart / exchange end | **`_run_footwork_offset_scrubbed_on_combat_start`**, **`_run_footwork_defender_offset_scrubbed_after_exchange`** |
-| UI | `CombatFootwork.gd`, `BattleUIUpdater.gd`, `CombatCombatantsSnapshot.gd`, `FormationDiagramBuilder.gd` | **`get_ui_hint`**, gauge row + tooltips, snapshot **`position_angle_*`** / **`attention_ui_hint`** / **`counter_tempo_ui_hint`**, diagram cell tooltips | **`_run_footwork_ui_hint_*`**, **`_run_footwork_snapshot_*`** |
+| UI | `CombatFootwork.gd`, `BattleUIUpdater.gd`, `CombatCombatantsSnapshot.gd`, `FormationDiagramBuilder.gd`, `BattleScene.gd` | **`get_ui_hint`**, **`get_diagram_label_suffix`** on single-occupant cells, gauge + tooltips (defeated cleared; **cowering** shows step), snapshot fields, diagram refresh on hint / flag-off | **`_run_footwork_ui_hint_*`**, **`_run_footwork_diagram_label_suffix_compact`**, **`_run_footwork_snapshot_*`**, **`_run_combat_snapshot_exports_*`** |
 
 ---
 

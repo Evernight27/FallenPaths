@@ -24,6 +24,9 @@ static func _sync_gauge_label(ctrl: Dictionary, c: Dictionary, text: String) -> 
 	if not ctrl.get("gauge_label"):
 		return
 	ctrl.gauge_label.text = text
+	if not _EntityAccess.alive_bool(c, true):
+		ctrl.gauge_label.tooltip_text = ""
+		return
 	var tips: PackedStringArray = []
 	var fw: String = _Footwork.get_ui_hint(c)
 	if not fw.is_empty():
@@ -83,6 +86,8 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 				_sync_gauge_label(ctrl, c, _append_footwork_hint("Swap %.1fs" % remain, c))
 			elif state == CombatConstants.STATE_FALLING_BACK:
 				_sync_gauge_label(ctrl, c, _append_footwork_hint("Fall back %.1fs" % remain, c))
+			elif state == CombatConstants.STATE_COWERING:
+				_sync_gauge_label(ctrl, c, _append_footwork_hint("Cowering", c))
 			elif state == "receiving_medical_attention":
 				_sync_gauge_label(ctrl, c, "Receiving care")
 			elif not str(c.get("status_override", "")).is_empty():

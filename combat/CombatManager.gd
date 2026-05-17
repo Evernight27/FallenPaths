@@ -574,6 +574,7 @@ func _handle_rotate_file_resolve(ev: Dictionary) -> void:
 
 func _on_combatant_died(c: Dictionary) -> void:
 	_TargetScoring.clear_all_targeting_state_for_dead_defender(self, _EntityAccess.id_int(c))
+	_Footwork.clear_position_offset(c)
 	_FormationFlow.on_combatant_died(self, c)
 
 func _get_by_id(id: int):

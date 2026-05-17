@@ -85,6 +85,13 @@ static func refresh(diagram_root: Control) -> void:
 	_refresh_internal(diagram_root)
 
 
+static func _cell_label_with_footwork(base: String, footwork_sources: Array) -> String:
+	if base.is_empty() or base == "—" or footwork_sources.size() != 1:
+		return base
+	var sfx: String = _Footwork.get_diagram_label_suffix(footwork_sources[0] as Dictionary)
+	return base + sfx if not sfx.is_empty() else base
+
+
 static func _append_footwork_tooltip(cell: Label, combatants: Array) -> void:
 	if not _Footwork.enabled() or cell == null:
 		return
@@ -188,7 +195,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 					cell.text = "—"
 					cell.add_theme_color_override("font_color", Color(0.4, 0.42, 0.45))
 				elif names.size() == 1:
-					cell.text = str(names[0])
+					cell.text = _cell_label_with_footwork(str(names[0]), footwork_sources)
 					cell.add_theme_color_override("font_color", Color(0.95, 0.9, 0.85))
 				else:
 					var joined: String = str(names[0])
@@ -199,14 +206,17 @@ static func _refresh_internal(diagram_root: Control) -> void:
 			else:
 				var c = slot_to_combatant.get(key, null)
 				if c != null:
-					cell.text = _EntityAccess.get_display_name(c, _EntityAccess.id_int(c))
+					cell.text = _cell_label_with_footwork(
+						_EntityAccess.get_display_name(c, _EntityAccess.id_int(c)),
+						[c]
+					)
 					cell.add_theme_color_override("font_color", Color(0.95, 0.9, 0.85))
 					footwork_sources.append(c)
 				else:
 					cell.text = "—"
 					cell.add_theme_color_override("font_color", Color(0.4, 0.42, 0.45))
 			cell.add_theme_font_size_override("font_size", 12)
-			cell.custom_minimum_size = Vector2(72, 0)
+			cell.custom_minimum_size = Vector2(84, 0)
 			if not in_lane_intruders.is_empty():
 				cell.tooltip_text = "Intruder(s) in this lane are shown below in Intruders."
 			_append_footwork_tooltip(cell, footwork_sources)

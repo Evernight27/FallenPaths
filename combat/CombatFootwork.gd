@@ -64,12 +64,26 @@ static func format_position_angle_ui_hint(c: Dictionary) -> String:
 static func get_ui_hint(c: Dictionary) -> String:
 	if not enabled() or c == null:
 		return ""
+	var derived: String = format_position_angle_ui_hint(c)
 	var stamped: String = str(
 		c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT, "")
 	).strip_edges()
 	if not stamped.is_empty():
+		if not derived.is_empty() and stamped != derived:
+			return derived
 		return stamped
-	return format_position_angle_ui_hint(c)
+	return derived
+
+
+## Compact suffix for formation diagram cells (single occupant): ` · +14°`.
+static func get_diagram_label_suffix(c: Dictionary) -> String:
+	if not enabled() or c == null:
+		return ""
+	var off: float = float(c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	if absf(off) < 0.01:
+		return ""
+	var sign_prefix: String = "+" if off >= 0.0 else ""
+	return " · %s%.0f°" % [sign_prefix, off]
 
 
 static func refresh_ui_hint(c: Dictionary) -> void:
