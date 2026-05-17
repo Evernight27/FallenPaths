@@ -96,7 +96,7 @@ static func compute_and_apply_damage(
 		var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, part)
 		var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, attack_type, archetype)
 		# Physics: deflected cut presents flat/slap; edge doesn't bite. Shift cut→blunt on partial parry.
-		var move_contact: String = weapon.get_contact_type(attack_type) if weapon.has_method("get_contact_type") else WeaponConstants.ATTACK_TYPE_CUT
+		var move_contact: String = _EntityAccess.weapon_contact_type(weapon, attack_type)
 		if move_contact == WeaponConstants.ATTACK_TYPE_CUT and velocity_override >= 0.0 and parry_remaining_ratio < 1.0:
 			var shift_const: float = CombatConstants.PARRY_CUT_TO_BLUNT_SHIFT
 			var redirect_shift: float = shift_const * (1.0 - parry_remaining_ratio)

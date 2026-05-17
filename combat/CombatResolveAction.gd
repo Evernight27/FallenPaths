@@ -44,8 +44,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		var parts_being_treated: Array = manager._get_parts_being_treated_on(attacker_id)
 		if part in parts_being_treated:
 			return
-		var entity = _EntityAccess.get_entity_from_manager(manager, atk)
-		if entity != null and entity.has_method("apply_direct_pressure") and entity.apply_direct_pressure(part):
+		if _EntityAccess.entity_apply_direct_pressure(manager, atk, part):
 			var who: String = _EntityAccess.get_display_name(atk, attacker_id)
 			print("[Combat] %s (receiving care) holding direct pressure on %s" % [who, part])
 			manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "direct_pressure", "part": part, "dmg": 0, "died": false})

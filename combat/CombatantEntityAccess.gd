@@ -177,8 +177,10 @@ static func scene_apply_direct_pressure(combatant: Dictionary, part: String) -> 
 	return node.apply_direct_pressure(part)
 
 
-static func link_performer_direct_pressure_on_ally(performer: Dictionary, tgt_entity: Node, part: String) -> void:
-	var performer_entity: Node = node_variant(performer)
+static func link_performer_direct_pressure_on_ally(
+	manager: Node, performer: Dictionary, tgt_entity: Node, part: String
+) -> void:
+	var performer_entity: Node = get_entity_from_manager(manager, performer)
 	if performer_entity != null and "direct_pressure_on_ally" in performer_entity:
 		performer_entity.direct_pressure_on_ally = {"node": tgt_entity, "part": part}
 

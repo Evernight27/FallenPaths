@@ -53,8 +53,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 				non_parry = types_arr
 			if not non_parry.is_empty():
 				attack_type = non_parry[randi() % non_parry.size()]
-		if weapon.has_method("get_archetype_id"):
-			archetype = WeaponConstants.get_archetype(weapon.get_archetype_id(attack_type))
+		archetype = _EntityAccess.weapon_archetype_for_move(weapon, attack_type)
 	var windup_mult: float = float(archetype.get("windup_multiplier", 1.0))
 	var wind_up_s: float = CombatTiming.wind_up_duration(intensity, windup_mult)
 	# Guard transition: blade must move from current guard to attack line. Physics: angular distance (angle-based).
@@ -74,10 +73,10 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	wind_up_s *= trans_mult
 	# Bind riposte: parry_part × contact_type. Extend=fast, wind=moderate, swing=slow.
 	if weapon != null and atk.get("parry_was_bind", false) and atk.get("parry_against_id", -1) == target_id:
-		var contact_type: String = weapon.get_contact_type(attack_type) if weapon.has_method("get_contact_type") else ""
+		var contact_type: String = _EntityAccess.weapon_contact_type(weapon, attack_type, "")
 		var eligible: Array = weapon.bind_riposte_contact_types if weapon.get("bind_riposte_contact_types") is Array else []
 		if contact_type in eligible:
-			var parry_part: String = weapon.get_parry_contact_type() if weapon.has_method("get_parry_contact_type") else "blade"
+			var parry_part: String = _EntityAccess.weapon_parry_contact_type(weapon)
 			var part_row: Variant = CombatConstants.PARRY_BIND_RIPOSTE_BY_PART_CONTACT.get(parry_part, {})
 			var mult: float = float(part_row.get(contact_type, -1.0)) if part_row is Dictionary else -1.0
 			if mult < 0.0:

@@ -14122,8 +14122,8 @@ static func _run_medical_mobility_cowering_ai_pick_favors_fall_back(
 	var acts: Array = _ActionsBuilder.build(mgr, cid)
 	seed(90211)
 	var fall_back_picks: int = 0
-	const TRIALS: int = 200
-	for _t in TRIALS:
+	var trials: int = 200
+	for _t in trials:
 		var choice: Dictionary = _AIPicker.pick_weighted(acts, cid, mgr)
 		if str(choice.get("move_id", "")) == CombatConstants.MOVE_ID_FALL_BACK:
 			fall_back_picks += 1
@@ -14132,7 +14132,7 @@ static func _run_medical_mobility_cowering_ai_pick_favors_fall_back(
 		_fail(
 			failures,
 			"med_mobility_ai_pick: want fall_back majority got %d/%d"
-			% [fall_back_picks, TRIALS]
+			% [fall_back_picks, trials]
 		)
 	_free_manager_restore_global_rng(mgr)
 

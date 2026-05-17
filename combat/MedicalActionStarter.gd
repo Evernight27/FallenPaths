@@ -6,12 +6,45 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 ## Starts a medical action: direct pressure (instant or during wind-up), bandage/tourniquet/pack wind-up.
 ## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), emit_signal.
 
+static func _try_windup_pressure_while_preparing(
+	manager: Node,
+	performer: Dictionary,
+	target: Dictionary,
+	target_part: String,
+	medical_id: String,
+	self_target: bool
+) -> void:
+	if target_part.is_empty() or not _EntityAccess.entity_has_wound_part(manager, target, target_part):
+		return
+	var who_name: String = _EntityAccess.get_display_name(performer)
+	if self_target:
+		if _EntityAccess.entity_apply_direct_pressure(manager, target, target_part):
+			print(
+				"[Combat] Medical: %s applying direct pressure on %s during %s wind-up"
+				% [who_name, target_part, medical_id]
+			)
+		return
+	if _EntityAccess.entity_stack_assist_pressure_during_ally_treatment(
+		manager, target, performer, target_part
+	):
+		print(
+			"[Combat] Medical: %s assisting pressure on ally's %s during %s wind-up (helper still holding)"
+			% [who_name, target_part, medical_id]
+		)
+		return
+	if _EntityAccess.entity_apply_direct_pressure_from_ally(manager, target, performer, target_part):
+		var tgt_entity: Node = _EntityAccess.get_entity_from_manager(manager, target)
+		_EntityAccess.link_performer_direct_pressure_on_ally(manager, performer, tgt_entity, target_part)
+		print(
+			"[Combat] Medical: %s applying direct pressure on ally's %s during %s wind-up"
+			% [who_name, target_part, medical_id]
+		)
+
+
 static func start(manager: Node, combatant_id: int, target_combatant_id: int, medical_id: String, target_part: String) -> void:
 	var c = manager._get_by_id(combatant_id)
 	var target_node = manager._get_by_id(target_combatant_id)
-	var c_nd: Node = _EntityAccess.scene_node(c) if c != null else null
-	var tgt_nd: Node = _EntityAccess.scene_node(target_node) if target_node != null else null
-	if c == null or target_node == null or tgt_nd == null:
+	if c == null or target_node == null or _EntityAccess.scene_node(target_node) == null:
 		return
 	# Clear pending_retry when starting a different action (e.g. helping another ally)
 	var pr_raw: Variant = c.get("pending_retry", null)
@@ -19,36 +52,13 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 		var pr: Dictionary = pr_raw as Dictionary
 		if not pr.is_empty() and (pr.get("target_id", -1) != target_combatant_id or pr.get("part", "") != target_part):
 			c["pending_retry"] = {}
-	var who_name: String = str(c_nd.name) if c_nd != null else "id:%d" % combatant_id
+	var who_name: String = _EntityAccess.get_display_name(c, combatant_id)
 	# Bandage/tourniquet: performer stops holding direct pressure on anyone (new action)
 	if medical_id == "bandage_self" or medical_id == "pack_wound" or medical_id == "apply_tourniquet":
-		if c_nd != null and c_nd.has_method("clear_direct_pressure"):
-			c_nd.clear_direct_pressure()
-		# Apply direct pressure to the part being bandaged/tourniqueted during wind-up (reduces bleeding while preparing)
-		if not target_part.is_empty():
-			var tgt_entity = _EntityAccess.get_entity_from_manager(manager, target_node)
-			var performer_entity = _EntityAccess.get_entity_from_manager(manager, c)
-			if tgt_entity != null and tgt_entity.has_method("get_wounds") and tgt_entity.get_wounds().has(target_part):
-				if target_combatant_id == combatant_id:
-					if tgt_entity.has_method("apply_direct_pressure") and tgt_entity.apply_direct_pressure(target_part):
-						print("[Combat] Medical: %s applying direct pressure on %s during %s wind-up" % [who_name, target_part, medical_id])
-				else:
-					var stacked: bool = (
-						tgt_entity.has_method("stack_assist_pressure_during_ally_treatment")
-						and tgt_entity.stack_assist_pressure_during_ally_treatment(target_part, performer_entity)
-					)
-					if stacked:
-						print(
-							"[Combat] Medical: %s assisting pressure on ally's %s during %s wind-up (helper still holding)"
-							% [who_name, target_part, medical_id]
-						)
-					elif (
-						tgt_entity.has_method("apply_direct_pressure_from_ally")
-						and tgt_entity.apply_direct_pressure_from_ally(target_part, performer_entity)
-					):
-						if performer_entity != null and "direct_pressure_on_ally" in performer_entity:
-							performer_entity.direct_pressure_on_ally = {"node": tgt_entity, "part": target_part}
-						print("[Combat] Medical: %s applying direct pressure on ally's %s during %s wind-up" % [who_name, target_part, medical_id])
+		_EntityAccess.clear_direct_pressure_scene(c)
+		_try_windup_pressure_while_preparing(
+			manager, c, target_node, target_part, medical_id, target_combatant_id == combatant_id
+		)
 	var duration: float = 0.0
 	if medical_id == "apply_direct_pressure":
 		# Instant: apply now, then short recovery (scaled by pain/consciousness)
@@ -58,17 +68,15 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 			med_rec_dur /= maxf(CombatConstants.PERF_MOD_MIN, med_perf)
 		var applied: bool = false
 		if target_combatant_id == combatant_id:
-			# Self
-			if tgt_nd.has_method("apply_direct_pressure") and tgt_nd.apply_direct_pressure(target_part):
-				applied = true
-		else:
-			# Ally: performer applies to target
-			var tgt_ent = _EntityAccess.get_entity_from_manager(manager, target_node)
-			var performer_entity = _EntityAccess.get_entity_from_manager(manager, c)
-			if tgt_ent != null and tgt_ent.has_method("apply_direct_pressure_from_ally") and tgt_ent.apply_direct_pressure_from_ally(target_part, performer_entity):
-				applied = true
-				if performer_entity != null and "direct_pressure_on_ally" in performer_entity:
-					performer_entity.direct_pressure_on_ally = {"node": tgt_ent, "part": target_part}
+			applied = _EntityAccess.scene_apply_direct_pressure(target_node, target_part)
+		elif _EntityAccess.entity_apply_direct_pressure_from_ally(manager, target_node, c, target_part):
+			applied = true
+			_EntityAccess.link_performer_direct_pressure_on_ally(
+				manager,
+				c,
+				_EntityAccess.get_entity_from_manager(manager, target_node),
+				target_part
+			)
 		if applied:
 			print("[Combat] Medical: %s applied direct_pressure on %s (instant) => recovery %.1fs" % [who_name, target_part, med_rec_dur])
 			manager.emit_signal("action_resolved", combatant_id, target_combatant_id, {"outcome": "direct_pressure", "part": target_part, "dmg": 0, "died": false})
