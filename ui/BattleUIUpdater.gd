@@ -8,7 +8,7 @@ const _UiHints := preload("res://combat/CombatUiHints.gd")
 
 ## Updates a single combatant's UI row: gauge, state label, blood, consciousness, body bars.
 ## ctrl = id_to_controls[id], c = combatant dict from manager.get_combatants().
-## Pass **`manager`** so counter-tempo tooltips can derive live window state (stamped row keys alone are insufficient).
+## Pass **`manager`** so counter-tempo labels/tooltips derive live window state (stamped row keys alone are insufficient).
 
 static func _compose_waiting_gauge_label(c: Dictionary, primary: String) -> String:
 	var attn_hint: String = _UiHints.attention_hint_text(c)
@@ -18,14 +18,14 @@ static func _compose_waiting_gauge_label(c: Dictionary, primary: String) -> Stri
 
 
 ## Progress bar fill: readiness **`gauge`** during counter-tempo window, else stamina (Phase 1).
-static func gauge_bar_value_for_combatant(c: Dictionary) -> float:
-	if not _UiHints.counter_tempo_gauge_label(_UiHints.counter_tempo_hint_key(c)).is_empty():
+static func gauge_bar_value_for_combatant(c: Dictionary, manager: Node = null) -> float:
+	if not _UiHints.counter_tempo_gauge_label(_UiHints.counter_tempo_hint_key(c, manager)).is_empty():
 		return _EntityAccess.gauge_float(c)
 	return _EntityAccess.stamina_float(c)
 
 
 ## Primary gauge label for a combatant snapshot row (harness + **`update_combatant_row`**).
-static func gauge_label_text_for_combatant(c: Dictionary) -> String:
+static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) -> String:
 	if not _EntityAccess.alive_bool(c):
 		return "Defeated"
 	var state: String = _EntityAccess.state_str(c, "waiting")
@@ -61,7 +61,7 @@ static func gauge_label_text_for_combatant(c: Dictionary) -> String:
 		return _compose_waiting_gauge_label(c, cow_label)
 	if state == "receiving_medical_attention":
 		return "Receiving care"
-	var tempo_hint: String = _UiHints.counter_tempo_hint_key(c)
+	var tempo_hint: String = _UiHints.counter_tempo_hint_key(c, manager)
 	var counter_primary: String = _UiHints.counter_tempo_gauge_label(tempo_hint)
 	var status_override: String = str(c.get("status_override", "")).strip_edges()
 	if not counter_primary.is_empty():
@@ -108,9 +108,9 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary, manager: Node 
 				base_name += " (lane %.2f)" % float(c.get("lane_offset", 0.0))
 		ctrl.name.text = base_name
 	if ctrl.gauge:
-		ctrl.gauge.value = gauge_bar_value_for_combatant(c)
+		ctrl.gauge.value = gauge_bar_value_for_combatant(c, manager)
 	if ctrl.get("gauge_label"):
-		_sync_gauge_label(ctrl, c, gauge_label_text_for_combatant(c), manager)
+		_sync_gauge_label(ctrl, c, gauge_label_text_for_combatant(c, manager), manager)
 	# Blood volume and bleeding
 	var s_row: Dictionary = _EntityAccess.stats_dict(c)
 	var bv: float = s_row.get("blood_volume", 100.0)

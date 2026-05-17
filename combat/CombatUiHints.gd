@@ -59,6 +59,17 @@ static func counter_tempo_hint_key(c: Dictionary, manager: Node = null) -> Strin
 	return row
 
 
+## Empty unless **`STATE_COWERING`** (Tier **6.1** mobility).
+static func cowering_mobility_tooltip_line(c: Dictionary) -> String:
+	if _EntityAccess.state_str(c) != CombatConstants.STATE_COWERING:
+		return ""
+	if _EntityAccess.can_flee_or_fall_back(c):
+		return "No arms — may fall back when rear rank in your file is clear."
+	if not _EntityAccess.is_unconscious(c):
+		return "No arms — holding position (fall back blocked)."
+	return ""
+
+
 static func counter_tempo_gauge_label(tempo_hint: String) -> String:
 	if tempo_hint.is_empty():
 		return ""
@@ -110,11 +121,9 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 		tips.append("Incoming wind-up — counter window building.")
 	if bool(c.get("is_counter_tempo_wind_up", false)):
 		tips.append("Counter-tempo riposte — shortened wind-up.")
-	if _EntityAccess.state_str(c) == CombatConstants.STATE_COWERING:
-		if _EntityAccess.can_flee_or_fall_back(c):
-			tips.append("No arms — may fall back when rear rank in your file is clear.")
-		elif not _EntityAccess.is_unconscious(c):
-			tips.append("No arms — holding position (fall back blocked).")
+	var cow: String = cowering_mobility_tooltip_line(c)
+	if not cow.is_empty():
+		tips.append(cow)
 	return tips
 
 
@@ -133,4 +142,7 @@ static func formation_cell_tooltip_lines(
 		lines.append("%s — counter window open" % display_name)
 	elif tempo == "counter_winding":
 		lines.append("%s — counter window building" % display_name)
+	var cow: String = cowering_mobility_tooltip_line(c)
+	if not cow.is_empty():
+		lines.append("%s — %s" % [display_name, cow])
 	return lines

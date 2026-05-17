@@ -299,6 +299,9 @@ static func run_all() -> Dictionary:
 	_run_combat_ui_hints_gauge_tooltip_counter_ready(failures)
 	_run_battle_ui_gauge_tooltip_live_counter_tempo_needs_manager(failures)
 	_run_combat_ui_hints_cowering_gauge_tooltip(failures)
+	_run_combat_ui_hints_formation_cowering_tooltip(failures)
+	_run_battle_ui_gauge_label_live_counter_tempo_needs_manager(failures)
+	_run_combat_ui_hints_formation_counter_tempo_needs_manager(failures)
 	_run_strike_stamping_forwards_match_action_builder(failures)
 	_run_footwork_ui_hint_ignores_orphan_stamp_without_offset(failures)
 	_run_footwork_diagram_label_suffix_compact(failures)
@@ -690,7 +693,7 @@ static func _assert_tactical_snapshot_matches(
 
 
 static func _soak_kill_combatant(mgr: Node, combatant_id: int) -> void:
-	if mgr == null or not mgr.has_method("_get_by_id"):
+	if mgr == null:
 		return
 	var c: Variant = mgr._get_by_id(combatant_id)
 	if c == null or typeof(c) != TYPE_DICTIONARY:
@@ -8055,6 +8058,102 @@ static func _run_combat_ui_hints_cowering_gauge_tooltip(failures: PackedStringAr
 	_free_manager_restore_global_rng(mgr)
 	if not immobile_tip.contains("holding position"):
 		_fail(failures, "ui_hints_cowering: immobile want holding tip got '%s'" % immobile_tip)
+
+
+## Tier 6.1 UI: formation diagram cell tooltips include cowering mobility.
+static func _run_combat_ui_hints_formation_cowering_tooltip(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	c["state"] = CombatConstants.STATE_COWERING
+	var nm: String = _EntityAccess.get_display_name(c, _EntityAccess.id_int(c))
+	var lines: PackedStringArray = _UiHints.formation_cell_tooltip_lines(c, nm, mgr)
+	_free_manager_restore_global_rng(mgr)
+	var joined: String = "\n".join(lines)
+	if not joined.contains("fall back"):
+		_fail(failures, "ui_hints_formation_cow: want fall back got '%s'" % joined)
+
+
+## Tier 4.2 UI: live counter gauge label needs **`manager`** when row keys unstamped.
+static func _run_battle_ui_gauge_label_live_counter_tempo_needs_manager(
+	failures: PackedStringArray
+) -> void:
+	CombatConstants.set_feature_counter_tempo_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	def["gauge"] = 55.0
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.2)
+	def.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
+	def.erase("counter_tempo_ui_hint")
+	var without_mgr: String = _BattleUIUpdater.gauge_label_text_for_combatant(def)
+	var with_mgr: String = _BattleUIUpdater.gauge_label_text_for_combatant(def, mgr)
+	var bar_no_mgr: float = _BattleUIUpdater.gauge_bar_value_for_combatant(def)
+	var bar_with_mgr: float = _BattleUIUpdater.gauge_bar_value_for_combatant(def, mgr)
+	CombatConstants.set_feature_counter_tempo_load(true)
+	_free_manager_restore_global_rng(mgr)
+	if without_mgr.begins_with("Seize tempo"):
+		_fail(
+			failures,
+			"gauge_label_live: unstamped row should not show counter label without manager got '%s'"
+			% without_mgr
+		)
+	if not with_mgr.begins_with("Seize tempo"):
+		_fail(
+			failures,
+			"gauge_label_live: want Seize tempo prefix with manager got '%s'" % with_mgr
+		)
+	if is_equal_approx(bar_no_mgr, 55.0):
+		_fail(failures, "gauge_bar_live: without manager should use stamina not gauge")
+	if not is_equal_approx(bar_with_mgr, 55.0):
+		_fail(
+			failures,
+			"gauge_bar_live: with manager want gauge=55 got %.2f" % bar_with_mgr
+		)
+
+
+## Tier 4.2 UI: formation tooltips derive counter window from **`manager`** when unstamped.
+static func _run_combat_ui_hints_formation_counter_tempo_needs_manager(
+	failures: PackedStringArray
+) -> void:
+	CombatConstants.set_feature_counter_tempo_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.2)
+	def.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
+	def.erase("counter_tempo_ui_hint")
+	var nm: String = _EntityAccess.get_display_name(def, def_id)
+	var without_mgr: String = "\n".join(_UiHints.formation_cell_tooltip_lines(def, nm))
+	var with_mgr: String = "\n".join(_UiHints.formation_cell_tooltip_lines(def, nm, mgr))
+	CombatConstants.set_feature_counter_tempo_load(true)
+	_free_manager_restore_global_rng(mgr)
+	if without_mgr.contains("counter window"):
+		_fail(
+			failures,
+			"formation_counter_live: without manager got '%s'" % without_mgr
+		)
+	if not with_mgr.contains("counter window building"):
+		_fail(
+			failures,
+			"formation_counter_live: with manager want building tip got '%s'" % with_mgr
+		)
 
 
 ## Tier 3.1: **`CombatStrikeStamping`** matches **`AvailableActionsBuilder`** forwards.
