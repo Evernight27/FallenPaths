@@ -900,6 +900,8 @@ static func guard_line_for_body_part(part: String) -> String:
 # Swap rank AI (CombatAIActionPicker): relief only when necessary — not marginal fitness differences.
 const SWAP_RANK_AI_LOW_WEIGHT := 0.02
 const SWAP_RANK_AI_HIGH_WEIGHT := 1.0
+## Mobile cowering solo **fall_back** vs **wait** (Tier 6.1 — no arms, legs OK).
+const COWERING_SOLO_FALL_BACK_AI_WEIGHT := 1.5
 ## Partner must exceed our composite fitness (perf × blood norm) by at least this much for a routine relief.
 const SWAP_RANK_AI_MIN_FITNESS_GAP := 0.20
 ## Below this our_fitness, treat as dangerously unfit: partner need only be ahead by URGENT_MIN_GAP.

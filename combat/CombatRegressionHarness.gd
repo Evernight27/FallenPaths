@@ -14083,8 +14083,8 @@ static func _run_medical_mobility_cowering_ai_fall_back_weight_beats_wait(
 			"med_mobility_ai_w: want fall_back+wait in build got %s" % str(acts)
 		)
 		return
-	var w_fb: float = CombatAIActionPicker._get_action_weight(fb_act, cid, mgr, true)
-	var w_wait: float = CombatAIActionPicker._get_action_weight(wait_act, cid, mgr, true)
+	var w_fb: float = _AIPicker._get_action_weight(fb_act, cid, mgr, true)
+	var w_wait: float = _AIPicker._get_action_weight(wait_act, cid, mgr, true)
 	if w_fb <= w_wait:
 		_fail(
 			failures,
@@ -14097,6 +14097,76 @@ static func _run_medical_mobility_cowering_ai_fall_back_weight_beats_wait(
 			"med_mobility_ai_w: want COWERING_SOLO_FALL_BACK_AI_WEIGHT got %.3f"
 			% w_fb
 		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.1: weighted **`pick_weighted`** favors solo **fall_back** over **wait** for mobile cowering.
+static func _run_medical_mobility_cowering_ai_pick_favors_fall_back(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE},
+		{"files": 1, "ranks": 1}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	c.state = CombatConstants.STATE_COWERING
+	c.gauge = 100.0
+	var cid: int = _EntityAccess.id_int(c)
+	var acts: Array = _ActionsBuilder.build(mgr, cid)
+	seed(90211)
+	var fall_back_picks: int = 0
+	const TRIALS: int = 200
+	for _t in TRIALS:
+		var choice: Dictionary = _AIPicker.pick_weighted(acts, cid, mgr)
+		if str(choice.get("move_id", "")) == CombatConstants.MOVE_ID_FALL_BACK:
+			fall_back_picks += 1
+	# P(fb) = 1.5 / 2.5 = 0.6 — allow slack for RNG.
+	if fall_back_picks < 90:
+		_fail(
+			failures,
+			"med_mobility_ai_pick: want fall_back majority got %d/%d"
+			% [fall_back_picks, TRIALS]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.1: arm functionality return clears **STATE_COWERING** via **`process_incapacitation`**.
+static func _run_medical_mobility_cowering_arm_recovery_clears_state(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	c.state = CombatConstants.STATE_COWERING
+	c.gauge = 50.0
+	if not ent.is_cowering():
+		_fail(failures, "med_mobility_recover: setup want cowering")
+		return
+	_harness_restore_limb(ent, "right_arm")
+	if ent.is_cowering():
+		_fail(failures, "med_mobility_recover: one arm restored should end cowering")
+		return
+	if _StateHandlers.process_incapacitation(mgr, c):
+		_fail(failures, "med_mobility_recover: recovered arms should not skip tick")
+	if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+		_fail(
+			failures,
+			"med_mobility_recover: want STATE_WAITING got %s"
+			% _EntityAccess.state_str(c)
+		)
+	if _EntityAccess.gauge_float(c) != 0.0:
+		_fail(failures, "med_mobility_recover: gauge should reset on arm recovery")
 	_free_manager_restore_global_rng(mgr)
 
 

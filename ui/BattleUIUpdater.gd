@@ -87,7 +87,12 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 			elif state == CombatConstants.STATE_FALLING_BACK:
 				_sync_gauge_label(ctrl, c, _append_footwork_hint("Fall back %.1fs" % remain, c))
 			elif state == CombatConstants.STATE_COWERING:
-				_sync_gauge_label(ctrl, c, _append_footwork_hint("Cowering", c))
+				var cow_label: String = "Cowering"
+				if _EntityAccess.can_flee_or_fall_back(c):
+					cow_label = "Cowering · can fall back"
+				elif not _EntityAccess.is_unconscious(c):
+					cow_label = "Cowering · immobile"
+				_sync_gauge_label(ctrl, c, _append_footwork_hint(cow_label, c))
 			elif state == "receiving_medical_attention":
 				_sync_gauge_label(ctrl, c, "Receiving care")
 			elif not str(c.get("status_override", "")).is_empty():
