@@ -2,15 +2,17 @@ class_name CombatDistanceBands
 extends RefCounted
 
 ## MID/LONG/CLOSE bands from rank, `effective_pair_eff_dist`, `effective_pair_file_spacing_equivalent`, ZoC `mid_reach_files`, and weapon reach.
-## Strike eligibility vs a pair at MID also requires `AvailableActionsBuilder` geometric check (`melee_range >= effective_pair_eff_dist`); not only `REACH_MID_MIN`.
+## Pair spacing from **`CombatPairGeometry`**; strike eligibility at MID also requires **`AvailableActionsBuilder.can_melee_threaten`** (`melee_range >= eff_dist`); not only `REACH_MID_MIN`.
 ## Depth-polearm lane gate (`depth_polearm_lane_open`) is computed **once per combatant** per pass (O(n²) → O(n) for that predicate).
 
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
+const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 
-## Per-alive-combatant snapshot of **`AvailableActionsBuilder.depth_polearm_lane_open`** ( **`formation_id_for_zone_geometry`** `fid` ) — same keys as used inside **`update_distance_to_from_formations`**.
+## Per-alive-combatant snapshot of **`CombatDepthPolearm.depth_polearm_lane_open`** ( **`formation_id_for_zone_geometry`** `fid` ).
 static func depth_polearm_lane_open_by_combatant_id(manager: Node) -> Dictionary:
 	var depth_lane_ok_by_id: Dictionary = {}
 	for cc in manager.combatants:
@@ -21,7 +23,7 @@ static func depth_polearm_lane_open_by_combatant_id(manager: Node) -> Dictionary
 			depth_lane_ok_by_id[ccid] = false
 			continue
 		var fid_cc: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, cc)
-		depth_lane_ok_by_id[ccid] = _ActionsBuilder.depth_polearm_lane_open(manager, cc, fid_cc)
+		depth_lane_ok_by_id[ccid] = _DepthPolearm.depth_polearm_lane_open(manager, cc, fid_cc)
 	return depth_lane_ok_by_id
 
 
@@ -56,7 +58,7 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 			var fid_o: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, opp)
 			var fo: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, opp, fid_o)
 			var mid_reach: int = _ZoneOfControl.mid_reach_files(manager, c, opp, fc, fo)
-			var pair_geom: Dictionary = _ActionsBuilder.effective_pair_geometry(manager, c, opp, fc, fo)
+			var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, c, opp, fc, fo)
 			var eff_dist: float = float(pair_geom.get("eff_dist", 0.0))
 			var reach_here: float = maxf(_ActionsBuilder.melee_weapon_reach(c), _ActionsBuilder.melee_weapon_reach(opp))
 			var eff_files: float = float(pair_geom.get("file_spacing_equiv", 0.0))

@@ -9,7 +9,6 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
-const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 
 var players: Array = []
@@ -245,21 +244,18 @@ func _tactical_diagram_signature(caps: Array) -> String:
 		if not _EntityAccess.alive_bool(c, true):
 			continue
 		var chunks: PackedStringArray = []
-		if _Footwork.enabled():
-			var sfx: String = _Footwork.get_diagram_label_suffix(c).strip_edges()
-			if not sfx.is_empty():
-				chunks.append("sfx=%s" % sfx)
-			var fw: String = _UiHints.footwork_hint_text(c)
-			if not fw.is_empty():
-				chunks.append("fw=%s" % fw)
-		if CombatAttention.enabled():
-			var attn: String = _UiHints.attention_hint_text(c)
-			if not attn.is_empty():
-				chunks.append("a=%s" % attn)
-		if CounterTempo.enabled():
-			var tempo: String = _UiHints.counter_tempo_hint_key(c, manager)
-			if not tempo.is_empty():
-				chunks.append("t=%s" % tempo)
+		var sfx: String = _UiHints.footwork_diagram_suffix(c).strip_edges()
+		if not sfx.is_empty():
+			chunks.append("sfx=%s" % sfx)
+		var fw: String = _UiHints.footwork_hint_text(c)
+		if not fw.is_empty():
+			chunks.append("fw=%s" % fw)
+		var attn: String = _UiHints.attention_hint_text(c)
+		if not attn.is_empty():
+			chunks.append("a=%s" % attn)
+		var tempo: String = _UiHints.counter_tempo_hint_key(c, manager)
+		if not tempo.is_empty():
+			chunks.append("t=%s" % tempo)
 		if chunks.is_empty():
 			continue
 		parts.append("%d:%s" % [_EntityAccess.id_int(c), "|".join(chunks)])
@@ -268,9 +264,7 @@ func _tactical_diagram_signature(caps: Array) -> String:
 
 
 func _sync_formation_diagrams_for_tactical_hints(caps: Array) -> void:
-	var any_tactical: bool = (
-		_Footwork.enabled() or _Attention.enabled() or _CounterTempo.enabled()
-	)
+	var any_tactical: bool = _UiHints.any_tactical_features_enabled()
 	if not any_tactical:
 		if not _diagram_footwork_sig.is_empty():
 			_diagram_footwork_sig = ""

@@ -6,7 +6,7 @@ extends RefCounted
 ## On success, CombatManager sets attacker `tactical_penetration_depth` and defender `formation.breached_files[file]`.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
@@ -50,7 +50,7 @@ static func contest_crash(manager: Node, attacker_id: int, defender_id: int) -> 
 	var melee_range: float = float(weapon.melee_range) if weapon != null else 1.5
 	var fid_atk_geom: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, atk)
 	var fd_atk: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, atk, fid_atk_geom)
-	var eff_dist: float = _ActionsBuilder.effective_pair_eff_dist(manager, atk, def, fd_atk, formation_def)
+	var eff_dist: float = _PairGeometry.effective_pair_eff_dist(manager, atk, def, fd_atk, formation_def)
 	var reach_ratio: float = clampf(
 		melee_range / maxf(eff_dist, 0.4),
 		CombatConstants.CRASH_DRIVE_REACH_MIN,

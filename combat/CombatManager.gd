@@ -133,15 +133,6 @@ func _get_entity(node: Node) -> Node:
 	return node
 
 
-func _armor_mass_duration_multiplier_for_node(node: Node) -> float:
-	if node == null:
-		return 1.0
-	var m: float = _EntityAccess.get_total_armor_mass_kg_from_node(node)
-	var ref: float = CombatConstants.FORMATION_ARMOR_MASS_REF_KG
-	var t: float = clampf(m / ref, 0.0, 1.5)
-	return lerpf(1.0, CombatConstants.FORMATION_ARMOR_MAX_SLOW_MULT, t)
-
-
 ## Defender (or anyone) struck while in formation move: extend timer and event — does not cancel.
 func apply_formation_hit_reaction_if_needed(combatant_id: int, intensity: float = 0.5) -> void:
 	_FormationFlow.apply_hit_reaction_if_needed(self, combatant_id, intensity)
@@ -497,7 +488,7 @@ func get_available_actions(combatant_id: int) -> Array:
 	_FormationFlow.finish_vacancy_reconcile_follow_up(self, changed_fids, snap, true)
 	var c_list: Variant = _get_by_id(combatant_id)
 	if c_list is Dictionary:
-		_ActionsBuilder.sync_cowering_state_if_no_functional_arm(c_list as Dictionary)
+		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(c_list as Dictionary)
 	return _ActionsBuilder.build(self, combatant_id)
 
 

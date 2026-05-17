@@ -7,15 +7,11 @@ const _StatsSync := preload("res://combat/CombatantStatsSync.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-const _Footwork := preload("res://combat/CombatFootwork.gd")
-const _Attention := preload("res://combat/CombatAttention.gd")
-const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _UiHints := preload("res://combat/CombatUiHints.gd")
 
 
 static func _counter_tempo_ui_blocks_status_override(manager: Node, c: Dictionary) -> bool:
-	if not _CounterTempo.enabled():
-		return false
-	var tempo_ui: String = _CounterTempo.snapshot_ui_hint(manager, c)
+	var tempo_ui: String = _UiHints.counter_tempo_hint_key(c, manager)
 	return tempo_ui == "counter_ready" or tempo_ui == "counter_winding"
 
 
@@ -79,21 +75,7 @@ static func build(manager: Node) -> Array:
 		if CombatConstants.combat_debug_active():
 			item["guard_line"] = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
 			item["guard_angle_deg"] = CombatConstants.get_guard_angle_deg(c)
-		if _Footwork.enabled():
-			var off_deg: float = _Footwork.get_defender_offset_deg(c)
-			if absf(off_deg) >= 0.01:
-				item["position_angle_offset_deg"] = off_deg
-			var fw_hint: String = _Footwork.snapshot_ui_hint(c)
-			if not fw_hint.is_empty():
-				item["position_angle_ui_hint"] = fw_hint
-		if _Attention.enabled():
-			var attn_hint: String = _Attention.snapshot_ui_hint(c)
-			if not attn_hint.is_empty():
-				item["attention_ui_hint"] = attn_hint
-		if _CounterTempo.enabled():
-			var tempo_hint: String = _CounterTempo.snapshot_ui_hint(manager, c)
-			if not tempo_hint.is_empty():
-				item["counter_tempo_ui_hint"] = tempo_hint
+		_UiHints.stamp_snapshot_hint_fields(item, c, manager)
 		if _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
 			var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
 			if bool(pa.get(CombatConstants.PA_KEY_COUNTER_TEMPO, false)):

@@ -6,7 +6,6 @@ const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 
 ## Builds a compact visual formation diagram: rank×file grid with unit names.
@@ -92,7 +91,7 @@ static func _cell_label_with_footwork(base: String, footwork_sources: Array) -> 
 	for raw in footwork_sources:
 		if raw == null or typeof(raw) != TYPE_DICTIONARY:
 			continue
-		var sfx: String = _Footwork.get_diagram_label_suffix(raw as Dictionary)
+		var sfx: String = _UiHints.footwork_diagram_suffix(raw as Dictionary)
 		if not sfx.is_empty():
 			return base + sfx
 	return base
@@ -107,17 +106,8 @@ static func _append_cell_tooltips(cell: Label, combatants: Array, manager: Node 
 			continue
 		var oc: Dictionary = raw as Dictionary
 		var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))
-		var fw: String = _UiHints.footwork_hint_text(oc)
-		if not fw.is_empty():
-			lines.append("%s — footwork: %s" % [nm, fw])
-		var attn: String = _UiHints.attention_hint_text(oc)
-		if not attn.is_empty():
-			lines.append("%s — attention: %s" % [nm, attn])
-		var tempo: String = _UiHints.counter_tempo_hint_key(oc, manager)
-		if tempo == "counter_ready":
-			lines.append("%s — counter window open" % nm)
-		elif tempo == "counter_winding":
-			lines.append("%s — counter window building" % nm)
+		for line in _UiHints.formation_cell_tooltip_lines(oc, nm, manager):
+			lines.append(line)
 	if lines.is_empty():
 		return
 	var extra: String = "\n".join(lines)

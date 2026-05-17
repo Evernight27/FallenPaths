@@ -5,3 +5,7 @@
 # Python
 __pycache__/
 *.py[cod]
+
+# Local harness logs (do not commit)
+.harness_out.txt
+harness_stderr.txt

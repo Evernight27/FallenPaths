@@ -6,6 +6,7 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
@@ -44,7 +45,7 @@ static func count_engaging_threats(manager: Node, defender_id: int) -> int:
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue
-		var pair_geom: Dictionary = _ActionsBuilder.effective_pair_geometry(manager, c, d)
+		var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, c, d)
 		if _ActionsBuilder.can_melee_threaten(manager, c, d, pair_geom):
 			n += 1
 	return n
@@ -69,7 +70,7 @@ static func compute_surround_threat_weight_sum(manager: Node, defender_id: int) 
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue
-		var pair_geom: Dictionary = _ActionsBuilder.effective_pair_geometry(manager, c, d)
+		var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, c, d)
 		if not _ActionsBuilder.can_melee_threaten(manager, c, d, pair_geom):
 			continue
 		var eff_f: float = float(pair_geom.get("file_spacing_equiv", 0.0))

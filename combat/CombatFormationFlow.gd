@@ -29,6 +29,7 @@ const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
+const _Timing := preload("res://combat/CombatTiming.gd")
 
 const _VACANCY_LATERAL_EDGE_META := "_vacancy_lateral_edges"
 const _VACANCY_PLUG_RESERVED_DONORS_META := "_vacancy_plug_reserved_donors"
@@ -190,8 +191,8 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 	var agi: float = float(_EntityAccess.stats_dict(init).get("agility", 100))
 	var kind_mult: float = CombatConstants.DRAG_BACK_DURATION_MULT if move_kind == "drag_back" else 1.0
 	var armor_mult: float = maxf(
-		manager._armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init)),
-		manager._armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(partner))
+		_Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init)),
+		_Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(partner))
 	)
 	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * kind_mult * armor_mult
 	var use_falling: bool = move_kind == "drag_back" or move_kind == "fall_back_pair"
@@ -248,7 +249,7 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
 	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
 	var agi: float = float(_EntityAccess.stats_dict(init).get("agility", 100))
-	var armor_mult: float = manager._armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init))
+	var armor_mult: float = _Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init))
 	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * armor_mult
 	init["formation_move_partner_id"] = -1
 	init.state = CombatConstants.STATE_FALLING_BACK
@@ -291,8 +292,8 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
 	var agi: float = float(_EntityAccess.stats_dict(init).get("agility", 100))
 	var armor_mult: float = maxf(
-		manager._armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init)),
-		manager._armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(partner))
+		_Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init)),
+		_Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(partner))
 	)
 	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * armor_mult
 	init["formation_move_partner_id"] = partner_id

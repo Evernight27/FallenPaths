@@ -6,6 +6,16 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
+## Formation move duration: heavier armor slows fall-back / swap / rotate (see **`FORMATION_ARMOR_*`** in **`CombatConstants`**).
+static func armor_mass_duration_multiplier_for_node(node: Node) -> float:
+	if node == null:
+		return 1.0
+	var m: float = _EntityAccess.get_total_armor_mass_kg_from_node(node)
+	var ref: float = CombatConstants.FORMATION_ARMOR_MASS_REF_KG
+	var t: float = clampf(m / ref, 0.0, 1.5)
+	return lerpf(1.0, CombatConstants.FORMATION_ARMOR_MAX_SLOW_MULT, t)
+
+
 ## Current time in seconds (Time.get_ticks_msec() / 1000.0). Single source for combat time checks.
 static func now_seconds() -> float:
 	return Time.get_ticks_msec() / 1000.0

@@ -9,16 +9,6 @@ const _UiHints := preload("res://combat/CombatUiHints.gd")
 ## Updates a single combatant's UI row: gauge, state label, blood, consciousness, body bars.
 ## ctrl = id_to_controls[id], c = combatant dict from manager.get_combatants().
 
-static func _counter_tempo_gauge_primary(tempo_hint: String) -> String:
-	if tempo_hint.is_empty():
-		return ""
-	if tempo_hint == "counter_ready":
-		return "Counter!"
-	if tempo_hint == "counter_winding":
-		return "Seize tempo…"
-	return ""
-
-
 static func _compose_waiting_gauge_label(c: Dictionary, primary: String) -> String:
 	var attn_hint: String = _UiHints.attention_hint_text(c)
 	var foot_suffix: String = _UiHints.footwork_hint_suffix(c)
@@ -28,7 +18,7 @@ static func _compose_waiting_gauge_label(c: Dictionary, primary: String) -> Stri
 
 ## Progress bar fill: readiness **`gauge`** during counter-tempo window, else stamina (Phase 1).
 static func gauge_bar_value_for_combatant(c: Dictionary) -> float:
-	if not _counter_tempo_gauge_primary(_UiHints.counter_tempo_hint_key(c)).is_empty():
+	if not _UiHints.counter_tempo_gauge_label(_UiHints.counter_tempo_hint_key(c)).is_empty():
 		return _EntityAccess.gauge_float(c)
 	return _EntityAccess.stamina_float(c)
 
@@ -71,7 +61,7 @@ static func gauge_label_text_for_combatant(c: Dictionary) -> String:
 	if state == "receiving_medical_attention":
 		return "Receiving care"
 	var tempo_hint: String = _UiHints.counter_tempo_hint_key(c)
-	var counter_primary: String = _counter_tempo_gauge_primary(tempo_hint)
+	var counter_primary: String = _UiHints.counter_tempo_gauge_label(tempo_hint)
 	var status_override: String = str(c.get("status_override", "")).strip_edges()
 	if not counter_primary.is_empty():
 		return _compose_waiting_gauge_label(c, counter_primary)
@@ -103,21 +93,7 @@ static func _sync_gauge_label(ctrl: Dictionary, c: Dictionary, text: String) -> 
 	if not _EntityAccess.alive_bool(c, true):
 		ctrl.gauge_label.tooltip_text = "Defeated — out of the fight."
 		return
-	var tips: PackedStringArray = []
-	var fw: String = _UiHints.footwork_hint_text(c)
-	if not fw.is_empty():
-		tips.append("Arc footwork (position-angle step): %s" % fw)
-	var attn: String = _UiHints.attention_hint_text(c)
-	if not attn.is_empty():
-		tips.append("Attention: %s" % attn)
-	var tempo: String = _UiHints.counter_tempo_hint_key(c)
-	if tempo == "counter_ready":
-		tips.append("Counter window open — seize tempo.")
-	elif tempo == "counter_winding":
-		tips.append("Incoming wind-up — counter window building.")
-	if bool(c.get("is_counter_tempo_wind_up", false)):
-		tips.append("Counter-tempo riposte — shortened wind-up.")
-	ctrl.gauge_label.tooltip_text = "\n".join(tips)
+	ctrl.gauge_label.tooltip_text = "\n".join(_UiHints.gauge_tooltip_lines(c))
 
 
 static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:

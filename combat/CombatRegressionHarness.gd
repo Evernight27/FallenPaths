@@ -51,6 +51,8 @@ const _DistanceBands := preload("res://combat/CombatDistanceBands.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _AfterblowHandler := preload("res://combat/AfterblowHandler.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
+const _UiHints := preload("res://combat/CombatUiHints.gd")
 ## No preload — `CombatRegressionHarnessKinematicTail` references this class; preloading it here caused a parse cycle.
 ## Tier 3.2: full-stop **`parry_deflect`** — keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_hit_applier_sets_defender_guard_low_after_hit`** locks defender **`guard_line`** / **`guard_zone`** after **`hit`**; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
 const PARRY_CLASH_CONTEXT_KEYS_FULL_STOP: Array[String] = [
@@ -290,6 +292,7 @@ static func run_all() -> Dictionary:
 	_run_footwork_ui_hint_clears_on_clear_position_offset(failures)
 	_run_footwork_ui_hint_clears_on_combat_start(failures)
 	_run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures)
+	_run_combat_ui_hints_footwork_stale_stamp_prefers_live_offset(failures)
 	_run_footwork_ui_hint_ignores_orphan_stamp_without_offset(failures)
 	_run_footwork_diagram_label_suffix_compact(failures)
 	_run_footwork_snapshot_includes_position_hint_when_enabled(failures)
@@ -7968,6 +7971,19 @@ static func _run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures: Pack
 		_fail(failures, "footwork_stale_stamp: want '%s' got '%s'" % [want_live, live])
 
 
+## Tier 4.4.3: **`CombatUiHints.footwork_hint_text`** matches **`CombatFootwork.get_ui_hint`** (UI path).
+static func _run_combat_ui_hints_footwork_stale_stamp_prefers_live_offset(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var c: Dictionary = {}
+	_Footwork.apply_attack_step_on_windup(c, "right")
+	c[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT] = "Step +99°"
+	var live: String = _UiHints.footwork_hint_text(c)
+	var want_live: String = _Footwork.format_position_angle_ui_hint(c)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	if live != want_live:
+		_fail(failures, "ui_hints_footwork_stale: want '%s' got '%s'" % [want_live, live])
+
+
 ## Tier 4.4 UI: stamped hint without offset is ignored (row/diagram stay blank).
 static func _run_footwork_ui_hint_ignores_orphan_stamp_without_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
@@ -8386,7 +8402,7 @@ static func _run_player_counter_tempo_turn_ready_hint_when_window_open(
 	_harness_counter_tempo_set_incoming_progress(mgr, en_id, 0.6)
 	_CounterTempo.process_waiting(mgr, ply)
 	var actions: Array = mgr.get_available_actions(ply_id)
-	var hint: String = _ActionsBuilder.player_counter_tempo_hint_if_applicable(mgr, ply, actions)
+	var hint: String = _PlayerTurnHints.counter_tempo_hint_if_applicable(mgr, ply, actions)
 	CombatConstants.set_feature_counter_tempo_load(true)
 	_free_manager_restore_global_rng(mgr)
 	if hint.is_empty():
@@ -14828,7 +14844,7 @@ static func _run_medical_mobility_cowering_depth_lists_wait_not_fall_back(
 		_fail(failures, "med_mobility_depth: rank-1 cowering want wait in build (acts=%s)" % str(acts))
 	if has_fb:
 		_fail(failures, "med_mobility_depth: rank-1 cowering must not solo fall_back")
-	var depth_hint: String = _ActionsBuilder.player_cowering_retreat_hint_if_applicable(mgr, c, acts)
+	var depth_hint: String = _PlayerTurnHints.cowering_retreat_hint_if_applicable(mgr, c, acts)
 	if depth_hint.is_empty() or not depth_hint.contains("holding position"):
 		_fail(
 			failures,
@@ -14893,7 +14909,7 @@ static func _run_medical_mobility_cowering_player_retreat_ui_hint(
 	front_c.state = CombatConstants.STATE_COWERING
 	front_c.gauge = 100.0
 	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(front_c))
-	var fb_hint: String = _ActionsBuilder.player_cowering_retreat_hint_if_applicable(mgr, front_c, acts)
+	var fb_hint: String = _PlayerTurnHints.cowering_retreat_hint_if_applicable(mgr, front_c, acts)
 	if fb_hint.is_empty() or not fb_hint.contains("fall back"):
 		_fail(failures, "med_mobility_hint: fall_back listed want retreat hint got '%s'" % fb_hint)
 	var enemy_c: Dictionary = {}
@@ -14901,7 +14917,7 @@ static func _run_medical_mobility_cowering_player_retreat_ui_hint(
 		if _EntityAccess.side_str(row) == "enemy":
 			enemy_c = row
 			break
-	var enemy_hint: String = _ActionsBuilder.player_cowering_retreat_hint_if_applicable(
+	var enemy_hint: String = _PlayerTurnHints.cowering_retreat_hint_if_applicable(
 		mgr, enemy_c, acts
 	)
 	if not enemy_hint.is_empty():

@@ -14,6 +14,7 @@ extends RefCounted
 ## **Doctrine vs crash:** `DOCTRINE_PINCH_CENTER` / `HOLD_LANE` steer **listed** melee/close weights and ordering; `DOCTRINE_PROBING` nudges **depth spear** stab/cut listing weights only. **Crash** is a separate breach move (stamina, armor mass, engagement mode); it does not read doctrine today — no conflicting state, just independent logic gates.
 
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
@@ -168,7 +169,7 @@ static func soft_geometry_score(
 	if eff_dist_cache != null:
 		eff = float(eff_dist_cache)
 	if eff < 0.0:
-		eff = _ActionsBuilder.effective_pair_eff_dist(manager, actor, opp)
+		eff = _PairGeometry.effective_pair_eff_dist(manager, actor, opp)
 	var k: float = CombatConstants.DOCTRINE_SOFT_DISTANCE_SCALE
 	return 1.0 / (1.0 + eff * k)
 
@@ -402,7 +403,7 @@ static func hostile_pair_targeting_weight_mult(
 	var depth_lane_atk: Variant = null
 	if _EntityAccess.rank_int(atk) > 0:
 		depth_lane_atk = _ActionsBuilder.depth_polearm_lane_open(manager, atk, fid_atk)
-	var pair_geom: Dictionary = _ActionsBuilder.effective_pair_geometry(manager, atk, opp, fd_atk, fd_opp)
+	var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, atk, opp, fd_atk, fd_opp)
 	var w: float = soft_geometry_score(manager, atk, opp, pair_geom.get("eff_dist"))
 	w *= pinch_score_mult(manager, atk, opp, depth_lane_atk, fid_atk)
 	w *= hold_lane_mult(manager, atk, opp, depth_lane_atk, fid_atk)

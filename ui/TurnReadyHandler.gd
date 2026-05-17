@@ -1,7 +1,7 @@
 class_name TurnReadyHandler
 extends RefCounted
 
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Player-side `turn_ready`: **only AI logic gates** — `get_available_actions` then `CombatAIActionPicker.pick`; no separate player target UI.
@@ -19,13 +19,5 @@ static func handle(manager: Node, combatant_id: int) -> void:
 	if _EntityAccess.side_str(me) != "player":
 		return
 	var actions: Array = manager.get_available_actions(combatant_id)
-	var crash_hint: String = _ActionsBuilder.player_crash_absence_hint_if_missing(manager, me, actions)
-	if not crash_hint.is_empty() and manager.has_method("notify_combat_ui_hint"):
-		manager.notify_combat_ui_hint(crash_hint)
-	var retreat_hint: String = _ActionsBuilder.player_cowering_retreat_hint_if_applicable(manager, me, actions)
-	if not retreat_hint.is_empty() and manager.has_method("notify_combat_ui_hint"):
-		manager.notify_combat_ui_hint(retreat_hint)
-	var counter_hint: String = _ActionsBuilder.player_counter_tempo_hint_if_applicable(manager, me, actions)
-	if not counter_hint.is_empty() and manager.has_method("notify_combat_ui_hint"):
-		manager.notify_combat_ui_hint(counter_hint)
+	_PlayerTurnHints.emit_turn_ready_hints(manager, me, actions)
 	CombatAIActionPicker.resolve_picked_turn_or_skip(manager, combatant_id, actions, "player")

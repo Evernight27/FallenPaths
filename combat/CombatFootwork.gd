@@ -60,7 +60,7 @@ static func format_position_angle_ui_hint(c: Dictionary) -> String:
 	return "Step %s%.0f°" % [sign_prefix, off]
 
 
-## UI snapshot: same as **`get_ui_hint`** (row export uses live combatant at build time).
+## Prefer **`CombatUiHints.footwork_hint_text`** for UI/snapshot. Alias of **`get_ui_hint`**.
 static func snapshot_ui_hint(c: Dictionary) -> String:
 	return get_ui_hint(c)
 

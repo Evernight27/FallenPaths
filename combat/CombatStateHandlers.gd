@@ -11,7 +11,8 @@ const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 
 const _MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
-const _Attention := preload("res://combat/CombatAttention.gd")
+const _UiHints := preload("res://combat/CombatUiHints.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
 
 ## Checks if combatant died this tick (e.g. bled out). Mutates c, emits action_resolved if died.
@@ -53,7 +54,7 @@ static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
 		return false
 	# Mobile cowering (no arms, functional legs): allow ticks so formation retreat can be offered
 	if _EntityAccess.is_cowering(c):
-		_ActionsBuilder.sync_cowering_state_if_no_functional_arm(c)
+		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(c)
 		return not _EntityAccess.can_flee_or_fall_back(c)
 	if _EntityAccess.is_incapacitated(c):
 		return true
@@ -172,12 +173,12 @@ static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void
 	var s: float = _EntityAccess.stamina_float(c)
 	c["stamina"] = minf(CombatConstants.STAMINA_MAX, s + CombatConstants.STAMINA_REFILL_RATE * delta)
 	_CounterTempo.process_waiting(_manager, c)
-	_Attention.refresh_for_waiting_tick(_manager, c)
+	_UiHints.refresh_waiting_tick_stamps(_manager, c)
 
 static func process_wind_up(manager: Node, c: Dictionary, delta: float) -> void:
 	c.gauge = 0.0
 	c.state_timer += delta
-	if manager != null and _ActionsBuilder.cannot_commit_melee(c):
+	if manager != null and _MobilityRetreat.cannot_commit_melee(c):
 		_CounterTempo.abort_attacker_wind_up(manager, _EntityAccess.id_int(c))
 		return
 	# Completion handled by EVENT_MELEE_ATTACK; state_timer for UI countdown only
@@ -194,7 +195,7 @@ static func process_medical_wind_up(manager: Node, c: Dictionary, delta: float) 
 static func process_recovering(manager: Node, c: Dictionary, delta: float) -> void:
 	c.gauge = 0.0
 	c.state_timer += delta
-	if manager != null and _ActionsBuilder.cannot_commit_melee(c):
-		_ActionsBuilder.react_attacking_arm_lost_if_needed(manager, c)
+	if manager != null and _MobilityRetreat.cannot_commit_melee(c):
+		_MobilityRetreat.react_attacking_arm_lost_if_needed(manager, c)
 		return
 	# Completion handled by EVENT_RECOVERY_END; state_timer for UI countdown only
