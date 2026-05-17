@@ -12,9 +12,7 @@ const _Footwork := preload("res://combat/CombatFootwork.gd")
 ## ctrl = id_to_controls[id], c = combatant dict from manager.get_combatants().
 
 static func _footwork_hint_suffix(c: Dictionary) -> String:
-	if not _Footwork.enabled():
-		return ""
-	var hint: String = str(c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT, "")).strip_edges()
+	var hint: String = _Footwork.get_ui_hint(c)
 	return (" · " + hint) if not hint.is_empty() else ""
 
 
@@ -63,7 +61,7 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 				ctrl.gauge_label.text = "Receiving care"
 			elif not str(c.get("status_override", "")).is_empty():
 				# Event tracking: show closing/next-turn status so unit doesn't look frozen
-				ctrl.gauge_label.text = str(c.get("status_override", ""))
+				ctrl.gauge_label.text = _append_footwork_hint(str(c.get("status_override", "")), c)
 			else:
 				var tempo_hint: String = str(c.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, ""))
 				var attn_hint: String = ""
