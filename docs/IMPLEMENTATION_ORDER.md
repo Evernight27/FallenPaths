@@ -398,6 +398,7 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 ## Changelog
 
+- **2026-05-17 (6.1-fb):** Solo **`fall_back`** uses per-file frontline plug check (**`formation_has_frontline_fill_opportunity_at_file`**) so vacancy in another lane does not block cowering retreat; **`run_all()`** green.
 - **2026-05-17 (harness-split):** **`CombatRegressionHarnessKinematicTail.gd`** — Tier **5.1** optional long-tail kinematic tests split from main harness (Godot compile size); **`run_all`** calls **`_KinematicTail.run`**.
 - **2026-05-17 (4.4-ui):** Battle UI soak — **`BattleUIUpdater`** gauge tooltips (footwork / attention / counter-tempo), wider gauge label, footwork on swap/fall-back/**`status_override`**; **`FormationDiagramBuilder`** arc-step cell tooltips; **`BattleScene`** refreshes diagrams when footwork signature changes; **`CombatCombatantsSnapshot`** exports **`attention_ui_hint`** / **`counter_tempo_ui_hint`**; harness **`_run_combat_snapshot_exports_attention_ui_hint_when_stamped`**.
 - **2026-05-17 (4.4-on):** Tier **4.4** production default **on** for **`is_feature_position_angle_footwork_enabled()`**; plan/registry **Done**; next coding step → Tier **5.1** optional / UI soak.
