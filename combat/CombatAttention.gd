@@ -119,6 +119,16 @@ static func format_attention_ui_hint(c: Dictionary) -> String:
 	return " · ".join(chunks)
 
 
+## UI snapshot: stamped row hint when present, else derive from live telegraph/focus/load (same frame as **`build`**).
+static func snapshot_ui_hint(c: Dictionary) -> String:
+	if not enabled() or c == null:
+		return ""
+	var stamped: String = str(c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "")).strip_edges()
+	if not stamped.is_empty():
+		return stamped
+	return format_attention_ui_hint(c)
+
+
 ## Waiting-tick refresh: recompute load + stamp **`COMBATANT_KEY_ATTENTION_UI_HINT`** for **`BattleUIUpdater`**.
 static func refresh_for_waiting_tick(manager: Node, c: Dictionary) -> void:
 	if c == null or manager == null:

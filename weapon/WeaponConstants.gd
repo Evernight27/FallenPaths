@@ -16,6 +16,17 @@ const ATTACK_TYPE_BLUNT: String = "blunt"
 const BASELINE_CONTACT_CM: float = 2.0
 const BASELINE_MASS_KG: float = 1.0
 
+
+## Weapon `mass` when present; else **`BASELINE_MASS_KG`** (parry, KE, inertia).
+static func weapon_mass_kg(weapon: Variant) -> float:
+	if weapon == null:
+		return BASELINE_MASS_KG
+	var mass_raw: Variant = weapon.get("mass") if weapon is Object else null
+	if mass_raw is float or mass_raw is int:
+		return float(mass_raw)
+	return BASELINE_MASS_KG
+
+
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
 # Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J → E ∝ t^1.67. Nonlinear: pen = (KE/J_BASE)^PEN_EXPONENT.
 const J_PER_MM_BASE: float = 55.0  # Williams: 55 J for 1 mm mild steel
@@ -79,7 +90,7 @@ static func is_feint_move(move_id: String) -> bool:
 
 
 ## move_id (e.g. thrust, oberhau) -> stab | cut | blunt. Bare stab/cut/blunt pass through unchanged.
-## Single source for combat + velocity; ImpactVelocityModel.contact_type_from_move_id delegates here.
+## Single source for combat + velocity; use this directly (not a separate forwarder).
 static func contact_type_for_move_id(move_id: String) -> String:
 	var key: String = str(move_id).to_lower().strip_edges()
 	if key == ATTACK_TYPE_STAB or key == ATTACK_TYPE_CUT or key == ATTACK_TYPE_BLUNT:

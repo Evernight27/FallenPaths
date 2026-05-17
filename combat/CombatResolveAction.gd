@@ -23,6 +23,11 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	var atk = manager._get_by_id(attacker_id)
 	if atk == null:
 		return
+	if manager.medical_phase:
+		if _EntityAccess.side_str(atk) != manager.medical_phase_winner:
+			return
+		if not is_medical_move(move_id):
+			return
 	var use_counter_tempo: bool = bool(options.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false))
 	if (
 		_EntityAccess.state_str(atk) == CombatConstants.STATE_WAITING
@@ -53,6 +58,12 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	if (
 		_EntityAccess.state_str(atk) != CombatConstants.STATE_WAITING
 		and _EntityAccess.state_str(atk) != CombatConstants.STATE_COWERING
+	):
+		return
+	_ActionsBuilder.sync_cowering_state_if_no_functional_arm(atk)
+	if (
+		_ActionsBuilder.cannot_commit_melee(atk)
+		and not _ActionsBuilder.resolve_move_allowed_when_cannot_melee(move_id, target_id, attacker_id)
 	):
 		return
 	if move_id == CombatConstants.MOVE_ID_WAIT:
@@ -89,7 +100,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			manager._resolve_close_attempt(attacker_id, target_id)
 			manager.emit_signal("turn_resolved", attacker_id)
 			return
-		if not CombatDebug.flow_verbose_enabled() and CombatConstants.COMBAT_EVENT_DEBUG:
+		if not CombatDebug.flow_verbose_enabled() and CombatConstants.combat_event_debug_active():
 			var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 			var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 			print("[Combat] %s attempting to close on %s (tactical distance — pressure vs evasion roll)" % [atk_name, tgt_name])
@@ -114,10 +125,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			# Cowering solo retreat is listed without stable-line policy (`formation_retreat_only` in builder).
 			var cowering_solo_retreat: bool = (
 				target_id == attacker_id
-				and (
-					_EntityAccess.state_str(atk) == CombatConstants.STATE_COWERING
-					or _EntityAccess.is_cowering(atk)
-				)
+				and _ActionsBuilder.formation_retreat_only_for(atk)
 				and AvailableActionsBuilder.solo_fall_back_action_legal(manager, atk)
 			)
 			if not cowering_solo_retreat:
@@ -191,6 +199,8 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			"clear_direct_pressure:%d" % attacker_id
 		)
 	_EntityAccess.clear_direct_pressure_scene(atk)
+	if _ActionsBuilder.cannot_commit_melee(atk):
+		return
 	var opts: Dictionary = {}
 	if options.has("target_part"):
 		opts["target_part"] = options.target_part

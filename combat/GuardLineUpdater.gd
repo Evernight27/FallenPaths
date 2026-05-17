@@ -64,7 +64,7 @@ static func set_guard_deflected(c: Dictionary, move_id: String, effective_line_o
 	c["guard_deflect_blend"] = blend
 	c["guard_deflect_from_line"] = atk_line
 	_sync_guard_zone_from_line(c, line)
-	if CombatConstants.COMBAT_DEBUG:
+	if CombatConstants.combat_debug_active():
 		var name_s: String = _EntityAccess.get_display_name(c)
 		var kind: String = "bind" if line == atk_line else "deflect"
 		var angle_info: String = ""
@@ -88,7 +88,7 @@ static func set_guard_from_move(c: Dictionary, move_id: String, effective_line_o
 		c.erase("guard_deflect_blend")
 		c.erase("guard_deflect_from_line")
 		_sync_guard_zone_from_line(c, line, true)
-		if CombatConstants.COMBAT_DEBUG:
+		if CombatConstants.combat_debug_active():
 			var name_s: String = _EntityAccess.get_display_name(c)
 			_CombatDebug.log("guard_line %s: %s -> %s (move=%s)" % [name_s, prev, line, move_id])
 
@@ -101,7 +101,7 @@ static func set_guard_from_line(c: Dictionary, line: String) -> void:
 	c.erase("guard_deflect_blend")
 	c.erase("guard_deflect_from_line")
 	_sync_guard_zone_from_line(c, line, true)
-	if CombatConstants.COMBAT_DEBUG:
+	if CombatConstants.combat_debug_active():
 		var name_s: String = _EntityAccess.get_display_name(c)
 		_CombatDebug.log("guard_line %s: %s -> %s (from_line)" % [name_s, prev, line])
 

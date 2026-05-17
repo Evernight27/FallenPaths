@@ -14,11 +14,13 @@ const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 static func _log_outcome(action: String, atk_id: int, tgt_id: int) -> void:
-	if CombatConstants.COMBAT_DEBUG:
+	if CombatConstants.combat_debug_active():
 		CombatDebug.log("outcome %s atk=%d tgt=%d" % [action, atk_id, tgt_id])
 
 static func _consume_stamina(c: Dictionary, amount: float) -> void:
@@ -39,6 +41,15 @@ static func _clear_attacker_pending_attack(atk: Dictionary, manager: Node) -> vo
 	_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa0)
 	_Footwork.clear_position_offset(atk)
 	atk.pending_attack = {}
+
+
+static func _react_attacking_arm_loss_after_wound(manager: Node, c: Variant) -> void:
+	if manager == null or c == null or not (c is Dictionary):
+		return
+	var cd: Dictionary = c as Dictionary
+	if cd.is_empty():
+		return
+	_EntityAccess.react_attacking_arm_lost_if_needed(manager, cd)
 
 
 static func _clear_defender_footwork(tgt: Dictionary) -> void:
@@ -71,6 +82,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 	var action: String = result.get("action", "skip")
 	var target_id: int = result.get("target_id", -1)
 	var atk = manager._get_by_id(attacker_id)
+	if _MedicalPhase.combat_resolution_blocked(manager):
+		return
 	var tgt = manager._get_by_id(target_id) if target_id >= 0 else null
 	var tgt_scene: Node = _EntityAccess.scene_node(tgt) if tgt != null else null
 	var empty_result: Dictionary = {"dmg": 0, "died": false, "part": "", "damage_type": "", "outcome": "", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0}
@@ -89,10 +102,12 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				atk.state_timer = 0.0
 				atk.state_duration = result.recovery_duration
 				_clear_attacker_pending_attack(atk, manager)
+				_react_attacking_arm_loss_after_wound(manager, atk)
 			else:
 				atk.state = CombatConstants.STATE_WAITING
 				atk.gauge = 0.0
 				_clear_attacker_pending_attack(atk, manager)
+				_react_attacking_arm_loss_after_wound(manager, atk)
 		return
 	if action == "defeated":
 		if tgt != null:
@@ -153,7 +168,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			var atk_line: String = pa.get("effective_attack_line", move_def.get("attack_line", "high"))
 			var dodge_guard: String = CombatConstants.DODGE_END_GUARD_FROM_ATTACK.get(atk_line, tgt.get("guard_line", CombatConstants.GUARD_DEFAULT))
 			_GuardUpdater.set_guard_from_line(tgt, dodge_guard)
-			if CombatConstants.COMBAT_DEBUG:
+			if CombatConstants.combat_debug_active():
 				CombatDebug.log("guard_line %s: -> %s (dodged %s)" % ["id:%d" % _EntityAccess.id_int(tgt), dodge_guard, atk_line])
 		if atk != null:
 			_clear_attacker_pending_attack(atk, manager)
@@ -183,13 +198,21 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			var eff_line: String = atk.get("effective_attack_line", "") if atk != null else ""
 			_GuardUpdater.set_guard_from_move(tgt, move_id, eff_line)
 			tgt["parry_bonus_until"] = CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
-			_CounterTempo.grant_riposte_chain(manager, tgt, attacker_id)
-			var clash_raw: Variant = result.get("parry_clash_context", null)
-			var clash: Dictionary = clash_raw if clash_raw is Dictionary else {}
-			var arch_id: String = clash.get("archetype_id", "")
-			var can_bind: bool = arch_id.is_empty() or arch_id not in CombatConstants.ARCHETYPES_NEVER_BIND
-			tgt["parry_was_bind"] = can_bind and clash.get("parry_control", 0.0) >= CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
-			tgt["parry_against_id"] = attacker_id
+			if not _ActionsBuilder.cannot_commit_melee(tgt):
+				_CounterTempo.grant_riposte_chain(manager, tgt, attacker_id)
+				var clash_raw: Variant = result.get("parry_clash_context", null)
+				var clash: Dictionary = clash_raw if clash_raw is Dictionary else {}
+				var arch_id: String = clash.get("archetype_id", "")
+				var can_bind: bool = arch_id.is_empty() or arch_id not in CombatConstants.ARCHETYPES_NEVER_BIND
+				tgt["parry_was_bind"] = (
+					can_bind
+					and clash.get("parry_control", 0.0) >= CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
+				)
+				tgt["parry_against_id"] = attacker_id
+			else:
+				tgt.erase("parry_was_bind")
+				tgt.erase("parry_against_id")
+				_CounterTempo.clear_riposte_chain(tgt)
 			_defender_set_idle_after_parry(tgt)
 		empty_result["outcome"] = "parry_deflect"
 		var clash_emit: Variant = result.get("parry_clash_context", null)
@@ -220,8 +243,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			if pa_partial.get("attack_angle_deg", -999.0) >= 0.0:
 				var read: float = _PassiveParry.get_passive_parry_readiness(tgt)
 				var def_w = _EntityAccess.get_weapon(tgt)
-				var def_mass_partial: float = float(def_w.mass) if def_w != null and (def_w.get("mass") is float or def_w.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
-				var wob: Dictionary = {"parry_readiness": read, "defender_mass_kg": def_mass_partial}
+				var wob: Dictionary = _EntityAccess.parry_wobble_context(def_w, read)
 				align_ctx = {
 					"attack_angle_deg": pa_partial["attack_angle_deg"],
 					"guard_angle_deg": _Footwork.guard_angle_deg(tgt, wob),
@@ -307,7 +329,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				atk.state_duration = result.get("recovery_duration", 0.5)
 			manager._end_combat_phase(winner, tgt_scene)
 			return
-		_Afterblow.try_afterblow(manager, attacker_id, target_id, result_dict, intensity)
+		if not _MedicalPhase.combat_resolution_blocked(manager):
+			_Afterblow.try_afterblow(manager, attacker_id, target_id, result_dict, intensity)
 		# last_move_id set in AttackResolver before clearing pending_attack
 		_log_outcome("hit", attacker_id, target_id)
 		manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
@@ -323,5 +346,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			_GuardUpdater.set_guard_from_line(tgt, "low")
 			if manager.has_method("apply_formation_hit_reaction_if_needed"):
 				manager.apply_formation_hit_reaction_if_needed(target_id, intensity)
+		_react_attacking_arm_loss_after_wound(manager, atk)
+		_react_attacking_arm_loss_after_wound(manager, tgt)
 		_clear_defender_footwork(tgt)
 		return

@@ -124,7 +124,6 @@ static func choose_defense(
 	var parry_readiness: float = 0.0
 	var parry_off_balance: bool = false
 	var late_parry: bool = false
-	var tgt_n: Node = _EntityAccess.scene_node(tgt)
 
 	if _EntityAccess.has_weapon(tgt) and _EntityAccess.has_passive_parry_reaction_time(tgt):
 		var def_weapon = _EntityAccess.get_weapon(tgt)
@@ -181,8 +180,7 @@ static func choose_defense(
 					attack_angle_at_contact = _Footwork.apply_offset_to_angle_deg(
 						attack_angle_at_contact, atk
 					)
-					var def_mass: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
-					var wobble: Dictionary = {"parry_readiness": pr_guard_feint, "defender_mass_kg": def_mass}
+					var wobble: Dictionary = _EntityAccess.parry_wobble_context(def_weapon, pr_guard_feint)
 					align_ctx = {
 						"attack_angle_deg": attack_angle_at_contact,
 						"guard_angle_deg": _Footwork.guard_angle_deg_with_step_deg(
@@ -196,7 +194,7 @@ static func choose_defense(
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio))
 				parry_c_d *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
 				parry_c_d *= pa.get("tactical_ambush_mult", 1.0)
-				if CombatConstants.COMBAT_DEBUG:
+				if CombatConstants.combat_debug_active():
 					var dbg_tgt: String = _EntityAccess.get_display_name(tgt)
 					CombatDebug.log("parry_align %s guard=%s atk=%s align=%.2f" % [dbg_tgt, tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), move_def.get("attack_line", "high"), _al])
 				var cal_suffix: String = ""
@@ -262,8 +260,7 @@ static func choose_defense(
 					attack_angle_at_impact = _Footwork.apply_offset_to_angle_deg(
 						attack_angle_at_impact, atk
 					)
-					var def_mass_late: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
-					var wobble_late: Dictionary = {"parry_readiness": pr_guard_feint_late, "defender_mass_kg": def_mass_late}
+					var wobble_late: Dictionary = _EntityAccess.parry_wobble_context(def_weapon, pr_guard_feint_late)
 					align_ctx_late = {
 						"attack_angle_deg": attack_angle_at_impact,
 						"guard_angle_deg": _Footwork.guard_angle_deg_with_step_deg(
@@ -277,7 +274,7 @@ static func choose_defense(
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio_late))
 				parry_c_d *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
 				parry_c_d *= pa.get("tactical_ambush_mult", 1.0)
-				if CombatConstants.COMBAT_DEBUG:
+				if CombatConstants.combat_debug_active():
 					CombatDebug.log("parry_align late %s align=%.2f" % [tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), _al])
 
 	parry_p_a *= depth_spear_open_lane_stab_parry_p_a_mult(pa, attack_type)
@@ -332,8 +329,8 @@ static func choose_defense(
 		var atk_w: Variant = _EntityAccess.get_weapon(atk)
 		var def_w: Variant = _EntityAccess.get_weapon(tgt)
 		if atk_w != null and def_w != null:
-			m_a_parry = float(atk_w.mass) if (atk_w.get("mass") is float or atk_w.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
-			m_d_parry = float(def_w.mass) if (def_w.get("mass") is float or def_w.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
+			m_a_parry = _EntityAccess.weapon_mass_kg(atk_w)
+			m_d_parry = _EntityAccess.weapon_mass_kg(def_w)
 			var move_def_mass: Dictionary = WeaponConstants.get_move(attack_type)
 			var ct_mass: String = str(move_def_mass.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
 			m_a_velocity = float(atk_w.get_striking_part_mass_kg(ct_mass)) if atk_w.has_method("has_parts") and atk_w.has_parts() else float(atk_w.mass)
@@ -400,8 +397,12 @@ static func _get_effective_redirect(tgt: Dictionary) -> float:
 	return redirect_attempt * (0.75 + agi_scale * clampf(agi_d_attempt / 100.0, 0.0, 1.5))
 
 static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String = "") -> float:
-	var m_parry_part: float = float(def_weapon.get_parry_part_mass_kg()) if def_weapon.has_method("has_parts") and def_weapon.has_parts() else float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
-	var m_total: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
+	var m_parry_part: float = (
+		float(def_weapon.get_parry_part_mass_kg())
+		if def_weapon.has_method("has_parts") and def_weapon.has_parts()
+		else _EntityAccess.weapon_mass_kg(def_weapon)
+	)
+	var m_total: float = _EntityAccess.weapon_mass_kg(def_weapon)
 	# Full weapon mass matters: inertia and geometry. Blend parry-part (contact) with total (leverage).
 	var m_d: float = lerpf(m_parry_part, m_total, CombatConstants.PARRY_INERTIA_BLEND) if def_weapon.has_method("has_parts") and def_weapon.has_parts() else m_total
 	var s_d: float = float(_EntityAccess.stats_dict(tgt).get("strength", 100))
@@ -444,7 +445,7 @@ static func _get_leverage_factor(def_weapon, alignment: float) -> float:
 
 static func _get_parry_capacity_mult(def_weapon, tgt: Dictionary, parry_time_to_react: float) -> float:
 	# Weapon objects use direct properties; Object.get() takes 1 arg (no default like Dictionary).
-	var m_d: float = float(def_weapon.mass) if def_weapon != null else WeaponConstants.BASELINE_MASS_KG
+	var m_d: float = _EntityAccess.weapon_mass_kg(def_weapon)
 	var s_d: float = float(_EntityAccess.stats_dict(tgt).get("strength", 100))
 	var speed_f: float = clampf(float(def_weapon.parry_speed_factor), 0.5, 1.5)
 	var blade_movement_s: float = (CombatConstants.PARRY_BLADE_MOVEMENT_S * clampf(m_d * CombatConstants.PARRY_STRENGTH_NORM / maxf(s_d, 1.0), CombatConstants.PARRY_MOVEMENT_MASS_STRENGTH_MIN, CombatConstants.PARRY_MOVEMENT_MASS_STRENGTH_MAX)) / speed_f

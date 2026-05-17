@@ -26,6 +26,10 @@ const _Footwork := preload("res://combat/CombatFootwork.gd")
 static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary:
 	if actions.is_empty():
 		return {}
+	var c_pick: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
+	actions = _ActionsBuilder.filter_actions_for_retreat_only(actions, c_pick)
+	if actions.is_empty():
+		return {}
 	var stacked: Dictionary = _MentalStack.try_pick(actions, combatant_id, manager)
 	if not stacked.is_empty():
 		var choice_stacked: Dictionary = stacked.duplicate()
@@ -36,6 +40,10 @@ static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary
 
 ## Weighted random choice without **`MentalStackDecider`** (used by stack layers to avoid recursion).
 static func pick_weighted(actions: Array, combatant_id: int, manager: Node) -> Dictionary:
+	if actions.is_empty():
+		return {}
+	var c_pick: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
+	actions = _ActionsBuilder.filter_actions_for_retreat_only(actions, c_pick)
 	if actions.is_empty():
 		return {}
 	_TargetScoring.prune_expired_commitments(manager)
@@ -64,6 +72,46 @@ static func opts_from_choice(choice: Dictionary) -> Dictionary:
 	if choice.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false):
 		opts[CombatConstants.ACTION_KEY_COUNTER_TEMPO] = true
 	return opts
+
+
+## Apply a picked move via **`CombatManager.resolve_action`** (shared by player/enemy turn paths).
+static func resolve_choice(
+	manager: Node, combatant_id: int, choice: Dictionary, self_target: bool = false
+) -> void:
+	var opts: Dictionary = opts_from_choice(choice)
+	var target_id: int = combatant_id if self_target else int(choice.get("target_id", combatant_id))
+	manager.resolve_action(combatant_id, target_id, choice.get("move_id", ""), opts)
+
+
+## Pick from **`actions`** then resolve; optional **`CombatDebug.flow_log_turn`** when **`log_side`** set.
+static func resolve_picked_turn(
+	manager: Node,
+	combatant_id: int,
+	actions: Array,
+	log_side: String = "",
+	self_target: bool = false
+) -> void:
+	if actions.is_empty():
+		return
+	var choice: Dictionary = pick(actions, combatant_id, manager)
+	if not log_side.is_empty():
+		CombatDebug.flow_log_turn(log_side, combatant_id, actions, choice)
+	resolve_choice(manager, combatant_id, choice, self_target)
+
+
+## **`skip_turn`** when no actions; else **`resolve_picked_turn`** (player/enemy **`ACTION_READY`** paths).
+static func resolve_picked_turn_or_skip(
+	manager: Node,
+	combatant_id: int,
+	actions: Array,
+	log_side: String = "",
+	self_target: bool = false
+) -> void:
+	if actions.is_empty():
+		if manager.has_method("skip_turn"):
+			manager.skip_turn(combatant_id, "pass", "no available actions")
+		return
+	resolve_picked_turn(manager, combatant_id, actions, log_side, self_target)
 
 ## Shared swap-rank fitness gate: `disengage` = front yields to fitter rear; relief = rear replaces exhausted front.
 static func _swap_rank_fitness_swap_allowed(
@@ -121,6 +169,13 @@ static func _get_action_weight(
 	var c = manager._get_by_id(combatant_id)
 	if c == null:
 		return 1.0
+	if (
+		_ActionsBuilder.cannot_commit_melee(c)
+		and not _ActionsBuilder.resolve_move_allowed_when_cannot_melee(
+			mid, int(a.get("target_id", -1)), combatant_id
+		)
+	):
+		return 0.0
 	if mid == CombatConstants.MOVE_ID_WAIT:
 		return 1.0
 	if CombatConstants.is_focus_line_move(mid):
@@ -138,12 +193,16 @@ static func _get_action_weight(
 		var fd_crash: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, fid_crash)
 		var pst_m: float = _crash_weight_posture_mult(manager, c, fd_crash)
 		var coh_m: float = crash_line_cohesion_weight_mult(manager, c, fd_crash)
-		return CombatConstants.CRASH_AI_WEIGHT_CAP * shaped * sr_c * pst_m * coh_m
+		return (
+			CombatConstants.CRASH_AI_WEIGHT_CAP
+			* shaped
+			* sr_c
+			* pst_m
+			* coh_m
+			* _doomed_skirmish_offense_weight_mult(manager, c)
+		)
 	if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get("target_id", -1) == combatant_id:
-		if (
-			_EntityAccess.state_str(c) == CombatConstants.STATE_COWERING
-			or _EntityAccess.is_cowering(c)
-		):
+		if _ActionsBuilder.formation_retreat_only_for(c):
 			return CombatConstants.COWERING_SOLO_FALL_BACK_AI_WEIGHT
 		# Offered only when desperate / peril (AvailableActionsBuilder); keep below routine wait.
 		return 0.45
@@ -263,13 +322,40 @@ static func _get_action_weight(
 	var counter_tempo_m: float = _CounterTempo.counter_tempo_listing_weight_mult(
 		manager, combatant_id, a, mid
 	)
+	var doomed_m: float = _doomed_offense_weight_mult(manager, c)
+	if (
+		mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
+		and CombatConstants.crash_breach_viability(c) + 0.0001 < CombatConstants.CRASH_BREACH_VIABILITY_MIN
+	):
+		doomed_m *= CombatConstants.AI_LOW_CRASH_VIABILITY_ATTEMPT_CLOSE_EXTRA_MULT
 	return (
 		base_stamina
 		* _TargetScoring.ai_targeting_weight_mult(manager, combatant_id, a, skip_targeting_prune)
 		* polearm_lane
 		* feint_list_m
 		* counter_tempo_m
+		* doomed_m
 	)
+
+
+## Duel/skirmish (few standing on side): damp routine offense and crash listing.
+static func _doomed_skirmish_offense_weight_mult(manager: Node, c: Dictionary) -> float:
+	if manager == null:
+		return 1.0
+	var side: String = _EntityAccess.side_str(c)
+	var standing: int = _EngagementMode.count_active_for_side(manager, side)
+	if standing <= int(CombatConstants.ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE):
+		return CombatConstants.AI_SKIRMISH_LOW_STANDING_OFFENSE_MULT
+	return 1.0
+
+
+## Damp routine melee / close when breach viability is gone or the side is nearly eliminated (duel/skirmish).
+static func _doomed_offense_weight_mult(manager: Node, c: Dictionary) -> float:
+	var mult: float = _doomed_skirmish_offense_weight_mult(manager, c)
+	var via: float = CombatConstants.crash_breach_viability(c)
+	if via + 0.0001 < CombatConstants.CRASH_BREACH_VIABILITY_MIN:
+		mult *= CombatConstants.ai_low_crash_viability_offense_weight_mult(via)
+	return mult
 
 ## Tier 4.3.7: focus-line retarget — party lead favors matching incoming telegraph; others rarely shift.
 static func _focus_line_action_weight(
@@ -296,7 +382,10 @@ static func _focus_line_action_weight(
 ## Tier 1.9 (P10): when depth spear lane is open **and** at least one **valid line** rank-0 hostile exists, prefer thrusts; de-emphasize closing (thrust works from MID).
 ## Formation **`doctrine`** (`pinch_center` / `hold_lane` / `probing`) nudges stab vs cut weights (Tier 1.9 optional coupling).
 static func _depth_polearm_action_weight_mult(manager: Node, c: Dictionary, move_id: String) -> float:
-	if manager == null or c.is_empty() or not _ActionsBuilder.depth_polearm_lane_open(manager, c):
+	if manager == null or c.is_empty():
+		return 1.0
+	var fid_depth: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
+	if not _ActionsBuilder.depth_polearm_lane_open(manager, c, fid_depth):
 		return 1.0
 	if not _ActionsBuilder.depth_polearm_has_valid_line_threat_to_any_rank0_hostile(manager, c, manager.combatants):
 		return 1.0
@@ -355,7 +444,9 @@ static func crash_line_cohesion_weight_mult(manager: Node, c: Dictionary, fd_cac
 	var fd: Dictionary = (
 		(fd_cached as Dictionary)
 		if fd_cached != null and fd_cached is Dictionary
-		else _ZoneOfControl.formation_dict_for_zone_geometry(manager, c)
+		else _ZoneOfControl.formation_dict_for_zone_geometry(
+			manager, c, _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
+		)
 	)
 	if fd.is_empty():
 		return 1.0
@@ -428,7 +519,9 @@ static func _crash_weight_posture_mult(manager: Node, c: Dictionary, fd_cached: 
 	var fd: Dictionary = (
 		(fd_cached as Dictionary)
 		if fd_cached != null and fd_cached is Dictionary
-		else _ZoneOfControl.formation_dict_for_zone_geometry(manager, c)
+		else _ZoneOfControl.formation_dict_for_zone_geometry(
+			manager, c, _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
+		)
 	)
 	if fd.is_empty():
 		return 1.0

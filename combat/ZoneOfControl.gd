@@ -302,11 +302,13 @@ static func get_engagement_parry_multiplier(manager: Node, attacker_id: int, def
 		return _engagement_parry_mult_pack_fallback(manager, atk, tgt)
 	if _EntityAccess.side_str(atk) == _EntityAccess.side_str(tgt):
 		return _engagement_parry_mult_pack_fallback(manager, atk, tgt)
-	var fa: Dictionary = formation_dict_for_zone_geometry(manager, atk)
-	var fd: Dictionary = formation_dict_for_zone_geometry(manager, tgt)
+	var fid_atk: String = formation_id_for_zone_geometry(manager, atk)
+	var fid_def: String = formation_id_for_zone_geometry(manager, tgt)
+	var fa: Dictionary = formation_dict_for_zone_geometry(manager, atk, fid_atk)
+	var fd: Dictionary = formation_dict_for_zone_geometry(manager, tgt, fid_def)
 	if _zoc_pair_uses_wide_line_geometry(fa, fd):
 		return _engagement_parry_mult_zoc(manager, tgt, fd)
-	return _engagement_parry_mult_pack_fallback(manager, atk, tgt)
+	return _engagement_parry_mult_pack_fallback(manager, atk, tgt, fa, fd)
 
 
 static func _zoc_pair_uses_wide_line_geometry(f_atk: Dictionary, f_def: Dictionary) -> bool:
@@ -332,12 +334,20 @@ static func _engagement_parry_mult_zoc(_manager: Node, defender: Dictionary, def
 		return CombatConstants.FLANK_PARRY_MOD
 	return 1.0
 
-static func _engagement_parry_mult_pack_fallback(manager: Node, atk: Dictionary, tgt: Dictionary) -> float:
+static func _engagement_parry_mult_pack_fallback(
+	manager: Node,
+	atk: Dictionary,
+	tgt: Dictionary,
+	formation_atk_cache: Variant = null,
+	formation_def_cache: Variant = null
+) -> float:
 	if manager != null:
 		# Runtime load avoids parse cycle: AvailableActionsBuilder preloads ZoneOfControl.
 		var ab: Variant = load("res://combat/AvailableActionsBuilder.gd")
 		if ab != null:
-			var eff: float = ab.effective_pair_file_spacing_equivalent(manager, atk, tgt)
+			var eff: float = ab.effective_pair_file_spacing_equivalent(
+				manager, atk, tgt, formation_atk_cache, formation_def_cache
+			)
 			if eff + 1e-4 >= CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN:
 				return CombatConstants.FLANK_PARRY_MOD
 	var df: int = int(absf(float(_EntityAccess.file_int(atk) - _EntityAccess.file_int(tgt))))
@@ -347,11 +357,25 @@ static func _engagement_parry_mult_pack_fallback(manager: Node, atk: Dictionary,
 
 ## Scales geometric separation for engagement (weak front lines = compressed distance feel). 1.0 at full control.
 ## Note: mid_reach_files() also reacts to weak fronts (extra file of mid band) — intentional layered tuning, not duplicate math.
-static func geometric_reach_extent_multiplier(manager: Node, our: Dictionary, opp: Dictionary) -> float:
+static func geometric_reach_extent_multiplier(
+	manager: Node,
+	our: Dictionary,
+	opp: Dictionary,
+	our_formation_cache: Variant = null,
+	opp_formation_cache: Variant = null
+) -> float:
 	if not is_zoc_flanking_enabled(manager):
 		return 1.0
-	var fo: Dictionary = formation_dict_for_zone_geometry(manager, our)
-	var fe: Dictionary = formation_dict_for_zone_geometry(manager, opp)
+	var fo: Dictionary = (
+		(our_formation_cache as Dictionary)
+		if our_formation_cache != null and our_formation_cache is Dictionary
+		else formation_dict_for_zone_geometry(manager, our)
+	)
+	var fe: Dictionary = (
+		(opp_formation_cache as Dictionary)
+		if opp_formation_cache != null and opp_formation_cache is Dictionary
+		else formation_dict_for_zone_geometry(manager, opp)
+	)
 	if fo.is_empty() or fe.is_empty():
 		return 1.0
 	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:
@@ -363,11 +387,25 @@ static func geometric_reach_extent_multiplier(manager: Node, our: Dictionary, op
 
 
 ## When both sides have wide lines, allow mid band one file farther if either front zone is weak.
-static func mid_reach_files(manager: Node, our: Dictionary, opp: Dictionary) -> int:
+static func mid_reach_files(
+	manager: Node,
+	our: Dictionary,
+	opp: Dictionary,
+	our_formation_cache: Variant = null,
+	opp_formation_cache: Variant = null
+) -> int:
 	if not is_zoc_flanking_enabled(manager):
 		return 1
-	var fo: Dictionary = formation_dict_for_zone_geometry(manager, our)
-	var fe: Dictionary = formation_dict_for_zone_geometry(manager, opp)
+	var fo: Dictionary = (
+		(our_formation_cache as Dictionary)
+		if our_formation_cache != null and our_formation_cache is Dictionary
+		else formation_dict_for_zone_geometry(manager, our)
+	)
+	var fe: Dictionary = (
+		(opp_formation_cache as Dictionary)
+		if opp_formation_cache != null and opp_formation_cache is Dictionary
+		else formation_dict_for_zone_geometry(manager, opp)
+	)
 	if fo.is_empty() or fe.is_empty():
 		return 1
 	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:

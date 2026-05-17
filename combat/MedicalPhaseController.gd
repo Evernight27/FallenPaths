@@ -6,6 +6,19 @@ extends RefCounted
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
+
+## Queued events suppressed for the losing side once **`medical_phase`** is active.
+const POST_VICTORY_BLOCKED_EVENT_TYPES: Array[String] = [
+	CombatConstants.EVENT_MELEE_ATTACK,
+	CombatConstants.EVENT_ACTION_READY,
+	CombatConstants.EVENT_RECOVERY_END,
+	CombatConstants.EVENT_SWAP_RANK_RESOLVE,
+	CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE,
+	CombatConstants.EVENT_ROTATE_FILE_RESOLVE,
+]
 
 # AI / phase gating: consider medical when blood or time-to-death in danger zone.
 const MEDICAL_DANGER_BLOOD_THRESHOLD: float = 55.0
@@ -22,6 +35,125 @@ const MEDICAL_AI_PRESSURE_LOW_SKILL_MULT := 1.42
 const MEDICAL_AI_PRESSURE_HIGH_SKILL_MULT := 0.66
 const MEDICAL_AI_EFF_CLAMP_MIN := 0.3
 const MEDICAL_AI_EFF_CLAMP_MAX := 1.5
+
+## True once player-side victory: no new combat resolutions (medical triage only).
+static func combat_resolution_blocked(manager: Node) -> bool:
+	return manager != null and bool(manager.medical_phase)
+
+
+static func is_winner_side(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c == null or c.is_empty() or not manager.medical_phase:
+		return false
+	return _EntityAccess.side_str(c) == manager.medical_phase_winner
+
+
+static func is_losing_side(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c == null or c.is_empty():
+		return false
+	if not manager.medical_phase:
+		return false
+	return not is_winner_side(manager, c)
+
+
+static func is_losing_side_id(manager: Node, combatant_id: int) -> bool:
+	if manager == null or combatant_id < 0 or not manager.has_method("_get_by_id"):
+		return false
+	var c: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
+	return is_losing_side(manager, c)
+
+
+## True when an event should not be queued for the losing side (or a pair touching them) during medical phase.
+static func should_block_scheduled_event(manager: Node, ev: Dictionary) -> bool:
+	if manager == null or not manager.medical_phase:
+		return false
+	var ev_type: String = str(ev.get("type", ""))
+	if ev_type not in POST_VICTORY_BLOCKED_EVENT_TYPES:
+		return false
+	var cid: int = int(ev.get("combatant_id", -1))
+	if is_losing_side_id(manager, cid):
+		return true
+	if (
+		ev_type == CombatConstants.EVENT_SWAP_RANK_RESOLVE
+		or ev_type == CombatConstants.EVENT_ROTATE_FILE_RESOLVE
+	):
+		var dr: Variant = ev.get("data", null)
+		if dr is Dictionary:
+			var pid: int = int((dr as Dictionary).get("partner_id", -1))
+			if is_losing_side_id(manager, pid):
+				return true
+	return false
+
+
+## Formation resolve handlers: skip grid mutations for the losing side during medical phase.
+static func should_skip_formation_resolve(manager: Node, initiator_id: int, partner_id: int = -1) -> bool:
+	if not manager.medical_phase:
+		return false
+	if is_losing_side_id(manager, initiator_id):
+		return true
+	if partner_id >= 0 and is_losing_side_id(manager, partner_id):
+		return true
+	return false
+
+
+## Remove any queued post-victory combat events for the losing side (and pairs touching them).
+static func purge_blocked_events_from_queue(manager: Node) -> void:
+	if manager == null or not manager.medical_phase:
+		return
+	manager.event_queue = manager.event_queue.filter(func(ev: Variant) -> bool:
+		if typeof(ev) != TYPE_DICTIONARY:
+			return false
+		return not should_block_scheduled_event(manager, ev as Dictionary)
+	)
+
+
+## Player-win medical phase: cancel losing-side combat, abort wind-ups, idle combat states.
+static func halt_losing_side_combat(manager: Node) -> void:
+	if manager == null or not manager.medical_phase:
+		return
+	var winner: String = manager.medical_phase_winner
+	for c in manager.combatants:
+		if _EntityAccess.side_str(c) == winner:
+			continue
+		var cid: int = _EntityAccess.id_int(c)
+		_EventScheduler.cancel_pending_combat_events_for_combatant(manager, cid)
+		var st: String = _EntityAccess.state_str(c)
+		if st == CombatConstants.STATE_WIND_UP:
+			_CounterTempo.abort_attacker_wind_up(manager, cid)
+			_EventScheduler.cancel_pending_recovery_end(manager, cid)
+			c.state = CombatConstants.STATE_WAITING
+			c.state_timer = 0.0
+			c.state_duration = 0.0
+			c.gauge = 0.0
+			continue
+		var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
+		if not pa.is_empty():
+			_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa)
+			c.pending_attack = {}
+		if st in [
+			CombatConstants.STATE_RECOVERING,
+			CombatConstants.STATE_SWAP_RANK,
+			CombatConstants.STATE_FALLING_BACK,
+			CombatConstants.STATE_MEDICAL_WIND_UP,
+		]:
+			c.state = CombatConstants.STATE_WAITING
+			c.state_timer = 0.0
+			c.state_duration = 0.0
+			c.gauge = 0.0
+		c["pending_medical"] = {}
+		c.erase("formation_move_partner_id")
+		c.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
+		c.erase("parry_was_bind")
+		c.erase("parry_against_id")
+		c.erase("parry_bonus_until")
+		_CounterTempo.clear_window(c)
+		_CounterTempo.clear_riposte_chain(c)
+	for c in manager.combatants:
+		if _EntityAccess.side_str(c) != winner:
+			continue
+		_CounterTempo.clear_window(c)
+		_CounterTempo.clear_riposte_chain(c)
+	purge_blocked_events_from_queue(manager)
+
 
 ## Same threshold as bleed-out death (`CoreEntity._get_blood_loss_death_threshold` / `EntityWounds`).
 static func _blood_loss_death_threshold_for_entity(entity: Node) -> float:

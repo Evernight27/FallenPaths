@@ -40,6 +40,8 @@ const RECOVERY_MISS_COMMITMENT_SCALE_S := 0.9
 const RECOVERY_EXTRA_FULL_STOP_BASE_S := 0.5
 const RECOVERY_FULL_STOP_COMMITMENT_SCALE_S := 0.35
 const WINDUP_LEG_MIN := 0.2
+## Hard cap on committed attack wind-up after guard transition, injury, and feint mults (UI / harness bound).
+const WIND_UP_DURATION_MAX_S := 2.4
 const RECOVERY_AFTER_MEDICAL_S := 0.5
 
 # Miss/hit/glancing
@@ -302,6 +304,8 @@ const PARRY_GEOMETRY_VARIANCE_BASE := 0.08
 # Guard transition: wind-up cost when blade must move from current guard to attack line.
 # Physics: angular distance; alignment=1 (same line) = no cost; alignment=0 = +40% wind-up.
 const GUARD_TRANSITION_COST_SCALE := 0.4
+## Clamp on guard-line transition mult (footwork offset can drive align toward 0 — keeps wind-up UI honest).
+const GUARD_TRANSITION_MULT_MAX := 1.35
 # AI target selection: preferred_parts from move get this weight multiplier (cut geometry).
 const PREFERRED_PART_BONUS_MULT := 1.5
 
@@ -319,6 +323,30 @@ const COMBAT_EVENT_DEBUG := true
 ## When true with `COMBAT_EVENT_DEBUG`, enables verbose `CombatDebug.flow_log` and related high-frequency prints (see block comment above).
 ## Turn pick lines (`flow_log_turn`) still print when only `COMBAT_EVENT_DEBUG` is true.
 const COMBAT_EVENT_DEBUG_VERBOSE := true
+## Headless **`run_combat_regression_harness.gd`** sets this so **`combat_debug_active()`** / **`combat_event_debug_active()`** are false (avoids megabytes of stdout and pipe deadlock with `| grep`).
+static var _headless_harness_quiet: bool = false
+
+
+static func set_headless_harness_quiet(on: bool) -> void:
+	_headless_harness_quiet = on
+
+
+static func is_headless_harness_quiet() -> bool:
+	return _headless_harness_quiet
+
+
+static func combat_debug_active() -> bool:
+	return COMBAT_DEBUG and not _headless_harness_quiet
+
+
+static func combat_event_debug_active() -> bool:
+	return COMBAT_EVENT_DEBUG and not _headless_harness_quiet
+
+
+static func combat_event_debug_verbose_active() -> bool:
+	return combat_event_debug_active() and COMBAT_EVENT_DEBUG_VERBOSE
+
+
 ## With verbose flow: `CombatDebug.flow_log(msg, dedupe_key)` omits a line when it matches the previous line for the same key (UI / tick polling). Set false to log every emission.
 const COMBAT_FLOW_LOG_SUPPRESS_REPEATED := true
 ## When true, vacancy plug reconcile runs only on formations marked dirty (`CombatManager.mark_formation_vacancy_dirty`), not every frame on both lines. Set false to restore always-reconcile-all behavior (e.g. regression debugging).
@@ -593,6 +621,12 @@ const CRASH_AI_POSTURE_DUEL_EXTRA_MULT := 1.0
 ## Tier 1.6 (P7): crash pick vs formation `line_cohesion` — ragged line hedges breach attempts; solid line slightly commits.
 const CRASH_AI_COHESION_LOW_MULT := 0.78
 const CRASH_AI_COHESION_HIGH_MULT := 1.06
+## When **`crash_breach_viability`** is below **`CRASH_BREACH_VIABILITY_MIN`**, damp non-focus melee / close listing (focus-line moves exempt).
+const AI_LOW_CRASH_VIABILITY_OFFENSE_MULT_AT_ZERO := 0.06
+## Extra damp on **`attempt_close`** when viability is below **`CRASH_BREACH_VIABILITY_MIN`** (stacked on doomed-offense mult).
+const AI_LOW_CRASH_VIABILITY_ATTEMPT_CLOSE_EXTRA_MULT := 0.05
+## Extra damp when this side has very few standing fighters (duel / skirmish attrition).
+const AI_SKIRMISH_LOW_STANDING_OFFENSE_MULT := 0.72
 ## Tier 1.6 (P7): `CombatTargetScoring.ai_targeting_weight_mult` — melee/close: resolved **`engagement_mode`**, our posture+cohesion + **opponent** formation (**`ZoneOfControl.formation_id_for_zone_geometry`** for intruders), stance (non-crash).
 const AI_TARGETING_LINE_COH_LO_MULT := 0.94
 const AI_TARGETING_LINE_COH_HI_MULT := 1.03
@@ -978,10 +1012,13 @@ static func merge_depth_polearm_ai_doctrine_mults(base: Dictionary, overlay: Var
 			continue
 		var v: Variant = o[k]
 		var tv: int = typeof(v)
+		var f: float = -1.0
 		if tv == TYPE_FLOAT or tv == TYPE_INT:
-			var f: float = float(v)
-			if f > 0.0:
-				out[k] = clampf(f, DEPTH_POLEARM_AI_MULT_OVERRIDE_MIN, DEPTH_POLEARM_AI_MULT_OVERRIDE_MAX)
+			f = float(v)
+		elif tv == TYPE_STRING and String(v).is_valid_float():
+			f = float(v)
+		if f > 0.0:
+			out[k] = clampf(f, DEPTH_POLEARM_AI_MULT_OVERRIDE_MIN, DEPTH_POLEARM_AI_MULT_OVERRIDE_MAX)
 	return out
 
 
@@ -1169,6 +1206,15 @@ static func crash_breach_viability(c: Dictionary) -> float:
 	var stance: String = CombatantEntityAccess.stance_str(c)
 	var base: float = str_a * stamina_factor(st_atk / STAMINA_MAX) * get_stance_modifier(stance, "close_attempt")
 	return clampf(base / CRASH_VIABILITY_BASE_REF, 0.0, 1.0)
+
+
+## 0..1 lerp for **`CombatAIActionPicker`** doomed-offense damp (1.0 at **`CRASH_BREACH_VIABILITY_MIN`** and above).
+static func ai_low_crash_viability_offense_weight_mult(viability: float) -> float:
+	if viability + 0.0001 >= CRASH_BREACH_VIABILITY_MIN:
+		return 1.0
+	var t: float = clampf(viability / CRASH_BREACH_VIABILITY_MIN, 0.0, 1.0)
+	return lerpf(AI_LOW_CRASH_VIABILITY_OFFENSE_MULT_AT_ZERO, 1.0, t)
+
 
 ## Returns density modifier for close attempt (applied to defender evasion).
 static func get_density_close_mod(density: String) -> float:

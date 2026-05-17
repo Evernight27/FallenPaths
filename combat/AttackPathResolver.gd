@@ -63,7 +63,7 @@ static func resolve_hit_part(attack_line: String, guard_line: String, targetable
 	var part: String = BodyPartConstants.get_weighted_random_part(path_segment) if part_weights.values().min() == part_weights.values().max() else _weighted_sample(part_weights)
 	if part.is_empty():
 		part = BodyPartConstants.get_weighted_random_part(path_segment)
-	if CombatConstants.COMBAT_DEBUG:
+	if CombatConstants.combat_debug_active():
 		var angle_info: String = ""
 		if alignment_context.get("attack_angle_deg", null) is float and alignment_context.get("guard_angle_deg", null) is float:
 			angle_info = " (atk=%.0f° guard=%.0f°)" % [float(alignment_context["attack_angle_deg"]), float(alignment_context["guard_angle_deg"])]

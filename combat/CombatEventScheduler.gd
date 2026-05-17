@@ -7,6 +7,8 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 
 
 static func compare_events(manager: Node, a: Variant, b: Variant) -> bool:
@@ -34,6 +36,8 @@ static func sort_event_queue(manager: Node) -> void:
 
 
 static func schedule_event(manager: Node, ev: Dictionary) -> void:
+	if _MedicalPhase.should_block_scheduled_event(manager, ev):
+		return
 	manager.event_queue.append(ev)
 	sort_event_queue(manager)
 
@@ -95,6 +99,17 @@ static func set_pending_melee_attack_resolve_at(
 ) -> bool:
 	if manager == null or combatant_id < 0:
 		return false
+	if _MedicalPhase.should_block_scheduled_event(
+		manager,
+		{
+			"type": CombatConstants.EVENT_MELEE_ATTACK,
+			"combatant_id": combatant_id,
+			"resolve_at": resolve_at,
+			"data": {},
+		}
+	):
+		cancel_pending_melee_attack(manager, combatant_id)
+		return false
 	for ev in manager.event_queue:
 		if typeof(ev) != TYPE_DICTIONARY:
 			continue
@@ -134,6 +149,53 @@ static func cancel_pending_action_ready(manager: Node, combatant_id: int) -> voi
 	)
 
 
+static func cancel_pending_recovery_end(manager: Node, combatant_id: int) -> void:
+	if manager == null or combatant_id < 0:
+		return
+	manager.event_queue = manager.event_queue.filter(func(ev: Variant) -> bool:
+		if typeof(ev) != TYPE_DICTIONARY:
+			return false
+		var evc: Dictionary = ev as Dictionary
+		return not (
+			evc.get("type", "") == CombatConstants.EVENT_RECOVERY_END
+			and int(evc.get("combatant_id", -1)) == combatant_id
+		)
+	)
+
+
+## Drop queued formation resolves that involve `combatant_id` (initiator or swap/rotate partner).
+static func cancel_pending_formation_events_for_combatant(manager: Node, combatant_id: int) -> void:
+	if manager == null or combatant_id < 0:
+		return
+	manager.event_queue = manager.event_queue.filter(func(ev: Variant) -> bool:
+		if typeof(ev) != TYPE_DICTIONARY:
+			return false
+		var evc: Dictionary = ev as Dictionary
+		var ev_type: String = str(evc.get("type", ""))
+		if ev_type == CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE:
+			return int(evc.get("combatant_id", -1)) != combatant_id
+		if (
+			ev_type == CombatConstants.EVENT_SWAP_RANK_RESOLVE
+			or ev_type == CombatConstants.EVENT_ROTATE_FILE_RESOLVE
+		):
+			var cid: int = int(evc.get("combatant_id", -1))
+			var pid: int = -1
+			var dr: Variant = evc.get("data", null)
+			if dr is Dictionary:
+				pid = int((dr as Dictionary).get("partner_id", -1))
+			return cid != combatant_id and pid != combatant_id
+		return true
+	)
+
+
+## Drop queued melee, turn-ready, recovery-end, and formation resolves for one combatant (medical-phase teardown).
+static func cancel_pending_combat_events_for_combatant(manager: Node, combatant_id: int) -> void:
+	cancel_pending_melee_attack(manager, combatant_id)
+	cancel_pending_action_ready(manager, combatant_id)
+	cancel_pending_recovery_end(manager, combatant_id)
+	cancel_pending_formation_events_for_combatant(manager, combatant_id)
+
+
 ## Drop queued `swap_rank_resolve` events that involve either combatant (stale resolve after restarts/bumps).
 static func cancel_pending_swap_rank_pair_events(manager: Node, id_a: int, id_b: int) -> void:
 	if manager == null or id_a < 0 or id_b < 0:
@@ -155,13 +217,23 @@ static func cancel_pending_swap_rank_pair_events(manager: Node, id_a: int, id_b:
 
 
 static func schedule_action_ready(manager: Node, combatant_id: int, delay_s: float) -> void:
-	cancel_pending_action_ready(manager, combatant_id)
-	schedule_event(manager, {
+	var ev: Dictionary = {
 		"type": CombatConstants.EVENT_ACTION_READY,
 		"combatant_id": combatant_id,
 		"resolve_at": manager.combat_clock + delay_s,
-		"data": {}
-	})
+		"data": {},
+	}
+	cancel_pending_action_ready(manager, combatant_id)
+	if _MedicalPhase.should_block_scheduled_event(manager, ev):
+		return
+	var c_ready: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
+	if (
+		not c_ready.is_empty()
+		and _ActionsBuilder.cannot_commit_melee(c_ready)
+		and not _EntityAccess.can_flee_or_fall_back(c_ready)
+	):
+		return
+	schedule_event(manager, ev)
 
 
 static func action_ready_cooldown(c: Dictionary) -> float:
@@ -180,12 +252,16 @@ static func schedule_initial_action_ready_events(manager: Node) -> void:
 	for c in manager.combatants:
 		if not _EntityAccess.alive_bool(c) or _EntityAccess.is_unconscious(c):
 			continue
+		if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
+			continue
 		schedule_action_ready(manager, _EntityAccess.id_int(c), action_ready_cooldown(c))
 
 
 static func reschedule_back_rank_turns(manager: Node, fid: String) -> void:
 	for c in manager.combatants:
 		if not _EntityAccess.alive_bool(c) or _ZoneOfControl.formation_id_for_zone_geometry(manager, c) != fid:
+			continue
+		if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
 			continue
 		if _EntityAccess.rank_int(c) <= 0 or _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 			continue
@@ -258,5 +334,7 @@ static func reschedule_formation_recheck_for_moved_back_ranks(manager: Node, mov
 		if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 			continue
 		if _EntityAccess.is_unconscious(c):
+			continue
+		if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
 			continue
 		schedule_action_ready(manager, cid, CombatConstants.READY_DELAY_FORMATION_RECHECK_S)

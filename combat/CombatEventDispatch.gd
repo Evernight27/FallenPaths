@@ -5,6 +5,10 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
 
 static func process_event_queue(manager: Node) -> void:
 	while manager.event_queue.size() > 0:
@@ -35,6 +39,11 @@ static func handle_event(manager: Node, ev: Dictionary) -> void:
 		and not _EntityAccess.alive_bool(c)
 	):
 		return
+	if (
+		_MedicalPhase.combat_resolution_blocked(manager)
+		and _MedicalPhase.should_block_scheduled_event(manager, ev)
+	):
+		return
 	match ev_type:
 		CombatConstants.EVENT_ACTION_READY:
 			handle_action_ready(manager, c)
@@ -53,14 +62,15 @@ static func handle_event(manager: Node, ev: Dictionary) -> void:
 static func handle_action_ready(manager: Node, c: Dictionary) -> void:
 	if c.is_empty() or not _EntityAccess.alive_bool(c) or _EntityAccess.is_unconscious(c):
 		return
-	var state: String = _EntityAccess.state_str(c)
-	var mobile_cower_retreat: bool = (
-		state == CombatConstants.STATE_COWERING
-		and _EntityAccess.can_flee_or_fall_back(c)
-	)
-	if _EntityAccess.is_incapacitated(c) and not mobile_cower_retreat:
+	if _MedicalPhase.combat_resolution_blocked(manager) and _MedicalPhase.is_losing_side(manager, c):
 		return
-	if state != CombatConstants.STATE_WAITING and not mobile_cower_retreat:
+	_ActionsBuilder.sync_cowering_state_if_no_functional_arm(c)
+	var state: String = _EntityAccess.state_str(c)
+	var retreat_only: bool = _ActionsBuilder.formation_retreat_only_for(c)
+	var mobile_retreat_ready: bool = retreat_only and _EntityAccess.can_flee_or_fall_back(c)
+	if _EntityAccess.is_incapacitated(c) and not mobile_retreat_ready:
+		return
+	if state != CombatConstants.STATE_WAITING and state != CombatConstants.STATE_COWERING:
 		if CombatDebug.flow_verbose_enabled():
 			var who: String = _EntityAccess.get_display_name(c)
 			var cid: int = _EntityAccess.id_int(c)
@@ -75,17 +85,23 @@ static func handle_action_ready(manager: Node, c: Dictionary) -> void:
 		manager.notify_turn_ready(_EntityAccess.id_int(c))
 	else:
 		var actions: Array = manager.get_available_actions(_EntityAccess.id_int(c))
-		if actions.is_empty():
-			manager.skip_turn(_EntityAccess.id_int(c), "pass", "no available actions")
-		else:
-			var choice = CombatAIActionPicker.pick(actions, _EntityAccess.id_int(c), manager)
-			var opts: Dictionary = CombatAIActionPicker.opts_from_choice(choice)
-			CombatDebug.flow_log_turn("enemy", _EntityAccess.id_int(c), actions, choice)
-			manager.resolve_action(_EntityAccess.id_int(c), choice.target_id, choice.get("move_id", ""), opts)
+		CombatAIActionPicker.resolve_picked_turn_or_skip(manager, _EntityAccess.id_int(c), actions, "enemy")
 
 
 static func handle_melee_attack(manager: Node, c: Dictionary) -> void:
+	if _MedicalPhase.combat_resolution_blocked(manager):
+		if not c.is_empty() and _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
+			var cid_abort: int = _EntityAccess.id_int(c)
+			_CounterTempo.abort_attacker_wind_up(manager, cid_abort)
+			c.state = CombatConstants.STATE_WAITING
+			c.state_timer = 0.0
+			c.state_duration = 0.0
+			c.gauge = 0.0
+		return
 	if c.is_empty() or not _EntityAccess.alive_bool(c) or _EntityAccess.state_str(c) != CombatConstants.STATE_WIND_UP:
+		return
+	if _ActionsBuilder.cannot_commit_melee(c):
+		_CounterTempo.abort_attacker_wind_up(manager, _EntityAccess.id_int(c))
 		return
 	manager._execute_attack(_EntityAccess.id_int(c))
 	var atk: Dictionary = _EntityAccess.combatant_dict_or_empty(
@@ -105,11 +121,15 @@ static func handle_melee_attack(manager: Node, c: Dictionary) -> void:
 
 
 static func handle_recovery_end(manager: Node, c: Dictionary) -> void:
+	if _MedicalPhase.combat_resolution_blocked(manager) and _MedicalPhase.is_losing_side(manager, c):
+		return
 	if c.is_empty() or not _EntityAccess.alive_bool(c) or _EntityAccess.state_str(c) != CombatConstants.STATE_RECOVERING:
 		return
+	var cid: int = _EntityAccess.id_int(c)
+	_EventScheduler.cancel_pending_action_ready(manager, cid)
 	_StateHandlers.complete_recovery(manager, c)
 	if _EntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
-		manager._schedule_action_ready(_EntityAccess.id_int(c), manager._action_ready_cooldown(c))
+		manager._schedule_action_ready(cid, manager._action_ready_cooldown(c))
 	elif _EntityAccess.state_str(c) == CombatConstants.STATE_COWERING:
 		if _EntityAccess.can_flee_or_fall_back(c):
-			manager._schedule_action_ready(_EntityAccess.id_int(c), manager._action_ready_cooldown(c))
+			manager._schedule_action_ready(cid, manager._action_ready_cooldown(c))

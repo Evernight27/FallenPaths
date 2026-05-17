@@ -4,13 +4,31 @@
 		{
 			"label": "Run Combat Regression Harness (headless)",
 			"type": "shell",
-			"command": "${config:godotTools.editorPath.godot4}",
+			"command": "${workspaceFolder}/scripts/run_combat_regression_harness.sh",
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"env": {
+					"GODOT": "${config:godotTools.editorPath.godot4:/Applications/Godot.app/Contents/MacOS/Godot}"
+				}
+			},
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"focus": false
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Run Medical Phase Harness (headless)",
+			"type": "shell",
+			"command": "${config:godotTools.editorPath.godot4:/Applications/Godot.app/Contents/MacOS/Godot}",
 			"args": [
 				"--headless",
 				"--path",
 				"${workspaceFolder}",
 				"-s",
-				"res://scripts/run_combat_regression_harness.gd"
+				"res://scripts/run_medical_phase_harness.gd"
 			],
 			"group": "test",
 			"presentation": {

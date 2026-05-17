@@ -15,9 +15,10 @@ const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
 const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 
 static func _debug(msg: String) -> void:
-	if CombatConstants.COMBAT_DEBUG:
+	if CombatConstants.combat_debug_active():
 		CombatDebug.log(msg)
 
 
@@ -73,7 +74,6 @@ static func compute_and_apply_damage(
 	var pre_cut: float = 0.0
 	var pre_blunt: float = 0.0
 	var strike_ke_j: float = -1.0
-	var atk_n: Node = _EntityAccess.scene_node(atk)
 	var tgt_n: Node = _EntityAccess.scene_node(tgt)
 
 	var weapon = _EntityAccess.get_weapon(atk)
@@ -91,7 +91,7 @@ static func compute_and_apply_damage(
 		attack_instance.velocity_m_s *= stamina_vel_scale
 		if afterblow_damage_mult < 1.0:
 			attack_instance.velocity_m_s *= sqrt(maxf(0.04, afterblow_damage_mult))
-		attack_instance.velocity_m_s = clampf(attack_instance.velocity_m_s, _ImpactVelocityModel.ABS_VELOCITY_MIN_M_S, _ImpactVelocityModel.ABS_VELOCITY_MAX_M_S)
+		attack_instance.velocity_m_s = _ImpactVelocityModel.clamp_velocity_m_s(attack_instance.velocity_m_s)
 		var arm_mod: float = _EntityAccess.get_attack_damage_modifier(atk)
 		var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, part)
 		var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, attack_type, archetype)
@@ -103,9 +103,16 @@ static func compute_and_apply_damage(
 			cut_ratio = maxf(WeaponConstants.MIN_CUT_RATIO, cut_ratio - redirect_shift)
 		var atk_str: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
 		pre_cut = WeaponDamageHelper.compute_pre_armor_cut(weapon, attack_instance, atk_str, arm_mod) * cut_ratio
-		pre_blunt = WeaponDamageHelper.compute_pre_armor_blunt(weapon, attack_instance, atk_str, arm_mod, target_mass) * (1.0 - cut_ratio)
+		pre_blunt = WeaponDamageHelper.compute_blunt_slip_pre_armor(
+			weapon,
+			attack_instance,
+			atk_str,
+			arm_mod,
+			cut_ratio,
+			target_mass,
+			float(sm.get("blunt_damage_mult", 1.0))
+		)
 		pre_cut *= float(sm.get("cut_damage_mult", 1.0))
-		pre_blunt *= float(sm.get("blunt_damage_mult", 1.0))
 		pre_armor = pre_cut + pre_blunt
 		var pen_sharp_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, CombatConstants.DAMAGE_TYPE_SHARP)
 		pen_sharp = pen_sharp_dict.get("penetration_sharp", -1.0)
@@ -214,7 +221,7 @@ static func compute_and_apply_damage(
 	elif absf(total_physical - float(actual_dmg)) > 0.01:
 		total_disp = "%d (phys %.3f)" % [actual_dmg, total_physical]
 
-	if CombatConstants.COMBAT_DEBUG:
+	if CombatConstants.combat_debug_active():
 		var depth_extra: String = ""
 		if _EntityAccess.rank_int(atk) > 0 and _ActionsBuilder._melee_pair_rank_allowed(manager, atk, tgt):
 			var cls: float = _StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
@@ -343,6 +350,8 @@ static func stamp_resolve_angle_geometry_on_pa(
 
 
 static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
+	if MedicalPhaseController.combat_resolution_blocked(manager):
+		return { "action": "skip", "target_id": -1, "recovery_duration": 0.0 }
 	var atk = manager._get_by_id(attacker_id)
 	if atk == null:
 		return { "action": "skip", "target_id": -1, "recovery_duration": 0.0 }
@@ -371,20 +380,16 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var targetable: Array = _EntityAccess.get_targetable_parts(tgt)
 	if targetable.is_empty():
 		return { "action": "defeated", "target_id": target_id }
-	var fid_atk_resolve: String = (
-		_ZoneOfControl.formation_id_for_zone_geometry(manager, atk)
-		if _EntityAccess.rank_int(atk) > 0
-		else ""
-	)
-	var want_depth_part_log: bool = (
+	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(manager, atk, tgt, pa)
+	var n_targetable_before: int = targetable.size()
+	targetable = _ActionsBuilder.depth_polearm_targetable_parts_filter(manager, atk, targetable, pa)
+	if (
 		CombatDebug.flow_verbose_enabled()
-		and not fid_atk_resolve.is_empty()
-		and _ActionsBuilder.depth_polearm_lane_open(manager, atk, fid_atk_resolve)
-	)
-	var n_targetable_before: int = targetable.size() if want_depth_part_log else 0
-	targetable = _ActionsBuilder.depth_polearm_targetable_parts_filter(manager, atk, targetable)
-	if want_depth_part_log and targetable.size() < n_targetable_before:
-		var fd_atk_log: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, atk, fid_atk_resolve)
+		and bool(pa.get("depth_polearm_attack", false))
+		and targetable.size() < n_targetable_before
+	):
+		var fid_atk_log: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, atk)
+		var fd_atk_log: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, atk, fid_atk_log)
 		var dens_log: String = str(fd_atk_log.get("density", "normal")) if not fd_atk_log.is_empty() else "normal"
 		CombatDebug.flow_log(
 			"depth_polearm_resolve_parts atk=%d tgt=%d dens=%s parts=%s"
@@ -397,7 +402,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var atk_wep: Variant = _EntityAccess.get_weapon(atk)
 	if (
 		_EntityAccess.weapon_has_attack_types(atk_wep)
-		and not _ActionsBuilder.can_melee_threaten(manager, atk, tgt)
+		and not _ActionsBuilder.can_melee_threaten(manager, atk, tgt, pa)
 	):
 		_TacticalCombat.record_invalid_melee_resolve_blocked(manager)
 		var rec_geom: float = CombatTiming.recovery_duration(
@@ -405,8 +410,6 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		)
 		_debug("abort resolve: can_melee_threaten false atk=%d tgt=%d" % [attacker_id, target_id])
 		return { "action": "skip", "target_id": target_id, "recovery_duration": rec_geom }
-
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(manager, atk, tgt, pa)
 
 	var perf_mod: float = _EntityAccess.get_hit_chance_performance_modifier(atk)
 	var perception_factor: float = clampf(float(_EntityAccess.stats_dict(atk).get("perception", 100)) / 100.0, CombatConstants.HIT_CHANCE_PERCEPTION_MIN, CombatConstants.HIT_CHANCE_PERCEPTION_MAX)
@@ -448,14 +451,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	if CombatConstants.is_feature_sector_surround_load():
 		pa["surround_threat_weight_sum"] = _TacticalCombat.compute_surround_threat_weight_sum(manager, target_id)
 	pa["tactical_ambush_mult"] = _TacticalCombat.ambush_defense_multiplier(manager, tgt)
-	if atk_weapon != null:
-		pa["strike_measure_ratio"] = _ActionsBuilder.strike_measure_ratio_for_attack_pair(
-			manager, atk, tgt, atk_weapon, float(pa.get("effective_pair_eff_dist", -1.0))
-		)
-		if str(pa.get("move_contact_type", "")).is_empty():
-			pa["move_contact_type"] = WeaponConstants.contact_type_for_move_id(attack_type)
-	else:
-		pa["strike_measure_ratio"] = 1.0
+	_ActionsBuilder.stamp_strike_realism_on_pa(manager, atk, tgt, pa, atk_weapon, attack_type)
 
 	var dc: Dictionary = _DefenseChoice.choose_defense(pa, atk, tgt, targetable, attack_type, archetype, velocity_override)
 	var _already_used_defense: bool = pa.get("passive_parry_attempted", false)
@@ -507,8 +503,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var wobble_hit: Dictionary = {}
 	if pa.get("passive_parry_attempted", false):
 		var def_weapon_hit = _EntityAccess.get_weapon(tgt)
-		var def_mass_hit: float = float(def_weapon_hit.mass) if def_weapon_hit != null and (def_weapon_hit.get("mass") is float or def_weapon_hit.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
-		wobble_hit = {"parry_readiness": parry_readiness, "defender_mass_kg": def_mass_hit}
+		wobble_hit = _EntityAccess.parry_wobble_context(def_weapon_hit, parry_readiness)
 	var guard_angle: float = _Footwork.guard_angle_deg(tgt, wobble_hit)
 	var align_ctx: Dictionary = {"attack_angle_deg": atk_angle, "guard_angle_deg": guard_angle}
 	var hit_alignment: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx, wobble_hit)

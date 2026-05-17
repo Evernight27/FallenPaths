@@ -60,6 +60,11 @@ static func format_position_angle_ui_hint(c: Dictionary) -> String:
 	return "Step %s%.0f°" % [sign_prefix, off]
 
 
+## UI snapshot: same as **`get_ui_hint`** (row export uses live combatant at build time).
+static func snapshot_ui_hint(c: Dictionary) -> String:
+	return get_ui_hint(c)
+
+
 ## Player-visible label: stamped key when present, else derive from offset (snapshot-safe).
 static func get_ui_hint(c: Dictionary) -> String:
 	if not enabled() or c == null:
@@ -69,7 +74,9 @@ static func get_ui_hint(c: Dictionary) -> String:
 		c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT, "")
 	).strip_edges()
 	if not stamped.is_empty():
-		if not derived.is_empty() and stamped != derived:
+		if derived.is_empty():
+			return derived
+		if stamped != derived:
 			return derived
 		return stamped
 	return derived

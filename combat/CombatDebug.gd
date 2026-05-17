@@ -12,7 +12,7 @@ extends RefCounted
 ## flow_log_turn: logs turn pick line when COMBAT_EVENT_DEBUG alone is true.
 
 static func log(msg: String) -> void:
-	if CombatConstants.COMBAT_DEBUG:
+	if CombatConstants.combat_debug_active():
 		print("[Combat.Debug] ", msg)
 
 ## Calibration logs: alignment, parry_c_d, variance, remaining_ratio. Only when COMBAT_DEBUG_CALIBRATION.
@@ -22,7 +22,7 @@ static func calibration_log(msg: String) -> void:
 
 ## True when `flow_log` prints (both event-debug toggles on). Use to skip expensive log prep work.
 static func flow_verbose_enabled() -> bool:
-	return CombatConstants.COMBAT_EVENT_DEBUG and CombatConstants.COMBAT_EVENT_DEBUG_VERBOSE
+	return CombatConstants.combat_event_debug_verbose_active()
 
 
 ## Last message per dedupe key for `COMBAT_FLOW_LOG_SUPPRESS_REPEATED` (cleared on combat start/stop).
@@ -64,7 +64,7 @@ static func format_actions_compact(actions: Array) -> String:
 	return ", ".join(parts)
 
 static func flow_log_turn(side: String, combatant_id: int, actions: Array, choice: Dictionary) -> void:
-	if not CombatConstants.COMBAT_EVENT_DEBUG:
+	if not CombatConstants.combat_event_debug_active():
 		return
 	var mid: String = str(choice.get("move_id", ""))
 	var tid: int = choice.get("target_id", -1)

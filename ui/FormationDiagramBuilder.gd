@@ -7,6 +7,7 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _UiHints := preload("res://combat/CombatUiHints.gd")
 
 ## Builds a compact visual formation diagram: rank×file grid with unit names.
 ## Shows Front (rank 0) and Back (rank 1+) so formation changes (swap rank, etc.) are trackable.
@@ -86,25 +87,37 @@ static func refresh(diagram_root: Control) -> void:
 
 
 static func _cell_label_with_footwork(base: String, footwork_sources: Array) -> String:
-	if base.is_empty() or base == "—" or footwork_sources.size() != 1:
+	if base.is_empty() or base == "—" or footwork_sources.is_empty():
 		return base
-	var sfx: String = _Footwork.get_diagram_label_suffix(footwork_sources[0] as Dictionary)
-	return base + sfx if not sfx.is_empty() else base
+	for raw in footwork_sources:
+		if raw == null or typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var sfx: String = _Footwork.get_diagram_label_suffix(raw as Dictionary)
+		if not sfx.is_empty():
+			return base + sfx
+	return base
 
 
-static func _append_footwork_tooltip(cell: Label, combatants: Array) -> void:
-	if not _Footwork.enabled() or cell == null:
+static func _append_cell_tooltips(cell: Label, combatants: Array, manager: Node = null) -> void:
+	if cell == null:
 		return
 	var lines: PackedStringArray = []
 	for raw in combatants:
 		if raw == null or typeof(raw) != TYPE_DICTIONARY:
 			continue
 		var oc: Dictionary = raw as Dictionary
-		var fw: String = _Footwork.get_ui_hint(oc)
-		if fw.is_empty():
-			continue
 		var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))
-		lines.append("%s: %s" % [nm, fw])
+		var fw: String = _UiHints.footwork_hint_text(oc)
+		if not fw.is_empty():
+			lines.append("%s — footwork: %s" % [nm, fw])
+		var attn: String = _UiHints.attention_hint_text(oc)
+		if not attn.is_empty():
+			lines.append("%s — attention: %s" % [nm, attn])
+		var tempo: String = _UiHints.counter_tempo_hint_key(oc, manager)
+		if tempo == "counter_ready":
+			lines.append("%s — counter window open" % nm)
+		elif tempo == "counter_winding":
+			lines.append("%s — counter window building" % nm)
 	if lines.is_empty():
 		return
 	var extra: String = "\n".join(lines)
@@ -122,6 +135,13 @@ static func _refresh_internal(diagram_root: Control) -> void:
 		zoc_line.text = ZoneOfControl.format_zone_control_line(manager, side)
 	if grid == null or manager == null or not manager.has_method("get_combatants"):
 		return
+
+	var snap_by_id: Dictionary = {}
+	for raw_cap in manager.get_combatants():
+		if raw_cap == null or typeof(raw_cap) != TYPE_DICTIONARY:
+			continue
+		var cap: Dictionary = raw_cap as Dictionary
+		snap_by_id[_EntityAccess.id_int(cap)] = cap
 
 	var files: int = preset.get("files", 1)
 	var ranks: int = preset.get("ranks", 1)
@@ -180,8 +200,8 @@ static func _refresh_internal(diagram_root: Control) -> void:
 			if not occ.is_empty():
 				var names: Array = []
 				for cid in occ:
-					var oc = manager._get_by_id(int(cid)) if manager.has_method("_get_by_id") else null
-					if oc != null and _EntityAccess.alive_bool(oc):
+					var oc: Variant = snap_by_id.get(int(cid), null)
+					if oc != null and typeof(oc) == TYPE_DICTIONARY and _EntityAccess.alive_bool(oc):
 						var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))
 						# Host grid can list intruders (home formation_id) or dual cells; tag so UI matches combat truth.
 						var intruded: bool = _ZoneOfControl.is_intruded(oc)
@@ -219,7 +239,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 			cell.custom_minimum_size = Vector2(84, 0)
 			if not in_lane_intruders.is_empty():
 				cell.tooltip_text = "Intruder(s) in this lane are shown below in Intruders."
-			_append_footwork_tooltip(cell, footwork_sources)
+			_append_cell_tooltips(cell, footwork_sources, manager)
 			grid.add_child(cell)
 
 	var wstrip: Variant = diagram_root.get_meta("_wedge_strip", null)
@@ -272,9 +292,13 @@ static func _refresh_internal(diagram_root: Control) -> void:
 					var nm_i: String = _EntityAccess.get_display_name(ic, _EntityAccess.id_int(ic))
 					var d: int = _EntityAccess.tactical_penetration_depth_int(ic)
 					names_i.append("%s(d%d)" % [nm_i, d])
-				intr_label.text = str(names_i[0]) if names_i.size() == 1 else "%s +%d" % [str(names_i[0]), names_i.size() - 1]
+				if names_i.size() == 1:
+					intr_label.text = _cell_label_with_footwork(str(names_i[0]), in_list)
+				else:
+					intr_label.text = "%s +%d" % [str(names_i[0]), names_i.size() - 1]
 				intr_label.add_theme_color_override("font_color", Color(0.92, 0.62, 0.5))
 				intr_label.tooltip_text = "Intruding at file %d: %s" % [fi, ", ".join(names_i)]
+				_append_cell_tooltips(intr_label, in_list, manager)
 			intr_label.add_theme_font_size_override("font_size", 11)
 			intr_label.custom_minimum_size = Vector2(72, 0)
 			(istrp as HBoxContainer).add_child(intr_label)
@@ -303,7 +327,11 @@ static func _refresh_internal(diagram_root: Control) -> void:
 				var host_d: String = _ZoneOfControl.intrusion_host_fid(cdi)
 				var file_d: int = _EntityAccess.intrusion_anchor_or_file_int(cdi)
 				var depth_d: int = _EntityAccess.tactical_penetration_depth_int(cdi)
-				item.text = "%s@%s:f%d(d%d)" % [nm_d, host_d, file_d, depth_d]
+				var base_deployed: String = "%s@%s:f%d(d%d)" % [nm_d, host_d, file_d, depth_d]
+				var snap_d: Variant = snap_by_id.get(_EntityAccess.id_int(cdi), cdi)
+				var deploy_sources: Array = [snap_d] if snap_d != null else [cdi]
+				item.text = _cell_label_with_footwork(base_deployed, deploy_sources)
+				_append_cell_tooltips(item, deploy_sources, manager)
 				item.add_theme_font_size_override("font_size", 11)
 				item.add_theme_color_override("font_color", Color(0.72, 0.82, 0.95))
 				item.custom_minimum_size = Vector2(72, 0)

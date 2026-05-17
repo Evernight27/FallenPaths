@@ -18,7 +18,8 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
-const _FileKeys := preload("res://combat/CombatFileKeyedDict.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 
 
 static func clear_all_targeting_state_for_dead_defender(manager: Node, dead_id: int) -> void:
@@ -73,29 +74,52 @@ static func is_file_opposed_rank0_pair(actor: Dictionary, opp: Dictionary) -> bo
 	return _EntityAccess.file_int(actor) == _EntityAccess.file_int(opp)
 
 
+## When set, must be the result of **`depth_polearm_lane_open(manager, actor, zone_geometry_fid)`** for this scoring pass (see **`hostile_pair_targeting_weight_mult`**).
+static func _depth_lane_open_resolved(
+	manager: Node,
+	actor: Dictionary,
+	depth_lane_open_cache: Variant,
+	zone_geometry_fid: String = ""
+) -> bool:
+	if depth_lane_open_cache != null:
+		return bool(depth_lane_open_cache)
+	var fid: String = zone_geometry_fid
+	if fid.is_empty():
+		fid = _ZoneOfControl.formation_id_for_zone_geometry(manager, actor)
+	return _ActionsBuilder.depth_polearm_lane_open(manager, actor, fid)
+
+
 ## File-opposed to **our** front rank (rank-0 actor, or same-file rank-0 partner when actor is depth polearm).
-static func is_melee_file_opposed_priority(manager: Node, actor: Dictionary, opp: Dictionary) -> bool:
+static func is_melee_file_opposed_priority(
+	manager: Node,
+	actor: Dictionary,
+	opp: Dictionary,
+	depth_lane_open_cache: Variant = null,
+	zone_geometry_fid: String = ""
+) -> bool:
 	if is_file_opposed_rank0_pair(actor, opp):
 		return true
-	if manager == null or not _ActionsBuilder.depth_polearm_lane_open(manager, actor):
+	if manager == null or not _depth_lane_open_resolved(manager, actor, depth_lane_open_cache, zone_geometry_fid):
 		return false
-	var front: Dictionary = _ActionsBuilder.same_file_living_rank0_ally(manager, actor)
+	var front: Dictionary = _ActionsBuilder.same_file_living_rank0_ally(manager, actor, zone_geometry_fid)
 	if front.is_empty():
 		return false
 	return is_file_opposed_rank0_pair(front, opp)
 
 
 ## True when no enemy rank 0 is **file-opposed** to this fighter’s **reference rank-0** (self, or same-file partner if depth polearm lane is open — Tier 1.6 pinch geometry).
-static func wing_lacks_file_opposed(manager: Node, actor: Dictionary) -> bool:
+static func wing_lacks_file_opposed(
+	manager: Node, actor: Dictionary, depth_lane_open_cache: Variant = null, zone_geometry_fid: String = ""
+) -> bool:
 	if manager == null:
 		return false
 	if _ZoneOfControl.is_intruded(actor):
 		return false
 	var ref: Dictionary = actor
 	if _EntityAccess.rank_int(actor) != 0:
-		if not _ActionsBuilder.depth_polearm_lane_open(manager, actor):
+		if not _depth_lane_open_resolved(manager, actor, depth_lane_open_cache, zone_geometry_fid):
 			return false
-		var front: Dictionary = _ActionsBuilder.same_file_living_rank0_ally(manager, actor)
+		var front: Dictionary = _ActionsBuilder.same_file_living_rank0_ally(manager, actor, zone_geometry_fid)
 		if front.is_empty():
 			return false
 		ref = front
@@ -136,19 +160,32 @@ static func _opponent_side_for(actor: Dictionary) -> String:
 	return "enemy" if _EntityAccess.side_str(actor) == "player" else "player"
 
 
-static func soft_geometry_score(manager: Node, actor: Dictionary, opp: Dictionary) -> float:
-	var eff: float = _ActionsBuilder.effective_pair_eff_dist(manager, actor, opp)
+## Optional **`eff_dist_cache`**: **`effective_pair_geometry` → `eff_dist`** when the caller already computed pair geometry (e.g. **`hostile_pair_targeting_weight_mult`**).
+static func soft_geometry_score(
+	manager: Node, actor: Dictionary, opp: Dictionary, eff_dist_cache: Variant = null
+) -> float:
+	var eff: float = -1.0
+	if eff_dist_cache != null:
+		eff = float(eff_dist_cache)
+	if eff < 0.0:
+		eff = _ActionsBuilder.effective_pair_eff_dist(manager, actor, opp)
 	var k: float = CombatConstants.DOCTRINE_SOFT_DISTANCE_SCALE
 	return 1.0 / (1.0 + eff * k)
 
 
-static func pinch_score_mult(manager: Node, actor: Dictionary, opp: Dictionary) -> float:
+static func pinch_score_mult(
+	manager: Node,
+	actor: Dictionary,
+	opp: Dictionary,
+	depth_lane_open_cache: Variant = null,
+	zone_geometry_fid: String = ""
+) -> float:
 	if manager == null:
 		return 1.0
 	var doc: String = _Doctrine.doctrine_for_fid(manager, _EntityAccess.formation_id_str(actor))
 	if doc != CombatConstants.DOCTRINE_PINCH_CENTER:
 		return 1.0
-	if not wing_lacks_file_opposed(manager, actor):
+	if not wing_lacks_file_opposed(manager, actor, depth_lane_open_cache, zone_geometry_fid):
 		return 1.0
 	var ec: float = _enemy_front_file_center(manager, _opponent_side_for(actor))
 	var inward: float = absf(float(_EntityAccess.file_int(opp)) - ec)
@@ -156,11 +193,17 @@ static func pinch_score_mult(manager: Node, actor: Dictionary, opp: Dictionary) 
 	return 1.0 + bonus
 
 
-static func hold_lane_mult(manager: Node, actor: Dictionary, opp: Dictionary) -> float:
+static func hold_lane_mult(
+	manager: Node,
+	actor: Dictionary,
+	opp: Dictionary,
+	depth_lane_open_cache: Variant = null,
+	zone_geometry_fid: String = ""
+) -> float:
 	var doc: String = _Doctrine.doctrine_for_fid(manager, _EntityAccess.formation_id_str(actor))
 	if doc != CombatConstants.DOCTRINE_HOLD_LANE:
 		return 1.0
-	if is_melee_file_opposed_priority(manager, actor, opp):
+	if is_melee_file_opposed_priority(manager, actor, opp, depth_lane_open_cache, zone_geometry_fid):
 		return 1.0
 	return CombatConstants.DOCTRINE_HOLD_LANE_OFF_FILE_MULT
 
@@ -292,14 +335,11 @@ static func opponent_breach_file_targeting_mult(
 	)
 	if fd.is_empty():
 		return 1.0
-	var raw_bf: Variant = fd.get("breached_files", null)
-	if not (raw_bf is Dictionary):
-		return 1.0
-	var bf: Dictionary = raw_bf as Dictionary
+	var bf: Dictionary = _FormationSlots.formation_nested_dictionary_read(fd, "breached_files")
 	if bf.is_empty():
 		return 1.0
 	var sev: float = clampf(
-		float(_FileKeys.get_value(bf, _EntityAccess.file_int(opp), 0.0)),
+		_FormationBreachRules.breached_file_severity(bf, _EntityAccess.file_int(opp), 0.0),
 		0.0,
 		1.0
 	)
@@ -315,8 +355,14 @@ static func stance_ai_targeting_mult(actor: Dictionary) -> float:
 	return CombatConstants.get_stance_modifier(_EntityAccess.stance_str(actor), "ai_melee_focus")
 
 
-static func file_opposed_mult(manager: Node, actor: Dictionary, opp: Dictionary) -> float:
-	if manager != null and is_melee_file_opposed_priority(manager, actor, opp):
+static func file_opposed_mult(
+	manager: Node,
+	actor: Dictionary,
+	opp: Dictionary,
+	depth_lane_open_cache: Variant = null,
+	zone_geometry_fid: String = ""
+) -> float:
+	if manager != null and is_melee_file_opposed_priority(manager, actor, opp, depth_lane_open_cache, zone_geometry_fid):
 		return CombatConstants.DOCTRINE_FILE_OPPOSED_WEIGHT_MULT
 	return 1.0
 
@@ -349,20 +395,24 @@ static func hostile_pair_targeting_weight_mult(
 		return 1.0
 	if _EntityAccess.side_str(atk) == _EntityAccess.side_str(opp):
 		return 1.0
-	var w: float = soft_geometry_score(manager, atk, opp)
-	w *= pinch_score_mult(manager, atk, opp)
-	w *= hold_lane_mult(manager, atk, opp)
-	w *= file_opposed_mult(manager, atk, opp)
+	var fid_atk: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, atk)
+	var fid_opp: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, opp)
+	var fd_atk: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, atk, fid_atk)
+	var fd_opp: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, opp, fid_opp)
+	var depth_lane_atk: Variant = null
+	if _EntityAccess.rank_int(atk) > 0:
+		depth_lane_atk = _ActionsBuilder.depth_polearm_lane_open(manager, atk, fid_atk)
+	var pair_geom: Dictionary = _ActionsBuilder.effective_pair_geometry(manager, atk, opp, fd_atk, fd_opp)
+	var w: float = soft_geometry_score(manager, atk, opp, pair_geom.get("eff_dist"))
+	w *= pinch_score_mult(manager, atk, opp, depth_lane_atk, fid_atk)
+	w *= hold_lane_mult(manager, atk, opp, depth_lane_atk, fid_atk)
+	w *= file_opposed_mult(manager, atk, opp, depth_lane_atk, fid_atk)
 	w *= commitment_match_mult(atk, _EntityAccess.id_int(opp))
 	w *= distributed_pressure_mult(manager, atk, _EntityAccess.id_int(opp))
 	if cached_engagement_mode_targeting_mult == null:
 		w *= engagement_mode_targeting_mult(manager)
 	else:
 		w *= float(cached_engagement_mode_targeting_mult)
-	var fid_atk: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, atk)
-	var fd_atk: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, atk, fid_atk)
-	var fid_opp: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, opp)
-	var fd_opp: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, opp, fid_opp)
 	w *= posture_cohesion_targeting_mult(manager, atk, fd_atk)
 	w *= opponent_formation_targeting_mult(manager, opp, fd_opp)
 	w *= opponent_breach_file_targeting_mult(manager, opp, fd_opp)
@@ -408,9 +458,13 @@ static func ordered_melee_opponents(
 	if raw.size() <= 1:
 		return raw
 	var em_cached: float = engagement_mode_targeting_mult(manager)
+	var fid_actor: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, actor)
+	var depth_lane_actor: Variant = null
+	if _EntityAccess.rank_int(actor) > 0:
+		depth_lane_actor = _ActionsBuilder.depth_polearm_lane_open(manager, actor, fid_actor)
 	raw.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var afo: bool = is_melee_file_opposed_priority(manager, actor, a)
-		var bfo: bool = is_melee_file_opposed_priority(manager, actor, b)
+		var afo: bool = is_melee_file_opposed_priority(manager, actor, a, depth_lane_actor, fid_actor)
+		var bfo: bool = is_melee_file_opposed_priority(manager, actor, b, depth_lane_actor, fid_actor)
 		if afo != bfo:
 			return afo
 		var sa: float = hostile_pair_targeting_weight_mult(manager, actor, a, em_cached)

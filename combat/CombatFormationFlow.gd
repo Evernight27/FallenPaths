@@ -118,6 +118,8 @@ static func _vacancy_lateral_record_edge(manager: Node, ally_id: int, src_f: int
 
 
 static func apply_hit_reaction_if_needed(manager: Node, combatant_id: int, intensity: float = 0.5) -> void:
+	if MedicalPhaseController.combat_resolution_blocked(manager):
+		return
 	var c = manager._get_by_id(combatant_id)
 	if c == null or not _EntityAccess.alive_bool(c):
 		return
@@ -137,6 +139,8 @@ static func apply_hit_reaction_if_needed(manager: Node, combatant_id: int, inten
 
 
 static func bump_resolve_events(manager: Node, for_combatant_id: int, extra_s: float) -> void:
+	if MedicalPhaseController.combat_resolution_blocked(manager):
+		return
 	for ev in manager.event_queue:
 		if typeof(ev) != TYPE_DICTIONARY:
 			continue
@@ -159,6 +163,8 @@ static func bump_resolve_events(manager: Node, for_combatant_id: int, extra_s: f
 
 
 static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, move_kind: String) -> void:
+	if MedicalPhaseController.combat_resolution_blocked(manager):
+		return
 	var init = manager._get_by_id(initiator_id)
 	var partner = manager._get_by_id(partner_id)
 	if init == null or partner == null or not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
@@ -221,6 +227,8 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 
 
 static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
+	if MedicalPhaseController.combat_resolution_blocked(manager):
+		return
 	var init = manager._get_by_id(initiator_id)
 	if init == null or not _EntityAccess.alive_bool(init):
 		return
@@ -258,6 +266,8 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 
 
 static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int) -> void:
+	if MedicalPhaseController.combat_resolution_blocked(manager):
+		return
 	var init = manager._get_by_id(initiator_id)
 	var partner = manager._get_by_id(partner_id)
 	if init == null or partner == null or not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
@@ -344,12 +354,31 @@ static func abort_pair(manager: Node, init, partner, reason: String = "") -> voi
 		partner["formation_pair_abort_cooldown_until"] = until
 
 
+static func _formation_resolve_medical_phase_skip(
+	manager: Node, initiator_id: int, partner_id: int = -1
+) -> bool:
+	if not MedicalPhaseController.should_skip_formation_resolve(manager, initiator_id, partner_id):
+		return false
+	var init = manager._get_by_id(initiator_id)
+	var partner = manager._get_by_id(partner_id) if partner_id >= 0 else null
+	for c in [init, partner]:
+		if c == null or not _EntityAccess.alive_bool(c):
+			continue
+		c.state = CombatConstants.STATE_WAITING
+		c.state_timer = 0.0
+		c.state_duration = 0.0
+		c.erase("formation_move_partner_id")
+	return true
+
+
 static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	var initiator_id: int = ev.get("combatant_id", -1)
 	var data_raw: Variant = ev.get("data", null)
 	var data: Dictionary = data_raw if data_raw is Dictionary else {}
 	var partner_id: int = data.get("partner_id", -1)
 	var move_kind: String = data.get("move_kind", "swap_rank")
+	if _formation_resolve_medical_phase_skip(manager, initiator_id, partner_id):
+		return
 	var init = manager._get_by_id(initiator_id)
 	var partner = manager._get_by_id(partner_id)
 	if init == null:
@@ -438,6 +467,8 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 
 static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void:
 	var initiator_id: int = ev.get("combatant_id", -1)
+	if _formation_resolve_medical_phase_skip(manager, initiator_id):
+		return
 	var init = manager._get_by_id(initiator_id)
 	if init == null or not _EntityAccess.alive_bool(init):
 		return
@@ -475,6 +506,8 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 	var ev_data: Variant = ev.get("data", null)
 	if typeof(ev_data) == TYPE_DICTIONARY:
 		partner_id = int((ev_data as Dictionary).get("partner_id", -1))
+	if _formation_resolve_medical_phase_skip(manager, initiator_id, partner_id):
+		return
 	var init = manager._get_by_id(initiator_id)
 	var partner = manager._get_by_id(partner_id)
 	if init == null or partner == null or not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
@@ -552,10 +585,7 @@ static func apply_intrusion_after_crash_success(
 	var first_intrusion: bool = stored_home < 0
 	var home_vacancy_file: int = _EntityAccess.file_int(atk) if first_intrusion else stored_home
 	for fk in manager.formations.keys():
-		var raw_fd_strip: Variant = manager.formations.get(fk, null)
-		if raw_fd_strip == null or not (raw_fd_strip is Dictionary):
-			continue
-		var fd: Dictionary = raw_fd_strip as Dictionary
+		var fd: Dictionary = _FormationSlots.formation_record_read(manager.formations, str(fk))
 		if fd.is_empty():
 			continue
 		_FormationSlots.remove_combatant_from_slots(_FormationSlots.formation_slots_dict(fd), aid)
@@ -613,7 +643,7 @@ static func _nudge_anchor_rank0_lane_offset_for_intrusion(
 			continue
 		if _EntityAccess.formation_id_str(d) != defender_formation_id:
 			continue
-		var cur: float = float(d.get("lane_offset", 0.0))
+		var cur: float = _EntityAccess.lane_offset_float(d)
 		d["lane_offset"] = clampf(
 			cur - CombatConstants.INTRUSION_ANCHOR_LANE_OFFSET_NUDGE,
 			-CombatConstants.LANE_OFFSET_ABS_MAX,
@@ -1599,10 +1629,7 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
 	if not OS.is_debug_build():
 		return
 	for fid_key in manager.formations.keys():
-		var raw_form_dbg: Variant = manager.formations.get(fid_key, null)
-		if raw_form_dbg == null or not (raw_form_dbg is Dictionary):
-			continue
-		var formation: Dictionary = raw_form_dbg as Dictionary
+		var formation: Dictionary = _FormationSlots.formation_record_read(manager.formations, str(fid_key))
 		if formation.is_empty():
 			continue
 		var fid_str: String = str(fid_key)
@@ -1643,10 +1670,7 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 	var fid_geom: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
 	# Intruders may occupy host `slots` while `formation_id` stays home — strip from every formation first.
 	for fk in manager.formations.keys():
-		var raw_fd_death: Variant = manager.formations.get(fk, null)
-		if raw_fd_death == null or not (raw_fd_death is Dictionary):
-			continue
-		var fd: Dictionary = raw_fd_death as Dictionary
+		var fd: Dictionary = _FormationSlots.formation_record_read(manager.formations, str(fk))
 		if fd.is_empty():
 			continue
 		var s: Dictionary = _FormationSlots.formation_slots_dict(fd)

@@ -88,7 +88,7 @@ static func strike_lever_arm_m(weapon: Object, contact_type: String) -> float:
 static func inertia_about_grip_kg_m2(weapon: Object) -> float:
 	if weapon == null:
 		return MIN_INERTIA_KG_M2
-	var M: float = float(weapon.mass) if (weapon.get("mass") is float or weapon.get("mass") is int) else _W.BASELINE_MASS_KG
+	var M: float = _W.weapon_mass_kg(weapon)
 	if not weapon.has_method("has_parts") or not weapon.has_parts():
 		var L: float = float(weapon.melee_range) if (weapon.get("melee_range") is float or weapon.get("melee_range") is int) else 1.5
 		L = clampf(L * 0.75, 0.35, 1.4)

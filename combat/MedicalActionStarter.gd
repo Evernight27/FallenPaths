@@ -2,6 +2,7 @@ class_name MedicalActionStarter
 extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 
 ## Starts a medical action: direct pressure (instant or during wind-up), bandage/tourniquet/pack wind-up.
 ## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), emit_signal.
@@ -45,6 +46,8 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 	var c = manager._get_by_id(combatant_id)
 	var target_node = manager._get_by_id(target_combatant_id)
 	if c == null or target_node == null or _EntityAccess.scene_node(target_node) == null:
+		return
+	if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
 		return
 	# Clear pending_retry when starting a different action (e.g. helping another ally)
 	var pr_raw: Variant = c.get("pending_retry", null)

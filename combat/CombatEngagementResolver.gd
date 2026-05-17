@@ -15,6 +15,8 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
 
 static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: int) -> void:
+	if MedicalPhaseController.combat_resolution_blocked(manager):
+		return
 	var atk = manager._get_by_id(attacker_id)
 	var tgt = manager._get_by_id(target_id)
 	if atk == null or tgt == null or not _EntityAccess.alive_bool(atk) or not _EntityAccess.alive_bool(tgt):
@@ -65,7 +67,7 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 			"close_attempt atk=%d tgt=%d success=%s pressure=%.1f evasion=%.1f"
 			% [attacker_id, target_id, success, pressure, evasion]
 		)
-	elif CombatConstants.COMBAT_EVENT_DEBUG:
+	elif CombatConstants.combat_event_debug_active():
 		var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 		var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 		print("[Combat] Close attempt %s → %s: %s (next turn in %.1fs)" % [atk_name, tgt_name, "success" if success else "failed", CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S])
@@ -86,6 +88,8 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 
 
 static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: int) -> void:
+	if MedicalPhaseController.combat_resolution_blocked(manager):
+		return
 	var atk = manager._get_by_id(attacker_id)
 	var tgt = manager._get_by_id(defender_id)
 	if atk == null or tgt == null or not _EntityAccess.alive_bool(atk) or not _EntityAccess.alive_bool(tgt):
@@ -158,16 +162,13 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 		atk["intrusion_anchor_file"] = f_b
 		var sev: float = float(res.get("breach_severity", 0.7))
 		if not fid_b.is_empty():
-			var raw_fb: Variant = manager.formations.get(fid_b, null)
-			if raw_fb is Dictionary:
-				var form_b: Dictionary = raw_fb as Dictionary
+			var form_b: Dictionary = _FormationSlots.formation_record_read(manager.formations, fid_b)
+			if not form_b.is_empty():
 				if not form_b.has("breached_files"):
 					form_b["breached_files"] = {}
-				var bf_raw: Variant = form_b.get("breached_files", null)
-				if bf_raw is Dictionary:
-					var bf: Dictionary = bf_raw as Dictionary
-					var prev: float = _FormationBreachRules.breached_file_severity(bf, f_b)
-					bf[f_b] = maxf(prev, sev)
+				var bf: Dictionary = _FormationSlots.formation_nested_dictionary_read(form_b, "breached_files")
+				var prev: float = _FormationBreachRules.breached_file_severity(bf, f_b)
+				bf[f_b] = maxf(prev, sev)
 		_FormationFlow.apply_intrusion_after_crash_success(manager, atk, defender_id, fid_b, f_b, sev)
 		manager._recompute_zoc_and_distance()
 		if _EntityAccess.formation_id_str(atk) != fid_b and manager.has_method("notify_formation_changed"):
@@ -183,7 +184,7 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 		bf_line = CombatDebug.format_breached_files(_FormationSlots.formation_nested_dictionary_read(form_snap, "breached_files"))
 	var breached_disp: String = bf_line if not bf_line.is_empty() else "—"
 	# Verbose crash contest: single log in `BreachResolver.contest_crash` (p_win, roll, geometry).
-	if not CombatDebug.flow_verbose_enabled() and CombatConstants.COMBAT_EVENT_DEBUG:
+	if not CombatDebug.flow_verbose_enabled() and CombatConstants.combat_event_debug_active():
 		var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 		var tgt_name: String = _EntityAccess.get_display_name(tgt, defender_id)
 		print(

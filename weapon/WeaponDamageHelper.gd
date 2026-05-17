@@ -113,8 +113,7 @@ static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> f
 	var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
 	if weapon.has_method("get_striking_part_mass_kg"):
 		return maxf(0.02, float(weapon.get_striking_part_mass_kg(ct)))
-	var m: Variant = weapon.get("mass")
-	return float(m) if (m is float or m is int) else WeaponConstants.BASELINE_MASS_KG
+	return WeaponConstants.weapon_mass_kg(weapon)
 
 
 ## Thrust / swing / mixed from archetype; if missing, infer from move contact (stab → thrust).
@@ -158,7 +157,7 @@ static func _velocity_swing_from_g(weapon: RefCounted, move_id: String, g: float
 		var w_min: float = band.x / r
 		var w_max: float = band.y / r
 		var omega: float = w_min + (w_max - w_min) * g
-		return clampf(omega * r, _ImpactVelocityModel.ABS_VELOCITY_MIN_M_S, _ImpactVelocityModel.ABS_VELOCITY_MAX_M_S)
+		return _ImpactVelocityModel.clamp_velocity_m_s(omega * r)
 	return _velocity_linear_from_g(weapon, move_id, g)
 
 
@@ -257,10 +256,16 @@ static func compute_pre_armor_cut(weapon: RefCounted, attack_instance: RefCounte
 	return clampf(raw, WeaponConstants.DAMAGE_KE_MIN, WeaponConstants.DAMAGE_KE_MAX)
 
 
-# Pre-armor BLUNT from momentum: scale * (mass * velocity) * strength_mod * arm_mod * contact_factor, clamped.
+# Pre-armor BLUNT from momentum: scale * (mass * velocity) * strength_mod * arm_mod * contact_factor (unclamped).
 # Uses blunt contact (head_diameter for blunt, max(blade, BLUNT_CUT_MIN) for cut slap, point for thrust).
 # target_effective_mass_kg: when > 0, use reduced mass with strike mass for more realistic impulse coupling.
-static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCounted, strength: float, arm_mod: float, target_effective_mass_kg: float = -1.0) -> float:
+static func compute_pre_armor_blunt_momentum_raw(
+	weapon: RefCounted,
+	attack_instance: RefCounted,
+	strength: float,
+	arm_mod: float,
+	target_effective_mass_kg: float = -1.0
+) -> float:
 	if weapon == null:
 		return 0.0
 	var mass_kg: float = strike_mass_kg(weapon, attack_instance)
@@ -275,7 +280,34 @@ static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCoun
 	contact_cm = maxf(contact_cm, WeaponConstants.MIN_CONTACT_WIDTH_CM)
 	var contact_factor: float = pow(WeaponConstants.BASELINE_CONTACT_CM / contact_cm, WeaponConstants.CONTACT_DAMAGE_EXPONENT)
 	contact_factor = minf(contact_factor, WeaponConstants.CONTACT_DAMAGE_FACTOR_MAX)
-	raw *= contact_factor
+	return raw * contact_factor
+
+
+## Cut-induced blunt slip: momentum raw × **`(1 - cut_ratio)`** × optional **`blunt_damage_mult`**, max-only clamp (no **`BLUNT_DAMAGE_MIN`** — see **`AttackResolver.compute_and_apply_damage`**).
+static func compute_blunt_slip_pre_armor(
+	weapon: RefCounted,
+	attack_instance: RefCounted,
+	strength: float,
+	arm_mod: float,
+	cut_ratio: float,
+	target_effective_mass_kg: float = -1.0,
+	blunt_damage_mult: float = 1.0
+) -> float:
+	var slip_raw: float = (
+		compute_pre_armor_blunt_momentum_raw(
+			weapon, attack_instance, strength, arm_mod, target_effective_mass_kg
+		)
+		* (1.0 - clampf(cut_ratio, 0.0, 1.0))
+		* maxf(0.0, blunt_damage_mult)
+	)
+	return clampf(slip_raw, 0.0, WeaponConstants.BLUNT_DAMAGE_MAX)
+
+
+## Clamped pre-armor blunt (full weapon swing / pure blunt). Cut weapons use **`compute_blunt_slip_pre_armor`** in **`AttackResolver`** so **`strike_momentum_mult`** is not erased by **`BLUNT_DAMAGE_MIN`** before the slip split.
+static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCounted, strength: float, arm_mod: float, target_effective_mass_kg: float = -1.0) -> float:
+	var raw: float = compute_pre_armor_blunt_momentum_raw(
+		weapon, attack_instance, strength, arm_mod, target_effective_mass_kg
+	)
 	return clampf(raw, WeaponConstants.BLUNT_DAMAGE_MIN, WeaponConstants.BLUNT_DAMAGE_MAX)
 
 

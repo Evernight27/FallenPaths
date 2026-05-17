@@ -9,6 +9,7 @@ const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 
 static func tick(manager: Node, delta: float) -> void:
 	manager.combat_clock += delta
@@ -60,13 +61,25 @@ static func tick(manager: Node, delta: float) -> void:
 		elif _EntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
 			_StateHandlers.process_waiting(manager, c, delta)
 		elif _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
-			_StateHandlers.process_wind_up(manager, c, delta)
+			if not (
+				_MedicalPhase.combat_resolution_blocked(manager)
+				and _MedicalPhase.is_losing_side(manager, c)
+			):
+				_StateHandlers.process_wind_up(manager, c, delta)
 		elif _EntityAccess.state_str(c) == CombatConstants.STATE_MEDICAL_WIND_UP:
 			_StateHandlers.process_medical_wind_up(manager, c, delta)
 		elif _EntityAccess.state_str(c) == CombatConstants.STATE_RECOVERING:
-			_StateHandlers.process_recovering(manager, c, delta)
+			if not (
+				_MedicalPhase.combat_resolution_blocked(manager)
+				and _MedicalPhase.is_losing_side(manager, c)
+			):
+				_StateHandlers.process_recovering(manager, c, delta)
 		elif (
 			_EntityAccess.state_str(c) == CombatConstants.STATE_SWAP_RANK
 			or _EntityAccess.state_str(c) == CombatConstants.STATE_FALLING_BACK
 		):
-			c.state_timer = minf(c.state_timer + delta, c.get("state_duration", 1.0))
+			if not (
+				_MedicalPhase.combat_resolution_blocked(manager)
+				and _MedicalPhase.is_losing_side(manager, c)
+			):
+				c.state_timer = minf(c.state_timer + delta, c.get("state_duration", 1.0))

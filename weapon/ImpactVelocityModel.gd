@@ -46,9 +46,8 @@ static var _default_bands: Dictionary = {
 }
 
 
-## Historical name: callers should prefer `WeaponConstants.contact_type_for_move_id`; this forwards there.
-static func contact_type_from_move_id(move_id: String) -> String:
-	return WeaponConstants.contact_type_for_move_id(move_id)
+static func clamp_velocity_m_s(v: float) -> float:
+	return clampf(v, ABS_VELOCITY_MIN_M_S, ABS_VELOCITY_MAX_M_S)
 
 
 static func unarmed_velocity_band_m_s() -> Vector2:

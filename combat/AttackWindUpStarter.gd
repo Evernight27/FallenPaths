@@ -7,6 +7,8 @@ const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 
 ## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.
 ## Replaces **`atk.pending_attack`**: clears the prior wind-up’s defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (if any) before assigning the new **`pa`**.
@@ -19,17 +21,20 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	var tgt = manager._get_by_id(target_id)
 	if atk == null or tgt == null or not _EntityAccess.alive_bool(tgt):
 		return
-	if _EntityAccess.get_attacking_arm(atk).is_empty():
+	if _MedicalPhase.combat_resolution_blocked(manager):
+		return
+	if _ActionsBuilder.cannot_commit_melee(atk):
 		var atk_name_skip: String = _EntityAccess.get_display_name(atk, attacker_id)
 		print("[Combat] %s has no functional arm; skip attack (short recovery)." % atk_name_skip)
-		var old_pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
-		if not old_pa.is_empty():
-			clear_incoming_attack_telegraph_from_pa(manager, old_pa)
-		atk.state = CombatConstants.STATE_RECOVERING
-		atk.state_timer = 0.0
-		atk.state_duration = 0.8
-		atk.gauge = 0.0
-		atk.pending_attack = {}
+		_ActionsBuilder.sync_cowering_state_if_no_functional_arm(atk)
+		_StateHandlers.enter_short_recovery(atk, manager)
+		if manager != null and atk.state_duration > 0.0:
+			manager._schedule_event({
+				"type": CombatConstants.EVENT_RECOVERY_END,
+				"combatant_id": attacker_id,
+				"resolve_at": manager.combat_clock + atk.state_duration,
+				"data": {},
+			})
 		return
 	# Power and follow_through (0.2–1.0) per attack; intensity drives velocity, wind-up, and recovery. Strength biases toward higher commitment.
 	var power: float = randf_range(CombatConstants.POWER_MIN, CombatConstants.POWER_MAX)
@@ -69,7 +74,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		"guard_angle_deg": arc_start_deg
 	}
 	var align: float = CombatConstants.get_line_alignment_with_deflect(attack_line, atk, align_ctx)
-	var trans_mult: float = 1.0 + (1.0 - align) * CombatConstants.GUARD_TRANSITION_COST_SCALE
+	var trans_mult: float = CombatTiming.guard_transition_mult(align)
 	wind_up_s *= trans_mult
 	# Bind riposte: parry_part × contact_type. Extend=fast, wind=moderate, swing=slow.
 	if weapon != null and atk.get("parry_was_bind", false) and atk.get("parry_against_id", -1) == target_id:
@@ -103,6 +108,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	var riposte_m: float = _CounterTempo.riposte_chain_windup_mult(manager, atk, target_id)
 	if riposte_m < 1.0:
 		wind_up_s *= riposte_m
+	wind_up_s = minf(wind_up_s, CombatConstants.WIND_UP_DURATION_MAX_S)
 	atk.gauge = 0.0
 	atk["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	atk.erase("guard_deflect_blend")
@@ -124,13 +130,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	if not feint_part.is_empty():
 		pa["feint_part"] = feint_part
 	# Tier 3.1: pair geometry + depth lane flags (`AvailableActionsBuilder.stamp_attack_pair_geometry_on_dict`; re-stamped each resolve).
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(manager, atk, tgt, pa)
-	if weapon != null:
-		# After stamp so **`strike_measure_ratio`** uses the same **`effective_pair_eff_dist`** as parry / resolve.
-		pa["strike_measure_ratio"] = _ActionsBuilder.strike_measure_ratio_for_attack_pair(
-			manager, atk, tgt, weapon, float(pa.get("effective_pair_eff_dist", -1.0))
-		)
-		pa["move_contact_type"] = WeaponConstants.contact_type_for_move_id(attack_type)
+	_ActionsBuilder.stamp_attack_pair_and_strike_realism(manager, atk, tgt, pa, weapon, attack_type)
 	if move_def.get("is_feint", false):
 		pa["feint_windup_duration_mult"] = feint_windup_mult
 		var reveal_at: float = float(move_def.get("feint_target_reveal_at_progress", 0.0))
@@ -155,7 +155,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		_Attention.record_attack_toward_defender(manager, attacker_id, tgt, hit_part_log)
 	_CounterTempo.on_attacker_wind_up_started(manager, attacker_id, tgt, wind_up_s)
 	var atk_name_log: String = _EntityAccess.get_display_name(atk, attacker_id)
-	if CombatConstants.COMBAT_DEBUG:
+	if CombatConstants.combat_debug_active():
 		var angle_info: String = " [atk=%.0f° guard=%.0f°]" % [align_ctx["attack_angle_deg"], align_ctx["guard_angle_deg"]]
 		CombatDebug.log("%s | guard=%s atk_line=%s align=%.2f trans=%.2f%s | wind_up=%.2fs" % [atk_name_log, atk.get("guard_line", CombatConstants.GUARD_DEFAULT), attack_line, align, trans_mult, angle_info, wind_up_s])
 

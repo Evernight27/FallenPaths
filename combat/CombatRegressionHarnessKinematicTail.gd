@@ -17,6 +17,10 @@ const _HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinemati
 const _HumanSpecies := preload("res://species/human.tres")
 
 
+static func _kin_fixture_vo(cfx: Dictionary, default_vo: float) -> float:
+	return float(cfx.get("vo", default_vo))
+
+
 static func _run_kinematic_delivery_line_to_angle_unknown_line_returns_zero(
 	failures: PackedStringArray
 ) -> void:
@@ -102,28 +106,45 @@ static func _run_kinematic_delivery_strike_momentum_mult_integration_pre_blunt_n
 ) -> void:
 	const vo_pin: float = 11.0
 	const mult: float = 1.32
-	var base: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
-	var shaped: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
-		vo_pin, 1.0, 1.0, {"strike_momentum_mult": mult}
-	)
-	CombatRegressionHarness._free_manager(base["mgr"] as Node)
-	CombatRegressionHarness._free_manager(shaped["mgr"] as Node)
-	if absf(float(shaped["pre_blunt"]) / float(base["pre_blunt"]) - mult) > 0.04:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_mom_mult_int: pre_blunt ratio %.4f want %.4f"
-			% [float(shaped["pre_blunt"]) / float(base["pre_blunt"]), mult]
+	for cfx in CombatRegressionHarness._kin_fixtures_with_blunt_pen():
+		var wid: String = str(cfx["wid"])
+		var move: String = str(cfx["move"])
+		var tag: String = str(cfx["tag"])
+		var vo: float = _kin_fixture_vo(cfx, vo_pin)
+		var arch: Dictionary = CombatRegressionHarness._kin_arch_for_move(move)
+		var base: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, 1.0, 1.0, {}, wid, move, 1.0, arch
 		)
-	if absf(float(shaped["pen_blunt_mpa"]) / float(base["pen_blunt_mpa"]) - mult) > 0.04:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_mom_mult_int: blunt mpa ratio %.4f want %.4f"
-			% [float(shaped["pen_blunt_mpa"]) / float(base["pen_blunt_mpa"]), mult]
+		var shaped: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, 1.0, 1.0, {"strike_momentum_mult": mult}, wid, move, 1.0, arch
 		)
-	if absf(float(shaped["pre_cut"]) / float(base["pre_cut"]) - 1.0) > 0.03:
-		CombatRegressionHarness._fail(failures, "kin_mom_mult_int: pre_cut should ignore strike_momentum_mult")
-	if absf(float(shaped["pen_sharp"]) / float(base["pen_sharp"]) - 1.0) > 0.02:
-		CombatRegressionHarness._fail(failures, "kin_mom_mult_int: pen_sharp should ignore strike_momentum_mult")
+		CombatRegressionHarness._free_manager(base["mgr"] as Node)
+		CombatRegressionHarness._free_manager(shaped["mgr"] as Node)
+		if float(base["pre_blunt"]) <= 0.1:
+			CombatRegressionHarness._fail(failures, "%s: kin_mom_mult_int baseline pre_blunt too small" % tag)
+		if absf(float(shaped["pre_blunt"]) / float(base["pre_blunt"]) - mult) > 0.04:
+			CombatRegressionHarness._fail(
+				failures,
+				"%s: kin_mom_mult_int pre_blunt ratio %.4f want %.4f"
+				% [tag, float(shaped["pre_blunt"]) / float(base["pre_blunt"]), mult]
+			)
+		if float(base["pen_blunt_mpa"]) > 0.0:
+			if absf(float(shaped["pen_blunt_mpa"]) / float(base["pen_blunt_mpa"]) - mult) > 0.04:
+				CombatRegressionHarness._fail(
+					failures,
+					"%s: kin_mom_mult_int blunt mpa ratio %.4f want %.4f"
+					% [tag, float(shaped["pen_blunt_mpa"]) / float(base["pen_blunt_mpa"]), mult]
+				)
+		if float(base["pre_cut"]) > 0.1:
+			if absf(float(shaped["pre_cut"]) / float(base["pre_cut"]) - 1.0) > 0.03:
+				CombatRegressionHarness._fail(
+					failures, "%s: kin_mom_mult_int pre_cut should ignore strike_momentum_mult" % tag
+				)
+		if float(base["pen_sharp"]) > 0.001:
+			if absf(float(shaped["pen_sharp"]) / float(base["pen_sharp"]) - 1.0) > 0.02:
+				CombatRegressionHarness._fail(
+					failures, "%s: kin_mom_mult_int pen_sharp should ignore strike_momentum_mult" % tag
+				)
 
 
 static func _run_kinematic_delivery_get_attack_path_all_line_pairs_nonempty(
@@ -1780,23 +1801,30 @@ static func _run_kinematic_delivery_cut_damage_mult_integration_scales_pre_cut_o
 ) -> void:
 	const vo_pin: float = 11.0
 	const mult: float = 1.38
-	var base: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
-	var shaped: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
-		vo_pin, 1.0, 1.0, {"cut_damage_mult": mult}
-	)
-	CombatRegressionHarness._free_manager(base["mgr"] as Node)
-	CombatRegressionHarness._free_manager(shaped["mgr"] as Node)
-	if absf(float(shaped["pre_cut"]) / float(base["pre_cut"]) - mult) > 0.05:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_cut_dmg_mult: pre_cut ratio %.4f want %.4f"
-			% [float(shaped["pre_cut"]) / float(base["pre_cut"]), mult]
+	for cfx in CombatRegressionHarness._kin_fixtures_cut_swing():
+		var wid: String = str(cfx["wid"])
+		var move: String = str(cfx["move"])
+		var tag: String = str(cfx["tag"])
+		var vo: float = _kin_fixture_vo(cfx, vo_pin)
+		var arch: Dictionary = CombatRegressionHarness._kin_arch_for_move(move)
+		var base: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, 1.0, 1.0, {}, wid, move, 1.0, arch
 		)
-	if absf(float(shaped["pen_sharp"]) / float(base["pen_sharp"]) - 1.0) > 0.03:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_cut_dmg_mult: pen_sharp should ignore cut_damage_mult"
+		var shaped: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, 1.0, 1.0, {"cut_damage_mult": mult}, wid, move, 1.0, arch
 		)
+		CombatRegressionHarness._free_manager(base["mgr"] as Node)
+		CombatRegressionHarness._free_manager(shaped["mgr"] as Node)
+		if absf(float(shaped["pre_cut"]) / float(base["pre_cut"]) - mult) > 0.05:
+			CombatRegressionHarness._fail(
+				failures,
+				"%s: kin_cut_dmg_mult pre_cut ratio %.4f want %.4f"
+				% [tag, float(shaped["pre_cut"]) / float(base["pre_cut"]), mult]
+			)
+		if absf(float(shaped["pen_sharp"]) / float(base["pen_sharp"]) - 1.0) > 0.03:
+			CombatRegressionHarness._fail(
+				failures, "%s: kin_cut_dmg_mult pen_sharp should ignore cut_damage_mult" % tag
+			)
 
 
 static func _kin_unarmed_pre_blunt_afterblow_sample(afterblow_mult: float) -> float:
@@ -1886,25 +1914,33 @@ static func _run_kinematic_delivery_blunt_damage_mult_integration_scales_pre_blu
 ) -> void:
 	const vo_pin: float = 11.0
 	const mult: float = 1.28
-	var base: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
-	var shaped: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
-		vo_pin, 1.0, 1.0, {"blunt_damage_mult": mult}
-	)
-	CombatRegressionHarness._free_manager(base["mgr"] as Node)
-	CombatRegressionHarness._free_manager(shaped["mgr"] as Node)
-	if float(base["pre_blunt"]) <= 0.1:
-		CombatRegressionHarness._fail(failures, "kin_blunt_dmg_mult: baseline pre_blunt too small")
-	if absf(float(shaped["pre_blunt"]) / float(base["pre_blunt"]) - mult) > 0.05:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_blunt_dmg_mult: pre_blunt ratio %.4f want %.4f"
-			% [float(shaped["pre_blunt"]) / float(base["pre_blunt"]), mult]
+	for cfx in CombatRegressionHarness._kin_fixtures_with_blunt_pen():
+		var wid: String = str(cfx["wid"])
+		var move: String = str(cfx["move"])
+		var tag: String = str(cfx["tag"])
+		var vo: float = _kin_fixture_vo(cfx, vo_pin)
+		var arch: Dictionary = CombatRegressionHarness._kin_arch_for_move(move)
+		var base: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, 1.0, 1.0, {}, wid, move, 1.0, arch
 		)
-	if absf(float(shaped["pen_sharp"]) / float(base["pen_sharp"]) - 1.0) > 0.03:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_blunt_dmg_mult: pen_sharp should ignore blunt_damage_mult"
+		var shaped: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, 1.0, 1.0, {"blunt_damage_mult": mult}, wid, move, 1.0, arch
 		)
+		CombatRegressionHarness._free_manager(base["mgr"] as Node)
+		CombatRegressionHarness._free_manager(shaped["mgr"] as Node)
+		if float(base["pre_blunt"]) <= 0.1:
+			CombatRegressionHarness._fail(failures, "%s: kin_blunt_dmg_mult baseline pre_blunt too small" % tag)
+		if absf(float(shaped["pre_blunt"]) / float(base["pre_blunt"]) - mult) > 0.05:
+			CombatRegressionHarness._fail(
+				failures,
+				"%s: kin_blunt_dmg_mult pre_blunt ratio %.4f want %.4f"
+				% [tag, float(shaped["pre_blunt"]) / float(base["pre_blunt"]), mult]
+			)
+		if float(base["pen_sharp"]) > 0.001:
+			if absf(float(shaped["pen_sharp"]) / float(base["pen_sharp"]) - 1.0) > 0.03:
+				CombatRegressionHarness._fail(
+					failures, "%s: kin_blunt_dmg_mult pen_sharp should ignore blunt_damage_mult" % tag
+				)
 
 
 ## Tier 5.1 (optional long-tail): **`get_deflected_line_from_angles`** — stab contact uses lower opposite-severity threshold than cut.
@@ -1984,34 +2020,42 @@ static func _run_kinematic_delivery_empty_arch_sword_thrust_infers_delivery(
 		)
 
 
-## Tier 5.1 (optional long-tail): partial parry on cut (**`velocity_override` ≥ 0**) — **`pre_blunt_applied`** rises, **`pre_cut_applied`** falls (integration).
+## Tier 5.1 (optional long-tail): partial parry on cut (**`velocity_override` ≥ 0**) — **`pre_blunt_applied`** rises, **`pre_cut_applied`** falls — **SWORD** / **AXE** / **DAGGER**.
 static func _run_kinematic_delivery_partial_parry_cut_to_blunt_integration_sword(
 	failures: PackedStringArray
 ) -> void:
 	const vo_pin: float = 11.0
 	const parry_half: float = 0.5
-	var clean: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
-	var partial: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
-		vo_pin, parry_half, 1.0, {}
-	)
-	var pre_cut_clean: float = float(clean["pre_cut"])
-	var pre_cut_part: float = float(partial["pre_cut"])
-	var pre_blunt_clean: float = float(clean["pre_blunt"])
-	var pre_blunt_part: float = float(partial["pre_blunt"])
-	CombatRegressionHarness._free_manager(clean["mgr"] as Node)
-	CombatRegressionHarness._free_manager(partial["mgr"] as Node)
-	if pre_cut_part >= pre_cut_clean - 0.5:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_parry_shift_int: partial should lower pre_cut (clean=%.4f part=%.4f)"
-			% [pre_cut_clean, pre_cut_part]
+	for cfx in CombatRegressionHarness._kin_fixtures_cut_swing():
+		var wid: String = str(cfx["wid"])
+		var move: String = str(cfx["move"])
+		var tag: String = str(cfx["tag"])
+		var vo: float = _kin_fixture_vo(cfx, vo_pin)
+		var arch: Dictionary = CombatRegressionHarness._kin_arch_for_move(move)
+		var clean: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, 1.0, 1.0, {}, wid, move, 1.0, arch
 		)
-	if pre_blunt_part <= pre_blunt_clean + 0.01:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_parry_shift_int: partial should raise pre_blunt (clean=%.4f part=%.4f)"
-			% [pre_blunt_clean, pre_blunt_part]
+		var partial: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, parry_half, 1.0, {}, wid, move, 1.0, arch
 		)
+		var pre_cut_clean: float = float(clean["pre_cut"])
+		var pre_cut_part: float = float(partial["pre_cut"])
+		var pre_blunt_clean: float = float(clean["pre_blunt"])
+		var pre_blunt_part: float = float(partial["pre_blunt"])
+		CombatRegressionHarness._free_manager(clean["mgr"] as Node)
+		CombatRegressionHarness._free_manager(partial["mgr"] as Node)
+		if pre_cut_part >= pre_cut_clean - 0.5:
+			CombatRegressionHarness._fail(
+				failures,
+				"%s: kin_parry_shift_int partial should lower pre_cut (clean=%.4f part=%.4f)"
+				% [tag, pre_cut_clean, pre_cut_part]
+			)
+		if pre_blunt_part <= pre_blunt_clean + 0.01:
+			CombatRegressionHarness._fail(
+				failures,
+				"%s: kin_parry_shift_int partial should raise pre_blunt (clean=%.4f part=%.4f)"
+				% [tag, pre_blunt_clean, pre_blunt_part]
+			)
 
 
 ## Tier 5.1 (optional long-tail): pinned **`velocity_override`** — misaligned guard scales applied pens (oblique active); complements derived-**`v`** skip test.
@@ -2019,25 +2063,35 @@ static func _run_kinematic_delivery_pinned_vo_misalign_scales_pen_integration(
 	failures: PackedStringArray
 ) -> void:
 	const vo_pin: float = 11.0
-	var aligned: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(vo_pin, 1.0, 1.0, {})
-	var misaligned: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(vo_pin, 1.0, 0.0, {})
-	CombatRegressionHarness._free_manager(aligned["mgr"] as Node)
-	CombatRegressionHarness._free_manager(misaligned["mgr"] as Node)
-	if float(misaligned["pen_sharp"]) >= float(aligned["pen_sharp"]) - 0.001:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_pin_oblique: misalign should reduce pen_sharp (aligned=%.4f mis=%.4f)"
-			% [float(aligned["pen_sharp"]), float(misaligned["pen_sharp"])]
-		)
 	var amin: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
 	var ascale: float = CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
 	var want_ratio: float = lerpf(1.0, amin, ascale)
-	if absf(float(misaligned["pen_sharp"]) / float(aligned["pen_sharp"]) - want_ratio) > 0.04:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_pin_oblique: pen ratio %.4f want oblique %.4f"
-			% [float(misaligned["pen_sharp"]) / float(aligned["pen_sharp"]), want_ratio]
+	for cfx in CombatRegressionHarness._kin_fixtures_with_sharp_pen():
+		var wid: String = str(cfx["wid"])
+		var move: String = str(cfx["move"])
+		var tag: String = str(cfx["tag"])
+		var vo: float = _kin_fixture_vo(cfx, vo_pin)
+		var arch: Dictionary = CombatRegressionHarness._kin_arch_for_move(move)
+		var aligned: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, 1.0, 1.0, {}, wid, move, 1.0, arch
 		)
+		var misaligned: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, 1.0, 0.0, {}, wid, move, 1.0, arch
+		)
+		CombatRegressionHarness._free_manager(aligned["mgr"] as Node)
+		CombatRegressionHarness._free_manager(misaligned["mgr"] as Node)
+		if float(misaligned["pen_sharp"]) >= float(aligned["pen_sharp"]) - 0.001:
+			CombatRegressionHarness._fail(
+				failures,
+				"%s: kin_pin_oblique misalign should reduce pen_sharp (aligned=%.4f mis=%.4f)"
+				% [tag, float(aligned["pen_sharp"]), float(misaligned["pen_sharp"])]
+			)
+		if absf(float(misaligned["pen_sharp"]) / float(aligned["pen_sharp"]) - want_ratio) > 0.04:
+			CombatRegressionHarness._fail(
+				failures,
+				"%s: kin_pin_oblique pen ratio %.4f want oblique %.4f"
+				% [tag, float(misaligned["pen_sharp"]) / float(aligned["pen_sharp"]), want_ratio]
+			)
 
 
 ## Tier 5.1 (optional long-tail): assembled **`v`** stamina scale — low striker **`strike_ke_j`** ratio ≈ **`stamina_vel_scale²`** (pinned **`vo`**).
@@ -2074,37 +2128,12 @@ static func _kin_result_split_fields_sample(
 	var sample: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
 		vo, 1.0, 1.0, {}, weapon_id, move_id, 1.0, arch
 	)
-	var m: Node = sample["mgr"] as Node
-	var atk: Dictionary = sample["atk"] as Dictionary
-	var tgt: Dictionary = sample["tgt"] as Dictionary
-	var res: Dictionary = _AttackResolver.compute_and_apply_damage(
-		m,
-		_EntityAccess.id_int(atk),
-		_EntityAccess.id_int(tgt),
-		atk,
-		tgt,
-		"chest",
-		0.62,
-		move_id,
-		arch,
-		vo,
-		1.0,
-		1.0,
-		-1.0,
-		-1.0,
-		1.0,
-		1.0,
-		1.0,
-		{},
-		{}
-	)
-	var rd: Dictionary = res.get("result_dict", {}) as Dictionary
-	CombatRegressionHarness._free_manager(m)
+	CombatRegressionHarness._free_manager(sample["mgr"] as Node)
 	return {
-		"final_cut": float(rd.get("final_cut", -999.0)),
-		"final_blunt": float(rd.get("final_blunt", -999.0)),
-		"final_bone": float(rd.get("final_bone", -999.0)),
-		"total_physical": float(rd.get("total_physical", -999.0)),
+		"final_cut": float(sample["final_cut"]),
+		"final_blunt": float(sample["final_blunt"]),
+		"final_bone": float(sample["final_bone"]),
+		"total_physical": float(sample["total_physical"]),
 	}
 
 
@@ -2114,22 +2143,30 @@ static func _run_kinematic_delivery_afterblow_scales_pre_cut_integration(
 ) -> void:
 	const vo_pin: float = 11.0
 	const ab_mult: float = 0.6
-	var clean: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
-		vo_pin, 1.0, 1.0, {}, "SWORD", "oberhau", 1.0
-	)
-	var hindered: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
-		vo_pin, 1.0, 1.0, {}, "SWORD", "oberhau", ab_mult
-	)
-	CombatRegressionHarness._free_manager(clean["mgr"] as Node)
-	CombatRegressionHarness._free_manager(hindered["mgr"] as Node)
-	var ratio_cut: float = float(hindered["pre_cut"]) / maxf(float(clean["pre_cut"]), 0.001)
 	var want_ratio: float = sqrt(ab_mult)
-	if absf(ratio_cut - want_ratio) > 0.06:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_ab_pre_cut: ratio %.4f want sqrt(ab) %.4f (clean=%.4f hind=%.4f)"
-			% [ratio_cut, want_ratio, float(clean["pre_cut"]), float(hindered["pre_cut"])]
+	for cfx in CombatRegressionHarness._kin_fixtures_with_sharp_pen():
+		var wid: String = str(cfx["wid"])
+		var move: String = str(cfx["move"])
+		var tag: String = str(cfx["tag"])
+		var vo: float = _kin_fixture_vo(cfx, vo_pin)
+		var arch: Dictionary = CombatRegressionHarness._kin_arch_for_move(move)
+		var clean: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, 1.0, 1.0, {}, wid, move, 1.0, arch
 		)
+		var hindered: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+			vo, 1.0, 1.0, {}, wid, move, ab_mult, arch
+		)
+		CombatRegressionHarness._free_manager(clean["mgr"] as Node)
+		CombatRegressionHarness._free_manager(hindered["mgr"] as Node)
+		if float(clean["pre_cut"]) <= 0.5:
+			CombatRegressionHarness._fail(failures, "%s: kin_ab_pre_cut baseline pre_cut too small" % tag)
+		var ratio_cut: float = float(hindered["pre_cut"]) / maxf(float(clean["pre_cut"]), 0.001)
+		if absf(ratio_cut - want_ratio) > 0.06:
+			CombatRegressionHarness._fail(
+				failures,
+				"%s: kin_ab_pre_cut ratio %.4f want sqrt(ab) %.4f (clean=%.4f hind=%.4f)"
+				% [tag, ratio_cut, want_ratio, float(clean["pre_cut"]), float(hindered["pre_cut"])]
+			)
 
 
 ## Tier 5.1 (optional long-tail): **MACE** integration — **`blunt_contact_cm_applied`** matches **`WeaponDamageHelper.compute_penetration`** **BLUNT** dict.
@@ -2176,26 +2213,34 @@ static func _run_kinematic_delivery_mace_blunt_contact_cm_matches_helper_integra
 static func _run_kinematic_delivery_entity_split_total_includes_final_bone(
 	failures: PackedStringArray
 ) -> void:
-	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
-	var rd: Dictionary = _kin_result_split_fields_sample(14.0, "SWORD", "oberhau", arch)
-	var fc: float = float(rd["final_cut"])
-	var fb: float = float(rd["final_blunt"])
-	var bone: float = float(rd["final_bone"])
-	var total: float = float(rd["total_physical"])
-	if fc < 0.0 or fb < 0.0 or bone < 0.0 or total < 0.0:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_entity_bone: missing split fields (cut=%.4f blunt=%.4f bone=%.4f total=%.4f)"
-			% [fc, fb, bone, total]
-		)
-	if total + 0.02 < fc + fb + bone:
-		CombatRegressionHarness._fail(
-			failures,
-			"kin_entity_bone: total %.4f < tissue+bone %.4f (cut=%.4f blunt=%.4f bone=%.4f)"
-			% [total, fc + fb + bone, fc, fb, bone]
-		)
-	if total <= CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
-		CombatRegressionHarness._fail(failures, "kin_entity_bone: total_physical too small %.4f" % total)
+	const vo_pin: float = 14.0
+	for cfx in CombatRegressionHarness._kin_fixtures_all_damage():
+		var wid: String = str(cfx["wid"])
+		var move: String = str(cfx["move"])
+		var tag: String = str(cfx["tag"])
+		var vo: float = _kin_fixture_vo(cfx, vo_pin)
+		var arch: Dictionary = CombatRegressionHarness._kin_arch_for_move(move)
+		var rd: Dictionary = _kin_result_split_fields_sample(vo, wid, move, arch)
+		var fc: float = float(rd["final_cut"])
+		var fb: float = float(rd["final_blunt"])
+		var bone: float = float(rd["final_bone"])
+		var total: float = float(rd["total_physical"])
+		if fc < 0.0 or fb < 0.0 or bone < 0.0 or total < 0.0:
+			CombatRegressionHarness._fail(
+				failures,
+				"%s: kin_entity_bone missing split fields (cut=%.4f blunt=%.4f bone=%.4f total=%.4f)"
+				% [tag, fc, fb, bone, total]
+			)
+		if total + 0.02 < fc + fb + bone:
+			CombatRegressionHarness._fail(
+				failures,
+				"%s: kin_entity_bone total %.4f < tissue+bone %.4f (cut=%.4f blunt=%.4f bone=%.4f)"
+				% [tag, total, fc + fb + bone, fc, fb, bone]
+			)
+		if total <= CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
+			CombatRegressionHarness._fail(
+				failures, "%s: kin_entity_bone total_physical too small %.4f" % [tag, total]
+			)
 
 
 ## Entry point — defined last so Godot resolves all `_run_*` bodies before `run()` (large-script forward-ref limit).

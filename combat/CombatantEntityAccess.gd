@@ -79,6 +79,19 @@ static func weapon_contact_type(
 	return str(weapon.get_contact_type(move_id))
 
 
+## Delegates to **`WeaponConstants.weapon_mass_kg`** (combat call sites).
+static func weapon_mass_kg(weapon: Variant) -> float:
+	return WeaponConstants.weapon_mass_kg(weapon)
+
+
+static func parry_wobble_context(defender_weapon: Variant, parry_readiness: float) -> Dictionary:
+	return {"parry_readiness": parry_readiness, "defender_mass_kg": weapon_mass_kg(defender_weapon)}
+
+
+static func parry_wobble_context_for_combatant(combatant: Dictionary, parry_readiness: float) -> Dictionary:
+	return parry_wobble_context(get_weapon(combatant), parry_readiness)
+
+
 static func weapon_archetype_for_move(
 	weapon: Variant,
 	move_id: String,
@@ -247,6 +260,15 @@ static func rank_int(combatant: Dictionary, default_rank: int = 0) -> int:
 ## Formation `file` index; uses `default_file` when the key is missing.
 static func file_int(combatant: Dictionary, default_file: int = 0) -> int:
 	return int(combatant.get("file", default_file))
+
+
+## Lateral offset within the file column; clamped to **`CombatConstants.LANE_OFFSET_ABS_MAX`**.
+static func lane_offset_float(combatant: Dictionary) -> float:
+	return clampf(
+		float(combatant.get("lane_offset", CombatConstants.LANE_OFFSET_DEFAULT)),
+		-CombatConstants.LANE_OFFSET_ABS_MAX,
+		CombatConstants.LANE_OFFSET_ABS_MAX
+	)
 
 
 ## Combatant `id`; uses `default_id` when missing (common default: -1).
@@ -493,6 +515,12 @@ static func is_unconscious(combatant: Dictionary) -> bool:
 	if node == null or not node.has_method("is_unconscious"):
 		return false
 	return node.is_unconscious()
+
+## Tier 6.1: arm loss during combat — sync cowering, cancel stale turns, abort wind-up (see **`AvailableActionsBuilder`**).
+static func react_attacking_arm_lost_if_needed(manager: Node, combatant: Dictionary) -> void:
+	const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+	_ActionsBuilder.react_attacking_arm_lost_if_needed(manager, combatant)
+
 
 ## True when unit has no functional attacking arm (cowering posture on entity).
 static func is_cowering(combatant: Dictionary) -> bool:

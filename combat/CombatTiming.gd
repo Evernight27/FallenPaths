@@ -18,6 +18,13 @@ static func intensity_from_stats(c: Dictionary) -> float:
 static func wind_up_duration(intensity: float, windup_multiplier: float = 1.0) -> float:
 	return (CombatConstants.WIND_UP_BASE_S + CombatConstants.WIND_UP_SCALE_S * intensity) * maxf(0.5, windup_multiplier)
 
+
+## Guard-line transition multiplier for wind-up (clamped — see **`GUARD_TRANSITION_MULT_MAX`**).
+static func guard_transition_mult(align: float) -> float:
+	var a: float = clampf(align, 0.0, 1.0)
+	var raw: float = 1.0 + (1.0 - a) * CombatConstants.GUARD_TRANSITION_COST_SCALE
+	return minf(raw, CombatConstants.GUARD_TRANSITION_MULT_MAX)
+
 ## Velocity curve over wind-up progress (0 = swing start, 1 = impact). Peak at 1.0 so impact uses full velocity.
 ## Quadratic (p²): blade accelerates into impact; early parry meets less momentum than linear.
 static func velocity_curve_factor(progress: float) -> float:

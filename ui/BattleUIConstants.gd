@@ -8,8 +8,8 @@ extends RefCounted
 const BODY_BAR_CELL_WIDTH := 56
 const BODY_BAR_HEIGHT := 12
 const GAUGE_WIDTH := 160
-## Wide enough for `Wind-up 1.2s · Step +14°` + attention fragments (clip_text still on).
-const GAUGE_LABEL_MIN_WIDTH := 128
+## Wide enough for counter + attention + footwork fragments (`clip_text` still on label).
+const GAUGE_LABEL_MIN_WIDTH := 176
 
 # Combat log
 const LOG_MAX_LINES := 80

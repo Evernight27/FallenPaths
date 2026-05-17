@@ -8,6 +8,9 @@ extends RefCounted
 const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
 const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 
 # Part relevance for hindrance (attacking arm from pending; supporting leg from stance)
 static func _get_part_relevance(hit_part: String, attacking_arm: String, supporting_leg: String) -> float:
@@ -37,6 +40,14 @@ static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, resu
 	if tgt == null:
 		return false
 	var pa: Dictionary = _EntityAccess.nested_dictionary_read(tgt, "pending_attack")
+	if _MedicalPhase.combat_resolution_blocked(manager):
+		if not pa.is_empty() or _EntityAccess.state_str(tgt) == CombatConstants.STATE_WIND_UP:
+			_CounterTempo.abort_attacker_wind_up(manager, target_id)
+			tgt.state = CombatConstants.STATE_WAITING
+			tgt.state_timer = 0.0
+			tgt.state_duration = 0.0
+			tgt.gauge = 0.0
+		return false
 	if pa.is_empty():
 		return false
 	if _EntityAccess.state_str(tgt) != CombatConstants.STATE_WIND_UP:
@@ -52,10 +63,11 @@ static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, resu
 	var tgt_n: Node = _EntityAccess.scene_node(tgt)
 	var attacking_arm: String = _EntityAccess.get_attacking_arm(tgt)
 	if attacking_arm.is_empty():
+		_abort_afterblow_wind_up_no_arm(manager, target_id, tgt)
 		return false
 	var arm_inoperable: bool = _BodyPartQuery.is_arm_destroyed(tgt_n, attacking_arm) if tgt_n != null else true
 	if hit_part == attacking_arm and arm_inoperable:
-		_cancel_pending(manager, tgt)
+		_abort_afterblow_wind_up_no_arm(manager, target_id, tgt)
 		return false
 	if hit_part == "head" and _EntityAccess.is_incapacitated(tgt):
 		_cancel_pending(manager, tgt)
@@ -80,11 +92,26 @@ static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, resu
 		return false
 	return _execute_afterblow(manager, tgt, hindrance)
 
-static func _cancel_pending(_manager: Node, tgt: Dictionary) -> void:
+static func _abort_afterblow_wind_up_no_arm(manager: Node, target_id: int, tgt: Dictionary) -> void:
+	if manager == null or tgt.is_empty() or target_id < 0:
+		return
+	_CounterTempo.abort_attacker_wind_up(manager, target_id)
+	_ActionsBuilder.react_attacking_arm_lost_if_needed(manager, tgt)
+
+
+static func _cancel_pending(manager: Node, tgt: Dictionary) -> void:
 	tgt.pending_attack = {}
 	tgt.state = CombatConstants.STATE_RECOVERING
 	tgt.state_timer = 0.0
 	tgt.state_duration = CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S
+	var tid: int = _EntityAccess.id_int(tgt)
+	if manager != null and tid >= 0 and manager.has_method("_schedule_event"):
+		manager._schedule_event({
+			"type": CombatConstants.EVENT_RECOVERY_END,
+			"combatant_id": tid,
+			"resolve_at": float(manager.combat_clock) + CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S,
+			"data": {},
+		})
 	if CombatDebug.flow_verbose_enabled():
 		CombatDebug.flow_log("afterblow %s hindered swing_cancelled" % _EntityAccess.get_display_name(tgt))
 

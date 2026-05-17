@@ -106,13 +106,13 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 		elif blunt_pre_val > 0.0:
 			var result_blunt: Dictionary = armor_var.apply_damage(blunt_pre_val, _CombatConstants.DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 0)
 			final_blunt = maxf(0.0, result_blunt.get("damage", 0.0))
-		if _CombatConstants.COMBAT_DEBUG:
+		if _CombatConstants.combat_debug_active():
 			print("[Armor] %s %s: pre cut=%.1f blunt=%.1f | transmitted_raw=%.1f direct_blunt=%.1f | pen_sharp=%.2f mm RHA | blunt: => post-armor cut=%.1f blunt=%.1f" % [entity.name, part, cut_pre_val, blunt_pre_val, deflected_raw, blunt_pre_val, pen_s, final_cut, final_blunt])
 	else:
 		final_cut = cut_pre_val
 		final_blunt = blunt_pre_val
 		blunt_from_direct = blunt_pre_val
-		if _CombatConstants.COMBAT_DEBUG and (cut_pre_val > 0.0 or blunt_pre_val > 0.0):
+		if _CombatConstants.combat_debug_active() and (cut_pre_val > 0.0 or blunt_pre_val > 0.0):
 			print("[Armor] %s %s: no armor => post cut=%.1f blunt=%.1f" % [entity.name, part, final_cut, final_blunt])
 	var total_final: float = final_cut + final_blunt
 	var mechanical_post_armor: float = total_final
@@ -150,7 +150,7 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 	var cut_after: float = entity.body_cutting.get(part, 0.0)
 	var blunt_after: float = entity.body_blunt.get(part, 0.0)
 	var bone_after: float = entity.bone_health.get(part, 0.0)
-	if _CombatConstants.COMBAT_DEBUG:
+	if _CombatConstants.combat_debug_active():
 		print("[Bone/tissue] %s %s (%s): total_post_armor=%.1f | threshold=%d fraction=%.2f => allocated bone=%.2f tissue=%.2f | severance_ease=%.2f => applied cut=%.2f blunt=%.2f bone=%.2f | part state: cut %.2f->%.2f blunt %.2f->%.2f bone %.2f->%.2f" % [entity.name, part, sub_region, total_final, bone_threshold, bone_fraction, allocated_bone, to_tissue_total, severance_ease, to_cut, to_blunt, to_bone, cur_cut, cut_after, cur_blunt, blunt_after, cur_bone, bone_after])
 	if to_cut > 0.0:
 		_EntityWounds.add_wound(entity, part, _Bleeding.INJURY_TYPE_CUT, to_cut, sub_region, "", impact_ke)

@@ -30,6 +30,8 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 	for c in manager.combatants:
 		var d_to: Dictionary = _EntityAccess.nested_dictionary_for_mutation(c, "distance_to")
 		var our_rank: int = _EntityAccess.rank_int(c)
+		var fid_c: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
+		var fc: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, fid_c)
 		for opp in manager.combatants:
 			if _EntityAccess.side_str(opp) == _EntityAccess.side_str(c) or not _EntityAccess.alive_bool(opp):
 				continue
@@ -51,10 +53,13 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 				if not bool(depth_lane_ok_by_id.get(oid, false)):
 					d_to[oid] = CombatConstants.DISTANCE_LONG
 					continue
-			var mid_reach: int = _ZoneOfControl.mid_reach_files(manager, c, opp)
-			var eff_dist: float = _ActionsBuilder.effective_pair_eff_dist(manager, c, opp)
+			var fid_o: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, opp)
+			var fo: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, opp, fid_o)
+			var mid_reach: int = _ZoneOfControl.mid_reach_files(manager, c, opp, fc, fo)
+			var pair_geom: Dictionary = _ActionsBuilder.effective_pair_geometry(manager, c, opp, fc, fo)
+			var eff_dist: float = float(pair_geom.get("eff_dist", 0.0))
 			var reach_here: float = maxf(_ActionsBuilder.melee_weapon_reach(c), _ActionsBuilder.melee_weapon_reach(opp))
-			var eff_files: float = _ActionsBuilder.effective_pair_file_spacing_equivalent(manager, c, opp)
+			var eff_files: float = float(pair_geom.get("file_spacing_equiv", 0.0))
 			var within_mid_files: bool = eff_files <= float(mid_reach) + CombatConstants.DIST_BAND_MID_FILE_EQUIV_SLACK
 			if within_mid_files and reach_here >= eff_dist:
 				d_to[oid] = CombatConstants.DISTANCE_MID

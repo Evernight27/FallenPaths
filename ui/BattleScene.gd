@@ -10,6 +10,7 @@ const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _UiHints := preload("res://combat/CombatUiHints.gd")
 
 var players: Array = []
 var enemies: Array = []
@@ -231,26 +232,46 @@ func _update_ui() -> Array:
 		var cid_ui: int = _EntityAccess.id_int(c)
 		if cid_ui in id_to_controls:
 			BattleUIUpdater.update_combatant_row(id_to_controls[cid_ui], c)
-	_sync_formation_diagrams_for_footwork(caps)
+	_sync_formation_diagrams_for_tactical_hints(caps)
 	return caps
 
 
-func _footwork_diagram_signature(caps: Array) -> String:
+func _tactical_diagram_signature(caps: Array) -> String:
 	var parts: PackedStringArray = []
 	for raw in caps:
 		if raw == null or typeof(raw) != TYPE_DICTIONARY:
 			continue
 		var c: Dictionary = raw as Dictionary
-		var sfx: String = _Footwork.get_diagram_label_suffix(c)
-		if sfx.is_empty():
+		if not _EntityAccess.alive_bool(c, true):
 			continue
-		parts.append("%d:%s" % [_EntityAccess.id_int(c), sfx.strip_edges()])
+		var chunks: PackedStringArray = []
+		if _Footwork.enabled():
+			var sfx: String = _Footwork.get_diagram_label_suffix(c).strip_edges()
+			if not sfx.is_empty():
+				chunks.append("sfx=%s" % sfx)
+			var fw: String = _UiHints.footwork_hint_text(c)
+			if not fw.is_empty():
+				chunks.append("fw=%s" % fw)
+		if CombatAttention.enabled():
+			var attn: String = _UiHints.attention_hint_text(c)
+			if not attn.is_empty():
+				chunks.append("a=%s" % attn)
+		if CounterTempo.enabled():
+			var tempo: String = _UiHints.counter_tempo_hint_key(c, manager)
+			if not tempo.is_empty():
+				chunks.append("t=%s" % tempo)
+		if chunks.is_empty():
+			continue
+		parts.append("%d:%s" % [_EntityAccess.id_int(c), "|".join(chunks)])
 	parts.sort()
 	return "|".join(parts)
 
 
-func _sync_formation_diagrams_for_footwork(caps: Array) -> void:
-	if not _Footwork.enabled():
+func _sync_formation_diagrams_for_tactical_hints(caps: Array) -> void:
+	var any_tactical: bool = (
+		_Footwork.enabled() or _Attention.enabled() or _CounterTempo.enabled()
+	)
+	if not any_tactical:
 		if not _diagram_footwork_sig.is_empty():
 			_diagram_footwork_sig = ""
 			if formation_diagram_player != null:
@@ -258,7 +279,7 @@ func _sync_formation_diagrams_for_footwork(caps: Array) -> void:
 			if formation_diagram_enemy != null:
 				_FormationDiagramBuilder.refresh(formation_diagram_enemy)
 		return
-	var sig: String = _footwork_diagram_signature(caps)
+	var sig: String = _tactical_diagram_signature(caps)
 	if sig == _diagram_footwork_sig:
 		return
 	_diagram_footwork_sig = sig
@@ -293,10 +314,11 @@ func _on_combatant_health_changed(_combatant_id: int) -> void:
 	# Refresh UI when consciousness/pain/blood changes (driven by health_changed signal from entity)
 	_update_ui()
 
-func _on_formation_changed(side: String) -> void:
-	if side == "player" and formation_diagram_player != null:
+func _on_formation_changed(_side: String) -> void:
+	_diagram_footwork_sig = ""
+	if formation_diagram_player != null:
 		_FormationDiagramBuilder.refresh(formation_diagram_player)
-	elif side == "enemy" and formation_diagram_enemy != null:
+	if formation_diagram_enemy != null:
 		_FormationDiagramBuilder.refresh(formation_diagram_enemy)
 
 
@@ -363,9 +385,7 @@ func _on_action_resolved(attacker_id: int, target_id: int, result: Dictionary) -
 	_append_combat_log(atk_name, atk_side, tgt_name, tgt_side, result)
 	# Show last hit on target row (prefers total_physical so fractional chips still show)
 	var part: String = result.get("part", "")
-	var dmg: int = result.get("dmg", 0)
-	var phys_chip: float = float(result.get("total_physical", -1.0))
-	var show_hit: bool = not part.is_empty() and (dmg > 0 or (phys_chip >= 0.0 and phys_chip > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS))
+	var show_hit: bool = not part.is_empty() and CombatLogFormatter.has_resolved_physical_damage(result)
 	if target_id in id_to_controls and id_to_controls[target_id].get("last_hit_label"):
 		var lbl: Label = id_to_controls[target_id].last_hit_label
 		if show_hit:

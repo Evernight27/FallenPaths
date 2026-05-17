@@ -13,6 +13,8 @@ const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 
 const _FORMATION_MOVE_IDS: Array[String] = [
 	CombatConstants.MOVE_ID_SWAP_RANK,
@@ -84,9 +86,11 @@ static func can_act(manager: Node, c: Dictionary) -> bool:
 		return false
 	if not _EntityAccess.alive_bool(c) or _EntityAccess.is_incapacitated(c):
 		return false
+	if _ActionsBuilder.cannot_commit_melee(c):
+		return false
 	if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 		return false
-	if manager.medical_phase:
+	if _MedicalPhase.combat_resolution_blocked(manager):
 		return false
 	if not is_window_open(c, float(manager.combat_clock)):
 		return false
@@ -123,7 +127,9 @@ static func is_counter_tempo_melee_action(move_id: String) -> bool:
 	return true
 
 
-static func filter_actions_for_counter_tempo(actions: Array) -> Array:
+static func filter_actions_for_counter_tempo(actions: Array, c: Dictionary = {}) -> Array:
+	if not c.is_empty():
+		actions = _ActionsBuilder.filter_actions_for_retreat_only(actions, c)
 	var out: Array = []
 	for raw in actions:
 		if typeof(raw) != TYPE_DICTIONARY:
@@ -135,6 +141,20 @@ static func filter_actions_for_counter_tempo(actions: Array) -> Array:
 		a[CombatConstants.ACTION_KEY_COUNTER_TEMPO] = true
 		out.append(a)
 	return out
+
+
+## UI snapshot: stamped hint when present, else derive from open window + progress gate (read-only).
+static func snapshot_ui_hint(manager: Node, c: Dictionary) -> String:
+	if not enabled() or manager == null or c == null:
+		return ""
+	var stamped: String = str(c.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, "")).strip_edges()
+	if not stamped.is_empty():
+		return stamped
+	if not is_window_open(c, float(manager.combat_clock)):
+		return ""
+	if can_act(manager, c):
+		return "counter_ready"
+	return "counter_winding"
 
 
 static func _refresh_ui_hint(manager: Node, defender: Dictionary) -> void:
@@ -169,7 +189,7 @@ static func try_schedule_counter_tempo_ready(manager: Node, defender: Dictionary
 static func on_attacker_wind_up_started(
 	manager: Node, _attacker_id: int, defender: Dictionary, wind_up_s: float
 ) -> void:
-	if not enabled() or manager == null or defender == null:
+	if not enabled() or manager == null or defender == null or _MedicalPhase.combat_resolution_blocked(manager):
 		return
 	var def_id: int = _EntityAccess.id_int(defender)
 	if def_id < 0:
@@ -186,6 +206,16 @@ static func defer_incoming_melee_after_counter(
 	manager: Node, counter_id: int, deferred_attacker_id: int
 ) -> void:
 	if manager == null or counter_id < 0 or deferred_attacker_id < 0:
+		return
+	if _MedicalPhase.combat_resolution_blocked(manager):
+		var defer_atk: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(deferred_attacker_id))
+		if not defer_atk.is_empty() and _MedicalPhase.is_losing_side(manager, defer_atk):
+			_EventScheduler.cancel_pending_melee_attack(manager, deferred_attacker_id)
+			abort_attacker_wind_up(manager, deferred_attacker_id)
+			defer_atk.state = CombatConstants.STATE_WAITING
+			defer_atk.state_timer = 0.0
+			defer_atk.state_duration = 0.0
+			defer_atk.gauge = 0.0
 		return
 	var counter: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(counter_id))
 	if counter.is_empty():
@@ -217,6 +247,13 @@ static func abort_attacker_wind_up(manager: Node, attacker_id: int) -> void:
 	atk.pending_attack = {}
 	if _EntityAccess.state_str(atk) == CombatConstants.STATE_WIND_UP:
 		_StateHandlers.enter_short_recovery(atk, manager)
+		if float(atk.get("state_duration", 0.0)) > 0.0 and manager.has_method("_schedule_event"):
+			manager._schedule_event({
+				"type": CombatConstants.EVENT_RECOVERY_END,
+				"combatant_id": attacker_id,
+				"resolve_at": float(manager.combat_clock) + float(atk.state_duration),
+				"data": {},
+			})
 
 
 static func process_waiting(manager: Node, c: Dictionary) -> void:

@@ -12,6 +12,29 @@ const _Attention := preload("res://combat/CombatAttention.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 
 
+static func _counter_tempo_ui_blocks_status_override(manager: Node, c: Dictionary) -> bool:
+	if not _CounterTempo.enabled():
+		return false
+	var tempo_ui: String = _CounterTempo.snapshot_ui_hint(manager, c)
+	return tempo_ui == "counter_ready" or tempo_ui == "counter_winding"
+
+
+static func _status_override_text(manager: Node, c: Dictionary, combatant_id: int, next_ready: Dictionary) -> String:
+	if _counter_tempo_ui_blocks_status_override(manager, c):
+		return ""
+	var crash_cd_until: float = float(c.get("crash_cooldown_until", 0.0))
+	if crash_cd_until > manager.combat_clock:
+		return "Crash CD %.1fs" % (crash_cd_until - manager.combat_clock)
+	var action_cd_until: float = float(c.get("action_cooldown_until", 0.0))
+	if action_cd_until > manager.combat_clock:
+		return "Closing %.1fs" % (action_cd_until - manager.combat_clock)
+	if next_ready.has(combatant_id):
+		var next_at: float = float(next_ready[combatant_id])
+		if next_at > manager.combat_clock:
+			return "Next: %.1fs" % (next_at - manager.combat_clock)
+	return ""
+
+
 static func build(manager: Node) -> Array:
 	var out: Array = []
 	var next_ready: Dictionary = _EventScheduler.build_next_action_ready_times(manager)
@@ -51,44 +74,37 @@ static func build(manager: Node) -> Array:
 			"engagement_role": str(c.get("engagement_role", CombatConstants.ENGAGEMENT_ROLE_LINE)),
 			"intrusion_host_fid": _ZoneOfControl.intrusion_host_fid(c),
 			"intrusion_anchor_file": _EntityAccess.intrusion_anchor_file_raw_int(c),
-			"lane_offset": float(c.get("lane_offset", 0.0)),
+			"lane_offset": _EntityAccess.lane_offset_float(c),
 		}
-		if CombatConstants.COMBAT_DEBUG:
+		if CombatConstants.combat_debug_active():
 			item["guard_line"] = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
 			item["guard_angle_deg"] = CombatConstants.get_guard_angle_deg(c)
 		if _Footwork.enabled():
 			var off_deg: float = _Footwork.get_defender_offset_deg(c)
 			if absf(off_deg) >= 0.01:
 				item["position_angle_offset_deg"] = off_deg
-			var fw_hint: String = _Footwork.get_ui_hint(c)
+			var fw_hint: String = _Footwork.snapshot_ui_hint(c)
 			if not fw_hint.is_empty():
 				item["position_angle_ui_hint"] = fw_hint
 		if _Attention.enabled():
-			var attn_hint: String = str(
-				c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "")
-			).strip_edges()
+			var attn_hint: String = _Attention.snapshot_ui_hint(c)
 			if not attn_hint.is_empty():
 				item["attention_ui_hint"] = attn_hint
 		if _CounterTempo.enabled():
-			var tempo_hint: String = str(
-				c.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, "")
-			).strip_edges()
+			var tempo_hint: String = _CounterTempo.snapshot_ui_hint(manager, c)
 			if not tempo_hint.is_empty():
 				item["counter_tempo_ui_hint"] = tempo_hint
+		if _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
+			var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
+			if bool(pa.get(CombatConstants.PA_KEY_COUNTER_TEMPO, false)):
+				item["is_counter_tempo_wind_up"] = true
 		var pm_raw: Variant = c.get("pending_medical", null)
 		if pm_raw is Dictionary:
 			item["pending_medical"] = (pm_raw as Dictionary).duplicate(true)
 		else:
 			item["pending_medical"] = {}
-		var crash_cd_until: float = float(c.get("crash_cooldown_until", 0.0))
-		var action_cd_until: float = float(c.get("action_cooldown_until", 0.0))
-		if crash_cd_until > manager.combat_clock:
-			item["status_override"] = "Crash CD %.1fs" % (crash_cd_until - manager.combat_clock)
-		elif action_cd_until > manager.combat_clock:
-			item["status_override"] = "Closing %.1fs" % (action_cd_until - manager.combat_clock)
-		elif next_ready.has(cid_snap):
-			var next_at: float = float(next_ready[cid_snap])
-			if next_at > manager.combat_clock:
-				item["status_override"] = "Next: %.1fs" % (next_at - manager.combat_clock)
+		var status_override: String = _status_override_text(manager, c, cid_snap, next_ready)
+		if not status_override.is_empty():
+			item["status_override"] = status_override
 		out.append(item)
 	return out

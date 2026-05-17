@@ -24,12 +24,19 @@ static func get_parry_config() -> Dictionary:
 	cfg["strong_contact_by_arch"] = CombatConstants.PARRY_STRONG_CONTACT_BY_ARCH
 	return cfg
 
+## 0..1 guard gauge for passive parry (not **`guard_line`**). Coerces numeric types; non-numeric → 1.0.
+static func guard_readiness_float(c: Dictionary) -> float:
+	var raw: Variant = c.get("guard", 1.0)
+	if raw is float or raw is int:
+		return clampf(float(raw), 0.0, 1.0)
+	return 1.0
+
+
 ## Readiness multiplier for passive parry. WAITING = 1.0 × guard; RECOVERING = lerp(early, late) by progress.
 ## Uses READINESS_BY_CAUSE for cause-specific curves (attack_hit = more stunned, attack_miss = off-balance, etc.).
 static func get_passive_parry_readiness(c: Dictionary) -> float:
 	if _EntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
-		var guard: float = clampf(c.get("guard", 1.0), 0.0, 1.0)
-		return guard
+		return guard_readiness_float(c)
 	if _EntityAccess.state_str(c) == CombatConstants.STATE_RECOVERING:
 		var dur: float = c.get("state_duration", 0.001)
 		var t: float = c.get("state_timer", 0.0)

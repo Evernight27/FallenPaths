@@ -3,6 +3,7 @@ extends RefCounted
 
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 
 ## Per-state handlers for CombatManager _process loop.
 ## Each handler mutates combatant (c) and may call manager methods.
@@ -11,6 +12,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
+const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
 
 ## Checks if combatant died this tick (e.g. bled out). Mutates c, emits action_resolved if died.
 ## Returns victor string if battle should end (non-empty), else "".
@@ -51,6 +53,7 @@ static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
 		return false
 	# Mobile cowering (no arms, functional legs): allow ticks so formation retreat can be offered
 	if _EntityAccess.is_cowering(c):
+		_ActionsBuilder.sync_cowering_state_if_no_functional_arm(c)
 		return not _EntityAccess.can_flee_or_fall_back(c)
 	if _EntityAccess.is_incapacitated(c):
 		return true
@@ -95,17 +98,6 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
 		c.state = CombatConstants.STATE_COWERING
 		var who_name: String = _EntityAccess.get_display_name(c)
 		print("[Combat] %s is cowering (no functional arms)." % who_name)
-		if (
-			manager != null
-			and manager.has_method("_schedule_action_ready")
-			and _EntityAccess.can_flee_or_fall_back(c)
-		):
-			var delay: float = (
-				manager._action_ready_cooldown(c)
-				if manager.has_method("_action_ready_cooldown")
-				else 0.05
-			)
-			manager._schedule_action_ready(_EntityAccess.id_int(c), delay)
 	else:
 		c.state = CombatConstants.STATE_WAITING
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
@@ -158,31 +150,36 @@ static func process_receiving_medical(manager: Node, c: Dictionary, delta: float
 				c.receiving_care_turn_pending = true
 				c.receiving_care_action_cooldown = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 	else:
+		if MedicalPhaseController.combat_resolution_blocked(manager) and MedicalPhaseController.is_losing_side(manager, c):
+			return
 		if cooldown <= 0.0:
 			var actions: Array = manager.get_available_actions(_EntityAccess.id_int(c))
 			if not actions.is_empty():
-				var choice = CombatAIActionPicker.pick(actions, _EntityAccess.id_int(c), manager)
-				var opts: Dictionary = CombatAIActionPicker.opts_from_choice(choice)
+				var cid_recv: int = _EntityAccess.id_int(c)
+				var choice: Dictionary = CombatAIActionPicker.pick(actions, cid_recv, manager)
 				CombatDebug.flow_log(
 					"receiving_care enemy id=%d actions=[%s] => pick %s"
-					% [_EntityAccess.id_int(c), CombatDebug.format_actions_compact(actions), choice.get("move_id", "")],
-					"receiving_care_enemy:%d" % _EntityAccess.id_int(c)
+					% [cid_recv, CombatDebug.format_actions_compact(actions), choice.get("move_id", "")],
+					"receiving_care_enemy:%d" % cid_recv
 				)
-				manager.resolve_action(_EntityAccess.id_int(c), _EntityAccess.id_int(c), choice.get("move_id", ""), opts)
+				CombatAIActionPicker.resolve_choice(manager, cid_recv, choice, true)
 				c.receiving_care_action_cooldown = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 
 static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void:
 	# Option A: Event-driven. No gauge fill or turn_ready — events handle readiness. Only guard + stamina.
-	var g: float = clampf(c.get("guard", 1.0), 0.0, 1.0)
+	var g: float = _PassiveParryCtx.guard_readiness_float(c)
 	c["guard"] = minf(1.0, g + CombatConstants.GUARD_RISE_RATE * delta)
 	var s: float = _EntityAccess.stamina_float(c)
 	c["stamina"] = minf(CombatConstants.STAMINA_MAX, s + CombatConstants.STAMINA_REFILL_RATE * delta)
 	_CounterTempo.process_waiting(_manager, c)
 	_Attention.refresh_for_waiting_tick(_manager, c)
 
-static func process_wind_up(_manager: Node, c: Dictionary, delta: float) -> void:
+static func process_wind_up(manager: Node, c: Dictionary, delta: float) -> void:
 	c.gauge = 0.0
 	c.state_timer += delta
+	if manager != null and _ActionsBuilder.cannot_commit_melee(c):
+		_CounterTempo.abort_attacker_wind_up(manager, _EntityAccess.id_int(c))
+		return
 	# Completion handled by EVENT_MELEE_ATTACK; state_timer for UI countdown only
 
 static func process_medical_wind_up(manager: Node, c: Dictionary, delta: float) -> void:
@@ -194,7 +191,10 @@ static func process_medical_wind_up(manager: Node, c: Dictionary, delta: float) 
 		c["pending_medical"] = {}
 		_MedicalWindUp.complete(manager, c, pm)
 
-static func process_recovering(_manager: Node, c: Dictionary, delta: float) -> void:
+static func process_recovering(manager: Node, c: Dictionary, delta: float) -> void:
 	c.gauge = 0.0
 	c.state_timer += delta
+	if manager != null and _ActionsBuilder.cannot_commit_melee(c):
+		_ActionsBuilder.react_attacking_arm_lost_if_needed(manager, c)
+		return
 	# Completion handled by EVENT_RECOVERY_END; state_timer for UI countdown only

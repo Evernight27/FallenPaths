@@ -11,6 +11,8 @@ const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
+const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 ## Builds available actions for a combatant (attacks, medical). Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess),
 ## _get_parts_being_treated_on, _get_ally_medical_actions, _is_in_immediate_peril, _has_left_immediate_peril_permanently,
 ## combatants, medical_phase, medical_phase_winner.
@@ -56,18 +58,123 @@ static func solo_fall_back_action_legal(manager: Node, atk: Dictionary) -> bool:
 	return _EntityAccess.retreat_formation_body_damage_warranted(atk, manager)
 
 
+## Tier 6.1: no functional attacking arm / cowering — retreat-only listing (fall_back when legal, wait).
+static func formation_retreat_only_for(c: Dictionary) -> bool:
+	if c.is_empty():
+		return false
+	return (
+		_EntityAccess.state_str(c) == CombatConstants.STATE_COWERING
+		or _EntityAccess.is_cowering(c)
+		or _EntityAccess.get_attacking_arm(c).is_empty()
+	)
+
+
+static func cannot_commit_melee(c: Dictionary) -> bool:
+	return formation_retreat_only_for(c)
+
+
+## Resolve gate mirror for retreat-only (`wait`, solo `fall_back` only).
+static func resolve_move_allowed_when_cannot_melee(
+	move_id: String, target_id: int, attacker_id: int
+) -> bool:
+	if move_id == CombatConstants.MOVE_ID_WAIT:
+		return true
+	return move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id
+
+
+## True for weapon strikes and other committed offense (not wait / retreat / formation / medical / focus).
+static func is_offensive_melee_move_id(move_id: String) -> bool:
+	if move_id.is_empty():
+		return false
+	if resolve_move_allowed_when_cannot_melee(move_id, -1, -1):
+		return false
+	if move_id in CombatConstants.MEDICAL_MOVE_IDS:
+		return false
+	if move_id in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+		return false
+	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		return true
+	if move_id == CombatConstants.MOVE_ID_CRASH:
+		return true
+	if CombatConstants.is_focus_line_move(move_id):
+		return false
+	if WeaponConstants.is_parry_move(move_id):
+		return false
+	return true
+
+
+## Align combatant `state` with entity arm loss so stale **WAITING** does not list melee before recovery end.
+static func sync_cowering_state_if_no_functional_arm(c: Dictionary) -> void:
+	if c.is_empty() or not formation_retreat_only_for(c):
+		return
+	if _EntityAccess.state_str(c) == CombatConstants.STATE_COWERING:
+		return
+	if _EntityAccess.state_str(c) in [
+		CombatConstants.STATE_WIND_UP,
+		CombatConstants.STATE_RECOVERING,
+		CombatConstants.STATE_DEAD,
+	]:
+		return
+	c.state = CombatConstants.STATE_COWERING
+
+
+## After arm loss in combat: sync cowering, abort stale wind-up / turn-ready, reschedule mobile retreat.
+static func react_attacking_arm_lost_if_needed(manager: Node, c: Dictionary) -> void:
+	if manager == null or c.is_empty() or not _EntityAccess.is_cowering(c):
+		return
+	sync_cowering_state_if_no_functional_arm(c)
+	var cid: int = _EntityAccess.id_int(c)
+	var st: String = _EntityAccess.state_str(c)
+	if st == CombatConstants.STATE_WIND_UP:
+		_CounterTempo.abort_attacker_wind_up(manager, cid)
+		return
+	if st == CombatConstants.STATE_RECOVERING:
+		_EventScheduler.cancel_pending_recovery_end(manager, cid)
+		_StateHandlers.complete_recovery(manager, c)
+		st = _EntityAccess.state_str(c)
+	_EventScheduler.cancel_pending_action_ready(manager, cid)
+	if st in [CombatConstants.STATE_WAITING, CombatConstants.STATE_COWERING]:
+		if _EntityAccess.can_flee_or_fall_back(c) and manager.has_method("_schedule_action_ready"):
+			var delay: float = (
+				manager._action_ready_cooldown(c)
+				if manager.has_method("_action_ready_cooldown")
+				else 0.05
+			)
+			manager._schedule_action_ready(cid, delay)
+
+
+## Defense-in-depth: strip offensive / formation moves when retreat-only (AI pick, counter-tempo).
+static func filter_actions_for_retreat_only(actions: Array, c: Dictionary) -> Array:
+	if not formation_retreat_only_for(c):
+		return actions
+	var cid: int = _EntityAccess.id_int(c)
+	var out: Array = []
+	for raw in actions:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		var mid: String = str(a.get("move_id", ""))
+		if mid == CombatConstants.MOVE_ID_WAIT:
+			out.append(a)
+		elif mid == CombatConstants.MOVE_ID_FALL_BACK and int(a.get("target_id", -1)) == cid:
+			out.append(a)
+	return out
+
+
 static func _wedge_distance_pull(manager: Node, a: Dictionary, b: Dictionary, half_width_spacing: float) -> float:
 	var form: Dictionary = {}
 	var anchor_f: int = -1
 	if _ZoneOfControl.is_intruded(a):
-		if _ZoneOfControl.intrusion_host_fid(a).is_empty():
+		var hf_a: String = _ZoneOfControl.intrusion_host_fid(a)
+		if hf_a.is_empty():
 			return 0.0
-		form = _ZoneOfControl.formation_dict_for_zone_geometry(manager, a)
+		form = _ZoneOfControl.formation_dict_for_zone_geometry(manager, a, hf_a)
 		anchor_f = _EntityAccess.intrusion_anchor_file_raw_int(a)
 	elif _ZoneOfControl.is_intruded(b):
-		if _ZoneOfControl.intrusion_host_fid(b).is_empty():
+		var hf_b: String = _ZoneOfControl.intrusion_host_fid(b)
+		if hf_b.is_empty():
 			return 0.0
-		form = _ZoneOfControl.formation_dict_for_zone_geometry(manager, b)
+		form = _ZoneOfControl.formation_dict_for_zone_geometry(manager, b, hf_b)
 		anchor_f = _EntityAccess.intrusion_anchor_file_raw_int(b)
 	if form.is_empty() or anchor_f < 0:
 		return 0.0
@@ -83,14 +190,16 @@ static func _wedge_distance_pull(manager: Node, a: Dictionary, b: Dictionary, ha
 ## Pressure (x) and depth (y) at this combatant’s engagement column (host wedge + anchor when intruded).
 static func _wedge_pressure_depth_at_combatant_column(manager: Node, c: Dictionary) -> Vector2:
 	if _ZoneOfControl.is_intruded(c):
-		if _ZoneOfControl.intrusion_host_fid(c).is_empty():
+		var hf_i: String = _ZoneOfControl.intrusion_host_fid(c)
+		if hf_i.is_empty():
 			return Vector2.ZERO
-		var form_i: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c)
+		var form_i: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, hf_i)
 		if form_i.is_empty():
 			return Vector2.ZERO
 		var fi_i: int = _EntityAccess.intrusion_anchor_or_file_int(c)
 		return Vector2(_IntrusionWedge.pressure_at_file(form_i, fi_i), _IntrusionWedge.depth_at_file(form_i, fi_i))
-	var form: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c)
+	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
+	var form: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, fid)
 	if form.is_empty():
 		return Vector2.ZERO
 	var fi: int = _EntityAccess.file_int(c)
@@ -110,44 +219,35 @@ static func _wedge_bystander_corridor_pull(manager: Node, a: Dictionary, b: Dict
 		+ dep * half_width_spacing * CombatConstants.EFF_DIST_WEDGE_DEPTH_PULL * m
 
 
-## Continuous "file spacing" units matching `effective_pair_eff_dist` / (half_width * REACH_SAFETY * ZoC geom mult). For MID/LONG band gates vs integer `mid_reach_files`.
-static func effective_pair_file_spacing_equivalent(manager: Node, a: Dictionary, b: Dictionary) -> float:
-	var fa: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, a)
-	var fb: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, b)
-	var df_fb: float = absf(float(_EntityAccess.file_int(a) - _EntityAccess.file_int(b)))
-	if fa.is_empty() or fb.is_empty():
-		return df_fb
-	var sa: float = CombatConstants.get_spacing_from_density(fa.get("density", "normal"))
-	var sb: float = CombatConstants.get_spacing_from_density(fb.get("density", "normal"))
-	var half_width: float = (sa + sb) * 0.5
-	if half_width < 1e-5:
-		return df_fb
-	var zoc_m: float = _ZoneOfControl.geometric_reach_extent_multiplier(manager, a, b)
-	var denom: float = half_width * CombatConstants.REACH_SAFETY_FACTOR * maxf(0.001, zoc_m)
-	return effective_pair_eff_dist(manager, a, b) / denom
-
-
-## Geometric separation along files + lane_offset lateral metric − wedge pull (intrusion corridor).
-static func effective_pair_eff_dist(manager: Node, a: Dictionary, b: Dictionary) -> float:
-	var fa: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, a)
-	var fb: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, b)
+## Authoritative pair geometry: **`eff_dist`**, **`file_spacing_equiv`** in one pass (formation dict + ZoC mult read once).
+## Optional **`formation_*_cache`**: **`formation_dict_for_zone_geometry`** for **`a`** / **`b`** when the caller already resolved them.
+static func effective_pair_geometry(
+	manager: Node,
+	a: Dictionary,
+	b: Dictionary,
+	formation_a_cache: Variant = null,
+	formation_b_cache: Variant = null
+) -> Dictionary:
+	var fa: Dictionary = (
+		(formation_a_cache as Dictionary)
+		if formation_a_cache != null and formation_a_cache is Dictionary
+		else _ZoneOfControl.formation_dict_for_zone_geometry(manager, a)
+	)
+	var fb: Dictionary = (
+		(formation_b_cache as Dictionary)
+		if formation_b_cache != null and formation_b_cache is Dictionary
+		else _ZoneOfControl.formation_dict_for_zone_geometry(manager, b)
+	)
 	var df: float = absf(float(_EntityAccess.file_int(a) - _EntityAccess.file_int(b)))
 	if fa.is_empty() or fb.is_empty():
-		return df * CombatConstants.SPACING_NORMAL * CombatConstants.REACH_SAFETY_FACTOR
+		var eff_empty: float = df * CombatConstants.SPACING_NORMAL * CombatConstants.REACH_SAFETY_FACTOR
+		return {"eff_dist": eff_empty, "file_spacing_equiv": df}
 	var sa: float = CombatConstants.get_spacing_from_density(fa.get("density", "normal"))
 	var sb: float = CombatConstants.get_spacing_from_density(fb.get("density", "normal"))
 	var half_width: float = (sa + sb) * 0.5
 	var base: float = df * half_width * CombatConstants.REACH_SAFETY_FACTOR
-	var loa: float = clampf(
-		float(a.get("lane_offset", 0.0)),
-		-CombatConstants.LANE_OFFSET_ABS_MAX,
-		CombatConstants.LANE_OFFSET_ABS_MAX
-	)
-	var lob: float = clampf(
-		float(b.get("lane_offset", 0.0)),
-		-CombatConstants.LANE_OFFSET_ABS_MAX,
-		CombatConstants.LANE_OFFSET_ABS_MAX
-	)
+	var loa: float = _EntityAccess.lane_offset_float(a)
+	var lob: float = _EntityAccess.lane_offset_float(b)
 	var lateral_frac: float = absf(loa - lob)
 	var lateral: float = (
 		lateral_frac
@@ -160,7 +260,39 @@ static func effective_pair_eff_dist(manager: Node, a: Dictionary, b: Dictionary)
 		_wedge_bystander_corridor_pull(manager, a, b, half_width)
 	)
 	var pre_zoc: float = maxf(0.04, base + lateral - wedge_pull)
-	return pre_zoc * _ZoneOfControl.geometric_reach_extent_multiplier(manager, a, b)
+	var zoc_m: float = _ZoneOfControl.geometric_reach_extent_multiplier(manager, a, b, fa, fb)
+	var eff_dist: float = pre_zoc * zoc_m
+	var denom: float = half_width * CombatConstants.REACH_SAFETY_FACTOR * maxf(0.001, zoc_m)
+	var file_spacing: float = eff_dist / denom if denom >= 1e-5 else df
+	return {"eff_dist": eff_dist, "file_spacing_equiv": file_spacing}
+
+
+## Continuous "file spacing" units matching `effective_pair_eff_dist` / (half_width * REACH_SAFETY * ZoC geom mult). For MID/LONG band gates vs integer `mid_reach_files`.
+static func effective_pair_file_spacing_equivalent(
+	manager: Node,
+	a: Dictionary,
+	b: Dictionary,
+	formation_a_cache: Variant = null,
+	formation_b_cache: Variant = null
+) -> float:
+	return float(
+		effective_pair_geometry(manager, a, b, formation_a_cache, formation_b_cache).get(
+			"file_spacing_equiv", 0.0
+		)
+	)
+
+
+## Geometric separation along files + lane_offset lateral metric − wedge pull (intrusion corridor).
+static func effective_pair_eff_dist(
+	manager: Node,
+	a: Dictionary,
+	b: Dictionary,
+	formation_a_cache: Variant = null,
+	formation_b_cache: Variant = null
+) -> float:
+	return float(
+		effective_pair_geometry(manager, a, b, formation_a_cache, formation_b_cache).get("eff_dist", 0.0)
+	)
 
 
 static func melee_weapon_reach(c: Dictionary) -> float:
@@ -235,12 +367,26 @@ static func depth_polearm_threatens_line_target(front_rank0_ally: Dictionary, op
 	return df <= int(CombatConstants.DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES)
 
 
-static func depth_polearm_valid_line_threat(manager: Node, attacker: Dictionary, opp: Dictionary) -> bool:
+static func depth_polearm_valid_line_threat(
+	manager: Node,
+	attacker: Dictionary,
+	opp: Dictionary,
+	zone_geometry_fid: String = "",
+	lane_open_known: Variant = null
+) -> bool:
 	if manager == null or attacker.is_empty() or opp.is_empty():
 		return false
-	if not depth_polearm_lane_open(manager, attacker):
+	var fid: String = zone_geometry_fid
+	if fid.is_empty():
+		fid = _ZoneOfControl.formation_id_for_zone_geometry(manager, attacker)
+	var lane_open: bool = (
+		bool(lane_open_known)
+		if lane_open_known != null
+		else depth_polearm_lane_open(manager, attacker, fid)
+	)
+	if not lane_open:
 		return false
-	var front: Dictionary = same_file_living_rank0_ally(manager, attacker)
+	var front: Dictionary = same_file_living_rank0_ally(manager, attacker, fid)
 	return depth_polearm_threatens_line_target(front, opp)
 
 
@@ -250,7 +396,9 @@ static func depth_polearm_has_valid_line_threat_to_any_rank0_hostile(
 ) -> bool:
 	if manager == null or attacker.is_empty() or combatants.is_empty():
 		return false
-	if not depth_polearm_lane_open(manager, attacker):
+	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, attacker)
+	var lane_open: bool = depth_polearm_lane_open(manager, attacker, fid)
+	if not lane_open:
 		return false
 	var host_fid: String = _actor_host_fid_for_melee_targeting(attacker)
 	var my_side: String = _EntityAccess.side_str(attacker)
@@ -261,7 +409,7 @@ static func depth_polearm_has_valid_line_threat_to_any_rank0_hostile(
 			continue
 		if _ZoneOfControl.intruder_on_host_formation(opp, host_fid):
 			continue
-		if depth_polearm_valid_line_threat(manager, attacker, opp):
+		if depth_polearm_valid_line_threat(manager, attacker, opp, fid, lane_open):
 			return true
 	return false
 
@@ -277,7 +425,8 @@ static func _format_depth_polearm_melee_context(manager: Node, c: Dictionary, wp
 	var melee_range: float = float(wpn.melee_range)
 	var bits: PackedStringArray = []
 	for opp in _TargetScoring.ordered_melee_opponents(manager, c, combatants, 0):
-		var eff: float = effective_pair_eff_dist(manager, c, opp)
+		var pair_geom: Dictionary = effective_pair_geometry(manager, c, opp)
+		var eff: float = float(pair_geom.get("eff_dist", 0.0))
 		var dist: String = str(
 			_EntityAccess.nested_dictionary_read(c, "distance_to").get(
 				_EntityAccess.id_int(opp), CombatConstants.DISTANCE_LONG
@@ -285,8 +434,8 @@ static func _format_depth_polearm_melee_context(manager: Node, c: Dictionary, wp
 		)
 		var swing: bool = melee_range >= eff
 		# `line_ok`: same gate as `_melee_pair_rank_allowed` / `_opp_matches_melee_rank_target` (not `threatens_line_target` alone).
-		var line_ok: bool = depth_polearm_valid_line_threat(manager, c, opp)
-		var threaten: bool = swing and line_ok and can_melee_threaten(manager, c, opp)
+		var line_ok: bool = depth_polearm_valid_line_threat(manager, c, opp, fid_ctx, lane_open)
+		var threaten: bool = swing and line_ok and can_melee_threaten(manager, c, opp, pair_geom)
 		bits.append(
 			"opp%d eff=%.2f dist=%s reach_ok=%s line_ok=%s threaten=%s"
 			% [_EntityAccess.id_int(opp), eff, dist, swing, line_ok, threaten]
@@ -297,7 +446,11 @@ static func _format_depth_polearm_melee_context(manager: Node, c: Dictionary, wp
 				continue
 			if _EntityAccess.rank_int(opp) != 0:
 				continue
-			var eff: float = effective_pair_eff_dist(manager, c, opp)
+			var fid_o: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, opp)
+			var fo: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, opp, fid_o)
+			var eff: float = float(
+				effective_pair_geometry(manager, c, opp, fd_ctx, fo).get("eff_dist", 0.0)
+			)
 			var dist: String = str(
 				_EntityAccess.nested_dictionary_read(c, "distance_to").get(
 					_EntityAccess.id_int(opp), CombatConstants.DISTANCE_LONG
@@ -408,8 +561,9 @@ static func strike_measure_ratio_for_attack_pair(
 static func stamp_attack_pair_geometry_on_dict(manager: Node, atk: Dictionary, tgt: Dictionary, pa: Dictionary) -> void:
 	if manager == null:
 		return
-	pa["effective_pair_file_spacing_equivalent"] = effective_pair_file_spacing_equivalent(manager, atk, tgt)
-	pa["effective_pair_eff_dist"] = effective_pair_eff_dist(manager, atk, tgt)
+	var pair_geom: Dictionary = effective_pair_geometry(manager, atk, tgt)
+	pa["effective_pair_file_spacing_equivalent"] = pair_geom.get("file_spacing_equiv", 0.0)
+	pa["effective_pair_eff_dist"] = pair_geom.get("eff_dist", 0.0)
 	pa["depth_polearm_attack"] = false
 	pa["depth_polearm_allows_low_targets"] = true
 	pa["depth_polearm_lane_type"] = ""
@@ -429,19 +583,60 @@ static func stamp_attack_pair_geometry_on_dict(manager: Node, atk: Dictionary, t
 			)
 
 
+## Tier 3.1: measure ratio + move contact type after **`stamp_attack_pair_geometry_on_dict`** (wind-up + resolve).
+static func stamp_strike_realism_on_pa(
+	manager: Node,
+	atk: Dictionary,
+	tgt: Dictionary,
+	pa: Dictionary,
+	weapon: Variant,
+	attack_type: String
+) -> void:
+	if weapon == null:
+		pa["strike_measure_ratio"] = 1.0
+		return
+	pa["strike_measure_ratio"] = strike_measure_ratio_for_attack_pair(
+		manager, atk, tgt, weapon, float(pa.get("effective_pair_eff_dist", -1.0))
+	)
+	if str(pa.get("move_contact_type", "")).is_empty():
+		pa["move_contact_type"] = WeaponConstants.contact_type_for_move_id(attack_type)
+
+
+## Pair geometry + strike realism (wind-up + every resolve pass).
+static func stamp_attack_pair_and_strike_realism(
+	manager: Node,
+	atk: Dictionary,
+	tgt: Dictionary,
+	pa: Dictionary,
+	weapon: Variant,
+	attack_type: String
+) -> void:
+	stamp_attack_pair_geometry_on_dict(manager, atk, tgt, pa)
+	stamp_strike_realism_on_pa(manager, atk, tgt, pa, weapon, attack_type)
+
+
 ## Over-shoulder (tight/normal density) vs open (loose) lane — filters targetable parts for depth thrusts.
 ## Wedge pressure/depth at this file can open the lane per `depth_polearm_lane_allows_low_targets` (see `IMPLEMENTATION_ORDER` Tier 1.9).
-static func depth_polearm_targetable_parts_filter(manager: Node, attacker: Dictionary, targetable: Array) -> Array:
+## When **`stamped_pa`** has **`depth_polearm_attack`** (from **`stamp_attack_pair_geometry_on_dict`**), uses stamped lane flags instead of recomputing.
+static func depth_polearm_targetable_parts_filter(
+	manager: Node, attacker: Dictionary, targetable: Array, stamped_pa: Dictionary = {}
+) -> Array:
 	if targetable.is_empty() or manager == null or attacker.is_empty():
 		return targetable
-	var fid_filt: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, attacker)
-	if not depth_polearm_lane_open(manager, attacker, fid_filt):
-		return targetable
-	if _EntityAccess.rank_int(attacker) <= 0:
-		return targetable
-	var fd_filt: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, attacker, fid_filt)
-	if depth_polearm_lane_allows_low_targets(manager, attacker, fid_filt, fd_filt, true):
-		return targetable
+	if stamped_pa.has("depth_polearm_attack"):
+		if not bool(stamped_pa.get("depth_polearm_attack", false)):
+			return targetable
+		if bool(stamped_pa.get("depth_polearm_allows_low_targets", true)):
+			return targetable
+	else:
+		var fid_filt: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, attacker)
+		if not depth_polearm_lane_open(manager, attacker, fid_filt):
+			return targetable
+		if _EntityAccess.rank_int(attacker) <= 0:
+			return targetable
+		var fd_filt: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, attacker, fid_filt)
+		if depth_polearm_lane_allows_low_targets(manager, attacker, fid_filt, fd_filt, true):
+			return targetable
 	var out: Array = []
 	for p in targetable:
 		if p == "left_leg" or p == "right_leg":
@@ -519,8 +714,25 @@ static func _host_formation_has_enemy_intruder(combatants: Array, actor: Diction
 	return false
 
 
+## Optional **`pair_geometry_cache`**: **`effective_pair_geometry`** result or stamped **`pa`** with **`effective_pair_eff_dist`** (skips a second pair-geometry pass).
+static func _eff_dist_from_pair_geometry_cache(pair_geometry_cache: Variant) -> float:
+	if pair_geometry_cache == null or not (pair_geometry_cache is Dictionary):
+		return -1.0
+	var g: Dictionary = pair_geometry_cache as Dictionary
+	if g.has("effective_pair_eff_dist"):
+		return float(g.get("effective_pair_eff_dist", -1.0))
+	if g.has("eff_dist"):
+		return float(g.get("eff_dist", -1.0))
+	return -1.0
+
+
 ## True if attacker could list a non-parry melee strike vs defender (weapon reach + distance band vs build()).
-static func can_melee_threaten(manager: Node, attacker: Dictionary, defender: Dictionary) -> bool:
+static func can_melee_threaten(
+	manager: Node,
+	attacker: Dictionary,
+	defender: Dictionary,
+	pair_geometry_cache: Variant = null
+) -> bool:
 	if not _EntityAccess.alive_bool(attacker) or not _EntityAccess.alive_bool(defender):
 		return false
 	if _EntityAccess.side_str(attacker) == _EntityAccess.side_str(defender):
@@ -535,7 +747,9 @@ static func can_melee_threaten(manager: Node, attacker: Dictionary, defender: Di
 	if not _EntityAccess.weapon_has_attack_types(weapon):
 		return false
 	var melee_range: float = float(weapon.melee_range)
-	var eff_dist: float = effective_pair_eff_dist(manager, attacker, defender)
+	var eff_dist: float = _eff_dist_from_pair_geometry_cache(pair_geometry_cache)
+	if eff_dist < 0.0:
+		eff_dist = effective_pair_eff_dist(manager, attacker, defender)
 	var in_swing_range: bool = melee_range >= eff_dist
 	var dist: String = str(
 		_EntityAccess.nested_dictionary_read(attacker, "distance_to").get(
@@ -576,10 +790,26 @@ static func _append_melee_vs_enemy_line_rank(
 	actions: Array,
 	move_ids: Array,
 	melee_range: float,
-	opp_rank_required: int
+	opp_rank_required: int,
+	zone_geometry_fid: String = "",
+	formation_attacker_cache: Variant = null
 ) -> void:
+	var fid_c: String = (
+		zone_geometry_fid
+		if not zone_geometry_fid.is_empty()
+		else _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
+	)
+	var fc: Dictionary = (
+		(formation_attacker_cache as Dictionary)
+		if formation_attacker_cache != null and formation_attacker_cache is Dictionary
+		else _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, fid_c)
+	)
 	for opp in _TargetScoring.ordered_melee_opponents(manager, c, combatants, opp_rank_required):
-		var eff_dist: float = effective_pair_eff_dist(manager, c, opp)
+		var fid_o: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, opp)
+		var fo: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, opp, fid_o)
+		var eff_dist: float = float(
+			effective_pair_geometry(manager, c, opp, fc, fo).get("eff_dist", 0.0)
+		)
 		var in_swing_range: bool = melee_range >= eff_dist
 		var dist: String = str(
 			_EntityAccess.nested_dictionary_read(c, "distance_to").get(
@@ -623,9 +853,9 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		return []
 	if _EntityAccess.is_unconscious(c):
 		return []
-	var formation_retreat_only: bool = (
-		state == CombatConstants.STATE_COWERING or _EntityAccess.is_cowering(c)
-	)
+	sync_cowering_state_if_no_functional_arm(c)
+	state = _EntityAccess.state_str(c)
+	var formation_retreat_only: bool = formation_retreat_only_for(c)
 	var actions: Array = []
 	var combatants: Array = manager.combatants
 	var medical_phase: bool = manager.medical_phase
@@ -662,7 +892,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				our_rank == 0
 				or c_intruded
 				or _host_formation_has_enemy_intruder(combatants, c)
-				or depth_polearm_lane_open(manager, c)
+				or depth_polearm_lane_open(manager, c, fid)
 			)
 			and not _EntityAccess.get_attacking_arm(c).is_empty()
 		)
@@ -672,7 +902,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				var melee_range: float = float(weapon.melee_range)
 				var move_ids: Array = _EntityAccess.weapon_attack_types(weapon)
 				_append_melee_vs_enemy_line_rank(
-					manager, c, combatants, actions, move_ids, melee_range, 0
+					manager, c, combatants, actions, move_ids, melee_range, 0, fid, our_formation
 				)
 				var any_enemy_rank0: bool = false
 				for opp_chk in combatants:
@@ -682,7 +912,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 				# Stalemate safety: `CombatFormationFlow` reconcile should guarantee a rank-0 enemy when possible; if not, avoid soft-lock.
 				if not any_enemy_rank0:
 					_append_melee_vs_enemy_line_rank(
-						manager, c, combatants, actions, move_ids, melee_range, 1
+						manager, c, combatants, actions, move_ids, melee_range, 1, fid, our_formation
 					)
 		# Phase 3: Swap rank — front→back disengage; plug when front incap; deeper→shallow relief (same column).
 		# With 3+ depth ranks, middle/back rows must be able to swap toward the front or they only get wait.
@@ -843,7 +1073,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 						actions.append({ "target_id": tgt_id, "move_id": act.move_id, "target_part": act.target_part })
 	var result_actions: Array = actions
 	if counter_tempo:
-		result_actions = _CounterTempo.filter_actions_for_counter_tempo(actions)
+		result_actions = _CounterTempo.filter_actions_for_counter_tempo(actions, c)
 	var medical_count: int = 0
 	for a in result_actions:
 		var mid: String = str(a.get("move_id", ""))
@@ -980,6 +1210,8 @@ static func crash_absent_primary_reason(manager: Node, c: Dictionary) -> String:
 	if not _EntityAccess.weapon_has_attack_types(weapon):
 		return "no_melee_weapon_profile"
 	var melee_range: float = float(weapon.melee_range)
+	var fid_c: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
+	var fc: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, fid_c)
 	var any_enemy_rank0: bool = false
 	for opp in manager.combatants:
 		if _opp_matches_melee_rank_target(manager, c, opp, 0):
@@ -993,7 +1225,11 @@ static func crash_absent_primary_reason(manager: Node, c: Dictionary) -> String:
 			if not _opp_matches_melee_rank_target(manager, c, opp, rank_req):
 				continue
 			saw_line_enemy = true
-			var eff_dist: float = effective_pair_eff_dist(manager, c, opp)
+			var fid_o: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, opp)
+			var fo: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, opp, fid_o)
+			var eff_dist: float = float(
+				effective_pair_geometry(manager, c, opp, fc, fo).get("eff_dist", 0.0)
+			)
 			var in_swing: bool = melee_range >= eff_dist
 			var dist: String = str(
 				_EntityAccess.nested_dictionary_read(c, "distance_to").get(
@@ -1089,10 +1325,7 @@ static func player_cowering_retreat_hint_if_applicable(
 		return ""
 	if bool(manager.medical_phase):
 		return ""
-	if (
-		_EntityAccess.state_str(c) != CombatConstants.STATE_COWERING
-		and not _EntityAccess.is_cowering(c)
-	):
+	if not formation_retreat_only_for(c):
 		return ""
 	if not _EntityAccess.can_flee_or_fall_back(c):
 		return ""
@@ -1109,6 +1342,35 @@ static func player_cowering_retreat_hint_if_applicable(
 	if has_wait:
 		return "No arms — holding position (fall back blocked: policy, breach, or rear rank occupied)."
 	return ""
+
+
+## Player UI / combat log: counter-tempo window with tagged melee listings.
+static func player_counter_tempo_hint_if_applicable(
+	manager: Node, c: Dictionary, actions: Array
+) -> String:
+	if manager == null or c.is_empty() or not _CounterTempo.enabled():
+		return ""
+	if _EntityAccess.side_str(c) != "player":
+		return ""
+	if bool(manager.medical_phase):
+		return ""
+	if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+		return ""
+	var tempo_ui: String = _CounterTempo.snapshot_ui_hint(manager, c)
+	if tempo_ui != "counter_ready" and tempo_ui != "counter_winding":
+		return ""
+	var has_counter_action: bool = false
+	for a in actions:
+		if typeof(a) != TYPE_DICTIONARY:
+			continue
+		if bool((a as Dictionary).get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
+			has_counter_action = true
+			break
+	if not has_counter_action:
+		return ""
+	if tempo_ui == "counter_ready":
+		return "Counter window open — pick a melee action to seize tempo."
+	return "Incoming attack winding up — counter window building."
 
 
 ## Tier 4.3.7: self-target guard-line / focus retarget while waiting.

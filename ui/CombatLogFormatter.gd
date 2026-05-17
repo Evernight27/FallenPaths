@@ -9,6 +9,13 @@ static func _eff_pct(result: Dictionary) -> int:
 	return int(roundf(result.get("effectiveness", 1.0) * 100.0))
 
 
+## True when resolved hit carried meaningful physical damage (integer **`dmg`** or fractional **`total_physical`**).
+static func has_resolved_physical_damage(result: Dictionary) -> bool:
+	var dmg: int = int(result.get("dmg", 0))
+	var phys_chip: float = float(result.get("total_physical", -1.0))
+	return dmg > 0 or (phys_chip >= 0.0 and phys_chip > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS)
+
+
 ## Human-readable damage from `action_resolved` hit payloads: prefers **`total_physical`** (cut+blunt+bone); falls back to **`dmg`**.
 static func format_resolved_damage(result: Dictionary) -> String:
 	var tp: Variant = result.get("total_physical", null)
@@ -54,9 +61,7 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 	var health_before: int = result.get("health_before", -1)
 	var health_after: int = result.get("health_after", -1)
 	var part_label: String = BodyPartConstants.BODY_LABELS.get(part, part) if part else "—"
-	var phys_chip: float = float(result.get("total_physical", -1.0))
-	var has_resolve_phys: bool = dmg > 0 or (phys_chip >= 0.0 and phys_chip > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS)
-	if died and not has_resolve_phys:
+	if died and not has_resolved_physical_damage(result):
 		if outcome == "bled_out":
 			return "[color=red]%s (%s) — %s bled out.[/color]" % [attacker_name, attacker_side, target_name]
 		elif outcome == "defeated":

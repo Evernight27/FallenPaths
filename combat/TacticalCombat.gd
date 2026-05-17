@@ -44,7 +44,8 @@ static func count_engaging_threats(manager: Node, defender_id: int) -> int:
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue
-		if _ActionsBuilder.can_melee_threaten(manager, c, d):
+		var pair_geom: Dictionary = _ActionsBuilder.effective_pair_geometry(manager, c, d)
+		if _ActionsBuilder.can_melee_threaten(manager, c, d, pair_geom):
 			n += 1
 	return n
 
@@ -68,9 +69,10 @@ static func compute_surround_threat_weight_sum(manager: Node, defender_id: int) 
 			continue
 		if _EntityAccess.is_incapacitated(c):
 			continue
-		if not _ActionsBuilder.can_melee_threaten(manager, c, d):
+		var pair_geom: Dictionary = _ActionsBuilder.effective_pair_geometry(manager, c, d)
+		if not _ActionsBuilder.can_melee_threaten(manager, c, d, pair_geom):
 			continue
-		var eff_f: float = _ActionsBuilder.effective_pair_file_spacing_equivalent(manager, c, d)
+		var eff_f: float = float(pair_geom.get("file_spacing_equiv", 0.0))
 		var w: float = eff_f / maxf(0.001, CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN)
 		w = clampf(w, CombatConstants.SURROUND_SECTOR_WEIGHT_MIN, 1.0)
 		sum_w += w

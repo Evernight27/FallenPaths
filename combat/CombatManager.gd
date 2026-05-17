@@ -94,6 +94,7 @@ const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _FormationSetup := preload("res://combat/CombatFormationSetup.gd")
@@ -231,10 +232,7 @@ func _reset_tactical_breach_state() -> void:
 		c["intrusion_source_file"] = -1
 		c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
 	for fid in formations.keys():
-		var raw_f: Variant = formations.get(fid, null)
-		if raw_f == null or not (raw_f is Dictionary):
-			continue
-		var f: Dictionary = raw_f as Dictionary
+		var f: Dictionary = _FormationSlots.formation_record_read(formations, str(fid))
 		if not f.is_empty():
 			f["breached_files"] = {}
 			_IntrusionWedge.clear_all_wedges_in_formation(f)
@@ -363,6 +361,8 @@ func stop():
 	CombatDebug.clear_flow_log_dedup()
 	_vacancy_dirty_fids.clear()
 	_reset_tactical_breach_state()
+	medical_phase = false
+	medical_phase_winner = ""
 	if has_meta(_META_LAST_COMBAT_UI_HINT):
 		remove_meta(_META_LAST_COMBAT_UI_HINT)
 	set_process(false)
@@ -388,6 +388,8 @@ func finish_battle() -> void:
 func skip_turn(combatant_id: int, log_outcome: String = "pass", flow_reason: String = "") -> void:
 	var c = _get_by_id(combatant_id)
 	if c == null or _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+		return
+	if _MedicalPhase.combat_resolution_blocked(self) and _MedicalPhase.is_losing_side(self, c):
 		return
 	var extra: String = (" (%s)" % flow_reason) if not flow_reason.is_empty() else ""
 	CombatDebug.flow_log(
@@ -423,10 +425,21 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 		emit_signal("combat_ended", winner, defeated_node)
 		stop()
 	else:
-		print("[Combat] Player side won => medical_phase=true, enemies_eliminated")
+		var fresh_medical: bool = not medical_phase
+		if fresh_medical:
+			print("[Combat] Player side won => medical_phase=true, enemies_eliminated")
+		else:
+			print("[Combat] Player side won => medical_phase refresh (teardown)")
 		medical_phase = true
 		medical_phase_winner = winner
-		emit_signal("enemies_eliminated", winner)
+		_halt_losing_side_combat()
+		if fresh_medical:
+			emit_signal("enemies_eliminated", winner)
+
+
+## Player-win medical phase: cancel losing-side combat events and abort in-flight melee (no post-victory strikes).
+func _halt_losing_side_combat() -> void:
+	_MedicalPhase.halt_losing_side_combat(self)
 
 func get_combatants() -> Array:
 	return _CombatantsSnapshot.build(self)
@@ -482,6 +495,9 @@ func get_available_actions(combatant_id: int) -> Array:
 	var snap: Dictionary = _EventScheduler.snapshot_rank_file_placements(self)
 	var changed_fids: Array = _FormationFlow.reconcile_vacancy_plugs(self)
 	_FormationFlow.finish_vacancy_reconcile_follow_up(self, changed_fids, snap, true)
+	var c_list: Variant = _get_by_id(combatant_id)
+	if c_list is Dictionary:
+		_ActionsBuilder.sync_cowering_state_if_no_functional_arm(c_list as Dictionary)
 	return _ActionsBuilder.build(self, combatant_id)
 
 
@@ -518,9 +534,17 @@ func _process(delta: float) -> void:
 ## Resolves one chosen action. **Combat targeting is AI-driven:** `turn_ready` / `EVENT_ACTION_READY` build `get_available_actions`
 ## then `CombatAIActionPicker.pick` chooses move+target (player and enemy); there is no parallel human target-selection path.
 func resolve_action(attacker_id: int, target_id: int, move_id: String = "", options: Dictionary = {}) -> void:
+	var c_resolve: Variant = _get_by_id(attacker_id)
+	if c_resolve is Dictionary:
+		_ActionsBuilder.sync_cowering_state_if_no_functional_arm(c_resolve as Dictionary)
 	_ResolveAction.resolve(self, attacker_id, target_id, move_id, options)
 
 func _execute_attack(attacker_id: int) -> void:
+	if _MedicalPhase.combat_resolution_blocked(self):
+		return
+	var atk_exec = _get_by_id(attacker_id)
+	if atk_exec != null and _ActionsBuilder.cannot_commit_melee(atk_exec):
+		return
 	var result: Dictionary = _AttackResolver.resolve_attack(self, attacker_id)
 	_AttackResultApplier.apply_result(self, attacker_id, result)
 	# Phase 3: Plug on death — when target died, update formation (slot_obstacles, promote rank 1 if rank 0 died).
@@ -537,6 +561,8 @@ func _execute_attack(attacker_id: int) -> void:
 			tgt != null
 			and _EntityAccess.alive_bool(tgt)
 			and _EntityAccess.state_str(tgt) == CombatConstants.STATE_WAITING
+			and not _ActionsBuilder.cannot_commit_melee(tgt)
+			and not (_MedicalPhase.combat_resolution_blocked(self) and _MedicalPhase.is_losing_side(self, tgt))
 		):
 			_schedule_action_ready(tgt_id, CombatConstants.READY_DELAY_PARRY_RIPOSTE_S)
 
@@ -575,6 +601,9 @@ func _handle_rotate_file_resolve(ev: Dictionary) -> void:
 func _on_combatant_died(c: Dictionary) -> void:
 	_TargetScoring.clear_all_targeting_state_for_dead_defender(self, _EntityAccess.id_int(c))
 	_Footwork.clear_position_offset(c)
+	_CounterTempo.clear_window(c)
+	_Attention.clear_focus_and_yomi(c)
+	c.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
 	_FormationFlow.on_combatant_died(self, c)
 
 func _get_by_id(id: int):
