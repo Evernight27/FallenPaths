@@ -15,6 +15,17 @@ static func _counter_tempo_ui_blocks_status_override(manager: Node, c: Dictionar
 	return tempo_ui == "counter_ready" or tempo_ui == "counter_winding"
 
 
+## Cooldown / next-action line for live **`BattleUIUpdater`** (same rules as snapshot rows).
+static func live_status_override_text(manager: Node, c: Dictionary) -> String:
+	if manager == null or c.is_empty():
+		return ""
+	var cid: int = _EntityAccess.id_int(c)
+	if cid < 0:
+		return ""
+	var next_ready: Dictionary = _EventScheduler.build_next_action_ready_times(manager)
+	return _status_override_text(manager, c, cid, next_ready)
+
+
 static func _status_override_text(manager: Node, c: Dictionary, combatant_id: int, next_ready: Dictionary) -> String:
 	if _counter_tempo_ui_blocks_status_override(manager, c):
 		return ""

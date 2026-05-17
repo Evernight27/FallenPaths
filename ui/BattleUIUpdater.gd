@@ -5,13 +5,14 @@ const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
+const _CombatSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
 
 ## Updates a single combatant's UI row: gauge, state label, blood, consciousness, body bars.
 ## ctrl = id_to_controls[id], c = combatant dict from manager.get_combatants().
-## Pass **`manager`** so counter-tempo labels/tooltips derive live window state (stamped row keys alone are insufficient).
+## Pass **`manager`** for live counter-tempo, attention salience, and cooldown **`status_override`** text.
 
-static func _compose_waiting_gauge_label(c: Dictionary, primary: String) -> String:
-	var attn_hint: String = _UiHints.attention_hint_text(c)
+static func _compose_waiting_gauge_label(c: Dictionary, primary: String, manager: Node = null) -> String:
+	var attn_hint: String = _UiHints.attention_hint_text(c, manager)
 	var foot_suffix: String = _UiHints.footwork_hint_suffix(c)
 	var attn_suffix: String = (" · " + attn_hint) if not attn_hint.is_empty() else ""
 	return primary + attn_suffix + foot_suffix
@@ -34,7 +35,7 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
 	var remain: float = maxf(0.0, state_duration - state_timer)
 	if state == "wind_up":
 		var wu_prefix: String = "Counter" if bool(c.get("is_counter_tempo_wind_up", false)) else "Wind-up"
-		return _compose_waiting_gauge_label(c, "%s %.1fs" % [wu_prefix, remain])
+		return _compose_waiting_gauge_label(c, "%s %.1fs" % [wu_prefix, remain], manager)
 	if state == "medical_wind_up":
 		var pm: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_medical")
 		var mid: String = pm.get("medical_id", "")
@@ -45,30 +46,32 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
 			if tgt_cid != self_id
 			else BattleUIConstants.MEDICAL_ACTION_LABELS.get(mid, "Medical")
 		)
-		return _compose_waiting_gauge_label(c, "%s %.1fs" % [med_label, remain])
+		return _compose_waiting_gauge_label(c, "%s %.1fs" % [med_label, remain], manager)
 	if state == "recovering":
-		return _compose_waiting_gauge_label(c, "Recov. %.1fs" % remain)
+		return _compose_waiting_gauge_label(c, "Recov. %.1fs" % remain, manager)
 	if state == CombatConstants.STATE_SWAP_RANK:
-		return _compose_waiting_gauge_label(c, "Swap %.1fs" % remain)
+		return _compose_waiting_gauge_label(c, "Swap %.1fs" % remain, manager)
 	if state == CombatConstants.STATE_FALLING_BACK:
-		return _compose_waiting_gauge_label(c, "Fall back %.1fs" % remain)
+		return _compose_waiting_gauge_label(c, "Fall back %.1fs" % remain, manager)
 	if state == CombatConstants.STATE_COWERING:
 		var cow_label: String = "Cowering"
 		if _EntityAccess.can_flee_or_fall_back(c):
 			cow_label = "Cowering · can fall back"
 		elif not _EntityAccess.is_unconscious(c):
 			cow_label = "Cowering · immobile"
-		return _compose_waiting_gauge_label(c, cow_label)
+		return _compose_waiting_gauge_label(c, cow_label, manager)
 	if state == "receiving_medical_attention":
 		return "Receiving care"
 	var tempo_hint: String = _UiHints.counter_tempo_hint_key(c, manager)
 	var counter_primary: String = _UiHints.counter_tempo_gauge_label(tempo_hint)
 	var status_override: String = str(c.get("status_override", "")).strip_edges()
+	if status_override.is_empty() and manager != null:
+		status_override = _CombatSnapshot.live_status_override_text(manager, c)
 	if not counter_primary.is_empty():
-		return _compose_waiting_gauge_label(c, counter_primary)
+		return _compose_waiting_gauge_label(c, counter_primary, manager)
 	if not status_override.is_empty():
-		return _compose_waiting_gauge_label(c, status_override)
-	var attn_hint: String = _UiHints.attention_hint_text(c)
+		return _compose_waiting_gauge_label(c, status_override, manager)
+	var attn_hint: String = _UiHints.attention_hint_text(c, manager)
 	var foot_suffix: String = _UiHints.footwork_hint_suffix(c)
 	if not attn_hint.is_empty():
 		return attn_hint + foot_suffix

@@ -4,9 +4,11 @@ extends RefCounted
 ## Tier 4.3: salience probes, attention load, combat focus (**`focus_part`**, **`focus_intensity`**), and per-attacker yomi memory.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _CounterTempo := preload("res://combat/CounterTempo.gd")
-const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+
+
+static func _counter_tempo() -> GDScript:
+	return load("res://combat/CounterTempo.gd") as GDScript
 
 
 static func enabled() -> bool:
@@ -82,7 +84,7 @@ static func focus_effective(c: Dictionary) -> float:
 static func refresh_salience(manager: Node, combatant_id: int) -> void:
 	if not enabled() or manager == null or combatant_id < 0:
 		return
-	var c: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
+	var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
 	if c.is_empty():
 		return
 	var attention_load: float = 0.0
@@ -97,7 +99,7 @@ static func refresh_salience(manager: Node, combatant_id: int) -> void:
 
 ## Row label fragment: telegraphed line, focus part + effective %, optional load %.
 static func format_attention_ui_hint(c: Dictionary) -> String:
-	if not enabled() or c == null:
+	if not enabled() or c.is_empty():
 		return ""
 	var tele: String = str(c.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")).strip_edges()
 	var attention_load: float = get_attention_load(c)
@@ -121,7 +123,7 @@ static func format_attention_ui_hint(c: Dictionary) -> String:
 
 ## UI snapshot: stamped row hint when present, else derive from live telegraph/focus/load (same frame as **`build`**).
 static func snapshot_ui_hint(c: Dictionary) -> String:
-	if not enabled() or c == null:
+	if not enabled() or c.is_empty():
 		return ""
 	var stamped: String = str(c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "")).strip_edges()
 	if not stamped.is_empty():
@@ -129,9 +131,20 @@ static func snapshot_ui_hint(c: Dictionary) -> String:
 	return format_attention_ui_hint(c)
 
 
+## Live UI: refresh salience probes, format hint (does not stamp **`COMBATANT_KEY_ATTENTION_UI_HINT`**).
+static func live_ui_hint(manager: Node, c: Dictionary) -> String:
+	if not enabled() or manager == null or c.is_empty():
+		return ""
+	var cid: int = _EntityAccess.id_int(c)
+	if cid < 0:
+		return ""
+	refresh_salience(manager, cid)
+	return format_attention_ui_hint(c)
+
+
 ## Waiting-tick refresh: recompute load + stamp **`COMBATANT_KEY_ATTENTION_UI_HINT`** for **`BattleUIUpdater`**.
 static func refresh_for_waiting_tick(manager: Node, c: Dictionary) -> void:
-	if c == null or manager == null:
+	if c.is_empty() or manager == null:
 		return
 	var cid: int = _EntityAccess.id_int(c)
 	if cid < 0:
@@ -148,22 +161,22 @@ static func refresh_for_waiting_tick(manager: Node, c: Dictionary) -> void:
 static func is_being_wind_up_targeted(manager: Node, defender_id: int) -> bool:
 	if manager == null or defender_id < 0:
 		return false
-	var def: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(defender_id))
+	var def: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
 	if def.is_empty():
 		return false
 	if not str(def.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")).is_empty():
 		return true
-	return _CounterTempo.incoming_attacker_id(manager, defender_id) >= 0
+	return _counter_tempo().call("incoming_attacker_id", manager, defender_id) >= 0
 
 
 static func has_actionable_counter_tempo(manager: Node, c: Dictionary) -> bool:
-	return _CounterTempo.can_act(manager, c)
+	return _counter_tempo().call("can_act", manager, c)
 
 
 static func ally_in_immediate_peril(manager: Node, combatant_id: int) -> bool:
 	if manager == null or combatant_id < 0:
 		return false
-	var self_c: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
+	var self_c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
 	if self_c.is_empty():
 		return false
 	var self_side: String = _EntityAccess.side_str(self_c)
@@ -284,7 +297,7 @@ static func apply_yomi_focus_drift(
 		return
 	var atk_id: int = forced_incoming_attacker_id
 	if atk_id < 0 and manager != null:
-		atk_id = _CounterTempo.incoming_attacker_id(manager, _EntityAccess.id_int(c))
+		atk_id = _counter_tempo().call("incoming_attacker_id", manager, _EntityAccess.id_int(c))
 	if atk_id < 0:
 		return
 	var dom: String = dominant_attack_line_toward_defender(c, atk_id)
@@ -367,3 +380,11 @@ static func yomi_defense_readiness_mult(defender: Dictionary, attacker_id: int) 
 		return 1.0
 	var boost: float = 1.0 + float(n) * CombatConstants.YOMI_DEFENSE_READINESS_MULT_PER_PARRY_DEFLECT
 	return minf(boost, CombatConstants.YOMI_DEFENSE_READINESS_MULT_CAP)
+
+
+## Tier 4.3.7: self-target guard-line / focus retarget while waiting (`get_available_actions`).
+static func append_focus_line_listing_actions(c: Dictionary, combatant_id: int, actions: Array) -> void:
+	if not enabled() or c.is_empty():
+		return
+	for move_id in CombatConstants.FOCUS_LINE_MOVE_IDS:
+		actions.append({"target_id": combatant_id, "move_id": move_id})

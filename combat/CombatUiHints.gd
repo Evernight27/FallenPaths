@@ -37,9 +37,20 @@ static func footwork_hint_suffix(c: Dictionary) -> String:
 	return (" · " + hint) if not hint.is_empty() else ""
 
 
-static func attention_hint_text(c: Dictionary) -> String:
-	var exported: String = str(c.get("attention_ui_hint", "")).strip_edges()
+static func attention_hint_text(c: Dictionary, manager: Node = null) -> String:
+	if c.is_empty():
+		return ""
 	if not _Attention.enabled():
+		var row: String = str(c.get("attention_ui_hint", "")).strip_edges()
+		if row.is_empty():
+			row = str(c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "")).strip_edges()
+		return row
+	if manager != null:
+		return _Attention.live_ui_hint(manager, c)
+	var exported: String = str(c.get("attention_ui_hint", "")).strip_edges()
+	if exported.is_empty():
+		exported = str(c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "")).strip_edges()
+	if not exported.is_empty():
 		return exported
 	return _Attention.snapshot_ui_hint(c)
 
@@ -90,7 +101,11 @@ static func stamp_snapshot_hint_fields(item: Dictionary, c: Dictionary, manager:
 		if not fw_hint.is_empty():
 			item["position_angle_ui_hint"] = fw_hint
 	if _Attention.enabled():
-		var attn_hint: String = attention_hint_text(c)
+		var attn_hint: String = str(c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "")).strip_edges()
+		if attn_hint.is_empty():
+			attn_hint = str(c.get("attention_ui_hint", "")).strip_edges()
+		if attn_hint.is_empty():
+			attn_hint = attention_hint_text(c, manager)
 		if not attn_hint.is_empty():
 			item["attention_ui_hint"] = attn_hint
 	if _CounterTempo.enabled() and manager != null:
@@ -111,7 +126,7 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 	var fw: String = footwork_hint_text(c)
 	if not fw.is_empty():
 		tips.append("Arc footwork (position-angle step): %s" % fw)
-	var attn: String = attention_hint_text(c)
+	var attn: String = attention_hint_text(c, manager)
 	if not attn.is_empty():
 		tips.append("Attention: %s" % attn)
 	var tempo: String = counter_tempo_hint_key(c, manager)
@@ -134,7 +149,7 @@ static func formation_cell_tooltip_lines(
 	var fw: String = footwork_hint_text(c)
 	if not fw.is_empty():
 		lines.append("%s — footwork: %s" % [display_name, fw])
-	var attn: String = attention_hint_text(c)
+	var attn: String = attention_hint_text(c, manager)
 	if not attn.is_empty():
 		lines.append("%s — attention: %s" % [display_name, attn])
 	var tempo: String = counter_tempo_hint_key(c, manager)

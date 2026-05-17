@@ -56,6 +56,9 @@ const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
+const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
+const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
+const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 ## No preload — `CombatRegressionHarnessKinematicTail` references this class; preloading it here caused a parse cycle.
 ## Tier 3.2: full-stop **`parry_deflect`** — keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_hit_applier_sets_defender_guard_low_after_hit`** locks defender **`guard_line`** / **`guard_zone`** after **`hit`**; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
 const PARRY_CLASH_CONTEXT_KEYS_FULL_STOP: Array[String] = [
@@ -302,7 +305,10 @@ static func run_all() -> Dictionary:
 	_run_combat_ui_hints_formation_cowering_tooltip(failures)
 	_run_battle_ui_gauge_label_live_counter_tempo_needs_manager(failures)
 	_run_combat_ui_hints_formation_counter_tempo_needs_manager(failures)
-	_run_strike_stamping_forwards_match_action_builder(failures)
+	_run_combat_ui_hints_attention_stale_stamp_prefers_live(failures)
+	_run_combat_ui_hints_attention_live_refresh_load_during_windup(failures)
+	_run_battle_ui_gauge_label_live_status_override_crash_cd(failures)
+	_run_strike_stamping_weapon_eff_dist_sanity(failures)
 	_run_footwork_ui_hint_ignores_orphan_stamp_without_offset(failures)
 	_run_footwork_diagram_label_suffix_compact(failures)
 	_run_footwork_snapshot_includes_position_hint_when_enabled(failures)
@@ -979,7 +985,7 @@ static func _run_depth_polearm_band_vs_actions_fuzz(failures: PackedStringArray)
 				continue
 			if not _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, c):
 				continue
-			if not _ActionsBuilder.can_melee_threaten(mgr, depth, c):
+			if not _MeleeListing.can_melee_threaten(mgr, depth, c):
 				continue
 			var dist: String = str(
 				_EntityAccess.nested_dictionary_read(depth, "distance_to").get(_EntityAccess.id_int(c, -2), "")
@@ -1031,7 +1037,7 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
 	var enemy: Dictionary = mgr.combatants[2]
 	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_polearm: expected open lane (rank-1 spear + rank-0 ally)")
-	if _ActionsBuilder.can_melee_threaten(mgr, depth, enemy) != true:
+	if _MeleeListing.can_melee_threaten(mgr, depth, enemy) != true:
 		_fail(failures, "depth_polearm: can_melee_threaten should be true vs file-opposed rank-0")
 	var dist: String = str(_EntityAccess.nested_dictionary_read(depth, "distance_to").get(_EntityAccess.id_int(enemy, -2), ""))
 	if dist == CombatConstants.DISTANCE_LONG:
@@ -1060,7 +1066,7 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
 	mgr2.start(p_preset, e_preset)
 	var depth_sw: Dictionary = mgr2.combatants[1]
 	var en2: Dictionary = mgr2.combatants[2]
-	if _ActionsBuilder.can_melee_threaten(mgr2, depth_sw, en2):
+	if _MeleeListing.can_melee_threaten(mgr2, depth_sw, en2):
 		_fail(failures, "depth_polearm: rank-1 sword must not melee-threaten file-opposed rank-0")
 	_free_manager(mgr2)
 	# Tight density: over-shoulder filter drops legs when lane open (pin strict — duel/open posture alone opens lows per Tier 1.9).
@@ -1118,7 +1124,7 @@ static func _run_depth_polearm_reciprocal_distance_bands(failures: PackedStringA
 	var did: int = _EntityAccess.id_int(en_depth)
 	if not _DepthPolearm.depth_polearm_lane_open(mgr, en_depth):
 		_fail(failures, "depth_polearm_recip: expected enemy depth spear lane open")
-	if not _ActionsBuilder.can_melee_threaten(mgr, en_depth, player):
+	if not _MeleeListing.can_melee_threaten(mgr, en_depth, player):
 		_fail(failures, "depth_polearm_recip: enemy spear should melee-threaten player rank-0")
 	var d_depth_to_p: String = str(_EntityAccess.nested_dictionary_read(en_depth, "distance_to").get(pid, ""))
 	var d_p_to_depth: String = str(_EntityAccess.nested_dictionary_read(player, "distance_to").get(did, ""))
@@ -1166,13 +1172,13 @@ static func _run_depth_polearm_only_file_opposed_line(failures: PackedStringArra
 	var en_f2: Dictionary = mgr.combatants[4]
 	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
 		_fail(failures, "depth_polearm_file: expected open lane")
-	if not _ActionsBuilder.can_melee_threaten(mgr, depth, en_f0):
+	if not _MeleeListing.can_melee_threaten(mgr, depth, en_f0):
 		_fail(failures, "depth_polearm_file: should threaten file-opposed rank-0")
 	if not _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, en_f1):
 		_fail(failures, "depth_polearm_file: neighbor file should be in lateral thrust window")
 	if _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, en_f2):
 		_fail(failures, "depth_polearm_file: file+2 beyond DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES must not count as lane target")
-	if _ActionsBuilder.can_melee_threaten(mgr, depth, en_f2):
+	if _MeleeListing.can_melee_threaten(mgr, depth, en_f2):
 		_fail(failures, "depth_polearm_file: must not melee-threaten rank-0 two files over")
 	_free_manager(mgr)
 
@@ -1288,7 +1294,7 @@ static func _run_depth_polearm_opp_matches_rank0_agrees_with_valid_line_threat(f
 	for c in mgr.combatants:
 		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
 			continue
-		var om: bool = _ActionsBuilder._opp_matches_melee_rank_target(mgr, depth, c, 0)
+		var om: bool = _MeleeRank.opp_matches_melee_rank_target(mgr, depth, c, 0)
 		var vlt: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, c)
 		if om != vlt:
 			_fail(
@@ -1316,7 +1322,7 @@ static func _run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_th
 	for c in mgr_open.combatants:
 		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
 			continue
-		var pr: bool = _ActionsBuilder._melee_pair_rank_allowed(mgr_open, depth_open, c)
+		var pr: bool = _MeleeRank.melee_pair_rank_allowed(mgr_open, depth_open, c)
 		var vlt: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr_open, depth_open, c)
 		if pr != vlt:
 			_fail(
@@ -1338,7 +1344,7 @@ static func _run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_th
 	for c in mgr_closed.combatants:
 		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
 			continue
-		var pr2: bool = _ActionsBuilder._melee_pair_rank_allowed(mgr_closed, depth_closed, c)
+		var pr2: bool = _MeleeRank.melee_pair_rank_allowed(mgr_closed, depth_closed, c)
 		var vlt2: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr_closed, depth_closed, c)
 		if pr2 != vlt2:
 			_fail(
@@ -1371,7 +1377,7 @@ static func _run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_d
 		if _ZoneOfControl.intruder_on_host_formation(c, host_fid):
 			continue
 		if (
-			_ActionsBuilder.can_melee_threaten(mgr, depth, c)
+			_MeleeListing.can_melee_threaten(mgr, depth, c)
 			and not _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, c)
 		):
 			_fail(failures, "cm_vlt: can_melee_threaten without valid_line id=%d" % _EntityAccess.id_int(c))
@@ -1388,7 +1394,7 @@ static func _run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_d
 		_fail(failures, "cm_vlt: closed lane expected valid_line false")
 		_free_manager(mgr2)
 		return
-	if _ActionsBuilder.can_melee_threaten(mgr2, depth_sw, en):
+	if _MeleeListing.can_melee_threaten(mgr2, depth_sw, en):
 		_fail(failures, "cm_vlt: closed lane rank-1 sword must not can_melee_threaten rank-0 enemy")
 	_free_manager(mgr2)
 
@@ -1765,7 +1771,7 @@ static func _run_depth_polearm_auto_lane_discipline_posture(failures: PackedStri
 		)
 	var pa_ln: Dictionary = {}
 	var en0: Dictionary = mgr.combatants[2]
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, depth, en0, pa_ln)
+	_StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, depth, en0, pa_ln)
 	if bool(pa_ln.get("depth_polearm_allows_low_targets", true)):
 		_fail(failures, "depth_auto_lane: stamped allows_low false for LINE+normal+tight depth attack")
 	if str(pa_ln.get("depth_polearm_lane_type", "")) != CombatConstants.DEPTH_POLEARM_LANE_TYPE_OVER_SHOULDER:
@@ -2708,7 +2714,7 @@ static func _run_spear_lane_profile_preset_normalized(failures: PackedStringArra
 	_free_manager(mgr)
 
 
-## Tier 1.9: **`Weapon.depth_melee_eligible`** from **`WeaponConstants`** definitions — **SPEAR** **true**; **SWORD** default **false** ( **`AvailableActionsBuilder.depth_polearm_lane_open`** gate).
+## Tier 1.9: **`Weapon.depth_melee_eligible`** from **`WeaponConstants`** definitions — **SPEAR** **true**; **SWORD** default **false** ( **`CombatDepthPolearm.depth_polearm_lane_open`** gate).
 static func _run_weapon_depth_melee_eligible_fixture(failures: PackedStringArray) -> void:
 	var w_spear: Weapon = _Weapon.create_from_definition("SPEAR")
 	var w_sword: Weapon = _Weapon.create_from_definition("SWORD")
@@ -2821,7 +2827,7 @@ static func _run_depth_polearm_lane_open_false_without_living_same_file_rank0(fa
 	_free_manager(mgr)
 
 
-## Tier 1.9: **`CombatDistanceBands.depth_polearm_lane_open_by_combatant_id`** matches **`AvailableActionsBuilder.depth_polearm_lane_open`** ( **`formation_id_for_zone_geometry`** `fid` ).
+## Tier 1.9: **`CombatDistanceBands.depth_polearm_lane_open_by_combatant_id`** matches **`CombatDepthPolearm.depth_polearm_lane_open`** ( **`formation_id_for_zone_geometry`** `fid` ).
 static func _run_depth_polearm_lane_cache_matches_builder(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -2983,7 +2989,7 @@ static func _run_stamp_attack_pair_geometry_depth_lane_flags_consistent(failures
 	var fd: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
 	var live_tight: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true)
 	var pa: Dictionary = {}
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, depth, enemy, pa)
+	_StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, depth, enemy, pa)
 	if bool(pa.get("depth_polearm_attack", false)) != true:
 		_fail(failures, "stamp_depth_geom: expected depth_polearm_attack true")
 	var stamped_allow: bool = bool(pa.get("depth_polearm_allows_low_targets", true))
@@ -3004,7 +3010,7 @@ static func _run_stamp_attack_pair_geometry_depth_lane_flags_consistent(failures
 	fd = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
 	var live_open: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true)
 	var pa2: Dictionary = {}
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, depth, enemy, pa2)
+	_StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, depth, enemy, pa2)
 	if bool(pa2.get("depth_polearm_allows_low_targets", false)) != live_open:
 		_fail(
 			failures,
@@ -3034,7 +3040,7 @@ static func _run_stamp_attack_pair_geometry_depth_defaults_non_depth_attack(fail
 		_free_manager(m0)
 		return
 	var pa0: Dictionary = {}
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(m0, atk0, en0, pa0)
+	_StrikeStamping.stamp_attack_pair_geometry_on_dict(m0, atk0, en0, pa0)
 	_assert_stamp_depth_pa_defaults(pa0, failures, "stamp_depth_def:rank0")
 	_free_manager(m0)
 
@@ -3056,7 +3062,7 @@ static func _run_stamp_attack_pair_geometry_depth_defaults_non_depth_attack(fail
 		_free_manager(m1)
 		return
 	var pa1: Dictionary = {}
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(m1, atk1, en1, pa1)
+	_StrikeStamping.stamp_attack_pair_geometry_on_dict(m1, atk1, en1, pa1)
 	_assert_stamp_depth_pa_defaults(pa1, failures, "stamp_depth_def:rank1_no_lane")
 	_free_manager(m1)
 
@@ -3718,7 +3724,7 @@ static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures:
 	var p0nid: int = _EntityAccess.id_int(p0n)
 	var p1nid: int = _EntityAccess.id_int(p1n)
 	var e0nid: int = _EntityAccess.id_int(e0n)
-	if not _ActionsBuilder._melee_pair_rank_allowed(mgr_near, p1n, e0n):
+	if not _MeleeRank.melee_pair_rank_allowed(mgr_near, p1n, e0n):
 		_fail(failures, "ally_press_dep: near layout expected _melee_pair_rank_allowed depth→e0")
 		_free_manager(mgr_near)
 		return
@@ -3748,7 +3754,7 @@ static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures:
 		(mgr_far.combatants[i] as Dictionary)["file"] = 7 + i
 	mgr_far._recompute_zoc_and_distance()
 	var e0_far: Dictionary = mgr_far.combatants[2]
-	if _ActionsBuilder._melee_pair_rank_allowed(mgr_far, depth_far, e0_far):
+	if _MeleeRank.melee_pair_rank_allowed(mgr_far, depth_far, e0_far):
 		_fail(failures, "ally_press_dep: far enemies expected no _melee_pair_rank_allowed depth→e0")
 		_free_manager(mgr_far)
 		return
@@ -3966,8 +3972,8 @@ static func _run_targeting_soft_geometry_eff_dist_formula(failures: PackedString
 	e1["file"] = 2
 	e1["rank"] = 0
 	mgr._recompute_zoc_and_distance()
-	var eff0: float = _ActionsBuilder.effective_pair_eff_dist(mgr, p, e0)
-	var eff1: float = _ActionsBuilder.effective_pair_eff_dist(mgr, p, e1)
+	var eff0: float = _PairGeometry.effective_pair_eff_dist(mgr, p, e0)
+	var eff1: float = _PairGeometry.effective_pair_eff_dist(mgr, p, e1)
 	var k: float = CombatConstants.DOCTRINE_SOFT_DISTANCE_SCALE
 	var s0: float = _TargetScoring.soft_geometry_score(mgr, p, e0)
 	var s1: float = _TargetScoring.soft_geometry_score(mgr, p, e1)
@@ -4379,7 +4385,7 @@ static func _run_strike_measure_constants_sanity(failures: PackedStringArray) ->
 		_fail(failures, "strike_meas_const: missing SWORD weapon")
 		return
 	var eff_in: float = 1.0
-	var got: float = _ActionsBuilder.strike_measure_ratio_for_weapon_eff_dist(w, eff_in)
+	var got: float = _StrikeStamping.strike_measure_ratio_for_weapon_eff_dist(w, eff_in)
 	var eff: float = maxf(eff_in, CombatConstants.STRIKE_MEASURE_EFF_DIST_FLOOR)
 	var melee: float = w.melee_range
 	var want: float = clampf(
@@ -4405,9 +4411,9 @@ static func _run_effective_pair_geometry_single_pass_matches_wrappers(
 	mgr._recompute_zoc_and_distance()
 	var a: Dictionary = mgr.combatants[0]
 	var b: Dictionary = mgr.combatants[2]
-	var geom: Dictionary = _ActionsBuilder.effective_pair_geometry(mgr, a, b)
-	var eff_wrap: float = _ActionsBuilder.effective_pair_eff_dist(mgr, a, b)
-	var space_wrap: float = _ActionsBuilder.effective_pair_file_spacing_equivalent(mgr, a, b)
+	var geom: Dictionary = _PairGeometry.effective_pair_geometry(mgr, a, b)
+	var eff_wrap: float = _PairGeometry.effective_pair_eff_dist(mgr, a, b)
+	var space_wrap: float = _PairGeometry.effective_pair_file_spacing_equivalent(mgr, a, b)
 	_free_manager(mgr)
 	if not geom.has("eff_dist") or not geom.has("file_spacing_equiv"):
 		_fail(failures, "pair_geom: result dict missing eff_dist or file_spacing_equiv")
@@ -4426,7 +4432,7 @@ static func _run_effective_pair_geometry_single_pass_matches_wrappers(
 		)
 
 
-## Tier 3.1: `AvailableActionsBuilder.stamp_attack_pair_geometry_on_dict` via wind-up (re-stamped each resolve).
+## Tier 3.1: `CombatStrikeStamping.stamp_attack_pair_geometry_on_dict` via wind-up (re-stamped each resolve).
 ## Covers rank-0, depth 1-file line, and depth vs 3-wide enemy frontage (stamp vs live builder).
 static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
@@ -4445,8 +4451,8 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 			_fail(failures, "windup_geom: rank0 missing spacing keys")
 		var p0: Dictionary = mgr.combatants[0]
 		var e0: Dictionary = mgr.combatants[1]
-		var want_eff0: float = _ActionsBuilder.effective_pair_eff_dist(mgr, p0, e0)
-		var want_space0: float = _ActionsBuilder.effective_pair_file_spacing_equivalent(mgr, p0, e0)
+		var want_eff0: float = _PairGeometry.effective_pair_eff_dist(mgr, p0, e0)
+		var want_space0: float = _PairGeometry.effective_pair_file_spacing_equivalent(mgr, p0, e0)
 		if not is_equal_approx(float(pa0.get("effective_pair_eff_dist", -1.0)), want_eff0):
 			_fail(
 				failures,
@@ -4461,7 +4467,7 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 			)
 		var w0: Variant = _EntityAccess.get_weapon(p0)
 		if w0 != null:
-			var want_meas0: float = _ActionsBuilder.strike_measure_ratio_for_attack_pair(mgr, p0, e0, w0, want_eff0)
+			var want_meas0: float = _StrikeStamping.strike_measure_ratio_for_attack_pair(mgr, p0, e0, w0, want_eff0)
 			if not is_equal_approx(float(pa0.get("strike_measure_ratio", -9.0)), want_meas0):
 				_fail(
 					failures,
@@ -4497,8 +4503,8 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 		elif not bool(pa1.get("depth_polearm_attack", false)):
 			_fail(failures, "windup_geom: depth spear should set depth_polearm_attack")
 		else:
-			var want_eff1: float = _ActionsBuilder.effective_pair_eff_dist(mgr2, depth, en)
-			var want_space1: float = _ActionsBuilder.effective_pair_file_spacing_equivalent(mgr2, depth, en)
+			var want_eff1: float = _PairGeometry.effective_pair_eff_dist(mgr2, depth, en)
+			var want_space1: float = _PairGeometry.effective_pair_file_spacing_equivalent(mgr2, depth, en)
 			if not is_equal_approx(float(pa1.get("effective_pair_eff_dist", -1.0)), want_eff1):
 				_fail(
 					failures,
@@ -4527,7 +4533,7 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 				)
 			var w1: Variant = _EntityAccess.get_weapon(depth)
 			if w1 != null:
-				var want_meas1: float = _ActionsBuilder.strike_measure_ratio_for_attack_pair(mgr2, depth, en, w1, want_eff1)
+				var want_meas1: float = _StrikeStamping.strike_measure_ratio_for_attack_pair(mgr2, depth, en, w1, want_eff1)
 				if not is_equal_approx(float(pa1.get("strike_measure_ratio", -9.0)), want_meas1):
 					_fail(
 						failures,
@@ -4548,7 +4554,7 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 	var en30: Dictionary = mgr3.combatants[2]
 	if not _DepthPolearm.depth_polearm_lane_open(mgr3, depth3):
 		_fail(failures, "windup_geom: 3-file enemy expected depth polearm lane open")
-	elif not _ActionsBuilder.can_melee_threaten(mgr3, depth3, en30):
+	elif not _MeleeListing.can_melee_threaten(mgr3, depth3, en30):
 		_fail(failures, "windup_geom: 3-file enemy depth should melee-threaten file-opposed rank-0")
 	else:
 		var d3_id: int = _EntityAccess.id_int(depth3)
@@ -4561,8 +4567,8 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 		elif not bool(pa3.get("depth_polearm_attack", false)):
 			_fail(failures, "windup_geom: depth 3-file should set depth_polearm_attack")
 		else:
-			var want_eff3: float = _ActionsBuilder.effective_pair_eff_dist(mgr3, depth3, en30)
-			var want_space3: float = _ActionsBuilder.effective_pair_file_spacing_equivalent(mgr3, depth3, en30)
+			var want_eff3: float = _PairGeometry.effective_pair_eff_dist(mgr3, depth3, en30)
+			var want_space3: float = _PairGeometry.effective_pair_file_spacing_equivalent(mgr3, depth3, en30)
 			if not is_equal_approx(float(pa3.get("effective_pair_eff_dist", -1.0)), want_eff3):
 				_fail(
 					failures,
@@ -4580,7 +4586,7 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 				)
 			var w3: Variant = _EntityAccess.get_weapon(depth3)
 			if w3 != null:
-				var want_meas3: float = _ActionsBuilder.strike_measure_ratio_for_attack_pair(mgr3, depth3, en30, w3, want_eff3)
+				var want_meas3: float = _StrikeStamping.strike_measure_ratio_for_attack_pair(mgr3, depth3, en30, w3, want_eff3)
 				if not is_equal_approx(float(pa3.get("strike_measure_ratio", -9.0)), want_meas3):
 					_fail(
 						failures,
@@ -8156,20 +8162,76 @@ static func _run_combat_ui_hints_formation_counter_tempo_needs_manager(
 		)
 
 
-## Tier 3.1: **`CombatStrikeStamping`** matches **`AvailableActionsBuilder`** forwards.
-static func _run_strike_stamping_forwards_match_action_builder(failures: PackedStringArray) -> void:
-	var w: Weapon = _Weapon.create_from_definition("SWORD")
-	if w == null:
-		_fail(failures, "strike_stamp_fwd: missing SWORD")
-		return
-	var eff: float = 1.25
-	var via_builder: float = _ActionsBuilder.strike_measure_ratio_for_weapon_eff_dist(w, eff)
-	var via_module: float = _StrikeStamping.strike_measure_ratio_for_weapon_eff_dist(w, eff)
-	if not is_equal_approx(via_builder, via_module):
+## Tier 4.3 UI: with **`manager`**, stale **`attention_ui_hint`** stamp ignored when telegraph absent.
+static func _run_combat_ui_hints_attention_stale_stamp_prefers_live(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_combat_attention_load(true)
+	var c: Dictionary = {"guard_zone": "head", CombatConstants.COMBATANT_KEY_FOCUS_PART: "head"}
+	c[CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT] = "Tel head · Focus head 99%"
+	var mgr: Node = _MgrScript.new()
+	var stamped_path: String = _UiHints.attention_hint_text(c)
+	var live_path: String = _UiHints.attention_hint_text(c, mgr)
+	CombatConstants.set_feature_combat_attention_load(false)
+	_free_manager_restore_global_rng(mgr)
+	if not stamped_path.contains("Tel head"):
+		_fail(failures, "attention_stale: snapshot path want Tel got '%s'" % stamped_path)
+	if live_path.contains("Tel head"):
+		_fail(failures, "attention_stale: live path should drop Tel got '%s'" % live_path)
+
+
+## Tier 4.3 UI: **`attention_hint_text(..., manager)`** refreshes load during incoming wind-up.
+static func _run_combat_ui_hints_attention_live_refresh_load_during_windup(
+	failures: PackedStringArray
+) -> void:
+	CombatConstants.set_feature_combat_attention_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	_WindUpStarter.start(mgr, _EntityAccess.id_int(atk), _EntityAccess.id_int(def), "oberhau_feint", {"target_part": "chest", "feint_part": "head"})
+	def.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)
+	def.erase("attention_ui_hint")
+	def[CombatConstants.COMBATANT_KEY_ATTENTION_LOAD] = 0.0
+	var without_mgr: String = _UiHints.attention_hint_text(def)
+	var with_mgr: String = _UiHints.attention_hint_text(def, mgr)
+	CombatConstants.set_feature_combat_attention_load(false)
+	_free_manager_restore_global_rng(mgr)
+	if without_mgr.contains("Load 45") or without_mgr.contains("Load 40"):
 		_fail(
 			failures,
-			"strike_stamp_fwd: builder=%.4f module=%.4f" % [via_builder, via_module]
+			"attention_live_load: without manager should not refresh load got '%s'" % without_mgr
 		)
+	if with_mgr.find("Load ") < 0:
+		_fail(failures, "attention_live_load: with manager want Load segment got '%s'" % with_mgr)
+
+
+## Tier 4.2 UI soak: live gauge shows crash cooldown via **`live_status_override_text`**.
+static func _run_battle_ui_gauge_label_live_status_override_crash_cd(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var c: Dictionary = mgr.combatants[0]
+	c["state"] = CombatConstants.STATE_WAITING
+	c["crash_cooldown_until"] = 4.0
+	mgr.combat_clock = 0.0
+	var text: String = _BattleUIUpdater.gauge_label_text_for_combatant(c, mgr)
+	_free_manager_restore_global_rng(mgr)
+	if not text.begins_with("Crash CD"):
+		_fail(failures, "gauge_live_crash_cd: want Crash CD prefix got '%s'" % text)
+
+
+## Tier 3.1: **`CombatStrikeStamping`** matches **`AvailableActionsBuilder`** forwards.
+## Tier 3.1: **`CombatStrikeStamping.strike_measure_ratio_for_weapon_eff_dist`** returns a finite ratio for SWORD at MID-like spacing.
+static func _run_strike_stamping_weapon_eff_dist_sanity(failures: PackedStringArray) -> void:
+	var w: Weapon = _Weapon.create_from_definition("SWORD")
+	if w == null:
+		_fail(failures, "strike_stamp: missing SWORD")
+		return
+	var eff: float = 1.25
+	var ratio: float = _StrikeStamping.strike_measure_ratio_for_weapon_eff_dist(w, eff)
+	if not is_finite(ratio) or ratio < 0.0:
+		_fail(failures, "strike_stamp: want finite non-negative ratio got %.4f" % ratio)
 
 
 ## Tier 4.4 UI: stamped hint without offset is ignored (row/diagram stay blank).
@@ -8362,7 +8424,7 @@ static func _run_combat_snapshot_derives_attention_ui_hint_from_telegraph(
 	var def: Dictionary = mgr.combatants[0]
 	def[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
 	def.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)
-	var want: String = _Attention.format_attention_ui_hint(def)
+	var want: String = _UiHints.attention_hint_text(def, mgr)
 	var rows: Array = _CombatSnapshot.build(mgr)
 	CombatConstants.set_feature_combat_attention_load(false)
 	_free_manager_restore_global_rng(mgr)
@@ -9463,11 +9525,7 @@ static func _run_feint_target_reveal_progress_scales_readiness_mult(failures: Pa
 	defender["stamina"] = CombatConstants.STAMINA_MAX
 	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
 	var def_n2: Node = _EntityAccess.scene_node(defender)
-	var parts2: Array = (
-		def_n2.get_targetable_parts()
-		if def_n2 != null and def_n2.has_method("get_targetable_parts")
-		else []
-	)
+	var parts2: Array = _EntityAccess.get_targetable_parts_from_node(def_n2)
 	if parts2.is_empty():
 		_fail(failures, "feint_reveal choose_def: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -9522,11 +9580,7 @@ static func _run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough(fai
 	defender["guard"] = 0.5
 	defender["state"] = CombatConstants.STATE_WAITING
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty():
 		_fail(failures, "feint_dodge_eval: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -9573,11 +9627,7 @@ static func _run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_l
 	defender["stamina"] = CombatConstants.STAMINA_MAX
 	var dm: Dictionary = _EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty() or not parts.has("left_leg"):
 		_fail(failures, "feint_tele_dodge_gz_spacing: need left_leg in targetable")
 		_free_manager_restore_global_rng(mgr)
@@ -9648,11 +9698,7 @@ static func _run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid(failures
 	defender["guard"] = 0.5
 	defender["state"] = CombatConstants.STATE_WAITING
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty() or not parts.has("left_leg"):
 		_fail(failures, "feint_telegraph_spacing: need left_leg in targetable")
 		_free_manager_restore_global_rng(mgr)
@@ -9709,11 +9755,7 @@ static func _run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid(failures
 	defender["guard"] = 0.5
 	defender["state"] = CombatConstants.STATE_WAITING
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty() or not parts.has("left_leg"):
 		_fail(failures, "feint_telegraph_spacing_close: need left_leg in targetable")
 		_free_manager_restore_global_rng(mgr)
@@ -9773,11 +9815,7 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
 	defender["guard"] = 0.5
 	defender["state"] = CombatConstants.STATE_WAITING
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty():
 		_fail(failures, "feint_commitment: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -9855,11 +9893,7 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
 	defender["guard"] = 0.5
 	defender["state"] = CombatConstants.STATE_WAITING
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty():
 		_fail(failures, "feint_commitment_thrust: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -9938,11 +9972,7 @@ static func _run_defense_spacing_band_modulates_parry_and_dodge(failures: Packed
 	defender["guard_zone"] = "chest"
 	defender["guard_line"] = "high"
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty():
 		_fail(failures, "defense_spacing: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -10021,11 +10051,7 @@ static func _run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures: P
 	defender["off_balance_until"] = _CombatTiming.now_seconds() + 10.0
 	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty():
 		_fail(failures, "defense_footwork_recovering: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -10084,11 +10110,7 @@ static func _run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(fa
 	defender["off_balance_until"] = _CombatTiming.now_seconds() + 10.0
 	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty():
 		_fail(failures, "defense_footwork_cause: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -10170,11 +10192,7 @@ static func _run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_
 	defender["state_timer"] = 0.25
 	defender["recovery_cause"] = "attack_hit"
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty():
 		_fail(failures, "defense_footwork_rec_spacing: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -10241,11 +10259,7 @@ static func _run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balan
 	defender["off_balance_until"] = -1.0
 	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty():
 		_fail(failures, "defense_footwork_waiting: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -10299,11 +10313,7 @@ static func _run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_clo
 	defender["state"] = CombatConstants.STATE_WAITING
 	defender["off_balance_until"] = -1.0
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty():
 		_fail(failures, "defense_footwork_wait_spacing: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -10367,11 +10377,7 @@ static func _run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut(fai
 	defender["guard_line"] = "high"
 	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty():
 		_fail(failures, "incoming_contact_readiness: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -10428,11 +10434,7 @@ static func _run_defender_low_stamina_scales_passive_parry_readiness_in_choose_d
 	defender["guard_line"] = "high"
 	_EntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
 	var def_n: Node = _EntityAccess.scene_node(defender)
-	var parts: Array = (
-		def_n.get_targetable_parts()
-		if def_n != null and def_n.has_method("get_targetable_parts")
-		else []
-	)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if parts.is_empty():
 		_fail(failures, "def_stam_readiness: targetable parts empty")
 		_free_manager_restore_global_rng(mgr)
@@ -10844,7 +10846,7 @@ static func _run_stalemate_melee_rank1_when_rank0_incap(failures: PackedStringAr
 			continue
 		if _EntityAccess.rank_int(oc) != 0:
 			continue
-		if _ActionsBuilder._opp_matches_melee_rank_target(mgr, p, oc, 0):
+		if _MeleeRank.opp_matches_melee_rank_target(mgr, p, oc, 0):
 			any_r0 = true
 			break
 	if any_r0:
@@ -13876,8 +13878,7 @@ static func _run_kinematic_delivery_compute_damage_strike_ke_and_blunt_contact_e
 		"target_effective_mass_kg": WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, "chest"),
 	}
 	var tgt_n: Node = _EntityAccess.scene_node(tgt)
-	if tgt_n != null and tgt_n.has_method("get_armor_sharp_resistance_for_part"):
-		blunt_opts["armor_resistance_rha_mm"] = tgt_n.get_armor_sharp_resistance_for_part("chest")
+	_EntityAccess.apply_armor_sharp_resistance_to_blunt_opts(blunt_opts, tgt, "chest")
 	var bc_want: float = float(
 		WeaponDamageHelper.compute_penetration(
 			weapon, ai, WeaponConstants.DAMAGE_TYPE_BLUNT, blunt_opts
@@ -14021,11 +14022,7 @@ static func _kin_expected_pre_armor_cut_blunt(
 	ai.strike_energy_mult = float(strike_mods.get("strike_energy_mult", 1.0))
 	ai.strike_momentum_mult = float(strike_mods.get("strike_momentum_mult", 1.0))
 	var atk_n: Node = _EntityAccess.scene_node(atk)
-	var arm_mod: float = (
-		atk_n.get_attack_damage_modifier()
-		if atk_n != null and atk_n.has_method("get_attack_damage_modifier")
-		else 1.0
-	)
+	var arm_mod: float = _EntityAccess.get_attack_damage_modifier(atk)
 	var atk_str: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
 	var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, "chest")
 	var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, move_id, arch)
@@ -14871,8 +14868,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 	if _FormationSlots.slot_has_any_living_occupant(mgr, slots, Vector2i(1, 0)):
 		_fail(failures, "med_mobility_list: rank-1 file-0 must be vacant for solo fall_back")
 		return
-	if mgr.has_method("notify_formation_changed"):
-		mgr.notify_formation_changed("player")
+	mgr.notify_formation_changed("player")
 	if _EngagementMode.engagement_mode(mgr) != CombatConstants.ENGAGEMENT_MODE_FORMATION:
 		_fail(
 			failures,
@@ -15077,8 +15073,7 @@ static func _run_medical_mobility_cowering_player_retreat_ui_hint(
 		_fail(failures, "med_mobility_hint: setup missing rank-1 file-0")
 		return
 	_soak_kill_combatant(mgr, rear_id)
-	if mgr.has_method("notify_formation_changed"):
-		mgr.notify_formation_changed("player")
+	mgr.notify_formation_changed("player")
 	var front_c: Dictionary = {}
 	for row in mgr.combatants:
 		if (
@@ -15998,9 +15993,9 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 			return
 	seed(3312)
 	var pa1: Dictionary = pa_template.duplicate(true)
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, attacker, defender, pa1)
+	_StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, attacker, defender, pa1)
 	var atk_w_for_meas: RefCounted = _EntityAccess.get_weapon(attacker)
-	_ActionsBuilder.stamp_strike_realism_on_pa(mgr, attacker, defender, pa1, atk_w_for_meas, "spear_thrust")
+	_StrikeStamping.stamp_strike_realism_on_pa(mgr, attacker, defender, pa1, atk_w_for_meas, "spear_thrust")
 	if atk_w_for_meas != null:
 		# Match wind-up: fixed blade station so **`velocity_intent_mult_from_pa`** does not draw a second RNG stream vs post-resolve recompute.
 		pa1["impact_blade_station"] = StrikeRealismProfile.blade_station_from_pa(
@@ -16089,7 +16084,7 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 		)
 	var atk_w = _EntityAccess.get_weapon(attacker)
 	var want_arch: String = (
-		atk_w.get_archetype_id(atk_move) if atk_w != null and atk_w.has_method("get_archetype_id") else ""
+		_EntityAccess.weapon_archetype_id(atk_w, atk_move, "")
 	)
 	if str(clash.get("archetype_id", "")) != want_arch:
 		_fail(
@@ -16194,8 +16189,8 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 	dc_late["parry_time_to_react"] = 0.02
 	seed(3313)
 	var pa2: Dictionary = pa_template.duplicate(true)
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, attacker, defender, pa2)
-	_ActionsBuilder.stamp_strike_realism_on_pa(mgr, attacker, defender, pa2, atk_w_for_meas, "spear_thrust")
+	_StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, attacker, defender, pa2)
+	_StrikeStamping.stamp_strike_realism_on_pa(mgr, attacker, defender, pa2, atk_w_for_meas, "spear_thrust")
 	if atk_w_for_meas != null:
 		pa2["impact_blade_station"] = StrikeRealismProfile.blade_station_from_pa(
 			pa2, atk_w_for_meas, "spear_thrust", 0.5
@@ -16372,9 +16367,9 @@ static func _run_parry_partial_clash_context_calibration_fields(failures: Packed
 		"parry_off_balance": false,
 	}
 	seed(3312)
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr2, attacker_p, defender_p, pa_partial)
+	_StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr2, attacker_p, defender_p, pa_partial)
 	var atk_w_part: RefCounted = _EntityAccess.get_weapon(attacker_p)
-	_ActionsBuilder.stamp_strike_realism_on_pa(mgr2, attacker_p, defender_p, pa_partial, atk_w_part, "spear_thrust")
+	_StrikeStamping.stamp_strike_realism_on_pa(mgr2, attacker_p, defender_p, pa_partial, atk_w_part, "spear_thrust")
 	if atk_w_part != null:
 		pa_partial["impact_blade_station"] = StrikeRealismProfile.blade_station_from_pa(
 			pa_partial, atk_w_part, "spear_thrust", 0.5
@@ -16552,15 +16547,13 @@ static func _afterblow_harness_seed_pending_cut(mgr: Node, attacker_index: int, 
 	var defc: Dictionary = mgr.combatants[defender_index]
 	var weapon = _EntityAccess.get_weapon(atk)
 	var attack_type: String = WeaponConstants.ATTACK_TYPE_CUT
-	if weapon != null and weapon.has_method("get_available_attack_types"):
-		var types_a: Array = weapon.get_available_attack_types()
+	if _EntityAccess.weapon_has_attack_types(weapon):
+		var types_a: Array = _EntityAccess.weapon_attack_types(weapon)
 		if types_a.has(WeaponConstants.ATTACK_TYPE_CUT):
 			attack_type = WeaponConstants.ATTACK_TYPE_CUT
 		elif not types_a.is_empty():
 			attack_type = str(types_a[0])
-	var archetype: Dictionary = WeaponConstants.get_archetype(WeaponConstants.ARCHETYPE_SLASH)
-	if weapon != null and weapon.has_method("get_archetype_id"):
-		archetype = WeaponConstants.get_archetype(weapon.get_archetype_id(attack_type))
+	var archetype: Dictionary = _EntityAccess.weapon_archetype_for_move(weapon, attack_type)
 	var pa: Dictionary = {
 		"target_id": _EntityAccess.id_int(defc),
 		"intensity": 0.88,
@@ -16569,8 +16562,8 @@ static func _afterblow_harness_seed_pending_cut(mgr: Node, attacker_index: int, 
 		"attack_type": attack_type,
 		"archetype": archetype,
 	}
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, atk, defc, pa)
-	_ActionsBuilder.stamp_strike_realism_on_pa(mgr, atk, defc, pa, weapon, attack_type)
+	_StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, atk, defc, pa)
+	_StrikeStamping.stamp_strike_realism_on_pa(mgr, atk, defc, pa, weapon, attack_type)
 	atk["state"] = CombatConstants.STATE_WIND_UP
 	atk["state_timer"] = 0.0
 	atk["state_duration"] = 0.5
@@ -16854,7 +16847,7 @@ static func _run_parry_pack_flank_effective_spacing(failures: PackedStringArray)
 	mgr._recompute_zoc_and_distance()
 	var p0: Dictionary = mgr.combatants[0]
 	var e_adj: Dictionary = mgr.combatants[1]
-	var eff_adj: float = _ActionsBuilder.effective_pair_file_spacing_equivalent(mgr, p0, e_adj)
+	var eff_adj: float = _PairGeometry.effective_pair_file_spacing_equivalent(mgr, p0, e_adj)
 	if eff_adj + 1e-4 >= float(CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN):
 		_fail(
 			failures,
@@ -16867,7 +16860,7 @@ static func _run_parry_pack_flank_effective_spacing(failures: PackedStringArray)
 	mgr.combatants[1]["file"] = 2
 	mgr._recompute_zoc_and_distance()
 	var e_far: Dictionary = mgr.combatants[1]
-	var eff_far: float = _ActionsBuilder.effective_pair_file_spacing_equivalent(mgr, p0, e_far)
+	var eff_far: float = _PairGeometry.effective_pair_file_spacing_equivalent(mgr, p0, e_far)
 	if eff_far + 1e-4 < float(CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN):
 		_fail(
 			failures,
