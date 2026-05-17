@@ -126,11 +126,11 @@ static func choose_defense(
 	var late_parry: bool = false
 	var tgt_n: Node = _EntityAccess.scene_node(tgt)
 
-	if tgt_n != null and tgt_n.has_method("get_passive_parry_reaction_time") and _EntityAccess.has_weapon(tgt):
+	if _EntityAccess.has_weapon(tgt) and _EntityAccess.has_passive_parry_reaction_time(tgt):
 		var def_weapon = _EntityAccess.get_weapon(tgt)
 		if def_weapon != null and effective_wind_up > 0.0:
 			var atk_weapon = _EntityAccess.get_weapon(atk)
-			var reaction_time: float = tgt_n.get_passive_parry_reaction_time()
+			var reaction_time: float = _EntityAccess.get_passive_parry_reaction_time(tgt)
 			if reaction_time < effective_wind_up and atk_weapon != null:
 				can_parry_in_time = true
 				var parry_eval_step_deg: float = _Footwork.parry_eval_step_deg_for_defender(tgt)
@@ -410,11 +410,7 @@ static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String
 	c_d_full *= clampf(agi_d / 100.0, 0.7, 1.3)
 	var def_perf: float = _EntityAccess.get_performance_modifier(tgt)
 	c_d_full *= maxf(CombatConstants.PERF_MOD_MIN, def_perf)
-	var arm_mod: float = 1.0
-	var tgt_parry_n: Node = _EntityAccess.scene_node(tgt)
-	if tgt_parry_n != null and tgt_parry_n.has_method("get_attack_damage_modifier"):
-		arm_mod = tgt_parry_n.get_attack_damage_modifier()
-	c_d_full *= maxf(0.1, arm_mod)
+	c_d_full *= maxf(0.1, _EntityAccess.get_attack_damage_modifier(tgt))
 	if def_weapon.has_method("get_parry_contact_type") and def_weapon.has_parts():
 		var pct: String = def_weapon.get_parry_contact_type()
 		c_d_full *= CombatConstants.PARRY_CONTACT_MODIFIERS.get(pct, 1.0)

@@ -60,6 +60,149 @@ static func nested_array_for_mutation(combatant: Dictionary, key: String) -> Arr
 	return a
 
 
+## Weapon exposes melee move ids (empty when weapon null or lacks attack list).
+static func weapon_attack_types(weapon: Variant) -> Array:
+	if weapon == null or not weapon.has_method("get_available_attack_types"):
+		return []
+	return weapon.get_available_attack_types()
+
+
+static func weapon_has_attack_types(weapon: Variant) -> bool:
+	return weapon != null and weapon.has_method("get_available_attack_types")
+
+
+static func weapon_contact_type(
+	weapon: Variant, move_id: String, default_contact: String = WeaponConstants.ATTACK_TYPE_CUT
+) -> String:
+	if weapon == null or not weapon.has_method("get_contact_type"):
+		return default_contact
+	return str(weapon.get_contact_type(move_id))
+
+
+static func weapon_archetype_for_move(
+	weapon: Variant,
+	move_id: String,
+	default_archetype_id: String = WeaponConstants.ARCHETYPE_SLASH
+) -> Dictionary:
+	if weapon == null or not weapon.has_method("get_archetype_id"):
+		return WeaponConstants.get_archetype(default_archetype_id)
+	return WeaponConstants.get_archetype(weapon.get_archetype_id(move_id))
+
+
+static func weapon_parry_contact_type(weapon: Variant, default_pct: String = "blade") -> String:
+	if weapon == null or not weapon.has_method("get_parry_contact_type"):
+		return default_pct
+	return str(weapon.get_parry_contact_type())
+
+
+## Scene node lists wound parts for medical UI (Character → CoreEntity).
+static func get_wounded_parts(combatant: Dictionary) -> Array:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("get_wounded_parts"):
+		return []
+	return node.get_wounded_parts()
+
+
+static func scene_has_wounded_parts_listing(combatant: Dictionary) -> bool:
+	var node = node_variant(combatant)
+	return node != null and node.has_method("get_wounded_parts")
+
+
+## Scene node supports self direct-pressure while receiving care (wound list + can_apply API).
+static func scene_supports_medical_pressure_listing(combatant: Dictionary) -> bool:
+	return (
+		scene_has_wounded_parts_listing(combatant)
+		and scene_can_apply_direct_pressure_api(combatant)
+	)
+
+
+static func scene_can_apply_direct_pressure_api(combatant: Dictionary) -> bool:
+	var node = node_variant(combatant)
+	return node != null and node.has_method("can_apply_direct_pressure")
+
+
+## Health entity (CoreEntity) direct-pressure on `part`; false when entity or method missing.
+static func entity_can_apply_direct_pressure(manager: Node, combatant: Dictionary, part: String) -> bool:
+	var entity: Node = get_entity_from_manager(manager, combatant)
+	if entity == null or not entity.has_method("can_apply_direct_pressure"):
+		return false
+	return entity.can_apply_direct_pressure(part)
+
+
+static func entity_has_direct_pressure_on_part(manager: Node, combatant: Dictionary, part: String) -> bool:
+	var entity: Node = get_entity_from_manager(manager, combatant)
+	if entity == null or not entity.has_method("has_direct_pressure_on_part"):
+		return false
+	return entity.has_direct_pressure_on_part(part)
+
+
+static func entity_has_wound_part(manager: Node, combatant: Dictionary, part: String) -> bool:
+	var entity: Node = get_entity_from_manager(manager, combatant)
+	if entity == null or not entity.has_method("get_wounds"):
+		return false
+	return entity.get_wounds().has(part)
+
+
+static func entity_apply_direct_pressure(manager: Node, combatant: Dictionary, part: String) -> bool:
+	var entity: Node = get_entity_from_manager(manager, combatant)
+	if entity == null or not entity.has_method("apply_direct_pressure"):
+		return false
+	return entity.apply_direct_pressure(part)
+
+
+static func entity_apply_direct_pressure_from_ally(
+	manager: Node, target: Dictionary, performer: Dictionary, part: String
+) -> bool:
+	var tgt_entity: Node = get_entity_from_manager(manager, target)
+	var performer_entity: Node = get_entity_from_manager(manager, performer)
+	if tgt_entity == null or not tgt_entity.has_method("apply_direct_pressure_from_ally"):
+		return false
+	return tgt_entity.apply_direct_pressure_from_ally(part, performer_entity)
+
+
+static func entity_stack_assist_pressure_during_ally_treatment(
+	manager: Node, target: Dictionary, performer: Dictionary, part: String
+) -> bool:
+	var tgt_entity: Node = get_entity_from_manager(manager, target)
+	var performer_entity: Node = get_entity_from_manager(manager, performer)
+	if tgt_entity == null or not tgt_entity.has_method("stack_assist_pressure_during_ally_treatment"):
+		return false
+	return tgt_entity.stack_assist_pressure_during_ally_treatment(part, performer_entity)
+
+
+static func scene_apply_direct_pressure(combatant: Dictionary, part: String) -> bool:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("apply_direct_pressure"):
+		return false
+	return node.apply_direct_pressure(part)
+
+
+static func link_performer_direct_pressure_on_ally(performer: Dictionary, tgt_entity: Node, part: String) -> void:
+	var performer_entity: Node = node_variant(performer)
+	if performer_entity != null and "direct_pressure_on_ally" in performer_entity:
+		performer_entity.direct_pressure_on_ally = {"node": tgt_entity, "part": part}
+
+
+static func is_applying_direct_pressure_scene(combatant: Dictionary) -> bool:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("is_applying_direct_pressure"):
+		return false
+	return node.is_applying_direct_pressure()
+
+
+static func get_direct_pressure_part_scene(combatant: Dictionary) -> String:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("get_direct_pressure_part"):
+		return ""
+	return str(node.get_direct_pressure_part())
+
+
+static func clear_direct_pressure_scene(combatant: Dictionary) -> void:
+	var node = node_variant(combatant)
+	if node != null and node.has_method("clear_direct_pressure"):
+		node.clear_direct_pressure()
+
+
 ## Returns weapon from combatant's node, or null if node lacks get_weapon or is null.
 static func get_weapon(combatant: Dictionary) -> Variant:
 	var node = node_variant(combatant)

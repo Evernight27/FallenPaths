@@ -532,7 +532,7 @@ static func can_melee_threaten(manager: Node, attacker: Dictionary, defender: Di
 	if _EntityAccess.get_attacking_arm(attacker).is_empty():
 		return false
 	var weapon = _EntityAccess.get_weapon(attacker)
-	if weapon == null or not weapon.has_method("get_available_attack_types"):
+	if not _EntityAccess.weapon_has_attack_types(weapon):
 		return false
 	var melee_range: float = float(weapon.melee_range)
 	var eff_dist: float = effective_pair_eff_dist(manager, attacker, defender)
@@ -637,16 +637,14 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		and medical_phase
 		and _EntityAccess.side_str(c) == medical_phase_winner
 	):
-		var c_med_node: Node = _EntityAccess.scene_node(c)
-		if c_med_node != null and c_med_node.has_method("can_apply_direct_pressure") and c_med_node.has_method("get_wounded_parts"):
+		if _EntityAccess.scene_supports_medical_pressure_listing(c):
 			var parts_being_treated: Array = manager._get_parts_being_treated_on(combatant_id)
-			var entity = _EntityAccess.get_entity_from_manager(manager, c)
-			for part in c_med_node.get_wounded_parts():
+			for part in _EntityAccess.get_wounded_parts(c):
 				if part.is_empty() or part in parts_being_treated:
 					continue
-				if entity != null and entity.has_method("has_direct_pressure_on_part") and entity.has_direct_pressure_on_part(part):
+				if _EntityAccess.entity_has_direct_pressure_on_part(manager, c, part):
 					continue
-				if entity != null and entity.has_method("can_apply_direct_pressure") and entity.can_apply_direct_pressure(part):
+				if _EntityAccess.entity_can_apply_direct_pressure(manager, c, part):
 					actions.append({ "target_id": combatant_id, "move_id": "apply_direct_pressure", "target_part": part })
 		return actions
 
@@ -670,9 +668,9 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		)
 		if can_melee:
 			var weapon = _EntityAccess.get_weapon(c)
-			if weapon != null and weapon.has_method("get_available_attack_types"):
+			if _EntityAccess.weapon_has_attack_types(weapon):
 				var melee_range: float = float(weapon.melee_range)
-				var move_ids: Array = weapon.get_available_attack_types()
+				var move_ids: Array = _EntityAccess.weapon_attack_types(weapon)
 				_append_melee_vs_enemy_line_rank(
 					manager, c, combatants, actions, move_ids, melee_range, 0
 				)
@@ -801,11 +799,9 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		_append_focus_line_actions_if_needed(manager, c, combatant_id, actions)
 		_append_combat_wait_if_needed(actions, combatant_id)
 	else:
-		var c_press_node: Node = _EntityAccess.scene_node(c)
 		if (
 			_EntityAccess.side_str(c) == medical_phase_winner
-			and c_press_node != null
-			and c_press_node.has_method("can_apply_direct_pressure")
+			and _EntityAccess.scene_can_apply_direct_pressure_api(c)
 		):
 			var immediate_peril: bool = manager._is_in_immediate_peril(c)
 			for ally in combatants:
@@ -831,12 +827,11 @@ static func build(manager: Node, combatant_id: int) -> Array:
 					continue
 				if _EntityAccess.side_str(ally) != medical_phase_winner:
 					continue
-				var ally_wound_n: Node = _EntityAccess.scene_node(ally)
-				if ally_wound_n == null or not ally_wound_n.has_method("get_wounded_parts"):
+				if not _EntityAccess.scene_has_wounded_parts_listing(ally):
 					continue
 				if immediate_peril and _EntityAccess.id_int(ally) != _EntityAccess.id_int(c):
 					continue
-				var wounded: Array = ally_wound_n.get_wounded_parts()
+				var wounded: Array = _EntityAccess.get_wounded_parts(ally)
 				var parts_being_treated: Array = manager._get_parts_being_treated_on(_EntityAccess.id_int(ally))
 				for part in wounded:
 					if part.is_empty():
@@ -982,7 +977,7 @@ static func crash_absent_primary_reason(manager: Node, c: Dictionary) -> String:
 	if clock < float(c.get("crash_cooldown_until", 0.0)):
 		return "crash_cooldown"
 	var weapon = _EntityAccess.get_weapon(c)
-	if weapon == null or not weapon.has_method("get_available_attack_types"):
+	if not _EntityAccess.weapon_has_attack_types(weapon):
 		return "no_melee_weapon_profile"
 	var melee_range: float = float(weapon.melee_range)
 	var any_enemy_rank0: bool = false
