@@ -55,6 +55,7 @@ const _AfterblowHandler := preload("res://combat/AfterblowHandler.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
+const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
 ## No preload — `CombatRegressionHarnessKinematicTail` references this class; preloading it here caused a parse cycle.
 ## Tier 3.2: full-stop **`parry_deflect`** — keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_hit_applier_sets_defender_guard_low_after_hit`** locks defender **`guard_line`** / **`guard_zone`** after **`hit`**; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
 const PARRY_CLASH_CONTEXT_KEYS_FULL_STOP: Array[String] = [
@@ -296,6 +297,9 @@ static func run_all() -> Dictionary:
 	_run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures)
 	_run_combat_ui_hints_footwork_stale_stamp_prefers_live_offset(failures)
 	_run_combat_ui_hints_gauge_tooltip_counter_ready(failures)
+	_run_battle_ui_gauge_tooltip_live_counter_tempo_needs_manager(failures)
+	_run_combat_ui_hints_cowering_gauge_tooltip(failures)
+	_run_strike_stamping_forwards_match_action_builder(failures)
 	_run_footwork_ui_hint_ignores_orphan_stamp_without_offset(failures)
 	_run_footwork_diagram_label_suffix_compact(failures)
 	_run_footwork_snapshot_includes_position_hint_when_enabled(failures)
@@ -2330,7 +2334,7 @@ static func _run_intruder_death_obstacle_on_host_formation(failures: PackedStrin
 	var pid: int = _EntityAccess.id_int(p)
 	p["alive"] = false
 	_FormationFlow.on_combatant_died(mgr, p)
-	var form_enemy: Dictionary = _FormationSlots.formation_record_read(mgr.formations, "enemy")
+	var form_enemy: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "enemy")
 	var obst: Dictionary = _FormationSlots.formation_nested_dictionary_read(form_enemy, "slot_obstacles")
 	var key := Vector2i(0, 2)
 	if not obst.has(key):
@@ -3611,7 +3615,7 @@ static func _run_ai_targeting_posture_cohesion_mult(failures: PackedStringArray)
 	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var p: Dictionary = mgr.combatants[0]
 	var pfid: String = _EntityAccess.formation_id_str(p)
-	var fd: Dictionary = _FormationSlots.formation_record_read(mgr.formations, pfid)
+	var fd: Dictionary = _FormationSlots.formation_record_for_manager(mgr, pfid)
 	fd["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_LINE
 	fd["line_cohesion"] = 0.0
 	var m_line_lo: float = _TargetScoring.posture_cohesion_targeting_mult(mgr, p)
@@ -4072,7 +4076,7 @@ static func _run_ai_targeting_opponent_formation_mult(failures: PackedStringArra
 	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var opp: Dictionary = mgr.combatants[1]
 	var efid: String = _EntityAccess.formation_id_str(opp)
-	var efd: Dictionary = _FormationSlots.formation_record_read(mgr.formations, efid)
+	var efd: Dictionary = _FormationSlots.formation_record_for_manager(mgr, efid)
 	efd["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_LINE
 	efd["line_cohesion"] = 1.0
 	var m_solid: float = _TargetScoring.opponent_formation_targeting_mult(mgr, opp)
@@ -4106,7 +4110,7 @@ static func _run_ai_targeting_breach_file_mult(failures: PackedStringArray) -> v
 	if _EntityAccess.file_int(e0) != 0 or _EntityAccess.file_int(e1) != 1:
 		_fail(failures, "ai_targeting_breach: expected enemy files 0 and 1")
 	var efid: String = _EntityAccess.formation_id_str(e0)
-	var efd: Dictionary = _FormationSlots.formation_record_read(mgr.formations, efid)
+	var efd: Dictionary = _FormationSlots.formation_record_for_manager(mgr, efid)
 	efd["breached_files"] = {0: 1.0}
 	var m_clean: float = _TargetScoring.opponent_breach_file_targeting_mult(mgr, e1)
 	var m_breach: float = _TargetScoring.opponent_breach_file_targeting_mult(mgr, e0)
@@ -4146,11 +4150,11 @@ static func _run_targeting_formation_dict_cache_matches_live(failures: PackedStr
 	var p: Dictionary = mgr.combatants[0]
 	var opp: Dictionary = mgr.combatants[1]
 	var pfid: String = _EntityAccess.formation_id_str(p)
-	var pfd: Dictionary = _FormationSlots.formation_record_read(mgr.formations, pfid)
+	var pfd: Dictionary = _FormationSlots.formation_record_for_manager(mgr, pfid)
 	pfd["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_LINE
 	pfd["line_cohesion"] = 0.42
 	var ofid: String = _EntityAccess.formation_id_str(opp)
-	var ofd: Dictionary = _FormationSlots.formation_record_read(mgr.formations, ofid)
+	var ofd: Dictionary = _FormationSlots.formation_record_for_manager(mgr, ofid)
 	ofd["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_LINE
 	ofd["line_cohesion"] = 0.61
 	ofd["breached_files"] = {0: 0.75}
@@ -7996,6 +8000,77 @@ static func _run_combat_ui_hints_gauge_tooltip_counter_ready(failures: PackedStr
 	CombatConstants.set_feature_counter_tempo_load(true)
 	if not joined.contains("Counter window open"):
 		_fail(failures, "ui_hints_gauge_counter: want counter open tip got '%s'" % joined)
+
+
+## Tier 4.2 UI: live counter-tempo tooltip needs **`manager`** when row keys are unstamped.
+static func _run_battle_ui_gauge_tooltip_live_counter_tempo_needs_manager(
+	failures: PackedStringArray
+) -> void:
+	CombatConstants.set_feature_counter_tempo_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	_WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+	_harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.2)
+	def.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
+	def.erase("counter_tempo_ui_hint")
+	var without_mgr: String = "\n".join(_UiHints.gauge_tooltip_lines(def))
+	var with_mgr: String = "\n".join(_UiHints.gauge_tooltip_lines(def, mgr))
+	CombatConstants.set_feature_counter_tempo_load(true)
+	_free_manager_restore_global_rng(mgr)
+	if without_mgr.contains("counter window"):
+		_fail(
+			failures,
+			"gauge_tooltip_live: unstamped row should not show counter tip without manager got '%s'"
+			% without_mgr
+		)
+	if not with_mgr.to_lower().contains("counter window"):
+		_fail(
+			failures,
+			"gauge_tooltip_live: want counter window tip with manager got '%s'" % with_mgr
+		)
+
+
+## Tier 6.1 UI: cowering mobility lines on gauge tooltips.
+static func _run_combat_ui_hints_cowering_gauge_tooltip(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	c["state"] = CombatConstants.STATE_COWERING
+	var mobile_tip: String = "\n".join(_UiHints.gauge_tooltip_lines(c, mgr))
+	if not mobile_tip.contains("fall back"):
+		_fail(failures, "ui_hints_cowering: mobile want fall back tip got '%s'" % mobile_tip)
+	_harness_destroy_limb(ent, "left_leg")
+	_harness_destroy_limb(ent, "right_leg")
+	var immobile_tip: String = "\n".join(_UiHints.gauge_tooltip_lines(c, mgr))
+	_free_manager_restore_global_rng(mgr)
+	if not immobile_tip.contains("holding position"):
+		_fail(failures, "ui_hints_cowering: immobile want holding tip got '%s'" % immobile_tip)
+
+
+## Tier 3.1: **`CombatStrikeStamping`** matches **`AvailableActionsBuilder`** forwards.
+static func _run_strike_stamping_forwards_match_action_builder(failures: PackedStringArray) -> void:
+	var w: Weapon = _Weapon.create_from_definition("SWORD")
+	if w == null:
+		_fail(failures, "strike_stamp_fwd: missing SWORD")
+		return
+	var eff: float = 1.25
+	var via_builder: float = _ActionsBuilder.strike_measure_ratio_for_weapon_eff_dist(w, eff)
+	var via_module: float = _StrikeStamping.strike_measure_ratio_for_weapon_eff_dist(w, eff)
+	if not is_equal_approx(via_builder, via_module):
+		_fail(
+			failures,
+			"strike_stamp_fwd: builder=%.4f module=%.4f" % [via_builder, via_module]
+		)
 
 
 ## Tier 4.4 UI: stamped hint without offset is ignored (row/diagram stay blank).
@@ -14692,7 +14767,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 		return
 	_soak_kill_combatant(mgr, rear_victim_id)
 	var slots: Dictionary = _FormationSlots.formation_slots_dict(
-		_FormationSlots.formation_record_read(mgr.formations, fid)
+		_FormationSlots.formation_record_for_manager(mgr, fid)
 	)
 	if _FormationSlots.slot_has_any_living_occupant(mgr, slots, Vector2i(1, 0)):
 		_fail(failures, "med_mobility_list: rank-1 file-0 must be vacant for solo fall_back")
@@ -14728,7 +14803,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 	front_c.gauge = 100.0
 	if not ent.is_cowering():
 		_fail(failures, "med_mobility_list: expected cowering on rank-0")
-	var form: Dictionary = _FormationSlots.formation_record_read(mgr.formations, fid)
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, fid)
 	var our_file: int = _EntityAccess.file_int(front_c)
 	if _FormationFlow.formation_has_frontline_fill_opportunity_at_file(mgr, fid, our_file):
 		_fail(

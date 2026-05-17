@@ -8,6 +8,7 @@ const _UiHints := preload("res://combat/CombatUiHints.gd")
 
 ## Updates a single combatant's UI row: gauge, state label, blood, consciousness, body bars.
 ## ctrl = id_to_controls[id], c = combatant dict from manager.get_combatants().
+## Pass **`manager`** so counter-tempo tooltips can derive live window state (stamped row keys alone are insufficient).
 
 static func _compose_waiting_gauge_label(c: Dictionary, primary: String) -> String:
 	var attn_hint: String = _UiHints.attention_hint_text(c)
@@ -86,17 +87,17 @@ static func gauge_label_text_for_combatant(c: Dictionary) -> String:
 	return base
 
 
-static func _sync_gauge_label(ctrl: Dictionary, c: Dictionary, text: String) -> void:
+static func _sync_gauge_label(ctrl: Dictionary, c: Dictionary, text: String, manager: Node = null) -> void:
 	if not ctrl.get("gauge_label"):
 		return
 	ctrl.gauge_label.text = text
 	if not _EntityAccess.alive_bool(c, true):
 		ctrl.gauge_label.tooltip_text = "Defeated — out of the fight."
 		return
-	ctrl.gauge_label.tooltip_text = "\n".join(_UiHints.gauge_tooltip_lines(c))
+	ctrl.gauge_label.tooltip_text = "\n".join(_UiHints.gauge_tooltip_lines(c, manager))
 
 
-static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
+static func update_combatant_row(ctrl: Dictionary, c: Dictionary, manager: Node = null) -> void:
 	if ctrl.name:
 		var row_node: Node = _EntityAccess.scene_node(c)
 		var base_name: String = str(row_node.name) if row_node != null else ctrl.name.text
@@ -109,7 +110,7 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary) -> void:
 	if ctrl.gauge:
 		ctrl.gauge.value = gauge_bar_value_for_combatant(c)
 	if ctrl.get("gauge_label"):
-		_sync_gauge_label(ctrl, c, gauge_label_text_for_combatant(c))
+		_sync_gauge_label(ctrl, c, gauge_label_text_for_combatant(c), manager)
 	# Blood volume and bleeding
 	var s_row: Dictionary = _EntityAccess.stats_dict(c)
 	var bv: float = s_row.get("blood_volume", 100.0)

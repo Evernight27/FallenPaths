@@ -211,7 +211,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 					var joined: String = str(names[0])
 					for i in range(1, names.size()):
 						joined += " / " + str(names[i])
-					cell.text = joined
+					cell.text = _cell_label_with_footwork(joined, footwork_sources)
 					cell.add_theme_color_override("font_color", Color(0.95, 0.9, 0.85))
 			else:
 				var c = slot_to_combatant.get(key, null)

@@ -3,6 +3,7 @@ extends RefCounted
 
 ## Shared UI hint resolution for snapshot rows and live combatant dicts.
 
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
@@ -109,6 +110,11 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 		tips.append("Incoming wind-up — counter window building.")
 	if bool(c.get("is_counter_tempo_wind_up", false)):
 		tips.append("Counter-tempo riposte — shortened wind-up.")
+	if _EntityAccess.state_str(c) == CombatConstants.STATE_COWERING:
+		if _EntityAccess.can_flee_or_fall_back(c):
+			tips.append("No arms — may fall back when rear rank in your file is clear.")
+		elif not _EntityAccess.is_unconscious(c):
+			tips.append("No arms — holding position (fall back blocked).")
 	return tips
 
 

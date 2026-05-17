@@ -230,7 +230,7 @@ func _update_ui() -> Array:
 	for c in caps:
 		var cid_ui: int = _EntityAccess.id_int(c)
 		if cid_ui in id_to_controls:
-			BattleUIUpdater.update_combatant_row(id_to_controls[cid_ui], c)
+			BattleUIUpdater.update_combatant_row(id_to_controls[cid_ui], c, manager)
 	_sync_formation_diagrams_for_tactical_hints(caps)
 	return caps
 
@@ -323,13 +323,14 @@ func _on_engagement_state_changed(_formation_id: String, _line_cohesion: float, 
 func _sync_engagement_labels_from_manager() -> void:
 	if manager == null:
 		return
-	var fm: Variant = manager.get("formations")
-	if fm == null or typeof(fm) != TYPE_DICTIONARY:
-		return
 	if _enemy_engagement_label != null:
-		_enemy_engagement_label.text = _format_engagement_line(_FormationSlots.formation_record_read(fm, "enemy"), "enemy")
+		_enemy_engagement_label.text = _format_engagement_line(
+			_FormationSlots.formation_record_for_manager(manager, "enemy"), "enemy"
+		)
 	if _player_engagement_label != null:
-		_player_engagement_label.text = _format_engagement_line(_FormationSlots.formation_record_read(fm, "player"), "player")
+		_player_engagement_label.text = _format_engagement_line(
+			_FormationSlots.formation_record_for_manager(manager, "player"), "player"
+		)
 
 
 func _format_engagement_line(form: Dictionary, formation_id: String) -> String:
