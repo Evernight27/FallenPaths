@@ -7,6 +7,7 @@ const _StatsSync := preload("res://combat/CombatantStatsSync.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 
 static func build(manager: Node) -> Array:
@@ -53,6 +54,15 @@ static func build(manager: Node) -> Array:
 		if CombatConstants.COMBAT_DEBUG:
 			item["guard_line"] = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
 			item["guard_angle_deg"] = CombatConstants.get_guard_angle_deg(c)
+		if _Footwork.enabled():
+			var off_deg: float = _Footwork.get_defender_offset_deg(c)
+			if absf(off_deg) >= 0.01:
+				item["position_angle_offset_deg"] = off_deg
+			var fw_hint: String = str(
+				c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT, "")
+			).strip_edges()
+			if not fw_hint.is_empty():
+				item["position_angle_ui_hint"] = fw_hint
 		var pm_raw: Variant = c.get("pending_medical", null)
 		if pm_raw is Dictionary:
 			item["pending_medical"] = (pm_raw as Dictionary).duplicate(true)

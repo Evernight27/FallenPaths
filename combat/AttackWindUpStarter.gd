@@ -63,8 +63,11 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	var attack_line: String = move_def.get("attack_line", "high")
 	_Footwork.apply_attack_step_on_windup(atk, attack_line)
 	var arc_start_deg: float = CombatConstants.get_guard_angle_deg(atk)
+	var intended_attack_deg: float = _Footwork.apply_offset_to_angle_deg(
+		CombatConstants.line_to_angle(attack_line), atk
+	)
 	var align_ctx: Dictionary = {
-		"attack_angle_deg": CombatConstants.line_to_angle(attack_line),
+		"attack_angle_deg": intended_attack_deg,
 		"guard_angle_deg": arc_start_deg
 	}
 	var align: float = CombatConstants.get_line_alignment_with_deflect(attack_line, atk, align_ctx)

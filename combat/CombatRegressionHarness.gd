@@ -31,6 +31,7 @@ const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _CombatSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
 const _MentalStack := preload("res://combat/MentalStackDecider.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
@@ -270,6 +271,19 @@ static func run_all() -> Dictionary:
 	_run_footwork_attack_step_offset_stamped_on_windup(failures)
 	_run_footwork_offset_shifts_attack_angle_deg(failures)
 	_run_footwork_offset_scrubbed_on_combat_start(failures)
+	_run_footwork_defender_parry_step_stamps_offset(failures)
+	_run_footwork_defender_offset_shifts_guard_angle_deg(failures)
+	_run_footwork_defender_dodge_step_stamps_offset(failures)
+	_run_footwork_defender_offset_scrubbed_after_exchange(failures)
+	_run_footwork_ui_hint_formats_offset(failures)
+	_run_footwork_ui_hint_clears_on_clear_position_offset(failures)
+	_run_footwork_snapshot_includes_position_hint_when_enabled(failures)
+	_run_footwork_guard_line_for_body_part_maps_legs_and_chest(failures)
+	_run_footwork_choose_defense_dodge_does_not_keep_parry_offset(failures)
+	_run_footwork_arc_contact_applies_offset_once(failures)
+	_run_footwork_arc_end_fallback_prefers_intended_over_attack_angle(failures)
+	_run_footwork_windup_arc_intended_includes_attacker_step(failures)
+	_run_footwork_partial_follow_through_freezes_resolve_angles(failures)
 	_run_feint_move_listing_stance_ai_feint_mult_ordering(failures)
 	_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight(failures)
 	_run_feint_move_listing_defender_off_balance_boosts_feint_weight(failures)
@@ -7364,14 +7378,307 @@ static func _run_footwork_offset_scrubbed_on_combat_start(failures: PackedString
 	_free_manager_restore_global_rng(mgr)
 
 
+## Tier 4.4.2: committed parry stamps scaled defender offset from guard line.
+static func _run_footwork_defender_parry_step_stamps_offset(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var def: Dictionary = {}
+	_Footwork.apply_defender_step_on_parry(def, "left")
+	var off: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	var want: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
+	)
+	if absf(off - want) > 0.01:
+		_fail(failures, "footwork_def_parry: want %.2f got %.2f" % [want, off])
+
+
+## Tier 4.4.2: defender offset rotates effective guard angle for alignment.
+static func _run_footwork_defender_offset_shifts_guard_angle_deg(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var def: Dictionary = {
+		"guard_line": "left",
+		CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG: (
+			CombatConstants.position_angle_defender_offset_deg_for_line(
+				"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
+			)
+		),
+	}
+	var base_deg: float = CombatConstants.get_guard_angle_deg(def, {})
+	var shifted: float = _Footwork.guard_angle_deg(def, {})
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	var want: float = fmod(
+		base_deg
+		+ CombatConstants.position_angle_defender_offset_deg_for_line(
+			"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
+		)
+		+ 360.0,
+		360.0
+	)
+	if absf(shifted - want) > 0.05:
+		_fail(failures, "footwork_def_guard: want %.2f got %.2f" % [want, shifted])
+
+
+## Tier 4.4.2: dodge stamps larger scaled offset from eval part line.
+static func _run_footwork_defender_dodge_step_stamps_offset(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var def: Dictionary = {}
+	_Footwork.apply_defender_step_on_dodge(def, "left_arm")
+	var off: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	var want: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
+	if absf(off - want) > 0.01:
+		_fail(failures, "footwork_def_dodge: want %.2f got %.2f" % [want, off])
+
+
+## Tier 4.4.2: exchange end clears defender offset (dodge applier path).
+static func _run_footwork_defender_offset_scrubbed_after_exchange(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	def[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = 9.0
+	_AttackResultApplier.apply_result(
+		mgr,
+		_EntityAccess.id_int(atk),
+		{"action": "dodge", "target_id": _EntityAccess.id_int(def), "recovery_duration": 0.2},
+	)
+	if def.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
+		_fail(failures, "footwork_def_scrub: defender offset should clear after dodge")
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 4.4.3: footwork UI hint shows signed step degrees.
+static func _run_footwork_ui_hint_formats_offset(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var atk: Dictionary = {}
+	_Footwork.apply_attack_step_on_windup(atk, "left")
+	var hint: String = _Footwork.format_position_angle_ui_hint(atk)
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	var want: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
+	if hint != "Step +%.0f°" % want:
+		_fail(failures, "footwork_ui_hint: want 'Step +%.0f°' got '%s'" % [want, hint])
+
+
+## Tier 4.4.3: clearing offset clears stamped UI hint key.
+static func _run_footwork_ui_hint_clears_on_clear_position_offset(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var c: Dictionary = {}
+	_Footwork.apply_attack_step_on_windup(c, "right")
+	_Footwork.clear_position_offset(c)
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT):
+		_fail(failures, "footwork_ui_hint_clear: hint key should be erased")
+	if _Footwork.format_position_angle_ui_hint(c) != "":
+		_fail(failures, "footwork_ui_hint_clear: format should be empty")
+
+
+## Tier 4.4.3: combatant snapshot exposes offset + hint when footwork flag on.
+static func _run_footwork_snapshot_includes_position_hint_when_enabled(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var atk: Dictionary = mgr.combatants[0]
+	_Footwork.apply_attack_step_on_windup(atk, "left")
+	var rows: Array = _CombatSnapshot.build(mgr)
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	_free_manager_restore_global_rng(mgr)
+	if rows.is_empty():
+		_fail(failures, "footwork_snapshot: expected one row")
+		return
+	var row: Dictionary = rows[0]
+	if not row.has("position_angle_offset_deg"):
+		_fail(failures, "footwork_snapshot: missing position_angle_offset_deg")
+	if str(row.get("position_angle_ui_hint", "")) != str(
+		atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT, "")
+	):
+		_fail(
+			failures,
+			"footwork_snapshot: ui hint mismatch row='%s' combatant='%s'"
+			% [row.get("position_angle_ui_hint", ""), atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT, "")]
+		)
+
+
+## Tier 4.4: body-part → guard line for dodge step direction.
+static func _run_footwork_guard_line_for_body_part_maps_legs_and_chest(failures: PackedStringArray) -> void:
+	if CombatConstants.guard_line_for_body_part("right_leg") != "low":
+		_fail(failures, "footwork_part_line: right_leg want low")
+	if CombatConstants.guard_line_for_body_part("chest") != "high":
+		_fail(failures, "footwork_part_line: chest want high")
+
+
+## Tier 4.4: parry-eval helpers do not stamp offset; dodge commit replaces parry stamp.
+static func _run_footwork_choose_defense_dodge_does_not_keep_parry_offset(
+	failures: PackedStringArray
+) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var def: Dictionary = {"guard_line": "left"}
+	var prov: float = _Footwork.parry_eval_step_deg_for_defender(def)
+	if def.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
+		_fail(failures, "footwork_provisional: parry_eval must not stamp offset on combatant")
+	if prov < 0.01:
+		_fail(failures, "footwork_provisional: want non-zero eval step for left guard")
+	_Footwork.apply_defender_step_on_parry(def, "left")
+	var parry_off: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	_Footwork.clear_position_offset(def)
+	_Footwork.apply_defender_step_on_dodge(def, "left_arm")
+	var dodge_off: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	var want_dodge: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	if absf(parry_off - dodge_off) < 0.01:
+		_fail(
+			failures,
+			"footwork_commit_dodge: dodge offset should differ from parry stamp got %.2f"
+			% dodge_off
+		)
+	if absf(dodge_off - want_dodge) > 0.05:
+		_fail(
+			failures,
+			"footwork_commit_dodge: want dodge offset %.2f got %.2f" % [want_dodge, dodge_off]
+		)
+
+
+## Tier 4.4: **`arc_end_deg_for_contact_geometry`** must not treat offset-bearing **`attack_angle_deg`** as arc end.
+static func _run_footwork_arc_end_fallback_prefers_intended_over_attack_angle(
+	failures: PackedStringArray
+) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var off: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
+	var pa: Dictionary = {
+		"arc_intended_deg": 90.0,
+		"attack_angle_deg": fmod(90.0 + off + 360.0, 360.0),
+	}
+	var end: float = CombatConstants.arc_end_deg_for_contact_geometry(pa)
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	if absf(end - 90.0) > 0.05:
+		_fail(failures, "footwork_arc_end_fb: want intended 90 got %.2f" % end)
+	var at_contact: float = CombatConstants.get_arc_angle_at_progress(pa, 1.0)
+	var atk: Dictionary = {CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG: off}
+	at_contact = _Footwork.apply_offset_to_angle_deg(at_contact, atk)
+	var doubled: float = _Footwork.apply_offset_to_angle_deg(90.0 + off, atk)
+	if absf(at_contact - doubled) < 0.05:
+		_fail(failures, "footwork_arc_end_fb: progress-1 should apply offset once got %.2f" % at_contact)
+
+
+## Tier 4.4: **`parry_partial`** follow-through must not re-roll resolve angle geometry.
+static func _run_footwork_partial_follow_through_freezes_resolve_angles(
+	failures: PackedStringArray
+) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var atk: Dictionary = {
+		CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG: (
+			CombatConstants.position_angle_offset_deg_for_attack_line("high")
+		),
+	}
+	var pa: Dictionary = {
+		"passive_parry_attempted": true,
+		"attack_angle_deg": 201.0,
+		"arc_end_deg": 187.0,
+		"arc_span_deg": 42.0,
+		"effective_attack_line": "left",
+		"arc_start_deg": 0.0,
+	}
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+	_AttackResolver.stamp_resolve_angle_geometry_on_pa(pa, atk, "high", move_def, 0.0)
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	if absf(float(pa.get("attack_angle_deg", -1.0)) - 201.0) > 0.05:
+		_fail(
+			failures,
+			"footwork_partial_freeze: attack_angle_deg changed to %.2f" % float(pa.get("attack_angle_deg", -1.0))
+		)
+	if absf(float(pa.get("arc_end_deg", -1.0)) - 187.0) > 0.05:
+		_fail(
+			failures,
+			"footwork_partial_freeze: arc_end_deg changed to %.2f" % float(pa.get("arc_end_deg", -1.0))
+		)
+	if absf(float(pa.get("arc_span_deg", -1.0)) - 42.0) > 0.05:
+		_fail(
+			failures,
+			"footwork_partial_freeze: arc_span_deg changed to %.2f" % float(pa.get("arc_span_deg", -1.0))
+		)
+	if str(pa.get("effective_attack_line", "")) != "left":
+		_fail(
+			failures,
+			"footwork_partial_freeze: effective_attack_line changed to %s"
+			% str(pa.get("effective_attack_line", ""))
+		)
+
+
+## Tier 4.4: wind-up **`arc_intended_deg`** includes attacker step (guard transition + arc query).
+static func _run_footwork_windup_arc_intended_includes_attacker_step(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var mgr: Node = _MgrScript.new()
+	var p_ent: Node = _new_entity("SWORD")
+	var e_ent: Node = _new_entity("SWORD")
+	mgr.register(p_ent, "player")
+	mgr.register(e_ent, "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	seed(42)
+	_WindUpStarter.start(mgr, p_id, e_id, "oberhau", {"target_part": "chest"})
+	_restore_global_rng()
+	var atk: Dictionary = mgr._get_by_id(p_id)
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
+	var intended: float = float(pa.get("arc_intended_deg", -999.0))
+	var off: float = CombatConstants.position_angle_offset_deg_for_attack_line("high")
+	var want: float = fmod(CombatConstants.line_to_angle("high") + off + 360.0, 360.0)
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	_free_manager_restore_global_rng(mgr)
+	if intended < -900.0:
+		_fail(failures, "footwork_windup_intended: missing arc_intended_deg")
+		return
+	if absf(intended - want) > 0.05:
+		_fail(failures, "footwork_windup_intended: want %.2f got %.2f" % [want, intended])
+
+
+## Tier 4.4: **`arc_end_deg`** stays pre-offset; parry contact applies footwork once (not twice at progress 1).
+static func _run_footwork_arc_contact_applies_offset_once(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var atk: Dictionary = {
+		CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG: (
+			CombatConstants.position_angle_offset_deg_for_attack_line("left")
+		),
+	}
+	var arc_start: float = 0.0
+	var arc_end_base: float = 90.0
+	var at_contact: float = CombatConstants.get_arc_angle_at_progress(arc_start, arc_end_base, 1.0)
+	at_contact = _Footwork.apply_offset_to_angle_deg(at_contact, atk)
+	var doubled: float = _Footwork.apply_offset_to_angle_deg(
+		CombatConstants.get_arc_angle_at_progress(arc_start, arc_end_base + atk.get(
+			CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0
+		), 1.0),
+		atk
+	)
+	CombatConstants.set_feature_position_angle_footwork_load(false)
+	var want: float = fmod(arc_end_base + float(atk.get(
+		CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0
+	)) + 360.0, 360.0)
+	if absf(at_contact - want) > 0.05:
+		_fail(failures, "footwork_arc_once: want %.2f got %.2f" % [want, at_contact])
+	if absf(doubled - at_contact) < 0.05:
+		_fail(
+			failures,
+			"footwork_arc_once: double-apply would match got %.2f (want distinct)" % at_contact
+		)
+
+
 ## Tier 4.3.8: attention UI hint shows last mental-stack layer stamp.
 static func _run_attention_ui_hint_includes_mental_stack_layer(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_combat_attention_load(true)
 	var def: Dictionary = {
 		CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER: "incoming",
 		CombatConstants.COMBATANT_KEY_FOCUS_PART: "head",
 		CombatConstants.COMBATANT_KEY_FOCUS_INTENSITY: 1.0,
 	}
 	var hint: String = _Attention.format_attention_ui_hint(def)
+	CombatConstants.set_feature_combat_attention_load(false)
 	if not hint.contains("Stack incoming"):
 		_fail(failures, "attention_ui_stack: want Stack incoming in '%s'" % hint)
 
@@ -12117,7 +12424,7 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 			"parry_clash_context: contact_type want %s got %s" % [want_ct, str(clash.get("contact_type", ""))]
 		)
 	var arc_s: float = float(pa_template.get("arc_start_deg", 0.0))
-	var arc_e: float = float(pa_template.get("arc_end_deg", pa_template.get("attack_angle_deg", -999.0)))
+	var arc_e: float = CombatConstants.arc_end_deg_for_contact_geometry(pa_template)
 	var atk_line_for_align: String = str(pa_template.get("effective_attack_line", "high"))
 	var def_w0 = _EntityAccess.get_weapon(defender)
 	var def_mass: float = (

@@ -21,6 +21,7 @@ const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _MentalStack := preload("res://combat/MentalStackDecider.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary:
 	if actions.is_empty():
@@ -488,7 +489,18 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
 	var atk_line: String = move_def.get("attack_line", "high")
 	var guard_line: String = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)
 	var path: Array = CombatConstants.get_attack_path(atk_line, guard_line)
-	var align_ctx: Dictionary = {"attack_angle_deg": CombatConstants.line_to_angle(atk_line), "guard_angle_deg": CombatConstants.get_guard_angle_deg(tgt)}
+	var atk_angle_list: float = CombatConstants.line_to_angle(atk_line)
+	if atk_pick != null:
+		atk_angle_list = _Footwork.apply_offset_to_angle_deg(atk_angle_list, atk_pick)
+	var guard_angle_list: float = (
+		_Footwork.guard_angle_deg(tgt, {})
+		if _Footwork.enabled()
+		else CombatConstants.get_guard_angle_deg(tgt)
+	)
+	var align_ctx: Dictionary = {
+		"attack_angle_deg": atk_angle_list,
+		"guard_angle_deg": guard_angle_list,
+	}
 	var alignment: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx)
 	var intercept_max: int = int(lerpf(
 		float(CombatConstants.PATH_INTERCEPT_EARLY_MAX),

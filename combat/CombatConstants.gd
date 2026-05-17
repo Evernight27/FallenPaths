@@ -861,13 +861,41 @@ const YOMI_DEFENSE_READINESS_MULT_PER_PARRY_DEFLECT := 0.04
 const YOMI_DEFENSE_READINESS_MULT_CAP := 1.14
 ## Tier 4.4: attacker step-on-wind-up lateral angle nudge (degrees); cleared when attack ends / combat restarts.
 const COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG := "position_angle_offset_deg"
+## Tier 4.4.3: row label fragment when **`is_feature_position_angle_footwork_enabled()`** (see **`CombatFootwork.refresh_ui_hint`**).
+const COMBATANT_KEY_POSITION_ANGLE_UI_HINT := "position_angle_ui_hint"
 const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
 	"high": 0.0,
 	"low": 6.0,
 	"left": 14.0,
 	"right": -14.0,
 }
+## Tier 4.4.2: defender step scales (symmetric to attacker step-on-wind-up; still flag-gated).
+const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY := 0.55
+const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE := 0.85
 static var _feature_position_angle_footwork_enabled: bool = false
+
+
+static func position_angle_defender_offset_deg_for_line(line: String, scale: float) -> float:
+	return position_angle_offset_deg_for_attack_line(line) * scale
+
+
+static func guard_line_for_body_part(part: String) -> String:
+	var p: String = str(part).strip_edges()
+	if p.is_empty():
+		return GUARD_DEFAULT
+	match p:
+		"head", "neck", "face", "scalp", "chest":
+			return "high"
+		"left_leg", "right_leg":
+			return "low"
+		"left_arm":
+			return "left"
+		"right_arm":
+			return "right"
+	for line_key in LINE_TO_DEFAULT_PART:
+		if str(LINE_TO_DEFAULT_PART[line_key]) == p:
+			return str(line_key)
+	return GUARD_DEFAULT
 # Swap rank AI (CombatAIActionPicker): relief only when necessary — not marginal fitness differences.
 const SWAP_RANK_AI_LOW_WEIGHT := 0.02
 const SWAP_RANK_AI_HIGH_WEIGHT := 1.0
@@ -1253,13 +1281,25 @@ static func get_arc_angle_at_progress(arc_start_deg: float, arc_end_deg: float, 
 	var diff: float = fmod(b - a + 540.0, 360.0) - 180.0  # Shortest path (-180..180)
 	return fmod(a + diff * p + 360.0, 360.0)
 
+## Base arc end for contact geometry (pre attacker footwork offset). Prefer **`arc_end_deg`**; else **`arc_intended_deg`**.
+## Never **`attack_angle_deg`** — that field includes footwork offset after resolve.
+static func arc_end_deg_for_contact_geometry(pa: Dictionary) -> float:
+	var end: float = pa.get("arc_end_deg", -999.0)
+	if end >= -900.0:
+		return end
+	end = pa.get("arc_intended_deg", -999.0)
+	if end >= -900.0:
+		return end
+	return -999.0
+
+
 ## Attack angle from pending_attack at given progress. Uses arc_start/arc_end when available;
 ## falls back to arc_intended_deg during wind-up (before arc_end is rolled at resolution).
 static func get_attack_angle_at_progress(pa: Dictionary, progress: float) -> float:
 	var start: float = pa.get("arc_start_deg", 0.0)
-	var end: float = pa.get("arc_end_deg", -999.0)
+	var end: float = arc_end_deg_for_contact_geometry(pa)
 	if end < -900.0:
-		end = pa.get("arc_intended_deg", line_to_angle("high"))
+		end = line_to_angle("high")
 	return get_arc_angle_at_progress(start, end, progress)
 
 ## Shortest angular distance (0–180°). Handles wraparound.

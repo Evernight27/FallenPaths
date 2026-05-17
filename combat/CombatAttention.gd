@@ -101,7 +101,10 @@ static func format_attention_ui_hint(c: Dictionary) -> String:
 		return ""
 	var tele: String = str(c.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")).strip_edges()
 	var load: float = get_attention_load(c)
-	if tele.is_empty() and load < 0.05:
+	var stack_layer: String = str(
+		c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")
+	).strip_edges()
+	if tele.is_empty() and load < 0.05 and stack_layer.is_empty():
 		return ""
 	var chunks: PackedStringArray = []
 	if not tele.is_empty():
@@ -111,9 +114,6 @@ static func format_attention_ui_hint(c: Dictionary) -> String:
 	chunks.append("Focus %s %d%%" % [fp, fe_pct])
 	if load >= 0.08:
 		chunks.append("Load %d%%" % int(roundf(load * 100.0)))
-	var stack_layer: String = str(
-		c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")
-	).strip_edges()
 	if not stack_layer.is_empty():
 		chunks.append("Stack %s" % stack_layer)
 	return " · ".join(chunks)

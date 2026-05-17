@@ -9,6 +9,7 @@ const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.COMBAT_DEBUG:
@@ -172,13 +173,19 @@ static func _resolve_parry(
 		_parry_progress = 1.0 - clampf(parry_time_to_react / maxf(0.001, eff_wind), 0.0, 1.0)
 	var _align_ctx: Dictionary = {}
 	var arc_start: float = pa.get("arc_start_deg", 0.0)
-	var arc_end: float = pa.get("arc_end_deg", pa.get("attack_angle_deg", -999.0))
+	var arc_end: float = CombatConstants.arc_end_deg_for_contact_geometry(pa)
 	if arc_end >= -900.0:
-		var attack_angle_at_contact: float = CombatConstants.get_arc_angle_at_progress(arc_start, arc_end, _parry_progress)
+		var attack_angle_at_contact: float = CombatConstants.get_arc_angle_at_progress(
+			arc_start, arc_end, _parry_progress
+		)
+		attack_angle_at_contact = _Footwork.apply_offset_to_angle_deg(attack_angle_at_contact, atk)
 		var def_weapon_align = _EntityAccess.get_weapon(tgt)
 		var def_mass_align: float = float(def_weapon_align.mass) if def_weapon_align != null and (def_weapon_align.get("mass") is float or def_weapon_align.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 		var _wobble: Dictionary = {"parry_readiness": parry_readiness, "defender_mass_kg": def_mass_align}
-		_align_ctx = {"attack_angle_deg": attack_angle_at_contact, "guard_angle_deg": CombatConstants.get_guard_angle_deg(tgt, _wobble)}
+		_align_ctx = {
+			"attack_angle_deg": attack_angle_at_contact,
+			"guard_angle_deg": _Footwork.guard_angle_deg(tgt, _wobble),
+		}
 	var _alignment: float = CombatConstants.get_line_alignment_with_deflect(_attack_line, tgt, _align_ctx)
 	var c_d_final: float = parry_c_d
 	if CombatConstants.PARRY_TECHNIQUE_VARIANCE > 0.0:
@@ -197,7 +204,9 @@ static func _resolve_parry(
 			var def_weapon_cal = _EntityAccess.get_weapon(tgt)
 			var def_mass_cal: float = float(def_weapon_cal.mass) if def_weapon_cal != null and (def_weapon_cal.get("mass") is float or def_weapon_cal.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 			var _wobble_cal: Dictionary = {"parry_readiness": parry_readiness, "defender_mass_kg": def_mass_cal}
-			angle_suffix = " atk_deg=%.0f guard_deg=%.0f" % [pa["attack_angle_deg"], CombatConstants.get_guard_angle_deg(tgt, _wobble_cal)]
+			angle_suffix = " atk_deg=%.0f guard_deg=%.0f" % [
+				pa["attack_angle_deg"], _Footwork.guard_angle_deg(tgt, _wobble_cal)
+			]
 		CombatDebug.calibration_log("parry_calc atk=%s guard=%s align=%.3f c_d=%.2f p_a=%.2f geom_scale=%.2f%s" % [_attack_line, _guard_line, _alignment, c_d_final, parry_p_a, geom_scale, angle_suffix])
 	var full_stop: bool = is_block_parry and c_d_final >= (parry_p_a * CombatConstants.PARRY_DEFLECT_THRESHOLD)
 	if full_stop:
@@ -212,7 +221,12 @@ static func _resolve_parry(
 			c_d_final, parry_p_a, _alignment, parry_readiness, parry_off_balance, late_parry, contact_ct
 		)
 		var severity: float = CombatConstants.parry_deflect_severity_from_margin_ratio(margin_ratio)
-		var atk_angle_at_contact: float = CombatConstants.get_arc_angle_at_progress(arc_start, arc_end, _parry_progress) if arc_end >= -900.0 else CombatConstants.line_to_angle(eff_atk_line)
+		var atk_angle_at_contact: float = (
+			CombatConstants.get_arc_angle_at_progress(arc_start, arc_end, _parry_progress)
+			if arc_end >= -900.0
+			else CombatConstants.line_to_angle(eff_atk_line)
+		)
+		atk_angle_at_contact = _Footwork.apply_offset_to_angle_deg(atk_angle_at_contact, atk)
 		var def_weapon_ctx = _EntityAccess.get_weapon(tgt)
 		var atk_weapon_ctx = _EntityAccess.get_weapon(atk)
 		var arch_id: String = atk_weapon_ctx.get_archetype_id(attack_type) if atk_weapon_ctx != null and atk_weapon_ctx.has_method("get_archetype_id") else ""
@@ -245,7 +259,7 @@ static func _resolve_parry(
 			"margin_ratio": margin_ratio,
 			"alignment": _alignment,
 			"defender_guard_line": _guard_line,
-			"guard_angle_deg": CombatConstants.get_guard_angle_deg(tgt, _wobble_ctx),
+			"guard_angle_deg": _Footwork.guard_angle_deg(tgt, _wobble_ctx),
 			"parry_time_to_react": parry_time_to_react,
 			"parry_readiness": parry_readiness,
 			"late_parry": late_parry,
@@ -302,6 +316,7 @@ static func _resolve_parry(
 		if arc_end >= -900.0
 		else CombatConstants.line_to_angle(eff_atk_line_p)
 	)
+	atk_angle_partial = _Footwork.apply_offset_to_angle_deg(atk_angle_partial, atk)
 	var def_weapon_p = _EntityAccess.get_weapon(tgt)
 	var atk_weapon_p = _EntityAccess.get_weapon(atk)
 	var arch_id_p: String = (
@@ -315,7 +330,7 @@ static func _resolve_parry(
 		else WeaponConstants.BASELINE_MASS_KG
 	)
 	var _wobble_p: Dictionary = {"parry_readiness": parry_readiness, "defender_mass_kg": def_mass_p}
-	var guard_angle_p: float = CombatConstants.get_guard_angle_deg(tgt, _wobble_p)
+	var guard_angle_p: float = _Footwork.guard_angle_deg(tgt, _wobble_p)
 	var kinematic_delivery_str_p: String = WeaponDamageHelper.kinematic_delivery(archetype, attack_type)
 	var strike_v_partial: float = float(pa.get("velocity_m_s", 0.0))
 	var attack_instance_p := AttackInstance.new(attack_type, intensity)

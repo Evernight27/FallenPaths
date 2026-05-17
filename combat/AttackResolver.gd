@@ -313,6 +313,34 @@ static func _weighted_roll_attack_line(weights: Dictionary) -> String:
 	return weights.keys()[0] if not weights.is_empty() else "high"
 
 ## For parry_partial, mutates atk.pending_attack["velocity_m_s"] and defense sets **`parry_clash_context`** on the result dict; **`AttackResultApplier`** emits **`action_resolved`** then re-enters **`_execute_attack`** for follow-through.
+## Follow-through re-resolve keeps first-contact **`attack_angle_deg`** / **`arc_end_deg`** / **`arc_span_deg`** / **`effective_attack_line`** when **`passive_parry_attempted`** is already set (see **`stamp_resolve_angle_geometry_on_pa`**).
+static func stamp_resolve_angle_geometry_on_pa(
+	pa: Dictionary,
+	atk: Dictionary,
+	atk_line_base: String,
+	move_def_pre: Dictionary,
+	arc_start_deg: float
+) -> void:
+	if pa.get("passive_parry_attempted", false):
+		pa["position_angle_offset_deg"] = _Footwork.get_attacker_offset_deg(atk)
+		return
+	var var_ctx: Dictionary = {}
+	var s: float = _EntityAccess.stamina_float(atk)
+	var_ctx["stamina_ratio"] = clampf(s / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+	var_ctx["off_balance"] = _PassiveParry.is_off_balance(atk)
+	var atk_weapon = _EntityAccess.get_weapon(atk)
+	var_ctx["weapon_mass_kg"] = (
+		float(atk_weapon.mass)
+		if atk_weapon != null and (atk_weapon.get("mass") is float or atk_weapon.get("mass") is int)
+		else CombatConstants.ANGLE_VARIANCE_MASS_REFERENCE_KG
+	)
+	pa["attack_angle_deg"] = CombatConstants.get_attack_angle_deg(atk_line_base, true, move_def_pre, var_ctx)
+	pa["arc_end_deg"] = pa["attack_angle_deg"]
+	pa["attack_angle_deg"] = _Footwork.apply_offset_to_angle_deg(pa["attack_angle_deg"], atk)
+	pa["position_angle_offset_deg"] = _Footwork.get_attacker_offset_deg(atk)
+	pa["arc_span_deg"] = CombatConstants.angle_diff_deg(arc_start_deg, pa["attack_angle_deg"])
+
+
 static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var atk = manager._get_by_id(attacker_id)
 	if atk == null:
@@ -395,24 +423,17 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	# Angle-based: store attack_angle_deg for continuous trajectory (deflection, alignment, damage).
 	var move_def_pre: Dictionary = WeaponConstants.get_move(attack_type)
 	var atk_line_base: String = move_def_pre.get("attack_line", "high")
-	if CombatConstants.DIAGONAL_WEIGHTS.has(attack_type):
+	if not pa.get("passive_parry_attempted", false) and CombatConstants.DIAGONAL_WEIGHTS.has(attack_type):
 		var guard_line_def: String = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)
 		var weights: Variant = CombatConstants.DIAGONAL_WEIGHTS[attack_type].get(guard_line_def, {})
 		if weights is Dictionary and not weights.is_empty():
 			atk_line_base = _weighted_roll_attack_line(weights)
 		pa["effective_attack_line"] = atk_line_base
+	elif not pa.has("effective_attack_line"):
+		pa["effective_attack_line"] = atk_line_base
 	var arc_start: float = pa.get("arc_start_deg", CombatConstants.line_to_angle(atk_line_base))
-	var var_ctx: Dictionary = {}
-	var s: float = _EntityAccess.stamina_float(atk)
-	var_ctx["stamina_ratio"] = clampf(s / CombatConstants.STAMINA_MAX, 0.0, 1.0)
-	var_ctx["off_balance"] = _PassiveParry.is_off_balance(atk)
+	stamp_resolve_angle_geometry_on_pa(pa, atk, atk_line_base, move_def_pre, arc_start)
 	var atk_weapon = _EntityAccess.get_weapon(atk)
-	var_ctx["weapon_mass_kg"] = float(atk_weapon.mass) if atk_weapon != null and (atk_weapon.get("mass") is float or atk_weapon.get("mass") is int) else CombatConstants.ANGLE_VARIANCE_MASS_REFERENCE_KG
-	pa["attack_angle_deg"] = CombatConstants.get_attack_angle_deg(atk_line_base, true, move_def_pre, var_ctx)
-	pa["attack_angle_deg"] = _Footwork.apply_offset_to_angle_deg(pa["attack_angle_deg"], atk)
-	pa["position_angle_offset_deg"] = _Footwork.get_attacker_offset_deg(atk)
-	pa["arc_end_deg"] = pa["attack_angle_deg"]
-	pa["arc_span_deg"] = CombatConstants.angle_diff_deg(arc_start, pa["arc_end_deg"])
 
 	var zone_mult: float = _ZoneOfControl.get_engagement_parry_multiplier(manager, attacker_id, target_id)
 	pa["zone_engagement_parry_mult"] = zone_mult
@@ -488,7 +509,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		var def_weapon_hit = _EntityAccess.get_weapon(tgt)
 		var def_mass_hit: float = float(def_weapon_hit.mass) if def_weapon_hit != null and (def_weapon_hit.get("mass") is float or def_weapon_hit.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 		wobble_hit = {"parry_readiness": parry_readiness, "defender_mass_kg": def_mass_hit}
-	var guard_angle: float = CombatConstants.get_guard_angle_deg(tgt, wobble_hit)
+	var guard_angle: float = _Footwork.guard_angle_deg(tgt, wobble_hit)
 	var align_ctx: Dictionary = {"attack_angle_deg": atk_angle, "guard_angle_deg": guard_angle}
 	var hit_alignment: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx, wobble_hit)
 	var part: String = pa.get("partial_dodge_part", "")
@@ -518,6 +539,8 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		"depth_polearm_allows_low_targets": bool(pa.get("depth_polearm_allows_low_targets", true)),
 	}
 	_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa)
+	_Footwork.clear_position_offset(atk)
+	_Footwork.clear_position_offset(tgt)
 	atk.pending_attack = {}
 	var res: Dictionary = compute_and_apply_damage(
 		manager, attacker_id, target_id, atk, tgt, part,

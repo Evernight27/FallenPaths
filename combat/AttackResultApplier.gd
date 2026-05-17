@@ -41,6 +41,11 @@ static func _clear_attacker_pending_attack(atk: Dictionary, manager: Node) -> vo
 	atk.pending_attack = {}
 
 
+static func _clear_defender_footwork(tgt: Dictionary) -> void:
+	if tgt != null:
+		_Footwork.clear_position_offset(tgt)
+
+
 static func _abort_incoming_wind_up_if_target_died(manager: Node, target_id: int) -> void:
 	if manager == null or target_id < 0:
 		return
@@ -93,6 +98,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		if tgt != null:
 			tgt.alive = false
 			tgt.state = CombatConstants.STATE_DEAD
+			_clear_defender_footwork(tgt)
 		if atk != null:
 			# Resolver abort (e.g. no targetable parts): do not leave attacker stuck in WIND_UP with stale `pending_attack`.
 			_clear_attacker_pending_attack(atk, manager)
@@ -123,6 +129,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk.state_duration = result.recovery_duration
 			atk["off_balance_until"] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
 			_clear_attacker_pending_attack(atk, manager)
+		_clear_defender_footwork(tgt)
 		return
 	if action == "dodge":
 		empty_result["outcome"] = "dodge"
@@ -150,6 +157,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				CombatDebug.log("guard_line %s: -> %s (dodged %s)" % ["id:%d" % _EntityAccess.id_int(tgt), dodge_guard, atk_line])
 		if atk != null:
 			_clear_attacker_pending_attack(atk, manager)
+		_clear_defender_footwork(tgt)
 		return
 	if action == "parry_deflect":
 		if atk != null:
@@ -192,6 +200,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			_AIPicker.record_opp_parry_deflect_for_feint_listing(manager, atk, target_id)
 		if tgt != null:
 			_Attention.record_parry_deflect_on_attacker_memory(tgt, attacker_id)
+		_clear_defender_footwork(tgt)
 		manager.emit_signal("action_resolved", target_id, attacker_id, empty_result)
 		return
 	if action == "parry_partial":
@@ -213,7 +222,10 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				var def_w = _EntityAccess.get_weapon(tgt)
 				var def_mass_partial: float = float(def_w.mass) if def_w != null and (def_w.get("mass") is float or def_w.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 				var wob: Dictionary = {"parry_readiness": read, "defender_mass_kg": def_mass_partial}
-				align_ctx = {"attack_angle_deg": pa_partial["attack_angle_deg"], "guard_angle_deg": CombatConstants.get_guard_angle_deg(tgt, wob)}
+				align_ctx = {
+					"attack_angle_deg": pa_partial["attack_angle_deg"],
+					"guard_angle_deg": _Footwork.guard_angle_deg(tgt, wob),
+				}
 			var align: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx)
 			if align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
 				_GuardUpdater.set_guard_from_move(tgt, move_id, atk_line)
@@ -311,4 +323,5 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			_GuardUpdater.set_guard_from_line(tgt, "low")
 			if manager.has_method("apply_formation_hit_reaction_if_needed"):
 				manager.apply_formation_hit_reaction_if_needed(target_id, intensity)
+		_clear_defender_footwork(tgt)
 		return

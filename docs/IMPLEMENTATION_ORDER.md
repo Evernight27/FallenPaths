@@ -133,7 +133,7 @@ flowchart LR
 
 **Status column (Tier 1):** Same rule as **Single source of truth** (top). When you ship, edit this table first, then **`ENGAGEMENT_*`** §2 rows (mirror).
 
-**Next coding step (while `FEATURE_LINE_CRASH_INTRUSION` is false):** **Tier 4.4.2** defender step + playtest tuning (flag still default **off**) or Tier **5.1** optional long-tail — [§Tier 4.3](#tier-43-mental-stack--combat-attention) **Done**; **Tier 4.2** **Done** — [§Tier 4.2](#tier-42-feint-d-telegraph-ai). **Tier 5.1** exit-gated work is **Done** (optional long-tail + **Contents** scan remains **[ ]** in [§5.1](#tier-51-angles-damage-flow-audits)). If RNG behavior changes on another engine build, refresh afterblow harness seeds **0 / 1 / 2** (**`CombatRegressionHarness._AFTERBLOW_*_SEED`**). Keep **`run_all()`** green. **Tier 3.2** anchors: [§Tier 3.2](#tier-32-parry-bind-deflect) + **[Changelog](#changelog)**. **Parry distance (3.1):** [§Tier 3.1](#tier-31-strike-measure-stamped-geometry). **Flag true:** Tier **2.1** prose + intrusion verification (gate above). **Sector surround (3.1, default off):** **`is_feature_sector_surround_load`** — [Changelog](#changelog) **(af)**.
+**Next coding step (while `FEATURE_LINE_CRASH_INTRUSION` is false):** Tier **4.4** playtest + optional **`set_feature_position_angle_footwork_load(true)`** default-on sign-off, or Tier **5.1** optional long-tail — [§Tier 4.3](#tier-43-mental-stack--combat-attention) **Done**; **Tier 4.2** **Done** — [§Tier 4.2](#tier-42-feint-d-telegraph-ai). **Tier 5.1** exit-gated work is **Done** (optional long-tail + **Contents** scan remains **[ ]** in [§5.1](#tier-51-angles-damage-flow-audits)). If RNG behavior changes on another engine build, refresh afterblow harness seeds **0 / 1 / 2** (**`CombatRegressionHarness._AFTERBLOW_*_SEED`**). Keep **`run_all()`** green. **Tier 3.2** anchors: [§Tier 3.2](#tier-32-parry-bind-deflect) + **[Changelog](#changelog)**. **Parry distance (3.1):** [§Tier 3.1](#tier-31-strike-measure-stamped-geometry). **Flag true:** Tier **2.1** prose + intrusion verification (gate above). **Sector surround (3.1, default off):** **`is_feature_sector_surround_load`** — [Changelog](#changelog) **(af)**.
 
 **Telemetry lock:** counters + tactical↔harness snapshot checks + **`CombatRegressionHarness`** multi-seed (**classifier**, **attrition monotone**, **cold-start telemetry** vs resolved mode) are in place; long scheduled UI soak / playtest passes remain optional before Option 4.
 
@@ -652,7 +652,7 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 ### Tier 4.4 — Spatial footwork
 
-**Status:** **Partial** — **4.4.1** step-on-attack pilot (feature-flagged, default **off**).
+**Status:** **Partial** — **4.4.1–4.4.3** shipped (feature-flagged, default **off**); playtest / default-on deferred.
 
 **Scope:** Investigation FOOTWORK §3.3–3.4 — **position-angle offset**, step-on-attack, symmetric defender step. **Note:** pair **`distance_to`** CLOSE/MID/LONG + **`DEFENSE_SPACING_*`** already shipped under **4.2**.
 
@@ -676,7 +676,37 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 - [x] Offset shifts attack angle — harness **`_run_footwork_offset_shifts_attack_angle_deg`** (**`(sab)`**).
 - [x] **`CombatManager.start()`** scrubs offset — harness **`_run_footwork_offset_scrubbed_on_combat_start`** (**`(sac)`**).
 
-**Deferred (4.4.2+):** symmetric defender step on parry/dodge; UI position display; production default **on** after playtest.
+#### 4.4.2 — Defender step on parry/dodge
+
+| Piece | Module |
+|-------|--------|
+| **`CombatFootwork.gd`** | **`apply_defender_step_on_parry`**, **`apply_defender_step_on_dodge`**, **`guard_angle_deg`** |
+| **`DefenseChoiceResolver`** | Parry alignment uses **`guard_angle_deg`**; commits parry vs dodge step at defense pick |
+| **`DefenseResolutionHandler`** / **`AttackResolver`** | Parry/hit alignment + clash context use footwork guard angle |
+| **`AttackResultApplier`** | **`_clear_defender_footwork`** on dodge / parry_deflect / miss / hit |
+
+**Exit criteria (4.4.2)**
+
+- [x] Parry commits scaled offset from **`guard_line`** — harness **`_run_footwork_defender_parry_step_stamps_offset`** (**`(sad)`**).
+- [x] Offset shifts guard angle — harness **`_run_footwork_defender_offset_shifts_guard_angle_deg`** (**`(sae)`**).
+- [x] Dodge commits scaled offset from eval-part line — harness **`_run_footwork_defender_dodge_step_stamps_offset`** (**`(saf)`**).
+- [x] Exchange end scrubs defender offset — harness **`_run_footwork_defender_offset_scrubbed_after_exchange`** (**`(sag)`**).
+
+#### 4.4.3 — UI position display
+
+| Piece | Module |
+|-------|--------|
+| **`CombatFootwork.gd`** | **`format_position_angle_ui_hint`**, **`refresh_ui_hint`** (stamped on step / clear) |
+| **`BattleUIUpdater.gd`** | Appends hint on wind-up, recovering, waiting (with attention/tempo) |
+| **`CombatCombatantsSnapshot.gd`** | Exposes **`position_angle_offset_deg`** + **`position_angle_ui_hint`** when flag on |
+
+**Exit criteria (4.4.3)**
+
+- [x] Offset formats signed degrees — harness **`_run_footwork_ui_hint_formats_offset`** (**`(sah)`**).
+- [x] Clear offset clears hint key — harness **`_run_footwork_ui_hint_clears_on_clear_position_offset`** (**`(sai)`**).
+- [x] Snapshot includes hint when enabled — harness **`_run_footwork_snapshot_includes_position_hint_when_enabled`** (**`(saj)`**).
+
+**Deferred:** production default **on** after playtest.
 
 **Regression index:** **`_run_footwork_*`** in `combat/CombatRegressionHarness.gd`.
 

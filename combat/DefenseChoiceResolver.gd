@@ -133,6 +133,7 @@ static func choose_defense(
 			var reaction_time: float = tgt_n.get_passive_parry_reaction_time()
 			if reaction_time < effective_wind_up and atk_weapon != null:
 				can_parry_in_time = true
+				var parry_eval_step_deg: float = _Footwork.parry_eval_step_deg_for_defender(tgt)
 				var move_def: Dictionary = WeaponConstants.get_move(attack_type)
 				var contact_type: String = str(move_def.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
 				var m_a_striking: float = float(atk_weapon.get_striking_part_mass_kg(contact_type)) if atk_weapon.has_method("has_parts") and atk_weapon.has_parts() else float(atk_weapon.mass)
@@ -172,7 +173,7 @@ static func choose_defense(
 				# Arc tracking: weapon angle at parry_progress = where blade will be when defender meets it.
 				var align_ctx: Dictionary = {}
 				var arc_start: float = pa.get("arc_start_deg", 0.0)
-				var arc_end: float = pa.get("arc_end_deg", pa.get("attack_angle_deg", -999.0))
+				var arc_end: float = CombatConstants.arc_end_deg_for_contact_geometry(pa)
 				if arc_end >= -900.0:
 					var attack_angle_at_contact: float = CombatConstants.get_arc_angle_at_progress(
 						arc_start, arc_end, parry_progress
@@ -182,7 +183,12 @@ static func choose_defense(
 					)
 					var def_mass: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 					var wobble: Dictionary = {"parry_readiness": pr_guard_feint, "defender_mass_kg": def_mass}
-					align_ctx = {"attack_angle_deg": attack_angle_at_contact, "guard_angle_deg": CombatConstants.get_guard_angle_deg(tgt, wobble)}
+					align_ctx = {
+						"attack_angle_deg": attack_angle_at_contact,
+						"guard_angle_deg": _Footwork.guard_angle_deg_with_step_deg(
+							tgt, wobble, parry_eval_step_deg
+						),
+					}
 				var _al: float = _get_line_alignment(attack_type, tgt, pa.get("effective_attack_line", ""), align_ctx)
 				parry_c_d *= _get_contact_geometry(_al, def_weapon)
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
@@ -201,6 +207,7 @@ static func choose_defense(
 				# Late parry: reflexive/partial contact when "too late"
 				can_parry_in_time = true
 				late_parry = true
+				var parry_eval_step_deg_late: float = _Footwork.parry_eval_step_deg_for_defender(tgt)
 				var move_def_late: Dictionary = WeaponConstants.get_move(attack_type)
 				var contact_type_late: String = str(move_def_late.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
 				var m_a_striking_late: float = float(atk_weapon.get_striking_part_mass_kg(contact_type_late)) if atk_weapon.has_method("has_parts") and atk_weapon.has_parts() else float(atk_weapon.mass)
@@ -247,7 +254,7 @@ static func choose_defense(
 				# BP2: angle-based alignment for late parry. Arc at progress 1.0 = impact (blade at arc_end).
 				var align_ctx_late: Dictionary = {}
 				var arc_start_late: float = pa.get("arc_start_deg", 0.0)
-				var arc_end_late: float = pa.get("arc_end_deg", pa.get("attack_angle_deg", -999.0))
+				var arc_end_late: float = CombatConstants.arc_end_deg_for_contact_geometry(pa)
 				if arc_end_late >= -900.0:
 					var attack_angle_at_impact: float = CombatConstants.get_arc_angle_at_progress(
 						arc_start_late, arc_end_late, 1.0
@@ -257,7 +264,12 @@ static func choose_defense(
 					)
 					var def_mass_late: float = float(def_weapon.mass) if (def_weapon.get("mass") is float or def_weapon.get("mass") is int) else WeaponConstants.BASELINE_MASS_KG
 					var wobble_late: Dictionary = {"parry_readiness": pr_guard_feint_late, "defender_mass_kg": def_mass_late}
-					align_ctx_late = {"attack_angle_deg": attack_angle_at_impact, "guard_angle_deg": CombatConstants.get_guard_angle_deg(tgt, wobble_late)}
+					align_ctx_late = {
+						"attack_angle_deg": attack_angle_at_impact,
+						"guard_angle_deg": _Footwork.guard_angle_deg_with_step_deg(
+							tgt, wobble_late, parry_eval_step_deg_late
+						),
+					}
 				var _al: float = _get_line_alignment(attack_type, tgt, pa.get("effective_attack_line", ""), align_ctx_late)
 				parry_c_d *= _get_contact_geometry(_al, def_weapon)
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
@@ -368,6 +380,15 @@ static func choose_defense(
 		var dodge_better: bool = E_dodge < E_parry
 		var clean_dodge_likely: bool = full_dodge_prob >= CombatConstants.PARRY_PREFER_DODGE_FULL_THRESHOLD
 		choose_parry = late_parry or ((block_viable or redirect_viable) and not dodge_better and not clean_dodge_likely)
+	if choose_parry:
+		_Footwork.apply_defender_step_on_parry(
+			tgt, str(tgt.get("guard_line", CombatConstants.GUARD_DEFAULT))
+		)
+	elif def_has_weapon:
+		_Footwork.clear_position_offset(tgt)
+		_Footwork.apply_defender_step_on_dodge(tgt, result.dodge_eval_part)
+	else:
+		_Footwork.clear_position_offset(tgt)
 	result.defense = "parry" if choose_parry else "dodge"
 	return result
 
