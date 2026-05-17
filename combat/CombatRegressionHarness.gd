@@ -437,6 +437,9 @@ static func run_all() -> Dictionary:
 	_run_medical_mobility_cowering_resolve_solo_fall_back_without_movement_policy(failures)
 	_run_medical_mobility_cowering_depth_lists_wait_not_fall_back(failures)
 	_run_medical_mobility_cowering_player_retreat_ui_hint(failures)
+	_run_medical_mobility_cowering_ai_fall_back_weight_beats_wait(failures)
+	_run_medical_mobility_cowering_ai_pick_favors_fall_back(failures)
+	_run_medical_mobility_cowering_arm_recovery_clears_state(failures)
 	_run_medical_pain_shock_susceptibility_mult_from_effective_pain(failures)
 	_run_bind_riposte_contact_types_normalized(failures)
 	_run_bind_riposte_contact_multipliers(failures)
@@ -13650,6 +13653,16 @@ static func _harness_destroy_limb(entity: CoreEntity, part: String) -> void:
 		entity.bone_health[part] = 0.0
 
 
+static func _harness_restore_limb(entity: CoreEntity, part: String) -> void:
+	if not entity.body_max.has(part):
+		return
+	var mx: float = float(entity.body_max[part])
+	entity.body_cutting[part] = mx
+	entity.body_blunt[part] = mx
+	if entity.bone_health.has(part) and entity.bone_max.has(part):
+		entity.bone_health[part] = float(entity.bone_max[part])
+
+
 ## Tier 6.1: **`can_flee_or_fall_back`** — leg **`MOBILITY_FLEE_THRESHOLD`** and unconscious gate.
 static func _run_medical_mobility_can_flee_leg_and_consciousness(failures: PackedStringArray) -> void:
 	var mobile: CoreEntity = _new_entity("SWORD")
@@ -14033,6 +14046,57 @@ static func _run_medical_mobility_cowering_player_retreat_ui_hint(
 	)
 	if not enemy_hint.is_empty():
 		_fail(failures, "med_mobility_hint: enemy must not get player retreat hint")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.1: cowering solo **fall_back** AI weight exceeds **wait** so mobile no-arms units retreat when legal.
+static func _run_medical_mobility_cowering_ai_fall_back_weight_beats_wait(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE},
+		{"files": 1, "ranks": 1}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	c.state = CombatConstants.STATE_COWERING
+	c.gauge = 100.0
+	var cid: int = _EntityAccess.id_int(c)
+	var acts: Array = _ActionsBuilder.build(mgr, cid)
+	var fb_act: Dictionary = {}
+	var wait_act: Dictionary = {}
+	for a in acts:
+		var mid: String = str(a.get("move_id", ""))
+		if mid == CombatConstants.MOVE_ID_FALL_BACK:
+			fb_act = a
+		elif mid == CombatConstants.MOVE_ID_WAIT:
+			wait_act = a
+	if fb_act.is_empty() or wait_act.is_empty():
+		_fail(
+			failures,
+			"med_mobility_ai_w: want fall_back+wait in build got %s" % str(acts)
+		)
+		return
+	var w_fb: float = CombatAIActionPicker._get_action_weight(fb_act, cid, mgr, true)
+	var w_wait: float = CombatAIActionPicker._get_action_weight(wait_act, cid, mgr, true)
+	if w_fb <= w_wait:
+		_fail(
+			failures,
+			"med_mobility_ai_w: cowering fall_back want > wait got fb=%.3f wait=%.3f"
+			% [w_fb, w_wait]
+		)
+	if absf(w_fb - CombatConstants.COWERING_SOLO_FALL_BACK_AI_WEIGHT) > 0.001:
+		_fail(
+			failures,
+			"med_mobility_ai_w: want COWERING_SOLO_FALL_BACK_AI_WEIGHT got %.3f"
+			% w_fb
+		)
 	_free_manager_restore_global_rng(mgr)
 
 

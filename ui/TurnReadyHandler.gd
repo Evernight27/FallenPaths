@@ -22,6 +22,9 @@ static func handle(manager: Node, combatant_id: int) -> void:
 	var crash_hint: String = _ActionsBuilder.player_crash_absence_hint_if_missing(manager, me, actions)
 	if not crash_hint.is_empty() and manager.has_method("notify_combat_ui_hint"):
 		manager.notify_combat_ui_hint(crash_hint)
+	var retreat_hint: String = _ActionsBuilder.player_cowering_retreat_hint_if_applicable(manager, me, actions)
+	if not retreat_hint.is_empty() and manager.has_method("notify_combat_ui_hint"):
+		manager.notify_combat_ui_hint(retreat_hint)
 	if actions.is_empty():
 		# No valid actions (e.g. reserve rank with no swap/melee, out of range, medical phase with no wounded).
 		# Skip turn instead of attacking — we cannot perform any action.
