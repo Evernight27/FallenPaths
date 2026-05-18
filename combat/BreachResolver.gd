@@ -25,32 +25,32 @@ static func contest_crash(manager: Node, attacker_id: int, defender_id: int) -> 
 		"drive": 0.0,
 		"hold": 0.0,
 	}
-	if manager == null or not manager.has_method("_get_by_id"):
+	if manager == null:
 		return out
-	var atk: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(attacker_id))
-	var def: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(defender_id))
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	var def: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
 	if atk.is_empty() or def.is_empty():
 		return out
-	if not _EntityAccess.alive_bool(atk) or not _EntityAccess.alive_bool(def):
-		return out
-	if _EntityAccess.side_str(atk) == _EntityAccess.side_str(def):
+	if not _EntityAccess.are_alive_opponents(atk, def):
 		return out
 	if _EntityAccess.is_incapacitated(atk) or _EntityAccess.is_incapacitated(def):
 		return out
 	var old_depth: int = _EntityAccess.tactical_penetration_depth_int(atk)
-	var fid_geom: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, def)
-	var formation_def: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, def, fid_geom)
+	var ctx_def: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, def)
+	var fid_geom: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_def)
+	var formation_def: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_def)
 	if old_depth >= CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX:
 		out["tactical_penetration_depth"] = old_depth
 		out["defender_file"] = _EntityAccess.file_int(def)
 		out["defender_formation_id"] = fid_geom
 		return out
 
-	var weapon = _EntityAccess.get_weapon(atk)
-	var melee_range: float = float(weapon.melee_range) if weapon != null else 1.5
-	var fid_atk_geom: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, atk)
-	var fd_atk: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, atk, fid_atk_geom)
-	var eff_dist: float = _PairGeometry.effective_pair_eff_dist(manager, atk, def, fd_atk, formation_def)
+	var melee_range: float = _EntityAccess.weapon_melee_reach(atk)
+	var ctx_atk: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, atk)
+	var fd_atk: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_atk)
+	var eff_dist: float = _PairGeometry.cached_eff_dist(
+		_PairGeometry.effective_pair_geometry(manager, atk, def, fd_atk, formation_def)
+	)
 	var reach_ratio: float = clampf(
 		melee_range / maxf(eff_dist, 0.4),
 		CombatConstants.CRASH_DRIVE_REACH_MIN,

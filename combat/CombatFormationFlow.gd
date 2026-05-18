@@ -31,6 +31,7 @@ const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _Timing := preload("res://combat/CombatTiming.gd")
 const _VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
+const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 
 
 ## Tier 1.3 P4: after rank/file changes from plugs or formation moves, keep `lane_offset` bounded (Â§4.2 repack).
@@ -102,22 +103,53 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
 static func apply_hit_reaction_if_needed(manager: Node, combatant_id: int, intensity: float = 0.5) -> void:
 	if MedicalPhaseController.combat_resolution_blocked(manager):
 		return
-	var c = manager._get_by_id(combatant_id)
-	if c == null or not _EntityAccess.alive_bool(c):
+	var c = _EntityAccess.manager_get_combatant(manager, combatant_id)
+	if c.is_empty() or not _EntityAccess.alive_bool(c):
 		return
 	var st: String = _EntityAccess.state_str(c)
 	if st != CombatConstants.STATE_SWAP_RANK and st != CombatConstants.STATE_FALLING_BACK:
+		return
+	if intensity >= CombatConstants.FORMATION_HIT_CANCEL_INTENSITY:
+		cancel_formation_move_from_hit(manager, combatant_id, intensity)
 		return
 	var extra: float = CombatConstants.FORMATION_HIT_REACTION_EXTRA_S * lerpf(0.4, 1.2, clampf(intensity, 0.0, 1.0))
 	c.state_duration += extra
 	var pid: int = int(c.get("formation_move_partner_id", -1))
 	if pid >= 0:
-		var p = manager._get_by_id(pid)
-		if p != null and _EntityAccess.alive_bool(p):
+		var p = _EntityAccess.manager_get_combatant(manager, pid)
+		if not p.is_empty() and _EntityAccess.alive_bool(p):
 			var pst: String = _EntityAccess.state_str(p)
 			if pst == CombatConstants.STATE_SWAP_RANK or pst == CombatConstants.STATE_FALLING_BACK:
 				p.state_duration += extra
 	bump_resolve_events(manager, combatant_id, extra)
+
+
+## Hard hit during **`STATE_SWAP_RANK`** / **`STATE_FALLING_BACK`**: abort pair or solo move and drop pending resolves.
+static func cancel_formation_move_from_hit(
+	manager: Node, combatant_id: int, intensity: float = 1.0
+) -> void:
+	if MedicalPhaseController.combat_resolution_blocked(manager):
+		return
+	var c = _EntityAccess.manager_get_combatant(manager, combatant_id)
+	if c.is_empty() or not _EntityAccess.alive_bool(c):
+		return
+	var st: String = _EntityAccess.state_str(c)
+	if st != CombatConstants.STATE_SWAP_RANK and st != CombatConstants.STATE_FALLING_BACK:
+		return
+	var pid: int = int(c.get("formation_move_partner_id", -1))
+	_EventScheduler.cancel_pending_formation_events_for_combatant(manager, combatant_id)
+	if pid >= 0:
+		_EventScheduler.cancel_pending_formation_events_for_combatant(manager, pid)
+		var partner = _EntityAccess.manager_get_combatant(manager, pid)
+		abort_pair(manager, c, partner, "hit_cancel intensity=%.2f" % intensity)
+		if _EntityAccess.alive_bool(c):
+			_EventScheduler.schedule_action_ready_for_combatant(manager, c)
+		if not partner.is_empty() and _EntityAccess.alive_bool(partner):
+			_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
+	else:
+		abort_solo_formation_move(manager, c, "hit_cancel intensity=%.2f" % intensity)
+		if _EntityAccess.alive_bool(c):
+			_EventScheduler.schedule_action_ready_for_combatant(manager, c)
 
 
 static func bump_resolve_events(manager: Node, for_combatant_id: int, extra_s: float) -> void:
@@ -147,15 +179,18 @@ static func bump_resolve_events(manager: Node, for_combatant_id: int, extra_s: f
 static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, move_kind: String) -> void:
 	if MedicalPhaseController.combat_resolution_blocked(manager):
 		return
-	var init = manager._get_by_id(initiator_id)
-	var partner = manager._get_by_id(partner_id)
-	if init == null or partner == null or not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
+	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
+	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
+	if init.is_empty() or partner.is_empty() or not _EntityAccess.are_both_alive(init, partner):
 		return
 	if _ZoneOfControl.is_intruded(init):
 		return
 	if _ZoneOfControl.is_intruded(partner):
 		return
-	if _EntityAccess.side_str(init) != _EntityAccess.side_str(partner) or _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
+	if (
+		not _EntityAccess.is_living_same_side(init, partner)
+		or _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner)
+	):
 		return
 	var fid: String = _EntityAccess.formation_id_str(init)
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
@@ -169,13 +204,9 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 		return
 	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
 	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
-	var agi: float = float(_EntityAccess.stats_dict(init).get("agility", 100))
-	var kind_mult: float = CombatConstants.DRAG_BACK_DURATION_MULT if move_kind == "drag_back" else 1.0
-	var armor_mult: float = maxf(
-		_Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init)),
-		_Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(partner))
+	var duration: float = _MoveDuration.estimate_adjacent_rank_pair_duration_s(
+		manager, init, partner, move_kind
 	)
-	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * kind_mult * armor_mult
 	var use_falling: bool = move_kind == "drag_back" or move_kind == "fall_back_pair"
 	var st: String = CombatConstants.STATE_FALLING_BACK if use_falling else CombatConstants.STATE_SWAP_RANK
 	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
@@ -200,10 +231,10 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 			% [n0, initiator_id, move_kind, n1, partner_id, duration, lane_foot, pressure_mod]
 		)
 	_EventScheduler.cancel_pending_swap_rank_pair_events(manager, initiator_id, partner_id)
-	manager._schedule_event({
+	_EntityAccess.manager_schedule_event(manager, {
 		"type": CombatConstants.EVENT_SWAP_RANK_RESOLVE,
 		"combatant_id": initiator_id,
-		"resolve_at": manager.combat_clock + duration,
+		"resolve_at": _EntityAccess.combat_clock_plus(manager, duration),
 		"data": {"partner_id": partner_id, "move_kind": move_kind}
 	})
 
@@ -211,8 +242,8 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 	if MedicalPhaseController.combat_resolution_blocked(manager):
 		return
-	var init = manager._get_by_id(initiator_id)
-	if init == null or not _EntityAccess.alive_bool(init):
+	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
+	if init.is_empty() or not _EntityAccess.alive_bool(init):
 		return
 	if _ZoneOfControl.is_intruded(init):
 		return
@@ -229,9 +260,7 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 		return
 	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
 	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
-	var agi: float = float(_EntityAccess.stats_dict(init).get("agility", 100))
-	var armor_mult: float = _Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init))
-	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * armor_mult
+	var duration: float = _MoveDuration.estimate_solo_fall_back_duration_s(manager, init)
 	init["formation_move_partner_id"] = -1
 	init.state = CombatConstants.STATE_FALLING_BACK
 	init.state_timer = 0.0
@@ -239,10 +268,10 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 	if CombatDebug.flow_verbose_enabled():
 		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
 		CombatDebug.flow_log("fall_back_solo_start %s (%d) (%.2fs)" % [n0, initiator_id, duration])
-	manager._schedule_event({
+	_EntityAccess.manager_schedule_event(manager, {
 		"type": CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE,
 		"combatant_id": initiator_id,
-		"resolve_at": manager.combat_clock + duration,
+		"resolve_at": _EntityAccess.combat_clock_plus(manager, duration),
 		"data": {}
 	})
 
@@ -250,15 +279,18 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int) -> void:
 	if MedicalPhaseController.combat_resolution_blocked(manager):
 		return
-	var init = manager._get_by_id(initiator_id)
-	var partner = manager._get_by_id(partner_id)
-	if init == null or partner == null or not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
+	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
+	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
+	if init.is_empty() or partner.is_empty() or not _EntityAccess.are_both_alive(init, partner):
 		return
 	if _ZoneOfControl.is_intruded(init):
 		return
 	if _ZoneOfControl.is_intruded(partner):
 		return
-	if _EntityAccess.side_str(init) != _EntityAccess.side_str(partner) or _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
+	if (
+		not _EntityAccess.is_living_same_side(init, partner)
+		or _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner)
+	):
 		return
 	var r_init: int = _EntityAccess.rank_int(init)
 	var r_partner: int = _EntityAccess.rank_int(partner)
@@ -271,12 +303,7 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 	var fid: String = _EntityAccess.formation_id_str(init)
 	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
 	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
-	var agi: float = float(_EntityAccess.stats_dict(init).get("agility", 100))
-	var armor_mult: float = maxf(
-		_Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(init)),
-		_Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(partner))
-	)
-	var duration: float = CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi)) * lane_foot * pressure_mod * armor_mult
+	var duration: float = _MoveDuration.estimate_rotate_file_duration_s(manager, init, partner)
 	init["formation_move_partner_id"] = partner_id
 	partner["formation_move_partner_id"] = initiator_id
 	init.state = CombatConstants.STATE_SWAP_RANK
@@ -289,28 +316,28 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
 		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
 		CombatDebug.flow_log("rotate_file_start %s (%d) <-> %s (%d) (%.2fs)" % [n0, initiator_id, n1, partner_id, duration])
-	manager._schedule_event({
+	_EntityAccess.manager_schedule_event(manager, {
 		"type": CombatConstants.EVENT_ROTATE_FILE_RESOLVE,
 		"combatant_id": initiator_id,
-		"resolve_at": manager.combat_clock + duration,
+		"resolve_at": _EntityAccess.combat_clock_plus(manager, duration),
 		"data": {"partner_id": partner_id}
 	})
 
 
 static func pair_state_ok(c) -> bool:
-	return c != null and _EntityAccess.state_str(c) in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]
+	return not c.is_empty() and _EntityAccess.state_str(c) in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]
 
 
 static func abort_pair(manager: Node, init, partner, reason: String = "") -> void:
-	var iid: int = _EntityAccess.id_int(init) if init != null else -1
-	var pid: int = _EntityAccess.id_int(partner) if partner != null else -1
+	var iid: int = _EntityAccess.id_int(init) if not init.is_empty() else -1
+	var pid: int = _EntityAccess.id_int(partner) if not partner.is_empty() else -1
 	var rs: String = (" reason=%s" % reason) if not reason.is_empty() else ""
 	CombatDebug.flow_log("formation_pair abort (reset to waiting) initiator_id=%d partner_id=%d%s" % [iid, pid, rs])
-	if init != null:
+	if not init.is_empty():
 		init.erase("formation_move_partner_id")
-	if partner != null:
+	if not partner.is_empty():
 		partner.erase("formation_move_partner_id")
-	if init != null and partner != null:
+	if not init.is_empty() and not partner.is_empty():
 		var fid: String = _EntityAccess.formation_id_str(init)
 		if not fid.is_empty() and _EntityAccess.formation_id_str(init) == _EntityAccess.formation_id_str(partner):
 			var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
@@ -324,16 +351,30 @@ static func abort_pair(manager: Node, init, partner, reason: String = "") -> voi
 			manager._recompute_zoc_and_distance()
 			manager.notify_formation_changed(fid)
 			manager._reschedule_back_rank_turns(fid)
-	if init != null and _EntityAccess.alive_bool(init) and pair_state_ok(init):
+	if not init.is_empty() and _EntityAccess.alive_bool(init) and pair_state_ok(init):
 		init.state = CombatConstants.STATE_WAITING
-	if partner != null and _EntityAccess.alive_bool(partner) and pair_state_ok(partner):
+	if not partner.is_empty() and _EntityAccess.alive_bool(partner) and pair_state_ok(partner):
 		partner.state = CombatConstants.STATE_WAITING
 	# Keep a brief local guard after abort so the same pair does not instantly requeue under churn.
-	var until: float = float(manager.combat_clock) + 0.7
-	if init != null and _EntityAccess.alive_bool(init):
+	var until: float = _EntityAccess.combat_clock_float(manager) + 0.7
+	if not init.is_empty() and _EntityAccess.alive_bool(init):
 		init["formation_pair_abort_cooldown_until"] = until
-	if partner != null and _EntityAccess.alive_bool(partner):
+	if not partner.is_empty() and _EntityAccess.alive_bool(partner):
 		partner["formation_pair_abort_cooldown_until"] = until
+
+
+static func abort_solo_formation_move(manager: Node, init, reason: String = "") -> void:
+	var iid: int = _EntityAccess.id_int(init) if not init.is_empty() else -1
+	var rs: String = (" reason=%s" % reason) if not reason.is_empty() else ""
+	CombatDebug.flow_log("formation_solo abort (reset to waiting) id=%d%s" % [iid, rs])
+	if init.is_empty():
+		return
+	init.erase("formation_move_partner_id")
+	if _EntityAccess.alive_bool(init) and _EntityAccess.state_str(init) == CombatConstants.STATE_FALLING_BACK:
+		init.state = CombatConstants.STATE_WAITING
+	var until: float = _EntityAccess.combat_clock_float(manager) + 0.7
+	if _EntityAccess.alive_bool(init):
+		init["formation_pair_abort_cooldown_until"] = until
 
 
 static func _formation_resolve_medical_phase_skip(
@@ -341,10 +382,10 @@ static func _formation_resolve_medical_phase_skip(
 ) -> bool:
 	if not MedicalPhaseController.should_skip_formation_resolve(manager, initiator_id, partner_id):
 		return false
-	var init = manager._get_by_id(initiator_id)
-	var partner = manager._get_by_id(partner_id) if partner_id >= 0 else null
+	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
+	var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, partner_id)
 	for c in [init, partner]:
-		if c == null or not _EntityAccess.alive_bool(c):
+		if c.is_empty() or not _EntityAccess.alive_bool(c):
 			continue
 		c.state = CombatConstants.STATE_WAITING
 		c.state_timer = 0.0
@@ -361,30 +402,30 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	var move_kind: String = data.get("move_kind", "swap_rank")
 	if _formation_resolve_medical_phase_skip(manager, initiator_id, partner_id):
 		return
-	var init = manager._get_by_id(initiator_id)
-	var partner = manager._get_by_id(partner_id)
-	if init == null:
-		if partner != null and pair_state_ok(partner):
+	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
+	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
+	if init.is_empty():
+		if not partner.is_empty() and pair_state_ok(partner):
 			partner.state = CombatConstants.STATE_WAITING
 		return
-	if partner == null:
+	if partner.is_empty():
 		if pair_state_ok(init):
 			init.state = CombatConstants.STATE_WAITING
 		return
-	if not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
+	if not _EntityAccess.are_both_alive(init, partner):
 		abort_pair(manager, init, partner, "swap_rank_resolve_not_alive")
-		if init != null and _EntityAccess.alive_bool(init):
+		if not init.is_empty() and _EntityAccess.alive_bool(init):
 			_EventScheduler.schedule_action_ready_for_combatant(manager, init)
-		if partner != null and _EntityAccess.alive_bool(partner):
+		if not partner.is_empty() and _EntityAccess.alive_bool(partner):
 			_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
 		return
 	if not pair_state_ok(init) or not pair_state_ok(partner):
-		var si: String = _EntityAccess.state_str(init) if init != null else "null"
-		var sp: String = _EntityAccess.state_str(partner) if partner != null else "null"
+		var si: String = _EntityAccess.state_str(init) if not init.is_empty() else "null"
+		var sp: String = _EntityAccess.state_str(partner) if not partner.is_empty() else "null"
 		abort_pair(manager, init, partner, "swap_rank_resolve_pair_state init=%s partner=%s" % [si, sp])
-		if init != null and _EntityAccess.alive_bool(init):
+		if not init.is_empty() and _EntityAccess.alive_bool(init):
 			_EventScheduler.schedule_action_ready_for_combatant(manager, init)
-		if partner != null and _EntityAccess.alive_bool(partner):
+		if not partner.is_empty() and _EntityAccess.alive_bool(partner):
 			_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
 		return
 	var fid: String = _EntityAccess.formation_id_str(init)
@@ -418,7 +459,7 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	init.erase("formation_move_partner_id")
 	partner.erase("formation_move_partner_id")
 	# Mirror CombatConstants rotate anti-thrash window; keep literal fallback to avoid stale analyzer symbol caches.
-	var rotate_cd_until: float = float(manager.combat_clock) + 0.8
+	var rotate_cd_until: float = _EntityAccess.combat_clock_float(manager) + 0.8
 	init["formation_rotate_file_cooldown_until"] = rotate_cd_until
 	partner["formation_rotate_file_cooldown_until"] = rotate_cd_until
 	init.state = CombatConstants.STATE_WAITING
@@ -443,7 +484,7 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)
 	_EventScheduler.schedule_action_ready_for_combatant(manager, init)
-	if partner != null and _EntityAccess.alive_bool(partner) and not _EntityAccess.is_incapacitated(partner):
+	if not partner.is_empty() and _EntityAccess.is_standing_combatant(partner):
 		_EventScheduler.schedule_action_ready(
 			manager, partner_id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S
 		)
@@ -453,8 +494,8 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 	var initiator_id: int = ev.get("combatant_id", -1)
 	if _formation_resolve_medical_phase_skip(manager, initiator_id):
 		return
-	var init = manager._get_by_id(initiator_id)
-	if init == null or not _EntityAccess.alive_bool(init):
+	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
+	if init.is_empty() or not _EntityAccess.alive_bool(init):
 		return
 	if _EntityAccess.state_str(init) != CombatConstants.STATE_FALLING_BACK:
 		return
@@ -492,18 +533,18 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 		partner_id = int((ev_data as Dictionary).get("partner_id", -1))
 	if _formation_resolve_medical_phase_skip(manager, initiator_id, partner_id):
 		return
-	var init = manager._get_by_id(initiator_id)
-	var partner = manager._get_by_id(partner_id)
-	if init == null or partner == null or not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
+	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
+	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
+	if init.is_empty() or partner.is_empty() or not _EntityAccess.are_both_alive(init, partner):
 		abort_pair(manager, init, partner, "rotate_file_resolve_null_or_dead")
 		return
 	if not pair_state_ok(init) or not pair_state_ok(partner):
-		var si2: String = _EntityAccess.state_str(init) if init != null else "null"
-		var sp2: String = _EntityAccess.state_str(partner) if partner != null else "null"
+		var si2: String = _EntityAccess.state_str(init) if not init.is_empty() else "null"
+		var sp2: String = _EntityAccess.state_str(partner) if not partner.is_empty() else "null"
 		abort_pair(manager, init, partner, "rotate_file_resolve_pair_state init=%s partner=%s" % [si2, sp2])
-		if init != null and _EntityAccess.alive_bool(init):
+		if not init.is_empty() and _EntityAccess.alive_bool(init):
 			_EventScheduler.schedule_action_ready_for_combatant(manager, init)
-		if partner != null and _EntityAccess.alive_bool(partner):
+		if not partner.is_empty() and _EntityAccess.alive_bool(partner):
 			_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
 		return
 	var fid: String = _EntityAccess.formation_id_str(init)
@@ -606,7 +647,7 @@ static func _nudge_anchor_rank0_lane_offset_for_intrusion(
 	anchor_file: int,
 	intruder_id: int
 ) -> void:
-	if manager == null or not manager.has_method("_get_by_id"):
+	if manager == null:
 		return
 	var form_b: Dictionary = _FormationSlots.formation_record_for_manager(manager, defender_formation_id)
 	if form_b.is_empty():
@@ -617,15 +658,15 @@ static func _nudge_anchor_rank0_lane_offset_for_intrusion(
 		var cid: int = int(did)
 		if cid == intruder_id:
 			continue
-		var defc: Variant = manager._get_by_id(cid)
-		if defc == null or not _EntityAccess.alive_bool(defc as Dictionary):
+		var defc: Dictionary = _EntityAccess.manager_get_combatant(manager, cid)
+		if defc.is_empty() or not _EntityAccess.alive_bool(defc):
 			continue
 		var d: Dictionary = defc as Dictionary
 		if _ZoneOfControl.is_intruded(d):
 			continue
 		if _EntityAccess.rank_int(d) != 0:
 			continue
-		if _EntityAccess.formation_id_str(d) != defender_formation_id:
+		if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, d, defender_formation_id):
 			continue
 		var cur: float = _EntityAccess.lane_offset_float(d)
 		d["lane_offset"] = clampf(
@@ -639,15 +680,16 @@ static func _nudge_anchor_rank0_lane_offset_for_intrusion(
 static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 	_IntrusionWedge.remove_intruder_from_all_wedges(manager, _EntityAccess.id_int(c))
 	var fid_home: String = _EntityAccess.formation_id_str(c)
-	var fid_geom: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
-	# Intruders may occupy host `slots` while `formation_id` stays home â€” strip from every formation first.
+	var ctx_geom: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, c)
+	var fid_geom: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_geom)
+	# Intruders may occupy host `slots` while `formation_id` stays home — strip from every formation first.
 	for fk in manager.formations.keys():
 		var fd: Dictionary = _FormationSlots.formation_record_for_manager(manager, str(fk))
 		if fd.is_empty():
 			continue
 		var s: Dictionary = _FormationSlots.formation_slots_dict(fd)
 		_FormationSlots.remove_combatant_from_slots(s, _EntityAccess.id_int(c))
-	var formation: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, fid_geom)
+	var formation: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_geom)
 	if formation.is_empty():
 		return
 	## Corpse obstacle + vacancy micro-plug run on the **host** grid (`fid_geom`); roster home is `fid_home`.
@@ -667,9 +709,9 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 	manager._recompute_zoc_and_distance()
 	if CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
 		manager.mark_all_formations_vacancy_dirty()
-	manager.notify_formation_changed(fid_geom)
-	if fid_home != fid_geom and manager.has_method("notify_formation_changed"):
-		manager.notify_formation_changed(fid_home)
+	_EntityAccess.manager_notify_formation_changed(manager, fid_geom)
+	if fid_home != fid_geom:
+		_EntityAccess.manager_notify_formation_changed(manager, fid_home)
 	manager._reschedule_back_rank_turns(fid_geom)
 	if fid_home != fid_geom:
 		manager._reschedule_back_rank_turns(fid_home)

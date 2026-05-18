@@ -2,8 +2,8 @@ extends Node2D
 
 ## Overworld → `CombatFlow.start_combat` → `BattleScene` / `CombatManager`.
 
-const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _EncounterNode := preload("res://world/EncounterNode.gd")
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 
 @onready var tilemap: TileMap = $TileMap
 
@@ -67,32 +67,27 @@ func _on_player_moved():
 	# Detect encounter on tile (one marker per encounter; enemies spawn when combat starts)
 	var encounter = _get_encounter_on_tile(p_tile)
 	if encounter != null:
+		var ready: Dictionary = _CampaignBridge.can_enter_combat(self)
+		if not bool(ready.get("ok", false)):
+			push_warning("[World] %s" % str(ready.get("message", "Cannot enter combat.")))
+			return
+		if _CampaignBridge.party_has_untreated_wounds(self):
+			print(
+				"[World] Party has untreated wounds — stabilize in battle medical phase or risk bleed-out on the map."
+			)
+		_CampaignBridge.prepare_combat_from_encounter(self, encounter)
 		var enemies: Array = encounter.spawn_enemies(self, rng)
 		encounter.queue_free()
 		if not enemies.is_empty():
 			await CombatFlow.start_combat(self, enemies)
 		return
-	_advance_time_one_minute()
+	_CampaignBridge.advance_party_overworld_minute(self)
 
 func _get_encounter_on_tile(tile: Vector2i) -> Node:
 	for child in get_children():
 		if child.get_script() == _EncounterNode and _tile_coords(child.position) == tile:
 			return child
 	return null
-
-func _advance_time_one_minute() -> void:
-	const SECONDS_PER_MOVE: float = 60.0
-	var to_process: Array = []
-	if has_node("Character"):
-		to_process.append($Character)
-	var pm = get_meta("party_manager", null) if has_meta("party_manager") else null
-	if pm != null and pm.has_method("get_members"):
-		for member in pm.get_members():
-			var node_ref = member.get("node_ref") if member is Dictionary else null
-			if is_instance_valid(node_ref) and node_ref != $Character:
-				to_process.append(node_ref)
-	for entity in to_process:
-		_EntityTimeAdvance.advance(entity, SECONDS_PER_MOVE, true)
 
 func _on_battle_ended(winner: String, defeated: Node) -> void:
 	await CombatFlow.handle_battle_ended(self, winner, defeated)

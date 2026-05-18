@@ -13,6 +13,8 @@ const _MgrScript := preload("res://combat/CombatManager.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _ArmorPiece := preload("res://armor/ArmorPiece.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
+const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
@@ -32,6 +34,7 @@ const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
 const _DefenseResolution := preload("res://combat/DefenseResolutionHandler.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _CombatSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
@@ -55,10 +58,17 @@ const _AfterblowHandler := preload("res://combat/AfterblowHandler.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
+const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
+const _IncomingParryChoice := preload("res://combat/CombatIncomingParryChoice.gd")
+const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
+const _FormationFlee := preload("res://combat/CombatFormationFlee.gd")
 const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
+const _CrashActions := preload("res://combat/CombatCrashActions.gd")
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _EncounterNode := preload("res://world/EncounterNode.gd")
 ## No preload — `CombatRegressionHarnessKinematicTail` references this class; preloading it here caused a parse cycle.
 ## Tier 3.2: full-stop **`parry_deflect`** — keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_hit_applier_sets_defender_guard_low_after_hit`** locks defender **`guard_line`** / **`guard_zone`** after **`hit`**; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
 const PARRY_CLASH_CONTEXT_KEYS_FULL_STOP: Array[String] = [
@@ -102,7 +112,9 @@ const _HARNESS_RESTORE_GLOBAL_SEED: int = 90210
 static func _feint_listing_read_m_expect_for_move_on_target(
 	tgt_enemy: Dictionary,
 	combatant_id_for_spacing: int,
-	feint_move_id: String
+	feint_move_id: String,
+	attacker: Dictionary = {},
+	pa_live: Dictionary = {}
 ) -> float:
 	var pr_def: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(tgt_enemy), 0.0, 1.0)
 	var ct: String = str(
@@ -125,6 +137,15 @@ static func _feint_listing_read_m_expect_for_move_on_target(
 		0.0,
 		1.0
 	)
+	if not attacker.is_empty() and not pa_live.is_empty():
+		if int(pa_live.get("target_id", -1)) == _EntityAccess.id_int(tgt_enemy):
+			var pa_mid: String = str(pa_live.get("attack_type", "")).strip_edges()
+			if pa_mid.is_empty() or pa_mid == feint_move_id:
+				pr_def = clampf(
+					pr_def * _DefenseChoice._feint_readiness_reveal_mult(pa_live, attacker),
+					0.0,
+					1.0
+				)
 	return lerpf(1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_def)
 
 
@@ -184,6 +205,9 @@ static func run_all() -> Dictionary:
 	_run_telemetry_lock_multi_seed(failures)
 	_run_depth_polearm_band_vs_actions_fuzz(failures)
 	_run_no_crash_actions_when_intrusion_disabled(failures)
+	_run_crash_listed_when_intrusion_enabled_in_formation(failures)
+	_run_resolve_crash_success_applies_intruder_wedge_and_slots(failures)
+	_run_surround_production_path_dampens_defense_vs_compressed_flanks(failures)
 	_run_combat_telemetry_crash_blocked(failures)
 	_run_telemetry_invalid_melee_resolve_blocked(failures)
 	_run_telemetry_invalid_close_resolve_blocked(failures)
@@ -303,6 +327,7 @@ static func run_all() -> Dictionary:
 	_run_battle_ui_gauge_tooltip_live_counter_tempo_needs_manager(failures)
 	_run_combat_ui_hints_cowering_gauge_tooltip(failures)
 	_run_combat_ui_hints_formation_cowering_tooltip(failures)
+	_run_combat_ui_hints_formation_intruder_host_line_tooltip(failures)
 	_run_battle_ui_gauge_label_live_counter_tempo_needs_manager(failures)
 	_run_combat_ui_hints_formation_counter_tempo_needs_manager(failures)
 	_run_combat_ui_hints_attention_stale_stamp_prefers_live(failures)
@@ -344,6 +369,7 @@ static func run_all() -> Dictionary:
 	_run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid(failures)
 	_run_feint_guard_zone_readthrough_spacing_close_dampens_vs_mid(failures)
 	_run_feint_target_reveal_progress_scales_readiness_mult(failures)
+	_run_feint_move_listing_reveal_progress_dampens_early_wind_up(failures)
 	_run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough(failures)
 	_run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_long_vs_mid(failures)
 	_run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid(failures)
@@ -367,6 +393,9 @@ static func run_all() -> Dictionary:
 	_run_stalemate_melee_rank1_when_rank0_incap(failures)
 	_run_ordered_melee_opponents_file_opposed_sort(failures)
 	_run_ordered_melee_opponents_commitment_tiebreak(failures)
+	_run_ordered_melee_opponents_actor_zone_cache_parity(failures)
+	_run_available_actions_build_double_invoke_parity(failures)
+	_run_hostile_pair_opp_zone_cache_parity(failures)
 	_run_depth_spear_tight_lane_parry_mult_invariant(failures)
 	_run_effective_pair_geometry_single_pass_matches_wrappers(failures)
 	_run_windup_pending_attack_pair_geometry(failures)
@@ -466,6 +495,12 @@ static func run_all() -> Dictionary:
 	CombatRegressionHarnessKinematicTail.run(failures)
 	_run_weapon_blade_strong_fraction(failures)
 	_run_medical_mobility_can_flee_leg_and_consciousness(failures)
+	_run_flee_not_listed_when_immobile(failures)
+	_run_flee_resolve_marks_combat_absent_and_clears_slot(failures)
+	_run_flee_ui_gauge_label_fled(failures)
+	_run_flee_combat_start_clears_absent_state(failures)
+	_run_combat_log_formatter_fled_outcome(failures)
+	_run_medical_mobility_cowering_lists_flee_in_formation_mode(failures)
 	_run_medical_mobility_cowering_mobile_not_skipped_in_process_incap(failures)
 	_run_medical_mobility_cowering_action_ready_fills_gauge_for_mobile(failures)
 	_run_medical_mobility_cowering_mobile_solo_fall_back_legal(failures)
@@ -506,10 +541,61 @@ static func run_all() -> Dictionary:
 	_run_medical_phase_winner_combat_resolve_blocked(failures)
 	_run_medical_phase_apply_result_blocked(failures)
 	_run_medical_phase_end_combat_idempotent(failures)
+	_run_medical_phase_clears_fled_combatant_state(failures)
 	_run_combat_end_enemy_win_stops_manager(failures)
 	_run_medical_pain_shock_susceptibility_mult_from_effective_pain(failures)
+	_run_medical_ambient_pain_shock_tick_enters_from_sustained_pain(failures)
+	_run_medical_ambient_pain_shock_skips_when_feature_off(failures)
+	_run_combat_log_formatter_bandage_ally_label(failures)
 	_run_bind_riposte_contact_types_normalized(failures)
 	_run_bind_riposte_contact_multipliers(failures)
+	_run_bind_riposte_archetype_ordering_spear_faster_than_mace(failures)
+	_run_flurry_bind_exchange_wind_up_reduced_vs_plain(failures)
+	_run_flurry_bind_exchange_consumes_on_wind_up(failures)
+	_run_flurry_bind_window_closes_on_hit(failures)
+	_run_flurry_bind_listing_restricts_to_bind_partner(failures)
+	_run_flurry_bind_opens_on_bind_deflect(failures)
+	_run_flurry_bind_expires_after_window(failures)
+	_run_flurry_bind_ui_gauge_label_when_window_open(failures)
+	_run_flurry_bind_feature_flag_respects_runtime_toggle(failures)
+	_run_tier7_stamina_attack_cost_scales_with_intensity(failures)
+	_run_tier7_stamina_parry_cost_scales_with_intensity(failures)
+	_run_tier7_stamina_action_ready_cooldown_scales_with_fatigue(failures)
+	_run_tier7_stamina_depletion_five_heavy_attacks_exhaust_pool(failures)
+	_run_tier7_stamina_depletion_sustained_exchange_sim(failures)
+	_run_tier7_parry_bind_riposte_gauge_bonus_on_deflect(failures)
+	_run_formation_move_duration_lane_obstacle_slows_estimate(failures)
+	_run_formation_move_duration_matches_flow_pair_start(failures)
+	_run_formation_move_duration_ui_hint_when_lane_crowded(failures)
+	_run_formation_move_duration_listed_actions_stamp_hint(failures)
+	_run_rotate_file_listed_for_adjacent_front_rank_allies(failures)
+	_run_rotate_file_start_sets_duration_matches_estimate(failures)
+	_run_resolve_close_attempt_long_success_closes_distance(failures)
+	_run_automatic_doctrine_sets_pinch_on_hollow_when_enabled(failures)
+	_run_automatic_doctrine_pinch_via_formation_recompute(failures)
+	_run_formation_move_duration_heavy_armor_slows_estimate(failures)
+	_run_formation_move_duration_player_turn_hint_from_listed_actions(failures)
+	_run_formation_move_duration_gauge_tooltip_listed_hint(failures)
+	_run_formation_move_duration_gauge_tooltip_clears_when_not_waiting(failures)
+	_run_formation_move_duration_gauge_tooltip_clears_on_resolve(failures)
+	_run_wind_up_rejects_move_not_on_weapon(failures)
+	_run_formation_hit_reaction_extends_pair_move_duration(failures)
+	_run_formation_hit_cancel_aborts_pair_move(failures)
+	_run_incoming_parry_choice_blocks_non_chosen_attacker(failures)
+	_run_incoming_parry_can_parry_all_weak_pair(failures)
+	_run_weapon_extended_parry_dampens_defender_recovering_from_attack(failures)
+	_run_weapon_committed_attack_dampens_defender_parry_c_d(failures)
+	_run_weapon_commit_fraction_stab_before_overhead_cut(failures)
+	_run_weapon_windup_stamps_commit_fraction_on_pa(failures)
+	_run_weapon_commit_fraction_inferred_for_untagged_thrust_move(failures)
+	_run_impact_station_mean_zero_spread_equals_move_mean(failures)
+	_run_impact_station_mean_move_overrides_weapon_default(failures)
+	_run_impact_station_mean_ordering_spear_thrust_above_mace_direct_blow(failures)
+	_run_impact_station_mean_windup_stamps_move_override(failures)
+	_run_impact_station_mean_every_move_def_tagged(failures)
+	_run_impact_station_mean_feint_coiled_below_honest_cut(failures)
+	_run_impact_station_mean_pole_swing_below_spear_thrust(failures)
+	_run_formation_hit_cancel_ui_gauge_vulnerable_suffix(failures)
 	_run_parry_opposite_deflect_thresholds(failures)
 	_run_parry_defender_vs_attack_modifiers(failures)
 	_run_parry_clash_context_calibration_fields(failures)
@@ -524,6 +610,8 @@ static func run_all() -> Dictionary:
 	_run_afterblow_low_hindrance_allow_triggers_resolve_hit(failures)
 	_run_afterblow_mid_hindrance_rand_cancel(failures)
 	_run_afterblow_mid_hindrance_rand_executes_hit(failures)
+	_run_campaign_bridge_entity_untreated_wounds(failures)
+	_run_campaign_bridge_encounter_meta_from_node(failures)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	return {"ok": failures.is_empty(), "failures": failures}
 
@@ -607,7 +695,7 @@ static func _run_vacancy_reconcile_after_front_death(failures: PackedStringArray
 	_FormationFlow.finish_vacancy_reconcile_follow_up(mgr, ch, snap, true)
 	var living_rank0_player: bool = false
 	for c in mgr.combatants:
-		if not _EntityAccess.alive_bool(c) or _EntityAccess.side_str(c) != "player":
+		if not _EntityAccess.is_alive_on_side(c, "player"):
 			continue
 		if _EntityAccess.rank_int(c, -9) == 0:
 			living_rank0_player = true
@@ -634,6 +722,38 @@ static func _new_entity_unarmed() -> CoreEntity:
 	e.dominant_hand = "right_arm"
 	e.offhand_functionality = 1.0
 	return e
+
+
+## Plate kit for breach-rush listing (`CRASH_INTRUSION_MIN_ARMOR_MASS_KG`); used by Phase B harness only.
+static func _harness_equip_heavy_crash_kit(e: CoreEntity) -> void:
+	var kit: Array = [
+		["head", "KETTLE_HELM"],
+		["chest", "CUIRASS"],
+		["right_arm", "VAMBRACES_RIGHT"],
+		["left_arm", "VAMBRACES_LEFT"],
+		["right_leg", "GREAVES_RIGHT"],
+		["left_leg", "GREAVES_LEFT"],
+	]
+	for row in kit:
+		var ap: Variant = _ArmorPiece.create_from_definition(str(row[1]))
+		if ap != null:
+			e.equip_armor(str(row[0]), ap)
+
+
+static func _harness_find_living_at_rank_file(
+	mgr: Node, side: String, rank: int, file: int
+) -> Dictionary:
+	for c in mgr.combatants:
+		if not _EntityAccess.alive_bool(c):
+			continue
+		if _EntityAccess.side_str(c) != side:
+			continue
+		if _EntityAccess.rank_int(c) != rank:
+			continue
+		if _EntityAccess.file_int(c) != file:
+			continue
+		return c
+	return {}
 
 
 static func _free_manager(mgr: Node) -> void:
@@ -979,7 +1099,7 @@ static func _run_depth_polearm_band_vs_actions_fuzz(failures: PackedStringArray)
 		if w_depth != null and w_depth is Weapon:
 			atk_ids = (w_depth as Weapon).attack_types
 		for c in mgr.combatants:
-			if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
+			if not _EntityAccess.is_alive_on_side(c, "enemy"):
 				continue
 			if _EntityAccess.rank_int(c, -1) != 0:
 				continue
@@ -987,8 +1107,8 @@ static func _run_depth_polearm_band_vs_actions_fuzz(failures: PackedStringArray)
 				continue
 			if not _MeleeListing.can_melee_threaten(mgr, depth, c):
 				continue
-			var dist: String = str(
-				_EntityAccess.nested_dictionary_read(depth, "distance_to").get(_EntityAccess.id_int(c, -2), "")
+			var dist: String = _EntityAccess.distance_to_opponent_band(
+				depth, _EntityAccess.id_int(c, -2), ""
 			)
 			if dist == CombatConstants.DISTANCE_LONG:
 				_fail(
@@ -1005,15 +1125,9 @@ static func _run_depth_polearm_band_vs_actions_fuzz(failures: PackedStringArray)
 				)
 				continue
 			var acts: Array = mgr.get_available_actions(_EntityAccess.id_int(depth))
-			var has_melee_vs: bool = false
-			for a in acts:
-				if int(a.get("target_id", -9)) != _EntityAccess.id_int(c):
-					continue
-				var mid: String = str(a.get("move_id", ""))
-				if atk_ids.has(mid):
-					has_melee_vs = true
-					break
-			if not has_melee_vs:
+			if not _ListedActions.actions_include_any_move_in_vs_target(
+				acts, _EntityAccess.id_int(c), atk_ids
+			):
 				_fail(
 					failures,
 					(
@@ -1039,7 +1153,7 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
 		_fail(failures, "depth_polearm: expected open lane (rank-1 spear + rank-0 ally)")
 	if _MeleeListing.can_melee_threaten(mgr, depth, enemy) != true:
 		_fail(failures, "depth_polearm: can_melee_threaten should be true vs file-opposed rank-0")
-	var dist: String = str(_EntityAccess.nested_dictionary_read(depth, "distance_to").get(_EntityAccess.id_int(enemy, -2), ""))
+	var dist: String = _EntityAccess.distance_to_opponent_band(depth, _EntityAccess.id_int(enemy, -2), "")
 	if dist == CombatConstants.DISTANCE_LONG:
 		_fail(failures, "depth_polearm: distance_to should not be LONG when lane open (got %s)" % dist)
 	depth.gauge = 100.0
@@ -1048,15 +1162,9 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
 	var atk_ids: Dictionary = {}
 	if w_depth != null and w_depth is Weapon:
 		atk_ids = (w_depth as Weapon).attack_types
-	var has_melee_vs_enemy: bool = false
-	for a in acts:
-		if int(a.get("target_id", -9)) != _EntityAccess.id_int(enemy):
-			continue
-		var mid: String = str(a.get("move_id", ""))
-		if atk_ids.has(mid):
-			has_melee_vs_enemy = true
-			break
-	if not has_melee_vs_enemy:
+	if not _ListedActions.actions_include_any_move_in_vs_target(
+		acts, _EntityAccess.id_int(enemy), atk_ids
+	):
 		_fail(failures, "depth_polearm: expected weapon strike vs enemy in available actions (had %s)" % str(acts))
 	# Non-polearm depth: no extra reach to line.
 	var mgr2: Node = _MgrScript.new()
@@ -1126,8 +1234,8 @@ static func _run_depth_polearm_reciprocal_distance_bands(failures: PackedStringA
 		_fail(failures, "depth_polearm_recip: expected enemy depth spear lane open")
 	if not _MeleeListing.can_melee_threaten(mgr, en_depth, player):
 		_fail(failures, "depth_polearm_recip: enemy spear should melee-threaten player rank-0")
-	var d_depth_to_p: String = str(_EntityAccess.nested_dictionary_read(en_depth, "distance_to").get(pid, ""))
-	var d_p_to_depth: String = str(_EntityAccess.nested_dictionary_read(player, "distance_to").get(did, ""))
+	var d_depth_to_p: String = _EntityAccess.distance_to_opponent_band(en_depth, pid, "")
+	var d_p_to_depth: String = _EntityAccess.distance_to_opponent_band(player, did, "")
 	if d_depth_to_p == CombatConstants.DISTANCE_LONG:
 		_fail(failures, "depth_polearm_recip: spear→player band unexpected LONG (got %s)" % d_depth_to_p)
 	if d_p_to_depth == CombatConstants.DISTANCE_LONG:
@@ -1146,7 +1254,7 @@ static func _run_depth_polearm_reciprocal_distance_bands(failures: PackedStringA
 	var eid2: int = _EntityAccess.id_int(en_deep_sword)
 	if _DepthPolearm.depth_polearm_lane_open(mgr2, en_deep_sword):
 		_fail(failures, "depth_polearm_recip: rank-1 sword must not have open polearm lane")
-	var band_r0_to_r1: String = str(_EntityAccess.nested_dictionary_read(pl2, "distance_to").get(eid2, ""))
+	var band_r0_to_r1: String = _EntityAccess.distance_to_opponent_band(pl2, eid2, "")
 	if band_r0_to_r1 != CombatConstants.DISTANCE_LONG:
 		_fail(
 			failures,
@@ -1264,7 +1372,7 @@ static func _run_depth_polearm_valid_line_threat_agrees_with_threatens_when_lane
 		_free_manager(mgr)
 		return
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
+		if not _EntityAccess.is_alive_on_side(c, "enemy"):
 			continue
 		var vlt: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, c)
 		var thr: bool = _DepthPolearm.depth_polearm_threatens_line_target(front, c)
@@ -1292,7 +1400,7 @@ static func _run_depth_polearm_opp_matches_rank0_agrees_with_valid_line_threat(f
 		_free_manager(mgr)
 		return
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
+		if not _EntityAccess.is_alive_on_side(c, "enemy"):
 			continue
 		var om: bool = _MeleeRank.opp_matches_melee_rank_target(mgr, depth, c, 0)
 		var vlt: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr, depth, c)
@@ -1320,7 +1428,7 @@ static func _run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_th
 		_free_manager(mgr_open)
 		return
 	for c in mgr_open.combatants:
-		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
+		if not _EntityAccess.is_alive_on_side(c, "enemy"):
 			continue
 		var pr: bool = _MeleeRank.melee_pair_rank_allowed(mgr_open, depth_open, c)
 		var vlt: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr_open, depth_open, c)
@@ -1342,7 +1450,7 @@ static func _run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_th
 		_free_manager(mgr_closed)
 		return
 	for c in mgr_closed.combatants:
-		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
+		if not _EntityAccess.is_alive_on_side(c, "enemy"):
 			continue
 		var pr2: bool = _MeleeRank.melee_pair_rank_allowed(mgr_closed, depth_closed, c)
 		var vlt2: bool = _DepthPolearm.depth_polearm_valid_line_threat(mgr_closed, depth_closed, c)
@@ -1368,9 +1476,9 @@ static func _run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_d
 		_fail(failures, "cm_vlt: expected open depth polearm lane")
 		_free_manager(mgr)
 		return
-	var host_fid: String = _EntityAccess.formation_id_str(depth)
+	var host_fid: String = _ZoneOfControl.zone_geometry_fid_str(mgr, depth)
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
+		if not _EntityAccess.is_alive_on_side(c, "enemy"):
 			continue
 		if _EntityAccess.rank_int(c) != 0:
 			continue
@@ -1437,7 +1545,7 @@ static func _run_depth_polearm_layout_fuzz(failures: PackedStringArray) -> void:
 			continue
 		var ff: int = _EntityAccess.file_int(front, -9)
 		for c in mgr.combatants:
-			if _EntityAccess.side_str(c) != "enemy" or not _EntityAccess.alive_bool(c):
+			if not _EntityAccess.is_alive_on_side(c, "enemy"):
 				continue
 			if _EntityAccess.rank_int(c, -1) != 0:
 				continue
@@ -1465,7 +1573,7 @@ static func _run_front_rank_pair_melee_listed(failures: PackedStringArray) -> vo
 	mgr._recompute_zoc_and_distance()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
-	var dist: String = str(_EntityAccess.nested_dictionary_read(p, "distance_to").get(_EntityAccess.id_int(e, -2), ""))
+	var dist: String = _EntityAccess.distance_to_opponent_band(p, _EntityAccess.id_int(e, -2), "")
 	if dist not in [CombatConstants.DISTANCE_CLOSE, CombatConstants.DISTANCE_MID]:
 		_free_manager(mgr)
 		return
@@ -1475,15 +1583,9 @@ static func _run_front_rank_pair_melee_listed(failures: PackedStringArray) -> vo
 	var atk_ids: Dictionary = {}
 	if w_p != null and w_p is Weapon:
 		atk_ids = (w_p as Weapon).attack_types
-	var has_melee_vs_enemy: bool = false
-	for a in acts:
-		if int(a.get("target_id", -9)) != _EntityAccess.id_int(e):
-			continue
-		var mid: String = str(a.get("move_id", ""))
-		if atk_ids.has(mid):
-			has_melee_vs_enemy = true
-			break
-	if not has_melee_vs_enemy:
+	if not _ListedActions.actions_include_any_move_in_vs_target(
+		acts, _EntityAccess.id_int(e), atk_ids
+	):
 		_fail(
 			failures,
 			"front_rank_pair: expected weapon strike vs enemy at band %s (acts=%s)" % [dist, str(acts)]
@@ -1652,7 +1754,7 @@ static func _run_crash_ai_posture_mult_with_cached_fd(failures: PackedStringArra
 		mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.start({"files": 2, "ranks": 2, "density": "normal"}, {"files": 2, "ranks": 2, "density": "normal"})
 	var c: Dictionary = mgr.combatants[0]
-	var fd_live: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, c)
+	var fd_live: Dictionary = _ZoneOfControl.formation_for_combatant_cached(mgr, c, null)
 	var w_null: float = _AIPicker._crash_weight_posture_mult(mgr, c, null)
 	var w_live: float = _AIPicker._crash_weight_posture_mult(mgr, c, fd_live)
 	if not is_equal_approx(w_null, w_live):
@@ -1707,14 +1809,237 @@ static func _run_no_crash_actions_when_intrusion_disabled(failures: PackedString
 			continue
 		c.gauge = 100.0
 		var acts: Array = mgr.get_available_actions(_EntityAccess.id_int(c))
-		for a in acts:
-			if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_CRASH:
-				_fail(
-					failures,
-					"no_crash_when_disabled: crash listed for id=%d" % _EntityAccess.id_int(c)
-				)
-				break
+		if _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_CRASH):
+			_fail(
+				failures,
+				"no_crash_when_disabled: crash listed for id=%d" % _EntityAccess.id_int(c)
+			)
 	_free_manager(mgr)
+
+
+## Tier 1.8 / Phase B: formation fight lists breach rush when `FEATURE_LINE_CRASH_INTRUSION` is **true** (mirror of `_run_no_crash_actions_when_intrusion_disabled`).
+static func _run_crash_listed_when_intrusion_enabled_in_formation(failures: PackedStringArray) -> void:
+	if not CombatConstants.FEATURE_LINE_CRASH_INTRUSION:
+		return
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		var ent_p: CoreEntity = _new_entity("SWORD")
+		_harness_equip_heavy_crash_kit(ent_p)
+		mgr.register(ent_p, "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 2, "density": "normal"}, {"files": 2, "ranks": 2, "density": "normal"})
+	mgr._recompute_zoc_and_distance()
+	if _EngagementMode.engagement_mode(mgr) != CombatConstants.ENGAGEMENT_MODE_FORMATION:
+		_fail(
+			failures,
+			"crash_when_enabled: expected formation mode got %s" % _EngagementMode.engagement_mode(mgr)
+		)
+		_free_manager(mgr)
+		return
+	if not _EngagementMode.incursion_allowed(mgr):
+		_fail(failures, "crash_when_enabled: incursion_allowed should be true in formation")
+		_free_manager(mgr)
+		return
+	var pol: Dictionary = _EngagementMode.movement_policy(mgr)
+	if not bool(pol.get("allow_crash", false)):
+		_fail(failures, "crash_when_enabled: movement_policy allow_crash should be true")
+		_free_manager(mgr)
+		return
+	var found_crash: bool = false
+	var allowed_attacker: bool = false
+	for c in mgr.combatants:
+		if not _EntityAccess.is_alive_on_side(c, "player"):
+			continue
+		if _EntityAccess.rank_int(c) != 0:
+			continue
+		c["gauge"] = 100.0
+		c["stamina"] = CombatConstants.STAMINA_MAX
+		c["stance"] = CombatConstants.STANCE_AGGRESSIVE
+		var sd: Dictionary = _EntityAccess.stats_dict_for_mutation(c)
+		sd["strength"] = 108.0
+		if _EngagementMode.crash_intrusion_attacker_allowed(mgr, c):
+			allowed_attacker = true
+		else:
+			continue
+		for opp in mgr.combatants:
+			if not _EntityAccess.is_living_hostile_to(c, opp):
+				continue
+			if _EntityAccess.rank_int(opp) != 0:
+				continue
+			var oid: int = _EntityAccess.id_int(opp)
+			_EntityAccess.nested_dictionary_for_mutation(c, "distance_to")[oid] = CombatConstants.DISTANCE_MID
+			_EntityAccess.nested_dictionary_for_mutation(opp, "distance_to")[_EntityAccess.id_int(c)] = (
+				CombatConstants.DISTANCE_MID
+			)
+			var zg_pair: Dictionary = _ZoneOfControl.zone_geometry_for_pair(mgr, c, opp)
+			var fc: Dictionary = _ZoneOfControl.zone_geometry_formation_a_from_pair_pack(zg_pair)
+			var fo: Dictionary = _ZoneOfControl.zone_geometry_formation_b_from_pair_pack(zg_pair)
+			var eff_dist: float = _PairGeometry.cached_eff_dist(
+				_PairGeometry.effective_pair_geometry(mgr, c, opp, fc, fo)
+			)
+			var melee_range: float = _EntityAccess.weapon_melee_reach(c)
+			var in_swing: bool = _PairGeometry.melee_reach_covers_eff_dist(melee_range, eff_dist)
+			if _CrashActions.crash_action_eligible(mgr, c, opp, in_swing, CombatConstants.DISTANCE_MID):
+				found_crash = true
+				break
+		if found_crash:
+			break
+		var acts: Array = mgr.get_available_actions(_EntityAccess.id_int(c))
+		if _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_CRASH):
+			found_crash = true
+			break
+	if not allowed_attacker:
+		_fail(
+			failures,
+			"crash_when_enabled: heavy front-rank should pass crash_intrusion_attacker_allowed"
+		)
+		_free_manager(mgr)
+		return
+	if not found_crash:
+		_fail(
+			failures,
+			"crash_when_enabled: expected breach rush listed or crash_action_eligible (formation 4v4 + MID)"
+		)
+	_free_manager(mgr)
+
+
+## Phase B bullet **5** (headless): queued contest roll → **`resolve_crash_attempt`** → intruder role, host wedge, vacancy on home file.
+static func _run_resolve_crash_success_applies_intruder_wedge_and_slots(failures: PackedStringArray) -> void:
+	if not CombatConstants.FEATURE_LINE_CRASH_INTRUSION:
+		CombatConstants.clear_breach_crash_test_rolls()
+		return
+	CombatConstants.begin_breach_crash_test_rolls(4)
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		var ent_p: CoreEntity = _new_entity("SWORD")
+		_harness_equip_heavy_crash_kit(ent_p)
+		mgr.register(ent_p, "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 2, "density": "normal"}, {"files": 2, "ranks": 2, "density": "normal"})
+	mgr._recompute_zoc_and_distance()
+	if _EngagementMode.engagement_mode(mgr) != CombatConstants.ENGAGEMENT_MODE_FORMATION:
+		CombatConstants.clear_breach_crash_test_rolls()
+		_fail(failures, "crash_success_path: need formation mode")
+		_free_manager(mgr)
+		return
+	var atk: Dictionary = _harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var def: Dictionary = _harness_find_living_at_rank_file(mgr, "enemy", 0, 0)
+	if atk.is_empty() or def.is_empty():
+		CombatConstants.clear_breach_crash_test_rolls()
+		_fail(failures, "crash_success_path: missing rank-0 file-0 pair")
+		_free_manager(mgr)
+		return
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(def)
+	var reserve_id: int = -1
+	var form_p: Dictionary = mgr.formations["player"]
+	var slots_p_before: Dictionary = _FormationSlots.formation_slots_dict(form_p)
+	var home_rank1: Variant = slots_p_before.get(Vector2i(1, 0), [])
+	if home_rank1 is Array and (home_rank1 as Array).size() > 0:
+		reserve_id = int((home_rank1 as Array)[0])
+	atk["gauge"] = 100.0
+	atk["stamina"] = CombatConstants.STAMINA_MAX
+	atk["stance"] = CombatConstants.STANCE_AGGRESSIVE
+	var sd: Dictionary = _EntityAccess.stats_dict_for_mutation(atk)
+	sd["strength"] = 108.0
+	_EntityAccess.nested_dictionary_for_mutation(atk, "distance_to")[def_id] = CombatConstants.DISTANCE_MID
+	_EntityAccess.nested_dictionary_for_mutation(def, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+	_EngagementResolver.resolve_crash_attempt(mgr, atk_id, def_id)
+	CombatConstants.clear_breach_crash_test_rolls()
+	if str(atk.get("engagement_role", "")) != CombatConstants.ENGAGEMENT_ROLE_INTRUDED:
+		_fail(
+			failures,
+			"crash_success_path: attacker should be intruded got %s" % str(atk.get("engagement_role", ""))
+		)
+		_free_manager(mgr)
+		return
+	if str(atk.get("intrusion_host_fid", "")) != "enemy":
+		_fail(
+			failures,
+			"crash_success_path: intrusion_host_fid want enemy got %s" % str(atk.get("intrusion_host_fid", ""))
+		)
+		_free_manager(mgr)
+		return
+	var form_e: Dictionary = mgr.formations["enemy"]
+	var wedge_pres: float = _IntrusionWedge.pressure_at_file(form_e, 0)
+	if wedge_pres < 0.2:
+		_fail(failures, "crash_success_path: enemy wedge pressure at file 0 too low %.4f" % wedge_pres)
+		_free_manager(mgr)
+		return
+	var slots_e: Dictionary = _FormationSlots.formation_slots_dict(form_e)
+	var intruder_on_host: bool = false
+	for rk in range(1, 4):
+		var occ: Variant = slots_e.get(Vector2i(rk, 0), [])
+		if occ is Array and (occ as Array).has(atk_id):
+			intruder_on_host = true
+			break
+	if not intruder_on_host:
+		_fail(failures, "crash_success_path: intruder id=%d not in enemy slots depth" % atk_id)
+		_free_manager(mgr)
+		return
+	var slots_p_after: Dictionary = _FormationSlots.formation_slots_dict(form_p)
+	var front_occ: Array = _FormationSlots.normalize_cell(slots_p_after.get(Vector2i(0, 0), []))
+	if front_occ.has(atk_id):
+		_fail(failures, "crash_success_path: intruder should be removed from player rank-0 file-0")
+		_free_manager(mgr)
+		return
+	if reserve_id >= 0 and not front_occ.has(reserve_id):
+		_fail(
+			failures,
+			"crash_success_path: reserve id=%d should vacancy-plug to rank 0 file 0" % reserve_id
+		)
+	var snap_ok: bool = false
+	for row in mgr.get_combatants():
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var rd: Dictionary = row as Dictionary
+		if int(rd.get("id", -1)) != atk_id:
+			continue
+		snap_ok = true
+		if str(rd.get("formation_id", "")) != "player":
+			_fail(
+				failures,
+				"crash_success_path snapshot: formation_id want player got %s"
+				% str(rd.get("formation_id", ""))
+			)
+		if str(rd.get("zone_geometry_fid", "")) != "enemy":
+			_fail(
+				failures,
+				"crash_success_path snapshot: zone_geometry_fid want enemy got %s"
+				% str(rd.get("zone_geometry_fid", ""))
+			)
+		break
+	if not snap_ok:
+		_fail(failures, "crash_success_path snapshot: no row for intruder id=%d" % atk_id)
+	_free_manager(mgr)
+
+
+## P1′ (headless): production sector surround lowers dodge vs integer path for compressed two-flank **`pa`**.
+static func _run_surround_production_path_dampens_defense_vs_compressed_flanks(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_sector_surround_load():
+		return
+	var def: Dictionary = {"stats": {"perception": 100.0}, "stance": "balanced"}
+	var pa: Dictionary = {
+		"surround_threat_count": 2,
+		"surround_threat_weight_sum": 1.15,
+		"tactical_ambush_mult": 1.0,
+	}
+	var m_prod: float = _TacticalCombat.surround_defense_multiplier_from_pa(def, pa)
+	var m_int: float = _TacticalCombat.surround_defense_multiplier_from_pa_with_sector(def, pa, false)
+	if m_prod <= m_int + 0.001:
+		_fail(
+			failures,
+			"surround_prod_defense: sector mult %.6f should exceed integer %.6f (milder) wsum=%.4f"
+			% [m_prod, m_int, float(pa["surround_threat_weight_sum"])]
+		)
+	if not is_equal_approx(m_prod, _TacticalCombat.surround_multiplier_from_weight_sum_for_harness(def, 1.15)):
+		_fail(
+			failures,
+			"surround_prod_defense: production mult %.6f vs harness ref"
+			% m_prod
+		)
 
 
 ## Tier 1.9 auto profile: `line_discipline` / `engagement_posture` steer over-shoulder vs open when `spear_lane_profile` is auto (**OPEN** and **DUEL** open lows under tight when not strict-only).
@@ -1806,7 +2131,7 @@ static func _run_wing_lacks_depth_polearm(failures: PackedStringArray) -> void:
 	var depth_spear: Dictionary = {}
 	var front_f1: Dictionary = {}
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) != "player":
+		if not _EntityAccess.is_player_side(c):
 			continue
 		var w: Variant = _EntityAccess.get_weapon(c)
 		if w != null and w is Weapon and _EntityAccess.rank_int(c) == 1 and _EntityAccess.file_int(c) == 1:
@@ -1816,7 +2141,7 @@ static func _run_wing_lacks_depth_polearm(failures: PackedStringArray) -> void:
 			front_f1 = c
 	var front_f0: Dictionary = {}
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) == "player" and _EntityAccess.rank_int(c) == 0 and _EntityAccess.file_int(c) == 0:
+		if _EntityAccess.is_player_side(c) and _EntityAccess.rank_int(c) == 0 and _EntityAccess.file_int(c) == 0:
 			front_f0 = c
 			break
 	if depth_spear.is_empty() or front_f1.is_empty() or front_f0.is_empty():
@@ -2023,7 +2348,7 @@ static func _run_doctrine_hollow_center_pinch_heuristic(failures: PackedStringAr
 	mgr.start({"files": 1, "ranks": 1}, {"files": 3, "ranks": 1})
 	var en_by_file: Dictionary = {}
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) != "enemy":
+		if not _EntityAccess.is_enemy_side(c):
 			continue
 		en_by_file[_EntityAccess.file_int(c)] = c
 	if en_by_file.size() < 3:
@@ -2049,7 +2374,7 @@ static func _run_doctrine_hollow_center_pinch_heuristic(failures: PackedStringAr
 	mgr4.start({"files": 1, "ranks": 1}, {"files": 4, "ranks": 1})
 	var en4: Dictionary = {}
 	for c in mgr4.combatants:
-		if _EntityAccess.side_str(c) == "enemy":
+		if _EntityAccess.is_enemy_side(c):
 			en4[_EntityAccess.file_int(c)] = c
 	for kill_i in [1, 2]:
 		(en4[kill_i] as Dictionary)["alive"] = false
@@ -2067,7 +2392,7 @@ static func _run_doctrine_hollow_center_intruder_fills_center(failures: PackedSt
 	mgr.start({"files": 1, "ranks": 1}, {"files": 3, "ranks": 1})
 	var en_by_file: Dictionary = {}
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) != "enemy":
+		if not _EntityAccess.is_enemy_side(c):
 			continue
 		en_by_file[_EntityAccess.file_int(c)] = c
 	if not en_by_file.has(1):
@@ -2573,7 +2898,7 @@ static func _run_combat_log_formatter_negligible(failures: PackedStringArray) ->
 		_fail(failures, "combat_log_hit_row: expected Hit prefix, got: %s" % row_hit)
 
 
-## Intruders: `assign_combatant_zones` uses host `files`/`ranks` (`formation_id_for_zone_geometry`), not home 1-wide line.
+## Intruders: `assign_combatant_zones` uses host `files`/`ranks` (`zone_geometry_fid_str`), not home 1-wide line.
 static func _run_intruder_zone_id_uses_host_grid(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -2643,7 +2968,7 @@ static func _run_zoc_count_alive_includes_intruder_on_host(failures: PackedStrin
 	_free_manager(mgr)
 
 
-## Crash neighbor hold: intruder defender uses **host** line neighbors (`formation_id_for_zone_geometry`), not home-roster `formation_id`.
+## Crash neighbor hold: intruder defender uses **host** line neighbors (`zone_geometry_fid_str`), not home-roster `formation_id`.
 static func _run_crash_neighbor_hold_uses_host_line_for_intruder(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -2791,7 +3116,7 @@ static func _run_depth_polearm_lane_open_false_without_living_same_file_rank0(fa
 	var depth_f1: Dictionary = {}
 	var front_f1: Dictionary = {}
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) != "player":
+		if not _EntityAccess.is_player_side(c):
 			continue
 		if _EntityAccess.file_int(c) != 1:
 			continue
@@ -2812,7 +3137,7 @@ static func _run_depth_polearm_lane_open_false_without_living_same_file_rank0(fa
 		)
 	var depth_f0: Dictionary = {}
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) != "player":
+		if not _EntityAccess.is_player_side(c):
 			continue
 		if _EntityAccess.file_int(c) == 0 and _EntityAccess.rank_int(c) == 1:
 			depth_f0 = c
@@ -2827,7 +3152,7 @@ static func _run_depth_polearm_lane_open_false_without_living_same_file_rank0(fa
 	_free_manager(mgr)
 
 
-## Tier 1.9: **`CombatDistanceBands.depth_polearm_lane_open_by_combatant_id`** matches **`CombatDepthPolearm.depth_polearm_lane_open`** ( **`formation_id_for_zone_geometry`** `fid` ).
+## Tier 1.9: **`CombatDistanceBands.depth_polearm_lane_open_by_combatant_id`** matches **`CombatDepthPolearm.depth_polearm_lane_open`** ( **`zone_geometry_fid_str`** `fid` ).
 static func _run_depth_polearm_lane_cache_matches_builder(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -2849,7 +3174,7 @@ static func _run_depth_polearm_lane_cache_matches_builder(failures: PackedString
 	mgr2.start({"files": 2, "ranks": 2, "density": "normal"}, e_preset)
 	var front_f1: Dictionary = {}
 	for c in mgr2.combatants:
-		if _EntityAccess.side_str(c) != "player":
+		if not _EntityAccess.is_player_side(c):
 			continue
 		if _EntityAccess.file_int(c) != 1 or _EntityAccess.rank_int(c) != 0:
 			continue
@@ -2892,7 +3217,7 @@ static func _run_depth_polearm_lane_open_false_when_same_file_rank0_incap(failur
 	_free_manager(mgr)
 
 
-## Tier 1.9: **`depth_polearm_lane_open(manager, c, "")`** matches **`depth_polearm_lane_open(manager, c, fid)`** when **`fid == formation_id_for_zone_geometry(manager, c)`** (explicit **`zone_geometry_fid`** contract). Covers **home** ranks and an **`ENGAGEMENT_ROLE_INTRUDED`** rank-1 **SPEAR** on the **host** grid.
+## Tier 1.9: **`depth_polearm_lane_open(manager, c, "")`** matches **`depth_polearm_lane_open(manager, c, fid)`** when **`fid == zone_geometry_fid_str(manager, c)`** (explicit **`zone_geometry_fid`** contract). Covers **home** ranks and an **`ENGAGEMENT_ROLE_INTRUDED`** rank-1 **SPEAR** on the **host** grid.
 static func _run_depth_polearm_lane_open_zone_geometry_fid_round_trip(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -2903,7 +3228,7 @@ static func _run_depth_polearm_lane_open_zone_geometry_fid_round_trip(failures: 
 	for c in mgr.combatants:
 		if not _EntityAccess.alive_bool(c):
 			continue
-		var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, c)
+		var fid: String = _ZoneOfControl.zone_geometry_fid_str(mgr, c)
 		var o_default: bool = _DepthPolearm.depth_polearm_lane_open(mgr, c, "")
 		var o_explicit: bool = _DepthPolearm.depth_polearm_lane_open(mgr, c, fid)
 		if o_default != o_explicit:
@@ -2928,7 +3253,7 @@ static func _run_depth_polearm_lane_open_zone_geometry_fid_round_trip(failures: 
 	for c in mgr_i.combatants:
 		if not _EntityAccess.alive_bool(c):
 			continue
-		var fid_i: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr_i, c)
+		var fid_i: String = _ZoneOfControl.zone_geometry_fid_str(mgr_i, c)
 		var o_def_i: bool = _DepthPolearm.depth_polearm_lane_open(mgr_i, c, "")
 		var o_exp_i: bool = _DepthPolearm.depth_polearm_lane_open(mgr_i, c, fid_i)
 		if o_def_i != o_exp_i:
@@ -2985,8 +3310,8 @@ static func _run_stamp_attack_pair_geometry_depth_lane_flags_consistent(failures
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
 	mgr.formations["player"]["density"] = "tight"
 	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
-	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
-	var fd: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
+	var fid: String = _ZoneOfControl.zone_geometry_fid_str(mgr, depth)
+	var fd: Dictionary = _ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
 	var live_tight: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true)
 	var pa: Dictionary = {}
 	_StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, depth, enemy, pa)
@@ -3007,7 +3332,7 @@ static func _run_stamp_attack_pair_geometry_depth_lane_flags_consistent(failures
 	if lt != expect_lt:
 		_fail(failures, "stamp_depth_geom: lane_type=%s expected %s (strict tight)" % [lt, expect_lt])
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
-	fd = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
+	fd = _ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
 	var live_open: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true)
 	var pa2: Dictionary = {}
 	_StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, depth, enemy, pa2)
@@ -3086,15 +3411,15 @@ static func _run_depth_polearm_parts_filter_tracks_allows_low(failures: PackedSt
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
 	mgr.formations["player"]["density"] = "tight"
 	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
-	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
-	var fd: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
+	var fid: String = _ZoneOfControl.zone_geometry_fid_str(mgr, depth)
+	var fd: Dictionary = _ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
 	if _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
 		_fail(failures, "depth_parts_al: strict+tight should not allow low targets before filter assert")
 	var filt_tight: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
 	if filt_tight.has("left_leg") or filt_tight.has("right_leg"):
 		_fail(failures, "depth_parts_al: filter should drop legs when allows_low false (got %s)" % str(filt_tight))
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
-	fd = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
+	fd = _ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
 	if not _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
 		_fail(failures, "depth_parts_al: open profile should allow low targets before filter assert")
 	var filt_open: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
@@ -3123,8 +3448,8 @@ static func _run_depth_polearm_parts_filter_wedge_opens_legs_strict_tight(failur
 	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
 	var df: int = _EntityAccess.file_int(depth, 0)
 	_IntrusionWedge.upsert_from_intrusion(mgr.formations["player"], df, 999_999, 0.92, 2, 2)
-	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
-	var fd: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
+	var fid: String = _ZoneOfControl.zone_geometry_fid_str(mgr, depth)
+	var fd: Dictionary = _ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
 	if not _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
 		_fail(failures, "depth_parts_wedge: intrusion wedge should open low targets under strict+tight")
 	var parts_in: Array = ["head", "chest", "left_leg", "right_leg"]
@@ -3154,8 +3479,8 @@ static func _run_depth_polearm_restricted_profile_requires_wedge_for_allows_low(
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = (
 		CombatConstants.SPEAR_LANE_PROFILE_RESTRICTED
 	)
-	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
-	var fd: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
+	var fid: String = _ZoneOfControl.zone_geometry_fid_str(mgr, depth)
+	var fd: Dictionary = _ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
 	if _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
 		_fail(failures, "depth_prof_rest: restricted + loose should not allow lows without wedge")
 	var parts_in: Array = ["head", "left_leg", "right_leg"]
@@ -3164,7 +3489,7 @@ static func _run_depth_polearm_restricted_profile_requires_wedge_for_allows_low(
 		_fail(failures, "depth_prof_rest: filter should drop legs without wedge (got %s)" % str(filt_no_w))
 	var df: int = _EntityAccess.file_int(depth, 0)
 	_IntrusionWedge.upsert_from_intrusion(mgr.formations["player"], df, 999_999, 0.92, 2, 2)
-	fd = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
+	fd = _ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
 	if not _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
 		_fail(failures, "depth_prof_rest: wedge should allow lows under restricted profile")
 	var filt_w: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
@@ -3191,8 +3516,8 @@ static func _run_depth_polearm_allows_low_formation_dict_cache_matches_null(fail
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
 	mgr.formations["player"]["density"] = "tight"
 	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
-	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
-	var fd: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
+	var fid: String = _ZoneOfControl.zone_geometry_fid_str(mgr, depth)
+	var fd: Dictionary = _ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
 	var fd_dup: Dictionary = fd.duplicate(true)
 	var a_tight: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
 	var b_tight: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd_dup, true)
@@ -3202,7 +3527,7 @@ static func _run_depth_polearm_allows_low_formation_dict_cache_matches_null(fail
 			"depth_al_fd_cache: null vs dict cache mismatch strict+tight (null=%s cache=%s)" % [str(a_tight), str(b_tight)]
 		)
 	mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
-	fd = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, depth, fid)
+	fd = _ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
 	fd_dup = fd.duplicate(true)
 	var a_open: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
 	var b_open: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd_dup, true)
@@ -3272,7 +3597,7 @@ static func _run_depth_polearm_allows_low_assume_skips_closed_lane_guard(failure
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
 	mgr.formations["player"]["density"] = "tight"
 	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
-	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
+	var fid: String = _ZoneOfControl.zone_geometry_fid_str(mgr, depth)
 	var without_assume: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, false)
 	var with_assume: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
 	if not without_assume:
@@ -3306,7 +3631,7 @@ static func _run_depth_polearm_allows_low_assume_agrees_when_lane_open(failures:
 	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
 	mgr.formations["player"]["density"] = "tight"
 	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
-	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, depth)
+	var fid: String = _ZoneOfControl.zone_geometry_fid_str(mgr, depth)
 	var tight_no_assume: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, false)
 	var tight_with_assume: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
 	if tight_no_assume != tight_with_assume:
@@ -3327,7 +3652,7 @@ static func _run_depth_polearm_allows_low_assume_agrees_when_lane_open(failures:
 	_free_manager(mgr)
 
 
-## Tier 1.9: **`depth_polearm_lane_allows_low_targets(manager, c, "", …)`** matches **`…(manager, c, fid, …)`** when **`fid == formation_id_for_zone_geometry(manager, c)`** — same **`zone_geometry_fid`** contract as **`depth_polearm_lane_open`** / **`formation_dict_for_zone_geometry`**. Covers **`assume_depth_lane_open` false + true** on **home** line + **`ENGAGEMENT_ROLE_INTRUDED`** rank-1 **SPEAR** on host grid.
+## Tier 1.9: **`depth_polearm_lane_allows_low_targets(manager, c, "", …)`** matches **`…(manager, c, fid, …)`** when **`fid == zone_geometry_fid_str(manager, c)`** — same **`zone_geometry_fid`** contract as **`depth_polearm_lane_open`** / **`formation_for_combatant_cached`**. Covers **`assume_depth_lane_open` false + true** on **home** line + **`ENGAGEMENT_ROLE_INTRUDED`** rank-1 **SPEAR** on host grid.
 static func _run_depth_polearm_allows_low_zone_geometry_fid_round_trip(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -3360,7 +3685,7 @@ static func _assert_depth_polearm_allows_low_fid_round_trip_slice(
 		for c in mgr.combatants:
 			if not _EntityAccess.alive_bool(c):
 				continue
-			var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, c)
+			var fid: String = _ZoneOfControl.zone_geometry_fid_str(mgr, c)
 			var via_empty: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, c, "", null, assume_open)
 			var via_fid: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, c, fid, null, assume_open)
 			if via_empty != via_fid:
@@ -3391,7 +3716,7 @@ static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: P
 		if not by_id.has(cid):
 			_fail(failures, "%s: alive id=%d missing from lane cache" % [ctx, cid])
 			continue
-		var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, c)
+		var fid: String = _ZoneOfControl.zone_geometry_fid_str(mgr, c)
 		var live: bool = _DepthPolearm.depth_polearm_lane_open(mgr, c, fid)
 		if bool(by_id[cid]) != live:
 			_fail(
@@ -3663,11 +3988,11 @@ static func _run_hostile_pair_distributed_pressure_ally_commit(failures: PackedS
 	var p0: Dictionary = mgr.combatants[0]
 	var p1: Dictionary = mgr.combatants[1]
 	var e0: Dictionary = mgr.combatants[2]
-	if _EntityAccess.side_str(p0) != "player" or _EntityAccess.side_str(p1) != "player":
+	if not _EntityAccess.is_player_side(p0) or not _EntityAccess.is_player_side(p1):
 		_fail(failures, "dist_pressure: expected first two combatants on player side")
 		_free_manager(mgr)
 		return
-	if _EntityAccess.side_str(e0) != "enemy":
+	if not _EntityAccess.is_enemy_side(e0):
 		_fail(failures, "dist_pressure: expected third combatant enemy")
 		_free_manager(mgr)
 		return
@@ -3707,7 +4032,7 @@ static func _run_hostile_pair_distributed_pressure_ally_commit(failures: PackedS
 	_free_manager(mgr)
 
 
-## Tier 1.6 / 1.9: **`CombatTargetScoring.ally_pressure_count`** — committed rank>0 allies count only when **`AvailableActionsBuilder._melee_pair_rank_allowed`** to the committed defender ( **`depth_polearm_valid_line_threat`** for home depth vs rank-0; intruder paths unchanged).
+## Tier 1.6 / 1.9: **`CombatTargetScoring.ally_pressure_count`** — committed rank>0 allies count only when **`CombatMeleeRankTargeting.melee_pair_rank_allowed`** to the committed defender ( **`depth_polearm_valid_line_threat`** for home depth vs rank-0; intruder paths unchanged).
 static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures: PackedStringArray) -> void:
 	var mgr_near: Node = _MgrScript.new()
 	mgr_near.register(_new_entity("SWORD"), "player")
@@ -3957,11 +4282,11 @@ static func _run_targeting_soft_geometry_eff_dist_formula(failures: PackedString
 	var p: Dictionary = mgr.combatants[0]
 	var e0: Dictionary = mgr.combatants[1]
 	var e1: Dictionary = mgr.combatants[2]
-	if _EntityAccess.side_str(p) != "player":
+	if not _EntityAccess.is_player_side(p):
 		_fail(failures, "soft_geom: expected combatants[0] player")
 		_free_manager(mgr)
 		return
-	if _EntityAccess.side_str(e0) != "enemy" or _EntityAccess.side_str(e1) != "enemy":
+	if not _EntityAccess.is_enemy_side(e0) or not _EntityAccess.is_enemy_side(e1):
 		_fail(failures, "soft_geom: expected combatants[1–2] enemy")
 		_free_manager(mgr)
 		return
@@ -4150,7 +4475,7 @@ static func _run_ai_targeting_breach_file_mult(failures: PackedStringArray) -> v
 	_free_manager(mgr)
 
 
-## Tier 1.6: **`formation_dict_cache`** on **`opponent_formation_targeting_mult`**, **`opponent_breach_file_targeting_mult`**, **`posture_cohesion_targeting_mult`** matches live **`ZoneOfControl.formation_dict_for_zone_geometry`**.
+## Tier 1.6: **`formation_dict_cache`** on **`opponent_formation_targeting_mult`**, **`opponent_breach_file_targeting_mult`**, **`posture_cohesion_targeting_mult`** matches live **`ZoneOfControl.formation_for_combatant_cached`**.
 static func _run_targeting_formation_dict_cache_matches_live(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -4170,8 +4495,9 @@ static func _run_targeting_formation_dict_cache_matches_live(failures: PackedStr
 	for c in mgr.combatants:
 		c["gauge"] = 100.0
 	mgr._recompute_zoc_and_distance()
-	var fd_p: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, p)
-	var fd_o: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, opp)
+	var zg_po: Dictionary = _ZoneOfControl.zone_geometry_for_pair(mgr, p, opp)
+	var fd_p: Dictionary = _ZoneOfControl.zone_geometry_formation_a_from_pair_pack(zg_po)
+	var fd_o: Dictionary = _ZoneOfControl.zone_geometry_formation_b_from_pair_pack(zg_po)
 	var m_pc_l: float = _TargetScoring.posture_cohesion_targeting_mult(mgr, p)
 	var m_pc_c: float = _TargetScoring.posture_cohesion_targeting_mult(mgr, p, fd_p)
 	if not is_equal_approx(m_pc_l, m_pc_c):
@@ -4412,8 +4738,8 @@ static func _run_effective_pair_geometry_single_pass_matches_wrappers(
 	var a: Dictionary = mgr.combatants[0]
 	var b: Dictionary = mgr.combatants[2]
 	var geom: Dictionary = _PairGeometry.effective_pair_geometry(mgr, a, b)
-	var eff_wrap: float = _PairGeometry.effective_pair_eff_dist(mgr, a, b)
-	var space_wrap: float = _PairGeometry.effective_pair_file_spacing_equivalent(mgr, a, b)
+	var eff_wrap: float = _PairGeometry.cached_eff_dist(geom)
+	var space_wrap: float = float(geom.get("file_spacing_equiv", 0.0))
 	_free_manager(mgr)
 	if not geom.has("eff_dist") or not geom.has("file_spacing_equiv"):
 		_fail(failures, "pair_geom: result dict missing eff_dist or file_spacing_equiv")
@@ -5142,7 +5468,7 @@ static func _run_ordered_melee_opponents_file_opposed_sort(failures: PackedStrin
 	var e_same: Dictionary = {}
 	var e_off: Dictionary = {}
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) == "player":
+		if _EntityAccess.is_player_side(c):
 			p = c
 		elif e_same.is_empty():
 			e_same = c
@@ -5188,7 +5514,7 @@ static func _run_ordered_melee_opponents_commitment_tiebreak(failures: PackedStr
 	var e1: Dictionary = {}
 	var e2: Dictionary = {}
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) == "player":
+		if _EntityAccess.is_player_side(c):
 			p = c
 		elif e1.is_empty():
 			e1 = c
@@ -5216,6 +5542,106 @@ static func _run_ordered_melee_opponents_commitment_tiebreak(failures: PackedStr
 				% [first_id, e1id, str(id_list)]
 			)
 	_free_manager(mgr)
+
+
+## Tier 1.6: cached **`zone_geometry_line_context`** on **`ordered_melee_opponents`** matches a fresh resolve (listing sort stability).
+static func _run_ordered_melee_opponents_actor_zone_cache_parity(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 3, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	var p: Dictionary = {}
+	var e0: Dictionary = {}
+	var e1: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_player_side(c):
+			p = c
+		elif e0.is_empty():
+			e0 = c
+		else:
+			e1 = c
+	p["file"] = 1
+	p["rank"] = 0
+	e0["file"] = 0
+	e0["rank"] = 0
+	e1["file"] = 2
+	e1["rank"] = 0
+	mgr._recompute_zoc_and_distance()
+	var fresh: Array = _TargetScoring.ordered_melee_opponents(mgr, p, mgr.combatants, 0)
+	var ctx: Dictionary = _ZoneOfControl.zone_geometry_line_context(mgr, p)
+	var cached: Array = _TargetScoring.ordered_melee_opponents(mgr, p, mgr.combatants, 0, ctx)
+	var ids_fresh: Array = []
+	var ids_cached: Array = []
+	for x in fresh:
+		ids_fresh.append(_EntityAccess.id_int(x))
+	for x in cached:
+		ids_cached.append(_EntityAccess.id_int(x))
+	_free_manager(mgr)
+	if ids_fresh != ids_cached:
+		_fail(
+			failures,
+			"melee_order_ctx: fresh %s != cached %s" % [str(ids_fresh), str(ids_cached)]
+		)
+
+
+## **`AvailableActionsBuilder.build`** is deterministic across back-to-back calls on the same combat state.
+static func _run_available_actions_build_double_invoke_parity(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 3, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 2, "density": "tight"})
+	var p: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_player_side(c):
+			p = c
+			break
+	p["file"] = 1
+	p["rank"] = 0
+	mgr._recompute_zoc_and_distance()
+	var pid: int = _EntityAccess.id_int(p)
+	var sig_a: String = _ListedActions.compact_signature(_ActionsBuilder.build(mgr, pid))
+	var sig_b: String = _ListedActions.compact_signature(_ActionsBuilder.build(mgr, pid))
+	_free_manager(mgr)
+	if sig_a != sig_b:
+		_fail(
+			failures,
+			"actions_build_parity: first=%s second=%s" % [sig_a, sig_b]
+		)
+
+
+## Tier 1.6: cached opponent **`zone_geometry_line_context`** matches pair-resolve weight on **`hostile_pair_targeting_weight_mult`**.
+static func _run_hostile_pair_opp_zone_cache_parity(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 3, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "tight"})
+	var p: Dictionary = {}
+	var e: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_player_side(c):
+			p = c
+		else:
+			e = c
+	p["file"] = 1
+	p["rank"] = 0
+	e["file"] = 1
+	e["rank"] = 0
+	mgr._recompute_zoc_and_distance()
+	var em: float = _TargetScoring.engagement_mode_targeting_mult(mgr)
+	var ctx_p: Dictionary = _ZoneOfControl.zone_geometry_line_context(mgr, p)
+	var zone_by_id: Dictionary = _ZoneOfControl.zone_geometry_line_context_by_combatant_id(mgr)
+	var eid: int = _EntityAccess.id_int(e)
+	var ctx_e: Dictionary = zone_by_id.get(eid, {}) as Dictionary
+	var w_pair: float = _TargetScoring.hostile_pair_targeting_weight_mult(mgr, p, e, em, ctx_p)
+	var w_cached: float = _TargetScoring.hostile_pair_targeting_weight_mult(mgr, p, e, em, ctx_p, ctx_e)
+	_free_manager(mgr)
+	if not is_equal_approx(w_pair, w_cached):
+		_fail(
+			failures,
+			"hostile_pair_opp_ctx: pair=%.6f cached=%.6f" % [w_pair, w_cached]
+		)
 
 
 ## Tier 4.2: **`AttackWindUpStarter.start`** with **`feint_part`** / **`target_part`** options stamps **`pending_attack`** (incl. **`feint_target_reveal_at_progress`** when the move defines it), sets defender **`guard_zone`** to the telegraph (**`feint_part`** when present). Uses **`CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED`** for stable upstream wind-up rolls; restores **`_HARNESS_RESTORE_GLOBAL_SEED`** before teardown.
@@ -7445,6 +7871,23 @@ static func _run_medical_phase_end_combat_idempotent(failures: PackedStringArray
 	_free_manager(mgr)
 
 
+## Tier 6.2: medical phase teardown clears **`combat_absent`** / **`STATE_FLED`** like **`CombatManager.start()`**.
+static func _run_medical_phase_clears_fled_combatant_state(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var c: Dictionary = mgr.combatants[0]
+	c["combat_absent"] = true
+	c.state = CombatConstants.STATE_FLED
+	mgr._end_combat_phase("player", null)
+	if bool(c.get("combat_absent", false)):
+		_fail(failures, "med_phase_fled: combat_absent should clear on medical teardown")
+	if _EntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+		_fail(failures, "med_phase_fled: STATE_FLED should reset on medical teardown")
+	_free_manager(mgr)
+
+
 ## Enemy win still ends combat immediately (no medical phase).
 static func _run_combat_end_enemy_win_stops_manager(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
@@ -8082,6 +8525,36 @@ static func _run_combat_ui_hints_formation_cowering_tooltip(failures: PackedStri
 	var joined: String = "\n".join(lines)
 	if not joined.contains("fall back"):
 		_fail(failures, "ui_hints_formation_cow: want fall back got '%s'" % joined)
+
+
+## Formation cell tooltips show host line vs home roster for intruders (uses snapshot **`zone_geometry_fid`** when set).
+static func _run_combat_ui_hints_formation_intruder_host_line_tooltip(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	atk["engagement_role"] = CombatConstants.ENGAGEMENT_ROLE_INTRUDED
+	atk["intrusion_host_fid"] = "enemy"
+	atk["formation_id"] = "player"
+	var nm: String = _EntityAccess.get_display_name(atk, _EntityAccess.id_int(atk))
+	var live_tip: String = "\n".join(_UiHints.formation_cell_tooltip_lines(atk, nm, mgr))
+	if not live_tip.contains("host line enemy") or not live_tip.contains("home player"):
+		_fail(failures, "ui_hints_formation_intruder: live tip got '%s'" % live_tip)
+	var rows: Array = mgr.get_combatants()
+	var snap_row: Dictionary = {}
+	for row in rows:
+		if typeof(row) == TYPE_DICTIONARY and int((row as Dictionary).get("id", -1)) == _EntityAccess.id_int(atk):
+			snap_row = row as Dictionary
+			break
+	if snap_row.is_empty():
+		_fail(failures, "ui_hints_formation_intruder: missing snapshot row")
+		_free_manager(mgr)
+		return
+	var snap_tip: String = "\n".join(_UiHints.formation_cell_tooltip_lines(snap_row, nm, mgr))
+	if not snap_tip.contains("host line enemy"):
+		_fail(failures, "ui_hints_formation_intruder: snapshot tip got '%s'" % snap_tip)
+	_free_manager(mgr)
 
 
 ## Tier 4.2 UI: live counter gauge label needs **`manager`** when row keys unstamped.
@@ -9510,6 +9983,7 @@ static func _run_feint_target_reveal_progress_scales_readiness_mult(failures: Pa
 			"feint_reveal thrust half window want %.6f got %.6f" % [want_h, m_stab_h]
 		)
 	# choose_defense: reported parry_readiness scales by same mult during feint wind-up early vs late.
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
 	mgr.register(_new_entity("SWORD"), "enemy")
@@ -9568,8 +10042,101 @@ static func _run_feint_target_reveal_progress_scales_readiness_mult(failures: Pa
 	_free_manager_restore_global_rng(mgr)
 
 
+## Tier 4.2b (P4e): feint-move listing **`read_m`** damps early wind-up via **`_feint_readiness_reveal_mult`** (parity with **`choose_defense`**).
+static func _run_feint_move_listing_reveal_progress_dampens_early_wind_up(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	mgr._recompute_zoc_and_distance()
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["guard"] = 1.0
+	enemy["off_balance_until"] = -1.0
+	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
+	var reveal: float = float(
+		WeaponConstants.get_move("oberhau_feint").get("feint_target_reveal_at_progress", 0.45)
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau_feint",
+		"feint_part": "head",
+		"target_part": "chest",
+		"target_id": e_id,
+		"feint_target_reveal_at_progress": reveal,
+	}
+	player["pending_attack"] = pa
+	player["state"] = CombatConstants.STATE_WIND_UP
+	player["state_duration"] = 1.0
+	player["state_timer"] = 0.0
+	var w_early: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var read_early: float = _feint_listing_read_m_expect_for_move_on_target(
+		enemy, p_id, "oberhau_feint", player, pa
+	)
+	var settled_m: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
+	var stance_m: float = CombatConstants.get_stance_modifier(
+		_EntityAccess.stance_str(player), "ai_feint_listing"
+	)
+	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var w_plain: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
+	var want_early: float = (
+		w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_early * settled_m * stance_m
+	)
+	if absf(w_early - want_early) > 0.0001 * maxf(1.0, absf(w_plain)):
+		_fail(
+			failures,
+			"feint_list_reveal early: want %.6f got %.6f read_m=%.6f" % [want_early, w_early, read_early]
+		)
+	player["state_timer"] = 0.99
+	var w_late: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var read_late: float = _feint_listing_read_m_expect_for_move_on_target(
+		enemy, p_id, "oberhau_feint", player, pa
+	)
+	var want_late: float = (
+		w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_late * settled_m * stance_m
+	)
+	if absf(w_late - want_late) > 0.0001 * maxf(1.0, absf(w_plain)):
+		_fail(
+			failures,
+			"feint_list_reveal late: want %.6f got %.6f read_m=%.6f" % [want_late, w_late, read_late]
+		)
+	if w_late <= w_early + 0.0001:
+		_fail(
+			failures,
+			"feint_list_reveal: want late > early got early=%.6f late=%.6f" % [w_early, w_late]
+		)
+	if read_late <= read_early + 0.0001:
+		_fail(
+			failures,
+			"feint_list_reveal: read_m late want > early got early=%.6f late=%.6f"
+			% [read_early, read_late]
+		)
+	player["state"] = CombatConstants.STATE_WAITING
+	player.erase("pending_attack")
+	var w_waiting: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
+	var read_waiting: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "oberhau_feint")
+	if not is_equal_approx(w_waiting, w_late):
+		_fail(
+			failures,
+			"feint_list_reveal waiting: weight should match no-live-pa listing got %.6f late=%.6f"
+			% [w_waiting, w_late]
+		)
+	if not is_equal_approx(read_waiting, read_late):
+		_fail(
+			failures,
+			"feint_list_reveal waiting read_m: want late read_m %.6f got %.6f"
+			% [read_late, read_waiting]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
 ## Tier 4.2: **`DefenseChoiceResolver.choose_defense`** — when **`feint_part`** is set and defender does not read through (**`guard` × stance `feint_readthrough` < `FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`**), **`dodge_eval_part`** can follow the telegraph; harness sets **`pa[CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS]`** to **1.0** for a deterministic assert.
 static func _run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough(failures: PackedStringArray) -> void:
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
 	mgr.register(_new_entity("SWORD"), "enemy")
@@ -10790,13 +11357,12 @@ static func _run_no_hostile_actions_listed_vs_incap_enemy(failures: PackedString
 	var pid: int = _EntityAccess.id_int(p)
 	var eid: int = _EntityAccess.id_int(e)
 	var acts: Array = mgr.get_available_actions(pid)
-	for a in acts:
-		if int(a.get("target_id", -9)) != eid:
-			continue
-		var mid: String = str(a.get("move_id", ""))
+	if _ListedActions.actions_any_vs_target(acts, eid):
+		var bad: Dictionary = _ListedActions.first_action_vs_target(acts, eid)
 		_fail(
 			failures,
-			"incap_acts: unexpected action vs incap enemy move_id=%s full=%s" % [mid, str(a)]
+			"incap_acts: unexpected action vs incap enemy move_id=%s full=%s"
+			% [_ListedActions.entry_move_id(bad), str(bad)]
 		)
 		_free_manager(mgr)
 		return
@@ -10815,7 +11381,7 @@ static func _run_stalemate_melee_rank1_when_rank0_incap(failures: PackedStringAr
 	mgr._recompute_zoc_and_distance()
 	var p: Dictionary = {}
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) == "player":
+		if _EntityAccess.is_player_side(c):
 			p = c
 			break
 	if p.is_empty():
@@ -10825,7 +11391,7 @@ static func _run_stalemate_melee_rank1_when_rank0_incap(failures: PackedStringAr
 	var e0: Dictionary = {}
 	var e1: Dictionary = {}
 	for c in mgr.combatants:
-		if _EntityAccess.side_str(c) != "enemy":
+		if not _EntityAccess.is_enemy_side(c):
 			continue
 		var rr: int = _EntityAccess.rank_int(c)
 		if rr == 0:
@@ -10842,7 +11408,7 @@ static func _run_stalemate_melee_rank1_when_rank0_incap(failures: PackedStringAr
 		return
 	var any_r0: bool = false
 	for oc in mgr.combatants:
-		if _EntityAccess.side_str(oc) == "player":
+		if _EntityAccess.is_player_side(oc):
 			continue
 		if _EntityAccess.rank_int(oc) != 0:
 			continue
@@ -10859,17 +11425,15 @@ static func _run_stalemate_melee_rank1_when_rank0_incap(failures: PackedStringAr
 	var e0id: int = _EntityAccess.id_int(e0)
 	var e1id: int = _EntityAccess.id_int(e1)
 	var acts: Array = mgr.get_available_actions(pid)
-	for a in acts:
-		if int(a.get("target_id", -9)) == e0id:
-			_fail(failures, "stalemate_incap: should not list actions vs incap rank0 got %s" % str(a))
-			_free_manager(mgr)
-			return
-	var seen_e1: bool = false
-	for a in acts:
-		if int(a.get("target_id", -9)) == e1id:
-			seen_e1 = true
-			break
-	if not seen_e1:
+	if _ListedActions.actions_any_vs_target(acts, e0id):
+		_fail(
+			failures,
+			"stalemate_incap: should not list actions vs incap rank0 got %s"
+			% str(_ListedActions.first_action_vs_target(acts, e0id))
+		)
+		_free_manager(mgr)
+		return
+	if not _ListedActions.actions_any_vs_target(acts, e1id):
 		_fail(failures, "stalemate_incap: expected at least one action vs rank1 enemy acts=%s" % str(acts))
 	_free_manager(mgr)
 
@@ -14746,6 +15310,165 @@ static func _run_medical_mobility_can_flee_leg_and_consciousness(failures: Packe
 		_fail(failures, "med_mobility: leg-destroyed should not flee")
 
 
+## Tier 6.2: immobile cowering does not list **`flee`**.
+static func _run_flee_not_listed_when_immobile(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE}, {"files": 1, "ranks": 1})
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	_harness_destroy_limb(ent, "left_leg")
+	_harness_destroy_limb(ent, "right_leg")
+	c.state = CombatConstants.STATE_COWERING
+	c.gauge = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
+	if _ListedActions.actions_include_self_target_move(
+		acts, _EntityAccess.id_int(c), CombatConstants.MOVE_ID_FLEE
+	):
+		_fail(failures, "flee_immobile: must not list flee")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: **`apply_flee`** marks **`combat_absent`**, clears formation slot, ends standing count.
+static func _run_flee_resolve_marks_combat_absent_and_clears_slot(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE}, {"files": 1, "ranks": 1})
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var cid: int = _EntityAccess.id_int(c)
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	c.state = CombatConstants.STATE_COWERING
+	c.gauge = 100.0
+	var fid: String = "player"
+	var slots_before: Dictionary = _FormationSlots.formation_slots_dict(
+		_FormationSlots.formation_record_for_manager(mgr, fid)
+	)
+	if not _FormationSlots.slot_has_any_living_occupant(mgr, slots_before, Vector2i(0, 0)):
+		_fail(failures, "flee_resolve: setup want rank-0 occupant")
+		_free_manager_restore_global_rng(mgr)
+		return
+	_ResolveAction.resolve(mgr, cid, cid, CombatConstants.MOVE_ID_FLEE, {})
+	if not bool(c.get("combat_absent", false)):
+		_fail(failures, "flee_resolve: want combat_absent after flee")
+	if _EntityAccess.state_str(c) != CombatConstants.STATE_FLED:
+		_fail(failures, "flee_resolve: want state fled got %s" % _EntityAccess.state_str(c))
+	if _EntityAccess.is_standing_combatant(c):
+		_fail(failures, "flee_resolve: fled unit should not count as standing")
+	var slots_after: Dictionary = _FormationSlots.formation_slots_dict(
+		_FormationSlots.formation_record_for_manager(mgr, fid)
+	)
+	if _FormationSlots.slot_has_any_living_occupant(mgr, slots_after, Vector2i(0, 0)):
+		_fail(failures, "flee_resolve: rank-0 slot should be empty after flee")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: fled unit shows **Fled** on the gauge row (still **`alive`**).
+static func _run_flee_ui_gauge_label_fled(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE}, {"files": 1, "ranks": 1})
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var cid: int = _EntityAccess.id_int(c)
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	c.state = CombatConstants.STATE_COWERING
+	c.gauge = 100.0
+	_ResolveAction.resolve(mgr, cid, cid, CombatConstants.MOVE_ID_FLEE, {})
+	var label: String = _BattleUIUpdater.gauge_label_text_for_combatant(c, mgr)
+	if label != "Fled":
+		_fail(failures, "flee_ui: gauge want Fled got %s" % label)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: **`CombatManager.start()`** clears **`combat_absent`** / **`STATE_FLED`** on reused dicts.
+static func _run_flee_combat_start_clears_absent_state(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var c: Dictionary = mgr.combatants[0]
+	c["combat_absent"] = true
+	c.state = CombatConstants.STATE_FLED
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	if bool(c.get("combat_absent", false)):
+		_fail(failures, "flee_start: combat_absent should clear on start()")
+	if _EntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+		_fail(failures, "flee_start: STATE_FLED should reset to waiting on start()")
+	_free_manager(mgr)
+
+
+## Tier 6.2: mobile cowering rank-0 lists **`flee`** in formation engagement.
+static func _run_medical_mobility_cowering_lists_flee_in_formation_mode(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 5:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{
+			"files": 2,
+			"ranks": 3,
+			"line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE,
+			"density": "normal",
+		},
+		{"files": 2, "ranks": 2, "density": "normal"}
+	)
+	var _med_list_id_at := func(rank: int, file: int) -> int:
+		for row in mgr.combatants:
+			if (
+				_EntityAccess.is_player_side(row)
+				and _EntityAccess.rank_int(row) == rank
+				and _EntityAccess.file_int(row) == file
+			):
+				return _EntityAccess.id_int(row)
+		return -1
+	var deep_id: int = _med_list_id_at.call(2, 0)
+	if deep_id >= 0:
+		_soak_kill_combatant(mgr, deep_id)
+	var rear_victim_id: int = _med_list_id_at.call(1, 0)
+	if rear_victim_id >= 0:
+		_soak_kill_combatant(mgr, rear_victim_id)
+	mgr.notify_formation_changed("player")
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var front_c: Dictionary = {}
+	for row in mgr.combatants:
+		if (
+			_EntityAccess.is_player_side(row)
+			and _EntityAccess.rank_int(row) == 0
+			and _EntityAccess.file_int(row) == 0
+		):
+			front_c = row
+			break
+	if front_c.is_empty():
+		_fail(failures, "flee_list: missing rank-0 file-0")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	_harness_destroy_limb(ent, "right_arm")
+	_harness_destroy_limb(ent, "left_arm")
+	front_c.state = CombatConstants.STATE_COWERING
+	front_c.gauge = 100.0
+	if not _FormationFlee.flee_action_legal(mgr, front_c):
+		_fail(failures, "flee_list: flee_action_legal should pass for mobile cowering")
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(front_c))
+	if not _ListedActions.actions_include_self_target_move(
+		acts, _EntityAccess.id_int(front_c), CombatConstants.MOVE_ID_FLEE
+	):
+		_fail(failures, "flee_list: mobile cowering want flee in build got %s" % str(acts))
+	_free_manager_restore_global_rng(mgr)
+
+
 ## Tier 6.1: mobile cowering (no arms, legs ok) is not skipped by **`process_incapacitation`**.
 static func _run_medical_mobility_cowering_mobile_not_skipped_in_process_incap(
 	failures: PackedStringArray
@@ -14816,11 +15539,11 @@ static func _run_medical_mobility_cowering_mobile_solo_fall_back_legal(
 	c.gauge = 100.0
 	if not ent.is_cowering():
 		_fail(failures, "med_mobility_fb: expected cowering after arm loss")
-	if not _ActionsBuilder.solo_fall_back_action_legal(mgr, c):
+	if not _FormationMoves.solo_fall_back_action_legal(mgr, c):
 		_fail(failures, "med_mobility_fb: solo fall_back should be legal for mobile cowering")
 	_harness_destroy_limb(ent, "left_leg")
 	_harness_destroy_limb(ent, "right_leg")
-	if _ActionsBuilder.solo_fall_back_action_legal(mgr, c):
+	if _FormationMoves.solo_fall_back_action_legal(mgr, c):
 		_fail(failures, "med_mobility_fb: immobile cowering must not allow solo fall_back")
 	_free_manager_restore_global_rng(mgr)
 
@@ -14848,7 +15571,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 	var _med_list_id_at := func(rank: int, file: int) -> int:
 		for c in mgr.combatants:
 			if (
-				_EntityAccess.side_str(c) == "player"
+				_EntityAccess.is_player_side(c)
 				and _EntityAccess.rank_int(c) == rank
 				and _EntityAccess.file_int(c) == file
 			):
@@ -14878,7 +15601,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 	var front_c: Dictionary = {}
 	for c in mgr.combatants:
 		if (
-			_EntityAccess.side_str(c) == "player"
+			_EntityAccess.is_player_side(c)
 			and _EntityAccess.rank_int(c) == 0
 			and _EntityAccess.file_int(c) == 0
 		):
@@ -14906,7 +15629,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 			"med_mobility_list: unexpected rank-0 plug at file %d blocks solo fall_back"
 			% our_file
 		)
-	if not _ActionsBuilder.solo_fall_back_action_legal(mgr, front_c):
+	if not _FormationMoves.solo_fall_back_action_legal(mgr, front_c):
 		_fail(
 			failures,
 			"med_mobility_list: solo fall_back illegal (rank=%d file=%d disc=%s)"
@@ -14917,14 +15640,11 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 			]
 		)
 	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(front_c))
-	var has_fb: bool = false
-	for a in acts:
-		if a.get("move_id", "") == CombatConstants.MOVE_ID_FALL_BACK:
-			has_fb = true
-			break
-	if not has_fb:
+	if not _ListedActions.actions_include_self_target_move(
+		acts, _EntityAccess.id_int(front_c), CombatConstants.MOVE_ID_FALL_BACK
+	):
 		var c_b: Dictionary = mgr._get_by_id(_EntityAccess.id_int(front_c))
-		var zf: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, c_b)
+		var zf: Dictionary = _ZoneOfControl.formation_for_combatant_cached(mgr, c_b, null)
 		var mp: Dictionary = _EngagementMode.movement_policy(mgr)
 		_fail(
 			failures,
@@ -14934,7 +15654,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 			)
 			% [
 				str(acts),
-				_ActionsBuilder.solo_fall_back_action_legal(mgr, front_c),
+				_FormationMoves.solo_fall_back_action_legal(mgr, front_c),
 				_EntityAccess.gauge_float(c_b),
 				zf.is_empty(),
 				int(zf.get("ranks", 1)),
@@ -14964,7 +15684,7 @@ static func _run_medical_mobility_cowering_resolve_solo_fall_back_without_moveme
 	_harness_destroy_limb(ent, "left_arm")
 	c.state = CombatConstants.STATE_COWERING
 	c.gauge = 100.0
-	if not _ActionsBuilder.solo_fall_back_action_legal(mgr, c):
+	if not _FormationMoves.solo_fall_back_action_legal(mgr, c):
 		_fail(failures, "med_resolve_fb: setup solo fall_back should be legal")
 		return
 	if bool(_EngagementMode.movement_policy(mgr).get("allow_fall_back", false)):
@@ -14995,7 +15715,7 @@ static func _run_medical_mobility_cowering_depth_lists_wait_not_fall_back(
 	)
 	var players: Array = []
 	for row in mgr.combatants:
-		if _EntityAccess.side_str(row) == "player":
+		if _EntityAccess.is_player_side(row):
 			players.append(row)
 	if players.size() < 2:
 		_fail(failures, "med_mobility_depth: need 2 players got %d" % players.size())
@@ -15016,24 +15736,22 @@ static func _run_medical_mobility_cowering_depth_lists_wait_not_fall_back(
 	if not ent.can_flee_or_fall_back():
 		_fail(failures, "med_mobility_depth: want mobile cowering legs ok")
 	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
-	var has_wait: bool = false
-	var has_fb: bool = false
-	for a in acts:
-		var mid: String = str(a.get("move_id", ""))
-		if mid == CombatConstants.MOVE_ID_WAIT:
-			has_wait = true
-		if mid == CombatConstants.MOVE_ID_FALL_BACK:
-			has_fb = true
+	var cid_depth: int = _EntityAccess.id_int(c)
+	var has_wait: bool = _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_WAIT)
+	var has_fb: bool = _ListedActions.actions_include_self_target_move(
+		acts, cid_depth, CombatConstants.MOVE_ID_FALL_BACK
+	)
 	if not has_wait:
 		_fail(failures, "med_mobility_depth: rank-1 cowering want wait in build (acts=%s)" % str(acts))
 	if has_fb:
 		_fail(failures, "med_mobility_depth: rank-1 cowering must not solo fall_back")
 	var depth_hint: String = _PlayerTurnHints.cowering_retreat_hint_if_applicable(mgr, c, acts)
-	if depth_hint.is_empty() or not depth_hint.contains("holding position"):
+	if depth_hint.is_empty():
+		_fail(failures, "med_mobility_depth: want retreat hint got empty")
+	elif not depth_hint.contains("holding position") and not depth_hint.contains("flee abandons"):
 		_fail(
 			failures,
-			"med_mobility_depth: wait-only cowering want holding-position hint got '%s'"
-			% depth_hint
+			"med_mobility_depth: want holding-position or flee hint got '%s'" % depth_hint
 		)
 	_free_manager_restore_global_rng(mgr)
 
@@ -15059,7 +15777,7 @@ static func _run_medical_mobility_cowering_player_retreat_ui_hint(
 	var _hint_id_at := func(rank: int, file: int) -> int:
 		for row in mgr.combatants:
 			if (
-				_EntityAccess.side_str(row) == "player"
+				_EntityAccess.is_player_side(row)
 				and _EntityAccess.rank_int(row) == rank
 				and _EntityAccess.file_int(row) == file
 			):
@@ -15077,7 +15795,7 @@ static func _run_medical_mobility_cowering_player_retreat_ui_hint(
 	var front_c: Dictionary = {}
 	for row in mgr.combatants:
 		if (
-			_EntityAccess.side_str(row) == "player"
+			_EntityAccess.is_player_side(row)
 			and _EntityAccess.rank_int(row) == 0
 			and _EntityAccess.file_int(row) == 0
 		):
@@ -15097,7 +15815,7 @@ static func _run_medical_mobility_cowering_player_retreat_ui_hint(
 		_fail(failures, "med_mobility_hint: fall_back listed want retreat hint got '%s'" % fb_hint)
 	var enemy_c: Dictionary = {}
 	for row in mgr.combatants:
-		if _EntityAccess.side_str(row) == "enemy":
+		if _EntityAccess.is_enemy_side(row):
 			enemy_c = row
 			break
 	var enemy_hint: String = _PlayerTurnHints.cowering_retreat_hint_if_applicable(
@@ -15128,14 +15846,12 @@ static func _run_medical_mobility_cowering_ai_fall_back_weight_beats_wait(
 	c.gauge = 100.0
 	var cid: int = _EntityAccess.id_int(c)
 	var acts: Array = _ActionsBuilder.build(mgr, cid)
-	var fb_act: Dictionary = {}
-	var wait_act: Dictionary = {}
-	for a in acts:
-		var mid: String = str(a.get("move_id", ""))
-		if mid == CombatConstants.MOVE_ID_FALL_BACK:
-			fb_act = a
-		elif mid == CombatConstants.MOVE_ID_WAIT:
-			wait_act = a
+	var fb_act: Dictionary = _ListedActions.first_self_target_action(
+		acts, cid, CombatConstants.MOVE_ID_FALL_BACK
+	)
+	var wait_act: Dictionary = _ListedActions.first_action_with_move_id(
+		acts, CombatConstants.MOVE_ID_WAIT
+	)
 	if fb_act.is_empty() or wait_act.is_empty():
 		_fail(
 			failures,
@@ -15159,10 +15875,11 @@ static func _run_medical_mobility_cowering_ai_fall_back_weight_beats_wait(
 	_free_manager_restore_global_rng(mgr)
 
 
-## Tier 6.1: weighted **`pick_weighted`** favors solo **fall_back** over **wait** for mobile cowering.
+## Tier 6.1 / 6.2: weighted **`pick_weighted`** favors retreat (**fall_back** or **flee**) over **wait** for mobile cowering.
 static func _run_medical_mobility_cowering_ai_pick_favors_fall_back(
 	failures: PackedStringArray
 ) -> void:
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
 	mgr.register(_new_entity("SWORD"), "enemy")
@@ -15178,20 +15895,20 @@ static func _run_medical_mobility_cowering_ai_pick_favors_fall_back(
 	c.state = CombatConstants.STATE_COWERING
 	c.gauge = 100.0
 	var cid: int = _EntityAccess.id_int(c)
-	var acts: Array = _ActionsBuilder.build(mgr, cid)
 	seed(90211)
-	var fall_back_picks: int = 0
+	var acts: Array = _ActionsBuilder.build(mgr, cid)
+	var retreat_picks: int = 0
 	var trials: int = 200
 	for _t in trials:
 		var choice: Dictionary = _AIPicker.pick_weighted(acts, cid, mgr)
-		if str(choice.get("move_id", "")) == CombatConstants.MOVE_ID_FALL_BACK:
-			fall_back_picks += 1
-	# P(fb) = 1.5 / 2.5 = 0.6 — allow slack for RNG.
-	if fall_back_picks < 90:
+		var mid: String = str(choice.get("move_id", ""))
+		if mid == CombatConstants.MOVE_ID_FALL_BACK or mid == CombatConstants.MOVE_ID_FLEE:
+			retreat_picks += 1
+	if retreat_picks < 90:
 		_fail(
 			failures,
-			"med_mobility_ai_pick: want fall_back majority got %d/%d"
-			% [fall_back_picks, trials]
+			"med_mobility_ai_pick: want retreat (fall_back|flee) majority got %d/%d"
+			% [retreat_picks, trials]
 		)
 	_free_manager_restore_global_rng(mgr)
 
@@ -15229,22 +15946,12 @@ static func _run_medical_mobility_cowering_arm_recovery_clears_state(
 	_free_manager_restore_global_rng(mgr)
 
 
-const _COWERING_RETREAT_ONLY_MOVE_IDS: Array[String] = [
-	CombatConstants.MOVE_ID_WAIT,
-	CombatConstants.MOVE_ID_FALL_BACK,
-]
-
-
 static func _harness_assert_retreat_only_action_list(
 	failures: PackedStringArray, acts: Array, tag: String
 ) -> void:
-	for a in acts:
-		var mid: String = str(a.get("move_id", ""))
-		if mid in _COWERING_RETREAT_ONLY_MOVE_IDS:
-			continue
-		if mid in CombatConstants.MEDICAL_MOVE_IDS:
-			continue
-		_fail(failures, "%s: offensive/disallowed move_id '%s' in [%s]" % [tag, mid, acts])
+	var bad_mid: String = _MobilityRetreat.first_disallowed_retreat_only_move_id(acts)
+	if not bad_mid.is_empty():
+		_fail(failures, "%s: offensive/disallowed move_id '%s' in [%s]" % [tag, bad_mid, acts])
 
 
 ## Tier 6.1: no functional arm (or cowering) must not list weapon strikes / crash / close in **`build`**.
@@ -15359,6 +16066,7 @@ static func _run_medical_mobility_cowering_stale_action_ready_cancelled_on_recov
 static func _run_medical_mobility_cowering_ai_pick_never_offensive(
 	failures: PackedStringArray
 ) -> void:
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.register(_new_entity("SWORD"), "player")
@@ -15652,6 +16360,71 @@ static func _run_medical_pain_shock_susceptibility_mult_from_effective_pain(
 		_fail(failures, "med_shock_sus: mid pain want between 0.8 and 1.2 got %.3f" % mid)
 
 
+## Tier 6.1: sustained high pain can enter pain shock on combat ticks (ambient roll).
+static func _run_medical_ambient_pain_shock_tick_enters_from_sustained_pain(
+	failures: PackedStringArray
+) -> void:
+	CombatConstants.set_feature_ambient_pain_shock(true)
+	var ent: Node = _new_entity("SWORD")
+	ent.take_damage_split(20.0, 20.0, "chest")
+	ent._pain_shock_until_time = -1.0
+	ent._ambient_pain_shock_accum = 0.0
+	var pain: float = ent.get_effective_pain_for_thresholds()
+	if pain <= PainConsciousnessConstants.NRS_SHOCK + 0.5:
+		_fail(
+			failures,
+			"ambient_shock: need high effective pain got %.2f" % pain
+		)
+		return
+	var entered: bool = false
+	for _i in 120:
+		if EntityPainConsciousness.try_ambient_pain_shock_tick(ent, 1.0):
+			entered = true
+			break
+	if not entered:
+		_fail(
+			failures,
+			"ambient_shock: want shock from sustained pain (pain=%.2f)" % pain
+		)
+
+
+## Tier 6.1: ambient pain shock gated by **`FEATURE_AMBIENT_PAIN_SHOCK`**.
+static func _run_medical_ambient_pain_shock_skips_when_feature_off(
+	failures: PackedStringArray
+) -> void:
+	CombatConstants.set_feature_ambient_pain_shock(false)
+	var ent: Node = _new_entity("SWORD")
+	ent.take_damage_split(20.0, 20.0, "chest")
+	ent._pain_shock_until_time = -1.0
+	for _i in 40:
+		if EntityPainConsciousness.try_ambient_pain_shock_tick(ent, 2.0):
+			_fail(failures, "ambient_shock_off: should not enter shock when feature off")
+			CombatConstants.set_feature_ambient_pain_shock(true)
+			return
+	CombatConstants.set_feature_ambient_pain_shock(true)
+
+
+## Medical log: ally bandage uses clear procedure label (not bare **`bandage_self`**).
+static func _run_combat_log_formatter_bandage_ally_label(failures: PackedStringArray) -> void:
+	var line: String = _CombatLogFormatter.format_action_line(
+		"Alice",
+		"player",
+		"Bob",
+		"player",
+		{
+			"outcome": "bandaged",
+			"part": "left_leg",
+			"effectiveness": 1.0,
+			"medical_move_id": "bandage_self",
+			"medical_target_is_self": false,
+		}
+	)
+	if not line.contains("bandage (ally)"):
+		_fail(failures, "bandage_ally_log: want bandage (ally) got '%s'" % line)
+	if not line.contains("Bob"):
+		_fail(failures, "bandage_ally_log: want target name in line")
+
+
 static func _run_weapon_blade_strong_fraction(failures: PackedStringArray) -> void:
 	var sword: Weapon = _Weapon.create_from_definition("SWORD")
 	var dagger: Weapon = _Weapon.create_from_definition("DAGGER")
@@ -15712,6 +16485,1392 @@ static func _run_bind_riposte_contact_types_normalized(failures: PackedStringArr
 			)
 
 
+## Tier 7: attack stamina cost rises with wind-up intensity.
+static func _run_tier7_stamina_attack_cost_scales_with_intensity(failures: PackedStringArray) -> void:
+	var light: float = CombatConstants.stamina_attack_cost_from_intensity(0.0)
+	var heavy: float = CombatConstants.stamina_attack_cost_from_intensity(1.0)
+	if not is_equal_approx(light, CombatConstants.STAMINA_ATTACK_COST_BASE):
+		_fail(
+			failures,
+			"tier7_stam_cost: light want %.1f got %.1f"
+			% [CombatConstants.STAMINA_ATTACK_COST_BASE, light]
+		)
+	var want_heavy: float = (
+		CombatConstants.STAMINA_ATTACK_COST_BASE + CombatConstants.STAMINA_ATTACK_COST_SCALE
+	)
+	if not is_equal_approx(heavy, want_heavy):
+		_fail(failures, "tier7_stam_cost: heavy want %.1f got %.1f" % [want_heavy, heavy])
+
+
+## Tier 7: parry stamina cost scales with incoming strike intensity (mirrors attack curve).
+static func _run_tier7_stamina_parry_cost_scales_with_intensity(failures: PackedStringArray) -> void:
+	var light: float = CombatConstants.stamina_parry_cost_from_intensity(0.0)
+	var heavy: float = CombatConstants.stamina_parry_cost_from_intensity(1.0)
+	if not is_equal_approx(light, CombatConstants.STAMINA_PARRY_COST_BASE):
+		_fail(
+			failures,
+			"tier7_parry_stam: light want %.1f got %.1f"
+			% [CombatConstants.STAMINA_PARRY_COST_BASE, light]
+		)
+	var want_heavy: float = (
+		CombatConstants.STAMINA_PARRY_COST_BASE + CombatConstants.STAMINA_PARRY_COST_SCALE
+	)
+	if not is_equal_approx(heavy, want_heavy):
+		_fail(failures, "tier7_parry_stam: heavy want %.1f got %.1f" % [want_heavy, heavy])
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(defender)
+	var e_id: int = _EntityAccess.id_int(attacker)
+	defender["stamina"] = CombatConstants.STAMINA_MAX
+	attacker["pending_attack"] = {"attack_type": "oberhau", "effective_attack_line": "high", "intensity": 1.0}
+	_AttackResultApplier.apply_result(
+		mgr,
+		e_id,
+		{
+			"action": "parry_deflect",
+			"target_id": p_id,
+			"recovery_duration": 0.45,
+			"parry_clash_context": {"parry_control": 0.5, "kinematic_delivery": "cut"},
+		}
+	)
+	var spent: float = CombatConstants.STAMINA_MAX - _EntityAccess.stamina_float(defender)
+	if not is_equal_approx(spent, want_heavy):
+		_fail(
+			failures,
+			"tier7_parry_stam: heavy parry want spend %.1f got %.1f"
+			% [want_heavy, spent]
+		)
+	_free_manager(mgr)
+
+
+## Tier 7.2: five heavy attacks without refill exhaust the stamina pool.
+static func _run_tier7_stamina_depletion_five_heavy_attacks_exhaust_pool(
+	failures: PackedStringArray
+) -> void:
+	var cost_heavy: float = CombatConstants.stamina_attack_cost_from_intensity(1.0)
+	var stamina_left: float = CombatConstants.STAMINA_MAX
+	for _i in 5:
+		stamina_left = maxf(0.0, stamina_left - cost_heavy)
+	if stamina_left > 0.01:
+		_fail(
+			failures,
+			"tier7_stam_deplete: five heavy attacks should exhaust pool, left %.2f" % stamina_left
+		)
+	if CombatConstants.STAMINA_REFILL_RATE > 5.5:
+		_fail(
+			failures,
+			"tier7_stam_deplete: refill rate %.2f too high for 7.2 pacing target"
+			% CombatConstants.STAMINA_REFILL_RATE
+		)
+
+
+## Tier 7.2: sustained exchange (~2 min) with attack every 3s + idle refill should leave combatant fatigued.
+static func _run_tier7_stamina_depletion_sustained_exchange_sim(
+	failures: PackedStringArray
+) -> void:
+	var stamina: float = CombatConstants.STAMINA_MAX
+	var attack_cost: float = CombatConstants.stamina_attack_cost_from_intensity(0.85)
+	var dt: float = 0.1
+	var elapsed: float = 0.0
+	var next_attack: float = 0.0
+	while elapsed < 120.0:
+		if elapsed >= next_attack - 0.001:
+			stamina = maxf(0.0, stamina - attack_cost)
+			next_attack += 3.0
+		else:
+			stamina = minf(
+				CombatConstants.STAMINA_MAX,
+				stamina + CombatConstants.STAMINA_REFILL_RATE * dt
+			)
+		elapsed += dt
+	if stamina > CombatConstants.STAMINA_MAX * 0.35:
+		_fail(
+			failures,
+			"tier7_stam_deplete_sim: after 120s intense exchange want <=35%% stamina got %.1f"
+			% stamina
+		)
+
+
+## Tier 7: fatigued combatants wait longer between **`EVENT_ACTION_READY`** schedules.
+static func _run_tier7_stamina_action_ready_cooldown_scales_with_fatigue(
+	failures: PackedStringArray
+) -> void:
+	var fresh: Dictionary = {"stamina": CombatConstants.STAMINA_MAX, "stats": {"agility": 100}}
+	var tired: Dictionary = {"stamina": 0.0, "stats": {"agility": 100}}
+	var cd_fresh: float = _EventScheduler.action_ready_cooldown(fresh)
+	var cd_tired: float = _EventScheduler.action_ready_cooldown(tired)
+	if cd_fresh <= 0.0:
+		_fail(failures, "tier7_ready_delay: fresh cooldown invalid %.3f" % cd_fresh)
+		return
+	var want_ratio: float = CombatConstants.STAMINA_ACTION_READY_DELAY_AT_ZERO_MULT
+	if not is_equal_approx(cd_tired / cd_fresh, want_ratio):
+		_fail(
+			failures,
+			"tier7_ready_delay: tired/fresh ratio want %.3f got %.3f"
+			% [want_ratio, cd_tired / cd_fresh]
+		)
+
+
+## Tier 0.1 / P4b: lane obstacles slow formation-move duration estimates.
+static func _run_formation_move_duration_lane_obstacle_slows_estimate(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
+	var c: Dictionary = mgr.combatants[0]
+	var clear_dur: float = _FormationMoveDuration.estimate_solo_fall_back_duration_s(mgr, c)
+	var lane_clear: float = _ZoneOfControl.get_swap_lane_duration_multiplier(
+		mgr, "player", _EntityAccess.file_int(c)
+	)
+	var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+	var lane_slow: float = _ZoneOfControl.get_swap_lane_duration_multiplier(
+		mgr, "player", _EntityAccess.file_int(c)
+	)
+	var slow_dur: float = _FormationMoveDuration.estimate_solo_fall_back_duration_s(mgr, c)
+	_free_manager(mgr)
+	if lane_slow < CombatConstants.LANE_MOD_CROWDED - 0.01:
+		_fail(
+			failures,
+			"form_dur_lane: obstacle lane mult want >= crowded got %.3f" % lane_slow
+		)
+	if slow_dur <= clear_dur * 1.08:
+		_fail(
+			failures,
+			"form_dur_lane: slow %.3f should exceed clear %.3f" % [slow_dur, clear_dur]
+		)
+	if lane_clear > CombatConstants.LANE_MOD_CLEAR + 0.02:
+		_fail(failures, "form_dur_lane: clear lane mult expected ~1.0 got %.3f" % lane_clear)
+
+
+## Tier 0.1: **`CombatFormationFlow`** pair duration matches **`CombatFormationMoveDuration`** estimate.
+static func _run_formation_move_duration_matches_flow_pair_start(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
+	var p0: Dictionary = mgr.combatants[0]
+	var p1: Dictionary = mgr.combatants[1]
+	var id0: int = _EntityAccess.id_int(p0)
+	var id1: int = _EntityAccess.id_int(p1)
+	var want: float = _FormationMoveDuration.estimate_adjacent_rank_pair_duration_s(
+		mgr, p0, p1, "swap_rank"
+	)
+	_FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
+	var got: float = float(p0.get("state_duration", -1.0))
+	_free_manager(mgr)
+	if not is_equal_approx(got, want):
+		_fail(failures, "form_dur_flow: pair start want %.4f got %.4f" % [want, got])
+
+
+## Tier 0.1: listed formation moves carry **`formation_move_duration_hint`** when lane is crowded.
+static func _run_formation_move_duration_listed_actions_stamp_hint(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var c: Dictionary = {}
+	var ally_id: int = -1
+	for raw in mgr.combatants:
+		if not _EntityAccess.is_player_side(raw):
+			continue
+		if _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 0:
+			c = raw
+		elif _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 1:
+			ally_id = _EntityAccess.id_int(raw)
+	if c.is_empty() or ally_id < 0:
+		_fail(failures, "form_dur_list: need rank-0 allies at files 0 and 1")
+		_free_manager(mgr)
+		return
+	var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+	c["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
+	_free_manager(mgr)
+	var rotate_act: Dictionary = _ListedActions.first_action_move_vs_target(
+		acts, CombatConstants.MOVE_ID_ROTATE_FILE, ally_id
+	)
+	if rotate_act.is_empty():
+		_fail(failures, "form_dur_list: expected rotate_file in crowded-lane actions")
+		return
+	var hint: String = str(rotate_act.get("formation_move_duration_hint", ""))
+	if hint.is_empty() or not hint.contains("crowded"):
+		_fail(
+			failures,
+			"form_dur_list: rotate_file want crowded duration hint got '%s'" % hint
+		)
+
+
+## Tier 0.1 UI: player turn-ready lists formation-move duration from stamped action hints.
+static func _run_formation_move_duration_player_turn_hint_from_listed_actions(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var c: Dictionary = {}
+	var ally_id: int = -1
+	for raw in mgr.combatants:
+		if not _EntityAccess.is_player_side(raw):
+			continue
+		if _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 0:
+			c = raw
+		elif _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 1:
+			ally_id = _EntityAccess.id_int(raw)
+	if c.is_empty() or ally_id < 0:
+		_fail(failures, "form_dur_turn_hint: need rank-0 allies at files 0 and 1")
+		_free_manager(mgr)
+		return
+	var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+	c["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
+	var line: String = _PlayerTurnHints.formation_listed_moves_hint_if_applicable(c, acts)
+	if line.is_empty() or not line.contains("crowded"):
+		_fail(
+			failures,
+			"form_dur_turn_hint: want crowded lane in hint got '%s'" % line
+		)
+	var compact: String = CombatDebug.format_actions_compact(acts)
+	if not compact.contains("crowded"):
+		_fail(
+			failures,
+			"form_dur_turn_hint: format_actions_compact want duration suffix got '%s'" % compact
+		)
+	_free_manager(mgr)
+
+
+## Tier 0.1: listed formation-move duration appears on waiting gauge tooltip after turn-ready sync.
+static func _run_formation_move_duration_gauge_tooltip_listed_hint(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var c: Dictionary = {}
+	var ally_id: int = -1
+	for raw in mgr.combatants:
+		if not _EntityAccess.is_player_side(raw):
+			continue
+		if _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 0:
+			c = raw
+		elif _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 1:
+			ally_id = _EntityAccess.id_int(raw)
+	if c.is_empty() or ally_id < 0:
+		_fail(failures, "form_dur_gauge: need rank-0 allies at files 0 and 1")
+		_free_manager(mgr)
+		return
+	var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+	c["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
+	_PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(c, acts)
+	var tips: PackedStringArray = _UiHints.gauge_tooltip_lines(c, mgr)
+	var joined: String = "\n".join(tips)
+	_free_manager(mgr)
+	if not joined.contains("crowded"):
+		_fail(
+			failures,
+			"form_dur_gauge: want crowded lane in gauge tooltip got '%s'" % joined
+		)
+
+
+## Tier 0.1: listed formation duration not shown on gauge tooltip after leaving waiting.
+static func _run_formation_move_duration_gauge_tooltip_clears_when_not_waiting(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var c: Dictionary = {}
+	for raw in mgr.combatants:
+		if not _EntityAccess.is_player_side(raw):
+			continue
+		if _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 0:
+			c = raw
+	if c.is_empty():
+		_fail(failures, "form_dur_gauge_wait: need rank-0 player at file 0")
+		_free_manager(mgr)
+		return
+	var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+	c["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
+	_PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(c, acts)
+	var stamped: String = str(
+		c.get(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")
+	).strip_edges()
+	if stamped.is_empty():
+		_fail(failures, "form_dur_gauge_wait: want stamped listed hint before state change")
+		_free_manager(mgr)
+		return
+	c["state"] = CombatConstants.STATE_WIND_UP
+	var tips: PackedStringArray = _UiHints.gauge_tooltip_lines(c, mgr)
+	var joined: String = "\n".join(tips)
+	_free_manager(mgr)
+	if stamped in joined:
+		_fail(
+			failures,
+			"form_dur_gauge_wait: listed hint should hide when not waiting got '%s'" % joined
+		)
+
+
+## Tier 0.1: resolve clears **`COMBATANT_KEY_FORMATION_MOVES_TURN_HINT`** on the actor.
+static func _run_formation_move_duration_gauge_tooltip_clears_on_resolve(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var c: Dictionary = {}
+	for raw in mgr.combatants:
+		if not _EntityAccess.is_player_side(raw):
+			continue
+		if _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 0:
+			c = raw
+	if c.is_empty():
+		_fail(failures, "form_dur_gauge_resolve: need rank-0 player at file 0")
+		_free_manager(mgr)
+		return
+	var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+	c["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
+	_PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(c, acts)
+	if not c.has(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT):
+		_fail(failures, "form_dur_gauge_resolve: want stamped hint before resolve")
+		_free_manager(mgr)
+		return
+	var cid: int = _EntityAccess.id_int(c)
+	_ResolveAction.resolve(mgr, cid, cid, CombatConstants.MOVE_ID_WAIT, {})
+	_free_manager(mgr)
+	if c.has(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT):
+		_fail(failures, "form_dur_gauge_resolve: hint key should clear after wait resolve")
+
+
+## Tier 0 / wind-up: explicit **`move_id`** not on weapon does not start wind-up or substitute a random move.
+static func _run_wind_up_rejects_move_not_on_weapon(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	atk["gauge"] = 100.0
+	_WindUpStarter.start(mgr, atk_id, def_id, "spear_thrust")
+	if _EntityAccess.state_str(atk) == CombatConstants.STATE_WIND_UP:
+		_fail(failures, "wind_up_reject: SWORD should not wind up with spear_thrust")
+	if not _EntityAccess.nested_dictionary_read(atk, "pending_attack").is_empty():
+		_fail(failures, "wind_up_reject: pending_attack should stay empty")
+	_free_manager(mgr)
+
+
+## Tier 0.1 UI: crowded lane shows formation-move duration hint on diagram tooltips.
+static func _run_formation_move_duration_ui_hint_when_lane_crowded(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
+	var c: Dictionary = mgr.combatants[0]
+	var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+	var nm: String = _EntityAccess.get_display_name(c, _EntityAccess.id_int(c))
+	var tip: String = "\n".join(_UiHints.formation_cell_tooltip_lines(c, nm, mgr))
+	_free_manager(mgr)
+	if not tip.contains("Formation move"):
+		_fail(failures, "form_dur_ui: want Formation move hint got '%s'" % tip)
+	if not tip.contains("crowded"):
+		_fail(failures, "form_dur_ui: want crowded lane in hint got '%s'" % tip)
+
+
+## Tier 1: **`rotate_file`** listed for adjacent rank-0 allies on a multi-file line.
+static func _run_rotate_file_listed_for_adjacent_front_rank_allies(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var by_file: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_player_side(c):
+			continue
+		if _EntityAccess.rank_int(c) != 0:
+			continue
+		by_file[_EntityAccess.file_int(c)] = c
+	var p0: Dictionary = by_file.get(0, {})
+	var p1: Dictionary = by_file.get(1, {})
+	if p0.is_empty() or p1.is_empty():
+		_fail(failures, "rotate_list: need rank-0 allies at files 0 and 1")
+		_free_manager(mgr)
+		return
+	p0["gauge"] = 100.0
+	p1["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(p0))
+	var saw_rotate: bool = not _ListedActions.first_action_move_vs_target(
+		acts, CombatConstants.MOVE_ID_ROTATE_FILE, _EntityAccess.id_int(p1)
+	).is_empty()
+	_free_manager(mgr)
+	if not saw_rotate:
+		_fail(failures, "rotate_list: rank-0 file-0 should list rotate_file vs file-1 ally")
+
+
+## Tier 1: **`CombatFormationFlow.start_rotate_file`** duration matches **`CombatFormationMoveDuration`**.
+static func _run_rotate_file_start_sets_duration_matches_estimate(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var p0: Dictionary = {}
+	var p1: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_player_side(c) or _EntityAccess.rank_int(c) != 0:
+			continue
+		if _EntityAccess.file_int(c) == 0:
+			p0 = c
+		elif _EntityAccess.file_int(c) == 1:
+			p1 = c
+	if p0.is_empty() or p1.is_empty():
+		_fail(failures, "rotate_dur_flow: need rank-0 files 0 and 1")
+		_free_manager(mgr)
+		return
+	var id0: int = _EntityAccess.id_int(p0)
+	var id1: int = _EntityAccess.id_int(p1)
+	var want: float = _FormationMoveDuration.estimate_rotate_file_duration_s(mgr, p0, p1)
+	_FormationFlow.start_rotate_file(mgr, id0, id1)
+	var got: float = float(p0.get("state_duration", -1.0))
+	_free_manager(mgr)
+	if not is_equal_approx(got, want):
+		_fail(failures, "rotate_dur_flow: want %.4f got %.4f" % [want, got])
+
+
+## Tier 1.8: successful LONG **`resolve_close_attempt`** closes pair distance.
+static func _run_resolve_close_attempt_long_success_closes_distance(
+	failures: PackedStringArray
+) -> void:
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	seed(0)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr._recompute_zoc_and_distance()
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var p: Dictionary = mgr.combatants[0]
+	var en: Dictionary = mgr.combatants[1]
+	if typeof(p.get("distance_to", null)) != TYPE_DICTIONARY:
+		p["distance_to"] = {}
+	if typeof(en.get("distance_to", null)) != TYPE_DICTIONARY:
+		en["distance_to"] = {}
+	(p["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_LONG
+	(en["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_LONG
+	var sd: Dictionary = _EntityAccess.stats_dict_for_mutation(p)
+	sd["strength"] = 400.0
+	var sd_e: Dictionary = _EntityAccess.stats_dict_for_mutation(en)
+	sd_e["agility"] = 5.0
+	var cap: Array = []
+	mgr.action_resolved.connect(
+		func(_a: int, _t: int, result: Dictionary) -> void:
+			cap.clear()
+			cap.append(result)
+	)
+	_EngagementResolver.resolve_close_attempt(mgr, p_id, e_id)
+	_free_manager_restore_global_rng(mgr)
+	if cap.is_empty():
+		_fail(failures, "close_success: expected action_resolved")
+		return
+	var r: Dictionary = cap[0] as Dictionary
+	if str(r.get("outcome", "")) != "close_success":
+		_fail(failures, "close_success: expected close_success got %s" % str(r))
+	elif (p.get("distance_to", {}) as Dictionary).get(e_id, "") != CombatConstants.DISTANCE_CLOSE:
+		_fail(
+			failures,
+			"close_success: attacker distance_to should be CLOSE got %s"
+			% str((p.get("distance_to", {}) as Dictionary).get(e_id, ""))
+		)
+
+
+## Tier 1.10: automatic doctrine applies **`pinch_center`** on hollow enemy front when doctrine still default.
+static func _run_automatic_doctrine_sets_pinch_on_hollow_when_enabled(
+	failures: PackedStringArray
+) -> void:
+	if not CombatConstants.FEATURE_AUTOMATIC_DOCTRINE:
+		_fail(failures, "auto_doctrine: FEATURE_AUTOMATIC_DOCTRINE should be enabled")
+		return
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 3, "ranks": 1})
+	var en_by_file: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_enemy_side(c):
+			continue
+		en_by_file[_EntityAccess.file_int(c)] = c
+	(en_by_file[1] as Dictionary)["alive"] = false
+	_CombatDoctrine.evaluate_automatic_doctrine(mgr)
+	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_PINCH_CENTER:
+		_fail(
+			failures,
+			"auto_doctrine: hollow center should set pinch_center got %s"
+			% mgr.get_formation_doctrine("player")
+		)
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_HOLD_LANE)
+	_CombatDoctrine.evaluate_automatic_doctrine(mgr)
+	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_HOLD_LANE:
+		_fail(
+			failures,
+			"auto_doctrine: must not override player hold_lane got %s"
+			% mgr.get_formation_doctrine("player")
+		)
+	_free_manager(mgr)
+
+
+## Tier 0: heavy armor mass slows formation-move duration estimates and hints.
+static func _run_formation_move_duration_heavy_armor_slows_estimate(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	var ent_light := _new_entity("SWORD")
+	mgr.register(ent_light, "player")
+	var ent_heavy := _new_entity("SWORD")
+	_harness_equip_heavy_crash_kit(ent_heavy)
+	mgr.register(ent_heavy, "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var light_c: Dictionary = mgr.combatants[0]
+	var heavy_c: Dictionary = mgr.combatants[1]
+	for c in [light_c, heavy_c]:
+		if _EntityAccess.rank_int(c) != 0:
+			continue
+		c["gauge"] = 100.0
+	var light_dur: float = _FormationMoveDuration.estimate_solo_fall_back_duration_s(mgr, light_c)
+	var heavy_dur: float = _FormationMoveDuration.estimate_solo_fall_back_duration_s(mgr, heavy_c)
+	var heavy_hint: String = _FormationMoveDuration.formation_preview_tooltip_line(mgr, heavy_c)
+	_free_manager(mgr)
+	if heavy_dur <= light_dur * 1.08:
+		_fail(
+			failures,
+			"form_dur_armor: heavy %.3f should exceed light %.3f" % [heavy_dur, light_dur]
+		)
+	if not heavy_hint.contains("heavy armor"):
+		_fail(failures, "form_dur_armor: want heavy armor in hint got '%s'" % heavy_hint)
+
+
+## Tier 0: hit during **`STATE_SWAP_RANK`** extends duration and delays resolve event (does not cancel).
+static func _run_formation_hit_reaction_extends_pair_move_duration(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 2}, {"files": 2, "ranks": 2})
+	var p0: Dictionary = {}
+	var p1: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_player_side(c):
+			continue
+		if _EntityAccess.rank_int(c) == 0 and _EntityAccess.file_int(c) == 0:
+			p0 = c
+		elif _EntityAccess.rank_int(c) == 1 and _EntityAccess.file_int(c) == 0:
+			p1 = c
+	if p0.is_empty() or p1.is_empty():
+		_fail(failures, "form_hit_rx: need rank-0/1 same-file pair")
+		_free_manager(mgr)
+		return
+	var id0: int = _EntityAccess.id_int(p0)
+	var id1: int = _EntityAccess.id_int(p1)
+	_FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
+	var dur_before: float = float(p0.get("state_duration", -1.0))
+	var resolve_before: float = -1.0
+	for ev in mgr.event_queue:
+		if typeof(ev) != TYPE_DICTIONARY:
+			continue
+		var evd: Dictionary = ev as Dictionary
+		if (
+			str(evd.get("type", "")) == CombatConstants.EVENT_SWAP_RANK_RESOLVE
+			and int(evd.get("combatant_id", -1)) == id0
+		):
+			resolve_before = float(evd.get("resolve_at", -1.0))
+			break
+	_FormationFlow.apply_hit_reaction_if_needed(mgr, id0, 0.35)
+	var dur_after: float = float(p0.get("state_duration", -1.0))
+	var resolve_after: float = resolve_before
+	for ev in mgr.event_queue:
+		if typeof(ev) != TYPE_DICTIONARY:
+			continue
+		var evd2: Dictionary = ev as Dictionary
+		if (
+			str(evd2.get("type", "")) == CombatConstants.EVENT_SWAP_RANK_RESOLVE
+			and int(evd2.get("combatant_id", -1)) == id0
+		):
+			resolve_after = float(evd2.get("resolve_at", -1.0))
+			break
+	_free_manager(mgr)
+	if dur_after <= dur_before + 0.05:
+		_fail(
+			failures,
+			"form_hit_rx: duration want increase before=%.3f after=%.3f" % [dur_before, dur_after]
+		)
+	if resolve_before < 0.0 or resolve_after <= resolve_before + 0.05:
+		_fail(
+			failures,
+			"form_hit_rx: resolve_at want bump before=%.3f after=%.3f" % [resolve_before, resolve_after]
+		)
+
+
+## Tier 0: hard hit during pair formation move aborts to waiting and removes resolve event.
+static func _run_formation_hit_cancel_aborts_pair_move(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 2}, {"files": 2, "ranks": 2})
+	var p0: Dictionary = {}
+	var p1: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_player_side(c):
+			continue
+		if _EntityAccess.rank_int(c) == 0 and _EntityAccess.file_int(c) == 0:
+			p0 = c
+		elif _EntityAccess.rank_int(c) == 1 and _EntityAccess.file_int(c) == 0:
+			p1 = c
+	if p0.is_empty() or p1.is_empty():
+		_fail(failures, "form_hit_cancel: need rank-0/1 same-file pair")
+		_free_manager(mgr)
+		return
+	var id0: int = _EntityAccess.id_int(p0)
+	var id1: int = _EntityAccess.id_int(p1)
+	_FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
+	_FormationFlow.apply_hit_reaction_if_needed(mgr, id0, 0.9)
+	var st0: String = _EntityAccess.state_str(p0)
+	var st1: String = _EntityAccess.state_str(p1)
+	var resolve_left: bool = false
+	for ev in mgr.event_queue:
+		if typeof(ev) != TYPE_DICTIONARY:
+			continue
+		var evd: Dictionary = ev as Dictionary
+		if str(evd.get("type", "")) != CombatConstants.EVENT_SWAP_RANK_RESOLVE:
+			continue
+		var cid: int = int(evd.get("combatant_id", -1))
+		var dr: Variant = evd.get("data", null)
+		var pid: int = -1
+		if dr is Dictionary:
+			pid = int((dr as Dictionary).get("partner_id", -1))
+		if cid == id0 or cid == id1 or pid == id0 or pid == id1:
+			resolve_left = true
+			break
+	_free_manager(mgr)
+	if st0 != CombatConstants.STATE_WAITING or st1 != CombatConstants.STATE_WAITING:
+		_fail(
+			failures,
+			"form_hit_cancel: want both waiting got init=%s partner=%s" % [st0, st1]
+		)
+	if resolve_left:
+		_fail(failures, "form_hit_cancel: swap_rank_resolve should be removed")
+
+
+## Tier 0 pilot: overlapping wind-ups — parry commitment follows highest threat only.
+static func _run_incoming_parry_choice_blocks_non_chosen_attacker(
+	failures: PackedStringArray
+) -> void:
+	if not CombatConstants.FEATURE_INCOMING_PARRY_CHOICE:
+		_fail(failures, "incoming_parry: FEATURE_INCOMING_PARRY_CHOICE should be enabled")
+		return
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var e0: Dictionary = mgr.combatants[1]
+	var e1: Dictionary = mgr.combatants[2]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e0_id: int = _EntityAccess.id_int(e0)
+	var e1_id: int = _EntityAccess.id_int(e1)
+	p["gauge"] = 100.0
+	e0["gauge"] = 100.0
+	e1["gauge"] = 100.0
+	_WindUpStarter.start(mgr, e0_id, p_id, "oberhau")
+	_EntityAccess.nested_dictionary_for_mutation(e0, "pending_attack")["intensity"] = 1.0
+	_WindUpStarter.start(mgr, e1_id, p_id, "oberhau")
+	_EntityAccess.nested_dictionary_for_mutation(e1, "pending_attack")["intensity"] = 0.95
+	var resolve_at: float = _EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
+	for aid in [e0_id, e1_id]:
+		_EntityAccess.manager_schedule_event(
+			mgr,
+			{
+				"type": CombatConstants.EVENT_MELEE_ATTACK,
+				"combatant_id": aid,
+				"resolve_at": resolve_at,
+				"data": {},
+			}
+		)
+	var incoming: Array = _IncomingParryChoice.incoming_attacker_ids_on_defender(mgr, p_id, resolve_at)
+	if incoming.size() < 2:
+		_fail(failures, "incoming_parry: want 2 incoming attackers got %s" % str(incoming))
+		_free_manager_restore_global_rng(mgr)
+		return
+	var s0: float = _IncomingParryChoice.threat_score_for_attacker(mgr, e0_id)
+	var s1: float = _IncomingParryChoice.threat_score_for_attacker(mgr, e1_id)
+	if s0 <= s1:
+		_fail(
+			failures,
+			"incoming_parry: threat e0=%.3f e1=%.3f i0=%.2f i1=%.2f"
+			% [
+				s0,
+				s1,
+				float(_EntityAccess.nested_dictionary_read(e0, "pending_attack").get("intensity", -1.0)),
+				float(_EntityAccess.nested_dictionary_read(e1, "pending_attack").get("intensity", -1.0)),
+			]
+		)
+	if _IncomingParryChoice.can_parry_all(mgr, p_id, resolve_at):
+		_fail(failures, "incoming_parry: dual heavy pair should fail can_parry_all")
+	var chosen: int = _IncomingParryChoice.choose_parry_target_attacker_id(mgr, p_id, resolve_at)
+	if chosen != e0_id:
+		_fail(
+			failures,
+			"incoming_parry: want higher-intensity e0 chosen got %d (i0=%.2f i1=%.2f)"
+			% [
+				chosen,
+				float(_EntityAccess.nested_dictionary_read(e0, "pending_attack").get("intensity", -1.0)),
+				float(_EntityAccess.nested_dictionary_read(e1, "pending_attack").get("intensity", -1.0)),
+			]
+		)
+	if _IncomingParryChoice.parry_choice_blocked_for_resolve(mgr, p_id, e1_id, resolve_at):
+		pass
+	else:
+		_fail(
+			failures,
+			"incoming_parry: low-threat resolve should block parry choice (incoming=%s)"
+			% str(_IncomingParryChoice.incoming_attacker_ids_on_defender(mgr, p_id, resolve_at))
+		)
+	if _IncomingParryChoice.parry_choice_blocked_for_resolve(mgr, p_id, e0_id, resolve_at):
+		_fail(failures, "incoming_parry: high-threat resolve should not block parry choice")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 0: two weak simultaneous wind-ups — **`can_parry_all`** true, no **`parry_choice_blocked`**.
+static func _run_incoming_parry_can_parry_all_weak_pair(failures: PackedStringArray) -> void:
+	if not CombatConstants.FEATURE_INCOMING_PARRY_CHOICE:
+		_fail(failures, "incoming_parry_all: FEATURE_INCOMING_PARRY_CHOICE should be enabled")
+		return
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var e0: Dictionary = mgr.combatants[1]
+	var e1: Dictionary = mgr.combatants[2]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e0_id: int = _EntityAccess.id_int(e0)
+	var e1_id: int = _EntityAccess.id_int(e1)
+	p["gauge"] = 100.0
+	e0["gauge"] = 100.0
+	e1["gauge"] = 100.0
+	_WindUpStarter.start(mgr, e0_id, p_id, "oberhau")
+	_EntityAccess.nested_dictionary_for_mutation(e0, "pending_attack")["intensity"] = 0.42
+	_WindUpStarter.start(mgr, e1_id, p_id, "oberhau")
+	_EntityAccess.nested_dictionary_for_mutation(e1, "pending_attack")["intensity"] = 0.42
+	var resolve_at: float = _EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
+	for aid in [e0_id, e1_id]:
+		_EntityAccess.manager_schedule_event(
+			mgr,
+			{
+				"type": CombatConstants.EVENT_MELEE_ATTACK,
+				"combatant_id": aid,
+				"resolve_at": resolve_at,
+				"data": {},
+			}
+		)
+	var incoming: Array = _IncomingParryChoice.incoming_attacker_ids_on_defender(mgr, p_id, resolve_at)
+	if incoming.size() < 2:
+		_fail(failures, "incoming_parry_all: want 2 incoming got %s" % str(incoming))
+		_free_manager_restore_global_rng(mgr)
+		return
+	if not _IncomingParryChoice.can_parry_all(mgr, p_id, resolve_at):
+		_fail(failures, "incoming_parry_all: weak pair should pass can_parry_all")
+	for aid in [e0_id, e1_id]:
+		if _IncomingParryChoice.parry_choice_blocked_for_resolve(mgr, p_id, aid, resolve_at):
+			_fail(failures, "incoming_parry_all: aid=%d should not be parry_choice_blocked" % aid)
+		var pa: Dictionary = _EntityAccess.nested_dictionary_read(
+			_EntityAccess.manager_get_combatant(mgr, aid), "pending_attack"
+		)
+		_IncomingParryChoice.stamp_parry_choice_on_pa(mgr, pa, p_id, aid, resolve_at)
+		if bool(pa.get("parry_choice_blocked", false)):
+			_fail(failures, "incoming_parry_all: stamp should not block aid=%d" % aid)
+		if not bool(pa.get("parry_all_incoming_batch", false)):
+			_fail(failures, "incoming_parry_all: want parry_all_incoming_batch on aid=%d" % aid)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 0 / FF4: extended weapon (recovering from own attack) dampens defender **`parry_c_d`**.
+static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(
+	failures: PackedStringArray
+) -> void:
+	if not _WeaponPosition.is_weapon_near_body({"state": CombatConstants.STATE_WAITING}):
+		_fail(failures, "weapon_pos: waiting should be near body")
+	if _WeaponPosition.is_weapon_near_body(
+		{
+			"state": CombatConstants.STATE_RECOVERING,
+			"recovery_cause": "attack_hit",
+			"last_move_id": "oberhau",
+		}
+	):
+		_fail(failures, "weapon_pos: recovering from own attack should be extended")
+	if not _WeaponPosition.is_weapon_near_body(
+		{"state": CombatConstants.STATE_RECOVERING, "recovery_cause": "parry_deflect"}
+	):
+		_fail(failures, "weapon_pos: recovering from parry should stay near body")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.55
+	defender["stamina"] = CombatConstants.STAMINA_MAX
+	defender["state"] = CombatConstants.STATE_WAITING
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
+	if parts.is_empty():
+		_fail(failures, "weapon_pos: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau",
+		"intensity": 0.55,
+		"wind_up_duration": 0.95,
+		"tactical_ambush_mult": 1.0,
+	}
+	attacker["state"] = CombatConstants.STATE_WIND_UP
+	attacker["state_duration"] = 1.0
+	attacker["state_timer"] = 0.0
+	seed(92011)
+	var dc_wait: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, "oberhau", arch, -1.0
+	)
+	var cd_wait: float = float(dc_wait.get("parry_c_d", 0.0))
+	if cd_wait <= 1e-6:
+		_fail(failures, "weapon_pos: want positive parry_c_d while waiting got %.6f" % cd_wait)
+		_free_manager_restore_global_rng(mgr)
+		return
+	defender["state"] = CombatConstants.STATE_RECOVERING
+	defender["recovery_cause"] = "attack_hit"
+	defender["last_move_id"] = "oberhau"
+	seed(92011)
+	var dc_ext: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, "oberhau", arch, -1.0
+	)
+	var cd_ext: float = float(dc_ext.get("parry_c_d", 0.0))
+	var want_ext: float = cd_wait * CombatConstants.WEAPON_EXTENDED_PARRY_MULT
+	if absf(cd_ext - want_ext) > cd_wait * 0.02:
+		_fail(
+			failures,
+			"weapon_pos: extended recover want c_d≈%.4f got %.4f (waiting=%.4f)"
+			% [want_ext, cd_ext, cd_wait]
+		)
+	defender["recovery_cause"] = "parry_deflect"
+	defender.erase("last_move_id")
+	seed(92011)
+	var dc_parry: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, "oberhau", arch, -1.0
+	)
+	if absf(float(dc_parry.get("parry_c_d", 0.0)) - cd_wait) > cd_wait * 0.02:
+		_fail(
+			failures,
+			"weapon_pos: parry recovery want c_d≈waiting got %.4f vs %.4f"
+			% [float(dc_parry.get("parry_c_d", 0.0)), cd_wait]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 0 / FF4: attacker wind-up past commit (extended) dampens defender **`parry_c_d`**.
+static func _run_weapon_committed_attack_dampens_defender_parry_c_d(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	defender["stance"] = "balanced"
+	defender["guard"] = 0.55
+	defender["stamina"] = CombatConstants.STAMINA_MAX
+	defender["state"] = CombatConstants.STATE_WAITING
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
+	if parts.is_empty():
+		_fail(failures, "weapon_pos_commit: targetable parts empty")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+	var arch: Dictionary = WeaponConstants.get_archetype(
+		str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+	)
+	var pa: Dictionary = {
+		"attack_type": "oberhau",
+		"intensity": 0.55,
+		"wind_up_duration": 1.0,
+		"tactical_ambush_mult": 1.0,
+	}
+	attacker["state"] = CombatConstants.STATE_WIND_UP
+	attacker["state_duration"] = 1.0
+	attacker["state_timer"] = 0.0
+	attacker["pending_attack"] = pa.duplicate()
+	if not _WeaponPosition.is_weapon_near_body(attacker):
+		_fail(failures, "weapon_pos_commit: early wind-up should be near body")
+	seed(92012)
+	var dc_coil: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, "oberhau", arch, -1.0
+	)
+	var cd_coil: float = float(dc_coil.get("parry_c_d", 0.0))
+	if cd_coil <= 1e-6:
+		_fail(failures, "weapon_pos_commit: want positive parry_c_d early wind-up")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var commit_frac: float = _WeaponPosition.commit_fraction_from_move_def(move_def)
+	attacker["state_timer"] = commit_frac * 1.0 + 0.05
+	if _WeaponPosition.is_weapon_near_body(attacker):
+		_fail(
+			failures,
+			"weapon_pos_commit: past commit wind-up should be extended (frac=%.2f timer=%.2f)"
+			% [commit_frac, float(attacker.get("state_timer", 0.0))]
+		)
+	seed(92012)
+	var dc_commit: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, "oberhau", arch, -1.0
+	)
+	var cd_commit: float = float(dc_commit.get("parry_c_d", 0.0))
+	var want_commit: float = cd_coil * CombatConstants.WEAPON_COMMITTED_ATTACK_PARRY_C_D_MULT
+	if absf(cd_commit - want_commit) > cd_coil * 0.02:
+		_fail(
+			failures,
+			"weapon_pos_commit: committed attack want c_d≈%.4f got %.4f (coil=%.4f)"
+			% [want_commit, cd_commit, cd_coil]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 0 / FF4: thrust moves commit earlier than heavy cuts (**`weapon_extension_commit_fraction`** on move def).
+static func _run_weapon_commit_fraction_stab_before_overhead_cut(failures: PackedStringArray) -> void:
+	var stab_frac: float = float(
+		WeaponConstants.get_move("spear_thrust").get("weapon_extension_commit_fraction", 1.0)
+	)
+	var cut_frac: float = float(
+		WeaponConstants.get_move("oberhau").get("weapon_extension_commit_fraction", 0.0)
+	)
+	if stab_frac >= cut_frac:
+		_fail(
+			failures,
+			"weapon_commit_frac: stab %.2f should be < cut %.2f" % [stab_frac, cut_frac]
+		)
+	var probe_timer: float = 0.65
+	var atk_stab: Dictionary = {
+		"state": CombatConstants.STATE_WIND_UP,
+		"state_timer": probe_timer,
+		"state_duration": 1.0,
+		"pending_attack": {
+			"wind_up_duration": 1.0,
+			"attack_type": "spear_thrust",
+			"weapon_extension_commit_fraction": stab_frac,
+		},
+	}
+	if _WeaponPosition.is_weapon_near_body(atk_stab):
+		_fail(failures, "weapon_commit_frac: spear at 65%% wind-up should be extended")
+	var atk_cut: Dictionary = {
+		"state": CombatConstants.STATE_WIND_UP,
+		"state_timer": probe_timer,
+		"state_duration": 1.0,
+		"pending_attack": {
+			"wind_up_duration": 1.0,
+			"attack_type": "oberhau",
+			"weapon_extension_commit_fraction": cut_frac,
+		},
+	}
+	if not _WeaponPosition.is_weapon_near_body(atk_cut):
+		_fail(failures, "weapon_commit_frac: oberhau at 65%% wind-up should still be coiled")
+
+
+## Tier 0 / FF4: wind-up stamps per-move commit fraction on **`pending_attack`**.
+static func _run_weapon_windup_stamps_commit_fraction_on_pa(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SPEAR"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	_WindUpStarter.start(mgr, atk_id, def_id, "spear_thrust")
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
+	var want: float = _WeaponPosition.commit_fraction_from_move_def(WeaponConstants.get_move("spear_thrust"))
+	if absf(float(pa.get("weapon_extension_commit_fraction", -1.0)) - want) > 0.001:
+		_fail(
+			failures,
+			"weapon_commit_frac: pa stamp want %.2f got %s"
+			% [want, str(pa.get("weapon_extension_commit_fraction", "<absent>"))]
+		)
+	_free_manager(mgr)
+
+
+## Tier 0 / FF4: moves without explicit commit tag infer stab contact (**`parry_thrust`**).
+static func _run_weapon_commit_fraction_inferred_for_untagged_thrust_move(
+	failures: PackedStringArray
+) -> void:
+	var move_def: Dictionary = WeaponConstants.get_move("parry_thrust")
+	if move_def.has("weapon_extension_commit_fraction"):
+		_fail(failures, "weapon_commit_infer: parry_thrust should rely on contact inference")
+	var want: float = _WeaponPosition.commit_fraction_from_move_def(move_def)
+	if absf(want - CombatConstants.WEAPON_COMMIT_FRACTION_STAB) > 0.001:
+		_fail(
+			failures,
+			"weapon_commit_infer: parry_thrust want stab %.2f got %.2f"
+			% [CombatConstants.WEAPON_COMMIT_FRACTION_STAB, want]
+		)
+
+
+## Tier 7.5 pilot: **`impact_station_spread` 0** → roll equals move **`impact_station_mean`** (+ intensity focus only).
+static func _run_impact_station_mean_zero_spread_equals_move_mean(
+	failures: PackedStringArray
+) -> void:
+	var spear: RefCounted = Weapon.create_from_definition("SPEAR")
+	if spear == null:
+		_fail(failures, "impact_station: could not create SPEAR")
+		return
+	var intensity: float = 0.35
+	var focus: float = clampf((intensity - 0.35) * 0.08, -0.04, 0.04)
+	var want_mean: float = float(WeaponConstants.get_move("spear_thrust").get("impact_station_mean", -1.0))
+	seed(7701)
+	var got: float = _StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
+	if absf(got - clampf(want_mean + focus, 0.06, 0.99)) > 0.001:
+		_fail(
+			failures,
+			"impact_station: spear_thrust want %.3f got %.3f (mean %.2f focus %.3f)"
+			% [want_mean + focus, got, want_mean, focus]
+		)
+
+
+## Tier 7.5 pilot: per-move mean overrides weapon **`strike_physics.station_mean`**.
+static func _run_impact_station_mean_move_overrides_weapon_default(
+	failures: PackedStringArray
+) -> void:
+	var spear: RefCounted = Weapon.create_from_definition("SPEAR")
+	if spear == null:
+		_fail(failures, "impact_station_override: could not create SPEAR")
+		return
+	var intensity: float = 0.5
+	seed(7702)
+	var tagged: float = _StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
+	seed(7702)
+	var untagged: float = _StrikeRealism.roll_blade_station(spear, "off_line_thrust", intensity)
+	if tagged <= untagged:
+		_fail(
+			failures,
+			"impact_station_override: spear_thrust %.3f should exceed off_line_thrust %.3f"
+			% [tagged, untagged]
+		)
+
+
+## Tier 7.5 pilot: tip thrust stations above mace head-weighted direct blow.
+static func _run_impact_station_mean_ordering_spear_thrust_above_mace_direct_blow(
+	failures: PackedStringArray
+) -> void:
+	var spear: RefCounted = Weapon.create_from_definition("SPEAR")
+	var mace: RefCounted = Weapon.create_from_definition("MACE")
+	if spear == null or mace == null:
+		_fail(failures, "impact_station_order: could not create weapons")
+		return
+	var intensity: float = 0.35
+	seed(7703)
+	var spear_station: float = _StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
+	seed(7703)
+	var mace_station: float = _StrikeRealism.roll_blade_station(mace, "direct_blow", intensity)
+	if spear_station <= mace_station:
+		_fail(
+			failures,
+			"impact_station_order: spear_thrust %.3f should exceed mace direct_blow %.3f"
+			% [spear_station, mace_station]
+		)
+
+
+## Tier 7.5 pilot: wind-up stamps tip-biased **`impact_blade_station`** (move mean, not weapon default).
+static func _run_impact_station_mean_windup_stamps_move_override(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SPEAR"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	_WindUpStarter.start(mgr, atk_id, def_id, "spear_thrust")
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
+	var station: float = float(pa.get("impact_blade_station", -1.0))
+	if station < 0.0:
+		_fail(failures, "impact_station_windup: missing impact_blade_station on pa")
+		return
+	var move_mean: float = float(WeaponConstants.get_move("spear_thrust").get("impact_station_mean", -1.0))
+	var lo: float = clampf(move_mean - 0.04, 0.06, 0.99)
+	var hi: float = clampf(move_mean + 0.04, 0.06, 0.99)
+	if station < lo or station > hi:
+		_fail(
+			failures,
+			"impact_station_windup: spear_thrust station %.3f outside [%.3f, %.3f]"
+			% [station, lo, hi]
+		)
+	var weapon_default: float = float(
+		Weapon.create_from_definition("SPEAR").strike_physics.get("station_mean", 0.0)
+	)
+	if station <= weapon_default + 0.12:
+		_fail(
+			failures,
+			"impact_station_windup: station %.3f should exceed weapon default %.2f"
+			% [station, weapon_default]
+		)
+	_free_manager(mgr)
+
+
+## Tier 7.5: every entry in **`WeaponConstants._move_definitions_build`** carries **`impact_station_mean`**.
+static func _run_impact_station_mean_every_move_def_tagged(failures: PackedStringArray) -> void:
+	for move_id in WeaponConstants.get_all_move_ids():
+		var md: Dictionary = WeaponConstants.get_move(move_id)
+		if not md.has("impact_station_mean"):
+			_fail(failures, "impact_station_catalog: %s missing impact_station_mean" % move_id)
+			continue
+		var mean: float = float(md.impact_station_mean)
+		if mean < 0.06 or mean > 0.99:
+			_fail(
+				failures,
+				"impact_station_catalog: %s mean %.3f outside [0.06, 0.99]" % [move_id, mean]
+			)
+
+
+## Tier 7.5: feint wind-up station biased coiled vs honest cut at same intensity.
+static func _run_impact_station_mean_feint_coiled_below_honest_cut(
+	failures: PackedStringArray
+) -> void:
+	var sword: RefCounted = Weapon.create_from_definition("SWORD")
+	if sword == null:
+		_fail(failures, "impact_station_feint: could not create SWORD")
+		return
+	var intensity: float = 0.35
+	seed(7705)
+	var feint_station: float = _StrikeRealism.roll_blade_station(sword, "oberhau_feint", intensity)
+	seed(7705)
+	var honest_station: float = _StrikeRealism.roll_blade_station(sword, "oberhau", intensity)
+	if feint_station >= honest_station:
+		_fail(
+			failures,
+			"impact_station_feint: oberhau_feint %.3f should be < oberhau %.3f"
+			% [feint_station, honest_station]
+		)
+
+
+## Tier 7.5: spear shaft swing sits mid-blade vs tip thrust.
+static func _run_impact_station_mean_pole_swing_below_spear_thrust(
+	failures: PackedStringArray
+) -> void:
+	var spear: RefCounted = Weapon.create_from_definition("SPEAR")
+	if spear == null:
+		_fail(failures, "impact_station_pole: could not create SPEAR")
+		return
+	var intensity: float = 0.35
+	seed(7706)
+	var swing_station: float = _StrikeRealism.roll_blade_station(spear, "pole_swing", intensity)
+	seed(7706)
+	var thrust_station: float = _StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
+	if swing_station >= thrust_station:
+		_fail(
+			failures,
+			"impact_station_pole: pole_swing %.3f should be < spear_thrust %.3f"
+			% [swing_station, thrust_station]
+		)
+
+
+## Tier 0.2: formation move gauge shows vulnerable suffix while swapping / falling back.
+static func _run_formation_hit_cancel_ui_gauge_vulnerable_suffix(failures: PackedStringArray) -> void:
+	var c: Dictionary = {
+		"alive": true,
+		"state": CombatConstants.STATE_SWAP_RANK,
+		"state_timer": 0.0,
+		"state_duration": 2.0,
+		"gauge": 50.0,
+	}
+	var label: String = _BattleUIUpdater.gauge_label_text_for_combatant(c)
+	if "vulnerable" not in label:
+		_fail(failures, "form_hit_ui: swap gauge want vulnerable suffix got %s" % label)
+	var tips: PackedStringArray = _UiHints.gauge_tooltip_lines(c)
+	var found: bool = false
+	for line in tips:
+		if "Formation move" in str(line) and "cancel" in str(line):
+			found = true
+			break
+	if not found:
+		_fail(failures, "form_hit_ui: gauge tooltip should mention hit cancel risk")
+
+
+## Campaign bridge: untreated wound detection on **`CoreEntity`**.
+static func _run_campaign_bridge_entity_untreated_wounds(failures: PackedStringArray) -> void:
+	var ent: CoreEntity = _new_entity("SWORD")
+	ent.take_damage_split(8.0, 2.0, "left_arm", 0.5, 0.5)
+	if not _CampaignBridge.entity_has_untreated_wounds(ent):
+		_fail(failures, "campaign_bridge: fresh wound should count as untreated")
+	if ent.can_apply_bandage("left_arm") and ent.apply_bandage("left_arm"):
+		if _CampaignBridge.entity_has_untreated_wounds(ent):
+			_fail(failures, "campaign_bridge: bandaged wound should not be untreated")
+
+
+## Campaign bridge: encounter node exports → world meta.
+static func _run_campaign_bridge_encounter_meta_from_node(failures: PackedStringArray) -> void:
+	var world: Node2D = Node2D.new()
+	var enc: Node = _EncounterNode.new()
+	enc.encounter_config = {
+		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY: CombatConstants.DOCTRINE_PINCH_CENTER,
+	}
+	enc.enemy_count = 2
+	_CampaignBridge.prepare_combat_from_encounter(world, enc)
+	var got: Dictionary = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {})
+	if str(got.get(CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY, "")) != CombatConstants.DOCTRINE_PINCH_CENTER:
+		_fail(failures, "campaign_bridge: encounter_config not copied to world meta")
+	var ef: Dictionary = world.get_meta("enemy_formation", {})
+	if int(ef.get("files", 0)) < 1:
+		_fail(failures, "campaign_bridge: enemy_formation meta missing files")
+	world.free()
+
+
+## Tier 6.2: combat log **`fled`** outcome line.
+static func _run_combat_log_formatter_fled_outcome(failures: PackedStringArray) -> void:
+	var line: String = _CombatLogFormatter.format_action_line(
+		"Alaric", "player", "Alaric", "player", {"outcome": "fled", "dmg": 0, "died": false}
+	)
+	if "fled the field" not in line:
+		_fail(failures, "combat_log_fled: want fled the field got %s" % line)
+
+
+## Tier 1.10: **`CombatFormationEngagement.recompute_all`** runs automatic doctrine evaluation.
+static func _run_automatic_doctrine_pinch_via_formation_recompute(
+	failures: PackedStringArray
+) -> void:
+	if not CombatConstants.FEATURE_AUTOMATIC_DOCTRINE:
+		_fail(failures, "auto_doc_recompute: FEATURE_AUTOMATIC_DOCTRINE should be enabled")
+		return
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 3, "ranks": 1})
+	var en_by_file: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_enemy_side(c):
+			continue
+		en_by_file[_EntityAccess.file_int(c)] = c
+	(en_by_file[1] as Dictionary)["alive"] = false
+	_FormationEngagement.recompute_all(mgr)
+	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_PINCH_CENTER:
+		_fail(
+			failures,
+			"auto_doc_recompute: want pinch_center got %s" % mgr.get_formation_doctrine("player")
+		)
+	_free_manager(mgr)
+
+
+## Tier 7: bind **`parry_deflect`** grants defender gauge bonus; sub-threshold control does not.
+static func _run_tier7_parry_bind_riposte_gauge_bonus_on_deflect(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(defender)
+	var e_id: int = _EntityAccess.id_int(attacker)
+	attacker["pending_attack"] = {"attack_type": "thrust", "effective_attack_line": "high", "intensity": 0.8}
+	defender["gauge"] = 40.0
+	_AttackResultApplier.apply_result(
+		mgr,
+		e_id,
+		{
+			"action": "parry_deflect",
+			"target_id": p_id,
+			"recovery_duration": 0.45,
+			"parry_clash_context": {"parry_control": 0.72, "kinematic_delivery": "thrust"},
+		}
+	)
+	var want_bind: float = 40.0 + CombatConstants.PARRY_BIND_RIPOSTE_GAUGE_BONUS
+	if not is_equal_approx(float(defender.get("gauge", -1.0)), want_bind):
+		_fail(
+			failures,
+			"tier7_bind_gauge: bind deflect want %.1f got %.1f"
+			% [want_bind, float(defender.get("gauge", -1.0))]
+		)
+	defender["gauge"] = 40.0
+	attacker["pending_attack"] = {"attack_type": "thrust", "effective_attack_line": "high", "intensity": 0.8}
+	_AttackResultApplier.apply_result(
+		mgr,
+		e_id,
+		{
+			"action": "parry_deflect",
+			"target_id": p_id,
+			"recovery_duration": 0.45,
+			"parry_clash_context": {"parry_control": 0.41, "kinematic_delivery": "thrust"},
+		}
+	)
+	if not is_equal_approx(float(defender.get("gauge", -1.0)), 40.0):
+		_fail(
+			failures,
+			"tier7_bind_gauge: deflect-only should not bump gauge got %.1f"
+			% float(defender.get("gauge", -1.0))
+		)
+	_free_manager(mgr)
+
+
 ## Tier 3.2: bind riposte speed depends on parry contact part plus the riposte contact type.
 static func _run_bind_riposte_contact_multipliers(failures: PackedStringArray) -> void:
 	var spear_normal: float = _windup_duration_for_bind_test("SPEAR", "spear_thrust", false)
@@ -15749,6 +17908,311 @@ static func _run_bind_riposte_contact_multipliers(failures: PackedStringArray) -
 			"bind_riposte: spear slash should not be eligible by default ratio %.3f"
 			% [(spear_slash_bind / spear_slash_normal) if spear_slash_normal > 0.0 else -1.0]
 		)
+	var sword_normal: float = _windup_duration_for_bind_test("SWORD", "oberhau", false)
+	var sword_bind: float = _windup_duration_for_bind_test("SWORD", "oberhau", true)
+	var sword_want: float = float((CombatConstants.PARRY_BIND_RIPOSTE_BY_PART_CONTACT["blade"] as Dictionary)["cut"])
+	if sword_normal <= 0.0 or absf((sword_bind / sword_normal) - sword_want) > 0.001:
+		_fail(
+			failures,
+			"bind_riposte: sword cut ratio %.3f want %.3f"
+			% [(sword_bind / sword_normal) if sword_normal > 0.0 else -1.0, sword_want]
+		)
+	var dagger_normal: float = _windup_duration_for_bind_test("DAGGER", "quick_thrust", false)
+	var dagger_bind: float = _windup_duration_for_bind_test("DAGGER", "quick_thrust", true)
+	var dagger_want: float = float((CombatConstants.PARRY_BIND_RIPOSTE_BY_PART_CONTACT["blade"] as Dictionary)["stab"])
+	if dagger_normal <= 0.0 or absf((dagger_bind / dagger_normal) - dagger_want) > 0.001:
+		_fail(
+			failures,
+			"bind_riposte: dagger stab ratio %.3f want %.3f"
+			% [(dagger_bind / dagger_normal) if dagger_normal > 0.0 else -1.0, dagger_want]
+		)
+
+
+## Tier 3.2 / P4h: bind riposte wind-up ordering — extend (stab) faster than swing (blunt) on bind follow-up.
+static func _run_bind_riposte_archetype_ordering_spear_faster_than_mace(
+	failures: PackedStringArray
+) -> void:
+	var spear_normal: float = _windup_duration_for_bind_test("SPEAR", "spear_thrust", false)
+	var spear_bind: float = _windup_duration_for_bind_test("SPEAR", "spear_thrust", true)
+	var mace_normal: float = _windup_duration_for_bind_test("MACE", "direct_blow", false)
+	var mace_bind: float = _windup_duration_for_bind_test("MACE", "direct_blow", true)
+	if spear_normal <= 0.0 or mace_normal <= 0.0:
+		_fail(failures, "bind_riposte_order: invalid baseline wind-up (spear=%.4f mace=%.4f)" % [spear_normal, mace_normal])
+		return
+	var spear_ratio: float = spear_bind / spear_normal
+	var mace_ratio: float = mace_bind / mace_normal
+	if spear_ratio >= mace_ratio - 0.001:
+		_fail(
+			failures,
+			"bind_riposte_order: spear stab ratio %.3f should be < mace blunt %.3f"
+			% [spear_ratio, mace_ratio]
+		)
+	if spear_bind >= mace_bind:
+		_fail(
+			failures,
+			"bind_riposte_order: spear bind duration %.4f should be < mace bind %.4f"
+			% [spear_bind, mace_bind]
+		)
+	var sword_normal: float = _windup_duration_for_bind_test("SWORD", "oberhau", false)
+	var sword_bind: float = _windup_duration_for_bind_test("SWORD", "oberhau", true)
+	if sword_normal > 0.0:
+		var sword_ratio: float = sword_bind / sword_normal
+		if spear_ratio >= sword_ratio - 0.001 or sword_ratio >= mace_ratio - 0.001:
+			_fail(
+				failures,
+				"bind_riposte_order: want stab < cut < blunt ratios got spear=%.3f sword=%.3f mace=%.3f"
+				% [spear_ratio, sword_ratio, mace_ratio]
+			)
+
+
+## Tier 4.5: open bind-exchange window → wind-up vs partner × **`FLURRY_BIND_WIND_UP_MULT`** (feature on).
+static func _run_flurry_bind_exchange_wind_up_reduced_vs_plain(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
+	CombatConstants.set_feature_flurry_bind_exchange_load(true)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr_p: Node = _MgrScript.new()
+	mgr_p.register(_new_entity("SWORD"), "player")
+	mgr_p.register(_new_entity("SWORD"), "enemy")
+	mgr_p.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p_id: int = _EntityAccess.id_int(mgr_p.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr_p.combatants[1])
+	seed(90331)
+	_WindUpStarter.start(mgr_p, p_id, e_id, "oberhau")
+	var dur_plain: float = float(mgr_p.combatants[0].get("state_duration", 0.0))
+	var mgr_f: Node = _MgrScript.new()
+	mgr_f.register(_new_entity("SWORD"), "player")
+	mgr_f.register(_new_entity("SWORD"), "enemy")
+	mgr_f.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	_FlurryBind.open_window(mgr_f, p_id, e_id)
+	seed(90331)
+	_WindUpStarter.start(mgr_f, p_id, e_id, "oberhau")
+	var dur_flurry: float = float(mgr_f.combatants[0].get("state_duration", 0.0))
+	var want: float = dur_plain * CombatConstants.FLURRY_BIND_WIND_UP_MULT
+	if absf(dur_flurry - want) > 0.0002:
+		_fail(
+			failures,
+			"flurry_bind: duration want %.4f got %.4f plain=%.4f"
+			% [want, dur_flurry, dur_plain]
+		)
+	_free_manager(mgr_p)
+	_free_manager(mgr_f)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	CombatConstants.set_feature_flurry_bind_exchange_load(saved)
+
+
+## Tier 4.5: each wind-up start decrements **`flurry_exchanges_left`**.
+static func _run_flurry_bind_exchange_consumes_on_wind_up(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
+	CombatConstants.set_feature_flurry_bind_exchange_load(true)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	_FlurryBind.open_window(mgr, p_id, e_id)
+	if int(p.get("flurry_exchanges_left", 0)) != CombatConstants.FLURRY_BIND_MAX_EXCHANGES:
+		_fail(
+			failures,
+			"flurry_bind: want %d exchanges after open got %s"
+			% [CombatConstants.FLURRY_BIND_MAX_EXCHANGES, str(p.get("flurry_exchanges_left", "<absent>"))]
+		)
+	seed(90332)
+	_WindUpStarter.start(mgr, p_id, e_id, "oberhau")
+	if int(p.get("flurry_exchanges_left", -99)) != CombatConstants.FLURRY_BIND_MAX_EXCHANGES - 1:
+		_fail(
+			failures,
+			"flurry_bind: want %d exchanges after first wind-up got %s"
+			% [CombatConstants.FLURRY_BIND_MAX_EXCHANGES - 1, str(p.get("flurry_exchanges_left", "<absent>"))]
+		)
+	_free_manager(mgr)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	CombatConstants.set_feature_flurry_bind_exchange_load(saved)
+
+
+## Tier 4.5: **`hit`** clears bind-exchange keys on both partners.
+static func _run_flurry_bind_window_closes_on_hit(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
+	CombatConstants.set_feature_flurry_bind_exchange_load(true)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	_FlurryBind.open_pair_after_bind(mgr, p_id, e_id)
+	_FlurryBind.clear_pair(mgr, p_id, e_id)
+	for label in ["player", "enemy"]:
+		var c: Dictionary = mgr.combatants[0] if label == "player" else mgr.combatants[1]
+		if c.has("flurry_until") or c.has("flurry_against_id") or c.has("flurry_exchanges_left"):
+			_fail(failures, "flurry_bind: %s should have flurry keys cleared after hit clear" % label)
+	_free_manager(mgr)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	CombatConstants.set_feature_flurry_bind_exchange_load(saved)
+
+
+## Tier 4.5: melee listing only offers strikes vs **`flurry_against_id`** while window active.
+static func _run_flurry_bind_listing_restricts_to_bind_partner(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
+	CombatConstants.set_feature_flurry_bind_exchange_load(true)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e0_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var e1_id: int = _EntityAccess.id_int(mgr.combatants[2])
+	_FlurryBind.open_window(mgr, p_id, e0_id)
+	var actions: Array = _ActionsBuilder.build(mgr, p_id)
+	var bad_flurry: Dictionary = _ListedActions.first_action_where(
+		actions,
+		func(a: Dictionary) -> bool:
+			var mid: String = _ListedActions.entry_move_id(a)
+			if mid.is_empty() or mid in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+				return false
+			if WeaponConstants.is_parry_move(mid):
+				return false
+			return _ListedActions.entry_target_id(a) != e0_id
+	)
+	if not bad_flurry.is_empty():
+		_fail(
+			failures,
+			"flurry_bind listing: melee target want %d got %d move=%s"
+			% [
+				e0_id,
+				_ListedActions.entry_target_id(bad_flurry),
+				_ListedActions.entry_move_id(bad_flurry),
+			]
+		)
+	_free_manager(mgr)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	CombatConstants.set_feature_flurry_bind_exchange_load(saved)
+
+
+## Tier 4.5: hard bind **`parry_deflect`** opens mutual flurry windows on both partners.
+static func _run_flurry_bind_opens_on_bind_deflect(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
+	CombatConstants.set_feature_flurry_bind_exchange_load(true)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	var p_id: int = _EntityAccess.id_int(defender)
+	var e_id: int = _EntityAccess.id_int(attacker)
+	attacker["pending_attack"] = {"attack_type": "thrust", "effective_attack_line": "high", "intensity": 0.8}
+	_AttackResultApplier.apply_result(
+		mgr,
+		e_id,
+		{
+			"action": "parry_deflect",
+			"target_id": p_id,
+			"recovery_duration": 0.45,
+			"parry_clash_context": {"parry_control": 0.72, "kinematic_delivery": "thrust"},
+		}
+	)
+	var clk: float = _EntityAccess.combat_clock_float(mgr)
+	if not _FlurryBind.is_active_vs(defender, e_id, clk):
+		_fail(failures, "flurry_bind: defender window should open on bind deflect")
+	if not _FlurryBind.is_active_vs(attacker, p_id, clk):
+		_fail(failures, "flurry_bind: attacker window should open on bind deflect")
+	_free_manager(mgr)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	CombatConstants.set_feature_flurry_bind_exchange_load(saved)
+
+
+## Tier 4.5: **`process_waiting`** clears flurry keys after **`FLURRY_BIND_WINDOW_S`**.
+static func _run_flurry_bind_expires_after_window(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
+	CombatConstants.set_feature_flurry_bind_exchange_load(true)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	mgr.combat_clock = 0.0
+	_FlurryBind.open_window(mgr, p_id, e_id)
+	mgr.combat_clock = CombatConstants.FLURRY_BIND_WINDOW_S + 0.05
+	_FlurryBind.process_waiting(mgr, p)
+	if _FlurryBind.is_active(p, mgr.combat_clock):
+		_fail(failures, "flurry_bind: window should expire after FLURRY_BIND_WINDOW_S")
+	if p.has("flurry_until") or p.has("flurry_against_id") or p.has("flurry_exchanges_left"):
+		_fail(failures, "flurry_bind: expired window should erase flurry keys")
+	_free_manager(mgr)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	CombatConstants.set_feature_flurry_bind_exchange_load(saved)
+
+
+## Tier 4.5: gauge label shows bind-exchange suffix while flurry window is open (feature on).
+static func _run_flurry_bind_ui_gauge_label_when_window_open(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
+	CombatConstants.set_feature_flurry_bind_exchange_load(true)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	p["state"] = CombatConstants.STATE_WAITING
+	p["gauge"] = 100.0
+	_FlurryBind.open_window(mgr, p_id, e_id)
+	var label: String = _BattleUIUpdater.gauge_label_text_for_combatant(p, mgr)
+	if "Bind exchange" not in label:
+		_fail(failures, "flurry_bind_ui: gauge want Bind exchange suffix got %s" % label)
+	var tips: PackedStringArray = _UiHints.gauge_tooltip_lines(p, mgr)
+	var found_tip: bool = false
+	for line in tips:
+		if str(line).begins_with("Bind exchange"):
+			found_tip = true
+			break
+	if not found_tip:
+		_fail(failures, "flurry_bind_ui: gauge tooltip should mention bind exchange")
+	_free_manager(mgr)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	CombatConstants.set_feature_flurry_bind_exchange_load(saved)
+
+
+## Tier 4.5: runtime toggle disables opening bind-exchange windows (production default **on**).
+static func _run_flurry_bind_feature_flag_respects_runtime_toggle(failures: PackedStringArray) -> void:
+	var prev: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	p["state"] = CombatConstants.STATE_WAITING
+	CombatConstants.set_feature_flurry_bind_exchange_load(false)
+	_FlurryBind.open_window(mgr, p_id, e_id)
+	if p.has("flurry_until") or p.has("flurry_against_id") or p.has("flurry_exchanges_left"):
+		CombatConstants.set_feature_flurry_bind_exchange_load(prev)
+		_free_manager(mgr)
+		_fail(failures, "flurry_flag: open_window should no-op when feature off")
+		return
+	CombatConstants.set_feature_flurry_bind_exchange_load(true)
+	_FlurryBind.open_window(mgr, p_id, e_id)
+	var clk: float = _EntityAccess.combat_clock_float(mgr)
+	if not _FlurryBind.is_active_vs(p, e_id, clk):
+		CombatConstants.set_feature_flurry_bind_exchange_load(prev)
+		_free_manager(mgr)
+		_fail(failures, "flurry_flag: open_window should stamp keys when feature on")
+		return
+	CombatConstants.set_feature_flurry_bind_exchange_load(prev)
+	_free_manager(mgr)
 
 
 ## Tier 3.2: opposite-line parry magnitude uses contact-type severity thresholds.
@@ -16943,33 +19407,21 @@ static func _run_attempt_close_listed_only_at_long(failures: PackedStringArray) 
 	(p["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_MID
 	(en["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_MID
 	var acts_mid: Array = _ActionsBuilder.build(mgr, p_id)
-	for raw in acts_mid:
-		if typeof(raw) != TYPE_DICTIONARY:
-			continue
-		var a: Dictionary = raw as Dictionary
-		if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-			if int(a.get("target_id", -1)) == e_id:
-				_fail(
-					failures,
-					"attempt_close_list: must not list close vs MID opponent (target %d)" % e_id
-				)
-				_free_manager(mgr)
-				return
+	if _ListedActions.actions_include_move_vs_target(
+		acts_mid, e_id, CombatConstants.MOVE_ID_ATTEMPT_CLOSE
+	):
+		_fail(
+			failures,
+			"attempt_close_list: must not list close vs MID opponent (target %d)" % e_id
+		)
+		_free_manager(mgr)
+		return
 	(p["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_LONG
 	(en["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_LONG
 	var acts_long: Array = _ActionsBuilder.build(mgr, p_id)
-	var saw_close: bool = false
-	for raw in acts_long:
-		if typeof(raw) != TYPE_DICTIONARY:
-			continue
-		var a: Dictionary = raw as Dictionary
-		if (
-			str(a.get("move_id", "")) == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
-			and int(a.get("target_id", -1)) == e_id
-		):
-			saw_close = true
-			break
-	if not saw_close:
+	if not _ListedActions.actions_include_move_vs_target(
+		acts_long, e_id, CombatConstants.MOVE_ID_ATTEMPT_CLOSE
+	):
 		_fail(failures, "attempt_close_list: expected attempt_close vs LONG opponent")
 	_free_manager(mgr)
 
@@ -17306,6 +19758,12 @@ static func _run_combatants_snapshot_formation_doctrine_field(failures: PackedSt
 				failures,
 				"snapshot_doctrine: player row got %s want hold_lane" % str(rd.get("formation_doctrine", ""))
 			)
+		if str(rd.get("zone_geometry_fid", "")) != "player":
+			_fail(
+				failures,
+				"snapshot zone_geometry_fid: player row got %s want player"
+				% str(rd.get("zone_geometry_fid", ""))
+			)
 		break
 	if not ok_player:
 		_fail(failures, "snapshot_doctrine: no player row in get_combatants")
@@ -17473,8 +19931,7 @@ static func _run_ai_crash_weight_includes_skirmish_mult(failures: PackedStringAr
 	var stamina_ratio_c: float = clampf(_EntityAccess.stamina_float(p) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 	var sr_c: float = 0.78 if stamina_ratio_c < 0.32 else 1.0
 	var shaped: float = pow(via, CombatConstants.CRASH_AI_VIABILITY_EXPONENT)
-	var fid_crash: String = _ZoneOfControl.formation_id_for_zone_geometry(mgr, p)
-	var fd_crash: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(mgr, p, fid_crash)
+	var fd_crash: Dictionary = _ZoneOfControl.formation_for_combatant_cached(mgr, p, null)
 	var pst_m: float = _AIPicker._crash_weight_posture_mult(mgr, p, fd_crash)
 	var coh_m: float = _AIPicker.crash_line_cohesion_weight_mult(mgr, p, fd_crash)
 	var sk_m: float = _AIPicker._doomed_skirmish_offense_weight_mult(mgr, p)

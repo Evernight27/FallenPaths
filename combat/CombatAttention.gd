@@ -179,14 +179,13 @@ static func ally_in_immediate_peril(manager: Node, combatant_id: int) -> bool:
 	var self_c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
 	if self_c.is_empty():
 		return false
-	var self_side: String = _EntityAccess.side_str(self_c)
 	for other in manager.combatants:
 		if other == null or other is not Dictionary:
 			continue
 		var o: Dictionary = other as Dictionary
 		if _EntityAccess.id_int(o) == combatant_id:
 			continue
-		if _EntityAccess.side_str(o) != self_side:
+		if not _EntityAccess.is_living_same_side(self_c, o):
 			continue
 		if manager._is_in_immediate_peril(o):
 			return true

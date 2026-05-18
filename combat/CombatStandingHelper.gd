@@ -10,9 +10,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 static func get_standing_by_side(combatants: Array) -> Dictionary:
 	var standing: Dictionary = {}
 	for c in combatants:
-		if not _EntityAccess.alive_bool(c):
-			continue
-		if _EntityAccess.is_incapacitated(c):
+		if not _EntityAccess.is_standing_combatant(c):
 			continue
 		var sd: String = _EntityAccess.side_str(c)
 		standing[sd] = standing.get(sd, 0) + 1
@@ -20,12 +18,9 @@ static func get_standing_by_side(combatants: Array) -> Dictionary:
 
 ## Returns first opponent (standing combatant on different side). Null if none.
 static func get_first_opponent(combatants: Array, side: String) -> Variant:
+	var ref: Dictionary = {"side": side}
 	for c in combatants:
-		if not _EntityAccess.alive_bool(c):
-			continue
-		if _EntityAccess.is_incapacitated(c):
-			continue
-		if _EntityAccess.side_str(c) != side:
+		if _EntityAccess.is_living_hostile_to(ref, c):
 			return c
 	return null
 

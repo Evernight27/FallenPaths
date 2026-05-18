@@ -12,40 +12,78 @@ const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+
+
+static func _finish_close_attempt_turn(manager: Node, atk: Dictionary, attacker_id: int) -> void:
+	atk["action_cooldown_until"] = _EntityAccess.combat_clock_plus(
+		manager, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S
+	)
+	_EventScheduler.schedule_action_ready(
+		manager, attacker_id, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S
+	)
+
+
+static func _schedule_crash_attempt_recovery(manager: Node, attacker_id: int) -> void:
+	_EventScheduler.schedule_action_ready(
+		manager, attacker_id, CombatConstants.READY_DELAY_CRASH_ATTEMPT_S
+	)
+
+
+static func _reject_close_attempt_not_long(
+	manager: Node,
+	atk: Dictionary,
+	attacker_id: int,
+	target_id: int,
+	band: String
+) -> void:
+	_TacticalCombat.record_invalid_close_resolve_blocked(manager)
+	if CombatDebug.flow_verbose_enabled():
+		CombatDebug.flow_log(
+			"close_blocked id=%d->%d reason=not_long dist=%s" % [attacker_id, target_id, band]
+		)
+	manager.emit_signal(
+		"action_resolved",
+		attacker_id,
+		target_id,
+		{"outcome": "close_failed", "dmg": 0, "died": false, "reason": "not_long"}
+	)
+	_finish_close_attempt_turn(manager, atk, attacker_id)
+
+
+static func _reject_crash_attempt(
+	manager: Node,
+	attacker_id: int,
+	defender_id: int,
+	reason: String,
+	flow_log_line: String = ""
+) -> void:
+	if not flow_log_line.is_empty() and CombatDebug.flow_verbose_enabled():
+		CombatDebug.flow_log(flow_log_line)
+	manager.emit_signal(
+		"action_resolved",
+		attacker_id,
+		defender_id,
+		{"outcome": "crash_failed", "dmg": 0, "died": false, "reason": reason}
+	)
+	_schedule_crash_attempt_recovery(manager, attacker_id)
 
 
 static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: int) -> void:
 	if MedicalPhaseController.combat_resolution_blocked(manager):
 		return
-	var atk = manager._get_by_id(attacker_id)
-	var tgt = manager._get_by_id(target_id)
-	if atk == null or tgt == null or not _EntityAccess.alive_bool(atk) or not _EntityAccess.alive_bool(tgt):
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
+	if atk.is_empty() or tgt.is_empty() or not _EntityAccess.are_alive_opponents(atk, tgt):
 		return
 	if _EntityAccess.is_incapacitated(atk) or _EntityAccess.is_incapacitated(tgt):
 		return
-	# `attempt_close` is only listed at LONG (`AvailableActionsBuilder._attempt_close_listed_for_pair`); MID/CLOSE resolve is telemetry-only.
-	var band: String = str(
-		_EntityAccess.nested_dictionary_read(atk, "distance_to").get(
-			target_id, CombatConstants.DISTANCE_LONG
-		)
-	)
+	# `attempt_close` is only listed at LONG (`CombatMeleeListing.attempt_close_listed_for_pair`); MID/CLOSE resolve is telemetry-only.
+	var band: String = _EntityAccess.distance_to_opponent_band(atk, target_id)
 	if band != CombatConstants.DISTANCE_LONG:
-		_TacticalCombat.record_invalid_close_resolve_blocked(manager)
-		if CombatDebug.flow_verbose_enabled():
-			CombatDebug.flow_log(
-				"close_blocked id=%d->%d reason=not_long dist=%s" % [attacker_id, target_id, band]
-			)
-		manager.emit_signal(
-			"action_resolved",
-			attacker_id,
-			target_id,
-			{"outcome": "close_failed", "dmg": 0, "died": false, "reason": "not_long"}
-		)
-		atk["action_cooldown_until"] = manager.combat_clock + CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S
-		manager._schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S)
+		_reject_close_attempt_not_long(manager, atk, attacker_id, target_id, band)
 		return
-	var weapon = _EntityAccess.get_weapon(atk)
-	var melee_range: float = float(weapon.melee_range) if weapon != null else 1.5
+	var melee_range: float = _EntityAccess.weapon_melee_reach(atk)
 	var str_val: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
 	var agi_def: float = float(_EntityAccess.stats_dict(tgt).get("agility", 100))
 	var st_atk: float = _EntityAccess.stamina_float(atk)
@@ -57,8 +95,8 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 	evasion *= _TacticalCombat.ambush_defense_multiplier(manager, tgt)
 	if _EntityAccess.stance_str(tgt, "") == CombatConstants.STANCE_CONTROLLING:
 		evasion /= CombatConstants.STANCE_MOD_OPPONENT_CLOSE
-	var fid_close: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, tgt)
-	var form_geom: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, tgt, fid_close)
+	var ctx_tgt: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, tgt)
+	var form_geom: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_tgt)
 	var density: String = str(form_geom.get("density", "normal")) if not form_geom.is_empty() else "normal"
 	evasion *= CombatConstants.get_density_close_mod(density)
 	var success: bool = randf() < pressure / (pressure + maxf(evasion, 1.0))
@@ -82,17 +120,16 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 		blk.erase(target_id)
 		_TargetScoring.on_combat_commitment(manager, attacker_id, target_id)
 	else:
-		blk[target_id] = float(manager.combat_clock) + CombatConstants.CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S
-	atk["action_cooldown_until"] = manager.combat_clock + CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S
-	manager._schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S)
+		blk[target_id] = _EntityAccess.combat_clock_float(manager) + CombatConstants.CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S
+	_finish_close_attempt_turn(manager, atk, attacker_id)
 
 
 static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: int) -> void:
 	if MedicalPhaseController.combat_resolution_blocked(manager):
 		return
-	var atk = manager._get_by_id(attacker_id)
-	var tgt = manager._get_by_id(defender_id)
-	if atk == null or tgt == null or not _EntityAccess.alive_bool(atk) or not _EntityAccess.alive_bool(tgt):
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+	if atk.is_empty() or tgt.is_empty() or not _EntityAccess.are_alive_opponents(atk, tgt):
 		return
 	if _EntityAccess.is_incapacitated(atk) or _EntityAccess.is_incapacitated(tgt):
 		return
@@ -103,28 +140,33 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 			if not CombatConstants.FEATURE_LINE_CRASH_INTRUSION
 			else "engagement_mode_%s" % _EngagementMode.engagement_mode(manager)
 		)
-		if CombatDebug.flow_verbose_enabled():
-			CombatDebug.flow_log("crash_blocked id=%d->%d reason=%s" % [attacker_id, defender_id, rsn])
-		manager.emit_signal(
-			"action_resolved",
+		_reject_crash_attempt(
+			manager,
 			attacker_id,
 			defender_id,
-			{"outcome": "crash_failed", "dmg": 0, "died": false, "reason": rsn}
+			rsn,
+			"crash_blocked id=%d->%d reason=%s" % [attacker_id, defender_id, rsn]
 		)
-		manager._schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CRASH_ATTEMPT_S)
 		return
 	if _EntityAccess.stamina_float(atk, 0.0) < CombatConstants.CRASH_STAMINA_COST:
-		if CombatDebug.flow_verbose_enabled():
-			CombatDebug.flow_log(
+		_reject_crash_attempt(
+			manager,
+			attacker_id,
+			defender_id,
+			"stamina",
+			(
 				"crash_blocked id=%d->%d reason=stamina stamina=%.1f need=%.1f"
 				% [attacker_id, defender_id, _EntityAccess.stamina_float(atk, 0.0), CombatConstants.CRASH_STAMINA_COST]
 			)
-		manager.emit_signal("action_resolved", attacker_id, defender_id, {"outcome": "crash_failed", "dmg": 0, "died": false, "reason": "stamina"})
-		manager._schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CRASH_ATTEMPT_S)
+		)
 		return
 	if _EntityAccess.tactical_penetration_depth_int(atk) >= CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX:
-		if CombatDebug.flow_verbose_enabled():
-			CombatDebug.flow_log(
+		_reject_crash_attempt(
+			manager,
+			attacker_id,
+			defender_id,
+			"max_depth",
+			(
 				"crash_blocked id=%d->%d reason=max_depth depth=%d max=%d"
 				% [
 					attacker_id,
@@ -133,26 +175,23 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 					CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX
 				]
 			)
-		manager.emit_signal("action_resolved", attacker_id, defender_id, {"outcome": "crash_failed", "dmg": 0, "died": false, "reason": "max_depth"})
-		manager._schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CRASH_ATTEMPT_S)
+		)
 		return
 	var intr_block: String = _EngagementMode.crash_intrusion_attacker_block_reason(manager, atk)
 	if not intr_block.is_empty():
-		if CombatDebug.flow_verbose_enabled():
-			CombatDebug.flow_log("crash_blocked id=%d->%d reason=%s" % [attacker_id, defender_id, intr_block])
-		manager.emit_signal(
-			"action_resolved",
+		_reject_crash_attempt(
+			manager,
 			attacker_id,
 			defender_id,
-			{"outcome": "crash_failed", "dmg": 0, "died": false, "reason": intr_block}
+			intr_block,
+			"crash_blocked id=%d->%d reason=%s" % [attacker_id, defender_id, intr_block]
 		)
-		manager._schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CRASH_ATTEMPT_S)
 		return
 	var res: Dictionary = _BreachResolver.contest_crash(manager, attacker_id, defender_id)
 	var ok: bool = bool(res.get("ok", false))
 	atk["stamina"] = maxf(0.0, _EntityAccess.stamina_float(atk) - CombatConstants.CRASH_STAMINA_COST)
-	atk["crash_cooldown_until"] = manager.combat_clock + CombatConstants.CRASH_COOLDOWN_S
-	atk["action_cooldown_until"] = manager.combat_clock + CombatConstants.READY_DELAY_CRASH_ATTEMPT_S
+	atk["crash_cooldown_until"] = _EntityAccess.combat_clock_plus(manager, CombatConstants.CRASH_COOLDOWN_S)
+	atk["action_cooldown_until"] = _EntityAccess.combat_clock_plus(manager, CombatConstants.READY_DELAY_CRASH_ATTEMPT_S)
 	if ok:
 		atk["tactical_penetration_depth"] = int(res.get("tactical_penetration_depth", 1))
 		var fid_b: String = str(res.get("defender_formation_id", ""))
@@ -171,15 +210,14 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 				bf[f_b] = maxf(prev, sev)
 		_FormationFlow.apply_intrusion_after_crash_success(manager, atk, defender_id, fid_b, f_b, sev)
 		manager._recompute_zoc_and_distance()
-		if _EntityAccess.formation_id_str(atk) != fid_b and manager.has_method("notify_formation_changed"):
-			manager.notify_formation_changed(_EntityAccess.formation_id_str(atk))
+		if _EntityAccess.formation_id_str(atk) != fid_b:
+			_EntityAccess.manager_notify_formation_changed(manager, _EntityAccess.formation_id_str(atk))
 		if not fid_b.is_empty():
-			manager.notify_formation_changed(fid_b)
+			_EntityAccess.manager_notify_formation_changed(manager, fid_b)
 	var bf_line: String = ""
-	var fid_snap: String = str(res.get("defender_formation_id", ""))
-	if fid_snap.is_empty():
-		fid_snap = _ZoneOfControl.formation_id_for_zone_geometry(manager, tgt)
-	var form_snap: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, tgt, fid_snap)
+	var form_snap: Dictionary = _ZoneOfControl.formation_for_combatant_cached(
+		manager, tgt, null, str(res.get("defender_formation_id", ""))
+	)
 	if not form_snap.is_empty():
 		bf_line = CombatDebug.format_breached_files(_FormationSlots.formation_nested_dictionary_read(form_snap, "breached_files"))
 	var breached_disp: String = bf_line if not bf_line.is_empty() else "—"
@@ -211,4 +249,4 @@ static func resolve_crash_attempt(manager: Node, attacker_id: int, defender_id: 
 	if not ok:
 		crash_payload["reason"] = "repelled"
 	manager.emit_signal("action_resolved", attacker_id, defender_id, crash_payload)
-	manager._schedule_action_ready(attacker_id, CombatConstants.READY_DELAY_CRASH_ATTEMPT_S)
+	_schedule_crash_attempt_recovery(manager, attacker_id)

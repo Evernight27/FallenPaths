@@ -43,6 +43,14 @@ func show_party(members: Array) -> void:
 		if m.get("total_bleeding_rate", 0.0) > 0.0:
 			blood_lbl.add_theme_color_override("font_color", Color(0.9, 0.35, 0.35))
 		v.add_child(blood_lbl)
+		var status_line: String = _RowFormatter.format_vitality_status(m)
+		if not status_line.is_empty():
+			var status_lbl = Label.new()
+			status_lbl.text = status_line
+			status_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			if bool(m.get("has_untreated_wounds", false)) or bool(m.get("is_unconscious", false)):
+				status_lbl.add_theme_color_override("font_color", Color(0.95, 0.75, 0.35))
+			v.add_child(status_lbl)
 		var weapon_name: String = m.get("weapon_name", "")
 		if weapon_name != "":
 			var weapon_lbl = Label.new()

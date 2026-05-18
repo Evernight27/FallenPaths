@@ -23,6 +23,35 @@ static func combatant_dict_or_empty(v: Variant) -> Dictionary:
 	return {}
 
 
+## CombatManager (or harness stub) lookup by id; `{}` when missing or unavailable.
+static func manager_get_combatant(manager: Node, combatant_id: int) -> Dictionary:
+	if manager == null or combatant_id < 0 or not manager.has_method("_get_by_id"):
+		return {}
+	return combatant_dict_or_empty(manager._get_by_id(combatant_id))
+
+
+## Same as **`manager_get_combatant`**; returns `{}` when **`combatant_id < 0`**.
+static func manager_get_combatant_optional(manager: Node, combatant_id: int) -> Dictionary:
+	return manager_get_combatant(manager, combatant_id)
+
+
+static func manager_notify_turn_ready(manager: Node, combatant_id: int) -> void:
+	if manager != null and manager.has_method("notify_turn_ready"):
+		manager.notify_turn_ready(combatant_id)
+
+
+static func manager_notify_formation_changed(manager: Node, fid: String) -> void:
+	if manager != null and manager.has_method("notify_formation_changed"):
+		manager.notify_formation_changed(fid)
+
+
+static func manager_notify_engagement_state_changed(
+	manager: Node, fid: String, cohesion: float, posture: String
+) -> void:
+	if manager != null and manager.has_method("notify_engagement_state_changed"):
+		manager.notify_engagement_state_changed(fid, cohesion, posture)
+
+
 ## Live `stats` sub-dictionary for mutation (e.g. `sync_from_entity`). Creates `combatant["stats"]` if missing or wrong type.
 static func stats_dict_for_mutation(combatant: Dictionary) -> Dictionary:
 	var s: Variant = combatant.get("stats", null)
@@ -145,6 +174,21 @@ static func weapon_parry_contact_type(weapon: Variant, default_pct: String = "bl
 	return str(weapon.get_parry_contact_type())
 
 
+## Cut vs blunt band for parry-speed reference (shaft/haft → blunt).
+static func weapon_parry_ref_contact_type(weapon: Variant) -> String:
+	var pct: String = weapon_parry_contact_type(weapon)
+	if pct == "shaft" or pct == "haft":
+		return WeaponConstants.ATTACK_TYPE_BLUNT
+	return WeaponConstants.ATTACK_TYPE_CUT
+
+
+static func weapon_impact_velocity_band_max(weapon: Variant, contact_type: String) -> float:
+	const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
+	if weapon != null and weapon.has_method("get_impact_velocity_band_m_s"):
+		return float(weapon.get_impact_velocity_band_m_s(contact_type).y)
+	return float(_ImpactVelocityModel.unarmed_velocity_band_m_s().y)
+
+
 ## Scene node lists wound parts for medical UI (Character → CoreEntity).
 static func get_wounded_parts(combatant: Dictionary) -> Array:
 	var node = node_variant(combatant)
@@ -252,6 +296,19 @@ static func scene_can_apply_direct_pressure(combatant: Dictionary, part: String)
 	return node.can_apply_direct_pressure(part)
 
 
+## Wind-up completion: `apply_bandage` / `apply_packing` / `apply_tourniquet` pass `effectiveness`; other methods get `part` only.
+static func entity_invoke_medical_method(
+	entity: Node, method: String, part: String, effectiveness: float = 1.0
+) -> Variant:
+	if entity == null or method.is_empty() or not entity.has_method(method):
+		return null
+	match method:
+		"apply_bandage", "apply_packing", "apply_tourniquet":
+			return entity.call(method, part, effectiveness)
+		_:
+			return entity.call(method, part)
+
+
 static func entity_apply_direct_pressure(manager: Node, combatant: Dictionary, part: String) -> bool:
 	var entity: Node = get_entity_from_manager(manager, combatant)
 	if entity == null or not entity.has_method("apply_direct_pressure"):
@@ -321,6 +378,92 @@ static func get_weapon(combatant: Dictionary) -> Variant:
 		return null
 	return node.get_weapon()
 
+
+## Abstract weapon reach in meters; **`default_reach`** when no weapon (listing uses **0**, contests often **1.5**).
+static func weapon_melee_reach(combatant: Dictionary, default_reach: float = 1.5) -> float:
+	var weapon: Variant = get_weapon(combatant)
+	if weapon == null:
+		return default_reach
+	return float(weapon.melee_range)
+
+
+## Living ally on **`actor`**'s side (alive, same side).
+static func is_living_same_side(actor: Dictionary, other: Dictionary) -> bool:
+	if not alive_bool(other):
+		return false
+	return side_str(other) == side_str(actor)
+
+
+## Alive opponent on the opposite side (incapacitated opponents still count — distance bands, intruder scans).
+static func is_alive_opponent_of(actor: Dictionary, other: Dictionary) -> bool:
+	if not alive_bool(other):
+		return false
+	return side_str(other) != side_str(actor)
+
+
+## Living enemy of **`actor`** (alive, opposite side, not incapacitated).
+static func is_living_hostile_to(actor: Dictionary, other: Dictionary) -> bool:
+	if not is_alive_opponent_of(actor, other):
+		return false
+	if is_incapacitated(other):
+		return false
+	return true
+
+
+## Alive fighter on **`side`** ( **`"player"`** / **`"enemy"`** ).
+static func is_alive_on_side(combatant: Dictionary, side: String) -> bool:
+	return alive_bool(combatant) and side_str(combatant) == side
+
+
+## Alive on **`side`**, not incapacitated.
+static func is_living_on_side(combatant: Dictionary, side: String) -> bool:
+	return is_alive_on_side(combatant, side) and not is_incapacitated(combatant)
+
+
+## Both alive on opposite sides (incapacitated opponents still count).
+static func are_alive_opponents(a: Dictionary, b: Dictionary) -> bool:
+	return is_alive_opponent_of(a, b) and is_alive_opponent_of(b, a)
+
+
+## Both living hostiles (alive, opposite sides, neither incapacitated).
+static func are_living_hostiles(a: Dictionary, b: Dictionary) -> bool:
+	return is_living_hostile_to(a, b) and is_living_hostile_to(b, a)
+
+
+## Both combatants alive (any side; formation partners, dual-occupancy resolve).
+static func are_both_alive(a: Dictionary, b: Dictionary) -> bool:
+	return alive_bool(a) and alive_bool(b)
+
+
+## Alive and not incapacitated (winner / standing counts).
+static func is_standing_combatant(combatant: Dictionary) -> bool:
+	if bool(combatant.get("combat_absent", false)):
+		return false
+	return alive_bool(combatant) and not is_incapacitated(combatant)
+
+
+## Battle `side` string match only (no alive check).
+static func is_on_side(combatant: Dictionary, side: String) -> bool:
+	return side_str(combatant) == side
+
+
+static func is_player_side(combatant: Dictionary) -> bool:
+	return is_on_side(combatant, "player")
+
+
+static func is_enemy_side(combatant: Dictionary) -> bool:
+	return is_on_side(combatant, "enemy")
+
+
+## Opponent side label for **`actor`** (`player` → `enemy`, else `player`).
+static func opponent_side_for(actor: Dictionary) -> String:
+	return opponent_side_label(side_str(actor))
+
+
+## `player` ↔ `enemy` roster / formation id flip (same strings as **`side_str`**).
+static func opponent_side_label(side: String) -> String:
+	return "enemy" if str(side) == "player" else "player"
+
 ## Resolves the health/wounds holder for a combat scene node (e.g. Character → CoreEntity). Prefers **`manager.get_health_entity(node)`** (see **`CombatManager`**).
 static func get_health_entity_from_node(manager: Node, node: Node) -> Node:
 	if node == null:
@@ -338,7 +481,7 @@ static func get_entity_from_manager(manager: Node, combatant: Dictionary) -> Nod
 	return get_health_entity_from_node(manager, scene_node(combatant))
 
 
-## Home roster `formation_id` as string (empty if unset). Not ZoC host geometry for intruders — see `ZoneOfControl.formation_id_for_zone_geometry`.
+## Home roster `formation_id` as string (empty if unset). Tactical host line: `ZoneOfControl.zone_geometry_fid_str`.
 static func formation_id_str(combatant: Dictionary) -> String:
 	return str(combatant.get("formation_id", ""))
 
@@ -365,6 +508,60 @@ static func lane_offset_float(combatant: Dictionary) -> float:
 		-CombatConstants.LANE_OFFSET_ABS_MAX,
 		CombatConstants.LANE_OFFSET_ABS_MAX
 	)
+
+
+## Monotonic combat clock on the manager (`0` when missing).
+static func combat_clock_float(manager: Node) -> float:
+	if manager == null:
+		return 0.0
+	var cc: Variant = manager.get("combat_clock")
+	if cc == null:
+		return 0.0
+	return float(cc)
+
+
+## **`combat_clock_float(manager) + offset_s`** for event `resolve_at` and cooldown stamps.
+static func combat_clock_plus(manager: Node, offset_s: float) -> float:
+	return combat_clock_float(manager) + offset_s
+
+
+## True while combat clock is before `until`. Values below `inactive_below` are treated as off.
+static func timestamp_cooldown_active(
+	manager: Node, until: float, inactive_below: float = 0.0
+) -> bool:
+	if manager == null:
+		return false
+	if until < inactive_below:
+		return false
+	return combat_clock_float(manager) < until
+
+
+## True while combat clock is before the combatant's `cooldown_key` timestamp.
+## Timestamps below `inactive_below` are treated as off (e.g. `-1` for formation CDs, `0` for crash).
+static func combatant_cooldown_active(
+	manager: Node, combatant: Dictionary, cooldown_key: String, inactive_below: float = 0.0
+) -> bool:
+	if combatant.is_empty():
+		return false
+	return timestamp_cooldown_active(
+		manager, float(combatant.get(cooldown_key, inactive_below)), inactive_below
+	)
+
+
+## Seconds until `until`; `0` when inactive or elapsed (for UI status lines).
+static func cooldown_remaining_s(
+	manager: Node, until: float, inactive_below: float = 0.0
+) -> float:
+	if not timestamp_cooldown_active(manager, until, inactive_below):
+		return 0.0
+	return until - combat_clock_float(manager)
+
+
+## Opponent band from actor `distance_to` (default **LONG** when unset).
+static func distance_to_opponent_band(
+	actor: Dictionary, opponent_id: int, default_band: String = CombatConstants.DISTANCE_LONG
+) -> String:
+	return str(nested_dictionary_read(actor, "distance_to").get(opponent_id, default_band))
 
 
 ## Combatant `id`; uses `default_id` when missing (common default: -1).
@@ -519,6 +716,8 @@ static func is_dead(combatant: Dictionary) -> bool:
 
 ## `alive` combatant flag and not `is_dead` on the scene node.
 static func is_alive_in_combat(combatant: Dictionary) -> bool:
+	if bool(combatant.get("combat_absent", false)):
+		return false
 	return alive_bool(combatant) and not is_dead(combatant)
 
 
@@ -593,7 +792,10 @@ static func get_leg_functionality(combatant: Dictionary) -> float:
 
 ## Returns targetable body parts array. Empty if unavailable.
 static func get_targetable_parts(combatant: Dictionary) -> Array:
-	var node = node_variant(combatant)
+	return get_targetable_parts_from_node(scene_node(combatant))
+
+
+static func get_targetable_parts_from_node(node: Node) -> Array:
 	if node == null or not node.has_method("get_targetable_parts"):
 		return []
 	return node.get_targetable_parts()
@@ -671,6 +873,25 @@ static func get_medical_effectiveness_from_node(node: Node) -> float:
 	if node.has_method("get_medical_effectiveness"):
 		return node.get_medical_effectiveness()
 	return 1.0
+
+
+static func manager_schedule_event(manager: Node, ev: Dictionary) -> void:
+	if manager != null and manager.has_method("_schedule_event"):
+		manager._schedule_event(ev)
+
+
+static func manager_skip_turn(
+	manager: Node, combatant_id: int, reason: String, detail: String = ""
+) -> void:
+	if manager != null and manager.has_method("skip_turn"):
+		manager.skip_turn(combatant_id, reason, detail)
+
+
+static func manager_apply_formation_hit_reaction_if_needed(
+	manager: Node, combatant_id: int, intensity: float = 0.5
+) -> void:
+	if manager != null and manager.has_method("apply_formation_hit_reaction_if_needed"):
+		manager.apply_formation_hit_reaction_if_needed(combatant_id, intensity)
 
 ## Returns permanent bleeding rate from node. Default fallback if unavailable.
 static func get_permanent_bleeding_rate_from_node(node: Node, fallback: float = 0.0) -> float:

@@ -193,10 +193,9 @@ static func _refresh_internal(diagram_root: Control) -> void:
 					var oc: Variant = snap_by_id.get(int(cid), null)
 					if oc != null and typeof(oc) == TYPE_DICTIONARY and _EntityAccess.alive_bool(oc):
 						var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))
-						# Host grid can list intruders (home formation_id) or dual cells; tag so UI matches combat truth.
+						# Host grid can list intruders or dual cells; tag so UI matches tactical line geometry.
 						var intruded: bool = _ZoneOfControl.is_intruded(oc)
-						var home_fid: String = _EntityAccess.formation_id_str(oc)
-						if intruded or home_fid != side:
+						if intruded or _ZoneOfControl.zone_geometry_fid_from_row(manager, oc) != side:
 							in_lane_intruders.append(oc)
 							continue
 						names.append(nm)

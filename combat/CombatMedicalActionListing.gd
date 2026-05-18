@@ -1,0 +1,80 @@
+class_name CombatMedicalActionListing
+extends RefCounted
+
+## Medical-phase and receiving-care action listing (direct pressure + ally wound menu).
+
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+
+
+static func append_receiving_care_direct_pressure(
+	manager: Node, c: Dictionary, combatant_id: int, actions: Array, medical_phase_winner: String
+) -> bool:
+	if manager == null or c.is_empty():
+		return false
+	if _EntityAccess.state_str(c) != CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
+		return false
+	if not manager.medical_phase:
+		return false
+	if not _EntityAccess.is_on_side(c, medical_phase_winner):
+		return false
+	if not _EntityAccess.scene_supports_medical_pressure_listing(c):
+		return true
+	var parts_being_treated: Array = manager._get_parts_being_treated_on(combatant_id)
+	for part in _EntityAccess.get_wounded_parts(c):
+		if part.is_empty() or part in parts_being_treated:
+			continue
+		if _EntityAccess.entity_has_direct_pressure_on_part(manager, c, part):
+			continue
+		if _EntityAccess.entity_can_apply_direct_pressure(manager, c, part):
+			actions.append(
+				{"target_id": combatant_id, "move_id": "apply_direct_pressure", "target_part": part}
+			)
+	return true
+
+
+static func append_medical_phase_winner_actions(
+	manager: Node, c: Dictionary, combatants: Array, actions: Array, medical_phase_winner: String
+) -> void:
+	if manager == null or c.is_empty():
+		return
+	if not _EntityAccess.is_on_side(c, medical_phase_winner):
+		return
+	if not _EntityAccess.scene_can_apply_direct_pressure_api(c):
+		return
+	var immediate_peril: bool = manager._is_in_immediate_peril(c)
+	for ally in combatants:
+		if not _EntityAccess.is_living_same_side(c, ally):
+			continue
+		if manager._has_left_immediate_peril_permanently(ally):
+			var fp_raw: Variant = ally.get("failed_medical_parts", null)
+			if fp_raw is Array and not (fp_raw as Array).is_empty():
+				ally["failed_medical_parts"] = []
+			for other in combatants:
+				var pr_raw: Variant = other.get("pending_retry", null)
+				if typeof(pr_raw) != TYPE_DICTIONARY:
+					continue
+				var pr: Dictionary = pr_raw as Dictionary
+				if not pr.is_empty() and pr.get("target_id", -1) == _EntityAccess.id_int(ally):
+					other["pending_retry"] = {}
+	for ally in combatants:
+		if (
+			not _EntityAccess.is_living_same_side(c, ally)
+			or _EntityAccess.scene_node(ally) == null
+		):
+			continue
+		if not _EntityAccess.is_on_side(ally, medical_phase_winner):
+			continue
+		if not _EntityAccess.scene_has_wounded_parts_listing(ally):
+			continue
+		if immediate_peril and _EntityAccess.id_int(ally) != _EntityAccess.id_int(c):
+			continue
+		var wounded: Array = _EntityAccess.get_wounded_parts(ally)
+		var parts_being_treated: Array = manager._get_parts_being_treated_on(_EntityAccess.id_int(ally))
+		for part in wounded:
+			if part.is_empty() or part in parts_being_treated:
+				continue
+			var tgt_id: int = _EntityAccess.id_int(ally)
+			for act in manager._get_ally_medical_actions(c, ally, part):
+				actions.append(
+					{"target_id": tgt_id, "move_id": act.move_id, "target_part": act.target_part}
+				)

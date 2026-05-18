@@ -18,6 +18,7 @@ const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 
 static func _log_outcome(action: String, atk_id: int, tgt_id: int) -> void:
 	if CombatConstants.combat_debug_active():
@@ -30,12 +31,35 @@ static func _consume_stamina(c: Dictionary, amount: float) -> void:
 	c["stamina"] = maxf(0.0, s - amount)
 
 
+static func _stamina_parry_cost_for_defender(atk: Dictionary, incoming_intensity: float = -1.0) -> float:
+	var i: float = incoming_intensity
+	if i < 0.0:
+		i = 0.5
+		if not atk.is_empty():
+			i = float(_pending_attack_read(atk).get("intensity", 0.5))
+	return CombatConstants.stamina_parry_cost_from_intensity(i)
+
+
+static func _stamina_attack_cost_for_attacker(
+	manager: Node, atk: Dictionary, target_id: int
+) -> float:
+	if atk.is_empty():
+		return CombatConstants.stamina_attack_cost_from_intensity(1.0)
+	var cost: float = CombatConstants.stamina_attack_cost_from_intensity(
+		float(_pending_attack_read(atk).get("intensity", 1.0))
+	)
+	if manager != null and target_id >= 0:
+		var clk: float = _EntityAccess.combat_clock_float(manager)
+		cost *= _FlurryBind.stamina_attack_cost_mult(atk, target_id, clk)
+	return cost
+
+
 static func _pending_attack_read(atk: Dictionary) -> Dictionary:
 	return _EntityAccess.nested_dictionary_read(atk, "pending_attack")
 
 
 static func _clear_attacker_pending_attack(atk: Dictionary, manager: Node) -> void:
-	if atk == null:
+	if atk.is_empty():
 		return
 	var pa0: Dictionary = _pending_attack_read(atk)
 	_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa0)
@@ -53,14 +77,14 @@ static func _react_attacking_arm_loss_after_wound(manager: Node, c: Variant) -> 
 
 
 static func _clear_defender_footwork(tgt: Dictionary) -> void:
-	if tgt != null:
+	if not tgt.is_empty():
 		_Footwork.clear_position_offset(tgt)
 
 
 static func _abort_incoming_wind_up_if_target_died(manager: Node, target_id: int) -> void:
 	if manager == null or target_id < 0:
 		return
-	var tgt: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(target_id))
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
 	if tgt.is_empty() or _EntityAccess.alive_bool(tgt):
 		return
 	_CounterTempo.abort_attacker_wind_up(manager, target_id)
@@ -69,7 +93,7 @@ static func _abort_incoming_wind_up_if_target_died(manager: Node, target_id: int
 ## Parry outcomes default the defender to waiting. Paired formation moves (`swap_rank` / drag / fall_back_pair)
 ## keep both partners in motion state until resolve — do not clobber that here.
 static func _defender_set_idle_after_parry(tgt: Dictionary) -> void:
-	if tgt == null:
+	if tgt.is_empty():
 		return
 	if _EntityAccess.state_str(tgt) in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
 		return
@@ -81,15 +105,15 @@ static func _defender_set_idle_after_parry(tgt: Dictionary) -> void:
 static func apply_result(manager: Node, attacker_id: int, result: Dictionary) -> void:
 	var action: String = result.get("action", "skip")
 	var target_id: int = result.get("target_id", -1)
-	var atk = manager._get_by_id(attacker_id)
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
 	if _MedicalPhase.combat_resolution_blocked(manager):
 		return
-	var tgt = manager._get_by_id(target_id) if target_id >= 0 else null
-	var tgt_scene: Node = _EntityAccess.scene_node(tgt) if tgt != null else null
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, target_id)
+	var tgt_scene: Node = _EntityAccess.scene_node(tgt)
 	var empty_result: Dictionary = {"dmg": 0, "died": false, "part": "", "damage_type": "", "outcome": "", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0}
 
 	if action == "skip":
-		if atk != null:
+		if not atk.is_empty():
 			if result.get("recovery_duration", 0.0) > 0.0:
 				empty_result["outcome"] = "skip"
 				manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
@@ -97,7 +121,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				atk["last_move_id"] = pa_skip.get("attack_type", "")
 				atk["effective_attack_line"] = pa_skip.get("effective_attack_line", "")
 				atk["recovery_cause"] = "skip"
-				_consume_stamina(atk, CombatConstants.STAMINA_ATTACK_COST_BASE)
+				_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 				atk.state = CombatConstants.STATE_RECOVERING
 				atk.state_timer = 0.0
 				atk.state_duration = result.recovery_duration
@@ -110,11 +134,11 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				_react_attacking_arm_loss_after_wound(manager, atk)
 		return
 	if action == "defeated":
-		if tgt != null:
+		if not tgt.is_empty():
 			tgt.alive = false
 			tgt.state = CombatConstants.STATE_DEAD
 			_clear_defender_footwork(tgt)
-		if atk != null:
+		if not atk.is_empty():
 			# Resolver abort (e.g. no targetable parts): do not leave attacker stuck in WIND_UP with stale `pending_attack`.
 			_clear_attacker_pending_attack(atk, manager)
 			atk.state = CombatConstants.STATE_WAITING
@@ -133,12 +157,12 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		empty_result["outcome"] = "miss"
 		_log_outcome("miss", attacker_id, target_id)
 		manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
-		if atk != null:
+		if not atk.is_empty():
 			var pa_miss: Dictionary = _pending_attack_read(atk)
 			atk["last_move_id"] = pa_miss.get("attack_type", "")
 			atk["effective_attack_line"] = pa_miss.get("effective_attack_line", "")
 			atk["recovery_cause"] = "attack_miss"
-			_consume_stamina(atk, CombatConstants.STAMINA_ATTACK_COST_BASE)
+			_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 			atk.state = CombatConstants.STATE_RECOVERING
 			atk.state_timer = 0.0
 			atk.state_duration = result.recovery_duration
@@ -150,19 +174,19 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		empty_result["outcome"] = "dodge"
 		_log_outcome("dodge", attacker_id, target_id)
 		manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
-		if atk != null:
+		if not atk.is_empty():
 			var pa_dodge_atk: Dictionary = _pending_attack_read(atk)
 			atk["last_move_id"] = pa_dodge_atk.get("attack_type", "")
 			atk["effective_attack_line"] = pa_dodge_atk.get("effective_attack_line", "")
 			atk["recovery_cause"] = "attack_miss"
-			_consume_stamina(atk, CombatConstants.STAMINA_ATTACK_COST_BASE)
+			_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 			atk.state = CombatConstants.STATE_RECOVERING
 			atk.state_timer = 0.0
 			atk.state_duration = result.recovery_duration
-		if tgt != null:
+		if not tgt.is_empty():
 			# Defender moved to avoid; blade/body ends in dodge position (e.g. duck high attack -> low guard).
 			# Use effective_attack_line for diagonal moves (actual trajectory).
-			var pa: Dictionary = _pending_attack_read(atk) if atk != null else {}
+			var pa: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
 			var move_id: String = pa.get("attack_type", "")
 			var move_def: Dictionary = WeaponConstants.get_move(move_id) if not move_id.is_empty() else {}
 			var atk_line: String = pa.get("effective_attack_line", move_def.get("attack_line", "high"))
@@ -170,32 +194,34 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			_GuardUpdater.set_guard_from_line(tgt, dodge_guard)
 			if CombatConstants.combat_debug_active():
 				CombatDebug.log("guard_line %s: -> %s (dodged %s)" % ["id:%d" % _EntityAccess.id_int(tgt), dodge_guard, atk_line])
-		if atk != null:
+		if not atk.is_empty():
 			_clear_attacker_pending_attack(atk, manager)
 		_clear_defender_footwork(tgt)
 		return
 	if action == "parry_deflect":
-		if atk != null:
+		var incoming_parry_intensity: float = 0.5
+		if not atk.is_empty():
 			var pa_deflect: Dictionary = _pending_attack_read(atk)
+			incoming_parry_intensity = float(pa_deflect.get("intensity", 0.5))
 			atk["last_move_id"] = pa_deflect.get("attack_type", "")
 			atk["effective_attack_line"] = pa_deflect.get("effective_attack_line", "")
 			# HEMA: store defender's guard and parry_clash_context for bind vs deflect.
-			atk["defender_guard_line_at_parry"] = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT) if tgt != null else ""
+			atk["defender_guard_line_at_parry"] = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT) if not tgt.is_empty() else ""
 			var atk_clash_raw: Variant = result.get("parry_clash_context", null)
 			atk["parry_clash_context"] = atk_clash_raw if atk_clash_raw is Dictionary else {}
 			_clear_attacker_pending_attack(atk, manager)
 			atk["recovery_cause"] = "attack_deflect"
-			_consume_stamina(atk, CombatConstants.STAMINA_ATTACK_COST_BASE)
+			_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 			atk.state = CombatConstants.STATE_RECOVERING
 			atk.state_timer = 0.0
 			atk.state_duration = result.recovery_duration
 			atk["off_balance_until"] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
-		if tgt != null:
-			_consume_stamina(tgt, CombatConstants.STAMINA_PARRY_COST)
+		if not tgt.is_empty():
+			_consume_stamina(tgt, _stamina_parry_cost_for_defender(atk, incoming_parry_intensity))
 			# Weapon position: defender's blade met attacker's; blade ends in attack line.
 			# Use effective_attack_line for diagonal moves (actual contact line).
-			var move_id: String = atk.get("last_move_id", "") if atk != null else ""
-			var eff_line: String = atk.get("effective_attack_line", "") if atk != null else ""
+			var move_id: String = atk.get("last_move_id", "") if not atk.is_empty() else ""
+			var eff_line: String = atk.get("effective_attack_line", "") if not atk.is_empty() else ""
 			_GuardUpdater.set_guard_from_move(tgt, move_id, eff_line)
 			tgt["parry_bonus_until"] = CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
 			if not _MobilityRetreat.cannot_commit_melee(tgt):
@@ -209,6 +235,9 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 					and clash.get("parry_control", 0.0) >= CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
 				)
 				tgt["parry_against_id"] = attacker_id
+				if bool(tgt.get("parry_was_bind", false)):
+					CombatConstants.apply_parry_bind_riposte_gauge_bonus(tgt)
+					_FlurryBind.open_pair_after_bind(manager, target_id, attacker_id)
 			else:
 				tgt.erase("parry_was_bind")
 				tgt.erase("parry_against_id")
@@ -219,23 +248,26 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		if clash_emit is Dictionary:
 			empty_result["parry_clash_context"] = clash_emit
 		_log_outcome("parry_deflect", attacker_id, target_id)
-		if atk != null:
+		if not atk.is_empty():
 			_AIPicker.record_opp_parry_deflect_for_feint_listing(manager, atk, target_id)
-		if tgt != null:
+		if not tgt.is_empty():
 			_Attention.record_parry_deflect_on_attacker_memory(tgt, attacker_id)
 		_clear_defender_footwork(tgt)
 		manager.emit_signal("action_resolved", target_id, attacker_id, empty_result)
 		return
 	if action == "parry_partial":
-		if atk != null:
+		var incoming_partial_intensity: float = 0.5
+		if not atk.is_empty():
+			var pa_partial_int: Dictionary = _pending_attack_read(atk)
+			incoming_partial_intensity = float(pa_partial_int.get("intensity", 0.5))
 			var partial_clash_raw: Variant = result.get("parry_clash_context", null)
 			atk["parry_clash_context"] = partial_clash_raw if partial_clash_raw is Dictionary else {}
-			atk["defender_guard_line_at_parry"] = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT) if tgt != null else ""
-		if tgt != null:
-			_consume_stamina(tgt, CombatConstants.STAMINA_PARRY_COST)
+			atk["defender_guard_line_at_parry"] = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT) if not tgt.is_empty() else ""
+		if not tgt.is_empty():
+			_consume_stamina(tgt, _stamina_parry_cost_for_defender(atk, incoming_partial_intensity))
 			# Weapon position: only update when alignment was good (blade properly met attack).
 			# Use effective_attack_line for diagonal moves (actual contact line).
-			var pa_partial: Dictionary = _pending_attack_read(atk) if atk != null else {}
+			var pa_partial: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
 			var move_id: String = pa_partial.get("attack_type", "")
 			var move_def: Dictionary = WeaponConstants.get_move(move_id)
 			var atk_line: String = pa_partial.get("effective_attack_line", move_def.get("attack_line", "high"))
@@ -268,6 +300,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 					tgt["parry_bonus_until"] = (
 						CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
 					)
+					_FlurryBind.open_pair_after_bind(manager, target_id, attacker_id)
 				else:
 					tgt.erase("parry_against_id")
 					tgt.erase("parry_bonus_until")
@@ -285,12 +318,13 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		manager._execute_attack(attacker_id)
 		return
 	if action == "hit":
+		_FlurryBind.clear_pair(manager, attacker_id, target_id)
 		# Follow-through after **`parry_partial`**: strip calibration carry so **`attack_hit`** recovery does not see stale clash dict.
-		if atk != null:
+		if not atk.is_empty():
 			atk.erase("parry_clash_context")
 			atk.erase("defender_guard_line_at_parry")
 			_AIPicker.clear_feint_listing_opp_parry_deflect_for_target(atk, target_id)
-		if tgt != null:
+		if not tgt.is_empty():
 			_Attention.clear_yomi_for_attacker(tgt, attacker_id)
 		var rd_raw: Variant = result.get("result_dict", null)
 		var result_dict: Dictionary = rd_raw if rd_raw is Dictionary else {}
@@ -304,7 +338,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				manager._end_combat_phase(winner, tgt_scene)
 			# Attacker still needs recovery (killing blow); otherwise they stay in WIND_UP and never get another turn.
 			if atk != null and _EntityAccess.alive_bool(atk):
-				_consume_stamina(atk, CombatConstants.STAMINA_ATTACK_COST_BASE)
+				_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 				atk["effective_attack_line"] = atk.get("effective_attack_line", "")
 				atk["recovery_cause"] = "attack_hit"
 				atk.state = CombatConstants.STATE_RECOVERING
@@ -321,7 +355,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
 			# Attacker still needs recovery; otherwise they stay in WIND_UP
 			if atk != null and _EntityAccess.alive_bool(atk):
-				_consume_stamina(atk, CombatConstants.STAMINA_ATTACK_COST_BASE)
+				_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 				atk["effective_attack_line"] = atk.get("effective_attack_line", "")
 				atk["recovery_cause"] = "attack_hit"
 				atk.state = CombatConstants.STATE_RECOVERING
@@ -335,7 +369,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		_log_outcome("hit", attacker_id, target_id)
 		manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
 		if atk != null and _EntityAccess.alive_bool(atk):
-			_consume_stamina(atk, CombatConstants.STAMINA_ATTACK_COST_BASE)
+			_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 			atk["effective_attack_line"] = atk.get("effective_attack_line", "")  # Set in AttackResolver before clear
 			atk["recovery_cause"] = "attack_hit"
 			atk.state = CombatConstants.STATE_RECOVERING
@@ -344,8 +378,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		if tgt != null and _EntityAccess.alive_bool(tgt):
 			# Defender was hit; stagger/dropped guard — blade ends low. Sync guard_zone.
 			_GuardUpdater.set_guard_from_line(tgt, "low")
-			if manager.has_method("apply_formation_hit_reaction_if_needed"):
-				manager.apply_formation_hit_reaction_if_needed(target_id, intensity)
+			_EntityAccess.manager_apply_formation_hit_reaction_if_needed(manager, target_id, intensity)
 		_react_attacking_arm_loss_after_wound(manager, atk)
 		_react_attacking_arm_loss_after_wound(manager, tgt)
 		_clear_defender_footwork(tgt)

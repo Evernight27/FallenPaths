@@ -6,21 +6,40 @@
 
 ## Tier 6.1 — mobility, cowering retreat, pain-shock susceptibility (live path)
 
-**Reader:** **Cowering** = no functional arms (`is_cowering()`), not immobile. **Unconscious** (`is_unconscious()`) skips combat ticks and action listing. **Mobile cowering** (legs ≥ **`MOBILITY_FLEE_THRESHOLD`**) may **`fall_back`** in formation when **`solo_fall_back_action_legal`** passes (loose discipline, empty same-file rank-1, per-file frontline plug check). **`formation_retreat_only`** in **`AvailableActionsBuilder.build`** lists retreat without stable-line **`allow_fall_back`**; **`CombatEventDispatch.handle_action_ready`** fills gauge for mobile cowering only.
+**Reader:** **Cowering** = no functional arms (`is_cowering()`), not immobile. **Unconscious** (`is_unconscious()`) skips combat ticks and action listing. **Mobile cowering** (legs ≥ **`MOBILITY_FLEE_THRESHOLD`**) may **`fall_back`** in formation when **`solo_fall_back_action_legal`** passes (loose discipline, empty same-file rank-1, per-file frontline plug check). **`CombatMobilityRetreat.formation_retreat_only_for`** gates listing in **`CombatFormationMoveListing`** (via **`AvailableActionsBuilder.build`**); **`CombatEventDispatch.handle_action_ready`** fills gauge for mobile cowering only.
 
 | Layer | Module | Role | Harnesses (grep) |
 |-------|--------|------|------------------|
 | Mobility gate | `PainConsciousnessConstants.gd`, `CoreEntity.gd` | **`MOBILITY_FLEE_THRESHOLD`** (0.2); **`can_flee_or_fall_back()`**; **`is_unconscious()`** vs **`is_incapacitated()`** | **`_run_medical_mobility_can_flee_leg_and_consciousness`** |
 | Combat access | `CombatantEntityAccess.gd` | **`can_flee_or_fall_back`**, **`is_unconscious`**, **`is_cowering`** on combatant dicts | (above) |
 | Tick / events | `CombatStateHandlers.gd`, `CombatEventScheduler.gd`, `CombatEventDispatch.gd` | Mobile cowering not skipped in **`process_incapacitation`**; unconscious-only scheduling; **`ACTION_READY`** for mobile cowering | **`_run_medical_mobility_cowering_mobile_not_skipped_in_process_incap`**, **`_run_medical_mobility_cowering_action_ready_fills_gauge_for_mobile`** |
-| Formation retreat | `AvailableActionsBuilder.gd`, `CombatFormationFlow.gd`, `CombatResolveAction.gd` | **`formation_retreat_only`** listing; **`solo_fall_back_action_legal`** + per-file plug check; resolve bypasses **`allow_fall_back`** when cowering | **`_run_medical_mobility_cowering_mobile_solo_fall_back_legal`**, **`_run_medical_mobility_cowering_lists_fall_back_in_formation_mode`**, **`_run_medical_mobility_cowering_resolve_solo_fall_back_without_movement_policy`** |
-| Player UI | `AvailableActionsBuilder.gd`, `TurnReadyHandler.gd` | **`player_cowering_retreat_hint_if_applicable`** → **`combat_ui_hint`** on player **`turn_ready`** | **`_run_medical_mobility_cowering_player_retreat_ui_hint`** |
+| Retreat policy | `CombatMobilityRetreat.gd`, `CombatFormationMoveListing.gd`, `CombatFormationFlow.gd`, `CombatResolveAction.gd` | **`formation_retreat_only_for`**; **`solo_fall_back_action_legal`** + per-file plug check; resolve bypasses **`allow_fall_back`** when cowering | **`_run_medical_mobility_cowering_mobile_solo_fall_back_legal`**, **`_run_medical_mobility_cowering_lists_fall_back_in_formation_mode`**, **`_run_medical_mobility_cowering_resolve_solo_fall_back_without_movement_policy`** |
+| Player UI | `CombatPlayerTurnHints.gd`, `TurnReadyHandler.gd`, `CombatUiHints.gd` | Cowering retreat hint on player **`turn_ready`**; gauge tooltips | **`_run_medical_mobility_cowering_player_retreat_ui_hint`**, **`_run_combat_ui_hints_cowering_gauge_tooltip`** |
 | AI retreat | `CombatAIActionPicker.gd`, `CombatConstants.gd` | Cowering solo **`fall_back`** uses **`COWERING_SOLO_FALL_BACK_AI_WEIGHT`** (above **`wait`**) | **`_run_medical_mobility_cowering_ai_fall_back_weight_beats_wait`**, **`_run_medical_mobility_cowering_ai_pick_favors_fall_back`** |
 | Recovery | `CombatStateHandlers.gd` | Arm function return clears **`STATE_COWERING`** → **`STATE_WAITING`** + gauge reset | **`_run_medical_mobility_cowering_arm_recovery_clears_state`** |
 | Battle UI | `BattleUIUpdater.gd` | Gauge: **Cowering · can fall back** vs **immobile** | (manual / soak) |
-| Pain shock | `EntityPainConsciousness.gd` | Hit pain drives chance/duration (Option C); **`get_pain_shock_susceptibility_mult`** (0.8×–1.2× from total effective pain) on chance only | **`_run_medical_pain_shock_susceptibility_mult_from_effective_pain`** |
+| Pain shock (hit) | `EntityPainConsciousness.gd` | Hit pain drives chance/duration (Option C); **`get_pain_shock_susceptibility_mult`** (0.8×–1.2× from total effective pain) on chance only | **`_run_medical_pain_shock_susceptibility_mult_from_effective_pain`** |
+| Pain shock (ambient) | `EntityPainConsciousness.gd`, `CombatProcessTick.gd` | Sustained effective pain above threshold: periodic roll in combat (**`FEATURE_AMBIENT_PAIN_SHOCK`**); duration without hit impact mult | **`_run_medical_ambient_pain_shock_*`** |
 
 **Harness (registry):** [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) Tier **6.1** paragraph · grep **`_run_medical_`**.
+
+<a id="tier-62-flee-formation-action-live-path"></a>
+
+## Tier 6.2 — flee formation action (live path)
+
+**Reader:** **`flee`** abandons the engagement (`combat_absent`, **`STATE_FLED`**, formation slot cleared) vs tactical **`fall_back`** within the line. Gated by **`can_flee_or_fall_back()`**; mobile **`STATE_COWERING`** may list flee (and AI may prefer it over fall_back when both appear).
+
+| Layer | Module | Role | Harnesses (grep) |
+|-------|--------|------|------------------|
+| Policy | `CombatFormationFlee.gd` | **`flee_action_legal`**, **`apply_flee`**, winner via **`CombatManager._check_for_winner`** | **`_run_flee_resolve_marks_combat_absent_and_clears_slot`**, **`_run_flee_not_listed_when_immobile`** |
+| Listing | `CombatFormationMoveListing.gd`, `CombatMobilityRetreat.gd` | Self-target **`MOVE_ID_FLEE`** in formation engagement | **`_run_medical_mobility_cowering_lists_flee_in_formation_mode`** |
+| Resolve | `CombatResolveAction.gd` | Forwards to **`apply_flee`** | (above) |
+| AI | `CombatAIActionPicker.gd` | Weight for self-target flee | **`_run_medical_mobility_cowering_ai_pick_*`** (fall_back vs flee context) |
+| UI | `BattleUIUpdater.gd`, `CombatPlayerTurnHints.gd` | Gauge **Fled** | **`_run_flee_ui_gauge_label_fled`** |
+| Lifecycle | `CombatManager.start()`, `MedicalPhaseController` | Clear **`combat_absent`** / fled state on restart or medical teardown | **`_run_flee_combat_start_clears_absent_state`**, **`_run_medical_phase_clears_fled_combatant_state`** |
+| Log | `CombatLogFormatter.gd` | **`fled`** outcome line | **`_run_combat_log_formatter_fled_outcome`** |
+
+**Harness (registry):** grep **`_run_flee_*`** · Tier **6.2** paragraph in [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md).
 
 ---
 
@@ -28,7 +47,7 @@ Consolidated sections; each has **`Source:`** for provenance.
 
 ## Contents
 
-0. [Tier 6.1 live path](#tier-61-mobility-pain-shock-live-path)
+0. [Tier 6.1 live path](#tier-61-mobility-pain-shock-live-path) · [Tier 6.2 flee](#tier-62-flee-formation-action-live-path)
 1. [PAIN_SHOCK_INVESTIGATION.md](#pain-shock-investigation)
 2. [PAIN_MEDICAL_RESEARCH_SYNTHESIS.md](#pain-medical-research-synthesis)
 3. [WOUND_PACKING_MEDIEVAL_RESEARCH.md](#wound-packing-medieval-research)
@@ -46,7 +65,8 @@ Consolidated sections; each has **`Source:`** for provenance.
 
 ### What the game uses
 
-- **Trigger**: Only when a weapon attack hits (`_try_enter_pain_shock_from_hit()` called from `apply_damage()`). No ambient pain roll.
+- **Trigger (hit):** Weapon attack hits → **`try_enter_pain_shock_from_hit`** (Option C below).
+- **Trigger (ambient):** During combat ticks, when effective pain stays above threshold → **`try_ambient_pain_shock_tick`** every **`PAIN_SHOCK_AMBIENT_CHECK_INTERVAL_S`** (lower risk than hit; **`FEATURE_AMBIENT_PAIN_SHOCK`**).
 - **Roll for shock**:
   - **Pain value**: `get_effective_pain_for_thresholds()` → **total pain** (all wounds, summed and normalized by species pain reference). So the *chance* to enter shock depends on **cumulative pain from every injury**, not just the hit that just landed.
   - **Threshold**: NRS 7.0 (normalized) + endurance modifier. Risk = `(pain - threshold) * 0.15` per point above threshold.
@@ -390,7 +410,7 @@ Investigation of when units can flee or fall back vs when they must cower, and h
 
 #### Shipped (Tier 6.1 — live path)
 
-See [§6.1 live path](#tier-61-mobility-pain-shock-live-path): **`can_flee_or_fall_back()`**, formation **`fall_back`** for mobile cowering, unconscious vs cowering combat gates. Investigation prose below remains design context.
+See [§6.1 live path](#tier-61-mobility-pain-shock-live-path) and [§6.2 flee](#tier-62-flee-formation-action-live-path): **`can_flee_or_fall_back()`**, formation **`fall_back`** and **`flee`** for mobile cowering, unconscious vs cowering combat gates. Investigation prose below remains design context.
 
 #### What remains optional / out of scope for 6.1
 

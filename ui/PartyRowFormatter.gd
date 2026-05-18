@@ -46,3 +46,21 @@ static func format_blood_line(bv: float, bleed_rate: float) -> String:
 	if bleed_rate > 0.0:
 		text += "  " + format_bleeding_only(bleed_rate)
 	return text
+
+
+## Consciousness, wounds, and mobility between fights (party menu / overworld).
+static func format_vitality_status(member: Dictionary) -> String:
+	if bool(member.get("is_unconscious", false)):
+		return "Unconscious — cannot fight until recovered."
+	var parts: PackedStringArray = []
+	var con: float = float(member.get("effective_consciousness", 100.0))
+	parts.append("Consciousness: %d%%" % int(roundf(con)))
+	var wn: int = int(member.get("wounded_part_count", 0))
+	if wn > 0:
+		var wound_line: String = "Wounds: %d part(s)" % wn
+		if bool(member.get("has_untreated_wounds", false)):
+			wound_line += " — needs treatment"
+		parts.append(wound_line)
+	if not bool(member.get("can_flee_or_fall_back", true)) and not bool(member.get("is_unconscious", false)):
+		parts.append("Legs too damaged to retreat")
+	return " · ".join(parts)

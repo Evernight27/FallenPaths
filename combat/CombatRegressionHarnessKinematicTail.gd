@@ -7,7 +7,7 @@ const _MgrScript := preload("res://combat/CombatManager.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _AttackResolver := preload("res://combat/AttackResolver.gd")
 const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _PathResolver := preload("res://combat/AttackPathResolver.gd")
@@ -796,7 +796,7 @@ static func _run_kinematic_delivery_pa_stamp_open_lane_strike_ke_matches_manual_
 		CombatRegressionHarness._free_manager(mgr)
 		return
 	var pa: Dictionary = {"attack_type": move_id, "tactical_ambush_mult": 1.0}
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(mgr, depth, enemy, pa)
+	_StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, depth, enemy, pa)
 	if not bool(pa.get("depth_polearm_attack", false)):
 		CombatRegressionHarness._fail(failures, "kin_pa_stamp: depth_polearm_attack want true after stamp")
 	if str(pa.get("depth_polearm_lane_type", "")) != CombatConstants.DEPTH_POLEARM_LANE_TYPE_OPEN:
@@ -1345,7 +1345,7 @@ static func _run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_fo
 	defender["guard_line"] = "high"
 	var def_n: Node = _EntityAccess.scene_node(defender)
 	var parts: Array = (
-		def_n.get_targetable_parts() if def_n != null and def_n.has_method("get_targetable_parts") else []
+		_EntityAccess.get_targetable_parts_from_node(def_n)
 	)
 	if parts.is_empty():
 		CombatRegressionHarness._fail(failures, "kin_parry_pa: targetable parts empty")

@@ -1,6 +1,10 @@
 # Tactical Formations Ff4
 
-**Plan / code:** Design depth for **`IMPLEMENTATION_ORDER.md`** Tier **2.2**; rank/file/slots **truth** is Tier 1 / `combat/` — not a second execution order.
+**Plan / code:** Design depth for **`IMPLEMENTATION_ORDER.md`** [Tier **2.2**](IMPLEMENTATION_ORDER.md#tier-2--tactical-docs--zoc-narrative-sync) (**Done** for live play copy — Phase B 2026-05-17); rank/file/slots **truth** is Tier **1** / `combat/` — not a second execution order.
+
+### Live play — intruder / vacancy on the rank×file grid
+
+When **`FEATURE_LINE_CRASH_INTRUSION`** is **true** and engagement mode is **formation**, front-rank fighters may **breach rush** (`MOVE_ID_CRASH`) into the enemy line. Success sets the attacker **`intruded`**, records **`intrusion_host_fid`** / **`intrusion_anchor_file`**, removes them from their home **`slots`**, and places them on the defender formation grid (often depth ranks). A **vacancy plug** may promote a same-file ally into the empty home rank-0 cell; **`intrusion_wedge_by_file`** on the host line tracks breach pressure for cohesion, lane stress, and pair distance. Intruders read geometry via **`formation_id_for_zone_geometry`** (host line, not home roster). See [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) §2.2–§2.5, §4.
 
 Consolidated sections; each has **`Source:`** for provenance.
 

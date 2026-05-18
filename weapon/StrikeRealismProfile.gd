@@ -6,7 +6,7 @@ extends RefCounted
 ## All five weapon templates carry `strike_physics` on Weapon; moves may override station via optional move keys.
 
 const _W := preload("res://weapon/WeaponConstants.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
 
 
 static func _phys(weapon: RefCounted) -> Dictionary:
@@ -17,7 +17,7 @@ static func _phys(weapon: RefCounted) -> Dictionary:
 
 
 static func measure_ratio(manager: Node, atk: Dictionary, tgt: Dictionary, weapon: RefCounted) -> float:
-	return _ActionsBuilder.strike_measure_ratio_for_attack_pair(manager, atk, tgt, weapon, -1.0)
+	return _StrikeStamping.strike_measure_ratio_for_attack_pair(manager, atk, tgt, weapon, -1.0)
 
 
 static func roll_blade_station(weapon: RefCounted, move_id: String, intensity: float) -> float:
@@ -114,7 +114,7 @@ static func compute_strike_modifiers(
 		var ve: Variant = pa.get("effective_pair_eff_dist", null)
 		if ve is float or ve is int:
 			eff_ov = float(ve)
-	var meas_default: float = _ActionsBuilder.strike_measure_ratio_for_attack_pair(
+	var meas_default: float = _StrikeStamping.strike_measure_ratio_for_attack_pair(
 		manager, atk, tgt, weapon, eff_ov
 	)
 	var meas: float = float(pa.get("strike_measure_ratio", meas_default))

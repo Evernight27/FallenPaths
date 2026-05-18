@@ -4,12 +4,16 @@
 		{
 			"label": "Run Combat Regression Harness (headless)",
 			"type": "shell",
-			"command": "${workspaceFolder}/scripts/run_combat_regression_harness.sh",
+			"command": "${config:godotTools.editorPath.godot4:/Applications/Godot.app/Contents/MacOS/Godot}",
+			"args": [
+				"--headless",
+				"--path",
+				"${workspaceFolder}",
+				"-s",
+				"res://scripts/run_combat_regression_harness.gd"
+			],
 			"options": {
-				"cwd": "${workspaceFolder}",
-				"env": {
-					"GODOT": "${config:godotTools.editorPath.godot4:/Applications/Godot.app/Contents/MacOS/Godot}"
-				}
+				"cwd": "${workspaceFolder}"
 			},
 			"group": "test",
 			"presentation": {

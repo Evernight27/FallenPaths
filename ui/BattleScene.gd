@@ -371,12 +371,12 @@ func _append_combat_log(attacker_name: String, attacker_side: String, target_nam
 	_scroll_combat_log_to_bottom()
 
 func _on_action_resolved(attacker_id: int, target_id: int, result: Dictionary) -> void:
-	var atk = manager._get_by_id(attacker_id) if manager and manager.has_method("_get_by_id") else null
-	var tgt = manager._get_by_id(target_id) if manager and manager.has_method("_get_by_id") else null
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
 	var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
-	var atk_side: String = _EntityAccess.side_str(atk) if atk != null else ""
+	var atk_side: String = _EntityAccess.side_str(atk)
 	var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
-	var tgt_side: String = _EntityAccess.side_str(tgt) if tgt != null else ""
+	var tgt_side: String = _EntityAccess.side_str(tgt)
 	_append_combat_log(atk_name, atk_side, tgt_name, tgt_side, result)
 	# Show last hit on target row (prefers total_physical so fractional chips still show)
 	var part: String = result.get("part", "")

@@ -45,11 +45,11 @@ static func clear_commitments_for_side(manager: Node, formation_id: String) -> v
 		c["close_block_until_by_target_id"] = {}
 
 
-## True when the **opposing** formation’s front rank has a **hollow center**: middle file(s) empty with at least one living rank-0 on both wings (`files >= 3`). Rank-0 bodies on the **host** grid use **`formation_id_for_zone_geometry`** (intruders count). Used for automatic pinch doctrine; exposed for harness.
+## True when the **opposing** formation’s front rank has a **hollow center**: middle file(s) empty with at least one living rank-0 on both wings (`files >= 3`). Rank-0 bodies on the **host** grid use **`combatant_on_zone_geometry_fid`** (intruders count). Used for automatic pinch doctrine; exposed for harness.
 static func enemy_line_hollow_center_for_pinch(manager: Node, our_formation_id: String) -> bool:
 	if manager == null:
 		return false
-	var opp_fid: String = "enemy" if str(our_formation_id) == "player" else "player"
+	var opp_fid: String = _EntityAccess.opponent_side_label(str(our_formation_id))
 	var fd: Dictionary = _FormationSlots.formation_record_for_manager(manager, opp_fid)
 	if fd.is_empty():
 		return false
@@ -61,11 +61,9 @@ static func enemy_line_hollow_center_for_pinch(manager: Node, our_formation_id: 
 	for i in nfiles:
 		has_r0[i] = false
 	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c):
+		if not _EntityAccess.is_standing_combatant(c):
 			continue
-		if _EntityAccess.is_incapacitated(c):
-			continue
-		if _ZoneOfControl.formation_id_for_zone_geometry(manager, c) != opp_fid:
+		if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, c, opp_fid):
 			continue
 		if _EntityAccess.rank_int(c) != 0:
 			continue

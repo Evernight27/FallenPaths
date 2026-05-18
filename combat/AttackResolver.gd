@@ -10,13 +10,16 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
+const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
+const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
 const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _IncomingParryChoice := preload("res://combat/CombatIncomingParryChoice.gd")
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.combat_debug_active():
@@ -224,7 +227,7 @@ static func compute_and_apply_damage(
 
 	if CombatConstants.combat_debug_active():
 		var depth_extra: String = ""
-		if _EntityAccess.rank_int(atk) > 0 and _ActionsBuilder._melee_pair_rank_allowed(manager, atk, tgt):
+		if _EntityAccess.rank_int(atk) > 0 and _MeleeRank.melee_pair_rank_allowed(manager, atk, tgt):
 			var cls: float = _StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
 			var lane_lbl: String = str(strike_physics_ctx.get("depth_polearm_lane_type", ""))
 			if lane_lbl.is_empty():
@@ -353,8 +356,8 @@ static func stamp_resolve_angle_geometry_on_pa(
 static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	if MedicalPhaseController.combat_resolution_blocked(manager):
 		return { "action": "skip", "target_id": -1, "recovery_duration": 0.0 }
-	var atk = manager._get_by_id(attacker_id)
-	if atk == null:
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	if atk.is_empty():
 		return { "action": "skip", "target_id": -1, "recovery_duration": 0.0 }
 	var pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
 	if pa.is_empty():
@@ -364,8 +367,8 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var attack_type: String = pa.get("attack_type", WeaponConstants.ATTACK_TYPE_CUT)
 	var archetype: Dictionary = _EntityAccess.nested_dictionary_read(pa, "archetype")
 	var velocity_override: float = pa.get("velocity_m_s", -1.0)
-	var tgt = manager._get_by_id(target_id)
-	if tgt == null or not _EntityAccess.alive_bool(tgt):
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
+	if tgt.is_empty() or not _EntityAccess.alive_bool(tgt):
 		return { "action": "skip", "target_id": target_id, "recovery_duration": 0.0 }
 	var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 	var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
@@ -381,7 +384,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var targetable: Array = _EntityAccess.get_targetable_parts(tgt)
 	if targetable.is_empty():
 		return { "action": "defeated", "target_id": target_id }
-	_ActionsBuilder.stamp_attack_pair_geometry_on_dict(manager, atk, tgt, pa)
+	_StrikeStamping.stamp_attack_pair_geometry_on_dict(manager, atk, tgt, pa)
 	var n_targetable_before: int = targetable.size()
 	targetable = _DepthPolearm.depth_polearm_targetable_parts_filter(manager, atk, targetable, pa)
 	if (
@@ -389,9 +392,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		and bool(pa.get("depth_polearm_attack", false))
 		and targetable.size() < n_targetable_before
 	):
-		var fid_atk_log: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, atk)
-		var fd_atk_log: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, atk, fid_atk_log)
-		var dens_log: String = str(fd_atk_log.get("density", "normal")) if not fd_atk_log.is_empty() else "normal"
+		var dens_log: String = str(pa.get("zone_geometry_atk_density", "normal"))
 		CombatDebug.flow_log(
 			"depth_polearm_resolve_parts atk=%d tgt=%d dens=%s parts=%s"
 			% [attacker_id, target_id, dens_log, str(targetable)],
@@ -403,7 +404,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var atk_wep: Variant = _EntityAccess.get_weapon(atk)
 	if (
 		_EntityAccess.weapon_has_attack_types(atk_wep)
-		and not _ActionsBuilder.can_melee_threaten(manager, atk, tgt, pa)
+		and not _MeleeListing.can_melee_threaten(manager, atk, tgt, pa)
 	):
 		_TacticalCombat.record_invalid_melee_resolve_blocked(manager)
 		var rec_geom: float = CombatTiming.recovery_duration(
@@ -452,7 +453,8 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	if CombatConstants.is_feature_sector_surround_load():
 		pa["surround_threat_weight_sum"] = _TacticalCombat.compute_surround_threat_weight_sum(manager, target_id)
 	pa["tactical_ambush_mult"] = _TacticalCombat.ambush_defense_multiplier(manager, tgt)
-	_ActionsBuilder.stamp_strike_realism_on_pa(manager, atk, tgt, pa, atk_weapon, attack_type)
+	_StrikeStamping.stamp_strike_realism_on_pa(manager, atk, tgt, pa, atk_weapon, attack_type)
+	_IncomingParryChoice.stamp_parry_choice_on_pa(manager, pa, target_id, attacker_id)
 
 	var dc: Dictionary = _DefenseChoice.choose_defense(pa, atk, tgt, targetable, attack_type, archetype, velocity_override)
 	var _already_used_defense: bool = pa.get("passive_parry_attempted", false)

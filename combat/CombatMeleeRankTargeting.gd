@@ -27,11 +27,9 @@ static func melee_pair_rank_allowed(manager: Node, attacker: Dictionary, defende
 static func opp_matches_melee_rank_target(
 	manager: Node, actor: Dictionary, opp: Dictionary, opp_rank_required: int
 ) -> bool:
-	if not _EntityAccess.alive_bool(opp) or _EntityAccess.side_str(opp) == _EntityAccess.side_str(actor):
+	if not _EntityAccess.is_living_hostile_to(actor, opp):
 		return false
-	if _EntityAccess.is_incapacitated(opp):
-		return false
-	var host_fid: String = _DepthPolearm.actor_host_fid_for_melee_targeting(actor)
+	var host_fid: String = _DepthPolearm.actor_host_fid_for_melee_targeting(actor, manager)
 	var ornk: int = _EntityAccess.rank_int(opp)
 	var opp_intr_on_actor_host: bool = _ZoneOfControl.intruder_on_host_formation(opp, host_fid)
 	if ornk == opp_rank_required:
@@ -49,17 +47,26 @@ static func opp_matches_melee_rank_target(
 	return false
 
 
-static func host_formation_has_enemy_intruder(combatants: Array, actor: Dictionary) -> bool:
+## True when any opponent passes **`opp_matches_melee_rank_target(..., 0)`** (stalemate rank-1 pass when all front enemies are incap).
+static func any_living_enemy_rank0_target(
+	manager: Node, actor: Dictionary, combatants: Array
+) -> bool:
+	for opp in combatants:
+		if opp_matches_melee_rank_target(manager, actor, opp, 0):
+			return true
+	return false
+
+
+static func host_formation_has_enemy_intruder(
+	manager: Node, combatants: Array, actor: Dictionary
+) -> bool:
 	if _ZoneOfControl.is_intruded(actor):
 		return false
-	var fid: String = _EntityAccess.formation_id_str(actor)
+	var fid: String = _DepthPolearm.actor_host_fid_for_melee_targeting(actor, manager)
 	if fid.is_empty():
 		return false
-	var side: String = _EntityAccess.side_str(actor)
 	for x in combatants:
-		if not _EntityAccess.alive_bool(x):
-			continue
-		if _EntityAccess.side_str(x) == side:
+		if not _EntityAccess.is_alive_opponent_of(actor, x):
 			continue
 		if _ZoneOfControl.intruder_on_host_formation(x, fid):
 			return true

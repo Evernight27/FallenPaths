@@ -28,6 +28,10 @@ const NRS_SEVERE: float = 8.0
 const NRS_INTOLERABLE: float = 10.0
 const NRS_SHOCK: float = 7.0
 const PAIN_SHOCK_RISK_PER_POINT_NORMALIZED: float = 0.15  # (effective - 7) * 0.15; 1 over = 15% risk
+# Ambient (sustained pain) shock: periodic roll in combat when effective pain stays above threshold (no new hit).
+const PAIN_SHOCK_AMBIENT_CHECK_INTERVAL_S: float = 3.0
+const PAIN_SHOCK_AMBIENT_RISK_PER_POINT: float = 0.035
+const PAIN_SHOCK_AMBIENT_RISK_MULT: float = 0.35
 # Cumulative pain susceptibility (Tier 6.1): scales shock **chance** only; hit pain stays primary (Option C + B).
 const PAIN_SHOCK_SUSCEPTIBILITY_MULT_LOW: float = 0.8   # at/below NRS_FIRST_EFFECT
 const PAIN_SHOCK_SUSCEPTIBILITY_MULT_HIGH: float = 1.2  # at/above NRS_SEVERE

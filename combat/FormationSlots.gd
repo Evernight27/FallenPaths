@@ -77,7 +77,7 @@ static func slot_has_any_living_occupant(manager: Node, slots: Dictionary, key: 
 
 ## Remove dead combatant ids from slot arrays and erase emptied cells. Returns whether `slots` changed.
 static func prune_dead_ids_from_formation_slots(manager: Node, slots: Dictionary) -> bool:
-	if manager == null or not manager.has_method("_get_by_id"):
+	if manager == null:
 		return false
 	var changed: bool = false
 	for k in slots.keys().duplicate():
@@ -86,8 +86,8 @@ static func prune_dead_ids_from_formation_slots(manager: Node, slots: Dictionary
 			continue
 		var kept: Array = []
 		for cid in arr:
-			var c = manager._get_by_id(int(cid))
-			if c != null and _EntityAccess.alive_bool(c):
+			var c: Dictionary = _EntityAccess.manager_get_combatant(manager, int(cid))
+			if not c.is_empty() and _EntityAccess.is_alive_in_combat(c):
 				kept.append(int(cid))
 		if kept.size() != arr.size():
 			changed = true
@@ -179,7 +179,7 @@ static func living_count_in_slot(manager: Node, slots: Dictionary, key: Vector2i
 	var arr: Array = normalize_cell(slots.get(key, []))
 	var n: int = 0
 	for cid in arr:
-		var c = manager._get_by_id(int(cid)) if manager.has_method("_get_by_id") else null
-		if c != null and _EntityAccess.alive_bool(c):
+		var c: Dictionary = _EntityAccess.manager_get_combatant(manager, int(cid))
+		if not c.is_empty() and _EntityAccess.is_alive_in_combat(c):
 			n += 1
 	return n

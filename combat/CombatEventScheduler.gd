@@ -2,7 +2,7 @@ class_name CombatEventScheduler
 extends RefCounted
 
 ## Sorted event queue, ACTION_READY scheduling, and back-rank recheck after formation changes.
-## Placement snapshot + back-rank recheck use **`ZoneOfControl.formation_id_for_zone_geometry`** / **`formation_dict_for_zone_geometry`** so **intruders** on a host grid align with that formation’s `notify_formation_changed` / reconcile passes.
+## Placement snapshot + back-rank recheck use **`ZoneOfControl.zone_geometry_for_combatant`** so **intruders** on a host grid align with that formation’s `notify_formation_changed` / reconcile passes.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
@@ -22,8 +22,8 @@ static func compare_events(manager: Node, a: Variant, b: Variant) -> bool:
 	var at_b: float = bd.get("resolve_at", 0.0)
 	if at_a != at_b:
 		return at_a < at_b
-	var ca: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(ad.get("combatant_id", -1)))
-	var cb: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(bd.get("combatant_id", -1)))
+	var ca: Dictionary = _EntityAccess.manager_get_combatant(manager, int(ad.get("combatant_id", -1)))
+	var cb: Dictionary = _EntityAccess.manager_get_combatant(manager, int(bd.get("combatant_id", -1)))
 	var agi_a: int = int(_EntityAccess.stats_dict(ca).get("agility", 100)) if not ca.is_empty() else 0
 	var agi_b: int = int(_EntityAccess.stats_dict(cb).get("agility", 100)) if not cb.is_empty() else 0
 	if agi_a != agi_b:
@@ -50,7 +50,7 @@ static func get_next_action_ready_at(manager: Node, combatant_id: int) -> float:
 		var evd: Dictionary = ev as Dictionary
 		if evd.get("type", "") == CombatConstants.EVENT_ACTION_READY and evd.get("combatant_id", -1) == combatant_id:
 			var at: float = evd.get("resolve_at", 0.0)
-			if at > manager.combat_clock and (best < 0.0 or at < best):
+			if at > _EntityAccess.combat_clock_float(manager) and (best < 0.0 or at < best):
 				best = at
 	return best
 
@@ -61,7 +61,7 @@ static func build_next_action_ready_times(manager: Node) -> Dictionary:
 	var best_by_id: Dictionary = {}
 	if manager == null:
 		return best_by_id
-	var clk: float = float(manager.combat_clock)
+	var clk: float = _EntityAccess.combat_clock_float(manager)
 	for ev in manager.event_queue:
 		if typeof(ev) != TYPE_DICTIONARY:
 			continue
@@ -220,13 +220,13 @@ static func schedule_action_ready(manager: Node, combatant_id: int, delay_s: flo
 	var ev: Dictionary = {
 		"type": CombatConstants.EVENT_ACTION_READY,
 		"combatant_id": combatant_id,
-		"resolve_at": manager.combat_clock + delay_s,
+		"resolve_at": _EntityAccess.combat_clock_plus(manager, delay_s),
 		"data": {},
 	}
 	cancel_pending_action_ready(manager, combatant_id)
 	if _MedicalPhase.should_block_scheduled_event(manager, ev):
 		return
-	var c_ready: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
+	var c_ready: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
 	if (
 		not c_ready.is_empty()
 		and _MobilityRetreat.cannot_commit_melee(c_ready)
@@ -255,6 +255,8 @@ static func action_ready_cooldown(c: Dictionary) -> float:
 	var perf_mod: float = _EntityAccess.get_action_bar_performance_modifier(c)
 	if perf_mod > 0.0:
 		cooldown /= maxf(CombatConstants.PERF_MOD_MIN, perf_mod)
+	var st_ratio: float = _EntityAccess.stamina_float(c) / CombatConstants.STAMINA_MAX
+	cooldown *= CombatConstants.action_ready_stamina_delay_mult(st_ratio)
 	return cooldown
 
 
@@ -269,7 +271,7 @@ static func schedule_initial_action_ready_events(manager: Node) -> void:
 
 static func reschedule_back_rank_turns(manager: Node, fid: String) -> void:
 	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c) or _ZoneOfControl.formation_id_for_zone_geometry(manager, c) != fid:
+		if not _EntityAccess.alive_bool(c) or not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, c, fid):
 			continue
 		if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
 			continue
@@ -280,6 +282,16 @@ static func reschedule_back_rank_turns(manager: Node, fid: String) -> void:
 		schedule_action_ready(manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
 
 
+## Host-line formation record for placement tracking, or `{}` when not on a line grid.
+static func _line_formation_record_for_placement(manager: Node, c: Variant) -> Dictionary:
+	if c == null or not _EntityAccess.alive_bool(c, true):
+		return {}
+	var ctx: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, c)
+	if _ZoneOfControl.zone_geometry_fid_from_pack(ctx).is_empty():
+		return {}
+	return _ZoneOfControl.zone_geometry_formation_from_pack(ctx)
+
+
 ## Snapshot alive combatants' `(rank, file)` for anyone in a registered formation. Used with
 ## `ids_with_changed_rank_file_since_snapshot` so vacancy reconcile only resets **real** moves.
 static func snapshot_rank_file_placements(manager: Node) -> Dictionary:
@@ -287,13 +299,7 @@ static func snapshot_rank_file_placements(manager: Node) -> Dictionary:
 	if manager == null or not manager.formations is Dictionary:
 		return out
 	for c in manager.combatants:
-		if c == null or not _EntityAccess.alive_bool(c, true):
-			continue
-		var fid_snap: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
-		if fid_snap.is_empty():
-			continue
-		var frec: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, fid_snap)
-		if frec.is_empty():
+		if _line_formation_record_for_placement(manager, c).is_empty():
 			continue
 		var cid: int = _EntityAccess.id_int(c)
 		out[cid] = Vector2i(_EntityAccess.rank_int(c), _EntityAccess.file_int(c))
@@ -308,13 +314,7 @@ static func ids_with_changed_rank_file_since_snapshot(manager: Node, snap: Dicti
 	if not manager.formations is Dictionary:
 		return changed
 	for c in manager.combatants:
-		if c == null or not _EntityAccess.alive_bool(c, true):
-			continue
-		var fid_snap2: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
-		if fid_snap2.is_empty():
-			continue
-		var frec2: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, fid_snap2)
-		if frec2.is_empty():
+		if _line_formation_record_for_placement(manager, c).is_empty():
 			continue
 		var cur := Vector2i(_EntityAccess.rank_int(c), _EntityAccess.file_int(c))
 		var cid2: int = _EntityAccess.id_int(c)
@@ -332,11 +332,7 @@ static func ids_with_changed_rank_file_since_snapshot(manager: Node, snap: Dicti
 static func reschedule_formation_recheck_for_moved_back_ranks(manager: Node, moved_combatant_ids: Array) -> void:
 	for mid in moved_combatant_ids:
 		var cid: int = int(mid)
-		var c: Dictionary = (
-			_EntityAccess.combatant_dict_or_empty(manager._get_by_id(cid))
-			if manager.has_method("_get_by_id")
-			else {}
-		)
+		var c: Dictionary = _EntityAccess.manager_get_combatant(manager, cid)
 		if c.is_empty() or not _EntityAccess.alive_bool(c, true):
 			continue
 		if _EntityAccess.rank_int(c) <= 0:

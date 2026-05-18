@@ -10,10 +10,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 static func handle(manager: Node, combatant_id: int) -> void:
 	if manager == null:
 		return
-	var me_raw: Variant = manager._get_by_id(combatant_id) if manager.has_method("_get_by_id") else null
-	if me_raw == null or not (me_raw is Dictionary):
-		return
-	var me: Dictionary = me_raw as Dictionary
+	var me: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
 	if me.is_empty():
 		return
 	if _EntityAccess.side_str(me) != "player":

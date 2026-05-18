@@ -9,28 +9,28 @@ const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _MoraleCohesion := preload("res://combat/CombatMoraleCohesion.gd")
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 
 static func recompute_all(manager: Node) -> void:
 	if manager == null or not manager.get("formations"):
 		return
-	var fm: Dictionary = manager.formations
 	_MoraleCohesion.apply_to_formations(manager)
 	# Single engagement snapshot for fill + raw_mode (avoids repeating full combatant scans per formation).
 	var snap: Dictionary = _EngagementMode.snapshot(manager)
 	# Two-pass: both sides use the same tick’s cohesions for opponent-relative posture thresholds (Tier 1.4 asymmetric coupling).
 	var coh_by_fid: Dictionary = {}
 	for fid in ["player", "enemy"]:
-		var form0: Dictionary = _FormationSlots.formation_record_read(fm, fid)
+		var form0: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 		if form0.is_empty():
 			continue
 		coh_by_fid[fid] = _compute_line_cohesion(manager, fid, form0, snap)
 	for fid in ["player", "enemy"]:
-		var form: Dictionary = _FormationSlots.formation_record_read(fm, fid)
+		var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 		if form.is_empty():
 			continue
 		var coh: float = float(coh_by_fid.get(fid, 0.0))
-		var opp_fid: String = "enemy" if fid == "player" else "player"
+		var opp_fid: String = _EntityAccess.opponent_side_label(fid)
 		var opp_coh: float = float(coh_by_fid.get(opp_fid, coh))
 		var posture: String = _compute_posture(manager, fid, coh, form, opp_coh, snap)
 		var prev_c: float = float(form.get("line_cohesion", -1.0))
@@ -38,8 +38,8 @@ static func recompute_all(manager: Node) -> void:
 		form["line_cohesion"] = coh
 		form["engagement_posture"] = posture
 		var changed: bool = absf(prev_c - coh) > 0.004 or prev_p != posture
-		if changed and manager.has_method("notify_engagement_state_changed"):
-			manager.notify_engagement_state_changed(fid, coh, posture)
+		if changed:
+			_EntityAccess.manager_notify_engagement_state_changed(manager, fid, coh, posture)
 
 	_CombatDoctrine.evaluate_automatic_doctrine(manager)
 

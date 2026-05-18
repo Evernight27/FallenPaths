@@ -17,7 +17,7 @@ static func process_event_queue(manager: Node) -> void:
 			manager.event_queue.pop_front()
 			continue
 		var head: Dictionary = head_raw as Dictionary
-		if float(head.get("resolve_at", 0.0)) > manager.combat_clock:
+		if float(head.get("resolve_at", 0.0)) > _EntityAccess.combat_clock_float(manager):
 			break
 		var ev: Dictionary = manager.event_queue.pop_front() as Dictionary
 		handle_event(manager, ev)
@@ -26,11 +26,7 @@ static func process_event_queue(manager: Node) -> void:
 static func handle_event(manager: Node, ev: Dictionary) -> void:
 	var ev_type: String = ev.get("type", "")
 	var cid: int = ev.get("combatant_id", -1)
-	var c: Dictionary = (
-		_EntityAccess.combatant_dict_or_empty(manager._get_by_id(cid))
-		if manager.has_method("_get_by_id")
-		else {}
-	)
+	var c: Dictionary = _EntityAccess.manager_get_combatant(manager, cid)
 	if (
 		ev_type != CombatConstants.EVENT_SWAP_RANK_RESOLVE
 		and ev_type != CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE
@@ -81,7 +77,7 @@ static func handle_action_ready(manager: Node, c: Dictionary) -> void:
 		return
 	c.gauge = 100.0
 	c.erase("action_cooldown_until")
-	if _EntityAccess.side_str(c) == "player":
+	if _EntityAccess.is_player_side(c):
 		manager.notify_turn_ready(_EntityAccess.id_int(c))
 	else:
 		var actions: Array = manager.get_available_actions(_EntityAccess.id_int(c))
@@ -104,20 +100,21 @@ static func handle_melee_attack(manager: Node, c: Dictionary) -> void:
 		_CounterTempo.abort_attacker_wind_up(manager, _EntityAccess.id_int(c))
 		return
 	manager._execute_attack(_EntityAccess.id_int(c))
-	var atk: Dictionary = _EntityAccess.combatant_dict_or_empty(
-		manager._get_by_id(_EntityAccess.id_int(c)) if manager.has_method("_get_by_id") else null
-	)
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, _EntityAccess.id_int(c))
 	if (
 		not atk.is_empty()
 		and _EntityAccess.state_str(atk) == CombatConstants.STATE_RECOVERING
 		and atk.state_duration > 0.0
 	):
-		manager._schedule_event({
-			"type": CombatConstants.EVENT_RECOVERY_END,
-			"combatant_id": _EntityAccess.id_int(c),
-			"resolve_at": manager.combat_clock + atk.state_duration,
-			"data": {}
-		})
+		_EntityAccess.manager_schedule_event(
+			manager,
+			{
+				"type": CombatConstants.EVENT_RECOVERY_END,
+				"combatant_id": _EntityAccess.id_int(c),
+				"resolve_at": _EntityAccess.combat_clock_plus(manager, atk.state_duration),
+				"data": {},
+			}
+		)
 
 
 static func handle_recovery_end(manager: Node, c: Dictionary) -> void:

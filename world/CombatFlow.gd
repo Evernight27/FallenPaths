@@ -3,9 +3,12 @@ extends RefCounted
 
 ## Handles combat initiation and battle-end cleanup. Used by main.gd.
 ## Optional world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** (`"combat_encounter"`): copied into **`BattleScene.start`** → **`CombatManager.encounter`** before **`start()`** (doctrine, depth polearm AI mults, posture, morale, … — see **`CombatManager`** default_enc in **`CombatManager.gd`**).
+## Encounter nodes set meta via **`CampaignEncounterBridge.prepare_combat_from_encounter`**.
+
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 
 static func start_combat(world: Node2D, enemies: Array) -> void:
-	var players: Array = _gather_players(world)
+	var players: Array = _CampaignBridge.get_fightable_party_nodes(world)
 	if players.is_empty():
 		push_warning(
 			"CombatFlow.start_combat: no living players (check world meta 'party_manager', get_members(), node_ref)."
@@ -53,28 +56,14 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -
 
 	if player_lost:
 		BattleEndHandler.handle_defeat(world, player, winner)
+		_CampaignBridge.clear_transient_combat_meta(world)
 		return
 
 	BattleEndHandler.handle_victory(world, player, winner)
+	_CampaignBridge.on_return_from_combat(world, winner)
 	var pb = _find_party_button(world)
 	if pb:
 		pb.visible = true
-
-static func _gather_players(world: Node2D) -> Array:
-	var players: Array = []
-	var pm = world.get_meta("party_manager", null) if world.has_meta("party_manager") else null
-	if pm == null or not pm.has_method("get_members"):
-		return players
-	for member in pm.get_members():
-		var node_ref = member.get("node_ref") if member is Dictionary else null
-		if not is_instance_valid(node_ref):
-			continue
-		var alive: bool = true
-		if node_ref.has_method("is_dead"):
-			alive = not (node_ref as Node).is_dead()
-		if alive:
-			players.append(node_ref)
-	return players
 
 static func _find_party_button(world: Node2D) -> Control:
 	var root = world.get_tree().root

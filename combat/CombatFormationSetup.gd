@@ -12,7 +12,7 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 	var player_count: int = 0
 	var enemy_count: int = 0
 	for c in manager.combatants:
-		if _EntityAccess.side_str(c) == "player":
+		if _EntityAccess.is_player_side(c):
 			player_count += 1
 		else:
 			enemy_count += 1
@@ -75,7 +75,7 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 	var pi: int = 0
 	var ei: int = 0
 	for c in manager.combatants:
-		if _EntityAccess.side_str(c) == "player":
+		if _EntityAccess.is_player_side(c):
 			var r: int = int(floorf(pi / float(p_files)))
 			var f: int = pi % p_files
 			c.rank = r

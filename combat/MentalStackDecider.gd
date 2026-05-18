@@ -20,7 +20,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 	if not enabled() or actions.is_empty() or manager == null or combatant_id < 0:
 		return {}
 	_Attention.refresh_salience(manager, combatant_id)
-	var c: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
+	var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
 	if c.is_empty():
 		return {}
 	if _MobilityRetreat.cannot_commit_melee(c):

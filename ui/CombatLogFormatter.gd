@@ -9,6 +9,56 @@ static func _eff_pct(result: Dictionary) -> int:
 	return int(roundf(result.get("effectiveness", 1.0) * 100.0))
 
 
+static func _medical_procedure_label(move_id: String, on_self: bool) -> String:
+	var base: String = move_id.replace("_", " ")
+	if on_self:
+		return base
+	match move_id:
+		"bandage_self":
+			return "bandage (ally)"
+		"pack_wound":
+			return "pack wound (ally)"
+		"apply_tourniquet":
+			return "tourniquet (ally)"
+		_:
+			return "%s (ally)" % base
+
+
+static func _medical_on_self(result: Dictionary, attacker_name: String, target_name: String) -> bool:
+	if result.has("medical_target_is_self"):
+		return bool(result.get("medical_target_is_self", true))
+	return attacker_name == target_name
+
+
+static func _medical_procedure_log_line(
+	success: bool,
+	success_clause: String,
+	fail_verb: String,
+	fail_note: String,
+	attacker_name: String,
+	attacker_side: String,
+	target_name: String,
+	part_label: String,
+	result: Dictionary,
+	procedure_verb: String = ""
+) -> String:
+	var who: String = "%s (%s)" % [attacker_name, attacker_side]
+	var eff: int = _eff_pct(result)
+	var target_part: String = "%s's %s" % [target_name, part_label]
+	if success:
+		if not procedure_verb.is_empty():
+			return "[color=teal]%s %s %s's %s successfully (effectiveness: %d%%).[/color]" % [
+				who, procedure_verb, target_name, part_label, eff
+			]
+		return "[color=teal]%s %s (effectiveness: %d%%).[/color]" % [
+			who, success_clause % [target_name, part_label], eff
+		]
+	return (
+		"[color=orange]%s failed to properly %s %s (effectiveness: %d%%; %s).[/color]"
+		% [who, fail_verb, target_part, eff, fail_note]
+	)
+
+
 ## True when resolved hit carried meaningful physical damage (integer **`dmg`** or fractional **`total_physical`**).
 static func has_resolved_physical_damage(result: Dictionary) -> bool:
 	var dmg: int = int(result.get("dmg", 0))
@@ -55,7 +105,6 @@ static func format_last_hit_on_target_row(result: Dictionary) -> String:
 
 static func format_action_line(attacker_name: String, attacker_side: String, target_name: String, target_side: String, result: Dictionary) -> String:
 	var part: String = result.get("part", "")
-	var dmg: int = result.get("dmg", 0)
 	var died: bool = result.get("died", false)
 	var outcome: String = result.get("outcome", "hit")
 	var health_before: int = result.get("health_before", -1)
@@ -91,6 +140,8 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		return "[color=gray]%s (%s) fell back to the second rank.[/color]" % [attacker_name, attacker_side]
 	elif outcome == "rotate_file_complete":
 		return "[color=gray]%s (%s) and %s (%s) rotated files (front rank).[/color]" % [attacker_name, attacker_side, target_name, target_side]
+	elif outcome == "fled":
+		return "[color=gray]%s (%s) fled the field.[/color]" % [attacker_name, attacker_side]
 	elif outcome == "parry_deflect":
 		var line_pd: String = "[color=cyan]%s (%s) parried %s (%s)'s attack.[/color]" % [attacker_name, attacker_side, target_name, target_side]
 		if CombatConstants.COMBAT_DEBUG_CALIBRATION:
@@ -122,17 +173,59 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 	elif outcome == "direct_pressure":
 		return "[color=teal]%s (%s) applied direct pressure on %s's %s.[/color]" % [attacker_name, attacker_side, target_name, part_label]
 	elif outcome == "bandaged":
-		return "[color=teal]%s (%s) bandaged %s's %s successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
+		var on_self_b: bool = _medical_on_self(result, attacker_name, target_name)
+		var med_id_b: String = str(result.get("medical_move_id", "bandage_self"))
+		var bandage_verb: String = (
+			"bandaged" if on_self_b else _medical_procedure_label(med_id_b, false)
+		)
+		return _medical_procedure_log_line(
+			true, "", "bandage",
+			"partial effect; another can retry",
+			attacker_name, attacker_side, target_name, part_label, result, bandage_verb
+		)
 	elif outcome == "bandage_failed":
-		return "[color=orange]%s (%s) failed to properly bandage %s's %s (effectiveness: %d%%; partial effect; another can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
+		var on_self_bf: bool = _medical_on_self(result, attacker_name, target_name)
+		var med_id_bf: String = str(result.get("medical_move_id", "bandage_self"))
+		return _medical_procedure_log_line(
+			false, "", _medical_procedure_label(med_id_bf, on_self_bf), "partial effect; another can retry",
+			attacker_name, attacker_side, target_name, part_label, result
+		)
 	elif outcome == "packed":
-		return "[color=teal]%s (%s) packed %s's %s with linen successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
+		var on_self_p: bool = _medical_on_self(result, attacker_name, target_name)
+		var med_id_p: String = str(result.get("medical_move_id", "pack_wound"))
+		var pack_verb: String = (
+			"packed with linen" if on_self_p else _medical_procedure_label(med_id_p, false)
+		)
+		return _medical_procedure_log_line(
+			true, "", "pack",
+			"partial effect; another can retry",
+			attacker_name, attacker_side, target_name, part_label, result, pack_verb
+		)
 	elif outcome == "packing_failed":
-		return "[color=orange]%s (%s) failed to properly pack %s's %s (effectiveness: %d%%; partial effect; another can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
+		var on_self_pf: bool = _medical_on_self(result, attacker_name, target_name)
+		var med_id_pf: String = str(result.get("medical_move_id", "pack_wound"))
+		return _medical_procedure_log_line(
+			false, "", _medical_procedure_label(med_id_pf, on_self_pf), "partial effect; another can retry",
+			attacker_name, attacker_side, target_name, part_label, result
+		)
 	elif outcome == "tourniquet_applied":
-		return "[color=teal]%s (%s) applied tourniquet to %s's %s successfully (effectiveness: %d%%).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
+		var on_self_t: bool = _medical_on_self(result, attacker_name, target_name)
+		var med_id_t: String = str(result.get("medical_move_id", "apply_tourniquet"))
+		var tq_verb: String = (
+			"applied tourniquet to" if on_self_t else _medical_procedure_label(med_id_t, false)
+		)
+		return _medical_procedure_log_line(
+			true, "", "apply tourniquet to",
+			"not tight enough; can retry",
+			attacker_name, attacker_side, target_name, part_label, result, tq_verb
+		)
 	elif outcome == "tourniquet_failed":
-		return "[color=orange]%s (%s) failed to properly apply tourniquet to %s's %s (effectiveness: %d%%; not tight enough; can retry).[/color]" % [attacker_name, attacker_side, target_name, part_label, _eff_pct(result)]
+		var on_self_tf: bool = _medical_on_self(result, attacker_name, target_name)
+		var med_id_tf: String = str(result.get("medical_move_id", "apply_tourniquet"))
+		return _medical_procedure_log_line(
+			false, "", _medical_procedure_label(med_id_tf, on_self_tf), "not tight enough; can retry",
+			attacker_name, attacker_side, target_name, part_label, result
+		)
 	elif outcome == "close_success":
 		return "[color=teal]%s (%s) closed the distance on %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "close_failed":

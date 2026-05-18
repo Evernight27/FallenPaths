@@ -1,10 +1,10 @@
 # Engagement: line cohesion, posture, intrusion geometry
 
-**Status (Tier 1 milestones):** Mirrors **`IMPLEMENTATION_ORDER.md`** [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) only — §2 is a **verification mirror** (edit **after** that table).
+**Status:** Tier **1** mirrors [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary); cross-tier **Status** → plan [all tiers at a glance](IMPLEMENTATION_ORDER.md#all-tiers-at-a-glance). §2 is a **verification mirror** (edit Tier **1** rows **after** the milestone table).
 
 **Harness names:** [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) only (not listed in §2). **Doc pass:** 2026-05-17 — §2 = verification mirror; spec history → **§7**.
 
-**Plan / code:** Tier 1 **spec** — §1 pointer to master plan dependency chain, §2 verification mirror, §4–§6 plugs / dictionary / tuning. **P-step order, milestone Status, Development gate, `FEATURE_LINE_CRASH_INTRUSION`, Tier 3+** → **`IMPLEMENTATION_ORDER.md`** only (no live intrusion expansion from this doc while the flag is **false**).
+**Plan / code:** Tier 1 **spec** — §1 pointer to master plan dependency chain, §2 verification mirror, §4–§6 plugs / dictionary / tuning. **P-step order, milestone Status, development gates, Tier 3+** → **`IMPLEMENTATION_ORDER.md`** only. **`FEATURE_LINE_CRASH_INTRUSION`** production default **true** (Phase B 2026-05-17).
 
 **Concept stack:** **`slots`** + plugs → **`line_cohesion`** / **`engagement_posture`** → crash / wedge / **`lane_offset`** → **`effective_pair_eff_dist`** → morale → AI (intruder reads via **`formation_id_for_zone_geometry`**). **Modules:** `CombatFormationEngagement`, `CombatIntrusionGeometry`, `BreachResolver`, `CombatEngagementResolver`, `CombatManager`, `FormationBreachRules`, `ui/BattleScene` · `TACTICAL_ZONES_BREACH_MOVEMENT.md` · `CombatConstants.gd`.
 
@@ -64,12 +64,12 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 
 | Item | State | Notes |
 |------|:-----:|-------|
-| `AvailableActionsBuilder.effective_pair_eff_dist` (+ `CombatDistanceBands` callers) for `CombatConstants.ENGAGEMENT_ROLE_INTRUDED` | **Done** | Wedge + anchor + `lane_offset`; bands use file-spacing equivalent; ZoC host geometry for intruders. |
+| `CombatPairGeometry.effective_pair_eff_dist` (+ `CombatDistanceBands` / `AvailableActionsBuilder` forwards) for `CombatConstants.ENGAGEMENT_ROLE_INTRUDED` | **Done** | Wedge + anchor + `lane_offset`; bands use file-spacing equivalent; ZoC host geometry for intruders. |
 | Per-formation **`intrusion_wedge_by_file`** | **Done** | Authoritative breach state; stress, cohesion, eff dist, UI corridor strip; §4.1. |
 | Per-combatant `lane_offset` (bounded float; default 0) | **Done** | Seam bias + repack on plugs/moves; anchor peer nudge §4.2. |
 | Intrusion / plug **repack** rules for `lane_offset` + wedge | **Done** | Wedge cleared on death/reset; offsets repacked in `CombatFormationFlow`. |
 | **`lane_stress_by_file` / ZoC** use wedge | **Done** | `TacticalCombat` + `ZoneOfControl` lane stress; intruder host ZoC id for geometry. |
-| **Depth-rank polearm + spear lanes (P10)** | **Done** | Builder + bands + weapon **`depth_melee_eligible`** + stamped **`pa`** lane keys + doctrine AI mults. Plan [§1.9](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes) · registry bullets **1–4**. |
+| **Depth-rank polearm + spear lanes (P10)** | **Done** | **`CombatDepthPolearm`** + **`CombatMeleeListing`** + bands cache + **`CombatStrikeStamping`** **`pa`** keys + doctrine AI mults. Plan [§1.9](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes) · registry bullets **1–4**. |
 
 ### 2.6 Cohesion & posture refinement
 
@@ -92,7 +92,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 | `CombatAIActionPicker` / `CombatTargetScoring` | **Done** | Intruder-aware geometry; crash + listed-hostile + depth spear × doctrine. Registry Tier **1.6**. |
 | `IncursionBreachTest` / neighbor hold | **Optional** | Prefer headless **`run_all()`** for CI. |
 | Engagement + telemetry harness | **Done** | Registry Tier **1.7–1.8** · plan [§1.7–1.8](IMPLEMENTATION_ORDER.md#tier-17-18--shipped-maintain). |
-| Sync `TACTICAL_ZONES_BREACH_MOVEMENT.md` | **Partial** | **Tier 2.1** when intrusion gate **true**; banner may lag investigation prose. |
+| Sync `TACTICAL_ZONES_BREACH_MOVEMENT.md` | **Done** | Phase B 2026-05-17 — live intrusion gate **on**; bundle header + plan Tier **2.1**; long ZoC investigation phases may still lag **`combat/`**. |
 
 ---
 
@@ -115,7 +115,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 | **Container** | `manager.formations[fid].intrusion_wedge_by_file` — `Dictionary` mapping **file index** (int) → **wedge** (`Dictionary`). Missing key = no wedge at that file. |
 | **Minimum wedge fields** (v1; extend in code + here when shipped) | `pressure` (float 0..1, breach intensity), `depth` (float 0..1, how far “through” the line), `intruder_id` (int, primary occupant of the breach; **-1** if cleared). Key literals: **`CombatIntrusionWedge.FIELD_*`**. Single-source freeze + range notes: **`CombatConstants.gd`** (Tier **1.3** P4 block above `LANE_OFFSET_*`). Optional: `halfwidth_files` (float, lateral blur for neighbors), `updated_at` (combat clock) for decay. |
 | **Writer** | On **crash success**, same tick as slot writes: upsert wedge at **`intrusion_anchor_file`** (and optionally neighbor files scaled by `halfwidth_files`). Initialize from `breach_severity` / existing `breached_files[file]` where practical so one code path owns severity. |
-| **Readers (wedge throughout)** | `CombatFormationEngagement` (cohesion), `TacticalCombat._recompute_lane_stress_by_file` (stress from wedge + optional dual), `ZoneOfControl` (if lane stress or frontage uses wedge), `AvailableActionsBuilder.effective_pair_eff_dist`, `CombatDistanceBands`, `BreachResolver` as needed, formation diagram / battle UI (glyph or shading by file). |
+| **Readers (wedge throughout)** | `CombatFormationEngagement` (cohesion), `TacticalCombat._recompute_lane_stress_by_file` (stress from wedge + optional dual), `ZoneOfControl` (if lane stress or frontage uses wedge), `CombatPairGeometry.effective_pair_eff_dist` (via `AvailableActionsBuilder` forward), `CombatDistanceBands`, `BreachResolver` as needed, formation diagram / battle UI (glyph or shading by file). |
 | **Clear / decay** | On intruder death, retreat, or scripted breach heal: reduce `pressure`/`depth`, remove key when below epsilon, or clear `intruder_id`; keep **`breached_files`** in sync with wedge/clog rules (parallel summary consumed by **`FormationBreachRules`**, lane stress, **`CombatTargetScoring.opponent_breach_file_targeting_mult`**, and debug). |
 | **Invariant** | No consumer should assume “breach = dual living in column only”; **wedge may be non-zero while `slots` show a solo intruder** in depth ranks. |
 
@@ -127,7 +127,7 @@ Posture string values **must** match `CombatConstants.ENGAGEMENT_POSTURE_LINE` /
 |-------|-------------------|
 | **Range** | **Shipped:** **`CombatConstants.LANE_OFFSET_ABS_MAX`** = **0.5** → clamp **`lane_offset`** to **[-0.5, 0.5]** everywhere (see **`CombatConstants.gd`** Tier **1.3** P4 freeze block). |
 | **Meaning of 0** | Fighter’s body is at the **nominal center** of their current `(rank, file)` column for engagement math. |
-| **Sign** | **Shipped:** **positive** = toward **increasing file index** (+file neighbor); intruder seam bias **`INTRUSION_INTRUDER_LANE_OFFSET_BIAS`** uses this convention (`CombatFormationFlow`, `AvailableActionsBuilder.effective_pair_eff_dist`). |
+| **Sign** | **Shipped:** **positive** = toward **increasing file index** (+file neighbor); intruder seam bias **`INTRUSION_INTRUDER_LANE_OFFSET_BIAS`** uses this convention (`CombatFormationFlow`, `CombatPairGeometry.effective_pair_eff_dist`). |
 | **Who has offsets** | All front-rank combatants may carry `lane_offset`; non–rank-0 can stay 0 until a later tier needs depth offsets. |
 
 **When to set / update**

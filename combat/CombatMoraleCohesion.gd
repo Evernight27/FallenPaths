@@ -11,10 +11,9 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 static func apply_to_formations(manager: Node) -> void:
 	if manager == null or not manager.get("formations"):
 		return
-	var fm: Dictionary = manager.formations
 	var enc: Dictionary = manager.encounter if typeof(manager.encounter) == TYPE_DICTIONARY else {}
 	for fid in ["player", "enemy"]:
-		var form: Dictionary = _FormationSlots.formation_record_read(fm, fid)
+		var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 		if form.is_empty():
 			continue
 		var side: String = _FormationSlots.formation_side_str(form, fid)
@@ -37,11 +36,7 @@ static func _average_combatant_morale_cohesion(manager: Node, side: String) -> f
 	var n: int = 0
 	var s: float = 0.0
 	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c):
-			continue
-		if _EntityAccess.side_str(c) != side:
-			continue
-		if _EntityAccess.is_incapacitated(c):
+		if not _EntityAccess.is_living_on_side(c, side):
 			continue
 		s += clampf(float(c.get("morale_cohesion", 1.0)), 0.0, 1.0)
 		n += 1

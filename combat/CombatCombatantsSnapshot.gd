@@ -29,16 +29,21 @@ static func live_status_override_text(manager: Node, c: Dictionary) -> String:
 static func _status_override_text(manager: Node, c: Dictionary, combatant_id: int, next_ready: Dictionary) -> String:
 	if _counter_tempo_ui_blocks_status_override(manager, c):
 		return ""
-	var crash_cd_until: float = float(c.get("crash_cooldown_until", 0.0))
-	if crash_cd_until > manager.combat_clock:
-		return "Crash CD %.1fs" % (crash_cd_until - manager.combat_clock)
-	var action_cd_until: float = float(c.get("action_cooldown_until", 0.0))
-	if action_cd_until > manager.combat_clock:
-		return "Closing %.1fs" % (action_cd_until - manager.combat_clock)
+	var crash_left: float = _EntityAccess.cooldown_remaining_s(
+		manager, float(c.get("crash_cooldown_until", 0.0)), 0.0
+	)
+	if crash_left > 0.0:
+		return "Crash CD %.1fs" % crash_left
+	var close_left: float = _EntityAccess.cooldown_remaining_s(
+		manager, float(c.get("action_cooldown_until", 0.0)), 0.0
+	)
+	if close_left > 0.0:
+		return "Closing %.1fs" % close_left
+	var clock: float = _EntityAccess.combat_clock_float(manager)
 	if next_ready.has(combatant_id):
 		var next_at: float = float(next_ready[combatant_id])
-		if next_at > manager.combat_clock:
-			return "Next: %.1fs" % (next_at - manager.combat_clock)
+		if next_at > clock:
+			return "Next: %.1fs" % (next_at - clock)
 	return ""
 
 
@@ -60,6 +65,7 @@ static func build(manager: Node) -> Array:
 			"node": sn,
 			"side": _EntityAccess.side_str(c),
 			"formation_id": fid_snap,
+			"zone_geometry_fid": _ZoneOfControl.zone_geometry_fid_str(manager, c),
 			"formation_doctrine": (
 				manager.get_formation_doctrine(fid_snap)
 				if manager.has_method("get_formation_doctrine")

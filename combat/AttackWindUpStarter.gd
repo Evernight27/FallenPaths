@@ -3,13 +3,15 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
+const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 
 ## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.
 ## Replaces **`atk.pending_attack`**: clears the prior wind-up’s defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (if any) before assigning the new **`pa`**.
@@ -20,7 +22,9 @@ const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 static func start(manager: Node, attacker_id: int, target_id: int, move_id: String = "", options: Dictionary = {}) -> void:
 	var atk = manager._get_by_id(attacker_id)
 	var tgt = manager._get_by_id(target_id)
-	if atk == null or tgt == null or not _EntityAccess.alive_bool(tgt):
+	var atk_d: Dictionary = _EntityAccess.combatant_dict_or_empty(atk)
+	var tgt_d: Dictionary = _EntityAccess.combatant_dict_or_empty(tgt)
+	if atk_d.is_empty() or tgt_d.is_empty() or not _EntityAccess.are_living_hostiles(atk_d, tgt_d):
 		return
 	if _MedicalPhase.combat_resolution_blocked(manager):
 		return
@@ -33,7 +37,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 			manager._schedule_event({
 				"type": CombatConstants.EVENT_RECOVERY_END,
 				"combatant_id": attacker_id,
-				"resolve_at": manager.combat_clock + atk.state_duration,
+				"resolve_at": _EntityAccess.combat_clock_plus(manager, atk.state_duration),
 				"data": {},
 			})
 		return
@@ -44,12 +48,19 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	var strength_intensity: float = CombatTiming.intensity_from_stats(atk)
 	var intensity: float = clampf(lerpf(rolled_intensity, strength_intensity, CombatConstants.INTENSITY_STRENGTH_BIAS), CombatConstants.INTENSITY_MIN, 1.0)
 	var weapon = _EntityAccess.get_weapon(atk)
+	var requested_move: String = str(move_id).strip_edges()
 	var attack_type: String = WeaponConstants.ATTACK_TYPE_CUT
 	var archetype: Dictionary = WeaponConstants.get_archetype(WeaponConstants.ARCHETYPE_SLASH)
 	if _EntityAccess.weapon_has_attack_types(weapon):
 		var types_arr: Array = _EntityAccess.weapon_attack_types(weapon)
-		if move_id != "" and types_arr.has(move_id):
-			attack_type = move_id
+		if requested_move != "" and not types_arr.has(requested_move):
+			CombatDebug.log(
+				"wind_up rejected: move_id=%s not on weapon for combatant %d"
+				% [requested_move, attacker_id]
+			)
+			return
+		if requested_move != "":
+			attack_type = requested_move
 		else:
 			var non_parry: Array = []
 			for mid in types_arr:
@@ -109,6 +120,11 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	var riposte_m: float = _CounterTempo.riposte_chain_windup_mult(manager, atk, target_id)
 	if riposte_m < 1.0:
 		wind_up_s *= riposte_m
+	var clk: float = _EntityAccess.combat_clock_float(manager)
+	var flurry_m: float = _FlurryBind.wind_up_mult(atk, target_id, clk)
+	if flurry_m < 1.0:
+		wind_up_s *= flurry_m
+		_FlurryBind.consume_exchange_on_wind_up_start(atk)
 	wind_up_s = minf(wind_up_s, CombatConstants.WIND_UP_DURATION_MAX_S)
 	atk.gauge = 0.0
 	atk["guard"] = CombatConstants.GUARD_AFTER_ATTACK
@@ -122,6 +138,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	# arc_intended_deg: intended target angle (no variance) — lets systems query blade position during wind-up.
 	var arc_intended_deg: float = align_ctx["attack_angle_deg"]
 	var pa: Dictionary = {"target_id": target_id, "intensity": intensity, "power": power, "follow_through": follow_through, "attack_type": attack_type, "archetype": archetype, "wind_up_duration": wind_up_s, "arc_start_deg": arc_start_deg, "arc_intended_deg": arc_intended_deg}
+	pa["weapon_extension_commit_fraction"] = _WeaponPosition.commit_fraction_from_move_def(move_def)
 	if weapon != null:
 		pa["impact_blade_station"] = _StrikeRealism.roll_blade_station(weapon, attack_type, intensity)
 	var target_part: String = str(options.get("target_part", ""))
@@ -130,8 +147,8 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		pa["target_part"] = target_part
 	if not feint_part.is_empty():
 		pa["feint_part"] = feint_part
-	# Tier 3.1: pair geometry + depth lane flags (`AvailableActionsBuilder.stamp_attack_pair_geometry_on_dict`; re-stamped each resolve).
-	_ActionsBuilder.stamp_attack_pair_and_strike_realism(manager, atk, tgt, pa, weapon, attack_type)
+	# Tier 3.1: pair geometry + depth lane flags (`CombatStrikeStamping`; re-stamped each resolve).
+	_StrikeStamping.stamp_attack_pair_and_strike_realism(manager, atk, tgt, pa, weapon, attack_type)
 	if move_def.get("is_feint", false):
 		pa["feint_windup_duration_mult"] = feint_windup_mult
 		var reveal_at: float = float(move_def.get("feint_target_reveal_at_progress", 0.0))

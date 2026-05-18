@@ -66,7 +66,7 @@ static func _vacancy_lateral_undo_blocked_persistent(
 	if not ally.has("formation_vacancy_lateral_reverse_lock_until"):
 		return false
 	var until: float = float(ally.get("formation_vacancy_lateral_reverse_lock_until", -1.0))
-	if float(manager.combat_clock) >= until:
+	if _EntityAccess.combat_clock_float(manager) >= until:
 		return false
 	var last_from: int = int(ally.get("formation_vacancy_lateral_last_from_file", -999))
 	var last_to: int = int(ally.get("formation_vacancy_lateral_last_to_file", -999))
@@ -175,14 +175,14 @@ static func _is_ineligible_vacancy_donor(manager: Node, c: Dictionary) -> bool:
 		return true
 	var until: float = float(c.get("formation_autofill_cooldown_until", -1.0))
 	if until >= 0.0 and manager != null:
-		var clk: float = float(manager.combat_clock)
+		var clk: float = _EntityAccess.combat_clock_float(manager)
 		# Hard lock: never allow two automatic plug donations in the same simulation clock,
 		# even when frontline-first override is active.
 		var last_move_clk: float = float(c.get("formation_autofill_last_move_clock", -9999.0))
 		if absf(last_move_clk - clk) < 0.0001:
 			return true
 		if clk < until:
-			var fid_geom: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
+			var fid_geom: String = _ZoneOfControl.zone_geometry_fid_str(manager, c)
 			# Frontline-first override: if rank 0 has holes, let reserves donate even during autofill cooldown.
 			if not _formation_has_rank0_hole(manager, fid_geom):
 				return true
@@ -200,12 +200,10 @@ static func _combatant_from_slot_primary_living(
 ) -> Variant:
 	var arr: Array = _FormationSlots.normalize_cell(slots.get(key, []))
 	for cid in arr:
-		var ally = manager._get_by_id(int(cid)) if manager.has_method("_get_by_id") else null
-		if ally == null or not _EntityAccess.alive_bool(ally):
+		var ally: Dictionary = _EntityAccess.manager_get_combatant(manager, int(cid))
+		if ally.is_empty() or not _EntityAccess.is_alive_on_side(ally, side_wanted):
 			continue
-		if _EntityAccess.side_str(ally) != side_wanted:
-			continue
-		if _ZoneOfControl.formation_id_for_zone_geometry(manager, ally) != fid:
+		if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, ally, fid):
 			continue
 		if skip_intruded and _ZoneOfControl.is_intruded(ally):
 			continue
@@ -593,14 +591,14 @@ static func _apply_plug_move(
 	_repack_lane_offset_after_rank_file_change(ally)
 	_FormationSlots.slot_set_single(slots, Vector2i(fill_rank, file), _EntityAccess.id_int(ally))
 	ally["formation_autofill_cooldown_until"] = (
-		float(manager.combat_clock) + CombatConstants.FORMATION_AUTOFILL_REPOSITION_COOLDOWN_S
+		_EntityAccess.combat_clock_float(manager) + CombatConstants.FORMATION_AUTOFILL_REPOSITION_COOLDOWN_S
 	)
-	ally["formation_autofill_last_move_clock"] = float(manager.combat_clock)
+	ally["formation_autofill_last_move_clock"] = _EntityAccess.combat_clock_float(manager)
 	if kind == "lateral" or kind == "rear_infill":
 		ally["formation_vacancy_lateral_last_from_file"] = from_f
 		ally["formation_vacancy_lateral_last_to_file"] = file
 		ally["formation_vacancy_lateral_reverse_lock_until"] = (
-			float(manager.combat_clock) + CombatConstants.FORMATION_VACANCY_LATERAL_REVERSE_LOCK_S
+			_EntityAccess.combat_clock_float(manager) + CombatConstants.FORMATION_VACANCY_LATERAL_REVERSE_LOCK_S
 		)
 		if manager.has_meta(VACANCY_LATERAL_EDGE_META):
 			_vacancy_lateral_record_edge(manager, _EntityAccess.id_int(ally), from_f, file, fill_rank)
@@ -633,7 +631,7 @@ static func _apply_plug_move(
 	if kind == "rear_infill":
 		var fdist: int = abs(int(from_f) - int(file))
 		ready_delay += float(fdist) * CombatConstants.FORMATION_PLUG_REAR_CROSS_FILE_READY_PER_FILE_S
-	manager._schedule_action_ready(_EntityAccess.id_int(ally), ready_delay)
+	_EventScheduler.schedule_action_ready(manager, _EntityAccess.id_int(ally), ready_delay)
 
 
 ## True when this file has a living occupant strictly deeper than `rank_i`.
@@ -806,7 +804,7 @@ static func _formation_has_blocking_formation_motion_for_compact(manager: Node, 
 	for c in manager.combatants:
 		if not _EntityAccess.alive_bool(c):
 			continue
-		if _ZoneOfControl.formation_id_for_zone_geometry(manager, c) != fid:
+		if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, c, fid):
 			continue
 		var st: String = _EntityAccess.state_str(c)
 		if st == CombatConstants.STATE_SWAP_RANK or st == CombatConstants.STATE_FALLING_BACK:
@@ -823,16 +821,16 @@ static func _slot_place_native_merging_intruders(
 	file_col: int,
 	native_id: int
 ) -> void:
-	var nat = manager._get_by_id(native_id) if manager.has_method("_get_by_id") else null
-	if nat == null or not _EntityAccess.alive_bool(nat):
+	var nat: Dictionary = _EntityAccess.manager_get_combatant(manager, native_id)
+	if nat.is_empty() or not _EntityAccess.alive_bool(nat):
 		return
 	var key := Vector2i(rank, file_col)
 	_FormationSlots.remove_combatant_from_slots(slots, native_id)
 	var merged: Array = []
 	var cur: Array = _FormationSlots.normalize_cell(slots.get(key, []))
 	for cid in cur:
-		var oc = manager._get_by_id(int(cid)) if manager.has_method("_get_by_id") else null
-		if oc == null or not _EntityAccess.alive_bool(oc):
+		var oc: Dictionary = _EntityAccess.manager_get_combatant(manager, int(cid))
+		if oc.is_empty() or not _EntityAccess.alive_bool(oc):
 			continue
 		if _EntityAccess.formation_id_str(oc) != fid or _ZoneOfControl.is_intruded(oc):
 			merged.append(int(cid))
@@ -843,13 +841,15 @@ static func _slot_place_native_merging_intruders(
 	nat["file"] = file_col
 	_repack_lane_offset_after_rank_file_change(nat)
 	nat["formation_autofill_cooldown_until"] = (
-		float(manager.combat_clock) + CombatConstants.FORMATION_AUTOFILL_REPOSITION_COOLDOWN_S
+		_EntityAccess.combat_clock_float(manager) + CombatConstants.FORMATION_AUTOFILL_REPOSITION_COOLDOWN_S
 	)
-	nat["formation_autofill_last_move_clock"] = float(manager.combat_clock)
+	nat["formation_autofill_last_move_clock"] = _EntityAccess.combat_clock_float(manager)
 	nat.erase("formation_vacancy_lateral_last_from_file")
 	nat.erase("formation_vacancy_lateral_last_to_file")
 	nat.erase("formation_vacancy_lateral_reverse_lock_until")
-	manager._schedule_action_ready(native_id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
+	_EventScheduler.schedule_action_ready(
+		manager, native_id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S
+	)
 
 
 ## Pack non-intruded `formation_id` natives to files `0..n-1` per rank (stable sort by current file, then id).
@@ -869,11 +869,9 @@ static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> 
 	for rank in range(formation_ranks):
 		var natives: Array = []
 		for c in manager.combatants:
-			if not _EntityAccess.alive_bool(c):
+			if not _EntityAccess.is_alive_on_side(c, side_wanted):
 				continue
 			if _EntityAccess.formation_id_str(c) != fid:
-				continue
-			if _EntityAccess.side_str(c) != side_wanted:
 				continue
 			if _ZoneOfControl.is_intruded(c):
 				continue
@@ -924,9 +922,7 @@ static func _log_rank0_vacancy_gaps_if_debug(manager: Node, fid: String) -> void
 		if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
 			continue
 		for ally in manager.combatants:
-			if not _EntityAccess.alive_bool(ally):
-				continue
-			if _EntityAccess.side_str(ally) != side_wanted:
+			if not _EntityAccess.is_alive_on_side(ally, side_wanted):
 				continue
 			if _EntityAccess.formation_id_str(ally) != fid:
 				continue
@@ -1085,9 +1081,7 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
 				continue
 			var has_promotable_deeper: bool = false
 			for ally in manager.combatants:
-				if not _EntityAccess.alive_bool(ally):
-					continue
-				if _EntityAccess.side_str(ally) != side_wanted:
+				if not _EntityAccess.is_alive_on_side(ally, side_wanted):
 					continue
 				if _EntityAccess.formation_id_str(ally) != fid_str:
 					continue

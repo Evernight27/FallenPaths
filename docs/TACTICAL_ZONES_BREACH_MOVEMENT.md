@@ -1,6 +1,6 @@
 # Tactical Zones Breach Movement
 
-**Plan / code:** Narrative + investigations — Tier **2.1** sync when [intrusion gate](IMPLEMENTATION_ORDER.md#development-gate-line-crash--intrusions-temporary) is **true**. **Status** → plan [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) only. Facts (wedge, `lane_offset`, 1.9) → plan + [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) §2.5. Investigation prose may lag **`combat/`**.
+**Plan / code:** Narrative + investigations — Tier **2.1** **Done** for live intrusion ([line-crash gate](IMPLEMENTATION_ORDER.md#development-gate-line-crash--intrusions-temporary) default **true**, Phase B 2026-05-17); sector surround §4.5 shipped Phase A. **Status** → plan [all tiers at a glance](IMPLEMENTATION_ORDER.md#all-tiers-at-a-glance). Code facts (wedge, `lane_offset`, intruder host geometry, crash listing) → [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) §2 + §4. Long investigation phases below may still lag **`combat/`**.
 
 Consolidated sections; each has **`Source:`** for provenance.
 
@@ -1228,7 +1228,7 @@ These items are **not** afterthoughts—they constrain **Phase A** (gate) and ho
 
 | Item | Requirement |
 |------|-------------|
-| **Feature toggle** | **`CombatConstants.is_feature_sector_surround_load()`** (default **false**; **`set_feature_sector_surround_load(on)`** for harness / dev soaks): **off** = integer threat count path; **on** = sector weight sum + `1/(1+k·excess)` (`TacticalCombat`, `AttackResolver`, `DefenseChoiceResolver`). |
+| **Feature toggle** | **`CombatConstants.is_feature_sector_surround_load()`** (default **true** since Phase A ship; **`set_feature_sector_surround_load(false)`** for integer-path compare): **off** = integer `surround_threat_count`; **on** = sector weight sum + `1/(1+k·excess)` (`TacticalCombat`, `AttackResolver`, `DefenseChoiceResolver`). |
 | **Telemetry / debug** | At least one line or overlay: `inc_g`, `lane_z`, `breach_stress`, `surround_load` (per tick or per attack). |
 | **`CombatDebug`** | **`CombatDebug.flow_log`** / **`COMBAT_DEBUG`** branches for **breach/crash** outcomes, consistent with **attack** / **formation** logs. |
 | **Event queue** | New **`EVENT_*`** for crash/breach must respect **FF4 §6** ordering (agility, then **`combatant_id`**) and avoid starving **`EVENT_ACTION_READY`**. |
@@ -1288,7 +1288,7 @@ Each phase lists **tasks**. **§4** holds cross-cutting requirements; phases sho
 
 **Files:** `TacticalCombat.gd`, `AttackResolver.gd`, `DefenseChoiceResolver.gd` as needed.
 
-**Migration:** Keep **`is_feature_sector_surround_load`** **false** until sector weights are tuned; harness compares sector path to integer path when needed (`CombatRegressionHarness._run_surround_*`, **`_run_sector_surround_feature_flag_respects_runtime_toggle`**).
+**Migration (shipped):** Production default **true** ([Phase A](IMPLEMENTATION_ORDER.md#phase-a--sector-surround-enable-tier-31)). Harness still compares integer vs sector via **`_run_surround_*`** and **`_run_sector_surround_feature_flag_respects_runtime_toggle`** (forces **false**/**true** around assertions).
 
 ---
 
@@ -1409,7 +1409,7 @@ Use this as the **single** execution list; detailed rules live in **§4** and ph
 | # | Decision | Proposed default (v1) |
 |---|----------|------------------------|
 | B1 | **Phase F:** incursion stack | **Add** `local_breach_stress[file]` (or per-side dict) into ZoC merge **without** removing `incursion_pressure` until tuned; preserve headroom merge. |
-| B2 | **§4.5 Surround:** float load vs integer `n` | **Shipped:** **`CombatConstants.is_feature_sector_surround_load()`** (**default `false`**; **`set_feature_sector_surround_load`**) — **off** = integer `surround_threat_count`; **on** = `surround_threat_weight_sum` + sector curve (single rule per path; see `TacticalCombat.surround_defense_multiplier_from_pa`). |
+| B2 | **§4.5 Surround:** float load vs integer `n` | **Shipped (production on):** **`is_feature_sector_surround_load()`** default **`true`** — sector `surround_threat_weight_sum` + curve; **`set_feature_sector_surround_load(false)`** restores integer `surround_threat_count` path (`TacticalCombat.surround_defense_multiplier_from_pa`). |
 | B3 | **Save/load** | New tactical fields **non-persisted** until you add serialize hooks (reset on load). |
 
 #### 10.4 Double-count / stacking (deliverable summary)

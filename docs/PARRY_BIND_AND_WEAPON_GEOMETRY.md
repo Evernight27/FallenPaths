@@ -15,10 +15,12 @@
 
 | Layer | Module | Role |
 |-------|--------|------|
-| Pair geometry | `AvailableActionsBuilder` | `stamp_attack_pair_geometry_on_dict`, `strike_measure_ratio_for_attack_pair` |
-| Wind-up | `AttackWindUpStarter` | stamps on pending attack |
-| Spacing | `CombatDistanceBands`, `CombatConstants` | `STRIKE_MEASURE_*`, `distance_to` |
-| Surround (flag off) | `TacticalCombat` | sector surround when `is_feature_sector_surround_load` |
+| Pair geometry | `CombatPairGeometry.gd` | `effective_pair_eff_dist`, `strike_measure_ratio_for_attack_pair` |
+| Stamp | `CombatStrikeStamping.gd` | `stamp_attack_pair_geometry_on_dict` on **`pa`** (wind-up / resolve) |
+| Orchestrate | `AvailableActionsBuilder.gd` | thin forwards to pair geometry + stamping |
+| Wind-up | `AttackWindUpStarter.gd` | calls stamping on pending attack |
+| Spacing | `CombatDistanceBands.gd`, `CombatConstants.gd` | `STRIKE_MEASURE_*`, `distance_to` |
+| Surround | `TacticalCombat.gd` | sector weight sum + `1/(1+k·excess)` when [`is_feature_sector_surround_load`](IMPLEMENTATION_ORDER.md#development-gate-sector-surround-load-temporary) **true** (production default); integer `surround_threat_count` when **false** |
 
 **Harness (grep):** `_run_windup_pending_attack_pair_geometry`, `_run_strike_measure_constants_sanity`, `_run_surround_`, `_run_depth_polearm_`, `_run_stamp_attack_pair_geometry_depth` · registry [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md).
 
@@ -31,11 +33,26 @@
 | Layer | Module | Role |
 |-------|--------|------|
 | Clash context | `DefenseResolutionHandler` | `parry_clash_context` keys (`PARRY_CLASH_CONTEXT_KEYS_FULL_STOP` in harness) |
-| Passive defense | `DefenseChoiceResolver` | `choose_defense`, spacing, feint telegraph |
-| Guard deflect | `GuardLineUpdater` | `set_guard_deflected` severity |
-| Weapon parts | `Weapon.gd`, `WeaponConstants` | part mass / parry contact |
+| Passive defense | `DefenseChoiceResolver` | `choose_defense`, spacing, feint telegraph, shaft **leverage** (`PARRY_LEVERAGE_*`, `weapon_parry_part_length_cm`) |
+| Guard deflect | `GuardLineUpdater` | `set_guard_deflected` severity, `guard_deflect_blend` |
+| Bind riposte | `AttackWindUpStarter`, `AttackResultApplier` | `parry_was_bind`, `PARRY_BIND_RIPOSTE_BY_PART_CONTACT`, bind gauge bonus (Tier **7.1**) |
+| Weapon parts | `Weapon.gd`, `WeaponDamageHelper` | **`parts`** on all archetypes; `get_parry_part_mass_kg`, `get_striking_part_mass_kg(contact_type)` in parry momentum |
 
-**Harness (grep):** `_run_parry_`, `_run_bind_riposte_`, `_run_weapon_part_mass_model_normalized` · deflect detail → [`PARRY_DEFLECT_AND_CALIBRATION.md`](PARRY_DEFLECT_AND_CALIBRATION.md).
+**Harness (grep):** `_run_parry_`, `_run_bind_riposte_`, `_run_weapon_part_*`, `_run_tier7_parry_bind_*` · deflect detail → [`PARRY_DEFLECT_AND_CALIBRATION.md`](PARRY_DEFLECT_AND_CALIBRATION.md). Merged investigations below §1 may describe **pre-parts** state — **live path wins**.
+
+### Bind-riposte wind-up table (P4h — shipped 2026-05-18)
+
+Applied in **`AttackWindUpStarter.start`** when **`parry_was_bind`** + riposte **`contact_type`** is in weapon **`bind_riposte_contact_types`**: `wind_up_s *=` cell for defender **`weapon_parry_contact_type`** (parry part) × move contact.
+
+| Parry part | stab (extend) | cut (wind) | blunt (swing) |
+|------------|:-------------:|:----------:|:-------------:|
+| **blade** | 0.55 | 0.78 | — |
+| **shaft** | 0.55 | 0.78 | 0.90 |
+| **haft** | 0.55 | 0.78 | — |
+
+Fallback **`PARRY_BIND_RIPOSTE_MULT_FALLBACK`** **0.78**. Eligibility: weapon **`bind_riposte_contact_types`** (from parry moves; axe may include **stab** for spike). Harness: **`_run_bind_riposte_contact_multipliers`**, **`_run_bind_riposte_archetype_ordering_spear_faster_than_mace`**.
+
+Per-move **`impact_station_mean`** on all move defs → [Tier **7.5** live path](IMPLEMENTATION_ORDER.md#tier-75-weapon-part-fidelity-live-path) (**Done**; not P4h).
 
 ---
 
@@ -64,9 +81,11 @@ Investigation into integrating weapon part lengths so parries interact with the 
 
 ## 1. Summary of Findings
 
-**Current state:** The system has no weapon part lengths. Parry capacity and attack momentum use whole-weapon properties (mass, parry_speed_factor). Parries are assumed blade-on-blade for all weapons, which is incorrect for spear, mace, and axe.
+**Historical (pre–Tier 3.2 ship):** Parry used whole-weapon mass only; no part differentiation.
 
-**Recommendation:** Add explicit `parry_contact_part` and optional part lengths per weapon. Apply part-specific modifiers to parry capacity and (optionally) attack momentum. Start with a minimal "parry contact type" per weapon; expand to full part-length modeling if needed.
+**Shipped (see [§3.2 live path](#tier-32-parry-bind-live-path)):** All weapon defs expose **`parts`**; defender shaft/haft **leverage**; attacker **`get_striking_part_mass_kg(contact_type)`** in partial/deflect follow-through; bind threshold + [bind-riposte wind-up table](#tier-32-parry-bind-live-path) (P4h **Done** 2026-05-18).
+
+**Investigation depth below** still useful for calibration and Level-4 blade-station ideas — not milestone **Status**.
 
 ---
 

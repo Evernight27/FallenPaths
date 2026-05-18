@@ -1,8 +1,6 @@
 # Hema Roadmap And Sources
 
-**Plan / code:** Research / fidelity backlog → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-7--research--fidelity-non-blocking) **Tier 7** (**non-blocking**). Feeds design only; does not override milestone **Status** or the [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic).
-
-Consolidated sections; each has **`Source:`** for provenance.
+**Plan / code:** Research / fidelity backlog → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-7--research--fidelity-non-blocking) **Tier 7** (**non-blocking**). **Shipped slice (2026-05-17):** [Tier 7 live path](IMPLEMENTATION_ORDER.md#tier-7-live-path) — stamina cost/turn delay + bind gauge bonus; Parts **1–5** bind/deflect/riposte wind-up largely live under Tier **3.2** / **4.2** ([`PARRY_BIND` §3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path)). Below = consolidated investigations; each has **`Source:`** for provenance.
 
 ## Contents
 

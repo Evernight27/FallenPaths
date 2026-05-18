@@ -12,16 +12,16 @@ static func _wedge_distance_pull(manager: Node, a: Dictionary, b: Dictionary, ha
 	var form: Dictionary = {}
 	var anchor_f: int = -1
 	if _ZoneOfControl.is_intruded(a):
-		var hf_a: String = _ZoneOfControl.intrusion_host_fid(a)
-		if hf_a.is_empty():
+		var ctx_a: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, a)
+		if _ZoneOfControl.zone_geometry_fid_from_pack(ctx_a).is_empty():
 			return 0.0
-		form = _ZoneOfControl.formation_dict_for_zone_geometry(manager, a, hf_a)
+		form = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_a)
 		anchor_f = _EntityAccess.intrusion_anchor_file_raw_int(a)
 	elif _ZoneOfControl.is_intruded(b):
-		var hf_b: String = _ZoneOfControl.intrusion_host_fid(b)
-		if hf_b.is_empty():
+		var ctx_b: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, b)
+		if _ZoneOfControl.zone_geometry_fid_from_pack(ctx_b).is_empty():
 			return 0.0
-		form = _ZoneOfControl.formation_dict_for_zone_geometry(manager, b, hf_b)
+		form = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_b)
 		anchor_f = _EntityAccess.intrusion_anchor_file_raw_int(b)
 	if form.is_empty() or anchor_f < 0:
 		return 0.0
@@ -35,16 +35,14 @@ static func _wedge_distance_pull(manager: Node, a: Dictionary, b: Dictionary, ha
 
 static func wedge_pressure_depth_at_combatant_column(manager: Node, c: Dictionary) -> Vector2:
 	if _ZoneOfControl.is_intruded(c):
-		var hf_i: String = _ZoneOfControl.intrusion_host_fid(c)
-		if hf_i.is_empty():
-			return Vector2.ZERO
-		var form_i: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, hf_i)
+		var ctx_i: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, c)
+		var form_i: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_i)
 		if form_i.is_empty():
 			return Vector2.ZERO
 		var fi_i: int = _EntityAccess.intrusion_anchor_or_file_int(c)
 		return Vector2(_IntrusionWedge.pressure_at_file(form_i, fi_i), _IntrusionWedge.depth_at_file(form_i, fi_i))
-	var fid: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
-	var form: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, fid)
+	var ctx: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, c)
+	var form: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx)
 	if form.is_empty():
 		return Vector2.ZERO
 	var fi: int = _EntityAccess.file_int(c)
@@ -70,16 +68,8 @@ static func effective_pair_geometry(
 	formation_a_cache: Variant = null,
 	formation_b_cache: Variant = null
 ) -> Dictionary:
-	var fa: Dictionary = (
-		(formation_a_cache as Dictionary)
-		if formation_a_cache != null and formation_a_cache is Dictionary
-		else _ZoneOfControl.formation_dict_for_zone_geometry(manager, a)
-	)
-	var fb: Dictionary = (
-		(formation_b_cache as Dictionary)
-		if formation_b_cache != null and formation_b_cache is Dictionary
-		else _ZoneOfControl.formation_dict_for_zone_geometry(manager, b)
-	)
+	var fa: Dictionary = _ZoneOfControl.formation_for_combatant_cached(manager, a, formation_a_cache)
+	var fb: Dictionary = _ZoneOfControl.formation_for_combatant_cached(manager, b, formation_b_cache)
 	var df: float = absf(float(_EntityAccess.file_int(a) - _EntityAccess.file_int(b)))
 	if fa.is_empty() or fb.is_empty():
 		var eff_empty: float = df * CombatConstants.SPACING_NORMAL * CombatConstants.REACH_SAFETY_FACTOR
@@ -106,7 +96,28 @@ static func effective_pair_geometry(
 	var eff_dist: float = pre_zoc * zoc_m
 	var denom: float = half_width * CombatConstants.REACH_SAFETY_FACTOR * maxf(0.001, zoc_m)
 	var file_spacing: float = eff_dist / denom if denom >= 1e-5 else df
-	return {"eff_dist": eff_dist, "file_spacing_equiv": file_spacing}
+	return {
+		"eff_dist": eff_dist,
+		"effective_pair_eff_dist": eff_dist,
+		"file_spacing_equiv": file_spacing,
+		"effective_pair_file_spacing_equivalent": file_spacing,
+	}
+
+
+## `effective_pair_geometry` dict or stamped `pa`; `-1` when cache missing.
+static func cached_eff_dist(pair_geometry_cache: Variant) -> float:
+	if pair_geometry_cache == null or not (pair_geometry_cache is Dictionary):
+		return -1.0
+	var g: Dictionary = pair_geometry_cache as Dictionary
+	if g.has("effective_pair_eff_dist"):
+		return float(g.get("effective_pair_eff_dist", -1.0))
+	if g.has("eff_dist"):
+		return float(g.get("eff_dist", -1.0))
+	return -1.0
+
+
+static func melee_reach_covers_eff_dist(melee_range: float, eff_dist: float) -> bool:
+	return melee_range >= eff_dist
 
 
 static func effective_pair_file_spacing_equivalent(
@@ -130,6 +141,6 @@ static func effective_pair_eff_dist(
 	formation_a_cache: Variant = null,
 	formation_b_cache: Variant = null
 ) -> float:
-	return float(
-		effective_pair_geometry(manager, a, b, formation_a_cache, formation_b_cache).get("eff_dist", 0.0)
+	return cached_eff_dist(
+		effective_pair_geometry(manager, a, b, formation_a_cache, formation_b_cache)
 	)

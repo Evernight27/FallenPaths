@@ -1,6 +1,6 @@
 # Combat Roadmap And Stamina
 
-**Plan / code:** Milestone **Status** → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#milestone-summary) only. Tier 1 **fields** → [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) §4–§6. This file = stamina + investigations + collapsed legacy outlines — **not** execution order. **Tier 0** snapshot below matches the plan [Tier 0](IMPLEMENTATION_ORDER.md#tier-0--baseline-shipped--maintain) module list.
+**Plan / code:** Milestone **Status** → [`IMPLEMENTATION_ORDER.md` all tiers at a glance](IMPLEMENTATION_ORDER.md#all-tiers-at-a-glance) (Tier **1** detail: [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary)). Tier 1 **fields** → [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) §4–§6. This file = stamina + investigations + collapsed legacy outlines — **not** execution order. **Tier 0** snapshot below matches the plan [Tier 0](IMPLEMENTATION_ORDER.md#tier-0--baseline-shipped--maintain) module list.
 
 Consolidated sections; each has **`Source:`** for provenance.
 
@@ -161,12 +161,12 @@ Master implementation guide for the combat system migration. Consolidates decisi
 - [x] Fall back — `_start_fall_back_solo` (empty rank-1 slot) and `fall_back_pair` via `_start_formation_pair_move`; `EVENT_FALL_BACK_SOLO_RESOLVE` / `_handle_fall_back_solo_resolve`
 - [x] **Lane clarity** — `ZoneOfControl.get_swap_lane_duration_multiplier` (clear / crowded / blocked + density tweak), composed with footing via `get_lane_and_footing_duration_multiplier`
 - [x] **Opponent pressure** — `ZoneOfControl.get_opponent_pressure_duration_multiplier` (defensive / neutral / aggressive)
-- [ ] **Swap / move UI (optional):** Show duration or lane/pressure reason (e.g. “1.2s (crowded)”) on formation diagram or row
+- [x] **Swap / move UI (partial):** Diagram/gauge tooltips + player combat log on turn-ready (**`CombatFormationMoveDuration`**, **`CombatPlayerTurnHints`**) — listed-action **`formation_move_duration_hint`**; dedicated action-menu labels still optional
 - [x] Drag back — `move_kind == "drag_back"` in `_start_formation_pair_move`; `DRAG_BACK_DURATION_MULT`; builder + AI offer `MOVE_ID_DRAG_BACK`
 - [x] Step over fallen — `get_footing_duration_multiplier` (bodies in `slot_obstacles`); tracked non-blocking bodies from Phase 3 plug
 - [ ] **Multi-unit same slot with deficits** — not implemented (design-only; no dual occupancy + distraction stat)
 - [x] Rotate — `_start_rotate_file` (adjacent files, rank 0); `EVENT_ROTATE_FILE_RESOLVE`
-- [ ] **Duration model vs outline:** Part 2 lists `armor_factor` in movement duration — **not** applied in `CombatManager` (only agility × lane × pressure × kind_mult). **Hit interrupt** during `STATE_SWAP_RANK` / `STATE_FALLING_BACK` — **not** wired (moves complete unless partner dies / resolve aborts).
+- [x] **Duration model vs outline:** Armor mass mult via **`CombatTiming.armor_mass_duration_multiplier_for_node`** + **`CombatFormationMoveDuration`** (not legacy `armor_factor` name in `CombatManager`). Agility × lane × pressure × kind_mult unchanged. **Hit interrupt** — **shipped** [Tier **0.2**](IMPLEMENTATION_ORDER.md#tier-02-formation-hit-reaction-incoming-parry).
 
 ### Phase 6: Tactical Features
 - [x] **Ambush** — `encounter.ambush_type` / `ambush_penalty` / `ambushed_side`; `TacticalCombat.ambush_defense_multiplier` on defender parry/dodge and close-attempt evasion (`CombatManager._resolve_close_attempt`)
@@ -869,11 +869,11 @@ To make stamina a *felt* constraint without making combat tedious:
 | **Cost scales with intensity** | `stamina_cost = BASE + intensity * SCALE` (e.g. 5 + 15×intensity → 6.5 @ 0.1, 20 @ 1.0). Heavy strikes cost more. |
 | **Parry cost when actually parrying** | Already 10. Defender in bind/deflect pays; could scale by parry quality. |
 
-**Suggested constants (tuned for ~2 min to deplete at high pace):**
-- STAMINA_ATTACK_COST: 12 + 8×intensity (light 12, heavy 20)
-- STAMINA_REFILL_RATE: 8/s (slower)
-- Refill only in WAITING (not RECOVERING)
-- With 3 s cycle (1 s wind+recovery, 2 s waiting): spend 16 avg, regain 16 → break-even. Faster attacks (less waiting) → depletion.
+**Shipped constants (Tier **7.1** + **7.2**, 2026-05-17 — see [`P4a`](IMPLEMENTATION_ORDER.md#p4a--tier-72-stamina-depletion-pacing)):**
+- **`stamina_attack_cost_from_intensity`:** **12 + 8×intensity** (light **12**, heavy **20**)
+- **`STAMINA_REFILL_RATE`:** **5.0**/s (was draft **8**/s in investigation text)
+- Refill only in **`STATE_WAITING`** (`CombatStateHandlers.process_waiting`)
+- Harness **`_run_tier7_stamina_depletion_*`** — five heavy attacks exhaust pool; sustained exchange sim drains over scripted window
 
 ---
 
@@ -884,7 +884,7 @@ To make stamina a *felt* constraint without making combat tedious:
 | **Single cut duration** | 0.25–0.6 s | Wind-up 0.5–0.8 s | FP slightly slower (telegraphed). |
 | **Time between blows** | Rules-dependent; 1–3 steps for afterblow | ~3 s per combatant | FP has explicit "wait for gauge" — more measured. |
 | **Burst capacity** | 2–3 intense strikes, then pause | Gauge gates; no explicit burst | Could add "flurry" with stamina cost. |
-| **High-intensity limit** | <1 to ~5 min | Stamina rarely depletes | Need rebalance so depletion is reachable. |
+| **High-intensity limit** | <1 to ~5 min | Depletion reachable in ~2–3 min sustained exchange | **Tier 7.2** — [`P4a`](IMPLEMENTATION_ORDER.md#p4a--tier-72-stamina-depletion-pacing); harness **`_run_tier7_stamina_depletion_*`**. |
 | **Exhaustion effect** | Sudden drop in control/power | Linear/binary | Non-linear curve recommended. |
 
 **Conclusion:** Fallen Paths is already in the right *ballpark* for blow timing. Main adjustments: (1) non-linear stamina curve for realism, (2) stamina economics so exhaustion is achievable in intense fights, (3) optional refill-only-when-idle.
@@ -894,18 +894,18 @@ To make stamina a *felt* constraint without making combat tedious:
 ### 6. Implementation Checklist
 
 #### Phase 1: Non-Linear Stamina Factor
-- [ ] Add `CombatConstants.stamina_factor(ratio: float) -> float` using power curve.
-- [ ] Replace `lerpf(1, mult, 1−ratio)` in `get_attack_angle_deg` with `1 + (mult-1) * (1 - stamina_factor(ratio))`.
-- [ ] Replace binary stamina≤0 checks in DefenseChoiceResolver (parry) and AttackResolver (damage) with `lerp(min, 1, stamina_factor(ratio))`.
+- [x] Add `CombatConstants.stamina_factor(ratio: float) -> float` using power curve.
+- [x] Replace `lerpf(1, mult, 1−ratio)` in `get_attack_angle_deg` with `1 + (mult-1) * (1 - stamina_factor(ratio))`.
+- [x] Replace binary stamina≤0 checks in DefenseChoiceResolver (parry) and AttackResolver (damage) with `lerp(min, 1, stamina_factor(ratio))`.
 
 #### Phase 2: Balance Stamina Economics (Optional)
-- [ ] Intensity-scaled attack cost: `STAMINA_ATTACK_BASE + STAMINA_ATTACK_SCALE * intensity`.
-- [ ] Refill only in WAITING (remove refill during RECOVERING).
-- [ ] Tune so ~2 min of high-intensity combat approaches 0 stamina.
+- [x] Intensity-scaled attack cost: `STAMINA_ATTACK_BASE + STAMINA_ATTACK_SCALE * intensity` — **Tier 7.1** (`stamina_attack_cost_from_intensity`).
+- [x] Refill only in WAITING (remove refill during RECOVERING) — **`CombatStateHandlers.process_waiting`** only; **`process_recovering`** does not refill.
+- [x] Tune so ~2 min of high-intensity combat approaches 0 stamina — **Tier 7.2** **Done** ([`P4a`](IMPLEMENTATION_ORDER.md#p4a--tier-72-stamina-depletion-pacing); **`STAMINA_REFILL_RATE` 5.0**; **`_run_tier7_stamina_depletion_*`**).
 
 #### Phase 3: Consistency
-- [ ] Use `stamina_factor` anywhere stamina affects outcome (variance, parry, damage, gauge fill).
-- [ ] Document curve choice and tuning rationale.
+- [x] Use `stamina_factor` anywhere stamina affects outcome (variance, parry, damage, breach/close pressure) — **partial:** event turn delay via **`action_ready_stamina_delay_mult`** (**Tier 7.1**); not continuous gauge fill (event-driven readiness).
+- [x] Document curve choice and tuning rationale — **`STAMINA_FACTOR_POWER`** in **`CombatConstants.gd`**; plan [Tier 7.1](IMPLEMENTATION_ORDER.md#tier-7-live-path).
 
 ---
 

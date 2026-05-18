@@ -71,6 +71,7 @@ var consciousness: float = 100.0       # true consciousness (incapacitation when
 var effective_consciousness: float = 100.0  # for combat (after pain shock)
 var _pain_shock_until_time: float = -1.0    # Time.get_ticks_msec()/1000.0 when shock ends; -1 = not in shock
 var _last_hit_impact: float = 0.0            # Total damage of last hit (for pain-shock duration scaling); set on weapon hit, consumed when shock is entered
+var _ambient_pain_shock_accum: float = 0.0  # Combat tick accumulator for sustained-pain shock rolls
 
 # Dirty flag: only recalc consciousness when something changed (damage, blood loss, healing).
 var _consciousness_dirty: bool = true
@@ -205,6 +206,12 @@ func _mark_consciousness_dirty() -> void:
 
 func _try_enter_pain_shock_from_hit(pain_from_this_hit_raw: float) -> void:
 	_EntityPainConsciousness.try_enter_pain_shock_from_hit(self, pain_from_this_hit_raw)
+
+
+func _try_ambient_pain_shock_tick(delta: float) -> void:
+	if _EntityPainConsciousness.try_ambient_pain_shock_tick(self, delta):
+		_update_consciousness()
+
 
 func _update_consciousness() -> void:
 	_EntityPainConsciousness.update_consciousness(self)
@@ -416,6 +423,7 @@ func _apply_species():
 	_consciousness_dirty = false
 	_pain_shock_until_time = -1.0
 	_last_hit_impact = 0.0
+	_ambient_pain_shock_accum = 0.0
 	if species != null:
 		for p in _get_body_part_list():
 			var m = species.get_body_part_max(p) if species.has_method("get_body_part_max") else 10

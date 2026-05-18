@@ -49,21 +49,15 @@ static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
 	if manager == null:
 		return 0
 	var native_side: String = formation_key
-	var fm: Variant = manager.get("formations")
-	if fm != null and typeof(fm) == TYPE_DICTIONARY:
-		var form: Dictionary = _FormationSlots.formation_record_read(fm, formation_key)
-		if not form.is_empty():
-			native_side = _FormationSlots.formation_side_str(form, formation_key)
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, formation_key)
+	if not form.is_empty():
+		native_side = _FormationSlots.formation_side_str(form, formation_key)
 	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c):
+		if not _EntityAccess.is_living_on_side(c, native_side):
 			continue
 		if _EntityAccess.formation_id_str(c) != formation_key:
 			continue
-		if _EntityAccess.side_str(c) != native_side:
-			continue
 		if _EntityAccess.rank_int(c) != 0:
-			continue
-		if _EntityAccess.is_incapacitated(c):
 			continue
 		n += 1
 	return n
@@ -83,11 +77,7 @@ static func count_active_for_side(manager: Node, side: String) -> int:
 	if manager == null:
 		return 0
 	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c):
-			continue
-		if _EntityAccess.side_str(c) != side:
-			continue
-		if _EntityAccess.is_incapacitated(c):
+		if not _EntityAccess.is_living_on_side(c, side):
 			continue
 		n += 1
 	return n
@@ -157,11 +147,7 @@ static func active_intruder_count_for_side(manager: Node, side: String) -> int:
 	if manager == null or side.is_empty():
 		return 0
 	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c):
-			continue
-		if _EntityAccess.side_str(c) != side:
-			continue
-		if _EntityAccess.is_incapacitated(c):
+		if not _EntityAccess.is_living_on_side(c, side):
 			continue
 		if not _ZoneOfControl.is_intruded(c):
 			continue

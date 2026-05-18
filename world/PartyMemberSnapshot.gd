@@ -7,6 +7,7 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StatsSync := preload("res://combat/CombatantStatsSync.gd")
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 
 static func init_from_node(node: Node) -> Dictionary:
 	"""Returns stored member dict for PartyManager.members. Call when adding a member."""
@@ -57,5 +58,26 @@ static func _duplicate_if_dictionary(v: Variant) -> Dictionary:
 
 
 static func _read_from_node(node: Node) -> Dictionary:
-	# Use CombatantStatsSync for base stats — single source of truth with combat registration.
-	return _StatsSync.sync_from_entity_for_register(node)
+	var stats: Dictionary = _StatsSync.sync_from_entity_for_register(node)
+	var entity: Node = _CampaignBridge.health_entity_from_character(node)
+	if entity != null:
+		_StatsSync.sync_from_entity(entity, stats)
+		var wounded: Array = (
+			entity.get_wounded_parts() if entity.has_method("get_wounded_parts") else []
+		)
+		stats["wounded_part_count"] = wounded.size()
+		stats["has_untreated_wounds"] = _CampaignBridge.entity_has_untreated_wounds(entity)
+	else:
+		stats["wounded_part_count"] = 0
+		stats["has_untreated_wounds"] = false
+	if node != null and node.has_method("is_unconscious"):
+		stats["is_unconscious"] = node.is_unconscious()
+	elif entity != null and entity.has_method("is_unconscious"):
+		stats["is_unconscious"] = entity.is_unconscious()
+	else:
+		stats["is_unconscious"] = false
+	if node != null and node.has_method("can_flee_or_fall_back"):
+		stats["can_flee_or_fall_back"] = node.can_flee_or_fall_back()
+	else:
+		stats["can_flee_or_fall_back"] = true
+	return stats

@@ -303,9 +303,10 @@ The combat log displays outcomes (hit, miss, parry, glancing) from the result di
 
 ### Enabling debug output
 
-In `combat/CombatConstants.gd`:
+In `combat/CombatConstants.gd` (defaults are **false** for F5 play):
 
 ```gdscript
+const COMBAT_DEV_VERBOSE := true     # One switch: flow + hit debug (or set flags individually)
 const COMBAT_DEBUG := true           # General combat logs (path, guard, wind-up)
 const COMBAT_DEBUG_CALIBRATION := true  # Parry calibration (alignment, c_d, angles)
 ```

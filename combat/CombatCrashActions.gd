@@ -10,6 +10,10 @@ const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 
 
+static func in_crash_cooldown(manager: Node, c: Dictionary) -> bool:
+	return _EntityAccess.combatant_cooldown_active(manager, c, "crash_cooldown_until", 0.0)
+
+
 static func crash_action_eligible(
 	manager: Node,
 	c: Dictionary,
@@ -29,12 +33,7 @@ static func crash_action_eligible(
 		return false
 	if _EntityAccess.stamina_float(c, 0.0) < CombatConstants.CRASH_STAMINA_COST:
 		return false
-	var clock: float = 0.0
-	if manager != null:
-		var cc: Variant = manager.get("combat_clock")
-		if cc != null:
-			clock = float(cc)
-	if clock < float(c.get("crash_cooldown_until", 0.0)):
+	if in_crash_cooldown(manager, c):
 		return false
 	if not in_swing_range:
 		return false
@@ -52,25 +51,19 @@ static func crash_absent_primary_reason(manager: Node, c: Dictionary) -> String:
 		return "at_max_penetration_depth"
 	if _EntityAccess.stamina_float(c, 0.0) < CombatConstants.CRASH_STAMINA_COST:
 		return "low_stamina"
-	var clock: float = 0.0
-	if manager != null:
-		var cc: Variant = manager.get("combat_clock")
-		if cc != null:
-			clock = float(cc)
-	if clock < float(c.get("crash_cooldown_until", 0.0)):
+	if in_crash_cooldown(manager, c):
 		return "crash_cooldown"
 	var weapon = _EntityAccess.get_weapon(c)
 	if not _EntityAccess.weapon_has_attack_types(weapon):
 		return "no_melee_weapon_profile"
-	var melee_range: float = float(weapon.melee_range)
-	var fid_c: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, c)
-	var fc: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, c, fid_c)
-	var any_enemy_rank0: bool = false
-	for opp in manager.combatants:
-		if _MeleeRank.opp_matches_melee_rank_target(manager, c, opp, 0):
-			any_enemy_rank0 = true
-			break
-	var ranks_to_check: Array = [0] if any_enemy_rank0 else [1]
+	var melee_range: float = _EntityAccess.weapon_melee_reach(c)
+	var ctx_self: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, c)
+	var fc: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_self)
+	var ranks_to_check: Array = (
+		[0]
+		if _MeleeRank.any_living_enemy_rank0_target(manager, c, manager.combatants)
+		else [1]
+	)
 	var saw_line_enemy: bool = false
 	var first_reason: String = ""
 	for rank_req in ranks_to_check:
@@ -78,17 +71,18 @@ static func crash_absent_primary_reason(manager: Node, c: Dictionary) -> String:
 			if not _MeleeRank.opp_matches_melee_rank_target(manager, c, opp, rank_req):
 				continue
 			saw_line_enemy = true
-			var fid_o: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, opp)
-			var fo: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, opp, fid_o)
-			var eff_dist: float = float(
-				_PairGeometry.effective_pair_geometry(manager, c, opp, fc, fo).get("eff_dist", 0.0)
-			)
-			var in_swing: bool = melee_range >= eff_dist
-			var dist: String = str(
-				_EntityAccess.nested_dictionary_read(c, "distance_to").get(
-					_EntityAccess.id_int(opp), CombatConstants.DISTANCE_LONG
+			var pair_zg: Dictionary = _ZoneOfControl.zone_geometry_for_pair(manager, c, opp)
+			var eff_dist: float = _PairGeometry.cached_eff_dist(
+				_PairGeometry.effective_pair_geometry(
+					manager,
+					c,
+					opp,
+					_ZoneOfControl.zone_geometry_formation_a_from_pair_pack(pair_zg),
+					_ZoneOfControl.zone_geometry_formation_b_from_pair_pack(pair_zg)
 				)
 			)
+			var in_swing: bool = _PairGeometry.melee_reach_covers_eff_dist(melee_range, eff_dist)
+			var dist: String = _EntityAccess.distance_to_opponent_band(c, _EntityAccess.id_int(opp))
 			if crash_action_eligible(manager, c, opp, in_swing, dist):
 				return "crash_eligible_but_missing_bug"
 			if first_reason.is_empty():

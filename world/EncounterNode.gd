@@ -17,7 +17,21 @@ func _ready() -> void:
 ## Matches how other games (FF, DQ) handle encounters: one icon per encounter, spawn units on engage.
 
 @export var enemy_count: int = 1
+## Copied to world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when combat starts (doctrine, morale, posture, …).
+@export var encounter_config: Dictionary = {}
+## Optional enemy **`CombatManager.start`** preset; empty → default for **`enemy_count`**.
+@export var enemy_formation: Dictionary = {}
 var enemy_scene: PackedScene
+
+
+func get_combat_encounter_dict() -> Dictionary:
+	return encounter_config.duplicate(true)
+
+
+func get_enemy_formation_dict() -> Dictionary:
+	if not enemy_formation.is_empty():
+		return enemy_formation.duplicate(true)
+	return FormationPreset.default_for_count(mini(enemy_count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP))
 
 ## Spawns enemy units for combat. Call when player enters combat. Returns array of enemy nodes.
 ## parent: world node to add enemies to. rng: for species/equipment randomization.

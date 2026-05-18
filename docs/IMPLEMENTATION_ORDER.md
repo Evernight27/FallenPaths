@@ -1,22 +1,32 @@
 # Combat implementation plan (Fallen Paths)
 
-**Purpose:** One **logical plan** from baseline → active work → later tiers. **Implementation phase:** execute **top to bottom**; within Tier 1, follow **numbered steps** in order unless a step is marked optional.
+**Purpose:** One **logical plan** from baseline → shipped milestones → **gated enablement** + doc sync + investigations. **Gameplay milestones** through Tier **7** + expansion **P4a–P4h** are **Done**. **Gates shipped:** [Phase A](#phase-a--sector-surround-enable-tier-31) (sector surround) + [Phase B](#phase-b--line-crash--intrusion-tier-2) (line crash / intrusion) + **`FEATURE_FLURRY_BIND_EXCHANGE`** (bind exchange). Active backlog: [next coding step](#next-coding-step) (**P0** maintain · **P1** editor soaks). **Historical build order:** [dependency chain §A](#dependency-chain-shipped-build-order) + Tier **1** P-steps (audit only, not new feature work).
 
-**Single source of truth (avoid forking):** Milestone **Status**, **Development gate**, and **dependency chain** live **only** in this file. **`docs/README.md`** is a **topic index** (no parallel status column). **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** §2 **mirrors** Tier 1 **Status** from the [milestone summary](#milestone-summary) here. **`docs/COMBAT_ROADMAP_AND_STAMINA.md`** — legacy **IMPLEMENTATION_OUTLINE** Parts **1–3** are **collapsed** in `<details>`; **Part 3** phase checklists remain **historical** — if they disagree with this plan, **this file wins**.
+**Single source of truth (avoid forking):** Milestone **Status**, **Development gate**, and **dependency chain** live **only** in this file. **`docs/README.md`** is a **topic index** (no parallel status column). **[All tiers at a glance](#all-tiers-at-a-glance)** is the cross-tier **Status** summary (Tier **1** detail in [milestone summary](#milestone-summary)). **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** §2 **mirrors** Tier **1** verification rows from the milestone table here (Tier **2** doc-sync: §2.8 ↔ plan [Tier 2](#tier-2--tactical-docs--zoc-narrative-sync) — **Done** 2026-05-17). **`docs/COMBAT_ROADMAP_AND_STAMINA.md`** — legacy **IMPLEMENTATION_OUTLINE** Parts **1–3** are **collapsed** in `<details>`; **Part 3** phase checklists remain **historical** — if they disagree with this plan, **this file wins**.
 
-**Last verified (code + `CombatRegressionHarness.run_all()`):** 2026-05-16 — **Godot 4.6**; harness via VS Code task **Run Combat Regression Harness (headless)** or `godot -s res://scripts/run_combat_regression_harness.gd`. Shipped-tier pointers → [milestone summary](#milestone-summary) + per-tier exit criteria (grep harness names in [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md), not duplicated here). **`FEATURE_LINE_CRASH_INTRUSION`** default **off** → [Development gate](#development-gate-line-crash--intrusions-temporary).
+**Last verified (code + `CombatRegressionHarness.run_all()`):** 2026-05-18 (ambient pain shock; formation duration UI; **`COMBAT_DEV_VERBOSE`**; P1 [soak checklist](#p1-editor-soak-checklist)) — **Godot 4.6**; harness via VS Code task **Run Combat Regression Harness (headless)** or `godot -s res://scripts/run_combat_regression_harness.gd` (bash: **`scripts/run_combat_regression_harness.sh`**). Shipped-tier pointers → [milestone summary](#milestone-summary) + per-tier exit criteria (grep harness names in [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md), not duplicated here). Feature gates: both production **on** — [sector surround](#development-gate-sector-surround-load-temporary) + [line crash / intrusions](#development-gate-line-crash--intrusions-temporary).
 
-**Documentation pass:** 2026-05-17 (**doc-i**) — milestone **Status** column is short; harness grep only in registry + bundle live-path tables.
+**Documentation pass:** 2026-05-17 (**doc-m**) — [Next implementation phase](#next-implementation-phase) playbook; dependency chain **§A shipped** / **§B remaining**; backlog **P2a** / **P1′**; Tier **2.2** split from intrusion-gated **2.1**. **(doc-l)** mirror fixes · **(doc-k)** at-a-glance + gates · **(doc-j)** post-milestone backlog.
 
 <a id="development-gate-line-crash--intrusions-temporary"></a>
 
 ### Development gate: line crash / intrusions (temporary)
 
-**Flag:** `CombatConstants.FEATURE_LINE_CRASH_INTRUSION` (**default `false`**).
+**Flag:** `CombatConstants.FEATURE_LINE_CRASH_INTRUSION` (**default `true`** — [Phase B](#phase-b--line-crash--intrusion-tier-2) shipped 2026-05-17).
 
-**Behavior while false:** No **new** line-crash intrusions — crash is not offered in `AvailableActionsBuilder`, `CombatEngagementMode.incursion_allowed` is always false, and `resolve_crash_attempt` resolves as `crash_failed` with reason `intrusion_disabled`. **Engagement mode** (duel / skirmish / formation) still classifies as before; cohesion, posture, wedge fields, vacancy plugs, and intruder-related **code** remain in the repo for saves and future work.
+**Behavior while true (production):** Formation engagement lists **breach rush** when `CombatEngagementMode.incursion_allowed` (mode **formation** + flag), attacker passes **`crash_intrusion_attacker_allowed`** (heavy kit ≈ **17+ kg**, breach viability, caps), and pair geometry is MID/CLOSE in swing range. `resolve_crash_attempt` contests via **`BreachResolver`** and may apply intruder slots + wedge on success.
 
-**When setting the flag `true`:** Run `CombatRegressionHarness.run_all()`, exercise formation-line crash in playtests, refresh `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §2 verification rows if needed, and complete Tier **2.1** intrusion language in `TACTICAL_ZONES_BREACH_MOVEMENT.md`.
+**When setting the flag `false`:** No **new** intrusions — crash not listed; `incursion_allowed` false; `resolve_crash_attempt` → `intrusion_disabled`. Run **`run_all()`** before re-shipping **true**.
+
+<a id="development-gate-sector-surround-load-temporary"></a>
+
+### Development gate: sector-weighted surround load (temporary)
+
+**Flag:** `CombatConstants.is_feature_sector_surround_load()` / **`set_feature_sector_surround_load`** (backing **`_feature_sector_surround_load`**, default **`true`** — [Phase A](#phase-a--sector-surround-enable-tier-31) shipped 2026-05-17).
+
+**Behavior while true (production):** Parry/dodge surround uses sector **`surround_threat_weight_sum`** + `1/(1+k·excess)` in **`TacticalCombat`** / **`DefenseChoiceResolver`** / **`AttackResolver`** (`AttackResolver` stamps weight sum on **`pa`**).
+
+**When setting the flag `false`:** Integer **`surround_threat_count`** path only (legacy compare / soak). Run **`run_all()`** (grep **`_run_surround_`**, **`_run_sector_surround_feature_flag_*`**) before shipping a default flip.
 
 **Historical milestone notes (2026-04 → 2026-05):** [Changelog](#changelog). **Current** Tier 1 facts → [milestone summary](#milestone-summary) **Status** + [dependency chain](#dependency-chain-execution-logic) only.
 
@@ -28,66 +38,93 @@
 
 | # | Section | Use |
 |---|---------|-----|
-| 1 | [Development gate](#development-gate-line-crash--intrusions-temporary) | **`FEATURE_LINE_CRASH_INTRUSION`** (default **false**) |
-| 2 | [Next coding step](#next-coding-step) | Active work while flag is **false** |
-| 3 | [Dependency chain](#dependency-chain-execution-logic) | Cross-tier ordering |
-| 4 | [Milestone summary](#milestone-summary) | Tier **1.1–1.9** **Status** (only status column) |
-| 5 | [Tier 0](#tier-0--baseline-shipped--maintain) | Baseline modules — extend, do not replace |
-| 6 | [Tier 1 expanded](#tier-1--engagement-geometry-active-track) | P-step detail + [ENGAGEMENT spec](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) §4–§6 |
-| 7 | [Tiers 2–7](#tier-2--tactical-docs--zoc-narrative-sync) | Doc sync · medical · research |
-| 8 | **Tier 3** (**Done**) | Plan [§3.1–3.3](#tier-31-strike-measure-stamped-geometry) · live paths [3.1](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) · [3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) · [3.3](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) |
-| 9 | **Tier 4** | Plan [§4](#tier-4--ai--stance) (**Done**) · live paths [4.1](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path)–[4.4](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path) |
-| 10 | [Tier 5.1](#tier-51-angles-damage-flow-audits) | **Done** · [kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) |
-| 11 | [Implementation phase gate](#implementation-phase-gate) | Re-audit **P3** / **P4** only when changing slots or wedge |
-| 12 | [Plan inventory](#plan-inventory-all-combat-markdown) | All `docs/*.md` bundles · [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) |
+| 1 | [Development gates](#development-gate-line-crash--intrusions-temporary) | Both default **true** — [line crash](#development-gate-line-crash--intrusions-temporary) · [sector surround](#development-gate-sector-surround-load-temporary) |
+| 2 | [**Next implementation phase**](#next-implementation-phase) | **P0** maintain + optional editor soaks ([P1](#next-coding-step), [P1′](#next-coding-step)) |
+| 3 | [Next coding step](#next-coding-step) | **P0–P3** maintain/soak · [P4 playbooks](#expansion-backlog-p4-playbooks) |
+| 4 | [Dependency chain](#dependency-chain-execution-logic) | **§A** shipped build order · **§B** remaining enablement |
+| 5 | [Milestone summary](#milestone-summary) | **Status** for Tier **1** + [all tiers at a glance](#all-tiers-at-a-glance) |
+| 6 | [Tier 0](#tier-0--baseline-shipped--maintain) | Baseline modules — extend, do not replace |
+| 7 | [Tier 1 expanded](#tier-1--engagement-geometry-shipped--maintain--gated-intrusion) | P-step detail + [ENGAGEMENT spec](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) §4–§6 |
+| 8 | [Tiers 2–7](#tier-2--tactical-docs--zoc-narrative-sync) | Doc sync · medical · research |
+| 9 | **Tier 3** (**Done**) | Plan [§3.1–3.3](#tier-31-strike-measure-stamped-geometry) · live paths [3.1](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) · [3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) · [3.3](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) |
+| 10 | **Tier 4** | Plan [§4](#tier-4--ai--stance) (**Done**) · live paths [4.1](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path)–[4.4](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path) |
+| 11 | [Tier 5.1](#tier-51-angles-damage-flow-audits) | **Done** · [kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) |
+| 12 | [Implementation phase gate](#implementation-phase-gate) | Tier **1** re-audit when changing slots/wedge · [P4 playbooks](#expansion-backlog-p4-playbooks) for new features |
+| 13 | [Plan inventory](#plan-inventory-all-combat-markdown) | All `docs/*.md` bundles · [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) |
 
 ---
 
+<a id="dependency-chain-execution-logic"></a>
+
 ## Dependency chain (execution logic)
 
-Work must respect this ordering (later items assume earlier ones):
+Two lists: **§A** = how the repo was built (**Done** — do not renumber milestones). **§B** = what to do next ([next implementation phase](#next-implementation-phase)).
+
+<a id="dependency-chain-shipped-build-order"></a>
+
+### §A — Shipped build order
+
+Later items assume earlier ones. **Do not** reorder milestone numbers.
 
 1. **Formation truth** — `slots`, `rank`/`file`, death plug (`CombatFormationFlow`), ZoC + `incursion_pressure` (`ZoneOfControl`, `TacticalCombat`).
-2. **Cohesion & posture (telemetry)** — `line_cohesion`, `engagement_posture`, UI, `engagement_state_changed` (**shipped**).
-3. **Crash / breach** — `BreachResolver`, neighbor hold (`CombatIntrusionGeometry`), skirmish breach clog (`FormationBreachRules`) (**shipped**).
-4. **Intrusion flags** — `engagement_role`, host/anchor on crash success (**shipped**).
-5. **Intrusion geometry (slots)** — empty attacker home slot, intruder on defender, vacancy plug ≠ death plug → **Tier 1.2** (P3) **shipped** in repo (2026-04-13).
-6. **Intrusion wedge (formation)** — `intrusion_wedge_by_file` written/updated on crash success, decay/clear on heal/death; **authoritative** breach sector for stress, cohesion, ZoC, distance, UI → **Tier 1.3** (P4; depends on 1.2) (**shipped**).
-7. **Lane metric offsets + pair distance** — per-combatant `lane_offset` (defaults + **wedge seam** bias + repack rules) feeds **`AvailableActionsBuilder.effective_pair_eff_dist`**; `CombatDistanceBands` / crash / targeting **read wedge + offsets** → **Tier 1.3** (P4; depends on 1.2) (**shipped**).
-8. **Posture + morale** — **Tier 1.4** hysteresis, encounter/discipline tags, asymmetric posture (**shipped**). **Tier 1.5** — **`CombatMoraleCohesion`** → `morale_cohesion_factor` (**shipped**; encounter + combatant inputs — see milestone table).
-9. **AI / tests** → **Tier 1.6** (**Done** — optional broader **`CombatTargetScoring`** coupling / baselines later).
-10. **Doc sync (Tier 2.1)** → **`TACTICAL_ZONES_BREACH_MOVEMENT.md`** narrative vs code — after **1.3+** so copy matches **wedge + slots + `lane_offset` / distance** (not only P3 slots). **Tier 2.2** (`TACTICAL_FORMATIONS_FF4.md` intruder/vacancy blurb) may still ship **after 1.2**; see Tier 2 table.
-11. **Depth-rank polearm reach (P10)** → **Tier 1.9** — second-and-deeper ranks with **qualifying reach** may melee **through** a living same-file rank-0 ally under **lane rules**; **`CombatDistanceBands`** and **`AvailableActionsBuilder`** must agree on `distance_to` + `can_melee` + opponent rank filters. Depends on **1.3** (stable `effective_pair_eff_dist`). **Recommended:** ship **before** Tier **3.2** if spear lanes change preferred parts / parry geometry.
-12. **Kinematic delivery (Tier 3.0)** — thrust vs swing **abstract** velocity + KE (`WeaponConstants` `kinematic_delivery`, `WeaponDamageHelper`, `WeaponSwingPhysics` for swing); no unit world positions. **Lock before Tier 3.2** parry/bind energy calibration so thrust tip speed and rotational cut KE stay consistent.
-13. **Parry / melee depth** → **Tier 3** (after **1.3** so range work is not redone; after **1.9** if parry must account for depth thrusts; after **3.0** when tuning strike energy against parries).
-14. **Salience probes (who matters now)** — **`CombatAttention`** helpers: **`is_being_wind_up_targeted`**, **`has_counter_tempo_window`**, ally peril (existing **`MedicalPhaseController`**) → **Tier 4.3.1** (no new focus state yet; unlocks AI layer conditions).
-15. **Combat attention state** — per-combatant **`focus_part`** + **`focus_intensity`** (and optional **`attention_load`**) unify **`guard_zone`**, passive readiness, feint read-through, and UI → **Tier 4.3.2** (depends **4.2** Feint D + counter-tempo telegraph keys; **defense before AI stack** so player + defender math share one model).
-16. **AI mental stack** — prioritized layers in **`CombatAIActionPicker.pick`** (medical → counter → defend vs incoming → attack utility → fallback **`pick_weighted_action`**) → **Tier 4.3.3** (depends **4.3.1** probes + **4.1** listing weights; **4.3.2** optional for layer “focus steal” penalties).
-17. **Yomi / guard tendency** — per-opponent memory (guard line, parry habit, feint vulnerability) feeds focus drift + feint listing → **Tier 4.3.4** (depends **4.3.2** + **4.3.3** + **4.2** explicit feints).
-18. **Deferred (not 4.3):** probabilistic plain-attack feint (**rejected**); **`STATE_IN_FLURRY`** / bind expansion; stamina-as-gauge overhaul → **`COMBAT_ROADMAP_AND_STAMINA.md`**. **Tier 4.4** position-angle footwork is **shipped** (production flag default **on**).
+2. **Cohesion & posture** — `line_cohesion`, `engagement_posture`, UI (**Tier 1.1**).
+3. **Crash / breach code** — `BreachResolver`, `CombatIntrusionGeometry`, `FormationBreachRules` (**shipped**; player crash listing gated — see §B).
+4. **Intrusion flags** — `engagement_role`, host/anchor (**Tier 1.1**).
+5. **Intrusion slots + vacancy plug** — **Tier 1.2** (P3).
+6. **Intrusion wedge + `lane_offset` + `effective_pair_eff_dist`** — **Tier 1.3** (P4); **`CombatPairGeometry`** (+ `AvailableActionsBuilder` forward).
+7. **Posture + morale** — **Tier 1.4–1.5**.
+8. **AI listed-hostile + crash weights** — **Tier 1.6** (crash listing + posture weights; production intrusion **on** since Phase B).
+9. **Engagement mode + telemetry** — **Tier 1.7–1.8**.
+10. **Depth-rank polearm + spear lanes** — **Tier 1.9** (depends **1.3**; before **3.2** parry tuning).
+11. **Kinematic delivery** — **Tier 3.0**.
+12. **Tier 3 melee depth** — **3.1** strike measure + stamped `pa` (includes **sector surround**, flag default **true**) → **3.2** parry/bind → **3.3** guard/afterblow.
+13. **Tier 4 AI stack** — **4.1** posture/stance → **4.2** feint/tempo/counter → **4.3** attention/yomi → **4.4** position footwork (default **on**).
+14. **Tier 5.1** kinematic audits.
+15. **Tier 6.1** medical mobility (parallel with **0** — no intrusion dependency).
 
-**While `FEATURE_LINE_CRASH_INTRUSION` is false:** Items **3–7** are **dependency / shipped-code** relationships (what already exists and what consumes it), **not** a mandate to implement more intrusion surface area now. Do **not** start **new** intrusion features (extra wedge rules, new crash outcomes, slot/plug extensions, UI devoted to live breach play) or Tier **2.1** / **2.2** copy that mainly teaches intruder fiction until the flag is **true** and you are explicitly resuming that track (see [Development gate](#development-gate-line-crash--intrusions-temporary)).
+<a id="dependency-chain-remaining-enablement"></a>
+
+### §B — Remaining work (enablement + docs)
+
+| Order | Track | Plan anchor | Blocks on |
+|:-----:|-------|-------------|-----------|
+| **B0** | Harness green | [P0](#next-coding-step) | — |
+| **B1** | Optional neutral **Tier 2.2** FF4 blurb | [P2a](#next-coding-step) | **Not** intrusion flag (no live crash fiction) |
+| **B2** | ~~**Phase A:** sector surround **production on**~~ | [Phase A](#phase-a--sector-surround-enable-tier-31) | **Done** 2026-05-17 |
+| **B3** | Optional surround soak | [P1′](#next-coding-step) | **B2** complete — editor multi-threat feel |
+| **B4** | ~~**Phase B:** line crash + intrusion~~ | [Phase B](#phase-b--line-crash--intrusion-tier-2) | **Done** 2026-05-17 |
+| **B5** | ~~Expansion playbooks~~ | [P4a→P4h](#expansion-backlog-p4-playbooks) | **Done** 2026-05-18 |
+
+**Do not enable both gates in one pass** — tune surround defense before opening live intrusion play.
+
+**Both gates shipped (2026-05-17):** Sector surround + line crash production **on**. Optional editor soaks: [P1′](#next-coding-step) (multi-threat surround), registry **bullet 5** (crash → wedge play).
 
 ```mermaid
 flowchart LR
   T0[Tier 0 baseline]
+  T12[Tier 1.2 P3]
+  T13[Tier 1.3 P4]
+  T19[Tier 1.9 P10]
+  T14[Tier 1.4-1.5]
   T30[Tier 3.0 kinematic]
-  T12[Tier 1.2 P3 done]
-  T13[Tier 1.3 P4 wedge + lane + dist]
-  T19[Tier 1.9 P10 depth polearm]
-  T14[Tier 1.4 posture then 1.5 morale]
+  T3[Tier 3.1-3.3]
   T2[Tier 2 docs]
-  T3[Tier 3 parry depth]
-  T42[Tier 4.2 feint tempo]
-  T43[Tier 4.3 stack attention]
-  T0 --> T30
+  T42[Tier 4.2]
+  T43[Tier 4.3]
+  T44[Tier 4.4]
+  T51[Tier 5.1]
+  T61[Tier 6.1]
   T0 --> T12 --> T13 --> T14
-  T13 --> T19
-  T13 --> T2
+  T13 --> T19 --> T3
   T13 --> T3
   T30 --> T3
-  T14 --> T42 --> T43
+  T13 --> T2
+  T14 --> T42 --> T43 --> T44
+  T3 --> T51
+  T0 --> T61
 ```
+
+*Diagram: **shipped** gameplay tiers and doc-sync fork (**Tier 2**). Both production gates default **on** (2026-05-17); optional editor soaks remain ([P1](#next-coding-step), [P1′](#next-coding-step), Phase B bullet **5**).*
 
 ---
 
@@ -100,22 +137,53 @@ flowchart LR
 | Area | Primary modules |
 |------|-----------------|
 | Orchestration | `CombatManager.gd`, `CombatProcessTick.gd`, `CombatEventScheduler.gd`, `CombatEventDispatch.gd` |
-| Formations | `CombatFormationSetup.gd`, `CombatFormationFlow.gd`, `FormationSlots.gd`, `FormationPreset.gd` |
-| Actions / targeting | `AvailableActionsBuilder.gd`, `CombatTargetScoring.gd`, `CombatAIActionPicker.gd`, `CombatDoctrine.gd` — depth polearm: [§1.9 live path](#tier-19--p10-depth-rank-polearm-reach--spear-lanes) |
-| Distance bands / ZoC | `CombatDistanceBands.gd` (**`depth_polearm_lane_open_by_combatant_id`** + **`update_distance_to_from_formations`**), `ZoneOfControl.gd` (`formation_id_for_zone_geometry`, `formation_dict_for_zone_geometry`), `TacticalCombat.gd` |
+| Formations | `CombatFormationSetup.gd`, `CombatFormationFlow.gd`, `FormationSlots.gd`, `FormationPreset.gd`, `CombatFormationMoveDuration.gd` |
+| Actions (orchestrate) | `AvailableActionsBuilder.gd` — **`build()`**; forwards geometry / strike; listing in submodules below |
+| Action listing | `CombatMeleeListing.gd`, `CombatFormationMoveListing.gd`, `CombatMedicalActionListing.gd`, `CombatCrashActions.gd` |
+| Pair / strike geometry | `CombatPairGeometry.gd`, `CombatStrikeStamping.gd`, `CombatMeleeRankTargeting.gd` — depth lanes: `CombatDepthPolearm.gd` ([§1.9](#tier-19--p10-depth-rank-polearm-reach--spear-lanes)) |
+| Targeting / AI | `CombatTargetScoring.gd`, `CombatAIActionPicker.gd`, `MentalStackDecider.gd`, `CombatDoctrine.gd`, `CombatAttention.gd`, `CounterTempo.gd`, `CombatFootwork.gd` |
+| Distance bands / ZoC | `CombatDistanceBands.gd` (**`depth_polearm_lane_open_by_combatant_id`** + **`update_distance_to_from_formations`**), `ZoneOfControl.gd`, `TacticalCombat.gd` |
+| Mobility / retreat | `CombatMobilityRetreat.gd`, `CombatPlayerTurnHints.gd`, `CombatUiHints.gd` — Tier **6.1** [live path](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) |
 | Breach / crash | `BreachResolver.gd`, `FormationBreachRules.gd` |
 | Engagement v1 | `CombatFormationEngagement.gd`, `CombatIntrusionGeometry.gd` |
-| Medical | `MedicalPhaseController.gd`, `CombatMedicalCoordination.gd` (and related) |
+| Medical | `MedicalPhaseController.gd`, `CombatMedicalCoordination.gd`, `CombatMedicalActionListing.gd` (and related) |
+| Resolve / defense | `AttackResolver.gd`, `AttackWindUpStarter.gd`, `DefenseChoiceResolver.gd`, `DefenseResolutionHandler.gd`, `GuardLineUpdater.gd`, `AfterblowHandler.gd` — Tier **3** [live paths](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) |
 | Weapons / impact (abstract) | `WeaponConstants.gd`, `WeaponDamageHelper.gd`, `ImpactVelocityModel.gd`, `WeaponSwingPhysics.gd`; optional mirror **`tools/simulate_weapon_ke_velocity.py`** (intensity / KE vs Tier **3.0**) |
 | UI | `ui/BattleScene.gd`, `BattleUIUpdater.gd`, formation diagram builders |
 
 **Rule:** Prefer the **smallest owning module** (`AGENTS.md`, `.cursor/rules/fallen-paths.mdc`).
 
+<a id="tier-01-formation-move-duration-ui"></a>
+
+### Tier 0.1 — Formation move duration UI (optional)
+
+**Status:** **Done** (2026-05-17; player log + gauge 2026-05-18) — playbook [P4b](#p4b--tier-01-formation-move-duration-ui). **`CombatFormationMoveDuration`** stamps **`formation_move_duration_hint`** on listed actions; diagram/gauge tooltips; **`CombatPlayerTurnHints`** → combat log + **`COMBATANT_KEY_FORMATION_MOVES_TURN_HINT`** (waiting/cowering only; cleared on resolve); harness **`_run_formation_move_duration_*`** including **`_run_formation_move_duration_gauge_tooltip_*`**.
+
+<a id="tier-02-formation-hit-reaction-incoming-parry"></a>
+
+### Tier 0.2 — Formation hit reaction, hit-cancel, incoming parry (shipped)
+
+**Status:** **Done** (2026-05-18 audit; code from 2026-05-17). **`FEATURE_INCOMING_PARRY_CHOICE`** default **true**.
+
+| Layer | Module | Role |
+|-------|--------|------|
+| Hit reaction / cancel | `CombatFormationFlow.gd` | **`apply_hit_reaction_if_needed`** — light hit extends pair/solo duration; **`intensity ≥ FORMATION_HIT_CANCEL_INTENSITY`** → **`cancel_formation_move_from_hit`** (abort swap/fall-back) |
+| Live hook | `CombatManager.gd` | Calls **`apply_hit_reaction_if_needed`** on hit |
+| Incoming parry | `CombatIncomingParryChoice.gd` | **`can_parry_all`** + **`choose_parry_target_attacker_id`**; stamps **`parry_choice_blocked`** / **`parry_all_incoming_batch`** on **`pa`** |
+| Resolve | `AttackResolver.gd`, `DefenseChoiceResolver.gd` | **`stamp_parry_choice_on_pa`** before defense; skip parry when **`parry_choice_blocked`** |
+| UI | `BattleUIUpdater.gd`, `CombatUiHints.gd`, `CombatFormationMoveDuration.gd` | Swap/fall-back gauge **· vulnerable**; tooltip hit-cancel risk |
+| Armor duration | `CombatTiming.gd` | Heavy armor mult on formation move estimates (P4b) |
+
+**Harness:** **`_run_formation_hit_reaction_*`**, **`_run_formation_hit_cancel_*`**, **`_run_incoming_parry_*`**, **`_run_formation_move_duration_heavy_armor_*`**.
+
 ---
 
-## Tier 1 — Engagement geometry (active track)
+<a id="tier-1--engagement-geometry-shipped--maintain--gated-intrusion"></a>
+<a id="tier-1--engagement-geometry-active-track"></a>
 
-**Spec depth (field names, plug taxonomy, tuning):** `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §4–§6.
+## Tier 1 — Engagement geometry (shipped — maintain)
+
+**Spec depth (field names, plug taxonomy, tuning):** `docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §4–§6. Milestones **1.1–1.9** are **Done**. Production intrusion + surround are **on**; optional editor soak: crash→wedge feel (Phase B bullet **5**).
 
 <a id="milestone-summary"></a>
 
@@ -135,9 +203,283 @@ flowchart LR
 
 **Status column (Tier 1):** Same rule as **Single source of truth** (top). When you ship, edit this table first, then **`ENGAGEMENT_*`** §2 rows (mirror).
 
+<a id="all-tiers-at-a-glance"></a>
+
+### All tiers at a glance
+
+| Tier | Scope | Status | Active work |
+|------|--------|:------:|-------------|
+| **0** | Baseline modules | **Maintain** | **0.1–0.2** shipped — [Tier 0](#tier-0--baseline-shipped--maintain) · [0.2 live path](#tier-02-formation-hit-reaction-incoming-parry) |
+| **1** | Engagement geometry **1.1–1.9** + **1.10** | **Done** | **1.10** automatic doctrine **on**; **`rotate_file`** listing wired; editor crash→wedge soak optional |
+| **2** | Tactical doc sync | **Done** | Keep **`TACTICAL_*`** in sync when intrusion/surround behavior changes |
+| **3** | Melee depth **3.0–3.3** | **Done** | Deflect calibration investigations → [`PARRY_DEFLECT`](PARRY_DEFLECT_AND_CALIBRATION.md) (not exit-gated) |
+| **4** | AI / stance **4.1–4.5** + **4.2b** | **Done** | Editor bind-exchange soak optional |
+| **5** | Physics **5.1** | **Done** | Kinematic tail + editor calibration — [audit](#tier-expansion-audit-2026-05-17) |
+| **6** | Medical **6.1** + **6.2** flee | **Done** | Wound-packing / ambient pain→shock investigations only |
+| **7** | HEMA / fidelity | **Done** | **7.1–7.5** shipped — [Tier 7](#tier-7--research--fidelity-non-blocking); optional HEMA investigation depth in bundle only |
+
+**Production feature toggles (summary):**
+
+| Toggle | Default | Gate |
+|--------|---------|------|
+| `FEATURE_LINE_CRASH_INTRUSION` | **true** | [Line crash](#development-gate-line-crash--intrusions-temporary) — Phase B shipped |
+| `is_feature_sector_surround_load()` | **true** | [Sector surround](#development-gate-sector-surround-load-temporary) — Phase A shipped |
+| `is_feature_position_angle_footwork_enabled()` | **true** | Tier **4.4** (no off-by-default gate) |
+| `FEATURE_AUTOMATIC_DOCTRINE` | **true** | [Tier 1.10](#tier-110-automatic-doctrine-pilot) — hollow-center → **pinch_center** when doctrine still **default** |
+| `FEATURE_FLURRY_BIND_EXCHANGE` | **true** | [Tier 4.5](#tier-45-flurry-bind-exchange-deferred) — bind deflect → bounded exchange window ([P4g](#p4g--tier-45-flurry-pilot)) |
+
+<a id="next-implementation-phase"></a>
+
+## Next implementation phase
+
+**Gates shipped:** [Phase A](#phase-a--sector-surround-enable-tier-31) + [Phase B](#phase-b--line-crash--intrusion-tier-2) (2026-05-17). **Post-gate harness (2026-05-17):** bullet **5** scripted crash success + P1′ production surround mult. **Next:** [P0](#next-coding-step) maintain · optional editor [P1](#next-coding-step) (bind-exchange / bind-riposte feel).
+
+**Prompt to implement Phase A:** *“Implement [Phase A — sector surround enable](IMPLEMENTATION_ORDER.md#phase-a--sector-surround-enable-tier-31) per the plan: P0 harness, then flip/tune `is_feature_sector_surround_load`, update docs, exit criteria.”*
+
+<a id="phase-a--sector-surround-enable-tier-31"></a>
+
+### Phase A — Sector surround enable (Tier 3.1 production flag)
+
+**Goal:** ~~Turn on sector-weighted surround load in production~~ **Shipped** 2026-05-17 (`_feature_sector_surround_load` default **true**). No formation intrusion, crash listing, or wedge changes.
+
+**Depends on:** Tier **3.1** code **Done** ([§3.1 live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path)).
+
+| Step | Action | Owner modules / constants |
+|:----:|--------|-------------------------|
+| A0 | **`CombatRegressionHarness.run_all()`** green (seeds **0 / 1 / 2** on afterblow if needed) | harness |
+| A1 | Read [sector surround gate](#development-gate-sector-surround-load-temporary) + grep **`_run_surround_`**, **`_run_sector_surround_*`** | [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) Tier **3.1** |
+| A2 | Tune in **`CombatConstants.gd`**: `SURROUND_SECTOR_LOAD_FREE`, `SURROUND_SECTOR_LOAD_K`, `SURROUND_SECTOR_WEIGHT_MIN`, `SURROUND_MAX_SPLIT_DIVISOR`, `SURROUND_AWARENESS_AT_LOW_PERCEPTION` (compare integer path when flag **false**) | `CombatConstants.gd` |
+| A3 | Trace live path: **`TacticalCombat.compute_surround_threat_weight_sum`** → **`surround_defense_multiplier_from_pa_with_sector`** / **`surround_defense_multiplier_from_pa`** → **`DefenseChoiceResolver.choose_defense`** (`dodge_chance`, `parry_c_d`); **`AttackResolver`** stamps `pa` used by surround | `TacticalCombat.gd`, `DefenseChoiceResolver.gd`, `AttackResolver.gd` |
+| A4 | Dev soak: `CombatConstants.set_feature_sector_surround_load(true)` (or flip default after tuning) — multi-threat same-file / flank fights | playtest |
+| A5 | Doc: **`TACTICAL_ZONES_BREACH_MOVEMENT.md`** §4.5 / §10.3 B2 — sector path vs integer **`surround_threat_count`** | Tier **2.1** subset (no intrusion fiction required) |
+| A6 | **`run_all()`** again; note date in plan **Last verified** | harness |
+
+**Exit criteria (Phase A):** **[x]** (2026-05-17)
+
+- [x] `run_all()` green with production flag **true** and harness toggle test (`_run_sector_surround_feature_flag_respects_runtime_toggle` forces **false**/**true**).
+- [x] Harness: compressed two-flank **`wsum`** milder than integer **n**=2; single threat neutral; production path **`_run_surround_production_path_dampens_defense_vs_compressed_flanks`**. Editor feel → optional [P1′](#next-coding-step).
+- [x] No change to crash listing, intrusion slots, or `FEATURE_LINE_CRASH_INTRUSION`.
+- [x] Plan **Last verified** + **`TACTICAL_ZONES_BREACH_MOVEMENT.md`** §4.6 / §10.3 B2 updated.
+
+**Ship checklist:** [x] **`_feature_sector_surround_load := true`** in `CombatConstants.gd`; changelog **(phase-a)** below.
+
+<a id="phase-b--line-crash--intrusion-tier-2"></a>
+
+### Phase B — Line crash + intrusion (Tier 2 + gate)
+
+**Goal:** ~~Enable **`FEATURE_LINE_CRASH_INTRUSION`**~~ **Shipped** 2026-05-17.
+
+| Step | Action |
+|:----:|--------|
+| B0 | **`run_all()`** green |
+| B1 | **`FEATURE_LINE_CRASH_INTRUSION := true`** in `CombatConstants.gd` |
+| B2 | **`CombatCrashActions`** / **`CombatMeleeListing`** + **`incursion_allowed`**; harness **`_run_crash_listed_when_intrusion_enabled_in_formation`** |
+| B3 | Editor: crash → wedge → vacancy (optional — registry **bullet 5**) |
+| B4 | **`TACTICAL_ZONES_BREACH_MOVEMENT.md`** live intrusion header |
+| B5 | **`TACTICAL_FORMATIONS_FF4.md`** intruder/vacancy blurb |
+| B6 | **`ENGAGEMENT_*`** §2.8 sync row **Done** |
+
+**Exit criteria (Phase B):** **[x]** (2026-05-17)
+
+- [x] `run_all()` green with intrusion flag **true**; **`_run_no_crash_actions_when_intrusion_disabled`** skips; **`_run_crash_listed_when_intrusion_enabled_in_formation`** passes.
+- [x] **`CRASH_INTRUSION_MIN_ARMOR_MASS_KG`** tuned to full plate kit (~**17 kg**).
+- [x] Tier **2** rows **Done**; docs synced.
+- [x] Headless bullet **5**: **`_run_resolve_crash_success_applies_intruder_wedge_and_slots`**. [ ] Editor crash→wedge feel (optional).
+
+**Ship checklist:** [x] flag **true**; changelog **(phase-b)** below.
+
+---
+
 <a id="next-coding-step"></a>
 
-**Next coding step (while `FEATURE_LINE_CRASH_INTRUSION` is false):** [Tier **5.1**](#tier-51-angles-damage-flow-audits) optional long-tail **[ ]** · editor playtest on battle UI (footwork row + diagram tooltips shipped 2026-05-17). When flag **true:** [Tier **2.1**](#tier-2--tactical-docs--zoc-narrative-sync) + intrusion playtests ([gate](#development-gate-line-crash--intrusions-temporary)). **Maintain:** `run_all()` green (afterblow fixed seeds **0 / 1 / 2** if RNG drifts). Tier **1.7–1.8** telemetry harnesses shipped.
+### Next coding step (full backlog)
+
+| Priority | Track | When | Actions |
+|:--------:|-------|------|---------|
+| **P0** | **Maintain** | Always (Phase A step **A0**) | **`run_all()`** green; afterblow seeds **0 / 1 / 2**; optional **`CombatRegressionHarnessKinematicTail`** |
+| **P1** | **Editor soak (baseline)** | Ongoing | [**4.4**](#tier-44-spatial-footwork-deferred) footwork · [**6.1**](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) cowering · bind deflect → [4.5](#tier-45-flurry-bind-exchange-deferred) exchange · [3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) bind riposte · Phase B crash→wedge (bullet **5**) · [P1′](#next-coding-step) surround |
+| **P2a** | ~~**Tier 2.2 doc (optional)**~~ | Phase B | **Done** 2026-05-17 — FF4 live blurb |
+| **P2** | ~~**Phase A — sector surround**~~ | [Phase A](#phase-a--sector-surround-enable-tier-31) | **Done** 2026-05-17 |
+| **P1′** | **Surround soak** | After **P2** | Harness **`_run_surround_production_path_dampens_defense_vs_compressed_flanks`**; editor multi-threat optional |
+| **P3** | ~~**Phase B — line crash**~~ | [Phase B](#phase-b--line-crash--intrusion-tier-2) | **Done** 2026-05-17 |
+| **P4** | ~~**Expansion (ordered)**~~ | 2026-05-18 | **Done** — [P4 playbooks](#expansion-backlog-p4-playbooks) **P4a–P4h** all **[x]** |
+
+**Do not** re-gate both flags in one pass without separate harness + soak per gate.
+
+<a id="p1-editor-soak-checklist"></a>
+
+#### P1 editor soak checklist (sign-off before new combat tiers)
+
+Run in Godot F5 with production flags (**line crash**, **sector surround**, **flurry bind**, **incoming parry**, **ambient pain shock** on). Optional: **`COMBAT_DEV_VERBOSE := true`** in `CombatConstants.gd` for one fight.
+
+| # | Scenario | Pass? | Notes |
+|---|----------|:-----:|-------|
+| 1 | Bind deflect → riposte → flurry exchange | ☐ | Gauge/bind suffix; exchanges feel readable |
+| 2 | Crash success → wedge / intruder slot | ☐ | Breach line, heavy kit, crowded lane |
+| 3 | Multi-threat surround (2+ front attackers) | ☐ | Defense feels damped, not instant death |
+| 4 | Formation move (swap / fall-back) in crowded lane | ☐ | Duration on gauge hover + combat log on player turn |
+| 5 | Mobile cowering → fall_back or flee | ☐ | [`MEDICAL` 6.1](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) |
+| 6 | Wounded fighter, no new hits → ambient pain shock rare | ☐ | Toggle **`set_feature_ambient_pain_shock(false)`** to compare |
+| 7 | Ally bandage in medical phase | ☐ | Log shows **bandage (ally)**, not bare `bandage_self` |
+
+After soak: run VS Code task **Run Combat Regression Harness (headless)** or `godot -s res://scripts/run_combat_regression_harness.gd` (do not pipe to `grep`).
+
+<a id="expansion-backlog-p4-playbooks"></a>
+
+### Expansion backlog (P4 playbooks) — **complete** (2026-05-18)
+
+Ordered work packages after gates **A** + **B** — all shipped. **Prompt template** (historical): *“Implement [P4x] per `IMPLEMENTATION_ORDER.md` expansion playbook.”* New feature work: use [before you add a new combat tier](#before-you-add-a-new-combat-tier) or **P1** editor soaks, not new P4 rows.
+
+| ID | Track | Effort | Plan anchor |
+|:--:|-------|--------|-------------|
+| **P4b** | [0.1 formation duration UI](#p4b--tier-01-formation-move-duration-ui) | Small | Tier **0** — **done** 2026-05-17 |
+| **P4c** | [1.10 automatic doctrine pilot](#p4c--tier-110-automatic-doctrine-pilot) | Small | Tier **1** — **done** 2026-05-17 |
+| **P4a** | [7.2 stamina depletion](#p4a--tier-72-stamina-depletion-pacing) | Medium | Tier **7** — **done** 2026-05-17 |
+| **P4d** | [3.2 doc sync](#p4d--tier-32-parry-bind-doc-sync) | Trivial | Tier **3** — **done** (live path + §1; 2026-05-17) |
+| **P4e** | [4.2b feint listing parity](#p4e--tier-42b-feint-listing-reveal-parity) | Small | Tier **4** — **done** 2026-05-18 |
+| **P4f** | [6.2 flee action](#p4f--tier-62-flee-formation-action) | Medium | Tier **6** — **done** 2026-05-18 |
+| **P4g** | [4.5 flurry pilot](#p4g--tier-45-flurry-pilot) | Large | Tier **4** / **7.3** — **done** 2026-05-18 |
+| **P4h** | [3.2 bind-riposte balance](#p4h--tier-32-bind-riposte-balance-soak) | Small | Tier **3** / **7.5** — **done** 2026-05-18 |
+
+**Defer / investigations only:** eight diagonal guards; wound-packing depth; **`CombatRegressionHarnessKinematicTail`** maintenance (run in **P0**, not a milestone). **Ambient pain→shock** shipped (Tier **6.1** tick roll; hit path unchanged).
+
+---
+
+<a id="p4a--tier-72-stamina-depletion-pacing"></a>
+
+#### P4a — Tier 7.2 stamina depletion pacing
+
+**Goal:** Intense sustained melee measurably drains stamina in ~2–3 minutes without making every fight tedious.
+
+| Step | Action | Owner modules |
+|:----:|--------|---------------|
+| 1 | Tune **`STAMINA_REFILL_RATE`** and/or attack costs; document target pacing in **`CombatConstants.gd`** comments | `CombatConstants.gd` |
+| 2 | Optional: intensity-scaled parry cost (mirror attack cost pattern) | `AttackResultApplier.gd`, `CombatConstants.gd` |
+| 3 | Harness: scripted fight loop or fixed sequence asserts stamina drops below threshold after N heavy attacks at full refill | `CombatRegressionHarness.gd` |
+| 4 | Reconcile [`COMBAT_ROADMAP`](COMBAT_ROADMAP_AND_STAMINA.md) Phase 2 open row (**~2 min depletion**) | docs — **[x]** 2026-05-18 |
+
+**Exit criteria:** **[x]** **`_run_tier7_stamina_depletion_*`** · **`run_all()`** green · Tier **7.2** row **[x]** in [Tier 7 table](#tier-7--research--fidelity-non-blocking).
+
+---
+
+<a id="p4b--tier-01-formation-move-duration-ui"></a>
+
+#### P4b — Tier 0.1 formation move duration UI
+
+**Goal:** Player sees *why* swap / fall-back / rotate will take longer (crowded lane, pressure).
+
+| Step | Action | Owner modules |
+|:----:|--------|---------------|
+| 1 | Expose helper: estimated duration mult or seconds from existing **`ZoneOfControl.get_formation_move_duration_multiplier`** (or inline call site in formation flow) | `ZoneOfControl.gd` or `CombatFormationFlow.gd` |
+| 2 | Formation diagram tooltip and/or unit row subtitle: lane + pressure labels | `FormationDiagramBuilder.gd`, `BattleUIUpdater.gd` |
+| 3 | Harness: mult matches lane obstacle count fixture (headless) | `CombatRegressionHarness.gd` |
+
+**Exit criteria:** **[x]** UI + listed-action hints when lane crowded · harness **`_run_formation_move_duration_*`** · [Tier 0 audit](#tier-expansion-audit-2026-05-17) updated.
+
+---
+
+<a id="p4c--tier-110-automatic-doctrine-pilot"></a>
+
+#### P4c — Tier 1.10 automatic doctrine pilot
+
+**Goal:** Hollow enemy center can auto-apply **`pinch_center`** when formation doctrine is still **default** (telemetry already wired).
+
+| Step | Action | Owner modules |
+|:----:|--------|---------------|
+| 1 | Editor soak: 4v4, confirm pinch only when hollow-center predicate true; no override of player **hold** / **pinch** | `CombatDoctrine.gd`, `CombatFormationEngagement.gd` |
+| 2 | Set **`FEATURE_AUTOMATIC_DOCTRINE := true`** (or document runtime toggle policy) | `CombatConstants.gd` |
+| 3 | Harness: extend **`_run_telemetry_automatic_doctrine_pinch_record`** with hollow-center fixture if missing | `CombatRegressionHarness.gd` |
+
+**Exit criteria:** **[x]** Flag **on** · harness **`_run_automatic_doctrine_*`** · **`run_all()`** green · editor 4v4 soak optional.
+
+---
+
+<a id="p4d--tier-32-parry-bind-doc-sync"></a>
+
+#### P4d — Tier 3.2 parry-bind doc sync
+
+**Goal:** Bundle text matches live path (parts, leverage, striking-part mass, bind riposte).
+
+| Step | Action |
+|:----:|--------|
+| 1 | Update [`PARRY_BIND`](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) live-path table + §1 summary (parts **shipped**, not “missing”) |
+| 2 | Point investigations below to “historical / depth” — not milestone **Status** |
+
+**Exit criteria:** **[x]** (2026-05-17 plan pass) §1 + [§3.2 live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) updated · skim remaining investigation headers for “missing parts” wording when touching **3.2**.
+
+---
+
+<a id="p4e--tier-42b-feint-listing-reveal-parity"></a>
+
+#### P4e — Tier 4.2b feint listing reveal parity
+
+**Goal:** AI feint-move **listing** weights use the same defender readiness curve as **`choose_defense`** when attacker has live **`pending_attack`** + reveal progress.
+
+| Step | Action | Owner modules |
+|:----:|--------|---------------|
+| 1 | In **`CombatAIActionPicker._get_action_weight`**, apply **`DefenseChoiceResolver`**-equivalent reveal mult to **`pr_def`** (read attacker **`pa`** on wind-up target) | `CombatAIActionPicker.gd` |
+| 2 | Harness: feint listing weight lower early wind-up vs after reveal threshold (mirror existing **`_run_feint_target_reveal_progress_*`**) | `CombatRegressionHarness.gd` |
+
+**Exit criteria:** **[x]** **`_run_feint_move_listing_reveal_progress_dampens_early_wind_up`** · **`run_all()`** green · [`AI_ENGAGEMENT` §4.2](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-shipped) live-path row (2026-05-18).
+
+---
+
+<a id="p4f--tier-62-flee-formation-action"></a>
+
+#### P4f — Tier 6.2 flee formation action
+
+**Goal:** Distinct **`flee`** (abandon engagement / combat exit policy) vs **`fall_back`** / disengage swap — gated by **`can_flee_or_fall_back`**.
+
+| Step | Action | Owner modules |
+|:----:|--------|---------------|
+| 1 | Define **`MOVE_ID_FLEE`**, listing rules, resolve handler, AI weight | `CombatConstants.gd`, `CombatFormationMoveListing.gd`, `CombatResolveAction.gd`, `CombatAIActionPicker.gd` |
+| 2 | Wire combat end or “left field” policy (align with [`TACTICAL_ZONES`](TACTICAL_ZONES_BREACH_MOVEMENT.md) + medical phase) | `CombatManager.gd`, `MedicalPhaseController.gd` as needed |
+| 3 | Harness: mobile unit lists flee; immobile/unconscious does not; resolve clears formation slot or marks absent | `CombatRegressionHarness.gd` |
+| 4 | Mark Tier **7.4** **[x]** or **deferred-duplicate** when **6.2** ships | plan |
+
+**Exit criteria:** **[x]** grep **`_run_flee_*`**, **`_run_medical_mobility_cowering_lists_flee_in_formation_mode`**, **`_run_medical_phase_clears_fled_combatant_state`**, **`_run_combat_log_formatter_fled_outcome`** · [Tier 6.2](#tier-62-dedicated-flee-formation-action) **[x]** (2026-05-18).
+
+---
+
+<a id="p4g--tier-45-flurry-pilot"></a>
+
+#### P4g — Tier 4.5 flurry pilot
+
+**Goal:** Minimal bind-exchange tempo without full KCD flurry UI — bounded exchanges after hard bind.
+
+| Step | Action | Owner modules |
+|:----:|--------|---------------|
+| 1 | Spec slice in [`HEMA_ZONES`](HEMA_ROADMAP_AND_SOURCES.md#hema-zones-feints-flurries-investigation): window duration, stamina cost, max exchanges |
+| 2 | Optional state or combatant keys: **`flurry_until`**, **`flurry_exchanges_left`**; listing reduced-cost bind attacks vs same **`parry_against_id`** | `CombatConstants.gd`, `AvailableActionsBuilder.gd`, `AttackWindUpStarter.gd` |
+| 3 | Harness: bind → flurry window opens → second bind-listed action cheaper → window closes on timeout or hit | `CombatRegressionHarness.gd` |
+| 4 | Mark Tier **7.3** duplicate when **4.5** ships | plan |
+
+**Exit criteria:** **[x]** **`FEATURE_FLURRY_BIND_EXCHANGE`** default **true** · **`_run_flurry_*`** + **`_run_flurry_bind_feature_flag_respects_runtime_toggle`** · [Tier 4.5](#tier-45-flurry-bind-exchange-deferred) (2026-05-18).
+
+---
+
+<a id="p4h--tier-32-bind-riposte-balance-soak"></a>
+
+#### P4h — Tier 3.2 bind-riposte balance soak
+
+**Goal:** Per-archetype bind riposte *feel* pass (constants only, no new systems).
+
+| Step | Action |
+|:----:|--------|
+| 1 | Editor: spear stab vs mace blunt bind riposte wind-up ratios vs plain attack |
+| 2 | Adjust **`PARRY_BIND_RIPOSTE_BY_PART_CONTACT`** / weapon **`bind_riposte_contact_types`** if needed |
+| 3 | Harness: keep **`_run_bind_riposte_contact_multipliers`** green after constant changes |
+
+**Exit criteria:** **[x]** Constants locked in **`PARRY_BIND_RIPOSTE_BY_PART_CONTACT`** (stab **0.55** / cut **0.78** / blunt **0.90**); **`_run_bind_riposte_contact_multipliers`** + **`_run_bind_riposte_archetype_ordering_spear_faster_than_mace`**; table in [`PARRY_BIND` §3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) (2026-05-18).
+
+---
+
+### Before you add a new combat tier
+
+1. Add a row to [all tiers at a glance](#all-tiers-at-a-glance) and the relevant tier section **here** (not a second plan file).
+2. Extend [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) with new **`_run_*`** names.
+3. Add or extend a bundle **live-path** table (`PARRY_BIND`, `AI_ENGAGEMENT`, `MEDICAL`, …).
+4. If Tier **1** fields change, update **`ENGAGEMENT_*`** §4–§6 spec and §2 mirror **after** the milestone table.
 
 ---
 
@@ -195,10 +537,13 @@ No sequencing work unless fixing regressions. Verification rows → [`ENGAGEMENT
 
 | Layer | Module | Role |
 |-------|--------|------|
-| Melee / lanes | `AvailableActionsBuilder` | `depth_polearm_lane_open`, line threat, part filter, `stamp_attack_pair_geometry_on_dict` |
-| Bands | `CombatDistanceBands` | `depth_polearm_lane_open_by_combatant_id`, `distance_to` |
+| Depth lanes | `CombatDepthPolearm.gd` | `depth_polearm_lane_open`, `depth_polearm_lane_allows_low_targets`, line threat, part filter |
+| Melee listing | `CombatMeleeListing.gd` | `can_melee_threaten`, depth rank gates, hostile melee menu rows |
+| Bands | `CombatDistanceBands.gd` | `depth_polearm_lane_open_by_combatant_id` (must match **`CombatDepthPolearm`**), `distance_to` |
+| Pair / stamp | `CombatPairGeometry.gd`, `CombatStrikeStamping.gd` | `effective_pair_eff_dist`, `stamp_attack_pair_geometry_on_dict` on **`pa`** |
+| Orchestrate | `AvailableActionsBuilder.gd` | **`build()`**; thin forwards to listing + geometry modules |
 | Weapons | `Weapon.gd` / `WeaponConstants` | `depth_melee_eligible` (**SPEAR**) |
-| AI / resolve | `CombatAIActionPicker`, `AttackResolver` | doctrine mults, lane type on **`pa`** |
+| AI / resolve | `CombatAIActionPicker`, `AttackResolver`, `CombatTargetScoring` | doctrine mults, depth stab/cut weights, lane type on **`pa`** |
 
 **Spec:** [`ENGAGEMENT_*` §2.5](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md#25-distance--targeting) · design tables **`COMBAT_ROADMAP_AND_STAMINA.md`** Part 6–7.
 
@@ -218,7 +563,7 @@ Canonical plug taxonomy + data dictionary → **`ENGAGEMENT_LINE_COHESION_INTRUS
 
 ## Implementation phase gate
 
-**Active coding** (flag **false**): none on Tier **4** (4.4 production default **on**). **Re-audit only** when changing P3/P4 slots or wedge — checklists below (Tier **1.2** / **1.3** **Done** in repo).
+**Post-milestone mode:** Gates **A** + **B** shipped; expansion playbooks **P4a–P4h** **Done**. **Maintain** [P0](#next-coding-step); optional editor [P1](#next-coding-step). Use Tier **1.2** / **1.3** checklists when changing slots, wedge, or `lane_offset` consumers (audit only — not expansion).
 
 ### Tier 1.2 gate (use when changing P3)
 
@@ -227,11 +572,11 @@ Canonical plug taxonomy + data dictionary → **`ENGAGEMENT_LINE_COHESION_INTRUS
 - [ ] Defender **occupancy** (intruder in host `slots`) still matches **`ENGAGEMENT_*` §4** + PR notes when you alter it; **canonical wedge** remains Tier **1.3** unless you intentionally merge milestones.
 - [ ] Automated test path (`IncursionBreachTest` or new) still covers slot + vacancy after your change.
 
-Then implement or adjust **P3** per **`ENGAGEMENT_*` §4** and `CombatFormationFlow` / `FormationSlots` comments.
+Then adjust **P3** per **`ENGAGEMENT_*` §4** and `CombatFormationFlow` / `FormationSlots` comments; re-run slot/vacancy harnesses or `IncursionBreachTest`.
 
 <a id="tier-13-gate-p4"></a>
 
-### Tier 1.3 gate before coding P4 (recommended)
+### Tier 1.3 gate (use when changing P4)
 
 Wedges and offsets touch **register**, **reset**, **formation setup**, **intrusion**, **plugs**, **cohesion**, **lane stress**, **ZoC**, and **every `effective_pair_eff_dist` consumer**; mistakes desync bands and crash math.
 
@@ -239,7 +584,7 @@ Wedges and offsets touch **register**, **reset**, **formation setup**, **intrusi
 - [x] Freeze **`intrusion_wedge_by_file`** minimum keys and **`lane_offset` sign convention** + range in `CombatConstants.gd` + code comments (single source of truth) — **`CombatConstants.gd`** “Tier **1.3** P4 freeze” block; wedge key literals **`CombatIntrusionWedge.FIELD_*`**; **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** §4.1–4.2 table rows point at **`LANE_OFFSET_ABS_MAX`** / sign.
 - [x] **1.2 exit criteria** met on branch (slots / vacancy / flags); re-check this box only if you regress P3.
 
-Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** exit criteria above (no legacy step numbers).
+Then adjust **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** exit criteria above; grep **`_run_intruder_*`**, **`_run_depth_polearm_*`**, **`_run_vacancy_*`** as appropriate.
 
 ### After you ship a Tier 1 step (no duplication / drift)
 
@@ -252,21 +597,26 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 ## Tier 2 — Tactical docs & ZoC narrative sync
 
-| Step | Deliverable | Depends on |
-|------|-------------|------------|
-| 2.1 | Align `TACTICAL_ZONES_BREACH_MOVEMENT.md` with code (intrusion, neighbor hold, vacancy, intruder slots, **wedge**, `lane_offset` / distance language) | Tier 1.3+ |
-| 2.2 | Short subsection in `TACTICAL_FORMATIONS_FF4.md`: intruder / vacancy extends rank×file | Tier 1.2 |
+**Status column lives here** (not in `README.md`). Code for intrusion / wedge / vacancy is **shipped** (Tier **1.2–1.3**); Tier **2** is **narrative sync** only.
+
+| Step | Deliverable | Depends on | Status |
+|------|-------------|------------|:------:|
+| 2.1 | Align `TACTICAL_ZONES_BREACH_MOVEMENT.md` with code (intrusion, neighbor hold, vacancy, intruder slots, **wedge**, `lane_offset` / distance language) | Tier **1.3+** | **Done** — Phase B 2026-05-17 |
+| 2.2 | Short subsection in `TACTICAL_FORMATIONS_FF4.md`: intruder / vacancy extends rank×file | Tier **1.2** | **Done** — Phase B 2026-05-17 |
+
+**Exit criteria (Tier 2):** **[x]** (2026-05-17) — rows **2.1** / **2.2** **Done**; harness listing + scripted crash success; editor bullet **5** feel optional.
 
 ---
 
 ## Tier 3 — Melee depth (parry / weapon / guards)
 
-| Step | Deliverable | Depends on |
-|------|-------------|------------|
-| 3.0 | Thrust vs swing **kinematic delivery** (`WeaponConstants`, `WeaponDamageHelper`, `WeaponSwingPhysics`) | Tier **0** weapons |
-| 3.1 | Strike measure + stamped pair geometry — **Done** · [exit](#tier-31-strike-measure-stamped-geometry) · [live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) | **1.3**; chain **11** |
-| 3.2 | Parry / bind / deflect + **`parry_clash_context`** — **Done** · [exit](#tier-32-parry-bind-deflect) · [live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) | **3.1**; **3.0** |
-| 3.3 | Guard line / afterblow — **Done** · [exit](#tier-33-guard-line-afterblow) · [live path](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) | **3.2** |
+| Step | Deliverable | Depends on | Status |
+|------|-------------|------------|:------:|
+| 3.0 | Thrust vs swing **kinematic delivery** (`WeaponConstants`, `WeaponDamageHelper`, `WeaponSwingPhysics`) | Tier **0** weapons | **Done** |
+| 3.1 | Strike measure + stamped pair geometry · [exit](#tier-31-strike-measure-stamped-geometry) · [live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) | **1.3**; chain **11** | **Done** |
+| 3.2 | Parry / bind / deflect + **`parry_clash_context`** · [exit](#tier-32-parry-bind-deflect) · [live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) | **3.1**; **3.0** | **Done** |
+| 3.3 | Guard line / afterblow · [exit](#tier-33-guard-line-afterblow) · [live path](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) | **3.2** | **Done** |
+| 3.x | Doc sync + balance | — | **Done** — [P4d](#p4d--tier-32-parry-bind-doc-sync) · [P4h](#p4h--tier-32-bind-riposte-balance-soak) |
 
 <a id="tier-31-strike-measure-stamped-geometry"></a>
 
@@ -294,12 +644,14 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 **Plan:** `docs/AI_ENGAGEMENT_STANCE_AND_FEINTS.md`
 
-| Step | Deliverable | Depends on |
-|------|-------------|------------|
-| 4.1 | **Done** — [exit criteria](#tier-41-posture--stance-weights-ai-listing) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path) | After **1.4**; **1.5** optional |
-| 4.2 | **Done** — [exit](#tier-42-feint-d-telegraph-ai) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-shipped) | **4.1** |
-| 4.3 | **Done** — [exit criteria](#tier-43-mental-stack--combat-attention) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-43-mental-stack--combat-attention-live-path) | **4.2**; **4.1**; medical (**Tier 6**) independent |
-| 4.4 | **Done** — [exit criteria](#tier-44-spatial-footwork-deferred) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path); grep **`_run_footwork_`**; flag default **on** | **4.3**; Tier **5** optional |
+| Step | Deliverable | Depends on | Status |
+|------|-------------|------------|:------:|
+| 4.1 | Posture + stance weights · [exit](#tier-41-posture--stance-weights-ai-listing) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path) | After **1.4**; **1.5** optional | **Done** |
+| 4.2 | Feint D + tempo · [exit](#tier-42-feint-d-telegraph-ai) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-shipped) | **4.1** | **Done** |
+| 4.2b | Feint listing × reveal parity · [P4e](#p4e--tier-42b-feint-listing-reveal-parity) | **4.2** | **Done** |
+| 4.3 | Mental stack + attention · [exit](#tier-43-mental-stack--combat-attention) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-43-mental-stack--combat-attention-live-path) | **4.2**; **4.1**; **6.1** independent | **Done** |
+| 4.4 | Position-angle footwork · [exit](#tier-44-spatial-footwork-deferred) · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path) | **4.3**; Tier **5** optional | **Done** |
+| 4.5 | Flurry / bind exchange · [live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-45-flurry-bind-exchange-live-path) | **4.2**; Tier **7.3** | **Done** |
 
 <a id="tier-41-posture--stance-weights-ai-listing"></a>
 
@@ -311,7 +663,7 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 ### Tier 4.2 — Feint D (telegraph) + AI feint picks
 
-**Exit criteria:** **Done** **[x]** — [§4.2 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-shipped) · registry Tier **4.2**. **Rejected:** probabilistic plain-attack feint. **Optional:** re-pick **`_FEINT_WINDUP_*_HARNESS_SEED`** if Godot RNG drifts.
+**Exit criteria:** **Done** **[x]** — [§4.2 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-shipped) · registry Tier **4.2** · **4.2b** listing × reveal (**`_run_feint_move_listing_reveal_progress_dampens_early_wind_up`**). **Rejected:** probabilistic plain-attack feint. **Optional:** re-pick **`_FEINT_WINDUP_*_HARNESS_SEED`** if Godot RNG drifts.
 
 ---
 
@@ -325,7 +677,9 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 **Depends on:** **4.2** **Done** · **4.1** (listing in stack layer 4). **Rejects:** probabilistic plain-attack feint (Feint D is explicit **`feint_part`**).
 
-**Exit criteria:** **Done** **[x]** — [§4.3 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-43-mental-stack--combat-attention-live-path) · registry Tier **4.3**.
+**Shipped sub-steps (historical build order):** **4.3.1** salience → **4.3.2** focus/defense → **4.3.3** mental stack → **4.3.4** yomi; **4.3.5** attention UI shipped with **4.3** + **4.4** gauge/diagram rows (grep **`_run_attention_ui_hint_*`**, **`_run_combat_ui_hints_attention_*`**).
+
+**Exit criteria:** **Done** **[x]** — [§4.3 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-43-mental-stack--combat-attention-live-path) · registry Tier **4.3** (+ UI harnesses under Tier **4.4** where shared).
 
 ---
 
@@ -347,15 +701,17 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 **Plan:** `docs/PHYSICS_DAMAGE_AND_FLOW.md`
 
-| Step | Deliverable | Depends on |
-|------|-------------|------------|
-| 5.1 | Kinematic delivery + damage-flow audits — **Done** · [exit](#tier-51-angles-damage-flow-audits) · [kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) | **3.2**; **3.0** |
+| Step | Deliverable | Depends on | Status |
+|------|-------------|------------|:------:|
+| 5.1 | Kinematic delivery + damage-flow audits · [exit](#tier-51-angles-damage-flow-audits) · [kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) | **3.2**; **3.0** | **Done** |
 
 <a id="tier-51-angles-damage-flow-audits"></a>
 
 ### Tier 5.1 — Angles, damage flow, audits
 
-**Exit criteria:** **Done** **[x]** — [Kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) · [pipeline checklist](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-angles-pipeline-remaining) · registry Tier **5.1**. **Optional long-tail** **[ ]** — editor soaks / investigation reconciliation; not exit-gated.
+**Exit criteria:** **Done** **[x]** — [Kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) · [pipeline checklist](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-angles-pipeline-remaining) · registry Tier **5.1**.
+
+**Optional long-tail (not exit-gated):** **`CombatRegressionHarnessKinematicTail.gd`** rows; editor calibration soaks; investigation reconciliation in **`PHYSICS_DAMAGE_AND_FLOW.md`** — tracked under [next coding step](#next-coding-step) **P0** / **P1**, not a new milestone row.
 
 ---
 
@@ -363,9 +719,10 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 **Plan:** `docs/MEDICAL_PAIN_INCAPACITATION.md`
 
-| Step | Deliverable | Depends on |
-|------|-------------|------------|
-| 6.1 | **Done** — [exit criteria](#tier-61-mobility-pain-shock-extensions) · [live path](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) | Independent; avoid conflicting with formation busy states |
+| Step | Deliverable | Depends on | Status |
+|------|-------------|------------|:------:|
+| 6.1 | Mobility + cowering retreat + pain-shock susceptibility · [exit](#tier-61-mobility-pain-shock-extensions) · [live path](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) | Independent; avoid conflicting with formation busy states | **Done** |
+| 6.2 | Dedicated flee formation action · [live path](MEDICAL_PAIN_INCAPACITATION.md#tier-62-flee-formation-action-live-path) | **6.1** | **Done** |
 
 <a id="tier-61-mobility-pain-shock-extensions"></a>
 
@@ -379,9 +736,157 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 
 ---
 
+<a id="tier-expansion-audit-2026-05-17"></a>
+
+## Tier expansion audit (2026-05-18, pass 3)
+
+Honest pass: **core milestones 0–7 and 3.x–4.5 live paths are shipped**; expansion **P4a–P4h** **Done**. Remaining backlog: **P1** editor soaks + investigation bundles (medical, eight guards). **Reopen a tier row** only when starting a numbered sub-step below.
+
+| Tier | Verdict | Shipped (keep **Done**) | Expand next (code or doc) |
+|------|---------|-------------------------|---------------------------|
+| **0** | **Maintain** | **0.1** UI + **0.2** hit-cancel + incoming parry + armor duration | Editor soak only |
+| **1** | **Done** | **1.1–1.9** + **1.10** + harness | **`rotate_file`** listing; close/rotate harness rows; editor crash soak optional |
+| **2** | **Done** | Doc sync **2.1** / **2.2** | Re-sync **`TACTICAL_*`** when changing surround or intrusion tuning |
+| **3** | **Done** (live paths) | **3.0–3.3** + parts/leverage + [bind-riposte table](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) (P4h) | Deflect calibration soaks ([`PARRY_DEFLECT`](PARRY_DEFLECT_AND_CALIBRATION.md)); optional eight diagonal guards |
+| **4** | **Done** (**4.1–4.5**, **4.2b**) | Feint D, counter-tempo, mental stack, footwork, bind-exchange flurry | Editor bind-exchange soak optional |
+| **5** | **Done** (**5.1**) | Kinematic audit + main harness | **`CombatRegressionHarnessKinematicTail`**; editor calibration; [`PHYSICS_*`](PHYSICS_DAMAGE_AND_FLOW.md) investigation reconciliation |
+| **6** | **Done** (**6.1**, **6.2**) | Cowering retreat, **`MOVE_ID_FLEE`**, pain-shock mult | Medical bundle (wound packing, ambient pain→shock) — investigations only |
+| **7** | **Done** | **7.1–7.5** (stamina, flurry, flee, bind-riposte, full station catalog) | Optional HEMA investigation calibration only |
+
+**Doc hygiene:** [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) Phase 1–3 stamina checklists — **7.2** depletion row + Phase **5** hit-interrupt note reconciled **2026-05-18**; legacy Phase **1–6** bullets remain historical (plan wins on conflicts).
+
+### Additional improvements by tier (pass 2 — code vs docs vs harness)
+
+Use when scoping [P4](#next-coding-step); **do not** re-mark a tier **Todo** unless starting a numbered sub-step.
+
+| Tier | Already better than docs suggest | Worth expanding (code / harness / UI) |
+|------|----------------------------------|--------------------------------------|
+| **0** | **0.1** + **0.2** (duration UI, hit-cancel, **`can_parry_all`**, incoming parry choice) | Editor formation-move / dual-attacker soak |
+| **1** | Wedge diagram; crash→wedge; **`rotate_file`** listing; automatic doctrine **on**; close/rotate harness | Editor crash→wedge feel (Phase B bullet **5**) |
+| **2** | Gates on; tactical bundles updated for Phase A/B | Re-read **`TACTICAL_ZONES`** / **`TACTICAL_FORMATIONS_FF4`** when tuning surround or intrusion (not new tier work unless fiction drifts) |
+| **3** | **3.2:** bind-riposte table + harness ordering (P4h); parts + leverage in parry | **`PARRY_DEFLECT_*`** calibration soaks; optional eight diagonal guard lines (HEMA) |
+| **4** | Counter-tempo, riposte chain, mental stack, footwork, **4.5** **`CombatFlurryBind`** (flag **on**) | Editor bind-exchange feel optional |
+| **5** | Large `_run_kinematic_delivery_*` + tail file | Run/maintain **`CombatRegressionHarnessKinematicTail`**; editor KE/penetration calibration; [`PHYSICS_*`](PHYSICS_DAMAGE_AND_FLOW.md) “pipeline remaining” = narrative audit only. **Subregion** multiplier audit in bundle — **no combat `subregion` code** (entity/wound layer if pursued) |
+| **6** | **6.1** + **6.2** live paths (**`CombatFormationFlee`**, gauge **Fled**, winner check) | Medical bundle: wound-packing depth, ambient pain→shock (today shock is **hit-only** per [`MEDICAL`](MEDICAL_PAIN_INCAPACITATION.md)); pain-shock duration still scales on **total pain** + hit impact |
+| **7** | **7.1–7.5** full catalog + harness | Optional HEMA bundle calibration prose only |
+
+**Quick wins (completed in P4):** automatic doctrine **on** · formation-move duration UI · feint listing × reveal · flee · flurry · bind-riposte table.
+
+**Not recommended:** probabilistic plain-attack feint (Tier **4.2** rejected); re-gating sector surround + intrusion + flurry in one pass.
+
+<a id="post-expansion-backlog"></a>
+
+### Post-expansion backlog (no new P4 rows)
+
+| Track | When | Actions |
+|-------|------|---------|
+| **P0** | Always | **`run_all()`** green; kinematic tail optional |
+| **P1** | Editor | Bind deflect → riposte → optional flurry chain; crash→wedge; multi-threat surround ([P1′](#next-coding-step)) |
+| **Defer** | Investigations | Medical wound-packing depth; eight diagonal guards; optional HEMA bundle calibration prose |
+
+---
+
+<a id="tier-7--research--fidelity-non-blocking"></a>
+
 ## Tier 7 — Research / fidelity (non-blocking)
 
-**Plan:** `docs/HEMA_ROADMAP_AND_SOURCES.md` — does **not** gate tiers above.
+**Plan:** [`HEMA_ROADMAP_AND_SOURCES.md`](HEMA_ROADMAP_AND_SOURCES.md) — does **not** gate tiers above.
+
+| Step | Deliverable | Status |
+|------|-------------|:------:|
+| **7.1** | Stamina cost / turn delay / bind gauge bonus | **Done** — [live path](#tier-7-live-path) |
+| **7.2** | Stamina economics (refill rate, depletion pacing) | **Done** — [P4a](#p4a--tier-72-stamina-depletion-pacing) · **`STAMINA_REFILL_RATE` 5.0** · **`_run_tier7_stamina_depletion_*`** |
+| **7.3** | Flurry / bind exchange pilot | **Done** — [Tier **4.5**](#tier-45-flurry-bind-exchange-deferred) / [P4g](#p4g--tier-45-flurry-pilot) (2026-05-18) |
+| **7.4** | Dedicated flee formation action | **Done** — [Tier **6.2**](#tier-62-dedicated-flee-formation-action) / [P4f](#p4f--tier-62-flee-formation-action) (2026-05-18) |
+| **7.5** | Weapon part fidelity (bind-riposte balance + per-move stations) | **Done** — [P4h](#p4h--tier-32-bind-riposte-balance-soak); all move defs tagged + **`_run_impact_station_mean_*`** ([7.5 live path](#tier-75-weapon-part-fidelity-live-path)) |
+
+Bind/deflect/riposte wind-up: **Tier 3.2** / **4.2** (not Tier **7**).
+
+<a id="tier-7-live-path"></a>
+
+### Tier 7.1 live path (shipped)
+
+| Item | Module / constant | Notes |
+|------|-------------------|--------|
+| Intensity-scaled attack stamina | **`CombatConstants.stamina_attack_cost_from_intensity`**, **`AttackResultApplier._stamina_attack_cost_for_attacker`** | `BASE + SCALE × intensity` (**12–20**) |
+| Fatigue slows turn spacing | **`CombatConstants.action_ready_stamina_delay_mult`**, **`CombatEventScheduler.action_ready_cooldown`** | ×**1.35** at 0 stamina (event-driven gauge analogue) |
+| Bind deflect gauge bonus | **`CombatConstants.apply_parry_bind_riposte_gauge_bonus`**, **`AttackResultApplier`** on bind **`parry_deflect`** | +**28** when **`parry_control ≥ PARRY_BIND_CONTROL_THRESHOLD`** |
+| Already shipped (prior tiers) | Tier **3.2** bind/deflect, **`AttackWindUpStarter`** bind riposte mults, **`RIPOSTE_CHAIN_*`**, **`CounterTempo`** | See [`PARRY_BIND` §3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) |
+
+**Harness:** grep **`_run_tier7_*`** in **`CombatRegressionHarness.gd`**.
+
+**Exit criteria (Tier 7):** **Done** **[x]** — **`_run_tier7_*`** + **`_run_impact_station_mean_*`** · all move defs carry **`impact_station_mean`** · **`run_all()`** green.
+
+<a id="tier-75-weapon-part-fidelity-live-path"></a>
+
+### Tier 7.5 live path (shipped)
+
+**Status:** **Done** (2026-05-18) — P4h bind-riposte table + weapon-part model + **full** move-def **`impact_station_mean`** catalog.
+
+| Layer | Module | Shipped behavior |
+|-------|--------|------------------|
+| Part mass model | `Weapon.gd`, `WeaponConstants` | All archetypes expose **`parts`**; normalized mass fractions; spear shaft parry contact |
+| Parry / strike mass | `Weapon.get_parry_part_mass_kg`, `get_striking_part_mass_kg(contact_type)` | `DefenseChoiceResolver` leverage + partial/deflect follow-through momentum |
+| Bind riposte tempo | `AttackWindUpStarter`, `PARRY_BIND_RIPOSTE_BY_PART_CONTACT` | [P4h](#p4h--tier-32-bind-riposte-balance-soak) table — not repeated here |
+| Extension / commit | `CombatWeaponPosition`, move **`weapon_extension_commit_fraction`** | Near-body vs extended parry capacity; wind-up stamps **`pa`** commit; inference for untagged thrusts |
+| Blade station (kinematic) | `StrikeRealismProfile.blade_station_from_pa`, `roll_blade_station` | Uses stamped **`impact_blade_station`** when present; else weapon+move roll — feeds **`velocity_intent_mult_from_pa`** |
+| Per-move station catalog | `WeaponConstants.get_all_move_ids()` + **`impact_station_mean`** / **`impact_station_spread`** | Every combat move def tagged (feints coiled vs honest, pole swing mid-shaft, pommel low, …) |
+| Incoming parry geometry | `CombatIncomingParryChoice` | Multi-attacker **`can_parry_all`** (Tier **0.2**) uses same weapon-position + capacity path |
+
+**Optional (not milestone):** deeper HEMA “Level-4” calibration prose in [`PARRY_BIND`](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) investigations — live path wins.
+
+**Harness (grep):** **`_run_impact_station_mean_*`** (incl. **`_run_impact_station_mean_every_move_def_tagged`**), **`_run_weapon_part_*`**, **`_run_bind_riposte_*`**, **`_run_weapon_commit_fraction_*`** · registry Tier **7.5** paragraph.
+
+---
+
+<a id="tier-45-flurry-bind-exchange-deferred"></a>
+
+### Tier 4.5 — Flurry / bind exchange (shipped)
+
+**Status:** **Done** (2026-05-18) — playbook [P4g](#p4g--tier-45-flurry-pilot). Counter-tempo (**4.2**) remains the primary riposte path; **4.5** adds **bounded bind exchanges** after hard bind deflect (see [`HEMA_ZONES`](HEMA_ROADMAP_AND_SOURCES.md#hema-zones-feints-flurries-investigation) for design depth).
+
+| Deliverable | Modules |
+|-------------|---------|
+| Window keys | **`flurry_until`**, **`flurry_against_id`**, **`flurry_exchanges_left`** — **`CombatFlurryBind`** |
+| Open on bind deflect | **`AttackResultApplier`** → **`open_pair_after_bind`** |
+| Wind-up + stamina | **`AttackWindUpStarter`**, **`AttackResultApplier`** — **`FLURRY_BIND_WIND_UP_MULT`**, **`FLURRY_BIND_STAMINA_ATTACK_COST_MULT`** |
+| Listing restrict | **`CombatMeleeListing`** — melee only vs bind partner while active |
+| UI | **`CombatUiHints`**, **`BattleUIUpdater`** — “Bind exchange” gauge suffix |
+| Flag | **`FEATURE_FLURRY_BIND_EXCHANGE`** default **true** |
+
+**Live path:** [`AI_ENGAGEMENT` §4.5](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-45-flurry-bind-exchange-live-path) · harness grep **`_run_flurry_*`**.
+
+**Exit criteria:** **[x]** [P4g](#p4g--tier-45-flurry-pilot) complete · Tier **7.3** **[x]**.
+
+---
+
+<a id="tier-62-dedicated-flee-formation-action"></a>
+
+### Tier 6.2 — Dedicated flee formation action
+
+**Status:** **Done** (2026-05-18) — playbook [P4f](#p4f--tier-62-flee-formation-action). Distinct **`flee`** vs in-line **`fall_back`**; mobile cowering lists flee in formation engagement when **`CombatFormationFlee.flee_action_legal`** passes.
+
+| Deliverable | Modules |
+|-------------|---------|
+| **`MOVE_ID_FLEE`** + listing | `CombatConstants.gd`, `CombatFormationMoveListing.gd`, `CombatMobilityRetreat.gd` |
+| Resolve + slot clear + winner | `CombatFormationFlee.gd`, `CombatResolveAction.gd`, `CombatManager._check_for_winner` |
+| AI weight | `CombatAIActionPicker.gd` |
+| UI / log | `BattleUIUpdater.gd`, `CombatPlayerTurnHints.gd`, `CombatLogFormatter.gd` |
+| Medical teardown | `MedicalPhaseController._reset_fled_and_combat_absent` |
+| Live path | [`MEDICAL` §6.2](MEDICAL_PAIN_INCAPACITATION.md#tier-62-flee-formation-action-live-path) |
+| Harness | **`_run_flee_*`**, **`_run_medical_mobility_cowering_lists_flee_in_formation_mode`**, **`_run_medical_phase_clears_fled_combatant_state`**, **`_run_combat_log_formatter_fled_outcome`** |
+
+**Exit criteria:** **[x]** [P4f](#p4f--tier-62-flee-formation-action) complete · **`run_all()`** green.
+
+---
+
+<a id="tier-110-automatic-doctrine-pilot"></a>
+
+### Tier 1.10 — Automatic doctrine pilot (optional)
+
+**Status:** **Done** (2026-05-17) — playbook [P4c](#p4c--tier-110-automatic-doctrine-pilot). **`CombatDoctrine.evaluate_automatic_doctrine`** from **`CombatFormationEngagement.recompute_all`** · **`FEATURE_AUTOMATIC_DOCTRINE`** **true**.
+
+**Exit criteria:** **[x]** Flag on · **`_run_automatic_doctrine_*`** · **`run_all()`** green.
 
 ---
 
@@ -394,20 +899,43 @@ Then implement **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** 
 | `REGRESSION_HARNESS_MAP_TIER19.md` | Exhaustive **`_run_*` registry** + tier index → live paths — **keep in sync** when adding harnesses |
 | `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` | Tier 1 **spec**: §1 → master [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic); §2 mirror; §4–§6 plugs / dictionary / tuning |
 | `COMBAT_ROADMAP_AND_STAMINA.md` | Historical phases, stamina, snapshot; top **Plan / code** — plan overrides checklists |
-| `TACTICAL_ZONES_BREACH_MOVEMENT.md` | ZoC / breach narrative — **Tier 2.1** (sync when intrusion gate **true**) |
+| `TACTICAL_ZONES_BREACH_MOVEMENT.md` | ZoC / breach narrative — **Tier 2.1** (sync when [line-crash gate](#development-gate-line-crash--intrusions-temporary) **true**; §4.5 / §10.3 also for [sector-surround gate](#development-gate-sector-surround-load-temporary)) |
 | `TACTICAL_FORMATIONS_FF4.md` | FF4 formation model — Tier **2.2**; top **Plan / code** |
 | `AI_ENGAGEMENT_STANCE_AND_FEINTS.md` | Tier **4** investigations + live-path tables [4.1](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path)–[4.4](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path); **Status** → plan §§ [4.1](#tier-41-posture--stance-weights-ai-listing)–[4.4](#tier-44-spatial-footwork-deferred) only |
 | `PARRY_BIND_AND_WEAPON_GEOMETRY.md` | Tier **3.1–3.2** [live paths](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path); **`weapon/*.gd`** = **3.0** |
 | `PARRY_DEFLECT_AND_CALIBRATION.md` | Deflect calibration investigations → [3.2 live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) |
 | `GUARDS_LINES_AFTERBLOW.md` | Tier **3.3** — [live path](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) at top; investigations below |
 | `PHYSICS_DAMAGE_AND_FLOW.md` | Tier **5.1** — [kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit); investigations below |
-| `MEDICAL_PAIN_INCAPACITATION.md` | Tier **6** [6.1 live path](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path); investigations below |
+| `MEDICAL_PAIN_INCAPACITATION.md` | Tier **6** [6.1](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) + [6.2 flee](MEDICAL_PAIN_INCAPACITATION.md#tier-62-flee-formation-action-live-path); investigations below |
 | `HEMA_ROADMAP_AND_SOURCES.md` | Tier **7** (non-blocking); top **Plan / code** |
 
 ---
 
 ## Changelog
 
+- **2026-05-18 (investigation-fix):** **`COMBAT_DEBUG`** / **`COMBAT_EVENT_DEBUG`** / **`COMBAT_EVENT_DEBUG_VERBOSE`** default **false**; **`CombatPlayerTurnHints`** formation duration on player turn-ready; **`AttackWindUpStarter`** rejects **`move_id`** not on weapon; **`.gitignore`** **`_harness*.txt`**; harness **`_run_formation_move_duration_player_turn_hint_from_listed_actions`**, **`_run_wind_up_rejects_move_not_on_weapon`**; **`COMBAT_ROADMAP`** Phase **5** duration/armor rows.
+- **2026-05-18 (tier-75-catalog):** **`impact_station_mean`** on **all** move defs + **`WeaponConstants.get_all_move_ids()`**; harness **`_run_impact_station_mean_every_move_def_tagged`**, feint/pole ordering; Tier **7** + **7.5** → **Done**.
+- **2026-05-18 (tier-75-pilot):** Per-move **`impact_station_mean`** pilot on five moves; harness **`_run_impact_station_mean_*`**; [7.5 live path](#tier-75-weapon-part-fidelity-live-path) updated.
+- **2026-05-18 (tier-75-scope):** [Tier **7.5** live path](#tier-75-weapon-part-fidelity-live-path) — shipped slice (parts, commit, blade station roll) vs deferred per-move catalog; audit table + plan header Tier **2** sync wording; registry Tier **7.5** harness paragraph.
+- **2026-05-18 (roadmap-sync):** **`COMBAT_ROADMAP_AND_STAMINA.md`** — Phase **2** stamina economics **[x]** (Tier **7.2** / **P4a** step **4**); Phase **5** hit-interrupt → Tier **0.2**; **`REGRESSION_HARNESS_MAP`** Tier **7** depletion harness names.
+- **2026-05-18 (tier-02):** Tier **0.2** marked **Done** — hit-cancel on pair/solo formation moves + **`CombatIncomingParryChoice`** **`can_parry_all`** batching already in code/harness; [0.2 live path](#tier-02-formation-hit-reaction-incoming-parry).
+- **2026-05-18 (post-p4):** Tier expansion audit pass 3; **P4** backlog marked complete; **§B B5** **[x]**; [post-expansion backlog](#post-expansion-backlog); purpose line + **P1** soak list updated.
+- **2026-05-18 (p4h):** **P4h** shipped — bind-riposte table locked (**stab 0.55** / **cut 0.78** / **blunt 0.90**); harness **`_run_bind_riposte_archetype_ordering_spear_faster_than_mace`**; [`PARRY_BIND` §3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) table; expansion backlog **P4a–P4h** complete.
+- **2026-05-18 (p4g):** **P4g** shipped — **`FEATURE_FLURRY_BIND_EXCHANGE := true`**; **`consume_exchange_on_wind_up_start`** only when flurry mult applies; harness **`_run_flurry_bind_feature_flag_respects_runtime_toggle`**; Tier **4.5** / **7.3** **Done**; [§4.5 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-45-flurry-bind-exchange-live-path).
+- **2026-05-18 (p4e-p4f):** **P4e** + **P4f** shipped — feint listing × **`_feint_readiness_reveal_mult`** (**`_run_feint_move_listing_reveal_progress_dampens_early_wind_up`**); **`MOVE_ID_FLEE`** via **`CombatFormationFlee`** (**`_run_flee_*`**, cowering flee list, medical fled reset, combat log); Tier **4.2b** / **6.2** / **7.4** **Done**; [`MEDICAL` §6.2 live path](MEDICAL_PAIN_INCAPACITATION.md#tier-62-flee-formation-action-live-path); next expansion → **P4g** / **P4h**.
+- **2026-05-17 (tier-0-2):** Tier **0.2** — armor duration hints, hit-reaction harness, **`CombatIncomingParryChoice`** pilot + **`_run_incoming_parry_*`** / **`_run_formation_hit_reaction_*`** / **`_run_formation_move_duration_heavy_armor_*`**.
+- **2026-05-17 (tier-0-1):** Tier **0.1** + **1.10** + **7.2** marked **Done**; **`rotate_file`** listed in **`CombatFormationMoveListing`**; harness **`_run_rotate_file_*`**, **`_run_resolve_close_attempt_long_success_*`**, **`_run_automatic_doctrine_pinch_via_formation_recompute`**; **`FEATURE_AUTOMATIC_DOCTRINE`** default **true**.
+- **2026-05-17 (plan-p4):** [Expansion backlog (P4 playbooks)](#expansion-backlog-p4-playbooks) **P4a–P4h** with step tables + exit criteria; Tier **0.1**, **1.10**, expanded **4.5** / **6.2**; §B **B5** → playbooks; README + doc map pointers.
+- **2026-05-17 (tier-audit-2):** [Tier expansion audit](#tier-expansion-audit-2026-05-17) pass 2 — per-tier improvement table (automatic doctrine, formation UI, stale **`PARRY_BIND`** §1, feint listing parity, **7.5** scope); quick-win list.
+- **2026-05-17 (tier-audit):** [Tier expansion audit](#tier-expansion-audit-2026-05-17) — Tier **7** → **Partial** (**7.1** done, **7.2–7.5** open); new **4.5** flurry + **6.2** flee stubs; at-a-glance + dependency chain / mermaid parity with gates **on**; **P4** points at expansion table.
+- **2026-05-17 (tier-7):** Tier **7.1** shipped slice — intensity-scaled attack stamina (**`stamina_attack_cost_from_intensity`**), fatigued **`action_ready_cooldown`** mult, bind **`parry_deflect`** gauge bonus; harness **`_run_tier7_*`**; plan [live path](#tier-7-live-path) + milestone **Done**.
+- **2026-05-17 (post-gate-c):** Post-gate harness — **`_run_resolve_crash_success_applies_intruder_wedge_and_slots`** (bullet **5** headless); **`_run_surround_production_path_dampens_defense_vs_compressed_flanks`** (P1′); helpers **`_harness_equip_heavy_crash_kit`**, **`_harness_find_living_at_rank_file`**.
+- **2026-05-17 (phase-b):** **Phase B shipped** — **`FEATURE_LINE_CRASH_INTRUSION := true`**; **`CRASH_INTRUSION_MIN_ARMOR_MASS_KG`** **17.0** (matches six-piece plate kit mass); harness **`_run_crash_listed_when_intrusion_enabled_in_formation`**; Tier **2** **Done**; docs **`TACTICAL_ZONES`**, **`TACTICAL_FORMATIONS_FF4`**, **`ENGAGEMENT_*`** §2.8.
+- **2026-05-17 (phase-a):** **Phase A shipped** — **`_feature_sector_surround_load := true`** in `CombatConstants.gd`; production stamps **`surround_threat_weight_sum`** on **`pa`** (`AttackResolver`); harness **`run_all()`** green; docs **`TACTICAL_ZONES`** §4.6 / §10.3 B2 + [Phase A exit](#phase-a--sector-surround-enable-tier-31) **[x]**; next phase → **B**.
+- **2026-05-17 (doc-m):** [Next implementation phase](#next-implementation-phase) — **Phase A** (sector surround) + **Phase B** (line crash) playbooks with step tables and exit checklists; dependency chain **§A** / **§B**; backlog **P2a** / **P1′**; Tier **2** rows tied to phases.
+- **2026-05-17 (doc-l):** Mirror fixes — **`ENGAGEMENT_*`** §2.8 **Todo** ↔ Tier **2**; §4 **`CombatPairGeometry`** readers; **COMBAT_ROADMAP** / **TACTICAL_FORMATIONS_FF4** status → [all tiers at a glance](#all-tiers-at-a-glance); Tier **0** resolve/defense row; **P2** independent of intrusion flag; changelog anchor alias **`tier-1--engagement-geometry-active-track`**.
+- **2026-05-17 (doc-k):** Pre-forward pass — [all tiers at a glance](#all-tiers-at-a-glance); feature-toggle table; Tier **3–6** **Status** columns; post-milestone [implementation phase gate](#implementation-phase-gate); **before you add a new combat tier** checklist; dependency **10** = Tier **2 Todo**; line-crash gate lists **`CombatCrashActions`**; purpose line = maintain + gates (not “execute all tiers”).
+- **2026-05-17 (doc-j):** Plan ordering pass — [sector surround gate](#development-gate-sector-surround-load-temporary); dependency chain **11–21** (**shipped** + sector surround + Tier **6.1**); expanded [next coding step](#next-coding-step) backlog table; Tier **0** / **1.9** module ownership; Tier **2** **Status** column; mermaid through **5.1** / **6.1**; Tier **4.3** sub-step note. Live paths: **`PARRY_BIND`** §3.1, **`MEDICAL`** §6.1, harness registry depth-polearm owner names.
 - **2026-05-17 (6.1-done):** Tier **6.1** **Done** — mobility / cowering retreat live path in **`MEDICAL_PAIN_INCAPACITATION.md`**; **`handle_action_ready`** for mobile cowering; harness **`_run_medical_mobility_cowering_action_ready_fills_gauge_for_mobile`**; plan exit + registry.
 - **2026-05-17 (6.1-fb):** Solo **`fall_back`** uses per-file frontline plug check (**`formation_has_frontline_fill_opportunity_at_file`**) so vacancy in another lane does not block cowering retreat; **`run_all()`** green.
 - **2026-05-17 (harness-split):** **`CombatRegressionHarnessKinematicTail.gd`** — Tier **5.1** optional long-tail kinematic tests split from main harness (Godot compile size); **`run_all`** calls **`_KinematicTail.run`**.

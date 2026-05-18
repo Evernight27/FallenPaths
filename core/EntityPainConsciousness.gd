@@ -3,12 +3,13 @@ extends RefCounted
 
 ## Pain aggregation, consciousness, pain shock, and performance modifiers.
 ## Entity must have: wounds, body_max, species, consciousness, effective_consciousness,
-## _consciousness_dirty, _pain_shock_until_time, _last_hit_impact, blood_volume, body_cutting,
+## _consciousness_dirty, _pain_shock_until_time, _last_hit_impact, _ambient_pain_shock_accum, blood_volume, body_cutting,
 ## body_blunt, endurance, perception, agility; signals health_changed, creature_incapacitated.
 
 const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 
 # --- Pain contribution (single wound; used for pain-shock from hit) ---
 
@@ -122,6 +123,42 @@ static func try_enter_pain_shock_from_hit(entity: Node, pain_from_this_hit_raw: 
 	var duration: float = _PainConscious.get_pain_shock_duration_seconds(pain_value, entity._last_hit_impact)
 	entity._pain_shock_until_time = now + duration
 	entity._last_hit_impact = 0.0
+
+
+## Sustained high pain during combat (no new hit). Returns true when shock was entered this tick.
+static func try_ambient_pain_shock_tick(entity: Node, delta: float) -> bool:
+	if not _CombatConstants.is_feature_ambient_pain_shock():
+		return false
+	if entity == null or delta <= 0.0:
+		return false
+	var now: float = _CombatTiming.now_seconds()
+	if entity._pain_shock_until_time >= 0.0 and now < entity._pain_shock_until_time:
+		entity._ambient_pain_shock_accum = 0.0
+		return false
+	var pain_value: float = get_effective_pain_for_thresholds(entity)
+	var shock_thresh: float = _PainConscious.get_pain_shock_threshold()
+	shock_thresh += (float(entity.endurance) - 100.0) * 0.02
+	if pain_value <= shock_thresh:
+		entity._ambient_pain_shock_accum = 0.0
+		return false
+	entity._ambient_pain_shock_accum += delta
+	if entity._ambient_pain_shock_accum < _PainConscious.PAIN_SHOCK_AMBIENT_CHECK_INTERVAL_S:
+		return false
+	entity._ambient_pain_shock_accum = 0.0
+	var risk: float = minf(
+		1.0,
+		(pain_value - shock_thresh)
+		* _PainConscious.PAIN_SHOCK_AMBIENT_RISK_PER_POINT
+		* _PainConscious.PAIN_SHOCK_AMBIENT_RISK_MULT
+	)
+	risk = minf(1.0, risk * _PainConscious.get_pain_shock_susceptibility_mult(pain_value))
+	if randf() >= risk:
+		return false
+	var duration: float = _PainConscious.get_pain_shock_duration_seconds(pain_value, 0.0)
+	entity._pain_shock_until_time = now + duration
+	entity._consciousness_dirty = true
+	return true
+
 
 static func update_consciousness(entity: Node) -> void:
 	var head_cut: float = entity.body_cutting.get("head", 0.0)

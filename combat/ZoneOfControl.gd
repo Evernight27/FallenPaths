@@ -3,9 +3,19 @@ extends RefCounted
 
 ## Phase 4: Zone of control per formation (front, left_flank, right_flank, rear).
 ## Control 0..1 from alive/capacity, casualties in slots, and cross-zone support.
-## **`assign_combatant_zones`**, **`count_alive_in_zone`** (zone strength), and ZoC **engagement parry** use **`formation_dict_for_zone_geometry`** / **`formation_id_for_zone_geometry`**
+## **`assign_combatant_zones`**, **`count_alive_in_zone`** (zone strength), and ZoC **engagement parry** use **`zone_geometry_for_combatant`** / **`zone_geometry_fid_str`**
 ## so intruders read **host** `files`/`ranks`/`zone_control` (their `rank`/`file` are on the defender grid; home `formation_id` stays roster-side).
 ## See docs/COMBAT_ROADMAP_AND_STAMINA.md Phase 4.
+##
+## Zone geometry API (host line vs home roster):
+## - Host-line fid only: **`zone_geometry_fid_str`**
+## - Formation dict on that line: **`formation_for_combatant_cached`** (pass **`zone_geometry_line_context(...).formation`** as cache)
+## - Fid + formation (one resolve): **`zone_geometry_line_context`** → **`zone_geometry_fid_from_pack`** / **`zone_geometry_formation_from_pack`**
+## - Per-pass cache: **`zone_geometry_line_context_by_combatant_id`**
+## - Pair: **`zone_geometry_for_pair`** + **`zone_geometry_*_from_pair_pack`**
+## - Snapshot/UI row: **`zone_geometry_fid_from_row`** (stamped **`zone_geometry_fid`**, else resolve)
+## - Home roster / doctrine: **`CombatantEntityAccess.formation_id_str`** (not host-line fid)
+## Legacy aliases: **`formation_id_for_zone_geometry`**, **`formation_dict_for_zone_geometry`**.
 
 const ZONE_FRONT := "front"
 const ZONE_LEFT_FLANK := "left_flank"
@@ -41,7 +51,7 @@ static func intrusion_host_fid(c: Dictionary) -> String:
 
 ## Intruders use **host** formation ZoC (they occupy host `slots`); line fighters use `formation_id`.
 ## When `manager` is non-null, missing/empty host formation dict falls back to home `formation_id` (stale-flag guard; same rule as pair-distance geometry).
-static func formation_id_for_zone_geometry(manager: Node, c: Dictionary) -> String:
+static func _resolve_zone_geometry_fid(manager: Node, c: Dictionary) -> String:
 	if is_intruded(c):
 		var hf: String = intrusion_host_fid(c)
 		if not hf.is_empty():
@@ -55,22 +65,154 @@ static func formation_id_for_zone_geometry(manager: Node, c: Dictionary) -> Stri
 	return _EntityAccess.formation_id_str(c)
 
 
-## Read-only: **`manager.formations[fid]`** for **`formation_id_for_zone_geometry(manager, combatant)`**. `{}` if missing.
-## Use for posture, **`breached_files`**, crash AI cohesion/posture, and listed hostile breach weights — one path with intruder host-line **`fid`**.
-## When **`zone_geometry_fid`** is non-empty, it must be **`formation_id_for_zone_geometry(manager, combatant)`** from the same call site (skips a second resolution).
+static func formation_id_for_zone_geometry(manager: Node, c: Dictionary) -> String:
+	return _resolve_zone_geometry_fid(manager, c)
+
+
+## Read-only: **`manager.formations[fid]`** for zone geometry on **`combatant`**. `{}` if missing.
+## When **`zone_geometry_fid`** is non-empty, it must match **`_resolve_zone_geometry_fid`** (skips a second resolution).
 static func formation_dict_for_zone_geometry(
 	manager: Node, combatant: Dictionary, zone_geometry_fid: String = ""
 ) -> Dictionary:
+	return zone_geometry_formation_from_pack(
+		zone_geometry_for_combatant(manager, combatant, zone_geometry_fid)
+	)
+
+
+## Resolved host-line **`fid`** + formation record for one combatant (**`zone_geometry_fid`** optional cache).
+static func zone_geometry_for_combatant(
+	manager: Node,
+	combatant: Dictionary,
+	zone_geometry_fid: String = ""
+) -> Dictionary:
 	if manager == null or combatant.is_empty():
-		return {}
+		return {"fid": "", "formation": {}}
 	var fid: String = (
 		zone_geometry_fid
 		if not zone_geometry_fid.is_empty()
-		else formation_id_for_zone_geometry(manager, combatant)
+		else _resolve_zone_geometry_fid(manager, combatant)
 	)
 	if fid.is_empty():
-		return {}
-	return _FormationSlots.formation_record_for_manager(manager, fid)
+		return {"fid": "", "formation": {}}
+	return {
+		"fid": fid,
+		"formation": _FormationSlots.formation_record_for_manager(manager, fid),
+	}
+
+
+## Pair snapshot for geometry, ZoC, and targeting (**`zone_geometry_fid_*`** optional caches).
+static func zone_geometry_for_pair(
+	manager: Node,
+	a: Dictionary,
+	b: Dictionary,
+	zone_geometry_fid_a: String = "",
+	zone_geometry_fid_b: String = ""
+) -> Dictionary:
+	var za: Dictionary = zone_geometry_for_combatant(manager, a, zone_geometry_fid_a)
+	var zb: Dictionary = zone_geometry_for_combatant(manager, b, zone_geometry_fid_b)
+	return {
+		"fid_a": zone_geometry_fid_from_pack(za),
+		"formation_a": zone_geometry_formation_from_pack(za),
+		"fid_b": zone_geometry_fid_from_pack(zb),
+		"formation_b": zone_geometry_formation_from_pack(zb),
+	}
+
+
+## Read **`zone_geometry_for_pair`** packs (no re-resolve).
+static func zone_geometry_fid_a_from_pair_pack(zg: Dictionary) -> String:
+	return str(zg.get("fid_a", ""))
+
+
+static func zone_geometry_fid_b_from_pair_pack(zg: Dictionary) -> String:
+	return str(zg.get("fid_b", ""))
+
+
+static func zone_geometry_formation_a_from_pair_pack(zg: Dictionary) -> Dictionary:
+	var f: Variant = zg.get("formation_a", null)
+	return f as Dictionary if f is Dictionary else {}
+
+
+static func zone_geometry_formation_b_from_pair_pack(zg: Dictionary) -> Dictionary:
+	var f: Variant = zg.get("formation_b", null)
+	return f as Dictionary if f is Dictionary else {}
+
+
+## **`fid`** + **`formation`** for one combatant (single **`zone_geometry_for_combatant`** resolve).
+## Same key layout as that pack — use **`zone_geometry_fid_from_pack`** / **`zone_geometry_formation_from_pack`** on the result.
+static func zone_geometry_line_context(
+	manager: Node, combatant: Dictionary, zone_geometry_fid: String = ""
+) -> Dictionary:
+	var zg: Dictionary = zone_geometry_for_combatant(manager, combatant, zone_geometry_fid)
+	return {
+		"fid": zone_geometry_fid_from_pack(zg),
+		"formation": zone_geometry_formation_from_pack(zg),
+	}
+
+
+## One **`zone_geometry_line_context`** per alive combatant id (O(n) band/listing pass cache).
+static func zone_geometry_line_context_by_combatant_id(manager: Node) -> Dictionary:
+	var out: Dictionary = {}
+	if manager == null:
+		return out
+	for cc in manager.combatants:
+		if not _EntityAccess.alive_bool(cc):
+			continue
+		out[_EntityAccess.id_int(cc)] = zone_geometry_line_context(manager, cc)
+	return out
+
+
+## Formation record: use **`formation_cache`** when already resolved; else **`zone_geometry_for_combatant`**.
+static func formation_for_combatant_cached(
+	manager: Node,
+	combatant: Dictionary,
+	formation_cache: Variant = null,
+	zone_geometry_fid: String = ""
+) -> Dictionary:
+	if formation_cache != null and formation_cache is Dictionary:
+		return formation_cache as Dictionary
+	var zg: Dictionary = zone_geometry_for_combatant(manager, combatant, zone_geometry_fid)
+	var f: Variant = zg.get("formation", null)
+	if f is Dictionary:
+		return f as Dictionary
+	return {}
+
+
+## Resolved host-line formation id (**`zone_geometry_fid`** optional cache). Does not load **`formations[fid]`**.
+static func zone_geometry_fid_str(
+	manager: Node, combatant: Dictionary, zone_geometry_fid: String = ""
+) -> String:
+	if not zone_geometry_fid.is_empty():
+		return zone_geometry_fid
+	if manager == null or combatant.is_empty():
+		return ""
+	return _resolve_zone_geometry_fid(manager, combatant)
+
+
+## Snapshot **`zone_geometry_fid`** when stamped; else **`zone_geometry_fid_str`** (or home **`formation_id`** if no manager).
+static func zone_geometry_fid_from_row(manager: Node, combatant: Dictionary) -> String:
+	var z: String = str(combatant.get("zone_geometry_fid", "")).strip_edges()
+	if not z.is_empty():
+		return z
+	if manager != null and not combatant.is_empty():
+		return zone_geometry_fid_str(manager, combatant)
+	return _EntityAccess.formation_id_str(combatant)
+
+
+## **`fid`** / **`formation`** from an existing **`zone_geometry_for_combatant`** pack (no re-resolve).
+static func zone_geometry_fid_from_pack(zg: Dictionary) -> String:
+	return str(zg.get("fid", ""))
+
+
+static func zone_geometry_formation_from_pack(zg: Dictionary) -> Dictionary:
+	var f: Variant = zg.get("formation", null)
+	return f as Dictionary if f is Dictionary else {}
+
+
+## True when **`combatant`**'s zone-geometry **`fid`** equals **`fid`** (host line for intruders).
+static func combatant_on_zone_geometry_fid(manager: Node, combatant: Dictionary, fid: String) -> bool:
+	if fid.is_empty() or combatant.is_empty():
+		return false
+	return zone_geometry_fid_from_row(manager, combatant) == fid
 
 
 ## Intruder whose `intrusion_host_fid` is set and equals `host_fid` (home formation column / host line id).
@@ -111,7 +253,7 @@ static func count_alive_in_zone(manager: Node, fid: String, zone: String) -> int
 	for c in manager.combatants:
 		if not _EntityAccess.alive_bool(c):
 			continue
-		if formation_id_for_zone_geometry(manager, c) != fid:
+		if not combatant_on_zone_geometry_fid(manager, c, fid):
 			continue
 		if zone_for_cell(files, ranks, _EntityAccess.rank_int(c), _EntityAccess.file_int(c)) == zone:
 			n += 1
@@ -260,7 +402,7 @@ static func assign_combatant_zones(manager: Node) -> void:
 		if not _EntityAccess.alive_bool(c):
 			continue
 		# Intruders use host formation grid (`rank`/`file` on defender slots); home `formation_id` stays roster side.
-		var formation: Dictionary = formation_dict_for_zone_geometry(manager, c)
+		var formation: Dictionary = formation_for_combatant_cached(manager, c, null)
 		if formation.is_empty():
 			c["zone_id"] = ""
 			c["occupied_zone_id"] = ""
@@ -294,18 +436,17 @@ static func format_zone_control_line(manager: Node, _side: String) -> String:
 ## Formation vs formation (both files >= 2): ZoC-based flank/rear parry mult on defender.
 ## Otherwise pack-style fallback: effective file spacing (wedge/lane_offset-aware) ≥ `PARRY_FLANK_EFFECTIVE_FILES_MIN`, else |Δfile| ≥ 2 (Tier 3.1).
 static func get_engagement_parry_multiplier(manager: Node, attacker_id: int, defender_id: int) -> float:
-	var atk = manager._get_by_id(attacker_id)
-	var tgt = manager._get_by_id(defender_id)
-	if atk == null or tgt == null:
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+	if atk.is_empty() or tgt.is_empty():
 		return 1.0
 	if not is_zoc_flanking_enabled(manager):
 		return _engagement_parry_mult_pack_fallback(manager, atk, tgt)
-	if _EntityAccess.side_str(atk) == _EntityAccess.side_str(tgt):
+	if not _EntityAccess.is_alive_opponent_of(atk, tgt):
 		return _engagement_parry_mult_pack_fallback(manager, atk, tgt)
-	var fid_atk: String = formation_id_for_zone_geometry(manager, atk)
-	var fid_def: String = formation_id_for_zone_geometry(manager, tgt)
-	var fa: Dictionary = formation_dict_for_zone_geometry(manager, atk, fid_atk)
-	var fd: Dictionary = formation_dict_for_zone_geometry(manager, tgt, fid_def)
+	var zg: Dictionary = zone_geometry_for_pair(manager, atk, tgt)
+	var fa: Dictionary = zone_geometry_formation_a_from_pair_pack(zg)
+	var fd: Dictionary = zone_geometry_formation_b_from_pair_pack(zg)
 	if _zoc_pair_uses_wide_line_geometry(fa, fd):
 		return _engagement_parry_mult_zoc(manager, tgt, fd)
 	return _engagement_parry_mult_pack_fallback(manager, atk, tgt, fa, fd)
@@ -342,10 +483,10 @@ static func _engagement_parry_mult_pack_fallback(
 	formation_def_cache: Variant = null
 ) -> float:
 	if manager != null:
-		# Runtime load avoids parse cycle: AvailableActionsBuilder preloads ZoneOfControl.
-		var ab: Variant = load("res://combat/AvailableActionsBuilder.gd")
-		if ab != null:
-			var eff: float = ab.effective_pair_file_spacing_equivalent(
+		# Runtime load avoids parse cycle: CombatPairGeometry preloads ZoneOfControl.
+		var pg: Variant = load("res://combat/CombatPairGeometry.gd")
+		if pg != null:
+			var eff: float = pg.effective_pair_file_spacing_equivalent(
 				manager, atk, tgt, formation_atk_cache, formation_def_cache
 			)
 			if eff + 1e-4 >= CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN:
@@ -366,16 +507,8 @@ static func geometric_reach_extent_multiplier(
 ) -> float:
 	if not is_zoc_flanking_enabled(manager):
 		return 1.0
-	var fo: Dictionary = (
-		(our_formation_cache as Dictionary)
-		if our_formation_cache != null and our_formation_cache is Dictionary
-		else formation_dict_for_zone_geometry(manager, our)
-	)
-	var fe: Dictionary = (
-		(opp_formation_cache as Dictionary)
-		if opp_formation_cache != null and opp_formation_cache is Dictionary
-		else formation_dict_for_zone_geometry(manager, opp)
-	)
+	var fo: Dictionary = formation_for_combatant_cached(manager, our, our_formation_cache)
+	var fe: Dictionary = formation_for_combatant_cached(manager, opp, opp_formation_cache)
 	if fo.is_empty() or fe.is_empty():
 		return 1.0
 	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:
@@ -396,16 +529,8 @@ static func mid_reach_files(
 ) -> int:
 	if not is_zoc_flanking_enabled(manager):
 		return 1
-	var fo: Dictionary = (
-		(our_formation_cache as Dictionary)
-		if our_formation_cache != null and our_formation_cache is Dictionary
-		else formation_dict_for_zone_geometry(manager, our)
-	)
-	var fe: Dictionary = (
-		(opp_formation_cache as Dictionary)
-		if opp_formation_cache != null and opp_formation_cache is Dictionary
-		else formation_dict_for_zone_geometry(manager, opp)
-	)
+	var fo: Dictionary = formation_for_combatant_cached(manager, our, our_formation_cache)
+	var fe: Dictionary = formation_for_combatant_cached(manager, opp, opp_formation_cache)
 	if fo.is_empty() or fe.is_empty():
 		return 1
 	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:
@@ -457,13 +582,13 @@ static func get_opponent_pressure_duration_multiplier(manager: Node, fid: String
 	var our_side: String = _FormationSlots.formation_side_str(formation)
 	if our_side.is_empty():
 		return CombatConstants.PRESSURE_MOD_NEUTRAL
-	var opp_side: String = "enemy" if our_side == "player" else "player"
+	var opp_side: String = _EntityAccess.opponent_side_label(our_side)
 	var front_count: int = 0
 	var stam_sum: float = 0.0
 	var aggressive: bool = false
 	var all_defensive: bool = true
 	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c) or _EntityAccess.side_str(c) != opp_side:
+		if not _EntityAccess.is_alive_on_side(c, opp_side):
 			continue
 		if _EntityAccess.rank_int(c) != 0:
 			continue

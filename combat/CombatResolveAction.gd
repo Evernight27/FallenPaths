@@ -12,8 +12,11 @@ const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
+const _FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
+const _FormationFlee := preload("res://combat/CombatFormationFlee.gd")
+const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 
 
 static func is_medical_move(move_id: String) -> bool:
@@ -21,11 +24,11 @@ static func is_medical_move(move_id: String) -> bool:
 
 
 static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: String, options: Dictionary) -> void:
-	var atk = manager._get_by_id(attacker_id)
-	if atk == null:
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	if atk.is_empty():
 		return
 	if manager.medical_phase:
-		if _EntityAccess.side_str(atk) != manager.medical_phase_winner:
+		if not _EntityAccess.is_on_side(atk, str(manager.medical_phase_winner)):
 			return
 		if not is_medical_move(move_id):
 			return
@@ -67,8 +70,18 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		and not _MobilityRetreat.resolve_move_allowed_when_cannot_melee(move_id, target_id, attacker_id)
 	):
 		return
+	_PlayerTurnHints.clear_formation_listed_turn_hint_on_combatant(atk)
 	if move_id == CombatConstants.MOVE_ID_WAIT:
 		manager.skip_turn(attacker_id, "wait", "explicit wait move")
+		return
+	if move_id == CombatConstants.MOVE_ID_FLEE and target_id == attacker_id:
+		if not _FormationFlee.flee_action_legal(manager, atk):
+			CombatDebug.flow_log(
+				"resolve_action flee rejected id=%d" % attacker_id,
+				"flee_reject:%d" % attacker_id
+			)
+			return
+		_FormationFlee.apply_flee(manager, attacker_id)
 		return
 	if CombatConstants.is_focus_line_move(move_id):
 		var focus_line: String = CombatConstants.guard_line_for_focus_move_id(move_id)
@@ -87,16 +100,12 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		MedicalActionStarter.start(manager, attacker_id, target_id, move_id, part)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return
-	var tgt = manager._get_by_id(target_id)
-	if tgt == null or not _EntityAccess.alive_bool(tgt):
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
+	if tgt.is_empty() or not _EntityAccess.is_alive_in_combat(tgt):
 		return
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-		var dist_close: String = str(
-			_EntityAccess.nested_dictionary_read(atk, "distance_to").get(
-				target_id, CombatConstants.DISTANCE_LONG
-			)
-		)
-		if not _ActionsBuilder._attempt_close_listed_for_pair(manager, atk, target_id, dist_close):
+		var dist_close: String = _EntityAccess.distance_to_opponent_band(atk, target_id)
+		if not _MeleeListing.attempt_close_listed_for_pair(manager, atk, target_id, dist_close):
 			# Stale UI / scripted resolve: same blocked path as `CombatEngagementResolver` (telemetry).
 			manager._resolve_close_attempt(attacker_id, target_id)
 			manager.emit_signal("turn_resolved", attacker_id)
@@ -127,16 +136,17 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			var cowering_solo_retreat: bool = (
 				target_id == attacker_id
 				and _MobilityRetreat.formation_retreat_only_for(atk)
-				and AvailableActionsBuilder.solo_fall_back_action_legal(manager, atk)
+				and _FormationMoves.solo_fall_back_action_legal(manager, atk)
 			)
 			if not cowering_solo_retreat:
 				return
 		if move_id == CombatConstants.MOVE_ID_ROTATE_FILE and not bool(move_policy.get("allow_rotate_file", false)):
 			return
-		var fid_mv: String = _ZoneOfControl.formation_id_for_zone_geometry(manager, atk)
-		var f_mv: Dictionary = _ZoneOfControl.formation_dict_for_zone_geometry(manager, atk, fid_mv)
+		var ctx_mv: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, atk)
+		var fid_mv: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_mv)
+		var f_mv: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_mv)
 		if move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id:
-			if not AvailableActionsBuilder.solo_fall_back_action_legal(manager, atk):
+			if not _FormationMoves.solo_fall_back_action_legal(manager, atk):
 				CombatDebug.flow_log(
 					"resolve_action solo fall_back rejected id=%d fid=%s (discipline/state/breach/fill)"
 					% [attacker_id, fid_mv],
@@ -147,8 +157,8 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		if move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id:
 			breach_blocked = _FormationBreachRules.breach_blocks_open_lane_moves(manager, f_mv)
 		else:
-			var partner_mv = manager._get_by_id(target_id)
-			if partner_mv == null or not _EntityAccess.alive_bool(partner_mv):
+			var partner_mv: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
+			if partner_mv.is_empty() or not _EntityAccess.is_living_same_side(atk, partner_mv):
 				return
 			breach_blocked = _FormationBreachRules.resolve_blocks_formation_move(
 				manager, f_mv, move_id, atk, partner_mv
@@ -218,11 +228,14 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	_TargetScoring.on_combat_commitment(manager, attacker_id, target_id)
 	manager.emit_signal("turn_resolved", attacker_id)
 	if _EntityAccess.state_str(atk) == CombatConstants.STATE_WIND_UP and atk.state_duration > 0.0:
-		manager._schedule_event({
-			"type": CombatConstants.EVENT_MELEE_ATTACK,
-			"combatant_id": attacker_id,
-			"resolve_at": manager.combat_clock + atk.state_duration,
-			"data": {}
-		})
+		_EntityAccess.manager_schedule_event(
+			manager,
+			{
+				"type": CombatConstants.EVENT_MELEE_ATTACK,
+				"combatant_id": attacker_id,
+				"resolve_at": _EntityAccess.combat_clock_plus(manager, atk.state_duration),
+				"data": {},
+			}
+		)
 		if use_counter_tempo and incoming_attacker_id >= 0:
 			_CounterTempo.defer_incoming_melee_after_counter(manager, attacker_id, incoming_attacker_id)

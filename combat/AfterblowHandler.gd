@@ -36,8 +36,8 @@ static func _get_supporting_leg(entity: Node) -> String:
 
 ## Returns true if afterblow was triggered (B's attack resolved). False if hindered, cancelled, or no pending attack.
 static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, result_dict: Dictionary, intensity: float) -> bool:
-	var tgt = manager._get_by_id(target_id) if manager.has_method("_get_by_id") else null
-	if tgt == null:
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
+	if tgt.is_empty():
 		return false
 	var pa: Dictionary = _EntityAccess.nested_dictionary_read(tgt, "pending_attack")
 	if _MedicalPhase.combat_resolution_blocked(manager):
@@ -105,13 +105,16 @@ static func _cancel_pending(manager: Node, tgt: Dictionary) -> void:
 	tgt.state_timer = 0.0
 	tgt.state_duration = CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S
 	var tid: int = _EntityAccess.id_int(tgt)
-	if manager != null and tid >= 0 and manager.has_method("_schedule_event"):
-		manager._schedule_event({
-			"type": CombatConstants.EVENT_RECOVERY_END,
-			"combatant_id": tid,
-			"resolve_at": float(manager.combat_clock) + CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S,
-			"data": {},
-		})
+	if tid >= 0:
+		_EntityAccess.manager_schedule_event(
+			manager,
+			{
+				"type": CombatConstants.EVENT_RECOVERY_END,
+				"combatant_id": tid,
+				"resolve_at": _EntityAccess.combat_clock_float(manager) + CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S,
+				"data": {},
+			}
+		)
 	if CombatDebug.flow_verbose_enabled():
 		CombatDebug.flow_log("afterblow %s hindered swing_cancelled" % _EntityAccess.get_display_name(tgt))
 

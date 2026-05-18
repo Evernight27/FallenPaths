@@ -43,9 +43,9 @@ static func _try_windup_pressure_while_preparing(
 
 
 static func start(manager: Node, combatant_id: int, target_combatant_id: int, medical_id: String, target_part: String) -> void:
-	var c = manager._get_by_id(combatant_id)
-	var target_node = manager._get_by_id(target_combatant_id)
-	if c == null or target_node == null or _EntityAccess.scene_node(target_node) == null:
+	var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
+	var target_node: Dictionary = _EntityAccess.manager_get_combatant(manager, target_combatant_id)
+	if c.is_empty() or target_node.is_empty() or _EntityAccess.scene_node(target_node) == null:
 		return
 	if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
 		return

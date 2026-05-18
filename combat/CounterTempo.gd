@@ -84,7 +84,7 @@ static func incoming_wind_up_meets_progress_gate(manager: Node, defender_id: int
 static func can_act(manager: Node, c: Dictionary) -> bool:
 	if not enabled() or manager == null or c == null:
 		return false
-	if not _EntityAccess.alive_bool(c) or _EntityAccess.is_incapacitated(c):
+	if not _EntityAccess.is_standing_combatant(c):
 		return false
 	if _MobilityRetreat.cannot_commit_melee(c):
 		return false
@@ -92,7 +92,7 @@ static func can_act(manager: Node, c: Dictionary) -> bool:
 		return false
 	if _MedicalPhase.combat_resolution_blocked(manager):
 		return false
-	if not is_window_open(c, float(manager.combat_clock)):
+	if not is_window_open(c, _EntityAccess.combat_clock_float(manager)):
 		return false
 	var def_id: int = _EntityAccess.id_int(c)
 	if incoming_attacker_id(manager, def_id) < 0:
@@ -143,6 +143,15 @@ static func filter_actions_for_counter_tempo(actions: Array, c: Dictionary = {})
 	return out
 
 
+static func actions_include_counter_tempo_tagged(actions: Array) -> bool:
+	for raw in actions:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		if bool((raw as Dictionary).get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
+			return true
+	return false
+
+
 ## UI snapshot: stamped hint when present, else derive from open window + progress gate (read-only).
 static func snapshot_ui_hint(manager: Node, c: Dictionary) -> String:
 	if not enabled() or manager == null or c == null:
@@ -150,7 +159,7 @@ static func snapshot_ui_hint(manager: Node, c: Dictionary) -> String:
 	var stamped: String = str(c.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT, "")).strip_edges()
 	if not stamped.is_empty():
 		return stamped
-	if not is_window_open(c, float(manager.combat_clock)):
+	if not is_window_open(c, _EntityAccess.combat_clock_float(manager)):
 		return ""
 	if can_act(manager, c):
 		return "counter_ready"
@@ -160,7 +169,7 @@ static func snapshot_ui_hint(manager: Node, c: Dictionary) -> String:
 static func _refresh_ui_hint(manager: Node, defender: Dictionary) -> void:
 	if defender == null or manager == null:
 		return
-	if not is_window_open(defender, float(manager.combat_clock)):
+	if not is_window_open(defender, _EntityAccess.combat_clock_float(manager)):
 		defender.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
 		return
 	if can_act(manager, defender):
@@ -181,7 +190,7 @@ static func try_schedule_counter_tempo_ready(manager: Node, defender: Dictionary
 	var def_id: int = _EntityAccess.id_int(defender)
 	var delay_s: float = CombatConstants.COUNTER_TEMPO_ACTION_READY_DELAY_S
 	_EventScheduler.schedule_action_ready(manager, def_id, delay_s)
-	if _EntityAccess.side_str(defender) == "player" and manager.has_method("notify_turn_ready"):
+	if _EntityAccess.is_player_side(defender) and manager.has_method("notify_turn_ready"):
 		manager.notify_turn_ready(def_id)
 
 
@@ -193,7 +202,7 @@ static func on_attacker_wind_up_started(
 	var def_id: int = _EntityAccess.id_int(defender)
 	if def_id < 0:
 		return
-	var until: float = float(manager.combat_clock) + wind_up_s * CombatConstants.COUNTER_TEMPO_WINDOW_FRACTION
+	var until: float = _EntityAccess.combat_clock_float(manager) + wind_up_s * CombatConstants.COUNTER_TEMPO_WINDOW_FRACTION
 	defender[CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL] = until
 	defender.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED)
 	if _EntityAccess.gauge_float(defender) < CombatConstants.COUNTER_TEMPO_GAUGE_THRESHOLD:
@@ -219,7 +228,7 @@ static func defer_incoming_melee_after_counter(
 	var counter: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(counter_id))
 	if counter.is_empty():
 		return
-	var counter_end: float = float(manager.combat_clock) + float(counter.get("state_duration", 0.0))
+	var counter_end: float = _EntityAccess.combat_clock_float(manager) + float(counter.get("state_duration", 0.0))
 	var defer_to: float = counter_end + CombatConstants.COUNTER_TEMPO_INCOMING_DEFER_AFTER_COUNTER_S
 	var incoming_at: float = _EventScheduler.get_pending_melee_attack_resolve_at(manager, deferred_attacker_id)
 	if incoming_at < 0.0:
@@ -250,7 +259,7 @@ static func abort_attacker_wind_up(manager: Node, attacker_id: int) -> void:
 			manager._schedule_event({
 				"type": CombatConstants.EVENT_RECOVERY_END,
 				"combatant_id": attacker_id,
-				"resolve_at": float(manager.combat_clock) + float(atk.state_duration),
+				"resolve_at": _EntityAccess.combat_clock_float(manager) + float(atk.state_duration),
 				"data": {},
 			})
 
@@ -261,7 +270,7 @@ static func process_waiting(manager: Node, c: Dictionary) -> void:
 	var until: float = float(c.get(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL, -1.0))
 	if until < 0.0:
 		return
-	if float(manager.combat_clock) >= until:
+	if _EntityAccess.combat_clock_float(manager) >= until:
 		clear_window(c)
 		return
 	try_schedule_counter_tempo_ready(manager, c)
@@ -278,7 +287,7 @@ static func grant_riposte_chain(manager: Node, defender: Dictionary, attacker_id
 	if manager == null or defender == null or attacker_id < 0:
 		return
 	defender[CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL] = (
-		float(manager.combat_clock) + CombatConstants.RIPOSTE_CHAIN_WINDOW_S
+		_EntityAccess.combat_clock_float(manager) + CombatConstants.RIPOSTE_CHAIN_WINDOW_S
 	)
 	defender[CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID] = attacker_id
 
@@ -287,7 +296,7 @@ static func riposte_chain_windup_mult(manager: Node, attacker: Dictionary, targe
 	if manager == null or attacker == null or target_id < 0:
 		return 1.0
 	var until: float = float(attacker.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL, -1.0))
-	if until <= float(manager.combat_clock):
+	if until <= _EntityAccess.combat_clock_float(manager):
 		return 1.0
 	if int(attacker.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID, -1)) != target_id:
 		return 1.0

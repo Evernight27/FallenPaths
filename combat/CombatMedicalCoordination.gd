@@ -22,12 +22,9 @@ static func count_others_who_can_perform_medical_on_target(manager: Node, exclud
 	for other in manager.combatants:
 		if (
 			_EntityAccess.id_int(other) == exclude_id
-			or not _EntityAccess.alive_bool(other)
-			or _EntityAccess.side_str(other) != manager.medical_phase_winner
+			or not _EntityAccess.is_living_on_side(other, str(manager.medical_phase_winner))
 			or _EntityAccess.scene_node(other) == null
 		):
-			continue
-		if _EntityAccess.is_incapacitated(other):
 			continue
 		var acts: Array = manager.get_available_actions(_EntityAccess.id_int(other))
 		for a in acts:

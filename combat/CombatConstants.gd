@@ -14,6 +14,7 @@ const STATE_MEDICAL_WIND_UP := "medical_wind_up"
 const STATE_RECOVERING := "recovering"
 const STATE_RECEIVING_MEDICAL_ATTENTION := "receiving_medical_attention"
 const STATE_COWERING := "cowering"
+const STATE_FLED := "fled"
 const STATE_DEAD := "dead"
 
 # Power and follow_through (0.2–1.0 each); intensity drives velocity, wind-up, recovery.
@@ -111,12 +112,13 @@ const PARRY_BIND_CONTROL_THRESHOLD := 0.65
 # Non-blade attacks (pommel, mace head): impact weapons, no sustained blade contact → never bind, always deflect.
 const ARCHETYPES_NEVER_BIND: Array[String] = ["pommel_strike", "heavy_blunt"]
 # Bind riposte wind-up: parry_part × contact_type. Extend=fast, wind=moderate, swing=slow. Fallback for missing cells.
+# P4h balance (2026-05-18): stab 0.55 < cut 0.78 < blunt 0.90 — extend vs wind vs swing from bind; harness **`_run_bind_riposte_*`**.
 const PARRY_BIND_RIPOSTE_BY_PART_CONTACT: Dictionary = {
-	"blade": {"stab": 0.52, "cut": 0.75},
-	"shaft": {"stab": 0.54, "cut": 0.80, "blunt": 0.90},
-	"haft": {"stab": 0.53, "cut": 0.78}
+	"blade": {"stab": 0.55, "cut": 0.78},
+	"shaft": {"stab": 0.55, "cut": 0.78, "blunt": 0.90},
+	"haft": {"stab": 0.55, "cut": 0.78}
 }
-const PARRY_BIND_RIPOSTE_MULT_FALLBACK: float = 0.85
+const PARRY_BIND_RIPOSTE_MULT_FALLBACK: float = 0.78
 # Late parry: control penalty (less time to set up proper parry).
 const PARRY_LATE_CONTROL_FACTOR := 0.6
 # Off-balance: control penalty.
@@ -202,7 +204,24 @@ const COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID := "riposte_chain_target_id"
 const PA_KEY_RIPOSTE_CHAIN := "riposte_chain"
 const RIPOSTE_CHAIN_WINDOW_S := 1.5
 const RIPOSTE_CHAIN_WINDUP_MULT := 0.5
+## Tier 4.5 bind-exchange pilot (**`CombatFlurryBind`**): after hard bind deflect, both partners get a short window of faster wind-ups vs each other.
+const FLURRY_BIND_WINDOW_S := 1.25
+const FLURRY_BIND_MAX_EXCHANGES := 2
+const FLURRY_BIND_WIND_UP_MULT := 0.82
+## Attack stamina cost multiplier when exchanging inside an open bind-flurry window vs that target.
+const FLURRY_BIND_STAMINA_ATTACK_COST_MULT := 0.88
+## Tier 4.5: bind-exchange flurry pilot — production **on** (2026-05-18); harness may toggle via **`set_feature_flurry_bind_exchange_load`**.
+const FEATURE_FLURRY_BIND_EXCHANGE := true
+static var _feature_flurry_bind_exchange_enabled: bool = FEATURE_FLURRY_BIND_EXCHANGE
 static var _feature_counter_tempo_enabled: bool = true
+
+
+static func is_feature_flurry_bind_exchange_enabled() -> bool:
+	return _feature_flurry_bind_exchange_enabled
+
+
+static func set_feature_flurry_bind_exchange_load(enabled: bool) -> void:
+	_feature_flurry_bind_exchange_enabled = enabled
 
 
 static func is_feature_counter_tempo_enabled() -> bool:
@@ -285,7 +304,7 @@ static func set_feature_mental_stack_ai_load(enabled: bool) -> void:
 
 ## With feint: if **`parry_readiness * get_stance_modifier(stance, "feint_readthrough")`** ≥ this, treat defender guard focus as the real line for guard-zone parry mult (see **`DefenseChoiceResolver._guard_zone_modifier`**).
 const FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD := 0.9
-## Tier 4.2 telegraph delay: while attacker **`STATE_WIND_UP`** progress is below **`feint_target_reveal_at_progress`** (move + stamped on **`pa`**), **`DefenseChoiceResolver._feint_readiness_reveal_mult`** lerps passive readiness from this toward **1.0** for feint read-through, dodge telegraph, guard-zone, reported **`parry_readiness`**, and passive-parry guard-angle wobble in **`choose_defense`** (**`DefenseResolutionHandler`** reads the same **`dc.parry_readiness`**). Feint-move **listing** in **`CombatAIActionPicker._get_action_weight`** omits this mult. **`0.5`** ≈ early wind-up still bait-heavy.
+## Tier 4.2 telegraph delay: while attacker **`STATE_WIND_UP`** progress is below **`feint_target_reveal_at_progress`** (move + stamped on **`pa`**), **`DefenseChoiceResolver._feint_readiness_reveal_mult`** lerps passive readiness from this toward **1.0** for feint read-through, dodge telegraph, guard-zone, reported **`parry_readiness`**, passive-parry guard-angle wobble in **`choose_defense`**, and feint-move **listing** **`pr_def`** when live **`pending_attack`** targets the listed defender. **`0.5`** ≈ early wind-up still bait-heavy.
 const FEINT_PRE_REVEAL_READINESS_MULT := 0.5
 ## Tier 4.2: **`DefenseChoiceResolver.choose_defense`** may set **`dodge_eval_part`** to **`pa.feint_part`** (telegraph bait) when defender does not read through the feint. Harness-only **`pa`** override: **`PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS`** (**0..1**).
 const FEINT_TELEGRAPH_DODGE_EVAL_BIAS := 0.55
@@ -310,19 +329,21 @@ const GUARD_TRANSITION_MULT_MAX := 1.35
 const PREFERRED_PART_BONUS_MULT := 1.5
 
 # Debug: when true, log detailed melee resolution (per-hit damage line, EntityDamage armor/bone traces, parry paths, wind-up skips). Verbose.
-# On for local validation (spear / back-rank damage, armor traces); set false for quiet runs / release-like testing.
-const COMBAT_DEBUG := true
+# Default false — enable locally for tuning; headless harness uses **`set_headless_harness_quiet(true)`** as well.
+# **`COMBAT_DEV_VERBOSE`** — flip one const to enable COMBAT_DEBUG + COMBAT_EVENT_DEBUG + COMBAT_EVENT_DEBUG_VERBOSE for F5 play.
+const COMBAT_DEV_VERBOSE := false
+const COMBAT_DEBUG := false
 # Calibration: when true, log alignment, parry_c_d, variance, remaining_ratio for tuning to HEMA 57–80% parry share.
 const COMBAT_DEBUG_CALIBRATION := false
 # Flow / feature testing: with `COMBAT_EVENT_DEBUG` alone — turn pick lines (`CombatDebug.flow_log_turn`) and `[Combat.Flow]` prints from `flow_log_turn` only.
 # With `COMBAT_EVENT_DEBUG_VERBOSE` also true — `CombatDebug.flow_log` (get_available_actions, incursion_snapshot, resolve_action, skip_turn, formation resolves),
 # `[Combat]` formation move banners, and `EVENT_ACTION_READY skipped` (state not waiting). Crash summaries may still use `[Combat]` in `CombatEngagementResolver`.
 # Disable in release to reduce console noise. Per-hit stdout damage + armor/bone traces: enable COMBAT_DEBUG; extra before/after part state: COMBAT_DEBUG_CALIBRATION.
-# On for full combat pipeline + depth-polearm `[Combat.Flow]` lines; pair with COMBAT_EVENT_DEBUG_VERBOSE.
-const COMBAT_EVENT_DEBUG := true
+# Default false — set true locally for `[Combat.Flow]` turn/action traces.
+const COMBAT_EVENT_DEBUG := false
 ## When true with `COMBAT_EVENT_DEBUG`, enables verbose `CombatDebug.flow_log` and related high-frequency prints (see block comment above).
 ## Turn pick lines (`flow_log_turn`) still print when only `COMBAT_EVENT_DEBUG` is true.
-const COMBAT_EVENT_DEBUG_VERBOSE := true
+const COMBAT_EVENT_DEBUG_VERBOSE := false
 ## Headless **`run_combat_regression_harness.gd`** sets this so **`combat_debug_active()`** / **`combat_event_debug_active()`** are false (avoids megabytes of stdout and pipe deadlock with `| grep`).
 static var _headless_harness_quiet: bool = false
 
@@ -336,15 +357,15 @@ static func is_headless_harness_quiet() -> bool:
 
 
 static func combat_debug_active() -> bool:
-	return COMBAT_DEBUG and not _headless_harness_quiet
+	return (COMBAT_DEBUG or COMBAT_DEV_VERBOSE) and not _headless_harness_quiet
 
 
 static func combat_event_debug_active() -> bool:
-	return COMBAT_EVENT_DEBUG and not _headless_harness_quiet
+	return (COMBAT_EVENT_DEBUG or COMBAT_DEV_VERBOSE) and not _headless_harness_quiet
 
 
 static func combat_event_debug_verbose_active() -> bool:
-	return combat_event_debug_active() and COMBAT_EVENT_DEBUG_VERBOSE
+	return combat_event_debug_active() and (COMBAT_EVENT_DEBUG_VERBOSE or COMBAT_DEV_VERBOSE)
 
 
 ## With verbose flow: `CombatDebug.flow_log(msg, dedupe_key)` omits a line when it matches the previous line for the same key (UI / tick polling). Set false to log every emission.
@@ -360,9 +381,19 @@ const COMBAT_FORMATION_INVARIANT_DEBUG := false
 # Stamina (separate pool): attack/parry consume; refill when idle.
 # Realism target: stamina shapes execution quality without dominating combat length.
 const STAMINA_MAX := 100.0
-const STAMINA_REFILL_RATE := 6.5   # per second when idle
+## Tier 7.2: idle refill — with attack costs **12–20**, five heavy swings exhaust the pool; ~**5**/s refill keeps sustained exchanges tiring over **~2–3** minutes.
+const STAMINA_REFILL_RATE := 5.0
 const STAMINA_ATTACK_COST_BASE := 12.0
+## Tier 7: `stamina_attack_cost_from_intensity` — light **12**, heavy **20** at intensity **1.0**.
+const STAMINA_ATTACK_COST_SCALE := 8.0
+## Tier 7: flat parry default; prefer **`stamina_parry_cost_from_intensity`** (mirrors attack cost curve).
 const STAMINA_PARRY_COST := 12.0
+const STAMINA_PARRY_COST_BASE := 12.0
+const STAMINA_PARRY_COST_SCALE := 8.0
+## Tier 7: event-driven turn spacing — low stamina lengthens **`action_ready_cooldown`** (gauge-fill analogue).
+const STAMINA_ACTION_READY_DELAY_AT_ZERO_MULT := 1.35
+## Tier 7 / HEMA bind riposte tempo: modest gauge bump on **`parry_deflect`** when **`parry_was_bind`** (stacks with **`READY_DELAY_PARRY_RIPOSTE_S`**).
+const PARRY_BIND_RIPOSTE_GAUGE_BONUS := 28.0
 const STAMINA_AT_ZERO_PARRY_MULT := 0.5
 const STAMINA_AT_ZERO_DAMAGE_MULT := 0.7
 # Non-linear fatigue: moderate curve; low stamina hurts quality but is not a hard cliff.
@@ -372,6 +403,29 @@ const STAMINA_FACTOR_POWER := 0.65
 ## Returns 0-1. At 100% stamina → 1; at 0% → 0. Curve ramps down faster below ~25%.
 static func stamina_factor(ratio: float) -> float:
 	return pow(clampf(ratio, 0.0, 1.0), STAMINA_FACTOR_POWER)
+
+
+## Tier 7: attack stamina spend from wind-up **`intensity`** (0–1).
+static func stamina_attack_cost_from_intensity(intensity: float) -> float:
+	return STAMINA_ATTACK_COST_BASE + STAMINA_ATTACK_COST_SCALE * clampf(intensity, 0.0, 1.0)
+
+
+## Tier 7: defender parry stamina from incoming strike **`intensity`** (same curve as attack cost).
+static func stamina_parry_cost_from_intensity(intensity: float) -> float:
+	return STAMINA_PARRY_COST_BASE + STAMINA_PARRY_COST_SCALE * clampf(intensity, 0.0, 1.0)
+
+
+## Tier 7: multiply **`CombatEventScheduler.action_ready_cooldown`** when fatigued.
+static func action_ready_stamina_delay_mult(stamina_ratio: float) -> float:
+	return lerpf(STAMINA_ACTION_READY_DELAY_AT_ZERO_MULT, 1.0, stamina_factor(stamina_ratio))
+
+
+## Tier 7: HEMA bind deflect — defender gauge bump before next **`EVENT_ACTION_READY`**.
+static func apply_parry_bind_riposte_gauge_bonus(defender: Dictionary) -> void:
+	if defender.is_empty():
+		return
+	var g: float = float(defender.get("gauge", 0.0))
+	defender["gauge"] = minf(100.0, g + PARRY_BIND_RIPOSTE_GAUGE_BONUS)
 
 
 ## Tier 4.2 footwork / tempo: defender stamina curve for **readiness reporting** (feint read-through, guard-zone, dodge telegraph, feint-move listing **`pr_def`**) — same **`lerpf(STAMINA_AT_ZERO_PARRY_MULT, 1.0, stamina_factor(ratio))`** as post-alignment parry capacity uses once on **`parry_c_d`**. **`DefenseChoiceResolver._defender_passive_readiness_stamina_mult`** reads **`stamina / STAMINA_MAX`** from the combatant dict.
@@ -469,7 +523,7 @@ const FLANK_PARRY_MOD := 0.8
 const REAR_PARRY_MOD := 0.7
 ## Pack / protection-circle fallback: flank parry mod when `effective_pair_file_spacing_equivalent` ≥ this (Tier 3.1 — wedge/lane-aware; matches integer |Δfile|≥2 at default spacing).
 const PARRY_FLANK_EFFECTIVE_FILES_MIN := 2.0
-## Abstract strike **measure**: `melee_range / max(effective_pair_eff_dist, floor)` then clamp (Tier 3.1 — `AvailableActionsBuilder.strike_measure_ratio_*`, `StrikeRealismProfile.measure_ratio`).
+## Abstract strike **measure**: `melee_range / max(effective_pair_eff_dist, floor)` then clamp (Tier 3.1 — `CombatStrikeStamping.strike_measure_ratio_*`, `StrikeRealismProfile.measure_ratio`).
 const STRIKE_MEASURE_EFF_DIST_FLOOR := 0.2
 const STRIKE_MEASURE_RATIO_MIN := 0.75
 const STRIKE_MEASURE_RATIO_MAX := 1.12
@@ -497,7 +551,7 @@ const LANE_STRESS_WEDGE_DEPTH_SCALE := 0.22
 const LANE_STRESS_WEDGE_BONUS_MAX := 0.32
 ## --- Tier 1.3 P4 freeze: `intrusion_wedge_by_file` + `lane_offset` (`docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` §4.1–4.2; `docs/IMPLEMENTATION_ORDER.md` Tier 1.3 gate) ---
 ## **`intrusion_wedge_by_file`**: on each `manager.formations[fid]`, a `Dictionary` mapping **file index** → wedge `Dictionary`. **Minimum v1 keys** on each wedge (writers use `CombatIntrusionWedge.FIELD_PRESSURE` / `FIELD_DEPTH` / `FIELD_INTRUDER_ID` — same string literals everywhere): **`pressure`** 0..1, **`depth`** 0..1, **`intruder_id`** int (primary intruder at anchor; **-1** when cleared). Optional halfwidth / clock fields are **not** in v1; extend here + §4.1 table + `CombatIntrusionWedge` together if added.
-## **`lane_offset`**: per-combatant float; **lateral offset within the nominal file column** feeding `AvailableActionsBuilder.effective_pair_eff_dist` (`EFF_DIST_LANE_OFFSET_FILE_EQUIV`). **Range:** clamp every writer/read to **`[-LANE_OFFSET_ABS_MAX, LANE_OFFSET_ABS_MAX]`** (currently **[-0.5, 0.5]**). **0** = column center. **Sign:** **positive** = toward **increasing file index** (+file / “enemy-right” on default symmetric grids). `CombatFormationFlow.repack_lane_offset_after_rank_file_change` + intrusion nudges + `CombatManager.register` defaults must stay inside this interval.
+## **`lane_offset`**: per-combatant float; **lateral offset within the nominal file column** feeding `CombatPairGeometry.effective_pair_eff_dist` (`EFF_DIST_LANE_OFFSET_FILE_EQUIV`). **Range:** clamp every writer/read to **`[-LANE_OFFSET_ABS_MAX, LANE_OFFSET_ABS_MAX]`** (currently **[-0.5, 0.5]**). **0** = column center. **Sign:** **positive** = toward **increasing file index** (+file / “enemy-right” on default symmetric grids). `CombatFormationFlow.repack_lane_offset_after_rank_file_change` + intrusion nudges + `CombatManager.register` defaults must stay inside this interval.
 ## Vacancy reconcile: lateral slides can open a hole in a neighbor file; repeat until stable (safety cap).
 const FORMATION_VACANCY_RECONCILE_MAX_ROUNDS := 16
 ## Inner promotion chain per file per vacancy/death plug pass (one rank step + restart shallow scan per iteration).
@@ -543,8 +597,39 @@ const ZOC_INCURSION_EXPOSURE_FLANK := 0.9
 const ZOC_INCURSION_EXPOSURE_REAR := 0.36
 ## Weak front ZoC (both lines) scales geometric pair distance down — lines feel closer, easier to bridge.
 const ZOC_GEOMETRIC_EXTENT_MIN := 0.78
-## Getting hit during formation move extends duration (reaction/stagger), does not cancel.
+## Getting hit during formation move: below cancel threshold extends duration; at/above cancels the move.
 const FORMATION_HIT_REACTION_EXTRA_S := 0.38
+const FORMATION_HIT_CANCEL_INTENSITY := 0.72
+## Tier 0 pilot: overlapping melee wind-ups on one defender — parry only the highest-threat attacker.
+## Tier 6.1: sustained high pain rolls for pain shock during combat ticks (see **`EntityPainConsciousness.try_ambient_pain_shock_tick`**).
+const FEATURE_AMBIENT_PAIN_SHOCK := true
+static var _feature_ambient_pain_shock: bool = FEATURE_AMBIENT_PAIN_SHOCK
+
+
+static func is_feature_ambient_pain_shock() -> bool:
+	return _feature_ambient_pain_shock
+
+
+static func set_feature_ambient_pain_shock(on: bool) -> void:
+	_feature_ambient_pain_shock = on
+
+
+const FEATURE_INCOMING_PARRY_CHOICE := true
+const INCOMING_MELEE_PARRY_WINDOW_S := 0.25
+## Simultaneous parry-all: sum of incoming **`parry_p_a`** must fit under min split **`parry_c_d`** × dodge ratio × this.
+const INCOMING_PARRY_ALL_COMBINED_P_A_BUDGET_MULT := 1.06
+## Defender blade extended (e.g. recovering from own attack) — passive parry capacity scale.
+const WEAPON_EXTENDED_PARRY_MULT := 0.85
+## Incoming attack past wind-up commit (attacker blade extended): defender passive parry capacity scale.
+const WEAPON_COMMITTED_ATTACK_PARRY_C_D_MULT := 0.92
+## Wind-up progress at/above this fraction → weapon extended for **`CombatWeaponPosition`** (move may override).
+const WEAPON_EXTENDED_COMMIT_FRACTION := 0.7
+## Inferred commit fractions when a move omits **`weapon_extension_commit_fraction`** (see **`CombatWeaponPosition.commit_fraction_from_move_def`**).
+const WEAPON_COMMIT_FRACTION_STAB := 0.58
+const WEAPON_COMMIT_FRACTION_CUT := 0.72
+const WEAPON_COMMIT_FRACTION_OVERHEAD := 0.78
+const WEAPON_COMMIT_FRACTION_BLUNT := 0.76
+const WEAPON_COMMIT_FRACTION_QUICK := 0.62
 ## Armor mass vs ~full medieval kit; lerps formation-move duration toward FORMATION_ARMOR_MAX_SLOW_MULT.
 const FORMATION_ARMOR_MASS_REF_KG := 28.0
 const FORMATION_ARMOR_MAX_SLOW_MULT := 1.35
@@ -585,8 +670,12 @@ const MOVE_ID_SWAP_RANK := "swap_rank"
 const MOVE_ID_DRAG_BACK := "drag_back"
 const MOVE_ID_FALL_BACK := "fall_back"
 const MOVE_ID_ROTATE_FILE := "rotate_file"
-## Swap / drag / fall back / rotate — used so "only formation moves" still offers wait.
-const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = [MOVE_ID_SWAP_RANK, MOVE_ID_DRAG_BACK, MOVE_ID_FALL_BACK, MOVE_ID_ROTATE_FILE]
+## Tier 6.2: leave the engagement (not a rank swap / solo fall_back within the line).
+const MOVE_ID_FLEE := "flee"
+## Swap / drag / fall back / rotate / flee — used so "only formation moves" still offers wait.
+const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = [
+	MOVE_ID_SWAP_RANK, MOVE_ID_DRAG_BACK, MOVE_ID_FALL_BACK, MOVE_ID_ROTATE_FILE, MOVE_ID_FLEE
+]
 ## Incursion plan: line break / charge-through — not formation pair moves (see BREACH_MOVE_IDS).
 const MOVE_ID_CRASH := "crash"
 const BREACH_MOVE_IDS: Array[String] = [MOVE_ID_CRASH]
@@ -627,7 +716,7 @@ const AI_LOW_CRASH_VIABILITY_OFFENSE_MULT_AT_ZERO := 0.06
 const AI_LOW_CRASH_VIABILITY_ATTEMPT_CLOSE_EXTRA_MULT := 0.05
 ## Extra damp when this side has very few standing fighters (duel / skirmish attrition).
 const AI_SKIRMISH_LOW_STANDING_OFFENSE_MULT := 0.72
-## Tier 1.6 (P7): `CombatTargetScoring.ai_targeting_weight_mult` — melee/close: resolved **`engagement_mode`**, our posture+cohesion + **opponent** formation (**`ZoneOfControl.formation_id_for_zone_geometry`** for intruders), stance (non-crash).
+## Tier 1.6 (P7): `CombatTargetScoring.ai_targeting_weight_mult` — melee/close: resolved **`engagement_mode`**, our posture+cohesion + **opponent** formation (**`formation_for_combatant_cached`** / **`zone_geometry_fid_str`** for intruders), stance (non-crash).
 const AI_TARGETING_LINE_COH_LO_MULT := 0.94
 const AI_TARGETING_LINE_COH_HI_MULT := 1.03
 const AI_TARGETING_OPEN_COH_TIGHT_MULT := 1.0
@@ -705,7 +794,7 @@ const DEPTH_SPEAR_THRUST_CLOSING_SPEED_MULT := 1.03
 ## Tier 1.9 / 3.1: `pa["depth_polearm_lane_type"]` when **`depth_polearm_attack`** (empty string when not depth polearm). Mirrors **`depth_polearm_allows_low_targets`** for consumers that prefer a string lane id.
 const DEPTH_POLEARM_LANE_TYPE_OPEN := "open"
 const DEPTH_POLEARM_LANE_TYPE_OVER_SHOULDER := "over_shoulder"
-## Formation dict `spear_lane_profile` preset key + normalized values (`CombatFormationSetup` / `AvailableActionsBuilder.depth_polearm_lane_allows_low_targets`).
+## Formation dict `spear_lane_profile` preset key + normalized values (`CombatFormationSetup` / `CombatDepthPolearm.depth_polearm_lane_allows_low_targets`).
 const FORMATION_KEY_SPEAR_LANE_PROFILE := "spear_lane_profile"
 ## Optional on **`CombatManager.start(player_formation, enemy_formation)`** preset dicts: wins over encounter doctrine for that side (same normalize path as **`set_formation_doctrine`**). Canonical key **`FORMATION_PRESET_KEY_DOCTRINE`**; if empty after strip, **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**.
 const FORMATION_PRESET_KEY_DOCTRINE := "formation_doctrine"
@@ -728,7 +817,8 @@ static func normalize_spear_lane_profile(raw: Variant) -> String:
 ## Simultaneous line-breach (crash) intruders per **side**; keeps intrusion a single heavy-infantry role, not a line-wide rush.
 const MAX_INTRUDERS_PER_SIDE := 1
 ## Minimum equipped armor mass (kg) to attempt crash intrusion — heavy harness only (typical full kit ~15–28 kg).
-const CRASH_INTRUSION_MIN_ARMOR_MASS_KG := 26.5
+## Full six-piece plate kit (`KETTLE_HELM` + `CUIRASS` + vambraces + greaves) ≈ **17–18 kg** per `ArmorPiece.get_total_mass_kg` scales.
+const CRASH_INTRUSION_MIN_ARMOR_MASS_KG := 17.0
 
 ## IncursionBreachTest (and similar): fixed global RNG seed + crash AI bias + queued contest rolls so breach/clog code always runs.
 static var _incursion_breach_harness_active: bool = false
@@ -772,8 +862,8 @@ static func take_queued_breach_crash_roll() -> float:
 	return v
 
 ## Phase D: sector-weighted surround load vs integer-only threat count (docs/TACTICAL_ZONES_BREACH_MOVEMENT.md, incursion section §10.3 B2; Tier 3.1).
-## Default **false** (integer `surround_threat_count` path). **`set_feature_sector_surround_load`** for harness / dev soaks; ship **true** only after tuning.
-static var _feature_sector_surround_load: bool = false
+## Default **true** (sector `surround_threat_weight_sum` + `1/(1+k·excess)`). **`set_feature_sector_surround_load(false)`** for integer `surround_threat_count` regression / compare.
+static var _feature_sector_surround_load: bool = true
 
 
 static func is_feature_sector_surround_load() -> bool:
@@ -792,11 +882,11 @@ const SURROUND_SECTOR_WEIGHT_MIN := 0.35
 ## `breached_files` still affects ZoC lane stress but no longer blocks swap / rotate / fall_back (FormationBreachRules.breach_blocks_open_lane_moves).
 ## Mode transitions are computed from live front-rank counts/fill each tick; existing intruders persist, but new crash/incursion can be gated by mode.
 const FEATURE_SKIRMISH_UNCLOG_BREACH_MOVES := true
-## Line crash → breach intrusion (Tier 1.2–1.4 slot/wedge path). When **false**, new intrusions **cannot** start: crash is not listed and `resolve_crash_attempt` no-ops with reason `intrusion_disabled`.
-## Intruder geometry, wedge, and vacancy-plug code remain; enable when resuming intrusion polish (`docs/IMPLEMENTATION_ORDER.md` — development gate).
-const FEATURE_LINE_CRASH_INTRUSION := false
-## Option 4 pilot: `CombatDoctrine.evaluate_automatic_doctrine` may set **`pinch_center`** from a hollow enemy front (only when formation doctrine is still **default**). Default **false** — no behavior change.
-const FEATURE_AUTOMATIC_DOCTRINE := false
+## Line crash → breach intrusion (Tier 1.2–1.4 slot/wedge path). Default **true** (Phase B shipped 2026-05-17).
+## When **false**, new intrusions **cannot** start: crash is not listed and `resolve_crash_attempt` no-ops with reason `intrusion_disabled`.
+const FEATURE_LINE_CRASH_INTRUSION := true
+## Option 4 pilot: `CombatDoctrine.evaluate_automatic_doctrine` may set **`pinch_center`** from a hollow enemy front (only when formation doctrine is still **default**).
+const FEATURE_AUTOMATIC_DOCTRINE := true
 ## **Dev:** After `CombatManager.start`, `BattleScene` re-equips combatants with **rank > 0** with `SPEAR` (formations unchanged — same `FormationPreset.default_for_count` as usual). Set **true** only for depth-polearm / spear-lane debugging.
 const DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT := false
 ## Engagement-mode names from live front-rank state.
@@ -897,6 +987,8 @@ const YOMI_DEFENSE_READINESS_MULT_CAP := 1.14
 const COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG := "position_angle_offset_deg"
 ## Tier 4.4.3: row label fragment when **`is_feature_position_angle_footwork_enabled()`** (see **`CombatFootwork.refresh_ui_hint`**).
 const COMBATANT_KEY_POSITION_ANGLE_UI_HINT := "position_angle_ui_hint"
+## Player turn-ready: aggregated duration hints from listed formation moves (see **`CombatPlayerTurnHints.sync_formation_listed_turn_hint`**).
+const COMBATANT_KEY_FORMATION_MOVES_TURN_HINT := "formation_moves_turn_hint"
 const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
 	"high": 0.0,
 	"low": 6.0,
@@ -936,6 +1028,8 @@ const SWAP_RANK_AI_LOW_WEIGHT := 0.02
 const SWAP_RANK_AI_HIGH_WEIGHT := 1.0
 ## Mobile cowering solo **fall_back** vs **wait** (Tier 6.1 — no arms, legs OK).
 const COWERING_SOLO_FALL_BACK_AI_WEIGHT := 1.5
+## Tier 6.2: mobile cowering — prefer **`flee`** over in-formation **`fall_back`** when both are listed.
+const COWERING_FLEE_AI_WEIGHT := 1.85
 ## Partner must exceed our composite fitness (perf × blood norm) by at least this much for a routine relief.
 const SWAP_RANK_AI_MIN_FITNESS_GAP := 0.20
 ## Below this our_fitness, treat as dangerously unfit: partner need only be ahead by URGENT_MIN_GAP.

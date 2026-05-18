@@ -3,7 +3,6 @@ extends RefCounted
 
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 
 ## Per-state handlers for CombatManager _process loop.
 ## Each handler mutates combatant (c) and may call manager methods.
@@ -11,6 +10,7 @@ const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 
 const _MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
@@ -138,7 +138,7 @@ static func process_receiving_medical(manager: Node, c: Dictionary, delta: float
 	c.gauge = 100.0  # Keep readied; can hold/switch direct pressure on other wounds
 	var cooldown: float = maxf(0.0, c.get("receiving_care_action_cooldown", 0.0) - delta)
 	c.receiving_care_action_cooldown = cooldown
-	if _EntityAccess.side_str(c) == "player":
+	if _EntityAccess.is_player_side(c):
 		var pending: bool = c.get("receiving_care_turn_pending", false)
 		if cooldown <= 0.0 and not pending:
 			var recv_actions: Array = manager.get_available_actions(_EntityAccess.id_int(c))
@@ -169,6 +169,7 @@ static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void
 	var s: float = _EntityAccess.stamina_float(c)
 	c["stamina"] = minf(CombatConstants.STAMINA_MAX, s + CombatConstants.STAMINA_REFILL_RATE * delta)
 	_CounterTempo.process_waiting(_manager, c)
+	_FlurryBind.process_waiting(_manager, c)
 	_UiHints.refresh_waiting_tick_stamps(_manager, c)
 
 static func process_wind_up(manager: Node, c: Dictionary, delta: float) -> void:

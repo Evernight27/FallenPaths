@@ -15,7 +15,8 @@ static func _compose_waiting_gauge_label(c: Dictionary, primary: String, manager
 	var attn_hint: String = _UiHints.attention_hint_text(c, manager)
 	var foot_suffix: String = _UiHints.footwork_hint_suffix(c)
 	var attn_suffix: String = (" · " + attn_hint) if not attn_hint.is_empty() else ""
-	return primary + attn_suffix + foot_suffix
+	var flurry_suffix: String = _UiHints.flurry_bind_hint_suffix(c, manager)
+	return primary + attn_suffix + foot_suffix + flurry_suffix
 
 
 ## Progress bar fill: readiness **`gauge`** during counter-tempo window, else stamina (Phase 1).
@@ -27,8 +28,11 @@ static func gauge_bar_value_for_combatant(c: Dictionary, manager: Node = null) -
 
 ## Primary gauge label for a combatant snapshot row (harness + **`update_combatant_row`**).
 static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) -> String:
-	if not _EntityAccess.alive_bool(c):
+	# Partial snapshot rows omit `alive`; treat missing as living (matches `_sync_gauge_label` tooltips).
+	if not _EntityAccess.alive_bool(c, true):
 		return "Defeated"
+	if bool(c.get("combat_absent", false)) or _EntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+		return "Fled"
 	var state: String = _EntityAccess.state_str(c, "waiting")
 	var state_timer: float = float(c.get("state_timer", 0.0))
 	var state_duration: float = float(c.get("state_duration", 0.0))
@@ -50,9 +54,9 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
 	if state == "recovering":
 		return _compose_waiting_gauge_label(c, "Recov. %.1fs" % remain, manager)
 	if state == CombatConstants.STATE_SWAP_RANK:
-		return _compose_waiting_gauge_label(c, "Swap %.1fs" % remain, manager)
+		return _compose_waiting_gauge_label(c, "Swap %.1fs · vulnerable" % remain, manager)
 	if state == CombatConstants.STATE_FALLING_BACK:
-		return _compose_waiting_gauge_label(c, "Fall back %.1fs" % remain, manager)
+		return _compose_waiting_gauge_label(c, "Fall back %.1fs · vulnerable" % remain, manager)
 	if state == CombatConstants.STATE_COWERING:
 		var cow_label: String = "Cowering"
 		if _EntityAccess.can_flee_or_fall_back(c):

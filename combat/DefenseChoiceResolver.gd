@@ -8,7 +8,7 @@ extends RefCounted
 ## Tier 4.2 tempo: non-empty **`feint_part`** on **`pa`** uses **`CombatConstants.commitment_fraction_for_pending_attack`** (larger committed fraction → shorter **`effective_wind_up`** for passive parry timing vs plain attacks).
 ## Tier 4.2 telegraph delay: optional **`feint_target_reveal_at_progress`** on feint moves (stamped on **`pa`** in **`AttackWindUpStarter`**) scales feint read-through / dodge-telegraph readiness via **`CombatConstants.FEINT_PRE_REVEAL_READINESS_MULT`** until wind-up progress reaches that fraction (**`_feint_readiness_reveal_mult`**).
 ## Incoming **`contact_type`** (stab/cut/blunt) scales passive parry readiness after **`PassiveParryContext.get_passive_parry_readiness`** (**`CombatConstants.passive_parry_readiness_incoming_contact_mult`**).
-## Defender **`stamina`** scales the **readiness** used for feint read-through / guard-zone / dodge telegraph (**`_defender_passive_readiness_stamina_mult`** → **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`**) without folding into **`parry_c_d`'s** `pr_base` term (post-alignment stamina curve still applies once to **`parry_c_d`**). Reported **`choose_defense`** **`parry_readiness`** applies **`_feint_readiness_reveal_mult`** for non-empty **`feint_part`**; passive-parry **alignment wobble** uses the same (**`pr_guard_feint`** / **`pr_guard_feint_late`**) so **`DefenseResolutionHandler`** matches **`choose_defense`**. **`CombatAIActionPicker`** feint-move listing: defender-readiness lerp (**`read_m`**, incl. **`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`** on **`pr_def`**) then defender footwork (**`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** / **`ai_feint_listing_defender_recovering_footwork_mult_for_cause`** / **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**) — orthogonal to dodge footwork on **`dodge_chance`** above.
+## Defender **`stamina`** scales the **readiness** used for feint read-through / guard-zone / dodge telegraph (**`_defender_passive_readiness_stamina_mult`** → **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`**) without folding into **`parry_c_d`'s** `pr_base` term (post-alignment stamina curve still applies once to **`parry_c_d`**). Reported **`choose_defense`** **`parry_readiness`** applies **`_feint_readiness_reveal_mult`** for non-empty **`feint_part`**; passive-parry **alignment wobble** uses the same (**`pr_guard_feint`** / **`pr_guard_feint_late`**) so **`DefenseResolutionHandler`** matches **`choose_defense`**. **`CombatAIActionPicker`** feint-move listing: defender-readiness lerp (**`read_m`**, incl. **`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`** on **`pr_def`**) × **`_feint_readiness_reveal_mult`** when live **`pending_attack`** targets the listed defender, then defender footwork (**`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** / **`ai_feint_listing_defender_recovering_footwork_mult_for_cause`** / **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**) — orthogonal to dodge footwork on **`dodge_chance`** above.
 
 const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
@@ -18,9 +18,10 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
+const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 
 
-## Tier 3.1: `AttackResolver` / **`AvailableActionsBuilder.stamp_attack_pair_geometry_on_dict`** set **`depth_polearm_attack`**, **`depth_polearm_allows_low_targets`**, and **`depth_polearm_lane_type`** when rank≥1 depth spear lane is live.
+## Tier 3.1: `AttackResolver` / **`CombatStrikeStamping.stamp_attack_pair_geometry_on_dict`** set **`depth_polearm_attack`**, **`depth_polearm_allows_low_targets`**, and **`depth_polearm_lane_type`** when rank≥1 depth spear lane is live.
 static func _depth_polearm_lane_is_open(pa: Dictionary) -> bool:
 	## `stamp_attack_pair_geometry_on_dict` always sets the key (often `""`). Empty / unknown → `allows_low`
 	## (legacy `pa`); explicit ids match **`CombatConstants`** (`open` / `over_shoulder`).
@@ -105,6 +106,9 @@ static func choose_defense(
 
 	var already_used_defense: bool = pa.get("passive_parry_attempted", false)
 	var st_def: String = _EntityAccess.state_str(tgt)
+	if bool(pa.get("parry_choice_blocked", false)):
+		result.effective_redirect = _get_effective_redirect(tgt)
+		return result
 	if (
 		already_used_defense
 		or st_def == CombatConstants.STATE_WIND_UP
@@ -281,6 +285,8 @@ static func choose_defense(
 	parry_c_d *= depth_spear_tight_lane_parry_c_d_mult(pa)
 	parry_c_d *= pa.get("zone_engagement_parry_mult", 1.0)
 	parry_c_d *= _spacing_band_parry_capacity_mult(tgt, atk)
+	parry_c_d *= _WeaponPosition.parry_capacity_mult_for_defender(tgt)
+	parry_c_d *= _WeaponPosition.incoming_attack_parry_c_d_mult(atk)
 
 	result.can_parry_in_time = can_parry_in_time
 	result.parry_p_a = parry_p_a

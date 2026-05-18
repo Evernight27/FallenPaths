@@ -8,6 +8,7 @@ const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 
 ## Queued events suppressed for the losing side once **`medical_phase`** is active.
@@ -44,7 +45,7 @@ static func combat_resolution_blocked(manager: Node) -> bool:
 static func is_winner_side(manager: Node, c: Dictionary) -> bool:
 	if manager == null or c == null or c.is_empty() or not manager.medical_phase:
 		return false
-	return _EntityAccess.side_str(c) == manager.medical_phase_winner
+	return _EntityAccess.is_on_side(c, str(manager.medical_phase_winner))
 
 
 static func is_losing_side(manager: Node, c: Dictionary) -> bool:
@@ -106,13 +107,21 @@ static func purge_blocked_events_from_queue(manager: Node) -> void:
 	)
 
 
+static func _reset_fled_and_combat_absent(c: Dictionary) -> void:
+	c.erase("combat_absent")
+	if _EntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+		c.state = CombatConstants.STATE_WAITING
+		c.state_timer = 0.0
+		c.state_duration = 0.0
+
+
 ## Player-win medical phase: cancel losing-side combat, abort wind-ups, idle combat states.
 static func halt_losing_side_combat(manager: Node) -> void:
 	if manager == null or not manager.medical_phase:
 		return
 	var winner: String = manager.medical_phase_winner
 	for c in manager.combatants:
-		if _EntityAccess.side_str(c) == winner:
+		if _EntityAccess.is_on_side(c, winner):
 			continue
 		var cid: int = _EntityAccess.id_int(c)
 		_EventScheduler.cancel_pending_combat_events_for_combatant(manager, cid)
@@ -147,11 +156,14 @@ static func halt_losing_side_combat(manager: Node) -> void:
 		c.erase("parry_bonus_until")
 		_CounterTempo.clear_window(c)
 		_CounterTempo.clear_riposte_chain(c)
+		_FlurryBind.clear(c)
+		_reset_fled_and_combat_absent(c)
 	for c in manager.combatants:
-		if _EntityAccess.side_str(c) != winner:
+		if not _EntityAccess.is_on_side(c, winner):
 			continue
 		_CounterTempo.clear_window(c)
 		_CounterTempo.clear_riposte_chain(c)
+		_reset_fled_and_combat_absent(c)
 	purge_blocked_events_from_queue(manager)
 
 
@@ -165,8 +177,7 @@ static func can_end_medical_phase(manager: Node) -> bool:
 		return false
 	for c in manager.combatants:
 		if (
-			not _EntityAccess.alive_bool(c)
-			or _EntityAccess.side_str(c) != manager.medical_phase_winner
+			not _EntityAccess.is_living_on_side(c, str(manager.medical_phase_winner))
 			or _EntityAccess.scene_node(c) == null
 		):
 			continue

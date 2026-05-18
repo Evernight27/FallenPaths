@@ -6,8 +6,10 @@
 |------|------|----------------------|
 | **4.1** | [Done](IMPLEMENTATION_ORDER.md#tier-41-posture--stance-weights-ai-listing) | [Posture / stance table](#tier-41-posture--stance-weights-ai-listing-live-path) — **`_run_ai_targeting_`**, **`_run_crash_ai_`** |
 | **4.2** | [Done](IMPLEMENTATION_ORDER.md#tier-42-feint-d-telegraph-ai) | [Spacing / tempo table](#tier-42-footwork--tempo--live-path-shipped) — **`_run_feint_`**, **`_run_defense_spacing_`**, **`_run_counter_tempo_`** |
+| **4.2b** | [Done](IMPLEMENTATION_ORDER.md#p4e--tier-42b-feint-listing-reveal-parity) | Listing × reveal — **`_run_feint_move_listing_reveal_progress_dampens_early_wind_up`** (row in [§4.2 table](#tier-42-footwork--tempo--live-path-shipped)) |
 | **4.3** | [Done](IMPLEMENTATION_ORDER.md#tier-43-mental-stack--combat-attention) | [Attention / stack table](#tier-43-mental-stack--combat-attention-live-path) — **`_run_attention_`**, **`_run_focus_`**, **`_run_mental_stack_`**, **`_run_yomi_`** |
 | **4.4** | [Done](IMPLEMENTATION_ORDER.md#tier-44-spatial-footwork-deferred) | [Position-angle table](#tier-44-position-angle-footwork-live-path) — **`_run_footwork_`** |
+| **4.5** | [Done](IMPLEMENTATION_ORDER.md#tier-45-flurry-bind-exchange-deferred) | [Bind exchange table](#tier-45-flurry-bind-exchange-live-path) — **`_run_flurry_*`** |
 
 ## Contents
 
@@ -15,7 +17,8 @@
 2. [Tier 4.2 live path](#tier-42-footwork--tempo--live-path-shipped)
 3. [Tier 4.3 live path](#tier-43-mental-stack--combat-attention-live-path)
 4. [Tier 4.4 live path](#tier-44-position-angle-footwork-live-path)
-5. Investigations — [`Source:`](#feint-counter-stamina-readiness-diagonal-investigation) sections below
+5. [Tier 4.5 live path](#tier-45-flurry-bind-exchange-live-path)
+6. Investigations — [`Source:`](#feint-counter-stamina-readiness-diagonal-investigation) sections below
 
 ---
 
@@ -46,12 +49,13 @@
 | Feint listing settled footwork | `CombatAIActionPicker.gd` | `AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT` (vs `DEFENSE_FOOTWORK_WAITING_DODGE_MULT` on dodge) | `_run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance` |
 | Feint listing recovering footwork | `CombatAIActionPicker.gd` | `ai_feint_listing_defender_recovering_footwork_mult_for_cause` (inverse `defense_footwork_recovering_dodge_mult_for_cause`; base `AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT`) | `_run_feint_move_listing_recovering_footwork_dampens_vs_settled_waiting`, `_run_feint_move_listing_recovery_cause_orders_recovering_footwork_mult`, `_run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally` |
 | Feint listing spacing (recovering) | `CombatAIActionPicker.gd` | `AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*` on **`pr_def`** (state-agnostic; recovering uses cause curve) | `_run_feint_move_listing_spacing_long_dampens_vs_mid_when_defender_recovering`, `_run_feint_move_listing_spacing_close_boosts_vs_mid_when_defender_recovering`, `_run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally` |
+| Feint listing wind-up reveal (4.2b) | `CombatAIActionPicker.gd`, `DefenseChoiceResolver.gd` | Live **`pending_attack`** on listed target → **`read_m`** × **`_feint_readiness_reveal_mult(pa_live, attacker)`** (parity with **`choose_defense`**) | `_run_feint_move_listing_reveal_progress_dampens_early_wind_up` |
 | Counter-tempo (pilot) | `CounterTempo.gd`, `AttackWindUpStarter.gd`, `AvailableActionsBuilder.gd`, `CombatResolveAction.gd`, `CombatEventScheduler.gd`, `CombatAIActionPicker.gd`, `BattleUIUpdater.gd` | `COMBATANT_KEY_COUNTER_WINDOW_UNTIL`, `COUNTER_TEMPO_MIN_INCOMING_WINDUP_PROGRESS`, `COUNTER_TEMPO_GAUGE_*`, `COMBATANT_KEY_COUNTER_TEMPO_UI_HINT`, `AI_COUNTER_TEMPO_*` | `_run_counter_tempo_*` |
 | Riposte chain | `CounterTempo.gd`, `AttackResultApplier.gd`, `AttackWindUpStarter.gd` | `COMBATANT_KEY_RIPOSTE_CHAIN_*`, `RIPOSTE_CHAIN_WINDUP_MULT`, `PA_KEY_RIPOSTE_CHAIN` | `_run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain` |
 
 **`dodge_chance` stack in `choose_defense` (reported value):** base × stance evasion × ambush × surround × **`_spacing_band_dodge_chance_mult`** → if **`STATE_RECOVERING`**, × **`defense_footwork_recovering_dodge_mult_for_cause(recovery_cause)`**; elif settled **`STATE_WAITING`**, × **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`**.
 
-**Still open (investigations below):** probabilistic feint misdirection without explicit **`feint_part`**.
+**Shipped (4.2b / P4e):** feint-move listing applies **`DefenseChoiceResolver._feint_readiness_reveal_mult`** when the attacker has live **`pending_attack`** on the listed defender (same wind-up progress as **`choose_defense`**). **Rejected:** probabilistic feint without explicit **`feint_part`**.
 
 <a id="tier-43-mental-stack--combat-attention-live-path"></a>
 
@@ -64,7 +68,7 @@
 | Salience + load | `CombatAttention.gd` | **`is_being_wind_up_targeted`**, **`has_actionable_counter_tempo`**, **`attention_load`**, **`focus_effective`**, UI hint refresh | **`_run_attention_being_wind_up_targeted_when_telegraph_set`**, **`_run_attention_counter_tempo_salience_matches_can_act`**, **`_run_attention_load_stacks_peril_and_incoming`**, **`_run_attention_load_dampens_focus_effective_readiness`**, **`_run_attention_ui_hint_*`**, **`_run_attention_refresh_waiting_tick_stamps_ui_hint`** |
 | Focus on defense | `DefenseChoiceResolver.gd`, `GuardLineUpdater.gd` | Read-through / readiness × **`focus_effective`**; guard moves sync **`focus_part`** | **`_run_focus_intensity_scales_feint_readthrough_and_guard_zone`**, **`_run_guard_from_move_syncs_focus_part_with_guard_line`** |
 | AI stack | `MentalStackDecider.gd`, `CombatAIActionPicker.gd` | Layered **`decide_action`** before weighted attack pick | **`_run_mental_stack_medical_overrides_attack`**, **`_run_mental_stack_incoming_windup_prefers_defense`**, **`_run_mental_stack_counter_over_plain_attack_when_window_open`**, **`_run_mental_stack_attack_layer_matches_legacy_weights`**, **`_run_mental_stack_stamps_layer_on_medical_pick`** |
-| Focus-line commands | `AvailableActionsBuilder.gd`, `CombatResolveAction.gd` | Listed **`focus_*`** retarget; party-lead telegraph bias | **`_run_focus_line_actions_listed_when_attention_enabled`**, **`_run_focus_line_resolve_sets_guard_and_focus`**, **`_run_focus_line_party_leader_prefers_telegraph_match`** |
+| Focus-line commands | `CombatAttention.gd`, `AvailableActionsBuilder.gd`, `CombatResolveAction.gd` | **`append_focus_line_listing_actions`**; listed **`focus_*`** retarget; party-lead telegraph bias | **`_run_focus_line_actions_listed_when_attention_enabled`**, **`_run_focus_line_resolve_sets_guard_and_focus`**, **`_run_focus_line_party_leader_prefers_telegraph_match`** |
 | Yomi memory | `CombatAttention.gd`, `AttackWindUpStarter.gd`, `AttackResultApplier.gd`, `CombatAIActionPicker.gd` | Per-attacker habit; feint listing / readiness mults | **`_run_yomi_guard_tendency_boosts_feint_after_repeated_high`**, **`_run_yomi_updates_on_parry_deflect_clears_on_hit`**, **`_run_yomi_focus_drift_*`**, **`_run_yomi_parry_deflect_boosts_feint_listing_mult`**, **`_run_yomi_defense_readiness_mult_boosts_after_parry_deflect`** |
 | Lifecycle | `CombatManager.start()` | **`CombatAttention.clear_focus_and_yomi`** on combat start | (covered by focus/yomi harnesses + telegraph scrub in **4.2**) |
 
@@ -83,6 +87,22 @@
 | Resolve / arc | `AttackResolver.gd`, `WeaponSwingPhysics.gd` | **`pa.position_angle_offset_deg`**, arc end / contact angle | **`_run_footwork_arc_end_fallback_prefers_intended_over_attack_angle`**, **`_run_footwork_partial_follow_through_freezes_resolve_angles`** |
 | Lifecycle scrub | `CombatManager.start()`, `AttackResultApplier.gd` | Clear offset on restart / exchange end | **`_run_footwork_offset_scrubbed_on_combat_start`**, **`_run_footwork_defender_offset_scrubbed_after_exchange`** |
 | UI | `CombatFootwork.gd`, `BattleUIUpdater.gd`, `CombatCombatantsSnapshot.gd`, `FormationDiagramBuilder.gd`, `BattleScene.gd` | **`get_ui_hint`**, **`get_diagram_label_suffix`** on single-occupant cells, gauge + tooltips (defeated cleared; **cowering** shows step), snapshot fields, diagram refresh on hint / flag-off | **`_run_footwork_ui_hint_*`**, **`_run_footwork_diagram_label_suffix_compact`**, **`_run_footwork_snapshot_*`**, **`_run_combat_snapshot_exports_*`** |
+
+<a id="tier-45-flurry-bind-exchange-live-path"></a>
+
+## Tier 4.5 flurry / bind exchange — live path (shipped)
+
+**Reader:** After hard bind **`parry_deflect`**, both partners get a short window (**`FLURRY_BIND_WINDOW_S`**, max **`FLURRY_BIND_MAX_EXCHANGES`** wind-ups) of faster attacks vs each other only — not full **`STATE_IN_FLURRY`**. Gated by **`CombatConstants.FEATURE_FLURRY_BIND_EXCHANGE`** (production default **on**).
+
+| Layer | Module | Role | Harnesses (grep) |
+|-------|--------|------|------------------|
+| Window state | `CombatFlurryBind.gd` | **`open_pair_after_bind`**, **`process_waiting`**, **`clear_pair`** on hit | **`_run_flurry_bind_opens_on_bind_deflect`**, **`_run_flurry_bind_expires_after_window`**, **`_run_flurry_bind_window_closes_on_hit`** |
+| Wind-up / stamina | `AttackWindUpStarter.gd`, `AttackResultApplier.gd` | ×**`FLURRY_BIND_WIND_UP_MULT`**; attack cost ×**`FLURRY_BIND_STAMINA_ATTACK_COST_MULT`**; consume exchange on discounted wind-up | **`_run_flurry_bind_exchange_wind_up_reduced_vs_plain`**, **`_run_flurry_bind_exchange_consumes_on_wind_up`** |
+| Melee listing | `CombatMeleeListing.gd` | Hostile melee only vs **`flurry_against_id`** while active | **`_run_flurry_bind_listing_restricts_to_bind_partner`** |
+| UI | `CombatUiHints.gd`, `BattleUIUpdater.gd` | Gauge **Bind exchange (N left)** + tooltip | **`_run_flurry_bind_ui_gauge_label_when_window_open`** |
+| Flag | `CombatConstants.gd` | **`is_feature_flurry_bind_exchange_enabled`** / load setter | **`_run_flurry_bind_feature_flag_respects_runtime_toggle`** |
+
+**Constants:** **`FLURRY_BIND_WINDOW_S`** **1.25** · **`FLURRY_BIND_MAX_EXCHANGES`** **2** · **`FLURRY_BIND_WIND_UP_MULT`** **0.82** · **`FLURRY_BIND_STAMINA_ATTACK_COST_MULT`** **0.88**.
 
 ---
 

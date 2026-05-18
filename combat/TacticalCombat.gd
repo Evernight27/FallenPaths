@@ -5,8 +5,8 @@ extends RefCounted
 ## See docs/COMBAT_ROADMAP_AND_STAMINA.md Phase 6; formations/ambush — docs/TACTICAL_FORMATIONS_FF4.md.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
+const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
@@ -29,26 +29,32 @@ static func _new_combat_telemetry_dict() -> Dictionary:
 		"last_mode_transition": {},
 	}
 
-## Enemy front-rank units that could actually land a melee strike on the defender (weapon reach + spacing + band).
-## Not merely “MID distance” from formation geometry — matches AvailableActionsBuilder.can_melee_threaten.
-static func count_engaging_threats(manager: Node, defender_id: int) -> int:
-	var d: Dictionary = (
-		_EntityAccess.combatant_dict_or_empty(manager._get_by_id(defender_id))
-		if manager.has_method("_get_by_id")
-		else {}
-	)
-	if d.is_empty() or not _EntityAccess.alive_bool(d):
-		return 0
-	var n: int = 0
+static func _melee_threat_scan(manager: Node, defender: Dictionary) -> Dictionary:
+	var count: int = 0
+	var weight_sum: float = 0.0
+	if manager == null or defender.is_empty() or not _EntityAccess.alive_bool(defender):
+		return {"count": 0, "weight_sum": 0.0}
 	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c) or _EntityAccess.side_str(c) == _EntityAccess.side_str(d):
+		if not _EntityAccess.is_living_hostile_to(defender, c):
 			continue
-		if _EntityAccess.is_incapacitated(c):
+		var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, c, defender)
+		if not _MeleeListing.can_melee_threaten(manager, c, defender, pair_geom):
 			continue
-		var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, c, d)
-		if _ActionsBuilder.can_melee_threaten(manager, c, d, pair_geom):
-			n += 1
-	return n
+		count += 1
+		var eff_f: float = float(pair_geom.get("file_spacing_equiv", 0.0))
+		var w: float = eff_f / maxf(0.001, CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN)
+		w = clampf(w, CombatConstants.SURROUND_SECTOR_WEIGHT_MIN, 1.0)
+		weight_sum += w
+	return {"count": count, "weight_sum": weight_sum}
+
+
+## Enemy front-rank units that could actually land a melee strike on the defender (weapon reach + spacing + band).
+## Not merely “MID distance” from formation geometry — matches **`CombatMeleeListing.can_melee_threaten`**.
+static func count_engaging_threats(manager: Node, defender_id: int) -> int:
+	var d: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+	if d.is_empty():
+		return 0
+	return int(_melee_threat_scan(manager, d).get("count", 0))
 
 static func _surround_awareness_factor(defender: Dictionary) -> float:
 	var perc_norm: float = clampf(float(_EntityAccess.stats_dict(defender).get("perception", 100)) / 100.0, 0.0, 1.0)
@@ -57,27 +63,10 @@ static func _surround_awareness_factor(defender: Dictionary) -> float:
 
 ## Sum of sector weights for each enemy that `can_melee_threaten` the defender (Tier 3.1 — uses `effective_pair_file_spacing_equivalent` vs flank spacing).
 static func compute_surround_threat_weight_sum(manager: Node, defender_id: int) -> float:
-	var d: Dictionary = (
-		_EntityAccess.combatant_dict_or_empty(manager._get_by_id(defender_id))
-		if manager.has_method("_get_by_id")
-		else {}
-	)
-	if d.is_empty() or not _EntityAccess.alive_bool(d):
+	var d: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+	if d.is_empty():
 		return 0.0
-	var sum_w: float = 0.0
-	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c) or _EntityAccess.side_str(c) == _EntityAccess.side_str(d):
-			continue
-		if _EntityAccess.is_incapacitated(c):
-			continue
-		var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, c, d)
-		if not _ActionsBuilder.can_melee_threaten(manager, c, d, pair_geom):
-			continue
-		var eff_f: float = float(pair_geom.get("file_spacing_equiv", 0.0))
-		var w: float = eff_f / maxf(0.001, CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN)
-		w = clampf(w, CombatConstants.SURROUND_SECTOR_WEIGHT_MIN, 1.0)
-		sum_w += w
-	return sum_w
+	return float(_melee_threat_scan(manager, d).get("weight_sum", 0.0))
 
 
 static func _surround_from_weight_sum(defender: Dictionary, weight_sum: float) -> float:
@@ -132,7 +121,7 @@ static func ambush_defense_multiplier(manager: Node, defender: Dictionary) -> fl
 	if at == CombatConstants.AMBUSH_TYPE_NONE or at.is_empty():
 		return 1.0
 	var ambushed: String = str(e.get(CombatConstants.ENCOUNTER_AMBUSHED_SIDE, "player"))
-	if _EntityAccess.side_str(defender) != ambushed:
+	if not _EntityAccess.is_on_side(defender, ambushed):
 		return 1.0
 	var p: float = float(e.get("ambush_penalty", 0.25))
 	p = clampf(p, 0.0, 0.85)
@@ -265,73 +254,61 @@ static func _format_intruders_on_host(manager: Node, host_fid: String, files: in
 	return "; ".join(parts)
 
 
+static func _telemetry_dict(manager: Node) -> Dictionary:
+	if manager.has_meta(META_COMBAT_TELEMETRY):
+		return (manager.get_meta(META_COMBAT_TELEMETRY) as Dictionary).duplicate()
+	return _new_combat_telemetry_dict()
+
+
+static func _bump_telemetry_counter(manager: Node, key: String, extra: Dictionary = {}) -> void:
+	if manager == null:
+		return
+	var tel: Dictionary = _telemetry_dict(manager)
+	tel[key] = int(tel.get(key, 0)) + 1
+	for ek in extra.keys():
+		tel[ek] = extra[ek]
+	manager.set_meta(META_COMBAT_TELEMETRY, tel)
+
+
 static func _telemetry_after_mode_resolve(manager: Node, mode_now: String) -> void:
 	if manager == null:
 		return
-	var tel: Dictionary
-	if manager.has_meta(META_COMBAT_TELEMETRY):
-		tel = (manager.get_meta(META_COMBAT_TELEMETRY) as Dictionary).duplicate()
-	else:
-		tel = _new_combat_telemetry_dict()
+	var tel: Dictionary = _telemetry_dict(manager)
 	var prev: String = str(tel.get("last_resolved_mode", ""))
 	if prev != "" and prev != mode_now:
 		tel["engagement_mode_transitions"] = int(tel.get("engagement_mode_transitions", 0)) + 1
 		tel["last_mode_transition"] = {
 			"from": prev,
 			"to": mode_now,
-			"at": float(manager.combat_clock),
+			"at": _EntityAccess.combat_clock_float(manager),
 		}
 	tel["last_resolved_mode"] = mode_now
 	manager.set_meta(META_COMBAT_TELEMETRY, tel)
 
 
 static func record_invalid_crash_resolve_blocked(manager: Node) -> void:
-	if manager == null:
-		return
-	var tel: Dictionary
-	if manager.has_meta(META_COMBAT_TELEMETRY):
-		tel = (manager.get_meta(META_COMBAT_TELEMETRY) as Dictionary).duplicate()
-	else:
-		tel = _new_combat_telemetry_dict()
-	tel["invalid_crash_resolve_blocked"] = int(tel.get("invalid_crash_resolve_blocked", 0)) + 1
-	manager.set_meta(META_COMBAT_TELEMETRY, tel)
+	_bump_telemetry_counter(manager, "invalid_crash_resolve_blocked")
 
 
 static func record_invalid_melee_resolve_blocked(manager: Node) -> void:
-	if manager == null:
-		return
-	var tel: Dictionary
-	if manager.has_meta(META_COMBAT_TELEMETRY):
-		tel = (manager.get_meta(META_COMBAT_TELEMETRY) as Dictionary).duplicate()
-	else:
-		tel = _new_combat_telemetry_dict()
-	tel["invalid_melee_resolve_blocked"] = int(tel.get("invalid_melee_resolve_blocked", 0)) + 1
-	manager.set_meta(META_COMBAT_TELEMETRY, tel)
+	_bump_telemetry_counter(manager, "invalid_melee_resolve_blocked")
 
 
 static func record_invalid_close_resolve_blocked(manager: Node) -> void:
-	if manager == null:
-		return
-	var tel: Dictionary
-	if manager.has_meta(META_COMBAT_TELEMETRY):
-		tel = (manager.get_meta(META_COMBAT_TELEMETRY) as Dictionary).duplicate()
-	else:
-		tel = _new_combat_telemetry_dict()
-	tel["invalid_close_resolve_blocked"] = int(tel.get("invalid_close_resolve_blocked", 0)) + 1
-	manager.set_meta(META_COMBAT_TELEMETRY, tel)
+	_bump_telemetry_counter(manager, "invalid_close_resolve_blocked")
 
 
 ## Tier 1.8 / Option 4: `FEATURE_AUTOMATIC_DOCTRINE` applied **pinch_center** from hollow enemy line.
 static func record_automatic_doctrine_pinch(manager: Node, formation_id: String) -> void:
-	if manager == null:
-		return
-	var tel: Dictionary
-	if manager.has_meta(META_COMBAT_TELEMETRY):
-		tel = (manager.get_meta(META_COMBAT_TELEMETRY) as Dictionary).duplicate()
-	else:
-		tel = _new_combat_telemetry_dict()
-	tel["automatic_doctrine_pinch_count"] = int(tel.get("automatic_doctrine_pinch_count", 0)) + 1
-	tel["last_automatic_doctrine_pinch"] = {"formation_id": str(formation_id), "at": float(manager.combat_clock)}
-	manager.set_meta(META_COMBAT_TELEMETRY, tel)
+	_bump_telemetry_counter(
+		manager,
+		"automatic_doctrine_pinch_count",
+		{
+			"last_automatic_doctrine_pinch": {
+				"formation_id": str(formation_id),
+				"at": _EntityAccess.combat_clock_float(manager),
+			}
+		}
+	)
 
 
