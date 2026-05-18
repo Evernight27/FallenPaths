@@ -75,6 +75,12 @@ static func append_medical_phase_winner_actions(
 				continue
 			var tgt_id: int = _EntityAccess.id_int(ally)
 			for act in manager._get_ally_medical_actions(c, ally, part):
+				if act is not Dictionary:
+					continue
 				actions.append(
-					{"target_id": tgt_id, "move_id": act.move_id, "target_part": act.target_part}
+					{
+						"target_id": tgt_id,
+						"move_id": str(act.get("move_id", "")),
+						"target_part": str(act.get("target_part", "")),
+					}
 				)

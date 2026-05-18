@@ -68,6 +68,8 @@ const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 const _CrashActions := preload("res://combat/CombatCrashActions.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _PartyManagerScript := preload("res://PartyManager.gd")
+const _MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
 const _EncounterNode := preload("res://world/EncounterNode.gd")
 ## No preload — `CombatRegressionHarnessKinematicTail` references this class; preloading it here caused a parse cycle.
 ## Tier 3.2: full-stop **`parry_deflect`** — keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_hit_applier_sets_defender_guard_low_after_hit`** locks defender **`guard_line`** / **`guard_zone`** after **`hit`**; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
@@ -447,51 +449,7 @@ static func run_all() -> Dictionary:
 	_run_weapon_part_mass_model_normalized(failures)
 	_run_weapon_parry_part_selection_fallbacks(failures)
 	_run_weapon_striking_part_mass_model(failures)
-	_run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_swing(failures)
-	_run_kinematic_delivery_velocity_from_intensity_bridges_get_effective_and_monotone(failures)
-	_run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_with_speed(failures)
-	_run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_rises(failures)
-	_run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_cut_sqrt(failures)
-	_run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and_mpa(failures)
-	_run_kinematic_delivery_strike_mult_cross_coupling_ke_vs_blunt_isolated(failures)
-	_run_kinematic_delivery_penetration_oblique_angle_factor_attack_resolver(failures)
-	_run_kinematic_delivery_compute_damage_oblique_penetration_integration(failures)
-	_run_kinematic_delivery_compute_damage_strike_mods_penetration_integration(failures)
-	_run_kinematic_delivery_line_alignment_with_deflect_branches(failures)
-	_run_kinematic_delivery_deflected_angle_bilateral_and_line_angle_helpers(failures)
-	_run_kinematic_delivery_deflected_line_from_angles_same_line_bind(failures)
-	_run_kinematic_delivery_angle_diff_and_alignment_from_angles_helpers(failures)
-	_run_kinematic_delivery_path_lookup_discrete_from_angles_continuous_alignment(failures)
-	_run_kinematic_delivery_guard_deflect_blend_guard_angle_and_attack_only_align(failures)
-	_run_kinematic_delivery_compute_penetration_return_keys_and_thrust_blunt_contact(failures)
-	_run_kinematic_delivery_attack_angle_deg_no_variance_deterministic(failures)
-	_run_kinematic_delivery_compute_damage_velocity_and_entity_split(failures)
-	_run_kinematic_delivery_alignment_context_guard_angle_only_uses_combatant_guard(failures)
-	_run_kinematic_delivery_parry_v_intent_effective_velocity_base(failures)
-	_run_kinematic_delivery_guard_wobble_readiness_shifts_guard_angle(failures)
-	_run_kinematic_delivery_compute_damage_strike_ke_and_blunt_contact_exposed(failures)
-	_run_kinematic_delivery_alignment_both_angles_ignores_wobble(failures)
-	_run_kinematic_delivery_attack_angle_only_wobble_changes_alignment(failures)
-	_run_kinematic_delivery_partial_parry_strike_ke_unchanged_pen_scaled(failures)
-	_run_kinematic_delivery_compute_damage_pre_armor_matches_helper_at_assembled_v(failures)
-	_run_kinematic_delivery_partial_parry_cut_to_blunt_shift(failures)
-	_run_kinematic_delivery_derived_velocity_no_cut_to_blunt_shift_on_partial_parry(failures)
-	_run_kinematic_delivery_misaligned_guard_scales_pen_not_pre_armor(failures)
-	_run_kinematic_delivery_get_attack_path_fallback_to_attack_paths(failures)
-	_run_kinematic_delivery_strike_mods_damage_mults_scale_pre_armor_only(failures)
-	_run_kinematic_delivery_stab_partial_parry_no_cut_to_blunt_shift(failures)
-	_run_kinematic_delivery_partial_parry_misalign_oblique_parry_branch_wins(failures)
-	_run_kinematic_delivery_blunt_momentum_mult_scales_pen_not_pre_armor(failures)
-	_run_kinematic_delivery_get_attack_path_unknown_attack_line_fallback(failures)
-	_run_kinematic_delivery_sharp_penetration_mult_scales_pen_not_pre_cut(failures)
-	_run_kinematic_delivery_attack_angle_deg_variance_stamina_spreads(failures)
-	_run_kinematic_delivery_partial_parry_align_compose_on_pen_not_pre_armor_mix(failures)
-	_run_kinematic_delivery_entity_split_final_fields_on_hit(failures)
-	_run_kinematic_delivery_mace_blunt_partial_parry_no_cut_to_blunt_shift(failures)
-	_run_kinematic_delivery_misaligned_guard_scales_sharp_and_blunt_pen(failures)
-	_run_kinematic_delivery_strike_energy_mult_integration_pre_cut_not_pen(failures)
-	_run_kinematic_delivery_afterblow_mult_scales_strike_ke_via_velocity(failures)
-	_run_kinematic_delivery_angle_to_nearest_line_boundaries(failures)
+	CombatRegressionHarnessKinematicTail.run_core(failures)
 	CombatRegressionHarnessKinematicTail.run(failures)
 	_run_weapon_blade_strong_fraction(failures)
 	_run_medical_mobility_can_flee_leg_and_consciousness(failures)
@@ -547,6 +505,14 @@ static func run_all() -> Dictionary:
 	_run_medical_ambient_pain_shock_tick_enters_from_sustained_pain(failures)
 	_run_medical_ambient_pain_shock_skips_when_feature_off(failures)
 	_run_combat_log_formatter_bandage_ally_label(failures)
+	_run_pack_wound_can_apply_on_chest_wound(failures)
+	_run_pack_wound_blocked_when_already_packed(failures)
+	_run_pack_wound_lists_in_medical_phase(failures)
+	_run_pack_wound_apply_packing_marks_packed_parts(failures)
+	_run_pack_wound_windup_complete_packed_outcome(failures)
+	_run_combat_log_formatter_pack_ally_label(failures)
+	_run_campaign_bridge_can_enter_combat_rejects_empty_party(failures)
+	_run_campaign_bridge_can_enter_combat_rejects_unconscious(failures)
 	_run_bind_riposte_contact_types_normalized(failures)
 	_run_bind_riposte_contact_multipliers(failures)
 	_run_bind_riposte_archetype_ordering_spear_faster_than_mace(failures)
@@ -16423,6 +16389,188 @@ static func _run_combat_log_formatter_bandage_ally_label(failures: PackedStringA
 		_fail(failures, "bandage_ally_log: want bandage (ally) got '%s'" % line)
 	if not line.contains("Bob"):
 		_fail(failures, "bandage_ally_log: want target name in line")
+
+
+static func _harness_wound_chest_for_packing(ent: Node) -> void:
+	if ent == null:
+		return
+	# Light hit: open chest wound for packing without destroying vital structure (wind-up needs alive target).
+	ent.take_damage_split(4.0, 2.0, "chest")
+
+
+## Tier 6.1: **`pack_wound`** legal only on **`PACKING_PARTS`** with open wounds.
+static func _run_pack_wound_can_apply_on_chest_wound(failures: PackedStringArray) -> void:
+	var ent: Node = _new_entity("SWORD")
+	_harness_wound_chest_for_packing(ent)
+	if not ent.can_apply_packing("chest"):
+		_fail(failures, "pack_wound_can: chest wound should allow packing")
+	if ent.can_apply_packing("left_arm"):
+		_fail(failures, "pack_wound_can: left_arm not a packing part")
+
+
+static func _run_pack_wound_blocked_when_already_packed(failures: PackedStringArray) -> void:
+	var ent: Node = _new_entity("SWORD")
+	_harness_wound_chest_for_packing(ent)
+	seed(88201)
+	var ok: bool = ent.apply_packing("chest", 1.5)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	if not ok:
+		_fail(failures, "pack_wound_packed: setup apply_packing should succeed")
+	if ent.can_apply_packing("chest"):
+		_fail(failures, "pack_wound_packed: should not pack twice")
+
+
+static func _run_pack_wound_lists_in_medical_phase(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	var ent_enemy: Node = _new_entity("SWORD")
+	mgr.register(ent_enemy, "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var healer_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var ally: Dictionary = mgr.combatants[1]
+	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+	if ally_ent == null:
+		_fail(failures, "pack_wound_list: need ally entity")
+		_free_manager(mgr)
+		return
+	_harness_wound_chest_for_packing(ally_ent)
+	mgr._end_combat_phase("player", ent_enemy)
+	if not mgr.medical_phase:
+		_fail(failures, "pack_wound_list: expected medical_phase")
+		_free_manager(mgr)
+		return
+	mgr.combatants[0]["gauge"] = 100.0
+	mgr.combatants[0].state = CombatConstants.STATE_WAITING
+	var acts: Array = mgr.get_available_actions(healer_id)
+	var found: bool = false
+	for raw in acts:
+		if raw is not Dictionary:
+			continue
+		var a: Dictionary = raw
+		if str(a.get("move_id", "")) != "pack_wound":
+			continue
+		if str(a.get("target_part", "")) != "chest":
+			continue
+		if int(a.get("target_id", -1)) != _EntityAccess.id_int(ally):
+			continue
+		found = true
+		break
+	_free_manager(mgr)
+	if not found:
+		_fail(failures, "pack_wound_list: healer should list pack_wound on ally chest")
+
+
+static func _run_pack_wound_apply_packing_marks_packed_parts(failures: PackedStringArray) -> void:
+	var ent: Node = _new_entity("SWORD")
+	_harness_wound_chest_for_packing(ent)
+	seed(88202)
+	var ok: bool = ent.apply_packing("chest", 1.5)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	if not ok:
+		_fail(failures, "pack_wound_apply: apply_packing should succeed with high effectiveness")
+	if not bool(ent.packed_parts.get("chest", false)):
+		_fail(failures, "pack_wound_apply: packed_parts[chest] should be set")
+
+
+static func _run_pack_wound_windup_complete_packed_outcome(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var ally_ent: Node = _new_entity("SWORD")
+	mgr.register(ally_ent, "player")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr.medical_phase = true
+	mgr.medical_phase_winner = "player"
+	var healer: Dictionary = mgr.combatants[0]
+	var ally: Dictionary = mgr.combatants[1]
+	var healer_id: int = _EntityAccess.id_int(healer)
+	var ally_id: int = _EntityAccess.id_int(ally)
+	var ally_node: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+	_harness_wound_chest_for_packing(ally_node)
+	if ally_node.is_dead():
+		_fail(failures, "pack_wound_windup: harness wound must not kill ally")
+		_free_manager(mgr)
+		return
+	healer.state = CombatConstants.STATE_MEDICAL_WIND_UP
+	healer.state_duration = 2.0
+	healer.pending_medical = {
+		"medical_id": "pack_wound",
+		"target_part": "chest",
+		"target_combatant_id": ally_id,
+	}
+	seed(88203)
+	var outcome_box: Array = [""]
+	mgr.action_resolved.connect(
+		func(_a: int, _t: int, r: Dictionary) -> void:
+			outcome_box[0] = str(r.get("outcome", ""))
+	)
+	_MedicalWindUp.complete(mgr, healer, healer.pending_medical)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	_free_manager(mgr)
+	if str(outcome_box[0]) != "packed" and str(outcome_box[0]) != "packing_failed":
+		_fail(
+			failures,
+			"pack_wound_windup: want packed or packing_failed got '%s'" % str(outcome_box[0])
+		)
+	if str(outcome_box[0]) == "packed" and not bool(ally_node.packed_parts.get("chest", false)):
+		_fail(failures, "pack_wound_windup: packed outcome should set packed_parts")
+
+
+static func _run_combat_log_formatter_pack_ally_label(failures: PackedStringArray) -> void:
+	var line: String = _CombatLogFormatter.format_action_line(
+		"Healer",
+		"player",
+		"Ally",
+		"player",
+		{
+			"outcome": "packed",
+			"part": "chest",
+			"effectiveness": 1.0,
+			"medical_move_id": "pack_wound",
+			"medical_target_is_self": false,
+		}
+	)
+	if not line.contains("pack wound (ally)"):
+		_fail(failures, "pack_ally_log: want pack wound (ally) got '%s'" % line)
+
+
+static func _run_campaign_bridge_can_enter_combat_rejects_empty_party(
+	failures: PackedStringArray
+) -> void:
+	var world: Node2D = Node2D.new()
+	var pm: Node = _PartyManagerScript.new()
+	world.set_meta("party_manager", pm)
+	var ready: Dictionary = _CampaignBridge.can_enter_combat(world)
+	world.free()
+	pm.free()
+	if bool(ready.get("ok", true)):
+		_fail(failures, "bridge_enter: empty party should not be ok")
+	if not str(ready.get("message", "")).contains("No living"):
+		_fail(failures, "bridge_enter: want no living party message got '%s'" % str(ready.get("message")))
+
+
+static func _run_campaign_bridge_can_enter_combat_rejects_unconscious(
+	failures: PackedStringArray
+) -> void:
+	var world: Node2D = Node2D.new()
+	var pm: Node = _PartyManagerScript.new()
+	var ent: CoreEntity = _new_entity("SWORD")
+	ent.name = "UnconsciousFighter"
+	ent.consciousness = 0.0
+	ent.effective_consciousness = 0.0
+	ent._consciousness_dirty = false
+	pm.add_member(ent)
+	world.set_meta("party_manager", pm)
+	var ready: Dictionary = _CampaignBridge.can_enter_combat(world)
+	world.free()
+	ent.free()
+	if bool(ready.get("ok", true)):
+		_fail(failures, "bridge_enter: unconscious member should block combat")
+	if not str(ready.get("message", "")).contains("unconscious"):
+		_fail(
+			failures,
+			"bridge_enter: want unconscious message got '%s'" % str(ready.get("message"))
+		)
 
 
 static func _run_weapon_blade_strong_fraction(failures: PackedStringArray) -> void:

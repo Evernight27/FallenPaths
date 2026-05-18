@@ -20,6 +20,7 @@
 | Battle UI | `BattleUIUpdater.gd` | Gauge: **Cowering · can fall back** vs **immobile** | (manual / soak) |
 | Pain shock (hit) | `EntityPainConsciousness.gd` | Hit pain drives chance/duration (Option C); **`get_pain_shock_susceptibility_mult`** (0.8×–1.2× from total effective pain) on chance only | **`_run_medical_pain_shock_susceptibility_mult_from_effective_pain`** |
 | Pain shock (ambient) | `EntityPainConsciousness.gd`, `CombatProcessTick.gd` | Sustained effective pain above threshold: periodic roll in combat (**`FEATURE_AMBIENT_PAIN_SHOCK`**); duration without hit impact mult | **`_run_medical_ambient_pain_shock_*`** |
+| Wound packing | `EntityMedical.gd`, `MedicalWindUpHandler.gd`, `CombatMedicalActionListing.gd` | **`pack_wound`** on chest/head; ally log labels | **`_run_pack_wound_*`**, **`_run_combat_log_formatter_pack_ally_label`** |
 
 **Harness (registry):** [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) Tier **6.1** paragraph · grep **`_run_medical_`**.
 

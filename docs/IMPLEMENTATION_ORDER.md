@@ -215,7 +215,7 @@ flowchart LR
 | **3** | Melee depth **3.0–3.3** | **Done** | Deflect calibration investigations → [`PARRY_DEFLECT`](PARRY_DEFLECT_AND_CALIBRATION.md) (not exit-gated) |
 | **4** | AI / stance **4.1–4.5** + **4.2b** | **Done** | Editor bind-exchange soak optional |
 | **5** | Physics **5.1** | **Done** | Kinematic tail + editor calibration — [audit](#tier-expansion-audit-2026-05-17) |
-| **6** | Medical **6.1** + **6.2** flee | **Done** | Wound-packing / ambient pain→shock investigations only |
+| **6** | Medical **6.1** + **6.2** flee | **Done** | Wound-packing **depth** (research); basic **`pack_wound`** shipped + harness |
 | **7** | HEMA / fidelity | **Done** | **7.1–7.5** shipped — [Tier 7](#tier-7--research--fidelity-non-blocking); optional HEMA investigation depth in bundle only |
 
 **Production feature toggles (summary):**
@@ -750,7 +750,7 @@ Honest pass: **core milestones 0–7 and 3.x–4.5 live paths are shipped**; exp
 | **3** | **Done** (live paths) | **3.0–3.3** + parts/leverage + [bind-riposte table](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) (P4h) | Deflect calibration soaks ([`PARRY_DEFLECT`](PARRY_DEFLECT_AND_CALIBRATION.md)); optional eight diagonal guards |
 | **4** | **Done** (**4.1–4.5**, **4.2b**) | Feint D, counter-tempo, mental stack, footwork, bind-exchange flurry | Editor bind-exchange soak optional |
 | **5** | **Done** (**5.1**) | Kinematic audit + main harness | **`CombatRegressionHarnessKinematicTail`**; editor calibration; [`PHYSICS_*`](PHYSICS_DAMAGE_AND_FLOW.md) investigation reconciliation |
-| **6** | **Done** (**6.1**, **6.2**) | Cowering retreat, **`MOVE_ID_FLEE`**, pain-shock mult | Medical bundle (wound packing, ambient pain→shock) — investigations only |
+| **6** | **Done** (**6.1**, **6.2**) | Cowering retreat, flee, hit + **ambient** pain shock, **`pack_wound`** harness | Wound-packing **depth** (medieval linen research) — investigations only |
 | **7** | **Done** | **7.1–7.5** (stamina, flurry, flee, bind-riposte, full station catalog) | Optional HEMA investigation calibration only |
 
 **Doc hygiene:** [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) Phase 1–3 stamina checklists — **7.2** depletion row + Phase **5** hit-interrupt note reconciled **2026-05-18**; legacy Phase **1–6** bullets remain historical (plan wins on conflicts).
@@ -767,7 +767,7 @@ Use when scoping [P4](#next-coding-step); **do not** re-mark a tier **Todo** unl
 | **3** | **3.2:** bind-riposte table + harness ordering (P4h); parts + leverage in parry | **`PARRY_DEFLECT_*`** calibration soaks; optional eight diagonal guard lines (HEMA) |
 | **4** | Counter-tempo, riposte chain, mental stack, footwork, **4.5** **`CombatFlurryBind`** (flag **on**) | Editor bind-exchange feel optional |
 | **5** | Large `_run_kinematic_delivery_*` + tail file | Run/maintain **`CombatRegressionHarnessKinematicTail`**; editor KE/penetration calibration; [`PHYSICS_*`](PHYSICS_DAMAGE_AND_FLOW.md) “pipeline remaining” = narrative audit only. **Subregion** multiplier audit in bundle — **no combat `subregion` code** (entity/wound layer if pursued) |
-| **6** | **6.1** + **6.2** live paths (**`CombatFormationFlee`**, gauge **Fled**, winner check) | Medical bundle: wound-packing depth, ambient pain→shock (today shock is **hit-only** per [`MEDICAL`](MEDICAL_PAIN_INCAPACITATION.md)); pain-shock duration still scales on **total pain** + hit impact |
+| **6** | **6.1** + **6.2** live paths (**`CombatFormationFlee`**, gauge **Fled**, hit + ambient shock, **`pack_wound`**) | Wound-packing **depth** (research prose in medical bundle); hit shock uses this-hit pain + total-pain susceptibility per [`MEDICAL`](MEDICAL_PAIN_INCAPACITATION.md) |
 | **7** | **7.1–7.5** full catalog + harness | Optional HEMA bundle calibration prose only |
 
 **Quick wins (completed in P4):** automatic doctrine **on** · formation-move duration UI · feint listing × reveal · flee · flurry · bind-riposte table.
