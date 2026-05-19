@@ -2,6 +2,7 @@ class_name AvailableActionsBuilder
 extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
 const _MedicalListing := preload("res://combat/CombatMedicalActionListing.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
@@ -43,6 +44,8 @@ static func build(manager: Node, combatant_id: int) -> Array:
 	var combatants: Array = manager.combatants
 	var medical_phase: bool = manager.medical_phase
 	var medical_phase_winner: String = manager.medical_phase_winner
+	if medical_phase and _MedicalPhase.is_losing_side(manager, c):
+		return []
 
 	if _MedicalListing.append_receiving_care_direct_pressure(
 		manager, c, combatant_id, actions, medical_phase_winner
@@ -71,6 +74,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 	var result_actions: Array = actions
 	if counter_tempo:
 		result_actions = _counter_tempo().call("filter_actions_for_counter_tempo", actions, c)
+	result_actions = _drop_actions_vs_dead_opponents(manager, c, result_actions)
 	CombatDebug.log_available_actions_build(
 		manager,
 		combatant_id,
@@ -84,3 +88,25 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		combatants
 	)
 	return result_actions
+
+
+## Drop hostile actions whose target died between listing and pick (death same tick / queue lag).
+static func _drop_actions_vs_dead_opponents(manager: Node, actor: Dictionary, actions: Array) -> Array:
+	if actions.is_empty() or actor.is_empty():
+		return actions
+	var kept: Array = []
+	for a in actions:
+		var tid: int = int(a.get("target_id", -1))
+		if tid < 0:
+			kept.append(a)
+			continue
+		var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
+		if tgt.is_empty():
+			kept.append(a)
+			continue
+		if _EntityAccess.is_living_same_side(actor, tgt):
+			kept.append(a)
+			continue
+		if _EntityAccess.is_alive_in_combat(tgt):
+			kept.append(a)
+	return kept

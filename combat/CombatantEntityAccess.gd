@@ -2,6 +2,8 @@ class_name CombatantEntityAccess
 extends RefCounted
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _EntityMedical := preload("res://core/EntityMedical.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
 ## Centralized access to combatant node/entity for weapon, armor, performance, etc.
 ## Reduces repeated node.has_method("get_weapon") patterns across AttackResolver, DefenseChoiceResolver, etc.
@@ -326,6 +328,16 @@ static func entity_apply_direct_pressure_from_ally(
 	return tgt_entity.apply_direct_pressure_from_ally(part, performer_entity)
 
 
+static func entity_stack_assist_pressure_eligible(
+	manager: Node, target: Dictionary, performer: Dictionary, part: String
+) -> bool:
+	var tgt_entity: Node = get_entity_from_manager(manager, target)
+	var performer_entity: Node = get_entity_from_manager(manager, performer)
+	if tgt_entity == null or not tgt_entity.has_method("stack_assist_pressure_eligible"):
+		return false
+	return tgt_entity.stack_assist_pressure_eligible(part, performer_entity)
+
+
 static func entity_stack_assist_pressure_during_ally_treatment(
 	manager: Node, target: Dictionary, performer: Dictionary, part: String
 ) -> bool:
@@ -371,6 +383,27 @@ static func clear_direct_pressure_scene(combatant: Dictionary) -> void:
 		node.clear_direct_pressure()
 
 
+static func prepare_for_medical_windup_scene(
+	manager: Node,
+	performer: Dictionary,
+	target: Dictionary,
+	part: String
+) -> void:
+	var perf_node: Node = scene_node(performer)
+	var tgt_node: Node = scene_node(target)
+	if perf_node == null or tgt_node == null:
+		return
+	if perf_node.has_method("prepare_for_medical_windup"):
+		perf_node.prepare_for_medical_windup(tgt_node, part)
+		return
+	if manager == null:
+		return
+	var perf_entity: Node = get_entity_from_manager(manager, performer)
+	var tgt_entity: Node = get_entity_from_manager(manager, target)
+	if perf_entity != null and tgt_entity != null:
+		_EntityMedical.prepare_for_medical_windup(perf_entity, tgt_entity, part)
+
+
 ## Returns weapon from combatant's node, or null if node lacks get_weapon or is null.
 static func get_weapon(combatant: Dictionary) -> Variant:
 	var node = node_variant(combatant)
@@ -392,6 +425,11 @@ static func is_living_same_side(actor: Dictionary, other: Dictionary) -> bool:
 	if not alive_bool(other):
 		return false
 	return side_str(other) == side_str(actor)
+
+
+## Same-side partner still on the field for formation moves (not fled, not scene-dead).
+static func is_available_formation_partner(actor: Dictionary, other: Dictionary) -> bool:
+	return is_living_same_side(actor, other) and is_alive_in_combat(other) and is_alive_in_combat(actor)
 
 
 ## Alive opponent on the opposite side (incapacitated opponents still count — distance bands, intruder scans).
@@ -783,6 +821,27 @@ static func retreat_formation_body_damage_warranted(c: Dictionary, manager: Node
 	return false
 
 
+## True when **`flee`** (leave the field / rout) is justified — see **`CombatFormationRout.abandonment_warranted`**.
+static func flee_abandonment_warranted(c: Dictionary, manager: Node) -> bool:
+	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	return _Rout.abandonment_warranted(manager, c)
+
+
+## Side formation `morale_cohesion_factor` (Tier 1.5 input to `line_cohesion`); 1.0 when unknown.
+static func formation_morale_cohesion_factor(manager: Node, c: Dictionary) -> float:
+	if manager == null or not manager.get("formations"):
+		return 1.0
+	var fid: String = formation_id_str(c)
+	if fid.is_empty():
+		return 1.0
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+	return clampf(
+		float(form.get("morale_cohesion_factor", 1.0)),
+		CombatConstants.MORALE_COHESION_FACTOR_MIN,
+		1.0
+	)
+
+
 ## Returns leg functionality 0–1. Default 1.0 if unavailable.
 static func get_leg_functionality(combatant: Dictionary) -> float:
 	var node = node_variant(combatant)
@@ -867,6 +926,45 @@ static func get_total_bleeding_rate_from_node(node: Node) -> float:
 	return 0.0
 
 ## Returns medical effectiveness 0–1.5 from node. Default 1.0 if unavailable.
+## Wind-up speed: self-care uses medic shock; ally-care uses training + small patient thrash penalty.
+static func get_medical_windup_speed_modifier(
+	manager: Node, performer: Dictionary, target: Dictionary
+) -> float:
+	var perf_entity: Node = get_entity_from_manager(manager, performer)
+	var med_eff: float = get_medical_effectiveness_from_node(perf_entity)
+	med_eff = maxf(0.5, med_eff)
+	if id_int(performer) == id_int(target):
+		var perf: float = get_performance_modifier(performer)
+		return maxf(CombatConstants.PERF_MOD_MIN, perf) * med_eff
+	var patient_perf: float = get_performance_modifier(target)
+	var thrash: float = clampf(1.0 - patient_perf, 0.0, 1.0) * CombatConstants.MEDICAL_ALLY_TASK_PATIENT_THRASH_MAX_PENALTY
+	return med_eff * (1.0 - thrash)
+
+
+## Divisor for dressing wind-up when compression is held (primary holder / stacked assist).
+static func get_medical_windup_assist_duration_divisor(manager: Node, target: Dictionary, part: String) -> float:
+	var divisor: float = 1.0
+	var tgt_entity: Node = get_entity_from_manager(manager, target)
+	if tgt_entity == null or part.is_empty():
+		return divisor
+	if part_has_active_direct_pressure_on_entity(tgt_entity, part):
+		divisor += CombatConstants.MEDICAL_WINDUP_PRIMARY_HOLDER_DURATION_BONUS
+	if (
+		tgt_entity.get("direct_pressure_assist_held_by") != null
+		and tgt_entity.direct_pressure_assist_held_by != null
+	):
+		divisor += CombatConstants.MEDICAL_WINDUP_STACK_ASSIST_DURATION_BONUS
+	return divisor
+
+
+static func part_has_active_direct_pressure_on_entity(entity: Node, part: String) -> bool:
+	if entity == null or part.is_empty():
+		return false
+	if entity.has_method("has_direct_pressure_on_part"):
+		return entity.has_direct_pressure_on_part(part)
+	return false
+
+
 static func get_medical_effectiveness_from_node(node: Node) -> float:
 	if node == null:
 		return 1.0

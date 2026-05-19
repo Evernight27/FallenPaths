@@ -4,6 +4,8 @@ extends Node2D
 
 const _EncounterNode := preload("res://world/EncounterNode.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 @onready var tilemap: TileMap = $TileMap
 
@@ -15,6 +17,8 @@ func _tile_coords(pos: Vector2) -> Vector2i:
 	return Vector2i(floor((pos.x - 32) / 64.0), floor((pos.y - 32) / 64.0))
 
 func _ready():
+	if OS.has_feature("editor"):
+		_OperationalLog.begin_play_session("res://main.tscn")
 	# Match FallenFramework: fill screen — maximized window + stretch to viewport
 	var main_window = get_tree().root
 	main_window.content_scale_size = Vector2i(1920, 1080)
@@ -40,7 +44,7 @@ func _ready():
 			var coords = Vector2i(x, y)
 			tilemap.set_cell(0, coords, source_id, atlas_coords)
 	
-	print("3x3 grid created!")
+	_CombatDebug.world_session("overworld ready (3x3 grid, encounters spawned)")
 	
 	# Randomize RNG and spawn two enemy encounters on different tiles (for testing medical continuity between battles)
 	rng.randomize()
@@ -67,18 +71,19 @@ func _on_player_moved():
 	# Detect encounter on tile (one marker per encounter; enemies spawn when combat starts)
 	var encounter = _get_encounter_on_tile(p_tile)
 	if encounter != null:
-		var ready: Dictionary = _CampaignBridge.can_enter_combat(self)
-		if not bool(ready.get("ok", false)):
-			push_warning("[World] %s" % str(ready.get("message", "Cannot enter combat.")))
+		var can_enter: Dictionary = _CampaignBridge.can_enter_combat(self)
+		if not bool(can_enter.get("ok", false)):
+			_OperationalLog.warn(str(can_enter.get("message", "Cannot enter combat.")))
 			return
 		if _CampaignBridge.party_has_untreated_wounds(self):
-			print(
-				"[World] Party has untreated wounds — stabilize in battle medical phase or risk bleed-out on the map."
+			_CombatDebug.world_session(
+				"party has untreated wounds — stabilize in battle medical phase or risk bleed-out on the map"
 			)
 		_CampaignBridge.prepare_combat_from_encounter(self, encounter)
 		var enemies: Array = encounter.spawn_enemies(self, rng)
 		encounter.queue_free()
 		if not enemies.is_empty():
+			_CombatDebug.world_session("entering combat tile=%s enemies=%d" % [p_tile, enemies.size()])
 			await CombatFlow.start_combat(self, enemies)
 		return
 	_CampaignBridge.advance_party_overworld_minute(self)
@@ -88,6 +93,11 @@ func _get_encounter_on_tile(tile: Vector2i) -> Node:
 		if child.get_script() == _EncounterNode and _tile_coords(child.position) == tile:
 			return child
 	return null
+
+func _exit_tree() -> void:
+	if OS.has_feature("editor"):
+		_OperationalLog.end_play_session()
+
 
 func _on_battle_ended(winner: String, defeated: Node) -> void:
 	await CombatFlow.handle_battle_ended(self, winner, defeated)

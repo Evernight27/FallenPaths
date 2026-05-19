@@ -11,6 +11,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 # Part relevance for hindrance (attacking arm from pending; supporting leg from stance)
 static func _get_part_relevance(hit_part: String, attacking_arm: String, supporting_leg: String) -> float:
@@ -100,6 +101,7 @@ static func _abort_afterblow_wind_up_no_arm(manager: Node, target_id: int, tgt: 
 
 
 static func _cancel_pending(manager: Node, tgt: Dictionary) -> void:
+	_Footwork.clear_on_exchange_end(tgt)
 	tgt.pending_attack = {}
 	tgt.state = CombatConstants.STATE_RECOVERING
 	tgt.state_timer = 0.0

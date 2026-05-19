@@ -2,6 +2,7 @@ class_name CombatFormationFlee
 extends RefCounted
 
 ## Tier 6.2: abandon the engagement (leave the field) vs tactical **`fall_back`** within formation.
+## Rout policy: **`CombatFormationRout`** (`line_cohesion` + side casualty ratio); listing via **`flee_abandonment_warranted`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
@@ -10,11 +11,14 @@ const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+const _FormationRout := preload("res://combat/CombatFormationRout.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 
 static func flee_action_legal(manager: Node, c: Dictionary) -> bool:
 	if manager == null or c.is_empty():
 		return false
+	_FormationRout.ensure_rout_baseline(manager)
 	if bool(c.get("combat_absent", false)):
 		return false
 	if not _EntityAccess.can_flee_or_fall_back(c):
@@ -28,9 +32,29 @@ static func flee_action_legal(manager: Node, c: Dictionary) -> bool:
 		return false
 	if _MobilityRetreat.formation_retreat_only_for(c):
 		return true
-	if not _EntityAccess.retreat_formation_body_damage_warranted(c, manager):
+	if not _EntityAccess.flee_abandonment_warranted(c, manager):
 		return false
 	return not _FormationMoves.solo_fall_back_action_legal(manager, c)
+
+
+## Verbose build trace when **`flee`** is listed (cohesion / casualties / holding field).
+static func log_flee_listed_if_verbose(manager: Node, c: Dictionary) -> void:
+	if not CombatDebug.flow_verbose_enabled() or manager == null or c.is_empty():
+		return
+	var ctx: Dictionary = _FormationRout.rout_context_snapshot(manager, c)
+	CombatDebug.flow_log(
+		(
+			"flee_listed id=%d %s cohesion=%.2f casualty=%.2f stressed=%s holding=%s"
+			% [
+				_EntityAccess.id_int(c),
+				_EntityAccess.get_display_name(c, _EntityAccess.id_int(c)),
+				float(ctx.get("line_cohesion", 0.0)),
+				float(ctx.get("casualty_ratio", 0.0)),
+				str(ctx.get("formation_stressed", false)),
+				str(ctx.get("side_holding_field", false)),
+			]
+		)
+	)
 
 
 static func apply_flee(manager: Node, combatant_id: int) -> void:
@@ -57,10 +81,34 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 	c.state_duration = 0.0
 	c.gauge = 0.0
 	c.erase("formation_move_partner_id")
+	var ctx: Dictionary = _FormationRout.rout_context_snapshot(manager, c)
 	if CombatDebug.flow_verbose_enabled():
 		CombatDebug.flow_log(
-			"flee id=%d %s fid=%s"
-			% [combatant_id, _EntityAccess.get_display_name(c, combatant_id), fid]
+			(
+				"flee id=%d %s fid=%s cohesion=%.2f casualty=%.2f stressed=%s holding=%s"
+				% [
+					combatant_id,
+					_EntityAccess.get_display_name(c, combatant_id),
+					fid,
+					float(ctx.get("line_cohesion", 0.0)),
+					float(ctx.get("casualty_ratio", 0.0)),
+					str(ctx.get("formation_stressed", false)),
+					str(ctx.get("side_holding_field", false)),
+				]
+			)
+		)
+	if _OperationalLog.is_play_session_active():
+		_OperationalLog.play_combat(
+			(
+				"fled id=%d %s cohesion=%.2f casualties=%.0f%% holding_field=%s"
+				% [
+					combatant_id,
+					_EntityAccess.get_display_name(c, combatant_id),
+					float(ctx.get("line_cohesion", 0.0)),
+					float(ctx.get("casualty_ratio", 0.0)) * 100.0,
+					str(ctx.get("side_holding_field", false)),
+				]
+			)
 		)
 	if not fid.is_empty():
 		manager.notify_formation_changed(fid)

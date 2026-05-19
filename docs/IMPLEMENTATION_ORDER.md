@@ -146,7 +146,7 @@ flowchart LR
 | Mobility / retreat | `CombatMobilityRetreat.gd`, `CombatPlayerTurnHints.gd`, `CombatUiHints.gd` — Tier **6.1** [live path](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) |
 | Breach / crash | `BreachResolver.gd`, `FormationBreachRules.gd` |
 | Engagement v1 | `CombatFormationEngagement.gd`, `CombatIntrusionGeometry.gd` |
-| Medical | `MedicalPhaseController.gd`, `CombatMedicalCoordination.gd`, `CombatMedicalActionListing.gd` (and related) |
+| Medical | `MedicalPhaseController.gd`, `CombatMedicalCoordination.gd` (**`medical_action_allowed`**, stack-assist, pick filter), `CombatMedicalActionListing.gd`, `MedicalActionStarter.gd`, `MedicalWindUpHandler.gd` — [§6.3 coordination live path](MEDICAL_PAIN_INCAPACITATION.md#tier-63-medical-phase-coordination-live-path) |
 | Resolve / defense | `AttackResolver.gd`, `AttackWindUpStarter.gd`, `DefenseChoiceResolver.gd`, `DefenseResolutionHandler.gd`, `GuardLineUpdater.gd`, `AfterblowHandler.gd` — Tier **3** [live paths](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) |
 | Weapons / impact (abstract) | `WeaponConstants.gd`, `WeaponDamageHelper.gd`, `ImpactVelocityModel.gd`, `WeaponSwingPhysics.gd`; optional mirror **`tools/simulate_weapon_ke_velocity.py`** (intensity / KE vs Tier **3.0**) |
 | UI | `ui/BattleScene.gd`, `BattleUIUpdater.gd`, formation diagram builders |
@@ -215,7 +215,7 @@ flowchart LR
 | **3** | Melee depth **3.0–3.3** | **Done** | Deflect calibration investigations → [`PARRY_DEFLECT`](PARRY_DEFLECT_AND_CALIBRATION.md) (not exit-gated) |
 | **4** | AI / stance **4.1–4.5** + **4.2b** | **Done** | Editor bind-exchange soak optional |
 | **5** | Physics **5.1** | **Done** | Kinematic tail + editor calibration — [audit](#tier-expansion-audit-2026-05-17) |
-| **6** | Medical **6.1** + **6.2** flee | **Done** | Wound-packing **depth** (research); basic **`pack_wound`** shipped + harness |
+| **6** | Medical **6.1** + **6.2** flee + **6.3** coordination | **Done** | Wound-packing **depth** (research); flee-rate balance (playtest) |
 | **7** | HEMA / fidelity | **Done** | **7.1–7.5** shipped — [Tier 7](#tier-7--research--fidelity-non-blocking); optional HEMA investigation depth in bundle only |
 
 **Production feature toggles (summary):**
@@ -687,11 +687,11 @@ Then adjust **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** exi
 
 ### Tier 4.4 — Spatial footwork
 
-**Scope:** **position-angle offset** (step-on-attack, defender parry/dodge step) — production flag default **on** (`is_feature_position_angle_footwork_enabled()`). Pair **`distance_to`** spacing lives under **4.2** ([live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-shipped)).
+**Scope:** **position-angle offset** (step-on-attack, defender parry/dodge step) — production flag default **on** (`is_feature_position_angle_footwork_enabled()`). **`clear_on_exchange_end`** on abort / recovery / medical halt / resolve; UI hints only in **`wind_up`** / **`recovering`**; diagonal resolve re-syncs offset to rolled **`effective_attack_line`**. Pair **`distance_to`** spacing lives under **4.2** ([live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-42-footwork--tempo--live-path-shipped)).
 
 **Depends on:** **4.3** **Done**.
 
-**Exit criteria:** **Done** **[x]** — [§4.4 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path) · registry Tier **4.4** · grep **`_run_footwork_`**.
+**Exit criteria:** **Done** **[x]** — [§4.4 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path) · registry Tier **4.4** · grep **`_run_footwork_`** (incl. **`_run_footwork_abort_attacker_wind_up_clears_offset`**, **`_run_footwork_back_rank_abort_clears_depth_windup`**, **`_run_footwork_waiting_hides_stale_step_ui`**).
 
 ---
 
@@ -723,6 +723,7 @@ Then adjust **P4** per **`ENGAGEMENT_*` §4.1–§4.2** and the **Tier 1.3** exi
 |------|-------------|------------|:------:|
 | 6.1 | Mobility + cowering retreat + pain-shock susceptibility · [exit](#tier-61-mobility-pain-shock-extensions) · [live path](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) | Independent; avoid conflicting with formation busy states | **Done** |
 | 6.2 | Dedicated flee formation action · [live path](MEDICAL_PAIN_INCAPACITATION.md#tier-62-flee-formation-action-live-path) | **6.1** | **Done** |
+| 6.3 | Medical phase coordination (overlap + stack-assist) · [exit](#tier-63-medical-phase-coordination) · [live path](MEDICAL_PAIN_INCAPACITATION.md#tier-63-medical-phase-coordination-live-path) | **6.1** (TCCC pressure paths) | **Done** |
 
 <a id="tier-61-mobility-pain-shock-extensions"></a>
 
@@ -750,7 +751,7 @@ Honest pass: **core milestones 0–7 and 3.x–4.5 live paths are shipped**; exp
 | **3** | **Done** (live paths) | **3.0–3.3** + parts/leverage + [bind-riposte table](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) (P4h) | Deflect calibration soaks ([`PARRY_DEFLECT`](PARRY_DEFLECT_AND_CALIBRATION.md)); optional eight diagonal guards |
 | **4** | **Done** (**4.1–4.5**, **4.2b**) | Feint D, counter-tempo, mental stack, footwork, bind-exchange flurry | Editor bind-exchange soak optional |
 | **5** | **Done** (**5.1**) | Kinematic audit + main harness | **`CombatRegressionHarnessKinematicTail`**; editor calibration; [`PHYSICS_*`](PHYSICS_DAMAGE_AND_FLOW.md) investigation reconciliation |
-| **6** | **Done** (**6.1**, **6.2**) | Cowering retreat, flee, hit + **ambient** pain shock, **`pack_wound`** harness | Wound-packing **depth** (medieval linen research) — investigations only |
+| **6** | **Done** (**6.1**, **6.2**, **6.3**) | Cowering retreat, flee, TCCC pressure/pack, **multi-medic coordination**, stack-assist, hit + **ambient** pain shock | Wound-packing **depth** (medieval linen research); flee-rate balance (playtest) — investigations / tuning only |
 | **7** | **Done** | **7.1–7.5** (stamina, flurry, flee, bind-riposte, full station catalog) | Optional HEMA investigation calibration only |
 
 **Doc hygiene:** [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) Phase 1–3 stamina checklists — **7.2** depletion row + Phase **5** hit-interrupt note reconciled **2026-05-18**; legacy Phase **1–6** bullets remain historical (plan wins on conflicts).
@@ -767,7 +768,7 @@ Use when scoping [P4](#next-coding-step); **do not** re-mark a tier **Todo** unl
 | **3** | **3.2:** bind-riposte table + harness ordering (P4h); parts + leverage in parry | **`PARRY_DEFLECT_*`** calibration soaks; optional eight diagonal guard lines (HEMA) |
 | **4** | Counter-tempo, riposte chain, mental stack, footwork, **4.5** **`CombatFlurryBind`** (flag **on**) | Editor bind-exchange feel optional |
 | **5** | Large `_run_kinematic_delivery_*` + tail file | Run/maintain **`CombatRegressionHarnessKinematicTail`**; editor KE/penetration calibration; [`PHYSICS_*`](PHYSICS_DAMAGE_AND_FLOW.md) “pipeline remaining” = narrative audit only. **Subregion** multiplier audit in bundle — **no combat `subregion` code** (entity/wound layer if pursued) |
-| **6** | **6.1** + **6.2** live paths (**`CombatFormationFlee`**, gauge **Fled**, hit + ambient shock, **`pack_wound`**) | Wound-packing **depth** (research prose in medical bundle); hit shock uses this-hit pain + total-pain susceptibility per [`MEDICAL`](MEDICAL_PAIN_INCAPACITATION.md) |
+| **6** | **6.1** + **6.2** + **6.3** live paths (**`CombatFormationFlee`**, gauge **Fled**, TCCC pressure/pack, **multi-medic coordination**, stack-assist) | Wound-packing **depth** (research prose in medical bundle); hit shock uses this-hit pain + total-pain susceptibility per [`MEDICAL`](MEDICAL_PAIN_INCAPACITATION.md); flee-rate balance (playtest) |
 | **7** | **7.1–7.5** full catalog + harness | Optional HEMA bundle calibration prose only |
 
 **Quick wins (completed in P4):** automatic doctrine **on** · formation-move duration UI · feint listing × reveal · flee · flurry · bind-riposte table.
@@ -778,11 +779,13 @@ Use when scoping [P4](#next-coding-step); **do not** re-mark a tier **Todo** unl
 
 ### Post-expansion backlog (no new P4 rows)
 
+**Full forward plan (all systems, phases, investigations):** [`POST_MILESTONE_INTEGRATION_PLAN.md`](POST_MILESTONE_INTEGRATION_PLAN.md).
+
 | Track | When | Actions |
 |-------|------|---------|
 | **P0** | Always | **`run_all()`** green; kinematic tail optional |
-| **P1** | Editor | Bind deflect → riposte → optional flurry chain; crash→wedge; multi-threat surround ([P1′](#next-coding-step)) |
-| **Defer** | Investigations | Medical wound-packing depth; eight diagonal guards; optional HEMA bundle calibration prose |
+| **P1** | Editor | Bind deflect → riposte → optional flurry chain; crash→wedge; multi-threat surround ([P1′](#next-coding-step)) — checklist in integration plan **Phase 2** |
+| **Defer** | Investigations | See integration plan **Phase 3–4** (guards, plug contest, close slots, armor burden, …) |
 
 ---
 
@@ -869,14 +872,36 @@ Bind/deflect/riposte wind-up: **Tier 3.2** / **4.2** (not Tier **7**).
 | Deliverable | Modules |
 |-------------|---------|
 | **`MOVE_ID_FLEE`** + listing | `CombatConstants.gd`, `CombatFormationMoveListing.gd`, `CombatMobilityRetreat.gd` |
+| Rout policy | **`CombatFormationRout.gd`** — cohesion + casualties + **`side_holding_field`**; **`rout_thresholds_by_fid`** at **`start()`** (encounter + preset) |
 | Resolve + slot clear + winner | `CombatFormationFlee.gd`, `CombatResolveAction.gd`, `CombatManager._check_for_winner` |
-| AI weight | `CombatAIActionPicker.gd` |
+| AI weight | `CombatAIActionPicker.gd` (**`flee_ai_pick_mult`**) |
 | UI / log | `BattleUIUpdater.gd`, `CombatPlayerTurnHints.gd`, `CombatLogFormatter.gd` |
 | Medical teardown | `MedicalPhaseController._reset_fled_and_combat_absent` |
 | Live path | [`MEDICAL` §6.2](MEDICAL_PAIN_INCAPACITATION.md#tier-62-flee-formation-action-live-path) |
-| Harness | **`_run_flee_*`**, **`_run_medical_mobility_cowering_lists_flee_in_formation_mode`**, **`_run_medical_phase_clears_fled_combatant_state`**, **`_run_combat_log_formatter_fled_outcome`** |
+| Harness | grep **`_run_flee_*`** (incl. encounter/preset thresholds, holding-field, instant hint, AI mult) · **`_run_medical_mobility_cowering_lists_flee_in_formation_mode`** · **`_run_medical_phase_clears_fled_combatant_state`** · **`_run_combat_log_formatter_fled_outcome`** |
 
 **Exit criteria:** **[x]** [P4f](#p4f--tier-62-flee-formation-action) complete · **`run_all()`** green.
+
+---
+
+<a id="tier-63-medical-phase-coordination"></a>
+
+### Tier 6.3 — Medical phase coordination
+
+**Status:** **Done** (2026-05-18) — post-victory medical phase: no duplicate wind-up or pressure takeover on the same ally part; second medic may **stack-assist** only when **`EntityMedical.stack_assist_pressure_eligible`**.
+
+| Deliverable | Modules |
+|-------------|---------|
+| Overlap API + pick filter | `CombatMedicalCoordination.gd` — **`medical_action_allowed`**, **`filter_actions_for_pick`** |
+| Listing + resolve | `MedicalPhaseController.gd`, `CombatMedicalActionListing.gd`, `CombatResolveAction.gd`, `MedicalActionStarter.gd` |
+| AI refresh before pick | `CombatAIActionPicker.gd` — **`MEDICAL_AI_WEIGHT_TREATMENT_ASSIST_PRESSURE`** |
+| Entity gate | `EntityMedical.gd`, `CoreEntity.gd` — **`stack_assist_pressure_eligible`** |
+| Victory telemetry | `CombatManager.gd` — **`phase_end`** **`standing_by_side`** + **`fled_by_side`** |
+| Formation AI (related) | `CombatConstants.gd` — **`AI_FORMATION_MOVE_BLOCKED_LANE_MULT`** on blocked **`rotate_file`** |
+| Live path | [`MEDICAL` §6.3](MEDICAL_PAIN_INCAPACITATION.md#tier-63-medical-phase-coordination-live-path) |
+| Harness | **`_run_medical_coordination_*`** |
+
+**Exit criteria:** **[x]** grep **`_run_medical_coordination_*`** · **`run_all()`** green · no medic-overlap **`pressure_rebound`** in soak.
 
 ---
 
@@ -894,8 +919,9 @@ Bind/deflect/riposte wind-up: **Tier 3.2** / **4.2** (not Tier **7**).
 
 | Document | Role |
 |----------|------|
-| **This file** | **Logical plan + execution order** |
-| `README.md` | Index + by-task table (**not** milestone **Status**); **13** linked files in its file table (master plan + **11** merged bundles + **`REGRESSION_HARNESS_MAP_TIER19.md`**); bundles: **`Plan / code`** + **`Source:`** skim; IDE pointers → `AGENTS.md`, `.cursor/rules/fallen-paths.mdc` |
+| **This file** | **Logical plan + execution order** (milestones **0–7** **Status** only here) |
+| `POST_MILESTONE_INTEGRATION_PLAN.md` | **Forward plan** after milestones — doc reconciliation, soak, integration depth, new tracks; integration **Status** `[ ]`/`[x]` per track |
+| `README.md` | Index + by-task table (**not** milestone **Status**); **14** linked files in its file table (master plan + integration plan + **11** merged bundles + **`REGRESSION_HARNESS_MAP_TIER19.md`**); bundles: **`Plan / code`** + **`Source:`** skim; IDE pointers → `AGENTS.md`, `.cursor/rules/fallen-paths.mdc` |
 | `REGRESSION_HARNESS_MAP_TIER19.md` | Exhaustive **`_run_*` registry** + tier index → live paths — **keep in sync** when adding harnesses |
 | `ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md` | Tier 1 **spec**: §1 → master [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic); §2 mirror; §4–§6 plugs / dictionary / tuning |
 | `COMBAT_ROADMAP_AND_STAMINA.md` | Historical phases, stamina, snapshot; top **Plan / code** — plan overrides checklists |
@@ -906,15 +932,19 @@ Bind/deflect/riposte wind-up: **Tier 3.2** / **4.2** (not Tier **7**).
 | `PARRY_DEFLECT_AND_CALIBRATION.md` | Deflect calibration investigations → [3.2 live path](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) |
 | `GUARDS_LINES_AFTERBLOW.md` | Tier **3.3** — [live path](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) at top; investigations below |
 | `PHYSICS_DAMAGE_AND_FLOW.md` | Tier **5.1** — [kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit); investigations below |
-| `MEDICAL_PAIN_INCAPACITATION.md` | Tier **6** [6.1](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) + [6.2 flee](MEDICAL_PAIN_INCAPACITATION.md#tier-62-flee-formation-action-live-path); investigations below |
+| `MEDICAL_PAIN_INCAPACITATION.md` | Tier **6** [6.1](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) · [6.2 flee](MEDICAL_PAIN_INCAPACITATION.md#tier-62-flee-formation-action-live-path) · [6.3 coordination](MEDICAL_PAIN_INCAPACITATION.md#tier-63-medical-phase-coordination-live-path); investigations below |
 | `HEMA_ROADMAP_AND_SOURCES.md` | Tier **7** (non-blocking); top **Plan / code** |
 
 ---
 
 ## Changelog
 
+- **2026-05-19 (integration-plan-pass3):** Plan pass 3 audit — harness green; III-1/MXl/III-8 wording; Phase 0.5 flag API names; **I-G1** banner template.
+- **2026-05-19 (integration-plan-pass2):** Integration plan pass 2 — I-8/III-5 fix, I-14, II-1e, II-3e, III-8, IV-7b, decision logs, phase exit gates (**55** master-inventory rows, **M7e** archived).
+- **2026-05-19 (integration-plan):** New [`POST_MILESTONE_INTEGRATION_PLAN.md`](POST_MILESTONE_INTEGRATION_PLAN.md) — master inventory, Phases 0–5, per-bundle investigation appendix, tracks I/II/III/IV/V; README + plan inventory + `AGENTS.md` pointers; post-expansion backlog links here.
 - **2026-05-18 (investigation-fix):** **`COMBAT_DEBUG`** / **`COMBAT_EVENT_DEBUG`** / **`COMBAT_EVENT_DEBUG_VERBOSE`** default **false**; **`CombatPlayerTurnHints`** formation duration on player turn-ready; **`AttackWindUpStarter`** rejects **`move_id`** not on weapon; **`.gitignore`** **`_harness*.txt`**; harness **`_run_formation_move_duration_player_turn_hint_from_listed_actions`**, **`_run_wind_up_rejects_move_not_on_weapon`**; **`COMBAT_ROADMAP`** Phase **5** duration/armor rows.
 - **2026-05-18 (tier-75-catalog):** **`impact_station_mean`** on **all** move defs + **`WeaponConstants.get_all_move_ids()`**; harness **`_run_impact_station_mean_every_move_def_tagged`**, feint/pole ordering; Tier **7** + **7.5** → **Done**.
+- **2026-05-18 (medical-coordination):** Tier **6.3** medical phase coordination — **`CombatMedicalCoordination.medical_action_allowed`**, stack-assist-only second medic (**`EntityMedical.stack_assist_pressure_eligible`**), medical-phase pick filter; **`phase_end`** logs **`standing_by_side`** + **`fled_by_side`**; **`AI_FORMATION_MOVE_BLOCKED_LANE_MULT`** on **`rotate_file`**; harness **`_run_medical_coordination_*`**; [`MEDICAL` §6.3](MEDICAL_PAIN_INCAPACITATION.md#tier-63-medical-phase-coordination-live-path) + registry.
 - **2026-05-18 (tier-75-pilot):** Per-move **`impact_station_mean`** pilot on five moves; harness **`_run_impact_station_mean_*`**; [7.5 live path](#tier-75-weapon-part-fidelity-live-path) updated.
 - **2026-05-18 (tier-75-scope):** [Tier **7.5** live path](#tier-75-weapon-part-fidelity-live-path) — shipped slice (parts, commit, blade station roll) vs deferred per-move catalog; audit table + plan header Tier **2** sync wording; registry Tier **7.5** harness paragraph.
 - **2026-05-18 (roadmap-sync):** **`COMBAT_ROADMAP_AND_STAMINA.md`** — Phase **2** stamina economics **[x]** (Tier **7.2** / **P4a** step **4**); Phase **5** hit-interrupt → Tier **0.2**; **`REGRESSION_HARNESS_MAP`** Tier **7** depletion harness names.
@@ -939,6 +969,7 @@ Bind/deflect/riposte wind-up: **Tier 3.2** / **4.2** (not Tier **7**).
 - **2026-05-17 (6.1-done):** Tier **6.1** **Done** — mobility / cowering retreat live path in **`MEDICAL_PAIN_INCAPACITATION.md`**; **`handle_action_ready`** for mobile cowering; harness **`_run_medical_mobility_cowering_action_ready_fills_gauge_for_mobile`**; plan exit + registry.
 - **2026-05-17 (6.1-fb):** Solo **`fall_back`** uses per-file frontline plug check (**`formation_has_frontline_fill_opportunity_at_file`**) so vacancy in another lane does not block cowering retreat; **`run_all()`** green.
 - **2026-05-17 (harness-split):** **`CombatRegressionHarnessKinematicTail.gd`** — Tier **5.1** optional long-tail kinematic tests split from main harness (Godot compile size); **`run_all`** calls **`_KinematicTail.run`**.
+- **2026-05-18 (4.4-scrub):** Stale reserve footwork UI — **`CombatFootwork.clear_on_exchange_end`** on **`CounterTempo.abort_attacker_wind_up`**, recovery, afterblow cancel, medical halt; **`offset_visible_for_ui_state`** gates gauge/diagram hints to **`wind_up`** / **`recovering`**; **`AttackResolver`** re-**`apply_attack_step_on_windup`** when diagonal C rolls **`effective_attack_line`**; harness **`_run_footwork_abort_attacker_wind_up_clears_offset`**, **`_run_footwork_back_rank_abort_clears_depth_windup`**, **`_run_footwork_waiting_hides_stale_step_ui`**; [§4.4 live path](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-44-position-angle-footwork-live-path) + registry updated.
 - **2026-05-17 (4.4-ui3):** Diagram labels **`Name · +14°`** (**`get_diagram_label_suffix`**); **cowering** gauge footwork; diagram refresh when footwork flag off; gauge width **128**; death scrub + defeated tooltips; harness snapshot wiring + **`_run_footwork_diagram_label_suffix_compact`**, **`_run_footwork_ui_hint_stale_stamp_prefers_live_offset`**, **`_run_footwork_snapshot_omits_position_when_disabled`**.
 - **2026-05-17 (4.4-ui):** Battle UI soak — **`BattleUIUpdater`** gauge tooltips (footwork / attention / counter-tempo), wider gauge label, footwork on swap/fall-back/**`status_override`**; **`FormationDiagramBuilder`** arc-step cell tooltips; **`BattleScene`** refreshes diagrams when footwork signature changes; **`CombatCombatantsSnapshot`** exports **`attention_ui_hint`** / **`counter_tempo_ui_hint`**; harness **`_run_combat_snapshot_exports_attention_ui_hint_when_stamped`**.
 - **2026-05-17 (4.4-on):** Tier **4.4** production default **on** for **`is_feature_position_angle_footwork_enabled()`**; plan/registry **Done**; next coding step → Tier **5.1** optional / UI soak.

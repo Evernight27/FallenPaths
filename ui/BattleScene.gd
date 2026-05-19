@@ -10,6 +10,8 @@ const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
+const _FormationRout := preload("res://combat/CombatFormationRout.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 var players: Array = []
 var enemies: Array = []
@@ -45,7 +47,7 @@ func _ready() -> void:
 
 ## Start battle. Optional p_player_formation and p_enemy_formation: { files, ranks, density, optional **`CombatConstants.FORMATION_PRESET_KEY_DOCTRINE`** or **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**, optional **`CombatConstants.FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS`**, … }.
 ## When omitted, uses world meta "party_formation" / "enemy_formation" or defaults from count.
-## Optional p_encounter: merged into **`CombatManager.encounter`** before **`manager.start()`** (same keys as **`CombatManager.start`** default_enc — doctrine, **`depth_polearm_ai_doctrine_mults_*`**, posture deltas, …). If empty, reads **`parent_scene`** meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when present (**`CombatFlow.start_combat`** can set it on the world).
+## Optional p_encounter: merged into **`CombatManager.encounter`** before **`manager.start()`** (same keys as **`CombatManager.start`** default_enc — doctrine, **`depth_polearm_ai_doctrine_mults_*`**, **`ENCOUNTER_KEY_FLEE_*`**, posture deltas, …). Preset dicts may set **`FORMATION_PRESET_KEY_FLEE_*`** rout overrides per side. If empty, reads **`parent_scene`** meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when present (**`CombatFlow.start_combat`** can set it on the world).
 func start(
 	p_players,
 	p_enemies,
@@ -342,6 +344,10 @@ func _format_engagement_line(form: Dictionary, formation_id: String) -> String:
 	var posture: String = str(form.get("engagement_posture", "—"))
 	var coh: float = float(form.get("line_cohesion", 0.0))
 	var line: String = "%s · %s · cohesion %d%%" % [mode_disp, posture.capitalize(), int(roundf(coh * 100.0))]
+	if manager != null:
+		var cas_pct: int = _FormationRout.casualty_percent_for_formation(manager, formation_id)
+		if cas_pct > 0:
+			line += " · %d%% casualties" % cas_pct
 	if manager != null and manager.has_method("get_formation_doctrine"):
 		var doc: String = str(manager.get_formation_doctrine(formation_id))
 		if doc != CombatConstants.DOCTRINE_DEFAULT and not doc.is_empty():
@@ -396,7 +402,7 @@ func _on_enemies_eliminated(winner_side: String) -> void:
 	_pending_defeated = null
 	_in_medical_phase = true
 	_medical_phase_finished_announced = false
-	print("[Combat] BattleScene: enemies_eliminated => medical phase started, winner=%s" % winner_side)
+	_CombatDebug.combat_session("enemies_eliminated medical phase started winner=%s" % winner_side)
 	if combat_log:
 		combat_log.append_text("\n[color=orange]——— Enemies eliminated. Medical phase: stabilize your wounded before ending. ———[/color]\n")
 		_scroll_combat_log_to_bottom()
@@ -406,7 +412,7 @@ func _on_combat_ended(winner_side: String, defeated_node: Node) -> void:
 	_pending_winner = winner_side
 	_pending_defeated = defeated_node
 	var def_name: String = str(defeated_node.name) if defeated_node != null else "null"
-	print("[Combat] BattleScene: combat_ended => winner=%s defeated=%s" % [winner_side, def_name])
+	_CombatDebug.combat_session("combat_ended winner=%s defeated=%s" % [winner_side, def_name])
 	if combat_log:
 		combat_log.append_text("\n[color=yellow]——— Combat ended. Winner: %s ———[/color]\n" % winner_side)
 		_scroll_combat_log_to_bottom()
@@ -420,7 +426,7 @@ func _show_end_battle_button() -> void:
 	var content_vbox = get_node_or_null("CombatCanvasLayer/UIRoot/ContentVBox")
 	if content_vbox == null:
 		return
-	print("[Combat] BattleScene: showing End battle button, pausing manager (can_end_medical_phase=true)")
+	_CombatDebug.combat_session("showing End battle button pausing manager")
 	# Pause combat loop: no more gauge fills or turn cycling until End battle is pressed
 	if manager != null:
 		manager.set_process(false)

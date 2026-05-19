@@ -1,6 +1,6 @@
 # Combat documentation (consolidated)
 
-**Start here:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — [**gates shipped**](IMPLEMENTATION_ORDER.md#next-implementation-phase) (Phase **A** surround + Phase **B** line crash, 2026-05-17); [all tiers at a glance](IMPLEMENTATION_ORDER.md#all-tiers-at-a-glance), [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) (Tier **1**), [next coding step](IMPLEMENTATION_ORDER.md#next-coding-step), [line-crash](IMPLEMENTATION_ORDER.md#development-gate-line-crash--intrusions-temporary) / [sector-surround](IMPLEMENTATION_ORDER.md#development-gate-sector-surround-load-temporary) gates, [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic), [document map](IMPLEMENTATION_ORDER.md#document-map-read-order). No parallel status column in this index.
+**Start here:** [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — [**gates shipped**](IMPLEMENTATION_ORDER.md#next-implementation-phase) (Phase **A** surround + Phase **B** line crash, 2026-05-17); [all tiers at a glance](IMPLEMENTATION_ORDER.md#all-tiers-at-a-glance), [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) (Tier **1**), [next coding step](IMPLEMENTATION_ORDER.md#next-coding-step), [line-crash](IMPLEMENTATION_ORDER.md#development-gate-line-crash--intrusions-temporary) / [sector-surround](IMPLEMENTATION_ORDER.md#development-gate-sector-surround-load-temporary) gates, [dependency chain](IMPLEMENTATION_ORDER.md#dependency-chain-execution-logic), [document map](IMPLEMENTATION_ORDER.md#document-map-read-order). **Forward work (post-milestone):** [`POST_MILESTONE_INTEGRATION_PLAN.md`](POST_MILESTONE_INTEGRATION_PLAN.md). No parallel milestone **Status** column in this index.
 
 **Harness names (no Status):** [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) — exhaustive `_run_*` registry; grep `combat/CombatRegressionHarness.gd` when adding tests.
 
@@ -11,9 +11,10 @@
 | If you need… | Read… |
 |--------------|--------|
 | **Plan, phases, gates** | [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md) — [milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) · [next coding step](IMPLEMENTATION_ORDER.md#next-coding-step) · [P4 complete](IMPLEMENTATION_ORDER.md#expansion-backlog-p4-playbooks) · [post-expansion](IMPLEMENTATION_ORDER.md#post-expansion-backlog) · [tier audit](IMPLEMENTATION_ORDER.md#tier-expansion-audit-2026-05-17) · gates (surround + intrusion + flurry default **true**) |
+| **Post-milestone integration (all systems)** | [`POST_MILESTONE_INTEGRATION_PLAN.md`](POST_MILESTONE_INTEGRATION_PLAN.md) — Phases 0–5, master inventory, per-bundle investigations |
 | **Headless combat regression harness** | Command in [`AGENTS.md`](../AGENTS.md); VS Code / Cursor task **Run Combat Regression Harness (headless)** in [`.vscode/tasks.json`](../.vscode/tasks.json) (uses **`godotTools.editorPath.godot4`** in [`.vscode/settings.json`](../.vscode/settings.json)). |
 | **Exhaustive `_run_*` harness names** | [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) (registry; plan §§ link here, not per-harness lists) |
-| **Shipped-tier live paths** (modules + harness grep) | Tier **1.9:** [plan §1.9](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes) · Tier **3:** [`PARRY_BIND`](PARRY_BIND_AND_WEAPON_GEOMETRY.md) [3.1](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) · [3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) · [`GUARDS`](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) **3.3** · Tier **4:** [`AI_ENGAGEMENT`](AI_ENGAGEMENT_STANCE_AND_FEINTS.md) [4.1](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path)–[4.5](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-45-flurry-bind-exchange-live-path) · Tier **5.1:** [`PHYSICS`](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) · Tier **6:** [`MEDICAL`](MEDICAL_PAIN_INCAPACITATION.md) [6.1](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) · [6.2 flee](MEDICAL_PAIN_INCAPACITATION.md#tier-62-flee-formation-action-live-path) |
+| **Shipped-tier live paths** (modules + harness grep) | Tier **1.9:** [plan §1.9](IMPLEMENTATION_ORDER.md#tier-19--p10-depth-rank-polearm-reach--spear-lanes) · Tier **3:** [`PARRY_BIND`](PARRY_BIND_AND_WEAPON_GEOMETRY.md) [3.1](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-31-strike-measure-live-path) · [3.2](PARRY_BIND_AND_WEAPON_GEOMETRY.md#tier-32-parry-bind-live-path) · [`GUARDS`](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) **3.3** · Tier **4:** [`AI_ENGAGEMENT`](AI_ENGAGEMENT_STANCE_AND_FEINTS.md) [4.1](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path)–[4.5](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-45-flurry-bind-exchange-live-path) · Tier **5.1:** [`PHYSICS`](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) · Tier **6:** [`MEDICAL`](MEDICAL_PAIN_INCAPACITATION.md) [6.1](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) · [6.2 flee](MEDICAL_PAIN_INCAPACITATION.md#tier-62-flee-formation-action-live-path) · [6.3 coordination](MEDICAL_PAIN_INCAPACITATION.md#tier-63-medical-phase-coordination-live-path) |
 | **Tier 1 spec** (fields, plugs, tuning) | [`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) — §4–§6 spec; §2 verification mirror (**not** harness names) |
 | **Shipped baseline** (modules) | [Tier 0](IMPLEMENTATION_ORDER.md#tier-0--baseline-shipped--maintain) · behavior snapshot in [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) |
 | **Historical phases + stamina / investigations** | [`COMBAT_ROADMAP_AND_STAMINA.md`](COMBAT_ROADMAP_AND_STAMINA.md) — long bundle; snapshot at top for “today.” |
@@ -22,11 +23,12 @@
 
 ---
 
-**13** markdown files in the table below (master plan + topic bundles + harness registry; order = [plan inventory](IMPLEMENTATION_ORDER.md#plan-inventory-all-combat-markdown)). Tier 1 checklist mirror → **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** §2 / §2.5.
+**14** markdown files in the table below (master plan + post-milestone integration + topic bundles + harness registry; order = [plan inventory](IMPLEMENTATION_ORDER.md#plan-inventory-all-combat-markdown)). Tier 1 checklist mirror → **`ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md`** §2 / §2.5.
 
 | File | Topics |
 |------|--------|
 | [**IMPLEMENTATION_ORDER.md**](IMPLEMENTATION_ORDER.md) | Plan — [document map](IMPLEMENTATION_ORDER.md#document-map-read-order) order |
+| [**POST_MILESTONE_INTEGRATION_PLAN.md**](POST_MILESTONE_INTEGRATION_PLAN.md) | Post-milestone — doc sync, soak, integration depth, new tracks (Phases 0–5) |
 | [REGRESSION_HARNESS_MAP_TIER19.md](REGRESSION_HARNESS_MAP_TIER19.md) | Exhaustive `_run_*` registry — not sequencing |
 | [ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md](ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md) | Tier 1 **spec** §4–§6; §2 mirrors plan **Status** |
 | [COMBAT_ROADMAP_AND_STAMINA.md](COMBAT_ROADMAP_AND_STAMINA.md) | Stamina + historical phases; snapshot at top |
@@ -37,7 +39,7 @@
 | [GUARDS_LINES_AFTERBLOW.md](GUARDS_LINES_AFTERBLOW.md) | Tier **3.3** [live path](GUARDS_LINES_AFTERBLOW.md#tier-33-guard-line-afterblow-live-path) |
 | [PHYSICS_DAMAGE_AND_FLOW.md](PHYSICS_DAMAGE_AND_FLOW.md) | Tier **5.1** [kinematic audit](PHYSICS_DAMAGE_AND_FLOW.md#tier-51-kinematic-audit) |
 | [AI_ENGAGEMENT_STANCE_AND_FEINTS.md](AI_ENGAGEMENT_STANCE_AND_FEINTS.md) | Tier **4** [live paths](AI_ENGAGEMENT_STANCE_AND_FEINTS.md#tier-41-posture--stance-weights-ai-listing-live-path) **4.1–4.4** |
-| [MEDICAL_PAIN_INCAPACITATION.md](MEDICAL_PAIN_INCAPACITATION.md) | **Tier 6** [6.1 live path](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) |
+| [MEDICAL_PAIN_INCAPACITATION.md](MEDICAL_PAIN_INCAPACITATION.md) | **Tier 6** [6.1](MEDICAL_PAIN_INCAPACITATION.md#tier-61-mobility-pain-shock-live-path) · [6.2 flee](MEDICAL_PAIN_INCAPACITATION.md#tier-62-flee-formation-action-live-path) · [6.3 coordination](MEDICAL_PAIN_INCAPACITATION.md#tier-63-medical-phase-coordination-live-path) |
 | [HEMA_ROADMAP_AND_SOURCES.md](HEMA_ROADMAP_AND_SOURCES.md) | **Tier 7** — **Done** ([7.1](IMPLEMENTATION_ORDER.md#tier-7-live-path) · [7.5 catalog](IMPLEMENTATION_ORDER.md#tier-75-weapon-part-fidelity-live-path); [P4a–h](IMPLEMENTATION_ORDER.md#expansion-backlog-p4-playbooks)) |
 
 **Regenerate** (requires restoring individual sources from git history): `python3 docs/consolidate_docs.py`

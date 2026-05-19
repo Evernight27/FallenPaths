@@ -15,10 +15,86 @@ const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 ## `flow_log`: skip_turn, afterblow, close/crash contest, incursion, formation rejects, resolve edge cases.
 ## `COMBAT_DEBUG` → per-hit / armor / wind-up (`CombatDebug.log`, EntityDamage traces).
 ## Unconditional `[Combat]` lines stay for phase boundaries, deaths, and UI-adjacent events (see grep print("[Combat")).
+## Play session (editor F5): **`combat_session`** / **`world_session`** → `FP_COMBAT` / `FP_WORLD` on stdout (copy Godot Output).
+## Invariant / logic faults: **`operational_error`** / **`operational_warn`** (`FP_ERROR` / `FP_WARN`; always on).
 ## Conditional combat logging. Only logs when CombatConstants.COMBAT_DEBUG is true.
 ## calibration_log: logs when COMBAT_DEBUG_CALIBRATION is true (alignment, parry_c_d, variance, etc.).
 ## flow_log: verbose pipeline; use `dedupe_key` on poll-heavy paths (see `COMBAT_FLOW_LOG_SUPPRESS_REPEATED`). `clear_flow_log_dedup` on combat start/stop.
 ## flow_log_turn: logs turn pick line when COMBAT_EVENT_DEBUG alone is true.
+
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+
+
+## Always emitted (grep `FP_ERROR`). Use for should-never-happen combat invariants.
+static func operational_error(msg: String) -> void:
+	_OperationalLog.error(msg)
+
+
+## Always emitted (grep `FP_WARN`). Use for suspicious but non-fatal state.
+static func operational_warn(msg: String) -> void:
+	_OperationalLog.warn(msg)
+
+
+## `[Combat.Flow]` when `COMBAT_EVENT_DEBUG` is on (turn picks use the same tier).
+static func flow_log_event(msg: String, dedupe_key: String = "") -> void:
+	if not CombatConstants.combat_event_debug_active():
+		return
+	if CombatConstants.COMBAT_FLOW_LOG_SUPPRESS_REPEATED and not dedupe_key.is_empty():
+		var prev: Variant = _flow_log_last_by_key.get(dedupe_key, null)
+		if prev != null and str(prev) == msg:
+			return
+		_flow_log_last_by_key[dedupe_key] = msg
+	print("[Combat.Flow] ", msg)
+
+
+## Picked action could not commit (stale listing, dead target, policy block). **`skip_turn`** recovers gauge / queue.
+static func resolve_action_rejected(
+	manager: Node,
+	attacker_id: int,
+	move_id: String,
+	reason: String,
+	operational: bool = true
+) -> void:
+	var mid: String = move_id if not move_id.is_empty() else "?"
+	flow_log_event(
+		"resolve_rejected id=%d move=%s — %s" % [attacker_id, mid, reason],
+		"resolve_reject:%d:%s" % [attacker_id, reason]
+	)
+	if operational:
+		operational_warn("resolve_rejected id=%d move=%s — %s" % [attacker_id, mid, reason])
+	if manager != null and manager.has_method("skip_turn"):
+		manager.skip_turn(attacker_id, "reject", reason)
+
+
+## After instant actions (focus line): clear gauge and schedule the next **`EVENT_ACTION_READY`**.
+static func finish_instant_turn_and_schedule_ready(manager: Node, combatant: Dictionary) -> void:
+	if manager == null or combatant.is_empty():
+		return
+	combatant.gauge = 0.0
+	_EventScheduler.schedule_action_ready_for_combatant(manager, combatant)
+
+
+## Milestone combat lines during editor play (`FP_COMBAT`); falls back to `[Combat]` elsewhere.
+static func combat_session(msg: String) -> void:
+	if _OperationalLog.is_play_session_active():
+		_OperationalLog.play_combat(msg)
+	else:
+		print("[Combat] ", msg)
+
+
+## Hemostasis / pressure / dressings — always `FP_COMBAT` in play session (grep `medical` or `FP_COMBAT`).
+static func medical_session(msg: String) -> void:
+	combat_session("medical %s" % msg.strip_edges())
+
+
+## Overworld / encounter lines during editor play (`FP_WORLD`).
+static func world_session(msg: String) -> void:
+	if _OperationalLog.is_play_session_active():
+		_OperationalLog.play_world(msg)
+	else:
+		print("[World] ", msg)
+
 
 static func log(msg: String) -> void:
 	if CombatConstants.combat_debug_active():
@@ -76,7 +152,41 @@ static func format_actions_compact(actions: Array) -> String:
 			parts.append("%s@%d:%s%s" % [mid, tid, part, dur_s])
 	return ", ".join(parts)
 
-static func flow_log_turn(side: String, combatant_id: int, actions: Array, choice: Dictionary) -> void:
+static func _medical_turn_vitals_suffix(manager: Node, choice: Dictionary) -> String:
+	if manager == null or not bool(manager.get("medical_phase")):
+		return ""
+	if not manager.has_method("_is_medical_move"):
+		return ""
+	var mid: String = str(choice.get("move_id", ""))
+	if not manager._is_medical_move(mid):
+		return ""
+	var tid: int = int(choice.get("target_id", -1))
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
+	if tgt.is_empty():
+		return ""
+	var ent: Node = _EntityAccess.get_entity_from_manager(manager, tgt)
+	if ent == null:
+		return ""
+	var part: String = str(choice.get("target_part", ""))
+	var bleed: float = (
+		_EntityAccess.entity_bleeding_rate_for_part(manager, tgt, part)
+		if not part.is_empty()
+		else _EntityAccess.get_total_bleeding_rate_from_node(ent)
+	)
+	var bv: float = _EntityAccess.get_blood_volume_from_node(ent)
+	var pressure: String = ""
+	if not part.is_empty() and _EntityAccess.entity_has_direct_pressure_on_part(manager, tgt, part):
+		pressure = " pressure=held"
+	return " tgt_bv=%.1f tgt_bleed=%.3f%s" % [bv, bleed, pressure]
+
+
+static func flow_log_turn(
+	side: String,
+	combatant_id: int,
+	actions: Array,
+	choice: Dictionary,
+	manager: Node = null
+) -> void:
 	if not CombatConstants.combat_event_debug_active():
 		return
 	var mid: String = str(choice.get("move_id", ""))
@@ -85,17 +195,18 @@ static func flow_log_turn(side: String, combatant_id: int, actions: Array, choic
 	var feint: String = str(choice.get("feint_part", ""))
 	var part_s: String = (" part=%s" % part) if not part.is_empty() else ""
 	var feint_s: String = (" feint=%s" % feint) if not feint.is_empty() else ""
+	var med_s: String = _medical_turn_vitals_suffix(manager, choice)
 	if flow_verbose_enabled():
 		# Full action list is logged once in `get_available_actions`; avoid repeating it here.
 		print(
-			"[Combat.Flow] turn side=%s id=%d pick move_id=%s target_id=%d%s%s (actions=%d)"
-			% [side, combatant_id, mid, tid, part_s, feint_s, actions.size()]
+			"[Combat.Flow] turn side=%s id=%d pick move_id=%s target_id=%d%s%s%s (actions=%d)"
+			% [side, combatant_id, mid, tid, part_s, feint_s, med_s, actions.size()]
 		)
 	else:
 		var act_str: String = format_actions_compact(actions)
 		print(
-			"[Combat.Flow] turn side=%s id=%d actions=[%s] => pick move_id=%s target_id=%d%s%s"
-			% [side, combatant_id, act_str, mid, tid, part_s, feint_s]
+			"[Combat.Flow] turn side=%s id=%d actions=[%s] => pick move_id=%s target_id=%d%s%s%s"
+			% [side, combatant_id, act_str, mid, tid, part_s, feint_s, med_s]
 		)
 
 

@@ -6,11 +6,13 @@ extends RefCounted
 ## Encounter nodes set meta via **`CampaignEncounterBridge.prepare_combat_from_encounter`**.
 
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 static func start_combat(world: Node2D, enemies: Array) -> void:
 	var players: Array = _CampaignBridge.get_fightable_party_nodes(world)
 	if players.is_empty():
-		push_warning(
+		_OperationalLog.warn(
 			"CombatFlow.start_combat: no living players (check world meta 'party_manager', get_members(), node_ref)."
 		)
 		return
@@ -40,6 +42,9 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 			if world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
 			else {}
 		)
+		_OperationalLog.play_combat_start(
+			players.size(), enemies.size(), party_formation, enemy_formation, combat_encounter
+		)
 		battle.start(players, enemies, party_formation, enemy_formation, combat_encounter)
 	await world.get_tree().process_frame
 	if battle.has_signal("battle_ended"):
@@ -47,12 +52,12 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 
 static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -> void:
 	var def_name: String = str(defeated.name) if defeated != null else "null"
-	print("[Combat] handle_battle_ended: winner=%s defeated=%s" % [winner, def_name])
+	_CombatDebug.combat_session("handle_battle_ended winner=%s defeated=%s" % [winner, def_name])
 	await world.get_tree().process_frame
 	var player = world.get_node_or_null("Character")
 	var player_lost := (winner != "player")
 	var outcome: String = "defeat" if player_lost else "victory"
-	print("[Combat] handle_battle_ended: player_lost=%s => %s" % [player_lost, outcome])
+	_CombatDebug.combat_session("handle_battle_ended player_lost=%s => %s" % [player_lost, outcome])
 
 	if player_lost:
 		BattleEndHandler.handle_defeat(world, player, winner)

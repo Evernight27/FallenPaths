@@ -21,7 +21,38 @@
 				"panel": "shared",
 				"focus": false
 			},
-			"problemMatcher": []
+			"problemMatcher": [
+				{
+					"owner": "fallen-paths-harness",
+					"fileLocation": ["relative", "${workspaceFolder}"],
+					"pattern": [
+						{
+							"regexp": "^FP_HARNESS_FAIL: \\[\\d+/\\d+\\] (.+)$",
+							"message": 1
+						},
+						{
+							"regexp": "^FP_(COMBAT|WORLD|ERROR): (.+)$",
+							"message": 2
+						},
+						{
+							"regexp": "^FP_WARN: (.+)$",
+							"message": 1,
+							"severity": "warning"
+						},
+						{
+							"regexp": "^\\s*at: (res:\\/\\/[^:]+):(\\d+)(?::[^:]*)?$",
+							"file": 1,
+							"line": 2,
+							"message": 0
+						},
+						{
+							"regexp": "^SCRIPT ERROR: (.+)$",
+							"message": 1,
+							"severity": "error"
+						}
+					]
+				}
+			]
 		},
 		{
 			"label": "Run Medical Phase Harness (headless)",
@@ -40,7 +71,33 @@
 				"panel": "shared",
 				"focus": false
 			},
-			"problemMatcher": []
+			"problemMatcher": [
+				{
+					"owner": "fallen-paths-harness",
+					"fileLocation": ["relative", "${workspaceFolder}"],
+					"pattern": [
+						{
+							"regexp": "^FP_HARNESS_FAIL: \\[\\d+/\\d+\\] (.+)$",
+							"message": 1
+						},
+						{
+							"regexp": "^FP_(COMBAT|WORLD|ERROR): (.+)$",
+							"message": 2
+						},
+						{
+							"regexp": "^\\s*at: (res:\\/\\/[^:]+):(\\d+)(?::[^:]*)?$",
+							"file": 1,
+							"line": 2,
+							"message": 0
+						},
+						{
+							"regexp": "^SCRIPT ERROR: (.+)$",
+							"message": 1,
+							"severity": "error"
+						}
+					]
+				}
+			]
 		}
 	]
 }

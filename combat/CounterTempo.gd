@@ -15,6 +15,7 @@ const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 const _FORMATION_MOVE_IDS: Array[String] = [
 	CombatConstants.MOVE_ID_SWAP_RANK,
@@ -252,6 +253,7 @@ static func abort_attacker_wind_up(manager: Node, attacker_id: int) -> void:
 			clear_window(def)
 	if not pa.is_empty():
 		_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa)
+	_Footwork.clear_on_exchange_end(atk)
 	atk.pending_attack = {}
 	if _EntityAccess.state_str(atk) == CombatConstants.STATE_WIND_UP:
 		_StateHandlers.enter_short_recovery(atk, manager)

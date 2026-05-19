@@ -10,6 +10,7 @@ const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuratio
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
+const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 
 
 static func any_tactical_features_enabled() -> bool:
@@ -31,7 +32,7 @@ static func footwork_hint_text(c: Dictionary) -> String:
 	return _Footwork.get_ui_hint(c)
 
 
-## Compact formation-diagram cell suffix (` · +14°`); full label via **`footwork_hint_text`**.
+## Formation diagram cell suffix (empty — offset is not shown on the diagram); gauge via **`footwork_hint_text`**.
 static func footwork_diagram_suffix(c: Dictionary) -> String:
 	if c == null:
 		return ""
@@ -169,6 +170,10 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 	var cow: String = cowering_mobility_tooltip_line(c)
 	if not cow.is_empty():
 		tips.append(cow)
+	if manager != null:
+		var rout: String = _FormationRout.rout_pressure_tooltip_line(manager, c)
+		if not rout.is_empty():
+			tips.append(rout)
 	var host_line: String = _intruder_host_line_tooltip_line(c, "", manager)
 	if not host_line.is_empty():
 		tips.append(host_line.strip_edges())

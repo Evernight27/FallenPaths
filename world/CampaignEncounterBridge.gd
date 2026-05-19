@@ -103,6 +103,8 @@ static func refresh_party_formation_meta(world: Node2D) -> void:
 		CombatConstants.FORMATION_PRESET_KEY_DOCTRINE,
 		CombatConstants.FORMATION_PRESET_KEY_DOCTRINE_ALT,
 		CombatConstants.FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS,
+		CombatConstants.FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX,
+		CombatConstants.FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN,
 	]:
 		if prior.has(key):
 			preset[key] = prior[key]

@@ -11,6 +11,9 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
+const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
+const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
@@ -82,10 +85,32 @@ static func opts_from_choice(choice: Dictionary) -> Dictionary:
 ## Apply a picked move via **`CombatManager.resolve_action`** (shared by player/enemy turn paths).
 static func resolve_choice(
 	manager: Node, combatant_id: int, choice: Dictionary, self_target: bool = false
-) -> void:
+) -> bool:
 	var opts: Dictionary = opts_from_choice(choice)
 	var target_id: int = combatant_id if self_target else int(choice.get("target_id", combatant_id))
-	manager.resolve_action(combatant_id, target_id, choice.get("move_id", ""), opts)
+	var move_id: String = str(choice.get("move_id", ""))
+	var committed: bool = manager.resolve_action(combatant_id, target_id, move_id, opts)
+	if not committed:
+		_verify_turn_committed_after_resolve(manager, combatant_id, move_id)
+	return committed
+
+
+static func _verify_turn_committed_after_resolve(
+	manager: Node, combatant_id: int, move_id: String
+) -> void:
+	var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
+	if c.is_empty():
+		return
+	if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+		return
+	if _EntityAccess.gauge_float(c) < 99.9:
+		return
+	CombatDebug.resolve_action_rejected(
+		manager,
+		combatant_id,
+		move_id,
+		"no state change after resolve (gauge still full)"
+	)
 
 
 ## Pick from **`actions`** then resolve; optional **`CombatDebug.flow_log_turn`** when **`log_side`** set.
@@ -99,9 +124,17 @@ static func resolve_picked_turn(
 	if actions.is_empty():
 		return
 	var choice: Dictionary = pick(actions, combatant_id, manager)
-	if not log_side.is_empty():
-		CombatDebug.flow_log_turn(log_side, combatant_id, actions, choice)
-	resolve_choice(manager, combatant_id, choice, self_target)
+	var committed: bool = resolve_choice(manager, combatant_id, choice, self_target)
+	if not committed and manager != null and bool(manager.medical_phase):
+		_EntityAccess.manager_skip_turn(
+			manager, combatant_id, "pass", "medical coordination blocked stale pick"
+		)
+	elif not committed:
+		_verify_turn_committed_after_resolve(
+			manager, combatant_id, str(choice.get("move_id", ""))
+		)
+	if not log_side.is_empty() and committed:
+		CombatDebug.flow_log_turn(log_side, combatant_id, actions, choice, manager)
 
 
 ## **`skip_turn`** when no actions; else **`resolve_picked_turn`** (player/enemy **`ACTION_READY`** paths).
@@ -112,6 +145,9 @@ static func resolve_picked_turn_or_skip(
 	log_side: String = "",
 	self_target: bool = false
 ) -> void:
+	if manager != null and bool(manager.medical_phase):
+		actions = manager.get_available_actions(combatant_id)
+		actions = _MedicalCoord.filter_actions_for_pick(manager, combatant_id, actions)
 	if actions.is_empty():
 		_EntityAccess.manager_skip_turn(manager, combatant_id, "pass", "no available actions")
 		return
@@ -216,14 +252,19 @@ static func _get_action_weight(
 	if mid == CombatConstants.MOVE_ID_FLEE and int(a.get("target_id", -1)) == combatant_id:
 		if _MobilityRetreat.formation_retreat_only_for(c):
 			return CombatConstants.COWERING_FLEE_AI_WEIGHT
-		return 0.55
+		const _FormationRout := preload("res://combat/CombatFormationRout.gd")
+		return CombatConstants.AI_FLEE_ROUTINE_WEIGHT * _FormationRout.flee_ai_pick_mult(manager, c)
 	if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get("target_id", -1) == combatant_id:
 		if _MobilityRetreat.formation_retreat_only_for(c):
 			return CombatConstants.COWERING_SOLO_FALL_BACK_AI_WEIGHT
 		# Offered only when desperate / peril (AvailableActionsBuilder); keep below routine wait.
 		return 0.45
 	if mid == CombatConstants.MOVE_ID_ROTATE_FILE:
-		return 0.55
+		var rot_w: float = 0.55
+		var lane_preview: Dictionary = _FormationMoveDuration.preview_lane_pressure_for_combatant(manager, c)
+		if float(lane_preview.get("lane_foot", 0.0)) >= CombatConstants.LANE_MOD_BLOCKED - 0.05:
+			rot_w *= CombatConstants.AI_FORMATION_MOVE_BLOCKED_LANE_MULT
+		return rot_w
 	if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		var tgt_id_close: int = int(a.get("target_id", -1))
 		if tgt_id_close < 0:
@@ -561,13 +602,16 @@ static func _crash_weight_posture_mult(manager: Node, c: Dictionary, fd_cached: 
 
 static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
 	var mid: String = a.get("move_id", "")
-	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, int(a.get("target_id", -1)))
+	var tgt_id: int = int(a.get("target_id", -1))
+	var part: String = str(a.get("target_part", ""))
+	if not _MedicalCoord.medical_action_allowed(manager, combatant_id, tgt_id, part, mid):
+		return _MedicalPhase.MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tgt_id)
 	var performer: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
 	var perf_entity: Node = _EntityAccess.get_entity_from_manager(manager, performer)
 	var eff_raw: float = _EntityAccess.get_medical_effectiveness_from_node(perf_entity)
 	var eff: float = clampf(eff_raw, _MedicalPhase.MEDICAL_AI_EFF_CLAMP_MIN, _MedicalPhase.MEDICAL_AI_EFF_CLAMP_MAX)
 	var urgency: float = _MedicalPhase.get_medical_urgency_deterministic(manager, tgt) if not tgt.is_empty() else 0.0
-	var part: String = str(a.get("target_part", ""))
 	var part_threat: float = 0.0
 	if not tgt.is_empty() and not part.is_empty():
 		part_threat = _MedicalPhase.get_part_intervention_threat(manager, tgt, part)
@@ -588,7 +632,35 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 			pending = pnd_raw as Dictionary
 	if not pending.is_empty() and pending.get("target_id", -1) == a.get("target_id", -1) and pending.get("part", "") == a.get("target_part", ""):
 		if not tgt.is_empty() and manager._is_in_immediate_peril(tgt):
-			w *= 20.0
+			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_PENDING_RETRY_PERIL
+	if (
+		not tgt.is_empty()
+		and not part.is_empty()
+		and manager._is_in_immediate_peril(tgt)
+		and _EntityAccess.entity_is_tourniquet_indicated_for_part(manager, tgt, part)
+	):
+		if mid == "apply_tourniquet":
+			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_TOURNIQUET_INDICATED
+		elif mid in ["bandage_self", "pack_wound"]:
+			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_BANDAGE_BEFORE_HEMOSTASIS
+	if not tgt.is_empty() and not part.is_empty():
+		var bleed_r: float = _EntityAccess.entity_bleeding_rate_for_part(manager, tgt, part)
+		var active_bleed: bool = bleed_r > _Bleeding.BLEEDING_RATE_EPSILON
+		var held: bool = _EntityAccess.entity_has_direct_pressure_on_part(manager, tgt, part)
+		if mid == "apply_direct_pressure" and _MedicalCoord.can_stack_assist_pressure(
+			manager, combatant_id, tgt_id, part
+		):
+			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_TREATMENT_ASSIST_PRESSURE
+		elif held and mid == "apply_direct_pressure":
+			return _MedicalPhase.MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED
+		if active_bleed and not held:
+			if mid == "apply_direct_pressure":
+				w *= _MedicalPhase.MEDICAL_AI_WEIGHT_PRESSURE_ACTIVE_BLEED
+			elif mid in ["bandage_self", "pack_wound"]:
+				if not _MedicalPhase.dressings_allowed_for_part(manager, tgt, part):
+					return 0.001
+				if mid == "pack_wound":
+					w *= _MedicalPhase.MEDICAL_AI_WEIGHT_PACK_BEFORE_PRESSURE
 	return maxf(w, 0.001)
 
 static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_id: int) -> void:
@@ -606,6 +678,8 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
 	]:
 		return
 	if choice.get("move_id", "") == CombatConstants.MOVE_ID_WAIT:
+		return
+	if choice.get("move_id", "") == CombatConstants.MOVE_ID_FLEE:
 		return
 	var tgt_id: int = choice.get("target_id", -1)
 	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tgt_id)

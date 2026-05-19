@@ -3,12 +3,24 @@ extends RefCounted
 
 ## Tier 4.4 pilot: abstract step-on-attack shifts **`attack_angle_deg`** via per-combatant offset (no world positions).
 ## Tier 4.4.2: symmetric defender step on committed parry (guard line) or dodge (eval part line).
+## Lifecycle: **`clear_on_exchange_end`** when **`pending_attack`** drops or exchange aborts; UI via **`offset_visible_for_ui_state`** (**`wind_up`** / **`recovering`** only).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 
 static func enabled() -> bool:
 	return CombatConstants.is_feature_position_angle_footwork_enabled()
+
+
+## Footwork UI / diagram suffix only while an exchange step is active (not idle reserve).
+static func offset_visible_for_ui_state(c: Dictionary) -> bool:
+	if c == null or c.is_empty():
+		return false
+	var st: String = str(c.get("state", "")).strip_edges()
+	return (
+		st == CombatConstants.STATE_WIND_UP
+		or st == CombatConstants.STATE_RECOVERING
+	)
 
 
 static func apply_attack_step_on_windup(attacker: Dictionary, attack_line: String) -> void:
@@ -56,8 +68,7 @@ static func format_position_angle_ui_hint(c: Dictionary) -> String:
 	var off: float = float(c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
 	if absf(off) < 0.01:
 		return ""
-	var sign_prefix: String = "+" if off >= 0.0 else ""
-	return "Step %s%.0f°" % [sign_prefix, off]
+	return "Step"
 
 
 ## Prefer **`CombatUiHints.footwork_hint_text`** for UI/snapshot. Alias of **`get_ui_hint`**.
@@ -67,7 +78,7 @@ static func snapshot_ui_hint(c: Dictionary) -> String:
 
 ## Player-visible label: stamped key when present, else derive from offset (snapshot-safe).
 static func get_ui_hint(c: Dictionary) -> String:
-	if not enabled() or c == null:
+	if not enabled() or c == null or not offset_visible_for_ui_state(c):
 		return ""
 	var derived: String = format_position_angle_ui_hint(c)
 	var stamped: String = str(
@@ -82,15 +93,9 @@ static func get_ui_hint(c: Dictionary) -> String:
 	return derived
 
 
-## Compact suffix for formation diagram cells (single occupant): ` · +14°`.
-static func get_diagram_label_suffix(c: Dictionary) -> String:
-	if not enabled() or c == null:
-		return ""
-	var off: float = float(c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
-	if absf(off) < 0.01:
-		return ""
-	var sign_prefix: String = "+" if off >= 0.0 else ""
-	return " · %s%.0f°" % [sign_prefix, off]
+## Formation diagram cells: no suffix (offset degrees are combat-only, not shown in UI).
+static func get_diagram_label_suffix(_c: Dictionary) -> String:
+	return ""
 
 
 static func refresh_ui_hint(c: Dictionary) -> void:
@@ -149,6 +154,11 @@ static func parry_eval_step_deg_for_defender(defender: Dictionary) -> float:
 	return CombatConstants.position_angle_defender_offset_deg_for_line(
 		line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
 	)
+
+
+## Clears step offset + UI hint. Call when **`pending_attack`** is dropped or an exchange ends without **`AttackResolver`** resolve (abort, skip, recovery, medical halt).
+static func clear_on_exchange_end(c: Dictionary) -> void:
+	clear_position_offset(c)
 
 
 static func clear_position_offset(c: Dictionary) -> void:

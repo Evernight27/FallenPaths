@@ -3,6 +3,7 @@ extends RefCounted
 
 ## Tier 1.5 (P6): drives `formations[fid].morale_cohesion_factor` before line cohesion each recompute.
 ## Priority: encounter per-side override → mean of combatant `morale_cohesion` (alive, not incapacitated) → 1.0.
+## Flee / rout reads **`line_cohesion`** + casualty ratio via **`CombatFormationRout`** (not this factor directly).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")

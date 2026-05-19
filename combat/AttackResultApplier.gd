@@ -19,6 +19,7 @@ const _Attention := preload("res://combat/CombatAttention.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
+const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 
 static func _log_outcome(action: String, atk_id: int, tgt_id: int) -> void:
 	if CombatConstants.combat_debug_active():
@@ -63,7 +64,7 @@ static func _clear_attacker_pending_attack(atk: Dictionary, manager: Node) -> vo
 		return
 	var pa0: Dictionary = _pending_attack_read(atk)
 	_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa0)
-	_Footwork.clear_position_offset(atk)
+	_Footwork.clear_on_exchange_end(atk)
 	atk.pending_attack = {}
 
 
@@ -78,7 +79,7 @@ static func _react_attacking_arm_loss_after_wound(manager: Node, c: Variant) -> 
 
 static func _clear_defender_footwork(tgt: Dictionary) -> void:
 	if not tgt.is_empty():
-		_Footwork.clear_position_offset(tgt)
+		_Footwork.clear_on_exchange_end(tgt)
 
 
 static func _abort_incoming_wind_up_if_target_died(manager: Node, target_id: int) -> void:
@@ -137,6 +138,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		if not tgt.is_empty():
 			tgt.alive = false
 			tgt.state = CombatConstants.STATE_DEAD
+			_StateHandlers.cancel_events_for_dead_combatant(manager, tgt)
 			_clear_defender_footwork(tgt)
 		if not atk.is_empty():
 			# Resolver abort (e.g. no targetable parts): do not leave attacker stuck in WIND_UP with stale `pending_attack`.
@@ -351,7 +353,9 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				var reason: String = "consciousness < 10%%"
 				if _EntityAccess.is_cowering(tgt):
 					reason = "cowering (no functional arms)"
-				print("[Combat] INCAPACITATED: %s (%s)" % [_EntityAccess.get_display_name(tgt, target_id), reason])
+				CombatDebug.combat_session(
+					"INCAPACITATED %s (%s)" % [_EntityAccess.get_display_name(tgt, target_id), reason]
+				)
 			manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
 			# Attacker still needs recovery; otherwise they stay in WIND_UP
 			if atk != null and _EntityAccess.alive_bool(atk):

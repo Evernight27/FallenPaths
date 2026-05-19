@@ -20,6 +20,7 @@ const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _IncomingParryChoice := preload("res://combat/CombatIncomingParryChoice.gd")
+const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.combat_debug_active():
@@ -296,8 +297,9 @@ static func compute_and_apply_damage(
 	if _EntityAccess.is_dead(tgt):
 		tgt.alive = false
 		tgt.state = CombatConstants.STATE_DEAD
+		_StateHandlers.cancel_events_for_dead_combatant(manager, tgt)
 		result_dict["died"] = true
-		print("[Combat] DEATH: %s — %s" % [tgt_name, _EntityAccess.get_death_reason(tgt)])
+		CombatDebug.combat_session("DEATH %s — %s" % [tgt_name, _EntityAccess.get_death_reason(tgt)])
 
 	var rec_dur: float = CombatTiming.recovery_duration(intensity, outcome, recovery_mult, perf_mod, _EntityAccess.stats_dict(atk).get("agility", 100), glancing_severity)
 	return {
@@ -437,6 +439,9 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	elif not pa.has("effective_attack_line"):
 		pa["effective_attack_line"] = atk_line_base
 	var arc_start: float = pa.get("arc_start_deg", CombatConstants.line_to_angle(atk_line_base))
+	# Diagonal C may roll a different line than wind-up; keep step offset aligned with resolve line.
+	if not pa.get("passive_parry_attempted", false):
+		_Footwork.apply_attack_step_on_windup(atk, atk_line_base)
 	stamp_resolve_angle_geometry_on_pa(pa, atk, atk_line_base, move_def_pre, arc_start)
 	var atk_weapon = _EntityAccess.get_weapon(atk)
 
@@ -537,8 +542,8 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		"depth_polearm_allows_low_targets": bool(pa.get("depth_polearm_allows_low_targets", true)),
 	}
 	_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa)
-	_Footwork.clear_position_offset(atk)
-	_Footwork.clear_position_offset(tgt)
+	_Footwork.clear_on_exchange_end(atk)
+	_Footwork.clear_on_exchange_end(tgt)
 	atk.pending_attack = {}
 	var res: Dictionary = compute_and_apply_damage(
 		manager, attacker_id, target_id, atk, tgt, part,

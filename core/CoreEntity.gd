@@ -58,6 +58,25 @@ var direct_pressure_on_ally: Dictionary = {}
 var direct_pressure_held_by: Node = null
 # Optional second ally pressing the same part during stabilizing treatment wind-up (helper holds, medic treats).
 var direct_pressure_assist_held_by: Node = null
+# Optional bleed pacing overrides (default full ATLS drain; future explicit fluid resuscitation may raise recovery).
+var _combat_blood_loss_mult: float = 1.0
+var _combat_blood_recovery_per_s: float = 0.0
+
+
+func get_combat_blood_loss_mult() -> float:
+	return clampf(_combat_blood_loss_mult, 0.0, 1.0)
+
+
+func get_combat_blood_recovery_per_s() -> float:
+	return maxf(0.0, _combat_blood_recovery_per_s)
+
+
+func set_combat_blood_loss_mult(mult: float) -> void:
+	_combat_blood_loss_mult = clampf(mult, 0.0, 1.0)
+
+
+func set_combat_blood_recovery_per_s(rate_per_s: float) -> void:
+	_combat_blood_recovery_per_s = maxf(0.0, rate_per_s)
 
 # Game time (seconds) for per-wound healing and pain decay. Advanced in process_healing(seconds).
 var _game_time_seconds: float = 0.0
@@ -358,6 +377,10 @@ func can_apply_direct_pressure(target_part: String) -> bool:
 func apply_direct_pressure_from_ally(part: String, performer_entity: Node = null) -> bool:
 	return _EntityMedical.apply_direct_pressure_from_ally(self, part, performer_entity)
 
+func stack_assist_pressure_eligible(part: String, assist_entity: Node = null) -> bool:
+	return _EntityMedical.stack_assist_pressure_eligible(self, part, assist_entity)
+
+
 func stack_assist_pressure_during_ally_treatment(part: String, assist_entity: Node = null) -> bool:
 	return _EntityMedical.stack_assist_pressure_during_ally_treatment(self, part, assist_entity)
 
@@ -375,6 +398,9 @@ func get_direct_pressure_part() -> String:
 
 func clear_direct_pressure() -> void:
 	_EntityMedical.clear_direct_pressure(self)
+
+func prepare_for_medical_windup(target: Node, part: String) -> void:
+	_EntityMedical.prepare_for_medical_windup(self, target, part)
 
 func is_tourniquet_indicated_for_part(part: String) -> bool:
 	return _EntityMedical.is_tourniquet_indicated_for_part(self, part)

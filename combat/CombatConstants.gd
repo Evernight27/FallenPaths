@@ -62,9 +62,16 @@ const INTENSITY_RANDOM_RANGE := 0.2
 # Medical
 const MEDICAL_MOVE_IDS: Array[String] = ["bandage_self", "pack_wound", "apply_direct_pressure", "apply_tourniquet"]
 ## Extra pressure pass from the treater while an ally already holds the wound (bandage/pack/tourniquet wind-up). Scales treater medical effectiveness into `EntityMedical._apply_direct_pressure_to_wounds`.
-const DIRECT_PRESSURE_TREATMENT_ASSIST_MULT := 0.55
+## Second rescuer adds this fraction of their compression skill on top of primary hold (buddy pressure, TCCC).
+const DIRECT_PRESSURE_TREATMENT_ASSIST_EFFECTIVENESS_FRACTION := 0.50
 ## Additive to treater effectiveness when completing wind-up with `direct_pressure_assist_held_by` set (helper + treater).
 const MEDICAL_ASSISTED_TREATMENT_EFFICIENCY_BONUS := 0.12
+## Wind-up duration divisor when primary holder compresses the part during dressing (buddy system).
+const MEDICAL_WINDUP_PRIMARY_HOLDER_DURATION_BONUS := 0.40
+## Extra divisor when treater stacks assist on an existing holder during wind-up.
+const MEDICAL_WINDUP_STACK_ASSIST_DURATION_BONUS := 0.25
+## Ally treating ally: up to this fraction slower from patient thrashing (shock/pain), not full medic shock penalty.
+const MEDICAL_ALLY_TASK_PATIENT_THRASH_MAX_PENALTY := 0.18
 
 # Parry (defensive move ~40–60% of max strike; research)
 const PARRY_V_FRACTION_OF_MAX_STRIKE := 0.5
@@ -346,6 +353,9 @@ const COMBAT_EVENT_DEBUG := false
 const COMBAT_EVENT_DEBUG_VERBOSE := false
 ## Headless **`run_combat_regression_harness.gd`** sets this so **`combat_debug_active()`** / **`combat_event_debug_active()`** are false (avoids megabytes of stdout and pipe deadlock with `| grep`).
 static var _headless_harness_quiet: bool = false
+## Editor F5 via **`OperationalLog.begin_play_session`**: **`[Combat.Flow]`** turn picks + **`FP_COMBAT`** milestones only.
+## Does **not** enable per-hit **`[Combat.Debug]`** / armor / bone traces (use **`COMBAT_DEV_VERBOSE`** for those).
+static var _play_session_diagnostic: bool = false
 
 
 static func set_headless_harness_quiet(on: bool) -> void:
@@ -356,12 +366,20 @@ static func is_headless_harness_quiet() -> bool:
 	return _headless_harness_quiet
 
 
+static func set_play_session_diagnostic(on: bool) -> void:
+	_play_session_diagnostic = on
+
+
+static func play_session_diagnostic_active() -> bool:
+	return _play_session_diagnostic and not _headless_harness_quiet
+
+
 static func combat_debug_active() -> bool:
 	return (COMBAT_DEBUG or COMBAT_DEV_VERBOSE) and not _headless_harness_quiet
 
 
 static func combat_event_debug_active() -> bool:
-	return (COMBAT_EVENT_DEBUG or COMBAT_DEV_VERBOSE) and not _headless_harness_quiet
+	return (COMBAT_EVENT_DEBUG or COMBAT_DEV_VERBOSE or _play_session_diagnostic) and not _headless_harness_quiet
 
 
 static func combat_event_debug_verbose_active() -> bool:
@@ -651,6 +669,8 @@ const BASE_FALL_BACK_S := 1.0
 const LANE_MOD_CLEAR := 1.0
 const LANE_MOD_CROWDED := 1.3
 const LANE_MOD_BLOCKED := 1.6
+## Formation-move AI: damp **`rotate_file`** (and similar) when lane timing is blocked.
+const AI_FORMATION_MOVE_BLOCKED_LANE_MULT := 0.22
 const PRESSURE_MOD_DEFENSIVE := 0.9
 const PRESSURE_MOD_NEUTRAL := 1.0
 const PRESSURE_MOD_AGGRESSIVE := 1.3
@@ -800,6 +820,12 @@ const FORMATION_KEY_SPEAR_LANE_PROFILE := "spear_lane_profile"
 const FORMATION_PRESET_KEY_DOCTRINE := "formation_doctrine"
 ## Short preset alias when **`FORMATION_PRESET_KEY_DOCTRINE`** is missing or whitespace-only.
 const FORMATION_PRESET_KEY_DOCTRINE_ALT := "doctrine"
+## Tier 6.2: optional rout gates on **`start()`** preset dict — wins over encounter **`ENCOUNTER_KEY_FLEE_*`** for that side.
+const FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX := "flee_line_cohesion_max"
+const FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN := "flee_casualty_ratio_min"
+## Keys on **`CombatManager.rout_thresholds_by_fid`** merged at **`start()`** (read by **`CombatFormationRout`**).
+const ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX := "flee_line_cohesion_max"
+const ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN := "flee_casualty_ratio_min"
 const SPEAR_LANE_PROFILE_AUTO := ""
 const SPEAR_LANE_PROFILE_OPEN := "open"
 const SPEAR_LANE_PROFILE_RESTRICTED := "restricted"
@@ -957,7 +983,19 @@ static func line_discipline_posture_extra_deltas(discipline: String) -> Vector2:
 static func line_discipline_allows_solo_fall_back(discipline: String) -> bool:
 	return str(discipline).strip_edges().to_lower() == LINE_DISCIPLINE_LOOSE
 ## Paired disengage (swap_rank / drag / fall_back to rear) and solo fall_back: require real injury (blood this low, no usable arm, or immediate peril) — not low stamina / composite fitness alone.
-const FORMATION_RETREAT_BLOOD_VOLUME_MAX := 94.0
+## ~85 = ATLS Class II (~15% blood lost): wounded, may seek rear rank — not first-cut nuisance (was 94 / ~6%, too eager).
+const FORMATION_RETREAT_BLOOD_VOLUME_MAX := 85.0
+## Abandon-field **flee** (rout): Class III+ personal crisis (~45% lost) or immediate bleed-out — not “step back in the file.”
+## Aligns with `MedicalPhaseController.MEDICAL_DANGER_BLOOD_THRESHOLD` (55).
+const FORMATION_FLEE_BLOOD_VOLUME_MAX := 55.0
+## Formation keys (see `CombatFormationRout`, `CombatFormationEngagement`).
+const FORMATION_KEY_STANDING_AT_START := "standing_at_start"
+## Wounded fighter may **rout** when cached `line_cohesion` falls below this (≈ below LINE leave band 0.50).
+const FORMATION_FLEE_LINE_COHESION_MAX := 0.42
+## Side has lost this fraction of `standing_at_start` (dead / fled / incapacitated) → rout pressure.
+const FORMATION_FLEE_CASUALTY_RATIO_MIN := 0.30
+## Wounded + stressed rout blocked when this side still has ≥ this × opponent standing (tactical win — hold the field).
+const FORMATION_FLEE_WINNING_STANDING_RATIO := 1.15
 ## Crash: adjacent rank-0 allies in same formation add hold (gap closure). Capped by CRASH_NEIGHBOR_MAX_COUNT.
 const CRASH_NEIGHBOR_HOLD_BASE := 22.0
 const CRASH_NEIGHBOR_MAX_COUNT := 2
@@ -983,9 +1021,9 @@ const YOMI_PARRY_DEFLECT_FEINT_LISTING_MULT_PER := 0.035
 const YOMI_PARRY_DEFLECT_FEINT_LISTING_MULT_CAP := 1.18
 const YOMI_DEFENSE_READINESS_MULT_PER_PARRY_DEFLECT := 0.04
 const YOMI_DEFENSE_READINESS_MULT_CAP := 1.14
-## Tier 4.4: attacker step-on-wind-up lateral angle nudge (degrees); cleared when attack ends / combat restarts.
+## Tier 4.4: attacker step-on-wind-up lateral angle nudge (degrees). Cleared via **`CombatFootwork.clear_on_exchange_end`** on resolve, abort, recovery, combat start, death (not left on idle **`waiting`** reserve).
 const COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG := "position_angle_offset_deg"
-## Tier 4.4.3: row label fragment when **`is_feature_position_angle_footwork_enabled()`** (see **`CombatFootwork.refresh_ui_hint`**).
+## Tier 4.4.3: row label fragment when footwork enabled (`Step`, no degrees); UI only in **`wind_up`** / **`recovering`**.
 const COMBATANT_KEY_POSITION_ANGLE_UI_HINT := "position_angle_ui_hint"
 ## Player turn-ready: aggregated duration hints from listed formation moves (see **`CombatPlayerTurnHints.sync_formation_listed_turn_hint`**).
 const COMBATANT_KEY_FORMATION_MOVES_TURN_HINT := "formation_moves_turn_hint"
@@ -1028,8 +1066,13 @@ const SWAP_RANK_AI_LOW_WEIGHT := 0.02
 const SWAP_RANK_AI_HIGH_WEIGHT := 1.0
 ## Mobile cowering solo **fall_back** vs **wait** (Tier 6.1 — no arms, legs OK).
 const COWERING_SOLO_FALL_BACK_AI_WEIGHT := 1.5
-## Tier 6.2: mobile cowering — prefer **`flee`** over in-formation **`fall_back`** when both are listed.
-const COWERING_FLEE_AI_WEIGHT := 1.85
+## Tier 6.2: mobile cowering — prefer **`flee`** over in-formation **`fall_back`** when both are listed (cannot hold weapon).
+const COWERING_FLEE_AI_WEIGHT := 1.55
+## Armed fighters: rout is rare — well below rotate_file; scaled by `CombatFormationRout.flee_ai_pick_mult` (cohesion + casualties).
+const AI_FLEE_ROUTINE_WEIGHT := 0.22
+const AI_FLEE_HIGH_COHESION_MULT := 0.35
+const AI_FLEE_LOW_COHESION_MULT := 1.08
+const AI_FLEE_HIGH_CASUALTY_MULT := 1.22
 ## Partner must exceed our composite fitness (perf × blood norm) by at least this much for a routine relief.
 const SWAP_RANK_AI_MIN_FITNESS_GAP := 0.20
 ## Below this our_fitness, treat as dangerously unfit: partner need only be ahead by URGENT_MIN_GAP.
@@ -1051,6 +1094,11 @@ const ENCOUNTER_KEY_POSTURE_ASYMMETRY_STRENGTH := "posture_asymmetry_strength"
 ## Tier 1.5: direct `morale_cohesion_factor` for that side’s formation (0.15–1.0); overrides combatant mean when set on `manager.encounter`.
 const ENCOUNTER_KEY_MORALE_COHESION_PLAYER := "morale_cohesion_player"
 const ENCOUNTER_KEY_MORALE_COHESION_ENEMY := "morale_cohesion_enemy"
+## Tier 6.2: optional per-side rout gates (override `FORMATION_FLEE_*` defaults when set on `manager.encounter`).
+const ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_PLAYER := "flee_line_cohesion_max_player"
+const ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_ENEMY := "flee_line_cohesion_max_enemy"
+const ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_PLAYER := "flee_casualty_ratio_min_player"
+const ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_ENEMY := "flee_casualty_ratio_min_enemy"
 ## Tier 1.9: optional initial **`CombatManager.set_formation_doctrine`** for each side when **`start()`** runs (non-empty after strip; unknown strings → **`DOCTRINE_DEFAULT`** via normalize).
 const ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER := "formation_doctrine_player"
 const ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY := "formation_doctrine_enemy"
@@ -1113,6 +1161,41 @@ static func merge_depth_polearm_ai_doctrine_mults(base: Dictionary, overlay: Var
 			f = float(v)
 		if f > 0.0:
 			out[k] = clampf(f, DEPTH_POLEARM_AI_MULT_OVERRIDE_MIN, DEPTH_POLEARM_AI_MULT_OVERRIDE_MAX)
+	return out
+
+
+## Encounter side keys → optional preset overlay (preset wins per field). Empty dict → use **`FORMATION_FLEE_*`** defaults.
+static func rout_thresholds_for_encounter_and_preset(
+	encounter: Dictionary, preset: Dictionary, formation_id: String
+) -> Dictionary:
+	var out: Dictionary = {}
+	var fid: String = str(formation_id)
+	var enc_coh_key: String = (
+		ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_PLAYER
+		if fid == "player"
+		else ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_ENEMY
+	)
+	var enc_cas_key: String = (
+		ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_PLAYER
+		if fid == "player"
+		else ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_ENEMY
+	)
+	if encounter.has(enc_coh_key):
+		out[ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX] = clampf(
+			float(encounter[enc_coh_key]), 0.05, 0.95
+		)
+	if encounter.has(enc_cas_key):
+		out[ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN] = clampf(
+			float(encounter[enc_cas_key]), 0.05, 0.90
+		)
+	if preset.has(FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX):
+		out[ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX] = clampf(
+			float(preset[FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX]), 0.05, 0.95
+		)
+	if preset.has(FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN):
+		out[ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN] = clampf(
+			float(preset[FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN]), 0.05, 0.90
+		)
 	return out
 
 

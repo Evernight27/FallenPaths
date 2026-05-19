@@ -15,6 +15,14 @@ const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
+
+
+## Drop queued turns for this combatant once they are dead (bleed-out or fatal wound).
+static func cancel_events_for_dead_combatant(manager: Node, c: Dictionary) -> void:
+	if manager == null or c.is_empty():
+		return
+	_EventScheduler.cancel_pending_combat_events_for_combatant(manager, _EntityAccess.id_int(c))
 
 ## Checks if combatant died this tick (e.g. bled out). Mutates c, emits action_resolved if died.
 ## Returns victor string if battle should end (non-empty), else "".
@@ -25,8 +33,9 @@ static func process_death_tick(manager: Node, c: Dictionary) -> String:
 		return ""
 	c.alive = false
 	c.state = CombatConstants.STATE_DEAD
+	cancel_events_for_dead_combatant(manager, c)
 	var death_reason: String = _EntityAccess.get_death_reason(c)
-	print("[Combat] DEATH (tick): %s — %s" % [_EntityAccess.get_display_name(c), death_reason])
+	CombatDebug.combat_session("DEATH (tick) %s — %s" % [_EntityAccess.get_display_name(c), death_reason])
 	# Phase 3: Plug on death — update formation (slot_obstacles, promote rank 1 if rank 0 died).
 	if manager.has_method("_on_combatant_died"):
 		manager._on_combatant_died(c)
@@ -62,6 +71,7 @@ static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
 ## Enters short recovery (no arm, skip turn). For event-driven flow.
 ## When **`manager`** is set and **`c.pending_attack`** is non-empty, clears defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (Tier 4.2) like **`complete_recovery`**.
 static func enter_short_recovery(c: Dictionary, manager: Node = null) -> void:
+	_Footwork.clear_on_exchange_end(c)
 	c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	c.state = CombatConstants.STATE_RECOVERING
 	c.state_timer = 0.0
@@ -94,6 +104,7 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
 	c.pending_attack = {}
 	if manager != null and not pa_before.is_empty():
 		_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa_before)
+	_Footwork.clear_on_exchange_end(c)
 	if _EntityAccess.get_attacking_arm(c).is_empty():
 		c.state = CombatConstants.STATE_COWERING
 		var who_name: String = _EntityAccess.get_display_name(c)

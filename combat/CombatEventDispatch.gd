@@ -14,6 +14,9 @@ static func process_event_queue(manager: Node) -> void:
 	while manager.event_queue.size() > 0:
 		var head_raw: Variant = manager.event_queue[0]
 		if typeof(head_raw) != TYPE_DICTIONARY:
+			CombatDebug.operational_warn(
+				"event_queue dropped non-dictionary head type=%s" % type_string(typeof(head_raw))
+			)
 			manager.event_queue.pop_front()
 			continue
 		var head: Dictionary = head_raw as Dictionary
@@ -32,7 +35,7 @@ static func handle_event(manager: Node, ev: Dictionary) -> void:
 		and ev_type != CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE
 		and ev_type != CombatConstants.EVENT_ROTATE_FILE_RESOLVE
 		and not c.is_empty()
-		and not _EntityAccess.alive_bool(c)
+		and not _EntityAccess.is_alive_in_combat(c)
 	):
 		return
 	if (
@@ -56,7 +59,18 @@ static func handle_event(manager: Node, ev: Dictionary) -> void:
 
 
 static func handle_action_ready(manager: Node, c: Dictionary) -> void:
-	if c.is_empty() or not _EntityAccess.alive_bool(c) or _EntityAccess.is_unconscious(c):
+	if c.is_empty() or not _EntityAccess.is_alive_in_combat(c) or _EntityAccess.is_unconscious(c):
+		return
+	var cid_ready: int = _EntityAccess.id_int(c)
+	if (
+		_EntityAccess.state_str(c) == CombatConstants.STATE_WAITING
+		and _EntityAccess.gauge_float(c) >= 99.9
+	):
+		CombatDebug.flow_log(
+			"stale ACTION_READY id=%d (gauge full) — skip_turn recover" % cid_ready,
+			"stale_action_ready:%d" % cid_ready
+		)
+		manager.skip_turn(cid_ready, "pass", "stale action_ready")
 		return
 	if _MedicalPhase.combat_resolution_blocked(manager) and _MedicalPhase.is_losing_side(manager, c):
 		return

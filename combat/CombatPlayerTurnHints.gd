@@ -11,6 +11,7 @@ const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
+const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 
 
 static func clear_formation_listed_turn_hint_on_combatant(c: Dictionary) -> void:
@@ -39,6 +40,7 @@ static func emit_turn_ready_hints(manager: Node, c: Dictionary, actions: Array) 
 	for hint in [
 		crash_absence_hint_if_missing(manager, c, actions),
 		cowering_retreat_hint_if_applicable(manager, c, actions),
+		rout_hint_when_flee_listed(manager, c, actions),
 		counter_tempo_hint_if_applicable(manager, c, actions),
 		formation_listed_moves_hint_if_applicable(c, actions),
 	]:
@@ -53,6 +55,19 @@ static func formation_listed_moves_hint_if_applicable(c: Dictionary, actions: Ar
 	if not _EntityAccess.is_player_side(c):
 		return ""
 	return _FormationMoveDuration.formation_listed_moves_turn_hint(actions)
+
+
+## Armed player with **`flee`** listed — cohesion / casualty context (`CombatFormationRout`).
+static func rout_hint_when_flee_listed(manager: Node, c: Dictionary, actions: Array) -> String:
+	if manager == null or c.is_empty():
+		return ""
+	if not _EntityAccess.is_player_side(c):
+		return ""
+	if bool(manager.medical_phase):
+		return ""
+	if _MobilityRetreat.formation_retreat_only_for(c):
+		return ""
+	return _FormationRout.rout_hint_when_flee_listed(manager, c, actions)
 
 
 ## One line when crash is absent but breach viability suggests it matters.

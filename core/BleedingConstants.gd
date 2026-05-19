@@ -163,6 +163,10 @@ const CLOTTING_SEVERITY_MULTIPLIERS: Dictionary = {
 }
 # When bandaged: clotting rate (Option A: tuned for ~2-5 min to hemostasis, research-based).
 const CLOTTING_RATE_STABILIZED: float = 0.006  # per second when bandaged; half-life ~2 min
+## Sustained direct pressure: faster local clotting than unstabilized open bleed (compression aids hemostasis).
+const CLOTTING_RATE_UNDER_DIRECT_PRESSURE: float = 0.014
+## Success mult when dressing completes while compression was still on the part (TCCC: do not release early).
+const TREATMENT_PRESSURE_HELD_SUCCESS_MULT: float = 1.18
 # Rate below this is treated as clotted (removal). Avoids relying on float underflow. MINOR_WOUND_BLEEDING_METHODS Method 4.
 const BLEEDING_RATE_EPSILON: float = 0.001
 # Heuristic: effective clotting rate (per second) for "will they clot before dying?". Used when permanent bleeding is reduced (e.g. partial tourniquet). If perm_rate <= (blood_volume - death_threshold) * this / BLOOD_LOSS_RATE_MULTIPLIER, integrated loss stays below remaining buffer so they survive. Conservative (between severe and critical).
@@ -216,10 +220,14 @@ const PACKING_SUCCESS_ARTERIAL_MULT: float = 0.6  # arterial harder to pack succ
 const PACKING_APPLICATION_TIME_SECONDS: float = 10.0
 const PACKING_PER_WOUND_EXTRA_SECONDS: float = 3.0
 
-# --- Direct pressure (uses arm to apply pressure; stronger than bandage, requires functional arm) ---
-# First-line hemorrhage control: hands-on pressure. Stronger immediate reduction than bandage; still less effective on arterial.
-const DIRECT_PRESSURE_IMMEDIATE_REDUCTION: float = 0.8   # 80% reduction (vs bandage 75%)
-const DIRECT_PRESSURE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.7  # 70% of that on arterial (vs bandage 50%); arterial still harder to control
+# --- Direct pressure (TCCC / CoTCCC MARCH step 1: direct pressure on compressible hemorrhage) ---
+# Sustained manual compression: venous/capillary near-occlusion; arterial flow reduced but not reliably stopped until clot/dressing.
+# Retained flow fractions = fraction of wound rate still lost while pressure is held (literature: arterial may still ooze ~30–50%).
+const DIRECT_PRESSURE_IMMEDIATE_REDUCTION: float = 0.25  # initial placement only; sustained hold dominates
+const DIRECT_PRESSURE_HELD_FLOW_RETAINED_VENOUS: float = 0.10  # ~90% flow reduction (compressible hemorrhage)
+const DIRECT_PRESSURE_HELD_FLOW_RETAINED_ARTERIAL: float = 0.50  # ~50% reduction; systolic pressure fights back
+const DIRECT_PRESSURE_REBOUND_TO_INTRINSIC_MULT: float = 1.0  # release before hemostasis → return to intrinsic wound rate (do not release early)
+const DIRECT_PRESSURE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.7  # first-touch trim on arterial wounds (vs bandage 50%)
 # Bleeding rate ±variance at wound creation (simulates hit in more/less vascular spot). BLEEDING_MEDICAL_ACCURACY §10.
 const BLEEDING_RATE_VARIANCE_MIN: float = 0.9
 const BLEEDING_RATE_VARIANCE_MAX: float = 1.1
@@ -271,6 +279,13 @@ static func get_stump_bleeding_rate(part: String, sub_region: String = "") -> fl
 
 static func get_body_part_multiplier(part: String) -> float:
 	return BODY_PART_BLEEDING_MULTIPLIERS.get(part, 1.0)
+
+
+## Fraction of wound bleed rate still lost while direct pressure is held (per injury).
+static func direct_pressure_held_flow_retained(is_arterial: bool) -> float:
+	if is_arterial:
+		return DIRECT_PRESSURE_HELD_FLOW_RETAINED_ARTERIAL
+	return DIRECT_PRESSURE_HELD_FLOW_RETAINED_VENOUS
 
 # Pick a random sub-region given the body part was hit. Uses SUB_REGION_WEIGHTS[part] so probabilities are relative to that part only. Returns empty string if part has no sub-regions.
 static func get_random_sub_region(part: String) -> String:

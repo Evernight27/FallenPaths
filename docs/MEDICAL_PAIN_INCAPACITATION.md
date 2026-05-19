@@ -1,6 +1,6 @@
 # Medical Pain Incapacitation
 
-**Plan / code:** Pain / wounds / flee → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-6--medical--pain-extensions) **Tier 6** (avoid blocking formation busy states). Milestone **Status** → [plan milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) only. **`MedicalPhaseController`**, **`CombatMedicalCoordination`** — see plan [Tier 0](IMPLEMENTATION_ORDER.md#tier-0--baseline-shipped--maintain).
+**Plan / code:** Pain / wounds / flee → [`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md#tier-6--medical--pain-extensions) **Tier 6** (avoid blocking formation busy states). Milestone **Status** → [plan milestone summary](IMPLEMENTATION_ORDER.md#milestone-summary) only. **`MedicalPhaseController`**, **`CombatMedicalCoordination`**, **`MedicalActionStarter`**, **`EntityMedical`** — see plan [Tier 0](IMPLEMENTATION_ORDER.md#tier-0--baseline-shipped--maintain); post-victory overlap rules → [§6.3 live path](#tier-63-medical-phase-coordination-live-path).
 
 <a id="tier-61-mobility-pain-shock-live-path"></a>
 
@@ -21,8 +21,9 @@
 | Pain shock (hit) | `EntityPainConsciousness.gd` | Hit pain drives chance/duration (Option C); **`get_pain_shock_susceptibility_mult`** (0.8×–1.2× from total effective pain) on chance only | **`_run_medical_pain_shock_susceptibility_mult_from_effective_pain`** |
 | Pain shock (ambient) | `EntityPainConsciousness.gd`, `CombatProcessTick.gd` | Sustained effective pain above threshold: periodic roll in combat (**`FEATURE_AMBIENT_PAIN_SHOCK`**); duration without hit impact mult | **`_run_medical_ambient_pain_shock_*`** |
 | Wound packing | `EntityMedical.gd`, `MedicalWindUpHandler.gd`, `CombatMedicalActionListing.gd` | **`pack_wound`** on chest/head; ally log labels | **`_run_pack_wound_*`**, **`_run_combat_log_formatter_pack_ally_label`** |
+| TCCC pressure / dressings | `EntityMedical.gd`, `EntityWounds.gd`, `MedicalPhaseController.gd` | Held pressure suppresses bleed; release rebound without dressing; dressings gated until compression | **`_run_direct_pressure_*`**, **`_run_dressings_blocked_*`**, **`_run_medical_windup_prepare_preserves_ally_head_pressure`**, **`_run_ally_medical_tourniquet_path_pressure_first`** |
 
-**Harness (registry):** [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) Tier **6.1** paragraph · grep **`_run_medical_`**.
+**Harness (registry):** [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) Tier **6.1** / **6.3** paragraphs · grep **`_run_medical_`** · **`_run_medical_coordination_*`**.
 
 <a id="tier-62-flee-formation-action-live-path"></a>
 
@@ -32,15 +33,42 @@
 
 | Layer | Module | Role | Harnesses (grep) |
 |-------|--------|------|------------------|
-| Policy | `CombatFormationFlee.gd` | **`flee_action_legal`**, **`apply_flee`**, winner via **`CombatManager._check_for_winner`** | **`_run_flee_resolve_marks_combat_absent_and_clears_slot`**, **`_run_flee_not_listed_when_immobile`** |
+| Policy | `CombatFormationFlee.gd`, **`CombatFormationRout.gd`** | **`flee_action_legal`** ← **`abandonment_warranted`** (personal crisis or wounded + **`line_cohesion`** / side **casualty ratio**; blocked when **`side_holding_field`**); thresholds merged at **`start()`** into **`CombatManager.rout_thresholds_by_fid`** (encounter **`ENCOUNTER_KEY_FLEE_*`** + preset **`FORMATION_PRESET_KEY_FLEE_*`**, preset wins); **`ensure_rout_baseline`**; **`apply_flee`** + **`FP_COMBAT`** fled line in play session; **`standing_at_start`** at **`CombatManager.start()`** | **`_run_flee_*`**, **`_run_flee_encounter_*`**, **`_run_flee_preset_rout_threshold_overrides_encounter`**, **`_run_flee_winning_side_holds_*`** |
 | Listing | `CombatFormationMoveListing.gd`, `CombatMobilityRetreat.gd` | Self-target **`MOVE_ID_FLEE`** in formation engagement | **`_run_medical_mobility_cowering_lists_flee_in_formation_mode`** |
 | Resolve | `CombatResolveAction.gd` | Forwards to **`apply_flee`** | (above) |
-| AI | `CombatAIActionPicker.gd` | Weight for self-target flee | **`_run_medical_mobility_cowering_ai_pick_*`** (fall_back vs flee context) |
-| UI | `BattleUIUpdater.gd`, `CombatPlayerTurnHints.gd` | Gauge **Fled** | **`_run_flee_ui_gauge_label_fled`** |
+| AI | `CombatAIActionPicker.gd` | **`CombatFormationRout.flee_ai_pick_mult`** (cohesion + casualties; holding-field dampener only on formation-stress path) | **`_run_medical_mobility_cowering_ai_pick_*`**, **`_run_flee_ai_pick_not_dampened_personal_crisis`** |
+| Duration UI | `CombatFormationMoveDuration.gd` | Listed **`flee`** hint: **instant** (resolve has no wind-up) | **`_run_flee_listed_duration_hint_instant`** |
+| UI | `BattleUIUpdater.gd`, `CombatPlayerTurnHints.gd`, `BattleScene.gd`, `CombatUiHints.gd` | Gauge **Fled**; engagement line casualties %; rout / flee hints; rout gauge tooltip suppressed when **`side_holding_field`** (formation stress only) | **`_run_flee_ui_gauge_label_fled`**, **`_run_flee_rout_tooltip_suppressed_when_holding`** |
 | Lifecycle | `CombatManager.start()`, `MedicalPhaseController` | Clear **`combat_absent`** / fled state on restart or medical teardown | **`_run_flee_combat_start_clears_absent_state`**, **`_run_medical_phase_clears_fled_combatant_state`** |
 | Log | `CombatLogFormatter.gd` | **`fled`** outcome line | **`_run_combat_log_formatter_fled_outcome`** |
 
 **Harness (registry):** grep **`_run_flee_*`** · Tier **6.2** paragraph in [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md).
+
+<a id="tier-63-medical-phase-coordination-live-path"></a>
+
+## Tier 6.3 — medical phase coordination (live path)
+
+**Reader:** After player victory, multiple medics must not **duplicate** wind-ups on the same ally part or **take over** compression another medic is holding. A second medic may add **treatment-assist pressure** only (`EntityMedical.stack_assist_pressure_eligible` → `stack_assist_pressure_during_ally_treatment`) while the primary holder or wind-up treater keeps the wound.
+
+| Layer | Module | Role | Harnesses (grep) |
+|-------|--------|------|------------------|
+| Overlap API | `CombatMedicalCoordination.gd` | **`get_parts_being_treated_on`**, **`get_active_windup_treatment_by_other`**, **`medical_action_allowed`**, **`filter_ally_medical_actions`**, **`filter_actions_for_pick`** | **`_run_medical_coordination_blocks_overlapping_treatment`**, **`_run_medical_coordination_stack_assist_during_windup`** |
+| Listing | `MedicalPhaseController.gd`, `CombatMedicalActionListing.gd` | TCCC menu via **`get_ally_medical_actions`**; no redundant **`apply_direct_pressure`** when held unless assist eligible | (above) |
+| Resolve | `CombatResolveAction.gd`, `MedicalActionStarter.gd` | Reject blocked moves; instant ally pressure uses stack-assist path when eligible (no **`release_direct_pressure_on_part`** takeover) | (above) |
+| AI pick | `CombatAIActionPicker.gd` | Medical phase: refresh actions + **`filter_actions_for_pick`** before **`pick`**; **`MEDICAL_AI_WEIGHT_TREATMENT_ASSIST_PRESSURE`**; blocked → **`MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED`** | (above) |
+| Entity | `EntityMedical.gd`, `CoreEntity.gd` | **`stack_assist_pressure_eligible`** (read-only gate); wind-up pressure via **`MedicalActionStarter._try_windup_pressure_while_preparing`** | **`_run_medical_windup_prepare_preserves_ally_head_pressure`** |
+| Victory log | `CombatManager.gd` | **`phase_end`** logs **`alive_by_side`**, **`standing_by_side`**, **`fled_by_side`** (routed enemies stay **alive** but not **standing**) | manual / soak |
+| Formation AI (related) | `CombatAIActionPicker.gd`, `CombatConstants.gd` | **`rotate_file`** weight × **`AI_FORMATION_MOVE_BLOCKED_LANE_MULT`** when lane timing is blocked | manual / soak |
+
+**Rules (summary):**
+
+1. **Another medic’s wind-up** on target + part → block **`apply_tourniquet`**, **`bandage_self`**, **`pack_wound`**, and **`apply_direct_pressure`** (unless stack-assist eligible on that part).
+2. **Compression already held** → block takeover **`apply_direct_pressure`**; allow assist-only if **`stack_assist_pressure_eligible`**.
+3. **Medical phase pick** → rebuild action list each turn; never commit a coordination-blocked pick (pass if pool empty after filter).
+
+**Debug:** `FP_COMBAT` grep **`medical coordination:`** on resolve reject · **`treatment-assist pressure`** on successful assist · **`pressure_rebound`** should not appear from a second medic displacing the first hold.
+
+**Harness (registry):** Tier **6.3** paragraph in [`REGRESSION_HARNESS_MAP_TIER19.md`](REGRESSION_HARNESS_MAP_TIER19.md) · grep **`_run_medical_coordination_*`**.
 
 ---
 
@@ -48,7 +76,7 @@ Consolidated sections; each has **`Source:`** for provenance.
 
 ## Contents
 
-0. [Tier 6.1 live path](#tier-61-mobility-pain-shock-live-path) · [Tier 6.2 flee](#tier-62-flee-formation-action-live-path)
+0. [Tier 6.1 live path](#tier-61-mobility-pain-shock-live-path) · [Tier 6.2 flee](#tier-62-flee-formation-action-live-path) · [Tier 6.3 medical coordination](#tier-63-medical-phase-coordination-live-path)
 1. [PAIN_SHOCK_INVESTIGATION.md](#pain-shock-investigation)
 2. [PAIN_MEDICAL_RESEARCH_SYNTHESIS.md](#pain-medical-research-synthesis)
 3. [WOUND_PACKING_MEDIEVAL_RESEARCH.md](#wound-packing-medieval-research)

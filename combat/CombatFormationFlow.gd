@@ -181,16 +181,13 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 		return
 	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
 	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
-	if init.is_empty() or partner.is_empty() or not _EntityAccess.are_both_alive(init, partner):
+	if init.is_empty() or partner.is_empty() or not _EntityAccess.is_available_formation_partner(init, partner):
 		return
 	if _ZoneOfControl.is_intruded(init):
 		return
 	if _ZoneOfControl.is_intruded(partner):
 		return
-	if (
-		not _EntityAccess.is_living_same_side(init, partner)
-		or _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner)
-	):
+	if _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
 		return
 	var fid: String = _EntityAccess.formation_id_str(init)
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
@@ -258,8 +255,6 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(1, f)):
 		return
-	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
-	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
 	var duration: float = _MoveDuration.estimate_solo_fall_back_duration_s(manager, init)
 	init["formation_move_partner_id"] = -1
 	init.state = CombatConstants.STATE_FALLING_BACK
@@ -281,16 +276,13 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 		return
 	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
 	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
-	if init.is_empty() or partner.is_empty() or not _EntityAccess.are_both_alive(init, partner):
+	if init.is_empty() or partner.is_empty() or not _EntityAccess.is_available_formation_partner(init, partner):
 		return
 	if _ZoneOfControl.is_intruded(init):
 		return
 	if _ZoneOfControl.is_intruded(partner):
 		return
-	if (
-		not _EntityAccess.is_living_same_side(init, partner)
-		or _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner)
-	):
+	if _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
 		return
 	var r_init: int = _EntityAccess.rank_int(init)
 	var r_partner: int = _EntityAccess.rank_int(partner)
@@ -300,9 +292,6 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 	var f1: int = _EntityAccess.file_int(partner)
 	if abs(f0 - f1) != 1:
 		return
-	var fid: String = _EntityAccess.formation_id_str(init)
-	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
-	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
 	var duration: float = _MoveDuration.estimate_rotate_file_duration_s(manager, init, partner)
 	init["formation_move_partner_id"] = partner_id
 	partner["formation_move_partner_id"] = initiator_id

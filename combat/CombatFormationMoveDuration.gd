@@ -156,6 +156,10 @@ static func stamp_listed_action_duration_hint(
 			dur = estimate_adjacent_rank_pair_duration_s(manager, initiator, partner, "swap_rank")
 		CombatConstants.MOVE_ID_ROTATE_FILE:
 			dur = estimate_rotate_file_duration_s(manager, initiator, partner)
+		CombatConstants.MOVE_ID_FLEE:
+			# Resolve is instant (`CombatFormationFlee.apply_flee`); listing hint only.
+			action["formation_move_duration_hint"] = "Flee: leaves field (instant)"
+			return
 	var armor_mult: float = _armor_mult(initiator, partner)
 	var hint: String = format_duration_hint(dur, lane_foot, pressure_mod, armor_mult)
 	if not hint.is_empty():

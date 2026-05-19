@@ -388,10 +388,10 @@ static func choose_defense(
 			tgt, str(tgt.get("guard_line", CombatConstants.GUARD_DEFAULT))
 		)
 	elif def_has_weapon:
-		_Footwork.clear_position_offset(tgt)
+		_Footwork.clear_on_exchange_end(tgt)
 		_Footwork.apply_defender_step_on_dodge(tgt, result.dodge_eval_part)
 	else:
-		_Footwork.clear_position_offset(tgt)
+		_Footwork.clear_on_exchange_end(tgt)
 	result.defense = "parry" if choose_parry else "dodge"
 	return result
 

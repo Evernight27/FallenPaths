@@ -4,6 +4,7 @@ extends RefCounted
 ## Medical-phase and receiving-care action listing (direct pressure + ally wound menu).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 
 
 static func append_receiving_care_direct_pressure(
@@ -24,6 +25,10 @@ static func append_receiving_care_direct_pressure(
 		if part.is_empty() or part in parts_being_treated:
 			continue
 		if _EntityAccess.entity_has_direct_pressure_on_part(manager, c, part):
+			continue
+		if not _MedicalCoord.medical_action_allowed(
+			manager, combatant_id, combatant_id, part, "apply_direct_pressure"
+		):
 			continue
 		if _EntityAccess.entity_can_apply_direct_pressure(manager, c, part):
 			actions.append(

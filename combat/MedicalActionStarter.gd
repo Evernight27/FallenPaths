@@ -3,6 +3,7 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 
 ## Starts a medical action: direct pressure (instant or during wind-up), bandage/tourniquet/pack wind-up.
 ## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), emit_signal.
@@ -19,6 +20,24 @@ static func _try_windup_pressure_while_preparing(
 		return
 	var who_name: String = _EntityAccess.get_display_name(performer)
 	if self_target:
+		var tgt_entity_self: Node = _EntityAccess.get_entity_from_manager(manager, target)
+		if (
+			tgt_entity_self != null
+			and tgt_entity_self.get("direct_pressure_part") == target_part
+			and tgt_entity_self.get("direct_pressure_held_by") != null
+		):
+			var perf_entity_self: Node = _EntityAccess.get_entity_from_manager(manager, performer)
+			if (
+				perf_entity_self != null
+				and _EntityAccess.entity_stack_assist_pressure_during_ally_treatment(
+					manager, target, performer, target_part
+				)
+			):
+				print(
+					"[Combat] Medical: %s assisting existing pressure on %s during %s wind-up"
+					% [who_name, target_part, medical_id]
+				)
+				return
 		if _EntityAccess.entity_apply_direct_pressure(manager, target, target_part):
 			print(
 				"[Combat] Medical: %s applying direct pressure on %s during %s wind-up"
@@ -49,6 +68,10 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 		return
 	if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
 		return
+	if not _MedicalCoord.medical_action_allowed(
+		manager, combatant_id, target_combatant_id, target_part, medical_id
+	):
+		return
 	# Clear pending_retry when starting a different action (e.g. helping another ally)
 	var pr_raw: Variant = c.get("pending_retry", null)
 	if typeof(pr_raw) == TYPE_DICTIONARY:
@@ -56,9 +79,9 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 		if not pr.is_empty() and (pr.get("target_id", -1) != target_combatant_id or pr.get("part", "") != target_part):
 			c["pending_retry"] = {}
 	var who_name: String = _EntityAccess.get_display_name(c, combatant_id)
-	# Bandage/tourniquet: performer stops holding direct pressure on anyone (new action)
+	# Bandage/pack/tourniquet: free treater's other holds; keep compression on the wound being dressed.
 	if medical_id == "bandage_self" or medical_id == "pack_wound" or medical_id == "apply_tourniquet":
-		_EntityAccess.clear_direct_pressure_scene(c)
+		_EntityAccess.prepare_for_medical_windup_scene(manager, c, target_node, target_part)
 		_try_windup_pressure_while_preparing(
 			manager, c, target_node, target_part, medical_id, target_combatant_id == combatant_id
 		)
@@ -72,6 +95,17 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 		var applied: bool = false
 		if target_combatant_id == combatant_id:
 			applied = _EntityAccess.scene_apply_direct_pressure(target_node, target_part)
+		elif _MedicalCoord.can_stack_assist_pressure(
+			manager, combatant_id, target_combatant_id, target_part
+		):
+			if _EntityAccess.entity_stack_assist_pressure_during_ally_treatment(
+				manager, target_node, c, target_part
+			):
+				applied = true
+				print(
+					"[Combat] Medical: %s treatment-assist pressure on ally's %s"
+					% [who_name, target_part]
+				)
 		elif _EntityAccess.entity_apply_direct_pressure_from_ally(manager, target_node, c, target_part):
 			applied = true
 			_EntityAccess.link_performer_direct_pressure_on_ally(
@@ -81,7 +115,10 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 				target_part
 			)
 		if applied:
-			print("[Combat] Medical: %s applied direct_pressure on %s (instant) => recovery %.1fs" % [who_name, target_part, med_rec_dur])
+			CombatDebug.combat_session(
+				"medical %s applied direct_pressure on %s (instant) => recovery %.1fs"
+				% [who_name, target_part, med_rec_dur]
+			)
 			manager.emit_signal("action_resolved", combatant_id, target_combatant_id, {"outcome": "direct_pressure", "part": target_part, "dmg": 0, "died": false})
 		c.gauge = 0.0
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
@@ -101,16 +138,17 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 			duration = target_entity.call(dur_method)
 	if duration <= 0.0 and not wind_up_cfg.is_empty():
 		duration = 4.0  # fallback for custom entities
-	# Pain/consciousness: wounded entities take longer to apply medical actions
-	var perf_mod: float = _EntityAccess.get_performance_modifier(c)
-	if perf_mod > 0.0:
-		duration /= maxf(CombatConstants.PERF_MOD_MIN, perf_mod)
-	# Intelligence (medical effectiveness): higher INT shortens medical wind-up
-	var perf_entity = _EntityAccess.get_entity_from_manager(manager, c)
-	var med_eff: float = _EntityAccess.get_medical_effectiveness_from_node(perf_entity)
-	if med_eff > 0.0:
-		duration /= maxf(0.5, med_eff)
-	print("[Combat] Medical: %s starting %s on part=%s => wind_up=%.1fs" % [who_name, medical_id, target_part, duration])
+	var speed_mod: float = _EntityAccess.get_medical_windup_speed_modifier(manager, c, target_node)
+	if speed_mod > 0.0:
+		duration /= speed_mod
+	var assist_div: float = _EntityAccess.get_medical_windup_assist_duration_divisor(
+		manager, target_node, target_part
+	)
+	if assist_div > 1.0:
+		duration /= assist_div
+	CombatDebug.combat_session(
+		"medical %s starting %s on part=%s => wind_up=%.1fs" % [who_name, medical_id, target_part, duration]
+	)
 	c.gauge = 0.0
 	c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	c.state = CombatConstants.STATE_MEDICAL_WIND_UP

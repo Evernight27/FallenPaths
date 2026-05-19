@@ -205,6 +205,16 @@ func clear_direct_pressure() -> void:
 	if _combat_body:
 		_combat_body.clear_direct_pressure()
 
+func prepare_for_medical_windup(target: Node, part: String) -> void:
+	if _combat_body == null:
+		return
+	var tgt_entity: Node = target
+	if target != null and target.has_method("get_combat_body"):
+		var body: Variant = target.get_combat_body()
+		if body is Node:
+			tgt_entity = body as Node
+	_combat_body.prepare_for_medical_windup(tgt_entity, part)
+
 func can_apply_tourniquet(part: String) -> bool:
 	return _combat_body.can_apply_tourniquet(part) if _combat_body else false
 
@@ -260,7 +270,7 @@ func _ready() -> void:
 func _on_combat_body_died() -> void:
 	# Battle UI will emit battle_ended(winner, defeated); main.gd handles outcome there.
 	var role: String = "Protagonist" if is_party_leader else "Party member"
-	print("[Combat] %s lost combat body (node: %s)" % [role, name])
+	CombatDebug.combat_session("%s lost combat body (node: %s)" % [role, name])
 
 func _snap_to_grid(pos: Vector2) -> Vector2:
 	return Vector2(

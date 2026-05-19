@@ -11,6 +11,7 @@ const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 const _Flee := preload("res://combat/CombatFormationFlee.gd")
+const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 
 
 static func _append_formation_action(
@@ -74,7 +75,7 @@ static func solo_fall_back_action_legal(
 static func _is_adjacent_rank_ally(
 	manager: Node, c: Dictionary, ally: Dictionary, fid: String, our_rank: int, our_file: int
 ) -> bool:
-	if not _EntityAccess.is_living_same_side(c, ally):
+	if not _EntityAccess.is_available_formation_partner(c, ally):
 		return false
 	if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, ally, fid):
 		return false
@@ -90,7 +91,7 @@ static func _is_adjacent_rank_ally(
 static func _is_adjacent_file_same_rank_ally(
 	manager: Node, c: Dictionary, ally: Dictionary, fid: String, our_rank: int, our_file: int
 ) -> bool:
-	if not _EntityAccess.is_living_same_side(c, ally):
+	if not _EntityAccess.is_available_formation_partner(c, ally):
 		return false
 	if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, ally, fid):
 		return false
@@ -326,7 +327,9 @@ static func append_formation_move_actions(
 			actions,
 			{"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK}
 		)
+	_FormationRout.ensure_rout_baseline(manager)
 	if _Flee.flee_action_legal(manager, c):
+		_Flee.log_flee_listed_if_verbose(manager, c)
 		_append_formation_action(
 			manager,
 			c,

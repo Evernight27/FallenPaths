@@ -1235,9 +1235,12 @@ Returns e.g. `{ "outcome": "hit"|"miss"|"dodge"|"deflected"|"glancing", "result_
 **Moved out:**  
 - “Can we end medical phase?”: `can_end_medical_phase`, `_has_untreated_wounds`, `_is_in_medical_danger`, `_is_in_immediate_peril`, `_has_left_immediate_peril_permanently`, `_get_medical_urgency`  
 - “What medical actions are available?” for allies: `_get_ally_medical_actions`, `_get_parts_being_treated_on`, `_count_others_who_can_perform_medical_on_target`  
+- **Overlap / multi-medic (2026-05-18):** `CombatMedicalCoordination.medical_action_allowed`, `get_active_windup_treatment_by_other`, `filter_actions_for_pick`, `can_stack_assist_pressure`; listing filtered via `filter_ally_medical_actions`; resolve + `MedicalActionStarter` reject redundant takeover pressure  
 - Retry tracking: `_track_medical_failure_and_maybe_retry`
 
-**CombatManager keeps:** Registration, `get_available_actions` (which calls into MedicalPhaseController for medical options), and `resolve_action` dispatching to `_start_medical_action` / attack.
+**CombatManager keeps:** Registration, `get_available_actions` (which calls into MedicalPhaseController for medical options), `resolve_action` dispatching to `MedicalActionStarter` / attack, and **`_end_combat_phase`** telemetry (`alive_by_side`, `standing_by_side`, `fled_by_side`).
+
+**Live path doc:** [`MEDICAL_PAIN_INCAPACITATION.md` §6.3](MEDICAL_PAIN_INCAPACITATION.md#tier-63-medical-phase-coordination-live-path).
 
 **Interface (example):**  
 - `MedicalPhaseController.can_end_medical_phase(combatants, medical_phase_winner) -> bool`  

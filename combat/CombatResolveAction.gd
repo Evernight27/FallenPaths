@@ -17,21 +17,23 @@ const _FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _FormationFlee := preload("res://combat/CombatFormationFlee.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
+const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 
 
 static func is_medical_move(move_id: String) -> bool:
 	return move_id in CombatConstants.MEDICAL_MOVE_IDS
 
 
-static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: String, options: Dictionary) -> void:
+## True when the action changed combatant state (wind-up, formation move, flee, etc.). False → reject/skip path; no turn log.
+static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: String, options: Dictionary) -> bool:
 	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
 	if atk.is_empty():
-		return
+		return false
 	if manager.medical_phase:
 		if not _EntityAccess.is_on_side(atk, str(manager.medical_phase_winner)):
-			return
+			return false
 		if not is_medical_move(move_id):
-			return
+			return false
 	var use_counter_tempo: bool = bool(options.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false))
 	if (
 		_EntityAccess.state_str(atk) == CombatConstants.STATE_WAITING
@@ -39,7 +41,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		and not manager.medical_phase
 	):
 		if not (use_counter_tempo and _CounterTempo.can_act(manager, atk)):
-			return
+			return false
 	if (
 		_EntityAccess.state_str(atk) == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
 		and move_id == "apply_direct_pressure"
@@ -49,88 +51,103 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		atk.receiving_care_action_cooldown = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 		var part: String = str(options.get("target_part", ""))
 		if part.is_empty():
-			return
-		var parts_being_treated: Array = manager._get_parts_being_treated_on(attacker_id)
-		if part in parts_being_treated:
-			return
+			return false
+		if not _MedicalCoord.medical_action_allowed(
+			manager, attacker_id, attacker_id, part, "apply_direct_pressure"
+		):
+			return false
 		if _EntityAccess.entity_apply_direct_pressure(manager, atk, part):
 			var who: String = _EntityAccess.get_display_name(atk, attacker_id)
 			print("[Combat] %s (receiving care) holding direct pressure on %s" % [who, part])
 			manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "direct_pressure", "part": part, "dmg": 0, "died": false})
 			manager.emit_signal("turn_resolved", attacker_id)
-		return
+			return true
+		return false
 	if (
 		_EntityAccess.state_str(atk) != CombatConstants.STATE_WAITING
 		and _EntityAccess.state_str(atk) != CombatConstants.STATE_COWERING
 	):
-		return
+		return false
 	_MobilityRetreat.sync_cowering_state_if_no_functional_arm(atk)
 	if (
 		_MobilityRetreat.cannot_commit_melee(atk)
 		and not _MobilityRetreat.resolve_move_allowed_when_cannot_melee(move_id, target_id, attacker_id)
 	):
-		return
+		CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "cannot commit melee")
+		return false
 	_PlayerTurnHints.clear_formation_listed_turn_hint_on_combatant(atk)
 	if move_id == CombatConstants.MOVE_ID_WAIT:
 		manager.skip_turn(attacker_id, "wait", "explicit wait move")
-		return
+		return true
 	if move_id == CombatConstants.MOVE_ID_FLEE and target_id == attacker_id:
 		if not _FormationFlee.flee_action_legal(manager, atk):
-			CombatDebug.flow_log(
-				"resolve_action flee rejected id=%d" % attacker_id,
-				"flee_reject:%d" % attacker_id
-			)
-			return
+			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "flee not legal")
+			return false
 		_FormationFlee.apply_flee(manager, attacker_id)
-		return
+		return true
 	if CombatConstants.is_focus_line_move(move_id):
 		var focus_line: String = CombatConstants.guard_line_for_focus_move_id(move_id)
 		if focus_line.is_empty():
-			return
+			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "unknown focus move")
+			return false
 		_GuardLineUpdater.set_guard_from_line(atk, focus_line)
 		manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "focus_line", "line": focus_line})
 		manager.emit_signal("turn_resolved", attacker_id)
-		return
+		CombatDebug.finish_instant_turn_and_schedule_ready(manager, atk)
+		return true
 	if is_medical_move(move_id):
 		var part: String = str(options.get("target_part", ""))
+		if not _MedicalCoord.medical_action_allowed(manager, attacker_id, target_id, part, move_id):
+			var block_reason: String = _MedicalCoord.medical_action_coordination_blocked(
+				manager, attacker_id, target_id, part, move_id
+			)
+			CombatDebug.resolve_action_rejected(
+				manager, attacker_id, move_id, "medical coordination: %s" % block_reason
+			)
+			return false
 		var who: String = _EntityAccess.get_display_name(atk, attacker_id)
 		var tgt_desc: String = "ally" if target_id != attacker_id else "self"
 		if not CombatDebug.flow_verbose_enabled():
-			print("[Combat] Action: %s chose medical %s on part=%s (%s)" % [who, move_id, part, tgt_desc])
+			CombatDebug.combat_session("action %s chose medical %s on part=%s (%s)" % [who, move_id, part, tgt_desc])
 		MedicalActionStarter.start(manager, attacker_id, target_id, move_id, part)
 		manager.emit_signal("turn_resolved", attacker_id)
-		return
+		return true
 	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
 	if tgt.is_empty() or not _EntityAccess.is_alive_in_combat(tgt):
-		return
+		CombatDebug.resolve_action_rejected(
+			manager, attacker_id, move_id, "target missing or dead", false
+		)
+		return false
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		var dist_close: String = _EntityAccess.distance_to_opponent_band(atk, target_id)
 		if not _MeleeListing.attempt_close_listed_for_pair(manager, atk, target_id, dist_close):
 			# Stale UI / scripted resolve: same blocked path as `CombatEngagementResolver` (telemetry).
-			manager._resolve_close_attempt(attacker_id, target_id)
-			manager.emit_signal("turn_resolved", attacker_id)
-			return
+			return _commit_close_attempt_resolve(manager, attacker_id, target_id)
 		if not CombatDebug.flow_verbose_enabled() and CombatConstants.combat_event_debug_active():
 			var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 			var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
-			print("[Combat] %s attempting to close on %s (tactical distance — pressure vs evasion roll)" % [atk_name, tgt_name])
-		manager._resolve_close_attempt(attacker_id, target_id)
-		manager.emit_signal("turn_resolved", attacker_id)
-		return
+			CombatDebug.combat_session(
+				"%s attempting to close on %s (tactical distance — pressure vs evasion roll)" % [atk_name, tgt_name]
+			)
+		return _commit_close_attempt_resolve(manager, attacker_id, target_id)
 	if move_id == CombatConstants.MOVE_ID_CRASH:
 		if _EntityAccess.rank_int(atk) != 0:
-			return
+			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "crash requires front rank")
+			return false
 		if _ZoneOfControl.is_intruded(atk):
-			return
+			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "intruder cannot crash")
+			return false
 		manager._resolve_crash_attempt(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
-		return
+		return true
 	if move_id in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK, CombatConstants.MOVE_ID_ROTATE_FILE]:
 		var move_policy: Dictionary = _EngagementMode.movement_policy(manager)
 		if move_id == CombatConstants.MOVE_ID_SWAP_RANK and not bool(move_policy.get("allow_swap_rank", false)):
-			return
+			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks swap_rank")
+			return false
 		if move_id == CombatConstants.MOVE_ID_DRAG_BACK and not bool(move_policy.get("allow_drag_back", false)):
-			return
+			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks drag_back")
+			return false
 		if move_id == CombatConstants.MOVE_ID_FALL_BACK and not bool(move_policy.get("allow_fall_back", false)):
 			# Cowering solo retreat is listed without stable-line policy (`formation_retreat_only` in builder).
 			var cowering_solo_retreat: bool = (
@@ -139,65 +156,73 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 				and _FormationMoves.solo_fall_back_action_legal(manager, atk)
 			)
 			if not cowering_solo_retreat:
-				return
+				CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks fall_back")
+				return false
 		if move_id == CombatConstants.MOVE_ID_ROTATE_FILE and not bool(move_policy.get("allow_rotate_file", false)):
-			return
+			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks rotate_file")
+			return false
 		var ctx_mv: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, atk)
 		var fid_mv: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_mv)
 		var f_mv: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_mv)
 		if move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id:
 			if not _FormationMoves.solo_fall_back_action_legal(manager, atk):
-				CombatDebug.flow_log(
-					"resolve_action solo fall_back rejected id=%d fid=%s (discipline/state/breach/fill)"
-					% [attacker_id, fid_mv],
-					"solo_fall_back_reject:%d" % attacker_id
+				CombatDebug.resolve_action_rejected(
+					manager,
+					attacker_id,
+					move_id,
+					"solo fall_back not legal fid=%s" % fid_mv
 				)
-				return
+				return false
 		var breach_blocked: bool = false
 		if move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id:
 			breach_blocked = _FormationBreachRules.breach_blocks_open_lane_moves(manager, f_mv)
 		else:
 			var partner_mv: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
-			if partner_mv.is_empty() or not _EntityAccess.is_living_same_side(atk, partner_mv):
-				return
+			if partner_mv.is_empty() or not _EntityAccess.is_available_formation_partner(atk, partner_mv):
+				CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "invalid formation partner")
+				return false
 			breach_blocked = _FormationBreachRules.resolve_blocks_formation_move(
 				manager, f_mv, move_id, atk, partner_mv
 			)
 		if breach_blocked:
-			CombatDebug.flow_log(
-				"resolve_action formation move blocked breach_blocks_moves id=%d move=%s fid=%s breached[%s]"
+			CombatDebug.resolve_action_rejected(
+				manager,
+				attacker_id,
+				move_id,
+				"breach blocks formation move fid=%s breached[%s]"
 				% [
-					attacker_id,
-					move_id,
 					fid_mv,
-					CombatDebug.format_breached_files(_FormationSlots.formation_nested_dictionary_read(f_mv, "breached_files"))
-				],
-				"formation_move_block:%d:%s" % [attacker_id, move_id]
+					CombatDebug.format_breached_files(
+						_FormationSlots.formation_nested_dictionary_read(f_mv, "breached_files")
+					),
+				]
 			)
-			return
+			return false
 	if move_id == CombatConstants.MOVE_ID_SWAP_RANK:
 		manager._start_formation_pair_move(attacker_id, target_id, "swap_rank")
 		manager.emit_signal("turn_resolved", attacker_id)
-		return
+		return true
 	if move_id == CombatConstants.MOVE_ID_DRAG_BACK:
 		manager._start_formation_pair_move(attacker_id, target_id, "drag_back")
 		manager.emit_signal("turn_resolved", attacker_id)
-		return
+		return true
 	if move_id == CombatConstants.MOVE_ID_FALL_BACK:
 		if target_id == attacker_id:
 			manager._start_fall_back_solo(attacker_id)
 		else:
 			manager._start_formation_pair_move(attacker_id, target_id, "fall_back_pair")
 		manager.emit_signal("turn_resolved", attacker_id)
-		return
+		return true
 	if move_id == CombatConstants.MOVE_ID_ROTATE_FILE:
 		if _EntityAccess.rank_int(atk) != 0:
-			return
+			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "rotate_file requires front rank")
+			return false
 		if _ZoneOfControl.is_intruded(atk):
-			return
+			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "intruder cannot rotate_file")
+			return false
 		manager._start_rotate_file(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
-		return
+		return true
 	if _EntityAccess.is_applying_direct_pressure_scene(atk):
 		var pressure_part: String = _EntityAccess.get_direct_pressure_part_scene(atk)
 		CombatDebug.flow_log(
@@ -211,7 +236,8 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		)
 	_EntityAccess.clear_direct_pressure_scene(atk)
 	if _MobilityRetreat.cannot_commit_melee(atk):
-		return
+		CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "no functional arm for melee")
+		return false
 	var opts: Dictionary = {}
 	if options.has("target_part"):
 		opts["target_part"] = options.target_part
@@ -225,9 +251,10 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	if use_counter_tempo:
 		incoming_attacker_id = _CounterTempo.incoming_attacker_id(manager, attacker_id)
 	_WindUpStarter.start(manager, attacker_id, target_id, move_id, opts)
-	_TargetScoring.on_combat_commitment(manager, attacker_id, target_id)
-	manager.emit_signal("turn_resolved", attacker_id)
-	if _EntityAccess.state_str(atk) == CombatConstants.STATE_WIND_UP and atk.state_duration > 0.0:
+	var wind_st: String = _EntityAccess.state_str(atk)
+	if wind_st == CombatConstants.STATE_WIND_UP and atk.state_duration > 0.0:
+		_TargetScoring.on_combat_commitment(manager, attacker_id, target_id)
+		manager.emit_signal("turn_resolved", attacker_id)
 		_EntityAccess.manager_schedule_event(
 			manager,
 			{
@@ -239,3 +266,26 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		)
 		if use_counter_tempo and incoming_attacker_id >= 0:
 			_CounterTempo.defer_incoming_melee_after_counter(manager, attacker_id, incoming_attacker_id)
+		return true
+	if wind_st != CombatConstants.STATE_WAITING or _EntityAccess.gauge_float(atk) < 99.9:
+		# e.g. short recovery when no functional arm
+		manager.emit_signal("turn_resolved", attacker_id)
+		return true
+	CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "wind_up did not start")
+	return false
+
+
+## Close attempt: resolver clears gauge via **`_finish_close_attempt_turn`**; if it no-ops, **`skip_turn`** (no **`FP_WARN`**).
+static func _commit_close_attempt_resolve(manager: Node, attacker_id: int, target_id: int) -> bool:
+	manager._resolve_close_attempt(attacker_id, target_id)
+	var atk_after: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	if atk_after.is_empty():
+		return false
+	if (
+		_EntityAccess.state_str(atk_after) == CombatConstants.STATE_WAITING
+		and _EntityAccess.gauge_float(atk_after) >= 99.9
+	):
+		manager.skip_turn(attacker_id, "pass", "close resolve no-op")
+		return false
+	manager.emit_signal("turn_resolved", attacker_id)
+	return true

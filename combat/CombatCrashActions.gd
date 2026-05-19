@@ -57,8 +57,6 @@ static func crash_absent_primary_reason(manager: Node, c: Dictionary) -> String:
 	if not _EntityAccess.weapon_has_attack_types(weapon):
 		return "no_melee_weapon_profile"
 	var melee_range: float = _EntityAccess.weapon_melee_reach(c)
-	var ctx_self: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, c)
-	var fc: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_self)
 	var ranks_to_check: Array = (
 		[0]
 		if _MeleeRank.any_living_enemy_rank0_target(manager, c, manager.combatants)

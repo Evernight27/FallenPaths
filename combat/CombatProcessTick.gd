@@ -26,8 +26,11 @@ static func tick(manager: Node, delta: float) -> void:
 	var changed_fids: Array = _FormationFlow.reconcile_vacancy_plugs(manager)
 	_FormationFlow.finish_vacancy_reconcile_follow_up(manager, changed_fids, snap, true)
 	var victor: String = ""
+	var last_death_node: Node = null
 	for c in manager.combatants:
 		if not _EntityAccess.alive_bool(c):
+			continue
+		if bool(c.get("combat_absent", false)):
 			continue
 		var adv_node: Node = _EntityAccess.scene_node(c)
 		if adv_node == null:
@@ -42,10 +45,13 @@ static func tick(manager: Node, delta: float) -> void:
 		var death_node: Node = _EntityAccess.scene_node(c)
 		if death_node == null:
 			continue
-		victor = _StateHandlers.process_death_tick(manager, c)
-		if not victor.is_empty():
-			manager._end_combat_phase(victor, death_node)
-			return
+		var tick_victor: String = _StateHandlers.process_death_tick(manager, c)
+		if not tick_victor.is_empty():
+			victor = tick_victor
+			last_death_node = death_node
+	if not victor.is_empty():
+		manager._end_combat_phase(victor, last_death_node)
+		return
 	victor = manager._check_for_winner()
 	if not victor.is_empty():
 		if not (manager.medical_phase and victor == manager.medical_phase_winner):

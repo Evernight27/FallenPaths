@@ -2,7 +2,15 @@ extends SceneTree
 
 ## Fast medical-phase combat-halt checks (subset of CombatRegressionHarness).
 
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+
+const HARNESS_NAME := "MedicalPhaseHarness"
+const TEST_COUNT := 10
+
+
 func _init() -> void:
+	CombatConstants.set_headless_harness_quiet(true)
+	_OperationalLog.harness_begin(HARNESS_NAME)
 	var failures: PackedStringArray = PackedStringArray()
 	CombatRegressionHarness._run_medical_phase_cancels_pending_enemy_melee(failures)
 	CombatRegressionHarness._run_medical_phase_blocks_afterblow_on_loser(failures)
@@ -15,11 +23,7 @@ func _init() -> void:
 	CombatRegressionHarness._run_medical_phase_end_combat_idempotent(failures)
 	CombatRegressionHarness._run_combat_end_enemy_win_stops_manager(failures)
 	if failures.is_empty():
-		print("MedicalPhaseHarness: OK (10 tests)")
-		quit(0)
+		quit(_OperationalLog.harness_ok(HARNESS_NAME, "(%d tests)" % TEST_COUNT))
 		return
-	for f in failures:
-		push_error("  %s" % f)
-	push_error("MedicalPhaseHarness: FAIL")
-	quit(1)
+	quit(_OperationalLog.harness_fail(HARNESS_NAME, failures, "(%d tests)" % TEST_COUNT))
 	return

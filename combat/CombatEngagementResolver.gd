@@ -16,6 +16,7 @@ const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 
 
 static func _finish_close_attempt_turn(manager: Node, atk: Dictionary, attacker_id: int) -> void:
+	atk.gauge = 0.0
 	atk["action_cooldown_until"] = _EntityAccess.combat_clock_plus(
 		manager, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S
 	)
@@ -25,6 +26,9 @@ static func _finish_close_attempt_turn(manager: Node, atk: Dictionary, attacker_
 
 
 static func _schedule_crash_attempt_recovery(manager: Node, attacker_id: int) -> void:
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	if not atk.is_empty():
+		atk.gauge = 0.0
 	_EventScheduler.schedule_action_ready(
 		manager, attacker_id, CombatConstants.READY_DELAY_CRASH_ATTEMPT_S
 	)
@@ -108,7 +112,10 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 	elif CombatConstants.combat_event_debug_active():
 		var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 		var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
-		print("[Combat] Close attempt %s → %s: %s (next turn in %.1fs)" % [atk_name, tgt_name, "success" if success else "failed", CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S])
+		CombatDebug.combat_session(
+			"close attempt %s → %s: %s (next turn in %.1fs)"
+			% [atk_name, tgt_name, "success" if success else "failed", CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S]
+		)
 	var close_result: Dictionary = {"outcome": "close_success", "dmg": 0, "died": false}
 	if not success:
 		close_result = {"outcome": "close_failed", "dmg": 0, "died": false, "reason": "contest_failed"}

@@ -6,10 +6,12 @@ extends RefCounted
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 ## Queued events suppressed for the losing side once **`medical_phase`** is active.
 const POST_VICTORY_BLOCKED_EVENT_TYPES: Array[String] = [
@@ -36,6 +38,16 @@ const MEDICAL_AI_PRESSURE_LOW_SKILL_MULT := 1.42
 const MEDICAL_AI_PRESSURE_HIGH_SKILL_MULT := 0.66
 const MEDICAL_AI_EFF_CLAMP_MIN := 0.3
 const MEDICAL_AI_EFF_CLAMP_MAX := 1.5
+# TCCC hemorrhage-control ladder (relative weights; illegal options already omitted from listings).
+const MEDICAL_AI_WEIGHT_PRESSURE_ACTIVE_BLEED: float = 5.0
+const MEDICAL_AI_WEIGHT_TOURNIQUET_INDICATED: float = 4.5
+const MEDICAL_AI_WEIGHT_PACK_BEFORE_PRESSURE: float = 0.25
+const MEDICAL_AI_WEIGHT_BANDAGE_BEFORE_HEMOSTASIS: float = 0.20
+const MEDICAL_AI_WEIGHT_PENDING_RETRY_PERIL: float = 4.0
+## Listing/resolve overlap guard — redundant pressure or another medic’s wind-up on the same part.
+const MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED: float = 0.001
+## Second pair of hands on an ally-held wound (stack assist only; no takeover).
+const MEDICAL_AI_WEIGHT_TREATMENT_ASSIST_PRESSURE: float = 3.5
 
 ## True once player-side victory: no new combat resolutions (medical triage only).
 static func combat_resolution_blocked(manager: Node) -> bool:
@@ -137,6 +149,7 @@ static func halt_losing_side_combat(manager: Node) -> void:
 		var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
 		if not pa.is_empty():
 			_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa)
+			_Footwork.clear_on_exchange_end(c)
 			c.pending_attack = {}
 		if st in [
 			CombatConstants.STATE_RECOVERING,
@@ -157,7 +170,9 @@ static func halt_losing_side_combat(manager: Node) -> void:
 		_CounterTempo.clear_window(c)
 		_CounterTempo.clear_riposte_chain(c)
 		_FlurryBind.clear(c)
-		_reset_fled_and_combat_absent(c)
+		if bool(c.get("combat_absent", false)) or _EntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+			c["combat_absent"] = true
+			c.state = CombatConstants.STATE_FLED
 	for c in manager.combatants:
 		if not _EntityAccess.is_on_side(c, winner):
 			continue
@@ -329,35 +344,101 @@ static func get_part_intervention_threat(manager: Node, c: Dictionary, part: Str
 		bonus += 1.15
 	return rate * 3.5 + bonus
 
+static func _append_pressure_action_if_needed(
+	manager: Node,
+	performer: Dictionary,
+	ally: Dictionary,
+	part: String,
+	has_pressure: bool,
+	actively_bleeding: bool,
+	out: Array
+) -> void:
+	if not actively_bleeding:
+		return
+	if (
+		not _EntityAccess.scene_can_apply_direct_pressure(performer, "")
+		or _EntityAccess.is_applying_direct_pressure_scene(performer)
+	):
+		return
+	if (
+		_EntityAccess.id_int(performer) == _EntityAccess.id_int(ally)
+		and not _EntityAccess.entity_can_apply_direct_pressure(manager, ally, part)
+	):
+		return
+	var performer_id: int = _EntityAccess.id_int(performer)
+	var ally_id: int = _EntityAccess.id_int(ally)
+	if has_pressure:
+		if _MedicalCoord.can_stack_assist_pressure(manager, performer_id, ally_id, part):
+			out.append({ "move_id": "apply_direct_pressure", "target_part": part })
+		return
+	if not _MedicalCoord.medical_action_allowed(
+		manager, performer_id, ally_id, part, "apply_direct_pressure"
+	):
+		return
+	out.append({ "move_id": "apply_direct_pressure", "target_part": part })
+
+
 ## Returns list of { move_id, target_part } for medical actions the performer can apply to the ally's part.
+## TCCC: dressings only when bleed is controlled or compression is on the part.
+static func dressings_allowed_for_part(manager: Node, ally: Dictionary, part: String) -> bool:
+	if part.is_empty():
+		return false
+	var fp_raw: Variant = ally.get("failed_medical_parts", null)
+	var failed_parts: Array = (fp_raw as Array) if fp_raw is Array else []
+	var skip_redress: bool = has_left_immediate_peril_permanently(manager, ally) and part in failed_parts
+	if skip_redress:
+		return false
+	var bleed_rate: float = _EntityAccess.entity_bleeding_rate_for_part(manager, ally, part)
+	var actively_bleeding: bool = bleed_rate > _Bleeding.BLEEDING_RATE_EPSILON
+	var has_pressure: bool = _EntityAccess.entity_has_direct_pressure_on_part(manager, ally, part)
+	return not actively_bleeding or has_pressure
+
+
 static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally: Dictionary, part: String) -> Array:
 	var out: Array = []
 	var fp_raw: Variant = ally.get("failed_medical_parts", null)
 	var failed_parts: Array = (fp_raw as Array) if fp_raw is Array else []
 	var skip_redress: bool = has_left_immediate_peril_permanently(manager, ally) and part in failed_parts
-	# Bandage / pack / tourniquet stay available while someone holds direct pressure on this part (classic first aid).
-	if not skip_redress and _EntityAccess.entity_can_apply_bandage(manager, ally, part):
-		out.append({ "move_id": "bandage_self", "target_part": part })
-	if not skip_redress and _EntityAccess.entity_can_apply_packing(manager, ally, part):
-		out.append({ "move_id": "pack_wound", "target_part": part })
-	if _EntityAccess.entity_has_direct_pressure_on_part(manager, ally, part):
-		pass
-	elif (
-		_EntityAccess.scene_can_apply_direct_pressure(performer, "")
-		and not _EntityAccess.is_applying_direct_pressure_scene(performer)
-	):
-		if (
-			_EntityAccess.id_int(performer) == _EntityAccess.id_int(ally)
-			and not _EntityAccess.entity_can_apply_direct_pressure(manager, ally, part)
-		):
-			pass
-		else:
-			out.append({ "move_id": "apply_direct_pressure", "target_part": part })
-	if (
-		not skip_redress
-		and _EntityAccess.entity_can_apply_tourniquet(manager, ally, part)
-		and _EntityAccess.entity_is_tourniquet_indicated_for_part(manager, ally, part)
-	):
+	var has_pressure: bool = _EntityAccess.entity_has_direct_pressure_on_part(manager, ally, part)
+	var bleed_rate: float = _EntityAccess.entity_bleeding_rate_for_part(manager, ally, part)
+	var actively_bleeding: bool = bleed_rate > _Bleeding.BLEEDING_RATE_EPSILON
+	var tq_indicated: bool = _EntityAccess.entity_is_tourniquet_indicated_for_part(manager, ally, part)
+	var tq_can: bool = _EntityAccess.entity_can_apply_tourniquet(manager, ally, part)
+	var junctional: bool = part in _Bleeding.PACKING_PARTS
+
+	# Life-threatening limb: pressure (if needed) → tourniquet before slow dressings.
+	if tq_indicated and tq_can and not skip_redress:
+		_append_pressure_action_if_needed(
+			manager, performer, ally, part, has_pressure, actively_bleeding, out
+		)
 		out.append({ "move_id": "apply_tourniquet", "target_part": part })
-	return out
+		return _MedicalCoord.filter_ally_medical_actions(manager, performer, ally, out)
+
+	# Junctional (head/chest): hold pressure before packing cavity.
+	if (
+		junctional
+		and actively_bleeding
+		and not has_pressure
+		and not skip_redress
+		and _EntityAccess.entity_can_apply_packing(manager, ally, part)
+	):
+		_append_pressure_action_if_needed(
+			manager, performer, ally, part, has_pressure, actively_bleeding, out
+		)
+		if not out.is_empty():
+			return _MedicalCoord.filter_ally_medical_actions(manager, performer, ally, out)
+
+	# Default menu: pressure before dressings while actively bleeding (TCCC); pack/bandage once compression is held.
+	if not has_pressure:
+		_append_pressure_action_if_needed(
+			manager, performer, ally, part, has_pressure, actively_bleeding, out
+		)
+	var dressings_ok: bool = dressings_allowed_for_part(manager, ally, part)
+	if dressings_ok and _EntityAccess.entity_can_apply_bandage(manager, ally, part):
+		out.append({ "move_id": "bandage_self", "target_part": part })
+	if dressings_ok and _EntityAccess.entity_can_apply_packing(manager, ally, part):
+		out.append({ "move_id": "pack_wound", "target_part": part })
+	if not skip_redress and tq_can and tq_indicated:
+		out.append({ "move_id": "apply_tourniquet", "target_part": part })
+	return _MedicalCoord.filter_ally_medical_actions(manager, performer, ally, out)
 

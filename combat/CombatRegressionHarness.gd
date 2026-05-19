@@ -56,6 +56,10 @@ const _DistanceBands := preload("res://combat/CombatDistanceBands.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _AfterblowHandler := preload("res://combat/AfterblowHandler.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
+const _EntityWounds := preload("res://core/EntityWounds.gd")
+const _EntityMedical := preload("res://core/EntityMedical.gd")
+const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
@@ -322,6 +326,9 @@ static func run_all() -> Dictionary:
 	_run_footwork_defender_offset_scrubbed_after_exchange(failures)
 	_run_footwork_ui_hint_formats_offset(failures)
 	_run_footwork_ui_hint_clears_on_clear_position_offset(failures)
+	_run_footwork_abort_attacker_wind_up_clears_offset(failures)
+	_run_footwork_waiting_hides_stale_step_ui(failures)
+	_run_footwork_back_rank_abort_clears_depth_windup(failures)
 	_run_footwork_ui_hint_clears_on_combat_start(failures)
 	_run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures)
 	_run_combat_ui_hints_footwork_stale_stamp_prefers_live_offset(failures)
@@ -454,6 +461,17 @@ static func run_all() -> Dictionary:
 	_run_weapon_blade_strong_fraction(failures)
 	_run_medical_mobility_can_flee_leg_and_consciousness(failures)
 	_run_flee_not_listed_when_immobile(failures)
+	_run_flee_not_legal_light_blood_loss_only(failures)
+	_run_flee_cohesion_casualty_wounded_not_firm_line(failures)
+	_run_flee_casualty_ratio_triggers_stress(failures)
+	_run_flee_winning_side_holds_wounded_stressed(failures)
+	_run_flee_encounter_casualty_threshold(failures)
+	_run_flee_encounter_line_cohesion_max(failures)
+	_run_flee_preset_rout_threshold_overrides_encounter(failures)
+	_run_flee_manager_get_rout_threshold(failures)
+	_run_flee_listed_duration_hint_instant(failures)
+	_run_flee_ai_pick_not_dampened_personal_crisis(failures)
+	_run_flee_rout_tooltip_suppressed_when_holding(failures)
 	_run_flee_resolve_marks_combat_absent_and_clears_slot(failures)
 	_run_flee_ui_gauge_label_fled(failures)
 	_run_flee_combat_start_clears_absent_state(failures)
@@ -510,6 +528,18 @@ static func run_all() -> Dictionary:
 	_run_pack_wound_lists_in_medical_phase(failures)
 	_run_pack_wound_apply_packing_marks_packed_parts(failures)
 	_run_pack_wound_windup_complete_packed_outcome(failures)
+	_run_bandage_allowed_on_packed_part(failures)
+	_run_direct_pressure_held_suppresses_bleed_rate(failures)
+	_run_direct_pressure_release_rebleeds_without_dressing(failures)
+	_run_medical_windup_prepare_preserves_ally_head_pressure(failures)
+	_run_medical_coordination_blocks_overlapping_treatment(failures)
+	_run_medical_coordination_stack_assist_during_windup(failures)
+	_run_treatment_channel_count_not_raw_hit_count(failures)
+	_run_dressings_blocked_without_pressure_when_bleeding(failures)
+	_run_wound_merge_same_subregion(failures)
+	_run_medical_phase_losing_side_stays_fled(failures)
+	_run_ally_medical_tourniquet_path_pressure_first(failures)
+	_run_medical_phase_full_blood_loss_rate(failures)
 	_run_combat_log_formatter_pack_ally_label(failures)
 	_run_campaign_bridge_can_enter_combat_rejects_empty_party(failures)
 	_run_campaign_bridge_can_enter_combat_rejects_unconscious(failures)
@@ -8359,34 +8389,32 @@ static func _run_footwork_defender_offset_scrubbed_after_exchange(failures: Pack
 	_free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.4.3: footwork UI hint shows signed step degrees.
+## Tier 4.4.3: footwork UI hint shows step label without degree clutter.
 static func _run_footwork_ui_hint_formats_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var atk: Dictionary = {}
 	_Footwork.apply_attack_step_on_windup(atk, "left")
 	var hint: String = _Footwork.format_position_angle_ui_hint(atk)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	var want: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
-	if hint != "Step +%.0f°" % want:
-		_fail(failures, "footwork_ui_hint: want 'Step +%.0f°' got '%s'" % [want, hint])
+	if hint != "Step":
+		_fail(failures, "footwork_ui_hint: want 'Step' got '%s'" % hint)
 
 
-## Tier 4.4.3: compact diagram suffix for single-occupant formation cells.
+## Tier 4.4.3: formation diagram has no footwork degree suffix.
 static func _run_footwork_diagram_label_suffix_compact(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	var c: Dictionary = {}
+	var c: Dictionary = {"state": CombatConstants.STATE_WIND_UP}
 	_Footwork.apply_attack_step_on_windup(c, "left")
-	var want: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
 	var sfx: String = _Footwork.get_diagram_label_suffix(c)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	if sfx != " · +%.0f°" % want:
-		_fail(failures, "footwork_diagram_suffix: want ' · +%.0f°' got '%s'" % [want, sfx])
+	if not sfx.is_empty():
+		_fail(failures, "footwork_diagram_suffix: want empty got '%s'" % sfx)
 
 
 ## Tier 4.4.3: stale stamped hint yields live offset when they disagree.
 static func _run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	var c: Dictionary = {}
+	var c: Dictionary = {"state": CombatConstants.STATE_WIND_UP}
 	_Footwork.apply_attack_step_on_windup(c, "right")
 	c[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT] = "Step +99°"
 	var live: String = _Footwork.get_ui_hint(c)
@@ -8399,7 +8427,7 @@ static func _run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures: Pack
 ## Tier 4.4.3: **`CombatUiHints.footwork_hint_text`** matches **`CombatFootwork.get_ui_hint`** (UI path).
 static func _run_combat_ui_hints_footwork_stale_stamp_prefers_live_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	var c: Dictionary = {}
+	var c: Dictionary = {"state": CombatConstants.STATE_WIND_UP}
 	_Footwork.apply_attack_step_on_windup(c, "right")
 	c[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT] = "Step +99°"
 	var live: String = _UiHints.footwork_hint_text(c)
@@ -8702,6 +8730,86 @@ static func _run_footwork_ui_hint_clears_on_clear_position_offset(failures: Pack
 		_fail(failures, "footwork_ui_hint_clear: get_ui_hint should be empty")
 
 
+## Tier 4.4: aborted wind-up clears attacker step offset (reserve / back rank stuck UI).
+static func _run_footwork_abort_attacker_wind_up_clears_offset(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	_WindUpStarter.start(mgr, atk_id, _EntityAccess.id_int(def), "slash")
+	if absf(_Footwork.get_attacker_offset_deg(atk)) < 0.01:
+		_fail(failures, "footwork_abort: wind-up should stamp offset before abort")
+	_CounterTempo.abort_attacker_wind_up(mgr, atk_id)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	_free_manager_restore_global_rng(mgr)
+	if atk.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
+		_fail(failures, "footwork_abort: offset key should be erased after abort")
+	if _Footwork.get_ui_hint(atk) != "":
+		_fail(failures, "footwork_abort: get_ui_hint should be empty after abort")
+	if _EntityAccess.state_str(atk) != CombatConstants.STATE_RECOVERING:
+		_fail(
+			failures,
+			"footwork_abort: want short recovery after abort got '%s'" % _EntityAccess.state_str(atk)
+		)
+
+
+## Tier 4.4 UI: idle waiting hides stale offset on gauge/diagram even if dict key leaked.
+static func _run_footwork_waiting_hides_stale_step_ui(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var c: Dictionary = {"state": CombatConstants.STATE_WAITING}
+	_Footwork.apply_attack_step_on_windup(c, "right")
+	if _Footwork.get_ui_hint(c) != "":
+		_fail(failures, "footwork_waiting_ui: get_ui_hint should be empty while waiting")
+	if _Footwork.get_diagram_label_suffix(c) != "":
+		_fail(failures, "footwork_waiting_ui: diagram suffix should be empty while waiting")
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+
+
+## Tier 4.4: rank-1 depth spear abort clears footwork (back rank reserve stuck -14°).
+static func _run_footwork_back_rank_abort_clears_depth_windup(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SPEAR"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var depth: Dictionary = {}
+	var front: Dictionary = {}
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_player_side(c):
+			if _EntityAccess.rank_int(c) == 1:
+				depth = c
+			elif _EntityAccess.rank_int(c) == 0:
+				front = c
+		elif _EntityAccess.rank_int(c) == 0:
+			enemy = c
+	if depth.is_empty() or front.is_empty() or enemy.is_empty():
+		_fail(failures, "footwork_back_rank_abort: expected player front+depth and enemy front")
+		_free_manager_restore_global_rng(mgr)
+		return
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
+		_fail(failures, "footwork_back_rank_abort: depth lane should be open for rank-1 spear")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var depth_id: int = _EntityAccess.id_int(depth)
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	_WindUpStarter.start(mgr, depth_id, enemy_id, "spear_slash")
+	if absf(_Footwork.get_attacker_offset_deg(depth)) < 0.01:
+		_fail(failures, "footwork_back_rank_abort: depth wind-up should stamp offset")
+	_CounterTempo.abort_attacker_wind_up(mgr, depth_id)
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	_free_manager_restore_global_rng(mgr)
+	if depth.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
+		_fail(failures, "footwork_back_rank_abort: offset should clear after abort")
+	if _Footwork.get_ui_hint(depth) != "":
+		_fail(failures, "footwork_back_rank_abort: UI hint should be empty after abort")
+
+
 ## Tier 4.4.3: combat start scrubs stamped footwork UI hint (via clear_position_offset).
 static func _run_footwork_ui_hint_clears_on_combat_start(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
@@ -8724,8 +8832,11 @@ static func _run_footwork_snapshot_includes_position_hint_when_enabled(failures:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var atk: Dictionary = mgr.combatants[0]
-	_Footwork.apply_attack_step_on_windup(atk, "left")
+	var def: Dictionary = mgr.combatants[1]
+	_WindUpStarter.start(mgr, _EntityAccess.id_int(atk), _EntityAccess.id_int(def), "slash")
 	var rows: Array = _CombatSnapshot.build(mgr)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	_free_manager_restore_global_rng(mgr)
@@ -8752,6 +8863,7 @@ static func _run_footwork_snapshot_ui_hint_from_unstamped_offset(failures: Packe
 	var atk: Dictionary = mgr.combatants[0]
 	var off: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
 	atk[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = off
+	atk["state"] = CombatConstants.STATE_WIND_UP
 	atk.erase(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT)
 	var rows: Array = _CombatSnapshot.build(mgr)
 	var want_hint: String = _Footwork.get_ui_hint(atk)
@@ -9003,7 +9115,6 @@ static func _run_battle_ui_gauge_label_matches_snapshot_row(failures: PackedStri
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
 	var def: Dictionary = mgr.combatants[0]
-	_Footwork.apply_attack_step_on_windup(def, "left")
 	def[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
 	def[CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT] = "counter_winding"
 	def["gauge"] = 80.0
@@ -9023,8 +9134,6 @@ static func _run_battle_ui_gauge_label_matches_snapshot_row(failures: PackedStri
 		_fail(failures, "battle_ui_snapshot_row: want Seize tempo prefix got '%s'" % want)
 	if want.find("Tel head") < 0:
 		_fail(failures, "battle_ui_snapshot_row: missing attention fragment in '%s'" % want)
-	if want.find("Step ") < 0:
-		_fail(failures, "battle_ui_snapshot_row: missing footwork fragment in '%s'" % want)
 
 
 ## Tier 4.4 UI soak: exported row hints still render when feature flags are toggled off.
@@ -15297,6 +15406,335 @@ static func _run_flee_not_listed_when_immobile(failures: PackedStringArray) -> v
 	_free_manager_restore_global_rng(mgr)
 
 
+## Tier 6.2: Class I blood loss on a firm line must not warrant abandon-field flee.
+static func _run_flee_not_legal_light_blood_loss_only(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 1, "ranks": 1}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var front_c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form["line_cohesion"] = 0.88
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	ent.blood_volume = 88.0
+	if _FormationFlee.flee_action_legal(mgr, front_c):
+		_fail(failures, "flee_light_blood: flee must not be legal at bv=88 on firm line")
+	if _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		_fail(failures, "flee_light_blood: flee abandonment must not be warranted at bv=88 on firm line")
+	ent.blood_volume = 52.0
+	if not _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		_fail(failures, "flee_light_blood: flee abandonment should be warranted at bv=52 (Class III+)")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: moderate wound + firm line → hold; same wound + low cohesion or casualties → rout allowed.
+static func _run_flee_cohesion_casualty_wounded_not_firm_line(failures: PackedStringArray) -> void:
+	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 1, "ranks": 2}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var front_c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	ent.blood_volume = 82.0
+	form["line_cohesion"] = 0.88
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	if _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		_fail(failures, "flee_cohesion: bv=82 firm line should not warrant rout")
+	if _FormationFlee.flee_action_legal(mgr, front_c):
+		_fail(failures, "flee_cohesion: flee must not be legal at bv=82 on firm line")
+	form["line_cohesion"] = 0.38
+	if not _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		_fail(failures, "flee_cohesion: bv=82 low line_cohesion should warrant rout")
+	if not _FormationFlee.flee_action_legal(mgr, front_c):
+		_fail(failures, "flee_cohesion: flee should be legal when line wavers and rear path blocked")
+	if not _Rout.formation_stressed_for_rout(mgr, front_c):
+		_fail(failures, "flee_cohesion: want formation_stressed when cohesion low")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: casualty ratio on formation side gates rout (independent of cohesion read).
+static func _run_flee_casualty_ratio_triggers_stress(failures: PackedStringArray) -> void:
+	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 1, "ranks": 2}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form["line_cohesion"] = 0.9
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	var rear_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	_soak_kill_combatant(mgr, rear_id)
+	var front_c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	ent.blood_volume = 82.0
+	var cas: float = _Rout.casualty_ratio_for_combatant(mgr, front_c)
+	if cas < CombatConstants.FORMATION_FLEE_CASUALTY_RATIO_MIN - 0.01:
+		_fail(failures, "flee_casualty: want ratio >= min got %.3f" % cas)
+	if not _Rout.formation_stressed_for_rout(mgr, front_c):
+		_fail(failures, "flee_casualty: 50%% side casualties should stress formation")
+	if not _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		_fail(failures, "flee_casualty: wounded + heavy casualties should warrant rout")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: winning side with standing advantage should not rout from formation stress alone.
+static func _run_flee_winning_side_holds_wounded_stressed(failures: PackedStringArray) -> void:
+	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 1, "ranks": 1}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form["line_cohesion"] = 0.35
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	var front_c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	ent.blood_volume = 82.0
+	if not _Rout.formation_stressed_for_rout(mgr, front_c):
+		_fail(failures, "flee_winning_hold: want formation_stressed when cohesion low")
+	if not _Rout.side_holding_field(mgr, front_c):
+		_fail(failures, "flee_winning_hold: player 2v1 should hold the field")
+	if _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		_fail(failures, "flee_winning_hold: wounded+stressed must not warrant rout while winning")
+	if _FormationFlee.flee_action_legal(mgr, front_c):
+		_fail(failures, "flee_winning_hold: flee must not list when winning with numbers")
+	_soak_kill_combatant(mgr, _EntityAccess.id_int(mgr.combatants[2]))
+	if _Rout.side_holding_field(mgr, front_c):
+		_fail(failures, "flee_winning_hold: no enemy standing — holding_field dampener must be off")
+	# Death notify may recompute `line_cohesion`; re-apply wavering line for rout policy check.
+	form["line_cohesion"] = 0.35
+	if not _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		_fail(failures, "flee_winning_hold: wounded+stressed should warrant rout when no longer outnumbering foe")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: encounter `flee_casualty_ratio_min_*` overrides default rout gate.
+static func _run_flee_encounter_casualty_threshold(failures: PackedStringArray) -> void:
+	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.encounter[CombatConstants.ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_PLAYER] = 0.50
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 3, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 1, "ranks": 2}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form["line_cohesion"] = 0.9
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 3
+	_soak_kill_combatant(mgr, _EntityAccess.id_int(mgr.combatants[2]))
+	var front_c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	ent.blood_volume = 82.0
+	var cas: float = _Rout.casualty_ratio_for_combatant(mgr, front_c)
+	if absf(cas - 1.0 / 3.0) > 0.02:
+		_fail(failures, "flee_encounter_thresh: want ~33%% casualties got %.3f" % cas)
+	if _Rout.formation_stressed_for_rout(mgr, front_c):
+		_fail(failures, "flee_encounter_thresh: 33%% should be below encounter min 50%%")
+	if _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		_fail(failures, "flee_encounter_thresh: wounded must not rout below encounter casualty gate")
+	_soak_kill_combatant(mgr, _EntityAccess.id_int(mgr.combatants[1]))
+	if not _Rout.formation_stressed_for_rout(mgr, front_c):
+		_fail(failures, "flee_encounter_thresh: 66%% casualties should stress at min 50%%")
+	if not _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		_fail(failures, "flee_encounter_thresh: wounded + 66%% casualties should warrant rout")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: encounter `flee_line_cohesion_max_*` tightens rout when cohesion is middling.
+static func _run_flee_encounter_line_cohesion_max(failures: PackedStringArray) -> void:
+	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.encounter[CombatConstants.ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_PLAYER] = 0.50
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 1, "ranks": 2}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var front_c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	ent.blood_volume = 82.0
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form["line_cohesion"] = 0.52
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	if _Rout.formation_stressed_for_rout(mgr, front_c):
+		_fail(failures, "flee_encounter_coh: cohesion 0.52 should be firm at max 0.50")
+	if _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		_fail(failures, "flee_encounter_coh: should not warrant rout above encounter cohesion max")
+	form["line_cohesion"] = 0.44
+	if not _Rout.formation_stressed_for_rout(mgr, front_c):
+		_fail(failures, "flee_encounter_coh: cohesion 0.44 should stress at max 0.50")
+	if not _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		_fail(failures, "flee_encounter_coh: wounded + low cohesion should warrant rout")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: preset **`FORMATION_PRESET_KEY_FLEE_*`** wins over encounter at **`start()`** (`rout_thresholds_by_fid`).
+static func _run_flee_preset_rout_threshold_overrides_encounter(failures: PackedStringArray) -> void:
+	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.encounter[CombatConstants.ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_PLAYER] = 0.30
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.start(
+		{
+			"files": 1,
+			"ranks": 2,
+			CombatConstants.FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN: 0.55,
+		},
+		{"files": 1, "ranks": 1}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var thresholds: Dictionary = mgr.rout_thresholds_by_fid.get("player", {})
+	var cas_min: float = float(
+		thresholds.get(CombatConstants.ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN, -1.0)
+	)
+	if absf(cas_min - 0.55) > 0.001:
+		_fail(failures, "flee_preset_rout: want preset casualty min 0.55 got %.3f" % cas_min)
+	var front_c: Dictionary = mgr.combatants[0]
+	if absf(_Rout.flee_casualty_ratio_min(mgr, front_c) - 0.55) > 0.001:
+		_fail(failures, "flee_preset_rout: CombatFormationRout should read merged threshold")
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: **`CombatManager.get_rout_threshold`** returns merged preset or default.
+static func _run_flee_manager_get_rout_threshold(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.start(
+		{CombatConstants.FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN: 0.48},
+		{"files": 1, "ranks": 1}
+	)
+	var v: float = mgr.get_rout_threshold(
+		"player", CombatConstants.ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN
+	)
+	if absf(v - 0.48) > 0.001:
+		_fail(failures, "flee_get_rout_threshold: want preset 0.48 got %.3f" % v)
+	var default_v: float = mgr.get_rout_threshold(
+		"enemy", CombatConstants.ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN
+	)
+	if absf(default_v - CombatConstants.FORMATION_FLEE_CASUALTY_RATIO_MIN) > 0.001:
+		_fail(
+			failures,
+			"flee_get_rout_threshold: enemy default want %.2f got %.3f"
+			% [CombatConstants.FORMATION_FLEE_CASUALTY_RATIO_MIN, default_v]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: listed **`flee`** duration hint marks instant resolve (not fall_back seconds).
+static func _run_flee_listed_duration_hint_instant(failures: PackedStringArray) -> void:
+	const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var c: Dictionary = mgr.combatants[0]
+	var cid: int = _EntityAccess.id_int(c)
+	var flee_act: Dictionary = {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": cid}
+	_MoveDuration.stamp_listed_action_duration_hint(mgr, c, flee_act)
+	var hint: String = str(flee_act.get("formation_move_duration_hint", ""))
+	if hint.find("instant") < 0:
+		_fail(failures, "flee_duration_hint: want instant hint got '%s'" % hint)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: AI flee weight stays high for personal crisis even when side holds the field.
+static func _run_flee_ai_pick_not_dampened_personal_crisis(failures: PackedStringArray) -> void:
+	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 1, "ranks": 1}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	ent.blood_volume = 50.0
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form["line_cohesion"] = 0.35
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	if not _Rout.side_holding_field(mgr, c):
+		_fail(failures, "flee_ai_personal: want holding field 2v1")
+	var coh: float = _Rout.line_cohesion_for_combatant(mgr, c)
+	var coh_m: float = lerpf(
+		CombatConstants.AI_FLEE_LOW_COHESION_MULT,
+		CombatConstants.AI_FLEE_HIGH_COHESION_MULT,
+		coh
+	)
+	var mult: float = _Rout.flee_ai_pick_mult(mgr, c)
+	if mult < coh_m * 0.98:
+		_fail(
+			failures,
+			"flee_ai_personal: holding-field dampener must not apply at bv=50 (mult=%.3f coh_m=%.3f)"
+			% [mult, coh_m]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 6.2: gauge rout tooltip hidden when formation stress is blocked by holding the field.
+static func _run_flee_rout_tooltip_suppressed_when_holding(failures: PackedStringArray) -> void:
+	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 1, "ranks": 1}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	ent.blood_volume = 82.0
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form["line_cohesion"] = 0.35
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	if not _Rout.formation_stressed_for_rout(mgr, c):
+		_fail(failures, "flee_rout_tooltip: want formation_stressed")
+	var tip: String = _Rout.rout_pressure_tooltip_line(mgr, c)
+	if not tip.is_empty():
+		_fail(failures, "flee_rout_tooltip: should suppress tooltip when holding field at bv=82")
+	ent.blood_volume = 50.0
+	if _Rout.rout_pressure_tooltip_line(mgr, c).is_empty():
+		_fail(failures, "flee_rout_tooltip: personal crisis should still show rout pressure tooltip")
+	_free_manager_restore_global_rng(mgr)
+
+
 ## Tier 6.2: **`apply_flee`** marks **`combat_absent`**, clears formation slot, ends standing count.
 static func _run_flee_resolve_marks_combat_absent_and_clears_slot(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
@@ -16443,22 +16881,332 @@ static func _run_pack_wound_lists_in_medical_phase(failures: PackedStringArray) 
 	mgr.combatants[0]["gauge"] = 100.0
 	mgr.combatants[0].state = CombatConstants.STATE_WAITING
 	var acts: Array = mgr.get_available_actions(healer_id)
-	var found: bool = false
+	var found_pressure: bool = false
+	var found_pack: bool = false
 	for raw in acts:
 		if raw is not Dictionary:
 			continue
 		var a: Dictionary = raw
-		if str(a.get("move_id", "")) != "pack_wound":
+		if int(a.get("target_id", -1)) != _EntityAccess.id_int(ally):
 			continue
 		if str(a.get("target_part", "")) != "chest":
 			continue
-		if int(a.get("target_id", -1)) != _EntityAccess.id_int(ally):
-			continue
-		found = true
-		break
+		var mid: String = str(a.get("move_id", ""))
+		if mid == "apply_direct_pressure":
+			found_pressure = true
+		elif mid == "pack_wound":
+			found_pack = true
 	_free_manager(mgr)
-	if not found:
-		_fail(failures, "pack_wound_list: healer should list pack_wound on ally chest")
+	if not found_pressure:
+		_fail(failures, "pack_wound_list: actively bleeding chest should list apply_direct_pressure first")
+	if found_pack:
+		_fail(failures, "pack_wound_list: pack_wound should not list before pressure on active chest bleed")
+
+
+static func _run_bandage_allowed_on_packed_part(failures: PackedStringArray) -> void:
+	var ent: Node = _new_entity("SWORD")
+	_harness_wound_chest_for_packing(ent)
+	seed(88203)
+	var packed: bool = ent.apply_packing("chest", 1.5)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	if not packed:
+		_fail(failures, "bandage_packed: setup packing should succeed")
+	if not ent.can_apply_bandage("chest"):
+		_fail(failures, "bandage_packed: should allow outer bandage over pack")
+
+
+static func _run_direct_pressure_held_suppresses_bleed_rate(failures: PackedStringArray) -> void:
+	var ent: Node = _new_entity("SWORD")
+	ent.take_damage_split(6.0, 2.0, "right_arm")
+	if not ent.wounds.has("right_arm"):
+		_fail(failures, "direct_pressure_held: need arm wound")
+		return
+	var raw: float = _EntityWounds.get_bleeding_rate_for_part(ent, "right_arm")
+	if raw <= _Bleeding.BLEEDING_RATE_EPSILON:
+		_fail(failures, "direct_pressure_held: wound should bleed before pressure")
+		return
+	if not ent.apply_direct_pressure("right_arm"):
+		_fail(failures, "direct_pressure_held: apply_direct_pressure failed")
+		return
+	var held: float = _EntityWounds.get_bleeding_rate_for_part(ent, "right_arm")
+	if held >= raw * 0.4:
+		_fail(failures, "direct_pressure_held: expected strong suppression while held got raw=%.3f held=%.3f" % [raw, held])
+
+
+static func _run_direct_pressure_release_rebleeds_without_dressing(failures: PackedStringArray) -> void:
+	var ent: Node = _new_entity("SWORD")
+	ent.take_damage_split(6.0, 2.0, "left_leg")
+	if not ent.wounds.has("left_leg"):
+		_fail(failures, "direct_pressure_rebound: need leg wound")
+		return
+	ent.apply_direct_pressure("left_leg")
+	var held: float = _EntityWounds.get_bleeding_rate_for_part(ent, "left_leg")
+	_EntityMedical.release_direct_pressure_on_part(ent, "left_leg")
+	var after: float = _EntityWounds.get_bleeding_rate_for_part(ent, "left_leg")
+	if after <= held + _Bleeding.BLEEDING_RATE_EPSILON:
+		_fail(failures, "direct_pressure_rebound: expected higher bleed after early release")
+
+
+static func _run_treatment_channel_count_not_raw_hit_count(failures: PackedStringArray) -> void:
+	var ent: Node = _new_entity("SWORD")
+	for _i in 6:
+		_EntityWounds.add_wound(
+			ent, "head", _Bleeding.INJURY_TYPE_CUT, 2.0, "scalp", _Bleeding.SEVERITY_MODERATE
+		)
+	if ent.wounds.get("head", []).size() != 1:
+		_fail(failures, "treatment_channels: merge should leave one injury row")
+		return
+	var channels: int = _EntityMedical.get_treatment_channel_count(ent, "head")
+	if channels != 1:
+		_fail(failures, "treatment_channels: expected 1 channel for one sub_region got %d" % channels)
+	var pack_s: float = _EntityMedical.get_packing_application_time_seconds_for_part(ent, "head")
+	var raw_pack: float = (
+		_Bleeding.PACKING_APPLICATION_TIME_SECONDS
+		+ _Bleeding.PACKING_PER_WOUND_EXTRA_SECONDS * 5.0
+	)
+	if pack_s >= raw_pack - 0.01:
+		_fail(
+			failures,
+			"treatment_channels: channel pack %.1f should beat six-hit raw %.1f"
+			% [pack_s, raw_pack]
+		)
+
+
+static func _run_dressings_blocked_without_pressure_when_bleeding(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	var ally_ent := _new_entity("SWORD")
+	var healer_ent := _new_entity("SWORD")
+	ally_ent.take_damage_split(8.0, 3.0, "head")
+	mgr.register(healer_ent, "player")
+	mgr.register(ally_ent, "player")
+	mgr.medical_phase = true
+	mgr.medical_phase_winner = "player"
+	var healer_c: Dictionary = mgr.combatants[0]
+	var ally_c: Dictionary = mgr.combatants[1]
+	if _MedicalPhase.dressings_allowed_for_part(mgr, ally_c, "head"):
+		_fail(failures, "dressings_gate: should block dressings on active unheld head bleed")
+		return
+	var acts: Array = _MedicalPhase.get_ally_medical_actions(mgr, healer_c, ally_c, "head")
+	var mids: Array = []
+	for raw in acts:
+		if raw is Dictionary:
+			mids.append(str((raw as Dictionary).get("move_id", "")))
+	if "bandage_self" in mids or "pack_wound" in mids:
+		_fail(failures, "dressings_gate: bandage/pack listed without pressure")
+	_free_manager(mgr)
+
+
+static func _run_wound_merge_same_subregion(failures: PackedStringArray) -> void:
+	var ent: Node = _new_entity("SWORD")
+	_EntityWounds.add_wound(ent, "head", _Bleeding.INJURY_TYPE_CUT, 3.0, "face", _Bleeding.SEVERITY_MODERATE)
+	_EntityWounds.add_wound(ent, "head", _Bleeding.INJURY_TYPE_CUT, 3.0, "face", _Bleeding.SEVERITY_MODERATE)
+	if ent.wounds.get("head", []).size() != 1:
+		_fail(
+			failures,
+			"wound_merge: expected 1 injury row for same sub_region got %d"
+			% ent.wounds.get("head", []).size()
+		)
+
+
+static func _run_medical_phase_losing_side_stays_fled(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var enemy_c: Dictionary = mgr.combatants[1]
+	enemy_c["combat_absent"] = true
+	enemy_c.state = CombatConstants.STATE_FLED
+	mgr._end_combat_phase("player", null)
+	if not bool(enemy_c.get("combat_absent", false)):
+		_fail(failures, "med_phase_rout: enemy combat_absent should stay set")
+	if _EntityAccess.state_str(enemy_c) != CombatConstants.STATE_FLED:
+		_fail(failures, "med_phase_rout: enemy should remain STATE_FLED")
+	_free_manager(mgr)
+
+
+static func _run_medical_coordination_stack_assist_during_windup(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	var healer_a: Node = _new_entity("SWORD")
+	var healer_b: Node = _new_entity("SWORD")
+	var patient: Node = _new_entity("SWORD")
+	patient.take_damage_split(12.0, 4.0, "left_arm")
+	mgr.register(healer_a, "player")
+	mgr.register(healer_b, "player")
+	mgr.register(patient, "player")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr.medical_phase = true
+	mgr.medical_phase_winner = "player"
+	var ha: Dictionary = mgr.combatants[0]
+	var hb: Dictionary = mgr.combatants[1]
+	var pt: Dictionary = mgr.combatants[2]
+	var ha_id: int = _EntityAccess.id_int(ha)
+	var hb_id: int = _EntityAccess.id_int(hb)
+	var pt_id: int = _EntityAccess.id_int(pt)
+	if not patient.apply_direct_pressure_from_ally("left_arm", healer_a):
+		_fail(failures, "med_coord_assist: primary pressure setup failed")
+		_free_manager(mgr)
+		return
+	ha.state = CombatConstants.STATE_MEDICAL_WIND_UP
+	ha.pending_medical = {
+		"medical_id": "apply_tourniquet",
+		"target_part": "left_arm",
+		"target_combatant_id": pt_id,
+	}
+	if not _MedicalCoord.can_stack_assist_pressure(mgr, hb_id, pt_id, "left_arm"):
+		_fail(failures, "med_coord_assist: B should stack-assist while A holds during wind-up")
+	var acts: Array = _MedicalPhase.get_ally_medical_actions(mgr, hb, pt, "left_arm")
+	var has_assist_pressure: bool = false
+	for raw in acts:
+		if raw is Dictionary and str((raw as Dictionary).get("move_id", "")) == "apply_direct_pressure":
+			has_assist_pressure = true
+	if not has_assist_pressure:
+		_fail(failures, "med_coord_assist: listing should offer stack-assist pressure")
+	var pick_pool: Array = [
+		{
+			"target_id": pt_id,
+			"move_id": "apply_direct_pressure",
+			"target_part": "left_arm",
+		}
+	]
+	var filtered: Array = _MedicalCoord.filter_actions_for_pick(mgr, hb_id, pick_pool)
+	if filtered.is_empty():
+		_fail(failures, "med_coord_assist: filtered pick pool should include assist pressure")
+	_free_manager(mgr)
+
+
+static func _run_medical_coordination_blocks_overlapping_treatment(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	var healer_a: Node = _new_entity("SWORD")
+	var healer_b: Node = _new_entity("SWORD")
+	var patient: Node = _new_entity("SWORD")
+	patient.take_damage_split(14.0, 5.0, "left_arm")
+	mgr.register(healer_a, "player")
+	mgr.register(healer_b, "player")
+	mgr.register(patient, "player")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr.medical_phase = true
+	mgr.medical_phase_winner = "player"
+	var ha: Dictionary = mgr.combatants[0]
+	var hb: Dictionary = mgr.combatants[1]
+	var pt: Dictionary = mgr.combatants[2]
+	var ha_id: int = _EntityAccess.id_int(ha)
+	var hb_id: int = _EntityAccess.id_int(hb)
+	var pt_id: int = _EntityAccess.id_int(pt)
+	ha.state = CombatConstants.STATE_MEDICAL_WIND_UP
+	ha.state_duration = 8.0
+	ha.pending_medical = {
+		"medical_id": "apply_tourniquet",
+		"target_part": "left_arm",
+		"target_combatant_id": pt_id,
+	}
+	if _MedicalCoord.medical_action_allowed(mgr, hb_id, pt_id, "left_arm", "apply_tourniquet"):
+		_fail(failures, "med_coord: second medic must not start tourniquet during ally wind-up")
+	if _MedicalCoord.medical_action_allowed(mgr, hb_id, pt_id, "left_arm", "apply_direct_pressure"):
+		_fail(failures, "med_coord: second medic must not replace pressure during ally wind-up")
+	var acts_overlap: Array = _MedicalPhase.get_ally_medical_actions(mgr, hb, pt, "left_arm")
+	for raw in acts_overlap:
+		if raw is not Dictionary:
+			continue
+		var mid: String = str((raw as Dictionary).get("move_id", ""))
+		if mid in ["apply_tourniquet", "apply_direct_pressure"]:
+			_fail(
+				failures,
+				"med_coord: listing must omit overlap moves during wind-up got %s" % mid
+			)
+	if not patient.apply_direct_pressure_from_ally("left_arm", healer_a):
+		_fail(failures, "med_coord: setup ally pressure failed")
+		_free_manager(mgr)
+		return
+	ha.state = CombatConstants.STATE_WAITING
+	ha.pending_medical = {}
+	if not _MedicalCoord.can_stack_assist_pressure(mgr, hb_id, pt_id, "left_arm"):
+		_fail(failures, "med_coord: B should stack-assist when A holds compression")
+	if not _MedicalCoord.medical_action_allowed(mgr, hb_id, pt_id, "left_arm", "apply_direct_pressure"):
+		_fail(failures, "med_coord: stack-assist pressure should be allowed")
+	var acts_held: Array = _MedicalPhase.get_ally_medical_actions(mgr, hb, pt, "left_arm")
+	var assist_listed: bool = false
+	for raw2 in acts_held:
+		if raw2 is Dictionary and str((raw2 as Dictionary).get("move_id", "")) == "apply_direct_pressure":
+			assist_listed = true
+	if not assist_listed:
+		_fail(failures, "med_coord: listing should offer stack-assist direct_pressure")
+	_free_manager(mgr)
+
+
+static func _run_medical_windup_prepare_preserves_ally_head_pressure(failures: PackedStringArray) -> void:
+	var patient: Node = _new_entity("SWORD")
+	var ally: Node = _new_entity("SWORD")
+	patient.take_damage_split(8.0, 3.0, "head")
+	if not patient.wounds.has("head"):
+		_fail(failures, "windup_prepare: need head wound")
+		return
+	if not patient.apply_direct_pressure_from_ally("head", ally):
+		_fail(failures, "windup_prepare: ally pressure failed")
+		return
+	var held: float = _EntityWounds.get_bleeding_rate_for_part(patient, "head")
+	if patient.direct_pressure_part != "head" or patient.direct_pressure_held_by != ally:
+		_fail(failures, "windup_prepare: ally hold not registered")
+		return
+	_EntityMedical.prepare_for_medical_windup(patient, patient, "head")
+	if patient.direct_pressure_part != "head" or patient.direct_pressure_held_by != ally:
+		_fail(failures, "windup_prepare: ally hold cleared on treatment part")
+		return
+	var after: float = _EntityWounds.get_bleeding_rate_for_part(patient, "head")
+	if after > held + _Bleeding.BLEEDING_RATE_EPSILON:
+		_fail(
+			failures,
+			"windup_prepare: rebound during prepare held=%.3f after=%.3f" % [held, after]
+		)
+
+
+static func _run_ally_medical_tourniquet_path_pressure_first(failures: PackedStringArray) -> void:
+	var ent: Node = _new_entity("SWORD")
+	ent.take_damage_split(12.0, 4.0, "right_leg")
+	var mgr: Node = _MgrScript.new()
+	var healer: Node = _new_entity("SWORD")
+	mgr.register(healer, "player")
+	mgr.register(ent, "player")
+	var healer_c: Dictionary = mgr.combatants[0]
+	var ally_c: Dictionary = mgr.combatants[1]
+	var acts: Array = _MedicalPhase.get_ally_medical_actions(mgr, healer_c, ally_c, "right_leg")
+	_free_manager(mgr)
+	if acts.is_empty():
+		_fail(failures, "tq_path: expected actions on bleeding leg")
+		return
+	var mids: Array = []
+	for raw in acts:
+		if raw is Dictionary:
+			mids.append(str((raw as Dictionary).get("move_id", "")))
+	if "apply_tourniquet" not in mids:
+		_fail(failures, "tq_path: expected tourniquet on severe leg bleed")
+	if "bandage_self" in mids or "pack_wound" in mids:
+		_fail(failures, "tq_path: should not list bandage/pack before tourniquet path")
+
+
+static func _run_medical_phase_full_blood_loss_rate(failures: PackedStringArray) -> void:
+	var ent: Node = _new_entity("SWORD")
+	ent.take_damage_split(6.0, 2.0, "chest")
+	ent.blood_volume = 60.0
+	var rate: float = _EntityWounds.get_total_bleeding_rate(ent)
+	if rate <= 0.0:
+		_fail(failures, "med_phase_bleed: need active bleed")
+		return
+	ent.set_combat_blood_loss_mult(1.0)
+	ent.set_combat_blood_recovery_per_s(0.0)
+	ent.process_blood_loss(1.0)
+	var loss: float = 60.0 - ent.blood_volume
+	var want: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER * 1.0
+	if absf(loss - want) > 0.05:
+		_fail(
+			failures,
+			"med_phase_bleed: expect full ATLS drain rate got loss=%.4f want≈%.4f" % [loss, want]
+		)
+	# No passive recovery without fluids (post-victory medical phase uses same physiology).
+	ent.blood_volume = 55.0
+	ent.set_combat_blood_recovery_per_s(0.06)
+	ent.process_blood_loss(1.0)
+	if ent.blood_volume > 55.01:
+		_fail(failures, "med_phase_bleed: passive recovery should not run without explicit treatment")
 
 
 static func _run_pack_wound_apply_packing_marks_packed_parts(failures: PackedStringArray) -> void:
@@ -17171,6 +17919,8 @@ static func _run_resolve_close_attempt_long_success_closes_distance(
 			"close_success: attacker distance_to should be CLOSE got %s"
 			% str((p.get("distance_to", {}) as Dictionary).get(e_id, ""))
 		)
+	elif _EntityAccess.gauge_float(p) >= 99.9:
+		_fail(failures, "close_success: attacker gauge should be cleared after close attempt")
 
 
 ## Tier 1.10: automatic doctrine applies **`pinch_center`** on hollow enemy front when doctrine still default.
