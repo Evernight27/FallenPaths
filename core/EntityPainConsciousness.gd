@@ -7,9 +7,11 @@ extends RefCounted
 ## body_blunt, endurance, perception, agility; signals health_changed, creature_incapacitated.
 
 const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
+const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 # --- Pain contribution (single wound; used for pain-shock from hit) ---
 
@@ -87,14 +89,12 @@ static func get_effective_pain_for_region(entity: Node, region: String) -> float
 # --- Blood → consciousness modifier ---
 
 static func get_blood_consciousness_modifier(entity: Node) -> float:
-	if entity.blood_volume >= _PainConscious.BLOOD_CONSCIOUSNESS_START_THRESHOLD:
-		return 1.0
-	if entity.blood_volume <= _PainConscious.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD:
-		return maxf(0.0, 1.0 - _PainConscious.BLOOD_CONSCIOUSNESS_REDUCTION_MAX)
-	var start: float = _PainConscious.BLOOD_CONSCIOUSNESS_START_THRESHOLD
-	var floor_t: float = _PainConscious.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD
-	var reduction: float = (start - entity.blood_volume) / (start - floor_t) * _PainConscious.BLOOD_CONSCIOUSNESS_REDUCTION_MAX
-	return maxf(0.0, 1.0 - reduction)
+	return _Bleeding.blood_consciousness_modifier_from_remaining(
+		float(entity.blood_volume),
+		_PainConscious.BLOOD_CONSCIOUSNESS_START_THRESHOLD,
+		_PainConscious.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD,
+		_PainConscious.BLOOD_CONSCIOUSNESS_REDUCTION_MAX
+	)
 
 # --- Consciousness update and pain shock ---
 
@@ -157,7 +157,23 @@ static func try_ambient_pain_shock_tick(entity: Node, delta: float) -> bool:
 	var duration: float = _PainConscious.get_pain_shock_duration_seconds(pain_value, 0.0)
 	entity._pain_shock_until_time = now + duration
 	entity._consciousness_dirty = true
+	_CombatDebug.combat_session(
+		"ambient_pain_shock %s effective_pain=%.1f duration=%.1fs"
+		% [_session_entity_label(entity), pain_value, duration]
+	)
 	return true
+
+
+## Character node name when **`CombatBody`** is nested (F5 **ii6** grep `Companion`).
+static func _session_entity_label(entity: Node) -> String:
+	if entity == null:
+		return "?"
+	var parent: Node = entity.get_parent()
+	if parent != null:
+		var pn: String = str(parent.name).strip_edges()
+		if not pn.is_empty():
+			return pn
+	return str(entity.name)
 
 
 static func update_consciousness(entity: Node) -> void:

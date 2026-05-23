@@ -118,7 +118,15 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 		"action_resolved",
 		combatant_id,
 		combatant_id,
-		{"outcome": "fled", "dmg": 0, "died": false}
+		{
+			"outcome": "fled",
+			"dmg": 0,
+			"died": false,
+			"line_cohesion": float(ctx.get("line_cohesion", -1.0)),
+			"casualty_ratio": float(ctx.get("casualty_ratio", -1.0)),
+			"formation_stressed": bool(ctx.get("formation_stressed", false)),
+			"side_holding_field": bool(ctx.get("side_holding_field", false)),
+		}
 	)
 	manager.emit_signal("turn_resolved", combatant_id)
 	var winner: String = manager._check_for_winner() if manager.has_method("_check_for_winner") else ""

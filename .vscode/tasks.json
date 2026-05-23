@@ -10,10 +10,13 @@
 				"--path",
 				"${workspaceFolder}",
 				"-s",
-				"res://scripts/run_combat_regression_harness.gd"
+				"res://scripts/run_all_combat_checks.gd"
 			],
 			"options": {
-				"cwd": "${workspaceFolder}"
+				"cwd": "${workspaceFolder}",
+				"env": {
+					"FP_HARNESS_MODE": "regression"
+				}
 			},
 			"group": "test",
 			"presentation": {
@@ -55,7 +58,47 @@
 			]
 		},
 		{
-			"label": "Run Medical Phase Harness (headless)",
+			"label": "Run All Combat Checks (headless)",
+			"type": "shell",
+			"command": "bash",
+			"args": ["${workspaceFolder}/scripts/run_all_combat_checks.sh"],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"focus": false
+			},
+			"problemMatcher": [
+				{
+					"owner": "fallen-paths-harness",
+					"pattern": [
+						{
+							"regexp": "^FP_HARNESS_FAIL: (.+)$",
+							"message": 1
+						},
+						{
+							"regexp": "^FP_HARNESS_SUMMARY: (.+)$",
+							"message": 1
+						}
+					]
+				}
+			],
+			"windows": {
+				"command": "powershell",
+				"args": [
+					"-NoProfile",
+					"-ExecutionPolicy",
+					"Bypass",
+					"-File",
+					"${workspaceFolder}/scripts/run_all_combat_checks.ps1"
+				]
+			}
+		},
+		{
+			"label": "Run D-001 Soak Harness (headless)",
 			"type": "shell",
 			"command": "${config:godotTools.editorPath.godot4:/Applications/Godot.app/Contents/MacOS/Godot}",
 			"args": [
@@ -63,8 +106,14 @@
 				"--path",
 				"${workspaceFolder}",
 				"-s",
-				"res://scripts/run_medical_phase_harness.gd"
+				"res://scripts/run_all_combat_checks.gd"
 			],
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"env": {
+					"FP_HARNESS_MODE": "d001"
+				}
+			},
 			"group": "test",
 			"presentation": {
 				"reveal": "always",
@@ -81,23 +130,171 @@
 							"message": 1
 						},
 						{
-							"regexp": "^FP_(COMBAT|WORLD|ERROR): (.+)$",
-							"message": 2
+							"regexp": "^FP_HARNESS_FAIL: (.+)$",
+							"message": 1
 						},
 						{
-							"regexp": "^\\s*at: (res:\\/\\/[^:]+):(\\d+)(?::[^:]*)?$",
-							"file": 1,
-							"line": 2,
+							"regexp": "^FP_D001_SOAK_REPORT",
 							"message": 0
-						},
-						{
-							"regexp": "^SCRIPT ERROR: (.+)$",
-							"message": 1,
-							"severity": "error"
 						}
 					]
 				}
 			]
+		},
+		{
+			"label": "Run Medical Phase Harness (headless)",
+			"type": "shell",
+			"command": "${config:godotTools.editorPath.godot4:/Applications/Godot.app/Contents/MacOS/Godot}",
+			"args": [
+				"--headless",
+				"--path",
+				"${workspaceFolder}",
+				"-s",
+				"res://scripts/run_all_combat_checks.gd"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"env": {
+					"FP_HARNESS_MODE": "medical"
+				}
+			},
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"focus": false
+			},
+			"problemMatcher": [
+				{
+					"owner": "fallen-paths-harness",
+					"fileLocation": ["relative", "${workspaceFolder}"],
+					"pattern": [
+						{
+							"regexp": "^FP_HARNESS_FAIL: (.+)$",
+							"message": 1
+						}
+					]
+				}
+			]
+		},
+		{
+			"label": "Validate F5 Soak Log",
+			"type": "shell",
+			"command": "bash",
+			"args": ["${workspaceFolder}/scripts/validate_f5_soak_log.sh"],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"group": "test",
+			"windows": {
+				"command": "powershell",
+				"args": [
+					"-NoProfile",
+					"-ExecutionPolicy",
+					"Bypass",
+					"-File",
+					"${workspaceFolder}/scripts/validate_f5_soak_log.ps1"
+				]
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"focus": false
+			},
+			"problemMatcher": [
+				{
+					"owner": "fallen-paths-harness",
+					"pattern": [
+						{
+							"regexp": "^FP_HARNESS_FAIL: (.+)$",
+							"message": 1
+						},
+						{
+							"regexp": "^\\[([^\\]]+)\\] FAIL — (.+)$",
+							"message": 2
+						}
+					]
+				}
+			]
+		},
+		{
+			"label": "Run F5 Soak Suite (headless + validate log)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}/scripts/run_all_combat_checks.ps1",
+				"-ValidateF5"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"focus": false
+			},
+			"problemMatcher": [
+				{
+					"owner": "fallen-paths-harness",
+					"pattern": [
+						{
+							"regexp": "^FP_HARNESS_FAIL: (.+)$",
+							"message": 1
+						}
+					]
+				}
+			]
+		},
+		{
+			"label": "Q1 Research Feel (instructions)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}/scripts/run_q_feel.ps1",
+				"-Track",
+				"Q1"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"focus": true
+			}
+		},
+		{
+			"label": "Q2 ii2b Feel (instructions)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}/scripts/run_q_feel.ps1",
+				"-Track",
+				"Q2"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"focus": true
+			}
 		}
 	]
 }

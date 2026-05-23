@@ -12,6 +12,35 @@ const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
+const _IncomingParryChoice := preload("res://combat/CombatIncomingParryChoice.gd")
+const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+
+## F5 soak (**II-2b**): grep `riposte_chain` / `counter_tempo` / `flurry_bind` without **`COMBAT_DEBUG`**.
+static func _log_fp_tempo_wind_up(
+	atk_name: String,
+	tgt_name: String,
+	wind_up_s: float,
+	counter_tempo: bool,
+	riposte_chain: bool,
+	flurry_bind: bool
+) -> void:
+	if not _OperationalLog.is_play_session_active():
+		return
+	if riposte_chain:
+		_CombatDebug.combat_session(
+			"riposte_chain %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s]
+		)
+	elif counter_tempo:
+		_CombatDebug.combat_session(
+			"counter_tempo %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s]
+		)
+	if flurry_bind:
+		_CombatDebug.combat_session(
+			"flurry_bind %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s]
+		)
+
 
 ## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.
 ## Replaces **`atk.pending_attack`**: clears the prior wind-up’s defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (if any) before assigning the new **`pa`**.
@@ -125,6 +154,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	if flurry_m < 1.0:
 		wind_up_s *= flurry_m
 		_FlurryBind.consume_exchange_on_wind_up_start(atk)
+	wind_up_s = _Exhaustion.apply_attacker_wind_up_exhaustion_mult(wind_up_s, atk)
 	wind_up_s = minf(wind_up_s, CombatConstants.WIND_UP_DURATION_MAX_S)
 	atk.gauge = 0.0
 	atk["guard"] = CombatConstants.GUARD_AFTER_ATTACK
@@ -154,6 +184,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		var reveal_at: float = float(move_def.get("feint_target_reveal_at_progress", 0.0))
 		if reveal_at > 0.0:
 			pa["feint_target_reveal_at_progress"] = clampf(reveal_at, 0.0, 1.0)
+	_IncomingParryChoice.stamp_parry_telegraph_on_pa(pa, move_def)
 	if counter_tempo:
 		pa[CombatConstants.PA_KEY_COUNTER_TEMPO] = true
 	if riposte_m < 1.0:
@@ -173,6 +204,15 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		_Attention.record_attack_toward_defender(manager, attacker_id, tgt, hit_part_log)
 	_CounterTempo.on_attacker_wind_up_started(manager, attacker_id, tgt, wind_up_s)
 	var atk_name_log: String = _EntityAccess.get_display_name(atk, attacker_id)
+	var tgt_name_log: String = _EntityAccess.get_display_name(tgt, target_id)
+	_log_fp_tempo_wind_up(
+		atk_name_log,
+		tgt_name_log,
+		wind_up_s,
+		counter_tempo,
+		riposte_m < 1.0,
+		flurry_m < 1.0
+	)
 	if CombatConstants.combat_debug_active():
 		var angle_info: String = " [atk=%.0f° guard=%.0f°]" % [align_ctx["attack_angle_deg"], align_ctx["guard_angle_deg"]]
 		CombatDebug.log("%s | guard=%s atk_line=%s align=%.2f trans=%.2f%s | wind_up=%.2fs" % [atk_name_log, atk.get("guard_line", CombatConstants.GUARD_DEFAULT), attack_line, align, trans_mult, angle_info, wind_up_s])

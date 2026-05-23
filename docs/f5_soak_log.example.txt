@@ -1,0 +1,18 @@
+# Minimal F5 paste sample for scripts/validate_f5_soak_log.ps1 smoke (not a real fight log).
+FP_COMBAT: soak_fight_enter tile=red 7v7
+FP_COMBAT: turn_ready_gauge id=0 Leader label=Stm 80% · Ready · Exh 40% · Grd Hi tooltip_match=ok
+FP_COMBAT: turn_ready_gauge id=3 Ally label=Counter! · Tel head tooltip_match=counter
+FP_COMBAT: diagram_banner player: Formation line · Line · cohesion 72%
+FP_COMBAT: engagement_transition Formation line -> Skirmish
+FP_COMBAT: diagram_banner player: Skirmish · Line · cohesion 65%
+FP_COMBAT: rotate_file@2
+FP_COMBAT: medical_phase: full hemorrhage rates until TCCC control
+FP_COMBAT: medical_pack_wound listed for Ally part=head
+FP_COMBAT: medical_action pick Ally move=apply_direct_pressure part=chest (ally)
+FP_COMBAT: phase_end winner=player defeated_node=null
+FP_COMBAT: soak_fight_end winner=player medical_phase=true turn_ready=4 tooltip_ok=1 tooltip_counter=1 diagram_banner=2
+FP_COMBAT: soak_validate_hint copy Output to .f5_soak_in.txt then run scripts/validate_f5_soak_log.ps1
+# Optional (main.tscn dev_research_feel=true, or COMBAT_DEV_VERBOSE in CombatConstants.gd):
+FP_COMBAT: research_feel part=right_arm sub=forearm cut=7.9 blunt=0.0 bone=0.0 pen_mm=0.50 ke_frac=1.00
+FP_COMBAT: research_feel part=chest sub=thoracic cut=4.2 blunt=0.0 bone=0.0 pen_mm=1.60 ke_frac=0.81
+FP_COMBAT: research_validate_hint 2 research_feel lines — compare to docs/LIVE_PATHS.md#f5-optional-crosswalk-feel-vs-headless

@@ -2,18 +2,20 @@ class_name TacticalCombat
 extends RefCounted
 
 ## Phase 6: Ambush penalties, surround (multi-threat defense split + perception), incursion pressure for ZoC.
-## See docs/COMBAT_ROADMAP_AND_STAMINA.md Phase 6; formations/ambush — docs/TACTICAL_FORMATIONS_FF4.md.
+## Formations / ambush: CombatConstants presets; plan Tier 1 — docs/LIVE_PATHS.md#tier-1-spec.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
+const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
-const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
+const _ArcOccupancy := preload("res://combat/CombatSurroundArcOccupancy.gd")
+const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 
-## Tier 1.8 (P9): counters on the combat manager for soak / debug (mode transitions, illegal crash / melee / close resolves).
+## Tier 1.8 (P9): counters on the combat manager for soak / debug (mode transitions, illegal melee / close resolves).
 ## Keys are stable for logs, **`_tactical_mode_snapshot["telemetry"]`**, and **`CombatRegressionHarness`** (`_run_telemetry_*`).
 const META_COMBAT_TELEMETRY := "_combat_telemetry"
 
@@ -21,7 +23,6 @@ const META_COMBAT_TELEMETRY := "_combat_telemetry"
 static func _new_combat_telemetry_dict() -> Dictionary:
 	return {
 		"engagement_mode_transitions": 0,
-		"invalid_crash_resolve_blocked": 0,
 		"invalid_melee_resolve_blocked": 0,
 		"invalid_close_resolve_blocked": 0,
 		"automatic_doctrine_pinch_count": 0,
@@ -31,7 +32,7 @@ static func _new_combat_telemetry_dict() -> Dictionary:
 
 static func _melee_threat_scan(manager: Node, defender: Dictionary) -> Dictionary:
 	var count: int = 0
-	var weight_sum: float = 0.0
+	var entries: Array = []
 	if manager == null or defender.is_empty() or not _EntityAccess.alive_bool(defender):
 		return {"count": 0, "weight_sum": 0.0}
 	for c in manager.combatants:
@@ -44,8 +45,20 @@ static func _melee_threat_scan(manager: Node, defender: Dictionary) -> Dictionar
 		var eff_f: float = float(pair_geom.get("file_spacing_equiv", 0.0))
 		var w: float = eff_f / maxf(0.001, CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN)
 		w = clampf(w, CombatConstants.SURROUND_SECTOR_WEIGHT_MIN, 1.0)
-		weight_sum += w
-	return {"count": count, "weight_sum": weight_sum}
+		var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
+		var center: float
+		if not pa.is_empty():
+			center = _ArcOccupancy.arc_center_deg_from_pa(pa)
+		else:
+			var df: float = float(_EntityAccess.file_int(c) - _EntityAccess.file_int(defender))
+			center = fmod(90.0 + df * 38.0 + 360.0, 360.0)
+		entries.append({"weight": w, "arc_center_deg": center})
+	var surround_load: Dictionary = _ArcOccupancy.surround_load_from_threat_entries(entries)
+	return {
+		"count": count,
+		"weight_sum": float(surround_load.get("weight_sum", 0.0)),
+		"arc_occupancy_blocked": int(surround_load.get("arc_occupancy_blocked", 0)),
+	}
 
 
 ## Enemy front-rank units that could actually land a melee strike on the defender (weapon reach + spacing + band).
@@ -58,10 +71,22 @@ static func count_engaging_threats(manager: Node, defender_id: int) -> int:
 
 static func _surround_awareness_factor(defender: Dictionary) -> float:
 	var perc_norm: float = clampf(float(_EntityAccess.stats_dict(defender).get("perception", 100)) / 100.0, 0.0, 1.0)
-	return lerpf(CombatConstants.SURROUND_AWARENESS_AT_LOW_PERCEPTION, 1.0, perc_norm)
+	var base: float = lerpf(CombatConstants.SURROUND_AWARENESS_AT_LOW_PERCEPTION, 1.0, perc_norm)
+	return base * _Exhaustion.performance_mult_for_combatant(defender)
 
 
 ## Sum of sector weights for each enemy that `can_melee_threaten` the defender (Tier 3.1 — uses `effective_pair_file_spacing_equivalent` vs flank spacing).
+## Live scan: count, sector **`weight_sum`**, and arc-overlap demotions (**`arc_occupancy_blocked`**).
+static func surround_threat_scan_for_defender(manager: Node, defender: Dictionary) -> Dictionary:
+	if manager == null or defender.is_empty():
+		return {"count": 0, "weight_sum": 0.0, "arc_occupancy_blocked": 0}
+	return _melee_threat_scan(manager, defender)
+
+
+static func arc_occupancy_blocked_for_defender(manager: Node, defender: Dictionary) -> int:
+	return int(surround_threat_scan_for_defender(manager, defender).get("arc_occupancy_blocked", 0))
+
+
 static func compute_surround_threat_weight_sum(manager: Node, defender_id: int) -> float:
 	var d: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
 	if d.is_empty():
@@ -139,25 +164,22 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 	var mode_now: String = _EngagementMode.engagement_mode(manager)
 	var mode_now_code: int = _EngagementMode.mode_code(mode_now)
 	var raw_mode: String = str(snap.get("raw_mode", "skirmish"))
-	var incursion_ok: bool = _EngagementMode.incursion_allowed(manager)
 	_telemetry_after_mode_resolve(manager, mode_now)
 	if manager != null:
 		var mode_snap: Dictionary = snap.duplicate()
 		mode_snap["mode"] = mode_now
 		mode_snap["mode_code"] = mode_now_code
-		mode_snap["incursion_allowed"] = incursion_ok
 		mode_snap["combat_clock"] = float(manager.get("combat_clock"))
 		if manager.has_meta(META_COMBAT_TELEMETRY):
 			mode_snap["telemetry"] = (manager.get_meta(META_COMBAT_TELEMETRY) as Dictionary).duplicate()
 		manager.set_meta("_tactical_mode_snapshot", mode_snap)
 	var mode_line: String = (
-		"mode=%s(%d) raw=%s(%d) incursion_allowed=%s active[player=%d enemy=%d] front[player=%d enemy=%d] fill[player=%.2f enemy=%.2f]"
+		"mode=%s(%d) raw=%s(%d) active[player=%d enemy=%d] front[player=%d enemy=%d] fill[player=%.2f enemy=%.2f]"
 		% [
 			mode_now,
 			mode_now_code,
 			raw_mode,
 			int(snap.get("raw_mode_code", _EngagementMode.mode_code(raw_mode))),
-			incursion_ok,
 			int(snap.get("player_active", 0)),
 			int(snap.get("enemy_active", 0)),
 			p_front,
@@ -177,26 +199,18 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 		formation["incursion_pressure"] = pressure
 		_recompute_lane_stress_by_file(manager, formation)
 		if CombatDebug.flow_verbose_enabled():
-			var bf: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "breached_files")
-			var raw_clog: bool = _FormationBreachRules.breach_clogs_open_lanes(formation)
-			var blocks_moves: bool = _FormationBreachRules.breach_blocks_open_lane_moves(manager, formation)
-			var skirm: bool = _FormationBreachRules.is_skirmish_line_engagement(manager)
 			CombatDebug.flow_log(
 				(
-					"incursion_snapshot fid=%s pressure=%.3f lane_stress[%s] breached[%s] "
-					+ "breach_raw_clogs=%s breach_blocks_moves=%s skirmish=%s mode_state[%s] front_alive=%d intruders[%s]"
+					"incursion_snapshot fid=%s pressure=%.3f lane_stress[%s] mode_state[%s] front_alive=%d"
 				)
 				% [
 					fid,
 					float(formation.get("incursion_pressure", 0.0)),
-					CombatDebug.format_lane_stress(_FormationSlots.formation_nested_dictionary_read(formation, "lane_stress_by_file")),
-					CombatDebug.format_breached_files(bf),
-					raw_clog,
-					blocks_moves,
-					skirm,
+					CombatDebug.format_lane_stress(
+						_FormationSlots.formation_nested_dictionary_read(formation, "lane_stress_by_file")
+					),
 					mode_line,
 					our_front,
-					_format_intruders_on_host(manager, fid, int(formation.get("files", 1)))
 				],
 				"incursion_snapshot:%s" % fid
 			)
@@ -222,36 +236,8 @@ static func _recompute_lane_stress_by_file(manager: Node, formation: Dictionary)
 				stress += CombatConstants.LANE_STRESS_DENSITY_TIGHT
 			"loose":
 				stress += CombatConstants.LANE_STRESS_DENSITY_LOOSE
-		var breach_b: float = _FormationBreachRules.breach_local_lane_stress_bonus(formation, f)
-		var wedge_b: float = _IntrusionWedge.lane_stress_bonus_from_wedge(formation, f)
-		stress += maxf(breach_b, wedge_b)
 		by_file[f] = clampf(stress, 0.0, 1.0)
 	formation["lane_stress_by_file"] = by_file
-
-
-static func _format_intruders_on_host(manager: Node, host_fid: String, files: int) -> String:
-	if manager == null:
-		return "—"
-	var by_file: Dictionary = {}
-	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c):
-			continue
-		if not _ZoneOfControl.intruder_on_host_formation(c, host_fid):
-			continue
-		var file_i: int = _EntityAccess.intrusion_anchor_or_file_int(c)
-		if file_i < 0 or file_i >= maxi(1, files):
-			continue
-		if not by_file.has(file_i):
-			by_file[file_i] = 0
-		by_file[file_i] = int(by_file[file_i]) + 1
-	if by_file.is_empty():
-		return "—"
-	var parts: Array[String] = []
-	for fi in range(maxi(1, files)):
-		var n: int = int(by_file.get(fi, 0))
-		if n > 0:
-			parts.append("f%d:%d" % [fi, n])
-	return "; ".join(parts)
 
 
 static func _telemetry_dict(manager: Node) -> Dictionary:
@@ -270,6 +256,14 @@ static func _bump_telemetry_counter(manager: Node, key: String, extra: Dictionar
 	manager.set_meta(META_COMBAT_TELEMETRY, tel)
 
 
+static func seed_engagement_mode_telemetry(manager: Node, mode_now: String) -> void:
+	if manager == null or mode_now.is_empty():
+		return
+	var tel: Dictionary = _telemetry_dict(manager)
+	tel["last_resolved_mode"] = mode_now
+	manager.set_meta(META_COMBAT_TELEMETRY, tel)
+
+
 static func _telemetry_after_mode_resolve(manager: Node, mode_now: String) -> void:
 	if manager == null:
 		return
@@ -282,12 +276,13 @@ static func _telemetry_after_mode_resolve(manager: Node, mode_now: String) -> vo
 			"to": mode_now,
 			"at": _EntityAccess.combat_clock_float(manager),
 		}
+		if _OperationalLog.is_play_session_active():
+			var from_disp: String = _EngagementMode.mode_display_name(prev)
+			var to_disp: String = _EngagementMode.mode_display_name(mode_now)
+			CombatDebug.combat_session("engagement transition %s -> %s" % [from_disp, to_disp])
+			_F5SoakTrace.note_engagement_transition(from_disp, to_disp)
 	tel["last_resolved_mode"] = mode_now
 	manager.set_meta(META_COMBAT_TELEMETRY, tel)
-
-
-static func record_invalid_crash_resolve_blocked(manager: Node) -> void:
-	_bump_telemetry_counter(manager, "invalid_crash_resolve_blocked")
 
 
 static func record_invalid_melee_resolve_blocked(manager: Node) -> void:
@@ -310,5 +305,3 @@ static func record_automatic_doctrine_pinch(manager: Node, formation_id: String)
 			}
 		}
 	)
-
-

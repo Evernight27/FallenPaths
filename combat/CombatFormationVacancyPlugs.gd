@@ -83,14 +83,7 @@ static func _vacancy_lateral_record_edge(manager: Node, ally_id: int, src_f: int
 static func _repack_lane_offset_after_rank_file_change(c: Dictionary) -> void:
 	if c.is_empty():
 		return
-	if _ZoneOfControl.is_intruded(c):
-		c["lane_offset"] = clampf(
-			CombatConstants.INTRUSION_INTRUDER_LANE_OFFSET_BIAS,
-			-CombatConstants.LANE_OFFSET_ABS_MAX,
-			CombatConstants.LANE_OFFSET_ABS_MAX
-		)
-	else:
-		c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
+	c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
 
 
 static func _formation_has_rank0_hole(manager: Node, fid: String) -> bool:
@@ -126,7 +119,7 @@ static func formation_has_frontline_fill_opportunity(manager: Node, fid: String)
 			continue
 		var reserved: Dictionary = {}
 		var move: Dictionary = _select_best_plug_move_for_empty_cell(
-			manager, fid, slots, 0, file, formation_ranks, nfiles, side_wanted, true, reserved, true, true
+			manager, fid, slots, 0, file, formation_ranks, nfiles, side_wanted, reserved, true, true
 		)
 		if not move.is_empty():
 			return true
@@ -154,7 +147,7 @@ static func formation_has_frontline_fill_opportunity_at_file(
 	var side_wanted: String = _FormationSlots.formation_side_str(formation)
 	var reserved: Dictionary = {}
 	var move: Dictionary = _select_best_plug_move_for_empty_cell(
-		manager, fid, slots, 0, file, formation_ranks, nfiles, side_wanted, true, reserved, true, true
+		manager, fid, slots, 0, file, formation_ranks, nfiles, side_wanted, reserved, true, true
 	)
 	return not move.is_empty()
 
@@ -189,14 +182,13 @@ static func _is_ineligible_vacancy_donor(manager: Node, c: Dictionary) -> bool:
 	return false
 
 
-## First living non-intruded occupant in `slots` at `key` for this formation side (dual cells: try each id; skip busy donors).
+## First living occupant in `slots` at `key` for this formation side (dual cells: try each id; skip busy donors).
 static func _combatant_from_slot_primary_living(
 	manager: Node,
 	slots: Dictionary,
 	key: Vector2i,
 	fid: String,
-	side_wanted: String,
-	skip_intruded: bool
+	side_wanted: String
 ) -> Variant:
 	var arr: Array = _FormationSlots.normalize_cell(slots.get(key, []))
 	for cid in arr:
@@ -204,8 +196,6 @@ static func _combatant_from_slot_primary_living(
 		if ally.is_empty() or not _EntityAccess.is_alive_on_side(ally, side_wanted):
 			continue
 		if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, ally, fid):
-			continue
-		if skip_intruded and _ZoneOfControl.is_intruded(ally):
 			continue
 		if _is_ineligible_vacancy_donor(manager, ally):
 			continue
@@ -264,7 +254,7 @@ static func _plug_priority_score(manager: Node, prox_steps: int, c: Dictionary, 
 
 ## Best vertical option for this hole (same column, deeper ranks). Evaluated separately from lateral.
 ## When `adjacent_rank_only`, walk ranks shallowâ†’deep: skip empty ranks; **skip** ranks whose primary native
-## is not a legal donor (wind-up, reserved elsewhere, intruder-only cell, etc.) and keep scanning so a deeper
+## is not a legal donor (wind-up, reserved elsewhere, foreign occupant cell, etc.) and keep scanning so a deeper
 ## reserve can still plug the hole without forcing a front-rank lateral shuffle. Stop at the first **eligible,
 ## unreserved** donor (closest promotable native â€” do not jump over them to pull someone even deeper).
 ## When false, scan the full column and keep the best-scoring eligible donor (full-column donor scan).
@@ -276,7 +266,6 @@ static func _evaluate_best_vertical_plug_for_cell(
 	file: int,
 	formation_ranks: int,
 	side_wanted: String,
-	skip_intruded: bool,
 	reserved: Dictionary,
 	adjacent_rank_only: bool = true
 ) -> Dictionary:
@@ -290,8 +279,7 @@ static func _evaluate_best_vertical_plug_for_cell(
 				search_rank += 1
 				continue
 			var ally_v: Variant = _combatant_from_slot_primary_living(
-				manager, slots, Vector2i(search_rank, file), fid, side_wanted, skip_intruded
-			)
+				manager, slots, Vector2i(search_rank, file), fid, side_wanted			)
 			if ally_v == null:
 				search_rank += 1
 				continue
@@ -320,8 +308,7 @@ static func _evaluate_best_vertical_plug_for_cell(
 		return best
 	for search_rank in range(fill_rank + 1, formation_ranks):
 		var ally_v2: Variant = _combatant_from_slot_primary_living(
-			manager, slots, Vector2i(search_rank, file), fid, side_wanted, skip_intruded
-		)
+			manager, slots, Vector2i(search_rank, file), fid, side_wanted		)
 		if ally_v2 == null:
 			continue
 		var aid2: int = _EntityAccess.id_int(ally_v2)
@@ -357,15 +344,13 @@ static func _rear_infill_hole_column_passable(
 	hole_file: int,
 	search_rank: int,
 	side_wanted: String,
-	skip_intruded: bool
 ) -> bool:
 	for rr in range(1, search_rank):
 		if not _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(rr, hole_file)):
 			continue
 		if (
 			_combatant_from_slot_primary_living(
-				manager, slots, Vector2i(rr, hole_file), fid, side_wanted, skip_intruded
-			)
+				manager, slots, Vector2i(rr, hole_file), fid, side_wanted			)
 			!= null
 		):
 			return false
@@ -383,7 +368,6 @@ static func _evaluate_best_rear_infill_for_rank0_hole(
 	nfiles: int,
 	formation_ranks: int,
 	side_wanted: String,
-	skip_intruded: bool,
 	reserved: Dictionary
 ) -> Dictionary:
 	var best: Dictionary = {}
@@ -396,16 +380,14 @@ static func _evaluate_best_rear_infill_for_rank0_hole(
 			if not _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(search_rank, nf)):
 				continue
 			var ally_r: Variant = _combatant_from_slot_primary_living(
-				manager, slots, Vector2i(search_rank, nf), fid, side_wanted, skip_intruded
-			)
+				manager, slots, Vector2i(search_rank, nf), fid, side_wanted			)
 			if ally_r == null:
 				continue
 			var aid: int = _EntityAccess.id_int(ally_r)
 			if reserved.get(aid, false):
 				continue
 			if not _rear_infill_hole_column_passable(
-				manager, fid, slots, hole_file, search_rank, side_wanted, skip_intruded
-			):
+				manager, fid, slots, hole_file, search_rank, side_wanted			):
 				continue
 			if _vacancy_lateral_is_reverse_blocked(manager, aid, nf, hole_file, 0):
 				continue
@@ -453,7 +435,6 @@ static func _evaluate_best_lateral_plug_for_cell(
 	nfiles: int,
 	formation_ranks: int,
 	side_wanted: String,
-	skip_intruded: bool,
 	reserved: Dictionary
 ) -> Dictionary:
 	var best: Dictionary = {}
@@ -466,8 +447,7 @@ static func _evaluate_best_lateral_plug_for_cell(
 		if not _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(fill_rank, nf)):
 			continue
 		var ally_l: Variant = _combatant_from_slot_primary_living(
-			manager, slots, Vector2i(fill_rank, nf), fid, side_wanted, skip_intruded
-		)
+			manager, slots, Vector2i(fill_rank, nf), fid, side_wanted		)
 		if ally_l == null:
 			continue
 		var aid: int = _EntityAccess.id_int(ally_l)
@@ -478,8 +458,7 @@ static func _evaluate_best_lateral_plug_for_cell(
 		if _vacancy_lateral_undo_blocked_persistent(manager, ally_l, nf, file, fill_rank):
 			continue
 		if fill_rank == 0 and not _rank0_lateral_slide_allowed(
-			manager, slots, file, nf, formation_ranks, fid, side_wanted, skip_intruded
-		):
+			manager, slots, file, nf, formation_ranks, fid, side_wanted		):
 			continue
 		var pri: float = _plug_priority_score(manager, 1, ally_l, fill_rank)
 		var cand: Dictionary = {
@@ -523,7 +502,6 @@ static func _select_best_plug_move_for_empty_cell(
 	formation_ranks: int,
 	nfiles: int,
 	side_wanted: String,
-	skip_intruded: bool,
 	reserved: Dictionary,
 	adjacent_vertical_only: bool = true,
 	allow_lateral: bool = true
@@ -536,7 +514,6 @@ static func _select_best_plug_move_for_empty_cell(
 		file,
 		formation_ranks,
 		side_wanted,
-		skip_intruded,
 		reserved,
 		adjacent_vertical_only
 	)
@@ -552,7 +529,6 @@ static func _select_best_plug_move_for_empty_cell(
 				nfiles,
 				formation_ranks,
 				side_wanted,
-				skip_intruded,
 				reserved
 			)
 			if not rear.is_empty():
@@ -566,7 +542,6 @@ static func _select_best_plug_move_for_empty_cell(
 			nfiles,
 			formation_ranks,
 			side_wanted,
-			skip_intruded,
 			reserved
 		)
 		if not lat.is_empty():
@@ -646,7 +621,7 @@ static func _has_living_deeper_in_file(
 
 
 ## True if any rank below `rank_i` has a **vacancy vertical-style** donor (same filters as `_combatant_from_slot_primary_living`).
-## Avoids treating intruders-only (or other skipped slot ids) as "depth" that blocks rank-0 lateral while vertical finds nobody.
+## Avoids treating foreign-only occupants (or other skipped slot ids) as "depth" that blocks rank-0 lateral while vertical finds nobody.
 static func _has_promotable_deeper_in_file(
 	manager: Node,
 	slots: Dictionary,
@@ -655,10 +630,9 @@ static func _has_promotable_deeper_in_file(
 	formation_ranks: int,
 	fid: String,
 	side_wanted: String,
-	skip_intruded: bool
 ) -> bool:
 	for rr in range(rank_i + 1, formation_ranks):
-		if _combatant_from_slot_primary_living(manager, slots, Vector2i(rr, file), fid, side_wanted, skip_intruded) != null:
+		if _combatant_from_slot_primary_living(manager, slots, Vector2i(rr, file), fid, side_wanted) != null:
 			return true
 	return false
 
@@ -672,7 +646,6 @@ static func _formation_has_any_promotable_rear_donor(
 	nfiles: int,
 	fid: String,
 	side_wanted: String,
-	skip_intruded: bool
 ) -> bool:
 	if manager == null or formation_ranks <= 1:
 		return false
@@ -680,8 +653,7 @@ static func _formation_has_any_promotable_rear_donor(
 		for ff in range(nfiles):
 			if (
 				_combatant_from_slot_primary_living(
-					manager, slots, Vector2i(rr, ff), fid, side_wanted, skip_intruded
-				)
+					manager, slots, Vector2i(rr, ff), fid, side_wanted				)
 				!= null
 			):
 				return true
@@ -691,7 +663,7 @@ static func _formation_has_any_promotable_rear_donor(
 ## Rank-0 lateral: only when the **hole** column cannot pull a reserve up (no promotable native deeper).
 ## If this column has anyone who can vertical-plug (possibly after skipping empty ranks), do not slide a
 ## neighbor's front sideways â€” that read as "shuffling files" instead of filling from behind.
-## `donor_file` kept for call-site stability; intrusion nuance may use it later.
+## `donor_file` kept for call-site stability; lateral donor search may use it later.
 static func _rank0_lateral_slide_allowed(
 	manager: Node,
 	slots: Dictionary,
@@ -700,7 +672,6 @@ static func _rank0_lateral_slide_allowed(
 	formation_ranks: int,
 	fid: String,
 	side_wanted: String,
-	skip_intruded: bool
 ) -> bool:
 	if manager == null or formation_ranks <= 1:
 		return false
@@ -711,12 +682,10 @@ static func _rank0_lateral_slide_allowed(
 	if nfiles <= 0:
 		nfiles = 1
 	if not _formation_has_any_promotable_rear_donor(
-		manager, slots, formation_ranks, nfiles, fid, side_wanted, skip_intruded
-	):
+		manager, slots, formation_ranks, nfiles, fid, side_wanted	):
 		return false
 	if _has_promotable_deeper_in_file(
-		manager, slots, 0, hole_file, formation_ranks, fid, side_wanted, skip_intruded
-	):
+		manager, slots, 0, hole_file, formation_ranks, fid, side_wanted	):
 		return false
 	return true
 
@@ -759,7 +728,6 @@ static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) 
 				formation_ranks,
 				nfiles,
 				side_wanted,
-				true,
 				reserved,
 				true,
 				allow_lateral
@@ -795,7 +763,7 @@ static func _should_compact_native_line_files(manager: Node, fid: String) -> boo
 		var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 		var side_wanted: String = _FormationSlots.formation_side_str(formation)
 		return not _formation_has_any_promotable_rear_donor(
-			manager, slots, formation_ranks, nfiles, fid, side_wanted, true
+			manager, slots, formation_ranks, nfiles, fid, side_wanted
 		)
 	return true
 
@@ -812,8 +780,8 @@ static func _formation_has_blocking_formation_motion_for_compact(manager: Node, 
 	return false
 
 
-## After removing `native_id` from all cells, write it at `key` while preserving intruders / foreign-formation ids in that cell.
-static func _slot_place_native_merging_intruders(
+## After removing `native_id` from all cells, write it at `key` while preserving other formation ids already in that cell.
+static func _slot_place_native_preserving_other_occupants(
 	manager: Node,
 	slots: Dictionary,
 	fid: String,
@@ -832,7 +800,7 @@ static func _slot_place_native_merging_intruders(
 		var oc: Dictionary = _EntityAccess.manager_get_combatant(manager, int(cid))
 		if oc.is_empty() or not _EntityAccess.alive_bool(oc):
 			continue
-		if _EntityAccess.formation_id_str(oc) != fid or _ZoneOfControl.is_intruded(oc):
+		if _EntityAccess.formation_id_str(oc) != fid:
 			merged.append(int(cid))
 	if not merged.has(native_id):
 		merged.append(native_id)
@@ -852,7 +820,7 @@ static func _slot_place_native_merging_intruders(
 	)
 
 
-## Pack non-intruded `formation_id` natives to files `0..n-1` per rank (stable sort by current file, then id).
+## Pack home-line `formation_id` natives to files `0..n-1` per rank (stable sort by current file, then id).
 ## Returns true if any combatant moved or slots were repaired.
 static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> bool:
 	if manager == null or not _should_compact_native_line_files(manager, fid):
@@ -872,8 +840,6 @@ static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> 
 			if not _EntityAccess.is_alive_on_side(c, side_wanted):
 				continue
 			if _EntityAccess.formation_id_str(c) != fid:
-				continue
-			if _ZoneOfControl.is_intruded(c):
 				continue
 			if _EntityAccess.rank_int(c) != rank:
 				continue
@@ -900,7 +866,7 @@ static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> 
 				need = not occ.has(nid)
 			if not need:
 				continue
-			_slot_place_native_merging_intruders(manager, slots, fid, rank, new_f, nid)
+			_slot_place_native_preserving_other_occupants(manager, slots, fid, rank, new_f, nid)
 			any = true
 	return any
 
@@ -925,8 +891,6 @@ static func _log_rank0_vacancy_gaps_if_debug(manager: Node, fid: String) -> void
 			if not _EntityAccess.is_alive_on_side(ally, side_wanted):
 				continue
 			if _EntityAccess.formation_id_str(ally) != fid:
-				continue
-			if _ZoneOfControl.is_intruded(ally):
 				continue
 			if _EntityAccess.file_int(ally) != file or _EntityAccess.rank_int(ally) < 1:
 				continue
@@ -1085,8 +1049,6 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
 					continue
 				if _EntityAccess.formation_id_str(ally) != fid_str:
 					continue
-				if _ZoneOfControl.is_intruded(ally):
-					continue
 				if _is_ineligible_vacancy_donor(manager, ally):
 					continue
 				if _EntityAccess.file_int(ally) == file and _EntityAccess.rank_int(ally) >= 1:
@@ -1094,7 +1056,7 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
 					break
 			if has_promotable_deeper:
 				push_error(
-					"CombatFormationFlow: vacancy invariant failed after reconcile (rank 0 empty, deeper non-intruded ally) fid=%s file=%d"
+					"CombatFormationFlow: vacancy invariant failed after reconcile (rank 0 empty, deeper ally available) fid=%s file=%d"
 					% [fid_str, file]
 				)
 
@@ -1133,7 +1095,6 @@ static func run_death_column_micro_plug(
 				formation_ranks,
 				nfiles_death,
 				side_death,
-				true,
 				reserved_d,
 				true,
 				true

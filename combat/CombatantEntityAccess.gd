@@ -191,8 +191,10 @@ static func weapon_impact_velocity_band_max(weapon: Variant, contact_type: Strin
 	return float(_ImpactVelocityModel.unarmed_velocity_band_m_s().y)
 
 
-## Scene node lists wound parts for medical UI (Character → CoreEntity).
-static func get_wounded_parts(combatant: Dictionary) -> Array:
+## Wound part list for medical UI. With **`manager`**, uses **`get_health_entity`** (same as **`entity_get_wounded_parts`**).
+static func get_wounded_parts(combatant: Dictionary, manager: Node = null) -> Array:
+	if manager != null:
+		return entity_get_wounded_parts(manager, combatant)
 	var node = node_variant(combatant)
 	if node == null or not node.has_method("get_wounded_parts"):
 		return []
@@ -432,7 +434,7 @@ static func is_available_formation_partner(actor: Dictionary, other: Dictionary)
 	return is_living_same_side(actor, other) and is_alive_in_combat(other) and is_alive_in_combat(actor)
 
 
-## Alive opponent on the opposite side (incapacitated opponents still count — distance bands, intruder scans).
+## Alive opponent on the opposite side (incapacitated opponents still count — distance bands, threat scans).
 static func is_alive_opponent_of(actor: Dictionary, other: Dictionary) -> bool:
 	if not alive_bool(other):
 		return false
@@ -575,7 +577,7 @@ static func timestamp_cooldown_active(
 
 
 ## True while combat clock is before the combatant's `cooldown_key` timestamp.
-## Timestamps below `inactive_below` are treated as off (e.g. `-1` for formation CDs, `0` for crash).
+## Timestamps below `inactive_below` are treated as off (e.g. `-1` for formation CDs, `0` for unset).
 static func combatant_cooldown_active(
 	manager: Node, combatant: Dictionary, cooldown_key: String, inactive_below: float = 0.0
 ) -> bool:
@@ -622,15 +624,6 @@ static func tactical_penetration_depth_int(combatant: Dictionary) -> int:
 	return int(combatant.get("tactical_penetration_depth", 0))
 
 
-## Stored `intrusion_anchor_file` (-1 when unset).
-static func intrusion_anchor_file_raw_int(combatant: Dictionary) -> int:
-	return int(combatant.get("intrusion_anchor_file", -1))
-
-
-## Intruder lane anchor for geometry; falls back to formation `file`.
-static func intrusion_anchor_or_file_int(combatant: Dictionary) -> int:
-	return int(combatant.get("intrusion_anchor_file", file_int(combatant)))
-
 
 ## `stats` sub-dictionary (strength, agility, …). Empty if missing or wrong type.
 ## May alias `combatant["stats"]` — do not replace the combatant's stats reference from call sites.
@@ -649,6 +642,19 @@ static func gauge_float(combatant: Dictionary, default_gauge: float = 0.0) -> fl
 ## Stamina (0–`STAMINA_MAX` when key missing uses `default_if_missing`; use `0.0` when “missing = zero” for cost checks).
 static func stamina_float(combatant: Dictionary, default_if_missing: float = CombatConstants.STAMINA_MAX) -> float:
 	return float(combatant.get("stamina", default_if_missing))
+
+
+## MXm: cumulative fight exhaustion index (0–`EXHAUSTION_MAX`).
+static func exhaustion_float(combatant: Dictionary, default_if_missing: float = 0.0) -> float:
+	return float(combatant.get(CombatConstants.COMBATANT_KEY_EXHAUSTION, default_if_missing))
+
+
+static func set_exhaustion_float(combatant: Dictionary, value: float) -> void:
+	if combatant.is_empty():
+		return
+	combatant[CombatConstants.COMBATANT_KEY_EXHAUSTION] = clampf(
+		value, 0.0, CombatConstants.EXHAUSTION_MAX
+	)
 
 
 ## Combat `stance` string. Pass `default_stance` when absent key should read as empty (e.g. controlling check).

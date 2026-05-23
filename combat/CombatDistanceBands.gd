@@ -42,19 +42,15 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 				continue
 			var oid: int = _EntityAccess.id_int(opp)
 			var opp_rank: int = _EntityAccess.rank_int(opp)
-			# Intruders sit on host depth ranks but still contest the broken front line vs host rank-0.
-			var c_intruded_on_host_opp: bool = _ZoneOfControl.intruder_contests_home_line_fighter(c, opp)
-			if our_rank > 0 and not c_intruded_on_host_opp:
+			if our_rank > 0:
 				if not bool(depth_lane_ok_by_id.get(_EntityAccess.id_int(c), false)):
 					d_to[oid] = CombatConstants.DISTANCE_LONG
 					continue
 			var cur: String = str(d_to.get(oid, CombatConstants.DISTANCE_MID))
 			if cur == CombatConstants.DISTANCE_CLOSE:
 				continue
-			var opp_intruded_on_host_c: bool = _ZoneOfControl.intruder_contests_home_line_fighter(opp, c)
-			# Mirror depth-polearm exception on our side: rank-1+ enemy with open spear lane still
-			# participates in MID/LONG geometry vs our rank-0 (Tier 1.9 band ↔ action coherence).
-			if opp_rank > 0 and not opp_intruded_on_host_c:
+			# Rank-1+ enemy with open spear lane still participates in MID/LONG vs our rank-0 (Tier 1.9).
+			if opp_rank > 0:
 				if not bool(depth_lane_ok_by_id.get(oid, false)):
 					d_to[oid] = CombatConstants.DISTANCE_LONG
 					continue

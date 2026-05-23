@@ -2,7 +2,6 @@ class_name BattleUIUpdater
 extends RefCounted
 
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
-const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _CombatSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
@@ -16,7 +15,17 @@ static func _compose_waiting_gauge_label(c: Dictionary, primary: String, manager
 	var foot_suffix: String = _UiHints.footwork_hint_suffix(c)
 	var attn_suffix: String = (" · " + attn_hint) if not attn_hint.is_empty() else ""
 	var flurry_suffix: String = _UiHints.flurry_bind_hint_suffix(c, manager)
-	return primary + attn_suffix + foot_suffix + flurry_suffix
+	var exh_suffix: String = _UiHints.exhaustion_hint_suffix(c)
+	var grd_suffix: String = _UiHints.guard_line_gauge_suffix(c)
+	return primary + attn_suffix + foot_suffix + flurry_suffix + exh_suffix + grd_suffix
+
+
+## Waiting row primary: stamina on the label (bar also uses stamina); append Ready when turn gauge is full.
+static func _waiting_stamina_primary_label(c: Dictionary) -> String:
+	var label: String = "Stm %d%%" % int(_EntityAccess.stamina_float(c))
+	if _EntityAccess.gauge_float(c) >= 100.0:
+		label += " · Ready"
+	return label
 
 
 ## Progress bar fill: readiness **`gauge`** during counter-tempo window, else stamina (Phase 1).
@@ -65,7 +74,7 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
 			cow_label = "Cowering · immobile"
 		return _compose_waiting_gauge_label(c, cow_label, manager)
 	if state == "receiving_medical_attention":
-		return "Receiving care"
+		return _compose_waiting_gauge_label(c, "Receiving care", manager)
 	var tempo_hint: String = _UiHints.counter_tempo_hint_key(c, manager)
 	var counter_primary: String = _UiHints.counter_tempo_gauge_label(tempo_hint)
 	var status_override: String = str(c.get("status_override", "")).strip_edges()
@@ -75,23 +84,10 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
 		return _compose_waiting_gauge_label(c, counter_primary, manager)
 	if not status_override.is_empty():
 		return _compose_waiting_gauge_label(c, status_override, manager)
-	var attn_hint: String = _UiHints.attention_hint_text(c, manager)
-	var foot_suffix: String = _UiHints.footwork_hint_suffix(c)
-	if not attn_hint.is_empty():
-		return attn_hint + foot_suffix
-	if not foot_suffix.is_empty():
-		var base_fw: String = (
-			"Ready!" if _EntityAccess.gauge_float(c) >= 100.0
-			else "Stm %d%%" % int(_EntityAccess.stamina_float(c))
-		)
-		return base_fw + foot_suffix
-	var base: String = (
-		"Ready!" if _EntityAccess.gauge_float(c) >= 100.0
-		else "Stm %d%%" % int(_EntityAccess.stamina_float(c))
-	)
+	var primary: String = _waiting_stamina_primary_label(c)
 	if CombatConstants.COMBAT_DEBUG and c.get("guard_angle_deg", null) is float:
-		base += " %.0f°" % float(c.get("guard_angle_deg"))
-	return base
+		primary += " %.0f°" % float(c.get("guard_angle_deg"))
+	return _compose_waiting_gauge_label(c, primary, manager)
 
 
 static func _sync_gauge_label(ctrl: Dictionary, c: Dictionary, text: String, manager: Node = null) -> void:
@@ -108,11 +104,6 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary, manager: Node 
 	if ctrl.name:
 		var row_node: Node = _EntityAccess.scene_node(c)
 		var base_name: String = str(row_node.name) if row_node != null else ctrl.name.text
-		if _EntityAccess.alive_bool(c, true) and _ZoneOfControl.is_intruded(c):
-			base_name += " · intruded"
-			var lo: float = absf(float(c.get("lane_offset", 0.0)))
-			if lo >= 0.02:
-				base_name += " (lane %.2f)" % float(c.get("lane_offset", 0.0))
 		ctrl.name.text = base_name
 	if ctrl.gauge:
 		ctrl.gauge.value = gauge_bar_value_for_combatant(c, manager)

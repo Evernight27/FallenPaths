@@ -38,8 +38,6 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 		"slots": {},
 		"slot_obstacles": {},
 		"zone_control": {},
-		"breached_files": {},
-		"intrusion_wedge_by_file": {},
 		"line_cohesion": 1.0,
 		"engagement_posture": CombatConstants.ENGAGEMENT_POSTURE_LINE,
 		"morale_cohesion_factor": 1.0,
@@ -59,8 +57,6 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 		"slots": {},
 		"slot_obstacles": {},
 		"zone_control": {},
-		"breached_files": {},
-		"intrusion_wedge_by_file": {},
 		"line_cohesion": 1.0,
 		"engagement_posture": CombatConstants.ENGAGEMENT_POSTURE_LINE,
 		"morale_cohesion_factor": 1.0,
@@ -96,3 +92,71 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 	_FormationSlots.normalize_formation_slots(form_player)
 	_FormationSlots.normalize_formation_slots(form_enemy)
 	manager._recompute_zoc_and_distance()
+
+
+static func preset_for_formation_id(
+	formation_id: String, player_preset: Dictionary, enemy_preset: Dictionary
+) -> Dictionary:
+	return player_preset if str(formation_id) == "player" else enemy_preset
+
+
+## Encounter doctrine first, then preset per side (preset wins). Calls **`CombatManager.set_formation_doctrine`**.
+static func seed_formation_doctrine_from_encounter_and_presets(
+	manager: Node,
+	encounter: Dictionary,
+	player_preset: Dictionary,
+	enemy_preset: Dictionary
+) -> void:
+	if manager == null:
+		return
+	var sides: Array = [
+		[
+			"player",
+			CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER,
+			CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT,
+		],
+		[
+			"enemy",
+			CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY,
+			CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT,
+		],
+	]
+	for row in sides:
+		var fid: String = str(row[0])
+		var doc_enc: String = CombatConstants.encounter_formation_doctrine_string(
+			encounter, str(row[1]), str(row[2])
+		)
+		if not doc_enc.is_empty():
+			manager.set_formation_doctrine(fid, doc_enc)
+		var preset: Dictionary = preset_for_formation_id(fid, player_preset, enemy_preset)
+		var doc_preset: String = CombatConstants.formation_doctrine_string_from_dict(
+			preset,
+			CombatConstants.FORMATION_PRESET_KEY_DOCTRINE,
+			CombatConstants.FORMATION_PRESET_KEY_DOCTRINE_ALT,
+		)
+		if not doc_preset.is_empty():
+			manager.set_formation_doctrine(fid, doc_preset)
+
+
+## Per **`manager.formations`** key: depth-spear AI mults + rout thresholds (encounter then preset).
+static func seed_encounter_overlays_by_formation(
+	manager: Node,
+	encounter: Dictionary,
+	player_preset: Dictionary,
+	enemy_preset: Dictionary
+) -> void:
+	if manager == null or not manager.formations is Dictionary:
+		return
+	manager.depth_polearm_ai_doctrine_mults_by_fid.clear()
+	manager.rout_thresholds_by_fid.clear()
+	for fk in manager.formations.keys():
+		var fid: String = str(fk)
+		var preset: Dictionary = preset_for_formation_id(fid, player_preset, enemy_preset)
+		manager.depth_polearm_ai_doctrine_mults_by_fid[fid] = (
+			CombatConstants.depth_polearm_ai_doctrine_mults_for_encounter_and_preset(
+				encounter, preset, fid
+			)
+		)
+		manager.rout_thresholds_by_fid[fid] = (
+			CombatConstants.rout_thresholds_for_encounter_and_preset(encounter, preset, fid)
+		)

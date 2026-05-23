@@ -16,6 +16,10 @@ const TAG_COMBAT := "FP_COMBAT"
 const TAG_WORLD := "FP_WORLD"
 
 const HARNESS_REPORT_FILENAME := ".harness_out.txt"
+const D001_SOAK_REPORT_FILENAME := ".d001_soak_out.txt"
+const F5_SOAK_CAPTURE_FILENAME := ".f5_soak_in.txt"
+const II2B_WORKSHEET_PREFILL_FILENAME := ".ii2b_worksheet_prefill.txt"
+const D001_HEADLESS_SIGNOFF_FILENAME := ".d001_headless_signoff.txt"
 const REPORT_BEGIN := "--- FP_HARNESS_REPORT ---"
 const REPORT_END := "--- END FP_HARNESS_REPORT ---"
 
@@ -25,6 +29,8 @@ const _FallenPathsErrorLogger := preload("res://core/FallenPathsErrorLogger.gd")
 static var _play_session_active: bool = false
 static var _play_session_scene: String = ""
 static var _play_error_logger = null
+static var _capture_enabled: bool = false
+static var _captured_lines: PackedStringArray = PackedStringArray()
 
 
 static func is_play_session_active() -> bool:
@@ -36,9 +42,30 @@ static func tag_line(tag: String, message: String) -> String:
 
 
 ## Always prints to stdout. Optionally mirrors to Godot's error/warning channel.
+static func set_capture_enabled(on: bool) -> void:
+	_capture_enabled = on
+	if not on:
+		_captured_lines = PackedStringArray()
+
+
+static func clear_capture() -> void:
+	_captured_lines = PackedStringArray()
+
+
+static func get_captured_lines() -> PackedStringArray:
+	return _captured_lines.duplicate()
+
+
+## Replace the in-memory capture buffer (e.g. multi-rep D-001 duel lines merged after per-rep clears).
+static func replace_capture(lines: PackedStringArray) -> void:
+	_captured_lines = lines.duplicate()
+
+
 static func emit(tag: String, message: String, also_push: bool = false) -> void:
 	var line: String = tag_line(tag, message)
 	print(line)
+	if _capture_enabled:
+		_captured_lines.append(line)
 	if not also_push:
 		return
 	if tag == TAG_WARN:
@@ -57,6 +84,8 @@ static func warn(message: String) -> void:
 
 static func play_combat(message: String) -> void:
 	emit(TAG_COMBAT, message)
+	if _play_session_active:
+		CombatF5SoakTrace.ingest_trace_line(message)
 
 
 static func play_world(message: String) -> void:
@@ -64,21 +93,36 @@ static func play_world(message: String) -> void:
 
 
 ## Call from `main.gd` when running under the editor (F5). Enables turn-pick flow logs; all lines go to Output for copy-paste.
-static func begin_play_session(main_scene: String = "res://main.tscn") -> void:
+static func begin_play_session(
+	main_scene: String = "res://main.tscn",
+	dev_soak_encounter: String = "",
+	dev_research_feel: bool = false
+) -> void:
 	_play_session_active = true
 	_play_session_scene = main_scene
 	_CombatConstants.set_play_session_diagnostic(true)
 	if _play_error_logger == null:
 		_play_error_logger = _FallenPathsErrorLogger.new()
 		OS.add_logger(_play_error_logger)
+	var soak_s: String = dev_soak_encounter.strip_edges().to_lower()
+	var soak_note: String = (
+		" dev_soak=%s dev_research_feel=%s — grep soak_guide | soak_session_plan"
+		% [soak_s, str(dev_research_feel).to_lower()]
+		if not soak_s.is_empty()
+		else (
+			" dev_soak=(empty) dev_research_feel=%s — walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide"
+			% str(dev_research_feel).to_lower()
+		)
+	)
 	emit(
 		TAG_SESSION_BEGIN,
 		(
-			"%s flow_logs=%s per_hit_debug=%s — copy Output; grep FP_COMBAT FP_ERROR SCRIPT_ERROR (medical pressure/triage in FP_COMBAT; COMBAT_DEV_VERBOSE for armor traces)"
+			"%s flow_logs=%s per_hit_debug=%s%s — copy full Output; grep soak_fight_end soak_coverage soak_validate_hint FP_COMBAT FP_ERROR SCRIPT_ERROR"
 			% [
 				main_scene,
 				_CombatConstants.combat_event_debug_active(),
 				_CombatConstants.combat_debug_active(),
+				soak_note,
 			]
 		)
 	)
@@ -181,6 +225,9 @@ static func _format_encounter(enc: Dictionary) -> String:
 	var ld: String = str(enc.get(_CombatConstants.ENCOUNTER_KEY_LINE_DISCIPLINE, "")).strip_edges()
 	if not ld.is_empty():
 		parts.append("line_discipline=%s" % ld)
+	var soak: String = str(enc.get("soak_preset_id", "")).strip_edges()
+	if not soak.is_empty():
+		parts.append("soak=%s" % soak)
 	for key in [
 		_CombatConstants.ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_PLAYER,
 		_CombatConstants.ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_ENEMY,
@@ -266,3 +313,154 @@ static func _write_harness_report(
 	var path: String = _harness_report_path()
 	_write_text_file(path, body, false)
 	print(tag_line(TAG_HARNESS_SUMMARY, "wrote %s" % path))
+
+
+static func write_d001_soak_report(
+	ok: bool,
+	preset_results: Dictionary,
+	failures: PackedStringArray
+) -> void:
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("--- FP_D001_SOAK_REPORT ---")
+	lines.append("ok=%s" % str(ok).to_lower())
+	for preset_id in preset_results.keys():
+		var pr: Dictionary = preset_results[preset_id] as Dictionary
+		lines.append("")
+		lines.append("[%s] pass=%s" % [preset_id, str(bool(pr.get("ok", false))).to_lower()])
+		var checks: Dictionary = pr.get("checks", {}) as Dictionary
+		for check_id in checks.keys():
+			var cr: Dictionary = checks[check_id] as Dictionary
+			var optional: bool = bool(cr.get("optional", false))
+			var status: String = "PASS" if bool(cr.get("pass", false)) else "FAIL"
+			if optional and not bool(cr.get("pass", false)):
+				status = "OPTIONAL_MISS"
+			lines.append(
+				"  %s: %s (count=%d need>=%d%s)"
+				% [
+					check_id,
+					status,
+					int(cr.get("count", 0)),
+					int(cr.get("min", 1)),
+					" optional" if optional else "",
+				]
+			)
+		if pr.has("notes"):
+			lines.append("  notes: %s" % str(pr.get("notes", "")))
+		for check_id in checks.keys():
+			var cr_extra: Dictionary = checks[check_id] as Dictionary
+			if cr_extra.has("label"):
+				lines.append("    label[%s]: %s" % [check_id, str(cr_extra.get("label", ""))])
+		if pr.has("snapshot_label"):
+			lines.append("  snapshot_label: %s" % str(pr.get("snapshot_label", "")))
+		if pr.has("diagram_banner"):
+			lines.append("  diagram_banner: %s" % str(pr.get("diagram_banner", "")))
+		if pr.has("ii2b_plausibility_ok"):
+			lines.append("  ii2b_plausibility: %s" % str(bool(pr.get("ii2b_plausibility_ok", false))).to_lower())
+		if pr.has("parry_stats"):
+			var ps: Dictionary = pr.get("parry_stats", {}) as Dictionary
+			lines.append(
+				(
+					"  parry_stats deflect=%d bind=%d partial=%d riposte=%d counter_tempo=%d flurry_opened=%d flurry=%d"
+					% [
+						int(ps.get("parry_deflect", 0)),
+						int(ps.get("parry_bind", 0)),
+						int(ps.get("parry_partial", 0)),
+						int(ps.get("riposte_chain", 0)),
+						int(ps.get("counter_tempo", 0)),
+						int(ps.get("flurry_bind_opened", 0)),
+						int(ps.get("flurry_bind", 0)),
+					]
+				)
+			)
+		if pr.has("ii4d_plausibility_ok"):
+			lines.append("  ii4d_plausibility: %s" % str(bool(pr.get("ii4d_plausibility_ok", false))).to_lower())
+		if pr.has("exhaustion_stats"):
+			var es: Dictionary = pr.get("exhaustion_stats", {}) as Dictionary
+			lines.append(
+				"  exhaustion_stats crossed_25=%d crossed_50=%d crossed_75=%d exhaustion_log=%d"
+				% [
+					int(es.get("crossed_25", 0)),
+					int(es.get("crossed_50", 0)),
+					int(es.get("crossed_75", 0)),
+					int(es.get("exhaustion_log", 0)),
+				]
+			)
+	lines.append("")
+	lines.append("failures:")
+	for failure_line in failures:
+		lines.append("  - %s" % failure_line)
+	lines.append("")
+	lines.append(
+		"f5_log_validator: see .f5_soak_validation.txt (headless aggregate — same rules as F5 paste)"
+	)
+	lines.append("--- END FP_D001_SOAK_REPORT ---")
+	var path: String = _project_root().path_join(D001_SOAK_REPORT_FILENAME)
+	_write_text_file(path, "\n".join(lines) + "\n", false)
+	print(tag_line(TAG_HARNESS_SUMMARY, "wrote %s" % path))
+
+
+## Markdown-friendly **II-2b** counts for **`.calibration_audit.txt`** / III-3 (not feel sign-off).
+static func write_ii2b_worksheet_prefill(parry_stats: Dictionary, headless_signed: bool) -> void:
+	const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
+	var body: String = _TrackSpecs.ii2b_worksheet_prefill_text(parry_stats, headless_signed)
+	var path: String = _project_root().path_join(II2B_WORKSHEET_PREFILL_FILENAME)
+	_write_text_file(path, body, false)
+	print(tag_line(TAG_HARNESS_SUMMARY, "wrote %s" % path))
+
+
+static func write_d001_headless_signoff(
+	run_ok: bool,
+	preset_results: Dictionary,
+	validator_ok: bool
+) -> void:
+	const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
+	var mandatory: PackedStringArray = _TrackSpecs.headless_mandatory_signoff_failures(preset_results)
+	var signoff_ok: bool = run_ok and validator_ok and mandatory.is_empty()
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("--- FP_D001_HEADLESS_SIGNOFF ---")
+	lines.append("ok=%s" % str(signoff_ok).to_lower())
+	lines.append("policy=headless_only")
+	lines.append("validator_ok=%s" % str(validator_ok).to_lower())
+	const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
+	for track_id in ["ii2b", "ii5a", "ii5b", "ii5c", "ii4d"]:
+		var pr: Dictionary = {}
+		if track_id == "ii4d":
+			pr = preset_results.get(_SoakPresets.PRESET_II4D_EXHAUSTION, {}) as Dictionary
+		else:
+			pr = preset_results.get(track_id, {}) as Dictionary
+		var passed: bool = bool(pr.get("ok", false))
+		if track_id == "ii2b":
+			passed = passed and bool(pr.get("ii2b_plausibility_ok", false))
+		elif track_id == "ii4d":
+			passed = passed and bool(pr.get("ii4d_plausibility_ok", false))
+		lines.append("[%s] pass=%s" % [track_id, str(passed).to_lower()])
+	if not mandatory.is_empty():
+		lines.append("mandatory_failures:")
+		for msg in mandatory:
+			lines.append("  - %s" % msg)
+	lines.append("--- END FP_D001_HEADLESS_SIGNOFF ---")
+	var path: String = _project_root().path_join(D001_HEADLESS_SIGNOFF_FILENAME)
+	_write_text_file(path, "\n".join(lines) + "\n", false)
+	print(tag_line(TAG_HARNESS_SUMMARY, "wrote %s" % path))
+	if signoff_ok:
+		print(tag_line(TAG_HARNESS_OK, "D001HeadlessSignoff mandatory=ii2b+ii5a+ii5b+ii5c"))
+
+
+## Headless D-001 aggregate in F5 paste shape — re-run **`validate_f5_soak_log.ps1`** without editor Output.
+static func write_f5_soak_capture(combat_lines: PackedStringArray) -> void:
+	var out: PackedStringArray = PackedStringArray()
+	out.append(
+		"%s: headless d001 capture (auto from CombatD001SoakRunner — validate with scripts/validate_f5_soak_log.ps1)"
+		% TAG_SESSION_BEGIN
+	)
+	for raw in combat_lines:
+		var s: String = str(raw).strip_edges()
+		if s.is_empty():
+			continue
+		if s.begins_with(TAG_COMBAT + ":"):
+			out.append(s)
+		else:
+			out.append("%s: %s" % [TAG_COMBAT, s])
+	var path: String = _project_root().path_join(F5_SOAK_CAPTURE_FILENAME)
+	_write_text_file(path, "\n".join(out) + "\n", false)
+	print(tag_line(TAG_HARNESS_SUMMARY, "wrote %s (%d combat lines)" % [path, combat_lines.size()]))

@@ -8,6 +8,7 @@ extends RefCounted
 ## EntityPainConsciousness.update_consciousness.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _BloodVolumeMl := preload("res://core/BloodVolumeMl.gd")
 const _Healing := preload("res://core/HealingConstants.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _EntityPainConsciousness := preload("res://core/EntityPainConsciousness.gd")
@@ -99,5 +100,7 @@ static func process_healing(entity: Node, seconds: float) -> void:
 			var tau_blood: float = _Healing.BLOOD_VOLUME_RECOVERY_DURATION_SECONDS / _Healing.EXPONENTIAL_HEAL_TAU_DIVISOR
 			var add_blood: float = remain_blood * (1.0 - exp(-seconds / tau_blood))
 			entity.blood_volume = minf(_Bleeding.MAX_BLOOD_VOLUME, entity.blood_volume + add_blood)
+			if _BloodVolumeMl.entity_uses_ml(entity):
+				_BloodVolumeMl.sync_ml_from_percent(entity)
 	# Pain and consciousness depend on wounds, head, and blood; refresh after all healing/time advance.
 	_EntityPainConsciousness.update_consciousness(entity)

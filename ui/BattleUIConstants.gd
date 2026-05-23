@@ -22,6 +22,16 @@ const MEDICAL_ACTION_LABELS := {"bandage_self": "Bandaging", "pack_wound": "Pack
 # Labels when target is an ally (same move_id, different wording)
 const MEDICAL_ACTION_LABELS_ALLY := {"bandage_self": "Bandaging ally", "pack_wound": "Packing ally's wound", "apply_tourniquet": "Tourniquet (ally)", "apply_direct_pressure": "Direct pressure"}
 
+# Formation actions (player turn-ready log + gauge hints — Phase 2 **II-5a**)
+const FORMATION_ACTION_LABELS := {
+	"swap_rank": "Swap rank",
+	"drag_back": "Drag back (pair)",
+	"fall_back": "Fall back",
+	"rotate_file": "Rotate file",
+	"flee": "Flee",
+	"attempt_close": "Close distance",
+}
+
 # Progress bar styling for combat UI
 static func progress_bar_background_style() -> StyleBoxFlat:
 	var style = StyleBoxFlat.new()

@@ -2,8 +2,7 @@ class_name CombatDoctrine
 extends RefCounted
 
 ## Per-formation **intent** (doctrine): steers hybrid targeting weights + ordering via `CombatTargetScoring` / `CombatAIActionPicker`.
-## Orthogonal to **crash** (breach intrusion): crash uses `CombatEngagementMode`, stamina, armor mass, and `BreachResolver`;
-## doctrine does not gate crash listing — they stay separate to avoid one system silently overriding breach eligibility.
+## Orthogonal to engagement-mode / posture targeting weights on melee/close listing.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
@@ -45,7 +44,7 @@ static func clear_commitments_for_side(manager: Node, formation_id: String) -> v
 		c["close_block_until_by_target_id"] = {}
 
 
-## True when the **opposing** formation’s front rank has a **hollow center**: middle file(s) empty with at least one living rank-0 on both wings (`files >= 3`). Rank-0 bodies on the **host** grid use **`combatant_on_zone_geometry_fid`** (intruders count). Used for automatic pinch doctrine; exposed for harness.
+## True when the **opposing** formation’s front rank has a **hollow center**: middle file(s) empty with at least one living rank-0 on both wings (`files >= 3`). Rank-0 on **`combatant_on_zone_geometry_fid`**. Used for automatic pinch doctrine; exposed for harness.
 static func enemy_line_hollow_center_for_pinch(manager: Node, our_formation_id: String) -> bool:
 	if manager == null:
 		return false

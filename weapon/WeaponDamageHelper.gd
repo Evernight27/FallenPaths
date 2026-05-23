@@ -1,20 +1,25 @@
 class_name WeaponDamageHelper
 extends RefCounted
 
+const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
+const _SpeciesResource := preload("res://species/SpeciesResource.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
 const _SwingPhysics := preload("res://weapon/WeaponSwingPhysics.gd")
 ## Physics-leaning intensity mapping: low commitment stays near lower band, full commitment still reaches cap.
 const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.2
+## Floor for effective delivery intensity (intensity × extension commit).
+const DELIVERY_INTENSITY_FLOOR := 0.05
+const DELIVERY_COMMIT_FLOOR := 0.05
 ## Rotational KE uses min(full I, m_strike r²); latter matches ½ m_strike v² for rigid v = ω r (point-mass ceiling).
 const INERTIA_KE_STRIKE_CAP_MULT := 1.0
 
 ## Default effective target mass (kg) when no species / unknown part (mid-torso order of magnitude).
 const DEFAULT_BLUNT_TARGET_MASS_KG := 14.0
 ## Human default tissue sum (human.tres); used only to scale inferred body mass from other species.
-const _REFERENCE_SPECIES_TISSUE_SUM := 96.0
+const _REFERENCE_SPECIES_TISSUE_SUM := float(_DesignAnchors.REFERENCE_HUMAN_TISSUE_SUM)
 ## Reference adult mass (kg) when tissue sum matches _REFERENCE_SPECIES_TISSUE_SUM.
-const _REFERENCE_ADULT_BODY_MASS_KG := 75.0
+const _REFERENCE_ADULT_BODY_MASS_KG := _DesignAnchors.REFERENCE_ADULT_MASS_KG
 ## Segment mass as fraction of body mass (Plagenhoef / de Leva style; single-side limb, head, trunk slice).
 const _PART_BODY_MASS_FRACTION := {
 	"head": 0.068,
@@ -39,15 +44,10 @@ static func reduced_mass_pair_kg(m_weapon: float, m_target: float) -> float:
 	return (mw * mt) / (mw + mt)
 
 
-static func _species_tissue_sum(sp: Object) -> float:
-	var h: Variant = sp.get("head")
-	var ch: Variant = sp.get("chest")
-	var ra: Variant = sp.get("right_arm")
-	var la: Variant = sp.get("left_arm")
-	var ll: Variant = sp.get("left_leg")
-	var rl: Variant = sp.get("right_leg")
+static func _exported_tissue_sum_duck_typed(sp: Object) -> float:
 	var s: float = 0.0
-	for v in [h, ch, ra, la, ll, rl]:
+	for key in _SpeciesResource.BODY_PARTS:
+		var v: Variant = sp.get(key)
 		if v is int or v is float:
 			s += float(v)
 	return maxf(1.0, s)
@@ -56,12 +56,14 @@ static func _species_tissue_sum(sp: Object) -> float:
 static func reference_body_mass_kg_from_species(sp: Object) -> float:
 	if sp == null:
 		return _REFERENCE_ADULT_BODY_MASS_KG
+	if sp is SpeciesResource:
+		return clampf((sp as SpeciesResource).resolved_reference_mass_kg(), 32.0, 120.0)
 	var custom: Variant = sp.get("reference_body_mass_kg")
 	if custom is float or custom is int:
 		var cm: float = float(custom)
 		if cm > 0.0:
 			return clampf(cm, 28.0, 140.0)
-	var sum_t: float = _species_tissue_sum(sp)
+	var sum_t: float = _exported_tissue_sum_duck_typed(sp)
 	return clampf(_REFERENCE_ADULT_BODY_MASS_KG * sum_t / maxf(1.0, _REFERENCE_SPECIES_TISSUE_SUM), 32.0, 120.0)
 
 
@@ -94,6 +96,32 @@ static func effective_blunt_target_mass_kg(tgt: Dictionary, part: String = "") -
 static func move_id_from_attack_instance(attack_instance: RefCounted) -> String:
 	var v: Variant = attack_instance.get("attack_type")
 	return str(v) if v is String else ""
+
+
+## Extension commit scales swing commitment for KE/cut: effective_i = intensity × commit (each clamped).
+## commit_frac < 0 → no extra scaling (treat commit as 1.0).
+static func effective_intensity_for_delivery(intensity: float, commit_frac: float = -1.0) -> float:
+	var c: float = 1.0
+	if commit_frac >= 0.0:
+		c = clampf(commit_frac, DELIVERY_COMMIT_FLOOR, 1.0)
+	var eff: float = clampf(intensity, 0.0, 1.0) * c
+	return clampf(eff, DELIVERY_INTENSITY_FLOOR, 1.0)
+
+
+static func _delivery_commit_from_attack_instance(attack_instance: RefCounted) -> float:
+	if attack_instance == null:
+		return -1.0
+	var v: Variant = attack_instance.get("delivery_commit_fraction")
+	if v is float or v is int:
+		var cf: float = float(v)
+		if cf >= 0.0:
+			return cf
+	var arch: Variant = attack_instance.get("archetype")
+	if arch is Dictionary and arch.has("weapon_extension_commit_fraction"):
+		var ac: float = float(arch["weapon_extension_commit_fraction"])
+		if ac >= 0.0:
+			return ac
+	return -1.0
 
 
 static func _attack_float_or_default(attack_instance: RefCounted, prop: String, default_val: float) -> float:
@@ -183,14 +211,20 @@ static func velocity_m_s_from_intensity(intensity: float, archetype: Dictionary,
 
 
 # Effective impact velocity (m/s). Prefer attack.velocity_m_s if set (e.g. after partial parry); else derive from intensity.
-static func get_effective_velocity_m_s(weapon: RefCounted, attack_instance: RefCounted) -> float:
+# use_delivery_commit: when false, blunt momentum paths keep full intensity (commit does not reduce slip).
+static func get_effective_velocity_m_s(
+	weapon: RefCounted, attack_instance: RefCounted, use_delivery_commit: bool = true
+) -> float:
 	var v = attack_instance.get("velocity_m_s")
 	if v is float and v >= 0.0:
 		return v
 	var i = attack_instance.get("intensity")
+	var base_i: float = i if i is float else 0.5
+	var commit: float = _delivery_commit_from_attack_instance(attack_instance) if use_delivery_commit else -1.0
+	var eff_i: float = effective_intensity_for_delivery(base_i, commit)
 	var arch = attack_instance.get("archetype")
 	var move_id: String = move_id_from_attack_instance(attack_instance)
-	return velocity_m_s_from_intensity(i if i is float else 0.5, arch if arch is Dictionary else {}, weapon, move_id)
+	return velocity_m_s_from_intensity(eff_i, arch if arch is Dictionary else {}, weapon, move_id)
 
 
 static func _ke_thrust_point_mass(weapon: RefCounted, attack_instance: RefCounted, v: float, e_mult: float) -> float:
@@ -271,7 +305,7 @@ static func compute_pre_armor_blunt_momentum_raw(
 	var mass_kg: float = strike_mass_kg(weapon, attack_instance)
 	if target_effective_mass_kg > 0.0:
 		mass_kg = reduced_mass_pair_kg(mass_kg, target_effective_mass_kg)
-	var v: float = get_effective_velocity_m_s(weapon, attack_instance)
+	var v: float = get_effective_velocity_m_s(weapon, attack_instance, false)
 	var p_mult: float = _attack_float_or_default(attack_instance, "strike_momentum_mult", 1.0)
 	var momentum: float = mass_kg * v * maxf(0.05, p_mult)
 	var strength_mod: float = maxf(0.1, float(strength) / 100.0)
@@ -385,7 +419,7 @@ static func _compute_blunt_momentum_per_area_with_contact(weapon: RefCounted, at
 	var mass_kg: float = strike_mass_kg(weapon, attack_instance)
 	if target_effective_mass_kg > 0.0:
 		mass_kg = reduced_mass_pair_kg(mass_kg, target_effective_mass_kg)
-	var v: float = get_effective_velocity_m_s(weapon, attack_instance)
+	var v: float = get_effective_velocity_m_s(weapon, attack_instance, false)
 	var p_mult: float = _attack_float_or_default(attack_instance, "strike_momentum_mult", 1.0)
 	var momentum: float = mass_kg * v * maxf(0.05, p_mult)
 	return momentum / A_m2 if A_m2 > 0 else 0.0

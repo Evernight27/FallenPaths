@@ -5,6 +5,8 @@ extends RefCounted
 ## Keys: **`flurry_until`**, **`flurry_against_id`**, **`flurry_exchanges_left`**. Gated by **`is_feature_flurry_bind_exchange_enabled`** (production default **on**).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 const KEY_UNTIL := "flurry_until"
 const KEY_AGAINST := "flurry_against_id"
@@ -68,6 +70,16 @@ static func open_window(manager: Node, combatant_id: int, against_id: int) -> vo
 static func open_pair_after_bind(manager: Node, defender_id: int, attacker_id: int) -> void:
 	open_window(manager, defender_id, attacker_id)
 	open_window(manager, attacker_id, defender_id)
+	if not _OperationalLog.is_play_session_active() or manager == null:
+		return
+	var def: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	var def_n: String = _EntityAccess.get_display_name(def, defender_id)
+	var atk_n: String = _EntityAccess.get_display_name(atk, attacker_id)
+	_CombatDebug.combat_session(
+		"flurry_bind opened %s vs %s exchanges=%d"
+		% [def_n, atk_n, CombatConstants.FLURRY_BIND_MAX_EXCHANGES]
+	)
 
 
 static func wind_up_mult(c: Dictionary, target_id: int, combat_clock: float) -> float:

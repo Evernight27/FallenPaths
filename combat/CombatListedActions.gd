@@ -24,6 +24,25 @@ static func action_entry_is_self_target_move(
 	return entry_move_id(a) == move_id and entry_target_id(a) == combatant_id
 
 
+## True when every listed action is **`wait`** or a focus-line move (back rank / no ZoC reach).
+static func action_list_is_hold_line_only(actions: Array) -> bool:
+	var saw_action: bool = false
+	for raw in actions:
+		var a: Dictionary = _entry(raw)
+		if a.is_empty():
+			continue
+		var mid: String = entry_move_id(a)
+		if mid.is_empty():
+			continue
+		saw_action = true
+		if mid == CombatConstants.MOVE_ID_WAIT:
+			continue
+		if CombatConstants.is_focus_line_move(mid):
+			continue
+		return false
+	return saw_action
+
+
 static func actions_include_move_id(actions: Array, move_id: String) -> bool:
 	for raw in actions:
 		var a: Dictionary = _entry(raw)

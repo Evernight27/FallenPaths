@@ -137,10 +137,63 @@ static func apply_bandage(entity: Node, part: String, effectiveness: float = 1.0
 
 # --- Packing ---
 
+static func _wound_severity_rank(severity: String) -> int:
+	return int(_Bleeding.PACKING_MIN_SEVERITY_RANK.get(str(severity), 0))
+
+
+static func _injury_in_strict_packing_sub_region(part: String, injury: Dictionary) -> bool:
+	var sr: String = str(injury.get("sub_region", ""))
+	if sr.is_empty():
+		return false
+	var strict_list: Variant = _Bleeding.PACKING_STRICT_SUB_REGIONS.get(part, [])
+	if not (strict_list is Array):
+		return false
+	for strict_sr in strict_list as Array:
+		if str(strict_sr) == sr:
+			return true
+	return false
+
+
+## One wound channel eligible for pack: moderate+ default; junctional neck/abdominal need severe+ unless arterial.
+static func injury_meets_packing_severity(part: String, injury: Dictionary) -> bool:
+	if typeof(injury) != TYPE_DICTIONARY:
+		return false
+	var rank: int = _wound_severity_rank(str(injury.get("severity", _Bleeding.SEVERITY_MODERATE)))
+	var min_rank: int = _wound_severity_rank(_Bleeding.PACKING_MIN_SEVERITY)
+	if _injury_in_strict_packing_sub_region(part, injury):
+		if bool(injury.get("is_arterial", false)):
+			return rank >= min_rank
+		return rank >= _wound_severity_rank(_Bleeding.PACKING_STRICT_SUB_REGION_MIN_SEVERITY)
+	return rank >= min_rank
+
+
+static func part_meets_packing_severity(entity: Node, part: String) -> bool:
+	if not entity.wounds.has(part):
+		return false
+	for injury in entity.wounds[part]:
+		if injury_meets_packing_severity(part, injury):
+			return true
+	return false
+
+
+## Deep / multi-channel cavities: success chance scales down (channels already extend application time).
+static func packing_channel_success_mult(entity: Node, part: String) -> float:
+	var n: int = get_treatment_channel_count(entity, part)
+	return pow(_Bleeding.PACKING_SUCCESS_PER_EXTRA_CHANNEL, maxi(0, n - 1))
+
+
+static func has_linen_for_packing(entity: Node) -> bool:
+	return int(entity.get("linen_strips_remaining")) >= _Bleeding.PACKING_LINEN_COST_PER_ATTEMPT
+
+
 static func can_apply_packing(entity: Node, part: String) -> bool:
 	if part not in _Bleeding.PACKING_PARTS:
 		return false
 	if not entity.wounds.has(part) or entity.wounds[part].is_empty():
+		return false
+	if not part_meets_packing_severity(entity, part):
+		return false
+	if not has_linen_for_packing(entity):
 		return false
 	if entity.tourniquet_applied.has(part) or entity.bandaged_parts.has(part) or entity.packed_parts.has(part):
 		return false
@@ -149,10 +202,14 @@ static func can_apply_packing(entity: Node, part: String) -> bool:
 static func apply_packing(entity: Node, part: String, effectiveness: float = 1.0) -> bool:
 	if not can_apply_packing(entity, part):
 		return false
+	entity.linen_strips_remaining = maxi(
+		0, int(entity.linen_strips_remaining) - _Bleeding.PACKING_LINEN_COST_PER_ATTEMPT
+	)
 	var pressure_held: bool = has_direct_pressure_on_part(entity, part)
 	clear_direct_pressure(entity)
+	var eff: float = effectiveness * packing_channel_success_mult(entity, part)
 	var r = _apply_stabilizing_treatment(
-		entity, part, effectiveness,
+		entity, part, eff,
 		_Bleeding.PACKING_SUCCESS_BASE_CHANCE, _Bleeding.PACKING_SUCCESS_ARTERIAL_MULT,
 		_Bleeding.PACKING_ARTERIAL_EFFECTIVENESS_MULT, _Bleeding.PACKING_IMMEDIATE_REDUCTION,
 		entity.packed_parts,

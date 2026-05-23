@@ -86,8 +86,6 @@ static func is_offensive_melee_move_id(move_id: String) -> bool:
 		return false
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return true
-	if move_id == CombatConstants.MOVE_ID_CRASH:
-		return true
 	if CombatConstants.is_focus_line_move(move_id):
 		return false
 	if WeaponConstants.is_parry_move(move_id):

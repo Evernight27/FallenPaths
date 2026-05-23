@@ -16,6 +16,15 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 			"CombatFlow.start_combat: no living players (check world meta 'party_manager', get_members(), node_ref)."
 		)
 		return
+	if _OperationalLog.is_play_session_active():
+		var roster: PackedStringArray = PackedStringArray()
+		for p in players:
+			if p is Node:
+				var role: String = "leader" if p.get("is_party_leader") == true else "member"
+				roster.append("%s(%s)" % [str(p.name), role])
+		_OperationalLog.play_combat(
+			"party_entering_combat count=%d [%s]" % [players.size(), ", ".join(roster)]
+		)
 	for p in players:
 		if p.has_method("set_process_input"):
 			p.set_process_input(false)

@@ -22,9 +22,13 @@ static func tick(manager: Node, delta: float) -> void:
 		var n: int = _CombatConstants.COMBAT_VACANCY_DIRTY_SAFETY_EVERY_N_FRAMES
 		if n > 0 and manager._combat_tick_index % n == 0:
 			manager.mark_all_formations_vacancy_dirty()
-	var snap: Dictionary = CombatEventScheduler.snapshot_rank_file_placements(manager)
-	var changed_fids: Array = _FormationFlow.reconcile_vacancy_plugs(manager)
-	_FormationFlow.finish_vacancy_reconcile_follow_up(manager, changed_fids, snap, true)
+	var changed_fids: Array = []
+	if manager.has_method("vacancy_reconcile_pass"):
+		changed_fids = manager.vacancy_reconcile_pass(true)
+	else:
+		var snap: Dictionary = CombatEventScheduler.snapshot_rank_file_placements(manager)
+		changed_fids = _FormationFlow.reconcile_vacancy_plugs(manager)
+		_FormationFlow.finish_vacancy_reconcile_follow_up(manager, changed_fids, snap, true)
 	var victor: String = ""
 	var last_death_node: Node = null
 	for c in manager.combatants:
@@ -49,14 +53,13 @@ static func tick(manager: Node, delta: float) -> void:
 		if not tick_victor.is_empty():
 			victor = tick_victor
 			last_death_node = death_node
-	if not victor.is_empty():
+	if not victor.is_empty() and _MedicalPhase.should_apply_phase_end(manager, victor):
 		manager._end_combat_phase(victor, last_death_node)
 		return
 	victor = manager._check_for_winner()
-	if not victor.is_empty():
-		if not (manager.medical_phase and victor == manager.medical_phase_winner):
-			manager._end_combat_phase(victor, null)
-			return
+	if not victor.is_empty() and _MedicalPhase.should_apply_phase_end(manager, victor):
+		manager._end_combat_phase(victor, null)
+		return
 	for c in manager.combatants:
 		if not _EntityAccess.alive_bool(c):
 			continue

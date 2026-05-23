@@ -9,6 +9,21 @@ static func _eff_pct(result: Dictionary) -> int:
 	return int(roundf(result.get("effectiveness", 1.0) * 100.0))
 
 
+static func _fled_rout_context_suffix(result: Dictionary) -> String:
+	var coh: float = float(result.get("line_cohesion", -1.0))
+	if coh < 0.0:
+		return ""
+	var cas: float = float(result.get("casualty_ratio", -1.0))
+	var bits: PackedStringArray = PackedStringArray(["line %d%% cohesion" % int(roundf(coh * 100.0))])
+	if cas >= 0.0:
+		bits.append("%d%% casualties" % int(roundf(cas * 100.0)))
+	if bool(result.get("formation_stressed", false)):
+		bits.append("formation breaking")
+	if bool(result.get("side_holding_field", false)):
+		bits.append("side still holds field")
+	return " (%s)" % ", ".join(bits)
+
+
 static func _medical_procedure_label(move_id: String, on_self: bool) -> String:
 	var base: String = move_id.replace("_", " ")
 	if on_self:
@@ -141,7 +156,8 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 	elif outcome == "rotate_file_complete":
 		return "[color=gray]%s (%s) and %s (%s) rotated files (front rank).[/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "fled":
-		return "[color=gray]%s (%s) fled the field.[/color]" % [attacker_name, attacker_side]
+		var fled_ctx: String = _fled_rout_context_suffix(result)
+		return "[color=gray]%s (%s) fled the field%s.[/color]" % [attacker_name, attacker_side, fled_ctx]
 	elif outcome == "parry_deflect":
 		var line_pd: String = "[color=cyan]%s (%s) parried %s (%s)'s attack.[/color]" % [attacker_name, attacker_side, target_name, target_side]
 		if CombatConstants.COMBAT_DEBUG_CALIBRATION:
@@ -235,29 +251,6 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		if rsn_close == "contest_failed":
 			return "[color=gray]%s (%s) tried to close on %s (%s) — the defender held their measure.[/color]" % [attacker_name, attacker_side, target_name, target_side]
 		return "[color=gray]%s (%s) failed to close on %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
-	elif outcome == "crash_success":
-		return "[color=orange]%s (%s) crashed the line against %s (%s) (tactical depth %d).[/color]" % [attacker_name, attacker_side, target_name, target_side, int(result.get("tactical_penetration_depth", 1))]
-	elif outcome == "crash_failed":
-		var rsn: String = str(result.get("reason", ""))
-		if rsn == "intrusion_disabled":
-			return "[color=gray]%s (%s) — line breach unavailable (intrusions disabled).[/color]" % [attacker_name, attacker_side]
-		if rsn == "stamina":
-			return "[color=gray]%s (%s) could not crash %s (%s) — too exhausted.[/color]" % [attacker_name, attacker_side, target_name, target_side]
-		if rsn == "max_depth":
-			return "[color=gray]%s (%s) is already committed forward vs %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
-		if rsn == "not_viable":
-			return "[color=gray]%s (%s) will not risk a line crash vs %s (%s) — too light or unready.[/color]" % [attacker_name, attacker_side, target_name, target_side]
-		if rsn == "repelled":
-			return "[color=gray]%s (%s) pressed %s (%s) — the line held.[/color]" % [attacker_name, attacker_side, target_name, target_side]
-		if rsn.begins_with("engagement_mode_"):
-			return "[color=gray]%s (%s) cannot breach the line vs %s (%s) in this engagement.[/color]" % [attacker_name, attacker_side, target_name, target_side]
-		if rsn == "light_armor":
-			return "[color=gray]%s (%s) cannot crash %s (%s) — not heavy enough to force a breach.[/color]" % [attacker_name, attacker_side, target_name, target_side]
-		if rsn == "low_breach_power":
-			return "[color=gray]%s (%s) cannot crash %s (%s) — formation not ready to drive through.[/color]" % [attacker_name, attacker_side, target_name, target_side]
-		if rsn == "intruder_cap":
-			return "[color=gray]%s (%s) cannot crash %s (%s) — too many fighters already committed forward.[/color]" % [attacker_name, attacker_side, target_name, target_side]
-		return "[color=gray]%s (%s) failed to break through %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "deflected":
 		return "%s (%s) → %s (%s) %s: [b]%s[/b] dmg [color=green](deflected — all avoided)[/color]" % [attacker_name, attacker_side, target_name, target_side, part_label, format_resolved_damage(result)]
 	elif outcome == "glancing":

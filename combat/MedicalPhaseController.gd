@@ -23,11 +23,11 @@ const POST_VICTORY_BLOCKED_EVENT_TYPES: Array[String] = [
 	CombatConstants.EVENT_ROTATE_FILE_RESOLVE,
 ]
 
-# AI / phase gating: consider medical when blood or time-to-death in danger zone.
-const MEDICAL_DANGER_BLOOD_THRESHOLD: float = 55.0
-const MEDICAL_DANGER_SECONDS: float = 90.0
-const IMMEDIATE_PERIL_BLOOD_THRESHOLD: float = 42.0
-const IMMEDIATE_PERIL_SECONDS: float = 45.0
+# AI / phase gating — ATLS bands in BleedingConstants (docs/LIVE_PATHS.md#bleeding-units).
+const MEDICAL_DANGER_BLOOD_THRESHOLD: float = _Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING
+const MEDICAL_DANGER_SECONDS: float = _Bleeding.MEDICAL_TRIAGE_DANGER_SECONDS
+const IMMEDIATE_PERIL_BLOOD_THRESHOLD: float = _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING
+const IMMEDIATE_PERIL_SECONDS: float = _Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS
 const MEDICAL_URGENCY_WEIGHT_MAX: float = 6.0
 const MEDICAL_URGENCY_RANDOM_MIN: float = 0.8
 const MEDICAL_URGENCY_RANDOM_MAX: float = 1.2
@@ -52,6 +52,15 @@ const MEDICAL_AI_WEIGHT_TREATMENT_ASSIST_PRESSURE: float = 3.5
 ## True once player-side victory: no new combat resolutions (medical triage only).
 static func combat_resolution_blocked(manager: Node) -> bool:
 	return manager != null and bool(manager.medical_phase)
+
+
+## Post-victory medical phase: bleed-out / standing-count cannot reverse `medical_phase_winner`.
+static func should_apply_phase_end(manager: Node, victor: String) -> bool:
+	if manager == null or victor.is_empty():
+		return false
+	if not bool(manager.medical_phase):
+		return true
+	return victor == str(manager.medical_phase_winner)
 
 
 static func is_winner_side(manager: Node, c: Dictionary) -> bool:
@@ -186,6 +195,41 @@ static func halt_losing_side_combat(manager: Node) -> void:
 static func _blood_loss_death_threshold_for_entity(entity: Node) -> float:
 	return _EntityAccess.entity_blood_loss_death_threshold(entity)
 
+
+## Max permanent bleed rate (abstract HP/s) that stays within clotting-safe buffer before death threshold.
+static func _max_safe_permanent_bleed_rate(buffer_above_death: float) -> float:
+	if buffer_above_death <= 0.0:
+		return 0.0
+	return (
+		buffer_above_death
+		* _Bleeding.CLOTTING_SAFE_EFFECTIVE_RATE
+		/ _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
+	)
+
+
+## Shared blood-volume + time-to-death urgency (x = blood band, y = time band).
+static func _medical_urgency_components(
+	blood_volume: float, death_threshold: float, bleed_rate: float
+) -> Vector2:
+	var range_bv: float = MEDICAL_DANGER_BLOOD_THRESHOLD - death_threshold
+	var urgency_blood: float = (
+		1.0
+		if blood_volume <= death_threshold
+		else clampf((MEDICAL_DANGER_BLOOD_THRESHOLD - blood_volume) / maxf(0.01, range_bv), 0.0, 1.0)
+	)
+	var urgency_time: float = 0.0
+	if bleed_rate > 0.0:
+		var time_to_death: float = _Bleeding.seconds_to_exsanguination_at_death_threshold(
+			bleed_rate, blood_volume, death_threshold, 1.0
+		)
+		if time_to_death < INF:
+			urgency_time = (
+				1.0
+				if time_to_death <= 0.0
+				else clampf(1.0 - time_to_death / MEDICAL_DANGER_SECONDS, 0.0, 1.0)
+			)
+	return Vector2(urgency_blood, urgency_time)
+
 ## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated.
 static func can_end_medical_phase(manager: Node) -> bool:
 	if not manager.medical_phase:
@@ -233,14 +277,11 @@ static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
 	var perm_rate: float = _EntityAccess.get_permanent_bleeding_rate_from_node(entity, rate)
 	var death_thresh: float = _blood_loss_death_threshold_for_entity(entity)
 	var buffer: float = bv - death_thresh
-	if buffer > 0.0 and perm_rate > 0.0:
-		var safe_rate: float = buffer * _Bleeding.CLOTTING_SAFE_EFFECTIVE_RATE / _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
-		if perm_rate <= safe_rate:
-			return false
-	var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
-	if loss_per_sec <= 0.0:
+	if buffer > 0.0 and perm_rate > 0.0 and perm_rate <= _max_safe_permanent_bleed_rate(buffer):
 		return false
-	var time_to_death: float = (bv - death_thresh) / loss_per_sec
+	var time_to_death: float = _Bleeding.seconds_to_exsanguination_at_death_threshold(
+		rate, bv, death_thresh, 1.0
+	)
 	return time_to_death <= MEDICAL_DANGER_SECONDS
 
 ## Stricter than is_in_medical_danger: about to bleed out; must self-treat first.
@@ -254,11 +295,10 @@ static func is_in_immediate_peril(manager: Node, c: Dictionary) -> bool:
 	var rate: float = _EntityAccess.get_total_bleeding_rate_from_node(entity)
 	if rate <= 0.0:
 		return false
-	var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
-	if loss_per_sec <= 0.0:
-		return false
 	var death_thresh_im: float = _blood_loss_death_threshold_for_entity(entity)
-	var time_to_death: float = (bv - death_thresh_im) / loss_per_sec
+	var time_to_death: float = _Bleeding.seconds_to_exsanguination_at_death_threshold(
+		rate, bv, death_thresh_im, 1.0
+	)
 	return time_to_death <= IMMEDIATE_PERIL_SECONDS
 
 ## True when entity has permanently left immediate peril (permanent bleeding rate low enough to recover).
@@ -272,14 +312,13 @@ static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -
 	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
 	var death_thresh_pp: float = _blood_loss_death_threshold_for_entity(entity)
 	var buffer: float = bv - death_thresh_pp
-	if buffer > 0.0:
-		var safe_rate: float = buffer * _Bleeding.CLOTTING_SAFE_EFFECTIVE_RATE / _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
-		if perm_rate <= safe_rate:
-			return true
-	var loss_per_sec: float = perm_rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
-	if loss_per_sec <= 0.0:
+	if buffer > 0.0 and perm_rate <= _max_safe_permanent_bleed_rate(buffer):
 		return true
-	var time_to_death: float = (bv - death_thresh_pp) / loss_per_sec
+	var time_to_death: float = _Bleeding.seconds_to_exsanguination_at_death_threshold(
+		perm_rate, bv, death_thresh_pp, 1.0
+	)
+	if time_to_death >= INF:
+		return true
 	return time_to_death > IMMEDIATE_PERIL_SECONDS * 2.0
 
 ## 0..1: higher when more hurt (lower blood, shorter time to death). Includes randomness.
@@ -287,18 +326,12 @@ static func get_medical_urgency(manager: Node, c: Dictionary) -> float:
 	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
 	if entity == null:
 		return 0.0
-	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
-	var death_thresh_u: float = _blood_loss_death_threshold_for_entity(entity)
-	var range_bv: float = MEDICAL_DANGER_BLOOD_THRESHOLD - death_thresh_u
-	var urgency_blood: float = 1.0 if bv <= death_thresh_u else clampf((MEDICAL_DANGER_BLOOD_THRESHOLD - bv) / maxf(0.01, range_bv), 0.0, 1.0)
-	var urgency_time: float = 0.0
-	var rate: float = _EntityAccess.get_total_bleeding_rate_from_node(entity)
-	if rate > 0.0:
-		var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
-		if loss_per_sec > 0.0:
-			var time_to_death: float = (bv - death_thresh_u) / loss_per_sec
-			urgency_time = 1.0 if time_to_death <= 0.0 else clampf(1.0 - time_to_death / MEDICAL_DANGER_SECONDS, 0.0, 1.0)
-	var raw: float = maxf(urgency_blood, urgency_time)
+	var comps: Vector2 = _medical_urgency_components(
+		_EntityAccess.get_blood_volume_from_node(entity),
+		_blood_loss_death_threshold_for_entity(entity),
+		_EntityAccess.get_total_bleeding_rate_from_node(entity)
+	)
+	var raw: float = maxf(comps.x, comps.y)
 	raw *= randf_range(MEDICAL_URGENCY_RANDOM_MIN, MEDICAL_URGENCY_RANDOM_MAX)
 	return clampf(raw, 0.0, 1.0)
 
@@ -307,18 +340,12 @@ static func get_medical_urgency_deterministic(manager: Node, c: Dictionary) -> f
 	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
 	if entity == null:
 		return 0.0
-	var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
-	var death_thresh_ud: float = _blood_loss_death_threshold_for_entity(entity)
-	var range_bv: float = MEDICAL_DANGER_BLOOD_THRESHOLD - death_thresh_ud
-	var urgency_blood: float = 1.0 if bv <= death_thresh_ud else clampf((MEDICAL_DANGER_BLOOD_THRESHOLD - bv) / maxf(0.01, range_bv), 0.0, 1.0)
-	var urgency_time: float = 0.0
-	var rate: float = _EntityAccess.get_total_bleeding_rate_from_node(entity)
-	if rate > 0.0:
-		var loss_per_sec: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
-		if loss_per_sec > 0.0:
-			var time_to_death: float = (bv - death_thresh_ud) / loss_per_sec
-			urgency_time = 1.0 if time_to_death <= 0.0 else clampf(1.0 - time_to_death / MEDICAL_DANGER_SECONDS, 0.0, 1.0)
-	return clampf(maxf(urgency_blood, urgency_time), 0.0, 1.0)
+	var comps: Vector2 = _medical_urgency_components(
+		_EntityAccess.get_blood_volume_from_node(entity),
+		_blood_loss_death_threshold_for_entity(entity),
+		_EntityAccess.get_total_bleeding_rate_from_node(entity)
+	)
+	return clampf(maxf(comps.x, comps.y), 0.0, 1.0)
 
 ## Higher = intervene on this part before milder wounds (bleed rate + severity + arterial/stump + tourniquet indication).
 static func get_part_intervention_threat(manager: Node, c: Dictionary, part: String) -> float:

@@ -121,8 +121,6 @@ static func is_counter_tempo_melee_action(move_id: String) -> bool:
 		return false
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return false
-	if move_id == CombatConstants.MOVE_ID_CRASH:
-		return false
 	if CombatConstants.is_focus_line_move(move_id):
 		return false
 	return true

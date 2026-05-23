@@ -5,7 +5,8 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _FileKeyedDict := preload("res://combat/CombatFileKeyedDict.gd")
 
 
 ## Host-line formation id for melee column / lane checks (same contract as **`zone_geometry_fid_str`**).
@@ -43,8 +44,6 @@ static func same_file_living_rank0_ally(manager: Node, c: Dictionary, zone_geome
 
 static func depth_polearm_lane_open(manager: Node, c: Dictionary, zone_geometry_fid: String = "") -> bool:
 	if manager == null or c.is_empty():
-		return false
-	if _ZoneOfControl.is_intruded(c):
 		return false
 	if _EntityAccess.rank_int(c) <= 0:
 		return false
@@ -104,8 +103,6 @@ static func depth_polearm_has_valid_line_threat_to_any_rank0_hostile(
 			continue
 		if _EntityAccess.rank_int(opp) != 0:
 			continue
-		if _ZoneOfControl.intruder_on_host_formation(opp, fid):
-			continue
 		if depth_polearm_valid_line_threat(manager, attacker, opp, fid, lane_open):
 			return true
 	return false
@@ -138,12 +135,13 @@ static func depth_polearm_lane_allows_low_targets(
 		)
 	if prof == CombatConstants.SPEAR_LANE_PROFILE_OPEN:
 		return true
-	var col: Vector2 = _PairGeometry.wedge_pressure_depth_at_combatant_column(manager, attacker)
-	var gap: float = maxf(col.x, col.y)
-	var wedge_opens: bool = gap + 0.0001 >= float(CombatConstants.DEPTH_SPEAR_WEDGE_OPEN_LANE_MIN)
+	var fi: int = _EntityAccess.file_int(attacker)
+	var ls: Dictionary = _FormationSlots.formation_nested_dictionary_read(fd, "lane_stress_by_file")
+	var gap: float = clampf(float(_FileKeyedDict.get_value(ls, fi, 0.0)), 0.0, 1.0)
+	var lane_stress_opens: bool = gap + 0.0001 >= float(CombatConstants.DEPTH_SPEAR_LANE_STRESS_OPEN_MIN)
 	if prof == CombatConstants.SPEAR_LANE_PROFILE_RESTRICTED:
-		return wedge_opens
-	if wedge_opens:
+		return lane_stress_opens
+	if lane_stress_opens:
 		return true
 	var disc: String = CombatFormationEngagement.effective_line_discipline(manager, fd)
 	if disc == CombatConstants.LINE_DISCIPLINE_STRICT:

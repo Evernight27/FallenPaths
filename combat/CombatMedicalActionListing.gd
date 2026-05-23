@@ -21,7 +21,7 @@ static func append_receiving_care_direct_pressure(
 	if not _EntityAccess.scene_supports_medical_pressure_listing(c):
 		return true
 	var parts_being_treated: Array = manager._get_parts_being_treated_on(combatant_id)
-	for part in _EntityAccess.get_wounded_parts(c):
+	for part in _EntityAccess.get_wounded_parts(c, manager):
 		if part.is_empty() or part in parts_being_treated:
 			continue
 		if _EntityAccess.entity_has_direct_pressure_on_part(manager, c, part):
@@ -73,7 +73,7 @@ static func append_medical_phase_winner_actions(
 			continue
 		if immediate_peril and _EntityAccess.id_int(ally) != _EntityAccess.id_int(c):
 			continue
-		var wounded: Array = _EntityAccess.get_wounded_parts(ally)
+		var wounded: Array = _EntityAccess.get_wounded_parts(ally, manager)
 		var parts_being_treated: Array = manager._get_parts_being_treated_on(_EntityAccess.id_int(ally))
 		for part in wounded:
 			if part.is_empty() or part in parts_being_treated:

@@ -3,8 +3,6 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-const _CrashActions := preload("res://combat/CombatCrashActions.gd")
-const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
@@ -12,7 +10,7 @@ const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 
 ## Log tiers: `COMBAT_EVENT_DEBUG` alone → `flow_log_turn` lists actions + pick. With `COMBAT_EVENT_DEBUG_VERBOSE`,
 ## `get_available_actions` logs the action list once; `flow_log_turn` logs pick + count only (no duplicate list).
-## `flow_log`: skip_turn, afterblow, close/crash contest, incursion, formation rejects, resolve edge cases.
+## `flow_log`: skip_turn, afterblow, close contest, incursion, formation rejects, resolve edge cases.
 ## `COMBAT_DEBUG` → per-hit / armor / wind-up (`CombatDebug.log`, EntityDamage traces).
 ## Unconditional `[Combat]` lines stay for phase boundaries, deaths, and UI-adjacent events (see grep print("[Combat")).
 ## Play session (editor F5): **`combat_session`** / **`world_session`** → `FP_COMBAT` / `FP_WORLD` on stdout (copy Godot Output).
@@ -210,16 +208,6 @@ static func flow_log_turn(
 		)
 
 
-## breached_files keys may be int or String from serialization paths; values 0..1
-static func format_breached_files(bf: Dictionary) -> String:
-	if bf.is_empty():
-		return ""
-	var parts: PackedStringArray = []
-	for k in bf.keys():
-		parts.append("%s:%.2f" % [str(k), float(bf[k])])
-	return "; ".join(parts)
-
-
 ## lane_stress_by_file or similar: file index -> float
 static func format_lane_stress(by_file: Dictionary) -> String:
 	if by_file.is_empty():
@@ -230,7 +218,7 @@ static func format_lane_stress(by_file: Dictionary) -> String:
 	return ", ".join(parts)
 
 
-## Verbose `get_available_actions` summary + optional crash-not-listed diagnostic (`COMBAT_EVENT_DEBUG_VERBOSE`).
+## Verbose `get_available_actions` summary + optional listing diagnostic (`COMBAT_EVENT_DEBUG_VERBOSE`).
 static func log_available_actions_build(
 	manager: Node,
 	combatant_id: int,
@@ -240,24 +228,19 @@ static func log_available_actions_build(
 	counter_tempo: bool,
 	medical_phase: bool,
 	log_fid: String,
-	log_breach_blocks_moves: bool,
 	combatants: Array
 ) -> void:
 	if not flow_verbose_enabled() or c.is_empty():
 		return
-	var crash_count: int = 0
 	var medical_count: int = 0
 	for a in result_actions:
 		var mid: String = str(a.get("move_id", ""))
-		if mid == CombatConstants.MOVE_ID_CRASH:
-			crash_count += 1
 		if mid in CombatConstants.MEDICAL_MOVE_IDS:
 			medical_count += 1
 	var polearm_extra: String = ""
 	if not medical_phase:
 		var rpv: int = _EntityAccess.rank_int(c)
-		var intrv: bool = _ZoneOfControl.is_intruded(c)
-		if rpv > 0 and not intrv and not _EntityAccess.get_attacking_arm(c).is_empty():
+		if rpv > 0 and not _EntityAccess.get_attacking_arm(c).is_empty():
 			var w_pv: Variant = _EntityAccess.get_weapon(c)
 			if w_pv is Weapon and (w_pv as Weapon).depth_melee_eligible:
 				polearm_extra = _format_depth_polearm_melee_context_debug(
@@ -270,8 +253,8 @@ static func log_available_actions_build(
 		]
 	flow_log(
 		(
-			"get_available_actions id=%d side=%s state=%s rank=%d file=%d fid=%s breach_blocks_moves=%s med_phase=%s "
-			+ "crash_viab=%.3f => %d actions (medical=%d crash=%d) [%s]%s%s"
+			"get_available_actions id=%d side=%s state=%s rank=%d file=%d fid=%s med_phase=%s "
+			+ "=> %d actions (medical=%d) [%s]%s%s"
 		)
 		% [
 			combatant_id,
@@ -280,48 +263,15 @@ static func log_available_actions_build(
 			_EntityAccess.rank_int(c),
 			_EntityAccess.file_int(c),
 			log_fid,
-			log_breach_blocks_moves,
 			medical_phase,
-			CombatConstants.crash_breach_viability(c),
 			result_actions.size(),
 			medical_count,
-			crash_count,
 			format_actions_compact(result_actions),
 			polearm_extra,
 			counter_filter_note
 		],
 		"get_available_actions:%d" % combatant_id
 	)
-	var dbg_intruded: bool = _ZoneOfControl.is_intruded(c)
-	if (
-		not medical_phase
-		and (_EntityAccess.rank_int(c) == 0 or dbg_intruded)
-		and not _EntityAccess.get_attacking_arm(c).is_empty()
-		and crash_count == 0
-		and CombatConstants.crash_breach_viability(c) >= CombatConstants.CRASH_BREACH_VIABILITY_MIN
-	):
-		var crash_cd_left: float = _EntityAccess.cooldown_remaining_s(
-			manager, float(c.get("crash_cooldown_until", 0.0)), 0.0
-		)
-		flow_log(
-			(
-				"crash_not_in_action_list id=%d reason=%s viability=%.3f depth=%d max_depth=%d stamina=%.1f cost=%.1f "
-				+ "crash_cd_left=%.2f breach_blocks_moves=%s skirmish=%s"
-			)
-			% [
-				combatant_id,
-				_CrashActions.crash_absent_primary_reason(manager, c),
-				CombatConstants.crash_breach_viability(c),
-				_EntityAccess.tactical_penetration_depth_int(c),
-				CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX,
-				_EntityAccess.stamina_float(c, 0.0),
-				CombatConstants.CRASH_STAMINA_COST,
-				crash_cd_left,
-				log_breach_blocks_moves,
-				_FormationBreachRules.is_skirmish_line_engagement(manager)
-			],
-			"crash_not_in_list:%d" % combatant_id
-		)
 
 
 static func _depth_polearm_opp_debug_line(

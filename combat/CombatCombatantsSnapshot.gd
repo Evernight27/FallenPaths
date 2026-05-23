@@ -8,6 +8,37 @@ const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
+
+
+## Live combatant keys required by **`BattleUIUpdater`** / **`CombatUiHints`** (not entity stats).
+static func _copy_live_ui_fields(item: Dictionary, c: Dictionary) -> void:
+	if c.is_empty() or item.is_empty():
+		return
+	if c.has(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT):
+		item[CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT] = (
+			c[CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT]
+		)
+	if c.has(CombatConstants.COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT):
+		item[CombatConstants.COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT] = (
+			c[CombatConstants.COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT]
+		)
+	if c.has(CombatConstants.COMBATANT_KEY_EXHAUSTION):
+		item[CombatConstants.COMBATANT_KEY_EXHAUSTION] = c[CombatConstants.COMBATANT_KEY_EXHAUSTION]
+	if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		item["guard_line"] = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
+	if bool(c.get("combat_absent", false)):
+		item["combat_absent"] = true
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
+	if not pa.is_empty():
+		item["pending_attack"] = pa.duplicate(true)
+	if _Footwork.enabled() and c.has("position_angle_offset_deg"):
+		item["position_angle_offset_deg"] = c["position_angle_offset_deg"]
+	if _FlurryBind.enabled():
+		for key in [_FlurryBind.KEY_UNTIL, _FlurryBind.KEY_AGAINST, _FlurryBind.KEY_EXCHANGES]:
+			if c.has(key):
+				item[key] = c[key]
 
 
 static func _counter_tempo_ui_blocks_status_override(manager: Node, c: Dictionary) -> bool:
@@ -29,11 +60,6 @@ static func live_status_override_text(manager: Node, c: Dictionary) -> String:
 static func _status_override_text(manager: Node, c: Dictionary, combatant_id: int, next_ready: Dictionary) -> String:
 	if _counter_tempo_ui_blocks_status_override(manager, c):
 		return ""
-	var crash_left: float = _EntityAccess.cooldown_remaining_s(
-		manager, float(c.get("crash_cooldown_until", 0.0)), 0.0
-	)
-	if crash_left > 0.0:
-		return "Crash CD %.1fs" % crash_left
 	var close_left: float = _EntityAccess.cooldown_remaining_s(
 		manager, float(c.get("action_cooldown_until", 0.0)), 0.0
 	)
@@ -80,19 +106,13 @@ static func build(manager: Node) -> Array:
 			"state": _EntityAccess.state_str(c, CombatConstants.STATE_WAITING),
 			"state_timer": c.get("state_timer", 0.0),
 			"state_duration": c.get("state_duration", 0.0),
-			"tactical_penetration_depth": mini(
-				maxi(0, _EntityAccess.tactical_penetration_depth_int(c)),
-				CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX
-			),
 			"engagement_role": str(c.get("engagement_role", CombatConstants.ENGAGEMENT_ROLE_LINE)),
-			"intrusion_host_fid": _ZoneOfControl.intrusion_host_fid(c),
-			"intrusion_anchor_file": _EntityAccess.intrusion_anchor_file_raw_int(c),
 			"lane_offset": _EntityAccess.lane_offset_float(c),
 		}
-		if CombatConstants.combat_debug_active():
-			item["guard_line"] = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
-			item["guard_angle_deg"] = CombatConstants.get_guard_angle_deg(c)
 		_UiHints.stamp_snapshot_hint_fields(item, c, manager)
+		_copy_live_ui_fields(item, c)
+		if CombatConstants.combat_debug_active():
+			item["guard_angle_deg"] = CombatConstants.get_guard_angle_deg(c)
 		if _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
 			var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
 			if bool(pa.get(CombatConstants.PA_KEY_COUNTER_TEMPO, false)):

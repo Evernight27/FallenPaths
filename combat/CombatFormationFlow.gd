@@ -3,12 +3,11 @@ extends RefCounted
 
 ## Formation moves, resolve events, slot plug on death, hit reaction delays on pending formation events.
 ##
-## Plug order (see docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md Â§4): **intrusion slot writes** first (crash success),
-## then **vacancy plug** on the home formation (empty rank-0 without death). **Death plug** stays in
+## **Vacancy plug** on the home formation (empty rank-0 without death). **Death plug** stays in
 ## `on_combatant_died` only; same-tick ordering avoids mixing vacancy with death removal.
 ##
-## **Fill vs wedge/posture:** vacancy/death/pair moves are **orthogonal** to `intrusion_wedge_by_file` and engagement posture;
-## they only share `lane_offset` repack when rank/file changes. Wedge does not drive who promotes â€” **slots + rules** do.
+## **Fill vs posture:** vacancy/death/pair moves are orthogonal to engagement posture;
+## `lane_offset` repacks to column center when rank/file changes.
 ##
 ## **Vacancy reconcile:** `reconcile_vacancy_plugs` (dirty-only when `COMBAT_VACANCY_RECONCILE_DIRTY_ONLY`) or full
 ## `reconcile_vacancy_plugs_track_changed_fids`; per-file work in `reconcile_vacancy_plugs_formation`. **`finish_vacancy_reconcile_follow_up`**
@@ -26,12 +25,11 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
-const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
-const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _Timing := preload("res://combat/CombatTiming.gd")
 const _VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
 const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 
 ## Tier 1.3 P4: after rank/file changes from plugs or formation moves, keep `lane_offset` bounded (Â§4.2 repack).
@@ -39,14 +37,7 @@ const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 static func repack_lane_offset_after_rank_file_change(c: Dictionary) -> void:
 	if c.is_empty():
 		return
-	if _ZoneOfControl.is_intruded(c):
-		c["lane_offset"] = clampf(
-			CombatConstants.INTRUSION_INTRUDER_LANE_OFFSET_BIAS,
-			-CombatConstants.LANE_OFFSET_ABS_MAX,
-			CombatConstants.LANE_OFFSET_ABS_MAX
-		)
-	else:
-		c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
+	c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
 
 
 static func formation_has_frontline_fill_opportunity(manager: Node, fid: String) -> bool:
@@ -183,10 +174,6 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
 	if init.is_empty() or partner.is_empty() or not _EntityAccess.is_available_formation_partner(init, partner):
 		return
-	if _ZoneOfControl.is_intruded(init):
-		return
-	if _ZoneOfControl.is_intruded(partner):
-		return
 	if _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
 		return
 	var fid: String = _EntityAccess.formation_id_str(init)
@@ -242,8 +229,6 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
 	if init.is_empty() or not _EntityAccess.alive_bool(init):
 		return
-	if _ZoneOfControl.is_intruded(init):
-		return
 	var fid: String = _EntityAccess.formation_id_str(init)
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
@@ -277,10 +262,6 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
 	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
 	if init.is_empty() or partner.is_empty() or not _EntityAccess.is_available_formation_partner(init, partner):
-		return
-	if _ZoneOfControl.is_intruded(init):
-		return
-	if _ZoneOfControl.is_intruded(partner):
 		return
 	if _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
 		return
@@ -507,6 +488,14 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 	init.erase("formation_move_partner_id")
 	init.state = CombatConstants.STATE_WAITING
 	CombatDebug.flow_log("fall_back_solo_resolve id=%d complete rank 0->1 file %d" % [initiator_id, f])
+	if (
+		_OperationalLog.is_play_session_active()
+		and _EntityAccess.get_attacking_arm(init).is_empty()
+	):
+		_OperationalLog.play_combat(
+			"cowering_fall_back executed %s rank 0->1 file %d"
+			% [_EntityAccess.get_display_name(init, initiator_id), f]
+		)
 	manager.emit_signal("action_resolved", initiator_id, initiator_id, {"outcome": "fall_back_solo_complete", "dmg": 0, "died": false})
 	manager._recompute_zoc_and_distance()
 	manager.notify_formation_changed(fid)
@@ -573,101 +562,7 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 	_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 	_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
 
-
-## After crash success: clear intruder from home `slots`, place in host anchor **column** at first free rank â‰¥ 1 (behind their line), align rank/file, vacancy plug home column.
-static func apply_intrusion_after_crash_success(
-	manager: Node,
-	atk: Dictionary,
-	_defender_id: int,
-	defender_formation_id: String,
-	defender_file: int,
-	breach_severity: float = -1.0
-) -> void:
-	if manager == null or atk.is_empty():
-		return
-	var fid_a: String = _EntityAccess.formation_id_str(atk)
-	if fid_a.is_empty() or defender_formation_id.is_empty():
-		return
-	var form_a: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid_a)
-	var form_b: Dictionary = _FormationSlots.formation_record_for_manager(manager, defender_formation_id)
-	if form_a.is_empty() or form_b.is_empty():
-		return
-	var aid: int = _EntityAccess.id_int(atk)
-	if aid < 0:
-		return
-	var stored_home: int = int(atk.get("intrusion_source_file", -1))
-	var first_intrusion: bool = stored_home < 0
-	var home_vacancy_file: int = _EntityAccess.file_int(atk) if first_intrusion else stored_home
-	for fk in manager.formations.keys():
-		var fd: Dictionary = _FormationSlots.formation_record_for_manager(manager, str(fk))
-		if fd.is_empty():
-			continue
-		_FormationSlots.remove_combatant_from_slots(_FormationSlots.formation_slots_dict(fd), aid)
-	var slots_b: Dictionary = _FormationSlots.formation_slots_dict(form_b)
-	var host_ranks: int = maxi(1, int(form_b.get("ranks", 1)))
-	var placed_rank: int = _FormationSlots.place_intruder_behind_front_line(manager, slots_b, host_ranks, defender_file, aid)
-	atk["rank"] = placed_rank
-	atk["file"] = defender_file
-	var sev_use: float = breach_severity
-	if sev_use < 0.0:
-		var bf0: Dictionary = _FormationSlots.formation_nested_dictionary_read(form_b, "breached_files")
-		sev_use = _FormationBreachRules.breached_file_severity(bf0, defender_file, 0.7)
-	_IntrusionWedge.upsert_from_intrusion(
-		form_b,
-		defender_file,
-		aid,
-		sev_use,
-		_EntityAccess.tactical_penetration_depth_int(atk),
-		CombatConstants.TACTICAL_PENETRATION_DEPTH_MAX
-	)
-	repack_lane_offset_after_rank_file_change(atk)
-	_nudge_anchor_rank0_lane_offset_for_intrusion(manager, defender_formation_id, defender_file, aid)
-	if first_intrusion:
-		atk["intrusion_source_file"] = home_vacancy_file
-		apply_vacancy_plug_same_file(manager, fid_a, home_vacancy_file)
-	manager._reschedule_back_rank_turns(fid_a)
-	manager._reschedule_back_rank_turns(defender_formation_id)
-
-
-## Â§4.2: nudge anchor rank-0 defender on host file slightly opposite intruder seam bias (anti-overlap).
-static func _nudge_anchor_rank0_lane_offset_for_intrusion(
-	manager: Node,
-	defender_formation_id: String,
-	anchor_file: int,
-	intruder_id: int
-) -> void:
-	if manager == null:
-		return
-	var form_b: Dictionary = _FormationSlots.formation_record_for_manager(manager, defender_formation_id)
-	if form_b.is_empty():
-		return
-	var slots_b: Dictionary = _FormationSlots.formation_slots_dict(form_b)
-	var occ: Array = _FormationSlots.normalize_cell(slots_b.get(Vector2i(0, anchor_file), []))
-	for did in occ:
-		var cid: int = int(did)
-		if cid == intruder_id:
-			continue
-		var defc: Dictionary = _EntityAccess.manager_get_combatant(manager, cid)
-		if defc.is_empty() or not _EntityAccess.alive_bool(defc):
-			continue
-		var d: Dictionary = defc as Dictionary
-		if _ZoneOfControl.is_intruded(d):
-			continue
-		if _EntityAccess.rank_int(d) != 0:
-			continue
-		if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, d, defender_formation_id):
-			continue
-		var cur: float = _EntityAccess.lane_offset_float(d)
-		d["lane_offset"] = clampf(
-			cur - CombatConstants.INTRUSION_ANCHOR_LANE_OFFSET_NUDGE,
-			-CombatConstants.LANE_OFFSET_ABS_MAX,
-			CombatConstants.LANE_OFFSET_ABS_MAX
-		)
-		break
-
-
 static func on_combatant_died(manager: Node, c: Dictionary) -> void:
-	_IntrusionWedge.remove_intruder_from_all_wedges(manager, _EntityAccess.id_int(c))
 	var fid_home: String = _EntityAccess.formation_id_str(c)
 	var ctx_geom: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, c)
 	var fid_geom: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_geom)

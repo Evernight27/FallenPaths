@@ -35,7 +35,7 @@ const PENETRATION_EXPONENT: float = 0.6  # 1/1.67; thicker armor needs dispropor
 const VELOCITY_MIN_M_S: float = 6.0
 const VELOCITY_MAX_M_S: float = 24.0
 # Pre-armor damage: scale * sqrt(KE) * strength_mod * arm_mod. 2.0 aligns severance with research (~100 J arm, ~200 J leg).
-# Severance tuning narrative: docs/PHYSICS_DAMAGE_AND_FLOW.md (embedded RESEARCHED_NUMBERS / damage tables).
+# Severance tuning narrative: docs/LIVE_PATHS.md#research-audit + .calibration_audit.txt.
 const DAMAGE_KE_SCALE: float = 2.0
 const DAMAGE_KE_MIN: float = 1.0
 const DAMAGE_KE_MAX: float = 80.0
@@ -115,12 +115,12 @@ static func _move_definitions_build() -> Dictionary:
 	return {
 		# Sword (Liechtenauer/KDF): thrust, Oberhau, Unterhau, horizontal (Zwerchau-style), pommel, parry-counters
 		"thrust": {"name": "Point thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.2, "attack_line": "high", "preferred_parts": ["chest"], "impact_station_mean": 0.76, "impact_station_spread": 0.0},
-		"oberhau": {"name": "Downward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.4, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.78, "impact_station_mean": 0.70, "impact_station_spread": 0.05},
+		"oberhau": {"name": "Downward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.4, "attack_line": "high_right", "preferred_parts": ["head"], "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.78, "impact_station_mean": 0.70, "impact_station_spread": 0.05},
 		# Tier 4.2: optional feint_windup_duration_mult (>1) — extra wind-up vs same-archetype honest cut (two-line commitment cost).
-		"oberhau_feint": {"name": "Feint high, cut low", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.6, "attack_line": "high", "preferred_parts": ["head"], "is_feint": true, "feint_windup_duration_mult": 1.1, "feint_target_reveal_at_progress": 0.45, "angle_variance_deg": 12, "impact_station_mean": 0.58, "impact_station_spread": 0.06},
+		"oberhau_feint": {"name": "Feint high, cut low", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.6, "attack_line": "high_right", "preferred_parts": ["head"], "is_feint": true, "feint_windup_duration_mult": 1.1, "feint_target_reveal_at_progress": 0.45, "angle_variance_deg": 10, "impact_station_mean": 0.58, "impact_station_spread": 0.06},
 		# Tier 4.2: stab feint — feint_target_reveal_at_progress earlier than oberhau_feint (faster thrust telegraph); feint_windup_duration_mult < cut feint (stab archetype already tighter).
 		"thrust_feint": {"name": "Feint line, thrust true", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.4, "attack_line": "high", "preferred_parts": ["chest"], "is_feint": true, "feint_windup_duration_mult": 1.07, "feint_target_reveal_at_progress": 0.4, "angle_variance_deg": 9, "impact_station_mean": 0.62, "impact_station_spread": 0.05},
-		"unterhau": {"name": "Upward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.2, "attack_line": "low", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.74, "impact_station_mean": 0.66, "impact_station_spread": 0.05},
+		"unterhau": {"name": "Upward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.2, "attack_line": "low_left", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.74, "impact_station_mean": 0.66, "impact_station_spread": 0.05},
 		"slash": {"name": "Horizontal cut (cross)", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.0, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm", "chest"], "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.72, "impact_station_mean": 0.64, "impact_station_spread": 0.05},
 		"pommel_strike": {"name": "Pommel strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_POMMEL, "base_cooldown": 1.8, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 9, "impact_station_mean": 0.16, "impact_station_spread": 0.0},
 		"parry_thrust": {"name": "Parry and thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.0, "is_parry": true, "attack_line": "high", "preferred_parts": ["chest"], "impact_station_mean": 0.74, "impact_station_spread": 0.03},
@@ -128,7 +128,7 @@ static func _move_definitions_build() -> Dictionary:
 		# Axe (Le Jeu de la Hache): spike, overhead chop, diagonal chop, poll
 		"spike_thrust": {"name": "Spike thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 3.2, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 9, "weapon_extension_commit_fraction": 0.58, "impact_station_mean": 0.80, "impact_station_spread": 0.0},
 		"overhead_chop": {"name": "Overhead chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 3.5, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 12, "weapon_extension_commit_fraction": 0.80, "impact_station_mean": 0.72, "impact_station_spread": 0.06},
-		"diagonal_chop": {"name": "Diagonal chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 3.0, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm", "chest"], "angle_variance_deg": 11, "impact_station_mean": 0.68, "impact_station_spread": 0.06},
+		"diagonal_chop": {"name": "Diagonal chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 3.0, "attack_line": "high_left", "preferred_parts": ["left_arm", "right_arm", "chest"], "angle_variance_deg": 11, "impact_station_mean": 0.68, "impact_station_spread": 0.06},
 		"poll_strike": {"name": "Back-of-head strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 11, "impact_station_mean": 0.22, "impact_station_spread": 0.0},
 		"parry_chop": {"name": "Parry and chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 3.0, "is_parry": true, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm"], "impact_station_mean": 0.64, "impact_station_spread": 0.06},
 		# Mace: overhead, side, direct — heavy weapon, more wobble

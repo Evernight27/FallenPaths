@@ -16,6 +16,8 @@ const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 
 ## Drop queued turns for this combatant once they are dead (bleed-out or fatal wound).
@@ -108,7 +110,7 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
 	if _EntityAccess.get_attacking_arm(c).is_empty():
 		c.state = CombatConstants.STATE_COWERING
 		var who_name: String = _EntityAccess.get_display_name(c)
-		print("[Combat] %s is cowering (no functional arms)." % who_name)
+		_CombatDebug.combat_session("%s is cowering (no functional arms)" % who_name)
 	else:
 		c.state = CombatConstants.STATE_WAITING
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
@@ -179,6 +181,7 @@ static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void
 	c["guard"] = minf(1.0, g + CombatConstants.GUARD_RISE_RATE * delta)
 	var s: float = _EntityAccess.stamina_float(c)
 	c["stamina"] = minf(CombatConstants.STAMINA_MAX, s + CombatConstants.STAMINA_REFILL_RATE * delta)
+	_Exhaustion.process_waiting_recovery(c, delta)
 	_CounterTempo.process_waiting(_manager, c)
 	_FlurryBind.process_waiting(_manager, c)
 	_UiHints.refresh_waiting_tick_stamps(_manager, c)

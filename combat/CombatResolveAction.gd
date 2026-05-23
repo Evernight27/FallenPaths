@@ -1,9 +1,8 @@
 class_name CombatResolveAction
 extends RefCounted
 
-## Player/AI action dispatch: medical, close, crash, formation moves, melee wind-up scheduling.
+## Player/AI action dispatch: medical, close, formation moves, melee wind-up scheduling.
 
-const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -18,6 +17,8 @@ const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _FormationFlee := preload("res://combat/CombatFormationFlee.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 
 
 static func is_medical_move(move_id: String) -> bool:
@@ -109,6 +110,8 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		var tgt_desc: String = "ally" if target_id != attacker_id else "self"
 		if not CombatDebug.flow_verbose_enabled():
 			CombatDebug.combat_session("action %s chose medical %s on part=%s (%s)" % [who, move_id, part, tgt_desc])
+		if _OperationalLog.is_play_session_active():
+			_F5SoakTrace.note_medical_action_pick(who, move_id, part, tgt_desc)
 		MedicalActionStarter.start(manager, attacker_id, target_id, move_id, part)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return true
@@ -130,16 +133,6 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 				"%s attempting to close on %s (tactical distance — pressure vs evasion roll)" % [atk_name, tgt_name]
 			)
 		return _commit_close_attempt_resolve(manager, attacker_id, target_id)
-	if move_id == CombatConstants.MOVE_ID_CRASH:
-		if _EntityAccess.rank_int(atk) != 0:
-			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "crash requires front rank")
-			return false
-		if _ZoneOfControl.is_intruded(atk):
-			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "intruder cannot crash")
-			return false
-		manager._resolve_crash_attempt(attacker_id, target_id)
-		manager.emit_signal("turn_resolved", attacker_id)
-		return true
 	if move_id in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK, CombatConstants.MOVE_ID_ROTATE_FILE]:
 		var move_policy: Dictionary = _EngagementMode.movement_policy(manager)
 		if move_id == CombatConstants.MOVE_ID_SWAP_RANK and not bool(move_policy.get("allow_swap_rank", false)):
@@ -163,7 +156,6 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			return false
 		var ctx_mv: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, atk)
 		var fid_mv: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_mv)
-		var f_mv: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_mv)
 		if move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id:
 			if not _FormationMoves.solo_fall_back_action_legal(manager, atk):
 				CombatDebug.resolve_action_rejected(
@@ -173,40 +165,33 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 					"solo fall_back not legal fid=%s" % fid_mv
 				)
 				return false
-		var breach_blocked: bool = false
-		if move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id:
-			breach_blocked = _FormationBreachRules.breach_blocks_open_lane_moves(manager, f_mv)
-		else:
+		if move_id != CombatConstants.MOVE_ID_FALL_BACK or target_id != attacker_id:
 			var partner_mv: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
 			if partner_mv.is_empty() or not _EntityAccess.is_available_formation_partner(atk, partner_mv):
 				CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "invalid formation partner")
 				return false
-			breach_blocked = _FormationBreachRules.resolve_blocks_formation_move(
-				manager, f_mv, move_id, atk, partner_mv
-			)
-		if breach_blocked:
-			CombatDebug.resolve_action_rejected(
-				manager,
-				attacker_id,
-				move_id,
-				"breach blocks formation move fid=%s breached[%s]"
-				% [
-					fid_mv,
-					CombatDebug.format_breached_files(
-						_FormationSlots.formation_nested_dictionary_read(f_mv, "breached_files")
-					),
-				]
-			)
-			return false
 	if move_id == CombatConstants.MOVE_ID_SWAP_RANK:
+		if _OperationalLog.is_play_session_active():
+			_F5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
 		manager._start_formation_pair_move(attacker_id, target_id, "swap_rank")
 		manager.emit_signal("turn_resolved", attacker_id)
 		return true
 	if move_id == CombatConstants.MOVE_ID_DRAG_BACK:
+		if _OperationalLog.is_play_session_active():
+			_F5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
 		manager._start_formation_pair_move(attacker_id, target_id, "drag_back")
 		manager.emit_signal("turn_resolved", attacker_id)
 		return true
 	if move_id == CombatConstants.MOVE_ID_FALL_BACK:
+		if _OperationalLog.is_play_session_active():
+			var fb_tag: String = (
+				"cowering_fall_back"
+				if _EntityAccess.state_str(atk) == CombatConstants.STATE_COWERING
+				else "fall_back"
+			)
+			_OperationalLog.play_combat(
+				"%s pick %s target_id=%d" % [fb_tag, _EntityAccess.get_display_name(atk, attacker_id), target_id]
+			)
 		if target_id == attacker_id:
 			manager._start_fall_back_solo(attacker_id)
 		else:
@@ -217,9 +202,8 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		if _EntityAccess.rank_int(atk) != 0:
 			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "rotate_file requires front rank")
 			return false
-		if _ZoneOfControl.is_intruded(atk):
-			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "intruder cannot rotate_file")
-			return false
+		if _OperationalLog.is_play_session_active():
+			_F5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
 		manager._start_rotate_file(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return true

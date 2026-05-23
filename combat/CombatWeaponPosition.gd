@@ -1,7 +1,7 @@
 class_name CombatWeaponPosition
 extends RefCounted
 
-## Defender blade reach for passive parry capacity (near body vs extended). See **`TACTICAL_FORMATIONS_FF4`** Part 4b.
+## Defender blade reach for passive parry capacity (near body vs extended). See CombatConstants / LIVE_PATHS Tier 3.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
@@ -67,6 +67,11 @@ static func _commit_fraction_for_weapon_extension(pa: Dictionary) -> float:
 	if not mid.is_empty():
 		return commit_fraction_from_move_def(_WeaponConstants.get_move(mid))
 	return CombatConstants.WEAPON_EXTENDED_COMMIT_FRACTION
+
+
+## Live strike delivery: extension commit for KE/cut (pending_attack stamp or move def).
+static func delivery_commit_fraction_from_pa(pa: Dictionary) -> float:
+	return _commit_fraction_for_weapon_extension(pa)
 
 
 ## Multiplier on defender **`parry_c_d`** when the blade is extended (recovering from own attack, etc.).

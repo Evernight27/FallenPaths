@@ -1,0 +1,62 @@
+class_name CombatDesignAnchors
+extends RefCounted
+
+## Single source for cross-module combat design anchors (KE, mass, blood mL, human display caps).
+## Consumers: `SpeciesResource`, `TissueEnergyCapacity`, `BloodVolumeMl`, `WeaponDamageHelper`,
+## `MaterialFailureCurves`, `CombatCalibrationAudit`, harness simulation, `CombatResearchAnchors`.
+
+const _Bleeding := preload("res://core/BleedingConstants.gd")
+
+## Narrative committed-strike KE (J) for arm / leg slots (S1 delivery, S5 derived limbs, M6 pool).
+const DESIGN_KE_ARM_J := 100.0
+const DESIGN_KE_LEG_J := 200.0
+
+## Adult reference mass (kg) — matches `species/human.tres` `reference_body_mass_kg`.
+const REFERENCE_ADULT_MASS_KG := 75.0
+
+## Whole-blood volume scaling (StatPearls / transfusion texts).
+const REFERENCE_BLOOD_ML_PER_KG := 70.0
+const REFERENCE_BLOOD_VOLUME_ML_ADULT := REFERENCE_ADULT_MASS_KG * REFERENCE_BLOOD_ML_PER_KG
+
+## `human.tres` tissue integer sum (10+30+12+12+16+16); scales inferred mass when `reference_body_mass_kg` unset.
+const REFERENCE_HUMAN_TISSUE_SUM := 96
+
+## Human hand-export tissue display caps (energy pool ↔ J capacity).
+const REFERENCE_HUMAN_ARM_TISSUE_DISPLAY := 12
+const REFERENCE_HUMAN_LEG_TISSUE_DISPLAY := 16
+
+## HEMA committed oberhau strict audit band (S1 / `.calibration_audit.txt` `audit_KE_arm_strict_70-140J`).
+const COMMITTED_STRIKE_KE_J_MIN := 70.0
+const COMMITTED_STRIKE_KE_J_MAX := 140.0
+
+## Reference committed arm KE (oberhau i=1 + extension commit; M1/M2 curve anchors).
+const REFERENCE_COMMITTED_OBERHAU_KE_J := 137.0
+
+## Material curve ultimate pen = S8 severity full depth + offset (6.0 mm at current tuning).
+const CUT_TISSUE_ULTIMATE_PEN_OFFSET_MM := 1.0
+
+
+static func design_ke_j_for_part(part: String) -> float:
+	if part.ends_with("_leg"):
+		return DESIGN_KE_LEG_J
+	return DESIGN_KE_ARM_J
+
+
+static func reference_tissue_display_for_part(part: String) -> int:
+	if part.ends_with("_leg"):
+		return REFERENCE_HUMAN_LEG_TISSUE_DISPLAY
+	return REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
+
+
+static func cut_tissue_ultimate_pen_mm() -> float:
+	return _Bleeding.PENETRATION_DEPTH_SEVERITY_FULL_MM + CUT_TISSUE_ULTIMATE_PEN_OFFSET_MM
+
+
+static func reference_blood_volume_ml_for_mass(reference_mass_kg: float) -> float:
+	if reference_mass_kg <= 0.0:
+		return REFERENCE_BLOOD_VOLUME_ML_ADULT
+	return REFERENCE_BLOOD_ML_PER_KG * reference_mass_kg
+
+
+static func committed_strike_ke_in_strict_band(ke_j: float) -> bool:
+	return ke_j >= COMMITTED_STRIKE_KE_J_MIN and ke_j <= COMMITTED_STRIKE_KE_J_MAX

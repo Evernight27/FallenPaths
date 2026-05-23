@@ -3,19 +3,16 @@ extends RefCounted
 
 ## Phase 4: Zone of control per formation (front, left_flank, right_flank, rear).
 ## Control 0..1 from alive/capacity, casualties in slots, and cross-zone support.
-## **`assign_combatant_zones`**, **`count_alive_in_zone`** (zone strength), and ZoC **engagement parry** use **`zone_geometry_for_combatant`** / **`zone_geometry_fid_str`**
-## so intruders read **host** `files`/`ranks`/`zone_control` (their `rank`/`file` are on the defender grid; home `formation_id` stays roster-side).
-## See docs/COMBAT_ROADMAP_AND_STAMINA.md Phase 4.
+## **`assign_combatant_zones`**, **`count_alive_in_zone`** (zone strength), and ZoC **engagement parry** use **`zone_geometry_for_combatant`** / **`zone_geometry_fid_str`** (home **`formation_id`**).
+## ZoC / engagement — docs/LIVE_PATHS.md#tier-1-spec.
 ##
-## Zone geometry API (host line vs home roster):
-## - Host-line fid only: **`zone_geometry_fid_str`**
-## - Formation dict on that line: **`formation_for_combatant_cached`** (pass **`zone_geometry_line_context(...).formation`** as cache)
-## - Fid + formation (one resolve): **`zone_geometry_line_context`** → **`zone_geometry_fid_from_pack`** / **`zone_geometry_formation_from_pack`**
+## Zone geometry API (D-008: home **`formation_id`** only — intrusion host-line removed):
+## - **`zone_geometry_fid_str`** / **`formation_for_combatant_cached`**
+## - One resolve: **`zone_geometry_line_context`** → **`zone_geometry_fid_from_pack`** / **`zone_geometry_formation_from_pack`**
 ## - Per-pass cache: **`zone_geometry_line_context_by_combatant_id`**
 ## - Pair: **`zone_geometry_for_pair`** + **`zone_geometry_*_from_pair_pack`**
-## - Snapshot/UI row: **`zone_geometry_fid_from_row`** (stamped **`zone_geometry_fid`**, else resolve)
-## - Home roster / doctrine: **`CombatantEntityAccess.formation_id_str`** (not host-line fid)
-## Legacy aliases: **`formation_id_for_zone_geometry`**, **`formation_dict_for_zone_geometry`**.
+## - Snapshot/UI row: **`zone_geometry_fid_from_row`**
+## Aliases: **`formation_id_for_zone_geometry`**, **`formation_dict_for_zone_geometry`**.
 
 const ZONE_FRONT := "front"
 const ZONE_LEFT_FLANK := "left_flank"
@@ -39,29 +36,7 @@ static func is_zoc_flanking_enabled(manager: Node) -> bool:
 	return not bool((enc as Dictionary).get(_ENCOUNTER_PROTECTION_CIRCLE_KEY, false))
 
 
-## `engagement_role` is intruded on a host formation (P4 wedge / crash lodging).
-static func is_intruded(c: Dictionary) -> bool:
-	return str(c.get("engagement_role", "")) == CombatConstants.ENGAGEMENT_ROLE_INTRUDED
-
-
-## `intrusion_host_fid` as string (empty if unset).
-static func intrusion_host_fid(c: Dictionary) -> String:
-	return str(c.get("intrusion_host_fid", ""))
-
-
-## Intruders use **host** formation ZoC (they occupy host `slots`); line fighters use `formation_id`.
-## When `manager` is non-null, missing/empty host formation dict falls back to home `formation_id` (stale-flag guard; same rule as pair-distance geometry).
-static func _resolve_zone_geometry_fid(manager: Node, c: Dictionary) -> String:
-	if is_intruded(c):
-		var hf: String = intrusion_host_fid(c)
-		if not hf.is_empty():
-			if manager != null and manager.get("formations"):
-				var fm: Dictionary = manager.formations
-				var host_form: Variant = fm.get(hf, null)
-				if host_form is Dictionary and not (host_form as Dictionary).is_empty():
-					return hf
-			else:
-				return hf
+static func _resolve_zone_geometry_fid(_manager: Node, c: Dictionary) -> String:
 	return _EntityAccess.formation_id_str(c)
 
 
@@ -208,26 +183,11 @@ static func zone_geometry_formation_from_pack(zg: Dictionary) -> Dictionary:
 	return f as Dictionary if f is Dictionary else {}
 
 
-## True when **`combatant`**'s zone-geometry **`fid`** equals **`fid`** (host line for intruders).
+## True when **`combatant`**'s zone-geometry **`fid`** equals **`fid`**.
 static func combatant_on_zone_geometry_fid(manager: Node, combatant: Dictionary, fid: String) -> bool:
 	if fid.is_empty() or combatant.is_empty():
 		return false
 	return zone_geometry_fid_from_row(manager, combatant) == fid
-
-
-## Intruder whose `intrusion_host_fid` is set and equals `host_fid` (home formation column / host line id).
-static func intruder_on_host_formation(intruder: Dictionary, host_fid: String) -> bool:
-	if not is_intruded(intruder):
-		return false
-	var hid: String = intrusion_host_fid(intruder)
-	if hid.is_empty():
-		return false
-	return hid == str(host_fid)
-
-
-## True when `intruder` is lodged on `home_fighter`'s home formation (`formation_id`).
-static func intruder_contests_home_line_fighter(intruder: Dictionary, home_fighter: Dictionary) -> bool:
-	return intruder_on_host_formation(intruder, _EntityAccess.formation_id_str(home_fighter))
 
 
 ## Rank 0: front center, left/right edge, or whole front when files==1. Rank 1+: rear.
@@ -242,7 +202,7 @@ static func zone_for_cell(files: int, _ranks: int, rank: int, file: int) -> Stri
 		return ZONE_RIGHT_FLANK
 	return ZONE_FRONT
 
-## Alive combatants whose **zone geometry** formation is `fid` (host line for intruders; home `formation_id` otherwise), in `zone`.
+## Alive combatants whose **zone geometry** formation is `fid` (home `formation_id`), in `zone`.
 static func count_alive_in_zone(manager: Node, fid: String, zone: String) -> int:
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
@@ -328,7 +288,7 @@ static func _raw_zone_strength(manager: Node, fid: String, zone: String) -> floa
 	return maxf(0.0, base - obs_pen - inc_pen)
 
 
-## 0..1 per-file lane stress. Written by TacticalCombat (dual living, density, breach_local, intrusion wedge); ZoC reads it here — not bodies (see obs_pen).
+## 0..1 per-file lane stress. Written by TacticalCombat (dual living, density); ZoC reads it here — not bodies (see obs_pen).
 static func _lane_stress_for_zone(formation: Dictionary, zone: String) -> float:
 	var ls: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "lane_stress_by_file")
 	if ls.is_empty():

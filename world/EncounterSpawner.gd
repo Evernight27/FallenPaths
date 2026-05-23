@@ -2,6 +2,7 @@ class_name EncounterSpawner
 extends RefCounted
 
 const _EncounterNodeScript := preload("res://world/EncounterNode.gd")
+const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 
 ## Spawns encounter markers on the world map. One square per encounter.
 ## Enemies are spawned when combat starts (EncounterNode.spawn_enemies).
@@ -50,6 +51,59 @@ static func _spawn_encounter_marker(parent: Node, rng: RandomNumberGenerator, en
 		parent.add_child(encounter)
 		return tile
 	return null
+
+
+## Dev soak marker (e.g. **`SoakEncounterPresets.PRESET_II2B_SWORD_DUEL`**) on first free tile.
+static func spawn_soak_encounter_marker(
+	parent: Node,
+	preset_id: String,
+	rng: RandomNumberGenerator,
+	enemy_scene: PackedScene,
+	excluded_tiles: Array = [],
+	preferred_tiles: Array = []
+) -> Variant:
+	if preset_id.is_empty():
+		return null
+	var scene := enemy_scene
+	if scene == null:
+		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
+	if scene == null:
+		return null
+	var skip: Array = excluded_tiles.duplicate()
+	if parent.has_node("Character"):
+		skip.append(_tile_coords(parent.get_node("Character").position))
+	for child in parent.get_children():
+		if child.get_script() == _EncounterNodeScript:
+			skip.append(_tile_coords(child.position))
+	var candidates: Array = []
+	for pt in preferred_tiles:
+		if pt is Vector2i and pt not in skip:
+			candidates.append(pt)
+	for tries in range(100):
+		var tile: Vector2i
+		if tries < candidates.size():
+			tile = candidates[tries] as Vector2i
+		else:
+			tile = Vector2i(rng.randi_range(0, 2), rng.randi_range(0, 2))
+		if tile in skip:
+			continue
+		var encounter = _EncounterNodeScript.new()
+		encounter.position = Vector2(tile.x * TILE_SIZE + 32, tile.y * TILE_SIZE + 32)
+		encounter.enemy_scene = scene
+		if not _SoakPresets.apply_preset(encounter, preset_id):
+			return null
+		parent.add_child(encounter)
+		return tile
+	return null
+
+
+static func equip_weapon_id(entity: Node, weapon_id: String) -> void:
+	if entity == null or weapon_id.is_empty():
+		return
+	var w = Weapon.create_from_definition(weapon_id)
+	if w != null and entity.has_method("equip_weapon"):
+		entity.equip_weapon(w)
+
 
 static func equip_random_equipment(entity: Node, rng: RandomNumberGenerator) -> void:
 	if entity == null:

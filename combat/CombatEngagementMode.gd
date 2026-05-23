@@ -9,7 +9,6 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _MODE_FORMATION := "formation"
 const _MODE_SKIRMISH := "skirmish"
 const _MODE_DUEL := "duel"
@@ -43,7 +42,7 @@ static func mode_display_name(mode_name: String) -> String:
 			return "Skirmish"
 
 
-## Rank-0 **native** line for this formation: same `side` as the formation owner (excludes enemy intruders on host files).
+## Rank-0 **native** line for this formation: same `side` as the formation owner.
 static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
 	var n: int = 0
 	if manager == null:
@@ -92,7 +91,6 @@ static func snapshot(manager: Node) -> Dictionary:
 	var ef: int = _front_files_for_side(manager, "enemy")
 	var p_fill: float = clampf(float(p) / float(pf), 0.0, 1.0)
 	var e_fill: float = clampf(float(e) / float(ef), 0.0, 1.0)
-	var active_intrusions: int = active_intrusions_count(manager)
 	var raw_mode: String = _MODE_SKIRMISH
 	if CombatConstants.SKIRMISH_WHEN_EITHER_SIDE_ZERO_FRONT and (p == 0 or e == 0):
 		raw_mode = _MODE_SKIRMISH
@@ -122,61 +120,9 @@ static func snapshot(manager: Node) -> Dictionary:
 		"enemy_front": e,
 		"player_front_fill": p_fill,
 		"enemy_front_fill": e_fill,
-		"active_intrusions": active_intrusions,
 		"raw_mode": raw_mode,
 		"raw_mode_code": mode_code(raw_mode),
 	}
-
-
-static func active_intrusions_count(manager: Node) -> int:
-	if manager == null:
-		return 0
-	var n: int = 0
-	for c in manager.combatants:
-		if not _EntityAccess.alive_bool(c):
-			continue
-		if not _ZoneOfControl.is_intruded(c):
-			continue
-		n += 1
-	return n
-
-
-## Alive intruders from this **attacking** side (home `side`; `engagement_role` intruded on host formation).
-static func active_intruder_count_for_side(manager: Node, side: String) -> int:
-	var n: int = 0
-	if manager == null or side.is_empty():
-		return 0
-	for c in manager.combatants:
-		if not _EntityAccess.is_living_on_side(c, side):
-			continue
-		if not _ZoneOfControl.is_intruded(c):
-			continue
-		n += 1
-	return n
-
-
-## Empty if this unit may attempt crash intrusion; otherwise a short reason for logs / debug.
-static func crash_intrusion_attacker_block_reason(manager: Node, attacker: Dictionary) -> String:
-	if not CombatConstants.FEATURE_LINE_CRASH_INTRUSION:
-		return "intrusion_disabled"
-	if attacker.is_empty():
-		return "no_attacker"
-	var side: String = _EntityAccess.side_str(attacker)
-	if side.is_empty():
-		return "no_side"
-	if active_intruder_count_for_side(manager, side) >= int(CombatConstants.MAX_INTRUDERS_PER_SIDE):
-		return "intruder_cap"
-	var n: Node = _EntityAccess.scene_node(attacker)
-	var mass: float = _EntityAccess.get_total_armor_mass_kg_from_node(n)
-	if mass + 0.001 < float(CombatConstants.CRASH_INTRUSION_MIN_ARMOR_MASS_KG):
-		return "light_armor"
-	if CombatConstants.crash_breach_viability(attacker) + 0.0001 < float(CombatConstants.CRASH_BREACH_VIABILITY_MIN):
-		return "low_breach_power"
-	return ""
-
-
-static func crash_intrusion_attacker_allowed(manager: Node, attacker: Dictionary) -> bool:
-	return crash_intrusion_attacker_block_reason(manager, attacker).is_empty()
 
 
 static func can_enter_formation_from_snapshot(snap: Dictionary) -> bool:
@@ -209,29 +155,6 @@ static func can_stay_formation_from_snapshot(snap: Dictionary) -> bool:
 	)
 
 
-static func should_stick_formation_for_active_intrusions(snap: Dictionary) -> bool:
-	var p: int = int(snap.get("player_front", 0))
-	var e: int = int(snap.get("enemy_front", 0))
-	var intrusions: int = int(snap.get("active_intrusions", 0))
-	if intrusions <= 0:
-		return false
-	# Graceful downgrade: keep formation behavior while any intrusion is still active,
-	# unless a side has no front line or the fight has clearly collapsed into a duel.
-	if CombatConstants.SKIRMISH_WHEN_EITHER_SIDE_ZERO_FRONT and (p == 0 or e == 0):
-		return false
-	if (
-		int(snap.get("player_active", 0)) <= int(CombatConstants.ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE)
-		or int(snap.get("enemy_active", 0)) <= int(CombatConstants.ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE)
-	):
-		return false
-	if (
-		p <= int(CombatConstants.DUEL_MAX_FRONT_FIGHTERS_PER_SIDE)
-		and e <= int(CombatConstants.DUEL_MAX_FRONT_FIGHTERS_PER_SIDE)
-	):
-		return false
-	return true
-
-
 static func engagement_mode(manager: Node) -> String:
 	var snap: Dictionary = snapshot(manager)
 	var raw_mode: String = str(snap.get("raw_mode", _MODE_SKIRMISH))
@@ -244,36 +167,21 @@ static func engagement_mode(manager: Node) -> String:
 		if still_has_line:
 			manager.set_meta(_MODE_CACHE_META, _MODE_FORMATION)
 			return _MODE_FORMATION
-		if should_stick_formation_for_active_intrusions(snap):
-			manager.set_meta(_MODE_CACHE_META, _MODE_FORMATION)
-			return _MODE_FORMATION
 	manager.set_meta(_MODE_CACHE_META, raw_mode)
 	return raw_mode
 
 
-static func incursion_allowed(manager: Node) -> bool:
-	if not CombatConstants.FEATURE_LINE_CRASH_INTRUSION:
-		return false
-	return engagement_mode(manager) == _MODE_FORMATION
-
-
 ## Canonical movement policy by resolved engagement mode.
-## Keeps "which moves are legal" attached to mode thresholds/hysteresis in one place.
 static func movement_policy(manager: Node) -> Dictionary:
-	var snap: Dictionary = snapshot(manager)
 	var mode_now: String = engagement_mode(manager)
-	var intrusions: int = int(snap.get("active_intrusions", 0))
-	var stable_line: bool = mode_now == _MODE_FORMATION and intrusions == 0
-	var allow_line_maneuvers: bool = stable_line
+	var stable_line: bool = mode_now == _MODE_FORMATION
 	return {
 		"mode": mode_now,
 		"mode_code": mode_code(mode_now),
-		"active_intrusions": intrusions,
-		"allow_crash": mode_now == _MODE_FORMATION and CombatConstants.FEATURE_LINE_CRASH_INTRUSION,
-		"allow_swap_rank": allow_line_maneuvers,
-		"allow_drag_back": allow_line_maneuvers,
-		"allow_fall_back": allow_line_maneuvers,
-		"allow_rotate_file": allow_line_maneuvers,
+		"allow_swap_rank": stable_line,
+		"allow_drag_back": stable_line,
+		"allow_fall_back": stable_line,
+		"allow_rotate_file": stable_line,
 	}
 
 
@@ -283,13 +191,12 @@ static func mode_summary_line(manager: Node) -> String:
 	var mode_now: String = engagement_mode(manager)
 	var mode_now_code: int = mode_code(mode_now)
 	return (
-		"mode=%s(%d) raw=%s(%d) intrusions=%d active[player=%d enemy=%d] front[player=%d enemy=%d] fill[player=%.2f enemy=%.2f]"
+		"mode=%s(%d) raw=%s(%d) active[player=%d enemy=%d] front[player=%d enemy=%d] fill[player=%.2f enemy=%.2f]"
 		% [
 			mode_now,
 			mode_now_code,
 			str(snap.get("raw_mode", _MODE_SKIRMISH)),
 			int(snap.get("raw_mode_code", mode_code(str(snap.get("raw_mode", _MODE_SKIRMISH))))),
-			int(snap.get("active_intrusions", 0)),
 			int(snap.get("player_active", 0)),
 			int(snap.get("enemy_active", 0)),
 			int(snap.get("player_front", 0)),

@@ -4,6 +4,8 @@ class_name CoreEntity
 
 # BleedingConstants is class_name in core/_Bleeding.gd; preload for linter/standalone parse
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _BloodVolumeMl := preload("res://core/BloodVolumeMl.gd")
+const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
 const _Healing := preload("res://core/HealingConstants.gd")
 const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
 const _EntityMedical := preload("res://core/EntityMedical.gd")
@@ -14,6 +16,8 @@ const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 const _EntityDamage := preload("res://core/EntityDamage.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _EntityEquipment := preload("res://core/EntityEquipment.gd")
+const _CombatLayerTissue := preload("res://core/CombatLayerTissue.gd")
+const _TissueEnergyCapacity := preload("res://core/TissueEnergyCapacity.gd")
 
 @export var species: Resource = null
 
@@ -40,13 +44,23 @@ var weapon = null
 # wounds[part] = Array of injury dicts. Each wound has individual healing: created_at_game_time, healing_duration_seconds.
 # Pain contribution = damage × severity_mult × (1 - healing_progress); wounds are removed when progress >= _Healing.WOUND_RESOLVED_THRESHOLD.
 var wounds: Dictionary = {}  # part (String) -> Array of Dictionary
+## M3: per-part soft-tissue layer integrity (`intact` | `damaged` | `ruptured`); reset on `apply_species`.
+var tissue_layer_state: Dictionary = {}
+## M6: internal tissue J (authoritative when `FEATURE_TISSUE_ENERGY_POOL`); display pools derived.
+var tissue_energy_capacity_j: Dictionary = {}
+var tissue_energy_remaining_j: Dictionary = {}
 var blood_volume: float = 100.0  # 0–100; death below _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+## S6 literal pool when `FEATURE_LITERAL_BLOOD_ML` (-1 = percent-only mode).
+var blood_volume_ml: float = -1.0
+var blood_volume_ml_max: float = -1.0
 # Tourniquet: limb parts only. part -> { "applied_at": float, "effectiveness": float }. Effectiveness 0–1 scales bleeding reduction.
 var tourniquet_applied: Dictionary = {}  # part (String) -> Dictionary
 # Bandaged parts: part -> true when bandage has been applied. Mutually exclusive with tourniquet per part (can't bandage a tourniqueted limb, can't tourniquet a bandaged limb).
 var bandaged_parts: Dictionary = {}  # part (String) -> bool
 # Packed parts: head/chest only; linen packed into wound cavity. Mutually exclusive with bandage/tourniquet per part.
 var packed_parts: Dictionary = {}  # part (String) -> bool
+## Party linen for cavity packing (Tier 6 / III-5). Consumed per **`apply_packing`** attempt.
+var linen_strips_remaining: int = 0
 # Direct pressure: part (String) the entity is currently holding pressure on; empty if not. Lasts until next action or bleeding on that part stops.
 # When ally holds pressure on us: direct_pressure_part + direct_pressure_held_by. When we hold on ourselves: self_direct_pressure_part.
 var direct_pressure_part: String = ""
@@ -436,14 +450,25 @@ func _apply_species():
 	bone_health.clear()
 	bone_max.clear()
 	wounds.clear()
+	tissue_layer_state.clear()
+	tissue_energy_capacity_j.clear()
+	tissue_energy_remaining_j.clear()
 	tourniquet_applied.clear()
 	bandaged_parts.clear()
 	packed_parts.clear()
+	linen_strips_remaining = _Bleeding.PACKING_LINEN_PARTY_START
 	direct_pressure_part = ""
 	self_direct_pressure_part = ""
 	direct_pressure_assist_held_by = null
 	_game_time_seconds = 0.0
-	blood_volume = _Bleeding.MAX_BLOOD_VOLUME
+	if _BloodVolumeMl.is_active() and species != null:
+		var ref_kg: float = _DesignAnchors.REFERENCE_ADULT_MASS_KG
+		if species.has_method("resolved_reference_mass_kg"):
+			ref_kg = species.resolved_reference_mass_kg()
+		_BloodVolumeMl.init_entity_pool(self, ref_kg)
+	else:
+		_BloodVolumeMl.clear_entity_pool(self)
+		blood_volume = _Bleeding.MAX_BLOOD_VOLUME
 	consciousness = 100.0
 	effective_consciousness = 100.0
 	_consciousness_dirty = false
@@ -466,12 +491,14 @@ func _apply_species():
 		perception = species.get("perception") if "perception" in species else 100
 		dominant_hand = ["right_arm", "left_arm"][randi() % 2]
 		offhand_functionality = randf_range(0.6, 1.0)
+		_CombatLayerTissue.seed_all_layer_states(self)
+		_TissueEnergyCapacity.seed_entity_energy_pools(self, true)
 		if typeof(species.name) == TYPE_STRING and species.name != "":
 			self.name = species.name
 	else:
 		# Fallback when no species: use generic values consistent with aggressive realism scale
 		for p in _get_body_part_list():
-			body_max[p] = 12
+			body_max[p] = _DesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
 			body_cutting[p] = _round_tissue(12.0)
 			body_blunt[p] = _round_tissue(12.0)
 			bone_max[p] = 8
@@ -483,3 +510,5 @@ func _apply_species():
 		perception = 100
 		dominant_hand = ["right_arm", "left_arm"][randi() % 2]
 		offhand_functionality = randf_range(0.6, 1.0)
+		_CombatLayerTissue.seed_all_layer_states(self)
+		_TissueEnergyCapacity.seed_entity_energy_pools(self, true)

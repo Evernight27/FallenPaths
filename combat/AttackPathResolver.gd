@@ -26,14 +26,7 @@ static func resolve_hit_part(attack_line: String, guard_line: String, targetable
 		return BodyPartConstants.get_weighted_random_part(targetable)
 	var def_for_align: Dictionary = defender if not defender.is_empty() else {"guard_line": guard_line}
 	var alignment: float = CombatConstants.get_line_alignment_with_deflect(attack_line, def_for_align, alignment_context)
-	# High alignment = guard in position = limbs in path = early intercept (small index)
-	# Low alignment = wrong guard = blade travels further = late intercept (large index)
-	var intercept_max: int = int(lerpf(
-		float(CombatConstants.PATH_INTERCEPT_EARLY_MAX),
-		float(path.size() - 1),
-		1.0 - alignment
-	))
-	intercept_max = clampi(intercept_max, 0, path.size() - 1)
+	var intercept_max: int = intercept_max_index_for_alignment(path, alignment)
 	var path_segment: Array = []
 	for i in range(intercept_max + 1):
 		if i < path.size():
@@ -69,6 +62,36 @@ static func resolve_hit_part(attack_line: String, guard_line: String, targetable
 			angle_info = " (atk=%.0f° guard=%.0f°)" % [float(alignment_context["attack_angle_deg"]), float(alignment_context["guard_angle_deg"])]
 		CombatDebug.log("path atk=%s guard=%s%s align=%.2f intercept_max=%d segment=%s => %s" % [atk_line_path, guard_line_path, angle_info, alignment, intercept_max, str(path_segment), part])
 	return part
+
+
+## Path intercept depth from alignment (0 = early parts on path, path.size()-1 = full depth).
+static func intercept_max_index_for_alignment(path: Array, alignment: float) -> int:
+	if path.is_empty():
+		return 0
+	var intercept_max: int = int(
+		lerpf(
+			float(CombatConstants.PATH_INTERCEPT_EARLY_MAX),
+			float(path.size() - 1),
+			1.0 - alignment
+		)
+	)
+	return clampi(intercept_max, 0, path.size() - 1)
+
+
+static func path_intercept_max_index(
+	attack_line: String,
+	guard_line: String,
+	alignment: float,
+	alignment_context: Dictionary = {}
+) -> int:
+	var atk_line_path: String = attack_line
+	var guard_line_path: String = guard_line
+	if alignment_context.get("attack_angle_deg", null) is float and alignment_context.get("guard_angle_deg", null) is float:
+		atk_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context["attack_angle_deg"]))
+		guard_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context["guard_angle_deg"]))
+	var path: Array = CombatConstants.get_attack_path(atk_line_path, guard_line_path)
+	return intercept_max_index_for_alignment(path, alignment)
+
 
 static func _weighted_sample(weights: Dictionary) -> String:
 	var total: float = 0.0

@@ -1,7 +1,7 @@
 class_name CombatFormationRout
 extends RefCounted
 
-## Rout / abandon-field policy: ties **`flee`** to formation **`line_cohesion`** (morale, fill, breach) and side **casualty ratio**.
+## Rout / abandon-field policy: ties **`flee`** to formation **`line_cohesion`** (morale, fill, lane stress) and side **casualty ratio**.
 ## Data flow: combatant `morale_cohesion` → `CombatMoraleCohesion` → `morale_cohesion_factor` → `CombatFormationEngagement._compute_line_cohesion`;
 ## casualties / fled / incap → `standing_at_start` vs current standing on formation side.
 

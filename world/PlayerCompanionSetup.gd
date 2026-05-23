@@ -30,3 +30,15 @@ static func _setup_character(character: Node, rng: RandomNumberGenerator) -> voi
 				character.apply_party_boost()
 	if character.has_method("equip_armor") and character.has_method("equip_weapon"):
 		EncounterSpawner.equip_random_equipment(character, rng)
+
+
+## Dev soak: equip every party **`Character`** / **`Companion*`** with one weapon id (e.g. **`SWORD`** for II-2b).
+static func equip_party_weapons(world: Node2D, weapon_id: String) -> void:
+	if world == null or weapon_id.is_empty():
+		return
+	if world.has_node("Character"):
+		EncounterSpawner.equip_weapon_id(world.get_node("Character"), weapon_id)
+	for i in range(1, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP):
+		var path := "Character/Companion" + ("" if i == 1 else str(i))
+		if world.has_node(path):
+			EncounterSpawner.equip_weapon_id(world.get_node(path), weapon_id)

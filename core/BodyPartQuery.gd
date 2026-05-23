@@ -16,7 +16,7 @@ static func get_body_part_list(entity: Node) -> Array:
 static func get_vital_parts(entity: Node) -> Array:
 	if entity.species != null and "VITAL_PARTS" in entity.species:
 		return entity.species.VITAL_PARTS.duplicate()
-	return ["head", "chest"]
+	return BodyPartConstants.VITAL_PARTS.duplicate()
 
 # --- Part state: severed (cut+bone 0), crushed (blunt+bone 0), destroyed (either) ---
 

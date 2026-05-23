@@ -2,21 +2,37 @@ extends Resource
 
 class_name SpeciesResource
 
+const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
+const _BodyPartConstants := preload("res://core/BodyPartConstants.gd")
+
 # Body part max health. Unit dies when head or chest reaches 0.
-# BODY_PARTS comes from BodyPartConstants (single source of truth). BodyPartQuery reads "BODY_PARTS" from species.
-const BODY_PARTS := ["head", "chest", "right_arm", "left_arm", "left_leg", "right_leg"]
-const VITAL_PARTS := ["head", "chest"]
+# Lists: BodyPartConstants (single source). BodyPartQuery reads BODY_PARTS / VITAL_PARTS from species when set.
+const BODY_PARTS := _BodyPartConstants.BODY_PARTS
+const VITAL_PARTS := _BodyPartConstants.VITAL_PARTS
+const LIMB_PARTS := ["right_arm", "left_arm", "left_leg", "right_leg"]
+## Narrative KE / reference mass — canonical values in `CombatDesignAnchors`.
+const DESIGN_KE_ARM_J := _DesignAnchors.DESIGN_KE_ARM_J
+const DESIGN_KE_LEG_J := _DesignAnchors.DESIGN_KE_LEG_J
+const REFERENCE_ADULT_MASS_KG := _DesignAnchors.REFERENCE_ADULT_MASS_KG
+const REFERENCE_HUMAN_TISSUE_SUM := _DesignAnchors.REFERENCE_HUMAN_TISSUE_SUM
+## Tuned so human @ 75 kg matches hand-tuned 12 arm / 16 leg tissue.
+const DERIVED_ARM_TISSUE_FACTOR := 0.60
+const DERIVED_LEG_TISSUE_FACTOR := 0.565
+const DERIVED_BONE_TO_TISSUE_ARM := 8.0 / 12.0
+const DERIVED_BONE_TO_TISSUE_LEG := 12.0 / 16.0
 
 # Basic stats for a species. Save as .tres in res://species/
 # Tissue max = abstract capacity per part. Give each species UNIQUE mass proportions so they play differently:
 #   Human: segment-mass (de Leva/Plagenhoef) — chest > leg > head = arm.
 #   Goblin: top-heavy, spindly limbs — large head/chest share, thin arms/legs.
 #   (Future: e.g. Orc = limb-heavy; Elf = lean limbs, smaller chest.)
-# See BALANCING_INVESTIGATION.md, RESEARCH_BASED_APPROXIMATIONS.md.
+# Mass proportions: clinical segment models; calibration → docs/LIVE_PATHS.md#species-calibration · docs/LIVE_PATHS.md#5-literal-blood-volume-ml.
 @export var name: String = "Unknown"
 @export var head: int = 10       # human ~9% of total; goblin larger share
 @export var chest: int = 30      # human largest; scale per species
-# Limb totals tuned for KE realism: arm 20 (100 J sever), leg 28 (200 J sever). See docs/PHYSICS_DAMAGE_AND_FLOW.md.
+# Tissue/bone integers = combat HP budgets (not kg). Narrative KE anchors (~100 J arm / ~200 J leg) tune DAMAGE_KE_SCALE; see .calibration_audit.txt.
+# reference_body_mass_kg = adult kg for blunt reduced-mass (WeaponDamageHelper); -1 infers from tissue sum vs human 96.
 @export var right_arm: int = 12
 @export var left_arm: int = 12
 @export var left_leg: int = 16
@@ -48,8 +64,114 @@ const VITAL_PARTS := ["head", "chest"]
 # Pain reference for normalized pain (Method B). Typical pain from 1 moderate hit for this species.
 # Smaller species get higher severity per damage → more pain per hit. -1 = auto-compute from body proportions.
 @export var pain_reference_scale: float = -1.0
+## S5 pilot: derive limb tissue/bone max from reference mass + DESIGN_KE anchors (head/chest stay exported).
+@export var feature_derived_limb_capacity: bool = false
+
+static func is_limb_part(part: String) -> bool:
+	return part in LIMB_PARTS
+
+
+static func is_leg_part(part: String) -> bool:
+	return part == "left_leg" or part == "right_leg"
+
+
+## Sum of exported tissue integers (`.tres` hand tuning). Used for mass inference, not live combat caps.
+func exported_tissue_sum() -> int:
+	return head + chest + right_arm + left_arm + left_leg + right_leg
+
+
+## Live tissue max per part (`get_body_part_max`); respects `feature_derived_limb_capacity`.
+func live_body_max_dict() -> Dictionary:
+	var out: Dictionary = {}
+	for p in BODY_PARTS:
+		out[p] = get_body_part_max(p)
+	return out
+
+
+func live_tissue_sum() -> int:
+	var total: int = 0
+	for p in BODY_PARTS:
+		total += get_body_part_max(p)
+	return total
+
+
+func live_pain_reference() -> float:
+	return get_pain_reference(live_body_max_dict())
+
+
+func resolved_reference_mass_kg() -> float:
+	if reference_body_mass_kg > 0.0:
+		return reference_body_mass_kg
+	var total: int = exported_tissue_sum()
+	if total <= 0:
+		return REFERENCE_ADULT_MASS_KG
+	return REFERENCE_ADULT_MASS_KG * (float(total) / float(_DesignAnchors.REFERENCE_HUMAN_TISSUE_SUM))
+
+
+static func derived_limb_body_max(part: String, reference_mass_kg: float) -> int:
+	if not is_limb_part(part):
+		return 0
+	var mass_scale: float = reference_mass_kg / REFERENCE_ADULT_MASS_KG
+	var design_ke: float = DESIGN_KE_LEG_J if is_leg_part(part) else DESIGN_KE_ARM_J
+	var limb_factor: float = DERIVED_LEG_TISSUE_FACTOR if is_leg_part(part) else DERIVED_ARM_TISSUE_FACTOR
+	var raw: float = _WeaponConstants.DAMAGE_KE_SCALE * sqrt(design_ke) * limb_factor * mass_scale
+	return maxi(1, int(round(raw)))
+
+
+static func derived_limb_bone_max(part: String, limb_tissue_max: int) -> int:
+	if not is_limb_part(part):
+		return maxi(1, int(limb_tissue_max / 2.0))
+	var ratio: float = DERIVED_BONE_TO_TISSUE_LEG if is_leg_part(part) else DERIVED_BONE_TO_TISSUE_ARM
+	return maxi(1, int(round(float(limb_tissue_max) * ratio)))
+
+
+## Mass-derived limb cap floored by exported hand-tuned tissue (preserves goblin spindly-limb intent).
+static func derived_limb_body_max_profiled(
+	part: String, reference_mass_kg: float, hand_tuned_tissue: int
+) -> int:
+	var mass_val: int = derived_limb_body_max(part, reference_mass_kg)
+	return maxi(1, mini(mass_val, hand_tuned_tissue))
+
+
+static func derived_limb_bone_max_profiled(
+	part: String, profiled_tissue: int, hand_tuned_bone: int
+) -> int:
+	var ratio_bone: int = derived_limb_bone_max(part, profiled_tissue)
+	return maxi(1, mini(ratio_bone, hand_tuned_bone))
+
+
+func _exported_limb_tissue(part: String) -> int:
+	match part:
+		"right_arm": return right_arm
+		"left_arm": return left_arm
+		"left_leg": return left_leg
+		"right_leg": return right_leg
+	return 0
+
+
+func _exported_limb_bone(part: String) -> int:
+	match part:
+		"right_arm": return right_arm_bone
+		"left_arm": return left_arm_bone
+		"left_leg": return left_leg_bone
+		"right_leg": return right_leg_bone
+	return 1
+
+
+func _derived_limb_tissue_live(part: String) -> int:
+	return derived_limb_body_max_profiled(
+		part, resolved_reference_mass_kg(), _exported_limb_tissue(part)
+	)
+
+
+func _derived_limb_bone_live(part: String) -> int:
+	var tissue: int = _derived_limb_tissue_live(part)
+	return derived_limb_bone_max_profiled(part, tissue, _exported_limb_bone(part))
+
 
 func get_body_part_max(part: String) -> int:
+	if feature_derived_limb_capacity and is_limb_part(part):
+		return _derived_limb_tissue_live(part)
 	match part:
 		"head": return head
 		"chest": return chest
@@ -60,6 +182,8 @@ func get_body_part_max(part: String) -> int:
 	return 0
 
 func get_bone_max(part: String) -> int:
+	if feature_derived_limb_capacity and is_limb_part(part):
+		return _derived_limb_bone_live(part)
 	match part:
 		"head": return head_bone
 		"chest": return chest_bone

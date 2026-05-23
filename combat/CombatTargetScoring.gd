@@ -7,11 +7,11 @@ extends RefCounted
 ## 1. `CombatManager.start` → `formation_doctrine` defaults; combatants get commitment + close-block dicts.
 ## 2. `_recompute_zoc_and_distance` → `CombatDistanceBands` (incl. reach/band alignment) → pair `distance_to`.
 ## 3. `get_available_actions` → `AvailableActionsBuilder.build` → `CombatMeleeListing` / formation / medical listing modules (`attempt_close` only at LONG via `CombatMeleeListing.attempt_close_listed_for_pair`, gated by `close_attempt_pair_blocked`; picker weight 0 if stale).
-## 4. `CombatAIActionPicker.pick` → prune once → `ai_targeting_weight_mult(..., skip_prune=true)` (doctrine, file, commitment, pressure, **engagement mode**, our posture+cohesion, **opponent** formation, **opponent file breach** severity, stance, **incap** defender hedge) × stamina × depth-spear move weights (incl. doctrine stab/cut nudge). **`ally_pressure_count`** for rank>0 uses **`CombatMeleeRankTargeting.melee_pair_rank_allowed`** to the committed defender (not **`depth_polearm_lane_open`** alone).
+## 4. `CombatAIActionPicker.pick` → prune once → `ai_targeting_weight_mult(..., skip_prune=true)` (doctrine, file, commitment, pressure, **engagement mode**, our posture+cohesion, **opponent** formation, stance, **incap** defender hedge) × stamina × depth-spear move weights (incl. doctrine stab/cut nudge). **`ally_pressure_count`** for rank>0 uses **`CombatMeleeRankTargeting.melee_pair_rank_allowed`** to the committed defender (not **`depth_polearm_lane_open`** alone).
 ## 5. `CombatResolveAction` → melee wind-up → `on_combat_commitment`; close → `CombatEngagementResolver` (success → commitment + clear close block; fail → per-target cooldown).
 ## 6. `set_formation_doctrine` → clears commitments on that formation (doctrine change); death → `clear_all_targeting_state_for_dead_defender`.
 ##
-## **Doctrine vs crash:** `DOCTRINE_PINCH_CENTER` / `HOLD_LANE` steer **listed** melee/close weights and ordering; `DOCTRINE_PROBING` nudges **depth spear** stab/cut listing weights only. **Crash** is a separate breach move (stamina, armor mass, engagement mode); it does not read doctrine today — no conflicting state, just independent logic gates.
+## **Doctrine:** `DOCTRINE_PINCH_CENTER` / `HOLD_LANE` steer **listed** melee/close weights and ordering; `DOCTRINE_PROBING` nudges **depth spear** stab/cut listing weights only.
 
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
@@ -21,7 +21,7 @@ const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
+const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 
 
 static func clear_all_targeting_state_for_dead_defender(manager: Node, dead_id: int) -> void:
@@ -108,8 +108,6 @@ static func wing_lacks_file_opposed(
 	manager: Node, actor: Dictionary, depth_lane_open_cache: Variant = null, zone_geometry_fid: String = ""
 ) -> bool:
 	if manager == null:
-		return false
-	if _ZoneOfControl.is_intruded(actor):
 		return false
 	var ref: Dictionary = actor
 	if _EntityAccess.rank_int(actor) != 0:
@@ -229,6 +227,19 @@ static func distributed_pressure_mult(manager: Node, attacker: Dictionary, defen
 	return 1.0 / (1.0 + decay * cnt / maxf(0.001, ref))
 
 
+## IV-2: damp hostile weight when **`attempt_close`** slots on defender are saturated (spread to other targets).
+static func close_slot_saturation_targeting_mult(
+	manager: Node, defender: Dictionary, exclude_attacker_id: int
+) -> float:
+	if manager == null or defender.is_empty():
+		return 1.0
+	if _MeleeListing.defender_has_free_close_slot(
+		manager, defender, exclude_attacker_id
+	):
+		return 1.0
+	return CombatConstants.CLOSE_SLOTS_FULL_TARGETING_MULT
+
+
 static func commitment_match_mult(actor: Dictionary, target_id: int) -> float:
 	if int(actor.get("doctrine_target_commit_id", -1)) == target_id:
 		return CombatConstants.DOCTRINE_COMMIT_MATCH_WEIGHT_MULT
@@ -276,7 +287,7 @@ static func engagement_mode_targeting_mult(manager: Node) -> float:
 
 
 ## Tier 1.6 breadth: listed hostile weight vs **target** formation `engagement_posture` + `line_cohesion` (enemy LINE wall solid → slight hedge; OPEN/DUEL → small press).
-## Intruders: zone geometry fid (host line), not home roster **`formation_id`**.
+## Uses **`formation_for_combatant_cached`** (home-line **`formation_id`** after D-008).
 ## Optional **`formation_dict_cache`**: **`zone_geometry_line_context(manager, opp).formation`** when the caller already resolved it (e.g. hostile pair path).
 static func opponent_formation_targeting_mult(
 	manager: Node, opp: Dictionary, formation_dict_cache: Variant = null
@@ -297,30 +308,6 @@ static func opponent_formation_targeting_mult(
 	if pst == CombatConstants.ENGAGEMENT_POSTURE_OPEN or pst == CombatConstants.ENGAGEMENT_POSTURE_DUEL:
 		return CombatConstants.AI_TARGETING_OPP_OPEN_DUEL_MULT
 	return 1.0
-
-
-## Tier 1.6 breadth: slight press on targets in a **breached** enemy file (`formation.breached_files` at their `file`; severity read matches **`FormationBreachRules.breached_file_severity`** via **`CombatFileKeyedDict`**).
-## Intruders: host-line formation dict so breach keys match the tactical grid.
-## Optional **`formation_dict_cache`**: same contract as **`opponent_formation_targeting_mult`**.
-static func opponent_breach_file_targeting_mult(
-	manager: Node, opp: Dictionary, formation_dict_cache: Variant = null
-) -> float:
-	if manager == null or opp.is_empty():
-		return 1.0
-	var fd: Dictionary = _ZoneOfControl.formation_for_combatant_cached(manager, opp, formation_dict_cache)
-	if fd.is_empty():
-		return 1.0
-	var bf: Dictionary = _FormationSlots.formation_nested_dictionary_read(fd, "breached_files")
-	if bf.is_empty():
-		return 1.0
-	var sev: float = clampf(
-		_FormationBreachRules.breached_file_severity(bf, _EntityAccess.file_int(opp), 0.0),
-		0.0,
-		1.0
-	)
-	if sev <= 0.001:
-		return 1.0
-	return lerpf(1.0, CombatConstants.AI_TARGETING_OPP_BREACH_FILE_MULT_MAX, sev)
 
 
 ## Tier 4.1: attacker stance nudges listed hostile melee/close weights (aggressive commits; defensive hedges).
@@ -345,8 +332,6 @@ static func file_opposed_mult(
 static func targets_hostile_for_scoring(move_id: String) -> bool:
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return true
-	if move_id == CombatConstants.MOVE_ID_CRASH:
-		return false
 	if move_id in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
 		return false
 	if move_id == CombatConstants.MOVE_ID_WAIT:
@@ -356,7 +341,7 @@ static func targets_hostile_for_scoring(move_id: String) -> bool:
 	return true
 
 
-## Tier 1.6: same multipliers as hostile `ai_targeting_weight_mult` rows, for a fixed attacker–opponent pair (listing order, AI weights, tests; engagement mode + opponent formation + breach file).
+## Tier 1.6: same multipliers as hostile `ai_targeting_weight_mult` rows, for a fixed attacker–opponent pair (listing order, AI weights, tests; engagement mode + opponent formation).
 ## `cached_engagement_mode_targeting_mult`: pass a float from `engagement_mode_targeting_mult(manager)` when sorting many opponents (avoids repeated mode snapshots); default **null** recomputes.
 ## Optional **`actor_zone_geometry_line_context`**: reuse **`zone_geometry_line_context(manager, atk)`** when scoring many opponents (listing sort).
 ## Optional **`opponent_zone_geometry_line_context`**: reuse per-id cache from **`zone_geometry_line_context_by_combatant_id`** (avoids home-roster **`formation_for_combatant_cached`** on the defender).
@@ -398,13 +383,13 @@ static func hostile_pair_targeting_weight_mult(
 	w *= file_opposed_mult(manager, atk, opp, depth_lane_atk, fid_atk)
 	w *= commitment_match_mult(atk, _EntityAccess.id_int(opp))
 	w *= distributed_pressure_mult(manager, atk, _EntityAccess.id_int(opp))
+	w *= close_slot_saturation_targeting_mult(manager, opp, _EntityAccess.id_int(atk))
 	if cached_engagement_mode_targeting_mult == null:
 		w *= engagement_mode_targeting_mult(manager)
 	else:
 		w *= float(cached_engagement_mode_targeting_mult)
 	w *= posture_cohesion_targeting_mult(manager, atk, fd_atk)
 	w *= opponent_formation_targeting_mult(manager, opp, fd_opp)
-	w *= opponent_breach_file_targeting_mult(manager, opp, fd_opp)
 	w *= stance_ai_targeting_mult(atk)
 	if _EntityAccess.is_incapacitated(opp):
 		w *= CombatConstants.AI_TARGETING_INCAP_HOSTILE_MULT
@@ -444,7 +429,7 @@ static func ai_targeting_weight_mult(
 	)
 
 
-## (A) Order rank-line opponents: file-opposed first, then `hostile_pair_targeting_weight_mult` (geometry, doctrine, commitment, pressure, engagement mode, posture, opponent formation, breach file, stance — Tier 1.6).
+## (A) Order rank-line opponents: file-opposed first, then `hostile_pair_targeting_weight_mult` (geometry, doctrine, commitment, pressure, engagement mode, posture, opponent formation, stance — Tier 1.6).
 static func ordered_melee_opponents(
 	manager: Node,
 	actor: Dictionary,

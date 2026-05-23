@@ -15,19 +15,34 @@ static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> voi
 		return
 	if encounter.has_method("get_combat_encounter_dict"):
 		var enc: Dictionary = encounter.get_combat_encounter_dict()
+		if "soak_preset_id" in encounter:
+			var soak_id: String = str(encounter.soak_preset_id).strip_edges()
+			if not soak_id.is_empty():
+				enc = enc.duplicate(true) if not enc.is_empty() else {}
+				enc[SoakEncounterPresets.ENCOUNTER_KEY_SOAK_PRESET_ID] = soak_id
 		if not enc.is_empty():
 			world.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, enc)
 	if encounter.has_method("get_enemy_formation_dict"):
 		var ef: Dictionary = encounter.get_enemy_formation_dict()
 		if not ef.is_empty():
 			world.set_meta(META_ENEMY_FORMATION, ef)
+	var preset_id: String = ""
+	if "soak_preset_id" in encounter:
+		preset_id = str(encounter.soak_preset_id).strip_edges()
+	if not preset_id.is_empty():
+		SoakEncounterPresets.apply_world_post_setup(world, preset_id)
+	else:
+		# Random red tiles must not inherit **`dev_soak_encounter`** world meta from **`main._ready`**.
+		SoakEncounterPresets.clear_world_soak_meta(world)
 	refresh_party_formation_meta(world)
+	SoakEncounterPresets.emit_f5_fight_enter_hint(encounter)
 
 
 ## Drop transient combat meta after battle (entity wounds persist on **`CoreEntity`** nodes).
 static func clear_transient_combat_meta(world: Node2D) -> void:
 	if world == null:
 		return
+	SoakEncounterPresets.clear_world_soak_meta(world)
 	if world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER):
 		world.remove_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
 	if world.has_meta(META_ENEMY_FORMATION):
@@ -77,18 +92,61 @@ static func get_fightable_party_nodes(world: Node2D) -> Array:
 	var pm = world.get_meta("party_manager", null) if world != null and world.has_meta("party_manager") else null
 	if pm == null or not pm.has_method("get_members"):
 		return players
+	var leader_only: bool = (
+		world != null
+		and world.has_meta(SoakEncounterPresets.WORLD_META_PLAYER_LEADER_ONLY)
+		and bool(world.get_meta(SoakEncounterPresets.WORLD_META_PLAYER_LEADER_ONLY))
+	)
 	for member in pm.get_members():
 		var node_ref = member.get("node_ref") if member is Dictionary else null
 		if not is_instance_valid(node_ref):
 			continue
 		if node_ref.has_method("is_dead") and (node_ref as Node).is_dead():
 			continue
+		if leader_only and node_ref.get("is_party_leader") != true:
+			continue
 		players.append(node_ref)
+	if (
+		world != null
+		and world.has_meta(SoakEncounterPresets.WORLD_META_SOAK_PARTY_FIGHTER_CAP)
+	):
+		var cap: int = int(world.get_meta(SoakEncounterPresets.WORLD_META_SOAK_PARTY_FIGHTER_CAP))
+		if cap > 0:
+			players = _cap_fightable_party_leader_first(players, cap)
 	return players
+
+
+static func _cap_fightable_party_leader_first(nodes: Array, cap: int) -> Array:
+	if nodes.size() <= cap:
+		return nodes
+	var leader: Node = null
+	var rest: Array = []
+	for n in nodes:
+		if n == null:
+			continue
+		if n.get("is_party_leader") == true:
+			leader = n
+		else:
+			rest.append(n)
+	var out: Array = []
+	if leader != null:
+		out.append(leader)
+	for n in rest:
+		if out.size() >= cap:
+			break
+		out.append(n)
+	if out.is_empty():
+		return nodes.slice(0, cap)
+	return out
 
 
 static func refresh_party_formation_meta(world: Node2D) -> void:
 	if world == null:
+		return
+	if (
+		world.has_meta(SoakEncounterPresets.WORLD_META_LOCK_PARTY_FORMATION)
+		and bool(world.get_meta(SoakEncounterPresets.WORLD_META_LOCK_PARTY_FORMATION))
+	):
 		return
 	var n: int = get_fightable_party_nodes(world).size()
 	if n <= 0:

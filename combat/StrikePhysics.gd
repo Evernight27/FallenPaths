@@ -1,7 +1,7 @@
 class_name StrikePhysics
 extends RefCounted
 
-# Closing-speed tuning (also documented in docs/PHYSICS_DAMAGE_AND_FLOW.md when stable).
+# Closing-speed tuning: docs/LIVE_PATHS.md#research-audit when stable.
 # Conservative vs peak hand speed: geometry/reaction advantage, not a second full weapon multiplier.
 const _CLOSING_FRONT := 1.0
 const _CLOSING_FLANK := 1.025

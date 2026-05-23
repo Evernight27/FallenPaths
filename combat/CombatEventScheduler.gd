@@ -2,7 +2,7 @@ class_name CombatEventScheduler
 extends RefCounted
 
 ## Sorted event queue, ACTION_READY scheduling, and back-rank recheck after formation changes.
-## Placement snapshot + back-rank recheck use **`ZoneOfControl.zone_geometry_for_combatant`** so **intruders** on a host grid align with that formation’s `notify_formation_changed` / reconcile passes.
+## Placement snapshot + back-rank recheck use **`ZoneOfControl.zone_geometry_for_combatant`** (same fid as formation dict reads).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")

@@ -4,12 +4,18 @@ extends Node2D
 
 const _EncounterNode := preload("res://world/EncounterNode.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 
 @onready var tilemap: TileMap = $TileMap
 
 @export var enemy_scene: PackedScene
+## F5 soak: `ii2b`/`ii4d`/`ii3`/`ii5`/`ii6`/`ii8` — Output grep **`soak_guide`** + **`soak_guide human`** at session start, **`soak=`** on encounter_begin.
+@export_enum("off: ", "ii2b", "ii3", "ii5", "ii6", "ii8", "ii4d") var dev_soak_encounter: String = ""
+## Track Q1: per-hit **`research_feel`** lines in Output (no `COMBAT_DEV_VERBOSE` const edit). Use with **`ii2b`** duel.
+@export var dev_research_feel: bool = false
 
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
@@ -17,8 +23,15 @@ func _tile_coords(pos: Vector2) -> Vector2i:
 	return Vector2i(floor((pos.x - 32) / 64.0), floor((pos.y - 32) / 64.0))
 
 func _ready():
+	var soak_id: String = dev_soak_encounter.strip_edges().to_lower()
+	if soak_id == "off":
+		soak_id = ""
+	if dev_research_feel:
+		_CombatConstants.set_combat_dev_verbose_override(true)
 	if OS.has_feature("editor"):
-		_OperationalLog.begin_play_session("res://main.tscn")
+		_OperationalLog.begin_play_session("res://main.tscn", soak_id, dev_research_feel)
+		_F5SoakTrace.log_session_plan(soak_id, dev_research_feel)
+		_F5SoakTrace.prepare_fight_end_log()
 	# Match FallenFramework: fill screen — maximized window + stretch to viewport
 	var main_window = get_tree().root
 	main_window.content_scale_size = Vector2i(1920, 1080)
@@ -46,13 +59,36 @@ func _ready():
 	
 	_CombatDebug.world_session("overworld ready (3x3 grid, encounters spawned)")
 	
-	# Randomize RNG and spawn two enemy encounters on different tiles (for testing medical continuity between battles)
+	# Randomize RNG: cyan preset marker first (when set), then red 7v7 tiles (#4 #7 II-5a/b/c).
 	rng.randomize()
-	EncounterSpawner.spawn_encounters(self, rng, 2, 7, enemy_scene)
+	var soak_tile: Variant = null
+	if not soak_id.is_empty():
+		# Prefer far tiles from player start (0,0) so cyan preset marker is easy to find in F5.
+		var soak_tile_prefs: Array = [
+			Vector2i(2, 2),
+			Vector2i(2, 1),
+			Vector2i(1, 2),
+			Vector2i(2, 0),
+		]
+		soak_tile = EncounterSpawner.spawn_soak_encounter_marker(
+			self, soak_id, rng, enemy_scene, [], soak_tile_prefs
+		)
+		if soak_tile != null:
+			_CombatDebug.world_session("dev soak encounter '%s' at tile=%s (cyan)" % [soak_id, soak_tile])
+		else:
+			_OperationalLog.warn(
+				"dev_soak_encounter '%s' failed to spawn — grid full or unknown preset" % soak_id
+			)
+	EncounterSpawner.spawn_encounters(self, rng, 1 if not soak_id.is_empty() else 2, 7, enemy_scene)
 	# Assign player and companion species/equipment before party setup so party UI shows correct stats
 	PlayerCompanionSetup.setup_player_and_companion(self, rng)
+	var party_weapon: String = SoakEncounterPresets.party_weapon_id_for_preset(soak_id)
+	if not party_weapon.is_empty():
+		PlayerCompanionSetup.equip_party_weapons(self, party_weapon)
 	# Setup party manager, party menu, and Party button (after species so snapshot has correct stats)
 	PartySetup.setup_party(self)
+	SoakEncounterPresets.apply_world_post_setup(self, soak_id)
+	SoakEncounterPresets.emit_f5_soak_guide(soak_id, soak_tile)
 	# Connect to player moved signal to detect encounters
 	if has_node("Character"):
 		var player = $Character

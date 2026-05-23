@@ -4,7 +4,6 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 
@@ -50,31 +49,12 @@ static func create(manager: Node, preset: Dictionary, side: String) -> Control:
 	grid.name = "FormationDiagramGrid"
 	vbox.add_child(grid)
 
-	var wedge_strip = HBoxContainer.new()
-	wedge_strip.name = "WedgeCorridorStrip"
-	wedge_strip.add_theme_constant_override("separation", 6)
-	vbox.add_child(wedge_strip)
-
-	var intruder_strip = HBoxContainer.new()
-	intruder_strip.name = "IntruderStrip"
-	intruder_strip.add_theme_constant_override("separation", 6)
-	vbox.add_child(intruder_strip)
-
-	var deployed_strip = HBoxContainer.new()
-	deployed_strip.name = "DeployedIntruderStrip"
-	deployed_strip.add_theme_constant_override("separation", 6)
-	vbox.add_child(deployed_strip)
-
 	# Store references for refresh
 	root.set_meta("_formation_manager", manager)
 	root.set_meta("_formation_side", side)
 	root.set_meta("_formation_preset", preset)
 	root.set_meta("_formation_grid", grid)
 	root.set_meta("_zoc_line", zoc_line)
-	root.set_meta("_wedge_strip", wedge_strip)
-	root.set_meta("_intruder_strip", intruder_strip)
-	root.set_meta("_deployed_strip", deployed_strip)
-
 	_refresh_internal(root)
 	return root
 
@@ -88,13 +68,26 @@ static func refresh(diagram_root: Control) -> void:
 static func _cell_label_with_footwork(base: String, footwork_sources: Array) -> String:
 	if base.is_empty() or base == "—" or footwork_sources.is_empty():
 		return base
+	var text: String = base
+	var got_fw: bool = false
+	var got_grd: bool = false
 	for raw in footwork_sources:
 		if raw == null or typeof(raw) != TYPE_DICTIONARY:
 			continue
-		var sfx: String = _UiHints.footwork_diagram_suffix(raw as Dictionary)
-		if not sfx.is_empty():
-			return base + sfx
-	return base
+		var oc: Dictionary = raw as Dictionary
+		if not got_fw:
+			var fw: String = _UiHints.footwork_diagram_suffix(oc)
+			if not fw.is_empty():
+				text += fw
+				got_fw = true
+		if not got_grd:
+			var grd: String = _UiHints.guard_line_diagram_suffix(oc)
+			if not grd.is_empty():
+				text += grd
+				got_grd = true
+		if got_fw and got_grd:
+			break
+	return text
 
 
 static func _append_cell_tooltips(cell: Label, combatants: Array, manager: Node = null) -> void:
@@ -148,21 +141,10 @@ static func _refresh_internal(diagram_root: Control) -> void:
 
 	# Map (rank, file) -> combatant
 	var slot_to_combatant: Dictionary = {}
-	var intruders_by_file: Dictionary = {}
-	var deployed_intruders: Array = []
 	for c in manager.get_combatants():
 		if _EntityAccess.side_str(c) != side:
-			# Intruders physically occupying this side's formation are rendered in a dedicated strip.
-			if _EntityAccess.alive_bool(c, true) and _ZoneOfControl.intruder_on_host_formation(c, side):
-				var ifile: int = _EntityAccess.intrusion_anchor_or_file_int(c)
-				if not intruders_by_file.has(ifile):
-					intruders_by_file[ifile] = []
-				(intruders_by_file[ifile] as Array).append(c)
 			continue
 		if not _EntityAccess.alive_bool(c, true):
-			continue
-		if _ZoneOfControl.is_intruded(c):
-			deployed_intruders.append(c)
 			continue
 		var r: int = _EntityAccess.rank_int(c)
 		var f: int = _EntityAccess.file_int(c)
@@ -184,7 +166,6 @@ static func _refresh_internal(diagram_root: Control) -> void:
 		for file in range(files):
 			var key := Vector2i(rank, file)
 			var occ: Array = _FormationSlots.normalize_cell(slot_map.get(key, []))
-			var in_lane_intruders: Array = []
 			var footwork_sources: Array = []
 			var cell = Label.new()
 			if not occ.is_empty():
@@ -192,12 +173,9 @@ static func _refresh_internal(diagram_root: Control) -> void:
 				for cid in occ:
 					var oc: Variant = snap_by_id.get(int(cid), null)
 					if oc != null and typeof(oc) == TYPE_DICTIONARY and _EntityAccess.alive_bool(oc):
-						var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))
-						# Host grid can list intruders or dual cells; tag so UI matches tactical line geometry.
-						var intruded: bool = _ZoneOfControl.is_intruded(oc)
-						if intruded or _ZoneOfControl.zone_geometry_fid_from_row(manager, oc) != side:
-							in_lane_intruders.append(oc)
+						if _ZoneOfControl.zone_geometry_fid_from_row(manager, oc) != side:
 							continue
+						var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))
 						names.append(nm)
 						footwork_sources.append(oc)
 				if names.is_empty():
@@ -226,102 +204,5 @@ static func _refresh_internal(diagram_root: Control) -> void:
 					cell.add_theme_color_override("font_color", Color(0.4, 0.42, 0.45))
 			cell.add_theme_font_size_override("font_size", 12)
 			cell.custom_minimum_size = Vector2(84, 0)
-			if not in_lane_intruders.is_empty():
-				cell.tooltip_text = "Intruder(s) in this lane are shown below in Intruders."
 			_append_cell_tooltips(cell, footwork_sources, manager)
 			grid.add_child(cell)
-
-	var wstrip: Variant = diagram_root.get_meta("_wedge_strip", null)
-	if wstrip != null and wstrip is HBoxContainer:
-		for ch in (wstrip as HBoxContainer).get_children():
-			ch.queue_free()
-		var wlab0 := Label.new()
-		wlab0.text = "Corridor"
-		wlab0.add_theme_font_size_override("font_size", 10)
-		wlab0.add_theme_color_override("font_color", Color(0.55, 0.58, 0.62))
-		wlab0.custom_minimum_size = Vector2(48, 0)
-		(wstrip as HBoxContainer).add_child(wlab0)
-		for fi in range(files):
-			var pr: float = _IntrusionWedge.pressure_at_file(formation, fi)
-			var wc := Label.new()
-			var bars: Array = ["▁", "▂", "▃", "▄", "▅", "▆", "▇"]
-			if pr < 0.035:
-				wc.text = "·"
-			else:
-				wc.text = str(bars[clampi(int(pr * 7.0), 0, 6)])
-			wc.add_theme_font_size_override("font_size", 11)
-			wc.add_theme_color_override(
-				"font_color",
-				Color(0.88, 0.52, 0.42) if pr >= 0.22 else Color(0.5, 0.52, 0.55)
-			)
-			wc.tooltip_text = "Intrusion wedge pressure (file %d): %.0f%%" % [fi, pr * 100.0]
-			wc.custom_minimum_size = Vector2(72, 0)
-			(wstrip as HBoxContainer).add_child(wc)
-
-	var istrp: Variant = diagram_root.get_meta("_intruder_strip", null)
-	if istrp != null and istrp is HBoxContainer:
-		for ch in (istrp as HBoxContainer).get_children():
-			ch.queue_free()
-		var ilab := Label.new()
-		ilab.text = "Intruders"
-		ilab.add_theme_font_size_override("font_size", 10)
-		ilab.add_theme_color_override("font_color", Color(0.8, 0.52, 0.42))
-		ilab.custom_minimum_size = Vector2(48, 0)
-		(istrp as HBoxContainer).add_child(ilab)
-		for fi in range(files):
-			var intr_label := Label.new()
-			var in_list: Array = intruders_by_file.get(fi, [])
-			if in_list.is_empty():
-				intr_label.text = "—"
-				intr_label.add_theme_color_override("font_color", Color(0.4, 0.42, 0.45))
-				intr_label.tooltip_text = "No intruders at file %d" % fi
-			else:
-				var names_i: Array = []
-				for ic in in_list:
-					var nm_i: String = _EntityAccess.get_display_name(ic, _EntityAccess.id_int(ic))
-					var d: int = _EntityAccess.tactical_penetration_depth_int(ic)
-					names_i.append("%s(d%d)" % [nm_i, d])
-				if names_i.size() == 1:
-					intr_label.text = _cell_label_with_footwork(str(names_i[0]), in_list)
-				else:
-					intr_label.text = "%s +%d" % [str(names_i[0]), names_i.size() - 1]
-				intr_label.add_theme_color_override("font_color", Color(0.92, 0.62, 0.5))
-				intr_label.tooltip_text = "Intruding at file %d: %s" % [fi, ", ".join(names_i)]
-				_append_cell_tooltips(intr_label, in_list, manager)
-			intr_label.add_theme_font_size_override("font_size", 11)
-			intr_label.custom_minimum_size = Vector2(72, 0)
-			(istrp as HBoxContainer).add_child(intr_label)
-
-	var dstrp: Variant = diagram_root.get_meta("_deployed_strip", null)
-	if dstrp != null and dstrp is HBoxContainer:
-		for ch in (dstrp as HBoxContainer).get_children():
-			ch.queue_free()
-		var dlab := Label.new()
-		dlab.text = "Deployed"
-		dlab.add_theme_font_size_override("font_size", 10)
-		dlab.add_theme_color_override("font_color", Color(0.6, 0.7, 0.9))
-		dlab.custom_minimum_size = Vector2(48, 0)
-		(dstrp as HBoxContainer).add_child(dlab)
-		if deployed_intruders.is_empty():
-			var none := Label.new()
-			none.text = "—"
-			none.add_theme_font_size_override("font_size", 11)
-			none.add_theme_color_override("font_color", Color(0.4, 0.42, 0.45))
-			none.custom_minimum_size = Vector2(72, 0)
-			(dstrp as HBoxContainer).add_child(none)
-		else:
-			for cdi in deployed_intruders:
-				var item := Label.new()
-				var nm_d: String = _EntityAccess.get_display_name(cdi, _EntityAccess.id_int(cdi))
-				var host_d: String = _ZoneOfControl.intrusion_host_fid(cdi)
-				var file_d: int = _EntityAccess.intrusion_anchor_or_file_int(cdi)
-				var depth_d: int = _EntityAccess.tactical_penetration_depth_int(cdi)
-				var base_deployed: String = "%s@%s:f%d(d%d)" % [nm_d, host_d, file_d, depth_d]
-				var snap_d: Variant = snap_by_id.get(_EntityAccess.id_int(cdi), cdi)
-				var deploy_sources: Array = [snap_d] if snap_d != null else [cdi]
-				item.text = _cell_label_with_footwork(base_deployed, deploy_sources)
-				_append_cell_tooltips(item, deploy_sources, manager)
-				item.add_theme_font_size_override("font_size", 11)
-				item.add_theme_color_override("font_color", Color(0.72, 0.82, 0.95))
-				item.custom_minimum_size = Vector2(72, 0)
-				(dstrp as HBoxContainer).add_child(item)

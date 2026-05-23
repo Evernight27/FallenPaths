@@ -18,7 +18,6 @@ static func _counter_tempo() -> GDScript:
 
 static func build(manager: Node, combatant_id: int) -> Array:
 	var log_fid: String = ""
-	var log_breach_blocks_moves: bool = false
 	var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
 	if c.is_empty() or not _EntityAccess.alive_bool(c):
 		return []
@@ -61,7 +60,6 @@ static func build(manager: Node, combatant_id: int) -> Array:
 			manager, c, combatant_id, combatants, actions, formation_retreat_only, zone_ctx
 		)
 		log_fid = str(fm_ctx.get("zone_fid", ""))
-		log_breach_blocks_moves = bool(fm_ctx.get("breach_blocks_moves", false))
 		if bool(fm_ctx.get("cowering_early_exit", false)):
 			_FormationMoves.append_combat_wait_if_needed(actions, combatant_id)
 			return actions
@@ -84,7 +82,6 @@ static func build(manager: Node, combatant_id: int) -> Array:
 		counter_tempo,
 		medical_phase,
 		log_fid,
-		log_breach_blocks_moves,
 		combatants
 	)
 	return result_actions

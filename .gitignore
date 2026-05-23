@@ -4,9 +4,27 @@
 
 # Python
 __pycache__/
+docs/__pycache__/
 *.py[cod]
 
 # Local harness logs (do not commit)
 .harness_out.txt
+.harness_run.txt
+.d001_soak_out.txt
+.d001_soak_sanity_out.txt
+.medical_phase_harness_out.txt
+.ii5_ii6_soak_out.txt
+.f5_soak_in.txt
+.f5_soak_validation.txt
+.phase0_combat_checks.txt
+.phase0_run.txt
+.phase0_run2.txt
+.q1_research_feel_audit.txt
+.q2_ii2b_feel_audit.txt
+.q_track_audits.txt
+.ii2b_worksheet_prefill.txt
+.d001_headless_signoff.txt
+.calibration_audit.txt
 _harness*.txt
 harness_stderr.txt
+.tmp_*.txt

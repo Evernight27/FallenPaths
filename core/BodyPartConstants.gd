@@ -4,6 +4,7 @@ extends RefCounted
 # --- Body part lists (single source of truth) ---
 # Used by SpeciesResource, BodyPartQuery, BattleScene, PartyMenu, PartyManager.
 const BODY_PARTS := ["head", "chest", "right_arm", "left_arm", "left_leg", "right_leg"]
+const VITAL_PARTS := ["head", "chest"]
 const BODY_LABELS := {"head": "Head", "chest": "Chest", "right_arm": "R.Arm", "left_arm": "L.Arm", "left_leg": "L.Leg", "right_leg": "R.Leg"}
 # Two-column layout for battle UI body bars: left [head, right_arm, left_leg], right [chest, left_arm, right_leg]
 const BODY_BAR_COLUMNS := [["head", "right_arm", "left_leg"], ["chest", "left_arm", "right_leg"]]

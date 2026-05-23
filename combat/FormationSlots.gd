@@ -12,8 +12,7 @@ static func formation_side_str(formation: Dictionary, default_side: String = "")
 ## Normal length 1. During same-column adjacent-rank moves, the shallower rank cell lists both [shallow, deep]
 ## and the deeper rank key is omitted until resolve (dual occupancy for dragging UI / lane crowding).
 ##
-## Tier 1.2 intrusion (P3): intruder is written into the **host** formation `slots` in the anchor **file** column:
-## first empty rank from 1 upward (behind the front line). Single-rank formations fall back to rank 0 (merge if needed).
+## Vacancy/death plugs promote natives within `slots`; dual-occupancy cells may list two ids during adjacent-rank moves (see class header).
 
 ## Ensures `formation["slots"]` exists and returns it — avoids mutating a fresh `{}` from `Dictionary.get(..., {})`.
 static func formation_slots_dict(formation: Dictionary) -> Dictionary:
@@ -107,45 +106,6 @@ static func slot_primary_id(slots: Dictionary, key: Vector2i) -> int:
 
 static func slot_set_single(slots: Dictionary, key: Vector2i, combatant_id: int) -> void:
 	slots[key] = [combatant_id]
-
-
-## Intruder at defender front (rank 0 only): merge into existing cell or occupy empty. Used when host has no rear ranks.
-static func slot_add_intruder_at_rank0(slots: Dictionary, file: int, intruder_id: int) -> void:
-	var key := Vector2i(0, file)
-	var cur: Array = normalize_cell(slots.get(key, []))
-	if cur.has(intruder_id):
-		return
-	if cur.is_empty():
-		slots[key] = [intruder_id]
-		return
-	var merged: Array = cur.duplicate()
-	merged.append(intruder_id)
-	slots[key] = merged
-
-
-## Place intruder in host column behind rank 0 when possible. Returns combatant `rank` (host grid index).
-## Uses **living** occupancy so dead-only cells do not block the first free rear rank.
-static func place_intruder_behind_front_line(manager: Node, slots: Dictionary, formation_ranks: int, file: int, intruder_id: int) -> int:
-	if formation_ranks <= 1:
-		slot_add_intruder_at_rank0(slots, file, intruder_id)
-		return 0
-	for r in range(1, formation_ranks):
-		var key := Vector2i(r, file)
-		if not slot_has_any_living_occupant(manager, slots, key):
-			slot_set_single(slots, key, intruder_id)
-			return r
-	var deepest := Vector2i(formation_ranks - 1, file)
-	var cur: Array = normalize_cell(slots.get(deepest, []))
-	if cur.has(intruder_id):
-		return formation_ranks - 1
-	if living_count_in_slot(manager, slots, deepest) == 0:
-		slot_set_single(slots, deepest, intruder_id)
-	else:
-		var merged: Array = cur.duplicate()
-		if not merged.has(intruder_id):
-			merged.append(intruder_id)
-		slots[deepest] = merged
-	return formation_ranks - 1
 
 
 static func remove_combatant_from_slots(slots: Dictionary, combatant_id: int) -> void:

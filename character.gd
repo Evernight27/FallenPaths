@@ -79,7 +79,7 @@ func equip_weapon(w) -> void:
 		_combat_body.equip_weapon(w)
 
 func is_dead() -> bool:
-	return _combat_body.is_dead() if _combat_body else true
+	return _combat_body.is_dead() if _combat_body else false
 
 func is_incapacitated() -> bool:
 	return _combat_body.is_incapacitated() if _combat_body else false

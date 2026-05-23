@@ -1,12 +1,10 @@
 class_name CombatFormationEngagement
 extends RefCounted
 
-## Line cohesion (0..1) and engagement posture per formation. See docs/ENGAGEMENT_LINE_COHESION_INTRUSION_PLAN.md.
+## Line cohesion (0..1) and engagement posture per formation. Spec: docs/LIVE_PATHS.md (Tier 0-1).
 
-const _FormationBreachRules := preload("res://combat/FormationBreachRules.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
-const _IntrusionWedge := preload("res://combat/CombatIntrusionWedge.gd")
 const _MoraleCohesion := preload("res://combat/CombatMoraleCohesion.gd")
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -53,37 +51,9 @@ static func _avg_numeric_values_clamped_0_1(values: Array) -> float:
 	return s / float(values.size())
 
 
-static func _avg_breach_severity(form: Dictionary) -> float:
-	var bf: Dictionary = _FormationSlots.formation_nested_dictionary_read(form, "breached_files")
-	return _avg_numeric_values_clamped_0_1(bf.values())
-
-
-static func _avg_wedge_pressure(form: Dictionary) -> float:
-	var byf: Dictionary = _FormationSlots.formation_nested_dictionary_read(form, "intrusion_wedge_by_file")
-	if byf.is_empty():
-		return 0.0
-	var s: float = 0.0
-	var n: int = 0
-	for w in byf.values():
-		if typeof(w) != TYPE_DICTIONARY:
-			continue
-		s += clampf(float((w as Dictionary).get(_IntrusionWedge.FIELD_PRESSURE, 0.0)), 0.0, 1.0)
-		n += 1
-	return s / float(maxi(1, n))
-
-
-static func _avg_wedge_depth(form: Dictionary) -> float:
-	var byf: Dictionary = _FormationSlots.formation_nested_dictionary_read(form, "intrusion_wedge_by_file")
-	if byf.is_empty():
-		return 0.0
-	var s: float = 0.0
-	var n: int = 0
-	for w in byf.values():
-		if typeof(w) != TYPE_DICTIONARY:
-			continue
-		s += clampf(float((w as Dictionary).get(_IntrusionWedge.FIELD_DEPTH, 0.0)), 0.0, 1.0)
-		n += 1
-	return s / float(maxi(1, n))
+static func _avg_lane_stress(form: Dictionary) -> float:
+	var ls: Dictionary = _FormationSlots.formation_nested_dictionary_read(form, "lane_stress_by_file")
+	return _avg_numeric_values_clamped_0_1(ls.values())
 
 
 static func _compute_line_cohesion(
@@ -95,12 +65,10 @@ static func _compute_line_cohesion(
 	elif fid == "enemy":
 		front_fill = float(snap.get("enemy_front_fill", 0.0))
 	else:
-		var n_front: int = _FormationBreachRules.count_front_rank_alive(manager, fid)
+		var n_front: int = _EngagementMode.count_front_rank_alive(manager, fid)
 		var files: int = maxi(1, int(form.get("files", 1)))
 		front_fill = clampf(float(n_front) / float(files), 0.0, 1.0)
-	var breach_avg: float = _avg_breach_severity(form)
-	var wedge_avg: float = maxf(_avg_wedge_pressure(form), _avg_wedge_depth(form))
-	var breach_eff: float = maxf(breach_avg, wedge_avg)
+	var lane_stress_avg: float = _avg_lane_stress(form)
 	var morale: float = clampf(
 		float(form.get("morale_cohesion_factor", 1.0)),
 		CombatConstants.MORALE_COHESION_FACTOR_MIN,
@@ -108,7 +76,7 @@ static func _compute_line_cohesion(
 	)
 	var raw: float = (
 		(CombatConstants.COHESION_BASE_FLOOR + CombatConstants.COHESION_FILL_SCALE * front_fill)
-		* (1.0 - CombatConstants.COHESION_BREACH_WEIGHT * breach_eff)
+		* (1.0 - CombatConstants.COHESION_LANE_STRESS_WEIGHT * lane_stress_avg)
 		* morale
 	)
 	return clampf(raw, 0.0, 1.0)

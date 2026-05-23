@@ -11,8 +11,18 @@ func _ready() -> void:
 	rect.offset_top = -30.0
 	rect.offset_right = 30.0
 	rect.offset_bottom = 30.0
-	rect.color = Color(0.9, 0.2, 0.2, 1)
+	rect.color = Color(0.2, 0.55, 0.95, 1) if not soak_preset_id.is_empty() else Color(0.9, 0.2, 0.2, 1)
 	add_child(rect)
+	if not soak_preset_id.is_empty():
+		var lbl := Label.new()
+		lbl.name = "SoakPresetLabel"
+		lbl.text = soak_preset_id
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.add_theme_font_size_override("font_size", 14)
+		lbl.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+		lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(lbl)
 ## Holds spawn config; enemies are instantiated when combat starts.
 ## Matches how other games (FF, DQ) handle encounters: one icon per encounter, spawn units on engage.
 
@@ -21,6 +31,8 @@ func _ready() -> void:
 @export var encounter_config: Dictionary = {}
 ## Optional enemy **`CombatManager.start`** preset; empty → default for **`enemy_count`**.
 @export var enemy_formation: Dictionary = {}
+## Non-empty when spawned via **`SoakEncounterPresets`** (cyan map marker).
+var soak_preset_id: String = ""
 var enemy_scene: PackedScene
 
 
@@ -60,6 +72,11 @@ func spawn_enemies(parent: Node, rng: RandomNumberGenerator) -> Array:
 			enemy.apply_species()
 		if enemy.has_method("equip_armor") and enemy.has_method("equip_weapon"):
 			EncounterSpawner.equip_random_equipment(enemy, rng)
+		var force_weapon: String = str(
+			encounter_config.get(SoakEncounterPresets.ENCOUNTER_KEY_FORCE_WEAPON_ID, "")
+		).strip_edges()
+		if not force_weapon.is_empty():
+			EncounterSpawner.equip_weapon_id(enemy, force_weapon)
 		enemies.append(enemy)
 	return enemies
 

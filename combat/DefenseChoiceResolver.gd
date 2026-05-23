@@ -17,6 +17,7 @@ const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
+const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 
@@ -154,9 +155,10 @@ static func choose_defense(
 				var pr_base: float = _PassiveParry.get_passive_parry_readiness(tgt)
 				pr_base *= CombatConstants.passive_parry_readiness_incoming_contact_mult(contact_type)
 				var st_rd: float = _defender_passive_readiness_stamina_mult(tgt)
+				var ex_rd: float = _defender_passive_readiness_exhaustion_mult(tgt)
 				var yomi_rd: float = _Attention.yomi_defense_readiness_mult(tgt, _EntityAccess.id_int(atk))
 				parry_readiness = clampf(
-					pr_base * st_rd * _Attention.focus_effective(tgt) * yomi_rd, 0.0, 1.0
+					pr_base * st_rd * ex_rd * _Attention.focus_effective(tgt) * yomi_rd, 0.0, 1.0
 				)
 				var pr_guard_feint: float = (
 					parry_readiness
@@ -196,6 +198,7 @@ static func choose_defense(
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
 				var st_ratio: float = clampf(_EntityAccess.stamina_float(tgt) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio))
+				parry_c_d *= _Exhaustion.performance_mult_for_combatant(tgt)
 				parry_c_d *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
 				parry_c_d *= pa.get("tactical_ambush_mult", 1.0)
 				if CombatConstants.combat_debug_active():
@@ -235,6 +238,7 @@ static func choose_defense(
 				parry_readiness = clampf(
 					pr_base_late
 					* _defender_passive_readiness_stamina_mult(tgt)
+					* _defender_passive_readiness_exhaustion_mult(tgt)
 					* _Attention.focus_effective(tgt)
 					* yomi_rd_late,
 					0.0,
@@ -276,6 +280,7 @@ static func choose_defense(
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
 				var st_ratio_late: float = clampf(_EntityAccess.stamina_float(tgt) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio_late))
+				parry_c_d *= _Exhaustion.performance_mult_for_combatant(tgt)
 				parry_c_d *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
 				parry_c_d *= pa.get("tactical_ambush_mult", 1.0)
 				if CombatConstants.combat_debug_active():
@@ -545,6 +550,11 @@ static func _defender_passive_readiness_stamina_mult(tgt: Dictionary) -> float:
 	)
 
 
+## MXm-2: fight-duration exhaustion on readiness reporting (not folded into **`pr_base`** in **`parry_c_d`**).
+static func _defender_passive_readiness_exhaustion_mult(tgt: Dictionary) -> float:
+	return CombatConstants.defender_passive_readiness_exhaustion_mult(tgt)
+
+
 static func _feint_guard_reads_real_line(tgt: Dictionary, parry_readiness: float) -> bool:
 	var stance: String = _EntityAccess.stance_str(tgt)
 	var sm: float = CombatConstants.get_stance_modifier(stance, "feint_readthrough")
@@ -569,6 +579,7 @@ static func _apply_feint_telegraph_bias_to_dodge_eval_part(
 		ct_for_pr = str(WeaponConstants.get_move(atk_type_for_ct).get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
 	pr *= CombatConstants.passive_parry_readiness_incoming_contact_mult(ct_for_pr)
 	pr *= _defender_passive_readiness_stamina_mult(tgt)
+	pr *= _defender_passive_readiness_exhaustion_mult(tgt)
 	pr *= _Attention.focus_effective(tgt)
 	pr *= _Attention.yomi_defense_readiness_mult(tgt, _EntityAccess.id_int(atk))
 	pr *= _feint_readiness_reveal_mult(pa, atk)

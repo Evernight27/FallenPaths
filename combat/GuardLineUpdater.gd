@@ -107,7 +107,7 @@ static func set_guard_from_line(c: Dictionary, line: String) -> void:
 
 ## Keeps guard_zone consistent with guard_line when blade position changes from outcome.
 static func _sync_guard_zone_from_line(c: Dictionary, line: String, sync_focus: bool = false) -> void:
-	var part: String = CombatConstants.LINE_TO_DEFAULT_PART.get(line, "")
+	var part: String = CombatConstants.guard_zone_for_guard_line(line)
 	if not part.is_empty():
 		c["guard_zone"] = part
 		if sync_focus and _Attention.enabled():

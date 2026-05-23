@@ -21,6 +21,8 @@ const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _IncomingParryChoice := preload("res://combat/CombatIncomingParryChoice.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
+const _HitSubRegion := preload("res://combat/CombatHitSubRegion.gd")
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.combat_debug_active():
@@ -84,11 +86,20 @@ static func compute_and_apply_damage(
 	var weapon = _EntityAccess.get_weapon(atk)
 
 	if _EntityAccess.weapon_has_attack_types(weapon):
+		var commit_frac: float = float(strike_physics_ctx.get("weapon_extension_commit_fraction", -1.0))
+		if commit_frac < 0.0:
+			commit_frac = _WeaponPosition.commit_fraction_from_move_def(WeaponConstants.get_move(attack_type))
+		var delivery_intensity: float = WeaponDamageHelper.effective_intensity_for_delivery(intensity, commit_frac)
 		var attack_instance = AttackInstance.new(attack_type, intensity)
 		attack_instance.archetype = archetype
+		attack_instance.delivery_commit_fraction = commit_frac
 		attack_instance.strike_energy_mult = float(sm.get("strike_energy_mult", 1.0))
 		attack_instance.strike_momentum_mult = float(sm.get("strike_momentum_mult", 1.0))
-		var v_base: float = velocity_override if velocity_override >= 0.0 else WeaponDamageHelper.velocity_m_s_from_intensity(intensity, archetype, weapon, attack_type)
+		var v_base: float = (
+			velocity_override
+			if velocity_override >= 0.0
+			else WeaponDamageHelper.velocity_m_s_from_intensity(delivery_intensity, archetype, weapon, attack_type)
+		)
 		attack_instance.velocity_m_s = v_base
 		attack_instance.velocity_m_s *= _StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
 		var atk_st_ratio_w: float = clampf(_EntityAccess.stamina_float(atk) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
@@ -171,6 +182,11 @@ static func compute_and_apply_damage(
 	var dmg_extras: Dictionary = {}
 	if strike_ke_j >= 0.0:
 		dmg_extras["strike_ke_j"] = strike_ke_j
+	var hit_sub: String = str(strike_physics_ctx.get("hit_sub_region", "")).strip_edges()
+	if not hit_sub.is_empty():
+		dmg_extras["hit_sub_region"] = hit_sub
+	if strike_physics_ctx.has("hit_sub_region_seed"):
+		dmg_extras["hit_sub_region_seed"] = int(strike_physics_ctx["hit_sub_region_seed"])
 	var take_result: Dictionary = tgt_n.take_damage_split(
 		pre_cut, pre_blunt, part, pen_sharp, pen_blunt_momentum_per_area, blunt_contact_cm, dmg_extras
 	)
@@ -454,9 +470,15 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	else:
 		tgt["engagement_angle"] = "front"
 
-	pa["surround_threat_count"] = _TacticalCombat.count_engaging_threats(manager, target_id)
+	var sur_scan: Dictionary = _TacticalCombat.surround_threat_scan_for_defender(manager, tgt)
+	pa["surround_threat_count"] = int(sur_scan.get("count", 0))
 	if CombatConstants.is_feature_sector_surround_load():
-		pa["surround_threat_weight_sum"] = _TacticalCombat.compute_surround_threat_weight_sum(manager, target_id)
+		pa["surround_threat_weight_sum"] = float(sur_scan.get("weight_sum", 0.0))
+	var arc_blocked: int = int(sur_scan.get("arc_occupancy_blocked", 0))
+	if arc_blocked > 0 and CombatConstants.is_feature_surround_arc_occupancy_enabled():
+		pa["arc_occupancy_blocked"] = arc_blocked
+	else:
+		pa.erase("arc_occupancy_blocked")
 	pa["tactical_ambush_mult"] = _TacticalCombat.ambush_defense_multiplier(manager, tgt)
 	_StrikeStamping.stamp_strike_realism_on_pa(manager, atk, tgt, pa, atk_weapon, attack_type)
 	_IncomingParryChoice.stamp_parry_choice_on_pa(manager, pa, target_id, attacker_id)
@@ -534,12 +556,21 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		strike_mods = _StrikeRealism.compute_strike_modifiers(
 			manager, atk, tgt, atk_weapon, attack_type, intensity, archetype, hit_alignment, parry_remaining_ratio, pa
 		)
+	var path_intercept_idx: int = _PathResolver.path_intercept_max_index(
+		atk_line, guard_line, hit_alignment, align_ctx
+	)
+	var hit_sub_region: String = _HitSubRegion.resolve_sub_region(
+		part, atk_line, guard_line, align_ctx, attack_type, path_intercept_idx
+	)
 	var strike_phys_ctx: Dictionary = {
 		"tactical_ambush_mult": float(pa.get("tactical_ambush_mult", 1.0)),
 		"attack_type": attack_type,
 		"depth_polearm_attack": bool(pa.get("depth_polearm_attack", false)),
 		"depth_polearm_lane_type": str(pa.get("depth_polearm_lane_type", "")),
 		"depth_polearm_allows_low_targets": bool(pa.get("depth_polearm_allows_low_targets", true)),
+		"weapon_extension_commit_fraction": _WeaponPosition.delivery_commit_fraction_from_pa(pa),
+		"hit_sub_region": hit_sub_region,
+		"hit_sub_region_seed": target_id * 31 + attacker_id,
 	}
 	_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa)
 	_Footwork.clear_on_exchange_end(atk)

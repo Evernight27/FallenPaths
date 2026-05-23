@@ -2,7 +2,7 @@ class_name CombatAIActionPicker
 extends RefCounted
 
 ## Picks one action from available actions using weighted randomness. **Combat move choice is fully AI-driven:**
-## weights combine stamina + `CombatTargetScoring` (doctrine, file bias, commitment, distributed pressure, **engagement mode**, our formation posture+cohesion, **opponent** formation, **`breached_files`** column press on listed hostiles, stance). No human pick path.
+## weights combine stamina + `CombatTargetScoring` (doctrine, file bias, commitment, distributed pressure, **engagement mode**, our formation posture+cohesion, **opponent** formation, stance). No human pick path.
 ## Medical: deterministic urgency + per-part threat; bandage/pack/tourniquet favor high `get_medical_effectiveness`, pressure favors lower skill.
 ## Pending retry: strongly prefer retrying the failed part when target is still in peril.
 ## For attacks: adds target_part from path when pathway allows (unguarded bonus). Counter-tempo listing (**`ACTION_KEY_COUNTER_TEMPO`**) × **`CounterTempo.counter_tempo_listing_weight_mult`** (**`AI_COUNTER_TEMPO_*`**). **`is_feint`** moves get **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** × defender-readiness lerp (**`PassiveParryContext.get_passive_parry_readiness`** × **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move’s **`contact_type`** × **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** on the defender × **`CombatConstants.ai_feint_listing_defender_readiness_spacing_mult`** from defender **`distance_to[attacker]`** — same curve as **`DefenseChoiceResolver`** reported readiness, not attacker stamina) × attacker **`CombatConstants.get_stance_modifier(..., "ai_feint_listing")`** × defender footwork state mult (**`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** when off-balance; elif **`STATE_RECOVERING`**, **`AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT`**; elif settled **`STATE_WAITING`**, **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**) × optional low-stamina feint dampening × formation doctrine **`probing`** / **`pinch_center`** / **`hold_lane`** (**`AI_FEINT_LISTING_DOCTRINE_*_MULT`**) × short-horizon boost after that defender **`parry_deflect`** (**`COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`**, **`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_*`**) (Tier 4.2).
@@ -225,30 +225,6 @@ static func _get_action_weight(
 		return 1.0
 	if CombatConstants.is_focus_line_move(mid):
 		return _focus_line_action_weight(mid, combatant_id, manager, c)
-	if mid == CombatConstants.MOVE_ID_CRASH:
-		if CombatConstants.is_incursion_breach_harness_active():
-			return 1.0e9
-		if not _EngagementMode.crash_intrusion_attacker_allowed(manager, c):
-			return 0.0
-		var via: float = CombatConstants.crash_breach_viability(c)
-		var stamina_ratio_c: float = clampf(_EntityAccess.stamina_float(c) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
-		var sr_c: float = 0.78 if stamina_ratio_c < 0.32 else 1.0
-		var shaped: float = pow(via, CombatConstants.CRASH_AI_VIABILITY_EXPONENT)
-		var fd_crash: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(
-			actor_zone_geometry_line_context
-		)
-		if fd_crash.is_empty():
-			fd_crash = _ZoneOfControl.formation_for_combatant_cached(manager, c, null)
-		var pst_m: float = _crash_weight_posture_mult(manager, c, fd_crash)
-		var coh_m: float = crash_line_cohesion_weight_mult(manager, c, fd_crash)
-		return (
-			CombatConstants.CRASH_AI_WEIGHT_CAP
-			* shaped
-			* sr_c
-			* pst_m
-			* coh_m
-			* _doomed_skirmish_offense_weight_mult(manager, c)
-		)
 	if mid == CombatConstants.MOVE_ID_FLEE and int(a.get("target_id", -1)) == combatant_id:
 		if _MobilityRetreat.formation_retreat_only_for(c):
 			return CombatConstants.COWERING_FLEE_AI_WEIGHT
@@ -311,7 +287,8 @@ static func _get_action_weight(
 					pr_def
 					* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
 						_EntityAccess.stamina_float(tgt_feint) / CombatConstants.STAMINA_MAX
-					),
+					)
+					* CombatConstants.defender_passive_readiness_exhaustion_mult(tgt_feint),
 					0.0,
 					1.0
 				)
@@ -382,12 +359,7 @@ static func _get_action_weight(
 	var counter_tempo_m: float = _CounterTempo.counter_tempo_listing_weight_mult(
 		manager, combatant_id, a, mid
 	)
-	var doomed_m: float = _doomed_offense_weight_mult(manager, c)
-	if (
-		mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
-		and CombatConstants.crash_breach_viability(c) + 0.0001 < CombatConstants.CRASH_BREACH_VIABILITY_MIN
-	):
-		doomed_m *= CombatConstants.AI_LOW_CRASH_VIABILITY_ATTEMPT_CLOSE_EXTRA_MULT
+	var attrition_m: float = _attrition_offense_weight_mult(manager, c)
 	return (
 		base_stamina
 		* _TargetScoring.ai_targeting_weight_mult(
@@ -401,12 +373,12 @@ static func _get_action_weight(
 		* polearm_lane
 		* feint_list_m
 		* counter_tempo_m
-		* doomed_m
+		* attrition_m
 	)
 
 
-## Duel/skirmish (few standing on side): damp routine offense and crash listing.
-static func _doomed_skirmish_offense_weight_mult(manager: Node, c: Dictionary) -> float:
+## Duel/skirmish (few standing on side): damp routine offense.
+static func _attrition_offense_weight_mult(manager: Node, c: Dictionary) -> float:
 	if manager == null:
 		return 1.0
 	var side: String = _EntityAccess.side_str(c)
@@ -415,14 +387,6 @@ static func _doomed_skirmish_offense_weight_mult(manager: Node, c: Dictionary) -
 		return CombatConstants.AI_SKIRMISH_LOW_STANDING_OFFENSE_MULT
 	return 1.0
 
-
-## Damp routine melee / close when breach viability is gone or the side is nearly eliminated (duel/skirmish).
-static func _doomed_offense_weight_mult(manager: Node, c: Dictionary) -> float:
-	var mult: float = _doomed_skirmish_offense_weight_mult(manager, c)
-	var via: float = CombatConstants.crash_breach_viability(c)
-	if via + 0.0001 < CombatConstants.CRASH_BREACH_VIABILITY_MIN:
-		mult *= CombatConstants.ai_low_crash_viability_offense_weight_mult(via)
-	return mult
 
 ## Tier 4.3.7: focus-line retarget — party lead favors matching incoming telegraph; others rarely shift.
 static func _focus_line_action_weight(
@@ -468,7 +432,7 @@ static func _depth_polearm_action_weight_mult(
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return CombatConstants.DEPTH_POLEARM_AI_ATTEMPT_CLOSE_MULT
 	var ct: String = _WeaponConstants.contact_type_for_move_id(move_id)
-	# Doctrine keys use home roster **`formation_id`** (intruders keep home column id).
+	# Doctrine keys use home roster **`formation_id`**.
 	var fid: String = _EntityAccess.formation_id_str(c)
 	if ct == _WeaponConstants.ATTACK_TYPE_STAB:
 		var w: float = CombatConstants.DEPTH_POLEARM_AI_STAB_WEIGHT_MULT
@@ -511,22 +475,6 @@ static func _get_positioning_fitness(c: Dictionary) -> float:
 	var n: Node = _EntityAccess.scene_node(c)
 	var health: float = clampf(_EntityAccess.get_blood_volume_from_node(n) / 100.0, 0.0, 1.0) if n != null else 1.0
 	return perf * health
-
-
-## Tier 1.6 (P7): `line_cohesion` 0..1 → lerp(CRASH_AI_COHESION_LOW_MULT, HIGH). Exposed for `CombatRegressionHarness`.
-## When **`fd_cached`** is a Dictionary, use it (e.g. same **`formation_for_combatant_cached`** as **`_crash_weight_posture_mult`**); else resolve from **`c`**.
-static func crash_line_cohesion_weight_mult(manager: Node, c: Dictionary, fd_cached: Variant = null) -> float:
-	if manager == null or c.is_empty():
-		return 1.0
-	var fd: Dictionary = _ZoneOfControl.formation_for_combatant_cached(manager, c, fd_cached)
-	if fd.is_empty():
-		return 1.0
-	var coh: float = clampf(float(fd.get("line_cohesion", 1.0)), 0.0, 1.0)
-	return lerpf(
-		CombatConstants.CRASH_AI_COHESION_LOW_MULT,
-		CombatConstants.CRASH_AI_COHESION_HIGH_MULT,
-		coh
-	)
 
 
 ## Tier 4.2: after **`AttackResultApplier`** **`parry_deflect`**, record defender tick on **`attacker`** for short-horizon feint listing pressure.
@@ -580,24 +528,6 @@ static func _feint_listing_opp_parry_deflect_pressure_mult(
 		CombatConstants.AI_FEINT_LISTING_OPP_PARRY_DEFLECT_PRESSURE_TOP_MULT,
 		t
 	)
-
-
-static func _crash_weight_posture_mult(manager: Node, c: Dictionary, fd_cached: Variant = null) -> float:
-	if manager == null:
-		return 1.0
-	if c.is_empty():
-		return 1.0
-	var fd: Dictionary = _ZoneOfControl.formation_for_combatant_cached(manager, c, fd_cached)
-	if fd.is_empty():
-		return 1.0
-	var pst: String = str(fd.get("engagement_posture", ""))
-	if pst == CombatConstants.ENGAGEMENT_POSTURE_OPEN:
-		return CombatConstants.CRASH_AI_POSTURE_OPEN_EXTRA_MULT
-	if pst == CombatConstants.ENGAGEMENT_POSTURE_LINE:
-		return CombatConstants.CRASH_AI_POSTURE_LINE_EXTRA_MULT
-	if pst == CombatConstants.ENGAGEMENT_POSTURE_DUEL:
-		return CombatConstants.CRASH_AI_POSTURE_DUEL_EXTRA_MULT
-	return 1.0
 
 
 static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
@@ -668,8 +598,6 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
 		return
 	if choice.get("move_id", "") == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return  # Close attempt targets a combatant, not a body part
-	if choice.get("move_id", "") == CombatConstants.MOVE_ID_CRASH:
-		return
 	if choice.get("move_id", "") in [
 		CombatConstants.MOVE_ID_SWAP_RANK,
 		CombatConstants.MOVE_ID_DRAG_BACK,

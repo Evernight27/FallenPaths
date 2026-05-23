@@ -20,16 +20,45 @@ const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 static func _log_outcome(action: String, atk_id: int, tgt_id: int) -> void:
 	if CombatConstants.combat_debug_active():
 		CombatDebug.log("outcome %s atk=%d tgt=%d" % [action, atk_id, tgt_id])
 
-static func _consume_stamina(c: Dictionary, amount: float) -> void:
+
+## F5 soak (**II-2b**): grep `parry_deflect` / `parry_bind` / `parry_partial` without **`COMBAT_DEBUG`**.
+static func _log_fp_parry_outcome(
+	atk: Dictionary,
+	tgt: Dictionary,
+	atk_id: int,
+	tgt_id: int,
+	outcome: String,
+	clash: Dictionary
+) -> void:
+	if not _OperationalLog.is_play_session_active():
+		return
+	var atk_n: String = _EntityAccess.get_display_name(atk, atk_id)
+	var tgt_n: String = _EntityAccess.get_display_name(tgt, tgt_id)
+	var ctrl: float = float(clash.get("parry_control", 0.0))
+	if outcome == "parry_deflect":
+		var tag: String = "parry_bind" if bool(tgt.get("parry_was_bind", false)) else "parry_deflect"
+		CombatDebug.combat_session("%s %s vs %s ctrl=%.2f" % [tag, tgt_n, atk_n, ctrl])
+	elif outcome == "parry_partial":
+		var rem: float = float(clash.get("remaining_ratio", clash.get("geometric_leak", 0.0)))
+		var bind: bool = bool(tgt.get("parry_was_bind", false))
+		var tag: String = "parry_bind" if bind else "parry_partial"
+		CombatDebug.combat_session(
+			"%s %s vs %s ctrl=%.2f leak=%.2f" % [tag, tgt_n, atk_n, ctrl, rem]
+		)
+
+static func _consume_stamina(manager: Node, c: Dictionary, amount: float) -> void:
 	if c == null:
 		return
 	var s: float = _EntityAccess.stamina_float(c)
 	c["stamina"] = maxf(0.0, s - amount)
+	_Exhaustion.apply_exertion_from_stamina_spend(manager, c, amount)
 
 
 static func _stamina_parry_cost_for_defender(atk: Dictionary, incoming_intensity: float = -1.0) -> float:
@@ -122,7 +151,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				atk["last_move_id"] = pa_skip.get("attack_type", "")
 				atk["effective_attack_line"] = pa_skip.get("effective_attack_line", "")
 				atk["recovery_cause"] = "skip"
-				_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
+				_consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 				atk.state = CombatConstants.STATE_RECOVERING
 				atk.state_timer = 0.0
 				atk.state_duration = result.recovery_duration
@@ -164,7 +193,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk["last_move_id"] = pa_miss.get("attack_type", "")
 			atk["effective_attack_line"] = pa_miss.get("effective_attack_line", "")
 			atk["recovery_cause"] = "attack_miss"
-			_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
+			_consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 			atk.state = CombatConstants.STATE_RECOVERING
 			atk.state_timer = 0.0
 			atk.state_duration = result.recovery_duration
@@ -181,7 +210,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk["last_move_id"] = pa_dodge_atk.get("attack_type", "")
 			atk["effective_attack_line"] = pa_dodge_atk.get("effective_attack_line", "")
 			atk["recovery_cause"] = "attack_miss"
-			_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
+			_consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 			atk.state = CombatConstants.STATE_RECOVERING
 			atk.state_timer = 0.0
 			atk.state_duration = result.recovery_duration
@@ -213,13 +242,13 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk["parry_clash_context"] = atk_clash_raw if atk_clash_raw is Dictionary else {}
 			_clear_attacker_pending_attack(atk, manager)
 			atk["recovery_cause"] = "attack_deflect"
-			_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
+			_consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 			atk.state = CombatConstants.STATE_RECOVERING
 			atk.state_timer = 0.0
 			atk.state_duration = result.recovery_duration
 			atk["off_balance_until"] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
 		if not tgt.is_empty():
-			_consume_stamina(tgt, _stamina_parry_cost_for_defender(atk, incoming_parry_intensity))
+			_consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_parry_intensity))
 			# Weapon position: defender's blade met attacker's; blade ends in attack line.
 			# Use effective_attack_line for diagonal moves (actual contact line).
 			var move_id: String = atk.get("last_move_id", "") if not atk.is_empty() else ""
@@ -250,6 +279,10 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		if clash_emit is Dictionary:
 			empty_result["parry_clash_context"] = clash_emit
 		_log_outcome("parry_deflect", attacker_id, target_id)
+		var clash_log: Dictionary = (
+			result.get("parry_clash_context", {}) if result.get("parry_clash_context") is Dictionary else {}
+		)
+		_log_fp_parry_outcome(atk, tgt, attacker_id, target_id, "parry_deflect", clash_log)
 		if not atk.is_empty():
 			_AIPicker.record_opp_parry_deflect_for_feint_listing(manager, atk, target_id)
 		if not tgt.is_empty():
@@ -266,7 +299,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk["parry_clash_context"] = partial_clash_raw if partial_clash_raw is Dictionary else {}
 			atk["defender_guard_line_at_parry"] = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT) if not tgt.is_empty() else ""
 		if not tgt.is_empty():
-			_consume_stamina(tgt, _stamina_parry_cost_for_defender(atk, incoming_partial_intensity))
+			_consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_partial_intensity))
 			# Weapon position: only update when alignment was good (blade properly met attack).
 			# Use effective_attack_line for diagonal moves (actual contact line).
 			var pa_partial: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
@@ -316,6 +349,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		if pcl_emit is Dictionary:
 			partial_emit["parry_clash_context"] = pcl_emit
 		_log_outcome("parry_partial", attacker_id, target_id)
+		var clash_partial: Dictionary = pcl_emit if pcl_emit is Dictionary else {}
+		_log_fp_parry_outcome(atk, tgt, attacker_id, target_id, "parry_partial", clash_partial)
 		manager.emit_signal("action_resolved", target_id, attacker_id, partial_emit)
 		manager._execute_attack(attacker_id)
 		return
@@ -340,7 +375,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				manager._end_combat_phase(winner, tgt_scene)
 			# Attacker still needs recovery (killing blow); otherwise they stay in WIND_UP and never get another turn.
 			if atk != null and _EntityAccess.alive_bool(atk):
-				_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
+				_consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 				atk["effective_attack_line"] = atk.get("effective_attack_line", "")
 				atk["recovery_cause"] = "attack_hit"
 				atk.state = CombatConstants.STATE_RECOVERING
@@ -359,7 +394,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
 			# Attacker still needs recovery; otherwise they stay in WIND_UP
 			if atk != null and _EntityAccess.alive_bool(atk):
-				_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
+				_consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 				atk["effective_attack_line"] = atk.get("effective_attack_line", "")
 				atk["recovery_cause"] = "attack_hit"
 				atk.state = CombatConstants.STATE_RECOVERING
@@ -373,7 +408,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		_log_outcome("hit", attacker_id, target_id)
 		manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
 		if atk != null and _EntityAccess.alive_bool(atk):
-			_consume_stamina(atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
+			_consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 			atk["effective_attack_line"] = atk.get("effective_attack_line", "")  # Set in AttackResolver before clear
 			atk["recovery_cause"] = "attack_hit"
 			atk.state = CombatConstants.STATE_RECOVERING

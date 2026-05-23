@@ -1,16 +1,27 @@
 class_name CombatMeleeListing
 extends RefCounted
 
-## Melee strike / attempt-close / crash action listing and **`can_melee_threaten`** (reach + band + rank gates).
+## Melee strike / attempt-close action listing and **`can_melee_threaten`** (reach + band + rank gates).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
-const _CrashActions := preload("res://combat/CombatCrashActions.gd")
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
+
+
+## Live **`CombatManager.combatants`** dicts (not UI snapshot from **`get_combatants()`**).
+static func _live_combatant_rows(manager: Node) -> Array:
+	if manager == null:
+		return []
+	var live: Variant = manager.get("combatants")
+	if live is Array:
+		return live as Array
+	if manager.has_method("get_combatants"):
+		return manager.get_combatants()
+	return []
 
 
 static func melee_weapon_reach(c: Dictionary) -> float:
@@ -52,12 +63,57 @@ static func close_attempt_pair_blocked(manager: Node, attacker: Dictionary, defe
 	return _EntityAccess.timestamp_cooldown_active(manager, float(until), -1.0)
 
 
+static func max_close_slots_for_defender(manager: Node, defender: Dictionary) -> int:
+	if defender.is_empty():
+		return CombatConstants.CLOSE_SLOTS_PER_TARGET
+	var ctx: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, defender)
+	var form_geom: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx)
+	var density: String = str(form_geom.get("density", "normal")) if not form_geom.is_empty() else "normal"
+	return CombatConstants.max_close_slots_for_density(density)
+
+
+## Living opponents already at **DISTANCE_CLOSE** vs **defender_id** (optional **exclude_attacker_id**).
+static func count_close_attackers_on_defender(
+	manager: Node, defender_id: int, exclude_attacker_id: int = -1
+) -> int:
+	if manager == null:
+		return 0
+	var defender: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+	if defender.is_empty():
+		return 0
+	var n: int = 0
+	for raw in _live_combatant_rows(manager):
+		if raw == null or typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var atk: Dictionary = raw as Dictionary
+		var aid: int = _EntityAccess.id_int(atk)
+		if aid == defender_id or aid == exclude_attacker_id:
+			continue
+		if not _EntityAccess.are_alive_opponents(atk, defender):
+			continue
+		if _EntityAccess.distance_to_opponent_band(atk, defender_id) == CombatConstants.DISTANCE_CLOSE:
+			n += 1
+	return n
+
+
+static func defender_has_free_close_slot(
+	manager: Node, defender: Dictionary, exclude_attacker_id: int = -1
+) -> bool:
+	var cap: int = max_close_slots_for_defender(manager, defender)
+	return count_close_attackers_on_defender(manager, _EntityAccess.id_int(defender), exclude_attacker_id) < cap
+
+
 static func attempt_close_listed_for_pair(
 	manager: Node, attacker: Dictionary, defender_id: int, dist: String
 ) -> bool:
 	if dist != CombatConstants.DISTANCE_LONG:
 		return false
-	return not close_attempt_pair_blocked(manager, attacker, defender_id)
+	if close_attempt_pair_blocked(manager, attacker, defender_id):
+		return false
+	var defender: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+	if defender.is_empty():
+		return false
+	return defender_has_free_close_slot(manager, defender, _EntityAccess.id_int(attacker))
 
 
 static func append_melee_vs_enemy_line_rank(
@@ -111,9 +167,6 @@ static func append_melee_vs_enemy_line_rank(
 				actions.append(
 					{"target_id": _EntityAccess.id_int(opp), "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE}
 				)
-		if _CrashActions.crash_action_eligible(manager, c, opp, in_swing_range, dist):
-			actions.append({"target_id": _EntityAccess.id_int(opp), "move_id": CombatConstants.MOVE_ID_CRASH})
-
 
 static func append_melee_actions_for_combatant(
 	manager: Node,
@@ -130,11 +183,8 @@ static func append_melee_actions_for_combatant(
 		ctx_self = _ZoneOfControl.zone_geometry_line_context(manager, c)
 	var fid: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_self)
 	var our_rank: int = _EntityAccess.rank_int(c)
-	var c_intruded: bool = _ZoneOfControl.is_intruded(c)
 	var can_melee: bool = (
 		our_rank == 0
-		or c_intruded
-		or _MeleeRank.host_formation_has_enemy_intruder(manager, combatants, c)
 		or _DepthPolearm.depth_polearm_lane_open(manager, c, fid)
 	) and not _EntityAccess.get_attacking_arm(c).is_empty()
 	if not can_melee:

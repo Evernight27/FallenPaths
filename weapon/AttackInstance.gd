@@ -13,6 +13,8 @@ var archetype: Dictionary = {}  # Set by CombatManager from weapon + attack_type
 ## StrikeRealismProfile: scales KE (v² × coupling) and momentum (v × coupling) vs baseline band speed.
 var strike_energy_mult: float = 1.0
 var strike_momentum_mult: float = 1.0
+## Weapon extension at impact (0–1). When >= 0, scales effective intensity for KE/cut (not blunt slip).
+var delivery_commit_fraction: float = -1.0
 
 
 func _init(p_attack_type: String = "cut", p_intensity: float = 0.5, p_velocity_m_s: float = -1.0) -> void:

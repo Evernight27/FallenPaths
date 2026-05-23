@@ -6,6 +6,8 @@ extends RefCounted
 ## direct_pressure_part, self_direct_pressure_part, direct_pressure_held_by, name.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _CombatLayerTissue := preload("res://core/CombatLayerTissue.gd")
+const _BloodVolumeMl := preload("res://core/BloodVolumeMl.gd")
 const _Healing := preload("res://core/HealingConstants.gd")
 const _EntityMedical := preload("res://core/EntityMedical.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
@@ -40,35 +42,78 @@ static func _severity_from_pct(pct: float) -> String:
 		return _Bleeding.SEVERITY_MODERATE
 	return _Bleeding.SEVERITY_MINOR
 
-static func _severity_from_abs(effective_damage: float) -> String:
+static func _severity_order() -> Array:
+	return [
+		_Bleeding.SEVERITY_MINOR,
+		_Bleeding.SEVERITY_MODERATE,
+		_Bleeding.SEVERITY_SEVERE,
+		_Bleeding.SEVERITY_CRITICAL,
+	]
+
+
+static func _severity_from_abs_tissue(effective_damage: float) -> String:
 	if effective_damage >= _Bleeding.SEVERITY_ABSOLUTE_CRITICAL:
 		return _Bleeding.SEVERITY_CRITICAL
 	if effective_damage >= _Bleeding.SEVERITY_ABSOLUTE_SEVERE:
 		return _Bleeding.SEVERITY_SEVERE
-	if effective_damage >= _Bleeding.SEVERITY_ABSOLUTE_MINOR:
+	if effective_damage >= _Bleeding.SEVERITY_ABSOLUTE_MODERATE:
 		return _Bleeding.SEVERITY_MODERATE
 	return _Bleeding.SEVERITY_MINOR
 
-static func severity_from_damage(entity: Node, part: String, damage: float, sub_region: String = "", impact_ke_j: float = -1.0) -> String:
+
+static func _severity_from_abs_bone(bone_damage: float) -> String:
+	if bone_damage >= _Bleeding.SEVERITY_ABSOLUTE_BONE_CRITICAL:
+		return _Bleeding.SEVERITY_CRITICAL
+	if bone_damage >= _Bleeding.SEVERITY_ABSOLUTE_BONE_SEVERE:
+		return _Bleeding.SEVERITY_SEVERE
+	if bone_damage >= _Bleeding.SEVERITY_ABSOLUTE_BONE_MODERATE:
+		return _Bleeding.SEVERITY_MODERATE
+	return _Bleeding.SEVERITY_MINOR
+
+
+static func _compose_severity_abs_and_pct(sev_abs: String, sev_pct: String) -> String:
+	var order: Array = _severity_order()
+	if _Bleeding.FEATURE_ABSOLUTE_SEVERITY_PCT_CAP:
+		return order[mini(order.find(sev_abs), order.find(sev_pct))]
+	return sev_abs
+
+
+static func severity_from_damage(
+	entity: Node,
+	part: String,
+	damage: float,
+	sub_region: String = "",
+	impact_ke_j: float = -1.0,
+	penetration_to_tissue_mm: float = -1.0
+) -> String:
 	var max_hp: float = float(entity.body_max.get(part, 10))
 	if max_hp <= 0.0:
 		return _Bleeding.SEVERITY_MODERATE
 	var ke_mult: float = 1.0
 	if impact_ke_j >= 0.0:
 		ke_mult = 1.0 + _SEVERITY_KE_BLEND * minf(impact_ke_j / maxf(1.0, _IMPACT_KE_REF_J), 2.0)
-	var effective_damage: float = damage * ke_mult * _Bleeding.get_severity_modifier(part, sub_region)
+	var depth_mult: float = _Bleeding.penetration_depth_severity_mult(penetration_to_tissue_mm)
+	var effective_damage: float = damage * ke_mult * depth_mult * _Bleeding.get_severity_modifier(part, sub_region)
 	var pct: float = effective_damage / max_hp
 	var sev_pct: String = _severity_from_pct(pct)
-	var sev_abs: String = _severity_from_abs(effective_damage)
-	var order: Array = [_Bleeding.SEVERITY_MINOR, _Bleeding.SEVERITY_MODERATE, _Bleeding.SEVERITY_SEVERE, _Bleeding.SEVERITY_CRITICAL]
-	return order[maxi(order.find(sev_pct), order.find(sev_abs))]
+	if _Bleeding.FEATURE_ABSOLUTE_SEVERITY_BANDS:
+		return _compose_severity_abs_and_pct(_severity_from_abs_tissue(effective_damage), sev_pct)
+	return sev_pct
+
 
 static func severity_from_bone_damage(entity: Node, part: String, bone_damage: float) -> String:
+	if bone_damage <= 0.0:
+		return _Bleeding.SEVERITY_MINOR
 	var max_bone: float = float(entity.bone_max.get(part, 1))
 	if max_bone <= 0.0:
 		return _Bleeding.SEVERITY_MODERATE
-	var pct: float = bone_damage / max_bone
-	return _severity_from_pct(pct)
+	if _Bleeding.FEATURE_ABSOLUTE_SEVERITY_BANDS:
+		var sev_abs: String = _severity_from_abs_bone(bone_damage)
+		if _Bleeding.FEATURE_ABSOLUTE_SEVERITY_PCT_CAP:
+			var sev_pct: String = _severity_from_pct(bone_damage / max_bone)
+			return _compose_severity_abs_and_pct(sev_abs, sev_pct)
+		return sev_abs
+	return _severity_from_pct(bone_damage / max_bone)
 
 
 static func _severity_rank(sev: String) -> int:
@@ -126,20 +171,41 @@ static func _try_merge_wound_into_channel(
 
 # --- Add wound / stump wound ---
 
-static func add_wound(entity: Node, part: String, injury_type: String, damage: float, sub_region: String = "", severity_override: String = "", impact_ke_j: float = -1.0) -> void:
+static func add_wound(
+	entity: Node,
+	part: String,
+	injury_type: String,
+	damage: float,
+	sub_region: String = "",
+	severity_override: String = "",
+	impact_ke_j: float = -1.0,
+	penetration_to_tissue_mm: float = -1.0
+) -> void:
 	if part.is_empty() or damage <= 0.0:
 		return
-	var severity: String = severity_override if not severity_override.is_empty() else severity_from_damage(entity, part, damage, sub_region, impact_ke_j)
+	var severity: String = (
+		severity_override
+		if not severity_override.is_empty()
+		else severity_from_damage(entity, part, damage, sub_region, impact_ke_j, penetration_to_tissue_mm)
+	)
 	if injury_type == _Bleeding.INJURY_TYPE_CRUSH and severity == _Bleeding.SEVERITY_MINOR:
 		injury_type = _Bleeding.INJURY_TYPE_BRUISE
 	var base_rate: float = _Bleeding.get_bleeding_rate(injury_type, severity, part, sub_region)
 	if base_rate < 0.0:
 		base_rate = 0.0
-	if base_rate > 0.0 and injury_type == _Bleeding.INJURY_TYPE_CUT and impact_ke_j >= 0.0:
-		base_rate *= 1.0 + _BLEED_KE_BLEND * minf(impact_ke_j / maxf(1.0, _IMPACT_KE_REF_J), 2.0)
+	if base_rate > 0.0 and injury_type == _Bleeding.INJURY_TYPE_CUT:
+		if impact_ke_j >= 0.0:
+			base_rate *= 1.0 + _BLEED_KE_BLEND * minf(impact_ke_j / maxf(1.0, _IMPACT_KE_REF_J), 2.0)
+		base_rate *= _Bleeding.penetration_depth_severity_mult(penetration_to_tissue_mm)
+		base_rate *= _CombatLayerTissue.layer_rupture_bleed_mult(entity, part)
 	if base_rate > 0.0:
 		base_rate *= randf_range(_Bleeding.BLEEDING_RATE_VARIANCE_MIN, _Bleeding.BLEEDING_RATE_VARIANCE_MAX)
-	var is_arterial: bool = randf() < _Bleeding.get_arterial_chance(severity, injury_type, part, sub_region) if base_rate > 0.0 else false
+	var pen_for_arterial: float = penetration_to_tissue_mm if injury_type == _Bleeding.INJURY_TYPE_CUT else -1.0
+	var is_arterial: bool = (
+		randf() < _Bleeding.get_arterial_chance(severity, injury_type, part, sub_region, pen_for_arterial)
+		if base_rate > 0.0
+		else false
+	)
 	if base_rate > 0.0 and is_arterial:
 		base_rate *= _Bleeding.ARTERIAL_BLEEDING_MULTIPLIER
 	if entity.wounds.get(part) == null:
@@ -163,6 +229,7 @@ static func add_wound(entity: Node, part: String, injury_type: String, damage: f
 	}
 	entity.wounds[part].append(injury)
 
+## When sub_region is empty, uses RNG stump site (not combat hit path — use resolved hit_sub_region from EntityDamage).
 static func create_stump_wound(entity: Node, part: String, sub_region: String) -> Array:
 	if sub_region.is_empty():
 		sub_region = _Bleeding.get_random_sub_region(part)
@@ -393,8 +460,12 @@ static func process_blood_loss(entity: Node, delta: float) -> void:
 		loss_mult = entity.get_combat_blood_loss_mult()
 	if entity.has_method("get_combat_blood_recovery_per_s"):
 		recovery_per_s = entity.get_combat_blood_recovery_per_s()
-	if total > 0.0:
-		var loss: float = total * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER * delta * loss_mult
+	if _BloodVolumeMl.entity_uses_ml(entity):
+		_BloodVolumeMl.process_blood_loss_tick(entity, total, delta, loss_mult, recovery_per_s)
+		if total <= 0.0 and recovery_per_s <= 0.0:
+			return
+	elif total > 0.0:
+		var loss: float = _Bleeding.blood_volume_loss_per_second(total, loss_mult) * delta
 		entity.blood_volume = maxf(0.0, entity.blood_volume - loss)
 	elif recovery_per_s > 0.0:
 		entity.blood_volume = minf(

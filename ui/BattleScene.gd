@@ -12,6 +12,8 @@ const _Weapon := preload("res://weapon/Weapon.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 
 var players: Array = []
 var enemies: Array = []
@@ -40,6 +42,28 @@ var _enemy_list: Control = null
 var _player_preset: Dictionary = {}
 var _enemy_preset: Dictionary = {}
 var _diagram_footwork_sig: String = ""
+var _ui_poll_accum: float = 0.0
+const _META_FP_ENGAGEMENT_UI_LINE := "_fp_engagement_ui_line"
+## Poll interval while combat is running (stamina/guard refill in `waiting`; counter-tempo gauge).
+const _UI_POLL_INTERVAL_S: float = 0.25
+## States whose countdown labels need per-frame refresh; other UI uses combat signals.
+const _TIMED_UI_STATES: Array[String] = [
+	CombatConstants.STATE_WIND_UP,
+	CombatConstants.STATE_MEDICAL_WIND_UP,
+	CombatConstants.STATE_RECOVERING,
+	CombatConstants.STATE_SWAP_RANK,
+	CombatConstants.STATE_FALLING_BACK,
+]
+## Medical triage "finished" only when no living winner-side fighter is mid-action.
+const _MEDICAL_BUSY_STATES: Array[String] = [
+	CombatConstants.STATE_WIND_UP,
+	CombatConstants.STATE_MEDICAL_WIND_UP,
+	CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION,
+	CombatConstants.STATE_RECOVERING,
+	CombatConstants.STATE_SWAP_RANK,
+	CombatConstants.STATE_FALLING_BACK,
+	CombatConstants.STATE_COWERING,
+]
 
 func _ready() -> void:
 	# Processing will be enabled by start()
@@ -99,6 +123,7 @@ func start(
 	_enemy_preset = p_enemy_formation if not p_enemy_formation.is_empty() else _FormationPreset.default_for_count(enemies.size())
 	# Connect signals BEFORE manager.start() so turn_ready is never missed (robustness)
 	manager.connect("turn_ready", Callable(self, "_on_turn_ready"))
+	manager.connect("turn_resolved", Callable(self, "_on_turn_resolved"))
 	manager.connect("action_resolved", Callable(self, "_on_action_resolved"))
 	manager.connect("combat_ended", Callable(self, "_on_combat_ended"))
 	manager.connect("enemies_eliminated", Callable(self, "_on_enemies_eliminated"))
@@ -284,20 +309,66 @@ func _sync_formation_diagrams_for_tactical_hints(caps: Array) -> void:
 	if formation_diagram_enemy != null:
 		_FormationDiagramBuilder.refresh(formation_diagram_enemy)
 
-func _process(_delta: float) -> void:
-	# keep UI in sync with manager (single snapshot per frame)
-	var caps: Array = _update_ui()
+func _manager_needs_timer_ui_refresh() -> bool:
+	if manager == null:
+		return false
+	for raw in manager.combatants:
+		if raw is not Dictionary:
+			continue
+		var c: Dictionary = raw as Dictionary
+		if not _EntityAccess.alive_bool(c, true):
+			continue
+		if _EntityAccess.state_str(c) in _TIMED_UI_STATES:
+			return true
+	return false
+
+
+func _combat_manager_actively_simulating() -> bool:
+	return manager != null and manager.is_processing()
+
+
+func _sync_medical_phase_flag_from_manager() -> void:
+	if manager != null and bool(manager.medical_phase):
+		_in_medical_phase = true
+
+
+func _should_poll_ui_this_frame(delta: float) -> bool:
+	_sync_medical_phase_flag_from_manager()
+	if _in_medical_phase or _manager_needs_timer_ui_refresh():
+		_ui_poll_accum = 0.0
+		return true
+	if not _combat_manager_actively_simulating():
+		_ui_poll_accum = 0.0
+		return false
+	_ui_poll_accum += delta
+	if _ui_poll_accum >= _UI_POLL_INTERVAL_S:
+		_ui_poll_accum = 0.0
+		return true
+	return false
+
+
+func _process(delta: float) -> void:
+	_sync_medical_phase_flag_from_manager()
+	var caps: Array = []
+	if _should_poll_ui_this_frame(delta):
+		caps = _update_ui()
 	# Medical phase: show End battle when all wounded are stabilized
 	if _in_medical_phase and manager != null and manager.has_method("can_end_medical_phase") and manager.can_end_medical_phase():
 		_show_end_battle_button()
 		# After medical actions are done and everyone is paused (no one in wind_up/medical_wind_up), announce once
 		if not _medical_phase_finished_announced:
 			var anyone_busy: bool = false
-			for c in caps:
+			var winner_side: String = str(manager.medical_phase_winner) if "medical_phase_winner" in manager else "player"
+			var scan: Array = caps if not caps.is_empty() else manager.get_combatants()
+			for raw in scan:
+				if raw is not Dictionary:
+					continue
+				var c: Dictionary = raw as Dictionary
 				if not _EntityAccess.alive_bool(c, true):
-					continue  # Only alive combatants can be "busy"; dead enemies may still have wind_up state
-				var s: String = _EntityAccess.state_str(c, "waiting")
-				if s == "wind_up" or s == "medical_wind_up":
+					continue
+				if _EntityAccess.side_str(c) != winner_side:
+					continue
+				if _EntityAccess.state_str(c) in _MEDICAL_BUSY_STATES:
 					anyone_busy = true
 					break
 			if not anyone_busy:
@@ -316,10 +387,12 @@ func _on_formation_changed(_side: String) -> void:
 		_FormationDiagramBuilder.refresh(formation_diagram_player)
 	if formation_diagram_enemy != null:
 		_FormationDiagramBuilder.refresh(formation_diagram_enemy)
+	_update_ui()
 
 
 func _on_engagement_state_changed(_formation_id: String, _line_cohesion: float, _engagement_posture: String) -> void:
 	_sync_engagement_labels_from_manager()
+	_update_ui()
 
 
 func _sync_engagement_labels_from_manager() -> void:
@@ -333,6 +406,22 @@ func _sync_engagement_labels_from_manager() -> void:
 		_player_engagement_label.text = _format_engagement_line(
 			_FormationSlots.formation_record_for_manager(manager, "player"), "player"
 		)
+	_log_fp_engagement_ui_if_changed()
+
+
+func _log_fp_engagement_ui_if_changed() -> void:
+	if manager == null or not _OperationalLog.is_play_session_active():
+		return
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, "player")
+	if form.is_empty():
+		return
+	var line: String = _format_engagement_line(form, "player")
+	var prev: String = str(manager.get_meta(_META_FP_ENGAGEMENT_UI_LINE, "")).strip_edges()
+	if line == prev:
+		return
+	manager.set_meta(_META_FP_ENGAGEMENT_UI_LINE, line)
+	_CombatDebug.combat_session("engagement ui player: %s" % line)
+	_F5SoakTrace.log_diagram_banner_player(line)
 
 
 func _format_engagement_line(form: Dictionary, formation_id: String) -> String:
@@ -356,13 +445,23 @@ func _format_engagement_line(form: Dictionary, formation_id: String) -> String:
 
 
 func _on_combat_ui_hint(message: String) -> void:
-	if combat_log == null or str(message).strip_edges().is_empty():
+	var m: String = str(message).strip_edges()
+	if m.is_empty():
 		return
-	combat_log.append_text("[color=#aab0c0]%s[/color]\n" % str(message))
+	if _OperationalLog.is_play_session_active():
+		_OperationalLog.play_combat("ui_hint %s" % m)
+	if combat_log == null:
+		return
+	combat_log.append_text("[color=#aab0c0]%s[/color]\n" % m)
 	_scroll_combat_log_to_bottom()
 
 func _on_turn_ready(combatant_id: int) -> void:
 	_TurnReadyHandler.handle(manager, combatant_id)
+	_update_ui()
+
+
+func _on_turn_resolved(_combatant_id: int) -> void:
+	_update_ui()
 
 func _append_combat_log(attacker_name: String, attacker_side: String, target_name: String, target_side: String, result: Dictionary) -> void:
 	if combat_log == null:

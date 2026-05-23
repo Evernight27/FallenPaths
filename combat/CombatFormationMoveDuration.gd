@@ -6,9 +6,10 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _Timing := preload("res://combat/CombatTiming.gd")
+const _BattleUIConstants := preload("res://ui/BattleUIConstants.gd")
 
 
-## Host-line **`fid`** for lane/pressure timing (tactical grid; intruders use host column).
+## Formation **`fid`** for lane/pressure timing (tactical grid / zone geometry).
 static func _zone_fid_for_lane_timing(manager: Node, c: Dictionary) -> String:
 	if manager == null:
 		return _EntityAccess.formation_id_str(c)
@@ -98,7 +99,7 @@ static func preview_lane_pressure_for_combatant(manager: Node, c: Dictionary) ->
 		"pressure_mod": CombatConstants.PRESSURE_MOD_NEUTRAL,
 		"duration_s": CombatConstants.BASE_FALL_BACK_S,
 	}
-	if manager == null or c.is_empty() or _ZoneOfControl.is_intruded(c):
+	if manager == null or c.is_empty():
 		return out
 	var fid: String = _zone_fid_for_lane_timing(manager, c)
 	if fid.is_empty():
@@ -166,6 +167,35 @@ static func stamp_listed_action_duration_hint(
 		action["formation_move_duration_hint"] = hint
 
 
+static func _formation_action_display_label(move_id: String) -> String:
+	var labels: Dictionary = _BattleUIConstants.FORMATION_ACTION_LABELS
+	if labels.has(move_id):
+		return str(labels[move_id])
+	return move_id.replace("_", " ")
+
+
+## Human-readable formation menu line for player turn-ready (Phase 2 **II-5a**).
+static func formation_listed_moves_menu_line(actions: Array) -> String:
+	var parts: PackedStringArray = []
+	for a in actions:
+		if a is not Dictionary:
+			continue
+		var mid: String = str(a.get("move_id", ""))
+		if (
+			mid not in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS
+			and mid != CombatConstants.MOVE_ID_ATTEMPT_CLOSE
+		):
+			continue
+		var label: String = _formation_action_display_label(mid)
+		var tid: int = int(a.get("target_id", -1))
+		if tid >= 0 and mid != CombatConstants.MOVE_ID_FLEE:
+			label = "%s → ally %d" % [label, tid]
+		parts.append(label)
+	if parts.is_empty():
+		return ""
+	return "Formation actions: " + ", ".join(parts)
+
+
 ## One combat-log line for player turn-ready when listed formation moves carry duration hints.
 static func formation_listed_moves_turn_hint(actions: Array) -> String:
 	var parts: PackedStringArray = []
@@ -179,7 +209,7 @@ static func formation_listed_moves_turn_hint(actions: Array) -> String:
 		if hint.is_empty():
 			continue
 		var tid: int = int(a.get("target_id", -1))
-		var label: String = mid.replace("_", " ")
+		var label: String = _formation_action_display_label(mid)
 		if tid >= 0:
 			label = "%s (ally %d)" % [label, tid]
 		parts.append("%s — %s" % [label, hint])
@@ -188,3 +218,11 @@ static func formation_listed_moves_turn_hint(actions: Array) -> String:
 	if parts.size() == 1:
 		return parts[0]
 	return "Listed formation moves: " + "; ".join(parts)
+
+
+## One **`FP_COMBAT: ui_hint`** line per turn: duration detail when stamped, else compact menu summary.
+static func formation_turn_ready_ui_hint(actions: Array) -> String:
+	var detail: String = formation_listed_moves_turn_hint(actions)
+	if not detail.is_empty():
+		return detail
+	return formation_listed_moves_menu_line(actions)
