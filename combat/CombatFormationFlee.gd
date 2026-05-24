@@ -13,6 +13,7 @@ const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 
 
 static func flee_action_legal(manager: Node, c: Dictionary) -> bool:
@@ -97,19 +98,13 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 				]
 			)
 		)
-	if _OperationalLog.is_play_session_active():
-		_OperationalLog.play_combat(
-			(
-				"fled id=%d %s cohesion=%.2f casualties=%.0f%% holding_field=%s"
-				% [
-					combatant_id,
-					_EntityAccess.get_display_name(c, combatant_id),
-					float(ctx.get("line_cohesion", 0.0)),
-					float(ctx.get("casualty_ratio", 0.0)) * 100.0,
-					str(ctx.get("side_holding_field", false)),
-				]
-			)
-		)
+	_F5SoakTrace.note_fled(
+		combatant_id,
+		_EntityAccess.get_display_name(c, combatant_id),
+		float(ctx.get("line_cohesion", 0.0)),
+		float(ctx.get("casualty_ratio", 0.0)) * 100.0,
+		bool(ctx.get("side_holding_field", false))
+	)
 	if not fid.is_empty():
 		manager.notify_formation_changed(fid)
 		manager._recompute_zoc_and_distance()

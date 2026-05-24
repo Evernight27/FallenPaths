@@ -21,8 +21,10 @@ const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _IncomingParryChoice := preload("res://combat/CombatIncomingParryChoice.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+const _LogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 const _HitSubRegion := preload("res://combat/CombatHitSubRegion.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.combat_debug_active():
@@ -102,7 +104,7 @@ static func compute_and_apply_damage(
 		)
 		attack_instance.velocity_m_s = v_base
 		attack_instance.velocity_m_s *= _StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
-		var atk_st_ratio_w: float = clampf(_EntityAccess.stamina_float(atk) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+		var atk_st_ratio_w: float = _EntityAccess.stamina_ratio(atk)
 		var stamina_vel_scale: float = sqrt(lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(atk_st_ratio_w)))
 		attack_instance.velocity_m_s *= stamina_vel_scale
 		if afterblow_damage_mult < 1.0:
@@ -161,7 +163,7 @@ static func compute_and_apply_damage(
 		)
 		if parry_remaining_ratio < 1.0:
 			pre_armor *= lerpf(0.5, 1.0, parry_remaining_ratio)
-		var atk_st_ratio_u: float = clampf(_EntityAccess.stamina_float(atk) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+		var atk_st_ratio_u: float = _EntityAccess.stamina_ratio(atk)
 		var stamina_u: float = sqrt(lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(atk_st_ratio_u)))
 		var afterblow_u: float = sqrt(maxf(0.04, afterblow_damage_mult))
 		pre_armor *= _StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx) * stamina_u * afterblow_u
@@ -296,8 +298,11 @@ static func compute_and_apply_damage(
 		"was_glancing": outcome == "glancing",
 		"was_negligible": outcome == "negligible",
 		"mechanical_post_armor": mech_post_armor,
-		"rounded_zero_chip": rounded_zero_chip
+		"rounded_zero_chip": rounded_zero_chip,
+		"tissue_dmg": tissue_dmg,
+		"pre_armor": pre_armor,
 	}
+	result_dict["damage_resolve_note"] = _LogFormatter.damage_resolve_note(result_dict)
 	result_dict["health_before"] = int(roundf(health_before_cut + health_before_blunt))
 	result_dict["health_after"] = int(roundf(health_after_cut + health_after_blunt))
 	# Headless harness only: `CombatRegressionHarness` sets meta on the manager before `compute_and_apply_damage`.
@@ -315,7 +320,11 @@ static func compute_and_apply_damage(
 		tgt.state = CombatConstants.STATE_DEAD
 		_StateHandlers.cancel_events_for_dead_combatant(manager, tgt)
 		result_dict["died"] = true
-		CombatDebug.combat_session("DEATH %s — %s" % [tgt_name, _EntityAccess.get_death_reason(tgt)])
+		# F5: `hit_resolve` + combat log carry strike outcome; skip redundant DEATH line.
+		if not (
+			_OperationalLog.is_play_session_active() and CombatConstants.combat_hit_summary_active()
+		):
+			CombatDebug.combat_session("DEATH %s — %s" % [tgt_name, _EntityAccess.get_death_reason(tgt)])
 
 	var rec_dur: float = CombatTiming.recovery_duration(intensity, outcome, recovery_mult, perf_mod, _EntityAccess.stats_dict(atk).get("agility", 100), glancing_severity)
 	return {
@@ -355,8 +364,7 @@ static func stamp_resolve_angle_geometry_on_pa(
 		pa["position_angle_offset_deg"] = _Footwork.get_attacker_offset_deg(atk)
 		return
 	var var_ctx: Dictionary = {}
-	var s: float = _EntityAccess.stamina_float(atk)
-	var_ctx["stamina_ratio"] = clampf(s / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+	var_ctx["stamina_ratio"] = _EntityAccess.stamina_ratio(atk)
 	var_ctx["off_balance"] = _PassiveParry.is_off_balance(atk)
 	var atk_weapon = _EntityAccess.get_weapon(atk)
 	var_ctx["weapon_mass_kg"] = (

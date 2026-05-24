@@ -11,6 +11,7 @@ const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 const _Flee := preload("res://combat/CombatFormationFlee.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
+const _ListedActions := preload("res://combat/CombatListedActions.gd")
 
 
 static func _append_formation_action(
@@ -248,7 +249,8 @@ static func append_formation_move_actions(
 	var can_swap_rank: bool = bool(move_policy.get("allow_swap_rank", false))
 	var can_drag_back: bool = bool(move_policy.get("allow_drag_back", false))
 	var can_fall_back: bool = bool(move_policy.get("allow_fall_back", false))
-	var can_rotate_file: bool = bool(move_policy.get("allow_rotate_file", false))
+	var home_fid: String = _EntityAccess.formation_id_str(c)
+	var can_rotate_file: bool = _EngagementMode.allow_rotate_file_for_formation(manager, home_fid)
 	if (
 		not formation_retreat_only
 		and not our_formation.is_empty()
@@ -295,9 +297,15 @@ static func append_formation_move_actions(
 	return out
 
 
-## When no combat actions exist, or only formation movement moves remain, offer wait (avoid ping-pong).
+## When no combat actions exist, only formation moves remain, or only guard focus lines (no melee), offer **`wait`**.
+## Without the hold-line branch, back rank gets focus-only menus → AI cycles focus every turn (log/UI spam).
 static func append_combat_wait_if_needed(actions: Array, combatant_id: int) -> void:
+	if _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_WAIT):
+		return
 	if actions.is_empty():
+		actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})
+		return
+	if _ListedActions.action_list_is_reserve_posture_only(actions):
 		actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})
 		return
 	for a in actions:

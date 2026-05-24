@@ -24,6 +24,18 @@ static func action_entry_is_self_target_move(
 	return entry_move_id(a) == move_id and entry_target_id(a) == combatant_id
 
 
+static func is_reserve_posture_listing_move_id(move_id: String) -> bool:
+	if move_id.is_empty():
+		return false
+	if move_id == CombatConstants.MOVE_ID_WAIT:
+		return true
+	if CombatConstants.is_focus_line_move(move_id):
+		return true
+	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		return true
+	return false
+
+
 ## True when every listed action is **`wait`** or a focus-line move (back rank / no ZoC reach).
 static func action_list_is_hold_line_only(actions: Array) -> bool:
 	var saw_action: bool = false
@@ -38,6 +50,23 @@ static func action_list_is_hold_line_only(actions: Array) -> bool:
 		if mid == CombatConstants.MOVE_ID_WAIT:
 			continue
 		if CombatConstants.is_focus_line_move(mid):
+			continue
+		return false
+	return saw_action
+
+
+## Hold-line plus **`attempt_close`** only (no melee) — same reserve posture / wait requirement.
+static func action_list_is_reserve_posture_only(actions: Array) -> bool:
+	var saw_action: bool = false
+	for raw in actions:
+		var a: Dictionary = _entry(raw)
+		if a.is_empty():
+			continue
+		var mid: String = entry_move_id(a)
+		if mid.is_empty():
+			continue
+		saw_action = true
+		if is_reserve_posture_listing_move_id(mid):
 			continue
 		return false
 	return saw_action

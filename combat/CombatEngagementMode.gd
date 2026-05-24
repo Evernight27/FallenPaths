@@ -5,7 +5,7 @@ extends RefCounted
 ## Modes:
 ## - formation: robust two-sided front line
 ## - skirmish: thinned/uneven line or one side missing front
-## - duel: tiny 1v1 front contact
+## - duel: exactly one living fighter per side (`snapshot_is_true_duel`)
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
@@ -82,6 +82,14 @@ static func count_active_for_side(manager: Node, side: String) -> int:
 	return n
 
 
+## True 1v1: exactly one living, non-incapacitated fighter per side (not 7v2 mop-up / 2v2).
+static func snapshot_is_true_duel(snap: Dictionary) -> bool:
+	return (
+		int(snap.get("player_active", 0)) == 1
+		and int(snap.get("enemy_active", 0)) == 1
+	)
+
+
 static func snapshot(manager: Node) -> Dictionary:
 	var p: int = count_front_rank_alive(manager, "player")
 	var e: int = count_front_rank_alive(manager, "enemy")
@@ -94,14 +102,11 @@ static func snapshot(manager: Node) -> Dictionary:
 	var raw_mode: String = _MODE_SKIRMISH
 	if CombatConstants.SKIRMISH_WHEN_EITHER_SIDE_ZERO_FRONT and (p == 0 or e == 0):
 		raw_mode = _MODE_SKIRMISH
-	elif (
-		p_active <= int(CombatConstants.ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE)
-		or e_active <= int(CombatConstants.ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE)
-	):
-		raw_mode = _MODE_DUEL
-	elif (
-		p <= int(CombatConstants.DUEL_MAX_FRONT_FIGHTERS_PER_SIDE)
-		and e <= int(CombatConstants.DUEL_MAX_FRONT_FIGHTERS_PER_SIDE)
+	elif snapshot_is_true_duel(
+		{
+			"player_active": p_active,
+			"enemy_active": e_active,
+		}
 	):
 		raw_mode = _MODE_DUEL
 	elif (
@@ -137,21 +142,17 @@ static func can_enter_formation_from_snapshot(snap: Dictionary) -> bool:
 
 
 static func can_stay_formation_from_snapshot(snap: Dictionary) -> bool:
+	var min_act: int = int(CombatConstants.ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE)
 	var p: int = int(snap.get("player_front", 0))
 	var e: int = int(snap.get("enemy_front", 0))
 	return (
-		p >= int(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FIGHTERS_PER_SIDE)
+		int(snap.get("player_active", 0)) >= min_act
+		and int(snap.get("enemy_active", 0)) >= min_act
+		and p >= int(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FIGHTERS_PER_SIDE)
 		and e >= int(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FIGHTERS_PER_SIDE)
 		and float(snap.get("player_front_fill", 0.0)) >= float(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FILL_RATIO)
 		and float(snap.get("enemy_front_fill", 0.0)) >= float(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FILL_RATIO)
-		and not (
-			int(snap.get("player_active", 0)) <= int(CombatConstants.ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE)
-			or int(snap.get("enemy_active", 0)) <= int(CombatConstants.ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE)
-		)
-		and not (
-			p <= int(CombatConstants.DUEL_MAX_FRONT_FIGHTERS_PER_SIDE)
-			and e <= int(CombatConstants.DUEL_MAX_FRONT_FIGHTERS_PER_SIDE)
-		)
+		and not snapshot_is_true_duel(snap)
 	)
 
 
@@ -175,14 +176,36 @@ static func engagement_mode(manager: Node) -> String:
 static func movement_policy(manager: Node) -> Dictionary:
 	var mode_now: String = engagement_mode(manager)
 	var stable_line: bool = mode_now == _MODE_FORMATION
+	var rotate_player: bool = allow_rotate_file_for_formation(manager, "player")
+	var rotate_enemy: bool = allow_rotate_file_for_formation(manager, "enemy")
 	return {
 		"mode": mode_now,
 		"mode_code": mode_code(mode_now),
 		"allow_swap_rank": stable_line,
 		"allow_drag_back": stable_line,
 		"allow_fall_back": stable_line,
-		"allow_rotate_file": stable_line,
+		"allow_rotate_file": rotate_player or rotate_enemy,
+		"allow_rotate_file_player": rotate_player,
+		"allow_rotate_file_enemy": rotate_enemy,
 	}
+
+
+## III-4 **3b**: per-side Skirmish outnumber exception for **`rotate_file`** only (listing + resolve).
+static func allow_rotate_file_for_formation(manager: Node, formation_id: String) -> bool:
+	if manager == null:
+		return false
+	var fid: String = str(formation_id)
+	if fid.is_empty():
+		return false
+	var mode_now: String = engagement_mode(manager)
+	if mode_now == _MODE_FORMATION:
+		return true
+	if mode_now != _MODE_SKIRMISH:
+		return false
+	var our_files: int = _front_files_for_side(manager, fid)
+	var opp_fid: String = "enemy" if fid == "player" else "player"
+	var opp_files: int = _front_files_for_side(manager, opp_fid)
+	return our_files > opp_files + int(CombatConstants.SKIRMISH_ROTATE_OUTNUMBER_FILE_MARGIN)
 
 
 ## Shared compact debug line for logs/UI/harness.

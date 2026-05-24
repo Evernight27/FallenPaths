@@ -3,16 +3,58 @@ extends RefCounted
 
 ## Overworld ↔ combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
 
+const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
+const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
 const META_ENEMY_FORMATION := "enemy_formation"
+
+
+static func clear_battle_kill_log(world: Node) -> void:
+	if world != null and world.has_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG):
+		world.remove_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG)
+
+
+static func record_battle_kill(
+	world: Node, victim_name: String, killer_name: String, weapon: String, part: String
+) -> void:
+	if world == null or victim_name.is_empty():
+		return
+	var kill_log: Array = []
+	if world.has_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG):
+		var raw: Variant = world.get_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG)
+		if raw is Array:
+			kill_log = raw
+	kill_log.append(
+		{
+			"victim": victim_name,
+			"killer": killer_name,
+			"weapon": weapon,
+			"part": part,
+		}
+	)
+	world.set_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG, kill_log)
+
+
+static func _kill_log_entry_for_victim(world: Node, victim_name: String) -> Dictionary:
+	if world == null or not world.has_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG):
+		return {}
+	var raw: Variant = world.get_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG)
+	if raw is not Array:
+		return {}
+	for entry in raw as Array:
+		if entry is Dictionary and str((entry as Dictionary).get("victim", "")) == victim_name:
+			return entry as Dictionary
+	return {}
 
 
 ## Apply encounter node config to world meta before **`CombatFlow.start_combat`**.
 static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> void:
 	if world == null or encounter == null:
 		return
+	clear_battle_kill_log(world)
 	if encounter.has_method("get_combat_encounter_dict"):
 		var enc: Dictionary = encounter.get_combat_encounter_dict()
 		if "soak_preset_id" in encounter:
@@ -22,6 +64,23 @@ static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> voi
 				enc[SoakEncounterPresets.ENCOUNTER_KEY_SOAK_PRESET_ID] = soak_id
 		if not enc.is_empty():
 			world.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, enc)
+		if (
+			enc.has("contract_title")
+			or enc.has("pay_gold")
+			or bool(enc.get("tutorial", false))
+			or bool(enc.get("training", false))
+		):
+			var contract: Dictionary = {
+				"contract_title": str(enc.get("contract_title", "Contract")),
+				"pay_gold": int(enc.get("pay_gold", 0)),
+				"difficulty_rating": int(enc.get("difficulty_rating", 1)),
+				"contract_type": str(enc.get("contract_type", "")),
+				"tutorial": bool(enc.get("tutorial", false)),
+				"training": bool(enc.get("training", false)),
+			}
+			_CompanyState.set_active_contract(world, contract)
+		if enc.has("map_bleed_mult"):
+			_CompanyState.set_map_bleed_mult(world, float(enc.get("map_bleed_mult", 1.0)))
 	if encounter.has_method("get_enemy_formation_dict"):
 		var ef: Dictionary = encounter.get_enemy_formation_dict()
 		if not ef.is_empty():
@@ -35,6 +94,8 @@ static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> voi
 		# Random red tiles must not inherit **`dev_soak_encounter`** world meta from **`main._ready`**.
 		SoakEncounterPresets.clear_world_soak_meta(world)
 	refresh_party_formation_meta(world)
+	_CompanyState.wire_party_medical_supply(world)
+	_apply_party_mood_to_encounter_meta(world)
 	SoakEncounterPresets.emit_f5_fight_enter_hint(encounter)
 
 
@@ -47,15 +108,186 @@ static func clear_transient_combat_meta(world: Node2D) -> void:
 		world.remove_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
 	if world.has_meta(META_ENEMY_FORMATION):
 		world.remove_meta(META_ENEMY_FORMATION)
+	if world.has_meta(_CompanyState.WORLD_META_MAP_BLEED_MULT):
+		world.remove_meta(_CompanyState.WORLD_META_MAP_BLEED_MULT)
 
 
 ## After victory/defeat: refresh party formation count from living members.
 static func on_return_from_combat(world: Node2D, winner: String) -> void:
-	clear_transient_combat_meta(world)
 	if world == null or winner != "player":
+		clear_transient_combat_meta(world)
 		return
+	# Camp-2.1: any player victory lifts map bleed block (not only tutorial-tagged contracts).
+	_CompanyState.mark_tutorial_completed(world)
+	build_last_battle_summary(world)
+	clear_transient_combat_meta(world)
 	refresh_party_formation_meta(world)
+	_CompanyState.wire_party_medical_supply(world)
+	sync_overworld_player_grid_anchor(world)
 	_log_party_vitality(world, "After battle")
+
+
+## Step onto contract tile: stash contract, spawn enemies, consume marker (R3).
+static func _apply_party_mood_to_encounter_meta(world: Node2D) -> void:
+	if world == null or not world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER):
+		return
+	var pm = world.get_meta("party_manager", null) if world.has_meta("party_manager") else null
+	if pm == null:
+		return
+	var sum: float = 0.0
+	var n: int = 0
+	for m in pm.members:
+		if m is Dictionary:
+			sum += float(m.get("company_mood", _CompanyState.MOOD_DEFAULT))
+			n += 1
+	if n <= 0:
+		return
+	var enc: Dictionary = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
+	if enc is Dictionary:
+		var merged: Dictionary = enc.duplicate(true)
+		merged[CombatConstants.ENCOUNTER_KEY_MORALE_COHESION_PLAYER] = clampf(sum / float(n) / 100.0, 0.15, 1.0)
+		world.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, merged)
+
+
+static func begin_contract_encounter(
+	world: Node2D, encounter: Node, rng: RandomNumberGenerator
+) -> Array:
+	if world == null or encounter == null:
+		return []
+	prepare_combat_from_encounter(world, encounter)
+	var enemies: Array = []
+	if encounter.has_method("spawn_enemies"):
+		enemies = encounter.spawn_enemies(world, rng)
+	if enemies.is_empty():
+		abort_contract_encounter_entry(world)
+		return []
+	encounter.queue_free()
+	return enemies
+
+
+## Spawn failed or combat aborted after `prepare_combat_from_encounter` — keep map marker, drop stale meta.
+static func abort_contract_encounter_entry(world: Node2D) -> void:
+	if world == null:
+		return
+	if world.has_meta("_combat_enemies"):
+		var raw: Variant = world.get_meta("_combat_enemies")
+		if raw is Array:
+			for enemy in raw as Array:
+				if is_instance_valid(enemy) and enemy is Node:
+					(enemy as Node).queue_free()
+		world.remove_meta("_combat_enemies")
+	clear_transient_combat_meta(world)
+	_CompanyState.clear_active_contract(world)
+
+
+## Camp-2.2 row: blood, bleed, untreated parts, worst ATLS class (1–4).
+static func member_battle_summary_entry(snap: Dictionary, entity: Node) -> Dictionary:
+	var blood_pct: float = float(snap.get("blood_volume", 100.0))
+	var bleed_rate: float = float(snap.get("total_bleeding_rate", 0.0))
+	var snap_copy: Dictionary = snap.duplicate(true)
+	var untreated: PackedStringArray = untreated_wound_part_names(entity)
+	if not untreated.is_empty():
+		snap_copy["untreated_parts"] = untreated
+	return {
+		"name": str(snap.get("name", "?")),
+		"blood_pct": blood_pct,
+		"bleed_rate": bleed_rate,
+		"untreated": entity_has_untreated_wounds(entity),
+		"untreated_parts": untreated,
+		"worst_atls_band": _Bleeding.atls_hemorrhage_class_from_remaining_pct(blood_pct),
+		"snapshot": snap_copy,
+	}
+
+
+static func untreated_wound_part_names(entity: Node) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	if entity == null:
+		return out
+	var wounded: Array = []
+	if entity.has_method("get_wounded_parts"):
+		wounded = entity.get_wounded_parts()
+	var bandaged: Dictionary = entity.bandaged_parts if "bandaged_parts" in entity else {}
+	var packed: Dictionary = entity.packed_parts if "packed_parts" in entity else {}
+	var tourniqueted: Dictionary = entity.tourniquet_applied if "tourniquet_applied" in entity else {}
+	for part in wounded:
+		if bandaged.get(part, false) or packed.get(part, false) or tourniqueted.has(part):
+			continue
+		out.append(str(part))
+	return out
+
+
+static func build_last_battle_summary(world: Node2D, battle_winner: String = "player") -> void:
+	if world == null:
+		return
+	var deaths: Array = []
+	var members: Array = []
+	var pm = world.get_meta("party_manager", null) if world.has_meta("party_manager") else null
+	if pm != null and "members" in pm:
+		for member in pm.members:
+			if not member is Dictionary:
+				continue
+			var node_ref: Variant = member.get("node_ref")
+			if not is_instance_valid(node_ref) or not (node_ref is Node):
+				continue
+			var node: Node = node_ref as Node
+			var entity: Node = health_entity_from_character(node)
+			var snap: Dictionary = _Snapshot.snapshot_from_member(member)
+			if node.has_method("is_dead") and node.is_dead():
+				var name_s: String = str(member.get("name", node.name))
+				var info: Dictionary = _death_info_from_entity(entity)
+				var kill: Dictionary = _kill_log_entry_for_victim(world, name_s)
+				var part_s: String = str(kill.get("part", ""))
+				if part_s.is_empty():
+					part_s = str(info.get("part", "unknown"))
+				deaths.append(
+					{
+						"name": name_s,
+						"part": part_s,
+						"cause": str(info.get("cause", "fallen in battle")),
+						"weapon": str(kill.get("weapon", "")),
+						"killer": str(kill.get("killer", "")),
+					}
+				)
+				continue
+			members.append(member_battle_summary_entry(snap, entity))
+	if battle_winner != "player":
+		_merge_roster_kill_log_deaths(world, pm, deaths)
+	var contract: Dictionary = _CompanyState.get_active_contract(world)
+	if not _CompanyState.defeat_should_end_company_run(contract):
+		_CompanyState.apply_battle_death_witness_mood(world, deaths.size())
+	world.set_meta(
+		_CompanyState.WORLD_META_LAST_BATTLE_SUMMARY,
+		{"deaths": deaths, "members": members, "winner": str(battle_winner)}
+	)
+
+
+## On defeat, party nodes may not yet report `is_dead()` — honor battle kill log for roster names.
+static func _merge_roster_kill_log_deaths(world: Node2D, pm: Node, deaths: Array) -> void:
+	if world == null or pm == null or not world.has_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG):
+		return
+	var listed: Dictionary = {}
+	for d in deaths:
+		if d is Dictionary:
+			listed[str((d as Dictionary).get("name", ""))] = true
+	for member in pm.members:
+		if not member is Dictionary:
+			continue
+		var name_s: String = str(member.get("name", ""))
+		if name_s.is_empty() or listed.has(name_s):
+			continue
+		var kill: Dictionary = _kill_log_entry_for_victim(world, name_s)
+		if kill.is_empty():
+			continue
+		deaths.append(
+			{
+				"name": name_s,
+				"part": str(kill.get("part", "unknown")),
+				"cause": "fallen in battle",
+				"weapon": str(kill.get("weapon", "")),
+				"killer": str(kill.get("killer", "")),
+			}
+		)
+		listed[name_s] = true
 
 
 static func can_enter_combat(world: Node2D) -> Dictionary:
@@ -90,14 +322,15 @@ static func can_enter_combat(world: Node2D) -> Dictionary:
 static func get_fightable_party_nodes(world: Node2D) -> Array:
 	var players: Array = []
 	var pm = world.get_meta("party_manager", null) if world != null and world.has_meta("party_manager") else null
-	if pm == null or not pm.has_method("get_members"):
+	if pm == null:
 		return players
 	var leader_only: bool = (
 		world != null
 		and world.has_meta(SoakEncounterPresets.WORLD_META_PLAYER_LEADER_ONLY)
 		and bool(world.get_meta(SoakEncounterPresets.WORLD_META_PLAYER_LEADER_ONLY))
 	)
-	for member in pm.get_members():
+	var roster: Array = pm.members if "members" in pm else pm.get_members()
+	for member in roster:
 		var node_ref = member.get("node_ref") if member is Dictionary else null
 		if not is_instance_valid(node_ref):
 			continue
@@ -151,10 +384,22 @@ static func refresh_party_formation_meta(world: Node2D) -> void:
 	var n: int = get_fightable_party_nodes(world).size()
 	if n <= 0:
 		return
+	var preset: Dictionary = _FormationPreset.default_for_count(n)
+	if world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER):
+		var enc_raw: Variant = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
+		if enc_raw is Dictionary:
+			var enc: Dictionary = enc_raw as Dictionary
+			if enc.has(CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION):
+				var pf: Variant = enc.get(CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION)
+				if pf is Dictionary and not (pf as Dictionary).is_empty():
+					preset = (pf as Dictionary).duplicate(true)
+			elif enc.has(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT):
+				var front_n: int = int(enc.get(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT, 0))
+				if front_n > 0:
+					preset = _FormationPreset.for_front_count(n, front_n)
 	var prior: Dictionary = (
 		world.get_meta("party_formation", {}) if world.has_meta("party_formation") else {}
 	)
-	var preset: Dictionary = _FormationPreset.default_for_count(n)
 	if prior.has("density"):
 		preset["density"] = prior["density"]
 	for key in [
@@ -169,28 +414,114 @@ static func refresh_party_formation_meta(world: Node2D) -> void:
 	world.set_meta("party_formation", preset)
 
 
+## Read overworld RNG / enemy scene from `main` exports or session meta (F5 / headless).
+static func resolve_overworld_rng(world: Node) -> RandomNumberGenerator:
+	if world == null:
+		return null
+	if world.has_meta("rng"):
+		var from_meta: Variant = world.get_meta("rng")
+		if from_meta is RandomNumberGenerator:
+			return from_meta
+	if "rng" in world:
+		var from_prop: Variant = world.get("rng")
+		if from_prop is RandomNumberGenerator:
+			return from_prop
+	return null
+
+
+static func resolve_enemy_scene(world: Node) -> PackedScene:
+	if world == null:
+		return null
+	if world.has_meta("enemy_scene"):
+		var from_meta: Variant = world.get_meta("enemy_scene")
+		if from_meta is PackedScene:
+			return from_meta
+	if "enemy_scene" in world:
+		var from_prop: Variant = world.get("enemy_scene")
+		if from_prop is PackedScene:
+			return from_prop
+	return null
+
+
+## Snap player to tile center, reset movement target, and align **`last_player_tile`** (overworld reject uses this).
+static func place_player_on_overworld_tile(world: Node2D, tile: Vector2i) -> void:
+	if world == null or not world.has_node("Character") or not world.has_method("_tile_center"):
+		return
+	var player: Node2D = world.get_node("Character") as Node2D
+	if player == null:
+		return
+	var center: Vector2 = world.call("_tile_center", tile) as Vector2
+	if player.has_method("cancel_grid_move_to"):
+		player.call("cancel_grid_move_to", center)
+	else:
+		player.position = center
+	world.set_meta("last_player_tile", tile)
+
+
+static func sync_overworld_player_grid_anchor(world: Node2D) -> void:
+	if world == null or not world.has_node("Character") or not world.has_method("_tile_coords"):
+		return
+	var player: Node2D = world.get_node("Character") as Node2D
+	if player == null:
+		return
+	var tile: Vector2i = world.call("_tile_coords", player.position) as Vector2i
+	place_player_on_overworld_tile(world, tile)
+
+
+## After soft defeat, step one tile toward camp so a respawned marker is not under the player.
+static func nudge_player_toward_camp_tile(world: Node2D) -> void:
+	if world == null or not world.has_node("Character"):
+		return
+	if not world.has_method("_tile_coords"):
+		return
+	var player: Node2D = world.get_node("Character") as Node2D
+	if player == null:
+		return
+	var tile: Vector2i = world.call("_tile_coords", player.position) as Vector2i
+	var camp: Vector2i = _CompanyState.DEFAULT_CAMP_TILE
+	if world.has_meta("camp_tile") and world.get_meta("camp_tile") is Vector2i:
+		camp = world.get_meta("camp_tile")
+	if tile == camp:
+		place_player_on_overworld_tile(world, camp)
+		return
+	var step := Vector2i(
+		clampi(camp.x - tile.x, -1, 1),
+		clampi(camp.y - tile.y, -1, 1)
+	)
+	place_player_on_overworld_tile(world, tile + step)
+
+
 static func advance_party_overworld_minute(world: Node2D) -> void:
 	const SECONDS_PER_MOVE: float = 60.0
 	if world == null:
 		return
+	var bleed_mult: float = _CompanyState.get_map_bleed_mult(world)
 	var to_process: Array = []
 	if world.has_node("Character"):
 		to_process.append(world.get_node("Character"))
 	var pm = world.get_meta("party_manager", null) if world.has_meta("party_manager") else null
-	if pm != null and pm.has_method("get_members"):
-		for member in pm.get_members():
-			var node_ref = member.get("node_ref") if member is Dictionary else null
-			if (
-				is_instance_valid(node_ref)
-				and node_ref != world.get_node_or_null("Character")
-			):
-				to_process.append(node_ref)
+	var roster: Array = pm.members if pm != null and "members" in pm else []
+	for member in roster:
+		var node_ref = member.get("node_ref") if member is Dictionary else null
+		if is_instance_valid(node_ref) and node_ref != world.get_node_or_null("Character"):
+			to_process.append(node_ref)
 	for entity in to_process:
 		if not is_instance_valid(entity):
 			continue
-		_EntityTimeAdvance.advance(entity, SECONDS_PER_MOVE, true)
-		if entity.has_method("ensure_consciousness_current"):
-			entity.ensure_consciousness_current()
+		var health: Node = health_entity_from_character(entity)
+		if health == null:
+			continue
+		if bleed_mult != 1.0:
+			if health.has_method("process_bleeding"):
+				health.process_bleeding(SECONDS_PER_MOVE * bleed_mult)
+			if health.has_method("process_blood_loss"):
+				health.process_blood_loss(SECONDS_PER_MOVE * bleed_mult)
+			if health.has_method("process_healing"):
+				health.process_healing(SECONDS_PER_MOVE)
+		else:
+			_EntityTimeAdvance.advance(health, SECONDS_PER_MOVE, true)
+		if health.has_method("ensure_consciousness_current"):
+			health.ensure_consciousness_current()
 
 
 static func entity_has_untreated_wounds(entity: Node) -> bool:
@@ -226,6 +557,39 @@ static func health_entity_from_character(node: Node) -> Node:
 		var e: Variant = node.get_medical_entity()
 		return e as Node if e is Node else null
 	return node
+
+
+static func _death_info_from_entity(entity: Node) -> Dictionary:
+	if entity == null:
+		return {"part": "unknown", "cause": "fallen in battle"}
+	if not ("wounds" in entity) or not (entity.wounds is Dictionary):
+		var death_cause: String = "fallen in battle"
+		if "blood_volume" in entity and float(entity.blood_volume) <= _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING:
+			death_cause = "exsanguination"
+		return {"part": "unknown", "cause": death_cause, "weapon": "", "killer": ""}
+	var worst_part: String = ""
+	var worst_rate: float = 0.0
+	var arterial: bool = false
+	if entity.wounds is Dictionary:
+		for part in entity.wounds.keys():
+			for injury in entity.wounds[part]:
+				if not injury is Dictionary:
+					continue
+				var rate: float = float(injury.get("current_bleeding_rate", 0.0))
+				if rate > worst_rate:
+					worst_rate = rate
+					worst_part = str(part)
+				if injury.get("is_arterial", false):
+					arterial = true
+	var cause: String = "arterial hemorrhage" if arterial else "hemorrhage"
+	if worst_rate <= 0.0 and float(entity.blood_volume) <= _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING:
+		cause = "exsanguination"
+	return {
+		"part": worst_part if not worst_part.is_empty() else "unknown",
+		"cause": cause,
+		"weapon": "",
+		"killer": "",
+	}
 
 
 static func _log_party_vitality(world: Node2D, prefix: String) -> void:

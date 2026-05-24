@@ -381,7 +381,7 @@ static func rebound_bleeding_after_pressure_release(entity: Node, part: String) 
 		injury["is_stabilized"] = false
 		injury.erase("stabilized_remaining_seconds")
 	var after: float = get_bleeding_rate_for_part(entity, part)
-	_CombatDebug.medical_session(
+	_EntityMedical.log_medical_session(
 		"%s pressure_rebound part=%s bleed %.3f→%.3f (released without dressing)"
 		% [entity.name, part, before, after]
 	)
@@ -425,7 +425,7 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 	):
 		var ally_part: String = entity.direct_pressure_part
 		var reason_ally: String = _pressure_release_reason(entity, ally_part)
-		_CombatDebug.medical_session(
+		_EntityMedical.log_medical_session(
 			"%s direct_pressure auto-cleared part=%s (ally-held) reason=%s bv=%.1f"
 			% [entity.name, ally_part, reason_ally, float(entity.blood_volume)]
 		)
@@ -444,7 +444,7 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 	):
 		var self_part: String = entity.self_direct_pressure_part
 		var reason_self: String = _pressure_release_reason(entity, self_part)
-		_CombatDebug.medical_session(
+		_EntityMedical.log_medical_session(
 			"%s direct_pressure auto-cleared part=%s (self-held) reason=%s bv=%.1f"
 			% [entity.name, self_part, reason_self, float(entity.blood_volume)]
 		)

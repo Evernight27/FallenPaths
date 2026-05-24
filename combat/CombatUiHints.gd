@@ -2,8 +2,14 @@ class_name CombatUiHints
 extends RefCounted
 
 ## Shared UI hint resolution for snapshot rows and live combatant dicts.
+## **Camp-3.3:** one-shot medical-phase combat-log hints — **once per play session** when
+## `world` meta is set (campaign fights); **once per fight** on `manager` when no world node.
+
+const WORLD_META_MEDICAL_PHASE_HINTS_SHOWN := "fp_medical_phase_hints_shown"
+const _META_MEDICAL_PHASE_HINTS_SHOWN_FIGHT := "_fp_medical_phase_hints_shown_fight"
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _BattleUIConstants := preload("res://ui/BattleUIConstants.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
@@ -14,10 +20,111 @@ const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
 
 
 static func any_tactical_features_enabled() -> bool:
 	return _Footwork.enabled() or _Attention.enabled() or _CounterTempo.enabled() or _FlurryBind.enabled()
+
+
+static func medical_phase_active(manager: Node) -> bool:
+	return manager != null and bool(manager.medical_phase)
+
+
+static func medical_phase_hints_already_shown(manager: Node, world: Node = null) -> bool:
+	if world != null and world.has_meta(WORLD_META_MEDICAL_PHASE_HINTS_SHOWN):
+		return bool(world.get_meta(WORLD_META_MEDICAL_PHASE_HINTS_SHOWN))
+	if manager != null and manager.has_meta(_META_MEDICAL_PHASE_HINTS_SHOWN_FIGHT):
+		return bool(manager.get_meta(_META_MEDICAL_PHASE_HINTS_SHOWN_FIGHT))
+	return false
+
+
+static func mark_medical_phase_hints_shown(manager: Node, world: Node = null) -> void:
+	if world != null:
+		world.set_meta(WORLD_META_MEDICAL_PHASE_HINTS_SHOWN, true)
+	elif manager != null:
+		manager.set_meta(_META_MEDICAL_PHASE_HINTS_SHOWN_FIGHT, true)
+
+
+## One-shot combat-log copy when medical phase begins (Camp-3.3).
+static func medical_phase_combat_log_hints() -> PackedStringArray:
+	return PackedStringArray([
+		(
+			"Medical phase — your side triages only; defeated opponents cannot strike or act."
+		),
+		(
+			"Triage priority: hold direct pressure on active bleeds, then Stabilize (−1 med) "
+			+ "or pack/bandage (especially arterial and junctional wounds)."
+		),
+		(
+			"Allies choose medical actions automatically — gauge may show Stack medical or "
+			+ "self_medical when triage is urgent."
+		),
+		(
+			"With pressure held, medics may use Stabilize (1 company med) before bandage/pack — "
+			+ "full dressings still required before marching."
+		),
+	])
+
+
+## Emit session/fight one-shot hints via **`manager.notify_combat_ui_hint`** (BattleScene hook).
+static func emit_medical_phase_session_hints(manager: Node, world: Node = null) -> void:
+	if not medical_phase_active(manager):
+		return
+	if medical_phase_hints_already_shown(manager, world):
+		return
+	mark_medical_phase_hints_shown(manager, world)
+	if not manager.has_method("notify_combat_ui_hint"):
+		return
+	for line in medical_phase_combat_log_hints():
+		# Combat log only — FP uses `note_medical_phase_intro` + `medical_action pick`.
+		manager.notify_combat_ui_hint(line, false)
+	if world != null:
+		var supply_hint: String = _CompanyState.format_battle_medical_supply_hint(world)
+		if not supply_hint.is_empty():
+			manager.notify_combat_ui_hint(supply_hint, false)
+
+
+static func medical_phase_context_tooltip_lines(manager: Node) -> PackedStringArray:
+	if not medical_phase_active(manager):
+		return PackedStringArray()
+	var winner: String = str(manager.medical_phase_winner).strip_edges()
+	var lines: PackedStringArray = []
+	if winner.is_empty():
+		lines.append("Medical phase — triage wounded allies before ending the battle.")
+	else:
+		lines.append(
+			"Medical phase — %s side triages only; opponents cannot strike."
+			% winner
+		)
+	lines.append(
+		"Priority: direct pressure on bleeding wounds before pack, bandage, or tourniquet."
+	)
+	return lines
+
+
+static func medical_wind_up_gauge_primary_label(c: Dictionary, remain: float) -> String:
+	var pm: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_medical")
+	var mid: String = str(pm.get("medical_id", "")).strip_edges()
+	var self_id: int = _EntityAccess.id_int(c)
+	var tgt_cid: int = int(pm.get("target_combatant_id", self_id))
+	var med_label: String = (
+		_BattleUIConstants.MEDICAL_ACTION_LABELS_ALLY.get(
+			mid, _BattleUIConstants.MEDICAL_ACTION_LABELS.get(mid, "Medical")
+		)
+		if tgt_cid != self_id
+		else _BattleUIConstants.MEDICAL_ACTION_LABELS.get(mid, "Medical")
+	)
+	return "%s %.1fs" % [med_label, remain]
+
+
+static func medical_busy_row_tooltip_line(c: Dictionary) -> String:
+	var st: String = _EntityAccess.state_str(c)
+	if st == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
+		return "Receiving care — another combatant is treating this wound."
+	if st == CombatConstants.STATE_MEDICAL_WIND_UP:
+		return "Medical wind-up — hold until the procedure completes."
+	return ""
 
 
 static func _first_exported_hint(c: Dictionary, keys: Array) -> String:
@@ -233,18 +340,17 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 	var tips: PackedStringArray = []
 	var st0: String = _EntityAccess.state_str(c)
 	if st0 in [CombatConstants.STATE_WAITING, CombatConstants.STATE_COWERING]:
-		var stm_pct: int = int(roundf(_EntityAccess.stamina_float(c)))
+		var ratio_pct: int = int(roundf(_EntityAccess.stamina_ratio(c) * 100.0))
+		var cap_pct: int = int(roundf(_Exhaustion.effective_stamina_max(c)))
 		tips.append(
-			"Stamina %d%% — burst pool (progress bar; label shows Stm when waiting)." % stm_pct
+			"Stamina %d%% of %d burst max — progress bar (label shows Stm when waiting)."
+			% [ratio_pct, cap_pct]
 		)
 		var gauge_pct: int = int(roundf(_EntityAccess.gauge_float(c)))
 		if gauge_pct >= 100:
 			tips.append("Turn ready — action selection allowed for this combatant.")
 		elif gauge_pct > 0:
-			tips.append(
-				"Readiness %d%% — event gauge (bar uses readiness only during counter-tempo)."
-				% gauge_pct
-			)
+			tips.append("Readiness %d%% — turn / counter-tempo gauge (label only)." % gauge_pct)
 	var fw: String = footwork_hint_text(c)
 	if not fw.is_empty():
 		tips.append("Arc footwork (position-angle step): %s" % fw)
@@ -274,6 +380,9 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 	var fm: String = _FormationMoveDuration.formation_preview_tooltip_line(manager, c)
 	if not fm.is_empty():
 		tips.append(fm)
+	var cap_tip: String = _Exhaustion.stamina_cap_tooltip_line(c)
+	if not cap_tip.is_empty() and st0 not in [CombatConstants.STATE_WAITING, CombatConstants.STATE_COWERING]:
+		tips.append(cap_tip)
 	var exh: String = _Exhaustion.gauge_tooltip_line(c)
 	if not exh.is_empty():
 		tips.append(exh)
@@ -284,6 +393,12 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 	if not grd.is_empty():
 		tips.append(grd)
 	var st: String = _EntityAccess.state_str(c)
+	if manager != null and medical_phase_active(manager):
+		for mp_line in medical_phase_context_tooltip_lines(manager):
+			tips.append(mp_line)
+		var busy_line: String = medical_busy_row_tooltip_line(c)
+		if not busy_line.is_empty():
+			tips.append(busy_line)
 	if st in [CombatConstants.STATE_WAITING, CombatConstants.STATE_COWERING]:
 		var listed_fm: String = str(
 			c.get(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")

@@ -62,7 +62,9 @@ const INTENSITY_STRENGTH_BIAS := 0.35
 const INTENSITY_RANDOM_RANGE := 0.2
 
 # Medical
-const MEDICAL_MOVE_IDS: Array[String] = ["bandage_self", "pack_wound", "apply_direct_pressure", "apply_tourniquet"]
+const MEDICAL_MOVE_IDS: Array[String] = [
+	"bandage_self", "pack_wound", "stabilize_wound", "apply_direct_pressure", "apply_tourniquet"
+]
 ## Extra pressure pass from the treater while an ally already holds the wound (bandage/pack/tourniquet wind-up). Scales treater medical effectiveness into `EntityMedical._apply_direct_pressure_to_wounds`.
 ## Second rescuer adds this fraction of their compression skill on top of primary hold (buddy pressure, TCCC).
 const DIRECT_PRESSURE_TREATMENT_ASSIST_EFFECTIVENESS_FRACTION := 0.50
@@ -249,6 +251,17 @@ const COMBATANT_KEY_YOMI_BY_ATTACKER := "yomi_by_attacker"
 const COMBATANT_KEY_ATTENTION_UI_HINT := "attention_ui_hint"
 ## Tier 4.3 debug: last mental-stack layer that picked (**`MentalStackDecider`**); cleared when stack does not pick.
 const COMBATANT_KEY_MENTAL_STACK_LAYER := "mental_stack_layer"
+## Layer stamp values (gauge **`Stack %s`** / soak).
+const MENTAL_STACK_LAYER_SELF_MEDICAL := "self_medical"
+const MENTAL_STACK_LAYER_MEDICAL := "medical"
+const MENTAL_STACK_LAYER_COUNTER := "counter"
+const MENTAL_STACK_LAYER_INCOMING := "incoming"
+const MENTAL_STACK_LAYER_HOLD_LINE := "hold_line"
+## MS-L7: high fight exhaustion → wait / formation disengage before salience utility pick.
+const MENTAL_STACK_LAYER_EXHAUSTION := "exhaustion"
+const MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD := 0.55
+## When no stack layer fires: multiply offensive action weights by **`lerp(1, 1 - this, attention_load)`** (attacks, feints, attempt_close).
+const MENTAL_STACK_SALIENCE_OFFENSE_DAMP_MAX := 0.4
 const FOCUS_INTENSITY_DEFAULT := 1.0
 const ATTENTION_LOAD_TELEGRAPH_WEIGHT := 0.45
 const ATTENTION_LOAD_PERIL_WEIGHT := 0.4
@@ -360,6 +373,8 @@ static var _headless_harness_quiet: bool = false
 ## Editor F5 via **`OperationalLog.begin_play_session`**: **`[Combat.Flow]`** turn picks + **`FP_COMBAT`** milestones only.
 ## Does **not** enable per-hit **`[Combat.Debug]`** / armor / bone traces (use **`COMBAT_DEV_VERBOSE`** for those).
 static var _play_session_diagnostic: bool = false
+## F5 **`hit_resolve`** lines (grep-friendly per-strike outcomes). -1 = on when play-session diagnostic is on; 0/1 = **`main.tscn` `dev_hit_summary`** override.
+static var _combat_hit_summary_override: int = -1
 
 
 static func set_headless_harness_quiet(on: bool) -> void:
@@ -376,6 +391,23 @@ static func set_play_session_diagnostic(on: bool) -> void:
 
 static func play_session_diagnostic_active() -> bool:
 	return _play_session_diagnostic and not _headless_harness_quiet
+
+
+static func set_combat_hit_summary_override(on: bool) -> void:
+	_combat_hit_summary_override = 1 if on else 0
+
+
+static func clear_combat_hit_summary_override() -> void:
+	_combat_hit_summary_override = -1
+
+
+## **`FP_COMBAT: hit_resolve`** — default on during editor play session; off when **`dev_hit_summary`** false.
+static func combat_hit_summary_active() -> bool:
+	if _combat_hit_summary_override >= 0:
+		return _combat_hit_summary_override != 0
+	if _headless_harness_quiet:
+		return false
+	return play_session_diagnostic_active()
 
 
 static func set_combat_dev_verbose_override(on: bool) -> void:
@@ -441,6 +473,14 @@ const STAMINA_AT_ZERO_DAMAGE_MULT := 0.7
 # Non-linear fatigue: moderate curve; low stamina hurts quality but is not a hard cliff.
 # Used everywhere stamina affects outcome: variance, parry, damage.
 const STAMINA_FACTOR_POWER := 0.65
+## Central fatigue + hypovolemia cap burst pool (× at full exhaustion / blood floor).
+const STAMINA_EXHAUSTION_MAX_MULT_FLOOR := 0.7
+const STAMINA_BLOOD_MAX_MULT_FLOOR := 0.7
+## PCr resynthesis slows when fight-exhausted (× at exhaustion 1.0).
+const STAMINA_REFILL_EXHAUSTION_MULT_FLOOR := 0.4
+## Gradual offense damp before MS-L7 tunnel (exhaustion index ≥ **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`**).
+const EXHAUSTION_OFFENSE_DAMP_START := 0.25
+const EXHAUSTION_OFFENSE_DAMP_FLOOR := 0.35
 
 ## Returns 0-1. At 100% stamina → 1; at 0% → 0. Curve ramps down faster below ~25%.
 static func stamina_factor(ratio: float) -> float:
@@ -514,7 +554,7 @@ static func apply_parry_bind_riposte_gauge_bonus(defender: Dictionary) -> void:
 	defender["gauge"] = minf(100.0, g + PARRY_BIND_RIPOSTE_GAUGE_BONUS)
 
 
-## Tier 4.2 footwork / tempo: defender stamina curve for **readiness reporting** (feint read-through, guard-zone, dodge telegraph, feint-move listing **`pr_def`**) — same **`lerpf(STAMINA_AT_ZERO_PARRY_MULT, 1.0, stamina_factor(ratio))`** as post-alignment parry capacity uses once on **`parry_c_d`**. **`DefenseChoiceResolver._defender_passive_readiness_stamina_mult`** reads **`stamina / STAMINA_MAX`** from the combatant dict.
+## Tier 4.2 footwork / tempo: defender stamina curve for **readiness reporting** (feint read-through, guard-zone, dodge telegraph, feint-move listing **`pr_def`**) — same **`lerpf(STAMINA_AT_ZERO_PARRY_MULT, 1.0, stamina_factor(ratio))`** as post-alignment parry capacity uses once on **`parry_c_d`**. **`DefenseChoiceResolver._defender_passive_readiness_stamina_mult`** passes **`stamina_ratio()`** via **`CombatantEntityAccess`**.
 static func defender_passive_readiness_stamina_mult_from_ratio(stamina_ratio: float) -> float:
 	var st_ratio: float = clampf(stamina_ratio, 0.0, 1.0)
 	return lerpf(STAMINA_AT_ZERO_PARRY_MULT, 1.0, stamina_factor(st_ratio))
@@ -730,8 +770,11 @@ const STANCE_DEFENSIVE := "defensive"
 const STANCE_BALANCED := "balanced"
 const STANCE_AGGRESSIVE := "aggressive"
 const STANCE_CONTROLLING := "controlling"
-const STANCE_MIN_STAMINA_AGGRESSIVE := 30.0
-const STANCE_MIN_STAMINA_CONTROLLING := 24.0
+## Min burst ratio (vs **`CombatExhaustion.effective_stamina_max`**) for stance to read as pressuring.
+const STANCE_MIN_STAMINA_AGGRESSIVE_RATIO := 0.30
+const STANCE_MIN_STAMINA_CONTROLLING_RATIO := 0.24
+## Opponent front-rank average burst ratio below this → defensive pressure (disengage faster).
+const OPPONENT_PRESSURE_DEFENSIVE_STAMINA_RATIO := 0.35
 # Swap rank / fall back: time-based, no stamina. Lane: clear=1.0, crowded=1.3, blocked=1.6. Pressure: defensive=0.9, neutral=1.0, aggressive=1.3.
 const BASE_FALL_BACK_S := 1.0
 const LANE_MOD_CLEAR := 1.0
@@ -786,9 +829,9 @@ const AI_TARGETING_ENGAGEMENT_MODE_FORMATION_MULT := 1.025
 const AI_TARGETING_INCAP_HOSTILE_MULT := 0.42
 ## Tier 4.2: **`CombatAIActionPicker._get_action_weight`** — **`WeaponConstants.is_feint_move(move_id)`** hostile attacks get this multiplier (AI listing only).
 const AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT := 1.06
-## Tier 4.2: on top of **`AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`**, feint hostile weights scale by **`lerpf(1.0, this, pr_def)`** where **`pr_def`** = **`clampf(get_passive_parry_readiness × passive_parry_readiness_incoming_contact_mult × defender_passive_readiness_stamina_mult_from_ratio(stamina/STAMINA_MAX), 0, 1)`** on the defender (WAITING uses **`guard`**).
+## Tier 4.2: on top of **`AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`**, feint hostile weights scale by **`lerpf(1.0, this, pr_def)`** where **`pr_def`** = **`clampf(get_passive_parry_readiness × passive_parry_readiness_incoming_contact_mult × defender_passive_readiness_stamina_mult_from_ratio(stamina_ratio), 0, 1)`** on the defender (WAITING uses **`guard`**).
 const AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT := 1.10
-## Tier 4.2: when attacker **`stamina / STAMINA_MAX` < `AI_FEINT_LISTING_STAMINA_GATE`**, multiply feint listing only by **`lerpf(AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO, 1.0, stamina_ratio / gate)`** (gassed attackers list feints less).
+## Tier 4.2: when attacker **`stamina_ratio` < `AI_FEINT_LISTING_STAMINA_GATE`**, multiply feint listing only by **`lerpf(AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO, 1.0, stamina_ratio / gate)`** (gassed attackers list feints less).
 const AI_FEINT_LISTING_STAMINA_GATE := 0.30
 const AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO := 0.86
 ## Tier 4.2: formation **`doctrine`** **`probing`** — multiply feint-move listing weight only (**`CombatDoctrine.doctrine_for_fid`** on attacker **`formation_id`**).
@@ -937,12 +980,15 @@ const ENGAGEMENT_MODE_CODE_DUEL := 0
 const ENGAGEMENT_MODE_CODE_SKIRMISH := 1
 const ENGAGEMENT_MODE_CODE_FORMATION := 2
 ## Option 2 (Tier 1.7): historical active-count bands (alive + not incapacitated on each side) gate mode eligibility.
-## Duel-cap: if either side is at/under this active count, force duel/skirmish behavior and block new formation-mode activation.
-const ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE := 2
+## Resolved **Duel** mode: `CombatEngagementMode.snapshot_is_true_duel` (exactly 1 living fighter per side).
+## Per-side attrition AI damp when this side has at most this many actives (`CombatAIActionPicker._attrition_offense_weight_mult`).
+const AI_ATTRITION_LOW_STANDING_MAX := 2
+## @deprecated Use `AI_ATTRITION_LOW_STANDING_MAX` — not used for engagement-mode classification.
+const ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE := AI_ATTRITION_LOW_STANDING_MAX
 ## Formation requires both sides at/above this active count in addition to front/fill thresholds.
 const ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE := 4
-## DUEL when both sides have this many (or fewer) effective front fighters.
-const DUEL_MAX_FRONT_FIGHTERS_PER_SIDE := 1
+## III-4 Track A **3b**: Skirmish **`rotate_file`** only when `our_files > opp_files + margin`.
+const SKIRMISH_ROTATE_OUTNUMBER_FILE_MARGIN := 1
 ## FORMATION requires at least this many effective front fighters per side.
 const FORMATION_MIN_FRONT_FIGHTERS_PER_SIDE := 2
 ## FORMATION also requires this minimum front-fill ratio per side: front_alive / formation.files.
@@ -1138,6 +1184,9 @@ const ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY := "formation_doctrine_enemy"
 ## Optional encounter aliases: read only when the canonical **`ENCOUNTER_KEY_FORMATION_DOCTRINE_*`** value is missing or empty after **`strip_edges`** (canonical still wins if non-empty).
 const ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT := "doctrine_player"
 const ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT := "doctrine_enemy"
+## III-4 Track A **3c**: optional player line width before **`refresh_party_formation_meta`** default.
+const ENCOUNTER_KEY_PLAYER_FORMATION := "player_formation"
+const ENCOUNTER_KEY_PLAYER_FRONT_COUNT := "player_front_count"
 const ENCOUNTER_PROTECTION_CIRCLE_ACTIVE := "protection_circle_active"
 ## Phase 6: Which side suffers ambush penalties (typically "player" when monsters ambush party).
 const ENCOUNTER_AMBUSHED_SIDE := "ambushed_side"
@@ -1783,5 +1832,11 @@ const AFTERBLOW_CANCELLED_RECOVERY_S: float = 0.5
 const MEDICAL_WIND_UP_CONFIG: Dictionary = {
 	"bandage_self": {"duration_method": "get_bandage_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_bandage", "outcome": "bandaged"},
 	"pack_wound": {"duration_method": "get_packing_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_packing", "outcome": "packed"},
+	"stabilize_wound": {
+		"duration_method": "get_stabilize_application_time_seconds_for_part",
+		"duration_takes_part": true,
+		"target_method": "apply_stabilize",
+		"outcome": "stabilized",
+	},
 	"apply_tourniquet": {"duration_method": "get_tourniquet_application_time_seconds", "duration_takes_part": false, "target_method": "apply_tourniquet", "outcome": "tourniquet_applied"}
 }

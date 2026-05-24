@@ -788,7 +788,15 @@ static func _run_kinematic_delivery_pa_stamp_open_lane_strike_ke_matches_manual_
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
+	mgr.start(
+		{
+			"files": 1,
+			"ranks": 2,
+			"density": "normal",
+			CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE: CombatConstants.SPEAR_LANE_PROFILE_OPEN,
+		},
+		{"files": 1, "ranks": 1, "density": "normal"}
+	)
 	var depth: Dictionary = mgr.combatants[1]
 	var enemy: Dictionary = mgr.combatants[2]
 	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):

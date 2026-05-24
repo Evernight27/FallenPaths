@@ -255,7 +255,7 @@ static func action_ready_cooldown(c: Dictionary) -> float:
 	var perf_mod: float = _EntityAccess.get_action_bar_performance_modifier(c)
 	if perf_mod > 0.0:
 		cooldown /= maxf(CombatConstants.PERF_MOD_MIN, perf_mod)
-	var st_ratio: float = _EntityAccess.stamina_float(c) / CombatConstants.STAMINA_MAX
+	var st_ratio: float = _EntityAccess.stamina_ratio(c)
 	cooldown *= CombatConstants.action_ready_stamina_delay_mult(st_ratio)
 	return cooldown
 

@@ -30,6 +30,7 @@ const _Timing := preload("res://combat/CombatTiming.gd")
 const _VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
 const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 
 
 ## Tier 1.3 P4: after rank/file changes from plugs or formation moves, keep `lane_offset` bounded (Â§4.2 repack).
@@ -488,13 +489,9 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 	init.erase("formation_move_partner_id")
 	init.state = CombatConstants.STATE_WAITING
 	CombatDebug.flow_log("fall_back_solo_resolve id=%d complete rank 0->1 file %d" % [initiator_id, f])
-	if (
-		_OperationalLog.is_play_session_active()
-		and _EntityAccess.get_attacking_arm(init).is_empty()
-	):
-		_OperationalLog.play_combat(
-			"cowering_fall_back executed %s rank 0->1 file %d"
-			% [_EntityAccess.get_display_name(init, initiator_id), f]
+	if _EntityAccess.get_attacking_arm(init).is_empty():
+		_F5SoakTrace.note_cowering_fall_back_executed(
+			_EntityAccess.get_display_name(init, initiator_id), f
 		)
 	manager.emit_signal("action_resolved", initiator_id, initiator_id, {"outcome": "fall_back_solo_complete", "dmg": 0, "died": false})
 	manager._recompute_zoc_and_distance()

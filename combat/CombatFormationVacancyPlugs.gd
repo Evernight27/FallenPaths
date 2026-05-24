@@ -743,12 +743,32 @@ static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) 
 	return any_promoted
 
 
+## Skirmish outnumber (III-4 **2b**): wider side keeps intentional file span — do not pack to `0..n-1`.
+static func _skirmish_wide_line_skip_compact(manager: Node, fid: String) -> bool:
+	if manager == null:
+		return false
+	if str(_EngagementMode.engagement_mode(manager)) != str(CombatConstants.ENGAGEMENT_MODE_SKIRMISH):
+		return false
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+	if formation.is_empty():
+		return false
+	var opp_fid: String = "enemy" if str(fid) == "player" else "player"
+	var forms: Variant = manager.get("formations")
+	if forms == null or not forms is Dictionary or not (forms as Dictionary).has(opp_fid):
+		return false
+	var our_files: int = maxi(1, int(formation.get("files", 1)))
+	var opp_files: int = maxi(1, int((forms as Dictionary)[opp_fid].get("files", 1)))
+	return our_files > opp_files
+
+
 ## Skirmish: pack natives to contiguous files so stragglers are addressable.
 ## Formation mode: usually avoid compaction (vacancy plugs handle true holes), but when there are **no rear
 ## donors anywhere** and rank-0 has gaps, run deterministic compaction so the line closes once and holds
 ## (prevents lateral hole chasing A<->B while still keeping frontage contiguous).
 static func _should_compact_native_line_files(manager: Node, fid: String) -> bool:
 	if manager == null:
+		return false
+	if _skirmish_wide_line_skip_compact(manager, fid):
 		return false
 	if str(_EngagementMode.engagement_mode(manager)) == str(CombatConstants.ENGAGEMENT_MODE_FORMATION):
 		var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)

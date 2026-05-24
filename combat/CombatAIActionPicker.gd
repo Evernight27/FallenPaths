@@ -28,6 +28,8 @@ const _MentalStack := preload("res://combat/MentalStackDecider.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
+const _EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
 
 static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary:
 	if actions.is_empty():
@@ -109,7 +111,8 @@ static func _verify_turn_committed_after_resolve(
 		manager,
 		combatant_id,
 		move_id,
-		"no state change after resolve (gauge still full)"
+		"no state change after resolve (gauge still full)",
+		true
 	)
 
 
@@ -124,6 +127,7 @@ static func resolve_picked_turn(
 	if actions.is_empty():
 		return
 	var choice: Dictionary = pick(actions, combatant_id, manager)
+	_EngagementDiag.maybe_log_turn_pick(manager, combatant_id, actions, choice)
 	var committed: bool = resolve_choice(manager, combatant_id, choice, self_target)
 	if not committed and manager != null and bool(manager.medical_phase):
 		_EntityAccess.manager_skip_turn(
@@ -266,7 +270,7 @@ static func _get_action_weight(
 			return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
 		return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
 	# Attack or attempt_close: engaging the enemy — use stamina + hybrid targeting (doctrine, file, pressure).
-	var stamina_ratio: float = clampf(_EntityAccess.stamina_float(c) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+	var stamina_ratio: float = _EntityAccess.stamina_ratio(c)
 	var base_stamina: float = 0.85 if stamina_ratio < 0.2 else 1.0
 	var polearm_lane: float = _depth_polearm_action_weight_mult(
 		manager, c, mid, actor_zone_geometry_line_context
@@ -286,7 +290,7 @@ static func _get_action_weight(
 				pr_def = clampf(
 					pr_def
 					* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
-						_EntityAccess.stamina_float(tgt_feint) / CombatConstants.STAMINA_MAX
+						_EntityAccess.stamina_ratio(tgt_feint)
 					)
 					* CombatConstants.defender_passive_readiness_exhaustion_mult(tgt_feint),
 					0.0,
@@ -360,7 +364,8 @@ static func _get_action_weight(
 		manager, combatant_id, a, mid
 	)
 	var attrition_m: float = _attrition_offense_weight_mult(manager, c)
-	return (
+	var exh_offense_m: float = _Exhaustion.exhaustion_offense_weight_mult(c)
+	var w: float = (
 		base_stamina
 		* _TargetScoring.ai_targeting_weight_mult(
 			manager,
@@ -374,6 +379,24 @@ static func _get_action_weight(
 		* feint_list_m
 		* counter_tempo_m
 		* attrition_m
+		* exh_offense_m
+	)
+	return w * _salience_offense_weight_mult(c)
+
+
+## When mental stack is on but no layer fired: high **`attention_load`** dampens offensive picks (still weighted, not hard block).
+static func _salience_offense_weight_mult(c: Dictionary) -> float:
+	if not CombatConstants.is_feature_mental_stack_ai_enabled():
+		return 1.0
+	if not _Attention.enabled():
+		return 1.0
+	var attention_load: float = _Attention.get_attention_load(c)
+	if attention_load <= 0.05:
+		return 1.0
+	return lerpf(
+		1.0,
+		1.0 - CombatConstants.MENTAL_STACK_SALIENCE_OFFENSE_DAMP_MAX,
+		attention_load
 	)
 
 
@@ -383,7 +406,7 @@ static func _attrition_offense_weight_mult(manager: Node, c: Dictionary) -> floa
 		return 1.0
 	var side: String = _EntityAccess.side_str(c)
 	var standing: int = _EngagementMode.count_active_for_side(manager, side)
-	if standing <= int(CombatConstants.ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE):
+	if standing <= int(CombatConstants.AI_ATTRITION_LOW_STANDING_MAX):
 		return CombatConstants.AI_SKIRMISH_LOW_STANDING_OFFENSE_MULT
 	return 1.0
 
@@ -396,6 +419,9 @@ static func _focus_line_action_weight(
 		return 0.0
 	var line: String = CombatConstants.guard_line_for_focus_move_id(move_id)
 	if line.is_empty():
+		return 0.0
+	var cur_line: String = str(c.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
+	if cur_line == line:
 		return 0.0
 	var part: String = CombatConstants.LINE_TO_DEFAULT_PART.get(line, "")
 	if part.is_empty() or part == _Attention.get_focus_part(c):
@@ -547,7 +573,7 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 		part_threat = _MedicalPhase.get_part_intervention_threat(manager, tgt, part)
 	var w: float = 1.0 + urgency * (_MedicalPhase.MEDICAL_URGENCY_WEIGHT_MAX - 1.0)
 	w += part_threat * _MedicalPhase.MEDICAL_AI_PART_THREAT_MULT
-	var advanced: bool = mid in ["bandage_self", "pack_wound", "apply_tourniquet"]
+	var advanced: bool = mid in ["bandage_self", "pack_wound", "stabilize_wound", "apply_tourniquet"]
 	if advanced:
 		w *= pow(eff, _MedicalPhase.MEDICAL_AI_ADVANCED_SKILL_EXP)
 	elif mid == "apply_direct_pressure":
@@ -571,7 +597,7 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 	):
 		if mid == "apply_tourniquet":
 			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_TOURNIQUET_INDICATED
-		elif mid in ["bandage_self", "pack_wound"]:
+		elif mid in ["bandage_self", "pack_wound", "stabilize_wound"]:
 			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_BANDAGE_BEFORE_HEMOSTASIS
 	if not tgt.is_empty() and not part.is_empty():
 		var bleed_r: float = _EntityAccess.entity_bleeding_rate_for_part(manager, tgt, part)
@@ -586,7 +612,7 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 		if active_bleed and not held:
 			if mid == "apply_direct_pressure":
 				w *= _MedicalPhase.MEDICAL_AI_WEIGHT_PRESSURE_ACTIVE_BLEED
-			elif mid in ["bandage_self", "pack_wound"]:
+			elif mid in ["bandage_self", "pack_wound", "stabilize_wound"]:
 				if not _MedicalPhase.dressings_allowed_for_part(manager, tgt, part):
 					return 0.001
 				if mid == "pack_wound":

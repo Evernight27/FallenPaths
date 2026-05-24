@@ -22,6 +22,7 @@ const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
+const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
 
 
 static func clear_all_targeting_state_for_dead_defender(manager: Node, dead_id: int) -> void:
@@ -62,7 +63,13 @@ static func on_combat_commitment(manager: Node, attacker_id: int, target_id: int
 	atk["doctrine_commit_until"] = _EntityAccess.combat_clock_float(manager) + CombatConstants.DOCTRINE_COMMITMENT_DURATION_S
 
 
-static func is_file_opposed_rank0_pair(actor: Dictionary, opp: Dictionary) -> bool:
+static func is_file_opposed_rank0_pair(manager: Node, actor: Dictionary, opp: Dictionary) -> bool:
+	if manager != null and manager.has_meta(_EngagementOpposition.META_OPPOSITION_FILE_OFFSET_BY_SIDE):
+		return _EngagementOpposition.is_mapped_file_opposed(manager, actor, opp)
+	return _raw_same_index_file_opposed_rank0_pair(actor, opp)
+
+
+static func _raw_same_index_file_opposed_rank0_pair(actor: Dictionary, opp: Dictionary) -> bool:
 	if _EntityAccess.rank_int(actor) != 0 or _EntityAccess.rank_int(opp) != 0:
 		return false
 	if not _EntityAccess.is_living_hostile_to(actor, opp):
@@ -93,20 +100,24 @@ static func is_melee_file_opposed_priority(
 	depth_lane_open_cache: Variant = null,
 	zone_geometry_fid: String = ""
 ) -> bool:
-	if is_file_opposed_rank0_pair(actor, opp):
+	if is_file_opposed_rank0_pair(manager, actor, opp):
 		return true
 	if manager == null or not _depth_lane_open_resolved(manager, actor, depth_lane_open_cache, zone_geometry_fid):
 		return false
 	var front: Dictionary = _DepthPolearm.same_file_living_rank0_ally(manager, actor, zone_geometry_fid)
 	if front.is_empty():
 		return false
-	return is_file_opposed_rank0_pair(front, opp)
+	return is_file_opposed_rank0_pair(manager, front, opp)
 
 
 ## True when no enemy rank 0 is **file-opposed** to this fighter’s **reference rank-0** (self, or same-file partner if depth polearm lane is open — Tier 1.6 pinch geometry).
 static func wing_lacks_file_opposed(
 	manager: Node, actor: Dictionary, depth_lane_open_cache: Variant = null, zone_geometry_fid: String = ""
 ) -> bool:
+	if manager != null and manager.has_meta(_EngagementOpposition.META_OPPOSITION_FILE_OFFSET_BY_SIDE):
+		return _EngagementOpposition.wing_lacks_mapped_opposition(
+			manager, actor, depth_lane_open_cache, zone_geometry_fid
+		)
 	if manager == null:
 		return false
 	var ref: Dictionary = actor
@@ -122,7 +133,7 @@ static func wing_lacks_file_opposed(
 			continue
 		if not _MeleeRank.opp_matches_melee_rank_target(manager, actor, opp, 0):
 			continue
-		if is_file_opposed_rank0_pair(ref, opp):
+		if is_file_opposed_rank0_pair(manager, ref, opp):
 			return false
 	return true
 

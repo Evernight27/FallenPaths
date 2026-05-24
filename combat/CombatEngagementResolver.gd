@@ -10,6 +10,7 @@ const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 
 static func _finish_close_attempt_turn(manager: Node, atk: Dictionary, attacker_id: int) -> void:
@@ -42,11 +43,13 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 	var melee_range: float = _EntityAccess.weapon_melee_reach(atk)
 	var str_val: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
 	var agi_def: float = float(_EntityAccess.stats_dict(tgt).get("agility", 100))
-	var st_atk: float = _EntityAccess.stamina_float(atk)
-	var st_def: float = _EntityAccess.stamina_float(tgt)
-	var pressure: float = str_val * CombatConstants.stamina_factor(st_atk / CombatConstants.STAMINA_MAX) * (melee_range / 1.5)
+	var pressure: float = (
+		str_val
+		* CombatConstants.stamina_factor(_EntityAccess.stamina_ratio(atk))
+		* (melee_range / 1.5)
+	)
 	pressure *= CombatConstants.get_stance_modifier(_EntityAccess.stance_str(atk), "close_attempt")
-	var evasion: float = agi_def * CombatConstants.stamina_factor(st_def / CombatConstants.STAMINA_MAX)
+	var evasion: float = agi_def * CombatConstants.stamina_factor(_EntityAccess.stamina_ratio(tgt))
 	evasion *= CombatConstants.get_stance_modifier(_EntityAccess.stance_str(tgt), "evasion")
 	evasion *= _TacticalCombat.ambush_defense_multiplier(manager, tgt)
 	if _EntityAccess.stance_str(tgt, "") == CombatConstants.STANCE_CONTROLLING:
@@ -61,7 +64,10 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 			"close_attempt atk=%d tgt=%d success=%s pressure=%.1f evasion=%.1f"
 			% [attacker_id, target_id, success, pressure, evasion]
 		)
-	elif CombatConstants.combat_event_debug_active():
+	elif (
+		not _OperationalLog.is_play_session_active()
+		and CombatConstants.combat_event_debug_active()
+	):
 		var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 		var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 		CombatDebug.combat_session(

@@ -31,17 +31,30 @@ static var _play_session_scene: String = ""
 static var _play_error_logger = null
 static var _capture_enabled: bool = false
 static var _captured_lines: PackedStringArray = PackedStringArray()
+## F5: suppress consecutive identical **`FP_COMBAT`** bodies (turn_ready double-fire, etc.).
+static var _last_play_combat_body: String = ""
 
 
 static func is_play_session_active() -> bool:
 	return _play_session_active
 
 
+## Editor F5 (`main.tscn`) — excludes headless D-001 capture sessions (`headless://…`).
+static func play_session_is_editor_f5() -> bool:
+	return _play_session_active and not _play_session_scene.begins_with("headless://")
+
+
+## Between fights in one F5 session: allow the same line to log again (new encounter).
+static func reset_fight_fp_channel_dedupe() -> void:
+	_last_play_combat_body = ""
+	CombatDebug.clear_flow_log_dedup()
+
+
 static func tag_line(tag: String, message: String) -> String:
 	return "%s: %s" % [tag, message.strip_edges()]
 
 
-## Always prints to stdout. Optionally mirrors to Godot's error/warning channel.
+## Always prints tagged lines to stdout. Godot script/runtime faults are mirrored separately via **`FallenPathsErrorLogger`**.
 static func set_capture_enabled(on: bool) -> void:
 	_capture_enabled = on
 	if not on:
@@ -61,31 +74,32 @@ static func replace_capture(lines: PackedStringArray) -> void:
 	_captured_lines = lines.duplicate()
 
 
-static func emit(tag: String, message: String, also_push: bool = false) -> void:
+static func emit(tag: String, message: String) -> void:
 	var line: String = tag_line(tag, message)
 	print(line)
 	if _capture_enabled:
 		_captured_lines.append(line)
-	if not also_push:
-		return
-	if tag == TAG_WARN:
-		push_warning(line)
-	else:
-		push_error(line)
 
 
 static func error(message: String) -> void:
-	emit(TAG_ERROR, message, true)
+	emit(TAG_ERROR, message)
 
 
 static func warn(message: String) -> void:
-	emit(TAG_WARN, message, true)
+	emit(TAG_WARN, message)
 
 
 static func play_combat(message: String) -> void:
-	emit(TAG_COMBAT, message)
+	var body: String = message.strip_edges()
+	if body.is_empty():
+		return
+	if _play_session_active and body == _last_play_combat_body:
+		return
 	if _play_session_active:
-		CombatF5SoakTrace.ingest_trace_line(message)
+		_last_play_combat_body = body
+	emit(TAG_COMBAT, body)
+	if _play_session_active:
+		CombatF5SoakTrace.ingest_trace_line(body)
 
 
 static func play_world(message: String) -> void:
@@ -96,11 +110,17 @@ static func play_world(message: String) -> void:
 static func begin_play_session(
 	main_scene: String = "res://main.tscn",
 	dev_soak_encounter: String = "",
-	dev_research_feel: bool = false
+	dev_research_feel: bool = false,
+	dev_hit_summary: bool = true
 ) -> void:
 	_play_session_active = true
 	_play_session_scene = main_scene
+	_last_play_combat_body = ""
 	_CombatConstants.set_play_session_diagnostic(true)
+	if not dev_hit_summary:
+		_CombatConstants.set_combat_hit_summary_override(false)
+	else:
+		_CombatConstants.clear_combat_hit_summary_override()
 	if _play_error_logger == null:
 		_play_error_logger = _FallenPathsErrorLogger.new()
 		OS.add_logger(_play_error_logger)
@@ -117,11 +137,13 @@ static func begin_play_session(
 	emit(
 		TAG_SESSION_BEGIN,
 		(
-			"%s flow_logs=%s per_hit_debug=%s%s — copy full Output; grep soak_fight_end soak_coverage soak_validate_hint FP_COMBAT FP_ERROR SCRIPT_ERROR"
+			"%s flow_logs=%s hit_summary=%s per_hit_debug=%s research_feel=%s%s — copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR"
 			% [
 				main_scene,
 				_CombatConstants.combat_event_debug_active(),
+				_CombatConstants.combat_hit_summary_active(),
 				_CombatConstants.combat_debug_active(),
+				str(dev_research_feel).to_lower(),
 				soak_note,
 			]
 		)
@@ -134,7 +156,9 @@ static func end_play_session() -> void:
 	emit(TAG_SESSION_END, _play_session_scene)
 	_play_session_active = false
 	_play_session_scene = ""
+	_last_play_combat_body = ""
 	_CombatConstants.set_play_session_diagnostic(false)
+	_CombatConstants.clear_combat_hit_summary_override()
 
 
 static func play_combat_start(
@@ -154,22 +178,41 @@ static func play_combat_start(
 			_format_encounter(encounter),
 		]
 	)
+	play_encounter_context(encounter)
+
+
+## Contract/tutorial bleed and kind — grep **`encounter_context`** on F5 paste.
+static func play_encounter_context(enc: Dictionary) -> void:
+	if not _play_session_active or enc.is_empty():
+		return
+	var parts: PackedStringArray = PackedStringArray()
+	if bool(enc.get("tutorial", false)):
+		parts.append("kind=tutorial")
+	elif bool(enc.get("training", false)):
+		parts.append("kind=practice")
+	var ctype: String = str(enc.get("contract_type", "")).strip_edges()
+	if not ctype.is_empty() and not bool(enc.get("tutorial", false)) and not bool(enc.get("training", false)):
+		parts.append("contract=%s" % ctype)
+	if enc.has("map_bleed_mult"):
+		parts.append("map_bleed_mult=%.2f" % float(enc.get("map_bleed_mult", 1.0)))
+	var title: String = str(enc.get("contract_title", "")).strip_edges()
+	if not title.is_empty():
+		parts.append("title=%s" % title)
+	if parts.is_empty():
+		return
+	play_combat("encounter_context %s" % " ".join(parts))
 
 
 static func play_combat_manager_started(
 	player_count: int,
 	enemy_count: int,
 	formation_doctrine: Dictionary,
-	encounter: Dictionary
+	_encounter: Dictionary
 ) -> void:
+	# Encounter blob is on the prior **`encounter_begin`** line — avoid repeating it here.
 	play_combat(
-		"manager_started combatants=%d/%d doctrine=%s | %s"
-		% [
-			player_count,
-			enemy_count,
-			str(formation_doctrine),
-			_format_encounter(encounter),
-		]
+		"manager_started combatants=%d/%d doctrine=%s"
+		% [player_count, enemy_count, str(formation_doctrine)]
 	)
 
 

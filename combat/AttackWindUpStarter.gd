@@ -17,6 +17,13 @@ const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 
+static var _last_fp_tempo_wind_up_line: String = ""
+
+
+static func reset_fp_session_dedup() -> void:
+	_last_fp_tempo_wind_up_line = ""
+
+
 ## F5 soak (**II-2b**): grep `riposte_chain` / `counter_tempo` / `flurry_bind` without **`COMBAT_DEBUG`**.
 static func _log_fp_tempo_wind_up(
 	atk_name: String,
@@ -28,18 +35,18 @@ static func _log_fp_tempo_wind_up(
 ) -> void:
 	if not _OperationalLog.is_play_session_active():
 		return
+	var lines: PackedStringArray = PackedStringArray()
 	if riposte_chain:
-		_CombatDebug.combat_session(
-			"riposte_chain %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s]
-		)
+		lines.append("riposte_chain %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s])
 	elif counter_tempo:
-		_CombatDebug.combat_session(
-			"counter_tempo %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s]
-		)
+		lines.append("counter_tempo %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s])
 	if flurry_bind:
-		_CombatDebug.combat_session(
-			"flurry_bind %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s]
-		)
+		lines.append("flurry_bind %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s])
+	for line in lines:
+		if line == _last_fp_tempo_wind_up_line:
+			continue
+		_last_fp_tempo_wind_up_line = line
+		_CombatDebug.combat_session(line)
 
 
 ## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.

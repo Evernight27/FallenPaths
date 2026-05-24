@@ -7,6 +7,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
+const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
@@ -79,23 +80,29 @@ static func sync_formation_listed_turn_hint_on_combatant(
 		c[CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT] = line
 
 
-## Back rank (or any rank) with only wait + **`focus_*`** — gauge tooltip + optional **`FP_COMBAT`** line.
-static func hold_line_focus_only_hint(c: Dictionary, actions: Array) -> String:
+## Reserve posture (wait / focus / close only): gauge tooltip for back rank or outflanked wing.
+static func hold_line_focus_only_hint(manager: Node, c: Dictionary, actions: Array) -> String:
 	if c.is_empty() or actions.is_empty():
 		return ""
 	if not _EntityAccess.is_player_side(c):
 		return ""
-	if _EntityAccess.rank_int(c) < 1:
+	if not _ListedActions.action_list_is_reserve_posture_only(actions):
 		return ""
-	if not _ListedActions.action_list_is_hold_line_only(actions):
-		return ""
-	return "Back rank — no front reach this turn; adjust guard focus lines only."
+	if _EntityAccess.rank_int(c) >= 1:
+		return "Back rank — no front reach this turn; adjust guard focus lines only."
+	if (
+		manager != null
+		and _EngagementOpposition.wing_lacks_mapped_opposition(manager, c)
+		and _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
+	):
+		return "Wing — no mapped front; close in or adjust guard focus."
+	return ""
 
 
-static func sync_hold_line_focus_only_hint_on_combatant(c: Dictionary, actions: Array) -> void:
+static func sync_hold_line_focus_only_hint_on_combatant(manager: Node, c: Dictionary, actions: Array) -> void:
 	if c.is_empty():
 		return
-	var line: String = hold_line_focus_only_hint(c, actions)
+	var line: String = hold_line_focus_only_hint(manager, c, actions)
 	if line.is_empty():
 		c.erase(CombatConstants.COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT)
 	else:
@@ -107,20 +114,29 @@ static func emit_turn_ready_hints(manager: Node, c: Dictionary, actions: Array) 
 	if manager == null or c.is_empty():
 		return
 	sync_formation_listed_turn_hint_on_combatant(manager, c, actions)
-	sync_hold_line_focus_only_hint_on_combatant(c, actions)
+	sync_hold_line_focus_only_hint_on_combatant(manager, c, actions)
 	_log_cowering_fall_back_listed_if_applicable(c, actions)
 	_log_medical_pack_wound_listed_if_applicable(manager, c, actions)
 	if not manager.has_method("notify_combat_ui_hint"):
 		return
-	for hint in [
-		hold_line_focus_only_hint(c, actions),
-		formation_and_rout_turn_ready_hint(manager, c, actions),
-		surround_arc_overlap_hint_if_applicable(manager, c),
-		cowering_retreat_hint_if_applicable(manager, c, actions),
-		counter_tempo_hint_if_applicable(manager, c, actions),
-	]:
-		if not hint.is_empty():
-			manager.notify_combat_ui_hint(hint)
+	var arc_hint: String = surround_arc_overlap_hint_if_applicable(manager, c)
+	if not arc_hint.is_empty():
+		manager.notify_combat_ui_hint(arc_hint)
+	var cow_hint: String = cowering_retreat_hint_if_applicable(manager, c, actions)
+	if not cow_hint.is_empty():
+		# Combat log only — row gauge tooltip carries the shorter cowering copy for FP.
+		manager.notify_combat_ui_hint(cow_hint, false)
+	var counter_hint: String = counter_tempo_hint_if_applicable(manager, c, actions)
+	if not counter_hint.is_empty():
+		# Combat log only — gauge + **`turn_ready_gauge`** (`tooltip_match=counter`) cover FP.
+		manager.notify_combat_ui_hint(counter_hint, false)
+	# Combat log only — **`TurnReadyHandler`** logs **`turn_ready_formation_line`** / gauge tooltip to FP.
+	var form_hint: String = formation_and_rout_turn_ready_hint(manager, c, actions)
+	if not form_hint.is_empty():
+		manager.notify_combat_ui_hint(form_hint, false)
+	var hold_hint: String = hold_line_focus_only_hint(manager, c, actions)
+	if not hold_hint.is_empty():
+		manager.notify_combat_ui_hint(hold_hint, false)
 
 
 ## Player formation hint for gauge tooltip — same resolver as primary formation **`FP_COMBAT`** line.
@@ -171,9 +187,7 @@ static func _log_cowering_fall_back_listed_if_applicable(c: Dictionary, actions:
 		actions, cid, CombatConstants.MOVE_ID_FALL_BACK
 	):
 		return
-	_OperationalLog.play_combat(
-		"cowering_fall_back listed for %s" % _EntityAccess.get_display_name(c)
-	)
+	_F5SoakTrace.note_cowering_fall_back_listed(_EntityAccess.get_display_name(c))
 
 
 ## F5 soak (**#7**): **`pack_wound`** on medical menu (grep before **`medical_pack_wound pick`**).

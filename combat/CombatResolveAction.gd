@@ -91,6 +91,10 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		if focus_line.is_empty():
 			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "unknown focus move")
 			return false
+		var cur_line: String = str(atk.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
+		if cur_line == focus_line:
+			manager.skip_turn(attacker_id, "wait", "focus already set")
+			return true
 		_GuardLineUpdater.set_guard_from_line(atk, focus_line)
 		manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "focus_line", "line": focus_line})
 		manager.emit_signal("turn_resolved", attacker_id)
@@ -108,17 +112,19 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			return false
 		var who: String = _EntityAccess.get_display_name(atk, attacker_id)
 		var tgt_desc: String = "ally" if target_id != attacker_id else "self"
-		if not CombatDebug.flow_verbose_enabled():
-			CombatDebug.combat_session("action %s chose medical %s on part=%s (%s)" % [who, move_id, part, tgt_desc])
 		if _OperationalLog.is_play_session_active():
 			_F5SoakTrace.note_medical_action_pick(who, move_id, part, tgt_desc)
+		elif not CombatDebug.flow_verbose_enabled():
+			CombatDebug.combat_session(
+				"action %s chose medical %s on part=%s (%s)" % [who, move_id, part, tgt_desc]
+			)
 		MedicalActionStarter.start(manager, attacker_id, target_id, move_id, part)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return true
 	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
 	if tgt.is_empty() or not _EntityAccess.is_alive_in_combat(tgt):
 		CombatDebug.resolve_action_rejected(
-			manager, attacker_id, move_id, "target missing or dead", false
+			manager, attacker_id, move_id, "target missing or dead"
 		)
 		return false
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
@@ -126,12 +132,18 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		if not _MeleeListing.attempt_close_listed_for_pair(manager, atk, target_id, dist_close):
 			# Stale UI / scripted resolve: same blocked path as `CombatEngagementResolver` (telemetry).
 			return _commit_close_attempt_resolve(manager, attacker_id, target_id)
-		if not CombatDebug.flow_verbose_enabled() and CombatConstants.combat_event_debug_active():
+		if (
+			not _OperationalLog.is_play_session_active()
+			and not CombatDebug.flow_verbose_enabled()
+			and CombatConstants.combat_event_debug_active()
+		):
 			var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 			var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 			CombatDebug.combat_session(
 				"%s attempting to close on %s (tactical distance — pressure vs evasion roll)" % [atk_name, tgt_name]
 			)
+		if _OperationalLog.is_play_session_active():
+			_F5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
 		return _commit_close_attempt_resolve(manager, attacker_id, target_id)
 	if move_id in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK, CombatConstants.MOVE_ID_ROTATE_FILE]:
 		var move_policy: Dictionary = _EngagementMode.movement_policy(manager)
@@ -151,7 +163,9 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			if not cowering_solo_retreat:
 				CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks fall_back")
 				return false
-		if move_id == CombatConstants.MOVE_ID_ROTATE_FILE and not bool(move_policy.get("allow_rotate_file", false)):
+		if move_id == CombatConstants.MOVE_ID_ROTATE_FILE and not _EngagementMode.allow_rotate_file_for_formation(
+			manager, _EntityAccess.formation_id_str(atk)
+		):
 			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks rotate_file")
 			return false
 		var ctx_mv: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, atk)
@@ -189,8 +203,8 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 				if _EntityAccess.state_str(atk) == CombatConstants.STATE_COWERING
 				else "fall_back"
 			)
-			_OperationalLog.play_combat(
-				"%s pick %s target_id=%d" % [fb_tag, _EntityAccess.get_display_name(atk, attacker_id), target_id]
+			_F5SoakTrace.note_fall_back_pick(
+				fb_tag, _EntityAccess.get_display_name(atk, attacker_id), target_id
 			)
 		if target_id == attacker_id:
 			manager._start_fall_back_solo(attacker_id)

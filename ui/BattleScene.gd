@@ -14,6 +14,8 @@ const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
 
 var players: Array = []
 var enemies: Array = []
@@ -43,8 +45,7 @@ var _player_preset: Dictionary = {}
 var _enemy_preset: Dictionary = {}
 var _diagram_footwork_sig: String = ""
 var _ui_poll_accum: float = 0.0
-const _META_FP_ENGAGEMENT_UI_LINE := "_fp_engagement_ui_line"
-## Poll interval while combat is running (stamina/guard refill in `waiting`; counter-tempo gauge).
+## Poll interval while combat is running (stamina/guard refill in `waiting`; turn gauge on label).
 const _UI_POLL_INTERVAL_S: float = 0.25
 ## States whose countdown labels need per-frame refresh; other UI uses combat signals.
 const _TIMED_UI_STATES: Array[String] = [
@@ -352,9 +353,12 @@ func _process(delta: float) -> void:
 	var caps: Array = []
 	if _should_poll_ui_this_frame(delta):
 		caps = _update_ui()
-	# Medical phase: show End battle when all wounded are stabilized
-	if _in_medical_phase and manager != null and manager.has_method("can_end_medical_phase") and manager.can_end_medical_phase():
-		_show_end_battle_button()
+	# Medical phase: campaign contracts can return with wounds (map field care); soak needs full triage.
+	if _in_medical_phase and manager != null:
+		if _is_campaign_contract_battle():
+			_show_end_battle_button("Return to camp", false)
+		elif manager.has_method("can_end_medical_phase") and manager.can_end_medical_phase():
+			_show_end_battle_button()
 		# After medical actions are done and everyone is paused (no one in wind_up/medical_wind_up), announce once
 		if not _medical_phase_finished_announced:
 			var anyone_busy: bool = false
@@ -406,22 +410,22 @@ func _sync_engagement_labels_from_manager() -> void:
 		_player_engagement_label.text = _format_engagement_line(
 			_FormationSlots.formation_record_for_manager(manager, "player"), "player"
 		)
-	_log_fp_engagement_ui_if_changed()
+	_log_fp_diagram_banner_if_changed()
 
 
-func _log_fp_engagement_ui_if_changed() -> void:
+func _log_fp_diagram_banner_if_changed() -> void:
 	if manager == null or not _OperationalLog.is_play_session_active():
 		return
 	var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, "player")
 	if form.is_empty():
 		return
-	var line: String = _format_engagement_line(form, "player")
-	var prev: String = str(manager.get_meta(_META_FP_ENGAGEMENT_UI_LINE, "")).strip_edges()
-	if line == prev:
-		return
-	manager.set_meta(_META_FP_ENGAGEMENT_UI_LINE, line)
-	_CombatDebug.combat_session("engagement ui player: %s" % line)
-	_F5SoakTrace.log_diagram_banner_player(line)
+	var player_line: String = _format_engagement_line(form, "player")
+	_F5SoakTrace.log_diagram_banner_player(player_line)
+	var enemy_form: Dictionary = _FormationSlots.formation_record_for_manager(manager, "enemy")
+	if not enemy_form.is_empty() and manager.has_method("get_formation_doctrine"):
+		var enemy_doc: String = str(manager.get_formation_doctrine("enemy")).strip_edges()
+		if enemy_doc != CombatConstants.DOCTRINE_DEFAULT and not enemy_doc.is_empty():
+			_F5SoakTrace.log_diagram_banner_enemy(_format_engagement_line(enemy_form, "enemy"))
 
 
 func _format_engagement_line(form: Dictionary, formation_id: String) -> String:
@@ -448,8 +452,6 @@ func _on_combat_ui_hint(message: String) -> void:
 	var m: String = str(message).strip_edges()
 	if m.is_empty():
 		return
-	if _OperationalLog.is_play_session_active():
-		_OperationalLog.play_combat("ui_hint %s" % m)
 	if combat_log == null:
 		return
 	combat_log.append_text("[color=#aab0c0]%s[/color]\n" % m)
@@ -483,16 +485,36 @@ func _on_action_resolved(attacker_id: int, target_id: int, result: Dictionary) -
 	var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 	var tgt_side: String = _EntityAccess.side_str(tgt)
 	_append_combat_log(atk_name, atk_side, tgt_name, tgt_side, result)
-	# Show last hit on target row (prefers total_physical so fractional chips still show)
-	var part: String = result.get("part", "")
-	var show_hit: bool = not part.is_empty() and CombatLogFormatter.has_resolved_physical_damage(result)
-	if target_id in id_to_controls and id_to_controls[target_id].get("last_hit_label"):
-		var lbl: Label = id_to_controls[target_id].last_hit_label
-		if show_hit:
-			lbl.text = CombatLogFormatter.format_last_hit_on_target_row(result)
-		elif result.get("died", false) and not show_hit:
-			lbl.text = "No targetable parts"
+	var victim_id: int = CombatLogFormatter.action_resolved_victim_id(attacker_id, target_id, result)
+	var victim: Dictionary = _EntityAccess.manager_get_combatant(manager, victim_id)
+	if bool(result.get("died", false)) and parent_scene != null and _EntityAccess.is_on_side(victim, "player"):
+		var killer_name: String = atk_name
+		var killer_node: Node = _EntityAccess.scene_node(atk)
+		if target_id >= 0:
+			killer_name = atk_name
 		else:
+			killer_name = "—"
+			killer_node = null
+		var weapon: String = ""
+		if killer_node != null:
+			weapon = _EntityAccess.get_weapon_display_name_from_node(killer_node)
+		var part_hit: String = str(result.get("part", ""))
+		_CampaignBridge.record_battle_kill(
+			parent_scene,
+			_EntityAccess.get_display_name(victim, victim_id),
+			killer_name,
+			weapon,
+			part_hit
+		)
+	var row_id: int = CombatLogFormatter.last_hit_row_combatant_id(attacker_id, target_id, result)
+	if row_id in id_to_controls and id_to_controls[row_id].get("last_hit_label"):
+		var lbl: Label = id_to_controls[row_id].last_hit_label
+		var row_hit: String = CombatLogFormatter.format_row_last_hit(result)
+		if not row_hit.is_empty():
+			lbl.text = row_hit
+		elif result.get("died", false):
+			lbl.text = "No targetable parts"
+		elif str(result.get("outcome", "")) not in ["parry_partial", "parry_deflect"]:
 			lbl.text = ""
 	_update_ui()
 
@@ -501,17 +523,28 @@ func _on_enemies_eliminated(winner_side: String) -> void:
 	_pending_defeated = null
 	_in_medical_phase = true
 	_medical_phase_finished_announced = false
-	_CombatDebug.combat_session("enemies_eliminated medical phase started winner=%s" % winner_side)
+	if not _OperationalLog.is_play_session_active():
+		_CombatDebug.combat_session("enemies_eliminated medical phase started winner=%s" % winner_side)
 	if combat_log:
-		combat_log.append_text("\n[color=orange]——— Enemies eliminated. Medical phase: stabilize your wounded before ending. ———[/color]\n")
+		if _is_campaign_contract_battle():
+			combat_log.append_text(
+				"\n[color=green]——— Victory. Triage wounded allies here, or click Return to camp (Party field care on map). ———[/color]\n"
+			)
+		else:
+			combat_log.append_text(
+				"\n[color=orange]——— Enemies eliminated. Medical phase: stabilize your wounded before ending. ———[/color]\n"
+			)
 		_scroll_combat_log_to_bottom()
-	# End battle button shown when can_end_medical_phase() (polled in _process)
+	_UiHints.emit_medical_phase_session_hints(manager, parent_scene)
+	if _is_campaign_contract_battle():
+		call_deferred("_show_end_battle_button", "Return to camp", false)
 
 func _on_combat_ended(winner_side: String, defeated_node: Node) -> void:
 	_pending_winner = winner_side
 	_pending_defeated = defeated_node
 	var def_name: String = str(defeated_node.name) if defeated_node != null else "null"
-	_CombatDebug.combat_session("combat_ended winner=%s defeated=%s" % [winner_side, def_name])
+	if not _OperationalLog.is_play_session_active():
+		_CombatDebug.combat_session("combat_ended winner=%s defeated=%s" % [winner_side, def_name])
 	if combat_log:
 		combat_log.append_text("\n[color=yellow]——— Combat ended. Winner: %s ———[/color]\n" % winner_side)
 		_scroll_combat_log_to_bottom()
@@ -519,19 +552,26 @@ func _on_combat_ended(winner_side: String, defeated_node: Node) -> void:
 	if winner_side == "enemy":
 		_show_end_battle_button()
 
-func _show_end_battle_button() -> void:
+func _is_campaign_contract_battle() -> bool:
+	return (
+		parent_scene != null
+		and _CompanyState.has_active_campaign_contract(parent_scene)
+	)
+
+
+func _show_end_battle_button(button_text: String = "End battle", pause_manager: bool = true) -> void:
 	if end_battle_button != null:
 		return
 	var content_vbox = get_node_or_null("CombatCanvasLayer/UIRoot/ContentVBox")
 	if content_vbox == null:
 		return
-	_CombatDebug.combat_session("showing End battle button pausing manager")
-	# Pause combat loop: no more gauge fills or turn cycling until End battle is pressed
-	if manager != null:
+	if not _OperationalLog.is_play_session_active():
+		_CombatDebug.combat_session("showing battle exit button label=%s pause=%s" % [button_text, pause_manager])
+	if pause_manager and manager != null:
 		manager.set_process(false)
 	end_battle_button = Button.new()
 	end_battle_button.name = "EndBattleButton"
-	end_battle_button.text = "End battle"
+	end_battle_button.text = button_text
 	end_battle_button.custom_minimum_size = Vector2(160, 44)
 	end_battle_button.pressed.connect(_on_end_battle_button_pressed)
 	content_vbox.add_child(end_battle_button)
@@ -539,6 +579,8 @@ func _show_end_battle_button() -> void:
 	call_deferred("_scroll_combat_log_to_bottom")
 
 func _on_end_battle_button_pressed() -> void:
+	if manager != null:
+		manager.set_process(false)
 	if _in_medical_phase and manager != null and manager.has_method("finish_battle"):
 		manager.finish_battle()
 	emit_signal("battle_ended", _pending_winner, _pending_defeated)

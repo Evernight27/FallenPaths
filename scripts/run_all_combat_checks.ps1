@@ -51,6 +51,20 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host ""
 
+Write-Host "=== CompanyStateChecks (Camp-1.1-1.8) ==="
+& (Join-Path $Root "scripts\run_company_state_checks.ps1")
+$companyExit = $LASTEXITCODE
+if ($companyExit -ne 0) {
+	$lines.Add("COMPANY_STATE: FAIL exit=$companyExit")
+	$lines.Add("PHASE0: FAIL (company state checks)")
+	$lines | Set-Content -Path $SummaryPath -Encoding utf8
+	Write-Host ""
+	Write-Host "=== PHASE0 FAIL (CompanyStateChecks) ==="
+	exit $companyExit
+}
+$lines.Add("COMPANY_STATE: PASS")
+Write-Host ""
+
 Write-Host "=== AllCombatChecks (regression + D-001 + calibration) ==="
 $Godot = Get-FallenPathsGodot
 $env:FP_HARNESS_MODE = "all"
@@ -122,22 +136,44 @@ if ($artifactFail.Count -gt 0) {
 	exit 1
 }
 $lines.Add("PHASE0: PASS")
-$lines.Add("ran_at=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
-$lines | Set-Content -Path $SummaryPath -Encoding utf8
 Write-Host ""
 Write-Host "=== PHASE0 PASS ==="
+
+Write-Host ""
+Write-Host "=== Campaign ship audit tail (Camp-3.4 / Camp-5 headless) ==="
+& (Join-Path $Root "scripts\run_campaign_ship_audit.ps1") -TailOnly
+$campaignExit = $LASTEXITCODE
+$auditPath = Join-Path $Root ".campaign_ship_audit.txt"
+if (Test-Path $auditPath) {
+	foreach ($auditLine in Get-Content $auditPath) {
+		if ($auditLine -match '^(Q_TRACK|II7_MEDICAL|CAMPAIGN_SHIP_AUDIT):') {
+			$lines.Add($auditLine)
+		}
+	}
+}
+if ($campaignExit -ne 0) {
+	$lines.Add("ran_at=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+	$lines | Set-Content -Path $SummaryPath -Encoding utf8
+	Write-Host ""
+	Write-Host "=== PHASE0 FAIL (Camp-3.4 campaign ship audit) ==="
+	exit $campaignExit
+}
+
+$lines.Add("ran_at=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+$lines | Set-Content -Path $SummaryPath -Encoding utf8
 Write-Host "Summary: $SummaryPath"
 Write-Host "Reports:"
 Write-Host "  .d001_soak_out.txt       (per-preset pass/fail)"
 Write-Host "  .f5_soak_validation.txt  (grep validator on headless capture)"
 Write-Host "  .f5_soak_in.txt          (headless FP_COMBAT paste shape)"
 Write-Host "  .ii2b_worksheet_prefill.txt (III-3 Sword row counts; not feel sign-off)"
+	Write-Host "  .campaign_ship_audit.txt (Camp-3.4 Q + ii7 + ii_envelop headless gate)"
 Write-Host ""
 Write-Host "  .d001_headless_signoff.txt (II-2b + II-5a/b/c mandatory, no F5)"
 Write-Host '  .calibration_audit.txt     (physics/medical + [research_benchmarks] verdict summary)'
 Write-Host '  docs/CURSOR.md (hub) | docs/LIVE_PATHS.md#research-audit (35 _run_research_* gates)'
 Write-Host "Optional F5: ii2b/ii5/ii8 feel spot-check only; gate does not require editor."
-Write-Host "Optional Q audits (headless): .\scripts\run_q_audit.ps1 -Track Track"
+Write-Host "Campaign audit (standalone): .\scripts\run_campaign_ship_audit.ps1"
 Write-Host "Artifact summary: .\scripts\print_phase0_status.ps1"
 Write-Host "Fast paths: -HarnessMode regression|d001|sanity|calibration|medical"
 if ($ValidateF5 -or $F5LogPath -ne "") {

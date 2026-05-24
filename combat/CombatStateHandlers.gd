@@ -18,6 +18,8 @@ const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 
 
 ## Drop queued turns for this combatant once they are dead (bleed-out or fatal wound).
@@ -37,7 +39,11 @@ static func process_death_tick(manager: Node, c: Dictionary) -> String:
 	c.state = CombatConstants.STATE_DEAD
 	cancel_events_for_dead_combatant(manager, c)
 	var death_reason: String = _EntityAccess.get_death_reason(c)
-	CombatDebug.combat_session("DEATH (tick) %s — %s" % [_EntityAccess.get_display_name(c), death_reason])
+	var who: String = _EntityAccess.get_display_name(c)
+	if _OperationalLog.play_session_is_editor_f5():
+		_F5SoakTrace.note_death_tick(who, death_reason)
+	else:
+		CombatDebug.combat_session("DEATH (tick) %s — %s" % [who, death_reason])
 	# Phase 3: Plug on death — update formation (slot_obstacles, promote rank 1 if rank 0 died).
 	if manager.has_method("_on_combatant_died"):
 		manager._on_combatant_died(c)
@@ -109,8 +115,9 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
 	_Footwork.clear_on_exchange_end(c)
 	if _EntityAccess.get_attacking_arm(c).is_empty():
 		c.state = CombatConstants.STATE_COWERING
-		var who_name: String = _EntityAccess.get_display_name(c)
-		_CombatDebug.combat_session("%s is cowering (no functional arms)" % who_name)
+		if not _OperationalLog.is_play_session_active():
+			var who_name: String = _EntityAccess.get_display_name(c)
+			_CombatDebug.combat_session("%s is cowering (no functional arms)" % who_name)
 	else:
 		c.state = CombatConstants.STATE_WAITING
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
@@ -179,9 +186,10 @@ static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void
 	# Option A: Event-driven. No gauge fill or turn_ready — events handle readiness. Only guard + stamina.
 	var g: float = _PassiveParryCtx.guard_readiness_float(c)
 	c["guard"] = minf(1.0, g + CombatConstants.GUARD_RISE_RATE * delta)
-	var s: float = _EntityAccess.stamina_float(c)
-	c["stamina"] = minf(CombatConstants.STAMINA_MAX, s + CombatConstants.STAMINA_REFILL_RATE * delta)
 	_Exhaustion.process_waiting_recovery(c, delta)
+	var s: float = _EntityAccess.stamina_float(c)
+	var cap: float = _Exhaustion.effective_stamina_max(c)
+	c["stamina"] = minf(cap, s + _Exhaustion.effective_stamina_refill_rate(c) * delta)
 	_CounterTempo.process_waiting(_manager, c)
 	_FlurryBind.process_waiting(_manager, c)
 	_UiHints.refresh_waiting_tick_stamps(_manager, c)

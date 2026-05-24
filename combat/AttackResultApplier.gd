@@ -22,6 +22,8 @@ const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _LogFormatter := preload("res://ui/CombatLogFormatter.gd")
 
 static func _log_outcome(action: String, atk_id: int, tgt_id: int) -> void:
 	if CombatConstants.combat_debug_active():
@@ -42,15 +44,18 @@ static func _log_fp_parry_outcome(
 	var atk_n: String = _EntityAccess.get_display_name(atk, atk_id)
 	var tgt_n: String = _EntityAccess.get_display_name(tgt, tgt_id)
 	var ctrl: float = float(clash.get("parry_control", 0.0))
+	var reason: String = _LogFormatter.damage_resolve_note({"outcome": outcome})
 	if outcome == "parry_deflect":
 		var tag: String = "parry_bind" if bool(tgt.get("parry_was_bind", false)) else "parry_deflect"
-		CombatDebug.combat_session("%s %s vs %s ctrl=%.2f" % [tag, tgt_n, atk_n, ctrl])
+		CombatDebug.combat_session(
+			"%s %s vs %s ctrl=%.2f reason=%s" % [tag, tgt_n, atk_n, ctrl, reason]
+		)
 	elif outcome == "parry_partial":
 		var rem: float = float(clash.get("remaining_ratio", clash.get("geometric_leak", 0.0)))
 		var bind: bool = bool(tgt.get("parry_was_bind", false))
 		var tag: String = "parry_bind" if bind else "parry_partial"
 		CombatDebug.combat_session(
-			"%s %s vs %s ctrl=%.2f leak=%.2f" % [tag, tgt_n, atk_n, ctrl, rem]
+			"%s %s vs %s ctrl=%.2f rem=%.2f reason=%s" % [tag, tgt_n, atk_n, ctrl, rem, reason]
 		)
 
 static func _consume_stamina(manager: Node, c: Dictionary, amount: float) -> void:
@@ -187,6 +192,18 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 	if action == "miss":
 		empty_result["outcome"] = "miss"
 		_log_outcome("miss", attacker_id, target_id)
+		var pa_miss_log: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
+		var miss_part: String = str(pa_miss_log.get("target_part", ""))
+		if not miss_part.is_empty():
+			empty_result["part"] = miss_part
+		_F5SoakTrace.note_strike_avoided(
+			attacker_id,
+			target_id,
+			atk,
+			tgt,
+			"miss",
+			miss_part
+		)
 		manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
 		if not atk.is_empty():
 			var pa_miss: Dictionary = _pending_attack_read(atk)
@@ -204,6 +221,20 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 	if action == "dodge":
 		empty_result["outcome"] = "dodge"
 		_log_outcome("dodge", attacker_id, target_id)
+		var pa_dodge_log: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
+		var dodge_part: String = str(
+			pa_dodge_log.get("partial_dodge_part", pa_dodge_log.get("target_part", ""))
+		)
+		if not dodge_part.is_empty():
+			empty_result["part"] = dodge_part
+		_F5SoakTrace.note_strike_avoided(
+			attacker_id,
+			target_id,
+			atk,
+			tgt,
+			"dodge",
+			dodge_part
+		)
 		manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
 		if not atk.is_empty():
 			var pa_dodge_atk: Dictionary = _pending_attack_read(atk)
@@ -369,6 +400,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		var winner: String = ""
 		if result_dict.get("died", false):
 			_abort_incoming_wind_up_if_target_died(manager, target_id)
+			_F5SoakTrace.note_hit_resolve(attacker_id, target_id, atk, tgt, result_dict)
 			manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
 			winner = manager._check_for_winner()
 			if not winner.is_empty():
@@ -388,9 +420,14 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				var reason: String = "consciousness < 10%%"
 				if _EntityAccess.is_cowering(tgt):
 					reason = "cowering (no functional arms)"
-				CombatDebug.combat_session(
-					"INCAPACITATED %s (%s)" % [_EntityAccess.get_display_name(tgt, target_id), reason]
-				)
+				if not (
+					_OperationalLog.is_play_session_active()
+					and CombatConstants.combat_hit_summary_active()
+				):
+					CombatDebug.combat_session(
+						"INCAPACITATED %s (%s)" % [_EntityAccess.get_display_name(tgt, target_id), reason]
+					)
+			_F5SoakTrace.note_hit_resolve(attacker_id, target_id, atk, tgt, result_dict)
 			manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
 			# Attacker still needs recovery; otherwise they stay in WIND_UP
 			if atk != null and _EntityAccess.alive_bool(atk):
@@ -406,6 +443,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			_Afterblow.try_afterblow(manager, attacker_id, target_id, result_dict, intensity)
 		# last_move_id set in AttackResolver before clearing pending_attack
 		_log_outcome("hit", attacker_id, target_id)
+		_F5SoakTrace.note_hit_resolve(attacker_id, target_id, atk, tgt, result_dict)
 		manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
 		if atk != null and _EntityAccess.alive_bool(atk):
 			_consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))

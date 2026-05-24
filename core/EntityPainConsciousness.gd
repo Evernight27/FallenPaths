@@ -12,6 +12,8 @@ const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 # --- Pain contribution (single wound; used for pain-shock from hit) ---
 
@@ -43,6 +45,8 @@ static func get_pain_for_part(entity: Node, part: String) -> float:
 		var stump_mult: float = _PainConscious.get_stump_pain_multiplier(injury.get("is_stump", false))
 		var progress: float = _EntityWounds.get_wound_healing_progress(entity, injury)
 		total += d * sev_mult * part_mult * itype_mult * sub_mult * stump_mult * (1.0 - progress)
+	if entity.has_method("get_campaign_pain_mult"):
+		total *= float(entity.get_campaign_pain_mult())
 	return total
 
 static func get_total_pain(entity: Node) -> float:
@@ -157,10 +161,13 @@ static func try_ambient_pain_shock_tick(entity: Node, delta: float) -> bool:
 	var duration: float = _PainConscious.get_pain_shock_duration_seconds(pain_value, 0.0)
 	entity._pain_shock_until_time = now + duration
 	entity._consciousness_dirty = true
-	_CombatDebug.combat_session(
-		"ambient_pain_shock %s effective_pain=%.1f duration=%.1fs"
-		% [_session_entity_label(entity), pain_value, duration]
-	)
+	var who: String = _session_entity_label(entity)
+	if _OperationalLog.play_session_is_editor_f5():
+		_F5SoakTrace.note_ambient_pain_shock(who, pain_value, duration)
+	else:
+		_CombatDebug.combat_session(
+			"ambient_pain_shock %s effective_pain=%.1f duration=%.1fs" % [who, pain_value, duration]
+		)
 	return true
 
 

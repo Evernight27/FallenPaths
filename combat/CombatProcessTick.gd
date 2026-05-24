@@ -53,11 +53,20 @@ static func tick(manager: Node, delta: float) -> void:
 		if not tick_victor.is_empty():
 			victor = tick_victor
 			last_death_node = death_node
-	if not victor.is_empty() and _MedicalPhase.should_apply_phase_end(manager, victor):
+	# Winner is sticky during medical triage; only enter phase_end once from the tick loop.
+	if (
+		not victor.is_empty()
+		and not bool(manager.medical_phase)
+		and _MedicalPhase.should_apply_phase_end(manager, victor)
+	):
 		manager._end_combat_phase(victor, last_death_node)
 		return
 	victor = manager._check_for_winner()
-	if not victor.is_empty() and _MedicalPhase.should_apply_phase_end(manager, victor):
+	if (
+		not victor.is_empty()
+		and not bool(manager.medical_phase)
+		and _MedicalPhase.should_apply_phase_end(manager, victor)
+	):
 		manager._end_combat_phase(victor, null)
 		return
 	for c in manager.combatants:

@@ -4,28 +4,12 @@ extends Node2D
 ## Singular map entity representing one encounter. One square on the map.
 ## One visual marker per encounter; unit count is separate (spawned when combat starts).
 
-func _ready() -> void:
-	var rect = ColorRect.new()
-	rect.name = "EncounterMarker"
-	rect.offset_left = -30.0
-	rect.offset_top = -30.0
-	rect.offset_right = 30.0
-	rect.offset_bottom = 30.0
-	rect.color = Color(0.2, 0.55, 0.95, 1) if not soak_preset_id.is_empty() else Color(0.9, 0.2, 0.2, 1)
-	add_child(rect)
-	if not soak_preset_id.is_empty():
-		var lbl := Label.new()
-		lbl.name = "SoakPresetLabel"
-		lbl.text = soak_preset_id
-		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.add_theme_font_size_override("font_size", 14)
-		lbl.add_theme_color_override("font_color", Color(1, 1, 1, 1))
-		lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		add_child(lbl)
-## Holds spawn config; enemies are instantiated when combat starts.
-## Matches how other games (FF, DQ) handle encounters: one icon per encounter, spawn units on engage.
+## Campaign contract label (Camp-1.4); set before add_child.
+var contract_marker_label: String = ""
+## `tutorial` | `practice` | `contract` | "" (soak)
+var marker_kind: String = ""
 
+## Holds spawn config; enemies are instantiated when combat starts.
 @export var enemy_count: int = 1
 ## Copied to world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when combat starts (doctrine, morale, posture, …).
 @export var encounter_config: Dictionary = {}
@@ -34,6 +18,60 @@ func _ready() -> void:
 ## Non-empty when spawned via **`SoakEncounterPresets`** (cyan map marker).
 var soak_preset_id: String = ""
 var enemy_scene: PackedScene
+
+const MARKER_SIZE := Vector2(64.0, 76.0)
+
+
+func _ready() -> void:
+	var marker_root := Control.new()
+	marker_root.name = "MarkerRoot"
+	marker_root.custom_minimum_size = MARKER_SIZE
+	marker_root.size = MARKER_SIZE
+	marker_root.position = -MARKER_SIZE * 0.5
+	marker_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(marker_root)
+
+	var rect := ColorRect.new()
+	rect.name = "EncounterMarker"
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not soak_preset_id.is_empty():
+		rect.color = Color(0.2, 0.55, 0.95, 1)
+	elif marker_kind == "tutorial":
+		rect.color = Color(0.25, 0.72, 0.42, 1)
+	elif marker_kind == "practice":
+		rect.color = Color(0.85, 0.72, 0.22, 1)
+	else:
+		rect.color = Color(0.9, 0.2, 0.2, 1)
+	marker_root.add_child(rect)
+
+	if not contract_marker_label.is_empty():
+		_add_marker_label(
+			marker_root, contract_marker_label, "ContractLabel", 10, Color(1, 0.95, 0.85, 1)
+		)
+	elif not soak_preset_id.is_empty():
+		_add_marker_label(marker_root, soak_preset_id, "SoakPresetLabel", 14, Color(1, 1, 1, 1))
+
+
+func _add_marker_label(
+	parent: Control, text: String, label_name: String, font_size: int, font_color: Color
+) -> void:
+	var lbl := Label.new()
+	lbl.name = label_name
+	lbl.text = text
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.clip_text = true
+	lbl.add_theme_font_size_override("font_size", font_size)
+	lbl.add_theme_color_override("font_color", font_color)
+	lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	lbl.offset_left = 3.0
+	lbl.offset_top = 3.0
+	lbl.offset_right = -3.0
+	lbl.offset_bottom = -3.0
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(lbl)
 
 
 func get_combat_encounter_dict() -> Dictionary:
@@ -45,6 +83,14 @@ func get_enemy_formation_dict() -> Dictionary:
 		return enemy_formation.duplicate(true)
 	return FormationPreset.default_for_count(mini(enemy_count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP))
 
+
+func is_tutorial_encounter() -> bool:
+	return bool(encounter_config.get("tutorial", false))
+
+
+func is_training_encounter() -> bool:
+	return bool(encounter_config.get("training", false))
+
 ## Spawns enemy units for combat. Call when player enters combat. Returns array of enemy nodes.
 ## parent: world node to add enemies to. rng: for species/equipment randomization.
 func spawn_enemies(parent: Node, rng: RandomNumberGenerator) -> Array:
@@ -53,7 +99,7 @@ func spawn_enemies(parent: Node, rng: RandomNumberGenerator) -> Array:
 		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
 	if scene == null:
 		return []
-	var species_paths := _get_species_paths()
+	var species_paths := _get_species_paths_for_encounter()
 	if species_paths.is_empty():
 		species_paths = [ResourcePaths.GOBLIN_SPECIES]
 	var cap: int = CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP
@@ -79,6 +125,13 @@ func spawn_enemies(parent: Node, rng: RandomNumberGenerator) -> Array:
 			EncounterSpawner.equip_weapon_id(enemy, force_weapon)
 		enemies.append(enemy)
 	return enemies
+
+func _get_species_paths_for_encounter() -> Array:
+	var pool: Variant = encounter_config.get("enemy_species_pool", [])
+	if pool is Array and not (pool as Array).is_empty():
+		return (pool as Array).duplicate()
+	return _get_species_paths()
+
 
 func _get_species_paths() -> Array:
 	var paths: Array = []

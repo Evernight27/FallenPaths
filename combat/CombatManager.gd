@@ -45,7 +45,8 @@ func notify_engagement_state_changed(formation_id: String, line_cohesion: float,
 		)
 
 
-func notify_combat_ui_hint(message: String) -> void:
+## `echo_to_fp`: when false, still emits **`combat_ui_hint`** for the battle log but skips **`FP_COMBAT: ui_hint`** (formation/hold lines use **`turn_ready_formation_line`** / gauge tooltip instead).
+func notify_combat_ui_hint(message: String, echo_to_fp: bool = true) -> void:
 	var m: String = str(message).strip_edges()
 	if m.is_empty():
 		return
@@ -53,6 +54,8 @@ func notify_combat_ui_hint(message: String) -> void:
 		return
 	set_meta(_META_LAST_COMBAT_UI_HINT, m)
 	emit_signal("combat_ui_hint", m)
+	if echo_to_fp and _OperationalLog.is_play_session_active():
+		_OperationalLog.play_combat("ui_hint %s" % m)
 
 
 func mark_formation_vacancy_dirty(formation_id: String) -> void:
@@ -74,6 +77,8 @@ func mark_all_formations_vacancy_dirty() -> void:
 var combatants := []
 var medical_phase: bool = false
 var medical_phase_winner: String = ""
+## Set on enemy-win `stop()` / `finish_battle()`; blocks duplicate `phase_end` when harness calls `_process()` manually.
+var combat_resolution_closed: bool = false
 # Event queue (min-heap), combat clock, encounter, formations.
 # Hybrid: signals (`formation_changed`, `turn_resolved`, …) decide when to schedule; heap runs events at `resolve_at`.
 var event_queue: Array = []
@@ -108,6 +113,8 @@ const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _FormationSetup := preload("res://combat/CombatFormationSetup.gd")
+const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
+const _EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
 const _DistanceBands := preload("res://combat/CombatDistanceBands.gd")
 const _ResolveAction := preload("res://combat/CombatResolveAction.gd")
 const _EngagementResolver := preload("res://combat/CombatEngagementResolver.gd")
@@ -121,6 +128,7 @@ const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 
 ## Consecutive duplicate `combat_ui_hint` lines suppressed (same string back-to-back across turns).
 const _META_LAST_COMBAT_UI_HINT := "_fp_last_combat_ui_hint_dedupe"
@@ -164,6 +172,9 @@ func register(node: Node, side: String) -> int:
 	var id = combatants.size()
 	var entity = _EntityAccess.get_health_entity_from_node(self, node)
 	var stats = _StatsSync.sync_from_entity_for_register(entity if entity != null else node)
+	var camp_stamina: float = 1.0
+	if entity != null and entity.has_method("get_campaign_stamina_mult"):
+		camp_stamina = entity.get_campaign_stamina_mult()
 	var morale_c: float = 1.0
 	if node != null:
 		var raw_m: Variant = node.get("morale_cohesion")
@@ -208,6 +219,7 @@ func register(node: Node, side: String) -> int:
 		"is_party_leader": (side == "player" and node != null and node.get("is_party_leader") == true),
 		## Tier 1.5: 0..1 input to side mean `morale_cohesion_factor` when encounter override absent; default neutral.
 		"morale_cohesion": morale_c,
+		"campaign_stamina_mult": camp_stamina,
 	})
 	# Connect health_changed so UI can refresh when consciousness/pain/blood changes
 	if entity != null and entity.has_signal("health_changed"):
@@ -234,6 +246,8 @@ func _reset_tactical_engagement_state() -> void:
 ## Phase 4: Set encounter before start() for ZoC flags (e.g. CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE).
 func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	CombatDebug.clear_flow_log_dedup()
+	_OperationalLog.reset_fight_fp_channel_dedupe()
+	_WindUpStarter.reset_fp_session_dedup()
 	_combat_tick_index = 0
 	_vacancy_dirty_fids.clear()
 	medical_phase = false
@@ -243,6 +257,7 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	CombatEngagementMode.clear_resolved_mode_cache(self)
 	if has_meta(_TacticalCombat.META_COMBAT_TELEMETRY):
 		remove_meta(_TacticalCombat.META_COMBAT_TELEMETRY)
+	_EngagementOpposition.clear_opposition_meta(self)
 	var default_enc := {
 		"ambush_type": CombatConstants.AMBUSH_TYPE_NONE,
 		"ambush_penalty": 0.0,
@@ -268,6 +283,7 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	formation_doctrine.clear()
 	# Build formations from presets and assign rank/file (always; use defaults when preset empty)
 	_FormationSetup.build_formations_and_assign_slots(self, player_formation, enemy_formation)
+	_EngagementOpposition.seed_from_formations(self)
 	mark_all_formations_vacancy_dirty()
 	for fk in formations.keys():
 		formation_doctrine[str(fk)] = CombatConstants.DOCTRINE_DEFAULT
@@ -295,7 +311,13 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 			_MedicalPhase._reset_fled_and_combat_absent(cd)
 			_Attention.clear_focus_and_yomi(cd)
 			_Footwork.clear_on_exchange_end(cd)
+	# III-4 PR2: one-shot reconcile + ZoC/bands before first action-ready (after opposition offset seed).
+	vacancy_reconcile_pass(false)
+	_recompute_zoc_and_distance()
 	_FormationRout.stamp_standing_counts_at_start(self)
+	combat_resolution_closed = false
+	if has_meta("_d001_suppress_winner_check"):
+		remove_meta("_d001_suppress_winner_check")
 	# Phase 1: Schedule initial EVENT_ACTION_READY for each alive combatant (staggered by agility).
 	_schedule_initial_action_ready_events()
 	set_process(true)
@@ -308,15 +330,9 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 			alive_p += 1
 		else:
 			alive_e += 1
-	if _OperationalLog.is_play_session_active():
-		_OperationalLog.play_combat_manager_started(alive_p, alive_e, formation_doctrine, encounter)
-	else:
-		CombatDebug.combat_session(
-			"manager_started alive=%d/%d doctrine=%s" % [alive_p, alive_e, str(formation_doctrine)]
-		)
 	var eng_mode: String = CombatEngagementMode.engagement_mode(self)
 	var eng_snap: Dictionary = CombatEngagementMode.snapshot(self)
-	CombatDebug.combat_session(
+	var eng_line: String = (
 		"engagement mode=%s player_front=%d enemy_front=%d"
 		% [
 			CombatEngagementMode.mode_display_name(eng_mode),
@@ -324,6 +340,31 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 			int(eng_snap.get("enemy_front", 0)),
 		]
 	)
+	if _OperationalLog.is_play_session_active():
+		_OperationalLog.play_combat_manager_started(alive_p, alive_e, formation_doctrine, encounter)
+		_OperationalLog.play_combat(eng_line)
+	else:
+		CombatDebug.combat_session(
+			"manager_started alive=%d/%d doctrine=%s" % [alive_p, alive_e, str(formation_doctrine)]
+		)
+		CombatDebug.combat_session(eng_line)
+	if has_meta(_EngagementOpposition.META_OPPOSITION_FILE_OFFSET_BY_SIDE):
+		var pf: int = int((formations.get("player", {}) as Dictionary).get("files", 1))
+		var ef: int = int((formations.get("enemy", {}) as Dictionary).get("files", 1))
+		var opp_line: String = (
+			"opposition offset player=%d enemy=%d formation_files=%d/%d"
+			% [
+				_EngagementOpposition.opposition_file_offset(self, "player"),
+				_EngagementOpposition.opposition_file_offset(self, "enemy"),
+				pf,
+				ef,
+			]
+		)
+		if _OperationalLog.is_play_session_active():
+			_OperationalLog.play_combat(opp_line)
+			_EngagementDiag.log_fight_start_summary(self)
+		else:
+			CombatDebug.combat_session(opp_line)
 	_TacticalCombat.seed_engagement_mode_telemetry(self, eng_mode)
 
 ## Phase 4–6: Incursion pressure from front-rank imbalance, then zone control, assign zone_id, distance bands.
@@ -345,9 +386,11 @@ func _schedule_event(ev: Dictionary) -> void:
 func stop():
 	CombatDebug.clear_flow_log_dedup()
 	_vacancy_dirty_fids.clear()
+	_EngagementOpposition.clear_opposition_meta(self)
 	_reset_tactical_engagement_state()
 	medical_phase = false
 	medical_phase_winner = ""
+	combat_resolution_closed = true
 	if has_meta(_META_LAST_COMBAT_UI_HINT):
 		remove_meta(_META_LAST_COMBAT_UI_HINT)
 	set_process(false)
@@ -362,7 +405,8 @@ func _has_untreated_wounds(c: Dictionary) -> bool:
 
 ## Called when player clicks "End battle" during medical phase. Emits combat_ended and stops.
 func finish_battle() -> void:
-	CombatDebug.combat_session("finish_battle player clicked End battle winner=%s" % medical_phase_winner)
+	if not _OperationalLog.is_play_session_active():
+		CombatDebug.combat_session("finish_battle player clicked End battle winner=%s" % medical_phase_winner)
 	emit_signal("combat_ended", medical_phase_winner, null)
 	stop()
 
@@ -397,11 +441,14 @@ func skip_turn(combatant_id: int, log_outcome: String = "pass", flow_reason: Str
 
 ## When player wins: enter medical phase, emit enemies_eliminated, keep battle running. When enemy wins: end immediately.
 func _end_combat_phase(winner: String, defeated_node: Node) -> void:
+	if has_meta("_d001_suppress_winner_check"):
+		return
 	if not _MedicalPhase.should_apply_phase_end(self, winner):
-		CombatDebug.combat_session(
-			"phase_end locked during medical_phase (requested=%s locked=%s)"
-			% [winner, medical_phase_winner]
-		)
+		if not _OperationalLog.is_play_session_active():
+			CombatDebug.combat_session(
+				"phase_end locked during medical_phase (requested=%s locked=%s)"
+				% [winner, medical_phase_winner]
+			)
 		return
 	_reset_tactical_engagement_state()
 	var alive_by_side: Dictionary = {}
@@ -417,26 +464,28 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 			fled_by_side[sd] = fled_by_side.get(sd, 0) + 1
 	var standing_by_side: Dictionary = _StandingHelper.get_standing_by_side(combatants)
 	var def_node: String = str(defeated_node.name) if defeated_node != null else "null"
-	CombatDebug.combat_session(
-		"phase_end winner=%s defeated_node=%s alive_by_side=%s standing_by_side=%s fled_by_side=%s"
-		% [winner, def_node, alive_by_side, standing_by_side, fled_by_side]
-	)
 	var fresh_medical: bool = winner == "player" and not medical_phase
+	if fresh_medical or winner == "enemy":
+		if not _OperationalLog.play_session_is_editor_f5():
+			CombatDebug.combat_session(
+				"phase_end winner=%s defeated_node=%s alive_by_side=%s standing_by_side=%s fled_by_side=%s"
+				% [winner, def_node, alive_by_side, standing_by_side, fled_by_side]
+			)
 	if winner == "enemy":
 		_F5SoakTrace.log_fight_end_summary(winner, false)
 	elif fresh_medical:
 		_F5SoakTrace.log_fight_end_summary(winner, true)
 	if winner == "enemy":
-		CombatDebug.combat_session("enemy won => combat_ended stopping manager")
+		if not _OperationalLog.is_play_session_active():
+			CombatDebug.combat_session("enemy won => combat_ended stopping manager")
 		emit_signal("combat_ended", winner, defeated_node)
 		stop()
 	else:
 		if fresh_medical:
-			CombatDebug.combat_session("player won => medical_phase enemies_eliminated")
-			CombatDebug.medical_session(
-				"medical_phase: full hemorrhage rates until TCCC control (pressure/TQ/pack/bandage); no passive blood recovery"
-			)
-		else:
+			if not _OperationalLog.is_play_session_active():
+				CombatDebug.combat_session("player won => medical_phase enemies_eliminated")
+			_F5SoakTrace.note_medical_phase_intro()
+		elif not _OperationalLog.is_play_session_active():
 			CombatDebug.combat_session("player won => medical_phase refresh (teardown)")
 		medical_phase = true
 		medical_phase_winner = winner
@@ -559,7 +608,10 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
 	var c_resolve: Variant = _get_by_id(attacker_id)
 	if c_resolve is Dictionary:
 		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(c_resolve as Dictionary)
-	return _ResolveAction.resolve(self, attacker_id, target_id, move_id, options)
+	var committed: bool = _ResolveAction.resolve(self, attacker_id, target_id, move_id, options)
+	if committed and c_resolve is Dictionary:
+		(c_resolve as Dictionary)["last_committed_move_id"] = move_id
+	return committed
 
 func _execute_attack(attacker_id: int) -> void:
 	if _MedicalPhase.combat_resolution_blocked(self):
@@ -634,4 +686,6 @@ func _find_first_opponent(side: String):
 	return _StandingHelper.get_first_opponent(combatants, side)
 
 func _check_for_winner() -> String:
+	if has_meta("_d001_suppress_winner_check"):
+		return ""
 	return _StandingHelper.get_winner(combatants)

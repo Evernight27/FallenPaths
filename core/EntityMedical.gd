@@ -10,6 +10,21 @@ const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+
+
+## F5: dressings/pack/TQ outcomes stay; skip hold/release pressure spam (`medical_action pick` + combat log cover menu use).
+static func log_medical_session(msg: String) -> void:
+	var m: String = msg.strip_edges()
+	if _OperationalLog.is_play_session_active():
+		if (
+			"direct_pressure" in m
+			or m.begins_with("treatment_assist_pressure")
+			or m.begins_with("pressure_rebound")
+		):
+			return
+	_CombatDebug.medical_session(m)
+
 
 # --- Shared wound treatment (bandage, packing) ---
 
@@ -124,14 +139,72 @@ static func apply_bandage(entity: Node, part: String, effectiveness: float = 1.0
 		pressure_held
 	)
 	if r.success:
-		_CombatDebug.medical_session(
+		log_medical_session(
 			"%s apply_bandage(%s) => success, %d wound(s) stabilized"
 			% [entity.name, part, r.wound_count]
 		)
 	else:
-		_CombatDebug.medical_session(
+		log_medical_session(
 			"%s apply_bandage(%s) => failed (%.0f%% reduction), %d wound(s); can retry"
 			% [entity.name, part, r.reduction * 100, r.wound_count]
+		)
+	return r.success
+
+# --- Combat stabilize (Camp-2.5) ---
+
+static func get_stabilize_application_time_seconds_for_part(entity: Node, part: String) -> float:
+	return _get_application_time_for_part(
+		entity,
+		part,
+		_Bleeding.STABILIZE_APPLICATION_TIME_SECONDS,
+		_Bleeding.STABILIZE_PER_WOUND_EXTRA_SECONDS
+	)
+
+
+## Quick hemostatic control while pressure is held; marks injuries stabilized but not bandaged (map still wants TCCC dressings).
+static func can_apply_stabilize(entity: Node, part: String) -> bool:
+	if part.is_empty() or not entity.wounds.has(part) or entity.wounds[part].is_empty():
+		return false
+	if entity.tourniquet_applied.has(part):
+		return false
+	if entity.bandaged_parts.get(part, false) or entity.packed_parts.get(part, false):
+		return false
+	if not has_direct_pressure_on_part(entity, part):
+		return false
+	for injury in entity.wounds[part]:
+		var rate: float = float(injury.get("current_bleeding_rate", 0.0))
+		if rate > _Bleeding.BLEEDING_RATE_EPSILON:
+			return true
+		if not injury.get("is_stabilized", false) and injury.get("is_arterial", false):
+			return true
+	return false
+
+
+static func apply_stabilize(entity: Node, part: String, effectiveness: float = 1.0) -> bool:
+	if part.is_empty() or not entity.wounds.has(part):
+		return false
+	if not can_apply_stabilize(entity, part):
+		return false
+	var pressure_held: bool = has_direct_pressure_on_part(entity, part)
+	var throwaway_marks: Dictionary = {}
+	var r: Dictionary = _apply_stabilizing_treatment(
+		entity,
+		part,
+		effectiveness,
+		_Bleeding.STABILIZE_SUCCESS_BASE_CHANCE,
+		_Bleeding.STABILIZE_SUCCESS_ARTERIAL_MULT,
+		_Bleeding.STABILIZE_ARTERIAL_EFFECTIVENESS_MULT,
+		_Bleeding.STABILIZE_IMMEDIATE_REDUCTION,
+		throwaway_marks,
+		pressure_held
+	)
+	if r.success:
+		log_medical_session(
+			"%s apply_stabilize(%s) => success, %d wound(s)" % [entity.name, part, r.wound_count]
+		)
+	else:
+		log_medical_session(
+			"%s apply_stabilize(%s) => failed, %d wound(s)" % [entity.name, part, r.wound_count]
 		)
 	return r.success
 
@@ -216,12 +289,12 @@ static func apply_packing(entity: Node, part: String, effectiveness: float = 1.0
 		pressure_held
 	)
 	if r.success:
-		_CombatDebug.medical_session(
+		log_medical_session(
 			"%s apply_packing(%s) => success, %d wound(s) packed"
 			% [entity.name, part, r.wound_count]
 		)
 	else:
-		_CombatDebug.medical_session(
+		log_medical_session(
 			"%s apply_packing(%s) => failed (%.0f%% reduction), %d wound(s); can retry"
 			% [entity.name, part, r.reduction * 100, r.wound_count]
 		)
@@ -242,9 +315,7 @@ static func _apply_direct_pressure_to_wounds(entity: Node, part: String, effecti
 		var reduction: float = _Bleeding.DIRECT_PRESSURE_IMMEDIATE_REDUCTION * clampf(eff, 0.0, 1.0)
 		var rate: float = injury.get("current_bleeding_rate", 0.0)
 		injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - reduction))
-		injury["is_stabilized"] = true
-		if _Bleeding.BANDAGE_STABILIZATION_DURATION > 0.0:
-			injury["stabilized_remaining_seconds"] = _Bleeding.BANDAGE_STABILIZATION_DURATION
+		# Pressure slows bleed while held; stabilize / bandage set is_stabilized.
 
 ## Before bandage/pack/tourniquet wind-up: free the treater's hands without dropping compression on the wound being treated.
 ## Preserves ally-held pressure on `part` when the treater is also the patient (TCCC: do not release until dressing controls bleed).
@@ -324,7 +395,7 @@ static func stack_assist_pressure_during_ally_treatment(entity: Node, part: Stri
 	entity.direct_pressure_assist_held_by = assist_entity
 	if assist_entity != null and "direct_pressure_on_ally" in assist_entity:
 		assist_entity.direct_pressure_on_ally = {"node": entity, "part": part}
-	_CombatDebug.medical_session(
+	log_medical_session(
 		"treatment_assist_pressure %s stacks on %s (assist mult=%.2f)"
 		% [entity.name, part, _CombatConstants.DIRECT_PRESSURE_TREATMENT_ASSIST_EFFECTIVENESS_FRACTION]
 	)
@@ -356,7 +427,7 @@ static func apply_direct_pressure_from_ally(entity: Node, part: String, performe
 	_apply_direct_pressure_to_wounds(entity, part, effectiveness)
 	entity.direct_pressure_part = part
 	entity.direct_pressure_held_by = performer_entity
-	_CombatDebug.medical_session(
+	log_medical_session(
 		"%s direct_pressure_from_ally part=%s (TCCC sustained compression; venous ~%.0f%% / arterial ~%.0f%% flow retained while held)"
 		% [
 			entity.name,
@@ -377,7 +448,7 @@ static func apply_direct_pressure(entity: Node, part: String, effectiveness: flo
 		effectiveness = _EntityAccess.get_medical_effectiveness_from_node(entity)
 	_apply_direct_pressure_to_wounds(entity, part, effectiveness)
 	entity.self_direct_pressure_part = part
-	_CombatDebug.medical_session(
+	log_medical_session(
 		"%s direct_pressure self part=%s (TCCC sustained compression; venous ~%.0f%% / arterial ~%.0f%% flow retained while held)"
 		% [
 			entity.name,
@@ -419,12 +490,12 @@ static func clear_direct_pressure(entity: Node) -> void:
 		entity.direct_pressure_held_by.direct_pressure_on_ally = {}
 		entity.direct_pressure_held_by = null
 	if not entity.direct_pressure_part.is_empty():
-		_CombatDebug.medical_session(
+		log_medical_session(
 			"%s clear_direct_pressure (ally was holding %s)" % [entity.name, entity.direct_pressure_part]
 		)
 	entity.direct_pressure_part = ""
 	if not entity.self_direct_pressure_part.is_empty():
-		_CombatDebug.medical_session(
+		log_medical_session(
 			"%s clear_direct_pressure (was self-holding %s)" % [entity.name, entity.self_direct_pressure_part]
 		)
 	entity.self_direct_pressure_part = ""
@@ -441,7 +512,7 @@ static func clear_direct_pressure(entity: Node) -> void:
 				if asst_rel != null and "direct_pressure_on_ally" in asst_rel:
 					asst_rel.direct_pressure_on_ally = {}
 				ally_entity.direct_pressure_assist_held_by = null
-			_CombatDebug.medical_session(
+			log_medical_session(
 				"%s released direct_pressure on ally's %s" % [entity.name, ally_part]
 			)
 	entity.direct_pressure_on_ally = {}
@@ -497,12 +568,12 @@ static func apply_tourniquet(entity: Node, part: String, effectiveness: float = 
 		var eff_clamped: float = clampf(effectiveness, 0.0, 1.0)
 		entity.tourniquet_applied[part] = { "applied_at": entity.get_game_time_seconds(), "effectiveness": eff_clamped }
 		var reduction_pct: float = eff_clamped * _Bleeding.TOURNIQUET_REDUCTION_AT_FULL * 100.0
-		_CombatDebug.medical_session(
+		log_medical_session(
 			"%s apply_tourniquet(%s) => success eff=%.2f => %.0f%% bleed reduction"
 			% [entity.name, part, eff_clamped, reduction_pct]
 		)
 	else:
-		_CombatDebug.medical_session(
+		log_medical_session(
 			"%s apply_tourniquet(%s) => failed (not tight enough); can retry" % [entity.name, part]
 		)
 	return success

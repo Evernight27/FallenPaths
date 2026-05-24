@@ -196,7 +196,7 @@ static func choose_defense(
 				var _al: float = _get_line_alignment(attack_type, tgt, pa.get("effective_attack_line", ""), align_ctx)
 				parry_c_d *= _get_contact_geometry(_al, def_weapon)
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
-				var st_ratio: float = clampf(_EntityAccess.stamina_float(tgt) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+				var st_ratio: float = _EntityAccess.stamina_ratio(tgt)
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio))
 				parry_c_d *= _Exhaustion.performance_mult_for_combatant(tgt)
 				parry_c_d *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
@@ -278,7 +278,7 @@ static func choose_defense(
 				var _al: float = _get_line_alignment(attack_type, tgt, pa.get("effective_attack_line", ""), align_ctx_late)
 				parry_c_d *= _get_contact_geometry(_al, def_weapon)
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
-				var st_ratio_late: float = clampf(_EntityAccess.stamina_float(tgt) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+				var st_ratio_late: float = _EntityAccess.stamina_ratio(tgt)
 				parry_c_d *= lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio_late))
 				parry_c_d *= _Exhaustion.performance_mult_for_combatant(tgt)
 				parry_c_d *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
@@ -546,7 +546,7 @@ static func _feint_readiness_reveal_mult(pa: Dictionary, atk: Dictionary) -> flo
 ## Tier 4.2 footwork / tempo: same curve as post-alignment **`parry_c_d`** stamina (**`STAMINA_AT_ZERO_PARRY_MULT`** + **`stamina_factor`**) applied to **readiness** (feint read-through, guard-zone, dodge telegraph). Not multiplied into **`pr_base`** in **`parry_c_d *= parry_capacity_mult * pr_base`** — avoids double-applying stamina to passive parry capacity.
 static func _defender_passive_readiness_stamina_mult(tgt: Dictionary) -> float:
 	return CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
-		_EntityAccess.stamina_float(tgt) / CombatConstants.STAMINA_MAX
+		_EntityAccess.stamina_ratio(tgt)
 	)
 
 

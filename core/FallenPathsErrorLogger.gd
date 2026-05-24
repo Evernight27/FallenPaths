@@ -1,7 +1,8 @@
 class_name FallenPathsErrorLogger
 extends Logger
 
-## Mirrors Godot script/runtime errors to **`FP_ERROR`** during editor play (grep with `SCRIPT_ERROR`).
+## Mirrors Godot script/runtime/shader errors to **`FP_ERROR`** during editor play (grep with `SCRIPT_ERROR`).
+## Skips Godot warnings and operational **`FP_WARN`** lines — those stay on stdout only.
 ## Registered from **`OperationalLog.begin_play_session`**; do not **`print`** / **`push_error`** here (recursion).
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
@@ -19,11 +20,11 @@ func _log_error(
 	error_type: int,
 	_script_backtraces: Array
 ) -> void:
+	if error_type == Logger.ERROR_TYPE_WARNING:
+		return
 	_mutex.lock()
 	var kind: String = "SCRIPT_ERROR"
 	match error_type:
-		Logger.ERROR_TYPE_WARNING:
-			kind = "WARNING"
 		Logger.ERROR_TYPE_SHADER:
 			kind = "SHADER_ERROR"
 		Logger.ERROR_TYPE_ERROR:
@@ -40,13 +41,16 @@ func _log_error(
 		var bt0: Variant = _script_backtraces[0]
 		if bt0 is String and not (bt0 as String).is_empty():
 			msg += " | %s" % bt0
-	_OperationalLog.emit(_OperationalLog.TAG_ERROR, msg, false)
+	_OperationalLog.emit(_OperationalLog.TAG_ERROR, msg)
 	_mutex.unlock()
 
 
 func _log_message(message: String, error: bool) -> void:
 	if not error:
 		return
+	var body: String = message.strip_edges()
+	if body.begins_with("FP_"):
+		return
 	_mutex.lock()
-	_OperationalLog.emit(_OperationalLog.TAG_ERROR, "RUNTIME %s" % message.strip_edges(), false)
+	_OperationalLog.emit(_OperationalLog.TAG_ERROR, "RUNTIME %s" % body)
 	_mutex.unlock()

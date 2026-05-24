@@ -2,6 +2,7 @@ class_name MedicalWindUpHandler
 extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
 
 ## Handles completion of medical wind-up: apply bandage/packing/tourniquet, emit outcome, track retry.
 ## Manager must have: get_health_entity (via CombatantEntityAccess), _track_medical_failure_and_maybe_retry, emit_signal, get.
@@ -44,6 +45,12 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 					manager, c, tgt_c, tgt_cid, med_id, part, who_m, med_rec_dur,
 					target_method, result, eff, wind_up_cfg
 				)
+				var world: Node2D = _CompanyState.resolve_world_from_battle(manager)
+				if world != null:
+					var success: bool = result == true
+					if result is Dictionary:
+						success = bool((result as Dictionary).get("success", false))
+					_CompanyState.on_battle_medical_complete(world, target_method, success)
 	# Target finishes receiving care: ready to act immediately
 	if not tgt_c.is_empty() and tgt_cid != _EntityAccess.id_int(c):
 		tgt_c.receiving_medical_count = max(0, tgt_c.get("receiving_medical_count", 0) - 1)
@@ -64,6 +71,8 @@ static func _outcome_for_medical_method(
 	match target_method:
 		"apply_bandage":
 			return "bandaged" if result == true else "bandage_failed"
+		"apply_stabilize":
+			return "stabilized" if result == true else "stabilize_failed"
 		"apply_packing":
 			return "packed" if result == true else "packing_failed"
 		"apply_tourniquet":
@@ -86,7 +95,9 @@ static func _finish_medical_procedure(
 	eff: float,
 	wind_up_cfg: Dictionary
 ) -> void:
-	var tracked: bool = target_method in ["apply_bandage", "apply_packing", "apply_tourniquet"]
+	var tracked: bool = target_method in [
+		"apply_bandage", "apply_stabilize", "apply_packing", "apply_tourniquet"
+	]
 	if tracked:
 		var outcome: String = _outcome_for_medical_method(target_method, result, wind_up_cfg, med_id)
 		var med_log: String = med_id

@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Formats combat action results as BBCode strings for the combat log.
 ## BattleScene calls format_action_line() and appends the result to RichTextLabel.
-## **`parry_deflect`** / **`parry_partial`**: optional **`parry_clash_context`** on **`result`** (from **`action_resolved`** after **`AttackResultApplier`**) — extra clash suffix only when **`CombatConstants.COMBAT_DEBUG_CALIBRATION`** (partial adds **`rem=`** leak ratio).
+## **`parry_deflect`** / **`parry_partial`**: optional **`parry_clash_context`** on **`result`** (from **`action_resolved`** after **`AttackResultApplier`**) — play session + calibration show **`rem=`** (follow-through fraction, not blocked damage).
 
 static func _eff_pct(result: Dictionary) -> int:
 	return int(roundf(result.get("effectiveness", 1.0) * 100.0))
@@ -81,6 +81,76 @@ static func has_resolved_physical_damage(result: Dictionary) -> bool:
 	return dmg > 0 or (phys_chip >= 0.0 and phys_chip > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS)
 
 
+## Why a strike shows 0 counted HP — for combat log, row strip, and F5 **`hit_resolve`** / **`strike_avoided`**.
+static func damage_resolve_note(result: Dictionary) -> String:
+	var outcome: String = str(result.get("outcome", "")).strip_edges()
+	match outcome:
+		"miss":
+			return "attack missed (no contact)"
+		"dodge":
+			return "defender dodged"
+		"parry_deflect":
+			return "full parry (no follow-through)"
+		"parry_partial":
+			return "partial parry — see follow-through line"
+		"deflected":
+			return "armor stopped the strike (no tissue damage)"
+		"glancing":
+			var tissue: float = float(result.get("final_cut", 0.0)) + float(result.get("final_blunt", 0.0))
+			var mech: float = float(result.get("mechanical_post_armor", -1.0))
+			var thresh: float = (
+				mech * CombatConstants.GLANCING_DAMAGE_RATIO
+				if mech > 0.0
+				else float(result.get("pre_armor", 0.0)) * CombatConstants.GLANCING_DAMAGE_RATIO
+			)
+			return (
+				"glancing — tissue %.2f below %.2f threshold (not counted as HP loss)"
+				% [tissue, thresh]
+			)
+		"negligible":
+			var phys: float = float(result.get("total_physical", 0.0))
+			if bool(result.get("rounded_zero_chip", false)) or phys > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
+				return "graze — %.3f physical, rounds to 0 counted HP" % phys
+			return "negligible contact (no counted HP)"
+		"hit":
+			var dmg: int = int(result.get("dmg", 0))
+			var phys_hit: float = float(result.get("total_physical", -1.0))
+			if phys_hit < 0.0:
+				phys_hit = float(dmg)
+			if dmg > 0 or phys_hit > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
+				return ""
+			return "hit resolved with no counted damage"
+		_:
+			if outcome.is_empty():
+				return "unknown outcome"
+			return outcome.replace("_", " ")
+
+
+static func strike_avoided_reason(outcome: String) -> String:
+	return damage_resolve_note({"outcome": outcome.strip_edges().to_lower()})
+
+
+## Participant clause shared by strike log lines.
+static func _strike_participant_clause(
+	attacker_name: String,
+	attacker_side: String,
+	target_name: String,
+	target_side: String,
+	part_label: String
+) -> String:
+	return "%s (%s) → %s (%s) %s" % [attacker_name, attacker_side, target_name, target_side, part_label]
+
+
+static func _tissue_breakdown_suffix(result: Dictionary) -> String:
+	if not (result.has("final_cut") and result.has("final_blunt")):
+		return ""
+	return " (cut %.2f blunt %.2f bone %.2f)" % [
+		float(result.get("final_cut", 0.0)),
+		float(result.get("final_blunt", 0.0)),
+		float(result.get("final_bone", 0.0)),
+	]
+
+
 ## Human-readable damage from `action_resolved` hit payloads: prefers **`total_physical`** (cut+blunt+bone); falls back to **`dmg`**.
 static func format_resolved_damage(result: Dictionary) -> String:
 	var tp: Variant = result.get("total_physical", null)
@@ -115,7 +185,80 @@ static func format_last_hit_on_target_row(result: Dictionary) -> String:
 			prefix = "Deflected"
 		_:
 			prefix = "Hit"
-	return "%s: %s -%s" % [prefix, part_label, format_resolved_damage(result)]
+	var reason: String = damage_resolve_note(result)
+	if outcome in ["negligible", "deflected", "glancing"]:
+		return "%s: %s — %s" % [prefix, part_label, reason]
+	if has_resolved_physical_damage(result):
+		return "%s: %s -%s" % [prefix, part_label, format_resolved_damage(result)]
+	if not reason.is_empty():
+		return "%s: %s — %s" % [prefix, part_label, reason]
+	return "%s: %s" % [prefix, part_label]
+
+
+static func _format_avoid_row_label(prefix: String, part: String, outcome_key: String = "") -> String:
+	var oc: String = outcome_key.strip_edges().to_lower()
+	if oc.is_empty():
+		oc = "miss" if prefix == "Miss" else "dodge"
+	var reason: String = strike_avoided_reason(oc)
+	if part.is_empty():
+		return "%s — %s" % [prefix, reason]
+	var part_label: String = BodyPartConstants.BODY_LABELS.get(part, part)
+	return "%s: %s — %s" % [prefix, part_label, reason]
+
+
+## Target-row strip after **`parry_partial`** (before follow-through damage line).
+static func format_parry_partial_last_hit(result: Dictionary) -> String:
+	var rem: float = -1.0
+	var ctx: Variant = result.get("parry_clash_context", null)
+	if ctx is Dictionary:
+		rem = float((ctx as Dictionary).get("remaining_ratio", -1.0))
+	var rem_s: String = ""
+	if rem >= 0.0:
+		rem_s = " · %.0f%% thru" % (rem * 100.0)
+	return "Partial parry%s — follow-through pending" % rem_s
+
+
+## Row **`last_hit_label`**: strikes, grazes, deflects, and partial-parry staging.
+static func format_row_last_hit(result: Dictionary) -> String:
+	var outcome: String = str(result.get("outcome", ""))
+	if outcome == "parry_partial":
+		return format_parry_partial_last_hit(result)
+	if outcome == "parry_deflect":
+		return "Deflected (full stop)"
+	if outcome == "bled_out":
+		return "Bled out"
+	if outcome == "miss":
+		return _format_avoid_row_label("Miss", str(result.get("part", "")), "miss")
+	if outcome == "dodge":
+		return _format_avoid_row_label("Dodged", str(result.get("part", "")), "dodge")
+	var part: String = str(result.get("part", ""))
+	if part.is_empty():
+		return ""
+	if has_resolved_physical_damage(result):
+		return format_last_hit_on_target_row(result)
+	if outcome in ["hit", "glancing", "negligible", "deflected"]:
+		return format_last_hit_on_target_row(result)
+	return ""
+
+
+## **`action_resolved`** slot order: parry emits defender then attacker; hits emit attacker then defender.
+static func last_hit_row_combatant_id(first_id: int, second_id: int, result: Dictionary) -> int:
+	var outcome: String = str(result.get("outcome", ""))
+	if outcome in ["parry_deflect", "parry_partial", "bled_out"]:
+		return first_id
+	# Tick bleed-out: `CombatStateHandlers` emits victim as first id, `target_id=-1`.
+	if bool(result.get("died", false)) and second_id < 0 and first_id >= 0:
+		return first_id
+	return second_id
+
+
+## Victim combatant id from **`action_resolved`** slot order (campaign / row updates).
+static func action_resolved_victim_id(attacker_id: int, target_id: int, _result: Dictionary) -> int:
+	if target_id >= 0:
+		return target_id
+	if attacker_id >= 0:
+		return attacker_id
+	return -1
 
 
 static func format_action_line(attacker_name: String, attacker_side: String, target_name: String, target_side: String, result: Dictionary) -> String:
@@ -127,15 +270,41 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 	var part_label: String = BodyPartConstants.BODY_LABELS.get(part, part) if part else "—"
 	if died and not has_resolved_physical_damage(result):
 		if outcome == "bled_out":
-			return "[color=red]%s (%s) — %s bled out.[/color]" % [attacker_name, attacker_side, target_name]
+			return "[color=red]%s (%s) bled out.[/color]" % [attacker_name, attacker_side]
 		elif outcome == "defeated":
 			return "[color=red]%s (%s) — %s (%s) is defeated.[/color]" % [attacker_name, attacker_side, target_name, target_side]
 		else:
 			return "[color=gray]%s (%s) — %s had no targetable parts.[/color]" % [attacker_name, attacker_side, target_name]
 	elif outcome == "miss":
-		return "[color=gray]%s (%s) → %s (%s): [b]Miss![/b][/color]" % [attacker_name, attacker_side, target_name, target_side]
+		var miss_aim: String = (" at %s" % part_label) if part else ""
+		return (
+			"[color=gray]%s (%s) → %s (%s)%s: [b]Miss![/b] — %s[/color]"
+			% [
+				attacker_name,
+				attacker_side,
+				target_name,
+				target_side,
+				miss_aim,
+				strike_avoided_reason("miss"),
+			]
+		)
 	elif outcome == "dodge":
-		return "[color=green]%s (%s) → %s (%s): [b]Dodge![/b][/color]" % [attacker_name, attacker_side, target_name, target_side]
+		var dodge_aim: String = (" (%s)" % part_label) if part else ""
+		return (
+			"[color=green]%s (%s) → %s (%s): [b]Dodge![/b]%s — %s[/color]"
+			% [
+				attacker_name,
+				attacker_side,
+				target_name,
+				target_side,
+				dodge_aim,
+				strike_avoided_reason("dodge"),
+			]
+		)
+	elif outcome == "focus_line":
+		var guard_line: String = str(result.get("line", "")).strip_edges()
+		var guard_disp: String = guard_line.capitalize() if not guard_line.is_empty() else "guard"
+		return "[color=gray]%s (%s) shifts focus — %s line.[/color]" % [attacker_name, attacker_side, guard_disp]
 	elif outcome == "skip":
 		return "[color=gray]%s (%s) — no functional arm; skips attack.[/color]" % [attacker_name, attacker_side]
 	elif outcome == "wait":
@@ -172,19 +341,21 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		return line_pd
 	elif outcome == "parry_partial":
 		var line_pp: String = (
-			"[color=cyan]%s (%s) partially parried %s (%s)'s attack (follow-through).[/color]"
+			"[color=cyan]%s (%s) partially parried %s (%s)'s attack — follow-through may still land (see next hit line).[/color]"
 			% [attacker_name, attacker_side, target_name, target_side]
 		)
-		if CombatConstants.COMBAT_DEBUG_CALIBRATION:
-			var ctx_pp: Variant = result.get("parry_clash_context", null)
-			if ctx_pp is Dictionary:
-				var dpp: Dictionary = ctx_pp
-				if not dpp.is_empty():
+		var ctx_pp: Variant = result.get("parry_clash_context", null)
+		if ctx_pp is Dictionary:
+			var dpp: Dictionary = ctx_pp
+			if not dpp.is_empty():
+				var pc_p: float = float(dpp.get("parry_control", 0.0))
+				var rem_p: float = float(dpp.get("remaining_ratio", -1.0))
+				if CombatConstants.play_session_diagnostic_active() or CombatConstants.COMBAT_DEBUG_CALIBRATION:
+					line_pp += " [size=10][color=gray](ctrl=%.2f rem=%.2f thru)[/color][/size]" % [pc_p, rem_p]
+				if CombatConstants.COMBAT_DEBUG_CALIBRATION:
 					var kdel_p: String = str(dpp.get("kinematic_delivery", ""))
 					var sm_p: float = float(dpp.get("strike_measure_ratio", -1.0))
-					var pc_p: float = float(dpp.get("parry_control", 0.0))
-					var rem_p: float = float(dpp.get("remaining_ratio", -1.0))
-					line_pp += " [size=10][color=gray](%s meas=%.2f bind=%.2f rem=%.2f)[/color][/size]" % [kdel_p, sm_p, pc_p, rem_p]
+					line_pp += " [size=10][color=gray]%s meas=%.2f[/color][/size]" % [kdel_p, sm_p]
 		return line_pp
 	elif outcome == "direct_pressure":
 		return "[color=teal]%s (%s) applied direct pressure on %s's %s.[/color]" % [attacker_name, attacker_side, target_name, part_label]
@@ -252,30 +423,53 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 			return "[color=gray]%s (%s) tried to close on %s (%s) — the defender held their measure.[/color]" % [attacker_name, attacker_side, target_name, target_side]
 		return "[color=gray]%s (%s) failed to close on %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "deflected":
-		return "%s (%s) → %s (%s) %s: [b]%s[/b] dmg [color=green](deflected — all avoided)[/color]" % [attacker_name, attacker_side, target_name, target_side, part_label, format_resolved_damage(result)]
-	elif outcome == "glancing":
-		var line: String = "%s (%s) → %s (%s) %s: [b]%s[/b] dmg [color=orange](glancing)[/color]" % [attacker_name, attacker_side, target_name, target_side, part_label, format_resolved_damage(result)]
-		if result.has("final_cut") and result.has("final_blunt"):
-			line += " (cut %.2f blunt %.2f)" % [result.final_cut, result.final_blunt]
-		elif health_before >= 0 and health_after >= 0:
-			line += " (%d→%d)" % [health_before, health_after]
-		return line
-	elif outcome == "negligible":
-		var line_n: String = (
-			"%s (%s) → %s (%s) %s: [b]%s[/b] dmg [color=gray](negligible — contact, no counted HP)[/color]"
-			% [attacker_name, attacker_side, target_name, target_side, part_label, format_resolved_damage(result)]
+		var strike_d: String = _strike_participant_clause(
+			attacker_name, attacker_side, target_name, target_side, part_label
 		)
-		if result.has("final_cut") and result.has("final_blunt"):
-			line_n += " (cut %.2f blunt %.2f)" % [result.final_cut, result.final_blunt]
-		elif health_before >= 0 and health_after >= 0:
-			line_n += " (%d→%d)" % [health_before, health_after]
+		return (
+			"[color=green]%s: [b]Deflected[/b] — %s%s[/color]"
+			% [strike_d, damage_resolve_note(result), _tissue_breakdown_suffix(result)]
+		)
+	elif outcome == "glancing":
+		var strike_g: String = _strike_participant_clause(
+			attacker_name, attacker_side, target_name, target_side, part_label
+		)
+		var dmg_g: String = ""
+		if has_resolved_physical_damage(result):
+			dmg_g = " · %s counted" % format_resolved_damage(result)
+		var line_g: String = (
+			"[color=orange]%s: [b]Glancing[/b]%s — %s%s[/color]"
+			% [strike_g, dmg_g, damage_resolve_note(result), _tissue_breakdown_suffix(result)]
+		)
+		if health_before >= 0 and health_after >= 0:
+			line_g += " [size=10][color=gray](%d→%d HP)[/color][/size]" % [health_before, health_after]
+		return line_g
+	elif outcome == "negligible":
+		var strike_n: String = _strike_participant_clause(
+			attacker_name, attacker_side, target_name, target_side, part_label
+		)
+		var line_n: String = (
+			"[color=gray]%s: [b]Graze[/b] — %s%s[/color]"
+			% [strike_n, damage_resolve_note(result), _tissue_breakdown_suffix(result)]
+		)
+		if health_before >= 0 and health_after >= 0:
+			line_n += " [size=10][color=gray](%d→%d HP)[/color][/size]" % [health_before, health_after]
 		return line_n
 	else:
-		var line: String = "%s (%s) → %s (%s) %s: [b]%s[/b] dmg" % [attacker_name, attacker_side, target_name, target_side, part_label, format_resolved_damage(result)]
-		if result.has("final_cut") and result.has("final_blunt"):
-			line += " (cut %.2f blunt %.2f)" % [result.final_cut, result.final_blunt]
+		var strike_h: String = _strike_participant_clause(
+			attacker_name, attacker_side, target_name, target_side, part_label
+		)
+		var reason_h: String = damage_resolve_note(result)
+		var line_h: String = ""
+		if has_resolved_physical_damage(result):
+			line_h = "%s: [b]%s[/b] damage" % [strike_h, format_resolved_damage(result)]
+		elif not reason_h.is_empty():
+			line_h = "%s: [b]no counted damage[/b] — %s" % [strike_h, reason_h]
+		else:
+			line_h = "%s: [b]no damage[/b]" % strike_h
+		line_h += _tissue_breakdown_suffix(result)
 		if health_before >= 0 and health_after >= 0:
-			line += " (%d→%d)" % [health_before, health_after]
+			line_h += " (%d→%d)" % [health_before, health_after]
 		if died:
-			line += " [color=red](defeated)[/color]"
-		return line
+			line_h += " [color=red](defeated)[/color]"
+		return line_h

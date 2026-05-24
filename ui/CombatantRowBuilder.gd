@@ -49,6 +49,8 @@ static func create_row(id: int, node: Node, list: Control, id_to_controls: Dicti
 	var last_hit_lbl = Label.new()
 	last_hit_lbl.name = "LastHitLabel"
 	last_hit_lbl.text = ""
+	last_hit_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	last_hit_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	last_hit_lbl.add_theme_font_size_override("font_size", 11)
 	last_hit_lbl.add_theme_color_override("font_color", Color(0.9, 0.6, 0.4))
 	row.add_child(last_hit_lbl)
@@ -98,7 +100,7 @@ static func create_row(id: int, node: Node, list: Control, id_to_controls: Dicti
 		var equip_lbl = Label.new()
 		equip_lbl.name = "EquipLabel"
 		equip_lbl.text = "  ".join(equip_parts)
-		equip_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_RowFormatter.configure_wrapped_label(equip_lbl)
 		equip_lbl.custom_minimum_size = Vector2(0, 0)
 		row.add_child(equip_lbl)
 	var bars_hbox = HBoxContainer.new()

@@ -69,6 +69,10 @@ const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _PartyRowFormatter := preload("res://ui/PartyRowFormatter.gd")
+const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
 const _PartyManagerScript := preload("res://PartyManager.gd")
 const _MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
 const _EncounterNode := preload("res://world/EncounterNode.gd")
@@ -207,6 +211,9 @@ static func run_all() -> Dictionary:
 	_run_tier7_stamina_action_ready_cooldown_scales_with_fatigue(failures)
 	_run_tier7_stamina_depletion_five_heavy_attacks_exhaust_pool(failures)
 	_run_tier7_stamina_depletion_sustained_exchange_sim(failures)
+	_run_stamina_effective_max_exhaustion_and_blood_cap(failures)
+	_run_stamina_effective_refill_slows_with_exhaustion(failures)
+	_run_opponent_pressure_defensive_uses_burst_ratio(failures)
 	_run_tier7_parry_bind_riposte_gauge_bonus_on_deflect(failures)
 	_run_formation_move_duration_lane_obstacle_slows_estimate(failures)
 	_run_formation_move_duration_matches_flow_pair_start(failures)
@@ -255,6 +262,8 @@ static func run_all() -> Dictionary:
 	_run_afterblow_mid_hindrance_rand_cancel(failures)
 	_run_afterblow_mid_hindrance_rand_executes_hit(failures)
 	_run_campaign_bridge_entity_untreated_wounds(failures)
+	_run_party_row_triage_formatter(failures)
+	_run_combat_log_formatter_negligible(failures)
 	_run_campaign_bridge_encounter_meta_from_node(failures)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	return {"ok": failures.is_empty(), "failures": failures}
@@ -602,18 +611,546 @@ static func _run_combat_log_formatter_negligible(failures: PackedStringArray) ->
 			"health_after": 10
 		}
 	)
-	if not line.contains("negligible"):
-		_fail(failures, "combat_log_negligible: expected 'negligible' in formatted line: %s" % line)
+	if not line.contains("Graze") or not line.contains("rounds to 0"):
+		_fail(failures, "combat_log_negligible: expected graze reason in line: %s" % line)
 	var row_neg: String = _CombatLogFormatter.format_last_hit_on_target_row(
 		{"outcome": "negligible", "part": "head", "total_physical": 0.2, "dmg": 0}
 	)
-	if not row_neg.begins_with("Graze:"):
-		_fail(failures, "combat_log_negligible_row: expected Graze prefix, got: %s" % row_neg)
+	if not row_neg.begins_with("Graze:") or not row_neg.contains("rounds to 0"):
+		_fail(failures, "combat_log_negligible_row: expected graze reason on row, got: %s" % row_neg)
+	var line_deflect: String = _CombatLogFormatter.format_action_line(
+		"Ally", "player", "Foe", "enemy", {"outcome": "deflected", "part": "chest", "dmg": 0, "total_physical": 0.0}
+	)
+	if not line_deflect.contains("Deflected") or not line_deflect.contains("armor stopped"):
+		_fail(failures, "combat_log_deflected: expected armor reason, got: %s" % line_deflect)
+	var note_glance: String = _CombatLogFormatter.damage_resolve_note(
+		{
+			"outcome": "glancing",
+			"final_cut": 0.1,
+			"final_blunt": 0.0,
+			"mechanical_post_armor": 2.0,
+			"dmg": 0,
+		}
+	)
+	if not note_glance.contains("glancing"):
+		_fail(failures, "damage_resolve_note glancing: %s" % note_glance)
 	var row_hit: String = _CombatLogFormatter.format_last_hit_on_target_row(
 		{"outcome": "hit", "part": "head", "total_physical": 5.0, "dmg": 5}
 	)
 	if not row_hit.begins_with("Hit:"):
 		_fail(failures, "combat_log_hit_row: expected Hit prefix, got: %s" % row_hit)
+	var row_parry: String = _CombatLogFormatter.format_row_last_hit(
+		{
+			"outcome": "parry_partial",
+			"parry_clash_context": {"remaining_ratio": 0.85, "parry_control": 0.12},
+		}
+	)
+	if not row_parry.contains("Partial parry"):
+		_fail(failures, "combat_log_parry_row: expected Partial parry strip, got: %s" % row_parry)
+	if _CombatLogFormatter.last_hit_row_combatant_id(3, 8, {"outcome": "parry_partial"}) != 3:
+		_fail(failures, "last_hit_row_id: parry_partial want defender slot (first id)")
+	if _CombatLogFormatter.last_hit_row_combatant_id(1, 2, {"outcome": "hit", "part": "head"}) != 2:
+		_fail(failures, "last_hit_row_id: hit want defender slot (second id)")
+	if _CombatLogFormatter.last_hit_row_combatant_id(5, -1, {"outcome": "bled_out", "died": true}) != 5:
+		_fail(failures, "last_hit_row_id: bled_out want victim slot (first id)")
+	if _CombatLogFormatter.format_row_last_hit({"outcome": "bled_out"}) != "Bled out":
+		_fail(failures, "combat_log_bled_out_row: expected Bled out strip")
+	if _CombatLogFormatter.action_resolved_victim_id(1, 2, {"outcome": "hit"}) != 2:
+		_fail(failures, "action_resolved_victim_id: hit want target_id")
+	if _CombatLogFormatter.action_resolved_victim_id(5, -1, {"outcome": "bled_out"}) != 5:
+		_fail(failures, "action_resolved_victim_id: tick bleed want attacker_id when target=-1")
+	_run_combat_ui_hint_fp_echo_dedupe(failures)
+	_run_diagram_banner_fp_dedupe(failures)
+	_run_fight_trace_buffer_preserves_session_counts(failures)
+	_run_turn_ready_formation_fp_line_dedupe(failures)
+	_run_turn_ready_gauge_fp_line_dedupe(failures)
+	_run_manager_started_no_encounter_repeat(failures)
+	_run_medical_action_pick_single_fp_line(failures)
+	_run_engagement_transition_fp_dedupe(failures)
+	_run_strike_avoided_fp_dedupe(failures)
+	_run_combat_hit_summary_override_while_harness_quiet(failures)
+	_run_medical_session_fp_dedupe(failures)
+	_run_parry_fp_reason_suffix(failures)
+	_run_combat_session_fp_dedupe(failures)
+	_run_diagram_banner_enemy_fp(failures)
+	_run_play_combat_fp_dedupe(failures)
+	_run_formation_move_pick_fp_dedupe(failures)
+	_run_soak_coverage_once_per_fight(failures)
+	_run_medical_pressure_fp_suppressed_in_play(failures)
+	_run_medical_phase_intro_once(failures)
+	_run_ambient_pain_shock_fp_dedupe(failures)
+	_run_editor_f5_skips_verbose_phase_end(failures)
+	_run_fight_fp_channel_dedupe_resets_between_fights(failures)
+	if _CombatLogFormatter.format_row_last_hit({"outcome": "miss"}) != "Miss — attack missed (no contact)":
+		_fail(failures, "combat_log_miss_row: expected Miss strip with reason")
+	if _CombatLogFormatter.format_row_last_hit({"outcome": "miss", "part": "left_arm"}) != "Miss: L.Arm — attack missed (no contact)":
+		_fail(failures, "combat_log_miss_row_part: expected part on avoid strip")
+	if _CombatLogFormatter.format_row_last_hit({"outcome": "dodge", "part": "head"}) != "Dodged: Head — defender dodged":
+		_fail(failures, "combat_log_dodge_row_part: expected part and reason on dodge strip")
+	var line_focus: String = _CombatLogFormatter.format_action_line(
+		"Ally", "player", "Ally", "player", {"outcome": "focus_line", "line": "high"}
+	)
+	if not line_focus.contains("shifts focus") or not line_focus.contains("High"):
+		_fail(failures, "combat_log_focus_line: expected focus guard line, got: %s" % line_focus)
+	if _PartyRowFormatter.format_body_part_compact(
+			"head", {"head": 29.8}, {"head": 0.0}, {"head": 30}, {"head": 0.0}, {}
+		) != "Hd 29.8|0|0":
+		_fail(failures, "body_part_compact: expected one-decimal chip display")
+
+
+static func _run_combat_ui_hint_fp_echo_dedupe(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	mgr.notify_combat_ui_hint("Listed formation moves: step_in", false)
+	mgr.notify_combat_ui_hint("Arc overlap", true)
+	var ui_count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if "ui_hint " in line:
+			ui_count += 1
+	if ui_count != 1:
+		_fail(failures, "ui_hint_fp_echo: want 1 FP ui_hint line got %d" % ui_count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+	mgr.free()
+
+
+static func _run_diagram_banner_fp_dedupe(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	var banner: String = "Formation line · Hold · cohesion 80%"
+	_F5SoakTrace.log_diagram_banner_player(banner)
+	_F5SoakTrace.log_diagram_banner_player(banner)
+	var count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: diagram_banner player:"):
+			count += 1
+	if count != 1:
+		_fail(failures, "diagram_banner_dedupe: want 1 line got %d" % count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_fight_trace_buffer_preserves_session_counts(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_F5SoakTrace.log_diagram_banner_player("Formation line · Hold · cohesion 50%")
+	_F5SoakTrace.reset_fight_trace_buffer()
+	_F5SoakTrace.log_fight_end_summary("player", false)
+	var summary: String = ""
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: soak_fight_end "):
+			summary = line
+			break
+	if summary.is_empty():
+		_fail(failures, "fight_trace_reset: missing soak_fight_end line")
+		return
+	var parts: PackedStringArray = summary.split(" ")
+	for part in parts:
+		if part.begins_with("diagram_banner="):
+			if int(part.substr("diagram_banner=".length())) < 1:
+				_fail(
+					failures,
+					"fight_trace_reset: soak_fight_end should retain diagram_banner count after reset_fight_trace_buffer (%s)"
+					% part
+				)
+			return
+	_fail(failures, "fight_trace_reset: soak_fight_end missing diagram_banner= field")
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_turn_ready_formation_fp_line_dedupe(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	var fp: String = "Listed formation moves: wait"
+	_F5SoakTrace._emit_turn_ready_formation_fp(1, "Leader", fp)
+	_F5SoakTrace._emit_turn_ready_formation_fp(1, "Leader", fp)
+	var form_count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: turn_ready_formation_line "):
+			form_count += 1
+	if form_count != 1:
+		_fail(failures, "turn_ready_formation_fp_dedupe: want 1 line got %d" % form_count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_turn_ready_gauge_fp_line_dedupe(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	var mgr: Node = _MgrScript.new()
+	var leader: Dictionary = {
+		"id": 1,
+		"side": "player",
+		"state": CombatConstants.STATE_WAITING,
+		"gauge": 100.0,
+		"rank": 0,
+	}
+	_F5SoakTrace.log_turn_ready_player_ui(mgr, leader, [])
+	_F5SoakTrace.log_turn_ready_player_ui(mgr, leader, [])
+	var gauge_count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: turn_ready_gauge "):
+			gauge_count += 1
+	if gauge_count != 1:
+		_fail(failures, "turn_ready_gauge_fp_dedupe: want 1 line got %d" % gauge_count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+	mgr.free()
+
+
+static func _run_manager_started_no_encounter_repeat(failures: PackedStringArray) -> void:
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_OperationalLog.play_combat_manager_started(2, 3, {"player": "default"}, {"soak": "ii2b"})
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: manager_started ") and "| encounter[" in line:
+			_fail(failures, "manager_started: should not repeat encounter blob (got %s)" % line)
+			break
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_medical_action_pick_single_fp_line(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_F5SoakTrace.note_medical_action_pick("Medic", "apply_direct_pressure", "chest", "ally")
+	var pick_count: int = 0
+	var legacy_count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: medical_action pick "):
+			pick_count += 1
+		if line.begins_with("FP_COMBAT: action ") and " chose medical " in line:
+			legacy_count += 1
+	if pick_count != 1:
+		_fail(failures, "medical_action_pick: want 1 medical_action pick line got %d" % pick_count)
+	if legacy_count != 0:
+		_fail(failures, "medical_action_pick: want 0 legacy action chose medical lines got %d" % legacy_count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_engagement_transition_fp_dedupe(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_F5SoakTrace.note_engagement_transition("Duel", "Formation line")
+	_F5SoakTrace.note_engagement_transition("Duel", "Formation line")
+	var count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: engagement_transition "):
+			count += 1
+	if count != 1:
+		_fail(failures, "engagement_transition_dedupe: want 1 line got %d" % count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_strike_avoided_fp_dedupe(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	var was_quiet: bool = CombatConstants.is_headless_harness_quiet()
+	CombatConstants.set_headless_harness_quiet(false)
+	CombatConstants.set_combat_hit_summary_override(true)
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	var atk: Dictionary = {"id": 1, "side": "player", "name": "A"}
+	var tgt: Dictionary = {"id": 2, "side": "enemy", "name": "D"}
+	_F5SoakTrace.note_strike_avoided(1, 2, atk, tgt, "miss", "head")
+	_F5SoakTrace.note_strike_avoided(1, 2, atk, tgt, "miss", "head")
+	var count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: strike_avoided "):
+			count += 1
+	if count != 1:
+		_fail(failures, "strike_avoided_dedupe: want 1 line got %d" % count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+	CombatConstants.clear_combat_hit_summary_override()
+	CombatConstants.set_headless_harness_quiet(was_quiet)
+
+
+static func _run_combat_hit_summary_override_while_harness_quiet(failures: PackedStringArray) -> void:
+	var was_quiet: bool = CombatConstants.is_headless_harness_quiet()
+	CombatConstants.set_headless_harness_quiet(true)
+	CombatConstants.set_combat_hit_summary_override(true)
+	if not CombatConstants.combat_hit_summary_active():
+		_fail(
+			failures,
+			"hit_summary_override: want active under harness quiet (D-001 soak_fight_end hit_resolve)"
+		)
+	CombatConstants.set_combat_hit_summary_override(false)
+	if CombatConstants.combat_hit_summary_active():
+		_fail(failures, "hit_summary_override: explicit off should lose to harness quiet")
+	CombatConstants.clear_combat_hit_summary_override()
+	CombatConstants.set_headless_harness_quiet(was_quiet)
+
+
+static func _run_medical_session_fp_dedupe(failures: PackedStringArray) -> void:
+	CombatDebug.clear_flow_log_dedup()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	var body: String = "Medic apply_bandage(chest) => success, 1 wound(s) stabilized"
+	CombatDebug.medical_session(body)
+	CombatDebug.medical_session(body)
+	var want: String = "FP_COMBAT: medical %s" % body
+	var count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line == want:
+			count += 1
+	if count != 1:
+		_fail(failures, "medical_session_dedupe: want 1 line got %d" % count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_parry_fp_reason_suffix(failures: PackedStringArray) -> void:
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	var atk: Dictionary = {"id": 1, "side": "enemy", "name": "A"}
+	var tgt: Dictionary = {"id": 2, "side": "player", "name": "D"}
+	_AttackResultApplier._log_fp_parry_outcome(atk, tgt, 1, 2, "parry_partial", {"parry_control": 0.5, "remaining_ratio": 0.2})
+	var found: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		if line.contains("parry_partial") and line.contains("reason="):
+			found = true
+			break
+	if not found:
+		_fail(failures, "parry_fp_reason: expected parry_partial line with reason=")
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_combat_session_fp_dedupe(failures: PackedStringArray) -> void:
+	CombatDebug.clear_flow_log_dedup()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	CombatDebug.combat_session("exhaustion Ally crossed 50% (index 52% perf 90%)")
+	CombatDebug.combat_session("exhaustion Ally crossed 50% (index 52% perf 90%)")
+	var count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.contains("exhaustion Ally crossed 50%"):
+			count += 1
+	if count != 1:
+		_fail(failures, "combat_session_dedupe: want 1 line got %d" % count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_diagram_banner_enemy_fp(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_F5SoakTrace.log_diagram_banner_enemy("Skirmish · Loose · cohesion 40%")
+	_F5SoakTrace.log_diagram_banner_enemy("Skirmish · Loose · cohesion 40%")
+	var count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: diagram_banner enemy:"):
+			count += 1
+	if count != 1:
+		_fail(failures, "diagram_banner_enemy_dedupe: want 1 line got %d" % count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_play_combat_fp_dedupe(failures: PackedStringArray) -> void:
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	var body: String = "cowering_fall_back listed for Leader"
+	_OperationalLog.play_combat(body)
+	_OperationalLog.play_combat(body)
+	var count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line == "FP_COMBAT: %s" % body:
+			count += 1
+	if count != 1:
+		_fail(failures, "play_combat_dedupe: want 1 line got %d" % count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_formation_move_pick_fp_dedupe(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_F5SoakTrace.note_formation_move_pick("rotate_file", 1, 2)
+	_F5SoakTrace.note_formation_move_pick("rotate_file", 1, 2)
+	var count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line == "FP_COMBAT: rotate_file@2":
+			count += 1
+	if count != 1:
+		_fail(failures, "formation_move_pick_dedupe: want 1 line got %d" % count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_soak_coverage_once_per_fight(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_F5SoakTrace.log_fight_end_summary("player", false)
+	_F5SoakTrace.log_fight_end_summary("player", false)
+	var count: int = 0
+	var validate_n: int = 0
+	var soak_end_n: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: soak_coverage ok="):
+			count += 1
+		if line.begins_with("FP_COMBAT: soak_validate_hint "):
+			validate_n += 1
+		if line.begins_with("FP_COMBAT: soak_fight_end "):
+			soak_end_n += 1
+	if count != 1:
+		_fail(failures, "soak_coverage_once: want 1 soak_coverage header got %d" % count)
+	if validate_n != 1:
+		_fail(failures, "soak_validate_hint_once: want 1 line got %d" % validate_n)
+	if soak_end_n != 1:
+		_fail(failures, "soak_fight_end_once: want 1 line got %d" % soak_end_n)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_medical_pressure_fp_suppressed_in_play(failures: PackedStringArray) -> void:
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_EntityMedical.log_medical_session("Ally direct_pressure self part=chest (TCCC)")
+	_EntityMedical.log_medical_session("Ally apply_bandage(chest) => success, 1 wound(s) stabilized")
+	var pressure_n: int = 0
+	var bandage_n: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if "direct_pressure self" in line:
+			pressure_n += 1
+		if "apply_bandage" in line:
+			bandage_n += 1
+	if pressure_n != 0:
+		_fail(failures, "medical_pressure_fp: want 0 pressure lines got %d" % pressure_n)
+	if bandage_n != 1:
+		_fail(failures, "medical_pressure_fp: want 1 bandage line got %d" % bandage_n)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_medical_phase_intro_once(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_F5SoakTrace.note_medical_phase_intro()
+	_F5SoakTrace.note_medical_phase_intro()
+	var count: int = 0
+	var double_medical: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: medical_phase: full hemorrhage"):
+			count += 1
+		if "medical medical_phase:" in line:
+			double_medical += 1
+	if count != 1:
+		_fail(failures, "medical_phase_intro_once: want 1 intro line got %d" % count)
+	if double_medical != 0:
+		_fail(failures, "medical_phase_intro_prefix: forbid medical medical_phase: got %d" % double_medical)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_ambient_pain_shock_fp_dedupe(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_F5SoakTrace.note_ambient_pain_shock("Companion", 42.0, 3.5)
+	_F5SoakTrace.note_ambient_pain_shock("Companion", 42.0, 3.5)
+	var count: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: ambient_pain_shock "):
+			count += 1
+	if count != 1:
+		_fail(failures, "ambient_pain_shock_dedupe: want 1 line got %d" % count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_editor_f5_skips_verbose_phase_end(failures: PackedStringArray) -> void:
+	const PHASE_STUB: String = (
+		"phase_end winner=player defeated_node=null alive_by_side={} standing_by_side={} fled_by_side={}"
+	)
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("res://main.tscn", "", false, true)
+	if not _OperationalLog.play_session_is_editor_f5():
+		_fail(failures, "editor_f5_detect: main.tscn session should be editor F5")
+	# Mirror CombatManager.finish_battle gate (editor F5 uses soak_fight_end, not phase_end).
+	if not _OperationalLog.play_session_is_editor_f5():
+		CombatDebug.combat_session(PHASE_STUB)
+	_F5SoakTrace.log_fight_end_summary("player", true)
+	var phase_n: int = 0
+	var soak_end_n: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if "phase_end winner=" in line:
+			phase_n += 1
+		if line.begins_with("FP_COMBAT: soak_fight_end "):
+			soak_end_n += 1
+	if phase_n != 0:
+		_fail(failures, "editor_f5_phase_end: want 0 phase_end got %d" % phase_n)
+	if soak_end_n != 1:
+		_fail(failures, "editor_f5_soak_fight_end: want 1 got %d" % soak_end_n)
+	_OperationalLog.end_play_session()
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("headless://d001-soak", "", false, true)
+	if _OperationalLog.play_session_is_editor_f5():
+		_fail(failures, "editor_f5_detect: headless session must not be editor F5")
+	if not _OperationalLog.play_session_is_editor_f5():
+		CombatDebug.combat_session(PHASE_STUB)
+	phase_n = 0
+	for line in _OperationalLog.get_captured_lines():
+		if "phase_end winner=" in line:
+			phase_n += 1
+	if phase_n != 1:
+		_fail(failures, "headless_phase_end: want 1 phase_end got %d" % phase_n)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_fight_fp_channel_dedupe_resets_between_fights(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	var line: String = "turn_ready_gauge id=0 Tester label=Ready tooltip_match=ok"
+	_OperationalLog.play_combat(line)
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.play_combat(line)
+	var count: int = 0
+	for cap in _OperationalLog.get_captured_lines():
+		if cap == "FP_COMBAT: %s" % line:
+			count += 1
+	if count != 2:
+		_fail(failures, "fight_fp_channel_reset: want 2 identical lines across fights got %d" % count)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
 
 
 static func _assert_depth_polearm_allows_low_fid_round_trip_slice(
@@ -1349,11 +1886,26 @@ static func _run_combat_end_enemy_win_stops_manager(failures: PackedStringArray)
 	mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr.set_process(true)
+	var ended_box: Array = [0]
+	mgr.combat_ended.connect(
+		func(_w: String, _d: Node) -> void:
+			ended_box[0] = int(ended_box[0]) + 1
+	)
 	mgr._end_combat_phase("enemy", ent_player)
 	if mgr.medical_phase:
 		_fail(failures, "combat_end_enemy_win: medical_phase should stay false")
 	if mgr.is_processing():
 		_fail(failures, "combat_end_enemy_win: manager should stop processing")
+	if not mgr.combat_resolution_closed:
+		_fail(failures, "combat_end_enemy_win: combat_resolution_closed should be true")
+	for _i in 24:
+		_ProcessTick.tick(mgr, 0.05)
+	if int(ended_box[0]) != 1:
+		_fail(
+			failures,
+			"combat_end_enemy_win: combat_ended should emit once after manual ticks (got %d)"
+			% int(ended_box[0])
+		)
 	_free_manager(mgr)
 
 
@@ -5556,6 +6108,96 @@ static func _run_tier7_stamina_depletion_sustained_exchange_sim(
 		)
 
 
+## MXm-3: central fatigue + hypovolemia cap burst pool ceiling.
+static func _run_stamina_effective_max_exhaustion_and_blood_cap(failures: PackedStringArray) -> void:
+	const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
+	var fresh: Dictionary = {
+		"stamina": CombatConstants.STAMINA_MAX,
+		"stats": {"blood_volume": 100.0},
+		CombatConstants.COMBATANT_KEY_EXHAUSTION: 0.0,
+	}
+	if not is_equal_approx(_Exhaustion.effective_stamina_max(fresh), CombatConstants.STAMINA_MAX):
+		_fail(
+			failures,
+			"stam_eff_max: fresh want %.1f got %.1f"
+			% [CombatConstants.STAMINA_MAX, _Exhaustion.effective_stamina_max(fresh)]
+		)
+	var spent: Dictionary = fresh.duplicate(true)
+	spent[CombatConstants.COMBATANT_KEY_EXHAUSTION] = 1.0
+	var want_exh: float = (
+		CombatConstants.STAMINA_MAX * CombatConstants.STAMINA_EXHAUSTION_MAX_MULT_FLOOR
+	)
+	if not is_equal_approx(_Exhaustion.effective_stamina_max(spent), want_exh):
+		_fail(
+			failures,
+			"stam_eff_max: full exhaustion want %.1f got %.1f"
+			% [want_exh, _Exhaustion.effective_stamina_max(spent)]
+		)
+	var bleed: Dictionary = fresh.duplicate(true)
+	bleed["stats"] = {"blood_volume": 35.0}
+	var want_blood: float = CombatConstants.STAMINA_MAX * CombatConstants.STAMINA_BLOOD_MAX_MULT_FLOOR
+	if not is_equal_approx(_Exhaustion.effective_stamina_max(bleed), want_blood):
+		_fail(
+			failures,
+			"stam_eff_max: low blood want %.1f got %.1f"
+			% [want_blood, _Exhaustion.effective_stamina_max(bleed)]
+		)
+
+
+## MXm-3: PCr resynthesis slows when fight-exhausted.
+static func _run_stamina_effective_refill_slows_with_exhaustion(failures: PackedStringArray) -> void:
+	const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
+	var fresh: Dictionary = {CombatConstants.COMBATANT_KEY_EXHAUSTION: 0.0}
+	var spent: Dictionary = {CombatConstants.COMBATANT_KEY_EXHAUSTION: 1.0}
+	var rate_fresh: float = _Exhaustion.effective_stamina_refill_rate(fresh)
+	var rate_spent: float = _Exhaustion.effective_stamina_refill_rate(spent)
+	if not is_equal_approx(rate_fresh, CombatConstants.STAMINA_REFILL_RATE):
+		_fail(failures, "stam_eff_refill: fresh want base rate got %.3f" % rate_fresh)
+	var want_spent: float = (
+		CombatConstants.STAMINA_REFILL_RATE * CombatConstants.STAMINA_REFILL_EXHAUSTION_MULT_FLOOR
+	)
+	if not is_equal_approx(rate_spent, want_spent):
+		_fail(
+			failures,
+			"stam_eff_refill: exhausted want %.3f got %.3f" % [want_spent, rate_spent]
+		)
+
+
+## Formation pressure: defensive threshold uses burst ratio vs effective max (not absolute / STAMINA_MAX).
+static func _run_opponent_pressure_defensive_uses_burst_ratio(
+	failures: PackedStringArray
+) -> void:
+	const _ZOC := preload("res://combat/ZoneOfControl.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	var fid: String = _EntityAccess.formation_id_str(player)
+	_EntityAccess.set_exhaustion_float(enemy, 1.0)
+	enemy["stats"] = {"blood_volume": 100.0}
+	enemy["stance"] = CombatConstants.STANCE_BALANCED
+	enemy["state"] = CombatConstants.STATE_WAITING
+	enemy["stamina"] = 30.0
+	var mod_neutral: float = _ZOC.get_opponent_pressure_duration_multiplier(mgr, fid)
+	if not is_equal_approx(mod_neutral, CombatConstants.PRESSURE_MOD_NEUTRAL):
+		_fail(
+			failures,
+			"pressure_ratio: 30/70 burst want neutral (%.2f) got %.2f"
+			% [CombatConstants.PRESSURE_MOD_NEUTRAL, mod_neutral]
+		)
+	enemy["stamina"] = 20.0
+	var mod_def: float = _ZOC.get_opponent_pressure_duration_multiplier(mgr, fid)
+	if not is_equal_approx(mod_def, CombatConstants.PRESSURE_MOD_DEFENSIVE):
+		_fail(
+			failures,
+			"pressure_ratio: 20/70 burst want defensive (%.2f) got %.2f"
+			% [CombatConstants.PRESSURE_MOD_DEFENSIVE, mod_def]
+		)
+	_free_manager(mgr)
+
+
 ## Tier 7: fatigued combatants wait longer between **`EVENT_ACTION_READY`** schedules.
 static func _run_tier7_stamina_action_ready_cooldown_scales_with_fatigue(
 	failures: PackedStringArray
@@ -6718,6 +7360,33 @@ static func _run_formation_hit_cancel_ui_gauge_vulnerable_suffix(failures: Packe
 			break
 	if not found:
 		_fail(failures, "form_hit_ui: gauge tooltip should mention hit cancel risk")
+
+
+## Camp-3.2: party menu triage line uses ATLS band + danger ETA from bleed physics.
+static func _run_party_row_triage_formatter(failures: PackedStringArray) -> void:
+	var blood: float = 70.0
+	var bleed: float = 0.35
+	var line: String = _PartyRowFormatter.format_triage_line(blood, bleed)
+	if "ATLS" not in line:
+		_fail(failures, "party_triage: want ATLS band label in %s" % line)
+	var cls: int = _Bleeding.atls_hemorrhage_class_from_remaining_pct(blood)
+	var class_token: String = "Class %d" % cls
+	var roman: String = ["", "I", "II", "III", "IV"][cls] if cls >= 1 and cls <= 4 else ""
+	if class_token not in line and (roman.is_empty() or ("Class %s" % roman) not in line):
+		_fail(failures, "party_triage: want ATLS class for blood=%.0f got %s" % [blood, line])
+	var eta_s: float = _PartyRowFormatter.seconds_to_danger_band(blood, bleed)
+	if eta_s <= 0.0 or eta_s == INF:
+		_fail(failures, "party_triage: want finite ETA to danger got %.2f" % eta_s)
+	if "danger" not in line:
+		_fail(failures, "party_triage: want danger ETA text in %s" % line)
+	var at_danger: String = _PartyRowFormatter.format_triage_line(
+		_Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING - 1.0, bleed
+	)
+	if "at danger" not in at_danger:
+		_fail(failures, "party_triage: below danger threshold should read at danger got %s" % at_danger)
+	var calm: String = _PartyRowFormatter.format_triage_line(95.0, 0.0)
+	if "ATLS" not in calm or "Bleeding" in calm:
+		_fail(failures, "party_triage: zero bleed should omit bleed/ETA got %s" % calm)
 
 
 ## Campaign bridge: untreated wound detection on **`CoreEntity`**.

@@ -10,11 +10,13 @@ const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
 const _CombatLogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
+const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _EngagementResolver := preload("res://combat/CombatEngagementResolver.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationEngagement := preload("res://combat/CombatFormationEngagement.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _FormationVacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
@@ -510,6 +512,90 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 		CombatRegressionHarness._fail(failures, "engagement: 1v1 snap must not claim formation-eligible")
 	_assert_tactical_snapshot_matches(failures, d, "engagement small 1v1")
 	CombatRegressionHarness._free_manager(d)
+	# Asymmetric mop-up: 7v2 must stay skirmish (rotate when outnumbering), not global duel.
+	var mop: Node = _MgrScript.new()
+	for _i in 7:
+		mop.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 2:
+		mop.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mop.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	var s_mop: Dictionary = _EngagementMode.snapshot(mop)
+	if str(s_mop.get("raw_mode", "")) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+		CombatRegressionHarness._fail(
+			failures,
+			"engagement: 7v2 expected raw skirmish, got %s snap=%s" % [str(s_mop.get("raw_mode", "")), str(s_mop)]
+		)
+	if _EngagementMode.engagement_mode(mop) == CombatConstants.ENGAGEMENT_MODE_DUEL:
+		CombatRegressionHarness._fail(failures, "engagement: 7v2 resolved must not be duel")
+	if not _EngagementMode.allow_rotate_file_for_formation(mop, "player"):
+		CombatRegressionHarness._fail(
+			failures,
+			"engagement: 7v2 skirmish outnumber should allow player rotate_file (5 vs 3 files)"
+		)
+	CombatRegressionHarness._free_manager(mop)
+	# Escort-shaped equal files: skirmish mop-up without rotate (III-4 3b needs file outnumber).
+	var esc: Node = _MgrScript.new()
+	for _i in 7:
+		esc.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 2:
+		esc.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	esc.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	if str(_EngagementMode.snapshot(esc).get("raw_mode", "")) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+		CombatRegressionHarness._fail(
+			failures,
+			"engagement: escort 7v2 equal files want skirmish got %s"
+			% str(_EngagementMode.snapshot(esc).get("raw_mode", ""))
+		)
+	if _EngagementMode.allow_rotate_file_for_formation(esc, "player"):
+		CombatRegressionHarness._fail(
+			failures, "engagement: escort 7v2 equal 5v5 files must not allow rotate_file"
+		)
+	CombatRegressionHarness._free_manager(esc)
+	# 7v1 mop-up is skirmish, not duel (only true 1v1 is duel).
+	var one: Node = _MgrScript.new()
+	for _i in 7:
+		one.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	one.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	one.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	if str(_EngagementMode.snapshot(one).get("raw_mode", "")) == CombatConstants.ENGAGEMENT_MODE_DUEL:
+		CombatRegressionHarness._fail(failures, "engagement: 7v1 must not classify as duel")
+	CombatRegressionHarness._free_manager(one)
+	# Formation hysteresis: 7v5 line → 7v2 releases resolved formation (active floor + thin fill).
+	var attr: Node = _MgrScript.new()
+	for _i in 7:
+		attr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		attr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	attr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	if _EngagementMode.engagement_mode(attr) != CombatConstants.ENGAGEMENT_MODE_FORMATION:
+		CombatRegressionHarness._fail(
+			failures,
+			"engagement: 7v5 want formation-line mode got %s" % _EngagementMode.engagement_mode(attr)
+		)
+	var enemy_ids: Array = []
+	for c in attr.combatants:
+		if _EntityAccess.side_str(c) == "enemy":
+			enemy_ids.append(_EntityAccess.id_int(c))
+	for k in range(mini(3, enemy_ids.size())):
+		CombatRegressionHarness._soak_kill_combatant(attr, int(enemy_ids[k]))
+	var m_after: String = _EngagementMode.engagement_mode(attr)
+	if m_after == CombatConstants.ENGAGEMENT_MODE_FORMATION:
+		CombatRegressionHarness._fail(
+			failures, "engagement: 7v2 after attrition should not stay formation (hysteresis)"
+		)
+	if m_after == CombatConstants.ENGAGEMENT_MODE_DUEL:
+		CombatRegressionHarness._fail(failures, "engagement: 7v2 after attrition must not be duel")
+	CombatRegressionHarness._free_manager(attr)
+	# Tutorial-scale 2v2: was misclassified as duel under old "either side ≤2 actives" rule.
+	var tut: Node = _MgrScript.new()
+	tut.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	tut.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	tut.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	tut.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	tut.start({"files": 2, "ranks": 1, "density": "normal"}, {"files": 2, "ranks": 1, "density": "normal"})
+	if str(_EngagementMode.snapshot(tut).get("raw_mode", "")) == CombatConstants.ENGAGEMENT_MODE_DUEL:
+		CombatRegressionHarness._fail(failures, "engagement: 2v2 expected skirmish not duel")
+	CombatRegressionHarness._free_manager(tut)
 	# Medium: 3v3 wide front (active 3 < formation floor) → skirmish, not duel (multi-file front)
 	var m: Node = _MgrScript.new()
 	for _i in 3:
@@ -547,6 +633,296 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 	var mode_f: String = _EngagementMode.engagement_mode(f)
 	_assert_tactical_snapshot_matches(failures, f, "engagement large 4v4")
 	CombatRegressionHarness._free_manager(f)
+
+
+## III-4 Track A PR2: opposition file offset seeded at **`CombatManager.start`** from formation widths.
+static func _run_opposition_offset_seeded_at_start(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	if not mgr.has_meta(_EngagementOpposition.META_OPPOSITION_FILE_OFFSET_BY_SIDE):
+		CombatRegressionHarness._fail(failures, "opposition_offset: expected meta after start")
+	var off_p: int = _EngagementOpposition.opposition_file_offset(mgr, "player")
+	var off_e: int = _EngagementOpposition.opposition_file_offset(mgr, "enemy")
+	if off_p != 1:
+		CombatRegressionHarness._fail(failures, "opposition_offset: 5 vs 3 expected player offset 1 got %d" % off_p)
+	if off_e != -1:
+		CombatRegressionHarness._fail(failures, "opposition_offset: expected enemy offset -1 got %d" % off_e)
+	var p_center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+		mgr, "player", 0, 2
+	)
+	var e_center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+		mgr, "enemy", 0, 1
+	)
+	var p_wing: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+		mgr, "player", 0, 0
+	)
+	if p_center.is_empty() or e_center.is_empty() or p_wing.is_empty():
+		CombatRegressionHarness._fail(failures, "opposition_offset: missing rank-0 fixtures for mapped opposition")
+	elif not _EngagementOpposition.is_mapped_file_opposed(mgr, p_center, e_center):
+		CombatRegressionHarness._fail(failures, "opposition_offset: expected mapped opposition center pair")
+	elif _EngagementOpposition.is_mapped_file_opposed(mgr, p_wing, e_center):
+		CombatRegressionHarness._fail(failures, "opposition_offset: wing file 0 should not map to enemy file 1")
+	var e_wing: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 0)
+	if e_wing.is_empty():
+		CombatRegressionHarness._fail(failures, "opposition_offset: missing enemy file 0 fixture")
+	elif not _EngagementOpposition.is_mapped_file_opposed(mgr, p_wing, e_wing):
+		CombatRegressionHarness._fail(
+			failures, "opposition_offset: wing file 0 should nearest-map to enemy file 0"
+		)
+	elif not _TargetScoring.is_file_opposed_rank0_pair(mgr, p_center, e_center):
+		CombatRegressionHarness._fail(failures, "opposition_offset: TargetScoring delegate expected center file-opposed")
+	elif _TargetScoring.is_file_opposed_rank0_pair(mgr, p_wing, e_center):
+		CombatRegressionHarness._fail(failures, "opposition_offset: wing should not be file-opposed via delegate")
+	CombatRegressionHarness._free_manager(mgr)
+	# 7v3 skirmish (Border / ii_envelop): outer files nearest-map to outer enemies, not only center offset.
+	var wide: Node = _MgrScript.new()
+	for _i in 7:
+		wide.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		wide.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	wide.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	if _EngagementOpposition.opposition_file_offset(wide, "player") != 2:
+		CombatRegressionHarness._fail(
+			failures, "opposition_nearest_wing: 7v3 expected player offset 2 got %d"
+			% _EngagementOpposition.opposition_file_offset(wide, "player")
+		)
+	var p_left: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(wide, "player", 0, 0)
+	var p_right: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(wide, "player", 0, 6)
+	var e_left: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(wide, "enemy", 0, 0)
+	var e_right: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(wide, "enemy", 0, 2)
+	if p_left.is_empty() or p_right.is_empty() or e_left.is_empty() or e_right.is_empty():
+		CombatRegressionHarness._fail(failures, "opposition_nearest_wing: missing 7v3 rank-0 fixtures")
+	elif not _EngagementOpposition.is_mapped_file_opposed(wide, p_left, e_left):
+		CombatRegressionHarness._fail(failures, "opposition_nearest_wing: player file 0 should oppose enemy file 0")
+	elif not _EngagementOpposition.is_mapped_file_opposed(wide, p_right, e_right):
+		CombatRegressionHarness._fail(failures, "opposition_nearest_wing: player file 6 should oppose enemy file 2")
+	elif _EngagementOpposition.is_mapped_file_opposed(wide, p_left, e_right):
+		CombatRegressionHarness._fail(
+			failures, "opposition_nearest_wing: player file 0 should not map to far enemy file 2"
+		)
+	var p_inner: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(wide, "player", 0, 1)
+	var e_mid: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(wide, "enemy", 0, 1)
+	if p_inner.is_empty() or e_mid.is_empty():
+		CombatRegressionHarness._fail(failures, "opposition_nearest_wing: missing inner-wing fixtures")
+	elif not _EngagementOpposition.is_mapped_file_opposed(wide, p_inner, e_left):
+		CombatRegressionHarness._fail(
+			failures, "opposition_nearest_wing: player file 1 should nearest-map to enemy file 0"
+		)
+	elif _EngagementOpposition.wing_lacks_mapped_opposition(wide, p_left):
+		CombatRegressionHarness._fail(
+			failures, "opposition_nearest_wing: outer wing should not lack mapped opposition"
+		)
+	var m_wing: float = _TargetScoring.file_opposed_mult(wide, p_left, e_left)
+	if not is_equal_approx(m_wing, CombatConstants.DOCTRINE_FILE_OPPOSED_WEIGHT_MULT):
+		CombatRegressionHarness._fail(
+			failures,
+			"opposition_nearest_wing: outer wing want file_opposed_mult %.4f got %.4f"
+			% [CombatConstants.DOCTRINE_FILE_OPPOSED_WEIGHT_MULT, m_wing]
+		)
+	for c in wide.combatants:
+		c["gauge"] = 100.0
+	wide._recompute_zoc_and_distance()
+	var ordered: Array = _TargetScoring.ordered_melee_opponents(
+		wide, p_left, wide.combatants, 0
+	)
+	if ordered.is_empty():
+		CombatRegressionHarness._fail(
+			failures, "opposition_nearest_wing: expected melee opponents for outer wing"
+		)
+	elif _EntityAccess.file_int(ordered[0]) != _EntityAccess.file_int(e_left):
+		CombatRegressionHarness._fail(
+			failures,
+			"opposition_nearest_wing: ordered_melee should prefer enemy file 0 got file %d"
+			% _EntityAccess.file_int(ordered[0])
+		)
+	CombatRegressionHarness._free_manager(wide)
+	_run_border_skirmish_encounter_enemy_pinch(failures)
+	_run_opposition_equal_width_same_index(failures)
+
+
+static func _run_border_skirmish_encounter_enemy_pinch(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.encounter = {
+		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY: CombatConstants.DOCTRINE_PINCH_CENTER,
+		CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT: 7,
+	}
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	if mgr.get_formation_doctrine("enemy") != CombatConstants.DOCTRINE_PINCH_CENTER:
+		CombatRegressionHarness._fail(
+			failures,
+			"border_skirmish_pinch: enemy doctrine want pinch_center got %s"
+			% mgr.get_formation_doctrine("enemy")
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+static func _run_opposition_equal_width_same_index(failures: PackedStringArray) -> void:
+	var eq: Node = _MgrScript.new()
+	for _i in 3:
+		eq.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		eq.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	eq.start({"files": 3, "ranks": 1}, {"files": 3, "ranks": 1})
+	if _EngagementOpposition.opposition_file_offset(eq, "player") != 0:
+		CombatRegressionHarness._fail(failures, "opposition_offset: equal width expected offset 0")
+	for fi in 3:
+		var pp: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(eq, "player", 0, fi)
+		var ee: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(eq, "enemy", 0, fi)
+		if pp.is_empty() or ee.is_empty():
+			CombatRegressionHarness._fail(failures, "opposition_offset: 3v3 missing file %d fixtures" % fi)
+		elif not _EngagementOpposition.is_mapped_file_opposed(eq, pp, ee):
+			CombatRegressionHarness._fail(
+				failures, "opposition_offset: 3v3 file %d should oppose same-index enemy only" % fi
+			)
+		for fj in 3:
+			if fi == fj:
+				continue
+			var ee_off: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+				eq, "enemy", 0, fj
+			)
+			if _EngagementOpposition.is_mapped_file_opposed(eq, pp, ee_off):
+				CombatRegressionHarness._fail(
+					failures,
+					"opposition_offset: 3v3 file %d should not map to enemy file %d" % [fi, fj]
+				)
+	eq.start({"files": 2, "ranks": 2}, {"files": 4, "ranks": 1})
+	if _EngagementOpposition.opposition_file_offset(eq, "player") != -1:
+		CombatRegressionHarness._fail(
+			failures,
+			"opposition_offset: second start 2 vs 4 expected player offset -1 got %d"
+			% _EngagementOpposition.opposition_file_offset(eq, "player")
+		)
+	eq.stop()
+	if eq.has_meta(_EngagementOpposition.META_OPPOSITION_FILE_OFFSET_BY_SIDE):
+		CombatRegressionHarness._fail(failures, "opposition_offset: stop() should clear opposition meta")
+	CombatRegressionHarness._free_manager(eq)
+
+
+## III-4 Track A PR3 (**2b**): Skirmish wide side skips native line compaction when outnumbering on files.
+static func _run_geometry_skirmish_wide_line_no_compact(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1}, {"files": 3, "ranks": 1})
+	if str(_EngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+		CombatRegressionHarness._fail(failures, "geometry_skirmish_wide: expected skirmish mode")
+	var players_r0: Array = []
+	for c in mgr.combatants:
+		if not _EntityAccess.is_alive_on_side(c, "player"):
+			continue
+		if _EntityAccess.rank_int(c) != 0:
+			continue
+		players_r0.append(c)
+	if players_r0.size() != 3:
+		CombatRegressionHarness._fail(failures, "geometry_skirmish_wide: expected 3 player rank-0")
+	players_r0.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return _EntityAccess.id_int(a) < _EntityAccess.id_int(b)
+	)
+	var want_files: Array[int] = [2, 3, 4]
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	for i in range(3):
+		var c: Dictionary = players_r0[i]
+		var nid: int = _EntityAccess.id_int(c)
+		_FormationSlots.remove_combatant_from_slots(slots, nid)
+		var wf: int = want_files[i]
+		c["file"] = wf
+		_FormationSlots.slot_set_single(slots, Vector2i(0, wf), nid)
+	if _FormationVacancyPlugs.compact_native_line_files_if_thinned(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "geometry_skirmish_wide: wide player should skip skirmish compaction")
+	for i in range(3):
+		if _EntityAccess.file_int(players_r0[i]) != want_files[i]:
+			CombatRegressionHarness._fail(
+				failures,
+				"geometry_skirmish_wide: player rank-0 file shifted want %s got %d"
+				% [str(want_files), _EntityAccess.file_int(players_r0[i])]
+			)
+	# Narrower enemy side may still compact when rank-0 has gaps.
+	var enemies_r0: Array = []
+	for c in mgr.combatants:
+		if not _EntityAccess.is_alive_on_side(c, "enemy"):
+			continue
+		if _EntityAccess.rank_int(c) != 0:
+			continue
+		enemies_r0.append(c)
+	enemies_r0.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return _EntityAccess.id_int(a) < _EntityAccess.id_int(b)
+	)
+	var form_enemy: Dictionary = mgr.formations["enemy"]
+	var eslots: Dictionary = _FormationSlots.formation_slots_dict(form_enemy)
+	for c in enemies_r0:
+		_FormationSlots.remove_combatant_from_slots(eslots, _EntityAccess.id_int(c))
+	for i in range(enemies_r0.size()):
+		var ec: Dictionary = enemies_r0[i]
+		var eid: int = _EntityAccess.id_int(ec)
+		var ef: int = i + 1
+		ec["file"] = ef
+		_FormationSlots.slot_set_single(eslots, Vector2i(0, ef), eid)
+	if not _FormationVacancyPlugs.compact_native_line_files_if_thinned(mgr, "enemy"):
+		CombatRegressionHarness._fail(failures, "geometry_skirmish_wide: narrow enemy with gaps should compact")
+	for i in range(enemies_r0.size()):
+		if _EntityAccess.file_int(enemies_r0[i]) != i:
+			CombatRegressionHarness._fail(
+				failures,
+				"geometry_skirmish_wide: enemy compact want file %d got %d" % [i, _EntityAccess.file_int(enemies_r0[i])]
+			)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-4 Track A PR5 (**3b**): Skirmish outnumber allows **`rotate_file`** on wider side only.
+static func _run_skirmish_outnumber_allows_rotate_file(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	if str(_EngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+		CombatRegressionHarness._fail(failures, "skirmish_rotate: expected skirmish mode")
+	if not _EngagementMode.allow_rotate_file_for_formation(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "skirmish_rotate: wide player should allow rotate_file")
+	if _EngagementMode.allow_rotate_file_for_formation(mgr, "enemy"):
+		CombatRegressionHarness._fail(failures, "skirmish_rotate: narrow enemy should not allow rotate_file")
+	var p0: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var p1: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 1)
+	if p0.is_empty() or p1.is_empty():
+		CombatRegressionHarness._fail(failures, "skirmish_rotate: need adjacent player rank-0 allies")
+	else:
+		p0["gauge"] = 100.0
+		p1["gauge"] = 100.0
+		var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(p0))
+		var saw_rotate: bool = not _ListedActions.first_action_move_vs_target(
+			acts, CombatConstants.MOVE_ID_ROTATE_FILE, _EntityAccess.id_int(p1)
+		).is_empty()
+		if not saw_rotate:
+			CombatRegressionHarness._fail(
+				failures, "skirmish_rotate: player file-0 should list rotate_file vs file-1 in skirmish outnumber"
+			)
+	var e0: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 0)
+	var e1: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 1)
+	if e0.is_empty() or e1.is_empty():
+		CombatRegressionHarness._fail(failures, "skirmish_rotate: need adjacent enemy rank-0 allies")
+	else:
+		e0["gauge"] = 100.0
+		e1["gauge"] = 100.0
+		var e_acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(e0))
+		if _ListedActions.first_action_move_vs_target(
+			e_acts, CombatConstants.MOVE_ID_ROTATE_FILE, _EntityAccess.id_int(e1)
+		).is_empty() == false:
+			CombatRegressionHarness._fail(failures, "skirmish_rotate: narrow enemy should not list rotate_file")
+	CombatRegressionHarness._free_manager(mgr)
 
 
 ## Tier 1.4: mirrored line → same cohesion → same `engagement_posture` (two-pass recompute + coupling neutral when equal).
@@ -1707,14 +2083,18 @@ static func _run_targeting_hold_lane_off_file_mult(failures: PackedStringArray) 
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 2, "ranks": 1, "density": "normal"}, {"files": 2, "ranks": 1, "density": "normal"})
 	for c in mgr.combatants:
 		c["gauge"] = 100.0
 	var p: Dictionary = mgr.combatants[0]
-	var e: Dictionary = mgr.combatants[1]
+	var e_anchor: Dictionary = mgr.combatants[1]
+	var e: Dictionary = mgr.combatants[2]
 	p["file"] = 0
+	e_anchor["file"] = 0
 	e["file"] = 1
 	p["rank"] = 0
+	e_anchor["rank"] = 0
 	e["rank"] = 0
 	mgr._recompute_zoc_and_distance()
 	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_HOLD_LANE)
@@ -1744,14 +2124,18 @@ static func _run_targeting_file_opposed_mult(failures: PackedStringArray) -> voi
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 2, "ranks": 1, "density": "normal"}, {"files": 2, "ranks": 1, "density": "normal"})
 	for c in mgr.combatants:
 		c["gauge"] = 100.0
 	var p: Dictionary = mgr.combatants[0]
-	var e: Dictionary = mgr.combatants[1]
+	var e_anchor: Dictionary = mgr.combatants[1]
+	var e: Dictionary = mgr.combatants[2]
 	p["file"] = 0
+	e_anchor["file"] = 0
 	e["file"] = 1
 	p["rank"] = 0
+	e_anchor["rank"] = 0
 	e["rank"] = 0
 	mgr._recompute_zoc_and_distance()
 	var m_off: float = _TargetScoring.file_opposed_mult(mgr, p, e)
@@ -1820,24 +2204,37 @@ static func _run_targeting_pinch_center_inward_bonus(failures: PackedStringArray
 	p["file"] = 0
 	e["file"] = 1
 	p["rank"] = 0
-	e["rank"] = 0
+	e["rank"] = 1
 	mgr._recompute_zoc_and_distance()
 	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
 	if not _TargetScoring.wing_lacks_file_opposed(mgr, p):
-		CombatRegressionHarness._fail(failures, "pinch_bonus: expected wing_lacks_file_opposed for off-file rank-0 pair")
+		CombatRegressionHarness._fail(
+			failures,
+			"pinch_bonus: expected wing_lacks (no rank-0 mapped opposition; depth-only hostile)"
+		)
 		CombatRegressionHarness._free_manager(mgr)
 		return
-	var inward: float = absf(float(_EntityAccess.file_int(e)) - 1.0)
+	var ec: float = 0.0
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "enemy"):
+			continue
+		if _EntityAccess.rank_int(c) != 0:
+			continue
+		ec = float(_EntityAccess.file_int(c))
+		break
+	var inward: float = absf(float(_EntityAccess.file_int(e)) - ec)
 	var want: float = 1.0 + CombatConstants.DOCTRINE_PINCH_INWARD_BIAS_PER_FILE * maxf(0.0, 2.5 - inward)
 	var m_pinch: float = _TargetScoring.pinch_score_mult(mgr, p, e)
 	if not is_equal_approx(m_pinch, want):
 		CombatRegressionHarness._fail(failures, "pinch_bonus: expected %.6f got %.6f (inward=%.4f)" % [want, m_pinch, inward])
+	e["rank"] = 0
 	e["file"] = 0
 	mgr._recompute_zoc_and_distance()
 	var m_opposed: float = _TargetScoring.pinch_score_mult(mgr, p, e)
 	if not is_equal_approx(m_opposed, 1.0):
 		CombatRegressionHarness._fail(failures, "pinch_bonus: file-opposed front should suppress pinch got %.4f" % m_opposed)
 	e["file"] = 1
+	e["rank"] = 1
 	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_HOLD_LANE)
 	var m_hold_doc: float = _TargetScoring.pinch_score_mult(mgr, p, e)
 	if not is_equal_approx(m_hold_doc, 1.0):
@@ -2172,18 +2569,25 @@ static func _run_ai_targeting_stance_mult_ordering(failures: PackedStringArray) 
 
 
 ## Tier 1.6: `hostile_pair_targeting_weight_mult` × **`AI_TARGETING_INCAP_HOSTILE_MULT`** vs incapacitated opponent (`CoreEntity` consciousness below threshold; dirty flag off so value sticks).
-## Rank-0 pair must **not** be file-opposed: incap clears `is_file_opposed_rank0_pair`, which would otherwise drop the file-opposed mult and invalidate “only × incap”.
+## Rank-0 pair must **not** be file-opposed (equal-width off-file slots; mapped offset 0) — incap mult is isolated from file-opposed hedge.
 static func _run_ai_targeting_incap_hostile_mult(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	var ent_enemy = CombatRegressionHarness._new_entity("SWORD")
 	mgr.register(ent_enemy, "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 2, "ranks": 1})
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 2, "ranks": 1})
 	var p: Dictionary = mgr.combatants[0]
+	var e_anchor: Dictionary = mgr.combatants[2]
 	var opp: Dictionary = mgr.combatants[1]
 	p["file"] = 0
+	e_anchor["file"] = 0
+	e_anchor["rank"] = 0
 	opp["file"] = 1
+	opp["rank"] = 0
 	mgr._recompute_zoc_and_distance()
+	if _TargetScoring.is_file_opposed_rank0_pair(mgr, p, opp):
+		CombatRegressionHarness._fail(failures, "ai_incap: setup want off-file pair (not mapped-opposed)")
 	var w_up: float = _TargetScoring.hostile_pair_targeting_weight_mult(mgr, p, opp)
 	if w_up <= 0.0:
 		CombatRegressionHarness._fail(failures, "ai_incap: baseline hostile weight should be > 0")
@@ -3378,12 +3782,16 @@ static func _run_wing_lacks_depth_polearm(failures: PackedStringArray) -> void:
 	if depth_spear.is_empty() or front_f1.is_empty() or front_f0.is_empty():
 		CombatRegressionHarness._fail(failures, "wing_depth: expected 2×2 player grid with spear at rank1 file1")
 		return
-	if not _TargetScoring.wing_lacks_file_opposed(mgr, front_f1):
-		CombatRegressionHarness._fail(failures, "wing_depth: rank0 file1 should lack file-opposed enemy (single enemy file0)")
+	if _TargetScoring.wing_lacks_file_opposed(mgr, front_f1):
+		CombatRegressionHarness._fail(
+			failures, "wing_depth: rank0 file1 should map to sole enemy file0 (nearest wing)"
+		)
 	if _TargetScoring.wing_lacks_file_opposed(mgr, front_f0):
 		CombatRegressionHarness._fail(failures, "wing_depth: rank0 file0 should have file-opposed enemy")
-	if not _TargetScoring.wing_lacks_file_opposed(mgr, depth_spear):
-		CombatRegressionHarness._fail(failures, "wing_depth: depth spear file1 should match front wing (lack opposed)")
+	if _TargetScoring.wing_lacks_file_opposed(mgr, depth_spear):
+		CombatRegressionHarness._fail(
+			failures, "wing_depth: depth spear should inherit front file1 mapped opposition"
+		)
 	CombatRegressionHarness._free_manager(mgr)
 
 
@@ -3868,6 +4276,9 @@ static func run_early(failures: PackedStringArray) -> void:
 	_run_depth_polearm_layout_fuzz(failures)
 	_run_front_rank_pair_melee_listed(failures)
 	_run_engagement_scenarios(failures)
+	_run_opposition_offset_seeded_at_start(failures)
+	_run_geometry_skirmish_wide_line_no_compact(failures)
+	_run_skirmish_outnumber_allows_rotate_file(failures)
 	_run_posture_mirror_symmetric(failures)
 	_run_morale_cohesion_affects_line_cohesion(failures)
 	_run_engagement_classifier_multi_seed(failures)

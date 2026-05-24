@@ -7,6 +7,7 @@ extends RefCounted
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
@@ -57,6 +58,8 @@ static func combat_resolution_blocked(manager: Node) -> bool:
 ## Post-victory medical phase: bleed-out / standing-count cannot reverse `medical_phase_winner`.
 static func should_apply_phase_end(manager: Node, victor: String) -> bool:
 	if manager == null or victor.is_empty():
+		return false
+	if bool(manager.get("combat_resolution_closed")) and not bool(manager.medical_phase):
 		return false
 	if not bool(manager.medical_phase):
 		return true
@@ -461,6 +464,14 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
 			manager, performer, ally, part, has_pressure, actively_bleeding, out
 		)
 	var dressings_ok: bool = dressings_allowed_for_part(manager, ally, part)
+	if (
+		dressings_ok
+		and has_pressure
+		and actively_bleeding
+		and _battle_med_supplies_available(manager)
+		and _EntityAccess.entity_can_apply_stabilize(manager, ally, part)
+	):
+		out.append({ "move_id": "stabilize_wound", "target_part": part })
 	if dressings_ok and _EntityAccess.entity_can_apply_bandage(manager, ally, part):
 		out.append({ "move_id": "bandage_self", "target_part": part })
 	if dressings_ok and _EntityAccess.entity_can_apply_packing(manager, ally, part):
@@ -468,4 +479,9 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
 	if not skip_redress and tq_can and tq_indicated:
 		out.append({ "move_id": "apply_tourniquet", "target_part": part })
 	return _MedicalCoord.filter_ally_medical_actions(manager, performer, ally, out)
+
+
+static func _battle_med_supplies_available(manager: Node) -> bool:
+	var world: Node2D = _CompanyState.resolve_world_from_battle(manager)
+	return world != null and _CompanyState.get_medical_supplies(world) >= 1
 

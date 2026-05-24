@@ -5,10 +5,17 @@ const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _CombatSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
+const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 ## Updates a single combatant's UI row: gauge, state label, blood, consciousness, body bars.
 ## ctrl = id_to_controls[id], c = combatant dict from manager.get_combatants().
-## Pass **`manager`** for live counter-tempo, attention salience, and cooldown **`status_override`** text.
+## Pass **`manager`** for live counter-tempo, attention salience, cooldown **`status_override`**, and
+## Camp-3.3 medical-phase gauge tooltips (**`CombatUiHints.medical_phase_context_tooltip_lines`**).
+
+static func _last_pick_suffix(c: Dictionary) -> String:
+	return _CombatDebug.turn_pick_kind_suffix(str(c.get("last_committed_move_id", "")))
+
 
 static func _compose_waiting_gauge_label(c: Dictionary, primary: String, manager: Node = null) -> String:
 	var attn_hint: String = _UiHints.attention_hint_text(c, manager)
@@ -17,21 +24,33 @@ static func _compose_waiting_gauge_label(c: Dictionary, primary: String, manager
 	var flurry_suffix: String = _UiHints.flurry_bind_hint_suffix(c, manager)
 	var exh_suffix: String = _UiHints.exhaustion_hint_suffix(c)
 	var grd_suffix: String = _UiHints.guard_line_gauge_suffix(c)
-	return primary + attn_suffix + foot_suffix + flurry_suffix + exh_suffix + grd_suffix
+	var pick_suffix: String = _last_pick_suffix(c)
+	return primary + pick_suffix + attn_suffix + foot_suffix + flurry_suffix + exh_suffix + grd_suffix
 
 
-## Waiting row primary: stamina on the label (bar also uses stamina); append Ready when turn gauge is full.
+static func _readiness_hint_suffix(c: Dictionary) -> String:
+	var gauge_pct: int = int(roundf(_EntityAccess.gauge_float(c)))
+	if gauge_pct >= 100:
+		return " · Ready"
+	if gauge_pct > 0:
+		return " · Rdy %d%%" % gauge_pct
+	return ""
+
+
+## Waiting row primary: stamina % of effective max; append turn-readiness when gauge is full.
 static func _waiting_stamina_primary_label(c: Dictionary) -> String:
-	var label: String = "Stm %d%%" % int(_EntityAccess.stamina_float(c))
-	if _EntityAccess.gauge_float(c) >= 100.0:
-		label += " · Ready"
+	var ratio_pct: int = int(roundf(_EntityAccess.stamina_ratio(c) * 100.0))
+	var label: String = "Stm %d%%" % ratio_pct
+	label += _readiness_hint_suffix(c)
 	return label
 
 
-## Progress bar fill: readiness **`gauge`** during counter-tempo window, else stamina (Phase 1).
-static func gauge_bar_value_for_combatant(c: Dictionary, manager: Node = null) -> float:
-	if not _UiHints.counter_tempo_gauge_label(_UiHints.counter_tempo_hint_key(c, manager)).is_empty():
-		return _EntityAccess.gauge_float(c)
+## Progress bar always shows absolute stamina; max scales with **`effective_stamina_max`**.
+static func gauge_bar_max_for_combatant(c: Dictionary) -> float:
+	return maxf(1.0, _Exhaustion.effective_stamina_max(c))
+
+
+static func gauge_bar_value_for_combatant(c: Dictionary, _manager: Node = null) -> float:
 	return _EntityAccess.stamina_float(c)
 
 
@@ -50,16 +69,9 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
 		var wu_prefix: String = "Counter" if bool(c.get("is_counter_tempo_wind_up", false)) else "Wind-up"
 		return _compose_waiting_gauge_label(c, "%s %.1fs" % [wu_prefix, remain], manager)
 	if state == "medical_wind_up":
-		var pm: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_medical")
-		var mid: String = pm.get("medical_id", "")
-		var self_id: int = _EntityAccess.id_int(c)
-		var tgt_cid: int = int(pm.get("target_combatant_id", self_id))
-		var med_label: String = (
-			BattleUIConstants.MEDICAL_ACTION_LABELS_ALLY.get(mid, BattleUIConstants.MEDICAL_ACTION_LABELS.get(mid, "Medical"))
-			if tgt_cid != self_id
-			else BattleUIConstants.MEDICAL_ACTION_LABELS.get(mid, "Medical")
+		return _compose_waiting_gauge_label(
+			c, _UiHints.medical_wind_up_gauge_primary_label(c, remain), manager
 		)
-		return _compose_waiting_gauge_label(c, "%s %.1fs" % [med_label, remain], manager)
 	if state == "recovering":
 		return _compose_waiting_gauge_label(c, "Recov. %.1fs" % remain, manager)
 	if state == CombatConstants.STATE_SWAP_RANK:
@@ -81,7 +93,9 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
 	if status_override.is_empty() and manager != null:
 		status_override = _CombatSnapshot.live_status_override_text(manager, c)
 	if not counter_primary.is_empty():
-		return _compose_waiting_gauge_label(c, counter_primary, manager)
+		return _compose_waiting_gauge_label(
+			c, counter_primary + _readiness_hint_suffix(c), manager
+		)
 	if not status_override.is_empty():
 		return _compose_waiting_gauge_label(c, status_override, manager)
 	var primary: String = _waiting_stamina_primary_label(c)
@@ -106,6 +120,7 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary, manager: Node 
 		var base_name: String = str(row_node.name) if row_node != null else ctrl.name.text
 		ctrl.name.text = base_name
 	if ctrl.gauge:
+		ctrl.gauge.max_value = gauge_bar_max_for_combatant(c)
 		ctrl.gauge.value = gauge_bar_value_for_combatant(c, manager)
 	if ctrl.get("gauge_label"):
 		_sync_gauge_label(ctrl, c, gauge_label_text_for_combatant(c, manager), manager)

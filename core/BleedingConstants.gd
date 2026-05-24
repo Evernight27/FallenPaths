@@ -253,6 +253,14 @@ const BANDAGE_APPLICATION_TIME_SECONDS: float = 4.0
 # Extra seconds per additional wound on the same body part (bandaging multiple wounds takes longer).
 const BANDAGE_PER_WOUND_EXTRA_SECONDS: float = 2.0
 
+# --- Combat stabilize (Camp-2.5): fast hemostatic hold; does not replace bandage/pack for map travel ---
+const STABILIZE_APPLICATION_TIME_SECONDS: float = 2.0
+const STABILIZE_PER_WOUND_EXTRA_SECONDS: float = 1.0
+const STABILIZE_SUCCESS_BASE_CHANCE: float = 0.82
+const STABILIZE_SUCCESS_ARTERIAL_MULT: float = 0.72
+const STABILIZE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.55
+const STABILIZE_IMMEDIATE_REDUCTION: float = 0.45
+
 # --- Wound packing (head/chest; deep cavity; linen/cloth stuffed into wound) ---
 # Medieval: Celsus, Albucasis, Crusades—packing wounds with lint, linen, cloth to control hemorrhage. For junctional/deep wounds where tourniquet cannot be used.
 const PACKING_PARTS: Array = ["head", "chest"]

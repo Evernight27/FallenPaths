@@ -4,6 +4,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 ## Starts a medical action: direct pressure (instant or during wind-up), bandage/tourniquet/pack wind-up.
 ## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), emit_signal.
@@ -80,7 +81,12 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 			c["pending_retry"] = {}
 	var who_name: String = _EntityAccess.get_display_name(c, combatant_id)
 	# Bandage/pack/tourniquet: free treater's other holds; keep compression on the wound being dressed.
-	if medical_id == "bandage_self" or medical_id == "pack_wound" or medical_id == "apply_tourniquet":
+	if (
+		medical_id == "bandage_self"
+		or medical_id == "pack_wound"
+		or medical_id == "stabilize_wound"
+		or medical_id == "apply_tourniquet"
+	):
 		_EntityAccess.prepare_for_medical_windup_scene(manager, c, target_node, target_part)
 		_try_windup_pressure_while_preparing(
 			manager, c, target_node, target_part, medical_id, target_combatant_id == combatant_id
@@ -115,10 +121,11 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 				target_part
 			)
 		if applied:
-			CombatDebug.combat_session(
-				"medical %s applied direct_pressure on %s (instant) => recovery %.1fs"
-				% [who_name, target_part, med_rec_dur]
-			)
+			if not _OperationalLog.is_play_session_active():
+				CombatDebug.combat_session(
+					"medical %s applied direct_pressure on %s (instant) => recovery %.1fs"
+					% [who_name, target_part, med_rec_dur]
+				)
 			manager.emit_signal("action_resolved", combatant_id, target_combatant_id, {"outcome": "direct_pressure", "part": target_part, "dmg": 0, "died": false})
 		c.gauge = 0.0
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
@@ -146,9 +153,10 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 	)
 	if assist_div > 1.0:
 		duration /= assist_div
-	CombatDebug.combat_session(
-		"medical %s starting %s on part=%s => wind_up=%.1fs" % [who_name, medical_id, target_part, duration]
-	)
+	if not _OperationalLog.is_play_session_active():
+		CombatDebug.combat_session(
+			"medical %s starting %s on part=%s => wind_up=%.1fs" % [who_name, medical_id, target_part, duration]
+		)
 	c.gauge = 0.0
 	c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	c.state = CombatConstants.STATE_MEDICAL_WIND_UP

@@ -46,13 +46,13 @@ static func flow_log_event(msg: String, dedupe_key: String = "") -> void:
 	print("[Combat.Flow] ", msg)
 
 
-## Picked action could not commit (stale listing, dead target, policy block). **`skip_turn`** recovers gauge / queue.
+## Stale/blocked picks: flow log + **`skip_turn`**. Pass **`operational=true`** for invariant faults (grep **`FP_WARN`**).
 static func resolve_action_rejected(
 	manager: Node,
 	attacker_id: int,
 	move_id: String,
 	reason: String,
-	operational: bool = true
+	operational: bool = false
 ) -> void:
 	var mid: String = move_id if not move_id.is_empty() else "?"
 	flow_log_event(
@@ -76,6 +76,9 @@ static func finish_instant_turn_and_schedule_ready(manager: Node, combatant: Dic
 ## Milestone combat lines during editor play (`FP_COMBAT`); falls back to `[Combat]` elsewhere.
 static func combat_session(msg: String) -> void:
 	if _OperationalLog.is_play_session_active():
+		if msg == _last_combat_session_line:
+			return
+		_last_combat_session_line = msg
 		_OperationalLog.play_combat(msg)
 	else:
 		print("[Combat] ", msg)
@@ -83,7 +86,11 @@ static func combat_session(msg: String) -> void:
 
 ## Hemostasis / pressure / dressings — always `FP_COMBAT` in play session (grep `medical` or `FP_COMBAT`).
 static func medical_session(msg: String) -> void:
-	combat_session("medical %s" % msg.strip_edges())
+	var line: String = "medical %s" % msg.strip_edges()
+	if _OperationalLog.is_play_session_active() and line == _last_medical_session_line:
+		return
+	_last_medical_session_line = line
+	combat_session(line)
 
 
 ## Overworld / encounter lines during editor play (`FP_WORLD`).
@@ -110,10 +117,14 @@ static func flow_verbose_enabled() -> bool:
 
 ## Last message per dedupe key for `COMBAT_FLOW_LOG_SUPPRESS_REPEATED` (cleared on combat start/stop).
 static var _flow_log_last_by_key: Dictionary = {}
+static var _last_medical_session_line: String = ""
+static var _last_combat_session_line: String = ""
 
 
 static func clear_flow_log_dedup() -> void:
 	_flow_log_last_by_key.clear()
+	_last_medical_session_line = ""
+	_last_combat_session_line = ""
 
 
 ## Verbose flow. Pass `dedupe_key` for lines that may repeat unchanged every frame (e.g. `get_available_actions`, incursion snapshot); identical consecutive lines for that key are dropped when `COMBAT_FLOW_LOG_SUPPRESS_REPEATED` is on.
@@ -178,6 +189,29 @@ static func _medical_turn_vitals_suffix(manager: Node, choice: Dictionary) -> St
 	return " tgt_bv=%.1f tgt_bleed=%.3f%s" % [bv, bleed, pressure]
 
 
+static func _is_non_damage_turn_pick(move_id: String) -> bool:
+	if move_id.is_empty():
+		return false
+	if move_id == CombatConstants.MOVE_ID_WAIT or move_id == "pass":
+		return true
+	if move_id.begins_with("focus_"):
+		return true
+	if move_id == "attempt_close" or move_id.begins_with("attempt_close"):
+		return true
+	return false
+
+
+## Short suffix for battle row gauge (non-damaging picks).
+static func turn_pick_kind_suffix(move_id: String) -> String:
+	if move_id.begins_with("focus_"):
+		return " · Focus"
+	if move_id == CombatConstants.MOVE_ID_WAIT or move_id == "pass":
+		return " · Hold"
+	if move_id == "attempt_close" or move_id.begins_with("attempt_close"):
+		return " · Close"
+	return ""
+
+
 static func flow_log_turn(
 	side: String,
 	combatant_id: int,
@@ -194,6 +228,12 @@ static func flow_log_turn(
 	var part_s: String = (" part=%s" % part) if not part.is_empty() else ""
 	var feint_s: String = (" feint=%s" % feint) if not feint.is_empty() else ""
 	var med_s: String = _medical_turn_vitals_suffix(manager, choice)
+	if _is_non_damage_turn_pick(mid):
+		print(
+			"[Combat.Flow] turn side=%s id=%d pick move_id=%s target_id=%d%s (non-damage)"
+			% [side, combatant_id, mid, tid, med_s]
+		)
+		return
 	if flow_verbose_enabled():
 		# Full action list is logged once in `get_available_actions`; avoid repeating it here.
 		print(

@@ -4,6 +4,7 @@ extends RefCounted
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityMedical := preload("res://core/EntityMedical.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 
 ## Centralized access to combatant node/entity for weapon, armor, performance, etc.
 ## Reduces repeated node.has_method("get_weapon") patterns across AttackResolver, DefenseChoiceResolver, etc.
@@ -264,6 +265,13 @@ static func entity_can_apply_bandage(manager: Node, combatant: Dictionary, part:
 	return entity.can_apply_bandage(part)
 
 
+static func entity_can_apply_stabilize(manager: Node, combatant: Dictionary, part: String) -> bool:
+	var entity: Node = get_entity_from_manager(manager, combatant)
+	if entity == null or not entity.has_method("can_apply_stabilize"):
+		return false
+	return entity.can_apply_stabilize(part)
+
+
 static func entity_can_apply_packing(manager: Node, combatant: Dictionary, part: String) -> bool:
 	var entity: Node = get_entity_from_manager(manager, combatant)
 	if entity == null or not entity.has_method("can_apply_packing"):
@@ -307,7 +315,7 @@ static func entity_invoke_medical_method(
 	if entity == null or method.is_empty() or not entity.has_method(method):
 		return null
 	match method:
-		"apply_bandage", "apply_packing", "apply_tourniquet":
+		"apply_bandage", "apply_packing", "apply_stabilize", "apply_tourniquet":
 			return entity.call(method, part, effectiveness)
 		_:
 			return entity.call(method, part)
@@ -642,6 +650,16 @@ static func gauge_float(combatant: Dictionary, default_gauge: float = 0.0) -> fl
 ## Stamina (0–`STAMINA_MAX` when key missing uses `default_if_missing`; use `0.0` when “missing = zero” for cost checks).
 static func stamina_float(combatant: Dictionary, default_if_missing: float = CombatConstants.STAMINA_MAX) -> float:
 	return float(combatant.get("stamina", default_if_missing))
+
+
+## Burst pool ratio vs **`CombatExhaustion.effective_stamina_max`** (exhaustion + blood).
+static func stamina_ratio(combatant: Dictionary) -> float:
+	return _Exhaustion.stamina_ratio(combatant)
+
+
+## Current burst ceiling (see **`CombatExhaustion.effective_stamina_max`**).
+static func stamina_effective_max(combatant: Dictionary) -> float:
+	return _Exhaustion.effective_stamina_max(combatant)
 
 
 ## MXm: cumulative fight exhaustion index (0–`EXHAUSTION_MAX`).

@@ -5,33 +5,33 @@ alwaysApply: true
 
 # Project map (Godot 4.x)
 
-**Planning:** [`docs/PLANNING.md`](docs/PLANNING.md) · [`docs/CURSOR.md`](docs/CURSOR.md) · [`docs/SHIP_PLAN.md`](docs/SHIP_PLAN.md) · [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md) · [`scripts/README.md`](scripts/README.md)
+**Planning:** [`docs/PLANNING.md`](docs/PLANNING.md) · [`docs/CURSOR.md`](docs/CURSOR.md) · [`docs/SHIP_PLAN.md`](docs/SHIP_PLAN.md) · [`docs/CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22`](docs/CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22) · [`docs/SHIP_PLAN.md#combat-mental-stack-shipped`](docs/SHIP_PLAN.md#combat-mental-stack-shipped) · [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md) · [`scripts/README.md`](scripts/README.md)
 
 ## Every session
 
-1. **Gate** — `.\scripts\run_all_combat_checks.ps1` → **`PHASE0: PASS`** (do not pipe harness to `grep`)
-2. **Campaign ship** — [`SHIP_PLAN#pre-start-checklist`](docs/SHIP_PLAN.md#pre-start-checklist): Camp-1.1 first; product choices at [`decision-gates`](docs/SHIP_PLAN.md#decision-gates-at-implementation) only (`CompanyState` [§19 stubs](docs/SHIP_PLAN.md#implementation-stubs))
-3. **Parallel OK (default):** Campaign + Combat — [`PLANNING#parallel-agents`](docs/PLANNING.md#parallel-agents); merge when both PASS
-4. **Single agent:** one `Camp-*` **or** one Combat fix
+1. **Gate** — `.\scripts\run_all_combat_checks.ps1` → **`PHASE0: PASS`** + **`CAMPAIGN_SHIP_AUDIT: PASS (headless)`** (company checks + Q/`[ii7]`; do not pipe harness to `grep`)
+2. **Campaign ship** — [`Camp-5` EA checklist](docs/SHIP_PLAN.md#camp-5-ea-checklist) · [`§8` F5 playtest](docs/SHIP_PLAN.md#camp-playtest-acceptance) · [guide user bundle](docs/CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22) · [§20 pitfalls](docs/SHIP_PLAN.md#implementation-pitfalls)
+3. **Parallel OK (default):** Combat maintain + Playtest (F5 §8) — [`PLANNING#parallel-agents`](docs/PLANNING.md#parallel-agents)
+4. **Single agent:** Camp-5 / F5 sign-off **or** one Combat fix
 
 | Stream | Use for | Paths |
 |--------|---------|-------|
-| **Campaign** | `Camp-*` in SHIP_PLAN | `world/*`, `main.gd`, `PartyMenu`, new economy UI |
-| **Combat** | LIVE_PATHS maintain | `combat/*`, harness, `BattleUIUpdater` — not `world/*` |
-| **Playtest** | F5 feel | `run_q_feel.ps1` / `run_q_audit.ps1` |
-| **Expand** | IV-\* | frozen until Camp-5; not parallel with Campaign+Combat |
+| **Campaign** | EA close-out · [`Camp-5`](docs/SHIP_PLAN.md#camp-5-ea-checklist) · F5 §8 | `world/*`, `main.gd`, `PartyMenu`, economy UI |
+| **Combat** | LIVE_PATHS maintain + [**III-4 Track A**](docs/LIVE_PATHS.md#iii-4--engagement-geometry-audit) (no `FEATURE_*`) · [#combat-cognition-pipeline](docs/LIVE_PATHS.md#combat-cognition-pipeline) | `combat/*`, harness, `BattleUIUpdater` — not `world/*` |
+| **Playtest** | Camp-3.4 / Camp-5 | `run_campaign_ship_audit.ps1` · `run_q_feel.ps1` / `run_q_audit.ps1` · grep [`F5 Output`](docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers) |
+| **Expand** | [`SHIP_PLAN` §9c](docs/SHIP_PLAN.md#combat-expand-registry) · [`LIVE_PATHS` phase 4](docs/LIVE_PATHS.md#phase-4--new-systems-formal-tracks) | frozen until Camp-5; not parallel with Campaign+Combat |
 
 **Shared (one agent at a time):** `CampaignEncounterBridge.gd`, `CombatFlow.gd` → Campaign leads; `CoreEntity` / bleed constants → Combat only.
 
 ## Combat code (Combat stream)
 
 - `combat/CombatManager.gd` — thin orchestrator; `CombatFormationSetup` seeds; `get_health_entity` → `CombatantEntityAccess`; formation → `ZoneOfControl.formation_dict_for_zone_geometry`. **D-008:** no crash/intrusion; **`attempt_close`** live.
-- Extend smallest `combat/*.gd` per LIVE_PATHS. Harness: `CombatRegressionHarness.gd` + tails.
+- Extend smallest `combat/*.gd` per LIVE_PATHS. **III-4 Track A ☑** shipped — maintain `EngagementOpposition` + harness; **3b** = Skirmish **`rotate_file` only**. Pick: list → `MentalStackDecider` → `pick_weighted`; defense is strike-time (`DefenseChoiceResolver`), not turn pick. Harness: `CombatRegressionHarness.gd` + tails.
 
 ## Campaign code (Campaign stream)
 
 - `main.gd` · `world/CampaignEncounterBridge.gd` · `EncounterNode.gd` · `CombatFlow.gd` · `PartyMemberSnapshot.gd` · `ui/PartyMenu.gd`
-- `world/CompanyState.gd` (§19 stubs until gates close) · `SettlementPanel` · Camp rows per SHIP_PLAN — not new combat tiers.
+- `world/CompanyState.gd` (closed gate constants §19) · `ContractSpawner` · `SettlementPanel` · Camp-5 / F5 sign-off per SHIP_PLAN — not new combat tiers.
 
 ## Do not unless asked
 

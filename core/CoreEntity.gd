@@ -75,6 +75,9 @@ var direct_pressure_assist_held_by: Node = null
 # Optional bleed pacing overrides (default full ATLS drain; future explicit fluid resuscitation may raise recovery).
 var _combat_blood_loss_mult: float = 1.0
 var _combat_blood_recovery_per_s: float = 0.0
+## Camp-2.4 permanent injuries; each entry `{ id, label, stamina_mult, pain_mult }`.
+var campaign_afflictions: Array = []
+var _campaign_supply_factor: float = 1.0
 
 
 func get_combat_blood_loss_mult() -> float:
@@ -357,7 +360,53 @@ func get_bandage_application_time_seconds_for_part(part: String) -> float:
 
 """Medical effectiveness from intelligence (100 INT = 1.0; 50 = 0.75, 150 = 1.25). Used for bandage, direct pressure."""
 func get_medical_effectiveness() -> float:
-	return clampf(0.5 + float(intelligence) / 200.0, 0.5, 1.5)
+	var base: float = clampf(0.5 + float(intelligence) / 200.0, 0.5, 1.5)
+	return base * clampf(_campaign_supply_factor, 0.25, 1.5)
+
+
+func set_campaign_supply_factor(factor: float) -> void:
+	_campaign_supply_factor = clampf(factor, 0.25, 1.5)
+
+
+func get_campaign_supply_factor() -> float:
+	return _campaign_supply_factor
+
+
+func get_campaign_stamina_mult() -> float:
+	var m: float = 1.0
+	for raw in campaign_afflictions:
+		if raw is Dictionary:
+			m *= clampf(float(raw.get("stamina_mult", 1.0)), 0.5, 1.0)
+	return m
+
+
+func get_campaign_pain_mult() -> float:
+	var m: float = 1.0
+	for raw in campaign_afflictions:
+		if raw is Dictionary:
+			m *= clampf(float(raw.get("pain_mult", 1.0)), 0.5, 1.5)
+	return m
+
+
+func add_campaign_affliction(def: Dictionary) -> bool:
+	if def.is_empty():
+		return false
+	var id: String = str(def.get("id", ""))
+	if id.is_empty():
+		return false
+	for raw in campaign_afflictions:
+		if raw is Dictionary and str(raw.get("id", "")) == id:
+			return false
+	campaign_afflictions.append(def.duplicate(true))
+	return true
+
+
+func get_campaign_affliction_labels() -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	for raw in campaign_afflictions:
+		if raw is Dictionary:
+			out.append(str(raw.get("label", raw.get("id", ""))))
+	return out
 
 func get_tourniquet_application_time_seconds() -> float:
 	return _EntityMedical.get_tourniquet_application_time_seconds()
@@ -367,6 +416,15 @@ func can_apply_bandage(part: String) -> bool:
 
 func apply_bandage(part: String, effectiveness: float = 1.0) -> bool:
 	return _EntityMedical.apply_bandage(self, part, effectiveness)
+
+func can_apply_stabilize(part: String) -> bool:
+	return _EntityMedical.can_apply_stabilize(self, part)
+
+func apply_stabilize(part: String, effectiveness: float = 1.0) -> bool:
+	return _EntityMedical.apply_stabilize(self, part, effectiveness)
+
+func get_stabilize_application_time_seconds_for_part(part: String) -> float:
+	return _EntityMedical.get_stabilize_application_time_seconds_for_part(self, part)
 
 func can_apply_packing(part: String) -> bool:
 	return _EntityMedical.can_apply_packing(self, part)

@@ -13,6 +13,7 @@ const PROFILE_PRESET_II5 := "preset_ii5"
 const PROFILE_PRESET_II6 := "preset_ii6"
 const PROFILE_PRESET_II8 := "preset_ii8"
 const PROFILE_PRESET_II4D := "preset_ii4d"
+const PROFILE_PRESET_II_ENVELOP := "preset_ii_envelop"
 
 const NEEDLE_SOAK_FIGHT_END := "soak_fight_end winner="
 const NEEDLE_TURN_READY_GAUGE := "turn_ready_gauge"
@@ -45,6 +46,8 @@ static func detect_profiles(normalized: PackedStringArray) -> PackedStringArray:
 		profiles.append(PROFILE_PRESET_II8)
 	if _blob_has(blob, ["soak_fight_enter preset=ii4d", "soak=ii4d", "dev_soak=ii4d"]):
 		profiles.append(PROFILE_PRESET_II4D)
+	if _blob_has(blob, ["soak_fight_enter preset=ii_envelop", "soak=ii_envelop", "dev_soak=ii_envelop"]):
+		profiles.append(PROFILE_PRESET_II_ENVELOP)
 	if _blob_has(blob, ["soak_fight_enter tile=red", "tile=red"]) or (
 		not _blob_has(
 			blob,
@@ -96,6 +99,8 @@ static func validator_tracks(active_profiles: PackedStringArray) -> Array:
 		tracks.append_array(_validator_ii8_tracks())
 	if have.has(PROFILE_PRESET_II4D):
 		tracks.append_array(_validator_ii4d_tracks())
+	if have.has(PROFILE_PRESET_II_ENVELOP):
+		tracks.append_array(_validator_ii_envelop_tracks())
 	return tracks.filter(func(spec: Dictionary) -> bool: return _track_applies(spec, active_profiles))
 
 
@@ -114,6 +119,8 @@ static func preset_id_to_profile(preset_id: String) -> String:
 			return PROFILE_PRESET_II8
 		_SoakPresets.PRESET_II4D_EXHAUSTION:
 			return PROFILE_PRESET_II4D
+		_SoakPresets.PRESET_II_ENVELOP:
+			return PROFILE_PRESET_II_ENVELOP
 		"7v7":
 			return PROFILE_7V7
 	return ""
@@ -134,6 +141,8 @@ static func synthetic_profile_markers(preset_id: String) -> PackedStringArray:
 			return PackedStringArray(["soak_fight_enter preset=ii8"])
 		_SoakPresets.PRESET_II4D_EXHAUSTION:
 			return PackedStringArray(["soak_fight_enter preset=ii4d", "soak=ii4d"])
+		_SoakPresets.PRESET_II_ENVELOP:
+			return PackedStringArray(["soak_fight_enter preset=ii_envelop", "soak=ii_envelop"])
 		"7v7":
 			return PackedStringArray(["soak_fight_enter tile=red 7v7", "soak=7v7"])
 	return PackedStringArray()
@@ -220,14 +229,15 @@ static func grep_stats(normalized: PackedStringArray, count_needle: Callable, _c
 		"tooltip_medical": count_needle.call(normalized, "tooltip_match=medical"),
 		"tooltip_hold_line": count_needle.call(normalized, "tooltip_match=hold_line"),
 		NEEDLE_DIAGRAM_BANNER: count_needle.call(normalized, NEEDLE_DIAGRAM_BANNER),
-		"engagement_transition": count_needle.call(normalized, "engagement_transition")
-		+ count_needle.call(normalized, "engagement transition"),
+		"engagement_transition": count_needle.call(normalized, "engagement_transition"),
 		"medical_action_pick": count_needle.call(normalized, "medical_action pick"),
 		"medical_pack_listed": count_needle.call(normalized, "medical_pack_wound listed"),
 		"medical_pack_pick": count_needle.call(normalized, "medical_pack_wound pick"),
 		"soak_fight_end": count_needle.call(normalized, NEEDLE_SOAK_FIGHT_END),
 		"phase_end_winner": count_needle.call(normalized, "phase_end winner="),
 		"research_feel": count_needle.call(normalized, "research_feel "),
+		"hit_resolve": count_needle.call(normalized, "hit_resolve "),
+		"strike_avoided": count_needle.call(normalized, "strike_avoided "),
 	}
 
 
@@ -308,6 +318,23 @@ static func parry_stats_summary_line(stats: Dictionary) -> String:
 			int(stats.get("counter_tempo", 0)),
 			int(stats.get("flurry_bind_opened", 0)),
 			int(stats.get("flurry_bind", 0)),
+		]
+	)
+
+
+## Rollup from **`CombatF5SoakTrace`** session counters at **`soak_fight_end`** (grep **`hit_outcome_stats`**).
+static func hit_outcome_stats_summary_line(session_counts: Dictionary) -> String:
+	return (
+		"hit_outcome_stats hit=%d glancing=%d negligible=%d deflected=%d other=%d resolve=%d avoided_miss=%d avoided_dodge=%d"
+		% [
+			int(session_counts.get("hit_outcome_hit", 0)),
+			int(session_counts.get("hit_outcome_glancing", 0)),
+			int(session_counts.get("hit_outcome_negligible", 0)),
+			int(session_counts.get("hit_outcome_deflected", 0)),
+			int(session_counts.get("hit_outcome_other", 0)),
+			int(session_counts.get("hit_resolve", 0)),
+			int(session_counts.get("strike_avoided_miss", 0)),
+			int(session_counts.get("strike_avoided_dodge", 0)),
 		]
 	)
 
@@ -507,16 +534,27 @@ static func _headless_preset_checks(preset_id: String) -> Array:
 		_SoakPresets.PRESET_II8_FORMATION:
 			return [
 				{"id": "formation_mode", "needle": NEEDLE_ENGAGEMENT_FORMATION, "min": 1},
-				{"id": "engagement_ui", "needle": "engagement ui player:", "min": 1},
+				{"id": "diagram_banner", "needle": NEEDLE_DIAGRAM_BANNER, "min": 1},
 				{"id": "turn_ready_gauge", "needle": NEEDLE_TURN_READY_GAUGE, "min": 1},
 				{"id": "tooltip_match_ok", "needle": NEEDLE_TOOLTIP_OK, "min": 1},
-				{"id": "diagram_banner", "needle": NEEDLE_DIAGRAM_BANNER, "min": 1, "optional": true},
 			]
 		_SoakPresets.PRESET_II4D_EXHAUSTION:
 			return [
 				{"id": "duel_mode", "needle": NEEDLE_ENGAGEMENT_DUEL, "min": 1},
 				{"id": "exhaustion_25", "needle": "exhaustion", "min": 1},
 				{"id": "exhaustion_band", "needle": "crossed 25", "min": 1},
+			]
+		_SoakPresets.PRESET_II_ENVELOP:
+			return [
+				{"id": "soak_setup", "needle": "soak_setup ii_envelop", "min": 1},
+				{"id": "skirmish_mode", "needle": "engagement mode=Skirmish", "min": 1},
+				{
+					"id": "wing_engagement",
+					"needle": "attempt_close@",
+					"min": 1,
+					"alt_needles": ["Stack hold_line", "rotate_file@", "hit_resolve "],
+				},
+				{"id": "ii_envelop_hit", "needle": "hit_resolve ", "min": 1},
 			]
 		"7v7":
 			return [
@@ -583,7 +621,6 @@ static func _validator_f5_trace_tracks() -> Array:
 			"min": 1,
 			"profiles": [PROFILE_7V7, PROFILE_PRESET_II8],
 			"optional": true,
-			"alt_needles": ["engagement ui player:"],
 		},
 	]
 
@@ -650,7 +687,6 @@ static func _validator_7v7_tracks() -> Array:
 			"min": 1,
 			"profiles": [PROFILE_7V7],
 			"optional": true,
-			"alt_needles": ["engagement transition"],
 		},
 		{
 			"id": "phase_end",
@@ -740,12 +776,11 @@ static func _validator_ii8_tracks() -> Array:
 			"profiles": [PROFILE_PRESET_II8],
 		},
 		{
-			"id": "ii8_engagement_ui",
-			"needle": "engagement ui player:",
+			"id": "ii8_diagram_banner",
+			"needle": NEEDLE_DIAGRAM_BANNER,
 			"min": 1,
 			"profiles": [PROFILE_PRESET_II8],
 			"optional": true,
-			"alt_needles": [NEEDLE_DIAGRAM_BANNER],
 		},
 	]
 
@@ -766,6 +801,31 @@ static func _validator_ii4d_tracks() -> Array:
 			"profiles": [PROFILE_PRESET_II4D],
 			"optional": true,
 			"alt_needles": ["exhaustion"],
+		},
+	]
+
+
+static func _validator_ii_envelop_tracks() -> Array:
+	return [
+		{"id": "ii_envelop_setup", "needle": "soak_setup ii_envelop", "min": 1, "profiles": [PROFILE_PRESET_II_ENVELOP]},
+		{
+			"id": "ii_envelop_skirmish",
+			"needle": "engagement mode=Skirmish",
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+		},
+		{
+			"id": "ii_envelop_wing",
+			"needle": "attempt_close@",
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+			"alt_needles": ["Stack hold_line", "rotate_file@", "hit_resolve "],
+		},
+		{
+			"id": "ii_envelop_hit",
+			"needle": "hit_resolve ",
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
 		},
 	]
 

@@ -211,6 +211,8 @@ static func _run_preset(preset_id: String) -> Dictionary:
 			return _run_ii8_formation(preset_id)
 		_SoakPresets.PRESET_II4D_EXHAUSTION:
 			return _run_ii4d_exhaustion(preset_id)
+		_SoakPresets.PRESET_II_ENVELOP:
+			return _run_ii_envelop(preset_id)
 		_:
 			return {"ok": false, "summary": "unknown preset", "checks": {}}
 
@@ -672,9 +674,6 @@ static func _run_7v7_brawl() -> Dictionary:
 	_OperationalLog.play_combat("party_entering_combat count=7 (headless)")
 	var form: Dictionary = _formation_7v7()
 	var mgr: Node = _start_manager("7v7", 7, 7, form, form)
-	var banner: String = _formation_engagement_banner_line(mgr)
-	if not banner.is_empty():
-		_F5SoakTrace.log_diagram_banner_player(banner)
 	_simulate_fight(mgr, 120.0, "7v7")
 	_free_manager(mgr)
 	return _evaluate("7v7", _OperationalLog.get_captured_lines(), _TrackSpecs.headless_checks_for_preset("7v7"))
@@ -699,7 +698,14 @@ static func _run_ii2b_duel(preset_id: String, max_sec: float = 90.0) -> Dictiona
 		lines.append(raw)
 	_free_manager(smoke_mgr)
 	var parry_stats: Dictionary = _TrackSpecs.parry_outcome_stats(lines)
-	_OperationalLog.play_combat(_TrackSpecs.parry_stats_summary_line(parry_stats))
+	var parry_summary: String = _TrackSpecs.parry_stats_summary_line(parry_stats)
+	var parry_summary_dup: bool = false
+	for i in range(lines.size() - 1, maxi(-1, lines.size() - 24), -1):
+		if str(lines[i]).contains("parry_stats deflect="):
+			parry_summary_dup = true
+			break
+	if not parry_summary_dup:
+		_OperationalLog.play_combat(parry_summary)
 	var pr: Dictionary = _evaluate(
 		preset_id,
 		lines,
@@ -742,17 +748,28 @@ static func _run_generic_fight(
 
 
 static func _run_ii8_formation(preset_id: String) -> Dictionary:
-	var mgr: Node = _start_manager(preset_id, 4, 4, _player_4_wide(), _enemy_4_wide())
+	var mgr: Node = _start_manager(preset_id, 4, 4, _player_4_wide(), _enemy_4_wide(), false)
 	mgr.set_meta("_engagement_mode_cached", CombatConstants.ENGAGEMENT_MODE_FORMATION)
+	var banner: String = _formation_engagement_banner_line(mgr)
+	if not banner.is_empty():
+		_F5SoakTrace.log_diagram_banner_player(banner)
 	var probe: Dictionary = _probe_formation_turn_hints(mgr)
-	probe["diagram_banner"] = _formation_engagement_banner_line(mgr)
-	_F5SoakTrace.log_diagram_banner_player(str(probe.get("diagram_banner", "")))
+	probe["diagram_banner"] = banner
 	_simulate_fight(mgr, 45.0, preset_id)
 	_free_manager(mgr)
 	var pr: Dictionary = _evaluate(
 		preset_id, _OperationalLog.get_captured_lines(), _TrackSpecs.headless_checks_for_preset(preset_id)
 	)
 	return _merge_probe_ii8_checks(pr, probe)
+
+
+static func _run_ii_envelop(preset_id: String) -> Dictionary:
+	_OperationalLog.play_combat(
+		"soak_setup ii_envelop 7v3 outnumber skirmish (III-4 wing traces in Output)"
+	)
+	var player_form: Dictionary = FormationPreset.for_front_count(7, 7, FormationPreset.DENSITY_NORMAL)
+	var enemy_form: Dictionary = {"files": 3, "ranks": 1, "density": FormationPreset.DENSITY_NORMAL}
+	return _run_generic_fight(preset_id, 7, 3, player_form, enemy_form, 55.0)
 
 
 static func _probe_formation_turn_hints(mgr: Node) -> Dictionary:
@@ -770,8 +787,16 @@ static func _probe_formation_turn_hints(mgr: Node) -> Dictionary:
 	var ui_n: int = 0
 	for line in _OperationalLog.get_captured_lines():
 		var s: String = str(line)
-		if "ui_hint" in s and (
+		var is_formation_fp: bool = (
 			"Formation" in s or "Rotate" in s or "Hold line" in s or "Attempt close" in s
+		)
+		if not is_formation_fp:
+			continue
+		# Formation turn copy: combat log via **`ui_hint`** (echo off) or FP via turn-ready lines.
+		if (
+			s.begins_with("FP_COMBAT: ui_hint ")
+			or s.begins_with("FP_COMBAT: turn_ready_formation_line ")
+			or s.begins_with("FP_COMBAT: gauge_tooltip_formation ")
 		):
 			ui_n += 1
 	leader.stamina = maxf(80.0, _EntityAccess.stamina_float(leader))
@@ -833,8 +858,6 @@ static func _merge_probe_ii8_checks(pr: Dictionary, probe: Dictionary) -> Dictio
 	var ok: bool = bool(pr.get("ok", false)) and stamp.is_empty() == false and ui_n >= 1
 	var summary: String = "ok" if ok else ", ".join(required_fail)
 	var banner: String = str(probe.get("diagram_banner", ""))
-	if not banner.is_empty():
-		_OperationalLog.play_combat("soak_setup ii8 diagram_banner=%s" % banner)
 	check_out["diagram_banner"] = {
 		"pass": banner.contains("Formation line"),
 		"count": 1 if banner.contains("Formation line") else 0,
@@ -873,6 +896,7 @@ static func _run_ii5_cowering(preset_id: String) -> Dictionary:
 		_player_1x1()
 	)
 	mgr.set_meta("_engagement_mode_cached", CombatConstants.ENGAGEMENT_MODE_FORMATION)
+	mgr.set_meta("_d001_suppress_winner_check", true)
 	var leader: Dictionary = _player_at_rank_file(mgr, 0, 0)
 	if not leader.is_empty():
 		var ent: CoreEntity = _EntityAccess.scene_node(leader) as CoreEntity
@@ -881,12 +905,14 @@ static func _run_ii5_cowering(preset_id: String) -> Dictionary:
 		leader.state = CombatConstants.STATE_COWERING
 		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(leader)
 		leader.gauge = 100.0
-		var acts: Array = mgr.get_available_actions(_EntityAccess.id_int(leader))
-		_PlayerTurnHints.emit_turn_ready_hints(mgr, leader, acts)
-		_EventDispatch.handle_action_ready(mgr, leader)
 		var lid: int = _EntityAccess.id_int(leader)
-		if _try_force_fall_back(mgr, lid, mgr.get_available_actions(lid)):
+		var acts: Array = mgr.get_available_actions(lid)
+		_PlayerTurnHints.emit_turn_ready_hints(mgr, leader, acts)
+		if _try_force_fall_back(mgr, lid, acts):
 			_drain_until_capture_needle(mgr, "cowering_fall_back executed", 18.0)
+			_ensure_ii5_cowering_fall_back_executed(mgr, lid)
+	if mgr.has_meta("_d001_suppress_winner_check"):
+		mgr.remove_meta("_d001_suppress_winner_check")
 	_simulate_fight(mgr, 25.0, preset_id)
 	_free_manager(mgr)
 	return _evaluate(preset_id, _OperationalLog.get_captured_lines(), _TrackSpecs.headless_checks_for_preset(preset_id))
@@ -914,7 +940,14 @@ static func _run_ii4d_exhaustion(preset_id: String) -> Dictionary:
 	var lines: PackedStringArray = _OperationalLog.get_captured_lines()
 	var gauge_exh_ok: bool = _ii4d_gauge_exh_suffix_ok(mgr)
 	var ex_stats: Dictionary = _TrackSpecs.exhaustion_band_stats(lines)
-	_OperationalLog.play_combat(_TrackSpecs.exhaustion_stats_summary_line(ex_stats))
+	var ex_summary: String = _TrackSpecs.exhaustion_stats_summary_line(ex_stats)
+	var ex_dup: bool = false
+	for i in range(lines.size() - 1, maxi(-1, lines.size() - 24), -1):
+		if "exhaustion_stats " in str(lines[i]):
+			ex_dup = true
+			break
+	if not ex_dup:
+		_OperationalLog.play_combat(ex_summary)
 	var pr: Dictionary = _evaluate(
 		preset_id, lines, _TrackSpecs.headless_checks_for_preset(preset_id)
 	)
@@ -1001,9 +1034,13 @@ static func _evaluate(_preset_id: String, lines: PackedStringArray, checks: Arra
 		var needle: String = str(spec.get("needle", ""))
 		var min_c: int = int(spec.get("min", 1))
 		var max_c: int = int(spec.get("max", -1))
-		var count: int = _count_needle(lines, needle)
-		for alt in spec.get("alt_needles", []) as Array:
-			count = maxi(count, _count_needle(lines, str(alt)))
+		var count: int = 0
+		if spec.has("regex"):
+			count = _count_regex(lines, str(spec.get("regex", "")))
+		else:
+			count = _count_needle(lines, needle)
+			for alt in spec.get("alt_needles", []) as Array:
+				count = maxi(count, _count_needle(lines, str(alt)))
 		var ok_check: bool = true
 		if max_c >= 0:
 			ok_check = count <= max_c
@@ -1044,6 +1081,21 @@ static func _count_needle(lines: PackedStringArray, needle: String) -> int:
 	return n
 
 
+static func _count_regex(lines: PackedStringArray, pattern: String) -> int:
+	if pattern.is_empty():
+		return 0
+	var re := RegEx.new()
+	if re.compile(pattern) != OK:
+		return 0
+	var n: int = 0
+	for line in lines:
+		if _is_soak_grep_hint_line(line):
+			continue
+		if re.search(line) != null:
+			n += 1
+	return n
+
+
 ## Session banners mention **`grep SCRIPT_ERROR`** — not real errors (see **`CombatF5SoakLogValidator`**).
 static func _is_soak_grep_hint_line(line: String) -> bool:
 	var s: String = line.strip_edges()
@@ -1063,9 +1115,10 @@ static func _start_manager(
 	player_n: int,
 	enemy_n: int,
 	player_form: Dictionary,
-	enemy_form: Dictionary
+	enemy_form: Dictionary,
+	log_engagement_banner: bool = true
 ) -> Node:
-	_F5SoakTrace.reset_session()
+	_F5SoakTrace.prepare_fight_end_log()
 	var mgr: Node = _MgrScript.new()
 	mgr.encounter = (
 		{SoakEncounterPresets.ENCOUNTER_KEY_SOAK_PRESET_ID: "7v7"}
@@ -1078,12 +1131,12 @@ static func _start_manager(
 		if preset_id == _SoakPresets.PRESET_II2B_SWORD_DUEL or preset_id == _SoakPresets.PRESET_II4D_EXHAUSTION:
 			w_id = "SWORD"
 		mgr.register(_new_entity(w_id), "enemy")
-	_wire_soak_logging(mgr)
 	var p_count: int = player_n
 	var e_count: int = enemy_n
 	_OperationalLog.play_combat_start(p_count, e_count, player_form, enemy_form, mgr.encounter)
 	mgr.start(player_form, enemy_form)
-	_log_engagement_ui_once(mgr)
+	if log_engagement_banner:
+		_log_diagram_banner_once(mgr)
 	return mgr
 
 
@@ -1112,17 +1165,11 @@ static func _encounter_dict_for_preset(preset_id: String) -> Dictionary:
 	}
 	if preset_id == _SoakPresets.PRESET_II2B_SWORD_DUEL or preset_id == _SoakPresets.PRESET_II4D_EXHAUSTION:
 		enc[SoakEncounterPresets.ENCOUNTER_KEY_FORCE_WEAPON_ID] = "SWORD"
+	if preset_id == _SoakPresets.PRESET_II_ENVELOP:
+		enc[SoakEncounterPresets.ENCOUNTER_KEY_FORCE_WEAPON_ID] = "SWORD"
+		enc[CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT] = 7
+		enc[CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY] = CombatConstants.DOCTRINE_PINCH_CENTER
 	return enc
-
-
-static func _wire_soak_logging(mgr: Node) -> void:
-	if mgr.has_signal("combat_ui_hint"):
-		mgr.combat_ui_hint.connect(
-			func(m: String) -> void:
-				var s: String = str(m).strip_edges()
-				if not s.is_empty():
-					_OperationalLog.play_combat("ui_hint %s" % s)
-		)
 
 
 static func _formation_engagement_banner_line(mgr: Node) -> String:
@@ -1139,7 +1186,7 @@ static func _formation_engagement_banner_line(mgr: Node) -> String:
 	]
 
 
-static func _log_engagement_ui_once(mgr: Node) -> void:
+static func _log_diagram_banner_once(mgr: Node) -> void:
 	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
 	if form.is_empty():
 		return
@@ -1151,7 +1198,7 @@ static func _log_engagement_ui_once(mgr: Node) -> void:
 		posture.capitalize(),
 		int(roundf(coh * 100.0)),
 	]
-	_CombatDebug.combat_session("engagement ui player: %s" % line)
+	_F5SoakTrace.log_diagram_banner_player(line)
 
 
 static func _infer_soak_fight_winner(mgr: Node) -> String:
@@ -1180,7 +1227,11 @@ static func _simulate_fight(mgr: Node, max_sec: float, preset_id: String) -> voi
 		_F5SoakTrace.set_fight_profile(preset_id)
 	else:
 		_F5SoakTrace.set_fight_profile("7v7")
-	_F5SoakTrace.prepare_fight_end_log()
+	_F5SoakTrace.reset_fight_trace_buffer()
+	var restore_hit_summary: bool = false
+	if CombatConstants.is_headless_harness_quiet() and _OperationalLog.is_play_session_active():
+		CombatConstants.set_combat_hit_summary_override(true)
+		restore_hit_summary = true
 	var elapsed: float = 0.0
 	while elapsed < max_sec and mgr.is_processing():
 		_auto_resolve_ready_combatants(mgr, preset_id)
@@ -1190,6 +1241,8 @@ static func _simulate_fight(mgr: Node, max_sec: float, preset_id: String) -> voi
 			break
 	_auto_resolve_ready_combatants(mgr, preset_id)
 	_F5SoakTrace.log_fight_end_summary(_infer_soak_fight_winner(mgr), bool(mgr.medical_phase))
+	if restore_hit_summary:
+		CombatConstants.clear_combat_hit_summary_override()
 
 
 static func _auto_resolve_ready_combatants(mgr: Node, preset_id: String) -> void:
@@ -1220,6 +1273,8 @@ static func _auto_resolve_ready_combatants(mgr: Node, preset_id: String) -> void
 		var pick_actions: Array = actions
 		if preset_id == _SoakPresets.PRESET_II2B_SWORD_DUEL:
 			pick_actions = _strike_biased_actions(actions, cid)
+		elif preset_id == _SoakPresets.PRESET_II_ENVELOP:
+			pick_actions = _envelop_melee_biased_actions(actions, cid)
 		_AIActionPicker.resolve_picked_turn_or_skip(mgr, cid, pick_actions, log_side)
 
 
@@ -1248,6 +1303,25 @@ static func _strike_biased_actions(actions: Array, combatant_id: int) -> Array:
 			continue
 		strikes.append(a)
 	return strikes if not strikes.is_empty() else actions
+
+
+## III-4 **ii_envelop**: prefer damage actions over rotate/wait when listed (headless wing engagement smoke).
+static func _envelop_melee_biased_actions(actions: Array, combatant_id: int) -> Array:
+	var deprioritize: Dictionary = {
+		CombatConstants.MOVE_ID_WAIT: true,
+		CombatConstants.MOVE_ID_ROTATE_FILE: true,
+	}
+	var preferred: Array = []
+	for a in actions:
+		if a is not Dictionary:
+			continue
+		var mid: String = str(a.get("move_id", ""))
+		if deprioritize.has(mid):
+			continue
+		if int(a.get("target_id", combatant_id)) == combatant_id:
+			continue
+		preferred.append(a)
+	return preferred if not preferred.is_empty() else actions
 
 
 ## Live **`AttackResultApplier`** / **`CombatFlurryBind`** path when random duel omits bind lines (feeds headless **II-2b** plausibility).
@@ -1289,6 +1363,26 @@ static func _ensure_ii2b_bind_flurry_smoke(mgr: Node) -> void:
 		defender.gauge = 100.0
 		defender.state = CombatConstants.STATE_WAITING
 		_AttackWindUpStarter.start(mgr, p_id, e_id, "thrust")
+
+
+## Headless ii5: fall-back wind-up must finish before `soak_fight_end` (plausibility last-fight slice).
+static func _ensure_ii5_cowering_fall_back_executed(mgr: Node, combatant_id: int) -> void:
+	if _count_needle(_OperationalLog.get_captured_lines(), "cowering_fall_back executed") >= 1:
+		return
+	for _i in 80:
+		mgr._process(TICK_DT)
+		if _count_needle(_OperationalLog.get_captured_lines(), "cowering_fall_back executed") >= 1:
+			return
+	var c: Variant = mgr._get_by_id(combatant_id)
+	if c is not Dictionary:
+		return
+	var cd: Dictionary = c as Dictionary
+	cd.state = CombatConstants.STATE_FALLING_BACK
+	cd.state_timer = float(cd.get("state_duration", CombatConstants.BASE_FALL_BACK_S))
+	mgr._handle_fall_back_solo_resolve({
+		"type": CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE,
+		"combatant_id": combatant_id,
+	})
 
 
 static func _drain_until_capture_needle(mgr: Node, needle: String, max_sec: float) -> void:

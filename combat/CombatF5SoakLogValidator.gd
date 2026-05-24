@@ -19,6 +19,7 @@ const PROFILE_PRESET_II5 := _TrackSpecs.PROFILE_PRESET_II5
 const PROFILE_PRESET_II6 := _TrackSpecs.PROFILE_PRESET_II6
 const PROFILE_PRESET_II8 := _TrackSpecs.PROFILE_PRESET_II8
 const PROFILE_PRESET_II4D := _TrackSpecs.PROFILE_PRESET_II4D
+const PROFILE_PRESET_II_ENVELOP := _TrackSpecs.PROFILE_PRESET_II_ENVELOP
 
 static func validate(lines: PackedStringArray, profiles_override: PackedStringArray = []) -> Dictionary:
 	var normalized: PackedStringArray = _normalize_lines(lines)
@@ -77,13 +78,13 @@ static func write_report(result: Dictionary) -> void:
 	lines.append("")
 	var tracks: Dictionary = result.get("tracks", {}) as Dictionary
 	for track_id in tracks.keys():
-		var tr: Dictionary = tracks[track_id] as Dictionary
-		var status: String = "PASS" if bool(tr.get("pass", false)) else "FAIL"
-		if bool(tr.get("optional", false)) and not bool(tr.get("pass", false)):
+		var track_result: Dictionary = tracks[track_id] as Dictionary
+		var status: String = "PASS" if bool(track_result.get("pass", false)) else "FAIL"
+		if bool(track_result.get("optional", false)) and not bool(track_result.get("pass", false)):
 			status = "OPTIONAL_MISS"
 		lines.append(
 			"[%s] %s — %s"
-			% [track_id, status, str(tr.get("detail", ""))]
+			% [track_id, status, str(track_result.get("detail", ""))]
 		)
 	lines.append("")
 	lines.append("failures:")
@@ -107,7 +108,7 @@ static func _normalize_lines(lines: PackedStringArray) -> PackedStringArray:
 	var out: PackedStringArray = PackedStringArray()
 	for raw in lines:
 		var s: String = str(raw).strip_edges()
-		if s.is_empty():
+		if s.is_empty() or s.begins_with("#"):
 			continue
 		if s.begins_with(_OperationalLog.TAG_COMBAT + ":"):
 			s = s.substr(_OperationalLog.TAG_COMBAT.length() + 1).strip_edges()

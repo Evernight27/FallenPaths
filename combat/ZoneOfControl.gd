@@ -544,7 +544,7 @@ static func get_opponent_pressure_duration_multiplier(manager: Node, fid: String
 		return CombatConstants.PRESSURE_MOD_NEUTRAL
 	var opp_side: String = _EntityAccess.opponent_side_label(our_side)
 	var front_count: int = 0
-	var stam_sum: float = 0.0
+	var ratio_sum: float = 0.0
 	var aggressive: bool = false
 	var all_defensive: bool = true
 	for c in manager.combatants:
@@ -553,13 +553,17 @@ static func get_opponent_pressure_duration_multiplier(manager: Node, fid: String
 		if _EntityAccess.rank_int(c) != 0:
 			continue
 		front_count += 1
-		stam_sum += _EntityAccess.stamina_float(c)
+		var st_ratio: float = _EntityAccess.stamina_ratio(c)
+		ratio_sum += st_ratio
 		var st: String = _EntityAccess.state_str(c)
 		if st == CombatConstants.STATE_WIND_UP or st == CombatConstants.STATE_RECOVERING:
 			aggressive = true
 			all_defensive = false
 		var stance: String = _EntityAccess.stance_str(c)
-		if stance == CombatConstants.STANCE_AGGRESSIVE and _EntityAccess.stamina_float(c, 0.0) >= CombatConstants.STANCE_MIN_STAMINA_AGGRESSIVE:
+		if (
+			stance == CombatConstants.STANCE_AGGRESSIVE
+			and st_ratio >= CombatConstants.STANCE_MIN_STAMINA_AGGRESSIVE_RATIO
+		):
 			aggressive = true
 		if stance != CombatConstants.STANCE_DEFENSIVE:
 			all_defensive = false
@@ -567,8 +571,8 @@ static func get_opponent_pressure_duration_multiplier(manager: Node, fid: String
 		return CombatConstants.PRESSURE_MOD_DEFENSIVE
 	if aggressive:
 		return CombatConstants.PRESSURE_MOD_AGGRESSIVE
-	var avg_stam: float = stam_sum / float(front_count)
-	if all_defensive or avg_stam < CombatConstants.STAMINA_MAX * 0.35:
+	var avg_ratio: float = ratio_sum / float(front_count)
+	if all_defensive or avg_ratio < CombatConstants.OPPONENT_PRESSURE_DEFENSIVE_STAMINA_RATIO:
 		return CombatConstants.PRESSURE_MOD_DEFENSIVE
 	return CombatConstants.PRESSURE_MOD_NEUTRAL
 

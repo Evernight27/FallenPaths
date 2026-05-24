@@ -278,6 +278,14 @@ func _snap_to_grid(pos: Vector2) -> Vector2:
 		floor(pos.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2
 	)
 
+
+## Overworld rejected a step (bleed block, combat gate, …) — keep sprite and next input on the same tile.
+func cancel_grid_move_to(world_pos: Vector2) -> void:
+	var grid_pos: Vector2 = _snap_to_grid(world_pos)
+	position = grid_pos
+	target_position = grid_pos
+	is_moving = false
+
 func _input(event) -> void:
 	if not is_moving and event is InputEventKey and event.pressed:
 		var input_direction = Vector2.ZERO

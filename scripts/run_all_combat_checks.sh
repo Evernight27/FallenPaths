@@ -57,6 +57,7 @@ fi
 
 unset FP_HARNESS_MODE 2>/dev/null || true
 SUMMARY_PATH="$ROOT/.phase0_combat_checks.txt"
+: >"$SUMMARY_PATH"
 D001_REPORT="$ROOT/.d001_soak_out.txt"
 
 echo "=== Doc link check ==="
@@ -69,13 +70,27 @@ else
 fi
 echo ""
 
+echo "=== CompanyStateChecks (Camp-1.1-1.8) ==="
+set +e
+"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_company_state_checks.gd
+COMPANY_EXIT=$?
+set -e
+if [[ $COMPANY_EXIT -ne 0 ]]; then
+	echo "COMPANY_STATE: FAIL exit=$COMPANY_EXIT" >>"$SUMMARY_PATH"
+	echo "PHASE0: FAIL (company state checks)" >>"$SUMMARY_PATH"
+	echo ""
+	echo "=== PHASE0 FAIL (CompanyStateChecks) ==="
+	exit "$COMPANY_EXIT"
+fi
+echo "COMPANY_STATE: PASS" >>"$SUMMARY_PATH"
+echo ""
+
 echo "=== AllCombatChecks (regression + D-001 + calibration) ==="
 set +e
 OUT="$("$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_all_combat_checks.gd 2>&1)"
 EXIT_CODE=$?
 set -e
 echo "$OUT"
-: >"$SUMMARY_PATH"
 echo "$OUT" | grep -E '^FP_HARNESS_(OK|SUMMARY|FAIL):' >>"$SUMMARY_PATH" || true
 if [[ $EXIT_CODE -ne 0 ]]; then
 	echo "EXIT=$EXIT_CODE" >>"$SUMMARY_PATH"
@@ -145,10 +160,32 @@ if [[ $ARTIFACT_FAIL -ne 0 ]]; then
 fi
 {
 	echo "PHASE0: PASS"
-	echo "ran_at=$(date '+%Y-%m-%d %H:%M:%s')"
 } >>"$SUMMARY_PATH"
 echo ""
 echo "=== PHASE0 PASS ==="
+echo ""
+echo "=== Campaign ship audit tail (Camp-3.4 / Camp-5 headless) ==="
+set +e
+bash "$ROOT/scripts/run_campaign_ship_audit.sh" --tail-only
+CAMPAIGN_EXIT=$?
+set -e
+AUDIT_PATH="$ROOT/.campaign_ship_audit.txt"
+if [[ -f "$AUDIT_PATH" ]]; then
+	while IFS= read -r line; do
+		case "$line" in
+			Q_TRACK:*|II7_MEDICAL:*|CAMPAIGN_SHIP_AUDIT:*)
+				echo "$line" >>"$SUMMARY_PATH"
+				;;
+		esac
+	done <"$AUDIT_PATH"
+fi
+if [[ $CAMPAIGN_EXIT -ne 0 ]]; then
+	echo "ran_at=$(date '+%Y-%m-%d %H:%M:%s')" >>"$SUMMARY_PATH"
+	echo ""
+	echo "=== PHASE0 FAIL (Camp-3.4 campaign ship audit) ==="
+	exit "$CAMPAIGN_EXIT"
+fi
+echo "ran_at=$(date '+%Y-%m-%d %H:%M:%s')" >>"$SUMMARY_PATH"
 echo "Summary: $SUMMARY_PATH"
 if [[ $VALIDATE_F5 -eq 1 ]]; then
 	bash "$ROOT/scripts/validate_f5_soak_log.sh" || exit $?

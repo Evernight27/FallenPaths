@@ -279,7 +279,6 @@ static func _telemetry_after_mode_resolve(manager: Node, mode_now: String) -> vo
 		if _OperationalLog.is_play_session_active():
 			var from_disp: String = _EngagementMode.mode_display_name(prev)
 			var to_disp: String = _EngagementMode.mode_display_name(mode_now)
-			CombatDebug.combat_session("engagement transition %s -> %s" % [from_disp, to_disp])
 			_F5SoakTrace.note_engagement_transition(from_disp, to_disp)
 	tel["last_resolved_mode"] = mode_now
 	manager.set_meta(META_COMBAT_TELEMETRY, tel)

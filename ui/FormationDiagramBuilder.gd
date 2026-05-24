@@ -6,6 +6,7 @@ const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
+const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 
 ## Builds a compact visual formation diagram: rank×file grid with unit names.
 ## Shows Front (rank 0) and Back (rank 1+) so formation changes (swap rank, etc.) are trackable.
@@ -37,7 +38,7 @@ static func create(manager: Node, preset: Dictionary, side: String) -> Control:
 	zoc_line.name = "ZocLine"
 	zoc_line.add_theme_font_size_override("font_size", 10)
 	zoc_line.add_theme_color_override("font_color", Color(0.55, 0.62, 0.68))
-	zoc_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_RowFormatter.configure_wrapped_label(zoc_line)
 	vbox.add_child(zoc_line)
 
 	var grid = GridContainer.new()

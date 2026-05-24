@@ -198,11 +198,11 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 	failures: PackedStringArray
 ) -> void:
 	var mgr: Node = _MgrScript.new()
-	for _i in 5:
+	for _i in 6:
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	for _j in 4:
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	# Five players on 2×3 — kill rank-2 file-0 before rank-1 file-0 so vacancy plug does not refill solo fall_back slot.
+	# Six players on 2×3 — kill rank-2 file-0 before rank-1 file-0; need ≥4 actives after kills for formation hysteresis.
 	mgr.start(
 		{
 			"files": 2,
