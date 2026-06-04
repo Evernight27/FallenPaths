@@ -67,7 +67,7 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 	var st: String = _EntityAccess.state_str(c)
 	if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
 		var pid: int = int(c.get("formation_move_partner_id", -1))
-		var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, pid)
+		var partner: Dictionary = _EntityAccess.manager_get_combatant(manager, pid)
 		_FormationFlow.abort_pair(manager, c, partner, "flee")
 	_EventScheduler.cancel_pending_combat_events_for_combatant(manager, combatant_id)
 	var fid: String = _EntityAccess.formation_id_str(c)
@@ -77,10 +77,10 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 			var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 			_FormationSlots.remove_combatant_from_slots(slots, combatant_id)
 	c["combat_absent"] = true
-	c.state = CombatConstants.STATE_FLED
-	c.state_timer = 0.0
-	c.state_duration = 0.0
-	c.gauge = 0.0
+	c["state"] = CombatConstants.STATE_FLED
+	c["state_timer"] = 0.0
+	c["state_duration"] = 0.0
+	c["gauge"] = 0.0
 	c.erase("formation_move_partner_id")
 	var ctx: Dictionary = _FormationRout.rout_context_snapshot(manager, c)
 	if CombatDebug.flow_verbose_enabled():

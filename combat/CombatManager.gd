@@ -133,7 +133,7 @@ const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 ## Consecutive duplicate `combat_ui_hint` lines suppressed (same string back-to-back across turns).
 const _META_LAST_COMBAT_UI_HINT := "_fp_last_combat_ui_hint_dedupe"
 
-## Scene combat node → health/wounds/stats holder (e.g. Character → CoreEntity). Subsystems should use **`CombatantEntityAccess.get_health_entity_from_node`** / **`get_entity_from_manager`**.
+## Scene combat node → health/wounds/stats holder. Delegates to **`CombatantEntityAccess.health_entity_from_scene_node`**.
 func get_health_entity(node: Node) -> Node:
 	return _get_entity(node)
 
@@ -145,12 +145,7 @@ func get_combat_tick_index() -> int:
 
 ## Private implementation for **`get_health_entity`**; do not call from other classes.
 func _get_entity(node: Node) -> Node:
-	if node == null:
-		return null
-	if node.has_method("get_medical_entity"):
-		var e = node.get_medical_entity()
-		return e if e != null else node
-	return node
+	return _EntityAccess.health_entity_from_scene_node(node)
 
 
 ## Defender (or anyone) struck while in formation move: extend timer and event — does not cancel.
@@ -413,10 +408,14 @@ func finish_battle() -> void:
 ## Resets a combatant's turn so they can "skip" when they have no available actions.
 ## Back rank (rank 1+) with no swap/melee: wait longer (reserve) to avoid spamming skip every 0.5s.
 ## formation_changed schedules ready for promoted units; they act soon after plug.
-## log_outcome: "wait" = explicit pass; "pass" = no actions available (CombatLogFormatter).
-func skip_turn(combatant_id: int, log_outcome: String = "pass", flow_reason: String = "") -> void:
-	var c = _get_by_id(combatant_id)
-	if c == null or _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+## log_outcome: **`CombatConstants.SKIP_TURN_LOG_*`** (`wait` = explicit hold; `pass` = no actions; `reject` = blocked pick).
+func skip_turn(
+	combatant_id: int,
+	log_outcome: String = CombatConstants.SKIP_TURN_LOG_PASS,
+	flow_reason: String = ""
+) -> void:
+	var c: Dictionary = _EntityAccess.manager_get_combatant(self, combatant_id)
+	if c.is_empty() or _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 		return
 	if _MedicalPhase.combat_resolution_blocked(self) and _MedicalPhase.is_losing_side(self, c):
 		return
@@ -529,9 +528,6 @@ func _has_left_immediate_peril_permanently(c: Dictionary) -> bool:
 func _get_medical_urgency(c: Dictionary) -> float:
 	return _MedicalPhase.get_medical_urgency(self, c)
 
-static func _is_medical_move(move_id: String) -> bool:
-	return _ResolveAction.is_medical_move(move_id)
-
 func _track_medical_failure_and_maybe_retry(performer: Dictionary, target: Dictionary, part: String, target_cid: int) -> void:
 	_MedicalCoord.track_failure_and_maybe_retry(self, performer, target, part, target_cid)
 
@@ -550,9 +546,9 @@ func get_available_actions(combatant_id: int) -> Array:
 	if CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
 		mark_all_formations_vacancy_dirty()
 	vacancy_reconcile_pass(true)
-	var c_list: Variant = _get_by_id(combatant_id)
-	if c_list is Dictionary:
-		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(c_list as Dictionary)
+	var c_list: Dictionary = _EntityAccess.manager_get_combatant(self, combatant_id)
+	if not c_list.is_empty():
+		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(c_list)
 	return _ActionsBuilder.build(self, combatant_id)
 
 
@@ -605,38 +601,36 @@ func _process(delta: float) -> void:
 ## Resolves one chosen action. **Combat targeting is AI-driven:** `turn_ready` / `EVENT_ACTION_READY` build `get_available_actions`
 ## then `CombatAIActionPicker.pick` chooses move+target (player and enemy); there is no parallel human target-selection path.
 func resolve_action(attacker_id: int, target_id: int, move_id: String = "", options: Dictionary = {}) -> bool:
-	var c_resolve: Variant = _get_by_id(attacker_id)
-	if c_resolve is Dictionary:
-		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(c_resolve as Dictionary)
+	var c_resolve: Dictionary = _EntityAccess.manager_get_combatant(self, attacker_id)
+	if not c_resolve.is_empty():
+		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(c_resolve)
 	var committed: bool = _ResolveAction.resolve(self, attacker_id, target_id, move_id, options)
-	if committed and c_resolve is Dictionary:
-		(c_resolve as Dictionary)["last_committed_move_id"] = move_id
+	if committed and not c_resolve.is_empty():
+		c_resolve["last_committed_move_id"] = move_id
 	return committed
 
 func _execute_attack(attacker_id: int) -> void:
 	if _MedicalPhase.combat_resolution_blocked(self):
 		return
-	var atk_exec = _get_by_id(attacker_id)
-	if atk_exec != null and _MobilityRetreat.cannot_commit_melee(atk_exec):
+	var atk_exec: Dictionary = _EntityAccess.manager_get_combatant(self, attacker_id)
+	if not atk_exec.is_empty() and _MobilityRetreat.cannot_commit_melee(atk_exec):
 		return
 	var result: Dictionary = _AttackResolver.resolve_attack(self, attacker_id)
 	_AttackResultApplier.apply_result(self, attacker_id, result)
-	# Phase 3: Plug on death — when target died, update formation (slot_obstacles, promote rank 1 if rank 0 died).
 	var tgt_id: int = result.get("target_id", -1)
 	if tgt_id >= 0:
-		var tgt = _get_by_id(tgt_id)
-		if tgt != null and not _EntityAccess.alive_bool(tgt):
+		var tgt: Dictionary = _EntityAccess.manager_get_combatant(self, tgt_id)
+		if not tgt.is_empty() and not _EntityAccess.alive_bool(tgt):
 			_on_combatant_died(tgt)
-	# Option D: CombatManager owns flow. After parry, defender gets EVENT_ACTION_READY.
 	var action: String = result.get("action", "")
 	if action in ["parry_deflect", "parry_partial"] and tgt_id >= 0:
-		var tgt = _get_by_id(tgt_id)
+		var tgt_parry: Dictionary = _EntityAccess.manager_get_combatant(self, tgt_id)
 		if (
-			tgt != null
-			and _EntityAccess.alive_bool(tgt)
-			and _EntityAccess.state_str(tgt) == CombatConstants.STATE_WAITING
-			and not _MobilityRetreat.cannot_commit_melee(tgt)
-			and not (_MedicalPhase.combat_resolution_blocked(self) and _MedicalPhase.is_losing_side(self, tgt))
+			not tgt_parry.is_empty()
+			and _EntityAccess.alive_bool(tgt_parry)
+			and _EntityAccess.state_str(tgt_parry) == CombatConstants.STATE_WAITING
+			and not _MobilityRetreat.cannot_commit_melee(tgt_parry)
+			and not (_MedicalPhase.combat_resolution_blocked(self) and _MedicalPhase.is_losing_side(self, tgt_parry))
 		):
 			_schedule_action_ready(tgt_id, CombatConstants.READY_DELAY_PARRY_RIPOSTE_S)
 
@@ -676,6 +670,7 @@ func _on_combatant_died(c: Dictionary) -> void:
 	c.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
 	_FormationFlow.on_combatant_died(self, c)
 
+## Combatant lookup hook for **`CombatantEntityAccess.manager_get_combatant`** (harness doubles implement this).
 func _get_by_id(id: int):
 	for c in combatants:
 		if _EntityAccess.id_int(c) == id:

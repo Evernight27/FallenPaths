@@ -343,11 +343,11 @@ static func file_opposed_mult(
 static func targets_hostile_for_scoring(move_id: String) -> bool:
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return true
-	if move_id in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+	if CombatConstants.is_formation_movement_move(move_id):
 		return false
 	if move_id == CombatConstants.MOVE_ID_WAIT:
 		return false
-	if move_id in CombatConstants.MEDICAL_MOVE_IDS:
+	if CombatConstants.is_medical_move(move_id):
 		return false
 	return true
 
@@ -371,19 +371,12 @@ static func hostile_pair_targeting_weight_mult(
 	var fid_atk: String = ""
 	var fd_atk: Dictionary = {}
 	var fd_opp: Dictionary = {}
-	if not actor_zone_geometry_line_context.is_empty():
-		fid_atk = _ZoneOfControl.zone_geometry_fid_from_pack(actor_zone_geometry_line_context)
-		fd_atk = _ZoneOfControl.zone_geometry_formation_from_pack(actor_zone_geometry_line_context)
-		if not opponent_zone_geometry_line_context.is_empty():
-			fd_opp = _ZoneOfControl.zone_geometry_formation_from_pack(opponent_zone_geometry_line_context)
-		else:
-			var zg_actor: Dictionary = _ZoneOfControl.zone_geometry_for_pair(manager, atk, opp)
-			fd_opp = _ZoneOfControl.zone_geometry_formation_b_from_pair_pack(zg_actor)
-	else:
-		var zg: Dictionary = _ZoneOfControl.zone_geometry_for_pair(manager, atk, opp)
-		fid_atk = _ZoneOfControl.zone_geometry_fid_a_from_pair_pack(zg)
-		fd_atk = _ZoneOfControl.zone_geometry_formation_a_from_pair_pack(zg)
-		fd_opp = _ZoneOfControl.zone_geometry_formation_b_from_pair_pack(zg)
+	var form_pack: Dictionary = _ZoneOfControl.pair_formations_for_targeting(
+		manager, atk, opp, actor_zone_geometry_line_context, opponent_zone_geometry_line_context
+	)
+	fid_atk = str(form_pack.get("fid", ""))
+	fd_atk = form_pack.get("actor_formation", {}) as Dictionary
+	fd_opp = form_pack.get("opponent_formation", {}) as Dictionary
 	var depth_lane_atk: Variant = null
 	if _EntityAccess.rank_int(atk) > 0:
 		depth_lane_atk = _DepthPolearm.depth_polearm_lane_open(manager, atk, fid_atk)

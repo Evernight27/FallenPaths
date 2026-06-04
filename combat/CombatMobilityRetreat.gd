@@ -80,9 +80,9 @@ static func is_offensive_melee_move_id(move_id: String) -> bool:
 		return false
 	if resolve_move_allowed_when_cannot_melee(move_id, -1, -1):
 		return false
-	if move_id in CombatConstants.MEDICAL_MOVE_IDS:
+	if CombatConstants.is_medical_move(move_id):
 		return false
-	if move_id in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+	if CombatConstants.is_formation_movement_move(move_id):
 		return false
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return true

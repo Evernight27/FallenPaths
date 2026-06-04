@@ -4,7 +4,7 @@ extends RefCounted
 ## Post-victory permanent injuries (Camp-2.4) — tier RNG from user bundle.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
-const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 
 const AFFLICTION_SLOWED_CIRCULATION := "slowed_circulation"
@@ -21,12 +21,12 @@ const P_CAP := 0.55
 
 static func apply_after_victory(world: Node2D, rng: RandomNumberGenerator) -> PackedStringArray:
 	var lines: PackedStringArray = PackedStringArray()
-	if not _CompanyState.read_stub_afflictions_enabled():
+	if not _CompanyState.gate_afflictions_enabled():
 		return lines
 	if world == null or rng == null:
 		return lines
-	for n in _Bridge.get_fightable_party_nodes(world):
-		var entity: Node = _Bridge.health_entity_from_character(n)
+	for n in _CampaignBridge.get_fightable_party_nodes(world):
+		var entity: Node = _CampaignBridge.health_entity_from_character(n)
 		if entity == null:
 			continue
 		var roll: Dictionary = _roll_affliction_for_entity(entity, n, rng)

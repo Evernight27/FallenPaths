@@ -1373,8 +1373,8 @@ static func _ensure_ii5_cowering_fall_back_executed(mgr: Node, combatant_id: int
 		mgr._process(TICK_DT)
 		if _count_needle(_OperationalLog.get_captured_lines(), "cowering_fall_back executed") >= 1:
 			return
-	var c: Variant = mgr._get_by_id(combatant_id)
-	if c is not Dictionary:
+	var c: Dictionary = _EntityAccess.manager_get_combatant(mgr, combatant_id)
+	if c.is_empty():
 		return
 	var cd: Dictionary = c as Dictionary
 	cd.state = CombatConstants.STATE_FALLING_BACK
@@ -1408,12 +1408,13 @@ static func _try_force_fall_back(mgr: Node, combatant_id: int, actions: Array) -
 
 
 static func _soak_kill(mgr: Node, combatant_id: int) -> void:
-	var c: Variant = mgr._get_by_id(combatant_id)
-	if c is Dictionary:
-		c["hp"] = 0.0
-		var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
-		if ent != null:
-			ent.blood_volume = 0.0
+	var c: Dictionary = _EntityAccess.manager_get_combatant(mgr, combatant_id)
+	if c.is_empty():
+		return
+	c["hp"] = 0.0
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	if ent != null:
+		ent.blood_volume = 0.0
 
 
 static func _first_alive_player_front_rank(mgr: Node) -> Dictionary:
@@ -1456,23 +1457,11 @@ static func _enemy_4_wide() -> Dictionary:
 
 
 static func _new_entity(weapon_id: String) -> CoreEntity:
-	var e := CoreEntity.new()
-	e.apply_species()
-	e.dominant_hand = "right_arm"
-	e.offhand_functionality = 1.0
-	var w: Weapon = _Weapon.create_from_definition(weapon_id)
-	if w != null:
-		e.equip_weapon(w)
-	return e
+	return CombatRegressionHarness._new_entity(weapon_id)
 
 
 static func _destroy_limb(entity: CoreEntity, part: String) -> void:
-	if entity == null or part.is_empty():
-		return
-	entity.body_cutting[part] = 0.0
-	entity.body_blunt[part] = 0.0
-	if entity.bone_health.has(part):
-		entity.bone_health[part] = 0.0
+	CombatRegressionHarness._harness_destroy_limb(entity, part)
 
 
 static func _free_manager(mgr: Node) -> void:

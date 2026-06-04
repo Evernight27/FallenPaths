@@ -28,36 +28,9 @@ static func _feint_listing_read_m_expect_for_move_on_target(
 	attacker: Dictionary = {},
 	pa_live: Dictionary = {}
 ) -> float:
-	var pr_def: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(tgt_enemy), 0.0, 1.0)
-	var ct: String = str(
-		WeaponConstants.get_move(feint_move_id).get("contact_type", WeaponConstants.ATTACK_TYPE_CUT)
+	var pr_def: float = _DefenseChoice.defender_feint_listing_pr_def(
+		tgt_enemy, combatant_id_for_spacing, feint_move_id, attacker, pa_live
 	)
-	pr_def = clampf(pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct), 0.0, 1.0)
-	pr_def = clampf(
-		pr_def
-		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
-			_EntityAccess.stamina_float(tgt_enemy) / CombatConstants.STAMINA_MAX
-		),
-		0.0,
-		1.0
-	)
-	pr_def = clampf(
-		pr_def
-		* CombatConstants.ai_feint_listing_defender_readiness_spacing_mult(
-			tgt_enemy, combatant_id_for_spacing
-		),
-		0.0,
-		1.0
-	)
-	if not attacker.is_empty() and not pa_live.is_empty():
-		if int(pa_live.get("target_id", -1)) == _EntityAccess.id_int(tgt_enemy):
-			var pa_mid: String = str(pa_live.get("attack_type", "")).strip_edges()
-			if pa_mid.is_empty() or pa_mid == feint_move_id:
-				pr_def = clampf(
-					pr_def * _DefenseChoice._feint_readiness_reveal_mult(pa_live, attacker),
-					0.0,
-					1.0
-				)
 	return lerpf(1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_def)
 
 
@@ -112,10 +85,7 @@ static func _feint_guard_zone_sample_global_seed_for_modifier(
 
 ## Tier 4.2: **`DefenseChoiceResolver._guard_zone_modifier`** — feint telegraph mismatch → **`GUARD_ZONE_UNGUARDED_PENALTY`**; defender **`guard_zone`** moved to real line → **`GUARD_ZONE_BONUS`**; non-feint unchanged. **`AttackPathResolver`** uses **`randf`** — scan stable seeds per fixture, then restore global RNG.
 static func _run_feint_windup_options_stamp_pa_and_telegraph_guard_zone(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
@@ -161,10 +131,7 @@ static func _run_feint_windup_options_stamp_pa_and_telegraph_guard_zone(failures
 
 ## Tier 4.2: same as **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone`**, for stab **`thrust_feint`** on **SWORD** ( **`feint_windup_duration_mult`** stamp + telegraph keys).
 static func _run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
@@ -236,10 +203,7 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_oberhau(fa
 	var mult_expect: float = float(mdef.get("feint_windup_duration_mult", 1.0))
 	if mult_expect <= 1.0:
 		CombatRegressionHarness._fail(failures, "feint_windup_mult: oberhau_feint should define feint_windup_duration_mult > 1")
-	var mgr_o: Node = _MgrScript.new()
-	mgr_o.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr_o.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr_o.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr_o: Node = CombatRegressionHarness._harness_start_1v1()
 	var po: Dictionary = mgr_o.combatants[0]
 	var eo: Dictionary = mgr_o.combatants[1]
 	var po_id: int = _EntityAccess.id_int(po)
@@ -248,10 +212,7 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_oberhau(fa
 	seed(CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED)
 	_WindUpStarter.start(mgr_o, po_id, eo_id, "oberhau", {"target_part": "chest"})
 	var d_o: float = float(po.get("state_duration", 0.0))
-	var mgr_f: Node = _MgrScript.new()
-	mgr_f.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr_f.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr_f.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr_f: Node = CombatRegressionHarness._harness_start_1v1()
 	var pf: Dictionary = mgr_f.combatants[0]
 	var ef: Dictionary = mgr_f.combatants[1]
 	var pf_id: int = _EntityAccess.id_int(pf)
@@ -302,10 +263,7 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_thrust(fai
 	var mult_expect: float = float(mdef.get("feint_windup_duration_mult", 1.0))
 	if mult_expect <= 1.0:
 		CombatRegressionHarness._fail(failures, "feint_windup_mult_thrust: thrust_feint should define feint_windup_duration_mult > 1")
-	var mgr_t: Node = _MgrScript.new()
-	mgr_t.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr_t.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr_t.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr_t: Node = CombatRegressionHarness._harness_start_1v1()
 	var pt: Dictionary = mgr_t.combatants[0]
 	var et: Dictionary = mgr_t.combatants[1]
 	var pt_id: int = _EntityAccess.id_int(pt)
@@ -314,10 +272,7 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_thrust(fai
 	seed(CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED)
 	_WindUpStarter.start(mgr_t, pt_id, et_id, "thrust", {"target_part": "chest"})
 	var d_t: float = float(pt.get("state_duration", 0.0))
-	var mgr_tf: Node = _MgrScript.new()
-	mgr_tf.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr_tf.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr_tf.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr_tf: Node = CombatRegressionHarness._harness_start_1v1()
 	var ptf: Dictionary = mgr_tf.combatants[0]
 	var etf: Dictionary = mgr_tf.combatants[1]
 	var ptf_id: int = _EntityAccess.id_int(ptf)
@@ -365,10 +320,7 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_thrust(fai
 
 ## Tier 4.2: **`AttackWindUpStarter.start`** with **`target_part`** only (no **`feint_part`**) stamps **`pending_attack`** and sets defender **`guard_zone`** to **`target_part`** (non-feint **`oberhau`**). Uses **`CombatRegressionHarness._FEINT_WINDUP_TARGET_ONLY_HARNESS_SEED`** for stable wind-up rolls.
 static func _run_feint_windup_target_only_sets_defender_guard_zone_to_target(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
@@ -408,10 +360,7 @@ static func _run_feint_windup_target_only_sets_defender_guard_zone_to_target(fai
 
 ## Tier 4.2: same as **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target`**, for honest **`thrust`** (no **`feint_target_reveal_at_progress`** on **`pending_attack`**).
 static func _run_feint_windup_target_only_sets_defender_guard_zone_to_target_thrust(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
@@ -453,10 +402,7 @@ static func _run_feint_windup_target_only_sets_defender_guard_zone_to_target_thr
 static func _run_feint_move_ai_distinct_feint_and_target_parts(failures: PackedStringArray) -> void:
 	if not WeaponConstants.is_feint_move("oberhau_feint"):
 		CombatRegressionHarness._fail(failures, "feint_ai: WeaponConstants.is_feint_move(oberhau_feint) should be true")
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
@@ -484,10 +430,7 @@ static func _run_feint_move_ai_distinct_feint_and_target_parts(failures: PackedS
 static func _run_feint_move_ai_distinct_feint_and_target_parts_thrust(failures: PackedStringArray) -> void:
 	if not WeaponConstants.is_feint_move("thrust_feint"):
 		CombatRegressionHarness._fail(failures, "feint_ai_thrust: WeaponConstants.is_feint_move(thrust_feint) should be true")
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
@@ -513,10 +456,7 @@ static func _run_feint_move_ai_distinct_feint_and_target_parts_thrust(failures: 
 
 ## Tier 4.2: **`CombatAIActionPicker._get_action_weight`** — **`oberhau_feint`** vs same-target **`oberhau`** scales by **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** (SWORD 1v1 fixture).
 static func _run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	mgr._recompute_zoc_and_distance()
@@ -545,10 +485,7 @@ static func _run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau
 
 ## Tier 4.2: same as **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau`**, for **`thrust_feint`** vs **`thrust`**.
 static func _run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	mgr._recompute_zoc_and_distance()
@@ -576,10 +513,7 @@ static func _run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust(
 
 ## Tier 4.2: feint listing mult × **`lerpf(1, AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, passive_readiness)`** vs low defender **`guard`** (SWORD 1v1).
 static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	var enemy: Dictionary = mgr.combatants[1]
@@ -641,10 +575,7 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
 static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard_thrust(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	var enemy: Dictionary = mgr.combatants[1]
@@ -707,10 +638,7 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
 
 ## Tier 4.2 footwork: feint listing — LONG **`distance_to[attacker]`** on defender damps readiness lerp vs MID (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG`**).
 static func _run_feint_move_listing_spacing_long_dampens_vs_mid(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var enemy: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(player)
@@ -719,17 +647,8 @@ static func _run_feint_move_listing_spacing_long_dampens_vs_mid(failures: Packed
 	enemy["state"] = CombatConstants.STATE_WAITING
 	enemy["guard"] = 0.55
 	mgr._recompute_zoc_and_distance()
-	var mdef: Dictionary = WeaponConstants.get_move("oberhau_feint")
-	var ct: String = str(mdef.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
-	var pr_def: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(enemy), 0.0, 1.0)
-	pr_def = clampf(pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct), 0.0, 1.0)
-	pr_def = clampf(
-		pr_def
-		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
-			_EntityAccess.stamina_float(enemy) / CombatConstants.STAMINA_MAX
-		),
-		0.0,
-		1.0
+	var pr_def: float = _DefenseChoice.defender_feint_listing_pr_def(
+		enemy, p_id, "oberhau_feint", {}, {}, true, false
 	)
 	var pr_long: float = clampf(
 		pr_def * CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG, 0.0, 1.0
@@ -773,10 +692,7 @@ static func _run_feint_move_listing_spacing_long_dampens_vs_mid(failures: Packed
 
 ## Tier 4.2 footwork: feint listing — CLOSE **`distance_to[attacker]`** on defender boosts readiness lerp vs MID (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE`**).
 static func _run_feint_move_listing_spacing_close_boosts_vs_mid(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var enemy: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(player)
@@ -785,17 +701,8 @@ static func _run_feint_move_listing_spacing_close_boosts_vs_mid(failures: Packed
 	enemy["state"] = CombatConstants.STATE_WAITING
 	enemy["guard"] = 0.55
 	mgr._recompute_zoc_and_distance()
-	var mdef: Dictionary = WeaponConstants.get_move("oberhau_feint")
-	var ct: String = str(mdef.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
-	var pr_def: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(enemy), 0.0, 1.0)
-	pr_def = clampf(pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct), 0.0, 1.0)
-	pr_def = clampf(
-		pr_def
-		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
-			_EntityAccess.stamina_float(enemy) / CombatConstants.STAMINA_MAX
-		),
-		0.0,
-		1.0
+	var pr_def: float = _DefenseChoice.defender_feint_listing_pr_def(
+		enemy, p_id, "oberhau_feint", {}, {}, true, false
 	)
 	var pr_close: float = clampf(
 		pr_def * CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE, 0.0, 1.0
@@ -841,10 +748,7 @@ static func _run_feint_move_listing_spacing_close_boosts_vs_mid(failures: Packed
 static func _run_feint_move_listing_spacing_long_dampens_vs_mid_when_defender_recovering(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var enemy: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(player)
@@ -855,17 +759,8 @@ static func _run_feint_move_listing_spacing_long_dampens_vs_mid_when_defender_re
 	enemy["state_duration"] = 2.0
 	enemy["state_timer"] = 1.0
 	mgr._recompute_zoc_and_distance()
-	var mdef: Dictionary = WeaponConstants.get_move("oberhau_feint")
-	var ct: String = str(mdef.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
-	var pr_def: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(enemy), 0.0, 1.0)
-	pr_def = clampf(pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct), 0.0, 1.0)
-	pr_def = clampf(
-		pr_def
-		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
-			_EntityAccess.stamina_float(enemy) / CombatConstants.STAMINA_MAX
-		),
-		0.0,
-		1.0
+	var pr_def: float = _DefenseChoice.defender_feint_listing_pr_def(
+		enemy, p_id, "oberhau_feint", {}, {}, true, false
 	)
 	var pr_long: float = clampf(
 		pr_def * CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG, 0.0, 1.0
@@ -911,10 +806,7 @@ static func _run_feint_move_listing_spacing_long_dampens_vs_mid_when_defender_re
 static func _run_feint_move_listing_spacing_close_boosts_vs_mid_when_defender_recovering(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var enemy: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(player)
@@ -925,17 +817,8 @@ static func _run_feint_move_listing_spacing_close_boosts_vs_mid_when_defender_re
 	enemy["state_duration"] = 2.0
 	enemy["state_timer"] = 1.0
 	mgr._recompute_zoc_and_distance()
-	var mdef: Dictionary = WeaponConstants.get_move("oberhau_feint")
-	var ct: String = str(mdef.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
-	var pr_def: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(enemy), 0.0, 1.0)
-	pr_def = clampf(pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct), 0.0, 1.0)
-	pr_def = clampf(
-		pr_def
-		* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
-			_EntityAccess.stamina_float(enemy) / CombatConstants.STAMINA_MAX
-		),
-		0.0,
-		1.0
+	var pr_def: float = _DefenseChoice.defender_feint_listing_pr_def(
+		enemy, p_id, "oberhau_feint", {}, {}, true, false
 	)
 	var pr_close: float = clampf(
 		pr_def * CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE, 0.0, 1.0
@@ -981,10 +864,7 @@ static func _run_feint_move_listing_spacing_close_boosts_vs_mid_when_defender_re
 static func _run_feint_move_listing_readiness_recovery_curve_when_defender_recovering(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var enemy: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(player)
@@ -1025,10 +905,7 @@ static func _run_feint_move_listing_readiness_recovery_curve_when_defender_recov
 
 ## Tier 4.2: low attacker **`stamina`** dampens feint listing only (**`AI_FEINT_LISTING_STAMINA_*`**); defender **`guard`** **0**, **`balanced`**.
 static func _run_feint_move_listing_stamina_low_dampens_feint_weight(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var enemy: Dictionary = mgr.combatants[1]
@@ -1068,10 +945,7 @@ static func _run_feint_move_listing_stamina_low_dampens_feint_weight(failures: P
 static func _run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var enemy: Dictionary = mgr.combatants[1]
@@ -1122,10 +996,7 @@ static func _run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_d
 static func _run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var enemy: Dictionary = mgr.combatants[1]
@@ -1176,10 +1047,7 @@ static func _run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mul
 static func _run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var enemy: Dictionary = mgr.combatants[1]
@@ -1228,10 +1096,7 @@ static func _run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrin
 
 ## Tier 4.2: short-horizon **`parry_deflect`** memory on **`attacker`** boosts feint-move listing vs that defender (**`(qo)`**).
 static func _run_feint_move_listing_doctrine_probing_multiplies_feint_weight(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var enemy: Dictionary = mgr.combatants[1]
@@ -1287,10 +1152,7 @@ static func _run_feint_move_listing_doctrine_probing_multiplies_feint_weight(fai
 static func _run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weight(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var enemy: Dictionary = mgr.combatants[1]
@@ -1346,10 +1208,7 @@ static func _run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weigh
 static func _run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1395,10 +1254,7 @@ static func _run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_d
 static func _run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var enemy: Dictionary = mgr.combatants[1]
@@ -1446,10 +1302,7 @@ static func _run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_bala
 static func _run_feint_move_listing_recovering_footwork_dampens_vs_settled_waiting(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var enemy: Dictionary = mgr.combatants[1]
@@ -1504,10 +1357,7 @@ static func _run_feint_move_listing_recovering_footwork_dampens_vs_settled_waiti
 static func _run_feint_move_listing_recovery_cause_orders_recovering_footwork_mult(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var enemy: Dictionary = mgr.combatants[1]
@@ -1561,10 +1411,7 @@ static func _run_feint_move_listing_recovery_cause_orders_recovering_footwork_mu
 static func _run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var enemy: Dictionary = mgr.combatants[1]
@@ -1613,10 +1460,7 @@ static func _run_feint_move_listing_recovering_footwork_and_spacing_stack_orthog
 
 ## Harness helper: set incoming attacker wind-up progress for **`COUNTER_TEMPO_MIN_INCOMING_WINDUP_PROGRESS`** tests.
 static func _run_counter_tempo_window_opens_on_incoming_wind_up(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var atk: Dictionary = mgr.combatants[0]
 	var def: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(atk)
@@ -1638,10 +1482,7 @@ static func _run_counter_tempo_window_opens_on_incoming_wind_up(failures: Packed
 
 ## Tier 4.2 counter-tempo: **`AvailableActionsBuilder`** lists melee-only **`counter_tempo`** actions when window open.
 static func _run_counter_tempo_lists_melee_actions_when_window_open(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var atk: Dictionary = mgr.combatants[0]
 	var def: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(atk)
@@ -1697,10 +1538,7 @@ static func _run_counter_tempo_spend_gauge_subtracts_cost(failures: PackedString
 static func _run_counter_tempo_defers_incoming_melee_until_after_counter_wind_up(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var atk: Dictionary = mgr.combatants[0]
 	var def: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(atk)
@@ -1743,10 +1581,7 @@ static func _run_counter_tempo_defers_incoming_melee_until_after_counter_wind_up
 
 
 static func _run_counter_tempo_abort_cancels_pending_incoming_melee(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var atk: Dictionary = mgr.combatants[0]
 	var def: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(atk)
@@ -1815,10 +1650,7 @@ static func _run_counter_tempo_wind_up_stamps_pa_and_shortens_duration(failures:
 static func _run_counter_tempo_ai_listing_boosts_counter_and_prefers_plain_over_feint(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var def: Dictionary = mgr.combatants[0]
 	var atk: Dictionary = mgr.combatants[1]
 	var def_id: int = _EntityAccess.id_int(def)
@@ -1861,10 +1693,7 @@ static func _run_counter_tempo_ai_listing_boosts_counter_and_prefers_plain_over_
 static func _run_counter_tempo_progress_gate_blocks_can_act_until_half_wind_up(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var atk: Dictionary = mgr.combatants[0]
 	var def: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(atk)
@@ -1889,10 +1718,7 @@ static func _run_counter_tempo_progress_gate_blocks_can_act_until_half_wind_up(
 static func _run_counter_tempo_process_waiting_schedules_ready_when_progress_gate_met(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var atk: Dictionary = mgr.combatants[0]
 	var def: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(atk)
@@ -1913,10 +1739,7 @@ static func _run_counter_tempo_process_waiting_schedules_ready_when_progress_gat
 
 
 static func _run_counter_tempo_ui_hint_winding_then_ready(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var atk: Dictionary = mgr.combatants[0]
 	var def: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(atk)
@@ -1987,10 +1810,7 @@ static func _run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain(
 
 ## Tier 4.3: salience — telegraph part implies wind-up targeted.
 static func _run_feint_move_listing_stance_ai_feint_mult_ordering(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -2047,10 +1867,7 @@ static func _run_feint_move_listing_stance_ai_feint_mult_ordering(failures: Pack
 static func _run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -2094,10 +1911,7 @@ static func _run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight
 static func _run_feint_move_listing_defender_off_balance_boosts_feint_weight(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(player)
 	var enemy: Dictionary = mgr.combatants[1]
@@ -2168,10 +1982,7 @@ static func _run_feint_opts_from_choice_and_non_feint_attack_no_feint_part(failu
 	var o_no_feint: Dictionary = _AIPicker.opts_from_choice(c_empty_feint)
 	if o_no_feint.has("feint_part"):
 		CombatRegressionHarness._fail(failures, "feint_opts: empty feint_part should be omitted got %s" % str(o_no_feint))
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(e)
@@ -2189,7 +2000,7 @@ static func _run_feint_opts_from_choice_and_non_feint_attack_no_feint_part(failu
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2 harness helper: **`AttackPathResolver`** uses **`randf`** in **`resolve_hit_part`** — find a global RNG seed in **0..16383** so **`DefenseChoiceResolver._guard_zone_modifier`** returns **`want_mult`**. Pass **`parry_readiness_for_feint` < 0** for the legacy 4-arg call. Pass **`atk_id_for_spacing` < 0** (default) unless the scan must use the optional spacing arg on **`_guard_zone_modifier`**.
+## Pass **`parry_readiness_for_feint` < 0** for default-args call (no feint read-through). Pass **`atk_id_for_spacing` < 0** (default) unless the scan must use the optional spacing arg on **`_guard_zone_modifier`**.
 static func _run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readjust_bonus(failures: PackedStringArray) -> void:
 	var parts: Array = ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"]
 	var pa_feint: Dictionary = {
@@ -2290,11 +2101,11 @@ static func _run_feint_guard_zone_readthrough_par_bonus_when_readiness_high(fail
 		seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
 		return
 	seed(bait_seed)
-	var m_legacy: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_baited, parts, "oberhau_feint")
-	if not is_equal_approx(m_legacy, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY):
+	var m_default_args: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_baited, parts, "oberhau_feint")
+	if not is_equal_approx(m_default_args, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY):
 		CombatRegressionHarness._fail(
 			failures,
-			"feint_readthrough: legacy (no readiness arg) want penalty %.2f got %.2f" % [CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY, m_legacy]
+			"feint_readthrough: default-args (no readiness) want penalty %.2f got %.2f" % [CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY, m_default_args]
 		)
 	seed(bait_seed)
 	var m_full: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_baited, parts, "oberhau_feint", 1.0)
@@ -2471,10 +2282,7 @@ static func _run_feint_target_reveal_progress_scales_readiness_mult(failures: Pa
 		)
 	# choose_defense: reported parry_readiness scales by same mult during feint wind-up early vs late.
 	seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -2533,10 +2341,7 @@ static func _run_feint_target_reveal_progress_scales_readiness_mult(failures: Pa
 static func _run_feint_move_listing_reveal_progress_dampens_early_wind_up(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	var player: Dictionary = mgr.combatants[0]
@@ -2624,10 +2429,7 @@ static func _run_feint_move_listing_reveal_progress_dampens_early_wind_up(
 ## Tier 4.2: **`DefenseChoiceResolver.choose_defense`** — when **`feint_part`** is set and defender does not read through (**`guard` × stance `feint_readthrough` < `FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`**), **`dodge_eval_part`** can follow the telegraph; harness sets **`pa[CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS]`** to **1.0** for a deterministic assert.
 static func _run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough(failures: PackedStringArray) -> void:
 	seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	defender["stance"] = "balanced"
@@ -2668,10 +2470,7 @@ static func _run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough(fai
 
 ## Tier 4.2 footwork: **`feint_guard_zone_readiness_spacing_mult`** on **`pr_rt`** for **`_feint_guard_reads_real_line`** in **`_apply_feint_telegraph_bias_to_dodge_eval_part`** — defensive **`guard`** × **`STANCE_MOD_FEINT_READTHROUGH`** fails at **MID** (**`DISTANCE_MID`**) but clears at **LONG** (**`FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG`**). Same global **`seed(s)`** before each **`choose_defense`**: **LONG** keeps the initial **`BodyPartConstants.get_weighted_random_part`** draw (scan for **≠** **`left_leg`**); **MID** with harness bias **1.0** always telegraphs **`dodge_eval_part`** to **`feint_part`**.
 static func _run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_long_vs_mid(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -2741,10 +2540,7 @@ static func _run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_l
 
 ## Tier 4.2 footwork: LONG **`distance_to[attacker]`** scales feint dodge telegraph bias down vs MID (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_LONG`**) so the same RNG draw can take telegraph bite at MID but not at LONG.
 static func _run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -2798,10 +2594,7 @@ static func _run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid(failures
 
 ## Tier 4.2 footwork: CLOSE **`distance_to[attacker]`** scales feint dodge telegraph bias up vs MID (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_CLOSE`**) so the same RNG draw can skip telegraph bite at MID but take it at CLOSE.
 static func _run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -2859,10 +2652,7 @@ static func _run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid(failures
 static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	defender["stance"] = "balanced"
@@ -2937,10 +2727,7 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
 static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	defender["stance"] = "balanced"
@@ -3013,10 +2800,7 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
 
 ## Tier 4.2 footwork: **`DefenseChoiceResolver.choose_defense`** — defender **`distance_to[attacker]`** scales **`parry_c_d`** (CLOSE / LONG vs MID) and **`dodge_chance`** at CLOSE / LONG (**`CombatConstants.DEFENSE_SPACING_*`**).
 static func _run_defense_spacing_band_modulates_parry_and_dodge(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -3090,10 +2874,7 @@ static func _run_defense_spacing_band_modulates_parry_and_dodge(failures: Packed
 
 ## Tier 4.2 footwork / tempo: **`STATE_RECOVERING`** defender gets recovering dodge mult vs off-balance **`STATE_WAITING`** baseline (no settled waiting-footwork mult).
 static func _run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -3149,10 +2930,7 @@ static func _run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures: P
 
 ## Tier 4.2 footwork / tempo: **`recovery_cause`** selects **`CombatConstants.defense_footwork_recovering_dodge_mult_for_cause`** (**`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE`**) on reported **`dodge_chance`**; **`attack_miss`** > **`attack_hit`** at same **`distance_to`** / seed.
 static func _run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -3230,10 +3008,7 @@ static func _run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(fa
 static func _run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_close(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -3298,10 +3073,7 @@ static func _run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_
 static func _run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balance(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -3353,10 +3125,7 @@ static func _run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balan
 static func _run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_close(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -3417,10 +3186,7 @@ static func _run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_clo
 
 ## Tier 4.2 footwork / tempo: incoming stab **`contact_type`** scales passive **`parry_readiness`** after guard (**`PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT`** vs cut baseline) in **`DefenseChoiceResolver.choose_defense`**.
 static func _run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -3474,10 +3240,7 @@ static func _run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut(fai
 static func _run_defender_low_stamina_scales_passive_parry_readiness_in_choose_defense(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var atk_id: int = _EntityAccess.id_int(attacker)
@@ -3533,10 +3296,7 @@ static func _run_defender_low_stamina_scales_passive_parry_readiness_in_choose_d
 
 ## Tier 4.2: **`CombatAIActionPicker._get_action_weight`** — feint listing applies **`passive_parry_readiness_incoming_contact_mult`** to defender readiness: stab feint (**`thrust_feint`**) vs cut feint (**`oberhau_feint`**) at defender **`guard`** **1.0** (**SWORD** 1v1).
 static func _run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_feint(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	var enemy: Dictionary = mgr.combatants[1]
@@ -3574,10 +3334,7 @@ static func _run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_f
 static func _run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	var player: Dictionary = mgr.combatants[0]
@@ -3588,12 +3345,8 @@ static func _run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_s
 	enemy["state"] = CombatConstants.STATE_WAITING
 	enemy["guard"] = 0.44
 	mgr._recompute_zoc_and_distance()
-	var ct_mv: String = str(
-		WeaponConstants.get_move("oberhau_feint").get("contact_type", WeaponConstants.ATTACK_TYPE_CUT)
-	)
-	var pr_base: float = clampf(_PassiveParryCtx.get_passive_parry_readiness(enemy), 0.0, 1.0)
-	pr_base = clampf(
-		pr_base * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct_mv), 0.0, 1.0
+	var pr_base: float = _DefenseChoice.defender_feint_listing_pr_def(
+		enemy, p_id, "oberhau_feint", {}, {}, false, false
 	)
 	enemy["stamina"] = CombatConstants.STAMINA_MAX
 	var pr_hi: float = clampf(
@@ -3649,10 +3402,7 @@ static func _run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_s
 static func _run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	var player: Dictionary = mgr.combatants[0]
@@ -3698,10 +3448,7 @@ static func _run_feint_move_listing_defender_and_attacker_stamina_multiply_ortho
 
 ## Tier 4.2: second **`AttackWindUpStarter.start`** without resolve clears prior defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** then restamps for the new wind-up.
 static func _run_feint_telegraph_scrubbed_on_combat_manager_restart(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)

@@ -7,7 +7,7 @@ const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 ## Starts a medical action: direct pressure (instant or during wind-up), bandage/tourniquet/pack wind-up.
-## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), emit_signal.
+## Manager must have: **`CombatantEntityAccess.manager_get_combatant`**, `get_health_entity`, `emit_signal`.
 
 static func _try_windup_pressure_while_preparing(
 	manager: Node,
@@ -81,18 +81,13 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 			c["pending_retry"] = {}
 	var who_name: String = _EntityAccess.get_display_name(c, combatant_id)
 	# Bandage/pack/tourniquet: free treater's other holds; keep compression on the wound being dressed.
-	if (
-		medical_id == "bandage_self"
-		or medical_id == "pack_wound"
-		or medical_id == "stabilize_wound"
-		or medical_id == "apply_tourniquet"
-	):
+	if CombatConstants.is_wind_up_medical_move(medical_id):
 		_EntityAccess.prepare_for_medical_windup_scene(manager, c, target_node, target_part)
 		_try_windup_pressure_while_preparing(
 			manager, c, target_node, target_part, medical_id, target_combatant_id == combatant_id
 		)
 	var duration: float = 0.0
-	if medical_id == "apply_direct_pressure":
+	if CombatConstants.is_direct_pressure_move(medical_id):
 		# Instant: apply now, then short recovery (scaled by pain/consciousness)
 		var med_rec_dur: float = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 		var med_perf: float = _EntityAccess.get_performance_modifier(c)

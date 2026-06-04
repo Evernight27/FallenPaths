@@ -11,6 +11,7 @@ extends RefCounted
 ## - One resolve: **`zone_geometry_line_context`** → **`zone_geometry_fid_from_pack`** / **`zone_geometry_formation_from_pack`**
 ## - Per-pass cache: **`zone_geometry_line_context_by_combatant_id`**
 ## - Pair: **`zone_geometry_for_pair`** + **`zone_geometry_*_from_pair_pack`**
+## - Listing: **`opponent_formation_for_listing`** · targeting: **`pair_formations_for_targeting`**
 ## - Snapshot/UI row: **`zone_geometry_fid_from_row`**
 ## Aliases: **`formation_id_for_zone_geometry`**, **`formation_dict_for_zone_geometry`**.
 
@@ -110,6 +111,60 @@ static func zone_geometry_formation_a_from_pair_pack(zg: Dictionary) -> Dictiona
 static func zone_geometry_formation_b_from_pair_pack(zg: Dictionary) -> Dictionary:
 	var f: Variant = zg.get("formation_b", null)
 	return f as Dictionary if f is Dictionary else {}
+
+
+## Opponent formation from per-id line cache, then pair fallback. When pair fallback runs and **`actor_fc`** is empty, fills it from **`formation_a`** (MeleeListing actor cache backfill).
+static func opponent_formation_for_listing(
+	manager: Node,
+	actor: Dictionary,
+	opp: Dictionary,
+	zone_geometry_by_combatant_id: Dictionary,
+	actor_fc: Dictionary = {}
+) -> Dictionary:
+	var opp_id: int = _EntityAccess.id_int(opp)
+	var opp_pack: Variant = zone_geometry_by_combatant_id.get(opp_id, null)
+	var fo: Dictionary = (
+		zone_geometry_formation_from_pack(opp_pack)
+		if opp_pack is Dictionary
+		else {}
+	)
+	if not fo.is_empty():
+		return fo
+	var pair_zg: Dictionary = zone_geometry_for_pair(manager, actor, opp)
+	fo = zone_geometry_formation_b_from_pair_pack(pair_zg)
+	if actor_fc.is_empty():
+		var fa: Dictionary = zone_geometry_formation_a_from_pair_pack(pair_zg)
+		for k in fa.keys():
+			actor_fc[k] = fa[k]
+	return fo
+
+
+## Actor + opponent formation for targeting weight / pair geometry. Reuses line-context caches when provided.
+static func pair_formations_for_targeting(
+	manager: Node,
+	actor: Dictionary,
+	opp: Dictionary,
+	actor_line_context: Dictionary = {},
+	opponent_line_context: Dictionary = {}
+) -> Dictionary:
+	var fd_atk: Dictionary = {}
+	var fd_opp: Dictionary = {}
+	var fid_atk: String = ""
+	if not actor_line_context.is_empty():
+		fid_atk = zone_geometry_fid_from_pack(actor_line_context)
+		fd_atk = zone_geometry_formation_from_pack(actor_line_context)
+		if not opponent_line_context.is_empty():
+			fd_opp = zone_geometry_formation_from_pack(opponent_line_context)
+		else:
+			fd_opp = zone_geometry_formation_b_from_pair_pack(
+				zone_geometry_for_pair(manager, actor, opp)
+			)
+	else:
+		var zg: Dictionary = zone_geometry_for_pair(manager, actor, opp)
+		fid_atk = zone_geometry_fid_a_from_pair_pack(zg)
+		fd_atk = zone_geometry_formation_a_from_pair_pack(zg)
+		fd_opp = zone_geometry_formation_b_from_pair_pack(zg)
+	return {"fid": fid_atk, "actor_formation": fd_atk, "opponent_formation": fd_opp}
 
 
 ## **`fid`** + **`formation`** for one combatant (single **`zone_geometry_for_combatant`** resolve).
@@ -458,7 +513,7 @@ static func _engagement_parry_mult_pack_fallback(
 
 ## Scales geometric separation for engagement (weak front lines = compressed distance feel). 1.0 at full control.
 ## Note: mid_reach_files() also reacts to weak fronts (extra file of mid band) — intentional layered tuning, not duplicate math.
-static func geometric_reach_extent_multiplier(
+static func _wide_line_front_zone_min_strength(
 	manager: Node,
 	our: Dictionary,
 	opp: Dictionary,
@@ -466,16 +521,30 @@ static func geometric_reach_extent_multiplier(
 	opp_formation_cache: Variant = null
 ) -> float:
 	if not is_zoc_flanking_enabled(manager):
-		return 1.0
+		return -1.0
 	var fo: Dictionary = formation_for_combatant_cached(manager, our, our_formation_cache)
 	var fe: Dictionary = formation_for_combatant_cached(manager, opp, opp_formation_cache)
 	if fo.is_empty() or fe.is_empty():
-		return 1.0
+		return -1.0
 	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:
-		return 1.0
+		return -1.0
 	var wp: float = float(_FormationSlots.formation_nested_dictionary_read(fo, "zone_control").get(ZONE_FRONT, 1.0))
 	var we: float = float(_FormationSlots.formation_nested_dictionary_read(fe, "zone_control").get(ZONE_FRONT, 1.0))
-	var m: float = minf(wp, we)
+	return minf(wp, we)
+
+
+static func geometric_reach_extent_multiplier(
+	manager: Node,
+	our: Dictionary,
+	opp: Dictionary,
+	our_formation_cache: Variant = null,
+	opp_formation_cache: Variant = null
+) -> float:
+	var m: float = _wide_line_front_zone_min_strength(
+		manager, our, opp, our_formation_cache, opp_formation_cache
+	)
+	if m < 0.0:
+		return 1.0
 	return lerpf(CombatConstants.ZOC_GEOMETRIC_EXTENT_MIN, 1.0, m)
 
 
@@ -487,17 +556,12 @@ static func mid_reach_files(
 	our_formation_cache: Variant = null,
 	opp_formation_cache: Variant = null
 ) -> int:
-	if not is_zoc_flanking_enabled(manager):
+	var m: float = _wide_line_front_zone_min_strength(
+		manager, our, opp, our_formation_cache, opp_formation_cache
+	)
+	if m < 0.0:
 		return 1
-	var fo: Dictionary = formation_for_combatant_cached(manager, our, our_formation_cache)
-	var fe: Dictionary = formation_for_combatant_cached(manager, opp, opp_formation_cache)
-	if fo.is_empty() or fe.is_empty():
-		return 1
-	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:
-		return 1
-	var wp: float = float(_FormationSlots.formation_nested_dictionary_read(fo, "zone_control").get(ZONE_FRONT, 1.0))
-	var we: float = float(_FormationSlots.formation_nested_dictionary_read(fe, "zone_control").get(ZONE_FRONT, 1.0))
-	if minf(wp, we) < CombatConstants.ZOC_ACCESS_THRESHOLD:
+	if m < CombatConstants.ZOC_ACCESS_THRESHOLD:
 		return 2
 	return 1
 

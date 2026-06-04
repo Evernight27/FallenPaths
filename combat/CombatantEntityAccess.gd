@@ -7,7 +7,9 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 
 ## Centralized access to combatant node/entity for weapon, armor, performance, etc.
-## Reduces repeated node.has_method("get_weapon") patterns across AttackResolver, DefenseChoiceResolver, etc.
+## **Move ID taxonomy:** `CombatConstants.is_medical_move` · `is_wind_up_medical_move` · `is_direct_pressure_move` · `is_formation_movement_move` · `is_focus_line_move`.
+## **Canonical combat paths:** `manager_get_combatant` · `get_entity_from_manager` · `get_health_entity_from_node` · `health_entity_from_scene_node`.
+## **Campaign map/party entity:** `CampaignEncounterBridge.health_entity_from_character` (= `health_entity_from_scene_node`).
 
 ## Scene `node` on the combatant dict (e.g. Character); null if missing.
 static func node_variant(combatant: Dictionary) -> Variant:
@@ -31,11 +33,6 @@ static func manager_get_combatant(manager: Node, combatant_id: int) -> Dictionar
 	if manager == null or combatant_id < 0 or not manager.has_method("_get_by_id"):
 		return {}
 	return combatant_dict_or_empty(manager._get_by_id(combatant_id))
-
-
-## Same as **`manager_get_combatant`**; returns `{}` when **`combatant_id < 0`**.
-static func manager_get_combatant_optional(manager: Node, combatant_id: int) -> Dictionary:
-	return manager_get_combatant(manager, combatant_id)
 
 
 static func manager_notify_turn_ready(manager: Node, combatant_id: int) -> void:
@@ -92,6 +89,14 @@ static func nested_array_for_mutation(combatant: Dictionary, key: String) -> Arr
 	var a: Array = []
 	combatant[key] = a
 	return a
+
+
+## Bidirectional CLOSE band on an engaged pair (`distance_to` on both combatants).
+static func sync_close_distance_pair(
+	atk: Dictionary, tgt: Dictionary, attacker_id: int, target_id: int
+) -> void:
+	nested_dictionary_for_mutation(atk, "distance_to")[target_id] = CombatConstants.DISTANCE_CLOSE
+	nested_dictionary_for_mutation(tgt, "distance_to")[attacker_id] = CombatConstants.DISTANCE_CLOSE
 
 
 ## Weapon exposes melee move ids (empty when weapon null or lacks attack list).
@@ -512,6 +517,18 @@ static func opponent_side_for(actor: Dictionary) -> String:
 static func opponent_side_label(side: String) -> String:
 	return "enemy" if str(side) == "player" else "player"
 
+## Scene node → wounds/stats holder (Character → CoreEntity). Shared by combat and campaign paths.
+static func health_entity_from_scene_node(node: Node) -> Node:
+	if node == null:
+		return null
+	if node.has_method("get_medical_entity"):
+		var e: Variant = node.get_medical_entity()
+		if e is Node:
+			return e as Node
+		return node
+	return node
+
+
 ## Resolves the health/wounds holder for a combat scene node (e.g. Character → CoreEntity). Prefers **`manager.get_health_entity(node)`** (see **`CombatManager`**).
 static func get_health_entity_from_node(manager: Node, node: Node) -> Node:
 	if node == null:
@@ -521,7 +538,7 @@ static func get_health_entity_from_node(manager: Node, node: Node) -> Node:
 	# Test doubles / stubs without get_health_entity: prefer implementing get_health_entity on the manager.
 	if manager != null and manager.has_method("_get_entity"):
 		return manager._get_entity(node)
-	return node
+	return health_entity_from_scene_node(node)
 
 
 ## Returns entity from combatant dict (same resolution as get_health_entity_from_node on combatant.node).
@@ -776,11 +793,37 @@ static func is_dead(combatant: Dictionary) -> bool:
 	return node.is_dead()
 
 
+## Left the field via **`flee`**; may still be **`alive`** for rout / casualty tallies.
+static func has_left_battlefield(combatant: Dictionary) -> bool:
+	return (
+		bool(combatant.get("combat_absent", false))
+		or state_str(combatant) == CombatConstants.STATE_FLED
+	)
+
+
 ## `alive` combatant flag and not `is_dead` on the scene node.
 static func is_alive_in_combat(combatant: Dictionary) -> bool:
 	if bool(combatant.get("combat_absent", false)):
 		return false
 	return alive_bool(combatant) and not is_dead(combatant)
+
+
+## On the tactical grid for UI / ZoC (present, not fled, not dead).
+static func is_on_battlefield(combatant: Dictionary) -> bool:
+	return is_alive_in_combat(combatant)
+
+
+## Sync manager dict when the scene body is already dead but **`alive`** was not cleared yet (same-tick lag).
+static func finalize_dead_combatant_if_node_dead(manager: Node, c: Dictionary) -> bool:
+	if c.is_empty() or not alive_bool(c):
+		return false
+	if not is_dead(c):
+		return false
+	c["alive"] = false
+	c["state"] = CombatConstants.STATE_DEAD
+	var _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+	_StateHandlers.cancel_events_for_dead_combatant(manager, c)
+	return true
 
 
 ## Death log string from node; empty when unavailable.
@@ -1002,6 +1045,7 @@ static func manager_schedule_event(manager: Node, ev: Dictionary) -> void:
 		manager._schedule_event(ev)
 
 
+## **`manager_skip_turn`**: safe wrapper for **`CombatManager.skip_turn`** (`log_outcome` = **`CombatConstants.SKIP_TURN_LOG_*`**).
 static func manager_skip_turn(
 	manager: Node, combatant_id: int, reason: String, detail: String = ""
 ) -> void:

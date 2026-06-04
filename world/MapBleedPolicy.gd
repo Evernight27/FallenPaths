@@ -4,7 +4,7 @@ extends RefCounted
 ## Camp-2.1 map bleed policy (D-bleed B + tutorial block until first win).
 ## Uses `PartyRowFormatter` / `BleedingConstants` triage bands — do not retune bleed constants here.
 
-const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -21,7 +21,7 @@ static func effective_policy(world: Node2D) -> String:
 		return POLICY_WARN_ETA
 	if not _CompanyState.is_tutorial_completed(world):
 		return POLICY_BLOCK
-	return _CompanyState.read_stub_map_bleed_policy()
+	return _CompanyState.gate_map_bleed_policy()
 
 
 static func should_block_map_move(world: Node2D) -> bool:
@@ -29,7 +29,7 @@ static func should_block_map_move(world: Node2D) -> bool:
 		return false
 	if effective_policy(world) != POLICY_BLOCK:
 		return false
-	return _Bridge.party_has_untreated_wounds(world) or _party_has_active_bleed(world)
+	return _CampaignBridge.party_has_untreated_wounds(world) or _party_has_active_bleed(world)
 
 
 static func should_block_entering_combat(world: Node2D) -> bool:
@@ -39,14 +39,14 @@ static func should_block_entering_combat(world: Node2D) -> bool:
 static func party_has_map_bleed_risk(world: Node2D) -> bool:
 	if world == null:
 		return false
-	if _Bridge.party_has_untreated_wounds(world):
+	if _CampaignBridge.party_has_untreated_wounds(world):
 		return true
 	return _party_has_active_bleed(world)
 
 
 static func _party_has_active_bleed(world: Node2D) -> bool:
-	for n in _Bridge.get_fightable_party_nodes(world):
-		var entity: Node = _Bridge.health_entity_from_character(n)
+	for n in _CampaignBridge.get_fightable_party_nodes(world):
+		var entity: Node = _CampaignBridge.health_entity_from_character(n)
 		if entity == null:
 			continue
 		if _EntityAccess.get_total_bleeding_rate_from_node(entity) > 0.0:
@@ -59,13 +59,13 @@ static func worst_triage_summary(world: Node2D) -> Dictionary:
 	var worst_name: String = ""
 	var worst_bv: float = 100.0
 	var worst_bleed: float = 0.0
-	for n in _Bridge.get_fightable_party_nodes(world):
-		var entity: Node = _Bridge.health_entity_from_character(n)
+	for n in _CampaignBridge.get_fightable_party_nodes(world):
+		var entity: Node = _CampaignBridge.health_entity_from_character(n)
 		if entity == null:
 			continue
 		var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
 		var bleed: float = _EntityAccess.get_total_bleeding_rate_from_node(entity)
-		if bleed <= 0.0 and not _Bridge.entity_has_untreated_wounds(entity):
+		if bleed <= 0.0 and not _CampaignBridge.entity_has_untreated_wounds(entity):
 			continue
 		var eta: float = _RowFormatter.seconds_to_danger_band(bv, bleed)
 		if eta < worst_eta:

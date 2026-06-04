@@ -422,6 +422,9 @@ static func formation_cell_tooltip_lines(
 	c: Dictionary, display_name: String, manager: Node = null
 ) -> PackedStringArray:
 	var lines: PackedStringArray = []
+	if _EntityAccess.has_left_battlefield(c):
+		lines.append("%s — fled the field" % display_name)
+		return lines
 	var fw: String = footwork_hint_text(c)
 	if not fw.is_empty():
 		lines.append("%s — footwork: %s" % [display_name, fw])

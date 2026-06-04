@@ -21,6 +21,7 @@ const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _IncomingParryChoice := preload("res://combat/CombatIncomingParryChoice.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _LogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 const _HitSubRegion := preload("res://combat/CombatHitSubRegion.gd")
@@ -334,7 +335,7 @@ static func compute_and_apply_damage(
 	}
 
 ## Full attack resolution: miss, dodge, parry (deflect/partial), or hit.
-## Manager must have: _get_by_id, STATE_*; timing uses CombatTiming.
+## Manager must have: **`CombatantEntityAccess.manager_get_combatant`**, `STATE_*`; timing uses CombatTiming.
 ## _get_passive_parry_readiness, _is_off_balance, MISS_CHANCE_BASE, HIT_CHANCE_*, COMMITMENT_FRACTION, PARRY_*, etc.
 ## Returns { "action": String, "target_id": int, "result_dict": {}, "recovery_duration": float, "outcome": String }.
 ## Weighted roll for diagonal C: pick attack_line from weights dict (line -> weight).
@@ -404,7 +405,10 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var atk_perf_mod: float = _EntityAccess.get_performance_modifier(atk)
 	if _EntityAccess.get_attacking_arm(atk).is_empty():
 		var rec_dur_skip: float = CombatTiming.recovery_duration(intensity, "hit", recovery_mult, atk_perf_mod, _EntityAccess.stats_dict(atk).get("agility", 100))
-		print("[Combat] %s has no functional arm; skips attack. intensity=%.2f => recovery=%.2fs" % [atk_name, intensity, rec_dur_skip])
+		_CombatDebug.combat_session(
+			"%s has no functional arm; skips attack. intensity=%.2f => recovery=%.2fs"
+			% [atk_name, intensity, rec_dur_skip]
+		)
 		return { "action": "skip", "target_id": target_id, "recovery_duration": rec_dur_skip }
 
 	var targetable: Array = _EntityAccess.get_targetable_parts(tgt)

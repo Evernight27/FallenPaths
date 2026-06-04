@@ -6,7 +6,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Per-state handlers for CombatManager _process loop.
 ## Each handler mutates combatant (c) and may call manager methods.
-## Manager must have: get_available_actions, resolve_action, emit_signal, _get_by_id, _find_first_opponent, _execute_attack.
+## Manager must have: `get_available_actions`, `resolve_action`, `emit_signal`, **`CombatantEntityAccess.manager_get_combatant`**, `_find_first_opponent`, `_execute_attack`.
 
 const _MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
@@ -65,7 +65,7 @@ static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
 		c.gauge = 0.0
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 		var who_name: String = _EntityAccess.get_display_name(c)
-		print("[Combat] %s no longer cowering (arm functionality returned)." % who_name)
+		_CombatDebug.combat_session("%s no longer cowering (arm functionality returned)." % who_name)
 		_EventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
 		return false
 	# Mobile cowering (no arms, functional legs): allow ticks so formation retreat can be offered
@@ -139,10 +139,10 @@ static func process_medical_wind_up_cancel(manager: Node, c: Dictionary) -> bool
 	var tgt_cid_check: int = pm_check.get("target_combatant_id", _EntityAccess.id_int(c))
 	if tgt_cid_check == _EntityAccess.id_int(c):
 		return false
-	var tgt_check = manager._get_by_id(tgt_cid_check)
-	if tgt_check != null and _EntityAccess.is_alive_in_combat(tgt_check):
+	var tgt_check: Dictionary = _EntityAccess.manager_get_combatant(manager, tgt_cid_check)
+	if not tgt_check.is_empty() and _EntityAccess.is_alive_in_combat(tgt_check):
 		return false
-	if tgt_check != null:
+	if not tgt_check.is_empty():
 		tgt_check.receiving_medical_count = max(0, tgt_check.get("receiving_medical_count", 0) - 1)
 	c.pending_medical = {}
 	c.state = CombatConstants.STATE_WAITING
@@ -150,7 +150,7 @@ static func process_medical_wind_up_cancel(manager: Node, c: Dictionary) -> bool
 	c.state_duration = 0.0
 	c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	var who_name: String = _EntityAccess.get_display_name(c)
-	print("[Combat] Medical cancelled: %s (target died during wind-up)" % who_name)
+	_CombatDebug.combat_session("Medical cancelled: %s (target died during wind-up)" % who_name)
 	_EventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
 	return true
 

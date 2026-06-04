@@ -1,11 +1,13 @@
 class_name CompanyState
 extends RefCounted
 
-## World-persistent company economy (session meta only — no disk save in EA).
+## World-persistent company economy (session meta + optional P2 autosave via **`CampaignPersistence`**).
 ## Camp-1.1–1.2: economy + HUD · Camp-1.3–1.6: supplies, contracts, camp heal.
+## **Closed gates:** const `DAY_TICK_MODE`, … + **`gate_*()`** readers (SHIP_PLAN §19) — branch campaign logic; do not duplicate magic strings.
 
 const _CompanyHud := preload("res://ui/CompanyHud.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 
 const DEFAULT_CAMP_TILE := Vector2i(0, 0)
 
@@ -49,32 +51,32 @@ const MOOD_BATTLE_LOST_DELTA := -0.45
 const MOOD_DEATH_WITNESS_DELTA := -0.25
 const WORLD_META_CAMPAIGN_MED_BATTLE := "campaign_med_battle"
 
-# Harness / legacy readers
-static func read_stub_day_tick_mode() -> String:
+# Closed gate readers (SHIP_PLAN §19) — branch via gate_*(); do not duplicate magic strings.
+static func gate_day_tick_mode() -> String:
 	return DAY_TICK_MODE
 
 
-static func read_stub_steps_per_day() -> int:
+static func gate_steps_per_day() -> int:
 	return STEPS_PER_DAY
 
 
-static func read_stub_encounter_lifecycle() -> String:
+static func gate_encounter_lifecycle() -> String:
 	return ENCOUNTER_LIFECYCLE
 
 
-static func read_stub_camp_heal_entry() -> String:
+static func gate_camp_heal_entry() -> String:
 	return CAMP_HEAL_ENTRY
 
 
-static func read_stub_camp_heal_seconds() -> float:
+static func gate_camp_heal_seconds() -> float:
 	return CAMP_HEAL_SECONDS
 
 
-static func read_stub_casualty_on_settlement() -> String:
+static func gate_casualty_on_settlement() -> String:
 	return CASUALTY_ON_SETTLEMENT
 
 
-static func read_stub_map_bleed_policy() -> String:
+static func gate_map_bleed_policy() -> String:
 	return MAP_BLEED_POLICY
 
 
@@ -109,19 +111,19 @@ static func get_map_bleed_mult(world: Node) -> float:
 	return clampf(float(world.get_meta(WORLD_META_MAP_BLEED_MULT, 1.0)), 0.05, 1.0)
 
 
-static func read_stub_med_battle_mode() -> String:
+static func gate_med_battle_mode() -> String:
 	return MED_BATTLE_MODE
 
 
-static func read_stub_supply_factor_at_zero_med() -> float:
+static func gate_supply_factor_at_zero_med() -> float:
 	return SUPPLY_FACTOR_AT_ZERO_MED
 
 
-static func read_stub_afflictions_enabled() -> bool:
+static func gate_afflictions_enabled() -> bool:
 	return AFFLICTIONS_ENABLED
 
 
-static func read_stub_bankrupt_mode() -> String:
+static func gate_bankrupt_mode() -> String:
 	return BANKRUPT_MODE
 
 
@@ -281,18 +283,18 @@ static func compute_next_wage_bill(world: Node) -> int:
 
 
 static func on_overworld_step(world: Node2D) -> void:
-	var mode: String = read_stub_day_tick_mode()
+	var mode: String = gate_day_tick_mode()
 	_increment_overworld_step(world)
 	if mode == "end_day":
 		refresh_hud(world)
 		return
 	if mode == "steps" or mode == "hybrid":
-		if get_overworld_step_count(world) >= read_stub_steps_per_day():
+		if get_overworld_step_count(world) >= gate_steps_per_day():
 			try_advance_day(world)
 
 
 static func request_end_day(world: Node2D) -> bool:
-	var mode: String = read_stub_day_tick_mode()
+	var mode: String = gate_day_tick_mode()
 	if mode == "steps":
 		return false
 	if mode == "hybrid" and not _player_on_camp_tile(world):
@@ -316,7 +318,7 @@ static func try_advance_day(world: Node2D) -> bool:
 			"Wages short — paid what you could; mood fell (gold %d, bill %d)."
 			% [gold_before, bill]
 		)
-	if read_stub_bankrupt_mode() == "desertion":
+	if gate_bankrupt_mode() == "desertion":
 		_run_daily_desertion_pass(world)
 	if _OperationalLog.is_play_session_active():
 		_OperationalLog.play_world(
@@ -345,7 +347,7 @@ static func _warn_if_company_insolvent(world: Node) -> void:
 
 
 static func can_offer_end_day(world: Node2D) -> bool:
-	var mode: String = read_stub_day_tick_mode()
+	var mode: String = gate_day_tick_mode()
 	if mode == "end_day":
 		return true
 	if mode == "hybrid":
@@ -366,9 +368,9 @@ static func format_next_wage_hint(state: Dictionary, living_count: int) -> Strin
 
 static func format_day_hud_line(world: Node) -> String:
 	var day: int = get_day_index(world)
-	if read_stub_day_tick_mode() != "hybrid":
+	if gate_day_tick_mode() != "hybrid":
 		return "Day: %d" % day
-	return "Day %d · %d/%d steps" % [day, get_overworld_step_count(world), read_stub_steps_per_day()]
+	return "Day %d · %d/%d steps" % [day, get_overworld_step_count(world), gate_steps_per_day()]
 
 
 static func format_camp_heal_block_reason(world: Node2D, from_party_menu: bool = false) -> String:
@@ -378,7 +380,7 @@ static func format_camp_heal_block_reason(world: Node2D, from_party_menu: bool =
 		return "Camp rest (stabilize bleeding first)"
 	if can_offer_camp_heal(world, from_party_menu):
 		return "Camp rest (−1 med)"
-	if read_stub_camp_heal_entry() == "tile" and not _player_on_camp_tile(world):
+	if gate_camp_heal_entry() == "tile" and not _player_on_camp_tile(world):
 		return "Camp rest (stand on camp tile)"
 	return "Camp rest (unavailable)"
 
@@ -448,9 +450,7 @@ static func _player_on_camp_tile(world: Node2D) -> bool:
 	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return false
-	if not world.has_method("_tile_coords"):
-		return false
-	var tile: Vector2i = world.call("_tile_coords", player.position)
+	var tile: Vector2i = _CampaignBridge.overworld_tile_from_position(player.position)
 	var camp: Vector2i = DEFAULT_CAMP_TILE
 	if world.has_meta("camp_tile") and world.get_meta("camp_tile") is Vector2i:
 		camp = world.get_meta("camp_tile")
@@ -494,7 +494,7 @@ static func get_last_battle_summary(world: Node) -> Dictionary:
 
 
 static func contract_loss_ends_run() -> bool:
-	return read_stub_encounter_lifecycle() == "r3_loss_ends_run"
+	return gate_encounter_lifecycle() == "r3_loss_ends_run"
 
 
 ## Paid R3 contracts end the run on loss; tutorial / practice / dev soak do not.
@@ -532,7 +532,7 @@ static func apply_contract_victory_pay(world: Node) -> int:
 
 static func apply_casualty_cleanup(world: Node2D) -> PackedStringArray:
 	var lines: PackedStringArray = PackedStringArray()
-	if read_stub_casualty_on_settlement() != "memorial_then_remove":
+	if gate_casualty_on_settlement() != "memorial_then_remove":
 		return lines
 	var pm: Node = _resolve_party_manager(world)
 	if pm == null:
@@ -608,7 +608,7 @@ static func format_death_recap_suffix(death: Dictionary) -> String:
 static func can_offer_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
 	if get_medical_supplies(world) < 1:
 		return false
-	var entry: String = read_stub_camp_heal_entry()
+	var entry: String = gate_camp_heal_entry()
 	if entry == "party_menu":
 		return true
 	if from_party_menu and entry == "both":
@@ -626,7 +626,7 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
 		return false
 	if not consume_medical(world, 1):
 		return false
-	_advance_party_healing(world, read_stub_camp_heal_seconds(), CAMP_HEAL_MULTIPLIER)
+	_advance_party_healing(world, gate_camp_heal_seconds(), CAMP_HEAL_MULTIPLIER)
 	refresh_hud(world)
 	if _OperationalLog.is_play_session_active():
 		_OperationalLog.play_world(
@@ -637,9 +637,8 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
 
 
 static func roster_has_repairable_wounds(world: Node2D) -> bool:
-	const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
-	for n in _Bridge.get_fightable_party_nodes(world):
-		var entity: Node = _Bridge.health_entity_from_character(n)
+	for n in _CampaignBridge.get_fightable_party_nodes(world):
+		var entity: Node = _CampaignBridge.health_entity_from_character(n)
 		if entity == null:
 			continue
 		if entity.has_method("get_wounded_parts") and not entity.get_wounded_parts().is_empty():
@@ -685,16 +684,14 @@ static func format_battle_medical_supply_hint(world: Node) -> String:
 
 
 static func _party_bleeding_controlled(world: Node2D) -> bool:
-	const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
-	return not _Bridge.party_has_untreated_wounds(world)
+	return not _CampaignBridge.party_has_untreated_wounds(world)
 
 
 static func _advance_party_healing(world: Node2D, seconds: float, multiplier: float) -> void:
 	const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
-	const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
 	var effective: float = seconds * multiplier
-	for n in _Bridge.get_fightable_party_nodes(world):
-		var entity: Node = _Bridge.health_entity_from_character(n)
+	for n in _CampaignBridge.get_fightable_party_nodes(world):
+		var entity: Node = _CampaignBridge.health_entity_from_character(n)
 		if entity != null:
 			_EntityTimeAdvance.advance(entity, effective, true)
 		if n.has_method("ensure_consciousness_current"):
@@ -704,7 +701,7 @@ static func _advance_party_healing(world: Node2D, seconds: float, multiplier: fl
 static func compute_medical_supply_factor(world: Node) -> float:
 	if get_medical_supplies(world) >= 1:
 		return 1.0
-	return read_stub_supply_factor_at_zero_med()
+	return gate_supply_factor_at_zero_med()
 
 
 static func wire_party_medical_supply(world: Node2D) -> void:
@@ -714,20 +711,19 @@ static func wire_party_medical_supply(world: Node2D) -> void:
 	world.set_meta(
 		WORLD_META_CAMPAIGN_MED_BATTLE,
 		{
-			"mode": read_stub_med_battle_mode(),
+			"mode": gate_med_battle_mode(),
 			"supply_factor": factor,
 			"med_count": get_medical_supplies(world),
 		}
 	)
-	const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
-	for n in _Bridge.get_fightable_party_nodes(world):
-		var entity: Node = _Bridge.health_entity_from_character(n)
+	for n in _CampaignBridge.get_fightable_party_nodes(world):
+		var entity: Node = _CampaignBridge.health_entity_from_character(n)
 		if entity != null and entity.has_method("set_campaign_supply_factor"):
 			entity.set_campaign_supply_factor(factor)
 
 
 static func on_battle_medical_complete(world: Node, target_method: String, success: bool) -> void:
-	if world == null or not success or read_stub_med_battle_mode() != "hybrid":
+	if world == null or not success or gate_med_battle_mode() != "hybrid":
 		return
 	if target_method in ["apply_packing", "apply_stabilize"]:
 		consume_medical(world, 1)
@@ -873,8 +869,7 @@ static func _resolve_member_node_by_name(world: Node, member_name: String) -> No
 
 static func apply_post_victory_afflictions(world: Node2D) -> PackedStringArray:
 	const _Afflictions := preload("res://world/CampaignAfflictions.gd")
-	const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
-	var rng: RandomNumberGenerator = _Bridge.resolve_overworld_rng(world)
+	var rng: RandomNumberGenerator = _CampaignBridge.resolve_overworld_rng(world)
 	if rng == null:
 		rng = RandomNumberGenerator.new()
 		rng.randomize()

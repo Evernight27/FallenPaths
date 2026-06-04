@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Camp-2.1 map field care (D-bleed add-on): pressure / bandage in Party menu with time cost.
 
-const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
@@ -141,13 +141,13 @@ static func _entity_for_member(member: Dictionary) -> Node:
 	var node_ref: Variant = member.get("node_ref")
 	if not is_instance_valid(node_ref) or not (node_ref is Node):
 		return null
-	return _Bridge.health_entity_from_character(node_ref as Node)
+	return _CampaignBridge.health_entity_from_character(node_ref as Node)
 
 
 static func _default_performer_entity(world: Node2D) -> Node:
 	if world == null or not world.has_node("Character"):
 		return null
-	return _Bridge.health_entity_from_character(world.get_node("Character"))
+	return _CampaignBridge.health_entity_from_character(world.get_node("Character"))
 
 
 static func _first_stabilize_part(entity: Node) -> String:

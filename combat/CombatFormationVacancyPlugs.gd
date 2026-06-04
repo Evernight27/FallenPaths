@@ -8,6 +8,7 @@ const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 const VACANCY_LATERAL_EDGE_META := "_vacancy_lateral_edges"
 const VACANCY_PLUG_RESERVED_DONORS_META := "_vacancy_plug_reserved_donors"
@@ -595,7 +596,7 @@ static func _apply_plug_move(
 				)
 			)
 		else:
-			print("[Combat] %s: %s advanced to rank %d (file %d)" % [log_prefix, name_p, fill_rank, file])
+			_CombatDebug.combat_session("%s: %s advanced to rank %d (file %d)" % [log_prefix, name_p, fill_rank, file])
 	elif CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG and str(log_prefix).begins_with("Vacancy"):
 		var name_v: String = _EntityAccess.get_display_name(ally, _EntityAccess.id_int(ally))
 		CombatDebug.formation_vacancy_log("%s: %s â†’ rank %d file %d (%s)" % [log_prefix, name_v, fill_rank, file, kind])

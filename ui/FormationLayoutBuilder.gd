@@ -30,10 +30,12 @@ static func apply_formation_layout(
 	var h_sep: int = _FormationPreset.separation_px_from_density(density)
 	var v_sep: int = _FormationPreset.v_separation_px_from_density(density)  # Ranks closer than files
 
-	# Map (rank, file) -> combatant for this side (alive only)
+	# Map (rank, file) -> combatant for this side (on field only)
 	var slot_to_combatant: Dictionary = {}
 	# Map (rank, file) -> [combatant] for dead (keep at death position)
 	var slot_to_dead: Dictionary = {}
+	# Fled but still alive — off the grid (rows reparented below)
+	var fled_combatants: Array = []
 	var combatants: Array = manager.get_combatants() if manager.has_method("get_combatants") else []
 	for c in combatants:
 		if _EntityAccess.side_str(c) != side:
@@ -45,6 +47,9 @@ static func apply_formation_layout(
 			if not slot_to_dead.has(key):
 				slot_to_dead[key] = []
 			slot_to_dead[key].append(c)
+			continue
+		if _EntityAccess.has_left_battlefield(c):
+			fled_combatants.append(c)
 			continue
 		slot_to_combatant[key] = c
 
@@ -121,6 +126,27 @@ static func apply_formation_layout(
 			grid.add_child(slot_vbox)
 			grid.move_child(slot_vbox, insert_idx)
 			insert_idx += 1
+
+	if not fled_combatants.is_empty():
+		var fled_strip := VBoxContainer.new()
+		fled_strip.name = "FormationFledStrip_" + side
+		fled_strip.add_theme_constant_override("separation", 2)
+		var fled_title := Label.new()
+		fled_title.text = "Fled"
+		fled_title.add_theme_font_size_override("font_size", 11)
+		fled_title.add_theme_color_override("font_color", Color(0.62, 0.58, 0.52))
+		fled_strip.add_child(fled_title)
+		for fc in fled_combatants:
+			var frow = id_to_row.get(_EntityAccess.id_int(fc), null)
+			if frow != null:
+				_modulate_fled_row(frow)
+				fled_strip.add_child(frow)
+		list_parent.add_child(fled_strip)
+
+
+static func _modulate_fled_row(row: Control) -> void:
+	if row is CanvasItem:
+		row.modulate = Color(0.58, 0.6, 0.64)
 
 
 static func _modulate_dead_row(row: Control) -> void:

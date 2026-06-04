@@ -5,6 +5,8 @@ extends RefCounted
 
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _Persistence := preload("res://world/CampaignPersistence.gd")
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
 
@@ -126,6 +128,10 @@ static func show_and_await(world: Node2D) -> void:
 		_CompanyState.clear_active_contract(world)
 		_CompanyState.refresh_hud(world)
 		_CampaignBridge.sync_overworld_player_grid_anchor(world)
+		if not _Persistence.save_slot(world):
+			_OperationalLog.warn(
+				"Autosave failed — progress since last settlement may not persist after quit."
+			)
 		_disable_overworld_input(world, true)
 	)
 	vbox.add_child(btn)

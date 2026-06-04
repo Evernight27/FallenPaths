@@ -19,7 +19,10 @@ static func _counter_tempo() -> GDScript:
 static func build(manager: Node, combatant_id: int) -> Array:
 	var log_fid: String = ""
 	var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
-	if c.is_empty() or not _EntityAccess.alive_bool(c):
+	if c.is_empty():
+		return []
+	_EntityAccess.finalize_dead_combatant_if_node_dead(manager, c)
+	if not _EntityAccess.is_alive_in_combat(c):
 		return []
 	var counter_tempo: bool = false
 	if _EntityAccess.gauge_float(c) < 100.0:

@@ -52,21 +52,19 @@ static func _log_fp_tempo_wind_up(
 ## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.
 ## Replaces **`atk.pending_attack`**: clears the prior wind-up’s defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (if any) before assigning the new **`pa`**.
 ## **`is_feint`** moves may apply **`feint_windup_duration_mult`** from **`WeaponConstants.get_move`** (extra **`state_duration`** / **`pa.wind_up_duration`** vs honest cut at same rolls) and optional **`feint_target_reveal_at_progress`** (stamped on **`pa`** for **`DefenseChoiceResolver._feint_readiness_reveal_mult`**).
-## Manager must have: _get_by_id; health reads go through CombatantEntityAccess + manager.get_health_entity.
+## Manager must have: **`CombatantEntityAccess.manager_get_combatant`**; health reads via **`get_health_entity_from_node`**.
 ## Mutates attacker combatant in place.
 
 static func start(manager: Node, attacker_id: int, target_id: int, move_id: String = "", options: Dictionary = {}) -> void:
-	var atk = manager._get_by_id(attacker_id)
-	var tgt = manager._get_by_id(target_id)
-	var atk_d: Dictionary = _EntityAccess.combatant_dict_or_empty(atk)
-	var tgt_d: Dictionary = _EntityAccess.combatant_dict_or_empty(tgt)
-	if atk_d.is_empty() or tgt_d.is_empty() or not _EntityAccess.are_living_hostiles(atk_d, tgt_d):
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
+	if atk.is_empty() or tgt.is_empty() or not _EntityAccess.are_living_hostiles(atk, tgt):
 		return
 	if _MedicalPhase.combat_resolution_blocked(manager):
 		return
 	if _MobilityRetreat.cannot_commit_melee(atk):
 		var atk_name_skip: String = _EntityAccess.get_display_name(atk, attacker_id)
-		print("[Combat] %s has no functional arm; skip attack (short recovery)." % atk_name_skip)
+		_CombatDebug.combat_session("%s has no functional arm; skip attack (short recovery)." % atk_name_skip)
 		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(atk)
 		_StateHandlers.enter_short_recovery(atk, manager)
 		if manager != null and atk.state_duration > 0.0:
@@ -230,10 +228,9 @@ static func clear_incoming_attack_telegraph_from_pa(manager: Node, pa: Dictionar
 	if manager == null or pa.is_empty():
 		return
 	var tid: int = int(pa.get("target_id", -1))
-	if tid < 0 or not manager.has_method("_get_by_id"):
+	if tid < 0:
 		return
-	var t: Variant = manager._get_by_id(tid)
-	if t != null and t is Dictionary:
-		var def_d: Dictionary = t as Dictionary
+	var def_d: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
+	if not def_d.is_empty():
 		def_d.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
 		def_d.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)

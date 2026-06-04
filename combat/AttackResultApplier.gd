@@ -4,7 +4,7 @@ extends RefCounted
 ## Applies AttackResolver result to combatant state: skip, defeated, miss, dodge, parry_deflect, parry_partial, hit.
 ## **`parry_deflect`**: records **`CombatConstants.COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`** on **`attacker`** for Tier **4.2** feint listing pressure vs **`target_id`**; **`action_resolved`** emits **`target_id`**, **`attacker_id`**, then payload ( **`parry_clash_context`** copied when resolver supplied a dict — **`BattleScene`** parameter names follow slot order).
 ## **`parry_partial`**: **`action_resolved`** emits **`target_id`**, **`attacker_id`**, then payload (**defender**, **attacker**, same slot order as **`parry_deflect`**); then **`_execute_attack`** continues the strike. Resolver **`parry_clash_context`** is copied onto the **attacker** dict and onto the emitted payload when present. When the defender meets the same blade-alignment gate used for guard updates and clash **`parry_control`** crosses the bind threshold (**`PARRY_BIND_CONTROL_THRESHOLD`**), set **`parry_was_bind`**, **`parry_against_id`**, **`parry_bonus_until`** on the defender like **`parry_deflect`** so bind-riposte wind-up can apply; aligned but sub-threshold control sets **`parry_was_bind`** false; misaligned partial **`erase`**s those keys (clears stale bind state).
-## Manager must have: emit_signal, _get_by_id, _check_for_winner, _end_combat_phase, _execute_attack.
+## Manager must have: `emit_signal`, **`CombatantEntityAccess.manager_get_combatant`**, `_check_for_winner`, `_end_combat_phase`, `_execute_attack`.
 ## **`hit`**: clears **`parry_clash_context`** / **`defender_guard_line_at_parry`** on the attacker (stale partial-parry calibration after follow-through); clears Tier **4.2** feint listing parry-deflect memory for **`target_id`**.
 
 const _Afterblow := preload("res://combat/AfterblowHandler.gd")
@@ -143,7 +143,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
 	if _MedicalPhase.combat_resolution_blocked(manager):
 		return
-	var tgt: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, target_id)
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
 	var tgt_scene: Node = _EntityAccess.scene_node(tgt)
 	var empty_result: Dictionary = {"dmg": 0, "died": false, "part": "", "damage_type": "", "outcome": "", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0}
 

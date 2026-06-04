@@ -6,7 +6,7 @@
 
 **Purpose:** Pros/cons + physics alignment for each gate. Grounded in the **shipped sim** (`BleedingConstants`, `CombatResearchAnchors`) plus ATLS/CoTCCC, merc-game peers, and RimWorld CE patterns.
 
-**New gates only:** Log one line in [decision log](SHIP_PLAN.md#decision-log) · add const + `read_stub_*()` in **`CompanyState`** ([§19](SHIP_PLAN.md#implementation-stubs)).
+**New gates only:** Log one line in [decision log](SHIP_PLAN.md#decision-log) · add const + `gate_*()` in **`CompanyState`** ([§19](SHIP_PLAN.md#implementation-stubs)).
 
 | Gate (Camp row) | Shipped | Research section |
 |-----------------|---------|------------------|
@@ -45,7 +45,7 @@
 
 ## User bundle (2026-05-22) — closed gates
 
-Canonical shipped choices. Implementation lives in **`CompanyState`**; `read_stub_*()` forwards for harness and legacy callers ([SHIP_PLAN §19](SHIP_PLAN.md#implementation-stubs)).
+Canonical shipped choices. Implementation lives in **`CompanyState`**; `gate_*()` readers return the closed const values ([SHIP_PLAN §19](SHIP_PLAN.md#implementation-stubs)).
 
 | Gate | Choice | Code / modules |
 |------|--------|----------------|

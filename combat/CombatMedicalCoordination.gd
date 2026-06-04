@@ -6,8 +6,6 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 
-const WIND_UP_MEDICAL_IDS: Array[String] = ["bandage_self", "pack_wound", "stabilize_wound", "apply_tourniquet"]
-
 
 static func track_failure_and_maybe_retry(manager: Node, performer: Dictionary, target: Dictionary, part: String, target_cid: int) -> void:
 	if target == null:
@@ -111,7 +109,7 @@ static func medical_action_coordination_blocked(
 	var target: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
 	if target.is_empty():
 		return "missing_target"
-	if move_id == "apply_direct_pressure":
+	if CombatConstants.is_direct_pressure_move(move_id):
 		if can_stack_assist_pressure(manager, performer_id, target_id, part):
 			return ""
 		var bleed_r: float = _EntityAccess.entity_bleeding_rate_for_part(manager, target, part)

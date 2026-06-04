@@ -5,6 +5,7 @@ extends RefCounted
 ## Centralizes body part label layout and blood/bleeding text.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 const ATLS_CLASS_LABELS := {
 	1: "Class I (minimal)",
@@ -15,6 +16,17 @@ const ATLS_CLASS_LABELS := {
 
 ## Layout for party body part display: pairs per row (head+chest, arms, legs).
 const PART_LINES := [["head", "chest"], ["right_arm", "left_arm"], ["left_leg", "right_leg"]]
+
+
+## Read-only body stat dicts from a party/battle member row.
+static func read_body_stat_dicts(row: Dictionary) -> Dictionary:
+	return {
+		"body_cutting": _EntityAccess.nested_dictionary_read(row, "body_cutting"),
+		"body_blunt": _EntityAccess.nested_dictionary_read(row, "body_blunt"),
+		"body_max": _EntityAccess.nested_dictionary_read(row, "body_max"),
+		"bone_health": _EntityAccess.nested_dictionary_read(row, "bone_health"),
+		"bone_max": _EntityAccess.nested_dictionary_read(row, "bone_max"),
+	}
 
 
 ## Autowrap in VBox/ScrollContainer needs expand fill or width collapses (one char per line).

@@ -490,12 +490,7 @@ static func _destroy_arms_on_character(world: Node2D, character_path: String) ->
 
 
 static func _destroy_limb_for_soak(entity: CoreEntity, part: String) -> void:
-	if entity == null or part.is_empty():
-		return
-	entity.body_cutting[part] = 0.0
-	entity.body_blunt[part] = 0.0
-	if entity.bone_health.has(part):
-		entity.bone_health[part] = 0.0
+	CombatRegressionHarness._harness_destroy_limb(entity, part)
 
 
 static func _wound_companion_for_ambient_shock(world: Node2D) -> void:

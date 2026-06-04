@@ -354,7 +354,7 @@ static func _formation_resolve_medical_phase_skip(
 	if not MedicalPhaseController.should_skip_formation_resolve(manager, initiator_id, partner_id):
 		return false
 	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
-	var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, partner_id)
+	var partner: Dictionary = _EntityAccess.manager_get_combatant(manager, partner_id)
 	for c in [init, partner]:
 		if c.is_empty() or not _EntityAccess.alive_bool(c):
 			continue

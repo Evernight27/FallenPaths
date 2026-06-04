@@ -23,10 +23,7 @@ static func formation_slots_dict(formation: Dictionary) -> Dictionary:
 
 ## Read-only: nested dict on `manager.formations[fid]` (e.g. `slot_obstacles`, `zone_control`); does not create keys.
 static func formation_nested_dictionary_read(formation: Dictionary, key: String) -> Dictionary:
-	var v: Variant = formation.get(key, null)
-	if v is Dictionary:
-		return v as Dictionary
-	return {}
+	return _EntityAccess.nested_dictionary_read(formation, key)
 
 
 ## Read-only: `formations[fid]` when it is a Dictionary; `{}` if missing, wrong-typed, or `formations` is not a Dictionary.

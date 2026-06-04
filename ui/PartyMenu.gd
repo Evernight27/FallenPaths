@@ -54,7 +54,7 @@ func _ready() -> void:
 
 	_camp_heal_button = Button.new()
 	_camp_heal_button.text = "Camp rest (−1 med, %d min)" % int(
-		_CompanyState.read_stub_camp_heal_seconds() / 60.0
+		_CompanyState.gate_camp_heal_seconds() / 60.0
 	)
 	_camp_heal_button.visible = false
 	_camp_heal_button.pressed.connect(_on_camp_heal_pressed)
@@ -117,11 +117,12 @@ func show_party(world: Node2D, members: Array) -> void:
 			var armor_lbl = Label.new()
 			armor_lbl.text = "Armor: " + ", ".join(armor_summary)
 			v.add_child(armor_lbl)
-		var bc: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_cutting")
-		var bb: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_blunt")
-		var bm: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_max")
-		var bone_h: Dictionary = _EntityAccess.nested_dictionary_read(m, "bone_health")
-		var bone_m: Dictionary = _EntityAccess.nested_dictionary_read(m, "bone_max")
+		var body_stats: Dictionary = _RowFormatter.read_body_stat_dicts(m)
+		var bc: Dictionary = body_stats["body_cutting"]
+		var bb: Dictionary = body_stats["body_blunt"]
+		var bm: Dictionary = body_stats["body_max"]
+		var bone_h: Dictionary = body_stats["bone_health"]
+		var bone_m: Dictionary = body_stats["bone_max"]
 		for pair in _RowFormatter.PART_LINES:
 			var h = HBoxContainer.new()
 			for part in pair:
@@ -200,7 +201,7 @@ func show_party(world: Node2D, members: Array) -> void:
 		_camp_heal_button.disabled = not can_heal
 		if can_heal:
 			_camp_heal_button.text = "Camp rest (−1 med, %d min)" % int(
-				_CompanyState.read_stub_camp_heal_seconds() / 60.0
+				_CompanyState.gate_camp_heal_seconds() / 60.0
 			)
 		else:
 			_camp_heal_button.text = _CompanyState.format_camp_heal_block_reason(world, true)

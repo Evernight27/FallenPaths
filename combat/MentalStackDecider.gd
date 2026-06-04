@@ -73,7 +73,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 				_AIPicker.pick_weighted(threat, combatant_id, manager)
 			)
 	# L4: back rank / no reach — hold in place; retarget guard only on incoming telegraph mismatch.
-	if _ListedActions.action_list_is_reserve_posture_only(actions):
+	if _ListedActions.action_list_is_hold_line_menu(actions):
 		var hold_pick: Dictionary = _pick_hold_line_action(actions, combatant_id, manager, c)
 		if not hold_pick.is_empty():
 			return _stamp_layer_pick(c, CombatConstants.MENTAL_STACK_LAYER_HOLD_LINE, hold_pick)
@@ -109,7 +109,7 @@ static func _filter_coordinated_medical_actions(actions: Array, performer_id: in
 			continue
 		var a: Dictionary = raw as Dictionary
 		var mid: String = str(a.get("move_id", ""))
-		if not manager._is_medical_move(mid):
+		if not CombatConstants.is_medical_move(mid):
 			continue
 		var tgt_id: int = int(a.get("target_id", -1))
 		var part: String = str(a.get("target_part", ""))
@@ -127,7 +127,7 @@ static func _filter_self_medical_actions(actions: Array, combatant_id: int, mana
 		if int(a.get("target_id", -1)) != combatant_id:
 			continue
 		var mid: String = str(a.get("move_id", ""))
-		if not manager._is_medical_move(mid):
+		if not CombatConstants.is_medical_move(mid):
 			continue
 		var part: String = str(a.get("target_part", ""))
 		if _MedicalCoord.medical_action_allowed(manager, combatant_id, combatant_id, part, mid):
@@ -250,7 +250,7 @@ static func _filter_incoming_threat_actions(actions: Array, incoming_attacker_id
 			continue
 		if incoming_attacker_id >= 0 and int(a.get("target_id", -1)) == incoming_attacker_id:
 			var mid: String = str(a.get("move_id", ""))
-			if mid in CombatConstants.MEDICAL_MOVE_IDS:
+			if CombatConstants.is_medical_move(mid):
 				continue
 			if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 				continue

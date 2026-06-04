@@ -2,7 +2,7 @@ class_name CombatGuardLines
 extends RefCounted
 
 ## HEMA Method C: eight diagonal guard/attack lines (45° sectors).
-## Cardinals remain valid; **`normalize_line`** maps legacy four-line ids into octants.
+## Cardinals remain valid; **`normalize_line`** maps four-line guard ids into eight-line octants.
 
 const LINE_HIGH := "high"
 const LINE_HIGH_RIGHT := "high_right"
@@ -36,7 +36,7 @@ const LINE_TO_ANGLE_DEG: Dictionary = {
 }
 
 ## Legacy four-line → primary octant (for path tables still keyed by cardinal).
-const LEGACY_FOUR_TO_EIGHT: Dictionary = {
+const FOUR_LINE_TO_OCTANT: Dictionary = {
 	"high": LINE_HIGH,
 	"right": LINE_RIGHT,
 	"low": LINE_LOW,
@@ -115,8 +115,8 @@ static func normalize_line(line: String) -> String:
 	var k: String = str(line).strip_edges()
 	if k in ALL_LINES:
 		return k
-	if LEGACY_FOUR_TO_EIGHT.has(k):
-		return str(LEGACY_FOUR_TO_EIGHT[k])
+	if FOUR_LINE_TO_OCTANT.has(k):
+		return str(FOUR_LINE_TO_OCTANT[k])
 	return LINE_HIGH
 
 

@@ -70,7 +70,9 @@ static func handle_action_ready(manager: Node, c: Dictionary) -> void:
 			"stale ACTION_READY id=%d (gauge full) — skip_turn recover" % cid_ready,
 			"stale_action_ready:%d" % cid_ready
 		)
-		manager.skip_turn(cid_ready, "pass", "stale action_ready")
+		_EntityAccess.manager_skip_turn(
+			manager, cid_ready, CombatConstants.SKIP_TURN_LOG_PASS, "stale action_ready"
+		)
 		return
 	if _MedicalPhase.combat_resolution_blocked(manager) and _MedicalPhase.is_losing_side(manager, c):
 		return

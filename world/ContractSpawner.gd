@@ -6,8 +6,7 @@ const _EncounterNodeScript := preload("res://world/EncounterNode.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
-
-const TILE_SIZE := 64
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const CAMP_TILE := Vector2i(0, 0)
 const TUTORIAL_TILE := Vector2i(1, 0)
 
@@ -173,6 +172,37 @@ static func build_enemy_formation_for_template(template: Dictionary) -> Dictiona
 	return FormationPreset.default_for_count(n)
 
 
+## Restore one saved encounter marker (D-persistence P2 load).
+static func spawn_saved_encounter_at_tile(
+	parent: Node,
+	tile: Vector2i,
+	encounter_config: Dictionary,
+	enemy_count: int,
+	enemy_formation: Dictionary,
+	contract_marker_label: String,
+	marker_kind: String,
+	enemy_scene: PackedScene
+) -> void:
+	if parent == null or tile.x < 0:
+		return
+	var scene := enemy_scene
+	if scene == null:
+		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
+	var encounter = _EncounterNodeScript.new()
+	encounter.position = _CampaignBridge.overworld_tile_center(tile)
+	encounter.enemy_count = mini(enemy_count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
+	if scene != null:
+		encounter.enemy_scene = scene
+	encounter.encounter_config = encounter_config.duplicate(true)
+	if enemy_formation.is_empty():
+		encounter.enemy_formation = build_enemy_formation_for_template(encounter_config)
+	else:
+		encounter.enemy_formation = enemy_formation.duplicate(true)
+	encounter.contract_marker_label = contract_marker_label
+	encounter.marker_kind = marker_kind
+	parent.add_child(encounter)
+
+
 static func _spawn_contract_at_tile(
 	parent: Node,
 	tile: Vector2i,
@@ -183,7 +213,7 @@ static func _spawn_contract_at_tile(
 	if scene == null:
 		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
 	var encounter = _EncounterNodeScript.new()
-	encounter.position = Vector2(tile.x * TILE_SIZE + 32, tile.y * TILE_SIZE + 32)
+	encounter.position = _CampaignBridge.overworld_tile_center(tile)
 	encounter.enemy_count = mini(
 		int(template.get("enemy_count", 3)), CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP
 	)
@@ -200,7 +230,7 @@ static func _encounter_on_tile(parent: Node, tile: Vector2i) -> bool:
 	if parent == null or tile.x < 0:
 		return false
 	for child in parent.get_children():
-		if child.get_script() == _EncounterNodeScript and _tile_coords(child.position) == tile:
+		if child.get_script() == _EncounterNodeScript and _CampaignBridge.overworld_tile_from_position(child.position) == tile:
 			return true
 	return false
 
@@ -208,10 +238,10 @@ static func _encounter_on_tile(parent: Node, tile: Vector2i) -> bool:
 static func _reserve_tiles(parent: Node) -> Array:
 	var used: Array = [CAMP_TILE]
 	if parent.has_node("Character"):
-		used.append(_tile_coords(parent.get_node("Character").position))
+		used.append(_CampaignBridge.overworld_tile_from_position(parent.get_node("Character").position))
 	for child in parent.get_children():
 		if child.get_script() == _EncounterNodeScript:
-			used.append(_tile_coords(child.position))
+			used.append(_CampaignBridge.overworld_tile_from_position(child.position))
 	return used
 
 
@@ -232,7 +262,3 @@ static func _first_free_tile(reserved: Array) -> Vector2i:
 			if t not in reserved:
 				return t
 	return Vector2i(-1, -1)
-
-
-static func _tile_coords(pos: Vector2) -> Vector2i:
-	return Vector2i(floor((pos.x - 32) / 64.0), floor((pos.y - 32) / 64.0))

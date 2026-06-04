@@ -2,7 +2,7 @@ class_name MedicalPhaseController
 extends RefCounted
 
 ## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, and ally medical actions.
-## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), get_health_entity(node) -> Node (or use CombatantEntityAccess).
+## Manager must have: `combatants`, `medical_phase`, `medical_phase_winner`; entity via **`CombatantEntityAccess.get_health_entity_from_node`**.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -81,10 +81,9 @@ static func is_losing_side(manager: Node, c: Dictionary) -> bool:
 
 
 static func is_losing_side_id(manager: Node, combatant_id: int) -> bool:
-	if manager == null or combatant_id < 0 or not manager.has_method("_get_by_id"):
+	if manager == null or combatant_id < 0:
 		return false
-	var c: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
-	return is_losing_side(manager, c)
+	return is_losing_side(manager, _EntityAccess.manager_get_combatant(manager, combatant_id))
 
 
 ## True when an event should not be queued for the losing side (or a pair touching them) during medical phase.

@@ -137,17 +137,9 @@ static func append_melee_vs_enemy_line_rank(
 		var opp_id: int = _EntityAccess.id_int(opp)
 		if flurry_only_id >= 0 and opp_id != flurry_only_id:
 			continue
-		var opp_pack: Variant = zone_geometry_by_combatant_id.get(opp_id, null)
-		var fo: Dictionary = (
-			_ZoneOfControl.zone_geometry_formation_from_pack(opp_pack)
-			if opp_pack is Dictionary
-			else {}
+		var fo: Dictionary = _ZoneOfControl.opponent_formation_for_listing(
+			manager, c, opp, zone_geometry_by_combatant_id, fc
 		)
-		if fo.is_empty():
-			var pair_zg: Dictionary = _ZoneOfControl.zone_geometry_for_pair(manager, c, opp)
-			fo = _ZoneOfControl.zone_geometry_formation_b_from_pair_pack(pair_zg)
-			if fc.is_empty():
-				fc = _ZoneOfControl.zone_geometry_formation_a_from_pair_pack(pair_zg)
 		var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, c, opp, fc, fo)
 		var eff_dist: float = _PairGeometry.cached_eff_dist(pair_geom)
 		var in_swing_range: bool = _PairGeometry.melee_reach_covers_eff_dist(melee_range, eff_dist)

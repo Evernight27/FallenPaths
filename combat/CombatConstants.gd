@@ -65,6 +65,30 @@ const INTENSITY_RANDOM_RANGE := 0.2
 const MEDICAL_MOVE_IDS: Array[String] = [
 	"bandage_self", "pack_wound", "stabilize_wound", "apply_direct_pressure", "apply_tourniquet"
 ]
+
+
+## True when **`move_id`** is a medical-phase action (use this — do not test **`MEDICAL_MOVE_IDS`** directly).
+static func is_medical_move(move_id: String) -> bool:
+	return str(move_id) in MEDICAL_MOVE_IDS
+
+
+## Instant compression hold (not wind-up).
+static func is_direct_pressure_move(move_id: String) -> bool:
+	return str(move_id) == "apply_direct_pressure"
+
+
+## Bandage / pack / stabilize / tourniquet (wind-up; excludes **`apply_direct_pressure`**).
+static func is_wind_up_medical_move(move_id: String) -> bool:
+	return is_medical_move(move_id) and not is_direct_pressure_move(move_id)
+
+
+const DRESSING_MEDICAL_MOVE_IDS: Array[String] = ["bandage_self", "pack_wound", "stabilize_wound"]
+
+
+## Bandage / pack / stabilize only (excludes tourniquet and direct pressure).
+static func is_dressing_medical_move(move_id: String) -> bool:
+	return str(move_id) in DRESSING_MEDICAL_MOVE_IDS
+
 ## Extra pressure pass from the treater while an ally already holds the wound (bandage/pack/tourniquet wind-up). Scales treater medical effectiveness into `EntityMedical._apply_direct_pressure_to_wounds`.
 ## Second rescuer adds this fraction of their compression skill on top of primary hold (buddy pressure, TCCC).
 const DIRECT_PRESSURE_TREATMENT_ASSIST_EFFECTIVENESS_FRACTION := 0.50
@@ -782,6 +806,8 @@ const LANE_MOD_CROWDED := 1.3
 const LANE_MOD_BLOCKED := 1.6
 ## Formation-move AI: damp **`rotate_file`** (and similar) when lane timing is blocked.
 const AI_FORMATION_MOVE_BLOCKED_LANE_MULT := 0.22
+## Menu has no listed melee strikes (rotate/focus/close only) — prefer **`wait`** / hold-line over rotate spam.
+const AI_ROTATE_FILE_NO_MELEE_MENU_MULT := 0.18
 const PRESSURE_MOD_DEFENSIVE := 0.9
 const PRESSURE_MOD_NEUTRAL := 1.0
 const PRESSURE_MOD_AGGRESSIVE := 1.3
@@ -807,6 +833,11 @@ const MOVE_ID_FLEE := "flee"
 const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = [
 	MOVE_ID_SWAP_RANK, MOVE_ID_DRAG_BACK, MOVE_ID_FALL_BACK, MOVE_ID_ROTATE_FILE, MOVE_ID_FLEE
 ]
+
+
+## True when **`move_id`** is a formation reposition / flee action (use this — do not test **`FORMATION_MOVEMENT_MOVE_IDS`** directly).
+static func is_formation_movement_move(move_id: String) -> bool:
+	return str(move_id) in FORMATION_MOVEMENT_MOVE_IDS
 ## Tactical rank penetration (0 = at their front line). Not armor RHA penetration.
 const TACTICAL_PENETRATION_DEPTH_MAX := 2
 ## Extra damp when this side has very few standing fighters (duel / skirmish attrition).
@@ -983,8 +1014,6 @@ const ENGAGEMENT_MODE_CODE_FORMATION := 2
 ## Resolved **Duel** mode: `CombatEngagementMode.snapshot_is_true_duel` (exactly 1 living fighter per side).
 ## Per-side attrition AI damp when this side has at most this many actives (`CombatAIActionPicker._attrition_offense_weight_mult`).
 const AI_ATTRITION_LOW_STANDING_MAX := 2
-## @deprecated Use `AI_ATTRITION_LOW_STANDING_MAX` — not used for engagement-mode classification.
-const ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE := AI_ATTRITION_LOW_STANDING_MAX
 ## Formation requires both sides at/above this active count in addition to front/fill thresholds.
 const ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE := 4
 ## III-4 Track A **3b**: Skirmish **`rotate_file`** only when `our_files > opp_files + margin`.
@@ -1397,6 +1426,10 @@ static func feint_guard_zone_readiness_spacing_mult(defender: Dictionary, attack
 
 const REACH_MID_MIN := 1.2  # AI/depth polearm bias; shorts still strike at MID when melee_range >= effective_pair_eff_dist.
 const MOVE_ID_ATTEMPT_CLOSE := "attempt_close"
+## **`CombatManager.skip_turn`** log_outcome values (see **`CombatLogFormatter`**).
+const SKIP_TURN_LOG_PASS := "pass"
+const SKIP_TURN_LOG_WAIT := "wait"
+const SKIP_TURN_LOG_REJECT := "reject"
 ## Max living opponents at **DISTANCE_CLOSE** vs one defender (IV-2 / M4f). Tight formation +1.
 const CLOSE_SLOTS_PER_TARGET := 3
 const CLOSE_SLOTS_PER_TARGET_TIGHT_BONUS := 1
@@ -1615,7 +1648,7 @@ static func line_to_angle(line: String) -> float:
 	return float(LINE_TO_ANGLE_DEG.get(line, 0))
 
 
-## Map angle to nearest guard line (four-line legacy or eight-line octants when **`FEATURE_HEMA_EIGHT_GUARD_LINES`**).
+## Map angle to nearest guard line (four-line ids or eight-line octants when **`FEATURE_HEMA_EIGHT_GUARD_LINES`**).
 static func angle_to_nearest_line(angle_deg: float) -> String:
 	if is_feature_hema_eight_guard_lines_enabled():
 		return _GuardLines.angle_to_line(angle_deg)

@@ -80,4 +80,4 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 				continue
 			var oid2: int = _EntityAccess.id_int(opp)
 			if _EntityAccess.nested_dictionary_for_mutation(c, "distance_to").get(oid2, "") == CombatConstants.DISTANCE_CLOSE:
-				_EntityAccess.nested_dictionary_for_mutation(opp, "distance_to")[cid2] = CombatConstants.DISTANCE_CLOSE
+				_EntityAccess.sync_close_distance_pair(c, opp, cid2, oid2)

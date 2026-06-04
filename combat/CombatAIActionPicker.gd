@@ -7,7 +7,7 @@ extends RefCounted
 ## Pending retry: strongly prefer retrying the failed part when target is still in peril.
 ## For attacks: adds target_part from path when pathway allows (unguarded bonus). Counter-tempo listing (**`ACTION_KEY_COUNTER_TEMPO`**) × **`CounterTempo.counter_tempo_listing_weight_mult`** (**`AI_COUNTER_TEMPO_*`**). **`is_feint`** moves get **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** × defender-readiness lerp (**`PassiveParryContext.get_passive_parry_readiness`** × **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move’s **`contact_type`** × **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** on the defender × **`CombatConstants.ai_feint_listing_defender_readiness_spacing_mult`** from defender **`distance_to[attacker]`** — same curve as **`DefenseChoiceResolver`** reported readiness, not attacker stamina) × attacker **`CombatConstants.get_stance_modifier(..., "ai_feint_listing")`** × defender footwork state mult (**`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** when off-balance; elif **`STATE_RECOVERING`**, **`AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT`**; elif settled **`STATE_WAITING`**, **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**) × optional low-stamina feint dampening × formation doctrine **`probing`** / **`pinch_center`** / **`hold_lane`** (**`AI_FEINT_LISTING_DOCTRINE_*_MULT`**) × short-horizon boost after that defender **`parry_deflect`** (**`COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`**, **`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_*`**) (Tier 4.2).
 ## Feint **listing** applies **`DefenseChoiceResolver._feint_readiness_reveal_mult`** when the attacker has live **`pending_attack`** on the listed target (same move / wind-up progress as **`choose_defense`**).
-## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), _is_medical_move, _is_in_immediate_peril.
+## Manager must have: **`CombatantEntityAccess.manager_get_combatant`**, `get_health_entity`, `_is_in_immediate_peril`.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
@@ -17,6 +17,7 @@ const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
+const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
@@ -57,12 +58,17 @@ static func pick_weighted(actions: Array, combatant_id: int, manager: Node) -> D
 	_TargetScoring.prune_expired_commitments(manager)
 	var ctx_actor: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, c_pick)
 	var zone_by_id: Dictionary = _ZoneOfControl.zone_geometry_line_context_by_combatant_id(manager)
+	var menu_no_melee: bool = _ListedActions.action_list_has_no_melee_strikes(actions)
 	var total: float = 0.0
 	for a in actions:
-		total += _get_action_weight(a, combatant_id, manager, true, ctx_actor, zone_by_id)
+		total += _get_action_weight(
+			a, combatant_id, manager, true, ctx_actor, zone_by_id, menu_no_melee
+		)
 	var r: float = randf() * total
 	for a in actions:
-		var w: float = _get_action_weight(a, combatant_id, manager, true, ctx_actor, zone_by_id)
+		var w: float = _get_action_weight(
+			a, combatant_id, manager, true, ctx_actor, zone_by_id, menu_no_melee
+		)
 		if r < w:
 			var choice: Dictionary = a.duplicate()
 			_add_attack_target_part(choice, manager, combatant_id)
@@ -131,7 +137,7 @@ static func resolve_picked_turn(
 	var committed: bool = resolve_choice(manager, combatant_id, choice, self_target)
 	if not committed and manager != null and bool(manager.medical_phase):
 		_EntityAccess.manager_skip_turn(
-			manager, combatant_id, "pass", "medical coordination blocked stale pick"
+			manager, combatant_id, CombatConstants.SKIP_TURN_LOG_PASS, "medical coordination blocked stale pick"
 		)
 	elif not committed:
 		_verify_turn_committed_after_resolve(
@@ -153,7 +159,9 @@ static func resolve_picked_turn_or_skip(
 		actions = manager.get_available_actions(combatant_id)
 		actions = _MedicalCoord.filter_actions_for_pick(manager, combatant_id, actions)
 	if actions.is_empty():
-		_EntityAccess.manager_skip_turn(manager, combatant_id, "pass", "no available actions")
+		_EntityAccess.manager_skip_turn(
+			manager, combatant_id, CombatConstants.SKIP_TURN_LOG_PASS, "no available actions"
+		)
 		return
 	resolve_picked_turn(manager, combatant_id, actions, log_side, self_target)
 
@@ -209,10 +217,11 @@ static func _get_action_weight(
 	manager: Node,
 	skip_targeting_prune: bool = false,
 	actor_zone_geometry_line_context: Dictionary = {},
-	zone_geometry_by_combatant_id: Dictionary = {}
+	zone_geometry_by_combatant_id: Dictionary = {},
+	menu_has_no_melee_strikes: bool = false
 ) -> float:
 	var mid: String = a.get("move_id", "")
-	if manager._is_medical_move(mid):
+	if CombatConstants.is_medical_move(mid):
 		return _get_medical_weight(a, combatant_id, manager)
 	# Combat actions: attack, attempt_close, swap_rank
 	var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
@@ -244,6 +253,8 @@ static func _get_action_weight(
 		var lane_preview: Dictionary = _FormationMoveDuration.preview_lane_pressure_for_combatant(manager, c)
 		if float(lane_preview.get("lane_foot", 0.0)) >= CombatConstants.LANE_MOD_BLOCKED - 0.05:
 			rot_w *= CombatConstants.AI_FORMATION_MOVE_BLOCKED_LANE_MULT
+		if menu_has_no_melee_strikes:
+			rot_w *= CombatConstants.AI_ROTATE_FILE_NO_MELEE_MENU_MULT
 		return rot_w
 	if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		var tgt_id_close: int = int(a.get("target_id", -1))
@@ -254,7 +265,7 @@ static func _get_action_weight(
 			return 0.0
 	if mid in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK]:
 		var partner_id: int = a.get("target_id", -1)
-		var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, partner_id)
+		var partner: Dictionary = _EntityAccess.manager_get_combatant(manager, partner_id)
 		var partner_incapacitated: bool = not partner.is_empty() and _EntityAccess.is_incapacitated(partner)
 		if partner_incapacitated:
 			# Back rank plugging forward — partner (front) is incapacitated; strongly prefer.
@@ -282,37 +293,10 @@ static func _get_action_weight(
 		if tid_feint >= 0:
 			var tgt_feint: Dictionary = _EntityAccess.manager_get_combatant(manager, tid_feint)
 			if not tgt_feint.is_empty():
-				pr_def = clampf(_PassiveParry.get_passive_parry_readiness(tgt_feint), 0.0, 1.0)
-				var ct_mv: String = str(_WeaponConstants.get_move(mid).get("contact_type", _WeaponConstants.ATTACK_TYPE_CUT))
-				pr_def = clampf(
-					pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct_mv), 0.0, 1.0
-				)
-				pr_def = clampf(
-					pr_def
-					* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
-						_EntityAccess.stamina_ratio(tgt_feint)
-					)
-					* CombatConstants.defender_passive_readiness_exhaustion_mult(tgt_feint),
-					0.0,
-					1.0
-				)
-				pr_def = clampf(
-					pr_def
-					* CombatConstants.ai_feint_listing_defender_readiness_spacing_mult(
-						tgt_feint, _EntityAccess.id_int(c)
-					),
-					0.0,
-					1.0
-				)
 				var pa_live: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
-				if not pa_live.is_empty() and int(pa_live.get("target_id", -1)) == tid_feint:
-					var pa_mid: String = str(pa_live.get("attack_type", "")).strip_edges()
-					if pa_mid.is_empty() or pa_mid == mid:
-						pr_def = clampf(
-							pr_def * _DefenseChoice._feint_readiness_reveal_mult(pa_live, c),
-							0.0,
-							1.0
-						)
+				pr_def = _DefenseChoice.defender_feint_listing_pr_def(
+					tgt_feint, _EntityAccess.id_int(c), mid, c, pa_live
+				)
 		var read_m: float = lerpf(
 			1.0,
 			CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT,
@@ -573,10 +557,10 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 		part_threat = _MedicalPhase.get_part_intervention_threat(manager, tgt, part)
 	var w: float = 1.0 + urgency * (_MedicalPhase.MEDICAL_URGENCY_WEIGHT_MAX - 1.0)
 	w += part_threat * _MedicalPhase.MEDICAL_AI_PART_THREAT_MULT
-	var advanced: bool = mid in ["bandage_self", "pack_wound", "stabilize_wound", "apply_tourniquet"]
+	var advanced: bool = CombatConstants.is_wind_up_medical_move(mid)
 	if advanced:
 		w *= pow(eff, _MedicalPhase.MEDICAL_AI_ADVANCED_SKILL_EXP)
-	elif mid == "apply_direct_pressure":
+	elif CombatConstants.is_direct_pressure_move(mid):
 		var span: float = maxf(_MedicalPhase.MEDICAL_AI_EFF_CLAMP_MAX - _MedicalPhase.MEDICAL_AI_EFF_CLAMP_MIN, 0.01)
 		var t: float = clampf((eff - _MedicalPhase.MEDICAL_AI_EFF_CLAMP_MIN) / span, 0.0, 1.0)
 		w *= lerpf(_MedicalPhase.MEDICAL_AI_PRESSURE_LOW_SKILL_MULT, _MedicalPhase.MEDICAL_AI_PRESSURE_HIGH_SKILL_MULT, t)
@@ -597,22 +581,22 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 	):
 		if mid == "apply_tourniquet":
 			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_TOURNIQUET_INDICATED
-		elif mid in ["bandage_self", "pack_wound", "stabilize_wound"]:
+		elif CombatConstants.is_dressing_medical_move(mid):
 			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_BANDAGE_BEFORE_HEMOSTASIS
 	if not tgt.is_empty() and not part.is_empty():
 		var bleed_r: float = _EntityAccess.entity_bleeding_rate_for_part(manager, tgt, part)
 		var active_bleed: bool = bleed_r > _Bleeding.BLEEDING_RATE_EPSILON
 		var held: bool = _EntityAccess.entity_has_direct_pressure_on_part(manager, tgt, part)
-		if mid == "apply_direct_pressure" and _MedicalCoord.can_stack_assist_pressure(
+		if CombatConstants.is_direct_pressure_move(mid) and _MedicalCoord.can_stack_assist_pressure(
 			manager, combatant_id, tgt_id, part
 		):
 			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_TREATMENT_ASSIST_PRESSURE
-		elif held and mid == "apply_direct_pressure":
+		elif held and CombatConstants.is_direct_pressure_move(mid):
 			return _MedicalPhase.MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED
 		if active_bleed and not held:
-			if mid == "apply_direct_pressure":
+			if CombatConstants.is_direct_pressure_move(mid):
 				w *= _MedicalPhase.MEDICAL_AI_WEIGHT_PRESSURE_ACTIVE_BLEED
-			elif mid in ["bandage_self", "pack_wound", "stabilize_wound"]:
+			elif CombatConstants.is_dressing_medical_move(mid):
 				if not _MedicalPhase.dressings_allowed_for_part(manager, tgt, part):
 					return 0.001
 				if mid == "pack_wound":
@@ -620,20 +604,13 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 	return maxf(w, 0.001)
 
 static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_id: int) -> void:
-	if manager._is_medical_move(choice.get("move_id", "")):
+	if CombatConstants.is_medical_move(choice.get("move_id", "")):
 		return
 	if choice.get("move_id", "") == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return  # Close attempt targets a combatant, not a body part
-	if choice.get("move_id", "") in [
-		CombatConstants.MOVE_ID_SWAP_RANK,
-		CombatConstants.MOVE_ID_DRAG_BACK,
-		CombatConstants.MOVE_ID_FALL_BACK,
-		CombatConstants.MOVE_ID_ROTATE_FILE,
-	]:
+	if CombatConstants.is_formation_movement_move(str(choice.get("move_id", ""))):
 		return
 	if choice.get("move_id", "") == CombatConstants.MOVE_ID_WAIT:
-		return
-	if choice.get("move_id", "") == CombatConstants.MOVE_ID_FLEE:
 		return
 	var tgt_id: int = choice.get("target_id", -1)
 	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tgt_id)

@@ -308,7 +308,10 @@ static func append_combat_wait_if_needed(actions: Array, combatant_id: int) -> v
 	if _ListedActions.action_list_is_reserve_posture_only(actions):
 		actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})
 		return
+	if _ListedActions.action_list_is_hold_line_menu(actions):
+		actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})
+		return
 	for a in actions:
-		if a.get("move_id", "") not in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+		if not CombatConstants.is_formation_movement_move(str(a.get("move_id", ""))):
 			return
 	actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})

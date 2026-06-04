@@ -14,6 +14,9 @@ static func handle(manager: Node, combatant_id: int) -> void:
 	var me: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
 	if me.is_empty():
 		return
+	_EntityAccess.finalize_dead_combatant_if_node_dead(manager, me)
+	if not _EntityAccess.is_alive_in_combat(me):
+		return
 	if _EntityAccess.side_str(me) != "player":
 		return
 	var actions: Array = manager.get_available_actions(combatant_id)

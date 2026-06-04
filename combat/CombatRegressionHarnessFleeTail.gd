@@ -285,9 +285,7 @@ static func _run_flee_manager_get_rout_threshold(failures: PackedStringArray) ->
 ## Tier 6.2: listed **`flee`** duration hint marks instant resolve (not fall_back seconds).
 static func _run_flee_listed_duration_hint_instant(failures: PackedStringArray) -> void:
 	const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_player_only()
 	var c: Dictionary = mgr.combatants[0]
 	var cid: int = _EntityAccess.id_int(c)
 	var flee_act: Dictionary = {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": cid}
@@ -400,6 +398,47 @@ static func _run_flee_resolve_marks_combat_absent_and_clears_slot(failures: Pack
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
+## Tier 6.2: formation diagram omits fled unit from rank/file cells; lists under **Fled:** line.
+static func _run_flee_formation_diagram_omits_fled_from_grid(failures: PackedStringArray) -> void:
+	const _Diagram := preload("res://ui/FormationDiagramBuilder.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE}, {"files": 1, "ranks": 1})
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var cid: int = _EntityAccess.id_int(c)
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	ent.name = "FleeTest"
+	var who: String = _EntityAccess.get_display_name(c, cid)
+	CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
+	CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
+	c.state = CombatConstants.STATE_COWERING
+	c.gauge = 100.0
+	var diagram: Control = _Diagram.create(mgr, {"files": 1, "ranks": 1, "density": "normal"}, "player")
+	_ResolveAction.resolve(mgr, cid, cid, CombatConstants.MOVE_ID_FLEE, {})
+	_Diagram.refresh(diagram)
+	var fled_line: Label = diagram.get_meta("_fled_line", null) as Label
+	if fled_line == null or not fled_line.visible or who not in fled_line.text:
+		CombatRegressionHarness._fail(
+			failures, "flee_diagram: want Fled line listing %s got '%s'" % [who, str(fled_line.text if fled_line else "")]
+		)
+	var grid: GridContainer = diagram.get_meta("_formation_grid", null) as GridContainer
+	if grid != null:
+		for child in grid.get_children():
+			if child is Label:
+				var cell_text: String = str((child as Label).text)
+				if who.is_empty():
+					continue
+				if cell_text == who or cell_text.begins_with(who + " "):
+					CombatRegressionHarness._fail(
+						failures,
+						"flee_diagram: fled unit still in grid cell '%s'" % cell_text
+					)
+	diagram.queue_free()
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
 ## Tier 6.2: fled unit shows **Fled** on the gauge row (still **`alive`**).
 static func _run_flee_ui_gauge_label_fled(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
@@ -423,10 +462,7 @@ static func _run_flee_ui_gauge_label_fled(failures: PackedStringArray) -> void:
 
 ## Tier 6.2: **`CombatManager.start()`** clears **`combat_absent`** / **`STATE_FLED`** on reused dicts.
 static func _run_flee_combat_start_clears_absent_state(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var c: Dictionary = mgr.combatants[0]
 	c["combat_absent"] = true
 	c.state = CombatConstants.STATE_FLED
@@ -458,6 +494,7 @@ static func run(failures: PackedStringArray) -> void:
 	_run_flee_ai_pick_not_dampened_personal_crisis(failures)
 	_run_flee_rout_tooltip_suppressed_when_holding(failures)
 	_run_flee_resolve_marks_combat_absent_and_clears_slot(failures)
+	_run_flee_formation_diagram_omits_fled_from_grid(failures)
 	_run_flee_ui_gauge_label_fled(failures)
 	_run_flee_combat_start_clears_absent_state(failures)
 	_run_combat_log_formatter_fled_outcome(failures)

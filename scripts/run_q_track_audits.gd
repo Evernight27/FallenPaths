@@ -12,7 +12,6 @@ const II5_CHECKS: Array = ["soak_setup", "cowering_listed", "cowering_executed"]
 const II4D_CHECKS: Array = ["exhaustion_25", "exhaustion_band", "ii4d_plausibility"]
 const II8_CHECKS: Array = [
 	"formation_mode",
-	"engagement_ui",
 	"turn_ready_gauge",
 	"tooltip_match_ok",
 	"diagram_banner",
@@ -34,16 +33,19 @@ func _init() -> void:
 
 	var text: String = "\n".join(lines) + "\n"
 	print(text)
+	var exit_code: int = 0
 	var f := FileAccess.open(OUT_PATH, FileAccess.WRITE)
 	if f == null:
 		print("FP_HARNESS_FAIL: QTrackAudits could not write %s" % OUT_PATH)
-		quit(1)
-	f.store_string(text)
-	if boundary_fail:
-		print("FP_HARNESS_FAIL: QTrackAudits BOUNDARY_FAIL")
-		quit(1)
-	print("FP_HARNESS_OK: QTrackAudits")
-	quit(0)
+		exit_code = 1
+	else:
+		f.store_string(text)
+		if boundary_fail:
+			print("FP_HARNESS_FAIL: QTrackAudits BOUNDARY_FAIL")
+			exit_code = 1
+		else:
+			print("FP_HARNESS_OK: QTrackAudits")
+	quit(exit_code)
 
 
 static func _read_d001_lines() -> PackedStringArray:

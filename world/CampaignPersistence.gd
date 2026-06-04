@@ -1,0 +1,362 @@
+class_name CampaignPersistence
+extends RefCounted
+
+## D-persistence P2 — single-slot autosave after settlement continue (Camp-5).
+## Atomic write: user://fallen_paths_slot0.json.tmp → slot0.json
+
+const SAVE_PATH := "user://fallen_paths_slot0.json"
+const SAVE_TMP_PATH := "user://fallen_paths_slot0.json.tmp"
+const SAVE_VERSION := 2
+
+const WORLD_META_CONSUMED_CONTRACT_TILES := "consumed_contract_tiles"
+const WORLD_META_CAMP_HEAL_HINT_SHOWN := "camp_heal_hint_shown"
+
+const _CompanyState := preload("res://world/CompanyState.gd")
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _ContractSpawner := preload("res://world/ContractSpawner.gd")
+const _EncounterNodeScript := preload("res://world/EncounterNode.gd")
+const _EncounterSpawner := preload("res://world/EncounterSpawner.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+
+
+static func has_save() -> bool:
+	return FileAccess.file_exists(SAVE_PATH)
+
+
+static func clear_slot() -> void:
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(SAVE_PATH)
+	if FileAccess.file_exists(SAVE_TMP_PATH):
+		DirAccess.remove_absolute(SAVE_TMP_PATH)
+
+
+static func save_slot(world: Node2D) -> bool:
+	if world == null:
+		return false
+	var roster: Array = _serialize_roster(world)
+	if roster.is_empty():
+		push_warning("CampaignPersistence: refuse save with empty living roster")
+		return false
+	var payload: Dictionary = {
+		"version": SAVE_VERSION,
+		"company_state": _CompanyState.get_state(world).duplicate(true),
+		"player_tile": _player_tile_array(world),
+		"party_formation": _serialize_party_formation(world),
+		"consumed_contract_tiles": get_consumed_contract_tiles(world),
+		"remaining_encounters": _serialize_remaining_encounters(world),
+		"roster": roster,
+		"camp_heal_hint_shown": bool(world.get_meta(WORLD_META_CAMP_HEAL_HINT_SHOWN, false)),
+	}
+	var text: String = JSON.stringify(payload, "\t")
+	if not _atomic_write(text):
+		push_warning("CampaignPersistence: failed to write %s" % SAVE_PATH)
+		return false
+	if _OperationalLog.is_play_session_active():
+		_OperationalLog.play_world("campaign_autosave path=%s gold=%d" % [SAVE_PATH, _CompanyState.get_gold(world)])
+	return true
+
+
+static func load_save() -> Dictionary:
+	if not has_save():
+		return {}
+	var text: String = FileAccess.get_file_as_string(SAVE_PATH)
+	var parsed: Variant = JSON.parse_string(text)
+	if parsed is Dictionary and is_valid_save(parsed as Dictionary):
+		return parsed as Dictionary
+	return {}
+
+
+static func is_valid_save(data: Dictionary) -> bool:
+	if data.is_empty():
+		return false
+	if int(data.get("version", 0)) != SAVE_VERSION:
+		return false
+	if not (data.get("company_state", {}) is Dictionary):
+		return false
+	var roster: Variant = data.get("roster", null)
+	if roster is not Array or (roster as Array).is_empty():
+		return false
+	return true
+
+
+static func apply_save(
+	world: Node2D, data: Dictionary, _rng: RandomNumberGenerator, enemy_scene: PackedScene
+) -> void:
+	if world == null or not is_valid_save(data):
+		return
+	var state: Variant = data.get("company_state", {})
+	if state is Dictionary:
+		world.set_meta(_CompanyState.WORLD_META_COMPANY_STATE, (state as Dictionary).duplicate(true))
+	var consumed: Variant = data.get("consumed_contract_tiles", [])
+	if consumed is Array:
+		world.set_meta(WORLD_META_CONSUMED_CONTRACT_TILES, (consumed as Array).duplicate(true))
+	world.set_meta(WORLD_META_CAMP_HEAL_HINT_SHOWN, bool(data.get("camp_heal_hint_shown", false)))
+	_apply_roster(world, data.get("roster", []))
+	var pf: Variant = data.get("party_formation", {})
+	if pf is Dictionary and not (pf as Dictionary).is_empty():
+		world.set_meta("party_formation", (pf as Dictionary).duplicate(true))
+	_restore_remaining_encounters(world, data.get("remaining_encounters", []), enemy_scene)
+	_restore_player_tile(world, data.get("player_tile", []))
+	world.set_meta("camp_tile", _CompanyState.DEFAULT_CAMP_TILE)
+	_CompanyState.attach_to_world(world)
+	_CompanyState.refresh_hud(world)
+
+
+static func mark_consumed_contract_tile(world: Node, tile: Vector2i) -> void:
+	if world == null:
+		return
+	var list: Array = get_consumed_contract_tiles(world)
+	for entry in list:
+		if entry is Array and (entry as Array).size() >= 2:
+			if int((entry as Array)[0]) == tile.x and int((entry as Array)[1]) == tile.y:
+				return
+	list.append([tile.x, tile.y])
+	world.set_meta(WORLD_META_CONSUMED_CONTRACT_TILES, list)
+
+
+static func get_consumed_contract_tiles(world: Node) -> Array:
+	if world == null or not world.has_meta(WORLD_META_CONSUMED_CONTRACT_TILES):
+		return []
+	var raw: Variant = world.get_meta(WORLD_META_CONSUMED_CONTRACT_TILES)
+	return (raw as Array).duplicate(true) if raw is Array else []
+
+
+static func _atomic_write(text: String) -> bool:
+	var f: FileAccess = FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(text)
+	f.close()
+	if FileAccess.file_exists(SAVE_PATH):
+		var removed: Error = DirAccess.remove_absolute(SAVE_PATH)
+		if removed != OK:
+			DirAccess.remove_absolute(SAVE_TMP_PATH)
+			return false
+	var renamed: Error = DirAccess.rename_absolute(SAVE_TMP_PATH, SAVE_PATH)
+	if renamed != OK:
+		DirAccess.remove_absolute(SAVE_TMP_PATH)
+		return false
+	return true
+
+
+static func _player_tile_array(world: Node2D) -> Array:
+	if world == null or not world.has_node("Character"):
+		return [0, 0]
+	var pos: Vector2 = world.get_node("Character").position
+	var tile: Vector2i = _CampaignBridge.overworld_tile_from_position(pos)
+	return [tile.x, tile.y]
+
+
+static func _serialize_party_formation(world: Node2D) -> Dictionary:
+	if world == null or not world.has_meta("party_formation"):
+		return {}
+	var raw: Variant = world.get_meta("party_formation")
+	return (raw as Dictionary).duplicate(true) if raw is Dictionary else {}
+
+
+static func _serialize_remaining_encounters(world: Node2D) -> Array:
+	var out: Array = []
+	if world == null:
+		return out
+	for child in world.get_children():
+		if child.get_script() != _EncounterNodeScript:
+			continue
+		var enc: Node = child
+		var tile: Vector2i = _CampaignBridge.overworld_tile_from_position(enc.position)
+		out.append(
+			{
+				"tile": [tile.x, tile.y],
+				"encounter_config": enc.encounter_config.duplicate(true) if "encounter_config" in enc else {},
+				"enemy_count": int(enc.enemy_count) if "enemy_count" in enc else 1,
+				"enemy_formation": enc.enemy_formation.duplicate(true) if "enemy_formation" in enc else {},
+				"contract_marker_label": str(enc.contract_marker_label) if "contract_marker_label" in enc else "",
+				"marker_kind": str(enc.marker_kind) if "marker_kind" in enc else "",
+			}
+		)
+	return out
+
+
+static func _serialize_roster(world: Node2D) -> Array:
+	var out: Array = []
+	var pm: Variant = world.get_meta("party_manager") if world != null and world.has_meta("party_manager") else null
+	if pm == null or not ("members" in pm):
+		return out
+	for member in pm.members:
+		if member is not Dictionary:
+			continue
+		var node_ref: Variant = (member as Dictionary).get("node_ref")
+		if not is_instance_valid(node_ref) or not (node_ref is Node):
+			continue
+		var node: Node = node_ref as Node
+		if node.has_method("is_dead") and node.is_dead():
+			continue
+		var entity: Node = _CampaignBridge.health_entity_from_character(node)
+		out.append(
+			{
+				"name": str((member as Dictionary).get("name", node.name)),
+				"company_mood": float((member as Dictionary).get("company_mood", _CompanyState.MOOD_DEFAULT)),
+				"entity": _serialize_entity(entity),
+			}
+		)
+	return out
+
+
+static func _serialize_entity(entity: Node) -> Dictionary:
+	if entity == null:
+		return {}
+	var out: Dictionary = {
+		"blood_volume": float(entity.blood_volume) if "blood_volume" in entity else 100.0,
+		"wounds": _deep_dup(entity.wounds) if "wounds" in entity else {},
+		"bandaged_parts": _deep_dup(entity.bandaged_parts) if "bandaged_parts" in entity else {},
+		"packed_parts": _deep_dup(entity.packed_parts) if "packed_parts" in entity else {},
+		"tourniquet_applied": _deep_dup(entity.tourniquet_applied) if "tourniquet_applied" in entity else {},
+		"campaign_afflictions": _deep_dup(entity.campaign_afflictions) if "campaign_afflictions" in entity else [],
+		"body_cutting": _deep_dup(entity.body_cutting) if "body_cutting" in entity else {},
+		"body_blunt": _deep_dup(entity.body_blunt) if "body_blunt" in entity else {},
+		"bone_health": _deep_dup(entity.bone_health) if "bone_health" in entity else {},
+		"weapon_id": _EncounterSpawner.weapon_id_from_entity(entity),
+		"armor_by_part": _EncounterSpawner.armor_ids_from_entity(entity),
+	}
+	if "blood_volume_ml" in entity:
+		out["blood_volume_ml"] = float(entity.blood_volume_ml)
+	if "blood_volume_ml_max" in entity:
+		out["blood_volume_ml_max"] = float(entity.blood_volume_ml_max)
+	return out
+
+
+static func _apply_roster(world: Node2D, roster: Variant) -> void:
+	if world == null or roster is not Array:
+		return
+	var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
+	if pm == null or not ("members" in pm):
+		return
+	var saved_by_name: Dictionary = {}
+	for entry in roster as Array:
+		if entry is Dictionary:
+			saved_by_name[str((entry as Dictionary).get("name", ""))] = entry
+	var to_remove: Array = []
+	for member in pm.members:
+		if member is not Dictionary:
+			continue
+		var name_s: String = str((member as Dictionary).get("name", ""))
+		if not saved_by_name.has(name_s):
+			to_remove.append(name_s)
+	for name_s in to_remove:
+		if pm.has_method("remove_member_by_name"):
+			pm.remove_member_by_name(str(name_s))
+		var node: Node = world.get_node_or_null("Character/%s" % name_s)
+		if node == null and name_s == "Character":
+			node = world.get_node_or_null("Character")
+		if node != null and name_s != "Character" and is_instance_valid(node):
+			node.queue_free()
+	for member in pm.members:
+		if member is not Dictionary:
+			continue
+		var name_s: String = str((member as Dictionary).get("name", ""))
+		if not saved_by_name.has(name_s):
+			continue
+		var saved: Dictionary = saved_by_name[name_s] as Dictionary
+		(member as Dictionary)["company_mood"] = float(saved.get("company_mood", _CompanyState.MOOD_DEFAULT))
+		var node_ref: Variant = (member as Dictionary).get("node_ref")
+		if not is_instance_valid(node_ref):
+			continue
+		var entity_data: Variant = saved.get("entity", {})
+		if entity_data is not Dictionary:
+			continue
+		var entity: Node = _CampaignBridge.health_entity_from_character(node_ref as Node)
+		if entity != null:
+			_apply_entity(entity, entity_data as Dictionary)
+		_apply_equipment(node_ref as Node, entity_data as Dictionary)
+
+
+static func _apply_equipment(character: Node, data: Dictionary) -> void:
+	if character == null or data.is_empty():
+		return
+	var weapon_id: String = str(data.get("weapon_id", "")).strip_edges()
+	var armor: Variant = data.get("armor_by_part", {})
+	var armor_dict: Dictionary = (armor as Dictionary).duplicate(true) if armor is Dictionary else {}
+	_EncounterSpawner.apply_equipment_snapshot(character, weapon_id, armor_dict)
+
+
+static func _apply_entity(entity: Node, data: Dictionary) -> void:
+	if entity == null or data.is_empty():
+		return
+	if data.has("blood_volume"):
+		entity.blood_volume = float(data.get("blood_volume", 100.0))
+	if data.has("blood_volume_ml"):
+		entity.blood_volume_ml = float(data.get("blood_volume_ml", -1.0))
+	if data.has("blood_volume_ml_max"):
+		entity.blood_volume_ml_max = float(data.get("blood_volume_ml_max", -1.0))
+	if data.has("wounds"):
+		entity.wounds = _deep_dup(data.get("wounds", {}))
+	if data.has("bandaged_parts"):
+		entity.bandaged_parts = _deep_dup(data.get("bandaged_parts", {}))
+	if data.has("packed_parts"):
+		entity.packed_parts = _deep_dup(data.get("packed_parts", {}))
+	if data.has("tourniquet_applied"):
+		entity.tourniquet_applied = _deep_dup(data.get("tourniquet_applied", {}))
+	if data.has("campaign_afflictions"):
+		entity.campaign_afflictions = _deep_dup(data.get("campaign_afflictions", []))
+	if data.has("body_cutting"):
+		entity.body_cutting = _deep_dup(data.get("body_cutting", {}))
+	if data.has("body_blunt"):
+		entity.body_blunt = _deep_dup(data.get("body_blunt", {}))
+	if data.has("bone_health"):
+		entity.bone_health = _deep_dup(data.get("bone_health", {}))
+	_sync_entity_vitals(entity)
+
+
+static func _sync_entity_vitals(entity: Node) -> void:
+	if entity == null:
+		return
+	if entity.has_method("_mark_consciousness_dirty"):
+		entity.call("_mark_consciousness_dirty")
+	elif "_consciousness_dirty" in entity:
+		entity.set("_consciousness_dirty", true)
+	if entity.has_method("ensure_consciousness_current"):
+		entity.ensure_consciousness_current()
+
+
+static func _restore_remaining_encounters(
+	world: Node2D, entries: Variant, enemy_scene: PackedScene
+) -> void:
+	if world == null or entries is not Array:
+		return
+	for child in world.get_children():
+		if child.get_script() == _EncounterNodeScript:
+			child.queue_free()
+	for entry in entries as Array:
+		if entry is not Dictionary:
+			continue
+		var tile_raw: Variant = (entry as Dictionary).get("tile", [])
+		if not (tile_raw is Array) or (tile_raw as Array).size() < 2:
+			continue
+		var tile := Vector2i(int((tile_raw as Array)[0]), int((tile_raw as Array)[1]))
+		var cfg: Dictionary = (
+			(entry as Dictionary).get("encounter_config", {}) as Dictionary
+		).duplicate(true)
+		_ContractSpawner.spawn_saved_encounter_at_tile(
+			world,
+			tile,
+			cfg,
+			int((entry as Dictionary).get("enemy_count", cfg.get("enemy_count", 1))),
+			(entry as Dictionary).get("enemy_formation", {}) as Dictionary,
+			str((entry as Dictionary).get("contract_marker_label", "")),
+			str((entry as Dictionary).get("marker_kind", "")),
+			enemy_scene,
+		)
+
+
+static func _restore_player_tile(world: Node2D, tile_raw: Variant) -> void:
+	if world == null or tile_raw is not Array or (tile_raw as Array).size() < 2:
+		return
+	var tile := Vector2i(int((tile_raw as Array)[0]), int((tile_raw as Array)[1]))
+	_CampaignBridge.place_player_on_overworld_tile(world, tile)
+
+
+static func _deep_dup(value: Variant) -> Variant:
+	if value is Dictionary:
+		return (value as Dictionary).duplicate(true)
+	if value is Array:
+		return (value as Array).duplicate(true)
+	return value

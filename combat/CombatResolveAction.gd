@@ -2,6 +2,7 @@ class_name CombatResolveAction
 extends RefCounted
 
 ## Player/AI action dispatch: medical, close, formation moves, melee wind-up scheduling.
+## Move ID checks: **`CombatConstants.is_medical_move`** · **`is_wind_up_medical_move`** · **`is_direct_pressure_move`** · **`is_formation_movement_move`** (aliases here for resolve call sites).
 
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
@@ -19,10 +20,23 @@ const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 
 static func is_medical_move(move_id: String) -> bool:
-	return move_id in CombatConstants.MEDICAL_MOVE_IDS
+	return CombatConstants.is_medical_move(move_id)
+
+
+static func is_formation_movement_move(move_id: String) -> bool:
+	return CombatConstants.is_formation_movement_move(move_id)
+
+
+static func is_direct_pressure_move(move_id: String) -> bool:
+	return CombatConstants.is_direct_pressure_move(move_id)
+
+
+static func is_wind_up_medical_move(move_id: String) -> bool:
+	return CombatConstants.is_wind_up_medical_move(move_id)
 
 
 ## True when the action changed combatant state (wind-up, formation move, flee, etc.). False → reject/skip path; no turn log.
@@ -45,7 +59,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			return false
 	if (
 		_EntityAccess.state_str(atk) == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
-		and move_id == "apply_direct_pressure"
+		and is_direct_pressure_move(move_id)
 		and target_id == attacker_id
 	):
 		atk.receiving_care_turn_pending = false
@@ -59,7 +73,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			return false
 		if _EntityAccess.entity_apply_direct_pressure(manager, atk, part):
 			var who: String = _EntityAccess.get_display_name(atk, attacker_id)
-			print("[Combat] %s (receiving care) holding direct pressure on %s" % [who, part])
+			_CombatDebug.combat_session("%s (receiving care) holding direct pressure on %s" % [who, part])
 			manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "direct_pressure", "part": part, "dmg": 0, "died": false})
 			manager.emit_signal("turn_resolved", attacker_id)
 			return true
@@ -78,7 +92,9 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		return false
 	_PlayerTurnHints.clear_formation_listed_turn_hint_on_combatant(atk)
 	if move_id == CombatConstants.MOVE_ID_WAIT:
-		manager.skip_turn(attacker_id, "wait", "explicit wait move")
+		_EntityAccess.manager_skip_turn(
+			manager, attacker_id, CombatConstants.SKIP_TURN_LOG_WAIT, "explicit wait move"
+		)
 		return true
 	if move_id == CombatConstants.MOVE_ID_FLEE and target_id == attacker_id:
 		if not _FormationFlee.flee_action_legal(manager, atk):
@@ -93,7 +109,9 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			return false
 		var cur_line: String = str(atk.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
 		if cur_line == focus_line:
-			manager.skip_turn(attacker_id, "wait", "focus already set")
+			_EntityAccess.manager_skip_turn(
+				manager, attacker_id, CombatConstants.SKIP_TURN_LOG_WAIT, "focus already set"
+			)
 			return true
 		_GuardLineUpdater.set_guard_from_line(atk, focus_line)
 		manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "focus_line", "line": focus_line})
@@ -283,7 +301,9 @@ static func _commit_close_attempt_resolve(manager: Node, attacker_id: int, targe
 		_EntityAccess.state_str(atk_after) == CombatConstants.STATE_WAITING
 		and _EntityAccess.gauge_float(atk_after) >= 99.9
 	):
-		manager.skip_turn(attacker_id, "pass", "close resolve no-op")
+		_EntityAccess.manager_skip_turn(
+			manager, attacker_id, CombatConstants.SKIP_TURN_LOG_PASS, "close resolve no-op"
+		)
 		return false
 	manager.emit_signal("turn_resolved", attacker_id)
 	return true

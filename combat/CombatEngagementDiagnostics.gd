@@ -97,17 +97,13 @@ static func maybe_log_turn_pick(
 
 
 static func _should_log_pick(move_id: String, actions: Array, c: Dictionary) -> bool:
-	if _ListedActions.action_list_is_reserve_posture_only(actions):
+	if _ListedActions.action_list_is_hold_line_menu(actions):
 		return true
-	if move_id in [
-		CombatConstants.MOVE_ID_WAIT,
-		CombatConstants.MOVE_ID_ROTATE_FILE,
-		CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
-		CombatConstants.MOVE_ID_FLEE,
-		CombatConstants.MOVE_ID_FALL_BACK,
-		CombatConstants.MOVE_ID_SWAP_RANK,
-		CombatConstants.MOVE_ID_DRAG_BACK,
-	]:
+	if (
+		CombatConstants.is_formation_movement_move(move_id)
+		or move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
+		or move_id == CombatConstants.MOVE_ID_WAIT
+	):
 		return true
 	if not c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "").is_empty():
 		return true
@@ -138,10 +134,10 @@ static func _action_menu_counts(actions: Array) -> String:
 				rotate_n += 1
 			CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 				close_n += 1
-			CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK, CombatConstants.MOVE_ID_FLEE:
-				pass
 			_:
-				if not mid.begins_with("focus_") and not mid.is_empty():
+				if CombatConstants.is_formation_movement_move(mid):
+					pass
+				elif not CombatConstants.is_focus_line_move(mid) and not mid.is_empty():
 					strikes += 1
 	return "strikes=%d close=%d rotate=%d wait=%d" % [strikes, close_n, rotate_n, wait_n]
 

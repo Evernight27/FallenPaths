@@ -111,14 +111,33 @@ static func _sync_gauge_label(ctrl: Dictionary, c: Dictionary, text: String, man
 	if not _EntityAccess.alive_bool(c, true):
 		ctrl.gauge_label.tooltip_text = "Defeated — out of the fight."
 		return
+	if _EntityAccess.has_left_battlefield(c):
+		ctrl.gauge_label.tooltip_text = "Fled the field — not in formation."
+		return
 	ctrl.gauge_label.tooltip_text = "\n".join(_UiHints.gauge_tooltip_lines(c, manager))
 
 
+static func _sync_row_visuals(ctrl: Dictionary, c: Dictionary) -> void:
+	var row: Control = ctrl.get("row") as Control
+	if row == null or not row is CanvasItem:
+		return
+	if not _EntityAccess.alive_bool(c, true):
+		row.modulate = Color(0.65, 0.65, 0.65)
+	elif _EntityAccess.has_left_battlefield(c):
+		row.modulate = Color(0.58, 0.6, 0.64)
+	else:
+		row.modulate = Color(1.0, 1.0, 1.0)
+
+
 static func update_combatant_row(ctrl: Dictionary, c: Dictionary, manager: Node = null) -> void:
+	_sync_row_visuals(ctrl, c)
 	if ctrl.name:
 		var row_node: Node = _EntityAccess.scene_node(c)
 		var base_name: String = str(row_node.name) if row_node != null else ctrl.name.text
-		ctrl.name.text = base_name
+		if _EntityAccess.has_left_battlefield(c):
+			ctrl.name.text = "%s (fled)" % base_name
+		else:
+			ctrl.name.text = base_name
 	if ctrl.gauge:
 		ctrl.gauge.max_value = gauge_bar_max_for_combatant(c)
 		ctrl.gauge.value = gauge_bar_value_for_combatant(c, manager)
@@ -139,11 +158,12 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary, manager: Node 
 		var perf: float = s_row.get("performance_modifier", 1.0)
 		ctrl.consciousness_label.text = "Pain: %.1f | Consc: %d%% | Perf: %d%%" % [pain, int(clampf(consc, 0.0, 100.0)), int(roundf(perf * 100.0))]
 	if "body_bars" in ctrl and ctrl.body_bars:
-		var bc: Dictionary = _EntityAccess.nested_dictionary_read(s_row, "body_cutting")
-		var bb: Dictionary = _EntityAccess.nested_dictionary_read(s_row, "body_blunt")
-		var bm: Dictionary = _EntityAccess.nested_dictionary_read(s_row, "body_max")
-		var bone_h: Dictionary = _EntityAccess.nested_dictionary_read(s_row, "bone_health")
-		var bone_m: Dictionary = _EntityAccess.nested_dictionary_read(s_row, "bone_max")
+		var body_stats: Dictionary = _RowFormatter.read_body_stat_dicts(s_row)
+		var bc: Dictionary = body_stats["body_cutting"]
+		var bb: Dictionary = body_stats["body_blunt"]
+		var bm: Dictionary = body_stats["body_max"]
+		var bone_h: Dictionary = body_stats["bone_health"]
+		var bone_m: Dictionary = body_stats["bone_max"]
 		for part in BodyPartConstants.BODY_PARTS:
 			if part in ctrl.body_bars:
 				var bar: ProgressBar = ctrl.body_bars[part]

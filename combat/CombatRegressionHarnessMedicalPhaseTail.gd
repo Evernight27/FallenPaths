@@ -70,7 +70,7 @@ static func _run_medical_phase_cancels_pending_enemy_melee(failures: PackedStrin
 		if typeof(raw) != TYPE_DICTIONARY:
 			continue
 		var mid: String = str((raw as Dictionary).get("move_id", ""))
-		if mid not in CombatConstants.MEDICAL_MOVE_IDS and mid != CombatConstants.MOVE_ID_WAIT:
+		if not CombatConstants.is_medical_move(mid) and mid != CombatConstants.MOVE_ID_WAIT:
 			CombatRegressionHarness._fail(
 				failures,
 				"medical_phase_melee: enemy should not list combat move %s" % mid
@@ -90,10 +90,7 @@ static func _run_medical_phase_cancels_pending_enemy_melee(failures: PackedStrin
 
 ## After medical phase, afterblow must not resolve a losing-side wind-up.
 static func _run_medical_phase_blocks_afterblow_on_loser(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var en: Dictionary = mgr.combatants[1]
 	var e_id: int = _EntityAccess.id_int(en)
@@ -124,10 +121,7 @@ static func _run_medical_phase_blocks_afterblow_on_loser(failures: PackedStringA
 
 ## schedule_event / schedule_action_ready ignore losing-side combat queue entries during medical phase.
 static func _run_medical_phase_blocks_scheduled_enemy_events(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	mgr.medical_phase = true
@@ -153,10 +147,7 @@ static func _run_medical_phase_blocks_scheduled_enemy_events(failures: PackedStr
 
 ## Teardown drops queued formation resolves for the losing side.
 static func _run_medical_phase_teardown_cancels_formation_resolve(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var en: Dictionary = mgr.combatants[1]
 	var e_id: int = _EntityAccess.id_int(en)
 	en.state = CombatConstants.STATE_SWAP_RANK
@@ -182,10 +173,7 @@ static func _run_medical_phase_teardown_cancels_formation_resolve(failures: Pack
 
 ## Purge pass + wind-up start guard: only winner combat events remain schedulable.
 static func _run_medical_phase_purge_queue_and_windup_blocked(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var en: Dictionary = mgr.combatants[1]
 	var e_id: int = _EntityAccess.id_int(en)
@@ -214,10 +202,7 @@ static func _run_medical_phase_purge_queue_and_windup_blocked(failures: PackedSt
 
 ## Loser skip_turn is a no-op during medical phase (no log spam / no reschedule).
 static func _run_medical_phase_skip_turn_silent_for_loser(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var en: Dictionary = mgr.combatants[1]
 	var e_id: int = _EntityAccess.id_int(en)
 	en.state = CombatConstants.STATE_WAITING
@@ -229,7 +214,7 @@ static func _run_medical_phase_skip_turn_silent_for_loser(failures: PackedString
 		func(_a: int, _t: int, _r: Dictionary) -> void:
 			fired_box[0] = int(fired_box[0]) + 1
 	)
-	mgr.skip_turn(e_id, "pass", "harness")
+	_EntityAccess.manager_skip_turn(mgr, e_id, CombatConstants.SKIP_TURN_LOG_PASS, "harness")
 	if int(fired_box[0]) != 0:
 		CombatRegressionHarness._fail(failures, "medical_phase_skip: loser skip_turn should not emit action_resolved")
 	if _EventScheduler.get_next_action_ready_at(mgr, e_id) >= 0.0:
@@ -239,10 +224,7 @@ static func _run_medical_phase_skip_turn_silent_for_loser(failures: PackedString
 
 ## During medical phase the winner cannot start combat moves (thrust / wait / wind-up).
 static func _run_medical_phase_winner_combat_resolve_blocked(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	mgr.medical_phase = true
@@ -302,10 +284,7 @@ static func _run_medical_phase_winner_listing_medical_only(failures: PackedStrin
 
 ## AttackResultApplier must not apply combat outcomes during medical phase.
 static func _run_medical_phase_apply_result_blocked(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var fired_box: Array = [0]
 	mgr.action_resolved.connect(
@@ -326,10 +305,7 @@ static func _run_medical_phase_apply_result_blocked(failures: PackedStringArray)
 
 ## Second `_end_combat_phase("player")` refreshes teardown without re-emitting `enemies_eliminated`.
 static func _run_medical_phase_end_combat_idempotent(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	var en: Dictionary = mgr.combatants[1]
 	en.state = CombatConstants.STATE_WIND_UP
@@ -362,10 +338,7 @@ static func _run_medical_phase_end_combat_idempotent(failures: PackedStringArray
 
 ## Tier 6.2: medical phase teardown clears **`combat_absent`** / **`STATE_FLED`** like **`CombatManager.start()`**.
 static func _run_medical_phase_clears_fled_combatant_state(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var c: Dictionary = mgr.combatants[0]
 	c["combat_absent"] = true
 	c.state = CombatConstants.STATE_FLED
@@ -622,10 +595,7 @@ static func _run_wound_merge_same_subregion(failures: PackedStringArray) -> void
 
 
 static func _run_medical_phase_losing_side_stays_fled(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var enemy_c: Dictionary = mgr.combatants[1]
 	enemy_c["combat_absent"] = true
 	enemy_c.state = CombatConstants.STATE_FLED
@@ -652,7 +622,6 @@ static func _run_medical_coordination_stack_assist_during_windup(failures: Packe
 	var ha: Dictionary = mgr.combatants[0]
 	var hb: Dictionary = mgr.combatants[1]
 	var pt: Dictionary = mgr.combatants[2]
-	var ha_id: int = _EntityAccess.id_int(ha)
 	var hb_id: int = _EntityAccess.id_int(hb)
 	var pt_id: int = _EntityAccess.id_int(pt)
 	if not patient.apply_direct_pressure_from_ally("left_arm", healer_a):
@@ -702,7 +671,6 @@ static func _run_medical_coordination_blocks_overlapping_treatment(failures: Pac
 	var ha: Dictionary = mgr.combatants[0]
 	var hb: Dictionary = mgr.combatants[1]
 	var pt: Dictionary = mgr.combatants[2]
-	var ha_id: int = _EntityAccess.id_int(ha)
 	var hb_id: int = _EntityAccess.id_int(hb)
 	var pt_id: int = _EntityAccess.id_int(pt)
 	ha.state = CombatConstants.STATE_MEDICAL_WIND_UP
@@ -927,7 +895,6 @@ static func _run_pack_wound_windup_complete_packed_outcome(failures: PackedStrin
 	mgr.medical_phase_winner = "player"
 	var healer: Dictionary = mgr.combatants[0]
 	var ally: Dictionary = mgr.combatants[1]
-	var healer_id: int = _EntityAccess.id_int(healer)
 	var ally_id: int = _EntityAccess.id_int(ally)
 	var ally_node: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
 	_harness_wound_chest_for_packing(ally_node)

@@ -97,7 +97,7 @@ static func _sharp_bone_damage(
 ) -> float:
 	var to_bone: float = 0.0
 	if penetration_sharp >= MFB_CUT_BONE_MIN_PENETRATION_MM:
-		to_bone = _legacy_bone_from_stream(final_cut, part, sub_region)
+		to_bone = _bone_from_tissue_stream_threshold(final_cut, part, sub_region)
 	if strike_ke_j >= 0.0:
 		var j_anchor: float = blunt_fracture_j_anchor(part, sub_region)
 		if strike_ke_j >= j_anchor:
@@ -121,14 +121,14 @@ static func _blunt_bone_damage_capped(
 				MFB_BLUNT_FRACTURE_GAME_DAMAGE_FLOOR,
 				j_excess_to_bone_damage(strike_ke_j - j_anchor)
 			)
-	var legacy: float = _legacy_bone_from_stream(final_blunt, part, sub_region)
-	if legacy > 0.0:
-		to_bone = maxf(to_bone, legacy)
+	var stream_fallback: float = _bone_from_tissue_stream_threshold(final_blunt, part, sub_region)
+	if stream_fallback > 0.0:
+		to_bone = maxf(to_bone, stream_fallback)
 	var cap: float = final_blunt * MFB_BLUNT_MAX_BONE_SHARE_OF_BLUNT
 	return minf(to_bone, cap)
 
 
-static func _legacy_bone_from_stream(stream_damage: float, part: String, sub_region: String) -> float:
+static func _bone_from_tissue_stream_threshold(stream_damage: float, part: String, sub_region: String) -> float:
 	var bone_threshold: int = _BodyPartConstants.get_bone_damage_threshold(part, sub_region)
 	var bone_fraction: float = _BodyPartConstants.get_bone_damage_fraction(part, sub_region)
 	var bone_min: int = _BodyPartConstants.get_bone_damage_min(part)

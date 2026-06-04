@@ -80,8 +80,7 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 	manager.emit_signal("action_resolved", attacker_id, target_id, close_result)
 	var blk: Dictionary = _EntityAccess.nested_dictionary_for_mutation(atk, "close_block_until_by_target_id")
 	if success:
-		_EntityAccess.nested_dictionary_for_mutation(atk, "distance_to")[target_id] = CombatConstants.DISTANCE_CLOSE
-		_EntityAccess.nested_dictionary_for_mutation(tgt, "distance_to")[attacker_id] = CombatConstants.DISTANCE_CLOSE
+		_EntityAccess.sync_close_distance_pair(atk, tgt, attacker_id, target_id)
 		blk.erase(target_id)
 		_TargetScoring.on_combat_commitment(manager, attacker_id, target_id)
 	else:

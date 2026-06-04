@@ -471,10 +471,11 @@ static func _run_depth_polearm_layout_fuzz(failures: PackedStringArray) -> void:
 
 ## Front-rank sword vs sword: CLOSE or MID must list real strikes (MID uses geometric reach, not only REACH_MID_MIN).
 static func _run_front_rank_pair_melee_listed(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
+		"SWORD",
+		{"files": 1, "ranks": 1, "density": "normal"},
+		{"files": 1, "ranks": 1, "density": "normal"}
+	)
 	mgr._recompute_zoc_and_distance()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
@@ -630,7 +631,6 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 		)
 	if not _EngagementMode.can_enter_formation_from_snapshot(s4):
 		CombatRegressionHarness._fail(failures, "engagement: 4v4 formation snap must satisfy can_enter_formation_from_snapshot")
-	var mode_f: String = _EngagementMode.engagement_mode(f)
 	_assert_tactical_snapshot_matches(failures, f, "engagement large 4v4")
 	CombatRegressionHarness._free_manager(f)
 
@@ -1071,9 +1071,7 @@ static func _run_engagement_mode_cache_reset_on_second_start(failures: PackedStr
 		if n != null:
 			n.queue_free()
 	mgr.combatants.clear()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	CombatRegressionHarness._harness_reregister_1v1(mgr)
 	var m1: String = _EngagementMode.engagement_mode(mgr)
 	if m1 != CombatConstants.ENGAGEMENT_MODE_DUEL:
 		CombatRegressionHarness._fail(
@@ -1102,8 +1100,8 @@ static func _run_engagement_attrition_monotone(failures: PackedStringArray) -> v
 		CombatRegressionHarness._shuffle_int_array_in_place(order, rng)
 		var left_formation: bool = false
 		for cid in order:
-			var cur: Variant = mgr._get_by_id(int(cid))
-			if cur == null or not _EntityAccess.alive_bool(cur):
+			var cur: Dictionary = _EntityAccess.manager_get_combatant(mgr, int(cid))
+			if cur.is_empty() or not _EntityAccess.alive_bool(cur):
 				continue
 			CombatRegressionHarness._soak_kill_combatant(mgr, int(cid))
 			var resolved: String = _EngagementMode.engagement_mode(mgr)
@@ -1309,10 +1307,7 @@ static func _run_surround_production_path_dampens_defense_vs_compressed_flanks(f
 
 ## Tier 1.9 auto profile: `line_discipline` / `engagement_posture` steer over-shoulder vs open when `spear_lane_profile` is auto (**OPEN** and **DUEL** open lows under tight when not strict-only).
 static func _run_telemetry_invalid_melee_resolve_blocked(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1337,10 +1332,7 @@ static func _run_telemetry_invalid_melee_resolve_blocked(failures: PackedStringA
 
 ## Tier 1.8: `attempt_close` is not listed when pair band is MID/CLOSE (matches `resolve_close_attempt` LONG-only).
 static func _run_telemetry_invalid_close_resolve_blocked(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1364,10 +1356,7 @@ static func _run_telemetry_invalid_close_resolve_blocked(failures: PackedStringA
 
 ## Failed pressure-vs-evasion close emits `reason: contest_failed` for UI / tooling (not only generic `close_failed`).
 static func _run_attempt_close_listed_only_at_long(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1403,10 +1392,7 @@ static func _run_attempt_close_listed_only_at_long(failures: PackedStringArray) 
 
 ## Tier 1.8: `CombatAIActionPicker` must not weight stale `attempt_close` at MID/CLOSE (defense in depth vs listing).
 static func _run_attempt_close_ai_weight_zero_when_not_long(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1442,10 +1428,7 @@ static func _run_attempt_close_ai_weight_zero_when_not_long(failures: PackedStri
 
 ## Tier 1.8: `resolve_close_attempt` when pair band is not LONG (stale vs `attempt_close` listing) increments telemetry.
 static func _run_close_contest_failed_emits_reason(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1485,12 +1468,7 @@ static func _run_close_contest_failed_emits_reason(failures: PackedStringArray) 
 
 ## `resolve_close_attempt` must not run the contest vs an incapacitated defender (stale UI / AI only).
 static func _run_resolve_close_no_emit_when_target_incap(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	var ent_enemy := CombatRegressionHarness._new_entity("SWORD")
-	ent_enemy.consciousness = 5.0
-	mgr.register(ent_enemy, "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1_incap_enemy()
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1635,10 +1613,7 @@ static func _run_telemetry_automatic_doctrine_pinch_record(failures: PackedStrin
 
 ## Snapshot rows carry `formation_doctrine` aligned with `CombatManager.get_formation_doctrine`.
 static func _run_combatants_snapshot_formation_doctrine_field(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_HOLD_LANE)
 	var rows: Array = mgr.get_combatants()
 	var ok_player: bool = false
@@ -1830,10 +1805,11 @@ static func _run_surround_live_weight_sum_matches_from_pa_sector_path(failures: 
 
 ## Tier 3.1: one engaging threat — integer **n≤1** and sector **`wsum`≤`SURROUND_SECTOR_LOAD_FREE`** both stay neutral (**1.0**).
 static func _run_surround_single_threat_int_and_sector_neutral(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
+		"SWORD",
+		{"files": 1, "ranks": 1, "density": "normal"},
+		{"files": 1, "ranks": 1, "density": "normal"}
+	)
 	for c in mgr.combatants:
 		c["gauge"] = 100.0
 	mgr._recompute_zoc_and_distance()
@@ -1924,10 +1900,11 @@ static func _run_sector_surround_feature_flag_respects_runtime_toggle(failures: 
 
 ## Tier 1.6: `posture_cohesion_targeting_mult` rises with line cohesion in LINE posture; OPEN uses inverse (looser line → higher mult).
 static func _run_ai_targeting_posture_cohesion_mult(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
+		"SWORD",
+		{"files": 1, "ranks": 1, "density": "normal"},
+		{"files": 1, "ranks": 1, "density": "normal"}
+	)
 	var p: Dictionary = mgr.combatants[0]
 	var pfid: String = _EntityAccess.formation_id_str(p)
 	var fd: Dictionary = _FormationSlots.formation_record_for_manager(mgr, pfid)
@@ -2193,10 +2170,11 @@ static func _run_targeting_file_opposed_mult(failures: PackedStringArray) -> voi
 
 ## Tier 1.6: **`CombatTargetScoring.pinch_score_mult`** — **`pinch_center`** + **`wing_lacks_file_opposed`** nudges weight toward enemies nearer the hostile line center ( **`DOCTRINE_PINCH_INWARD_BIAS_PER_FILE`** ).
 static func _run_targeting_pinch_center_inward_bonus(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 2, "ranks": 1, "density": "normal"}, {"files": 2, "ranks": 1, "density": "normal"})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
+		"SWORD",
+		{"files": 2, "ranks": 1, "density": "normal"},
+		{"files": 2, "ranks": 1, "density": "normal"}
+	)
 	for c in mgr.combatants:
 		c["gauge"] = 100.0
 	var p: Dictionary = mgr.combatants[0]
@@ -2247,10 +2225,11 @@ static func _run_targeting_pinch_center_inward_bonus(failures: PackedStringArray
 
 ## Tier 1.6: **`CombatTargetScoring.commitment_match_mult`** after **`on_combat_commitment`** ( **`DOCTRINE_COMMIT_MATCH_WEIGHT_MULT`** ).
 static func _run_targeting_commitment_match_mult(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
+		"SWORD",
+		{"files": 1, "ranks": 1, "density": "normal"},
+		{"files": 1, "ranks": 1, "density": "normal"}
+	)
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var pid: int = _EntityAccess.id_int(p)
@@ -2326,10 +2305,11 @@ static func _run_targeting_soft_geometry_eff_dist_formula(failures: PackedString
 
 ## Tier 1.6: **`prune_expired_commitments`** clears stale **`doctrine_target_commit_id`** after **`doctrine_commit_until`** vs **`combat_clock`**.
 static func _run_targeting_prune_expired_doctrine_commitment(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
+		"SWORD",
+		{"files": 1, "ranks": 1, "density": "normal"},
+		{"files": 1, "ranks": 1, "density": "normal"}
+	)
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var pid: int = _EntityAccess.id_int(p)
@@ -2349,10 +2329,11 @@ static func _run_targeting_prune_expired_doctrine_commitment(failures: PackedStr
 
 ## Tier 1.6: **`prune_expired_commitments`** clears doctrine commit when the **committed target** is no longer alive (before clock expiry).
 static func _run_targeting_prune_commitment_when_target_dies(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
+		"SWORD",
+		{"files": 1, "ranks": 1, "density": "normal"},
+		{"files": 1, "ranks": 1, "density": "normal"}
+	)
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var pid: int = _EntityAccess.id_int(p)
@@ -2406,10 +2387,11 @@ static func _run_targeting_clear_all_state_for_dead_defender(failures: PackedStr
 
 ## Tier 1.6 breadth: `opponent_formation_targeting_mult` — solid enemy LINE hedges listed weights; ragged LINE presses; OPEN uses fixed nudge.
 static func _run_ai_targeting_opponent_formation_mult(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
+		"SWORD",
+		{"files": 1, "ranks": 1, "density": "normal"},
+		{"files": 1, "ranks": 1, "density": "normal"}
+	)
 	var opp: Dictionary = mgr.combatants[1]
 	var efid: String = _EntityAccess.formation_id_str(opp)
 	var efd: Dictionary = _FormationSlots.formation_record_for_manager(mgr, efid)
@@ -2436,10 +2418,11 @@ static func _run_ai_targeting_opponent_formation_mult(failures: PackedStringArra
 
 ## Tier 1.6: **`formation_dict_cache`** on **`opponent_formation_targeting_mult`**, **`posture_cohesion_targeting_mult`** matches live **`ZoneOfControl.formation_for_combatant_cached`**.
 static func _run_targeting_formation_dict_cache_matches_live(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
+		"SWORD",
+		{"files": 1, "ranks": 1, "density": "normal"},
+		{"files": 1, "ranks": 1, "density": "normal"}
+	)
 	var p: Dictionary = mgr.combatants[0]
 	var opp: Dictionary = mgr.combatants[1]
 	var pfid: String = _EntityAccess.formation_id_str(p)
@@ -2536,10 +2519,7 @@ static func _run_ai_targeting_engagement_mode_mult(failures: PackedStringArray) 
 
 ## Tier 1.6: **`hostile_pair_targeting_weight_mult`** — passing **`engagement_mode_targeting_mult(manager)`** as **`cached_engagement_mode_targeting_mult`** matches the **null** overload (same snapshot).
 static func _run_hostile_pair_cached_engagement_mode_matches_live(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	for c in mgr.combatants:
@@ -2614,12 +2594,7 @@ static func _run_ai_targeting_incap_hostile_mult(failures: PackedStringArray) ->
 
 ## Tier 1.6: `AvailableActionsBuilder` does not list melee / `attempt_close` vs incapacitated enemies.
 static func _run_no_hostile_actions_listed_vs_incap_enemy(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	var ent_enemy = CombatRegressionHarness._new_entity("SWORD")
-	ent_enemy.consciousness = 5.0
-	mgr.register(ent_enemy, "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1_incap_enemy()
 	mgr._recompute_zoc_and_distance()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
@@ -2956,12 +2931,12 @@ static func _run_depth_spear_tight_lane_parry_mult_invariant(failures: PackedStr
 		"depth_polearm_lane_type": "over_shoulder",
 	}
 	var a_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_open, "thrust")
-	var pa_legacy_lane: Dictionary = {
+	var pa_empty_lane_type: Dictionary = {
 		"depth_polearm_attack": true,
 		"depth_polearm_allows_low_targets": true,
 		"depth_polearm_lane_type": "",
 	}
-	var a_legacy_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_legacy_lane, "thrust")
+	var a_empty_lane_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_empty_lane_type, "thrust")
 	var a_tight_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_tight, "thrust")
 	var a_slash: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_open, "slash")
 	var a0: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult({}, "thrust")
@@ -2971,11 +2946,11 @@ static func _run_depth_spear_tight_lane_parry_mult_invariant(failures: PackedStr
 			"depth_spear_parry_p_a: open+stab want %.4f got %.4f"
 			% [CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT, a_stab]
 		)
-	if not is_equal_approx(a_legacy_stab, CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT):
+	if not is_equal_approx(a_empty_lane_stab, CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT):
 		CombatRegressionHarness._fail(
 			failures,
 			"depth_spear_parry_p_a: empty lane_type + allows_low stab want %.4f got %.4f"
-			% [CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT, a_legacy_stab]
+			% [CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT, a_empty_lane_stab]
 		)
 	var pa_open_tight_bool: Dictionary = {
 		"depth_polearm_attack": true,
@@ -4043,10 +4018,7 @@ static func _run_doctrine_normalize_and_manager_roundtrip(failures: PackedString
 		CombatRegressionHarness._fail(failures, "doctrine_norm: unknown → default")
 	if _CombatDoctrine.doctrine_for_fid(null, "player") != CombatConstants.DOCTRINE_DEFAULT:
 		CombatRegressionHarness._fail(failures, "doctrine_for_fid: null manager → default")
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	mgr.set_formation_doctrine("player", "  pincer  ")
 	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_PINCH_CENTER:
 		CombatRegressionHarness._fail(

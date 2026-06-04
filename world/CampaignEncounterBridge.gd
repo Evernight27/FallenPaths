@@ -2,6 +2,8 @@ class_name CampaignEncounterBridge
 extends RefCounted
 
 ## Overworld ↔ combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
+## **Campaign map/party entity:** `health_entity_from_character` (= **`CombatantEntityAccess.health_entity_from_scene_node`**).
+## **Combat battle entity:** **`CombatantEntityAccess.get_health_entity_from_node`** / **`get_entity_from_manager`**.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
@@ -9,7 +11,26 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
+const _Persistence := preload("res://world/CampaignPersistence.gd")
 const META_ENEMY_FORMATION := "enemy_formation"
+
+const OVERWORLD_TILE_SIZE := 64
+const OVERWORLD_TILE_ORIGIN := 32
+
+
+## World position (encounter / player at tile center) → grid tile. Single source for overworld tile math.
+static func overworld_tile_from_position(pos: Vector2) -> Vector2i:
+	return Vector2i(
+		floor((pos.x - OVERWORLD_TILE_ORIGIN) / float(OVERWORLD_TILE_SIZE)),
+		floor((pos.y - OVERWORLD_TILE_ORIGIN) / float(OVERWORLD_TILE_SIZE))
+	)
+
+
+static func overworld_tile_center(tile: Vector2i) -> Vector2:
+	return Vector2(
+		tile.x * OVERWORLD_TILE_SIZE + OVERWORLD_TILE_ORIGIN,
+		tile.y * OVERWORLD_TILE_SIZE + OVERWORLD_TILE_ORIGIN
+	)
 
 
 static func clear_battle_kill_log(world: Node) -> void:
@@ -161,6 +182,8 @@ static func begin_contract_encounter(
 	if enemies.is_empty():
 		abort_contract_encounter_entry(world)
 		return []
+	var tile: Vector2i = overworld_tile_from_position(encounter.position)
+	_Persistence.mark_consumed_contract_tile(world, tile)
 	encounter.queue_free()
 	return enemies
 
@@ -445,12 +468,12 @@ static func resolve_enemy_scene(world: Node) -> PackedScene:
 
 ## Snap player to tile center, reset movement target, and align **`last_player_tile`** (overworld reject uses this).
 static func place_player_on_overworld_tile(world: Node2D, tile: Vector2i) -> void:
-	if world == null or not world.has_node("Character") or not world.has_method("_tile_center"):
+	if world == null or not world.has_node("Character"):
 		return
 	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
-	var center: Vector2 = world.call("_tile_center", tile) as Vector2
+	var center: Vector2 = overworld_tile_center(tile)
 	if player.has_method("cancel_grid_move_to"):
 		player.call("cancel_grid_move_to", center)
 	else:
@@ -459,25 +482,22 @@ static func place_player_on_overworld_tile(world: Node2D, tile: Vector2i) -> voi
 
 
 static func sync_overworld_player_grid_anchor(world: Node2D) -> void:
-	if world == null or not world.has_node("Character") or not world.has_method("_tile_coords"):
+	if world == null or not world.has_node("Character"):
 		return
 	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
-	var tile: Vector2i = world.call("_tile_coords", player.position) as Vector2i
-	place_player_on_overworld_tile(world, tile)
+	place_player_on_overworld_tile(world, overworld_tile_from_position(player.position))
 
 
 ## After soft defeat, step one tile toward camp so a respawned marker is not under the player.
 static func nudge_player_toward_camp_tile(world: Node2D) -> void:
 	if world == null or not world.has_node("Character"):
 		return
-	if not world.has_method("_tile_coords"):
-		return
 	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
-	var tile: Vector2i = world.call("_tile_coords", player.position) as Vector2i
+	var tile: Vector2i = overworld_tile_from_position(player.position)
 	var camp: Vector2i = _CompanyState.DEFAULT_CAMP_TILE
 	if world.has_meta("camp_tile") and world.get_meta("camp_tile") is Vector2i:
 		camp = world.get_meta("camp_tile")
@@ -551,12 +571,7 @@ static func party_has_untreated_wounds(world: Node2D) -> bool:
 
 
 static func health_entity_from_character(node: Node) -> Node:
-	if node == null:
-		return null
-	if node.has_method("get_medical_entity"):
-		var e: Variant = node.get_medical_entity()
-		return e as Node if e is Node else null
-	return node
+	return _EntityAccess.health_entity_from_scene_node(node)
 
 
 static func _death_info_from_entity(entity: Node) -> Dictionary:

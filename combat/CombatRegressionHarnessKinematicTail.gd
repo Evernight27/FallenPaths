@@ -447,7 +447,6 @@ static func _run_kinematic_delivery_unarmed_pre_blunt_matches_helper(
 	var rd: Dictionary = res.get("result_dict", {}) as Dictionary
 	var pre_blunt: float = float(rd.get("pre_blunt_applied", -999.0))
 	var strike_ke: float = float(rd.get("strike_ke_j_applied", -999.0))
-	var atk_n: Node = _EntityAccess.scene_node(atk)
 	var mod: float = _EntityAccess.get_attack_damage_modifier(atk)
 	var strength: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
 	var base: float = WeaponDamageHelper.unarmed_base_pre_armor(strength, mod)
@@ -929,10 +928,7 @@ static func _run_kinematic_delivery_tactical_ambush_mult_unity_no_boost(
 static func _run_kinematic_delivery_engagement_angle_unknown_matches_front(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var atk: Dictionary = mgr.combatants[0]
 	var tgt_front: Dictionary = mgr.combatants[1].duplicate()
 	tgt_front["engagement_angle"] = "front"
@@ -1069,14 +1065,14 @@ static func _run_kinematic_delivery_thrust_integration_pen_sharp_scales_ke_expon
 			"kin_thrust_pen: need rising ke/pen (ke lo=%.4f hi=%.4f pen lo=%.4f hi=%.4f)"
 			% [ke_lo, ke_hi, pen_lo, pen_hi]
 		)
-	var exp: float = WeaponConstants.PENETRATION_EXPONENT
-	var want_ratio: float = pow(ke_hi / maxf(ke_lo, 0.001), exp)
+	var pen_exp: float = WeaponConstants.PENETRATION_EXPONENT
+	var want_ratio: float = pow(ke_hi / maxf(ke_lo, 0.001), pen_exp)
 	var got_ratio: float = pen_hi / maxf(pen_lo, 0.001)
 	if absf(got_ratio - want_ratio) > 0.06:
 		CombatRegressionHarness._fail(
 			failures,
 			"kin_thrust_pen: pen ratio %.4f want ke^%.2f ratio %.4f"
-			% [got_ratio, exp, want_ratio]
+			% [got_ratio, pen_exp, want_ratio]
 		)
 
 
@@ -1341,10 +1337,7 @@ static func _run_kinematic_delivery_move_def_angle_variance_wider_than_bare_line
 static func _run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_formula(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	defender["stance"] = "balanced"
@@ -1601,10 +1594,7 @@ static func _run_kinematic_delivery_mixed_integration_pre_cut_scales_sqrt_ke(
 static func _run_kinematic_delivery_closing_speed_clamps_at_ceiling(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var atk: Dictionary = mgr.combatants[0]
 	var tgt: Dictionary = mgr.combatants[1]
 	tgt["engagement_angle"] = "rear"

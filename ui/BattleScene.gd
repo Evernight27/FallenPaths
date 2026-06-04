@@ -269,7 +269,7 @@ func _tactical_diagram_signature(caps: Array) -> String:
 		if raw == null or typeof(raw) != TYPE_DICTIONARY:
 			continue
 		var c: Dictionary = raw as Dictionary
-		if not _EntityAccess.alive_bool(c, true):
+		if not _EntityAccess.is_on_battlefield(c):
 			continue
 		var chunks: PackedStringArray = []
 		var sfx: String = _UiHints.footwork_diagram_suffix(c).strip_edges()

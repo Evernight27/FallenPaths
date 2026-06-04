@@ -13,6 +13,7 @@ const _SettlementPanel := preload("res://ui/SettlementPanel.gd")
 const _CompanyRunEndPanel := preload("res://ui/CompanyRunEndPanel.gd")
 const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _BattleEndHandler := preload("res://world/BattleEndHandler.gd")
+const _Persistence := preload("res://world/CampaignPersistence.gd")
 
 static func start_combat(world: Node2D, enemies: Array) -> void:
 	var players: Array = _CampaignBridge.get_fightable_party_nodes(world)
@@ -96,6 +97,7 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -
 		_CampaignBridge.clear_transient_combat_meta(world)
 		_CompanyState.clear_active_contract(world)
 		if ends_run:
+			_Persistence.clear_slot()
 			var title: String = str(contract.get("contract_title", "Contract"))
 			var detail: String = (
 				"Failed: %s. The company cannot recover this contract." % title

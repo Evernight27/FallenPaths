@@ -43,8 +43,8 @@ static func run(failures: PackedStringArray) -> void:
 	_run_sim_severity_absolute_stable(failures)
 	_run_sim_severity_ke_still_upgrades(failures)
 	_run_sim_derived_production_species_flags(failures)
-	_run_sim_derived_limb_capacity_human_arm_near_legacy(failures)
-	_run_sim_derived_limb_capacity_human_leg_near_legacy(failures)
+	_run_sim_derived_limb_capacity_human_arm_reference(failures)
+	_run_sim_derived_limb_capacity_human_leg_reference(failures)
 	_run_sim_derived_goblin_smaller_limb_than_human(failures)
 	_run_sim_derived_goblin_limbs_match_hand_tuned(failures)
 	_run_sim_derived_pain_reference_matches_entity_body_max(failures)
@@ -146,7 +146,7 @@ static func run(failures: PackedStringArray) -> void:
 
 
 static func _fail(failures: PackedStringArray, msg: String) -> void:
-	failures.append(msg)
+	_Harness._fail(failures, msg)
 
 
 static func _oberhau_swing_instance(intensity: float, commit_frac: float) -> AttackInstance:
@@ -484,7 +484,7 @@ static func _hand_tuned_limb_bone(sp: SpeciesResource, part: String) -> int:
 
 
 ## S5: derived human arm tissue/bone within ±15% of hand-tuned 12/8 when pilot flag on.
-static func _run_sim_derived_limb_capacity_human_arm_near_legacy(failures: PackedStringArray) -> void:
+static func _run_sim_derived_limb_capacity_human_arm_reference(failures: PackedStringArray) -> void:
 	var sp: SpeciesResource = _species_with_derived_flag(_HumanSpecies)
 	const part: String = "right_arm"
 	var tissue: int = sp.get_body_part_max(part)
@@ -511,7 +511,7 @@ static func _run_sim_derived_limb_capacity_human_arm_near_legacy(failures: Packe
 
 
 ## S5: derived human leg tissue/bone within ±15% of hand-tuned 16/12 when pilot flag on.
-static func _run_sim_derived_limb_capacity_human_leg_near_legacy(failures: PackedStringArray) -> void:
+static func _run_sim_derived_limb_capacity_human_leg_reference(failures: PackedStringArray) -> void:
 	var sp: SpeciesResource = _species_with_derived_flag(_HumanSpecies)
 	const part: String = "left_leg"
 	var tissue: int = sp.get_body_part_max(part)
@@ -1936,23 +1936,17 @@ static func _run_mat_energy_entity_flag_off_matches_display_pools(failures: Pack
 		"strike_ke_j": 12.0,
 		"disable_layer_tissue": true,
 	}
+	var fail_tag: String = "mat_energy_flag_off"
 	if _Bleeding.FEATURE_TISSUE_ENERGY_POOL:
 		extras["disable_tissue_energy_pool"] = true
-		var ent_a: Node = _Harness._new_entity("SWORD")
-		var ent_b: Node = _Harness._new_entity("SWORD")
-		var res_a: Dictionary = ent_a.take_damage_split(5.0, 1.0, part, 3.0, -1.0, -1.0, extras)
-		var res_b: Dictionary = ent_b.take_damage_split(5.0, 1.0, part, 3.0, -1.0, -1.0, extras.duplicate())
-		for key: String in ["final_cut", "final_blunt", "final_bone"]:
-			if absf(float(res_a.get(key, 0.0)) - float(res_b.get(key, 0.0))) > 0.02:
-				_fail(failures, "mat_energy_hp_path: %s diverged" % key)
-		return
+		fail_tag = "mat_energy_hp_path"
 	var ent_a: Node = _Harness._new_entity("SWORD")
 	var ent_b: Node = _Harness._new_entity("SWORD")
 	var res_a: Dictionary = ent_a.take_damage_split(5.0, 1.0, part, 3.0, -1.0, -1.0, extras)
 	var res_b: Dictionary = ent_b.take_damage_split(5.0, 1.0, part, 3.0, -1.0, -1.0, extras.duplicate())
 	for key: String in ["final_cut", "final_blunt", "final_bone"]:
 		if absf(float(res_a.get(key, 0.0)) - float(res_b.get(key, 0.0))) > 0.02:
-			_fail(failures, "mat_energy_flag_off: %s diverged" % key)
+			_fail(failures, "%s: %s diverged" % [fail_tag, key])
 
 
 ## Research gate: untreated arterial TTD in clinical 30–120 s band.

@@ -2,7 +2,7 @@ class_name CombatLogFormatter
 extends RefCounted
 
 ## Formats combat action results as BBCode strings for the combat log.
-## BattleScene calls format_action_line() and appends the result to RichTextLabel.
+## Skip/hold outcomes use **`CombatConstants.SKIP_TURN_LOG_*`** (`wait`, `pass`).
 ## **`parry_deflect`** / **`parry_partial`**: optional **`parry_clash_context`** on **`result`** (from **`action_resolved`** after **`AttackResultApplier`**) — play session + calibration show **`rem=`** (follow-through fraction, not blocked damage).
 
 static func _eff_pct(result: Dictionary) -> int:
@@ -307,9 +307,9 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		return "[color=gray]%s (%s) shifts focus — %s line.[/color]" % [attacker_name, attacker_side, guard_disp]
 	elif outcome == "skip":
 		return "[color=gray]%s (%s) — no functional arm; skips attack.[/color]" % [attacker_name, attacker_side]
-	elif outcome == "wait":
+	elif outcome == CombatConstants.SKIP_TURN_LOG_WAIT:
 		return "[color=gray]%s (%s) waits.[/color]" % [attacker_name, attacker_side]
-	elif outcome == "pass":
+	elif outcome == CombatConstants.SKIP_TURN_LOG_PASS:
 		var rank: int = int(result.get("rank", 0))
 		if rank > 0:
 			return "[color=gray]%s (%s) holds in reserve (no action available).[/color]" % [attacker_name, attacker_side]

@@ -4,12 +4,14 @@ extends RefCounted
 ## Assigns species, party boost, and random equipment to player and companion.
 ## Call before PartySetup so party UI snapshot has correct stats.
 
-static func setup_player_and_companion(world: Node2D, rng: RandomNumberGenerator) -> void:
+static func setup_player_and_companion(
+	world: Node2D, rng: RandomNumberGenerator, randomize_equipment: bool = true
+) -> void:
 	if not world.has_node("Character"):
 		return
 	var player = world.get_node("Character")
 	player.is_party_leader = true
-	_setup_character(player, rng)
+	_setup_character(player, rng, randomize_equipment)
 
 	for i in range(1, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP):
 		var path = "Character/Companion" + ("" if i == 1 else str(i))
@@ -17,9 +19,9 @@ static func setup_player_and_companion(world: Node2D, rng: RandomNumberGenerator
 			var companion = world.get_node(path)
 			companion.is_party_leader = false
 			companion.set_process_input(false)
-			_setup_character(companion, rng)
+			_setup_character(companion, rng, randomize_equipment)
 
-static func _setup_character(character: Node, rng: RandomNumberGenerator) -> void:
+static func _setup_character(character: Node, rng: RandomNumberGenerator, randomize_equipment: bool) -> void:
 	if ResourceLoader.exists(ResourcePaths.HUMAN_SPECIES):
 		var human_res = load(ResourcePaths.HUMAN_SPECIES)
 		if human_res != null and "species" in character:
@@ -28,7 +30,7 @@ static func _setup_character(character: Node, rng: RandomNumberGenerator) -> voi
 				character.apply_species()
 			if character.has_method("apply_party_boost"):
 				character.apply_party_boost()
-	if character.has_method("equip_armor") and character.has_method("equip_weapon"):
+	if randomize_equipment and character.has_method("equip_armor") and character.has_method("equip_weapon"):
 		EncounterSpawner.equip_random_equipment(character, rng)
 
 

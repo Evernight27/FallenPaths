@@ -16,6 +16,8 @@ const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _EncounterNodeScript := preload("res://world/EncounterNode.gd")
 const _CoreEntityScript := preload("res://core/CoreEntity.gd")
 const _CampaignWorldScript := preload("res://scripts/_harness_campaign_world.gd")
+const _Persistence := preload("res://world/CampaignPersistence.gd")
+const _EncounterSpawner := preload("res://world/EncounterSpawner.gd")
 const HARNESS_NAME := "CompanyStateChecks"
 const _CompanyHud := preload("res://ui/CompanyHud.gd")
 const _CombatFlow := preload("res://world/CombatFlow.gd")
@@ -39,6 +41,7 @@ func _init() -> void:
 	_run_camp_1_8_roster_cleanup(failures)
 	_run_camp_2_bridge_spot_checks(failures)
 	_run_camp_3_player_front_count_encounter(failures)
+	_run_persistence_roundtrip(failures)
 	if failures.is_empty():
 		quit(_OperationalLog.harness_ok(HARNESS_NAME, "(%d tests)" % _test_count))
 	else:
@@ -163,12 +166,12 @@ static func _run_camp_1_1_company_state(failures: PackedStringArray) -> void:
 # --- Camp-1.2 ---
 
 static func _run_camp_1_2_wages_and_day(failures: PackedStringArray) -> void:
-	if _CompanyState.read_stub_day_tick_mode() != "hybrid":
+	if _CompanyState.gate_day_tick_mode() != "hybrid":
 		_fail(failures, "Camp-1.2: day_tick_mode want hybrid")
 	else:
 		_pass()
 	var world: Node2D = _make_world(2)
-	var steps: int = _CompanyState.read_stub_steps_per_day()
+	var steps: int = _CompanyState.gate_steps_per_day()
 	var bill: int = _CompanyState.compute_next_wage_bill(world)
 	for _i in steps:
 		_CompanyState.on_overworld_step(world)
@@ -272,7 +275,7 @@ static func _run_camp_1_3_supply_pools(failures: PackedStringArray) -> void:
 # --- Camp-1.4 ---
 
 static func _run_camp_1_4_contracts(failures: PackedStringArray) -> void:
-	if _CompanyState.read_stub_encounter_lifecycle() != "r3_loss_ends_run":
+	if _CompanyState.gate_encounter_lifecycle() != "r3_loss_ends_run":
 		_fail(failures, "Camp-1.4: encounter lifecycle want r3_loss_ends_run")
 	else:
 		_pass()
@@ -587,7 +590,7 @@ static func _run_camp_1_8_roster_cleanup(failures: PackedStringArray) -> void:
 # --- Camp-2+ (spot checks; full gates in combat harness) ---
 
 static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
-	if _CompanyState.read_stub_map_bleed_policy() != "warn_eta":
+	if _CompanyState.gate_map_bleed_policy() != "warn_eta":
 		_fail(failures, "Camp-2.1: map_bleed policy want warn_eta")
 	else:
 		_pass()
@@ -997,6 +1000,139 @@ static func _run_camp_3_player_front_count_encounter(failures: PackedStringArray
 	else:
 		_pass()
 	world.free()
+
+
+static func _run_persistence_roundtrip(failures: PackedStringArray) -> void:
+	_Persistence.clear_slot()
+	var world: Node2D = _make_world(1, 0, true)
+	_add_player_at_camp(world)
+	var pm: Node = world.get_meta("party_manager")
+	var ent: Node = _add_living_entity_member(pm, "Brother0")
+	ent.wounds["chest"] = [{"current_bleeding_rate": 0.6, "is_arterial": false, "severity": "moderate"}]
+	ent.blood_volume = 82.0
+	_EncounterSpawner.equip_weapon_id(ent, "SWORD")
+	_CompanyState.set_gold(world, 777)
+	_CompanyState.set_medical_supplies(world, 2)
+	_CompanyState.set_renown(world, 3)
+	_CompanyState.mark_tutorial_completed(world)
+	world.set_meta("party_formation", {"files": 1, "ranks": 1, "density": 1.0})
+	world.set_meta(_Persistence.WORLD_META_CAMP_HEAL_HINT_SHOWN, true)
+	_Persistence.mark_consumed_contract_tile(world, Vector2i(1, 0))
+	var enc: Node2D = _EncounterNodeScript.new()
+	enc.encounter_config = _ContractSpawner.build_encounter_config(_ContractSpawner.CONTRACT_TEMPLATES[0])
+	enc.enemy_count = 3
+	enc.contract_marker_label = "Border Skirmish"
+	enc.marker_kind = "contract"
+	enc.position = Vector2(160, 32)
+	world.add_child(enc)
+	world.get_node("Character").position = Vector2(160, 32)
+	if not _Persistence.save_slot(world):
+		_fail(failures, "P2 persistence: save_slot failed")
+	else:
+		_pass()
+	var loaded: Dictionary = _Persistence.load_save()
+	if int(loaded.get("version", 0)) != _Persistence.SAVE_VERSION:
+		_fail(failures, "P2 persistence: save version want %d got %s" % [_Persistence.SAVE_VERSION, loaded.get("version")])
+	else:
+		_pass()
+	var state: Variant = loaded.get("company_state", {})
+	if state is not Dictionary or int((state as Dictionary).get("gold", 0)) != 777:
+		_fail(failures, "P2 persistence: JSON gold want 777 got %s" % state)
+	else:
+		_pass()
+	var consumed: Variant = loaded.get("consumed_contract_tiles", [])
+	if consumed is not Array or (consumed as Array).is_empty():
+		_fail(failures, "P2 persistence: consumed_contract_tiles missing in save")
+	else:
+		_pass()
+	var fresh: Node2D = _make_world(1, 0, true)
+	_add_player_at_camp(fresh)
+	var pm_fresh: Node = fresh.get_meta("party_manager")
+	_add_living_entity_member(pm_fresh, "Brother0")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	_Persistence.apply_save(fresh, loaded, rng, null)
+	if _CompanyState.get_gold(fresh) != 777:
+		_fail(failures, "P2 persistence: apply_save gold want 777 got %d" % _CompanyState.get_gold(fresh))
+	else:
+		_pass()
+	if _CompanyState.get_medical_supplies(fresh) != 2:
+		_fail(failures, "P2 persistence: apply_save med want 2 got %d" % _CompanyState.get_medical_supplies(fresh))
+	else:
+		_pass()
+	if not _CompanyState.is_tutorial_completed(fresh):
+		_fail(failures, "P2 persistence: tutorial_completed not restored")
+	else:
+		_pass()
+	var pf: Dictionary = fresh.get_meta("party_formation", {}) as Dictionary
+	if int(pf.get("files", 0)) != 1:
+		_fail(failures, "P2 persistence: party_formation files want 1 got %d" % int(pf.get("files", 0)))
+	else:
+		_pass()
+	var restored_ent: Node = null
+	for m in pm_fresh.members:
+		if m is Dictionary and str((m as Dictionary).get("name", "")) == "Brother0":
+			var nr: Variant = (m as Dictionary).get("node_ref")
+			if is_instance_valid(nr):
+				restored_ent = _CampaignBridge.health_entity_from_character(nr as Node)
+			break
+	if restored_ent == null or absf(float(restored_ent.blood_volume) - 82.0) > 0.01:
+		_fail(
+			failures,
+			"P2 persistence: wound blood want 82 got %s"
+			% (restored_ent.blood_volume if restored_ent != null else "null")
+		)
+	else:
+		_pass()
+	if restored_ent == null or float(restored_ent.consciousness) >= 99.5:
+		_fail(
+			failures,
+			"P2 persistence: consciousness should reflect restored blood got %.1f"
+			% (float(restored_ent.consciousness) if restored_ent != null else -1.0)
+		)
+	else:
+		_pass()
+	if _EncounterSpawner.weapon_id_from_entity(restored_ent) != "SWORD":
+		_fail(
+			failures,
+			"P2 persistence: weapon want SWORD got %s"
+			% _EncounterSpawner.weapon_id_from_entity(restored_ent)
+		)
+	else:
+		_pass()
+	if not bool(fresh.get_meta(_Persistence.WORLD_META_CAMP_HEAL_HINT_SHOWN, false)):
+		_fail(failures, "P2 persistence: camp_heal_hint_shown not restored")
+	else:
+		_pass()
+	var markers: int = 0
+	for child in fresh.get_children():
+		if child.get_script() == _EncounterNodeScript:
+			markers += 1
+	if markers != 1:
+		_fail(failures, "P2 persistence: remaining_encounters want 1 marker got %d" % markers)
+	else:
+		_pass()
+	_Persistence.clear_slot()
+	if _Persistence.has_save():
+		_fail(failures, "P2 persistence: clear_slot should remove save file")
+	else:
+		_pass()
+
+	# Invalid / wrong-version saves are rejected (v1 and corrupt).
+	FileAccess.open(_Persistence.SAVE_PATH, FileAccess.WRITE).store_string('{"version":1,"company_state":{},"roster":[{}]}')
+	if _Persistence.is_valid_save(_Persistence.load_save()):
+		_fail(failures, "P2 persistence: save version 1 should not validate")
+	else:
+		_pass()
+	FileAccess.open(_Persistence.SAVE_PATH, FileAccess.WRITE).store_string('{"version":999}')
+	if _Persistence.is_valid_save(_Persistence.load_save()):
+		_fail(failures, "P2 persistence: wrong version should not validate")
+	else:
+		_pass()
+	if _Persistence.has_save():
+		_Persistence.clear_slot()
+	world.queue_free()
+	fresh.queue_free()
 
 
 static func _run_camp_4_contract_flavor(failures: PackedStringArray) -> void:

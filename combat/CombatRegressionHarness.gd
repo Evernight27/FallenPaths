@@ -186,7 +186,7 @@ static func run_all() -> Dictionary:
 	_run_ai_attrition_offense_mult_duel_vs_line(failures)
 	_run_wind_up_duration_bounded_for_move(failures)
 	_run_kinematic_delivery_blunt_slip_momentum_mult_sword_v11(failures)
-	_run_kinematic_delivery_mace_weak_tap_pre_blunt_below_legacy_min(failures)
+	_run_kinematic_delivery_mace_weak_tap_pre_blunt_below_floor_min(failures)
 	_run_resolve_aborts_when_threat_lost_mid_combat_arm_loss(failures)
 	_MedicalPhaseTail.run(failures)
 	_run_combat_end_enemy_win_stops_manager(failures)
@@ -275,10 +275,7 @@ static func _fail(arr: PackedStringArray, msg: String) -> void:
 
 ## `build_next_action_ready_times` must agree with per-id `get_next_action_ready_at` (UI snapshot correctness).
 static func _run_next_action_ready_map_matches_per_id(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var cmap: Dictionary = _EventScheduler.build_next_action_ready_times(mgr)
 	for c in mgr.combatants:
 		if not _EntityAccess.alive_bool(c, true):
@@ -377,6 +374,184 @@ static func _new_entity_unarmed() -> CoreEntity:
 	return e
 
 
+## Standard harness duel manager (defaults: SWORD 1-file × 1-rank vs SWORD 1-file × 1-rank).
+static func _harness_start_1v1(
+	weapon_id: String = "SWORD",
+	player_side: Dictionary = {"files": 1, "ranks": 1},
+	enemy_side: Dictionary = {"files": 1, "ranks": 1}
+) -> Node:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity(weapon_id), "player")
+	mgr.register(_new_entity(weapon_id), "enemy")
+	mgr.start(player_side, enemy_side)
+	return mgr
+
+
+## Asymmetric weapons (player vs enemy).
+static func _harness_start_asymmetric(
+	player_weapon: String,
+	enemy_weapon: String,
+	player_side: Dictionary = {"files": 1, "ranks": 1},
+	enemy_side: Dictionary = {"files": 1, "ranks": 1}
+) -> Node:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity(player_weapon), "player")
+	mgr.register(_new_entity(enemy_weapon), "enemy")
+	mgr.start(player_side, enemy_side)
+	return mgr
+
+
+## One player + two enemies (same weapon).
+static func _harness_start_1v2(
+	weapon_id: String = "SWORD",
+	player_side: Dictionary = {"files": 1, "ranks": 1},
+	enemy_side: Dictionary = {"files": 1, "ranks": 1}
+) -> Node:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity(weapon_id), "player")
+	mgr.register(_new_entity(weapon_id), "enemy")
+	mgr.register(_new_entity(weapon_id), "enemy")
+	mgr.start(player_side, enemy_side)
+	return mgr
+
+
+## Symmetric roster: N players + M enemies, same weapon.
+static func _harness_start_symmetric_roster(
+	player_count: int,
+	enemy_count: int,
+	weapon_id: String = "SWORD",
+	player_side: Dictionary = {"files": 4, "ranks": 1},
+	enemy_side: Dictionary = {"files": 4, "ranks": 1}
+) -> Node:
+	var mgr: Node = _MgrScript.new()
+	for _i in player_count:
+		mgr.register(_new_entity(weapon_id), "player")
+	for _j in enemy_count:
+		mgr.register(_new_entity(weapon_id), "enemy")
+	mgr.start(player_side, enemy_side)
+	return mgr
+
+
+## 1v1 with incapacitated enemy entity (consciousness preset before register).
+static func _harness_start_1v1_incap_enemy(
+	incap_consciousness: float = 5.0,
+	weapon_id: String = "SWORD"
+) -> Node:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity(weapon_id), "player")
+	var ent_enemy := _new_entity(weapon_id)
+	ent_enemy.consciousness = incap_consciousness
+	mgr.register(ent_enemy, "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	return mgr
+
+
+## Re-register a fresh 1v1 on an existing manager (after clearing combatants).
+static func _harness_reregister_1v1(mgr: Node, weapon_id: String = "SWORD") -> void:
+	mgr.register(_new_entity(weapon_id), "player")
+	mgr.register(_new_entity(weapon_id), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+
+
+## 1v1 with afterblow damage-mult recording meta (Tier 3.3 resolve probes).
+static func _harness_start_1v1_afterblow_mult_probe() -> Node:
+	var mgr: Node = _harness_start_1v1()
+	mgr.set_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT, true)
+	return mgr
+
+
+## Player-only manager (tooltip / UI probes with no enemy row).
+static func _harness_start_player_only(
+	player_side: Dictionary = {"files": 1, "ranks": 1}
+) -> Node:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.start(player_side, player_side)
+	return mgr
+
+
+## Same as **`_harness_start_1v1`**, but enemy registers before player (order-sensitive tests).
+static func _harness_start_1v1_enemy_first(
+	weapon_id: String = "SWORD",
+	player_side: Dictionary = {"files": 1, "ranks": 1},
+	enemy_side: Dictionary = {"files": 1, "ranks": 1}
+) -> Node:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity(weapon_id), "enemy")
+	mgr.register(_new_entity(weapon_id), "player")
+	mgr.start(player_side, enemy_side)
+	return mgr
+
+
+## Chest cut wound + blood volume for immediate-peril medical harness probes.
+static func _harness_immediate_peril_bleeding_chest(ent: Node, blood_volume: float) -> void:
+	if ent == null:
+		return
+	ent.blood_volume = blood_volume
+	_EntityWounds.add_wound(
+		ent, "chest", _Bleeding.INJURY_TYPE_CUT, 9.0, "thoracic", _Bleeding.SEVERITY_MODERATE
+	)
+
+
+## 2 player + 1 enemy medical-phase manager; optional peril blood volumes (**`-1`** skips that combatant).
+static func _harness_start_medical_phase_2v1(
+	ally_blood_volume: float = 30.0,
+	medic_blood_volume: float = -1.0
+) -> Dictionary:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var medic: Dictionary = mgr.combatants[0]
+	var ally: Dictionary = mgr.combatants[1]
+	var enemy: Dictionary = mgr.combatants[2]
+	var medic_id: int = _EntityAccess.id_int(medic)
+	var ally_id: int = _EntityAccess.id_int(ally)
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	if medic_blood_volume >= 0.0:
+		_harness_immediate_peril_bleeding_chest(
+			_EntityAccess.get_entity_from_manager(mgr, medic), medic_blood_volume
+		)
+	if ally_blood_volume >= 0.0:
+		_harness_immediate_peril_bleeding_chest(
+			_EntityAccess.get_entity_from_manager(mgr, ally), ally_blood_volume
+		)
+	mgr.medical_phase = true
+	mgr.medical_phase_winner = "player"
+	return {
+		"mgr": mgr,
+		"medic": medic,
+		"ally": ally,
+		"enemy": enemy,
+		"medic_id": medic_id,
+		"ally_id": ally_id,
+		"enemy_id": enemy_id,
+	}
+
+
+## Oberhau vs enemy + coordinated pressure actions for medical-phase mental-stack tests.
+static func _harness_medical_phase_action_list(
+	enemy_id: int,
+	ally_id: int,
+	medic_id: int = -1,
+	include_medic_self_pressure: bool = false
+) -> Array:
+	var actions: Array = [{"move_id": "oberhau", "target_id": enemy_id}]
+	if include_medic_self_pressure and medic_id >= 0:
+		actions.append({
+			"move_id": "apply_direct_pressure",
+			"target_id": medic_id,
+			"target_part": "chest",
+		})
+	actions.append({
+		"move_id": "apply_direct_pressure",
+		"target_id": ally_id,
+		"target_part": "chest",
+	})
+	return actions
+
+
 ## Full plate kit for armor-mass harness probes.
 static func _harness_equip_heavy_plate_kit(e: CoreEntity) -> void:
 	var kit: Array = [
@@ -455,8 +630,8 @@ static func _shuffle_int_array_in_place(ids: Array, rng: RandomNumberGenerator) 
 static func _soak_kill_combatant(mgr: Node, combatant_id: int) -> void:
 	if mgr == null:
 		return
-	var c: Variant = mgr._get_by_id(combatant_id)
-	if c == null or typeof(c) != TYPE_DICTIONARY:
+	var c: Dictionary = _EntityAccess.manager_get_combatant(mgr, combatant_id)
+	if c.is_empty():
 		return
 	if not _EntityAccess.alive_bool(c):
 		return
@@ -829,16 +1004,19 @@ static func _run_medical_action_pick_single_fp_line(failures: PackedStringArray)
 	_OperationalLog.begin_play_session("test", "", false, true)
 	_F5SoakTrace.note_medical_action_pick("Medic", "apply_direct_pressure", "chest", "ally")
 	var pick_count: int = 0
-	var legacy_count: int = 0
+	var stale_action_format_count: int = 0
 	for line in _OperationalLog.get_captured_lines():
 		if line.begins_with("FP_COMBAT: medical_action pick "):
 			pick_count += 1
 		if line.begins_with("FP_COMBAT: action ") and " chose medical " in line:
-			legacy_count += 1
+			stale_action_format_count += 1
 	if pick_count != 1:
 		_fail(failures, "medical_action_pick: want 1 medical_action pick line got %d" % pick_count)
-	if legacy_count != 0:
-		_fail(failures, "medical_action_pick: want 0 legacy action chose medical lines got %d" % legacy_count)
+	if stale_action_format_count != 0:
+		_fail(
+			failures,
+			"medical_action_pick: want 0 stale action-chose-medical lines got %d" % stale_action_format_count
+		)
 	_OperationalLog.end_play_session()
 	_OperationalLog.set_capture_enabled(false)
 
@@ -1259,15 +1437,12 @@ static func _run_effective_pair_geometry_single_pass_matches_wrappers(
 ## Tier 3.1: `CombatStrikeStamping.stamp_attack_pair_geometry_on_dict` via wind-up (re-stamped each resolve).
 ## Covers rank-0, depth 1-file line, and depth vs 3-wide enemy frontage (stamp vs live builder).
 static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p0_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e0_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	_WindUpStarter.start(mgr, p0_id, e0_id, "thrust")
-	var comb_pa0: Variant = mgr._get_by_id(p0_id)
-	var pa0: Dictionary = _EntityAccess.nested_dictionary_read(comb_pa0 if comb_pa0 is Dictionary else {}, "pending_attack")
+	var comb_pa0: Dictionary = _EntityAccess.manager_get_combatant(mgr, p0_id)
+	var pa0: Dictionary = _EntityAccess.nested_dictionary_read(comb_pa0, "pending_attack")
 	if pa0.is_empty():
 		_fail(failures, "windup_geom: empty pending_attack (rank0)")
 	else:
@@ -1318,8 +1493,8 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 		var d_id: int = _EntityAccess.id_int(depth)
 		var en_id: int = _EntityAccess.id_int(en)
 		_WindUpStarter.start(mgr2, d_id, en_id, "spear_thrust")
-		var comb_pa1: Variant = mgr2._get_by_id(d_id)
-		var pa1: Dictionary = _EntityAccess.nested_dictionary_read(comb_pa1 if comb_pa1 is Dictionary else {}, "pending_attack")
+		var comb_pa1: Dictionary = _EntityAccess.manager_get_combatant(mgr2, d_id)
+		var pa1: Dictionary = _EntityAccess.nested_dictionary_read(comb_pa1, "pending_attack")
 		if pa1.is_empty():
 			_fail(failures, "windup_geom: empty pending_attack (depth)")
 		elif not pa1.has("effective_pair_file_spacing_equivalent") or not pa1.has("effective_pair_eff_dist"):
@@ -1384,8 +1559,8 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 		var d3_id: int = _EntityAccess.id_int(depth3)
 		var e3_id: int = _EntityAccess.id_int(en30)
 		_WindUpStarter.start(mgr3, d3_id, e3_id, "spear_thrust")
-		var comb_pa3: Variant = mgr3._get_by_id(d3_id)
-		var pa3: Dictionary = _EntityAccess.nested_dictionary_read(comb_pa3 if comb_pa3 is Dictionary else {}, "pending_attack")
+		var comb_pa3: Dictionary = _EntityAccess.manager_get_combatant(mgr3, d3_id)
+		var pa3: Dictionary = _EntityAccess.nested_dictionary_read(comb_pa3, "pending_attack")
 		if pa3.is_empty():
 			_fail(failures, "windup_geom: empty pending_attack (depth 3-file line)")
 		elif not bool(pa3.get("depth_polearm_attack", false)):
@@ -1422,10 +1597,7 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
 
 ## `AttackResultApplier`: terminal outcomes clear `pending_attack` (defeated / miss / dodge / skip).
 static func _run_attack_result_applier_terminal_clears_pending(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
@@ -1547,19 +1719,16 @@ static func _run_attack_result_applier_terminal_clears_pending(failures: PackedS
 
 ## **`AttackResultApplier`**: **`parry_deflect`** → **`action_resolved`** payload includes resolver **`parry_clash_context`** (signal args: defender id, attacker id, **`BattleScene`** slot names reversed).
 static func _run_action_resolved_parry_deflect_payload_includes_clash_context(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
 	var e_id: int = _EntityAccess.id_int(e)
 	var captured: Array = []
 	mgr.action_resolved.connect(
-		func(first_id: int, second_id: int, res: Dictionary) -> void:
+		func(first_id: int, second_id: int, resolved_payload: Dictionary) -> void:
 			captured.clear()
-			captured.append({"first": first_id, "second": second_id, "res": res.duplicate(true)})
+			captured.append({"first": first_id, "second": second_id, "res": resolved_payload.duplicate(true)})
 	)
 	e["pending_attack"] = {"attack_type": "thrust", "effective_attack_line": "high", "intensity": 0.5}
 	var pclash: Dictionary = {"kinematic_delivery": "thrust", "strike_measure_ratio": 1.05, "parry_control": 0.41}
@@ -1603,18 +1772,15 @@ static func _run_action_resolved_parry_deflect_payload_includes_clash_context(fa
 
 ## **`AttackResultApplier`**: first **`action_resolved`** on **`parry_partial`** is defender, attacker, payload with **`parry_clash_context`** (nested **`_execute_attack`** may append further rows).
 static func _run_action_resolved_parry_partial_payload_includes_clash_context(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
 	var e_id: int = _EntityAccess.id_int(e)
 	var captured: Array = []
 	mgr.action_resolved.connect(
-		func(first_id: int, second_id: int, res: Dictionary) -> void:
-			captured.append({"first": first_id, "second": second_id, "res": res.duplicate(true)})
+		func(first_id: int, second_id: int, resolved_payload: Dictionary) -> void:
+			captured.append({"first": first_id, "second": second_id, "res": resolved_payload.duplicate(true)})
 	)
 	e["pending_attack"] = {"target_id": p_id, "attack_type": "thrust", "effective_attack_line": "high", "intensity": 0.5}
 	var pclash: Dictionary = {
@@ -1668,10 +1834,7 @@ static func _run_action_resolved_parry_partial_payload_includes_clash_context(fa
 
 ## **`AttackResultApplier`**: **`hit`** erases **`parry_clash_context`** / **`defender_guard_line_at_parry`** on the striker (stale calibration after **`parry_partial`** follow-through).
 static func _run_hit_clears_attacker_parry_calibration_fields(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
@@ -1720,10 +1883,7 @@ static func _run_hit_clears_attacker_parry_calibration_fields(failures: PackedSt
 
 ## **`AttackResultApplier`**: **`hit`** sets defender **`guard_line`** low and syncs **`guard_zone`** via **`GuardLineUpdater.set_guard_from_line`** (stagger / dropped guard).
 static func _run_hit_applier_sets_defender_guard_low_after_hit(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
@@ -1787,10 +1947,7 @@ static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedS
 		seed_stale_bind: bool = false,
 		misaligned_erase_bind_key: bool = false
 	) -> void:
-		var mgr: Node = _MgrScript.new()
-		mgr.register(_new_entity("SWORD"), "player")
-		mgr.register(_new_entity("SWORD"), "enemy")
-		mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+		var mgr: Node = _harness_start_1v1()
 		var p: Dictionary = mgr.combatants[0]
 		var e: Dictionary = mgr.combatants[1]
 		var p_id: int = _EntityAccess.id_int(p)
@@ -1867,8 +2024,8 @@ static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedS
 static func _harness_counter_tempo_set_incoming_progress(
 	mgr: Node, attacker_id: int, fraction: float
 ) -> void:
-	var atk: Dictionary = mgr._get_by_id(attacker_id)
-	if atk == null:
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(mgr, attacker_id)
+	if atk.is_empty():
 		return
 	var dur: float = float(atk.get("state_duration", 0.0))
 	if dur <= 0.0:
@@ -1911,10 +2068,7 @@ static func _run_combat_end_enemy_win_stops_manager(failures: PackedStringArray)
 
 ## Tier 4.3: mental stack L1 picks medical when ally in peril.
 static func _run_feint_second_windup_clears_prior_telegraph_before_restamp(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(p)
@@ -4304,7 +4458,6 @@ static func _run_kinematic_delivery_path_lookup_discrete_from_angles_continuous_
 			"kin_path_angle_split: low continuous align ⇒ later intercept (cont=%d disc=%d)"
 			% [intercept_cont, intercept_disc]
 		)
-	var partial_ctx: Dictionary = {"attack_angle_deg": atk_deg}
 	var path_partial: Array = CombatConstants.get_attack_path(atk_line_str, guard_line_str)
 	if path_partial[0] != path_from_strings[0]:
 		_fail(
@@ -4966,7 +5119,6 @@ static func _run_kinematic_delivery_compute_damage_strike_ke_and_blunt_contact_e
 		"pen_sharp_mm": pen_sharp_raw,
 		"target_effective_mass_kg": WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, "chest"),
 	}
-	var tgt_n: Node = _EntityAccess.scene_node(tgt)
 	_EntityAccess.apply_armor_sharp_resistance_to_blunt_opts(blunt_opts, tgt, "chest")
 	var bc_want: float = float(
 		WeaponDamageHelper.compute_penetration(
@@ -5007,12 +5159,12 @@ static func _run_kinematic_delivery_alignment_both_angles_ignores_wobble(
 		{"parry_readiness": 0.0}
 	)
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
-	var exp: float = maxf(
+	var want_align: float = maxf(
 		CombatConstants.PARRY_ALIGNMENT_FLOOR,
 		CombatConstants.get_alignment_from_angles(atk_deg, guard_deg)
 	)
-	if absf(stable - exp) > 0.0001:
-		_fail(failures, "kin_align_wobble_both: stable want %.6f got %.6f" % [exp, stable])
+	if absf(stable - want_align) > 0.0001:
+		_fail(failures, "kin_align_wobble_both: stable want %.6f got %.6f" % [want_align, stable])
 	if absf(wobbled - stable) > 0.0001:
 		_fail(
 			failures,
@@ -5110,7 +5262,6 @@ static func _kin_expected_pre_armor_cut_blunt(
 	ai.velocity_m_s = v_m_s
 	ai.strike_energy_mult = float(strike_mods.get("strike_energy_mult", 1.0))
 	ai.strike_momentum_mult = float(strike_mods.get("strike_momentum_mult", 1.0))
-	var atk_n: Node = _EntityAccess.scene_node(atk)
 	var arm_mod: float = _EntityAccess.get_attack_damage_modifier(atk)
 	var atk_str: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
 	var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, "chest")
@@ -5816,6 +5967,8 @@ static func _run_kinematic_delivery_angle_to_nearest_line_boundaries(
 
 
 static func _harness_destroy_limb(entity: CoreEntity, part: String) -> void:
+	if entity == null or part.is_empty():
+		return
 	entity.body_cutting[part] = 0.0
 	entity.body_blunt[part] = 0.0
 	if entity.bone_health.has(part):
@@ -6030,10 +6183,7 @@ static func _run_tier7_stamina_parry_cost_scales_with_intensity(failures: Packed
 	)
 	if not is_equal_approx(heavy, want_heavy):
 		_fail(failures, "tier7_parry_stam: heavy want %.1f got %.1f" % [want_heavy, heavy])
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(defender)
@@ -6168,10 +6318,7 @@ static func _run_opponent_pressure_defensive_uses_burst_ratio(
 	failures: PackedStringArray
 ) -> void:
 	const _ZOC := preload("res://combat/ZoneOfControl.gd")
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var player: Dictionary = mgr.combatants[0]
 	var enemy: Dictionary = mgr.combatants[1]
 	var fid: String = _EntityAccess.formation_id_str(player)
@@ -6279,12 +6426,7 @@ static func _run_formation_move_duration_matches_flow_pair_start(
 static func _run_formation_move_duration_listed_actions_stamp_hint(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 4:
-		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 4:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var mgr: Node = _harness_start_symmetric_roster(4, 4)
 	var c: Dictionary = {}
 	var ally_id: int = -1
 	for raw in mgr.combatants:
@@ -6321,12 +6463,7 @@ static func _run_formation_move_duration_listed_actions_stamp_hint(
 static func _run_formation_move_duration_player_turn_hint_from_listed_actions(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 4:
-		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 4:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var mgr: Node = _harness_start_symmetric_roster(4, 4)
 	var c: Dictionary = {}
 	var ally_id: int = -1
 	for raw in mgr.combatants:
@@ -6363,12 +6500,7 @@ static func _run_formation_move_duration_player_turn_hint_from_listed_actions(
 static func _run_formation_move_duration_gauge_tooltip_listed_hint(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 4:
-		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 4:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var mgr: Node = _harness_start_symmetric_roster(4, 4)
 	var c: Dictionary = {}
 	var ally_id: int = -1
 	for raw in mgr.combatants:
@@ -6401,12 +6533,7 @@ static func _run_formation_move_duration_gauge_tooltip_listed_hint(
 static func _run_formation_move_duration_gauge_tooltip_clears_when_not_waiting(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 4:
-		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 4:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var mgr: Node = _harness_start_symmetric_roster(4, 4)
 	var c: Dictionary = {}
 	for raw in mgr.combatants:
 		if not _EntityAccess.is_player_side(raw):
@@ -6444,12 +6571,7 @@ static func _run_formation_move_duration_gauge_tooltip_clears_when_not_waiting(
 static func _run_formation_move_duration_gauge_tooltip_clears_on_resolve(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 4:
-		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 4:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var mgr: Node = _harness_start_symmetric_roster(4, 4)
 	var c: Dictionary = {}
 	for raw in mgr.combatants:
 		if not _EntityAccess.is_player_side(raw):
@@ -6478,10 +6600,7 @@ static func _run_formation_move_duration_gauge_tooltip_clears_on_resolve(
 
 ## Tier 0 / wind-up: explicit **`move_id`** not on weapon does not start wind-up or substitute a random move.
 static func _run_wind_up_rejects_move_not_on_weapon(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var atk: Dictionary = mgr.combatants[0]
 	var atk_id: int = _EntityAccess.id_int(atk)
 	var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -6518,12 +6637,7 @@ static func _run_formation_move_duration_ui_hint_when_lane_crowded(
 static func _run_rotate_file_listed_for_adjacent_front_rank_allies(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 4:
-		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 4:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var mgr: Node = _harness_start_symmetric_roster(4, 4)
 	var by_file: Dictionary = {}
 	for c in mgr.combatants:
 		if not _EntityAccess.is_player_side(c):
@@ -6552,12 +6666,7 @@ static func _run_rotate_file_listed_for_adjacent_front_rank_allies(
 static func _run_rotate_file_start_sets_duration_matches_estimate(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 4:
-		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 4:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var mgr: Node = _harness_start_symmetric_roster(4, 4)
 	var p0: Dictionary = {}
 	var p1: Dictionary = {}
 	for c in mgr.combatants:
@@ -6587,10 +6696,7 @@ static func _run_resolve_close_attempt_long_success_closes_distance(
 ) -> void:
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
 	seed(0)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -6702,12 +6808,9 @@ static func _run_formation_move_duration_heavy_armor_slows_estimate(
 static func _run_formation_hit_reaction_extends_pair_move_duration(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 4:
-		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 4:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 2, "ranks": 2}, {"files": 2, "ranks": 2})
+	var mgr: Node = _harness_start_symmetric_roster(
+		4, 4, "SWORD", {"files": 2, "ranks": 2}, {"files": 2, "ranks": 2}
+	)
 	var p0: Dictionary = {}
 	var p1: Dictionary = {}
 	for c in mgr.combatants:
@@ -6764,12 +6867,9 @@ static func _run_formation_hit_reaction_extends_pair_move_duration(
 
 ## Tier 0: hard hit during pair formation move aborts to waiting and removes resolve event.
 static func _run_formation_hit_cancel_aborts_pair_move(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 4:
-		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 4:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 2, "ranks": 2}, {"files": 2, "ranks": 2})
+	var mgr: Node = _harness_start_symmetric_roster(
+		4, 4, "SWORD", {"files": 2, "ranks": 2}, {"files": 2, "ranks": 2}
+	)
 	var p0: Dictionary = {}
 	var p1: Dictionary = {}
 	for c in mgr.combatants:
@@ -6822,11 +6922,7 @@ static func _run_incoming_parry_choice_blocks_non_chosen_attacker(
 		_fail(failures, "incoming_parry: FEATURE_INCOMING_PARRY_CHOICE should be enabled")
 		return
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v2()
 	var p: Dictionary = mgr.combatants[0]
 	var e0: Dictionary = mgr.combatants[1]
 	var e1: Dictionary = mgr.combatants[2]
@@ -6901,11 +6997,7 @@ static func _run_incoming_parry_can_parry_all_weak_pair(failures: PackedStringAr
 		_fail(failures, "incoming_parry_all: FEATURE_INCOMING_PARRY_CHOICE should be enabled")
 		return
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v2()
 	var p: Dictionary = mgr.combatants[0]
 	var e0: Dictionary = mgr.combatants[1]
 	var e1: Dictionary = mgr.combatants[2]
@@ -6970,10 +7062,7 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(
 		{"state": CombatConstants.STATE_RECOVERING, "recovery_cause": "parry_deflect"}
 	):
 		_fail(failures, "weapon_pos: recovering from parry should stay near body")
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	defender["stance"] = "balanced"
@@ -7042,10 +7131,7 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(
 static func _run_weapon_committed_attack_dampens_defender_parry_c_d(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	defender["stance"] = "balanced"
@@ -7148,10 +7234,7 @@ static func _run_weapon_commit_fraction_stab_before_overhead_cut(failures: Packe
 
 ## Tier 0 / FF4: wind-up stamps per-move commit fraction on **`pending_attack`**.
 static func _run_weapon_windup_stamps_commit_fraction_on_pa(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SPEAR"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_asymmetric("SPEAR", "SWORD")
 	var atk: Dictionary = mgr.combatants[0]
 	var atk_id: int = _EntityAccess.id_int(atk)
 	var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -7249,10 +7332,7 @@ static func _run_impact_station_mean_ordering_spear_thrust_above_mace_direct_blo
 
 ## Tier 7.5 pilot: wind-up stamps tip-biased **`impact_blade_station`** (move mean, not weapon default).
 static func _run_impact_station_mean_windup_stamps_move_override(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SPEAR"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_asymmetric("SPEAR", "SWORD")
 	var atk: Dictionary = mgr.combatants[0]
 	var atk_id: int = _EntityAccess.id_int(atk)
 	var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -7449,10 +7529,7 @@ static func _run_automatic_doctrine_pinch_via_formation_recompute(
 
 ## Tier 7: bind **`parry_deflect`** grants defender gauge bonus; sub-threshold control does not.
 static func _run_tier7_parry_bind_riposte_gauge_bonus_on_deflect(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(defender)
@@ -7631,10 +7708,7 @@ static func _run_flurry_bind_exchange_consumes_on_wind_up(failures: PackedString
 	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
 	CombatConstants.set_feature_flurry_bind_exchange_load(true)
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(p)
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -7663,10 +7737,7 @@ static func _run_flurry_bind_window_closes_on_hit(failures: PackedStringArray) -
 	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
 	CombatConstants.set_feature_flurry_bind_exchange_load(true)
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	_FlurryBind.open_pair_after_bind(mgr, p_id, e_id)
@@ -7693,14 +7764,13 @@ static func _run_flurry_bind_listing_restricts_to_bind_partner(failures: PackedS
 	var p: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(p)
 	var e0_id: int = _EntityAccess.id_int(mgr.combatants[1])
-	var e1_id: int = _EntityAccess.id_int(mgr.combatants[2])
 	_FlurryBind.open_window(mgr, p_id, e0_id)
 	var actions: Array = _ActionsBuilder.build(mgr, p_id)
 	var bad_flurry: Dictionary = _ListedActions.first_action_where(
 		actions,
 		func(a: Dictionary) -> bool:
 			var mid: String = _ListedActions.entry_move_id(a)
-			if mid.is_empty() or mid in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+			if mid.is_empty() or CombatConstants.is_formation_movement_move(mid):
 				return false
 			if WeaponConstants.is_parry_move(mid):
 				return false
@@ -7726,10 +7796,7 @@ static func _run_flurry_bind_opens_on_bind_deflect(failures: PackedStringArray) 
 	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
 	CombatConstants.set_feature_flurry_bind_exchange_load(true)
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(defender)
@@ -7760,10 +7827,7 @@ static func _run_flurry_bind_expires_after_window(failures: PackedStringArray) -
 	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
 	CombatConstants.set_feature_flurry_bind_exchange_load(true)
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(p)
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -7785,10 +7849,7 @@ static func _run_flurry_bind_ui_gauge_label_when_window_open(failures: PackedStr
 	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
 	CombatConstants.set_feature_flurry_bind_exchange_load(true)
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(p)
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -7814,10 +7875,7 @@ static func _run_flurry_bind_ui_gauge_label_when_window_open(failures: PackedStr
 ## Tier 4.5: runtime toggle disables opening bind-exchange windows (production default **on**).
 static func _run_flurry_bind_feature_flag_respects_runtime_toggle(failures: PackedStringArray) -> void:
 	var prev: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(p)
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -8012,10 +8070,7 @@ static func _parry_clash_expected_partial_strike_kinematics(
 
 
 static func _run_parry_clash_context_calibration_fields(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SPEAR"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_asymmetric("SWORD", "SPEAR")
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	defender["guard_line"] = "low"
@@ -8669,11 +8724,7 @@ static func _afterblow_harness_seed_pending_cut(mgr: Node, attacker_index: int, 
 ## Tier 3.3: **`outcome` == `"deflected"`** → **`_execute_afterblow`** (**hindrance 0**) → **`CombatManager._execute_attack`**; fixed **`seed(1)`** (**`_AFTERBLOW_EXECUTE_HIT_SEED`**) must yield **`recovery_cause` == `attack_hit`** and **`afterblow_damage_mult` == 1.0** (via harness meta on manager).
 static func _run_afterblow_deflected_triggers_full_resolve_hit(failures: PackedStringArray) -> void:
 	seed(_AFTERBLOW_EXECUTE_HIT_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.set_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT, true)
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1_afterblow_mult_probe()
 	mgr._recompute_zoc_and_distance()
 	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
 	var atk: Dictionary = mgr.combatants[1]
@@ -8722,11 +8773,7 @@ static func _run_afterblow_deflected_triggers_full_resolve_hit(failures: PackedS
 ## Tier 3.3: low hybrid hindrance (**≤ `AFTERBLOW_HINDRANCE_ALLOW`**) → **`_execute_afterblow`** stamps **`afterblow_damage_mult` < 1.0**; same fixed seed + **`attack_hit`** resolve.
 static func _run_afterblow_low_hindrance_allow_triggers_resolve_hit(failures: PackedStringArray) -> void:
 	seed(_AFTERBLOW_EXECUTE_HIT_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.set_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT, true)
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1_afterblow_mult_probe()
 	mgr._recompute_zoc_and_distance()
 	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
 	var atk: Dictionary = mgr.combatants[1]
@@ -8767,10 +8814,7 @@ static func _run_afterblow_low_hindrance_allow_triggers_resolve_hit(failures: Pa
 ## Tier 3.3: hindrance strictly between **`AFTERBLOW_HINDRANCE_ALLOW`** and **`AFTERBLOW_HINDRANCE_BLOCK`** → **`randf() < hindrance`** cancels (**`_cancel_pending`**, **`try_afterblow` false**); fixed **`seed(2)`** on the same fixture + chest **`final_cut` 11.25** (hybrid hindrance **0.45**).
 static func _run_afterblow_mid_hindrance_rand_cancel(failures: PackedStringArray) -> void:
 	seed(_AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	mgr._recompute_zoc_and_distance()
 	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
 	var atk: Dictionary = mgr.combatants[1]
@@ -8810,11 +8854,7 @@ static func _run_afterblow_mid_hindrance_rand_cancel(failures: PackedStringArray
 ## Tier 3.3: middle hindrance + **`randf() ≥ hindrance`** → **`_execute_afterblow`** (**`afterblow_damage_mult` 0.55**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
 static func _run_afterblow_mid_hindrance_rand_executes_hit(failures: PackedStringArray) -> void:
 	seed(_AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.set_meta(_HARNESS_META_RECORD_AFTERBLOW_MULT, true)
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1_afterblow_mult_probe()
 	mgr._recompute_zoc_and_distance()
 	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
 	var atk: Dictionary = mgr.combatants[1]
@@ -8874,10 +8914,7 @@ static func _run_guard_from_move_sets_guard_line_and_zone(failures: PackedString
 
 ## Tier 3.3: **`AfterblowHandler.try_afterblow`** — no **`pending_attack`** → **false** (no **`_execute_attack`**).
 static func _run_afterblow_no_pending_returns_false(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var tgt: Dictionary = mgr.combatants[1]
 	tgt["pending_attack"] = {}
 	tgt["state"] = CombatConstants.STATE_WIND_UP
@@ -8889,10 +8926,7 @@ static func _run_afterblow_no_pending_returns_false(failures: PackedStringArray)
 
 ## Tier 3.3: **`AfterblowHandler.try_afterblow`** — not **`STATE_WIND_UP`** → **false**.
 static func _run_afterblow_wrong_state_returns_false(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var tgt: Dictionary = mgr.combatants[1]
 	tgt["pending_attack"] = {"target_id": 0, "attack_type": "thrust"}
 	tgt["state"] = CombatConstants.STATE_WAITING
@@ -8904,10 +8938,7 @@ static func _run_afterblow_wrong_state_returns_false(failures: PackedStringArray
 
 ## Tier 3.3: **`AfterblowHandler`** hybrid hindrance ≥ **`AFTERBLOW_HINDRANCE_BLOCK`** cancels **`pending_attack`** (no **`_execute_attack`**).
 static func _run_afterblow_hindrance_block_cancels_pending(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	var tgt: Dictionary = mgr.combatants[1]
 	tgt["state"] = CombatConstants.STATE_WIND_UP
 	tgt["pending_attack"] = {"target_id": 0, "attack_type": "thrust"}
@@ -8947,12 +8978,13 @@ static func _run_ai_attrition_offense_mult_duel_vs_line(failures: PackedStringAr
 			"ai_skirmish_mult: 1v1 want %.4f got %.4f"
 			% [CombatConstants.AI_SKIRMISH_LOW_STANDING_OFFENSE_MULT, m_duel]
 		)
-	var mgr_l: Node = _MgrScript.new()
-	for _i in 4:
-		mgr_l.register(_new_entity("SWORD"), "player")
-	for _j in 4:
-		mgr_l.register(_new_entity("SWORD"), "enemy")
-	mgr_l.start({"files": 2, "ranks": 2, "density": "normal"}, {"files": 2, "ranks": 2, "density": "normal"})
+	var mgr_l: Node = _harness_start_symmetric_roster(
+		4,
+		4,
+		"SWORD",
+		{"files": 2, "ranks": 2, "density": "normal"},
+		{"files": 2, "ranks": 2, "density": "normal"}
+	)
 	var m_line: float = _AIPicker._attrition_offense_weight_mult(mgr_l, mgr_l.combatants[0])
 	_free_manager(mgr_l)
 	if absf(m_line - 1.0) > 0.001:
@@ -8966,10 +8998,7 @@ static func _run_wind_up_duration_bounded_for_move(failures: PackedStringArray) 
 			"wind_up_bound: guard_transition_mult(0) %.3f exceeds GUARD_TRANSITION_MULT_MAX"
 			% CombatTiming.guard_transition_mult(0.0)
 		)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("MACE"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_asymmetric("MACE", "SWORD")
 	var p: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(p)
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -8998,7 +9027,7 @@ static func _run_wind_up_duration_bounded_for_move(failures: PackedStringArray) 
 
 
 ## **MACE** weak tap: when raw momentum blunt is below **`BLUNT_DAMAGE_MIN`**, slip path stays sub-min; clamped helper still floors to min.
-static func _run_kinematic_delivery_mace_weak_tap_pre_blunt_below_legacy_min(
+static func _run_kinematic_delivery_mace_weak_tap_pre_blunt_below_floor_min(
 	failures: PackedStringArray
 ) -> void:
 	var mace: Weapon = Weapon.create_from_definition("MACE")
@@ -9066,10 +9095,7 @@ static func _run_kinematic_delivery_blunt_slip_momentum_mult_sword_v11(
 static func _run_resolve_aborts_when_threat_lost_mid_combat_arm_loss(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = _harness_start_1v1()
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])

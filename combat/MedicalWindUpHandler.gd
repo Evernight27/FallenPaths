@@ -5,7 +5,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 
 ## Handles completion of medical wind-up: apply bandage/packing/tourniquet, emit outcome, track retry.
-## Manager must have: get_health_entity (via CombatantEntityAccess), _track_medical_failure_and_maybe_retry, emit_signal, get.
+## Manager must have: get_health_entity (via **`CombatantEntityAccess`**), _track_medical_failure_and_maybe_retry, emit_signal, get.
 
 static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 	var med_id: String = pm.get("medical_id", "")

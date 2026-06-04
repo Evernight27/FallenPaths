@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Given attack params and defender state, chooses parry vs dodge and computes parry capacity/timing.
 ## Pure function: returns a dict of computed values; caller handles resolution and mutation.
-## Tier 4.2: **`_guard_zone_modifier`** may treat the real hit line as the defender's guard focus when passive **`parry_readiness`** × stance **`feint_readthrough`** clears **`CombatConstants.FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** (omit extra arg → legacy / static calls).
+## Tier 4.2: **`_guard_zone_modifier`** may treat the real hit line as the defender's guard focus when passive **`parry_readiness`** × stance **`feint_readthrough`** clears **`CombatConstants.FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** (default args skip feint read-through — harness uses explicit readiness).
 ## Tier 4.2 footwork: pair **`distance_to[attacker]`** scales **`parry_c_d`** (CLOSE / LONG vs MID) and **`dodge_chance`** at CLOSE / LONG (**`CombatConstants.DEFENSE_SPACING_*`**); **`STATE_RECOVERING`** / settled **`STATE_WAITING`** scale reported **`dodge_chance`** via **`defense_footwork_recovering_dodge_mult_for_cause`** / **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`** (waiting skipped when off-balance); feint-only spacing on dodge telegraph (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**), AI feint-listing readiness (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**), and **`_guard_zone_modifier`** read-through (**`FEINT_GUARD_ZONE_READINESS_SPACING_*`**, **`feint_guard_zone_readiness_spacing_mult`**).
 ## Tier 4.2 tempo: non-empty **`feint_part`** on **`pa`** uses **`CombatConstants.commitment_fraction_for_pending_attack`** (larger committed fraction → shorter **`effective_wind_up`** for passive parry timing vs plain attacks).
 ## Tier 4.2 telegraph delay: optional **`feint_target_reveal_at_progress`** on feint moves (stamped on **`pa`** in **`AttackWindUpStarter`**) scales feint read-through / dodge-telegraph readiness via **`CombatConstants.FEINT_PRE_REVEAL_READINESS_MULT`** until wind-up progress reaches that fraction (**`_feint_readiness_reveal_mult`**).
@@ -25,7 +25,7 @@ const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 ## Tier 3.1: `AttackResolver` / **`CombatStrikeStamping.stamp_attack_pair_geometry_on_dict`** set **`depth_polearm_attack`**, **`depth_polearm_allows_low_targets`**, and **`depth_polearm_lane_type`** when rank≥1 depth spear lane is live.
 static func _depth_polearm_lane_is_open(pa: Dictionary) -> bool:
 	## `stamp_attack_pair_geometry_on_dict` always sets the key (often `""`). Empty / unknown → `allows_low`
-	## (legacy `pa`); explicit ids match **`CombatConstants`** (`open` / `over_shoulder`).
+	## (unset lane type); explicit ids match **`CombatConstants`** (`open` / `over_shoulder`).
 	var lt: String = str(pa.get("depth_polearm_lane_type", "")).strip_edges()
 	if lt == "open":
 		return true
@@ -544,6 +544,53 @@ static func _feint_readiness_reveal_mult(pa: Dictionary, atk: Dictionary) -> flo
 
 
 ## Tier 4.2 footwork / tempo: same curve as post-alignment **`parry_c_d`** stamina (**`STAMINA_AT_ZERO_PARRY_MULT`** + **`stamina_factor`**) applied to **readiness** (feint read-through, guard-zone, dodge telegraph). Not multiplied into **`pr_base`** in **`parry_c_d *= parry_capacity_mult * pr_base`** — avoids double-applying stamina to passive parry capacity.
+static func defender_feint_listing_pr_def(
+	defender: Dictionary,
+	attacker_id: int,
+	move_id: String,
+	attacker: Dictionary = {},
+	pa_live: Dictionary = {},
+	apply_stamina_and_exhaustion: bool = true,
+	apply_spacing_mult: bool = true
+) -> float:
+	var pr_def: float = clampf(_PassiveParry.get_passive_parry_readiness(defender), 0.0, 1.0)
+	var ct_mv: String = str(
+		WeaponConstants.get_move(move_id).get("contact_type", WeaponConstants.ATTACK_TYPE_CUT)
+	)
+	pr_def = clampf(
+		pr_def * CombatConstants.passive_parry_readiness_incoming_contact_mult(ct_mv), 0.0, 1.0
+	)
+	if apply_stamina_and_exhaustion:
+		pr_def = clampf(
+			pr_def
+			* CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
+				_EntityAccess.stamina_ratio(defender)
+			)
+			* CombatConstants.defender_passive_readiness_exhaustion_mult(defender),
+			0.0,
+			1.0
+		)
+	if apply_spacing_mult:
+		pr_def = clampf(
+			pr_def
+			* CombatConstants.ai_feint_listing_defender_readiness_spacing_mult(
+				defender, attacker_id
+			),
+			0.0,
+			1.0
+		)
+	if not attacker.is_empty() and not pa_live.is_empty():
+		if int(pa_live.get("target_id", -1)) == _EntityAccess.id_int(defender):
+			var pa_mid: String = str(pa_live.get("attack_type", "")).strip_edges()
+			if pa_mid.is_empty() or pa_mid == move_id:
+				pr_def = clampf(
+					pr_def * _feint_readiness_reveal_mult(pa_live, attacker),
+					0.0,
+					1.0
+				)
+	return pr_def
+
+
 static func _defender_passive_readiness_stamina_mult(tgt: Dictionary) -> float:
 	return CombatConstants.defender_passive_readiness_stamina_mult_from_ratio(
 		_EntityAccess.stamina_ratio(tgt)
@@ -604,7 +651,7 @@ static func _apply_feint_telegraph_bias_to_dodge_eval_part(
 
 
 ## Guard zone modifier: bonus when defender guards the hit part, penalty when unguarded (feint D).
-## **`parry_readiness_for_feint`**: pass passive parry readiness from **`choose_defense`**; **`< 0`** skips feint read-through (legacy / harness static calls). **`atk_id_for_feint_spacing`**: defender **`distance_to[atk_id]`** scales readiness only for read-through (**`-1`** = omit footwork, default).
+## **`parry_readiness_for_feint`**: pass passive parry readiness from **`choose_defense`**; **`< 0`** skips feint read-through (default / harness static calls). **`atk_id_for_feint_spacing`**: defender **`distance_to[atk_id]`** scales readiness only for read-through (**`-1`** = omit footwork, default).
 static func _guard_zone_modifier(
 	pa: Dictionary,
 	tgt: Dictionary,

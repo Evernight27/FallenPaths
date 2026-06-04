@@ -189,7 +189,7 @@ Runs at **strike contact**, not on `turn_ready`:
 | `is_feature_counter_tempo_load` | Counter window + L2 stack + gauge **Counter!** |
 | Tier 3 | `FEATURE_INCOMING_PARRY_CHOICE`, `FEATURE_HEMA_EIGHT_GUARD_LINES`, … |
 
-Harness: **`CombatRegressionHarnessAttentionFootworkTail`** — `_run_attention_*`, `_run_mental_stack_medical_overrides_attack`, `_run_mental_stack_self_peril_before_ally_medical`, `_run_mental_stack_hold_line_only_picks_focus_or_wait`, `_run_mental_stack_incoming_windup_prefers_defense`, `_run_mental_stack_counter_over_plain_attack_when_window_open`, `_run_mental_stack_attack_layer_matches_legacy_weights`, `_run_mental_stack_stamps_layer_on_medical_pick`, `_run_attention_ui_hint_includes_mental_stack_layer`. F5: `turn_ready_gauge`, `tooltip_match=*`, `Stack *` on gauge. Plan: [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped).
+Harness: **`CombatRegressionHarnessAttentionFootworkTail`** — `_run_attention_*`, `_run_mental_stack_medical_overrides_attack`, `_run_mental_stack_self_peril_before_ally_medical`, `_run_mental_stack_hold_line_only_picks_focus_or_wait`, `_run_mental_stack_incoming_windup_prefers_defense`, `_run_mental_stack_counter_over_plain_attack_when_window_open`, `_run_mental_stack_attack_layer_baseline_weights`, `_run_mental_stack_stamps_layer_on_medical_pick`, `_run_attention_ui_hint_includes_mental_stack_layer`. F5: `turn_ready_gauge`, `tooltip_match=*`, `Stack *` on gauge. Plan: [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped).
 
 ### H. Campaign ↔ combat boundaries (ship)
 

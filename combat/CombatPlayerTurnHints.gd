@@ -86,7 +86,7 @@ static func hold_line_focus_only_hint(manager: Node, c: Dictionary, actions: Arr
 		return ""
 	if not _EntityAccess.is_player_side(c):
 		return ""
-	if not _ListedActions.action_list_is_reserve_posture_only(actions):
+	if not _ListedActions.action_list_is_hold_line_menu(actions):
 		return ""
 	if _EntityAccess.rank_int(c) >= 1:
 		return "Back rank — no front reach this turn; adjust guard focus lines only."

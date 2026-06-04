@@ -118,9 +118,7 @@ static func _run_medical_mobility_cowering_lists_flee_in_formation_mode(
 static func _run_medical_mobility_cowering_mobile_not_skipped_in_process_incap(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_player_only()
 	var c: Dictionary = mgr.combatants[0]
 	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
 	CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
@@ -288,7 +286,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 	if not _ListedActions.actions_include_self_target_move(
 		acts, _EntityAccess.id_int(front_c), CombatConstants.MOVE_ID_FALL_BACK
 	):
-		var c_b: Dictionary = mgr._get_by_id(_EntityAccess.id_int(front_c))
+		var c_b: Dictionary = _EntityAccess.manager_get_combatant(mgr, _EntityAccess.id_int(front_c))
 		var zf: Dictionary = _ZoneOfControl.formation_for_combatant_cached(mgr, c_b, null)
 		var mp: Dictionary = _EngagementMode.movement_policy(mgr)
 		CombatRegressionHarness._fail(
@@ -562,9 +560,7 @@ static func _run_medical_mobility_cowering_ai_pick_favors_fall_back(
 static func _run_medical_mobility_cowering_arm_recovery_clears_state(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_player_only()
 	var c: Dictionary = mgr.combatants[0]
 	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
 	CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
@@ -639,10 +635,7 @@ static func _run_medical_mobility_cowering_no_offensive_melee_in_action_builder(
 static func _run_medical_mobility_cowering_resolve_blocks_melee_wind_up(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var c: Dictionary = mgr.combatants[0]
 	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
 	var p_id: int = _EntityAccess.id_int(c)
@@ -663,10 +656,7 @@ static func _run_medical_mobility_cowering_resolve_blocks_melee_wind_up(
 static func _run_medical_mobility_cowering_stale_action_ready_cancelled_on_recovery_end(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1_enemy_first()
 	var c: Dictionary = mgr.combatants[0]
 	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
 	var cid: int = _EntityAccess.id_int(c)
@@ -712,10 +702,7 @@ static func _run_medical_mobility_cowering_ai_pick_never_offensive(
 	failures: PackedStringArray
 ) -> void:
 	seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1_enemy_first()
 	var c: Dictionary = mgr.combatants[0]
 	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
 	var cid: int = _EntityAccess.id_int(c)
@@ -745,10 +732,7 @@ static func _run_medical_mobility_cowering_ai_pick_never_offensive(
 static func _run_medical_mobility_cowering_mid_windup_arm_loss_aborts_melee(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
 	var p_id: int = _EntityAccess.id_int(p)
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -775,10 +759,7 @@ static func _run_medical_mobility_cowering_mid_windup_arm_loss_aborts_melee(
 static func _run_medical_mobility_cowering_react_after_hit_arm_loss(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var def: Dictionary = mgr.combatants[1]
 	var def_id: int = _EntityAccess.id_int(def)
 	def.state = CombatConstants.STATE_WAITING
@@ -803,10 +784,7 @@ static func _run_medical_mobility_cowering_react_after_hit_arm_loss(
 static func _run_medical_mobility_cowering_afterblow_aborts_destroyed_attacking_arm(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	mgr._recompute_zoc_and_distance()
 	CombatRegressionHarness._afterblow_harness_seed_pending_cut(mgr, 1, 0)
 	var striker: Dictionary = mgr.combatants[1]
@@ -844,10 +822,7 @@ static func _run_medical_mobility_cowering_afterblow_aborts_destroyed_attacking_
 static func _run_medical_mobility_cowering_process_windup_aborts_when_no_arm(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	_WindUpStarter.start(mgr, p_id, e_id, "thrust")
@@ -867,9 +842,7 @@ static func _run_medical_mobility_cowering_process_windup_aborts_when_no_arm(
 static func _run_medical_mobility_cowering_recovery_completes_early_when_arm_lost(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_player_only()
 	var c: Dictionary = mgr.combatants[0]
 	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
 	c.state = CombatConstants.STATE_RECOVERING
@@ -899,10 +872,7 @@ static func _run_medical_mobility_cowering_recovery_completes_early_when_arm_los
 static func _run_medical_mobility_cowering_parry_riposte_skips_no_arm_defender(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var def: Dictionary = mgr.combatants[0]
 	var def_id: int = _EntityAccess.id_int(def)
 	var atk_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -926,9 +896,7 @@ static func _run_medical_mobility_cowering_parry_riposte_skips_no_arm_defender(
 static func _run_medical_mobility_cowering_immobile_skips_action_ready_schedule(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_player_only()
 	var c: Dictionary = mgr.combatants[0]
 	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
 	CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
@@ -947,10 +915,7 @@ static func _run_medical_mobility_cowering_immobile_skips_action_ready_schedule(
 static func _run_medical_mobility_cowering_parry_deflect_clears_bind_without_arms(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var def: Dictionary = mgr.combatants[0]
 	var def_id: int = _EntityAccess.id_int(def)
 	var atk_id: int = _EntityAccess.id_int(mgr.combatants[1])

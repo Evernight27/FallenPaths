@@ -41,6 +41,14 @@ static func create(manager: Node, preset: Dictionary, side: String) -> Control:
 	_RowFormatter.configure_wrapped_label(zoc_line)
 	vbox.add_child(zoc_line)
 
+	var fled_line = Label.new()
+	fled_line.name = "FledLine"
+	fled_line.visible = false
+	fled_line.add_theme_font_size_override("font_size", 10)
+	fled_line.add_theme_color_override("font_color", Color(0.62, 0.58, 0.52))
+	_RowFormatter.configure_wrapped_label(fled_line)
+	vbox.add_child(fled_line)
+
 	var grid = GridContainer.new()
 	var files: int = preset.get("files", 1)
 	var density: String = preset.get("density", "normal")
@@ -56,6 +64,7 @@ static func create(manager: Node, preset: Dictionary, side: String) -> Control:
 	root.set_meta("_formation_preset", preset)
 	root.set_meta("_formation_grid", grid)
 	root.set_meta("_zoc_line", zoc_line)
+	root.set_meta("_fled_line", fled_line)
 	_refresh_internal(root)
 	return root
 
@@ -115,6 +124,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 	var side: String = diagram_root.get_meta("_formation_side", "")
 	var preset: Dictionary = diagram_root.get_meta("_formation_preset", {})
 	var zoc_line: Label = diagram_root.get_meta("_zoc_line", null)
+	var fled_line: Label = diagram_root.get_meta("_fled_line", null)
 	if zoc_line != null:
 		zoc_line.text = ZoneOfControl.format_zone_control_line(manager, side)
 	if grid == null or manager == null or not manager.has_method("get_combatants"):
@@ -140,20 +150,31 @@ static func _refresh_internal(diagram_root: Control) -> void:
 			ranks = maxi(ranks, kk.x + 1)
 			files = maxi(files, kk.y + 1)
 
-	# Map (rank, file) -> combatant
+	# Map (rank, file) -> combatant still on the field (not fled / dead).
 	var slot_to_combatant: Dictionary = {}
+	var fled_names: PackedStringArray = PackedStringArray()
 	for c in manager.get_combatants():
 		if _EntityAccess.side_str(c) != side:
 			continue
-		if not _EntityAccess.alive_bool(c, true):
+		if _EntityAccess.has_left_battlefield(c) and _EntityAccess.alive_bool(c, true):
+			fled_names.append(_EntityAccess.get_display_name(c, _EntityAccess.id_int(c)))
+			continue
+		if not _EntityAccess.is_on_battlefield(c):
 			continue
 		var r: int = _EntityAccess.rank_int(c)
 		var f: int = _EntityAccess.file_int(c)
 		slot_to_combatant[Vector2i(r, f)] = c
+	if fled_line != null:
+		if fled_names.is_empty():
+			fled_line.text = ""
+			fled_line.visible = false
+		else:
+			fled_line.visible = true
+			fled_line.text = "Fled: %s" % ", ".join(fled_names)
 
-	# Clear existing children
+	# Clear existing children immediately (queue_free leaves stale names one frame).
 	for child in grid.get_children():
-		child.queue_free()
+		child.free()
 
 	# Build grid: first column = rank label, then file columns
 	for rank in range(ranks):
@@ -173,7 +194,11 @@ static func _refresh_internal(diagram_root: Control) -> void:
 				var names: Array = []
 				for cid in occ:
 					var oc: Variant = snap_by_id.get(int(cid), null)
-					if oc != null and typeof(oc) == TYPE_DICTIONARY and _EntityAccess.alive_bool(oc):
+					if (
+						oc != null
+						and typeof(oc) == TYPE_DICTIONARY
+						and _EntityAccess.is_on_battlefield(oc)
+					):
 						if _ZoneOfControl.zone_geometry_fid_from_row(manager, oc) != side:
 							continue
 						var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))

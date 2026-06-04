@@ -128,7 +128,7 @@ static func stamp_listed_action_duration_hint(
 	if manager == null or initiator.is_empty() or action.is_empty():
 		return
 	var mid: String = str(action.get("move_id", ""))
-	if mid not in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+	if not CombatConstants.is_formation_movement_move(mid):
 		return
 	var tid: int = int(action.get("target_id", -1))
 	var self_id: int = _EntityAccess.id_int(initiator)
@@ -182,7 +182,7 @@ static func formation_listed_moves_menu_line(actions: Array) -> String:
 			continue
 		var mid: String = str(a.get("move_id", ""))
 		if (
-			mid not in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS
+			not CombatConstants.is_formation_movement_move(mid)
 			and mid != CombatConstants.MOVE_ID_ATTEMPT_CLOSE
 		):
 			continue
@@ -203,7 +203,7 @@ static func formation_listed_moves_turn_hint(actions: Array) -> String:
 		if a is not Dictionary:
 			continue
 		var mid: String = str(a.get("move_id", ""))
-		if mid not in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+		if not CombatConstants.is_formation_movement_move(mid):
 			continue
 		var hint: String = str(a.get("formation_move_duration_hint", "")).strip_edges()
 		if hint.is_empty():

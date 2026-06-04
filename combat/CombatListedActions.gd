@@ -36,6 +36,61 @@ static func is_reserve_posture_listing_move_id(move_id: String) -> bool:
 	return false
 
 
+## Listed attack moves (excludes wait, focus, close, formation, medical).
+static func is_melee_strike_listing_move_id(move_id: String) -> bool:
+	if move_id.is_empty():
+		return false
+	if is_reserve_posture_listing_move_id(move_id):
+		return false
+	if CombatConstants.is_formation_movement_move(move_id):
+		return false
+	if CombatConstants.is_medical_move(move_id):
+		return false
+	return true
+
+
+## True when the menu has actions but no melee strike entries (rotate + focus stall path).
+static func action_list_has_no_melee_strikes(actions: Array) -> bool:
+	var saw_action: bool = false
+	for raw in actions:
+		var a: Dictionary = _entry(raw)
+		if a.is_empty():
+			continue
+		var mid: String = entry_move_id(a)
+		if mid.is_empty():
+			continue
+		saw_action = true
+		if is_melee_strike_listing_move_id(mid):
+			return false
+	return saw_action
+
+
+static func is_hold_line_menu_move_id(move_id: String) -> bool:
+	if is_reserve_posture_listing_move_id(move_id):
+		return true
+	return CombatConstants.is_formation_movement_move(move_id)
+
+
+## Reserve posture, or no strikes with only wait/focus/close/formation moves (incl. **`rotate_file`**).
+static func action_list_is_hold_line_menu(actions: Array) -> bool:
+	if action_list_is_reserve_posture_only(actions):
+		return true
+	if not action_list_has_no_melee_strikes(actions):
+		return false
+	var saw_action: bool = false
+	for raw in actions:
+		var a: Dictionary = _entry(raw)
+		if a.is_empty():
+			continue
+		var mid: String = entry_move_id(a)
+		if mid.is_empty():
+			continue
+		saw_action = true
+		if not is_hold_line_menu_move_id(mid):
+			return false
+	return saw_action
+
+
 ## True when every listed action is **`wait`** or a focus-line move (back rank / no ZoC reach).
 static func action_list_is_hold_line_only(actions: Array) -> bool:
 	var saw_action: bool = false

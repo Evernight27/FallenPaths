@@ -149,7 +149,7 @@ flowchart TB
 
 ## 3b. Decision gates (closed 2026-05-22)
 
-**Rule:** Closed gates are in [`CompanyState`](world/CompanyState.gd) + [§19](SHIP_PLAN.md#implementation-stubs); branch via `read_stub_*()`. **Read first:** [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22). New gates only: guide research section → log → implement.
+**Rule:** Closed gates are in [`CompanyState`](world/CompanyState.gd) + [§19](SHIP_PLAN.md#implementation-stubs); branch via `gate_*()`. **Read first:** [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22). New gates only: guide research section → log → implement.
 
 | Order | Camp row | Gate ID | Status | Const (§19) |
 |-------|----------|---------|--------|-------------|
@@ -884,10 +884,10 @@ Camp-4.1–4.3 = more rows in this table, not new combat systems.
 <a id="implementation-stubs"></a>
 <a id="implementation-gate-constants"></a>
 
-Single place for **closed gate constants** (2026-05-22 bundle). Human-readable summary: [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22). `read_stub_*()` forwards here for harness and legacy callers — **not** provisional placeholders anymore.
+Single place for **closed gate constants** (2026-05-22 bundle). Human-readable summary: [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22). **`gate_*()`** readers return the const values — branch campaign logic here; do not duplicate magic strings. (Anchor id `implementation-stubs` is historical.)
 
 ```gdscript
-# world/CompanyState.gd — closed gates (2026-05-22 bundle); read_stub_*() forwards here.
+# world/CompanyState.gd — closed gates (2026-05-22 bundle); gate_*() readers.
 const DAY_TICK_MODE := "hybrid"                # Camp-1.2 T3: N=5 steps, End day at camp
 const STEPS_PER_DAY := 5
 const ENCOUNTER_LIFECYCLE := "r3_loss_ends_run"  # Camp-1.4 R3: paid loss ends run
@@ -904,7 +904,7 @@ const BANKRUPT_MODE := "desertion"             # Camp-2.6 B3 (not instant gold w
 
 **§12 economy** (gold 500, wage 15, med 3, tools 2) lives in `init_from_defaults()` — not stubs; retune in playtest without a gate.
 
-**Agents:** branch via `read_stub_*()` in `main.gd` / bridge — do not duplicate magic strings. New gates: add const + reader, log in [decision log](#decision-log).
+**Agents:** branch via `gate_*()` in `main.gd` / bridge — do not duplicate magic strings. New gates: add const + `gate_*()` reader, log in [decision log](#decision-log).
 
 ---
 
