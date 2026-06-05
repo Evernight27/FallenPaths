@@ -124,7 +124,7 @@ Priority is **strict top-to-bottom**; first non-empty pool wins. Each layer uses
 | Layer | Stamp | Trigger | Action pool |
 |-------|-------|---------|-------------|
 | **(retreat)** | — | `cannot_commit_melee` | Retreat-filtered list only |
-| **L0** | `self_medical` | `manager._is_in_immediate_peril(self)` | Coordinated **self** medical (`CombatMedicalCoordination.medical_action_allowed`) |
+| **L0** | `self_medical` | `CombatantEntityAccess.is_in_immediate_peril` | Coordinated **self** medical (`CombatMedicalCoordination.medical_action_allowed`) |
 | **L1** | `medical` | `CombatAttention.ally_in_immediate_peril` | Coordinated **ally** medical (not duplicate wind-up / compression rules) |
 | **L2** | `counter` | `CounterTempo.can_act` | `ACTION_KEY_COUNTER_TEMPO` only |
 | **L3** | `incoming` | Wind-up telegraph or incoming attacker id | Counter actions **or** melee vs that attacker (no med / no `attempt_close`) |
@@ -363,7 +363,7 @@ F5 soak: `turn_ready_gauge`, `tooltip_match=`, `diagram_banner` — `_run_battle
 
 Headless authoritative: `.d001_headless_signoff.txt` `ok=true`. F5 optional: [`Playtest` stream](PLANNING.md#stream-playtest).
 
-`.\scripts\run_all_combat_checks.ps1` → `FP_HARNESS_OK: AllCombatChecks`. Outputs: `.d001_soak_out.txt`, `.f5_soak_validation.txt`, `.calibration_audit.txt`, `.d001_soak_sanity_out.txt`. `CombatD001SoakRunner` (incl. **ii7** pack-wound + **formation_move_f5** `rotate_file@` greps), `CombatD001SoakSanity`, `CombatF5SoakLogValidator`. Fast paths: `run_all_combat_checks.ps1 -HarnessMode regression|d001|sanity|calibration|medical` ([`scripts/README.md`](../scripts/README.md)). Summary: `print_phase0_status.ps1`. No harness piping to `grep`.
+`.\scripts\run_all_combat_checks.ps1` → `FP_HARNESS_OK: AllCombatChecks`. Outputs: `.d001_soak_out.txt`, `.f5_soak_validation.txt`, `.calibration_audit.txt`, `.d001_soak_sanity_out.txt`. `CombatD001SoakRunner` (incl. **ii7** pack-wound + **formation_move_f5** `rotate_file@` greps), `CombatD001SoakSanity`, `CombatF5SoakLogValidator`. Fast paths: `run_all_combat_checks.ps1 -HarnessMode regression|d001|q_track|...` ([`scripts/README.md`](../scripts/README.md)). Summary: `run_all_combat_checks.ps1 -Status`.
 
 | # | Headless | F5 glance |
 |---|----------|-----------|
@@ -376,7 +376,7 @@ Headless authoritative: `.d001_headless_signoff.txt` `ok=true`. F5 optional: [`P
 | 8 | **ii1e**/**ii8** | diagram |
 | — | **ii4d** Exh | 3–5 min |
 
-F5 workflow: optional `dev_soak_encounter` → `.f5_soak_in.txt` → `validate_f5_soak_log.ps1` (multi-fight: `append_f5_soak_log.ps1`). Validator smoke (no F5): copy `docs/f5_soak_log.example.txt` → `.f5_soak_in.txt`. Q helpers: `run_q_feel.ps1 -Track Q1|Q2` · `run_q_audit.ps1 -Track Track`. Mandatory II-2b/5a/5b/5c/4d: headless ☑.
+F5 workflow: optional `dev_soak_encounter` → `.f5_soak_in.txt` → `validate_f5_soak_log.ps1` (multi-fight: `-AppendFrom`). Validator smoke (no F5): copy `docs/f5_soak_log.example.txt` → `.f5_soak_in.txt`. Q helpers: `run_q_feel.ps1 -Track Q1|Q2` · `-Headless` for Q track audit. Mandatory II-2b/5a/5b/5c/4d: headless ☑.
 
 <a id="integration-archive"></a>
 <a id="run-this-plan-cursor"></a>
@@ -567,7 +567,7 @@ _recompute_zoc_and_distance:
 | `repack_lane_offset_after_rank_file_change` | `CombatFormationFlow`, `CombatFormationVacancyPlugs` | after plug / rotate / swap writes | verify only |
 | `action_list_is_reserve_posture_only` | `CombatListedActions` | `MentalStackDecider` L4 trigger | doc + **3d** pick |
 | `action_list_is_hold_line_only` | `CombatListedActions` | harness / UI hints only (**not** L4 trigger) | doc clarity |
-| `_filter_hold_line_actions` | `MentalStackDecider` | L4 pick pool | **3d** add `attempt_close` branch |
+| `_filter_hold_line_actions` / `_filter_hold_line_close_actions` | `MentalStackDecider` | L4 pick pool | **3d** ☑ — close when reserve-only + (`wing_lack` **or** `pincer=flank_wing`) + LONG |
 | `attempt_close_listed_for_pair` | `CombatMeleeListing` | listing + `CombatAIActionPicker` weight zero at non-LONG | verify after **3a** |
 | `zone_geometry_line_context*` | `ZoneOfControl` | listing sort cache (`AvailableActionsBuilder`, `CombatAIActionPicker`, `CombatDebug`) | verify cache invalidation on reconcile |
 | `evaluate_automatic_doctrine` | `CombatDoctrine` | `CombatFormationEngagement.recompute_all` (hollow center only) | **p4c** (not Track A) |
@@ -581,7 +581,7 @@ _recompute_zoc_and_distance:
 | Priority | Gate | Module | Track A fix |
 |:--------:|------|--------|-------------|
 | 1 | Skirmish file compaction | `CombatFormationVacancyPlugs._should_compact_native_line_files` (Skirmish → always pack `0..n-1`) | **2b:** skip when outnumbering |
-| 2 | L4 ignores `attempt_close` | `MentalStackDecider._filter_hold_line_actions` | **3d:** pick close when reserve-only + wing lacks mapped opposition + LONG |
+| 2 | L4 + pincer flank close | `MentalStackDecider._hold_line_close_eligible` | **3d** ☑: unmapped wing **or** `pincer_flank_wing_should_close_at_long` + LONG |
 | 3 | Same-index file opposition | `CombatTargetScoring.is_file_opposed_rank0_pair` | **3a:** `EngagementOpposition` mapped offset + nearest wing |
 | 4 | Skirmish **`rotate_file`** when outnumbering | `allow_rotate_file_for_formation` (**3b** ☑) |
 | 5 | 5-wide default front | `FormationPreset.default_for_count` / bridge refresh | **3c:** encounter `player_front_count` or `for_front_count(7,7)` |
@@ -599,9 +599,9 @@ _recompute_zoc_and_distance:
 | Stage | Shipped behavior |
 |-------|------------------|
 | L4 **trigger** | `action_list_is_reserve_posture_only` — every listed move ∈ {wait, focus, `attempt_close`} |
-| L4 **pick pool** | `_filter_hold_line_actions` + listed **`attempt_close`** when wing lacks mapped opposition |
-| Pick order inside L4 | 1) focus if incoming telegraph needs retarget 2) **`pick_weighted`** on close pool when wing + LONG 3) else default **`wait`** |
-| Harness | `_run_mental_stack_hold_line_only_picks_focus_or_wait` + `_run_mental_stack_hold_line_attempt_close_wing` |
+| L4 **pick pool** | `_filter_hold_line_actions` + `_filter_hold_line_close_actions` when `_hold_line_close_eligible` (unmapped wing **or** pincer flank wing) |
+| Pick order inside L4 | 1) focus if incoming telegraph needs retarget 2) **`pick_weighted`** on close pool when eligible + LONG 3) else default **`wait`** |
+| Harness | `_run_mental_stack_hold_line_only_picks_focus_or_wait` + `_run_mental_stack_hold_line_attempt_close_wing` + `_run_mental_stack_pincer_flank_close_at_long` |
 
 Utility **`pick_weighted`** still applies `_get_action_weight` for `attempt_close` when L4 does not fire (center files with melee listed, or any menu that is not reserve-only).
 
@@ -629,7 +629,7 @@ Utility **`pick_weighted`** still applies `_get_action_weight` for `attempt_clos
 | **`CombatFormationVacancyPlugs.gd`** ☑ | Compaction gate (**2b**); IV-9 disables gap-mode compaction |
 | **`CombatEngagementMode.gd`** ☑ | Skirmish outnumber **`rotate_file`** via `allow_rotate_file_for_formation` |
 | **`MentalStackDecider.gd`** ☑ | L4+close (**3d**) + harness |
-| **`CombatPlayerTurnHints.gd`** ☑ | Wing hint: “no mapped front; close in or adjust guard focus.” |
+| **`CombatPlayerTurnHints.gd`** ☑ | Wing lack: “no mapped front; close in…” · pincer flank: “close on the flank or rotate forward” · center pin: “hold the line; wings envelop.” |
 
 Do **not** add a monolithic `EngagementGeometry.gd` facade unless IV-9 forces it; prefer smallest owner per [`CURSOR`](CURSOR.md).
 
@@ -648,7 +648,7 @@ Do **not** add a monolithic `EngagementGeometry.gd` facade unless IV-9 forces it
 | **Scheduler** | `CombatEventScheduler` | Back-rank `action_ready` bump after vacancy; reads `zone_geometry_for_combatant` |
 | **Lane stress** | `CombatFormationEngagement._avg_lane_stress` | Per-file `lane_stress_by_file` nested dict — IV-9 gap columns affect keys |
 | **UI diagram** | `FormationDiagramBuilder`, `FormationLayoutBuilder`, `BattleUILayout` | Render **raw** rank/file from combatants; wings show empty cells correctly today |
-| **F5 / Q4** | `CombatF5SoakTrace`, `scripts/run_q_track_audits.gd` | `tooltip_hold_line`, `turn_ready_formation_line`, Q4 **ii8** `diagram_banner` — update PR7/8 for close copy |
+| **F5 / Q4** | `CombatF5SoakTrace`, `CombatQTrackAudits` | `tooltip_hold_line`, `turn_ready_formation_line`, Q4 **ii8** `diagram_banner` — update PR7/8 for close copy |
 | **Debug** | `CombatDebug` | Targeting trace mirrors listing sort + pair geometry |
 
 #### Explicitly out of scope (Track A)
@@ -677,10 +677,10 @@ Do **not** add a monolithic `EngagementGeometry.gd` facade unless IV-9 forces it
 | **Resolution** | `CombatEngagementResolver`, `CombatResolveAction`, `AttackResolver`, `DefenseChoiceResolver`, `CombatStrikeStamping`, `CombatSurroundArcOccupancy`, `weapon/StrikeRealismProfile` |
 | **Tick / schedule** | `CombatProcessTick`, `CombatManager.get_available_actions`, `CombatEventScheduler`, `CombatStateHandlers` (back-rank vs wind-up — **III-6**) |
 | **UI / telemetry** | `FormationDiagramBuilder`, `FormationLayoutBuilder`, `BattleUILayout`, `BattleScene`, `CombatCombatantsSnapshot`, `CombatDebug`, `CombatF5SoakTrace`, `CombatPlayerTurnHints`, `CombatUiHints` |
-| **Campaign (3c — Campaign leads)** | `PartySetup`, `CampaignEncounterBridge`, `ContractSpawner`, `CombatFlow`, `EncounterNode`, `SoakEncounterPresets` |
-| **Harness / audits** | `CombatRegressionHarnessTier1Tail`, `CombatRegressionHarness`, `CombatRegressionHarnessAttentionFootworkTail`, `CombatRegressionHarnessFeintTempoTail`, `CombatRegressionHarnessMedicalMobilityTail` (`movement_policy`), `CombatD001SoakRunner`, `scripts/run_company_state_checks.gd`, `scripts/run_q_track_audits.gd` (Q4 ii8), vacancy / formation-move tails |
+| **Campaign (3c — Campaign leads)** | `world/PartySetup.gd`, `world/CampaignEncounterBridge.gd`, `world/ContractSpawner.gd`, `world/CombatFlow.gd`, `world/EncounterNode.gd`, `world/SoakEncounterPresets.gd` |
+| **Harness / audits** | `CombatRegressionHarnessTier1Tail`, `CombatRegressionHarness`, `CombatRegressionHarnessAttentionFootworkTail`, `CombatRegressionHarnessFeintTempoTail`, `CombatRegressionHarnessMedicalMobilityTail` (`movement_policy`), `CombatD001SoakRunner`, `scripts/run_company_state_checks.gd`, `CombatQTrackAudits` (Q4 ii8), vacancy / formation-move tails |
 
-Shared files **`CampaignEncounterBridge.gd`**, **`CombatFlow.gd`**: Campaign stream owns Track A **3c**; Combat owns opposition + stack.
+Shared files **`world/CampaignEncounterBridge.gd`**, **`world/CombatFlow.gd`**: Campaign stream owns Track A **3c**; Combat owns opposition + stack.
 
 #### Track A — PR sequence (harness gate each)
 
@@ -745,7 +745,7 @@ Shared files **`CampaignEncounterBridge.gd`**, **`CombatFlow.gd`**: Campaign str
 | Mode line | `mode=Skirmish`, `player_front` ≥ 5 (7 with Border Skirmish template), `enemy_front=3` |
 | Wing activity | Outer rank-0: **`Stack hold_line`**, **`attempt_close@`**, and/or **`rotate_file@`** (not 100% idle **`wait`**) |
 | Center | Rank-0 center files: melee or close vs mapped opponents |
-| Hits / doctrine | Grep **`hit_resolve `** · **`engagement_debug`** (fight_start rank0_map + turn lines for reserve_only/rotate/close) · enemy **`pinch_center`** on one **`diagram_banner enemy:`** row |
+| Hits / doctrine | Grep **`hit_resolve `** · **`engagement_debug turn`** (`pincer=flank_wing|center`, `side=player`) · enemy **`pinch_center`** on one **`diagram_banner enemy:`** row |
 | Regression | `run_all_combat_checks.ps1` → **PHASE0: PASS** + `[ii_envelop] pass=true` + **`ii_envelop_hit`** |
 | L4 telegraph | `_run_mental_stack_hold_line_only_picks_focus_or_wait` + `_run_mental_stack_hold_line_attempt_close_wing` |
 | Optional Q | Camp-3.4 `[Stack]` lines show reduced idle-wait ratio vs pre-Track-A baseline |

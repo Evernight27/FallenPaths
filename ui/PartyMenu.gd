@@ -1,6 +1,6 @@
 extends PopupPanel
 
-# Simple party menu that displays member info (body parts: cutting + blunt)
+## Party roster, field care, End day, and Camp rest. Canonical: `CompanyState.try_camp_heal` · `request_end_day`.
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
@@ -10,6 +10,8 @@ var content_vbox: VBoxContainer
 var _end_day_button: Button
 var _camp_heal_button: Button
 var _title_label: Label
+var _action_feedback_label: Label
+var _day_actions_hint_label: Label
 var _world: Node2D
 
 func _ready() -> void:
@@ -36,7 +38,7 @@ func _ready() -> void:
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(0, 280)
+	scroll.custom_minimum_size = Vector2(0, 260)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	main_vbox.add_child(scroll)
 
@@ -46,6 +48,20 @@ func _ready() -> void:
 	content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content_vbox)
 
+	_action_feedback_label = Label.new()
+	_action_feedback_label.visible = false
+	_action_feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_action_feedback_label.add_theme_color_override("font_color", Color(0.55, 0.85, 0.55))
+	_RowFormatter.configure_wrapped_label(_action_feedback_label)
+	main_vbox.add_child(_action_feedback_label)
+
+	_day_actions_hint_label = Label.new()
+	_day_actions_hint_label.visible = false
+	_day_actions_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_day_actions_hint_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.8))
+	_RowFormatter.configure_wrapped_label(_day_actions_hint_label)
+	main_vbox.add_child(_day_actions_hint_label)
+
 	_end_day_button = Button.new()
 	_end_day_button.text = "End day"
 	_end_day_button.visible = false
@@ -53,15 +69,14 @@ func _ready() -> void:
 	main_vbox.add_child(_end_day_button)
 
 	_camp_heal_button = Button.new()
-	_camp_heal_button.text = "Camp rest (−1 med, %d min)" % int(
-		_CompanyState.gate_camp_heal_seconds() / 60.0
-	)
+	_camp_heal_button.text = _CompanyState.format_camp_rest_button_label()
 	_camp_heal_button.visible = false
 	_camp_heal_button.pressed.connect(_on_camp_heal_pressed)
 	main_vbox.add_child(_camp_heal_button)
 
 func show_party(world: Node2D, members: Array) -> void:
 	_world = world
+	_set_action_feedback("")
 	if _title_label != null and world != null:
 		var renown: int = _CompanyState.get_renown(world)
 		var renown_bit: String = " · renown %d" % renown if renown > 0 else ""
@@ -193,21 +208,41 @@ func show_party(world: Node2D, members: Array) -> void:
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		content_vbox.add_child(v)
 
-	if _end_day_button != null:
-		_end_day_button.visible = _CompanyState.can_offer_end_day(world)
-	if _camp_heal_button != null:
-		var can_heal: bool = _CompanyState.can_offer_camp_heal(world, true)
-		_camp_heal_button.visible = can_heal or _CompanyState.get_medical_supplies(world) >= 1
-		_camp_heal_button.disabled = not can_heal
-		if can_heal:
-			_camp_heal_button.text = "Camp rest (−1 med, %d min)" % int(
-				_CompanyState.gate_camp_heal_seconds() / 60.0
-			)
-		else:
-			_camp_heal_button.text = _CompanyState.format_camp_heal_block_reason(world, true)
+	_refresh_day_action_buttons(world)
 
 	popup_centered()
 	self.grab_focus()
+
+
+func _refresh_day_action_buttons(world: Node2D) -> void:
+	if _end_day_button == null or _camp_heal_button == null:
+		return
+	var show_end_day: bool = _CompanyState.can_offer_end_day(world)
+	var can_heal: bool = _CompanyState.can_offer_camp_heal(world, true)
+	_end_day_button.visible = show_end_day
+	_camp_heal_button.visible = can_heal or _CompanyState.get_medical_supplies(world) >= 1
+	_camp_heal_button.disabled = not can_heal
+	if can_heal:
+		_camp_heal_button.text = _CompanyState.format_camp_rest_button_label(world)
+	else:
+		_camp_heal_button.text = _CompanyState.format_camp_heal_block_reason(world, true)
+	if _day_actions_hint_label != null:
+		if show_end_day and can_heal:
+			_day_actions_hint_label.text = _CompanyState.format_party_day_actions_hint()
+			_day_actions_hint_label.visible = true
+		else:
+			_day_actions_hint_label.visible = false
+
+
+func _set_action_feedback(message: String) -> void:
+	if _action_feedback_label == null:
+		return
+	if message.is_empty():
+		_action_feedback_label.visible = false
+		_action_feedback_label.text = ""
+	else:
+		_action_feedback_label.text = message
+		_action_feedback_label.visible = true
 
 
 func _refresh_party_view() -> void:
@@ -222,19 +257,31 @@ func _refresh_party_view() -> void:
 func _on_end_day_pressed() -> void:
 	if _world == null:
 		return
+	var wage_bill: int = _CompanyState.compute_next_wage_bill(_world)
 	if _CompanyState.request_end_day(_world):
 		_CompanyState.refresh_hud(_world)
+		if _OperationalLog.is_play_session_active():
+			_OperationalLog.play_world(
+				_CompanyState.format_day_tick_player_message(_world, wage_bill)
+			)
 		hide()
 
 
 func _on_camp_heal_pressed() -> void:
 	if _world == null:
 		return
+	var wage_bill: int = _CompanyState.compute_next_wage_bill(_world)
 	if _CompanyState.try_camp_heal(_world, true):
+		var feedback: String = (
+			"%s Party rested — vitals updated below."
+			% _CompanyState.format_day_tick_player_message(_world, wage_bill)
+		)
 		var pm: Variant = _world.get_meta("party_manager") if _world.has_meta("party_manager") else null
 		if pm != null and pm.has_method("get_members"):
 			show_party(_world, pm.get_members())
+		_set_action_feedback(feedback)
 	else:
+		_set_action_feedback("")
 		_OperationalLog.play_world(
-			"Camp rest unavailable — need 1 med, bleeding controlled, and (on map) camp tile or use Party menu."
+			"Camp rest unavailable — need 1 med and bleeding controlled (stabilize in Party first)."
 		)

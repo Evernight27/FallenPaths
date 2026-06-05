@@ -1,13 +1,6 @@
 class_name CounterTempo
 extends RefCounted
 
-## Tier 4.2 tempo pilot: partial-gauge counter during an incoming **`STATE_WIND_UP`** on this combatant.
-## Opens **`COMBATANT_KEY_COUNTER_WINDOW_UNTIL`** on wind-up start; defender may act at **`COUNTER_TEMPO_GAUGE_THRESHOLD`**
-## (grants threshold gauge when below — readiness built during the incoming wind-up). Spends **`COUNTER_TEMPO_GAUGE_COST`**,
-## shortens wind-up via **`COUNTER_TEMPO_WINDUP_MULT`**, and defers the incoming **`EVENT_MELEE_ATTACK`** until after the counter's.
-## When **`COUNTER_TEMPO_MIN_INCOMING_WINDUP_PROGRESS` > 0**, counter listing / **`can_act`** wait until the incoming attacker is that
-## far through wind-up; **`process_waiting`** schedules **`EVENT_ACTION_READY`** once the gate opens.
-
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
@@ -17,12 +10,9 @@ const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 
-const _FORMATION_MOVE_IDS: Array[String] = [
-	CombatConstants.MOVE_ID_SWAP_RANK,
-	CombatConstants.MOVE_ID_DRAG_BACK,
-	CombatConstants.MOVE_ID_FALL_BACK,
-	CombatConstants.MOVE_ID_ROTATE_FILE,
-]
+## Tier 4.2 tempo pilot: partial-gauge counter during incoming **`STATE_WIND_UP`**.
+## **Read order:** window open/close → `can_act` / gauge spend → action filter → wind-up defer / schedule ready.
+## Move filter: **`CombatConstants.is_formation_reposition_move`** excludes formation moves from counter melee pool.
 
 
 static func enabled() -> bool:
@@ -117,7 +107,7 @@ static func is_counter_tempo_melee_action(move_id: String) -> bool:
 		return false
 	if move_id == CombatConstants.MOVE_ID_WAIT:
 		return false
-	if move_id in _FORMATION_MOVE_IDS:
+	if CombatConstants.is_formation_reposition_move(move_id):
 		return false
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return false

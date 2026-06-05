@@ -5,6 +5,7 @@ extends RefCounted
 ## Centralizes body part label layout and blood/bleeding text.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 const ATLS_CLASS_LABELS := {
@@ -27,6 +28,64 @@ static func read_body_stat_dicts(row: Dictionary) -> Dictionary:
 		"bone_health": _EntityAccess.nested_dictionary_read(row, "bone_health"),
 		"bone_max": _EntityAccess.nested_dictionary_read(row, "bone_max"),
 	}
+
+
+## Combined tissue + bone remaining across all body parts (0–1). Matches battle body-bar tissue = min(cut, blunt).
+static func total_body_health_ratio(stats_row: Dictionary) -> float:
+	var body_stats: Dictionary = read_body_stat_dicts(stats_row)
+	var bc: Dictionary = body_stats["body_cutting"]
+	var bb: Dictionary = body_stats["body_blunt"]
+	var bm: Dictionary = body_stats["body_max"]
+	var bone_h: Dictionary = body_stats["bone_health"]
+	var bone_m: Dictionary = body_stats["bone_max"]
+	var total_cur: float = 0.0
+	var total_max: float = 0.0
+	for part in BodyPartConstants.BODY_PARTS:
+		var tissue_mx: float = float(bm.get(part, 0))
+		if tissue_mx > 0.0:
+			total_cur += minf(float(bc.get(part, 0.0)), float(bb.get(part, 0.0)))
+			total_max += tissue_mx
+		var bo_mx: int = int(bone_m.get(part, 0))
+		if bo_mx > 0:
+			total_cur += float(bone_h.get(part, 0.0))
+			total_max += float(bo_mx)
+	if total_max <= 0.0:
+		return 1.0
+	return clampf(total_cur / total_max, 0.0, 1.0)
+
+
+## Average limb/torso functionality (arms, legs, head, chest) for formation health-bar tinting.
+static func body_functionality_ratio(combatant: Dictionary, manager: Node = null) -> float:
+	var node: Node = null
+	if manager != null:
+		node = _EntityAccess.get_entity_from_manager(manager, combatant)
+	if node == null:
+		node = _EntityAccess.scene_node(combatant)
+	if node == null:
+		var perf: float = float(_EntityAccess.stats_dict(combatant).get("performance_modifier", 1.0))
+		return clampf(perf, 0.0, 1.0)
+	var samples: PackedFloat32Array = PackedFloat32Array([
+		_BodyPartQuery.get_arm_functionality(node, "right_arm"),
+		_BodyPartQuery.get_arm_functionality(node, "left_arm"),
+		_BodyPartQuery.get_leg_functionality(node),
+	])
+	for part in ["head", "chest"]:
+		if _BodyPartQuery.is_part_physically_operable(node, part):
+			samples.append(_BodyPartQuery.get_bone_functionality_factor(node, part))
+		else:
+			samples.append(0.0)
+	if samples.is_empty():
+		return 1.0
+	var sum: float = 0.0
+	for v in samples:
+		sum += float(v)
+	return clampf(sum / float(samples.size()), 0.0, 1.0)
+
+
+## Formation diagram health bar fill: green at full function, red when impaired.
+static func formation_health_bar_fill_color(functionality_ratio: float) -> Color:
+	var t: float = 1.0 - clampf(functionality_ratio, 0.0, 1.0)
+	return Color(0.28, 0.72, 0.38).lerp(Color(0.88, 0.22, 0.2), t)
 
 
 ## Autowrap in VBox/ScrollContainer needs expand fill or width collapses (one char per line).

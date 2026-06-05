@@ -23,6 +23,7 @@ const MAX_FIGHT_TRACE_LINES := 5000
 static var _session_counts: Dictionary = {}
 static var _fight_end_logged: bool = false
 static var _defer_soak_coverage_for_medical: bool = false
+static var _deferred_medical_action_picks: int = 0
 static var _soak_coverage_logged: bool = false
 static var _medical_phase_intro_logged: bool = false
 static var _research_validate_hint_logged: bool = false
@@ -38,8 +39,11 @@ static var _fight_trace_lines: PackedStringArray = PackedStringArray()
 static var _last_diagram_banner_line: String = ""
 static var _last_diagram_banner_enemy_line: String = ""
 static var _last_turn_ready_formation_fp_line: String = ""
+static var _turn_ready_formation_fp_by_cid: Dictionary = {}
+static var _formation_fp_melee_bg_logged_by_cid: Dictionary = {}
 static var _last_gauge_tooltip_formation_fp_line: String = ""
 static var _last_turn_ready_gauge_sig: String = ""
+static var _turn_ready_gauge_sig_by_cid: Dictionary = {}
 static var _last_engagement_transition_line: String = ""
 static var _last_strike_avoided_line: String = ""
 static var _last_hit_resolve_line: String = ""
@@ -86,8 +90,9 @@ static func set_fight_profile(profile_id: String) -> void:
 
 
 ## Headless D-001 runs one log line per simulated fight (not only **`CombatManager`** phase_end).
-## New fight / F5 session: reset trace buffer **and** per-fight session counters.
+## New fight / F5 session: flush any deferred coverage from prior fight, then reset trace + counters.
 static func prepare_fight_end_log() -> void:
+	flush_deferred_soak_coverage_if_pending()
 	reset_fight_trace_buffer()
 	_EngagementDiag.reset_session()
 	_last_diagram_banner_line = ""
@@ -126,6 +131,7 @@ static func prepare_fight_end_log() -> void:
 static func reset_fight_trace_buffer() -> void:
 	_fight_end_logged = false
 	_defer_soak_coverage_for_medical = false
+	_deferred_medical_action_picks = 0
 	_soak_coverage_logged = false
 	_medical_phase_intro_logged = false
 	_research_validate_hint_logged = false
@@ -133,8 +139,11 @@ static func reset_fight_trace_buffer() -> void:
 	_soak_coverage_deferred_note_logged = false
 	_fight_trace_lines = PackedStringArray()
 	_last_turn_ready_formation_fp_line = ""
+	_turn_ready_formation_fp_by_cid.clear()
+	_formation_fp_melee_bg_logged_by_cid.clear()
 	_last_gauge_tooltip_formation_fp_line = ""
 	_last_turn_ready_gauge_sig = ""
+	_turn_ready_gauge_sig_by_cid.clear()
 	_last_engagement_transition_line = ""
 	_last_strike_avoided_line = ""
 	_last_hit_resolve_line = ""
@@ -186,6 +195,18 @@ static func ingest_trace_line(message: String) -> void:
 		_fight_trace_lines.remove_at(0)
 
 
+## Fight-end / rollup lines excluded from **`ingest_trace_line`** — append for deferred **`soak_coverage`** only.
+static func _append_validator_trace_line(s: String) -> void:
+	var line: String = s.strip_edges()
+	if line.is_empty():
+		return
+	if _fight_trace_lines.size() > 0 and _fight_trace_lines[_fight_trace_lines.size() - 1] == line:
+		return
+	_fight_trace_lines.append(line)
+	if _fight_trace_lines.size() > MAX_FIGHT_TRACE_LINES:
+		_fight_trace_lines.remove_at(0)
+
+
 ## End-of-fight rollup for pasted-log validation (grep **`soak_fight_end`**).
 static func log_fight_end_summary(winner: String, entering_medical_phase: bool) -> void:
 	if _fight_end_logged or not _OperationalLog.is_play_session_active():
@@ -198,7 +219,9 @@ static func log_fight_end_summary(winner: String, entering_medical_phase: bool) 
 	parts.append("fight_profile=%s" % (_fight_profile if not _fight_profile.is_empty() else "7v7"))
 	for key in _session_counts.keys():
 		parts.append("%s=%d" % [key, int(_session_counts[key])])
-	_OperationalLog.play_combat("soak_fight_end %s" % " ".join(parts))
+	var summary_line: String = "soak_fight_end %s" % " ".join(parts)
+	_OperationalLog.play_combat(summary_line)
+	_append_validator_trace_line(summary_line)
 	if entering_medical_phase:
 		_defer_soak_coverage_for_medical = true
 	else:
@@ -692,7 +715,7 @@ static func note_medical_pack_listed(who: String, part: String) -> void:
 	_last_medical_pack_listed_line = line
 	_bump("medical_pack_listed")
 	_OperationalLog.play_combat(line)
-	_maybe_flush_deferred_soak_coverage()
+	_maybe_flush_deferred_soak_coverage(true)
 
 
 static func note_medical_action_pick(who: String, move_id: String, part: String, tgt_desc: String) -> void:
@@ -706,15 +729,25 @@ static func note_medical_action_pick(who: String, move_id: String, part: String,
 	_last_medical_action_pick_line = pick_line
 	_bump("medical_action_pick")
 	_OperationalLog.play_combat(pick_line)
-	if move_id == "pack_wound":
+	var pack_pick: bool = CombatConstants.is_pack_wound_move(move_id)
+	if pack_pick:
 		_bump("medical_pack_pick")
 		var pack_line: String = "medical_pack_wound pick %s part=%s (%s)" % [who, part, tgt_desc]
 		_OperationalLog.play_combat(pack_line)
-	_maybe_flush_deferred_soak_coverage()
+	if _defer_soak_coverage_for_medical:
+		_deferred_medical_action_picks += 1
+	_maybe_flush_deferred_soak_coverage(pack_pick or _deferred_medical_action_picks >= 2)
 
 
-static func _maybe_flush_deferred_soak_coverage() -> void:
+## F5 session end / next fight — flush deferred coverage if player left mid-triage.
+static func flush_deferred_soak_coverage_if_pending() -> void:
+	_maybe_flush_deferred_soak_coverage(true)
+
+
+static func _maybe_flush_deferred_soak_coverage(force: bool = false) -> void:
 	if not _defer_soak_coverage_for_medical:
+		return
+	if not force:
 		return
 	_defer_soak_coverage_for_medical = false
 	_log_soak_coverage()
@@ -756,7 +789,9 @@ static func log_turn_ready_player_ui(manager: Node, c: Dictionary, actions: Arra
 	_bump("turn_ready")
 	_bump(_tooltip_match_counter_key(match_s))
 	var gauge_sig: String = "%d|%s|%s" % [cid, label, match_s]
-	var skip_gauge_line: bool = gauge_sig == _last_turn_ready_gauge_sig
+	var prev_gauge_sig: String = str(_turn_ready_gauge_sig_by_cid.get(cid, ""))
+	var skip_gauge_line: bool = gauge_sig == prev_gauge_sig
+	_turn_ready_gauge_sig_by_cid[cid] = gauge_sig
 	_last_turn_ready_gauge_sig = gauge_sig
 	if not skip_gauge_line:
 		_OperationalLog.play_combat(
@@ -769,13 +804,41 @@ static func log_turn_ready_player_ui(manager: Node, c: Dictionary, actions: Arra
 			_OperationalLog.play_combat(
 				"gauge_tooltip_formation id=%d %s line=%s" % [cid, who, formation_tip]
 			)
-	_emit_turn_ready_formation_fp(cid, who, fp_line)
+	_emit_turn_ready_formation_fp(cid, who, fp_line, actions, ctx)
 
 
-static func _emit_turn_ready_formation_fp(combatant_id: int, who: String, fp_line: String) -> void:
+## Formation-primary turn (hold-line / no melee / probe with empty actions).
+static func _formation_turn_fp_is_primary(actions: Array, ctx: String) -> bool:
+	if ctx == "hold_line":
+		return true
+	if _ListedActions.action_list_is_hold_line_menu(actions):
+		return true
+	if _ListedActions.action_list_is_reserve_posture_only(actions):
+		return true
+	if actions.is_empty():
+		return true
+	return _ListedActions.action_list_has_no_melee_strikes(actions)
+
+
+static func _emit_turn_ready_formation_fp(
+	combatant_id: int,
+	who: String,
+	fp_line: String,
+	actions: Array = [],
+	ctx: String = ""
+) -> void:
 	var text: String = fp_line.strip_edges()
-	if text.is_empty() or text == _last_turn_ready_formation_fp_line:
+	if text.is_empty():
 		return
+	var primary: bool = _formation_turn_fp_is_primary(actions, ctx)
+	if not primary and _formation_fp_melee_bg_logged_by_cid.has(combatant_id):
+		return
+	var prev: String = str(_turn_ready_formation_fp_by_cid.get(combatant_id, ""))
+	if text == prev:
+		return
+	if not primary:
+		_formation_fp_melee_bg_logged_by_cid[combatant_id] = true
+	_turn_ready_formation_fp_by_cid[combatant_id] = text
 	_last_turn_ready_formation_fp_line = text
 	_OperationalLog.play_combat(
 		"turn_ready_formation_line id=%d %s line=%s" % [combatant_id, who, text]
@@ -941,21 +1004,9 @@ static func _actions_include_formation_menu(actions: Array) -> bool:
 		var mid: String = str(entry.get("move_id", entry.get("id", ""))).strip_edges()
 		if mid.is_empty() or mid == CombatConstants.MOVE_ID_WAIT:
 			continue
-		if mid.begins_with("focus_"):
+		if CombatConstants.is_focus_line_move(mid):
 			continue
-		if (
-			mid
-			in [
-				CombatConstants.MOVE_ID_ROTATE_FILE,
-				CombatConstants.MOVE_ID_SWAP_RANK,
-				CombatConstants.MOVE_ID_FALL_BACK,
-				CombatConstants.MOVE_ID_DRAG_BACK,
-				CombatConstants.MOVE_ID_FLEE,
-				CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
-			]
-		):
-			return true
-		if mid.begins_with("rotate_file") or mid.begins_with("swap_rank") or mid.begins_with("flee"):
+		if CombatConstants.is_formation_movement_move(mid) or mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 			return true
 	return false
 

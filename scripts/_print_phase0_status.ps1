@@ -1,12 +1,11 @@
-# Print Phase 0 / D-001 gate artifacts (no Godot).
-$ErrorActionPreference = "Continue"
-$Root = Split-Path -Parent $PSScriptRoot
+# Dot-sourced artifact summary (no Godot). Use: run_all_combat_checks.ps1 -Status
+if (-not $Root) { $Root = Split-Path -Parent $PSScriptRoot }
 
 Write-Host "Docs: docs/CURSOR.md | docs/SHIP_PLAN.md#camp-playtest-acceptance (F5 §8) | docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers | scripts/README.md"
 Write-Host "Streams: Combat (Phase 0 + Camp-3.4 tail) | Playtest F5 §8 / Q1/Q2 | Expand after Camp-5"
-Write-Host "Q headless (no F5): .\scripts\run_q_audit.ps1 -Track Track  (+ -Track Q1)"
+Write-Host "Q headless: .\scripts\run_all_combat_checks.ps1 -HarnessMode q_track  (alias: run_q_feel.ps1 -Headless)"
 Write-Host "Q feel (F5): .\scripts\run_q_feel.ps1 -Track Camp|Q1|Q2"
-Write-Host "Fast harness: .\scripts\run_all_combat_checks.ps1 -HarnessMode regression|d001|sanity|calibration|medical"
+Write-Host "Fast harness: .\scripts\run_all_combat_checks.ps1 -HarnessMode regression|d001|q_track|..."
 Write-Host ""
 
 function Show-File($Path, $Label) {
@@ -54,7 +53,7 @@ if (Test-Path $medicalLog) {
 }
 Show-File $signoffPath "headless_signoff"
 $soak = Join-Path $Root ".d001_soak_out.txt"
-	if (Test-Path $soak) {
+if (Test-Path $soak) {
 	Write-Host "=== d001_soak (grep ok / ii4d / ii2b) ==="
 	Select-String -Path $soak -Pattern "^ok=|^\[ii2b\]|^\[ii4d\]|^\[ii7\]|^\[ii_envelop\]|^\[formation_move_f5\]|ii2b_plausibility|ii4d_plausibility|exhaustion_stats|parry_stats" | ForEach-Object { $_.Line }
 	Write-Host ""
@@ -63,12 +62,6 @@ $qTrack = Join-Path $Root ".q_track_audits.txt"
 if (Test-Path $qTrack) {
 	Write-Host "=== q_track_audits (summary) ==="
 	Select-String -Path $qTrack -Pattern "^\[Q|plausibility=pass|BOUNDARY_FAIL|f5_only=" | ForEach-Object { $_.Line }
-	Write-Host ""
-}
-$q2 = Join-Path $Root ".q2_ii2b_feel_audit.txt"
-if (Test-Path $q2) {
-	Write-Host "=== q2_ii2b_feel_audit (last 8 lines) ==="
-	Get-Content $q2 | Select-Object -Last 8
 	Write-Host ""
 }
 $calPath = Join-Path $Root ".calibration_audit.txt"

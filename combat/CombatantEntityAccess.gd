@@ -5,11 +5,17 @@ const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityMedical := preload("res://core/EntityMedical.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 
 ## Centralized access to combatant node/entity for weapon, armor, performance, etc.
-## **Move ID taxonomy:** `CombatConstants.is_medical_move` · `is_wind_up_medical_move` · `is_direct_pressure_move` · `is_formation_movement_move` · `is_focus_line_move`.
+## **Read order:** combatant dict → manager lookup → health entity → identity → dict helpers → weapon (Variant) → entity wounds/medical → combatant weapon/equipment → side/alive (field presence first) → combat clock/stats → node vitals → medical phase aliases → manager notify/schedule/skip.
+## **Move ID taxonomy:** `CombatConstants.is_medical_move` · `MOVE_ID_*` · `is_formation_reposition_move` · `is_focus_line_move`.
+## **Medical queries (combat modules):** **`is_in_immediate_peril`** · **`is_in_medical_danger`** · **`has_left_immediate_peril_permanently`** (delegate to **`MedicalPhaseController`**).
 ## **Canonical combat paths:** `manager_get_combatant` · `get_entity_from_manager` · `get_health_entity_from_node` · `health_entity_from_scene_node`.
+## **Untreated wounds (entity):** **`entity_has_untreated_wounds`** · **`entity_untreated_wound_part_names`** — combat via **`MedicalPhaseController.has_untreated_wounds`** · campaign via **`CampaignEncounterBridge`**.
 ## **Campaign map/party entity:** `CampaignEncounterBridge.health_entity_from_character` (= `health_entity_from_scene_node`).
+
+# --- Combatant dict + manager lookup ---
 
 ## Scene `node` on the combatant dict (e.g. Character); null if missing.
 static func node_variant(combatant: Dictionary) -> Variant:
@@ -35,22 +41,80 @@ static func manager_get_combatant(manager: Node, combatant_id: int) -> Dictionar
 	return combatant_dict_or_empty(manager._get_by_id(combatant_id))
 
 
-static func manager_notify_turn_ready(manager: Node, combatant_id: int) -> void:
-	if manager != null and manager.has_method("notify_turn_ready"):
-		manager.notify_turn_ready(combatant_id)
+# --- Health entity resolution ---
+
+## Scene node → wounds/stats holder (Character → CoreEntity). Shared by combat and campaign paths.
+static func health_entity_from_scene_node(node: Node) -> Node:
+	if node == null:
+		return null
+	if node.has_method("get_medical_entity"):
+		var e: Variant = node.get_medical_entity()
+		if e is Node:
+			return e as Node
+		return node
+	return node
 
 
-static func manager_notify_formation_changed(manager: Node, fid: String) -> void:
-	if manager != null and manager.has_method("notify_formation_changed"):
-		manager.notify_formation_changed(fid)
+## Resolves the health/wounds holder for a combat scene node (e.g. Character → CoreEntity). Prefers **`manager.get_health_entity(node)`** (see **`CombatManager`**).
+static func get_health_entity_from_node(manager: Node, node: Node) -> Node:
+	if node == null:
+		return null
+	if manager != null and manager.has_method("get_health_entity"):
+		return manager.get_health_entity(node)
+	# Test doubles / stubs without get_health_entity: prefer implementing get_health_entity on the manager.
+	if manager != null and manager.has_method("_get_entity"):
+		return manager._get_entity(node)
+	return health_entity_from_scene_node(node)
 
 
-static func manager_notify_engagement_state_changed(
-	manager: Node, fid: String, cohesion: float, posture: String
-) -> void:
-	if manager != null and manager.has_method("notify_engagement_state_changed"):
-		manager.notify_engagement_state_changed(fid, cohesion, posture)
+## Returns entity from combatant dict (same resolution as get_health_entity_from_node on combatant.node).
+static func get_entity_from_manager(manager: Node, combatant: Dictionary) -> Node:
+	return get_health_entity_from_node(manager, scene_node(combatant))
 
+
+# --- Combatant identity ---
+
+## Home roster `formation_id` as string (empty if unset). Tactical host line: `ZoneOfControl.zone_geometry_fid_str`.
+static func formation_id_str(combatant: Dictionary) -> String:
+	return str(combatant.get("formation_id", ""))
+
+
+## Battle `side` string (e.g. `player` / `enemy`); empty if unset.
+static func side_str(combatant: Dictionary) -> String:
+	return str(combatant.get("side", ""))
+
+
+## Formation `rank` index; uses `default_rank` when the key is missing.
+static func rank_int(combatant: Dictionary, default_rank: int = 0) -> int:
+	return int(combatant.get("rank", default_rank))
+
+
+## Formation `file` index; uses `default_file` when the key is missing.
+static func file_int(combatant: Dictionary, default_file: int = 0) -> int:
+	return int(combatant.get("file", default_file))
+
+
+## Combatant `id`; uses `default_id` when missing (common default: -1).
+static func id_int(combatant: Dictionary, default_id: int = -1) -> int:
+	return int(combatant.get("id", default_id))
+
+
+## `alive` flag; uses `default_alive` when missing (`false` for combat rules; `true` when absent should count as living).
+static func alive_bool(combatant: Dictionary, default_alive: bool = false) -> bool:
+	return bool(combatant.get("alive", default_alive))
+
+
+## `state` string; uses `default_state` when missing.
+static func state_str(combatant: Dictionary, default_state: String = "") -> String:
+	return str(combatant.get("state", default_state))
+
+
+## `tactical_penetration_depth` (0 if unset).
+static func tactical_penetration_depth_int(combatant: Dictionary) -> int:
+	return int(combatant.get("tactical_penetration_depth", 0))
+
+
+# --- Dict mutation helpers ---
 
 ## Live `stats` sub-dictionary for mutation (e.g. `sync_from_entity`). Creates `combatant["stats"]` if missing or wrong type.
 static func stats_dict_for_mutation(combatant: Dictionary) -> Dictionary:
@@ -98,6 +162,8 @@ static func sync_close_distance_pair(
 	nested_dictionary_for_mutation(atk, "distance_to")[target_id] = CombatConstants.DISTANCE_CLOSE
 	nested_dictionary_for_mutation(tgt, "distance_to")[attacker_id] = CombatConstants.DISTANCE_CLOSE
 
+
+# --- Weapon (Variant) ---
 
 ## Weapon exposes melee move ids (empty when weapon null or lacks attack list).
 static func weapon_attack_types(weapon: Variant) -> Array:
@@ -197,6 +263,8 @@ static func weapon_impact_velocity_band_max(weapon: Variant, contact_type: Strin
 	return float(_ImpactVelocityModel.unarmed_velocity_band_m_s().y)
 
 
+# --- Entity wounds + medical apply ---
+
 ## Wound part list for medical UI. With **`manager`**, uses **`get_health_entity`** (same as **`entity_get_wounded_parts`**).
 static func get_wounded_parts(combatant: Dictionary, manager: Node = null) -> Array:
 	if manager != null:
@@ -252,6 +320,30 @@ static func entity_get_wounded_parts(manager: Node, combatant: Dictionary) -> Ar
 	if entity == null or not entity.has_method("get_wounded_parts"):
 		return []
 	return entity.get_wounded_parts()
+
+
+## True when any wounded part lacks comprehensive treatment (bandaged, packed, or tourniqueted).
+static func entity_untreated_wound_part_names(entity: Node) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	if entity == null:
+		return out
+	var wounded: Array = []
+	if entity.has_method("get_wounded_parts"):
+		wounded = entity.get_wounded_parts()
+	if wounded.is_empty():
+		return out
+	var bandaged: Dictionary = entity.bandaged_parts if "bandaged_parts" in entity else {}
+	var packed: Dictionary = entity.packed_parts if "packed_parts" in entity else {}
+	var tourniqueted: Dictionary = entity.tourniquet_applied if "tourniquet_applied" in entity else {}
+	for part in wounded:
+		if bandaged.get(part, false) or packed.get(part, false) or tourniqueted.has(part):
+			continue
+		out.append(str(part))
+	return out
+
+
+static func entity_has_untreated_wounds(entity: Node) -> bool:
+	return entity_untreated_wound_part_names(entity).size() > 0
 
 
 static func entity_bleeding_rate_for_part(
@@ -419,6 +511,8 @@ static func prepare_for_medical_windup_scene(
 		_EntityMedical.prepare_for_medical_windup(perf_entity, tgt_entity, part)
 
 
+# --- Combatant weapon + scene equipment ---
+
 ## Returns weapon from combatant's node, or null if node lacks get_weapon or is null.
 static func get_weapon(combatant: Dictionary) -> Variant:
 	var node = node_variant(combatant)
@@ -433,6 +527,107 @@ static func weapon_melee_reach(combatant: Dictionary, default_reach: float = 1.5
 	if weapon == null:
 		return default_reach
 	return float(weapon.melee_range)
+
+
+## Returns true if combatant's node has a weapon.
+static func has_weapon(combatant: Dictionary) -> bool:
+	return get_weapon(combatant) != null
+
+
+## Returns weapon from node directly. Use when caller has node (not combatant dict).
+static func get_weapon_from_node(node: Node) -> Variant:
+	if node == null or not node.has_method("get_weapon"):
+		return null
+	return node.get_weapon()
+
+
+## Returns armor slots from node. Use when caller has node (not combatant dict).
+static func get_armor_slots_from_node(node: Node) -> Dictionary:
+	if node == null or not node.has_method("get_armor_slots"):
+		return {}
+	return node.get_armor_slots()
+
+
+## Returns weapon display name for UI. Empty if no weapon or node unavailable.
+static func get_weapon_display_name_from_node(node: Node) -> String:
+	var w = get_weapon_from_node(node)
+	if w == null:
+		return ""
+	if "display_name" in w and w.display_name:
+		return str(w.display_name)
+	if "weapon_type" in w:
+		return str(w.weapon_type)
+	return "?"
+
+
+## Returns armor piece display names for UI (e.g. ["Cuirass", "Gambeson"]).
+static func get_armor_summary_from_node(node: Node) -> Array:
+	var slots: Dictionary = get_armor_slots_from_node(node)
+	var names: Array = []
+	for part in slots.keys():
+		var piece = slots[part]
+		if piece != null and "display_name" in piece and piece.display_name:
+			names.append(piece.display_name)
+	return names
+
+
+## Sum of equipped ArmorPiece.get_total_mass_kg() — formation moves, encumbrance tuning.
+static func get_total_armor_mass_kg_from_node(node: Node) -> float:
+	if node == null or not node.has_method("get_armor_slots"):
+		return 0.0
+	var slots: Dictionary = node.get_armor_slots()
+	var total: float = 0.0
+	for part in slots.keys():
+		var piece = slots[part]
+		if piece != null and piece.has_method("get_total_mass_kg"):
+			total += piece.get_total_mass_kg()
+	return total
+
+
+# --- Side / alive ---
+
+## True when the scene node reports dead (bleed-out, fatal wound, etc.).
+static func is_dead(combatant: Dictionary) -> bool:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("is_dead"):
+		return false
+	return node.is_dead()
+
+
+## Left the field via **`flee`**; may still be **`alive`** for rout / casualty tallies.
+static func has_left_battlefield(combatant: Dictionary) -> bool:
+	return (
+		bool(combatant.get("combat_absent", false))
+		or state_str(combatant) == CombatConstants.STATE_FLED
+	)
+
+
+## `alive` combatant flag, on the field, and not `is_dead` on the scene node.
+static func is_alive_in_combat(combatant: Dictionary) -> bool:
+	if has_left_battlefield(combatant):
+		return false
+	return alive_bool(combatant) and not is_dead(combatant)
+
+
+## On the tactical grid for UI / ZoC (present, not fled, not dead).
+static func is_on_battlefield(combatant: Dictionary) -> bool:
+	return is_alive_in_combat(combatant)
+
+
+## Returns true if combatant's node is incapacitated (consciousness/cowering).
+static func is_incapacitated(combatant: Dictionary) -> bool:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("is_incapacitated"):
+		return false
+	return node.is_incapacitated()
+
+
+## True when consciousness is below incapacitation floor (unconscious; cannot act or move).
+static func is_unconscious(combatant: Dictionary) -> bool:
+	var node = node_variant(combatant)
+	if node == null or not node.has_method("is_unconscious"):
+		return false
+	return node.is_unconscious()
 
 
 ## Living ally on **`actor`**'s side (alive, same side).
@@ -488,9 +683,9 @@ static func are_both_alive(a: Dictionary, b: Dictionary) -> bool:
 	return alive_bool(a) and alive_bool(b)
 
 
-## Alive and not incapacitated (winner / standing counts).
+## Alive, on the field, and not incapacitated (winner / standing counts).
 static func is_standing_combatant(combatant: Dictionary) -> bool:
-	if bool(combatant.get("combat_absent", false)):
+	if has_left_battlefield(combatant):
 		return false
 	return alive_bool(combatant) and not is_incapacitated(combatant)
 
@@ -517,54 +712,8 @@ static func opponent_side_for(actor: Dictionary) -> String:
 static func opponent_side_label(side: String) -> String:
 	return "enemy" if str(side) == "player" else "player"
 
-## Scene node → wounds/stats holder (Character → CoreEntity). Shared by combat and campaign paths.
-static func health_entity_from_scene_node(node: Node) -> Node:
-	if node == null:
-		return null
-	if node.has_method("get_medical_entity"):
-		var e: Variant = node.get_medical_entity()
-		if e is Node:
-			return e as Node
-		return node
-	return node
 
-
-## Resolves the health/wounds holder for a combat scene node (e.g. Character → CoreEntity). Prefers **`manager.get_health_entity(node)`** (see **`CombatManager`**).
-static func get_health_entity_from_node(manager: Node, node: Node) -> Node:
-	if node == null:
-		return null
-	if manager != null and manager.has_method("get_health_entity"):
-		return manager.get_health_entity(node)
-	# Test doubles / stubs without get_health_entity: prefer implementing get_health_entity on the manager.
-	if manager != null and manager.has_method("_get_entity"):
-		return manager._get_entity(node)
-	return health_entity_from_scene_node(node)
-
-
-## Returns entity from combatant dict (same resolution as get_health_entity_from_node on combatant.node).
-static func get_entity_from_manager(manager: Node, combatant: Dictionary) -> Node:
-	return get_health_entity_from_node(manager, scene_node(combatant))
-
-
-## Home roster `formation_id` as string (empty if unset). Tactical host line: `ZoneOfControl.zone_geometry_fid_str`.
-static func formation_id_str(combatant: Dictionary) -> String:
-	return str(combatant.get("formation_id", ""))
-
-
-## Battle `side` string (e.g. `player` / `enemy`); empty if unset.
-static func side_str(combatant: Dictionary) -> String:
-	return str(combatant.get("side", ""))
-
-
-## Formation `rank` index; uses `default_rank` when the key is missing.
-static func rank_int(combatant: Dictionary, default_rank: int = 0) -> int:
-	return int(combatant.get("rank", default_rank))
-
-
-## Formation `file` index; uses `default_file` when the key is missing.
-static func file_int(combatant: Dictionary, default_file: int = 0) -> int:
-	return int(combatant.get("file", default_file))
-
+# --- Combat clock + combatant stats ---
 
 ## Lateral offset within the file column; clamped to **`CombatConstants.LANE_OFFSET_ABS_MAX`**.
 static func lane_offset_float(combatant: Dictionary) -> float:
@@ -629,27 +778,6 @@ static func distance_to_opponent_band(
 	return str(nested_dictionary_read(actor, "distance_to").get(opponent_id, default_band))
 
 
-## Combatant `id`; uses `default_id` when missing (common default: -1).
-static func id_int(combatant: Dictionary, default_id: int = -1) -> int:
-	return int(combatant.get("id", default_id))
-
-
-## `alive` flag; uses `default_alive` when missing (`false` for combat rules; `true` when absent should count as living).
-static func alive_bool(combatant: Dictionary, default_alive: bool = false) -> bool:
-	return bool(combatant.get("alive", default_alive))
-
-
-## `state` string; uses `default_state` when missing.
-static func state_str(combatant: Dictionary, default_state: String = "") -> String:
-	return str(combatant.get("state", default_state))
-
-
-## `tactical_penetration_depth` (0 if unset).
-static func tactical_penetration_depth_int(combatant: Dictionary) -> int:
-	return int(combatant.get("tactical_penetration_depth", 0))
-
-
-
 ## `stats` sub-dictionary (strength, agility, …). Empty if missing or wrong type.
 ## May alias `combatant["stats"]` — do not replace the combatant's stats reference from call sites.
 static func stats_dict(combatant: Dictionary) -> Dictionary:
@@ -703,58 +831,11 @@ static func get_display_name(combatant: Variant, fallback_id: int = -1) -> Strin
 		return "id:%d" % fallback_id
 	var node = node_variant(combatant)
 	if node != null:
-		return str(node.name)
+		var nm: String = str(node.name).strip_edges()
+		if not nm.is_empty():
+			return nm
 	return "id:%d" % id_int(combatant, fallback_id)
 
-## Returns true if combatant's node has a weapon.
-static func has_weapon(combatant: Dictionary) -> bool:
-	return get_weapon(combatant) != null
-
-## Returns weapon from node directly. Use when caller has node (not combatant dict).
-static func get_weapon_from_node(node: Node) -> Variant:
-	if node == null or not node.has_method("get_weapon"):
-		return null
-	return node.get_weapon()
-
-## Returns armor slots from node. Use when caller has node (not combatant dict).
-static func get_armor_slots_from_node(node: Node) -> Dictionary:
-	if node == null or not node.has_method("get_armor_slots"):
-		return {}
-	return node.get_armor_slots()
-
-## Returns weapon display name for UI. Empty if no weapon or node unavailable.
-static func get_weapon_display_name_from_node(node: Node) -> String:
-	var w = get_weapon_from_node(node)
-	if w == null:
-		return ""
-	if "display_name" in w and w.display_name:
-		return str(w.display_name)
-	if "weapon_type" in w:
-		return str(w.weapon_type)
-	return "?"
-
-## Returns armor piece display names for UI (e.g. ["Cuirass", "Gambeson"]).
-static func get_armor_summary_from_node(node: Node) -> Array:
-	var slots: Dictionary = get_armor_slots_from_node(node)
-	var names: Array = []
-	for part in slots.keys():
-		var piece = slots[part]
-		if piece != null and "display_name" in piece and piece.display_name:
-			names.append(piece.display_name)
-	return names
-
-
-## Sum of equipped ArmorPiece.get_total_mass_kg() — formation moves, encumbrance tuning.
-static func get_total_armor_mass_kg_from_node(node: Node) -> float:
-	if node == null or not node.has_method("get_armor_slots"):
-		return 0.0
-	var slots: Dictionary = node.get_armor_slots()
-	var total: float = 0.0
-	for part in slots.keys():
-		var piece = slots[part]
-		if piece != null and piece.has_method("get_total_mass_kg"):
-			total += piece.get_total_mass_kg()
-	return total
 
 ## Returns performance modifier (pain/consciousness) from combatant's node. Default 1.0 if unavailable.
 static func get_performance_modifier(combatant: Dictionary) -> float:
@@ -785,33 +866,8 @@ static func get_action_bar_performance_modifier(combatant: Dictionary) -> float:
 		return node.get_performance_modifier()
 	return 1.0
 
-## True when the scene node reports dead (bleed-out, fatal wound, etc.).
-static func is_dead(combatant: Dictionary) -> bool:
-	var node = node_variant(combatant)
-	if node == null or not node.has_method("is_dead"):
-		return false
-	return node.is_dead()
 
-
-## Left the field via **`flee`**; may still be **`alive`** for rout / casualty tallies.
-static func has_left_battlefield(combatant: Dictionary) -> bool:
-	return (
-		bool(combatant.get("combat_absent", false))
-		or state_str(combatant) == CombatConstants.STATE_FLED
-	)
-
-
-## `alive` combatant flag and not `is_dead` on the scene node.
-static func is_alive_in_combat(combatant: Dictionary) -> bool:
-	if bool(combatant.get("combat_absent", false)):
-		return false
-	return alive_bool(combatant) and not is_dead(combatant)
-
-
-## On the tactical grid for UI / ZoC (present, not fled, not dead).
-static func is_on_battlefield(combatant: Dictionary) -> bool:
-	return is_alive_in_combat(combatant)
-
+# --- Node vitals + scene capability ---
 
 ## Sync manager dict when the scene body is already dead but **`alive`** was not cleared yet (same-tick lag).
 static func finalize_dead_combatant_if_node_dead(manager: Node, c: Dictionary) -> bool:
@@ -872,6 +928,29 @@ static func get_attacking_arm(combatant: Dictionary) -> String:
 	return node.get_attacking_arm()
 
 
+# --- Medical phase queries (delegate to MedicalPhaseController) ---
+
+## True when the combatant must self-treat before helping allies (TCCC immediate peril).
+static func is_in_immediate_peril(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c.is_empty():
+		return false
+	return _MedicalPhase.is_in_immediate_peril(manager, c)
+
+
+## Bleeding / wound state warrants medical-phase attention (broader than immediate peril).
+static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c.is_empty():
+		return false
+	return _MedicalPhase.is_in_medical_danger(manager, c)
+
+
+## Stable enough that failed dressings on a part may be retried (permanent bleed rate low).
+static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c.is_empty():
+		return false
+	return _MedicalPhase.has_left_immediate_peril_permanently(manager, c)
+
+
 ## True when formation **retreat** (disengage swap, drag/fall_back pair, solo fall_back) is justified by injury or peril — not fatigue-only composite fitness.
 static func retreat_formation_body_damage_warranted(c: Dictionary, manager: Node) -> bool:
 	if c.is_empty():
@@ -883,7 +962,7 @@ static func retreat_formation_body_damage_warranted(c: Dictionary, manager: Node
 		return false
 	if get_blood_volume_from_node(node as Node) < CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX:
 		return true
-	if manager != null and manager.has_method("_is_in_immediate_peril") and manager._is_in_immediate_peril(c):
+	if is_in_immediate_peril(manager, c):
 		return true
 	return false
 
@@ -925,20 +1004,6 @@ static func get_targetable_parts_from_node(node: Node) -> Array:
 	if node == null or not node.has_method("get_targetable_parts"):
 		return []
 	return node.get_targetable_parts()
-
-## Returns true if combatant's node is incapacitated (consciousness/cowering).
-static func is_incapacitated(combatant: Dictionary) -> bool:
-	var node = node_variant(combatant)
-	if node == null or not node.has_method("is_incapacitated"):
-		return false
-	return node.is_incapacitated()
-
-## True when consciousness is below incapacitation floor (unconscious; cannot act or move).
-static func is_unconscious(combatant: Dictionary) -> bool:
-	var node = node_variant(combatant)
-	if node == null or not node.has_method("is_unconscious"):
-		return false
-	return node.is_unconscious()
 
 ## Tier 6.1: arm loss during combat — sync cowering, cancel stale turns, abort wind-up (see **`CombatMobilityRetreat`**).
 static func react_attacking_arm_lost_if_needed(manager: Node, combatant: Dictionary) -> void:
@@ -1038,6 +1103,25 @@ static func get_medical_effectiveness_from_node(node: Node) -> float:
 	if node.has_method("get_medical_effectiveness"):
 		return node.get_medical_effectiveness()
 	return 1.0
+
+
+# --- Manager notify + schedule / skip ---
+
+static func manager_notify_turn_ready(manager: Node, combatant_id: int) -> void:
+	if manager != null and manager.has_method("notify_turn_ready"):
+		manager.notify_turn_ready(combatant_id)
+
+
+static func manager_notify_formation_changed(manager: Node, fid: String) -> void:
+	if manager != null and manager.has_method("notify_formation_changed"):
+		manager.notify_formation_changed(fid)
+
+
+static func manager_notify_engagement_state_changed(
+	manager: Node, fid: String, cohesion: float, posture: String
+) -> void:
+	if manager != null and manager.has_method("notify_engagement_state_changed"):
+		manager.notify_engagement_state_changed(fid, cohesion, posture)
 
 
 static func manager_schedule_event(manager: Node, ev: Dictionary) -> void:

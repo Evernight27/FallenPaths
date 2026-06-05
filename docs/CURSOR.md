@@ -1,13 +1,16 @@
 # Cursor entry (Godot 4.x)
 
-**Planning model:** [`PLANNING.md`](PLANNING.md) (work streams + milestone prefixes) · [`SHIP_PLAN.md`](SHIP_PLAN.md) (Campaign milestones) · [`LIVE_PATHS.md`](LIVE_PATHS.md) (shipped combat)
+**Agents start:** [`../AGENTS.md`](../AGENTS.md) · [`.cursor/rules/fallen-paths.mdc`](../.cursor/rules/fallen-paths.mdc)
 
-```powershell
-.\scripts\run_all_combat_checks.ps1
-.\scripts\print_phase0_status.ps1
+**Planning:** [`PLANNING.md`](PLANNING.md) · [`SHIP_PLAN.md`](SHIP_PLAN.md) · [`LIVE_PATHS.md`](LIVE_PATHS.md)
+
+```bash
+bash scripts/run_all_combat_checks.sh
+bash scripts/run_all_combat_checks.sh --help 2>/dev/null || true
+pwsh -NoProfile -File scripts/run_all_combat_checks.ps1 -Status   # artifact summary
 ```
 
-Smallest `combat/*.gd` owner · thin `CombatManager.gd` · `ZoneOfControl.formation_dict_for_zone_geometry` · no harness piping to `grep`.
+Smallest `combat/*.gd` owner · thin `CombatManager.gd` · `ZoneOfControl.zone_geometry_line_context` · no harness piping to `grep`.
 
 Flags: [`LIVE_PATHS#production-flags`](LIVE_PATHS.md#production-flags).
 
@@ -15,7 +18,7 @@ Flags: [`LIVE_PATHS#production-flags`](LIVE_PATHS.md#production-flags).
 
 ## What to do next
 
-1. **Gate** — `.\scripts\run_all_combat_checks.ps1` → **`PHASE0: PASS`** (includes company checks + **Camp-3.4** Q/`[ii7]` tail → **`CAMPAIGN_SHIP_AUDIT: PASS (headless)`**)
+1. **Gate** — when shipping `.gd` / harness changes (skip explain-only unless asked): `bash scripts/run_all_combat_checks.sh` → **`PHASE0: PASS`** (+ **`CAMPAIGN_SHIP_AUDIT: PASS (headless)`** for campaign). Windows: `.\scripts\run_all_combat_checks.ps1`
 2. **EA close-out** — [`SHIP_PLAN` §8](SHIP_PLAN.md#camp-playtest-acceptance) F5 playtest · [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist) · pitfalls [§20](SHIP_PLAN.md#implementation-pitfalls)
 3. **Work stream** — see [single agent](#single-agent) or [**parallel agents (EA close-out)**](PLANNING.md#parallel-agents)
 4. **Product choices** — closed in [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22); new gates only → guide appendix + [§19](SHIP_PLAN.md#implementation-stubs)
@@ -31,12 +34,12 @@ Flags: [`LIVE_PATHS#production-flags`](LIVE_PATHS.md#production-flags).
 
 ## Parallel agents (EA close-out)
 
-Default: **Combat maintain** + **Playtest (F5 §8)**; **Campaign** only for Camp-5 / optional **P2** save. Full rules: [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents).
+Default: **Combat maintain** + **Playtest (F5 §8)**; **Campaign** for Camp-5 sign-off. Full rules: [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents).
 
-| Agent | Milestone / task | Do not touch |
+| Agent | Milestone / task | Avoid by default |
 |-------|------------------|--------------|
-| Campaign | [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) checklist · optional **P2** save | `combat/*`, harness, bleed constants |
-| Combat | One item from [Combat stream](#stream-combat) | `world/*`, `main.gd`, economy UI |
+| Campaign | [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) checklist · F5 §8 sign-off | Prefer skip `combat/*`, harness, bleed constants |
+| Combat | One item from [Combat stream](#stream-combat) | Prefer skip `world/*`, `main.gd`, economy UI |
 | Playtest | F5 [§8](SHIP_PLAN.md#camp-playtest-acceptance) · `run_q_feel.ps1` Q1/Q2 | Two agents writing `.f5_soak_in.txt` |
 
 Merge when **Phase 0 PASS**. Camp-2 bridge rows (shipped): [ownership table](PLANNING.md#bridge-rows-camp-2).
@@ -45,16 +48,20 @@ Merge when **Phase 0 PASS**. Camp-2 bridge rows (shipped): [ownership table](PLA
 
 ## Single agent
 
-If only one agent: **F5 §8 sign-off** · one **Combat** fix · optional **P2** save — not Expand / bleed retune.
+If only one agent: **F5 §8 sign-off** · one **Combat** fix — not Expand / bleed retune.
 
 **Not next:** new `FEATURE_*` · bleed retune · BMI (**F1**) · closed S1–S11/P3b · audit `note` rows · IV-1,3,5–13 unless [`SHIP_PLAN`](SHIP_PLAN.md) says otherwise.
 
 <a id="every-session"></a>
 
-## Every session
+## Gate vs explain-only
 
-1. Phase 0 gate (above)
-2. Lethality drift only via [`LIVE_PATHS` bleeding §12](LIVE_PATHS.md#12-tuning-order-keep-research-chain)
+| Turn type | Gate |
+|-----------|------|
+| Code / harness changes | Phase 0 (+ campaign audit for `world/*`, economy UI) |
+| Explain, review, doc-only | Skip unless the user asks |
+
+Lethality drift only via [`LIVE_PATHS` bleeding §12](LIVE_PATHS.md#12-tuning-order-keep-research-chain).
 
 <a id="stream-campaign"></a>
 
@@ -62,7 +69,7 @@ If only one agent: **F5 §8 sign-off** · one **Combat** fix · optional **P2** 
 
 Merc company loop → EA. **Shipped (2026-05-22):** Camp-1–4 + headless Camp-3.4. **Remaining:** F5 §8 + [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist). Closed gates: [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22) · [§19](SHIP_PLAN.md#implementation-stubs).
 
-**Code:** `world/CompanyState.gd`, `ContractSpawner.gd`, `CampaignEncounterBridge.gd`, `MapBleedPolicy.gd`, `MapFieldCare.gd`, `EncounterNode.gd`, `CombatFlow.gd`, `PartyMemberSnapshot.gd`, `ui/PartyMenu.gd`, `ui/SettlementPanel.gd`, `ui/CompanyRunEndPanel.gd`, `ui/CompanyHud.gd`, …
+**Code:** `world/*` (`CompanyState`, `ContractSpawner`, `CampaignEncounterBridge`, `MapBleedPolicy`, `MapFieldCare`, `EncounterNode`, `CombatFlow`, `PartySetup`, `PartyMemberSnapshot`, `SoakEncounterPresets`, …), `main.gd`, `PartyManager.gd`, `ui/PartyMenu.gd`, `ui/SettlementPanel.gd`, `ui/CompanyRunEndPanel.gd`, `ui/CompanyHud.gd`, …
 
 <a id="stream-combat"></a>
 
@@ -80,7 +87,7 @@ Maintain shipped systems per [`LIVE_PATHS`](LIVE_PATHS.md). Smallest `combat/*.g
 
 ## Playtest stream
 
-Headless Camp ship: **`run_all_combat_checks.ps1`** (includes Camp-3.4 tail) or **`run_campaign_ship_audit.ps1`**. F5 + `run_q_feel.ps1` · `run_q_audit.ps1` (flags **Q1/Q2** = soak scenarios). See [`PLANNING#stream-playtest`](PLANNING.md#stream-playtest) · [`SHIP_PLAN` §8](SHIP_PLAN.md#camp-playtest-acceptance).
+Headless Camp ship: **`run_all_combat_checks.ps1`** (includes Camp-3.4 tail) or **`run_campaign_ship_audit.ps1`**. F5 + **`run_q_feel.ps1`** (`-Headless` or `-Track Q1/Q2`). See [`PLANNING#stream-playtest`](PLANNING.md#stream-playtest) · [`SHIP_PLAN` §8](SHIP_PLAN.md#camp-playtest-acceptance).
 
 <a id="stream-expand"></a>
 

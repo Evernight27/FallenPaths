@@ -39,7 +39,9 @@ static func estimate_adjacent_rank_pair_duration_s(
 	var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
 	var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
 	var kind_mult: float = (
-		CombatConstants.DRAG_BACK_DURATION_MULT if move_kind == "drag_back" else 1.0
+		CombatConstants.DRAG_BACK_DURATION_MULT
+		if move_kind == CombatConstants.FORMATION_MOVE_KIND_DRAG_BACK
+		else 1.0
 	)
 	return (
 		_agi_scale_s(initiator) * lane_foot * pressure_mod * kind_mult * _armor_mult(initiator, partner)
@@ -149,12 +151,18 @@ static func stamp_listed_action_duration_hint(
 				dur = estimate_solo_fall_back_duration_s(manager, initiator)
 			else:
 				dur = estimate_adjacent_rank_pair_duration_s(
-					manager, initiator, partner, "fall_back_pair"
+					manager,
+					initiator,
+					partner,
+					CombatConstants.formation_pair_move_kind_for_menu_move(mid)
 				)
-		CombatConstants.MOVE_ID_DRAG_BACK:
-			dur = estimate_adjacent_rank_pair_duration_s(manager, initiator, partner, "drag_back")
-		CombatConstants.MOVE_ID_SWAP_RANK:
-			dur = estimate_adjacent_rank_pair_duration_s(manager, initiator, partner, "swap_rank")
+		CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_SWAP_RANK:
+			dur = estimate_adjacent_rank_pair_duration_s(
+				manager,
+				initiator,
+				partner,
+				CombatConstants.formation_pair_move_kind_for_menu_move(mid)
+			)
 		CombatConstants.MOVE_ID_ROTATE_FILE:
 			dur = estimate_rotate_file_duration_s(manager, initiator, partner)
 		CombatConstants.MOVE_ID_FLEE:

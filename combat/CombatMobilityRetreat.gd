@@ -59,7 +59,7 @@ static func first_disallowed_retreat_only_move_id(actions: Array) -> String:
 				CombatConstants.MOVE_ID_FALL_BACK,
 				CombatConstants.MOVE_ID_FLEE,
 			],
-			CombatConstants.MEDICAL_MOVE_IDS,
+			CombatConstants.MEDICAL_MOVE_IDS,  # allowlist data; membership → **`is_medical_move`**
 		]
 	)
 

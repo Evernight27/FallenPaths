@@ -819,7 +819,14 @@ static func _validator_ii_envelop_tracks() -> Array:
 			"needle": "attempt_close@",
 			"min": 1,
 			"profiles": [PROFILE_PRESET_II_ENVELOP],
-			"alt_needles": ["Stack hold_line", "rotate_file@", "hit_resolve "],
+			"alt_needles": ["Stack hold_line", "rotate_file@"],
+		},
+		{
+			"id": "ii_envelop_pincer_debug",
+			"needle": "pincer=flank_wing",
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+			"optional": true,
 		},
 		{
 			"id": "ii_envelop_hit",

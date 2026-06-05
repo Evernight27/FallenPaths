@@ -14,11 +14,14 @@ const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 ## - **`log`** — per-hit when `COMBAT_DEBUG` (`[Combat.Debug]`)
 ## - **`calibration_log`** — alignment/variance when `COMBAT_DEBUG_CALIBRATION` (`[Combat.Cal]`)
 ## - **`operational_error`** / **`operational_warn`** — invariant faults (always on; `FP_ERROR` / `FP_WARN`)
-## Move ID taxonomy: **`CombatConstants.is_medical_move`** · **`is_formation_movement_move`** · **`is_focus_line_move`**
+## Move ID taxonomy: **`CombatConstants.is_medical_move`** · **`is_formation_movement_move`** · **`is_focus_line_move`** (full table: **`AGENTS.md`**).
+## **Read order:** operational → flow/reject → session milestones → diagnostic tiers → turn-pick helpers.
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 
+
+# --- Operational (always on) ---
 
 ## Always emitted (grep `FP_ERROR`). Use for should-never-happen combat invariants.
 static func operational_error(msg: String) -> void:
@@ -29,6 +32,8 @@ static func operational_error(msg: String) -> void:
 static func operational_warn(msg: String) -> void:
 	_OperationalLog.warn(msg)
 
+
+# --- Flow / resolve reject ---
 
 ## `[Combat.Flow]` when `COMBAT_EVENT_DEBUG` is on (turn picks use the same tier).
 static func flow_log_event(msg: String, dedupe_key: String = "") -> void:
@@ -60,6 +65,8 @@ static func finish_instant_turn_and_schedule_ready(manager: Node, combatant: Dic
 	_EventScheduler.schedule_action_ready_for_combatant(manager, combatant)
 
 
+# --- Session milestones (FP_COMBAT / [Combat]) ---
+
 ## Milestone combat lines during editor play (`FP_COMBAT`); falls back to `[Combat]` elsewhere.
 static func combat_session(msg: String) -> void:
 	if _OperationalLog.is_play_session_active():
@@ -87,6 +94,8 @@ static func world_session(msg: String) -> void:
 	else:
 		print("[World] ", msg)
 
+
+# --- Diagnostic tiers (flags) ---
 
 static func log(msg: String) -> void:
 	if CombatConstants.combat_debug_active():
@@ -181,7 +190,7 @@ static func _medical_turn_vitals_suffix(manager: Node, choice: Dictionary) -> St
 static func _non_damage_move_kind(move_id: String) -> String:
 	if move_id.is_empty():
 		return ""
-	if move_id.begins_with("focus_"):
+	if CombatConstants.is_focus_line_move(move_id):
 		return "focus"
 	if move_id == CombatConstants.MOVE_ID_WAIT or move_id == CombatConstants.SKIP_TURN_LOG_PASS:
 		return "hold"
@@ -189,6 +198,8 @@ static func _non_damage_move_kind(move_id: String) -> String:
 		return "close"
 	return ""
 
+
+# --- Turn-pick helpers ---
 
 static func _is_non_damage_turn_pick(move_id: String) -> bool:
 	return not _non_damage_move_kind(move_id).is_empty()
@@ -207,6 +218,15 @@ static func turn_pick_kind_suffix(move_id: String) -> String:
 			return ""
 
 
+static func _flow_log_turn_emit(msg: String, dedupe_key: String = "") -> void:
+	if CombatConstants.COMBAT_FLOW_LOG_SUPPRESS_REPEATED and not dedupe_key.is_empty():
+		var prev: Variant = _flow_log_last_by_key.get(dedupe_key, null)
+		if prev != null and str(prev) == msg:
+			return
+		_flow_log_last_by_key[dedupe_key] = msg
+	print("[Combat.Flow] ", msg)
+
+
 static func flow_log_turn(
 	side: String,
 	combatant_id: int,
@@ -223,24 +243,37 @@ static func flow_log_turn(
 	var part_s: String = (" part=%s" % part) if not part.is_empty() else ""
 	var feint_s: String = (" feint=%s" % feint) if not feint.is_empty() else ""
 	var med_s: String = _medical_turn_vitals_suffix(manager, choice)
+	var play_compact: bool = (
+		CombatConstants.play_session_diagnostic_active() and not flow_verbose_enabled()
+	)
 	if _is_non_damage_turn_pick(mid):
-		print(
-			"[Combat.Flow] turn side=%s id=%d pick move_id=%s target_id=%d%s (non-damage)"
+		var nd_msg: String = (
+			"turn side=%s id=%d pick move_id=%s target_id=%d%s (non-damage)"
 			% [side, combatant_id, mid, tid, med_s]
 		)
+		var nd_key: String = ""
+		if play_compact and mid == CombatConstants.MOVE_ID_WAIT:
+			nd_key = "flow_turn_wait_%d" % combatant_id
+		_flow_log_turn_emit(nd_msg, nd_key)
 		return
-	if flow_verbose_enabled():
-		# Full action list is logged once in `get_available_actions`; avoid repeating it here.
-		print(
-			"[Combat.Flow] turn side=%s id=%d pick move_id=%s target_id=%d%s%s%s (actions=%d)"
+	if flow_verbose_enabled() or play_compact:
+		# F5 play session: pick-only (menu already in gauge / engagement_debug). Verbose harness: action count.
+		var pick_msg: String = (
+			"turn side=%s id=%d pick move_id=%s target_id=%d%s%s%s (actions=%d)"
 			% [side, combatant_id, mid, tid, part_s, feint_s, med_s, actions.size()]
+			if flow_verbose_enabled()
+			else (
+				"turn side=%s id=%d pick move_id=%s target_id=%d%s%s%s"
+				% [side, combatant_id, mid, tid, part_s, feint_s, med_s]
+			)
 		)
-	else:
-		var act_str: String = format_actions_compact(actions)
-		print(
-			"[Combat.Flow] turn side=%s id=%d actions=[%s] => pick move_id=%s target_id=%d%s%s%s"
-			% [side, combatant_id, act_str, mid, tid, part_s, feint_s, med_s]
-		)
+		_flow_log_turn_emit(pick_msg)
+		return
+	var act_str: String = format_actions_compact(actions)
+	_flow_log_turn_emit(
+		"turn side=%s id=%d actions=[%s] => pick move_id=%s target_id=%d%s%s%s"
+		% [side, combatant_id, act_str, mid, tid, part_s, feint_s, med_s]
+	)
 
 
 ## lane_stress_by_file or similar: file index -> float
@@ -252,6 +285,8 @@ static func format_lane_stress(by_file: Dictionary) -> String:
 		parts.append("f%s=%.2f" % [str(k), float(by_file[k])])
 	return ", ".join(parts)
 
+
+# --- Listing diagnostics (verbose flow) ---
 
 ## Verbose `get_available_actions` summary + optional listing diagnostic (`COMBAT_EVENT_DEBUG_VERBOSE`).
 static func log_available_actions_build(

@@ -17,6 +17,7 @@ const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
+const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
@@ -154,6 +155,41 @@ static func process_medical_wind_up_cancel(manager: Node, c: Dictionary) -> bool
 	_EventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
 	return true
 
+
+## III-6: depth-rank melee wind-up aborts when the same-file rank-0 lane closes (front ally died / moved).
+static func process_depth_wind_up_lane_cancel(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c.is_empty():
+		return false
+	if _EntityAccess.state_str(c) != CombatConstants.STATE_WIND_UP:
+		return false
+	if _EntityAccess.rank_int(c) <= 0:
+		return false
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
+	if pa.is_empty():
+		return false
+	var lane_lbl: String = str(pa.get("depth_polearm_lane_type", "")).strip_edges()
+	if lane_lbl.is_empty() and not bool(pa.get("depth_polearm_attack", false)):
+		return false
+	if _DepthPolearm.depth_polearm_lane_open(manager, c):
+		return false
+	var cid: int = _EntityAccess.id_int(c)
+	_CounterTempo.abort_attacker_wind_up(manager, cid)
+	if _CombatDebug.flow_verbose_enabled():
+		_CombatDebug.flow_log(
+			"depth_windup_abort id=%d reason=lane_closed" % cid,
+			"depth_windup_abort:%d" % cid
+		)
+	elif (
+		not _OperationalLog.is_play_session_active()
+		and CombatConstants.combat_event_debug_active()
+	):
+		_CombatDebug.combat_session(
+			"Depth wind-up aborted: %s (spear lane closed)"
+			% _EntityAccess.get_display_name(c, cid)
+		)
+	return true
+
+
 static func process_receiving_medical(manager: Node, c: Dictionary, delta: float) -> void:
 	c.gauge = 100.0  # Keep readied; can hold/switch direct pressure on other wounds
 	var cooldown: float = maxf(0.0, c.get("receiving_care_action_cooldown", 0.0) - delta)
@@ -161,9 +197,15 @@ static func process_receiving_medical(manager: Node, c: Dictionary, delta: float
 	if _EntityAccess.is_player_side(c):
 		var pending: bool = c.get("receiving_care_turn_pending", false)
 		if cooldown <= 0.0 and not pending:
-			var recv_actions: Array = manager.get_available_actions(_EntityAccess.id_int(c))
+			var recv_cid: int = _EntityAccess.id_int(c)
+			var recv_actions: Array = manager.get_available_actions(recv_cid)
 			if not recv_actions.is_empty():
-				manager.notify_turn_ready(_EntityAccess.id_int(c))
+				if MedicalPhaseController.medical_fast_forward_active(manager):
+					CombatAIActionPicker.resolve_picked_turn_or_skip(
+						manager, recv_cid, recv_actions, "player"
+					)
+				else:
+					manager.notify_turn_ready(recv_cid)
 				c.receiving_care_turn_pending = true
 				c.receiving_care_action_cooldown = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 	else:

@@ -1,5 +1,12 @@
 extends Node
 
+## Combat orchestrator (thin): turn loop, signals, vacancy reconcile, ZoC refresh hooks.
+## Lookups / medical / move taxonomy → **`CombatantEntityAccess`** · **`CombatConstants`** · specialists — not new `_get_*` delegates (**`AGENTS.md`**).
+## Resolve path: **`CombatResolveAction.resolve`** · formation flow → **`CombatFormationFlow`**.
+## **Read order:** signals → notify API → state/fields → lifecycle (`start`/`stop`) → medical phase → turn loop → private hooks.
+
+# --- Signals ---
+
 signal turn_ready(combatant_id)
 signal action_resolved(attacker_id, target_id, result)
 signal combat_ended(winner_side, defeated_node)
@@ -9,6 +16,8 @@ signal formation_changed(side)
 signal engagement_state_changed(formation_id: String, line_cohesion: float, engagement_posture: String)
 signal turn_resolved(combatant_id)  # Combatant has committed their action (attacked, skipped, swapped, etc.)
 signal combat_ui_hint(message: String)
+
+# --- Notify API (subsystems → signals) ---
 
 ## Player side became ready to act; UI / TurnReadyHandler listen on `turn_ready`. Subsystems call this instead of `emit_signal` on the manager node.
 func notify_turn_ready(combatant_id: int) -> void:
@@ -50,9 +59,12 @@ func notify_combat_ui_hint(message: String, echo_to_fp: bool = true) -> void:
 	var m: String = str(message).strip_edges()
 	if m.is_empty():
 		return
-	if has_meta(_META_LAST_COMBAT_UI_HINT) and str(get_meta(_META_LAST_COMBAT_UI_HINT, "")) == m:
-		return
-	set_meta(_META_LAST_COMBAT_UI_HINT, m)
+	# Only FP-echoed hints participate in dedupe — combat-log-only hints (counter, formation)
+	# must not mask the next combatant's Arc overlap / cowering line in Output.
+	if echo_to_fp:
+		if has_meta(_META_LAST_COMBAT_UI_HINT) and str(get_meta(_META_LAST_COMBAT_UI_HINT, "")) == m:
+			return
+		set_meta(_META_LAST_COMBAT_UI_HINT, m)
 	emit_signal("combat_ui_hint", m)
 	if echo_to_fp and _OperationalLog.is_play_session_active():
 		_OperationalLog.play_combat("ui_hint %s" % m)
@@ -73,6 +85,8 @@ func mark_all_formations_vacancy_dirty() -> void:
 	for k in formations.keys():
 		_vacancy_dirty_fids[str(k)] = true
 
+
+# --- Runtime state ---
 
 var combatants := []
 var medical_phase: bool = false
@@ -95,6 +109,8 @@ var rout_thresholds_by_fid: Dictionary = {}
 ## When `COMBAT_VACANCY_RECONCILE_DIRTY_ONLY`: keys are formation_id strings pending `reconcile_vacancy_plugs_formation` for that line only.
 var _vacancy_dirty_fids: Dictionary = {}
 var _combat_tick_index: int = 0
+
+# --- Preloads (internal) ---
 
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
@@ -120,7 +136,6 @@ const _ResolveAction := preload("res://combat/CombatResolveAction.gd")
 const _EngagementResolver := preload("res://combat/CombatEngagementResolver.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _CombatantsSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
-const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _FormationEngagement := preload("res://combat/CombatFormationEngagement.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
@@ -132,6 +147,9 @@ const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 
 ## Consecutive duplicate `combat_ui_hint` lines suppressed (same string back-to-back across turns).
 const _META_LAST_COMBAT_UI_HINT := "_fp_last_combat_ui_hint_dedupe"
+
+
+# --- Public lookup hooks ---
 
 ## Scene combat node → health/wounds/stats holder. Delegates to **`CombatantEntityAccess.health_entity_from_scene_node`**.
 func get_health_entity(node: Node) -> Node:
@@ -234,6 +252,9 @@ func _reset_tactical_engagement_state() -> void:
 		c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
 	if not formations.is_empty():
 		_FormationEngagement.recompute_all(self)
+
+
+# --- Lifecycle ---
 
 ## Start combat. Optional player_formation and enemy_formation presets: { files, ranks, density, optional **`FORMATION_PRESET_KEY_DOCTRINE`** / **`FORMATION_PRESET_KEY_FLEE_*`**, … } — seeds **`rout_thresholds_by_fid`** and **`depth_polearm_ai_doctrine_mults_by_fid`** per side.
 ## Clears **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** on each combatant (Tier 4.2) so a second **`start()`** on the same manager does not carry feint telegraph from a prior encounter.
@@ -390,16 +411,19 @@ func stop():
 		remove_meta(_META_LAST_COMBAT_UI_HINT)
 	set_process(false)
 
+
+# --- Medical phase (player UI) ---
+
 ## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated (bandaged, packed, or tourniqueted). Used to gate "End battle" during medical phase.
 func can_end_medical_phase() -> bool:
 	return _MedicalPhase.can_end_medical_phase(self)
 
-## True if combatant has any wounded part that is not comprehensively treated (bandaged, packed, or tourniqueted). Direct pressure alone does not count.
-func _has_untreated_wounds(c: Dictionary) -> bool:
-	return _MedicalPhase.has_untreated_wounds(self, c)
-
 ## Called when player clicks "End battle" during medical phase. Emits combat_ended and stops.
 func finish_battle() -> void:
+	if medical_phase and not can_end_medical_phase():
+		_MedicalPhase.instant_complete_on_early_exit(self)
+	if _OperationalLog.is_play_session_active():
+		_F5SoakTrace.flush_deferred_soak_coverage_if_pending()
 	if not _OperationalLog.is_play_session_active():
 		CombatDebug.combat_session("finish_battle player clicked End battle winner=%s" % medical_phase_winner)
 	emit_signal("combat_ended", medical_phase_winner, null)
@@ -512,34 +536,7 @@ func _schedule_action_ready(combatant_id: int, delay_s: float) -> void:
 func _reschedule_back_rank_turns(fid: String) -> void:
 	_EventScheduler.reschedule_back_rank_turns(self, fid)
 
-# Available actions: array of { "target_id": int, "move_id": String, optional "target_part": String }.
-# Attack moves (non-parry) and medical when in danger. Parry is passive only (A4v3).
-func _is_in_medical_danger(c: Dictionary) -> bool:
-	return _MedicalPhase.is_in_medical_danger(self, c)
-
-## Stricter than _is_in_medical_danger: about to bleed out. Must self-treat; cannot help others.
-func _is_in_immediate_peril(c: Dictionary) -> bool:
-	return _MedicalPhase.is_in_immediate_peril(self, c)
-
-## True when entity has permanently left immediate peril (permanent bleeding rate low enough to recover).
-func _has_left_immediate_peril_permanently(c: Dictionary) -> bool:
-	return _MedicalPhase.has_left_immediate_peril_permanently(self, c)
-
-func _get_medical_urgency(c: Dictionary) -> float:
-	return _MedicalPhase.get_medical_urgency(self, c)
-
-func _track_medical_failure_and_maybe_retry(performer: Dictionary, target: Dictionary, part: String, target_cid: int) -> void:
-	_MedicalCoord.track_failure_and_maybe_retry(self, performer, target, part, target_cid)
-
-func _count_others_who_can_perform_medical_on_target(exclude_id: int, target_id: int) -> int:
-	return _MedicalCoord.count_others_who_can_perform_medical_on_target(self, exclude_id, target_id)
-
-func _get_parts_being_treated_on(combatant_id: int) -> Array:
-	return _MedicalCoord.get_parts_being_treated_on(self, combatant_id)
-
-## Returns list of {move_id, target_part} for medical actions the performer can apply to the ally's part.
-func _get_ally_medical_actions(performer: Dictionary, ally: Dictionary, part: String) -> Array:
-	return _MedicalPhase.get_ally_medical_actions(self, performer, ally, part)
+# Medical queries / listing / coordination: **`CombatantEntityAccess`** · **`MedicalPhaseController`** · **`CombatMedicalCoordination`** (see **`AGENTS.md`**).
 
 ## Ensures vacancy reconcile before listing actions. With dirty-only mode, marks **all** lines first so this stays a full pass (covers slot writes that skipped `notify_formation_changed`); per-frame tick uses dirty set only.
 func get_available_actions(combatant_id: int) -> Array:
@@ -597,6 +594,9 @@ func get_rout_threshold(formation_id: String, key: String) -> float:
 
 func _process(delta: float) -> void:
 	_ProcessTick.tick(self, delta)
+
+
+# --- Turn loop ---
 
 ## Resolves one chosen action. **Combat targeting is AI-driven:** `turn_ready` / `EVENT_ACTION_READY` build `get_available_actions`
 ## then `CombatAIActionPicker.pick` chooses move+target (player and enemy); there is no parallel human target-selection path.
@@ -669,6 +669,9 @@ func _on_combatant_died(c: Dictionary) -> void:
 	_Attention.clear_focus_and_yomi(c)
 	c.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
 	_FormationFlow.on_combatant_died(self, c)
+
+
+# --- Private hooks (harness / specialists) ---
 
 ## Combatant lookup hook for **`CombatantEntityAccess.manager_get_combatant`** (harness doubles implement this).
 func _get_by_id(id: int):

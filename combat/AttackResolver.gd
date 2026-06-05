@@ -27,6 +27,10 @@ const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 const _HitSubRegion := preload("res://combat/CombatHitSubRegion.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 
+## Full attack resolution: miss, dodge, parry (deflect/partial), or hit.
+## **Read order:** `resolve_attack` → **`DefenseChoiceResolver.choose_defense`** → **`DefenseResolutionHandler`** → damage apply.
+## Canonical strike-time defense: **`DefenseChoiceResolver.choose_defense`** (not turn pick).
+
 static func _debug(msg: String) -> void:
 	if CombatConstants.combat_debug_active():
 		CombatDebug.log(msg)
@@ -482,15 +486,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	else:
 		tgt["engagement_angle"] = "front"
 
-	var sur_scan: Dictionary = _TacticalCombat.surround_threat_scan_for_defender(manager, tgt)
-	pa["surround_threat_count"] = int(sur_scan.get("count", 0))
-	if CombatConstants.is_feature_sector_surround_load():
-		pa["surround_threat_weight_sum"] = float(sur_scan.get("weight_sum", 0.0))
-	var arc_blocked: int = int(sur_scan.get("arc_occupancy_blocked", 0))
-	if arc_blocked > 0 and CombatConstants.is_feature_surround_arc_occupancy_enabled():
-		pa["arc_occupancy_blocked"] = arc_blocked
-	else:
-		pa.erase("arc_occupancy_blocked")
+	_TacticalCombat.stamp_surround_threat_on_pa(manager, tgt, pa)
 	pa["tactical_ambush_mult"] = _TacticalCombat.ambush_defense_multiplier(manager, tgt)
 	_StrikeStamping.stamp_strike_realism_on_pa(manager, atk, tgt, pa, atk_weapon, attack_type)
 	_IncomingParryChoice.stamp_parry_choice_on_pa(manager, pa, target_id, attacker_id)

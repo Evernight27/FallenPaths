@@ -35,7 +35,7 @@ const LINE_TO_ANGLE_DEG: Dictionary = {
 	LINE_HIGH_LEFT: 315.0,
 }
 
-## Legacy four-line → primary octant (for path tables still keyed by cardinal).
+## Four-line cardinal labels → primary octant (path tables keyed by cardinal).
 const FOUR_LINE_TO_OCTANT: Dictionary = {
 	"high": LINE_HIGH,
 	"right": LINE_RIGHT,
@@ -120,6 +120,11 @@ static func normalize_line(line: String) -> String:
 	return LINE_HIGH
 
 
+static func is_known_line(line: String) -> bool:
+	var k: String = str(line).strip_edges()
+	return k in ALL_LINES or FOUR_LINE_TO_OCTANT.has(k)
+
+
 static func line_to_angle(line: String) -> float:
 	return float(LINE_TO_ANGLE_DEG.get(normalize_line(line), 0.0))
 
@@ -153,6 +158,7 @@ static func alignment_from_lines(attack_line: String, guard_line: String, floor_
 
 
 static func position_angle_offset_deg_for_line(line: String) -> float:
+	## Unused in footwork — **`CombatConstants.position_angle_offset_deg_for_attack_line`** nudges within cardinal bucket.
 	return float(POSITION_ANGLE_OFFSET_DEG_BY_LINE.get(normalize_line(line), 0.0))
 
 

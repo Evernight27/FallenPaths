@@ -427,7 +427,9 @@ static func _run_flee_formation_diagram_omits_fled_from_grid(failures: PackedStr
 	if grid != null:
 		for child in grid.get_children():
 			if child is Label:
-				var cell_text: String = str((child as Label).text)
+				continue
+			for lbl in _Diagram.labels_under_cell(child):
+				var cell_text: String = str((lbl as Label).text)
 				if who.is_empty():
 					continue
 				if cell_text == who or cell_text.begins_with(who + " "):

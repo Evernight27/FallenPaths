@@ -2,6 +2,7 @@ class_name CombatFormationMoveListing
 extends RefCounted
 
 ## Formation movement actions: swap rank, drag/fall_back pair, solo fall_back, rotate file (line discipline).
+## **Read order:** append helpers → policy gates → flee/rout → per-move append (uses **`CombatListedActions`**).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")

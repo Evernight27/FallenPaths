@@ -45,9 +45,11 @@ fi
 
 echo "=== Q track audits (Camp-3.4 ii7 + Q1/Q2 proxies) ==="
 set +e
-"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_q_track_audits.gd
+export FP_HARNESS_MODE=q_track
+"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_all_combat_checks.gd
 Q_EXIT=$?
 set -e
+unset FP_HARNESS_MODE
 if [[ $Q_EXIT -ne 0 ]]; then
 	echo "Q_TRACK: FAIL" >>"$AUDIT_PATH"
 	FAIL=1

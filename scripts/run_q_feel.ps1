@@ -1,11 +1,36 @@
-# F5 feel checklist (no Godot). -Track Q1 | Q2 | Camp
+# F5 feel checklist or headless Q audit. -Headless | -Track Q1 | Q2 | Camp
 param(
-	[Parameter(Mandatory = $true)]
+	[switch]$Headless,
 	[ValidateSet("Q1", "Q2", "Camp")]
-	[string]$Track
+	[string]$Track = ""
 )
 $ErrorActionPreference = "Continue"
 $Root = Split-Path -Parent $PSScriptRoot
+
+function Show-QTrackSection {
+	param(
+		[string]$Path,
+		[string]$StartPattern,
+		[string]$EndPattern = ""
+	)
+	$inSection = $false
+	foreach ($line in Get-Content $Path) {
+		if ($line -match $StartPattern) { $inSection = $true; Write-Host $line; continue }
+		if ($inSection -and $EndPattern -and $line -match $EndPattern) { break }
+		if ($inSection) { Write-Host $line }
+	}
+}
+
+if ($Headless) {
+	. "$PSScriptRoot\Invoke-GodotHeadless.ps1"
+	Invoke-FallenPathsGodotScript -HarnessMode q_track | Out-Null
+	exit $LASTEXITCODE
+}
+
+if ($Track -eq "") {
+	Write-Error "Use -Headless for Q track audit, or -Track Q1|Q2|Camp for F5 checklist."
+	exit 2
+}
 
 if ($Track -eq "Camp") {
 	Write-Host "=== Track Camp: EA campaign F5 (SHIP_PLAN section 8) ==="
@@ -16,8 +41,8 @@ if ($Track -eq "Camp") {
 	Write-Host "2. F5 -> note HUD gold / med / tools / roster"
 	Write-Host "3. Green tutorial tile -> win -> settlement pay + wounds -> Continue"
 	Write-Host "4. Untreated bleed: tutorial blocks move until first win, then Party warn_eta + field care"
-	Write-Host "5. Camp heal (Party or tile 0,0): -1 med, 600s x3 heal"
-	Write-Host "6. End day or 5 steps -> wages deduct"
+	Write-Host "5. Camp rest (Party menu): -1 med, 600s x3 heal, day advances + wages deduct"
+	Write-Host "6. End day at camp (0,0) without med OR 5 map steps -> wages deduct (no heal burst)"
 	Write-Host "7. Second paid contract -> renown scales pay"
 	Write-Host "8. Lose PAID contract -> CompanyRunEndPanel + main.tscn reload"
 	Write-Host "   Lose tutorial/practice -> soft resume + marker respawn"
@@ -39,7 +64,7 @@ elseif ($Track -eq "Q1") {
 	Write-Host "5. Copy Output -> .f5_soak_in.txt -> .\scripts\validate_f5_soak_log.ps1"
 	Write-Host ""
 	Write-Host "Docs: docs/LIVE_PATHS.md#track-q1--research-feel-duel"
-	Write-Host "Headless: .\scripts\run_q_audit.ps1 -Track Q1 -> .q1_research_feel_audit.txt"
+	Write-Host "Headless: .\scripts\run_all_combat_checks.ps1 -HarnessMode q_track -> .q_track_audits.txt ([Q1 research_feel] section)"
 	$logPath = Join-Path $Root ".f5_soak_in.txt"
 	if (Test-Path $logPath) {
 		Write-Host ""
@@ -56,11 +81,17 @@ elseif ($Track -eq "Q1") {
 	} else {
 		Write-Host "[.f5_soak_in.txt] missing"
 	}
+	$qTrack = Join-Path $Root ".q_track_audits.txt"
+	if (Test-Path $qTrack) {
+		Write-Host ""
+		Write-Host "=== .q_track_audits.txt ([Q1 research_feel]) ==="
+		Show-QTrackSection -Path $qTrack -StartPattern '^\[Q1 research_feel\]'
+	}
 }
 else {
 	Write-Host "=== Track Q2: ii2b bind / riposte / flurry feel ==="
 	Write-Host ""
-	Write-Host "Headless: .\scripts\run_q_audit.ps1 -Track Q2 -> .q2_ii2b_feel_audit.txt"
+	Write-Host "Headless: .\scripts\run_all_combat_checks.ps1 -HarnessMode q_track -> .q_track_audits.txt ([Q2 ii2b] section)"
 	Write-Host "F5: dev_soak_encounter=ii2b, grep parry_partial, parry_stats, hit_resolve reason="
 	$logPath = Join-Path $Root ".f5_soak_in.txt"
 	if (Test-Path $logPath) {
@@ -76,11 +107,11 @@ else {
 	} else {
 		Write-Host "[.f5_soak_in.txt] missing"
 	}
-	$q2 = Join-Path $Root ".q2_ii2b_feel_audit.txt"
-	if (Test-Path $q2) {
+	$qTrack = Join-Path $Root ".q_track_audits.txt"
+	if (Test-Path $qTrack) {
 		Write-Host ""
-		Write-Host "=== .q2_ii2b_feel_audit.txt (last 12 lines) ==="
-		Get-Content $q2 | Select-Object -Last 12
+		Write-Host "=== .q_track_audits.txt ([Q2 ii2b]) ==="
+		Show-QTrackSection -Path $qTrack -StartPattern '^\[Q2 ii2b\]' -EndPattern '^\[Q3 '
 	}
 }
 

@@ -2,6 +2,7 @@ class_name CombatAttention
 extends RefCounted
 
 ## Tier 4.3: salience probes, attention load, combat focus (**`focus_part`**, **`focus_intensity`**), and per-attacker yomi memory.
+## **Read order:** enable/clear → salience refresh → focus line listing append → yomi read/write helpers.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
@@ -187,7 +188,7 @@ static func ally_in_immediate_peril(manager: Node, combatant_id: int) -> bool:
 			continue
 		if not _EntityAccess.is_living_same_side(self_c, o):
 			continue
-		if manager._is_in_immediate_peril(o):
+		if _EntityAccess.is_in_immediate_peril(manager, o):
 			return true
 	return false
 

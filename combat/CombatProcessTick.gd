@@ -2,6 +2,7 @@ class_name CombatProcessTick
 extends RefCounted
 
 ## One frame of combat simulation: event queue, entity time advance, death/winner checks, per-state updates.
+## **Read order:** clock advance → event dispatch → entity time → death/winner → per-combatant state tick → vacancy reconcile.
 
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _EventDispatch := preload("res://combat/CombatEventDispatch.gd")
@@ -75,6 +76,8 @@ static func tick(manager: Node, delta: float) -> void:
 		if _StateHandlers.process_incapacitation(manager, c):
 			continue
 		if _StateHandlers.process_medical_wind_up_cancel(manager, c):
+			continue
+		if _StateHandlers.process_depth_wind_up_lane_cancel(manager, c):
 			continue
 		if _EntityAccess.state_str(c) == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
 			_StateHandlers.process_receiving_medical(manager, c, delta)

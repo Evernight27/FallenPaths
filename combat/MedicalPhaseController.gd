@@ -1,7 +1,9 @@
 class_name MedicalPhaseController
 extends RefCounted
 
-## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, and ally medical actions.
+## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, ally menu.
+## **Read order:** phase gates → side checks → event purge → halt losing side → urgency helpers → peril/danger → `can_end_medical_phase` → fast-forward on early exit → urgency scoring → ally menu.
+## **External combat modules:** prefer **`CombatantEntityAccess.is_in_immediate_peril`** / **`is_in_medical_danger`** / **`has_left_immediate_peril_permanently`** (aliases here).
 ## Manager must have: `combatants`, `medical_phase`, `medical_phase_winner`; entity via **`CombatantEntityAccess.get_health_entity_from_node`**.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
@@ -13,6 +15,17 @@ const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
+const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+
+## Set on **`CombatManager`** while fast-forwarding post-victory triage (player picks → AI).
+const MANAGER_META_MEDICAL_FAST_FORWARD := "_medical_phase_fast_forward"
+## Simulated seconds cap when **`finish_battle`** runs before stabilization completes.
+const INSTANT_FAST_FORWARD_MAX_SECONDS: float = 7200.0
+const INSTANT_FAST_FORWARD_STAGNANT_LIMIT: int = 48
+const INSTANT_FAST_FORWARD_MIN_STEP_S: float = 0.001
 
 ## Queued events suppressed for the losing side once **`medical_phase`** is active.
 const POST_VICTORY_BLOCKED_EVENT_TYPES: Array[String] = [
@@ -50,6 +63,8 @@ const MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED: float = 0.001
 ## Second pair of hands on an ally-held wound (stack assist only; no takeover).
 const MEDICAL_AI_WEIGHT_TREATMENT_ASSIST_PRESSURE: float = 3.5
 
+# --- Phase gates ---
+
 ## True once player-side victory: no new combat resolutions (medical triage only).
 static func combat_resolution_blocked(manager: Node) -> bool:
 	return manager != null and bool(manager.medical_phase)
@@ -65,6 +80,8 @@ static func should_apply_phase_end(manager: Node, victor: String) -> bool:
 		return true
 	return victor == str(manager.medical_phase_winner)
 
+
+# --- Side checks ---
 
 static func is_winner_side(manager: Node, c: Dictionary) -> bool:
 	if manager == null or c == null or c.is_empty() or not manager.medical_phase:
@@ -85,6 +102,8 @@ static func is_losing_side_id(manager: Node, combatant_id: int) -> bool:
 		return false
 	return is_losing_side(manager, _EntityAccess.manager_get_combatant(manager, combatant_id))
 
+
+# --- Event purge ---
 
 ## True when an event should not be queued for the losing side (or a pair touching them) during medical phase.
 static func should_block_scheduled_event(manager: Node, ev: Dictionary) -> bool:
@@ -129,6 +148,8 @@ static func purge_blocked_events_from_queue(manager: Node) -> void:
 		return not should_block_scheduled_event(manager, ev as Dictionary)
 	)
 
+
+# --- Halt losing side ---
 
 static func _reset_fled_and_combat_absent(c: Dictionary) -> void:
 	c.erase("combat_absent")
@@ -193,6 +214,8 @@ static func halt_losing_side_combat(manager: Node) -> void:
 	purge_blocked_events_from_queue(manager)
 
 
+# --- Urgency helpers (private) ---
+
 ## Same threshold as bleed-out death (`CoreEntity._get_blood_loss_death_threshold` / `EntityWounds`).
 static func _blood_loss_death_threshold_for_entity(entity: Node) -> float:
 	return _EntityAccess.entity_blood_loss_death_threshold(entity)
@@ -232,38 +255,12 @@ static func _medical_urgency_components(
 			)
 	return Vector2(urgency_blood, urgency_time)
 
-## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated.
-static func can_end_medical_phase(manager: Node) -> bool:
-	if not manager.medical_phase:
-		return false
-	for c in manager.combatants:
-		if (
-			not _EntityAccess.is_living_on_side(c, str(manager.medical_phase_winner))
-			or _EntityAccess.scene_node(c) == null
-		):
-			continue
-		if is_in_medical_danger(manager, c):
-			return false
-		if has_untreated_wounds(manager, c):
-			return false
-	return true
+
+# --- Peril / danger queries ---
 
 ## True if combatant has any wounded part not comprehensively treated (bandaged, packed, or tourniqueted).
 static func has_untreated_wounds(manager: Node, c: Dictionary) -> bool:
-	var wounded: Array = _EntityAccess.entity_get_wounded_parts(manager, c)
-	if wounded.is_empty():
-		return false
-	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
-	if entity == null:
-		return false
-	var bandaged: Dictionary = entity.bandaged_parts if "bandaged_parts" in entity else {}
-	var packed: Dictionary = entity.packed_parts if "packed_parts" in entity else {}
-	var tourniqueted: Dictionary = entity.tourniquet_applied if "tourniquet_applied" in entity else {}
-	for part in wounded:
-		if bandaged.get(part, false) or packed.get(part, false) or tourniqueted.has(part):
-			continue
-		return true
-	return false
+	return _EntityAccess.entity_has_untreated_wounds(_EntityAccess.get_entity_from_manager(manager, c))
 
 ## True when blood volume or estimated time to blood-loss death is in danger zone (consider medical).
 static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
@@ -322,6 +319,163 @@ static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -
 	if time_to_death >= INF:
 		return true
 	return time_to_death > IMMEDIATE_PERIL_SECONDS * 2.0
+
+
+## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated.
+static func can_end_medical_phase(manager: Node) -> bool:
+	if not manager.medical_phase:
+		return false
+	for c in manager.combatants:
+		if (
+			not _EntityAccess.is_living_on_side(c, str(manager.medical_phase_winner))
+			or _EntityAccess.scene_node(c) == null
+		):
+			continue
+		if is_in_medical_danger(manager, c):
+			return false
+		if has_untreated_wounds(manager, c):
+			return false
+	return true
+
+
+# --- Fast-forward on early exit ---
+
+## True while **`instant_complete_on_early_exit`** simulates elapsed triage time (player side uses AI picks).
+static func medical_fast_forward_active(manager: Node) -> bool:
+	return (
+		manager != null
+		and manager.has_meta(MANAGER_META_MEDICAL_FAST_FORWARD)
+		and bool(manager.get_meta(MANAGER_META_MEDICAL_FAST_FORWARD))
+	)
+
+
+## During fast-forward, player-side medical turns resolve via the same AI picker as enemies.
+static func resolve_player_medical_turn_during_fast_forward(manager: Node, combatant_id: int) -> void:
+	if manager == null or combatant_id < 0:
+		return
+	var actions: Array = manager.get_available_actions(combatant_id)
+	_AIPicker.resolve_picked_turn_or_skip(manager, combatant_id, actions, "player")
+
+
+## When the player ends battle during medical phase (e.g. campaign Return to camp), advance **`combat_clock`**
+## through the normal tick/event pipeline until triage would have finished — wind-ups, recovery, bleed/clot
+## ticks, and AI medical picks all run as if time passed (player picks substituted by AI during fast-forward).
+static func instant_complete_on_early_exit(manager: Node) -> void:
+	if manager == null or not bool(manager.medical_phase) or can_end_medical_phase(manager):
+		return
+	manager.set_meta(MANAGER_META_MEDICAL_FAST_FORWARD, true)
+	var sim_seconds: float = 0.0
+	var stagnant_steps: int = 0
+	while not can_end_medical_phase(manager) and sim_seconds < INSTANT_FAST_FORWARD_MAX_SECONDS:
+		_ensure_winner_recovery_end_events(manager)
+		var dt: float = _next_fast_forward_delta(manager)
+		if dt <= 0.0:
+			if _resolve_stalled_winner_turns(manager):
+				stagnant_steps = 0
+				continue
+			stagnant_steps += 1
+			if stagnant_steps >= INSTANT_FAST_FORWARD_STAGNANT_LIMIT:
+				break
+			continue
+		stagnant_steps = 0
+		_ProcessTick.tick(manager, dt)
+		sim_seconds += dt
+	if manager.has_meta(MANAGER_META_MEDICAL_FAST_FORWARD):
+		manager.remove_meta(MANAGER_META_MEDICAL_FAST_FORWARD)
+	if not _OperationalLog.is_play_session_active():
+		_CombatDebug.combat_session(
+			"fast_forward_medical_phase sim_s=%.1f can_end=%s"
+			% [sim_seconds, str(can_end_medical_phase(manager)).to_lower()]
+		)
+
+
+static func _next_fast_forward_delta(manager: Node) -> float:
+	var clock: float = _EntityAccess.combat_clock_float(manager)
+	var best: float = INF
+	for raw in manager.event_queue:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var ev: Dictionary = raw as Dictionary
+		if should_block_scheduled_event(manager, ev):
+			continue
+		var resolve_at: float = float(ev.get("resolve_at", INF))
+		if resolve_at > clock:
+			best = minf(best, resolve_at - clock)
+	for c in manager.combatants:
+		if not is_winner_side(manager, c):
+			continue
+		var st: String = _EntityAccess.state_str(c)
+		if st == CombatConstants.STATE_MEDICAL_WIND_UP:
+			var wind_rem: float = float(c.get("state_duration", 0.0)) - float(c.get("state_timer", 0.0))
+			if wind_rem > 0.0:
+				best = minf(best, wind_rem)
+		elif st == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
+			var cd: float = float(c.get("receiving_care_action_cooldown", 0.0))
+			if cd > 0.0:
+				best = minf(best, cd)
+	if best == INF:
+		return 0.0
+	return maxf(best, INSTANT_FAST_FORWARD_MIN_STEP_S)
+
+
+static func _has_pending_recovery_end(manager: Node, combatant_id: int) -> bool:
+	for raw in manager.event_queue:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var ev: Dictionary = raw as Dictionary
+		if (
+			str(ev.get("type", "")) == CombatConstants.EVENT_RECOVERY_END
+			and int(ev.get("combatant_id", -1)) == combatant_id
+		):
+			return true
+	return false
+
+
+## Medical recovery does not always queue **`EVENT_RECOVERY_END`**; schedule it from remaining duration.
+static func _ensure_winner_recovery_end_events(manager: Node) -> void:
+	for c in manager.combatants:
+		if not is_winner_side(manager, c):
+			continue
+		if _EntityAccess.state_str(c) != CombatConstants.STATE_RECOVERING:
+			continue
+		var cid: int = _EntityAccess.id_int(c)
+		if _has_pending_recovery_end(manager, cid):
+			continue
+		var remaining: float = maxf(
+			0.0, float(c.get("state_duration", 0.0)) - float(c.get("state_timer", 0.0))
+		)
+		_EntityAccess.manager_schedule_event(
+			manager,
+			{
+				"type": CombatConstants.EVENT_RECOVERY_END,
+				"combatant_id": cid,
+				"resolve_at": _EntityAccess.combat_clock_plus(manager, remaining),
+				"data": {},
+			}
+		)
+
+
+## Player notified but did not pick before Return to camp — AI drives the stalled turn once.
+static func _resolve_stalled_winner_turns(manager: Node) -> bool:
+	var acted: bool = false
+	for c in manager.combatants:
+		if not is_winner_side(manager, c) or not _EntityAccess.alive_bool(c):
+			continue
+		if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+			continue
+		if _EntityAccess.gauge_float(c) < 99.9:
+			continue
+		var cid: int = _EntityAccess.id_int(c)
+		var actions: Array = manager.get_available_actions(cid)
+		actions = _MedicalCoord.filter_actions_for_pick(manager, cid, actions)
+		if actions.is_empty():
+			continue
+		_AIPicker.resolve_picked_turn_or_skip(manager, cid, actions, "player")
+		acted = true
+	return acted
+
+
+# --- Urgency scoring ---
 
 ## 0..1: higher when more hurt (lower blood, shorter time to death). Includes randomness.
 static func get_medical_urgency(manager: Node, c: Dictionary) -> float:
@@ -398,14 +552,16 @@ static func _append_pressure_action_if_needed(
 	var ally_id: int = _EntityAccess.id_int(ally)
 	if has_pressure:
 		if _MedicalCoord.can_stack_assist_pressure(manager, performer_id, ally_id, part):
-			out.append({ "move_id": "apply_direct_pressure", "target_part": part })
+			out.append({"move_id": CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE, "target_part": part})
 		return
 	if not _MedicalCoord.medical_action_allowed(
-		manager, performer_id, ally_id, part, "apply_direct_pressure"
+		manager, performer_id, ally_id, part, CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE
 	):
 		return
-	out.append({ "move_id": "apply_direct_pressure", "target_part": part })
+	out.append({"move_id": CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE, "target_part": part})
 
+
+# --- Ally medical menu ---
 
 ## Returns list of { move_id, target_part } for medical actions the performer can apply to the ally's part.
 ## TCCC: dressings only when bleed is controlled or compression is on the part.
@@ -440,7 +596,7 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
 		_append_pressure_action_if_needed(
 			manager, performer, ally, part, has_pressure, actively_bleeding, out
 		)
-		out.append({ "move_id": "apply_tourniquet", "target_part": part })
+		out.append({"move_id": CombatConstants.MOVE_ID_APPLY_TOURNIQUET, "target_part": part})
 		return _MedicalCoord.filter_ally_medical_actions(manager, performer, ally, out)
 
 	# Junctional (head/chest): hold pressure before packing cavity.
@@ -470,13 +626,13 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
 		and _battle_med_supplies_available(manager)
 		and _EntityAccess.entity_can_apply_stabilize(manager, ally, part)
 	):
-		out.append({ "move_id": "stabilize_wound", "target_part": part })
+		out.append({"move_id": CombatConstants.MOVE_ID_STABILIZE_WOUND, "target_part": part})
 	if dressings_ok and _EntityAccess.entity_can_apply_bandage(manager, ally, part):
-		out.append({ "move_id": "bandage_self", "target_part": part })
+		out.append({"move_id": CombatConstants.MOVE_ID_BANDAGE_SELF, "target_part": part})
 	if dressings_ok and _EntityAccess.entity_can_apply_packing(manager, ally, part):
-		out.append({ "move_id": "pack_wound", "target_part": part })
+		out.append({"move_id": CombatConstants.MOVE_ID_PACK_WOUND, "target_part": part})
 	if not skip_redress and tq_can and tq_indicated:
-		out.append({ "move_id": "apply_tourniquet", "target_part": part })
+		out.append({"move_id": CombatConstants.MOVE_ID_APPLY_TOURNIQUET, "target_part": part})
 	return _MedicalCoord.filter_ally_medical_actions(manager, performer, ally, out)
 
 

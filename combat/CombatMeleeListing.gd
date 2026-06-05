@@ -2,6 +2,7 @@ class_name CombatMeleeListing
 extends RefCounted
 
 ## Melee strike / attempt-close action listing and **`can_melee_threaten`** (reach + band + rank gates).
+## **Read order:** live rows → threaten checks → append listing (uses **`ZoneOfControl.opponent_formation_for_listing`**).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")

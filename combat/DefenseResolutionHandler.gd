@@ -2,6 +2,7 @@ class_name DefenseResolutionHandler
 extends RefCounted
 
 ## Resolves defense outcomes: partial parry follow-through (twist dodge), full/partial dodge, parry deflect/partial.
+## **Read order:** parry deflect/partial branches → dodge branches → follow-through re-entry hooks.
 ## **`parry_deflect`** full-stop and **`parry_partial`** follow-through both attach a **`parry_clash_context`** dict on the returned result (partial adds **`remaining_ratio`** / **`geometric_leak`**; Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**).
 ## Returns a result dict to return from resolve_attack, or null to fall through to hit.
 

@@ -2,7 +2,7 @@ class_name CompanyState
 extends RefCounted
 
 ## World-persistent company economy (session meta + optional P2 autosave via **`CampaignPersistence`**).
-## Camp-1.1–1.2: economy + HUD · Camp-1.3–1.6: supplies, contracts, camp heal.
+## Camp-1.1–1.2: economy + HUD · Camp-1.3–1.6: supplies, contracts, camp heal (+ **`try_advance_day`** on rest).
 ## **Closed gates:** const `DAY_TICK_MODE`, … + **`gate_*()`** readers (SHIP_PLAN §19) — branch campaign logic; do not duplicate magic strings.
 
 const _CompanyHud := preload("res://ui/CompanyHud.gd")
@@ -334,7 +334,20 @@ static func try_advance_day(world: Node2D) -> bool:
 	_warn_if_company_insolvent(world)
 	if count_living_roster(world) <= 0:
 		_trigger_company_collapsed(world, "bankrupt")
+	_autosave_world(world)
 	return true
+
+
+static func _autosave_world(world: Node2D) -> void:
+	if world == null:
+		return
+	var persistence: Variant = load("res://world/CampaignPersistence.gd")
+	if persistence == null:
+		return
+	if not persistence.save_slot(world):
+		_OperationalLog.warn(
+			"Autosave failed — day advance may not persist after quit."
+		)
 
 
 static func _warn_if_company_insolvent(world: Node) -> void:
@@ -373,13 +386,28 @@ static func format_day_hud_line(world: Node) -> String:
 	return "Day %d · %d/%d steps" % [day, get_overworld_step_count(world), gate_steps_per_day()]
 
 
+static func format_camp_rest_button_label(_world: Node2D = null) -> String:
+	return "Camp rest (−1 med, ends day)"
+
+
+static func format_party_day_actions_hint() -> String:
+	return "End day: wages only (camp tile). Camp rest: heal party + wages (−1 med)."
+
+
+static func format_day_tick_player_message(world: Node, wage_paid: int) -> String:
+	return (
+		"Day %d — %dg gold left (%d wages paid)."
+		% [get_day_index(world), get_gold(world), wage_paid]
+	)
+
+
 static func format_camp_heal_block_reason(world: Node2D, from_party_menu: bool = false) -> String:
 	if get_medical_supplies(world) < 1:
 		return "Camp rest (need 1 med)"
 	if not _party_bleeding_controlled(world):
 		return "Camp rest (stabilize bleeding first)"
 	if can_offer_camp_heal(world, from_party_menu):
-		return "Camp rest (−1 med)"
+		return format_camp_rest_button_label(world)
 	if gate_camp_heal_entry() == "tile" and not _player_on_camp_tile(world):
 		return "Camp rest (stand on camp tile)"
 	return "Camp rest (unavailable)"
@@ -622,16 +650,18 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
 	if not can_offer_camp_heal(world, from_party_menu):
 		return false
 	if not _party_bleeding_controlled(world):
-		_OperationalLog.play_world("camp_heal: stabilize bleeding before camp rest")
+		_OperationalLog.play_world("camp_rest: stabilize bleeding before camp rest")
 		return false
 	if not consume_medical(world, 1):
 		return false
 	_advance_party_healing(world, gate_camp_heal_seconds(), CAMP_HEAL_MULTIPLIER)
+	# Day tick (wages, desertion, autosave) via try_advance_day — Party menu may be off camp tile (H3).
+	try_advance_day(world)
 	refresh_hud(world)
 	if _OperationalLog.is_play_session_active():
 		_OperationalLog.play_world(
-			"camp_heal seconds=%.0f mult=%.1f med_left=%d"
-			% [CAMP_HEAL_SECONDS, CAMP_HEAL_MULTIPLIER, get_medical_supplies(world)]
+			"camp_rest med_left=%d heal_s=%.0f mult=%.1f"
+			% [get_medical_supplies(world), CAMP_HEAL_SECONDS, CAMP_HEAL_MULTIPLIER]
 		)
 	return true
 

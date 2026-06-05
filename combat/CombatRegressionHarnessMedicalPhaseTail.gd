@@ -23,6 +23,7 @@ const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _CombatLogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
+const _MedicalActionStarter := preload("res://combat/MedicalActionStarter.gd")
 
 ## Medical phase: queued enemy melee and wind-up are torn down; dispatch does not resolve attacks.
 static func _run_medical_phase_cancels_pending_enemy_melee(failures: PackedStringArray) -> void:
@@ -359,7 +360,7 @@ static func _run_combat_log_formatter_bandage_ally_label(failures: PackedStringA
 			"outcome": "bandaged",
 			"part": "left_leg",
 			"effectiveness": 1.0,
-			"medical_move_id": "bandage_self",
+			"medical_move_id": CombatConstants.MOVE_ID_BANDAGE_SELF,
 			"medical_target_is_self": false,
 		}
 	)
@@ -474,9 +475,9 @@ static func _run_pack_wound_lists_in_medical_phase(failures: PackedStringArray) 
 		if str(a.get("target_part", "")) != "chest":
 			continue
 		var mid: String = str(a.get("move_id", ""))
-		if mid == "apply_direct_pressure":
+		if CombatConstants.is_direct_pressure_move(mid):
 			found_pressure = true
-		elif mid == "pack_wound":
+		elif CombatConstants.is_pack_wound_move(mid):
 			found_pack = true
 	CombatRegressionHarness._free_manager(mgr)
 	if not found_pressure:
@@ -577,7 +578,7 @@ static func _run_dressings_blocked_without_pressure_when_bleeding(failures: Pack
 	for raw in acts:
 		if raw is Dictionary:
 			mids.append(str((raw as Dictionary).get("move_id", "")))
-	if "bandage_self" in mids or "pack_wound" in mids:
+	if CombatConstants.MOVE_ID_BANDAGE_SELF in mids or CombatConstants.MOVE_ID_PACK_WOUND in mids:
 		CombatRegressionHarness._fail(failures, "dressings_gate: bandage/pack listed without pressure")
 	CombatRegressionHarness._free_manager(mgr)
 
@@ -630,7 +631,7 @@ static func _run_medical_coordination_stack_assist_during_windup(failures: Packe
 		return
 	ha.state = CombatConstants.STATE_MEDICAL_WIND_UP
 	ha.pending_medical = {
-		"medical_id": "apply_tourniquet",
+		"medical_id": CombatConstants.MOVE_ID_APPLY_TOURNIQUET,
 		"target_part": "left_arm",
 		"target_combatant_id": pt_id,
 	}
@@ -639,14 +640,16 @@ static func _run_medical_coordination_stack_assist_during_windup(failures: Packe
 	var acts: Array = _MedicalPhase.get_ally_medical_actions(mgr, hb, pt, "left_arm")
 	var has_assist_pressure: bool = false
 	for raw in acts:
-		if raw is Dictionary and str((raw as Dictionary).get("move_id", "")) == "apply_direct_pressure":
+		if raw is Dictionary and CombatConstants.is_direct_pressure_move(
+			str((raw as Dictionary).get("move_id", ""))
+		):
 			has_assist_pressure = true
 	if not has_assist_pressure:
 		CombatRegressionHarness._fail(failures, "med_coord_assist: listing should offer stack-assist pressure")
 	var pick_pool: Array = [
 		{
 			"target_id": pt_id,
-			"move_id": "apply_direct_pressure",
+			"move_id": CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE,
 			"target_part": "left_arm",
 		}
 	]
@@ -676,20 +679,27 @@ static func _run_medical_coordination_blocks_overlapping_treatment(failures: Pac
 	ha.state = CombatConstants.STATE_MEDICAL_WIND_UP
 	ha.state_duration = 8.0
 	ha.pending_medical = {
-		"medical_id": "apply_tourniquet",
+		"medical_id": CombatConstants.MOVE_ID_APPLY_TOURNIQUET,
 		"target_part": "left_arm",
 		"target_combatant_id": pt_id,
 	}
-	if _MedicalCoord.medical_action_allowed(mgr, hb_id, pt_id, "left_arm", "apply_tourniquet"):
+	if _MedicalCoord.medical_action_allowed(
+		mgr, hb_id, pt_id, "left_arm", CombatConstants.MOVE_ID_APPLY_TOURNIQUET
+	):
 		CombatRegressionHarness._fail(failures, "med_coord: second medic must not start tourniquet during ally wind-up")
-	if _MedicalCoord.medical_action_allowed(mgr, hb_id, pt_id, "left_arm", "apply_direct_pressure"):
+	if _MedicalCoord.medical_action_allowed(
+		mgr, hb_id, pt_id, "left_arm", CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE
+	):
 		CombatRegressionHarness._fail(failures, "med_coord: second medic must not replace pressure during ally wind-up")
 	var acts_overlap: Array = _MedicalPhase.get_ally_medical_actions(mgr, hb, pt, "left_arm")
 	for raw in acts_overlap:
 		if raw is not Dictionary:
 			continue
 		var mid: String = str((raw as Dictionary).get("move_id", ""))
-		if mid in ["apply_tourniquet", "apply_direct_pressure"]:
+		if (
+			CombatConstants.is_tourniquet_move(mid)
+			or CombatConstants.is_direct_pressure_move(mid)
+		):
 			CombatRegressionHarness._fail(
 				failures,
 				"med_coord: listing must omit overlap moves during wind-up got %s" % mid
@@ -702,12 +712,16 @@ static func _run_medical_coordination_blocks_overlapping_treatment(failures: Pac
 	ha.pending_medical = {}
 	if not _MedicalCoord.can_stack_assist_pressure(mgr, hb_id, pt_id, "left_arm"):
 		CombatRegressionHarness._fail(failures, "med_coord: B should stack-assist when A holds compression")
-	if not _MedicalCoord.medical_action_allowed(mgr, hb_id, pt_id, "left_arm", "apply_direct_pressure"):
+	if not _MedicalCoord.medical_action_allowed(
+		mgr, hb_id, pt_id, "left_arm", CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE
+	):
 		CombatRegressionHarness._fail(failures, "med_coord: stack-assist pressure should be allowed")
 	var acts_held: Array = _MedicalPhase.get_ally_medical_actions(mgr, hb, pt, "left_arm")
 	var assist_listed: bool = false
 	for raw2 in acts_held:
-		if raw2 is Dictionary and str((raw2 as Dictionary).get("move_id", "")) == "apply_direct_pressure":
+		if raw2 is Dictionary and CombatConstants.is_direct_pressure_move(
+			str((raw2 as Dictionary).get("move_id", ""))
+		):
 			assist_listed = true
 	if not assist_listed:
 		CombatRegressionHarness._fail(failures, "med_coord: listing should offer stack-assist direct_pressure")
@@ -758,9 +772,9 @@ static func _run_ally_medical_tourniquet_path_pressure_first(failures: PackedStr
 	for raw in acts:
 		if raw is Dictionary:
 			mids.append(str((raw as Dictionary).get("move_id", "")))
-	if "apply_tourniquet" not in mids:
+	if CombatConstants.MOVE_ID_APPLY_TOURNIQUET not in mids:
 		CombatRegressionHarness._fail(failures, "tq_path: expected tourniquet on severe leg bleed")
-	if "bandage_self" in mids or "pack_wound" in mids:
+	if CombatConstants.MOVE_ID_BANDAGE_SELF in mids or CombatConstants.MOVE_ID_PACK_WOUND in mids:
 		CombatRegressionHarness._fail(failures, "tq_path: should not list bandage/pack before tourniquet path")
 
 
@@ -830,7 +844,7 @@ static func _run_medical_phase_tick_continues_after_locked_bleed_out(failures: P
 	medic.state_timer = 0.0
 	medic.state_duration = 2.0
 	medic.pending_medical = {
-		"medical_id": "bandage_self",
+		"medical_id": CombatConstants.MOVE_ID_BANDAGE_SELF,
 		"target_part": "chest",
 		"target_combatant_id": _EntityAccess.id_int(medic),
 	}
@@ -905,7 +919,7 @@ static func _run_pack_wound_windup_complete_packed_outcome(failures: PackedStrin
 	healer.state = CombatConstants.STATE_MEDICAL_WIND_UP
 	healer.state_duration = 2.0
 	healer.pending_medical = {
-		"medical_id": "pack_wound",
+		"medical_id": CombatConstants.MOVE_ID_PACK_WOUND,
 		"target_part": "chest",
 		"target_combatant_id": ally_id,
 	}
@@ -927,6 +941,82 @@ static func _run_pack_wound_windup_complete_packed_outcome(failures: PackedStrin
 		CombatRegressionHarness._fail(failures, "pack_wound_windup: packed outcome should set packed_parts")
 
 
+static func _run_instant_complete_finishes_in_progress_bandage(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	var ally_ent: Node = CombatRegressionHarness._new_entity("SWORD")
+	mgr.register(ally_ent, "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr.medical_phase = true
+	mgr.medical_phase_winner = "player"
+	_harness_wound_chest_for_packing(ally_ent)
+	var healer_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var ally: Dictionary = mgr.combatants[1]
+	var ally_id: int = _EntityAccess.id_int(ally)
+	if not _EntityAccess.entity_apply_direct_pressure_from_ally(mgr, ally, mgr.combatants[0], "chest"):
+		CombatRegressionHarness._fail(failures, "instant_complete_bandage: ally pressure setup failed")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	_MedicalActionStarter.start(
+		mgr, healer_id, ally_id, CombatConstants.MOVE_ID_BANDAGE_SELF, "chest"
+	)
+	if _EntityAccess.state_str(mgr.combatants[0]) != CombatConstants.STATE_MEDICAL_WIND_UP:
+		CombatRegressionHarness._fail(failures, "instant_complete_bandage: expected medical wind-up")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var clock_before: float = float(mgr.combat_clock)
+	seed(88204)
+	_MedicalPhase.instant_complete_on_early_exit(mgr)
+	seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
+	if float(mgr.combat_clock) <= clock_before:
+		CombatRegressionHarness._fail(
+			failures, "instant_complete_bandage: fast-forward should advance combat_clock"
+		)
+	if _EntityAccess.state_str(mgr.combatants[0]) == CombatConstants.STATE_MEDICAL_WIND_UP:
+		CombatRegressionHarness._fail(
+			failures, "instant_complete_bandage: wind-up should finish via simulated time, not stay active"
+		)
+	if not bool(ally_ent.bandaged_parts.get("chest", false)):
+		CombatRegressionHarness._fail(
+			failures, "instant_complete_bandage: ally chest should be bandaged after instant complete"
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+static func _run_finish_battle_instant_completes_medical_windup(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	var ally_ent: Node = CombatRegressionHarness._new_entity("SWORD")
+	mgr.register(ally_ent, "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr.medical_phase = true
+	mgr.medical_phase_winner = "player"
+	_harness_wound_chest_for_packing(ally_ent)
+	var healer_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	var ally_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	if not _EntityAccess.entity_apply_direct_pressure_from_ally(
+		mgr, mgr.combatants[1], mgr.combatants[0], "chest"
+	):
+		CombatRegressionHarness._fail(failures, "finish_battle_instant: ally pressure setup failed")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	_MedicalActionStarter.start(
+		mgr, healer_id, ally_id, CombatConstants.MOVE_ID_BANDAGE_SELF, "chest"
+	)
+	seed(88205)
+	mgr.finish_battle()
+	seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
+	if not bool(ally_ent.bandaged_parts.get("chest", false)):
+		CombatRegressionHarness._fail(
+			failures, "finish_battle_instant: ally chest should be bandaged after finish_battle"
+		)
+	if bool(mgr.medical_phase):
+		CombatRegressionHarness._fail(failures, "finish_battle_instant: medical_phase should clear on stop")
+	CombatRegressionHarness._free_manager(mgr)
+
+
 static func _run_combat_log_formatter_pack_ally_label(failures: PackedStringArray) -> void:
 	var line: String = _CombatLogFormatter.format_action_line(
 		"Healer",
@@ -937,7 +1027,7 @@ static func _run_combat_log_formatter_pack_ally_label(failures: PackedStringArra
 			"outcome": "packed",
 			"part": "chest",
 			"effectiveness": 1.0,
-			"medical_move_id": "pack_wound",
+			"medical_move_id": CombatConstants.MOVE_ID_PACK_WOUND,
 			"medical_target_is_self": false,
 		}
 	)
@@ -981,6 +1071,8 @@ static func run(failures: PackedStringArray) -> void:
 	_run_pack_wound_lists_in_medical_phase(failures)
 	_run_pack_wound_apply_packing_marks_packed_parts(failures)
 	_run_pack_wound_windup_complete_packed_outcome(failures)
+	_run_instant_complete_finishes_in_progress_bandage(failures)
+	_run_finish_battle_instant_completes_medical_windup(failures)
 	_run_bandage_allowed_on_packed_part(failures)
 	_run_direct_pressure_held_suppresses_bleed_rate(failures)
 	_run_direct_pressure_release_rebleeds_without_dressing(failures)

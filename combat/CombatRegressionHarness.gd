@@ -170,6 +170,7 @@ static func run_all() -> Dictionary:
 	_run_effective_pair_geometry_single_pass_matches_wrappers(failures)
 	_run_windup_pending_attack_pair_geometry(failures)
 	_run_strike_measure_constants_sanity(failures)
+	_run_formation_pair_move_kind_menu_mapping(failures)
 	_run_attack_result_applier_terminal_clears_pending(failures)
 	_run_action_resolved_parry_deflect_payload_includes_clash_context(failures)
 	_run_action_resolved_parry_partial_payload_includes_clash_context(failures)
@@ -218,11 +219,13 @@ static func run_all() -> Dictionary:
 	_run_formation_move_duration_lane_obstacle_slows_estimate(failures)
 	_run_formation_move_duration_matches_flow_pair_start(failures)
 	_run_formation_move_duration_ui_hint_when_lane_crowded(failures)
+	_run_formation_diagram_health_bar_reflects_body_damage(failures)
 	_run_formation_move_duration_listed_actions_stamp_hint(failures)
 	_run_rotate_file_listed_for_adjacent_front_rank_allies(failures)
 	_run_rotate_file_start_sets_duration_matches_estimate(failures)
 	_run_resolve_close_attempt_long_success_closes_distance(failures)
 	_run_automatic_doctrine_sets_pinch_on_hollow_when_enabled(failures)
+	_run_automatic_doctrine_numeric_superiority_pinch(failures)
 	_run_automatic_doctrine_pinch_via_formation_recompute(failures)
 	_run_formation_move_duration_heavy_armor_slows_estimate(failures)
 	_run_formation_move_duration_player_turn_hint_from_listed_actions(failures)
@@ -233,6 +236,7 @@ static func run_all() -> Dictionary:
 	_run_formation_hit_reaction_extends_pair_move_duration(failures)
 	_run_formation_hit_cancel_aborts_pair_move(failures)
 	_run_incoming_parry_choice_blocks_non_chosen_attacker(failures)
+	_run_incoming_parry_sector_weight_prefers_flank_when_equal_telegraph(failures)
 	_run_incoming_parry_can_parry_all_weak_pair(failures)
 	_run_weapon_extended_parry_dampens_defender_recovering_from_attack(failures)
 	_run_weapon_committed_attack_dampens_defender_parry_c_d(failures)
@@ -540,12 +544,12 @@ static func _harness_medical_phase_action_list(
 	var actions: Array = [{"move_id": "oberhau", "target_id": enemy_id}]
 	if include_medic_self_pressure and medic_id >= 0:
 		actions.append({
-			"move_id": "apply_direct_pressure",
+			"move_id": CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE,
 			"target_id": medic_id,
 			"target_part": "chest",
 		})
 	actions.append({
-		"move_id": "apply_direct_pressure",
+		"move_id": CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE,
 		"target_id": ally_id,
 		"target_part": "chest",
 	})
@@ -851,6 +855,8 @@ static func _run_combat_log_formatter_negligible(failures: PackedStringArray) ->
 	_run_play_combat_fp_dedupe(failures)
 	_run_formation_move_pick_fp_dedupe(failures)
 	_run_soak_coverage_once_per_fight(failures)
+	_run_deferred_soak_coverage_waits_for_pack_listed(failures)
+	_run_deferred_soak_coverage_flushes_on_next_fight_prepare(failures)
 	_run_medical_pressure_fp_suppressed_in_play(failures)
 	_run_medical_phase_intro_once(failures)
 	_run_ambient_pain_shock_fp_dedupe(failures)
@@ -1002,7 +1008,9 @@ static func _run_medical_action_pick_single_fp_line(failures: PackedStringArray)
 	_OperationalLog.set_capture_enabled(true)
 	_OperationalLog.clear_capture()
 	_OperationalLog.begin_play_session("test", "", false, true)
-	_F5SoakTrace.note_medical_action_pick("Medic", "apply_direct_pressure", "chest", "ally")
+	_F5SoakTrace.note_medical_action_pick(
+		"Medic", CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE, "chest", "ally"
+	)
 	var pick_count: int = 0
 	var stale_action_format_count: int = 0
 	for line in _OperationalLog.get_captured_lines():
@@ -1210,6 +1218,73 @@ static func _run_soak_coverage_once_per_fight(failures: PackedStringArray) -> vo
 	_OperationalLog.set_capture_enabled(false)
 
 
+static func _run_deferred_soak_coverage_waits_for_pack_listed(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_F5SoakTrace.log_fight_end_summary("player", true)
+	_F5SoakTrace.note_medical_action_pick(
+		"Medic", CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE, "head", "ally"
+	)
+	var coverage_after_pressure: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: soak_coverage ok="):
+			coverage_after_pressure += 1
+	if coverage_after_pressure != 0:
+		_fail(
+			failures,
+			"deferred_soak_coverage: pressure pick must not flush soak_coverage before pack listed (got %d)"
+			% coverage_after_pressure
+		)
+	_F5SoakTrace.note_medical_pack_listed("Patient", "head")
+	var coverage_n: int = 0
+	var listed_in_stats: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: soak_coverage ok="):
+			coverage_n += 1
+		if line.begins_with("FP_COMBAT: soak_coverage grep_stats ") and "medical_pack_listed=" in line:
+			var idx: int = line.find("medical_pack_listed=")
+			if idx >= 0:
+				var tail: String = line.substr(idx + 20)
+				var end: int = tail.find(" ")
+				var n: int = int(tail.substr(0, end if end >= 0 else tail.length()))
+				listed_in_stats = n >= 1
+	if coverage_n != 1:
+		_fail(failures, "deferred_soak_coverage: want 1 soak_coverage after pack listed got %d" % coverage_n)
+	if not listed_in_stats:
+		_fail(failures, "deferred_soak_coverage: grep_stats need medical_pack_listed>=1 after pack listed")
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+static func _run_deferred_soak_coverage_flushes_on_next_fight_prepare(failures: PackedStringArray) -> void:
+	_F5SoakTrace.prepare_fight_end_log()
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_F5SoakTrace.log_fight_end_summary("player", true)
+	var coverage_before: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: soak_coverage ok="):
+			coverage_before += 1
+	if coverage_before != 0:
+		_fail(failures, "deferred_soak_prepare: fight end must defer soak_coverage until triage signal")
+	_F5SoakTrace.prepare_fight_end_log()
+	var coverage_after: int = 0
+	for line in _OperationalLog.get_captured_lines():
+		if line.begins_with("FP_COMBAT: soak_coverage ok="):
+			coverage_after += 1
+	if coverage_after != 1:
+		_fail(
+			failures,
+			"deferred_soak_prepare: next prepare_fight_end_log must flush pending coverage (got %d)"
+			% coverage_after
+		)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
 static func _run_medical_pressure_fp_suppressed_in_play(failures: PackedStringArray) -> void:
 	_OperationalLog.set_capture_enabled(true)
 	_OperationalLog.clear_capture()
@@ -1399,6 +1474,29 @@ static func _run_strike_measure_constants_sanity(failures: PackedStringArray) ->
 			"strike_meas_const: got %.4f want %.4f (melee=%.3f eff_floor=%.3f)"
 			% [got, want, melee, eff]
 		)
+
+
+## Formation resolve/duration/events: menu **`MOVE_ID_*`** maps to flow **`FORMATION_MOVE_KIND_*`** (paired fall_back ≠ menu id).
+static func _run_formation_pair_move_kind_menu_mapping(failures: PackedStringArray) -> void:
+	if (
+		CombatConstants.formation_pair_move_kind_for_menu_move(CombatConstants.MOVE_ID_SWAP_RANK)
+		!= CombatConstants.FORMATION_MOVE_KIND_SWAP_RANK
+	):
+		_fail(failures, "formation_pair_move_kind: swap_rank")
+	if (
+		CombatConstants.formation_pair_move_kind_for_menu_move(CombatConstants.MOVE_ID_DRAG_BACK)
+		!= CombatConstants.FORMATION_MOVE_KIND_DRAG_BACK
+	):
+		_fail(failures, "formation_pair_move_kind: drag_back")
+	if (
+		CombatConstants.formation_pair_move_kind_for_menu_move(CombatConstants.MOVE_ID_FALL_BACK)
+		!= CombatConstants.FORMATION_MOVE_KIND_FALL_BACK_PAIR
+	):
+		_fail(failures, "formation_pair_move_kind: fall_back paired")
+	if not CombatConstants.is_formation_pair_move_kind(
+		CombatConstants.FORMATION_MOVE_KIND_FALL_BACK_PAIR
+	):
+		_fail(failures, "formation_pair_move_kind: is_formation_pair_move_kind fall_back_pair")
 
 
 ## Tier 1.3: **`effective_pair_geometry`** returns **`eff_dist`** / **`file_spacing_equiv`** matching wrapper helpers (one ZoC read).
@@ -6613,6 +6711,62 @@ static func _run_wind_up_rejects_move_not_on_weapon(failures: PackedStringArray)
 	_free_manager(mgr)
 
 
+## Tier 0.1 UI: formation diagram shows per-unit health bar; fill drops after tissue damage.
+static func _run_formation_diagram_health_bar_reflects_body_damage(
+	failures: PackedStringArray
+) -> void:
+	const _Diagram := preload("res://ui/FormationDiagramBuilder.gd")
+	var mgr: Node = _harness_start_1v1(
+		"SWORD",
+		{"files": 1, "ranks": 1, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE},
+		{"files": 1, "ranks": 1}
+	)
+	mgr.set_meta("_engagement_mode_cached", CombatConstants.ENGAGEMENT_MODE_FORMATION)
+	var c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	var diagram: Control = _Diagram.create(mgr, {"files": 1, "ranks": 1, "density": "normal"}, "player")
+	var grid: GridContainer = diagram.get_meta("_formation_grid", null) as GridContainer
+	var bar_before: ProgressBar = _Diagram.first_health_bar_in_grid(grid)
+	if bar_before == null:
+		_fail(
+			failures,
+			"form_health_bar: want ProgressBar in living cell (%s)"
+			% _Diagram.debug_grid_cell_summary(grid)
+		)
+		return
+	var ratio_before: float = _PartyRowFormatter.total_body_health_ratio(_EntityAccess.stats_dict(c))
+	if ratio_before < 0.95:
+		_fail(failures, "form_health_bar: want near-full body ratio got %.3f" % ratio_before)
+	var part: String = "chest"
+	var mx: float = float(ent.body_max.get(part, 1))
+	ent.body_cutting[part] = mx * 0.35
+	ent.body_blunt[part] = mx * 0.35
+	_Diagram.refresh(diagram)
+	for raw in mgr.get_combatants():
+		if _EntityAccess.id_int(raw) == _EntityAccess.id_int(c):
+			c = raw as Dictionary
+			break
+	var ratio_after: float = _PartyRowFormatter.total_body_health_ratio(_EntityAccess.stats_dict(c))
+	var bar_after: ProgressBar = _Diagram.first_health_bar_in_grid(grid)
+	diagram.queue_free()
+	_free_manager(mgr)
+	if bar_after == null:
+		_fail(failures, "form_health_bar: bar missing after refresh")
+		return
+	if ratio_after >= ratio_before - 0.05:
+		_fail(
+			failures,
+			"form_health_bar: want lower body ratio got before=%.3f after=%.3f"
+			% [ratio_before, ratio_after]
+		)
+	if bar_after.value >= bar_before.value - 1.0:
+		_fail(
+			failures,
+			"form_health_bar: want lower bar value got before=%.1f after=%.1f"
+			% [bar_before.value, bar_after.value]
+		)
+
+
 ## Tier 0.1 UI: crowded lane shows formation-move duration hint on diagram tooltips.
 static func _run_formation_move_duration_ui_hint_when_lane_crowded(
 	failures: PackedStringArray
@@ -6770,6 +6924,28 @@ static func _run_automatic_doctrine_sets_pinch_on_hollow_when_enabled(
 			% mgr.get_formation_doctrine("player")
 		)
 	_free_manager(mgr)
+
+
+## p4c: numeric rank-0 + file-width superiority auto-applies **`pinch_center`** when doctrine is default.
+static func _run_automatic_doctrine_numeric_superiority_pinch(failures: PackedStringArray) -> void:
+	if not CombatConstants.FEATURE_AUTOMATIC_DOCTRINE:
+		CombatRegressionHarness._fail(failures, "auto_doctrine_numeric: FEATURE_AUTOMATIC_DOCTRINE should be enabled")
+		return
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 7, "ranks": 1}, {"files": 3, "ranks": 1})
+	if not _CombatDoctrine.numeric_superiority_for_pinch(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "auto_doctrine_numeric: setup want numeric_superiority_for_pinch")
+	_CombatDoctrine.evaluate_automatic_doctrine(mgr)
+	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_PINCH_CENTER:
+		CombatRegressionHarness._fail(
+			failures,
+			"auto_doctrine_numeric: want pinch_center got %s" % mgr.get_formation_doctrine("player")
+		)
+	CombatRegressionHarness._free_manager(mgr)
 
 
 ## Tier 0: heavy armor mass slows formation-move duration estimates and hints.
@@ -6988,6 +7164,78 @@ static func _run_incoming_parry_choice_blocks_non_chosen_attacker(
 		)
 	if _IncomingParryChoice.parry_choice_blocked_for_resolve(mgr, p_id, e0_id, resolve_at):
 		_fail(failures, "incoming_parry: high-threat resolve should not block parry choice")
+	_free_manager_restore_global_rng(mgr)
+
+
+## III-1: equal telegraph — sector flank weight breaks tie toward wide-file attacker.
+static func _run_incoming_parry_sector_weight_prefers_flank_when_equal_telegraph(
+	failures: PackedStringArray
+) -> void:
+	if not CombatConstants.FEATURE_INCOMING_PARRY_CHOICE:
+		_fail(failures, "incoming_parry_sector: FEATURE_INCOMING_PARRY_CHOICE should be enabled")
+		return
+	if not CombatConstants.is_feature_sector_surround_load():
+		_fail(failures, "incoming_parry_sector: sector surround load should be enabled")
+		return
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 3, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	mgr.combatants[0]["file"] = 1
+	mgr.combatants[1]["file"] = 1
+	mgr.combatants[2]["file"] = 2
+	for c in mgr.combatants:
+		c["gauge"] = 100.0
+	mgr._recompute_zoc_and_distance()
+	var p: Dictionary = mgr.combatants[0]
+	var e_center: Dictionary = mgr.combatants[1]
+	var e_flank: Dictionary = mgr.combatants[2]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_center_id: int = _EntityAccess.id_int(e_center)
+	var e_flank_id: int = _EntityAccess.id_int(e_flank)
+	_WindUpStarter.start(mgr, e_center_id, p_id, "oberhau")
+	var pa_center: Dictionary = _EntityAccess.nested_dictionary_for_mutation(e_center, "pending_attack")
+	pa_center["intensity"] = 0.55
+	pa_center["power"] = 0.6
+	pa_center["follow_through"] = 0.6
+	_WindUpStarter.start(mgr, e_flank_id, p_id, "oberhau")
+	var pa_flank: Dictionary = _EntityAccess.nested_dictionary_for_mutation(e_flank, "pending_attack")
+	pa_flank["intensity"] = 0.55
+	pa_flank["power"] = 0.6
+	pa_flank["follow_through"] = 0.6
+	var resolve_at: float = _EntityAccess.combat_clock_plus(mgr, float(e_center.get("state_duration", 0.5)))
+	for aid in [e_center_id, e_flank_id]:
+		_EntityAccess.manager_schedule_event(
+			mgr,
+			{
+				"type": CombatConstants.EVENT_MELEE_ATTACK,
+				"combatant_id": aid,
+				"resolve_at": resolve_at,
+				"data": {},
+			}
+		)
+	var w_center: float = _TacticalCombat.sector_weight_for_attacker_on_defender(mgr, p_id, e_center_id)
+	var w_flank: float = _TacticalCombat.sector_weight_for_attacker_on_defender(mgr, p_id, e_flank_id)
+	if w_flank <= w_center + 0.001:
+		_fail(
+			failures,
+			"incoming_parry_sector: flank weight should exceed center (center=%.3f flank=%.3f)"
+			% [w_center, w_flank]
+		)
+	var s_center: float = _IncomingParryChoice.threat_score_for_attacker(mgr, e_center_id, p_id, resolve_at)
+	var s_flank: float = _IncomingParryChoice.threat_score_for_attacker(mgr, e_flank_id, p_id, resolve_at)
+	var tie_eps: float = maxf(0.001, maxf(s_center, s_flank) * 0.03)
+	if absf(s_flank - s_center) > tie_eps:
+		_fail(
+			failures,
+			"incoming_parry_sector: want near-equal base threat for tie-break (center=%.3f flank=%.3f eps=%.3f)"
+			% [s_center, s_flank, tie_eps]
+		)
+	var chosen: int = _IncomingParryChoice.choose_parry_target_attacker_id(mgr, p_id, resolve_at)
+	if chosen != e_flank_id:
+		_fail(failures, "incoming_parry_sector: want flank attacker chosen got %d" % chosen)
 	_free_manager_restore_global_rng(mgr)
 
 

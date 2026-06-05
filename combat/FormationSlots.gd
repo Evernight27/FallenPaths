@@ -3,16 +3,17 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
+## Array-based formation occupancy: slots[Vector2i(rank,file)] = combatant_ids.
+## **Read order:** formation record helpers → slot dict access → rank/file queries → vacancy/death plug hooks.
+## Normal length 1. During same-column adjacent-rank moves, the shallower rank cell lists both [shallow, deep]
+## and the deeper rank key is omitted until resolve (dual occupancy for dragging UI / lane crowding).
+## Vacancy/death plugs promote natives within `slots`; dual-occupancy cells may list two ids during adjacent-rank moves.
+
+
 ## `side` on a runtime formation record (`manager.formations[fid]`).
 static func formation_side_str(formation: Dictionary, default_side: String = "") -> String:
 	return str(formation.get("side", default_side))
 
-
-## Array-based formation occupancy: slots[Vector2i(rank,file)] = Array of combatant_ids.
-## Normal length 1. During same-column adjacent-rank moves, the shallower rank cell lists both [shallow, deep]
-## and the deeper rank key is omitted until resolve (dual occupancy for dragging UI / lane crowding).
-##
-## Vacancy/death plugs promote natives within `slots`; dual-occupancy cells may list two ids during adjacent-rank moves (see class header).
 
 ## Ensures `formation["slots"]` exists and returns it — avoids mutating a fresh `{}` from `Dictionary.get(..., {})`.
 static func formation_slots_dict(formation: Dictionary) -> Dictionary:

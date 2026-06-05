@@ -1,7 +1,7 @@
 class_name CampaignPersistence
 extends RefCounted
 
-## D-persistence P2 — single-slot autosave after settlement continue (Camp-5).
+## D-persistence P2 — single-slot autosave on settlement continue and **`CompanyState.try_advance_day`** (day tick).
 ## Atomic write: user://fallen_paths_slot0.json.tmp → slot0.json
 
 const SAVE_PATH := "user://fallen_paths_slot0.json"

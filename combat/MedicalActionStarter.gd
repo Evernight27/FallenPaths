@@ -5,8 +5,11 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 ## Starts a medical action: direct pressure (instant or during wind-up), bandage/tourniquet/pack wind-up.
+## **Read order:** wind-up pressure helper → `start` (coord gate → instant pressure → wind-up schedule).
+## Canonical: **`CombatMedicalCoordination.medical_action_allowed`** · log: **`CombatDebug.medical_session`**.
 ## Manager must have: **`CombatantEntityAccess.manager_get_combatant`**, `get_health_entity`, `emit_signal`.
 
 static func _try_windup_pressure_while_preparing(
@@ -34,30 +37,30 @@ static func _try_windup_pressure_while_preparing(
 					manager, target, performer, target_part
 				)
 			):
-				print(
-					"[Combat] Medical: %s assisting existing pressure on %s during %s wind-up"
+				_CombatDebug.medical_session(
+					"%s assisting existing pressure on %s during %s wind-up"
 					% [who_name, target_part, medical_id]
 				)
 				return
 		if _EntityAccess.entity_apply_direct_pressure(manager, target, target_part):
-			print(
-				"[Combat] Medical: %s applying direct pressure on %s during %s wind-up"
+			_CombatDebug.medical_session(
+				"%s applying direct pressure on %s during %s wind-up"
 				% [who_name, target_part, medical_id]
 			)
 		return
 	if _EntityAccess.entity_stack_assist_pressure_during_ally_treatment(
 		manager, target, performer, target_part
 	):
-		print(
-			"[Combat] Medical: %s assisting pressure on ally's %s during %s wind-up (helper still holding)"
+		_CombatDebug.medical_session(
+			"%s assisting pressure on ally's %s during %s wind-up (helper still holding)"
 			% [who_name, target_part, medical_id]
 		)
 		return
 	if _EntityAccess.entity_apply_direct_pressure_from_ally(manager, target, performer, target_part):
 		var tgt_entity: Node = _EntityAccess.get_entity_from_manager(manager, target)
 		_EntityAccess.link_performer_direct_pressure_on_ally(manager, performer, tgt_entity, target_part)
-		print(
-			"[Combat] Medical: %s applying direct pressure on ally's %s during %s wind-up"
+		_CombatDebug.medical_session(
+			"%s applying direct pressure on ally's %s during %s wind-up"
 			% [who_name, target_part, medical_id]
 		)
 
@@ -103,9 +106,8 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 				manager, target_node, c, target_part
 			):
 				applied = true
-				print(
-					"[Combat] Medical: %s treatment-assist pressure on ally's %s"
-					% [who_name, target_part]
+				_CombatDebug.medical_session(
+					"%s treatment-assist pressure on ally's %s" % [who_name, target_part]
 				)
 		elif _EntityAccess.entity_apply_direct_pressure_from_ally(manager, target_node, c, target_part):
 			applied = true
@@ -117,8 +119,8 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 			)
 		if applied:
 			if not _OperationalLog.is_play_session_active():
-				CombatDebug.combat_session(
-					"medical %s applied direct_pressure on %s (instant) => recovery %.1fs"
+				_CombatDebug.medical_session(
+					"%s applied direct_pressure on %s (instant) => recovery %.1fs"
 					% [who_name, target_part, med_rec_dur]
 				)
 			manager.emit_signal("action_resolved", combatant_id, target_combatant_id, {"outcome": "direct_pressure", "part": target_part, "dmg": 0, "died": false})
@@ -149,8 +151,8 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 	if assist_div > 1.0:
 		duration /= assist_div
 	if not _OperationalLog.is_play_session_active():
-		CombatDebug.combat_session(
-			"medical %s starting %s on part=%s => wind_up=%.1fs" % [who_name, medical_id, target_part, duration]
+		_CombatDebug.medical_session(
+			"%s starting %s on part=%s => wind_up=%.1fs" % [who_name, medical_id, target_part, duration]
 		)
 	c.gauge = 0.0
 	c["guard"] = CombatConstants.GUARD_AFTER_ATTACK

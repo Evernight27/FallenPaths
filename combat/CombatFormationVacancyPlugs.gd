@@ -1,7 +1,10 @@
 ﻿class_name CombatFormationVacancyPlugs
 extends RefCounted
 
-## Vacancy plug reconcile, rank-0 fill policy, native line compaction. See **CombatFormationFlow** header for plug order.
+## Vacancy plug reconcile, rank-0 fill policy, native line compaction.
+## **Read order:** lateral tracking -> per-file reconcile -> plug apply -> promotion ready scheduling.
+## Canonical: **`CombatDoctrine.clear_combatant_doctrine_commitment`** on rank/file writes in **`_apply_plug_move`**.
+## See **`CombatFormationFlow`** header for plug priority order.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
@@ -9,6 +12,7 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 
 const VACANCY_LATERAL_EDGE_META := "_vacancy_lateral_edges"
 const VACANCY_PLUG_RESERVED_DONORS_META := "_vacancy_plug_reserved_donors"
@@ -564,6 +568,7 @@ static func _apply_plug_move(
 	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(ally))
 	ally.rank = fill_rank
 	ally.file = file
+	_Doctrine.clear_combatant_doctrine_commitment(ally)
 	_repack_lane_offset_after_rank_file_change(ally)
 	_FormationSlots.slot_set_single(slots, Vector2i(fill_rank, file), _EntityAccess.id_int(ally))
 	ally["formation_autofill_cooldown_until"] = (
@@ -585,15 +590,13 @@ static func _apply_plug_move(
 	if CombatConstants.COMBAT_FORMATION_PLUG_MOVE_DEBUG:
 		var name_p: String = _EntityAccess.get_display_name(ally, _EntityAccess.id_int(ally))
 		if kind == "lateral":
-			print(
-				"[Combat] %s: %s slid file %d â†’ %d (rank %d)" % [log_prefix, name_p, from_f, file, fill_rank]
+			_CombatDebug.combat_session(
+				"%s: %s slid file %d â†’ %d (rank %d)" % [log_prefix, name_p, from_f, file, fill_rank]
 			)
 		elif kind == "rear_infill":
-			print(
-				(
-					"[Combat] %s: %s rear infill rank %d file %d â†’ rank %d file %d"
-					% [log_prefix, name_p, int(move.get("from_rank", 0)), from_f, fill_rank, file]
-				)
+			_CombatDebug.combat_session(
+				"%s: %s rear infill rank %d file %d â†’ rank %d file %d"
+				% [log_prefix, name_p, int(move.get("from_rank", 0)), from_f, fill_rank, file]
 			)
 		else:
 			_CombatDebug.combat_session("%s: %s advanced to rank %d (file %d)" % [log_prefix, name_p, fill_rank, file])

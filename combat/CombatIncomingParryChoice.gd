@@ -3,12 +3,15 @@ extends RefCounted
 
 ## Tier 0: overlapping melee wind-ups on one defender — run **`can_parry_all`** first (split capacity via
 ## **`choose_defense`**); if false, commit passive parry to highest **perceived telegraph** only.
+## III-1 tie-break: equal threat scores → highest sector flank weight (**`TacticalCombat.sector_weight_for_attacker_on_defender`**).
+## **`can_parry_all`** surround estimate uses **`TacticalCombat.stamp_surround_threat_on_pa`** (live scan — matches **`AttackResolver`**).
 ## **`parry_telegraph`** on **`pa`** (stamped at wind-up): commitment + contact type; feints inflate apparent telegraph until reveal.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 
 
 static func incoming_attacker_ids_on_defender(
@@ -146,12 +149,35 @@ static func choose_parry_target_attacker_id(
 		return int(incoming[0])
 	var best_id: int = -1
 	var best_score: float = -1.0
+	var scores_by_id: Dictionary = {}
 	for raw in incoming:
 		var aid: int = int(raw)
 		var score: float = threat_score_for_attacker(manager, aid, defender_id, anchor_time)
+		scores_by_id[aid] = score
 		if score > best_score:
 			best_score = score
 			best_id = aid
+	# III-1: sector flank weight breaks ties only — intensity / telegraph still wins outright.
+	if CombatConstants.is_feature_sector_surround_load() and incoming.size() > 1:
+		const TIE_EPS := 0.001
+		var tied_ids: Array[int] = []
+		for raw in incoming:
+			var aid: int = int(raw)
+			if float(scores_by_id.get(aid, 0.0)) >= best_score - TIE_EPS:
+				tied_ids.append(aid)
+		if tied_ids.size() > 1:
+			var sector_best_id: int = tied_ids[0]
+			var sector_best_w: float = _TacticalCombat.sector_weight_for_attacker_on_defender(
+				manager, defender_id, sector_best_id
+			)
+			for aid in tied_ids.slice(1):
+				var sector_w: float = _TacticalCombat.sector_weight_for_attacker_on_defender(
+					manager, defender_id, aid
+				)
+				if sector_w > sector_best_w:
+					sector_best_w = sector_w
+					sector_best_id = aid
+			return sector_best_id
 	return best_id
 
 
@@ -170,12 +196,11 @@ static func can_parry_all(manager: Node, defender_id: int, anchor_time: float = 
 		return false
 	if not _EntityAccess.has_passive_parry_reaction_time(tgt):
 		return false
-	var threat_n: int = incoming.size()
 	var total_p_a: float = 0.0
 	var min_c_d: float = 1.0e12
 	for raw in incoming:
 		var aid: int = int(raw)
-		var est: Dictionary = _incoming_parry_estimate(manager, tgt, aid, threat_n)
+		var est: Dictionary = _incoming_parry_estimate(manager, tgt, aid)
 		if not bool(est.get("viable", false)):
 			return false
 		total_p_a += float(est.get("parry_p_a", 0.0))
@@ -183,11 +208,15 @@ static func can_parry_all(manager: Node, defender_id: int, anchor_time: float = 
 	if min_c_d >= 1.0e11:
 		return false
 	var budget: float = min_c_d * CombatConstants.INCOMING_PARRY_ALL_COMBINED_P_A_BUDGET_MULT
+	if incoming.size() > 1:
+		var pa_sur: Dictionary = {}
+		_TacticalCombat.stamp_surround_threat_on_pa(manager, tgt, pa_sur)
+		budget *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa_sur)
 	return total_p_a <= budget + 0.001
 
 
 static func _incoming_parry_estimate(
-	manager: Node, tgt: Dictionary, attacker_id: int, threat_count: int
+	manager: Node, tgt: Dictionary, attacker_id: int
 ) -> Dictionary:
 	var out: Dictionary = {"viable": false, "parry_p_a": 0.0, "parry_c_d": 0.0}
 	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
@@ -200,7 +229,7 @@ static func _incoming_parry_estimate(
 	if attack_type.is_empty():
 		return out
 	var pa: Dictionary = pa_src.duplicate()
-	pa["surround_threat_count"] = threat_count
+	_TacticalCombat.stamp_surround_threat_on_pa(manager, tgt, pa)
 	var def_n: Node = _EntityAccess.scene_node(tgt)
 	var targetable: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
 	if targetable.is_empty():
@@ -227,9 +256,9 @@ static func _incoming_parry_estimate(
 
 
 static func _parry_viable_for_incoming_attack(
-	manager: Node, tgt: Dictionary, attacker_id: int, threat_count: int
+	manager: Node, tgt: Dictionary, attacker_id: int
 ) -> bool:
-	return bool(_incoming_parry_estimate(manager, tgt, attacker_id, threat_count).get("viable", false))
+	return bool(_incoming_parry_estimate(manager, tgt, attacker_id).get("viable", false))
 
 
 ## Stamps **`pa`** when this resolve is not the committed parry target among overlapping wind-ups.

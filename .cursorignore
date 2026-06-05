@@ -4,3 +4,26 @@
 # Godot import sidecars (one per asset; rarely needed for script edits)
 **/*.import
 
+
+# Local harness / gate artifacts (agents read via terminal when needed)
+.harness_out.txt
+.harness_run.txt
+.d001_soak_out.txt
+.d001_soak_sanity_out.txt
+.medical_phase_harness_out.txt
+.ii5_ii6_soak_out.txt
+.f5_soak_in.txt
+.f5_soak_validation.txt
+.f5_*_live.txt
+.phase0_combat_checks.txt
+.phase0_run.txt
+.phase0_run2.txt
+.q_track_audits.txt
+.q*_feel_audit.txt
+.ii2b_worksheet_prefill.txt
+.d001_headless_signoff.txt
+.calibration_audit.txt
+.campaign_ship_audit.txt
+_harness*.txt
+harness_stderr.txt
+.tmp_*.txt

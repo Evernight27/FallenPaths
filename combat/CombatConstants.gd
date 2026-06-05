@@ -4,7 +4,8 @@ extends RefCounted
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 
 ## Combat tuning constants. Single source for CombatManager and AttackResolver.
-## Reduces CombatManager from ~150 lines of constants to references.
+## **Read order:** damage/state strings → timing → **`MOVE_ID_*` + `is_*` membership** → formation/focus moves → features/flags → skip-turn / action keys.
+## **Move taxonomy table:** [`AGENTS.md`](../AGENTS.md)
 
 const DAMAGE_TYPE_SHARP := "SHARP"
 const DAMAGE_TYPE_BLUNT := "BLUNT"
@@ -61,9 +62,21 @@ const INTENSITY_STRENGTH_NORM := 100.0
 const INTENSITY_STRENGTH_BIAS := 0.35
 const INTENSITY_RANDOM_RANGE := 0.2
 
-# Medical
+# --- Move IDs: medical + membership ---
+
+# Medical move IDs (canonical strings — use **`MOVE_ID_*`**, not literals)
+const MOVE_ID_BANDAGE_SELF := "bandage_self"
+const MOVE_ID_PACK_WOUND := "pack_wound"
+const MOVE_ID_STABILIZE_WOUND := "stabilize_wound"
+const MOVE_ID_APPLY_DIRECT_PRESSURE := "apply_direct_pressure"
+const MOVE_ID_APPLY_TOURNIQUET := "apply_tourniquet"
+
 const MEDICAL_MOVE_IDS: Array[String] = [
-	"bandage_self", "pack_wound", "stabilize_wound", "apply_direct_pressure", "apply_tourniquet"
+	MOVE_ID_BANDAGE_SELF,
+	MOVE_ID_PACK_WOUND,
+	MOVE_ID_STABILIZE_WOUND,
+	MOVE_ID_APPLY_DIRECT_PRESSURE,
+	MOVE_ID_APPLY_TOURNIQUET,
 ]
 
 
@@ -74,20 +87,34 @@ static func is_medical_move(move_id: String) -> bool:
 
 ## Instant compression hold (not wind-up).
 static func is_direct_pressure_move(move_id: String) -> bool:
-	return str(move_id) == "apply_direct_pressure"
+	return str(move_id) == MOVE_ID_APPLY_DIRECT_PRESSURE
 
 
-## Bandage / pack / stabilize / tourniquet (wind-up; excludes **`apply_direct_pressure`**).
+## Bandage / pack / stabilize / tourniquet (wind-up; excludes direct pressure).
 static func is_wind_up_medical_move(move_id: String) -> bool:
 	return is_medical_move(move_id) and not is_direct_pressure_move(move_id)
 
 
-const DRESSING_MEDICAL_MOVE_IDS: Array[String] = ["bandage_self", "pack_wound", "stabilize_wound"]
+const DRESSING_MEDICAL_MOVE_IDS: Array[String] = [
+	MOVE_ID_BANDAGE_SELF, MOVE_ID_PACK_WOUND, MOVE_ID_STABILIZE_WOUND
+]
 
 
 ## Bandage / pack / stabilize only (excludes tourniquet and direct pressure).
 static func is_dressing_medical_move(move_id: String) -> bool:
 	return str(move_id) in DRESSING_MEDICAL_MOVE_IDS
+
+
+static func is_tourniquet_move(move_id: String) -> bool:
+	return str(move_id) == MOVE_ID_APPLY_TOURNIQUET
+
+
+static func is_pack_wound_move(move_id: String) -> bool:
+	return str(move_id) == MOVE_ID_PACK_WOUND
+
+
+static func is_stabilize_wound_move(move_id: String) -> bool:
+	return str(move_id) == MOVE_ID_STABILIZE_WOUND
 
 ## Extra pressure pass from the treater while an ally already holds the wound (bandage/pack/tourniquet wind-up). Scales treater medical effectiveness into `EntityMedical._apply_direct_pressure_to_wounds`.
 ## Second rescuer adds this fraction of their compression skill on top of primary hold (buddy pressure, TCCC).
@@ -281,6 +308,10 @@ const MENTAL_STACK_LAYER_MEDICAL := "medical"
 const MENTAL_STACK_LAYER_COUNTER := "counter"
 const MENTAL_STACK_LAYER_INCOMING := "incoming"
 const MENTAL_STACK_LAYER_HOLD_LINE := "hold_line"
+## MS-L5: rear rank steps up via listed partner formation move when same-file rank-0 is vacant.
+const MENTAL_STACK_LAYER_FORMATION_PLUG := "formation_plug"
+## MS-L6: breaking formation + listed **`flee`** → abandon field before hold-line wait.
+const MENTAL_STACK_LAYER_ROUT := "rout"
 ## MS-L7: high fight exhaustion → wait / formation disengage before salience utility pick.
 const MENTAL_STACK_LAYER_EXHAUSTION := "exhaustion"
 const MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD := 0.55
@@ -328,7 +359,23 @@ static func set_feature_position_angle_footwork_load(enabled: bool) -> void:
 
 
 static func position_angle_offset_deg_for_attack_line(line: String) -> float:
-	return float(POSITION_ANGLE_OFFSET_DEG_BY_LINE.get(str(line).strip_edges(), 0.0))
+	var key: String = str(line).strip_edges()
+	if not is_feature_hema_eight_guard_lines_enabled() or not _GuardLines.is_known_line(key):
+		return float(POSITION_ANGLE_OFFSET_DEG_BY_LINE.get(key, 0.0))
+	var norm: String = _GuardLines.normalize_line(key)
+	var card: String = _GuardLines.cardinal_for_path_lookup(key)
+	var base: float = float(POSITION_ANGLE_OFFSET_DEG_BY_LINE.get(card, 0.0))
+	if norm == card:
+		return base
+	# III-2: nudge step toward octant within cardinal bucket (±4° at adjacent octant).
+	var card_deg: float = _GuardLines.line_to_angle(card)
+	var oct_deg: float = _GuardLines.line_to_angle(norm)
+	var delta: float = oct_deg - card_deg
+	if delta > 180.0:
+		delta -= 360.0
+	elif delta < -180.0:
+		delta += 360.0
+	return base + clampf(delta / 22.5, -1.0, 1.0) * 4.0
 
 
 static func guard_line_for_focus_move_id(move_id: String) -> String:
@@ -747,7 +794,10 @@ static func set_feature_ambient_pain_shock(on: bool) -> void:
 const FEATURE_INCOMING_PARRY_CHOICE := true
 const INCOMING_MELEE_PARRY_WINDOW_S := 0.25
 ## Simultaneous parry-all: sum of incoming **`parry_p_a`** must fit under min split **`parry_c_d`** × dodge ratio × this.
-const INCOMING_PARRY_ALL_COMBINED_P_A_BUDGET_MULT := 0.88
+## Retuned 0.88→0.45 when **`can_parry_all`** began using live sector **`surround_threat_weight_sum`** (III-1).
+## Simultaneous parry-all: sum of incoming **`parry_p_a`** must fit under min split **`parry_c_d`** × dodge ratio × this.
+## Retuned 0.88→0.45 when **`can_parry_all`** uses live sector **`surround_threat_weight_sum`** (III-1).
+const INCOMING_PARRY_ALL_COMBINED_P_A_BUDGET_MULT := 0.45
 ## Per-move override optional in `WeaponConstants` (`parry_telegraph` 0–1). Base from intensity × power × follow_through × contact mult.
 const PARRY_TELEGRAPH_CONTACT_MULT_CUT := 1.0
 const PARRY_TELEGRAPH_CONTACT_MULT_STAB := 0.88
@@ -822,11 +872,18 @@ const FORMATION_PAIR_ABORT_RETRY_COOLDOWN_S := 0.7
 const FORMATION_ROTATE_FILE_RETRY_COOLDOWN_S := 0.8
 const STATE_FALLING_BACK := "falling_back"
 const STATE_SWAP_RANK := "swap_rank"
+
+# --- Move IDs: formation + focus ---
+
 const MOVE_ID_SWAP_RANK := "swap_rank"
 ## Phase 5: formation movement (time-based, no stamina).
 const MOVE_ID_DRAG_BACK := "drag_back"
 const MOVE_ID_FALL_BACK := "fall_back"
 const MOVE_ID_ROTATE_FILE := "rotate_file"
+## Pair formation flow protocol (events / duration / resolve). Menu **`MOVE_ID_FALL_BACK`** + ally → **`FORMATION_MOVE_KIND_FALL_BACK_PAIR`**.
+const FORMATION_MOVE_KIND_SWAP_RANK := MOVE_ID_SWAP_RANK
+const FORMATION_MOVE_KIND_DRAG_BACK := MOVE_ID_DRAG_BACK
+const FORMATION_MOVE_KIND_FALL_BACK_PAIR := "fall_back_pair"
 ## Tier 6.2: leave the engagement (not a rank swap / solo fall_back within the line).
 const MOVE_ID_FLEE := "flee"
 ## Swap / drag / fall back / rotate / flee — used so "only formation moves" still offers wait.
@@ -838,6 +895,42 @@ const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = [
 ## True when **`move_id`** is a formation reposition / flee action (use this — do not test **`FORMATION_MOVEMENT_MOVE_IDS`** directly).
 static func is_formation_movement_move(move_id: String) -> bool:
 	return str(move_id) in FORMATION_MOVEMENT_MOVE_IDS
+
+
+## Formation reposition within the line (swap/drag/fall_back/rotate — excludes **`flee`**).
+static func is_formation_reposition_move(move_id: String) -> bool:
+	return is_formation_movement_move(move_id) and str(move_id) != MOVE_ID_FLEE
+
+
+## Paired formation moves that target an ally (`swap_rank` / `drag_back` / `fall_back`).
+static func is_partner_formation_move(move_id: String) -> bool:
+	var mid := str(move_id)
+	return mid == MOVE_ID_SWAP_RANK or mid == MOVE_ID_DRAG_BACK or mid == MOVE_ID_FALL_BACK
+
+
+## True when **`move_kind`** is a paired formation-flow kind (not menu **`MOVE_ID_*`** alone).
+static func is_formation_pair_move_kind(move_kind: String) -> bool:
+	var k := str(move_kind)
+	return (
+		k == FORMATION_MOVE_KIND_SWAP_RANK
+		or k == FORMATION_MOVE_KIND_DRAG_BACK
+		or k == FORMATION_MOVE_KIND_FALL_BACK_PAIR
+	)
+
+
+## Maps menu **`MOVE_ID_*`** for paired formation actions to flow **`FORMATION_MOVE_KIND_*`**.
+static func formation_pair_move_kind_for_menu_move(move_id: String) -> String:
+	match str(move_id):
+		MOVE_ID_SWAP_RANK:
+			return FORMATION_MOVE_KIND_SWAP_RANK
+		MOVE_ID_DRAG_BACK:
+			return FORMATION_MOVE_KIND_DRAG_BACK
+		MOVE_ID_FALL_BACK:
+			return FORMATION_MOVE_KIND_FALL_BACK_PAIR
+		_:
+			return str(move_id)
+
+
 ## Tactical rank penetration (0 = at their front line). Not armor RHA penetration.
 const TACTICAL_PENETRATION_DEPTH_MAX := 2
 ## Extra damp when this side has very few standing fighters (duel / skirmish attrition).
@@ -1082,6 +1175,8 @@ const FORMATION_FLEE_LINE_COHESION_MAX := 0.42
 const FORMATION_FLEE_CASUALTY_RATIO_MIN := 0.30
 ## Wounded + stressed rout blocked when this side still has ≥ this × opponent standing (tactical win — hold the field).
 const FORMATION_FLEE_WINNING_STANDING_RATIO := 1.15
+
+# --- Move IDs: wait / focus / close / skip ---
 
 ## Explicit no-op: pass turn, schedule next action_ready (same delays as skip_turn).
 const MOVE_ID_WAIT := "wait"
@@ -1437,6 +1532,20 @@ const CLOSE_SLOTS_PER_TARGET_TIGHT_BONUS := 1
 const CLOSE_SLOTS_FULL_TARGETING_MULT := 0.32
 ## After a **failed** close vs a defender, `attempt_close` vs that same defender is withheld until `combat_clock` passes this (per attacker–defender pair). Turn spacing uses `READY_DELAY_CLOSE_ATTEMPT_S` separately.
 const CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S := 1.65
+## Close contest (III-4 enrich): flank sector weight at **`SURROUND_SECTOR_WEIGHT_MIN`** → this pressure mult.
+const CLOSE_ATTEMPT_FLANK_PRESSURE_MULT_AT_MIN_SECTOR := 1.12
+## Mapped file-opposed rank-0 pair closing along their assigned front.
+const CLOSE_ATTEMPT_FILE_OPPOSED_PRESSURE_MULT := 1.06
+## Attacker's crowded file lane ( **`lane_stress_by_file`** ) dampens closing pressure at stress 1.0.
+const CLOSE_ATTEMPT_LANE_STRESS_PRESSURE_MIN := 0.88
+## Defender tight lane leaves less sidestep room at stress 1.0.
+const CLOSE_ATTEMPT_LANE_STRESS_EVASION_MIN := 0.90
+## Per other living closer already on defender (excluding self).
+const CLOSE_ATTEMPT_CROWD_EVASION_MULT_PER_OCCUPANT := 0.92
+## Defender already engaged by multiple melee threats ( **`surround_threat_count` ≥ 2** ).
+const CLOSE_ATTEMPT_DEFENDER_ENGAGED_PRESSURE_MULT := 1.08
+## Option 4 / p4c: auto **`pinch_center`** when our rank-0 front exceeds enemy by this margin **and** we are wider on files.
+const AUTO_DOCTRINE_NUMERIC_SUPERIORITY_FRONT_MARGIN := 2
 
 
 static func max_close_slots_for_density(density: String) -> int:
@@ -1457,6 +1566,22 @@ const DOCTRINE_COMMIT_MATCH_WEIGHT_MULT := 1.28
 const DOCTRINE_FILE_OPPOSED_WEIGHT_MULT := 1.42
 ## Extra weight toward enemy-line center when PINCH + wing has no file-opposed rank-0 target.
 const DOCTRINE_PINCH_INWARD_BIAS_PER_FILE := 0.18
+## Pincer flank wings (`CombatDoctrine.PINCER_ROLE_FLANK_WING`): boost enemy **outer** files (turn their flanks).
+const DOCTRINE_PINCH_FLANK_OUTWARD_BIAS_PER_FILE := 0.22
+## Pincer center (`CombatDoctrine.PINCER_ROLE_CENTER`): reinforce mapped file-opposed pin targets.
+const DOCTRINE_PINCH_CENTER_PIN_FILE_OPPOSED_MULT := 1.12
+## Utility pick nudge when flank wing lists **`attempt_close`** at LONG under **`DOCTRINE_PINCH_CENTER`**.
+const AI_PINCER_FLANK_CLOSE_UTIL_MULT := 1.35
+## Skirmish flank echelon: **`rotate_file`** when no melee strikes (still below **`attempt_close`**).
+const AI_PINCER_FLANK_ROTATE_NO_MELEE_MULT := 3.2
+## Pincer center files must not **`attempt_close`** at LONG — pin via mapped strikes / wait (flank wings close).
+const AI_PINCER_CENTER_CLOSE_UTIL_MULT := 0.0
+## Flank wing targeting: boost **`preferred_pincer_flank_enemy_id`** before center commits propagate.
+const AI_PINCER_PREFERRED_FLANK_TARGET_MULT := 1.18
+## Phase 2: flank **`attempt_close`** — reward wide sector approach; damp when a CLOSE ally already holds that arc.
+const PINCER_CLOSE_ARC_SECTOR_BONUS := 0.20
+const PINCER_CLOSE_ARC_OVERLAP_ALLY_DAMP := 0.52
+const PINCER_CLOSE_ARC_MIN_MULT := 0.70
 ## Larger = geometry matters less in soft score (1/(1+eff*k)).
 const DOCTRINE_SOFT_DISTANCE_SCALE := 0.55
 ## Normalizer for how many allies already committed on same defender.
@@ -1568,11 +1693,19 @@ const ATTACK_PATHS_BY_GUARD: Dictionary = {
 }
 
 ## Returns attack path for (attack_line, guard_line). Fallback to ATTACK_PATHS if missing.
+## D-006 / III-2: eight-line octants map to cardinal keys for **`ATTACK_PATHS_BY_GUARD`** (full 8×8 matrix = IV-4).
 static func get_attack_path(attack_line: String, guard_line: String) -> Array:
-	var by_guard: Variant = ATTACK_PATHS_BY_GUARD.get(attack_line, {})
-	if by_guard is Dictionary and by_guard.has(guard_line):
-		return by_guard[guard_line]
-	return ATTACK_PATHS.get(attack_line, ATTACK_PATH_HIGH)
+	var atk_key: String = attack_line
+	var guard_key: String = guard_line
+	if is_feature_hema_eight_guard_lines_enabled():
+		if _GuardLines.is_known_line(attack_line):
+			atk_key = _GuardLines.cardinal_for_path_lookup(attack_line)
+		if _GuardLines.is_known_line(guard_line):
+			guard_key = _GuardLines.cardinal_for_path_lookup(guard_line)
+	var by_guard: Variant = ATTACK_PATHS_BY_GUARD.get(atk_key, {})
+	if by_guard is Dictionary and by_guard.has(guard_key):
+		return by_guard[guard_key]
+	return ATTACK_PATHS.get(atk_key, ATTACK_PATH_HIGH)
 
 # Intercept: alignment 1.0 = hit early parts (indices 0..2); alignment 0.0 = full path (0..5)
 const PATH_INTERCEPT_EARLY_MAX := 2
@@ -1863,13 +1996,13 @@ const AFTERBLOW_HINDRANCE_ALLOW: float = 0.3
 const AFTERBLOW_CANCELLED_RECOVERY_S: float = 0.5
 
 const MEDICAL_WIND_UP_CONFIG: Dictionary = {
-	"bandage_self": {"duration_method": "get_bandage_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_bandage", "outcome": "bandaged"},
-	"pack_wound": {"duration_method": "get_packing_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_packing", "outcome": "packed"},
-	"stabilize_wound": {
+	MOVE_ID_BANDAGE_SELF: {"duration_method": "get_bandage_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_bandage", "outcome": "bandaged"},
+	MOVE_ID_PACK_WOUND: {"duration_method": "get_packing_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_packing", "outcome": "packed"},
+	MOVE_ID_STABILIZE_WOUND: {
 		"duration_method": "get_stabilize_application_time_seconds_for_part",
 		"duration_takes_part": true,
 		"target_method": "apply_stabilize",
 		"outcome": "stabilized",
 	},
-	"apply_tourniquet": {"duration_method": "get_tourniquet_application_time_seconds", "duration_takes_part": false, "target_method": "apply_tourniquet", "outcome": "tourniquet_applied"}
+	MOVE_ID_APPLY_TOURNIQUET: {"duration_method": "get_tourniquet_application_time_seconds", "duration_takes_part": false, "target_method": "apply_tourniquet", "outcome": "tourniquet_applied"}
 }

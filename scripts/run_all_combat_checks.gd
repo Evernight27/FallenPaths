@@ -1,16 +1,21 @@
 extends SceneTree
 
-## Headless combat checks — set **`FP_HARNESS_MODE`** (`all` default · `regression` · `d001` · `sanity` · `calibration` · `medical`).
-## Phase 0: **`run_all_combat_checks.ps1`** / **`.sh`**. Presets subset: **`run_d001_presets.gd`**. F5 log: **`run_f5_soak_log_validator.gd`**.
+## Headless combat checks — set **`FP_HARNESS_MODE`** (`all` default · `regression` · `d001` · `d001_presets` · `sanity` · `calibration` · `medical` · `f5_validate` · `q_track`).
+## Phase 0: **`run_all_combat_checks.ps1`** / **`.sh`**. Q track: mode **`q_track`**. F5 validate: **`f5_validate`** (+ optional path after **`--`**).
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _D001Runner := preload("res://combat/CombatD001SoakRunner.gd")
 const _CalibrationAudit := preload("res://combat/CombatCalibrationAudit.gd")
 const _SoakSanity := preload("res://combat/CombatD001SoakSanity.gd")
 const _MedicalPhaseTail := preload("res://combat/CombatRegressionHarnessMedicalPhaseTail.gd")
+const _F5Validator := preload("res://combat/CombatF5SoakLogValidator.gd")
+const _QTrack := preload("res://combat/CombatQTrackAudits.gd")
+const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const HARNESS_NAME := "AllCombatChecks"
 const MEDICAL_FAST_NAME := "MedicalPhaseHarness"
 const MEDICAL_FAST_TEST_COUNT := 12
+const D001_PRESETS_NAME := "D001PresetsIi5Ii6"
+const F5_VALIDATOR_NAME := "CombatF5SoakLogValidator"
 
 
 func _init() -> void:
@@ -29,6 +34,12 @@ func _init() -> void:
 			_run_mode_calibration()
 		"medical":
 			_run_mode_medical()
+		"d001_presets":
+			_run_mode_d001_presets()
+		"f5_validate":
+			_run_mode_f5_validate()
+		"q_track":
+			_run_mode_q_track()
 		"all":
 			_run_mode_all()
 		_:
@@ -124,3 +135,104 @@ func _merge_failures(
 		return
 	for raw in result.get("failures", PackedStringArray()) as PackedStringArray:
 		out.append("%s: %s" % [label, raw])
+
+
+func _run_mode_d001_presets() -> void:
+	CombatConstants.set_headless_harness_quiet(true)
+	var preset_ids: PackedStringArray = _resolve_d001_preset_ids()
+	_OperationalLog.harness_begin(D001_PRESETS_NAME)
+	var r: Dictionary = _D001Runner.run_preset_ids(preset_ids)
+	_print_d001_preset_summary(r)
+	if bool(r.get("ok", false)):
+		_OperationalLog.harness_ok(D001_PRESETS_NAME, "presets=%s" % ", ".join(preset_ids))
+		quit(0)
+		return
+	_OperationalLog.harness_fail(D001_PRESETS_NAME, r.get("failures", PackedStringArray()))
+	quit(1)
+
+
+func _resolve_d001_preset_ids() -> PackedStringArray:
+	var raw: String = OS.get_environment("D001_PRESETS").strip_edges()
+	if raw.is_empty():
+		return PackedStringArray([
+			_SoakPresets.PRESET_II5_COWERING,
+			_SoakPresets.PRESET_II6_AMBIENT_SHOCK,
+		])
+	var out: PackedStringArray = PackedStringArray()
+	for part in raw.split(","):
+		var pid: String = part.strip_edges().to_lower()
+		if not pid.is_empty():
+			out.append(pid)
+	return out
+
+
+func _print_d001_preset_summary(r: Dictionary) -> void:
+	var presets: Dictionary = r.get("presets", {}) as Dictionary
+	for pid in presets.keys():
+		var pr: Dictionary = presets[pid] as Dictionary
+		var checks: Dictionary = pr.get("checks", {}) as Dictionary
+		var check_bits: PackedStringArray = PackedStringArray()
+		for cid in checks.keys():
+			var c: Dictionary = checks[cid] as Dictionary
+			var st: String = "PASS" if bool(c.get("pass", false)) else "FAIL"
+			check_bits.append("%s=%s" % [cid, st])
+		print(
+			_OperationalLog.tag_line(
+				_OperationalLog.TAG_HARNESS_SUMMARY,
+				"[%s] ok=%s %s | %s"
+				% [
+					pid,
+					str(bool(pr.get("ok", false))).to_lower(),
+					str(pr.get("summary", "")),
+					", ".join(check_bits),
+				]
+			)
+		)
+
+
+func _run_mode_f5_validate() -> void:
+	CombatConstants.set_headless_harness_quiet(true)
+	_OperationalLog.harness_begin(F5_VALIDATOR_NAME)
+	var path: String = _resolve_f5_input_path()
+	if not FileAccess.file_exists(path):
+		var msg: String = (
+			"Missing log file: %s — copy Godot Output after F5 soak, save as that path, re-run."
+			% path
+		)
+		_OperationalLog.harness_fail(F5_VALIDATOR_NAME, PackedStringArray([msg]))
+		quit(2)
+		return
+	var text: String = FileAccess.get_file_as_string(path)
+	var lines: PackedStringArray = PackedStringArray()
+	for part in text.split("\n", false):
+		lines.append(part)
+	var result: Dictionary = _F5Validator.validate(lines)
+	_F5Validator.write_report(result)
+	if bool(result.get("ok", false)):
+		_OperationalLog.harness_ok(
+			F5_VALIDATOR_NAME,
+			"profiles=%s lines=%d"
+			% [", ".join(result.get("profiles", PackedStringArray())), int(result.get("line_count", 0))]
+		)
+		quit(0)
+		return
+	_OperationalLog.harness_fail(F5_VALIDATOR_NAME, result.get("failures", PackedStringArray()))
+	quit(1)
+
+
+func _run_mode_q_track() -> void:
+	quit(_QTrack.run_headless())
+
+
+static func _resolve_f5_input_path() -> String:
+	var root: String = ProjectSettings.globalize_path("res://")
+	for arg in OS.get_cmdline_user_args():
+		var a: String = str(arg).strip_edges()
+		if a.is_empty() or a.begins_with("-"):
+			continue
+		if a.begins_with("res://"):
+			return ProjectSettings.globalize_path(a)
+		if a.contains("/") or a.contains("\\") or a.ends_with(".txt") or a.ends_with(".log"):
+			return a if a.is_absolute_path() else root.path_join(a)
+		return root.path_join(a)
+	return root.path_join(_F5Validator.DEFAULT_INPUT_FILENAME)

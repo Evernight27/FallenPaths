@@ -14,6 +14,7 @@ extends RefCounted
 ## - Listing: **`opponent_formation_for_listing`** · targeting: **`pair_formations_for_targeting`**
 ## - Snapshot/UI row: **`zone_geometry_fid_from_row`**
 ## Aliases: **`formation_id_for_zone_geometry`**, **`formation_dict_for_zone_geometry`**.
+## **Read order:** flags → zone geometry → listing/targeting packs → ZoC recompute → engagement parry → formation duration mults.
 
 const ZONE_FRONT := "front"
 const ZONE_LEFT_FLANK := "left_flank"
@@ -36,6 +37,8 @@ static func is_zoc_flanking_enabled(manager: Node) -> bool:
 		return true
 	return not bool((enc as Dictionary).get(_ENCOUNTER_PROTECTION_CIRCLE_KEY, false))
 
+
+# --- Zone geometry ---
 
 static func _resolve_zone_geometry_fid(_manager: Node, c: Dictionary) -> String:
 	return _EntityAccess.formation_id_str(c)
@@ -112,6 +115,8 @@ static func zone_geometry_formation_b_from_pair_pack(zg: Dictionary) -> Dictiona
 	var f: Variant = zg.get("formation_b", null)
 	return f as Dictionary if f is Dictionary else {}
 
+
+# --- Listing / targeting formation packs ---
 
 ## Opponent formation from per-id line cache, then pair fallback. When pair fallback runs and **`actor_fc`** is empty, fills it from **`formation_a`** (MeleeListing actor cache backfill).
 static func opponent_formation_for_listing(
@@ -385,6 +390,9 @@ static func _zone_incursion_exposure(zone: String) -> float:
 		_:
 			return 1.0
 
+
+# --- ZoC control recompute ---
+
 ## Mutates formations[*].zone_control with keys front, left_flank, right_flank, rear (0..1).
 static func recompute_zone_control(manager: Node) -> void:
 	for fid in ["player", "enemy"]:
@@ -447,6 +455,9 @@ static func format_zone_control_line(manager: Node, _side: String) -> String:
 	var r: float = float(zc.get(ZONE_RIGHT_FLANK, 0.0))
 	var rr: float = float(zc.get(ZONE_REAR, 0.0))
 	return "ZoC  F:%.2f  L:%.2f  R:%.2f  rear:%.2f" % [f, l, r, rr]
+
+
+# --- Engagement parry + formation duration ---
 
 ## Formation vs formation (both files >= 2): ZoC-based flank/rear parry mult on defender.
 ## Otherwise pack-style fallback: effective file spacing (wedge/lane_offset-aware) ≥ `PARRY_FLANK_EFFECTIVE_FILES_MIN`, else |Δfile| ≥ 2 (Tier 3.1).

@@ -257,7 +257,7 @@ static func _run_ii7_medical_phase_smoke() -> Dictionary:
 				continue
 			if str(a.get("target_part", "")) != "chest":
 				continue
-			if str(a.get("move_id", "")) == "apply_direct_pressure":
+			if CombatConstants.is_direct_pressure_move(str(a.get("move_id", ""))):
 				found_pressure = true
 				break
 		check_out["pressure_listed"] = {
@@ -271,7 +271,7 @@ static func _run_ii7_medical_phase_smoke() -> Dictionary:
 			var committed: bool = mgr.resolve_action(
 				healer_id,
 				ally_id,
-				"apply_direct_pressure",
+				CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE,
 				{"target_part": "chest"}
 			)
 			check_out["pressure_resolve"] = {
@@ -307,9 +307,11 @@ static func _run_ii7_medical_phase_smoke() -> Dictionary:
 					if who_pack.is_empty() and healer_ent != null:
 						who_pack = str(healer_ent.name)
 					_F5SoakTrace.note_medical_pack_listed(who_pack, "chest")
-					_F5SoakTrace.note_medical_action_pick(who_pack, "pack_wound", "chest", "ally")
+					_F5SoakTrace.note_medical_action_pick(
+						who_pack, CombatConstants.MOVE_ID_PACK_WOUND, "chest", "ally"
+					)
 					var pack_ok: bool = mgr.resolve_action(
-						healer_id, ally_id, "pack_wound", {"target_part": "chest"}
+						healer_id, ally_id, CombatConstants.MOVE_ID_PACK_WOUND, {"target_part": "chest"}
 					)
 					check_out["pack_wound_resolve"] = {
 						"pass": pack_ok,
@@ -454,10 +456,12 @@ static func _medical_pack_wound_listed_for_ally(
 	ally_id: int,
 	actions: Array
 ) -> bool:
-	if not _ListedActions.first_action_move_vs_target(actions, "pack_wound", ally_id).is_empty():
+	if not _ListedActions.first_action_move_vs_target(
+		actions, CombatConstants.MOVE_ID_PACK_WOUND, ally_id
+	).is_empty():
 		return true
 	for raw in _MedicalPhase.get_ally_medical_actions(mgr, healer, ally, "chest"):
-		if raw is Dictionary and str((raw as Dictionary).get("move_id", "")) == "pack_wound":
+		if raw is Dictionary and CombatConstants.is_pack_wound_move(str((raw as Dictionary).get("move_id", ""))):
 			return true
 	return false
 
@@ -1168,6 +1172,7 @@ static func _encounter_dict_for_preset(preset_id: String) -> Dictionary:
 	if preset_id == _SoakPresets.PRESET_II_ENVELOP:
 		enc[SoakEncounterPresets.ENCOUNTER_KEY_FORCE_WEAPON_ID] = "SWORD"
 		enc[CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT] = 7
+		enc[CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER] = CombatConstants.DOCTRINE_PINCH_CENTER
 		enc[CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY] = CombatConstants.DOCTRINE_PINCH_CENTER
 	return enc
 

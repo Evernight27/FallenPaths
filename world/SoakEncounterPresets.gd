@@ -178,6 +178,11 @@ static func _fight_enter_hint_lines(preset_id: String) -> PackedStringArray:
 			return PackedStringArray([
 				"human II-4d — long duel; grep exhaustion crossed 25|50|75; gauge Exh on row",
 			])
+		PRESET_II_ENVELOP:
+			return PackedStringArray([
+				"human III-4 — 7v3 Skirmish; party_entering_combat count=7",
+				"grep engagement mode=Skirmish | attempt_close@ | Stack hold_line | rotate_file@ | pincer=flank_wing",
+			])
 		_:
 			return PackedStringArray()
 
@@ -272,7 +277,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
 			lines_ii2b.append(
 				"Q2 feel: exchange until bind+deflect; riposte after deflect; flurry after bind — grep parry_stats deflect= q2_validate_hint at fight end"
 			)
-			lines_ii2b.append("Q2 headless: .\\scripts\\run_q_audit.ps1 -Track Q2 after run_all_combat_checks")
+			lines_ii2b.append("Q2 headless: .\\scripts\\run_all_combat_checks.ps1 -HarnessMode q_track after run_all_combat_checks")
 			return lines_ii2b
 		PRESET_II4D_EXHAUSTION:
 			return PackedStringArray([
@@ -294,7 +299,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
 				"setup: leader armless (cowering); loose 2×3 party formation",
 				"grep: cowering_fall_back listed | cowering_fall_back executed | ui_hint No arms",
 				"play: on your turn pick fall_back when listed (not flee-only path)",
-				"Q3 headless: .\\scripts\\run_q_audit.ps1 -Track Track — [ii5] cowering_* PASS in .d001_soak_out.txt",
+				"Q3 headless: .\\scripts\\run_all_combat_checks.ps1 -HarnessMode q_track — [ii5] cowering_* PASS in .d001_soak_out.txt",
 				"Q3 F5 only: confirm fall_back pick UX on world grid (grep q3_validate_hint at fight end)",
 			])
 		PRESET_II6_AMBIENT_SHOCK:
@@ -316,7 +321,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
 			return PackedStringArray([
 				"preset=ii_envelop — III-4 outnumber 7v3 skirmish | %s" % tile_s,
 				"setup: cap=7 party, 7-wide front vs 3 enemies (grep party_entering_combat count=7)",
-				"grep: engagement mode=Skirmish | attempt_close | Stack hold_line | rotate_file@ (optional)",
+				"grep: engagement mode=Skirmish | attempt_close@ | Stack hold_line | rotate_file@ | engagement_debug turn pincer=",
 				"headless: [ii_envelop] attempt_close or hold_line stack in .d001_soak_out.txt",
 			])
 		_:
@@ -408,6 +413,7 @@ static func _apply_ii_envelop(encounter: Node) -> void:
 	var cfg: Dictionary = encounter.encounter_config.duplicate(true)
 	cfg[ENCOUNTER_KEY_FORCE_WEAPON_ID] = "SWORD"
 	cfg[_CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT] = 7
+	cfg[_CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER] = _CombatConstants.DOCTRINE_PINCH_CENTER
 	cfg[_CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY] = _CombatConstants.DOCTRINE_PINCH_CENTER
 	encounter.encounter_config = cfg
 

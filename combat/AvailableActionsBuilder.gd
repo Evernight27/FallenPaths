@@ -9,7 +9,9 @@ const _Attention := preload("res://combat/CombatAttention.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-## Orchestrates `build()`; listing in **`CombatMeleeListing`** / **`CombatFormationMoveListing`** / **`CombatMedicalActionListing`**.
+
+## Orchestrates turn **`build()`** — delegates to listing modules (canonical lookups: **`AGENTS.md`**).
+## **Read order:** preflight → receiving-care pressure → (combat) melee → formation → focus/wait → (medical phase) winner actions → counter-tempo filter → dead-target drop.
 
 
 static func _counter_tempo() -> GDScript:

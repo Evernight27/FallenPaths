@@ -8,6 +8,7 @@ const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
+const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
@@ -96,6 +97,18 @@ static func hold_line_focus_only_hint(manager: Node, c: Dictionary, actions: Arr
 		and _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
 	):
 		return "Wing — no mapped front; close in or adjust guard focus."
+	if (
+		manager != null
+		and _Doctrine.pincer_role_for_combatant(manager, c) == _Doctrine.PINCER_ROLE_FLANK_WING
+		and _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
+	):
+		return "Pincer wing — close on the flank or rotate forward."
+	if (
+		manager != null
+		and _Doctrine.pincer_role_for_combatant(manager, c) == _Doctrine.PINCER_ROLE_CENTER
+		and _ListedActions.action_list_is_reserve_posture_only(actions)
+	):
+		return "Center — hold the line; wings envelop."
 	return ""
 
 
@@ -204,7 +217,7 @@ static func _log_medical_pack_wound_listed_if_applicable(
 		if not (entry is Dictionary):
 			continue
 		var mid: String = str(entry.get("move_id", entry.get("id", ""))).strip_edges()
-		if mid != "pack_wound":
+		if not CombatConstants.is_pack_wound_move(mid):
 			continue
 		_F5SoakTrace.note_medical_pack_listed(
 			_EntityAccess.get_display_name(c),

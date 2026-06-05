@@ -2,6 +2,7 @@ class_name CombatListedActions
 extends RefCounted
 
 ## Shared scans over **`get_available_actions`** / **`build()`** output arrays (harness + UI hints).
+## **Read order:** entry helpers → move-id filters (`CombatConstants.is_*`) → aggregate scans.
 
 
 static func _entry(raw: Variant) -> Dictionary:

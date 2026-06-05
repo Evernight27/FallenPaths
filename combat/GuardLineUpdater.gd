@@ -8,6 +8,7 @@ extends RefCounted
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
+const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 ## Sets combatant guard_line to deflected position (blade was knocked aside by parry).
 ## Angle-based: bilateral deflection — blade deflects "away from" defender's blade.
 ## Bind: parry_control high → blade stays; else magnitude from alignment/severity.
@@ -57,7 +58,10 @@ static func set_guard_deflected(c: Dictionary, move_id: String, effective_line_o
 		line = CombatConstants.get_deflected_line_from_angles(atk_angle, guard_angle, 1.0, "cut", alignment)
 		blend = 1.0 if line != atk_line else 0.0
 	else:
-		line = CombatConstants.DEFLECTED_GUARD_FROM_ATTACK.get(atk_line, atk_line)
+		if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+			line = _GuardLines.opposite_line(atk_line)
+		else:
+			line = CombatConstants.DEFLECTED_GUARD_FROM_ATTACK.get(atk_line, atk_line)
 		blend = 1.0
 	var prev: String = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
 	c["guard_line"] = line

@@ -2,8 +2,8 @@ class_name CombatFormationRout
 extends RefCounted
 
 ## Rout / abandon-field policy: ties **`flee`** to formation **`line_cohesion`** (morale, fill, lane stress) and side **casualty ratio**.
-## Data flow: combatant `morale_cohesion` → `CombatMoraleCohesion` → `morale_cohesion_factor` → `CombatFormationEngagement._compute_line_cohesion`;
-## casualties / fled / incap → `standing_at_start` vs current standing on formation side.
+## **Read order:** standing baseline → stress/casualty queries → `abandonment_warranted` → AI/tooltip helpers.
+## Canonical: **`CombatantEntityAccess.flee_abandonment_warranted`** delegates here.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
@@ -164,7 +164,7 @@ static func formation_stress_abandonment_path(manager: Node, c: Dictionary) -> b
 	var bv: float = _EntityAccess.get_blood_volume_from_node(node as Node)
 	if bv < CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX:
 		return false
-	if manager.has_method("_is_in_immediate_peril") and manager._is_in_immediate_peril(c):
+	if _EntityAccess.is_in_immediate_peril(manager, c):
 		return false
 	return (
 		bv < CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX
@@ -185,7 +185,7 @@ static func abandonment_warranted(manager: Node, c: Dictionary) -> bool:
 	var bv: float = _EntityAccess.get_blood_volume_from_node(node as Node)
 	if bv < CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX:
 		return true
-	if manager != null and manager.has_method("_is_in_immediate_peril") and manager._is_in_immediate_peril(c):
+	if _EntityAccess.is_in_immediate_peril(manager, c):
 		return true
 	if formation_stress_abandonment_path(manager, c):
 		if side_holding_field(manager, c):
@@ -252,7 +252,7 @@ static func personal_rout_pressure(manager: Node, c: Dictionary) -> bool:
 	var bv: float = _EntityAccess.get_blood_volume_from_node(node as Node)
 	if bv < CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX:
 		return true
-	if manager != null and manager.has_method("_is_in_immediate_peril") and manager._is_in_immediate_peril(c):
+	if _EntityAccess.is_in_immediate_peril(manager, c):
 		return true
 	return false
 

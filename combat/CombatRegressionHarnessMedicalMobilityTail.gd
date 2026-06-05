@@ -28,6 +28,7 @@ const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _EventDispatch := preload("res://combat/CombatEventDispatch.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
+const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 
@@ -949,6 +950,52 @@ static func _run_medical_mobility_cowering_is_offensive_move_id_helper(
 	if _MobilityRetreat.is_offensive_melee_move_id(CombatConstants.MOVE_ID_FALL_BACK):
 		CombatRegressionHarness._fail(failures, "med_mobility_off_id: fall_back must not be offensive")
 
+
+## III-6: depth-rank wind-up aborts when same-file rank-0 lane closes mid telegraph.
+static func _run_depth_wind_up_aborts_when_lane_closes(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var depth: Dictionary = {}
+	var front: Dictionary = {}
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_player_side(c):
+			if _EntityAccess.rank_int(c) == 1:
+				depth = c
+			elif _EntityAccess.rank_int(c) == 0:
+				front = c
+		elif _EntityAccess.rank_int(c) == 0:
+			enemy = c
+	if depth.is_empty() or front.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "depth_lane_abort: missing front/depth/enemy fixtures")
+		return
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, depth):
+		CombatRegressionHarness._fail(failures, "depth_lane_abort: setup want open depth lane")
+		return
+	var depth_id: int = _EntityAccess.id_int(depth)
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	_WindUpStarter.start(mgr, depth_id, enemy_id, "spear_thrust")
+	if _EntityAccess.state_str(depth) != CombatConstants.STATE_WIND_UP:
+		CombatRegressionHarness._fail(failures, "depth_lane_abort: depth should enter wind_up")
+		return
+	var pa: Dictionary = _EntityAccess.nested_dictionary_read(depth, "pending_attack")
+	if str(pa.get("depth_polearm_lane_type", "")).is_empty():
+		CombatRegressionHarness._fail(failures, "depth_lane_abort: depth wind-up should stamp lane type")
+		return
+	front["alive"] = false
+	if not _StateHandlers.process_depth_wind_up_lane_cancel(mgr, depth):
+		CombatRegressionHarness._fail(failures, "depth_lane_abort: expected lane-close cancel")
+	elif _EntityAccess.state_str(depth) != CombatConstants.STATE_RECOVERING:
+		CombatRegressionHarness._fail(
+			failures,
+			"depth_lane_abort: want recovering after abort got %s" % _EntityAccess.state_str(depth)
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
 static func run(failures: PackedStringArray) -> void:
 	_run_medical_mobility_can_flee_leg_and_consciousness(failures)
 	_run_medical_mobility_cowering_lists_flee_in_formation_mode(failures)
@@ -970,6 +1017,7 @@ static func run(failures: PackedStringArray) -> void:
 	_run_medical_mobility_cowering_react_after_hit_arm_loss(failures)
 	_run_medical_mobility_cowering_afterblow_aborts_destroyed_attacking_arm(failures)
 	_run_medical_mobility_cowering_process_windup_aborts_when_no_arm(failures)
+	_run_depth_wind_up_aborts_when_lane_closes(failures)
 	_run_medical_mobility_cowering_recovery_completes_early_when_arm_lost(failures)
 	_run_medical_mobility_cowering_parry_riposte_skips_no_arm_defender(failures)
 	_run_medical_mobility_cowering_immobile_skips_action_ready_schedule(failures)

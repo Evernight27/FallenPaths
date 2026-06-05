@@ -2,6 +2,8 @@
 extends RefCounted
 
 ## Formation moves, resolve events, slot plug on death, hit reaction delays on pending formation events.
+## **Read order:** pair move start/resolve → death plug → vacancy reconcile follow-up (see **`CombatFormationVacancyPlugs`**).
+## **Pair `move_kind`:** **`CombatConstants.FORMATION_MOVE_KIND_*`** (flow/events) — listing uses **`MOVE_ID_*`** (`fall_back` vs **`FORMATION_MOVE_KIND_FALL_BACK_PAIR`**).
 ##
 ## **Vacancy plug** on the home formation (empty rank-0 without death). **Death plug** stays in
 ## `on_combatant_died` only; same-tick ordering avoids mixing vacancy with death removal.
@@ -31,6 +33,7 @@ const _VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
 const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 
 
 ## Tier 1.3 P4: after rank/file changes from plugs or formation moves, keep `lane_offset` bounded (Â§4.2 repack).
@@ -192,7 +195,10 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 	var duration: float = _MoveDuration.estimate_adjacent_rank_pair_duration_s(
 		manager, init, partner, move_kind
 	)
-	var use_falling: bool = move_kind == "drag_back" or move_kind == "fall_back_pair"
+	var use_falling: bool = (
+		move_kind == CombatConstants.FORMATION_MOVE_KIND_DRAG_BACK
+		or move_kind == CombatConstants.FORMATION_MOVE_KIND_FALL_BACK_PAIR
+	)
 	var st: String = CombatConstants.STATE_FALLING_BACK if use_falling else CombatConstants.STATE_SWAP_RANK
 	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	var r_lo: int = mini(r0, r1)
@@ -370,7 +376,9 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	var data_raw: Variant = ev.get("data", null)
 	var data: Dictionary = data_raw if data_raw is Dictionary else {}
 	var partner_id: int = data.get("partner_id", -1)
-	var move_kind: String = data.get("move_kind", "swap_rank")
+	var move_kind: String = data.get(
+		"move_kind", CombatConstants.FORMATION_MOVE_KIND_SWAP_RANK
+	)
 	if _formation_resolve_medical_phase_skip(manager, initiator_id, partner_id):
 		return
 	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
@@ -415,6 +423,7 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	init.file = f1
 	partner.rank = r0
 	partner.file = f0
+	_clear_doctrine_commitments_after_slot_change(init, partner)
 	repack_lane_offset_after_rank_file_change(init)
 	repack_lane_offset_after_rank_file_change(partner)
 	_FormationSlots.slot_set_single(
@@ -437,9 +446,9 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	partner.state = CombatConstants.STATE_WAITING
 	var outcome: String = "swap_rank_complete"
 	match move_kind:
-		"drag_back":
+		CombatConstants.FORMATION_MOVE_KIND_DRAG_BACK:
 			outcome = "drag_back_complete"
-		"fall_back_pair":
+		CombatConstants.FORMATION_MOVE_KIND_FALL_BACK_PAIR:
 			outcome = "fall_back_complete"
 		_:
 			outcome = "swap_rank_complete"
@@ -535,6 +544,7 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(partner))
 	init.file = f1
 	partner.file = f0
+	_clear_doctrine_commitments_after_slot_change(init, partner)
 	repack_lane_offset_after_rank_file_change(init)
 	repack_lane_offset_after_rank_file_change(partner)
 	_FormationSlots.slot_set_single(
@@ -596,3 +606,8 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 	manager._reschedule_back_rank_turns(fid_geom)
 	if fid_home != fid_geom:
 		manager._reschedule_back_rank_turns(fid_home)
+
+
+static func _clear_doctrine_commitments_after_slot_change(init: Dictionary, partner: Dictionary) -> void:
+	_Doctrine.clear_combatant_doctrine_commitment(init)
+	_Doctrine.clear_combatant_doctrine_commitment(partner)

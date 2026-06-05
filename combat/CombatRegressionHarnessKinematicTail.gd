@@ -13,6 +13,8 @@ const _Weapon := preload("res://weapon/Weapon.gd")
 const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
+const _GuardLines := preload("res://combat/CombatGuardLines.gd")
+const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
 const _HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinematics"
 const _HumanSpecies := preload("res://species/human.tres")
@@ -151,14 +153,81 @@ static func _run_kinematic_delivery_strike_momentum_mult_integration_pre_blunt_n
 static func _run_kinematic_delivery_get_attack_path_all_line_pairs_nonempty(
 	failures: PackedStringArray
 ) -> void:
-	for atk_ln in ["high", "right", "low", "left"]:
-		for guard_ln in ["high", "right", "low", "left"]:
-			var path: Array = CombatConstants.get_attack_path(atk_ln, guard_ln)
+	var atk_lines: Array = ["high", "right", "low", "left"]
+	var guard_lines: Array = ["high", "right", "low", "left"]
+	if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		atk_lines = _GuardLines.ALL_LINES.duplicate()
+		guard_lines = _GuardLines.ALL_LINES.duplicate()
+	for atk_ln in atk_lines:
+		for guard_ln in guard_lines:
+			var path: Array = CombatConstants.get_attack_path(str(atk_ln), str(guard_ln))
 			if path.is_empty():
 				CombatRegressionHarness._fail(
 					failures,
-					"kin_attack_path_pairs: empty path atk=%s guard=%s" % [atk_ln, guard_ln]
+					"kin_attack_path_pairs: empty path atk=%s guard=%s" % [str(atk_ln), str(guard_ln)]
 				)
+
+
+## III-2: octant guard/attack lines resolve path via cardinal **`ATTACK_PATHS_BY_GUARD`** (not generic fallback).
+static func _run_guard_eight_line_get_attack_path_maps_octant_to_cardinal(
+	failures: PackedStringArray
+) -> void:
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		return
+	var oct_guard: Array = CombatConstants.get_attack_path(
+		_GuardLines.LINE_HIGH_RIGHT, _GuardLines.LINE_LOW_LEFT
+	)
+	var card_guard: Array = CombatConstants.get_attack_path("high", "low")
+	if str(oct_guard) != str(card_guard):
+		CombatRegressionHarness._fail(
+			failures,
+			"guard_path_octant: high_right/low_left want cardinal high/low path got %s vs %s"
+			% [str(oct_guard), str(card_guard)]
+		)
+	var oct_fallback: Array = CombatConstants.get_attack_path(
+		_GuardLines.LINE_LOW_RIGHT, "__no_such_guard__"
+	)
+	var card_fallback: Array = CombatConstants.get_attack_path("low", "__no_such_guard__")
+	if str(oct_fallback) != str(card_fallback):
+		CombatRegressionHarness._fail(
+			failures,
+			"guard_path_octant: low_right unknown guard want low fallback got %s vs %s"
+			% [str(oct_fallback), str(card_fallback)]
+		)
+	var guard_specific: Array = CombatConstants.get_attack_path(
+		_GuardLines.LINE_HIGH, _GuardLines.LINE_LOW
+	)
+	var generic_high: Array = CombatConstants.ATTACK_PATHS.get("high", CombatConstants.ATTACK_PATH_HIGH)
+	if str(guard_specific) == str(generic_high):
+		CombatRegressionHarness._fail(
+			failures,
+			"guard_path_octant: high vs low guard should use guard-specific path not ATTACK_PATHS[high]"
+		)
+
+
+## III-2: no clash context — eight-line deflect fallback uses octant opposite (not four-line table).
+static func _run_guard_eight_line_deflect_fallback_uses_opposite_octant(
+	failures: PackedStringArray
+) -> void:
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		return
+	var c: Dictionary = {"guard_line": _GuardLines.LINE_HIGH, "id": 0}
+	_GuardLineUpdater.set_guard_deflected(c, "oberhau", _GuardLines.LINE_HIGH_RIGHT)
+	var want: String = _GuardLines.opposite_line(_GuardLines.LINE_HIGH_RIGHT)
+	if str(c.get("guard_line", "")) != want:
+		CombatRegressionHarness._fail(
+			failures,
+			"guard_deflect_octant: high_right attack want opposite %s got %s"
+			% [want, str(c.get("guard_line", ""))]
+		)
+	var card_fallback: String = str(
+		CombatConstants.DEFLECTED_GUARD_FROM_ATTACK.get(_GuardLines.LINE_HIGH_RIGHT, "")
+	)
+	if want == card_fallback and want != _GuardLines.LINE_LOW_LEFT:
+		CombatRegressionHarness._fail(
+			failures,
+			"guard_deflect_octant: test should distinguish octant opposite from cardinal table"
+		)
 
 
 static func _run_kinematic_delivery_near_full_parry_respects_min_cut_ratio_floor(
@@ -2294,6 +2363,8 @@ static func run(failures: PackedStringArray) -> void:
 	_run_kinematic_delivery_strike_momentum_mult_integration_pre_blunt_not_pen(failures)
 	_run_kinematic_delivery_low_striker_stamina_lowers_strike_ke(failures)
 	_run_kinematic_delivery_get_attack_path_all_line_pairs_nonempty(failures)
+	_run_guard_eight_line_get_attack_path_maps_octant_to_cardinal(failures)
+	_run_guard_eight_line_deflect_fallback_uses_opposite_octant(failures)
 	_run_kinematic_delivery_near_full_parry_respects_min_cut_ratio_floor(failures)
 	_run_kinematic_delivery_discrete_line_alignment_matches_with_deflect_no_angles(failures)
 	_run_kinematic_delivery_mixed_archetype_integration_ke_matches_helper(failures)

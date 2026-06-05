@@ -31,6 +31,7 @@ const CONTRACT_TEMPLATES: Array = [
 		"enemy_species_pool": [ResourcePaths.HUMAN_SPECIES],
 		"soak_force_weapon_id": "SWORD",
 		CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT: 7,
+		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER: CombatConstants.DOCTRINE_PINCH_CENTER,
 		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY: CombatConstants.DOCTRINE_PINCH_CENTER,
 	},
 	{

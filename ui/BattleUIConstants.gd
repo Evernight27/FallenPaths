@@ -10,6 +10,7 @@ const BODY_BAR_HEIGHT := 12
 const GAUGE_WIDTH := 160
 ## Wide enough for counter + attention + footwork fragments (`clip_text` still on label).
 const GAUGE_LABEL_MIN_WIDTH := 176
+const FORMATION_HEALTH_BAR_HEIGHT := 4
 
 # Combat log
 const LOG_MAX_LINES := 80
@@ -18,18 +19,28 @@ const LOG_MIN_HEIGHT := 216
 const MAIN_LIST_PATH := "CombatCanvasLayer/UIRoot/ContentVBox/MainHBox"
 
 # Human-readable labels for medical actions in the action bar (self-target)
-const MEDICAL_ACTION_LABELS := {"bandage_self": "Bandaging", "pack_wound": "Packing wound", "apply_tourniquet": "Applying tourniquet", "apply_direct_pressure": "Direct pressure"}
+const MEDICAL_ACTION_LABELS := {
+	CombatConstants.MOVE_ID_BANDAGE_SELF: "Bandaging",
+	CombatConstants.MOVE_ID_PACK_WOUND: "Packing wound",
+	CombatConstants.MOVE_ID_APPLY_TOURNIQUET: "Applying tourniquet",
+	CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE: "Direct pressure",
+}
 # Labels when target is an ally (same move_id, different wording)
-const MEDICAL_ACTION_LABELS_ALLY := {"bandage_self": "Bandaging ally", "pack_wound": "Packing ally's wound", "apply_tourniquet": "Tourniquet (ally)", "apply_direct_pressure": "Direct pressure"}
+const MEDICAL_ACTION_LABELS_ALLY := {
+	CombatConstants.MOVE_ID_BANDAGE_SELF: "Bandaging ally",
+	CombatConstants.MOVE_ID_PACK_WOUND: "Packing ally's wound",
+	CombatConstants.MOVE_ID_APPLY_TOURNIQUET: "Tourniquet (ally)",
+	CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE: "Direct pressure",
+}
 
 # Formation actions (player turn-ready log + gauge hints — Phase 2 **II-5a**)
 const FORMATION_ACTION_LABELS := {
-	"swap_rank": "Swap rank",
-	"drag_back": "Drag back (pair)",
-	"fall_back": "Fall back",
-	"rotate_file": "Rotate file",
-	"flee": "Flee",
-	"attempt_close": "Close distance",
+	CombatConstants.MOVE_ID_SWAP_RANK: "Swap rank",
+	CombatConstants.MOVE_ID_DRAG_BACK: "Drag back (pair)",
+	CombatConstants.MOVE_ID_FALL_BACK: "Fall back",
+	CombatConstants.MOVE_ID_ROTATE_FILE: "Rotate file",
+	CombatConstants.MOVE_ID_FLEE: "Flee",
+	CombatConstants.MOVE_ID_ATTEMPT_CLOSE: "Close distance",
 }
 
 # Progress bar styling for combat UI

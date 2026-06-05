@@ -2,7 +2,8 @@ class_name CombatFormationFlee
 extends RefCounted
 
 ## Tier 6.2: abandon the engagement (leave the field) vs tactical **`fall_back`** within formation.
-## Rout policy: **`CombatFormationRout`** (`line_cohesion` + side casualty ratio); listing via **`flee_abandonment_warranted`**.
+## **Read order:** `flee_action_legal` → `apply_flee` → absent-state cleanup.
+## Rout policy: **`CombatFormationRout.abandonment_warranted`**; listing gate: **`CombatantEntityAccess.flee_abandonment_warranted`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")

@@ -2,6 +2,7 @@ class_name CombatEventDispatch
 extends RefCounted
 
 ## Drains the combat event queue and dispatches to CombatManager handlers.
+## **Read order:** queue drain loop → event type dispatch → state/medical/counter side effects.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
@@ -94,7 +95,10 @@ static func handle_action_ready(manager: Node, c: Dictionary) -> void:
 	c.gauge = 100.0
 	c.erase("action_cooldown_until")
 	if _EntityAccess.is_player_side(c):
-		manager.notify_turn_ready(_EntityAccess.id_int(c))
+		if _MedicalPhase.medical_fast_forward_active(manager):
+			_MedicalPhase.resolve_player_medical_turn_during_fast_forward(manager, cid_ready)
+		else:
+			manager.notify_turn_ready(_EntityAccess.id_int(c))
 	else:
 		var actions: Array = manager.get_available_actions(_EntityAccess.id_int(c))
 		CombatAIActionPicker.resolve_picked_turn_or_skip(manager, _EntityAccess.id_int(c), actions, "enemy")

@@ -2,8 +2,9 @@ class_name CombatFlow
 extends RefCounted
 
 ## Handles combat initiation and battle-end cleanup. Used by main.gd.
+## **Read order:** `start_combat` → battle scene handoff → end/cleanup paths.
+## Canonical: **`CampaignEncounterBridge.prepare_combat_from_encounter`** · party via **`get_fightable_party_nodes`**.
 ## Optional world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** (`"combat_encounter"`): copied into **`BattleScene.start`** → **`CombatManager.encounter`** before **`start()`** (doctrine, depth polearm AI mults, posture, morale, … — see **`CombatManager`** default_enc in **`CombatManager.gd`**).
-## Encounter nodes set meta via **`CampaignEncounterBridge.prepare_combat_from_encounter`**.
 
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")

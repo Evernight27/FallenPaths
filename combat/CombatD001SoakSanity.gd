@@ -2,7 +2,7 @@ class_name CombatD001SoakSanity
 extends RefCounted
 
 ## Headless **D-001** plausibility + validator cross-checks (grep needles vs log semantics).
-## Called from **`CombatD001SoakRunner._evaluate`**, **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=sanity`), **`run_d001_presets`**.
+## Called from **`CombatD001SoakRunner._evaluate`**, **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=sanity` · `d001_presets`).
 
 const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
 const _Validator := preload("res://combat/CombatF5SoakLogValidator.gd")

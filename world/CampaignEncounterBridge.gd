@@ -2,6 +2,7 @@ class_name CampaignEncounterBridge
 extends RefCounted
 
 ## Overworld ↔ combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
+## **Read order:** §1 tiles · §2 entity-level health · §3 kill log · §4 encounter lifecycle · §5 battle summary · §6 party (incl. `party_has_untreated_wounds`) · §7 movement/time · §8 private.
 ## **Campaign map/party entity:** `health_entity_from_character` (= **`CombatantEntityAccess.health_entity_from_scene_node`**).
 ## **Combat battle entity:** **`CombatantEntityAccess.get_health_entity_from_node`** / **`get_entity_from_manager`**.
 
@@ -18,6 +19,9 @@ const OVERWORLD_TILE_SIZE := 64
 const OVERWORLD_TILE_ORIGIN := 32
 
 
+# --- §1 Overworld tiles ---
+
+
 ## World position (encounter / player at tile center) → grid tile. Single source for overworld tile math.
 static func overworld_tile_from_position(pos: Vector2) -> Vector2i:
 	return Vector2i(
@@ -31,6 +35,24 @@ static func overworld_tile_center(tile: Vector2i) -> Vector2:
 		tile.x * OVERWORLD_TILE_SIZE + OVERWORLD_TILE_ORIGIN,
 		tile.y * OVERWORLD_TILE_SIZE + OVERWORLD_TILE_ORIGIN
 	)
+
+
+# --- §2 Health entity + untreated wounds ---
+
+
+static func health_entity_from_character(node: Node) -> Node:
+	return _EntityAccess.health_entity_from_scene_node(node)
+
+
+static func untreated_wound_part_names(entity: Node) -> PackedStringArray:
+	return _EntityAccess.entity_untreated_wound_part_names(entity)
+
+
+static func entity_has_untreated_wounds(entity: Node) -> bool:
+	return _EntityAccess.entity_has_untreated_wounds(entity)
+
+
+# --- §3 Battle kill log ---
 
 
 static func clear_battle_kill_log(world: Node) -> void:
@@ -69,6 +91,9 @@ static func _kill_log_entry_for_victim(world: Node, victim_name: String) -> Dict
 		if entry is Dictionary and str((entry as Dictionary).get("victim", "")) == victim_name:
 			return entry as Dictionary
 	return {}
+
+
+# --- §4 Combat encounter lifecycle ---
 
 
 ## Apply encounter node config to world meta before **`CombatFlow.start_combat`**.
@@ -203,6 +228,9 @@ static func abort_contract_encounter_entry(world: Node2D) -> void:
 	_CompanyState.clear_active_contract(world)
 
 
+# --- §5 Battle summary ---
+
+
 ## Camp-2.2 row: blood, bleed, untreated parts, worst ATLS class (1–4).
 static func member_battle_summary_entry(snap: Dictionary, entity: Node) -> Dictionary:
 	var blood_pct: float = float(snap.get("blood_volume", 100.0))
@@ -220,23 +248,6 @@ static func member_battle_summary_entry(snap: Dictionary, entity: Node) -> Dicti
 		"worst_atls_band": _Bleeding.atls_hemorrhage_class_from_remaining_pct(blood_pct),
 		"snapshot": snap_copy,
 	}
-
-
-static func untreated_wound_part_names(entity: Node) -> PackedStringArray:
-	var out: PackedStringArray = PackedStringArray()
-	if entity == null:
-		return out
-	var wounded: Array = []
-	if entity.has_method("get_wounded_parts"):
-		wounded = entity.get_wounded_parts()
-	var bandaged: Dictionary = entity.bandaged_parts if "bandaged_parts" in entity else {}
-	var packed: Dictionary = entity.packed_parts if "packed_parts" in entity else {}
-	var tourniqueted: Dictionary = entity.tourniquet_applied if "tourniquet_applied" in entity else {}
-	for part in wounded:
-		if bandaged.get(part, false) or packed.get(part, false) or tourniqueted.has(part):
-			continue
-		out.append(str(part))
-	return out
 
 
 static func build_last_battle_summary(world: Node2D, battle_winner: String = "player") -> void:
@@ -313,6 +324,9 @@ static func _merge_roster_kill_log_deaths(world: Node2D, pm: Node, deaths: Array
 		listed[name_s] = true
 
 
+# --- §6 Party roster + formation ---
+
+
 static func can_enter_combat(world: Node2D) -> Dictionary:
 	var out: Dictionary = {"ok": true, "message": ""}
 	var nodes: Array = get_fightable_party_nodes(world)
@@ -370,6 +384,14 @@ static func get_fightable_party_nodes(world: Node2D) -> Array:
 		if cap > 0:
 			players = _cap_fightable_party_leader_first(players, cap)
 	return players
+
+
+static func party_has_untreated_wounds(world: Node2D) -> bool:
+	for n in get_fightable_party_nodes(world):
+		var entity: Node = health_entity_from_character(n)
+		if entity_has_untreated_wounds(entity):
+			return true
+	return false
 
 
 static func _cap_fightable_party_leader_first(nodes: Array, cap: int) -> Array:
@@ -435,6 +457,9 @@ static func refresh_party_formation_meta(world: Node2D) -> void:
 		if prior.has(key):
 			preset[key] = prior[key]
 	world.set_meta("party_formation", preset)
+
+
+# --- §7 Overworld movement + map time ---
 
 
 ## Read overworld RNG / enemy scene from `main` exports or session meta (F5 / headless).
@@ -544,34 +569,7 @@ static func advance_party_overworld_minute(world: Node2D) -> void:
 			health.ensure_consciousness_current()
 
 
-static func entity_has_untreated_wounds(entity: Node) -> bool:
-	if entity == null:
-		return false
-	var wounded: Array = []
-	if entity.has_method("get_wounded_parts"):
-		wounded = entity.get_wounded_parts()
-	if wounded.is_empty():
-		return false
-	var bandaged: Dictionary = entity.bandaged_parts if "bandaged_parts" in entity else {}
-	var packed: Dictionary = entity.packed_parts if "packed_parts" in entity else {}
-	var tourniqueted: Dictionary = entity.tourniquet_applied if "tourniquet_applied" in entity else {}
-	for part in wounded:
-		if bandaged.get(part, false) or packed.get(part, false) or tourniqueted.has(part):
-			continue
-		return true
-	return false
-
-
-static func party_has_untreated_wounds(world: Node2D) -> bool:
-	for n in get_fightable_party_nodes(world):
-		var entity: Node = health_entity_from_character(n)
-		if entity_has_untreated_wounds(entity):
-			return true
-	return false
-
-
-static func health_entity_from_character(node: Node) -> Node:
-	return _EntityAccess.health_entity_from_scene_node(node)
+# --- §8 Private helpers ---
 
 
 static func _death_info_from_entity(entity: Node) -> Dictionary:

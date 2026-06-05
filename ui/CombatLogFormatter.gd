@@ -29,11 +29,11 @@ static func _medical_procedure_label(move_id: String, on_self: bool) -> String:
 	if on_self:
 		return base
 	match move_id:
-		"bandage_self":
+		CombatConstants.MOVE_ID_BANDAGE_SELF:
 			return "bandage (ally)"
-		"pack_wound":
+		CombatConstants.MOVE_ID_PACK_WOUND:
 			return "pack wound (ally)"
-		"apply_tourniquet":
+		CombatConstants.MOVE_ID_APPLY_TOURNIQUET:
 			return "tourniquet (ally)"
 		_:
 			return "%s (ally)" % base
@@ -361,7 +361,7 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		return "[color=teal]%s (%s) applied direct pressure on %s's %s.[/color]" % [attacker_name, attacker_side, target_name, part_label]
 	elif outcome == "bandaged":
 		var on_self_b: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_b: String = str(result.get("medical_move_id", "bandage_self"))
+		var med_id_b: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_BANDAGE_SELF))
 		var bandage_verb: String = (
 			"bandaged" if on_self_b else _medical_procedure_label(med_id_b, false)
 		)
@@ -372,14 +372,14 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		)
 	elif outcome == "bandage_failed":
 		var on_self_bf: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_bf: String = str(result.get("medical_move_id", "bandage_self"))
+		var med_id_bf: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_BANDAGE_SELF))
 		return _medical_procedure_log_line(
 			false, "", _medical_procedure_label(med_id_bf, on_self_bf), "partial effect; another can retry",
 			attacker_name, attacker_side, target_name, part_label, result
 		)
 	elif outcome == "packed":
 		var on_self_p: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_p: String = str(result.get("medical_move_id", "pack_wound"))
+		var med_id_p: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_PACK_WOUND))
 		var pack_verb: String = (
 			"packed with linen" if on_self_p else _medical_procedure_label(med_id_p, false)
 		)
@@ -390,14 +390,14 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		)
 	elif outcome == "packing_failed":
 		var on_self_pf: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_pf: String = str(result.get("medical_move_id", "pack_wound"))
+		var med_id_pf: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_PACK_WOUND))
 		return _medical_procedure_log_line(
 			false, "", _medical_procedure_label(med_id_pf, on_self_pf), "partial effect; another can retry",
 			attacker_name, attacker_side, target_name, part_label, result
 		)
 	elif outcome == "tourniquet_applied":
 		var on_self_t: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_t: String = str(result.get("medical_move_id", "apply_tourniquet"))
+		var med_id_t: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_APPLY_TOURNIQUET))
 		var tq_verb: String = (
 			"applied tourniquet to" if on_self_t else _medical_procedure_label(med_id_t, false)
 		)
@@ -408,7 +408,7 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		)
 	elif outcome == "tourniquet_failed":
 		var on_self_tf: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_tf: String = str(result.get("medical_move_id", "apply_tourniquet"))
+		var med_id_tf: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_APPLY_TOURNIQUET))
 		return _medical_procedure_log_line(
 			false, "", _medical_procedure_label(med_id_tf, on_self_tf), "not tight enough; can retry",
 			attacker_name, attacker_side, target_name, part_label, result

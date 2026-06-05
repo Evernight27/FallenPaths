@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## Headless Camp-1 economy loop (1.1–1.8) + Camp-2 bridge spot checks.
-## Run: .\scripts\run_company_state_checks.ps1
+## Run: Phase 0 / **`run_all_combat_checks.ps1`** (inline) · **`run_campaign_ship_audit.ps1`**
 ## Labels: Camp-1.x in failure messages map to SHIP_PLAN § Camp-1.
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
@@ -222,6 +222,16 @@ static func _run_camp_1_2_wages_and_day(failures: PackedStringArray) -> void:
 		_pass()
 	if _CompanyState.get_gold(world_hybrid) != gold_before - _CompanyState.DEFAULT_WAGE_PER_MEMBER:
 		_fail(failures, "Camp-1.2: end_day on camp should deduct one living wage")
+	else:
+		_pass()
+	_Persistence.clear_slot()
+	_CompanyState.set_gold(world_hybrid, 400)
+	if not _CompanyState.request_end_day(world_hybrid):
+		_fail(failures, "Camp-1.2: second end_day for autosave probe should succeed")
+	else:
+		_pass()
+	if not _Persistence.has_save():
+		_fail(failures, "Camp-1.2: end_day should write autosave via try_advance_day")
 	else:
 		_pass()
 	world_hybrid.queue_free()
@@ -487,12 +497,21 @@ static func _run_camp_1_6_camp_heal(failures: PackedStringArray) -> void:
 	else:
 		_pass()
 	_CompanyState.set_medical_supplies(world, 2)
+	var day_before: int = _CompanyState.get_day_index(world)
 	if not _CompanyState.try_camp_heal(world):
 		_fail(failures, "Camp-1.6: camp heal should succeed on camp with med")
 	else:
 		_pass()
 	if _CompanyState.get_medical_supplies(world) != 1:
 		_fail(failures, "Camp-1.6: camp heal should consume 1 med")
+	else:
+		_pass()
+	if _CompanyState.get_day_index(world) != day_before + 1:
+		_fail(
+			failures,
+			"Camp-1.6: camp heal should advance day (got %d want %d)"
+			% [_CompanyState.get_day_index(world), day_before + 1]
+		)
 	else:
 		_pass()
 	world.queue_free()
@@ -507,8 +526,37 @@ static func _run_camp_1_6_camp_heal(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-1.6: party menu camp heal should be offered (H3 both)")
 	else:
 		_pass()
+	var day_menu_before: int = _CompanyState.get_day_index(world_menu)
 	if not _CompanyState.try_camp_heal(world_menu, true):
 		_fail(failures, "Camp-1.6: party menu camp heal should succeed off camp tile")
+	else:
+		_pass()
+	if _CompanyState.get_day_index(world_menu) != day_menu_before + 1:
+		_fail(
+			failures,
+			"Camp-1.6: party menu camp heal off camp should still advance day (got %d want %d)"
+			% [_CompanyState.get_day_index(world_menu), day_menu_before + 1]
+		)
+	else:
+		_pass()
+	_Persistence.clear_slot()
+	var day_save_before: int = _CompanyState.get_day_index(world_menu)
+	if not _CompanyState.try_camp_heal(world_menu, true):
+		_fail(failures, "Camp-1.6: second camp heal for autosave probe should succeed")
+	else:
+		_pass()
+	if not _Persistence.has_save():
+		_fail(failures, "Camp-1.6: camp rest should write autosave via try_advance_day")
+	else:
+		_pass()
+	var loaded_camp: Dictionary = _Persistence.load_save()
+	var st_camp: Variant = loaded_camp.get("company_state", {})
+	if st_camp is not Dictionary or int((st_camp as Dictionary).get("day_index", -1)) != day_save_before + 1:
+		_fail(
+			failures,
+			"Camp-1.6: autosave day_index want %d got %s"
+			% [day_save_before + 1, st_camp]
+		)
 	else:
 		_pass()
 	world_menu.queue_free()
@@ -1156,6 +1204,13 @@ static func _run_camp_4_contract_flavor(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-4/III-4: Border Skirmish should set enemy pinch_center doctrine")
 	else:
 		_pass()
+	if (
+		str(skirmish.get(_CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER, ""))
+		!= _CombatConstants.DOCTRINE_PINCH_CENTER
+	):
+		_fail(failures, "Camp-4/III-4: Border Skirmish should set player pinch_center doctrine")
+	else:
+		_pass()
 	var world_sk: Node2D = _make_world(7)
 	var enc_sk: Node2D = _EncounterNodeScript.new()
 	enc_sk.encounter_config = skirmish
@@ -1169,8 +1224,38 @@ static func _run_camp_4_contract_flavor(failures: PackedStringArray) -> void:
 		)
 	else:
 		_pass()
+	var enc_meta_sk: Dictionary = world_sk.get_meta(_CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {})
+	if (
+		str(enc_meta_sk.get(_CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER, ""))
+		!= _CombatConstants.DOCTRINE_PINCH_CENTER
+	):
+		_fail(failures, "Camp-4/III-4: skirmish player doctrine should reach combat meta")
+	else:
+		_pass()
 	world_sk.free()
 	enc_sk.free()
+	var enc_ii: Node2D = _EncounterNodeScript.new()
+	_SoakPresets.apply_preset(enc_ii, _SoakPresets.PRESET_II_ENVELOP)
+	var ii_cfg: Dictionary = enc_ii.get_combat_encounter_dict()
+	if int(ii_cfg.get(_CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT, 0)) != 7:
+		_fail(failures, "III-4: ii_envelop preset want player_front_count=7")
+	else:
+		_pass()
+	if (
+		str(ii_cfg.get(_CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER, ""))
+		!= _CombatConstants.DOCTRINE_PINCH_CENTER
+	):
+		_fail(failures, "III-4: ii_envelop preset should set player pinch_center doctrine")
+	else:
+		_pass()
+	if (
+		str(ii_cfg.get(_CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY, ""))
+		!= _CombatConstants.DOCTRINE_PINCH_CENTER
+	):
+		_fail(failures, "III-4: ii_envelop preset should set enemy pinch_center doctrine")
+	else:
+		_pass()
+	enc_ii.free()
 	var escort: Dictionary = _ContractSpawner.build_encounter_config(
 		_ContractSpawner.CONTRACT_TEMPLATES[1]
 	)

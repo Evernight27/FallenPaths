@@ -31,9 +31,15 @@ elif [[ ! -f "$INPUT_DEFAULT" ]]; then
 fi
 echo "=== CombatF5SoakLogValidator ==="
 set +e
-"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_f5_soak_log_validator.gd "${EXTRA[@]}"
+export FP_HARNESS_MODE=f5_validate
+if [[ ${#EXTRA[@]} -gt 0 ]]; then
+	"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_all_combat_checks.gd "${EXTRA[@]}"
+else
+	"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_all_combat_checks.gd
+fi
 EXIT_CODE=$?
 set -e
+unset FP_HARNESS_MODE
 if [[ -f "$REPORT_PATH" ]]; then
 	echo ""
 	echo "--- Report: $REPORT_PATH ---"

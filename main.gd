@@ -196,11 +196,13 @@ func _maybe_camp_tile_hint(p_tile: Vector2i) -> void:
 		return
 	set_meta(_Persistence.WORLD_META_CAMP_HEAL_HINT_SHOWN, true)
 	if _CompanyState.can_offer_end_day(self):
-		_CombatDebug.world_session("Camp: End day in Party menu, or use Camp rest if wounded.")
+		_CombatDebug.world_session(
+			"Camp: Party → End day (wages) or Camp rest (−1 med, heals + ends day) if wounded."
+		)
 	elif _CompanyState.can_offer_camp_heal(self):
-		_CombatDebug.world_session("Camp: open Party for Camp rest (−1 med) or End day.")
+		_CombatDebug.world_session("Camp: Party → Camp rest (−1 med, heals and ends day).")
 	else:
-		_CombatDebug.world_session("Camp tile — wages and rest are managed from the Party menu.")
+		_CombatDebug.world_session("Camp tile — open Party for End day or Camp rest.")
 
 
 func _get_encounter_on_tile(tile: Vector2i) -> Node:
@@ -211,6 +213,7 @@ func _get_encounter_on_tile(tile: Vector2i) -> Node:
 
 func _exit_tree() -> void:
 	if OS.has_feature("editor"):
+		_F5SoakTrace.flush_deferred_soak_coverage_if_pending()
 		_OperationalLog.end_play_session()
 
 

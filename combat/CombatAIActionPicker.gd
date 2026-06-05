@@ -2,12 +2,13 @@ class_name CombatAIActionPicker
 extends RefCounted
 
 ## Picks one action from available actions using weighted randomness. **Combat move choice is fully AI-driven:**
+## **Read order:** medical deterministic picks → pending retry → formation duration bias → target scoring weights → feint/counter mults → weighted roll.
 ## weights combine stamina + `CombatTargetScoring` (doctrine, file bias, commitment, distributed pressure, **engagement mode**, our formation posture+cohesion, **opponent** formation, stance). No human pick path.
 ## Medical: deterministic urgency + per-part threat; bandage/pack/tourniquet favor high `get_medical_effectiveness`, pressure favors lower skill.
 ## Pending retry: strongly prefer retrying the failed part when target is still in peril.
 ## For attacks: adds target_part from path when pathway allows (unguarded bonus). Counter-tempo listing (**`ACTION_KEY_COUNTER_TEMPO`**) × **`CounterTempo.counter_tempo_listing_weight_mult`** (**`AI_COUNTER_TEMPO_*`**). **`is_feint`** moves get **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** × defender-readiness lerp (**`PassiveParryContext.get_passive_parry_readiness`** × **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move’s **`contact_type`** × **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** on the defender × **`CombatConstants.ai_feint_listing_defender_readiness_spacing_mult`** from defender **`distance_to[attacker]`** — same curve as **`DefenseChoiceResolver`** reported readiness, not attacker stamina) × attacker **`CombatConstants.get_stance_modifier(..., "ai_feint_listing")`** × defender footwork state mult (**`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** when off-balance; elif **`STATE_RECOVERING`**, **`AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT`**; elif settled **`STATE_WAITING`**, **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**) × optional low-stamina feint dampening × formation doctrine **`probing`** / **`pinch_center`** / **`hold_lane`** (**`AI_FEINT_LISTING_DOCTRINE_*_MULT`**) × short-horizon boost after that defender **`parry_deflect`** (**`COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`**, **`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_*`**) (Tier 4.2).
 ## Feint **listing** applies **`DefenseChoiceResolver._feint_readiness_reveal_mult`** when the attacker has live **`pending_attack`** on the listed target (same move / wind-up progress as **`choose_defense`**).
-## Manager must have: **`CombatantEntityAccess.manager_get_combatant`**, `get_health_entity`, `_is_in_immediate_peril`.
+## Manager must have: **`CombatantEntityAccess.manager_get_combatant`**, `get_health_entity`; medical queries via **`CombatantEntityAccess.is_in_immediate_peril`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
@@ -255,6 +256,8 @@ static func _get_action_weight(
 			rot_w *= CombatConstants.AI_FORMATION_MOVE_BLOCKED_LANE_MULT
 		if menu_has_no_melee_strikes:
 			rot_w *= CombatConstants.AI_ROTATE_FILE_NO_MELEE_MENU_MULT
+			if _CombatDoctrine.pincer_role_for_combatant(manager, c) == _CombatDoctrine.PINCER_ROLE_FLANK_WING:
+				rot_w *= CombatConstants.AI_PINCER_FLANK_ROTATE_NO_MELEE_MULT
 		return rot_w
 	if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		var tgt_id_close: int = int(a.get("target_id", -1))
@@ -263,7 +266,9 @@ static func _get_action_weight(
 		var dist_close: String = _EntityAccess.distance_to_opponent_band(c, tgt_id_close)
 		if not _MeleeListing.attempt_close_listed_for_pair(manager, c, tgt_id_close, dist_close):
 			return 0.0
-	if mid in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK]:
+		if _CombatDoctrine.pincer_center_should_pin(manager, c):
+			return CombatConstants.AI_PINCER_CENTER_CLOSE_UTIL_MULT
+	if CombatConstants.is_partner_formation_move(mid):
 		var partner_id: int = a.get("target_id", -1)
 		var partner: Dictionary = _EntityAccess.manager_get_combatant(manager, partner_id)
 		var partner_incapacitated: bool = not partner.is_empty() and _EntityAccess.is_incapacitated(partner)
@@ -365,6 +370,11 @@ static func _get_action_weight(
 		* attrition_m
 		* exh_offense_m
 	)
+	if (
+		mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
+		and _CombatDoctrine.pincer_role_for_combatant(manager, c) == _CombatDoctrine.PINCER_ROLE_FLANK_WING
+	):
+		w *= CombatConstants.AI_PINCER_FLANK_CLOSE_UTIL_MULT
 	return w * _salience_offense_weight_mult(c)
 
 
@@ -571,15 +581,15 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 		if typeof(pnd_raw) == TYPE_DICTIONARY:
 			pending = pnd_raw as Dictionary
 	if not pending.is_empty() and pending.get("target_id", -1) == a.get("target_id", -1) and pending.get("part", "") == a.get("target_part", ""):
-		if not tgt.is_empty() and manager._is_in_immediate_peril(tgt):
+		if not tgt.is_empty() and _EntityAccess.is_in_immediate_peril(manager, tgt):
 			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_PENDING_RETRY_PERIL
 	if (
 		not tgt.is_empty()
 		and not part.is_empty()
-		and manager._is_in_immediate_peril(tgt)
+		and _EntityAccess.is_in_immediate_peril(manager, tgt)
 		and _EntityAccess.entity_is_tourniquet_indicated_for_part(manager, tgt, part)
 	):
-		if mid == "apply_tourniquet":
+		if CombatConstants.is_tourniquet_move(mid):
 			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_TOURNIQUET_INDICATED
 		elif CombatConstants.is_dressing_medical_move(mid):
 			w *= _MedicalPhase.MEDICAL_AI_WEIGHT_BANDAGE_BEFORE_HEMOSTASIS
@@ -599,7 +609,7 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 			elif CombatConstants.is_dressing_medical_move(mid):
 				if not _MedicalPhase.dressings_allowed_for_part(manager, tgt, part):
 					return 0.001
-				if mid == "pack_wound":
+				if CombatConstants.is_pack_wound_move(mid):
 					w *= _MedicalPhase.MEDICAL_AI_WEIGHT_PACK_BEFORE_PRESSURE
 	return maxf(w, 0.001)
 

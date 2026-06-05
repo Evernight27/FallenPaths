@@ -2,9 +2,10 @@ class_name CombatEngagementDiagnostics
 extends RefCounted
 
 ## F5 / play-session lines (grep **`engagement_debug`**) — opposition map, distance bands, non-strike picks.
-## Off under headless harness quiet; on with **`OperationalLog.begin_play_session`**.
+## Per-combatant dedupe on identical turn lines (reserve **`wait`** loops). Off under headless harness quiet.
 
 const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
+const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
@@ -12,10 +13,12 @@ const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 
 static var _fight_start_logged: bool = false
+static var _last_engagement_turn_line_by_cid: Dictionary = {}
 
 
 static func reset_session() -> void:
 	_fight_start_logged = false
+	_last_engagement_turn_line_by_cid.clear()
 
 
 static func diagnostics_active() -> bool:
@@ -47,11 +50,13 @@ static func log_fight_start_summary(manager: Node) -> void:
 			str(_EngagementMode.allow_rotate_file_for_formation(manager, "enemy")).to_lower(),
 		]
 	)
-	var pairs: PackedStringArray = _rank0_opposition_pair_lines(manager)
+	var pairs: PackedStringArray = _rank0_opposition_pair_lines(manager, "player")
 	for line in pairs:
 		_OperationalLog.play_combat("engagement_debug rank0_map %s" % line)
+	for line in _rank0_opposition_pair_lines(manager, "enemy"):
+		_OperationalLog.play_combat("engagement_debug rank0_map %s" % line)
 	_OperationalLog.play_combat(
-		"engagement_debug hint grep engagement_debug turn — reserve_only+LONG=no strikes; rotate needs skirmish outnumber; wing_lack=true enables L4 close"
+		"engagement_debug hint grep engagement_debug turn — reserve_only+LONG: L4 close when wing_lack or pincer=flank_wing; rotate needs skirmish outnumber; center pincer=center pins"
 	)
 
 
@@ -61,7 +66,7 @@ static func maybe_log_turn_pick(
 	if not diagnostics_active() or manager == null or choice.is_empty():
 		return
 	var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
-	if c.is_empty() or not _EntityAccess.is_player_side(c):
+	if c.is_empty():
 		return
 	var mid: String = str(choice.get("move_id", "")).strip_edges()
 	if mid.is_empty():
@@ -72,14 +77,16 @@ static func maybe_log_turn_pick(
 	var menu: String = _menu_kind(actions)
 	var opposed: String = _nearest_opposed_label(manager, c)
 	var wing_lack: bool = _EngagementOpposition.wing_lacks_mapped_opposition(manager, c)
+	var pincer_role: String = _Doctrine.pincer_role_for_combatant(manager, c)
 	var bands: String = _distance_band_summary(c)
 	var counts: String = _action_menu_counts(actions)
-	_OperationalLog.play_combat(
+	var line: String = (
 		(
-			"engagement_debug turn id=%d %s file=%d rank=%d menu=%s bands=%s opposed=%s "
-			+ "mapped_opp=%s wing_lack=%s %s pick=%s%s"
+			"engagement_debug turn side=%s id=%d %s file=%d rank=%d menu=%s bands=%s opposed=%s "
+			+ "mapped_opp=%s wing_lack=%s %s pick=%s%s%s"
 		)
 		% [
+			_EntityAccess.side_str(c),
 			combatant_id,
 			_EntityAccess.get_display_name(c, combatant_id),
 			_EntityAccess.file_int(c),
@@ -92,8 +99,13 @@ static func maybe_log_turn_pick(
 			counts,
 			mid,
 			(" layer=" + layer) if not layer.is_empty() else "",
+			(" pincer=" + pincer_role) if not pincer_role.is_empty() else "",
 		]
 	)
+	if line == str(_last_engagement_turn_line_by_cid.get(combatant_id, "")):
+		return
+	_last_engagement_turn_line_by_cid[combatant_id] = line
+	_OperationalLog.play_combat(line)
 
 
 static func _should_log_pick(move_id: String, actions: Array, c: Dictionary) -> bool:
@@ -189,15 +201,19 @@ static func _nearest_opposed_label(manager: Node, actor: Dictionary) -> String:
 	]
 
 
-static func _rank0_opposition_pair_lines(manager: Node) -> PackedStringArray:
+static func _rank0_opposition_pair_lines(manager: Node, side: String) -> PackedStringArray:
 	var out: PackedStringArray = PackedStringArray()
-	var players: Array = []
+	var rank0: Array = []
 	for c in manager.combatants:
-		if _EntityAccess.is_player_side(c) and _EntityAccess.rank_int(c) == 0 and _EntityAccess.alive_bool(c):
-			players.append(c)
-	players.sort_custom(func(a, b): return _EntityAccess.file_int(a) < _EntityAccess.file_int(b))
-	for p in players:
-		var pf: int = _EntityAccess.file_int(p)
-		var label: String = _nearest_opposed_label(manager, p)
-		out.append("p_f%d->%s" % [pf, label])
+		if _EntityAccess.side_str(c) != side:
+			continue
+		if _EntityAccess.rank_int(c) != 0 or not _EntityAccess.alive_bool(c):
+			continue
+		rank0.append(c)
+	rank0.sort_custom(func(a, b): return _EntityAccess.file_int(a) < _EntityAccess.file_int(b))
+	var prefix: String = "p" if side == "player" else "e"
+	for unit in rank0:
+		var ff: int = _EntityAccess.file_int(unit)
+		var label: String = _nearest_opposed_label(manager, unit)
+		out.append("%s_f%d->%s" % [prefix, ff, label])
 	return out

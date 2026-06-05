@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Phase 0 gate (default) or partial harness when FP_HARNESS_MODE is set (regression|d001|sanity|calibration|medical).
+# Phase 0 gate (default) or partial harness when FP_HARNESS_MODE is set.
+# Modes: regression|d001|d001_presets|sanity|calibration|medical|f5_validate
 # Optional: --validate-f5
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -27,9 +28,9 @@ fi
 
 if [[ "$MODE" != "all" ]]; then
 	case "$MODE" in
-		regression|d001|sanity|calibration|medical) ;;
+		regression|d001|d001_presets|sanity|calibration|medical|f5_validate|q_track) ;;
 		*)
-			echo "run_all_combat_checks.sh: unknown mode '$MODE' (regression|d001|sanity|calibration|medical|all)" >&2
+			echo "run_all_combat_checks.sh: unknown mode '$MODE' (regression|d001|d001_presets|sanity|calibration|medical|f5_validate|q_track|all)" >&2
 			exit 2
 			;;
 	esac
@@ -37,9 +38,12 @@ if [[ "$MODE" != "all" ]]; then
 	OK_GREP="FP_HARNESS_OK: CombatRegressionHarness"
 	case "$MODE" in
 		d001) LOG_NAME=".d001_soak_out.txt"; OK_GREP="FP_HARNESS_OK: CombatD001SoakRunner" ;;
+		d001_presets) LOG_NAME=".ii5_ii6_soak_out.txt"; OK_GREP="FP_HARNESS_OK: D001PresetsIi5Ii6" ;;
 		sanity) LOG_NAME=".d001_soak_sanity_out.txt"; OK_GREP="FP_HARNESS_OK: CombatD001SoakSanity" ;;
 		calibration) LOG_NAME=".calibration_audit.txt"; OK_GREP="FP_HARNESS_OK: CombatCalibrationAudit" ;;
 		medical) LOG_NAME=".medical_phase_harness_out.txt"; OK_GREP="FP_HARNESS_OK: MedicalPhaseHarness" ;;
+		f5_validate) LOG_NAME=".f5_soak_validation.txt"; OK_GREP="FP_HARNESS_OK: CombatF5SoakLogValidator" ;;
+		q_track) LOG_NAME=".q_track_audits.txt"; OK_GREP="FP_HARNESS_OK: QTrackAudits" ;;
 	esac
 	export FP_HARNESS_MODE="$MODE"
 	LOG="$ROOT/$LOG_NAME"
@@ -61,13 +65,11 @@ SUMMARY_PATH="$ROOT/.phase0_combat_checks.txt"
 D001_REPORT="$ROOT/.d001_soak_out.txt"
 
 echo "=== Doc link check ==="
-if [[ -f "$ROOT/scripts/check_doc_links.sh" ]]; then
-	bash "$ROOT/scripts/check_doc_links.sh" || exit $?
-elif command -v pwsh >/dev/null 2>&1; then
-	pwsh -NoProfile -File "$ROOT/scripts/check_doc_links.ps1" || exit $?
-else
-	echo "DOC_LINKS: skip (no check_doc_links.sh / pwsh)"
-fi
+bash "$ROOT/scripts/check_doc_links.sh" || exit $?
+echo ""
+
+echo "=== res:// path check ==="
+python3 "$ROOT/scripts/validate_res_paths.py" || exit $?
 echo ""
 
 echo "=== CompanyStateChecks (Camp-1.1-1.8) ==="

@@ -10,6 +10,7 @@ const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
+const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
@@ -43,7 +44,7 @@ var _player_list: Control = null
 var _enemy_list: Control = null
 var _player_preset: Dictionary = {}
 var _enemy_preset: Dictionary = {}
-var _diagram_footwork_sig: String = ""
+var _diagram_refresh_sig: String = ""
 var _ui_poll_accum: float = 0.0
 ## Poll interval while combat is running (stamina/guard refill in `waiting`; turn gauge on label).
 const _UI_POLL_INTERVAL_S: float = 0.25
@@ -99,7 +100,7 @@ func start(
 	if parent_scene != null and "visible" in parent_scene:
 		parent_scene.visible = false
 
-	_diagram_footwork_sig = ""
+	_diagram_refresh_sig = ""
 	_create_ui()
 	_update_ui()
 
@@ -172,6 +173,8 @@ func start(
 		enemy_col.add_child(formation_diagram_enemy)
 		formation_diagram_hbox.add_child(enemy_col)
 		_sync_engagement_labels_from_manager()
+		if formation_diagram_player != null or formation_diagram_enemy != null:
+			_diagram_refresh_sig = _tactical_diagram_signature(manager.get_combatants())
 	# Ensure ScrollContainer child has proper minimum size so scrolling works (wait for layout)
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -272,6 +275,13 @@ func _tactical_diagram_signature(caps: Array) -> String:
 		if not _EntityAccess.is_on_battlefield(c):
 			continue
 		var chunks: PackedStringArray = []
+		var stats: Dictionary = _EntityAccess.stats_dict(c)
+		var hp_mille: int = int(roundf(_RowFormatter.total_body_health_ratio(stats) * 1000.0))
+		var fn_mille: int = int(roundf(_RowFormatter.body_functionality_ratio(c, manager) * 1000.0))
+		chunks.append("hp=%d" % hp_mille)
+		chunks.append("fn=%d" % fn_mille)
+		chunks.append("r=%d" % _EntityAccess.rank_int(c))
+		chunks.append("f=%d" % _EntityAccess.file_int(c))
 		var sfx: String = _UiHints.footwork_diagram_suffix(c).strip_edges()
 		if not sfx.is_empty():
 			chunks.append("sfx=%s" % sfx)
@@ -284,27 +294,16 @@ func _tactical_diagram_signature(caps: Array) -> String:
 		var tempo: String = _UiHints.counter_tempo_hint_key(c, manager)
 		if not tempo.is_empty():
 			chunks.append("t=%s" % tempo)
-		if chunks.is_empty():
-			continue
 		parts.append("%d:%s" % [_EntityAccess.id_int(c), "|".join(chunks)])
 	parts.sort()
 	return "|".join(parts)
 
 
 func _sync_formation_diagrams_for_tactical_hints(caps: Array) -> void:
-	var any_tactical: bool = _UiHints.any_tactical_features_enabled()
-	if not any_tactical:
-		if not _diagram_footwork_sig.is_empty():
-			_diagram_footwork_sig = ""
-			if formation_diagram_player != null:
-				_FormationDiagramBuilder.refresh(formation_diagram_player)
-			if formation_diagram_enemy != null:
-				_FormationDiagramBuilder.refresh(formation_diagram_enemy)
-		return
 	var sig: String = _tactical_diagram_signature(caps)
-	if sig == _diagram_footwork_sig:
+	if sig == _diagram_refresh_sig:
 		return
-	_diagram_footwork_sig = sig
+	_diagram_refresh_sig = sig
 	if formation_diagram_player != null:
 		_FormationDiagramBuilder.refresh(formation_diagram_player)
 	if formation_diagram_enemy != null:
@@ -386,11 +385,7 @@ func _on_combatant_health_changed(_combatant_id: int) -> void:
 	_update_ui()
 
 func _on_formation_changed(_side: String) -> void:
-	_diagram_footwork_sig = ""
-	if formation_diagram_player != null:
-		_FormationDiagramBuilder.refresh(formation_diagram_player)
-	if formation_diagram_enemy != null:
-		_FormationDiagramBuilder.refresh(formation_diagram_enemy)
+	_diagram_refresh_sig = ""
 	_update_ui()
 
 

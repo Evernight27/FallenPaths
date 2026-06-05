@@ -2,10 +2,13 @@ class_name MedicalWindUpHandler
 extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 ## Handles completion of medical wind-up: apply bandage/packing/tourniquet, emit outcome, track retry.
-## Manager must have: get_health_entity (via **`CombatantEntityAccess`**), _track_medical_failure_and_maybe_retry, emit_signal, get.
+## **Read order:** `complete` → `_finish_medical_procedure` / outcome mapping.
+## Canonical: **`CombatMedicalCoordination.track_failure_and_maybe_retry`** · log: **`CombatDebug.medical_session`**.
 
 static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 	var med_id: String = pm.get("medical_id", "")
@@ -103,8 +106,8 @@ static func _finish_medical_procedure(
 		var med_log: String = med_id
 		if tgt_cid != _EntityAccess.id_int(c):
 			med_log = "%s (ally)" % med_id
-		print(
-			"[Combat] Medical complete: %s %s on %s => %s, recovery %.1fs"
+		_CombatDebug.medical_session(
+			"complete: %s %s on %s => %s, recovery %.1fs"
 			% [who_m, med_log, part, outcome, med_rec_dur]
 		)
 		var self_id: int = _EntityAccess.id_int(c)
@@ -123,13 +126,13 @@ static func _finish_medical_procedure(
 			}
 		)
 		if result != true:
-			manager._track_medical_failure_and_maybe_retry(c, tgt_c, part, tgt_cid)
+			_MedicalCoord.track_failure_and_maybe_retry(manager, c, tgt_c, part, tgt_cid)
 		else:
 			c.pending_retry = {}
 	elif result != false:
 		var outcome: String = _outcome_for_medical_method(target_method, result, wind_up_cfg, med_id)
-		print(
-			"[Combat] Medical complete: %s %s on %s => recovery %.1fs" % [who_m, med_id, part, med_rec_dur]
+		_CombatDebug.medical_session(
+			"complete: %s %s on %s => recovery %.1fs" % [who_m, med_id, part, med_rec_dur]
 		)
 		manager.emit_signal(
 			"action_resolved",

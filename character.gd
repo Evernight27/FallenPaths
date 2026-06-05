@@ -1,6 +1,7 @@
 extends CharacterBody2D
 
-const TILE_SIZE = 64.0
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const TILE_SIZE: float = float(_CampaignBridge.OVERWORLD_TILE_SIZE)
 var target_position: Vector2
 var is_moving = false
 signal moved
@@ -273,10 +274,7 @@ func _on_combat_body_died() -> void:
 	CombatDebug.combat_session("%s lost combat body (node: %s)" % [role, name])
 
 func _snap_to_grid(pos: Vector2) -> Vector2:
-	return Vector2(
-		floor(pos.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2,
-		floor(pos.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2
-	)
+	return _CampaignBridge.overworld_tile_center(_CampaignBridge.overworld_tile_from_position(pos))
 
 
 ## Overworld rejected a step (bleed block, combat gate, …) — keep sprite and next input on the same tile.

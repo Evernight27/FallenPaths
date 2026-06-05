@@ -6,6 +6,7 @@ param(
 	[switch]$TailOnly
 )
 $ErrorActionPreference = "Continue"
+. "$PSScriptRoot\Invoke-GodotHeadless.ps1"
 $Root = Split-Path -Parent $PSScriptRoot
 $fail = 0
 $auditLines = New-Object System.Collections.Generic.List[string]
@@ -15,7 +16,7 @@ Write-Host ""
 
 if (-not $TailOnly) {
 	Write-Host "=== CompanyStateChecks (SHIP_PLAN section 8 steps 1-10 proxies) ==="
-	& (Join-Path $Root "scripts\run_company_state_checks.ps1")
+	Invoke-FallenPathsGodotScript -Script "res://scripts/run_company_state_checks.gd"
 	if ($LASTEXITCODE -ne 0) { $fail = 1; $auditLines.Add("COMPANY_STATE: FAIL") } else { $auditLines.Add("COMPANY_STATE: PASS") }
 	Write-Host ""
 } else {
@@ -23,7 +24,7 @@ if (-not $TailOnly) {
 }
 
 Write-Host "=== Q track audits (Camp-3.4 ii7 + Q1/Q2 proxies) ==="
-& (Join-Path $Root "scripts\run_q_audit.ps1") -Track Track
+Invoke-FallenPathsGodotScript -HarnessMode q_track | Out-Null
 if ($LASTEXITCODE -ne 0) {
 	$fail = 1
 	$auditLines.Add("Q_TRACK: FAIL")

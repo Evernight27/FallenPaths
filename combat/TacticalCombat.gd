@@ -83,8 +83,43 @@ static func surround_threat_scan_for_defender(manager: Node, defender: Dictionar
 	return _melee_threat_scan(manager, defender)
 
 
+## Live melee-threat scan → **`pa`** surround fields (same as **`AttackResolver`** resolve path).
+static func stamp_surround_threat_on_pa(manager: Node, defender: Dictionary, pa: Dictionary) -> void:
+	if manager == null or defender.is_empty() or pa.is_empty():
+		return
+	var sur_scan: Dictionary = surround_threat_scan_for_defender(manager, defender)
+	pa["surround_threat_count"] = int(sur_scan.get("count", 0))
+	if CombatConstants.is_feature_sector_surround_load():
+		pa["surround_threat_weight_sum"] = float(sur_scan.get("weight_sum", 0.0))
+	else:
+		pa.erase("surround_threat_weight_sum")
+	var arc_blocked: int = int(sur_scan.get("arc_occupancy_blocked", 0))
+	if arc_blocked > 0 and CombatConstants.is_feature_surround_arc_occupancy_enabled():
+		pa["arc_occupancy_blocked"] = arc_blocked
+	else:
+		pa.erase("arc_occupancy_blocked")
+
+
 static func arc_occupancy_blocked_for_defender(manager: Node, defender: Dictionary) -> int:
 	return int(surround_threat_scan_for_defender(manager, defender).get("arc_occupancy_blocked", 0))
+
+
+## Per-attacker sector weight (0.35–1.0) for one defender — same geometry as surround threat scan.
+static func sector_weight_for_attacker_on_defender(
+	manager: Node, defender_id: int, attacker_id: int
+) -> float:
+	var defender: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+	if defender.is_empty() or attacker_id < 0:
+		return 1.0
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	if atk.is_empty() or not _EntityAccess.is_living_hostile_to(defender, atk):
+		return 1.0
+	var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, atk, defender)
+	if not _MeleeListing.can_melee_threaten(manager, atk, defender, pair_geom):
+		return 1.0
+	var eff_f: float = float(pair_geom.get("file_spacing_equiv", 0.0))
+	var w: float = eff_f / maxf(0.001, CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN)
+	return clampf(w, CombatConstants.SURROUND_SECTOR_WEIGHT_MIN, 1.0)
 
 
 static func compute_surround_threat_weight_sum(manager: Node, defender_id: int) -> float:
@@ -292,14 +327,17 @@ static func record_invalid_close_resolve_blocked(manager: Node) -> void:
 	_bump_telemetry_counter(manager, "invalid_close_resolve_blocked")
 
 
-## Tier 1.8 / Option 4: `FEATURE_AUTOMATIC_DOCTRINE` applied **pinch_center** from hollow enemy line.
-static func record_automatic_doctrine_pinch(manager: Node, formation_id: String) -> void:
+## Tier 1.8 / Option 4: `FEATURE_AUTOMATIC_DOCTRINE` applied **pinch_center** from hollow enemy line or numeric superiority.
+static func record_automatic_doctrine_pinch(
+	manager: Node, formation_id: String, reason: String = "hollow_center"
+) -> void:
 	_bump_telemetry_counter(
 		manager,
 		"automatic_doctrine_pinch_count",
 		{
 			"last_automatic_doctrine_pinch": {
 				"formation_id": str(formation_id),
+				"reason": str(reason),
 				"at": _EntityAccess.combat_clock_float(manager),
 			}
 		}
