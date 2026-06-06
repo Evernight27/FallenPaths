@@ -6,23 +6,23 @@
 
 **Purpose:** Pros/cons + physics alignment for each gate. Grounded in the **shipped sim** (`BleedingConstants`, `CombatResearchAnchors`) plus ATLS/CoTCCC, merc-game peers, and RimWorld CE patterns.
 
-**New gates only:** Log one line in [decision log](SHIP_PLAN.md#decision-log) · add const + `gate_*()` in **`CompanyState`** ([§19](SHIP_PLAN.md#implementation-stubs)).
+**New gates only:** Log one line in [decision log](SHIP_PLAN.md#decision-log) · add const + `read_stub_*()` in **`CompanyState`** ([§19](SHIP_PLAN.md#implementation-stubs)).
 
 | Gate (Camp row) | Shipped | Research section |
 |-----------------|---------|------------------|
-| Camp-1.2 | **T3** (N=5 + End day + Camp rest day) | [D-day](#d-day) |
+| Camp-1.2 | **T3** (N=5 + End day) | [D-day](#d-day) |
 | Camp-1.4 | **R3** (paid loss = run end) | [D-encounter](#d-encounter) |
-| Camp-1.6 | **H3** (600 s × 3×, −1 med, **ends day**) | [D-camp-ui](#d-camp-ui) |
+| Camp-1.6 | **H3** (600 s × 3×, −1 med) | [D-camp-ui](#d-camp-ui) |
 | Camp-1.8 | **K3** (memorial + kill recap) | [D-casualty](#d-casualty) |
 | Camp-2.1 | **B** + tutorial block + field care | [D-bleed](#d-bleed) |
 | Camp-2.3 / 2.5 | **E3** (efficacy floor + pack/stabilize −1) | [D-supply-battle](#d-supply-battle) |
 | Camp-2.4 | Tier RNG afflictions | [D-affliction](#d-affliction) |
 | Camp-2.6 | **B3** desertion | [D-bankrupt](#d-bankrupt) |
-| Camp-5 | **P2** autosave (settlement + day tick) | [D-persistence](#d-persistence) |
+| Camp-5 | **P1** EA (session-only) | [D-persistence](#d-persistence) |
 
 **No gate (§12 tuning only):** Camp-1.1, 1.3 map pools, 1.5 layout, 1.7 formulas, Camp-4 templates · [§12 sensitivity](#ea-tuning).
 
-**Remaining EA work:** F5 human playtest + [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) sign-off — not new D-* gates unless adding post-EA features (e.g. P3 multi-slot save).
+**Remaining EA work:** F5 human playtest + [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) — not new D-* decisions unless you add save (**P2**) or a post-EA gate.
 
 ---
 
@@ -45,19 +45,19 @@
 
 ## User bundle (2026-05-22) — closed gates
 
-Canonical shipped choices. Implementation lives in **`CompanyState`**; `gate_*()` readers return the closed const values ([SHIP_PLAN §19](SHIP_PLAN.md#implementation-stubs)).
+Canonical shipped choices. Implementation lives in **`CompanyState`**; `read_stub_*()` forwards for harness and legacy callers ([SHIP_PLAN §19](SHIP_PLAN.md#implementation-stubs)).
 
 | Gate | Choice | Code / modules |
 |------|--------|----------------|
-| **D-day** | **T3**, N=5, End day at `(0,0)` | `DAY_TICK_MODE`, `STEPS_PER_DAY`; `PartyMenu` End day; Camp rest also ends day via `try_camp_heal` → `try_advance_day` |
+| **D-day** | **T3**, N=5, End day at `(0,0)` | `DAY_TICK_MODE`, `STEPS_PER_DAY`; `PartyMenu` End day |
 | **D-encounter** | **R3** + **loss = run end** | `ENCOUNTER_LIFECYCLE`; `ContractSpawner`; tile consumed on step-in; paid defeat → `CompanyRunEndPanel` |
-| **D-camp-ui** | **H3** + day tick on rest | `CAMP_HEAL_*`; `CompanyState.try_camp_heal`; Party menu + camp tile `(0,0)` |
+| **D-camp-ui** | **H3** | `CAMP_HEAL_ENTRY`, `CAMP_HEAL_SECONDS`, `CAMP_HEAL_MULTIPLIER`; Party menu + camp tile `(0,0)` |
 | **D-casualty** | **K3** + kill recap | `CASUALTY_ON_SETTLEMENT`; `last_battle_summary.deaths[]` |
-| **D-bleed** | **B** + tutorial block + field care | `MAP_BLEED_POLICY`; `world/MapBleedPolicy.gd`, `world/MapFieldCare.gd`, `ui/PartyRowFormatter.gd` |
+| **D-bleed** | **B** + tutorial block + field care | `MAP_BLEED_POLICY`; `MapBleedPolicy.gd`, `MapFieldCare.gd`, `PartyRowFormatter` |
 | **D-supply-battle** | **E3** | `MED_BATTLE_MODE`, `SUPPLY_FACTOR_AT_ZERO_MED`; −1 med on pack/stabilize |
-| **D-affliction** | Tier RNG | `AFFLICTIONS_ENABLED`; `world/CampaignAfflictions.gd` |
+| **D-affliction** | Tier RNG | `AFFLICTIONS_ENABLED`; `CampaignAfflictions.gd` |
 | **D-bankrupt** | **B3** | `BANKRUPT_MODE`; mood/desertion — [B3 integration](#b3-desertion-integration-points) |
-| **D-persistence** | **P2** shipped | `CampaignPersistence.save_slot` on settlement continue + `try_advance_day`; load in `main._ready` |
+| **D-persistence** | **P1** EA · **P2** post-ship | `PERSISTENCE_MODE`; session-only — `clear_slot` on campaign boot + run-end reload; harness roundtrip only until **P2** |
 
 <a id="camp-heal-rates-on-move-vs-camp"></a>
 
@@ -65,15 +65,15 @@ Canonical shipped choices. Implementation lives in **`CompanyState`**; `gate_*()
 
 **Repo baseline:** each empty-tile step runs `advance_party_overworld_minute` → **60 s** with `process_healing` at **1×** (`EntityTimeAdvance.advance(..., include_healing=true)`).
 
-| Mode | Time cost | Healing multiplier | Med cost | Day tick | Literature / design |
-|------|-----------|-------------------|----------|----------|---------------------|
-| **On-move (passive)** | 60 s / map step | **1.0×** `process_healing` | 0 | Every 5 steps → `try_advance_day` | TCCC **Tactical Field Care** while still mobile; PFC when evac delayed **4+ h** (median **10 h** in role-1 cases) — suboptimal vs aid station ([DeSoucy PFC review](https://jsomonline.org/SharedScience/20171121DeSoucy.pdf)). |
-| **Map field care** (D-bleed add-on) | **120 s** per action | **1.25×** for that brother only | 0 pressure / −1 bandage | No | CoTCCC direct pressure **≥3 min**; bandage hemostasis half-life **60–300 s** (`LITERATURE_BANDAGE_HEMOSTASIS_*`). |
-| **Camp rest (H3)** | **600 s** entity time | **3.0×** all party | **−1 med** | **`try_advance_day`** (wages, desertion, autosave) | BB town heal + overnight rest; ~**2× TTD** window for blood refill at camp vs one step. |
+| Mode | Time cost | Sim advance | Med cost | Literature / design |
+|------|-----------|-------------|----------|---------------------|
+| **On-move (passive)** | 60 s / map step | **1.0×** `process_healing` (+ bleed) | 0 | TCCC **Tactical Field Care** while still mobile; PFC when evac delayed **4+ h** (median **10 h** in role-1 cases) — suboptimal vs aid station ([DeSoucy PFC review](https://jsomonline.org/SharedScience/20171121DeSoucy.pdf)). |
+| **Map field care** (D-bleed add-on) | **120 s** × **1.25** procedure | **Bleed + blood loss only** (`include_healing=false`) | 0 pressure / −1 bandage / −1 stabilize | CoTCCC direct pressure **≥3 min**; bandage hemostasis half-life **60–300 s** (`LITERATURE_BANDAGE_HEMOSTASIS_*`). |
+| **Camp rest (H3)** | **600 s** (10 min game) | **3.0×** all party | **−1 med** | BB town heal + prolonged nursing ([PFC nursing CPG](https://prolongedfieldcare.org/wp-content/uploads/2018/08/nursing-interventions.pdf)); ~**2× TTD** window for blood refill at camp vs one step. |
 
 **Why 600 s / 3× (not 300 s / 1×):** at 1×, 300 s recovers only ~**1%** of blood deficit and ~**0.26%** of minor tissue deficit — imperceptible in UI. **600 s at 3×** ≈ **1800 s** effective → ~**6%** blood deficit closed, ~**1.5%** minor tissue — noticeable after a messy win without matching a full overnight sim (24 h blood τ in `HealingConstants`).
 
-**Camp gate:** require **bleeding controlled** (bandaged/packed/TQ) before camp rest; on-move passive heal still runs during steps. **Day gate:** camp rest always calls **`try_advance_day`** (same as End day / 5-step boundary) — not a “free” heal tick.
+**Camp gate:** require **bleeding controlled** (bandaged/packed/TQ) before camp heal starts; on-move passive heal still runs during steps.
 
 <a id="affliction-rng-medieval-alignment"></a>
 
@@ -130,7 +130,7 @@ Sections below document **options considered before ship**. Tables are **researc
 
 ## D-day — Wage / calendar tick (Camp-1.2)
 
-> **Shipped (2026-05-22):** **T3** — wages every **5** overworld steps, **End day** at camp tile `(0,0)`, or **Camp rest** (Party menu, −1 med, ends day from any tile). **`DAY_TICK_MODE`** = `"hybrid"`, **`STEPS_PER_DAY`** = `5`. All day boundaries use **`CompanyState.try_advance_day`**. Below: pre-ship options.
+> **Shipped (2026-05-22):** **T3** — wages every **5** overworld steps **or** **End day** at camp tile `(0,0)` / Party menu. **`DAY_TICK_MODE`** = `"hybrid"`, **`STEPS_PER_DAY`** = `5`. Below: pre-ship options.
 
 | Option | Behavior |
 |--------|----------|
@@ -159,7 +159,7 @@ Sections below document **options considered before ship**. Tables are **researc
 
 ## D-encounter — Contract tile lifecycle (Camp-1.4, §11)
 
-> **Shipped (2026-05-22):** **R3** — finite template deck at boot (`ContractSpawner.spawn_campaign_contracts`); marker **`queue_free` on step-in**; **paid loss ends run** (no same-tile retry). Tutorial/practice soft defeat respawns via `ensure_special_encounter_present`. **`ENCOUNTER_LIFECYCLE`** = `"r3_loss_ends_run"`. Below: pre-ship options.
+> **Shipped (2026-05-22):** **R3** — finite template deck at boot (`ContractSpawner.spawn_campaign_contracts`); marker **`queue_free` on step-in**; **paid loss ends run** (no same-tile retry). Tutorial soft defeat respawns via `ensure_special_encounter_present`. **`ENCOUNTER_LIFECYCLE`** = `"r3_loss_ends_run"`. Below: pre-ship options.
 
 | Option | Behavior |
 |--------|----------|
@@ -186,10 +186,9 @@ Sections below document **options considered before ship**. Tables are **researc
 
 <a id="d-camp-ui"></a>
 
-## D-camp-ui — Camp rest entry (Camp-1.6)
+## D-camp-ui — Camp heal entry (Camp-1.6)
 
-> **Shipped (2026-05-22):** **H3** — Party menu **and** camp tile `(0,0)`; **600 s** × **3×** heal mult, **−1 med**; controlled bleed required.  
-> **2026-06-04:** **`try_camp_heal`** → entity heal then **`try_advance_day`** (wages, desertion, autosave). End day without med remains camp-tile-only. Tutorial job tile: **`ContractSpawner.TUTORIAL_TILE`** `(1,0)`. **`CAMP_HEAL_ENTRY`** = `"both"`. Heal rate table: [camp heal rates](#camp-heal-rates-on-move-vs-camp). Below: pre-ship options.
+> **Shipped (2026-05-22):** **H3** — Party menu **and** camp tile `(0,0)`; **600 s** × **3×** heal mult, **−1 med**; controlled bleed required before camp heal. Tutorial job tile: **`ContractSpawner.TUTORIAL_TILE`** `(1,0)` (not a separate inn). **`CAMP_HEAL_ENTRY`** = `"both"`. Heal rate table: [camp heal rates](#camp-heal-rates-on-move-vs-camp). Below: pre-ship options.
 
 | Option | Behavior |
 |--------|----------|
@@ -251,7 +250,7 @@ Sections below document **options considered before ship**. Tables are **researc
 
 ## D-bleed — Map bleed policy (Camp-2.1)
 
-> **Shipped (2026-05-22):** **B** (`warn_eta` after first win) + **tutorial block** until first win (`MapBleedPolicy.POLICY_BLOCK` when bleed risk present) + **Party field care** (`MapFieldCare`). Not gate **C** (separate A/B fork post-tutorial). **`MAP_BLEED_POLICY`** = `"warn_eta"`. Below: pre-ship options.
+> **Shipped (2026-05-22):** **B** (`warn_eta` after first win) + **tutorial block** until first win (`MapBleedPolicy.POLICY_BLOCK` when bleed risk present) + **Party field care** (`MapFieldCare`: pressure → optional stabilize → bandage; procedure time runs bleed physics only — see [`LIVE_PATHS#bleeding-physics`](LIVE_PATHS.md#bleeding-physics)). **Camp rest** requires **dressed** wounds (`bandaged`/`pack`/`TQ`), not stabilize alone. Not gate **C** (separate A/B fork post-tutorial). **`MAP_BLEED_POLICY`** = `"warn_eta"`. Below: pre-ship options.
 
 | Option | Behavior |
 |--------|----------|
@@ -312,7 +311,7 @@ Sections below document **options considered before ship**. Tables are **researc
 
 ## D-affliction — Permanent campaign injuries (Camp-2.4)
 
-> **Shipped (2026-05-22):** **Tier RNG** post-victory (`world/CampaignAfflictions.gd`); **`AFFLICTIONS_ENABLED`** = `true`. Trigger table and probabilities: [affliction RNG](#affliction-rng-medieval-alignment). Below: simplified pre-ship sketch.
+> **Shipped (2026-05-22):** **Tier RNG** post-victory (`CampaignAfflictions.gd`); **`AFFLICTIONS_ENABLED`** = `true`. Trigger table and probabilities: [affliction RNG](#affliction-rng-medieval-alignment). Below: simplified pre-ship sketch.
 
 Pick **one** starter affliction + **trigger** thresholds tied to ATLS/BB.
 
@@ -374,7 +373,7 @@ Pick **one** starter affliction + **trigger** thresholds tied to ATLS/BB.
 
 ## D-persistence — Save scope (Camp-5, §13)
 
-> **Shipped (2026-06-04):** **P2** — single-slot autosave (`user://fallen_paths_slot0.json`) on settlement **Continue** and every **`try_advance_day`** (End day, 5-step boundary, Camp rest). Valid save restores on `main._ready` in campaign mode. Paid R3 loss still clears slot + reloads `main.tscn`. Below: pre-ship options.
+> **Shipped for EA (2026-05-22):** **P1** — session-only (restart / paid R3 reload = new company). **Open post-EA:** **P2** single-slot autosave on settlement continue if playtests demand it. Below: pre-ship options.
 
 | Option | Behavior |
 |--------|----------|
@@ -422,8 +421,7 @@ Starting values in [SHIP_PLAN §12](SHIP_PLAN.md#ea-tuning-defaults) are **BB-sc
 - YYYY-MM-DD — D-day → T3 (5 steps + End day at camp)
 - YYYY-MM-DD — D-bankrupt → B3
 - YYYY-MM-DD — D-encounter → R3
-- YYYY-MM-DD — D-camp-ui → H3; camp rest 600 s × 3 mult, −1 med, ends day via try_advance_day
-- YYYY-MM-DD — D-persistence → P2 (settlement continue + day tick autosave)
+- YYYY-MM-DD — D-camp-ui → H3; camp heal 600 s × 3 mult, −1 med
 - YYYY-MM-DD — D-affliction → tier RNG (see guide bundle)
 - YYYY-MM-DD — D-casualty → K3
 - YYYY-MM-DD — D-persistence → P1 (EA)

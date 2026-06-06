@@ -6,6 +6,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 
 ## Player-side `turn_ready`: **only AI logic gates** — `get_available_actions` then `CombatAIActionPicker.pick`; no separate player target UI.
+## F5 footing: **`CombatF5SoakTrace.log_turn_ready_player_ui`** → **`turn_ready_gauge`** (full suffix string; content asserts open — **`#wf-soak-audit-status`** · **`#battle-ui`**).
 ## Same pattern as enemies (`CombatEventDispatch`). BattleScene connects `turn_ready` here.
 
 static func handle(manager: Node, combatant_id: int) -> void:

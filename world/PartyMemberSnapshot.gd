@@ -63,6 +63,8 @@ static func snapshot_from_member(member: Dictionary) -> Dictionary:
 		result["affliction_effects"] = ""
 		if member.has("company_mood"):
 			result["company_mood"] = member.get("company_mood", _CompanyState.MOOD_DEFAULT)
+		if member.has("stance_preference"):
+			result["stance_preference"] = str(member.get("stance_preference", "")).strip_edges()
 	if member.has("company_mood") and not result.has("company_mood"):
 		result["company_mood"] = member.get("company_mood", _CompanyState.MOOD_DEFAULT)
 	return result
@@ -106,9 +108,11 @@ static func _read_from_node(node: Node) -> Dictionary:
 		)
 		stats["wounded_part_count"] = wounded.size()
 		stats["has_untreated_wounds"] = _CampaignBridge.entity_has_untreated_wounds(entity)
+		stats["untreated_parts"] = _CampaignBridge.untreated_wound_part_names(entity)
 	else:
 		stats["wounded_part_count"] = 0
 		stats["has_untreated_wounds"] = false
+		stats["untreated_parts"] = PackedStringArray()
 	if node != null and node.has_method("is_unconscious"):
 		stats["is_unconscious"] = node.is_unconscious()
 	elif entity != null and entity.has_method("is_unconscious"):
@@ -119,4 +123,10 @@ static func _read_from_node(node: Node) -> Dictionary:
 		stats["can_flee_or_fall_back"] = node.can_flee_or_fall_back()
 	else:
 		stats["can_flee_or_fall_back"] = true
+	var stance_pref: String = ""
+	if node != null:
+		var raw_pref: Variant = node.get("stance_preference")
+		if raw_pref != null:
+			stance_pref = str(raw_pref).strip_edges()
+	stats["stance_preference"] = stance_pref
 	return stats

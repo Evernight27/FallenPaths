@@ -31,6 +31,7 @@ position = Vector2(32, 32)
 script = ExtResource("1_1")
 species = ExtResource("1_3")
 is_party_leader = true
+stance_preference = "ox"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Character"]
 shape = SubResource("RectangleShape2D_1")

@@ -4,7 +4,7 @@ extends RefCounted
 ## Camp-2.1 map bleed policy (D-bleed B + tutorial block until first win).
 ## Uses `PartyRowFormatter` / `BleedingConstants` triage bands — do not retune bleed constants here.
 
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -21,7 +21,7 @@ static func effective_policy(world: Node2D) -> String:
 		return POLICY_WARN_ETA
 	if not _CompanyState.is_tutorial_completed(world):
 		return POLICY_BLOCK
-	return _CompanyState.gate_map_bleed_policy()
+	return _CompanyState.read_stub_map_bleed_policy()
 
 
 static func should_block_map_move(world: Node2D) -> bool:
@@ -29,7 +29,7 @@ static func should_block_map_move(world: Node2D) -> bool:
 		return false
 	if effective_policy(world) != POLICY_BLOCK:
 		return false
-	return _CampaignBridge.party_has_untreated_wounds(world) or _party_has_active_bleed(world)
+	return _Bridge.party_has_untreated_wounds(world) or _party_has_active_bleed(world)
 
 
 static func should_block_entering_combat(world: Node2D) -> bool:
@@ -39,14 +39,14 @@ static func should_block_entering_combat(world: Node2D) -> bool:
 static func party_has_map_bleed_risk(world: Node2D) -> bool:
 	if world == null:
 		return false
-	if _CampaignBridge.party_has_untreated_wounds(world):
+	if _Bridge.party_has_untreated_wounds(world):
 		return true
 	return _party_has_active_bleed(world)
 
 
 static func _party_has_active_bleed(world: Node2D) -> bool:
-	for n in _CampaignBridge.get_fightable_party_nodes(world):
-		var entity: Node = _CampaignBridge.health_entity_from_character(n)
+	for n in _Bridge.get_fightable_party_nodes(world):
+		var entity: Node = _Bridge.health_entity_from_character(n)
 		if entity == null:
 			continue
 		if _EntityAccess.get_total_bleeding_rate_from_node(entity) > 0.0:
@@ -59,13 +59,13 @@ static func worst_triage_summary(world: Node2D) -> Dictionary:
 	var worst_name: String = ""
 	var worst_bv: float = 100.0
 	var worst_bleed: float = 0.0
-	for n in _CampaignBridge.get_fightable_party_nodes(world):
-		var entity: Node = _CampaignBridge.health_entity_from_character(n)
+	for n in _Bridge.get_fightable_party_nodes(world):
+		var entity: Node = _Bridge.health_entity_from_character(n)
 		if entity == null:
 			continue
 		var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
 		var bleed: float = _EntityAccess.get_total_bleeding_rate_from_node(entity)
-		if bleed <= 0.0 and not _CampaignBridge.entity_has_untreated_wounds(entity):
+		if bleed <= 0.0 and not _Bridge.entity_has_untreated_wounds(entity):
 			continue
 		var eta: float = _RowFormatter.seconds_to_danger_band(bv, bleed)
 		if eta < worst_eta:
@@ -91,12 +91,30 @@ static func on_overworld_step(world: Node2D) -> void:
 		return
 	var summary: Dictionary = worst_triage_summary(world)
 	if summary.is_empty():
+		if _Bridge.party_has_untreated_wounds(world):
+			var parts: int = _Bridge.party_untreated_part_count(world)
+			var msg_clot: String = (
+				"Wounds undressed on map — %d part(s) need dressing in Party (pressure → bandage/pack/TQ)."
+				% parts
+			)
+			msg_clot += _med_budget_step_suffix(world)
+			if world.has_meta(WORLD_META_BLEED_WARN) and str(world.get_meta(WORLD_META_BLEED_WARN)) == msg_clot:
+				return
+			world.set_meta(WORLD_META_BLEED_WARN, msg_clot)
+			_CombatDebug.world_session(msg_clot)
 		return
 	var line: String = str(summary.get("triage_line", ""))
 	var msg: String = "Bleeding on map — %s: %s. Open Party for field care or finish treatment." % [
 		str(summary.get("name", "ally")),
 		line,
 	]
+	if _Bridge.party_has_untreated_wounds(world):
+		var parts: int = _Bridge.party_untreated_part_count(world)
+		msg = (
+			"Bleeding on map — %s: %s. %d part(s) need dressing in Party (pressure → bandage/pack/TQ)."
+			% [str(summary.get("name", "ally")), line, parts]
+		)
+	msg += _med_budget_step_suffix(world)
 	if world.has_meta(WORLD_META_BLEED_WARN) and str(world.get_meta(WORLD_META_BLEED_WARN)) == msg:
 		return
 	world.set_meta(WORLD_META_BLEED_WARN, msg)
@@ -104,6 +122,9 @@ static func on_overworld_step(world: Node2D) -> void:
 
 
 static func map_move_blocked_message(world: Node2D) -> String:
+	if _Bridge.party_has_untreated_wounds(world) and not _party_has_active_bleed(world):
+		var parts: int = _Bridge.party_untreated_part_count(world)
+		return "Dress wounds in Party (%d part(s)) before moving on the map." % parts
 	var summary: Dictionary = worst_triage_summary(world)
 	if summary.is_empty():
 		return "Stabilize bleeding in Party before moving on the map."
@@ -116,7 +137,26 @@ static func map_move_blocked_message(world: Node2D) -> String:
 static func hud_bleed_hint(world: Node2D) -> String:
 	if not party_has_map_bleed_risk(world):
 		return ""
+	var dress_parts: int = _Bridge.party_untreated_part_count(world)
 	var summary: Dictionary = worst_triage_summary(world)
 	if summary.is_empty():
+		if dress_parts > 0 and not _party_has_active_bleed(world):
+			return "Dress wounds — %d part(s) · open Party" % dress_parts
 		return "Bleeding — open Party"
-	return "Bleeding — %s" % str(summary.get("triage_line", "open Party"))
+	var line: String = str(summary.get("triage_line", "open Party"))
+	if dress_parts > 0:
+		return "Bleeding — %s · %d part(s) to dress" % [line, dress_parts]
+	return "Bleeding — %s" % line
+
+
+static func _med_budget_step_suffix(world: Node2D) -> String:
+	if world == null:
+		return ""
+	var med_left: int = _CompanyState.get_medical_supplies(world)
+	var budget: Dictionary = _CompanyState.triage_med_budget(world)
+	var shortfall: int = int(budget.get("med_shortfall", 0))
+	if med_left <= 0:
+		return " 0-med bandages OK on map."
+	if shortfall > 0:
+		return " Short %d med for dressings + camp." % shortfall
+	return ""

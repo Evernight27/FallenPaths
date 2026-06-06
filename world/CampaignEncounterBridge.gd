@@ -2,57 +2,15 @@ class_name CampaignEncounterBridge
 extends RefCounted
 
 ## Overworld ↔ combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
-## **Read order:** §1 tiles · §2 entity-level health · §3 kill log · §4 encounter lifecycle · §5 battle summary · §6 party (incl. `party_has_untreated_wounds`) · §7 movement/time · §8 private.
-## **Campaign map/party entity:** `health_entity_from_character` (= **`CombatantEntityAccess.health_entity_from_scene_node`**).
-## **Combat battle entity:** **`CombatantEntityAccess.get_health_entity_from_node`** / **`get_entity_from_manager`**.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
-const _Persistence := preload("res://world/CampaignPersistence.gd")
 const META_ENEMY_FORMATION := "enemy_formation"
-
-const OVERWORLD_TILE_SIZE := 64
-const OVERWORLD_TILE_ORIGIN := 32
-
-
-# --- §1 Overworld tiles ---
-
-
-## World position (encounter / player at tile center) → grid tile. Single source for overworld tile math.
-static func overworld_tile_from_position(pos: Vector2) -> Vector2i:
-	return Vector2i(
-		floor((pos.x - OVERWORLD_TILE_ORIGIN) / float(OVERWORLD_TILE_SIZE)),
-		floor((pos.y - OVERWORLD_TILE_ORIGIN) / float(OVERWORLD_TILE_SIZE))
-	)
-
-
-static func overworld_tile_center(tile: Vector2i) -> Vector2:
-	return Vector2(
-		tile.x * OVERWORLD_TILE_SIZE + OVERWORLD_TILE_ORIGIN,
-		tile.y * OVERWORLD_TILE_SIZE + OVERWORLD_TILE_ORIGIN
-	)
-
-
-# --- §2 Health entity + untreated wounds ---
-
-
-static func health_entity_from_character(node: Node) -> Node:
-	return _EntityAccess.health_entity_from_scene_node(node)
-
-
-static func untreated_wound_part_names(entity: Node) -> PackedStringArray:
-	return _EntityAccess.entity_untreated_wound_part_names(entity)
-
-
-static func entity_has_untreated_wounds(entity: Node) -> bool:
-	return _EntityAccess.entity_has_untreated_wounds(entity)
-
-
-# --- §3 Battle kill log ---
 
 
 static func clear_battle_kill_log(world: Node) -> void:
@@ -93,9 +51,6 @@ static func _kill_log_entry_for_victim(world: Node, victim_name: String) -> Dict
 	return {}
 
 
-# --- §4 Combat encounter lifecycle ---
-
-
 ## Apply encounter node config to world meta before **`CombatFlow.start_combat`**.
 static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> void:
 	if world == null or encounter == null:
@@ -109,12 +64,12 @@ static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> voi
 				enc = enc.duplicate(true) if not enc.is_empty() else {}
 				enc[SoakEncounterPresets.ENCOUNTER_KEY_SOAK_PRESET_ID] = soak_id
 		if not enc.is_empty():
+			_normalize_encounter_weapon_form_keys(enc)
 			world.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, enc)
 		if (
 			enc.has("contract_title")
 			or enc.has("pay_gold")
 			or bool(enc.get("tutorial", false))
-			or bool(enc.get("training", false))
 		):
 			var contract: Dictionary = {
 				"contract_title": str(enc.get("contract_title", "Contract")),
@@ -122,7 +77,6 @@ static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> voi
 				"difficulty_rating": int(enc.get("difficulty_rating", 1)),
 				"contract_type": str(enc.get("contract_type", "")),
 				"tutorial": bool(enc.get("tutorial", false)),
-				"training": bool(enc.get("training", false)),
 			}
 			_CompanyState.set_active_contract(world, contract)
 		if enc.has("map_bleed_mult"):
@@ -171,6 +125,30 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
 	_CompanyState.wire_party_medical_supply(world)
 	sync_overworld_player_grid_anchor(world)
 	_log_party_vitality(world, "After battle")
+	if party_has_untreated_wounds(world):
+		const _OpLog := preload("res://core/OperationalLog.gd")
+		if _OpLog.is_play_session_active():
+			var med_left: int = _CompanyState.get_medical_supplies(world)
+			var parts: int = party_untreated_part_count(world)
+			var budget: Dictionary = _CompanyState.triage_med_budget(world)
+			var zero_med_note: String = (
+				"; 0-med bandages OK for map dressings" if med_left <= 0 else ""
+			)
+			_OpLog.play_world(
+				(
+					"field_care: open Party — pressure (free) then bandage; %d part(s) need dressing; "
+					+ "med_left=%d; bandage_med_est=%d; total_med_est=%d; med_shortfall=%d%s; "
+					+ "battle bandages free; then Camp rest (−1 med · +1 day)"
+				)
+				% [
+					parts,
+					med_left,
+					int(budget.get("field_bandage_med_est", 0)),
+					int(budget.get("total_worst_case", 0)),
+					int(budget.get("med_shortfall", 0)),
+					zero_med_note,
+				]
+			)
 
 
 ## Step onto contract tile: stash contract, spawn enemies, consume marker (R3).
@@ -207,8 +185,6 @@ static func begin_contract_encounter(
 	if enemies.is_empty():
 		abort_contract_encounter_entry(world)
 		return []
-	var tile: Vector2i = overworld_tile_from_position(encounter.position)
-	_Persistence.mark_consumed_contract_tile(world, tile)
 	encounter.queue_free()
 	return enemies
 
@@ -228,9 +204,6 @@ static func abort_contract_encounter_entry(world: Node2D) -> void:
 	_CompanyState.clear_active_contract(world)
 
 
-# --- §5 Battle summary ---
-
-
 ## Camp-2.2 row: blood, bleed, untreated parts, worst ATLS class (1–4).
 static func member_battle_summary_entry(snap: Dictionary, entity: Node) -> Dictionary:
 	var blood_pct: float = float(snap.get("blood_volume", 100.0))
@@ -248,6 +221,15 @@ static func member_battle_summary_entry(snap: Dictionary, entity: Node) -> Dicti
 		"worst_atls_band": _Bleeding.atls_hemorrhage_class_from_remaining_pct(blood_pct),
 		"snapshot": snap_copy,
 	}
+
+
+static func untreated_wound_part_names(entity: Node) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	if entity == null:
+		return out
+	for p in _EntityWounds.sorted_untreated_part_names(entity):
+		out.append(str(p))
+	return out
 
 
 static func build_last_battle_summary(world: Node2D, battle_winner: String = "player") -> void:
@@ -324,9 +306,6 @@ static func _merge_roster_kill_log_deaths(world: Node2D, pm: Node, deaths: Array
 		listed[name_s] = true
 
 
-# --- §6 Party roster + formation ---
-
-
 static func can_enter_combat(world: Node2D) -> Dictionary:
 	var out: Dictionary = {"ok": true, "message": ""}
 	var nodes: Array = get_fightable_party_nodes(world)
@@ -384,14 +363,6 @@ static func get_fightable_party_nodes(world: Node2D) -> Array:
 		if cap > 0:
 			players = _cap_fightable_party_leader_first(players, cap)
 	return players
-
-
-static func party_has_untreated_wounds(world: Node2D) -> bool:
-	for n in get_fightable_party_nodes(world):
-		var entity: Node = health_entity_from_character(n)
-		if entity_has_untreated_wounds(entity):
-			return true
-	return false
 
 
 static func _cap_fightable_party_leader_first(nodes: Array, cap: int) -> Array:
@@ -459,9 +430,6 @@ static func refresh_party_formation_meta(world: Node2D) -> void:
 	world.set_meta("party_formation", preset)
 
 
-# --- §7 Overworld movement + map time ---
-
-
 ## Read overworld RNG / enemy scene from `main` exports or session meta (F5 / headless).
 static func resolve_overworld_rng(world: Node) -> RandomNumberGenerator:
 	if world == null:
@@ -493,12 +461,12 @@ static func resolve_enemy_scene(world: Node) -> PackedScene:
 
 ## Snap player to tile center, reset movement target, and align **`last_player_tile`** (overworld reject uses this).
 static func place_player_on_overworld_tile(world: Node2D, tile: Vector2i) -> void:
-	if world == null or not world.has_node("Character"):
+	if world == null or not world.has_node("Character") or not world.has_method("_tile_center"):
 		return
 	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
-	var center: Vector2 = overworld_tile_center(tile)
+	var center: Vector2 = world.call("_tile_center", tile) as Vector2
 	if player.has_method("cancel_grid_move_to"):
 		player.call("cancel_grid_move_to", center)
 	else:
@@ -507,22 +475,25 @@ static func place_player_on_overworld_tile(world: Node2D, tile: Vector2i) -> voi
 
 
 static func sync_overworld_player_grid_anchor(world: Node2D) -> void:
-	if world == null or not world.has_node("Character"):
+	if world == null or not world.has_node("Character") or not world.has_method("_tile_coords"):
 		return
 	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
-	place_player_on_overworld_tile(world, overworld_tile_from_position(player.position))
+	var tile: Vector2i = world.call("_tile_coords", player.position) as Vector2i
+	place_player_on_overworld_tile(world, tile)
 
 
 ## After soft defeat, step one tile toward camp so a respawned marker is not under the player.
 static func nudge_player_toward_camp_tile(world: Node2D) -> void:
 	if world == null or not world.has_node("Character"):
 		return
+	if not world.has_method("_tile_coords"):
+		return
 	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
-	var tile: Vector2i = overworld_tile_from_position(player.position)
+	var tile: Vector2i = world.call("_tile_coords", player.position) as Vector2i
 	var camp: Vector2i = _CompanyState.DEFAULT_CAMP_TILE
 	if world.has_meta("camp_tile") and world.get_meta("camp_tile") is Vector2i:
 		camp = world.get_meta("camp_tile")
@@ -569,7 +540,35 @@ static func advance_party_overworld_minute(world: Node2D) -> void:
 			health.ensure_consciousness_current()
 
 
-# --- §8 Private helpers ---
+static func entity_has_untreated_wounds(entity: Node) -> bool:
+	return _EntityWounds.entity_has_untreated_wounds(entity)
+
+
+static func party_untreated_part_count(world: Node2D) -> int:
+	var total: int = 0
+	for n in get_fightable_party_nodes(world):
+		var entity: Node = health_entity_from_character(n)
+		if entity == null:
+			continue
+		total += untreated_wound_part_names(entity).size()
+	return total
+
+
+static func party_has_untreated_wounds(world: Node2D) -> bool:
+	for n in get_fightable_party_nodes(world):
+		var entity: Node = health_entity_from_character(n)
+		if entity_has_untreated_wounds(entity):
+			return true
+	return false
+
+
+static func health_entity_from_character(node: Node) -> Node:
+	if node == null:
+		return null
+	if node.has_method("get_medical_entity"):
+		var e: Variant = node.get_medical_entity()
+		return e as Node if e is Node else null
+	return node
 
 
 static func _death_info_from_entity(entity: Node) -> Dictionary:
@@ -603,6 +602,16 @@ static func _death_info_from_entity(entity: Node) -> Dictionary:
 		"weapon": "",
 		"killer": "",
 	}
+
+
+## WF-4: strip encounter default weapon form keys before world meta (mirror doctrine string hygiene).
+static func _normalize_encounter_weapon_form_keys(enc: Dictionary) -> void:
+	for key in [
+		CombatConstants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM,
+		CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM,
+	]:
+		if enc.has(key):
+			enc[key] = str(enc.get(key, "")).strip_edges()
 
 
 static func _log_party_vitality(world: Node2D, prefix: String) -> void:

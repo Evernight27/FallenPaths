@@ -1,9 +1,8 @@
-﻿class_name CombatFormationFlow
+class_name CombatFormationFlow
 extends RefCounted
 
 ## Formation moves, resolve events, slot plug on death, hit reaction delays on pending formation events.
-## **Read order:** pair move start/resolve → death plug → vacancy reconcile follow-up (see **`CombatFormationVacancyPlugs`**).
-## **Pair `move_kind`:** **`CombatConstants.FORMATION_MOVE_KIND_*`** (flow/events) — listing uses **`MOVE_ID_*`** (`fall_back` vs **`FORMATION_MOVE_KIND_FALL_BACK_PAIR`**).
+## Footing: rank/file shuffle only — does **not** write **`guard_line`**, **`weapon_form`**, or **`position_angle_offset_deg`**. Lane duration mult: **`ZoneOfControl.get_footing_duration_multiplier`**. LIVE_PATHS **`#wf-footing-terminology`** · **`#wf-pick-vs-strike`**.
 ##
 ## **Vacancy plug** on the home formation (empty rank-0 without death). **Death plug** stays in
 ## `on_combatant_died` only; same-tick ordering avoids mixing vacancy with death removal.
@@ -22,6 +21,8 @@ extends RefCounted
 ## Deeper empty ranks: same-rank lateral from neighbors is allowed so the rear echelon can close gaps without rank-0 shuffling.
 ## `apply_vacancy_plug_same_file` scans **deepest empty rank first** so a gap under the front is closed from the rear before rank-0 considers lateral.
 ## Donors are **reserved** for the reconcile pass so the same unit is not assigned to two holes.
+## Rank/file shuffle resolve + vacancy plug call **`CombatDoctrine.clear_combatant_doctrine_commitment`** (stale target lock).
+## Footing: return-to-waiting via **`_set_combatant_waiting`** · shuffle start via **`_scrub_idle_footwork_for_formation_move`** — LIVE_PATHS **`#wf-tier-44-pa`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
@@ -31,9 +32,47 @@ const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _Timing := preload("res://combat/CombatTiming.gd")
 const _VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
 const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
+const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
-const _Doctrine := preload("res://combat/CombatDoctrine.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
+
+
+static func _set_combatant_waiting(c: Dictionary) -> void:
+	_Footwork.return_to_waiting(c)
+
+
+static func _scrub_idle_footwork_for_formation_move(c: Dictionary) -> void:
+	_Footwork.reconcile_idle_offset(c)
+
+
+static func _clear_shuffle_doctrine_commitments(combatants: Array) -> void:
+	for c in combatants:
+		if c is Dictionary and not (c as Dictionary).is_empty():
+			_Doctrine.clear_combatant_doctrine_commitment(c as Dictionary)
+
+
+static func _stamp_rotate_file_cooldown(manager: Node, c0: Dictionary, c1: Dictionary) -> void:
+	if manager == null or c0.is_empty() or c1.is_empty():
+		return
+	var until: float = (
+		_EntityAccess.combat_clock_float(manager)
+		+ CombatConstants.FORMATION_ROTATE_FILE_RETRY_COOLDOWN_S
+	)
+	c0["formation_rotate_file_cooldown_until"] = until
+	c1["formation_rotate_file_cooldown_until"] = until
+
+
+static func _pair_abort_cooldown_active(manager: Node, c: Dictionary) -> bool:
+	return _EntityAccess.combatant_cooldown_active(
+		manager, c, "formation_pair_abort_cooldown_until", -1.0
+	)
+
+
+static func _rotate_file_cooldown_active(manager: Node, c: Dictionary) -> bool:
+	return _EntityAccess.combatant_cooldown_active(
+		manager, c, "formation_rotate_file_cooldown_until", -1.0
+	)
 
 
 ## Tier 1.3 P4: after rank/file changes from plugs or formation moves, keep `lane_offset` bounded (Â§4.2 repack).
@@ -46,6 +85,17 @@ static func repack_lane_offset_after_rank_file_change(c: Dictionary) -> void:
 
 static func formation_has_frontline_fill_opportunity(manager: Node, fid: String) -> bool:
 	return _VacancyPlugs.formation_has_frontline_fill_opportunity(manager, fid)
+
+
+static func formation_has_rank0_hole(manager: Node, fid: String) -> bool:
+	return _VacancyPlugs.formation_has_rank0_hole(manager, fid)
+
+
+## Rank-0 hole on the line **or** a legal depth plug into rank 0 (Skirmish gaps + Formation relief).
+static func formation_line_has_rank0_gap(manager: Node, fid: String) -> bool:
+	if formation_has_rank0_hole(manager, fid):
+		return true
+	return formation_has_frontline_fill_opportunity(manager, fid)
 
 
 static func formation_has_frontline_fill_opportunity_at_file(
@@ -178,6 +228,8 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
 	if init.is_empty() or partner.is_empty() or not _EntityAccess.is_available_formation_partner(init, partner):
 		return
+	if _pair_abort_cooldown_active(manager, init) or _pair_abort_cooldown_active(manager, partner):
+		return
 	if _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
 		return
 	var fid: String = _EntityAccess.formation_id_str(init)
@@ -195,10 +247,7 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 	var duration: float = _MoveDuration.estimate_adjacent_rank_pair_duration_s(
 		manager, init, partner, move_kind
 	)
-	var use_falling: bool = (
-		move_kind == CombatConstants.FORMATION_MOVE_KIND_DRAG_BACK
-		or move_kind == CombatConstants.FORMATION_MOVE_KIND_FALL_BACK_PAIR
-	)
+	var use_falling: bool = move_kind == "drag_back" or move_kind == "fall_back_pair"
 	var st: String = CombatConstants.STATE_FALLING_BACK if use_falling else CombatConstants.STATE_SWAP_RANK
 	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	var r_lo: int = mini(r0, r1)
@@ -208,6 +257,8 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 	_FormationSlots.begin_adjacent_rank_pair_move(slots, r_lo, r_hi, f0, id_at_lo, id_at_hi)
 	init["formation_move_partner_id"] = partner_id
 	partner["formation_move_partner_id"] = initiator_id
+	_scrub_idle_footwork_for_formation_move(init)
+	_scrub_idle_footwork_for_formation_move(partner)
 	init.state = st
 	init.state_timer = 0.0
 	init.state_duration = duration
@@ -218,7 +269,7 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
 		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
 		CombatDebug.flow_log(
-			"formation_move_start %s (%d) %s with %s (%d) (%.2fs laneÃ—footÃ—%.2f pressureÃ—%.2f)"
+			"formation_move_start %s (%d) %s with %s (%d) (%.2fs lane×foot×%.2f pressure×%.2f)"
 			% [n0, initiator_id, move_kind, n1, partner_id, duration, lane_foot, pressure_mod]
 		)
 	_EventScheduler.cancel_pending_swap_rank_pair_events(manager, initiator_id, partner_id)
@@ -236,6 +287,8 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
 	if init.is_empty() or not _EntityAccess.alive_bool(init):
 		return
+	if _pair_abort_cooldown_active(manager, init):
+		return
 	var fid: String = _EntityAccess.formation_id_str(init)
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
@@ -249,6 +302,7 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
 		return
 	var duration: float = _MoveDuration.estimate_solo_fall_back_duration_s(manager, init)
 	init["formation_move_partner_id"] = -1
+	_scrub_idle_footwork_for_formation_move(init)
 	init.state = CombatConstants.STATE_FALLING_BACK
 	init.state_timer = 0.0
 	init.state_duration = duration
@@ -270,6 +324,13 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
 	if init.is_empty() or partner.is_empty() or not _EntityAccess.is_available_formation_partner(init, partner):
 		return
+	if (
+		_pair_abort_cooldown_active(manager, init)
+		or _pair_abort_cooldown_active(manager, partner)
+		or _rotate_file_cooldown_active(manager, init)
+		or _rotate_file_cooldown_active(manager, partner)
+	):
+		return
 	if _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
 		return
 	var r_init: int = _EntityAccess.rank_int(init)
@@ -283,6 +344,8 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 	var duration: float = _MoveDuration.estimate_rotate_file_duration_s(manager, init, partner)
 	init["formation_move_partner_id"] = partner_id
 	partner["formation_move_partner_id"] = initiator_id
+	_scrub_idle_footwork_for_formation_move(init)
+	_scrub_idle_footwork_for_formation_move(partner)
 	init.state = CombatConstants.STATE_SWAP_RANK
 	init.state_timer = 0.0
 	init.state_duration = duration
@@ -329,9 +392,9 @@ static func abort_pair(manager: Node, init, partner, reason: String = "") -> voi
 			manager.notify_formation_changed(fid)
 			manager._reschedule_back_rank_turns(fid)
 	if not init.is_empty() and _EntityAccess.alive_bool(init) and pair_state_ok(init):
-		init.state = CombatConstants.STATE_WAITING
+		_set_combatant_waiting(init)
 	if not partner.is_empty() and _EntityAccess.alive_bool(partner) and pair_state_ok(partner):
-		partner.state = CombatConstants.STATE_WAITING
+		_set_combatant_waiting(partner)
 	# Keep a brief local guard after abort so the same pair does not instantly requeue under churn.
 	var until: float = _EntityAccess.combat_clock_float(manager) + 0.7
 	if not init.is_empty() and _EntityAccess.alive_bool(init):
@@ -348,7 +411,7 @@ static func abort_solo_formation_move(manager: Node, init, reason: String = "") 
 		return
 	init.erase("formation_move_partner_id")
 	if _EntityAccess.alive_bool(init) and _EntityAccess.state_str(init) == CombatConstants.STATE_FALLING_BACK:
-		init.state = CombatConstants.STATE_WAITING
+		_set_combatant_waiting(init)
 	var until: float = _EntityAccess.combat_clock_float(manager) + 0.7
 	if _EntityAccess.alive_bool(init):
 		init["formation_pair_abort_cooldown_until"] = until
@@ -360,11 +423,11 @@ static func _formation_resolve_medical_phase_skip(
 	if not MedicalPhaseController.should_skip_formation_resolve(manager, initiator_id, partner_id):
 		return false
 	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
-	var partner: Dictionary = _EntityAccess.manager_get_combatant(manager, partner_id)
+	var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, partner_id)
 	for c in [init, partner]:
 		if c.is_empty() or not _EntityAccess.alive_bool(c):
 			continue
-		c.state = CombatConstants.STATE_WAITING
+		_set_combatant_waiting(c)
 		c.state_timer = 0.0
 		c.state_duration = 0.0
 		c.erase("formation_move_partner_id")
@@ -376,20 +439,18 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	var data_raw: Variant = ev.get("data", null)
 	var data: Dictionary = data_raw if data_raw is Dictionary else {}
 	var partner_id: int = data.get("partner_id", -1)
-	var move_kind: String = data.get(
-		"move_kind", CombatConstants.FORMATION_MOVE_KIND_SWAP_RANK
-	)
+	var move_kind: String = data.get("move_kind", "swap_rank")
 	if _formation_resolve_medical_phase_skip(manager, initiator_id, partner_id):
 		return
 	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
 	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
 	if init.is_empty():
 		if not partner.is_empty() and pair_state_ok(partner):
-			partner.state = CombatConstants.STATE_WAITING
+			_set_combatant_waiting(partner)
 		return
 	if partner.is_empty():
 		if pair_state_ok(init):
-			init.state = CombatConstants.STATE_WAITING
+			_set_combatant_waiting(init)
 		return
 	if not _EntityAccess.are_both_alive(init, partner):
 		abort_pair(manager, init, partner, "swap_rank_resolve_not_alive")
@@ -423,7 +484,6 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	init.file = f1
 	partner.rank = r0
 	partner.file = f0
-	_clear_doctrine_commitments_after_slot_change(init, partner)
 	repack_lane_offset_after_rank_file_change(init)
 	repack_lane_offset_after_rank_file_change(partner)
 	_FormationSlots.slot_set_single(
@@ -438,17 +498,14 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	)
 	init.erase("formation_move_partner_id")
 	partner.erase("formation_move_partner_id")
-	# Mirror CombatConstants rotate anti-thrash window; keep literal fallback to avoid stale analyzer symbol caches.
-	var rotate_cd_until: float = _EntityAccess.combat_clock_float(manager) + 0.8
-	init["formation_rotate_file_cooldown_until"] = rotate_cd_until
-	partner["formation_rotate_file_cooldown_until"] = rotate_cd_until
-	init.state = CombatConstants.STATE_WAITING
-	partner.state = CombatConstants.STATE_WAITING
+	_clear_shuffle_doctrine_commitments([init, partner])
+	_set_combatant_waiting(init)
+	_set_combatant_waiting(partner)
 	var outcome: String = "swap_rank_complete"
 	match move_kind:
-		CombatConstants.FORMATION_MOVE_KIND_DRAG_BACK:
+		"drag_back":
 			outcome = "drag_back_complete"
-		CombatConstants.FORMATION_MOVE_KIND_FALL_BACK_PAIR:
+		"fall_back_pair":
 			outcome = "fall_back_complete"
 		_:
 			outcome = "swap_rank_complete"
@@ -463,6 +520,7 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	manager._recompute_zoc_and_distance()
 	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)
+	_EventScheduler.reschedule_same_file_depth_rank2_plus(manager, fid, f0)
 	_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 	if not partner.is_empty() and _EntityAccess.is_standing_combatant(partner):
 		_EventScheduler.schedule_action_ready(
@@ -482,13 +540,13 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 	var fid: String = _EntityAccess.formation_id_str(init)
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
-		init.state = CombatConstants.STATE_WAITING
+		_set_combatant_waiting(init)
 		return
 	var f: int = _EntityAccess.file_int(init)
 	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(1, f)):
 		CombatDebug.flow_log("fall_back_solo_resolve id=%d aborted: rear slot (1,%d) occupied" % [initiator_id, f])
-		init.state = CombatConstants.STATE_WAITING
+		_set_combatant_waiting(init)
 		_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 		return
 	_FormationSlots.remove_combatant_from_slots(slots, initiator_id)
@@ -496,7 +554,8 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 	repack_lane_offset_after_rank_file_change(init)
 	_FormationSlots.slot_set_single(slots, Vector2i(1, f), initiator_id)
 	init.erase("formation_move_partner_id")
-	init.state = CombatConstants.STATE_WAITING
+	_clear_shuffle_doctrine_commitments([init])
+	_set_combatant_waiting(init)
 	CombatDebug.flow_log("fall_back_solo_resolve id=%d complete rank 0->1 file %d" % [initiator_id, f])
 	if _EntityAccess.get_attacking_arm(init).is_empty():
 		_F5SoakTrace.note_cowering_fall_back_executed(
@@ -504,8 +563,10 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 		)
 	manager.emit_signal("action_resolved", initiator_id, initiator_id, {"outcome": "fall_back_solo_complete", "dmg": 0, "died": false})
 	manager._recompute_zoc_and_distance()
-	manager.notify_formation_changed(fid)
+	# Manual rank/file write above — skip vacancy reconcile (would plug rank-2 into rank-1 and undo retreat).
+	manager.emit_signal("formation_changed", fid)
 	manager._reschedule_back_rank_turns(fid)
+	_EventScheduler.reschedule_same_file_depth_rank2_plus(manager, fid, f)
 	_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 
 
@@ -544,7 +605,6 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(partner))
 	init.file = f1
 	partner.file = f0
-	_clear_doctrine_commitments_after_slot_change(init, partner)
 	repack_lane_offset_after_rank_file_change(init)
 	repack_lane_offset_after_rank_file_change(partner)
 	_FormationSlots.slot_set_single(
@@ -559,13 +619,16 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 	)
 	init.erase("formation_move_partner_id")
 	partner.erase("formation_move_partner_id")
-	init.state = CombatConstants.STATE_WAITING
-	partner.state = CombatConstants.STATE_WAITING
+	_clear_shuffle_doctrine_commitments([init, partner])
+	_stamp_rotate_file_cooldown(manager, init, partner)
+	_set_combatant_waiting(init)
+	_set_combatant_waiting(partner)
 	CombatDebug.flow_log("rotate_file_resolve id=%d <-> %d complete files %d <-> %d" % [initiator_id, partner_id, f0, f1])
 	manager.emit_signal("action_resolved", initiator_id, partner_id, {"outcome": "rotate_file_complete", "dmg": 0, "died": false})
 	manager._recompute_zoc_and_distance()
 	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)
+	_EventScheduler.reschedule_same_file_depth_after_rotate_file(manager, fid, f0, f1)
 	_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 	_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
 
@@ -606,8 +669,3 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 	manager._reschedule_back_rank_turns(fid_geom)
 	if fid_home != fid_geom:
 		manager._reschedule_back_rank_turns(fid_home)
-
-
-static func _clear_doctrine_commitments_after_slot_change(init: Dictionary, partner: Dictionary) -> void:
-	_Doctrine.clear_combatant_doctrine_commitment(init)
-	_Doctrine.clear_combatant_doctrine_commitment(partner)

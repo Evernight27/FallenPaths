@@ -3,6 +3,7 @@ extends RefCounted
 
 ## Headless **D-001** preset fights: simulates F5 cyan soaks, captures **`FP_COMBAT`**, parses runbook grep targets.
 ## Mandatory **II-2b / II-5a–c** sign-off is headless-only via plausibility + **`BattleUIUpdater`** probes (see **`.d001_headless_signoff.txt`**).
+## **ii5c** (`_run_ii5c_gauge_label_checks`): **`Stm`/`Ready`/`Exh`/`Grd`** + WF gauge/diagram suffix order (incl. **`form_wrath_*`**) — LIVE_PATHS **`#wf-soak-audit-status`** · **`#battle-ui`**.
 
 const _MgrScript := preload("res://combat/CombatManager.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
@@ -24,6 +25,8 @@ const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _AttackResultApplier := preload("res://combat/AttackResultApplier.gd")
 const _AttackWindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _BattleUIUpdater := preload("res://ui/BattleUIUpdater.gd")
+const _Diagram := preload("res://ui/FormationDiagramBuilder.gd")
+const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const _CombatSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
 const _F5SoakLogValidator := preload("res://combat/CombatF5SoakLogValidator.gd")
 const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
@@ -32,6 +35,9 @@ const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
+const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
+const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const RUNNER_NAME := "CombatD001SoakRunner"
 const TICK_DT := 0.05
@@ -257,7 +263,7 @@ static func _run_ii7_medical_phase_smoke() -> Dictionary:
 				continue
 			if str(a.get("target_part", "")) != "chest":
 				continue
-			if CombatConstants.is_direct_pressure_move(str(a.get("move_id", ""))):
+			if str(a.get("move_id", "")) == "apply_direct_pressure":
 				found_pressure = true
 				break
 		check_out["pressure_listed"] = {
@@ -271,7 +277,7 @@ static func _run_ii7_medical_phase_smoke() -> Dictionary:
 			var committed: bool = mgr.resolve_action(
 				healer_id,
 				ally_id,
-				CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE,
+				"apply_direct_pressure",
 				{"target_part": "chest"}
 			)
 			check_out["pressure_resolve"] = {
@@ -307,11 +313,9 @@ static func _run_ii7_medical_phase_smoke() -> Dictionary:
 					if who_pack.is_empty() and healer_ent != null:
 						who_pack = str(healer_ent.name)
 					_F5SoakTrace.note_medical_pack_listed(who_pack, "chest")
-					_F5SoakTrace.note_medical_action_pick(
-						who_pack, CombatConstants.MOVE_ID_PACK_WOUND, "chest", "ally"
-					)
+					_F5SoakTrace.note_medical_action_pick(who_pack, "pack_wound", "chest", "ally")
 					var pack_ok: bool = mgr.resolve_action(
-						healer_id, ally_id, CombatConstants.MOVE_ID_PACK_WOUND, {"target_part": "chest"}
+						healer_id, ally_id, "pack_wound", {"target_part": "chest"}
 					)
 					check_out["pack_wound_resolve"] = {
 						"pass": pack_ok,
@@ -456,12 +460,10 @@ static func _medical_pack_wound_listed_for_ally(
 	ally_id: int,
 	actions: Array
 ) -> bool:
-	if not _ListedActions.first_action_move_vs_target(
-		actions, CombatConstants.MOVE_ID_PACK_WOUND, ally_id
-	).is_empty():
+	if not _ListedActions.first_action_move_vs_target(actions, "pack_wound", ally_id).is_empty():
 		return true
 	for raw in _MedicalPhase.get_ally_medical_actions(mgr, healer, ally, "chest"):
-		if raw is Dictionary and CombatConstants.is_pack_wound_move(str((raw as Dictionary).get("move_id", ""))):
+		if raw is Dictionary and str((raw as Dictionary).get("move_id", "")) == "pack_wound":
 			return true
 	return false
 
@@ -622,6 +624,93 @@ static func _run_ii5c_gauge_label_checks() -> Dictionary:
 		checks = checks.filter(func(spec: Dictionary) -> bool: return spec.id != "exh_grd_stack")
 	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
 		checks = checks.filter(func(spec: Dictionary) -> bool: return spec.id != "grd_hir")
+	var form_row: Dictionary = {
+		"alive": true,
+		"state": CombatConstants.STATE_WAITING,
+		"gauge": 100.0,
+		"stamina": 67.0,
+		"guard_line": "high",
+		CombatConstants.COMBATANT_KEY_WEAPON_FORM: _WeaponForm.FORM_OX,
+	}
+	var form_label: String = _BattleUIUpdater.gauge_label_text_for_combatant(form_row)
+	checks.append(
+		{
+			"id": "form_ox_gauge",
+			"needle": " · Form Ox",
+			"label": form_label,
+			"min": 1,
+		}
+	)
+	checks.append(
+		{
+			"id": "suffix_order_grd_form",
+			"needle": "",
+			"label": form_label,
+			"min": 1,
+			"ordered_substrings": ["Grd", " · Form Ox"],
+		}
+	)
+	if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		var wrath_row: Dictionary = {
+			"alive": true,
+			"state": CombatConstants.STATE_WAITING,
+			"gauge": 100.0,
+			"stamina": 67.0,
+			"guard_line": "high_left",
+			CombatConstants.COMBATANT_KEY_WEAPON_FORM: _WeaponForm.FORM_WRATH,
+		}
+		var wrath_label: String = _BattleUIUpdater.gauge_label_text_for_combatant(wrath_row)
+		checks.append(
+			{
+				"id": "form_wrath_grd_hil",
+				"needle": "Grd HiL",
+				"label": wrath_label,
+				"min": 1,
+			}
+		)
+		checks.append(
+			{
+				"id": "form_wrath_gauge",
+				"needle": " · Form Wrath",
+				"label": wrath_label,
+				"min": 1,
+			}
+		)
+		checks.append(
+			{
+				"id": "form_wrath_suffix_order",
+				"needle": "",
+				"label": wrath_label,
+				"min": 1,
+				"ordered_substrings": ["Grd HiL", " · Form Wrath"],
+			}
+		)
+		var wrath_cell: String = _Diagram._cell_label_with_footwork("P0", [wrath_row])
+		checks.append(
+			{
+				"id": "form_wrath_diagram",
+				"needle": "",
+				"label": wrath_cell,
+				"min": 1,
+				"ordered_substrings": ["[HiL]", "[Wrath]"],
+			}
+		)
+		var step_grd_form_row: Dictionary = form_row.duplicate()
+		step_grd_form_row["state"] = CombatConstants.STATE_WIND_UP
+		step_grd_form_row["state_timer"] = 0.0
+		step_grd_form_row["state_duration"] = 1.0
+		step_grd_form_row[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = 14.0
+		step_grd_form_row["pending_attack"] = {"attack_line": "high_right", "move_id": "oberhau"}
+		var step_label: String = _BattleUIUpdater.gauge_label_text_for_combatant(step_grd_form_row)
+		checks.append(
+			{
+				"id": "suffix_order_step_atk_form",
+				"needle": "",
+				"label": step_label,
+				"min": 1,
+				"ordered_substrings": ["Step", "Atk", " · Form Ox"],
+			}
+		)
 	var full_row: String = _BattleUIUpdater.gauge_label_text_for_combatant(
 		{
 			"alive": true,
@@ -651,7 +740,12 @@ static func _run_ii5c_gauge_label_checks() -> Dictionary:
 		var text: String = str(spec.get("label", ""))
 		var needle: String = str(spec.get("needle", ""))
 		var ok_needle: bool = true
-		if spec.has("substrings"):
+		if spec.has("ordered_substrings"):
+			var ordered: PackedStringArray = PackedStringArray()
+			for sub in spec.get("ordered_substrings", []) as Array:
+				ordered.append(str(sub))
+			ok_needle = _label_tokens_in_order(text, ordered)
+		elif spec.has("substrings"):
 			for sub in spec.get("substrings", []) as Array:
 				if str(sub) not in text:
 					ok_needle = false
@@ -660,14 +754,30 @@ static func _run_ii5c_gauge_label_checks() -> Dictionary:
 			ok_needle = needle.is_empty() or needle in text
 		check_out[id] = {"pass": ok_needle, "count": 1 if ok_needle else 0, "min": 1, "label": text}
 		if not ok_needle:
-			required_fail.append("%s (label='%s' need '%s')" % [id, text, needle])
+			var need_s: String = needle
+			if spec.has("ordered_substrings"):
+				need_s = "order %s" % str(spec.get("ordered_substrings", []))
+			required_fail.append("%s (label='%s' need '%s')" % [id, text, need_s])
 	var ok: bool = required_fail.is_empty()
 	return {
 		"ok": ok,
 		"summary": "ok" if ok else ", ".join(required_fail),
 		"checks": check_out,
-		"notes": "BattleUIUpdater row suffixes (headless II-5c sign-off)",
+		"notes": "BattleUIUpdater row suffixes + WF form suffix (headless II-5c sign-off)",
 	}
+
+
+static func _label_tokens_in_order(label: String, tokens: PackedStringArray) -> bool:
+	var pos: int = 0
+	for tok in tokens:
+		var needle: String = str(tok)
+		if needle.is_empty():
+			continue
+		var idx: int = label.find(needle, pos)
+		if idx < 0:
+			return false
+		pos = idx + needle.length()
+	return true
 
 
 ## Red-tile 7v7 brawl (headless substitute for F5 random encounter).
@@ -771,9 +881,246 @@ static func _run_ii_envelop(preset_id: String) -> Dictionary:
 	_OperationalLog.play_combat(
 		"soak_setup ii_envelop 7v3 outnumber skirmish (III-4 wing traces in Output)"
 	)
+	_probe_ii_envelop_mopup_engagement_debug(preset_id)
+	_probe_ii_line_plug_engagement_debug(preset_id)
+	_probe_ii_skirmish_rotate_line_plug_engagement_debug(preset_id)
 	var player_form: Dictionary = FormationPreset.for_front_count(7, 7, FormationPreset.DENSITY_NORMAL)
 	var enemy_form: Dictionary = {"files": 3, "ranks": 1, "density": FormationPreset.DENSITY_NORMAL}
 	return _run_generic_fight(preset_id, 7, 3, player_form, enemy_form, 55.0)
+
+
+## III-4 **3e**: deterministic 7v1 attrition slice — `engagement_debug` mop_up + hold-line hint smoke.
+static func _probe_ii_envelop_mopup_engagement_debug(preset_id: String) -> void:
+	_OperationalLog.play_combat(
+		"soak_setup ii_envelop_mopup 3e attrition smoke (engagement_debug mop_up)"
+	)
+	var was_quiet: bool = CombatConstants.is_headless_harness_quiet()
+	CombatConstants.set_headless_harness_quiet(false)
+	var player_form: Dictionary = FormationPreset.for_front_count(7, 7, FormationPreset.DENSITY_NORMAL)
+	var enemy_form: Dictionary = {"files": 3, "ranks": 1, "density": FormationPreset.DENSITY_NORMAL}
+	var mgr: Node = _start_manager(preset_id, 7, 3, player_form, enemy_form, false)
+	var enemy_ids: Array = []
+	for c in mgr.combatants:
+		if _EntityAccess.side_str(c) == "enemy":
+			enemy_ids.append(_EntityAccess.id_int(c))
+	for k in range(mini(2, enemy_ids.size())):
+		_soak_kill_combatant(mgr, int(enemy_ids[k]))
+	if not _CombatDoctrine.envelop_mop_up_active(mgr, "player"):
+		_OperationalLog.play_combat("soak_setup ii_envelop_mopup skip envelop_mop_up_active=false")
+		_free_manager(mgr)
+		CombatConstants.set_headless_harness_quiet(was_quiet)
+		return
+	var actor: Dictionary = _player_at_rank_file(mgr, 0, 3)
+	if actor.is_empty():
+		actor = _first_alive_player_front_rank(mgr)
+	var enemy_left: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy_left = c
+			break
+	if actor.is_empty() or enemy_left.is_empty():
+		_OperationalLog.play_combat("soak_setup ii_envelop_mopup skip missing actor/enemy")
+		_free_manager(mgr)
+		CombatConstants.set_headless_harness_quiet(was_quiet)
+		return
+	var actor_id: int = _EntityAccess.id_int(actor)
+	var enemy_id: int = _EntityAccess.id_int(enemy_left)
+	actor["gauge"] = 100.0
+	actor["state"] = CombatConstants.STATE_WAITING
+	var acts: Array = mgr.get_available_actions(actor_id)
+	var choice: Dictionary = {}
+	for raw in acts:
+		if raw is not Dictionary:
+			continue
+		var a: Dictionary = raw as Dictionary
+		if (
+			str(a.get("move_id", "")) == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
+			and int(a.get("target_id", -1)) == enemy_id
+		):
+			choice = a.duplicate()
+			break
+	if choice.is_empty():
+		for raw in acts:
+			if raw is not Dictionary:
+				continue
+			var a: Dictionary = raw as Dictionary
+			if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+				choice = a.duplicate()
+				break
+	if choice.is_empty():
+		choice = {"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE, "target_id": enemy_id}
+	_EngagementDiag.maybe_log_turn_pick(mgr, actor_id, acts, choice)
+	_PlayerTurnHints.emit_turn_ready_hints(mgr, actor, acts)
+	var hold_hint: String = str(
+		actor.get(CombatConstants.COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT, "")
+	).strip_edges()
+	if hold_hint.contains("Mop-up"):
+		_OperationalLog.play_combat("soak_setup ii_envelop_mopup hold_line_hint_ok")
+	# 3e strike-finish: CLOSE + listed melee → `engagement_debug` strikes_listed line for validator/F5.
+	var strike_actor: Dictionary = _player_at_rank_file(mgr, 0, 3)
+	if strike_actor.is_empty():
+		strike_actor = actor
+	var strike_id: int = _EntityAccess.id_int(strike_actor)
+	var dist_strike: Dictionary = _EntityAccess.nested_dictionary_for_mutation(strike_actor, "distance_to")
+	dist_strike[enemy_id] = CombatConstants.DISTANCE_CLOSE
+	var dist_enemy: Dictionary = _EntityAccess.nested_dictionary_for_mutation(enemy_left, "distance_to")
+	dist_enemy[strike_id] = CombatConstants.DISTANCE_CLOSE
+	strike_actor["gauge"] = 100.0
+	strike_actor["state"] = CombatConstants.STATE_WAITING
+	var strike_acts: Array = mgr.get_available_actions(strike_id)
+	var strike_choice: Dictionary = _first_hostile_melee_strike_action(strike_acts, strike_id)
+	if not strike_choice.is_empty():
+		_EngagementDiag.maybe_log_turn_pick(mgr, strike_id, strike_acts, strike_choice)
+		_OperationalLog.play_combat("soak_setup ii_envelop_mopup strike_finish_ok")
+	_F5SoakTrace.log_turn_ready_player_ui(mgr, actor, acts)
+	_free_manager(mgr)
+	CombatConstants.set_headless_harness_quiet(was_quiet)
+
+
+## III-6 maintain: deterministic rank-0 gap → rear **`swap_rank`** → `engagement_debug line_plug_pick=1`.
+static func _probe_ii_line_plug_engagement_debug(preset_id: String) -> void:
+	_OperationalLog.play_combat(
+		"soak_setup ii_line_plug rank-0 gap smoke (engagement_debug line_plug_pick)"
+	)
+	var was_quiet: bool = CombatConstants.is_headless_harness_quiet()
+	CombatConstants.set_headless_harness_quiet(false)
+	var player_form: Dictionary = {
+		"files": 5,
+		"ranks": 2,
+		"density": FormationPreset.DENSITY_NORMAL,
+	}
+	var enemy_form: Dictionary = {
+		"files": 5,
+		"ranks": 1,
+		"density": FormationPreset.DENSITY_NORMAL,
+	}
+	var mgr: Node = _start_manager(preset_id, 7, 5, player_form, enemy_form, false)
+	var hole: Dictionary = _player_at_rank_file(mgr, 0, 4)
+	var rear: Dictionary = _player_at_rank_file(mgr, 1, 0)
+	var front: Dictionary = _player_at_rank_file(mgr, 0, 0)
+	if hole.is_empty() or rear.is_empty() or front.is_empty():
+		_OperationalLog.play_combat("soak_setup ii_line_plug skip missing hole/rear/front fixtures")
+		_free_manager(mgr)
+		CombatConstants.set_headless_harness_quiet(was_quiet)
+		return
+	_soak_kill_combatant(mgr, _EntityAccess.id_int(hole))
+	if not _FormationFlow.formation_line_has_rank0_gap(mgr, "player"):
+		_OperationalLog.play_combat("soak_setup ii_line_plug skip no rank-0 gap after kill")
+		_free_manager(mgr)
+		CombatConstants.set_headless_harness_quiet(was_quiet)
+		return
+	if _AIActionPicker.is_relief_swap_tactically_allowed(rear, front):
+		_OperationalLog.play_combat("soak_setup ii_line_plug skip relief swap allowed (want line-plug path)")
+		_free_manager(mgr)
+		CombatConstants.set_headless_harness_quiet(was_quiet)
+		return
+	var rear_id: int = _EntityAccess.id_int(rear)
+	var front_id: int = _EntityAccess.id_int(front)
+	rear["gauge"] = 100.0
+	front["gauge"] = 100.0
+	rear["state"] = CombatConstants.STATE_WAITING
+	var acts: Array = mgr.get_available_actions(rear_id)
+	var choice: Dictionary = {}
+	for raw in acts:
+		if raw is not Dictionary:
+			continue
+		var a: Dictionary = raw as Dictionary
+		if (
+			str(a.get("move_id", "")) == CombatConstants.MOVE_ID_SWAP_RANK
+			and int(a.get("target_id", -1)) == front_id
+		):
+			choice = a.duplicate()
+			break
+	if choice.is_empty():
+		_OperationalLog.play_combat("soak_setup ii_line_plug skip swap_rank not listed vs front partner")
+		_free_manager(mgr)
+		CombatConstants.set_headless_harness_quiet(was_quiet)
+		return
+	_EngagementDiag.maybe_log_turn_pick(mgr, rear_id, acts, choice)
+	_PlayerTurnHints.emit_turn_ready_hints(mgr, rear, acts)
+	_F5SoakTrace.log_turn_ready_player_ui(mgr, rear, acts)
+	_OperationalLog.play_combat("soak_setup ii_line_plug engagement_debug_ok")
+	_free_manager(mgr)
+	CombatConstants.set_headless_harness_quiet(was_quiet)
+
+
+## III-6 maintain: Skirmish rank-0 hole → front **`rotate_file`** → `engagement_debug line_plug_pick=1`.
+static func _probe_ii_skirmish_rotate_line_plug_engagement_debug(preset_id: String) -> void:
+	_OperationalLog.play_combat(
+		"soak_setup ii_skirmish_rotate rank-0 gap smoke (engagement_debug line_plug_pick rotate)"
+	)
+	var was_quiet: bool = CombatConstants.is_headless_harness_quiet()
+	CombatConstants.set_headless_harness_quiet(false)
+	var player_form: Dictionary = {
+		"files": 5,
+		"ranks": 1,
+		"density": FormationPreset.DENSITY_NORMAL,
+	}
+	var enemy_form: Dictionary = {
+		"files": 3,
+		"ranks": 1,
+		"density": FormationPreset.DENSITY_NORMAL,
+	}
+	var mgr: Node = _start_manager(preset_id, 7, 3, player_form, enemy_form, false)
+	if str(_EngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+		_OperationalLog.play_combat("soak_setup ii_skirmish_rotate skip not skirmish mode")
+		_free_manager(mgr)
+		CombatConstants.set_headless_harness_quiet(was_quiet)
+		return
+	var hole: Dictionary = _player_at_rank_file(mgr, 0, 4)
+	var rot_src: Dictionary = _player_at_rank_file(mgr, 0, 0)
+	var rot_tgt: Dictionary = _player_at_rank_file(mgr, 0, 1)
+	if hole.is_empty() or rot_src.is_empty() or rot_tgt.is_empty():
+		_OperationalLog.play_combat("soak_setup ii_skirmish_rotate skip missing hole/rotate fixtures")
+		_free_manager(mgr)
+		CombatConstants.set_headless_harness_quiet(was_quiet)
+		return
+	_soak_kill_combatant(mgr, _EntityAccess.id_int(hole))
+	if not _FormationFlow.formation_has_rank0_hole(mgr, "player"):
+		_OperationalLog.play_combat("soak_setup ii_skirmish_rotate skip no rank-0 hole after kill")
+		_free_manager(mgr)
+		CombatConstants.set_headless_harness_quiet(was_quiet)
+		return
+	var rot_id: int = _EntityAccess.id_int(rot_src)
+	var tgt_id: int = _EntityAccess.id_int(rot_tgt)
+	rot_src["gauge"] = 100.0
+	rot_tgt["gauge"] = 100.0
+	rot_src["state"] = CombatConstants.STATE_WAITING
+	var acts: Array = mgr.get_available_actions(rot_id)
+	var choice: Dictionary = {}
+	for raw in acts:
+		if raw is not Dictionary:
+			continue
+		var a: Dictionary = raw as Dictionary
+		if (
+			str(a.get("move_id", "")) == CombatConstants.MOVE_ID_ROTATE_FILE
+			and int(a.get("target_id", -1)) == tgt_id
+		):
+			choice = a.duplicate()
+			break
+	if choice.is_empty():
+		_OperationalLog.play_combat("soak_setup ii_skirmish_rotate skip rotate_file not listed vs adjacent file")
+		_free_manager(mgr)
+		CombatConstants.set_headless_harness_quiet(was_quiet)
+		return
+	_EngagementDiag.maybe_log_turn_pick(mgr, rot_id, acts, choice)
+	_PlayerTurnHints.emit_turn_ready_hints(mgr, rot_src, acts)
+	_F5SoakTrace.log_turn_ready_player_ui(mgr, rot_src, acts)
+	_OperationalLog.play_combat("soak_setup ii_skirmish_rotate engagement_debug_ok")
+	_free_manager(mgr)
+	CombatConstants.set_headless_harness_quiet(was_quiet)
+
+
+static func _soak_kill_combatant(mgr: Node, combatant_id: int) -> void:
+	if mgr == null:
+		return
+	var c: Variant = mgr._get_by_id(combatant_id)
+	if c == null or typeof(c) != TYPE_DICTIONARY:
+		return
+	if not _EntityAccess.alive_bool(c):
+		return
+	c["alive"] = false
+	mgr._on_combatant_died(c)
 
 
 static func _probe_formation_turn_hints(mgr: Node) -> Dictionary:
@@ -821,10 +1168,19 @@ static func _probe_formation_turn_hints(mgr: Node) -> Dictionary:
 			"soak_setup ii8 formation_stamp=%s snapshot_label=%s"
 			% [stamp, snap_label]
 		)
+	var diagram_cell: String = _Diagram._cell_label_with_footwork("P0", [leader])
+	var turn_ready_form_ok: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		var s: String = str(line)
+		if "turn_ready_gauge" in s and " · Form" in s:
+			turn_ready_form_ok = true
+			break
 	return {
 		"formation_stamp": stamp,
 		"snapshot_gauge_begins_stm": snap_stm,
 		"snapshot_label": snap_label,
+		"diagram_cell_label": diagram_cell,
+		"turn_ready_form_suffix": turn_ready_form_ok,
 		"ui_hint_formation": ui_n,
 	}
 
@@ -868,12 +1224,51 @@ static func _merge_probe_ii8_checks(pr: Dictionary, probe: Dictionary) -> Dictio
 		"min": 1,
 		"optional": true,
 	}
+	var snap_label: String = str(probe.get("snapshot_label", ""))
+	var diagram_cell: String = str(probe.get("diagram_cell_label", ""))
+	var form_gauge_ok: bool = " · Form" in snap_label
+	var form_diagram_ok: bool = " [Ox]" in diagram_cell
+	var suffix_order_ok: bool = (
+		form_gauge_ok and _label_tokens_in_order(snap_label, PackedStringArray(["Grd", " · Form"]))
+	)
+	var turn_ready_form_ok: bool = bool(probe.get("turn_ready_form_suffix", false))
+	check_out["form_gauge_suffix"] = {
+		"pass": form_gauge_ok,
+		"count": 1 if form_gauge_ok else 0,
+		"min": 1,
+	}
+	check_out["form_diagram_suffix"] = {
+		"pass": form_diagram_ok,
+		"count": 1 if form_diagram_ok else 0,
+		"min": 1,
+	}
+	check_out["gauge_suffix_order"] = {
+		"pass": suffix_order_ok,
+		"count": 1 if suffix_order_ok else 0,
+		"min": 1,
+	}
+	check_out["turn_ready_form_suffix"] = {
+		"pass": turn_ready_form_ok,
+		"count": 1 if turn_ready_form_ok else 0,
+		"min": 1,
+	}
+	if not form_gauge_ok:
+		required_fail.append("form_gauge_suffix missing · Form in snapshot_label")
+	if not form_diagram_ok:
+		required_fail.append("form_diagram_suffix missing [Ox] in diagram cell")
+	if not suffix_order_ok:
+		required_fail.append("gauge_suffix_order Grd before · Form")
+	if not turn_ready_form_ok:
+		required_fail.append("turn_ready_form_suffix missing · Form in turn_ready_gauge")
+	ok = ok and form_gauge_ok and form_diagram_ok and suffix_order_ok and turn_ready_form_ok
+	summary = "ok" if ok else ", ".join(required_fail)
 	return {
 		"ok": ok,
 		"summary": summary,
 		"checks": check_out,
 		"notes": pr.get("notes", ""),
-		"snapshot_label": str(probe.get("snapshot_label", "")),
+		"snapshot_label": snap_label,
+		"diagram_cell_label": diagram_cell,
 		"diagram_banner": banner,
 	}
 
@@ -1172,7 +1567,6 @@ static func _encounter_dict_for_preset(preset_id: String) -> Dictionary:
 	if preset_id == _SoakPresets.PRESET_II_ENVELOP:
 		enc[SoakEncounterPresets.ENCOUNTER_KEY_FORCE_WEAPON_ID] = "SWORD"
 		enc[CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT] = 7
-		enc[CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER] = CombatConstants.DOCTRINE_PINCH_CENTER
 		enc[CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY] = CombatConstants.DOCTRINE_PINCH_CENTER
 	return enc
 
@@ -1378,8 +1772,8 @@ static func _ensure_ii5_cowering_fall_back_executed(mgr: Node, combatant_id: int
 		mgr._process(TICK_DT)
 		if _count_needle(_OperationalLog.get_captured_lines(), "cowering_fall_back executed") >= 1:
 			return
-	var c: Dictionary = _EntityAccess.manager_get_combatant(mgr, combatant_id)
-	if c.is_empty():
+	var c: Variant = mgr._get_by_id(combatant_id)
+	if c is not Dictionary:
 		return
 	var cd: Dictionary = c as Dictionary
 	cd.state = CombatConstants.STATE_FALLING_BACK
@@ -1413,13 +1807,12 @@ static func _try_force_fall_back(mgr: Node, combatant_id: int, actions: Array) -
 
 
 static func _soak_kill(mgr: Node, combatant_id: int) -> void:
-	var c: Dictionary = _EntityAccess.manager_get_combatant(mgr, combatant_id)
-	if c.is_empty():
-		return
-	c["hp"] = 0.0
-	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
-	if ent != null:
-		ent.blood_volume = 0.0
+	var c: Variant = mgr._get_by_id(combatant_id)
+	if c is Dictionary:
+		c["hp"] = 0.0
+		var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+		if ent != null:
+			ent.blood_volume = 0.0
 
 
 static func _first_alive_player_front_rank(mgr: Node) -> Dictionary:
@@ -1445,6 +1838,29 @@ static func _player_at_rank_file(mgr: Node, rank: int, file: int) -> Dictionary:
 	return {}
 
 
+static func _first_hostile_melee_strike_action(actions: Array, self_id: int) -> Dictionary:
+	for raw in actions:
+		if raw is not Dictionary:
+			continue
+		var a: Dictionary = raw as Dictionary
+		var mid: String = str(a.get("move_id", ""))
+		if mid.is_empty() or mid == CombatConstants.MOVE_ID_WAIT:
+			continue
+		if CombatConstants.is_focus_line_move(mid):
+			continue
+		if CombatConstants.is_medical_move(mid):
+			continue
+		if CombatConstants.is_formation_movement_move(mid):
+			continue
+		if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+			continue
+		var tid: int = int(a.get("target_id", -1))
+		if tid < 0 or tid == self_id:
+			continue
+		return a.duplicate()
+	return {}
+
+
 static func _formation_7v7() -> Dictionary:
 	return {"files": 5, "ranks": 2, "density": FormationPreset.DENSITY_NORMAL}
 
@@ -1462,16 +1878,24 @@ static func _enemy_4_wide() -> Dictionary:
 
 
 static func _new_entity(weapon_id: String) -> CoreEntity:
-	return CombatRegressionHarness._new_entity(weapon_id)
+	var e := CoreEntity.new()
+	e.apply_species()
+	e.dominant_hand = "right_arm"
+	e.offhand_functionality = 1.0
+	var w: Weapon = _Weapon.create_from_definition(weapon_id)
+	if w != null:
+		e.equip_weapon(w)
+	return e
 
 
 static func _destroy_limb(entity: CoreEntity, part: String) -> void:
-	CombatRegressionHarness._harness_destroy_limb(entity, part)
+	if entity == null or part.is_empty():
+		return
+	entity.body_cutting[part] = 0.0
+	entity.body_blunt[part] = 0.0
+	if entity.bone_health.has(part):
+		entity.bone_health[part] = 0.0
 
 
 static func _free_manager(mgr: Node) -> void:
-	if mgr == null:
-		return
-	if mgr.is_inside_tree():
-		mgr.get_parent().remove_child(mgr)
-	mgr.queue_free()
+	CombatRegressionHarness._free_manager(mgr)

@@ -2,8 +2,8 @@ class_name CombatFormationFlee
 extends RefCounted
 
 ## Tier 6.2: abandon the engagement (leave the field) vs tactical **`fall_back`** within formation.
-## **Read order:** `flee_action_legal` → `apply_flee` → absent-state cleanup.
-## Rout policy: **`CombatFormationRout.abandonment_warranted`**; listing gate: **`CombatantEntityAccess.flee_abandonment_warranted`**.
+## Footing: **`clear_on_exchange_end`** + idle scrub on **`STATE_FLED`** — LIVE_PATHS **`#wf-tier-44-pa`**.
+## Rout policy: **`CombatFormationRout`** (`line_cohesion` + side casualty ratio); listing via **`flee_abandonment_warranted`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
@@ -13,8 +13,10 @@ const _FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
+const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 
 static func flee_action_legal(manager: Node, c: Dictionary) -> bool:
@@ -68,9 +70,10 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 	var st: String = _EntityAccess.state_str(c)
 	if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
 		var pid: int = int(c.get("formation_move_partner_id", -1))
-		var partner: Dictionary = _EntityAccess.manager_get_combatant(manager, pid)
+		var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, pid)
 		_FormationFlow.abort_pair(manager, c, partner, "flee")
 	_EventScheduler.cancel_pending_combat_events_for_combatant(manager, combatant_id)
+	_Footwork.clear_on_exchange_end(c)
 	var fid: String = _EntityAccess.formation_id_str(c)
 	if not fid.is_empty():
 		var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
@@ -78,11 +81,13 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 			var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 			_FormationSlots.remove_combatant_from_slots(slots, combatant_id)
 	c["combat_absent"] = true
-	c["state"] = CombatConstants.STATE_FLED
-	c["state_timer"] = 0.0
-	c["state_duration"] = 0.0
-	c["gauge"] = 0.0
+	c.state = CombatConstants.STATE_FLED
+	_Footwork.reconcile_idle_offset(c)
+	c.state_timer = 0.0
+	c.state_duration = 0.0
+	c.gauge = 0.0
 	c.erase("formation_move_partner_id")
+	_Doctrine.clear_combatant_doctrine_commitment(c)
 	var ctx: Dictionary = _FormationRout.rout_context_snapshot(manager, c)
 	if CombatDebug.flow_verbose_enabled():
 		CombatDebug.flow_log(

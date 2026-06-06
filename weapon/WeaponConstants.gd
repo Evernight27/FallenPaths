@@ -1,6 +1,8 @@
 class_name WeaponConstants
 extends RefCounted
 
+## Per-weapon move defs + Expand WF spawn keys: **`default_form`** / **`allowed_forms[]`** feed **`CombatWeaponForm.seed_combatant_form`** (resolution step 4). LIVE_PATHS **`#spawn--reset-path-wf-1a`** · **`#wf-assign-form-contract`**.
+
 const _Combat := preload("res://combat/CombatConstants.gd")
 # Damage types (canonical in CombatConstants)
 const DAMAGE_TYPE_SHARP: String = _Combat.DAMAGE_TYPE_SHARP
@@ -174,6 +176,8 @@ static func _weapon_definitions_build() -> Dictionary:
 		# Longsword / arming sword: thrust, cuts, pommel, parry-counters (German tradition).
 		"SWORD": {
 			"name": "Sword",
+			"default_form": "ox",
+			"allowed_forms": ["ox", "plow", "wrath", "fool", "wall", "tempest", "balanced"],
 			"mass": 1.2,
 			"parry_speed_factor": 1.0,
 			"blade_width": 2.0,
@@ -214,6 +218,8 @@ static func _weapon_definitions_build() -> Dictionary:
 		# Battle axe: spike, chops, poll, parry-counter (Le Jeu de la Hache style).
 		"AXE": {
 			"name": "Axe",
+			"default_form": "wrath",
+			"allowed_forms": ["wrath", "tempest", "wall", "balanced"],
 			"mass": 1.5,
 			"parry_speed_factor": 0.95,
 			"bind_riposte_contact_types": ["cut", "stab"],
@@ -252,6 +258,8 @@ static func _weapon_definitions_build() -> Dictionary:
 		# Mace: overhead, side, direct, parry-counter (blunt only).
 		"MACE": {
 			"name": "Mace",
+			"default_form": "wrath",
+			"allowed_forms": ["wrath", "wall", "balanced"],
 			"mass": 1.7,
 			"parry_speed_factor": 0.9,
 			"blade_width": 0.0,
@@ -286,6 +294,8 @@ static func _weapon_definitions_build() -> Dictionary:
 		# Dagger / rondel: thrusts, slash, pommel, parry-counter (Fiore, Talhoffer).
 		"DAGGER": {
 			"name": "Dagger",
+			"default_form": "fool",
+			"allowed_forms": ["fool", "wall", "balanced"],
 			"mass": 0.3,
 			"parry_speed_factor": 1.2,
 			"blade_width": 1.5,
@@ -322,6 +332,8 @@ static func _weapon_definitions_build() -> Dictionary:
 		# Spear (Fiore): thrusts, slash, pole swing (shaft), parry-counter.
 		"SPEAR": {
 			"name": "Spear",
+			"default_form": "plow",
+			"allowed_forms": ["plow", "wrath", "wall", "balanced"],
 			"mass": 1.8,
 			"parry_speed_factor": 1.0,
 			"blade_width": 2.5,
@@ -449,3 +461,38 @@ static func _archetype_definitions_build() -> Dictionary:
 			"kinematic_delivery": KINEMATIC_DELIVERY_SWING
 		}
 	}
+
+
+static func _weapon_template_id(weapon: Variant) -> String:
+	if weapon == null:
+		return ""
+	if weapon is Object:
+		var wt: Variant = weapon.get("weapon_type")
+		if wt != null:
+			return str(wt).strip_edges().to_upper()
+	return ""
+
+
+## Expand WF: default form id for equipped weapon ( **`balanced`** when unarmed).
+static func default_form_for_weapon(weapon: Variant) -> String:
+	var wt: String = _weapon_template_id(weapon)
+	if wt.is_empty():
+		return "balanced"
+	var def: Dictionary = get_weapon_definition(wt)
+	if def.is_empty():
+		return "balanced"
+	return str(def.get("default_form", "balanced")).strip_edges().to_lower()
+
+
+## Expand WF: allowed form ids for weapon template; empty → no clamp.
+static func allowed_forms_for_weapon(weapon: Variant) -> Array:
+	var wt: String = _weapon_template_id(weapon)
+	if wt.is_empty():
+		return ["balanced", "wall"]
+	var def: Dictionary = get_weapon_definition(wt)
+	if def.is_empty():
+		return ["balanced"]
+	var raw: Variant = def.get("allowed_forms", [])
+	if raw is Array:
+		return raw
+	return ["balanced"]

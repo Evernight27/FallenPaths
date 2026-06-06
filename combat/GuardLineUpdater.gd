@@ -4,12 +4,15 @@ extends RefCounted
 ## Updates combatant guard_line based on weapon use. Physics: blade ends where action ends.
 ## Outcome-dependent: parried blade ends deflected; hit blade ends in attack line; etc.
 ## Call whenever a weapon is used (attack completes, parry deflects, parry partial, etc).
+## Form home guard: **`CombatWeaponForm.assign_form`** → **`set_guard_from_line(home)`** only at spawn/switch — see LIVE_PATHS **`#wf-assign-form-contract`**.
+## Mid-fight drift (focus, hit stagger, deflect, move finish) overrides soft home — Tier 4.4 parry step reads live **`guard_line`**, not form catalog — **`#wf-guard-writers`** · **`#wf-tier-44-pa`** (geometry).
 
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 ## Sets combatant guard_line to deflected position (blade was knocked aside by parry).
+## L3 drift writer — LIVE_PATHS **`#wf-guard-writers`**. Does not stamp PA (defender step is **`choose_defense`**).
 ## Angle-based: bilateral deflection — blade deflects "away from" defender's blade.
 ## Bind: parry_control high → blade stays; else magnitude from alignment/severity.
 ## effective_line_override: use when available (e.g. diagonal roll); else from move.
@@ -79,6 +82,7 @@ static func set_guard_deflected(c: Dictionary, move_id: String, effective_line_o
 		_CombatDebug.log("guard_line %s: %s -> %s (%s from %s def_guard=%s blend=%.2f)%s" % [name_s, prev, line, kind, atk_line, def_guard, blend, angle_info])
 
 ## Sets combatant guard_line from move_id. Uses attack_line from move definition.
+## L3 drift writer — LIVE_PATHS **`#wf-guard-writers`**. Attacker wind-up path; not WF L2 **`assign_form`**.
 ## effective_line_override: use when available (e.g. diagonal roll); else from move.
 static func set_guard_from_move(c: Dictionary, move_id: String, effective_line_override: String = "") -> void:
 	var line: String = effective_line_override
@@ -97,6 +101,7 @@ static func set_guard_from_move(c: Dictionary, move_id: String, effective_line_o
 			_CombatDebug.log("guard_line %s: %s -> %s (move=%s)" % [name_s, prev, line, move_id])
 
 ## Sets combatant guard_line directly from line (e.g. when we have effective_attack_line from diagonal roll).
+## L3 writer — home guard uses same path from **`assign_form`**. Catalog: LIVE_PATHS **`#wf-guard-writers`**.
 static func set_guard_from_line(c: Dictionary, line: String) -> void:
 	if line.is_empty():
 		return

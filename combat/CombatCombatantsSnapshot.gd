@@ -2,6 +2,7 @@ class_name CombatCombatantsSnapshot
 extends RefCounted
 
 ## UI-facing combatant rows: fresh stats from entities, debug fields, status_override for cooldowns / next turn.
+## Footing exports: **`position_angle_offset_deg`** when PA flag on — display via **`CombatUiHints`** / **`#battle-ui`**. Does not stamp or clear offset. LIVE_PATHS **`#wf-tier-44-pa`** (UI phase).
 
 const _StatsSync := preload("res://combat/CombatantStatsSync.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
@@ -33,8 +34,10 @@ static func _copy_live_ui_fields(item: Dictionary, c: Dictionary) -> void:
 	var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
 	if not pa.is_empty():
 		item["pending_attack"] = pa.duplicate(true)
-	if _Footwork.enabled() and c.has("position_angle_offset_deg"):
-		item["position_angle_offset_deg"] = c["position_angle_offset_deg"]
+	if _Footwork.enabled() and _Footwork.offset_visible_for_ui_state(c):
+		var off_deg: float = _Footwork.get_defender_offset_deg(c)
+		if absf(off_deg) >= 0.01:
+			item["position_angle_offset_deg"] = off_deg
 	if _FlurryBind.enabled():
 		for key in [_FlurryBind.KEY_UNTIL, _FlurryBind.KEY_AGAINST, _FlurryBind.KEY_EXCHANGES]:
 			if c.has(key):
@@ -112,7 +115,11 @@ static func build(manager: Node) -> Array:
 		_UiHints.stamp_snapshot_hint_fields(item, c, manager)
 		_copy_live_ui_fields(item, c)
 		if CombatConstants.combat_debug_active():
-			item["guard_angle_deg"] = CombatConstants.get_guard_angle_deg(c)
+			item["guard_angle_deg"] = (
+				_Footwork.guard_angle_deg(c, {})
+				if _Footwork.enabled()
+				else CombatConstants.get_guard_angle_deg(c)
+			)
 		if _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
 			var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
 			if bool(pa.get(CombatConstants.PA_KEY_COUNTER_TEMPO, false)):

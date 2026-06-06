@@ -38,7 +38,7 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 			zone_ctx_by_id.get(cid, {}) as Dictionary
 		)
 		for opp in manager.combatants:
-			if not _EntityAccess.is_alive_opponent_of(c, opp):
+			if not _EntityAccess.is_living_hostile_to(c, opp):
 				continue
 			var oid: int = _EntityAccess.id_int(opp)
 			var opp_rank: int = _EntityAccess.rank_int(opp)
@@ -76,8 +76,26 @@ static func update_distance_to_from_formations(manager: Node) -> void:
 	for c in manager.combatants:
 		var cid2: int = _EntityAccess.id_int(c)
 		for opp in manager.combatants:
-			if not _EntityAccess.is_alive_opponent_of(c, opp):
+			if not _EntityAccess.is_living_hostile_to(c, opp):
 				continue
 			var oid2: int = _EntityAccess.id_int(opp)
 			if _EntityAccess.nested_dictionary_for_mutation(c, "distance_to").get(oid2, "") == CombatConstants.DISTANCE_CLOSE:
 				_EntityAccess.sync_close_distance_pair(c, opp, cid2, oid2)
+	purge_stale_distance_to_entries(manager)
+
+
+## Drop **`distance_to`** keys for fled / incapacitated / off-field opponents (post-flee mop-up hygiene).
+static func purge_stale_distance_to_entries(manager: Node) -> void:
+	if manager == null:
+		return
+	for c in manager.combatants:
+		if not _EntityAccess.alive_bool(c):
+			continue
+		var d_to: Dictionary = _EntityAccess.nested_dictionary_for_mutation(c, "distance_to")
+		var stale: Array = []
+		for oid in d_to.keys():
+			var opp: Dictionary = _EntityAccess.manager_get_combatant(manager, int(oid))
+			if opp.is_empty() or not _EntityAccess.is_living_hostile_to(c, opp):
+				stale.append(oid)
+		for oid in stale:
+			d_to.erase(oid)

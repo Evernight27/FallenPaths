@@ -1,6 +1,9 @@
 class_name AttackResolver
 extends RefCounted
 
+## Strike resolve pipeline: path, alignment, **`DefenseChoiceResolver.choose_defense`**, damage apply dispatch.
+## Footing: PA stamp at resolve if **`effective_attack_line`** differs from wind-up (diagonal **C** roll); exchange end **`clear_on_exchange_end`** both sides. LIVE_PATHS **`#wf-tier-44-pa`**.
+
 const _PassiveParry := preload("res://combat/PassiveParryContext.gd")
 const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
 const _DefenseResolution := preload("res://combat/DefenseResolutionHandler.gd")
@@ -15,21 +18,17 @@ const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
+const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _IncomingParryChoice := preload("res://combat/CombatIncomingParryChoice.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
-const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _LogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 const _HitSubRegion := preload("res://combat/CombatHitSubRegion.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
-
-## Full attack resolution: miss, dodge, parry (deflect/partial), or hit.
-## **Read order:** `resolve_attack` → **`DefenseChoiceResolver.choose_defense`** → **`DefenseResolutionHandler`** → damage apply.
-## Canonical strike-time defense: **`DefenseChoiceResolver.choose_defense`** (not turn pick).
 
 static func _debug(msg: String) -> void:
 	if CombatConstants.combat_debug_active():
@@ -177,7 +176,7 @@ static func compute_and_apply_damage(
 		_debug("dmg %s->%s unarmed pre_armor=%.1f" % [atk_name, tgt_name, pre_armor])
 
 	# Stance modifier (defensive ×0.85, aggressive ×1.2, etc.) — commitment, not raw speed.
-	var stance_dmg_mult: float = CombatConstants.get_stance_modifier(_EntityAccess.stance_str(atk), "damage")
+	var stance_dmg_mult: float = _WeaponForm.mod(_EntityAccess.form_str(atk), "damage")
 	pre_cut *= stance_dmg_mult
 	pre_blunt *= stance_dmg_mult
 	pre_armor = pre_cut + pre_blunt
@@ -322,6 +321,7 @@ static func compute_and_apply_damage(
 
 	if _EntityAccess.is_dead(tgt):
 		tgt.alive = false
+		_Footwork.clear_on_death(tgt)
 		tgt.state = CombatConstants.STATE_DEAD
 		_StateHandlers.cancel_events_for_dead_combatant(manager, tgt)
 		result_dict["died"] = true
@@ -339,7 +339,7 @@ static func compute_and_apply_damage(
 	}
 
 ## Full attack resolution: miss, dodge, parry (deflect/partial), or hit.
-## Manager must have: **`CombatantEntityAccess.manager_get_combatant`**, `STATE_*`; timing uses CombatTiming.
+## Manager must have: _get_by_id, STATE_*; timing uses CombatTiming.
 ## _get_passive_parry_readiness, _is_off_balance, MISS_CHANCE_BASE, HIT_CHANCE_*, COMMITMENT_FRACTION, PARRY_*, etc.
 ## Returns { "action": String, "target_id": int, "result_dict": {}, "recovery_duration": float, "outcome": String }.
 ## Weighted roll for diagonal C: pick attack_line from weights dict (line -> weight).
@@ -409,10 +409,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var atk_perf_mod: float = _EntityAccess.get_performance_modifier(atk)
 	if _EntityAccess.get_attacking_arm(atk).is_empty():
 		var rec_dur_skip: float = CombatTiming.recovery_duration(intensity, "hit", recovery_mult, atk_perf_mod, _EntityAccess.stats_dict(atk).get("agility", 100))
-		_CombatDebug.combat_session(
-			"%s has no functional arm; skips attack. intensity=%.2f => recovery=%.2fs"
-			% [atk_name, intensity, rec_dur_skip]
-		)
+		print("[Combat] %s has no functional arm; skips attack. intensity=%.2f => recovery=%.2fs" % [atk_name, intensity, rec_dur_skip])
 		return { "action": "skip", "target_id": target_id, "recovery_duration": rec_dur_skip }
 
 	var targetable: Array = _EntityAccess.get_targetable_parts(tgt)
@@ -550,7 +547,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		# Path + guard intercept; defender_ctx and intended_part refine hit distribution. Angle-based trajectory.
 		var defender_ctx: Dictionary = {
 			"state": _EntityAccess.state_str(tgt),
-			"recovery_cause": tgt.get("recovery_cause", ""),
+			"recovery_cause": CombatConstants.normalize_recovery_cause(str(tgt.get("recovery_cause", ""))),
 			"passive_parry_attempted": pa.get("passive_parry_attempted", false)
 		}
 		var intended_part: String = pa.get("target_part", "")

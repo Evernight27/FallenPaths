@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Severance ease and full damage-split application. Entity must have: body_*, bone_*, wounds, endurance,
 ## get_armor_for_part(part), _round_tissue(v), _get_vital_parts(), _is_part_severed(part), _get_pain_contribution_for_wound(...),
-## _last_hit_impact, _try_enter_pain_shock_from_hit(pain), _update_consciousness(), emit_signal("died").
+## _last_hit_impact, _try_enter_pain_shock_from_hit(pain), _update_consciousness(), EntityWounds.emit_death_once.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
@@ -353,10 +353,7 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 		_EntityWounds.ensure_stump_wound(entity, part, sub_region)
 	var vital: Array = entity._get_vital_parts()
 	if part in vital and (entity.body_cutting.get(part, 0.0) <= 0.0 or entity.body_blunt.get(part, 0.0) <= 0.0):
-		if entity.has_method("notify_died"):
-			entity.notify_died()
-		else:
-			entity.emit_signal("died")
+		_EntityWounds.emit_death_once(entity)
 	var pain_from_this_hit_raw: float = 0.0
 	if entity._is_part_severed(part):
 		var stump_damage: float = float(entity.body_max.get(part, 10))

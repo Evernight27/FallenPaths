@@ -2,10 +2,13 @@ class_name CombatAttention
 extends RefCounted
 
 ## Tier 4.3: salience probes, attention load, combat focus (**`focus_part`**, **`focus_intensity`**), and per-attacker yomi memory.
+## Footing: appends focus **listing** only — L3 **`guard_line`** write on focus resolve is **`CombatResolveAction`**. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-guard-writers`**.
 ## **Read order:** enable/clear → salience refresh → focus line listing append → yomi read/write helpers.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 
 
 static func _counter_tempo() -> GDScript:
@@ -23,6 +26,7 @@ static func clear_focus_and_yomi(c: Dictionary) -> void:
 	c.erase(CombatConstants.COMBATANT_KEY_FOCUS_INTENSITY)
 	c.erase(CombatConstants.COMBATANT_KEY_ATTENTION_LOAD)
 	c.erase(CombatConstants.COMBATANT_KEY_YOMI_BY_ATTACKER)
+	c.erase(CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID)
 	c.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)
 	c.erase(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER)
 
@@ -152,6 +156,7 @@ static func refresh_for_waiting_tick(manager: Node, c: Dictionary) -> void:
 		return
 	refresh_salience(manager, cid)
 	apply_yomi_focus_drift(manager, c)
+	_WeaponForm.refresh_inferred_forms_for_observer(manager, c)
 	var hint: String = format_attention_ui_hint(c)
 	if hint.is_empty():
 		c.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)
@@ -188,7 +193,7 @@ static func ally_in_immediate_peril(manager: Node, combatant_id: int) -> bool:
 			continue
 		if not _EntityAccess.is_living_same_side(self_c, o):
 			continue
-		if _EntityAccess.is_in_immediate_peril(manager, o):
+		if _MedicalPhase.is_in_immediate_peril(manager, o):
 			return true
 	return false
 
@@ -219,23 +224,94 @@ static func _yomi_root(defender: Dictionary) -> Dictionary:
 	return {}
 
 
+static func _empty_yomi_entry() -> Dictionary:
+	return {
+		"line_counts": {},
+		"move_id_counts": {},
+		"contact_type_counts": {},
+		"parry_deflect": 0,
+		"feint_resolved": 0,
+	}
+
+
+static func _yomi_entry(defender: Dictionary, attacker_id: int) -> Dictionary:
+	var root: Dictionary = _yomi_root(defender)
+	var key: String = str(attacker_id)
+	var entry: Variant = root.get(key, null)
+	if entry is Dictionary and not (entry as Dictionary).is_empty():
+		return entry as Dictionary
+	return _empty_yomi_entry()
+
+
+static func yomi_entry_for_attacker(defender: Dictionary, attacker_id: int) -> Dictionary:
+	if defender == null or attacker_id < 0:
+		return {}
+	var root: Dictionary = _yomi_root(defender)
+	var entry: Variant = root.get(str(attacker_id), null)
+	if entry is Dictionary:
+		return (entry as Dictionary).duplicate(true)
+	return {}
+
+
+static func yomi_observation_total(entry: Dictionary) -> int:
+	if entry.is_empty():
+		return 0
+	var total: int = 0
+	for raw in (entry.get("line_counts", {}) as Dictionary).values():
+		total += int(raw)
+	for raw in (entry.get("move_id_counts", {}) as Dictionary).values():
+		total += int(raw)
+	total += int(entry.get("feint_resolved", 0))
+	return total
+
+
 static func record_attack_toward_defender(
-	_manager: Node, attacker_id: int, defender: Dictionary, target_part: String
+	_manager: Node,
+	attacker_id: int,
+	defender: Dictionary,
+	target_part: String,
+	move_id: String = ""
 ) -> void:
 	if not enabled() or defender == null or attacker_id < 0:
 		return
 	var part: String = str(target_part).strip_edges()
-	if part.is_empty():
+	var mid: String = str(move_id).strip_edges()
+	if part.is_empty() and mid.is_empty():
 		return
-	var line: String = CombatConstants.PART_TO_LINE.get(part, "high")
 	var root: Dictionary = _yomi_root(defender)
 	var key: String = str(attacker_id)
-	var entry: Dictionary = root.get(key, {}) as Dictionary
-	if entry.is_empty():
-		entry = {"line_counts": {}, "parry_deflect": 0}
-	var counts: Dictionary = entry.get("line_counts", {}) as Dictionary
-	counts[line] = int(counts.get(line, 0)) + 1
-	entry["line_counts"] = counts
+	var entry: Dictionary = _yomi_entry(defender, attacker_id)
+	if not part.is_empty():
+		var line: String = CombatConstants.PART_TO_LINE.get(part, "high")
+		var counts: Dictionary = entry.get("line_counts", {}) as Dictionary
+		counts[line] = int(counts.get(line, 0)) + 1
+		entry["line_counts"] = counts
+	if not mid.is_empty():
+		var move_counts: Dictionary = entry.get("move_id_counts", {}) as Dictionary
+		move_counts[mid] = int(move_counts.get(mid, 0)) + 1
+		entry["move_id_counts"] = move_counts
+		var ct: String = _WeaponConstants.contact_type_for_move_id(mid)
+		var ct_counts: Dictionary = entry.get("contact_type_counts", {}) as Dictionary
+		ct_counts[ct] = int(ct_counts.get(ct, 0)) + 1
+		entry["contact_type_counts"] = ct_counts
+	root[key] = entry
+	defender[CombatConstants.COMBATANT_KEY_YOMI_BY_ATTACKER] = root
+
+
+## WF-2a: resolved strike move id only (line habit recorded separately at wind-up).
+static func record_resolved_strike_toward_defender(
+	defender: Dictionary, attacker_id: int, move_id: String
+) -> void:
+	record_attack_toward_defender(null, attacker_id, defender, "", move_id)
+
+
+static func record_feint_resolved_toward_defender(defender: Dictionary, attacker_id: int) -> void:
+	if not enabled() or defender == null or attacker_id < 0:
+		return
+	var root: Dictionary = _yomi_root(defender)
+	var key: String = str(attacker_id)
+	var entry: Dictionary = _yomi_entry(defender, attacker_id)
+	entry["feint_resolved"] = int(entry.get("feint_resolved", 0)) + 1
 	root[key] = entry
 	defender[CombatConstants.COMBATANT_KEY_YOMI_BY_ATTACKER] = root
 
@@ -245,9 +321,7 @@ static func record_parry_deflect_on_attacker_memory(defender: Dictionary, attack
 		return
 	var root: Dictionary = _yomi_root(defender)
 	var key: String = str(attacker_id)
-	var entry: Dictionary = root.get(key, {}) as Dictionary
-	if entry.is_empty():
-		entry = {"line_counts": {}, "parry_deflect": 0}
+	var entry: Dictionary = _yomi_entry(defender, attacker_id)
 	entry["parry_deflect"] = int(entry.get("parry_deflect", 0)) + 1
 	root[key] = entry
 	defender[CombatConstants.COMBATANT_KEY_YOMI_BY_ATTACKER] = root

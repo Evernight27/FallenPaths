@@ -2,7 +2,7 @@ class_name CombatF5SoakLogValidator
 extends RefCounted
 
 ## Parses pasted **F5 Output** (or **`.f5_soak_in.txt`**) for **D-001** / II-0 grep sign-offs.
-## Headless entry: **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=f5_validate`) → **`.f5_soak_validation.txt`**. Wrapper: **`validate_f5_soak_log.ps1`** / **`.sh`**.
+## Headless entry: **`scripts/run_f5_soak_log_validator.gd`** → **`.f5_soak_validation.txt`**.
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
@@ -20,6 +20,7 @@ const PROFILE_PRESET_II6 := _TrackSpecs.PROFILE_PRESET_II6
 const PROFILE_PRESET_II8 := _TrackSpecs.PROFILE_PRESET_II8
 const PROFILE_PRESET_II4D := _TrackSpecs.PROFILE_PRESET_II4D
 const PROFILE_PRESET_II_ENVELOP := _TrackSpecs.PROFILE_PRESET_II_ENVELOP
+const PROFILE_CAMP_EA := _TrackSpecs.PROFILE_CAMP_EA
 
 static func validate(lines: PackedStringArray, profiles_override: PackedStringArray = []) -> Dictionary:
 	var normalized: PackedStringArray = _normalize_lines(lines)

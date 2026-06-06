@@ -226,6 +226,9 @@ func _run_mode_q_track() -> void:
 
 static func _resolve_f5_input_path() -> String:
 	var root: String = ProjectSettings.globalize_path("res://")
+	var env_path: String = OS.get_environment("FP_F5_VALIDATE_LOG").strip_edges()
+	if not env_path.is_empty() and FileAccess.file_exists(env_path):
+		return env_path
 	for arg in OS.get_cmdline_user_args():
 		var a: String = str(arg).strip_edges()
 		if a.is_empty() or a.begins_with("-"):

@@ -1,9 +1,9 @@
 class_name CombatEngagementResolver
 extends RefCounted
 
-## Close attempts (`MOVE_ID_ATTEMPT_CLOSE`): close tactical range from **LONG** so melee can threaten.
-## **Read order:** listing legality check → contest roll → schedule resolve / turn finish.
-## Canonical: **`CombatMeleeListing.attempt_close_listed_for_pair`** · resolve via **`CombatResolveAction`** → **`CombatManager._resolve_close_attempt`**.
+## Close attempts (`MOVE_ID_ATTEMPT_CLOSE`): close tactical range from **LONG** (or MID/CLOSE under III-4 **3e** envelop) so melee can threaten.
+## Footing: reads **`form_str`** for close/evasion pressure only — not **`guard_line`** or Tier 4.4 PA. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-assign-form-contract`**.
+## Not line-crash / breach fiction (removed D-008). Listing: `CombatMeleeListing`; resolve: `CombatResolveAction` → `CombatManager._resolve_close_attempt`.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
@@ -11,8 +11,10 @@ const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
+const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const _UiHints := preload("res://combat/CombatUiHints.gd")
 
 
 static func _finish_close_attempt_turn(manager: Node, atk: Dictionary, attacker_id: int) -> void:
@@ -25,62 +27,6 @@ static func _finish_close_attempt_turn(manager: Node, atk: Dictionary, attacker_
 	)
 
 
-static func _lane_stress_at_file(manager: Node, c: Dictionary) -> float:
-	if manager == null or c.is_empty():
-		return 0.0
-	var ctx: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, c)
-	var form: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx)
-	if form.is_empty():
-		return 0.0
-	var ls: Dictionary = _FormationSlots.formation_nested_dictionary_read(form, "lane_stress_by_file")
-	var fi: int = _EntityAccess.file_int(c)
-	var raw: Variant = ls.get(fi, ls.get(str(fi), 0.0))
-	return clampf(float(raw), 0.0, 1.0)
-
-
-static func _close_attempt_pressure_mult(
-	manager: Node, attacker_id: int, atk: Dictionary, tgt: Dictionary
-) -> float:
-	var mult: float = 1.0
-	var tgt_id: int = _EntityAccess.id_int(tgt)
-	var sector_w: float = _TacticalCombat.sector_weight_for_attacker_on_defender(
-		manager, tgt_id, attacker_id
-	)
-	mult *= lerpf(
-		CombatConstants.CLOSE_ATTEMPT_FLANK_PRESSURE_MULT_AT_MIN_SECTOR,
-		1.0,
-		clampf(sector_w, CombatConstants.SURROUND_SECTOR_WEIGHT_MIN, 1.0)
-	)
-	if _EntityAccess.rank_int(atk) == 0 and _EntityAccess.rank_int(tgt) == 0:
-		if _TargetScoring.is_file_opposed_rank0_pair(manager, atk, tgt):
-			mult *= CombatConstants.CLOSE_ATTEMPT_FILE_OPPOSED_PRESSURE_MULT
-	var lane_atk: float = _lane_stress_at_file(manager, atk)
-	mult *= lerpf(1.0, CombatConstants.CLOSE_ATTEMPT_LANE_STRESS_PRESSURE_MIN, lane_atk)
-	var sur: Dictionary = _TacticalCombat.surround_threat_scan_for_defender(manager, tgt)
-	if int(sur.get("count", 0)) >= 2:
-		mult *= CombatConstants.CLOSE_ATTEMPT_DEFENDER_ENGAGED_PRESSURE_MULT
-	return mult
-
-
-static func _close_attempt_evasion_mult(
-	manager: Node, attacker_id: int, tgt: Dictionary
-) -> float:
-	var mult: float = 1.0
-	var lane_def: float = _lane_stress_at_file(manager, tgt)
-	mult *= lerpf(1.0, CombatConstants.CLOSE_ATTEMPT_LANE_STRESS_EVASION_MIN, lane_def)
-	var tgt_id: int = _EntityAccess.id_int(tgt)
-	var occupied: int = _MeleeListing.count_close_attackers_on_defender(
-		manager, tgt_id, attacker_id
-	)
-	if occupied > 0:
-		mult *= pow(CombatConstants.CLOSE_ATTEMPT_CROWD_EVASION_MULT_PER_OCCUPANT, float(occupied))
-	var sur: Dictionary = _TacticalCombat.surround_threat_scan_for_defender(manager, tgt)
-	var sur_n: int = int(sur.get("count", 1))
-	if sur_n > 1:
-		mult *= _TacticalCombat.surround_defense_multiplier(tgt, sur_n)
-	return mult
-
-
 static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: int) -> void:
 	if MedicalPhaseController.combat_resolution_blocked(manager):
 		return
@@ -90,9 +36,11 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 		return
 	if _EntityAccess.is_incapacitated(atk) or _EntityAccess.is_incapacitated(tgt):
 		return
-	# `attempt_close` is only listed at LONG (`CombatMeleeListing.attempt_close_listed_for_pair`); MID/CLOSE resolve is telemetry-only.
+	# Listed at LONG, or MID/CLOSE under III-4 **3e** envelop (`CombatMeleeListing.attempt_close_listed_for_pair`).
 	var band: String = _EntityAccess.distance_to_opponent_band(atk, target_id)
-	if band != CombatConstants.DISTANCE_LONG:
+	if band != CombatConstants.DISTANCE_LONG and not _Doctrine.envelop_close_allowed(
+		manager, atk, target_id
+	):
 		_reject_close_attempt_not_long(manager, atk, attacker_id, target_id, band)
 		return
 	if not _MeleeListing.defender_has_free_close_slot(manager, tgt, attacker_id):
@@ -106,18 +54,16 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 		* CombatConstants.stamina_factor(_EntityAccess.stamina_ratio(atk))
 		* (melee_range / 1.5)
 	)
-	pressure *= CombatConstants.get_stance_modifier(_EntityAccess.stance_str(atk), "close_attempt")
-	pressure *= _close_attempt_pressure_mult(manager, attacker_id, atk, tgt)
+	pressure *= _WeaponForm.mod(_EntityAccess.form_str(atk), "close_attempt")
 	var evasion: float = agi_def * CombatConstants.stamina_factor(_EntityAccess.stamina_ratio(tgt))
-	evasion *= CombatConstants.get_stance_modifier(_EntityAccess.stance_str(tgt), "evasion")
+	evasion *= _WeaponForm.mod(_EntityAccess.form_str(tgt), "evasion")
 	evasion *= _TacticalCombat.ambush_defense_multiplier(manager, tgt)
-	if _EntityAccess.stance_str(tgt, "") == CombatConstants.STANCE_CONTROLLING:
-		evasion /= CombatConstants.STANCE_MOD_OPPONENT_CLOSE
+	if _WeaponForm.controlling_pressure_active(tgt):
+		evasion /= _WeaponForm.opponent_close_evasion_divisor(_EntityAccess.form_str(tgt))
 	var ctx_tgt: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, tgt)
 	var form_geom: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_tgt)
 	var density: String = str(form_geom.get("density", "normal")) if not form_geom.is_empty() else "normal"
 	evasion *= CombatConstants.get_density_close_mod(density)
-	evasion *= _close_attempt_evasion_mult(manager, attacker_id, tgt)
 	var success: bool = randf() < pressure / (pressure + maxf(evasion, 1.0))
 	if CombatDebug.flow_verbose_enabled():
 		CombatDebug.flow_log(
@@ -137,6 +83,11 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 	var close_result: Dictionary = {"outcome": "close_success", "dmg": 0, "died": false}
 	if not success:
 		close_result = {"outcome": "close_failed", "dmg": 0, "died": false, "reason": "contest_failed"}
+		var contest_tag: String = ""
+		if _WeaponForm.controlling_pressure_active(tgt):
+			contest_tag = _UiHints.close_attempt_list_hint_for_defender(tgt)
+		if not contest_tag.is_empty():
+			close_result["close_contest_note"] = contest_tag
 	manager.emit_signal("action_resolved", attacker_id, target_id, close_result)
 	var blk: Dictionary = _EntityAccess.nested_dictionary_for_mutation(atk, "close_block_until_by_target_id")
 	if success:

@@ -69,6 +69,18 @@ static func get_captured_lines() -> PackedStringArray:
 	return _captured_lines.duplicate()
 
 
+## Headless harness: register error logger once and reset SCRIPT_ERROR tally for the run.
+static func ensure_harness_error_logger() -> void:
+	if _play_error_logger == null:
+		_play_error_logger = _FallenPathsErrorLogger.new()
+		OS.add_logger(_play_error_logger)
+	_FallenPathsErrorLogger.reset_script_error_count()
+
+
+static func harness_script_error_count() -> int:
+	return _FallenPathsErrorLogger.get_script_error_count()
+
+
 ## Replace the in-memory capture buffer (e.g. multi-rep D-001 duel lines merged after per-rep clears).
 static func replace_capture(lines: PackedStringArray) -> void:
 	_captured_lines = lines.duplicate()
@@ -103,7 +115,12 @@ static func play_combat(message: String) -> void:
 
 
 static func play_world(message: String) -> void:
-	emit(TAG_WORLD, message)
+	var body: String = message.strip_edges()
+	if body.is_empty():
+		return
+	emit(TAG_WORLD, body)
+	if _play_session_active:
+		CombatF5SoakTrace.ingest_world_trace_line(body)
 
 
 ## Call from `main.gd` when running under the editor (F5). Enables turn-pick flow logs; all lines go to Output for copy-paste.
@@ -188,10 +205,8 @@ static func play_encounter_context(enc: Dictionary) -> void:
 	var parts: PackedStringArray = PackedStringArray()
 	if bool(enc.get("tutorial", false)):
 		parts.append("kind=tutorial")
-	elif bool(enc.get("training", false)):
-		parts.append("kind=practice")
 	var ctype: String = str(enc.get("contract_type", "")).strip_edges()
-	if not ctype.is_empty() and not bool(enc.get("tutorial", false)) and not bool(enc.get("training", false)):
+	if not ctype.is_empty() and not bool(enc.get("tutorial", false)):
 		parts.append("contract=%s" % ctype)
 	if enc.has("map_bleed_mult"):
 		parts.append("map_bleed_mult=%.2f" % float(enc.get("map_bleed_mult", 1.0)))
@@ -395,6 +410,8 @@ static func write_d001_soak_report(
 				lines.append("    label[%s]: %s" % [check_id, str(cr_extra.get("label", ""))])
 		if pr.has("snapshot_label"):
 			lines.append("  snapshot_label: %s" % str(pr.get("snapshot_label", "")))
+		if pr.has("diagram_cell_label"):
+			lines.append("  diagram_cell_label: %s" % str(pr.get("diagram_cell_label", "")))
 		if pr.has("diagram_banner"):
 			lines.append("  diagram_banner: %s" % str(pr.get("diagram_banner", "")))
 		if pr.has("ii2b_plausibility_ok"):

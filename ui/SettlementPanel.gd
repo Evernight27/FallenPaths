@@ -6,9 +6,9 @@ extends RefCounted
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _Persistence := preload("res://world/CampaignPersistence.gd")
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
+const _MapFieldCare := preload("res://world/MapFieldCare.gd")
 
 
 static func show_and_await(world: Node2D) -> void:
@@ -61,7 +61,7 @@ static func show_and_await(world: Node2D) -> void:
 		vbox.add_child(warn)
 
 	var pay_lbl := Label.new()
-	if _CompanyState.is_training_or_tutorial_contract(contract):
+	if _CompanyState.is_tutorial_contract(contract):
 		pay_lbl.text = "No contract pay (%s)" % title
 	elif pay > base_pay and base_pay > 0:
 		pay_lbl.text = (
@@ -88,11 +88,17 @@ static func show_and_await(world: Node2D) -> void:
 		vbox.add_child(mem)
 
 	var supplies_lbl := Label.new()
-	supplies_lbl.text = "Supplies: %d med · %d tools" % [
-		_CompanyState.get_medical_supplies(world),
-		_CompanyState.get_tool_supplies(world),
-	]
+	var med_n: int = _CompanyState.get_medical_supplies(world)
+	var med_suffix: String = _CompanyState.format_hud_triage_suffix(world)
+	supplies_lbl.text = "Supplies: %d med%s · %d tools" % [med_n, med_suffix, _CompanyState.get_tool_supplies(world)]
 	vbox.add_child(supplies_lbl)
+
+	if _CampaignBridge.party_has_untreated_wounds(world):
+		var care_hint := Label.new()
+		care_hint.text = _CompanyState.format_settlement_field_care_hint(world)
+		_RowFormatter.configure_wrapped_label(care_hint)
+		care_hint.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
+		vbox.add_child(care_hint)
 
 	var repair_state: Dictionary = {"done": false, "repaired": false}
 	if _CompanyState.can_offer_settlement_tool_repair(world):
@@ -101,8 +107,9 @@ static func show_and_await(world: Node2D) -> void:
 		repair_btn.pressed.connect(func() -> void:
 			if _CompanyState.apply_settlement_tool_repair(world):
 				repair_state["repaired"] = true
-				supplies_lbl.text = "Supplies: %d med · %d tools" % [
+				supplies_lbl.text = "Supplies: %d med%s · %d tools" % [
 					_CompanyState.get_medical_supplies(world),
+					_CompanyState.format_hud_triage_suffix(world),
 					_CompanyState.get_tool_supplies(world),
 				]
 				repair_btn.disabled = true
@@ -128,11 +135,17 @@ static func show_and_await(world: Node2D) -> void:
 		_CompanyState.clear_active_contract(world)
 		_CompanyState.refresh_hud(world)
 		_CampaignBridge.sync_overworld_player_grid_anchor(world)
-		if not _Persistence.save_slot(world):
-			_OperationalLog.warn(
-				"Autosave failed — progress since last settlement may not persist after quit."
-			)
 		_disable_overworld_input(world, true)
+		if _OperationalLog.is_play_session_active():
+			_OperationalLog.play_world(
+				"settlement_continue pay=%d gold=%d renown=%d tutorial=%s"
+				% [
+					pay,
+					_CompanyState.get_gold(world),
+					_CompanyState.get_renown(world),
+					str(_CompanyState.is_tutorial_contract(contract)).to_lower(),
+				]
+			)
 	)
 	vbox.add_child(btn)
 
@@ -168,12 +181,19 @@ static func _worst_triage_from_summary(world: Node2D) -> Dictionary:
 		var bleed: float = float(snap.get("total_bleeding_rate", 0.0))
 		if bleed <= 0.0 and not bool(snap.get("has_untreated_wounds", false)):
 			continue
-		var eta: float = _RowFormatter.seconds_to_danger_band(bv, bleed)
+		var triage_line: String = ""
+		var eta: float = INF
+		if bleed <= 0.0 and bool(snap.get("has_untreated_wounds", false)):
+			triage_line = "Undressed — field bandage/pack/TQ needed"
+			eta = 0.0
+		else:
+			triage_line = _RowFormatter.format_triage_line(bv, bleed)
+			eta = _RowFormatter.seconds_to_danger_band(bv, bleed)
 		if eta < worst_eta:
 			worst_eta = eta
 			worst = {
 				"name": str(snap.get("name", "?")),
-				"triage_line": _RowFormatter.format_triage_line(bv, bleed),
+				"triage_line": triage_line,
 			}
 	return worst
 
@@ -230,7 +250,7 @@ static func _append_member_vitals_labels(parent: VBoxContainer, m: Dictionary) -
 	var untreated: Variant = m.get("untreated_parts", [])
 	if untreated is PackedStringArray and (untreated as PackedStringArray).size() > 0:
 		var wound_lbl := Label.new()
-		wound_lbl.text = "Untreated: " + ", ".join(untreated)
+		wound_lbl.text = "Untreated: " + _MapFieldCare.format_part_list(untreated)
 		_RowFormatter.configure_wrapped_label(wound_lbl)
 		wound_lbl.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
 		parent.add_child(wound_lbl)

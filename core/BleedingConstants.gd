@@ -25,7 +25,9 @@ const SEVERITY_CRITICAL: String = "critical"
 
 # --- Bleeding rates (abstract HP/s) by injury type and severity ---
 # Cut > crush (lacerations open vessels; blunt more capillary). Severe/critical = arterial-like.
-# Exact values tuned for gameplay; relative scaling is medically consistent.
+# Absolute HP/s values are gameplay units; lethality is calibrated via BLOOD_LOSS_RATE_MULTIPLIER
+# (derived in CombatResearchAnchors.derived_blood_loss_multiplier_for_ttd for 30–120 s TTD).
+# Relative scaling (cut>crush, head>limb, arterial mult) is medically ordered.
 const BLEEDING_RATES: Dictionary = {
 	INJURY_TYPE_CUT: {
 		SEVERITY_MINOR: 0.35,
@@ -167,8 +169,8 @@ const PENETRATION_DEPTH_ARTERIAL_DEEP_MULT := 1.12
 
 const MAX_BLOOD_VOLUME: float = 100.0
 # total_bleeding_rate × this = blood % lost per second (see docs/LIVE_PATHS.md#bleeding-physics).
-# Derived: buffer (100−35)% / (REFERENCE_UNCONTROLLED_BLEED_RATE × target_TTD_s) ≈ 0.10 → ~48 s TTD
-# (ATLS/CoTCCC untreated major bleed band 30–120 s). Rescale lethality here first, not arbitrary rates alone.
+# Derived: buffer (100−35)% / (REFERENCE_UNCONTROLLED_BLEED_RATE × 48 s) ≈ 0.1003; shipped 0.10 within tolerance.
+# Calibrates TTD to ATLS/CoTCCC untreated major-bleed band (30–120 s). Tune lethality here, not raw HP/s alone.
 const BLOOD_LOSS_RATE_MULTIPLIER: float = 0.10
 # Death when remaining blood_volume <= this. 35% remaining = 65% lost (deep Class IV; ATLS IV begins >40% lost).
 const BLOOD_LOSS_DEATH_THRESHOLD: float = 35.0

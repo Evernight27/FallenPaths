@@ -12,6 +12,9 @@ const _EntityPain := preload("res://core/EntityPainConsciousness.gd")
 const _CoreEntity := preload("res://core/CoreEntity.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _MgrScript := preload("res://combat/CombatManager.gd")
+const _BattleScene := preload("res://ui/BattleScene.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
 
 ## Mirrors **`CombatD001SoakRunner._new_entity`** + **ii6** chest wound (grep rounds to %.1f / %.1fs).
 const II6_PROBE_CUT: float = 22.0
@@ -34,6 +37,7 @@ static func run_all() -> Dictionary:
 	failures.append_array(_run_parry_summary_line_fixture())
 	failures.append_array(_run_ii6_capture_slice_fixture())
 	failures.append_array(_run_track_crosswalk_tests())
+	failures.append_array(_run_f5_soak_trace_fixtures())
 	failures.append_array(_run_ii5_world_formation_meta_fixture())
 	var ok: bool = failures.is_empty()
 	if ok:
@@ -129,6 +133,168 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 	)
 	if not bool(r2b.get("ok", false)):
 		failures.append("fixture_ii2b_good: %s" % ", ".join(r2b.get("failures", PackedStringArray()) as PackedStringArray))
+
+	var good_wf_m3: PackedStringArray = PackedStringArray([
+		"turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Grd HiR · Form Ox tooltip_match=melee_only",
+		"form_switch id=1 ox→wrath reason=duel_read",
+	])
+	var rwf: Dictionary = _Validator.validate(
+		good_wf_m3, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS])
+	)
+	if not bool(rwf.get("ok", false)):
+		failures.append("fixture_wf_m3_good: %s" % ", ".join(rwf.get("failures", PackedStringArray()) as PackedStringArray))
+	var wf_tracks: Dictionary = rwf.get("tracks", {}) as Dictionary
+	for tid in ["wf_m3_turn_ready_form", "wf_m3_grd_before_form"]:
+		var wf_track: Dictionary = wf_tracks.get(tid, {}) as Dictionary
+		if not bool(wf_track.get("pass", false)):
+			failures.append("fixture_wf_m3_good: %s not pass" % tid)
+
+	var bad_wf_m3: PackedStringArray = PackedStringArray([
+		"turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Form Ox tooltip_match=melee_only",
+	])
+	var rwf_bad: Dictionary = _Validator.validate(
+		bad_wf_m3, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS])
+	)
+	var bad_tracks: Dictionary = rwf_bad.get("tracks", {}) as Dictionary
+	var grd_tr: Dictionary = bad_tracks.get("wf_m3_grd_before_form", {}) as Dictionary
+	if bool(grd_tr.get("pass", false)):
+		failures.append("fixture_wf_m3_bad: wf_m3_grd_before_form should fail without Grd/Atk before Form")
+
+	var leak_wf_m3: PackedStringArray = PackedStringArray([
+		"turn_ready_gauge id=0 Leader label=Stm 92% · Ready · Step tooltip_match=melee_only",
+	])
+	var rwf_leak: Dictionary = _Validator.validate(
+		leak_wf_m3, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS])
+	)
+	var leak_tr: Dictionary = (rwf_leak.get("tracks", {}) as Dictionary).get("wf_m3_idle_step_leak", {}) as Dictionary
+	if bool(leak_tr.get("pass", false)):
+		failures.append("fixture_wf_m3_leak: wf_m3_idle_step_leak should fail on Ready · Step idle gauge")
+
+	var good_camp: PackedStringArray = PackedStringArray([
+		"settlement_continue paid=120",
+		"company_day_advanced day=2 wages_paid=true",
+		"field_care: pressure applied",
+	])
+	var rcamp: Dictionary = _Validator.validate(
+		good_camp, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS, _TrackSpecs.PROFILE_CAMP_EA])
+	)
+	if _TrackSpecs.PROFILE_CAMP_EA not in (rcamp.get("profiles", PackedStringArray()) as PackedStringArray):
+		failures.append("fixture_camp_ea: detect_profiles should include camp_ea")
+	var camp_tracks: Dictionary = rcamp.get("tracks", {}) as Dictionary
+	for cid in ["camp_settlement_continue", "camp_company_day", "camp_field_care"]:
+		var ctr: Dictionary = camp_tracks.get(cid, {}) as Dictionary
+		if not bool(ctr.get("pass", false)):
+			failures.append("fixture_camp_ea: %s not pass" % cid)
+
+	var camp_wf_smoke: PackedStringArray = PackedStringArray([
+		"settlement_continue paid=120",
+		"company_day_advanced day=2 wages_paid=true",
+		"turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Grd HiR · Form Ox tooltip_match=melee_only",
+		"form_switch id=1 ox→wrath reason=duel_read",
+	])
+	var camp_wf_profiles: PackedStringArray = _TrackSpecs.detect_profiles(camp_wf_smoke)
+	var rcw: Dictionary = _Validator.validate(camp_wf_smoke, camp_wf_profiles)
+	if _TrackSpecs.PROFILE_CAMP_EA not in camp_wf_profiles:
+		failures.append("fixture_camp_wf_smoke: expected camp_ea profile")
+	if not bool(rcw.get("ok", false)):
+		failures.append("fixture_camp_wf_smoke: %s" % ", ".join(rcw.get("failures", PackedStringArray()) as PackedStringArray))
+
+	var good_mopup: PackedStringArray = PackedStringArray([
+		"engagement_debug turn side=player id=0 mop_up=true rotate_suppress=true menu=strikes_listed strikes=3",
+		"soak_fight_end winner=player medical_phase=true fight_profile=7v7",
+	])
+	var rmopup: Dictionary = _Validator.validate(
+		good_mopup, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS, _TrackSpecs.PROFILE_7V7])
+	)
+	var mop_tr: Dictionary = (rmopup.get("tracks", {}) as Dictionary).get(
+		"camp_mopup_strike_finish", {}
+	) as Dictionary
+	if not bool(mop_tr.get("pass", false)):
+		failures.append("fixture_camp_mopup: camp_mopup_strike_finish should pass with strikes_listed")
+
+	var bad_mopup: PackedStringArray = PackedStringArray([
+		"engagement_debug turn side=player id=0 mop_up=true rotate_suppress=true menu=reserve_only strikes=0 pick=attempt_close",
+	])
+	var rmopup_bad: Dictionary = _Validator.validate(
+		bad_mopup, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS, _TrackSpecs.PROFILE_7V7])
+	)
+	var mop_bad_tr: Dictionary = (rmopup_bad.get("tracks", {}) as Dictionary).get(
+		"camp_mopup_strike_finish", {}
+	) as Dictionary
+	if bool(mop_bad_tr.get("pass", false)):
+		failures.append("fixture_camp_mopup_bad: camp_mopup_strike_finish should fail on reserve_only stall")
+
+	var good_line_plug: PackedStringArray = PackedStringArray([
+		"engagement_debug turn id=0 Rear file=0 rank=1 menu=formation bands=LONG opposed=Front mapped_opp=true wing_lack=false mop_up=false rotate_suppress=false line_plug=true pick=swap_rank line_plug_pick=1",
+	])
+	var rplug: Dictionary = _Validator.validate(
+		good_line_plug, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS, _TrackSpecs.PROFILE_7V7])
+	)
+	var plug_tr: Dictionary = (rplug.get("tracks", {}) as Dictionary).get(
+		"camp_line_plug_pick", {}
+	) as Dictionary
+	if not bool(plug_tr.get("pass", false)):
+		failures.append("fixture_line_plug: camp_line_plug_pick should pass with line_plug_pick=1")
+
+	var good_rotate_plug: PackedStringArray = PackedStringArray([
+		"engagement_debug turn id=0 Front file=0 rank=0 menu=formation bands=LONG opposed=Enemy mapped_opp=true wing_lack=false mop_up=false rotate_suppress=false line_plug=true pick=rotate_file line_plug_pick=1",
+	])
+	var rrot: Dictionary = _Validator.validate(
+		good_rotate_plug, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS, _TrackSpecs.PROFILE_7V7])
+	)
+	var rot_tr: Dictionary = (rrot.get("tracks", {}) as Dictionary).get(
+		"camp_line_plug_pick", {}
+	) as Dictionary
+	if not bool(rot_tr.get("pass", false)):
+		failures.append("fixture_line_plug_rotate: camp_line_plug_pick should pass for rotate_file pick")
+
+	var good_incap_plug: PackedStringArray = PackedStringArray([
+		"engagement_debug turn id=1 Rear file=0 rank=1 menu=formation bands=LONG opposed=Front mapped_opp=true wing_lack=false mop_up=false rotate_suppress=false line_plug=true pick=swap_rank line_plug_pick=1",
+	])
+	var rincap: Dictionary = _Validator.validate(
+		good_incap_plug, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS, _TrackSpecs.PROFILE_7V7])
+	)
+	var incap_tr: Dictionary = (rincap.get("tracks", {}) as Dictionary).get(
+		"camp_line_plug_pick", {}
+	) as Dictionary
+	if not bool(incap_tr.get("pass", false)):
+		failures.append("fixture_incap_plug: camp_line_plug_pick should pass for incap plug-forward swap")
+
+	var contract_settle: PackedStringArray = PackedStringArray([
+		"contract_victory pay=120 gold=200 renown=1",
+		"company_day_advanced day=2 wages_paid=true",
+	])
+	var rcontract: Dictionary = _Validator.validate(
+		contract_settle, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS, _TrackSpecs.PROFILE_CAMP_EA])
+	)
+	var settle_tr: Dictionary = (rcontract.get("tracks", {}) as Dictionary).get(
+		"camp_settlement_continue", {}
+	) as Dictionary
+	if not bool(settle_tr.get("pass", false)):
+		failures.append("fixture_camp_contract_victory: camp_settlement_continue alt contract_victory pay=")
+
+	var camp_extended: PackedStringArray = PackedStringArray([
+		"campaign_medical_exit can_end=false fast_forward=true",
+		"field_care bandage part=chest target=Leader seconds=120 parts_left=1 med_left=2 eff=1.00",
+		"company_run_end reason=contract_failed reload=true",
+		"company_wages: gold=10 below next wage bill=35 (day 4)",
+		"desertion summary=Ally(mood=12)",
+		"party_triage_open living=7 untreated=2 bleeding=1 parts_need_dressing=3 med_left=12 bandage_med_est=3 camp_med=1 total_med_est=4 med_shortfall=0",
+	])
+	var rext: Dictionary = _Validator.validate(
+		camp_extended, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS, _TrackSpecs.PROFILE_CAMP_EA])
+	)
+	for eid in [
+		"camp_medical_exit",
+		"camp_field_care_action",
+		"camp_paid_loss",
+		"camp_wage_warn",
+		"camp_desertion",
+		"camp_party_triage",
+	]:
+		var etr: Dictionary = (rext.get("tracks", {}) as Dictionary).get(eid, {}) as Dictionary
+		if not bool(etr.get("pass", false)):
+			failures.append("fixture_camp_extended: %s not pass" % eid)
 
 	return failures
 
@@ -228,6 +394,11 @@ static func _run_profile_detection_tests() -> PackedStringArray:
 	)
 	if _TrackSpecs.PROFILE_7V7 not in detected_7v7:
 		failures.append("detect_profiles: 7v7 markers should activate profile_7v7")
+	var detected_camp: PackedStringArray = _TrackSpecs.detect_profiles(
+		_TrackSpecs.synthetic_profile_markers("camp_ea")
+	)
+	if _TrackSpecs.PROFILE_CAMP_EA not in detected_camp:
+		failures.append("detect_profiles: camp_ea markers should activate profile_camp_ea")
 	return failures
 
 
@@ -463,6 +634,115 @@ static func _run_ii6_capture_slice_fixture() -> PackedStringArray:
 
 static func _run_track_crosswalk_tests() -> PackedStringArray:
 	return _TrackSpecs.headless_validator_coverage_failures()
+
+
+static func _run_f5_soak_trace_fixtures() -> PackedStringArray:
+	var failures: PackedStringArray = PackedStringArray()
+	CombatF5SoakTrace.reset_session_camp_trace()
+	CombatF5SoakTrace.prepare_fight_end_log()
+	CombatF5SoakTrace.set_fight_profile("7v7")
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	CombatF5SoakTrace.log_fight_end_summary("player", true)
+	CombatF5SoakTrace.note_medical_pack_listed("Leader", "chest")
+	var end_warn: int = 0
+	var coverage_ok: int = 0
+	for raw in _OperationalLog.get_captured_lines():
+		var body: String = _combat_line(raw)
+		if body.begins_with("soak_coverage warn [soak_fight_end]"):
+			end_warn += 1
+		if body.begins_with("soak_coverage ok="):
+			coverage_ok += 1
+	if end_warn > 0:
+		failures.append("f5_trace_deferred_medical: soak_fight_end count=0 warn after medical flush")
+	if coverage_ok != 1:
+		failures.append("f5_trace_deferred_medical: want 1 soak_coverage ok= got %d" % coverage_ok)
+	CombatF5SoakTrace.prepare_fight_end_log()
+	CombatF5SoakTrace.set_fight_profile("7v7")
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	CombatF5SoakTrace.log_fight_end_summary("player", true)
+	var exit_mgr: Node = _MgrScript.new()
+	exit_mgr.medical_phase = true
+	exit_mgr.medical_phase_winner = "player"
+	exit_mgr.finish_battle()
+	var early_exit_cov: int = 0
+	var medical_exit_log: int = 0
+	for raw in _OperationalLog.get_captured_lines():
+		var body: String = _combat_line(raw)
+		if body.begins_with("soak_coverage ok="):
+			early_exit_cov += 1
+		if body.begins_with("campaign_medical_exit"):
+			medical_exit_log += 1
+	if early_exit_cov != 1:
+		failures.append(
+			"f5_trace_early_medical_exit: want soak_coverage after finish_battle got %d"
+			% early_exit_cov
+		)
+	if medical_exit_log > 0:
+		failures.append(
+			"f5_trace_early_medical_exit: campaign_medical_exit should not log without contract world"
+		)
+	exit_mgr.free()
+	CombatF5SoakTrace.prepare_fight_end_log()
+	CombatF5SoakTrace.set_fight_profile("7v7")
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	CombatF5SoakTrace.log_fight_end_summary("player", true)
+	CombatF5SoakTrace.note_medical_pack_listed("Leader", "chest")
+	var camp_world: Node2D = Node2D.new()
+	camp_world.set_meta(_CompanyState.WORLD_META_ACTIVE_CONTRACT, {"contract_title": "Scout"})
+	var camp_battle: Node = _BattleScene.new()
+	camp_battle.parent_scene = camp_world
+	var camp_mgr: Node = _MgrScript.new()
+	camp_battle.add_child(camp_mgr)
+	camp_mgr.medical_phase = true
+	camp_mgr.medical_phase_winner = "player"
+	if not bool(camp_mgr.call("_is_campaign_contract_battle")):
+		failures.append("f5_trace_camp_med_exit_refresh: harness battle should resolve contract world")
+	camp_mgr.finish_battle()
+	var exit_log: int = 0
+	var camp_med_refresh: int = 0
+	for raw in _OperationalLog.get_captured_lines():
+		var body: String = _combat_line(raw)
+		if body.begins_with("campaign_medical_exit"):
+			exit_log += 1
+		if body.begins_with("soak_coverage camp pass [camp_medical_exit]"):
+			camp_med_refresh += 1
+	if exit_log != 1:
+		failures.append(
+			"f5_trace_camp_med_exit_refresh: want campaign_medical_exit log got %d" % exit_log
+		)
+	if camp_med_refresh < 1:
+		failures.append(
+			"f5_trace_camp_med_exit_refresh: want camp_medical_exit supplement pass got %d"
+			% camp_med_refresh
+		)
+	camp_battle.free()
+	camp_world.free()
+	camp_mgr.free()
+	_OperationalLog.play_world("settlement_continue paid=120 renown=1")
+	var camp_header: int = 0
+	var camp_day_pass: int = 0
+	for raw in _OperationalLog.get_captured_lines():
+		var body: String = _combat_line(raw)
+		if body.begins_with("soak_coverage camp ok="):
+			camp_header += 1
+	if camp_header < 1:
+		failures.append("f5_trace_camp_supplement: want soak_coverage camp header got %d" % camp_header)
+	CombatF5SoakTrace.prepare_fight_end_log()
+	CombatF5SoakTrace.log_fight_end_summary("player", false)
+	_OperationalLog.play_world("company_day_advanced day=2 wages_paid=105 gold=395 living=7")
+	for raw in _OperationalLog.get_captured_lines():
+		var body: String = _combat_line(raw)
+		if body.begins_with("soak_coverage camp pass [camp_company_day]"):
+			camp_day_pass += 1
+	if camp_day_pass < 1:
+		failures.append("f5_trace_camp_supplement: camp_company_day pass after company_day_advanced (session merge)")
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+	return failures
 
 
 # --- per-preset log plausibility ---

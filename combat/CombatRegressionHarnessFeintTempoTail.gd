@@ -2,6 +2,8 @@ class_name CombatRegressionHarnessFeintTempoTail
 extends RefCounted
 
 ## Tier 4.2 feint / counter-tempo / riposte / defense telegraph tests (compile split).
+## Weapon form: **`CombatRegressionHarnessWeaponFormTail`** owns **`form_str`** / **`mod`** — legacy **`stance_str`** rows here stay feint/tempo only.
+## Footing harness: tier-4.2 spacing/state **`defense_footwork_*`** / feint listing — **not** Tier 4.4 PA (**`CombatFootwork`**). LIVE_PATHS **`#wf-layer-labels`** · **`#harness-footwork-catalog`** (feint rows).
 
 const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
@@ -14,6 +16,7 @@ const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 const _MgrScript := preload("res://combat/CombatManager.gd")
 const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
+const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 
 static func _harness_cardinal_attack_line(cardinal: String) -> String:
 	if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
@@ -541,8 +544,8 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
 	var w_feint_hi: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
 	var read_m_hi: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "oberhau_feint")
 	var settled_m_hi: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
-	var stance_m_hi: float = CombatConstants.get_stance_modifier(
-		_EntityAccess.stance_str(mgr.combatants[0]), "ai_feint_listing"
+	var stance_m_hi: float = _WeaponForm.mod(
+		_EntityAccess.form_str(mgr.combatants[0]), "ai_feint_listing"
 	)
 	var want_hi: float = (
 		w_plain_hi
@@ -606,8 +609,8 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
 	var w_feint_hi: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
 	var read_m_hi_t: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "thrust_feint")
 	var settled_m_hi_t: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
-	var stance_m_hi_t: float = CombatConstants.get_stance_modifier(
-		_EntityAccess.stance_str(mgr.combatants[0]), "ai_feint_listing"
+	var stance_m_hi_t: float = _WeaponForm.mod(
+		_EntityAccess.form_str(mgr.combatants[0]), "ai_feint_listing"
 	)
 	var want_hi: float = (
 		w_plain_hi
@@ -884,9 +887,7 @@ static func _run_feint_move_listing_readiness_recovery_curve_when_defender_recov
 			"feint_list_recov: passive readiness want %.6f got %.6f" % [want_pr, pr]
 		)
 	var target_m: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
-	var stance_m: float = CombatConstants.get_stance_modifier(
-		CombatConstants.STANCE_BALANCED, "ai_feint_listing"
-	)
+	var stance_m: float = _WeaponForm.mod(_EntityAccess.form_str(player), "ai_feint_listing")
 	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
 	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
 	var w_plain: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
@@ -1250,7 +1251,7 @@ static func _run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_d
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2: attacker **`stance`** × **`get_stance_modifier(..., "ai_feint_listing")`** on feint listing; settled WAITING × **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`** + full **`read_m`** chain via **`_feint_listing_read_m_expect_for_move_on_target`**.
+## Tier 4.2: attacker **`form_str`** × **`CombatWeaponForm.mod(..., "ai_feint_listing")`** on feint listing; settled WAITING × **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`** + full **`read_m`** chain via **`_feint_listing_read_m_expect_for_move_on_target`**.
 static func _run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance(
 	failures: PackedStringArray
 ) -> void:
@@ -1822,14 +1823,20 @@ static func _run_feint_move_listing_stance_ai_feint_mult_ordering(failures: Pack
 	var a_feint: Dictionary = {"move_id": "oberhau_feint", "target_id": e_id}
 	var enemy: Dictionary = mgr.combatants[1]
 	var target_m: float = _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
-	player["stance"] = CombatConstants.STANCE_CONTROLLING
+	CombatRegressionHarness.harness_assign_form(mgr, player, _WeaponForm.FORM_FOOL)
 	var w_plain_c: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
 	var w_feint_c: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
-	var mult_c: float = CombatConstants.get_stance_modifier(
-		CombatConstants.STANCE_CONTROLLING, "ai_feint_listing"
+	var mult_c: float = _WeaponForm.mod(_WeaponForm.FORM_FOOL, "ai_feint_listing")
+	var form_move_ratio_c: float = (
+		_WeaponForm.action_weight_mult(_EntityAccess.form_str(player), "oberhau_feint")
+		/ maxf(0.001, _WeaponForm.action_weight_mult(_EntityAccess.form_str(player), "oberhau"))
 	)
 	var want_c: float = (
-		w_plain_c * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * target_m * mult_c
+		w_plain_c
+		* form_move_ratio_c
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* target_m
+		* mult_c
 	)
 	if absf(w_feint_c - want_c) > 0.0001 * maxf(1.0, absf(w_plain_c)):
 		CombatRegressionHarness._fail(
@@ -1837,14 +1844,20 @@ static func _run_feint_move_listing_stance_ai_feint_mult_ordering(failures: Pack
 			"feint_stance_list ctrl: want feint %.6f (plain*base*stance) got %.6f plain=%.6f mult=%s"
 			% [want_c, w_feint_c, w_plain_c, str(mult_c)]
 		)
-	player["stance"] = CombatConstants.STANCE_DEFENSIVE
+	CombatRegressionHarness.harness_assign_form(mgr, player, _WeaponForm.FORM_WALL)
 	var w_plain_d: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
 	var w_feint_d: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
-	var mult_d: float = CombatConstants.get_stance_modifier(
-		CombatConstants.STANCE_DEFENSIVE, "ai_feint_listing"
+	var mult_d: float = _WeaponForm.mod(_WeaponForm.FORM_WALL, "ai_feint_listing")
+	var form_move_ratio_d: float = (
+		_WeaponForm.action_weight_mult(_EntityAccess.form_str(player), "oberhau_feint")
+		/ maxf(0.001, _WeaponForm.action_weight_mult(_EntityAccess.form_str(player), "oberhau"))
 	)
 	var want_d: float = (
-		w_plain_d * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * target_m * mult_d
+		w_plain_d
+		* form_move_ratio_d
+		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
+		* target_m
+		* mult_d
 	)
 	if absf(w_feint_d - want_d) > 0.0001 * maxf(1.0, absf(w_plain_d)):
 		CombatRegressionHarness._fail(
@@ -2074,7 +2087,7 @@ static func _run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readju
 	seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
 
 
-## Tier 4.2: high passive parry readiness + stance can read real line despite **`guard_zone`** still on telegraph (**`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** × **`get_stance_modifier(..., "feint_readthrough")`**). **`AttackPathResolver`** **`randf`** — scan a bait seed for telegraph mismatch, then **`seed(bait_seed)`** before each **`_guard_zone_modifier`** so **`expected_part`** matches across cases.
+## Tier 4.2: high passive parry readiness + form can read real line despite **`guard_zone`** still on telegraph (**`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** × **`CombatWeaponForm.mod(form_str, "feint_readthrough")`**). **`AttackPathResolver`** **`randf`** — scan a bait seed for telegraph mismatch, then **`seed(bait_seed)`** before each **`_guard_zone_modifier`** so **`expected_part`** matches across cases.
 static func _run_feint_guard_zone_readthrough_par_bonus_when_readiness_high(failures: PackedStringArray) -> void:
 	var parts: Array = ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"]
 	var pa_feint: Dictionary = {
@@ -2088,6 +2101,9 @@ static func _run_feint_guard_zone_readthrough_par_bonus_when_readiness_high(fail
 		"stance": "defensive",
 		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
 	}
+	CombatRegressionHarness.harness_sync_weapon_form_from_stance(
+		tgt_baited, CombatConstants.STANCE_DEFENSIVE
+	)
 	var bait_seed: int = _feint_guard_zone_sample_global_seed_for_modifier(
 		pa_feint,
 		tgt_baited,
@@ -2125,6 +2141,9 @@ static func _run_feint_guard_zone_readthrough_par_bonus_when_readiness_high(fail
 		"stance": "aggressive",
 		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
 	}
+	CombatRegressionHarness.harness_sync_weapon_form_from_stance(
+		tgt_agg, CombatConstants.STANCE_AGGRESSIVE
+	)
 	seed(bait_seed)
 	var m_agg: float = _DefenseChoice._guard_zone_modifier(pa_feint, tgt_agg, parts, "oberhau_feint", 0.88)
 	if not is_equal_approx(m_agg, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY):
@@ -2147,6 +2166,9 @@ static func _run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid(failure
 		"stance": "defensive",
 		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
 	}
+	CombatRegressionHarness.harness_sync_weapon_form_from_stance(
+		tgt_baited_base, CombatConstants.STANCE_DEFENSIVE
+	)
 	var tgt_mid: Dictionary = tgt_baited_base.duplicate(true)
 	tgt_mid["distance_to"] = {atk_id: CombatConstants.DISTANCE_MID}
 	var tgt_long: Dictionary = tgt_baited_base.duplicate(true)
@@ -2193,6 +2215,9 @@ static func _run_feint_guard_zone_readthrough_spacing_close_dampens_vs_mid(failu
 		"stance": "defensive",
 		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
 	}
+	CombatRegressionHarness.harness_sync_weapon_form_from_stance(
+		tgt_baited_base, CombatConstants.STANCE_DEFENSIVE
+	)
 	var tgt_mid: Dictionary = tgt_baited_base.duplicate(true)
 	tgt_mid["distance_to"] = {atk_id: CombatConstants.DISTANCE_MID}
 	var tgt_close: Dictionary = tgt_baited_base.duplicate(true)
@@ -2370,9 +2395,7 @@ static func _run_feint_move_listing_reveal_progress_dampens_early_wind_up(
 		enemy, p_id, "oberhau_feint", player, pa
 	)
 	var settled_m: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
-	var stance_m: float = CombatConstants.get_stance_modifier(
-		_EntityAccess.stance_str(player), "ai_feint_listing"
-	)
+	var stance_m: float = _WeaponForm.mod(_EntityAccess.form_str(player), "ai_feint_listing")
 	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
 	var w_plain: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
 	var want_early: float = (
@@ -3520,6 +3543,42 @@ static func run_before_attention(failures: PackedStringArray) -> void:
 	_run_counter_tempo_ui_hint_winding_then_ready(failures)
 	_run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain(failures)
 
+
+## III-8: legacy **`parry_deflect`** cause alias aligns passive readiness + tier-4.2 footwork with **`attack_deflect`**.
+static func _run_recovery_cause_parry_deflect_alias_aligns_readiness_and_footwork(
+	failures: PackedStringArray
+) -> void:
+	var def_curve: Array = CombatConstants.readiness_curve_for_cause("attack_deflect")
+	var alias_curve: Array = CombatConstants.readiness_curve_for_cause("parry_deflect")
+	if alias_curve != def_curve:
+		CombatRegressionHarness._fail(
+			failures,
+			"recovery_cause_alias: readiness parry_deflect want %s got %s" % [def_curve, alias_curve]
+		)
+	var m_def: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_deflect")
+	var m_alias: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("parry_deflect")
+	if not is_equal_approx(m_def, m_alias):
+		CombatRegressionHarness._fail(
+			failures,
+			"recovery_cause_alias: footwork parry_deflect want %.4f got %.4f" % [m_def, m_alias]
+		)
+	var c: Dictionary = {
+		"state": CombatConstants.STATE_RECOVERING,
+		"state_duration": 1.0,
+		"state_timer": 0.5,
+		"recovery_cause": "parry_deflect",
+	}
+	var c_canon: Dictionary = c.duplicate(true)
+	c_canon["recovery_cause"] = "attack_deflect"
+	var r_alias: float = _PassiveParryCtx.get_passive_parry_readiness(c)
+	var r_canon: float = _PassiveParryCtx.get_passive_parry_readiness(c_canon)
+	if not is_equal_approx(r_alias, r_canon):
+		CombatRegressionHarness._fail(
+			failures,
+			"recovery_cause_alias: passive readiness want %.4f got %.4f" % [r_canon, r_alias]
+		)
+
+
 static func run_after_attention(failures: PackedStringArray) -> void:
 	_run_feint_move_listing_stance_ai_feint_mult_ordering(failures)
 	_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight(failures)
@@ -3539,6 +3598,7 @@ static func run_after_attention(failures: PackedStringArray) -> void:
 	_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust(failures)
 	_run_defense_spacing_band_modulates_parry_and_dodge(failures)
 	_run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures)
+	_run_recovery_cause_parry_deflect_alias_aligns_readiness_and_footwork(failures)
 	_run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(failures)
 	_run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_close(failures)
 	_run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balance(failures)

@@ -14,6 +14,7 @@ const PROFILE_PRESET_II6 := "preset_ii6"
 const PROFILE_PRESET_II8 := "preset_ii8"
 const PROFILE_PRESET_II4D := "preset_ii4d"
 const PROFILE_PRESET_II_ENVELOP := "preset_ii_envelop"
+const PROFILE_CAMP_EA := "camp_ea"
 
 const NEEDLE_SOAK_FIGHT_END := "soak_fight_end winner="
 const NEEDLE_TURN_READY_GAUGE := "turn_ready_gauge"
@@ -22,6 +23,14 @@ const NEEDLE_DIAGRAM_BANNER := "diagram_banner player:"
 const NEEDLE_ENGAGEMENT_FORMATION := "engagement mode=Formation line"
 const NEEDLE_ENGAGEMENT_DUEL := "engagement mode=Duel"
 const NEEDLE_PARRY_TRACE := "parry_"
+## III-4 **3e** — combat-phase mop-up with listed strikes (shared by headless + F5 validator).
+const REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED := (
+	"engagement_debug turn .* mop_up=true .* (menu=strikes_listed|strikes=[1-9])"
+)
+## III-6 maintain — rank-0 gap or incap plug-forward pick (`line_plug_pick=1`; log sets `line_plug=true` for both).
+const REGEX_ENGAGEMENT_DEBUG_LINE_PLUG_PICK := (
+	"engagement_debug turn .* line_plug=true .* line_plug_pick=1"
+)
 
 
 static func headless_checks_for_preset(preset_id: String) -> Array:
@@ -48,6 +57,11 @@ static func detect_profiles(normalized: PackedStringArray) -> PackedStringArray:
 		profiles.append(PROFILE_PRESET_II4D)
 	if _blob_has(blob, ["soak_fight_enter preset=ii_envelop", "soak=ii_envelop", "dev_soak=ii_envelop"]):
 		profiles.append(PROFILE_PRESET_II_ENVELOP)
+	if _blob_has(
+		blob,
+		camp_ea_profile_markers()
+	):
+		profiles.append(PROFILE_CAMP_EA)
 	if _blob_has(blob, ["soak_fight_enter tile=red", "tile=red"]) or (
 		not _blob_has(
 			blob,
@@ -101,6 +115,12 @@ static func validator_tracks(active_profiles: PackedStringArray) -> Array:
 		tracks.append_array(_validator_ii4d_tracks())
 	if have.has(PROFILE_PRESET_II_ENVELOP):
 		tracks.append_array(_validator_ii_envelop_tracks())
+	tracks.append_array(_validator_wf_footing_tracks())
+	if have.has(PROFILE_7V7) or have.has(PROFILE_CAMP_EA) or have.has(PROFILE_PRESET_II_ENVELOP):
+		tracks.append_array(_validator_mopup_strike_finish_tracks())
+		tracks.append_array(_validator_line_plug_pick_tracks())
+	if have.has(PROFILE_CAMP_EA):
+		tracks.append_array(_validator_camp_ea_tracks())
 	return tracks.filter(func(spec: Dictionary) -> bool: return _track_applies(spec, active_profiles))
 
 
@@ -145,7 +165,43 @@ static func synthetic_profile_markers(preset_id: String) -> PackedStringArray:
 			return PackedStringArray(["soak_fight_enter preset=ii_envelop", "soak=ii_envelop"])
 		"7v7":
 			return PackedStringArray(["soak_fight_enter tile=red 7v7", "soak=7v7"])
+		"camp_ea":
+			return PackedStringArray([
+				"settlement_continue",
+				"contract_victory pay=",
+				"company_day_advanced",
+			])
 	return PackedStringArray()
+
+
+## Grep needles that activate **`camp_ea`** profile (F5 paste + world trace ingest).
+static func camp_ea_profile_markers() -> Array:
+	return [
+		"settlement_continue",
+		"contract_victory pay=",
+		"campaign_medical_exit",
+		"company_day_advanced",
+		"company_run_end reason=",
+		"field_care:",
+		"field_care bandage",
+		"field_care pressure",
+		"field_care stabilize",
+		"company_wages: gold=",
+		"Wages short",
+		"desertion summary=",
+		"party_triage_open",
+	]
+
+
+static func is_camp_ea_world_trace_line(s: String) -> bool:
+	var line: String = s.strip_edges()
+	if line.is_empty():
+		return false
+	for marker in camp_ea_profile_markers():
+		var m: String = str(marker)
+		if line.begins_with(m) or m in line:
+			return true
+	return false
 
 
 ## Union of validator track needles (+ alts) for active profiles.
@@ -238,6 +294,28 @@ static func grep_stats(normalized: PackedStringArray, count_needle: Callable, _c
 		"research_feel": count_needle.call(normalized, "research_feel "),
 		"hit_resolve": count_needle.call(normalized, "hit_resolve "),
 		"strike_avoided": count_needle.call(normalized, "strike_avoided "),
+		"engagement_debug_mop_up": count_needle.call(normalized, "mop_up=true"),
+		"engagement_debug_rotate_suppress": count_needle.call(normalized, "rotate_suppress=true"),
+		"engagement_debug_mopup_strikes_listed": _count_regex.call(
+			normalized,
+			REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED
+		),
+		"mopup_gauge_hint": count_needle.call(normalized, "Mop-up"),
+		"form_switch": count_needle.call(normalized, "form_switch id="),
+		"wf_m3_form_on_gauge": _count_regex.call(
+			normalized, "turn_ready_gauge .* label=.* Form "
+		),
+		"controlling_close_hint": count_needle.call(normalized, "controlling_close_list "),
+		"field_care_bandage": count_needle.call(normalized, "field_care bandage"),
+		"field_care_pressure": count_needle.call(normalized, "field_care pressure part="),
+		"company_day_advanced": count_needle.call(normalized, "company_day_advanced"),
+		"settlement_continue": count_needle.call(normalized, "settlement_continue"),
+		"company_wages_warn": (
+			count_needle.call(normalized, "company_wages: gold=")
+			+ count_needle.call(normalized, "Wages short — paid")
+		),
+		"desertion_summary": count_needle.call(normalized, "desertion summary="),
+		"party_triage_open": count_needle.call(normalized, "party_triage_open"),
 	}
 
 
@@ -555,6 +633,32 @@ static func _headless_preset_checks(preset_id: String) -> Array:
 					"alt_needles": ["Stack hold_line", "rotate_file@", "hit_resolve "],
 				},
 				{"id": "ii_envelop_hit", "needle": "hit_resolve ", "min": 1},
+				{
+					"id": "ii_envelop_mopup",
+					"needle": "mop_up=true",
+					"min": 1,
+					"alt_needles": ["soak_setup ii_envelop_mopup"],
+				},
+				{
+					"id": "ii_envelop_mopup_rotate_suppress",
+					"needle": "rotate_suppress=true",
+					"min": 1,
+					"optional": true,
+				},
+				{
+					"id": "ii_envelop_mopup_hold_hint",
+					"needle": "Mop-up",
+					"min": 1,
+					"optional": true,
+					"alt_needles": ["hold_line_hint_ok", "finish the last enemy"],
+				},
+				{
+					"id": "ii_envelop_mopup_strike_finish",
+					"regex": REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED,
+					"min": 1,
+					"optional": true,
+					"when_ok_at_least": "mop_up=true",
+				},
 			]
 		"7v7":
 			return [
@@ -819,20 +923,203 @@ static func _validator_ii_envelop_tracks() -> Array:
 			"needle": "attempt_close@",
 			"min": 1,
 			"profiles": [PROFILE_PRESET_II_ENVELOP],
-			"alt_needles": ["Stack hold_line", "rotate_file@"],
-		},
-		{
-			"id": "ii_envelop_pincer_debug",
-			"needle": "pincer=flank_wing",
-			"min": 1,
-			"profiles": [PROFILE_PRESET_II_ENVELOP],
-			"optional": true,
+			"alt_needles": ["Stack hold_line", "rotate_file@", "hit_resolve "],
 		},
 		{
 			"id": "ii_envelop_hit",
 			"needle": "hit_resolve ",
 			"min": 1,
 			"profiles": [PROFILE_PRESET_II_ENVELOP],
+		},
+		{
+			"id": "ii_envelop_mopup",
+			"needle": "mop_up=true",
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+			"alt_needles": ["soak_setup ii_envelop_mopup"],
+		},
+		{
+			"id": "ii_envelop_mopup_rotate_suppress",
+			"needle": "rotate_suppress=true",
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+			"optional": true,
+		},
+		{
+			"id": "ii_envelop_mopup_hold_hint",
+			"needle": "Mop-up",
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+			"optional": true,
+			"alt_needles": ["hold_line_hint_ok", "finish the last enemy"],
+		},
+		{
+			"id": "ii_envelop_mopup_strike_finish",
+			"regex": REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED,
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+			"optional": true,
+			"when_ok_at_least": "mop_up=true",
+		},
+	]
+
+
+static func _validator_wf_footing_tracks() -> Array:
+	## WF-M3 F5 paste checks — gated on **`turn_ready_gauge`** presence (Camp-5 human footing).
+	return [
+		{
+			"id": "wf_m3_turn_ready_form",
+			"regex": "turn_ready_gauge .* label=.* Form ",
+			"min": 1,
+			"profiles": [PROFILE_ALWAYS],
+			"when_ok_at_least": "turn_ready_gauge",
+		},
+		{
+			"id": "wf_m3_grd_before_form",
+			"regex": "turn_ready_gauge .* label=.*(?:Grd|Atk) .+ Form ",
+			"min": 1,
+			"profiles": [PROFILE_ALWAYS],
+			"when_ok_at_least": "turn_ready_gauge",
+		},
+		{
+			"id": "wf_m3_form_switch",
+			"needle": "form_switch id=",
+			"min": 1,
+			"profiles": [PROFILE_ALWAYS],
+			"optional": true,
+		},
+		{
+			"id": "wf_m3_idle_step_leak",
+			"regex": "turn_ready_gauge .* label=Stm [0-9]+% · Ready · Step",
+			"max": 0,
+			"profiles": [PROFILE_ALWAYS],
+			"when_ok_at_least": "turn_ready_gauge",
+			"optional": true,
+		},
+		{
+			"id": "wf_controlling_close_hint",
+			"needle": "controlling_close_list ",
+			"min": 1,
+			"profiles": [PROFILE_ALWAYS],
+			"optional": true,
+		},
+	]
+
+
+static func _validator_mopup_strike_finish_tracks() -> Array:
+	## III-4 **3e** — listed strikes during mop-up (7v7 campaign fights + Camp paste).
+	return [
+		{
+			"id": "camp_mopup_strike_finish",
+			"regex": REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED,
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA, PROFILE_7V7],
+			"optional": true,
+			"when_ok_at_least": "mop_up=true",
+		},
+	]
+
+
+static func _validator_line_plug_pick_tracks() -> Array:
+	## III-6 maintain — F5 / Camp paste when rear plugs rank-0 gap (`line_plug_pick=1`).
+	return [
+		{
+			"id": "camp_line_plug_pick",
+			"regex": REGEX_ENGAGEMENT_DEBUG_LINE_PLUG_PICK,
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA, PROFILE_7V7, PROFILE_PRESET_II_ENVELOP],
+			"optional": true,
+			"when_ok_at_least": "line_plug=true",
+		},
+	]
+
+
+static func _validator_camp_ea_tracks() -> Array:
+	return [
+		{
+			"id": "camp_settlement_continue",
+			"needle": "settlement_continue",
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA],
+			"optional": true,
+			"alt_needles": ["contract_victory pay="],
+		},
+		{
+			"id": "camp_company_day",
+			"needle": "company_day_advanced",
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA],
+			"optional": true,
+		},
+		{
+			"id": "camp_field_care",
+			"needle": "field_care:",
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA],
+			"optional": true,
+		},
+		{
+			"id": "camp_field_care_action",
+			"needle": "field_care bandage",
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA],
+			"optional": true,
+			"alt_needles": [
+				"field_care pressure part=",
+				"field_care stabilize part=",
+				"field_care bandage part=",
+				"parts_left=",
+			],
+		},
+		{
+			"id": "camp_paid_loss",
+			"regex": "company_run_end reason=contract_failed.*reload=true",
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA],
+			"optional": true,
+		},
+		{
+			"id": "camp_tutorial_soft_loss",
+			"regex": "company_run_end reason=tutorial_failed.*reload=false",
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA],
+			"optional": true,
+		},
+		{
+			"id": "camp_wage_warn",
+			"needle": "company_wages: gold=",
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA],
+			"optional": true,
+			"alt_needles": ["Wages short — paid"],
+		},
+		{
+			"id": "camp_desertion",
+			"needle": "desertion summary=",
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA],
+			"optional": true,
+		},
+		{
+			"id": "camp_run_end",
+			"needle": "company_run_end reason=",
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA],
+			"optional": true,
+		},
+		{
+			"id": "camp_party_triage",
+			"needle": "party_triage_open",
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA],
+			"optional": true,
+		},
+		{
+			"id": "camp_medical_exit",
+			"needle": "campaign_medical_exit",
+			"min": 1,
+			"profiles": [PROFILE_CAMP_EA],
+			"optional": true,
 		},
 	]
 

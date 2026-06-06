@@ -6,7 +6,6 @@ param(
 	[switch]$TailOnly
 )
 $ErrorActionPreference = "Continue"
-. "$PSScriptRoot\Invoke-GodotHeadless.ps1"
 $Root = Split-Path -Parent $PSScriptRoot
 $fail = 0
 $auditLines = New-Object System.Collections.Generic.List[string]
@@ -16,7 +15,7 @@ Write-Host ""
 
 if (-not $TailOnly) {
 	Write-Host "=== CompanyStateChecks (SHIP_PLAN section 8 steps 1-10 proxies) ==="
-	Invoke-FallenPathsGodotScript -Script "res://scripts/run_company_state_checks.gd"
+	& (Join-Path $Root "scripts\run_company_state_checks.ps1")
 	if ($LASTEXITCODE -ne 0) { $fail = 1; $auditLines.Add("COMPANY_STATE: FAIL") } else { $auditLines.Add("COMPANY_STATE: PASS") }
 	Write-Host ""
 } else {
@@ -24,7 +23,7 @@ if (-not $TailOnly) {
 }
 
 Write-Host "=== Q track audits (Camp-3.4 ii7 + Q1/Q2 proxies) ==="
-Invoke-FallenPathsGodotScript -HarnessMode q_track | Out-Null
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\run_q_audit.ps1") -Track Track
 if ($LASTEXITCODE -ne 0) {
 	$fail = 1
 	$auditLines.Add("Q_TRACK: FAIL")
@@ -34,12 +33,14 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host ""
 
 $soak = Join-Path $Root ".d001_soak_out.txt"
+$soakText = ""
 $ii7 = $false
 $iiEnvelop = $false
 if (Test-Path $soak) {
 	$soakText = Get-Content -Path $soak -Raw -Encoding utf8
 	$ii7 = $soakText -match '\[ii7\] pass=true'
 	$iiEnvelop = $soakText -match '\[ii_envelop\] pass=true'
+	$iiEnvelopMopup = $soakText -match 'ii_envelop_mopup: PASS'
 }
 if (-not $ii7) {
 	Write-Host 'FAIL: [ii7] pass=true missing in .d001_soak_out.txt - run .\scripts\run_all_combat_checks.ps1'
@@ -56,6 +57,14 @@ if (-not $iiEnvelop) {
 } else {
 	Write-Host "PASS: [ii_envelop] 7v3 wing engagement smoke (headless)"
 	$auditLines.Add("II_ENVELOP: PASS")
+}
+if ($iiEnvelop -and -not $iiEnvelopMopup) {
+	Write-Host 'FAIL: ii_envelop_mopup: PASS missing under [ii_envelop] in .d001_soak_out.txt - run .\scripts\run_all_combat_checks.ps1'
+	$fail = 1
+	$auditLines.Add("II_ENVELOP_MOPUP: FAIL")
+} elseif ($iiEnvelopMopup) {
+	Write-Host "PASS: ii_envelop_mopup check under [ii_envelop] (3e attrition smoke)"
+	$auditLines.Add("II_ENVELOP_MOPUP: PASS")
 }
 
 if (-not $TailOnly) {
@@ -76,8 +85,10 @@ if (-not $TailOnly) {
 
 Write-Host ""
 Write-Host "=== Still manual (Camp-3.4 / Camp-5 sign-off) ==="
-Write-Host '  F5 main.tscn: dev_soak_encounter empty - tutorial + 1 paid contract (SHIP_PLAN section 8)'
-Write-Host '  Optional III-4 F5: dev_soak_encounter=ii_envelop -> validate_f5_soak_log.ps1 (wing rotate/close/hold_line)'
+Write-Host '  Status: .\scripts\print_phase0_status.ps1 (headless green vs human F5 reminder)'
+Write-Host '  F5 main.tscn: dev_soak_encounter empty - tutorial + paid contracts; post-fight Party pressure -> bandage -> Camp rest (+1 day)'
+Write-Host '  Camp-5 close-out: .\scripts\run_camp_f5_closeout.ps1 (headless + wf_m3 + camp settlement/day minimum)'
+Write-Host '  Optional III-4 F5: dev_soak_encounter=ii_envelop -> validate_f5_soak_log.ps1 (wing + mop-up tail: mop_up=true rotate_suppress=true)'
 Write-Host '  Optional feel: .\scripts\run_q_feel.ps1 -Track Camp | Q1 | Q2'
 Write-Host "  Medical phase Stack labels: spot-check once in F5 after a fight with medical phase"
 Write-Host ""

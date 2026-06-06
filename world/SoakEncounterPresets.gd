@@ -178,11 +178,6 @@ static func _fight_enter_hint_lines(preset_id: String) -> PackedStringArray:
 			return PackedStringArray([
 				"human II-4d — long duel; grep exhaustion crossed 25|50|75; gauge Exh on row",
 			])
-		PRESET_II_ENVELOP:
-			return PackedStringArray([
-				"human III-4 — 7v3 Skirmish; party_entering_combat count=7",
-				"grep engagement mode=Skirmish | attempt_close@ | Stack hold_line | rotate_file@ | pincer=flank_wing",
-			])
 		_:
 			return PackedStringArray()
 
@@ -277,7 +272,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
 			lines_ii2b.append(
 				"Q2 feel: exchange until bind+deflect; riposte after deflect; flurry after bind — grep parry_stats deflect= q2_validate_hint at fight end"
 			)
-			lines_ii2b.append("Q2 headless: .\\scripts\\run_all_combat_checks.ps1 -HarnessMode q_track after run_all_combat_checks")
+			lines_ii2b.append("Q2 headless: .\\scripts\\run_q_audit.ps1 -Track Q2 after run_all_combat_checks")
 			return lines_ii2b
 		PRESET_II4D_EXHAUSTION:
 			return PackedStringArray([
@@ -299,7 +294,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
 				"setup: leader armless (cowering); loose 2×3 party formation",
 				"grep: cowering_fall_back listed | cowering_fall_back executed | ui_hint No arms",
 				"play: on your turn pick fall_back when listed (not flee-only path)",
-				"Q3 headless: .\\scripts\\run_all_combat_checks.ps1 -HarnessMode q_track — [ii5] cowering_* PASS in .d001_soak_out.txt",
+				"Q3 headless: .\\scripts\\run_q_audit.ps1 -Track Track — [ii5] cowering_* PASS in .d001_soak_out.txt",
 				"Q3 F5 only: confirm fall_back pick UX on world grid (grep q3_validate_hint at fight end)",
 			])
 		PRESET_II6_AMBIENT_SHOCK:
@@ -321,8 +316,9 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
 			return PackedStringArray([
 				"preset=ii_envelop — III-4 outnumber 7v3 skirmish | %s" % tile_s,
 				"setup: cap=7 party, 7-wide front vs 3 enemies (grep party_entering_combat count=7)",
-				"grep: engagement mode=Skirmish | attempt_close@ | Stack hold_line | rotate_file@ | engagement_debug turn pincer=",
-				"headless: [ii_envelop] attempt_close or hold_line stack in .d001_soak_out.txt",
+				"grep: engagement mode=Skirmish | attempt_close | Stack hold_line | rotate_file@ (opening only)",
+				"tail (3e mop-up): engagement_debug mop_up=true rotate_suppress=true pick=attempt_close; avoid rotate=1 strikes=0 loops",
+				"headless: [ii_envelop] pass=true + ii_envelop_mopup: PASS under [ii_envelop] in .d001_soak_out.txt",
 			])
 		_:
 			return PackedStringArray()
@@ -379,6 +375,8 @@ static func _apply_ii2b_sword_duel(encounter: Node) -> void:
 	encounter.enemy_formation = {"files": 1, "ranks": 1, "density": FormationPreset.DENSITY_NORMAL}
 	var cfg: Dictionary = encounter.encounter_config.duplicate(true)
 	cfg[ENCOUNTER_KEY_FORCE_WEAPON_ID] = "SWORD"
+	cfg[_CombatConstants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM] = "ox"
+	cfg[_CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM] = "ox"
 	encounter.encounter_config = cfg
 
 
@@ -386,6 +384,9 @@ static func _apply_ii3_surround(encounter: Node) -> void:
 	_tag_encounter(encounter, PRESET_II3_SURROUND)
 	encounter.enemy_count = 4
 	encounter.enemy_formation = FormationPreset.for_front_count(4, 4, FormationPreset.DENSITY_NORMAL)
+	var cfg: Dictionary = encounter.encounter_config.duplicate(true)
+	cfg[_CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM] = "fool"
+	encounter.encounter_config = cfg
 
 
 static func _apply_ii5_cowering_fall_back(encounter: Node) -> void:
@@ -413,7 +414,6 @@ static func _apply_ii_envelop(encounter: Node) -> void:
 	var cfg: Dictionary = encounter.encounter_config.duplicate(true)
 	cfg[ENCOUNTER_KEY_FORCE_WEAPON_ID] = "SWORD"
 	cfg[_CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT] = 7
-	cfg[_CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER] = _CombatConstants.DOCTRINE_PINCH_CENTER
 	cfg[_CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY] = _CombatConstants.DOCTRINE_PINCH_CENTER
 	encounter.encounter_config = cfg
 
@@ -496,7 +496,12 @@ static func _destroy_arms_on_character(world: Node2D, character_path: String) ->
 
 
 static func _destroy_limb_for_soak(entity: CoreEntity, part: String) -> void:
-	CombatRegressionHarness._harness_destroy_limb(entity, part)
+	if entity == null or part.is_empty():
+		return
+	entity.body_cutting[part] = 0.0
+	entity.body_blunt[part] = 0.0
+	if entity.bone_health.has(part):
+		entity.bone_health[part] = 0.0
 
 
 static func _wound_companion_for_ambient_shock(world: Node2D) -> void:

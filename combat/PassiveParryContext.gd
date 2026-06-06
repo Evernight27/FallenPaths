@@ -4,7 +4,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Parry paradigm config and readiness helpers for AttackResolver.
-## Decouples parry/dodge logic from CombatManager.
+## Footing: **`guard_zone`** gauge here is **not** L3 **`guard_line`** (blade posture) — see LIVE_PATHS **`#wf-layer-labels`**. Decouples parry/dodge logic from CombatManager.
 
 ## Parry paradigm config (redirect-default, block as exception). Used by AttackResolver.
 static func get_parry_config() -> Dictionary:
@@ -40,8 +40,8 @@ static func get_passive_parry_readiness(c: Dictionary) -> float:
 		var dur: float = c.get("state_duration", 0.001)
 		var t: float = c.get("state_timer", 0.0)
 		var progress: float = clampf(t / dur, 0.0, 1.0)
-		var cause: String = c.get("recovery_cause", "skip")
-		var curve: Array = CombatConstants.READINESS_BY_CAUSE.get(cause, CombatConstants.READINESS_BY_CAUSE.get("medical", [0.5, 0.85]))
+		var cause: String = CombatConstants.normalize_recovery_cause(str(c.get("recovery_cause", "skip")))
+		var curve: Array = CombatConstants.readiness_curve_for_cause(cause)
 		var early: float = curve[0] if curve.size() >= 1 else 0.5
 		var late: float = curve[1] if curve.size() >= 2 else 0.85
 		return lerpf(early, late, progress)

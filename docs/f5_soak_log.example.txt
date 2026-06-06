@@ -6,6 +6,7 @@ FP_COMBAT: hit_resolve Goblin->Companion head outcome=negligible phys=0.150 dmg_
 FP_COMBAT: strike_avoided Goblin->Companion left_arm outcome=miss reason=attack missed (no contact)
 FP_COMBAT: parry_partial Companion vs Goblin ctrl=0.12 rem=0.85 reason=partial parry — see follow-through line
 FP_COMBAT: turn_ready_gauge id=0 Leader label=Stm 80% · Ready · Exh 40% · Grd Hi tooltip_match=ok
+FP_COMBAT: turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Grd HiR · Form Ox tooltip_match=melee_only
 FP_COMBAT: turn_ready_gauge id=3 Ally label=Counter! · Tel head tooltip_match=counter
 FP_COMBAT: diagram_banner player: Formation line · Line · cohesion 72%
 FP_COMBAT: diagram_banner enemy: Skirmish · Loose · cohesion 40%

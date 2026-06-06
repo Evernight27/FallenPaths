@@ -201,7 +201,9 @@ static func format_vitality_status(member: Dictionary) -> String:
 	if wn > 0:
 		var wound_line: String = "Wounds: %d part(s)" % wn
 		if bool(member.get("has_untreated_wounds", false)):
-			wound_line += " — untreated (treat in camp or party menu)"
+			var up: Variant = member.get("untreated_parts", [])
+			if not (up is PackedStringArray and (up as PackedStringArray).size() > 0):
+				wound_line += " — needs dressing (Party field care)"
 		parts.append(wound_line)
 	if not bool(member.get("can_flee_or_fall_back", true)) and not bool(member.get("is_unconscious", false)):
 		parts.append("Legs too damaged to retreat")

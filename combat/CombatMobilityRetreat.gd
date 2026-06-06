@@ -8,6 +8,7 @@ const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 
 static func formation_retreat_only_for(c: Dictionary) -> bool:
@@ -59,7 +60,7 @@ static func first_disallowed_retreat_only_move_id(actions: Array) -> String:
 				CombatConstants.MOVE_ID_FALL_BACK,
 				CombatConstants.MOVE_ID_FLEE,
 			],
-			CombatConstants.MEDICAL_MOVE_IDS,  # allowlist data; membership → **`is_medical_move`**
+			CombatConstants.MEDICAL_MOVE_IDS,
 		]
 	)
 
@@ -80,9 +81,9 @@ static func is_offensive_melee_move_id(move_id: String) -> bool:
 		return false
 	if resolve_move_allowed_when_cannot_melee(move_id, -1, -1):
 		return false
-	if CombatConstants.is_medical_move(move_id):
+	if move_id in CombatConstants.MEDICAL_MOVE_IDS:
 		return false
-	if CombatConstants.is_formation_movement_move(move_id):
+	if move_id in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
 		return false
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return true
@@ -104,7 +105,7 @@ static func sync_cowering_state_if_no_functional_arm(c: Dictionary) -> void:
 		CombatConstants.STATE_DEAD,
 	]:
 		return
-	c.state = CombatConstants.STATE_COWERING
+	_Footwork.return_to_cowering(c)
 
 
 static func react_attacking_arm_lost_if_needed(manager: Node, c: Dictionary) -> void:

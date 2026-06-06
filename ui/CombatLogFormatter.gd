@@ -2,7 +2,8 @@ class_name CombatLogFormatter
 extends RefCounted
 
 ## Formats combat action results as BBCode strings for the combat log.
-## Skip/hold outcomes use **`CombatConstants.SKIP_TURN_LOG_*`** (`wait`, `pass`).
+## Footing: parry clash context may log **`defender_guard_line`** — diagnostic only; gauge **`Form`** / **`Grd`** suffixes are **`CombatUiHints`** / **`BattleUIUpdater`**. LIVE_PATHS **`#wf-guard-writers`** · **`#battle-ui`**.
+## BattleScene calls format_action_line() and appends the result to RichTextLabel.
 ## **`parry_deflect`** / **`parry_partial`**: optional **`parry_clash_context`** on **`result`** (from **`action_resolved`** after **`AttackResultApplier`**) — play session + calibration show **`rem=`** (follow-through fraction, not blocked damage).
 
 static func _eff_pct(result: Dictionary) -> int:
@@ -29,11 +30,11 @@ static func _medical_procedure_label(move_id: String, on_self: bool) -> String:
 	if on_self:
 		return base
 	match move_id:
-		CombatConstants.MOVE_ID_BANDAGE_SELF:
+		"bandage_self":
 			return "bandage (ally)"
-		CombatConstants.MOVE_ID_PACK_WOUND:
+		"pack_wound":
 			return "pack wound (ally)"
-		CombatConstants.MOVE_ID_APPLY_TOURNIQUET:
+		"apply_tourniquet":
 			return "tourniquet (ally)"
 		_:
 			return "%s (ally)" % base
@@ -307,9 +308,9 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		return "[color=gray]%s (%s) shifts focus — %s line.[/color]" % [attacker_name, attacker_side, guard_disp]
 	elif outcome == "skip":
 		return "[color=gray]%s (%s) — no functional arm; skips attack.[/color]" % [attacker_name, attacker_side]
-	elif outcome == CombatConstants.SKIP_TURN_LOG_WAIT:
+	elif outcome == "wait":
 		return "[color=gray]%s (%s) waits.[/color]" % [attacker_name, attacker_side]
-	elif outcome == CombatConstants.SKIP_TURN_LOG_PASS:
+	elif outcome == "pass":
 		var rank: int = int(result.get("rank", 0))
 		if rank > 0:
 			return "[color=gray]%s (%s) holds in reserve (no action available).[/color]" % [attacker_name, attacker_side]
@@ -361,7 +362,7 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		return "[color=teal]%s (%s) applied direct pressure on %s's %s.[/color]" % [attacker_name, attacker_side, target_name, part_label]
 	elif outcome == "bandaged":
 		var on_self_b: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_b: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_BANDAGE_SELF))
+		var med_id_b: String = str(result.get("medical_move_id", "bandage_self"))
 		var bandage_verb: String = (
 			"bandaged" if on_self_b else _medical_procedure_label(med_id_b, false)
 		)
@@ -372,14 +373,14 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		)
 	elif outcome == "bandage_failed":
 		var on_self_bf: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_bf: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_BANDAGE_SELF))
+		var med_id_bf: String = str(result.get("medical_move_id", "bandage_self"))
 		return _medical_procedure_log_line(
 			false, "", _medical_procedure_label(med_id_bf, on_self_bf), "partial effect; another can retry",
 			attacker_name, attacker_side, target_name, part_label, result
 		)
 	elif outcome == "packed":
 		var on_self_p: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_p: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_PACK_WOUND))
+		var med_id_p: String = str(result.get("medical_move_id", "pack_wound"))
 		var pack_verb: String = (
 			"packed with linen" if on_self_p else _medical_procedure_label(med_id_p, false)
 		)
@@ -390,14 +391,14 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		)
 	elif outcome == "packing_failed":
 		var on_self_pf: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_pf: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_PACK_WOUND))
+		var med_id_pf: String = str(result.get("medical_move_id", "pack_wound"))
 		return _medical_procedure_log_line(
 			false, "", _medical_procedure_label(med_id_pf, on_self_pf), "partial effect; another can retry",
 			attacker_name, attacker_side, target_name, part_label, result
 		)
 	elif outcome == "tourniquet_applied":
 		var on_self_t: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_t: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_APPLY_TOURNIQUET))
+		var med_id_t: String = str(result.get("medical_move_id", "apply_tourniquet"))
 		var tq_verb: String = (
 			"applied tourniquet to" if on_self_t else _medical_procedure_label(med_id_t, false)
 		)
@@ -408,7 +409,7 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		)
 	elif outcome == "tourniquet_failed":
 		var on_self_tf: bool = _medical_on_self(result, attacker_name, target_name)
-		var med_id_tf: String = str(result.get("medical_move_id", CombatConstants.MOVE_ID_APPLY_TOURNIQUET))
+		var med_id_tf: String = str(result.get("medical_move_id", "apply_tourniquet"))
 		return _medical_procedure_log_line(
 			false, "", _medical_procedure_label(med_id_tf, on_self_tf), "not tight enough; can retry",
 			attacker_name, attacker_side, target_name, part_label, result
@@ -420,6 +421,12 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		if rsn_close == "not_long":
 			return "[color=gray]%s (%s) could not close on %s (%s) — already in melee range.[/color]" % [attacker_name, attacker_side, target_name, target_side]
 		if rsn_close == "contest_failed":
+			var form_note: String = str(result.get("close_contest_note", "")).strip_edges()
+			if not form_note.is_empty():
+				return (
+					"[color=gray]%s (%s) tried to close on %s (%s) — the defender held their measure (%s).[/color]"
+					% [attacker_name, attacker_side, target_name, target_side, form_note]
+				)
 			return "[color=gray]%s (%s) tried to close on %s (%s) — the defender held their measure.[/color]" % [attacker_name, attacker_side, target_name, target_side]
 		return "[color=gray]%s (%s) failed to close on %s (%s).[/color]" % [attacker_name, attacker_side, target_name, target_side]
 	elif outcome == "deflected":

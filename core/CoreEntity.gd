@@ -116,8 +116,13 @@ signal died
 signal creature_incapacitated
 signal health_changed
 
+var _death_notified: bool = false
+
 ## Called by EntityDamage and EntityWounds when entity dies (vital part destroyed or blood loss). Centralizes emission.
 func notify_died() -> void:
+	if _death_notified:
+		return
+	_death_notified = true
 	emit_signal("died")
 
 ## Called by EntityPainConsciousness when consciousness drops below incapacitation threshold.
@@ -502,6 +507,9 @@ func apply_species():
 	_apply_species()
 
 func _apply_species():
+	_death_notified = false
+	if has_meta("_fp_death_notified"):
+		remove_meta("_fp_death_notified")
 	body_cutting.clear()
 	body_blunt.clear()
 	body_max.clear()

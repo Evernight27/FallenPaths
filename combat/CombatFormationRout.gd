@@ -6,6 +6,7 @@ extends RefCounted
 ## Canonical: **`CombatantEntityAccess.flee_abandonment_warranted`** delegates here.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
 
@@ -164,7 +165,7 @@ static func formation_stress_abandonment_path(manager: Node, c: Dictionary) -> b
 	var bv: float = _EntityAccess.get_blood_volume_from_node(node as Node)
 	if bv < CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX:
 		return false
-	if _EntityAccess.is_in_immediate_peril(manager, c):
+	if _MedicalPhase.is_in_immediate_peril(manager, c):
 		return false
 	return (
 		bv < CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX
@@ -185,7 +186,7 @@ static func abandonment_warranted(manager: Node, c: Dictionary) -> bool:
 	var bv: float = _EntityAccess.get_blood_volume_from_node(node as Node)
 	if bv < CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX:
 		return true
-	if _EntityAccess.is_in_immediate_peril(manager, c):
+	if _MedicalPhase.is_in_immediate_peril(manager, c):
 		return true
 	if formation_stress_abandonment_path(manager, c):
 		if side_holding_field(manager, c):
@@ -207,6 +208,8 @@ static func flee_ai_pick_mult(manager: Node, c: Dictionary) -> float:
 	var cas_t: float = clampf(cas / maxf(cas_min, 0.01), 0.0, 1.0)
 	var cas_m: float = lerpf(1.0, CombatConstants.AI_FLEE_HIGH_CASUALTY_MULT, cas_t)
 	var mult: float = coh_m * cas_m
+	if formation_stressed_for_rout(manager, c) and not side_holding_field(manager, c):
+		mult *= CombatConstants.AI_FLEE_LOSING_SIDE_MULT
 	# Personal crisis flee stays urgent even when the side still has numbers.
 	if side_holding_field(manager, c) and formation_stress_abandonment_path(manager, c):
 		mult *= 0.55
@@ -252,7 +255,7 @@ static func personal_rout_pressure(manager: Node, c: Dictionary) -> bool:
 	var bv: float = _EntityAccess.get_blood_volume_from_node(node as Node)
 	if bv < CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX:
 		return true
-	if _EntityAccess.is_in_immediate_peril(manager, c):
+	if _MedicalPhase.is_in_immediate_peril(manager, c):
 		return true
 	return false
 

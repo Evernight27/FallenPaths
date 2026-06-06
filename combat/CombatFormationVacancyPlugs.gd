@@ -1,18 +1,15 @@
-﻿class_name CombatFormationVacancyPlugs
+class_name CombatFormationVacancyPlugs
 extends RefCounted
 
-## Vacancy plug reconcile, rank-0 fill policy, native line compaction.
-## **Read order:** lateral tracking -> per-file reconcile -> plug apply -> promotion ready scheduling.
-## Canonical: **`CombatDoctrine.clear_combatant_doctrine_commitment`** on rank/file writes in **`_apply_plug_move`**.
-## See **`CombatFormationFlow`** header for plug priority order.
+## Vacancy plug reconcile, rank-0 fill policy, native line compaction. See **CombatFormationFlow** header for plug order.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
-const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 const VACANCY_LATERAL_EDGE_META := "_vacancy_lateral_edges"
 const VACANCY_PLUG_RESERVED_DONORS_META := "_vacancy_plug_reserved_donors"
@@ -91,7 +88,7 @@ static func _repack_lane_offset_after_rank_file_change(c: Dictionary) -> void:
 	c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
 
 
-static func _formation_has_rank0_hole(manager: Node, fid: String) -> bool:
+static func formation_has_rank0_hole(manager: Node, fid: String) -> bool:
 	if manager == null:
 		return false
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
@@ -182,7 +179,7 @@ static func _is_ineligible_vacancy_donor(manager: Node, c: Dictionary) -> bool:
 		if clk < until:
 			var fid_geom: String = _ZoneOfControl.zone_geometry_fid_str(manager, c)
 			# Frontline-first override: if rank 0 has holes, let reserves donate even during autofill cooldown.
-			if not _formation_has_rank0_hole(manager, fid_geom):
+			if not formation_has_rank0_hole(manager, fid_geom):
 				return true
 	return false
 
@@ -261,7 +258,7 @@ static func _plug_priority_score(manager: Node, prox_steps: int, c: Dictionary, 
 ## When `adjacent_rank_only`, walk ranks shallowâ†’deep: skip empty ranks; **skip** ranks whose primary native
 ## is not a legal donor (wind-up, reserved elsewhere, foreign occupant cell, etc.) and keep scanning so a deeper
 ## reserve can still plug the hole without forcing a front-rank lateral shuffle. Stop at the first **eligible,
-## unreserved** donor (closest promotable native â€” do not jump over them to pull someone even deeper).
+## unreserved** donor (closest promotable native — do not jump over them to pull someone even deeper).
 ## When false, scan the full column and keep the best-scoring eligible donor (full-column donor scan).
 static func _evaluate_best_vertical_plug_for_cell(
 	manager: Node,
@@ -590,16 +587,18 @@ static func _apply_plug_move(
 	if CombatConstants.COMBAT_FORMATION_PLUG_MOVE_DEBUG:
 		var name_p: String = _EntityAccess.get_display_name(ally, _EntityAccess.id_int(ally))
 		if kind == "lateral":
-			_CombatDebug.combat_session(
-				"%s: %s slid file %d â†’ %d (rank %d)" % [log_prefix, name_p, from_f, file, fill_rank]
+			print(
+				"[Combat] %s: %s slid file %d â†’ %d (rank %d)" % [log_prefix, name_p, from_f, file, fill_rank]
 			)
 		elif kind == "rear_infill":
-			_CombatDebug.combat_session(
-				"%s: %s rear infill rank %d file %d â†’ rank %d file %d"
-				% [log_prefix, name_p, int(move.get("from_rank", 0)), from_f, fill_rank, file]
+			print(
+				(
+					"[Combat] %s: %s rear infill rank %d file %d â†’ rank %d file %d"
+					% [log_prefix, name_p, int(move.get("from_rank", 0)), from_f, fill_rank, file]
+				)
 			)
 		else:
-			_CombatDebug.combat_session("%s: %s advanced to rank %d (file %d)" % [log_prefix, name_p, fill_rank, file])
+			print("[Combat] %s: %s advanced to rank %d (file %d)" % [log_prefix, name_p, fill_rank, file])
 	elif CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG and str(log_prefix).begins_with("Vacancy"):
 		var name_v: String = _EntityAccess.get_display_name(ally, _EntityAccess.id_int(ally))
 		CombatDebug.formation_vacancy_log("%s: %s â†’ rank %d file %d (%s)" % [log_prefix, name_v, fill_rank, file, kind])
@@ -611,6 +610,7 @@ static func _apply_plug_move(
 		var fdist: int = abs(int(from_f) - int(file))
 		ready_delay += float(fdist) * CombatConstants.FORMATION_PLUG_REAR_CROSS_FILE_READY_PER_FILE_S
 	_EventScheduler.schedule_action_ready(manager, _EntityAccess.id_int(ally), ready_delay)
+	_Footwork.reconcile_idle_offset(ally)
 
 
 ## True when this file has a living occupant strictly deeper than `rank_i`.
@@ -666,7 +666,7 @@ static func _formation_has_any_promotable_rear_donor(
 
 ## Rank-0 lateral: only when the **hole** column cannot pull a reserve up (no promotable native deeper).
 ## If this column has anyone who can vertical-plug (possibly after skipping empty ranks), do not slide a
-## neighbor's front sideways â€” that read as "shuffling files" instead of filling from behind.
+## neighbor's front sideways — that read as "shuffling files" instead of filling from behind.
 ## `donor_file` kept for call-site stability; lateral donor search may use it later.
 static func _rank0_lateral_slide_allowed(
 	manager: Node,
@@ -778,7 +778,7 @@ static func _should_compact_native_line_files(manager: Node, fid: String) -> boo
 		var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 		if formation.is_empty():
 			return false
-		if not _formation_has_rank0_hole(manager, fid):
+		if not formation_has_rank0_hole(manager, fid):
 			return false
 		var formation_ranks: int = maxi(1, int(formation.get("ranks", 1)))
 		if formation_ranks <= 1:
@@ -930,7 +930,7 @@ static func _log_rank0_vacancy_gaps_if_debug(manager: Node, fid: String) -> void
 ## Run vacancy plug on every file column so empty front cells do not persist while deeper ranks are alive (avoids soft deadlock: no enemy rank 0 while enemies remain).
 ## Repeats rounds so lateral slides that open a gap in a neighbor file get a chance to fill.
 ## Each round processes **files with an empty rank 0 first** (then the rest) so an edge column does not pull a
-## neighbor's front fighter into a shallow hole before that neighbor's own rank-0 gap is closed â€” that pattern
+## neighbor's front fighter into a shallow hole before that neighbor's own rank-0 gap is closed — that pattern
 ## read as the line scooting over and then back when the center finally pulls a reserve.
 static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> bool:
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)

@@ -1,7 +1,8 @@
 class_name CombatWeaponPosition
 extends RefCounted
 
-## Defender blade reach for passive parry capacity (near body vs extended). See CombatConstants / LIVE_PATHS Tier 3.
+## Defender blade reach for passive parry capacity (near body vs extended).
+## Footing: wind-up extension / recovery timing — **not** L3 **`guard_line`** or Tier 4.4 PA step. LIVE_PATHS **`#wf-pick-vs-strike`** (strike-time parry capacity).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
@@ -27,10 +28,15 @@ static func is_weapon_near_body(combatant: Dictionary) -> bool:
 			return false
 		return true
 	if st == CombatConstants.STATE_RECOVERING:
-		var cause: String = str(combatant.get("recovery_cause", ""))
-		if cause == "parry_deflect" or cause == "parry_partial":
+		var cause: String = CombatConstants.normalize_recovery_cause(
+			str(combatant.get("recovery_cause", ""))
+		)
+		if cause == "attack_deflect":
 			return true
-		if cause.begins_with("parry"):
+		var raw_cause: String = str(combatant.get("recovery_cause", "")).strip_edges()
+		if raw_cause == "parry_partial":
+			return true
+		if raw_cause.begins_with("parry"):
 			return true
 		var last_move: String = str(combatant.get("last_move_id", "")).strip_edges()
 		if last_move.is_empty():

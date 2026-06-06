@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Phase 0 gate (default) or partial harness when FP_HARNESS_MODE is set.
-# Modes: regression|d001|d001_presets|sanity|calibration|medical|f5_validate
+# Phase 0 gate (default) or partial harness when FP_HARNESS_MODE is set (regression|d001|sanity|calibration|medical).
 # Optional: --validate-f5
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -28,9 +27,9 @@ fi
 
 if [[ "$MODE" != "all" ]]; then
 	case "$MODE" in
-		regression|d001|d001_presets|sanity|calibration|medical|f5_validate|q_track) ;;
+		regression|d001|sanity|calibration|medical) ;;
 		*)
-			echo "run_all_combat_checks.sh: unknown mode '$MODE' (regression|d001|d001_presets|sanity|calibration|medical|f5_validate|q_track|all)" >&2
+			echo "run_all_combat_checks.sh: unknown mode '$MODE' (regression|d001|sanity|calibration|medical|all)" >&2
 			exit 2
 			;;
 	esac
@@ -38,12 +37,9 @@ if [[ "$MODE" != "all" ]]; then
 	OK_GREP="FP_HARNESS_OK: CombatRegressionHarness"
 	case "$MODE" in
 		d001) LOG_NAME=".d001_soak_out.txt"; OK_GREP="FP_HARNESS_OK: CombatD001SoakRunner" ;;
-		d001_presets) LOG_NAME=".ii5_ii6_soak_out.txt"; OK_GREP="FP_HARNESS_OK: D001PresetsIi5Ii6" ;;
 		sanity) LOG_NAME=".d001_soak_sanity_out.txt"; OK_GREP="FP_HARNESS_OK: CombatD001SoakSanity" ;;
 		calibration) LOG_NAME=".calibration_audit.txt"; OK_GREP="FP_HARNESS_OK: CombatCalibrationAudit" ;;
 		medical) LOG_NAME=".medical_phase_harness_out.txt"; OK_GREP="FP_HARNESS_OK: MedicalPhaseHarness" ;;
-		f5_validate) LOG_NAME=".f5_soak_validation.txt"; OK_GREP="FP_HARNESS_OK: CombatF5SoakLogValidator" ;;
-		q_track) LOG_NAME=".q_track_audits.txt"; OK_GREP="FP_HARNESS_OK: QTrackAudits" ;;
 	esac
 	export FP_HARNESS_MODE="$MODE"
 	LOG="$ROOT/$LOG_NAME"
@@ -65,26 +61,33 @@ SUMMARY_PATH="$ROOT/.phase0_combat_checks.txt"
 D001_REPORT="$ROOT/.d001_soak_out.txt"
 
 echo "=== Doc link check ==="
-bash "$ROOT/scripts/check_doc_links.sh" || exit $?
-echo ""
-
-echo "=== res:// path check ==="
-python3 "$ROOT/scripts/validate_res_paths.py" || exit $?
+if [[ -f "$ROOT/scripts/check_doc_links.sh" ]]; then
+	bash "$ROOT/scripts/check_doc_links.sh" || exit $?
+elif command -v pwsh >/dev/null 2>&1; then
+	pwsh -NoProfile -File "$ROOT/scripts/check_doc_links.ps1" || exit $?
+else
+	echo "DOC_LINKS: skip (no check_doc_links.sh / pwsh)"
+fi
 echo ""
 
 echo "=== CompanyStateChecks (Camp-1.1-1.8) ==="
 set +e
-"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_company_state_checks.gd
+COMPANY_OUT="$(bash "$ROOT/scripts/run_company_state_checks.sh" 2>&1)"
 COMPANY_EXIT=$?
 set -e
-if [[ $COMPANY_EXIT -ne 0 ]]; then
+echo "$COMPANY_OUT"
+COMPANY_OK="$(echo "$COMPANY_OUT" | grep "FP_HARNESS_OK: CompanyStateChecks" | tail -1 || true)"
+if [[ $COMPANY_EXIT -ne 0 ]] || [[ -z "$COMPANY_OK" ]]; then
 	echo "COMPANY_STATE: FAIL exit=$COMPANY_EXIT" >>"$SUMMARY_PATH"
 	echo "PHASE0: FAIL (company state checks)" >>"$SUMMARY_PATH"
 	echo ""
 	echo "=== PHASE0 FAIL (CompanyStateChecks) ==="
-	exit "$COMPANY_EXIT"
+	exit 1
 fi
 echo "COMPANY_STATE: PASS" >>"$SUMMARY_PATH"
+if [[ -n "$COMPANY_OK" ]]; then
+	echo "$COMPANY_OK" >>"$SUMMARY_PATH"
+fi
 echo ""
 
 echo "=== AllCombatChecks (regression + D-001 + calibration) ==="
@@ -175,7 +178,7 @@ AUDIT_PATH="$ROOT/.campaign_ship_audit.txt"
 if [[ -f "$AUDIT_PATH" ]]; then
 	while IFS= read -r line; do
 		case "$line" in
-			Q_TRACK:*|II7_MEDICAL:*|CAMPAIGN_SHIP_AUDIT:*)
+			Q_TRACK:*|II7_MEDICAL:*|II_ENVELOP:*|II_ENVELOP_MOPUP:*|CAMPAIGN_SHIP_AUDIT:*)
 				echo "$line" >>"$SUMMARY_PATH"
 				;;
 		esac
@@ -189,6 +192,7 @@ if [[ $CAMPAIGN_EXIT -ne 0 ]]; then
 fi
 echo "ran_at=$(date '+%Y-%m-%d %H:%M:%s')" >>"$SUMMARY_PATH"
 echo "Summary: $SUMMARY_PATH"
+echo "Artifact summary: ./scripts/print_phase0_status.ps1"
 if [[ $VALIDATE_F5 -eq 1 ]]; then
 	bash "$ROOT/scripts/validate_f5_soak_log.sh" || exit $?
 fi

@@ -4,6 +4,7 @@ extends RefCounted
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 
 ## Deterministic anatomy site on a hit part (S2). Path intercept + attack line bias; no combat RNG.
+## Footing: **`attack_line`** biases site pick; **`guard_line`** arg unused at resolve — not L3 drift or PA geometry. LIVE_PATHS **`#wf-layer-labels`**.
 
 static func resolve_sub_region(
 	part: String,

@@ -29,7 +29,7 @@ echo ""
 if [[ $TAIL_ONLY -eq 0 ]]; then
 	echo "=== CompanyStateChecks (SHIP_PLAN section 8 steps 1-10 proxies) ==="
 	set +e
-	"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_company_state_checks.gd
+	bash "$ROOT/scripts/run_company_state_checks.sh"
 	COMPANY_EXIT=$?
 	set -e
 	if [[ $COMPANY_EXIT -ne 0 ]]; then
@@ -45,11 +45,9 @@ fi
 
 echo "=== Q track audits (Camp-3.4 ii7 + Q1/Q2 proxies) ==="
 set +e
-export FP_HARNESS_MODE=q_track
-"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_all_combat_checks.gd
+"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_q_track_audits.gd
 Q_EXIT=$?
 set -e
-unset FP_HARNESS_MODE
 if [[ $Q_EXIT -ne 0 ]]; then
 	echo "Q_TRACK: FAIL" >>"$AUDIT_PATH"
 	FAIL=1
@@ -61,12 +59,16 @@ echo ""
 SOAK="$ROOT/.d001_soak_out.txt"
 II7=0
 II_ENVELOP=0
+II_ENVELOP_MOPUP=0
 if [[ -f "$SOAK" ]]; then
 	if grep -q '\[ii7\] pass=true' "$SOAK"; then
 		II7=1
 	fi
 	if grep -q '\[ii_envelop\] pass=true' "$SOAK"; then
 		II_ENVELOP=1
+	fi
+	if grep -q 'ii_envelop_mopup: PASS' "$SOAK"; then
+		II_ENVELOP_MOPUP=1
 	fi
 fi
 if [[ $II7 -eq 1 ]]; then
@@ -84,6 +86,14 @@ else
 	echo "FAIL: [ii_envelop] pass=true missing in .d001_soak_out.txt - run ./scripts/run_all_combat_checks.sh"
 	echo "II_ENVELOP: FAIL" >>"$AUDIT_PATH"
 	FAIL=1
+fi
+if [[ $II_ENVELOP -eq 1 && $II_ENVELOP_MOPUP -eq 0 ]]; then
+	echo "FAIL: ii_envelop_mopup: PASS missing under [ii_envelop] in .d001_soak_out.txt - run ./scripts/run_all_combat_checks.sh"
+	echo "II_ENVELOP_MOPUP: FAIL" >>"$AUDIT_PATH"
+	FAIL=1
+elif [[ $II_ENVELOP_MOPUP -eq 1 ]]; then
+	echo "PASS: ii_envelop_mopup check under [ii_envelop] (3e attrition smoke)"
+	echo "II_ENVELOP_MOPUP: PASS" >>"$AUDIT_PATH"
 fi
 
 if [[ $TAIL_ONLY -eq 0 ]]; then
@@ -104,8 +114,10 @@ fi
 
 echo ""
 echo "=== Still manual (Camp-3.4 / Camp-5 sign-off) ==="
-echo "  F5 main.tscn: dev_soak_encounter empty - tutorial + 1 paid contract (SHIP_PLAN section 8)"
-echo "  Optional III-4 F5: dev_soak_encounter=ii_envelop -> validate_f5_soak_log.sh (wing rotate/close/hold_line)"
+echo "  Status: ./scripts/print_phase0_status.sh (headless green vs human F5 reminder)"
+echo "  F5 main.tscn: dev_soak_encounter empty - tutorial + paid contracts; Party pressure -> bandage -> Camp rest (+1 day)"
+echo "  Camp-5 close-out: ./scripts/run_camp_f5_closeout.sh (headless + wf_m3 + camp settlement/day minimum)"
+echo "  Optional III-4 F5: dev_soak_encounter=ii_envelop -> validate_f5_soak_log.sh (wing + mop-up tail: mop_up=true rotate_suppress=true)"
 echo "  Optional feel: ./scripts/run_q_feel.ps1 -Track Camp | Q1 | Q2"
 echo "  Medical phase Stack labels: spot-check once in F5 after a fight with medical phase"
 echo ""

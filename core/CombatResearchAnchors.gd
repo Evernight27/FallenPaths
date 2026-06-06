@@ -59,6 +59,9 @@ const LITERATURE_SCALP_BLEED_MULT_MIN: float = 1.4
 const LITERATURE_BANDAGE_HEMOSTASIS_HALF_LIFE_S_MIN: float = 60.0
 const LITERATURE_BANDAGE_HEMOSTASIS_HALF_LIFE_S_MAX: float = 300.0
 const GOBLIN_REFERENCE_MASS_KG: float = 38.0
+## Goblin live tissue sum band with S5 profiled derived limbs (hand exports via mini() cap).
+const GOBLIN_LIVE_TISSUE_SUM_MIN: int = 40
+const GOBLIN_LIVE_TISSUE_SUM_MAX: int = 56
 ## NRS 4–5 = first functional impairment (acute pain literature); Method B thresholds in PainConsciousnessConstants.
 const LITERATURE_NRS_FIRST_EFFECT: float = 4.0
 const LITERATURE_HUMAN_PAIN_REFERENCE: float = 3.0
@@ -104,6 +107,8 @@ const RESEARCH_HARNESS_GATE_IDS: Array[String] = [
 	"pen_depth_monotonic",
 	"clotting_half_life_order",
 	"ml_percent_ttd_parity",
+	"implied_ml_bridge",
+	"species_reference_mass_anchors",
 	"goblin_blood_ml_per_kg",
 	"scalp_vs_limb_bleed",
 	"absolute_severity_bands",
@@ -137,13 +142,64 @@ static func reference_bleed_rate_derivation() -> Dictionary:
 	var head_mult: float = float(_Bleeding.BODY_PART_BLEEDING_MULTIPLIERS["head"])
 	var arterial_mult: float = _Bleeding.ARTERIAL_BLEEDING_MULTIPLIER
 	var product: float = cut_crit * head_mult * arterial_mult
+	var ref_kg: float = _DesignAnchors.REFERENCE_ADULT_MASS_KG
+	var implied_ml_s: float = reference_uncontrolled_implied_ml_per_second(ref_kg, 1.0)
+	var derived_mult: float = derived_blood_loss_multiplier_for_ttd(LITERATURE_TTD_TARGET_S)
 	return {
 		"critical_cut_hp_per_s": cut_crit,
 		"head_part_mult": head_mult,
 		"arterial_mult": arterial_mult,
 		"product_hp_per_s": product,
 		"matches_reference_const": is_equal_approx(product, _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE),
+		"clinical_ttd_s": clinical_ttd_seconds(1.0),
+		"derived_blood_loss_multiplier": derived_mult,
+		"shipped_blood_loss_multiplier": _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER,
+		"multiplier_matches_derived": blood_loss_multiplier_matches_derived(),
+		"implied_ml_per_s": implied_ml_s,
+		"implied_ml_per_min": implied_ml_s * 60.0,
+		"ml_ttd_parity_ok": ml_percent_ttd_parity_ok(),
 	}
+
+
+static func blood_loss_multiplier_matches_derived() -> bool:
+	var derived: float = derived_blood_loss_multiplier_for_ttd(LITERATURE_TTD_TARGET_S)
+	return absf(_Bleeding.BLOOD_LOSS_RATE_MULTIPLIER - derived) <= LITERATURE_MULTIPLIER_TOLERANCE
+
+
+static func human_reference_mass_matches_design_anchor() -> bool:
+	return is_equal_approx(
+		_HumanSpecies.resolved_reference_mass_kg(), _DesignAnchors.REFERENCE_ADULT_MASS_KG
+	)
+
+
+static func goblin_reference_mass_matches_anchor() -> bool:
+	return is_equal_approx(_GoblinSpecies.resolved_reference_mass_kg(), GOBLIN_REFERENCE_MASS_KG)
+
+
+static func human_live_tissue_sum_matches_design_anchor() -> bool:
+	return _HumanSpecies.live_tissue_sum() == _DesignAnchors.REFERENCE_HUMAN_TISSUE_SUM
+
+
+static func goblin_live_tissue_sum_in_band() -> bool:
+	var sum: int = _GoblinSpecies.live_tissue_sum()
+	return sum >= GOBLIN_LIVE_TISSUE_SUM_MIN and sum <= GOBLIN_LIVE_TISSUE_SUM_MAX
+
+
+static func goblin_mass_below_human() -> bool:
+	return (
+		_GoblinSpecies.resolved_reference_mass_kg()
+		< _HumanSpecies.resolved_reference_mass_kg() - 1.0
+	)
+
+
+static func species_reference_mass_anchors_match() -> bool:
+	return (
+		human_reference_mass_matches_design_anchor()
+		and goblin_reference_mass_matches_anchor()
+		and human_live_tissue_sum_matches_design_anchor()
+		and goblin_live_tissue_sum_in_band()
+		and goblin_mass_below_human()
+	)
 
 
 static func derived_blood_loss_multiplier_for_ttd(target_ttd_s: float) -> float:
@@ -152,6 +208,25 @@ static func derived_blood_loss_multiplier_for_ttd(target_ttd_s: float) -> float:
 	if denom <= 0.01:
 		return 0.0
 	return buffer / denom
+
+
+## Implied mL/s from abstract HP/s bleed via percent↔mL bridge (`BloodVolumeMl`).
+## Not a clinical flow-rate claim — **TTD** (30–120 s band) is the calibrated outcome.
+static func reference_uncontrolled_implied_ml_per_second(
+	reference_mass_kg: float = _DesignAnchors.REFERENCE_ADULT_MASS_KG,
+	loss_mult: float = 1.0
+) -> float:
+	var max_ml: float = _BloodVolumeMl.blood_volume_ml_max_for_reference_mass(reference_mass_kg)
+	return _BloodVolumeMl.blood_ml_loss_per_second(
+		_Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE, max_ml, loss_mult
+	)
+
+
+static func reference_uncontrolled_implied_ml_per_minute(
+	reference_mass_kg: float = _DesignAnchors.REFERENCE_ADULT_MASS_KG,
+	loss_mult: float = 1.0
+) -> float:
+	return reference_uncontrolled_implied_ml_per_second(reference_mass_kg, loss_mult) * 60.0
 
 
 static func clinical_ttd_seconds(loss_mult: float = 1.0) -> float:
@@ -286,7 +361,7 @@ static func ml_percent_ttd_parity_ok() -> bool:
 	var buffer_ml: float = max_ml * (
 		(_Bleeding.MAX_BLOOD_VOLUME - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD) / _Bleeding.MAX_BLOOD_VOLUME
 	)
-	var loss_ml_s: float = _BloodVolumeMl.blood_ml_loss_per_second(rate, max_ml, 1.0)
+	var loss_ml_s: float = reference_uncontrolled_implied_ml_per_second(_DesignAnchors.REFERENCE_ADULT_MASS_KG, 1.0)
 	var ttd_ml: float = buffer_ml / loss_ml_s if loss_ml_s > 0.01 else 0.0
 	return is_equal_approx(ttd_pct, ttd_ml)
 
@@ -492,11 +567,27 @@ static func neck_arterial_mult_exceeds_forearm() -> bool:
 	return neck > forearm
 
 
+## Danger/peril blood bands sit in ATLS Class IV (≤60% remaining, above death threshold).
+static func medical_triage_blood_bands_in_class_iv_window() -> bool:
+	var class_iii_min: float = _Bleeding.ATLS_CLASS_III_MIN_REMAINING
+	var death: float = _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+	return (
+		_Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING <= class_iii_min
+		and _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING
+		< _Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING
+		and _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING > death
+		and death < class_iii_min
+	)
+
+
 static func medical_triage_thresholds_ordered() -> bool:
+	var ref_ttd_s: float = clinical_ttd_seconds(1.0)
 	return (
 		_Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING > _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING
 		and _Bleeding.MEDICAL_TRIAGE_DANGER_SECONDS > _Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS
 		and _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING > _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+		and _Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS < ref_ttd_s
+		and medical_triage_blood_bands_in_class_iv_window()
 	)
 
 
@@ -652,9 +743,19 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
 			LITERATURE_TTD_TARGET_S,
 			derived_mult,
 			absf(_Bleeding.BLOOD_LOSS_RATE_MULTIPLIER - derived_mult),
-			"pass"
-			if absf(_Bleeding.BLOOD_LOSS_RATE_MULTIPLIER - derived_mult) <= LITERATURE_MULTIPLIER_TOLERANCE
-			else "warn",
+			"pass" if blood_loss_multiplier_matches_derived() else "warn",
+		]
+	)
+	lines.append(
+		"species_reference_mass human=%.1f@%.0fkg goblin=%.1f@%.0fkg human_tissue_sum=%d goblin_tissue_sum=%d verdict=%s"
+		% [
+			_HumanSpecies.resolved_reference_mass_kg(),
+			_DesignAnchors.REFERENCE_ADULT_MASS_KG,
+			_GoblinSpecies.resolved_reference_mass_kg(),
+			GOBLIN_REFERENCE_MASS_KG,
+			_HumanSpecies.live_tissue_sum(),
+			_GoblinSpecies.live_tissue_sum(),
+			"pass" if species_reference_mass_anchors_match() else "warn",
 		]
 	)
 	lines.append(
@@ -791,13 +892,16 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
 	var buffer_ml_h: float = max_ml_h * (
 		(_Bleeding.MAX_BLOOD_VOLUME - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD) / _Bleeding.MAX_BLOOD_VOLUME
 	)
-	var loss_ml_s_h: float = _BloodVolumeMl.blood_ml_loss_per_second(
-		_Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE, max_ml_h, 1.0
-	)
+	var loss_ml_s_h: float = reference_uncontrolled_implied_ml_per_second(ref_kg, 1.0)
+	var loss_ml_min_h: float = loss_ml_s_h * 60.0
 	var ttd_ml_h: float = buffer_ml_h / loss_ml_s_h if loss_ml_s_h > 0.01 else 0.0
 	lines.append(
 		"literal_ml_percent_TTD_parity_s percent=%.2f ml=%.2f verdict=%s"
 		% [ttd_pct_p, ttd_ml_h, "pass" if ml_percent_ttd_parity_ok() else "warn"]
+	)
+	lines.append(
+		"reference_implied_ml_bridge_s=%.2f ml_min=%.1f note=abstract_HP_per_s_TTD_calibrated_not_literal_flow"
+		% [loss_ml_s_h, loss_ml_min_h]
 	)
 	lines.append(
 		"goblin_ml_per_kg=%.1f@%.0fkg mass_scaled verdict=%s"
@@ -981,13 +1085,17 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
 		]
 	)
 	lines.append(
-		"medical_triage danger_remaining=%.0f peril=%.0f death=%.0f danger_s=%.0f peril_s=%.0f verdict=%s"
+		"medical_triage danger_remaining=%.0f peril=%.0f death=%.0f class_III_min=%.0f class_IV_window=%s danger_s=%.0f peril_s=%.0f reference_TTD_s=%.1f peril<TTD=%s verdict=%s"
 		% [
 			_Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING,
 			_Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING,
 			_Bleeding.BLOOD_LOSS_DEATH_THRESHOLD,
+			_Bleeding.ATLS_CLASS_III_MIN_REMAINING,
+			str(medical_triage_blood_bands_in_class_iv_window()).to_lower(),
 			_Bleeding.MEDICAL_TRIAGE_DANGER_SECONDS,
 			_Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS,
+			clinical_ttd_seconds(1.0),
+			str(_Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS < clinical_ttd_seconds(1.0)).to_lower(),
 			"pass" if medical_triage_thresholds_ordered() else "warn",
 		]
 	)

@@ -9,13 +9,16 @@ const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 
 static func setup_party(world: Node2D) -> void:
+	if world == null or not world.is_inside_tree():
+		return
 	var party_manager_script = load(ResourcePaths.PARTY_MANAGER)
 	if not party_manager_script:
 		return
 	var root: Node = world.get_tree().root
-	for child in world.get_children():
+	_teardown_party_overlay_ui(world, root)
+	for child in world.get_children().duplicate():
 		if child.get_script() == party_manager_script:
-			child.queue_free()
+			child.free()
 	var pm = party_manager_script.new()
 	pm.name = "PartyManager"
 	world.add_child(pm)
@@ -47,10 +50,35 @@ static func setup_party(world: Node2D) -> void:
 	world.set_meta("party_formation", _FormationPreset.default_for_count(pm.get_members().size()))
 	_CompanyState.attach_to_world(world)
 
-static func _get_or_create_overlay(root: Node) -> CanvasLayer:
+static func _find_overlay(root: Node) -> CanvasLayer:
 	for child in root.get_children():
-		if child.name == "UIOverlayLayer":
+		if child.name == "UIOverlayLayer" and child is CanvasLayer:
 			return child
+	return null
+
+
+static func _teardown_party_overlay_ui(world: Node2D, root: Node) -> void:
+	if world.has_meta("party_menu"):
+		var menu: Variant = world.get_meta("party_menu")
+		if menu is Node and is_instance_valid(menu):
+			var menu_parent: Node = (menu as Node).get_parent()
+			if menu_parent != null:
+				menu_parent.remove_child(menu)
+			(menu as Node).free()
+		world.remove_meta("party_menu")
+	var overlay: CanvasLayer = _find_overlay(root)
+	if overlay == null:
+		return
+	for gc in overlay.get_children().duplicate():
+		if gc is Button and gc.name == "PartyButton":
+			overlay.remove_child(gc)
+			gc.free()
+
+
+static func _get_or_create_overlay(root: Node) -> CanvasLayer:
+	var existing: CanvasLayer = _find_overlay(root)
+	if existing != null:
+		return existing
 	var overlay = CanvasLayer.new()
 	overlay.name = "UIOverlayLayer"
 	overlay.layer = 100
@@ -72,4 +100,5 @@ static func _create_party_button(world: Node2D) -> Button:
 	party_button.add_theme_font_size_override("font_size", 16)
 	party_button.z_index = 101
 	party_button.pressed.connect(Callable(world, "_on_party_button_pressed"))
+	_CompanyState.refresh_party_button(world)
 	return party_button

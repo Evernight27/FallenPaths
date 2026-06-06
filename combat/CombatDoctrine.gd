@@ -3,12 +3,16 @@ extends RefCounted
 
 ## Per-formation **intent** (doctrine): steers hybrid targeting weights + ordering via `CombatTargetScoring` / `CombatAIActionPicker`.
 ## Pincer roles (**`PINCER_ROLE_*`**) when **`DOCTRINE_PINCH_CENTER`** + wider files than opponent: center pins, flank wings close/flank.
+## III-4 **3e** post-rout mop-up: `envelop_mop_up_active`, `envelop_close_allowed`, `hold_line_close_pick_eligible`, `should_suppress_skirmish_rotate_file`.
 ## Orthogonal to engagement-mode / posture targeting weights on melee/close listing.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
+const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
+const _ListedActions := preload("res://combat/CombatListedActions.gd")
 
 const PINCER_ROLE_NONE := ""
 const PINCER_ROLE_CENTER := "center"
@@ -48,12 +52,13 @@ static func clear_commitments_for_side(manager: Node, formation_id: String) -> v
 		c["close_block_until_by_target_id"] = {}
 
 
-## Drop stale target commit after rank/file shuffle (rotate, swap) — mapped opposition may change.
+## Drop stale target commit after rank/file shuffle (rotate, swap, plug, flee) — mapped opposition may change.
 static func clear_combatant_doctrine_commitment(c: Dictionary) -> void:
 	if c.is_empty():
 		return
 	c["doctrine_target_commit_id"] = -1
 	c["doctrine_commit_until"] = 0.0
+	c["close_block_until_by_target_id"] = {}
 
 
 ## True when the **opposing** formation’s front rank has a **hollow center**: middle file(s) empty with at least one living rank-0 on both wings (`files >= 3`). Rank-0 on **`combatant_on_zone_geometry_fid`**. Used for automatic pinch doctrine; exposed for harness.
@@ -201,7 +206,7 @@ static func pincer_role_for_combatant(manager: Node, c: Dictionary) -> String:
 	var our_files: int = maxi(1, int(our_form.get("files", 1)))
 	var opp_files: int = maxi(1, int(opp_form.get("files", 1)))
 	var our_file: int = _EntityAccess.file_int(c)
-	var edge_margin: int = maxi(1, int((our_files - opp_files) / 2))
+	var edge_margin: int = maxi(1, int((our_files - opp_files) / 2.0))
 	var dist_from_near_edge: int = mini(our_file, our_files - 1 - our_file)
 	if dist_from_near_edge < edge_margin:
 		return PINCER_ROLE_FLANK_WING
@@ -296,3 +301,78 @@ static func propagate_pincer_wing_commitments_from_center(
 			continue
 		wing["doctrine_target_commit_id"] = wing_tgt
 		wing["doctrine_commit_until"] = until
+
+
+## III-4 **3e**: few enemies left, our side still has standing advantage (4v1 mop-up tail).
+static func envelop_mop_up_active(manager: Node, formation_id: String) -> bool:
+	if manager == null:
+		return false
+	var our_fid: String = str(formation_id).strip_edges()
+	if our_fid.is_empty():
+		return false
+	var opp_fid: String = _EntityAccess.opponent_side_label(our_fid)
+	var our_active: int = _standing_active_count_for_side(manager, our_fid)
+	var opp_active: int = _standing_active_count_for_side(manager, opp_fid)
+	if opp_active > int(CombatConstants.ENVELOP_MOP_UP_MAX_ENEMY_ACTIVE):
+		return false
+	if our_active < int(CombatConstants.ENVELOP_MOP_UP_MIN_OUR_ACTIVE):
+		return false
+	return our_active > opp_active
+
+
+## Close listing/resolve when band/reach disagree (MID/CLOSE band, out of swing range) during envelop.
+static func envelop_close_allowed(
+	manager: Node, attacker: Dictionary, defender_id: int
+) -> bool:
+	if manager == null or attacker.is_empty() or defender_id < 0:
+		return false
+	var fid: String = _EntityAccess.formation_id_str(attacker)
+	if envelop_mop_up_active(manager, fid):
+		return true
+	if not pincer_flank_wing_should_close_at_long(manager, attacker):
+		return false
+	var pref: int = preferred_pincer_flank_enemy_id(manager, attacker)
+	return pref < 0 or pref == defender_id
+
+
+## L4 / mental-stack: wing lacks map, pincer flank role, or envelop mop-up.
+static func hold_line_close_pick_eligible(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c.is_empty():
+		return false
+	if _EngagementOpposition.wing_lacks_mapped_opposition(manager, c):
+		return true
+	if pincer_flank_wing_should_close_at_long(manager, c):
+		return true
+	return envelop_mop_up_active(manager, _EntityAccess.formation_id_str(c))
+
+
+## Skirmish rotate shuffle — skip when mop-up and menu has no listed melee (close-only still suppresses).
+static func should_suppress_skirmish_rotate_file(
+	manager: Node, c: Dictionary, actions: Array
+) -> bool:
+	if manager == null or c.is_empty():
+		return false
+	if not envelop_mop_up_active(manager, _EntityAccess.formation_id_str(c)):
+		return false
+	return not _ListedActions.action_list_has_hostile_melee_strike(
+		actions, _EntityAccess.id_int(c)
+	)
+
+
+static func _standing_active_count_for_side(manager: Node, side: String) -> int:
+	if manager == null:
+		return 0
+	var fid: String = str(side).strip_edges()
+	if fid.is_empty():
+		return 0
+	var n: int = 0
+	for raw in manager.combatants:
+		if raw == null or typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var c: Dictionary = raw as Dictionary
+		if not _EntityAccess.is_standing_combatant(c):
+			continue
+		if _EntityAccess.formation_id_str(c) != fid:
+			continue
+		n += 1
+	return n

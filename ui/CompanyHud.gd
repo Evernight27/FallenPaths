@@ -70,7 +70,11 @@ func refresh_from_state(
 	if _gold_label == null:
 		return
 	_gold_label.text = "Gold: %d" % int(state.get("gold", 0))
-	_med_label.text = "Med: %d" % int(state.get("medical_supplies", 0))
+	var med_n: int = int(state.get("medical_supplies", 0))
+	var triage_suffix: String = ""
+	if world is Node2D:
+		triage_suffix = _CompanyState.format_hud_triage_suffix(world as Node2D)
+	_med_label.text = "Med: %d%s" % [med_n, triage_suffix]
 	_tools_label.text = "Tools: %d" % int(state.get("tool_supplies", 0))
 	if world is Node2D:
 		_day_label.text = _CompanyState.format_day_hud_line(world)

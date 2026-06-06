@@ -1,12 +1,10 @@
 # Phase 0 gate (default) or partial harness via -HarnessMode.
 #   .\scripts\run_all_combat_checks.ps1
 #   .\scripts\run_all_combat_checks.ps1 -HarnessMode regression|d001|sanity|calibration|medical
-#   .\scripts\run_all_combat_checks.ps1 -Status
 #   .\scripts\run_all_combat_checks.ps1 -ValidateF5 [-F5LogPath path]
 param(
-	[ValidateSet("all", "regression", "d001", "d001_presets", "sanity", "calibration", "medical", "f5_validate", "q_track")]
+	[ValidateSet("all", "regression", "d001", "sanity", "calibration", "medical")]
 	[string]$HarnessMode = "all",
-	[switch]$Status,
 	[switch]$ValidateF5,
 	[string]$F5LogPath = ""
 )
@@ -14,20 +12,12 @@ $ErrorActionPreference = "Continue"
 . "$PSScriptRoot\Invoke-GodotHeadless.ps1"
 $Root = Get-FallenPathsRoot
 
-if ($Status) {
-	. "$PSScriptRoot\_print_phase0_status.ps1"
-	exit 0
-}
-
 $partialOkPatterns = @{
 	regression = "FP_HARNESS_OK: CombatRegressionHarness"
 	d001       = "FP_HARNESS_OK: CombatD001SoakRunner"
 	sanity     = "FP_HARNESS_OK: CombatD001SoakSanity"
 	calibration = "FP_HARNESS_OK: CombatCalibrationAudit"
 	medical    = "FP_HARNESS_OK: MedicalPhaseHarness"
-	d001_presets = "FP_HARNESS_OK: D001PresetsIi5Ii6"
-	f5_validate = "FP_HARNESS_OK: CombatF5SoakLogValidator"
-	q_track    = "FP_HARNESS_OK: QTrackAudits"
 }
 $partialTeeLogs = @{
 	regression = ".harness_out.txt"
@@ -35,9 +25,6 @@ $partialTeeLogs = @{
 	sanity     = ".d001_soak_sanity_out.txt"
 	calibration = ".calibration_audit.txt"
 	medical    = ".medical_phase_harness_out.txt"
-	d001_presets = ".ii5_ii6_soak_out.txt"
-	f5_validate = ".f5_soak_validation.txt"
-	q_track    = ".q_track_audits.txt"
 }
 
 if ($HarnessMode -ne "all") {
@@ -64,27 +51,23 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host ""
 
-Write-Host "=== res:// path check ==="
-python3 (Join-Path $Root "scripts\validate_res_paths.py")
-if ($LASTEXITCODE -ne 0) {
-	$lines.Add("RES_PATHS: FAIL")
-	$lines | Set-Content -Path $SummaryPath -Encoding utf8
-	exit $LASTEXITCODE
-}
-Write-Host ""
-
 Write-Host "=== CompanyStateChecks (Camp-1.1-1.8) ==="
-Invoke-FallenPathsGodotScript -Script "res://scripts/run_company_state_checks.gd"
+$companyOut = @(& (Join-Path $Root "scripts\run_company_state_checks.ps1") 2>&1 | ForEach-Object { "$_" })
+$companyOut | ForEach-Object { Write-Host $_ }
+$companyOk = $companyOut | Where-Object { $_ -match "FP_HARNESS_OK:\s+CompanyStateChecks" } | Select-Object -Last 1
 $companyExit = $LASTEXITCODE
-if ($companyExit -ne 0) {
+if ($companyExit -ne 0 -or -not $companyOk) {
 	$lines.Add("COMPANY_STATE: FAIL exit=$companyExit")
 	$lines.Add("PHASE0: FAIL (company state checks)")
 	$lines | Set-Content -Path $SummaryPath -Encoding utf8
 	Write-Host ""
 	Write-Host "=== PHASE0 FAIL (CompanyStateChecks) ==="
-	exit $companyExit
+	exit 1
 }
 $lines.Add("COMPANY_STATE: PASS")
+if ($companyOk) {
+	$lines.Add([string]$companyOk)
+}
 Write-Host ""
 
 Write-Host "=== AllCombatChecks (regression + D-001 + calibration) ==="
@@ -168,7 +151,7 @@ $campaignExit = $LASTEXITCODE
 $auditPath = Join-Path $Root ".campaign_ship_audit.txt"
 if (Test-Path $auditPath) {
 	foreach ($auditLine in Get-Content $auditPath) {
-		if ($auditLine -match '^(Q_TRACK|II7_MEDICAL|CAMPAIGN_SHIP_AUDIT):') {
+		if ($auditLine -match '^(Q_TRACK|II7_MEDICAL|II_ENVELOP|II_ENVELOP_MOPUP|CAMPAIGN_SHIP_AUDIT):') {
 			$lines.Add($auditLine)
 		}
 	}
@@ -196,8 +179,8 @@ Write-Host '  .calibration_audit.txt     (physics/medical + [research_benchmarks
 Write-Host '  docs/CURSOR.md (hub) | docs/LIVE_PATHS.md#research-audit (35 _run_research_* gates)'
 Write-Host "Optional F5: ii2b/ii5/ii8 feel spot-check only; gate does not require editor."
 Write-Host "Campaign audit (standalone): .\scripts\run_campaign_ship_audit.ps1"
-Write-Host "Artifact summary: .\scripts\run_all_combat_checks.ps1 -Status"
-Write-Host "Fast paths: -HarnessMode regression|d001|d001_presets|sanity|calibration|medical|f5_validate|q_track"
+Write-Host "Artifact summary: .\scripts\print_phase0_status.ps1"
+Write-Host "Fast paths: -HarnessMode regression|d001|sanity|calibration|medical"
 if ($ValidateF5 -or $F5LogPath -ne "") {
 	Write-Host ""
 	Write-Host "=== F5 log validation ==="

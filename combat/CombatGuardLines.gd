@@ -3,6 +3,7 @@ extends RefCounted
 
 ## HEMA Method C: eight diagonal guard/attack lines (45° sectors).
 ## Cardinals remain valid; **`normalize_line`** maps four-line guard ids into eight-line octants.
+## Footing: UI via **`display_short_for_line`**; octant PA step table via **`position_angle_offset_deg_for_line`** when eight-guard flag on — LIVE_PATHS **`#wf-form-guard-pa-matrix`** · hub **`#wf-tier-44-pa`**.
 
 const LINE_HIGH := "high"
 const LINE_HIGH_RIGHT := "high_right"
@@ -76,15 +77,16 @@ const LINE_TO_DEFAULT_PART: Dictionary = {
 	LINE_HIGH_LEFT: "head",
 }
 
+## Tier 4.4 PA step offsets (°) per octant — cardinals match **`CombatConstants`** 4-key table; diagonals blend adjacent cardinals.
 const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
 	LINE_HIGH: 0.0,
-	LINE_HIGH_RIGHT: 45.0,
-	LINE_RIGHT: 90.0,
-	LINE_LOW_RIGHT: 135.0,
-	LINE_LOW: 180.0,
-	LINE_LOW_LEFT: 225.0,
-	LINE_LEFT: 270.0,
-	LINE_HIGH_LEFT: 315.0,
+	LINE_HIGH_RIGHT: -7.0,
+	LINE_RIGHT: -14.0,
+	LINE_LOW_RIGHT: -4.0,
+	LINE_LOW: 6.0,
+	LINE_LOW_LEFT: 10.0,
+	LINE_LEFT: 14.0,
+	LINE_HIGH_LEFT: 7.0,
 }
 
 ## Compact UI labels (gauge / formation diagram) — distinct octants at a glance.
@@ -158,7 +160,6 @@ static func alignment_from_lines(attack_line: String, guard_line: String, floor_
 
 
 static func position_angle_offset_deg_for_line(line: String) -> float:
-	## Unused in footwork — **`CombatConstants.position_angle_offset_deg_for_attack_line`** nudges within cardinal bucket.
 	return float(POSITION_ANGLE_OFFSET_DEG_BY_LINE.get(normalize_line(line), 0.0))
 
 

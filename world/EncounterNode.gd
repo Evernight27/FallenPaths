@@ -6,7 +6,7 @@ extends Node2D
 
 ## Campaign contract label (Camp-1.4); set before add_child.
 var contract_marker_label: String = ""
-## `tutorial` | `practice` | `contract` | "" (soak)
+## `tutorial` | `contract` | "" (soak)
 var marker_kind: String = ""
 
 ## Holds spawn config; enemies are instantiated when combat starts.
@@ -39,8 +39,6 @@ func _ready() -> void:
 		rect.color = Color(0.2, 0.55, 0.95, 1)
 	elif marker_kind == "tutorial":
 		rect.color = Color(0.25, 0.72, 0.42, 1)
-	elif marker_kind == "practice":
-		rect.color = Color(0.85, 0.72, 0.22, 1)
 	else:
 		rect.color = Color(0.9, 0.2, 0.2, 1)
 	marker_root.add_child(rect)
@@ -86,10 +84,6 @@ func get_enemy_formation_dict() -> Dictionary:
 
 func is_tutorial_encounter() -> bool:
 	return bool(encounter_config.get("tutorial", false))
-
-
-func is_training_encounter() -> bool:
-	return bool(encounter_config.get("training", false))
 
 ## Spawns enemy units for combat. Call when player enters combat. Returns array of enemy nodes.
 ## parent: world node to add enemies to. rng: for species/equipment randomization.

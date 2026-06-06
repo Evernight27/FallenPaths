@@ -56,6 +56,7 @@ static func run_and_write_report(soak_log_path: String = "") -> Dictionary:
 	_append_material_failure_production_section(lines, failures)
 	_append_production_sim_flags_inventory(lines)
 	_append_research_benchmarks_section(lines)
+	_append_formation_diagram_vitals_section(lines)
 	_append_f5_scenario_headless_section(lines, failures)
 	lines.append("failures=%d" % failures.size())
 	for msg in failures:
@@ -114,6 +115,17 @@ static func _append_bleeding_section(lines: PackedStringArray, failures: PackedS
 		]
 	)
 	lines.append("clinical_TTD_band_untreated_arterial=30-120s (order-of-minutes)")
+	var derived_mult: float = _ResearchAnchors.derived_blood_loss_multiplier_for_ttd(
+		_ResearchAnchors.LITERATURE_TTD_TARGET_S
+	)
+	lines.append(
+		"blood_loss_multiplier_shipped=%.3f derived_for_48s=%.4f matches=%s"
+		% [
+			_Bleeding.BLOOD_LOSS_RATE_MULTIPLIER,
+			derived_mult,
+			str(_ResearchAnchors.blood_loss_multiplier_matches_derived()).to_lower(),
+		]
+	)
 	var ttd_ok: bool = ttd >= 30.0 and ttd <= 120.0
 	lines.append("audit_TTD_in_clinical_band=%s" % str(ttd_ok).to_lower())
 	if not ttd_ok:
@@ -125,6 +137,14 @@ static func _append_bleeding_section(lines: PackedStringArray, failures: PackedS
 		_Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING,
 		_Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING,
 	])
+	lines.append(
+		"triage_ATLS_class_IV_window=%s class_III_min=%.0f%% death=%.0f%%"
+		% [
+			str(_ResearchAnchors.medical_triage_blood_bands_in_class_iv_window()).to_lower(),
+			_Bleeding.ATLS_CLASS_III_MIN_REMAINING,
+			_Bleeding.BLOOD_LOSS_DEATH_THRESHOLD,
+		]
+	)
 
 
 static func _append_literal_blood_ml_section(lines: PackedStringArray) -> void:
@@ -148,7 +168,39 @@ static func _append_literal_blood_ml_section(lines: PackedStringArray) -> void:
 		"reference_uncontrolled_bleed_rate=%.2f TTD_to_death_threshold_s=%.1f (percent and mL bridge match)"
 		% [rate, ttd_s]
 	)
-	lines.append("bridge=loss_ml_per_s = (rate * BLOOD_LOSS_RATE_MULTIPLIER) * ml_max / 100")
+	var implied_ml_s: float = _ResearchAnchors.reference_uncontrolled_implied_ml_per_second(ref_h, 1.0)
+	var implied_ml_min: float = implied_ml_s * 60.0
+	lines.append(
+		"reference_implied_ml_per_s=%.2f implied_ml_per_min=%.1f"
+		% [implied_ml_s, implied_ml_min]
+	)
+	lines.append(
+		"note=HP_per_s_is_abstract_game_unit; implied_mL_is_percent_bridge_only; clinical_TTD_band=30-120s"
+	)
+	lines.append(
+		"bridge=loss_ml_per_s = (rate * BLOOD_LOSS_RATE_MULTIPLIER) * ml_max / MAX_BLOOD_VOLUME"
+	)
+	var bleed_deriv: Dictionary = _ResearchAnchors.reference_bleed_rate_derivation()
+	lines.append(
+		"reference_bleed_product=%.2f cut_crit=%.1f head_mult=%.1f arterial_mult=%.1f matches_const=%s"
+		% [
+			float(bleed_deriv.get("product_hp_per_s", 0.0)),
+			float(bleed_deriv.get("critical_cut_hp_per_s", 0.0)),
+			float(bleed_deriv.get("head_part_mult", 0.0)),
+			float(bleed_deriv.get("arterial_mult", 0.0)),
+			str(bool(bleed_deriv.get("matches_reference_const", false))).to_lower(),
+		]
+	)
+	lines.append(
+		"blood_loss_multiplier_shipped=%.3f derived=%.4f matches=%s clinical_ttd_s=%.1f ml_parity=%s"
+		% [
+			float(bleed_deriv.get("shipped_blood_loss_multiplier", 0.0)),
+			float(bleed_deriv.get("derived_blood_loss_multiplier", 0.0)),
+			str(bool(bleed_deriv.get("multiplier_matches_derived", false))).to_lower(),
+			float(bleed_deriv.get("clinical_ttd_s", 0.0)),
+			str(bool(bleed_deriv.get("ml_ttd_parity_ok", false))).to_lower(),
+		]
+	)
 	_append_layer_tissue_section(lines)
 	_append_penetration_pipeline_section(lines)
 	_append_wound_depth_section(lines)
@@ -603,6 +655,24 @@ static func f5_mace_elbow_metrics() -> Dictionary:
 	}
 
 
+static func _append_formation_diagram_vitals_section(lines: PackedStringArray) -> void:
+	lines.append("")
+	lines.append("[formation_diagram_vitals]")
+	lines.append(
+		"bar_width=PartyRowFormatter.total_body_health_ratio tissue+bone remaining 0-1"
+	)
+	lines.append(
+		"bar_fill=PartyRowFormatter.body_functionality_ratio green_to_red via formation_health_bar_fill_color"
+	)
+	lines.append(
+		"refresh=BattleScene._tactical_diagram_signature hp fn rank file + tactical hints"
+	)
+	lines.append(
+		"harness=form_health_bar body damage + form_health_tint arm function loss"
+	)
+	lines.append("FORMATION_HEALTH_BAR_HEIGHT=%d px" % BattleUIConstants.FORMATION_HEALTH_BAR_HEIGHT)
+
+
 static func _append_f5_scenario_headless_section(
 	lines: PackedStringArray, failures: PackedStringArray
 ) -> void:
@@ -704,7 +774,7 @@ static func _append_species_pain_section(lines: PackedStringArray, failures: Pac
 		"human_one_moderate_hit_effective_pain=%.2f (~%.1f hits to NRS 4)"
 		% [effective_one_hit, _Pain.NRS_FIRST_EFFECT / maxf(effective_one_hit, 0.01)]
 	)
-	if human_total != 96:
+	if not _ResearchAnchors.human_live_tissue_sum_matches_design_anchor():
 		failures.append("species: human tissue sum want 96 got %d" % human_total)
 	if not is_equal_approx(human_pain_ref, 3.0):
 		failures.append("species: human pain_reference want 3.0 got %.3f" % human_pain_ref)
@@ -718,8 +788,15 @@ static func _append_species_pain_section(lines: PackedStringArray, failures: Pac
 		"goblin_tissue_sum=%d goblin_pain_reference_auto=%.2f"
 		% [goblin_total, goblin_pain_ref]
 	)
-	if goblin_total < 40 or goblin_total > 56:
-		failures.append("species: goblin tissue sum out of band got %d" % goblin_total)
+	if not _ResearchAnchors.goblin_live_tissue_sum_in_band():
+		failures.append(
+			"species: goblin tissue sum out of band got %d want [%d-%d]"
+			% [
+				goblin_total,
+				_ResearchAnchors.GOBLIN_LIVE_TISSUE_SUM_MIN,
+				_ResearchAnchors.GOBLIN_LIVE_TISSUE_SUM_MAX,
+			]
+		)
 	var want_goblin_ref: float = float(goblin_total) / 32.0
 	if not is_equal_approx(goblin_pain_ref, want_goblin_ref):
 		failures.append(
@@ -736,12 +813,20 @@ static func _append_species_pain_section(lines: PackedStringArray, failures: Pac
 	var goblin_mass: float = _WeaponDamage.reference_body_mass_kg_from_species(goblin)
 	lines.append("human_reference_body_mass_kg=%.1f" % human_mass)
 	lines.append("goblin_reference_body_mass_kg=%.1f" % goblin_mass)
-	if human.reference_body_mass_kg > 0.0 and not is_equal_approx(human_mass, human.reference_body_mass_kg):
-		failures.append("species: human body mass want %.1f got %.1f" % [human.reference_body_mass_kg, human_mass])
-	if goblin.reference_body_mass_kg > 0.0 and not is_equal_approx(goblin_mass, goblin.reference_body_mass_kg):
-		failures.append("species: goblin body mass want %.1f got %.1f" % [goblin.reference_body_mass_kg, goblin_mass])
-	if goblin_mass >= human_mass - 1.0:
-		failures.append("species: goblin body mass %.1f should be below human %.1f" % [goblin_mass, human_mass])
+	if not _ResearchAnchors.human_reference_mass_matches_design_anchor():
+		failures.append(
+			"species: human body mass want %.1f got %.1f"
+			% [_DesignAnchors.REFERENCE_ADULT_MASS_KG, human_mass]
+		)
+	if not _ResearchAnchors.goblin_reference_mass_matches_anchor():
+		failures.append(
+			"species: goblin body mass want %.1f got %.1f"
+			% [_ResearchAnchors.GOBLIN_REFERENCE_MASS_KG, goblin_mass]
+		)
+	if not _ResearchAnchors.goblin_mass_below_human():
+		failures.append(
+			"species: goblin body mass %.1f should be below human %.1f" % [goblin_mass, human_mass]
+		)
 	var human_blunt_chest: float = human_mass * 0.28
 	var goblin_blunt_chest: float = goblin_mass * 0.28
 	lines.append(

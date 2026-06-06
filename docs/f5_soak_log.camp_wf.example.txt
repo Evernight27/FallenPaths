@@ -1,0 +1,15 @@
+# Minimal Camp §8 + WF-M3 paste for automated close-out smoke (not one real session).
+# Copy: Copy-Item docs\f5_soak_log.camp_wf.example.txt .f5_soak_in.txt
+# Then: .\scripts\validate_f5_soak_log.ps1 ; .\scripts\run_camp_f5_closeout.ps1
+# Required for close-out exit 0: wf_m3_* PASS + camp_settlement_continue + camp_company_day
+# Optional (OPTIONAL_MISS ok here): field_care action, paid loss, wage warn, desertion, party_triage — see camp_full.example.txt
+FP_WORLD: settlement_continue pay=120 gold=200 renown=1 tutorial=false
+FP_WORLD: company_day_advanced day=2 wages_paid=105 gold=395 living=7
+FP_WORLD: field_care: open Party — dress untreated wounds (field care), then Camp rest
+FP_COMBAT: soak_fight_end winner=player medical_phase=true fight_profile=7v7
+FP_COMBAT: campaign_medical_exit can_end=true fast_forward=false
+FP_COMBAT: engagement_debug turn side=player id=0 mop_up=true rotate_suppress=true menu=strikes_listed strikes=3
+FP_COMBAT: turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Grd HiR · Form Ox tooltip_match=melee_only
+FP_COMBAT: turn_ready_gauge id=1 Ally label=Stm 67% · Ready · Grd HiL · Form Wrath tooltip_match=melee_only
+FP_COMBAT: form_switch id=1 ox→wrath reason=duel_read
+FP_WORLD: company_run_end reason=tutorial_failed reload=false

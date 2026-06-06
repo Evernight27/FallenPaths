@@ -18,10 +18,75 @@ const LOG_MIN_WIDTH := 1260
 const LOG_MIN_HEIGHT := 216
 const MAIN_LIST_PATH := "CombatCanvasLayer/UIRoot/ContentVBox/MainHBox"
 
+# Campaign contract: early exit runs MedicalPhaseController.instant_complete_on_early_exit via finish_battle.
+const CAMPAIGN_MEDICAL_EXIT_BUTTON_LABEL_PENDING := (
+	"Return to camp and finish medical treatment"
+)
+const CAMPAIGN_MEDICAL_EXIT_BUTTON_LABEL_READY := "Return to camp"
+const CAMPAIGN_MEDICAL_EXIT_BUTTON_LABEL_FINISHING := "Finishing medical treatment..."
+const CAMPAIGN_MEDICAL_EXIT_BUTTON_MIN_WIDTH_PENDING := 360
+const CAMPAIGN_MEDICAL_EXIT_BUTTON_MIN_WIDTH_READY := 160
+const CAMPAIGN_MEDICAL_EXIT_BUTTON_MIN_WIDTH_FINISHING := 300
+const CAMPAIGN_MEDICAL_VICTORY_LOG_LINE := (
+	"\n[color=green]——— Victory. Allies triage automatically — click "
+	+ CAMPAIGN_MEDICAL_EXIT_BUTTON_LABEL_PENDING
+	+ " to leave (remaining care completes automatically; Party field care on map). ———[/color]\n"
+)
+const CAMPAIGN_MEDICAL_FINISHED_LOG_LINE := (
+	"\n[color=green]——— Triage complete. Click Return to camp. ———[/color]\n"
+)
+const CAMPAIGN_MEDICAL_IDLE_LOG_LINE := (
+	"\n[color=green]——— Triage paused. Click Return to camp and finish medical treatment to leave. ———[/color]\n"
+)
+const CAMPAIGN_MEDICAL_EARLY_EXIT_HINT := (
+	"Contract battle — click Return to camp and finish medical treatment to simulate remaining "
+	+ "triage time; use Party field care on the map for any wounds still untreated."
+)
+const CAMPAIGN_MEDICAL_EARLY_EXIT_HINT_READY := (
+	"Contract battle — triage complete; click Return to camp."
+)
+const CAMPAIGN_MEDICAL_TOOLTIP_EXIT_PENDING := (
+	"Return to camp — remaining triage completes automatically (Party field care on map)."
+)
+const CAMPAIGN_MEDICAL_TOOLTIP_EXIT_READY := "Triage complete — click Return to camp."
+const CAMPAIGN_MEDICAL_FAST_FORWARD_INCOMPLETE_HINT := (
+	"Some wounds could not be fully dressed in battle — open Party on the map for field care."
+)
+
+
+static func campaign_medical_exit_button_label(can_end_medical_phase: bool) -> String:
+	return (
+		CAMPAIGN_MEDICAL_EXIT_BUTTON_LABEL_READY
+		if can_end_medical_phase
+		else CAMPAIGN_MEDICAL_EXIT_BUTTON_LABEL_PENDING
+	)
+
+
+static func campaign_medical_exit_button_min_width(can_end_medical_phase: bool) -> int:
+	return (
+		CAMPAIGN_MEDICAL_EXIT_BUTTON_MIN_WIDTH_READY
+		if can_end_medical_phase
+		else CAMPAIGN_MEDICAL_EXIT_BUTTON_MIN_WIDTH_PENDING
+	)
+
+
+static func campaign_medical_exit_button_finishing_min_width() -> int:
+	return CAMPAIGN_MEDICAL_EXIT_BUTTON_MIN_WIDTH_FINISHING
+
+
+static func campaign_medical_victory_log_line(can_end_medical_phase: bool) -> String:
+	if can_end_medical_phase:
+		return (
+			"\n[color=green]——— Victory. Click Return to camp. ———[/color]\n"
+		)
+	return CAMPAIGN_MEDICAL_VICTORY_LOG_LINE
+
+
 # Human-readable labels for medical actions in the action bar (self-target)
 const MEDICAL_ACTION_LABELS := {
 	CombatConstants.MOVE_ID_BANDAGE_SELF: "Bandaging",
 	CombatConstants.MOVE_ID_PACK_WOUND: "Packing wound",
+	CombatConstants.MOVE_ID_STABILIZE_WOUND: "Stabilizing",
 	CombatConstants.MOVE_ID_APPLY_TOURNIQUET: "Applying tourniquet",
 	CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE: "Direct pressure",
 }
@@ -29,6 +94,7 @@ const MEDICAL_ACTION_LABELS := {
 const MEDICAL_ACTION_LABELS_ALLY := {
 	CombatConstants.MOVE_ID_BANDAGE_SELF: "Bandaging ally",
 	CombatConstants.MOVE_ID_PACK_WOUND: "Packing ally's wound",
+	CombatConstants.MOVE_ID_STABILIZE_WOUND: "Stabilizing ally",
 	CombatConstants.MOVE_ID_APPLY_TOURNIQUET: "Tourniquet (ally)",
 	CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE: "Direct pressure",
 }

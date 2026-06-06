@@ -4,8 +4,7 @@ extends RefCounted
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 
 ## Combat tuning constants. Single source for CombatManager and AttackResolver.
-## **Read order:** damage/state strings → timing → **`MOVE_ID_*` + `is_*` membership** → formation/focus moves → features/flags → skip-turn / action keys.
-## **Move taxonomy table:** [`AGENTS.md`](../AGENTS.md)
+## Reduces CombatManager from ~150 lines of constants to references.
 
 const DAMAGE_TYPE_SHARP := "SHARP"
 const DAMAGE_TYPE_BLUNT := "BLUNT"
@@ -62,9 +61,7 @@ const INTENSITY_STRENGTH_NORM := 100.0
 const INTENSITY_STRENGTH_BIAS := 0.35
 const INTENSITY_RANDOM_RANGE := 0.2
 
-# --- Move IDs: medical + membership ---
-
-# Medical move IDs (canonical strings — use **`MOVE_ID_*`**, not literals)
+# Medical move IDs (canonical strings — use MOVE_ID_*, not literals)
 const MOVE_ID_BANDAGE_SELF := "bandage_self"
 const MOVE_ID_PACK_WOUND := "pack_wound"
 const MOVE_ID_STABILIZE_WOUND := "stabilize_wound"
@@ -80,17 +77,14 @@ const MEDICAL_MOVE_IDS: Array[String] = [
 ]
 
 
-## True when **`move_id`** is a medical-phase action (use this — do not test **`MEDICAL_MOVE_IDS`** directly).
 static func is_medical_move(move_id: String) -> bool:
 	return str(move_id) in MEDICAL_MOVE_IDS
 
 
-## Instant compression hold (not wind-up).
 static func is_direct_pressure_move(move_id: String) -> bool:
 	return str(move_id) == MOVE_ID_APPLY_DIRECT_PRESSURE
 
 
-## Bandage / pack / stabilize / tourniquet (wind-up; excludes direct pressure).
 static func is_wind_up_medical_move(move_id: String) -> bool:
 	return is_medical_move(move_id) and not is_direct_pressure_move(move_id)
 
@@ -100,7 +94,6 @@ const DRESSING_MEDICAL_MOVE_IDS: Array[String] = [
 ]
 
 
-## Bandage / pack / stabilize only (excludes tourniquet and direct pressure).
 static func is_dressing_medical_move(move_id: String) -> bool:
 	return str(move_id) in DRESSING_MEDICAL_MOVE_IDS
 
@@ -115,7 +108,6 @@ static func is_pack_wound_move(move_id: String) -> bool:
 
 static func is_stabilize_wound_move(move_id: String) -> bool:
 	return str(move_id) == MOVE_ID_STABILIZE_WOUND
-
 ## Extra pressure pass from the treater while an ally already holds the wound (bandage/pack/tourniquet wind-up). Scales treater medical effectiveness into `EntityMedical._apply_direct_pressure_to_wounds`.
 ## Second rescuer adds this fraction of their compression skill on top of primary hold (buddy pressure, TCCC).
 const DIRECT_PRESSURE_TREATMENT_ASSIST_EFFECTIVENESS_FRACTION := 0.50
@@ -240,6 +232,8 @@ const COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK := "ai_feint_opp_last_p
 ## Tier 4.2 counter-tempo pilot: combat clock until defender may spend partial gauge vs incoming **`STATE_WIND_UP`** on them (**`CounterTempo`**).
 const COMBATANT_KEY_COUNTER_WINDOW_UNTIL := "counter_window_until"
 const ACTION_KEY_COUNTER_TEMPO := "counter_tempo"
+## Listed **`attempt_close`**: target form note when defender is controlling (Fool etc.).
+const ACTION_KEY_CLOSE_LIST_HINT := "close_attempt_list_hint"
 const PA_KEY_COUNTER_TEMPO := "counter_tempo"
 ## Partial gauge: minimum to start a counter-tempo melee; cost spent on resolve (**`CounterTempo.spend_gauge`**).
 const COUNTER_TEMPO_GAUGE_THRESHOLD := 50.0
@@ -298,20 +292,22 @@ const COMBATANT_KEY_FOCUS_PART := "focus_part"
 const COMBATANT_KEY_FOCUS_INTENSITY := "focus_intensity"
 const COMBATANT_KEY_ATTENTION_LOAD := "attention_load"
 const COMBATANT_KEY_YOMI_BY_ATTACKER := "yomi_by_attacker"
+## Expand WF: active weapon form id (L2 — per fighter style package).
+const COMBATANT_KEY_WEAPON_FORM := "weapon_form"
+const COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL := "form_switch_cooldown_until"
+const COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID := "inferred_opp_form_by_id"
 ## Tier 4.3 UI: short row hint from **`CombatAttention.refresh_for_waiting_tick`** (focus line + effective % + load %).
 const COMBATANT_KEY_ATTENTION_UI_HINT := "attention_ui_hint"
 ## Tier 4.3 debug: last mental-stack layer that picked (**`MentalStackDecider`**); cleared when stack does not pick.
 const COMBATANT_KEY_MENTAL_STACK_LAYER := "mental_stack_layer"
+## Fled off field before medical phase: skip passive bleed ticks but allow triage listing.
+const COMBATANT_KEY_SUSPEND_BLEED_TICK := "suspend_bleed_tick"
 ## Layer stamp values (gauge **`Stack %s`** / soak).
 const MENTAL_STACK_LAYER_SELF_MEDICAL := "self_medical"
 const MENTAL_STACK_LAYER_MEDICAL := "medical"
 const MENTAL_STACK_LAYER_COUNTER := "counter"
 const MENTAL_STACK_LAYER_INCOMING := "incoming"
 const MENTAL_STACK_LAYER_HOLD_LINE := "hold_line"
-## MS-L5: rear rank steps up via listed partner formation move when same-file rank-0 is vacant.
-const MENTAL_STACK_LAYER_FORMATION_PLUG := "formation_plug"
-## MS-L6: breaking formation + listed **`flee`** → abandon field before hold-line wait.
-const MENTAL_STACK_LAYER_ROUT := "rout"
 ## MS-L7: high fight exhaustion → wait / formation disengage before salience utility pick.
 const MENTAL_STACK_LAYER_EXHAUSTION := "exhaustion"
 const MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD := 0.55
@@ -359,23 +355,10 @@ static func set_feature_position_angle_footwork_load(enabled: bool) -> void:
 
 
 static func position_angle_offset_deg_for_attack_line(line: String) -> float:
-	var key: String = str(line).strip_edges()
-	if not is_feature_hema_eight_guard_lines_enabled() or not _GuardLines.is_known_line(key):
-		return float(POSITION_ANGLE_OFFSET_DEG_BY_LINE.get(key, 0.0))
-	var norm: String = _GuardLines.normalize_line(key)
-	var card: String = _GuardLines.cardinal_for_path_lookup(key)
-	var base: float = float(POSITION_ANGLE_OFFSET_DEG_BY_LINE.get(card, 0.0))
-	if norm == card:
-		return base
-	# III-2: nudge step toward octant within cardinal bucket (±4° at adjacent octant).
-	var card_deg: float = _GuardLines.line_to_angle(card)
-	var oct_deg: float = _GuardLines.line_to_angle(norm)
-	var delta: float = oct_deg - card_deg
-	if delta > 180.0:
-		delta -= 360.0
-	elif delta < -180.0:
-		delta += 360.0
-	return base + clampf(delta / 22.5, -1.0, 1.0) * 4.0
+	var k: String = str(line).strip_edges()
+	if is_feature_hema_eight_guard_lines_enabled():
+		return _GuardLines.position_angle_offset_deg_for_line(k)
+	return float(POSITION_ANGLE_OFFSET_DEG_BY_LINE.get(k, 0.0))
 
 
 static func guard_line_for_focus_move_id(move_id: String) -> String:
@@ -395,7 +378,7 @@ static func guard_line_for_focus_move_id(move_id: String) -> String:
 static func set_feature_mental_stack_ai_load(enabled: bool) -> void:
 	_feature_mental_stack_ai_enabled = enabled
 
-## With feint: if **`parry_readiness * get_stance_modifier(stance, "feint_readthrough")`** ≥ this, treat defender guard focus as the real line for guard-zone parry mult (see **`DefenseChoiceResolver._guard_zone_modifier`**).
+## With feint: if **`parry_readiness * CombatWeaponForm.mod(form_str, "feint_readthrough")`** ≥ this, treat defender guard focus as the real line for guard-zone parry mult (see **`DefenseChoiceResolver._guard_zone_modifier`**).
 const FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD := 0.9
 ## Tier 4.2 telegraph delay: while attacker **`STATE_WIND_UP`** progress is below **`feint_target_reveal_at_progress`** (move + stamped on **`pa`**), **`DefenseChoiceResolver._feint_readiness_reveal_mult`** lerps passive readiness from this toward **1.0** for feint read-through, dodge telegraph, guard-zone, reported **`parry_readiness`**, passive-parry guard-angle wobble in **`choose_defense`**, and feint-move **listing** **`pr_def`** when live **`pending_attack`** targets the listed defender. **`0.5`** ≈ early wind-up still bait-heavy.
 const FEINT_PRE_REVEAL_READINESS_MULT := 0.5
@@ -706,6 +689,7 @@ const COOLDOWN_ACTION_READY_BASE := 2.0
 # Seconds until EVENT_ACTION_READY. Prefix READY_DELAY_ = delay until next turn check.
 const READY_DELAY_SKIP_DEFAULT_S := 0.5    # Skip (no actions): front rank
 const READY_DELAY_SKIP_BACK_RANK_S := 2.0 # Skip (no actions): back rank "in reserve"
+const READY_DELAY_SKIP_BACK_RANK_DEPTH_LANE_S := 1.0 # III-6: depth spear lane open — faster recheck than reserve
 const READY_DELAY_FORMATION_RECHECK_S := 0.2  # formation_changed → back rank re-evaluates
 const READY_DELAY_AFTER_PROMOTION_S := 0.15   # Plug/swap → promoted unit acts soon
 const READY_DELAY_PARRY_RIPOSTE_S := 0.02    # Parry deflect/partial → defender riposte
@@ -794,8 +778,6 @@ static func set_feature_ambient_pain_shock(on: bool) -> void:
 const FEATURE_INCOMING_PARRY_CHOICE := true
 const INCOMING_MELEE_PARRY_WINDOW_S := 0.25
 ## Simultaneous parry-all: sum of incoming **`parry_p_a`** must fit under min split **`parry_c_d`** × dodge ratio × this.
-## Retuned 0.88→0.45 when **`can_parry_all`** began using live sector **`surround_threat_weight_sum`** (III-1).
-## Simultaneous parry-all: sum of incoming **`parry_p_a`** must fit under min split **`parry_c_d`** × dodge ratio × this.
 ## Retuned 0.88→0.45 when **`can_parry_all`** uses live sector **`surround_threat_weight_sum`** (III-1).
 const INCOMING_PARRY_ALL_COMBINED_P_A_BUDGET_MULT := 0.45
 ## Per-move override optional in `WeaponConstants` (`parry_telegraph` 0–1). Base from intensity × power × follow_through × contact mult.
@@ -856,8 +838,6 @@ const LANE_MOD_CROWDED := 1.3
 const LANE_MOD_BLOCKED := 1.6
 ## Formation-move AI: damp **`rotate_file`** (and similar) when lane timing is blocked.
 const AI_FORMATION_MOVE_BLOCKED_LANE_MULT := 0.22
-## Menu has no listed melee strikes (rotate/focus/close only) — prefer **`wait`** / hold-line over rotate spam.
-const AI_ROTATE_FILE_NO_MELEE_MENU_MULT := 0.18
 const PRESSURE_MOD_DEFENSIVE := 0.9
 const PRESSURE_MOD_NEUTRAL := 1.0
 const PRESSURE_MOD_AGGRESSIVE := 1.3
@@ -872,15 +852,11 @@ const FORMATION_PAIR_ABORT_RETRY_COOLDOWN_S := 0.7
 const FORMATION_ROTATE_FILE_RETRY_COOLDOWN_S := 0.8
 const STATE_FALLING_BACK := "falling_back"
 const STATE_SWAP_RANK := "swap_rank"
-
-# --- Move IDs: formation + focus ---
-
 const MOVE_ID_SWAP_RANK := "swap_rank"
 ## Phase 5: formation movement (time-based, no stamina).
 const MOVE_ID_DRAG_BACK := "drag_back"
 const MOVE_ID_FALL_BACK := "fall_back"
 const MOVE_ID_ROTATE_FILE := "rotate_file"
-## Pair formation flow protocol (events / duration / resolve). Menu **`MOVE_ID_FALL_BACK`** + ally → **`FORMATION_MOVE_KIND_FALL_BACK_PAIR`**.
 const FORMATION_MOVE_KIND_SWAP_RANK := MOVE_ID_SWAP_RANK
 const FORMATION_MOVE_KIND_DRAG_BACK := MOVE_ID_DRAG_BACK
 const FORMATION_MOVE_KIND_FALL_BACK_PAIR := "fall_back_pair"
@@ -892,23 +868,19 @@ const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = [
 ]
 
 
-## True when **`move_id`** is a formation reposition / flee action (use this — do not test **`FORMATION_MOVEMENT_MOVE_IDS`** directly).
 static func is_formation_movement_move(move_id: String) -> bool:
 	return str(move_id) in FORMATION_MOVEMENT_MOVE_IDS
 
 
-## Formation reposition within the line (swap/drag/fall_back/rotate — excludes **`flee`**).
 static func is_formation_reposition_move(move_id: String) -> bool:
 	return is_formation_movement_move(move_id) and str(move_id) != MOVE_ID_FLEE
 
 
-## Paired formation moves that target an ally (`swap_rank` / `drag_back` / `fall_back`).
 static func is_partner_formation_move(move_id: String) -> bool:
 	var mid := str(move_id)
 	return mid == MOVE_ID_SWAP_RANK or mid == MOVE_ID_DRAG_BACK or mid == MOVE_ID_FALL_BACK
 
 
-## True when **`move_kind`** is a paired formation-flow kind (not menu **`MOVE_ID_*`** alone).
 static func is_formation_pair_move_kind(move_kind: String) -> bool:
 	var k := str(move_kind)
 	return (
@@ -918,7 +890,6 @@ static func is_formation_pair_move_kind(move_kind: String) -> bool:
 	)
 
 
-## Maps menu **`MOVE_ID_*`** for paired formation actions to flow **`FORMATION_MOVE_KIND_*`**.
 static func formation_pair_move_kind_for_menu_move(move_id: String) -> String:
 	match str(move_id):
 		MOVE_ID_SWAP_RANK:
@@ -929,8 +900,6 @@ static func formation_pair_move_kind_for_menu_move(move_id: String) -> String:
 			return FORMATION_MOVE_KIND_FALL_BACK_PAIR
 		_:
 			return str(move_id)
-
-
 ## Tactical rank penetration (0 = at their front line). Not armor RHA penetration.
 const TACTICAL_PENETRATION_DEPTH_MAX := 2
 ## Extra damp when this side has very few standing fighters (duel / skirmish attrition).
@@ -1086,6 +1055,8 @@ static func is_feature_surround_arc_occupancy_enabled() -> bool:
 ## Engagement mode (duel / skirmish / formation) from live front-rank state — see ENGAGEMENT_MODE_* below.
 ## Option 4 pilot: `CombatDoctrine.evaluate_automatic_doctrine` may set **`pinch_center`** from a hollow enemy front (only when formation doctrine is still **default**).
 const FEATURE_AUTOMATIC_DOCTRINE := true
+## p4c: min extra living rank-0 on our front vs opponent when our formation has more files (`numeric_superiority_for_pinch`).
+const AUTO_DOCTRINE_NUMERIC_SUPERIORITY_FRONT_MARGIN := 1
 ## S6 pilot: layer KE budget scales pre-armor damage (sqrt curve); default off — see `ArmorJouleBudget`.
 const FEATURE_JOULE_ARMOR_BUDGET := true
 
@@ -1107,6 +1078,8 @@ const ENGAGEMENT_MODE_CODE_FORMATION := 2
 ## Resolved **Duel** mode: `CombatEngagementMode.snapshot_is_true_duel` (exactly 1 living fighter per side).
 ## Per-side attrition AI damp when this side has at most this many actives (`CombatAIActionPicker._attrition_offense_weight_mult`).
 const AI_ATTRITION_LOW_STANDING_MAX := 2
+## @deprecated Use `AI_ATTRITION_LOW_STANDING_MAX` — not used for engagement-mode classification.
+const ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE := AI_ATTRITION_LOW_STANDING_MAX
 ## Formation requires both sides at/above this active count in addition to front/fill thresholds.
 const ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE := 4
 ## III-4 Track A **3b**: Skirmish **`rotate_file`** only when `our_files > opp_files + margin`.
@@ -1176,8 +1149,6 @@ const FORMATION_FLEE_CASUALTY_RATIO_MIN := 0.30
 ## Wounded + stressed rout blocked when this side still has ≥ this × opponent standing (tactical win — hold the field).
 const FORMATION_FLEE_WINNING_STANDING_RATIO := 1.15
 
-# --- Move IDs: wait / focus / close / skip ---
-
 ## Explicit no-op: pass turn, schedule next action_ready (same delays as skip_turn).
 const MOVE_ID_WAIT := "wait"
 ## Tier 4.3.7: retarget mental **`focus_part`** + **`guard_line`** while waiting (no strike).
@@ -1206,12 +1177,15 @@ const COMBATANT_KEY_POSITION_ANGLE_UI_HINT := "position_angle_ui_hint"
 const COMBATANT_KEY_FORMATION_MOVES_TURN_HINT := "formation_moves_turn_hint"
 ## Stamped on turn-ready when listed actions are only wait + guard/focus lines (depth rank hold).
 const COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT := "hold_line_focus_only_hint"
+## Player turn-ready: **`attempt_close`** listed vs controlling defender (gauge + combat log).
+const COMBATANT_KEY_CONTROLLING_CLOSE_TURN_HINT := "controlling_close_turn_hint"
 const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
 	"high": 0.0,
 	"low": 6.0,
 	"left": 14.0,
 	"right": -14.0,
 }
+## L4 pilot: 4-cardinal keys when eight-guard flag off; when on, **`CombatGuardLines.position_angle_offset_deg_for_line`** (octant table). LIVE_PATHS **`#wf-form-guard-pa-matrix`**.
 ## Tier 4.4.2: defender step scales (symmetric to attacker step-on-wind-up; still flag-gated).
 const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY := 0.55
 const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE := 0.85
@@ -1267,6 +1241,8 @@ static func guard_zone_for_guard_line(line: String) -> String:
 # Swap rank AI (CombatAIActionPicker): relief only when necessary — not marginal fitness differences.
 const SWAP_RANK_AI_LOW_WEIGHT := 0.02
 const SWAP_RANK_AI_HIGH_WEIGHT := 1.0
+const SWAP_RANK_AI_LINE_PLUG_WEIGHT := 0.52 # Rear relief when another file has rank-0 hole (III-6 maintain)
+const AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT := 0.62 # Skirmish shuffle when line has rank-0 holes (III-6 maintain)
 ## Mobile cowering solo **fall_back** vs **wait** (Tier 6.1 — no arms, legs OK).
 const COWERING_SOLO_FALL_BACK_AI_WEIGHT := 1.5
 ## Tier 6.2: mobile cowering — prefer **`flee`** over in-formation **`fall_back`** when both are listed (cannot hold weapon).
@@ -1276,6 +1252,11 @@ const AI_FLEE_ROUTINE_WEIGHT := 0.22
 const AI_FLEE_HIGH_COHESION_MULT := 0.35
 const AI_FLEE_LOW_COHESION_MULT := 1.08
 const AI_FLEE_HIGH_CASUALTY_MULT := 1.22
+const AI_FLEE_LOSING_SIDE_MULT := 1.28
+## MS-L7 exhaustion tunnel: flee must beat rotate_file (~0.55) when abandon-field is listed.
+const AI_FLEE_EXHAUSTION_TUNNEL_WEIGHT := 0.88
+## Flee listing when stamina is nearly spent (even below MS-L7 tunnel threshold).
+const AI_FLEE_CRITICAL_STAMINA_RATIO := 0.12
 ## Partner must exceed our composite fitness (perf × blood norm) by at least this much for a routine relief.
 const SWAP_RANK_AI_MIN_FITNESS_GAP := 0.20
 ## Below this our_fitness, treat as dangerously unfit: partner need only be ahead by URGENT_MIN_GAP.
@@ -1311,6 +1292,19 @@ const ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT := "doctrine_enemy"
 ## III-4 Track A **3c**: optional player line width before **`refresh_party_formation_meta`** default.
 const ENCOUNTER_KEY_PLAYER_FORMATION := "player_formation"
 const ENCOUNTER_KEY_PLAYER_FRONT_COUNT := "player_front_count"
+## Expand WF-4: default weapon form per side when roster has no **`stance_preference`**.
+const ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM := "player_default_weapon_form"
+const ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM := "enemy_default_weapon_form"
+## Expand WF-3: auto form switch cooldown (combat clock seconds).
+const WF_FORM_SWITCH_COOLDOWN_S := 8.0
+const WF_FORM_SWITCH_STAMINA_COST := 0.0
+const WF_YOMI_FORM_INFERENCE_MIN_OBS := 4
+const WF_YOMI_FORM_INFERENCE_MARGIN := 0.15
+## Expand WF-2b: cap **`CombatWeaponForm.form_counter_mult`** picker boost.
+const WF_FORM_COUNTER_MULT_CAP := 1.15
+const WF_COUNTER_READINESS_NUDGE_MIN := 0.03
+const WF_COUNTER_READINESS_NUDGE_MAX := 0.06
+const AI_FOCUS_LINE_FORM_PREFERRED_MULT := 1.25
 const ENCOUNTER_PROTECTION_CIRCLE_ACTIVE := "protection_circle_active"
 ## Phase 6: Which side suffers ambush penalties (typically "player" when monsters ambush party).
 const ENCOUNTER_AMBUSHED_SIDE := "ambushed_side"
@@ -1455,8 +1449,23 @@ const PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT := 0.88
 const PASSIVE_PARRY_READINESS_INCOMING_BLUNT_MULT := 1.0
 
 
-static func defense_footwork_recovering_dodge_mult_for_cause(cause: String) -> float:
+## Tier 4.2 / III-8: canonical **`recovery_cause`** for readiness + footwork lookups (aliases harness legacy keys).
+static func normalize_recovery_cause(cause: String) -> String:
 	var k: String = str(cause).strip_edges()
+	if k.is_empty():
+		return "skip"
+	if k == "parry_deflect":
+		return "attack_deflect"
+	return k
+
+
+static func readiness_curve_for_cause(cause: String) -> Array:
+	var k: String = normalize_recovery_cause(cause)
+	return READINESS_BY_CAUSE.get(k, READINESS_BY_CAUSE.get("medical", [0.5, 0.85]))
+
+
+static func defense_footwork_recovering_dodge_mult_for_cause(cause: String) -> float:
+	var k: String = normalize_recovery_cause(cause)
 	var v: Variant = DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE.get(k, DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT)
 	if v is float or v is int:
 		return float(v)
@@ -1521,7 +1530,6 @@ static func feint_guard_zone_readiness_spacing_mult(defender: Dictionary, attack
 
 const REACH_MID_MIN := 1.2  # AI/depth polearm bias; shorts still strike at MID when melee_range >= effective_pair_eff_dist.
 const MOVE_ID_ATTEMPT_CLOSE := "attempt_close"
-## **`CombatManager.skip_turn`** log_outcome values (see **`CombatLogFormatter`**).
 const SKIP_TURN_LOG_PASS := "pass"
 const SKIP_TURN_LOG_WAIT := "wait"
 const SKIP_TURN_LOG_REJECT := "reject"
@@ -1532,20 +1540,6 @@ const CLOSE_SLOTS_PER_TARGET_TIGHT_BONUS := 1
 const CLOSE_SLOTS_FULL_TARGETING_MULT := 0.32
 ## After a **failed** close vs a defender, `attempt_close` vs that same defender is withheld until `combat_clock` passes this (per attacker–defender pair). Turn spacing uses `READY_DELAY_CLOSE_ATTEMPT_S` separately.
 const CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S := 1.65
-## Close contest (III-4 enrich): flank sector weight at **`SURROUND_SECTOR_WEIGHT_MIN`** → this pressure mult.
-const CLOSE_ATTEMPT_FLANK_PRESSURE_MULT_AT_MIN_SECTOR := 1.12
-## Mapped file-opposed rank-0 pair closing along their assigned front.
-const CLOSE_ATTEMPT_FILE_OPPOSED_PRESSURE_MULT := 1.06
-## Attacker's crowded file lane ( **`lane_stress_by_file`** ) dampens closing pressure at stress 1.0.
-const CLOSE_ATTEMPT_LANE_STRESS_PRESSURE_MIN := 0.88
-## Defender tight lane leaves less sidestep room at stress 1.0.
-const CLOSE_ATTEMPT_LANE_STRESS_EVASION_MIN := 0.90
-## Per other living closer already on defender (excluding self).
-const CLOSE_ATTEMPT_CROWD_EVASION_MULT_PER_OCCUPANT := 0.92
-## Defender already engaged by multiple melee threats ( **`surround_threat_count` ≥ 2** ).
-const CLOSE_ATTEMPT_DEFENDER_ENGAGED_PRESSURE_MULT := 1.08
-## Option 4 / p4c: auto **`pinch_center`** when our rank-0 front exceeds enemy by this margin **and** we are wider on files.
-const AUTO_DOCTRINE_NUMERIC_SUPERIORITY_FRONT_MARGIN := 2
 
 
 static func max_close_slots_for_density(density: String) -> int:
@@ -1566,22 +1560,17 @@ const DOCTRINE_COMMIT_MATCH_WEIGHT_MULT := 1.28
 const DOCTRINE_FILE_OPPOSED_WEIGHT_MULT := 1.42
 ## Extra weight toward enemy-line center when PINCH + wing has no file-opposed rank-0 target.
 const DOCTRINE_PINCH_INWARD_BIAS_PER_FILE := 0.18
-## Pincer flank wings (`CombatDoctrine.PINCER_ROLE_FLANK_WING`): boost enemy **outer** files (turn their flanks).
-const DOCTRINE_PINCH_FLANK_OUTWARD_BIAS_PER_FILE := 0.22
-## Pincer center (`CombatDoctrine.PINCER_ROLE_CENTER`): reinforce mapped file-opposed pin targets.
-const DOCTRINE_PINCH_CENTER_PIN_FILE_OPPOSED_MULT := 1.12
-## Utility pick nudge when flank wing lists **`attempt_close`** at LONG under **`DOCTRINE_PINCH_CENTER`**.
-const AI_PINCER_FLANK_CLOSE_UTIL_MULT := 1.35
-## Skirmish flank echelon: **`rotate_file`** when no melee strikes (still below **`attempt_close`**).
-const AI_PINCER_FLANK_ROTATE_NO_MELEE_MULT := 3.2
-## Pincer center files must not **`attempt_close`** at LONG — pin via mapped strikes / wait (flank wings close).
-const AI_PINCER_CENTER_CLOSE_UTIL_MULT := 0.0
-## Flank wing targeting: boost **`preferred_pincer_flank_enemy_id`** before center commits propagate.
-const AI_PINCER_PREFERRED_FLANK_TARGET_MULT := 1.18
-## Phase 2: flank **`attempt_close`** — reward wide sector approach; damp when a CLOSE ally already holds that arc.
-const PINCER_CLOSE_ARC_SECTOR_BONUS := 0.20
-const PINCER_CLOSE_ARC_OVERLAP_ALLY_DAMP := 0.52
-const PINCER_CLOSE_ARC_MIN_MULT := 0.70
+## III-4 **3e**: pincer flank wing AI/listing bias toward outer-file enemy under pinch + file outnumber.
+const DOCTRINE_PINCER_PREFERRED_FLANK_TARGET_MULT := 1.28
+## III-4 **3e**: post-rout envelop mop-up — enemy standing at or below this, our side above, standing advantage.
+const ENVELOP_MOP_UP_MAX_ENEMY_ACTIVE := 1
+const ENVELOP_MOP_UP_MIN_OUR_ACTIVE := 2
+## Utility-pick damp when rotate still lists during post-rout mop-up (listing gate is primary).
+const ENVELOP_MOP_UP_ROTATE_AI_WEIGHT_MULT := 0.12
+## Utility-pick nudge for listed **`attempt_close`** during post-rout mop-up.
+const ENVELOP_MOP_UP_CLOSE_AI_WEIGHT_MULT := 1.28
+## Utility-pick damp for focus-line shuffle during post-rout mop-up (L4 close is primary).
+const ENVELOP_MOP_UP_FOCUS_AI_WEIGHT_MULT := 0.15
 ## Larger = geometry matters less in soft score (1/(1+eff*k)).
 const DOCTRINE_SOFT_DISTANCE_SCALE := 0.55
 ## Normalizer for how many allies already committed on same defender.
@@ -1591,7 +1580,7 @@ const DOCTRINE_PRESSURE_DECAY_PER_ALLY := 0.22
 const DOCTRINE_HOLD_LANE_OFF_FILE_MULT := 0.58
 const DOCTRINE_AI_WEIGHT_MULT_MIN := 0.35
 const DOCTRINE_AI_WEIGHT_MULT_MAX := 2.6
-# Stance modifiers (Phase 2). See COMBAT_STANCE_STATES_INVESTIGATION.md.
+# Stance modifiers (Phase 2). Expand WF: [`docs/LIVE_PATHS.md#wf-weapon-form-stances`](../docs/LIVE_PATHS.md#wf-weapon-form-stances).
 const STANCE_MOD_PARRY: Dictionary = {"defensive": 1.2, "balanced": 1.0, "aggressive": 0.8, "controlling": 1.0}
 const STANCE_MOD_EVASION: Dictionary = {"defensive": 1.15, "balanced": 1.0, "aggressive": 0.85, "controlling": 1.0}
 const STANCE_MOD_DAMAGE: Dictionary = {"defensive": 0.85, "balanced": 1.0, "aggressive": 1.2, "controlling": 0.95}
@@ -1612,19 +1601,11 @@ const STANCE_MOD_OPPONENT_DISENGAGE: float = 0.85  # Controlling makes opponent 
 # Density modifier for close attempt (defender evasion). tight=easier to close, loose=harder.
 const DENSITY_CLOSE_MOD: Dictionary = {"tight": 0.8, "normal": 1.0, "loose": 1.2}
 
-## Returns stance modifier for given effect. Default 1.0 if stance unknown.
+## Returns stance modifier for given effect. Delegates to **`CombatWeaponForm.mod`** (legacy stance aliases preserved).
+## **Harness-only alias:** production uses **`CombatWeaponForm.mod(_EntityAccess.form_str(c), effect)`** — see LIVE_PATHS **`#wf-footing-improvement-backlog`** (WF-M5). Do not add new production call sites.
 static func get_stance_modifier(stance: String, effect: String) -> float:
-	var m: Dictionary = {}
-	match effect:
-		"parry": m = STANCE_MOD_PARRY
-		"evasion": m = STANCE_MOD_EVASION
-		"damage": m = STANCE_MOD_DAMAGE
-		"close_attempt": m = STANCE_MOD_CLOSE_ATTEMPT
-		"ai_melee_focus": m = STANCE_MOD_AI_MELEE_FOCUS
-		"feint_readthrough": m = STANCE_MOD_FEINT_READTHROUGH
-		"ai_feint_listing": m = STANCE_MOD_AI_FEINT_LISTING
-		_: return 1.0
-	return m.get(stance, 1.0)
+	const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+	return _WeaponForm.mod(_WeaponForm.normalize_form(stance), effect)
 
 ## Returns density modifier for close attempt (applied to defender evasion).
 static func get_density_close_mod(density: String) -> float:
@@ -1692,16 +1673,14 @@ const ATTACK_PATHS_BY_GUARD: Dictionary = {
 	}
 }
 
-## Returns attack path for (attack_line, guard_line). Fallback to ATTACK_PATHS if missing.
-## D-006 / III-2: eight-line octants map to cardinal keys for **`ATTACK_PATHS_BY_GUARD`** (full 8×8 matrix = IV-4).
+## Returns attack path for (attack_line, guard_line). Octant lines map to cardinal keys via **`CombatGuardLines.cardinal_for_path_lookup`** before **`ATTACK_PATHS_BY_GUARD`** lookup. Unknown lines skip normalization and use legacy fallback.
 static func get_attack_path(attack_line: String, guard_line: String) -> Array:
-	var atk_key: String = attack_line
-	var guard_key: String = guard_line
-	if is_feature_hema_eight_guard_lines_enabled():
-		if _GuardLines.is_known_line(attack_line):
-			atk_key = _GuardLines.cardinal_for_path_lookup(attack_line)
-		if _GuardLines.is_known_line(guard_line):
-			guard_key = _GuardLines.cardinal_for_path_lookup(guard_line)
+	var atk_key: String = str(attack_line).strip_edges()
+	var guard_key: String = str(guard_line).strip_edges()
+	if _GuardLines.is_known_line(atk_key):
+		atk_key = _GuardLines.cardinal_for_path_lookup(atk_key)
+	if _GuardLines.is_known_line(guard_key):
+		guard_key = _GuardLines.cardinal_for_path_lookup(guard_key)
 	var by_guard: Variant = ATTACK_PATHS_BY_GUARD.get(atk_key, {})
 	if by_guard is Dictionary and by_guard.has(guard_key):
 		return by_guard[guard_key]
@@ -1781,7 +1760,7 @@ static func line_to_angle(line: String) -> float:
 	return float(LINE_TO_ANGLE_DEG.get(line, 0))
 
 
-## Map angle to nearest guard line (four-line ids or eight-line octants when **`FEATURE_HEMA_EIGHT_GUARD_LINES`**).
+## Map angle to nearest guard line (four-line legacy or eight-line octants when **`FEATURE_HEMA_EIGHT_GUARD_LINES`**).
 static func angle_to_nearest_line(angle_deg: float) -> String:
 	if is_feature_hema_eight_guard_lines_enabled():
 		return _GuardLines.angle_to_line(angle_deg)
@@ -1886,9 +1865,9 @@ static func get_attack_angle_deg(attack_line: String, add_variance: bool = true,
 		base += randf_range(-variance, variance)
 	return fmod(base + 360.0, 360.0)
 
-## Guard angle from combatant. Uses guard_line; when guard_deflect_blend > 0, lerps from guard_deflect_from_line to guard_line.
+## Guard angle from combatant. Uses **`guard_line`**; when guard_deflect_blend > 0, lerps from guard_deflect_from_line to guard_line.
+## At strike contact with PA pilot, prefer **`CombatFootwork.guard_angle_deg`** (adds offset) — LIVE_PATHS **`#wf-tier-44-pa`** (geometry). **Not** **`weapon_form`**.
 ## wobble_context: parry_readiness (0-1), defender_mass_kg (optional). When readiness < 1, adds ±wobble (defender reacting).
-## Heavier defender weapon = more inertia = more wobble when reacting.
 static func get_guard_angle_deg(combatant: Dictionary, wobble_context: Dictionary = {}) -> float:
 	var line: String = combatant.get("guard_line", GUARD_DEFAULT)
 	var blend: float = combatant.get("guard_deflect_blend", 0.0)
@@ -1996,13 +1975,13 @@ const AFTERBLOW_HINDRANCE_ALLOW: float = 0.3
 const AFTERBLOW_CANCELLED_RECOVERY_S: float = 0.5
 
 const MEDICAL_WIND_UP_CONFIG: Dictionary = {
-	MOVE_ID_BANDAGE_SELF: {"duration_method": "get_bandage_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_bandage", "outcome": "bandaged"},
-	MOVE_ID_PACK_WOUND: {"duration_method": "get_packing_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_packing", "outcome": "packed"},
-	MOVE_ID_STABILIZE_WOUND: {
+	"bandage_self": {"duration_method": "get_bandage_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_bandage", "outcome": "bandaged"},
+	"pack_wound": {"duration_method": "get_packing_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_packing", "outcome": "packed"},
+	"stabilize_wound": {
 		"duration_method": "get_stabilize_application_time_seconds_for_part",
 		"duration_takes_part": true,
 		"target_method": "apply_stabilize",
 		"outcome": "stabilized",
 	},
-	MOVE_ID_APPLY_TOURNIQUET: {"duration_method": "get_tourniquet_application_time_seconds", "duration_takes_part": false, "target_method": "apply_tourniquet", "outcome": "tourniquet_applied"}
+	"apply_tourniquet": {"duration_method": "get_tourniquet_application_time_seconds", "duration_takes_part": false, "target_method": "apply_tourniquet", "outcome": "tourniquet_applied"}
 }

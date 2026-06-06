@@ -53,21 +53,7 @@ static func append_medical_phase_winner_actions(
 		return
 	if not _EntityAccess.scene_can_apply_direct_pressure_api(c):
 		return
-	var immediate_peril: bool = _EntityAccess.is_in_immediate_peril(manager, c)
-	for ally in combatants:
-		if not _EntityAccess.is_living_same_side(c, ally):
-			continue
-		if _EntityAccess.has_left_immediate_peril_permanently(manager, ally):
-			var fp_raw: Variant = ally.get("failed_medical_parts", null)
-			if fp_raw is Array and not (fp_raw as Array).is_empty():
-				ally["failed_medical_parts"] = []
-			for other in combatants:
-				var pr_raw: Variant = other.get("pending_retry", null)
-				if typeof(pr_raw) != TYPE_DICTIONARY:
-					continue
-				var pr: Dictionary = pr_raw as Dictionary
-				if not pr.is_empty() and pr.get("target_id", -1) == _EntityAccess.id_int(ally):
-					other["pending_retry"] = {}
+	var immediate_peril: bool = _MedicalPhase.is_in_immediate_peril(manager, c)
 	for ally in combatants:
 		if (
 			not _EntityAccess.is_living_same_side(c, ally)

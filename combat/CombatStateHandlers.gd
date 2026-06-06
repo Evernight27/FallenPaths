@@ -5,8 +5,9 @@ const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Per-state handlers for CombatManager _process loop.
+## Footing: parry/deflect → **`GuardLineUpdater.set_guard_deflected`** · recovery → **`set_guard_from_move`** · **`CombatFootwork.clear_on_exchange_end`** · idle **`reconcile_idle_offset`** on tick paths · **`return_to_waiting`** / **`return_to_cowering`** on state transitions. LIVE_PATHS **`#wf-guard-writers`** · **`#wf-tier-44-pa`**.
 ## Each handler mutates combatant (c) and may call manager methods.
-## Manager must have: `get_available_actions`, `resolve_action`, `emit_signal`, **`CombatantEntityAccess.manager_get_combatant`**, `_find_first_opponent`, `_execute_attack`.
+## Manager must have: get_available_actions, resolve_action, emit_signal, _get_by_id, _find_first_opponent, _execute_attack.
 
 const _MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
@@ -17,7 +18,6 @@ const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
-const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
@@ -37,6 +37,7 @@ static func process_death_tick(manager: Node, c: Dictionary) -> String:
 	if not _EntityAccess.is_dead(c):
 		return ""
 	c.alive = false
+	_Footwork.clear_on_death(c)
 	c.state = CombatConstants.STATE_DEAD
 	cancel_events_for_dead_combatant(manager, c)
 	var death_reason: String = _EntityAccess.get_death_reason(c)
@@ -55,6 +56,8 @@ static func process_death_tick(manager: Node, c: Dictionary) -> String:
 static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
 	if _EntityAccess.scene_node(c) == null:
 		return false
+	if _EntityAccess.state_str(c) == CombatConstants.STATE_COWERING:
+		_Footwork.reconcile_idle_offset(c)
 	if _EntityAccess.is_unconscious(c):
 		return true
 	# Cowering: when arm functionality returns, leave cowering state
@@ -62,11 +65,11 @@ static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
 		_EntityAccess.state_str(c) == CombatConstants.STATE_COWERING
 		and not _EntityAccess.is_cowering(c)
 	):
-		c.state = CombatConstants.STATE_WAITING
+		_Footwork.return_to_waiting(c)
 		c.gauge = 0.0
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 		var who_name: String = _EntityAccess.get_display_name(c)
-		_CombatDebug.combat_session("%s no longer cowering (arm functionality returned)." % who_name)
+		print("[Combat] %s no longer cowering (arm functionality returned)." % who_name)
 		_EventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
 		return false
 	# Mobile cowering (no arms, functional legs): allow ticks so formation retreat can be offered
@@ -100,7 +103,7 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
 	if move_id.is_empty():
 		move_id = str(_EntityAccess.nested_dictionary_read(c, "pending_attack").get("attack_type", ""))
 	var eff_line: String = c.get("effective_attack_line", "")
-	var cause: String = c.get("recovery_cause", "")
+	var cause: String = CombatConstants.normalize_recovery_cause(str(c.get("recovery_cause", "")))
 	if cause == "attack_deflect":
 		var def_guard: String = c.get("defender_guard_line_at_parry", "")
 		var clash_ctx: Dictionary = _EntityAccess.nested_dictionary_read(c, "parry_clash_context")
@@ -115,12 +118,12 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
 		_WindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa_before)
 	_Footwork.clear_on_exchange_end(c)
 	if _EntityAccess.get_attacking_arm(c).is_empty():
-		c.state = CombatConstants.STATE_COWERING
+		_Footwork.return_to_cowering(c)
 		if not _OperationalLog.is_play_session_active():
 			var who_name: String = _EntityAccess.get_display_name(c)
 			_CombatDebug.combat_session("%s is cowering (no functional arms)" % who_name)
 	else:
-		c.state = CombatConstants.STATE_WAITING
+		_Footwork.return_to_waiting(c)
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 
 ## Cancels medical wind-up if target died. Returns true if cancelled (caller should continue to next combatant).
@@ -130,7 +133,7 @@ static func process_medical_wind_up_cancel(manager: Node, c: Dictionary) -> bool
 	var pm_raw_check: Variant = c.get("pending_medical", null)
 	if typeof(pm_raw_check) != TYPE_DICTIONARY:
 		c["pending_medical"] = {}
-		c.state = CombatConstants.STATE_WAITING
+		_Footwork.return_to_waiting(c)
 		c.state_timer = 0.0
 		c.state_duration = 0.0
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
@@ -140,72 +143,32 @@ static func process_medical_wind_up_cancel(manager: Node, c: Dictionary) -> bool
 	var tgt_cid_check: int = pm_check.get("target_combatant_id", _EntityAccess.id_int(c))
 	if tgt_cid_check == _EntityAccess.id_int(c):
 		return false
-	var tgt_check: Dictionary = _EntityAccess.manager_get_combatant(manager, tgt_cid_check)
-	if not tgt_check.is_empty() and _EntityAccess.is_alive_in_combat(tgt_check):
+	var tgt_check = manager._get_by_id(tgt_cid_check)
+	if tgt_check != null and _EntityAccess.is_alive_in_combat(tgt_check):
 		return false
-	if not tgt_check.is_empty():
+	if tgt_check != null:
 		tgt_check.receiving_medical_count = max(0, tgt_check.get("receiving_medical_count", 0) - 1)
 	c.pending_medical = {}
-	c.state = CombatConstants.STATE_WAITING
+	_Footwork.return_to_waiting(c)
 	c.state_timer = 0.0
 	c.state_duration = 0.0
 	c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	var who_name: String = _EntityAccess.get_display_name(c)
-	_CombatDebug.combat_session("Medical cancelled: %s (target died during wind-up)" % who_name)
+	print("[Combat] Medical cancelled: %s (target died during wind-up)" % who_name)
 	_EventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
 	return true
 
-
-## III-6: depth-rank melee wind-up aborts when the same-file rank-0 lane closes (front ally died / moved).
-static func process_depth_wind_up_lane_cancel(manager: Node, c: Dictionary) -> bool:
-	if manager == null or c.is_empty():
-		return false
-	if _EntityAccess.state_str(c) != CombatConstants.STATE_WIND_UP:
-		return false
-	if _EntityAccess.rank_int(c) <= 0:
-		return false
-	var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
-	if pa.is_empty():
-		return false
-	var lane_lbl: String = str(pa.get("depth_polearm_lane_type", "")).strip_edges()
-	if lane_lbl.is_empty() and not bool(pa.get("depth_polearm_attack", false)):
-		return false
-	if _DepthPolearm.depth_polearm_lane_open(manager, c):
-		return false
-	var cid: int = _EntityAccess.id_int(c)
-	_CounterTempo.abort_attacker_wind_up(manager, cid)
-	if _CombatDebug.flow_verbose_enabled():
-		_CombatDebug.flow_log(
-			"depth_windup_abort id=%d reason=lane_closed" % cid,
-			"depth_windup_abort:%d" % cid
-		)
-	elif (
-		not _OperationalLog.is_play_session_active()
-		and CombatConstants.combat_event_debug_active()
-	):
-		_CombatDebug.combat_session(
-			"Depth wind-up aborted: %s (spear lane closed)"
-			% _EntityAccess.get_display_name(c, cid)
-		)
-	return true
-
-
 static func process_receiving_medical(manager: Node, c: Dictionary, delta: float) -> void:
+	_Footwork.reconcile_idle_offset(c)
 	c.gauge = 100.0  # Keep readied; can hold/switch direct pressure on other wounds
 	var cooldown: float = maxf(0.0, c.get("receiving_care_action_cooldown", 0.0) - delta)
 	c.receiving_care_action_cooldown = cooldown
 	if _EntityAccess.is_player_side(c):
 		var pending: bool = c.get("receiving_care_turn_pending", false)
 		if cooldown <= 0.0 and not pending:
-			var recv_cid: int = _EntityAccess.id_int(c)
-			var recv_actions: Array = manager.get_available_actions(recv_cid)
+			var recv_actions: Array = manager.get_available_actions(_EntityAccess.id_int(c))
 			if not recv_actions.is_empty():
-				if MedicalPhaseController.medical_fast_forward_active(manager):
-					CombatAIActionPicker.resolve_picked_turn_or_skip(
-						manager, recv_cid, recv_actions, "player"
-					)
-				else:
-					manager.notify_turn_ready(recv_cid)
+				manager.notify_turn_ready(_EntityAccess.id_int(c))
 				c.receiving_care_turn_pending = true
 				c.receiving_care_action_cooldown = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 	else:
@@ -234,6 +197,7 @@ static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void
 	c["stamina"] = minf(cap, s + _Exhaustion.effective_stamina_refill_rate(c) * delta)
 	_CounterTempo.process_waiting(_manager, c)
 	_FlurryBind.process_waiting(_manager, c)
+	_Footwork.reconcile_idle_offset(c)
 	_UiHints.refresh_waiting_tick_stamps(_manager, c)
 
 static func process_wind_up(manager: Node, c: Dictionary, delta: float) -> void:
@@ -245,6 +209,7 @@ static func process_wind_up(manager: Node, c: Dictionary, delta: float) -> void:
 	# Completion handled by EVENT_MELEE_ATTACK; state_timer for UI countdown only
 
 static func process_medical_wind_up(manager: Node, c: Dictionary, delta: float) -> void:
+	_Footwork.reconcile_idle_offset(c)
 	c.gauge = 0.0
 	c.state_timer += delta
 	if c.state_timer >= c.state_duration:
@@ -260,3 +225,9 @@ static func process_recovering(manager: Node, c: Dictionary, delta: float) -> vo
 		_MobilityRetreat.react_attacking_arm_lost_if_needed(manager, c)
 		return
 	# Completion handled by EVENT_RECOVERY_END; state_timer for UI countdown only
+
+
+## Formation shuffle timers (**`swap_rank`**, **`fall_back`**) — scrub idle PA each tick (no **`process_waiting`** on these states).
+static func process_formation_move_timer(c: Dictionary, delta: float) -> void:
+	_Footwork.reconcile_idle_offset(c)
+	c.state_timer = minf(c.state_timer + delta, c.get("state_duration", 1.0))

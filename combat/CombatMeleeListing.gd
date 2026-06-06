@@ -2,6 +2,7 @@ class_name CombatMeleeListing
 extends RefCounted
 
 ## Melee strike / attempt-close action listing and **`can_melee_threaten`** (reach + band + rank gates).
+## Footing: lists strikes only — does **not** stamp PA or write **`guard_line`**. LIVE_PATHS **`#wf-pick-vs-strike`**.
 ## **Read order:** live rows → threaten checks → append listing (uses **`ZoneOfControl.opponent_formation_for_listing`**).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -11,6 +12,8 @@ const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
+const _Doctrine := preload("res://combat/CombatDoctrine.gd")
+const _UiHints := preload("res://combat/CombatUiHints.gd")
 
 
 ## Live **`CombatManager.combatants`** dicts (not UI snapshot from **`get_combatants()`**).
@@ -50,10 +53,23 @@ static func can_melee_threaten(
 		eff_dist = _PairGeometry.cached_eff_dist(
 			_PairGeometry.effective_pair_geometry(manager, attacker, defender)
 		)
+	var dist: String = _EntityAccess.distance_to_opponent_band(attacker, _EntityAccess.id_int(defender))
+	if envelop_mop_up_strike_at_band(manager, attacker, dist):
+		return true
 	if not _PairGeometry.melee_reach_covers_eff_dist(melee_range, eff_dist):
 		return false
-	var dist: String = _EntityAccess.distance_to_opponent_band(attacker, _EntityAccess.id_int(defender))
 	return dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID
+
+
+## III-4 **3e**: post-rout mop-up — CLOSE/MID band may lag geometric reach; finish with strikes.
+static func envelop_mop_up_strike_at_band(
+	manager: Node, attacker: Dictionary, band: String
+) -> bool:
+	if band != CombatConstants.DISTANCE_CLOSE and band != CombatConstants.DISTANCE_MID:
+		return false
+	if manager == null or attacker.is_empty():
+		return false
+	return _Doctrine.envelop_mop_up_active(manager, _EntityAccess.formation_id_str(attacker))
 
 
 static func close_attempt_pair_blocked(manager: Node, attacker: Dictionary, defender_id: int) -> bool:
@@ -90,7 +106,9 @@ static func count_close_attackers_on_defender(
 		var aid: int = _EntityAccess.id_int(atk)
 		if aid == defender_id or aid == exclude_attacker_id:
 			continue
-		if not _EntityAccess.are_alive_opponents(atk, defender):
+		if not _EntityAccess.is_standing_combatant(atk):
+			continue
+		if not _EntityAccess.are_living_hostiles(atk, defender):
 			continue
 		if _EntityAccess.distance_to_opponent_band(atk, defender_id) == CombatConstants.DISTANCE_CLOSE:
 			n += 1
@@ -104,11 +122,27 @@ static func defender_has_free_close_slot(
 	return count_close_attackers_on_defender(manager, _EntityAccess.id_int(defender), exclude_attacker_id) < cap
 
 
+static func _append_attempt_close_action(
+	actions: Array, opp: Dictionary
+) -> void:
+	var entry: Dictionary = {
+		"target_id": _EntityAccess.id_int(opp),
+		"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
+	}
+	var hint: String = _UiHints.close_attempt_list_hint_for_defender(opp)
+	if not hint.is_empty():
+		entry[CombatConstants.ACTION_KEY_CLOSE_LIST_HINT] = hint
+	actions.append(entry)
+
+
 static func attempt_close_listed_for_pair(
 	manager: Node, attacker: Dictionary, defender_id: int, dist: String
 ) -> bool:
 	if dist != CombatConstants.DISTANCE_LONG:
-		return false
+		if dist != CombatConstants.DISTANCE_CLOSE and dist != CombatConstants.DISTANCE_MID:
+			return false
+		if not _Doctrine.envelop_close_allowed(manager, attacker, defender_id):
+			return false
 	if close_attempt_pair_blocked(manager, attacker, defender_id):
 		return false
 	var defender: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
@@ -145,21 +179,18 @@ static func append_melee_vs_enemy_line_rank(
 		var eff_dist: float = _PairGeometry.cached_eff_dist(pair_geom)
 		var in_swing_range: bool = _PairGeometry.melee_reach_covers_eff_dist(melee_range, eff_dist)
 		var dist: String = _EntityAccess.distance_to_opponent_band(c, _EntityAccess.id_int(opp))
-		if in_swing_range:
+		var mop_up_strike: bool = envelop_mop_up_strike_at_band(manager, c, dist)
+		if in_swing_range or mop_up_strike:
 			if dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID:
 				for move_id in move_ids:
 					if WeaponConstants.is_parry_move(move_id):
 						continue
 					actions.append({"target_id": _EntityAccess.id_int(opp), "move_id": move_id})
 			elif attempt_close_listed_for_pair(manager, c, _EntityAccess.id_int(opp), dist):
-				actions.append(
-					{"target_id": _EntityAccess.id_int(opp), "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE}
-				)
+				_append_attempt_close_action(actions, opp)
 		else:
 			if attempt_close_listed_for_pair(manager, c, _EntityAccess.id_int(opp), dist):
-				actions.append(
-					{"target_id": _EntityAccess.id_int(opp), "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE}
-				)
+				_append_attempt_close_action(actions, opp)
 
 static func append_melee_actions_for_combatant(
 	manager: Node,

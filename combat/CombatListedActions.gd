@@ -2,7 +2,6 @@ class_name CombatListedActions
 extends RefCounted
 
 ## Shared scans over **`get_available_actions`** / **`build()`** output arrays (harness + UI hints).
-## **Read order:** entry helpers → move-id filters (`CombatConstants.is_*`) → aggregate scans.
 
 
 static func _entry(raw: Variant) -> Dictionary:
@@ -25,6 +24,42 @@ static func action_entry_is_self_target_move(
 	return entry_move_id(a) == move_id and entry_target_id(a) == combatant_id
 
 
+## Hostile strike or **`attempt_close`** vs another combatant (not self-only focus/wait/formation).
+static func action_list_has_hostile_strike(actions: Array, self_id: int) -> bool:
+	return _action_list_has_hostile_engagement(actions, self_id, true)
+
+
+## Listed melee/feint vs hostile target — excludes **`attempt_close`** (III-4 **3e** rotate suppress).
+static func action_list_has_hostile_melee_strike(actions: Array, self_id: int) -> bool:
+	return _action_list_has_hostile_engagement(actions, self_id, false)
+
+
+static func _action_list_has_hostile_engagement(
+	actions: Array, self_id: int, include_attempt_close: bool
+) -> bool:
+	for raw in actions:
+		var a: Dictionary = _entry(raw)
+		if a.is_empty():
+			continue
+		var mid: String = entry_move_id(a)
+		if mid.is_empty():
+			continue
+		if mid == CombatConstants.MOVE_ID_WAIT:
+			continue
+		if CombatConstants.is_focus_line_move(mid):
+			continue
+		if mid in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+			continue
+		if mid in CombatConstants.MEDICAL_MOVE_IDS:
+			continue
+		if not include_attempt_close and mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+			continue
+		var tid: int = entry_target_id(a, self_id)
+		if tid != self_id:
+			return true
+	return false
+
+
 static func is_reserve_posture_listing_move_id(move_id: String) -> bool:
 	if move_id.is_empty():
 		return false
@@ -35,61 +70,6 @@ static func is_reserve_posture_listing_move_id(move_id: String) -> bool:
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return true
 	return false
-
-
-## Listed attack moves (excludes wait, focus, close, formation, medical).
-static func is_melee_strike_listing_move_id(move_id: String) -> bool:
-	if move_id.is_empty():
-		return false
-	if is_reserve_posture_listing_move_id(move_id):
-		return false
-	if CombatConstants.is_formation_movement_move(move_id):
-		return false
-	if CombatConstants.is_medical_move(move_id):
-		return false
-	return true
-
-
-## True when the menu has actions but no melee strike entries (rotate + focus stall path).
-static func action_list_has_no_melee_strikes(actions: Array) -> bool:
-	var saw_action: bool = false
-	for raw in actions:
-		var a: Dictionary = _entry(raw)
-		if a.is_empty():
-			continue
-		var mid: String = entry_move_id(a)
-		if mid.is_empty():
-			continue
-		saw_action = true
-		if is_melee_strike_listing_move_id(mid):
-			return false
-	return saw_action
-
-
-static func is_hold_line_menu_move_id(move_id: String) -> bool:
-	if is_reserve_posture_listing_move_id(move_id):
-		return true
-	return CombatConstants.is_formation_movement_move(move_id)
-
-
-## Reserve posture, or no strikes with only wait/focus/close/formation moves (incl. **`rotate_file`**).
-static func action_list_is_hold_line_menu(actions: Array) -> bool:
-	if action_list_is_reserve_posture_only(actions):
-		return true
-	if not action_list_has_no_melee_strikes(actions):
-		return false
-	var saw_action: bool = false
-	for raw in actions:
-		var a: Dictionary = _entry(raw)
-		if a.is_empty():
-			continue
-		var mid: String = entry_move_id(a)
-		if mid.is_empty():
-			continue
-		saw_action = true
-		if not is_hold_line_menu_move_id(mid):
-			return false
-	return saw_action
 
 
 ## True when every listed action is **`wait`** or a focus-line move (back rank / no ZoC reach).

@@ -3,6 +3,7 @@ extends RefCounted
 
 ## Dedicated afterblow handler. Physically realistic: target can complete a previously planned
 ## attack iff the blow wasn't intense enough to hinder that action.
+## Footing: **`CombatFootwork.clear_on_exchange_end`** on afterblow resolve path. LIVE_PATHS **`#wf-tier-44-pa`** (clear).
 ## Choices: Hybrid hindrance, stance (supporting_leg), full resolution, damage *= (1-hindrance), B→A+B→C.
 
 const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
@@ -44,9 +45,7 @@ static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, resu
 	if _MedicalPhase.combat_resolution_blocked(manager):
 		if not pa.is_empty() or _EntityAccess.state_str(tgt) == CombatConstants.STATE_WIND_UP:
 			_CounterTempo.abort_attacker_wind_up(manager, target_id)
-			tgt.state = CombatConstants.STATE_WAITING
-			tgt.state_timer = 0.0
-			tgt.state_duration = 0.0
+			_Footwork.return_to_waiting(tgt)
 			tgt.gauge = 0.0
 		return false
 	if pa.is_empty():

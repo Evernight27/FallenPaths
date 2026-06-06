@@ -26,7 +26,8 @@ if [[ -n "$LOG_PATH" ]]; then
 elif [[ ! -f "$INPUT_DEFAULT" ]]; then
 	echo "No log at $INPUT_DEFAULT"
 	echo "Run ./scripts/run_all_combat_checks.sh first, or paste F5 Output into .f5_soak_in.txt"
-	echo "Smoke (no F5): cp docs/f5_soak_log.example.txt .f5_soak_in.txt"
+	echo "Smoke (no F5): cp docs/f5_soak_log.camp_wf.example.txt .f5_soak_in.txt"
+	echo "Full optional camp tracks: cp docs/f5_soak_log.camp_full.example.txt .f5_soak_in.txt"
 	exit 2
 fi
 echo "=== CombatF5SoakLogValidator ==="
@@ -44,5 +45,12 @@ if [[ -f "$REPORT_PATH" ]]; then
 	echo ""
 	echo "--- Report: $REPORT_PATH ---"
 	cat "$REPORT_PATH"
+	echo ""
+	echo "--- Camp / WF-M3 track summary ---"
+	if grep -E '^\[(camp_|wf_m3_)' "$REPORT_PATH" 2>/dev/null; then
+		:
+	else
+		echo "(no camp_ or wf_m3_ tracks - combat-only paste or missing turn_ready_gauge / settlement markers)"
+	fi
 fi
 exit "$EXIT_CODE"

@@ -2,7 +2,6 @@ class_name CombatProcessTick
 extends RefCounted
 
 ## One frame of combat simulation: event queue, entity time advance, death/winner checks, per-state updates.
-## **Read order:** clock advance → event dispatch → entity time → death/winner → per-combatant state tick → vacancy reconcile.
 
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _EventDispatch := preload("res://combat/CombatEventDispatch.gd")
@@ -36,6 +35,8 @@ static func tick(manager: Node, delta: float) -> void:
 		if not _EntityAccess.alive_bool(c):
 			continue
 		if bool(c.get("combat_absent", false)):
+			continue
+		if bool(c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false)):
 			continue
 		var adv_node: Node = _EntityAccess.scene_node(c)
 		if adv_node == null:
@@ -77,8 +78,6 @@ static func tick(manager: Node, delta: float) -> void:
 			continue
 		if _StateHandlers.process_medical_wind_up_cancel(manager, c):
 			continue
-		if _StateHandlers.process_depth_wind_up_lane_cancel(manager, c):
-			continue
 		if _EntityAccess.state_str(c) == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
 			_StateHandlers.process_receiving_medical(manager, c, delta)
 		elif _EntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
@@ -105,4 +104,4 @@ static func tick(manager: Node, delta: float) -> void:
 				_MedicalPhase.combat_resolution_blocked(manager)
 				and _MedicalPhase.is_losing_side(manager, c)
 			):
-				c.state_timer = minf(c.state_timer + delta, c.get("state_duration", 1.0))
+				_StateHandlers.process_formation_move_timer(c, delta)

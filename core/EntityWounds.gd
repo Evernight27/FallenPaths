@@ -323,10 +323,62 @@ static func get_permanent_bleeding_rate(entity: Node) -> float:
 # --- Wound queries ---
 
 static func get_wounded_parts(entity: Node) -> Array:
+	if entity == null or not is_instance_valid(entity):
+		return []
+	if not ("wounds" in entity) or not (entity.wounds is Dictionary):
+		return []
 	var out: Array = []
-	for part in entity.wounds.keys():
+	for part in (entity.wounds as Dictionary).keys():
 		out.append(part)
 	return out
+
+
+## Any wounded part without bandage, pack, or tourniquet (pressure / stabilize alone do not count).
+static func entity_has_untreated_wounds(entity: Node) -> bool:
+	if entity == null:
+		return false
+	for part in get_wounded_parts(entity):
+		if not part_has_definitive_hemostasis(entity, str(part)):
+			return true
+	return false
+
+
+## Higher = treat this part before milder wounds (bleed rate + severity + arterial/stump + TQ indication).
+static func get_part_intervention_threat(entity: Node, part: String) -> float:
+	if entity == null or part.is_empty() or not entity.wounds.has(part):
+		return 0.0
+	var rate: float = get_bleeding_rate_for_part(entity, part)
+	var bonus: float = 0.0
+	for injury in entity.wounds[part]:
+		if bool(injury.get("is_arterial", false)):
+			bonus += 2.25
+		if bool(injury.get("is_stump", false)):
+			bonus += 4.5
+		var sev: String = str(injury.get("severity", _Bleeding.SEVERITY_MODERATE))
+		if sev == _Bleeding.SEVERITY_CRITICAL:
+			bonus += 1.6
+		elif sev == _Bleeding.SEVERITY_SEVERE:
+			bonus += 0.85
+	if _EntityMedical.is_tourniquet_indicated_for_part(entity, part):
+		bonus += 1.15
+	return rate * 3.5 + bonus
+
+
+## Untreated parts highest threat first (map field care + triage ordering).
+static func sorted_untreated_part_names(entity: Node) -> Array:
+	var parts: Array = []
+	if entity == null:
+		return parts
+	for raw in get_wounded_parts(entity):
+		var p: String = str(raw)
+		if part_has_definitive_hemostasis(entity, p):
+			continue
+		parts.append(p)
+	parts.sort_custom(func(a, b) -> bool:
+		return get_part_intervention_threat(entity, str(a)) > get_part_intervention_threat(entity, str(b))
+	)
+	return parts
+
 
 static func get_wounds(entity: Node) -> Dictionary:
 	return entity.wounds.duplicate(true)
@@ -343,13 +395,13 @@ static func _blood_volume_safe_to_release_pressure(entity: Node) -> bool:
 	return float(entity.blood_volume) > threshold
 
 
-## Safe to stop holding: dressed/packed/tourniqueted, or hemostasis + blood volume buffer.
+## Safe to stop holding: dressed/packed/tourniqueted only — do not release on local clot alone (TCCC: keep compression until dressed).
 static func _hemostasis_allows_pressure_release(entity: Node, part: String) -> bool:
 	if part_has_definitive_hemostasis(entity, part):
 		return true
 	if not _blood_volume_safe_to_release_pressure(entity):
 		return false
-	return get_bleeding_rate_for_part(entity, part) <= _Bleeding.BLEEDING_RATE_EPSILON
+	return false
 
 
 static func _pressure_release_reason(entity: Node, part: String) -> String:
@@ -453,6 +505,8 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 # --- Process blood loss (drain from bleeding rate; death at threshold) ---
 ## Entity must have: blood_volume, _update_consciousness (optional), emit_signal("died"), _get_blood_loss_death_threshold (optional).
 static func process_blood_loss(entity: Node, delta: float) -> void:
+	if entity != null and entity.has_method("is_dead") and entity.is_dead():
+		return
 	var total: float = get_total_bleeding_rate(entity)
 	var loss_mult: float = 1.0
 	var recovery_per_s: float = 0.0
@@ -480,7 +534,18 @@ static func process_blood_loss(entity: Node, delta: float) -> void:
 	if entity.has_method("_get_blood_loss_death_threshold"):
 		threshold = entity._get_blood_loss_death_threshold()
 	if entity.blood_volume <= threshold:
-		if entity.has_method("notify_died"):
-			entity.notify_died()
-		else:
-			entity.emit_signal("died")
+		emit_death_once(entity)
+
+
+## One `died` emission per entity (map bleed ticks and vital-death paths).
+static func emit_death_once(entity: Node) -> void:
+	if entity == null:
+		return
+	if entity.has_method("notify_died"):
+		entity.notify_died()
+		return
+	if entity.has_meta("_fp_death_notified") and bool(entity.get_meta("_fp_death_notified")):
+		return
+	entity.set_meta("_fp_death_notified", true)
+	if entity.has_signal("died"):
+		entity.emit_signal("died")

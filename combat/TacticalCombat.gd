@@ -83,7 +83,10 @@ static func surround_threat_scan_for_defender(manager: Node, defender: Dictionar
 	return _melee_threat_scan(manager, defender)
 
 
-## Live melee-threat scan → **`pa`** surround fields (same as **`AttackResolver`** resolve path).
+static func arc_occupancy_blocked_for_defender(manager: Node, defender: Dictionary) -> int:
+	return int(surround_threat_scan_for_defender(manager, defender).get("arc_occupancy_blocked", 0))
+
+
 static func stamp_surround_threat_on_pa(manager: Node, defender: Dictionary, pa: Dictionary) -> void:
 	if manager == null or defender.is_empty() or pa.is_empty():
 		return
@@ -98,10 +101,6 @@ static func stamp_surround_threat_on_pa(manager: Node, defender: Dictionary, pa:
 		pa["arc_occupancy_blocked"] = arc_blocked
 	else:
 		pa.erase("arc_occupancy_blocked")
-
-
-static func arc_occupancy_blocked_for_defender(manager: Node, defender: Dictionary) -> int:
-	return int(surround_threat_scan_for_defender(manager, defender).get("arc_occupancy_blocked", 0))
 
 
 ## Per-attacker sector weight (0.35–1.0) for one defender — same geometry as surround threat scan.
@@ -327,18 +326,18 @@ static func record_invalid_close_resolve_blocked(manager: Node) -> void:
 	_bump_telemetry_counter(manager, "invalid_close_resolve_blocked")
 
 
-## Tier 1.8 / Option 4: `FEATURE_AUTOMATIC_DOCTRINE` applied **pinch_center** from hollow enemy line or numeric superiority.
+## Tier 1.8 / Option 4: `FEATURE_AUTOMATIC_DOCTRINE` applied **pinch_center** (hollow center or numeric superiority).
 static func record_automatic_doctrine_pinch(
-	manager: Node, formation_id: String, reason: String = "hollow_center"
+	manager: Node, formation_id: String, reason: String = ""
 ) -> void:
+	var lap: Dictionary = {
+		"formation_id": str(formation_id),
+		"at": _EntityAccess.combat_clock_float(manager),
+	}
+	if not reason.is_empty():
+		lap["reason"] = str(reason)
 	_bump_telemetry_counter(
 		manager,
 		"automatic_doctrine_pinch_count",
-		{
-			"last_automatic_doctrine_pinch": {
-				"formation_id": str(formation_id),
-				"reason": str(reason),
-				"at": _EntityAccess.combat_clock_float(manager),
-			}
-		}
+		{"last_automatic_doctrine_pinch": lap}
 	)

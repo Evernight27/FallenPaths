@@ -1,5 +1,8 @@
 extends Node
 
+## Battle scene shell: wires **`BattleUIUpdater`** gauge rows and formation diagram.
+## Footing: suffix order **Step → Grd/Atk → Form** via **`CombatUiHints`** — LIVE_PATHS **`#battle-ui`** · **`#wf-footing-doc-map`** · soak **`#wf-soak-audit-status`**.
+
 signal battle_ended(winner: String, defeated: Node)
 
 const _TurnReadyHandler := preload("res://ui/TurnReadyHandler.gd")
@@ -17,6 +20,7 @@ const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 
 var players: Array = []
 var enemies: Array = []
@@ -32,6 +36,8 @@ var _pending_winner: String = ""
 var _pending_defeated: Node = null
 var _in_medical_phase: bool = false
 var _medical_phase_finished_announced: bool = false
+## Campaign medical phase log: 0 none, 1 idle/paused, 2 triage complete (`can_end_medical_phase`).
+var _campaign_medical_status_log: int = 0
 
 # UI nodes
 var canvas_layer: CanvasLayer
@@ -56,17 +62,6 @@ const _TIMED_UI_STATES: Array[String] = [
 	CombatConstants.STATE_SWAP_RANK,
 	CombatConstants.STATE_FALLING_BACK,
 ]
-## Medical triage "finished" only when no living winner-side fighter is mid-action.
-const _MEDICAL_BUSY_STATES: Array[String] = [
-	CombatConstants.STATE_WIND_UP,
-	CombatConstants.STATE_MEDICAL_WIND_UP,
-	CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION,
-	CombatConstants.STATE_RECOVERING,
-	CombatConstants.STATE_SWAP_RANK,
-	CombatConstants.STATE_FALLING_BACK,
-	CombatConstants.STATE_COWERING,
-]
-
 func _ready() -> void:
 	# Processing will be enabled by start()
 	set_process(false)
@@ -173,8 +168,6 @@ func start(
 		enemy_col.add_child(formation_diagram_enemy)
 		formation_diagram_hbox.add_child(enemy_col)
 		_sync_engagement_labels_from_manager()
-		if formation_diagram_player != null or formation_diagram_enemy != null:
-			_diagram_refresh_sig = _tactical_diagram_signature(manager.get_combatants())
 	# Ensure ScrollContainer child has proper minimum size so scrolling works (wait for layout)
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -352,33 +345,24 @@ func _process(delta: float) -> void:
 	var caps: Array = []
 	if _should_poll_ui_this_frame(delta):
 		caps = _update_ui()
-	# Medical phase: campaign contracts can return with wounds (map field care); soak needs full triage.
+	# Medical phase: campaign contracts can leave early (instant triage sim); soak needs full triage.
 	if _in_medical_phase and manager != null:
 		if _is_campaign_contract_battle():
-			_show_end_battle_button("Return to camp", false)
+			_ensure_campaign_medical_exit_button()
 		elif manager.has_method("can_end_medical_phase") and manager.can_end_medical_phase():
-			_show_end_battle_button()
-		# After medical actions are done and everyone is paused (no one in wind_up/medical_wind_up), announce once
-		if not _medical_phase_finished_announced:
-			var anyone_busy: bool = false
-			var winner_side: String = str(manager.medical_phase_winner) if "medical_phase_winner" in manager else "player"
-			var scan: Array = caps if not caps.is_empty() else manager.get_combatants()
-			for raw in scan:
-				if raw is not Dictionary:
-					continue
-				var c: Dictionary = raw as Dictionary
-				if not _EntityAccess.alive_bool(c, true):
-					continue
-				if _EntityAccess.side_str(c) != winner_side:
-					continue
-				if _EntityAccess.state_str(c) in _MEDICAL_BUSY_STATES:
-					anyone_busy = true
-					break
+			_ensure_end_battle_button()
+		# After medical actions are done and everyone is paused, announce status once per tier.
+		var anyone_busy: bool = _winner_side_medical_busy(caps)
+		if _is_campaign_contract_battle():
 			if not anyone_busy:
-				_medical_phase_finished_announced = true
-				if combat_log:
-					combat_log.append_text("\n[color=green]——— Medical phase finished. You may end the battle. ———[/color]\n")
-					_scroll_combat_log_to_bottom()
+				_announce_campaign_medical_status_log()
+		elif not _medical_phase_finished_announced and not anyone_busy:
+			_medical_phase_finished_announced = true
+			if combat_log:
+				combat_log.append_text(
+					"\n[color=green]——— Medical phase finished. You may end the battle. ———[/color]\n"
+				)
+				_scroll_combat_log_to_bottom()
 
 func _on_combatant_health_changed(_combatant_id: int) -> void:
 	# Refresh UI when consciousness/pain/blood changes (driven by health_changed signal from entity)
@@ -386,6 +370,10 @@ func _on_combatant_health_changed(_combatant_id: int) -> void:
 
 func _on_formation_changed(_side: String) -> void:
 	_diagram_refresh_sig = ""
+	if formation_diagram_player != null:
+		_FormationDiagramBuilder.refresh(formation_diagram_player)
+	if formation_diagram_enemy != null:
+		_FormationDiagramBuilder.refresh(formation_diagram_enemy)
 	_update_ui()
 
 
@@ -518,21 +506,25 @@ func _on_enemies_eliminated(winner_side: String) -> void:
 	_pending_defeated = null
 	_in_medical_phase = true
 	_medical_phase_finished_announced = false
+	_campaign_medical_status_log = 0
 	if not _OperationalLog.is_play_session_active():
 		_CombatDebug.combat_session("enemies_eliminated medical phase started winner=%s" % winner_side)
 	if combat_log:
 		if _is_campaign_contract_battle():
+			var can_end_now: bool = _campaign_medical_can_end()
+			if can_end_now:
+				_campaign_medical_status_log = 2
 			combat_log.append_text(
-				"\n[color=green]——— Victory. Triage wounded allies here, or click Return to camp (Party field care on map). ———[/color]\n"
+				BattleUIConstants.campaign_medical_victory_log_line(can_end_now)
 			)
 		else:
 			combat_log.append_text(
-				"\n[color=orange]——— Enemies eliminated. Medical phase: stabilize your wounded before ending. ———[/color]\n"
+				"\n[color=orange]——— Enemies eliminated. Medical phase: dress all wounded (bandage/pack/TQ) before ending. ———[/color]\n"
 			)
 		_scroll_combat_log_to_bottom()
 	_UiHints.emit_medical_phase_session_hints(manager, parent_scene)
 	if _is_campaign_contract_battle():
-		call_deferred("_show_end_battle_button", "Return to camp", false)
+		call_deferred("_ensure_campaign_medical_exit_button")
 
 func _on_combat_ended(winner_side: String, defeated_node: Node) -> void:
 	_pending_winner = winner_side
@@ -540,7 +532,8 @@ func _on_combat_ended(winner_side: String, defeated_node: Node) -> void:
 	var def_name: String = str(defeated_node.name) if defeated_node != null else "null"
 	if not _OperationalLog.is_play_session_active():
 		_CombatDebug.combat_session("combat_ended winner=%s defeated=%s" % [winner_side, def_name])
-	if combat_log:
+	# Player medical-phase exit logs via finish_battle / campaign button — skip duplicate banner.
+	if combat_log and not (winner_side == "player" and _in_medical_phase):
 		combat_log.append_text("\n[color=yellow]——— Combat ended. Winner: %s ———[/color]\n" % winner_side)
 		_scroll_combat_log_to_bottom()
 	# Enemy won: show End battle immediately. Player won: handled by _on_enemies_eliminated (medical phase first).
@@ -548,17 +541,65 @@ func _on_combat_ended(winner_side: String, defeated_node: Node) -> void:
 		_show_end_battle_button()
 
 func _is_campaign_contract_battle() -> bool:
+	return _CompanyState.is_campaign_contract_battle_world(parent_scene)
+
+
+func _winner_side_medical_busy(caps: Array) -> bool:
+	return _MedicalPhase.winner_side_triage_busy(manager, caps)
+
+
+func _announce_campaign_medical_status_log() -> void:
+	if combat_log == null or manager == null:
+		return
+	var can_end: bool = _campaign_medical_can_end()
+	if can_end and _campaign_medical_status_log < 2:
+		combat_log.append_text(BattleUIConstants.CAMPAIGN_MEDICAL_FINISHED_LOG_LINE)
+		_campaign_medical_status_log = 2
+		_scroll_combat_log_to_bottom()
+	elif not can_end and _campaign_medical_status_log < 1:
+		combat_log.append_text(BattleUIConstants.CAMPAIGN_MEDICAL_IDLE_LOG_LINE)
+		_campaign_medical_status_log = 1
+		_scroll_combat_log_to_bottom()
+
+
+func _campaign_medical_can_end() -> bool:
 	return (
-		parent_scene != null
-		and _CompanyState.has_active_campaign_contract(parent_scene)
+		manager != null
+		and manager.has_method("can_end_medical_phase")
+		and manager.can_end_medical_phase()
 	)
 
 
-func _show_end_battle_button(button_text: String = "End battle", pause_manager: bool = true) -> void:
-	if end_battle_button != null:
+func _ensure_campaign_medical_exit_button() -> void:
+	if end_battle_button != null and end_battle_button.disabled:
 		return
+	var can_end: bool = _campaign_medical_can_end()
+	var label: String = BattleUIConstants.campaign_medical_exit_button_label(can_end)
+	var min_width: int = BattleUIConstants.campaign_medical_exit_button_min_width(can_end)
+	if (
+		end_battle_button != null
+		and end_battle_button.text == label
+		and int(end_battle_button.custom_minimum_size.x) == min_width
+	):
+		return
+	_ensure_end_battle_button(label, false, min_width)
+
+
+func _ensure_end_battle_button(
+	button_text: String = "End battle",
+	pause_manager: bool = true,
+	button_min_width: int = 160
+) -> void:
 	var content_vbox = get_node_or_null("CombatCanvasLayer/UIRoot/ContentVBox")
 	if content_vbox == null:
+		return
+	if end_battle_button != null:
+		var label_changed: bool = end_battle_button.text != button_text
+		if label_changed:
+			end_battle_button.text = button_text
+		end_battle_button.custom_minimum_size = Vector2(button_min_width, 44)
+		if label_changed:
+			call_deferred("_scroll_combat_log_to_bottom")
 		return
 	if not _OperationalLog.is_play_session_active():
 		_CombatDebug.combat_session("showing battle exit button label=%s pause=%s" % [button_text, pause_manager])
@@ -567,17 +608,39 @@ func _show_end_battle_button(button_text: String = "End battle", pause_manager: 
 	end_battle_button = Button.new()
 	end_battle_button.name = "EndBattleButton"
 	end_battle_button.text = button_text
-	end_battle_button.custom_minimum_size = Vector2(160, 44)
+	end_battle_button.custom_minimum_size = Vector2(button_min_width, 44)
 	end_battle_button.pressed.connect(_on_end_battle_button_pressed)
 	content_vbox.add_child(end_battle_button)
 	# Button changes layout; scroll again after layout settles so "Combat ended" stays visible
 	call_deferred("_scroll_combat_log_to_bottom")
 
+
+func _show_end_battle_button(
+	button_text: String = "End battle",
+	pause_manager: bool = true,
+	button_min_width: int = 160
+) -> void:
+	_ensure_end_battle_button(button_text, pause_manager, button_min_width)
+
+
 func _on_end_battle_button_pressed() -> void:
+	if end_battle_button != null:
+		end_battle_button.disabled = true
+		if (
+			_is_campaign_contract_battle()
+			and manager != null
+			and bool(manager.medical_phase)
+			and not _campaign_medical_can_end()
+		):
+			end_battle_button.text = BattleUIConstants.CAMPAIGN_MEDICAL_EXIT_BUTTON_LABEL_FINISHING
+			end_battle_button.custom_minimum_size = Vector2(
+				BattleUIConstants.campaign_medical_exit_button_finishing_min_width(),
+				44
+			)
 	if manager != null:
 		manager.set_process(false)
-	if _in_medical_phase and manager != null and manager.has_method("finish_battle"):
-		manager.finish_battle()
+		if bool(manager.medical_phase) and manager.has_method("finish_battle"):
+			manager.finish_battle()
 	emit_signal("battle_ended", _pending_winner, _pending_defeated)
 	queue_free()
 

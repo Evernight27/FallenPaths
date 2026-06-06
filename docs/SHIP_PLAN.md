@@ -39,7 +39,7 @@ A new player can, without reading harness docs:
 
 ### Success metric
 
-**2–4 hour playtest:** complete ≥3 contracts, pay ≥2 wage days, recover from one “bloody win” via camp rest (heal + day tick), and lose once to wipe or B3 economic collapse with understandable cause.
+**2–4 hour playtest:** complete ≥3 contracts, pay ≥2 wage days, recover from one “bloody win” via camp heal, and lose once to wipe or B3 economic collapse with understandable cause.
 
 ---
 
@@ -55,9 +55,9 @@ A new player can, without reading harness docs:
 | **Medical sim** | Wounds, ATLS blood, TCCC ladder, medical phase | E3 supply floor + map field care shipped; Expand only |
 | **Overworld** | 3×3 map, `ContractSpawner`, R3 pool, move → fight | Larger map / hire at inn (post-EA) |
 | **Party** | `PartyMenu` + `PartyRowFormatter` triage ETA; HUD supplies; K3 cleanup ([§14](SHIP_PLAN.md#roster-casualties)) | Hiring replacements |
-| **Time on map** | Hybrid day (5 steps) + camp **End day** or **Camp rest** (ends day); bleed warn/block; field care | — |
+| **Time on map** | Hybrid day (5 steps) + camp End day; bleed warn/block; field care | — |
 | **Post-battle** | `SettlementPanel`; paid loss → `CompanyRunEndPanel`; tutorial soft defeat | — |
-| **Economy** | Gold, wages, med/tools, renown pay scale, desertion (B3) | Full save slots |
+| **Economy** | Gold, wages, med/tools, renown pay scale, desertion (B3) | Save/load (P2 post-EA) |
 | **Campaign injuries** | Post-victory afflictions (`CampaignAfflictions`) | Full affliction catalog |
 | **Med skill** | `get_medical_effectiveness()` × company med pool (Camp-2.3) | — |
 | **Combat AI cognition** | Tier 4.3 L0–L4 + salience damp + **MS-L7** (L5 exhaustion) shipped | Expand: MS-L5–L6, tier-4.4 footwork; **p4a** tunes MS-L7 thresholds ([§9b](SHIP_PLAN.md#combat-mental-stack-shipped)) |
@@ -100,7 +100,6 @@ flowchart TB
   C3b[Camp-3.2 Party triage panel]
   C3c[Camp-3.3 Battle medical hints]
   C3d[Camp-3.4 Playtest ship gate]
-  C3e[Camp-3.5 Practice preset]
   C4[Camp-4 Content V-1 V-2 V-3]
   C5[Camp-5 EA checklist]
 
@@ -128,7 +127,6 @@ flowchart TB
   C1d --> C3a
   C3a --> C3c
   C0 --> C3d
-  C3e --> C3a
   C1g --> C4
   C3c --> C5
   C2f --> C5
@@ -149,7 +147,7 @@ flowchart TB
 
 ## 3b. Decision gates (closed 2026-05-22)
 
-**Rule:** Closed gates are in [`CompanyState`](world/CompanyState.gd) + [§19](SHIP_PLAN.md#implementation-stubs); branch via `gate_*()`. **Read first:** [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22). New gates only: guide research section → log → implement.
+**Rule:** Closed gates are in [`CompanyState`](world/CompanyState.gd) + [§19](SHIP_PLAN.md#implementation-stubs); branch via `read_stub_*()`. **Read first:** [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22). New gates only: guide research section → log → implement.
 
 | Order | Camp row | Gate ID | Status | Const (§19) |
 |-------|----------|---------|--------|-------------|
@@ -170,9 +168,9 @@ flowchart TB
 | 13 | **Camp-3.1** | — | Shipped | Tutorial marker + `MapBleedPolicy` block until first win |
 | — | **Camp-3.3** | — | Shipped (Combat-led) | Medical-phase hints |
 | — | **Camp-3.4** | — | Headless shipped · F5 human open | `run_campaign_ship_audit` tail |
-| — | **Camp-5** | **D-persistence** | Closed **P2** | P3 multi-slot save (post-EA) |
+| — | **Camp-5** | **D-persistence** | Closed P1 EA | **P2** only if adding save |
 
-**Parallel agents (EA close-out):** Camp product gates are closed — default pairing is **Combat maintain** + **Playtest (F5 §8)**; **Campaign** agent for [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) sign-off. See [§6](#work-streams-during-campaign) · [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents).
+**Parallel agents (EA close-out):** Camp product gates are closed — default pairing is **Combat maintain** + **Playtest (F5 §8)**; **Campaign** agent only for [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) sign-off or optional **P2** save. See [§6](#work-streams-during-campaign) · [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents).
 
 ---
 
@@ -242,24 +240,24 @@ Goal: **motivation + resources** on the existing 3×3 map.
 | Field | Detail |
 |-------|--------|
 | **Deliverable** | World-persistent `CompanyState`: `gold`, `medical_supplies`, `tool_supplies`, `renown`, `day_index`, `bankrupt` flag. |
-| **Storage** | `world.set_meta("company_state", …)` from **`CompanyState.gd`** helpers; **P2** single-slot autosave on settlement continue + **`try_advance_day`** ([D-persistence](CAMPAIGN_DECISION_GUIDE.md#d-persistence)). |
+| **Storage** | `world.set_meta("company_state", …)` from **`CompanyState.gd`** helpers — **no save/load in EA** ([D-persistence P1](CAMPAIGN_DECISION_GUIDE.md#d-persistence); optional **P2** at [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist)). |
 | **Init** | `PartySetup.setup_party` → `CompanyState.attach_to_world(world)` after roster exists. |
 | **Meta keys** | Add to `CompanyState` or `CombatConstants`: `WORLD_META_COMPANY_STATE := "company_state"`, `WORLD_META_ACTIVE_CONTRACT := "active_contract"`, `WORLD_META_LAST_BATTLE_SUMMARY := "last_battle_summary"` ([§10](SHIP_PLAN.md#data-contracts)). |
 | **UI** | Minimal HUD on **`UIOverlayLayer`**: gold + supplies + day (+ `Next wage` after 1.2). |
 | **Input** | Settlement/defeat modals must **`set_process_input(false)`** on player until dismissed ([§20](SHIP_PLAN.md#implementation-pitfalls)). |
-| **Harness** | Phase 0 **`run_all_combat_checks.ps1`** (Camp-1.1 defaults + HUD); full Camp-1 matrix in **`run_company_state_checks.gd`**. |
+| **Harness** | `.\scripts\run_company_state_checks.ps1` (**174** tests: Camp-1 + Camp-2 field-care e2e pressure→bandage→camp rest + P2 persistence); gate greps `FP_HARNESS_OK: CompanyStateChecks`. |
 | **Exit** | [x] HUD updates when gold/supplies change (`refresh_hud` on economy writes; headless Camp-1.1). |
 
 > **Historical (greenfield Camp-1.1):** first PR was `CompanyState` shell + HUD only ([§3d](SHIP_PLAN.md#camp-1-build-order) step 1). Full Camp-1 shipped 2026-05-22 — no separate slice table needed for EA work.
 
 ### Camp-1.2 — Wages + day tick
 
-> **Closed 2026-05-22 — D-day → T3:** hybrid `5` steps + **End day** at camp tile, or **Camp rest** (Party menu, ends day anywhere). Wages via `CompanyState.try_advance_day`.  
-> **Code touch:** `main._on_player_moved` · `PartyMenu` End day / Camp rest · `CompanyState.on_overworld_step` · `CompanyState.try_camp_heal`.
+> **Closed 2026-05-22 — D-day → T3:** hybrid `5` steps + End day at camp; wages via `CompanyState.try_advance_day`.  
+> **Code touch:** `main._on_player_moved` · `PartyMenu` End day · `CompanyState.on_overworld_step`.
 
 | Field | Detail |
 |-------|--------|
-| **Deliverable** | Once per **day**: deduct `wage_per_member × living roster` (living = not `is_dead()`, valid `node_ref`). Day boundary: every **5** map steps, **End day** on camp tile `(0,0)`, or **Camp rest** (−1 med, controlled bleed). |
+| **Deliverable** | Once per **day**: deduct `wage_per_member × living roster` (living = not `is_dead()`, valid `node_ref`). |
 | **Comparable** | BB noon wages. |
 | **Touch** | `CompanyState`, `PartyManager.get_members()`. Map step already runs **`advance_party_overworld_minute`** (60s) — **do not** tie wages to that hook unless D-day = per-step. |
 | **UI** | HUD: `Next wage: Ng` when gold low. |
@@ -280,7 +278,7 @@ Goal: **motivation + resources** on the existing 3×3 map.
 
 ### Camp-1.4 — Contracts on encounter tiles
 
-> **Closed 2026-05-22 — D-encounter → R3:** marker `queue_free` on step-in; paid loss ends run; tutorial/practice soft retry.  
+> **Closed 2026-05-22 — D-encounter → R3:** marker `queue_free` on step-in; paid loss ends run; tutorial soft retry.  
 > **Code touch:** `CampaignEncounterBridge.begin_contract_encounter` · `ContractSpawner` · `CombatFlow.handle_battle_ended`.
 
 | Field | Detail |
@@ -305,18 +303,17 @@ Goal: **motivation + resources** on the existing 3×3 map.
 | **Contract context** | Stash active contract id/pay on world meta at `prepare_combat_from_encounter`; read in settlement. |
 | **Exit** | [x] Settlement: pay, supplies line, triage rows, optional tool repair; HUD refresh on continue. |
 
-### Camp-1.6 — Camp rest (H3, shipped)
+### Camp-1.6 — Camp heal (H3, shipped)
 
 > **Closed 2026-05-22 — D-camp-ui → H3:** Party menu anywhere + camp tile; `600s` heal × `3` mult, −1 med.  
-> **2026-06-04 — Camp rest also calls `try_advance_day`** (same wage/desertion/autosave as End day).  
-> **Code touch:** `ui/PartyMenu.gd` (day-action hint + feedback) · `CompanyState.try_camp_heal` · `format_day_tick_player_message` · `main._maybe_camp_tile_hint`.
+> **Code touch:** `ui/PartyMenu.gd` · `CompanyState.try_camp_heal` · `main._maybe_camp_tile_hint`.
 
 | Field | Detail |
 |-------|--------|
-| **Deliverable** | Spend **1 med** (bleeding controlled) → `600s` × **3×** `process_healing` on party + **advance day** via `try_advance_day`. |
-| **Comparable** | BB town heal + overnight wage tick. |
-| **Exit** | [x] Camp rest (Party menu or camp tile, H3) −1 med, 600s×3 heal, ends day; field care on map. |
-| **Log** | `camp_rest` + `company_day_advanced` in play session Output |
+| **Deliverable** | Spend **1 med** + advance game time → `process_healing` on party entities. |
+| **Comparable** | BB town heal. |
+| **Exit** | [x] Camp rest (Party menu or camp tile, H3) −1 med, 600s×3 heal **+ day tick (wages)**; field care on map (pressure → bandage). |
+| **Log** | `YYYY-MM-DD — D-camp-ui → …` · heal seconds |
 
 ### Camp-1.7 — Renown scaling
 
@@ -463,16 +460,8 @@ Goal: deep combat/medical **constrains** the merc loop without a second minigame
 | **Deliverable** | Ship gate: **Q1** duel + **Q2** bind feel checklists; **ii7** medical smoke (**headless** in Phase 0 via `CombatD001SoakRunner` — not a cyan F5 preset). Optional F5: `dev_soak_encounter=ii2b` + manual medical phase once. |
 | **Cognition** | In medical-phase F5, spot-check allies pick pressure/pack when **`Stack medical`** / **`self_medical`** appears on gauge ([§9b](SHIP_PLAN.md#combat-mental-stack-shipped)) — feel only, not a new gate ID. |
 | **Commands** | `run_campaign_ship_audit.ps1` (standalone) or `run_all_combat_checks.ps1` (includes Camp-3.4 tail); `run_q_feel.ps1 -Track Camp` (§8 checklist) or `-Track Q1` / `Q2` for soak feel |
-| **Headless** | `CompanyStateChecks` maps [§8](#camp-playtest-acceptance) steps 1–10; `[ii7]` + `[ii_envelop] pass=true` in `.d001_soak_out.txt`; Q track via `run_q_feel.ps1 -Headless` |
+| **Headless** | `CompanyStateChecks` maps [§8](#camp-playtest-acceptance) steps 1–10; `[ii7]` + `[ii_envelop] pass=true` in `.d001_soak_out.txt`; Q1/Q2 via `run_q_audit.ps1 -Track Track` |
 | **Exit** | [x] Headless: `CAMPAIGN_SHIP_AUDIT: PASS` (tail of `run_all_combat_checks.ps1` · `run_campaign_ship_audit.ps1`). [ ] Human: F5 campaign mode + record in [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist). Optional F5: **`dev_soak_encounter=ii_envelop`** + `validate_f5_soak_log.ps1`. |
-
-### Camp-3.5 — Practice preset
-
-| Field | Detail |
-|-------|--------|
-| **Deliverable** | `encounter_config.training: true` — no pay/renown; optional `map_bleed_mult` in encounter meta ( **do not** change `BleedingConstants` per LIVE_PATHS §12). |
-| **Comparable** | Hellish Quart sparring. |
-| **Exit** | [x] Practice marker (yellow tile); Party field care; no pay/renown. |
 
 **Phase Camp-3 exit:** External playtester completes tutorial + 1 contract without agent docs.
 
@@ -498,7 +487,7 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 
 > **EA close-out (2026-05-22):** Camp-1–4 + headless Camp-3.4 **implemented**. Remaining human sign-off: F5 [§8](SHIP_PLAN.md#camp-playtest-acceptance) (`dev_soak_encounter` empty) + tick rows below. Gate defaults: [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22).
 
-> **Shipped:** **P2** single-slot autosave (`CampaignPersistence.save_slot`) on settlement **Continue** and every **`try_advance_day`** (End day, 5-step boundary, Camp rest). Load on `main._ready` when save valid.
+> **Optional code gate:** [**D-persistence P2**](CAMPAIGN_DECISION_GUIDE.md#d-persistence) — add autosave on settlement continue; default **P1** (no save code).
 
 | Must ship | Headless gate | Nice for EA |
 |-----------|---------------|-------------|
@@ -507,14 +496,15 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 | Camp-2.1 **D-bleed closed** + Camp-2.3 + Camp-2.5 stabilize | Camp-2.1/2.3/2.5 harness rows | Full affliction catalog |
 | Camp-2.4 ≥1 affliction | Camp-2.4 harness | Full affliction catalog |
 | Camp-2.6 fail screens | Camp-2.6 harness | Narrative events |
-| Camp-3.1–Camp-3.2 tutorial + triage | Camp-3.1/3.2 harness | Camp-3.5 practice |
+| Camp-3.1–Camp-3.2 tutorial + triage | Camp-3.1/3.2 harness | Extra tutorial tooltips |
 | Camp-3.4 Q + **§8 F5** sign-off | `run_all_combat_checks.ps1` (Q + `[ii7]` + `[ii_envelop]`) or `run_campaign_ship_audit.ps1`; **F5 human** still required |
 | Camp-4.1–4.3 contract presets | Camp-4 harness | More template variety |
 | **Tier 4.3 mental stack** L0–L4 + salience damp + **MS-L7** shipped | Phase 0 `_run_mental_stack_*` | MS-L5–L6 (Expand); **p4a** tune |
 | **III-4 Track A** (7v3 wings / mapped opposition) | Phase 0 `[ii_envelop] pass=true` + tier-1 opposition/rotate harness ☑ | IV-9 gap-column (Track B) |
+| **WF footing / forms** (WF-1…4 + PA pilot shipped) | Phase 0 **`AttentionFootworkTail`** + **`WeaponFormTail`** + D-001 **ii5c** | F5 **WF-M3**: **`validate_f5_soak_log`** **`wf_m3_*`** on paste ☑ · full Camp §8 human — [#wf-m3-f5-playtest](LIVE_PATHS.md#wf-m3-f5-playtest) |
 | No dev soak required for normal play | `dev_soak_encounter` empty | Optional F5 **`ii_envelop`** wing feel |
 
-**Explicitly defer (post-EA Expand):** [§9c](SHIP_PLAN.md#combat-expand-registry) — III-*, IV-1,3,5–13, P4a–h, MS-L5–L6, tier-4.4 footwork · organ surgery · BMI F1 · bleed retune · new `FEATURE_*`. (**MS-L7** baseline shipped — **p4a** is threshold tune only.)
+**Explicitly defer (post-EA Expand):** [§9c](SHIP_PLAN.md#combat-expand-registry) — III-*, IV-1,3,5–13, P4a–h, MS-L5–L6 · organ surgery · BMI F1 · bleed retune · new `FEATURE_*`. (**WF-1…WF-4** + tier-4.4 octant PA **shipped** — maintain harness.) (**MS-L7** baseline shipped — **p4a** is threshold tune only.)
 
 ---
 
@@ -524,12 +514,12 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 
 | Work stream | During EA close-out |
 |-------------|---------------------|
-| **Campaign** | F5 [§8](SHIP_PLAN.md#camp-playtest-acceptance) + [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) sign-off — not new `Camp-*` code unless post-EA gates (e.g. P3 save) |
+| **Campaign** | F5 [§8](SHIP_PLAN.md#camp-playtest-acceptance) + [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) sign-off — not new `Camp-*` code unless **P2** save |
 | **Combat** | Phase 0 maintain; [`LIVE_PATHS` tier 4.3](LIVE_PATHS.md#tier-43-mental-stack--combat-attention) regression (L0–L4 + MS-L7 L5 + salience damp; no player targets). |
 | **Playtest** | **Required before EA:** Camp-3.4 F5 human + Q1/Q2 feel; headless already in Phase 0. |
-| **Expand** | **Frozen** until Camp-5. Registry: [§9c](SHIP_PLAN.md#combat-expand-registry) · [`LIVE_PATHS` phase 4](LIVE_PATHS.md#phase-4--new-systems-formal-tracks). |
+| **Expand** | **WF shipped** — maintain only until Camp-5; new Expand tiers frozen. Registry: [§9c](SHIP_PLAN.md#combat-expand-registry) · [`LIVE_PATHS` phase 4](LIVE_PATHS.md#phase-4--new-systems-formal-tracks). |
 
-**Session default until Camp-5 done:** **Combat maintain** + **Playtest (F5 §8)** in parallel; **Campaign** for Camp-5 checklist sign-off. Single-agent fallback: F5 sign-off **or** one Combat fix ([`PLANNING#parallel-agents`](PLANNING.md#parallel-agents)).
+**Session default until Camp-5 done:** **Combat maintain** + **Playtest (F5 §8)** in parallel; **Campaign** agent only for Camp-5 checklist / optional **P2** save. Single-agent fallback: F5 sign-off **or** one Combat fix ([`PLANNING#parallel-agents`](PLANNING.md#parallel-agents)).
 
 ---
 
@@ -562,13 +552,13 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 
 ## 8. Playtest script (EA / Camp ship acceptance)
 
-**Headless:** `.\scripts\run_campaign_ship_audit.ps1` (or Phase 0 `CompanyStateChecks` + `run_q_feel.ps1 -Headless` + `[ii7]` + `[ii_envelop]`). **F5:** same steps below with `dev_soak_encounter` empty. **Checklist helper:** `.\scripts\run_q_feel.ps1 -Track Camp`. **Optional III-4 F5:** `dev_soak_encounter=ii_envelop` → copy Output → `.f5_soak_in.txt` → `validate_f5_soak_log.ps1`.
+**Headless:** `.\scripts\run_campaign_ship_audit.ps1` (or Phase 0 `CompanyStateChecks` + `run_q_audit.ps1 -Track Track` + `[ii7]` + `[ii_envelop]`). **F5:** same steps below with `dev_soak_encounter` empty. **Checklist helper:** `.\scripts\run_q_feel.ps1 -Track Camp` (paste Output → `.f5_soak_in.txt` → re-run; invokes **`validate_f5_soak_log`** for **`wf_m3_*`** + **`camp_*`**). **Smoke (no editor):** `Copy-Item docs\f5_soak_log.camp_wf.example.txt .f5_soak_in.txt` → `validate_f5_soak_log.ps1`. **Optional III-4 F5:** `dev_soak_encounter=ii_envelop` → `.f5_soak_in.txt` → `validate_f5_soak_log.ps1`.
 
 | Step | Headless harness |
 |------|------------------|
 | 1–2 | Camp-1.1 defaults; Camp-1.4 marker pay/skulls + `active_contract` |
 | 3 | Camp-1.4 pay + Camp-1.5 settlement snapshots |
-| 4–5 | Camp-2.1 bleed block/warn + field care; Camp-1.6 camp rest (heal + day tick) |
+| 4–5 | Camp-2.1 bleed block/warn + field care; Camp-1.6 camp heal |
 | 6–7 | Camp-1.2 hybrid day; Camp-1.7 renown pay |
 | 8–9 | Camp-1.4 R3 loss + Camp-2.6 soft defeat / wage debt |
 | 10 | Camp-3.2 triage formatter |
@@ -576,16 +566,38 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 
 1. Start run — note starting gold, med, tools, roster size.
 2. Move to contract tile — confirm pay and difficulty shown.
-3. Win fight — settlement shows pay and wounds; gold increases.
-4. Move 1 step with untreated bleed — tutorial incomplete: move blocked; after first win: `warn_eta` log + Party field care (pressure/bandage/stabilize).
-5. **Camp rest** (Party menu) — −1 med; vitals improve; **day index increases** and wages deduct (same as End day). Bleeding must be controlled first (field care).
-6. **End day** (camp tile only, no med) or **5 map steps** — wages deduct without camp heal.
+3. Win fight — settlement shows pay and wounds; gold increases; **Continue** logs `settlement_continue` in Output.
+4. Move 1 step with untreated bleed — tutorial incomplete: move blocked; after first win: `warn_eta` log + Party field care (**pressure free → bandage −1 med**; stabilize optional).
+5. Camp rest (Party, all wounds dressed) — −1 med, heal, **day advances + wages**; or **End day** on camp tile (wages only).
+6. Advance 5 overworld steps (hybrid day) until wages deduct if you did not camp rest.
 7. Win second contract — renown increases pay or enemy tier.
-8. Deliberately lose a **paid** contract — run-end modal with kill recap; restart loads `main.tscn`. Tutorial/practice loss — soft return to camp (marker respawns).
+8. Deliberately lose a **paid** contract — run-end modal (EA: not saved) + kill recap; dismiss logs `company_run_end reason=contract_failed reload=true`; restart loads `main.tscn`. Tutorial loss — `reason=tutorial_failed reload=false` + marker respawns.
 9. Advance days with gold below wages — wage warning + debt warning; desertion at low mood; bankrupt modal when no living brothers remain.
 10. Open Party — triage lines match fight outcome.
 11. *(Camp-3+)* Win a fight with medical phase — winners’ gauges may show **`Stack medical`** / **`self_medical`**; medics prioritize pressure before pack (AI, not player target clicks).
-12. *(Optional III-4)* `dev_soak_encounter=ii_envelop` — Skirmish 7v3; grep **`rotate_file@`**, **`Stack hold_line`**, **`attempt_close@`**; `validate_f5_soak_log.ps1`.
+12. *(Camp-5 WF-M3)* During sword fights, grep **`turn_ready_gauge`** — when wind-up/recovery shows footing, order should read **`Step`** → **`Atk`/`Grd`** → **` · Form`**; diagram cells show guard short (**`[HiR]`**) before form (**`[Wrath]`**). Spec: [`LIVE_PATHS#wf-m3-f5-playtest`](LIVE_PATHS.md#wf-m3-f5-playtest).
+13. *(Optional III-4)* `dev_soak_encounter=ii_envelop` — Skirmish 7v3; grep **`rotate_file@`**, **`Stack hold_line`**, **`attempt_close@`**; `validate_f5_soak_log.ps1`. **Campaign alternative (3e):** paid 7v3+ fight where one enemy survives standing — grep **`mop_up=true`** + **`strikes>0`** / **`menu=strikes_listed`** on combat-phase `engagement_debug turn` lines (not post-victory medical triage only).
+
+#### §8 F5 close-out bundle (Camp-5 human + `run_camp_f5_closeout`)
+
+**Automated minimum** (`.\scripts\run_camp_f5_closeout.ps1` exit 0): headless **PHASE0 + CAMPAIGN_SHIP_AUDIT** + F5 paste with **`wf_m3_turn_ready_form`** + **`wf_m3_grd_before_form`** + **`camp_settlement_continue`** + **`camp_company_day`**.
+
+**Full Camp-5 human** still requires separate runs or merged log for steps **4, 8–10** (field care action, paid loss, wage/desertion, Party triage). Merge sessions: `.\scripts\append_f5_soak_log.ps1 -AppendFrom fight2.log` → **`validate_f5_soak_log.ps1`**.
+
+| Marker / step | Grep / validator | Notes |
+|---------------|------------------|-------|
+| Tutorial + paid win | `settlement_continue` | `[camp_settlement_continue]` when `camp_ea` profile detected |
+| Wage / day tick | `company_day_advanced` | Needs overworld walk or camp rest — not every single-fight paste |
+| Field care | `field_care:` hint · **`field_care bandage`** / **`field_care pressure`** action | Optional `[camp_field_care]` / `[camp_field_care_action]` |
+| Paid loss | `company_run_end reason=contract_failed reload=true` | Optional `[camp_paid_loss]` |
+| Tutorial soft loss | `company_run_end reason=tutorial_failed reload=false` | Optional `[camp_tutorial_soft_loss]` |
+| Wage / desertion (step 9) | `company_wages: gold=` · `desertion summary=` | Optional `[camp_wage_warn]` · `[camp_desertion]` |
+| Party triage (step 10) | Human Party menu glance | No automated grep marker yet |
+| Mop-up anti-stall (3e) | `engagement_debug turn` + `mop_up=true` + `strikes=[1-9]` | Optional `[camp_mopup_strike_finish]`; rout-only wins OK for settlement but weaker 3e signal |
+| Fight end | `soak_fight_end` | In-editor **`soak_coverage`** includes fight-end line in trace; deferred until first medical pick when `medical_phase=true` |
+| WF-M3 | `turn_ready_gauge` · `Grd` before `Form` | Step 12 |
+
+After medical, **`FP_WORLD`** **`settlement_continue`** triggers **`soak_coverage camp`** supplement in Output. Paste full session for **`validate_f5_soak_log.ps1`**.
 
 ---
 
@@ -597,7 +609,7 @@ Use this when fleshing out Camp rows — extends [§2](#current-state) hooks.
 
 ### Boot (`main._ready`)
 
-1. Tilemap 3×3. **Campaign** (`dev_soak_encounter` empty): **`ContractSpawner.spawn_campaign_contracts`** — tutorial (green), practice (yellow), paid jobs on free tiles. **Dev soak:** optional cyan preset tile + **`EncounterSpawner.spawn_encounters`** (red soak markers).
+1. Tilemap 3×3. **Campaign** (`dev_soak_encounter` empty): **`ContractSpawner.spawn_campaign_contracts`** — tutorial (green) + paid jobs (red) on free tiles. **Dev soak:** optional cyan preset tile + **`EncounterSpawner.spawn_encounters`** (red soak markers).
 2. `PlayerCompanionSetup` → `PartySetup.setup_party` → world meta: **`party_manager`**, **`party_menu`**, **`party_formation`**; **`CompanyState.attach_to_world`** (HUD on root **`UIOverlayLayer`**).
 3. **`UIOverlayLayer`** on **tree root** (not `main`): **Party** button + popup. **`PartyManager`** is a **child of `main`** (same scene as `Character`); roster **`node_ref`** survives soft defeat; paid R3 loss reloads `main.tscn` via **`CompanyRunEndPanel`**.
 
@@ -612,8 +624,8 @@ Use this when fleshing out Camp rows — extends [§2](#current-state) hooks.
 
 | Outcome | Today | Camp adds |
 |---------|-------|-----------|
-| **Defeat** | `build_last_battle_summary` → `CompanyRunEndPanel` (paid R3: `contract_failed` + restart; tutorial/practice/other: `training_failed` / `soft_defeat_resume` — no reload) · `BattleEndHandler.handle_defeat` | Kill recap; mood witness/loss only on soft-resume paths |
-| **Victory** | `handle_victory` → `on_return_from_combat` → **`SettlementPanel`** (pay, scars, memorials, live roster) → HUD refresh | Paid win: marker stays consumed — tile empty ([§11](#encounter-lifecycle) R3). **Tutorial/practice loss only:** `ContractSpawner.ensure_special_encounter_present` respawns marker (not on victory). |
+| **Defeat** | `build_last_battle_summary` → `CompanyRunEndPanel` (paid R3: `contract_failed` + restart; tutorial/other: `tutorial_failed` / `soft_defeat_resume` — no reload) · `BattleEndHandler.handle_defeat` | Kill recap; mood witness/loss only on soft-resume paths |
+| **Victory** | `handle_victory` → `on_return_from_combat` → **`SettlementPanel`** (pay, scars, memorials, live roster) → HUD refresh | Paid win: marker stays consumed — tile empty ([§11](#encounter-lifecycle) R3). **Tutorial loss only:** `ContractSpawner.ensure_special_encounter_present` respawns marker (not on victory). |
 
 ### Health / display path
 
@@ -683,7 +695,7 @@ Full logical order: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#comba
 
 ### §9c — Combat Expand registry (post–Camp-5 default)
 
-**Canonical tables:** [`LIVE_PATHS#phase-4--new-systems-formal-tracks`](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) (III-*, P4a–h, IV-*, MS-L5–L6, tier-4.4). **MS-L7** shipped in [§9b](#combat-mental-stack-shipped); **p4a** tunes thresholds only.
+**Canonical tables:** [`LIVE_PATHS#phase-4--new-systems-formal-tracks`](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) (III-*, P4a–h, IV-*, **WF-1…WF-4**, MS-L5–L6, tier-4.4). **MS-L7** shipped in [§9b](#combat-mental-stack-shipped); **p4a** tunes thresholds only.
 
 | Bucket | When | Examples |
 |--------|------|----------|
@@ -692,6 +704,7 @@ Full logical order: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#comba
 | **Phase 3 depth** | Expand after Camp-5 | III-1 surround/parry target · III-3 deflect soak · III-5 pack depth · III-6 back-rank · III-4 **Track B** (IV-9 gap-column) |
 | **P4 playbooks** | Expand | p4a exhaustion pacing · p4c auto doctrine · p4f flee action · p4g flurry tune |
 | **Phase 4 IV** | Expand | IV-3 1v1 rule · IV-4/5 guards · IV-7 armor burden · **IV-9 gap-column** ([III-4 Track B](LIVE_PATHS.md#iii-4--engagement-geometry-audit)) · IV-10 subregion |
+| **Weapon forms (WF)** | **Maintain** (Camp-5) | [**WF status**](LIVE_PATHS.md#wf-implementation-status) — **WF-1…4 shipped** · **M3** automated validator ☑ / Camp §8 human open · M1·M2·M4·M5 ☑ · post–Camp-5 [**WF-T1/T2**](LIVE_PATHS.md#wf-footing-improvement-backlog) |
 | **Cognition** | Expand | MS-L5–L6 · tier-4.4 spatial footwork · **no** player targets (**MS-L7** shipped — **p4a** tune) |
 | **Wontfix / closed** | — | IV-INTR (D-008) · P3b mat sim expand · bleed retune unless asked · F1 BMI |
 
@@ -713,8 +726,7 @@ Full logical order: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#comba
 | `contract_type` | String | e.g. `skirmish`, `escort` (flavor + template id) |
 | `pay_gold` | int | Settlement on win |
 | `difficulty_rating` | int | 1–3 UI skulls; scales `enemy_count` / gear |
-| `tutorial` | bool | Camp-3.1 — low bleed, tooltips |
-| `training` | bool | Camp-3.5 — no pay, reduced map bleed |
+| `tutorial` | bool | Camp-3.1 — low bleed, tooltips, no pay |
 
 ### `encounter_config` — combat keys (existing; Camp-4)
 
@@ -732,6 +744,15 @@ Canonical names (`CombatConstants`, PR6 ☑): `ENCOUNTER_KEY_PLAYER_FORMATION`, 
 **Soak mirror (PR 8):** `SoakEncounterPresets.WORLD_META_LOCK_PARTY_FORMATION` skips `refresh_party_formation_meta` overwrite; use for **`ii_envelop`** headless + F5.
 
 **Bridge merge (PR6 ☑):** `refresh_party_formation_meta` applies `ENCOUNTER_KEY_PLAYER_*` before default width — see [`LIVE_PATHS#iii-4`](LIVE_PATHS.md#iii-4--engagement-geometry-audit).
+
+**WF-4 (shipped — maintain):**
+
+| Key | Type | Status | Purpose |
+|-----|------|--------|---------|
+| `ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM` | String | **Live** | Party default when roster has no **`stance_preference`** |
+| `ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM` | String | **Live** | Enemy line default (e.g. escort **`wrath`**, trial **`ox`**) |
+
+Bridge: **`CampaignEncounterBridge._normalize_encounter_weapon_form_keys`** + roster **`stance_preference`** — see [`LIVE_PATHS#wf-implementation-status`](LIVE_PATHS.md#wf-implementation-status).
 
 ### `encounter_config` — soak keys (existing)
 
@@ -770,7 +791,7 @@ Combat implements factor on **`CoreEntity.get_medical_effectiveness()`**; Campai
 
 ## 11. Encounter lifecycle (contract tiles)
 
-**Shipped (2026-05-22 — R3):** `CampaignEncounterBridge.begin_contract_encounter` copies contract to `active_contract` + combat meta, spawns enemies, **`queue_free`s marker** (tile empty). Spawn/combat abort rolls back meta and keeps marker. **Paid loss** ends run; **tutorial/practice** soft defeat respawns marker via `CombatFlow`.
+**Shipped (2026-05-22 — R3):** `CampaignEncounterBridge.begin_contract_encounter` copies contract to `active_contract` + combat meta, spawns enemies, **`queue_free`s marker** (tile empty). Spawn/combat abort rolls back meta and keeps marker. **Paid loss** ends run; **tutorial** soft defeat respawns marker via `CombatFlow`.
 
 | Policy | Behavior | Status |
 |--------|----------|--------|
@@ -795,7 +816,7 @@ Combat implements factor on **`CoreEntity.get_medical_effectiveness()`**; Campai
 | `medical_supplies` | 3 | 1 per camp heal; efficacy floor at 0 |
 | `tool_supplies` | 2 | 1 per post-fight repair |
 | `renown` | 0 | +1 per contract win |
-| `pay_gold` base | 100–140 shipped templates (skirmish 100 … spear trial 140) | × `(1 + renown * 0.05)`; tutorial/practice **0** |
+| `pay_gold` base | 100–140 shipped templates (skirmish 100 … spear trial 140) | × `(1 + renown * 0.05)`; tutorial **0** |
 | `enemy_count` | 3–7 by difficulty + renown cap | Uses existing spawner cap |
 
 Record changes in [decision log](#decision-log) when playtest shifts lethality/economy.
@@ -808,11 +829,11 @@ Record changes in [decision log](#decision-log) when playtest shifts lethality/e
 
 | In scope | Out of scope |
 |----------|----------------|
-| Company + wounds persist across fights; **P2** autosave on settlement + day tick | Multi-slot / cloud save |
+| Company + wounds persist for **one** `main.tscn` session until defeat/restart | Disk save, campaign map seed persistence |
 | Entity wounds on **`CoreEntity`** across fights | Roguelike meta-progression |
-| Re-run `main` without save = new company; valid slot0 restores | Cloud / Steam stats |
+| Re-run `main` = new company | Cloud / Steam stats |
 
-**P2** autosave: settlement **Continue** and every **`try_advance_day`** (End day, 5 steps, Camp rest). Paid R3 loss clears slot.
+Camp-5 “ship” assumes players finish a session in one sitting (2–4h); add save in post-EA if needed.
 
 ---
 
@@ -825,7 +846,7 @@ Record changes in [decision log](#decision-log) when playtest shifts lethality/e
 | **Fight eligibility** | `can_enter_combat` blocks **unconscious**; `get_fightable_party_nodes` skips **`is_dead()`** |
 | **After victory** | `SettlementPanel` → `apply_casualty_cleanup` (K3 memorial + kill recap) removes dead from roster |
 | **Paid defeat** | `CompanyRunEndPanel` + death lines; **`change_scene_to_file(main.tscn)`** reload — `PartySetup` dedupes stale **`PartyManager`** on `main` |
-| **Soft defeat** | Tutorial/practice: living roster kept; casualties cleaned; tutorial/practice marker respawn (`ensure_special_encounter_present`); camp nudge |
+| **Soft defeat** | Tutorial: living roster kept; casualties cleaned; tutorial marker respawn (`ensure_special_encounter_present`); camp nudge |
 | **Wages** | Living roster only; hybrid day tick ([Camp-1.2](#camp-1-company-loop)) |
 | **Bankrupt** | B3 desertion at low mood; insolvency warns — not instant gold wipe |
 
@@ -843,8 +864,6 @@ Record changes in [decision log](#decision-log) when playtest shifts lethality/e
 | **Dev soak** | Editor `dev_soak_encounter` or F5 testing | Cyan preset tile + optional reduced random reds (`main` already spawns 1 red if soak set) |
 
 **Rule:** Campaign ship checklist (Camp-3.4, §8) uses **campaign mode** — no `dev_soak_encounter` required. Keep soak path for Combat/Playtest streams only.
-
-**Camp-3.5 practice:** `training: true` contract or dedicated cyan-free tile; must not pay gold or advance renown.
 
 ---
 
@@ -870,7 +889,7 @@ Minimal rows for **`ContractSpawner`** / `EncounterNode` (combat keys abbreviate
 
 | `contract_type` | `pay_gold` | `difficulty` | `enemy_count` | Combat flavor keys |
 |-----------------|------------|--------------|---------------|-------------------|
-| `skirmish` | 100 | 1 | 3 | `soak_force_weapon_id` = SWORD · **`player_front_count`: 7** · **`formation_doctrine_player` + `formation_doctrine_enemy`: pinch_center** (III-4 ☑ — [`#iii-4`](LIVE_PATHS.md#iii-4--engagement-geometry-audit)) |
+| `skirmish` | 100 | 1 | 3 | `soak_force_weapon_id` = SWORD · **`player_front_count`: 7** · **`formation_doctrine_enemy`: pinch_center** (III-4 ☑ — [`#iii-4`](LIVE_PATHS.md#iii-4--engagement-geometry-audit)) |
 | `escort` | 120 | 2 | 5 | `formation_doctrine_enemy` = pinch_center; flee rout keys |
 | `polearm_trial` | 140 | 2 | 4 | `ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY` ≠ {}; SPEAR |
 | `goblin_raid` | 110 | 2 | 6 | `enemy_species_pool` = goblin |
@@ -885,14 +904,14 @@ Camp-4.1–4.3 = more rows in this table, not new combat systems.
 <a id="implementation-stubs"></a>
 <a id="implementation-gate-constants"></a>
 
-Single place for **closed gate constants** (2026-05-22 bundle). Human-readable summary: [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22). **`gate_*()`** readers return the const values — branch campaign logic here; do not duplicate magic strings. (Anchor id `implementation-stubs` is historical.)
+Single place for **closed gate constants** (2026-05-22 bundle). Human-readable summary: [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22). `read_stub_*()` forwards here for harness and legacy callers — **not** provisional placeholders anymore.
 
 ```gdscript
-# world/CompanyState.gd — closed gates (2026-05-22 bundle); gate_*() readers.
-const DAY_TICK_MODE := "hybrid"                # Camp-1.2 T3: N=5 steps, End day at camp, Camp rest ends day
+# world/CompanyState.gd — closed gates (2026-05-22 bundle); read_stub_*() forwards here.
+const DAY_TICK_MODE := "hybrid"                # Camp-1.2 T3: N=5 steps, End day at camp
 const STEPS_PER_DAY := 5
 const ENCOUNTER_LIFECYCLE := "r3_loss_ends_run"  # Camp-1.4 R3: paid loss ends run
-const CAMP_HEAL_ENTRY := "both"                # Camp-1.6 H3: party menu + camp tile; try_camp_heal → try_advance_day
+const CAMP_HEAL_ENTRY := "both"                # Camp-1.6 H3: party menu + camp tile
 const CAMP_HEAL_SECONDS := 600.0
 const CAMP_HEAL_MULTIPLIER := 3.0
 const CASUALTY_ON_SETTLEMENT := "memorial_then_remove"  # Camp-1.8 K3
@@ -901,11 +920,12 @@ const MED_BATTLE_MODE := "hybrid"              # Camp-2.3 E3 + pack/stabilize �
 const SUPPLY_FACTOR_AT_ZERO_MED := 0.5
 const AFFLICTIONS_ENABLED := true              # Camp-2.4 pain mult on scars
 const BANKRUPT_MODE := "desertion"             # Camp-2.6 B3 (not instant gold wipe)
+const PERSISTENCE_MODE := "P1"                 # Camp-5 D-persistence: session-only EA (P2 = autosave)
 ```
 
 **§12 economy** (gold 500, wage 15, med 3, tools 2) lives in `init_from_defaults()` — not stubs; retune in playtest without a gate.
 
-**Agents:** branch via `gate_*()` in `main.gd` / bridge — do not duplicate magic strings. New gates: add const + `gate_*()` reader, log in [decision log](#decision-log).
+**Agents:** branch via `read_stub_*()` in `main.gd` / bridge — do not duplicate magic strings. New gates: add const + reader, log in [decision log](#decision-log).
 
 ---
 
@@ -918,9 +938,9 @@ const BANKRUPT_MODE := "desertion"             # Camp-2.6 B3 (not instant gold w
 | **Expect R1b marker on paid loss** | R3 consumes marker on entry; paid loss = run end — no same-tile retry ([§11](SHIP_PLAN.md#encounter-lifecycle)) |
 | **Wages on same hook as 60s bleed** | Separate `CompanyState.on_overworld_step` from `advance_party_overworld_minute` unless D-day says otherwise |
 | **Settlement with map input live** | Pause player movement / hide Party button until modal closes |
-| **Defeat leaves `PartyManager` stale refs** | Paid R3 loss reloads `main.tscn`; `PartySetup.setup_party` removes duplicate **`PartyManager`** children on `main` before re-init |
+| **Defeat leaves `PartyManager` stale refs** | Paid R3 loss reloads `main.tscn`; `PartySetup.setup_party` sync-frees duplicate **`PartyManager`** children and tears down stale **`party_menu`** / **`PartyButton`** on **`UIOverlayLayer`** before re-init |
 | **Parallel PR on `CampaignEncounterBridge`** | Campaign owns; Combat only via meta API |
-| **Bleed retune for “easier campaign”** | Use `training` / encounter mult, not `BleedingConstants` ([LIVE_PATHS §12](LIVE_PATHS.md#12-tuning-order-keep-research-chain)) |
+| **Bleed retune for “easier campaign”** | Use tutorial `map_bleed_mult` / encounter mult, not `BleedingConstants` ([LIVE_PATHS §12](LIVE_PATHS.md#12-tuning-order-keep-research-chain)) |
 | **Camp-5 ship with tutorial-only bleed** | Post-tutorial: `warn_eta` + Party field care; tutorial blocks until first win |
 | **Two agents edit `CompanyState.gd`** | One owner Campaign; gate const changes only when closing a **new** gate |
 | **Tutorial adds player target UI** | Forbidden — use doctrine/formation + [§9b](SHIP_PLAN.md#combat-mental-stack-shipped); gauge copy only |
@@ -935,8 +955,13 @@ const BANKRUPT_MODE := "desertion"             # Camp-2.6 B3 (not instant gold w
 | **3b before 3d on 7v3** | Historical ship order — **PR7 before PR5**; both ☑ shipped |
 | **3b lists rotate but L4 still fires** | **`rotate_file`** must **not** be in `is_reserve_posture_listing_move_id` — utility pick when rotate listed |
 | **Confuse formation moves with `CombatFootwork`** | Tier 4.4 position-angle pilot is separate — Track A does not touch [`CombatFootwork.gd`](../combat/CombatFootwork.gd) |
+| **Confuse `get_footing_duration_multiplier` with blade footwork** | Lane step-over **duration** only — not **`guard_line`** / PA / weapon form — [`LIVE_PATHS#wf-layer-labels`](LIVE_PATHS.md#wf-layer-labels) |
+| **Confuse tier-4.2 `defense_footwork_*` with L4 step or weapon form** | Spacing/state mults ≠ **`position_angle_offset_deg`**; form → home **`guard_line`** only — [`LIVE_PATHS#wf-footing-doc-map`](LIVE_PATHS.md#wf-footing-doc-map) · [`#wf-tier-44-pa`](LIVE_PATHS.md#wf-tier-44-pa) · [`#wf-guard-writers`](LIVE_PATHS.md#wf-guard-writers) |
+| **Overload “L4” in PR / soak notes** | **MS-L4** = hold-line stack · **WF-L4** = move weights · **Tier 4.4** = PA step — [`LIVE_PATHS#wf-layer-labels`](LIVE_PATHS.md#wf-layer-labels) |
+| **Wire `CombatGuardLines` octant PA without harness** | Production uses **`CombatConstants`** 4-key lookup only — [`LIVE_PATHS#wf-form-guard-pa-matrix`](LIVE_PATHS.md#wf-form-guard-pa-matrix) |
 | **Encounter width key never reaches battle** | ☑ bridge copies into `world.party_formation` meta; `BattleScene` reads meta not raw config |
 | **Duplicate medic on same part** | L1 uses `medical_action_allowed` — do not bypass in listing |
+| **Harness `user://` save leaks into F5** | P1: `main` clears slot on campaign boot; run-end reload clears slot ([§13](SHIP_PLAN.md#persistence-scope)) |
 
 ---
 
@@ -953,21 +978,31 @@ const BANKRUPT_MODE := "desertion"             # Camp-2.6 B3 (not instant gold w
 
 **Started:** 2026-05-22 — plan created from BB/peer gap analysis + repo audit (`CampaignEncounterBridge`, `PartyMenu`, `EncounterNode`, POST Phase 5 V-tracks).
 
+- **2026-06-05** — **WF-1…WF-4** weapon form stances (Expand): P0 design lock + phased plan — `weapon_form` field, move-level picker mult, pressure class, home guard, yomi counters, auto-switch (no player form pick) — [`LIVE_PATHS#wf-weapon-form-stances`](LIVE_PATHS.md#wf-weapon-form-stances).
+- **2026-06-05** (audit pass 2) — WF spec hardened: spawn/reset path, `form_str` resolution order, WF-1b production call-site table, weapon `default_form` seeds, WF-3 trigger table, cognition boundary (no new mental-stack layer), `engagement_posture` ≠ form anti-pattern; PLANNING duplicate WF row removed.
+- **2026-06-05** (audit pass 3) — WF spec expanded: `CombatWeaponForm` module API + `FORM_DEFS` shape, `mod()` seed table, move-family weights, pressure class mapping, WF-2 yomi/counter matrix, UI suffix spec, WF-4 data-flow diagram, harness row catalog, cognition pipeline WF-3 hook.
+- **2026-06-05** (plan pass 2) — WF: code inventory, PR checklists, agent prompts, module API status column, WF-2/3/4 implementation maps + pseudocode, stale "planned" text cleaned, **`WF_FORM_SWITCH_STAMINA_COST`** doc sync (**0.0** live).
+- **2026-06-06** — Camp §8 extended validator tracks (steps 4–9): **`camp_field_care_action`**, **`camp_paid_loss`**, **`camp_wage_warn`**, **`camp_desertion`** + **`docs/f5_soak_log.camp_full.example.txt`** — [`§8 close-out bundle`](SHIP_PLAN.md#camp-playtest-acceptance)
+- **2026-06-06** — III-4 **3e** mop-up strike finish: `envelop_mop_up_strike_at_band` (MID/CLOSE band/reach gap) + F5/validator **`camp_mopup_strike_finish`**; §8 close-out bundle table — [`LIVE_PATHS#iii-4`](LIVE_PATHS.md#iii-4--engagement-geometry-audit)
+- **2026-06-06** — Footing pass 9: regression harness **form_health_bar** freed-node read fix; **`run_camp_f5_closeout`** — [`#wf-m3-f5-playtest`](LIVE_PATHS.md#wf-m3-f5-playtest)
+- **2026-06-06** — Footing pass 8: **`append_f5_soak_log`**; Camp+WF F5 smoke example; EA sign-off summary — [`#wf-m3-f5-playtest`](LIVE_PATHS.md#wf-m3-f5-playtest)
+- **2026-06-06** — Footing pass 7: **`wf_m3_idle_step_leak`** optional F5 track; **`camp_ea`** synthetic markers + sanity fixtures; EA close-out F5 section in **`print_phase0_status`** — [`#wf-m3-f5-playtest`](LIVE_PATHS.md#wf-m3-f5-playtest)
+- **2026-06-06** — Footing pass 6: D-001 sanity **`wf_m3_*`** / **`camp_ea`** validator fixtures — [`#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog)
+- **2026-06-06** — Footing pass 5: **`CombatF5SoakLogValidator`** WF-M3 tracks; Camp profile markers; `run_q_feel` invokes validator — [`#wf-m3-f5-playtest`](LIVE_PATHS.md#wf-m3-f5-playtest)
+- **2026-06-06** — Footing pass 3: WF-M5 harness policy; ii5c diagram wrath row; octant wind-up harness — [`#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog)
 - **2026-05-23** — **III-4** plan clarification: formation-move vs `CombatFootwork` terminology; **3b** = Skirmish **`rotate_file` only**; L4↔3b pick-layer interaction; PR7 before PR5; close resolve / dual-gate docs — [`LIVE_PATHS#iii-4`](LIVE_PATHS.md#iii-4--engagement-geometry-audit).
 - **2026-05-23** — **III-4** engagement geometry audit: Track A bridge (mapped opposition, compaction gate, L4+close, Skirmish rotate) maintain pre–Camp-5 without `FEATURE_*`; IV-9 gap-column Track B post–Camp-5 — [`LIVE_PATHS#iii-4`](LIVE_PATHS.md#iii-4--engagement-geometry-audit).
 - **2026-05-22** — Tier 4.3 mental stack shipped baseline integrated: L0–L4 + salience damp + coordination-aware L1; no player targets — [§9b](SHIP_PLAN.md#combat-mental-stack-shipped), [`LIVE_PATHS` tier 4.3](LIVE_PATHS.md#tier-43-mental-stack--combat-attention).
 - **2026-05-22** — D-004 MXm-3 + MS-L7: burst stamina bar/label decoupled from counter-tempo; `effective_stamina_max` / ratio wiring; L5 exhaustion tunnel — [`LIVE_PATHS` D-004](LIVE_PATHS.md#d-004-exhaustion), [§9b](SHIP_PLAN.md#combat-mental-stack-shipped).
 - **2026-05-22** — D-day (Camp-1.2) → **T3** (N=5 steps or End day at camp tile `(0,0)`).
 - **2026-05-22** — D-encounter (Camp-1.4) → **R3** finite contract pool per run; **contract loss = run end** (no retry on same tile).
-- **2026-06-04** — Camp-1.6: **Camp rest** calls **`try_advance_day`** (wages + desertion + autosave); Party label “ends day”; docs/playtest aligned.
 - **2026-05-22** — D-camp-ui (Camp-1.6) → **H3** (Party menu + camp tile); heal rates: on-move **1×** passive / camp **3×** + 600 s + −1 med (see [`CAMPAIGN_DECISION_GUIDE` user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22)).
 - **2026-05-22** — D-casualty (Camp-1.8) → **K3** memorial line + **kill recap** from `last_battle_summary` per fallen brother.
 - **2026-05-22** — D-bleed (Camp-2.1) → **B** (`warn_eta` after first win) + **tutorial block** until first win; Party field care (pressure/bandage/stabilize).
 - **2026-05-22** — D-supply-battle (Camp-2.3) → **E3** (efficacy floor + −1 med for pack/stabilize).
 - **2026-05-22** — D-affliction (Camp-2.4) → severity-tier RNG (peril ~30%, danger ~12%, bone cripple ~45%); see guide bundle.
 - **2026-05-22** — D-bankrupt (Camp-2.6) → **B3** desertion cascade (company mood → desertion; not instant gold&lt;0 wipe).
-- **2026-06-04** — D-persistence → **P2** shipped (`CampaignPersistence` on settlement + `try_advance_day`).
-- **2026-05-22** — D-persistence (Camp-5) → **P1** session-only baseline; **P2** autosave added 2026-06-04.
+- **2026-05-22** — D-persistence (Camp-5) → **P1** for EA testing; **P2** single-slot autosave when ship complete.
 
 ---
 
@@ -984,6 +1019,6 @@ const BANKRUPT_MODE := "desertion"             # Camp-2.6 B3 (not instant gold w
 | CDDA | Pressure during treatment; tourniquet efficacy |
 | Dominions 6 | Persistent afflictions |
 | Chains on Sand | Between-fight choices, active defense teaching |
-| Hellish Quart / Exanima | Practice mode, measured lethal openings (Camp-3.5 / tooltips) |
+| Hellish Quart / Exanima | Measured lethal openings (tutorial tooltips) |
 
 Do **not** block ship on MENACE EA or full DF tissue sim.

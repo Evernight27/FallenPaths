@@ -12,6 +12,10 @@ const _FormationFlee := preload("res://combat/CombatFormationFlee.gd")
 const _ResolveAction := preload("res://combat/CombatResolveAction.gd")
 const _BattleUIUpdater := preload("res://ui/BattleUIUpdater.gd")
 const _CombatLogFormatter := preload("res://ui/CombatLogFormatter.gd")
+const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
+const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
+const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
+const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 
 ## Tier 6.2: immobile cowering does not list **`flee`**.
 static func _run_flee_not_listed_when_immobile(failures: PackedStringArray) -> void:
@@ -296,6 +300,109 @@ static func _run_flee_listed_duration_hint_instant(failures: PackedStringArray) 
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
+## MS-L7 / critical stamina: flee AI weight must beat rotate_file when both are listed.
+static func _run_flee_ai_exhaustion_tunnel_beats_rotate_file(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 2, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 2, "ranks": 2}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var cid: int = _EntityAccess.id_int(c)
+	c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD + 0.05
+	if not _Exhaustion.exhaustion_tunnel_active(c):
+		CombatRegressionHarness._fail(failures, "flee_ai_tunnel: exhaustion tunnel should be active")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var flee_act: Dictionary = {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": cid}
+	var rot_act: Dictionary = {"move_id": CombatConstants.MOVE_ID_ROTATE_FILE, "target_id": cid}
+	var w_flee: float = _AIPicker._get_action_weight(flee_act, cid, mgr, true)
+	var w_rot: float = _AIPicker._get_action_weight(rot_act, cid, mgr, true)
+	if w_flee <= w_rot:
+		CombatRegressionHarness._fail(
+			failures,
+			"flee_ai_tunnel: flee weight %.3f should exceed rotate_file %.3f"
+			% [w_flee, w_rot]
+		)
+	c["stamina"] = 0.05 * float(c.get("stamina_max", 100.0))
+	if _EntityAccess.stamina_ratio(c) >= CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO:
+		CombatRegressionHarness._fail(failures, "flee_ai_tunnel: stamina setup should be critical")
+	w_flee = _AIPicker._get_action_weight(flee_act, cid, mgr, true)
+	if w_flee < CombatConstants.AI_FLEE_EXHAUSTION_TUNNEL_WEIGHT - 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"flee_ai_tunnel: critical stamina flee weight %.3f want >= %.3f"
+			% [w_flee, CombatConstants.AI_FLEE_EXHAUSTION_TUNNEL_WEIGHT]
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## Critical stamina (below MS-L7 tunnel): utility pick weight still favors flee over rotate_file.
+static func _run_flee_ai_critical_stamina_beats_rotate_file(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 2, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 2, "ranks": 2}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var cid: int = _EntityAccess.id_int(c)
+	c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD - 0.15
+	c["stamina"] = 0.05 * float(c.get("stamina_max", 100.0))
+	if _EntityAccess.stamina_ratio(c) >= CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO:
+		CombatRegressionHarness._fail(failures, "flee_ai_critical: stamina setup should be below critical ratio")
+	var flee_act: Dictionary = {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": cid}
+	var rot_act: Dictionary = {"move_id": CombatConstants.MOVE_ID_ROTATE_FILE, "target_id": cid}
+	var w_flee: float = _AIPicker._get_action_weight(flee_act, cid, mgr, true)
+	var w_rot: float = _AIPicker._get_action_weight(rot_act, cid, mgr, true)
+	if w_flee <= w_rot:
+		CombatRegressionHarness._fail(
+			failures,
+			"flee_ai_critical: flee weight %.3f should exceed rotate_file %.3f"
+			% [w_flee, w_rot]
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## End-to-end pick (mental stack L5 + weights): flee vs rotate at critical stamina never picks rotate.
+static func _run_flee_ai_pick_critical_stamina_never_rotate(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 2, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 2, "ranks": 2}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var cid: int = _EntityAccess.id_int(c)
+	c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = 0.0
+	c["stamina"] = 0.05 * float(c.get("stamina_max", 100.0))
+	var acts: Array = [
+		{"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": cid},
+		{"move_id": CombatConstants.MOVE_ID_ROTATE_FILE, "target_id": cid},
+	]
+	for seed_i in range(8):
+		seed(seed_i)
+		var choice: Dictionary = _AIPicker.pick(acts, cid, mgr)
+		if str(choice.get("move_id", "")) != CombatConstants.MOVE_ID_FLEE:
+			CombatRegressionHarness._fail(
+				failures,
+				"flee_pick_critical: seed=%d want flee got %s"
+				% [seed_i, str(choice.get("move_id", ""))]
+			)
+			break
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
 ## Tier 6.2: AI flee weight stays high for personal crisis even when side holds the field.
 static func _run_flee_ai_pick_not_dampened_personal_crisis(failures: PackedStringArray) -> void:
 	const _Rout := preload("res://combat/CombatFormationRout.gd")
@@ -329,6 +436,71 @@ static func _run_flee_ai_pick_not_dampened_personal_crisis(failures: PackedStrin
 			"flee_ai_personal: holding-field dampener must not apply at bv=50 (mult=%.3f coh_m=%.3f)"
 			% [mult, coh_m]
 		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## p4f: losing side under formation stress gets extra flee pick weight.
+static func _run_flee_ai_losing_side_mult_boost(failures: PackedStringArray) -> void:
+	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var mgr: Node = _MgrScript.new()
+	for _i in 2:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var c: Dictionary = mgr.combatants[0]
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form["line_cohesion"] = 0.35
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	if _Rout.side_holding_field(mgr, c):
+		CombatRegressionHarness._fail(failures, "flee_losing_side: want player outnumbered on field")
+	if not _Rout.formation_stressed_for_rout(mgr, c):
+		CombatRegressionHarness._fail(failures, "flee_losing_side: want formation_stressed")
+	var coh: float = _Rout.line_cohesion_for_combatant(mgr, c)
+	var coh_m: float = lerpf(
+		CombatConstants.AI_FLEE_LOW_COHESION_MULT,
+		CombatConstants.AI_FLEE_HIGH_COHESION_MULT,
+		coh
+	)
+	var cas: float = _Rout.casualty_ratio_for_combatant(mgr, c)
+	var cas_min: float = _Rout.flee_casualty_ratio_min(mgr, c)
+	var cas_t: float = clampf(cas / maxf(cas_min, 0.01), 0.0, 1.0)
+	var cas_m: float = lerpf(1.0, CombatConstants.AI_FLEE_HIGH_CASUALTY_MULT, cas_t)
+	var base: float = coh_m * cas_m
+	var mult: float = _Rout.flee_ai_pick_mult(mgr, c)
+	if mult < base * CombatConstants.AI_FLEE_LOSING_SIDE_MULT * 0.98:
+		CombatRegressionHarness._fail(
+			failures,
+			"flee_losing_side: want mult >= base*%.2f (base=%.3f mult=%.3f)"
+			% [CombatConstants.AI_FLEE_LOSING_SIDE_MULT, base, mult]
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## p4f UX: early rout hint when line wavers but **`flee`** is not listed yet.
+static func _run_rout_pressure_early_hint_when_losing_stressed(failures: PackedStringArray) -> void:
+	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var mgr: Node = _MgrScript.new()
+	for _i in 2:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var c: Dictionary = mgr.combatants[0]
+	c["gauge"] = 100.0
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form["line_cohesion"] = 0.35
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	if _Rout.side_holding_field(mgr, c):
+		CombatRegressionHarness._fail(failures, "rout_early_hint: want player outnumbered on field")
+	if not _Rout.formation_stressed_for_rout(mgr, c):
+		CombatRegressionHarness._fail(failures, "rout_early_hint: want formation_stressed")
+	if _EntityAccess.flee_abandonment_warranted(c, mgr):
+		CombatRegressionHarness._fail(failures, "rout_early_hint: want flee not warranted yet (healthy line stress)")
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
+	var hint: String = _PlayerTurnHints.rout_pressure_early_hint(mgr, c, acts)
+	if "Line wavering" not in hint:
+		CombatRegressionHarness._fail(failures, "rout_early_hint: want early wavering copy got %s" % hint)
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
@@ -398,6 +570,34 @@ static func _run_flee_resolve_marks_combat_absent_and_clears_slot(failures: Pack
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
+## Tier 6.2: **`apply_flee`** clears stale doctrine target commit.
+static func _run_flee_clears_doctrine_commitment(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE}, {"files": 1, "ranks": 1})
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var c: Dictionary = mgr.combatants[0]
+	var en: Dictionary = mgr.combatants[1]
+	var cid: int = _EntityAccess.id_int(c)
+	var eid: int = _EntityAccess.id_int(en)
+	var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+	CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
+	CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
+	c.state = CombatConstants.STATE_COWERING
+	c.gauge = 100.0
+	mgr.combat_clock = 0.0
+	_TargetScoring.on_combat_commitment(mgr, cid, eid)
+	if int(c.get("doctrine_target_commit_id", -2)) != eid:
+		CombatRegressionHarness._fail(failures, "flee_doctrine: setup commit failed")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	_ResolveAction.resolve(mgr, cid, cid, CombatConstants.MOVE_ID_FLEE, {})
+	if int(c.get("doctrine_target_commit_id", -2)) != -1:
+		CombatRegressionHarness._fail(failures, "flee_doctrine: flee should clear doctrine_target_commit_id")
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
 ## Tier 6.2: formation diagram omits fled unit from rank/file cells; lists under **Fled:** line.
 static func _run_flee_formation_diagram_omits_fled_from_grid(failures: PackedStringArray) -> void:
 	const _Diagram := preload("res://ui/FormationDiagramBuilder.gd")
@@ -437,7 +637,7 @@ static func _run_flee_formation_diagram_omits_fled_from_grid(failures: PackedStr
 						failures,
 						"flee_diagram: fled unit still in grid cell '%s'" % cell_text
 					)
-	diagram.queue_free()
+	diagram.free()
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
@@ -493,9 +693,15 @@ static func run(failures: PackedStringArray) -> void:
 	_run_flee_preset_rout_threshold_overrides_encounter(failures)
 	_run_flee_manager_get_rout_threshold(failures)
 	_run_flee_listed_duration_hint_instant(failures)
+	_run_flee_ai_exhaustion_tunnel_beats_rotate_file(failures)
+	_run_flee_ai_critical_stamina_beats_rotate_file(failures)
+	_run_flee_ai_pick_critical_stamina_never_rotate(failures)
 	_run_flee_ai_pick_not_dampened_personal_crisis(failures)
+	_run_flee_ai_losing_side_mult_boost(failures)
+	_run_rout_pressure_early_hint_when_losing_stressed(failures)
 	_run_flee_rout_tooltip_suppressed_when_holding(failures)
 	_run_flee_resolve_marks_combat_absent_and_clears_slot(failures)
+	_run_flee_clears_doctrine_commitment(failures)
 	_run_flee_formation_diagram_omits_fled_from_grid(failures)
 	_run_flee_ui_gauge_label_fled(failures)
 	_run_flee_combat_start_clears_absent_state(failures)

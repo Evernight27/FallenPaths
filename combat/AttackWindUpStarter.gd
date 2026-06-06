@@ -1,6 +1,9 @@
 class_name AttackWindUpStarter
 extends RefCounted
 
+## Starts attack wind-up: stamps **`pending_attack`**, telegraph, duration.
+## Footing (strike path): **`CombatWeaponForm.wind_up_transition_mult`** (form × guard × attack line) — not PA step · **`CombatFootwork.apply_attack_step_on_windup(attack_line)`** when flag on. LIVE_PATHS **`#wf-tier-44-pa`** · **`#wf-pick-vs-strike`**.
+
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
@@ -16,14 +19,7 @@ const _IncomingParryChoice := preload("res://combat/CombatIncomingParryChoice.gd
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
-
-## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.
-## **Read order:** preflight gates → power/intensity rolls → duration + feint stamp → pending_attack assign → counter window.
-## Canonical: **`CombatantEntityAccess.manager_get_combatant`** · log: **`CombatDebug.combat_session`**.
-## Replaces **`atk.pending_attack`**: clears the prior wind-up’s defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (if any) before assigning the new **`pa`**.
-## **`is_feint`** moves may apply **`feint_windup_duration_mult`** from **`WeaponConstants.get_move`** (extra **`state_duration`** / **`pa.wind_up_duration`** vs honest cut at same rolls) and optional **`feint_target_reveal_at_progress`** (stamped on **`pa`** for **`DefenseChoiceResolver._feint_readiness_reveal_mult`**).
-## Manager must have: **`CombatantEntityAccess.manager_get_combatant`**; health reads via **`get_health_entity_from_node`**.
-## Mutates attacker combatant in place.
+const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 
 static var _last_fp_tempo_wind_up_line: String = ""
 
@@ -57,16 +53,24 @@ static func _log_fp_tempo_wind_up(
 		_CombatDebug.combat_session(line)
 
 
+## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.
+## Replaces **`atk.pending_attack`**: clears the prior wind-up’s defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (if any) before assigning the new **`pa`**.
+## **`is_feint`** moves may apply **`feint_windup_duration_mult`** from **`WeaponConstants.get_move`** (extra **`state_duration`** / **`pa.wind_up_duration`** vs honest cut at same rolls) and optional **`feint_target_reveal_at_progress`** (stamped on **`pa`** for **`DefenseChoiceResolver._feint_readiness_reveal_mult`**).
+## Manager must have: _get_by_id; health reads go through CombatantEntityAccess + manager.get_health_entity.
+## Mutates attacker combatant in place.
+
 static func start(manager: Node, attacker_id: int, target_id: int, move_id: String = "", options: Dictionary = {}) -> void:
-	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
-	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
-	if atk.is_empty() or tgt.is_empty() or not _EntityAccess.are_living_hostiles(atk, tgt):
+	var atk = manager._get_by_id(attacker_id)
+	var tgt = manager._get_by_id(target_id)
+	var atk_d: Dictionary = _EntityAccess.combatant_dict_or_empty(atk)
+	var tgt_d: Dictionary = _EntityAccess.combatant_dict_or_empty(tgt)
+	if atk_d.is_empty() or tgt_d.is_empty() or not _EntityAccess.are_living_hostiles(atk_d, tgt_d):
 		return
 	if _MedicalPhase.combat_resolution_blocked(manager):
 		return
 	if _MobilityRetreat.cannot_commit_melee(atk):
 		var atk_name_skip: String = _EntityAccess.get_display_name(atk, attacker_id)
-		_CombatDebug.combat_session("%s has no functional arm; skip attack (short recovery)." % atk_name_skip)
+		print("[Combat] %s has no functional arm; skip attack (short recovery)." % atk_name_skip)
 		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(atk)
 		_StateHandlers.enter_short_recovery(atk, manager)
 		if manager != null and atk.state_duration > 0.0:
@@ -123,6 +127,12 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	}
 	var align: float = CombatConstants.get_line_alignment_with_deflect(attack_line, atk, align_ctx)
 	var trans_mult: float = CombatTiming.guard_transition_mult(align)
+	trans_mult *= _WeaponForm.wind_up_transition_mult(
+		_EntityAccess.form_str(atk),
+		attack_type,
+		str(atk.get("guard_line", CombatConstants.GUARD_DEFAULT)),
+		attack_line
+	)
 	wind_up_s *= trans_mult
 	# Bind riposte: parry_part × contact_type. Extend=fast, wind=moderate, swing=slow.
 	if weapon != null and atk.get("parry_was_bind", false) and atk.get("parry_against_id", -1) == target_id:
@@ -230,9 +240,10 @@ static func clear_incoming_attack_telegraph_from_pa(manager: Node, pa: Dictionar
 	if manager == null or pa.is_empty():
 		return
 	var tid: int = int(pa.get("target_id", -1))
-	if tid < 0:
+	if tid < 0 or not manager.has_method("_get_by_id"):
 		return
-	var def_d: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
-	if not def_d.is_empty():
+	var t: Variant = manager._get_by_id(tid)
+	if t != null and t is Dictionary:
+		var def_d: Dictionary = t as Dictionary
 		def_d.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
 		def_d.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)

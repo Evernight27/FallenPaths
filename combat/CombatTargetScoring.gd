@@ -6,12 +6,13 @@ extends RefCounted
 ## **Data flow (high level):**
 ## 1. `CombatManager.start` → `formation_doctrine` defaults; combatants get commitment + close-block dicts.
 ## 2. `_recompute_zoc_and_distance` → `CombatDistanceBands` (incl. reach/band alignment) → pair `distance_to`.
-## 3. `get_available_actions` → `AvailableActionsBuilder.build` → `CombatMeleeListing` / formation / medical listing modules (`attempt_close` only at LONG via `CombatMeleeListing.attempt_close_listed_for_pair`, gated by `close_attempt_pair_blocked`; picker weight 0 if stale).
+## 3. `get_available_actions` → `AvailableActionsBuilder.build` → `CombatMeleeListing` / formation / medical listing modules (`attempt_close` at LONG, or MID/CLOSE under III-4 **3e** `CombatDoctrine.envelop_close_allowed`; gated by `close_attempt_pair_blocked`; picker weight 0 if stale).
 ## 4. `CombatAIActionPicker.pick` → prune once → `ai_targeting_weight_mult(..., skip_prune=true)` (doctrine, file, commitment, pressure, **engagement mode**, our posture+cohesion, **opponent** formation, stance, **incap** defender hedge) × stamina × depth-spear move weights (incl. doctrine stab/cut nudge). **`ally_pressure_count`** for rank>0 uses **`CombatMeleeRankTargeting.melee_pair_rank_allowed`** to the committed defender (not **`depth_polearm_lane_open`** alone).
 ## 5. `CombatResolveAction` → melee wind-up → `on_combat_commitment`; close → `CombatEngagementResolver` (success → commitment + clear close block; fail → per-target cooldown).
 ## 6. `set_formation_doctrine` → clears commitments on that formation (doctrine change); death → `clear_all_targeting_state_for_dead_defender`.
 ##
-## **Doctrine:** `DOCTRINE_PINCH_CENTER` / `HOLD_LANE` steer **listed** melee/close weights and ordering; pincer roles (**`CombatDoctrine.PINCER_ROLE_*`**) + **`pincer_preferred_flank_target_mult`** + **`pincer_close_arc_spread_mult`** for flank envelopment.
+## **Doctrine:** `DOCTRINE_PINCH_CENTER` / `HOLD_LANE` steer **listed** melee/close weights and ordering; `DOCTRINE_PROBING` nudges **depth spear** stab/cut listing weights only.
+## Footing: **`form_ai_targeting_mult`** (L2) scales AI target weights — not **`guard_line`** or PA. LIVE_PATHS **`#wf-pick-vs-strike`**.
 
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
@@ -23,8 +24,7 @@ const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
-const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
-const _ArcOccupancy := preload("res://combat/CombatSurroundArcOccupancy.gd")
+const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 
 
 static func clear_all_targeting_state_for_dead_defender(manager: Node, dead_id: int) -> void:
@@ -184,8 +184,6 @@ static func pinch_score_mult(
 	var doc: String = _Doctrine.doctrine_for_fid(manager, _EntityAccess.formation_id_str(actor))
 	if doc != CombatConstants.DOCTRINE_PINCH_CENTER:
 		return 1.0
-	if _Doctrine.pincer_role_for_combatant(manager, actor) == _Doctrine.PINCER_ROLE_FLANK_WING:
-		return 1.0
 	if not wing_lacks_file_opposed(manager, actor, depth_lane_open_cache, zone_geometry_fid):
 		return 1.0
 	var ec: float = _enemy_front_file_center(manager, _EntityAccess.opponent_side_for(actor))
@@ -194,90 +192,17 @@ static func pinch_score_mult(
 	return 1.0 + bonus
 
 
-static func pincer_role_target_mult(
-	manager: Node,
-	actor: Dictionary,
-	opp: Dictionary,
-	depth_lane_open_cache: Variant = null,
-	zone_geometry_fid: String = ""
+static func pincer_preferred_flank_target_mult(
+	manager: Node, actor: Dictionary, opp: Dictionary
 ) -> float:
 	if manager == null or actor.is_empty() or opp.is_empty():
 		return 1.0
-	var role: String = _Doctrine.pincer_role_for_combatant(manager, actor)
-	if role.is_empty():
-		return 1.0
-	var ec: float = _enemy_front_file_center(manager, _EntityAccess.opponent_side_for(actor))
-	var opp_inward: float = absf(float(_EntityAccess.file_int(opp)) - ec)
-	if role == _Doctrine.PINCER_ROLE_FLANK_WING:
-		var outward_bonus: float = (
-			CombatConstants.DOCTRINE_PINCH_FLANK_OUTWARD_BIAS_PER_FILE * mini(opp_inward, 2.5)
-		)
-		return 1.0 + outward_bonus
-	if role == _Doctrine.PINCER_ROLE_CENTER:
-		if is_melee_file_opposed_priority(manager, actor, opp, depth_lane_open_cache, zone_geometry_fid):
-			return CombatConstants.DOCTRINE_PINCH_CENTER_PIN_FILE_OPPOSED_MULT
-		return CombatConstants.DOCTRINE_HOLD_LANE_OFF_FILE_MULT
-	return 1.0
-
-
-## Flank wing: nudge listed weights toward **`preferred_pincer_flank_enemy_id`** (outer file) pre-commit.
-static func pincer_preferred_flank_target_mult(
-	manager: Node, actor: Dictionary, target_id: int
-) -> float:
-	if manager == null or actor.is_empty() or target_id < 0:
-		return 1.0
 	if _Doctrine.pincer_role_for_combatant(manager, actor) != _Doctrine.PINCER_ROLE_FLANK_WING:
 		return 1.0
-	if _Doctrine.preferred_pincer_flank_enemy_id(manager, actor) != target_id:
+	var pref: int = _Doctrine.preferred_pincer_flank_enemy_id(manager, actor)
+	if pref < 0 or pref != _EntityAccess.id_int(opp):
 		return 1.0
-	return CombatConstants.AI_PINCER_PREFERRED_FLANK_TARGET_MULT
-
-
-## Phase 2: pincer flank **`attempt_close`** — prefer open front-arc sectors; damp stacking behind a CLOSE ally.
-static func pincer_close_arc_spread_mult(
-	manager: Node, actor: Dictionary, defender_id: int
-) -> float:
-	if manager == null or actor.is_empty() or defender_id < 0:
-		return 1.0
-	if _Doctrine.pincer_role_for_combatant(manager, actor) != _Doctrine.PINCER_ROLE_FLANK_WING:
-		return 1.0
-	var defender: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
-	if defender.is_empty():
-		return 1.0
-	var actor_id: int = _EntityAccess.id_int(actor)
-	var sector_w: float = _TacticalCombat.sector_weight_for_attacker_on_defender(
-		manager, defender_id, actor_id
-	)
-	var sector_t: float = (
-		(sector_w - CombatConstants.SURROUND_SECTOR_WEIGHT_MIN)
-		/ maxf(0.001, 1.0 - CombatConstants.SURROUND_SECTOR_WEIGHT_MIN)
-	)
-	var mult: float = lerpf(
-		CombatConstants.PINCER_CLOSE_ARC_MIN_MULT,
-		1.0 + CombatConstants.PINCER_CLOSE_ARC_SECTOR_BONUS,
-		clampf(sector_t, 0.0, 1.0)
-	)
-	var def_file: int = _EntityAccess.file_int(defender)
-	var actor_file: int = _EntityAccess.file_int(actor)
-	var actor_center: float = fmod(90.0 + float(actor_file - def_file) * 38.0 + 360.0, 360.0)
-	var half_w: float = _ArcOccupancy.arc_half_width_deg()
-	var ally_side: String = _EntityAccess.side_str(actor)
-	for raw in manager.combatants:
-		if raw == null or typeof(raw) != TYPE_DICTIONARY:
-			continue
-		var ally: Dictionary = raw as Dictionary
-		var aid: int = _EntityAccess.id_int(ally)
-		if aid == actor_id or not _EntityAccess.is_alive_on_side(ally, ally_side):
-			continue
-		if _EntityAccess.distance_to_opponent_band(ally, defender_id) != CombatConstants.DISTANCE_CLOSE:
-			continue
-		var ally_center: float = fmod(
-			90.0 + float(_EntityAccess.file_int(ally) - def_file) * 38.0 + 360.0, 360.0
-		)
-		if _ArcOccupancy.arcs_overlap(actor_center, ally_center, half_w):
-			mult *= CombatConstants.PINCER_CLOSE_ARC_OVERLAP_ALLY_DAMP
-			break
-	return mult
+	return CombatConstants.DOCTRINE_PINCER_PREFERRED_FLANK_TARGET_MULT
 
 
 static func hold_lane_mult(
@@ -416,7 +341,7 @@ static func opponent_formation_targeting_mult(
 static func stance_ai_targeting_mult(actor: Dictionary) -> float:
 	if actor.is_empty():
 		return 1.0
-	return CombatConstants.get_stance_modifier(_EntityAccess.stance_str(actor), "ai_melee_focus")
+	return _WeaponForm.form_ai_targeting_mult(actor)
 
 
 static func file_opposed_mult(
@@ -434,11 +359,11 @@ static func file_opposed_mult(
 static func targets_hostile_for_scoring(move_id: String) -> bool:
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return true
-	if CombatConstants.is_formation_movement_move(move_id):
+	if move_id in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
 		return false
 	if move_id == CombatConstants.MOVE_ID_WAIT:
 		return false
-	if CombatConstants.is_medical_move(move_id):
+	if move_id in CombatConstants.MEDICAL_MOVE_IDS:
 		return false
 	return true
 
@@ -462,20 +387,26 @@ static func hostile_pair_targeting_weight_mult(
 	var fid_atk: String = ""
 	var fd_atk: Dictionary = {}
 	var fd_opp: Dictionary = {}
-	var form_pack: Dictionary = _ZoneOfControl.pair_formations_for_targeting(
-		manager, atk, opp, actor_zone_geometry_line_context, opponent_zone_geometry_line_context
-	)
-	fid_atk = str(form_pack.get("fid", ""))
-	fd_atk = form_pack.get("actor_formation", {}) as Dictionary
-	fd_opp = form_pack.get("opponent_formation", {}) as Dictionary
+	if not actor_zone_geometry_line_context.is_empty():
+		fid_atk = _ZoneOfControl.zone_geometry_fid_from_pack(actor_zone_geometry_line_context)
+		fd_atk = _ZoneOfControl.zone_geometry_formation_from_pack(actor_zone_geometry_line_context)
+		if not opponent_zone_geometry_line_context.is_empty():
+			fd_opp = _ZoneOfControl.zone_geometry_formation_from_pack(opponent_zone_geometry_line_context)
+		else:
+			var zg_actor: Dictionary = _ZoneOfControl.zone_geometry_for_pair(manager, atk, opp)
+			fd_opp = _ZoneOfControl.zone_geometry_formation_b_from_pair_pack(zg_actor)
+	else:
+		var zg: Dictionary = _ZoneOfControl.zone_geometry_for_pair(manager, atk, opp)
+		fid_atk = _ZoneOfControl.zone_geometry_fid_a_from_pair_pack(zg)
+		fd_atk = _ZoneOfControl.zone_geometry_formation_a_from_pair_pack(zg)
+		fd_opp = _ZoneOfControl.zone_geometry_formation_b_from_pair_pack(zg)
 	var depth_lane_atk: Variant = null
 	if _EntityAccess.rank_int(atk) > 0:
 		depth_lane_atk = _DepthPolearm.depth_polearm_lane_open(manager, atk, fid_atk)
 	var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, atk, opp, fd_atk, fd_opp)
 	var w: float = soft_geometry_score(manager, atk, opp, _PairGeometry.cached_eff_dist(pair_geom))
 	w *= pinch_score_mult(manager, atk, opp, depth_lane_atk, fid_atk)
-	w *= pincer_role_target_mult(manager, atk, opp, depth_lane_atk, fid_atk)
-	w *= pincer_preferred_flank_target_mult(manager, atk, _EntityAccess.id_int(opp))
+	w *= pincer_preferred_flank_target_mult(manager, atk, opp)
 	w *= hold_lane_mult(manager, atk, opp, depth_lane_atk, fid_atk)
 	w *= file_opposed_mult(manager, atk, opp, depth_lane_atk, fid_atk)
 	w *= commitment_match_mult(atk, _EntityAccess.id_int(opp))
@@ -521,12 +452,9 @@ static func ai_targeting_weight_mult(
 		var opp_pack: Variant = zone_geometry_by_combatant_id.get(tid, null)
 		if opp_pack is Dictionary:
 			opp_ctx = opp_pack as Dictionary
-	var w: float = hostile_pair_targeting_weight_mult(
+	return hostile_pair_targeting_weight_mult(
 		manager, atk, opp, null, actor_zone_geometry_line_context, opp_ctx
 	)
-	if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-		w *= pincer_close_arc_spread_mult(manager, atk, tid)
-	return w
 
 
 ## (A) Order rank-line opponents: file-opposed first, then `hostile_pair_targeting_weight_mult` (geometry, doctrine, commitment, pressure, engagement mode, posture, opponent formation, stance — Tier 1.6).

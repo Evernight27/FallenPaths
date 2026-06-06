@@ -2,17 +2,20 @@ class_name CombatRegressionHarnessTier1Tail
 extends RefCounted
 
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
+## Footing: not WF/PA owner — may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS **`#wf-footing-doc-map`**.
 
 const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _AttackResolver := preload("res://combat/AttackResolver.gd")
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
+const _DistanceBands := preload("res://combat/CombatDistanceBands.gd")
 const _CombatLogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _EngagementResolver := preload("res://combat/CombatEngagementResolver.gd")
+const _ResolveAction := preload("res://combat/CombatResolveAction.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationEngagement := preload("res://combat/CombatFormationEngagement.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
@@ -25,9 +28,14 @@ const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
 const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
+const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
+const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 
 static func _assert_tactical_snapshot_matches(
@@ -471,11 +479,10 @@ static func _run_depth_polearm_layout_fuzz(failures: PackedStringArray) -> void:
 
 ## Front-rank sword vs sword: CLOSE or MID must list real strikes (MID uses geometric reach, not only REACH_MID_MIN).
 static func _run_front_rank_pair_melee_listed(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
-		"SWORD",
-		{"files": 1, "ranks": 1, "density": "normal"},
-		{"files": 1, "ranks": 1, "density": "normal"}
-	)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	mgr._recompute_zoc_and_distance()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
@@ -631,6 +638,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 		)
 	if not _EngagementMode.can_enter_formation_from_snapshot(s4):
 		CombatRegressionHarness._fail(failures, "engagement: 4v4 formation snap must satisfy can_enter_formation_from_snapshot")
+	var mode_f: String = _EngagementMode.engagement_mode(f)
 	_assert_tactical_snapshot_matches(failures, f, "engagement large 4v4")
 	CombatRegressionHarness._free_manager(f)
 
@@ -747,7 +755,6 @@ static func _run_opposition_offset_seeded_at_start(failures: PackedStringArray) 
 static func _run_border_skirmish_encounter_enemy_pinch(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.encounter = {
-		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER: CombatConstants.DOCTRINE_PINCH_CENTER,
 		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY: CombatConstants.DOCTRINE_PINCH_CENTER,
 		CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT: 7,
 	}
@@ -756,12 +763,6 @@ static func _run_border_skirmish_encounter_enemy_pinch(failures: PackedStringArr
 	for _j in 3:
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_PINCH_CENTER:
-		CombatRegressionHarness._fail(
-			failures,
-			"border_skirmish_pinch: player doctrine want pinch_center got %s"
-			% mgr.get_formation_doctrine("player")
-		)
 	if mgr.get_formation_doctrine("enemy") != CombatConstants.DOCTRINE_PINCH_CENTER:
 		CombatRegressionHarness._fail(
 			failures,
@@ -811,6 +812,767 @@ static func _run_opposition_equal_width_same_index(failures: PackedStringArray) 
 	if eq.has_meta(_EngagementOpposition.META_OPPOSITION_FILE_OFFSET_BY_SIDE):
 		CombatRegressionHarness._fail(failures, "opposition_offset: stop() should clear opposition meta")
 	CombatRegressionHarness._free_manager(eq)
+
+
+## III-6: depth spear reserve skips with faster recheck when lane is open (same-file rank-0 ally).
+static func _run_back_rank_depth_lane_skip_recheck(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var rear: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_player_side(c) and _EntityAccess.rank_int(c) == 1:
+			rear = c
+			break
+	if rear.is_empty():
+		CombatRegressionHarness._fail(failures, "back_rank_depth_skip: missing rank-1 spear reserve")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, rear):
+		CombatRegressionHarness._fail(failures, "back_rank_depth_skip: expected depth lane open")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var rear_id: int = _EntityAccess.id_int(rear)
+	mgr.skip_turn(rear_id)
+	var delay: float = (
+		_EventScheduler.get_next_action_ready_at(mgr, rear_id) - mgr.combat_clock
+	)
+	var want: float = CombatConstants.READY_DELAY_SKIP_BACK_RANK_DEPTH_LANE_S
+	if absf(delay - want) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"back_rank_depth_skip: want delay %.2f got %.2f" % [want, delay]
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-6 maintain: rear relief swap gets line-plug weight when another file has rank-0 hole.
+static func _run_swap_rank_line_plug_weight_when_front_hole(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	if hole_front.is_empty() or rear.is_empty() or front.is_empty():
+		CombatRegressionHarness._fail(failures, "swap_rank_line_plug: missing hole/rear/front fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	if _FormationSlots.slot_has_any_living_occupant(mgr, slots, Vector2i(0, 4)):
+		CombatRegressionHarness._fail(failures, "swap_rank_line_plug: want empty rank-0 file 4 after kill")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	if not _FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "swap_rank_line_plug: want rank-0 hole on line after kill")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	if _AIPicker.is_relief_swap_tactically_allowed(rear, front):
+		CombatRegressionHarness._fail(failures, "swap_rank_line_plug: want relief swap blocked for weight test")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var swap_act: Dictionary = {
+		"move_id": CombatConstants.MOVE_ID_SWAP_RANK,
+		"target_id": _EntityAccess.id_int(front),
+	}
+	var w: float = _AIPicker._get_action_weight(
+		swap_act, _EntityAccess.id_int(rear), mgr, true, {}, {}
+	)
+	if w < CombatConstants.SWAP_RANK_AI_LINE_PLUG_WEIGHT - 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"swap_rank_line_plug: want >= %.2f got %.3f"
+			% [CombatConstants.SWAP_RANK_AI_LINE_PLUG_WEIGHT, w]
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-6: rank-0 turn resolves → same-file reserves get formation recheck delay.
+static func _run_same_file_depth_recheck_after_front_turn(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var front: Dictionary = {}
+	var rear: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_player_side(c):
+			continue
+		if _EntityAccess.rank_int(c) == 0:
+			front = c
+		elif _EntityAccess.rank_int(c) == 1:
+			rear = c
+	if front.is_empty() or rear.is_empty():
+		CombatRegressionHarness._fail(failures, "depth_recheck_front_turn: missing front/rear pair")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var front_id: int = _EntityAccess.id_int(front)
+	var rear_id: int = _EntityAccess.id_int(rear)
+	mgr.skip_turn(front_id)
+	var delay: float = (
+		_EventScheduler.get_next_action_ready_at(mgr, rear_id) - mgr.combat_clock
+	)
+	var want: float = CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+	if absf(delay - want) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"depth_recheck_front_turn: want delay %.2f got %.2f" % [want, delay]
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-6: rank-0 wind-up abort → same-file reserves get formation recheck delay.
+static func _run_windup_abort_same_file_depth_recheck(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var front: Dictionary = {}
+	var rear: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_player_side(c):
+			continue
+		if _EntityAccess.rank_int(c) == 0:
+			front = c
+		elif _EntityAccess.rank_int(c) == 1:
+			rear = c
+	if front.is_empty() or rear.is_empty():
+		CombatRegressionHarness._fail(failures, "windup_depth_recheck: missing front/rear pair")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var front_id: int = _EntityAccess.id_int(front)
+	var rear_id: int = _EntityAccess.id_int(rear)
+	var enemy_id: int = _EntityAccess.id_int(mgr.combatants[2])
+	_WindUpStarter.start(mgr, front_id, enemy_id, "thrust")
+	var ent: CoreEntity = _EntityAccess.scene_node(front) as CoreEntity
+	CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
+	CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
+	_StateHandlers.process_wind_up(mgr, front, 0.05)
+	var delay: float = (
+		_EventScheduler.get_next_action_ready_at(mgr, rear_id) - mgr.combat_clock
+	)
+	var want: float = CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+	if absf(delay - want) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"windup_depth_recheck: want delay %.2f got %.2f" % [want, delay]
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-6: **`rotate_file`** resolve rechecks depth reserves in both swapped file columns.
+static func _run_rotate_file_depth_recheck_both_columns(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var rot0: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var rot1: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 1)
+	var rear0: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	var rear1: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 1)
+	if rot0.is_empty() or rot1.is_empty() or rear0.is_empty() or rear1.is_empty():
+		CombatRegressionHarness._fail(failures, "rotate_depth_recheck: missing 2x2 fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	mgr.combat_clock = 1.0
+	var id0: int = _EntityAccess.id_int(rot0)
+	var id1: int = _EntityAccess.id_int(rot1)
+	var rear0_id: int = _EntityAccess.id_int(rear0)
+	var rear1_id: int = _EntityAccess.id_int(rear1)
+	_FormationFlow.start_rotate_file(mgr, id0, id1)
+	_FormationFlow.handle_rotate_file_resolve(
+		mgr,
+		{"combatant_id": id0, "resolve_at": 0.0, "data": {"partner_id": id1}}
+	)
+	var want: float = CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+	var delay0: float = _EventScheduler.get_next_action_ready_at(mgr, rear0_id) - mgr.combat_clock
+	var delay1: float = _EventScheduler.get_next_action_ready_at(mgr, rear1_id) - mgr.combat_clock
+	CombatRegressionHarness._free_manager(mgr)
+	if absf(delay0 - want) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"rotate_depth_recheck: file-0 reserve want delay %.2f got %.2f" % [want, delay0]
+		)
+	if absf(delay1 - want) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"rotate_depth_recheck: file-1 reserve want delay %.2f got %.2f" % [want, delay1]
+		)
+
+
+## III-6: Skirmish rotate gauge suffix when rank-0 gap and **`rotate_file`** listed.
+static func _run_skirmish_rotate_gauge_suffix_when_listed(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	if str(_EngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+		CombatRegressionHarness._fail(failures, "skirmish_rotate_gauge: expected skirmish mode")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rot_src: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	if hole_front.is_empty() or rot_src.is_empty():
+		CombatRegressionHarness._fail(failures, "skirmish_rotate_gauge: missing hole/rotate fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	rot_src["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(rot_src))
+	_PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(mgr, rot_src, acts)
+	var stamp: String = str(
+		rot_src.get(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")
+	).strip_edges()
+	CombatRegressionHarness._free_manager(mgr)
+	if "Line gap" not in stamp:
+		CombatRegressionHarness._fail(
+			failures, "skirmish_rotate_gauge: want rotate gap suffix on gauge stamp got %s" % stamp
+		)
+
+
+## III-6: **`swap_rank`** resolve rechecks rank-2+ reserves in the swapped column.
+static func _run_swap_rank_depth_recheck_rank2_after_resolve(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 3, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var rank0: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var rank1: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	var rank2: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 2, 0)
+	if rank0.is_empty() or rank1.is_empty() or rank2.is_empty():
+		CombatRegressionHarness._fail(failures, "swap_depth_recheck: missing 1x3 column fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	mgr.combat_clock = 1.0
+	var id0: int = _EntityAccess.id_int(rank0)
+	var id1: int = _EntityAccess.id_int(rank1)
+	var rank2_id: int = _EntityAccess.id_int(rank2)
+	_FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
+	_FormationFlow.handle_swap_rank_resolve(
+		mgr,
+		{"combatant_id": id0, "resolve_at": 0.0, "data": {"partner_id": id1, "move_kind": "swap_rank"}}
+	)
+	var want: float = CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+	var delay2: float = _EventScheduler.get_next_action_ready_at(mgr, rank2_id) - mgr.combat_clock
+	var delay1: float = _EventScheduler.get_next_action_ready_at(mgr, id1) - mgr.combat_clock
+	var prom: float = CombatConstants.READY_DELAY_AFTER_PROMOTION_S
+	CombatRegressionHarness._free_manager(mgr)
+	if absf(delay2 - want) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"swap_depth_recheck: rank-2 want delay %.2f got %.2f" % [want, delay2]
+		)
+	if absf(delay1 - prom) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"swap_depth_recheck: demoted rank-1 want promotion %.2f got %.2f" % [prom, delay1]
+		)
+
+
+## III-6: **`reschedule_same_file_depth_rank2_plus`** wakes rank-2+ in a column (wired from swap / fall_back resolve).
+static func _run_same_file_depth_rank2_plus_scheduler(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 3, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var rank1: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	var rank2: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 2, 0)
+	if rank1.is_empty() or rank2.is_empty():
+		CombatRegressionHarness._fail(failures, "rank2_plus_scheduler: missing rank-1/rank-2 fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	rank1["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	mgr.combat_clock = 1.0
+	var rank2_id: int = _EntityAccess.id_int(rank2)
+	_EventScheduler.reschedule_same_file_depth_rank2_plus(mgr, "player", 0)
+	var want: float = CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+	var delay2: float = _EventScheduler.get_next_action_ready_at(mgr, rank2_id) - mgr.combat_clock
+	CombatRegressionHarness._free_manager(mgr)
+	if absf(delay2 - want) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"rank2_plus_scheduler: rank-2 want delay %.2f got %.2f" % [want, delay2]
+		)
+
+
+## III-6: lone rank-0 **`fall_back_solo`** demotes when the rear slot in-column is empty (ii5-style).
+static func _run_fall_back_solo_demotes_when_rear_slot_empty(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start(
+		{
+			"files": 1,
+			"ranks": 2,
+			"line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE,
+			"density": "normal",
+		},
+		{"files": 1, "ranks": 1, "density": "normal"}
+	)
+	var rank0: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	if rank0.is_empty():
+		CombatRegressionHarness._fail(failures, "fall_back_solo_demote: missing rank-0 fixture")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	mgr.combat_clock = 1.0
+	var rank0_id: int = _EntityAccess.id_int(rank0)
+	rank0["state"] = CombatConstants.STATE_FALLING_BACK
+	rank0["state_timer"] = float(rank0.get("state_duration", CombatConstants.BASE_FALL_BACK_S))
+	_FormationFlow.handle_fall_back_solo_resolve(
+		mgr,
+		{"combatant_id": rank0_id, "resolve_at": 0.0, "data": {}}
+	)
+	var after: Dictionary = _EntityAccess.manager_get_combatant(mgr, rank0_id)
+	var rank_after: int = _EntityAccess.rank_int(after)
+	CombatRegressionHarness._free_manager(mgr)
+	if rank_after != 1:
+		CombatRegressionHarness._fail(
+			failures, "fall_back_solo_demote: want rank1 got rank=%d" % rank_after
+		)
+
+
+## III-6: sparse column (rank-0 + rank-2, empty rank-1) — solo fall_back demotes without vacancy undo; rank-2 recheck delay.
+static func _run_fall_back_solo_depth_recheck_rank2_after_resolve(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 3, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var rank0: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var rank1: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	var rank2: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 2, 0)
+	if rank0.is_empty() or rank1.is_empty() or rank2.is_empty():
+		CombatRegressionHarness._fail(failures, "fall_back_depth_recheck: missing 1x3 column fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	rank1["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	mgr.combat_clock = 1.0
+	var rank0_id: int = _EntityAccess.id_int(rank0)
+	var rank2_id: int = _EntityAccess.id_int(rank2)
+	rank0["state"] = CombatConstants.STATE_FALLING_BACK
+	rank0["state_timer"] = float(rank0.get("state_duration", CombatConstants.BASE_FALL_BACK_S))
+	_FormationFlow.handle_fall_back_solo_resolve(
+		mgr,
+		{"combatant_id": rank0_id, "resolve_at": 0.0, "data": {}}
+	)
+	var after: Dictionary = _EntityAccess.manager_get_combatant(mgr, rank0_id)
+	var rank_after: int = _EntityAccess.rank_int(after)
+	var delay2: float = _EventScheduler.get_next_action_ready_at(mgr, rank2_id) - mgr.combat_clock
+	var want: float = CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+	CombatRegressionHarness._free_manager(mgr)
+	if rank_after != 1:
+		CombatRegressionHarness._fail(
+			failures,
+			"fall_back_depth_recheck: want rank1 got rank=%d delay2=%.2f" % [rank_after, delay2]
+		)
+	if absf(delay2 - want) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"fall_back_depth_recheck: rank-2 want delay %.2f got %.2f" % [want, delay2]
+		)
+
+
+## III-6: incap plug-forward copy surfaces on formation gauge suffix when **`swap_rank`** listed.
+static func _harness_plug_forward_incap_fixtures(mgr: Node) -> Dictionary:
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	return {"front": front, "rear": rear}
+
+
+static func _run_plug_forward_gauge_suffix_when_listed(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	var fx: Dictionary = _harness_plug_forward_incap_fixtures(mgr)
+	var front: Dictionary = fx["front"]
+	var rear: Dictionary = fx["rear"]
+	if front.is_empty() or rear.is_empty():
+		CombatRegressionHarness._fail(failures, "plug_forward_gauge: missing front/rear")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var ent: CoreEntity = _EntityAccess.scene_node(front) as CoreEntity
+	CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
+	CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
+	front.state = CombatConstants.STATE_COWERING
+	_MobilityRetreat.sync_cowering_state_if_no_functional_arm(front)
+	rear["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(rear))
+	if not _EntityAccess.is_incapacitated(front):
+		CombatRegressionHarness._fail(failures, "plug_forward_gauge: want incapacitated front partner")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	if not _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_SWAP_RANK):
+		CombatRegressionHarness._fail(failures, "plug_forward_gauge: want swap_rank listed over incap front")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	_PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(mgr, rear, acts)
+	var stamp: String = str(
+		rear.get(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")
+	).strip_edges()
+	CombatRegressionHarness._free_manager(mgr)
+	if "Partner down" not in stamp:
+		CombatRegressionHarness._fail(
+			failures, "plug_forward_gauge: want partner-down suffix on gauge stamp got %s" % stamp
+		)
+
+
+## III-6 maintain: rear lists swap_rank to plug rank-0 hole when relief fitness gate blocks.
+static func _run_swap_rank_listed_line_plug_when_relief_blocked(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	if hole_front.is_empty() or rear.is_empty() or front.is_empty():
+		CombatRegressionHarness._fail(failures, "swap_rank_listed_plug: missing hole/rear/front fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	if not _FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "swap_rank_listed_plug: want rank-0 hole on line after kill")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	if _AIPicker.is_relief_swap_tactically_allowed(rear, front):
+		CombatRegressionHarness._fail(failures, "swap_rank_listed_plug: want relief swap blocked for listing test")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	rear["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(rear))
+	if not _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_SWAP_RANK):
+		CombatRegressionHarness._fail(failures, "swap_rank_listed_plug: want swap_rank listed when line has hole")
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-6 maintain: resolve accepts line-plug **`swap_rank`** when relief fitness gate blocks listing-only path.
+static func _run_swap_rank_resolve_line_plug_when_listed(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	if hole_front.is_empty() or rear.is_empty() or front.is_empty():
+		CombatRegressionHarness._fail(failures, "swap_rank_resolve_plug: missing hole/rear/front fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	if not _FormationFlow.formation_line_has_rank0_gap(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "swap_rank_resolve_plug: want rank-0 gap on line after kill")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	if _AIPicker.is_relief_swap_tactically_allowed(rear, front):
+		CombatRegressionHarness._fail(failures, "swap_rank_resolve_plug: want relief swap blocked for resolve test")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var rear_id: int = _EntityAccess.id_int(rear)
+	var front_id: int = _EntityAccess.id_int(front)
+	rear["gauge"] = 100.0
+	front["gauge"] = 100.0
+	rear["state"] = CombatConstants.STATE_WAITING
+	var acts: Array = _ActionsBuilder.build(mgr, rear_id)
+	if not _ListedActions.actions_include_move_vs_target(
+		acts, front_id, CombatConstants.MOVE_ID_SWAP_RANK
+	):
+		CombatRegressionHarness._fail(failures, "swap_rank_resolve_plug: want swap_rank listed vs front partner")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var ok: bool = _ResolveAction.resolve(mgr, rear_id, front_id, CombatConstants.MOVE_ID_SWAP_RANK, {})
+	CombatRegressionHarness._free_manager(mgr)
+	if not ok:
+		CombatRegressionHarness._fail(failures, "swap_rank_resolve_plug: resolve should accept line-plug swap_rank")
+
+
+## III-6: line-plug copy surfaces on formation gauge suffix when **`swap_rank`** listed.
+static func _run_line_plug_gauge_suffix_when_swap_listed(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	if hole_front.is_empty() or rear.is_empty():
+		CombatRegressionHarness._fail(failures, "line_plug_gauge: missing hole/rear fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	rear["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(rear))
+	_PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(mgr, rear, acts)
+	var stamp: String = str(
+		rear.get(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")
+	).strip_edges()
+	CombatRegressionHarness._free_manager(mgr)
+	if "Front gap" not in stamp:
+		CombatRegressionHarness._fail(failures, "line_plug_gauge: want plug suffix on gauge stamp got %s" % stamp)
+
+
+## III-6: rank-1 turn resolves → rank-2+ same-file reserves get formation recheck delay.
+static func _run_same_file_depth_recheck_after_rank1_turn(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 3, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var rank1: Dictionary = {}
+	var rank2: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_player_side(c):
+			continue
+		if _EntityAccess.rank_int(c) == 1:
+			rank1 = c
+		elif _EntityAccess.rank_int(c) == 2:
+			rank2 = c
+	if rank1.is_empty() or rank2.is_empty():
+		CombatRegressionHarness._fail(failures, "depth_recheck_rank1: missing rank-1/rank-2 column")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var rank1_id: int = _EntityAccess.id_int(rank1)
+	var rank2_id: int = _EntityAccess.id_int(rank2)
+	mgr.skip_turn(rank1_id)
+	var delay: float = (
+		_EventScheduler.get_next_action_ready_at(mgr, rank2_id) - mgr.combat_clock
+	)
+	var want: float = CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+	if absf(delay - want) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"depth_recheck_rank1: want delay %.2f got %.2f" % [want, delay]
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## p4f UX: front-gap swap hint when line-plug **`swap_rank`** is listed.
+static func _run_front_gap_line_plug_hint_when_swap_listed(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	if hole_front.is_empty() or rear.is_empty():
+		CombatRegressionHarness._fail(failures, "front_gap_hint: missing hole/rear fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	rear["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(rear))
+	var hint: String = _PlayerTurnHints.front_gap_line_plug_hint(mgr, rear, acts)
+	if "Front gap" not in hint:
+		CombatRegressionHarness._fail(failures, "front_gap_hint: want plug copy got %s" % hint)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## p4f UX: Skirmish rotate hint when rank-0 gap and **`rotate_file`** listed.
+static func _run_skirmish_line_gap_rotate_hint(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	if str(_EngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+		CombatRegressionHarness._fail(failures, "skirmish_rotate_hint: expected skirmish mode")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rot_src: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var rot_tgt: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 1)
+	if hole_front.is_empty() or rot_src.is_empty() or rot_tgt.is_empty():
+		CombatRegressionHarness._fail(failures, "skirmish_rotate_hint: missing hole/rotate fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	if not _FormationFlow.formation_has_rank0_hole(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "skirmish_rotate_hint: want rank-0 hole on line after kill")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	rot_src["gauge"] = 100.0
+	rot_tgt["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(rot_src))
+	var hint: String = _PlayerTurnHints.skirmish_line_gap_rotate_hint(mgr, rot_src, acts)
+	if "Line gap" not in hint:
+		CombatRegressionHarness._fail(failures, "skirmish_rotate_hint: want rotate gap copy got %s" % hint)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-6: Skirmish rank-0 hole boosts **`rotate_file`** weight even without depth ranks.
+static func _run_rotate_line_plug_weight_skirmish_rank0_hole(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	if str(_EngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+		CombatRegressionHarness._fail(failures, "rotate_skirmish_hole: expected skirmish mode")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rot_src: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var rot_tgt: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 1)
+	if hole_front.is_empty() or rot_src.is_empty() or rot_tgt.is_empty():
+		CombatRegressionHarness._fail(failures, "rotate_skirmish_hole: missing hole/rotate fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	if not _FormationFlow.formation_has_rank0_hole(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "rotate_skirmish_hole: want rank-0 hole after kill")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	if _FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
+		CombatRegressionHarness._fail(
+			failures, "rotate_skirmish_hole: skirmish 1-rank should not expose depth plug opportunity"
+		)
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var rot_act: Dictionary = {
+		"move_id": CombatConstants.MOVE_ID_ROTATE_FILE,
+		"target_id": _EntityAccess.id_int(rot_tgt),
+	}
+	var w: float = _AIPicker._get_action_weight(
+		rot_act, _EntityAccess.id_int(rot_src), mgr, true, {}, {}
+	)
+	if w < CombatConstants.AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT - 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"rotate_skirmish_hole: want >= %.2f got %.3f"
+			% [CombatConstants.AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT, w]
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## p4f UX: plug-forward hint when **`swap_rank`** lists over incapacitated rank-0 partner.
+static func _run_plug_forward_incap_partner_hint(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	var fx: Dictionary = _harness_plug_forward_incap_fixtures(mgr)
+	var front: Dictionary = fx["front"]
+	var rear: Dictionary = fx["rear"]
+	if front.is_empty() or rear.is_empty():
+		CombatRegressionHarness._fail(failures, "plug_forward_hint: missing front/rear")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var ent: CoreEntity = _EntityAccess.scene_node(front) as CoreEntity
+	CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
+	CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
+	front.state = CombatConstants.STATE_COWERING
+	_MobilityRetreat.sync_cowering_state_if_no_functional_arm(front)
+	rear["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(rear))
+	if not _EntityAccess.is_incapacitated(front):
+		CombatRegressionHarness._fail(failures, "plug_forward_hint: want incapacitated front partner")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	if not _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_SWAP_RANK):
+		CombatRegressionHarness._fail(failures, "plug_forward_hint: want swap_rank listed over incap front")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var hint: String = _PlayerTurnHints.plug_forward_incap_partner_hint(mgr, rear, acts)
+	if "Partner down" not in hint:
+		CombatRegressionHarness._fail(failures, "plug_forward_hint: want partner-down copy got %s" % hint)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-6 maintain: rotate_file gets line-plug floor when rank-0 hole exists (weight path).
+static func _run_rotate_file_line_plug_weight_when_front_hole(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 10:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rot_src: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var rot_tgt: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 1)
+	if hole_front.is_empty() or rot_src.is_empty() or rot_tgt.is_empty():
+		CombatRegressionHarness._fail(failures, "rotate_line_plug: missing hole/rotate fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	if _FormationSlots.slot_has_any_living_occupant(mgr, slots, Vector2i(0, 4)):
+		CombatRegressionHarness._fail(failures, "rotate_line_plug: want empty rank-0 file 4 after kill")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	if not _FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "rotate_line_plug: want rank-0 hole on line after kill")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var rot_act: Dictionary = {
+		"move_id": CombatConstants.MOVE_ID_ROTATE_FILE,
+		"target_id": _EntityAccess.id_int(rot_tgt),
+	}
+	var w: float = _AIPicker._get_action_weight(
+		rot_act, _EntityAccess.id_int(rot_src), mgr, true, {}, {}
+	)
+	if w < CombatConstants.AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT - 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"rotate_line_plug: want >= %.2f got %.3f"
+			% [CombatConstants.AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT, w]
+		)
+	CombatRegressionHarness._free_manager(mgr)
 
 
 ## III-4 Track A PR3 (**2b**): Skirmish wide side skips native line compaction when outnumbering on files.
@@ -932,80 +1694,433 @@ static func _run_skirmish_outnumber_allows_rotate_file(failures: PackedStringArr
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## III-4 pincer roles: 7-wide vs 3-wide **`pinch_center`** → outer files flank, inner center pin.
-static func _run_pincer_role_7v3_flank_and_center(failures: PackedStringArray) -> void:
+## III-4 **3e**: post-attrition mop-up (4v1 tail) — `envelop_mop_up_active`, MID close listing, rotate suppress.
+static func _harness_7v3_mop_up_mgr() -> Node:
 	var mgr: Node = _MgrScript.new()
 	for _i in 7:
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	for _j in 3:
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
-	if not _CombatDoctrine.pincer_outnumber_active(mgr, "player"):
-		CombatRegressionHarness._fail(failures, "pincer_role: expected outnumber active on 7v3 pinch")
-	var p_left: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
-	var p_center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
-	var p_right: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 6)
-	if p_left.is_empty() or p_center.is_empty() or p_right.is_empty():
-		CombatRegressionHarness._fail(failures, "pincer_role: missing 7v3 fixtures")
-	elif _CombatDoctrine.pincer_role_for_combatant(mgr, p_left) != _CombatDoctrine.PINCER_ROLE_FLANK_WING:
-		CombatRegressionHarness._fail(
-			failures,
-			"pincer_role: file 0 want flank got %s" % _CombatDoctrine.pincer_role_for_combatant(mgr, p_left)
-		)
-	elif _CombatDoctrine.pincer_role_for_combatant(mgr, p_center) != _CombatDoctrine.PINCER_ROLE_CENTER:
-		CombatRegressionHarness._fail(
-			failures,
-			"pincer_role: file 3 want center got %s" % _CombatDoctrine.pincer_role_for_combatant(mgr, p_center)
-		)
-	elif _CombatDoctrine.pincer_role_for_combatant(mgr, p_right) != _CombatDoctrine.PINCER_ROLE_FLANK_WING:
-		CombatRegressionHarness._fail(
-			failures,
-			"pincer_role: file 6 want flank got %s" % _CombatDoctrine.pincer_role_for_combatant(mgr, p_right)
-		)
+	var enemy_ids: Array = []
+	for c in mgr.combatants:
+		if _EntityAccess.side_str(c) == "enemy":
+			enemy_ids.append(_EntityAccess.id_int(c))
+	for k in range(mini(2, enemy_ids.size())):
+		CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
+	return mgr
+
+
+static func _run_envelop_mop_up_active_after_attrition(failures: PackedStringArray) -> void:
+	var mgr: Node = _harness_7v3_mop_up_mgr()
+	if not _CombatDoctrine.envelop_mop_up_active(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "envelop_mop_up: expected active after 7v1 attrition")
+	if _CombatDoctrine.envelop_mop_up_active(mgr, "enemy"):
+		CombatRegressionHarness._fail(failures, "envelop_mop_up: narrow enemy should not have mop-up advantage")
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Pincer flank wing prefers enemy outer file over center for **`attempt_close`** targeting.
-static func _run_pincer_flank_prefers_enemy_flank_target(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 7:
-		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	for _j in 3:
-		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
-	var wing: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
-	var e_outer: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 0)
-	var e_center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 1)
-	if wing.is_empty() or e_outer.is_empty() or e_center.is_empty():
-		CombatRegressionHarness._fail(failures, "pincer_flank_target: missing fixtures")
+static func _run_envelop_close_listed_mid_mop_up(failures: PackedStringArray) -> void:
+	var mgr: Node = _harness_7v3_mop_up_mgr()
+	var player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy = c
+			break
+	if player.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "envelop_close_mid: missing player/enemy fixtures")
 		CombatRegressionHarness._free_manager(mgr)
 		return
-	var close_outer: Dictionary = {
-		"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
-		"target_id": _EntityAccess.id_int(e_outer),
-	}
-	var close_center: Dictionary = {
-		"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
-		"target_id": _EntityAccess.id_int(e_center),
-	}
-	var w_outer: float = _TargetScoring.ai_targeting_weight_mult(
-		mgr, _EntityAccess.id_int(wing), close_outer
-	)
-	var w_center: float = _TargetScoring.ai_targeting_weight_mult(
-		mgr, _EntityAccess.id_int(wing), close_center
-	)
-	if w_outer <= w_center:
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	var dist: Dictionary = _EntityAccess.nested_dictionary_for_mutation(player, "distance_to")
+	dist[enemy_id] = CombatConstants.DISTANCE_MID
+	if not _MeleeListing.attempt_close_listed_for_pair(
+		mgr, player, enemy_id, CombatConstants.DISTANCE_MID
+	):
+		CombatRegressionHarness._fail(failures, "envelop_close_mid: want attempt_close listed at MID during mop-up")
+	dist[enemy_id] = CombatConstants.DISTANCE_LONG
+	if not _MeleeListing.attempt_close_listed_for_pair(
+		mgr, player, enemy_id, CombatConstants.DISTANCE_LONG
+	):
+		CombatRegressionHarness._fail(failures, "envelop_close_mid: want attempt_close listed at LONG during mop-up")
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-4 **3e**: `resolve_close_attempt` accepts MID band during mop-up (not `not_long` telemetry).
+static func _run_envelop_close_resolve_mid_mop_up(failures: PackedStringArray) -> void:
+	var mgr: Node = _harness_7v3_mop_up_mgr()
+	var player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy = c
+			break
+	if player.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "envelop_close_resolve: missing player/enemy fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(enemy)
+	if typeof(player.get("distance_to", null)) != TYPE_DICTIONARY:
+		player["distance_to"] = {}
+	if typeof(enemy.get("distance_to", null)) != TYPE_DICTIONARY:
+		enemy["distance_to"] = {}
+	(player["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_MID
+	(enemy["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_MID
+	if mgr.has_meta(_TacticalCombat.META_COMBAT_TELEMETRY):
+		mgr.remove_meta(_TacticalCombat.META_COMBAT_TELEMETRY)
+	_EngagementResolver.resolve_close_attempt(mgr, p_id, e_id)
+	if mgr.has_meta(_TacticalCombat.META_COMBAT_TELEMETRY):
+		var tel: Dictionary = mgr.get_meta(_TacticalCombat.META_COMBAT_TELEMETRY) as Dictionary
+		if int(tel.get("invalid_close_resolve_blocked", 0)) >= 1:
+			CombatRegressionHarness._fail(
+				failures,
+				"envelop_close_resolve: MID mop-up must not increment invalid_close_resolve_blocked"
+			)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-4 **3e**: `resolve_close_attempt` accepts CLOSE band during mop-up (listing/resolve parity).
+static func _run_envelop_close_resolve_close_mop_up(failures: PackedStringArray) -> void:
+	var mgr: Node = _harness_7v3_mop_up_mgr()
+	var player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy = c
+			break
+	if player.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "envelop_close_resolve_close: missing player/enemy fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(enemy)
+	if typeof(player.get("distance_to", null)) != TYPE_DICTIONARY:
+		player["distance_to"] = {}
+	if typeof(enemy.get("distance_to", null)) != TYPE_DICTIONARY:
+		enemy["distance_to"] = {}
+	(player["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_CLOSE
+	(enemy["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_CLOSE
+	if mgr.has_meta(_TacticalCombat.META_COMBAT_TELEMETRY):
+		mgr.remove_meta(_TacticalCombat.META_COMBAT_TELEMETRY)
+	_EngagementResolver.resolve_close_attempt(mgr, p_id, e_id)
+	if mgr.has_meta(_TacticalCombat.META_COMBAT_TELEMETRY):
+		var tel: Dictionary = mgr.get_meta(_TacticalCombat.META_COMBAT_TELEMETRY) as Dictionary
+		if int(tel.get("invalid_close_resolve_blocked", 0)) >= 1:
+			CombatRegressionHarness._fail(
+				failures,
+				"envelop_close_resolve_close: CLOSE mop-up must not increment invalid_close_resolve_blocked"
+			)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+static func _run_envelop_mop_up_rotate_suppressed(failures: PackedStringArray) -> void:
+	var mgr: Node = _harness_7v3_mop_up_mgr()
+	var wing: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var partner: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 1)
+	if wing.is_empty() or partner.is_empty():
+		CombatRegressionHarness._fail(failures, "envelop_rotate: need adjacent rank-0 wing pair")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	wing["gauge"] = 100.0
+	partner["gauge"] = 100.0
+	var wing_id: int = _EntityAccess.id_int(wing)
+	var acts: Array = _ActionsBuilder.build(mgr, wing_id)
+	var reserve_only: Array = []
+	for raw in acts:
+		var a: Dictionary = _ListedActions._entry(raw)
+		if a.is_empty():
+			continue
+		var mid: String = _ListedActions.entry_move_id(a)
+		if mid == CombatConstants.MOVE_ID_WAIT or CombatConstants.is_focus_line_move(mid):
+			reserve_only.append(a)
+		elif mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+			reserve_only.append(a)
+	if not _CombatDoctrine.should_suppress_skirmish_rotate_file(mgr, wing, reserve_only):
+		CombatRegressionHarness._fail(
+			failures, "envelop_rotate: should_suppress when mop-up and no melee strikes in menu"
+		)
+	if _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_ATTEMPT_CLOSE):
+		if not _ListedActions.first_action_move_vs_target(
+			acts, CombatConstants.MOVE_ID_ROTATE_FILE, _EntityAccess.id_int(partner)
+		).is_empty():
+			CombatRegressionHarness._fail(
+				failures, "envelop_rotate: must not list rotate_file when close is listed during mop-up"
+			)
+	elif not _ListedActions.action_list_has_hostile_melee_strike(acts, wing_id):
+		if not _ListedActions.first_action_move_vs_target(
+			acts, CombatConstants.MOVE_ID_ROTATE_FILE, _EntityAccess.id_int(partner)
+		).is_empty():
+			CombatRegressionHarness._fail(
+				failures, "envelop_rotate: must not list rotate_file without melee during mop-up"
+			)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-4 **3e**: fled allies do not count toward mop-up standing advantage.
+static func _run_envelop_mop_up_excludes_fled_allies(failures: PackedStringArray) -> void:
+	var mgr: Node = _harness_7v3_mop_up_mgr()
+	var fled_count: int = 0
+	for c in mgr.combatants:
+		if not _EntityAccess.is_player_side(c) or not _EntityAccess.is_standing_combatant(c):
+			continue
+		if fled_count >= 3:
+			break
+		c["combat_absent"] = true
+		c["state"] = CombatConstants.STATE_FLED
+		fled_count += 1
+	if not _CombatDoctrine.envelop_mop_up_active(mgr, "player"):
 		CombatRegressionHarness._fail(
 			failures,
-			"pincer_flank_target: want outer flank weight > center (outer=%.4f center=%.4f)"
-			% [w_outer, w_center]
+			"envelop_mop_up_fled: want active with 4 standing vs 1 enemy got inactive"
 		)
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Flank wing **`preferred_pincer_flank_enemy_id`** boosts pre-commit targeting weight.
+## III-4 **3e**: fled enemies are not living hostiles (listing / opposition / close slots).
+static func _run_living_hostile_excludes_fled_enemy(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	enemy["combat_absent"] = true
+	enemy["state"] = CombatConstants.STATE_FLED
+	if _EntityAccess.is_living_hostile_to(player, enemy):
+		CombatRegressionHarness._fail(failures, "living_hostile_fled: fled enemy must not be hostile target")
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-4 **3e**: flee purges stale **`distance_to`** / melee ordering (no ghost `e9:close` after rout).
+static func _run_fled_enemy_distance_to_purged_after_recompute(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	var fled: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy") and _EntityAccess.file_int(c) == 2:
+			fled = c
+			break
+	var player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	if fled.is_empty() or player.is_empty():
+		CombatRegressionHarness._fail(failures, "fled_distance_to: missing fled enemy or player fixture")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var fled_id: int = _EntityAccess.id_int(fled)
+	_EntityAccess.nested_dictionary_for_mutation(player, "distance_to")[fled_id] = CombatConstants.DISTANCE_CLOSE
+	fled["combat_absent"] = true
+	fled["state"] = CombatConstants.STATE_FLED
+	mgr._recompute_zoc_and_distance()
+	var d_to: Dictionary = _EntityAccess.nested_dictionary_read(player, "distance_to")
+	if d_to.has(fled_id):
+		CombatRegressionHarness._fail(
+			failures,
+			"fled_distance_to: want fled id purged from distance_to after recompute"
+		)
+	var ordered: Array = _TargetScoring.ordered_melee_opponents(mgr, player, mgr.combatants, 0)
+	for opp in ordered:
+		if _EntityAccess.id_int(opp) == fled_id:
+			CombatRegressionHarness._fail(
+				failures,
+				"fled_distance_to: ordered_melee_opponents must exclude fled enemy"
+			)
+	if ordered.is_empty():
+		CombatRegressionHarness._fail(
+			failures,
+			"fled_distance_to: want living enemy targets after one flee"
+		)
+	_DistanceBands.purge_stale_distance_to_entries(mgr)
+	if _EntityAccess.nested_dictionary_read(player, "distance_to").has(fled_id):
+		CombatRegressionHarness._fail(
+			failures,
+			"fled_distance_to: purge_stale_distance_to_entries should be idempotent safe"
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-4 **3e**: `CombatResolveAction` rejects `rotate_file` during mop-up when listing would suppress.
+static func _run_envelop_resolve_rotate_rejected_mop_up(failures: PackedStringArray) -> void:
+	var mgr: Node = _harness_7v3_mop_up_mgr()
+	var wing: Dictionary = {}
+	var partner: Dictionary = {}
+	for file_i in range(7):
+		var cand: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+			mgr, "player", 0, file_i
+		)
+		if cand.is_empty():
+			continue
+		cand["gauge"] = 100.0
+		var cand_id: int = _EntityAccess.id_int(cand)
+		var cand_acts: Array = _ActionsBuilder.build(mgr, cand_id)
+		if not _CombatDoctrine.should_suppress_skirmish_rotate_file(mgr, cand, cand_acts):
+			continue
+		for delta in [-1, 1]:
+			var adj: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+				mgr, "player", 0, file_i + delta
+			)
+			if adj.is_empty():
+				continue
+			adj["gauge"] = 100.0
+			wing = cand
+			partner = adj
+			break
+		if not wing.is_empty():
+			break
+	if wing.is_empty() or partner.is_empty():
+		CombatRegressionHarness._fail(
+			failures, "envelop_resolve_rotate: need rank-0 pair with mop-up rotate suppress on live menu"
+		)
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var wing_id: int = _EntityAccess.id_int(wing)
+	var partner_id: int = _EntityAccess.id_int(partner)
+	var committed: bool = _ResolveAction.resolve(
+		mgr, wing_id, partner_id, CombatConstants.MOVE_ID_ROTATE_FILE, {}
+	)
+	if committed:
+		CombatRegressionHarness._fail(failures, "envelop_resolve_rotate: must reject rotate_file during mop-up")
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-4 **3e**: true 1v1 standing duel is not envelop mop-up (min standing advantage).
+static func _run_envelop_mop_up_inactive_true_duel(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	if _CombatDoctrine.envelop_mop_up_active(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "envelop_mop_up_duel: 1v1 should not activate mop-up")
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-4 **3e**: `attempt_close` listed at CLOSE band during mop-up (band/reach gap).
+static func _run_envelop_close_listed_close_mop_up(failures: PackedStringArray) -> void:
+	var mgr: Node = _harness_7v3_mop_up_mgr()
+	var player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy = c
+			break
+	if player.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "envelop_close_close: missing player/enemy fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	var dist: Dictionary = _EntityAccess.nested_dictionary_for_mutation(player, "distance_to")
+	dist[enemy_id] = CombatConstants.DISTANCE_CLOSE
+	if not _MeleeListing.attempt_close_listed_for_pair(
+		mgr, player, enemy_id, CombatConstants.DISTANCE_CLOSE
+	):
+		CombatRegressionHarness._fail(failures, "envelop_close_close: want attempt_close listed at CLOSE during mop-up")
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-4 **3e**: mop-up lists melee at CLOSE when band/reach gap would otherwise close-only stall.
+static func _run_envelop_melee_strike_listed_close_mop_up_reach_gap(failures: PackedStringArray) -> void:
+	var mgr: Node = _harness_7v3_mop_up_mgr()
+	var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy = c
+			break
+	if center.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "envelop_strike_close: missing center/enemy fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	center["gauge"] = 100.0
+	var c_id: int = _EntityAccess.id_int(center)
+	var e_id: int = _EntityAccess.id_int(enemy)
+	var dist_c: Dictionary = _EntityAccess.nested_dictionary_for_mutation(center, "distance_to")
+	dist_c[e_id] = CombatConstants.DISTANCE_CLOSE
+	var dist_e: Dictionary = _EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")
+	dist_e[c_id] = CombatConstants.DISTANCE_CLOSE
+	var melee_range: float = _MeleeListing.melee_weapon_reach(center)
+	var eff_dist: float = _PairGeometry.effective_pair_eff_dist(mgr, center, enemy)
+	var reach_gap: bool = not _PairGeometry.melee_reach_covers_eff_dist(melee_range, eff_dist)
+	if not _MeleeListing.can_melee_threaten(mgr, center, enemy):
+		CombatRegressionHarness._fail(
+			failures,
+			"envelop_strike_close: can_melee_threaten want true at CLOSE during mop-up (reach_gap=%s)"
+			% str(reach_gap).to_lower()
+		)
+	var acts: Array = _ActionsBuilder.build(mgr, c_id)
+	if not _ListedActions.action_list_has_hostile_melee_strike(acts, c_id):
+		CombatRegressionHarness._fail(
+			failures,
+			"envelop_strike_close: want listed melee strike at CLOSE during mop-up (reach_gap=%s)"
+			% str(reach_gap).to_lower()
+		)
+	if _ListedActions.action_list_is_reserve_posture_only(acts):
+		CombatRegressionHarness._fail(
+			failures, "envelop_strike_close: reserve_only menu must not hold when strikes listed"
+		)
+	var mgr_duel: Node = _MgrScript.new()
+	for _i in 2:
+		mgr_duel.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+		mgr_duel.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr_duel.start({"files": 2, "ranks": 1, "density": "normal"}, {"files": 2, "ranks": 1, "density": "normal"})
+	var p0: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr_duel, "player", 0, 0)
+	var e0: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr_duel, "enemy", 0, 0)
+	if not p0.is_empty() and not e0.is_empty():
+		var p_id: int = _EntityAccess.id_int(p0)
+		var e0_id: int = _EntityAccess.id_int(e0)
+		_EntityAccess.nested_dictionary_for_mutation(p0, "distance_to")[e0_id] = CombatConstants.DISTANCE_CLOSE
+		_EntityAccess.nested_dictionary_for_mutation(e0, "distance_to")[p_id] = CombatConstants.DISTANCE_CLOSE
+		var eff_duel: float = _PairGeometry.effective_pair_eff_dist(mgr_duel, p0, e0)
+		if not _PairGeometry.melee_reach_covers_eff_dist(_MeleeListing.melee_weapon_reach(p0), eff_duel):
+			if _MeleeListing.can_melee_threaten(mgr_duel, p0, e0):
+				CombatRegressionHarness._fail(
+					failures,
+					"envelop_strike_close: 1v1 must not bypass reach without mop-up"
+				)
+	CombatRegressionHarness._free_manager(mgr_duel)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+static func _run_pincer_wing_commitment_propagates_from_center(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
+	var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+	var wing: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var enemy: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 0)
+	if center.is_empty() or wing.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "pincer_propagate: missing center/wing/enemy fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	if _CombatDoctrine.pincer_role_for_combatant(mgr, center) != _CombatDoctrine.PINCER_ROLE_CENTER:
+		CombatRegressionHarness._fail(failures, "pincer_propagate: file-3 player want center role")
+	if _CombatDoctrine.pincer_role_for_combatant(mgr, wing) != _CombatDoctrine.PINCER_ROLE_FLANK_WING:
+		CombatRegressionHarness._fail(failures, "pincer_propagate: file-0 player want flank_wing role")
+	var center_id: int = _EntityAccess.id_int(center)
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	var want_wing_tgt: int = _CombatDoctrine.preferred_pincer_flank_enemy_id(mgr, wing)
+	if want_wing_tgt < 0:
+		CombatRegressionHarness._fail(failures, "pincer_propagate: wing should have preferred flank enemy")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	mgr.combat_clock = 0.0
+	_TargetScoring.on_combat_commitment(mgr, center_id, enemy_id)
+	var got_tgt: int = int(wing.get("doctrine_target_commit_id", -1))
+	if got_tgt != want_wing_tgt:
+		CombatRegressionHarness._fail(
+			failures,
+			"pincer_propagate: wing commit want %d got %d" % [want_wing_tgt, got_tgt]
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
 static func _run_pincer_preferred_flank_target_mult(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	for _i in 7:
@@ -1015,201 +2130,22 @@ static func _run_pincer_preferred_flank_target_mult(failures: PackedStringArray)
 	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
 	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
 	var wing: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
-	var e_outer: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 0)
-	var e_center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 1)
-	if wing.is_empty() or e_outer.is_empty() or e_center.is_empty():
-		CombatRegressionHarness._fail(failures, "pincer_preferred_flank: missing fixtures")
+	var pref_enemy: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 0)
+	var off_enemy: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 2)
+	if wing.is_empty() or pref_enemy.is_empty() or off_enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "pincer_target_mult: missing wing/enemy fixtures")
 		CombatRegressionHarness._free_manager(mgr)
 		return
-	var e_outer_id: int = _EntityAccess.id_int(e_outer)
-	var e_center_id: int = _EntityAccess.id_int(e_center)
-	if _CombatDoctrine.preferred_pincer_flank_enemy_id(mgr, wing) != e_outer_id:
+	var m_pref: float = _TargetScoring.pincer_preferred_flank_target_mult(mgr, wing, pref_enemy)
+	var m_off: float = _TargetScoring.pincer_preferred_flank_target_mult(mgr, wing, off_enemy)
+	if not is_equal_approx(m_pref, CombatConstants.DOCTRINE_PINCER_PREFERRED_FLANK_TARGET_MULT):
 		CombatRegressionHarness._fail(
 			failures,
-			"pincer_preferred_flank: want preferred outer enemy %d"
-			% e_outer_id
+			"pincer_target_mult: preferred enemy want %.4f got %.4f"
+			% [CombatConstants.DOCTRINE_PINCER_PREFERRED_FLANK_TARGET_MULT, m_pref]
 		)
-	var pref_mult: float = _TargetScoring.pincer_preferred_flank_target_mult(mgr, wing, e_outer_id)
-	var other_mult: float = _TargetScoring.pincer_preferred_flank_target_mult(mgr, wing, e_center_id)
-	if pref_mult != CombatConstants.AI_PINCER_PREFERRED_FLANK_TARGET_MULT:
-		CombatRegressionHarness._fail(
-			failures,
-			"pincer_preferred_flank: want mult %.4f got %.4f"
-			% [CombatConstants.AI_PINCER_PREFERRED_FLANK_TARGET_MULT, pref_mult]
-		)
-	if other_mult != 1.0:
-		CombatRegressionHarness._fail(
-			failures, "pincer_preferred_flank: non-preferred target want 1.0 got %.4f" % other_mult
-		)
-	CombatRegressionHarness._free_manager(mgr)
-
-
-## Vacancy plug rank/file shuffle clears stale **`doctrine_target_commit_id`** on the moved unit.
-static func _run_vacancy_plug_clears_doctrine_commitment(failures: PackedStringArray) -> void:
-	const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
-	const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
-	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
-	if rear.is_empty():
-		CombatRegressionHarness._fail(failures, "vacancy_clear_commit: missing rank-1 reserve")
-		CombatRegressionHarness._free_manager(mgr)
-		return
-	rear["doctrine_target_commit_id"] = 77
-	rear["doctrine_commit_until"] = 999.0
-	var front_id: int = _EntityAccess.id_int(
-		CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
-	)
-	CombatRegressionHarness._soak_kill_combatant(mgr, front_id)
-	var snap: Dictionary = _EventScheduler.snapshot_rank_file_placements(mgr)
-	var ch: Array = _FormationFlow.reconcile_vacancy_plugs_track_changed_fids(mgr)
-	_FormationFlow.finish_vacancy_reconcile_follow_up(mgr, ch, snap, true)
-	if _EntityAccess.rank_int(rear) != 0:
-		CombatRegressionHarness._fail(
-			failures,
-			"vacancy_clear_commit: reserve should promote to rank 0 got rank %d"
-			% _EntityAccess.rank_int(rear)
-		)
-	elif int(rear.get("doctrine_target_commit_id", -2)) != -1:
-		CombatRegressionHarness._fail(failures, "vacancy_clear_commit: promoted unit commit should clear")
-	CombatRegressionHarness._free_manager(mgr)
-
-
-## **`rotate_file`** resolve clears stale **`doctrine_target_commit_id`** on both partners.
-static func _run_rotate_file_clears_doctrine_commitment(failures: PackedStringArray) -> void:
-	const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
-	var mgr: Node = _MgrScript.new()
-	for _i in 7:
-		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	for _j in 3:
-		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 5, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	var p0: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
-	var p1: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 1)
-	if p0.is_empty() or p1.is_empty():
-		CombatRegressionHarness._fail(failures, "rotate_clear_commit: missing adjacent rank-0 fixtures")
-		CombatRegressionHarness._free_manager(mgr)
-		return
-	var p0_id: int = _EntityAccess.id_int(p0)
-	var p1_id: int = _EntityAccess.id_int(p1)
-	p0["doctrine_target_commit_id"] = 42
-	p0["doctrine_commit_until"] = 999.0
-	p1["doctrine_target_commit_id"] = 43
-	p1["doctrine_commit_until"] = 999.0
-	p0.state = CombatConstants.STATE_SWAP_RANK
-	p1.state = CombatConstants.STATE_SWAP_RANK
-	_FormationFlow.handle_rotate_file_resolve(
-		mgr, {"combatant_id": p0_id, "data": {"partner_id": p1_id}}
-	)
-	if int(p0.get("doctrine_target_commit_id", -2)) != -1:
-		CombatRegressionHarness._fail(failures, "rotate_clear_commit: initiator commit should clear")
-	if int(p1.get("doctrine_target_commit_id", -2)) != -1:
-		CombatRegressionHarness._fail(failures, "rotate_clear_commit: partner commit should clear")
-	CombatRegressionHarness._free_manager(mgr)
-
-
-## Pincer center must not weight **`attempt_close`** in utility pick (pin holds the line).
-static func _run_pincer_center_close_weight_zero(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 7:
-		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	for _j in 3:
-		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
-	var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
-	var enemy: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 1)
-	if center.is_empty() or enemy.is_empty():
-		CombatRegressionHarness._fail(failures, "pincer_center_close: missing fixtures")
-		CombatRegressionHarness._free_manager(mgr)
-		return
-	var acts: Array = [
-		{
-			"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
-			"target_id": _EntityAccess.id_int(enemy),
-		}
-	]
-	var w: float = _AIPicker._get_action_weight(
-		acts[0], _EntityAccess.id_int(center), mgr, true
-	)
-	if w > 0.001:
-		CombatRegressionHarness._fail(
-			failures, "pincer_center_close: want zero close weight got %.6f" % w
-		)
-	CombatRegressionHarness._free_manager(mgr)
-
-
-## Arc spread: CLOSE ally on same arc dampens duplicate flank close weight.
-static func _run_pincer_close_arc_spread_dampens_overlap(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 7:
-		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	for _j in 3:
-		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
-	var wing_a: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
-	var wing_b: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 1)
-	var enemy: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 0)
-	if wing_a.is_empty() or wing_b.is_empty() or enemy.is_empty():
-		CombatRegressionHarness._fail(failures, "pincer_arc: missing fixtures")
-		CombatRegressionHarness._free_manager(mgr)
-		return
-	var eid: int = _EntityAccess.id_int(enemy)
-	var solo: float = _TargetScoring.pincer_close_arc_spread_mult(mgr, wing_a, eid)
-	var dist_b: Dictionary = _EntityAccess.nested_dictionary_for_mutation(wing_b, "distance_to")
-	dist_b[eid] = CombatConstants.DISTANCE_CLOSE
-	var overlapped: float = _TargetScoring.pincer_close_arc_spread_mult(mgr, wing_a, eid)
-	if overlapped >= solo - 0.001:
-		CombatRegressionHarness._fail(
-			failures,
-			"pincer_arc: want overlap damp (solo=%.4f with_ally=%.4f)" % [solo, overlapped]
-		)
-	CombatRegressionHarness._free_manager(mgr)
-
-
-## Center **`on_combat_commitment`** propagates flank-wing commit ids toward outer enemy files.
-static func _run_pincer_center_commit_propagates_wing_flank_targets(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	for _i in 7:
-		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	for _j in 3:
-		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
-	var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
-	var wing: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
-	var e_left: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 0)
-	var e_mid: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 1)
-	if center.is_empty() or wing.is_empty() or e_left.is_empty() or e_mid.is_empty():
-		CombatRegressionHarness._fail(failures, "pincer_propagate: missing fixtures")
-		CombatRegressionHarness._free_manager(mgr)
-		return
-	var center_id: int = _EntityAccess.id_int(center)
-	var wing_id: int = _EntityAccess.id_int(wing)
-	var e_left_id: int = _EntityAccess.id_int(e_left)
-	var e_mid_id: int = _EntityAccess.id_int(e_mid)
-	if _CombatDoctrine.preferred_pincer_flank_enemy_id(mgr, wing) != e_left_id:
-		CombatRegressionHarness._fail(
-			failures,
-			"pincer_propagate: left wing want enemy file 0 got %d"
-			% _CombatDoctrine.preferred_pincer_flank_enemy_id(mgr, wing)
-		)
-		CombatRegressionHarness._free_manager(mgr)
-		return
-	wing["doctrine_target_commit_id"] = -1
-	_TargetScoring.on_combat_commitment(mgr, center_id, e_mid_id)
-	if int(center.get("doctrine_target_commit_id", -2)) != e_mid_id:
-		CombatRegressionHarness._fail(failures, "pincer_propagate: center should commit to mid enemy")
-	elif int(wing.get("doctrine_target_commit_id", -2)) != e_left_id:
-		CombatRegressionHarness._fail(
-			failures,
-			"pincer_propagate: wing want outer commit %d got %d"
-			% [e_left_id, int(wing.get("doctrine_target_commit_id", -2))]
-		)
+	if not is_equal_approx(m_off, 1.0):
+		CombatRegressionHarness._fail(failures, "pincer_target_mult: off-preference enemy want 1.0 got %.4f" % m_off)
 	CombatRegressionHarness._free_manager(mgr)
 
 
@@ -1357,9 +2293,11 @@ static func _run_engagement_mode_cache_reset_on_second_start(failures: PackedStr
 	for c in mgr.combatants:
 		var n: Node = _EntityAccess.scene_node(c)
 		if n != null:
-			n.queue_free()
+			n.free()
 	mgr.combatants.clear()
-	CombatRegressionHarness._harness_reregister_1v1(mgr)
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var m1: String = _EngagementMode.engagement_mode(mgr)
 	if m1 != CombatConstants.ENGAGEMENT_MODE_DUEL:
 		CombatRegressionHarness._fail(
@@ -1388,8 +2326,8 @@ static func _run_engagement_attrition_monotone(failures: PackedStringArray) -> v
 		CombatRegressionHarness._shuffle_int_array_in_place(order, rng)
 		var left_formation: bool = false
 		for cid in order:
-			var cur: Dictionary = _EntityAccess.manager_get_combatant(mgr, int(cid))
-			if cur.is_empty() or not _EntityAccess.alive_bool(cur):
+			var cur: Variant = mgr._get_by_id(int(cid))
+			if cur == null or not _EntityAccess.alive_bool(cur):
 				continue
 			CombatRegressionHarness._soak_kill_combatant(mgr, int(cid))
 			var resolved: String = _EngagementMode.engagement_mode(mgr)
@@ -1595,7 +2533,10 @@ static func _run_surround_production_path_dampens_defense_vs_compressed_flanks(f
 
 ## Tier 1.9 auto profile: `line_discipline` / `engagement_posture` steer over-shoulder vs open when `spear_lane_profile` is auto (**OPEN** and **DUEL** open lows under tight when not strict-only).
 static func _run_telemetry_invalid_melee_resolve_blocked(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1618,9 +2559,12 @@ static func _run_telemetry_invalid_melee_resolve_blocked(failures: PackedStringA
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.8: `resolve_close_attempt` when pair band is not LONG (stale vs `attempt_close` listing) increments telemetry.
+## Tier 1.8: `attempt_close` is not listed when pair band is MID/CLOSE (matches `resolve_close_attempt` LONG-only).
 static func _run_telemetry_invalid_close_resolve_blocked(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1642,35 +2586,12 @@ static func _run_telemetry_invalid_close_resolve_blocked(failures: PackedStringA
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Close contest enrichment: file-opposed rank-0 pair boosts pressure; defender lane stress lowers evasion.
-static func _run_close_attempt_enriched_contest_mods(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
-	mgr._recompute_zoc_and_distance()
-	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
-	var p: Dictionary = mgr.combatants[0]
-	var en: Dictionary = mgr.combatants[1]
-	var p_mult: float = _EngagementResolver._close_attempt_pressure_mult(mgr, p_id, p, en)
-	if p_mult < CombatConstants.CLOSE_ATTEMPT_FILE_OPPOSED_PRESSURE_MULT - 0.001:
-		CombatRegressionHarness._fail(
-			failures,
-			"close_enriched: 1v1 file-opposed want pressure mult >= %.3f got %.3f"
-			% [CombatConstants.CLOSE_ATTEMPT_FILE_OPPOSED_PRESSURE_MULT, p_mult]
-		)
-	var ev_base: float = _EngagementResolver._close_attempt_evasion_mult(mgr, p_id, en)
-	mgr.formations["enemy"]["lane_stress_by_file"] = {_EntityAccess.file_int(en): 0.95}
-	var ev_stressed: float = _EngagementResolver._close_attempt_evasion_mult(mgr, p_id, en)
-	if ev_stressed >= ev_base - 0.001:
-		CombatRegressionHarness._fail(
-			failures,
-			"close_enriched: defender lane stress should lower evasion mult base=%.3f stressed=%.3f"
-			% [ev_base, ev_stressed]
-		)
-	CombatRegressionHarness._free_manager(mgr)
-
-
-## Tier 1.8: `attempt_close` is not listed when pair band is MID/CLOSE (matches `resolve_close_attempt` LONG-only).
+## Failed pressure-vs-evasion close emits `reason: contest_failed` for UI / tooling (not only generic `close_failed`).
 static func _run_attempt_close_listed_only_at_long(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1706,7 +2627,10 @@ static func _run_attempt_close_listed_only_at_long(failures: PackedStringArray) 
 
 ## Tier 1.8: `CombatAIActionPicker` must not weight stale `attempt_close` at MID/CLOSE (defense in depth vs listing).
 static func _run_attempt_close_ai_weight_zero_when_not_long(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1740,9 +2664,95 @@ static func _run_attempt_close_ai_weight_zero_when_not_long(failures: PackedStri
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Failed pressure-vs-evasion close emits `reason: contest_failed` for UI / tooling (not only generic `close_failed`).
+## III-4 **3e**: utility pick dampens focus-line weight during mop-up.
+static func _run_envelop_focus_ai_weight_damp_mop_up(failures: PackedStringArray) -> void:
+	var mgr_mop: Node = _harness_7v3_mop_up_mgr()
+	var player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr_mop, "player", 0, 3)
+	if player.is_empty():
+		CombatRegressionHarness._fail(failures, "focus_weight_mop_up: missing player fixture")
+		CombatRegressionHarness._free_manager(mgr_mop)
+		return
+	player["guard_line"] = "low"
+	player.erase(CombatConstants.COMBATANT_KEY_FOCUS_PART)
+	var p_id: int = _EntityAccess.id_int(player)
+	var a_focus: Dictionary = {
+		"target_id": p_id,
+		"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH,
+	}
+	var w_mop: float = _AIPicker._get_action_weight(a_focus, p_id, mgr_mop, true)
+	var mgr_open: Node = _MgrScript.new()
+	for _i in 7:
+		mgr_open.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr_open.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr_open.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	var open_player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+		mgr_open, "player", 0, 3
+	)
+	open_player["guard_line"] = "low"
+	open_player.erase(CombatConstants.COMBATANT_KEY_FOCUS_PART)
+	var open_id: int = _EntityAccess.id_int(open_player)
+	var w_open: float = _AIPicker._get_action_weight(a_focus, open_id, mgr_open, true)
+	if w_mop >= w_open * 0.99:
+		CombatRegressionHarness._fail(
+			failures,
+			"focus_weight_mop_up: want damped weight got mop=%.6f open=%.6f" % [w_mop, w_open]
+		)
+	CombatRegressionHarness._free_manager(mgr_mop)
+	CombatRegressionHarness._free_manager(mgr_open)
+
+
+## III-4 **3e**: utility pick — mop-up boosts **`attempt_close`** at LONG only; MID/CLOSE finish with strikes.
+static func _run_attempt_close_ai_weight_mid_mop_up(failures: PackedStringArray) -> void:
+	var mgr: Node = _harness_7v3_mop_up_mgr()
+	var player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy = c
+			break
+	if player.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "attempt_close_weight_mop_up: missing fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var p_id: int = _EntityAccess.id_int(player)
+	var e_id: int = _EntityAccess.id_int(enemy)
+	if typeof(player.get("distance_to", null)) != TYPE_DICTIONARY:
+		player["distance_to"] = {}
+	if typeof(enemy.get("distance_to", null)) != TYPE_DICTIONARY:
+		enemy["distance_to"] = {}
+	player["gauge"] = 100.0
+	enemy["gauge"] = 100.0
+	var a_close: Dictionary = {
+		"target_id": e_id,
+		"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
+	}
+	(player["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_MID
+	(enemy["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_MID
+	var w_mid: float = _AIPicker._get_action_weight(a_close, p_id, mgr, true)
+	if w_mid > 0.001:
+		CombatRegressionHarness._fail(
+			failures,
+			"attempt_close_weight_mop_up: MID during mop-up want zero weight (strike finish) got %.6f"
+			% w_mid
+		)
+	(player["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_LONG
+	(enemy["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_LONG
+	var w_long: float = _AIPicker._get_action_weight(a_close, p_id, mgr, true)
+	if w_long <= 0.001:
+		CombatRegressionHarness._fail(
+			failures,
+			"attempt_close_weight_mop_up: LONG during mop-up want positive weight got %.6f" % w_long
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## Tier 1.8: `resolve_close_attempt` when pair band is not LONG (stale vs `attempt_close` listing) increments telemetry.
 static func _run_close_contest_failed_emits_reason(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1782,7 +2792,12 @@ static func _run_close_contest_failed_emits_reason(failures: PackedStringArray) 
 
 ## `resolve_close_attempt` must not run the contest vs an incapacitated defender (stale UI / AI only).
 static func _run_resolve_close_no_emit_when_target_incap(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1_incap_enemy()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	var ent_enemy := CombatRegressionHarness._new_entity("SWORD")
+	ent_enemy.consciousness = 5.0
+	mgr.register(ent_enemy, "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr._recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
@@ -1927,7 +2942,10 @@ static func _run_telemetry_automatic_doctrine_pinch_record(failures: PackedStrin
 
 ## Snapshot rows carry `formation_doctrine` aligned with `CombatManager.get_formation_doctrine`.
 static func _run_combatants_snapshot_formation_doctrine_field(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_HOLD_LANE)
 	var rows: Array = mgr.get_combatants()
 	var ok_player: bool = false
@@ -2119,11 +3137,10 @@ static func _run_surround_live_weight_sum_matches_from_pa_sector_path(failures: 
 
 ## Tier 3.1: one engaging threat — integer **n≤1** and sector **`wsum`≤`SURROUND_SECTOR_LOAD_FREE`** both stay neutral (**1.0**).
 static func _run_surround_single_threat_int_and_sector_neutral(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
-		"SWORD",
-		{"files": 1, "ranks": 1, "density": "normal"},
-		{"files": 1, "ranks": 1, "density": "normal"}
-	)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	for c in mgr.combatants:
 		c["gauge"] = 100.0
 	mgr._recompute_zoc_and_distance()
@@ -2214,11 +3231,10 @@ static func _run_sector_surround_feature_flag_respects_runtime_toggle(failures: 
 
 ## Tier 1.6: `posture_cohesion_targeting_mult` rises with line cohesion in LINE posture; OPEN uses inverse (looser line → higher mult).
 static func _run_ai_targeting_posture_cohesion_mult(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
-		"SWORD",
-		{"files": 1, "ranks": 1, "density": "normal"},
-		{"files": 1, "ranks": 1, "density": "normal"}
-	)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var p: Dictionary = mgr.combatants[0]
 	var pfid: String = _EntityAccess.formation_id_str(p)
 	var fd: Dictionary = _FormationSlots.formation_record_for_manager(mgr, pfid)
@@ -2484,11 +3500,10 @@ static func _run_targeting_file_opposed_mult(failures: PackedStringArray) -> voi
 
 ## Tier 1.6: **`CombatTargetScoring.pinch_score_mult`** — **`pinch_center`** + **`wing_lacks_file_opposed`** nudges weight toward enemies nearer the hostile line center ( **`DOCTRINE_PINCH_INWARD_BIAS_PER_FILE`** ).
 static func _run_targeting_pinch_center_inward_bonus(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
-		"SWORD",
-		{"files": 2, "ranks": 1, "density": "normal"},
-		{"files": 2, "ranks": 1, "density": "normal"}
-	)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1, "density": "normal"}, {"files": 2, "ranks": 1, "density": "normal"})
 	for c in mgr.combatants:
 		c["gauge"] = 100.0
 	var p: Dictionary = mgr.combatants[0]
@@ -2539,11 +3554,10 @@ static func _run_targeting_pinch_center_inward_bonus(failures: PackedStringArray
 
 ## Tier 1.6: **`CombatTargetScoring.commitment_match_mult`** after **`on_combat_commitment`** ( **`DOCTRINE_COMMIT_MATCH_WEIGHT_MULT`** ).
 static func _run_targeting_commitment_match_mult(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
-		"SWORD",
-		{"files": 1, "ranks": 1, "density": "normal"},
-		{"files": 1, "ranks": 1, "density": "normal"}
-	)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var pid: int = _EntityAccess.id_int(p)
@@ -2619,11 +3633,10 @@ static func _run_targeting_soft_geometry_eff_dist_formula(failures: PackedString
 
 ## Tier 1.6: **`prune_expired_commitments`** clears stale **`doctrine_target_commit_id`** after **`doctrine_commit_until`** vs **`combat_clock`**.
 static func _run_targeting_prune_expired_doctrine_commitment(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
-		"SWORD",
-		{"files": 1, "ranks": 1, "density": "normal"},
-		{"files": 1, "ranks": 1, "density": "normal"}
-	)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var pid: int = _EntityAccess.id_int(p)
@@ -2643,11 +3656,10 @@ static func _run_targeting_prune_expired_doctrine_commitment(failures: PackedStr
 
 ## Tier 1.6: **`prune_expired_commitments`** clears doctrine commit when the **committed target** is no longer alive (before clock expiry).
 static func _run_targeting_prune_commitment_when_target_dies(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
-		"SWORD",
-		{"files": 1, "ranks": 1, "density": "normal"},
-		{"files": 1, "ranks": 1, "density": "normal"}
-	)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	var pid: int = _EntityAccess.id_int(p)
@@ -2701,11 +3713,10 @@ static func _run_targeting_clear_all_state_for_dead_defender(failures: PackedStr
 
 ## Tier 1.6 breadth: `opponent_formation_targeting_mult` — solid enemy LINE hedges listed weights; ragged LINE presses; OPEN uses fixed nudge.
 static func _run_ai_targeting_opponent_formation_mult(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
-		"SWORD",
-		{"files": 1, "ranks": 1, "density": "normal"},
-		{"files": 1, "ranks": 1, "density": "normal"}
-	)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var opp: Dictionary = mgr.combatants[1]
 	var efid: String = _EntityAccess.formation_id_str(opp)
 	var efd: Dictionary = _FormationSlots.formation_record_for_manager(mgr, efid)
@@ -2732,11 +3743,10 @@ static func _run_ai_targeting_opponent_formation_mult(failures: PackedStringArra
 
 ## Tier 1.6: **`formation_dict_cache`** on **`opponent_formation_targeting_mult`**, **`posture_cohesion_targeting_mult`** matches live **`ZoneOfControl.formation_for_combatant_cached`**.
 static func _run_targeting_formation_dict_cache_matches_live(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1(
-		"SWORD",
-		{"files": 1, "ranks": 1, "density": "normal"},
-		{"files": 1, "ranks": 1, "density": "normal"}
-	)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var p: Dictionary = mgr.combatants[0]
 	var opp: Dictionary = mgr.combatants[1]
 	var pfid: String = _EntityAccess.formation_id_str(p)
@@ -2833,7 +3843,10 @@ static func _run_ai_targeting_engagement_mode_mult(failures: PackedStringArray) 
 
 ## Tier 1.6: **`hostile_pair_targeting_weight_mult`** — passing **`engagement_mode_targeting_mult(manager)`** as **`cached_engagement_mode_targeting_mult`** matches the **null** overload (same snapshot).
 static func _run_hostile_pair_cached_engagement_mode_matches_live(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
 	for c in mgr.combatants:
@@ -2908,7 +3921,12 @@ static func _run_ai_targeting_incap_hostile_mult(failures: PackedStringArray) ->
 
 ## Tier 1.6: `AvailableActionsBuilder` does not list melee / `attempt_close` vs incapacitated enemies.
 static func _run_no_hostile_actions_listed_vs_incap_enemy(failures: PackedStringArray) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1_incap_enemy()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	var ent_enemy = CombatRegressionHarness._new_entity("SWORD")
+	ent_enemy.consciousness = 5.0
+	mgr.register(ent_enemy, "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr._recompute_zoc_and_distance()
 	var p: Dictionary = mgr.combatants[0]
 	var e: Dictionary = mgr.combatants[1]
@@ -3245,12 +4263,12 @@ static func _run_depth_spear_tight_lane_parry_mult_invariant(failures: PackedStr
 		"depth_polearm_lane_type": "over_shoulder",
 	}
 	var a_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_open, "thrust")
-	var pa_empty_lane_type: Dictionary = {
+	var pa_legacy_lane: Dictionary = {
 		"depth_polearm_attack": true,
 		"depth_polearm_allows_low_targets": true,
 		"depth_polearm_lane_type": "",
 	}
-	var a_empty_lane_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_empty_lane_type, "thrust")
+	var a_legacy_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_legacy_lane, "thrust")
 	var a_tight_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_tight, "thrust")
 	var a_slash: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_open, "slash")
 	var a0: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult({}, "thrust")
@@ -3260,11 +4278,11 @@ static func _run_depth_spear_tight_lane_parry_mult_invariant(failures: PackedStr
 			"depth_spear_parry_p_a: open+stab want %.4f got %.4f"
 			% [CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT, a_stab]
 		)
-	if not is_equal_approx(a_empty_lane_stab, CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT):
+	if not is_equal_approx(a_legacy_stab, CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT):
 		CombatRegressionHarness._fail(
 			failures,
 			"depth_spear_parry_p_a: empty lane_type + allows_low stab want %.4f got %.4f"
-			% [CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT, a_empty_lane_stab]
+			% [CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT, a_legacy_stab]
 		)
 	var pa_open_tight_bool: Dictionary = {
 		"depth_polearm_attack": true,
@@ -4332,7 +5350,10 @@ static func _run_doctrine_normalize_and_manager_roundtrip(failures: PackedString
 		CombatRegressionHarness._fail(failures, "doctrine_norm: unknown → default")
 	if _CombatDoctrine.doctrine_for_fid(null, "player") != CombatConstants.DOCTRINE_DEFAULT:
 		CombatRegressionHarness._fail(failures, "doctrine_for_fid: null manager → default")
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr.set_formation_doctrine("player", "  pincer  ")
 	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_PINCH_CENTER:
 		CombatRegressionHarness._fail(
@@ -4563,16 +5584,44 @@ static func run_early(failures: PackedStringArray) -> void:
 	_run_front_rank_pair_melee_listed(failures)
 	_run_engagement_scenarios(failures)
 	_run_opposition_offset_seeded_at_start(failures)
+	_run_back_rank_depth_lane_skip_recheck(failures)
+	_run_swap_rank_line_plug_weight_when_front_hole(failures)
+	_run_same_file_depth_recheck_after_front_turn(failures)
+	_run_same_file_depth_recheck_after_rank1_turn(failures)
+	_run_windup_abort_same_file_depth_recheck(failures)
+	_run_swap_rank_listed_line_plug_when_relief_blocked(failures)
+	_run_swap_rank_resolve_line_plug_when_listed(failures)
+	_run_swap_rank_depth_recheck_rank2_after_resolve(failures)
+	_run_same_file_depth_rank2_plus_scheduler(failures)
+	_run_fall_back_solo_demotes_when_rear_slot_empty(failures)
+	_run_fall_back_solo_depth_recheck_rank2_after_resolve(failures)
+	_run_line_plug_gauge_suffix_when_swap_listed(failures)
+	_run_plug_forward_gauge_suffix_when_listed(failures)
+	_run_front_gap_line_plug_hint_when_swap_listed(failures)
+	_run_skirmish_line_gap_rotate_hint(failures)
+	_run_rotate_line_plug_weight_skirmish_rank0_hole(failures)
+	_run_plug_forward_incap_partner_hint(failures)
+	_run_rotate_file_line_plug_weight_when_front_hole(failures)
+	_run_rotate_file_depth_recheck_both_columns(failures)
+	_run_skirmish_rotate_gauge_suffix_when_listed(failures)
 	_run_geometry_skirmish_wide_line_no_compact(failures)
 	_run_skirmish_outnumber_allows_rotate_file(failures)
-	_run_pincer_role_7v3_flank_and_center(failures)
-	_run_pincer_flank_prefers_enemy_flank_target(failures)
+	_run_envelop_mop_up_active_after_attrition(failures)
+	_run_envelop_close_listed_mid_mop_up(failures)
+	_run_envelop_close_resolve_mid_mop_up(failures)
+	_run_envelop_close_resolve_close_mop_up(failures)
+	_run_envelop_focus_ai_weight_damp_mop_up(failures)
+	_run_attempt_close_ai_weight_mid_mop_up(failures)
+	_run_envelop_mop_up_rotate_suppressed(failures)
+	_run_envelop_mop_up_excludes_fled_allies(failures)
+	_run_living_hostile_excludes_fled_enemy(failures)
+	_run_fled_enemy_distance_to_purged_after_recompute(failures)
+	_run_envelop_resolve_rotate_rejected_mop_up(failures)
+	_run_envelop_mop_up_inactive_true_duel(failures)
+	_run_envelop_close_listed_close_mop_up(failures)
+	_run_envelop_melee_strike_listed_close_mop_up_reach_gap(failures)
+	_run_pincer_wing_commitment_propagates_from_center(failures)
 	_run_pincer_preferred_flank_target_mult(failures)
-	_run_vacancy_plug_clears_doctrine_commitment(failures)
-	_run_rotate_file_clears_doctrine_commitment(failures)
-	_run_pincer_center_close_weight_zero(failures)
-	_run_pincer_close_arc_spread_dampens_overlap(failures)
-	_run_pincer_center_commit_propagates_wing_flank_targets(failures)
 	_run_posture_mirror_symmetric(failures)
 	_run_morale_cohesion_affects_line_cohesion(failures)
 	_run_engagement_classifier_multi_seed(failures)
@@ -4584,7 +5633,6 @@ static func run_early(failures: PackedStringArray) -> void:
 	_run_surround_production_path_dampens_defense_vs_compressed_flanks(failures)
 	_run_telemetry_invalid_melee_resolve_blocked(failures)
 	_run_telemetry_invalid_close_resolve_blocked(failures)
-	_run_close_attempt_enriched_contest_mods(failures)
 	_run_attempt_close_listed_only_at_long(failures)
 	_run_attempt_close_ai_weight_zero_when_not_long(failures)
 	_run_close_contest_failed_emits_reason(failures)

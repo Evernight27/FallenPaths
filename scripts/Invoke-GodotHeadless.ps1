@@ -31,8 +31,16 @@ function Invoke-FallenPathsGodotScript {
 	} else {
 		& $Godot @args 2>&1
 	}
+	$script:LastFallenPathsGodotExitCode = $LASTEXITCODE
 	if ($hadMode) {
 		Remove-Item Env:FP_HARNESS_MODE -ErrorAction SilentlyContinue
 	}
 	# Do not `return $code` — PowerShell would emit it on the success stream and break `2>&1 | ForEach-Object` capture.
+}
+
+function Get-FallenPathsGodotExitCode {
+	if ($null -ne $script:LastFallenPathsGodotExitCode) {
+		return [int]$script:LastFallenPathsGodotExitCode
+	}
+	return [int]$LASTEXITCODE
 }

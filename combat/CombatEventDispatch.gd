@@ -10,6 +10,7 @@ const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 static func process_event_queue(manager: Node) -> void:
 	while manager.event_queue.size() > 0:
@@ -109,9 +110,7 @@ static func handle_melee_attack(manager: Node, c: Dictionary) -> void:
 		if not c.is_empty() and _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
 			var cid_abort: int = _EntityAccess.id_int(c)
 			_CounterTempo.abort_attacker_wind_up(manager, cid_abort)
-			c.state = CombatConstants.STATE_WAITING
-			c.state_timer = 0.0
-			c.state_duration = 0.0
+			_Footwork.return_to_waiting(c)
 			c.gauge = 0.0
 		return
 	if c.is_empty() or not _EntityAccess.alive_bool(c) or _EntityAccess.state_str(c) != CombatConstants.STATE_WIND_UP:

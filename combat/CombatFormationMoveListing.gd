@@ -2,7 +2,7 @@ class_name CombatFormationMoveListing
 extends RefCounted
 
 ## Formation movement actions: swap rank, drag/fall_back pair, solo fall_back, rotate file (line discipline).
-## **Read order:** append helpers → policy gates → flee/rout → per-move append (uses **`CombatListedActions`**).
+## Footing: lists/resolves slot moves only — lane duration via **`CombatFormationMoveDuration`**; **not** **`guard_line`** / PA / **`weapon_form`**. LIVE_PATHS **`#wf-footing-terminology`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
@@ -13,6 +13,7 @@ const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 const _Flee := preload("res://combat/CombatFormationFlee.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
+const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 
 
 static func _append_formation_action(
@@ -35,6 +36,117 @@ static func in_rotate_file_cooldown(manager: Node, c: Dictionary) -> bool:
 
 static func in_pair_abort_cooldown(manager: Node, c: Dictionary) -> bool:
 	return _in_formation_move_cooldown(manager, c, "formation_pair_abort_cooldown_until")
+
+
+static func pair_formation_move_abort_blocked(
+	manager: Node, c: Dictionary, partner: Dictionary = {}
+) -> bool:
+	if manager == null or c.is_empty():
+		return true
+	if in_pair_abort_cooldown(manager, c):
+		return true
+	if not partner.is_empty() and in_pair_abort_cooldown(manager, partner):
+		return true
+	return false
+
+
+static func adjacent_rank_pair_move_legal(
+	manager: Node,
+	c: Dictionary,
+	partner: Dictionary,
+	zone_geometry_line_context_cache: Dictionary = {}
+) -> bool:
+	if manager == null or c.is_empty() or partner.is_empty():
+		return false
+	if pair_formation_move_abort_blocked(manager, c, partner):
+		return false
+	var ctx: Dictionary = zone_geometry_line_context_cache
+	if ctx.is_empty():
+		ctx = _ZoneOfControl.zone_geometry_line_context(manager, c)
+	var fid: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx)
+	if fid.is_empty():
+		return false
+	return _is_adjacent_rank_ally(
+		manager, c, partner, fid, _EntityAccess.rank_int(c), _EntityAccess.file_int(c)
+	)
+
+
+static func _rank_pair_swap_context(
+	manager: Node, c: Dictionary, partner: Dictionary, fid: String
+) -> Dictionary:
+	var our_rank: int = _EntityAccess.rank_int(c)
+	var partner_rank: int = _EntityAccess.rank_int(partner)
+	var partner_incapacitated: bool = _EntityAccess.is_incapacitated(partner)
+	var we_are_front: bool = partner_rank > our_rank
+	var we_plug_forward: bool = partner_rank < our_rank and partner_incapacitated
+	var relief_swap: bool = (
+		our_rank > partner_rank
+		and not partner_incapacitated
+		and CombatAIActionPicker.is_relief_swap_tactically_allowed(c, partner)
+	)
+	var line_plug_relief: bool = (
+		our_rank > partner_rank
+		and not partner_incapacitated
+		and not relief_swap
+		and _FormationFlow.formation_line_has_rank0_gap(manager, fid)
+	)
+	var eligible: bool = (
+		(we_are_front and not partner_incapacitated)
+		or we_plug_forward
+		or relief_swap
+		or line_plug_relief
+	)
+	var allow_swap: bool = false
+	if we_plug_forward:
+		allow_swap = true
+	elif relief_swap or line_plug_relief:
+		allow_swap = true
+	elif we_are_front:
+		allow_swap = CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, partner, manager)
+	return {
+		"eligible": eligible,
+		"allow_swap": allow_swap,
+		"we_are_front": we_are_front,
+		"we_plug_forward": we_plug_forward,
+	}
+
+
+static func swap_rank_action_legal(
+	manager: Node,
+	c: Dictionary,
+	partner: Dictionary,
+	zone_geometry_line_context_cache: Dictionary = {}
+) -> bool:
+	if not adjacent_rank_pair_move_legal(manager, c, partner, zone_geometry_line_context_cache):
+		return false
+	var ctx: Dictionary = zone_geometry_line_context_cache
+	if ctx.is_empty():
+		ctx = _ZoneOfControl.zone_geometry_line_context(manager, c)
+	var fid: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx)
+	if fid.is_empty():
+		return false
+	var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
+	return bool(pc.get("eligible", false)) and bool(pc.get("allow_swap", false))
+
+
+static func front_rank_paired_retreat_action_legal(
+	manager: Node,
+	c: Dictionary,
+	partner: Dictionary,
+	zone_geometry_line_context_cache: Dictionary = {}
+) -> bool:
+	if not adjacent_rank_pair_move_legal(manager, c, partner, zone_geometry_line_context_cache):
+		return false
+	var ctx: Dictionary = zone_geometry_line_context_cache
+	if ctx.is_empty():
+		ctx = _ZoneOfControl.zone_geometry_line_context(manager, c)
+	var fid: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx)
+	if fid.is_empty():
+		return false
+	var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
+	if not bool(pc.get("we_are_front", false)) or bool(pc.get("we_plug_forward", false)):
+		return false
+	return CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, partner, manager)
 
 
 static func solo_fall_back_action_legal(
@@ -143,13 +255,17 @@ static func _append_rotate_file_partner_actions(
 			continue
 		if not rotate_file_action_legal(manager, c, ally, zone_geometry_line_context_cache):
 			continue
+		var ally_id: int = _EntityAccess.id_int(ally)
+		if _ListedActions.actions_include_move_vs_target(
+			actions, ally_id, CombatConstants.MOVE_ID_ROTATE_FILE
+		):
+			continue
 		_append_formation_action(
 			manager,
 			c,
 			actions,
-			{"target_id": _EntityAccess.id_int(ally), "move_id": CombatConstants.MOVE_ID_ROTATE_FILE}
+			{"target_id": ally_id, "move_id": CombatConstants.MOVE_ID_ROTATE_FILE}
 		)
-		break
 
 
 static func _append_adjacent_rank_partner_actions(
@@ -160,37 +276,23 @@ static func _append_adjacent_rank_partner_actions(
 	our_rank: int,
 	our_file: int,
 	actions: Array,
-	can_drag_back: bool
+	can_drag_back: bool,
+	zone_geometry_line_context_cache: Dictionary = {}
 ) -> void:
 	for ally in combatants:
 		if not _is_adjacent_rank_ally(manager, c, ally, fid, our_rank, our_file):
 			continue
-		var partner_rank: int = _EntityAccess.rank_int(ally)
-		var we_are_front: bool = partner_rank > our_rank
-		var partner_incapacitated: bool = _EntityAccess.is_incapacitated(ally)
-		var we_plug_forward: bool = partner_rank < our_rank and partner_incapacitated
-		var relief_swap: bool = (
-			our_rank > partner_rank
-			and not partner_incapacitated
-			and CombatAIActionPicker.is_relief_swap_tactically_allowed(c, ally)
-		)
-		if not ((we_are_front and not partner_incapacitated) or we_plug_forward or relief_swap):
+		if not swap_rank_action_legal(manager, c, ally, zone_geometry_line_context_cache):
 			continue
-		var allow_swap: bool = false
-		if we_plug_forward:
-			allow_swap = true
-		elif relief_swap:
-			allow_swap = true
-		elif we_are_front:
-			allow_swap = CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, ally, manager)
-		if allow_swap:
-			_append_formation_action(
-				manager,
-				c,
-				actions,
-				{"target_id": _EntityAccess.id_int(ally), "move_id": CombatConstants.MOVE_ID_SWAP_RANK}
-			)
-			if not we_plug_forward and we_are_front and can_drag_back:
+		var pc: Dictionary = _rank_pair_swap_context(manager, c, ally, fid)
+		_append_formation_action(
+			manager,
+			c,
+			actions,
+			{"target_id": _EntityAccess.id_int(ally), "move_id": CombatConstants.MOVE_ID_SWAP_RANK}
+		)
+		if bool(pc.get("we_are_front", false)) and not bool(pc.get("we_plug_forward", false)) and can_drag_back:
+			if front_rank_paired_retreat_action_legal(manager, c, ally, zone_geometry_line_context_cache):
 				_append_formation_action(
 					manager,
 					c,
@@ -261,7 +363,7 @@ static func append_formation_move_actions(
 		and (can_swap_rank or can_drag_back)
 	):
 		_append_adjacent_rank_partner_actions(
-			manager, c, combatants, fid, our_rank, our_file, actions, can_drag_back
+			manager, c, combatants, fid, our_rank, our_file, actions, can_drag_back, ctx_c
 		)
 	if (
 		not formation_retreat_only
@@ -270,6 +372,7 @@ static func append_formation_move_actions(
 		and our_rank == 0
 		and not pair_abort_blocked
 		and can_rotate_file
+		and not _Doctrine.should_suppress_skirmish_rotate_file(manager, c, actions)
 	):
 		_append_rotate_file_partner_actions(
 			manager, c, combatants, fid, our_rank, our_file, actions, ctx_c
@@ -309,10 +412,7 @@ static func append_combat_wait_if_needed(actions: Array, combatant_id: int) -> v
 	if _ListedActions.action_list_is_reserve_posture_only(actions):
 		actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})
 		return
-	if _ListedActions.action_list_is_hold_line_menu(actions):
-		actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})
-		return
 	for a in actions:
-		if not CombatConstants.is_formation_movement_move(str(a.get("move_id", ""))):
+		if a.get("move_id", "") not in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
 			return
 	actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})

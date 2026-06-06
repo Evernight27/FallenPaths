@@ -2,9 +2,8 @@ class_name CombatFlow
 extends RefCounted
 
 ## Handles combat initiation and battle-end cleanup. Used by main.gd.
-## **Read order:** `start_combat` → battle scene handoff → end/cleanup paths.
-## Canonical: **`CampaignEncounterBridge.prepare_combat_from_encounter`** · party via **`get_fightable_party_nodes`**.
 ## Optional world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** (`"combat_encounter"`): copied into **`BattleScene.start`** → **`CombatManager.encounter`** before **`start()`** (doctrine, depth polearm AI mults, posture, morale, … — see **`CombatManager`** default_enc in **`CombatManager.gd`**).
+## Encounter nodes set meta via **`CampaignEncounterBridge.prepare_combat_from_encounter`**.
 
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
@@ -14,14 +13,14 @@ const _SettlementPanel := preload("res://ui/SettlementPanel.gd")
 const _CompanyRunEndPanel := preload("res://ui/CompanyRunEndPanel.gd")
 const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _BattleEndHandler := preload("res://world/BattleEndHandler.gd")
-const _Persistence := preload("res://world/CampaignPersistence.gd")
 
 static func start_combat(world: Node2D, enemies: Array) -> void:
 	var players: Array = _CampaignBridge.get_fightable_party_nodes(world)
 	if players.is_empty():
-		_OperationalLog.warn(
-			"CombatFlow.start_combat: no living players (check world meta 'party_manager', members[], node_ref)."
-		)
+		if not CombatConstants.is_headless_harness_quiet():
+			_OperationalLog.warn(
+				"CombatFlow.start_combat: no living players (check world meta 'party_manager', members[], node_ref)."
+			)
 		_CampaignBridge.abort_contract_encounter_entry(world)
 		return
 	var player_node: Node = world.get_node_or_null("Character")
@@ -88,7 +87,7 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -
 		var lost_contract: Dictionary = contract.duplicate(true)
 		var ends_run: bool = _CompanyState.defeat_should_end_company_run(contract)
 		var soft_retry: bool = (
-			not contract.is_empty() and _CompanyState.is_training_or_tutorial_contract(contract)
+			not contract.is_empty() and _CompanyState.is_tutorial_contract(contract)
 		)
 		var death_lines: PackedStringArray = _CompanyState.format_last_battle_death_lines(world)
 		if ends_run:
@@ -98,7 +97,6 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -
 		_CampaignBridge.clear_transient_combat_meta(world)
 		_CompanyState.clear_active_contract(world)
 		if ends_run:
-			_Persistence.clear_slot()
 			var title: String = str(contract.get("contract_title", "Contract"))
 			var detail: String = (
 				"Failed: %s. The company cannot recover this contract." % title
@@ -115,7 +113,7 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -
 				"%s lost. You'll return to camp — try again when ready." % kind
 			)
 			detail = _append_death_recap_to_detail(detail, death_lines)
-			await _CompanyRunEndPanel.show_and_await(world, "training_failed", detail)
+			await _CompanyRunEndPanel.show_and_await(world, "tutorial_failed", detail)
 			resume_overworld_after_soft_defeat(world, lost_contract)
 		else:
 			var detail: String = "Battle lost. Return to camp and recover."
@@ -133,7 +131,7 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -
 	_CompanyState.set_overworld_hud_visible(world, true)
 	_CompanyState.refresh_hud(world)
 
-## Tutorial/practice (and other non-run-ending) losses: keep company meta, restore map UI.
+## Tutorial (and other non-run-ending) losses: keep company meta, restore map UI.
 static func _restore_overworld_after_aborted_combat(world: Node2D, player: Node) -> void:
 	if world == null:
 		return
@@ -176,6 +174,8 @@ static func _append_death_recap_to_detail(detail: String, death_lines: PackedStr
 
 
 static func _find_party_button(world: Node2D) -> Control:
+	if world == null or not world.is_inside_tree():
+		return null
 	var root = world.get_tree().root
 	for child in root.get_children():
 		if "name" in child and child.name == "UIOverlayLayer":

@@ -55,6 +55,7 @@ static func run(failures: PackedStringArray) -> void:
 	_run_sim_blood_ml_pool_human_goblin_mass_scale(failures)
 	_run_sim_blood_ml_ttd_matches_percent_mode(failures)
 	_run_sim_blood_ml_sync_percent_from_ml(failures)
+	_run_sim_notify_died_emits_once(failures)
 	_run_sim_layer_tissue_shallow_pen_reduces_bone(failures)
 	_run_sim_layer_tissue_deep_pen_reaches_bone(failures)
 	_run_sim_pen_trace_cuirass_stops_shallow(failures)
@@ -106,6 +107,7 @@ static func run(failures: PackedStringArray) -> void:
 	_run_mat_energy_entity_flag_off_matches_display_pools(failures)
 	_run_research_clinical_ttd_band(failures)
 	_run_research_blood_ml_nominal_70_per_kg(failures)
+	_run_research_species_reference_mass_anchors(failures)
 	_run_research_reference_bleed_derivation(failures)
 	_run_research_atls_class_boundaries(failures)
 	_run_research_atls_death_threshold(failures)
@@ -118,6 +120,7 @@ static func run(failures: PackedStringArray) -> void:
 	_run_research_pen_depth_monotonic(failures)
 	_run_research_clotting_half_life_order(failures)
 	_run_research_ml_percent_ttd_parity(failures)
+	_run_research_implied_ml_bridge(failures)
 	_run_research_goblin_blood_ml_per_kg(failures)
 	_run_research_scalp_vs_limb_bleed(failures)
 	_run_research_absolute_severity_bands(failures)
@@ -773,14 +776,43 @@ static func _run_sim_blood_ml_sync_percent_from_ml(failures: PackedStringArray) 
 			"sim_blood_ml_sync: ml loss %.1f want %.1f"
 			% [ml_before - ent.blood_volume_ml, want_loss_ml]
 		)
-	var expect_pct: float = 100.0 * ent.blood_volume_ml / ent.blood_volume_ml_max
-	if not is_equal_approx(ent.blood_volume, expect_pct):
+
+
+## Death signal fires once per entity (map bleed / repeated process_blood_loss ticks).
+static func _run_sim_notify_died_emits_once(failures: PackedStringArray) -> void:
+	var ent: CoreEntity = CoreEntity.new()
+	var fired_box: Array = [0]
+	ent.died.connect(func() -> void: fired_box[0] = int(fired_box[0]) + 1)
+	ent.notify_died()
+	ent.notify_died()
+	if int(fired_box[0]) != 1:
+		_fail(failures, "notify_died: want 1 died signal got %d" % int(fired_box[0]))
+	var bleed_ent: CoreEntity = _Harness._new_entity("SWORD")
+	bleed_ent.take_damage_split(6.0, 2.0, "chest")
+	if _EntityWounds.get_total_bleeding_rate(bleed_ent) <= 0.0:
+		_fail(failures, "notify_died: need bleed rate on wounded entity")
+		return
+	bleed_ent.blood_volume = 36.0
+	bleed_ent.set_combat_blood_loss_mult(1.0)
+	bleed_ent.set_combat_blood_recovery_per_s(0.0)
+	var bleed_fired: Array = [0]
+	bleed_ent.died.connect(func() -> void: bleed_fired[0] = int(bleed_fired[0]) + 1)
+	for _i in range(24):
+		_EntityWounds.process_blood_loss(bleed_ent, 1.0)
+	if int(bleed_fired[0]) != 1:
 		_fail(
 			failures,
-			"sim_blood_ml_sync: blood_volume %.2f != 100*ml/max %.2f"
-			% [ent.blood_volume, expect_pct]
+			"notify_died: blood_loss ticks want 1 died signal got %d" % int(bleed_fired[0])
 		)
-	_BloodVolumeMl._harness_force_literal_blood_ml = false
+	bleed_ent.apply_species()
+	var refire_box: Array = [0]
+	bleed_ent.died.connect(func() -> void: refire_box[0] = int(refire_box[0]) + 1)
+	bleed_ent.notify_died()
+	if int(refire_box[0]) != 1:
+		_fail(
+			failures,
+			"notify_died: apply_species should allow one new died signal got %d" % int(refire_box[0])
+		)
 
 
 ## S6 layer tissue: shallow penetration absorbed by soft-tissue budget → less bone via MFB pen gate.
@@ -1958,6 +1990,30 @@ static func _run_research_clinical_ttd_band(failures: PackedStringArray) -> void
 		_fail(failures, "research_ttd: %.1fs outside clinical 30-120s band" % ttd_s)
 
 
+## Research gate: species `.tres` masses and human tissue sum match design anchors.
+static func _run_research_species_reference_mass_anchors(failures: PackedStringArray) -> void:
+	if not _ResearchAnchors.species_reference_mass_anchors_match():
+		_fail(
+			failures,
+			(
+				"research_species_mass: human=%.1f@%.0f goblin=%.1f@%.0f "
+				+ "human_tissue=%d@%d goblin_tissue=%d@[%d-%d] goblin_below_human=%s"
+			)
+			% [
+				_HumanSpecies.resolved_reference_mass_kg(),
+				_DesignAnchors.REFERENCE_ADULT_MASS_KG,
+				_GoblinSpecies.resolved_reference_mass_kg(),
+				_ResearchAnchors.GOBLIN_REFERENCE_MASS_KG,
+				_HumanSpecies.live_tissue_sum(),
+				_DesignAnchors.REFERENCE_HUMAN_TISSUE_SUM,
+				_GoblinSpecies.live_tissue_sum(),
+				_ResearchAnchors.GOBLIN_LIVE_TISSUE_SUM_MIN,
+				_ResearchAnchors.GOBLIN_LIVE_TISSUE_SUM_MAX,
+				str(_ResearchAnchors.goblin_mass_below_human()).to_lower(),
+			]
+		)
+
+
 ## Research gate: 75 kg male anchor = 70 mL/kg (5250 mL).
 static func _run_research_blood_ml_nominal_70_per_kg(failures: PackedStringArray) -> void:
 	var ref_kg: float = _HumanSpecies.resolved_reference_mass_kg()
@@ -1984,10 +2040,10 @@ static func _run_research_atls_class_boundaries(failures: PackedStringArray) -> 
 
 ## Research gate: BLOOD_LOSS_RATE_MULTIPLIER matches closed-form derivation for 48 s TTD.
 static func _run_research_blood_loss_multiplier_derived(failures: PackedStringArray) -> void:
-	var derived: float = _ResearchAnchors.derived_blood_loss_multiplier_for_ttd(
-		_ResearchAnchors.LITERATURE_TTD_TARGET_S
-	)
-	if absf(_Bleeding.BLOOD_LOSS_RATE_MULTIPLIER - derived) > _ResearchAnchors.LITERATURE_MULTIPLIER_TOLERANCE:
+	if not _ResearchAnchors.blood_loss_multiplier_matches_derived():
+		var derived: float = _ResearchAnchors.derived_blood_loss_multiplier_for_ttd(
+			_ResearchAnchors.LITERATURE_TTD_TARGET_S
+		)
 		_fail(
 			failures,
 			"research_mult: shipped %.4f vs derived %.4f for %.0fs TTD"
@@ -2004,6 +2060,13 @@ static func _run_research_reference_bleed_derivation(failures: PackedStringArray
 			"research_bleed_deriv: product %.2f != REFERENCE %.2f"
 			% [float(deriv.get("product_hp_per_s", 0.0)), _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE]
 		)
+	if not bool(deriv.get("multiplier_matches_derived", false)):
+		_fail(failures, "research_bleed_deriv: shipped multiplier diverges from 48s TTD derivation")
+	var ttd_s: float = float(deriv.get("clinical_ttd_s", 0.0))
+	if ttd_s < 30.0 or ttd_s > 120.0:
+		_fail(failures, "research_bleed_deriv: calibrated TTD %.1fs outside 30-120s" % ttd_s)
+	if not bool(deriv.get("ml_ttd_parity_ok", false)):
+		_fail(failures, "research_bleed_deriv: percent and mL TTD paths diverge at reference bleed")
 
 
 ## Research gate: death threshold at or beyond ATLS Class IV (>40% loss).
@@ -2102,6 +2165,26 @@ static func _run_research_ml_percent_ttd_parity(failures: PackedStringArray) -> 
 		_fail(failures, "research_ml_ttd: FEATURE_LITERAL_BLOOD_ML must be on for parity gate")
 	if not _ResearchAnchors.ml_percent_ttd_parity_ok():
 		_fail(failures, "research_ml_ttd: percent and mL exsanguination paths diverge at reference mass")
+
+
+## Research gate: implied mL bridge helper matches BloodVolumeMl and stays positive at reference mass.
+static func _run_research_implied_ml_bridge(failures: PackedStringArray) -> void:
+	if not _Bleeding.FEATURE_LITERAL_BLOOD_ML:
+		return
+	var ref_kg: float = _DesignAnchors.REFERENCE_ADULT_MASS_KG
+	var max_ml: float = _BloodVolumeMl.blood_volume_ml_max_for_reference_mass(ref_kg)
+	var want: float = _BloodVolumeMl.blood_ml_loss_per_second(
+		_Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE, max_ml, 1.0
+	)
+	var got: float = _ResearchAnchors.reference_uncontrolled_implied_ml_per_second(ref_kg, 1.0)
+	if want <= 0.01 or got <= 0.01:
+		_fail(failures, "research_implied_ml_bridge: implied loss must be positive at reference bleed")
+	elif not is_equal_approx(want, got):
+		_fail(
+			failures,
+			"research_implied_ml_bridge: helper %.3f != BloodVolumeMl %.3f"
+			% [got, want]
+		)
 
 
 ## Research gate: goblin mass-scaled pool preserves 70 mL/kg anchor.
@@ -2282,7 +2365,11 @@ static func _run_research_neck_arterial_epidemiology(failures: PackedStringArray
 ## Research gate: triage danger > peril > death threshold; danger time > peril time.
 static func _run_research_medical_triage_thresholds(failures: PackedStringArray) -> void:
 	if not _ResearchAnchors.medical_triage_thresholds_ordered():
-		_fail(failures, "research_triage: danger/peril remaining%% and seconds must be ordered above death")
+		_fail(
+			failures,
+			"research_triage: danger>peril>death; class_IV_window; peril_s=%.0f < reference_TTD=%.1fs"
+			% [_Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS, _ResearchAnchors.clinical_ttd_seconds(1.0)]
+		)
 
 
 ## Research gate: joule armor KE conserved; transmitted fraction = sqrt(remaining/strike).
@@ -2315,8 +2402,13 @@ static func _run_research_gate_registry_count(failures: PackedStringArray) -> vo
 	if want < 1:
 		_fail(failures, "research_registry: RESEARCH_HARNESS_GATE_IDS is empty")
 	# Meta-gate: when adding `_run_research_*`, append id to RESEARCH_HARNESS_GATE_IDS + checklist table.
-	if want < 30:
-		_fail(failures, "research_registry: suspiciously low gate count %d" % want)
+	const EXPECTED_RESEARCH_GATES: int = 37
+	if want != EXPECTED_RESEARCH_GATES:
+		_fail(
+			failures,
+			"research_registry: RESEARCH_HARNESS_GATE_IDS count %d != expected %d"
+			% [want, EXPECTED_RESEARCH_GATES]
+		)
 
 
 ## Research gate: triage danger window (90 s) exceeds reference exsanguination TTD (~48 s).

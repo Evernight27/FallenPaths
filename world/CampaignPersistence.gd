@@ -3,6 +3,7 @@ extends RefCounted
 
 ## D-persistence P2 — single-slot autosave on settlement continue and **`CompanyState.try_advance_day`** (day tick).
 ## Atomic write: user://fallen_paths_slot0.json.tmp → slot0.json
+## Canonical: `save_slot` · `apply_save` · `normalize_marker_kind_for_restore` (harness + post-EA load).
 
 const SAVE_PATH := "user://fallen_paths_slot0.json"
 const SAVE_TMP_PATH := "user://fallen_paths_slot0.json.tmp"
@@ -21,6 +22,16 @@ const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 static func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
+
+
+## Legacy saves may still carry removed `practice` markers — map to tutorial or paid contract.
+static func normalize_marker_kind_for_restore(marker_kind: String, encounter_config: Dictionary) -> String:
+	var kind: String = marker_kind.strip_edges()
+	if kind == "practice":
+		if bool(encounter_config.get("tutorial", false)):
+			return "tutorial"
+		return "contract"
+	return kind
 
 
 static func clear_slot() -> void:
@@ -139,11 +150,17 @@ static func _atomic_write(text: String) -> bool:
 	return true
 
 
+static func _overworld_tile_coords(world: Node2D, pos: Vector2) -> Vector2i:
+	if world != null and world.has_method("_tile_coords"):
+		return world.call("_tile_coords", pos) as Vector2i
+	return Vector2i.ZERO
+
+
 static func _player_tile_array(world: Node2D) -> Array:
 	if world == null or not world.has_node("Character"):
 		return [0, 0]
 	var pos: Vector2 = world.get_node("Character").position
-	var tile: Vector2i = _CampaignBridge.overworld_tile_from_position(pos)
+	var tile: Vector2i = _overworld_tile_coords(world, pos)
 	return [tile.x, tile.y]
 
 
@@ -162,7 +179,7 @@ static func _serialize_remaining_encounters(world: Node2D) -> Array:
 		if child.get_script() != _EncounterNodeScript:
 			continue
 		var enc: Node = child
-		var tile: Vector2i = _CampaignBridge.overworld_tile_from_position(enc.position)
+		var tile: Vector2i = _overworld_tile_coords(world, enc.position)
 		out.append(
 			{
 				"tile": [tile.x, tile.y],
@@ -335,6 +352,12 @@ static func _restore_remaining_encounters(
 		var cfg: Dictionary = (
 			(entry as Dictionary).get("encounter_config", {}) as Dictionary
 		).duplicate(true)
+		if cfg.has("training"):
+			cfg.erase("training")
+		var marker_kind: String = normalize_marker_kind_for_restore(
+			str((entry as Dictionary).get("marker_kind", "")),
+			cfg
+		)
 		_ContractSpawner.spawn_saved_encounter_at_tile(
 			world,
 			tile,
@@ -342,7 +365,7 @@ static func _restore_remaining_encounters(
 			int((entry as Dictionary).get("enemy_count", cfg.get("enemy_count", 1))),
 			(entry as Dictionary).get("enemy_formation", {}) as Dictionary,
 			str((entry as Dictionary).get("contract_marker_label", "")),
-			str((entry as Dictionary).get("marker_kind", "")),
+			marker_kind,
 			enemy_scene,
 		)
 

@@ -7,7 +7,17 @@ extends Logger
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 
+static var _script_error_count: int = 0
+
 var _mutex: Mutex = Mutex.new()
+
+
+static func reset_script_error_count() -> void:
+	_script_error_count = 0
+
+
+static func get_script_error_count() -> int:
+	return _script_error_count
 
 
 func _log_error(
@@ -41,6 +51,7 @@ func _log_error(
 		var bt0: Variant = _script_backtraces[0]
 		if bt0 is String and not (bt0 as String).is_empty():
 			msg += " | %s" % bt0
+	_script_error_count += 1
 	_OperationalLog.emit(_OperationalLog.TAG_ERROR, msg)
 	_mutex.unlock()
 

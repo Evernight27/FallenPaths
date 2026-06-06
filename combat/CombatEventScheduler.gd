@@ -275,11 +275,136 @@ static func reschedule_back_rank_turns(manager: Node, fid: String) -> void:
 			continue
 		if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
 			continue
-		if _EntityAccess.rank_int(c) <= 0 or _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+		if _EntityAccess.rank_int(c) < 1 or _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 			continue
 		if _EntityAccess.is_unconscious(c):
 			continue
 		schedule_action_ready(manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
+
+
+## III-6: after rank-0 acts, same-file reserves re-evaluate (depth spear lane / new ZoC bands).
+static func reschedule_same_file_depth_after_front_turn(manager: Node, front_combatant_id: int) -> void:
+	if manager == null or front_combatant_id < 0:
+		return
+	var front: Dictionary = _EntityAccess.manager_get_combatant(manager, front_combatant_id)
+	if front.is_empty() or _EntityAccess.rank_int(front) != 0:
+		return
+	if manager.medical_phase and _MedicalPhase.is_losing_side(manager, front):
+		return
+	var fid: String = _EntityAccess.formation_id_str(front)
+	if fid.is_empty():
+		return
+	var file: int = _EntityAccess.file_int(front)
+	for c in manager.combatants:
+		if not _EntityAccess.is_living_same_side(front, c):
+			continue
+		if _EntityAccess.formation_id_str(c) != fid:
+			continue
+		if _EntityAccess.file_int(c) != file:
+			continue
+		if _EntityAccess.rank_int(c) <= 0:
+			continue
+		if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+			continue
+		if _EntityAccess.is_unconscious(c):
+			continue
+		schedule_action_ready(
+			manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+		)
+
+
+## III-6: after rank>=1 acts, deeper same-file reserves re-evaluate (stacked depth column).
+static func reschedule_same_file_depth_after_reserve_turn(manager: Node, reserve_combatant_id: int) -> void:
+	if manager == null or reserve_combatant_id < 0:
+		return
+	var actor: Dictionary = _EntityAccess.manager_get_combatant(manager, reserve_combatant_id)
+	if actor.is_empty() or _EntityAccess.rank_int(actor) < 1:
+		return
+	if manager.medical_phase and _MedicalPhase.is_losing_side(manager, actor):
+		return
+	var fid: String = _EntityAccess.formation_id_str(actor)
+	if fid.is_empty():
+		return
+	var file: int = _EntityAccess.file_int(actor)
+	var actor_rank: int = _EntityAccess.rank_int(actor)
+	for c in manager.combatants:
+		if not _EntityAccess.is_living_same_side(actor, c):
+			continue
+		if _EntityAccess.formation_id_str(c) != fid:
+			continue
+		if _EntityAccess.file_int(c) != file:
+			continue
+		if _EntityAccess.rank_int(c) <= actor_rank:
+			continue
+		if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+			continue
+		if _EntityAccess.is_unconscious(c):
+			continue
+		schedule_action_ready(
+			manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+		)
+
+
+## III-6: after rank-0 **`rotate_file`** completes, reserves in both swapped file columns re-evaluate.
+static func reschedule_same_file_depth_after_rotate_file(
+	manager: Node, fid: String, file_a: int, file_b: int
+) -> void:
+	if manager == null or fid.is_empty():
+		return
+	var files: Array[int] = []
+	if file_a >= 0:
+		files.append(file_a)
+	if file_b >= 0 and file_b != file_a:
+		files.append(file_b)
+	for file in files:
+		for c in manager.combatants:
+			if typeof(c) != TYPE_DICTIONARY:
+				continue
+			if _EntityAccess.formation_id_str(c) != fid:
+				continue
+			if not _EntityAccess.alive_bool(c):
+				continue
+			if _EntityAccess.file_int(c) != file:
+				continue
+			if _EntityAccess.rank_int(c) <= 0:
+				continue
+			if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
+				continue
+			if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+				continue
+			if _EntityAccess.is_unconscious(c):
+				continue
+			schedule_action_ready(
+				manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+			)
+
+
+## III-6: rank-2+ reserves in a file column re-evaluate after rank shuffle (swap resolve, solo fall_back).
+static func reschedule_same_file_depth_rank2_plus(
+	manager: Node, fid: String, file: int
+) -> void:
+	if manager == null or fid.is_empty() or file < 0:
+		return
+	for c in manager.combatants:
+		if typeof(c) != TYPE_DICTIONARY:
+			continue
+		if _EntityAccess.formation_id_str(c) != fid:
+			continue
+		if not _EntityAccess.alive_bool(c):
+			continue
+		if _EntityAccess.file_int(c) != file:
+			continue
+		if _EntityAccess.rank_int(c) < 2:
+			continue
+		if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
+			continue
+		if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+			continue
+		if _EntityAccess.is_unconscious(c):
+			continue
+		schedule_action_ready(
+			manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+		)
 
 
 ## Host-line formation record for placement tracking, or `{}` when not on a line grid.
@@ -335,7 +460,7 @@ static func reschedule_formation_recheck_for_moved_back_ranks(manager: Node, mov
 		var c: Dictionary = _EntityAccess.manager_get_combatant(manager, cid)
 		if c.is_empty() or not _EntityAccess.alive_bool(c, true):
 			continue
-		if _EntityAccess.rank_int(c) <= 0:
+		if _EntityAccess.rank_int(c) < 1:
 			continue
 		if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 			continue

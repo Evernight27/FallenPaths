@@ -2,6 +2,7 @@ class_name CombatRegressionHarnessKinematicTail
 extends RefCounted
 
 ## Tier 5.1 optional long-tail kinematic tests split from **`CombatRegressionHarness`** (Godot compile size).
+## Footing: strike delivery / energy — may pass **`guard_line`** into path context; not L2 form or Tier 4.4 PA owner. LIVE_PATHS **`#wf-layer-labels`**.
 
 const _MgrScript := preload("res://combat/CombatManager.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -13,9 +14,8 @@ const _Weapon := preload("res://weapon/Weapon.gd")
 const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
-const _GuardLines := preload("res://combat/CombatGuardLines.gd")
-const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
+const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const _HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinematics"
 const _HumanSpecies := preload("res://species/human.tres")
 
@@ -153,81 +153,32 @@ static func _run_kinematic_delivery_strike_momentum_mult_integration_pre_blunt_n
 static func _run_kinematic_delivery_get_attack_path_all_line_pairs_nonempty(
 	failures: PackedStringArray
 ) -> void:
-	var atk_lines: Array = ["high", "right", "low", "left"]
-	var guard_lines: Array = ["high", "right", "low", "left"]
-	if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
-		atk_lines = _GuardLines.ALL_LINES.duplicate()
-		guard_lines = _GuardLines.ALL_LINES.duplicate()
-	for atk_ln in atk_lines:
-		for guard_ln in guard_lines:
-			var path: Array = CombatConstants.get_attack_path(str(atk_ln), str(guard_ln))
+	for atk_ln in ["high", "right", "low", "left"]:
+		for guard_ln in ["high", "right", "low", "left"]:
+			var path: Array = CombatConstants.get_attack_path(atk_ln, guard_ln)
 			if path.is_empty():
 				CombatRegressionHarness._fail(
 					failures,
-					"kin_attack_path_pairs: empty path atk=%s guard=%s" % [str(atk_ln), str(guard_ln)]
+					"kin_attack_path_pairs: empty path atk=%s guard=%s" % [atk_ln, guard_ln]
 				)
-
-
-## III-2: octant guard/attack lines resolve path via cardinal **`ATTACK_PATHS_BY_GUARD`** (not generic fallback).
-static func _run_guard_eight_line_get_attack_path_maps_octant_to_cardinal(
-	failures: PackedStringArray
-) -> void:
-	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
-		return
-	var oct_guard: Array = CombatConstants.get_attack_path(
-		_GuardLines.LINE_HIGH_RIGHT, _GuardLines.LINE_LOW_LEFT
-	)
-	var card_guard: Array = CombatConstants.get_attack_path("high", "low")
-	if str(oct_guard) != str(card_guard):
-		CombatRegressionHarness._fail(
-			failures,
-			"guard_path_octant: high_right/low_left want cardinal high/low path got %s vs %s"
-			% [str(oct_guard), str(card_guard)]
-		)
-	var oct_fallback: Array = CombatConstants.get_attack_path(
-		_GuardLines.LINE_LOW_RIGHT, "__no_such_guard__"
-	)
-	var card_fallback: Array = CombatConstants.get_attack_path("low", "__no_such_guard__")
-	if str(oct_fallback) != str(card_fallback):
-		CombatRegressionHarness._fail(
-			failures,
-			"guard_path_octant: low_right unknown guard want low fallback got %s vs %s"
-			% [str(oct_fallback), str(card_fallback)]
-		)
-	var guard_specific: Array = CombatConstants.get_attack_path(
-		_GuardLines.LINE_HIGH, _GuardLines.LINE_LOW
-	)
-	var generic_high: Array = CombatConstants.ATTACK_PATHS.get("high", CombatConstants.ATTACK_PATH_HIGH)
-	if str(guard_specific) == str(generic_high):
-		CombatRegressionHarness._fail(
-			failures,
-			"guard_path_octant: high vs low guard should use guard-specific path not ATTACK_PATHS[high]"
-		)
-
-
-## III-2: no clash context — eight-line deflect fallback uses octant opposite (not four-line table).
-static func _run_guard_eight_line_deflect_fallback_uses_opposite_octant(
-	failures: PackedStringArray
-) -> void:
-	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
-		return
-	var c: Dictionary = {"guard_line": _GuardLines.LINE_HIGH, "id": 0}
-	_GuardLineUpdater.set_guard_deflected(c, "oberhau", _GuardLines.LINE_HIGH_RIGHT)
-	var want: String = _GuardLines.opposite_line(_GuardLines.LINE_HIGH_RIGHT)
-	if str(c.get("guard_line", "")) != want:
-		CombatRegressionHarness._fail(
-			failures,
-			"guard_deflect_octant: high_right attack want opposite %s got %s"
-			% [want, str(c.get("guard_line", ""))]
-		)
-	var card_fallback: String = str(
-		CombatConstants.DEFLECTED_GUARD_FROM_ATTACK.get(_GuardLines.LINE_HIGH_RIGHT, "")
-	)
-	if want == card_fallback and want != _GuardLines.LINE_LOW_LEFT:
-		CombatRegressionHarness._fail(
-			failures,
-			"guard_deflect_octant: test should distinguish octant opposite from cardinal table"
-		)
+	const _GuardLines := preload("res://combat/CombatGuardLines.gd")
+	for atk_oct in _GuardLines.ALL_LINES:
+		for guard_oct in _GuardLines.ALL_LINES:
+			var path_oct: Array = CombatConstants.get_attack_path(str(atk_oct), str(guard_oct))
+			var path_card: Array = CombatConstants.get_attack_path(
+				_GuardLines.cardinal_for_path_lookup(str(atk_oct)),
+				_GuardLines.cardinal_for_path_lookup(str(guard_oct))
+			)
+			if path_oct.is_empty():
+				CombatRegressionHarness._fail(
+					failures,
+					"kin_attack_path_octant: empty path atk=%s guard=%s" % [atk_oct, guard_oct]
+				)
+			if str(path_oct) != str(path_card):
+				CombatRegressionHarness._fail(
+					failures,
+					"kin_attack_path_octant: parity fail atk=%s guard=%s" % [atk_oct, guard_oct]
+				)
 
 
 static func _run_kinematic_delivery_near_full_parry_respects_min_cut_ratio_floor(
@@ -516,6 +467,7 @@ static func _run_kinematic_delivery_unarmed_pre_blunt_matches_helper(
 	var rd: Dictionary = res.get("result_dict", {}) as Dictionary
 	var pre_blunt: float = float(rd.get("pre_blunt_applied", -999.0))
 	var strike_ke: float = float(rd.get("strike_ke_j_applied", -999.0))
+	var atk_n: Node = _EntityAccess.scene_node(atk)
 	var mod: float = _EntityAccess.get_attack_damage_modifier(atk)
 	var strength: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
 	var base: float = WeaponDamageHelper.unarmed_base_pre_armor(strength, mod)
@@ -530,7 +482,7 @@ static func _run_kinematic_delivery_unarmed_pre_blunt_matches_helper(
 		)
 	)
 	var closing: float = _StrikePhysics.closing_speed_multiplier(m, atk, tgt, {})
-	var stance: float = CombatConstants.get_stance_modifier(_EntityAccess.stance_str(atk), "damage")
+	var stance: float = _WeaponForm.mod(_EntityAccess.form_str(atk), "damage")
 	var want: float = base * closing * stamina_u * stance
 	CombatRegressionHarness._free_manager(m)
 	if strike_ke > -0.5:
@@ -997,7 +949,10 @@ static func _run_kinematic_delivery_tactical_ambush_mult_unity_no_boost(
 static func _run_kinematic_delivery_engagement_angle_unknown_matches_front(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var atk: Dictionary = mgr.combatants[0]
 	var tgt_front: Dictionary = mgr.combatants[1].duplicate()
 	tgt_front["engagement_angle"] = "front"
@@ -1134,14 +1089,14 @@ static func _run_kinematic_delivery_thrust_integration_pen_sharp_scales_ke_expon
 			"kin_thrust_pen: need rising ke/pen (ke lo=%.4f hi=%.4f pen lo=%.4f hi=%.4f)"
 			% [ke_lo, ke_hi, pen_lo, pen_hi]
 		)
-	var pen_exp: float = WeaponConstants.PENETRATION_EXPONENT
-	var want_ratio: float = pow(ke_hi / maxf(ke_lo, 0.001), pen_exp)
+	var exp: float = WeaponConstants.PENETRATION_EXPONENT
+	var want_ratio: float = pow(ke_hi / maxf(ke_lo, 0.001), exp)
 	var got_ratio: float = pen_hi / maxf(pen_lo, 0.001)
 	if absf(got_ratio - want_ratio) > 0.06:
 		CombatRegressionHarness._fail(
 			failures,
 			"kin_thrust_pen: pen ratio %.4f want ke^%.2f ratio %.4f"
-			% [got_ratio, pen_exp, want_ratio]
+			% [got_ratio, exp, want_ratio]
 		)
 
 
@@ -1208,6 +1163,7 @@ static func _run_kinematic_delivery_empty_arch_spear_thrust_infers_delivery(
 	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	CombatRegressionHarness._harness_reset_combatants_form_balanced(mgr)
 	var atk: Dictionary = mgr.combatants[0]
 	var tgt: Dictionary = mgr.combatants[1]
 	var res: Dictionary = _AttackResolver.compute_and_apply_damage(
@@ -1406,7 +1362,10 @@ static func _run_kinematic_delivery_move_def_angle_variance_wider_than_bare_line
 static func _run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_formula(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
 	defender["stance"] = "balanced"
@@ -1507,7 +1466,7 @@ static func _run_kinematic_delivery_rear_afterblow_compose_on_strike_ke(
 		)
 
 
-## Tier 5.1 (optional long-tail): **`get_stance_modifier(..., "damage")`** scales integration **`pre_cut_applied`** (aggressive > defensive).
+## Tier 5.1 (optional long-tail): **`CombatWeaponForm.mod(form_str, "damage")`** scales integration **`pre_cut_applied`** (wrath > wall).
 static func _run_kinematic_delivery_stance_modifier_scales_pre_cut_integration(
 	failures: PackedStringArray
 ) -> void:
@@ -1520,6 +1479,7 @@ static func _run_kinematic_delivery_stance_modifier_scales_pre_cut_integration(
 	var atk_a: Dictionary = mgr_a.combatants[0]
 	var tgt_a: Dictionary = mgr_a.combatants[1]
 	atk_a["stance"] = CombatConstants.STANCE_AGGRESSIVE
+	atk_a[CombatConstants.COMBATANT_KEY_WEAPON_FORM] = "wrath"
 	var res_a: Dictionary = _AttackResolver.compute_and_apply_damage(
 		mgr_a,
 		_EntityAccess.id_int(atk_a),
@@ -1551,6 +1511,7 @@ static func _run_kinematic_delivery_stance_modifier_scales_pre_cut_integration(
 	var atk_d: Dictionary = mgr_d.combatants[0]
 	var tgt_d: Dictionary = mgr_d.combatants[1]
 	atk_d["stance"] = CombatConstants.STANCE_DEFENSIVE
+	atk_d[CombatConstants.COMBATANT_KEY_WEAPON_FORM] = "wall"
 	var res_d: Dictionary = _AttackResolver.compute_and_apply_damage(
 		mgr_d,
 		_EntityAccess.id_int(atk_d),
@@ -1574,8 +1535,8 @@ static func _run_kinematic_delivery_stance_modifier_scales_pre_cut_integration(
 	)
 	var cut_def: float = float(res_d.get("result_dict", {}).get("pre_cut_applied", -1.0))
 	CombatRegressionHarness._free_manager(mgr_d)
-	var stance_agg: float = CombatConstants.get_stance_modifier(CombatConstants.STANCE_AGGRESSIVE, "damage")
-	var stance_def: float = CombatConstants.get_stance_modifier(CombatConstants.STANCE_DEFENSIVE, "damage")
+	var stance_agg: float = _WeaponForm.mod(_WeaponForm.FORM_WRATH, "damage")
+	var stance_def: float = _WeaponForm.mod(_WeaponForm.FORM_WALL, "damage")
 	if cut_agg <= 0.5 or cut_def <= 0.5:
 		CombatRegressionHarness._fail(
 			failures, "kin_stance: pre_cut too small (agg=%.4f def=%.4f)" % [cut_agg, cut_def]
@@ -1663,7 +1624,10 @@ static func _run_kinematic_delivery_mixed_integration_pre_cut_scales_sqrt_ke(
 static func _run_kinematic_delivery_closing_speed_clamps_at_ceiling(
 	failures: PackedStringArray
 ) -> void:
-	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var atk: Dictionary = mgr.combatants[0]
 	var tgt: Dictionary = mgr.combatants[1]
 	tgt["engagement_angle"] = "rear"
@@ -2363,8 +2327,6 @@ static func run(failures: PackedStringArray) -> void:
 	_run_kinematic_delivery_strike_momentum_mult_integration_pre_blunt_not_pen(failures)
 	_run_kinematic_delivery_low_striker_stamina_lowers_strike_ke(failures)
 	_run_kinematic_delivery_get_attack_path_all_line_pairs_nonempty(failures)
-	_run_guard_eight_line_get_attack_path_maps_octant_to_cardinal(failures)
-	_run_guard_eight_line_deflect_fallback_uses_opposite_octant(failures)
 	_run_kinematic_delivery_near_full_parry_respects_min_cut_ratio_floor(failures)
 	_run_kinematic_delivery_discrete_line_alignment_matches_with_deflect_no_angles(failures)
 	_run_kinematic_delivery_mixed_archetype_integration_ke_matches_helper(failures)

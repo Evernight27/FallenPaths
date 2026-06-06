@@ -1,32 +1,28 @@
 class_name MapFieldCare
 extends RefCounted
 
-## Camp-2.1 map field care (D-bleed add-on): pressure / bandage in Party menu with time cost.
+## Camp-2.1 map field care (D-bleed add-on): TCCC MARCH hemorrhage control on the overworld map.
+## Procedure time advances `process_bleeding` + `process_blood_loss` only (no `process_healing`).
+## Dressing uses `EntityMedical` / `BleedingConstants` (pressure flow retention, bandage RNG, med refund on fail).
+## E3 hybrid: bandage at 0 company med uses reduced efficacy (no med consumed); pack/stabilize still require med >= 1.
+## Regenerative healing belongs in camp rest (`CompanyState.try_camp_heal`) or overworld steps.
 
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
+const _EntityMedical := preload("res://core/EntityMedical.gd")
+const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _BodyParts := preload("res://core/BodyPartConstants.gd")
 
 const FIELD_CARE_SECONDS := 120.0
-const FIELD_CARE_HEAL_MULT := 1.25
+## Procedure duration scale (2 min base × 1.25 ≈ 150 s sim); hemorrhage physics only — not tissue healing.
+const FIELD_CARE_PROCEDURE_TIME_MULT := 1.25
 
 
 static func can_offer_field_pressure(world: Node2D, member: Dictionary) -> bool:
-	var entity: Node = _entity_for_member(member)
-	if entity == null:
-		return false
-	var part: String = _first_field_care_part(entity)
-	if part.is_empty():
-		return false
-	if entity.has_method("can_apply_direct_pressure") and entity.can_apply_direct_pressure(part):
-		return true
-	if entity.has_method("can_apply_direct_pressure_from_ally"):
-		var performer: Node = _default_performer_entity(world)
-		if performer != null and entity.can_apply_direct_pressure_from_ally(part, performer):
-			return true
-	return false
+	return not _first_pressure_part(world, member).is_empty()
 
 
 static func can_offer_field_stabilize(world: Node2D, member: Dictionary) -> bool:
@@ -38,21 +34,184 @@ static func can_offer_field_stabilize(world: Node2D, member: Dictionary) -> bool
 	return not _first_stabilize_part(entity).is_empty()
 
 
-static func can_offer_field_bandage(world: Node2D, member: Dictionary) -> bool:
+static func can_offer_field_bandage(_world: Node2D, member: Dictionary) -> bool:
+	return not field_bandage_part_ready(member).is_empty()
+
+
+static func can_offer_field_pack(world: Node2D, member: Dictionary) -> bool:
 	if _CompanyState.get_medical_supplies(world) < 1:
 		return false
+	return not _first_pack_part(member).is_empty()
+
+
+static func can_offer_field_tourniquet(_world: Node2D, member: Dictionary) -> bool:
 	var entity: Node = _entity_for_member(member)
 	if entity == null:
 		return false
-	var part: String = _first_field_care_part(entity)
-	return not part.is_empty() and entity.has_method("can_apply_bandage") and entity.can_apply_bandage(part)
+	return not _first_tourniquet_part(entity).is_empty()
+
+
+## Part ready to dress (pressure held or bleed controlled) — for UI labels.
+static func field_bandage_part_ready(member: Dictionary) -> String:
+	var entity: Node = _entity_for_member(member)
+	if entity == null:
+		return ""
+	return _first_bandage_part(entity)
+
+
+static func format_field_bandage_button_label(world: Node2D, member: Dictionary = {}) -> String:
+	var part: String = field_bandage_part_ready(member) if not member.is_empty() else ""
+	var part_s: String = _format_part_label(part)
+	var med_bit: String = (
+		"−1 med"
+		if _CompanyState.get_medical_supplies(world) >= 1
+		else "0 med · %.0f%% eff" % (_CompanyState.compute_medical_supply_factor(world) * 100.0)
+	)
+	if part_s.is_empty():
+		return "Field bandage (%s, 2m)" % med_bit
+	return "Field bandage (%s · %s, 2m)" % [part_s, med_bit]
+
+
+static func format_field_pressure_button_label(world: Node2D, member: Dictionary) -> String:
+	var part: String = _first_pressure_part(world, member)
+	var part_s: String = _format_part_label(part)
+	if part_s.is_empty():
+		return "Field pressure (2m)"
+	return "Field pressure (%s · 2m)" % part_s
+
+
+static func format_field_stabilize_button_label(_world: Node2D, member: Dictionary) -> String:
+	var entity: Node = _entity_for_member(member)
+	var part: String = _first_stabilize_part(entity)
+	var part_s: String = _format_part_label(part)
+	if part_s.is_empty():
+		return "Field stabilize (−1 med, hold only · 2m)"
+	return "Field stabilize (%s · −1 med, hold only · 2m)" % part_s
+
+
+static func format_field_pack_button_label(_world: Node2D, member: Dictionary) -> String:
+	var part: String = _first_pack_part(member)
+	var part_s: String = _format_part_label(part)
+	if part_s.is_empty():
+		return "Field pack (−1 med, 2m)"
+	return "Field pack (%s · −1 med, 2m)" % part_s
+
+
+static func format_field_tourniquet_button_label(_world: Node2D, member: Dictionary) -> String:
+	var entity: Node = _entity_for_member(member)
+	var part: String = _first_tourniquet_part(entity)
+	var part_s: String = _format_part_label(part)
+	if part_s.is_empty():
+		return "Field tourniquet (2m)"
+	return "Field tourniquet (%s · 2m)" % part_s
+
+
+static func member_untreated_part_count(member: Dictionary) -> int:
+	var entity: Node = _entity_for_member(member)
+	if entity == null:
+		return 0
+	return _EntityWounds.sorted_untreated_part_names(entity).size()
+
+
+## First untreated part that still needs compression before bandage (for disabled UI).
+static func field_bandage_waiting_part(member: Dictionary) -> String:
+	var entity: Node = _entity_for_member(member)
+	if entity == null:
+		return ""
+	for p in _EntityWounds.sorted_untreated_part_names(entity):
+		var bleed: float = _EntityWounds.get_bleeding_rate_for_part(entity, p)
+		if bleed <= _Bleeding.BLEEDING_RATE_EPSILON:
+			continue
+		if _EntityMedical.has_direct_pressure_on_part(entity, p):
+			continue
+		if entity.has_method("can_apply_bandage") and entity.can_apply_bandage(p):
+			return p
+	return ""
+
+
+static func format_field_bandage_waiting_label(member: Dictionary) -> String:
+	var part: String = field_bandage_waiting_part(member)
+	var part_s: String = _format_part_label(part)
+	if part_s.is_empty():
+		return "Field bandage (pressure first)"
+	return "Field bandage (%s needs pressure · 2m)" % part_s
+
+
+static func format_part_label(part: String) -> String:
+	return _format_part_label(part)
+
+
+static func format_part_list(parts: Array) -> String:
+	var labels: PackedStringArray = PackedStringArray()
+	for p in parts:
+		var s: String = _format_part_label(str(p))
+		if not s.is_empty():
+			labels.append(s)
+	return ", ".join(labels)
+
+
+## Shown under care buttons when compression is held on a bleeding part awaiting bandage/pack.
+static func format_member_pressure_held_line(member: Dictionary) -> String:
+	var entity: Node = _entity_for_member(member)
+	if entity == null:
+		return ""
+	for p in _EntityWounds.sorted_untreated_part_names(entity):
+		if not _EntityMedical.has_direct_pressure_on_part(entity, p):
+			continue
+		var bleed: float = _EntityWounds.get_bleeding_rate_for_part(entity, p)
+		if bleed <= _Bleeding.BLEEDING_RATE_EPSILON:
+			continue
+		var part_s: String = _format_part_label(p)
+		if part_s.is_empty():
+			continue
+		return "Pressure held on %s — bandage or pack when ready." % part_s
+	return ""
+
+
+static func format_member_field_care_hint(member: Dictionary) -> String:
+	var n: int = member_untreated_part_count(member)
+	if n <= 0:
+		return ""
+	if n == 1:
+		return "One part left on this brother — finish dressing to unlock camp rest."
+	return "Field care treats highest-threat part first — %d part(s) remain on this brother." % n
+
+
+## Suggested next field-care action for Party row (pressure → dress → pack/TQ → stabilize).
+static func format_next_field_care_action(world: Node2D, member: Dictionary) -> String:
+	if member_untreated_part_count(member) <= 0:
+		return ""
+	if can_offer_field_pressure(world, member):
+		return "Next: %s" % format_field_pressure_button_label(world, member)
+	if field_bandage_needs_pressure_first(member):
+		return "Next: %s" % format_field_bandage_waiting_label(member)
+	if can_offer_field_bandage(world, member):
+		return "Next: %s" % format_field_bandage_button_label(world, member)
+	if can_offer_field_pack(world, member):
+		return "Next: %s" % format_field_pack_button_label(world, member)
+	if can_offer_field_tourniquet(world, member):
+		return "Next: %s" % format_field_tourniquet_button_label(world, member)
+	if can_offer_field_stabilize(world, member):
+		return "Next: %s" % format_field_stabilize_button_label(world, member)
+	return ""
+
+
+static func _format_part_label(part: String) -> String:
+	if part.is_empty():
+		return ""
+	return str(_BodyParts.BODY_LABELS.get(part, part.replace("_", " ")))
+
+
+## Untreated part still bleeding without compression — pressure must precede bandage.
+static func field_bandage_needs_pressure_first(member: Dictionary) -> bool:
+	return not field_bandage_waiting_part(member).is_empty()
 
 
 static func try_field_pressure(world: Node2D, member: Dictionary) -> bool:
 	if not can_offer_field_pressure(world, member):
 		return false
 	var entity: Node = _entity_for_member(member)
-	var part: String = _first_field_care_part(entity)
+	var part: String = _first_pressure_part(world, member)
 	if part.is_empty():
 		return false
 	_advance_field_care_time(entity)
@@ -68,11 +227,9 @@ static func try_field_pressure(world: Node2D, member: Dictionary) -> bool:
 		ok = entity.apply_direct_pressure(part)
 	if ok:
 		_CompanyState.refresh_hud(world)
-		if _OperationalLog.is_play_session_active():
-			_OperationalLog.play_world(
-				"field_care pressure part=%s target=%s seconds=%.0f"
-				% [part, str(member.get("name", "?")), FIELD_CARE_SECONDS]
-			)
+		_log_field_care_success(world, "pressure", part, member)
+	else:
+		_log_field_care_failure(world, "pressure", part, member, "could not hold pressure — retry")
 	return ok
 
 
@@ -86,20 +243,22 @@ static func try_field_stabilize(world: Node2D, member: Dictionary) -> bool:
 	if not _CompanyState.consume_medical(world, 1):
 		return false
 	_advance_field_care_time(entity)
-	var eff: float = _CompanyState.compute_medical_supply_factor(world)
-	if entity.has_method("get_medical_effectiveness"):
-		eff = float(entity.get_medical_effectiveness()) * eff
-	# Field stabilize: sustained pressure + camp training — slightly higher floor than battle RNG alone.
-	eff = clampf(maxf(eff, 1.15), 0.25, 2.0)
+	var eff: float = _field_treatment_effectiveness(entity, world, true)
 	var ok: bool = entity.apply_stabilize(part, eff)
 	if not ok:
 		_CompanyState.set_medical_supplies(world, _CompanyState.get_medical_supplies(world) + 1)
+		_log_field_care_failure(
+			world, "stabilize", part, member, "med refunded; hold pressure and retry"
+		)
 		return false
 	_CompanyState.refresh_hud(world)
-	if _OperationalLog.is_play_session_active():
-		_OperationalLog.play_world(
-			"field_care stabilize part=%s target=%s seconds=%.0f med_left=%d"
-			% [part, str(member.get("name", "?")), FIELD_CARE_SECONDS, _CompanyState.get_medical_supplies(world)]
+	if ok:
+		_log_field_care_success(
+			world,
+			"stabilize",
+			part,
+			member,
+			"med_left=%d still_needs_dressing" % _CompanyState.get_medical_supplies(world)
 		)
 	return ok
 
@@ -108,71 +267,211 @@ static func try_field_bandage(world: Node2D, member: Dictionary) -> bool:
 	if not can_offer_field_bandage(world, member):
 		return false
 	var entity: Node = _entity_for_member(member)
-	var part: String = _first_field_care_part(entity)
+	var part: String = field_bandage_part_ready(member)
 	if part.is_empty() or not entity.has_method("apply_bandage"):
 		return false
-	if not _CompanyState.consume_medical(world, 1):
-		return false
+	var consumed_med: bool = false
+	if _CompanyState.get_medical_supplies(world) >= 1:
+		if not _CompanyState.consume_medical(world, 1):
+			return false
+		consumed_med = true
 	_advance_field_care_time(entity)
-	var eff: float = _CompanyState.compute_medical_supply_factor(world)
-	if entity.has_method("get_medical_effectiveness"):
-		eff = float(entity.get_medical_effectiveness()) * eff
-		eff = clampf(eff, 0.25, 1.5)
+	var eff: float = _field_treatment_effectiveness(entity, world, false)
 	var ok: bool = entity.apply_bandage(part, eff)
 	if not ok:
-		_CompanyState.set_medical_supplies(world, _CompanyState.get_medical_supplies(world) + 1)
+		if consumed_med:
+			_CompanyState.set_medical_supplies(world, _CompanyState.get_medical_supplies(world) + 1)
+		var pressure_note: String = (
+			"pressure still held"
+			if _EntityMedical.has_direct_pressure_on_part(entity, part)
+			else "apply pressure before retry"
+		)
+		var refund_note: String = "med refunded; " if consumed_med else ""
+		_log_field_care_failure(
+			world, "bandage", part, member, "%s%s" % [refund_note, pressure_note]
+		)
 		return false
 	_CompanyState.refresh_hud(world)
-	if _OperationalLog.is_play_session_active():
-		_OperationalLog.play_world(
-			"field_care bandage part=%s target=%s seconds=%.0f med_left=%d"
-			% [part, str(member.get("name", "?")), FIELD_CARE_SECONDS, _CompanyState.get_medical_supplies(world)]
+	if ok:
+		_log_field_care_success(
+			world,
+			"bandage",
+			part,
+			member,
+			"med_left=%d eff=%.2f" % [_CompanyState.get_medical_supplies(world), eff]
 		)
 	return ok
 
 
+static func try_field_pack(world: Node2D, member: Dictionary) -> bool:
+	if not can_offer_field_pack(world, member):
+		return false
+	var entity: Node = _entity_for_member(member)
+	var part: String = _first_pack_part(member)
+	if part.is_empty() or not entity.has_method("apply_packing"):
+		return false
+	if not _CompanyState.consume_medical(world, 1):
+		return false
+	_advance_field_care_time(entity)
+	var eff: float = _field_treatment_effectiveness(entity, world, true)
+	var ok: bool = entity.apply_packing(part, eff)
+	if not ok:
+		_CompanyState.set_medical_supplies(world, _CompanyState.get_medical_supplies(world) + 1)
+		_log_field_care_failure(
+			world, "pack", part, member, "med refunded; hold pressure and retry"
+		)
+		return false
+	_CompanyState.refresh_hud(world)
+	if ok:
+		_log_field_care_success(
+			world,
+			"pack",
+			part,
+			member,
+			"med_left=%d" % _CompanyState.get_medical_supplies(world)
+		)
+	return ok
+
+
+static func try_field_tourniquet(world: Node2D, member: Dictionary) -> bool:
+	if not can_offer_field_tourniquet(world, member):
+		return false
+	var entity: Node = _entity_for_member(member)
+	var part: String = _first_tourniquet_part(entity)
+	if part.is_empty() or not entity.has_method("apply_tourniquet"):
+		return false
+	_advance_field_care_time(entity)
+	var eff: float = _field_treatment_effectiveness(entity, world, false)
+	eff = clampf(eff, 0.25, 1.5)
+	var ok: bool = entity.apply_tourniquet(part, eff)
+	if not ok:
+		_log_field_care_failure(world, "tourniquet", part, member, "retry")
+		return false
+	_CompanyState.refresh_hud(world)
+	if ok:
+		_log_field_care_success(world, "tourniquet", part, member)
+	return ok
+
+
+static func _field_treatment_effectiveness(entity: Node, world: Node2D, stabilize_floor: bool) -> float:
+	var eff: float = _CompanyState.compute_medical_supply_factor(world)
+	if entity != null and entity.has_method("get_medical_effectiveness"):
+		eff = float(entity.get_medical_effectiveness()) * eff
+	if stabilize_floor:
+		return clampf(maxf(eff, 1.15), 0.25, 2.0)
+	return clampf(eff, 0.25, 1.5)
+
+
 static func _advance_field_care_time(entity: Node) -> void:
-	_EntityTimeAdvance.advance(entity, FIELD_CARE_SECONDS * FIELD_CARE_HEAL_MULT, true)
+	_EntityTimeAdvance.advance(
+		entity,
+		FIELD_CARE_SECONDS * FIELD_CARE_PROCEDURE_TIME_MULT,
+		false
+	)
 	if entity.has_method("ensure_consciousness_current"):
 		entity.ensure_consciousness_current()
+
+
+static func _log_field_care_failure(
+	world: Node2D, action: String, part: String, member: Dictionary, detail: String
+) -> void:
+	if not _OperationalLog.is_play_session_active():
+		return
+	var parts_left: int = _Bridge.party_untreated_part_count(world)
+	_OperationalLog.play_world(
+		"field_care %s failed part=%s target=%s parts_left=%d — %s"
+		% [action, part, str(member.get("name", "?")), parts_left, detail]
+	)
+
+
+static func _log_field_care_success(
+	world: Node2D, action: String, part: String, member: Dictionary, extra: String = ""
+) -> void:
+	if not _OperationalLog.is_play_session_active():
+		return
+	var parts_left: int = _Bridge.party_untreated_part_count(world)
+	var tail: String = extra.strip_edges()
+	if not tail.is_empty():
+		tail = " " + tail
+	if parts_left <= 0:
+		tail += " all_dressed=true camp_rest_ready"
+	_OperationalLog.play_world(
+		"field_care %s part=%s target=%s seconds=%.0f parts_left=%d%s"
+		% [action, part, str(member.get("name", "?")), FIELD_CARE_SECONDS, parts_left, tail]
+	)
 
 
 static func _entity_for_member(member: Dictionary) -> Node:
 	var node_ref: Variant = member.get("node_ref")
 	if not is_instance_valid(node_ref) or not (node_ref is Node):
 		return null
-	return _CampaignBridge.health_entity_from_character(node_ref as Node)
+	return _Bridge.health_entity_from_character(node_ref as Node)
 
 
 static func _default_performer_entity(world: Node2D) -> Node:
 	if world == null or not world.has_node("Character"):
 		return null
-	return _CampaignBridge.health_entity_from_character(world.get_node("Character"))
+	return _Bridge.health_entity_from_character(world.get_node("Character"))
+
+
+static func _first_pressure_part(world: Node2D, member: Dictionary) -> String:
+	var entity: Node = _entity_for_member(member)
+	if entity == null:
+		return ""
+	for p in _EntityWounds.sorted_untreated_part_names(entity):
+		if entity.has_method("can_apply_direct_pressure") and entity.can_apply_direct_pressure(p):
+			return p
+		if entity.has_method("can_apply_direct_pressure_from_ally"):
+			var performer: Node = _default_performer_entity(world)
+			if performer != null and entity.can_apply_direct_pressure_from_ally(p, performer):
+				return p
+	return ""
 
 
 static func _first_stabilize_part(entity: Node) -> String:
 	if entity == null:
 		return ""
-	var wounded: Array = []
-	if entity.has_method("get_wounded_parts"):
-		wounded = entity.get_wounded_parts()
-	for part in wounded:
-		var p: String = str(part)
+	for p in _EntityWounds.sorted_untreated_part_names(entity):
 		if entity.has_method("can_apply_stabilize") and entity.can_apply_stabilize(p):
 			return p
 	return ""
 
 
-static func _first_field_care_part(entity: Node) -> String:
+static func _first_bandage_part(entity: Node) -> String:
 	if entity == null:
 		return ""
-	var wounded: Array = []
-	if entity.has_method("get_wounded_parts"):
-		wounded = entity.get_wounded_parts()
-	for part in wounded:
-		var p: String = str(part)
-		if entity.has_method("can_apply_direct_pressure") and entity.can_apply_direct_pressure(p):
-			return p
+	for p in _EntityWounds.sorted_untreated_part_names(entity):
+		var bleed: float = _EntityWounds.get_bleeding_rate_for_part(entity, p)
+		var needs_pressure: bool = bleed > _Bleeding.BLEEDING_RATE_EPSILON
+		if needs_pressure and not _EntityMedical.has_direct_pressure_on_part(entity, p):
+			continue
 		if entity.has_method("can_apply_bandage") and entity.can_apply_bandage(p):
+			return p
+	return ""
+
+
+static func _first_pack_part(member: Dictionary) -> String:
+	var entity: Node = _entity_for_member(member)
+	if entity == null:
+		return ""
+	for p in _EntityWounds.sorted_untreated_part_names(entity):
+		if p not in _Bleeding.PACKING_PARTS:
+			continue
+		var bleed: float = _EntityWounds.get_bleeding_rate_for_part(entity, p)
+		var needs_pressure: bool = bleed > _Bleeding.BLEEDING_RATE_EPSILON
+		if needs_pressure and not _EntityMedical.has_direct_pressure_on_part(entity, p):
+			continue
+		if entity.has_method("can_apply_packing") and entity.can_apply_packing(p):
+			return p
+	return ""
+
+
+static func _first_tourniquet_part(entity: Node) -> String:
+	if entity == null:
+		return ""
+	for p in _EntityWounds.sorted_untreated_part_names(entity):
+		if not _EntityMedical.is_tourniquet_indicated_for_part(entity, p):
+			continue
+		if entity.has_method("can_apply_tourniquet") and entity.can_apply_tourniquet(p):
 			return p
 	return ""

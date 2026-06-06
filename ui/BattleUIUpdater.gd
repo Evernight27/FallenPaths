@@ -9,6 +9,7 @@ const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 ## Updates a single combatant's UI row: gauge, state label, blood, consciousness, body bars.
+## Gauge suffix order (footing): pick · attention · Step (PA) · flurry · exhaustion · Grd/Atk · Form — `_compose_waiting_gauge_label`. LIVE_PATHS **`#battle-ui`** · **`#wf-tier-44-pa`** (Step) · **`#wf-soak-audit-status`** (ii5c open for **` · Form`**).
 ## ctrl = id_to_controls[id], c = combatant dict from manager.get_combatants().
 ## Pass **`manager`** for live counter-tempo, attention salience, cooldown **`status_override`**, and
 ## Camp-3.3 medical-phase gauge tooltips (**`CombatUiHints.medical_phase_context_tooltip_lines`**).
@@ -24,8 +25,9 @@ static func _compose_waiting_gauge_label(c: Dictionary, primary: String, manager
 	var flurry_suffix: String = _UiHints.flurry_bind_hint_suffix(c, manager)
 	var exh_suffix: String = _UiHints.exhaustion_hint_suffix(c)
 	var grd_suffix: String = _UiHints.guard_line_gauge_suffix(c)
+	var form_suffix: String = _UiHints.weapon_form_gauge_suffix(c)
 	var pick_suffix: String = _last_pick_suffix(c)
-	return primary + pick_suffix + attn_suffix + foot_suffix + flurry_suffix + exh_suffix + grd_suffix
+	return primary + pick_suffix + attn_suffix + foot_suffix + flurry_suffix + exh_suffix + grd_suffix + form_suffix
 
 
 static func _readiness_hint_suffix(c: Dictionary) -> String:

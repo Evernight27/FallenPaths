@@ -6,7 +6,8 @@ const _EncounterNodeScript := preload("res://world/EncounterNode.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+
+const TILE_SIZE := 64
 const CAMP_TILE := Vector2i(0, 0)
 const TUTORIAL_TILE := Vector2i(1, 0)
 
@@ -17,6 +18,9 @@ const TUTORIAL_TEMPLATE: Dictionary = {	"contract_type": "tutorial",
 	"difficulty_rating": 1,
 	"enemy_count": 2,
 	"map_bleed_mult": 0.25,
+	CombatConstants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM: "ox",
+	CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM: "balanced",
+	CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT: 2,
 }
 
 ## §18 SHIP_PLAN — EA paid deck (two jobs per run).
@@ -31,9 +35,11 @@ const CONTRACT_TEMPLATES: Array = [
 		"enemy_species_pool": [ResourcePaths.HUMAN_SPECIES],
 		"soak_force_weapon_id": "SWORD",
 		CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT: 7,
-		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER: CombatConstants.DOCTRINE_PINCH_CENTER,
 		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY: CombatConstants.DOCTRINE_PINCH_CENTER,
+		CombatConstants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM: "ox",
+		CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM: "wrath",
 	},
+	# Escort: Formation-mode 7v5 — 5-wide front + depth (not 7-wide Skirmish like Border Skirmish).
 	{
 		"contract_type": "escort",
 		"contract_title": "Escort Duty",
@@ -42,7 +48,10 @@ const CONTRACT_TEMPLATES: Array = [
 		"enemy_count": 5,
 		"map_bleed_mult": 0.85,
 		"enemy_species_pool": [ResourcePaths.HUMAN_SPECIES],
+		CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT: 5,
 		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY: CombatConstants.DOCTRINE_PINCH_CENTER,
+		CombatConstants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM: "ox",
+		CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM: "wrath",
 		"flee_line_cohesion_max_enemy": 0.42,
 		"flee_casualty_ratio_min_enemy": 0.35,
 	},
@@ -76,6 +85,37 @@ static func get_template_count() -> int:
 
 
 ## After soft defeat (tutorial), re-place marker if the tile is empty.
+## Restore a saved encounter marker after load ( **`CampaignPersistence.apply_save`** ).
+static func spawn_saved_encounter_at_tile(
+	parent: Node,
+	tile: Vector2i,
+	encounter_config: Dictionary,
+	enemy_count: int,
+	enemy_formation: Dictionary,
+	contract_marker_label: String,
+	marker_kind: String,
+	enemy_scene: PackedScene
+) -> void:
+	if parent == null or tile.x < 0:
+		return
+	var scene := enemy_scene
+	if scene == null:
+		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
+	var encounter = _EncounterNodeScript.new()
+	encounter.position = _tile_center(parent, tile)
+	encounter.enemy_count = mini(enemy_count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
+	if scene != null:
+		encounter.enemy_scene = scene
+	encounter.encounter_config = encounter_config.duplicate(true)
+	if enemy_formation.is_empty():
+		encounter.enemy_formation = build_enemy_formation_for_template(encounter_config)
+	else:
+		encounter.enemy_formation = enemy_formation.duplicate(true)
+	encounter.contract_marker_label = contract_marker_label
+	encounter.marker_kind = marker_kind
+	parent.add_child(encounter)
+
+
 static func ensure_special_encounter_present(
 	parent: Node2D, _rng: RandomNumberGenerator, enemy_scene: PackedScene, contract: Dictionary
 ) -> void:
@@ -99,7 +139,7 @@ static func build_encounter_config(template: Dictionary) -> Dictionary:
 ## Camp-1.7: later-run contracts spawn more enemies (renown / 2 floored, cap +2).
 static func scale_template_for_renown(parent: Node, template: Dictionary) -> Dictionary:
 	var out: Dictionary = template.duplicate(true)
-	if bool(out.get("tutorial", false)) or bool(out.get("training", false)):
+	if bool(out.get("tutorial", false)):
 		return out
 	if parent == null:
 		return out
@@ -112,7 +152,7 @@ static func scale_template_for_renown(parent: Node, template: Dictionary) -> Dic
 
 static func format_marker_label(template: Dictionary, world: Node = null) -> String:
 	if bool(template.get("tutorial", false)):
-		return "Tutorial\n2v2 · learn basics"
+		return "Tutorial\n2v2 · 2-wide tutorial line"
 	var title: String = str(template.get("contract_title", "Job"))
 	var pay: int = int(template.get("pay_gold", 0))
 	var skulls: int = int(template.get("difficulty_rating", 1))
@@ -133,15 +173,32 @@ static func format_marker_label(template: Dictionary, world: Node = null) -> Str
 	var bleed_hint: String = ""
 	if bleed_mult < 0.99 and not bool(template.get("tutorial", false)):
 		bleed_hint = " · map bleed ×%.0f%%" % (bleed_mult * 100.0)
+	var formation_hint: String = _format_player_formation_hint(template)
 	var flavor_hint: String = _format_combat_flavor_hint(template)
-	return "%s\n%s · %s%s%s%s" % [
+	return "%s\n%s · %s%s%s%s%s" % [
 		title,
 		pay_line,
 		"★".repeat(mini(3, maxi(1, skulls))),
 		enemy_hint,
+		formation_hint,
 		bleed_hint,
 		flavor_hint,
 	]
+
+
+static func _format_player_formation_hint(template: Dictionary) -> String:
+	var front: int = int(
+		template.get(_CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT, 0)
+	)
+	match front:
+		7:
+			return " · 7-wide skirmish line"
+		5:
+			return " · 5-wide formation"
+		2:
+			return " · 2-wide tutorial line"
+		_:
+			return ""
 
 
 static func _format_combat_flavor_hint(template: Dictionary) -> String:
@@ -173,37 +230,6 @@ static func build_enemy_formation_for_template(template: Dictionary) -> Dictiona
 	return FormationPreset.default_for_count(n)
 
 
-## Restore one saved encounter marker (D-persistence P2 load).
-static func spawn_saved_encounter_at_tile(
-	parent: Node,
-	tile: Vector2i,
-	encounter_config: Dictionary,
-	enemy_count: int,
-	enemy_formation: Dictionary,
-	contract_marker_label: String,
-	marker_kind: String,
-	enemy_scene: PackedScene
-) -> void:
-	if parent == null or tile.x < 0:
-		return
-	var scene := enemy_scene
-	if scene == null:
-		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
-	var encounter = _EncounterNodeScript.new()
-	encounter.position = _CampaignBridge.overworld_tile_center(tile)
-	encounter.enemy_count = mini(enemy_count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
-	if scene != null:
-		encounter.enemy_scene = scene
-	encounter.encounter_config = encounter_config.duplicate(true)
-	if enemy_formation.is_empty():
-		encounter.enemy_formation = build_enemy_formation_for_template(encounter_config)
-	else:
-		encounter.enemy_formation = enemy_formation.duplicate(true)
-	encounter.contract_marker_label = contract_marker_label
-	encounter.marker_kind = marker_kind
-	parent.add_child(encounter)
-
-
 static func _spawn_contract_at_tile(
 	parent: Node,
 	tile: Vector2i,
@@ -214,7 +240,7 @@ static func _spawn_contract_at_tile(
 	if scene == null:
 		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
 	var encounter = _EncounterNodeScript.new()
-	encounter.position = _CampaignBridge.overworld_tile_center(tile)
+	encounter.position = _tile_center(parent, tile)
 	encounter.enemy_count = mini(
 		int(template.get("enemy_count", 3)), CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP
 	)
@@ -231,7 +257,7 @@ static func _encounter_on_tile(parent: Node, tile: Vector2i) -> bool:
 	if parent == null or tile.x < 0:
 		return false
 	for child in parent.get_children():
-		if child.get_script() == _EncounterNodeScript and _CampaignBridge.overworld_tile_from_position(child.position) == tile:
+		if child.get_script() == _EncounterNodeScript and _tile_coords(parent, child.position) == tile:
 			return true
 	return false
 
@@ -239,10 +265,10 @@ static func _encounter_on_tile(parent: Node, tile: Vector2i) -> bool:
 static func _reserve_tiles(parent: Node) -> Array:
 	var used: Array = [CAMP_TILE]
 	if parent.has_node("Character"):
-		used.append(_CampaignBridge.overworld_tile_from_position(parent.get_node("Character").position))
+		used.append(_tile_coords(parent, parent.get_node("Character").position))
 	for child in parent.get_children():
 		if child.get_script() == _EncounterNodeScript:
-			used.append(_CampaignBridge.overworld_tile_from_position(child.position))
+			used.append(_tile_coords(parent, child.position))
 	return used
 
 
@@ -263,3 +289,15 @@ static func _first_free_tile(reserved: Array) -> Vector2i:
 			if t not in reserved:
 				return t
 	return Vector2i(-1, -1)
+
+
+static func _tile_coords(world: Node, pos: Vector2) -> Vector2i:
+	if world != null and world.has_method("_tile_coords"):
+		return world.call("_tile_coords", pos) as Vector2i
+	return Vector2i(floor((pos.x - 32) / float(TILE_SIZE)), floor((pos.y - 32) / float(TILE_SIZE)))
+
+
+static func _tile_center(world: Node, tile: Vector2i) -> Vector2:
+	if world != null and world.has_method("_tile_center"):
+		return world.call("_tile_center", tile) as Vector2
+	return Vector2(tile.x * TILE_SIZE + 32, tile.y * TILE_SIZE + 32)

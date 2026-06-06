@@ -10,6 +10,7 @@ const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _UiConstants := preload("res://ui/BattleUIConstants.gd")
 
 ## Builds a compact visual formation diagram: rank×file grid with per-unit health bars + names.
+## Cell label suffix order (footing): optional footwork → **`[HiL]`** guard → **`[Wrath]`** form — `_cell_label_with_footwork`. LIVE_PATHS **`#battle-ui`** · **`#wf-soak-audit-status`** · **`#wf-footing-doc-map`**.
 ## Shows Front (rank 0) and Back (rank 1+) so formation changes (swap rank, etc.) are trackable.
 ## Canonical: PartyRowFormatter.total_body_health_ratio / body_functionality_ratio for bar fill + tint.
 ## Returns the root Control; caller reparents into layout and calls refresh() when formation changes.
@@ -133,6 +134,7 @@ static func _cell_label_with_footwork(base: String, footwork_sources: Array) -> 
 	var text: String = base
 	var got_fw: bool = false
 	var got_grd: bool = false
+	var got_form: bool = false
 	for raw in footwork_sources:
 		if raw == null or typeof(raw) != TYPE_DICTIONARY:
 			continue
@@ -147,7 +149,12 @@ static func _cell_label_with_footwork(base: String, footwork_sources: Array) -> 
 			if not grd.is_empty():
 				text += grd
 				got_grd = true
-		if got_fw and got_grd:
+		if not got_form:
+			var form: String = _UiHints.weapon_form_diagram_suffix(oc)
+			if not form.is_empty():
+				text += form
+				got_form = true
+		if got_fw and got_grd and got_form:
 			break
 	return text
 

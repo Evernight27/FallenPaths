@@ -1,20 +1,38 @@
 ---
-description: Fallen Paths — gate, scope, combat guardrails
+description: Fallen Paths Godot layout — planning streams and code ownership
 alwaysApply: true
 ---
 
-# Fallen Paths (Godot 4.x)
+# Project map (Godot 4.x)
 
-[`AGENTS.md`](AGENTS.md) · [`AGENTS.md#code-homes`](AGENTS.md#code-homes) · [`docs/PLANNING.md`](docs/PLANNING.md#file-ownership)
+**Planning:** [`docs/PLANNING.md`](docs/PLANNING.md) · [`docs/CURSOR.md`](docs/CURSOR.md) · [`docs/SHIP_PLAN.md`](docs/SHIP_PLAN.md) · [`docs/CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22`](docs/CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22) · [`docs/SHIP_PLAN.md#combat-mental-stack-shipped`](docs/SHIP_PLAN.md#combat-mental-stack-shipped) · [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md) · [`scripts/README.md`](scripts/README.md)
 
-## Gate (shipping code only)
+## Every session
 
-`bash scripts/run_all_combat_checks.sh` → **PHASE0: PASS**. Campaign (`world/*`, `main.gd`, `PartyManager.gd`, party/settlement UI) also **CAMPAIGN_SHIP_AUDIT: PASS (headless)**. Skip for explain/review/docs unless asked. No harness stdout → `grep`. [`scripts/README.md`](scripts/README.md) for runners; one writer on `.f5_soak_in.txt`.
+1. **Gate** — `.\scripts\run_all_combat_checks.ps1` → **`PHASE0: PASS`** + **`CAMPAIGN_SHIP_AUDIT: PASS (headless)`** (company checks + Q/`[ii7]` + **`ii_envelop_mopup: PASS`**; do not pipe harness to `grep`)
+2. **Campaign ship** — [`Camp-5` EA checklist](docs/SHIP_PLAN.md#camp-5-ea-checklist) · [`§8` F5 playtest](docs/SHIP_PLAN.md#camp-playtest-acceptance) · [guide user bundle](docs/CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22) · [§20 pitfalls](docs/SHIP_PLAN.md#implementation-pitfalls)
+3. **Parallel OK (default):** Combat maintain + Playtest (F5 §8) — [`PLANNING#parallel-agents`](docs/PLANNING.md#parallel-agents)
+4. **Single agent:** Camp-5 / F5 sign-off **or** one Combat fix
 
-## Scope
+| Stream | Use for | Paths |
+|--------|---------|-------|
+| **Campaign** | EA close-out · [`Camp-5`](docs/SHIP_PLAN.md#camp-5-ea-checklist) · F5 §8 | `world/*`, `main.gd`, `PartyMenu`, economy UI |
+| **Combat** | LIVE_PATHS maintain + [**III-4 Track A**](docs/LIVE_PATHS.md#iii-4--engagement-geometry-audit) (no `FEATURE_*`) · [#combat-cognition-pipeline](docs/LIVE_PATHS.md#combat-cognition-pipeline) | `combat/*`, harness, `BattleUIUpdater` — not `world/*` |
+| **Playtest** | Camp-3.4 / Camp-5 | `run_campaign_ship_audit.ps1` · `run_q_feel.ps1` / `run_q_audit.ps1` · grep [`F5 Output`](docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers) |
+| **Expand** | [`SHIP_PLAN` §9c](docs/SHIP_PLAN.md#combat-expand-registry) · [`LIVE_PATHS` WF + PA](docs/LIVE_PATHS.md#wf-implementation-status) | WF + octant PA **shipped** — maintain backlog (**WF-M3** human F5 only; M1/M2/M4/M5 ☑); new Expand frozen until Camp-5 |
 
-Combat: `combat/*`, core/weapon/armor, battle UI. Campaign: paths above. Bridge (`CampaignEncounterBridge`, `CombatFlow`): one writer, Campaign leads unless assigned. User overrides win. Defer `FEATURE_*`, bleed retune, Expand — [`PLANNING`](docs/PLANNING.md).
+**Shared (one agent at a time):** `CampaignEncounterBridge.gd`, `CombatFlow.gd` → Campaign leads; `CoreEntity` / bleed constants → Combat only.
 
-## Combat production
+## Combat code (Combat stream)
 
-`CombatantEntityAccess` not `manager._get_by_id` · `CombatConstants` move IDs not raw strings · `CombatDebug` not `print("[Combat]")` · no new `CombatManager` delegates. Pick/defense: [`LIVE_PATHS#combat-cognition-pipeline`](docs/LIVE_PATHS.md#combat-cognition-pipeline).
+- `combat/CombatManager.gd` — thin orchestrator; `CombatFormationSetup` seeds; `get_health_entity` → `CombatantEntityAccess`; formation → `ZoneOfControl.formation_dict_for_zone_geometry`. **D-008:** no crash/intrusion; **`attempt_close`** live.
+- Extend smallest `combat/*.gd` per LIVE_PATHS. **III-4 Track A ☑** shipped — maintain `EngagementOpposition` + harness; **3b** = Skirmish **`rotate_file` only**; **3e** = post-rout mop-up (`envelop_mop_up_active`, rotate suppress, MID close). Pick: list → `MentalStackDecider` → `pick_weighted`; defense is strike-time (`DefenseChoiceResolver`), not turn pick. **Footing:** [`#wf-footing-improvement-backlog`](docs/LIVE_PATHS.md#wf-footing-improvement-backlog) · [`#wf-footing-doc-map`](docs/LIVE_PATHS.md#wf-footing-doc-map) · Tier 4.4 PA [`#wf-tier-44-pa`](docs/LIVE_PATHS.md#wf-tier-44-pa) · **`assign_form`** → home **`guard_line`**; **MS-L4** ≠ **WF-L4** [`#wf-layer-labels`](docs/LIVE_PATHS.md#wf-layer-labels). Harness: `CombatRegressionHarness.gd` + tails; headless **`ii_envelop_mopup`**.
+
+## Campaign code (Campaign stream)
+
+- `main.gd` · `world/CampaignEncounterBridge.gd` · `EncounterNode.gd` · `CombatFlow.gd` · `PartyMemberSnapshot.gd` · `ui/PartyMenu.gd`
+- `world/CompanyState.gd` (closed gate constants §19) · `ContractSpawner` · `SettlementPanel` · Camp-5 / F5 sign-off per SHIP_PLAN — not new combat tiers.
+
+## Do not unless asked
+
+- New `FEATURE_*` · bleed retune · BMI (**F1**) · closed S1–S11/P3b · research `note` rows · IV-1,3,5–13 · legacy labels ~~S/M/Q/F3~~ · tombstone `docs/*.md` in LIVE_PATHS#redirects-tombstones

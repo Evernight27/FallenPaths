@@ -2,9 +2,11 @@ class_name CompanyRunEndPanel
 extends RefCounted
 
 ## Run-ending modal (contract loss / defeat). Restarts main after dismiss (Camp-1.4 / Camp-2.6).
-## Tutorial/practice losses dismiss without scene reload (company meta preserved).
+## Tutorial losses dismiss without scene reload (company meta preserved).
 
 const MAIN_SCENE := "res://main.tscn"
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _Persistence := preload("res://world/CampaignPersistence.gd")
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 
 
@@ -49,7 +51,13 @@ static func show_and_await(world: Node2D, reason: String, detail: String = "") -
 	btn.pressed.connect(func() -> void:
 		wait_state["done"] = true
 		layer.queue_free()
+		if _OperationalLog.is_play_session_active():
+			_OperationalLog.play_world(
+				"company_run_end reason=%s reload=%s"
+				% [reason, str(not _uses_soft_resume(reason)).to_lower()]
+			)
 		if not _uses_soft_resume(reason):
+			_Persistence.clear_slot()
 			world.get_tree().change_scene_to_file(MAIN_SCENE)
 	)
 	vbox.add_child(btn)
@@ -66,7 +74,7 @@ static func _title_for_reason(reason: String) -> String:
 			return "Contract failed"
 		"bankrupt":
 			return "Company bankrupt"
-		"training_failed":
+		"tutorial_failed":
 			return "Fight lost"
 		"soft_defeat_resume":
 			return "Defeated"
@@ -77,14 +85,18 @@ static func _title_for_reason(reason: String) -> String:
 static func _body_for_reason(reason: String) -> String:
 	match reason:
 		"contract_failed":
-			return "The company could not complete the contract. Your mercenaries are scattered."
+			return (
+				"The company could not complete the contract. Your mercenaries are scattered. "
+				+ "EA: this run is not saved — restart begins a new company."
+			)
 		"bankrupt":
 			return (
 				"You cannot pay wages or hold the company together. "
-				+ "Brothers with very low mood may desert instead of a total gold wipe."
+				+ "Brothers with very low mood may desert instead of a total gold wipe. "
+				+ "EA: this run is not saved — restart begins a new company."
 			)
-		"training_failed":
-			return "Training or practice lost — return to camp and try again."
+		"tutorial_failed":
+			return "Tutorial lost — return to camp and try again."
 		"soft_defeat_resume":
 			return "Battle lost. Return to camp and recover."
 		_:
@@ -93,14 +105,14 @@ static func _body_for_reason(reason: String) -> String:
 
 static func _button_label_for_reason(reason: String) -> String:
 	match reason:
-		"training_failed", "soft_defeat_resume":
+		"tutorial_failed", "soft_defeat_resume":
 			return "Return to camp"
 		_:
 			return "Restart company"
 
 
 static func _uses_soft_resume(reason: String) -> bool:
-	return reason in ["training_failed", "soft_defeat_resume"]
+	return reason in ["tutorial_failed", "soft_defeat_resume"]
 
 
 static func _hide_party_menu_if_open(world: Node2D) -> void:

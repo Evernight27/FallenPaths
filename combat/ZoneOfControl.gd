@@ -2,6 +2,7 @@ class_name ZoneOfControl
 extends RefCounted
 
 ## Phase 4: Zone of control per formation (front, left_flank, right_flank, rear).
+## Footing boundary: **`get_footing_duration_multiplier`** / **`get_lane_and_footing_duration_multiplier`** — formation lane step-over **duration** only; **not** blade **`guard_line`**, PA, or **`weapon_form`**. LIVE_PATHS **`#wf-footing-terminology`** · **`#wf-layer-labels`**.
 ## Control 0..1 from alive/capacity, casualties in slots, and cross-zone support.
 ## **`assign_combatant_zones`**, **`count_alive_in_zone`** (zone strength), and ZoC **engagement parry** use **`zone_geometry_for_combatant`** / **`zone_geometry_fid_str`** (home **`formation_id`**).
 ## ZoC / engagement — docs/LIVE_PATHS.md#tier-1-spec.
@@ -11,10 +12,8 @@ extends RefCounted
 ## - One resolve: **`zone_geometry_line_context`** → **`zone_geometry_fid_from_pack`** / **`zone_geometry_formation_from_pack`**
 ## - Per-pass cache: **`zone_geometry_line_context_by_combatant_id`**
 ## - Pair: **`zone_geometry_for_pair`** + **`zone_geometry_*_from_pair_pack`**
-## - Listing: **`opponent_formation_for_listing`** · targeting: **`pair_formations_for_targeting`**
 ## - Snapshot/UI row: **`zone_geometry_fid_from_row`**
 ## Aliases: **`formation_id_for_zone_geometry`**, **`formation_dict_for_zone_geometry`**.
-## **Read order:** flags → zone geometry → listing/targeting packs → ZoC recompute → engagement parry → formation duration mults.
 
 const ZONE_FRONT := "front"
 const ZONE_LEFT_FLANK := "left_flank"
@@ -24,6 +23,7 @@ const ZONE_REAR := "rear"
 const _ENCOUNTER_PROTECTION_CIRCLE_KEY := "protection_circle_active"
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 
 static func all_zones() -> Array:
 	return [ZONE_FRONT, ZONE_LEFT_FLANK, ZONE_RIGHT_FLANK, ZONE_REAR]
@@ -37,8 +37,6 @@ static func is_zoc_flanking_enabled(manager: Node) -> bool:
 		return true
 	return not bool((enc as Dictionary).get(_ENCOUNTER_PROTECTION_CIRCLE_KEY, false))
 
-
-# --- Zone geometry ---
 
 static func _resolve_zone_geometry_fid(_manager: Node, c: Dictionary) -> String:
 	return _EntityAccess.formation_id_str(c)
@@ -116,8 +114,6 @@ static func zone_geometry_formation_b_from_pair_pack(zg: Dictionary) -> Dictiona
 	return f as Dictionary if f is Dictionary else {}
 
 
-# --- Listing / targeting formation packs ---
-
 ## Opponent formation from per-id line cache, then pair fallback. When pair fallback runs and **`actor_fc`** is empty, fills it from **`formation_a`** (MeleeListing actor cache backfill).
 static func opponent_formation_for_listing(
 	manager: Node,
@@ -142,34 +138,6 @@ static func opponent_formation_for_listing(
 		for k in fa.keys():
 			actor_fc[k] = fa[k]
 	return fo
-
-
-## Actor + opponent formation for targeting weight / pair geometry. Reuses line-context caches when provided.
-static func pair_formations_for_targeting(
-	manager: Node,
-	actor: Dictionary,
-	opp: Dictionary,
-	actor_line_context: Dictionary = {},
-	opponent_line_context: Dictionary = {}
-) -> Dictionary:
-	var fd_atk: Dictionary = {}
-	var fd_opp: Dictionary = {}
-	var fid_atk: String = ""
-	if not actor_line_context.is_empty():
-		fid_atk = zone_geometry_fid_from_pack(actor_line_context)
-		fd_atk = zone_geometry_formation_from_pack(actor_line_context)
-		if not opponent_line_context.is_empty():
-			fd_opp = zone_geometry_formation_from_pack(opponent_line_context)
-		else:
-			fd_opp = zone_geometry_formation_b_from_pair_pack(
-				zone_geometry_for_pair(manager, actor, opp)
-			)
-	else:
-		var zg: Dictionary = zone_geometry_for_pair(manager, actor, opp)
-		fid_atk = zone_geometry_fid_a_from_pair_pack(zg)
-		fd_atk = zone_geometry_formation_a_from_pair_pack(zg)
-		fd_opp = zone_geometry_formation_b_from_pair_pack(zg)
-	return {"fid": fid_atk, "actor_formation": fd_atk, "opponent_formation": fd_opp}
 
 
 ## **`fid`** + **`formation`** for one combatant (single **`zone_geometry_for_combatant`** resolve).
@@ -390,9 +358,6 @@ static func _zone_incursion_exposure(zone: String) -> float:
 		_:
 			return 1.0
 
-
-# --- ZoC control recompute ---
-
 ## Mutates formations[*].zone_control with keys front, left_flank, right_flank, rear (0..1).
 static func recompute_zone_control(manager: Node) -> void:
 	for fid in ["player", "enemy"]:
@@ -455,9 +420,6 @@ static func format_zone_control_line(manager: Node, _side: String) -> String:
 	var r: float = float(zc.get(ZONE_RIGHT_FLANK, 0.0))
 	var rr: float = float(zc.get(ZONE_REAR, 0.0))
 	return "ZoC  F:%.2f  L:%.2f  R:%.2f  rear:%.2f" % [f, l, r, rr]
-
-
-# --- Engagement parry + formation duration ---
 
 ## Formation vs formation (both files >= 2): ZoC-based flank/rear parry mult on defender.
 ## Otherwise pack-style fallback: effective file spacing (wedge/lane_offset-aware) ≥ `PARRY_FLANK_EFFECTIVE_FILES_MIN`, else |Δfile| ≥ 2 (Tier 3.1).
@@ -524,26 +486,6 @@ static func _engagement_parry_mult_pack_fallback(
 
 ## Scales geometric separation for engagement (weak front lines = compressed distance feel). 1.0 at full control.
 ## Note: mid_reach_files() also reacts to weak fronts (extra file of mid band) — intentional layered tuning, not duplicate math.
-static func _wide_line_front_zone_min_strength(
-	manager: Node,
-	our: Dictionary,
-	opp: Dictionary,
-	our_formation_cache: Variant = null,
-	opp_formation_cache: Variant = null
-) -> float:
-	if not is_zoc_flanking_enabled(manager):
-		return -1.0
-	var fo: Dictionary = formation_for_combatant_cached(manager, our, our_formation_cache)
-	var fe: Dictionary = formation_for_combatant_cached(manager, opp, opp_formation_cache)
-	if fo.is_empty() or fe.is_empty():
-		return -1.0
-	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:
-		return -1.0
-	var wp: float = float(_FormationSlots.formation_nested_dictionary_read(fo, "zone_control").get(ZONE_FRONT, 1.0))
-	var we: float = float(_FormationSlots.formation_nested_dictionary_read(fe, "zone_control").get(ZONE_FRONT, 1.0))
-	return minf(wp, we)
-
-
 static func geometric_reach_extent_multiplier(
 	manager: Node,
 	our: Dictionary,
@@ -551,11 +493,17 @@ static func geometric_reach_extent_multiplier(
 	our_formation_cache: Variant = null,
 	opp_formation_cache: Variant = null
 ) -> float:
-	var m: float = _wide_line_front_zone_min_strength(
-		manager, our, opp, our_formation_cache, opp_formation_cache
-	)
-	if m < 0.0:
+	if not is_zoc_flanking_enabled(manager):
 		return 1.0
+	var fo: Dictionary = formation_for_combatant_cached(manager, our, our_formation_cache)
+	var fe: Dictionary = formation_for_combatant_cached(manager, opp, opp_formation_cache)
+	if fo.is_empty() or fe.is_empty():
+		return 1.0
+	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:
+		return 1.0
+	var wp: float = float(_FormationSlots.formation_nested_dictionary_read(fo, "zone_control").get(ZONE_FRONT, 1.0))
+	var we: float = float(_FormationSlots.formation_nested_dictionary_read(fe, "zone_control").get(ZONE_FRONT, 1.0))
+	var m: float = minf(wp, we)
 	return lerpf(CombatConstants.ZOC_GEOMETRIC_EXTENT_MIN, 1.0, m)
 
 
@@ -567,12 +515,17 @@ static func mid_reach_files(
 	our_formation_cache: Variant = null,
 	opp_formation_cache: Variant = null
 ) -> int:
-	var m: float = _wide_line_front_zone_min_strength(
-		manager, our, opp, our_formation_cache, opp_formation_cache
-	)
-	if m < 0.0:
+	if not is_zoc_flanking_enabled(manager):
 		return 1
-	if m < CombatConstants.ZOC_ACCESS_THRESHOLD:
+	var fo: Dictionary = formation_for_combatant_cached(manager, our, our_formation_cache)
+	var fe: Dictionary = formation_for_combatant_cached(manager, opp, opp_formation_cache)
+	if fo.is_empty() or fe.is_empty():
+		return 1
+	if fo.get("files", 1) < 2 or fe.get("files", 1) < 2:
+		return 1
+	var wp: float = float(_FormationSlots.formation_nested_dictionary_read(fo, "zone_control").get(ZONE_FRONT, 1.0))
+	var we: float = float(_FormationSlots.formation_nested_dictionary_read(fe, "zone_control").get(ZONE_FRONT, 1.0))
+	if minf(wp, we) < CombatConstants.ZOC_ACCESS_THRESHOLD:
 		return 2
 	return 1
 
@@ -610,49 +563,77 @@ static func get_swap_lane_duration_multiplier(manager: Node, fid: String, file: 
 
 
 ## Phase 5: Opponent pressure on this formation — aggressive front line slows disengage. See investigation §2.4.
-static func get_opponent_pressure_duration_multiplier(manager: Node, fid: String) -> float:
+static func _opponent_front_rank_pressure_scan(manager: Node, fid: String) -> Dictionary:
+	var out: Dictionary = {
+		"front_count": 0,
+		"ratio_sum": 0.0,
+		"aggressive": false,
+		"all_defensive": true,
+		"controlling_disengage_mult": 1.0,
+	}
+	if manager == null or fid.is_empty():
+		return out
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
-		return CombatConstants.PRESSURE_MOD_NEUTRAL
+		return out
 	var our_side: String = _FormationSlots.formation_side_str(formation)
 	if our_side.is_empty():
-		return CombatConstants.PRESSURE_MOD_NEUTRAL
+		return out
 	var opp_side: String = _EntityAccess.opponent_side_label(our_side)
-	var front_count: int = 0
-	var ratio_sum: float = 0.0
-	var aggressive: bool = false
-	var all_defensive: bool = true
 	for c in manager.combatants:
 		if not _EntityAccess.is_alive_on_side(c, opp_side):
 			continue
 		if _EntityAccess.rank_int(c) != 0:
 			continue
-		front_count += 1
+		out["front_count"] = int(out["front_count"]) + 1
 		var st_ratio: float = _EntityAccess.stamina_ratio(c)
-		ratio_sum += st_ratio
+		out["ratio_sum"] = float(out["ratio_sum"]) + st_ratio
 		var st: String = _EntityAccess.state_str(c)
 		if st == CombatConstants.STATE_WIND_UP or st == CombatConstants.STATE_RECOVERING:
-			aggressive = true
-			all_defensive = false
-		var stance: String = _EntityAccess.stance_str(c)
+			out["aggressive"] = true
+			out["all_defensive"] = false
+		var stance: String = _EntityAccess.form_str(c)
 		if (
-			stance == CombatConstants.STANCE_AGGRESSIVE
+			_WeaponForm.pressure_class_is(stance, "aggressive")
 			and st_ratio >= CombatConstants.STANCE_MIN_STAMINA_AGGRESSIVE_RATIO
 		):
-			aggressive = true
-		if stance != CombatConstants.STANCE_DEFENSIVE:
-			all_defensive = false
+			out["aggressive"] = true
+		if not _WeaponForm.pressure_class_is(stance, "defensive"):
+			out["all_defensive"] = false
+		if _WeaponForm.controlling_pressure_active(c):
+			out["controlling_disengage_mult"] = maxf(
+				float(out["controlling_disengage_mult"]),
+				_WeaponForm.opponent_disengage_pressure_mult(stance)
+			)
+	return out
+
+
+## Max rank-0 opponent **`controlling`** disengage duration factor (1.0 or **`1/STANCE_MOD_OPPONENT_DISENGAGE`**).
+static func get_opponent_controlling_disengage_pressure_mult(manager: Node, fid: String) -> float:
+	return float(
+		_opponent_front_rank_pressure_scan(manager, fid).get("controlling_disengage_mult", 1.0)
+	)
+
+
+static func get_opponent_pressure_duration_multiplier(manager: Node, fid: String) -> float:
+	var scan: Dictionary = _opponent_front_rank_pressure_scan(manager, fid)
+	var front_count: int = int(scan.get("front_count", 0))
 	if front_count == 0:
 		return CombatConstants.PRESSURE_MOD_DEFENSIVE
-	if aggressive:
-		return CombatConstants.PRESSURE_MOD_AGGRESSIVE
-	var avg_ratio: float = ratio_sum / float(front_count)
-	if all_defensive or avg_ratio < CombatConstants.OPPONENT_PRESSURE_DEFENSIVE_STAMINA_RATIO:
-		return CombatConstants.PRESSURE_MOD_DEFENSIVE
-	return CombatConstants.PRESSURE_MOD_NEUTRAL
+	var base_mod: float
+	if bool(scan.get("aggressive", false)):
+		base_mod = CombatConstants.PRESSURE_MOD_AGGRESSIVE
+	else:
+		var avg_ratio: float = float(scan.get("ratio_sum", 0.0)) / float(front_count)
+		if bool(scan.get("all_defensive", false)) or avg_ratio < CombatConstants.OPPONENT_PRESSURE_DEFENSIVE_STAMINA_RATIO:
+			base_mod = CombatConstants.PRESSURE_MOD_DEFENSIVE
+		else:
+			base_mod = CombatConstants.PRESSURE_MOD_NEUTRAL
+	return base_mod * float(scan.get("controlling_disengage_mult", 1.0))
 
 
 ## Phase 5: Step over fallen — extra duration when slot_obstacles (bodies) in this file column.
+## **Not** weapon-form / guard / PA footwork — formation lane duration only. LIVE_PATHS terminology table · **`#wf-layer-labels`** (Formation lane footing).
 static func get_footing_duration_multiplier(manager: Node, fid: String, file: int) -> float:
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():

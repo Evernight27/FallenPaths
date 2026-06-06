@@ -1,7 +1,6 @@
 extends CharacterBody2D
 
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-const TILE_SIZE: float = float(_CampaignBridge.OVERWORLD_TILE_SIZE)
+const TILE_SIZE = 64.0
 var target_position: Vector2
 var is_moving = false
 signal moved
@@ -11,7 +10,10 @@ signal moved
 @export var species: Resource = null
 ## True for the player-controlled lead only. Companions stay false. Set in scene and/or `PlayerCompanionSetup`; copied into combatant dict on `CombatManager.register`.
 @export var is_party_leader: bool = false
+## Expand WF-4: preferred weapon form id (`ox`, `wall`, …). Empty → encounter side default → weapon default at `CombatWeaponForm.seed_combatant_form`.
+@export var stance_preference: String = ""
 @onready var _combat_body: CoreEntity = $CombatBody
+var _combat_body_death_logged: bool = false
 
 var body_cutting: Dictionary: get = _get_body_cutting
 var body_blunt: Dictionary: get = _get_body_blunt
@@ -248,6 +250,12 @@ func apply_species() -> void:
 	if _combat_body and species != null:
 		_combat_body.species = species
 		_combat_body.apply_species()
+		reset_combat_death_log()
+
+
+## Clears one-shot combat death log guard (new encounter / species reapply).
+func reset_combat_death_log() -> void:
+	_combat_body_death_logged = false
 
 ## Apply hero/party stats: use 100 (human average) as baseline so combat is balanced around center.
 ## Call after apply_species(). Overrides species so party matches enemy human baseline.
@@ -265,16 +273,23 @@ func _ready() -> void:
 	if species != null and _combat_body:
 		_combat_body.species = species
 		_combat_body.apply_species()
+		reset_combat_death_log()
 	if _combat_body and _combat_body.has_signal("died"):
 		_combat_body.died.connect(_on_combat_body_died)
 
 func _on_combat_body_died() -> void:
+	if _combat_body_death_logged:
+		return
+	_combat_body_death_logged = true
 	# Battle UI will emit battle_ended(winner, defeated); main.gd handles outcome there.
 	var role: String = "Protagonist" if is_party_leader else "Party member"
 	CombatDebug.combat_session("%s lost combat body (node: %s)" % [role, name])
 
 func _snap_to_grid(pos: Vector2) -> Vector2:
-	return _CampaignBridge.overworld_tile_center(_CampaignBridge.overworld_tile_from_position(pos))
+	return Vector2(
+		floor(pos.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2,
+		floor(pos.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2
+	)
 
 
 ## Overworld rejected a step (bleed block, combat gate, …) — keep sprite and next input on the same tile.

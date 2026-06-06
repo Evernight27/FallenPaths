@@ -2,9 +2,10 @@ class_name AttackResultApplier
 extends RefCounted
 
 ## Applies AttackResolver result to combatant state: skip, defeated, miss, dodge, parry_deflect, parry_partial, hit.
+## Footing: **`GuardLineUpdater`** on hit stagger (**`low`**), dodge guard, move finish — L3 drift; **`CombatFootwork.clear_on_exchange_end`** on exchange end. LIVE_PATHS **`#wf-guard-writers`** · **`#wf-tier-44-pa`** (clear).
 ## **`parry_deflect`**: records **`CombatConstants.COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`** on **`attacker`** for Tier **4.2** feint listing pressure vs **`target_id`**; **`action_resolved`** emits **`target_id`**, **`attacker_id`**, then payload ( **`parry_clash_context`** copied when resolver supplied a dict — **`BattleScene`** parameter names follow slot order).
 ## **`parry_partial`**: **`action_resolved`** emits **`target_id`**, **`attacker_id`**, then payload (**defender**, **attacker**, same slot order as **`parry_deflect`**); then **`_execute_attack`** continues the strike. Resolver **`parry_clash_context`** is copied onto the **attacker** dict and onto the emitted payload when present. When the defender meets the same blade-alignment gate used for guard updates and clash **`parry_control`** crosses the bind threshold (**`PARRY_BIND_CONTROL_THRESHOLD`**), set **`parry_was_bind`**, **`parry_against_id`**, **`parry_bonus_until`** on the defender like **`parry_deflect`** so bind-riposte wind-up can apply; aligned but sub-threshold control sets **`parry_was_bind`** false; misaligned partial **`erase`**s those keys (clears stale bind state).
-## Manager must have: `emit_signal`, **`CombatantEntityAccess.manager_get_combatant`**, `_check_for_winner`, `_end_combat_phase`, `_execute_attack`.
+## Manager must have: emit_signal, _get_by_id, _check_for_winner, _end_combat_phase, _execute_attack.
 ## **`hit`**: clears **`parry_clash_context`** / **`defender_guard_line_at_parry`** on the attacker (stale partial-parry calibration after follow-through); clears Tier **4.2** feint listing parry-deflect memory for **`target_id`**.
 
 const _Afterblow := preload("res://combat/AfterblowHandler.gd")
@@ -132,7 +133,8 @@ static func _defender_set_idle_after_parry(tgt: Dictionary) -> void:
 		return
 	if _EntityAccess.state_str(tgt) in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
 		return
-	tgt.state = CombatConstants.STATE_WAITING
+	_clear_defender_footwork(tgt)
+	_Footwork.return_to_waiting(tgt)
 	tgt.state_timer = 0.0
 	tgt.state_duration = 0.0
 
@@ -143,7 +145,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
 	if _MedicalPhase.combat_resolution_blocked(manager):
 		return
-	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, target_id)
 	var tgt_scene: Node = _EntityAccess.scene_node(tgt)
 	var empty_result: Dictionary = {"dmg": 0, "died": false, "part": "", "damage_type": "", "outcome": "", "health_before": 0, "health_after": 0, "final_cut": 0, "final_blunt": 0}
 
@@ -163,7 +165,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				_clear_attacker_pending_attack(atk, manager)
 				_react_attacking_arm_loss_after_wound(manager, atk)
 			else:
-				atk.state = CombatConstants.STATE_WAITING
+				_Footwork.return_to_waiting(atk)
 				atk.gauge = 0.0
 				_clear_attacker_pending_attack(atk, manager)
 				_react_attacking_arm_loss_after_wound(manager, atk)
@@ -171,13 +173,13 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 	if action == "defeated":
 		if not tgt.is_empty():
 			tgt.alive = false
+			_Footwork.clear_on_death(tgt)
 			tgt.state = CombatConstants.STATE_DEAD
 			_StateHandlers.cancel_events_for_dead_combatant(manager, tgt)
-			_clear_defender_footwork(tgt)
 		if not atk.is_empty():
 			# Resolver abort (e.g. no targetable parts): do not leave attacker stuck in WIND_UP with stale `pending_attack`.
 			_clear_attacker_pending_attack(atk, manager)
-			atk.state = CombatConstants.STATE_WAITING
+			_Footwork.return_to_waiting(atk)
 			atk.gauge = 0.0
 			atk.state_timer = 0.0
 			atk.state_duration = 0.0
@@ -193,6 +195,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		empty_result["outcome"] = "miss"
 		_log_outcome("miss", attacker_id, target_id)
 		var pa_miss_log: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
+		if not tgt.is_empty() and not pa_miss_log.is_empty():
+			_record_resolved_exchange_yomi(tgt, attacker_id, pa_miss_log, true)
 		var miss_part: String = str(pa_miss_log.get("target_part", ""))
 		if not miss_part.is_empty():
 			empty_result["part"] = miss_part
@@ -222,6 +226,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		empty_result["outcome"] = "dodge"
 		_log_outcome("dodge", attacker_id, target_id)
 		var pa_dodge_log: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
+		if not tgt.is_empty() and not pa_dodge_log.is_empty():
+			_record_resolved_exchange_yomi(tgt, attacker_id, pa_dodge_log, true)
 		var dodge_part: String = str(
 			pa_dodge_log.get("partial_dodge_part", pa_dodge_log.get("target_part", ""))
 		)
@@ -264,6 +270,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		var incoming_parry_intensity: float = 0.5
 		if not atk.is_empty():
 			var pa_deflect: Dictionary = _pending_attack_read(atk)
+			if not tgt.is_empty() and not pa_deflect.is_empty():
+				_record_resolved_exchange_yomi(tgt, attacker_id, pa_deflect, true)
 			incoming_parry_intensity = float(pa_deflect.get("intensity", 0.5))
 			atk["last_move_id"] = pa_deflect.get("attack_type", "")
 			atk["effective_attack_line"] = pa_deflect.get("effective_attack_line", "")
@@ -318,7 +326,6 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			_AIPicker.record_opp_parry_deflect_for_feint_listing(manager, atk, target_id)
 		if not tgt.is_empty():
 			_Attention.record_parry_deflect_on_attacker_memory(tgt, attacker_id)
-		_clear_defender_footwork(tgt)
 		manager.emit_signal("action_resolved", target_id, attacker_id, empty_result)
 		return
 	if action == "parry_partial":
@@ -334,6 +341,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			# Weapon position: only update when alignment was good (blade properly met attack).
 			# Use effective_attack_line for diagonal moves (actual contact line).
 			var pa_partial: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
+			if not pa_partial.is_empty():
+				_record_resolved_exchange_yomi(tgt, attacker_id, pa_partial, true)
 			var move_id: String = pa_partial.get("attack_type", "")
 			var move_def: Dictionary = WeaponConstants.get_move(move_id)
 			var atk_line: String = pa_partial.get("effective_attack_line", move_def.get("attack_line", "high"))
@@ -460,3 +469,18 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		_react_attacking_arm_loss_after_wound(manager, tgt)
 		_clear_defender_footwork(tgt)
 		return
+
+
+## WF-2a: tally resolved move id (+ feint withdrawal) on defender yomi without duplicating wind-up line counts.
+static func _record_resolved_exchange_yomi(
+	defender: Dictionary, attacker_id: int, pa: Dictionary, count_feint_if_feint: bool
+) -> void:
+	if defender.is_empty() or pa.is_empty() or attacker_id < 0:
+		return
+	var move_id: String = str(pa.get("attack_type", "")).strip_edges()
+	if not move_id.is_empty():
+		_Attention.record_resolved_strike_toward_defender(defender, attacker_id, move_id)
+	if count_feint_if_feint and not move_id.is_empty():
+		var md: Dictionary = WeaponConstants.get_move(move_id)
+		if md.get("is_feint", false) or WeaponConstants.is_feint_move(move_id):
+			_Attention.record_feint_resolved_toward_defender(defender, attacker_id)
