@@ -199,21 +199,21 @@ static func pick_next_triage_member(_world: Node2D, members: Array) -> Dictionar
 	return best_member
 
 
-## One MARCH step for the highest-threat untreated part (pressure → dress → pack/TQ → stabilize).
+## One MARCH step for the highest-threat untreated part (pressure → TQ when indicated → stabilize → pack → bandage).
 static func try_treat_next_wound(world: Node2D, members: Array) -> bool:
 	var member: Dictionary = pick_next_triage_member(world, members)
 	if member.is_empty():
 		return false
 	if can_offer_field_pressure(world, member):
 		return try_field_pressure(world, member)
-	if can_offer_field_bandage(world, member):
-		return try_field_bandage(world, member)
-	if can_offer_field_pack(world, member):
-		return try_field_pack(world, member)
 	if can_offer_field_tourniquet(world, member):
 		return try_field_tourniquet(world, member)
 	if can_offer_field_stabilize(world, member):
 		return try_field_stabilize(world, member)
+	if can_offer_field_pack(world, member):
+		return try_field_pack(world, member)
+	if can_offer_field_bandage(world, member):
+		return try_field_bandage(world, member)
 	return false
 
 
@@ -223,13 +223,13 @@ static func can_treat_next_wound(world: Node2D, members: Array) -> bool:
 		return false
 	if can_offer_field_pressure(world, member):
 		return true
-	if can_offer_field_bandage(world, member):
+	if can_offer_field_tourniquet(world, member):
+		return true
+	if can_offer_field_stabilize(world, member):
 		return true
 	if can_offer_field_pack(world, member):
 		return true
-	if can_offer_field_tourniquet(world, member):
-		return true
-	return can_offer_field_stabilize(world, member)
+	return can_offer_field_bandage(world, member)
 
 
 static func format_treat_next_wound_button_label(world: Node2D, members: Array) -> String:
@@ -248,22 +248,22 @@ static func format_field_care_retry_hint(action: String) -> String:
 	return "Field %s failed — keep pressure if held and retry, or try another step below." % action
 
 
-## Suggested next field-care action for Party row (pressure → dress → pack/TQ → stabilize).
+## Suggested next field-care action for Party row (pressure → TQ when indicated → stabilize → pack → bandage).
 static func format_next_field_care_action(world: Node2D, member: Dictionary) -> String:
 	if member_untreated_part_count(member) <= 0:
 		return ""
 	if can_offer_field_pressure(world, member):
 		return "Next: %s" % format_field_pressure_button_label(world, member)
-	if can_offer_field_bandage(world, member):
-		return "Next: %s" % format_field_bandage_button_label(world, member)
-	if field_bandage_needs_pressure_first(member):
-		return "Next: %s" % format_field_bandage_waiting_label(member)
-	if can_offer_field_pack(world, member):
-		return "Next: %s" % format_field_pack_button_label(world, member)
 	if can_offer_field_tourniquet(world, member):
 		return "Next: %s" % format_field_tourniquet_button_label(world, member)
 	if can_offer_field_stabilize(world, member):
 		return "Next: %s" % format_field_stabilize_button_label(world, member)
+	if can_offer_field_pack(world, member):
+		return "Next: %s" % format_field_pack_button_label(world, member)
+	if can_offer_field_bandage(world, member):
+		return "Next: %s" % format_field_bandage_button_label(world, member)
+	if field_bandage_needs_pressure_first(member):
+		return "Next: %s" % format_field_bandage_waiting_label(member)
 	return ""
 
 

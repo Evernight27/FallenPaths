@@ -138,6 +138,9 @@ static func can_apply_bandage(entity: Node, part: String) -> bool:
 		return false
 	if entity.tourniquet_applied.has(part) or part_is_bandaged(entity, part):
 		return false
+	# Life-threatening limb hemorrhage: TQ path — do not bandage over indicated extremity bleed (combat listing parity).
+	if part in _Bleeding.LIMB_PARTS and is_tourniquet_indicated_for_part(entity, part):
+		return false
 	if _compression_required_before_dressing(entity, part):
 		return false
 	# Pack then wrap: linen cavity pack may be secured with an outer bandage.
@@ -187,6 +190,8 @@ static func can_apply_stabilize(entity: Node, part: String) -> bool:
 	if entity.tourniquet_applied.has(part):
 		return false
 	if entity.bandaged_parts.get(part, false) or entity.packed_parts.get(part, false):
+		return false
+	if part in _Bleeding.LIMB_PARTS and is_tourniquet_indicated_for_part(entity, part):
 		return false
 	if not has_direct_pressure_on_part(entity, part):
 		return false

@@ -44,6 +44,7 @@ docs/__pycache__/
 .f5_soak_in.txt
 .f5_soak_in.f5_backup.txt
 .f5_soak_validation.txt
+.f5_camp_smokes_batch.txt
 .f5_soak_smoke.txt
 .f5_*_live.txt
 .f5_step9_*.txt

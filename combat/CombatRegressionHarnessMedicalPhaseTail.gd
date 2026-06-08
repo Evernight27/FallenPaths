@@ -1745,6 +1745,60 @@ static func _run_stabilize_requires_intrinsic_active_bleed(failures: PackedStrin
 	_free_entity_fixture(ent)
 
 
+## TQ-indicated limb: production gate blocks bandage/stabilize (combat `get_ally_medical_actions` parity).
+static func _run_entity_medical_bandage_blocked_when_tourniquet_indicated(
+	failures: PackedStringArray
+) -> void:
+	var ent: Node = CombatRegressionHarness._new_entity("SWORD")
+	ent.take_damage_split(12.0, 4.0, "right_leg")
+	if not _EntityMedical.is_tourniquet_indicated_for_part(ent, "right_leg"):
+		CombatRegressionHarness._fail(
+			failures, "tq_bandage_gate: fixture should be tourniquet-indicated on right_leg"
+		)
+		_free_entity_fixture(ent)
+		return
+	if not ent.apply_direct_pressure("right_leg"):
+		CombatRegressionHarness._fail(failures, "tq_bandage_gate: pressure setup failed")
+		_free_entity_fixture(ent)
+		return
+	if ent.can_apply_bandage("right_leg"):
+		CombatRegressionHarness._fail(
+			failures, "tq_bandage_gate: bandage should not be legal on TQ-indicated limb"
+		)
+	if ent.can_apply_stabilize("right_leg"):
+		CombatRegressionHarness._fail(
+			failures, "tq_bandage_gate: stabilize should not be legal on TQ-indicated limb"
+		)
+	_free_entity_fixture(ent)
+
+
+## Camp-2.1 MARCH: field care offers tourniquet before bandage when limb bleed is TQ-indicated.
+static func _run_field_care_tourniquet_before_bandage_parity(failures: PackedStringArray) -> void:
+	var ent: Node = CombatRegressionHarness._new_entity("SWORD")
+	ent.take_damage_split(12.0, 4.0, "left_leg")
+	if not ent.apply_direct_pressure("left_leg"):
+		CombatRegressionHarness._fail(failures, "field_tq_first: pressure setup failed")
+		_free_entity_fixture(ent)
+		return
+	var member: Dictionary = {"name": "FieldTQ", "node_ref": ent}
+	var world: Node2D = Node2D.new()
+	if _MapFieldCare.can_offer_field_bandage(world, member):
+		CombatRegressionHarness._fail(
+			failures, "field_tq_first: bandage should not be offered on TQ-indicated limb"
+		)
+	if not _MapFieldCare.can_offer_field_tourniquet(world, member):
+		CombatRegressionHarness._fail(
+			failures, "field_tq_first: tourniquet should be offered after compression on severe limb"
+		)
+	var next_hint: String = _MapFieldCare.format_next_field_care_action(world, member)
+	if not next_hint.to_lower().contains("tourniquet"):
+		CombatRegressionHarness._fail(
+			failures, "field_tq_first: next hint should prefer tourniquet got '%s'" % next_hint
+		)
+	world.free()
+	_free_entity_fixture(ent)
+
+
 ## Arterial hemorrhage under compression alone: meaningful blood loss over one field-care procedure.
 static func _run_field_care_arterial_blood_loss_meaningful(failures: PackedStringArray) -> void:
 	var ent: Node = CombatRegressionHarness._new_entity("SWORD")
@@ -3120,6 +3174,8 @@ static func run_fast_phase_halt_checks(failures: PackedStringArray) -> void:
 	_run_field_stabilize_trim_before_procedure_advance(failures)
 	_run_field_tourniquet_applies_before_procedure_advance(failures)
 	_run_stabilize_requires_intrinsic_active_bleed(failures)
+	_run_entity_medical_bandage_blocked_when_tourniquet_indicated(failures)
+	_run_field_care_tourniquet_before_bandage_parity(failures)
 	_run_dressings_allowed_when_locally_clotted_under_pressure(failures)
 	_run_direct_pressure_requires_active_bleed(failures)
 	_run_clotting_pressure_faster_than_open_bleed(failures)
@@ -3204,6 +3260,8 @@ static func run(failures: PackedStringArray) -> void:
 	_run_field_stabilize_trim_before_procedure_advance(failures)
 	_run_field_tourniquet_applies_before_procedure_advance(failures)
 	_run_stabilize_requires_intrinsic_active_bleed(failures)
+	_run_entity_medical_bandage_blocked_when_tourniquet_indicated(failures)
+	_run_field_care_tourniquet_before_bandage_parity(failures)
 	_run_dressings_allowed_when_locally_clotted_under_pressure(failures)
 	_run_direct_pressure_requires_active_bleed(failures)
 	_run_clotting_pressure_faster_than_open_bleed(failures)
