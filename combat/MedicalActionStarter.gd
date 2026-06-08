@@ -36,30 +36,30 @@ static func _try_windup_pressure_while_preparing(
 					manager, target, performer, target_part
 				)
 			):
-				print(
-					"[Combat] Medical: %s assisting existing pressure on %s during %s wind-up"
+				CombatDebug.medical_session(
+					"%s assisting existing pressure on %s during %s wind-up"
 					% [who_name, target_part, medical_id]
 				)
 				return
 		if _EntityAccess.entity_apply_direct_pressure(manager, target, target_part):
-			print(
-				"[Combat] Medical: %s applying direct pressure on %s during %s wind-up"
+			CombatDebug.medical_session(
+				"%s applying direct pressure on %s during %s wind-up"
 				% [who_name, target_part, medical_id]
 			)
 		return
 	if _EntityAccess.entity_stack_assist_pressure_during_ally_treatment(
 		manager, target, performer, target_part
 	):
-		print(
-			"[Combat] Medical: %s assisting pressure on ally's %s during %s wind-up (helper still holding)"
+		CombatDebug.medical_session(
+			"%s assisting pressure on ally's %s during %s wind-up (helper still holding)"
 			% [who_name, target_part, medical_id]
 		)
 		return
 	if _EntityAccess.entity_apply_direct_pressure_from_ally(manager, target, performer, target_part):
 		var tgt_entity: Node = _EntityAccess.get_entity_from_manager(manager, target)
 		_EntityAccess.link_performer_direct_pressure_on_ally(manager, performer, tgt_entity, target_part)
-		print(
-			"[Combat] Medical: %s applying direct pressure on ally's %s during %s wind-up"
+		CombatDebug.medical_session(
+			"%s applying direct pressure on ally's %s during %s wind-up"
 			% [who_name, target_part, medical_id]
 		)
 
@@ -83,18 +83,13 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 			c["pending_retry"] = {}
 	var who_name: String = _EntityAccess.get_display_name(c, combatant_id)
 	# Bandage/pack/tourniquet: free treater's other holds; keep compression on the wound being dressed.
-	if (
-		medical_id == "bandage_self"
-		or medical_id == "pack_wound"
-		or medical_id == "stabilize_wound"
-		or medical_id == "apply_tourniquet"
-	):
+	if CombatConstants.is_wind_up_medical_move(medical_id):
 		_EntityAccess.prepare_for_medical_windup_scene(manager, c, target_node, target_part)
 		_try_windup_pressure_while_preparing(
 			manager, c, target_node, target_part, medical_id, target_combatant_id == combatant_id
 		)
 	var duration: float = 0.0
-	if medical_id == "apply_direct_pressure":
+	if medical_id == CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE:
 		# Instant: apply now, then short recovery (scaled by pain/consciousness)
 		var med_rec_dur: float = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 		var med_perf: float = _EntityAccess.get_performance_modifier(c)
@@ -110,8 +105,8 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 				manager, target_node, c, target_part
 			):
 				applied = true
-				print(
-					"[Combat] Medical: %s treatment-assist pressure on ally's %s"
+				CombatDebug.medical_session(
+					"%s treatment-assist pressure on ally's %s"
 					% [who_name, target_part]
 				)
 		elif _EntityAccess.entity_apply_direct_pressure_from_ally(manager, target_node, c, target_part):

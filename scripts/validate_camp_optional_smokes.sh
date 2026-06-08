@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Headless validator regression for docs/camp_optional_step_smokes/*.txt (Playtest stream).
+# One Godot session validates all smokes + human paste (.f5_soak_validation.txt).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SMOKE_DIR="$ROOT/docs/camp_optional_step_smokes"
 REPORT="$ROOT/.f5_soak_validation.txt"
-VALIDATE="$SCRIPT_DIR/validate_f5_soak_log.sh"
 QUIET=0
 [[ "${1:-}" == "--quiet" ]] && QUIET=1
 
@@ -20,35 +20,21 @@ declare -a FILES=(
 	medical_exit.txt:camp_medical_exit
 )
 
-track_status() {
-	local track="$1"
-	if [[ ! -f "$REPORT" ]]; then
-		echo "missing"
-		return
-	fi
-	if ! grep -q '^--- END FP_F5_SOAK_VALIDATION ---' "$REPORT" 2>/dev/null; then
-		echo "missing"
-		return
-	fi
-	local line
-	line="$(grep -E "^\[${track}\] " "$REPORT" | tail -n 1 || true)"
-	if [[ -z "$line" ]]; then
-		echo "missing"
-	elif [[ "$line" == *"] PASS"* ]]; then
-		echo "pass"
-	elif [[ "$line" == *"] OPTIONAL_MISS"* ]]; then
-		echo "optional_miss"
-	elif [[ "$line" == *"] FAIL"* ]]; then
-		echo "fail"
-	else
-		echo "missing"
-	fi
-}
-
 # shellcheck source=f5_soak_log_helpers.sh
 source "$SCRIPT_DIR/f5_soak_log_helpers.sh"
+BATCH="$(f5_camp_smokes_batch_path "$ROOT")"
+
+if [[ ! -d "$SMOKE_DIR" ]]; then
+	echo "Smoke dir missing: $SMOKE_DIR" >&2
+	exit 2
+fi
 
 echo "=== Camp optional step smokes (CombatF5SoakLogValidator) ==="
+if ! f5_invoke_camp_smokes_batch "$ROOT"; then
+	echo "CAMP_OPTIONAL_SMOKES: FAIL (batch report timeout)"
+	exit 2
+fi
+
 passed=0
 failures=()
 
@@ -61,56 +47,41 @@ for entry in "${FILES[@]}"; do
 		[[ $QUIET -eq 0 ]] && echo "  [FAIL] $file - file not found"
 		continue
 	fi
-	stamp="$(f5_validation_report_stamp "$REPORT")"
-	if [[ $QUIET -eq 1 ]]; then
-		"$VALIDATE" --quiet "$path" || true
-	else
+	if [[ $QUIET -eq 0 ]]; then
 		echo ""
 		echo "--- $file -> [$track] ---"
-		"$VALIDATE" --quiet "$path" || true
 	fi
-	if ! f5_wait_validation_report "$REPORT" "$stamp"; then
-		failures+=("$file: validation report timeout")
-		[[ $QUIET -eq 0 ]] && echo "  [FAIL] $file (validation report timeout)"
-		continue
+	line="$(grep -E "^\[$file\] " "$BATCH" 2>/dev/null | tail -n 1 || true)"
+	if [[ $QUIET -eq 0 && -n "$line" ]]; then
+		echo "  $line"
 	fi
-	if [[ $QUIET -eq 0 ]]; then
-		line="$(grep -E "^\[$track\] " "$REPORT" 2>/dev/null | tail -n 1 || true)"
-		[[ -n "$line" ]] && echo "  $line"
-	fi
-	ok_line=0
-	grep -q "^ok=true" "$REPORT" 2>/dev/null && ok_line=1
-	status="$(track_status "$track")"
-	if [[ $ok_line -eq 1 && "$status" == "pass" ]]; then
+	if [[ -n "$line" && "$line" == *" PASS" ]]; then
 		passed=$((passed + 1))
 		[[ $QUIET -eq 0 ]] && echo "  [OK] $file [$track]"
 	else
-		failures+=("$file: ok=$ok_line track=$status")
-		[[ $QUIET -eq 0 ]] && echo "  [FAIL] $file (ok=$ok_line track=$status)"
+		detail="${line:-missing batch row}"
+		failures+=("$file: $detail")
+		[[ $QUIET -eq 0 ]] && echo "  [FAIL] $file ($detail)"
 	fi
 done
 
 if [[ -f "$ROOT/.f5_soak_in.txt" ]]; then
-	human_stamp="$(f5_validation_report_stamp "$REPORT")"
-	if [[ $QUIET -eq 1 ]]; then
-		"$VALIDATE" --quiet "$ROOT/.f5_soak_in.txt" || true
-	else
+	if [[ $QUIET -eq 0 ]]; then
 		echo ""
-		echo "--- restore human paste validation (.f5_soak_in.txt) ---"
-		"$VALIDATE" --quiet "$ROOT/.f5_soak_in.txt" || true
+		echo "--- human paste validation (.f5_soak_in.txt) ---"
 	fi
-	if ! f5_wait_validation_report "$REPORT" "$human_stamp"; then
-		echo "WARN: human paste re-validation report timeout"
+	if [[ ! -f "$REPORT" ]]; then
+		echo "WARN: human paste validation report missing after batch"
 	elif ! grep -q '^ok=true' "$REPORT" 2>/dev/null; then
 		echo "WARN: human paste re-validation ok=false - run ./scripts/validate_f5_soak_log.sh"
-	elif [[ "$(track_status camp_settlement_continue)" != "pass" ]]; then
+	elif [[ "$(f5_validator_track_status "$REPORT" camp_settlement_continue)" != "pass" ]]; then
 		echo "WARN: human paste camp_settlement_continue not PASS after smoke batch"
 	else
 		[[ $QUIET -eq 0 ]] && f5_show_validation_track_summary "$REPORT" 1 | tail -n 8
 	fi
 	if grep -q '^ok=true' "$REPORT" 2>/dev/null; then
 		if f5_exp02_optional_tracks_pass "$REPORT"; then
-		echo "EXP_0_2_OPTIONAL: PASS (steps 4, 8 paid loss, 9 wage/desertion, 10 triage)"
+			echo "EXP_0_2_OPTIONAL: PASS (steps 4, 8 paid loss, 9 wage/desertion, 10 triage)"
 		else
 			echo "EXP_0_2_OPTIONAL: FAIL (human paste missing one or more Exp-0.2 optional tracks)"
 			failures+=("human paste: Exp-0.2 optional tracks incomplete")

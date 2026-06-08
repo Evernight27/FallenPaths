@@ -106,9 +106,12 @@ static func exhaustion_offense_weight_mult(combatant: Dictionary) -> float:
 	if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
 		return 1.0
 	var ex: float = _EntityAccess.exhaustion_float(combatant)
+	var tunnel: float = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD
+	if ex >= tunnel:
+		return CombatConstants.EXHAUSTION_OFFENSE_DAMP_FLOOR
 	if ex < CombatConstants.EXHAUSTION_OFFENSE_DAMP_START:
 		return 1.0
-	var span: float = maxf(0.001, 1.0 - CombatConstants.EXHAUSTION_OFFENSE_DAMP_START)
+	var span: float = maxf(0.001, tunnel - CombatConstants.EXHAUSTION_OFFENSE_DAMP_START)
 	var t: float = (ex - CombatConstants.EXHAUSTION_OFFENSE_DAMP_START) / span
 	return lerpf(1.0, CombatConstants.EXHAUSTION_OFFENSE_DAMP_FLOOR, clampf(t, 0.0, 1.0))
 

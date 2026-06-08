@@ -1187,14 +1187,13 @@ static func _warn_if_gold_below_next_wage(world: Node) -> void:
 
 
 static func _player_on_camp_tile(world: Node2D) -> bool:
+	const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
 	if world == null or not world.has_node("Character"):
 		return false
 	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return false
-	if not world.has_method("_tile_coords"):
-		return false
-	var tile: Vector2i = world.call("_tile_coords", player.position)
+	var tile: Vector2i = _Bridge.overworld_tile_from_position(player.position)
 	var camp: Vector2i = DEFAULT_CAMP_TILE
 	if world.has_meta("camp_tile") and world.get_meta("camp_tile") is Vector2i:
 		camp = world.get_meta("camp_tile")

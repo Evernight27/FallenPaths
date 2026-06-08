@@ -183,6 +183,12 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 	if sub_region.is_empty():
 		var seed_key: int = int(extras.get("hit_sub_region_seed", entity.get_instance_id()))
 		sub_region = _HitSubRegion.fallback_sub_region(part, seed_key)
+	var combat_mult: float = _HitSubRegion.combat_damage_mult(part, sub_region)
+	if combat_mult != 1.0:
+		final_cut *= combat_mult
+		final_blunt *= combat_mult
+		total_final = final_cut + final_blunt
+		mechanical_post_armor = total_final
 	var pen_to_tissue: float = 0.0
 	if final_cut > 0.0:
 		pen_to_tissue = pen_s

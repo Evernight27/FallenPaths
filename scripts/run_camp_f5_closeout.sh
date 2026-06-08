@@ -8,9 +8,11 @@ source "$ROOT/scripts/f5_soak_log_helpers.sh"
 F5_LOG="$(f5_soak_log_path "$ROOT")"
 F5_VAL="$ROOT/.f5_soak_validation.txt"
 HUMAN_SIGNOFF=0
+SKIP_REVALIDATE=0
 for arg in "$@"; do
 	case "$arg" in
 		--human-signoff) HUMAN_SIGNOFF=1 ;;
+		--skip-revalidate) SKIP_REVALIDATE=1 ;;
 	esac
 done
 
@@ -61,12 +63,10 @@ show_optional_camp_tracks() {
 }
 
 if [[ -f "$F5_LOG" ]]; then
-	bash "$ROOT/scripts/validate_f5_soak_log.sh" --quiet || true
-	if f5_is_example_smoke "$F5_LOG"; then
-		echo "NOTE: .f5_soak_in.txt is docs example smoke - not Camp-5 human sign-off"
-	elif f5_is_headless_capture_only "$F5_LOG"; then
-		echo "NOTE: headless D001 capture - paste F5 Output or: ./scripts/restore_f5_soak_log.sh"
+	if [[ $SKIP_REVALIDATE -eq 0 ]] && ! f5_validation_fresh "$ROOT"; then
+		bash "$ROOT/scripts/validate_f5_soak_log.sh" --quiet || true
 	fi
+	f5_show_status_hint "$ROOT"
 fi
 bash "$ROOT/scripts/print_phase0_status.sh" --quiet
 PHASE0="$ROOT/.phase0_combat_checks.txt"

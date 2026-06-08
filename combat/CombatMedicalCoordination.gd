@@ -6,10 +6,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 
-const WIND_UP_MEDICAL_IDS: Array[String] = ["bandage_self", "pack_wound", "stabilize_wound", "apply_tourniquet"]
-
-
-static func track_failure_and_maybe_retry(manager: Node, performer: Dictionary, target: Dictionary, part: String, target_cid: int) -> void:
+static func track_failure_and_maybe_retry(_manager: Node, performer: Dictionary, target: Dictionary, part: String, target_cid: int) -> void:
 	if target == null:
 		return
 	var failed: Array = _EntityAccess.nested_array_for_mutation(target, "failed_medical_parts")
@@ -92,7 +89,7 @@ static func medical_action_coordination_blocked(
 	var target: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
 	if target.is_empty():
 		return "missing_target"
-	if move_id == "apply_direct_pressure":
+	if CombatConstants.is_direct_pressure_move(move_id):
 		if can_stack_assist_pressure(manager, performer_id, target_id, part):
 			return ""
 		var bleed_r: float = _EntityAccess.entity_bleeding_rate_for_part(manager, target, part)
@@ -121,7 +118,15 @@ static func medical_action_allowed(
 
 
 static func filter_actions_for_pick(manager: Node, performer_id: int, actions: Array) -> Array:
-	if manager == null or not bool(manager.medical_phase):
+	if manager == null:
+		return actions
+	var filter_coord: bool = bool(manager.medical_phase)
+	if (
+		not filter_coord
+		and CombatConstants.is_feature_ms_mid_infight_med_enabled()
+	):
+		filter_coord = true
+	if not filter_coord:
 		return actions
 	var out: Array = []
 	for raw in actions:
@@ -130,8 +135,16 @@ static func filter_actions_for_pick(manager: Node, performer_id: int, actions: A
 		var act: Dictionary = raw as Dictionary
 		var part: String = str(act.get("target_part", ""))
 		var mid: String = str(act.get("move_id", ""))
-		var tgt_id: int = int(act.get("target_id", -1))
-		if medical_action_allowed(manager, performer_id, tgt_id, part, mid):
+		if bool(manager.medical_phase):
+			var tgt_id: int = int(act.get("target_id", -1))
+			if medical_action_allowed(manager, performer_id, tgt_id, part, mid):
+				out.append(act)
+			continue
+		if not CombatConstants.is_medical_move(mid):
+			out.append(act)
+			continue
+		var tgt_id_mid: int = int(act.get("target_id", -1))
+		if medical_action_allowed(manager, performer_id, tgt_id_mid, part, mid):
 			out.append(act)
 	return out
 

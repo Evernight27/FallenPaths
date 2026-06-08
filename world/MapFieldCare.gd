@@ -61,6 +61,11 @@ static func field_bandage_part_ready(member: Dictionary) -> String:
 	return _first_bandage_part(entity)
 
 
+## Part ready to pack (compression held or bleed controlled) — for UI labels and harness parity.
+static func field_pack_part_ready(member: Dictionary) -> String:
+	return _first_pack_part(member)
+
+
 static func format_field_bandage_button_label(world: Node2D, member: Dictionary = {}) -> String:
 	var part: String = field_bandage_part_ready(member) if not member.is_empty() else ""
 	var part_s: String = _format_part_label(part)
@@ -309,8 +314,8 @@ static func try_field_stabilize(world: Node2D, member: Dictionary) -> bool:
 		return false
 	if not _CompanyState.consume_medical(world, 1):
 		return false
-	_advance_field_care_time(entity)
 	var eff: float = _CompanyState.compute_field_treatment_effectiveness(entity, world, true)
+	# Hemostatic trim applies before procedure sim advance (rate reduction during compression window).
 	var ok: bool = entity.apply_stabilize(part, eff)
 	if not ok:
 		_CompanyState.set_medical_supplies(world, _CompanyState.get_medical_supplies(world) + 1)
@@ -318,6 +323,7 @@ static func try_field_stabilize(world: Node2D, member: Dictionary) -> bool:
 			world, "stabilize", part, member, "med refunded; hold pressure and retry"
 		)
 		return false
+	_advance_field_care_time(entity)
 	_CompanyState.refresh_hud(world)
 	if ok:
 		_log_field_care_success(
@@ -407,16 +413,16 @@ static func try_field_tourniquet(world: Node2D, member: Dictionary) -> bool:
 	var part: String = _first_tourniquet_part(entity)
 	if part.is_empty() or not entity.has_method("apply_tourniquet"):
 		return false
-	_advance_field_care_time(entity)
 	var eff: float = _CompanyState.compute_field_treatment_effectiveness(entity, world, false)
 	eff = clampf(eff, 0.25, 1.5)
+	# TCCC: occlude limb hemorrhage first — do not sim 2 min of open bleed before TQ placement.
 	var ok: bool = entity.apply_tourniquet(part, eff)
 	if not ok:
 		_log_field_care_failure(world, "tourniquet", part, member, "retry")
 		return false
+	_advance_field_care_time(entity)
 	_CompanyState.refresh_hud(world)
-	if ok:
-		_log_field_care_success(world, "tourniquet", part, member)
+	_log_field_care_success(world, "tourniquet", part, member)
 	return ok
 
 

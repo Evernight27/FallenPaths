@@ -187,10 +187,8 @@ static func _atomic_write(text: String) -> bool:
 	return true
 
 
-static func _overworld_tile_coords(world: Node2D, pos: Vector2) -> Vector2i:
-	if world != null and world.has_method("_tile_coords"):
-		return world.call("_tile_coords", pos) as Vector2i
-	return Vector2i.ZERO
+static func _overworld_tile_coords(_world: Node2D, pos: Vector2) -> Vector2i:
+	return _CampaignBridge.overworld_tile_from_position(pos)
 
 
 static func _player_tile_array(world: Node2D) -> Array:

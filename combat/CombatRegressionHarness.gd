@@ -45,6 +45,7 @@ const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
 const _AttackResultApplier := preload("res://combat/AttackResultApplier.gd")
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _FormationVacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
 const _CombatLogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _AttackResolver := preload("res://combat/AttackResolver.gd")
@@ -71,12 +72,14 @@ const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _PartyRowFormatter := preload("res://ui/PartyRowFormatter.gd")
+const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
 const _PartyManagerScript := preload("res://PartyManager.gd")
 const _MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
 const _EncounterNode := preload("res://world/EncounterNode.gd")
+const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _MedicalMobilityTail := preload("res://combat/CombatRegressionHarnessMedicalMobilityTail.gd")
 const _FleeTail := preload("res://combat/CombatRegressionHarnessFleeTail.gd")
 const _MedicalPhaseTail := preload("res://combat/CombatRegressionHarnessMedicalPhaseTail.gd")
@@ -160,6 +163,7 @@ static func _harness_opposite_cardinal(cardinal: String) -> String:
 static func run_all() -> Dictionary:
 	var failures: PackedStringArray = PackedStringArray()
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	CombatConstants.reset_harness_feature_load_overrides()
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	_run_next_action_ready_map_matches_per_id(failures)
 	_run_vacancy_reconcile_follow_up_regression(failures)
@@ -201,6 +205,8 @@ static func run_all() -> Dictionary:
 	_run_bind_riposte_contact_types_normalized(failures)
 	_run_bind_riposte_contact_multipliers(failures)
 	_run_bind_riposte_archetype_ordering_spear_faster_than_mace(failures)
+	_run_p4h_bind_riposte_balance_suite(failures)
+	_run_p4d_parry_bind_doc_code_parity_suite(failures)
 	_run_flurry_bind_exchange_wind_up_reduced_vs_plain(failures)
 	_run_flurry_bind_exchange_consumes_on_wind_up(failures)
 	_run_flurry_bind_window_closes_on_hit(failures)
@@ -209,6 +215,7 @@ static func run_all() -> Dictionary:
 	_run_flurry_bind_expires_after_window(failures)
 	_run_flurry_bind_ui_gauge_label_when_window_open(failures)
 	_run_flurry_bind_feature_flag_respects_runtime_toggle(failures)
+	_run_p4g_flurry_bind_depth_suite(failures)
 	_run_tier7_stamina_attack_cost_scales_with_intensity(failures)
 	_run_tier7_stamina_parry_cost_scales_with_intensity(failures)
 	_run_tier7_stamina_action_ready_cooldown_scales_with_fatigue(failures)
@@ -230,6 +237,7 @@ static func run_all() -> Dictionary:
 	_run_swap_rank_resolve_clears_doctrine_without_rotate_cooldown(failures)
 	_run_rotate_file_lists_both_adjacent_wing_partners(failures)
 	_run_rotate_file_cooldown_blocks_listing_and_resolve(failures)
+	_run_rotate_file_reverse_pair_lock_blocks_re_swap(failures)
 	_run_vacancy_plug_clears_doctrine_commitment(failures)
 	_run_formation_shuffle_clears_close_block(failures)
 	_run_pair_abort_cooldown_blocks_swap_rank_resolve(failures)
@@ -238,16 +246,66 @@ static func run_all() -> Dictionary:
 	_run_resolve_close_attempt_long_success_closes_distance(failures)
 	_run_automatic_doctrine_sets_pinch_on_hollow_when_enabled(failures)
 	_run_automatic_doctrine_pinch_via_formation_recompute(failures)
+	_run_p4c_numeric_superiority_auto_pinch(failures)
 	_run_formation_move_duration_heavy_armor_slows_estimate(failures)
+	_run_iv7_armor_burden_action_ready(failures)
+	_run_iv7_armor_burden_passive_readiness(failures)
+	_run_iv7b_stamina_engage_floor_suite(failures)
+	_run_iv8_initiative_order_stagger(failures)
+	_run_iv8_initiative_order_flag_off_parity(failures)
+	_run_iv9_gap_column_compact_suppressed_when_flag_on(failures)
+	_run_iv9_gap_column_flag_off_parity(failures)
+	_run_iv9_gap_column_vacancy_reconcile_flag_on(failures)
+	_run_iv9_gap_column_occupied_files_suite(failures)
+	_run_iv9_gap_column_diagram_display_suite(failures)
+	_run_iv9_gap_column_pair_geometry_column_arc_suite(failures)
+	_run_iv9_gap_column_dual_mode_formation_targeting_suite(failures)
+	_run_iv9_gap_column_topology_refresh_after_formation_moves(failures)
+	_run_iv9_gap_column_topology_refresh_drag_back_fall_back_pair(failures)
+	_run_iv1_plug_incursion_review_suite(failures)
+	# IV-11 leader formation (slices 1–10)
+	_run_iv11_leader_formation_ability_suite(failures)
+	_run_iv11_register_party_leader_stamp_suite(failures)
+	_run_iv11_campaign_bridge_party_leader_stamp_suite(failures)
+	_run_iv11_register_enemy_leader_stamp_suite(failures)
+	_run_iv11_encounter_spawn_enemy_leader_suite(failures)
+	_run_iv11_party_leader_diagram_callout_suite(failures)
+	_run_iv11_enemy_leader_diagram_callout_suite(failures)
+	_run_iv11_party_leader_roster_callout_suite(failures)
+	_run_iv11_leader_order_hold_lane_suite(failures)
+	_run_iv11_leader_order_hold_lane_formatter_suite(failures)
+	_run_iv11_leader_order_probing_suite(failures)
+	_run_iv11_leader_order_probing_formatter_suite(failures)
+	_run_iv11_leader_order_pinch_center_suite(failures)
+	_run_iv11_leader_order_pinch_center_formatter_suite(failures)
+	_run_iv11_enemy_commander_order_suite(failures)
+	_run_iv11_leader_doctrine_cycle_suite(failures)
+	_run_iv11_enemy_commander_doctrine_cycle_suite(failures)
+	_run_iv11_leader_command_ai_weight_suite(failures)
+	_run_iv11_enemy_commander_ai_weight_suite(failures)
+	_run_iv11_pinch_outnumber_ai_weight_suite(failures)
+	_run_iv11_enemy_pinch_outnumber_ai_weight_suite(failures)
+	_run_iv11_f5_leader_order_trace_suite(failures)
+	_run_iv13_weapon_reach_zoc_suite(failures)
+	_run_iv13_weapon_reach_zoc_flag_off_parity(failures)
+	_run_iv13_weapon_reach_zoc_distance_band_suite(failures)
+	_run_iv12_slot_distraction_suite(failures)
+	_run_iv12_slot_distraction_flag_off_parity(failures)
+	_run_iv12_slot_distraction_ai_offense_damp(failures)
+	_run_iv12_co_located_target_bias_suite(failures)
+	_run_iv12_drag_back_dual_occupancy_distraction_suite(failures)
 	_run_formation_move_duration_player_turn_hint_from_listed_actions(failures)
 	_run_formation_move_duration_gauge_tooltip_listed_hint(failures)
 	_run_formation_move_duration_gauge_tooltip_clears_when_not_waiting(failures)
 	_run_formation_move_duration_gauge_tooltip_clears_on_resolve(failures)
+	_run_p4b_formation_duration_ui_copy_suite(failures)
 	_run_wind_up_rejects_move_not_on_weapon(failures)
 	_run_formation_hit_reaction_extends_pair_move_duration(failures)
 	_run_formation_hit_cancel_aborts_pair_move(failures)
 	_run_incoming_parry_choice_blocks_non_chosen_attacker(failures)
 	_run_incoming_parry_can_parry_all_weak_pair(failures)
+	_run_iii1_incoming_parry_sector_tiebreak(failures)
+	_run_iii3_deflect_bind_calibration_suite(failures)
 	_run_weapon_extended_parry_dampens_defender_recovering_from_attack(failures)
 	_run_weapon_committed_attack_dampens_defender_parry_c_d(failures)
 	_run_weapon_commit_fraction_stab_before_overhead_cut(failures)
@@ -280,11 +338,29 @@ static func run_all() -> Dictionary:
 	_run_combat_log_formatter_negligible(failures)
 	_run_campaign_bridge_encounter_meta_from_node(failures)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
+	flush_harness_live_nodes()
 	return {"ok": failures.is_empty(), "failures": failures}
 
 
 static func _fail(arr: PackedStringArray, msg: String) -> void:
 	arr.append(msg)
+
+
+## Headless `-s` scripts call `quit()` without flushing deferred deletes — track orphan nodes and `free()` at harness exit.
+static var _harness_live_nodes: Array = []
+
+
+static func _track_harness_node(n: Node) -> void:
+	if n != null and is_instance_valid(n):
+		_harness_live_nodes.append(n)
+
+
+## Final sweep for standalone `_new_entity` rows that omit explicit teardown.
+static func flush_harness_live_nodes() -> void:
+	for n in _harness_live_nodes.duplicate():
+		if n != null and is_instance_valid(n):
+			_free_harness_node(n)
+	_harness_live_nodes.clear()
 
 
 ## Expand WF: harness rows that set legacy **`stance`** must sync **`weapon_form`** for picker/defense paths.
@@ -393,6 +469,7 @@ static func _new_entity(weapon_id: String) -> CoreEntity:
 	var w: Weapon = _Weapon.create_from_definition(weapon_id)
 	if w != null:
 		e.equip_weapon(w)
+	_track_harness_node(e)
 	return e
 
 
@@ -401,6 +478,7 @@ static func _new_entity_unarmed() -> CoreEntity:
 	e.apply_species()
 	e.dominant_hand = "right_arm"
 	e.offhand_functionality = 1.0
+	_track_harness_node(e)
 	return e
 
 
@@ -468,16 +546,91 @@ static func _harness_find_living_at_rank_file(
 	return {}
 
 
+## III-4 **3e**: 6v3 skirmish — flee rank-0 files, survivor at rank-0 `survivor_file` (default 4).
+## Returns `{mgr, survivor, survivor_id}` or `{}` on fixture failure (frees mgr).
+static func _harness_sparse_post_flee_6v3_mgr(
+	survivor_file: int = 4,
+	fled_files: Array = [0, 1, 2, 3]
+) -> Dictionary:
+	var mgr: Node = _MgrScript.new()
+	for _i in 6:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 6, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	for file_raw in fled_files:
+		var file: int = int(file_raw)
+		var fled: Dictionary = _harness_find_living_at_rank_file(mgr, "player", 0, file)
+		if fled.is_empty():
+			_free_manager(mgr)
+			return {}
+		_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(fled))
+		fled["combat_absent"] = true
+		fled.state = CombatConstants.STATE_FLED
+	mgr._recompute_zoc_and_distance()
+	var survivor: Dictionary = _harness_find_living_at_rank_file(mgr, "player", 0, survivor_file)
+	if survivor.is_empty():
+		_free_manager(mgr)
+		return {}
+	return {
+		"mgr": mgr,
+		"survivor": survivor,
+		"survivor_id": _EntityAccess.id_int(survivor),
+	}
+
+
+## 7v3 rank-0 player file 6 vs enemy file 2 (mapped wing; out of sword reach until close bind).
+static func _harness_7v3_wing_rank0_fixtures() -> Array:
+	var wide: Node = _MgrScript.new()
+	for _i in 7:
+		wide.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		wide.register(_new_entity("SWORD"), "enemy")
+	wide.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	var p_wing: Dictionary = _harness_find_living_at_rank_file(wide, "player", 0, 6)
+	var e_wing: Dictionary = _harness_find_living_at_rank_file(wide, "enemy", 0, 2)
+	return [wide, p_wing, e_wing]
+
+
+static func _harness_bind_pair_long_band(p: Dictionary, e: Dictionary) -> void:
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(e)
+	_EntityAccess.nested_dictionary_for_mutation(p, "distance_to")[e_id] = (
+		CombatConstants.DISTANCE_LONG
+	)
+	_EntityAccess.nested_dictionary_for_mutation(e, "distance_to")[p_id] = (
+		CombatConstants.DISTANCE_LONG
+	)
+
+
 static func _free_harness_node(n: Node) -> void:
-	if n != null and is_instance_valid(n):
-		n.free()
+	if n == null or not is_instance_valid(n):
+		return
+	var idx: int = _harness_live_nodes.find(n)
+	if idx >= 0:
+		_harness_live_nodes.remove_at(idx)
+	n.free()
 
 
 static func _free_manager(mgr: Node) -> void:
-	if mgr == null:
+	if mgr == null or not is_instance_valid(mgr):
 		return
-	for c in mgr.combatants:
-		_free_harness_node(_EntityAccess.scene_node(c))
+	if mgr.get("combatants") is Array:
+		var freed_ids: Dictionary = {}
+		for c in mgr.combatants:
+			var n: Node = _EntityAccess.scene_node(c)
+			if n == null or not is_instance_valid(n):
+				continue
+			var nid: int = n.get_instance_id()
+			if freed_ids.has(nid):
+				continue
+			freed_ids[nid] = true
+			_free_harness_node(n)
+		mgr.combatants.clear()
+	if mgr.is_inside_tree():
+		mgr.get_parent().remove_child(mgr)
 	_free_harness_node(mgr)
 
 
@@ -775,7 +928,7 @@ static func _run_combat_ui_hint_fp_echo_dedupe(failures: PackedStringArray) -> v
 		_fail(failures, "ui_hint_fp_echo: want 1 FP ui_hint line got %d" % ui_count)
 	_OperationalLog.end_play_session()
 	_OperationalLog.set_capture_enabled(false)
-	mgr.free()
+	_free_harness_node(mgr)
 
 
 static func _run_diagram_banner_fp_dedupe(failures: PackedStringArray) -> void:
@@ -868,7 +1021,7 @@ static func _run_turn_ready_gauge_fp_line_dedupe(failures: PackedStringArray) ->
 		_fail(failures, "turn_ready_gauge_fp_dedupe: want 1 line got %d" % gauge_count)
 	_OperationalLog.end_play_session()
 	_OperationalLog.set_capture_enabled(false)
-	mgr.free()
+	_free_harness_node(mgr)
 
 
 static func _run_manager_started_no_encounter_repeat(failures: PackedStringArray) -> void:
@@ -5929,6 +6082,7 @@ static func _run_medical_ambient_pain_shock_tick_enters_from_sustained_pain(
 			failures,
 			"ambient_shock: need high effective pain got %.2f" % pain
 		)
+		_free_harness_node(ent)
 		return
 	var entered: bool = false
 	var interval: float = PainConsciousnessConstants.PAIN_SHOCK_AMBIENT_CHECK_INTERVAL_S
@@ -5943,6 +6097,7 @@ static func _run_medical_ambient_pain_shock_tick_enters_from_sustained_pain(
 			failures,
 			"ambient_shock: want shock from sustained pain (pain=%.2f)" % pain
 		)
+	_free_harness_node(ent)
 
 
 ## Tier 6.1: ambient pain shock gated by **`FEATURE_AMBIENT_PAIN_SHOCK`**.
@@ -5957,8 +6112,10 @@ static func _run_medical_ambient_pain_shock_skips_when_feature_off(
 		if EntityPainConsciousness.try_ambient_pain_shock_tick(ent, 2.0):
 			_fail(failures, "ambient_shock_off: should not enter shock when feature off")
 			CombatConstants.set_feature_ambient_pain_shock(true)
+			_free_harness_node(ent)
 			return
 	CombatConstants.set_feature_ambient_pain_shock(true)
+	_free_harness_node(ent)
 
 
 
@@ -5992,7 +6149,8 @@ static func _run_campaign_bridge_can_enter_combat_rejects_unconscious(
 	world.set_meta("party_manager", pm)
 	var ready: Dictionary = _CampaignBridge.can_enter_combat(world)
 	world.free()
-	ent.free()
+	_free_harness_node(ent)
+	pm.free()
 	if bool(ready.get("ok", true)):
 		_fail(failures, "bridge_enter: unconscious member should block combat")
 	if not str(ready.get("message", "")).contains("unconscious"):
@@ -6579,6 +6737,8 @@ static func _run_formation_diagram_health_bar_reflects_body_damage(
 			"form_health_bar: want ProgressBar in living cell (%s)"
 			% _Diagram.debug_grid_cell_summary(grid)
 		)
+		diagram.free()
+		_free_manager(mgr)
 		return
 	var ratio_before: float = _PartyRowFormatter.total_body_health_ratio(_EntityAccess.stats_dict(c))
 	if ratio_before < 0.95:
@@ -6945,6 +7105,62 @@ static func _run_rotate_file_cooldown_blocks_listing_and_resolve(
 		_fail(failures, "rotate_cd_gate: resolve should reject rotate_file during cooldown")
 
 
+## Tier 1: completed rotate stamps reverse-pair lock so the same adjacent allies cannot immediately swap back.
+static func _run_rotate_file_reverse_pair_lock_blocks_re_swap(
+	failures: PackedStringArray
+) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var p0: Dictionary = {}
+	var p1: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_player_side(c) or _EntityAccess.rank_int(c) != 0:
+			continue
+		if _EntityAccess.file_int(c) == 0:
+			p0 = c
+		elif _EntityAccess.file_int(c) == 1:
+			p1 = c
+	if p0.is_empty() or p1.is_empty():
+		_fail(failures, "rotate_reverse_lock: need rank-0 files 0 and 1")
+		_free_manager(mgr)
+		return
+	var id0: int = _EntityAccess.id_int(p0)
+	var id1: int = _EntityAccess.id_int(p1)
+	mgr.combat_clock = 1.0
+	_FormationFlow.start_rotate_file(mgr, id0, id1)
+	_FormationFlow.handle_rotate_file_resolve(
+		mgr,
+		{"combatant_id": id0, "resolve_at": 0.0, "data": {"partner_id": id1}}
+	)
+	if not _FormationFlow.rotate_file_reverse_pair_blocked(mgr, p0, id1):
+		_fail(failures, "rotate_reverse_lock: initiator should block re-swap with partner")
+		_free_manager(mgr)
+		return
+	if not _FormationFlow.rotate_file_reverse_pair_blocked(mgr, p1, id0):
+		_fail(failures, "rotate_reverse_lock: partner should block re-swap with initiator")
+		_free_manager(mgr)
+		return
+	p0.erase("formation_rotate_file_cooldown_until")
+	p1.erase("formation_rotate_file_cooldown_until")
+	p0["gauge"] = 100.0
+	p1["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, id0)
+	if _ListedActions.actions_include_move_vs_target(
+		acts, id1, CombatConstants.MOVE_ID_ROTATE_FILE
+	):
+		_fail(failures, "rotate_reverse_lock: rotate_file should not list same partner during lock")
+		_free_manager(mgr)
+		return
+	var ok: bool = _ResolveAction.resolve(mgr, id0, id1, CombatConstants.MOVE_ID_ROTATE_FILE, {})
+	_free_manager(mgr)
+	if ok:
+		_fail(failures, "rotate_reverse_lock: resolve should reject rotate_file with locked partner")
+
+
 ## Tier 1: vacancy promotion clears stale doctrine target commit.
 static func _run_vacancy_plug_clears_doctrine_commitment(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
@@ -7093,21 +7309,21 @@ static func _run_resolve_close_attempt_long_success_closes_distance(
 ) -> void:
 	seed(_HARNESS_RESTORE_GLOBAL_SEED)
 	seed(0)
-	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "player")
-	mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-	mgr._recompute_zoc_and_distance()
-	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
-	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
-	var p: Dictionary = mgr.combatants[0]
-	var en: Dictionary = mgr.combatants[1]
-	if typeof(p.get("distance_to", null)) != TYPE_DICTIONARY:
-		p["distance_to"] = {}
-	if typeof(en.get("distance_to", null)) != TYPE_DICTIONARY:
-		en["distance_to"] = {}
-	(p["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_LONG
-	(en["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_LONG
+	var fixtures: Array = _harness_7v3_wing_rank0_fixtures()
+	var mgr: Node = fixtures[0] as Node
+	var p: Dictionary = fixtures[1] as Dictionary
+	var en: Dictionary = fixtures[2] as Dictionary
+	if p.is_empty() or en.is_empty():
+		_fail(failures, "close_success: missing 7v3 wing fixtures")
+		_free_manager_restore_global_rng(mgr)
+		return
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(en)
+	_harness_bind_pair_long_band(p, en)
+	if not _MeleeListing.attempt_close_listed_for_pair(mgr, p, e_id, CombatConstants.DISTANCE_LONG):
+		_fail(failures, "close_success: setup want listable close at LONG out of reach")
+		_free_manager_restore_global_rng(mgr)
+		return
 	var sd: Dictionary = _EntityAccess.stats_dict_for_mutation(p)
 	sd["strength"] = 400.0
 	var sd_e: Dictionary = _EntityAccess.stats_dict_for_mutation(en)
@@ -7202,6 +7418,2286 @@ static func _run_formation_move_duration_heavy_armor_slows_estimate(
 		)
 	if not heavy_hint.contains("heavy armor"):
 		_fail(failures, "form_dur_armor: want heavy armor in hint got '%s'" % heavy_hint)
+
+
+## P4b: formation duration UI copy — canonical tokens, turn-display strip, ii5a-style crowded hint.
+static func _run_p4b_formation_duration_ui_copy_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = _FormationMoveDuration.p4b_formation_duration_ui_copy_line()
+	if not sync_line.contains("crowded lane"):
+		_fail(failures, "p4b_ui: sync line missing crowded lane token")
+	if not sync_line.contains("Flee: leaves field"):
+		_fail(failures, "p4b_ui: sync line missing flee instant copy")
+	var crowded_hint: String = _FormationMoveDuration.format_duration_hint(
+		CombatConstants.BASE_FALL_BACK_S * 1.35,
+		CombatConstants.LANE_MOD_CROWDED,
+		CombatConstants.PRESSURE_MOD_NEUTRAL,
+		1.0,
+		false
+	)
+	if not crowded_hint.contains("Formation move:") or not crowded_hint.contains("crowded lane"):
+		_fail(failures, "p4b_ui: crowded sample hint want prefix+token got '%s'" % crowded_hint)
+	var display: String = _FormationMoveDuration.duration_hint_for_turn_display(crowded_hint)
+	if display.begins_with("Formation move:"):
+		_fail(failures, "p4b_ui: turn display should strip prefix got '%s'" % display)
+	if not display.contains("crowded lane"):
+		_fail(failures, "p4b_ui: turn display want crowded token got '%s'" % display)
+	var mgr: Node = _MgrScript.new()
+	for _i in 4:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	var c: Dictionary = {}
+	var ally_id: int = -1
+	for raw in mgr.combatants:
+		if not _EntityAccess.is_player_side(raw):
+			continue
+		if _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 0:
+			c = raw
+		elif _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 1:
+			ally_id = _EntityAccess.id_int(raw)
+	if c.is_empty() or ally_id < 0:
+		_fail(failures, "p4b_ui: need rank-0 allies at files 0 and 1")
+		_free_manager(mgr)
+		return
+	var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+	c["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
+	var turn_hint: String = _FormationMoveDuration.formation_turn_ready_ui_hint(acts)
+	if turn_hint.contains("Formation move: Formation move:"):
+		_fail(failures, "p4b_ui: turn hint should not double prefix")
+	if turn_hint.is_empty() or not turn_hint.contains("crowded lane"):
+		_fail(failures, "p4b_ui: turn hint want crowded lane got '%s'" % turn_hint)
+	if "Formation move:" in turn_hint:
+		_fail(
+			failures,
+			"p4b_ui: listed turn hint should use stripped duration copy got '%s'" % turn_hint
+		)
+	_free_manager(mgr)
+
+
+static func _harness_iv7_fixture_combatant(ent: CoreEntity) -> Dictionary:
+	return {
+		"stats": {"agility": 100},
+		"stamina": CombatConstants.STAMINA_MAX,
+		"guard": 1.0,
+		"state": CombatConstants.STATE_WAITING,
+		"node": ent,
+	}
+
+
+## IV-7: full plate kit lengthens event-driven **`action_ready_cooldown`**.
+static func _run_iv7_armor_burden_action_ready(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_armor_burden_enabled():
+		_fail(failures, "iv7_armor_burden: FEATURE_ARMOR_BURDEN must be on in production")
+		return
+	var ent_light: CoreEntity = _new_entity("SWORD")
+	var ent_heavy: CoreEntity = _new_entity("SWORD")
+	_harness_equip_heavy_plate_kit(ent_heavy)
+	var light_c: Dictionary = _harness_iv7_fixture_combatant(ent_light)
+	var heavy_c: Dictionary = _harness_iv7_fixture_combatant(ent_heavy)
+	if CombatConstants.armor_burden_mass_ratio_for_combatant(heavy_c) <= 0.35:
+		_fail(failures, "iv7_armor_burden: heavy fixture should exceed ref/3 mass ratio")
+		return
+	var cd_light: float = _EventScheduler.action_ready_cooldown(light_c)
+	var cd_heavy: float = _EventScheduler.action_ready_cooldown(heavy_c)
+	if cd_heavy <= cd_light * 1.08:
+		_fail(
+			failures,
+			"iv7_armor_burden: heavy cooldown want > light (heavy=%.3f light=%.3f)"
+			% [cd_heavy, cd_light]
+		)
+	var saved: bool = CombatConstants.is_feature_armor_burden_enabled()
+	CombatConstants.set_feature_armor_burden_load(false)
+	var cd_heavy_off: float = _EventScheduler.action_ready_cooldown(heavy_c)
+	CombatConstants.set_feature_armor_burden_load(saved)
+	if absf(cd_heavy_off - cd_light) > 0.02:
+		_fail(
+			failures,
+			"iv7_armor_burden: flag off heavy should match light (heavy=%.3f light=%.3f)"
+			% [cd_heavy_off, cd_light]
+		)
+
+
+## IV-7: armor mass scales passive parry readiness (WAITING guard gauge path).
+static func _run_iv7_armor_burden_passive_readiness(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_armor_burden_enabled():
+		_fail(failures, "iv7_armor_burden_readiness: FEATURE_ARMOR_BURDEN must be on in production")
+		return
+	var ent_light: CoreEntity = _new_entity("SWORD")
+	var ent_heavy: CoreEntity = _new_entity("SWORD")
+	_harness_equip_heavy_plate_kit(ent_heavy)
+	var light_c: Dictionary = _harness_iv7_fixture_combatant(ent_light)
+	var heavy_c: Dictionary = _harness_iv7_fixture_combatant(ent_heavy)
+	var pr_light: float = _PassiveParryCtx.get_passive_parry_readiness(light_c)
+	var pr_heavy: float = _PassiveParryCtx.get_passive_parry_readiness(heavy_c)
+	if pr_light < 0.99:
+		_fail(failures, "iv7_armor_burden_readiness: light fixture want ~1.0 got %.3f" % pr_light)
+		return
+	if pr_heavy >= pr_light * 0.95:
+		_fail(
+			failures,
+			"iv7_armor_burden_readiness: heavy want < light (heavy=%.3f light=%.3f)"
+			% [pr_heavy, pr_light]
+		)
+	var want_heavy: float = pr_light * CombatConstants.armor_burden_passive_readiness_mult(heavy_c)
+	if absf(pr_heavy - want_heavy) > 0.02:
+		_fail(
+			failures,
+			"iv7_armor_burden_readiness: want %.3f got %.3f" % [want_heavy, pr_heavy]
+		)
+
+
+static func _harness_action_ready_resolve_at(mgr: Node, combatant_id: int) -> float:
+	for ev in mgr.event_queue:
+		if typeof(ev) != TYPE_DICTIONARY:
+			continue
+		var evd: Dictionary = ev as Dictionary
+		if (
+			str(evd.get("type", "")) == CombatConstants.EVENT_ACTION_READY
+			and int(evd.get("combatant_id", -1)) == combatant_id
+		):
+			return float(evd.get("resolve_at", -1.0))
+	return -1.0
+
+
+static func _harness_iv8_three_player_fixtures(mgr: Node) -> Array:
+	var out: Array = []
+	for c in mgr.combatants:
+		if not _EntityAccess.is_player_side(c):
+			continue
+		out.append(c)
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return _EntityAccess.id_int(a) < _EntityAccess.id_int(b)
+	)
+	return out
+
+
+## IV-8: high initiative score → earlier first **`EVENT_ACTION_READY`** at combat start.
+static func _run_iv8_initiative_order_stagger(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_initiative_order_enabled():
+		_fail(failures, "iv8_initiative_order: FEATURE_INITIATIVE_ORDER must be on in production")
+		return
+	var mgr: Node = _MgrScript.new()
+	for _i in 3:
+		mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
+	var players: Array = _harness_iv8_three_player_fixtures(mgr)
+	if players.size() != 3:
+		_fail(failures, "iv8_initiative_order: want 3 player fixtures got %d" % players.size())
+		_free_manager(mgr)
+		return
+	var fast: Dictionary = players[0]
+	var mid: Dictionary = players[1]
+	var slow: Dictionary = players[2]
+	_EntityAccess.stats_dict_for_mutation(fast)["agility"] = 140
+	_EntityAccess.stats_dict_for_mutation(fast)["perception"] = 110
+	_EntityAccess.stats_dict_for_mutation(mid)["agility"] = 100
+	_EntityAccess.stats_dict_for_mutation(mid)["perception"] = 100
+	_EntityAccess.stats_dict_for_mutation(slow)["agility"] = 70
+	_EntityAccess.stats_dict_for_mutation(slow)["perception"] = 70
+	mgr.event_queue.clear()
+	_EventScheduler.schedule_initial_action_ready_events(mgr)
+	var at_fast: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(fast))
+	var at_mid: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(mid))
+	var at_slow: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(slow))
+	_free_manager(mgr)
+	if at_fast < 0.0 or at_mid < 0.0 or at_slow < 0.0:
+		_fail(failures, "iv8_initiative_order: missing action_ready events")
+		return
+	if not (at_fast < at_mid and at_mid < at_slow):
+		_fail(
+			failures,
+			"iv8_initiative_order: want fast<mid<slow (%.3f %.3f %.3f)" % [at_fast, at_mid, at_slow]
+		)
+	var stagger_gap: float = at_mid - at_fast
+	if stagger_gap < CombatConstants.INITIATIVE_ORDER_STAGGER_STEP_S * 0.5:
+		_fail(
+			failures,
+			"iv8_initiative_order: want rank stagger gap >= step/2 got %.3f" % stagger_gap
+		)
+
+
+## IV-8: flag off — identical stats → identical first resolve_at (no initiative stagger).
+static func _run_iv8_initiative_order_flag_off_parity(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 3:
+		mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
+	var players: Array = _harness_iv8_three_player_fixtures(mgr)
+	if players.size() != 3:
+		_fail(failures, "iv8_initiative_off: want 3 player fixtures got %d" % players.size())
+		_free_manager(mgr)
+		return
+	for c in players:
+		var stats: Dictionary = _EntityAccess.stats_dict_for_mutation(c)
+		stats["agility"] = 100
+		stats["perception"] = 100
+	mgr.event_queue.clear()
+	var saved: bool = CombatConstants.is_feature_initiative_order_enabled()
+	CombatConstants.set_feature_initiative_order_load(false)
+	_EventScheduler.schedule_initial_action_ready_events(mgr)
+	var at0: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(players[0]))
+	var at1: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(players[1]))
+	var at2: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(players[2]))
+	CombatConstants.set_feature_initiative_order_load(saved)
+	_free_manager(mgr)
+	if at0 < 0.0 or at1 < 0.0 or at2 < 0.0:
+		_fail(failures, "iv8_initiative_off: missing action_ready events")
+		return
+	if absf(at0 - at1) > 0.02 or absf(at1 - at2) > 0.02:
+		_fail(
+			failures,
+			"iv8_initiative_off: identical stats want same resolve_at (%.3f %.3f %.3f)" % [at0, at1, at2]
+		)
+
+
+## IV-9: rank-0 enemy line with intentional file gaps (used for compaction gate tests).
+static func _harness_iv9_enemy_rank0_with_gaps(mgr: Node) -> Array:
+	var enemies_r0: Array = []
+	for c in mgr.combatants:
+		if not _EntityAccess.is_alive_on_side(c, "enemy"):
+			continue
+		if _EntityAccess.rank_int(c) != 0:
+			continue
+		enemies_r0.append(c)
+	enemies_r0.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return _EntityAccess.id_int(a) < _EntityAccess.id_int(b)
+	)
+	var form_enemy: Dictionary = mgr.formations["enemy"]
+	var eslots: Dictionary = _FormationSlots.formation_slots_dict(form_enemy)
+	for c in enemies_r0:
+		_FormationSlots.remove_combatant_from_slots(eslots, _EntityAccess.id_int(c))
+	for i in range(enemies_r0.size()):
+		var ec: Dictionary = enemies_r0[i]
+		var eid: int = _EntityAccess.id_int(ec)
+		var ef: int = i + 1
+		ec["file"] = ef
+		_FormationSlots.slot_set_single(eslots, Vector2i(0, ef), eid)
+	return enemies_r0
+
+
+## IV-9 slice 1: gap mode suppresses `compact_native_line_files_if_thinned` on gapped narrow side.
+static func _run_iv9_gap_column_compact_suppressed_when_flag_on(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv9_gap_column_doc_sync_line()
+	if "compact_native_line=disabled_when_on" not in sync_line:
+		_fail(failures, "iv9_gap: sync line missing compaction gate in %s" % sync_line)
+	var mgr: Node = _MgrScript.new()
+	for _i in 3:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1}, {"files": 3, "ranks": 1})
+	var enemies_r0: Array = _harness_iv9_enemy_rank0_with_gaps(mgr)
+	var want_files: Array[int] = []
+	for i in range(enemies_r0.size()):
+		want_files.append(i + 1)
+	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
+	CombatConstants.set_feature_gap_column_topology_load(true)
+	if _FormationVacancyPlugs.compact_native_line_files_if_thinned(mgr, "enemy"):
+		_fail(failures, "iv9_gap_on: compaction should be suppressed in gap mode")
+	for i in range(enemies_r0.size()):
+		if _EntityAccess.file_int(enemies_r0[i]) != want_files[i]:
+			_fail(
+				failures,
+				"iv9_gap_on: enemy files should stay gapped want %s got %d"
+				% [str(want_files), _EntityAccess.file_int(enemies_r0[i])]
+			)
+	CombatConstants.set_feature_gap_column_topology_load(saved)
+	_free_manager(mgr)
+
+
+## IV-9: flag off — legacy compaction still packs gapped narrow enemy to files 0..n-1.
+static func _run_iv9_gap_column_flag_off_parity(failures: PackedStringArray) -> void:
+	if CombatConstants.FEATURE_GAP_COLUMN_TOPOLOGY:
+		_fail(failures, "iv9_gap_off: FEATURE_GAP_COLUMN_TOPOLOGY should default off")
+	var mgr: Node = _MgrScript.new()
+	for _i in 3:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1}, {"files": 3, "ranks": 1})
+	var enemies_r0: Array = _harness_iv9_enemy_rank0_with_gaps(mgr)
+	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
+	CombatConstants.set_feature_gap_column_topology_load(false)
+	if not _FormationVacancyPlugs.compact_native_line_files_if_thinned(mgr, "enemy"):
+		_fail(failures, "iv9_gap_off: narrow enemy with gaps should compact when flag off")
+	for i in range(enemies_r0.size()):
+		if _EntityAccess.file_int(enemies_r0[i]) != i:
+			_fail(
+				failures,
+				"iv9_gap_off: enemy compact want file %d got %d" % [i, _EntityAccess.file_int(enemies_r0[i])]
+			)
+	CombatConstants.set_feature_gap_column_topology_load(saved)
+	_free_manager(mgr)
+
+
+## IV-9: vacancy reconcile follow-up still stable when gap mode is on.
+static func _run_iv9_gap_column_vacancy_reconcile_flag_on(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
+	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
+	CombatConstants.set_feature_gap_column_topology_load(true)
+	var front_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	_soak_kill_combatant(mgr, front_id)
+	var snap: Dictionary = _EventScheduler.snapshot_rank_file_placements(mgr)
+	var ch: Array = _FormationFlow.reconcile_vacancy_plugs_track_changed_fids(mgr)
+	_FormationFlow.finish_vacancy_reconcile_follow_up(mgr, ch, snap, true)
+	var living_rank0_player: bool = false
+	for c in mgr.combatants:
+		if not _EntityAccess.is_alive_on_side(c, "player"):
+			continue
+		if _EntityAccess.rank_int(c, -9) == 0:
+			living_rank0_player = true
+			break
+	CombatConstants.set_feature_gap_column_topology_load(saved)
+	if not living_rank0_player:
+		_fail(failures, "iv9_gap_reconcile: rank-0 player should exist after front death + reconcile")
+	_free_manager(mgr)
+
+
+## IV-9 slice 2: `FormationSlots.occupied_files_for_rank` detects intentional file gaps.
+static func _run_iv9_gap_column_occupied_files_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv9_gap_column_doc_sync_line()
+	if "slots=occupied_files_have_gaps" not in sync_line:
+		_fail(failures, "iv9_gap_slots: sync line missing slots token in %s" % sync_line)
+	var mgr: Node = _MgrScript.new()
+	for _i in 3:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1}, {"files": 3, "ranks": 1})
+	var form_enemy: Dictionary = mgr.formations["enemy"]
+	var enemies_r0: Array = _harness_iv9_enemy_rank0_with_gaps(mgr)
+	var occ_gapped: PackedInt32Array = _FormationSlots.occupied_files_for_rank(mgr, form_enemy, 0)
+	if occ_gapped.size() != enemies_r0.size():
+		_fail(
+			failures,
+			"iv9_gap_slots: want %d occupied files got %s"
+			% [enemies_r0.size(), str(occ_gapped)]
+		)
+	if not _FormationSlots.occupied_files_have_gaps(occ_gapped):
+		_fail(failures, "iv9_gap_slots: fixture should have file gaps got %s" % str(occ_gapped))
+	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
+	CombatConstants.set_feature_gap_column_topology_load(false)
+	if not _FormationVacancyPlugs.compact_native_line_files_if_thinned(mgr, "enemy"):
+		_fail(failures, "iv9_gap_slots: legacy compact should run when flag off")
+	var occ_packed: PackedInt32Array = _FormationSlots.occupied_files_for_rank(mgr, form_enemy, 0)
+	if _FormationSlots.occupied_files_have_gaps(occ_packed):
+		_fail(failures, "iv9_gap_slots: after compact want contiguous files got %s" % str(occ_packed))
+	for i in range(occ_packed.size()):
+		if occ_packed[i] != i:
+			_fail(
+				failures,
+				"iv9_gap_slots: packed files want %d at index %d got %s"
+				% [i, i, str(occ_packed)]
+			)
+	CombatConstants.set_feature_gap_column_topology_load(saved)
+	_free_manager(mgr)
+
+
+## IV-9 slice 2: diagram grid includes leading/trailing empty gap columns when flag on.
+static func _run_iv9_gap_column_diagram_display_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv9_gap_column_doc_sync_line()
+	if "diagram_gaps" not in sync_line:
+		_fail(failures, "iv9_gap_diagram: sync line missing diagram_gaps token in %s" % sync_line)
+	var form: Dictionary = {
+		"files": 3,
+		"slots": {
+			Vector2i(0, 1): [101],
+			Vector2i(0, 2): [102],
+			Vector2i(0, 3): [103],
+		},
+	}
+	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
+	CombatConstants.set_feature_gap_column_topology_load(false)
+	var legacy: Array = _FormationSlots.column_display_files(form, 3)
+	if legacy.size() != 3 or int(legacy[0]) != 0:
+		_fail(failures, "iv9_gap_diagram_off: want legacy 0..2 got %s" % str(legacy))
+	CombatConstants.set_feature_gap_column_topology_load(true)
+	var display: Array = _FormationSlots.column_display_files(form, 3)
+	CombatConstants.set_feature_gap_column_topology_load(saved)
+	if display.size() != 4:
+		_fail(failures, "iv9_gap_diagram_on: want four columns incl leading gap got %s" % str(display))
+	if int(display[0]) != 0:
+		_fail(failures, "iv9_gap_diagram_on: first column should be file 0 gap got %s" % str(display))
+	if _FormationSlots.slot_has_any(form["slots"], Vector2i(0, 0)):
+		_fail(failures, "iv9_gap_diagram_on: file 0 should be empty gap cell")
+
+
+## IV-9 slice 3: gap mode uses column-arc spacing instead of raw grid |Δfile| when either line has gaps.
+static func _run_iv9_gap_column_pair_geometry_column_arc_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv9_gap_column_doc_sync_line()
+	if "pair_geometry=column_arc_when_gaps" not in sync_line:
+		_fail(failures, "iv9_gap_arc: sync line missing pair_geometry token in %s" % sync_line)
+	if not is_equal_approx(
+		_FormationSlots.column_arc_file_distance(PackedInt32Array([0, 1, 2]), 0, PackedInt32Array([1, 2, 3]), 3),
+		2.0
+	):
+		_fail(failures, "iv9_gap_arc: column arc want 2 for wing-vs-far-wing fixture")
+	if not is_equal_approx(
+		_FormationSlots.column_arc_file_distance(PackedInt32Array([0, 1, 2]), 0, PackedInt32Array([1, 2, 3]), 1),
+		0.0
+	):
+		_fail(failures, "iv9_gap_arc: column arc want 0 for opposing first columns")
+	var mgr: Node = _MgrScript.new()
+	for _i in 3:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1}, {"files": 3, "ranks": 1})
+	var enemies_r0: Array = _harness_iv9_enemy_rank0_with_gaps(mgr)
+	var player_wing: Dictionary = {}
+	var enemy_far: Dictionary = enemies_r0[enemies_r0.size() - 1]
+	for c in mgr.combatants:
+		if not _EntityAccess.is_alive_on_side(c, "player"):
+			continue
+		if _EntityAccess.rank_int(c) != 0:
+			continue
+		if _EntityAccess.file_int(c) == 0:
+			player_wing = c
+			break
+	if player_wing.is_empty() or enemy_far.is_empty():
+		_fail(failures, "iv9_gap_arc: fixture missing wing pair")
+		return
+	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
+	CombatConstants.set_feature_gap_column_topology_load(false)
+	var geom_off: Dictionary = _PairGeometry.effective_pair_geometry(mgr, player_wing, enemy_far)
+	CombatConstants.set_feature_gap_column_topology_load(true)
+	var geom_on: Dictionary = _PairGeometry.effective_pair_geometry(mgr, player_wing, enemy_far)
+	CombatConstants.set_feature_gap_column_topology_load(saved)
+	var df_off: float = absf(
+		float(_EntityAccess.file_int(player_wing) - _EntityAccess.file_int(enemy_far))
+	)
+	if not is_equal_approx(float(geom_off.get("file_spacing_equiv", -1.0)), df_off):
+		_fail(
+			failures,
+			"iv9_gap_arc_off: want raw grid spacing %.1f got %.3f"
+			% [df_off, float(geom_off.get("file_spacing_equiv", -1.0))]
+		)
+	var want_arc: float = 2.0
+	if not is_equal_approx(float(geom_on.get("file_spacing_equiv", -1.0)), want_arc):
+		_fail(
+			failures,
+			"iv9_gap_arc_on: want column-arc spacing %.1f got %.3f"
+			% [want_arc, float(geom_on.get("file_spacing_equiv", -1.0))]
+		)
+	if float(geom_on.get("eff_dist", 0.0)) >= float(geom_off.get("eff_dist", 0.0)):
+		_fail(
+			failures,
+			"iv9_gap_arc_on: eff_dist should shrink vs raw grid (on=%.3f off=%.3f)"
+			% [float(geom_on.get("eff_dist", 0.0)), float(geom_off.get("eff_dist", 0.0))]
+		)
+	_free_manager(mgr)
+
+
+## IV-9 harness: rank-0 player file 0 lists **`rotate_file`** vs file-1 ally.
+static func _harness_iv9_player_rotate_file_listed(mgr: Node) -> bool:
+	var p0: Dictionary = {}
+	var p1: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_alive_on_side(c, "player"):
+			continue
+		if _EntityAccess.rank_int(c) != 0:
+			continue
+		if _EntityAccess.file_int(c) == 0:
+			p0 = c
+		elif _EntityAccess.file_int(c) == 1:
+			p1 = c
+	if p0.is_empty() or p1.is_empty():
+		return false
+	p0["gauge"] = 100.0
+	p1["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(p0))
+	return not _ListedActions.first_action_move_vs_target(
+		acts, CombatConstants.MOVE_ID_ROTATE_FILE, _EntityAccess.id_int(p1)
+	).is_empty()
+
+
+## IV-9 harness: center rank-0 pair (file 1 vs file 1) passes **`can_melee_threaten`**.
+static func _harness_iv9_center_rank0_can_melee_threaten(mgr: Node) -> bool:
+	var p_center: Dictionary = {}
+	var e_center: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.rank_int(c) != 0:
+			continue
+		if _EntityAccess.is_alive_on_side(c, "player") and _EntityAccess.file_int(c) == 1:
+			p_center = c
+		elif _EntityAccess.is_alive_on_side(c, "enemy") and _EntityAccess.file_int(c) == 1:
+			e_center = c
+	if p_center.is_empty() or e_center.is_empty():
+		return false
+	p_center["gauge"] = 100.0
+	return _MeleeListing.can_melee_threaten(mgr, p_center, e_center)
+
+
+## IV-9 slice 4: gap flag on/off parity for formation moves + tier-1 targeting on contiguous lines; gap-on reach for column-aligned wing pair.
+static func _run_iv9_gap_column_dual_mode_formation_targeting_suite(
+	failures: PackedStringArray
+) -> void:
+	var sync_line: String = CombatConstants.iv9_gap_column_doc_sync_line()
+	if "harness=dual_mode_formation_targeting" not in sync_line:
+		_fail(
+			failures,
+			"iv9_dual: sync line missing harness token in %s" % sync_line
+		)
+	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
+	# Contiguous 4-wide: flag on must not change rotate_file listing or center threaten vs flag off.
+	var mgr_contig: Node = _MgrScript.new()
+	for _i in 4:
+		mgr_contig.register(_new_entity("SWORD"), "player")
+	for _j in 4:
+		mgr_contig.register(_new_entity("SWORD"), "enemy")
+	mgr_contig.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+	CombatConstants.set_feature_gap_column_topology_load(false)
+	var rotate_off: bool = _harness_iv9_player_rotate_file_listed(mgr_contig)
+	var threaten_off: bool = _harness_iv9_center_rank0_can_melee_threaten(mgr_contig)
+	CombatConstants.set_feature_gap_column_topology_load(true)
+	var rotate_on: bool = _harness_iv9_player_rotate_file_listed(mgr_contig)
+	var threaten_on: bool = _harness_iv9_center_rank0_can_melee_threaten(mgr_contig)
+	if not rotate_off:
+		_fail(failures, "iv9_dual_contig: flag off want rotate_file listed")
+	if rotate_off != rotate_on:
+		_fail(
+			failures,
+			"iv9_dual_contig: rotate_file parity off=%s on=%s" % [rotate_off, rotate_on]
+		)
+	if not threaten_off:
+		_fail(failures, "iv9_dual_contig: flag off want center can_melee_threaten")
+	if threaten_off != threaten_on:
+		_fail(
+			failures,
+			"iv9_dual_contig: threaten parity off=%s on=%s" % [threaten_off, threaten_on]
+		)
+	_free_manager(mgr_contig)
+	# Gapped narrow enemy: flag on keeps rotate_file on player line + column-arc wing reach.
+	var mgr_gap: Node = _MgrScript.new()
+	for _i in 3:
+		mgr_gap.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr_gap.register(_new_entity("SWORD"), "enemy")
+	mgr_gap.start({"files": 5, "ranks": 1}, {"files": 3, "ranks": 1})
+	_harness_iv9_enemy_rank0_with_gaps(mgr_gap)
+	_FormationSlots.refresh_gap_column_topology(mgr_gap.formations["enemy"])
+	mgr_gap._recompute_zoc_and_distance()
+	CombatConstants.set_feature_gap_column_topology_load(true)
+	if not _harness_iv9_player_rotate_file_listed(mgr_gap):
+		_fail(failures, "iv9_dual_gap: want rotate_file on contiguous player line when flag on")
+	var player_wing: Dictionary = {}
+	var enemy_near: Dictionary = {}
+	for c in mgr_gap.combatants:
+		if (
+			_EntityAccess.is_alive_on_side(c, "player")
+			and _EntityAccess.rank_int(c) == 0
+			and _EntityAccess.file_int(c) == 0
+		):
+			player_wing = c
+		if (
+			_EntityAccess.is_alive_on_side(c, "enemy")
+			and _EntityAccess.rank_int(c) == 0
+			and _EntityAccess.file_int(c) == 1
+		):
+			enemy_near = c
+	if player_wing.is_empty() or enemy_near.is_empty():
+		_fail(failures, "iv9_dual_gap: want wing pair player file0 vs enemy file1")
+		CombatConstants.set_feature_gap_column_topology_load(saved)
+		_free_manager(mgr_gap)
+		return
+	player_wing["gauge"] = 100.0
+	if not _MeleeListing.can_melee_threaten(mgr_gap, player_wing, enemy_near):
+		_fail(
+			failures,
+			"iv9_dual_gap: column-aligned wing want can_melee_threaten vs first enemy column"
+		)
+	var acts: Array = _ActionsBuilder.build(mgr_gap, _EntityAccess.id_int(player_wing))
+	var e_id: int = _EntityAccess.id_int(enemy_near)
+	var w_wing: Variant = _EntityAccess.get_weapon(player_wing)
+	var atk_ids: Dictionary = {}
+	if w_wing != null and w_wing is Weapon:
+		atk_ids = (w_wing as Weapon).attack_types
+	if not _ListedActions.actions_include_any_move_in_vs_target(acts, e_id, atk_ids):
+		_fail(
+			failures,
+			"iv9_dual_gap: wing want weapon strike listed vs column-aligned foe (had %s)" % str(acts)
+		)
+	CombatConstants.set_feature_gap_column_topology_load(saved)
+	_free_manager(mgr_gap)
+
+
+static func _harness_iv9_gap_column_cache_matches_occupied(formation: Dictionary) -> bool:
+	if not CombatConstants.is_feature_gap_column_topology_enabled():
+		return not formation.has("gap_column_files")
+	var cached: Variant = formation.get("gap_column_files", null)
+	if cached is not Array:
+		return false
+	var live: Array = _FormationSlots.occupied_column_files(formation)
+	return (cached as Array) == live
+
+
+## IV-9 slice 5: **`gap_column_files`** cache stays synced after swap_rank + vacancy reconcile when flag on.
+static func _run_iv9_gap_column_topology_refresh_after_formation_moves(
+	failures: PackedStringArray
+) -> void:
+	var sync_line: String = CombatConstants.iv9_gap_column_doc_sync_line()
+	if "flow_refresh=swap_drag_fall_back_reconcile" not in sync_line:
+		_fail(
+			failures,
+			"iv9_refresh: sync line missing flow_refresh token in %s" % sync_line
+		)
+	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
+	CombatConstants.set_feature_gap_column_topology_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
+	var form_p: Dictionary = mgr.formations["player"]
+	if not _harness_iv9_gap_column_cache_matches_occupied(form_p):
+		_fail(failures, "iv9_refresh: want cache sync after start")
+		CombatConstants.set_feature_gap_column_topology_load(saved)
+		_free_manager(mgr)
+		return
+	var p0: Dictionary = mgr.combatants[0]
+	var p1: Dictionary = mgr.combatants[1]
+	var id0: int = _EntityAccess.id_int(p0)
+	var id1: int = _EntityAccess.id_int(p1)
+	_FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
+	_FormationFlow.handle_swap_rank_resolve(
+		mgr,
+		{
+			"type": CombatConstants.EVENT_SWAP_RANK_RESOLVE,
+			"combatant_id": id0,
+			"resolve_at": mgr.combat_clock,
+			"data": {"partner_id": id1, "move_kind": "swap_rank"},
+		}
+	)
+	if not _harness_iv9_gap_column_cache_matches_occupied(form_p):
+		_fail(failures, "iv9_refresh: cache drift after swap_rank resolve")
+	_soak_kill_combatant(mgr, id0)
+	var snap: Dictionary = _EventScheduler.snapshot_rank_file_placements(mgr)
+	var ch: Array = _FormationFlow.reconcile_vacancy_plugs_track_changed_fids(mgr)
+	_FormationFlow.finish_vacancy_reconcile_follow_up(mgr, ch, snap, true)
+	if not _harness_iv9_gap_column_cache_matches_occupied(form_p):
+		_fail(failures, "iv9_refresh: cache drift after vacancy reconcile")
+	CombatConstants.set_feature_gap_column_topology_load(false)
+	_FormationSlots.refresh_gap_column_topology_for_manager(mgr, "player")
+	var form_after_off: Dictionary = mgr.formations["player"]
+	if form_after_off.has("gap_column_files"):
+		_fail(failures, "iv9_refresh: flag off should erase gap_column_files cache")
+	CombatConstants.set_feature_gap_column_topology_load(saved)
+	_free_manager(mgr)
+
+
+static func _harness_iv9_resolve_adjacent_rank_pair_move(
+	mgr: Node, initiator_id: int, partner_id: int, move_kind: String
+) -> void:
+	_FormationFlow.start_pair_move(mgr, initiator_id, partner_id, move_kind)
+	_FormationFlow.handle_swap_rank_resolve(
+		mgr,
+		{
+			"type": CombatConstants.EVENT_SWAP_RANK_RESOLVE,
+			"combatant_id": initiator_id,
+			"resolve_at": mgr.combat_clock,
+			"data": {"partner_id": partner_id, "move_kind": move_kind},
+		}
+	)
+
+
+## IV-9 slice 6: **`drag_back`** + **`fall_back_pair`** keep **`gap_column_files`** synced when flag on.
+static func _run_iv9_gap_column_topology_refresh_drag_back_fall_back_pair(
+	failures: PackedStringArray
+) -> void:
+	var sync_line: String = CombatConstants.iv9_gap_column_doc_sync_line()
+	if "flow_refresh=swap_drag_fall_back_reconcile" not in sync_line:
+		_fail(
+			failures,
+			"iv9_refresh_pair: sync line missing drag/fall_back token in %s" % sync_line
+		)
+	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
+	CombatConstants.set_feature_gap_column_topology_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
+	var form_p: Dictionary = mgr.formations["player"]
+	if not _harness_iv9_gap_column_cache_matches_occupied(form_p):
+		_fail(failures, "iv9_refresh_pair: want cache sync after start")
+		CombatConstants.set_feature_gap_column_topology_load(saved)
+		_free_manager(mgr)
+		return
+	var p_front: Dictionary = {}
+	var p_rear: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_alive_on_side(c, "player"):
+			continue
+		if _EntityAccess.rank_int(c) == 0:
+			p_front = c
+		elif _EntityAccess.rank_int(c) == 1:
+			p_rear = c
+	if p_front.is_empty() or p_rear.is_empty():
+		_fail(failures, "iv9_refresh_pair: want rank-0/rank-1 player pair")
+		CombatConstants.set_feature_gap_column_topology_load(saved)
+		_free_manager(mgr)
+		return
+	var id_front: int = _EntityAccess.id_int(p_front)
+	var id_rear: int = _EntityAccess.id_int(p_rear)
+	_harness_iv9_resolve_adjacent_rank_pair_move(mgr, id_front, id_rear, "drag_back")
+	if not _harness_iv9_gap_column_cache_matches_occupied(form_p):
+		_fail(failures, "iv9_refresh_pair: cache drift after drag_back resolve")
+	_harness_iv9_resolve_adjacent_rank_pair_move(mgr, id_rear, id_front, "fall_back_pair")
+	if not _harness_iv9_gap_column_cache_matches_occupied(form_p):
+		_fail(failures, "iv9_refresh_pair: cache drift after fall_back_pair resolve")
+	CombatConstants.set_feature_gap_column_topology_load(saved)
+	_free_manager(mgr)
+
+
+## IV-11 slice 3: **`CombatManager.register`** stamps **`is_party_leader`** from node (player only).
+static func _run_iv11_register_party_leader_stamp_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "slice3=register_stamp+formatter" not in sync_line:
+		_fail(failures, "iv11_stamp: sync line missing slice3 token in %s" % sync_line)
+	var mgr: Node = _MgrScript.new()
+	var leader_ent: CoreEntity = _new_entity("SWORD")
+	leader_ent.is_party_leader = true
+	var member_ent: CoreEntity = _new_entity("SWORD")
+	member_ent.is_party_leader = false
+	var enemy_ent: CoreEntity = _new_entity("SWORD")
+	enemy_ent.is_party_leader = true
+	mgr.register(leader_ent, "player")
+	mgr.register(member_ent, "player")
+	mgr.register(enemy_ent, "enemy")
+	if not bool(mgr.combatants[0].get("is_party_leader", false)):
+		_fail(failures, "iv11_stamp: player leader node want is_party_leader true")
+	if bool(mgr.combatants[1].get("is_party_leader", false)):
+		_fail(failures, "iv11_stamp: player member want is_party_leader false")
+	if bool(mgr.combatants[2].get("is_party_leader", false)):
+		_fail(failures, "iv11_stamp: enemy side must not stamp is_party_leader")
+	_free_manager(mgr)
+
+
+## IV-11 slice 4: roster **`is_party_leader`** on party nodes → **`get_fightable_party_nodes`** → **`CombatManager.register`** stamp.
+static func _run_iv11_campaign_bridge_party_leader_stamp_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "slice4=bridge_roster_stamp" not in sync_line:
+		_fail(failures, "iv11_bridge: sync line missing slice4 token in %s" % sync_line)
+	var world: Node2D = Node2D.new()
+	var pm: Node = _PartyManagerScript.new()
+	var leader_ent: CoreEntity = _new_entity("SWORD")
+	leader_ent.name = "PartyLead"
+	leader_ent.is_party_leader = true
+	var member_ent: CoreEntity = _new_entity("SWORD")
+	member_ent.name = "Companion"
+	member_ent.is_party_leader = false
+	pm.add_member(leader_ent)
+	pm.add_member(member_ent)
+	world.set_meta("party_manager", pm)
+	var fightable: Array = _CampaignBridge.get_fightable_party_nodes(world)
+	if fightable.size() != 2:
+		_fail(
+			failures,
+			"iv11_bridge: want 2 fightable party nodes got %d" % fightable.size()
+		)
+		world.free()
+		pm.free()
+		_free_harness_node(leader_ent)
+		_free_harness_node(member_ent)
+		leader_ent = null
+		member_ent = null
+		return
+	world.set_meta(_SoakPresets.WORLD_META_PLAYER_LEADER_ONLY, true)
+	var leader_only: Array = _CampaignBridge.get_fightable_party_nodes(world)
+	if leader_only.size() != 1 or leader_only[0] != leader_ent:
+		_fail(
+			failures,
+			"iv11_bridge: leader_only meta want leader node only got %d" % leader_only.size()
+		)
+	world.remove_meta(_SoakPresets.WORLD_META_PLAYER_LEADER_ONLY)
+	world.set_meta(_SoakPresets.WORLD_META_SOAK_PARTY_FIGHTER_CAP, 1)
+	var capped: Array = _CampaignBridge.get_fightable_party_nodes(world)
+	if capped.size() != 1 or capped[0] != leader_ent:
+		_fail(
+			failures,
+			"iv11_bridge: fighter cap 1 want leader-first got %d" % capped.size()
+		)
+	world.remove_meta(_SoakPresets.WORLD_META_SOAK_PARTY_FIGHTER_CAP)
+	var mgr: Node = _MgrScript.new()
+	var leader_id: int = mgr.register(leader_ent, "player")
+	var member_id: int = mgr.register(member_ent, "player")
+	if not bool(mgr.combatants[leader_id].get("is_party_leader", false)):
+		_fail(failures, "iv11_bridge: register leader want is_party_leader true")
+	if bool(mgr.combatants[member_id].get("is_party_leader", false)):
+		_fail(failures, "iv11_bridge: register member want is_party_leader false")
+	_free_manager(mgr)
+	world.free()
+	pm.free()
+	leader_ent = null
+	member_ent = null
+
+
+## IV-11 slice 4: formation diagram **`[Ldr]`** callout for player party leader only.
+static func _run_iv11_party_leader_diagram_callout_suite(failures: PackedStringArray) -> void:
+	const _Diagram := preload("res://ui/FormationDiagramBuilder.gd")
+	const _UiHints := preload("res://combat/CombatUiHints.gd")
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "diagram_callout" not in sync_line:
+		_fail(failures, "iv11_diagram: sync line missing diagram_callout in %s" % sync_line)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var leader: Dictionary = {}
+	var member: Dictionary = {}
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy = c
+		elif leader.is_empty():
+			leader = c
+		else:
+			member = c
+	leader["is_party_leader"] = true
+	member["is_party_leader"] = false
+	if _UiHints.party_leader_diagram_suffix(leader) != " [Ldr]":
+		_fail(
+			failures,
+			"iv11_diagram: leader suffix want ' [Ldr]' got '%s'"
+			% _UiHints.party_leader_diagram_suffix(leader)
+		)
+	if not _UiHints.party_leader_diagram_suffix(member).is_empty():
+		_fail(failures, "iv11_diagram: member must not get leader diagram suffix")
+	if not _UiHints.party_leader_diagram_suffix(enemy).is_empty():
+		_fail(failures, "iv11_diagram: enemy must not get leader diagram suffix")
+	var leader_cell: String = _Diagram._cell_label_with_footwork("Lead", [leader])
+	var member_cell: String = _Diagram._cell_label_with_footwork("Mate", [member])
+	if " [Ldr]" not in leader_cell:
+		_fail(failures, "iv11_diagram: leader cell want [Ldr] got '%s'" % leader_cell)
+	if " [Ldr]" in member_cell:
+		_fail(failures, "iv11_diagram: member cell must not show [Ldr] got '%s'" % member_cell)
+	var tips: PackedStringArray = _UiHints.formation_cell_tooltip_lines(
+		leader, _EntityAccess.get_display_name(leader, _EntityAccess.id_int(leader)), mgr
+	)
+	var tip_hit: bool = false
+	for line in tips:
+		if str(line).ends_with("— Party leader"):
+			tip_hit = true
+			break
+	if not tip_hit:
+		_fail(failures, "iv11_diagram: formation cell tooltip missing Party leader")
+	_free_manager(mgr)
+
+
+## IV-11 slice 2: party leader lists **`order_hold_lane`** when flag on; resolve sets formation doctrine.
+static func _run_iv11_leader_order_hold_lane_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	for token in ["issuer=is_formation_command_issuer", "menu_label=Order_Hold_lane"]:
+		if token not in sync_line:
+			_fail(failures, "iv11_leader: sync line missing %s in %s" % [token, sync_line])
+	var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
+	CombatConstants.set_feature_leader_formation_command_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var leader: Dictionary = {}
+	var companion: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "player"):
+			continue
+		c["gauge"] = 100.0
+		if _EntityAccess.rank_int(c) == 0 and leader.is_empty():
+			leader = c
+		elif companion.is_empty():
+			companion = c
+	if leader.is_empty() or companion.is_empty():
+		_fail(failures, "iv11_leader: missing rank-0 leader or companion fixture")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	leader["is_party_leader"] = true
+	companion["is_party_leader"] = false
+	leader["state"] = CombatConstants.STATE_WAITING
+	leader["gauge"] = 100.0
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
+	var leader_id: int = _EntityAccess.id_int(leader)
+	var companion_id: int = _EntityAccess.id_int(companion)
+	var leader_acts: Array = mgr.get_available_actions(leader_id)
+	if not _ListedActions.actions_include_move_id(
+		leader_acts, CombatConstants.MOVE_ID_ORDER_HOLD_LANE
+	):
+		_fail(failures, "iv11_leader: want order_hold_lane listed for party leader")
+	var menu_line: String = _FormationMoveDuration.formation_listed_moves_menu_line(leader_acts)
+	if "Order: Hold lane" not in menu_line:
+		_fail(failures, "iv11_leader: menu line want Order: Hold lane got '%s'" % menu_line)
+	var turn_hint: String = _FormationMoveDuration.formation_listed_moves_turn_hint(leader_acts)
+	if "Hold lane: doctrine (instant)" not in turn_hint:
+		_fail(failures, "iv11_leader: turn hint want instant hold lane got '%s'" % turn_hint)
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	var companion_acts: Array = mgr.get_available_actions(companion_id)
+	if _ListedActions.actions_include_move_id(
+		companion_acts, CombatConstants.MOVE_ID_ORDER_HOLD_LANE
+	):
+		_fail(failures, "iv11_leader: companion must not list order_hold_lane")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	var ok: bool = _ResolveAction.resolve(
+		mgr, leader_id, leader_id, CombatConstants.MOVE_ID_ORDER_HOLD_LANE, {}
+	)
+	if not ok:
+		_fail(failures, "iv11_leader: resolve order_hold_lane should succeed")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_HOLD_LANE:
+		_fail(
+			failures,
+			"iv11_leader: want hold_lane doctrine got %s"
+			% mgr.get_formation_doctrine("player")
+		)
+	CombatConstants.set_feature_leader_formation_command_load(false)
+	var off_acts: Array = mgr.get_available_actions(leader_id)
+	if _ListedActions.actions_include_move_id(
+		off_acts, CombatConstants.MOVE_ID_ORDER_HOLD_LANE
+	):
+		_fail(failures, "iv11_leader: flag off must not list order_hold_lane")
+	CombatConstants.set_feature_leader_formation_command_load(saved)
+	_free_manager(mgr)
+
+
+## IV-11 slice 2: **`CombatLogFormatter`** surfaces **`leader_order_hold_lane`** resolve outcome.
+static func _run_iv11_leader_order_hold_lane_formatter_suite(failures: PackedStringArray) -> void:
+	var line: String = _CombatLogFormatter.format_action_line(
+		"P (player)",
+		"player",
+		"P (player)",
+		"player",
+		{"outcome": "leader_order_hold_lane", "formation_id": "player"}
+	)
+	if "hold lane" not in line.to_lower():
+		_fail(failures, "iv11_formatter: want hold lane copy in %s" % line)
+	if "player" not in line:
+		_fail(failures, "iv11_formatter: want formation_id in %s" % line)
+
+
+## IV-11 slice 5: party leader lists **`order_probing`** when flag on; resolve sets probing doctrine.
+static func _run_iv11_leader_order_probing_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "slice5=order_probing" not in sync_line:
+		_fail(failures, "iv11_probing: sync line missing slice5 token in %s" % sync_line)
+	var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
+	CombatConstants.set_feature_leader_formation_command_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var leader: Dictionary = {}
+	var companion: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "player"):
+			continue
+		c["gauge"] = 100.0
+		if _EntityAccess.rank_int(c) == 0 and leader.is_empty():
+			leader = c
+		elif companion.is_empty():
+			companion = c
+	if leader.is_empty() or companion.is_empty():
+		_fail(failures, "iv11_probing: missing rank-0 leader or companion fixture")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	leader["is_party_leader"] = true
+	companion["is_party_leader"] = false
+	leader["state"] = CombatConstants.STATE_WAITING
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
+	var leader_id: int = _EntityAccess.id_int(leader)
+	var companion_id: int = _EntityAccess.id_int(companion)
+	var leader_acts: Array = mgr.get_available_actions(leader_id)
+	if not _ListedActions.actions_include_move_id(
+		leader_acts, CombatConstants.MOVE_ID_ORDER_PROBING
+	):
+		_fail(failures, "iv11_probing: want order_probing listed for party leader")
+	var menu_line: String = _FormationMoveDuration.formation_listed_moves_menu_line(leader_acts)
+	if "Order: Probe" not in menu_line:
+		_fail(failures, "iv11_probing: menu line want Order: Probe got '%s'" % menu_line)
+	var turn_hint: String = _FormationMoveDuration.formation_listed_moves_turn_hint(leader_acts)
+	if "Probe: doctrine (instant)" not in turn_hint:
+		_fail(failures, "iv11_probing: turn hint want instant probe got '%s'" % turn_hint)
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	var companion_acts: Array = mgr.get_available_actions(companion_id)
+	if _ListedActions.actions_include_move_id(
+		companion_acts, CombatConstants.MOVE_ID_ORDER_PROBING
+	):
+		_fail(failures, "iv11_probing: companion must not list order_probing")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	var ok: bool = _ResolveAction.resolve(
+		mgr, leader_id, leader_id, CombatConstants.MOVE_ID_ORDER_PROBING, {}
+	)
+	if not ok:
+		_fail(failures, "iv11_probing: resolve order_probing should succeed")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_PROBING:
+		_fail(
+			failures,
+			"iv11_probing: want probing doctrine got %s"
+			% mgr.get_formation_doctrine("player")
+		)
+	leader["state"] = CombatConstants.STATE_WAITING
+	leader["gauge"] = 100.0
+	var after_probe: Array = mgr.get_available_actions(leader_id)
+	if _ListedActions.actions_include_move_id(
+		after_probe, CombatConstants.MOVE_ID_ORDER_PROBING
+	):
+		_fail(failures, "iv11_probing: probing doctrine must suppress re-list")
+	if not _ListedActions.actions_include_move_id(
+		after_probe, CombatConstants.MOVE_ID_ORDER_HOLD_LANE
+	):
+		_fail(failures, "iv11_probing: hold_lane should list when doctrine is probing")
+	CombatConstants.set_feature_leader_formation_command_load(saved)
+	_free_manager(mgr)
+
+
+## IV-11 slice 5: **`CombatLogFormatter`** surfaces **`leader_order_probing`** resolve outcome.
+static func _run_iv11_leader_order_probing_formatter_suite(failures: PackedStringArray) -> void:
+	var line: String = _CombatLogFormatter.format_action_line(
+		"P (player)",
+		"player",
+		"P (player)",
+		"player",
+		{"outcome": "leader_order_probing", "formation_id": "player"}
+	)
+	if "probe" not in line.to_lower():
+		_fail(failures, "iv11_probing_formatter: want probe copy in %s" % line)
+	if "player" not in line:
+		_fail(failures, "iv11_probing_formatter: want formation_id in %s" % line)
+
+
+## IV-11 slice 8: party leader lists **`order_pinch_center`** when flag on; resolve sets pinch doctrine.
+static func _run_iv11_leader_order_pinch_center_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "slice8=order_pinch_center" not in sync_line:
+		_fail(failures, "iv11_pinch: sync line missing slice8 token in %s" % sync_line)
+	var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
+	CombatConstants.set_feature_leader_formation_command_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var leader: Dictionary = {}
+	var companion: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "player"):
+			continue
+		c["gauge"] = 100.0
+		if _EntityAccess.rank_int(c) == 0 and leader.is_empty():
+			leader = c
+		elif companion.is_empty():
+			companion = c
+	if leader.is_empty() or companion.is_empty():
+		_fail(failures, "iv11_pinch: missing rank-0 leader or companion fixture")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	leader["is_party_leader"] = true
+	companion["is_party_leader"] = false
+	leader["state"] = CombatConstants.STATE_WAITING
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
+	var leader_id: int = _EntityAccess.id_int(leader)
+	var companion_id: int = _EntityAccess.id_int(companion)
+	var leader_acts: Array = mgr.get_available_actions(leader_id)
+	if not _ListedActions.actions_include_move_id(
+		leader_acts, CombatConstants.MOVE_ID_ORDER_PINCH_CENTER
+	):
+		_fail(failures, "iv11_pinch: want order_pinch_center listed for party leader")
+	var menu_line: String = _FormationMoveDuration.formation_listed_moves_menu_line(leader_acts)
+	if "Order: Pinch center" not in menu_line:
+		_fail(failures, "iv11_pinch: menu line want Order: Pinch center got '%s'" % menu_line)
+	var turn_hint: String = _FormationMoveDuration.formation_listed_moves_turn_hint(leader_acts)
+	if "Pinch center: doctrine (instant)" not in turn_hint:
+		_fail(failures, "iv11_pinch: turn hint want instant pinch got '%s'" % turn_hint)
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	var companion_acts: Array = mgr.get_available_actions(companion_id)
+	if _ListedActions.actions_include_move_id(
+		companion_acts, CombatConstants.MOVE_ID_ORDER_PINCH_CENTER
+	):
+		_fail(failures, "iv11_pinch: companion must not list order_pinch_center")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	var ok: bool = _ResolveAction.resolve(
+		mgr, leader_id, leader_id, CombatConstants.MOVE_ID_ORDER_PINCH_CENTER, {}
+	)
+	if not ok:
+		_fail(failures, "iv11_pinch: resolve order_pinch_center should succeed")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_PINCH_CENTER:
+		_fail(
+			failures,
+			"iv11_pinch: want pinch_center doctrine got %s"
+			% mgr.get_formation_doctrine("player")
+		)
+	leader["state"] = CombatConstants.STATE_WAITING
+	leader["gauge"] = 100.0
+	var after_pinch: Array = mgr.get_available_actions(leader_id)
+	if _ListedActions.actions_include_move_id(
+		after_pinch, CombatConstants.MOVE_ID_ORDER_PINCH_CENTER
+	):
+		_fail(failures, "iv11_pinch: pinch doctrine must suppress re-list")
+	if not _ListedActions.actions_include_move_id(
+		after_pinch, CombatConstants.MOVE_ID_ORDER_HOLD_LANE
+	):
+		_fail(failures, "iv11_pinch: hold_lane should list when doctrine is pinch_center")
+	if not _ListedActions.actions_include_move_id(
+		after_pinch, CombatConstants.MOVE_ID_ORDER_PROBING
+	):
+		_fail(failures, "iv11_pinch: probing should list when doctrine is pinch_center")
+	CombatConstants.set_feature_leader_formation_command_load(saved)
+	_free_manager(mgr)
+
+
+## IV-11 slice 8: **`CombatLogFormatter`** surfaces **`leader_order_pinch_center`** resolve outcome.
+static func _run_iv11_leader_order_pinch_center_formatter_suite(failures: PackedStringArray) -> void:
+	var line: String = _CombatLogFormatter.format_action_line(
+		"P (player)",
+		"player",
+		"P (player)",
+		"player",
+		{"outcome": "leader_order_pinch_center", "formation_id": "player"}
+	)
+	if "pinch" not in line.to_lower():
+		_fail(failures, "iv11_pinch_formatter: want pinch copy in %s" % line)
+	if "player" not in line:
+		_fail(failures, "iv11_pinch_formatter: want formation_id in %s" % line)
+
+
+## IV-11 slice 9: enemy commander lists and resolves **`order_hold_lane`** (mirror player leader path).
+static func _run_iv11_enemy_commander_order_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "slice9=enemy_commander_orders+doctrine_cycle" not in sync_line:
+		_fail(failures, "iv11_enemy_cmd: sync line missing slice9 token in %s" % sync_line)
+	var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
+	CombatConstants.set_feature_leader_formation_command_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var cmd_ent: CoreEntity = _new_entity("SWORD")
+	cmd_ent.is_enemy_leader = true
+	var grunt_ent: CoreEntity = _new_entity("SWORD")
+	grunt_ent.is_enemy_leader = false
+	mgr.register(cmd_ent, "enemy")
+	mgr.register(grunt_ent, "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 2, "ranks": 1})
+	var commander: Dictionary = {}
+	var grunt: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "enemy"):
+			continue
+		c["gauge"] = 100.0
+		if c.get("is_enemy_leader", false) == true and commander.is_empty():
+			commander = c
+		elif grunt.is_empty():
+			grunt = c
+	if commander.is_empty() or grunt.is_empty():
+		_fail(failures, "iv11_enemy_cmd: missing commander or grunt fixture")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	if _EntityAccess.rank_int(commander) != 0:
+		_fail(failures, "iv11_enemy_cmd: commander must be rank 0")
+	commander["state"] = CombatConstants.STATE_WAITING
+	mgr.set_formation_doctrine("enemy", CombatConstants.DOCTRINE_DEFAULT)
+	var cmd_id: int = _EntityAccess.id_int(commander)
+	var grunt_id: int = _EntityAccess.id_int(grunt)
+	var cmd_acts: Array = mgr.get_available_actions(cmd_id)
+	if not _ListedActions.actions_include_move_id(
+		cmd_acts, CombatConstants.MOVE_ID_ORDER_HOLD_LANE
+	):
+		_fail(failures, "iv11_enemy_cmd: want order_hold_lane listed for enemy commander")
+	if not _ListedActions.actions_include_move_id(
+		cmd_acts, CombatConstants.MOVE_ID_ORDER_PROBING
+	):
+		_fail(failures, "iv11_enemy_cmd: want order_probing listed for enemy commander")
+	if not _ListedActions.actions_include_move_id(
+		cmd_acts, CombatConstants.MOVE_ID_ORDER_PINCH_CENTER
+	):
+		_fail(failures, "iv11_enemy_cmd: want order_pinch_center listed for enemy commander")
+	var grunt_acts: Array = mgr.get_available_actions(grunt_id)
+	if _ListedActions.actions_include_move_id(
+		grunt_acts, CombatConstants.MOVE_ID_ORDER_HOLD_LANE
+	):
+		_fail(failures, "iv11_enemy_cmd: grunt must not list leader commands")
+	var ok: bool = _ResolveAction.resolve(
+		mgr, cmd_id, cmd_id, CombatConstants.MOVE_ID_ORDER_HOLD_LANE, {}
+	)
+	if not ok:
+		_fail(failures, "iv11_enemy_cmd: resolve order_hold_lane should succeed")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	if mgr.get_formation_doctrine("enemy") != CombatConstants.DOCTRINE_HOLD_LANE:
+		_fail(
+			failures,
+			"iv11_enemy_cmd: want hold_lane doctrine got %s"
+			% mgr.get_formation_doctrine("enemy")
+		)
+	commander["state"] = CombatConstants.STATE_WAITING
+	commander["gauge"] = 100.0
+	var after_hold: Array = mgr.get_available_actions(cmd_id)
+	if _ListedActions.actions_include_move_id(
+		after_hold, CombatConstants.MOVE_ID_ORDER_HOLD_LANE
+	):
+		_fail(failures, "iv11_enemy_cmd: hold_lane must suppress re-list after resolve")
+	if not _ListedActions.actions_include_move_id(
+		after_hold, CombatConstants.MOVE_ID_ORDER_PROBING
+	):
+		_fail(failures, "iv11_enemy_cmd: probing should list when doctrine is hold_lane")
+	CombatConstants.set_feature_leader_formation_command_load(saved)
+	_free_manager(mgr)
+
+
+## IV-11 slice 9: enemy commander cycles hold → probe → pinch → hold (mirror player leader).
+static func _run_iv11_enemy_commander_doctrine_cycle_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "slice9=enemy_commander_orders+doctrine_cycle" not in sync_line:
+		_fail(failures, "iv11_enemy_cycle: sync line missing slice9 token in %s" % sync_line)
+	var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
+	CombatConstants.set_feature_leader_formation_command_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var cmd_ent: CoreEntity = _new_entity("SWORD")
+	cmd_ent.is_enemy_leader = true
+	mgr.register(cmd_ent, "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 2, "ranks": 1})
+	mgr.set_formation_doctrine("enemy", CombatConstants.DOCTRINE_PROBING)
+	var commander: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "enemy"):
+			continue
+		if c.get("is_enemy_leader", false) == true and _EntityAccess.rank_int(c) == 0:
+			commander = c
+			break
+	if commander.is_empty():
+		_fail(failures, "iv11_enemy_cycle: missing rank-0 enemy commander")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	var cmd_id: int = _EntityAccess.id_int(commander)
+	mgr.set_formation_doctrine("enemy", CombatConstants.DOCTRINE_DEFAULT)
+	var steps: Array = [
+		CombatConstants.MOVE_ID_ORDER_HOLD_LANE,
+		CombatConstants.MOVE_ID_ORDER_PROBING,
+		CombatConstants.MOVE_ID_ORDER_PINCH_CENTER,
+		CombatConstants.MOVE_ID_ORDER_HOLD_LANE,
+	]
+	var want_docs: Array = [
+		CombatConstants.DOCTRINE_HOLD_LANE,
+		CombatConstants.DOCTRINE_PROBING,
+		CombatConstants.DOCTRINE_PINCH_CENTER,
+		CombatConstants.DOCTRINE_HOLD_LANE,
+	]
+	for i in steps.size():
+		commander["state"] = CombatConstants.STATE_WAITING
+		commander["gauge"] = 100.0
+		var move_id: String = str(steps[i])
+		if not _ResolveAction.resolve(mgr, cmd_id, cmd_id, move_id, {}):
+			_fail(failures, "iv11_enemy_cycle: resolve %s failed at step %d" % [move_id, i])
+			break
+		if mgr.get_formation_doctrine("enemy") != want_docs[i]:
+			_fail(
+				failures,
+				"iv11_enemy_cycle: step %d want %s got %s"
+				% [i, want_docs[i], mgr.get_formation_doctrine("enemy")]
+			)
+			break
+	CombatConstants.set_feature_leader_formation_command_load(saved)
+	_free_manager(mgr)
+
+
+## IV-11 slice 9: party leader can cycle hold → probe → pinch → hold without re-listing active doctrine.
+static func _run_iv11_leader_doctrine_cycle_suite(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
+	CombatConstants.set_feature_leader_formation_command_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var leader: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "player"):
+			continue
+		if _EntityAccess.rank_int(c) == 0:
+			leader = c
+			break
+	if leader.is_empty():
+		_fail(failures, "iv11_cycle: missing rank-0 leader")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	leader["is_party_leader"] = true
+	var leader_id: int = _EntityAccess.id_int(leader)
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
+	var steps: Array = [
+		CombatConstants.MOVE_ID_ORDER_HOLD_LANE,
+		CombatConstants.MOVE_ID_ORDER_PROBING,
+		CombatConstants.MOVE_ID_ORDER_PINCH_CENTER,
+		CombatConstants.MOVE_ID_ORDER_HOLD_LANE,
+	]
+	var want_docs: Array = [
+		CombatConstants.DOCTRINE_HOLD_LANE,
+		CombatConstants.DOCTRINE_PROBING,
+		CombatConstants.DOCTRINE_PINCH_CENTER,
+		CombatConstants.DOCTRINE_HOLD_LANE,
+	]
+	for i in steps.size():
+		leader["state"] = CombatConstants.STATE_WAITING
+		leader["gauge"] = 100.0
+		var move_id: String = str(steps[i])
+		if not _ResolveAction.resolve(mgr, leader_id, leader_id, move_id, {}):
+			_fail(failures, "iv11_cycle: resolve %s failed at step %d" % [move_id, i])
+			break
+		if mgr.get_formation_doctrine("player") != want_docs[i]:
+			_fail(
+				failures,
+				"iv11_cycle: step %d want %s got %s"
+				% [i, want_docs[i], mgr.get_formation_doctrine("player")]
+			)
+			break
+	CombatConstants.set_feature_leader_formation_command_load(saved)
+	_free_manager(mgr)
+
+
+## IV-11 slice 9: AI picker assigns canonical weight to listed leader formation commands.
+static func _run_iv11_leader_command_ai_weight_suite(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
+	CombatConstants.set_feature_leader_formation_command_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var leader: Dictionary = mgr.combatants[0]
+	leader["is_party_leader"] = true
+	leader["state"] = CombatConstants.STATE_WAITING
+	leader["gauge"] = 100.0
+	var leader_id: int = _EntityAccess.id_int(leader)
+	var acts: Array = mgr.get_available_actions(leader_id)
+	var hold_act: Dictionary = {}
+	for raw in acts:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_ORDER_HOLD_LANE:
+			hold_act = a
+			break
+	if hold_act.is_empty():
+		_fail(failures, "iv11_ai_weight: want order_hold_lane listed")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	var w: float = _AIPicker._get_action_weight(hold_act, leader_id, mgr, true, {}, {}, acts)
+	if not is_equal_approx(w, CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT):
+		_fail(
+			failures,
+			"iv11_ai_weight: want %.2f got %.4f"
+			% [CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT, w]
+		)
+	leader["is_party_leader"] = false
+	var w_member: float = _AIPicker._get_action_weight(hold_act, leader_id, mgr, true, {}, {}, acts)
+	if w_member != 0.0:
+		_fail(failures, "iv11_ai_weight: non-issuer want weight 0 got %.4f" % w_member)
+	CombatConstants.set_feature_leader_formation_command_load(saved)
+	_free_manager(mgr)
+
+
+## IV-11 slice 9: enemy commander AI pick weight matches party leader path.
+static func _run_iv11_enemy_commander_ai_weight_suite(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
+	CombatConstants.set_feature_leader_formation_command_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var cmd_ent: CoreEntity = _new_entity("SWORD")
+	cmd_ent.is_enemy_leader = true
+	mgr.register(cmd_ent, "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var commander: Dictionary = mgr.combatants[1]
+	commander["state"] = CombatConstants.STATE_WAITING
+	commander["gauge"] = 100.0
+	var cmd_id: int = _EntityAccess.id_int(commander)
+	var acts: Array = mgr.get_available_actions(cmd_id)
+	var hold_act: Dictionary = {}
+	for raw in acts:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		if str(a.get("move_id", "")) == CombatConstants.MOVE_ID_ORDER_HOLD_LANE:
+			hold_act = a
+			break
+	if hold_act.is_empty():
+		_fail(failures, "iv11_enemy_ai_weight: want order_hold_lane listed")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	var w: float = _AIPicker._get_action_weight(hold_act, cmd_id, mgr, true, {}, {}, acts)
+	if not is_equal_approx(w, CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT):
+		_fail(
+			failures,
+			"iv11_enemy_ai_weight: want %.2f got %.4f"
+			% [CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT, w]
+		)
+	commander["is_enemy_leader"] = false
+	var w_grunt: float = _AIPicker._get_action_weight(hold_act, cmd_id, mgr, true, {}, {}, acts)
+	if w_grunt != 0.0:
+		_fail(failures, "iv11_enemy_ai_weight: non-issuer want weight 0 got %.4f" % w_grunt)
+	CombatConstants.set_feature_leader_formation_command_load(saved)
+	_free_manager(mgr)
+
+
+## IV-11 slice 10: pinch command AI weight boosts under numeric superiority (wider + front margin).
+static func _run_iv11_pinch_outnumber_ai_weight_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "slice10=pinch_outnumber_ai_mult=" not in sync_line:
+		_fail(failures, "iv11_pinch_ai: sync line missing slice10 token in %s" % sync_line)
+	var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
+	CombatConstants.set_feature_leader_formation_command_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var leader: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "player"):
+			continue
+		if _EntityAccess.rank_int(c) == 0 and _EntityAccess.file_int(c) == 0 and leader.is_empty():
+			leader = c
+	if leader.is_empty():
+		_fail(failures, "iv11_pinch_ai: missing rank-0 leader")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	leader["is_party_leader"] = true
+	leader["state"] = CombatConstants.STATE_WAITING
+	leader["gauge"] = 100.0
+	if not _CombatDoctrine.numeric_superiority_for_pinch(mgr, "player"):
+		_fail(failures, "iv11_pinch_ai: fixture want numeric superiority for player")
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PROBING)
+	var leader_id: int = _EntityAccess.id_int(leader)
+	var acts: Array = mgr.get_available_actions(leader_id)
+	var pinch_act: Dictionary = {}
+	var hold_act: Dictionary = {}
+	for raw in acts:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		var mid: String = str(a.get("move_id", ""))
+		if mid == CombatConstants.MOVE_ID_ORDER_PINCH_CENTER:
+			pinch_act = a
+		elif mid == CombatConstants.MOVE_ID_ORDER_HOLD_LANE:
+			hold_act = a
+	if pinch_act.is_empty() or hold_act.is_empty():
+		_fail(failures, "iv11_pinch_ai: want pinch and hold listed")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	var w_pinch: float = _AIPicker._get_action_weight(
+		pinch_act, leader_id, mgr, true, {}, {}, acts
+	)
+	var w_hold: float = _AIPicker._get_action_weight(
+		hold_act, leader_id, mgr, true, {}, {}, acts
+	)
+	var want_pinch: float = (
+		CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT
+		* CombatConstants.AI_LEADER_FORMATION_COMMAND_PINCH_OUTNUMBER_MULT
+	)
+	if not is_equal_approx(w_pinch, want_pinch):
+		_fail(
+			failures,
+			"iv11_pinch_ai: pinch want %.3f got %.4f" % [want_pinch, w_pinch]
+		)
+	if not is_equal_approx(
+		w_hold, CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT
+	):
+		_fail(
+			failures,
+			"iv11_pinch_ai: hold want base weight got %.4f" % w_hold
+		)
+	if w_pinch <= w_hold:
+		_fail(failures, "iv11_pinch_ai: pinch should outweigh hold under outnumber")
+	CombatConstants.set_feature_leader_formation_command_load(saved)
+	_free_manager(mgr)
+
+
+## IV-11 slice 10: enemy commander pinch weight boosts under numeric superiority (mirror player).
+static func _run_iv11_enemy_pinch_outnumber_ai_weight_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "slice10=pinch_outnumber_ai_mult=" not in sync_line:
+		_fail(failures, "iv11_enemy_pinch_ai: sync line missing slice10 token in %s" % sync_line)
+	var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
+	CombatConstants.set_feature_leader_formation_command_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var cmd_ent: CoreEntity = _new_entity("SWORD")
+	cmd_ent.is_enemy_leader = true
+	mgr.register(cmd_ent, "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 2, "ranks": 1})
+	var commander: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "enemy"):
+			continue
+		if (
+			c.get("is_enemy_leader", false) == true
+			and _EntityAccess.rank_int(c) == 0
+			and _EntityAccess.file_int(c) == 0
+		):
+			commander = c
+			break
+	if commander.is_empty():
+		_fail(failures, "iv11_enemy_pinch_ai: missing rank-0 enemy commander")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	commander["state"] = CombatConstants.STATE_WAITING
+	commander["gauge"] = 100.0
+	if not _CombatDoctrine.numeric_superiority_for_pinch(mgr, "enemy"):
+		_fail(failures, "iv11_enemy_pinch_ai: fixture want numeric superiority for enemy")
+	mgr.set_formation_doctrine("enemy", CombatConstants.DOCTRINE_PROBING)
+	var cmd_id: int = _EntityAccess.id_int(commander)
+	var acts: Array = mgr.get_available_actions(cmd_id)
+	var pinch_act: Dictionary = {}
+	var hold_act: Dictionary = {}
+	for raw in acts:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		var mid: String = str(a.get("move_id", ""))
+		if mid == CombatConstants.MOVE_ID_ORDER_PINCH_CENTER:
+			pinch_act = a
+		elif mid == CombatConstants.MOVE_ID_ORDER_HOLD_LANE:
+			hold_act = a
+	if pinch_act.is_empty() or hold_act.is_empty():
+		_fail(failures, "iv11_enemy_pinch_ai: want pinch and hold listed")
+		CombatConstants.set_feature_leader_formation_command_load(saved)
+		_free_manager(mgr)
+		return
+	var w_pinch: float = _AIPicker._get_action_weight(
+		pinch_act, cmd_id, mgr, true, {}, {}, acts
+	)
+	var w_hold: float = _AIPicker._get_action_weight(
+		hold_act, cmd_id, mgr, true, {}, {}, acts
+	)
+	var want_pinch: float = (
+		CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT
+		* CombatConstants.AI_LEADER_FORMATION_COMMAND_PINCH_OUTNUMBER_MULT
+	)
+	if not is_equal_approx(w_pinch, want_pinch):
+		_fail(
+			failures,
+			"iv11_enemy_pinch_ai: pinch want %.3f got %.4f" % [want_pinch, w_pinch]
+		)
+	if w_pinch <= w_hold:
+		_fail(failures, "iv11_enemy_pinch_ai: pinch should outweigh hold under outnumber")
+	CombatConstants.set_feature_leader_formation_command_load(saved)
+	_free_manager(mgr)
+
+
+## IV-11 slice 10: F5 paste **`leader_order=`** trace format (deduped via OperationalLog capture).
+static func _run_iv11_f5_leader_order_trace_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "f5_track=iv11_leader_order" not in sync_line:
+		_fail(failures, "iv11_f5_trace: sync line missing f5_track token in %s" % sync_line)
+	_OperationalLog.set_capture_enabled(true)
+	_OperationalLog.clear_capture()
+	_OperationalLog.begin_play_session("test", "", false, true)
+	_F5SoakTrace.note_leader_formation_command_pick(
+		"Captain", CombatConstants.MOVE_ID_ORDER_PROBING, "player", "player"
+	)
+	_F5SoakTrace.note_leader_formation_command_pick(
+		"Captain", CombatConstants.MOVE_ID_ORDER_PROBING, "player", "player"
+	)
+	_F5SoakTrace.note_leader_formation_command_pick(
+		"Warlord", CombatConstants.MOVE_ID_ORDER_HOLD_LANE, "enemy", "enemy"
+	)
+	var count: int = 0
+	var player_sample: String = ""
+	var enemy_sample: String = ""
+	for line in _OperationalLog.get_captured_lines():
+		if "leader_order=" not in line:
+			continue
+		count += 1
+		if "side=player" in line:
+			player_sample = line
+		elif "side=enemy" in line:
+			enemy_sample = line
+	if count != 2:
+		_fail(failures, "iv11_f5_trace: want 2 leader_order lines got %d" % count)
+	elif "order_probing" not in player_sample or "formation=player" not in player_sample:
+		_fail(failures, "iv11_f5_trace: bad player leader_order line %s" % player_sample)
+	elif "order_hold_lane" not in enemy_sample or "formation=enemy" not in enemy_sample:
+		_fail(failures, "iv11_f5_trace: bad enemy leader_order line %s" % enemy_sample)
+	_OperationalLog.end_play_session()
+	_OperationalLog.set_capture_enabled(false)
+
+
+## IV-11 slice 10: **`EncounterNode.spawn_enemies`** stamps **`is_enemy_leader`** from config index.
+static func _run_iv11_encounter_spawn_enemy_leader_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "encounter_spawn=enemy_leader_index" not in sync_line:
+		_fail(failures, "iv11_enc_spawn: sync line missing encounter_spawn token in %s" % sync_line)
+	var world: Node2D = Node2D.new()
+	var enc: Node = _EncounterNode.new()
+	enc.enemy_count = 3
+	enc.encounter_config = {
+		_SoakPresets.ENCOUNTER_KEY_ENEMY_LEADER_INDEX: 1,
+	}
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 42
+	var enemies: Array = enc.spawn_enemies(world, rng)
+	if enemies.size() != 3:
+		_fail(failures, "iv11_enc_spawn: want 3 enemies got %d" % enemies.size())
+		world.free()
+		enc.free()
+		return
+	if enemies[1].get("is_enemy_leader") != true:
+		_fail(failures, "iv11_enc_spawn: index 1 want is_enemy_leader true")
+	if enemies[0].get("is_enemy_leader") == true or enemies[2].get("is_enemy_leader") == true:
+		_fail(failures, "iv11_enc_spawn: only configured index may be commander")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var cmd_id: int = mgr.register(enemies[1], "enemy")
+	mgr.register(enemies[0], "enemy")
+	mgr.register(enemies[2], "enemy")
+	if not bool(mgr.combatants[cmd_id].get("is_enemy_leader", false)):
+		_fail(failures, "iv11_enc_spawn: register want is_enemy_leader on commander")
+	_free_manager(mgr)
+	for n in enemies:
+		if n != null and is_instance_valid(n):
+			n.free()
+	enc.free()
+	world.free()
+
+
+## IV-11 slice 6: **`CombatManager.register`** stamps **`is_enemy_leader`** from node (enemy only).
+static func _run_iv11_register_enemy_leader_stamp_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "slice6=enemy_leader" not in sync_line:
+		_fail(failures, "iv11_enemy_leader: sync line missing slice6 token in %s" % sync_line)
+	var mgr: Node = _MgrScript.new()
+	var cmd_ent: Node = _new_entity("SWORD")
+	cmd_ent.is_enemy_leader = true
+	var grunt_ent: Node = _new_entity("SWORD")
+	grunt_ent.is_enemy_leader = false
+	var player_ent: Node = _new_entity("SWORD")
+	player_ent.is_enemy_leader = true
+	mgr.register(player_ent, "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(cmd_ent, "enemy")
+	mgr.register(grunt_ent, "enemy")
+	if not bool(mgr.combatants[2].get("is_enemy_leader", false)):
+		_fail(failures, "iv11_enemy_leader: commander want is_enemy_leader true")
+	if bool(mgr.combatants[3].get("is_enemy_leader", false)):
+		_fail(failures, "iv11_enemy_leader: grunt want is_enemy_leader false")
+	if bool(mgr.combatants[0].get("is_enemy_leader", false)):
+		_fail(failures, "iv11_enemy_leader: player must not stamp is_enemy_leader")
+	_free_manager(mgr)
+
+
+## IV-11 slice 6: formation diagram **`[Cmd]`** callout for enemy commander only.
+static func _run_iv11_enemy_leader_diagram_callout_suite(failures: PackedStringArray) -> void:
+	const _Diagram := preload("res://ui/FormationDiagramBuilder.gd")
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 2, "ranks": 1})
+	var commander: Dictionary = {}
+	var grunt: Dictionary = {}
+	var player: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "player") and player.is_empty():
+			player = c
+		elif _EntityAccess.is_living_on_side(c, "enemy"):
+			if commander.is_empty():
+				commander = c
+			elif grunt.is_empty():
+				grunt = c
+	commander["is_enemy_leader"] = true
+	grunt["is_enemy_leader"] = false
+	player["is_party_leader"] = true
+	if _UiHints.enemy_leader_diagram_suffix(commander) != " [Cmd]":
+		_fail(
+			failures,
+			"iv11_enemy_diagram: commander suffix want ' [Cmd]' got '%s'"
+			% _UiHints.enemy_leader_diagram_suffix(commander)
+		)
+	if not _UiHints.enemy_leader_diagram_suffix(grunt).is_empty():
+		_fail(failures, "iv11_enemy_diagram: grunt must not get commander suffix")
+	if not _UiHints.party_leader_diagram_suffix(commander).is_empty():
+		_fail(failures, "iv11_enemy_diagram: enemy must not get party [Ldr] suffix")
+	var cmd_cell: String = _Diagram._cell_label_with_footwork("Cmd", [commander])
+	if " [Cmd]" not in cmd_cell:
+		_fail(failures, "iv11_enemy_diagram: commander cell want [Cmd] got '%s'" % cmd_cell)
+	if " [Cmd]" in _Diagram._cell_label_with_footwork("Grunt", [grunt]):
+		_fail(failures, "iv11_enemy_diagram: grunt cell must not show [Cmd]")
+	var tips: PackedStringArray = _UiHints.formation_cell_tooltip_lines(
+		commander, _EntityAccess.get_display_name(commander, _EntityAccess.id_int(commander)), mgr
+	)
+	var tip_hit: bool = false
+	for line in tips:
+		if str(line).ends_with("— Enemy commander"):
+			tip_hit = true
+			break
+	if not tip_hit:
+		_fail(failures, "iv11_enemy_diagram: formation cell tooltip missing Enemy commander")
+	_free_manager(mgr)
+
+
+## IV-11 slice 7: **`PartyRowFormatter`** roster **` · Leader`** suffix from snapshot / node.
+static func _run_iv11_party_leader_roster_callout_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	if "slice7=roster_menu_leader_suffix" not in sync_line:
+		_fail(failures, "iv11_roster: sync line missing slice7 token in %s" % sync_line)
+	var leader_ent: CoreEntity = _new_entity("SWORD")
+	leader_ent.is_party_leader = true
+	var member_ent: CoreEntity = _new_entity("SWORD")
+	member_ent.is_party_leader = false
+	var leader_snap: Dictionary = _Snapshot.snapshot_from_member(
+		{"name": "Lead", "node_ref": leader_ent}
+	)
+	var member_snap: Dictionary = _Snapshot.snapshot_from_member(
+		{"name": "Mate", "node_ref": member_ent}
+	)
+	if _PartyRowFormatter.format_party_role_suffix(leader_snap) != " · Leader":
+		_fail(
+			failures,
+			"iv11_roster: leader want ' · Leader' got '%s'"
+			% _PartyRowFormatter.format_party_role_suffix(leader_snap)
+		)
+	if not _PartyRowFormatter.format_party_role_suffix(member_snap).is_empty():
+		_fail(failures, "iv11_roster: member must not get leader suffix")
+	_free_harness_node(leader_ent)
+	_free_harness_node(member_ent)
+
+
+## IV-1 review: plug forward-fill and incursion ZoC pressure stay separate; D-008 line crash/contest removed.
+static func _run_iv1_plug_incursion_review_suite(failures: PackedStringArray) -> void:
+	var line: String = CombatConstants.iv1_plug_incursion_doc_sync_line()
+	for token in [
+		"archived=wontfix",
+		"D-008=removed",
+		"plug=VacancyPlugs",
+		"incursion=TacticalCombat",
+		"no_contest",
+		"attempt_close=live",
+	]:
+		if token not in line:
+			_fail(failures, "iv1_review: sync line missing %s in %s" % [token, line])
+	var mgr: Node = _MgrScript.new()
+	for _i in 2:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 3, "ranks": 1})
+	_harness_reset_combatants_form_balanced(mgr)
+	_TacticalCombat.recompute_incursion_pressure(mgr)
+	var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	if not form_p.has("incursion_pressure"):
+		_fail(failures, "iv1_review: player formation missing incursion_pressure after recompute")
+		_free_manager(mgr)
+		return
+	var pressure: float = float(form_p.get("incursion_pressure", 0.0))
+	if pressure <= 0.01:
+		_fail(
+			failures,
+			"iv1_review: outnumbered front want incursion_pressure>0 got %.3f" % pressure
+		)
+	var p: Dictionary = mgr.combatants[0]
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[mgr.combatants.size() - 1])
+	if not _MeleeListing.attempt_close_listed_for_pair(mgr, p, e_id, CombatConstants.DISTANCE_LONG):
+		_fail(failures, "iv1_review: attempt_close must stay listed (D-008 live)")
+	_free_manager(mgr)
+
+
+## IV-13: weak front ZoC — spear gains virtual reach; sword does not at marginal eff_dist.
+static func _run_iv13_weapon_reach_zoc_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv13_weapon_reach_zoc_doc_sync_line()
+	if "weapon-reach ZoC" not in sync_line:
+		_fail(failures, "iv13_zoc: sync line missing token in %s" % sync_line)
+	var saved: bool = CombatConstants.is_feature_iv13_weapon_reach_zoc_enabled()
+	CombatConstants.set_feature_iv13_weapon_reach_zoc_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SPEAR"), "player")
+	for _j in 2:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 2, "ranks": 1})
+	mgr.formations["player"]["zone_control"] = {
+		"front": 0.35, "left_flank": 0.4, "right_flank": 0.4, "rear": 0.5,
+	}
+	mgr.formations["enemy"]["zone_control"] = {
+		"front": 0.35, "left_flank": 0.4, "right_flank": 0.4, "rear": 0.5,
+	}
+	var sword: Dictionary = {}
+	var spear: Dictionary = {}
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy") and _EntityAccess.rank_int(c) == 0:
+			if enemy.is_empty() or _EntityAccess.file_int(c) < _EntityAccess.file_int(enemy):
+				enemy = c
+		elif _EntityAccess.is_living_on_side(c, "player") and _EntityAccess.rank_int(c) == 0:
+			if _EntityAccess.weapon_melee_reach(c) > 2.0:
+				spear = c
+			else:
+				sword = c
+	if sword.is_empty() or spear.is_empty() or enemy.is_empty():
+		_fail(failures, "iv13_zoc: missing sword/spear/enemy rank-0 fixtures")
+		CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
+		_free_manager(mgr)
+		return
+	var e_id: int = _EntityAccess.id_int(enemy)
+	var sword_id: int = _EntityAccess.id_int(sword)
+	var spear_id: int = _EntityAccess.id_int(spear)
+	_EntityAccess.nested_dictionary_for_mutation(sword, "distance_to")[e_id] = CombatConstants.DISTANCE_MID
+	_EntityAccess.nested_dictionary_for_mutation(spear, "distance_to")[e_id] = CombatConstants.DISTANCE_MID
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[sword_id] = CombatConstants.DISTANCE_MID
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[spear_id] = CombatConstants.DISTANCE_MID
+	var pair_geom: Dictionary = {"eff_dist": 2.6, "effective_pair_eff_dist": 2.6}
+	var bonus_spear: float = _ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, spear, enemy)
+	var bonus_sword: float = _ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, sword, enemy)
+	if bonus_spear <= bonus_sword + 0.04:
+		_fail(
+			failures,
+			"iv13_zoc: want spear bonus > sword (spear=%.3f sword=%.3f)" % [bonus_spear, bonus_sword]
+		)
+	if not _MeleeListing.can_melee_threaten(mgr, spear, enemy, pair_geom):
+		_fail(failures, "iv13_zoc: spear want can_melee_threaten with weak front + IV-13 on")
+	if _MeleeListing.can_melee_threaten(mgr, sword, enemy, pair_geom):
+		_fail(failures, "iv13_zoc: sword must not threaten at eff_dist=2.6 without reach bonus")
+	CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
+	_free_manager(mgr)
+
+
+## IV-13: flag off — no virtual reach bonus at weak front.
+static func _run_iv13_weapon_reach_zoc_flag_off_parity(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_iv13_weapon_reach_zoc_enabled()
+	CombatConstants.set_feature_iv13_weapon_reach_zoc_load(false)
+	var mgr: Node = _MgrScript.new()
+	for _i in 2:
+		mgr.register(_new_entity("SPEAR"), "player")
+	for _j in 2:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 2, "ranks": 1})
+	mgr.formations["player"]["zone_control"] = {"front": 0.3, "left_flank": 0.4, "right_flank": 0.4, "rear": 0.5}
+	mgr.formations["enemy"]["zone_control"] = {"front": 0.3, "left_flank": 0.4, "right_flank": 0.4, "rear": 0.5}
+	var spear: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[2]
+	var pair_geom: Dictionary = {"eff_dist": 2.6, "effective_pair_eff_dist": 2.6}
+	var bonus: float = _ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, spear, enemy)
+	CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
+	_free_manager(mgr)
+	if absf(bonus) > 0.001:
+		_fail(failures, "iv13_zoc_off: flag off want zero bonus got %.4f" % bonus)
+
+
+## IV-13: distance bands stay aligned with `can_melee_threaten` when ZoC reach bonus is on.
+static func _run_iv13_weapon_reach_zoc_distance_band_suite(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_iv13_weapon_reach_zoc_enabled()
+	CombatConstants.set_feature_iv13_weapon_reach_zoc_load(true)
+	var mgr: Node = _MgrScript.new()
+	for _i in 2:
+		mgr.register(_new_entity("SPEAR"), "player")
+	for _j in 4:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 4, "ranks": 1})
+	mgr.formations["player"]["zone_control"] = {
+		"front": 0.35, "left_flank": 0.4, "right_flank": 0.4, "rear": 0.5,
+	}
+	mgr.formations["enemy"]["zone_control"] = {
+		"front": 0.35, "left_flank": 0.4, "right_flank": 0.4, "rear": 0.5,
+	}
+	var spear: Dictionary = {}
+	var enemy_far: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "player") and _EntityAccess.file_int(c) == 0:
+			spear = c
+		elif _EntityAccess.is_living_on_side(c, "enemy") and _EntityAccess.file_int(c) == 3:
+			enemy_far = c
+	if spear.is_empty() or enemy_far.is_empty():
+		_fail(failures, "iv13_zoc_band: missing spear / far-enemy fixture")
+		CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
+		_free_manager(mgr)
+		return
+	var eid: int = _EntityAccess.id_int(enemy_far)
+	var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(mgr, spear, enemy_far)
+	if _ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, spear, enemy_far) <= 0.01:
+		_fail(failures, "iv13_zoc_band: want positive ZoC reach bonus on wide-line fixture")
+		CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
+		_free_manager(mgr)
+		return
+	_DistanceBands.update_distance_to_from_formations(mgr)
+	var band_on: String = _EntityAccess.distance_to_opponent_band(spear, eid)
+	var threaten_on: bool = _MeleeListing.can_melee_threaten(mgr, spear, enemy_far, pair_geom)
+	CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
+	_free_manager(mgr)
+	var band_implies_threaten: bool = (
+		band_on == CombatConstants.DISTANCE_CLOSE or band_on == CombatConstants.DISTANCE_MID
+	)
+	if threaten_on != band_implies_threaten:
+		_fail(
+			failures,
+			"iv13_zoc_band: band/threaten mismatch band=%s threaten=%s"
+			% [band_on, threaten_on]
+		)
+
+
+## IV-12: dual-occupancy opponent slot adds distraction pad to surround weight sum.
+static func _run_iv12_slot_distraction_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv12_slot_distraction_doc_sync_line()
+	if "IV-12 slot distraction" not in sync_line:
+		_fail(failures, "iv12_distraction: sync line missing token in %s" % sync_line)
+	var saved: bool = CombatConstants.is_feature_iv12_slot_distraction_enabled()
+	CombatConstants.set_feature_iv12_slot_distraction_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var e0: Dictionary = mgr.combatants[1]
+	var e1: Dictionary = mgr.combatants[2]
+	var pid: int = _EntityAccess.id_int(player)
+	var e0_id: int = _EntityAccess.id_int(e0)
+	var e1_id: int = _EntityAccess.id_int(e1)
+	var form_e: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "enemy")
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_e)
+	slots[Vector2i(0, 0)] = [e0_id, e1_id]
+	e0["rank"] = 0
+	e0["file"] = 0
+	e1["rank"] = 0
+	e1["file"] = 0
+	for c in [player, e0, e1]:
+		c["gauge"] = 100.0
+	for pair in [[player, e0_id], [player, e1_id], [e0, pid], [e1, pid]]:
+		_EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (
+			CombatConstants.DISTANCE_CLOSE
+		)
+	if int(_TacticalCombat.count_engaging_threats(mgr, pid)) < 2:
+		_fail(failures, "iv12_distraction: fixture want 2 engaging threats")
+		CombatConstants.set_feature_iv12_slot_distraction_load(saved)
+		_free_manager(mgr)
+		return
+	var w_on: float = _TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
+	CombatConstants.set_feature_iv12_slot_distraction_load(false)
+	var w_off: float = _TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
+	CombatConstants.set_feature_iv12_slot_distraction_load(saved)
+	_free_manager(mgr)
+	var pad: float = CombatConstants.IV12_SLOT_DISTRACTION_WEIGHT_PAD
+	if w_on < w_off + pad - 0.05:
+		_fail(
+			failures,
+			"iv12_distraction: want on>off+pad (on=%.3f off=%.3f pad=%.2f)" % [w_on, w_off, pad]
+		)
+
+
+## IV-12 slice 2: co-located threats damp AI hostile pick weight.
+static func _run_iv12_slot_distraction_ai_offense_damp(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_iv12_slot_distraction_enabled()
+	CombatConstants.set_feature_iv12_slot_distraction_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var e0: Dictionary = mgr.combatants[1]
+	var e1: Dictionary = mgr.combatants[2]
+	var pid: int = _EntityAccess.id_int(player)
+	var e0_id: int = _EntityAccess.id_int(e0)
+	var form_e: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "enemy")
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_e)
+	slots[Vector2i(0, 0)] = [e0_id, _EntityAccess.id_int(e1)]
+	e0["rank"] = 0
+	e0["file"] = 0
+	e1["rank"] = 0
+	e1["file"] = 0
+	for c in [player, e0, e1]:
+		c["gauge"] = 100.0
+	for pair in [[player, e0_id], [player, _EntityAccess.id_int(e1)], [e0, pid], [e1, pid]]:
+		_EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (
+			CombatConstants.DISTANCE_CLOSE
+		)
+	if _TacticalCombat.iv12_slot_distraction_pad_for_defender(mgr, pid) <= 0.0:
+		_fail(failures, "iv12_ai_offense: fixture want distraction pad on player")
+		CombatConstants.set_feature_iv12_slot_distraction_load(saved)
+		_free_manager(mgr)
+		return
+	var act: Dictionary = {"move_id": "oberhau", "target_id": e0_id}
+	var w_on: float = _AIPicker._get_action_weight(act, pid, mgr, true)
+	CombatConstants.set_feature_iv12_slot_distraction_load(false)
+	var w_off: float = _AIPicker._get_action_weight(act, pid, mgr, true)
+	CombatConstants.set_feature_iv12_slot_distraction_load(saved)
+	_free_manager(mgr)
+	var want_ratio: float = CombatConstants.IV12_AI_OFFENSE_WEIGHT_MULT
+	var ratio: float = w_on / maxf(0.0001, w_off)
+	if ratio > want_ratio + 0.04:
+		_fail(
+			failures,
+			"iv12_ai_offense: want ratio<=%.2f got %.3f (on=%.4f off=%.4f)"
+			% [want_ratio, ratio, w_on, w_off]
+		)
+
+
+## IV-12 slice 2: co-located slot-mate pile-on boosts hostile targeting weight.
+static func _run_iv12_co_located_target_bias_suite(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_iv12_slot_distraction_enabled()
+	CombatConstants.set_feature_iv12_slot_distraction_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var e0: Dictionary = mgr.combatants[1]
+	var e1: Dictionary = mgr.combatants[2]
+	var pid: int = _EntityAccess.id_int(player)
+	var e0_id: int = _EntityAccess.id_int(e0)
+	var e1_id: int = _EntityAccess.id_int(e1)
+	var form_e: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "enemy")
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_e)
+	slots[Vector2i(0, 0)] = [e0_id, e1_id]
+	e0["rank"] = 0
+	e0["file"] = 0
+	e1["rank"] = 0
+	e1["file"] = 0
+	for c in [player, e0, e1]:
+		c["gauge"] = 100.0
+	for pair in [[player, e0_id], [player, e1_id], [e0, pid], [e1, pid]]:
+		_EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (
+			CombatConstants.DISTANCE_CLOSE
+		)
+	if not _TacticalCombat.attacker_has_co_located_slot_mate_threatening(mgr, e1, player):
+		_fail(failures, "iv12_pile_on: want co-located mate threatening player")
+		CombatConstants.set_feature_iv12_slot_distraction_load(saved)
+		_free_manager(mgr)
+		return
+	var w_on: float = _TargetScoring.hostile_pair_targeting_weight_mult(mgr, e1, player)
+	CombatConstants.set_feature_iv12_slot_distraction_load(false)
+	var w_off: float = _TargetScoring.hostile_pair_targeting_weight_mult(mgr, e1, player)
+	CombatConstants.set_feature_iv12_slot_distraction_load(saved)
+	_free_manager(mgr)
+	var want: float = CombatConstants.IV12_AI_COLOCATED_TARGET_BIAS_MULT
+	if w_on < w_off * want - 0.02:
+		_fail(
+			failures,
+			"iv12_pile_on: want on>=off*%.2f (on=%.4f off=%.4f)" % [want, w_on, w_off]
+		)
+
+
+## IV-12 slice 3: **`drag_back`** dual slot occupancy groups threats by formation cell (not stale rank).
+static func _run_iv12_drag_back_dual_occupancy_distraction_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv12_slot_distraction_doc_sync_line()
+	if "slice3=formation_slot_cell" not in sync_line:
+		_fail(failures, "iv12_drag_back: sync line missing slice3 token in %s" % sync_line)
+	var saved: bool = CombatConstants.is_feature_iv12_slot_distraction_enabled()
+	CombatConstants.set_feature_iv12_slot_distraction_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 2})
+	var player: Dictionary = mgr.combatants[0]
+	var e_front: Dictionary = {}
+	var e_rear: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "enemy"):
+			continue
+		if _EntityAccess.rank_int(c) == 0:
+			e_front = c
+		elif _EntityAccess.rank_int(c) == 1:
+			e_rear = c
+	if e_front.is_empty() or e_rear.is_empty():
+		_fail(failures, "iv12_drag_back: want enemy rank-0/rank-1 pair")
+		CombatConstants.set_feature_iv12_slot_distraction_load(saved)
+		_free_manager(mgr)
+		return
+	var pid: int = _EntityAccess.id_int(player)
+	var e0_id: int = _EntityAccess.id_int(e_front)
+	var e1_id: int = _EntityAccess.id_int(e_rear)
+	for c in [player, e_front, e_rear]:
+		c["gauge"] = 100.0
+	_EntityAccess.nested_dictionary_for_mutation(player, "distance_to")[e0_id] = (
+		CombatConstants.DISTANCE_CLOSE
+	)
+	_EntityAccess.nested_dictionary_for_mutation(e_front, "distance_to")[pid] = (
+		CombatConstants.DISTANCE_CLOSE
+	)
+	_EntityAccess.nested_dictionary_for_mutation(e_rear, "distance_to")[pid] = (
+		CombatConstants.DISTANCE_CLOSE
+	)
+	_FormationFlow.start_pair_move(mgr, e0_id, e1_id, "drag_back")
+	var form_e: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "enemy")
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_e)
+	if _FormationSlots.living_count_in_slot(mgr, slots, Vector2i(0, 0)) < 2:
+		_fail(failures, "iv12_drag_back: want dual occupancy at rank-0 during drag_back")
+		CombatConstants.set_feature_iv12_slot_distraction_load(saved)
+		_free_manager(mgr)
+		return
+	var pad: float = _TacticalCombat.iv12_slot_distraction_pad_for_defender(mgr, pid)
+	CombatConstants.set_feature_iv12_slot_distraction_load(saved)
+	_free_manager(mgr)
+	if pad < CombatConstants.IV12_SLOT_DISTRACTION_WEIGHT_PAD - 0.05:
+		_fail(
+			failures,
+			"iv12_drag_back: want distraction pad from drag_back dual slot (got %.3f)" % pad
+		)
+
+
+## IV-12: flag off — co-located slot mates do not add distraction pad.
+static func _run_iv12_slot_distraction_flag_off_parity(failures: PackedStringArray) -> void:
+	var saved: bool = CombatConstants.is_feature_iv12_slot_distraction_enabled()
+	CombatConstants.set_feature_iv12_slot_distraction_load(false)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var e0: Dictionary = mgr.combatants[1]
+	var e1: Dictionary = mgr.combatants[2]
+	var pid: int = _EntityAccess.id_int(player)
+	var e0_id: int = _EntityAccess.id_int(e0)
+	var e1_id: int = _EntityAccess.id_int(e1)
+	var form_e: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "enemy")
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_e)
+	slots[Vector2i(0, 0)] = [e0_id, e1_id]
+	e0["rank"] = 0
+	e0["file"] = 0
+	e1["rank"] = 0
+	e1["file"] = 0
+	for c in [player, e0, e1]:
+		c["gauge"] = 100.0
+	for pair in [[player, e0_id], [player, e1_id], [e0, pid], [e1, pid]]:
+		_EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (
+			CombatConstants.DISTANCE_CLOSE
+		)
+	var w0: float = _TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
+	var w1: float = _TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
+	CombatConstants.set_feature_iv12_slot_distraction_load(saved)
+	_free_manager(mgr)
+	if not is_equal_approx(w0, w1):
+		_fail(failures, "iv12_distraction_off: flag off want stable weight got %.3f vs %.3f" % [w0, w1])
+
+
+## IV-11 slice 1b: party leader gets telegraph-matching focus-line weight; members use base weight.
+static func _run_iv11_leader_formation_ability_suite(failures: PackedStringArray) -> void:
+	var line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
+	for token in [
+		"slice1=focus_line_telegraph_match",
+		"issuer=is_formation_command_issuer",
+		"menu_abilities=roster_suffix",
+		"slice9=enemy_commander_orders+doctrine_cycle",
+		"slice10=pinch_outnumber_ai_mult=",
+		"f5_track=iv11_leader_order",
+		"is_party_leader=CombatManager.register",
+		"order_hold_lane_feature=",
+	]:
+		if token not in line:
+			_fail(failures, "iv11_leader: sync line missing %s in %s" % [token, line])
+	if CombatConstants.AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT <= 1.0:
+		_fail(
+			failures,
+			"iv11_leader: want leader telegraph weight > 1 got %.2f"
+			% CombatConstants.AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT
+		)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var leader: Dictionary = mgr.combatants[0]
+	var pid: int = _EntityAccess.id_int(leader)
+	leader["is_party_leader"] = true
+	leader[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
+	var w_leader: float = _AIPicker._get_action_weight(
+		{"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": pid}, pid, mgr, true
+	)
+	leader["is_party_leader"] = false
+	var w_member: float = _AIPicker._get_action_weight(
+		{"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": pid}, pid, mgr, true
+	)
+	if w_leader <= w_member:
+		_fail(
+			failures,
+			"iv11_leader: telegraph match want leader>member (%.4f vs %.4f)"
+			% [w_leader, w_member]
+		)
+	if w_member > CombatConstants.AI_FOCUS_LINE_BASE_WEIGHT * 2.0:
+		_fail(
+			failures,
+			"iv11_leader: member should use base focus weight got %.4f" % w_member
+		)
+	_free_manager(mgr)
+
+
+## IV-7b: low stamina dampens attack / close listing weights via canonical engage floor.
+static func _run_iv7b_stamina_engage_floor_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.iv7b_stamina_engage_doc_sync_line()
+	if not sync_line.contains("ratio<0.20"):
+		_fail(failures, "iv7b_engage: sync line want floor 0.20 in %s" % sync_line)
+	if not is_equal_approx(CombatConstants.ai_offense_stamina_weight_mult(0.25), 1.0):
+		_fail(failures, "iv7b_engage: above floor want mult 1.0")
+	if not is_equal_approx(
+		CombatConstants.ai_offense_stamina_weight_mult(0.15),
+		CombatConstants.AI_STAMINA_ENGAGE_LOW_MULT
+	):
+		_fail(failures, "iv7b_engage: below floor want mult %.2f" % CombatConstants.AI_STAMINA_ENGAGE_LOW_MULT)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	p["gauge"] = 100.0
+	p["stamina"] = CombatConstants.STAMINA_MAX * 0.15
+	var act: Dictionary = {"move_id": "oberhau", "target_id": e_id}
+	var w_low: float = _AIPicker._get_action_weight(act, p_id, mgr, true)
+	p["stamina"] = CombatConstants.STAMINA_MAX * 0.50
+	var w_hi: float = _AIPicker._get_action_weight(act, p_id, mgr, true)
+	_free_manager(mgr)
+	if w_low <= 0.0 or w_hi <= 0.0:
+		_fail(failures, "iv7b_engage: want positive attack weights low=%.4f hi=%.4f" % [w_low, w_hi])
+		return
+	var ratio: float = w_low / w_hi
+	if absf(ratio - CombatConstants.AI_STAMINA_ENGAGE_LOW_MULT) > 0.02:
+		_fail(
+			failures,
+			"iv7b_engage: attack weight ratio want %.2f got %.3f (low=%.4f hi=%.4f)"
+			% [CombatConstants.AI_STAMINA_ENGAGE_LOW_MULT, ratio, w_low, w_hi]
+		)
 
 
 ## Tier 0: hit during **`STATE_SWAP_RANK`** extends duration and delays resolve event (does not cancel).
@@ -7459,6 +9955,156 @@ static func _run_incoming_parry_can_parry_all_weak_pair(failures: PackedStringAr
 	_free_manager_restore_global_rng(mgr)
 
 
+## III-1: equal perceived telegraph → sector flank weight breaks parry-target tie (not outright telegraph wins).
+static func _run_iii1_incoming_parry_sector_tiebreak(failures: PackedStringArray) -> void:
+	if not CombatConstants.FEATURE_INCOMING_PARRY_CHOICE:
+		_fail(failures, "iii1_parry_tie: FEATURE_INCOMING_PARRY_CHOICE should be enabled")
+		return
+	if not CombatConstants.is_feature_sector_surround_load():
+		_fail(failures, "iii1_parry_tie: sector surround load should be enabled")
+		return
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var p: Dictionary = mgr.combatants[0]
+	var e0: Dictionary = mgr.combatants[1]
+	var e1: Dictionary = mgr.combatants[2]
+	p["file"] = 2
+	e0["file"] = 0
+	e1["file"] = 3
+	for c in mgr.combatants:
+		c["gauge"] = 100.0
+	mgr._recompute_zoc_and_distance()
+	var p_id: int = _EntityAccess.id_int(p)
+	var e0_id: int = _EntityAccess.id_int(e0)
+	var e1_id: int = _EntityAccess.id_int(e1)
+	var w0: float = _TacticalCombat.sector_weight_for_attacker_on_defender(mgr, p_id, e0_id)
+	var w1: float = _TacticalCombat.sector_weight_for_attacker_on_defender(mgr, p_id, e1_id)
+	if absf(w0 - w1) < 0.02:
+		_fail(
+			failures,
+			"iii1_parry_tie: want distinct sector weights got w0=%.3f w1=%.3f" % [w0, w1]
+		)
+		_free_manager_restore_global_rng(mgr)
+		return
+	var want_id: int = e0_id if w0 > w1 else e1_id
+	_WindUpStarter.start(mgr, e0_id, p_id, "oberhau")
+	_WindUpStarter.start(mgr, e1_id, p_id, "oberhau")
+	var pa0: Dictionary = _EntityAccess.nested_dictionary_for_mutation(e0, "pending_attack")
+	pa0["intensity"] = 0.85
+	pa0["power"] = 0.55
+	pa0["follow_through"] = 0.55
+	pa0.erase("feint_part")
+	pa0.erase("parry_telegraph_apparent")
+	e1["pending_attack"] = pa0.duplicate(true)
+	e1["state_timer"] = e0["state_timer"]
+	e1["state_duration"] = e0["state_duration"]
+	const TIE_STRENGTH := 100.0
+	for atk in [e0, e1]:
+		_EntityAccess.stats_dict_for_mutation(atk)["strength"] = TIE_STRENGTH
+	var resolve_at: float = _EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
+	for aid in [e0_id, e1_id]:
+		_EntityAccess.manager_schedule_event(
+			mgr,
+			{
+				"type": CombatConstants.EVENT_MELEE_ATTACK,
+				"combatant_id": aid,
+				"resolve_at": resolve_at,
+				"data": {},
+			}
+		)
+	var s0: float = _IncomingParryChoice.threat_score_for_attacker(mgr, e0_id, p_id, resolve_at)
+	var s1: float = _IncomingParryChoice.threat_score_for_attacker(mgr, e1_id, p_id, resolve_at)
+	if absf(s0 - s1) > 0.001:
+		_fail(
+			failures,
+			"iii1_parry_tie: want tied threat scores s0=%.4f s1=%.4f" % [s0, s1]
+		)
+		_free_manager_restore_global_rng(mgr)
+		return
+	var chosen: int = _IncomingParryChoice.choose_parry_target_attacker_id(mgr, p_id, resolve_at)
+	if chosen != want_id:
+		_fail(
+			failures,
+			"iii1_parry_tie: want sector-heavy aid=%d got %d (w0=%.3f w1=%.3f)"
+			% [want_id, chosen, w0, w1]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## III-3: deflect/bind calibration loop — canonical thresholds, helper gates, ii2b plausibility band.
+static func _run_iii3_deflect_bind_calibration_suite(failures: PackedStringArray) -> void:
+	const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
+	if not is_equal_approx(CombatConstants.PARRY_DEFLECT_THRESHOLD, 1.08):
+		_fail(
+			failures,
+			"iii3_calibration: PARRY_DEFLECT_THRESHOLD want 1.08 got %.3f"
+			% CombatConstants.PARRY_DEFLECT_THRESHOLD
+		)
+	if not is_equal_approx(CombatConstants.PARRY_BIND_CONTROL_THRESHOLD, 0.65):
+		_fail(
+			failures,
+			"iii3_calibration: PARRY_BIND_CONTROL_THRESHOLD want 0.65 got %.3f"
+			% CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
+		)
+	var pa: float = 10.0
+	var stop_at: float = pa * CombatConstants.PARRY_DEFLECT_THRESHOLD
+	if CombatConstants.parry_full_stop_reached(stop_at - 0.001, pa, true):
+		_fail(failures, "iii3_calibration: full_stop should be false below threshold")
+	if not CombatConstants.parry_full_stop_reached(stop_at, pa, true):
+		_fail(failures, "iii3_calibration: full_stop should be true at threshold")
+	if CombatConstants.parry_full_stop_reached(stop_at, pa, false):
+		_fail(failures, "iii3_calibration: full_stop should require block parry")
+	if CombatConstants.parry_bind_control_reached(0.649):
+		_fail(failures, "iii3_calibration: bind control should be false below 0.65")
+	if not CombatConstants.parry_bind_control_reached(0.65):
+		_fail(failures, "iii3_calibration: bind control should be true at 0.65")
+	var ctrl_nom: float = CombatConstants.parry_control_for_bind_deflect(
+		12.0, 8.0, 0.85, 1.0, false, false, "cut"
+	)
+	if not CombatConstants.parry_bind_control_reached(ctrl_nom):
+		_fail(
+			failures,
+			"iii3_calibration: nominal sword bind want control>=%.2f got %.3f"
+			% [CombatConstants.PARRY_BIND_CONTROL_THRESHOLD, ctrl_nom]
+		)
+	var pa_m: float = 10.0
+	var cd_m: float = pa_m * CombatConstants.PARRY_DEFLECT_THRESHOLD * 1.05
+	var ctrl_m: float = CombatConstants.parry_control_for_bind_deflect(
+		cd_m, pa_m, 0.75, 1.0, false, false, "cut"
+	)
+	if ctrl_nom < ctrl_m:
+		_fail(
+			failures,
+			"iii3_calibration: decisive bind control %.3f should exceed marginal %.3f"
+			% [ctrl_nom, ctrl_m]
+		)
+	var good_stats: Dictionary = {
+		"parry_deflect": 2,
+		"parry_bind": 1,
+		"parry_partial": 2,
+		"riposte_chain": 1,
+		"flurry_bind_opened": 1,
+	}
+	if not _TrackSpecs.ii2b_plausibility_failures(good_stats).is_empty():
+		_fail(
+			failures,
+			"iii3_calibration: balanced ii2b stats should pass plausibility got %s"
+			% ", ".join(_TrackSpecs.ii2b_plausibility_failures(good_stats))
+		)
+	var bind_heavy: Dictionary = good_stats.duplicate()
+	bind_heavy["parry_bind"] = 9
+	bind_heavy["parry_deflect"] = 1
+	if _TrackSpecs.ii2b_plausibility_failures(bind_heavy).is_empty():
+		_fail(failures, "iii3_calibration: bind-heavy ii2b stats should fail plausibility")
+	var signed_prefill: String = _TrackSpecs.ii2b_worksheet_prefill_text(good_stats, true)
+	if CombatConstants.iii3_baseline_constants_line() not in signed_prefill:
+		_fail(failures, "iii3_calibration: signed worksheet must include baseline constants line")
+
+
 ## Tier 0 / FF4: extended weapon (recovering from own attack) dampens defender **`parry_c_d`**.
 static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(
 	failures: PackedStringArray
@@ -7478,6 +10124,10 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(
 	):
 		_fail(failures, "weapon_pos: recovering from parry should stay near body")
 	if not _WeaponPosition.is_weapon_near_body(
+		{"state": CombatConstants.STATE_RECOVERING, "recovery_cause": "parry_partial"}
+	):
+		_fail(failures, "weapon_pos: parry_partial recovery should stay near body")
+	if not _WeaponPosition.is_weapon_near_body(
 		{"state": CombatConstants.STATE_RECOVERING, "recovery_cause": "attack_deflect"}
 	):
 		_fail(failures, "weapon_pos: attack_deflect recovery should stay near body")
@@ -7487,7 +10137,6 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
-	defender["stance"] = "balanced"
 	defender["guard"] = 0.55
 	defender["stamina"] = CombatConstants.STAMINA_MAX
 	defender["state"] = CombatConstants.STATE_WAITING
@@ -7546,6 +10195,17 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(
 			"weapon_pos: parry recovery want c_d≈waiting got %.4f vs %.4f"
 			% [float(dc_parry.get("parry_c_d", 0.0)), cd_wait]
 		)
+	defender["recovery_cause"] = "parry_partial"
+	seed(92011)
+	var dc_partial: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, "oberhau", arch, -1.0
+	)
+	if absf(float(dc_partial.get("parry_c_d", 0.0)) - cd_wait) > cd_wait * 0.02:
+		_fail(
+			failures,
+			"weapon_pos: parry_partial recovery want c_d≈waiting got %.4f vs %.4f"
+			% [float(dc_partial.get("parry_c_d", 0.0)), cd_wait]
+		)
 	_free_manager_restore_global_rng(mgr)
 
 
@@ -7559,7 +10219,6 @@ static func _run_weapon_committed_attack_dampens_defender_parry_c_d(
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
-	defender["stance"] = "balanced"
 	defender["guard"] = 0.55
 	defender["stamina"] = CombatConstants.STAMINA_MAX
 	defender["state"] = CombatConstants.STATE_WAITING
@@ -7906,6 +10565,7 @@ static func _run_campaign_bridge_entity_untreated_wounds(failures: PackedStringA
 	ent.take_damage_split(8.0, 2.0, "left_arm", 0.5, 0.5)
 	if not _CampaignBridge.entity_has_untreated_wounds(ent):
 		_fail(failures, "campaign_bridge: fresh wound should count as untreated")
+	ent.apply_direct_pressure("left_arm")
 	if ent.can_apply_bandage("left_arm") and ent.apply_bandage("left_arm"):
 		if _CampaignBridge.entity_has_untreated_wounds(ent):
 			_fail(failures, "campaign_bridge: bandaged wound should not be untreated")
@@ -7919,6 +10579,9 @@ static func _run_campaign_bridge_entity_untreated_wounds(failures: PackedStringA
 	tq.tourniquet_applied["left_leg"] = {"effectiveness": 1.0}
 	if _CampaignBridge.entity_has_untreated_wounds(tq):
 		_fail(failures, "campaign_bridge: tourniqueted part should not count as untreated")
+	_free_harness_node(ent)
+	_free_harness_node(packed)
+	_free_harness_node(tq)
 
 
 ## Campaign bridge: encounter node exports → world meta.
@@ -7939,6 +10602,7 @@ static func _run_campaign_bridge_encounter_meta_from_node(failures: PackedString
 	var ef: Dictionary = world.get_meta("enemy_formation", {})
 	if int(ef.get("files", 0)) < 1:
 		_fail(failures, "campaign_bridge: enemy_formation meta missing files")
+	enc.free()
 	world.free()
 
 
@@ -7967,6 +10631,61 @@ static func _run_automatic_doctrine_pinch_via_formation_recompute(
 		_fail(
 			failures,
 			"auto_doc_recompute: want pinch_center got %s" % mgr.get_formation_doctrine("player")
+		)
+	_free_manager(mgr)
+
+
+## p4c: **`numeric_superiority_for_pinch`** sets **`pinch_center`** on wide outnumber (7v3) without hollow enemy front.
+static func _run_p4c_numeric_superiority_auto_pinch(failures: PackedStringArray) -> void:
+	if not CombatConstants.FEATURE_AUTOMATIC_DOCTRINE:
+		_fail(failures, "p4c_numeric: FEATURE_AUTOMATIC_DOCTRINE should be enabled")
+		return
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(_new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 7, "ranks": 1}, {"files": 3, "ranks": 1})
+	if _CombatDoctrine.enemy_line_hollow_center_for_pinch(mgr, "player"):
+		_fail(failures, "p4c_numeric: full enemy front should not read hollow_center")
+	if not _CombatDoctrine.numeric_superiority_for_pinch(mgr, "player"):
+		_fail(failures, "p4c_numeric: 7v3 rank-0 fronts should trigger numeric_superiority")
+	_CombatDoctrine.evaluate_automatic_doctrine(mgr)
+	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_PINCH_CENTER:
+		_fail(
+			failures,
+			"p4c_numeric: want pinch_center got %s" % mgr.get_formation_doctrine("player")
+		)
+	if not mgr.has_meta(_TacticalCombat.META_COMBAT_TELEMETRY):
+		_fail(failures, "p4c_numeric: missing telemetry after evaluate_automatic_doctrine")
+		_free_manager(mgr)
+		return
+	var tel: Dictionary = mgr.get_meta(_TacticalCombat.META_COMBAT_TELEMETRY) as Dictionary
+	var lap: Variant = tel.get("last_automatic_doctrine_pinch", {})
+	if typeof(lap) != TYPE_DICTIONARY:
+		_fail(failures, "p4c_numeric: last_automatic_doctrine_pinch should be a dict")
+		_free_manager(mgr)
+		return
+	if str((lap as Dictionary).get("reason", "")) != "numeric_superiority":
+		_fail(
+			failures,
+			"p4c_numeric: want reason numeric_superiority got %s"
+			% str((lap as Dictionary).get("reason", ""))
+		)
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_HOLD_LANE)
+	_CombatDoctrine.evaluate_automatic_doctrine(mgr)
+	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_HOLD_LANE:
+		_fail(
+			failures,
+			"p4c_numeric: must not override player hold_lane got %s"
+			% mgr.get_formation_doctrine("player")
+		)
+	_FormationEngagement.recompute_all(mgr)
+	if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_HOLD_LANE:
+		_fail(
+			failures,
+			"p4c_numeric: recompute must not override hold_lane got %s"
+			% mgr.get_formation_doctrine("player")
 		)
 	_free_manager(mgr)
 
@@ -8113,6 +10832,82 @@ static func _run_bind_riposte_archetype_ordering_spear_faster_than_mace(
 				"bind_riposte_order: want stab < cut < blunt ratios got spear=%.3f sword=%.3f mace=%.3f"
 				% [spear_ratio, sword_ratio, mace_ratio]
 			)
+
+
+## p4h: bind riposte balance — canonical table (stab < cut < blunt), fallback parity, ii2b riposte band.
+static func _run_p4h_bind_riposte_balance_suite(failures: PackedStringArray) -> void:
+	const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
+	var blade: Dictionary = CombatConstants.PARRY_BIND_RIPOSTE_BY_PART_CONTACT["blade"] as Dictionary
+	var shaft: Dictionary = CombatConstants.PARRY_BIND_RIPOSTE_BY_PART_CONTACT["shaft"] as Dictionary
+	var stab_m: float = float(blade["stab"])
+	var cut_m: float = float(blade["cut"])
+	var blunt_m: float = float(shaft["blunt"])
+	if not is_equal_approx(stab_m, 0.55):
+		_fail(failures, "p4h_riposte: blade stab want 0.55 got %.3f" % stab_m)
+	if not is_equal_approx(cut_m, 0.78):
+		_fail(failures, "p4h_riposte: blade cut want 0.78 got %.3f" % cut_m)
+	if not is_equal_approx(blunt_m, 0.90):
+		_fail(failures, "p4h_riposte: shaft blunt want 0.90 got %.3f" % blunt_m)
+	if stab_m >= cut_m - 0.001 or cut_m >= blunt_m - 0.001:
+		_fail(
+			failures,
+			"p4h_riposte: want stab < cut < blunt got %.3f %.3f %.3f"
+			% [stab_m, cut_m, blunt_m]
+		)
+	if not is_equal_approx(CombatConstants.PARRY_BIND_RIPOSTE_MULT_FALLBACK, cut_m):
+		_fail(
+			failures,
+			"p4h_riposte: fallback want cut mult %.3f got %.3f"
+			% [cut_m, CombatConstants.PARRY_BIND_RIPOSTE_MULT_FALLBACK]
+		)
+	var ii2b_band: Dictionary = {
+		"parry_deflect": 2,
+		"parry_bind": 1,
+		"parry_partial": 2,
+		"riposte_chain": 1,
+		"flurry_bind_opened": 1,
+	}
+	var band_fail: PackedStringArray = _TrackSpecs.ii2b_plausibility_failures(ii2b_band)
+	if not band_fail.is_empty():
+		_fail(failures, "p4h_riposte: ii2b good band should pass: %s" % ", ".join(band_fail))
+
+
+## P4d: doc ↔ code sync — canonical bind/deflect/riposte lines in ii2b worksheet + calibration audit source.
+static func _run_p4d_parry_bind_doc_code_parity_suite(failures: PackedStringArray) -> void:
+	const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
+	const _CalibrationAudit := preload("res://combat/CombatCalibrationAudit.gd")
+	var sync_line: String = CombatConstants.p4d_parry_bind_doc_sync_line()
+	if not sync_line.contains("blade stab=0.55"):
+		_fail(failures, "p4d_sync: want blade stab=0.55 in %s" % sync_line)
+	if not sync_line.contains("cut=0.78"):
+		_fail(failures, "p4d_sync: want cut=0.78 in %s" % sync_line)
+	if not sync_line.contains("shaft blunt=0.90"):
+		_fail(failures, "p4d_sync: want shaft blunt=0.90 in %s" % sync_line)
+	if not sync_line.contains("gauge_bonus=28"):
+		_fail(failures, "p4d_sync: want gauge_bonus=28 in %s" % sync_line)
+	var good_stats: Dictionary = {
+		"parry_deflect": 2,
+		"parry_bind": 1,
+		"parry_partial": 2,
+		"riposte_chain": 1,
+		"flurry_bind_opened": 1,
+	}
+	var prefill: String = _TrackSpecs.ii2b_worksheet_prefill_text(good_stats, true)
+	if CombatConstants.iii3_baseline_constants_line() not in prefill:
+		_fail(failures, "p4d_sync: signed ii2b worksheet must include III-3 baseline line")
+	if sync_line not in prefill:
+		_fail(failures, "p4d_sync: signed ii2b worksheet must include P4d bind sync line")
+	var audit_lines: PackedStringArray = PackedStringArray()
+	var audit_fail: PackedStringArray = PackedStringArray()
+	_CalibrationAudit._append_parry_formula_section(audit_lines, audit_fail)
+	var audit_text: String = "\n".join(audit_lines)
+	if sync_line not in audit_text:
+		_fail(failures, "p4d_sync: calibration audit parry section must include P4d bind sync line")
+	if (
+		"PARRY_DEFLECT_THRESHOLD=%.2f PARRY_BIND_CONTROL_THRESHOLD=%.2f"
+		% [CombatConstants.PARRY_DEFLECT_THRESHOLD, CombatConstants.PARRY_BIND_CONTROL_THRESHOLD]
+	) not in audit_text:
+		_fail(failures, "p4d_sync: calibration audit must echo III-3 threshold pair")
 
 
 ## Tier 4.5: open bind-exchange window → wind-up vs partner × **`FLURRY_BIND_WIND_UP_MULT`** (feature on).
@@ -8363,6 +11158,71 @@ static func _run_flurry_bind_feature_flag_respects_runtime_toggle(failures: Pack
 		return
 	CombatConstants.set_feature_flurry_bind_exchange_load(prev)
 	_free_manager(mgr)
+
+
+## p4g: bind-exchange depth — canonical tuning constants, partner-only stamina discount, exchanges exhaust before window expiry.
+static func _run_p4g_flurry_bind_depth_suite(failures: PackedStringArray) -> void:
+	if not CombatConstants.FEATURE_FLURRY_BIND_EXCHANGE:
+		_fail(failures, "p4g_flurry: FEATURE_FLURRY_BIND_EXCHANGE should be enabled")
+		return
+	if not is_equal_approx(CombatConstants.FLURRY_BIND_WINDOW_S, 1.25):
+		_fail(
+			failures,
+			"p4g_flurry: FLURRY_BIND_WINDOW_S want 1.25 got %.3f"
+			% CombatConstants.FLURRY_BIND_WINDOW_S
+		)
+	if CombatConstants.FLURRY_BIND_MAX_EXCHANGES != 2:
+		_fail(
+			failures,
+			"p4g_flurry: FLURRY_BIND_MAX_EXCHANGES want 2 got %d"
+			% CombatConstants.FLURRY_BIND_MAX_EXCHANGES
+		)
+	if not is_equal_approx(CombatConstants.FLURRY_BIND_WIND_UP_MULT, 0.82):
+		_fail(
+			failures,
+			"p4g_flurry: FLURRY_BIND_WIND_UP_MULT want 0.82 got %.3f"
+			% CombatConstants.FLURRY_BIND_WIND_UP_MULT
+		)
+	if not is_equal_approx(CombatConstants.FLURRY_BIND_STAMINA_ATTACK_COST_MULT, 0.88):
+		_fail(
+			failures,
+			"p4g_flurry: FLURRY_BIND_STAMINA_ATTACK_COST_MULT want 0.88 got %.3f"
+			% CombatConstants.FLURRY_BIND_STAMINA_ATTACK_COST_MULT
+		)
+	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
+	CombatConstants.set_feature_flurry_bind_exchange_load(true)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var p: Dictionary = mgr.combatants[0]
+	var p_id: int = _EntityAccess.id_int(p)
+	var e0_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var e1_id: int = _EntityAccess.id_int(mgr.combatants[2])
+	mgr.combat_clock = 0.0
+	_FlurryBind.open_window(mgr, p_id, e0_id)
+	var clk: float = _EntityAccess.combat_clock_float(mgr)
+	var stam_partner: float = _FlurryBind.stamina_attack_cost_mult(p, e0_id, clk)
+	var stam_other: float = _FlurryBind.stamina_attack_cost_mult(p, e1_id, clk)
+	if not is_equal_approx(stam_partner, CombatConstants.FLURRY_BIND_STAMINA_ATTACK_COST_MULT):
+		_fail(
+			failures,
+			"p4g_flurry: partner stamina mult want %.3f got %.3f"
+			% [CombatConstants.FLURRY_BIND_STAMINA_ATTACK_COST_MULT, stam_partner]
+		)
+	if stam_other != 1.0:
+		_fail(failures, "p4g_flurry: non-partner stamina mult want 1.0 got %.3f" % stam_other)
+	for _i in CombatConstants.FLURRY_BIND_MAX_EXCHANGES:
+		_FlurryBind.consume_exchange_on_wind_up_start(p)
+	if _FlurryBind.is_active(p, clk):
+		_fail(failures, "p4g_flurry: zero exchanges should deactivate inside window")
+	if _FlurryBind.wind_up_mult(p, e0_id, clk) != 1.0:
+		_fail(failures, "p4g_flurry: wind_up_mult should be 1.0 when exchanges exhausted")
+	_free_manager(mgr)
+	seed(_HARNESS_RESTORE_GLOBAL_SEED)
+	CombatConstants.set_feature_flurry_bind_exchange_load(saved)
 
 
 ## Tier 3.2: opposite-line parry magnitude uses contact-type severity thresholds.
@@ -9392,8 +12252,13 @@ static func _run_guard_from_move_sets_guard_line_and_zone(failures: PackedString
 		)
 	if c.has("guard_deflect_blend") or c.has("guard_deflect_from_line"):
 		_fail(failures, "guard_from_move: should clear deflect keys")
-	if str(c.get("guard_zone", "")) != "head":
-		_fail(failures, "guard_from_move: LINE_TO_DEFAULT_PART high -> head want head got %s" % str(c.get("guard_zone")))
+	var want_zone: String = CombatConstants.guard_zone_for_guard_line(want_line)
+	if str(c.get("guard_zone", "")) != want_zone:
+		_fail(
+			failures,
+			"guard_from_move: guard_zone for %s want %s got %s"
+			% [want_line, want_zone, str(c.get("guard_zone"))]
+		)
 
 
 ## Tier 3.3: **`AfterblowHandler.try_afterblow`** — no **`pending_attack`** → **false** (no **`_execute_attack`**).

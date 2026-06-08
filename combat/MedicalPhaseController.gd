@@ -1,7 +1,7 @@
 class_name MedicalPhaseController
 extends RefCounted
 
-## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, and ally medical actions.
+## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, ally medical actions, campaign **`batch_resolve_on_campaign_exit`**.
 ## Footing: halting wind-up on phase entry → **`CombatFootwork.clear_on_exchange_end`** per combatant · **`return_to_waiting`** on idle reset — LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
 ## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), get_health_entity(node) -> Node (or use CombatantEntityAccess).
 
@@ -19,12 +19,23 @@ const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
 const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _WindUpHandler := preload("res://combat/MedicalWindUpHandler.gd")
 
 ## Set on **`CombatManager`** while fast-forwarding post-victory triage (player picks → AI).
 const MANAGER_META_MEDICAL_FAST_FORWARD := "_medical_phase_fast_forward"
 const INSTANT_FAST_FORWARD_MAX_SECONDS: float = 7200.0
+## Harness-only cap for sim_cap termination tests (`instant_complete_on_early_exit(mgr, cap)`).
+const INSTANT_FAST_FORWARD_INTERACTIVE_MAX_SECONDS: float = 600.0
+## Wall-clock budget per frame while interactive fast-forward runs on **`CombatManager`**.
+const INTERACTIVE_FAST_FORWARD_FRAME_BUDGET_US: int = 22000
 const INSTANT_FAST_FORWARD_STAGNANT_LIMIT: int = 48
+const INSTANT_FAST_FORWARD_MAX_ITERATIONS: int = 100000
 const INSTANT_FAST_FORWARD_MIN_STEP_S: float = 0.001
+## Idle tick when queue has no resolve_at but triage work remains (avoids sim_s=0 stall).
+const INSTANT_FAST_FORWARD_IDLE_STEP_S: float = 1.0
+const INSTANT_FAST_FORWARD_YIELD_EVERY_TICKS: int = 12
+## Campaign contract early exit: best-effort dress passes (fighters × wounds); not used for soak tick-replay.
+const CAMPAIGN_BATCH_DRESS_MAX_ROUNDS: int = 256
 
 ## Queued events suppressed for the losing side once **`medical_phase`** is active.
 const POST_VICTORY_BLOCKED_EVENT_TYPES: Array[String] = [
@@ -98,9 +109,9 @@ static func is_losing_side(manager: Node, c: Dictionary) -> bool:
 
 
 static func is_losing_side_id(manager: Node, combatant_id: int) -> bool:
-	if manager == null or combatant_id < 0 or not manager.has_method("_get_by_id"):
+	if manager == null or combatant_id < 0:
 		return false
-	var c: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(combatant_id))
+	var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
 	return is_losing_side(manager, c)
 
 
@@ -328,7 +339,7 @@ static func has_untreated_wounds(manager: Node, c: Dictionary) -> bool:
 	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
 	if entity == null:
 		return false
-	return _EntityWounds.entity_has_untreated_wounds(entity)
+	return _EntityAccess.entity_has_untreated_wounds(entity)
 
 ## True when blood volume or estimated time to blood-loss death is in danger zone (consider medical).
 static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
@@ -406,48 +417,522 @@ static func resolve_player_medical_turn_during_fast_forward(manager: Node, comba
 	_AIPicker.resolve_picked_turn_or_skip(manager, combatant_id, actions, "player")
 
 
-## When the player ends battle during medical phase, advance **`combat_clock`** through the tick pipeline until triage finishes.
-static func instant_complete_on_early_exit(manager: Node) -> void:
+## Campaign contract only: finish in-progress wind-ups + best-effort dress without tick-replay.
+static func batch_resolve_on_campaign_exit(manager: Node) -> void:
 	if manager == null or not bool(manager.medical_phase) or can_end_medical_phase(manager):
 		return
-	manager.set_meta(MANAGER_META_MEDICAL_FAST_FORWARD, true)
-	var sim_seconds: float = 0.0
-	var stagnant_steps: int = 0
-	while not can_end_medical_phase(manager) and sim_seconds < INSTANT_FAST_FORWARD_MAX_SECONDS:
-		_ensure_winner_recovery_end_events(manager)
-		var dt: float = _next_fast_forward_delta(manager)
-		if dt <= 0.0:
-			if _resolve_stalled_winner_turns(manager):
-				stagnant_steps = 0
-				continue
-			stagnant_steps += 1
-			if stagnant_steps >= INSTANT_FAST_FORWARD_STAGNANT_LIMIT:
-				if _unstick_medical_turns(manager):
-					stagnant_steps = 0
-					continue
-				break
+	var parts_before: int = winner_side_untreated_part_count(manager)
+	_batch_complete_in_progress_windups(manager)
+	_batch_scrub_winner_busy_states_for_exit(manager)
+	_batch_best_effort_dress_winner_side(manager)
+	_log_batch_resolve_result(manager, parts_before)
+
+
+static func _batch_complete_in_progress_windups(manager: Node) -> void:
+	for c in manager.combatants:
+		if c is not Dictionary:
 			continue
-		stagnant_steps = 0
-		_ProcessTick.tick(manager, dt)
-		sim_seconds += dt
+		if not is_winner_side(manager, c) or not _EntityAccess.alive_bool(c):
+			continue
+		if _EntityAccess.state_str(c) != CombatConstants.STATE_MEDICAL_WIND_UP:
+			continue
+		var pm_raw: Variant = c.get("pending_medical", null)
+		if typeof(pm_raw) != TYPE_DICTIONARY:
+			continue
+		var pm: Dictionary = pm_raw as Dictionary
+		if pm.is_empty():
+			continue
+		_WindUpHandler.complete(manager, c, pm)
+		c["pending_medical"] = {}
+
+
+static func _batch_scrub_winner_busy_states_for_exit(manager: Node) -> void:
+	const _BUSY_EXIT_STATES: Array[String] = [
+		CombatConstants.STATE_RECOVERING,
+		CombatConstants.STATE_MEDICAL_WIND_UP,
+	]
+	for c in manager.combatants:
+		if c is not Dictionary:
+			continue
+		if not is_winner_side(manager, c) or not _EntityAccess.alive_bool(c):
+			continue
+		var st: String = _EntityAccess.state_str(c)
+		if st in _BUSY_EXIT_STATES:
+			_Footwork.return_to_waiting(c)
+			c.gauge = 100.0
+		elif st == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
+			if int(c.get("receiving_medical_count", 0)) <= 0:
+				_Footwork.return_to_waiting(c)
+				c.gauge = 100.0
+
+
+static func _batch_best_effort_dress_winner_side(manager: Node) -> void:
+	var rounds: int = 0
+	while rounds < CAMPAIGN_BATCH_DRESS_MAX_ROUNDS and winner_side_untreated_part_count(manager) > 0:
+		rounds += 1
+		var targets: Array = _batch_collect_urgent_untreated_parts(manager)
+		if targets.is_empty():
+			break
+		var progressed: bool = false
+		for entry in targets:
+			if entry is not Dictionary:
+				continue
+			var target_id: int = int((entry as Dictionary).get("target_id", -1))
+			var part: String = str((entry as Dictionary).get("part", ""))
+			if target_id < 0 or part.is_empty():
+				continue
+			var performer_id: int = _batch_pick_performer_for_part(manager, target_id, part)
+			if performer_id < 0:
+				continue
+			var actions: Array = _batch_medical_actions_for_part(manager, performer_id, target_id, part)
+			actions = _MedicalCoord.filter_actions_for_pick(manager, performer_id, actions)
+			if actions.is_empty():
+				continue
+			var choice: Dictionary = _AIPicker.pick_highest_medical(actions, performer_id, manager)
+			if choice.is_empty():
+				continue
+			if _batch_apply_medical_action(
+				manager,
+				performer_id,
+				int(choice.get("target_id", target_id)),
+				str(choice.get("move_id", "")),
+				str(choice.get("target_part", part))
+			):
+				progressed = true
+				break
+		if not progressed:
+			break
+
+
+static func _batch_collect_urgent_untreated_parts(manager: Node) -> Array:
+	var out: Array = []
+	for c in manager.combatants:
+		if c is not Dictionary:
+			continue
+		if not is_winner_side(manager, c) or not _EntityAccess.alive_bool(c):
+			continue
+		if not has_untreated_wounds(manager, c):
+			continue
+		var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
+		if entity == null:
+			continue
+		var cid: int = _EntityAccess.id_int(c)
+		for part in _EntityWounds.sorted_untreated_part_names(entity):
+			var urgency: float = get_medical_urgency_deterministic(manager, c)
+			urgency += get_part_intervention_threat(manager, c, part)
+			out.append({"target_id": cid, "part": part, "urgency": urgency})
+	out.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool: return float(a.get("urgency", 0.0)) > float(b.get("urgency", 0.0))
+	)
+	return out
+
+
+static func _batch_performer_available(manager: Node, c: Dictionary) -> bool:
+	if not is_winner_side(manager, c) or not _EntityAccess.alive_bool(c):
+		return false
+	var st: String = _EntityAccess.state_str(c)
+	return (
+		st == CombatConstants.STATE_WAITING
+		or st == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
+		or st == CombatConstants.STATE_RECOVERING
+	)
+
+
+static func _batch_pick_performer_for_part(manager: Node, target_id: int, part: String) -> int:
+	for c in manager.combatants:
+		if c is not Dictionary:
+			continue
+		if not _batch_performer_available(manager, c):
+			continue
+		var performer_id: int = _EntityAccess.id_int(c)
+		var actions: Array = _batch_medical_actions_for_part(manager, performer_id, target_id, part)
+		if _MedicalCoord.filter_actions_for_pick(manager, performer_id, actions).is_empty():
+			continue
+		return performer_id
+	return -1
+
+
+static func _batch_medical_actions_for_part(
+	manager: Node, performer_id: int, target_id: int, part: String
+) -> Array:
+	var performer: Dictionary = _EntityAccess.manager_get_combatant(manager, performer_id)
+	var target: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
+	if performer.is_empty() or target.is_empty():
+		return []
+	var out: Array = []
+	for raw_act in get_ally_medical_actions(manager, performer, target, part):
+		if raw_act is not Dictionary:
+			continue
+		var act: Dictionary = raw_act as Dictionary
+		out.append(
+			{
+				"target_id": target_id,
+				"move_id": str(act.get("move_id", "")),
+				"target_part": str(act.get("target_part", part)),
+			}
+		)
+	return out
+
+
+static func _batch_apply_medical_action(
+	manager: Node,
+	performer_id: int,
+	target_id: int,
+	move_id: String,
+	part: String
+) -> bool:
+	if part.is_empty() or move_id.is_empty():
+		return false
+	if not _MedicalCoord.medical_action_allowed(manager, performer_id, target_id, part, move_id):
+		return false
+	var performer: Dictionary = _EntityAccess.manager_get_combatant(manager, performer_id)
+	var target: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
+	if performer.is_empty() or target.is_empty():
+		return false
+	if move_id == CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE:
+		return _batch_apply_direct_pressure(manager, performer, target, performer_id, target_id, part)
+	var wind_raw: Variant = CombatConstants.MEDICAL_WIND_UP_CONFIG.get(move_id, {})
+	var wind_up_cfg: Dictionary = wind_raw if wind_raw is Dictionary else {}
+	var target_method: String = str(wind_up_cfg.get("target_method", ""))
+	if target_method.is_empty():
+		return false
+	var tgt_entity: Node = _EntityAccess.get_entity_from_manager(manager, target)
+	var perf_entity: Node = _EntityAccess.get_entity_from_manager(manager, performer)
+	if tgt_entity == null or perf_entity == null:
+		return false
+	var had_treatment_assist: bool = (
+		tgt_entity.get("direct_pressure_assist_held_by") != null
+		and tgt_entity.direct_pressure_assist_held_by != null
+	)
+	var eff: float = _EntityAccess.get_medical_effectiveness_from_node(perf_entity)
+	if had_treatment_assist:
+		eff += CombatConstants.MEDICAL_ASSISTED_TREATMENT_EFFICIENCY_BONUS
+		eff = clampf(eff, 0.0, 1.5)
+	var result: Variant = _EntityAccess.entity_invoke_medical_method(tgt_entity, target_method, part, eff)
+	if result == null:
+		return false
+	var ok: bool = _batch_medical_procedure_succeeded(result)
+	var who_m: String = _EntityAccess.get_display_name(performer)
+	var med_log: String = move_id if target_id == performer_id else "%s (ally)" % move_id
+	var outcome: String = _batch_outcome_for_method(target_method, result, wind_up_cfg, move_id)
+	_CombatDebug.medical_session(
+		"Medical batch: %s %s on %s => %s" % [who_m, med_log, part, outcome]
+	)
+	var world: Node2D = _CompanyState.resolve_world_from_battle(manager)
+	if world != null:
+		_CompanyState.on_battle_medical_complete(world, target_method, ok)
+	if ok:
+		var failed: Array = _EntityAccess.nested_array_for_mutation(target, "failed_medical_parts")
+		var idx: int = failed.find(part)
+		if idx >= 0:
+			failed.remove_at(idx)
+	else:
+		var failed_mut: Array = _EntityAccess.nested_array_for_mutation(target, "failed_medical_parts")
+		if part not in failed_mut:
+			failed_mut.append(part)
+	return ok
+
+
+static func _batch_apply_direct_pressure(
+	manager: Node,
+	performer: Dictionary,
+	target: Dictionary,
+	performer_id: int,
+	target_id: int,
+	part: String
+) -> bool:
+	var applied: bool = false
+	if target_id == performer_id:
+		applied = _EntityAccess.entity_apply_direct_pressure(manager, target, part)
+	elif _MedicalCoord.can_stack_assist_pressure(manager, performer_id, target_id, part):
+		applied = _EntityAccess.entity_stack_assist_pressure_during_ally_treatment(
+			manager, target, performer, part
+		)
+	elif _EntityAccess.entity_apply_direct_pressure_from_ally(manager, target, performer, part):
+		applied = true
+		_EntityAccess.link_performer_direct_pressure_on_ally(
+			manager,
+			performer,
+			_EntityAccess.get_entity_from_manager(manager, target),
+			part
+		)
+	if applied:
+		_CombatDebug.medical_session(
+			"Medical batch: %s apply_direct_pressure on %s => held"
+			% [_EntityAccess.get_display_name(performer), part]
+		)
+	return applied
+
+
+static func _batch_medical_procedure_succeeded(result: Variant) -> bool:
+	if result == true:
+		return true
+	if result is Dictionary:
+		return bool((result as Dictionary).get("success", false))
+	return false
+
+
+static func _batch_outcome_for_method(
+	target_method: String, result: Variant, wind_up_cfg: Dictionary, med_id: String
+) -> String:
+	var ok: bool = _batch_medical_procedure_succeeded(result)
+	match target_method:
+		"apply_bandage":
+			return "bandaged" if ok else "bandage_failed"
+		"apply_stabilize":
+			return "stabilized" if ok else "stabilize_failed"
+		"apply_packing":
+			return "packed" if ok else "packing_failed"
+		"apply_tourniquet":
+			return "tourniquet_applied" if ok else "tourniquet_failed"
+		_:
+			return str(wind_up_cfg.get("outcome", med_id))
+
+
+static func _log_batch_resolve_result(manager: Node, parts_before: int) -> void:
+	var parts_after: int = winner_side_untreated_part_count(manager)
+	var can_end: bool = can_end_medical_phase(manager)
+	if _OperationalLog.is_play_session_active():
+		_OperationalLog.play_combat(
+			(
+				"medical_batch_resolve parts_before=%d parts_after=%d can_end=%s"
+				% [parts_before, parts_after, str(can_end).to_lower()]
+			)
+		)
+	elif not can_end:
+		_CombatDebug.combat_session(
+			"batch_resolve_medical_phase parts_before=%d parts_after=%d can_end=false"
+			% [parts_before, parts_after]
+		)
+
+
+## When the player ends battle during medical phase, advance **`combat_clock`** through the tick pipeline until triage finishes.
+static func instant_complete_on_early_exit(manager: Node, max_sim_seconds: float = -1.0) -> void:
+	var sim_state: Dictionary = fast_forward_prepare(manager, max_sim_seconds)
+	if sim_state.is_empty():
+		return
+	var break_reason: String = _fast_forward_drive_sync(manager, sim_state)
+	fast_forward_finalize(manager, sim_state, break_reason)
+
+
+static func fast_forward_prepare(manager: Node, max_sim_seconds: float) -> Dictionary:
+	if manager == null or not bool(manager.medical_phase) or can_end_medical_phase(manager):
+		return {}
+	manager.set_meta(MANAGER_META_MEDICAL_FAST_FORWARD, true)
+	return {
+		"sim_seconds": 0.0,
+		"stagnant_steps": 0,
+		"total_iterations": 0,
+		"sim_cap": _instant_complete_sim_cap(max_sim_seconds),
+	}
+
+
+static func _fast_forward_drive_sync(manager: Node, sim_state: Dictionary) -> String:
+	var break_reason: String = "sim_cap"
+	while true:
+		var chunk: Dictionary = fast_forward_advance_chunk(
+			manager,
+			sim_state,
+			float(sim_state["sim_cap"]),
+			INSTANT_FAST_FORWARD_MAX_ITERATIONS
+		)
+		if not bool(chunk.get("continue_loop", false)):
+			break_reason = str(chunk.get("break_reason", "sim_cap"))
+			break
+	return break_reason
+
+
+static func fast_forward_advance_chunk(
+	manager: Node,
+	sim_state: Dictionary,
+	sim_cap: float,
+	max_chunk_iters: int
+) -> Dictionary:
+	if manager == null or not bool(manager.medical_phase):
+		return {
+			"continue_loop": false,
+			"break_reason": "medical_phase_cleared",
+		}
+	var iters_run: int = 0
+	while (
+		bool(manager.medical_phase)
+		and not can_end_medical_phase(manager)
+		and float(sim_state["sim_seconds"]) < sim_cap
+		and iters_run < max_chunk_iters
+	):
+		iters_run += 1
+		var total_iterations: int = int(sim_state.get("total_iterations", 0)) + 1
+		sim_state["total_iterations"] = total_iterations
+		if total_iterations > INSTANT_FAST_FORWARD_MAX_ITERATIONS:
+			return {
+				"continue_loop": false,
+				"break_reason": "iteration_cap",
+			}
+		var step: Dictionary = _instant_complete_fast_forward_step(manager, sim_state)
+		if not bool(step.get("continue_loop", true)):
+			return {
+				"continue_loop": false,
+				"break_reason": "stagnant",
+			}
+	if can_end_medical_phase(manager):
+		return {
+			"continue_loop": false,
+			"break_reason": "complete",
+		}
+	if float(sim_state["sim_seconds"]) >= sim_cap:
+		return {
+			"continue_loop": false,
+			"break_reason": "sim_cap",
+		}
+	return {
+		"continue_loop": true,
+		"break_reason": "",
+	}
+
+
+## Run fast-forward steps until **`budget_usec`** elapses or the pass ends (interactive time-slice).
+static func fast_forward_advance_time_slice(
+	manager: Node,
+	sim_state: Dictionary,
+	sim_cap: float,
+	budget_usec: int
+) -> Dictionary:
+	if manager == null or not bool(manager.medical_phase):
+		return {
+			"continue_loop": false,
+			"break_reason": "medical_phase_cleared",
+		}
+	var slice_start_usec: int = Time.get_ticks_usec()
+	while (
+		bool(manager.medical_phase)
+		and not can_end_medical_phase(manager)
+		and float(sim_state["sim_seconds"]) < sim_cap
+	):
+		if Time.get_ticks_usec() - slice_start_usec >= budget_usec:
+			return {
+				"continue_loop": true,
+				"break_reason": "",
+			}
+		var total_iterations: int = int(sim_state.get("total_iterations", 0)) + 1
+		sim_state["total_iterations"] = total_iterations
+		if total_iterations > INSTANT_FAST_FORWARD_MAX_ITERATIONS:
+			return {
+				"continue_loop": false,
+				"break_reason": "iteration_cap",
+			}
+		var step: Dictionary = _instant_complete_fast_forward_step(manager, sim_state)
+		if not bool(step.get("continue_loop", true)):
+			return {
+				"continue_loop": false,
+				"break_reason": "stagnant",
+			}
+	if can_end_medical_phase(manager):
+		return {
+			"continue_loop": false,
+			"break_reason": "complete",
+		}
+	if float(sim_state["sim_seconds"]) >= sim_cap:
+		return {
+			"continue_loop": false,
+			"break_reason": "sim_cap",
+		}
+	return {
+		"continue_loop": true,
+		"break_reason": "",
+	}
+
+
+static func fast_forward_finalize(
+	manager: Node,
+	sim_state: Dictionary,
+	break_reason: String
+) -> void:
+	if manager == null or not is_instance_valid(manager):
+		return
+	_clear_instant_complete_fast_forward_meta(manager)
+	_log_instant_complete_result(manager, sim_state, break_reason)
+
+
+static func _instant_complete_sim_cap(max_sim_seconds: float) -> float:
+	return (
+		INSTANT_FAST_FORWARD_MAX_SECONDS
+		if max_sim_seconds < 0.0
+		else maxf(max_sim_seconds, INSTANT_FAST_FORWARD_MIN_STEP_S)
+	)
+
+
+static func _clear_instant_complete_fast_forward_meta(manager: Node) -> void:
 	if manager.has_meta(MANAGER_META_MEDICAL_FAST_FORWARD):
 		manager.remove_meta(MANAGER_META_MEDICAL_FAST_FORWARD)
+
+
+## One fast-forward iteration. Mutates **`sim_state`** (`sim_seconds`, `stagnant_steps`).
+static func _instant_complete_fast_forward_step(manager: Node, sim_state: Dictionary) -> Dictionary:
+	_ensure_winner_recovery_end_events(manager)
+	var dt: float = _next_fast_forward_delta(manager)
+	var stagnant_steps: int = int(sim_state.get("stagnant_steps", 0))
+	var sim_seconds: float = float(sim_state.get("sim_seconds", 0.0))
+	if dt <= 0.0:
+		if _resolve_stalled_winner_turns(manager):
+			# Advance clock on turn picks; otherwise sim_s never moves and the loop can spin forever.
+			_ProcessTick.tick(manager, INSTANT_FAST_FORWARD_MIN_STEP_S)
+			sim_seconds += INSTANT_FAST_FORWARD_MIN_STEP_S
+			sim_state["sim_seconds"] = sim_seconds
+			sim_state["stagnant_steps"] = 0
+			return {"continue_loop": true, "stepped": true}
+		if winner_side_untreated_part_count(manager) > 0:
+			_ProcessTick.tick(manager, INSTANT_FAST_FORWARD_IDLE_STEP_S)
+			sim_seconds += INSTANT_FAST_FORWARD_IDLE_STEP_S
+			sim_state["sim_seconds"] = sim_seconds
+			sim_state["stagnant_steps"] = 0
+			return {"continue_loop": true, "stepped": true}
+		stagnant_steps += 1
+		sim_state["stagnant_steps"] = stagnant_steps
+		if stagnant_steps >= INSTANT_FAST_FORWARD_STAGNANT_LIMIT:
+			if _unstick_medical_turns(manager):
+				sim_state["stagnant_steps"] = 0
+				return {"continue_loop": true, "stepped": false}
+			return {"continue_loop": false, "stepped": false}
+		# Nudge clock while waiting for wind-ups / recovery to produce the next delta.
+		_ProcessTick.tick(manager, INSTANT_FAST_FORWARD_MIN_STEP_S)
+		sim_state["sim_seconds"] = sim_seconds + INSTANT_FAST_FORWARD_MIN_STEP_S
+		return {"continue_loop": true, "stepped": true}
+	sim_state["stagnant_steps"] = 0
+	_ProcessTick.tick(manager, dt)
+	sim_state["sim_seconds"] = sim_seconds + dt
+	return {"continue_loop": true, "stepped": true}
+
+
+static func _log_instant_complete_result(
+	manager: Node,
+	sim_state: Dictionary,
+	break_reason: String = "sim_cap"
+) -> void:
+	var sim_seconds: float = float(sim_state.get("sim_seconds", 0.0))
+	var total_iterations: int = int(sim_state.get("total_iterations", 0))
 	var can_end: bool = can_end_medical_phase(manager)
+	var reason: String = break_reason if not break_reason.is_empty() else "sim_cap"
 	if _OperationalLog.is_play_session_active():
 		if can_end:
 			_OperationalLog.play_combat(
-				"medical_fast_forward complete sim_s=%.1f can_end=true parts_left=%d"
-				% [sim_seconds, winner_side_untreated_part_count(manager)]
+				(
+					"medical_fast_forward complete sim_s=%.1f can_end=true parts_left=%d "
+					+ "iters=%d reason=%s"
+				)
+				% [sim_seconds, winner_side_untreated_part_count(manager), total_iterations, reason]
 			)
 		else:
 			_OperationalLog.play_combat(
-				"medical_fast_forward incomplete sim_s=%.1f can_end=false parts_left=%d — field care may still be needed"
-				% [sim_seconds, winner_side_untreated_part_count(manager)]
+				(
+					"medical_fast_forward incomplete sim_s=%.1f can_end=false parts_left=%d "
+					+ "iters=%d reason=%s — field care may still be needed"
+				)
+				% [sim_seconds, winner_side_untreated_part_count(manager), total_iterations, reason]
 			)
 	elif not can_end:
 		_CombatDebug.combat_session(
-			"fast_forward_medical_phase sim_s=%.1f can_end=false"
-			% sim_seconds
+			"fast_forward_medical_phase sim_s=%.1f can_end=false iters=%d reason=%s"
+			% [sim_seconds, total_iterations, reason]
 		)
 
 
@@ -471,11 +956,20 @@ static func _next_fast_forward_delta(manager: Node) -> float:
 			var wind_rem: float = float(c.get("state_duration", 0.0)) - float(c.get("state_timer", 0.0))
 			if wind_rem > 0.0:
 				best = minf(best, wind_rem)
+			else:
+				best = minf(best, INSTANT_FAST_FORWARD_MIN_STEP_S)
 		elif st == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
 			var cd: float = float(c.get("receiving_care_action_cooldown", 0.0))
 			if cd > 0.0:
 				best = minf(best, cd)
+			else:
+				best = minf(best, INSTANT_FAST_FORWARD_MIN_STEP_S)
+		elif st == CombatConstants.STATE_WAITING:
+			if _EntityAccess.gauge_float(c) < 99.9:
+				best = minf(best, INSTANT_FAST_FORWARD_IDLE_STEP_S)
 	if best == INF:
+		if winner_side_untreated_part_count(manager) > 0:
+			return INSTANT_FAST_FORWARD_IDLE_STEP_S
 		return 0.0
 	return maxf(best, INSTANT_FAST_FORWARD_MIN_STEP_S)
 
@@ -596,7 +1090,7 @@ static func _append_pressure_action_if_needed(
 	if not actively_bleeding:
 		return
 	if (
-		not _EntityAccess.scene_can_apply_direct_pressure(performer, "")
+		not _EntityAccess.scene_can_apply_direct_pressure_api(performer)
 		or _EntityAccess.is_applying_direct_pressure_scene(performer)
 	):
 		return
@@ -609,13 +1103,15 @@ static func _append_pressure_action_if_needed(
 	var ally_id: int = _EntityAccess.id_int(ally)
 	if has_pressure:
 		if _MedicalCoord.can_stack_assist_pressure(manager, performer_id, ally_id, part):
-			out.append({ "move_id": "apply_direct_pressure", "target_part": part })
+			out.append({
+				"move_id": CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE, "target_part": part
+			})
 		return
 	if not _MedicalCoord.medical_action_allowed(
-		manager, performer_id, ally_id, part, "apply_direct_pressure"
+		manager, performer_id, ally_id, part, CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE
 	):
 		return
-	out.append({ "move_id": "apply_direct_pressure", "target_part": part })
+	out.append({"move_id": CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE, "target_part": part})
 
 
 ## Returns list of { move_id, target_part } for medical actions the performer can apply to the ally's part.
@@ -643,7 +1139,7 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
 		_append_pressure_action_if_needed(
 			manager, performer, ally, part, has_pressure, actively_bleeding, out
 		)
-		out.append({ "move_id": "apply_tourniquet", "target_part": part })
+		out.append({ "move_id": CombatConstants.MOVE_ID_APPLY_TOURNIQUET, "target_part": part })
 		return _MedicalCoord.filter_ally_medical_actions(manager, performer, ally, out)
 
 	# Junctional (head/chest): hold pressure before packing cavity.
@@ -672,13 +1168,13 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
 		and _battle_med_supplies_available(manager)
 		and _EntityAccess.entity_can_apply_stabilize(manager, ally, part)
 	):
-		out.append({ "move_id": "stabilize_wound", "target_part": part })
+		out.append({ "move_id": CombatConstants.MOVE_ID_STABILIZE_WOUND, "target_part": part })
 	if dressings_ok and _EntityAccess.entity_can_apply_bandage(manager, ally, part):
-		out.append({ "move_id": "bandage_self", "target_part": part })
+		out.append({ "move_id": CombatConstants.MOVE_ID_BANDAGE_SELF, "target_part": part })
 	if dressings_ok and _EntityAccess.entity_can_apply_packing(manager, ally, part):
-		out.append({ "move_id": "pack_wound", "target_part": part })
+		out.append({ "move_id": CombatConstants.MOVE_ID_PACK_WOUND, "target_part": part })
 	if tq_can and tq_indicated:
-		out.append({ "move_id": "apply_tourniquet", "target_part": part })
+		out.append({ "move_id": CombatConstants.MOVE_ID_APPLY_TOURNIQUET, "target_part": part })
 	return _MedicalCoord.filter_ally_medical_actions(manager, performer, ally, out)
 
 

@@ -2,7 +2,7 @@ class_name CombatRegressionHarnessAttentionFootworkTail
 extends RefCounted
 
 ## Tier 4.2–4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
-## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) · **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) · **`_run_mental_stack_*`** (MS-L4 boundary). Catalog: LIVE_PATHS **`#harness-footwork-catalog`** · PA hub **`#wf-tier-44-pa`**.
+## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) · **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) · **`_run_mental_stack_*`** (MS-L4/L5 boundary). Catalog: LIVE_PATHS **`#harness-footwork-catalog`** · PA hub **`#wf-tier-44-pa`**.
 
 const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
@@ -23,8 +23,23 @@ const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
+
+
+static func _t44_harness_ensure_flurry_bind() -> bool:
+	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
+	CombatConstants.set_feature_flurry_bind_exchange_load(true)
+	return saved
+
+
+static func _t44_harness_restore_flurry_bind(saved: bool) -> void:
+	CombatConstants.set_feature_flurry_bind_exchange_load(saved)
 const _FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
+const _FormationRout := preload("res://combat/CombatFormationRout.gd")
+const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
@@ -811,6 +826,853 @@ static func _run_hold_line_hint_mop_up(failures: PackedStringArray) -> void:
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
+## III-4 **3e**: mop-up hold-line hint when listed melee strikes finish the last enemy.
+static func _run_hold_line_hint_mop_up_strikes_listed(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	var enemy_ids: Array = []
+	for c in mgr.combatants:
+		if _EntityAccess.side_str(c) == "enemy":
+			enemy_ids.append(_EntityAccess.id_int(c))
+	for k in range(mini(2, enemy_ids.size())):
+		CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
+	var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy = c
+			break
+	if center.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(
+			failures, "hold_line_hint_mop_up_strikes: missing center/enemy fixtures"
+		)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var center_id: int = _EntityAccess.id_int(center)
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	var dist: Dictionary = _EntityAccess.nested_dictionary_for_mutation(center, "distance_to")
+	dist[enemy_id] = CombatConstants.DISTANCE_CLOSE
+	var actions: Array = [
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": center_id},
+		{"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
+	]
+	var hint: String = _PlayerTurnHints.hold_line_focus_only_hint(mgr, center, actions)
+	if hint.is_empty() or not hint.contains("Mop-up"):
+		CombatRegressionHarness._fail(
+			failures, "hold_line_hint_mop_up_strikes: want mop-up hint got '%s'" % hint
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## III-4 **3e**: rear rank reserve + `attempt_close` during mop-up beats generic back-rank copy.
+static func _run_hold_line_hint_mop_up_rear_rank(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 14:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 7, "ranks": 2, "density": "normal"},
+		{"files": 3, "ranks": 1, "density": "normal"}
+	)
+	var enemy_ids: Array = []
+	for c in mgr.combatants:
+		if _EntityAccess.side_str(c) == "enemy":
+			enemy_ids.append(_EntityAccess.id_int(c))
+	for k in range(mini(2, enemy_ids.size())):
+		CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 3)
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy = c
+			break
+	if rear.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(
+			failures, "hold_line_hint_mop_up_rear: missing rear/enemy fixtures"
+		)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var rear_id: int = _EntityAccess.id_int(rear)
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	var actions: Array = [
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": rear_id},
+		{"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": rear_id},
+		{"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE, "target_id": enemy_id},
+	]
+	var hint: String = _PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
+	if hint.is_empty() or not hint.contains("Mop-up"):
+		CombatRegressionHarness._fail(
+			failures, "hold_line_hint_mop_up_rear: want mop-up hint got '%s'" % hint
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## III-4 **3e**: rear rank with listed strikes during mop-up gets strike-finish mop-up copy.
+static func _run_hold_line_hint_mop_up_rear_rank_strikes(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 14:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 7, "ranks": 2, "density": "normal"},
+		{"files": 3, "ranks": 1, "density": "normal"}
+	)
+	var enemy_ids: Array = []
+	for c in mgr.combatants:
+		if _EntityAccess.side_str(c) == "enemy":
+			enemy_ids.append(_EntityAccess.id_int(c))
+	for k in range(mini(2, enemy_ids.size())):
+		CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 3)
+	var enemy: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy = c
+			break
+	if rear.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(
+			failures, "hold_line_hint_mop_up_rear_strikes: missing rear/enemy fixtures"
+		)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var rear_id: int = _EntityAccess.id_int(rear)
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	var dist: Dictionary = _EntityAccess.nested_dictionary_for_mutation(rear, "distance_to")
+	dist[enemy_id] = CombatConstants.DISTANCE_CLOSE
+	var actions: Array = [
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": rear_id},
+		{"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
+	]
+	var hint: String = _PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
+	if hint.is_empty() or not hint.contains("listed strike"):
+		CombatRegressionHarness._fail(
+			failures, "hold_line_hint_mop_up_rear_strikes: want strike mop-up hint got '%s'" % hint
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## Back rank reserve-only when not mop-up stays generic back-rank copy.
+static func _run_hold_line_hint_back_rank_not_mopup(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 14:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 7, "ranks": 2, "density": "normal"},
+		{"files": 3, "ranks": 1, "density": "normal"}
+	)
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 3)
+	if rear.is_empty():
+		CombatRegressionHarness._fail(failures, "hold_line_hint_back_rank: missing rear fixture")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var rear_id: int = _EntityAccess.id_int(rear)
+	var actions: Array = [
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": rear_id},
+		{"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": rear_id},
+	]
+	var hint: String = _PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
+	if hint.is_empty() or not hint.begins_with("Back rank"):
+		CombatRegressionHarness._fail(
+			failures, "hold_line_hint_back_rank: want back-rank copy got '%s'" % hint
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L5: rank-0 gap → rear **`swap_rank`** beats listed strikes; stamps **`formation_plug`**.
+static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	if hole_front.is_empty() or rear.is_empty() or front.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: missing hole/rear/front fixtures")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	if not _FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: want rank-0 hole on line after kill")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if _AIPicker.is_relief_swap_tactically_allowed(rear, front):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: want relief swap blocked for plug test")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var rear_id: int = _EntityAccess.id_int(rear)
+	var front_id: int = _EntityAccess.id_int(front)
+	rear["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, rear_id)
+	if not _ListedActions.actions_include_move_vs_target(
+		acts, front_id, CombatConstants.MOVE_ID_SWAP_RANK
+	):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: want swap_rank listed vs front partner")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if not _ListedActions.action_list_has_hostile_strike(acts, rear_id):
+		var enemy_id: int = -1
+		for c in mgr.combatants:
+			if _EntityAccess.is_living_on_side(c, "enemy"):
+				enemy_id = _EntityAccess.id_int(c)
+				break
+		if enemy_id < 0:
+			CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: missing enemy for strike fixture")
+			CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+			return
+		acts.append({"move_id": "thrust", "target_id": enemy_id, "target_part": "head"})
+	var picked: Dictionary = _MentalStack.try_pick(acts, rear_id, mgr)
+	if picked.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: expected stack pick")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) != CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_swap: want formation_plug got %s"
+			% str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
+		)
+	if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_SWAP_RANK:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_swap: want swap_rank got %s" % str(picked.get("move_id", ""))
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L5: incapacitated front partner → rear **`swap_rank`** stamps **`formation_plug`**.
+static func _run_mental_stack_formation_plug_incap_forward(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	if front.is_empty() or rear.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_incap: missing front/rear fixtures")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var ent: CoreEntity = _EntityAccess.scene_node(front) as CoreEntity
+	CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
+	CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
+	front.state = CombatConstants.STATE_COWERING
+	_MobilityRetreat.sync_cowering_state_if_no_functional_arm(front)
+	rear["gauge"] = 100.0
+	var rear_id: int = _EntityAccess.id_int(rear)
+	var acts: Array = _ActionsBuilder.build(mgr, rear_id)
+	if not _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_SWAP_RANK):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_incap: want swap_rank listed over incap front")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var picked: Dictionary = _MentalStack.try_pick(acts, rear_id, mgr)
+	if picked.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_incap: expected stack pick")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) != CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_incap: want formation_plug got %s"
+			% str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
+		)
+	if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_SWAP_RANK:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_incap: want swap_rank got %s" % str(picked.get("move_id", ""))
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L5: Skirmish rank-0 hole → front **`rotate_file`** when formation-only menu; stamps **`formation_plug`**.
+static func _run_mental_stack_formation_plug_rotate_skirmish_hole(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	if str(_EngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: expected skirmish mode")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rot_src: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var rot_tgt: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 1)
+	if hole_front.is_empty() or rot_src.is_empty() or rot_tgt.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: missing hole/rotate fixtures")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	if not _FormationFlow.formation_has_rank0_hole(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: want rank-0 hole after kill")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var rot_src_id: int = _EntityAccess.id_int(rot_src)
+	var rot_tgt_id: int = _EntityAccess.id_int(rot_tgt)
+	rot_src["gauge"] = 100.0
+	if not _FormationMoves.rotate_file_action_legal(mgr, rot_src, rot_tgt):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: want legal rotate_file vs adjacent file")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	# Rotate plug path matches utility weight: formation-only menu (no listed strikes).
+	var acts: Array = [
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": rot_src_id},
+		{"move_id": CombatConstants.MOVE_ID_ROTATE_FILE, "target_id": rot_tgt_id},
+	]
+	var picked: Dictionary = _MentalStack.try_pick(acts, rot_src_id, mgr)
+	if picked.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: expected stack pick")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if str(rot_src.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) != CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_rotate: want formation_plug got %s"
+			% str(rot_src.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
+		)
+	if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_ROTATE_FILE:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_rotate: want rotate_file got %s" % str(picked.get("move_id", ""))
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L5: fight-finish tail with listed offense must not stamp **`formation_plug`**.
+static func _run_mental_stack_formation_plug_skipped_fight_finish(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	var enemy_ids: Array = []
+	for c in mgr.combatants:
+		if _EntityAccess.side_str(c) == "enemy":
+			enemy_ids.append(_EntityAccess.id_int(c))
+	for k in range(mini(2, enemy_ids.size())):
+		CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
+	if not _CombatDoctrine.envelop_mop_up_active(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: want envelop_mop_up_active")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+	if center.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: missing center fixture")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	center["gauge"] = 100.0
+	var center_id: int = _EntityAccess.id_int(center)
+	var acts: Array = _ActionsBuilder.build(mgr, center_id)
+	if not _CombatDoctrine.fight_finish_tail_active(mgr, center, acts, center_id):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: want fight_finish_tail")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if not _ListedActions.action_list_has_hostile_strike(acts, center_id):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: want listed offense")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var picked: Dictionary = _MentalStack.try_pick(acts, center_id, mgr)
+	if str(center.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) == (
+		CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG
+	):
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_skip_ff: formation_plug must not fire on fight-finish tail"
+		)
+	if picked.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: expected stack pick on fight-finish")
+	if str(picked.get("move_id", "")) in [
+		CombatConstants.MOVE_ID_WAIT,
+		CombatConstants.MOVE_ID_ROTATE_FILE,
+		CombatConstants.MOVE_ID_SWAP_RANK,
+	] or CombatConstants.is_focus_line_move(str(picked.get("move_id", ""))):
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_skip_ff: want offense pick got %s layer=%s"
+			% [
+				str(picked.get("move_id", "")),
+				str(center.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")),
+			]
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L5: envelop mop-up + listed strikes defers plug (rear rank with hole still finishes).
+static func _run_mental_stack_formation_plug_skipped_mop_up_offense(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 10:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var enemy_ids: Array = []
+	for c in mgr.combatants:
+		if _EntityAccess.side_str(c) == "enemy":
+			enemy_ids.append(_EntityAccess.id_int(c))
+	for k in range(mini(4, enemy_ids.size())):
+		CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
+	if not _CombatDoctrine.envelop_mop_up_active(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_mop: want envelop_mop_up_active")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	if hole_front.is_empty() or rear.is_empty() or front.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_mop: missing hole/rear/front fixtures")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if _AIPicker.is_relief_swap_tactically_allowed(rear, front):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_mop: want relief swap blocked")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	if not _FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_mop: want rank-0 hole on line after kill")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	rear["gauge"] = 100.0
+	var rear_id: int = _EntityAccess.id_int(rear)
+	var acts: Array = _ActionsBuilder.build(mgr, rear_id)
+	if not _ListedActions.action_list_has_hostile_strike(acts, rear_id):
+		var enemy_id: int = -1
+		for c in mgr.combatants:
+			if _EntityAccess.is_living_on_side(c, "enemy"):
+				enemy_id = _EntityAccess.id_int(c)
+				break
+		if enemy_id < 0:
+			CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_mop: missing living enemy")
+			CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+			return
+		acts.append({"move_id": "thrust", "target_id": enemy_id, "target_part": "head"})
+	var front_id: int = _EntityAccess.id_int(front)
+	if not _ListedActions.actions_include_move_vs_target(
+		acts, front_id, CombatConstants.MOVE_ID_SWAP_RANK
+	):
+		if not _FormationMoves.swap_rank_action_legal(mgr, rear, front):
+			CombatRegressionHarness._fail(
+				failures, "mental_stack_plug_skip_mop: want legal swap_rank for plug-defer fixture"
+			)
+			CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+			return
+		acts.append({"move_id": CombatConstants.MOVE_ID_SWAP_RANK, "target_id": front_id})
+	if not _VacancyPlugs.formation_plug_layer_blocked(mgr, rear, acts, rear_id):
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_plug_skip_mop: want formation_plug_layer_blocked during mop-up offense"
+		)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var picked: Dictionary = _AIPicker.pick(acts, rear_id, mgr)
+	if str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) == (
+		CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG
+	):
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_plug_skip_mop: formation_plug must defer during mop-up offense"
+		)
+	if picked.is_empty() or str(picked.get("move_id", "")) == CombatConstants.MOVE_ID_SWAP_RANK:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_skip_mop: want non-plug offense got %s layer=%s"
+			% [
+				str(picked.get("move_id", "")),
+				str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")),
+			]
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L5: intact line + strikes only → stack miss (no **`formation_plug`** stamp).
+static func _run_mental_stack_formation_plug_no_gap_stack_miss(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var player_id: int = _EntityAccess.id_int(player)
+	var enemy_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	player["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, player_id)
+	if not _ListedActions.action_list_has_hostile_strike(acts, player_id):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want listed strikes")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_SWAP_RANK):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want no swap_rank on intact duel")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if _VacancyPlugs.formation_plug_layer_eligible(mgr, player, player_id, acts):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want plug layer ineligible")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var stacked: Dictionary = _MentalStack.try_pick(acts, player_id, mgr)
+	if not stacked.is_empty():
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_no_gap: want stack miss got %s layer=%s"
+			% [
+				str(stacked.get("move_id", "")),
+				str(player.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")),
+			]
+		)
+	if not str(player.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")).is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want cleared stack layer stamp")
+	var picked: Dictionary = _AIPicker.pick(acts, player_id, mgr)
+	if picked.is_empty() or str(picked.get("move_id", "")) in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_no_gap: want utility offense got %s" % str(picked.get("move_id", ""))
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L5: sparse post-flee line + listed melee defers plug even when shuffle moves exist.
+static func _run_mental_stack_formation_plug_skipped_sparse_line_offense(failures: PackedStringArray) -> void:
+	var fix: Dictionary = CombatRegressionHarness._harness_sparse_post_flee_6v3_mgr()
+	if fix.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_sparse: fixture setup failed")
+		return
+	var mgr: Node = fix["mgr"]
+	var survivor: Dictionary = fix["survivor"]
+	var survivor_id: int = int(fix["survivor_id"])
+	survivor["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, survivor_id)
+	if not _ListedActions.action_list_has_hostile_melee_strike(acts, survivor_id):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_sparse: want listed melee")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if not _CombatDoctrine.sparse_line_prefer_finish_over_shuffle(mgr, survivor, acts, survivor_id):
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_plug_skip_sparse: want sparse_line_prefer_finish_over_shuffle"
+		)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if not _VacancyPlugs.formation_plug_layer_blocked(mgr, survivor, acts, survivor_id):
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_plug_skip_sparse: want formation_plug_layer_blocked"
+		)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var picked: Dictionary = _AIPicker.pick(acts, survivor_id, mgr)
+	if str(survivor.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) == (
+		CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG
+	):
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_plug_skip_sparse: formation_plug must defer on sparse finish line"
+		)
+	if picked.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_sparse: expected pick")
+	if str(picked.get("move_id", "")) in [
+		CombatConstants.MOVE_ID_WAIT,
+		CombatConstants.MOVE_ID_ROTATE_FILE,
+		CombatConstants.MOVE_ID_SWAP_RANK,
+	] or CombatConstants.is_focus_line_move(str(picked.get("move_id", ""))):
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_skip_sparse: want offense pick got %s"
+			% str(picked.get("move_id", ""))
+		)
+	if CombatConstants.is_feature_mental_stack_ai_enabled():
+		var layer: String = str(
+			survivor.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")
+		)
+		if layer != CombatConstants.MENTAL_STACK_LAYER_SPARSE_FIGHT:
+			CombatRegressionHarness._fail(
+				failures,
+				"mental_stack_plug_skip_sparse: want sparse_fight layer got %s"
+				% layer
+			)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## L4b: sparse post-flee rank-0 **`try_pick`** stamps **`sparse_fight`** and chooses offense.
+static func _run_mental_stack_sparse_fight_stamps_layer_on_try_pick(
+	failures: PackedStringArray
+) -> void:
+	if not CombatConstants.is_feature_mental_stack_ai_enabled():
+		return
+	var fix: Dictionary = CombatRegressionHarness._harness_sparse_post_flee_6v3_mgr()
+	if fix.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_sparse_fight: fixture setup failed")
+		return
+	var mgr: Node = fix["mgr"]
+	var survivor: Dictionary = fix["survivor"]
+	var survivor_id: int = int(fix["survivor_id"])
+	if not _FormationFlow.skirmish_line_sparse_after_casualties(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "mental_stack_sparse_fight: want sparse line")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	survivor["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, survivor_id)
+	if not _ListedActions.action_list_has_hostile_strike(acts, survivor_id):
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_sparse_fight: want hostile strike listed for survivor"
+		)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var picked: Dictionary = _MentalStack.try_pick(acts, survivor_id, mgr)
+	if picked.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_sparse_fight: expected try_pick")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var layer: String = str(survivor.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
+	var mid: String = str(picked.get("move_id", ""))
+	if mid == CombatConstants.MOVE_ID_WAIT or CombatConstants.is_focus_line_move(mid):
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_sparse_fight: want offense pick got %s layer=%s" % [mid, layer]
+		)
+	var reserve_only: bool = _ListedActions.action_list_is_reserve_posture_only(acts)
+	if reserve_only:
+		if layer not in [
+			CombatConstants.MENTAL_STACK_LAYER_HOLD_LINE,
+			CombatConstants.MENTAL_STACK_LAYER_SPARSE_FIGHT,
+		]:
+			CombatRegressionHarness._fail(
+				failures,
+				"mental_stack_sparse_fight: reserve_only want hold_line or sparse_fight got %s"
+				% layer
+			)
+	elif layer != CombatConstants.MENTAL_STACK_LAYER_SPARSE_FIGHT:
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_sparse_fight: want sparse_fight layer got %s" % layer
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L5: full **`CombatAIActionPicker.pick`** path stamps **`formation_plug`** on rank-0 gap relief.
+static func _run_mental_stack_formation_plug_picker_e2e(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
+	var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	if hole_front.is_empty() or rear.is_empty() or front.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_picker: missing hole/rear/front fixtures")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	hole_front["alive"] = false
+	var form_player: Dictionary = mgr.formations["player"]
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
+	_FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+	if _AIPicker.is_relief_swap_tactically_allowed(rear, front):
+		CombatRegressionHarness._fail(failures, "mental_stack_plug_picker: want relief swap blocked")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	rear["gauge"] = 100.0
+	var rear_id: int = _EntityAccess.id_int(rear)
+	var acts: Array = _ActionsBuilder.build(mgr, rear_id)
+	var picked: Dictionary = _AIPicker.pick(acts, rear_id, mgr)
+	if str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) != CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_picker: want formation_plug got %s"
+			% str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
+		)
+	if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_SWAP_RANK:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_plug_picker: want swap_rank got %s" % str(picked.get("move_id", ""))
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L6: low cohesion + wounded front on losing side → **`flee`** beats listed strike; stamps **`rout`**.
+static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 1, "ranks": 2}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var front_c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	ent.blood_volume = 82.0
+	form["line_cohesion"] = 0.38
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	if not _EntityAccess.flee_abandonment_warranted(front_c, mgr):
+		CombatRegressionHarness._fail(failures, "mental_stack_rout_stress: want abandonment warranted")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var fighter_id: int = _EntityAccess.id_int(front_c)
+	var enemy_id: int = _EntityAccess.id_int(mgr.combatants[2])
+	var actions: Array = [
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": fighter_id},
+		{"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": fighter_id},
+		{"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
+	]
+	var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+	if picked.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_rout_stress: expected rout layer pick")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	if str(front_c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) != (
+		CombatConstants.MENTAL_STACK_LAYER_ROUT
+	):
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_rout_stress: want rout got %s"
+			% str(front_c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
+		)
+	if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_FLEE:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_rout_stress: want flee got %s" % str(picked.get("move_id", ""))
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L6: heavy side casualties → **`flee`** beats **`wait`**; stamps **`rout`**.
+static func _run_mental_stack_rout_casualty_flee_beats_wait(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 1, "ranks": 2}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	form["line_cohesion"] = 0.9
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	var rear_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	CombatRegressionHarness._soak_kill_combatant(mgr, rear_id)
+	var front_c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	ent.blood_volume = 82.0
+	if not _FormationRout.rout_cognition_pressure(mgr, front_c):
+		CombatRegressionHarness._fail(failures, "mental_stack_rout_casualty: want rout pressure")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var fighter_id: int = _EntityAccess.id_int(front_c)
+	var actions: Array = [
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": fighter_id},
+		{"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": fighter_id},
+	]
+	var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+	if str(front_c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) != (
+		CombatConstants.MENTAL_STACK_LAYER_ROUT
+	):
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_rout_casualty: want rout got %s"
+			% str(front_c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
+		)
+	if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_FLEE:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_rout_casualty: want flee got %s" % str(picked.get("move_id", ""))
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L6: fight-finish tail must not stamp **`rout`** when listed offense should finish.
+static func _run_mental_stack_rout_skipped_fight_finish(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	var enemy_ids: Array = []
+	for c in mgr.combatants:
+		if _EntityAccess.side_str(c) == "enemy":
+			enemy_ids.append(_EntityAccess.id_int(c))
+	for k in range(mini(2, enemy_ids.size())):
+		CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
+	if not _CombatDoctrine.envelop_mop_up_active(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "mental_stack_rout_skip_ff: want envelop_mop_up_active")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+	if center.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_rout_skip_ff: missing center fixture")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	center["gauge"] = 100.0
+	var center_id: int = _EntityAccess.id_int(center)
+	var acts: Array = _ActionsBuilder.build(mgr, center_id)
+	if not _CombatDoctrine.fight_finish_tail_active(mgr, center, acts, center_id):
+		CombatRegressionHarness._fail(failures, "mental_stack_rout_skip_ff: want fight_finish_tail")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	acts.append({"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": center_id})
+	var picked: Dictionary = _MentalStack.try_pick(acts, center_id, mgr)
+	if str(center.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) == (
+		CombatConstants.MENTAL_STACK_LAYER_ROUT
+	):
+		CombatRegressionHarness._fail(failures, "mental_stack_rout_skip_ff: rout must not fire on fight-finish tail")
+	if picked.is_empty():
+		CombatRegressionHarness._fail(failures, "mental_stack_rout_skip_ff: expected stack pick on fight-finish")
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## MS-L6: winning side on firm line — no **`rout`** stamp when only wait + strike listed.
+static func _run_mental_stack_rout_firm_line_no_stamp(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start(
+		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+		{"files": 1, "ranks": 1}
+	)
+	mgr.set_meta("_engagement_mode_cached", "formation")
+	var front_c: Dictionary = mgr.combatants[0]
+	var ent: CoreEntity = _EntityAccess.scene_node(front_c) as CoreEntity
+	var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+	ent.blood_volume = 82.0
+	form["line_cohesion"] = 0.88
+	form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
+	if _FormationRout.rout_cognition_pressure(mgr, front_c):
+		CombatRegressionHarness._fail(failures, "mental_stack_rout_firm: winning firm line must not have rout pressure")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var fighter_id: int = _EntityAccess.id_int(front_c)
+	var enemy_id: int = _EntityAccess.id_int(mgr.combatants[2])
+	var actions: Array = [
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": fighter_id},
+		{"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
+	]
+	_MentalStack.try_pick(actions, fighter_id, mgr)
+	if str(front_c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")) == (
+		CombatConstants.MENTAL_STACK_LAYER_ROUT
+	):
+		CombatRegressionHarness._fail(failures, "mental_stack_rout_firm: rout must not stamp on firm winning line")
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
 ## MS-L7: high fight exhaustion → wait / disengage layer before utility pick.
 static func _run_mental_stack_exhaustion_tunnel_prefers_disengage(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
@@ -912,6 +1774,42 @@ static func _run_mental_stack_critical_stamina_flee_beats_rotate_file(failures: 
 			"mental_stack_crit_flee: rotate_file must not win when flee is listed at critical stamina"
 		)
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## p4a: MS-L7 tunnel threshold aligns with offense-damp floor + 50% FP exhaustion band.
+static func _run_p4a_ms_l7_exhaustion_threshold_parity(failures: PackedStringArray) -> void:
+	var damp_start: float = CombatConstants.EXHAUSTION_OFFENSE_DAMP_START
+	var tunnel: float = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD
+	var floor_m: float = CombatConstants.EXHAUSTION_OFFENSE_DAMP_FLOOR
+	if absf(tunnel - 0.5) > 0.001:
+		CombatRegressionHarness._fail(
+			failures,
+			"p4a_ms_l7: tunnel threshold should align with 50%% FP band got %.2f" % tunnel
+		)
+	var c: Dictionary = {}
+	c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = damp_start - 0.02
+	if absf(_Exhaustion.exhaustion_offense_weight_mult(c) - 1.0) > 0.001:
+		CombatRegressionHarness._fail(
+			failures,
+			"p4a_ms_l7: below damp start want mult=1.0 got %.3f" % _Exhaustion.exhaustion_offense_weight_mult(c)
+		)
+	c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = tunnel - 0.01
+	if _Exhaustion.exhaustion_tunnel_active(c):
+		CombatRegressionHarness._fail(failures, "p4a_ms_l7: tunnel must not fire below threshold")
+	var mid_m: float = _Exhaustion.exhaustion_offense_weight_mult(c)
+	if mid_m <= floor_m + 0.001 or mid_m >= 1.0 - 0.001:
+		CombatRegressionHarness._fail(
+			failures, "p4a_ms_l7: mid ramp want partial damp got %.3f" % mid_m
+		)
+	c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = tunnel
+	if not _Exhaustion.exhaustion_tunnel_active(c):
+		CombatRegressionHarness._fail(failures, "p4a_ms_l7: tunnel must fire at threshold")
+	if absf(_Exhaustion.exhaustion_offense_weight_mult(c) - floor_m) > 0.001:
+		CombatRegressionHarness._fail(
+			failures,
+			"p4a_ms_l7: at tunnel want floor mult=%.2f got %.3f"
+			% [floor_m, _Exhaustion.exhaustion_offense_weight_mult(c)]
+		)
 
 
 ## Tier 4.3.7: focus-line moves listed when combat attention is on.
@@ -1078,15 +1976,24 @@ static func _run_yomi_defense_readiness_mult_boosts_after_parry_deflect(
 ## Tier 4.4: wind-up stamps per-line **`position_angle_offset_deg`** on attacker.
 static func _run_attention_ui_hint_includes_mental_stack_layer(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_combat_attention_load(true)
-	var def: Dictionary = {
-		CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER: "incoming",
-		CombatConstants.COMBATANT_KEY_FOCUS_PART: "head",
-		CombatConstants.COMBATANT_KEY_FOCUS_INTENSITY: 1.0,
-	}
-	var hint: String = _Attention.format_attention_ui_hint(def)
+	for layer in [
+		"incoming",
+		CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG,
+		CombatConstants.MENTAL_STACK_LAYER_ROUT,
+		CombatConstants.MENTAL_STACK_LAYER_HOLD_LINE,
+	]:
+		var def: Dictionary = {
+			CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER: layer,
+			CombatConstants.COMBATANT_KEY_FOCUS_PART: "head",
+			CombatConstants.COMBATANT_KEY_FOCUS_INTENSITY: 1.0,
+		}
+		var hint: String = _Attention.format_attention_ui_hint(def)
+		if not hint.contains("Stack %s" % layer):
+			CombatRegressionHarness._fail(
+				failures,
+				"attention_ui_stack: want Stack %s in '%s'" % [layer, hint]
+			)
 	CombatConstants.set_feature_combat_attention_load(false)
-	if not hint.contains("Stack incoming"):
-		CombatRegressionHarness._fail(failures, "attention_ui_stack: want Stack incoming in '%s'" % hint)
 
 
 ## Tier 4.3.7: yomi **`parry_deflect`** count boosts feint listing mult.
@@ -1098,6 +2005,121 @@ static func _run_footwork_attack_step_offset_stamped_on_windup(failures: PackedS
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if absf(off - CombatConstants.position_angle_offset_deg_for_attack_line("left")) > 0.01:
 		CombatRegressionHarness._fail(failures, "footwork_windup: want left-line offset got %.2f" % off)
+
+
+## Tier 4.4: **`attack_eval_step_deg_for_attacker`** does not stamp offset before wind-up commit.
+static func _run_footwork_attack_eval_no_stamp_offset(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var atk: Dictionary = {}
+	var eval: float = _Footwork.attack_eval_step_deg_for_attacker(atk, "left")
+	if atk.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
+		CombatRegressionHarness._fail(
+			failures, "footwork_attack_eval: attack_eval must not stamp offset on combatant"
+		)
+	if absf(eval - CombatConstants.position_angle_offset_deg_for_attack_line("left")) > 0.01:
+		CombatRegressionHarness._fail(
+			failures, "footwork_attack_eval: want left-line eval got %.2f" % eval
+		)
+
+
+## Tier 4.4: idle listing preview uses **`attack_eval_step_deg_for_attacker`**, not stale stamp.
+static func _run_footwork_picker_preview_uses_attack_eval_when_idle(
+	failures: PackedStringArray
+) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_band: bool = CombatConstants.is_feature_t44_spatial_band_pa_enabled()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(true)
+	var base: float = CombatConstants.line_to_angle("left")
+	var atk: Dictionary = {
+		"state": CombatConstants.STATE_WAITING,
+		"distance_to": {2: CombatConstants.DISTANCE_CLOSE},
+		CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG: 99.0,
+	}
+	var preview: float = _Footwork.attack_angle_deg_for_listing_preview(
+		atk, "left", base, 2
+	)
+	var eval_step: float = _Footwork.attack_eval_step_deg_for_attacker(atk, "left", 2)
+	var want: float = fmod(base + eval_step + 360.0, 360.0)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	if absf(preview - want) > 0.02:
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_picker_preview: idle want %.2f got %.2f (eval step %.2f)"
+			% [want, preview, eval_step]
+		)
+	if absf(preview - _Footwork.apply_offset_to_angle_deg(base, atk)) < 0.02:
+		CombatRegressionHarness._fail(
+			failures, "footwork_picker_preview: must not reuse stale idle stamp"
+		)
+
+
+## Tier 4.4: wind-up listing preview uses live stamp, not eval preview.
+static func _run_footwork_picker_preview_wind_up_uses_live_stamp(failures: PackedStringArray) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var base: float = CombatConstants.line_to_angle("left")
+	var stamp: float = 7.0
+	var atk: Dictionary = {
+		"state": CombatConstants.STATE_WIND_UP,
+		CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG: stamp,
+	}
+	var preview: float = _Footwork.attack_angle_deg_for_listing_preview(
+		atk, "left", base, 2
+	)
+	var want: float = fmod(base + stamp + 360.0, 360.0)
+	if absf(preview - want) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_picker_preview_wind_up: want %.2f got %.2f"
+			% [want, preview]
+		)
+
+
+## Tier 4.4 spatial slice 3: idle listing preview includes flurry bind mult.
+static func _run_footwork_picker_preview_flurry_bind_when_idle(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_flurry: bool = CombatConstants.is_feature_t44_spatial_flurry_pa_enabled()
+	var saved_bind: bool = _t44_harness_ensure_flurry_bind()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(true)
+	var base_line: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
+	if absf(base_line) < 0.01:
+		CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		_t44_harness_restore_flurry_bind(saved_bind)
+		return
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	atk["state"] = CombatConstants.STATE_WAITING
+	var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	_FlurryBind.open_window(mgr, _EntityAccess.id_int(atk), def_id)
+	var base_angle: float = CombatConstants.line_to_angle("left")
+	var preview: float = _Footwork.attack_angle_deg_for_listing_preview(
+		atk, "left", base_angle, def_id, mgr
+	)
+	var eval_step: float = _Footwork.attack_eval_step_deg_for_attacker(atk, "left", def_id, mgr)
+	var want: float = fmod(base_angle + eval_step + 360.0, 360.0)
+	var want_step: float = base_line * CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	_t44_harness_restore_flurry_bind(saved_bind)
+	CombatRegressionHarness._free_manager(mgr)
+	if absf(eval_step - want_step) > 0.02:
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_picker_preview_flurry: eval step want %.2f got %.2f"
+			% [want_step, eval_step]
+		)
+	if absf(preview - want) > 0.02:
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_picker_preview_flurry: preview want %.2f got %.2f"
+			% [want, preview]
+		)
 
 
 ## Tier 4.4: offset rotates reported attack angle for parry alignment.
@@ -1149,6 +2171,13 @@ static func _assert_form_home_parry_step_via_octant(
 	var def: Dictionary = {"guard_line": home}
 	_Footwork.apply_defender_step_on_parry(def, home)
 	var raw: float = CombatConstants.position_angle_offset_deg_for_attack_line(home)
+	var anchor: float = _GuardLines.position_angle_offset_deg_for_line(home)
+	if absf(raw - anchor) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_eight_line: %s raw delegate want %.2f got %.2f" % [form_id, anchor, raw]
+		)
+		return
 	if absf(raw) < 0.01:
 		CombatRegressionHarness._fail(
 			failures,
@@ -1175,22 +2204,926 @@ static func _run_footwork_eight_line_home_guard_parry_step(failures: PackedStrin
 	_assert_form_home_parry_step_via_octant(failures, _WeaponForm.FORM_FOOL, _GuardLines.LINE_LOW_LEFT)
 
 
-## Tier 4.4 octant: wind-up PA from diagonal **`attack_line`** (`low_left`) — not form home.
-static func _run_footwork_octant_windup_step_low_left(failures: PackedStringArray) -> void:
+## Tier 4.4 octant: wind-up PA from diagonal **`attack_line`** — not form home.
+static func _assert_octant_windup_stamps_line(failures: PackedStringArray, line: String) -> void:
+	var atk: Dictionary = {}
+	_Footwork.apply_attack_step_on_windup(atk, line)
+	var want: float = CombatConstants.position_angle_offset_deg_for_attack_line(line)
+	var anchor: float = _GuardLines.position_angle_offset_deg_for_line(line)
+	var off: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	if absf(want - anchor) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_octant_windup: %s delegate want %.2f got %.2f" % [line, anchor, want]
+		)
+		return
+	if absf(off - want) > 0.01:
+		CombatRegressionHarness._fail(
+			failures, "footwork_octant_windup: %s stamp want %.2f got %.2f" % [line, want, off]
+		)
+
+
+## WF-T1: all four diagonals stamp wind-up PA via **`CombatConstants`** → **`CombatGuardLines`** lookup.
+static func _run_footwork_octant_windup_step_diagonals(failures: PackedStringArray) -> void:
 	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
 		return
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	var atk: Dictionary = {}
-	_Footwork.apply_attack_step_on_windup(atk, _GuardLines.LINE_LOW_LEFT)
-	var want: float = CombatConstants.position_angle_offset_deg_for_attack_line(_GuardLines.LINE_LOW_LEFT)
-	var off: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	for line in [
+		_GuardLines.LINE_HIGH_RIGHT,
+		_GuardLines.LINE_LOW_RIGHT,
+		_GuardLines.LINE_LOW_LEFT,
+		_GuardLines.LINE_HIGH_LEFT,
+	]:
+		_assert_octant_windup_stamps_line(failures, line)
+
+
+## WF-T1: eight-guard flag on — **`CombatConstants.position_angle_offset_deg_for_attack_line`** delegates to **`CombatGuardLines`** for every line.
+static func _run_footwork_octant_lookup_delegates_to_guard_lines(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		return
+	for line in _GuardLines.ALL_LINES:
+		var anchor: float = _GuardLines.position_angle_offset_deg_for_line(line)
+		var got: float = CombatConstants.position_angle_offset_deg_for_attack_line(line)
+		if absf(got - anchor) > 0.01:
+			CombatRegressionHarness._fail(
+				failures,
+				"footwork_octant_lookup: %s want %.2f got %.2f" % [line, anchor, got]
+			)
+	for line in [
+		_GuardLines.LINE_HIGH_RIGHT,
+		_GuardLines.LINE_LOW_RIGHT,
+		_GuardLines.LINE_LOW_LEFT,
+		_GuardLines.LINE_HIGH_LEFT,
+	]:
+		var cardinal: String = _GuardLines.cardinal_for_path_lookup(line)
+		var diag_raw: float = _GuardLines.position_angle_offset_deg_for_line(line)
+		var card_raw: float = _GuardLines.position_angle_offset_deg_for_line(cardinal)
+		if absf(diag_raw - card_raw) < 0.01:
+			CombatRegressionHarness._fail(
+				failures,
+				"footwork_octant_lookup: %s raw %.2f should differ from cardinal %s %.2f"
+				% [line, diag_raw, cardinal, card_raw]
+			)
+
+
+## WF-T1: dodge body-part → octant line — scaled dodge step uses octant raw, not mapped cardinal.
+static func _assert_defender_dodge_octant_via_leg(
+	failures: PackedStringArray, part: String, expect_line: String, cardinal_line: String
+) -> void:
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var def: Dictionary = {}
+	_Footwork.apply_defender_step_on_dodge(def, part)
+	var line: String = CombatConstants.guard_line_for_body_part(part)
+	if line != expect_line:
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_def_dodge_octant: %s line want %s got %s" % [part, expect_line, line]
+		)
+		return
+	var off: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	var want: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
+	var cardinal_dodge: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		cardinal_line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
 	if absf(off - want) > 0.01:
 		CombatRegressionHarness._fail(
-			failures, "footwork_octant_windup: low_left want %.2f got %.2f" % [want, off]
+			failures, "footwork_def_dodge_octant: %s want %.2f got %.2f" % [part, want, off]
 		)
-	if absf(want - 10.0) > 0.01:
+	if absf(off - cardinal_dodge) < 0.01:
 		CombatRegressionHarness._fail(
-			failures, "footwork_octant_windup: low_left raw want 10.0 got %.2f" % want
+			failures,
+			"footwork_def_dodge_octant: %s octant %.2f should differ from cardinal %s %.2f"
+			% [part, off, cardinal_line, cardinal_dodge]
+		)
+
+
+static func _run_footwork_defender_dodge_step_stamps_octant_low_left(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		return
+	_assert_defender_dodge_octant_via_leg(
+		failures, "left_leg", _GuardLines.LINE_LOW_LEFT, _GuardLines.LINE_LOW
+	)
+
+
+static func _run_footwork_defender_dodge_step_stamps_octant_right_leg(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		return
+	_assert_defender_dodge_octant_via_leg(
+		failures, "right_leg", _GuardLines.LINE_LOW_RIGHT, _GuardLines.LINE_LOW
+	)
+
+
+## WF-T1: **`parry_eval_step_deg_for_defender`** uses octant guard line without stamping offset.
+static func _run_footwork_parry_eval_step_octant_home(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		return
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var line: String = _GuardLines.LINE_LOW_LEFT
+	var def: Dictionary = {"guard_line": line}
+	var eval: float = _Footwork.parry_eval_step_deg_for_defender(def)
+	if def.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
+		CombatRegressionHarness._fail(
+			failures, "footwork_parry_eval_octant: parry_eval must not stamp offset on combatant"
+		)
+	var want: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
+	)
+	if absf(eval - want) < 0.01:
+		return
+	CombatRegressionHarness._fail(
+		failures, "footwork_parry_eval_octant: low_left want %.2f got %.2f" % [want, eval]
+	)
+
+
+## WF-T1: **`dodge_eval_step_deg_for_defender`** uses body-part line without stamping offset.
+static func _run_footwork_dodge_eval_step_octant_arm(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		return
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var def: Dictionary = {"guard_line": "high"}
+	var eval: float = _Footwork.dodge_eval_step_deg_for_defender(def, "left_arm")
+	if def.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
+		CombatRegressionHarness._fail(
+			failures, "footwork_dodge_eval_octant: dodge_eval must not stamp offset on combatant"
+		)
+	var line: String = CombatConstants.guard_line_for_body_part("left_arm")
+	var want: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
+	if absf(eval - want) > 0.01:
+		CombatRegressionHarness._fail(
+			failures, "footwork_dodge_eval_octant: left_arm want %.2f got %.2f" % [want, eval]
+		)
+
+
+## WF-T1: Camp-5 soak confirms defender step scales (constants-only — no runtime retune hook).
+static func _run_footwork_defender_scales_wf_t1_locked(failures: PackedStringArray) -> void:
+	if absf(CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY - 0.55) > 0.0001:
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_def_scale_wf_t1: parry want 0.55 got %.4f"
+			% CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
+		)
+	if absf(CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE - 0.85) > 0.0001:
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_def_scale_wf_t1: dodge want 0.85 got %.4f"
+			% CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+		)
+
+
+## WF-T1: defender parry scale (0.55) < dodge scale (0.85) on the same octant line.
+static func _run_footwork_defender_parry_step_lt_dodge_on_octant(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		return
+	var line: String = _GuardLines.LINE_HIGH_LEFT
+	var parry: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
+	)
+	var dodge: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
+	if absf(parry) >= absf(dodge):
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_def_scale: high_left parry %.2f should be smaller than dodge %.2f" % [parry, dodge]
+		)
+
+
+## WF-T1: **`guard_angle_deg`** includes octant parry step on diagonal home guard.
+static func _run_footwork_guard_angle_deg_octant_parry_step(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		return
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var line: String = _GuardLines.LINE_HIGH_LEFT
+	var def: Dictionary = {"guard_line": line}
+	_Footwork.apply_defender_step_on_parry(def, line)
+	var base_deg: float = CombatConstants.get_guard_angle_deg(def, {})
+	var shifted: float = _Footwork.guard_angle_deg(def, {})
+	var step: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
+	)
+	var want: float = fmod(base_deg + step + 360.0, 360.0)
+	if absf(shifted - want) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_guard_angle_octant: want %.2f got %.2f (base=%.2f step=%.2f)"
+			% [want, shifted, base_deg, step]
+		)
+
+
+## Tier 4.4 spatial slice 1: engagement band scales PA step magnitude (CLOSE > LONG).
+static func _run_t44_spatial_band_pa_attacker_close_gt_long(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_t44: bool = CombatConstants.is_feature_t44_spatial_band_pa_enabled()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(true)
+	var base: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
+	if absf(base) < 0.01:
+		CombatConstants.set_feature_t44_spatial_band_pa_load(saved_t44)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		return
+	var atk_close: Dictionary = {"distance_to": {2: CombatConstants.DISTANCE_CLOSE}}
+	_Footwork.apply_attack_step_on_windup(atk_close, "left", 2)
+	var close_off: float = float(
+		atk_close.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+	)
+	var atk_long: Dictionary = {"distance_to": {2: CombatConstants.DISTANCE_LONG}}
+	_Footwork.apply_attack_step_on_windup(atk_long, "left", 2)
+	var long_off: float = float(
+		atk_long.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+	)
+	var want_close: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE
+	var want_long: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_LONG
+	if absf(close_off - want_close) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_spatial_band_pa_attacker: close want %.2f got %.2f" % [want_close, close_off]
+		)
+	if absf(long_off - want_long) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_spatial_band_pa_attacker: long want %.2f got %.2f" % [want_long, long_off]
+		)
+	if absf(close_off) <= absf(long_off) + 0.001:
+		CombatRegressionHarness._fail(
+			failures, "t44_spatial_band_pa_attacker: |close| should exceed |long|"
+		)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(saved_t44)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+
+
+static func _run_t44_spatial_band_pa_defender_close_gt_long(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_t44: bool = CombatConstants.is_feature_t44_spatial_band_pa_enabled()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(true)
+	var base: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
+	)
+	if absf(base) < 0.01:
+		CombatConstants.set_feature_t44_spatial_band_pa_load(saved_t44)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		return
+	var def_close: Dictionary = {
+		"guard_line": "left",
+		"distance_to": {1: CombatConstants.DISTANCE_CLOSE},
+	}
+	_Footwork.apply_defender_step_on_parry(def_close, "left", 1)
+	var close_off: float = float(
+		def_close.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+	)
+	var def_long: Dictionary = {
+		"guard_line": "left",
+		"distance_to": {1: CombatConstants.DISTANCE_LONG},
+	}
+	_Footwork.apply_defender_step_on_parry(def_long, "left", 1)
+	var long_off: float = float(
+		def_long.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+	)
+	var want_close: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE
+	var want_long: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_LONG
+	if absf(close_off - want_close) > 0.01 or absf(long_off - want_long) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_spatial_band_pa_defender: close=%.2f long=%.2f want %.2f/%.2f"
+			% [close_off, long_off, want_close, want_long]
+		)
+	if absf(close_off) <= absf(long_off) + 0.001:
+		CombatRegressionHarness._fail(
+			failures, "t44_spatial_band_pa_defender: |close| should exceed |long|"
+		)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(saved_t44)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+
+
+static func _run_t44_spatial_band_pa_flag_off_parity(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_t44: bool = CombatConstants.is_feature_t44_spatial_band_pa_enabled()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(false)
+	var base: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
+	var atk: Dictionary = {"distance_to": {2: CombatConstants.DISTANCE_CLOSE}}
+	_Footwork.apply_attack_step_on_windup(atk, "left", 2)
+	var off_close: float = float(
+		atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+	)
+	atk["distance_to"] = {2: CombatConstants.DISTANCE_LONG}
+	_Footwork.apply_attack_step_on_windup(atk, "left", 2)
+	var off_long: float = float(
+		atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+	)
+	if absf(off_close - base) > 0.01 or absf(off_long - base) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_spatial_band_pa_flag_off: want base %.2f close=%.2f long=%.2f"
+			% [base, off_close, off_long]
+		)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(saved_t44)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+
+
+	CombatConstants.set_feature_t44_spatial_band_pa_load(saved_t44)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+
+
+## Tier 4.4 spatial slice 2: wing file dodge step > interior file (parry unchanged).
+static func _run_t44_spatial_file_dodge_wing_gt_interior(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_file: bool = CombatConstants.is_feature_t44_spatial_file_dodge_bias_enabled()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(true)
+	var base: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
+	if absf(base) < 0.01:
+		CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		return
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
+	var wing: Dictionary = {}
+	var center: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "player"):
+			continue
+		var fi: int = _EntityAccess.file_int(c)
+		if fi == 0:
+			wing = c
+		elif fi == 1:
+			center = c
+	if wing.is_empty() or center.is_empty():
+		CombatRegressionHarness._fail(failures, "t44_file_dodge: missing wing/center fixtures")
+		CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	_Footwork.apply_defender_step_on_dodge(wing, "left_arm", -1, mgr)
+	var wing_off: float = float(
+		wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+	)
+	_Footwork.apply_defender_step_on_dodge(center, "left_arm", -1, mgr)
+	var center_off: float = float(
+		center.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+	)
+	var want_wing: float = base * CombatConstants.T44_SPATIAL_FILE_DODGE_WING_MULT
+	if absf(wing_off - want_wing) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_file_dodge: wing want %.2f got %.2f" % [want_wing, wing_off]
+		)
+	if absf(center_off - base) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_file_dodge: center want %.2f got %.2f" % [base, center_off]
+		)
+	if absf(wing_off) <= absf(center_off) + 0.001:
+		CombatRegressionHarness._fail(failures, "t44_file_dodge: |wing| should exceed |center|")
+	var right_wing: Dictionary = {}
+	for c in mgr.combatants:
+		if not _EntityAccess.is_living_on_side(c, "player"):
+			continue
+		if _EntityAccess.file_int(c) == 2:
+			right_wing = c
+			break
+	if right_wing.is_empty():
+		CombatRegressionHarness._fail(failures, "t44_file_dodge: missing right-wing fixture")
+	else:
+		_Footwork.apply_defender_step_on_dodge(right_wing, "left_arm", -1, mgr)
+		var rw_off: float = float(
+			right_wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+		)
+		if absf(rw_off - want_wing) > 0.01:
+			CombatRegressionHarness._fail(
+				failures,
+				"t44_file_dodge: right wing want %.2f got %.2f" % [want_wing, rw_off]
+			)
+	_Footwork.apply_defender_step_on_parry(wing, "left", -1)
+	var wing_parry: float = float(
+		wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+	)
+	_Footwork.apply_defender_step_on_parry(center, "left", -1)
+	var center_parry: float = float(
+		center.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+	)
+	if absf(wing_parry - center_parry) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_file_dodge: parry must not differ wing=%.2f center=%.2f"
+			% [wing_parry, center_parry]
+		)
+	CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## Tier 4.4 spatial slice 2: **`dodge_eval_step_deg_for_defender`** matches dodge stamp on wing file.
+static func _run_t44_spatial_file_dodge_eval_parity(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_file: bool = CombatConstants.is_feature_t44_spatial_file_dodge_bias_enabled()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
+	var wing: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "player") and _EntityAccess.file_int(c) == 0:
+			wing = c
+			break
+	if wing.is_empty():
+		CombatRegressionHarness._fail(failures, "t44_file_dodge_eval: missing wing fixture")
+	else:
+		var eval_deg: float = _Footwork.dodge_eval_step_deg_for_defender(
+			wing, "left_arm", -1, mgr
+		)
+		_Footwork.apply_defender_step_on_dodge(wing, "left_arm", -1, mgr)
+		var stamp_deg: float = float(
+			wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+		)
+		if absf(eval_deg - stamp_deg) > 0.01:
+			CombatRegressionHarness._fail(
+				failures,
+				"t44_file_dodge_eval: want parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg]
+			)
+	CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+static func _run_t44_spatial_file_dodge_flag_off_parity(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_file: bool = CombatConstants.is_feature_t44_spatial_file_dodge_bias_enabled()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(false)
+	var base: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
+	var wing: Dictionary = {}
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "player") and _EntityAccess.file_int(c) == 0:
+			wing = c
+			break
+	_Footwork.apply_defender_step_on_dodge(wing, "left_arm", -1, mgr)
+	var off: float = float(wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	CombatRegressionHarness._free_manager(mgr)
+	if absf(off - base) > 0.01:
+		CombatRegressionHarness._fail(
+			failures, "t44_file_dodge_off: flag off want base %.2f got %.2f" % [base, off]
+		)
+
+
+static func _run_t44_spatial_file_dodge_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.t44_spatial_file_dodge_doc_sync_line()
+	if sync_line.is_empty() or "slice2=wing_file_dodge_step_bias" not in sync_line:
+		CombatRegressionHarness._fail(failures, "t44_file_dodge: bad doc_sync_line %s" % sync_line)
+	_run_t44_spatial_file_dodge_wing_gt_interior(failures)
+	_run_t44_spatial_file_dodge_eval_parity(failures)
+	_run_t44_spatial_file_dodge_flag_off_parity(failures)
+
+
+## Tier 4.4 spatial slice 3: active bind flurry vs partner boosts PA wind-up step.
+static func _run_t44_spatial_flurry_pa_bind_boost(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_flurry: bool = CombatConstants.is_feature_t44_spatial_flurry_pa_enabled()
+	var saved_bind: bool = _t44_harness_ensure_flurry_bind()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(true)
+	var base: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
+	if absf(base) < 0.01:
+		CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		_t44_harness_restore_flurry_bind(saved_bind)
+		return
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var atk_id: int = _EntityAccess.id_int(atk)
+	mgr.combat_clock = 0.0
+	_FlurryBind.open_window(mgr, atk_id, def_id)
+	_Footwork.apply_attack_step_on_windup(atk, "left", def_id, mgr)
+	var got: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	var want: float = base * CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
+	if absf(got - want) > 0.02:
+		CombatRegressionHarness._fail(
+			failures, "t44_flurry_pa: bind boost want %.2f got %.2f" % [want, got]
+		)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	_t44_harness_restore_flurry_bind(saved_bind)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## Tier 4.4 spatial slice 3: flurry window open but flag off → base PA only.
+static func _run_t44_spatial_flurry_pa_flag_off_parity(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_flurry: bool = CombatConstants.is_feature_t44_spatial_flurry_pa_enabled()
+	var saved_bind: bool = _t44_harness_ensure_flurry_bind()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(false)
+	var base: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
+	if absf(base) < 0.01:
+		CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		_t44_harness_restore_flurry_bind(saved_bind)
+		return
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	_FlurryBind.open_window(mgr, _EntityAccess.id_int(atk), def_id)
+	_Footwork.apply_attack_step_on_windup(atk, "left", def_id, mgr)
+	var got: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	_t44_harness_restore_flurry_bind(saved_bind)
+	CombatRegressionHarness._free_manager(mgr)
+	if absf(got - base) > 0.02:
+		CombatRegressionHarness._fail(
+			failures, "t44_flurry_pa_off: want base %.2f got %.2f" % [base, got]
+		)
+
+
+static func _run_t44_spatial_flurry_pa_parry_eval_parity(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_flurry: bool = CombatConstants.is_feature_t44_spatial_flurry_pa_enabled()
+	var saved_bind: bool = _t44_harness_ensure_flurry_bind()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	def["guard_line"] = "left"
+	_FlurryBind.open_window(mgr, _EntityAccess.id_int(def), atk_id)
+	var eval_deg: float = _Footwork.parry_eval_step_deg_for_defender(def, atk_id, mgr)
+	_Footwork.apply_defender_step_on_parry(def, "left", atk_id, mgr)
+	var stamp_deg: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	if absf(eval_deg - stamp_deg) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_flurry_pa: parry_eval want stamp parity eval=%.2f stamp=%.2f"
+			% [eval_deg, stamp_deg]
+		)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	_t44_harness_restore_flurry_bind(saved_bind)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## Tier 4.4 spatial slice 3: flurry bind — **`dodge_eval_step_deg_for_defender`** matches dodge stamp.
+static func _run_t44_spatial_flurry_pa_dodge_eval_parity(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_flurry: bool = CombatConstants.is_feature_t44_spatial_flurry_pa_enabled()
+	var saved_bind: bool = _t44_harness_ensure_flurry_bind()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	_FlurryBind.open_window(mgr, _EntityAccess.id_int(def), atk_id)
+	var eval_deg: float = _Footwork.dodge_eval_step_deg_for_defender(
+		def, "left_arm", atk_id, mgr
+	)
+	_Footwork.apply_defender_step_on_dodge(def, "left_arm", atk_id, mgr)
+	var stamp_deg: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	if absf(eval_deg - stamp_deg) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_flurry_pa: dodge_eval want stamp parity eval=%.2f stamp=%.2f"
+			% [eval_deg, stamp_deg]
+		)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	_t44_harness_restore_flurry_bind(saved_bind)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## Tier 4.4 spatial slice 3: flurry bind — **`attack_eval_step_deg_for_attacker`** matches wind-up stamp.
+static func _run_t44_spatial_flurry_pa_attack_eval_parity(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_flurry: bool = CombatConstants.is_feature_t44_spatial_flurry_pa_enabled()
+	var saved_bind: bool = _t44_harness_ensure_flurry_bind()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(true)
+	var base: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
+	if absf(base) < 0.01:
+		CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		_t44_harness_restore_flurry_bind(saved_bind)
+		return
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk: Dictionary = mgr.combatants[0]
+	var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	_FlurryBind.open_window(mgr, _EntityAccess.id_int(atk), def_id)
+	var eval_deg: float = _Footwork.attack_eval_step_deg_for_attacker(atk, "left", def_id, mgr)
+	_Footwork.apply_attack_step_on_windup(atk, "left", def_id, mgr)
+	var stamp_deg: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	var want: float = base * CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
+	if absf(eval_deg - stamp_deg) > 0.01 or absf(stamp_deg - want) > 0.02:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_flurry_pa: attack_eval want parity eval=%.2f stamp=%.2f want=%.2f"
+			% [eval_deg, stamp_deg, want]
+		)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	_t44_harness_restore_flurry_bind(saved_bind)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+static func _run_t44_spatial_flurry_pa_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.t44_spatial_flurry_pa_doc_sync_line()
+	if sync_line.is_empty() or "slice3=flurry_bind_pa_boost" not in sync_line:
+		CombatRegressionHarness._fail(failures, "t44_flurry_pa: bad doc_sync_line %s" % sync_line)
+	_run_t44_spatial_flurry_pa_bind_boost(failures)
+	_run_t44_spatial_flurry_pa_attack_eval_parity(failures)
+	_run_t44_spatial_flurry_pa_parry_eval_parity(failures)
+	_run_t44_spatial_flurry_pa_dodge_eval_parity(failures)
+	_run_t44_spatial_flurry_pa_flag_off_parity(failures)
+
+
+static func _run_t44_spatial_band_pa_parry_eval_parity(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_band: bool = CombatConstants.is_feature_t44_spatial_band_pa_enabled()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(true)
+	var def: Dictionary = {
+		"guard_line": "left",
+		"distance_to": {2: CombatConstants.DISTANCE_CLOSE},
+	}
+	var eval_deg: float = _Footwork.parry_eval_step_deg_for_defender(def, 2)
+	_Footwork.apply_defender_step_on_parry(def, "left", 2)
+	var stamp_deg: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	if absf(eval_deg - stamp_deg) > 0.01:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_band_pa: parry_eval want stamp parity eval=%.2f stamp=%.2f"
+			% [eval_deg, stamp_deg]
+		)
+
+
+static func _run_t44_spatial_stacked_band_file_dodge(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_band: bool = CombatConstants.is_feature_t44_spatial_band_pa_enabled()
+	var saved_file: bool = CombatConstants.is_feature_t44_spatial_file_dodge_bias_enabled()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(true)
+	CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(true)
+	var base: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
+	if absf(base) < 0.01:
+		CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
+		CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		return
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
+	var wing: Dictionary = {}
+	var atk_id: int = _EntityAccess.id_int(mgr.combatants[3])
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "player") and _EntityAccess.file_int(c) == 0:
+			wing = c
+			break
+	if wing.is_empty():
+		CombatRegressionHarness._fail(failures, "t44_stacked: missing wing fixture")
+	else:
+		wing["distance_to"] = {atk_id: CombatConstants.DISTANCE_CLOSE}
+		_Footwork.apply_defender_step_on_dodge(wing, "left_arm", atk_id, mgr)
+		var got: float = float(
+			wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+		)
+		var want: float = (
+			base
+			* CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE
+			* CombatConstants.T44_SPATIAL_FILE_DODGE_WING_MULT
+		)
+		if absf(got - want) > 0.02:
+			CombatRegressionHarness._fail(
+				failures,
+				"t44_stacked: want %.2f got %.2f (close+wing)" % [want, got]
+			)
+	CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+static func _run_t44_spatial_band_pa_attacker_eval_parity(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_band: bool = CombatConstants.is_feature_t44_spatial_band_pa_enabled()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(true)
+	var base: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
+	if absf(base) < 0.01:
+		CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		return
+	var atk: Dictionary = {"distance_to": {2: CombatConstants.DISTANCE_CLOSE}}
+	var eval_deg: float = _Footwork.attack_eval_step_deg_for_attacker(atk, "left", 2)
+	_Footwork.apply_attack_step_on_windup(atk, "left", 2)
+	var stamp_deg: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	var want: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE
+	if absf(eval_deg - stamp_deg) > 0.01 or absf(stamp_deg - want) > 0.02:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_band_pa: attacker_eval want parity eval=%.2f stamp=%.2f want=%.2f"
+			% [eval_deg, stamp_deg, want]
+		)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+
+
+static func _run_t44_spatial_stacked_band_flurry_dodge(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_band: bool = CombatConstants.is_feature_t44_spatial_band_pa_enabled()
+	var saved_flurry: bool = CombatConstants.is_feature_t44_spatial_flurry_pa_enabled()
+	var saved_bind: bool = _t44_harness_ensure_flurry_bind()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(true)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(true)
+	var base: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
+	if absf(base) < 0.01:
+		CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+		CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		_t44_harness_restore_flurry_bind(saved_bind)
+		return
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var def: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	def["distance_to"] = {atk_id: CombatConstants.DISTANCE_CLOSE}
+	_FlurryBind.open_window(mgr, _EntityAccess.id_int(def), atk_id)
+	_Footwork.apply_defender_step_on_dodge(def, "left_arm", atk_id, mgr)
+	var got: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
+	var want: float = (
+		base
+		* CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE
+		* CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
+	)
+	if absf(got - want) > 0.02:
+		CombatRegressionHarness._fail(
+			failures,
+			"t44_stacked_flurry: want %.2f got %.2f (close+flurry dodge)" % [want, got]
+		)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	_t44_harness_restore_flurry_bind(saved_bind)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## Tier 4.4 spatial: band + wing file + flurry stack on dodge stamp.
+static func _run_t44_spatial_stacked_band_file_flurry_dodge(failures: PackedStringArray) -> void:
+	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
+	var saved_band: bool = CombatConstants.is_feature_t44_spatial_band_pa_enabled()
+	var saved_file: bool = CombatConstants.is_feature_t44_spatial_file_dodge_bias_enabled()
+	var saved_flurry: bool = CombatConstants.is_feature_t44_spatial_flurry_pa_enabled()
+	var saved_bind: bool = _t44_harness_ensure_flurry_bind()
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(true)
+	CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(true)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(true)
+	var base: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		"left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
+	if absf(base) < 0.01:
+		CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+		CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
+		CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
+		CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+		_t44_harness_restore_flurry_bind(saved_bind)
+		return
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
+	var wing: Dictionary = {}
+	var atk_id: int = _EntityAccess.id_int(mgr.combatants[3])
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "player") and _EntityAccess.file_int(c) == 0:
+			wing = c
+			break
+	if wing.is_empty():
+		CombatRegressionHarness._fail(failures, "t44_stacked_all: missing wing fixture")
+	else:
+		wing["distance_to"] = {atk_id: CombatConstants.DISTANCE_CLOSE}
+		_FlurryBind.open_window(mgr, _EntityAccess.id_int(wing), atk_id)
+		_Footwork.apply_defender_step_on_dodge(wing, "left_arm", atk_id, mgr)
+		var got: float = float(
+			wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
+		)
+		var want: float = (
+			base
+			* CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE
+			* CombatConstants.T44_SPATIAL_FILE_DODGE_WING_MULT
+			* CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
+		)
+		if absf(got - want) > 0.03:
+			CombatRegressionHarness._fail(
+				failures,
+				"t44_stacked_all: want %.2f got %.2f (close+wing+flurry)" % [want, got]
+			)
+	CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
+	CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
+	CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
+	CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
+	_t44_harness_restore_flurry_bind(saved_bind)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+static func _run_t44_spatial_band_pa_suite(failures: PackedStringArray) -> void:
+	var sync_line: String = CombatConstants.t44_spatial_band_pa_doc_sync_line()
+	if sync_line.is_empty():
+		CombatRegressionHarness._fail(failures, "t44_spatial_band_pa: empty doc_sync_line")
+	_run_t44_spatial_band_pa_attacker_close_gt_long(failures)
+	_run_t44_spatial_band_pa_attacker_eval_parity(failures)
+	_run_t44_spatial_band_pa_defender_close_gt_long(failures)
+	_run_t44_spatial_band_pa_parry_eval_parity(failures)
+	_run_t44_spatial_stacked_band_file_dodge(failures)
+	_run_t44_spatial_stacked_band_flurry_dodge(failures)
+	_run_t44_spatial_stacked_band_file_flurry_dodge(failures)
+	_run_t44_spatial_band_pa_flag_off_parity(failures)
+
+
+## WF-T1 suite: octant raw table + defender scales — single entry for Phase 0 maintain.
+static func _run_footwork_wf_t1_octant_suite(failures: PackedStringArray) -> void:
+	_run_footwork_defender_scales_wf_t1_locked(failures)
+	_run_footwork_octant_lookup_delegates_to_guard_lines(failures)
+	_run_footwork_eight_line_home_guard_parry_step(failures)
+	_run_footwork_octant_windup_step_diagonals(failures)
+	_run_footwork_defender_dodge_step_stamps_octant_low_left(failures)
+	_run_footwork_defender_dodge_step_stamps_octant_right_leg(failures)
+	_run_footwork_parry_eval_step_octant_home(failures)
+	_run_footwork_dodge_eval_step_octant_arm(failures)
+	_run_footwork_defender_parry_step_lt_dodge_on_octant(failures)
+	_run_footwork_guard_angle_deg_octant_parry_step(failures)
+	_run_footwork_attack_angle_includes_octant_windup(failures)
+
+
+## WF-T1: attacker contact angle includes octant wind-up step (**`high_right`** / ox home).
+static func _run_footwork_attack_angle_includes_octant_windup(failures: PackedStringArray) -> void:
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		return
+	CombatConstants.set_feature_position_angle_footwork_load(true)
+	var line: String = _GuardLines.LINE_HIGH_RIGHT
+	var atk: Dictionary = {
+		CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG: (
+			CombatConstants.position_angle_offset_deg_for_attack_line(line)
+		),
+	}
+	var base_deg: float = _GuardLines.line_to_angle(line)
+	var shifted: float = _Footwork.apply_offset_to_angle_deg(base_deg, atk)
+	var step: float = CombatConstants.position_angle_offset_deg_for_attack_line(line)
+	var want: float = fmod(base_deg + step + 360.0, 360.0)
+	if absf(shifted - want) > 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"footwork_attack_angle_octant: high_right want %.2f got %.2f (base=%.2f step=%.2f)"
+			% [want, shifted, base_deg, step]
 		)
 
 
@@ -2273,7 +4206,6 @@ static func _run_medical_phase_gauge_tooltip_pressure_and_winner_lock(
 	mgr.medical_phase_winner = "player"
 	var c: Dictionary = {"state": CombatConstants.STATE_WAITING, "gauge": 100.0, "stamina": 40.0}
 	var tips: String = "\n".join(_UiHints.gauge_tooltip_lines(c, mgr))
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if not tips.contains("player side triages"):
 		CombatRegressionHarness._fail(
 			failures, "medical_phase_gauge_tip: want winner-lock line got '%s'" % tips
@@ -2288,6 +4220,7 @@ static func _run_medical_phase_gauge_tooltip_pressure_and_winner_lock(
 		CombatRegressionHarness._fail(
 			failures, "medical_phase_gauge_tip: should omit medical copy when phase off"
 		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Camp-3.3: receiving-care rows get medical-busy tooltip during medical phase.
@@ -3056,6 +4989,11 @@ static func _run_footwork_choose_defense_dodge_does_not_keep_parry_offset(
 		CombatRegressionHarness._fail(failures, "footwork_provisional: parry_eval must not stamp offset on combatant")
 	if prov < 0.01:
 		CombatRegressionHarness._fail(failures, "footwork_provisional: want non-zero eval step for left guard")
+	var dodge_prov: float = _Footwork.dodge_eval_step_deg_for_defender(def, "left_arm")
+	if def.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
+		CombatRegressionHarness._fail(failures, "footwork_provisional: dodge_eval must not stamp offset on combatant")
+	if dodge_prov < 0.01:
+		CombatRegressionHarness._fail(failures, "footwork_provisional: want non-zero dodge eval for left_arm")
 	_Footwork.apply_defender_step_on_parry(def, "left")
 	var parry_off: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
 	_Footwork.clear_position_offset(def)
@@ -3243,9 +5181,27 @@ static func run(failures: PackedStringArray) -> void:
 	_run_mental_stack_hold_line_attempt_close_mop_up_mid(failures)
 	_run_mental_stack_close_beats_focus_mop_up_under_telegraph(failures)
 	_run_hold_line_hint_mop_up(failures)
+	_run_hold_line_hint_mop_up_strikes_listed(failures)
+	_run_hold_line_hint_mop_up_rear_rank(failures)
+	_run_hold_line_hint_mop_up_rear_rank_strikes(failures)
+	_run_hold_line_hint_back_rank_not_mopup(failures)
+	_run_mental_stack_formation_plug_swap_rank_over_strike(failures)
+	_run_mental_stack_formation_plug_incap_forward(failures)
+	_run_mental_stack_formation_plug_rotate_skirmish_hole(failures)
+	_run_mental_stack_formation_plug_skipped_fight_finish(failures)
+	_run_mental_stack_formation_plug_skipped_mop_up_offense(failures)
+	_run_mental_stack_formation_plug_no_gap_stack_miss(failures)
+	_run_mental_stack_formation_plug_skipped_sparse_line_offense(failures)
+	_run_mental_stack_sparse_fight_stamps_layer_on_try_pick(failures)
+	_run_mental_stack_formation_plug_picker_e2e(failures)
+	_run_mental_stack_rout_stressed_flee_beats_strike(failures)
+	_run_mental_stack_rout_casualty_flee_beats_wait(failures)
+	_run_mental_stack_rout_skipped_fight_finish(failures)
+	_run_mental_stack_rout_firm_line_no_stamp(failures)
 	_run_mental_stack_exhaustion_tunnel_prefers_disengage(failures)
 	_run_mental_stack_exhaustion_tunnel_flee_beats_rotate_file(failures)
 	_run_mental_stack_critical_stamina_flee_beats_rotate_file(failures)
+	_run_p4a_ms_l7_exhaustion_threshold_parity(failures)
 	_run_focus_line_actions_listed_when_attention_enabled(failures)
 	_run_append_combat_wait_lists_wait_for_focus_only_menu(failures)
 	_run_append_combat_wait_lists_wait_for_close_and_focus_menu(failures)
@@ -3256,11 +5212,17 @@ static func run(failures: PackedStringArray) -> void:
 	_run_yomi_defense_readiness_mult_boosts_after_parry_deflect(failures)
 	_run_attention_ui_hint_includes_mental_stack_layer(failures)
 	_run_footwork_attack_step_offset_stamped_on_windup(failures)
+	_run_footwork_attack_eval_no_stamp_offset(failures)
+	_run_footwork_picker_preview_uses_attack_eval_when_idle(failures)
+	_run_footwork_picker_preview_wind_up_uses_live_stamp(failures)
+	_run_footwork_picker_preview_flurry_bind_when_idle(failures)
 	_run_footwork_offset_shifts_attack_angle_deg(failures)
 	_run_footwork_offset_scrubbed_on_combat_start(failures)
 	_run_footwork_defender_parry_step_stamps_offset(failures)
-	_run_footwork_eight_line_home_guard_parry_step(failures)
-	_run_footwork_octant_windup_step_low_left(failures)
+	_run_t44_spatial_band_pa_suite(failures)
+	_run_t44_spatial_file_dodge_suite(failures)
+	_run_t44_spatial_flurry_pa_suite(failures)
+	_run_footwork_wf_t1_octant_suite(failures)
 	_run_footwork_defender_offset_shifts_guard_angle_deg(failures)
 	_run_footwork_defender_dodge_step_stamps_offset(failures)
 	_run_footwork_defender_offset_scrubbed_after_exchange(failures)

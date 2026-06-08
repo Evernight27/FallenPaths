@@ -257,6 +257,115 @@ function Get-F5ValidationReportStamp {
 	return (Get-Item $ValPath).LastWriteTimeUtc
 }
 
+function Get-F5CampSmokesBatchPath {
+	param([string]$Root)
+	return Join-Path $Root ".f5_camp_smokes_batch.txt"
+}
+
+function Test-F5ValidationFresh {
+	param([string]$Root)
+	$log = Get-F5SoakLogPath $Root
+	$val = Join-Path $Root ".f5_soak_validation.txt"
+	if (-not ((Test-Path $log) -and (Test-Path $val))) { return $false }
+	if (-not (Select-String -Path $val -Pattern '^ok=true' -Quiet)) { return $false }
+	if (-not (Select-String -Path $val -Pattern '^--- END FP_F5_SOAK_VALIDATION ---' -Quiet)) { return $false }
+	return (Get-Item $val).LastWriteTime -ge (Get-Item $log).LastWriteTime
+}
+
+function Wait-F5CampSmokesBatchReport {
+	param(
+		[string]$BatchPath,
+		[int]$TimeoutMs = 90000,
+		[datetime]$NotBeforeUtc = [datetime]::MinValue
+	)
+	$deadline = [datetime]::UtcNow.AddMilliseconds($TimeoutMs)
+	while ([datetime]::UtcNow -lt $deadline) {
+		if (-not (Test-Path $BatchPath)) {
+			Start-Sleep -Milliseconds 50
+			continue
+		}
+		if ((Get-Item $BatchPath).LastWriteTimeUtc -le $NotBeforeUtc) {
+			Start-Sleep -Milliseconds 50
+			continue
+		}
+		if (Select-String -Path $BatchPath -Pattern '^--- END FP_F5_CAMP_SMOKES_BATCH ---' -Quiet) {
+			return $true
+		}
+		Start-Sleep -Milliseconds 50
+	}
+	return $false
+}
+
+function Invoke-F5CampSmokesBatchGodot {
+	param(
+		[string]$Root,
+		[switch]$Quiet
+	)
+	. (Join-Path $PSScriptRoot "Invoke-GodotHeadless.ps1")
+	$batchPath = Get-F5CampSmokesBatchPath $Root
+	if (Test-Path $batchPath) { Remove-Item -LiteralPath $batchPath -Force }
+	if (-not $Quiet) {
+		Write-Host "=== Camp optional smokes batch (one Godot) ==="
+	}
+	Invoke-FallenPathsGodotImportWarmup
+	$outLog = Join-Path $env:TEMP "fp_camp_smokes_batch_$PID.log"
+	$errLog = "$outLog.err"
+	$Godot = Get-FallenPathsGodot
+	$env:FP_HARNESS_MODE = "f5_validate_camp_smokes"
+	$godotArgs = @("--headless", "--path", $Root, "-s", "res://scripts/run_all_combat_checks.gd")
+	$p = Start-Process -FilePath $Godot -ArgumentList $godotArgs -Wait -PassThru -NoNewWindow `
+		-RedirectStandardOutput $outLog -RedirectStandardError $errLog
+	Remove-Item Env:FP_HARNESS_MODE -ErrorAction SilentlyContinue
+	if (-not $Quiet -and (Test-Path $outLog)) {
+		Get-Content $outLog | ForEach-Object { Write-Host $_ }
+	}
+	Remove-Item $outLog, $errLog -ErrorAction SilentlyContinue
+	if ((Test-Path $batchPath) -and (Select-String -Path $batchPath -Pattern '^--- END FP_F5_CAMP_SMOKES_BATCH ---' -Quiet)) {
+		return $true
+	}
+	if (-not $Quiet) {
+		Write-Host "Camp smokes batch: Godot exit=$($p.ExitCode) (missing batch report - import warmup or parse error)"
+	}
+	Stop-F5StuckGodotProcesses
+	return $false
+}
+
+function Stop-F5StuckGodotProcesses {
+	Get-Process -Name "Godot*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+}
+
+function Invoke-F5LogValidationWithRetry {
+	param(
+		[string]$ValidateScript,
+		[string]$LogPath,
+		[string]$ValPath,
+		[ref]$ExitCode
+	)
+	$stamp = Get-F5ValidationReportStamp $ValPath
+	& $ValidateScript -LogPath $LogPath -Quiet
+	$ExitCode.Value = $LASTEXITCODE
+	if (Wait-F5ValidationReport $ValPath -NotBeforeUtc $stamp) {
+		return $true
+	}
+	Stop-F5StuckGodotProcesses
+	Start-Sleep -Seconds 1
+	$retryStamp = Get-F5ValidationReportStamp $ValPath
+	& $ValidateScript -LogPath $LogPath -Quiet
+	$ExitCode.Value = $LASTEXITCODE
+	return (Wait-F5ValidationReport $ValPath -NotBeforeUtc $retryStamp)
+}
+
+function Write-Phase0SummaryCommit {
+	param(
+		[string]$Root,
+		[System.Collections.Generic.List[string]]$Lines
+	)
+	$final = Join-Path $Root ".phase0_combat_checks.txt"
+	$tmp = "$final.tmp"
+	$Lines | Set-Content -LiteralPath $tmp -Encoding utf8
+	Move-Item -LiteralPath $tmp -Destination $final -Force
+}
+
 function Wait-F5ValidationReport {
 	param(
 		[string]$ValPath,

@@ -682,6 +682,7 @@ static func _run_combat_log_formatter_fled_outcome(failures: PackedStringArray) 
 	if "fled the field" not in line:
 		CombatRegressionHarness._fail(failures, "combat_log_fled: want fled the field got %s" % line)
 
+## p4f Expand closeout entry — full Tier 6.2 flee / rout suite (listing, AI, UX, resolve).
 static func run(failures: PackedStringArray) -> void:
 	_run_flee_not_listed_when_immobile(failures)
 	_run_flee_not_legal_light_blood_loss_only(failures)

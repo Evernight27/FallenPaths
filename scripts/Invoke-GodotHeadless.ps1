@@ -26,12 +26,13 @@ function Invoke-FallenPathsGodotScript {
 		$hadMode = $true
 	}
 	$godotInvokeArgs = @("--headless", "--path", $Root, "-s", $Script) + $GodotExtraArgs
-	if ($TeeLog -ne "") {
-		& $Godot @godotInvokeArgs 2>&1 | Tee-Object -FilePath $TeeLog
-	} else {
-		& $Godot @godotInvokeArgs 2>&1
-	}
+	# No downstream pipe — $LASTEXITCODE after `| Tee-Object` / `ForEach-Object` is not Godot's.
+	$godotOut = @(& $Godot @godotInvokeArgs 2>&1)
 	$script:LastFallenPathsGodotExitCode = $LASTEXITCODE
+	if ($TeeLog -ne "") {
+		$godotOut | Set-Content -Path $TeeLog -Encoding utf8
+	}
+	$godotOut
 	if ($hadMode) {
 		Remove-Item Env:FP_HARNESS_MODE -ErrorAction SilentlyContinue
 	}

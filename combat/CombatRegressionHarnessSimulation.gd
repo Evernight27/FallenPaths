@@ -31,12 +31,20 @@ const _ResearchAnchors := preload("res://core/CombatResearchAnchors.gd")
 const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
 
 
+static func _sim_entity() -> CoreEntity:
+	var ent: CoreEntity = CoreEntity.new()
+	_Harness._track_harness_node(ent)
+	return ent
+
+
 static func run(failures: PackedStringArray) -> void:
 	_run_sim_delivery_commit_scales_ke_and_cut(failures)
 	_run_sim_calibration_audit_committed_ke_in_band(failures)
 	_run_sim_subregion_deterministic_same_inputs(failures)
 	_run_sim_subregion_high_line_arm(failures)
 	_run_sim_pack_neck_requires_subregion(failures)
+	_run_iv10_subregion_combat_mult_elbow_vs_upper_arm(failures)
+	_run_iv10_subregion_combat_mult_flag_off_parity(failures)
 	_run_sim_mfb_cut_only_no_fracture(failures)
 	_run_sim_mfb_mace_arm_fracture(failures)
 	_run_sim_mfb_deep_cut_bone_optional(failures)
@@ -265,6 +273,63 @@ static func _run_sim_subregion_high_line_arm(failures: PackedStringArray) -> voi
 		)
 
 
+## IV-10: elbow sub_region applies higher mechanical cut than upper_arm when feature on.
+static func _run_iv10_subregion_combat_mult_elbow_vs_upper_arm(failures: PackedStringArray) -> void:
+	var sync_line: String = _HitSubRegion.iv10_doc_sync_line()
+	if "mechanical=severity_modifier" not in sync_line:
+		_Harness._fail(failures, "iv10_mult: sync line missing token in %s" % sync_line)
+	if not _CombatConstants.is_feature_subregion_combat_mult_enabled():
+		_Harness._fail(failures, "iv10_mult: FEATURE_SUBREGION_COMBAT_MULT must be on in production")
+		return
+	var cut_pre: float = 18.0
+	var ent_upper: CoreEntity = _Harness._new_entity_unarmed()
+	var ent_elbow: CoreEntity = _Harness._new_entity_unarmed()
+	var r_upper: Dictionary = ent_upper.take_damage_split(
+		cut_pre, 0.0, "right_arm", -1.0, -1.0, -1.0, {"hit_sub_region": "upper_arm"}
+	)
+	var r_elbow: Dictionary = ent_elbow.take_damage_split(
+		cut_pre, 0.0, "right_arm", -1.0, -1.0, -1.0, {"hit_sub_region": "elbow"}
+	)
+	var mech_upper: float = float(r_upper.get("mechanical_post_armor", 0.0))
+	var mech_elbow: float = float(r_elbow.get("mechanical_post_armor", 0.0))
+	if mech_elbow <= mech_upper + 0.05:
+		_Harness._fail(
+			failures,
+			"iv10_mult: elbow want higher mechanical_post_armor than upper_arm (%.2f vs %.2f)"
+			% [mech_elbow, mech_upper]
+		)
+	var mult_upper: float = _HitSubRegion.combat_damage_mult("right_arm", "upper_arm")
+	var mult_elbow: float = _HitSubRegion.combat_damage_mult("right_arm", "elbow")
+	if mult_elbow <= mult_upper:
+		_Harness._fail(
+			failures,
+			"iv10_mult: elbow mult want > upper_arm (%.3f vs %.3f)" % [mult_elbow, mult_upper]
+		)
+
+
+## IV-10: flag off — identical sub_region hits apply same mechanical damage.
+static func _run_iv10_subregion_combat_mult_flag_off_parity(failures: PackedStringArray) -> void:
+	var cut_pre: float = 16.0
+	var saved: bool = _CombatConstants.is_feature_subregion_combat_mult_enabled()
+	_CombatConstants.set_feature_subregion_combat_mult_load(false)
+	var ent_a: CoreEntity = _Harness._new_entity_unarmed()
+	var ent_b: CoreEntity = _Harness._new_entity_unarmed()
+	var r_a: Dictionary = ent_a.take_damage_split(
+		cut_pre, 0.0, "right_arm", -1.0, -1.0, -1.0, {"hit_sub_region": "elbow"}
+	)
+	var r_b: Dictionary = ent_b.take_damage_split(
+		cut_pre, 0.0, "right_arm", -1.0, -1.0, -1.0, {"hit_sub_region": "forearm"}
+	)
+	_CombatConstants.set_feature_subregion_combat_mult_load(saved)
+	var mech_a: float = float(r_a.get("mechanical_post_armor", 0.0))
+	var mech_b: float = float(r_b.get("mechanical_post_armor", 0.0))
+	if absf(mech_a - mech_b) > 0.05:
+		_Harness._fail(
+			failures,
+			"iv10_mult_off: flag off want parity (elbow=%.2f forearm=%.2f)" % [mech_a, mech_b]
+		)
+
+
 ## S2: packing eligibility still works when neck sub_region is explicit (medical harness pattern).
 static func _run_sim_pack_neck_requires_subregion(failures: PackedStringArray) -> void:
 	var ent: Node = _Harness._new_entity("SWORD")
@@ -361,7 +426,7 @@ static func _run_sim_mfb_deep_cut_bone_optional(failures: PackedStringArray) -> 
 
 
 static func _entity_for_species(sp: SpeciesResource) -> CoreEntity:
-	var ent: CoreEntity = CoreEntity.new()
+	var ent: CoreEntity = _sim_entity()
 	ent.species = sp
 	ent.apply_species()
 	return ent
@@ -632,7 +697,7 @@ static func _run_sim_joule_armor_cuirass_absorbs_more_than_gambeson(failures: Pa
 
 ## S10: joule-authoritative path matches ke_frac × pre (no second scalar ArmorPiece pass).
 static func _run_sim_joule_armor_authoritative_ke_frac(failures: PackedStringArray) -> void:
-	var ent: CoreEntity = CoreEntity.new()
+	var ent: CoreEntity = _sim_entity()
 	ent.species = _HumanSpecies
 	ent.apply_species()
 	var armor: ArmorPiece = _ArmorPiece.create_from_definition("CUIRASS")
@@ -671,7 +736,7 @@ static func _run_sim_joule_armor_not_below_ke_frac_floor(failures: PackedStringA
 	const cut_pre: float = 14.0
 	var joule_ke: Dictionary = _ArmorJouleBudget.account_ke_through_armor(armor, strike_ke, 2.0, true)
 	var frac: float = float(joule_ke.get("transmitted_ke_fraction", 1.0))
-	var ent: CoreEntity = CoreEntity.new()
+	var ent: CoreEntity = _sim_entity()
 	ent.species = _HumanSpecies
 	ent.apply_species()
 	ent.equip_armor("chest", armor)
@@ -697,7 +762,7 @@ static func _run_sim_joule_armor_not_below_ke_frac_floor(failures: PackedStringA
 
 static func _harness_entity_with_ml_pool(sp: SpeciesResource) -> CoreEntity:
 	_BloodVolumeMl._harness_force_literal_blood_ml = true
-	var ent: CoreEntity = CoreEntity.new()
+	var ent: CoreEntity = _sim_entity()
 	ent.species = sp
 	ent.apply_species()
 	return ent
@@ -780,7 +845,7 @@ static func _run_sim_blood_ml_sync_percent_from_ml(failures: PackedStringArray) 
 
 ## Death signal fires once per entity (map bleed / repeated process_blood_loss ticks).
 static func _run_sim_notify_died_emits_once(failures: PackedStringArray) -> void:
-	var ent: CoreEntity = CoreEntity.new()
+	var ent: CoreEntity = _sim_entity()
 	var fired_box: Array = [0]
 	ent.died.connect(func() -> void: fired_box[0] = int(fired_box[0]) + 1)
 	ent.notify_died()
@@ -1526,24 +1591,30 @@ static func _run_mat_production_joule_armor_flag_enabled(failures: PackedStringA
 static func _run_mat_production_joule_authoritative_matches_forced(failures: PackedStringArray) -> void:
 	if not _CombatConstants.FEATURE_JOULE_ARMOR_BUDGET:
 		return
-	var armor: ArmorPiece = _ArmorPiece.create_from_definition("CUIRASS")
-	if armor == null:
+	var saved_sub: bool = _CombatConstants.is_feature_subregion_combat_mult_enabled()
+	_CombatConstants.set_feature_subregion_combat_mult_load(false)
+	if _ArmorPiece.create_from_definition("CUIRASS") == null:
 		_fail(failures, "mat_joule_prod: missing CUIRASS")
+		_CombatConstants.set_feature_subregion_combat_mult_load(saved_sub)
 		return
 	const strike_ke: float = 90.0
 	const cut_pre: float = 14.0
 	const part: String = "chest"
-	var extras_prod: Dictionary = {"strike_ke_j": strike_ke}
+	var extras_prod: Dictionary = {
+		"strike_ke_j": strike_ke,
+		"hit_sub_region": "thoracic",
+		"hit_sub_region_seed": 42,
+	}
 	var extras_force: Dictionary = extras_prod.duplicate()
 	extras_force["force_joule_armor_budget"] = true
-	var ent_prod: CoreEntity = CoreEntity.new()
+	var ent_prod: CoreEntity = _sim_entity()
 	ent_prod.species = _HumanSpecies
 	ent_prod.apply_species()
-	ent_prod.equip_armor(part, armor)
-	var ent_force: CoreEntity = CoreEntity.new()
+	ent_prod.equip_armor(part, _ArmorPiece.create_from_definition("CUIRASS"))
+	var ent_force: CoreEntity = _sim_entity()
 	ent_force.species = _HumanSpecies
 	ent_force.apply_species()
-	ent_force.equip_armor(part, armor)
+	ent_force.equip_armor(part, _ArmorPiece.create_from_definition("CUIRASS"))
 	var res_prod: Dictionary = _EntityDamage.apply_damage_split(
 		ent_prod, cut_pre, 0.0, part, 2.0, -1.0, -1.0, extras_prod
 	)
@@ -1558,11 +1629,13 @@ static func _run_mat_production_joule_authoritative_matches_forced(failures: Pac
 		"final_blunt",
 	]:
 		if absf(float(res_prod.get(key, 0.0)) - float(res_force.get(key, 0.0))) > 0.02:
+			_CombatConstants.set_feature_subregion_combat_mult_load(saved_sub)
 			_fail(
 				failures,
 				"mat_joule_prod: %s prod %.3f vs force %.3f"
 				% [key, float(res_prod.get(key, 0.0)), float(res_force.get(key, 0.0))]
 			)
+	_CombatConstants.set_feature_subregion_combat_mult_load(saved_sub)
 
 
 ## S11-A: `disable_joule_armor_budget` restores scalar ArmorPiece path when production flag on.
@@ -1579,11 +1652,11 @@ static func _run_mat_production_joule_disable_restores_scalar_armor(failures: Pa
 	var extras_joule: Dictionary = {"strike_ke_j": strike_ke}
 	var extras_scalar: Dictionary = extras_joule.duplicate()
 	extras_scalar["disable_joule_armor_budget"] = true
-	var ent_j: CoreEntity = CoreEntity.new()
+	var ent_j: CoreEntity = _sim_entity()
 	ent_j.species = _HumanSpecies
 	ent_j.apply_species()
 	ent_j.equip_armor(part, armor)
-	var ent_s: CoreEntity = CoreEntity.new()
+	var ent_s: CoreEntity = _sim_entity()
 	ent_s.species = _HumanSpecies
 	ent_s.apply_species()
 	ent_s.equip_armor(part, armor)
@@ -1618,10 +1691,10 @@ static func _run_mat_production_blood_ml_pools_seeded(failures: PackedStringArra
 	if not _Bleeding.FEATURE_LITERAL_BLOOD_ML:
 		return
 	_BloodVolumeMl._harness_force_literal_blood_ml = false
-	var human: CoreEntity = CoreEntity.new()
+	var human: CoreEntity = _sim_entity()
 	human.species = _HumanSpecies
 	human.apply_species()
-	var goblin: CoreEntity = CoreEntity.new()
+	var goblin: CoreEntity = _sim_entity()
 	goblin.species = _GoblinSpecies
 	goblin.apply_species()
 	if not _BloodVolumeMl.entity_uses_ml(human):
@@ -1649,7 +1722,7 @@ static func _run_mat_production_blood_ttd_matches_percent(failures: PackedString
 	const rate: float = _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE
 	var ttd_pct: float = _Bleeding.seconds_to_exsanguination(rate, _Bleeding.MAX_BLOOD_VOLUME, 1.0)
 	_BloodVolumeMl._harness_force_literal_blood_ml = false
-	var ent: CoreEntity = CoreEntity.new()
+	var ent: CoreEntity = _sim_entity()
 	ent.species = _HumanSpecies
 	ent.apply_species()
 	var max_ml: float = ent.blood_volume_ml_max
@@ -1674,7 +1747,7 @@ static func _run_mat_production_blood_sync_tick(failures: PackedStringArray) -> 
 	if not _Bleeding.FEATURE_LITERAL_BLOOD_ML:
 		return
 	_BloodVolumeMl._harness_force_literal_blood_ml = false
-	var ent: CoreEntity = CoreEntity.new()
+	var ent: CoreEntity = _sim_entity()
 	ent.species = _HumanSpecies
 	ent.apply_species()
 	ent.take_damage_split(8.0, 2.0, "right_arm")

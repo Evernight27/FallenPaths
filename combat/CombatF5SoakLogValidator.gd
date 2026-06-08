@@ -2,7 +2,7 @@ class_name CombatF5SoakLogValidator
 extends RefCounted
 
 ## Parses pasted **F5 Output** (or **`.f5_soak_in.txt`**) for **D-001** / II-0 grep sign-offs.
-## Headless entry: **`scripts/run_f5_soak_log_validator.gd`** → **`.f5_soak_validation.txt`**.
+## Headless entry: **`validate_f5_soak_log.ps1`** / **`.sh`** → **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=f5_validate`) → **`.f5_soak_validation.txt`**.
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
@@ -105,6 +105,14 @@ static func write_report(result: Dictionary) -> void:
 	print(body.strip_edges())
 
 
+static func _decode_f5_log_text(text: String) -> PackedStringArray:
+	var cleaned: String = str(text).replace("\uFEFF", "").replace("\r\n", "\n").replace("\r", "\n")
+	var out: PackedStringArray = PackedStringArray()
+	for part in cleaned.split("\n", false):
+		out.append(str(part))
+	return out
+
+
 static func _normalize_lines(lines: PackedStringArray) -> PackedStringArray:
 	var out: PackedStringArray = PackedStringArray()
 	for raw in lines:
@@ -161,12 +169,28 @@ static func _is_soak_guide_line(line: String) -> bool:
 	return line.begins_with("soak_guide ") or line.begins_with("soak_guide:")
 
 
+static func _skip_needle_count_line(line: String) -> bool:
+	if _is_soak_guide_line(line):
+		return true
+	# Per-fight grep_stats echo needles (e.g. `party_triage_open=0`) — not world markers.
+	if line.begins_with("soak_coverage "):
+		return true
+	# Pasted validation report blocks must not re-count track needles.
+	if line.begins_with("--- FP_F5_SOAK_VALIDATION"):
+		return true
+	if line.begins_with("[camp_") or line.begins_with("[wf_m3_"):
+		return true
+	if line.begins_with("[ii_envelop_") or line.begins_with("[wf_controlling"):
+		return true
+	return false
+
+
 static func _count_needle(lines: PackedStringArray, needle: String) -> int:
 	if needle.is_empty():
 		return 0
 	var n: int = 0
 	for line in lines:
-		if _is_soak_guide_line(line):
+		if _skip_needle_count_line(line):
 			continue
 		if needle in line:
 			n += 1
@@ -181,6 +205,8 @@ static func _count_regex(lines: PackedStringArray, pattern: String) -> int:
 		return 0
 	var n: int = 0
 	for line in lines:
+		if _skip_needle_count_line(line):
+			continue
 		if re.search(line) != null:
 			n += 1
 	return n

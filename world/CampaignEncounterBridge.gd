@@ -2,8 +2,10 @@ class_name CampaignEncounterBridge
 extends RefCounted
 
 ## Overworld ↔ combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
+## Canonical: `overworld_tile_from_position` · `overworld_tile_center` · `place_player_on_overworld_tile`.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _OverworldMap := preload("res://world/OverworldMap.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -475,14 +477,23 @@ static func resolve_enemy_scene(world: Node) -> PackedScene:
 	return null
 
 
+## Overworld grid math — delegates to **`OverworldMap`** (not per-world `_tile_coords` hooks).
+static func overworld_tile_from_position(pos: Vector2) -> Vector2i:
+	return _OverworldMap.tile_coords_from_pos(pos)
+
+
+static func overworld_tile_center(tile: Vector2i) -> Vector2:
+	return _OverworldMap.tile_center(tile)
+
+
 ## Snap player to tile center, reset movement target, and align **`last_player_tile`** (overworld reject uses this).
 static func place_player_on_overworld_tile(world: Node2D, tile: Vector2i) -> void:
-	if world == null or not world.has_node("Character") or not world.has_method("_tile_center"):
+	if world == null or not world.has_node("Character"):
 		return
 	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
-	var center: Vector2 = world.call("_tile_center", tile) as Vector2
+	var center: Vector2 = overworld_tile_center(tile)
 	if player.has_method("cancel_grid_move_to"):
 		player.call("cancel_grid_move_to", center)
 	else:
@@ -491,12 +502,12 @@ static func place_player_on_overworld_tile(world: Node2D, tile: Vector2i) -> voi
 
 
 static func sync_overworld_player_grid_anchor(world: Node2D) -> void:
-	if world == null or not world.has_node("Character") or not world.has_method("_tile_coords"):
+	if world == null or not world.has_node("Character"):
 		return
 	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
-	var tile: Vector2i = world.call("_tile_coords", player.position) as Vector2i
+	var tile: Vector2i = overworld_tile_from_position(player.position)
 	place_player_on_overworld_tile(world, tile)
 
 
@@ -504,12 +515,10 @@ static func sync_overworld_player_grid_anchor(world: Node2D) -> void:
 static func nudge_player_toward_camp_tile(world: Node2D) -> void:
 	if world == null or not world.has_node("Character"):
 		return
-	if not world.has_method("_tile_coords"):
-		return
 	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
-	var tile: Vector2i = world.call("_tile_coords", player.position) as Vector2i
+	var tile: Vector2i = overworld_tile_from_position(player.position)
 	var camp: Vector2i = _CompanyState.DEFAULT_CAMP_TILE
 	if world.has_meta("camp_tile") and world.get_meta("camp_tile") is Vector2i:
 		camp = world.get_meta("camp_tile")

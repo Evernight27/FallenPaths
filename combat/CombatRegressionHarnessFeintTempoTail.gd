@@ -3577,6 +3577,52 @@ static func _run_recovery_cause_parry_deflect_alias_aligns_readiness_and_footwor
 			failures,
 			"recovery_cause_alias: passive readiness want %.4f got %.4f" % [r_canon, r_alias]
 		)
+	var m_partial: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("parry_partial")
+	if not is_equal_approx(m_def, m_partial):
+		CombatRegressionHarness._fail(
+			failures,
+			"recovery_cause_alias: footwork parry_partial want %.4f got %.4f" % [m_def, m_partial]
+		)
+
+
+## III-8: canonical causes share readiness curves + inverse feint/dodge footwork mults.
+static func _run_iii8_recovery_cause_table_parity(failures: PackedStringArray) -> void:
+	const causes: Array = ["attack_hit", "attack_miss", "attack_deflect", "skip"]
+	for k in causes:
+		if not CombatConstants.DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE.has(k):
+			CombatRegressionHarness._fail(
+				failures, "iii8_table: missing footwork mult for cause %s" % k
+			)
+		var curve: Array = CombatConstants.readiness_curve_for_cause(str(k))
+		if curve.size() < 2:
+			CombatRegressionHarness._fail(
+				failures, "iii8_table: readiness curve for %s want [early, late]" % k
+			)
+		var dodge_m: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause(str(k))
+		var feint_m: float = CombatConstants.ai_feint_listing_defender_recovering_footwork_mult_for_cause(
+			str(k)
+		)
+		if not is_equal_approx(feint_m, 1.0 / dodge_m):
+			CombatRegressionHarness._fail(
+				failures,
+				"iii8_table: feint/dodge inverse mismatch for %s dodge=%.4f feint=%.4f"
+				% [k, dodge_m, feint_m]
+			)
+	var m_hit: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_hit")
+	var m_miss: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_miss")
+	if m_miss <= m_hit:
+		CombatRegressionHarness._fail(
+			failures,
+			"iii8_table: attack_miss dodge mult want > attack_hit got miss=%.4f hit=%.4f"
+			% [m_miss, m_hit]
+		)
+	var hit_curve: Array = CombatConstants.readiness_curve_for_cause("attack_hit")
+	var miss_curve: Array = CombatConstants.readiness_curve_for_cause("attack_miss")
+	if float(miss_curve[1]) <= float(hit_curve[1]):
+		CombatRegressionHarness._fail(
+			failures,
+			"iii8_table: attack_miss late readiness want > attack_hit"
+		)
 
 
 static func run_after_attention(failures: PackedStringArray) -> void:
@@ -3599,6 +3645,7 @@ static func run_after_attention(failures: PackedStringArray) -> void:
 	_run_defense_spacing_band_modulates_parry_and_dodge(failures)
 	_run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures)
 	_run_recovery_cause_parry_deflect_alias_aligns_readiness_and_footwork(failures)
+	_run_iii8_recovery_cause_table_parity(failures)
 	_run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(failures)
 	_run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_close(failures)
 	_run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balance(failures)

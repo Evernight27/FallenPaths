@@ -4,9 +4,26 @@
 
 Copy an **`agent_*.md`** file **or** a section below (Hygiene · Audit · Medical · Expand reopen) into a **new Cursor chat**.
 
-**Layout (4 files):** `README.md` · `agent_combat.md` (incl. [3e](agent_combat.md#specialty-iii-4-3e-fight-finish) · [line plug](agent_combat.md#specialty-iii-6-line-plug)) · `agent_playtest.md` · `agent_campaign.md`.
+**Layout:** `README.md` · **maintain** [`agent_maintain.md`](agent_maintain.md) · **enhance** [`agent_enhance.md`](agent_enhance.md) · **hygiene** [`agent_hygiene.md`](agent_hygiene.md) · **audit** [`agent_audit.md`](agent_audit.md) · `agent_combat.md` (incl. [3e](agent_combat.md#specialty-iii-4-3e-fight-finish) · [line plug](agent_combat.md#specialty-iii-6-line-plug)) · `agent_playtest.md` · `agent_campaign.md`.
+
+**Quick pick:** maintain shipped behavior → [`agent_maintain.md`](agent_maintain.md) · delete cruft → [`agent_hygiene.md`](agent_hygiene.md) · grep/improve → [`agent_audit.md`](agent_audit.md) · new tier/feature → [`agent_enhance.md`](agent_enhance.md).
 
 **Shipped Expand rows:** [`docs/EXPANSION_PLAN.md`](../../docs/EXPANSION_PLAN.md) · [`docs/LIVE_PATHS.md`](../../docs/LIVE_PATHS.md).
+
+---
+
+<a id="project-health-bundle"></a>
+
+## Project health bundle
+
+| Chat | Copy from | Stream |
+|:----:|-----------|--------|
+| 1 | [`agent_hygiene.md`](agent_hygiene.md) | Delete mirrors · `.gitignore` · artifacts |
+| 2 | [`agent_audit.md`](agent_audit.md) | Anti-patterns · dedup report · trivial fixes |
+| 3 | [`agent_maintain.md`](agent_maintain.md) | Gate + one shipped maintain row |
+| 4 | [`agent_enhance.md`](agent_enhance.md) | Expand · medical depth · user-requested tier |
+
+**Order:** Hygiene → Audit → Maintain (or Enhance if user named a row). **Not parallel:** two deleters · Hygiene + Enhance on same `core/*.gd`.
 
 ---
 
@@ -16,8 +33,8 @@ Copy an **`agent_*.md`** file **or** a section below (Hygiene · Audit · Medica
 
 | Chat | Copy from | Stream |
 |:----:|-----------|--------|
-| 1 | [§ Hygiene](#hygiene-cleanup) below | Dup files · ignore rules |
-| 2 | [§ Audit](#audit-dedup) below | Phase 0 · dedup grep |
+| 1 | [`agent_hygiene.md`](agent_hygiene.md) | Dup files · ignore rules |
+| 2 | [`agent_audit.md`](agent_audit.md) | Phase 0 · dedup grep |
 | 3 | [§ Medical physics](#medical-physics) below | Bleed · triage · treatment |
 | 4 | [`agent_combat.md`](agent_combat.md) or [`agent_playtest.md`](agent_playtest.md) | Combat or F5 traces |
 
@@ -27,72 +44,17 @@ Copy an **`agent_*.md`** file **or** a section below (Hygiene · Audit · Medica
 
 <a id="hygiene-cleanup"></a>
 
-## Hygiene (copy-paste this chat)
+## Hygiene
 
-Stream: **Hygiene**. Repo cleanup — remove unnecessary files, fix `.gitignore`, resolve Windows path duplicates. **No gameplay logic changes** unless a duplicate file is the only copy of real code (escalate to Combat).
-
-**Gate before done:** after deletions, run or hand off:
-```powershell
-.\scripts\run_all_combat_checks.ps1
-```
-Target: **`PHASE0: PASS`**. Docs-only pass: confirm `git status` has no accidental deletions.
-
-**Own:** `.gitignore`, `.cursorignore`, untracked duplicates, editor artifacts.
-
-**Do not touch:** `combat/*`, `world/*`, `core/*` production `.gd` (except proven byte-identical dupes after diff). **Do not** commit `.f5_soak_in.txt`, `.phase0_combat_checks.txt`, or `.godot/` cache.
-
-| Priority | Task | How |
-|:--------:|------|-----|
-| 1 | **Windows path duplicates** | `combat/Foo.gd` (M) + `combat\Foo.gd` (??) — keep tracked path, remove mirror |
-| 2 | **Godot / IDE artifacts** | `.godot/`, `.import/`, `*.tmp` in `.gitignore`; delete untracked `.godot` |
-| 3 | **Playtest artifacts** | Confirm `.f5_soak_in.txt`, `.phase0_*`, `.d001_*` gitignored |
-| 4 | **Cursor rules dupes** | One `.cursor/rules/fallen-paths.mdc` |
-| 5 | **VS Code dupes** | Single `.vscode/settings.json` / `tasks.json` |
-| 6 | **Stale script inventory** | `scripts/README.md` rows match on-disk `scripts/*` (removed: `run_d001_presets*`, `_print_phase0_status.ps1`, `validate_res_paths.py`) |
-| 7 | **res:// path audit** | `python3 scripts/check_doc_links.py --res-paths-only` (included in Phase 0 via `check_doc_links.ps1`) |
-| 8 | **Prompt/doc dedup** | One copy-paste home: `scripts/cursor/README.md` + `agent_*.md`; link stubs in `AGENTS.md` / `PLANNING.md` / `EXPANSION_PLAN.md` / `CURSOR.md` |
-| 9 | **Untracked scripts** | Legitimate new `?? scripts/*` → `git add` + row in `scripts/README.md`; never delete without grep |
-
-**Safety:** never `git clean -fd` repo-wide · list every deletion · if two copies differ, stop and report to Audit.
-
-**Success:** no spurious `?? combat\*.gd` mirrors · artifacts gitignored · Phase 0 PASS (or hand off to Audit).
+Copy [`agent_hygiene.md`](agent_hygiene.md) into a new chat. Bundle: [project health](#project-health-bundle) chat 1.
 
 ---
 
 <a id="audit-dedup"></a>
 
-## Audit (copy-paste this chat)
+## Audit
 
-Stream: **Audit**. Find errors, duplication, anti-patterns — fix **clear bugs only**; report structural duplication for Combat/Medical agents.
-
-**Gate before done:**
-```powershell
-.\scripts\run_all_combat_checks.ps1
-.\scripts\run_company_state_checks.ps1
-```
-Targets: **`PHASE0: PASS`** + **`CAMPAIGN_SHIP_AUDIT: PASS (headless)`** (or **`FP_HARNESS_OK: CompanyStateChecks (406 tests)`**).
-
-**Own:** grep audits, harness failures, calibration audit, minimal fixes (typos, dead imports).
-
-**Do not touch:** `.f5_soak_in.txt` · bleed retune · pick pipeline refactor · new `FEATURE_*`.
-
-**Read first:** [`AGENTS.md`](../../AGENTS.md) anti-patterns · [`docs/LIVE_PATHS.md#harness-prefixes`](../../docs/LIVE_PATHS.md#harness-prefixes) · [`docs/PLANNING.md#file-ownership`](../../docs/PLANNING.md#file-ownership).
-
-| Priority | Audit | Commands |
-|:--------:|-------|----------|
-| 1 | Phase 0 / harness | `.\scripts\run_all_combat_checks.ps1` |
-| 2 | Calibration | `-HarnessMode calibration` |
-| 3 | Medical duplication | grep `entity_has_untreated_wounds`, raw `pack_wound` / `MOVE_ID_*` |
-| 4 | Combatant access | grep `manager._get_by_id` → use `CombatantEntityAccess` |
-| 5 | Bridge duplication | grep local `_tile_coords`, duplicate wound helpers |
-| 6 | Debug leakage | grep `print("[Combat]"` outside `CombatDebug` |
-| 7 | WF conflation | grep `get_stance_modifier` at new call sites |
-| 8 | Doc / res:// gate | `python3 scripts/check_doc_links.py` (doc links + tombstones + `res://` paths) |
-| 9 | Medical harness | `-HarnessMode medical` |
-
-**Report format:** `FINDING` / `SITES` / `CANONICAL` / `FIX` (fixed | defer).
-
-**Success:** gate green · duplication report delivered · ≤1 logical fix unless trivial typos.
+Copy [`agent_audit.md`](agent_audit.md) into a new chat. Bundle: [project health](#project-health-bundle) chat 2.
 
 ---
 
@@ -148,7 +110,7 @@ Combat-side Expand registry **complete (2026-06-08)**.
 | 2 | [`agent_playtest.md`](agent_playtest.md) | Playtest · Exp-0.2 · F5 | **Only** chat on `.f5_soak_in.txt` |
 | 3 | [`agent_campaign.md`](agent_campaign.md) | Campaign · Exp-3 ☑ | `world/*` only |
 
-**Also in this file:** [Hygiene](#hygiene-cleanup) · [Audit](#audit-dedup) · [Medical physics](#medical-physics) · [Expand reopen](#expand-reopen) · [Merge discipline](#merge-discipline)
+**Also in this file:** [Project health](#project-health-bundle) · [`agent_maintain.md`](agent_maintain.md) · [`agent_enhance.md`](agent_enhance.md) · [Hygiene](#hygiene-cleanup) · [Audit](#audit-dedup) · [Medical physics](#medical-physics) · [Expand reopen](#expand-reopen) · [Merge discipline](#merge-discipline)
 
 ---
 

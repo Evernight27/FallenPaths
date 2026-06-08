@@ -7,9 +7,8 @@ const _CompanyState := preload("res://world/CompanyState.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _OverworldMap := preload("res://world/OverworldMap.gd")
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
-
-const TILE_SIZE := 64
 const CAMP_TILE := Vector2i(0, 0)
 const TUTORIAL_TILE := Vector2i(1, 0)
 ## Obsolete save flag (pre `marker_kind`); stripped in **`build_encounter_config`**.
@@ -179,7 +178,7 @@ static func spawn_saved_encounter_at_tile(
 	if scene == null:
 		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
 	var encounter = _EncounterNodeScript.new()
-	encounter.position = _tile_center(parent, tile)
+	encounter.position = _CampaignBridge.overworld_tile_center(tile)
 	if scene != null:
 		encounter.enemy_scene = scene
 	_stamp_encounter_node(
@@ -339,7 +338,7 @@ static func _spawn_contract_at_tile(
 	if scene == null:
 		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
 	var encounter = _EncounterNodeScript.new()
-	encounter.position = _tile_center(parent, tile)
+	encounter.position = _CampaignBridge.overworld_tile_center(tile)
 	if scene != null:
 		encounter.enemy_scene = scene
 	_stamp_encounter_node(
@@ -357,7 +356,10 @@ static func _encounter_on_tile(parent: Node, tile: Vector2i) -> bool:
 	if parent == null or tile.x < 0:
 		return false
 	for child in parent.get_children():
-		if child.get_script() == _EncounterNodeScript and _tile_coords(parent, child.position) == tile:
+		if (
+			child.get_script() == _EncounterNodeScript
+			and _CampaignBridge.overworld_tile_from_position(child.position) == tile
+		):
 			return true
 	return false
 
@@ -365,10 +367,12 @@ static func _encounter_on_tile(parent: Node, tile: Vector2i) -> bool:
 static func _reserve_tiles(parent: Node) -> Array:
 	var used: Array = [CAMP_TILE]
 	if parent.has_node("Character"):
-		used.append(_tile_coords(parent, parent.get_node("Character").position))
+		used.append(
+			_CampaignBridge.overworld_tile_from_position(parent.get_node("Character").position)
+		)
 	for child in parent.get_children():
 		if child.get_script() == _EncounterNodeScript:
-			used.append(_tile_coords(parent, child.position))
+			used.append(_CampaignBridge.overworld_tile_from_position(child.position))
 	return used
 
 
@@ -387,13 +391,3 @@ static func _first_free_tile(parent: Node, reserved: Array) -> Vector2i:
 	return Vector2i(-1, -1)
 
 
-static func _tile_coords(world: Node, pos: Vector2) -> Vector2i:
-	if world != null and world.has_method("_tile_coords"):
-		return world.call("_tile_coords", pos) as Vector2i
-	return Vector2i(floor((pos.x - 32) / float(TILE_SIZE)), floor((pos.y - 32) / float(TILE_SIZE)))
-
-
-static func _tile_center(world: Node, tile: Vector2i) -> Vector2:
-	if world != null and world.has_method("_tile_center"):
-		return world.call("_tile_center", tile) as Vector2
-	return Vector2(tile.x * TILE_SIZE + 32, tile.y * TILE_SIZE + 32)

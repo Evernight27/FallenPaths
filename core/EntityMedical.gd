@@ -35,13 +35,22 @@ static func part_is_bandaged(entity: Node, part: String) -> bool:
 static func part_is_packed(entity: Node, part: String) -> bool:
 	return bool(entity.packed_parts.get(part, false))
 
+
+## TCCC: compressible hemorrhage needs sustained compression before dress/pack while still actively bleeding.
+static func _compression_required_before_dressing(entity: Node, part: String) -> bool:
+	return (
+		entity.get_bleeding_rate_for_part(part) > _Bleeding.BLEEDING_RATE_EPSILON
+		and not has_direct_pressure_on_part(entity, part)
+	)
+
 ## Internal: shared roll-and-apply logic for stabilizing wound treatments (bandage, packing).
 ## Returns true on success. Mutates entity.wounds in place.
 static func _apply_stabilizing_treatment(
 	entity: Node, part: String, effectiveness: float,
 	success_base: float, success_arterial_mult: float, arterial_eff_mult: float, immediate_reduction: float,
 	mark_dict: Dictionary,
-	pressure_held: bool = false
+	pressure_held: bool = false,
+	mark_injury_stabilized: bool = true
 ) -> Dictionary:
 	effectiveness = clampf(effectiveness, 0.0, 1.5)
 	var has_arterial: bool = false
@@ -68,9 +77,10 @@ static func _apply_stabilizing_treatment(
 			var red: float = immediate_reduction * clampf(eff, 0.0, 1.0)
 			var rate: float = injury.get("current_bleeding_rate", 0.0)
 			injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - red))
-			injury["is_stabilized"] = true
-			if _Bleeding.BANDAGE_STABILIZATION_DURATION > 0.0:
-				injury["stabilized_remaining_seconds"] = _Bleeding.BANDAGE_STABILIZATION_DURATION
+			if mark_injury_stabilized:
+				injury["is_stabilized"] = true
+				if _Bleeding.BANDAGE_STABILIZATION_DURATION > 0.0:
+					injury["stabilized_remaining_seconds"] = _Bleeding.BANDAGE_STABILIZATION_DURATION
 		mark_dict[part] = true
 	else:
 		var closeness: float = 1.0
@@ -128,6 +138,8 @@ static func can_apply_bandage(entity: Node, part: String) -> bool:
 		return false
 	if entity.tourniquet_applied.has(part) or part_is_bandaged(entity, part):
 		return false
+	if _compression_required_before_dressing(entity, part):
+		return false
 	# Pack then wrap: linen cavity pack may be secured with an outer bandage.
 	return true
 
@@ -168,7 +180,7 @@ static func get_stabilize_application_time_seconds_for_part(entity: Node, part: 
 	)
 
 
-## Quick hemostatic control while pressure is held; marks injuries stabilized but not bandaged (map still wants TCCC dressings).
+## Quick hemostatic control while pressure is held; trims bleed rate only — does **not** set `is_stabilized` (definitive dress still required).
 static func can_apply_stabilize(entity: Node, part: String) -> bool:
 	if part.is_empty() or not entity.wounds.has(part) or entity.wounds[part].is_empty():
 		return false
@@ -179,10 +191,7 @@ static func can_apply_stabilize(entity: Node, part: String) -> bool:
 	if not has_direct_pressure_on_part(entity, part):
 		return false
 	for injury in entity.wounds[part]:
-		var rate: float = float(injury.get("current_bleeding_rate", 0.0))
-		if rate > _Bleeding.BLEEDING_RATE_EPSILON:
-			return true
-		if not injury.get("is_stabilized", false) and injury.get("is_arterial", false):
+		if float(injury.get("current_bleeding_rate", 0.0)) > _Bleeding.BLEEDING_RATE_EPSILON:
 			return true
 	return false
 
@@ -203,7 +212,8 @@ static func apply_stabilize(entity: Node, part: String, effectiveness: float = 1
 		_Bleeding.STABILIZE_ARTERIAL_EFFECTIVENESS_MULT,
 		_Bleeding.STABILIZE_IMMEDIATE_REDUCTION,
 		throwaway_marks,
-		pressure_held
+		pressure_held,
+		false
 	)
 	if r.success:
 		log_medical_session(
@@ -277,6 +287,8 @@ static func can_apply_packing(entity: Node, part: String) -> bool:
 		return false
 	if entity.tourniquet_applied.has(part) or part_is_bandaged(entity, part) or part_is_packed(entity, part):
 		return false
+	if _compression_required_before_dressing(entity, part):
+		return false
 	return true
 
 static func apply_packing(entity: Node, part: String, effectiveness: float = 1.0) -> bool:
@@ -322,7 +334,7 @@ static func _apply_direct_pressure_to_wounds(entity: Node, part: String, effecti
 		var reduction: float = _Bleeding.DIRECT_PRESSURE_IMMEDIATE_REDUCTION * clampf(eff, 0.0, 1.0)
 		var rate: float = injury.get("current_bleeding_rate", 0.0)
 		injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - reduction))
-		# Pressure slows bleed while held; stabilize / bandage set is_stabilized.
+		# Pressure slows bleed while held; bandage / pack set is_stabilized (stabilize trims rate only).
 
 ## Before bandage/pack/tourniquet wind-up: free the treater's hands without dropping compression on the wound being treated.
 ## Preserves ally-held pressure on `part` when the treater is also the patient (TCCC: do not release until dressing controls bleed).
@@ -411,9 +423,10 @@ static func stack_assist_pressure_during_ally_treatment(entity: Node, part: Stri
 static func can_apply_direct_pressure(entity: Node, target_part: String) -> bool:
 	if part_is_bandaged(entity, target_part) or part_is_packed(entity, target_part):
 		return false
+	if entity.get_bleeding_rate_for_part(target_part) <= _Bleeding.BLEEDING_RATE_EPSILON:
+		return false
 	if entity.tourniquet_applied.has(target_part):
-		if entity.get_bleeding_rate_for_part(target_part) <= _Bleeding.BLEEDING_RATE_EPSILON:
-			return false
+		return false
 	var arm: String = entity.get_attacking_arm()
 	if arm.is_empty():
 		return false
@@ -422,8 +435,24 @@ static func can_apply_direct_pressure(entity: Node, target_part: String) -> bool
 			return false
 	return true
 
+static func can_apply_direct_pressure_from_ally(
+	entity: Node, part: String, performer_entity: Node = null
+) -> bool:
+	if performer_entity == null or part.is_empty() or not entity.wounds.has(part):
+		return false
+	if part_is_bandaged(entity, part) or part_is_packed(entity, part):
+		return false
+	if entity.tourniquet_applied.has(part):
+		return false
+	if entity.get_bleeding_rate_for_part(part) <= _Bleeding.BLEEDING_RATE_EPSILON:
+		return false
+	return true
+
+
 static func apply_direct_pressure_from_ally(entity: Node, part: String, performer_entity: Node = null) -> bool:
 	if part.is_empty() or not entity.wounds.has(part):
+		return false
+	if not can_apply_direct_pressure_from_ally(entity, part, performer_entity):
 		return false
 	if part_is_bandaged(entity, part) or part_is_packed(entity, part):
 		return false

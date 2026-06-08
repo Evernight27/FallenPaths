@@ -20,6 +20,10 @@ const _CombatLayerTissue := preload("res://core/CombatLayerTissue.gd")
 const _TissueEnergyCapacity := preload("res://core/TissueEnergyCapacity.gd")
 
 @export var species: Resource = null
+## Campaign / harness: player party lead (stamped on **`CombatManager.register`** for player side only).
+var is_party_leader: bool = false
+## IV-11: enemy commander (stamped on **`CombatManager.register`** for enemy side only).
+var is_enemy_leader: bool = false
 
 # Sharp (cutting) and blunt health per body part (tissue). Bone is separate; severance when tissue 0 and bone 0.
 var body_cutting: Dictionary = {}
@@ -450,6 +454,10 @@ func ensure_consciousness_current() -> void:
 
 func can_apply_direct_pressure(target_part: String) -> bool:
 	return _EntityMedical.can_apply_direct_pressure(self, target_part)
+
+func can_apply_direct_pressure_from_ally(part: String, performer_entity: Node = null) -> bool:
+	return _EntityMedical.can_apply_direct_pressure_from_ally(self, part, performer_entity)
+
 
 func apply_direct_pressure_from_ally(part: String, performer_entity: Node = null) -> bool:
 	return _EntityMedical.apply_direct_pressure_from_ally(self, part, performer_entity)

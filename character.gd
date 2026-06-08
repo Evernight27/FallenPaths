@@ -1,5 +1,7 @@
 extends CharacterBody2D
 
+const _OverworldMap := preload("res://world/OverworldMap.gd")
+
 const TILE_SIZE = 64.0
 var target_position: Vector2
 var is_moving = false
@@ -10,6 +12,8 @@ signal moved
 @export var species: Resource = null
 ## True for the player-controlled lead only. Companions stay false. Set in scene and/or `PlayerCompanionSetup`; copied into combatant dict on `CombatManager.register`.
 @export var is_party_leader: bool = false
+## IV-11: enemy formation commander — set in `EncounterNode.spawn_enemies` (default index 0) or scene export; copied on `CombatManager.register` (enemy side only).
+@export var is_enemy_leader: bool = false
 ## Expand WF-4: preferred weapon form id (`ox`, `wall`, …). Empty → encounter side default → weapon default at `CombatWeaponForm.seed_combatant_form`.
 @export var stance_preference: String = ""
 @onready var _combat_body: CoreEntity = $CombatBody
@@ -195,6 +199,14 @@ func can_apply_direct_pressure(target_part: String) -> bool:
 func apply_direct_pressure(part: String) -> bool:
 	return _combat_body.apply_direct_pressure(part) if _combat_body else false
 
+func can_apply_direct_pressure_from_ally(part: String, performer_entity: Node = null) -> bool:
+	return (
+		_combat_body.can_apply_direct_pressure_from_ally(part, performer_entity)
+		if _combat_body
+		else false
+	)
+
+
 func apply_direct_pressure_from_ally(part: String, performer_entity: Node = null) -> bool:
 	return _combat_body.apply_direct_pressure_from_ally(part, performer_entity) if _combat_body else false
 
@@ -313,8 +325,10 @@ func _input(event) -> void:
 				input_direction = Vector2.RIGHT
 		if input_direction != Vector2.ZERO:
 			var new_target = target_position + input_direction * TILE_SIZE
-			if new_target.x >= TILE_SIZE / 2 and new_target.x < TILE_SIZE * 3 + TILE_SIZE / 2:
-				if new_target.y >= TILE_SIZE / 2 and new_target.y < TILE_SIZE * 3 + TILE_SIZE / 2:
+			var min_pos: float = _OverworldMap.movement_min_pos()
+			var max_pos: float = _OverworldMap.movement_max_pos_exclusive(get_parent())
+			if new_target.x >= min_pos and new_target.x < max_pos:
+				if new_target.y >= min_pos and new_target.y < max_pos:
 					target_position = new_target
 					is_moving = true
 

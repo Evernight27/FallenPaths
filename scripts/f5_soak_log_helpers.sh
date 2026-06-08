@@ -154,6 +154,57 @@ f5_validator_track_status() {
 	echo "missing"
 }
 
+f5_camp_smokes_batch_path() { echo "$1/.f5_camp_smokes_batch.txt"; }
+
+f5_validation_fresh() {
+	local root="$1" log val log_stamp val_stamp
+	log="$(f5_soak_log_path "$root")"
+	val="$root/.f5_soak_validation.txt"
+	[[ -f "$log" && -f "$val" ]] || return 1
+	grep -q '^ok=true' "$val" 2>/dev/null || return 1
+	grep -q '^--- END FP_F5_SOAK_VALIDATION ---' "$val" 2>/dev/null || return 1
+	log_stamp="$(f5_validation_report_stamp "$log")"
+	val_stamp="$(f5_validation_report_stamp "$val")"
+	[[ "$val_stamp" -ge "$log_stamp" ]]
+}
+
+f5_wait_camp_smokes_batch() {
+	local batch="${1:-}"
+	local not_before="${2:-0}"
+	local deadline=$((SECONDS + 90))
+	local stamp
+	[[ -n "$batch" ]] || return 1
+	while (( SECONDS < deadline )); do
+		if [[ -f "$batch" ]]; then
+			stamp="$(f5_validation_report_stamp "$batch")"
+			if [[ "$stamp" -gt "$not_before" ]] && grep -q '^--- END FP_F5_CAMP_SMOKES_BATCH ---' "$batch" 2>/dev/null; then
+				return 0
+			fi
+		fi
+		sleep 0.05
+	done
+	return 1
+}
+
+f5_invoke_camp_smokes_batch() {
+	local root="$1" godot batch code
+	# shellcheck source=_godot.sh
+	source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_godot.sh"
+	godot="$(fp_godot_bin)" || return 127
+	batch="$(f5_camp_smokes_batch_path "$root")"
+	rm -f "$batch"
+	fp_godot_import_warmup "$root" || true
+	export FP_HARNESS_MODE=f5_validate_camp_smokes
+	"$godot" --headless --path "$root" -s res://scripts/run_all_combat_checks.gd
+	code=$?
+	unset FP_HARNESS_MODE
+	if [[ -f "$batch" ]] && grep -q '^--- END FP_F5_CAMP_SMOKES_BATCH ---' "$batch" 2>/dev/null; then
+		return "$code"
+	fi
+	[[ "$code" -ne 0 ]] && return "$code"
+	return 2
+}
+
 f5_validation_report_stamp() {
 	local val="${1:-}"
 	[[ -f "$val" ]] || { echo "0"; return; }
@@ -167,10 +218,41 @@ f5_validation_report_stamp() {
 	fi
 }
 
+f5_stop_stuck_godot() {
+	pkill -f "Godot" 2>/dev/null || true
+}
+
+f5_log_validation_with_retry() {
+	local validate_script="$1" log_path="$2" val_path="$3"
+	local stamp retry_stamp
+	stamp="$(f5_validation_report_stamp "$val_path")"
+	"$validate_script" --quiet "$log_path" || true
+	if f5_wait_validation_report "$val_path" "$stamp"; then
+		return 0
+	fi
+	f5_stop_stuck_godot
+	sleep 1
+	retry_stamp="$(f5_validation_report_stamp "$val_path")"
+	"$validate_script" --quiet "$log_path" || true
+	f5_wait_validation_report "$val_path" "$retry_stamp"
+}
+
+phase0_summary_commit() {
+	local root="$1"
+	local final="$root/.phase0_combat_checks.txt"
+	local tmp="$final.tmp"
+	shift
+	: >"$tmp"
+	for line in "$@"; do
+		echo "$line" >>"$tmp"
+	done
+	mv -f "$tmp" "$final"
+}
+
 f5_wait_validation_report() {
 	local val="${1:-}"
 	local not_before="${2:-0}"
-	local deadline=$((SECONDS + 15))
+	local deadline=$((SECONDS + 45))
 	local stamp
 	[[ -n "$val" ]] || return 1
 	while (( SECONDS < deadline )); do

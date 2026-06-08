@@ -38,6 +38,7 @@ elif [[ ! -f "$INPUT_DEFAULT" ]]; then
 	exit 2
 fi
 [[ $QUIET -eq 0 ]] && echo "=== CombatF5SoakLogValidator ==="
+REPORT_STAMP="$(f5_validation_report_stamp "$REPORT_PATH")"
 set +e
 export FP_HARNESS_MODE=f5_validate
 GODOT_ARGS=()
@@ -58,7 +59,7 @@ fi
 EXIT_CODE=$?
 set -e
 unset FP_HARNESS_MODE FP_F5_VALIDATE_LOG
-if ! f5_wait_validation_report "$REPORT_PATH"; then
+if ! f5_wait_validation_report "$REPORT_PATH" "$REPORT_STAMP"; then
 	[[ $QUIET -eq 0 ]] && echo "WARN: validation report missing or incomplete after Godot run"
 	EXIT_CODE=1
 fi

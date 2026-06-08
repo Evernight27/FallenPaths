@@ -22,7 +22,7 @@ Flags: [`LIVE_PATHS#production-flags`](LIVE_PATHS.md#production-flags).
 2. **Post–Camp-5 (2026-06-07 ☑)** — [`README#parallel-expansion-bundle`](../scripts/cursor/README.md#parallel-expansion-bundle) · [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · [parallel agents](PLANNING.md#parallel-agents) · [single agent](#single-agent)
 3. **Product choices** — closed in [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22); new gates only → guide appendix + [§19](SHIP_PLAN.md#implementation-stubs)
 
-Stream pick + parallel rules: [`PLANNING#work-streams`](PLANNING.md#work-streams) · [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents).
+Stream pick + parallel rules: [`PLANNING#work-streams`](PLANNING.md#work-streams) · [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents). **Project health:** [`agent_maintain.md`](../scripts/cursor/agent_maintain.md) · [`agent_hygiene.md`](../scripts/cursor/agent_hygiene.md) · [`agent_audit.md`](../scripts/cursor/agent_audit.md) · [`agent_enhance.md`](../scripts/cursor/agent_enhance.md).
 
 <a id="single-agent"></a>
 
@@ -85,6 +85,8 @@ Prompt: [`agent_campaign.md`](../scripts/cursor/agent_campaign.md) · detail: [`
 - **2026-06-06** — Footing pass 7: **`wf_m3_idle_step_leak`** optional F5 track; **`camp_ea`** synthetic markers — [`#wf-m3-f5-playtest`](LIVE_PATHS.md#wf-m3-f5-playtest)
 - **2026-06-06** — Footing pass 6: D-001 sanity **`wf_m3_*`** / **`camp_ea`** validator fixtures — [`#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog)
 - **2026-06-07** — **WF-T1 ☑** octant PA soak tune + **`_run_footwork_wf_t1_octant_suite`** — [`#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog)
+- **2026-06-08** — **Medical physics (pass 4)** — field **tourniquet** applies before procedure sim advance (not 2 min open limb bleed); **`can_apply_stabilize`** requires intrinsic active bleed (not arterial label after local clot) — [`#bleeding-physics`](LIVE_PATHS.md#bleeding-physics) · **`_run_field_tourniquet_applies_before_procedure_advance`** · **`_run_stabilize_requires_intrinsic_active_bleed`**
+- **2026-06-08** — **Medical physics** — clotting/hemostasis + TCCC dress gates: **`EntityMedical`** compression required on active bleed for bandage/pack; stabilize trim-only; field pack/bandage parity — [`#bleeding-physics`](LIVE_PATHS.md#bleeding-physics) · **`_run_entity_medical_dressing_*`** · **`_run_field_care_pressure_before_*`**
 - **2026-06-08** — **III-8 ☑** recovery-cause table parity — **`parry_partial`** alias · **`_run_iii8_recovery_cause_table_parity`** — [`#phase-4--new-systems-formal-tracks`](LIVE_PATHS.md#phase-4--new-systems-formal-tracks)
 - **2026-06-08** — **p4e ☑** — feint listing ↔ reveal progress parity — **`_run_feint_move_listing_reveal_progress_dampens_early_wind_up`** — [`#tier-42-feint-d-telegraph-ai`](LIVE_PATHS.md#tier-42-feint-d-telegraph-ai)
 - **2026-06-08** — **p4f ☑** — dedicated flee formation UX + AI archived — **`CombatRegressionHarnessFleeTail`** · [`#tier-62-dedicated-flee-formation-action`](LIVE_PATHS.md#tier-62-dedicated-flee-formation-action)

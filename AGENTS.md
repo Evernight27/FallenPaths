@@ -34,11 +34,13 @@ Flat folders by design ? find modules by **name prefix**, not subfolder. Do not 
 
 | Stream | Copy-paste from | Gate |
 |--------|-----------------|------|
+| **Maintain** *(session default)* | [`agent_maintain.md`](scripts/cursor/agent_maintain.md) → stream `agent_*.md` | `PHASE0: PASS` |
 | **Combat** | [`agent_combat.md`](scripts/cursor/agent_combat.md) (incl. [3e](scripts/cursor/agent_combat.md#specialty-iii-4-3e-fight-finish) · [line plug](scripts/cursor/agent_combat.md#specialty-iii-6-line-plug)) | `PHASE0: PASS` |
-| **Expand** *(§9c reopen only)* | [`README#expand-reopen`](scripts/cursor/README.md#expand-reopen) | `PHASE0: PASS` |
+| **Enhance** *(user-named row)* | [`agent_enhance.md`](scripts/cursor/agent_enhance.md) · Expand: [`README#expand-reopen`](scripts/cursor/README.md#expand-reopen) | `PHASE0: PASS` |
 | **Playtest** | [`agent_playtest.md`](scripts/cursor/agent_playtest.md) · tools: [`scripts/README.md`](scripts/README.md) | one agent on `.f5_soak_in.txt` |
 | **Campaign** | [`agent_campaign.md`](scripts/cursor/agent_campaign.md) | `CompanyStateChecks` **406** or Phase 0 + ship audit |
-| **Hygiene · Audit · Medical** | [`README` sections](scripts/cursor/README.md#hygiene-cleanup) | Hygiene: no production `.gd`; hand off Audit for Phase 0 |
+| **Hygiene · Audit** | [`agent_hygiene.md`](scripts/cursor/agent_hygiene.md) · [`agent_audit.md`](scripts/cursor/agent_audit.md) · bundle: [`README#project-health-bundle`](scripts/cursor/README.md#project-health-bundle) | Hygiene: no production `.gd`; hand off Audit for Phase 0 |
+| **Medical** | [`README#medical-physics`](scripts/cursor/README.md#medical-physics) | `PHASE0: PASS` |
 
 ## Canonical APIs (combat / campaign)
 

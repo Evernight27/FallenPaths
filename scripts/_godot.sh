@@ -19,3 +19,11 @@ fp_godot_bin() {
 	fi
 	return 1
 }
+
+fp_godot_import_warmup() {
+	local root="$1"
+	local godot
+	godot="$(fp_godot_bin)" || return 1
+	"$godot" --headless --path "$root" --import >/dev/null 2>&1 || true
+	sleep 2
+}

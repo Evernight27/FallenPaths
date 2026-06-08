@@ -209,7 +209,8 @@ const CLOTTING_SEVERITY_MULTIPLIERS: Dictionary = {
 # When bandaged: clotting rate (Option A: tuned for ~2-5 min to hemostasis, research-based).
 const CLOTTING_RATE_STABILIZED: float = 0.006  # per second when bandaged; half-life ~2 min
 ## Sustained direct pressure: faster local clotting than unstabilized open bleed (compression aids hemostasis).
-const CLOTTING_RATE_UNDER_DIRECT_PRESSURE: float = 0.014
+## Tuned for MapFieldCare FIELD_CARE_SIM_ADVANCE_SECONDS (~150 s): moderate venous → local hemostasis while held.
+const CLOTTING_RATE_UNDER_DIRECT_PRESSURE: float = 0.032
 ## Success mult when dressing completes while compression was still on the part (TCCC: do not release early).
 const TREATMENT_PRESSURE_HELD_SUCCESS_MULT: float = 1.18
 # Rate below this is treated as clotted (removal). Avoids relying on float underflow. MINOR_WOUND_BLEEDING_METHODS Method 4.

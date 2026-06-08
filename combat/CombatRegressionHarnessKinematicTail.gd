@@ -13,6 +13,7 @@ const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
+const _DefenseResolution := preload("res://combat/DefenseResolutionHandler.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
@@ -165,20 +166,371 @@ static func _run_kinematic_delivery_get_attack_path_all_line_pairs_nonempty(
 	for atk_oct in _GuardLines.ALL_LINES:
 		for guard_oct in _GuardLines.ALL_LINES:
 			var path_oct: Array = CombatConstants.get_attack_path(str(atk_oct), str(guard_oct))
-			var path_card: Array = CombatConstants.get_attack_path(
-				_GuardLines.cardinal_for_path_lookup(str(atk_oct)),
-				_GuardLines.cardinal_for_path_lookup(str(guard_oct))
-			)
 			if path_oct.is_empty():
 				CombatRegressionHarness._fail(
 					failures,
 					"kin_attack_path_octant: empty path atk=%s guard=%s" % [atk_oct, guard_oct]
 				)
-			if str(path_oct) != str(path_card):
+
+static func _run_iv4_guard_matrix_suite(failures: PackedStringArray) -> void:
+	const _GuardLines := preload("res://combat/CombatGuardLines.gd")
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		CombatRegressionHarness._fail(
+			failures, "iv4_guard_matrix: FEATURE_HEMA_EIGHT_GUARD_LINES must be on in production"
+		)
+		return
+	var flank_cases: Array = [
+		[_GuardLines.LINE_HIGH_LEFT, _GuardLines.LINE_LEFT, _GuardLines.LINE_HIGH],
+		[_GuardLines.LINE_LOW_LEFT, _GuardLines.LINE_LEFT, _GuardLines.LINE_LOW],
+		[_GuardLines.LINE_HIGH_RIGHT, _GuardLines.LINE_RIGHT, _GuardLines.LINE_HIGH],
+		[_GuardLines.LINE_LOW_RIGHT, _GuardLines.LINE_RIGHT, _GuardLines.LINE_LOW],
+	]
+	for case in flank_cases:
+		var diag: String = str(case[0])
+		var flank_card: String = str(case[1])
+		var vert_card: String = str(case[2])
+		if _GuardLines.guard_cardinal_for_attack_path(diag) != flank_card:
+			CombatRegressionHarness._fail(
+				failures,
+				"iv4_guard_matrix: guard_cardinal %s want %s got %s"
+				% [diag, flank_card, _GuardLines.guard_cardinal_for_attack_path(diag)]
+			)
+		var path_diag: Array = CombatConstants.get_attack_path("high", diag)
+		var path_flank: Array = CombatConstants.get_attack_path("high", flank_card)
+		var path_vert: Array = CombatConstants.get_attack_path("high", vert_card)
+		if CombatConstants.is_feature_iv6_attack_path_octant_enabled():
+			if str(path_diag) == str(path_flank):
 				CombatRegressionHarness._fail(
 					failures,
-					"kin_attack_path_octant: parity fail atk=%s guard=%s" % [atk_oct, guard_oct]
+					"iv4_guard_matrix: %s guard IV-6 path must differ from flank %s got %s"
+					% [diag, flank_card, str(path_diag)]
 				)
+		elif str(path_diag) != str(path_flank):
+			CombatRegressionHarness._fail(
+				failures,
+				"iv4_guard_matrix: %s guard want %s-side path got %s vs %s"
+				% [diag, flank_card, str(path_diag), str(path_flank)]
+			)
+		if str(path_diag) == str(path_vert) and flank_card != vert_card:
+			CombatRegressionHarness._fail(
+				failures,
+				"iv4_guard_matrix: %s guard must not collapse to %s guard path"
+				% [diag, vert_card]
+			)
+	var align_hi_right: float = CombatConstants.get_line_alignment(
+		_GuardLines.LINE_RIGHT, _GuardLines.LINE_HIGH_RIGHT
+	)
+	var align_high: float = CombatConstants.get_line_alignment(
+		_GuardLines.LINE_RIGHT, _GuardLines.LINE_HIGH
+	)
+	if absf(align_hi_right - align_high) < 0.05:
+		CombatRegressionHarness._fail(
+			failures,
+			"iv4_guard_matrix: high_right guard alignment must differ from high (got %.4f vs %.4f)"
+			% [align_hi_right, align_high]
+		)
+	if align_hi_right < 0.5:
+		CombatRegressionHarness._fail(
+			failures,
+			"iv4_guard_matrix: high_right vs right want strong alignment got %.4f" % align_hi_right
+		)
+	var zone_cases: Array = [
+		[_GuardLines.LINE_HIGH_LEFT, "left_arm"],
+		[_GuardLines.LINE_LOW_LEFT, "left_arm"],
+		[_GuardLines.LINE_HIGH_RIGHT, "right_arm"],
+		[_GuardLines.LINE_LOW_RIGHT, "right_arm"],
+		[_GuardLines.LINE_LEFT, "left_arm"],
+		[_GuardLines.LINE_HIGH, "head"],
+	]
+	for zc in zone_cases:
+		var ln: String = str(zc[0])
+		var want_part: String = str(zc[1])
+		var got_part: String = CombatConstants.guard_zone_for_guard_line(ln)
+		if got_part != want_part:
+			CombatRegressionHarness._fail(
+				failures,
+				"iv4_guard_matrix: guard_zone %s want %s got %s" % [ln, want_part, got_part]
+			)
+	var path_lead: String = str(
+		CombatConstants.get_attack_path("high", _GuardLines.LINE_HIGH_LEFT)[0]
+	)
+	if path_lead != CombatConstants.guard_zone_for_guard_line(_GuardLines.LINE_HIGH_LEFT):
+		CombatRegressionHarness._fail(
+			failures,
+			"iv4_guard_matrix: high_left guard_zone want path lead %s got %s"
+			% [path_lead, CombatConstants.guard_zone_for_guard_line(_GuardLines.LINE_HIGH_LEFT)]
+		)
+
+
+static func _run_iv6_attack_path_octant_suite(failures: PackedStringArray) -> void:
+	const _GuardLines := preload("res://combat/CombatGuardLines.gd")
+	if not CombatConstants.is_feature_iv6_attack_path_octant_enabled():
+		CombatRegressionHarness._fail(
+			failures, "iv6_attack_path_octant: FEATURE_IV6_ATTACK_PATH_OCTANT must be on in production"
+		)
+		return
+	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
+		CombatRegressionHarness._fail(
+			failures, "iv6_attack_path_octant: FEATURE_HEMA_EIGHT_GUARD_LINES must be on in production"
+		)
+		return
+	var diagonal_cases: Array = [
+		[_GuardLines.LINE_HIGH_LEFT, _GuardLines.LINE_LEFT, _GuardLines.LINE_HIGH],
+		[_GuardLines.LINE_LOW_LEFT, _GuardLines.LINE_LEFT, _GuardLines.LINE_LOW],
+		[_GuardLines.LINE_HIGH_RIGHT, _GuardLines.LINE_RIGHT, _GuardLines.LINE_HIGH],
+		[_GuardLines.LINE_LOW_RIGHT, _GuardLines.LINE_RIGHT, _GuardLines.LINE_LOW],
+	]
+	for case in diagonal_cases:
+		var diag: String = str(case[0])
+		var flank_card: String = str(case[1])
+		var vert_card: String = str(case[2])
+		var atk_card: String = "high"
+		var by_guard: Dictionary = CombatConstants.ATTACK_PATHS_BY_GUARD.get(atk_card, {})
+		var flank_path: Array = by_guard.get(flank_card, [])
+		var vert_path: Array = by_guard.get(vert_card, [])
+		var zone: String = _GuardLines.guard_zone_part_for_line(diag)
+		var want: Array = CombatConstants._iv6_diagonal_attack_path(flank_path, vert_path, diag, zone)
+		var got: Array = CombatConstants.get_attack_path(atk_card, diag)
+		if str(got) != str(want):
+			CombatRegressionHarness._fail(
+				failures,
+				"iv6_attack_path_octant: %s guard want %s got %s"
+				% [diag, str(want), str(got)]
+			)
+		if str(got[0]) != zone:
+			CombatRegressionHarness._fail(
+				failures,
+				"iv6_attack_path_octant: %s guard path must lead with zone %s got %s"
+				% [diag, zone, str(got[0])]
+			)
+		if str(got) == str(CombatConstants.get_attack_path(atk_card, flank_card)):
+			CombatRegressionHarness._fail(
+				failures,
+				"iv6_attack_path_octant: %s guard path must differ from flank %s"
+				% [diag, flank_card]
+			)
+		if str(got) == str(CombatConstants.get_attack_path(atk_card, vert_card)):
+			CombatRegressionHarness._fail(
+				failures,
+				"iv6_attack_path_octant: %s guard path must differ from vertical %s"
+				% [diag, vert_card]
+			)
+	var saved_iv6: bool = CombatConstants.is_feature_iv6_attack_path_octant_enabled()
+	CombatConstants.set_feature_iv6_attack_path_octant_load(false)
+	var collapsed: Array = CombatConstants.get_attack_path("high", _GuardLines.LINE_HIGH_LEFT)
+	var flank_only: Array = CombatConstants.ATTACK_PATHS_BY_GUARD["high"][_GuardLines.LINE_LEFT]
+	if str(collapsed) != str(flank_only):
+		CombatRegressionHarness._fail(
+			failures,
+			"iv6_attack_path_octant: flag off high_left must collapse to left flank path got %s"
+			% str(collapsed)
+		)
+	CombatConstants.set_feature_iv6_attack_path_octant_load(saved_iv6)
+
+
+static func _run_iv5_arm_interpose_suite(failures: PackedStringArray) -> void:
+	const _GuardLines := preload("res://combat/CombatGuardLines.gd")
+	const targetable: Array = ["left_arm", "right_arm", "head", "chest", "left_leg", "right_leg"]
+	if not CombatConstants.is_feature_arm_interpose_enabled():
+		CombatRegressionHarness._fail(failures, "iv5_interpose: FEATURE_ARM_INTERPOSE must be on in production")
+	var align_rl: float = _GuardLines.alignment_from_lines(
+		_GuardLines.LINE_RIGHT, _GuardLines.LINE_LEFT, CombatConstants.PARRY_ALIGNMENT_FLOOR
+	)
+	var ev_rl: Dictionary = _GuardLines.arm_interpose_eval(
+		_GuardLines.LINE_RIGHT, _GuardLines.LINE_LEFT, align_rl, targetable
+	)
+	if not ev_rl.get("active", false):
+		CombatRegressionHarness._fail(failures, "iv5_interpose: right vs left want active interpose")
+	if str(ev_rl.get("arm", "")) != "right_arm":
+		CombatRegressionHarness._fail(
+			failures, "iv5_interpose: right vs left want right_arm got %s" % str(ev_rl.get("arm"))
+		)
+	var boost: float = float(ev_rl.get("align_boost", 0.0))
+	if boost <= 0.0:
+		CombatRegressionHarness._fail(failures, "iv5_interpose: want positive align_boost")
+	if minf(1.0, align_rl + boost) <= align_rl:
+		CombatRegressionHarness._fail(failures, "iv5_interpose: boosted alignment must exceed base")
+	var align_rr: float = _GuardLines.alignment_from_lines(
+		_GuardLines.LINE_RIGHT, _GuardLines.LINE_RIGHT, CombatConstants.PARRY_ALIGNMENT_FLOOR
+	)
+	var ev_rr: Dictionary = _GuardLines.arm_interpose_eval(
+		_GuardLines.LINE_RIGHT, _GuardLines.LINE_RIGHT, align_rr, targetable
+	)
+	if ev_rr.get("active", false):
+		CombatRegressionHarness._fail(failures, "iv5_interpose: aligned guard must not interpose")
+	var align_hl: float = _GuardLines.alignment_from_lines(
+		_GuardLines.LINE_HIGH, _GuardLines.LINE_LEFT, CombatConstants.PARRY_ALIGNMENT_FLOOR
+	)
+	var ev_hl: Dictionary = _GuardLines.arm_interpose_eval(
+		_GuardLines.LINE_HIGH, _GuardLines.LINE_LEFT, align_hl, targetable
+	)
+	if not ev_hl.get("active", false) or str(ev_hl.get("arm", "")) != "right_arm":
+		CombatRegressionHarness._fail(
+			failures,
+			"iv5_interpose: high vs left want right_arm cross active=%s arm=%s"
+			% [str(ev_hl.get("active")), str(ev_hl.get("arm"))]
+		)
+	var saved: bool = CombatConstants.is_feature_arm_interpose_enabled()
+	CombatConstants.set_feature_arm_interpose_load(false)
+	var ev_off: Dictionary = _GuardLines.arm_interpose_eval(
+		_GuardLines.LINE_RIGHT, _GuardLines.LINE_LEFT, align_rl, targetable
+	)
+	CombatConstants.set_feature_arm_interpose_load(saved)
+	if ev_off.get("active", false):
+		CombatRegressionHarness._fail(failures, "iv5_interpose: flag off must disable")
+	if CombatConstants.ARM_INTERPOSE_HIT_WEIGHT_MULT <= 1.0:
+		CombatRegressionHarness._fail(failures, "iv5_interpose: hit weight mult must exceed 1")
+	var path: Array = CombatConstants.get_attack_path(_GuardLines.LINE_RIGHT, _GuardLines.LINE_LEFT)
+	var intercept_max: int = AttackPathResolver.intercept_max_index_for_alignment(path, align_rl)
+	var segment: Array = []
+	for i in range(intercept_max + 1):
+		if i < path.size() and targetable.has(path[i]):
+			segment.append(path[i])
+	if not segment.has("right_arm"):
+		CombatRegressionHarness._fail(
+			failures,
+			"iv5_interpose: right_arm must be in path segment intercept_max=%d path=%s"
+			% [intercept_max, str(path)]
+		)
+
+
+## IV-5: strike-time **`choose_defense`** records interpose boost on misaligned flank guard.
+static func _run_iv5_choose_defense_interpose_boost(failures: PackedStringArray) -> void:
+	const attack_type: String = "oberhau"
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	defender["guard"] = 0.55
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["guard_line"] = "left"
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
+	if parts.is_empty():
+		CombatRegressionHarness._fail(failures, "iv5_interpose_dc: targetable parts empty")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var pa: Dictionary = {
+		"attack_type": attack_type,
+		"effective_attack_line": "right",
+		"intensity": 0.55,
+		"wind_up_duration": 1.05,
+		"tactical_ambush_mult": 1.0,
+	}
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var dc_on: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, attack_type, arch, -1.0
+	)
+	var boost_on: float = float(dc_on.get("arm_interpose_boost", 0.0))
+	if boost_on <= 0.0:
+		CombatRegressionHarness._fail(
+			failures,
+			"iv5_interpose_dc: right vs left want arm_interpose_boost got %.4f"
+			% boost_on
+		)
+	if str(dc_on.get("arm_interpose_arm", "")) != "right_arm":
+		CombatRegressionHarness._fail(
+			failures,
+			"iv5_interpose_dc: want right_arm got %s" % str(dc_on.get("arm_interpose_arm", ""))
+		)
+	var saved: bool = CombatConstants.is_feature_arm_interpose_enabled()
+	CombatConstants.set_feature_arm_interpose_load(false)
+	var dc_off: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, attack_type, arch, -1.0
+	)
+	CombatConstants.set_feature_arm_interpose_load(saved)
+	if float(dc_off.get("arm_interpose_boost", 0.0)) > 0.0:
+		CombatRegressionHarness._fail(failures, "iv5_interpose_dc: flag off must not set boost")
+	defender["guard_line"] = "right"
+	var dc_aligned: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, attack_type, arch, -1.0
+	)
+	if float(dc_aligned.get("arm_interpose_boost", 0.0)) > 0.0:
+		CombatRegressionHarness._fail(failures, "iv5_interpose_dc: aligned guard must not interpose")
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## IV-5: **`DefenseResolutionHandler`** copies interpose fields into **`parry_clash_context`** (F5 parry grep).
+static func _run_iv5_parry_clash_context_carries_interpose(failures: PackedStringArray) -> void:
+	const attack_type: String = "oberhau"
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	defender["guard"] = 0.55
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["guard_line"] = "left"
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
+	if parts.is_empty():
+		CombatRegressionHarness._fail(failures, "iv5_interpose_clash: targetable parts empty")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var pa: Dictionary = {
+		"attack_type": attack_type,
+		"effective_attack_line": "right",
+		"intensity": 0.55,
+		"wind_up_duration": 1.05,
+		"tactical_ambush_mult": 1.0,
+		"arc_start_deg": 0.0,
+		"arc_end_deg": 90.0,
+	}
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var dc: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, attack_type, arch, -1.0
+	)
+	if float(dc.get("arm_interpose_boost", 0.0)) <= 0.0:
+		CombatRegressionHarness._fail(failures, "iv5_interpose_clash: choose_defense must set interpose boost")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	if str(dc.get("defense", "")) != "parry":
+		CombatRegressionHarness._fail(
+			failures,
+			"iv5_interpose_clash: want parry defense got %s" % str(dc.get("defense", ""))
+		)
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var res: Variant = _DefenseResolution.resolve(
+		pa,
+		attacker,
+		defender,
+		dc,
+		parts,
+		attack_type,
+		0.55,
+		arch,
+		-1.0,
+		1.0,
+		1.0,
+		_EntityAccess.id_int(defender),
+		_EntityAccess.get_display_name(attacker),
+		_EntityAccess.get_display_name(defender)
+	)
+	if not (res is Dictionary):
+		CombatRegressionHarness._fail(failures, "iv5_interpose_clash: expected parry resolve result")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var action: String = str((res as Dictionary).get("action", ""))
+	if action != "parry_deflect" and action != "parry_partial":
+		CombatRegressionHarness._fail(
+			failures,
+			"iv5_interpose_clash: want parry_deflect or parry_partial got %s" % action
+		)
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var ctx: Dictionary = (res as Dictionary).get("parry_clash_context", {})
+	if float(ctx.get("arm_interpose_boost", 0.0)) <= 0.0:
+		CombatRegressionHarness._fail(failures, "iv5_interpose_clash: parry_clash_context missing arm_interpose_boost")
+	if str(ctx.get("arm_interpose_arm", "")) != "right_arm":
+		CombatRegressionHarness._fail(
+			failures,
+			"iv5_interpose_clash: want right_arm got %s" % str(ctx.get("arm_interpose_arm", ""))
+		)
+	CombatRegressionHarness._free_manager(mgr)
 
 
 static func _run_kinematic_delivery_near_full_parry_respects_min_cut_ratio_floor(
@@ -1368,7 +1720,6 @@ static func _run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_fo
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var defender: Dictionary = mgr.combatants[0]
 	var attacker: Dictionary = mgr.combatants[1]
-	defender["stance"] = "balanced"
 	defender["guard"] = 0.44
 	defender["state"] = CombatConstants.STATE_WAITING
 	defender["guard_line"] = "high"
@@ -1393,13 +1744,14 @@ static func _run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_fo
 	var dc: Dictionary = _DefenseChoice.choose_defense(
 		pa, attacker, defender, parts, attack_type, arch, -1.0
 	)
-	CombatRegressionHarness._free_manager(mgr)
 	if not bool(dc.get("can_parry_in_time", false)):
 		CombatRegressionHarness._fail(failures, "kin_parry_pa: fixture should allow parry in time")
+		CombatRegressionHarness._free_manager(mgr)
 		return
 	var atk_weapon: Weapon = _EntityAccess.get_weapon(attacker) as Weapon
 	if atk_weapon == null:
 		CombatRegressionHarness._fail(failures, "kin_parry_pa: missing attacker weapon")
+		CombatRegressionHarness._free_manager(mgr)
 		return
 	var move_def: Dictionary = WeaponConstants.get_move(attack_type)
 	var contact_type: String = str(move_def.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
@@ -1428,6 +1780,7 @@ static func _run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_fo
 			"kin_parry_pa: ratio %.4f want 1 (got=%.4f want=%.4f v=%.4f m=%.4f prog=%.4f)"
 			% [got_pa / want_pa, got_pa, want_pa, v_intent, m_a, parry_progress]
 		)
+	CombatRegressionHarness._free_manager(mgr)
 
 
 ## Tier 5.1 (optional long-tail): rear **`engagement_angle`** × **`afterblow_damage_mult`** compose on assembled **`v`** → **`strike_ke_j`** (~**(cls × √ab)²**).
@@ -1478,7 +1831,6 @@ static func _run_kinematic_delivery_stance_modifier_scales_pre_cut_integration(
 	mgr_a.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var atk_a: Dictionary = mgr_a.combatants[0]
 	var tgt_a: Dictionary = mgr_a.combatants[1]
-	atk_a["stance"] = CombatConstants.STANCE_AGGRESSIVE
 	atk_a[CombatConstants.COMBATANT_KEY_WEAPON_FORM] = "wrath"
 	var res_a: Dictionary = _AttackResolver.compute_and_apply_damage(
 		mgr_a,
@@ -1510,7 +1862,6 @@ static func _run_kinematic_delivery_stance_modifier_scales_pre_cut_integration(
 	mgr_d.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var atk_d: Dictionary = mgr_d.combatants[0]
 	var tgt_d: Dictionary = mgr_d.combatants[1]
-	atk_d["stance"] = CombatConstants.STANCE_DEFENSIVE
 	atk_d[CombatConstants.COMBATANT_KEY_WEAPON_FORM] = "wall"
 	var res_d: Dictionary = _AttackResolver.compute_and_apply_damage(
 		mgr_d,
@@ -2327,6 +2678,11 @@ static func run(failures: PackedStringArray) -> void:
 	_run_kinematic_delivery_strike_momentum_mult_integration_pre_blunt_not_pen(failures)
 	_run_kinematic_delivery_low_striker_stamina_lowers_strike_ke(failures)
 	_run_kinematic_delivery_get_attack_path_all_line_pairs_nonempty(failures)
+	_run_iv4_guard_matrix_suite(failures)
+	_run_iv6_attack_path_octant_suite(failures)
+	_run_iv5_arm_interpose_suite(failures)
+	_run_iv5_choose_defense_interpose_boost(failures)
+	_run_iv5_parry_clash_context_carries_interpose(failures)
 	_run_kinematic_delivery_near_full_parry_respects_min_cut_ratio_floor(failures)
 	_run_kinematic_delivery_discrete_line_alignment_matches_with_deflect_no_angles(failures)
 	_run_kinematic_delivery_mixed_archetype_integration_ke_matches_helper(failures)

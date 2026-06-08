@@ -16,6 +16,7 @@ const _MgrScript := preload("res://combat/CombatManager.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
+const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 const _LogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _EngagementResolver := preload("res://combat/CombatEngagementResolver.gd")
@@ -47,12 +48,14 @@ static func run(failures: PackedStringArray) -> void:
 	_run_weapon_form_wind_up_native_line(failures)
 	_run_weapon_form_auto_switch_duel(failures)
 	_run_weapon_form_auto_switch_duel_yomi(failures)
+	_run_weapon_form_auto_switch_duel_yomi_ox_to_fool(failures)
 	_run_weapon_form_auto_switch_surround(failures)
 	_run_weapon_form_auto_switch_envelop_block(failures)
 	_run_weapon_form_preference_spawn(failures)
 	_run_weapon_form_yomi_inference(failures)
 	_run_weapon_form_counter_pick(failures)
 	_run_weapon_form_ui_suffix(failures)
+	_run_weapon_form_wf_t2_suite(failures)
 
 
 static func _run_weapon_form_spawn_default_guard(failures: PackedStringArray) -> void:
@@ -239,47 +242,77 @@ static func _run_weapon_form_controlling_disengage_listing_weight(failures: Pack
 
 static func _run_weapon_form_controlling_close_listing_weight(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
 	mgr._recompute_zoc_and_distance()
-	var player: Dictionary = mgr.combatants[0]
-	var enemy: Dictionary = mgr.combatants[1]
+	var player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+		mgr, "player", 0, 6
+	)
+	var enemy: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+		mgr, "enemy", 0, 2
+	)
+	if player.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "weapon_form: missing 7v3 wing fixtures")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
 	var p_id: int = _EntityAccess.id_int(player)
 	var e_id: int = _EntityAccess.id_int(enemy)
-	if typeof(player.get("distance_to", null)) != TYPE_DICTIONARY:
-		player["distance_to"] = {}
-	if typeof(enemy.get("distance_to", null)) != TYPE_DICTIONARY:
-		enemy["distance_to"] = {}
 	player["gauge"] = 100.0
 	enemy["gauge"] = 100.0
+	_EntityAccess.nested_dictionary_for_mutation(player, "distance_to")[e_id] = (
+		CombatConstants.DISTANCE_LONG
+	)
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = (
+		CombatConstants.DISTANCE_LONG
+	)
+	if _PairGeometry.melee_reach_covers_eff_dist(
+		_MeleeListing.melee_weapon_reach(player),
+		_PairGeometry.effective_pair_eff_dist(mgr, player, enemy)
+	):
+		CombatRegressionHarness._fail(
+			failures, "weapon_form: wing setup want out-of-reach LONG for close vs Fool"
+		)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
 	_WeaponForm.assign_form(mgr, enemy, _WeaponForm.FORM_FOOL, "test")
 	enemy["stamina"] = CombatConstants.STAMINA_MAX
-	(player["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_LONG
-	(enemy["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_LONG
 	var close_fool: Dictionary = {
 		"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
 		"target_id": e_id,
 	}
 	var mgr_bal: Node = _MgrScript.new()
-	mgr_bal.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr_bal.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr_bal.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	for _i in 7:
+		mgr_bal.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr_bal.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr_bal.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
 	mgr_bal._recompute_zoc_and_distance()
-	var player_bal: Dictionary = mgr_bal.combatants[0]
-	var enemy_bal: Dictionary = mgr_bal.combatants[1]
+	var player_bal: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+		mgr_bal, "player", 0, 6
+	)
+	var enemy_bal: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+		mgr_bal, "enemy", 0, 2
+	)
+	if player_bal.is_empty() or enemy_bal.is_empty():
+		CombatRegressionHarness._fail(failures, "weapon_form: missing balanced wing fixtures")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr_bal)
+		return
 	var p_id_bal: int = _EntityAccess.id_int(player_bal)
 	var e_id_bal: int = _EntityAccess.id_int(enemy_bal)
-	if typeof(player_bal.get("distance_to", null)) != TYPE_DICTIONARY:
-		player_bal["distance_to"] = {}
-	if typeof(enemy_bal.get("distance_to", null)) != TYPE_DICTIONARY:
-		enemy_bal["distance_to"] = {}
 	player_bal["gauge"] = 100.0
 	enemy_bal["gauge"] = 100.0
+	_EntityAccess.nested_dictionary_for_mutation(player_bal, "distance_to")[e_id_bal] = (
+		CombatConstants.DISTANCE_LONG
+	)
+	_EntityAccess.nested_dictionary_for_mutation(enemy_bal, "distance_to")[p_id_bal] = (
+		CombatConstants.DISTANCE_LONG
+	)
 	_WeaponForm.assign_form(mgr_bal, enemy_bal, _WeaponForm.FORM_BALANCED, "test")
 	enemy_bal["stamina"] = CombatConstants.STAMINA_MAX
-	(player_bal["distance_to"] as Dictionary)[e_id_bal] = CombatConstants.DISTANCE_LONG
-	(enemy_bal["distance_to"] as Dictionary)[p_id_bal] = CombatConstants.DISTANCE_LONG
 	var w_fool: float = _AIPicker._get_action_weight(close_fool, p_id, mgr, true)
 	var close_bal: Dictionary = {
 		"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
@@ -417,21 +450,17 @@ static func _run_weapon_form_close_failed_log_controlling_note(failures: PackedS
 
 
 static func _run_weapon_form_close_resolve_contest_note(failures: PackedStringArray) -> void:
-	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-	mgr._recompute_zoc_and_distance()
-	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
-	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
-	var p: Dictionary = mgr.combatants[0]
-	var en: Dictionary = mgr.combatants[1]
-	if typeof(p.get("distance_to", null)) != TYPE_DICTIONARY:
-		p["distance_to"] = {}
-	if typeof(en.get("distance_to", null)) != TYPE_DICTIONARY:
-		en["distance_to"] = {}
-	(p["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_LONG
-	(en["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_LONG
+	var fixtures: Array = CombatRegressionHarness._harness_7v3_wing_rank0_fixtures()
+	var mgr: Node = fixtures[0] as Node
+	var p: Dictionary = fixtures[1] as Dictionary
+	var en: Dictionary = fixtures[2] as Dictionary
+	if p.is_empty() or en.is_empty():
+		CombatRegressionHarness._fail(failures, "weapon_form: missing 7v3 wing fixtures")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+	var p_id: int = _EntityAccess.id_int(p)
+	var e_id: int = _EntityAccess.id_int(en)
+	CombatRegressionHarness._harness_bind_pair_long_band(p, en)
 	_WeaponForm.assign_form(mgr, en, _WeaponForm.FORM_FOOL, "test")
 	en["stamina"] = CombatConstants.STAMINA_MAX
 	var sd: Dictionary = _EntityAccess.stats_dict_for_mutation(p)
@@ -528,15 +557,29 @@ static func _run_weapon_form_controlling_pressure_stamina_gate(failures: PackedS
 		)
 	_WeaponForm.assign_form(mgr, enemy, _WeaponForm.FORM_FOOL, "test")
 	enemy["stamina"] = CombatConstants.STAMINA_MAX * 0.1
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	var wing_fix: Array = CombatRegressionHarness._harness_7v3_wing_rank0_fixtures()
+	var wing_mgr: Node = wing_fix[0] as Node
+	var wing_player: Dictionary = wing_fix[1] as Dictionary
+	var wing_enemy: Dictionary = wing_fix[2] as Dictionary
+	if wing_player.is_empty() or wing_enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "weapon_form: exhausted fool resolve missing wing fixtures")
+		CombatRegressionHarness._free_manager_restore_global_rng(wing_mgr)
+		return
+	var wing_p_id: int = _EntityAccess.id_int(wing_player)
+	var wing_e_id: int = _EntityAccess.id_int(wing_enemy)
+	CombatRegressionHarness._harness_bind_pair_long_band(wing_player, wing_enemy)
+	_WeaponForm.assign_form(wing_mgr, wing_enemy, _WeaponForm.FORM_FOOL, "test")
+	wing_enemy["stamina"] = CombatConstants.STAMINA_MAX * 0.1
 	var cap: Array = []
-	mgr.action_resolved.connect(
+	wing_mgr.action_resolved.connect(
 		func(_aid: int, _tid: int, result: Dictionary) -> void:
 			cap.clear()
 			cap.append(result)
 	)
-	var sd: Dictionary = _EntityAccess.stats_dict_for_mutation(player)
-	sd["strength"] = 0.0
-	_EngagementResolver.resolve_close_attempt(mgr, p_id, e_id)
+	var sd_wing: Dictionary = _EntityAccess.stats_dict_for_mutation(wing_player)
+	sd_wing["strength"] = 0.0
+	_EngagementResolver.resolve_close_attempt(wing_mgr, wing_p_id, wing_e_id)
 	if cap.is_empty():
 		CombatRegressionHarness._fail(failures, "weapon_form: exhausted fool close resolve want payload")
 	elif not str((cap[0] as Dictionary).get("close_contest_note", "")).strip_edges().is_empty():
@@ -544,27 +587,46 @@ static func _run_weapon_form_controlling_pressure_stamina_gate(failures: PackedS
 			failures,
 			"weapon_form: exhausted fool close resolve should omit contest note got %s" % str(cap[0])
 		)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	CombatRegressionHarness._free_manager_restore_global_rng(wing_mgr)
 
 
 static func _run_weapon_form_turn_ready_listing_close_controlling(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
 	mgr._recompute_zoc_and_distance()
-	var player: Dictionary = mgr.combatants[0]
-	var enemy: Dictionary = mgr.combatants[1]
+	var player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+		mgr, "player", 0, 6
+	)
+	var enemy: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
+		mgr, "enemy", 0, 2
+	)
+	if player.is_empty() or enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "weapon_form: missing 7v3 wing fixtures")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
 	var p_id: int = _EntityAccess.id_int(player)
 	var e_id: int = _EntityAccess.id_int(enemy)
 	player["gauge"] = 100.0
 	player["state"] = CombatConstants.STATE_WAITING
-	if typeof(player.get("distance_to", null)) != TYPE_DICTIONARY:
-		player["distance_to"] = {}
-	if typeof(enemy.get("distance_to", null)) != TYPE_DICTIONARY:
-		enemy["distance_to"] = {}
-	(player["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_LONG
-	(enemy["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_LONG
+	_EntityAccess.nested_dictionary_for_mutation(player, "distance_to")[e_id] = (
+		CombatConstants.DISTANCE_LONG
+	)
+	_EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = (
+		CombatConstants.DISTANCE_LONG
+	)
+	if _PairGeometry.melee_reach_covers_eff_dist(
+		_MeleeListing.melee_weapon_reach(player),
+		_PairGeometry.effective_pair_eff_dist(mgr, player, enemy)
+	):
+		CombatRegressionHarness._fail(
+			failures, "weapon_form: wing setup want out-of-reach LONG for close vs Fool"
+		)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
 	_WeaponForm.assign_form(mgr, enemy, _WeaponForm.FORM_FOOL, "test")
 	enemy["stamina"] = CombatConstants.STAMINA_MAX
 	var acts: Array = []
@@ -586,22 +648,26 @@ static func _run_weapon_form_turn_ready_listing_close_controlling(failures: Pack
 			"weapon_form: turn_ready FP line want Fool/harder got '%s'" % fp_line
 		)
 	var menu_actions: Array = mgr.get_available_actions(p_id)
-	var listed_close: bool = false
+	var listed_close_vs_fool: bool = false
 	for raw in menu_actions:
 		if raw == null or typeof(raw) != TYPE_DICTIONARY:
 			continue
 		var a: Dictionary = raw as Dictionary
 		if str(a.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 			continue
-		listed_close = true
+		if int(a.get("target_id", -1)) != e_id:
+			continue
+		listed_close_vs_fool = true
 		var menu_tag: String = str(a.get(CombatConstants.ACTION_KEY_CLOSE_LIST_HINT, "")).strip_edges()
 		if not menu_tag.to_lower().contains("fool"):
 			CombatRegressionHarness._fail(
 				failures,
 				"weapon_form: menu close want Fool stamp got '%s'" % menu_tag
 			)
-	if not listed_close:
-		CombatRegressionHarness._fail(failures, "weapon_form: get_available_actions want attempt_close")
+	if not listed_close_vs_fool:
+		CombatRegressionHarness._fail(
+			failures, "weapon_form: get_available_actions want attempt_close vs Fool target"
+		)
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
@@ -635,11 +701,35 @@ static func _run_weapon_form_octant_attack_path_cardinal_lookup(failures: Packed
 			% [str(path_oct), str(path_card)]
 		)
 	var path_wrath_home: Array = CombatConstants.get_attack_path("high", "high_left")
-	var path_high_high: Array = CombatConstants.get_attack_path("high", "high")
-	if str(path_wrath_home) != str(path_high_high):
+	var path_left_guard: Array = CombatConstants.get_attack_path("high", "left")
+	var path_high_guard: Array = CombatConstants.get_attack_path("high", "high")
+	if CombatConstants.is_feature_iv6_attack_path_octant_enabled():
+		if str(path_wrath_home) == str(path_left_guard):
+			CombatRegressionHarness._fail(
+				failures,
+				"weapon_form: IV-6 high_left guard path must differ from left flank got %s"
+				% str(path_wrath_home)
+			)
+		if str(path_wrath_home) == str(path_high_guard):
+			CombatRegressionHarness._fail(
+				failures,
+				"weapon_form: IV-6 high_left guard path must differ from high guard got %s"
+				% str(path_wrath_home)
+			)
+		if str(path_wrath_home[0]) != CombatConstants.guard_zone_for_guard_line("high_left"):
+			CombatRegressionHarness._fail(
+				failures,
+				"weapon_form: IV-6 high_left guard path must lead with zone %s got %s"
+				% [
+					CombatConstants.guard_zone_for_guard_line("high_left"),
+					str(path_wrath_home[0])
+				]
+			)
+	elif str(path_wrath_home) != str(path_left_guard):
 		CombatRegressionHarness._fail(
 			failures,
-			"weapon_form: guard high_left should map to high for path lookup"
+			"weapon_form: IV-4 high_left guard want left-side path got %s vs %s"
+			% [str(path_wrath_home), str(path_left_guard)]
 		)
 	var fallback: Array = CombatConstants.get_attack_path("high", "__no_such_guard__")
 	var want_fallback: Array = CombatConstants.ATTACK_PATHS.get("high", CombatConstants.ATTACK_PATH_HIGH)
@@ -713,6 +803,25 @@ static func _run_weapon_form_auto_switch_duel_yomi(failures: PackedStringArray) 
 		CombatRegressionHarness._fail(
 			failures,
 			"weapon_form_auto_switch_duel_yomi: inferred wrath want fool got %s"
+			% _EntityAccess.form_str(def)
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+static func _run_weapon_form_auto_switch_duel_yomi_ox_to_fool(failures: PackedStringArray) -> void:
+	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+	var def: Dictionary = mgr.combatants[0]
+	var atk: Dictionary = mgr.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk)
+	_WeaponForm.assign_form(mgr, def, _WeaponForm.FORM_BALANCED, "harness")
+	def["stamina"] = CombatConstants.STAMINA_MAX
+	def[CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID] = {str(atk_id): _WeaponForm.FORM_OX}
+	if not _WeaponForm.evaluate_automatic_form(mgr, def):
+		CombatRegressionHarness._fail(failures, "weapon_form_auto_switch_duel_yomi_ox: expected switch")
+	if _EntityAccess.form_str(def) != _WeaponForm.FORM_FOOL:
+		CombatRegressionHarness._fail(
+			failures,
+			"weapon_form_auto_switch_duel_yomi_ox: inferred ox want fool got %s"
 			% _EntityAccess.form_str(def)
 		)
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -950,3 +1059,108 @@ static func _run_weapon_form_ui_suffix(failures: PackedStringArray) -> void:
 			failures, "weapon_form_ui: wall tooltip want defensive flavor got '%s'" % wall_tip
 		)
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## WF-T2: soak-tuned tuning constants locked (duel / surround / counter cap).
+static func _run_weapon_form_wf_t2_thresholds_locked(failures: PackedStringArray) -> void:
+	if absf(CombatConstants.WF_FORM_COUNTER_MULT_CAP - 1.15) > 0.0001:
+		CombatRegressionHarness._fail(
+			failures,
+			"weapon_form_wf_t2: counter cap want 1.15 got %.4f"
+			% CombatConstants.WF_FORM_COUNTER_MULT_CAP
+		)
+	if absf(CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD - 0.12) > 0.0001:
+		CombatRegressionHarness._fail(failures, "weapon_form_wf_t2: duel offense pad")
+	if absf(CombatConstants.WF_AUTO_SWITCH_DUEL_WRATH_PROMOTE_PAD - 0.15) > 0.0001:
+		CombatRegressionHarness._fail(failures, "weapon_form_wf_t2: duel wrath promote pad")
+	if absf(CombatConstants.WF_AUTO_SWITCH_DUEL_WRATH_DEMOTE_PAD - 0.10) > 0.0001:
+		CombatRegressionHarness._fail(failures, "weapon_form_wf_t2: duel wrath demote pad")
+
+
+## WF-T2: identity-form **`mod`** bands (ox / plow / tempest) — legacy wall/wrath/fool stay parity harness.
+static func _run_weapon_form_wf_t2_mod_identity_bands(failures: PackedStringArray) -> void:
+	var bands: Dictionary = {
+		_WeaponForm.FORM_OX: {"parry": 1.08, "damage": 1.04, "ai_melee_focus": 1.02},
+		_WeaponForm.FORM_PLOW: {"parry": 1.14, "damage": 0.96, "ai_melee_focus": 0.94},
+		_WeaponForm.FORM_TEMPEST: {"parry": 0.84, "damage": 1.18, "ai_melee_focus": 1.08},
+	}
+	for form_id in bands.keys():
+		var want: Dictionary = bands[form_id] as Dictionary
+		for effect in want.keys():
+			var got: float = _WeaponForm.mod(form_id, str(effect))
+			var target: float = float(want[effect])
+			if absf(got - target) > 0.001:
+				CombatRegressionHarness._fail(
+					failures,
+					"weapon_form_wf_t2: %s/%s want %.3f got %.3f" % [form_id, effect, target, got]
+				)
+
+
+## WF-T2: counter mult respects cap; fool feint vs inferred ox boosted, cut not.
+static func _run_weapon_form_wf_t2_counter_mult_cap(failures: PackedStringArray) -> void:
+	var feint_m: float = _WeaponForm.form_counter_mult(
+		_WeaponForm.FORM_FOOL, _WeaponForm.FORM_OX, "oberhau_feint"
+	)
+	var cut_m: float = _WeaponForm.form_counter_mult(
+		_WeaponForm.FORM_FOOL, _WeaponForm.FORM_OX, "oberhau"
+	)
+	if feint_m <= 1.0 or feint_m > CombatConstants.WF_FORM_COUNTER_MULT_CAP + 0.001:
+		CombatRegressionHarness._fail(
+			failures,
+			"weapon_form_wf_t2: fool feint counter want (1, %.3f] got %.3f"
+			% [CombatConstants.WF_FORM_COUNTER_MULT_CAP, feint_m]
+		)
+	if cut_m > 1.0:
+		CombatRegressionHarness._fail(
+			failures, "weapon_form_wf_t2: fool cut vs ox should not counter got %.3f" % cut_m
+		)
+
+
+## WF-T2: recovering **wall** must not yo-yo to fool/wrath until stamina pad clears (F5 soak).
+static func _run_weapon_form_wf_t2_duel_wall_recovery_gate(failures: PackedStringArray) -> void:
+	var mgr_hold: Node = CombatRegressionHarness._harness_start_1v1()
+	var def_hold: Dictionary = mgr_hold.combatants[0]
+	var atk_hold: Dictionary = mgr_hold.combatants[1]
+	var atk_id: int = _EntityAccess.id_int(atk_hold)
+	_WeaponForm.assign_form(mgr_hold, def_hold, _WeaponForm.FORM_WALL, "harness")
+	var min_r: float = _WeaponForm.min_stamina_ratio_for_form(_WeaponForm.FORM_WALL)
+	var pad: float = CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
+	def_hold["stamina"] = CombatConstants.STAMINA_MAX * (min_r + pad * 0.5)
+	for _i in 5:
+		_Attention.record_attack_toward_defender(null, atk_id, def_hold, "head")
+		_Attention.record_resolved_strike_toward_defender(def_hold, atk_id, "oberhau")
+	_WeaponForm.refresh_inferred_forms_for_observer(mgr_hold, def_hold)
+	if _WeaponForm.evaluate_automatic_form(mgr_hold, def_hold):
+		CombatRegressionHarness._fail(
+			failures,
+			"weapon_form_wf_t2: recovering wall should hold got %s"
+			% _EntityAccess.form_str(def_hold)
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr_hold)
+	var mgr_switch: Node = CombatRegressionHarness._harness_start_1v1()
+	var def_sw: Dictionary = mgr_switch.combatants[0]
+	var atk_sw: Dictionary = mgr_switch.combatants[1]
+	var atk_sw_id: int = _EntityAccess.id_int(atk_sw)
+	_WeaponForm.assign_form(mgr_switch, def_sw, _WeaponForm.FORM_WALL, "harness")
+	def_sw["stamina"] = CombatConstants.STAMINA_MAX * (min_r + pad + 0.05)
+	for _j in 5:
+		_Attention.record_attack_toward_defender(null, atk_sw_id, def_sw, "head")
+		_Attention.record_resolved_strike_toward_defender(def_sw, atk_sw_id, "oberhau")
+	_WeaponForm.refresh_inferred_forms_for_observer(mgr_switch, def_sw)
+	if not _WeaponForm.evaluate_automatic_form(mgr_switch, def_sw):
+		CombatRegressionHarness._fail(failures, "weapon_form_wf_t2: recovered wall should duel-switch vs wrath")
+	if _EntityAccess.form_str(def_sw) != _WeaponForm.FORM_FOOL:
+		CombatRegressionHarness._fail(
+			failures,
+			"weapon_form_wf_t2: recovered wall want fool vs wrath got %s"
+			% _EntityAccess.form_str(def_sw)
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr_switch)
+
+
+## WF-T2 suite: mod bands + counter cap + auto-switch thresholds — single Phase 0 maintain entry.
+static func _run_weapon_form_wf_t2_suite(failures: PackedStringArray) -> void:
+	_run_weapon_form_wf_t2_thresholds_locked(failures)
+	_run_weapon_form_wf_t2_mod_identity_bands(failures)
+	_run_weapon_form_wf_t2_counter_mult_cap(failures)
+	_run_weapon_form_wf_t2_duel_wall_recovery_gate(failures)

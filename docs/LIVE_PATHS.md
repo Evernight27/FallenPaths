@@ -132,7 +132,7 @@ Priority is **strict top-to-bottom**; first non-empty pool wins. Each layer uses
 | Layer | Stamp | Trigger | Action pool |
 |-------|-------|---------|-------------|
 | **(retreat)** | — | `cannot_commit_melee` | Retreat-filtered list only |
-| **L0** | `self_medical` | `manager._is_in_immediate_peril(self)` | Coordinated **self** medical (`CombatMedicalCoordination.medical_action_allowed`) |
+| **L0** | `self_medical` | `MedicalPhaseController.is_in_immediate_peril` | Coordinated **self** medical (`CombatMedicalCoordination.medical_action_allowed`) |
 | **L1** | `medical` | `CombatAttention.ally_in_immediate_peril` | Coordinated **ally** medical (not duplicate wind-up / compression rules) |
 | **L2** | `counter` | `CounterTempo.can_act` | `ACTION_KEY_COUNTER_TEMPO` only |
 | **L3** | `incoming` | Wind-up telegraph or incoming attacker id | Counter actions **or** melee vs that attacker (no med / no `attempt_close`) |
@@ -314,9 +314,9 @@ Editor play session (`OperationalLog.begin_play_session`) layers diagnostics. Gr
 
 **Reference uncontrolled bleed:** `BLEEDING_RATES[cut][critical] × head × arterial` = **13.5 HP/s**.
 
-**TTD:** `(blood_volume − threshold) / (rate × BLOOD_LOSS_RATE_MULTIPLIER × loss_mult)` → default **~48 s**; tune mult for **30–120 s** band. Direct pressure `loss_mult = 0.5` → ~2× TTD.
+**TTD:** `(blood_volume − threshold) / (rate × BLOOD_LOSS_RATE_MULTIPLIER × loss_mult)` → default **~48 s**; tune mult for **30–120 s** band. **Sustained direct pressure** uses TCCC retained-flow fractions (**venous ~10%**, **arterial ~50%** of intrinsic wound rate for blood-loss integration) plus faster local clotting k (`CLOTTING_RATE_UNDER_DIRECT_PRESSURE`); constant-rate halving anchor (`clinical_ttd_seconds(0.5)`) ≈ **2×** TTD is the research gate only — live sim includes clotting `exp(-k×Δt)`.
 
-**Field care vs camp rest:** `MapFieldCare` (Party menu, ~2 min procedure) advances **bleeding + blood loss only** — TCCC compress / dress / stabilize using `DIRECT_PRESSURE_HELD_FLOW_RETAINED_*` (venous ~10% flow, arterial ~50%) and dressing success from `BANDAGE_*` constants; failed dress keeps pressure (`EntityMedical`). **Stabilize** is a combat-style hemostatic hold (`apply_stabilize`); it does **not** set `bandaged_parts` — **camp rest** still requires **bandage/pack/TQ** (`part_has_definitive_hemostasis`). **Camp rest** (`CompanyState.try_camp_heal`, 600 s × 3) runs `process_healing` + day tick. Moderate venous bleeds may reach local hemostasis under sustained pressure over the procedure window; arterial rates stay lethal until dressed.
+**Field care vs camp rest:** `MapFieldCare` (Party menu, ~2 min procedure) advances **bleeding + blood loss only** — TCCC compress / dress / stabilize using `DIRECT_PRESSURE_HELD_FLOW_RETAINED_*` (venous ~10% flow, arterial ~50%) and dressing success from `BANDAGE_*` constants; failed dress keeps pressure (`EntityMedical`). Procedure order: **pressure** → sim advance; **tourniquet** apply occlusion **then** advance (not 2 min open bleed first); **stabilize** trims intrinsic rate **then** advance (requires active intrinsic bleed under compression); **bandage/pack** advance under compression **then** dress at end. **Stabilize** (`apply_stabilize`) trims bleed only — no `is_stabilized` / `bandaged_parts` — **camp rest** still requires **bandage/pack/TQ** (`part_has_definitive_hemostasis`). **`EntityMedical.can_apply_bandage` / `can_apply_packing`** enforce compression on active bleeds at every call site (not listing-only). Local intrinsic clot under held compression still blocks pressure release until dressed. **Camp rest** (`CompanyState.try_camp_heal`, 600 s × 3) runs `process_healing` + day tick. Moderate venous bleeds may reach local hemostasis over the procedure window; arterial bleeds lose meaningful volume and stay undressed until bandage/pack/TQ.
 
 <a id="5-literal-blood-volume-ml"></a>
 
@@ -328,7 +328,7 @@ Editor play session (`OperationalLog.begin_play_session`) layers diagnostics. Gr
 
 <a id="10-blunt-fracture-j-vs-nm-biomechanics-note"></a>
 
-**Clotting** `exp(-k×Δt)` · **pain** human ref **~3.0** / **~2** hits → NRS 4 · **blunt KE** oberhau **~137 J**, arm **22 J** (rank-order only).
+**Clotting** `exp(-k×Δt)` — open moderate **k≈0.02** · sustained pressure **k=0.032** (half-life **~22 s**) · bandaged **k=0.006** (**~115 s**) · arterial ×**0.15** on k · **stabilize** trims rate only (no `is_stabilized` until dress/pack). **Pain** human ref **~3.0** / **~2** hits → NRS 4 · **blunt KE** oberhau **~137 J**, arm **22 J** (rank-order only).
 
 <a id="12-tuning-order-keep-research-chain"></a>
 
@@ -2360,7 +2360,7 @@ Status for shipped tiers → sections above · forward work → [`CURSOR#what-to
 
 ## Redirects (deleted `docs/*.md`)
 
-**Policy:** Do not recreate files in this table — Phase 0 fails `check_doc_links.ps1` if they exist. **Canonical (4):** [`PLANNING.md`](PLANNING.md) · [`CURSOR.md`](CURSOR.md) · [`SHIP_PLAN.md`](SHIP_PLAN.md) · this file. Scripts: [`../scripts/README.md`](../scripts/README.md). Restore prose: `git log -- docs/<file>.md`.
+**Policy:** Do not recreate files in this table — Phase 0 fails `check_doc_links.ps1` if they exist. **Canonical (6):** [`PLANNING.md`](PLANNING.md) · [`CURSOR.md`](CURSOR.md) · [`SHIP_PLAN.md`](SHIP_PLAN.md) · [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) · this file. Scripts: [`../scripts/README.md`](../scripts/README.md). Restore prose: `git log -- docs/<file>.md`.
 
 | File | Anchor |
 |------|--------|

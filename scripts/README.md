@@ -22,7 +22,7 @@ Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`
 
 **Bash:** every `*.ps1` gate runner above has a `*.sh` twin (same flags where applicable); `run_q_audit.ps1` is PowerShell-only.
 
-**Parallel Cursor chats (post–Camp-5 default):** [`cursor/README.md`](cursor/README.md) — expansion bundle [`#parallel-expansion-bundle`](cursor/README.md#parallel-expansion-bundle) · medical quality [`#parallel-medical-quality-bundle`](cursor/README.md#parallel-medical-quality-bundle).
+**Parallel Cursor chats (post–Camp-5 default):** [`cursor/README.md`](cursor/README.md) — **maintain** [`agent_maintain.md`](cursor/agent_maintain.md) · **hygiene** [`agent_hygiene.md`](cursor/agent_hygiene.md) · **audit** [`agent_audit.md`](cursor/agent_audit.md) · **enhance** [`agent_enhance.md`](cursor/agent_enhance.md) · expansion bundle [`#parallel-expansion-bundle`](cursor/README.md#parallel-expansion-bundle) · medical quality [`#parallel-medical-quality-bundle`](cursor/README.md#parallel-medical-quality-bundle).
 
 **F5 Output grep (canonical):** `hit_resolve reason=` · `strike_avoided reason=` · `parry_partial rem=` · `diagram_banner player:` · `engagement_transition` · `encounter_context` · `soak_fight_end`. [`docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers`](../docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers) · `main.tscn` `dev_hit_summary` (default on) · `dev_research_feel` · `dev_soak_encounter`.
 

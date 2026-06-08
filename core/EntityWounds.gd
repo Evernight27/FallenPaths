@@ -6,6 +6,7 @@ extends RefCounted
 ## direct_pressure_part, self_direct_pressure_part, direct_pressure_held_by, name.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _CombatLayerTissue := preload("res://core/CombatLayerTissue.gd")
 const _BloodVolumeMl := preload("res://core/BloodVolumeMl.gd")
 const _Healing := preload("res://core/HealingConstants.gd")
@@ -93,7 +94,10 @@ static func severity_from_damage(
 	if impact_ke_j >= 0.0:
 		ke_mult = 1.0 + _SEVERITY_KE_BLEND * minf(impact_ke_j / maxf(1.0, _IMPACT_KE_REF_J), 2.0)
 	var depth_mult: float = _Bleeding.penetration_depth_severity_mult(penetration_to_tissue_mm)
-	var effective_damage: float = damage * ke_mult * depth_mult * _Bleeding.get_severity_modifier(part, sub_region)
+	var sub_mult: float = 1.0
+	if not _CombatConstants.is_feature_subregion_combat_mult_enabled():
+		sub_mult = _Bleeding.get_severity_modifier(part, sub_region)
+	var effective_damage: float = damage * ke_mult * depth_mult * sub_mult
 	var pct: float = effective_damage / max_hp
 	var sev_pct: String = _severity_from_pct(pct)
 	if _Bleeding.FEATURE_ABSOLUTE_SEVERITY_BANDS:

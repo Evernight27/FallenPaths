@@ -1,5 +1,5 @@
 # Headless validator regression for docs/camp_optional_step_smokes/*.txt (Playtest stream).
-# Does not touch .f5_soak_in.txt; re-validates human paste at end when present.
+# One Godot session validates all smokes + human paste (.f5_soak_validation.txt).
 param(
 	[switch]$Quiet
 )
@@ -8,8 +8,8 @@ $ErrorActionPreference = "Continue"
 $Root = Split-Path -Parent $PSScriptRoot
 $SmokeDir = Join-Path $Root "docs\camp_optional_step_smokes"
 $ValPath = Join-Path $Root ".f5_soak_validation.txt"
+$BatchPath = Get-F5CampSmokesBatchPath $Root
 $HumanLog = Get-F5SoakLogPath $Root
-$ValidateScript = Join-Path $PSScriptRoot "validate_f5_soak_log.ps1"
 
 $smokes = @(
 	@{ File = "step3e_mopup.txt"; Track = "camp_mopup_strike_finish" },
@@ -28,30 +28,13 @@ if (-not (Test-Path $SmokeDir)) {
 }
 
 Write-Host "=== Camp optional step smokes (CombatF5SoakLogValidator) ==="
-$failures = New-Object System.Collections.Generic.List[string]
-$passed = 0
-
-function Test-F5SmokeValidationOk {
-	param(
-		[string]$SmokePath,
-		[string]$ValPath,
-		[string]$TrackId,
-		[ref]$ExitCode
-	)
-	$stamp = Get-F5ValidationReportStamp $ValPath
-	& $ValidateScript -LogPath $SmokePath -Quiet
-	$ExitCode.Value = $LASTEXITCODE
-	if (Wait-F5ValidationReport $ValPath -NotBeforeUtc $stamp) {
-		return $true
-	}
-	Get-Process -Name "Godot*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-	Start-Sleep -Seconds 1
-	$retryStamp = Get-F5ValidationReportStamp $ValPath
-	& $ValidateScript -LogPath $SmokePath -Quiet
-	$ExitCode.Value = $LASTEXITCODE
-	return (Wait-F5ValidationReport $ValPath -NotBeforeUtc $retryStamp)
+if (-not (Invoke-F5CampSmokesBatchGodot -Root $Root -Quiet:$Quiet)) {
+	Write-Host "CAMP_OPTIONAL_SMOKES: FAIL (batch report timeout)"
+	exit 2
 }
 
+$failures = New-Object System.Collections.Generic.List[string]
+$passed = 0
 foreach ($row in $smokes) {
 	$path = Join-Path $SmokeDir $row.File
 	if (-not (Test-Path $path)) {
@@ -63,47 +46,33 @@ foreach ($row in $smokes) {
 		Write-Host ""
 		Write-Host "--- $($row.File) -> [$($row.Track)] ---"
 	}
-	$exitCode = 0
-	if (-not (Test-F5SmokeValidationOk -SmokePath $path -ValPath $ValPath -TrackId $row.Track -ExitCode ([ref]$exitCode))) {
-		$failures.Add("$($row.File): validation report timeout")
-		if (-not $Quiet) { Write-Host "  [FAIL] $($row.File) (validation report timeout)" }
-		continue
+	$line = Select-String -Path $BatchPath -Pattern "^\[$([regex]::Escape($row.File))\]" | Select-Object -Last 1
+	if ($line -and -not $Quiet) {
+		Write-Host ("  " + $line.Line.Trim())
 	}
-	if (-not $Quiet) {
-		$trackLine = Select-String -Path $ValPath -Pattern "^\[$([regex]::Escape($row.Track))\] " | Select-Object -Last 1
-		if ($trackLine) { Write-Host ("  " + $trackLine.Line.Trim()) }
-	}
-	$okLine = Select-String -Path $ValPath -Pattern "^ok=true" -Quiet
-	$trackStatus = Get-F5ValidatorTrackStatus $ValPath $row.Track
-	if ($okLine -and $trackStatus -eq "pass") {
+	if ($line -and $line.Line -match ' PASS$') {
 		$passed++
 		if (-not $Quiet) { Write-Host "  [OK] $($row.File) [$($row.Track)]" }
 	} else {
-		$detail = "exit=$exitCode ok=$okLine track=$trackStatus"
+		$detail = if ($line) { $line.Line.Trim() } else { "missing batch row" }
 		$failures.Add("$($row.File): $detail")
 		if (-not $Quiet) { Write-Host "  [FAIL] $($row.File) ($detail)" }
 	}
 }
 
 if (Test-Path $HumanLog) {
-	$humanStamp = Get-F5ValidationReportStamp $ValPath
-	if ($Quiet) {
-		& $ValidateScript -LogPath $HumanLog -Quiet
-	} else {
+	if (-not $Quiet) {
 		Write-Host ""
-		Write-Host "--- restore human paste validation (.f5_soak_in.txt) ---"
-		& $ValidateScript -LogPath $HumanLog -Quiet
+		Write-Host "--- human paste validation (.f5_soak_in.txt) ---"
 	}
-	if (-not (Wait-F5ValidationReport $ValPath -NotBeforeUtc $humanStamp)) {
-		Write-Host "WARN: human paste re-validation report timeout"
+	if (-not (Test-Path $ValPath)) {
+		Write-Host "WARN: human paste validation report missing after batch"
 	} elseif (-not (Select-String -Path $ValPath -Pattern "^ok=true" -Quiet)) {
 		Write-Host "WARN: human paste re-validation ok=false - run .\scripts\validate_f5_soak_log.ps1"
 	} elseif ((Get-F5ValidatorTrackStatus $ValPath "camp_settlement_continue") -ne "pass") {
 		Write-Host "WARN: human paste camp_settlement_continue not PASS after smoke batch"
-	} else {
-		if (-not $Quiet) {
-			Show-F5ValidationTrackSummary $ValPath -IncludeMeta | Select-Object -Last 8 | ForEach-Object { Write-Host $_ }
-		}
+	} elseif (-not $Quiet) {
+		Show-F5ValidationTrackSummary $ValPath -IncludeMeta | Select-Object -Last 8 | ForEach-Object { Write-Host $_ }
 	}
 	if ((Test-Path $ValPath) -and (Select-String -Path $ValPath -Pattern "^ok=true" -Quiet)) {
 		if (Test-F5Exp02OptionalTracksPass $ValPath) {

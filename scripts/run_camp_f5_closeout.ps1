@@ -2,14 +2,17 @@
 # Exit 0 when headless + wf_m3 + camp_section_8 validator minimum are READY.
 # -HumanSignOff requires a real F5 paste (not docs example smoke) for re-validation after new appends.
 param(
-	[switch]$HumanSignOff
+	[switch]$HumanSignOff,
+	[switch]$SkipRevalidate
 )
 $ErrorActionPreference = "Continue"
 $Root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "F5SoakLogHelpers.ps1")
 $f5Log = Join-Path $Root ".f5_soak_in.txt"
 if (Test-Path $f5Log) {
-	& (Join-Path $Root "scripts\validate_f5_soak_log.ps1") -Quiet
+	if (-not $SkipRevalidate -and -not (Test-F5ValidationFresh $Root)) {
+		& (Join-Path $Root "scripts\validate_f5_soak_log.ps1") -Quiet
+	}
 	Show-F5SoakStatusHint $Root
 }
 	& (Join-Path $Root "scripts\print_phase0_status.ps1") -Quiet

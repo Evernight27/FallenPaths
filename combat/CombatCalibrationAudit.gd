@@ -522,6 +522,8 @@ static func tissue_energy_hp_vs_j_parity_metrics() -> Dictionary:
 		+ float(res_hp.get("final_blunt", 0.0))
 		+ float(res_hp.get("final_bone", 0.0))
 	)
+	CombatRegressionHarness._free_harness_node(ent_j)
+	CombatRegressionHarness._free_harness_node(ent_hp)
 	return {"tissue_applied_j": tissue_j, "tissue_applied_hp": tissue_hp}
 
 
@@ -588,6 +590,7 @@ static func _audit_new_entity(weapon_id: String) -> CoreEntity:
 	var w: Weapon = _Weapon.create_from_definition(weapon_id)
 	if w != null:
 		ent.equip_weapon(w)
+	CombatRegressionHarness._track_harness_node(ent)
 	return ent
 
 
@@ -596,12 +599,14 @@ static func f5_forearm_graze_metrics() -> Dictionary:
 	var ent: CoreEntity = _audit_new_entity("SWORD")
 	var extras: Dictionary = {"hit_sub_region": "forearm", "strike_ke_j": 12.0}
 	var res: Dictionary = ent.take_damage_split(8.0, 0.0, "right_arm", 0.5, -1.0, -1.0, extras)
-	return {
+	var out: Dictionary = {
 		"final_bone": float(res.get("final_bone", 0.0)),
 		"final_cut": float(res.get("final_cut", 0.0)),
 		"penetration_to_tissue_mm": float(res.get("penetration_to_tissue_mm", -1.0)),
 		"penetration_to_bone_mm": float(res.get("penetration_to_bone_mm", -1.0)),
 	}
+	CombatRegressionHarness._free_harness_node(ent)
+	return out
 
 
 ## M5 F5 proxy: cuirass chest hit — armor reduces tissue pen vs bare (committed-scale cut).
@@ -628,7 +633,7 @@ static func f5_armored_chest_metrics() -> Dictionary:
 		+ float(res_arm.get("final_blunt", 0.0))
 		+ float(res_arm.get("final_bone", 0.0))
 	)
-	return {
+	var out: Dictionary = {
 		"bare_tissue_pen_mm": float(res_bare.get("penetration_to_tissue_mm", 0.0)),
 		"armored_tissue_pen_mm": float(res_arm.get("penetration_to_tissue_mm", 0.0)),
 		"bare_damage_sum": bare_sum,
@@ -637,6 +642,9 @@ static func f5_armored_chest_metrics() -> Dictionary:
 		"transmitted_ke_fraction": float(res_arm.get("transmitted_ke_fraction", -1.0)),
 		"armor_ke_absorbed_j": float(res_arm.get("armor_ke_absorbed_j", 0.0)),
 	}
+	CombatRegressionHarness._free_harness_node(bare)
+	CombatRegressionHarness._free_harness_node(armored)
+	return out
 
 
 ## M5 F5 proxy: mace elbow — blunt KE above anchor fractures (production MFB).
@@ -647,12 +655,14 @@ static func f5_mace_elbow_metrics() -> Dictionary:
 	var res: Dictionary = ent.take_damage_split(
 		0.0, 8.0, "right_arm", -1.0, -1.0, -1.0, {"hit_sub_region": "elbow", "strike_ke_j": strike_ke}
 	)
-	return {
+	var out: Dictionary = {
 		"strike_ke_j": strike_ke,
 		"j_anchor": j_anchor,
 		"final_bone": float(res.get("final_bone", 0.0)),
 		"final_blunt": float(res.get("final_blunt", 0.0)),
 	}
+	CombatRegressionHarness._free_harness_node(ent)
+	return out
 
 
 static func _append_formation_diagram_vitals_section(lines: PackedStringArray) -> void:
@@ -864,6 +874,7 @@ static func _append_parry_formula_section(lines: PackedStringArray, failures: Pa
 		"marginal_stop pa=%.1f cd=%.1f margin=%.2f control=%.2f"
 		% [pa_marginal, cd_marginal, _CombatConstants.parry_deflect_margin_ratio(cd_marginal, pa_marginal), ctrl_m]
 	)
+	lines.append(_CombatConstants.p4d_parry_bind_doc_sync_line())
 	if ctrl >= BIND_THRESHOLD and ctrl_m < BIND_THRESHOLD:
 		lines.append("formula_ordering=OK (decisive bind > marginal deflect at align 0.75)")
 	elif ctrl < BIND_THRESHOLD and ctrl_m >= BIND_THRESHOLD:
