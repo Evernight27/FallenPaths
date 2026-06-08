@@ -32,7 +32,7 @@ alwaysApply: true
 ## Campaign code (Campaign stream)
 
 - `main.gd` · `world/CampaignEncounterBridge.gd` · `EncounterNode.gd` · `CombatFlow.gd` · `PartyMemberSnapshot.gd` · `ui/PartyMenu.gd`
-- `world/CompanyState.gd` (closed gate constants §19) · `ContractSpawner` · `SettlementPanel` · `CompanyHud` · economy UX maintain (`format_*` helpers) — not new combat tiers. Campaign gate: `run_company_state_checks.ps1` (**404** tests).
+- `world/CompanyState.gd` (closed gate constants §19) · `ContractSpawner` · `SettlementPanel` · `CompanyHud` · economy UX maintain (`format_*` helpers) — not new combat tiers. Campaign gate: `run_company_state_checks.ps1` (**406** tests).
 
 ## Do not unless asked
 

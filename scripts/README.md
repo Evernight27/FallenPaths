@@ -36,7 +36,7 @@ Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`
 | `run_q_audit.ps1 -Track Q1\|Q2\|Track` | Playtest stream — headless audits (**Q1/Q2** = soak scenario ids) |
 | `run_q_track_audits.gd` (via `run_q_audit.ps1`) | Q4 **ii8** proxies D-001 (`formation_mode`, `turn_ready_gauge`, `tooltip_match_ok`, `diagram_banner`, **`form_*`** suffix content) — see [#wf-soak-audit-status](../docs/LIVE_PATHS.md#wf-soak-audit-status) |
 | `run_q_feel.ps1` / `run_q_feel.sh` `-Track Camp` / `Camp` | Playtest — F5 checklists (**Camp** = SHIP_PLAN §8 step 12 **WF-M3** + `.f5_soak_in.txt` scan + **`validate_f5_soak_log`**) |
-| `run_company_state_checks.ps1` / `.sh` | Camp-1 economy loop (**404** headless tests incl. XCamp-3.x + P2 persistence + isolated harness save slot; fails on any `SCRIPT_ERROR`; exit = stdout `FP_HARNESS_OK: CompanyStateChecks`). Harness uses `CampaignPersistence.begin_harness_isolated_save()` — safe alongside open Godot editor. |
+| `run_company_state_checks.ps1` / `.sh` | Camp-1 economy loop (**406** headless tests incl. XCamp-3.x + P2 persistence + isolated harness save slot; fails on any `SCRIPT_ERROR`; exit = stdout `FP_HARNESS_OK: CompanyStateChecks`). Harness uses `CampaignPersistence.begin_harness_isolated_save()` — safe alongside open Godot editor. |
 | `run_campaign_ship_audit.ps1` / `.sh` | Camp-3.4/5 headless standalone; `-TailOnly` / `--tail-only` skips company checks (Phase 0 already ran) |
 | `print_phase0_status.ps1` / `.sh` | Summarize `.phase0_*` / `.d001_*` / calibration + Camp-5 headless vs human F5 status |
 | `check_doc_links.ps1` | Doc link + tombstone gate + `res://` path audit (also run inside Phase 0) |

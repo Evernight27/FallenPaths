@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Camp-1.1–1.8 headless company loop checks (Campaign stream; required in Phase 0).
+# Camp-1 + XCamp-3.x headless company loop checks (406 tests; isolated harness save slot).
 # Exit: grep FP_HARNESS_OK (Godot process exit code is unreliable on some hosts).
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

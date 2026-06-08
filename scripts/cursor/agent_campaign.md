@@ -5,7 +5,7 @@ Stream: **Campaign**. **Exp-3 ☑ (2026-06-08)** — economy UX maintain only un
 .\scripts\run_company_state_checks.ps1
 .\scripts\run_campaign_ship_audit.ps1
 ```
-Campaign-only fast path: **`FP_HARNESS_OK: CompanyStateChecks (404 tests)`**. Full merge gate: **`PHASE0: PASS`** + **`CAMPAIGN_SHIP_AUDIT: PASS (headless)`** (Combat stream owns Phase 0).
+Campaign-only fast path: **`FP_HARNESS_OK: CompanyStateChecks (406 tests)`**. Full merge gate: **`PHASE0: PASS`** + **`CAMPAIGN_SHIP_AUDIT: PASS (headless)`** (Combat stream owns Phase 0).
 **Own:** `world/*` (`CompanyState.gd`, `CampaignPersistence.gd`, `MapFieldCare.gd`, `MapBleedPolicy.gd`, `CampaignEncounterBridge.gd`, `CombatFlow.gd`, `ContractSpawner.gd`), `main.gd`, `PartyManager.gd`, `ui/PartyMenu.gd`, `ui/SettlementPanel.gd`, `ui/CompanyHud.gd`, `ui/CompanyRunEndPanel.gd`, `scripts/run_company_state_checks.gd` (Campaign rows).
 
 **Do not touch:** `combat/*`, harness tails, `BleedingConstants.gd`, new `FEATURE_*`, bleed retune. Closed gates: `docs/CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22` · use `CompanyState.gate_*()` not inline stubs.

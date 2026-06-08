@@ -179,7 +179,7 @@ flowchart LR
 
 **Phase exit:** Player can hire after losses, complete **≥6 contracts** on expanded map in one P2 save; afflictions and mood visible in Party/settlement.
 
-**Economy UX maintain (2026-06-08):** Exp-3 rows shipped — ongoing work is **copy/surfacing only** via `CompanyState.format_*` helpers (End day wage+food suffixes, HUD hint strip, settlement burial/deck hints, desertion footer, hire tooltips). See [`AGENTS.md`](../AGENTS.md) economy UX row · [`agent_campaign.md`](../scripts/cursor/agent_campaign.md). Harness: **`CompanyStateChecks` (404 tests)** · P2 uses `CampaignPersistence.begin_harness_isolated_save`.
+**Economy UX maintain (2026-06-08):** Exp-3 rows shipped — ongoing work is **copy/surfacing only** via `CompanyState.format_*` helpers (End day wage+food suffixes, HUD hint strip, settlement burial/deck hints, desertion footer, hire tooltips). See [`AGENTS.md`](../AGENTS.md) economy UX row · [`agent_campaign.md`](../scripts/cursor/agent_campaign.md). Harness: **`CompanyStateChecks` (406 tests)** · P2 uses `CampaignPersistence.begin_harness_isolated_save`.
 
 **Suggested build order:** **XCamp-3.1** hire → **XCamp-3.2** map → **XCamp-3.3** deck → **XCamp-3.4** afflictions → polish rows.
 

@@ -70,7 +70,7 @@ Stream: **Audit**. Find errors, duplication, anti-patterns — fix **clear bugs 
 .\scripts\run_all_combat_checks.ps1
 .\scripts\run_company_state_checks.ps1
 ```
-Targets: **`PHASE0: PASS`** + **`CAMPAIGN_SHIP_AUDIT: PASS (headless)`** (or **`FP_HARNESS_OK: CompanyStateChecks (404 tests)`**).
+Targets: **`PHASE0: PASS`** + **`CAMPAIGN_SHIP_AUDIT: PASS (headless)`** (or **`FP_HARNESS_OK: CompanyStateChecks (406 tests)`**).
 
 **Own:** grep audits, harness failures, calibration audit, minimal fixes (typos, dead imports).
 

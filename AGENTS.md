@@ -37,7 +37,7 @@ Flat folders by design ? find modules by **name prefix**, not subfolder. Do not 
 | **Combat** | [`agent_combat.md`](scripts/cursor/agent_combat.md) (incl. [3e](scripts/cursor/agent_combat.md#specialty-iii-4-3e-fight-finish) · [line plug](scripts/cursor/agent_combat.md#specialty-iii-6-line-plug)) | `PHASE0: PASS` |
 | **Expand** *(§9c reopen only)* | [`README#expand-reopen`](scripts/cursor/README.md#expand-reopen) | `PHASE0: PASS` |
 | **Playtest** | [`agent_playtest.md`](scripts/cursor/agent_playtest.md) · tools: [`scripts/README.md`](scripts/README.md) | one agent on `.f5_soak_in.txt` |
-| **Campaign** | [`agent_campaign.md`](scripts/cursor/agent_campaign.md) | `CompanyStateChecks` **404** or Phase 0 + ship audit |
+| **Campaign** | [`agent_campaign.md`](scripts/cursor/agent_campaign.md) | `CompanyStateChecks` **406** or Phase 0 + ship audit |
 | **Hygiene · Audit · Medical** | [`README` sections](scripts/cursor/README.md#hygiene-cleanup) | Hygiene: no production `.gd`; hand off Audit for Phase 0 |
 
 ## Canonical APIs (combat / campaign)
