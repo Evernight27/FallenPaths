@@ -10,7 +10,7 @@ docs/__pycache__/
 *.py[cod]
 
 # Local harness / playtest artifacts (repo root only; see scripts/README.md)
-# Keep local-artifact patterns in sync with .cursorignore
+# Keep artifact patterns in sync with .cursorignore (cursorignore also has **/*.import for indexer)
 # Duplicate camp smokes — canonical: docs/camp_optional_step_smokes/
 .camp_optional_tests/
 

@@ -51,7 +51,7 @@ Target: **`PHASE0: PASS`**. Docs-only pass: confirm `git status` has no accident
 | 6 | **Stale script inventory** | `scripts/README.md` rows match on-disk `scripts/*` (removed: `run_d001_presets*`, `_print_phase0_status.ps1`, `validate_res_paths.py`) |
 | 7 | **res:// path audit** | `python3 scripts/check_doc_links.py --res-paths-only` (included in Phase 0 via `check_doc_links.ps1`) |
 | 8 | **Prompt/doc dedup** | One copy-paste home: `scripts/cursor/README.md` + `agent_*.md`; link stubs in `AGENTS.md` / `PLANNING.md` / `EXPANSION_PLAN.md` / `CURSOR.md` |
-| 9 | **Track untracked scripts** | Legitimate `?? scripts/*` (F5 helpers, `cursor/`) → `git add`, not delete |
+| 9 | **Untracked scripts** | Legitimate new `?? scripts/*` → `git add` + row in `scripts/README.md`; never delete without grep |
 
 **Safety:** never `git clean -fd` repo-wide · list every deletion · if two copies differ, stop and report to Audit.
 
