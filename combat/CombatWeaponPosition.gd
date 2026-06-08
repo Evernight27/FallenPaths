@@ -2,6 +2,7 @@ class_name CombatWeaponPosition
 extends RefCounted
 
 ## Defender blade reach for passive parry capacity (near body vs extended).
+## III-3: **`parry_deflect`** / **`parry_partial`** normalize to **`attack_deflect`** → near-body recovery (full **`parry_c_d`**).
 ## Footing: wind-up extension / recovery timing — **not** L3 **`guard_line`** or Tier 4.4 PA step. LIVE_PATHS **`#wf-pick-vs-strike`** (strike-time parry capacity).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")

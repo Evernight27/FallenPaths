@@ -6399,7 +6399,6 @@ static func _run_opponent_pressure_defensive_uses_burst_ratio(
 	var fid: String = _EntityAccess.formation_id_str(player)
 	_EntityAccess.set_exhaustion_float(enemy, 1.0)
 	enemy["stats"] = {"blood_volume": 100.0}
-	enemy["stance"] = CombatConstants.STANCE_BALANCED
 	enemy["state"] = CombatConstants.STATE_WAITING
 	enemy["stamina"] = 30.0
 	var mod_neutral: float = _ZOC.get_opponent_pressure_duration_multiplier(mgr, fid)
@@ -10127,6 +10126,28 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(
 		{"state": CombatConstants.STATE_RECOVERING, "recovery_cause": "parry_partial"}
 	):
 		_fail(failures, "weapon_pos: parry_partial recovery should stay near body")
+	if not _WeaponPosition.is_weapon_near_body(
+		{
+			"state": CombatConstants.STATE_RECOVERING,
+			"recovery_cause": "parry_partial",
+			"last_move_id": "oberhau",
+		}
+	):
+		_fail(
+			failures,
+			"weapon_pos: parry_partial recovery should stay near body with last_move_id"
+		)
+	if not _WeaponPosition.is_weapon_near_body(
+		{
+			"state": CombatConstants.STATE_RECOVERING,
+			"recovery_cause": "parry_deflect",
+			"last_move_id": "oberhau",
+		}
+	):
+		_fail(
+			failures,
+			"weapon_pos: parry_deflect recovery should stay near body with last_move_id"
+		)
 	if not _WeaponPosition.is_weapon_near_body(
 		{"state": CombatConstants.STATE_RECOVERING, "recovery_cause": "attack_deflect"}
 	):
