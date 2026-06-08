@@ -14,6 +14,7 @@ const _Flee := preload("res://combat/CombatFormationFlee.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
+const _LeaderCommand := preload("res://combat/CombatLeaderFormationCommand.gd")
 
 
 static func _append_formation_action(
@@ -89,6 +90,7 @@ static func _rank_pair_swap_context(
 		and not partner_incapacitated
 		and not relief_swap
 		and _FormationFlow.formation_line_has_rank0_gap(manager, fid)
+		and not _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
 	)
 	var eligible: bool = (
 		(we_are_front and not partner_incapacitated)
@@ -108,7 +110,56 @@ static func _rank_pair_swap_context(
 		"allow_swap": allow_swap,
 		"we_are_front": we_are_front,
 		"we_plug_forward": we_plug_forward,
+		"line_plug_relief": line_plug_relief,
 	}
+
+
+## MS-L5: true when this listed action plugs a rank-0 gap or steps over an incapacitated front partner.
+static func listed_action_is_formation_plug_pick(
+	manager: Node,
+	c: Dictionary,
+	action: Dictionary,
+	all_actions: Array,
+	combatant_id: int
+) -> bool:
+	if manager == null or c.is_empty() or action.is_empty():
+		return false
+	var mid: String = str(action.get("move_id", ""))
+	var our_rank: int = _EntityAccess.rank_int(c)
+	var fid: String = _EntityAccess.formation_id_str(c)
+	var line_gap: bool = _FormationFlow.formation_line_has_rank0_gap(manager, fid)
+	if mid == CombatConstants.MOVE_ID_SWAP_RANK:
+		var partner_id: int = int(action.get("target_id", -1))
+		var partner: Dictionary = _EntityAccess.manager_get_combatant(manager, partner_id)
+		if partner.is_empty() or not swap_rank_action_legal(manager, c, partner):
+			return false
+		var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
+		if bool(pc.get("we_plug_forward", false)):
+			return true
+		return line_gap and our_rank > 0 and bool(pc.get("line_plug_relief", false))
+	if mid != CombatConstants.MOVE_ID_ROTATE_FILE or our_rank != 0 or not line_gap:
+		return false
+	if _Doctrine.should_suppress_skirmish_rotate_file(manager, c, all_actions):
+		return false
+	if _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid):
+		return false
+	if (
+		not all_actions.is_empty()
+		and _Doctrine.sparse_line_prefer_finish_over_shuffle(manager, c, all_actions, combatant_id)
+	):
+		return false
+	if (
+		not all_actions.is_empty()
+		and _ListedActions.action_list_has_hostile_strike(all_actions, combatant_id)
+	):
+		return false
+	if str(_EngagementMode.engagement_mode(manager)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+		return false
+	var rot_partner_id: int = int(action.get("target_id", -1))
+	var rot_partner: Dictionary = _EntityAccess.manager_get_combatant(manager, rot_partner_id)
+	if rot_partner.is_empty():
+		return false
+	return rotate_file_action_legal(manager, c, rot_partner)
 
 
 static func swap_rank_action_legal(
@@ -226,6 +277,8 @@ static func rotate_file_action_legal(
 	if in_pair_abort_cooldown(manager, c) or in_rotate_file_cooldown(manager, c):
 		return false
 	if in_rotate_file_cooldown(manager, ally):
+		return false
+	if _FormationFlow.rotate_file_reverse_pair_blocked(manager, c, _EntityAccess.id_int(ally)):
 		return false
 	var ctx: Dictionary = zone_geometry_line_context_cache
 	if ctx.is_empty():
@@ -396,6 +449,7 @@ static func append_formation_move_actions(
 			actions,
 			{"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FLEE}
 		)
+	_LeaderCommand.append_leader_formation_commands(manager, c, combatant_id, actions)
 	if formation_retreat_only:
 		out["cowering_early_exit"] = true
 	return out
@@ -413,6 +467,6 @@ static func append_combat_wait_if_needed(actions: Array, combatant_id: int) -> v
 		actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})
 		return
 	for a in actions:
-		if a.get("move_id", "") not in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+		if not CombatConstants.is_formation_movement_move(str(a.get("move_id", ""))):
 			return
 	actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})

@@ -2,6 +2,7 @@ class_name CombatConstants
 extends RefCounted
 
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Combat tuning constants. Single source for CombatManager and AttackResolver.
 ## Reduces CombatManager from ~150 lines of constants to references.
@@ -163,6 +164,41 @@ const PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD := 0.6
 
 # HEMA bind vs deflect: parry_control above this → bind (blade stays).
 const PARRY_BIND_CONTROL_THRESHOLD := 0.65
+
+
+## III-3: shared full-stop gate — turn pick uses pre-variance **`parry_c_d`**; resolve uses post-variance **`c_d_final`**.
+static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry: bool) -> bool:
+	return is_block_parry and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
+
+
+## III-3: bind tag gate — `AttackResultApplier`, `GuardLineUpdater`, calibration audit.
+static func parry_bind_control_reached(parry_control: float) -> bool:
+	return parry_control >= PARRY_BIND_CONTROL_THRESHOLD
+
+
+static func iii3_baseline_constants_line() -> String:
+	return (
+		"III-3 constants: unchanged baseline (PARRY_DEFLECT_THRESHOLD=%.2f PARRY_BIND_CONTROL_THRESHOLD=%.2f)"
+		% [PARRY_DEFLECT_THRESHOLD, PARRY_BIND_CONTROL_THRESHOLD]
+	)
+
+
+## P4d: single doc-sync line for bind riposte table + gauge bonus (calibration audit + ii2b worksheet).
+static func p4d_parry_bind_doc_sync_line() -> String:
+	var blade: Dictionary = PARRY_BIND_RIPOSTE_BY_PART_CONTACT["blade"] as Dictionary
+	var shaft: Dictionary = PARRY_BIND_RIPOSTE_BY_PART_CONTACT["shaft"] as Dictionary
+	return (
+		"P4d bind sync: blade stab=%.2f cut=%.2f shaft blunt=%.2f fallback=%.2f gauge_bonus=%.0f"
+		% [
+			float(blade["stab"]),
+			float(blade["cut"]),
+			float(shaft["blunt"]),
+			PARRY_BIND_RIPOSTE_MULT_FALLBACK,
+			PARRY_BIND_RIPOSTE_GAUGE_BONUS,
+		]
+	)
+
+
 # Non-blade attacks (pommel, mace head): impact weapons, no sustained blade contact → never bind, always deflect.
 const ARCHETYPES_NEVER_BIND: Array[String] = ["pommel_strike", "heavy_blunt"]
 # Bind riposte wind-up: parry_part × contact_type. Extend=fast, wind=moderate, swing=slow. Fallback for missing cells.
@@ -308,9 +344,14 @@ const MENTAL_STACK_LAYER_MEDICAL := "medical"
 const MENTAL_STACK_LAYER_COUNTER := "counter"
 const MENTAL_STACK_LAYER_INCOMING := "incoming"
 const MENTAL_STACK_LAYER_HOLD_LINE := "hold_line"
+const MENTAL_STACK_LAYER_SPARSE_FIGHT := "sparse_fight"
+## MS-L5 Expand: vacancy / plug-forward when line breaks (after L4, before exhaustion).
+const MENTAL_STACK_LAYER_FORMATION_PLUG := "formation_plug"
+## MS-L6 Expand: cohesion break → flee / fall_back before salience utility (after MS-L5, before exhaustion).
+const MENTAL_STACK_LAYER_ROUT := "rout"
 ## MS-L7: high fight exhaustion → wait / formation disengage before salience utility pick.
 const MENTAL_STACK_LAYER_EXHAUSTION := "exhaustion"
-const MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD := 0.55
+const MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD := 0.50
 ## When no stack layer fires: multiply offensive action weights by **`lerp(1, 1 - this, attention_load)`** (attacks, feints, attempt_close).
 const MENTAL_STACK_SALIENCE_OFFENSE_DAMP_MAX := 0.4
 const FOCUS_INTENSITY_DEFAULT := 1.0
@@ -340,6 +381,36 @@ static func set_feature_combat_attention_load(enabled: bool) -> void:
 
 static func is_feature_mental_stack_ai_enabled() -> bool:
 	return _feature_mental_stack_ai_enabled
+
+
+## MS-L6 Expand: rout / cohesion-break layer in **`MentalStackDecider`** (after MS-L5 plug).
+const FEATURE_MS_L6_ROUT := true
+static var _feature_ms_l6_rout_load: int = -1
+
+
+static func is_feature_ms_l6_rout_enabled() -> bool:
+	if _feature_ms_l6_rout_load >= 0:
+		return _feature_ms_l6_rout_load != 0
+	return FEATURE_MS_L6_ROUT
+
+
+static func set_feature_ms_l6_rout_load(enabled: bool) -> void:
+	_feature_ms_l6_rout_load = 1 if enabled else 0
+
+
+## MS-MID Expand: mid-fight ally medical listing when ally in immediate peril; L1 stack already coordinated.
+const FEATURE_MS_MID_INFIGHT_MED := true
+static var _feature_ms_mid_infight_med_load: int = -1
+
+
+static func is_feature_ms_mid_infight_med_enabled() -> bool:
+	if _feature_ms_mid_infight_med_load >= 0:
+		return _feature_ms_mid_infight_med_load != 0
+	return FEATURE_MS_MID_INFIGHT_MED
+
+
+static func set_feature_ms_mid_infight_med_load(enabled: bool) -> void:
+	_feature_ms_mid_infight_med_load = 1 if enabled else 0
 
 
 static func is_focus_line_move(move_id: String) -> bool:
@@ -532,7 +603,7 @@ const STAMINA_EXHAUSTION_MAX_MULT_FLOOR := 0.7
 const STAMINA_BLOOD_MAX_MULT_FLOOR := 0.7
 ## PCr resynthesis slows when fight-exhausted (× at exhaustion 1.0).
 const STAMINA_REFILL_EXHAUSTION_MULT_FLOOR := 0.4
-## Gradual offense damp before MS-L7 tunnel (exhaustion index ≥ **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`**).
+## Gradual offense damp from **`EXHAUSTION_OFFENSE_DAMP_START`** → floor at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (p4a: aligns with 50% FP band + MS-L7 tunnel).
 const EXHAUSTION_OFFENSE_DAMP_START := 0.25
 const EXHAUSTION_OFFENSE_DAMP_FLOOR := 0.35
 
@@ -815,6 +886,381 @@ const WEAPON_COMMIT_FRACTION_QUICK := 0.62
 ## Armor mass vs ~full medieval kit; lerps formation-move duration toward FORMATION_ARMOR_MAX_SLOW_MULT.
 const FORMATION_ARMOR_MASS_REF_KG := 28.0
 const FORMATION_ARMOR_MAX_SLOW_MULT := 1.35
+
+## IV-7: equipped armor mass lengthens **`action_ready_cooldown`** and lowers passive parry readiness.
+const FEATURE_ARMOR_BURDEN := true
+static var _feature_armor_burden_load: int = -1
+
+
+static func is_feature_armor_burden_enabled() -> bool:
+	if _feature_armor_burden_load >= 0:
+		return _feature_armor_burden_load != 0
+	return FEATURE_ARMOR_BURDEN
+
+
+static func set_feature_armor_burden_load(enabled: bool) -> void:
+	_feature_armor_burden_load = 1 if enabled else 0
+
+
+## Max **`action_ready_cooldown`** mult at **`FORMATION_ARMOR_MASS_REF_KG`** (full kit).
+const ARMOR_BURDEN_ACTION_READY_MAX_MULT := 1.28
+## Passive readiness floor at full kit (WAITING **`guard`** × this; RECOVERING curve scaled same).
+const ARMOR_BURDEN_PASSIVE_READINESS_FLOOR := 0.78
+
+
+static func armor_burden_mass_ratio_for_combatant(combatant: Dictionary) -> float:
+	if combatant.is_empty():
+		return 0.0
+	var node: Node = _EntityAccess.scene_node(combatant)
+	if node == null:
+		return 0.0
+	var mass_kg: float = _EntityAccess.get_total_armor_mass_kg_from_node(node)
+	return clampf(mass_kg / FORMATION_ARMOR_MASS_REF_KG, 0.0, 1.5)
+
+
+static func armor_burden_action_ready_mult(combatant: Dictionary) -> float:
+	if not is_feature_armor_burden_enabled():
+		return 1.0
+	var t: float = clampf(armor_burden_mass_ratio_for_combatant(combatant), 0.0, 1.0)
+	return lerpf(1.0, ARMOR_BURDEN_ACTION_READY_MAX_MULT, t)
+
+
+static func armor_burden_passive_readiness_mult(combatant: Dictionary) -> float:
+	if not is_feature_armor_burden_enabled():
+		return 1.0
+	var t: float = clampf(armor_burden_mass_ratio_for_combatant(combatant), 0.0, 1.0)
+	return lerpf(1.0, ARMOR_BURDEN_PASSIVE_READINESS_FLOOR, t)
+
+
+## IV-8: combat-start **`EVENT_ACTION_READY`** stagger by initiative score (agi+perc, rank, armor burden).
+const FEATURE_INITIATIVE_ORDER := true
+static var _feature_initiative_order_load: int = -1
+## Extra delay per initiative rank after sorting (best = rank 0, no extra).
+const INITIATIVE_ORDER_STAGGER_STEP_S := 0.08
+
+
+static func is_feature_initiative_order_enabled() -> bool:
+	if _feature_initiative_order_load >= 0:
+		return _feature_initiative_order_load != 0
+	return FEATURE_INITIATIVE_ORDER
+
+
+static func set_feature_initiative_order_load(enabled: bool) -> void:
+	_feature_initiative_order_load = 1 if enabled else 0
+
+
+## IV-9: gap-column slot topology — intentional file gaps; disables naive native-line compaction.
+const FEATURE_GAP_COLUMN_TOPOLOGY := false
+static var _feature_gap_column_topology_load: int = -1
+
+
+static func is_feature_gap_column_topology_enabled() -> bool:
+	if _feature_gap_column_topology_load >= 0:
+		return _feature_gap_column_topology_load != 0
+	return FEATURE_GAP_COLUMN_TOPOLOGY
+
+
+static func set_feature_gap_column_topology_load(enabled: bool) -> void:
+	_feature_gap_column_topology_load = 1 if enabled else 0
+
+
+## Doc-sync line for calibration audit / III-4 Track B worksheet.
+static func iv9_gap_column_doc_sync_line() -> String:
+	return (
+		(
+			"IV-9 gap-column: default_flag=%s compact_native_line=disabled_when_on "
+			+ "slots=occupied_files_have_gaps slice2=column_graph_file_distance+diagram_gaps "
+			+ "pair_geometry=column_arc_when_gaps harness=dual_mode_formation_targeting "
+			+ "flow_refresh=swap_drag_fall_back_reconcile"
+		)
+		% ("on" if FEATURE_GAP_COLUMN_TOPOLOGY else "off")
+	)
+
+
+## Higher score → earlier first turn at combat start (IV-7 armor burden lowers score).
+static func initiative_score_for_combatant(combatant: Dictionary) -> float:
+	if combatant.is_empty():
+		return 0.0
+	var stats: Dictionary = _EntityAccess.stats_dict(combatant)
+	var agi: float = float(stats.get("agility", 100))
+	var perc: float = float(stats.get("perception", 100))
+	var rank_factor: float = maxf(0.65, 1.2 - float(_EntityAccess.rank_int(combatant)) * 0.18)
+	var armor_factor: float = 1.0 / maxf(0.01, armor_burden_action_ready_mult(combatant))
+	return stats_factor_agi_perc(agi, perc) * rank_factor * armor_factor
+
+
+## Sort **`schedule_initial_action_ready_events`** when IV-8 on; tie-break matches event queue (agi desc, id asc).
+static func compare_combatants_for_initiative_order(a: Dictionary, b: Dictionary) -> bool:
+	var sa: float = initiative_score_for_combatant(a)
+	var sb: float = initiative_score_for_combatant(b)
+	if sa != sb:
+		return sa > sb
+	var agi_a: int = int(_EntityAccess.stats_dict(a).get("agility", 100))
+	var agi_b: int = int(_EntityAccess.stats_dict(b).get("agility", 100))
+	if agi_a != agi_b:
+		return agi_a > agi_b
+	return _EntityAccess.id_int(a) < _EntityAccess.id_int(b)
+
+
+## IV-10: resolved **`hit_sub_region`** scales post-armor mechanical cut/blunt (severity table; no double-apply at wound map).
+const FEATURE_SUBREGION_COMBAT_MULT := true
+static var _feature_subregion_combat_mult_load: int = -1
+
+
+static func is_feature_subregion_combat_mult_enabled() -> bool:
+	if _feature_subregion_combat_mult_load >= 0:
+		return _feature_subregion_combat_mult_load != 0
+	return FEATURE_SUBREGION_COMBAT_MULT
+
+
+static func set_feature_subregion_combat_mult_load(enabled: bool) -> void:
+	_feature_subregion_combat_mult_load = 1 if enabled else 0
+
+
+## IV-11 slice 1: party leader lists instant doctrine commands (`order_hold_lane`); default off until playtest.
+const FEATURE_LEADER_FORMATION_COMMAND := false
+static var _feature_leader_formation_command_load: int = -1
+
+
+static func is_feature_leader_formation_command_enabled() -> bool:
+	if _feature_leader_formation_command_load >= 0:
+		return _feature_leader_formation_command_load != 0
+	return FEATURE_LEADER_FORMATION_COMMAND
+
+
+static func set_feature_leader_formation_command_load(enabled: bool) -> void:
+	_feature_leader_formation_command_load = 1 if enabled else 0
+
+
+## Headless harness: clear **`set_feature_*_load`** overrides so **`run_all()`** / `-HarnessMode regression` starts from production defaults.
+static func reset_harness_feature_load_overrides() -> void:
+	_feature_ms_l6_rout_load = -1
+	_feature_ms_mid_infight_med_load = -1
+	_feature_armor_burden_load = -1
+	_feature_initiative_order_load = -1
+	_feature_gap_column_topology_load = -1
+	_feature_subregion_combat_mult_load = -1
+	_feature_leader_formation_command_load = -1
+	_feature_iv12_slot_distraction_load = -1
+	_feature_iv13_weapon_reach_zoc_load = -1
+	_feature_t44_spatial_band_pa_load = -1
+	_feature_t44_spatial_file_dodge_bias_load = -1
+	_feature_t44_spatial_flurry_pa_load = -1
+	_feature_hema_eight_guard_lines_load = -1
+	_feature_arm_interpose_load = -1
+	_feature_iv6_attack_path_octant_load = -1
+
+
+## IV-1 review (archived wontfix): vacancy plug forward-fill vs incursion ZoC pressure — separate owners; D-008 removed line crash/contest.
+static func iv1_plug_incursion_doc_sync_line() -> String:
+	return (
+		"IV-1 plug-vs-incursion: archived=wontfix D-008=removed "
+		+ "plug=VacancyPlugs incursion=TacticalCombat+ZoC separate=no_contest attempt_close=live"
+	)
+
+
+## IV-12 slice 1: co-located hostile slot mates add sector distraction load (default off).
+const FEATURE_IV12_SLOT_DISTRACTION := false
+static var _feature_iv12_slot_distraction_load: int = -1
+## Extra surround weight when 2+ living threats share one opponent slot cell.
+const IV12_SLOT_DISTRACTION_WEIGHT_PAD := 0.35
+## IV-12 slice 2: co-located slot-mate already threatening defender → AI pile-on bias.
+const IV12_AI_COLOCATED_TARGET_BIAS_MULT := 1.12
+## IV-12 slice 2: AI hostile pick damp when co-located slot distraction pad is active.
+const IV12_AI_OFFENSE_WEIGHT_MULT := 0.78
+
+
+static func is_feature_iv12_slot_distraction_enabled() -> bool:
+	if _feature_iv12_slot_distraction_load >= 0:
+		return _feature_iv12_slot_distraction_load != 0
+	return FEATURE_IV12_SLOT_DISTRACTION
+
+
+static func set_feature_iv12_slot_distraction_load(enabled: bool) -> void:
+	_feature_iv12_slot_distraction_load = 1 if enabled else 0
+
+
+static func iv12_slot_distraction_doc_sync_line() -> String:
+	return (
+		"IV-12 slot distraction: feature=%s pad=%.2f ai_offense=%.2f ai_pile_on=%.2f "
+		+ "slice3=formation_slot_cell drag_back_dual_occ"
+		% [
+			"on" if FEATURE_IV12_SLOT_DISTRACTION else "off",
+			IV12_SLOT_DISTRACTION_WEIGHT_PAD,
+			IV12_AI_OFFENSE_WEIGHT_MULT,
+			IV12_AI_COLOCATED_TARGET_BIAS_MULT,
+		]
+	)
+
+
+## IV-13: weapon reach extends threaten range when ZoC front is weak (wide lines only; default off).
+const FEATURE_IV13_WEAPON_REACH_ZOC := false
+static var _feature_iv13_weapon_reach_zoc_load: int = -1
+const IV13_WEAPON_REACH_ZOC_REF_M := 1.5
+const IV13_WEAPON_REACH_ZOC_SPAN_M := 1.0
+const IV13_WEAPON_REACH_ZOC_MAX_BONUS_M := 0.35
+const IV13_WEAPON_REACH_ZOC_WEAK_FRONT_MAX := 0.55
+
+
+static func is_feature_iv13_weapon_reach_zoc_enabled() -> bool:
+	if _feature_iv13_weapon_reach_zoc_load >= 0:
+		return _feature_iv13_weapon_reach_zoc_load != 0
+	return FEATURE_IV13_WEAPON_REACH_ZOC
+
+
+static func set_feature_iv13_weapon_reach_zoc_load(enabled: bool) -> void:
+	_feature_iv13_weapon_reach_zoc_load = 1 if enabled else 0
+
+
+static func iv13_weapon_reach_zoc_doc_sync_line() -> String:
+	return (
+		"IV-13 weapon-reach ZoC: feature=%s weak_front<%.2f max_bonus=%.2fm ref=%.1fm"
+		% [
+			"on" if FEATURE_IV13_WEAPON_REACH_ZOC else "off",
+			IV13_WEAPON_REACH_ZOC_WEAK_FRONT_MAX,
+			IV13_WEAPON_REACH_ZOC_MAX_BONUS_M,
+			IV13_WEAPON_REACH_ZOC_REF_M,
+		]
+	)
+
+
+## Tier 4.4 spatial slice 1: engagement band scales PA step magnitude (default off).
+const FEATURE_T44_SPATIAL_BAND_PA := false
+static var _feature_t44_spatial_band_pa_load: int = -1
+const T44_SPATIAL_BAND_PA_MULT_CLOSE := 1.12
+const T44_SPATIAL_BAND_PA_MULT_MID := 1.0
+const T44_SPATIAL_BAND_PA_MULT_LONG := 0.88
+
+
+static func is_feature_t44_spatial_band_pa_enabled() -> bool:
+	if _feature_t44_spatial_band_pa_load >= 0:
+		return _feature_t44_spatial_band_pa_load != 0
+	return FEATURE_T44_SPATIAL_BAND_PA
+
+
+static func set_feature_t44_spatial_band_pa_load(enabled: bool) -> void:
+	_feature_t44_spatial_band_pa_load = 1 if enabled else 0
+
+
+## Tier 4.4 spatial slice 2: wing file scales defender **dodge** PA step (default off).
+const FEATURE_T44_SPATIAL_FILE_DODGE_BIAS := false
+static var _feature_t44_spatial_file_dodge_bias_load: int = -1
+const T44_SPATIAL_FILE_DODGE_WING_MULT := 1.1
+
+
+static func is_feature_t44_spatial_file_dodge_bias_enabled() -> bool:
+	if _feature_t44_spatial_file_dodge_bias_load >= 0:
+		return _feature_t44_spatial_file_dodge_bias_load != 0
+	return FEATURE_T44_SPATIAL_FILE_DODGE_BIAS
+
+
+static func set_feature_t44_spatial_file_dodge_bias_load(enabled: bool) -> void:
+	_feature_t44_spatial_file_dodge_bias_load = 1 if enabled else 0
+
+
+## 1.0 on interior files; **`T44_SPATIAL_FILE_DODGE_WING_MULT`** on file 0 / file max when files ≥ 2.
+static func t44_spatial_file_dodge_wing_mult(file_index: int, formation_files: int) -> float:
+	if not is_feature_t44_spatial_file_dodge_bias_enabled():
+		return 1.0
+	var files: int = maxi(1, formation_files)
+	if files < 2:
+		return 1.0
+	var fi: int = maxi(0, file_index)
+	if fi <= 0 or fi >= files - 1:
+		return T44_SPATIAL_FILE_DODGE_WING_MULT
+	return 1.0
+
+
+static func t44_spatial_file_dodge_doc_sync_line() -> String:
+	return (
+		"T44 spatial file dodge: feature=%s wing_mult=%.2f slice2=wing_file_dodge_step_bias"
+		% [
+			"on" if FEATURE_T44_SPATIAL_FILE_DODGE_BIAS else "off",
+			T44_SPATIAL_FILE_DODGE_WING_MULT,
+		]
+	)
+
+
+## Tier 4.4 spatial slice 3: bind-exchange flurry window scales PA step magnitude (default off).
+const FEATURE_T44_SPATIAL_FLURRY_PA := false
+static var _feature_t44_spatial_flurry_pa_load: int = -1
+const T44_SPATIAL_FLURRY_PA_MULT := 1.08
+
+
+static func is_feature_t44_spatial_flurry_pa_enabled() -> bool:
+	if _feature_t44_spatial_flurry_pa_load >= 0:
+		return _feature_t44_spatial_flurry_pa_load != 0
+	return FEATURE_T44_SPATIAL_FLURRY_PA
+
+
+static func set_feature_t44_spatial_flurry_pa_load(enabled: bool) -> void:
+	_feature_t44_spatial_flurry_pa_load = 1 if enabled else 0
+
+
+static func t44_spatial_flurry_pa_doc_sync_line() -> String:
+	return (
+		"T44 spatial flurry PA: feature=%s mult=%.2f slice3=flurry_bind_pa_boost"
+		% [
+			"on" if FEATURE_T44_SPATIAL_FLURRY_PA else "off",
+			T44_SPATIAL_FLURRY_PA_MULT,
+		]
+	)
+
+
+static func t44_spatial_band_pa_magnitude_mult(band: String) -> float:
+	match str(band):
+		DISTANCE_CLOSE:
+			return T44_SPATIAL_BAND_PA_MULT_CLOSE
+		DISTANCE_LONG:
+			return T44_SPATIAL_BAND_PA_MULT_LONG
+		_:
+			return T44_SPATIAL_BAND_PA_MULT_MID
+
+
+static func t44_spatial_band_pa_doc_sync_line() -> String:
+	return (
+		"T44 spatial band PA: feature=%s close=%.2f mid=%.2f long=%.2f slice1=engagement_band_step_magnitude"
+		% [
+			"on" if FEATURE_T44_SPATIAL_BAND_PA else "off",
+			T44_SPATIAL_BAND_PA_MULT_CLOSE,
+			T44_SPATIAL_BAND_PA_MULT_MID,
+			T44_SPATIAL_BAND_PA_MULT_LONG,
+		]
+	)
+
+
+## IV-11 doc-sync: leader formation abilities (slices 1–10); flag default off until playtest.
+static func iv11_leader_formation_doc_sync_line() -> String:
+	var feat: String = "on" if FEATURE_LEADER_FORMATION_COMMAND else "off"
+	return (
+		"IV-11 leader formation: slice1=focus_line_telegraph_match "
+		+ "slice3=register_stamp+formatter "
+		+ "slice4=bridge_roster_stamp+diagram_callout "
+		+ "is_party_leader=CombatManager.register "
+		+ "weight="
+		+ str(snappedf(AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT, 0.1))
+		+ " menu_abilities=roster_suffix "
+		+ "order_hold_lane_feature="
+		+ feat
+		+ " issuer=is_formation_command_issuer menu_label=Order_Hold_lane "
+		+ "slice5=order_probing menu_label_probing=Order_Probe "
+		+ "slice6=enemy_leader diagram_cmd=[Cmd] "
+		+ "slice7=roster_menu_leader_suffix "
+		+ "slice8=order_pinch_center menu_label_pinch=Order_Pinch_center "
+		+ "slice9=enemy_commander_orders+doctrine_cycle ai_pick="
+		+ str(snappedf(AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT, 0.01))
+		+ " slice10=pinch_outnumber_ai_mult="
+		+ str(snappedf(AI_LEADER_FORMATION_COMMAND_PINCH_OUTNUMBER_MULT, 0.01))
+		+ " f5_track=iv11_leader_order encounter_spawn=enemy_leader_index"
+	)
+
+
+## IV-8 doc-sync line (harness / calibration audit).
+static func iv8_initiative_doc_sync_line() -> String:
+	return (
+		"IV-8 initiative: stagger_step=%.2fs score=agi+perc*rank*armor_inv"
+		% INITIATIVE_ORDER_STAGGER_STEP_S
+	)
 ## Phase 6: Surround — cap divisor for defense split (checklist §4).
 const SURROUND_MAX_SPLIT_DIVISOR := 4
 ## At perception 0, awareness factor floor when multiple engaging threats.
@@ -850,6 +1296,8 @@ const DRAG_BACK_DURATION_MULT := 1.15
 const FORMATION_PAIR_ABORT_RETRY_COOLDOWN_S := 0.7
 ## Rotate-file anti-thrash: brief cooldown after a completed same-rank file swap so front units don't ping-pong lanes every turn.
 const FORMATION_ROTATE_FILE_RETRY_COOLDOWN_S := 0.8
+## Block re-rotating with the same adjacent partner until lock expires (stops A↔B swap loops while rank-0 holes remain).
+const FORMATION_ROTATE_FILE_REVERSE_PAIR_LOCK_S := 6.0
 const STATE_FALLING_BACK := "falling_back"
 const STATE_SWAP_RANK := "swap_rank"
 const MOVE_ID_SWAP_RANK := "swap_rank"
@@ -862,6 +1310,15 @@ const FORMATION_MOVE_KIND_DRAG_BACK := MOVE_ID_DRAG_BACK
 const FORMATION_MOVE_KIND_FALL_BACK_PAIR := "fall_back_pair"
 ## Tier 6.2: leave the engagement (not a rank swap / solo fall_back within the line).
 const MOVE_ID_FLEE := "flee"
+## IV-11: party leader instant formation command (doctrine shift; not slot movement).
+const MOVE_ID_ORDER_HOLD_LANE := "order_hold_lane"
+const MOVE_ID_ORDER_PROBING := "order_probing"
+const MOVE_ID_ORDER_PINCH_CENTER := "order_pinch_center"
+const LEADER_FORMATION_COMMAND_MOVE_IDS: Array[String] = [
+	MOVE_ID_ORDER_HOLD_LANE,
+	MOVE_ID_ORDER_PROBING,
+	MOVE_ID_ORDER_PINCH_CENTER,
+]
 ## Swap / drag / fall back / rotate / flee — used so "only formation moves" still offers wait.
 const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = [
 	MOVE_ID_SWAP_RANK, MOVE_ID_DRAG_BACK, MOVE_ID_FALL_BACK, MOVE_ID_ROTATE_FILE, MOVE_ID_FLEE
@@ -870,6 +1327,10 @@ const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = [
 
 static func is_formation_movement_move(move_id: String) -> bool:
 	return str(move_id) in FORMATION_MOVEMENT_MOVE_IDS
+
+
+static func is_leader_formation_command_move(move_id: String) -> bool:
+	return str(move_id) in LEADER_FORMATION_COMMAND_MOVE_IDS
 
 
 static func is_formation_reposition_move(move_id: String) -> bool:
@@ -1041,6 +1502,45 @@ static func set_feature_hema_eight_guard_lines_load(enabled: bool) -> void:
 	_feature_hema_eight_guard_lines_load = 1 if enabled else 0
 
 
+## IV-5 BP6: misaligned guard but attack-side arm on intercept path boosts parry alignment + hit weight.
+const FEATURE_ARM_INTERPOSE := true
+static var _feature_arm_interpose_load: int = -1
+
+
+static func is_feature_arm_interpose_enabled() -> bool:
+	if _feature_arm_interpose_load >= 0:
+		return _feature_arm_interpose_load != 0
+	return FEATURE_ARM_INTERPOSE
+
+
+static func set_feature_arm_interpose_load(enabled: bool) -> void:
+	_feature_arm_interpose_load = 1 if enabled else 0
+
+
+## IV-6: per-octant **`ATTACK_PATHS_BY_GUARD`** — flank diagonal merges flank + vertical cardinal paths (zone part first).
+const FEATURE_IV6_ATTACK_PATH_OCTANT := true
+static var _feature_iv6_attack_path_octant_load: int = -1
+
+
+static func is_feature_iv6_attack_path_octant_enabled() -> bool:
+	if _feature_iv6_attack_path_octant_load >= 0:
+		return _feature_iv6_attack_path_octant_load != 0
+	return FEATURE_IV6_ATTACK_PATH_OCTANT
+
+
+static func set_feature_iv6_attack_path_octant_load(enabled: bool) -> void:
+	_feature_iv6_attack_path_octant_load = 1 if enabled else 0
+
+
+## Min guard–attack angle (°) before arm interpose applies; align band [`ARM_INTERPOSE_MIN_ALIGN`, `ARM_INTERPOSE_MAX_ALIGN`).
+const ARM_INTERPOSE_MIN_ANGLE_DEG := 45.0
+const ARM_INTERPOSE_MIN_ALIGN := PARRY_ALIGNMENT_FLOOR
+const ARM_INTERPOSE_MAX_ALIGN := 0.72
+const ARM_INTERPOSE_ALIGNMENT_BOOST := 0.22
+const ARM_INTERPOSE_MAX_PATH_INDEX := 4
+const ARM_INTERPOSE_HIT_WEIGHT_MULT := 1.55
+
+
 ## Front-arc occupancy for surround threat weight (physical cap vs abstract slot count).
 const FEATURE_SURROUND_ARC_OCCUPANCY := true
 const SURROUND_ARC_HALF_WIDTH_DEG := 38.0
@@ -1164,6 +1664,10 @@ const FOCUS_LINE_MOVE_IDS: Array[String] = [
 ]
 const AI_FOCUS_LINE_BASE_WEIGHT := 0.06
 const AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT := 6.0
+## IV-11 slice 9: AI weighted pick for leader formation doctrine commands (below routine offense).
+const AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT := 0.38
+## IV-11 slice 10: boost **`order_pinch_center`** when numeric superiority suggests pincer.
+const AI_LEADER_FORMATION_COMMAND_PINCH_OUTNUMBER_MULT := 1.45
 const AI_FOCUS_LINE_ALREADY_FOCUSED_WEIGHT := 0.02
 const YOMI_PARRY_DEFLECT_FEINT_LISTING_MULT_PER := 0.035
 const YOMI_PARRY_DEFLECT_FEINT_LISTING_MULT_CAP := 1.18
@@ -1187,6 +1691,7 @@ const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
 }
 ## L4 pilot: 4-cardinal keys when eight-guard flag off; when on, **`CombatGuardLines.position_angle_offset_deg_for_line`** (octant table). LIVE_PATHS **`#wf-form-guard-pa-matrix`**.
 ## Tier 4.4.2: defender step scales (symmetric to attacker step-on-wind-up; still flag-gated).
+## WF-T1 (2026-06-07): Camp-5 soak confirms parry 0.55 / dodge 0.85 — tune octant raw table first.
 const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY := 0.55
 const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE := 0.85
 ## Production default on (2026-05-17): pilot tuned via `_run_footwork_*`; harness still toggles via load setter.
@@ -1234,7 +1739,7 @@ static func guard_line_for_body_part(part: String) -> String:
 
 static func guard_zone_for_guard_line(line: String) -> String:
 	if is_feature_hema_eight_guard_lines_enabled():
-		return _GuardLines.default_part_for_line(line)
+		return _GuardLines.guard_zone_part_for_line(line)
 	return str(LINE_TO_DEFAULT_PART.get(str(line), "head"))
 
 
@@ -1243,6 +1748,16 @@ const SWAP_RANK_AI_LOW_WEIGHT := 0.02
 const SWAP_RANK_AI_HIGH_WEIGHT := 1.0
 const SWAP_RANK_AI_LINE_PLUG_WEIGHT := 0.52 # Rear relief when another file has rank-0 hole (III-6 maintain)
 const AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT := 0.62 # Skirmish shuffle when line has rank-0 holes (III-6 maintain)
+const AI_ROTATE_FILE_WHEN_ENGAGEMENT_LISTED_MULT := 0.35 # Prefer strikes/close over shuffle when both are listed
+const AI_ROTATE_FILE_LONG_CLOSE_ONLY_MULT := 1.35 # LONG close-only (no melee) — shuffle can find angle vs close spam
+const AI_ATTEMPT_CLOSE_LONG_CLOSE_ONLY_MULT := 0.82 # Mapped rank-0 LONG close-only — rotate can compete
+const AI_ATTEMPT_CLOSE_BIND_CLOSE_MULT := 1.28 # Mapped wing out of reach — close bind beats wait/shuffle
+const AI_FIGHT_FINISH_TRUSTED_CLOSE_MIN_WEIGHT := 0.58 # Menu-listed close when pair gate fails at pick time (fight-finish tail)
+const AI_ATTEMPT_CLOSE_SPARSE_LINE_MULT := 1.4 # Sparse post-flee front — close to finish beats shuffle
+const AI_SPARSE_LINE_OFFENSE_MULT := 1.35 # Listed melee on sparse post-flee front — fight over focus shuffle
+const AI_FOCUS_LINE_SPARSE_ENGAGEMENT_LISTED_MULT := 0.35 # Damp guard retarget when strikes/close are listed
+const AI_WAIT_SPARSE_ENGAGEMENT_LISTED_MULT := 0.45 # Post-flee sparse — wait below close/strike finish
+const AI_WAIT_MOP_UP_FINISH_MULT := 0.4 # Mop-up winner or last-enemy underdog — finish fight, don't idle
 ## Mobile cowering solo **fall_back** vs **wait** (Tier 6.1 — no arms, legs OK).
 const COWERING_SOLO_FALL_BACK_AI_WEIGHT := 1.5
 ## Tier 6.2: mobile cowering — prefer **`flee`** over in-formation **`fall_back`** when both are listed (cannot hold weapon).
@@ -1257,6 +1772,23 @@ const AI_FLEE_LOSING_SIDE_MULT := 1.28
 const AI_FLEE_EXHAUSTION_TUNNEL_WEIGHT := 0.88
 ## Flee listing when stamina is nearly spent (even below MS-L7 tunnel threshold).
 const AI_FLEE_CRITICAL_STAMINA_RATIO := 0.12
+## IV-7b: below this stamina ratio, attack / **`attempt_close`** listing weights use **`AI_STAMINA_ENGAGE_LOW_MULT`**.
+const AI_STAMINA_ENGAGE_FLOOR_RATIO := 0.20
+const AI_STAMINA_ENGAGE_LOW_MULT := 0.85
+
+
+## IV-7b: step-down offense engage weight (investigated 2026-05; locked 2026-06-08).
+static func ai_offense_stamina_weight_mult(stamina_ratio: float) -> float:
+	if stamina_ratio >= AI_STAMINA_ENGAGE_FLOOR_RATIO:
+		return 1.0
+	return AI_STAMINA_ENGAGE_LOW_MULT
+
+
+static func iv7b_stamina_engage_doc_sync_line() -> String:
+	return (
+		"IV-7b engage floor: ratio<%.2f -> offense_mult=%.2f"
+		% [AI_STAMINA_ENGAGE_FLOOR_RATIO, AI_STAMINA_ENGAGE_LOW_MULT]
+	)
 ## Partner must exceed our composite fitness (perf × blood norm) by at least this much for a routine relief.
 const SWAP_RANK_AI_MIN_FITNESS_GAP := 0.20
 ## Below this our_fitness, treat as dangerously unfit: partner need only be ahead by URGENT_MIN_GAP.
@@ -1304,6 +1836,12 @@ const WF_YOMI_FORM_INFERENCE_MARGIN := 0.15
 const WF_FORM_COUNTER_MULT_CAP := 1.15
 const WF_COUNTER_READINESS_NUDGE_MIN := 0.03
 const WF_COUNTER_READINESS_NUDGE_MAX := 0.06
+## WF-T2 (2026-06-08): auto-switch duel thresholds — F5 soak: block offensive duel_read from **wall** until stamina recovers.
+const WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD := 0.12
+const WF_AUTO_SWITCH_DUEL_WRATH_PROMOTE_PAD := 0.15
+const WF_AUTO_SWITCH_DUEL_WRATH_DEMOTE_PAD := 0.10
+const WF_AUTO_SWITCH_SURROUND_WEIGHT_PAD := 0.05
+const WF_AUTO_SWITCH_ISOLATED_DUEL_WEIGHT_PAD := 0.08
 const AI_FOCUS_LINE_FORM_PREFERRED_MULT := 1.25
 const ENCOUNTER_PROTECTION_CIRCLE_ACTIVE := "protection_circle_active"
 ## Phase 6: Which side suffers ambush penalties (typically "player" when monsters ambush party).
@@ -1454,7 +1992,7 @@ static func normalize_recovery_cause(cause: String) -> String:
 	var k: String = str(cause).strip_edges()
 	if k.is_empty():
 		return "skip"
-	if k == "parry_deflect":
+	if k == "parry_deflect" or k == "parry_partial":
 		return "attack_deflect"
 	return k
 
@@ -1673,18 +2211,99 @@ const ATTACK_PATHS_BY_GUARD: Dictionary = {
 	}
 }
 
-## Returns attack path for (attack_line, guard_line). Octant lines map to cardinal keys via **`CombatGuardLines.cardinal_for_path_lookup`** before **`ATTACK_PATHS_BY_GUARD`** lookup. Unknown lines skip normalization and use legacy fallback.
+## IV-6: zone part first, then shaped tail distinct from flank-only and vertical-only cardinals.
+static func _iv6_bubble_pair(parts: Array, before: String, after: String) -> Array:
+	var out: Array = parts.duplicate()
+	var i_before: int = out.find(before)
+	var i_after: int = out.find(after)
+	if i_before < 0 or i_after < 0 or i_before <= i_after:
+		return out
+	out.remove_at(i_before)
+	i_after = out.find(after)
+	out.insert(i_after, before)
+	return out
+
+
+static func _iv6_promote_to_front(parts: Array, part: String) -> Array:
+	var out: Array = parts.duplicate()
+	var idx: int = out.find(part)
+	if idx <= 0:
+		return out
+	out.remove_at(idx)
+	out.insert(0, part)
+	return out
+
+
+static func _iv6_diagonal_path_pool(flank_path: Array, vert_path: Array, zone_part: String) -> Array:
+	var pool: Array = []
+	for part in flank_path:
+		var p: String = str(part)
+		if p != zone_part and p not in pool:
+			pool.append(p)
+	for part in vert_path:
+		var p: String = str(part)
+		if p != zone_part and p not in pool:
+			pool.append(p)
+	return pool
+
+
+static func _iv6_shape_diagonal_pool(pool: Array, guard_oct: String) -> Array:
+	var shaped: Array = pool.duplicate()
+	match guard_oct:
+		_GuardLines.LINE_HIGH_LEFT:
+			shaped = _iv6_bubble_pair(shaped, "head", "right_arm")
+			shaped = _iv6_bubble_pair(shaped, "right_arm", "chest")
+		_GuardLines.LINE_HIGH_RIGHT:
+			shaped = _iv6_bubble_pair(shaped, "head", "left_arm")
+			shaped = _iv6_bubble_pair(shaped, "left_arm", "chest")
+		_GuardLines.LINE_LOW_LEFT, _GuardLines.LINE_LOW_RIGHT:
+			shaped = _iv6_promote_to_front(shaped, "left_leg")
+			shaped = _iv6_promote_to_front(shaped, "right_leg")
+	return shaped
+
+
+static func _iv6_diagonal_attack_path(
+	flank_path: Array, vert_path: Array, guard_oct: String, zone_part: String
+) -> Array:
+	var pool: Array = _iv6_diagonal_path_pool(flank_path, vert_path, zone_part)
+	pool = _iv6_shape_diagonal_pool(pool, guard_oct)
+	var out: Array = []
+	if zone_part != "":
+		out.append(zone_part)
+	for part in pool:
+		out.append(part)
+	return out
+
+
+## Returns attack path for (attack_line, guard_line). Attack octants map via **`cardinal_for_path_lookup`**; guard octants use **`guard_cardinal_for_attack_path`** (IV-4) or IV-6 octant merge when enabled.
 static func get_attack_path(attack_line: String, guard_line: String) -> Array:
 	var atk_key: String = str(attack_line).strip_edges()
 	var guard_key: String = str(guard_line).strip_edges()
+	var guard_oct: String = ""
 	if _GuardLines.is_known_line(atk_key):
 		atk_key = _GuardLines.cardinal_for_path_lookup(atk_key)
 	if _GuardLines.is_known_line(guard_key):
-		guard_key = _GuardLines.cardinal_for_path_lookup(guard_key)
+		guard_oct = _GuardLines.normalize_line(guard_key)
+		if is_feature_hema_eight_guard_lines_enabled():
+			guard_key = _GuardLines.guard_cardinal_for_attack_path(guard_oct)
+		else:
+			guard_key = _GuardLines.cardinal_for_path_lookup(guard_key)
 	var by_guard: Variant = ATTACK_PATHS_BY_GUARD.get(atk_key, {})
-	if by_guard is Dictionary and by_guard.has(guard_key):
-		return by_guard[guard_key]
-	return ATTACK_PATHS.get(atk_key, ATTACK_PATH_HIGH)
+	if not (by_guard is Dictionary and by_guard.has(guard_key)):
+		return ATTACK_PATHS.get(atk_key, ATTACK_PATH_HIGH)
+	var flank_path: Array = (by_guard as Dictionary)[guard_key]
+	if (
+		is_feature_iv6_attack_path_octant_enabled()
+		and is_feature_hema_eight_guard_lines_enabled()
+		and guard_oct != ""
+		and _GuardLines.is_flank_diagonal_guard_line(guard_oct)
+	):
+		var vert_key: String = _GuardLines.cardinal_for_path_lookup(guard_oct)
+		if vert_key != guard_key:
+			var vert_path: Array = (by_guard as Dictionary).get(vert_key, flank_path)
+			var zone: String = _GuardLines.guard_zone_part_for_line(guard_oct)
+			return _iv6_diagonal_attack_path(flank_path, vert_path, guard_oct, zone)
+	return flank_path
 
 # Intercept: alignment 1.0 = hit early parts (indices 0..2); alignment 0.0 = full path (0..5)
 const PATH_INTERCEPT_EARLY_MAX := 2

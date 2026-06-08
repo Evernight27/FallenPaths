@@ -10,6 +10,8 @@ const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _FormationMoveListing := preload("res://combat/CombatFormationMoveListing.gd")
+const _ListedActions := preload("res://combat/CombatListedActions.gd")
 
 const VACANCY_LATERAL_EDGE_META := "_vacancy_lateral_edges"
 const VACANCY_PLUG_RESERVED_DONORS_META := "_vacancy_plug_reserved_donors"
@@ -104,6 +106,57 @@ static func formation_has_rank0_hole(manager: Node, fid: String) -> bool:
 
 ## True when this formation currently has at least one legal plug move into rank 0.
 ## Frontline-first policy: if true, keep line closure ahead of non-essential movement choices.
+## MS-L5: fight-finish / sparse-finish / mop-up offense defer plug to L4b or salience utility pick.
+static func formation_plug_layer_blocked(
+	manager: Node, c: Dictionary, actions: Array, combatant_id: int
+) -> bool:
+	if manager == null or c.is_empty():
+		return true
+	if _Doctrine.fight_finish_tail_active(manager, c, actions, combatant_id):
+		return true
+	if (
+		not actions.is_empty()
+		and _Doctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, combatant_id)
+	):
+		return true
+	var fid: String = _EntityAccess.formation_id_str(c)
+	if (
+		not actions.is_empty()
+		and not fid.is_empty()
+		and _Doctrine.envelop_mop_up_active(manager, fid)
+		and _ListedActions.action_list_has_hostile_strike(actions, combatant_id)
+	):
+		return true
+	return false
+
+
+## MS-L5: true when plug cognition should run (not blocked and at least one listed plug move).
+static func formation_plug_layer_eligible(
+	manager: Node, c: Dictionary, combatant_id: int, actions: Array
+) -> bool:
+	if formation_plug_layer_blocked(manager, c, actions, combatant_id):
+		return false
+	return not filter_formation_plug_actions(manager, c, combatant_id, actions).is_empty()
+
+
+## MS-L5: listed vacancy / plug-forward actions for **`MentalStackDecider`** (swap_rank relief, incap plug, Skirmish rotate).
+static func filter_formation_plug_actions(
+	manager: Node, c: Dictionary, combatant_id: int, actions: Array
+) -> Array:
+	var out: Array = []
+	if manager == null or c.is_empty() or actions.is_empty():
+		return out
+	for raw in actions:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		if _FormationMoveListing.listed_action_is_formation_plug_pick(
+			manager, c, a, actions, combatant_id
+		):
+			out.append(a)
+	return out
+
+
 static func formation_has_frontline_fill_opportunity(manager: Node, fid: String) -> bool:
 	if manager == null:
 		return false
@@ -586,19 +639,18 @@ static func _apply_plug_move(
 		ally.erase("formation_vacancy_lateral_reverse_lock_until")
 	if CombatConstants.COMBAT_FORMATION_PLUG_MOVE_DEBUG:
 		var name_p: String = _EntityAccess.get_display_name(ally, _EntityAccess.id_int(ally))
+		var plug_msg: String = ""
 		if kind == "lateral":
-			print(
-				"[Combat] %s: %s slid file %d â†’ %d (rank %d)" % [log_prefix, name_p, from_f, file, fill_rank]
-			)
+			plug_msg = "%s: %s slid file %d -> %d (rank %d)" % [log_prefix, name_p, from_f, file, fill_rank]
 		elif kind == "rear_infill":
-			print(
-				(
-					"[Combat] %s: %s rear infill rank %d file %d â†’ rank %d file %d"
-					% [log_prefix, name_p, int(move.get("from_rank", 0)), from_f, fill_rank, file]
-				)
+			plug_msg = (
+				"%s: %s rear infill rank %d file %d -> rank %d file %d"
+				% [log_prefix, name_p, int(move.get("from_rank", 0)), from_f, fill_rank, file]
 			)
 		else:
-			print("[Combat] %s: %s advanced to rank %d (file %d)" % [log_prefix, name_p, fill_rank, file])
+			plug_msg = "%s: %s advanced to rank %d (file %d)" % [log_prefix, name_p, fill_rank, file]
+		if not plug_msg.is_empty():
+			CombatDebug.combat_session(plug_msg)
 	elif CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG and str(log_prefix).begins_with("Vacancy"):
 		var name_v: String = _EntityAccess.get_display_name(ally, _EntityAccess.id_int(ally))
 		CombatDebug.formation_vacancy_log("%s: %s â†’ rank %d file %d (%s)" % [log_prefix, name_v, fill_rank, file, kind])
@@ -772,6 +824,8 @@ static func _skirmish_wide_line_skip_compact(manager: Node, fid: String) -> bool
 static func _should_compact_native_line_files(manager: Node, fid: String) -> bool:
 	if manager == null:
 		return false
+	if CombatConstants.is_feature_gap_column_topology_enabled():
+		return false
 	if _skirmish_wide_line_skip_compact(manager, fid):
 		return false
 	if str(_EngagementMode.engagement_mode(manager)) == str(CombatConstants.ENGAGEMENT_MODE_FORMATION):
@@ -892,6 +946,8 @@ static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> 
 				continue
 			_slot_place_native_preserving_other_occupants(manager, slots, fid, rank, new_f, nid)
 			any = true
+	if any:
+		_FormationSlots.refresh_gap_column_topology(formation)
 	return any
 
 
@@ -971,6 +1027,8 @@ static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> boo
 			% [max_rounds, fid]
 		)
 	_log_rank0_vacancy_gaps_if_debug(manager, fid)
+	if any:
+		_FormationSlots.refresh_gap_column_topology(formation)
 	return any
 
 

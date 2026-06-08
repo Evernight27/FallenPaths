@@ -13,6 +13,7 @@ const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
+const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 
 
@@ -53,10 +54,13 @@ static func can_melee_threaten(
 		eff_dist = _PairGeometry.cached_eff_dist(
 			_PairGeometry.effective_pair_geometry(manager, attacker, defender)
 		)
+	var reach_for_threaten: float = (
+		melee_range + _ZoneOfControl.weapon_reach_zoc_bonus_m(manager, attacker, defender)
+	)
 	var dist: String = _EntityAccess.distance_to_opponent_band(attacker, _EntityAccess.id_int(defender))
 	if envelop_mop_up_strike_at_band(manager, attacker, dist):
 		return true
-	if not _PairGeometry.melee_reach_covers_eff_dist(melee_range, eff_dist):
+	if not _PairGeometry.melee_reach_covers_eff_dist(reach_for_threaten, eff_dist):
 		return false
 	return dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID
 
@@ -122,6 +126,39 @@ static func defender_has_free_close_slot(
 	return count_close_attackers_on_defender(manager, _EntityAccess.id_int(defender), exclude_attacker_id) < cap
 
 
+## Fight-finish / sparse: drop redundant **`attempt_close`** at CLOSE/MID when melee is already listed.
+static func strip_redundant_attempt_close_for_finish(
+	manager: Node, c: Dictionary, actions: Array
+) -> void:
+	if manager == null or c.is_empty() or actions.is_empty():
+		return
+	var cid: int = _EntityAccess.id_int(c)
+	if not _Doctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, cid):
+		return
+	if not _ListedActions.action_list_has_hostile_melee_strike(actions, cid):
+		return
+	var kept: Array = []
+	for raw in actions:
+		if typeof(raw) != TYPE_DICTIONARY:
+			kept.append(raw)
+			continue
+		var a: Dictionary = raw as Dictionary
+		if str(a.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+			kept.append(raw)
+			continue
+		var tgt_id: int = int(a.get("target_id", -1))
+		if tgt_id < 0:
+			kept.append(raw)
+			continue
+		var dist: String = _EntityAccess.distance_to_opponent_band(c, tgt_id, "")
+		if dist != CombatConstants.DISTANCE_CLOSE and dist != CombatConstants.DISTANCE_MID:
+			kept.append(raw)
+			continue
+	actions.clear()
+	for entry in kept:
+		actions.append(entry)
+
+
 static func _append_attempt_close_action(
 	actions: Array, opp: Dictionary
 ) -> void:
@@ -143,6 +180,15 @@ static func attempt_close_listed_for_pair(
 			return false
 		if not _Doctrine.envelop_close_allowed(manager, attacker, defender_id):
 			return false
+	else:
+		var defender_long: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+		if not defender_long.is_empty():
+			var reach: float = _EntityAccess.weapon_melee_reach(attacker)
+			var eff: float = _PairGeometry.effective_pair_eff_dist(
+				manager, attacker, defender_long
+			)
+			if _PairGeometry.melee_reach_covers_eff_dist(reach, eff):
+				return false
 	if close_attempt_pair_blocked(manager, attacker, defender_id):
 		return false
 	var defender: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
@@ -177,11 +223,21 @@ static func append_melee_vs_enemy_line_rank(
 		)
 		var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, c, opp, fc, fo)
 		var eff_dist: float = _PairGeometry.cached_eff_dist(pair_geom)
-		var in_swing_range: bool = _PairGeometry.melee_reach_covers_eff_dist(melee_range, eff_dist)
+		var reach_for_listing: float = (
+			melee_range + _ZoneOfControl.weapon_reach_zoc_bonus_m(manager, c, opp)
+		)
+		var in_swing_range: bool = _PairGeometry.melee_reach_covers_eff_dist(
+			reach_for_listing, eff_dist
+		)
 		var dist: String = _EntityAccess.distance_to_opponent_band(c, _EntityAccess.id_int(opp))
 		var mop_up_strike: bool = envelop_mop_up_strike_at_band(manager, c, dist)
 		if in_swing_range or mop_up_strike:
-			if dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID:
+			# Geometric reach covers even when band still says LONG (pre-recompute lag) — strike, don't close.
+			if (
+				dist == CombatConstants.DISTANCE_CLOSE
+				or dist == CombatConstants.DISTANCE_MID
+				or in_swing_range
+			):
 				for move_id in move_ids:
 					if WeaponConstants.is_parry_move(move_id):
 						continue
@@ -226,3 +282,4 @@ static func append_melee_actions_for_combatant(
 		append_melee_vs_enemy_line_rank(
 			manager, c, combatants, actions, move_ids, melee_range, 1, ctx_self, opp_zone
 		)
+	strip_redundant_attempt_close_for_finish(manager, c, actions)

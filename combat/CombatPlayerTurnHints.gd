@@ -104,23 +104,68 @@ static func hold_line_focus_only_hint(manager: Node, c: Dictionary, actions: Arr
 		return ""
 	if not _EntityAccess.is_player_side(c):
 		return ""
+	var cid: int = _EntityAccess.id_int(c)
+	var fid: String = _EntityAccess.formation_id_str(c)
+	if (
+		manager != null
+		and not fid.is_empty()
+		and _CombatDoctrine.envelop_mop_up_active(manager, fid)
+		and _ListedActions.action_list_has_hostile_melee_strike(actions, cid)
+	):
+		return "Mop-up — finish the last enemy with a listed strike."
+	if (
+		manager != null
+		and _CombatDoctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, cid)
+		and _ListedActions.action_list_has_hostile_melee_strike(actions, cid)
+	):
+		return "Line open after rout — close in or strike; shuffle won't fill distant gaps."
 	if not _ListedActions.action_list_is_reserve_posture_only(actions):
 		return ""
+	if (
+		manager != null
+		and not fid.is_empty()
+		and _CombatDoctrine.envelop_mop_up_active(manager, fid)
+		and _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
+	):
+		return "Mop-up — finish the last enemy; close in or strike."
 	if _EntityAccess.rank_int(c) >= 1:
 		return "Back rank — no front reach this turn; adjust guard focus lines only."
 	if (
 		manager != null
-		and _CombatDoctrine.envelop_mop_up_active(manager, _EntityAccess.formation_id_str(c))
-		and _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
+		and _reserve_posture_needs_bind_close(manager, c, actions)
 	):
-		return "Mop-up — finish the last enemy; close in or strike."
+		return "Assigned foe out of reach — close in to bind."
 	if (
 		manager != null
 		and _EngagementOpposition.wing_lacks_mapped_opposition(manager, c)
 		and _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
 	):
 		return "Wing — no mapped front; close in or adjust guard focus."
+	if (
+		manager != null
+		and _CombatDoctrine.sparse_line_prefer_finish_over_shuffle(
+			manager, c, actions, _EntityAccess.id_int(c)
+		)
+	):
+		return "Line open after rout — close in or strike; shuffle won't fill distant gaps."
 	return ""
+
+
+## Reserve-only menu with **`attempt_close`** at LONG when geometric reach already covers — false.
+static func _reserve_posture_needs_bind_close(
+	manager: Node, c: Dictionary, actions: Array
+) -> bool:
+	if manager == null or c.is_empty() or actions.is_empty():
+		return false
+	if _EntityAccess.rank_int(c) != 0:
+		return false
+	if not _ListedActions.action_list_is_reserve_posture_only(actions):
+		return false
+	if not _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE):
+		return false
+	if _ListedActions.action_list_has_hostile_melee_strike(actions, _EntityAccess.id_int(c)):
+		return false
+	return _EngagementOpposition.rank0_needs_bind_close_at_long(manager, c)
 
 
 static func sync_hold_line_focus_only_hint_on_combatant(manager: Node, c: Dictionary, actions: Array) -> void:
@@ -173,6 +218,7 @@ static func emit_turn_ready_hints(manager: Node, c: Dictionary, actions: Array) 
 		manager.notify_combat_ui_hint(form_hint, false)
 	var hold_hint: String = hold_line_focus_only_hint(manager, c, actions)
 	if not hold_hint.is_empty():
+		_F5SoakTrace.note_mopup_hold_line_listed(c, hold_hint)
 		manager.notify_combat_ui_hint(hold_hint, false)
 	var rout_early: String = rout_pressure_early_hint(manager, c, actions)
 	if not rout_early.is_empty():
@@ -184,7 +230,8 @@ static func emit_turn_ready_hints(manager: Node, c: Dictionary, actions: Array) 
 	if not plug_fwd.is_empty():
 		manager.notify_combat_ui_hint(plug_fwd, false)
 	var rotate_gap: String = skirmish_line_gap_rotate_hint(manager, c, actions)
-	if not rotate_gap.is_empty():
+	if not rotate_gap.is_empty() and hold_hint.is_empty():
+		_F5SoakTrace.note_mopup_hold_line_listed(c, rotate_gap)
 		manager.notify_combat_ui_hint(rotate_gap, false)
 	var wf_hint: String = _weapon_form_turn_ready_hint_if_applicable(c)
 	if not wf_hint.is_empty():
@@ -271,6 +318,8 @@ static func front_gap_line_plug_hint(manager: Node, c: Dictionary, actions: Arra
 		return ""
 	if not _FormationFlow.formation_line_has_rank0_gap(manager, fid):
 		return ""
+	if _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid):
+		return ""
 	if not _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_SWAP_RANK):
 		return ""
 	return "Front gap — swap up to fill the line."
@@ -325,6 +374,9 @@ static func skirmish_line_gap_rotate_hint(manager: Node, c: Dictionary, actions:
 		return ""
 	if not _FormationFlow.formation_has_rank0_hole(manager, fid):
 		return ""
+	var cid: int = _EntityAccess.id_int(c)
+	if _CombatDoctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, cid):
+		return "Line open — close or strike; adjacent shuffle won't fill distant gaps."
 	if not _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ROTATE_FILE):
 		return ""
 	return "Line gap — rotate with an adjacent file to tighten the front."
@@ -371,7 +423,7 @@ static func _log_medical_pack_wound_listed_if_applicable(
 		if not (entry is Dictionary):
 			continue
 		var mid: String = str(entry.get("move_id", entry.get("id", ""))).strip_edges()
-		if mid != "pack_wound":
+		if mid != CombatConstants.MOVE_ID_PACK_WOUND:
 			continue
 		_F5SoakTrace.note_medical_pack_listed(
 			_EntityAccess.get_display_name(c),

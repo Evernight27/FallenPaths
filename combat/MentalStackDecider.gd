@@ -1,7 +1,7 @@
 class_name MentalStackDecider
 extends RefCounted
 
-## Tier 4.3: prioritized AI decision layers (self-medical → ally medical → counter → incoming → hold line → exhaustion tunnel → salience-damped utility pick).
+## Tier 4.3: prioritized AI decision layers (self-medical → ally medical → counter → incoming → L4b sparse fight → L4 hold line → MS-L5 formation plug → MS-L6 rout → L5 exhaustion → salience-damped utility pick).
 ## **MS-L4 footing boundary:** hold-line layer picks listed moves only — does **not** write **`guard_line`**, PA offset, or **`weapon_form`**. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-layer-labels`**.
 ## **No player target UI** — same picker for all sides; layers only narrow/reweight the listed action pool.
 
@@ -16,6 +16,10 @@ const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
+const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
+const _VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
+const _FormationRout := preload("res://combat/CombatFormationRout.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 
 
 static func enabled() -> bool:
@@ -37,7 +41,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 			return {}
 		return _AIPicker.pick_weighted(retreat_only, combatant_id, manager)
 	# L0: own immediate peril — self-aid before helping allies (TCCC-style).
-	if manager._is_in_immediate_peril(c):
+	if _EntityAccess.is_in_immediate_peril(manager, c):
 		var self_med: Array = _filter_self_medical_actions(actions, combatant_id, manager)
 		if not self_med.is_empty():
 			return _stamp_layer_pick(
@@ -73,23 +77,80 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 				CombatConstants.MENTAL_STACK_LAYER_INCOMING,
 				_AIPicker.pick_weighted(threat, combatant_id, manager)
 			)
+	# L4b (before L4): combat-finish tails — sparse post-flee rank-0 or mop-up underdog; offense over wait/focus shuffle.
+	var fight_finish_tail: bool = _Doctrine.fight_finish_tail_active(
+		manager, c, actions, combatant_id
+	)
+	if fight_finish_tail:
+		var fight_first: Array = _filter_sparse_fight_first_actions(
+			actions, combatant_id, manager, c
+		)
+		if not fight_first.is_empty():
+			return _stamp_layer_pick(
+				c,
+				CombatConstants.MENTAL_STACK_LAYER_SPARSE_FIGHT,
+				_AIPicker.pick_weighted(fight_first, combatant_id, manager)
+			)
 	# L4: back rank / no reach — hold in place; retarget guard only on incoming telegraph mismatch.
+	# Fight-finish tails skip L4 wait/focus when L4b had no offense — utility pick handles trusted close/strikes.
 	if _ListedActions.action_list_is_reserve_posture_only(actions):
-		var hold_pick: Dictionary = _pick_hold_line_action(actions, combatant_id, manager, c)
-		if not hold_pick.is_empty():
-			return _stamp_layer_pick(c, CombatConstants.MENTAL_STACK_LAYER_HOLD_LINE, hold_pick)
+		if fight_finish_tail:
+			var close_only: Array = _filter_hold_line_close_actions(
+				actions, combatant_id, manager, c
+			)
+			if not close_only.is_empty():
+				return _stamp_layer_pick(
+					c,
+					CombatConstants.MENTAL_STACK_LAYER_HOLD_LINE,
+					_AIPicker.pick_weighted(close_only, combatant_id, manager)
+				)
+		else:
+			var hold_pick: Dictionary = _pick_hold_line_action(
+				actions, combatant_id, manager, c
+			)
+			if not hold_pick.is_empty():
+				return _stamp_layer_pick(
+					c, CombatConstants.MENTAL_STACK_LAYER_HOLD_LINE, hold_pick
+				)
+	# MS-L5: vacancy / plug-forward — close rank-0 gaps before utility offense when plug moves are listed.
+	if not _VacancyPlugs.formation_plug_layer_blocked(manager, c, actions, combatant_id):
+		var plug_pool: Array = _VacancyPlugs.filter_formation_plug_actions(
+			manager, c, combatant_id, actions
+		)
+		if not plug_pool.is_empty():
+			return _stamp_layer_pick(
+				c,
+				CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG,
+				_AIPicker.pick_weighted(plug_pool, combatant_id, manager, actions)
+			)
+	# MS-L6: cohesion break / abandon-field — flee or fall_back before salience utility offense.
+	if CombatConstants.is_feature_ms_l6_rout_enabled():
+		if not _FormationRout.rout_layer_blocked(manager, c, actions, combatant_id):
+			var rout_pool: Array = _FormationRout.filter_rout_disengage_actions(
+				manager, c, combatant_id, actions
+			)
+			if not rout_pool.is_empty() and _FormationRout.rout_cognition_pressure(manager, c):
+				return _stamp_layer_pick(
+					c,
+					CombatConstants.MENTAL_STACK_LAYER_ROUT,
+					_AIPicker.pick_weighted(rout_pool, combatant_id, manager, actions)
+				)
 	# L5 (MS-L7): exhaustion tunnel or critical stamina — wait / disengage before salience utility pick.
+	# Fight-finish tails skip L5 so listed offense can win via L4b or salience-damped utility pick.
 	if (
 		_Exhaustion.exhaustion_tunnel_active(c)
 		or _EntityAccess.stamina_ratio(c) < CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO
 	):
-		var disengage: Array = _filter_exhaustion_disengage_actions(actions, combatant_id)
-		if not disengage.is_empty():
-			return _stamp_layer_pick(
-				c,
-				CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION,
-				_AIPicker.pick_weighted(disengage, combatant_id, manager)
+		if not _Doctrine.fight_finish_tail_active(manager, c, actions, combatant_id):
+			var disengage: Array = _filter_exhaustion_disengage_actions(
+				actions, combatant_id, manager, c
 			)
+			if not disengage.is_empty():
+				return _stamp_layer_pick(
+					c,
+					CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION,
+					_AIPicker.pick_weighted(disengage, combatant_id, manager)
+				)
 	return {}
 
 
@@ -113,7 +174,7 @@ static func _filter_coordinated_medical_actions(actions: Array, performer_id: in
 			continue
 		var a: Dictionary = raw as Dictionary
 		var mid: String = str(a.get("move_id", ""))
-		if not manager._is_medical_move(mid):
+		if not CombatConstants.is_medical_move(mid):
 			continue
 		var tgt_id: int = int(a.get("target_id", -1))
 		var part: String = str(a.get("target_part", ""))
@@ -131,7 +192,7 @@ static func _filter_self_medical_actions(actions: Array, combatant_id: int, mana
 		if int(a.get("target_id", -1)) != combatant_id:
 			continue
 		var mid: String = str(a.get("move_id", ""))
-		if not manager._is_medical_move(mid):
+		if not CombatConstants.is_medical_move(mid):
 			continue
 		var part: String = str(a.get("target_part", ""))
 		if _MedicalCoord.medical_action_allowed(manager, combatant_id, combatant_id, part, mid):
@@ -162,9 +223,42 @@ static func _filter_hold_line_actions(actions: Array) -> Array:
 	return out
 
 
-static func _filter_hold_line_close_actions(
-	actions: Array, _combatant_id: int, manager: Node, c: Dictionary
+static func _filter_sparse_fight_first_actions(
+	actions: Array, combatant_id: int, manager: Node, c: Dictionary
 ) -> Array:
+	var out: Array = []
+	for raw in _filter_hold_line_close_actions(actions, combatant_id, manager, c):
+		out.append(raw)
+	for raw in actions:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		var mid: String = str(a.get("move_id", ""))
+		if mid.is_empty() or mid == CombatConstants.MOVE_ID_WAIT:
+			continue
+		if CombatConstants.is_focus_line_move(mid):
+			continue
+		if CombatConstants.is_formation_movement_move(mid):
+			continue
+		if CombatConstants.is_medical_move(mid):
+			continue
+		if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+			continue
+		var tid: int = _ListedActions.entry_target_id(a, combatant_id)
+		if tid == combatant_id:
+			continue
+		if not _ListedActions.first_action_move_vs_target(out, mid, tid).is_empty():
+			continue
+		out.append(a)
+	return out
+
+
+static func _filter_hold_line_close_actions(
+	actions: Array, combatant_id: int, manager: Node, c: Dictionary
+) -> Array:
+	var trust_menu_close: bool = _Doctrine.fight_finish_tail_active(
+		manager, c, actions, combatant_id
+	)
 	var out: Array = []
 	for raw in actions:
 		if typeof(raw) != TYPE_DICTIONARY:
@@ -176,8 +270,23 @@ static func _filter_hold_line_close_actions(
 		if tgt_id < 0:
 			continue
 		var dist: String = _EntityAccess.distance_to_opponent_band(c, tgt_id, "")
-		if not _MeleeListing.attempt_close_listed_for_pair(manager, c, tgt_id, dist):
+		var close_listed: bool = _MeleeListing.attempt_close_listed_for_pair(
+			manager, c, tgt_id, dist
+		)
+		if not close_listed and dist == CombatConstants.DISTANCE_LONG:
+			close_listed = _Doctrine.envelop_close_allowed(manager, c, tgt_id)
+		if not close_listed and trust_menu_close:
+			close_listed = true
+		if not close_listed:
 			continue
+		if _MeleeListing.close_attempt_pair_blocked(manager, c, tgt_id) and not trust_menu_close:
+			continue
+		if dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID:
+			if _ListedActions.action_list_has_hostile_melee_strike(actions, combatant_id):
+				continue
+			# CLOSE/MID without listed strikes: only mop-up may need another close (band/reach gap).
+			if not _Doctrine.envelop_mop_up_active(manager, _EntityAccess.formation_id_str(c)):
+				continue
 		out.append(a)
 	return out
 
@@ -208,8 +317,11 @@ static func _pick_hold_line_action(
 	var close_eligible: bool = (
 		not close_pool.is_empty() and _Doctrine.hold_line_close_pick_eligible(manager, c)
 	)
-	# III-4 **3e**: mop-up — close beats focus shuffle when finishing the last enemy.
-	if close_eligible and _Doctrine.envelop_mop_up_active(manager, _EntityAccess.formation_id_str(c)):
+	# III-4 **3e** / fight-finish: close beats focus shuffle when finishing the last enemy or sparse tail.
+	if close_eligible and (
+		_Doctrine.envelop_mop_up_active(manager, _EntityAccess.formation_id_str(c))
+		or _Doctrine.fight_finish_tail_active(manager, c, actions, combatant_id)
+	):
 		return _AIPicker.pick_weighted(close_pool, combatant_id, manager)
 	if not focus_pool.is_empty() and _hold_line_needs_focus_retarget(manager, combatant_id, c):
 		var tele: String = str(
@@ -256,7 +368,7 @@ static func _filter_incoming_threat_actions(actions: Array, incoming_attacker_id
 			continue
 		if incoming_attacker_id >= 0 and int(a.get("target_id", -1)) == incoming_attacker_id:
 			var mid: String = str(a.get("move_id", ""))
-			if mid in CombatConstants.MEDICAL_MOVE_IDS:
+			if CombatConstants.is_medical_move(mid):
 				continue
 			if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 				continue
@@ -264,7 +376,9 @@ static func _filter_incoming_threat_actions(actions: Array, incoming_attacker_id
 	return out
 
 
-static func _filter_exhaustion_disengage_actions(actions: Array, combatant_id: int) -> Array:
+static func _filter_exhaustion_disengage_actions(
+	actions: Array, combatant_id: int, manager: Node, c: Dictionary
+) -> Array:
 	var flee_listed: bool = false
 	for raw in actions:
 		if typeof(raw) != TYPE_DICTIONARY:
@@ -276,6 +390,12 @@ static func _filter_exhaustion_disengage_actions(actions: Array, combatant_id: i
 		):
 			flee_listed = true
 			break
+	var block_formation_shuffle: bool = (
+		manager != null
+		and not c.is_empty()
+		and _ListedActions.action_list_has_hostile_strike(actions, combatant_id)
+		and _EntityAccess.rank_int(c) == 0
+	)
 	var out: Array = []
 	for raw in actions:
 		if typeof(raw) != TYPE_DICTIONARY:
@@ -293,6 +413,15 @@ static func _filter_exhaustion_disengage_actions(actions: Array, combatant_id: i
 			CombatConstants.MOVE_ID_SWAP_RANK,
 			CombatConstants.MOVE_ID_DRAG_BACK,
 		]:
+			continue
+		if block_formation_shuffle and mid in [
+			CombatConstants.MOVE_ID_FALL_BACK,
+			CombatConstants.MOVE_ID_ROTATE_FILE,
+			CombatConstants.MOVE_ID_SWAP_RANK,
+			CombatConstants.MOVE_ID_DRAG_BACK,
+		]:
+			continue
+		if block_formation_shuffle and CombatConstants.is_focus_line_move(mid):
 			continue
 		if mid in [
 			CombatConstants.MOVE_ID_FALL_BACK,

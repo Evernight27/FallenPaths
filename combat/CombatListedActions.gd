@@ -48,9 +48,9 @@ static func _action_list_has_hostile_engagement(
 			continue
 		if CombatConstants.is_focus_line_move(mid):
 			continue
-		if mid in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+		if CombatConstants.is_formation_movement_move(mid):
 			continue
-		if mid in CombatConstants.MEDICAL_MOVE_IDS:
+		if CombatConstants.is_medical_move(mid):
 			continue
 		if not include_attempt_close and mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 			continue

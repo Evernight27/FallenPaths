@@ -25,6 +25,7 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 
 
 static func clear_all_targeting_state_for_dead_defender(manager: Node, dead_id: int) -> void:
@@ -359,11 +360,11 @@ static func file_opposed_mult(
 static func targets_hostile_for_scoring(move_id: String) -> bool:
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return true
-	if move_id in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+	if CombatConstants.is_formation_movement_move(move_id):
 		return false
 	if move_id == CombatConstants.MOVE_ID_WAIT:
 		return false
-	if move_id in CombatConstants.MEDICAL_MOVE_IDS:
+	if CombatConstants.is_medical_move(move_id):
 		return false
 	return true
 
@@ -419,6 +420,8 @@ static func hostile_pair_targeting_weight_mult(
 	w *= posture_cohesion_targeting_mult(manager, atk, fd_atk)
 	w *= opponent_formation_targeting_mult(manager, opp, fd_opp)
 	w *= stance_ai_targeting_mult(atk)
+	if _TacticalCombat.attacker_has_co_located_slot_mate_threatening(manager, atk, opp):
+		w *= CombatConstants.IV12_AI_COLOCATED_TARGET_BIAS_MULT
 	if _EntityAccess.is_incapacitated(opp):
 		w *= CombatConstants.AI_TARGETING_INCAP_HOSTILE_MULT
 	return clampf(w, CombatConstants.DOCTRINE_AI_WEIGHT_MULT_MIN, CombatConstants.DOCTRINE_AI_WEIGHT_MULT_MAX)

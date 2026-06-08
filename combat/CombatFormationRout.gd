@@ -8,6 +8,9 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
+const _FormationFlee := preload("res://combat/CombatFormationFlee.gd")
+const _FormationMoveListing := preload("res://combat/CombatFormationMoveListing.gd")
 
 
 ## Call from `CombatManager.start()` after fled-state reset, before first ZoC/cohesion recompute.
@@ -165,7 +168,7 @@ static func formation_stress_abandonment_path(manager: Node, c: Dictionary) -> b
 	var bv: float = _EntityAccess.get_blood_volume_from_node(node as Node)
 	if bv < CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX:
 		return false
-	if _MedicalPhase.is_in_immediate_peril(manager, c):
+	if _EntityAccess.is_in_immediate_peril(manager, c):
 		return false
 	return (
 		bv < CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX
@@ -186,7 +189,7 @@ static func abandonment_warranted(manager: Node, c: Dictionary) -> bool:
 	var bv: float = _EntityAccess.get_blood_volume_from_node(node as Node)
 	if bv < CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX:
 		return true
-	if _MedicalPhase.is_in_immediate_peril(manager, c):
+	if _EntityAccess.is_in_immediate_peril(manager, c):
 		return true
 	if formation_stress_abandonment_path(manager, c):
 		if side_holding_field(manager, c):
@@ -255,7 +258,7 @@ static func personal_rout_pressure(manager: Node, c: Dictionary) -> bool:
 	var bv: float = _EntityAccess.get_blood_volume_from_node(node as Node)
 	if bv < CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX:
 		return true
-	if _MedicalPhase.is_in_immediate_peril(manager, c):
+	if _EntityAccess.is_in_immediate_peril(manager, c):
 		return true
 	return false
 
@@ -311,3 +314,57 @@ static func rout_hint_when_flee_listed(manager: Node, c: Dictionary, actions: Ar
 			% [coh_pct, cas_pct]
 		)
 	return "Flee leaves the field — you are badly hurt or bleeding out."
+
+
+## MS-L6: fight-finish / sparse-finish / mop-up offense defer rout to L4b or salience utility pick.
+static func rout_layer_blocked(
+	manager: Node, c: Dictionary, actions: Array, combatant_id: int
+) -> bool:
+	return _VacancyPlugs.formation_plug_layer_blocked(manager, c, actions, combatant_id)
+
+
+## MS-L6: formation stress on a losing side, or personal abandon-field crisis.
+static func rout_cognition_pressure(manager: Node, c: Dictionary) -> bool:
+	if c.is_empty() or manager == null:
+		return false
+	if _EntityAccess.flee_abandonment_warranted(c, manager):
+		return true
+	if formation_stressed_for_rout(manager, c) and not side_holding_field(manager, c):
+		return true
+	return false
+
+
+## MS-L6: listed self-target **`flee`** / **`fall_back`** for mental-stack rout layer.
+static func filter_rout_disengage_actions(
+	manager: Node, c: Dictionary, combatant_id: int, actions: Array
+) -> Array:
+	var out: Array = []
+	if manager == null or c.is_empty() or actions.is_empty() or combatant_id < 0:
+		return out
+	for raw in actions:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		if int(a.get("target_id", -1)) != combatant_id:
+			continue
+		var mid: String = str(a.get("move_id", ""))
+		if mid == CombatConstants.MOVE_ID_FLEE and _FormationFlee.flee_action_legal(manager, c):
+			out.append(a)
+		elif mid == CombatConstants.MOVE_ID_FALL_BACK and _FormationMoveListing.solo_fall_back_action_legal(
+			manager, c
+		):
+			out.append(a)
+	return out
+
+
+## MS-L6: true when rout cognition should run (not blocked, under pressure, rout moves listed).
+static func rout_layer_eligible(
+	manager: Node, c: Dictionary, combatant_id: int, actions: Array
+) -> bool:
+	if not CombatConstants.is_feature_ms_l6_rout_enabled():
+		return false
+	if rout_layer_blocked(manager, c, actions, combatant_id):
+		return false
+	if not rout_cognition_pressure(manager, c):
+		return false
+	return not filter_rout_disengage_actions(manager, c, combatant_id, actions).is_empty()

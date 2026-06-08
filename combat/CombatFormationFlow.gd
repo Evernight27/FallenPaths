@@ -63,6 +63,37 @@ static func _stamp_rotate_file_cooldown(manager: Node, c0: Dictionary, c1: Dicti
 	c1["formation_rotate_file_cooldown_until"] = until
 
 
+static func _stamp_rotate_file_reverse_pair_lock(
+	manager: Node, c0: Dictionary, c1: Dictionary
+) -> void:
+	if manager == null or c0.is_empty() or c1.is_empty():
+		return
+	var until: float = (
+		_EntityAccess.combat_clock_float(manager)
+		+ CombatConstants.FORMATION_ROTATE_FILE_REVERSE_PAIR_LOCK_S
+	)
+	var id0: int = _EntityAccess.id_int(c0)
+	var id1: int = _EntityAccess.id_int(c1)
+	c0["formation_rotate_file_reverse_lock_until"] = until
+	c0["formation_rotate_file_reverse_partner_id"] = id1
+	c1["formation_rotate_file_reverse_lock_until"] = until
+	c1["formation_rotate_file_reverse_partner_id"] = id0
+
+
+## True when this unit just rotated with `partner_id` and must not immediately swap back.
+static func rotate_file_reverse_pair_blocked(
+	manager: Node, c: Dictionary, partner_id: int
+) -> bool:
+	if manager == null or c.is_empty() or partner_id < 0:
+		return false
+	if not c.has("formation_rotate_file_reverse_partner_id"):
+		return false
+	var until: float = float(c.get("formation_rotate_file_reverse_lock_until", -1.0))
+	if _EntityAccess.combat_clock_float(manager) >= until:
+		return false
+	return int(c.get("formation_rotate_file_reverse_partner_id", -1)) == partner_id
+
+
 static func _pair_abort_cooldown_active(manager: Node, c: Dictionary) -> bool:
 	return _EntityAccess.combatant_cooldown_active(
 		manager, c, "formation_pair_abort_cooldown_until", -1.0
@@ -96,6 +127,23 @@ static func formation_line_has_rank0_gap(manager: Node, fid: String) -> bool:
 	if formation_has_rank0_hole(manager, fid):
 		return true
 	return formation_has_frontline_fill_opportunity(manager, fid)
+
+
+## Post-flee / casualty sparse front: at most half of file slots hold a living rank-0 fighter while holes remain.
+## Adjacent **`rotate_file`** cannot close distant gaps — prefer strikes/close when engagement is listed.
+static func skirmish_line_sparse_after_casualties(manager: Node, fid: String) -> bool:
+	if manager == null or not formation_has_rank0_hole(manager, fid):
+		return false
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+	if formation.is_empty():
+		return false
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+	var nfiles: int = maxi(1, int(formation.get("files", 1)))
+	var occupied: int = 0
+	for file in range(nfiles):
+		if _FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
+			occupied += 1
+	return occupied * 2 <= nfiles
 
 
 static func formation_has_frontline_fill_opportunity_at_file(
@@ -329,6 +377,8 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 		or _pair_abort_cooldown_active(manager, partner)
 		or _rotate_file_cooldown_active(manager, init)
 		or _rotate_file_cooldown_active(manager, partner)
+		or rotate_file_reverse_pair_blocked(manager, init, partner_id)
+		or rotate_file_reverse_pair_blocked(manager, partner, initiator_id)
 	):
 		return
 	if _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
@@ -496,6 +546,7 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 		Vector2i(_EntityAccess.rank_int(partner), _EntityAccess.file_int(partner)),
 		_EntityAccess.id_int(partner)
 	)
+	_FormationSlots.refresh_gap_column_topology(formation)
 	init.erase("formation_move_partner_id")
 	partner.erase("formation_move_partner_id")
 	_clear_shuffle_doctrine_commitments([init, partner])
@@ -553,6 +604,7 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
 	init.rank = 1
 	repack_lane_offset_after_rank_file_change(init)
 	_FormationSlots.slot_set_single(slots, Vector2i(1, f), initiator_id)
+	_FormationSlots.refresh_gap_column_topology(formation)
 	init.erase("formation_move_partner_id")
 	_clear_shuffle_doctrine_commitments([init])
 	_set_combatant_waiting(init)
@@ -617,10 +669,12 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 		Vector2i(r_rot, _EntityAccess.file_int(partner)),
 		_EntityAccess.id_int(partner)
 	)
+	_FormationSlots.refresh_gap_column_topology(formation)
 	init.erase("formation_move_partner_id")
 	partner.erase("formation_move_partner_id")
 	_clear_shuffle_doctrine_commitments([init, partner])
 	_stamp_rotate_file_cooldown(manager, init, partner)
+	_stamp_rotate_file_reverse_pair_lock(manager, init, partner)
 	_set_combatant_waiting(init)
 	_set_combatant_waiting(partner)
 	CombatDebug.flow_log("rotate_file_resolve id=%d <-> %d complete files %d <-> %d" % [initiator_id, partner_id, f0, f1])

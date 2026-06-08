@@ -21,10 +21,11 @@ const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
+const _LeaderCommand := preload("res://combat/CombatLeaderFormationCommand.gd")
 
 
 static func is_medical_move(move_id: String) -> bool:
-	return move_id in CombatConstants.MEDICAL_MOVE_IDS
+	return CombatConstants.is_medical_move(move_id)
 
 
 ## True when the action changed combatant state (wind-up, formation move, flee, etc.). False → reject/skip path; no turn log.
@@ -47,7 +48,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			return false
 	if (
 		_EntityAccess.state_str(atk) == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
-		and move_id == "apply_direct_pressure"
+		and CombatConstants.is_direct_pressure_move(move_id)
 		and target_id == attacker_id
 	):
 		atk.receiving_care_turn_pending = false
@@ -56,12 +57,12 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		if part.is_empty():
 			return false
 		if not _MedicalCoord.medical_action_allowed(
-			manager, attacker_id, attacker_id, part, "apply_direct_pressure"
+			manager, attacker_id, attacker_id, part, CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE
 		):
 			return false
 		if _EntityAccess.entity_apply_direct_pressure(manager, atk, part):
 			var who: String = _EntityAccess.get_display_name(atk, attacker_id)
-			print("[Combat] %s (receiving care) holding direct pressure on %s" % [who, part])
+			CombatDebug.medical_session("%s (receiving care) holding direct pressure on %s" % [who, part])
 			manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "direct_pressure", "part": part, "dmg": 0, "died": false})
 			manager.emit_signal("turn_resolved", attacker_id)
 			return true
@@ -87,6 +88,22 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "flee not legal")
 			return false
 		_FormationFlee.apply_flee(manager, attacker_id)
+		return true
+	if (
+		CombatConstants.is_leader_formation_command_move(move_id)
+		and target_id == attacker_id
+	):
+		if _OperationalLog.is_play_session_active():
+			var fid_cmd: String = _EntityAccess.formation_id_str(atk)
+			_F5SoakTrace.note_leader_formation_command_pick(
+				_EntityAccess.get_display_name(atk, attacker_id),
+				move_id,
+				fid_cmd,
+				_EntityAccess.side_str(atk)
+			)
+		if not _LeaderCommand.apply_leader_command(manager, attacker_id, move_id):
+			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "leader command not legal")
+			return false
 		return true
 	if CombatConstants.is_focus_line_move(move_id):
 		var focus_line: String = CombatConstants.guard_line_for_focus_move_id(move_id)
@@ -147,7 +164,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		if _OperationalLog.is_play_session_active():
 			_F5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
 		return _commit_close_attempt_resolve(manager, attacker_id, target_id)
-	if move_id in [CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK, CombatConstants.MOVE_ID_ROTATE_FILE]:
+	if CombatConstants.is_formation_reposition_move(move_id):
 		var move_policy: Dictionary = _EngagementMode.movement_policy(manager)
 		if move_id == CombatConstants.MOVE_ID_SWAP_RANK and not bool(move_policy.get("allow_swap_rank", false)):
 			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks swap_rank")
@@ -213,13 +230,13 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 	if move_id == CombatConstants.MOVE_ID_SWAP_RANK:
 		if _OperationalLog.is_play_session_active():
 			_F5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
-		manager._start_formation_pair_move(attacker_id, target_id, "swap_rank")
+		manager._start_formation_pair_move(attacker_id, target_id, move_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return true
 	if move_id == CombatConstants.MOVE_ID_DRAG_BACK:
 		if _OperationalLog.is_play_session_active():
 			_F5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
-		manager._start_formation_pair_move(attacker_id, target_id, "drag_back")
+		manager._start_formation_pair_move(attacker_id, target_id, move_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return true
 	if move_id == CombatConstants.MOVE_ID_FALL_BACK:

@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Per-formation **intent** (doctrine): steers hybrid targeting weights + ordering via `CombatTargetScoring` / `CombatAIActionPicker`.
 ## Pincer roles (**`PINCER_ROLE_*`**) when **`DOCTRINE_PINCH_CENTER`** + wider files than opponent: center pins, flank wings close/flank.
-## III-4 **3e** post-rout mop-up: `envelop_mop_up_active`, `envelop_close_allowed`, `hold_line_close_pick_eligible`, `should_suppress_skirmish_rotate_file`.
+## III-4 **3e** post-rout mop-up: `envelop_mop_up_active`, `envelop_close_allowed`, `hold_line_close_pick_eligible`, `fight_finish_tail_active`, `sparse_line_prefer_finish_over_shuffle`, `should_suppress_skirmish_rotate_file`.
 ## Orthogonal to engagement-mode / posture targeting weights on melee/close listing.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -13,6 +13,7 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
+const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 
 const PINCER_ROLE_NONE := ""
 const PINCER_ROLE_CENTER := "center"
@@ -320,7 +321,37 @@ static func envelop_mop_up_active(manager: Node, formation_id: String) -> bool:
 	return our_active > opp_active
 
 
+## Mental stack L4b / trusted close: sparse rank-0, envelop mop-up (any rank), or last-enemy underdog with listed offense.
+static func fight_finish_tail_active(
+	manager: Node, c: Dictionary, actions: Array, combatant_id: int
+) -> bool:
+	if manager == null or c.is_empty() or combatant_id < 0:
+		return false
+	if not _ListedActions.action_list_has_hostile_strike(actions, combatant_id):
+		return false
+	var fid: String = _EntityAccess.formation_id_str(c)
+	return (
+		(
+			_EntityAccess.rank_int(c) == 0
+			and _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
+		)
+		or mop_up_underdog_active(manager, c)
+		or envelop_mop_up_active(manager, fid)
+	)
+
+
+## Opponent has mop-up advantage — this fighter's side is the last-enemy tail (underdog finish).
+static func mop_up_underdog_active(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c.is_empty():
+		return false
+	var fid: String = _EntityAccess.formation_id_str(c)
+	if fid.is_empty():
+		return false
+	return envelop_mop_up_active(manager, _EntityAccess.opponent_side_label(fid))
+
+
 ## Close listing/resolve when band/reach disagree (MID/CLOSE band, out of swing range) during envelop.
+## Pincer flank closes from **LONG** only — already CLOSE/MID without mop-up must not re-list close (F5 stall).
 static func envelop_close_allowed(
 	manager: Node, attacker: Dictionary, defender_id: int
 ) -> bool:
@@ -329,6 +360,9 @@ static func envelop_close_allowed(
 	var fid: String = _EntityAccess.formation_id_str(attacker)
 	if envelop_mop_up_active(manager, fid):
 		return true
+	var band: String = _EntityAccess.distance_to_opponent_band(attacker, defender_id)
+	if band != CombatConstants.DISTANCE_LONG:
+		return false
 	if not pincer_flank_wing_should_close_at_long(manager, attacker):
 		return false
 	var pref: int = preferred_pincer_flank_enemy_id(manager, attacker)
@@ -343,20 +377,83 @@ static func hold_line_close_pick_eligible(manager: Node, c: Dictionary) -> bool:
 		return true
 	if pincer_flank_wing_should_close_at_long(manager, c):
 		return true
-	return envelop_mop_up_active(manager, _EntityAccess.formation_id_str(c))
+	if _EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
+		return true
+	var fid: String = _EntityAccess.formation_id_str(c)
+	if (
+		_FormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
+		and _EntityAccess.rank_int(c) == 0
+	):
+		return true
+	return envelop_mop_up_active(manager, fid)
+
+
+## Sparse / fight-finish: prefer close/strike over formation shuffle (hints, focus damp, swap damp).
+static func sparse_line_prefer_finish_over_shuffle(
+	manager: Node, c: Dictionary, actions: Array, combatant_id: int = -1
+) -> bool:
+	if manager == null or c.is_empty():
+		return false
+	var cid: int = combatant_id if combatant_id >= 0 else _EntityAccess.id_int(c)
+	if fight_finish_tail_active(manager, c, actions, cid):
+		return true
+	var fid: String = _EntityAccess.formation_id_str(c)
+	if not _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid):
+		return false
+	if _ListedActions.action_list_has_hostile_melee_strike(actions, cid):
+		return true
+	if (
+		_EntityAccess.rank_int(c) == 0
+		and _sparse_rank0_opponent_in_close_or_mid_band(manager, c)
+	):
+		return true
+	return false
 
 
 ## Skirmish rotate shuffle — skip when mop-up and menu has no listed melee (close-only still suppresses).
+## Also skip on sparse post-flee lines when strikes/close are listed (distant holes — adjacent rotate cannot help).
+## Rank-0 sparse + CLOSE/MID opposed band: finish engagement — line-plug rotate cannot help distant holes.
 static func should_suppress_skirmish_rotate_file(
 	manager: Node, c: Dictionary, actions: Array
 ) -> bool:
 	if manager == null or c.is_empty():
 		return false
-	if not envelop_mop_up_active(manager, _EntityAccess.formation_id_str(c)):
+	var cid: int = _EntityAccess.id_int(c)
+	var fid: String = _EntityAccess.formation_id_str(c)
+	if envelop_mop_up_active(manager, fid):
+		return not _ListedActions.action_list_has_hostile_melee_strike(actions, cid)
+	if (
+		_FormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
+		and _ListedActions.action_list_has_hostile_strike(actions, cid)
+	):
+		return true
+	if (
+		_FormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
+		and _EntityAccess.rank_int(c) == 0
+		and _sparse_rank0_opponent_in_close_or_mid_band(manager, c)
+	):
+		return true
+	if _EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
+		return true
+	return false
+
+
+static func _sparse_rank0_opponent_in_close_or_mid_band(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c.is_empty():
 		return false
-	return not _ListedActions.action_list_has_hostile_melee_strike(
-		actions, _EntityAccess.id_int(c)
-	)
+	var opp_side: String = _EntityAccess.opponent_side_for(c)
+	if opp_side.is_empty():
+		return false
+	for raw in manager.combatants:
+		if raw == null or typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var opp: Dictionary = raw as Dictionary
+		if not _EntityAccess.is_living_on_side(opp, opp_side):
+			continue
+		var band: String = _EntityAccess.distance_to_opponent_band(c, _EntityAccess.id_int(opp))
+		if band == CombatConstants.DISTANCE_CLOSE or band == CombatConstants.DISTANCE_MID:
+			return true
+	return false
 
 
 static func _standing_active_count_for_side(manager: Node, side: String) -> int:

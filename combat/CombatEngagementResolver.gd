@@ -36,11 +36,9 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
 		return
 	if _EntityAccess.is_incapacitated(atk) or _EntityAccess.is_incapacitated(tgt):
 		return
-	# Listed at LONG, or MID/CLOSE under III-4 **3e** envelop (`CombatMeleeListing.attempt_close_listed_for_pair`).
+	# Listed at LONG (out of reach), or MID/CLOSE under III-4 **3e** envelop (`CombatMeleeListing.attempt_close_listed_for_pair`).
 	var band: String = _EntityAccess.distance_to_opponent_band(atk, target_id)
-	if band != CombatConstants.DISTANCE_LONG and not _Doctrine.envelop_close_allowed(
-		manager, atk, target_id
-	):
+	if not _MeleeListing.attempt_close_listed_for_pair(manager, atk, target_id, band):
 		_reject_close_attempt_not_long(manager, atk, attacker_id, target_id, band)
 		return
 	if not _MeleeListing.defender_has_free_close_slot(manager, tgt, attacker_id):
@@ -144,4 +142,6 @@ static func _reject_close_attempt_slots_full(
 		target_id,
 		{"outcome": "close_failed", "dmg": 0, "died": false, "reason": "close_slots_full"}
 	)
+	var blk: Dictionary = _EntityAccess.nested_dictionary_for_mutation(atk, "close_block_until_by_target_id")
+	blk[target_id] = _EntityAccess.combat_clock_float(manager) + CombatConstants.CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S
 	_finish_close_attempt_turn(manager, atk, attacker_id)
