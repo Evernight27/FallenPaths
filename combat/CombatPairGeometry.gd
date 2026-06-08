@@ -2,9 +2,66 @@ class_name CombatPairGeometry
 extends RefCounted
 
 ## Pair reach geometry: file spacing, lane offset, ZoC mult → **`eff_dist`** / **`file_spacing_equiv`**.
+## Track A mapped rank-0 opposition uses logical file gap (not raw grid `|Δfile|`) so wings reach their assigned foe.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
+const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
+
+
+static func _file_spacing_for_pair(manager: Node, a: Dictionary, b: Dictionary) -> float:
+	if manager != null:
+		var band: String = _EntityAccess.distance_to_opponent_band(
+			a, _EntityAccess.id_int(b), ""
+		)
+		# CLOSE band = successful bind for this pair — grid file gap no longer limits weapon reach.
+		if band == CombatConstants.DISTANCE_CLOSE:
+			return 0.0
+	var df: float = absf(float(_EntityAccess.file_int(a) - _EntityAccess.file_int(b)))
+	if manager == null:
+		return df
+	if CombatConstants.is_feature_gap_column_topology_enabled():
+		if _EntityAccess.is_living_same_side(a, b):
+			var form_same: Dictionary = _FormationSlots.formation_record_for_manager(
+				manager, _EntityAccess.side_str(a)
+			)
+			if not form_same.is_empty():
+				df = _FormationSlots.column_graph_file_distance(
+					_EntityAccess.file_int(a),
+					_EntityAccess.file_int(b),
+					_FormationSlots.gap_column_files(form_same)
+				)
+		elif (
+			_EntityAccess.rank_int(a) == 0
+			and _EntityAccess.rank_int(b) == 0
+			and _EntityAccess.is_living_hostile_to(a, b)
+		):
+			var form_a: Dictionary = _FormationSlots.formation_record_for_manager(
+				manager, _EntityAccess.side_str(a)
+			)
+			var form_b: Dictionary = _FormationSlots.formation_record_for_manager(
+				manager, _EntityAccess.side_str(b)
+			)
+			if not form_a.is_empty() and not form_b.is_empty():
+				var occ_a: PackedInt32Array = _FormationSlots.occupied_files_for_rank(manager, form_a, 0)
+				var occ_b: PackedInt32Array = _FormationSlots.occupied_files_for_rank(manager, form_b, 0)
+				if (
+					_FormationSlots.occupied_files_have_gaps(occ_a)
+					or _FormationSlots.occupied_files_have_gaps(occ_b)
+				):
+					return _FormationSlots.column_arc_file_distance(
+						occ_a, _EntityAccess.file_int(a), occ_b, _EntityAccess.file_int(b)
+					)
+		return df
+	if (
+		_EntityAccess.rank_int(a) == 0
+		and _EntityAccess.rank_int(b) == 0
+		and _EntityAccess.is_living_hostile_to(a, b)
+		and _EngagementOpposition.is_mapped_file_opposed(manager, a, b)
+	):
+		df = float(_EngagementOpposition.mapped_opposition_file_distance(manager, a, b))
+	return df
 
 
 static func effective_pair_geometry(
@@ -16,7 +73,7 @@ static func effective_pair_geometry(
 ) -> Dictionary:
 	var fa: Dictionary = _ZoneOfControl.formation_for_combatant_cached(manager, a, formation_a_cache)
 	var fb: Dictionary = _ZoneOfControl.formation_for_combatant_cached(manager, b, formation_b_cache)
-	var df: float = absf(float(_EntityAccess.file_int(a) - _EntityAccess.file_int(b)))
+	var df: float = _file_spacing_for_pair(manager, a, b)
 	if fa.is_empty() or fb.is_empty():
 		var eff_empty: float = df * CombatConstants.SPACING_NORMAL * CombatConstants.REACH_SAFETY_FACTOR
 		return {"eff_dist": eff_empty, "file_spacing_equiv": df}

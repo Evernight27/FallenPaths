@@ -10,6 +10,7 @@ const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
+const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 
 
 static func clear_opposition_meta(manager: Node) -> void:
@@ -47,6 +48,18 @@ static func seed_from_formations(manager: Node) -> void:
 
 static func opposition_file_offset(manager: Node, side: String) -> int:
 	return int(_offset_dict(manager).get(str(side), 0))
+
+
+## Mapped file gap for reach/bands when Track A opposition applies (wings use nearest, not raw `|Δfile|`).
+static func mapped_opposition_file_distance(
+	manager: Node, actor: Dictionary, opp: Dictionary
+) -> int:
+	if manager == null or actor.is_empty() or opp.is_empty():
+		return absi(_EntityAccess.file_int(actor) - _EntityAccess.file_int(opp))
+	var offset: int = opposition_file_offset(manager, _EntityAccess.side_str(actor))
+	return _mapped_opposition_file_distance(
+		_EntityAccess.file_int(actor), _EntityAccess.file_int(opp), offset
+	)
 
 
 static func _mapped_opposition_file_distance(actor_file: int, opp_file: int, actor_side_offset: int) -> int:
@@ -135,3 +148,52 @@ static func wing_lacks_mapped_opposition(
 		if _mapped_opposition_file_distance(ref_file, _EntityAccess.file_int(opp), offset) == best:
 			return false
 	return true
+
+
+## Mapped rank-0 at **LONG** when weapon reach does not cover assigned foe — bind close before strikes.
+static func rank0_needs_bind_close_at_long(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c.is_empty() or _EntityAccess.rank_int(c) != 0:
+		return false
+	var attacker_id: int = _EntityAccess.id_int(c)
+	for opp in manager.combatants:
+		if not _EntityAccess.is_living_hostile_to(c, opp):
+			continue
+		if _EntityAccess.rank_int(opp) != 0:
+			continue
+		if not is_mapped_file_opposed(manager, c, opp):
+			continue
+		var oid: int = _EntityAccess.id_int(opp)
+		var band: String = _EntityAccess.distance_to_opponent_band(c, oid, "")
+		if band != CombatConstants.DISTANCE_LONG:
+			continue
+		var eff: float = _PairGeometry.effective_pair_eff_dist(manager, c, opp)
+		if _PairGeometry.melee_reach_covers_eff_dist(_EntityAccess.weapon_melee_reach(c), eff):
+			continue
+		var blk: Dictionary = _EntityAccess.nested_dictionary_read(c, "close_block_until_by_target_id")
+		if not blk.is_empty():
+			var until: Variant = blk.get(oid, -1.0)
+			if _EntityAccess.timestamp_cooldown_active(manager, float(until), -1.0):
+				continue
+		if not _defender_has_free_close_slot(manager, opp, attacker_id):
+			continue
+		return true
+	return false
+
+
+static func _defender_has_free_close_slot(
+	manager: Node, defender: Dictionary, exclude_attacker_id: int
+) -> bool:
+	var ctx: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, defender)
+	var form_geom: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx)
+	var density: String = str(form_geom.get("density", "normal")) if not form_geom.is_empty() else "normal"
+	var cap: int = CombatConstants.max_close_slots_for_density(density)
+	var defender_id: int = _EntityAccess.id_int(defender)
+	var n: int = 0
+	for atk in manager.combatants:
+		if not _EntityAccess.alive_bool(atk):
+			continue
+		if _EntityAccess.id_int(atk) == exclude_attacker_id:
+			continue
+		if _EntityAccess.distance_to_opponent_band(atk, defender_id) == CombatConstants.DISTANCE_CLOSE:
+			n += 1
+	return n < cap

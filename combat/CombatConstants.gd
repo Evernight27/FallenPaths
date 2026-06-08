@@ -1081,15 +1081,13 @@ static func set_feature_iv12_slot_distraction_load(enabled: bool) -> void:
 
 
 static func iv12_slot_distraction_doc_sync_line() -> String:
+	var feat: String = "on" if FEATURE_IV12_SLOT_DISTRACTION else "off"
 	return (
-		"IV-12 slot distraction: feature=%s pad=%.2f ai_offense=%.2f ai_pile_on=%.2f "
-		+ "slice3=formation_slot_cell drag_back_dual_occ"
-		% [
-			"on" if FEATURE_IV12_SLOT_DISTRACTION else "off",
-			IV12_SLOT_DISTRACTION_WEIGHT_PAD,
-			IV12_AI_OFFENSE_WEIGHT_MULT,
-			IV12_AI_COLOCATED_TARGET_BIAS_MULT,
-		]
+		"IV-12 slot distraction: feature=" + feat
+		+ " pad=" + str(snappedf(IV12_SLOT_DISTRACTION_WEIGHT_PAD, 0.01))
+		+ " ai_offense=" + str(snappedf(IV12_AI_OFFENSE_WEIGHT_MULT, 0.01))
+		+ " ai_pile_on=" + str(snappedf(IV12_AI_COLOCATED_TARGET_BIAS_MULT, 0.01))
+		+ " slice3=formation_slot_cell drag_back_dual_occ"
 	)
 
 

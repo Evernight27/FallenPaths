@@ -3,6 +3,7 @@ extends RefCounted
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityMedical := preload("res://core/EntityMedical.gd")
+const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
@@ -507,6 +508,39 @@ static func is_enemy_side(combatant: Dictionary) -> bool:
 	return is_on_side(combatant, "enemy")
 
 
+## IV-11: stamp flags from register node (player leader / enemy commander only).
+static func leader_register_flags_from_node(node: Node, side: String) -> Dictionary:
+	var party_leader := false
+	var enemy_leader := false
+	if node != null:
+		if side == "player" and node.get("is_party_leader") == true:
+			party_leader = true
+		elif side == "enemy" and node.get("is_enemy_leader") == true:
+			enemy_leader = true
+	return {"is_party_leader": party_leader, "is_enemy_leader": enemy_leader}
+
+
+## IV-11: player party leader or enemy commander — instant doctrine commands + telegraph focus.
+static func is_formation_command_issuer(combatant: Dictionary) -> bool:
+	if combatant.is_empty():
+		return false
+	if is_player_side(combatant) and combatant.get("is_party_leader", false) == true:
+		return true
+	if is_enemy_side(combatant) and combatant.get("is_enemy_leader", false) == true:
+		return true
+	return false
+
+
+## IV-11: player party leader or enemy commander — telegraph-matching focus + diagram callouts.
+static func is_formation_telegraph_leader(combatant: Dictionary) -> bool:
+	if combatant.is_empty():
+		return false
+	return (
+		combatant.get("is_party_leader", false) == true
+		or combatant.get("is_enemy_leader", false) == true
+	)
+
+
 ## Opponent side label for **`actor`** (`player` → `enemy`, else `player`).
 static func opponent_side_for(actor: Dictionary) -> String:
 	return opponent_side_label(side_str(actor))
@@ -878,6 +912,24 @@ static func get_attacking_arm(combatant: Dictionary) -> String:
 	return node.get_attacking_arm()
 
 
+## Entity has any wound part not comprehensively dressed (bandage/pack/TQ). Direct pressure alone does not count.
+static func entity_has_untreated_wounds(entity: Node) -> bool:
+	return _EntityWounds.entity_has_untreated_wounds(entity)
+
+
+## Medical danger / peril — delegates to **`MedicalPhaseController`** (AGENTS canonical names).
+static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
+	return _MedicalPhase.is_in_medical_danger(manager, c)
+
+
+static func is_in_immediate_peril(manager: Node, c: Dictionary) -> bool:
+	return _MedicalPhase.is_in_immediate_peril(manager, c)
+
+
+static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -> bool:
+	return _MedicalPhase.has_left_immediate_peril_permanently(manager, c)
+
+
 ## True when formation **retreat** (disengage swap, drag/fall_back pair, solo fall_back) is justified by injury or peril — not fatigue-only composite fitness.
 static func retreat_formation_body_damage_warranted(c: Dictionary, manager: Node) -> bool:
 	if c.is_empty():
@@ -889,7 +941,7 @@ static func retreat_formation_body_damage_warranted(c: Dictionary, manager: Node
 		return false
 	if get_blood_volume_from_node(node as Node) < CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX:
 		return true
-	if manager != null and manager.has_method("_is_in_immediate_peril") and manager._is_in_immediate_peril(c):
+	if manager != null and is_in_immediate_peril(manager, c):
 		return true
 	return false
 

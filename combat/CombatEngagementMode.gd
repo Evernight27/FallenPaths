@@ -90,6 +90,19 @@ static func snapshot_is_true_duel(snap: Dictionary) -> bool:
 	)
 
 
+## Doc-sync line for calibration audit / IV-3 worksheet.
+static func iv3_doc_sync_line() -> String:
+	return (
+		"IV-3 true-duel: snapshot_is_true_duel=active_1v1_only "
+		+ "mop_up_excludes_duel skirmish_mopup_7v2=yes attrition_to_duel=yes"
+	)
+
+
+## Alias for harness rows that reference the longer name.
+static func iv3_true_duel_doc_sync_line() -> String:
+	return iv3_doc_sync_line()
+
+
 static func snapshot(manager: Node) -> Dictionary:
 	var p: int = count_front_rank_alive(manager, "player")
 	var e: int = count_front_rank_alive(manager, "enemy")

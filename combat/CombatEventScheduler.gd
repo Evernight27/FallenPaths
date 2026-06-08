@@ -257,15 +257,29 @@ static func action_ready_cooldown(c: Dictionary) -> float:
 		cooldown /= maxf(CombatConstants.PERF_MOD_MIN, perf_mod)
 	var st_ratio: float = _EntityAccess.stamina_ratio(c)
 	cooldown *= CombatConstants.action_ready_stamina_delay_mult(st_ratio)
+	cooldown *= CombatConstants.armor_burden_action_ready_mult(c)
 	return cooldown
 
 
 static func schedule_initial_action_ready_events(manager: Node) -> void:
+	var pending: Array = []
 	for c in manager.combatants:
 		if not _EntityAccess.alive_bool(c) or _EntityAccess.is_unconscious(c):
 			continue
 		if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
 			continue
+		pending.append(c)
+	if CombatConstants.is_feature_initiative_order_enabled() and pending.size() > 1:
+		pending.sort_custom(
+			func(a: Dictionary, b: Dictionary) -> bool:
+				return CombatConstants.compare_combatants_for_initiative_order(a, b)
+		)
+		for i in pending.size():
+			var c_stagger: Dictionary = pending[i]
+			var delay: float = action_ready_cooldown(c_stagger) + float(i) * CombatConstants.INITIATIVE_ORDER_STAGGER_STEP_S
+			schedule_action_ready(manager, _EntityAccess.id_int(c_stagger), delay)
+		return
+	for c in pending:
 		schedule_action_ready(manager, _EntityAccess.id_int(c), action_ready_cooldown(c))
 
 

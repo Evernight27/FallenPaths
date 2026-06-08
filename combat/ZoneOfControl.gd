@@ -507,6 +507,44 @@ static func geometric_reach_extent_multiplier(
 	return lerpf(CombatConstants.ZOC_GEOMETRIC_EXTENT_MIN, 1.0, m)
 
 
+## IV-13: long weapons gain virtual reach when front ZoC is weak (wide lines; listing/threaten only).
+static func weapon_reach_zoc_bonus_m(
+	manager: Node,
+	attacker: Dictionary,
+	defender: Dictionary
+) -> float:
+	if not CombatConstants.is_feature_iv13_weapon_reach_zoc_enabled():
+		return 0.0
+	if manager == null or attacker.is_empty() or defender.is_empty():
+		return 0.0
+	if not is_zoc_flanking_enabled(manager):
+		return 0.0
+	var fa: Dictionary = formation_for_combatant_cached(manager, attacker, null)
+	var fb: Dictionary = formation_for_combatant_cached(manager, defender, null)
+	if fa.is_empty() or fb.is_empty():
+		return 0.0
+	if int(fa.get("files", 1)) < 2 or int(fb.get("files", 1)) < 2:
+		return 0.0
+	var wp: float = float(
+		_FormationSlots.formation_nested_dictionary_read(fa, "zone_control").get(ZONE_FRONT, 1.0)
+	)
+	var we: float = float(
+		_FormationSlots.formation_nested_dictionary_read(fb, "zone_control").get(ZONE_FRONT, 1.0)
+	)
+	var weak_front: float = minf(wp, we)
+	var weak_max: float = float(CombatConstants.IV13_WEAPON_REACH_ZOC_WEAK_FRONT_MAX)
+	if weak_front >= weak_max:
+		return 0.0
+	var reach: float = _EntityAccess.weapon_melee_reach(
+		attacker, CombatConstants.IV13_WEAPON_REACH_ZOC_REF_M
+	)
+	var ref_m: float = float(CombatConstants.IV13_WEAPON_REACH_ZOC_REF_M)
+	var span_m: float = maxf(0.01, float(CombatConstants.IV13_WEAPON_REACH_ZOC_SPAN_M))
+	var reach_t: float = clampf((reach - ref_m) / span_m, 0.0, 1.0)
+	var weak_t: float = clampf(1.0 - weak_front / maxf(0.01, weak_max), 0.0, 1.0)
+	return reach_t * weak_t * float(CombatConstants.IV13_WEAPON_REACH_ZOC_MAX_BONUS_M)
+
+
 ## When both sides have wide lines, allow mid band one file farther if either front zone is weak.
 static func mid_reach_files(
 	manager: Node,

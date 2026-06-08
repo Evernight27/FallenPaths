@@ -192,6 +192,7 @@ func register(node: Node, side: String) -> int:
 		var raw_pref: Variant = node.get("stance_preference")
 		if raw_pref != null:
 			stance_pref = str(raw_pref).strip_edges()
+	var leader_flags: Dictionary = _EntityAccess.leader_register_flags_from_node(node, side)
 	combatants.append({
 		"id": id,
 		"node": node,
@@ -225,11 +226,9 @@ func register(node: Node, side: String) -> int:
 		"lane_offset": CombatConstants.LANE_OFFSET_DEFAULT,
 		"doctrine_target_commit_id": -1,
 		"doctrine_commit_until": 0.0,
-		## defender_id -> combat_clock until which `attempt_close` vs that defender is logic-gated off (failed close backoff).
 		"close_block_until_by_target_id": {},
-		## Copied from character `is_party_leader` (player lead only); enemies always false.
-		"is_party_leader": (side == "player" and node != null and node.get("is_party_leader") == true),
-		## Tier 1.5: 0..1 input to side mean `morale_cohesion_factor` when encounter override absent; default neutral.
+		"is_party_leader": leader_flags.get("is_party_leader", false),
+		"is_enemy_leader": leader_flags.get("is_enemy_leader", false),
 		"morale_cohesion": morale_c,
 		"campaign_stamina_mult": camp_stamina,
 	})
@@ -338,7 +337,7 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	_connect_turn_resolved_depth_recheck()
 	if has_meta("_d001_suppress_winner_check"):
 		remove_meta("_d001_suppress_winner_check")
-	# Phase 1: Schedule initial EVENT_ACTION_READY for each alive combatant (staggered by agility).
+	# Phase 1: Schedule initial EVENT_ACTION_READY (IV-8 initiative stagger when enabled).
 	_schedule_initial_action_ready_events()
 	set_process(true)
 	var alive_p: int = 0
@@ -422,26 +421,97 @@ func stop():
 func can_end_medical_phase() -> bool:
 	return _MedicalPhase.can_end_medical_phase(self)
 
-## True if combatant has any wounded part that is not comprehensively treated (bandaged, packed, or tourniqueted). Direct pressure alone does not count.
-func _has_untreated_wounds(c: Dictionary) -> bool:
-	return _MedicalPhase.has_untreated_wounds(self, c)
-
-## Called when player ends battle during medical phase (soak: End battle; campaign: return to camp). Emits combat_ended and stops.
+## Called when player ends battle during medical phase (soak: tick-replay; campaign: batch_resolve). Emits combat_ended and stops.
 func finish_battle() -> void:
-	var ran_fast_forward: bool = false
-	if medical_phase and not can_end_medical_phase():
-		ran_fast_forward = true
-		set_process(false)
+	var ran_fast_forward := _run_medical_fast_forward_on_exit_sync()
+	_emit_finish_battle_and_stop(ran_fast_forward)
+
+
+## Yields one frame after campaign batch_resolve; soak uses time-sliced tick-replay between frames.
+func finish_battle_interactive() -> void:
+	var ran_fast_forward := await _run_medical_fast_forward_on_exit_async()
+	_emit_finish_battle_and_stop(ran_fast_forward)
+
+
+func _run_medical_fast_forward_on_exit_sync() -> bool:
+	if not medical_phase or can_end_medical_phase():
+		return false
+	set_process(false)
+	if _is_campaign_contract_battle():
+		_MedicalPhase.batch_resolve_on_campaign_exit(self)
+	else:
 		for _pass in range(3):
 			_MedicalPhase.instant_complete_on_early_exit(self)
 			if can_end_medical_phase():
 				break
-		_notify_incomplete_campaign_medical_fast_forward_if_needed()
+	_notify_incomplete_campaign_medical_fast_forward_if_needed()
+	return true
+
+
+func _run_medical_fast_forward_on_exit_async() -> bool:
+	if not medical_phase or can_end_medical_phase():
+		return false
+	set_process(false)
+	if _is_campaign_contract_battle():
+		_MedicalPhase.batch_resolve_on_campaign_exit(self)
+		if is_inside_tree():
+			await get_tree().process_frame
+	else:
+		for pass_idx in range(3):
+			await _run_interactive_medical_fast_forward_pass(-1.0)
+			if can_end_medical_phase():
+				break
+			if _OperationalLog.is_play_session_active() and pass_idx + 1 < 3:
+				_OperationalLog.play_combat(
+					"medical_fast_forward pass=%d/%d can_end=false parts_left=%d"
+					% [
+						pass_idx + 1,
+						3,
+						_MedicalPhase.winner_side_untreated_part_count(self),
+					]
+				)
+			if is_inside_tree():
+				await get_tree().process_frame
+	_notify_incomplete_campaign_medical_fast_forward_if_needed()
+	return true
+
+
+## Time-sliced fast-forward on **`CombatManager`** — full sim like sync exit, one frame budget per slice.
+func _run_interactive_medical_fast_forward_pass(max_sim_seconds: float = -1.0) -> void:
+	var sim_state: Dictionary = _MedicalPhase.fast_forward_prepare(self, max_sim_seconds)
+	if sim_state.is_empty():
+		return
+	var sim_cap: float = float(sim_state["sim_cap"])
+	var break_reason: String = "sim_cap"
+	while true:
+		var slice: Dictionary = _MedicalPhase.fast_forward_advance_time_slice(
+			self,
+			sim_state,
+			sim_cap,
+			_MedicalPhase.INTERACTIVE_FAST_FORWARD_FRAME_BUDGET_US
+		)
+		if not bool(slice.get("continue_loop", false)):
+			break_reason = str(slice.get("break_reason", "sim_cap"))
+			break
+		if is_inside_tree():
+			await get_tree().process_frame
+	_MedicalPhase.fast_forward_finalize(self, sim_state, break_reason)
+
+
+func _emit_finish_battle_and_stop(ran_fast_forward: bool) -> void:
 	var can_end: bool = not medical_phase or can_end_medical_phase()
-	if _OperationalLog.is_play_session_active() and _is_campaign_contract_battle():
+	var is_campaign: bool = _is_campaign_contract_battle()
+	var used_batch_resolve: bool = ran_fast_forward and is_campaign
+	if _OperationalLog.is_play_session_active() and is_campaign:
 		_OperationalLog.play_combat(
-			"campaign_medical_exit can_end=%s fast_forward=%s"
-			% [str(can_end).to_lower(), str(ran_fast_forward).to_lower()]
+			(
+				"campaign_medical_exit can_end=%s fast_forward=%s batch_resolve=%s"
+				% [
+					str(can_end).to_lower(),
+					str(ran_fast_forward).to_lower(),
+					str(used_batch_resolve).to_lower(),
+				]
+			)
 		)
 	elif not _OperationalLog.is_play_session_active():
 		CombatDebug.combat_session(
@@ -463,10 +533,7 @@ func _notify_incomplete_campaign_medical_fast_forward_if_needed() -> void:
 		return
 	if _OperationalLog.is_play_session_active():
 		var parts_left: int = _MedicalPhase.winner_side_untreated_part_count(self)
-		_OperationalLog.play_world(
-			"field_care: untreated wounds remain after battle triage parts_left=%d — open Party on the map"
-			% parts_left
-		)
+		_OperationalLog.play_world(_CompanyState.format_post_fight_field_care_short_log(parts_left))
 	else:
 		notify_combat_ui_hint(_BattleUIConstants.CAMPAIGN_MEDICAL_FAST_FORWARD_INCOMPLETE_HINT, false)
 
@@ -584,22 +651,6 @@ func _connect_turn_resolved_depth_recheck() -> void:
 func _on_turn_resolved_same_file_depth_recheck(combatant_id: int) -> void:
 	_EventScheduler.reschedule_same_file_depth_after_front_turn(self, combatant_id)
 	_EventScheduler.reschedule_same_file_depth_after_reserve_turn(self, combatant_id)
-
-# Available actions: array of { "target_id": int, "move_id": String, optional "target_part": String }.
-# Attack moves (non-parry) and medical when in danger. Parry is passive only (A4v3).
-func _is_in_medical_danger(c: Dictionary) -> bool:
-	return _MedicalPhase.is_in_medical_danger(self, c)
-
-## Stricter than _is_in_medical_danger: about to bleed out. Must self-treat; cannot help others.
-func _is_in_immediate_peril(c: Dictionary) -> bool:
-	return _MedicalPhase.is_in_immediate_peril(self, c)
-
-## True when entity has permanently left immediate peril (permanent bleeding rate low enough to recover).
-func _has_left_immediate_peril_permanently(c: Dictionary) -> bool:
-	return _MedicalPhase.has_left_immediate_peril_permanently(self, c)
-
-func _get_medical_urgency(c: Dictionary) -> float:
-	return _MedicalPhase.get_medical_urgency(self, c)
 
 static func _is_medical_move(move_id: String) -> bool:
 	return _ResolveAction.is_medical_move(move_id)

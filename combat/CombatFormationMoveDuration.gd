@@ -9,6 +9,46 @@ const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _Timing := preload("res://combat/CombatTiming.gd")
 const _BattleUIConstants := preload("res://ui/BattleUIConstants.gd")
 
+## P4b canonical UI copy (Tier 0.1) — locked by **`_run_p4b_formation_duration_ui_copy_suite`**.
+const P4B_HINT_PREFIX := "Formation move:"
+const P4B_TOKEN_CROWDED_LANE := "crowded lane"
+const P4B_TOKEN_BLOCKED_LANE := "blocked lane"
+const P4B_TOKEN_UNDER_PRESSURE := "under pressure"
+const P4B_TOKEN_LOW_PRESSURE := "low pressure"
+const P4B_TOKEN_CONTROLLING_FRONT := "controlling front"
+const P4B_TOKEN_HEAVY_ARMOR := "heavy armor"
+const P4B_FLEE_INSTANT_HINT := "Flee: leaves field (instant)"
+const P4B_LEADER_HOLD_LANE_INSTANT_HINT := "Hold lane: doctrine (instant)"
+const P4B_LEADER_PROBING_INSTANT_HINT := "Probe: doctrine (instant)"
+const P4B_LEADER_PINCH_CENTER_INSTANT_HINT := "Pinch center: doctrine (instant)"
+const P4B_FORMATION_ACTIONS_MENU_PREFIX := "Formation actions: "
+const P4B_LISTED_MOVES_PREFIX := "Listed formation moves: "
+
+
+## P4b: doc-sync line for formation duration UI vocabulary (ii5a / harness).
+static func p4b_formation_duration_ui_copy_line() -> String:
+	return (
+		"P4b formation UI: prefix='%s' tokens=%s|%s|%s|%s|%s|%s flee='%s'"
+		% [
+			P4B_HINT_PREFIX,
+			P4B_TOKEN_CROWDED_LANE,
+			P4B_TOKEN_BLOCKED_LANE,
+			P4B_TOKEN_UNDER_PRESSURE,
+			P4B_TOKEN_LOW_PRESSURE,
+			P4B_TOKEN_CONTROLLING_FRONT,
+			P4B_TOKEN_HEAVY_ARMOR,
+			P4B_FLEE_INSTANT_HINT,
+		]
+	)
+
+
+static func duration_hint_for_turn_display(hint: String) -> String:
+	var h: String = str(hint).strip_edges()
+	var prefix: String = P4B_HINT_PREFIX + " "
+	if h.begins_with(prefix):
+		return h.substr(prefix.length())
+	return h
+
 
 ## Formation **`fid`** for lane/pressure timing (tactical grid / zone geometry).
 static func _zone_fid_for_lane_timing(manager: Node, c: Dictionary) -> String:
@@ -89,18 +129,18 @@ static func format_duration_hint(
 		return ""
 	var parts: PackedStringArray = PackedStringArray(["~%.1fs" % duration_s])
 	if lane_foot >= CombatConstants.LANE_MOD_BLOCKED - 0.05:
-		parts.append("blocked lane")
+		parts.append(P4B_TOKEN_BLOCKED_LANE)
 	elif lane_foot >= CombatConstants.LANE_MOD_CROWDED - 0.05:
-		parts.append("crowded lane")
+		parts.append(P4B_TOKEN_CROWDED_LANE)
 	if pressure_mod >= CombatConstants.PRESSURE_MOD_AGGRESSIVE - 0.05:
-		parts.append("under pressure")
+		parts.append(P4B_TOKEN_UNDER_PRESSURE)
 	elif pressure_mod <= CombatConstants.PRESSURE_MOD_DEFENSIVE + 0.05:
-		parts.append("low pressure")
+		parts.append(P4B_TOKEN_LOW_PRESSURE)
 	if controlling_front:
-		parts.append("controlling front")
+		parts.append(P4B_TOKEN_CONTROLLING_FRONT)
 	if armor_mult >= 1.12:
-		parts.append("heavy armor")
-	return "Formation move: " + ", ".join(parts)
+		parts.append(P4B_TOKEN_HEAVY_ARMOR)
+	return P4B_HINT_PREFIX + " " + ", ".join(parts)
 
 
 static func preview_lane_pressure_for_combatant(manager: Node, c: Dictionary) -> Dictionary:
@@ -142,6 +182,14 @@ static func stamp_listed_action_duration_hint(
 	if manager == null or initiator.is_empty() or action.is_empty():
 		return
 	var mid: String = str(action.get("move_id", ""))
+	if CombatConstants.is_leader_formation_command_move(mid):
+		if mid == CombatConstants.MOVE_ID_ORDER_HOLD_LANE:
+			action["formation_move_duration_hint"] = P4B_LEADER_HOLD_LANE_INSTANT_HINT
+		elif mid == CombatConstants.MOVE_ID_ORDER_PROBING:
+			action["formation_move_duration_hint"] = P4B_LEADER_PROBING_INSTANT_HINT
+		elif mid == CombatConstants.MOVE_ID_ORDER_PINCH_CENTER:
+			action["formation_move_duration_hint"] = P4B_LEADER_PINCH_CENTER_INSTANT_HINT
+		return
 	if not CombatConstants.is_formation_movement_move(mid):
 		return
 	var tid: int = int(action.get("target_id", -1))
@@ -179,7 +227,7 @@ static func stamp_listed_action_duration_hint(
 			dur = estimate_rotate_file_duration_s(manager, initiator, partner)
 		CombatConstants.MOVE_ID_FLEE:
 			# Resolve is instant (`CombatFormationFlee.apply_flee`); listing hint only.
-			action["formation_move_duration_hint"] = "Flee: leaves field (instant)"
+			action["formation_move_duration_hint"] = P4B_FLEE_INSTANT_HINT
 			return
 	var armor_mult: float = _armor_mult(initiator, partner)
 	var controlling_front: bool = false
@@ -211,6 +259,7 @@ static func formation_listed_moves_menu_line(actions: Array) -> String:
 		if (
 			not CombatConstants.is_formation_movement_move(mid)
 			and mid != CombatConstants.MOVE_ID_ATTEMPT_CLOSE
+			and not CombatConstants.is_leader_formation_command_move(mid)
 		):
 			continue
 		var label: String = _formation_action_display_label(mid)
@@ -223,12 +272,16 @@ static func formation_listed_moves_menu_line(actions: Array) -> String:
 				label = "%s vs %s" % [label, close_tag]
 			elif tid >= 0:
 				label = "%s → target %d" % [label, tid]
-		elif tid >= 0 and mid != CombatConstants.MOVE_ID_FLEE:
+		elif (
+			tid >= 0
+			and mid != CombatConstants.MOVE_ID_FLEE
+			and not CombatConstants.is_leader_formation_command_move(mid)
+		):
 			label = "%s → ally %d" % [label, tid]
 		parts.append(label)
 	if parts.is_empty():
 		return ""
-	return "Formation actions: " + ", ".join(parts)
+	return P4B_FORMATION_ACTIONS_MENU_PREFIX + ", ".join(parts)
 
 
 ## One combat-log line for player turn-ready when listed formation moves carry duration hints.
@@ -246,6 +299,11 @@ static func formation_listed_moves_turn_hint(actions: Array) -> String:
 				var close_label: String = _formation_action_display_label(mid)
 				parts.append("%s — harder vs %s" % [close_label, close_tag])
 			continue
+		if CombatConstants.is_leader_formation_command_move(mid):
+			var leader_hint: String = str(a.get("formation_move_duration_hint", "")).strip_edges()
+			if not leader_hint.is_empty():
+				parts.append(leader_hint)
+			continue
 		if not CombatConstants.is_formation_movement_move(mid):
 			continue
 		var hint: String = str(a.get("formation_move_duration_hint", "")).strip_edges()
@@ -255,12 +313,12 @@ static func formation_listed_moves_turn_hint(actions: Array) -> String:
 		var label: String = _formation_action_display_label(mid)
 		if tid >= 0:
 			label = "%s (ally %d)" % [label, tid]
-		parts.append("%s — %s" % [label, hint])
+		parts.append("%s — %s" % [label, duration_hint_for_turn_display(hint)])
 	if parts.is_empty():
 		return ""
 	if parts.size() == 1:
 		return parts[0]
-	return "Listed formation moves: " + "; ".join(parts)
+	return P4B_LISTED_MOVES_PREFIX + "; ".join(parts)
 
 
 ## One **`FP_COMBAT: ui_hint`** line per turn: duration detail when stamped, else compact menu summary.

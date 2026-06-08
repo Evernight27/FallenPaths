@@ -70,6 +70,8 @@ static func resolve_move_allowed_when_cannot_melee(
 ) -> bool:
 	if move_id == CombatConstants.MOVE_ID_WAIT:
 		return true
+	if CombatConstants.is_leader_formation_command_move(move_id) and target_id == attacker_id:
+		return true
 	return (
 		(move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id)
 		or (move_id == CombatConstants.MOVE_ID_FLEE and target_id == attacker_id)
@@ -81,12 +83,14 @@ static func is_offensive_melee_move_id(move_id: String) -> bool:
 		return false
 	if resolve_move_allowed_when_cannot_melee(move_id, -1, -1):
 		return false
-	if move_id in CombatConstants.MEDICAL_MOVE_IDS:
+	if CombatConstants.is_medical_move(move_id):
 		return false
-	if move_id in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
+	if CombatConstants.is_formation_movement_move(move_id):
 		return false
 	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return true
+	if CombatConstants.is_leader_formation_command_move(move_id):
+		return false
 	if CombatConstants.is_focus_line_move(move_id):
 		return false
 	if WeaponConstants.is_parry_move(move_id):

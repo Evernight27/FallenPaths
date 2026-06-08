@@ -22,6 +22,7 @@ const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 
 
 ## Always emitted (grep `FP_ERROR`). Use for should-never-happen combat invariants.
@@ -154,7 +155,7 @@ static func format_actions_compact(actions: Array) -> String:
 		var dur_s: String = ""
 		var dur_hint: String = str(a.get("formation_move_duration_hint", "")).strip_edges()
 		if not dur_hint.is_empty():
-			dur_s = " {%s}" % dur_hint.replace("Formation move: ", "")
+			dur_s = " {%s}" % _FormationMoveDuration.duration_hint_for_turn_display(dur_hint)
 		var close_hint: String = str(a.get(CombatConstants.ACTION_KEY_CLOSE_LIST_HINT, "")).strip_edges()
 		if not close_hint.is_empty():
 			dur_s = " {vs %s}" % close_hint if dur_s.is_empty() else dur_s + " vs " + close_hint
@@ -170,7 +171,7 @@ static func _medical_turn_vitals_suffix(manager: Node, choice: Dictionary) -> St
 	if not manager.has_method("_is_medical_move"):
 		return ""
 	var mid: String = str(choice.get("move_id", ""))
-	if not manager._is_medical_move(mid):
+	if not CombatConstants.is_medical_move(mid):
 		return ""
 	var tid: int = int(choice.get("target_id", -1))
 	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
@@ -199,7 +200,7 @@ static func _is_non_damage_turn_pick(move_id: String) -> bool:
 		return true
 	if move_id.begins_with("focus_"):
 		return true
-	if move_id == "attempt_close" or move_id.begins_with("attempt_close"):
+	if move_id.begins_with(CombatConstants.MOVE_ID_ATTEMPT_CLOSE):
 		return true
 	return false
 
@@ -210,7 +211,7 @@ static func turn_pick_kind_suffix(move_id: String) -> String:
 		return " · Focus"
 	if move_id == CombatConstants.MOVE_ID_WAIT or move_id == "pass":
 		return " · Hold"
-	if move_id == "attempt_close" or move_id.begins_with("attempt_close"):
+	if move_id.begins_with(CombatConstants.MOVE_ID_ATTEMPT_CLOSE):
 		return " · Close"
 	return ""
 
@@ -278,7 +279,7 @@ static func log_available_actions_build(
 	var medical_count: int = 0
 	for a in result_actions:
 		var mid: String = str(a.get("move_id", ""))
-		if mid in CombatConstants.MEDICAL_MOVE_IDS:
+		if CombatConstants.is_medical_move(mid):
 			medical_count += 1
 	var polearm_extra: String = ""
 	if not medical_phase:

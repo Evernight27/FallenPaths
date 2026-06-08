@@ -91,6 +91,8 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 			ei += 1
 	_FormationSlots.normalize_formation_slots(form_player)
 	_FormationSlots.normalize_formation_slots(form_enemy)
+	_FormationSlots.refresh_gap_column_topology(form_player)
+	_FormationSlots.refresh_gap_column_topology(form_enemy)
 	# ZoC/bands: `CombatManager.start()` runs opposition seed + vacancy reconcile + one-shot recompute (III-4 PR2).
 
 

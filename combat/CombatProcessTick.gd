@@ -15,20 +15,22 @@ static func tick(manager: Node, delta: float) -> void:
 	manager.combat_clock += delta
 	_EventDispatch.process_event_queue(manager)
 	manager._combat_tick_index += 1
-	if (
-		_CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY
-		and _CombatConstants.COMBAT_VACANCY_DIRTY_SAFETY_EVERY_N_FRAMES > 0
-	):
-		var n: int = _CombatConstants.COMBAT_VACANCY_DIRTY_SAFETY_EVERY_N_FRAMES
-		if n > 0 and manager._combat_tick_index % n == 0:
-			manager.mark_all_formations_vacancy_dirty()
-	var changed_fids: Array = []
-	if manager.has_method("vacancy_reconcile_pass"):
-		changed_fids = manager.vacancy_reconcile_pass(true)
-	else:
-		var snap: Dictionary = CombatEventScheduler.snapshot_rank_file_placements(manager)
-		changed_fids = _FormationFlow.reconcile_vacancy_plugs(manager)
-		_FormationFlow.finish_vacancy_reconcile_follow_up(manager, changed_fids, snap, true)
+	var fast_forward: bool = _MedicalPhase.medical_fast_forward_active(manager)
+	if not fast_forward:
+		if (
+			_CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY
+			and _CombatConstants.COMBAT_VACANCY_DIRTY_SAFETY_EVERY_N_FRAMES > 0
+		):
+			var n: int = _CombatConstants.COMBAT_VACANCY_DIRTY_SAFETY_EVERY_N_FRAMES
+			if n > 0 and manager._combat_tick_index % n == 0:
+				manager.mark_all_formations_vacancy_dirty()
+		var changed_fids: Array = []
+		if manager.has_method("vacancy_reconcile_pass"):
+			changed_fids = manager.vacancy_reconcile_pass(true)
+		else:
+			var snap: Dictionary = CombatEventScheduler.snapshot_rank_file_placements(manager)
+			changed_fids = _FormationFlow.reconcile_vacancy_plugs(manager)
+			_FormationFlow.finish_vacancy_reconcile_follow_up(manager, changed_fids, snap, true)
 	var victor: String = ""
 	var last_death_node: Node = null
 	for c in manager.combatants:
@@ -42,7 +44,7 @@ static func tick(manager: Node, delta: float) -> void:
 		if adv_node == null:
 			continue
 		_EntityTimeAdvance.advance(adv_node, delta, false)
-		if adv_node.has_method("_try_ambient_pain_shock_tick"):
+		if not fast_forward and adv_node.has_method("_try_ambient_pain_shock_tick"):
 			adv_node._try_ambient_pain_shock_tick(delta)
 		manager._refresh_combatant_stats(c)
 	for c in manager.combatants:

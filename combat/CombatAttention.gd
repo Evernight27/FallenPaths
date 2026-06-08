@@ -193,7 +193,7 @@ static func ally_in_immediate_peril(manager: Node, combatant_id: int) -> bool:
 			continue
 		if not _EntityAccess.is_living_same_side(self_c, o):
 			continue
-		if _MedicalPhase.is_in_immediate_peril(manager, o):
+		if _EntityAccess.is_in_immediate_peril(manager, o):
 			return true
 	return false
 
@@ -367,7 +367,7 @@ static func line_count_toward_defender(defender: Dictionary, attacker_id: int, l
 static func apply_yomi_focus_drift(
 	manager: Node, c: Dictionary, forced_incoming_attacker_id: int = -1
 ) -> void:
-	if not enabled() or c == null or bool(c.get("is_party_leader", false)):
+	if not enabled() or c == null or _EntityAccess.is_formation_telegraph_leader(c):
 		return
 	var atk_id: int = forced_incoming_attacker_id
 	if atk_id < 0 and manager != null:

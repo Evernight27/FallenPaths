@@ -30,9 +30,53 @@ static func _new_combat_telemetry_dict() -> Dictionary:
 		"last_mode_transition": {},
 	}
 
+static func _iv12_slot_distraction_pad(manager: Node, defender: Dictionary, threaten_per_cell: Dictionary) -> float:
+	if not CombatConstants.is_feature_iv12_slot_distraction_enabled():
+		return 0.0
+	if manager == null or defender.is_empty() or threaten_per_cell.is_empty():
+		return 0.0
+	var pad: float = 0.0
+	for cell_key in threaten_per_cell.keys():
+		if int(threaten_per_cell.get(cell_key, 0)) < 1:
+			continue
+		var parts: PackedStringArray = str(cell_key).split(":")
+		if parts.size() != 3:
+			continue
+		var fid: String = parts[0]
+		var rank_i: int = int(parts[1])
+		var file_i: int = int(parts[2])
+		var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+		if formation.is_empty():
+			continue
+		var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+		var slot_key := Vector2i(rank_i, file_i)
+		if _FormationSlots.living_count_in_slot(manager, slots, slot_key) < 2:
+			continue
+		pad += CombatConstants.IV12_SLOT_DISTRACTION_WEIGHT_PAD
+	return pad
+
+
+static func _iv12_threat_cell_key(manager: Node, c: Dictionary) -> String:
+	var fid: String = _EntityAccess.formation_id_str(c)
+	if CombatConstants.is_feature_iv12_slot_distraction_enabled() and manager != null:
+		var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+		if not formation.is_empty():
+			var slot_key: Variant = _FormationSlots.slot_key_for_combatant_id(
+				manager, formation, _EntityAccess.id_int(c)
+			)
+			if slot_key is Vector2i:
+				var sk: Vector2i = slot_key as Vector2i
+				return "%s:%d:%d" % [fid, sk.x, sk.y]
+	return (
+		"%s:%d:%d"
+		% [fid, _EntityAccess.rank_int(c), _EntityAccess.file_int(c)]
+	)
+
+
 static func _melee_threat_scan(manager: Node, defender: Dictionary) -> Dictionary:
 	var count: int = 0
 	var entries: Array = []
+	var threaten_per_cell: Dictionary = {}
 	if manager == null or defender.is_empty() or not _EntityAccess.alive_bool(defender):
 		return {"count": 0, "weight_sum": 0.0}
 	for c in manager.combatants:
@@ -53,12 +97,77 @@ static func _melee_threat_scan(manager: Node, defender: Dictionary) -> Dictionar
 			var df: float = float(_EntityAccess.file_int(c) - _EntityAccess.file_int(defender))
 			center = fmod(90.0 + df * 38.0 + 360.0, 360.0)
 		entries.append({"weight": w, "arc_center_deg": center})
+		var cell_key: String = _iv12_threat_cell_key(manager, c)
+		threaten_per_cell[cell_key] = int(threaten_per_cell.get(cell_key, 0)) + 1
 	var surround_load: Dictionary = _ArcOccupancy.surround_load_from_threat_entries(entries)
+	var weight_sum: float = float(surround_load.get("weight_sum", 0.0))
+	weight_sum += _iv12_slot_distraction_pad(manager, defender, threaten_per_cell)
 	return {
 		"count": count,
-		"weight_sum": float(surround_load.get("weight_sum", 0.0)),
+		"weight_sum": weight_sum,
 		"arc_occupancy_blocked": int(surround_load.get("arc_occupancy_blocked", 0)),
+		"threaten_per_cell": threaten_per_cell,
 	}
+
+
+## IV-12 slice 2: distraction pad from co-located threats on this defender (0 when flag off or no dual slot).
+static func iv12_slot_distraction_pad_for_defender(manager: Node, defender_id: int) -> float:
+	var d: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+	if d.is_empty():
+		return 0.0
+	var scan: Dictionary = _melee_threat_scan(manager, d)
+	var per_cell: Dictionary = scan.get("threaten_per_cell", {})
+	if not (per_cell is Dictionary):
+		return 0.0
+	return _iv12_slot_distraction_pad(manager, d, per_cell as Dictionary)
+
+
+## IV-12 slice 2: damp hostile pick weights when co-located slot distraction is active.
+static func iv12_offense_weight_mult(manager: Node, defender_id: int) -> float:
+	if not CombatConstants.is_feature_iv12_slot_distraction_enabled():
+		return 1.0
+	if iv12_slot_distraction_pad_for_defender(manager, defender_id) <= 0.0:
+		return 1.0
+	return CombatConstants.IV12_AI_OFFENSE_WEIGHT_MULT
+
+
+## IV-12 slice 2: living hostile slot-mate already threatens this defender (pile-on targeting bias).
+static func attacker_has_co_located_slot_mate_threatening(
+	manager: Node, attacker: Dictionary, defender: Dictionary
+) -> bool:
+	if not CombatConstants.is_feature_iv12_slot_distraction_enabled():
+		return false
+	if manager == null or attacker.is_empty() or defender.is_empty():
+		return false
+	if not _EntityAccess.is_living_hostile_to(attacker, defender):
+		return false
+	var fid: String = _EntityAccess.formation_id_str(attacker)
+	if fid.is_empty():
+		return false
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+	if formation.is_empty():
+		return false
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+	var self_id: int = _EntityAccess.id_int(attacker)
+	var slot_key_var: Variant = _FormationSlots.slot_key_for_combatant_id(
+		manager, formation, self_id
+	)
+	if slot_key_var == null or not (slot_key_var is Vector2i):
+		return false
+	var slot_key: Vector2i = slot_key_var as Vector2i
+	if _FormationSlots.living_count_in_slot(manager, slots, slot_key) < 2:
+		return false
+	for cid in _FormationSlots.normalize_cell(slots.get(slot_key, [])):
+		var mate_id: int = int(cid)
+		if mate_id == self_id:
+			continue
+		var mate: Dictionary = _EntityAccess.manager_get_combatant(manager, mate_id)
+		if mate.is_empty() or not _EntityAccess.is_living_hostile_to(mate, defender):
+			continue
+		var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, mate, defender)
+		if _MeleeListing.can_melee_threaten(manager, mate, defender, pair_geom):
+			return true
+	return false
 
 
 ## Enemy front-rank units that could actually land a melee strike on the defender (weapon reach + spacing + band).
