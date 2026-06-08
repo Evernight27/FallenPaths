@@ -64,7 +64,7 @@ static func incoming_attacker_id(manager: Node, defender_id: int) -> int:
 static func incoming_wind_up_progress(manager: Node, attacker_id: int) -> float:
 	if manager == null or attacker_id < 0:
 		return 0.0
-	var atk: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(attacker_id))
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
 	if atk.is_empty() or _EntityAccess.state_str(atk) != CombatConstants.STATE_WIND_UP:
 		return 0.0
 	var dur: float = float(atk.get("state_duration", 0.0))
@@ -114,7 +114,7 @@ static func spend_gauge(c: Dictionary) -> void:
 static func is_counter_tempo_melee_action(move_id: String) -> bool:
 	if move_id.is_empty():
 		return false
-	if move_id in CombatConstants.MEDICAL_MOVE_IDS:
+	if CombatConstants.is_medical_move(move_id):
 		return false
 	if move_id == CombatConstants.MOVE_ID_WAIT:
 		return false
@@ -216,7 +216,7 @@ static func defer_incoming_melee_after_counter(
 	if manager == null or counter_id < 0 or deferred_attacker_id < 0:
 		return
 	if _MedicalPhase.combat_resolution_blocked(manager):
-		var defer_atk: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(deferred_attacker_id))
+		var defer_atk: Dictionary = _EntityAccess.manager_get_combatant(manager, deferred_attacker_id)
 		if not defer_atk.is_empty() and _MedicalPhase.is_losing_side(manager, defer_atk):
 			_EventScheduler.cancel_pending_melee_attack(manager, deferred_attacker_id)
 			abort_attacker_wind_up(manager, deferred_attacker_id)
@@ -225,7 +225,7 @@ static func defer_incoming_melee_after_counter(
 			defer_atk.gauge = 0.0
 			_Footwork.return_to_waiting(defer_atk)
 		return
-	var counter: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(counter_id))
+	var counter: Dictionary = _EntityAccess.manager_get_combatant(manager, counter_id)
 	if counter.is_empty():
 		return
 	var counter_end: float = _EntityAccess.combat_clock_float(manager) + float(counter.get("state_duration", 0.0))
@@ -240,14 +240,14 @@ static func defer_incoming_melee_after_counter(
 static func abort_attacker_wind_up(manager: Node, attacker_id: int) -> void:
 	if manager == null or attacker_id < 0:
 		return
-	var atk: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(attacker_id))
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
 	if atk.is_empty():
 		return
 	_EventScheduler.cancel_pending_melee_attack(manager, attacker_id)
 	var pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
 	var defender_id: int = int(pa.get("target_id", -1))
 	if defender_id >= 0:
-		var def: Dictionary = _EntityAccess.combatant_dict_or_empty(manager._get_by_id(defender_id))
+		var def: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
 		if not def.is_empty():
 			clear_window(def)
 	if not pa.is_empty():
@@ -255,12 +255,10 @@ static func abort_attacker_wind_up(manager: Node, attacker_id: int) -> void:
 	_Footwork.clear_on_exchange_end(atk)
 	atk.pending_attack = {}
 	var was_wind_up: bool = _EntityAccess.state_str(atk) == CombatConstants.STATE_WIND_UP
-	if (
-		was_wind_up
-		and _EntityAccess.rank_int(atk) == 0
-		and not (manager.medical_phase and _MedicalPhase.is_losing_side(manager, atk))
-	):
+	if was_wind_up and not (manager.medical_phase and _MedicalPhase.is_losing_side(manager, atk)):
+		# III-6: mirror **`turn_resolved`** depth recheck — rank-0 abort wakes rank-1+; rank-1+ abort wakes deeper reserves.
 		_EventScheduler.reschedule_same_file_depth_after_front_turn(manager, attacker_id)
+		_EventScheduler.reschedule_same_file_depth_after_reserve_turn(manager, attacker_id)
 	if was_wind_up:
 		_StateHandlers.enter_short_recovery(atk, manager)
 		if float(atk.get("state_duration", 0.0)) > 0.0 and manager.has_method("_schedule_event"):

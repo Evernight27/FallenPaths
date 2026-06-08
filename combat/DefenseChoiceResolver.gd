@@ -2,7 +2,7 @@ class_name DefenseChoiceResolver
 extends RefCounted
 
 ## Given attack params and defender state, chooses parry vs dodge and computes parry capacity/timing.
-## Footing: Tier 4.2 spacing/state mults here — Tier 4.4 PA stamp + geometry preview: **`apply_defender_step_*`**, **`guard_angle_deg_with_step_deg`**, dodge-path **`clear_on_exchange_end`**. LIVE_PATHS **`#wf-tier-44-pa`** · **`#wf-layer-labels`**.
+## Footing: Tier 4.2 spacing/state mults here — Tier 4.4 PA stamp + geometry preview: **`apply_defender_step_*`**, **`parry_eval_step_deg_for_defender`**, **`dodge_eval_step_deg_for_defender`**, **`guard_angle_deg_with_step_deg`**, dodge-path **`clear_on_exchange_end`**. LIVE_PATHS **`#wf-tier-44-pa`** · **`#wf-layer-labels`**.
 ## Pure function: returns a dict of computed values; caller handles resolution and mutation.
 ## Tier 4.2: **`_guard_zone_modifier`** may treat the real hit line as the defender's guard focus when passive **`parry_readiness`** × stance **`feint_readthrough`** clears **`CombatConstants.FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** (omit extra arg → legacy / static calls).
 ## Tier 4.2 footwork: pair **`distance_to[attacker]`** scales **`parry_c_d`** (CLOSE / LONG vs MID) and **`dodge_chance`** at CLOSE / LONG (**`CombatConstants.DEFENSE_SPACING_*`**); **`STATE_RECOVERING`** / settled **`STATE_WAITING`** scale reported **`dodge_chance`** via **`defense_footwork_recovering_dodge_mult_for_cause`** / **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`** (waiting skipped when off-balance); feint-only spacing on dodge telegraph (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**), AI feint-listing readiness (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**), and **`_guard_zone_modifier`** read-through (**`FEINT_GUARD_ZONE_READINESS_SPACING_*`**, **`feint_guard_zone_readiness_spacing_mult`**).
@@ -22,6 +22,8 @@ const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const _GuardLines := preload("res://combat/CombatGuardLines.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 
 ## Tier 3.1: `AttackResolver` / **`CombatStrikeStamping.stamp_attack_pair_geometry_on_dict`** set **`depth_polearm_attack`**, **`depth_polearm_allows_low_targets`**, and **`depth_polearm_lane_type`** when rank≥1 depth spear lane is live.
@@ -67,7 +69,8 @@ static func choose_defense(
 	targetable: Array,
 	attack_type: String,
 	archetype: Dictionary,
-	velocity_override: float
+	velocity_override: float,
+	manager: Node = null
 ) -> Dictionary:
 	var result: Dictionary = {
 		"defense": "dodge",
@@ -139,7 +142,9 @@ static func choose_defense(
 			var reaction_time: float = _EntityAccess.get_passive_parry_reaction_time(tgt)
 			if reaction_time < effective_wind_up and atk_weapon != null:
 				can_parry_in_time = true
-				var parry_eval_step_deg: float = _Footwork.parry_eval_step_deg_for_defender(tgt)
+				var parry_eval_step_deg: float = _Footwork.parry_eval_step_deg_for_defender(
+					tgt, _EntityAccess.id_int(atk), manager
+				)
 				var move_def: Dictionary = WeaponConstants.get_move(attack_type)
 				var contact_type: String = str(move_def.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
 				var m_a_striking: float = _EntityAccess.weapon_striking_mass_kg(atk_weapon, contact_type)
@@ -196,6 +201,9 @@ static func choose_defense(
 						),
 					}
 				var _al: float = _get_line_alignment(attack_type, tgt, pa.get("effective_attack_line", ""), align_ctx)
+				_al = _alignment_with_arm_interpose(
+					attack_type, tgt, pa.get("effective_attack_line", ""), _al, targetable, result
+				)
 				parry_c_d *= _get_contact_geometry(_al, def_weapon)
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
 				var st_ratio: float = _EntityAccess.stamina_ratio(tgt)
@@ -205,16 +213,18 @@ static func choose_defense(
 				parry_c_d *= pa.get("tactical_ambush_mult", 1.0)
 				if CombatConstants.combat_debug_active():
 					var dbg_tgt: String = _EntityAccess.get_display_name(tgt)
-					CombatDebug.log("parry_align %s guard=%s atk=%s align=%.2f" % [dbg_tgt, tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), move_def.get("attack_line", "high"), _al])
+					_CombatDebug.log("parry_align %s guard=%s atk=%s align=%.2f" % [dbg_tgt, tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), move_def.get("attack_line", "high"), _al])
 				var cal_suffix: String = ""
 				if not align_ctx.is_empty():
 					cal_suffix = " atk_deg=%.0f guard_deg=%.0f" % [align_ctx.get("attack_angle_deg", 0.0), align_ctx.get("guard_angle_deg", 0.0)]
-				CombatDebug.calibration_log("parry_pre atk_line=%s guard=%s align=%.3f parry_c_d=%.2f%s" % [WeaponConstants.get_move(attack_type).get("attack_line", "high"), tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), _al, parry_c_d, cal_suffix])
+				_CombatDebug.calibration_log("parry_pre atk_line=%s guard=%s align=%.3f parry_c_d=%.2f%s" % [WeaponConstants.get_move(attack_type).get("attack_line", "high"), tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), _al, parry_c_d, cal_suffix])
 			elif atk_weapon != null:
 				# Late parry: reflexive/partial contact when "too late"
 				can_parry_in_time = true
 				late_parry = true
-				var parry_eval_step_deg_late: float = _Footwork.parry_eval_step_deg_for_defender(tgt)
+				var parry_eval_step_deg_late: float = _Footwork.parry_eval_step_deg_for_defender(
+					tgt, _EntityAccess.id_int(atk), manager
+				)
 				var move_def_late: Dictionary = WeaponConstants.get_move(attack_type)
 				var contact_type_late: String = str(move_def_late.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
 				var m_a_striking_late: float = _EntityAccess.weapon_striking_mass_kg(atk_weapon, contact_type_late)
@@ -278,6 +288,9 @@ static func choose_defense(
 						),
 					}
 				var _al: float = _get_line_alignment(attack_type, tgt, pa.get("effective_attack_line", ""), align_ctx_late)
+				_al = _alignment_with_arm_interpose(
+					attack_type, tgt, pa.get("effective_attack_line", ""), _al, targetable, result
+				)
 				parry_c_d *= _get_contact_geometry(_al, def_weapon)
 				# Stamina: non-linear fatigue curve — parry capacity scales with stamina_factor
 				var st_ratio_late: float = _EntityAccess.stamina_ratio(tgt)
@@ -286,7 +299,7 @@ static func choose_defense(
 				parry_c_d *= _TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
 				parry_c_d *= pa.get("tactical_ambush_mult", 1.0)
 				if CombatConstants.combat_debug_active():
-					CombatDebug.log("parry_align late %s align=%.2f" % [tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), _al])
+					_CombatDebug.log("parry_align late %s align=%.2f" % [tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), _al])
 
 	parry_p_a *= depth_spear_open_lane_stab_parry_p_a_mult(pa, attack_type)
 	parry_c_d *= depth_spear_tight_lane_parry_c_d_mult(pa)
@@ -378,7 +391,9 @@ static func choose_defense(
 		var full_dodge_prob: float = effective_dodge_chance * CombatConstants.DODGE_FULL_THRESHOLD
 		var partial_dodge_avg_ratio: float = (CombatConstants.DODGE_PARTIAL_RATIO_MIN + 1.0) * 0.5
 		var E_dodge: float = (1.0 - effective_dodge_chance) * 1.0 + effective_dodge_chance * (1.0 - CombatConstants.DODGE_FULL_THRESHOLD) * partial_dodge_avg_ratio
-		var parry_full: bool = result.is_block_parry and result.parry_c_d >= (result.parry_p_a * CombatConstants.PARRY_DEFLECT_THRESHOLD)
+		var parry_full: bool = CombatConstants.parry_full_stop_reached(
+			result.parry_c_d, result.parry_p_a, result.is_block_parry
+		)
 		var agi_d: float = float(_EntityAccess.stats_dict(tgt).get("agility", 100))
 		var perc_d: float = float(_EntityAccess.stats_dict(tgt).get("perception", 100))
 		var redirect_mult: float = CombatConstants.compute_parry_redirect_mult(parry_cfg, agi_d, perc_d, WeaponConstants.contact_type_for_move_id(attack_type), result.is_block_parry, m_a_parry, m_d_parry)
@@ -392,11 +407,13 @@ static func choose_defense(
 		choose_parry = late_parry or ((block_viable or redirect_viable) and not dodge_better and not clean_dodge_likely)
 	if choose_parry:
 		_Footwork.apply_defender_step_on_parry(
-			tgt, str(tgt.get("guard_line", CombatConstants.GUARD_DEFAULT))
+			tgt, str(tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)), _EntityAccess.id_int(atk), manager
 		)
 	elif def_has_weapon:
 		_Footwork.clear_on_exchange_end(tgt)
-		_Footwork.apply_defender_step_on_dodge(tgt, result.dodge_eval_part)
+		_Footwork.apply_defender_step_on_dodge(
+			tgt, result.dodge_eval_part, _EntityAccess.id_int(atk), manager
+		)
 	else:
 		_Footwork.clear_on_exchange_end(tgt)
 	result.defense = "parry" if choose_parry else "dodge"
@@ -475,6 +492,31 @@ static func _get_line_alignment(attack_type: String, tgt: Dictionary, effective_
 	var move_def: Dictionary = WeaponConstants.get_move(attack_type)
 	var attack_line: String = effective_attack_line_override if not effective_attack_line_override.is_empty() else move_def.get("attack_line", "high")
 	return CombatConstants.get_line_alignment_with_deflect(attack_line, tgt, alignment_context)
+
+
+## IV-5 BP6: boost parry alignment when attack-side arm is on the intercept path despite misaligned guard.
+static func _alignment_with_arm_interpose(
+	attack_type: String,
+	tgt: Dictionary,
+	effective_attack_line: String,
+	alignment: float,
+	targetable: Array,
+	result: Dictionary
+) -> float:
+	var move_def: Dictionary = WeaponConstants.get_move(attack_type)
+	var atk_line: String = (
+		effective_attack_line
+		if not effective_attack_line.is_empty()
+		else str(move_def.get("attack_line", "high"))
+	)
+	var guard_line: String = str(tgt.get("guard_line", CombatConstants.GUARD_DEFAULT))
+	var interpose: Dictionary = _GuardLines.arm_interpose_eval(atk_line, guard_line, alignment, targetable)
+	if not interpose.get("active", false):
+		return alignment
+	var boost: float = float(interpose.get("align_boost", 0.0))
+	result["arm_interpose_arm"] = str(interpose.get("arm", ""))
+	result["arm_interpose_boost"] = boost
+	return minf(1.0, alignment + boost)
 
 static func _defender_spacing_band_to_attacker(tgt: Dictionary, atk: Dictionary) -> String:
 	return CombatConstants.defender_distance_band_to_attacker_id(tgt, _EntityAccess.id_int(atk))

@@ -58,6 +58,9 @@ const LITERATURE_SCALP_BLEED_MULT_MIN: float = 1.4
 ## Bandaged clotting half-life target ~2–5 min hemostasis (first-order k).
 const LITERATURE_BANDAGE_HEMOSTASIS_HALF_LIFE_S_MIN: float = 60.0
 const LITERATURE_BANDAGE_HEMOSTASIS_HALF_LIFE_S_MAX: float = 300.0
+## Sustained compression: faster local rate decay than open bleed; compressible venous hemostasis over field-care window.
+const LITERATURE_PRESSURE_HEMOSTASIS_HALF_LIFE_S_MIN: float = 10.0
+const LITERATURE_PRESSURE_HEMOSTASIS_HALF_LIFE_S_MAX: float = 180.0
 const GOBLIN_REFERENCE_MASS_KG: float = 38.0
 ## Goblin live tissue sum band with S5 profiled derived limbs (hand exports via mini() cap).
 const GOBLIN_LIVE_TISSUE_SUM_MIN: int = 40
@@ -373,6 +376,19 @@ static func goblin_blood_ml_per_kg_matches_human_anchor() -> bool:
 
 static func bandage_clot_half_life_s() -> float:
 	return log(2.0) / _Bleeding.CLOTTING_RATE_STABILIZED
+
+
+static func pressure_held_clot_half_life_s() -> float:
+	return log(2.0) / _Bleeding.CLOTTING_RATE_UNDER_DIRECT_PRESSURE
+
+
+static func pressure_held_clot_half_life_in_literature_band() -> bool:
+	var hl: float = pressure_held_clot_half_life_s()
+	return (
+		hl >= LITERATURE_PRESSURE_HEMOSTASIS_HALF_LIFE_S_MIN
+		and hl <= LITERATURE_PRESSURE_HEMOSTASIS_HALF_LIFE_S_MAX
+		and hl < bandage_clot_half_life_s()
+	)
 
 
 static func absolute_severity_bands_ordered() -> bool:
@@ -885,6 +901,14 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
 			if bandage_hl >= LITERATURE_BANDAGE_HEMOSTASIS_HALF_LIFE_S_MIN
 			and bandage_hl <= LITERATURE_BANDAGE_HEMOSTASIS_HALF_LIFE_S_MAX
 			else "note",
+		]
+	)
+	var pressure_hl: float = pressure_held_clot_half_life_s()
+	lines.append(
+		"pressure_held_hemostasis_half_life_s=%.0f literature_10-180s_faster_than_bandage verdict=%s"
+		% [
+			pressure_hl,
+			"pass" if pressure_held_clot_half_life_in_literature_band() else "warn",
 		]
 	)
 	var ttd_pct_p: float = clinical_ttd_seconds(1.0)

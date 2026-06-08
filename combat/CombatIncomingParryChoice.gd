@@ -242,7 +242,7 @@ static func _incoming_parry_estimate(
 			str(move_def.get("archetype_id", _WeaponConstants.ARCHETYPE_OVERHEAD))
 		)
 	var dc: Dictionary = _DefenseChoice.choose_defense(
-		pa, atk, tgt, targetable, attack_type, archetype, -1.0
+		pa, atk, tgt, targetable, attack_type, archetype, -1.0, manager
 	)
 	var p_a: float = float(dc.get("parry_p_a", 0.0))
 	var c_d: float = float(dc.get("parry_c_d", 0.0))

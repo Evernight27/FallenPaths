@@ -753,7 +753,7 @@ static func _is_isolated_duel(manager: Node, c: Dictionary) -> bool:
 	if int(scan.get("count", 0)) != 1:
 		return false
 	var wsum: float = float(scan.get("weight_sum", 0.0))
-	if wsum > CombatConstants.SURROUND_SECTOR_LOAD_FREE + 0.08:
+	if wsum > CombatConstants.SURROUND_SECTOR_LOAD_FREE + CombatConstants.WF_AUTO_SWITCH_ISOLATED_DUEL_WEIGHT_PAD:
 		return false
 	if int(scan.get("arc_occupancy_blocked", 0)) > 0:
 		return false
@@ -767,7 +767,7 @@ static func _surround_pressure_high(manager: Node, c: Dictionary) -> bool:
 	if int(scan.get("count", 0)) >= 2:
 		return true
 	var wsum: float = float(scan.get("weight_sum", 0.0))
-	return wsum > CombatConstants.SURROUND_SECTOR_LOAD_FREE + 0.05
+	return wsum > CombatConstants.SURROUND_SECTOR_LOAD_FREE + CombatConstants.WF_AUTO_SWITCH_SURROUND_WEIGHT_PAD
 
 
 static func _surround_form_for_weapon(weapon: Variant) -> String:
@@ -779,19 +779,33 @@ static func _surround_form_for_weapon(weapon: Variant) -> String:
 
 
 static func _duel_form_from_yomi_and_stamina(
-	cur: String, inferred: String, stamina_ratio: float, min_stamina: float
+	cur: String,
+	inferred: String,
+	stamina_ratio: float,
+	min_stamina: float,
+	weapon: Variant = null
 ) -> String:
+	var offense_pad: float = CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
+	var promote_pad: float = CombatConstants.WF_AUTO_SWITCH_DUEL_WRATH_PROMOTE_PAD
+	var demote_pad: float = CombatConstants.WF_AUTO_SWITCH_DUEL_WRATH_DEMOTE_PAD
+	if cur == FORM_WALL and stamina_ratio < min_stamina + offense_pad:
+		return ""
 	if not inferred.is_empty():
 		if inferred == FORM_WRATH and cur != FORM_FOOL:
 			return FORM_FOOL
 		if inferred == FORM_FOOL and cur != FORM_WRATH:
 			return FORM_WRATH
-		if inferred == FORM_OX and cur != FORM_WRATH and stamina_ratio >= min_stamina:
+		if inferred == FORM_OX and stamina_ratio >= min_stamina + offense_pad:
+			if cur != FORM_FOOL and form_allowed_for_weapon(FORM_FOOL, weapon):
+				return FORM_FOOL
+			if cur != FORM_WRATH and form_allowed_for_weapon(FORM_WRATH, weapon):
+				return FORM_WRATH
+	if stamina_ratio >= min_stamina + promote_pad and cur != FORM_WRATH:
+		if form_allowed_for_weapon(FORM_WRATH, weapon):
 			return FORM_WRATH
-	if stamina_ratio >= min_stamina + 0.15 and cur != FORM_WRATH:
-		return FORM_WRATH
-	if cur == FORM_WRATH and stamina_ratio < min_stamina + 0.1:
-		return FORM_FOOL
+	if cur == FORM_WRATH and stamina_ratio < min_stamina + demote_pad:
+		if form_allowed_for_weapon(FORM_FOOL, weapon):
+			return FORM_FOOL
 	return ""
 
 
@@ -803,6 +817,25 @@ static func _counter_form_vs_inferred(weapon: Variant, inferred_opp: String) -> 
 	var best_mult: float = 1.0
 	for raw_form in _FORM_DEFS.keys():
 		var fid: String = normalize_form(str(raw_form))
+		if not form_allowed_for_weapon(fid, weapon):
+			continue
+		var mult: float = float(_counter_spec_for_inferred(fid, inferred_opp).get("mult", 1.0))
+		if mult > best_mult:
+			best_mult = mult
+			best_form = fid
+	if best_mult <= 1.0 or best_form.is_empty():
+		return ""
+	return best_form
+
+
+## Isolated duel: counter-read only among offensive duel forms (not wall/tempest).
+static func _duel_counter_form_vs_inferred(weapon: Variant, inferred_opp: String) -> String:
+	if inferred_opp.is_empty():
+		return ""
+	var best_form: String = ""
+	var best_mult: float = 1.0
+	for fid_raw in [FORM_FOOL, FORM_WRATH, FORM_OX]:
+		var fid: String = normalize_form(fid_raw)
 		if not form_allowed_for_weapon(fid, weapon):
 			continue
 		var mult: float = float(_counter_spec_for_inferred(fid, inferred_opp).get("mult", 1.0))
@@ -863,13 +896,25 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 		var duel_id: int = _primary_melee_threat_id(manager, c)
 		if duel_id >= 0:
 			var inferred: String = _inferred_opponent_form(manager, c, duel_id)
-			var duel_next: String = _duel_form_from_yomi_and_stamina(cur, inferred, ratio, min_r)
+			var offense_pad: float = CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
+			var can_offense: bool = not (
+				cur == FORM_WALL and ratio < min_r + offense_pad
+			)
+			if can_offense:
+				var counter: String = _duel_counter_form_vs_inferred(weapon, inferred)
+				if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
+					return true
+			var duel_next: String = _duel_form_from_yomi_and_stamina(
+				cur, inferred, ratio, min_r, weapon
+			)
 			if _try_assign_auto_switch(manager, c, duel_next, "duel_read", clk):
 				return true
 	var threat_id: int = _primary_melee_threat_id(manager, c)
 	if threat_id >= 0:
-		var inferred_opp: String = _inferred_opponent_form(manager, c, threat_id)
-		var counter: String = _counter_form_vs_inferred(weapon, inferred_opp)
-		if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
-			return true
+		var offense_pad_fb: float = CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
+		if not (cur == FORM_WALL and ratio < min_r + offense_pad_fb):
+			var inferred_opp: String = _inferred_opponent_form(manager, c, threat_id)
+			var counter: String = _counter_form_vs_inferred(weapon, inferred_opp)
+			if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
+				return true
 	return false

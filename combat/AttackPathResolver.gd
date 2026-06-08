@@ -2,6 +2,7 @@ class_name AttackPathResolver
 extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 
 ## Option 6: Path + Guard Intercept — hit part selection from blade trajectory.
 ## Footing: optional **`alignment_context`** **`attack_angle_deg`** / **`guard_angle_deg`** — use **`CombatFootwork.guard_angle_deg`** at contact, not raw **`guard_line`** alone when PA flag on. LIVE_PATHS **`#wf-tier-44-pa`** (geometry).
@@ -53,6 +54,13 @@ static func resolve_hit_part(attack_line: String, guard_line: String, targetable
 		for limb in ["left_arm", "right_arm"]:
 			if part_weights.has(limb):
 				part_weights[limb] = 1.4
+	var interpose: Dictionary = _GuardLines.arm_interpose_eval(attack_line, guard_line, alignment, targetable)
+	if interpose.get("active", false):
+		var interpose_arm: String = str(interpose.get("arm", ""))
+		if path_segment.has(interpose_arm):
+			part_weights[interpose_arm] = (
+				part_weights.get(interpose_arm, 1.0) * CombatConstants.ARM_INTERPOSE_HIT_WEIGHT_MULT
+			)
 	# Intended target: boost weight when in path (attacker aimed here; pathway allows it)
 	if not intended_part.is_empty() and path_segment.has(intended_part):
 		part_weights[intended_part] = part_weights.get(intended_part, 1.0) * 2.0

@@ -38,6 +38,8 @@ var _in_medical_phase: bool = false
 var _medical_phase_finished_announced: bool = false
 ## Campaign medical phase log: 0 none, 1 idle/paused, 2 triage complete (`can_end_medical_phase`).
 var _campaign_medical_status_log: int = 0
+var _end_battle_exit_in_progress: bool = false
+var _medical_exit_fast_forward_active: bool = false
 
 # UI nodes
 var canvas_layer: CanvasLayer
@@ -341,14 +343,26 @@ func _should_poll_ui_this_frame(delta: float) -> bool:
 
 
 func _process(delta: float) -> void:
+	if _end_battle_exit_in_progress:
+		if _medical_exit_fast_forward_active and manager != null and is_instance_valid(manager):
+			_update_ui()
+			_refresh_medical_fast_forward_exit_button()
+		return
 	_sync_medical_phase_flag_from_manager()
 	var caps: Array = []
 	if _should_poll_ui_this_frame(delta):
 		caps = _update_ui()
-	# Medical phase: campaign contracts can leave early (instant triage sim); soak needs full triage.
-	if _in_medical_phase and manager != null:
+	# Medical phase: contract battles can leave early (fast-forward sim); soak shows End battle once triage complete.
+	if (
+		_in_medical_phase
+		and manager != null
+		and is_instance_valid(manager)
+		and not _end_battle_exit_in_progress
+	):
 		if _is_campaign_contract_battle():
 			_ensure_campaign_medical_exit_button()
+		elif _needs_medical_fast_forward_on_exit():
+			_show_end_battle_button("End battle and finish triage", true, 280)
 		elif manager.has_method("can_end_medical_phase") and manager.can_end_medical_phase():
 			_ensure_end_battle_button()
 		# After medical actions are done and everyone is paused, announce status once per tier.
@@ -570,7 +584,18 @@ func _campaign_medical_can_end() -> bool:
 	)
 
 
+func _needs_medical_fast_forward_on_exit() -> bool:
+	return (
+		manager != null
+		and bool(manager.medical_phase)
+		and manager.has_method("can_end_medical_phase")
+		and not manager.can_end_medical_phase()
+	)
+
+
 func _ensure_campaign_medical_exit_button() -> void:
+	if _end_battle_exit_in_progress:
+		return
 	if end_battle_button != null and end_battle_button.disabled:
 		return
 	var can_end: bool = _campaign_medical_can_end()
@@ -582,7 +607,8 @@ func _ensure_campaign_medical_exit_button() -> void:
 		and int(end_battle_button.custom_minimum_size.x) == min_width
 	):
 		return
-	_ensure_end_battle_button(label, false, min_width)
+	# Pause live triage until click; campaign batch_resolve / soak tick-replay via finish_battle_interactive.
+	_ensure_end_battle_button(label, true, min_width)
 
 
 func _ensure_end_battle_button(
@@ -623,26 +649,60 @@ func _show_end_battle_button(
 	_ensure_end_battle_button(button_text, pause_manager, button_min_width)
 
 
+func _refresh_medical_fast_forward_exit_button() -> void:
+	if end_battle_button == null or manager == null or not is_instance_valid(manager):
+		return
+	var parts_left: int = _MedicalPhase.winner_side_untreated_part_count(manager)
+	end_battle_button.text = BattleUIConstants.medical_exit_button_label_finishing(
+		_is_campaign_contract_battle(),
+		parts_left
+	)
+
+
 func _on_end_battle_button_pressed() -> void:
+	if _end_battle_exit_in_progress:
+		return
+	_end_battle_exit_in_progress = true
+	var needs_fast_forward: bool = _needs_medical_fast_forward_on_exit()
+	_medical_exit_fast_forward_active = needs_fast_forward
 	if end_battle_button != null:
 		end_battle_button.disabled = true
-		if (
-			_is_campaign_contract_battle()
-			and manager != null
-			and bool(manager.medical_phase)
-			and not _campaign_medical_can_end()
-		):
-			end_battle_button.text = BattleUIConstants.CAMPAIGN_MEDICAL_EXIT_BUTTON_LABEL_FINISHING
+		if needs_fast_forward:
+			_refresh_medical_fast_forward_exit_button()
 			end_battle_button.custom_minimum_size = Vector2(
 				BattleUIConstants.campaign_medical_exit_button_finishing_min_width(),
 				44
 			)
-	if manager != null:
+	if needs_fast_forward:
+		if combat_log != null:
+			combat_log.append_text(
+				BattleUIConstants.medical_exit_processing_log_line(_is_campaign_contract_battle())
+			)
+			_scroll_combat_log_to_bottom()
+		if is_inside_tree():
+			await get_tree().process_frame
+	if manager != null and is_instance_valid(manager):
 		manager.set_process(false)
-		if bool(manager.medical_phase) and manager.has_method("finish_battle"):
+		if bool(manager.medical_phase) and manager.has_method("finish_battle_interactive"):
+			await manager.finish_battle_interactive()
+		elif bool(manager.medical_phase) and manager.has_method("finish_battle"):
 			manager.finish_battle()
+		_sync_pending_winner_from_manager()
+	_medical_exit_fast_forward_active = false
+	if not is_inside_tree():
+		return
 	emit_signal("battle_ended", _pending_winner, _pending_defeated)
 	queue_free()
+
+
+func _sync_pending_winner_from_manager() -> void:
+	if manager == null or not is_instance_valid(manager):
+		return
+	var winner: String = str(manager.medical_phase_winner).strip_edges()
+	if winner.is_empty() and bool(manager.medical_phase):
+		winner = "player"
+	if not winner.is_empty():
+		_pending_winner = winner
 
 func _exit_tree() -> void:
 	# Restore visibility of the parent scene when this battle UI is removed

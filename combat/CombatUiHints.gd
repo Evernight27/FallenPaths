@@ -357,6 +357,40 @@ static func weapon_form_diagram_suffix(c: Dictionary) -> String:
 	return " [%s]" % name
 
 
+## IV-11 slice 4: diagram **`[Ldr]`** for player party leader — **`FormationDiagramBuilder`**. LIVE_PATHS **`#battle-ui`**.
+static func party_leader_diagram_suffix(c: Dictionary) -> String:
+	if c.is_empty():
+		return ""
+	if _EntityAccess.side_str(c) != "player":
+		return ""
+	if c.get("is_party_leader", false) != true:
+		return ""
+	return " [Ldr]"
+
+
+## IV-11 slice 6: diagram **`[Cmd]`** for enemy commander — **`FormationDiagramBuilder`**.
+static func enemy_leader_diagram_suffix(c: Dictionary) -> String:
+	if c.is_empty():
+		return ""
+	if _EntityAccess.side_str(c) != "enemy":
+		return ""
+	if c.get("is_enemy_leader", false) != true:
+		return ""
+	return " [Cmd]"
+
+
+static func party_leader_tooltip_line(c: Dictionary) -> String:
+	if party_leader_diagram_suffix(c).is_empty():
+		return ""
+	return "Party leader"
+
+
+static func enemy_leader_tooltip_line(c: Dictionary) -> String:
+	if enemy_leader_diagram_suffix(c).is_empty():
+		return ""
+	return "Enemy commander"
+
+
 static func weapon_form_tooltip_line(c: Dictionary) -> String:
 	if c.is_empty():
 		return ""
@@ -584,4 +618,10 @@ static func formation_cell_tooltip_lines(
 	var wf: String = weapon_form_tooltip_line(c)
 	if not wf.is_empty():
 		lines.append("%s — %s" % [display_name, wf])
+	var ldr: String = party_leader_tooltip_line(c)
+	if not ldr.is_empty():
+		lines.append("%s — %s" % [display_name, ldr])
+	var cmd: String = enemy_leader_tooltip_line(c)
+	if not cmd.is_empty():
+		lines.append("%s — %s" % [display_name, cmd])
 	return lines

@@ -45,7 +45,7 @@ static func set_guard_deflected(c: Dictionary, move_id: String, effective_line_o
 		deflect_contact = WeaponConstants.contact_type_for_move_id(attack_move_id)
 	var line: String
 	var blend: float = 0.0
-	if not clash_context.is_empty() and can_bind and parry_control >= CombatConstants.PARRY_BIND_CONTROL_THRESHOLD:
+	if not clash_context.is_empty() and can_bind and CombatConstants.parry_bind_control_reached(parry_control):
 		line = atk_line
 		blend = 0.0
 	elif not def_guard.is_empty() and not clash_context.is_empty():

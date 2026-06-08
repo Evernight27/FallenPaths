@@ -46,17 +46,24 @@ static func _log_fp_parry_outcome(
 	var tgt_n: String = _EntityAccess.get_display_name(tgt, tgt_id)
 	var ctrl: float = float(clash.get("parry_control", 0.0))
 	var reason: String = _LogFormatter.damage_resolve_note({"outcome": outcome})
+	var interpose_suffix: String = ""
+	var interpose_boost: float = float(clash.get("arm_interpose_boost", 0.0))
+	if interpose_boost > 0.0:
+		interpose_suffix = " arm_interpose_arm=%s arm_interpose_boost=%.3f" % [
+			str(clash.get("arm_interpose_arm", "")),
+			interpose_boost,
+		]
 	if outcome == "parry_deflect":
 		var tag: String = "parry_bind" if bool(tgt.get("parry_was_bind", false)) else "parry_deflect"
 		CombatDebug.combat_session(
-			"%s %s vs %s ctrl=%.2f reason=%s" % [tag, tgt_n, atk_n, ctrl, reason]
+			"%s %s vs %s ctrl=%.2f reason=%s%s" % [tag, tgt_n, atk_n, ctrl, reason, interpose_suffix]
 		)
 	elif outcome == "parry_partial":
 		var rem: float = float(clash.get("remaining_ratio", clash.get("geometric_leak", 0.0)))
 		var bind: bool = bool(tgt.get("parry_was_bind", false))
 		var tag: String = "parry_bind" if bind else "parry_partial"
 		CombatDebug.combat_session(
-			"%s %s vs %s ctrl=%.2f rem=%.2f reason=%s" % [tag, tgt_n, atk_n, ctrl, rem, reason]
+			"%s %s vs %s ctrl=%.2f rem=%.2f reason=%s%s" % [tag, tgt_n, atk_n, ctrl, rem, reason, interpose_suffix]
 		)
 
 static func _consume_stamina(manager: Node, c: Dictionary, amount: float) -> void:
@@ -302,7 +309,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				var can_bind: bool = arch_id.is_empty() or arch_id not in CombatConstants.ARCHETYPES_NEVER_BIND
 				tgt["parry_was_bind"] = (
 					can_bind
-					and clash.get("parry_control", 0.0) >= CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
+					and CombatConstants.parry_bind_control_reached(float(clash.get("parry_control", 0.0)))
 				)
 				tgt["parry_against_id"] = attacker_id
 				if bool(tgt.get("parry_was_bind", false)):
@@ -366,8 +373,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				)
 				var is_bind: bool = (
 					can_bind_partial
-					and float(clash_bind.get("parry_control", 0.0))
-					>= CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
+					and CombatConstants.parry_bind_control_reached(float(clash_bind.get("parry_control", 0.0)))
 				)
 				tgt["parry_was_bind"] = is_bind
 				if is_bind:

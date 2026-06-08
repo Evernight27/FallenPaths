@@ -409,7 +409,10 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var atk_perf_mod: float = _EntityAccess.get_performance_modifier(atk)
 	if _EntityAccess.get_attacking_arm(atk).is_empty():
 		var rec_dur_skip: float = CombatTiming.recovery_duration(intensity, "hit", recovery_mult, atk_perf_mod, _EntityAccess.stats_dict(atk).get("agility", 100))
-		print("[Combat] %s has no functional arm; skips attack. intensity=%.2f => recovery=%.2fs" % [atk_name, intensity, rec_dur_skip])
+		CombatDebug.combat_session(
+			"%s has no functional arm; skips attack. intensity=%.2f => recovery=%.2fs"
+			% [atk_name, intensity, rec_dur_skip]
+		)
 		return { "action": "skip", "target_id": target_id, "recovery_duration": rec_dur_skip }
 
 	var targetable: Array = _EntityAccess.get_targetable_parts(tgt)
@@ -470,7 +473,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var arc_start: float = pa.get("arc_start_deg", CombatConstants.line_to_angle(atk_line_base))
 	# Diagonal C may roll a different line than wind-up; keep step offset aligned with resolve line.
 	if not pa.get("passive_parry_attempted", false):
-		_Footwork.apply_attack_step_on_windup(atk, atk_line_base)
+		_Footwork.apply_attack_step_on_windup(atk, atk_line_base, target_id, manager)
 	stamp_resolve_angle_geometry_on_pa(pa, atk, atk_line_base, move_def_pre, arc_start)
 	var atk_weapon = _EntityAccess.get_weapon(atk)
 
@@ -488,7 +491,9 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	_StrikeStamping.stamp_strike_realism_on_pa(manager, atk, tgt, pa, atk_weapon, attack_type)
 	_IncomingParryChoice.stamp_parry_choice_on_pa(manager, pa, target_id, attacker_id)
 
-	var dc: Dictionary = _DefenseChoice.choose_defense(pa, atk, tgt, targetable, attack_type, archetype, velocity_override)
+	var dc: Dictionary = _DefenseChoice.choose_defense(
+		pa, atk, tgt, targetable, attack_type, archetype, velocity_override, manager
+	)
 	var _already_used_defense: bool = pa.get("passive_parry_attempted", false)
 	var defense_choice: String = dc.defense
 	var can_parry_in_time: bool = dc.can_parry_in_time

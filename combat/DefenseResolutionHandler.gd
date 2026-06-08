@@ -60,9 +60,19 @@ static func resolve(
 			pa, atk, tgt, attack_type, intensity, archetype, recovery_mult,
 			parry_p_a, parry_c_d, parry_time_to_react, parry_readiness,
 			is_block_parry, m_a_parry, m_d_parry, m_a_velocity, effective_redirect,
-			late_parry, parry_off_balance, target_id, atk_name, tgt_name
+			late_parry, parry_off_balance, target_id, atk_name, tgt_name, dc
 		)
 	return null
+
+
+static func _arm_interpose_clash_extra(dc: Dictionary) -> Dictionary:
+	var boost: float = float(dc.get("arm_interpose_boost", 0.0))
+	if boost <= 0.0:
+		return {}
+	return {
+		"arm_interpose_arm": str(dc.get("arm_interpose_arm", "")),
+		"arm_interpose_boost": boost,
+	}
 
 static func _resolve_partial_parry_follow_through(
 	pa: Dictionary, atk: Dictionary, tgt: Dictionary, targetable: Array,
@@ -159,8 +169,10 @@ static func _resolve_parry(
 	attack_type: String, intensity: float, archetype: Dictionary, recovery_mult: float,
 	parry_p_a: float, parry_c_d: float, parry_time_to_react: float, parry_readiness: float,
 	is_block_parry: bool, m_a_parry: float, m_d_parry: float, m_a_velocity: float, _effective_redirect: float,
-	late_parry: bool, parry_off_balance: bool, target_id: int, atk_name: String, _tgt_name: String
+	late_parry: bool, parry_off_balance: bool, target_id: int, atk_name: String, _tgt_name: String,
+	dc: Dictionary = {}
 ) -> Variant:
+	var interpose_extra: Dictionary = _arm_interpose_clash_extra(dc)
 	var pcfg: Dictionary = _PassiveParry.get_parry_config()
 	pa["passive_parry_attempted"] = true
 	pa["parry_twist_time_to_react"] = parry_time_to_react
@@ -206,7 +218,7 @@ static func _resolve_parry(
 				pa["attack_angle_deg"], _Footwork.guard_angle_deg(tgt, _wobble_cal)
 			]
 		CombatDebug.calibration_log("parry_calc atk=%s guard=%s align=%.3f c_d=%.2f p_a=%.2f geom_scale=%.2f%s" % [_attack_line, _guard_line, _alignment, c_d_final, parry_p_a, geom_scale, angle_suffix])
-	var full_stop: bool = is_block_parry and c_d_final >= (parry_p_a * CombatConstants.PARRY_DEFLECT_THRESHOLD)
+	var full_stop: bool = CombatConstants.parry_full_stop_reached(c_d_final, parry_p_a, is_block_parry)
 	if full_stop:
 		var parry_intensity: float = pa.get("intensity", 0.5)
 		var atk_perf: float = _EntityAccess.get_performance_modifier(atk)
@@ -225,7 +237,8 @@ static func _resolve_parry(
 			_alignment, _guard_line, _Footwork.guard_angle_deg(tgt, _wobble_ctx),
 			parry_time_to_react, parry_readiness, late_parry, parry_off_balance, is_block_parry,
 			m_a_parry, m_d_parry, m_a_velocity, kinematics_fs,
-			float(pa.get("strike_measure_ratio", -1.0))
+			float(pa.get("strike_measure_ratio", -1.0)),
+			interpose_extra
 		)
 		_debug("parry_deflect %s blocked %s ctrl=%.2f" % [def_name, atk_name, parry_clash_context.get("parry_control", 0.0)])
 		CombatDebug.calibration_log("outcome=parry_deflect")
@@ -263,13 +276,19 @@ static func _resolve_parry(
 	var kinematics_p: Dictionary = _strike_kinematics_for_parry_clash(
 		attacker_weapon, pa, attack_type, intensity, archetype, strike_v_partial
 	)
+	var partial_extra: Dictionary = {
+		"remaining_ratio": remaining_ratio,
+		"geometric_leak": geometric_leak,
+	}
+	for k in interpose_extra:
+		partial_extra[k] = interpose_extra[k]
 	var parry_clash_context_partial: Dictionary = _build_parry_clash_context(
 		eff_atk_line_p, attack_type, atk_angle_partial, c_d_final, parry_p_a, parry_c_d,
 		_alignment, _guard_line, _Footwork.guard_angle_deg(tgt, _wobble_p),
 		parry_time_to_react, parry_readiness, late_parry, parry_off_balance, is_block_parry,
 		m_a_parry, m_d_parry, m_a_velocity, kinematics_p,
 		float(pa.get("strike_measure_ratio", -1.0)),
-		{"remaining_ratio": remaining_ratio, "geometric_leak": geometric_leak}
+		partial_extra
 	)
 	return {
 		"action": "parry_partial",

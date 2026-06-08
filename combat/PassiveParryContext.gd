@@ -34,9 +34,10 @@ static func guard_readiness_float(c: Dictionary) -> float:
 ## Readiness multiplier for passive parry. WAITING = 1.0 × guard; RECOVERING = lerp(early, late) by progress.
 ## Uses READINESS_BY_CAUSE for cause-specific curves (attack_hit = more stunned, attack_miss = off-balance, etc.).
 static func get_passive_parry_readiness(c: Dictionary) -> float:
+	var base: float = 0.0
 	if _EntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
-		return guard_readiness_float(c)
-	if _EntityAccess.state_str(c) == CombatConstants.STATE_RECOVERING:
+		base = guard_readiness_float(c)
+	elif _EntityAccess.state_str(c) == CombatConstants.STATE_RECOVERING:
 		var dur: float = c.get("state_duration", 0.001)
 		var t: float = c.get("state_timer", 0.0)
 		var progress: float = clampf(t / dur, 0.0, 1.0)
@@ -44,8 +45,10 @@ static func get_passive_parry_readiness(c: Dictionary) -> float:
 		var curve: Array = CombatConstants.readiness_curve_for_cause(cause)
 		var early: float = curve[0] if curve.size() >= 1 else 0.5
 		var late: float = curve[1] if curve.size() >= 2 else 0.85
-		return lerpf(early, late, progress)
-	return 0.0
+		base = lerpf(early, late, progress)
+	if base <= 0.0:
+		return base
+	return base * CombatConstants.armor_burden_passive_readiness_mult(c)
 
 ## True if combatant is still in "off balance" window (after miss or parry deflect).
 static func is_off_balance(c: Dictionary) -> bool:

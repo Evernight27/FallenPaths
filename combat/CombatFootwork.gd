@@ -5,9 +5,11 @@ extends RefCounted
 ## Tier 4.4.2: symmetric defender step on committed parry (guard line) or dodge (eval part line).
 ## Lifecycle: **`clear_on_exchange_end`** when **`pending_attack`** drops or exchange aborts; UI via **`offset_visible_for_ui_state`** (**`wind_up`** / **`recovering`** only).
 ## Attachment: reads **line keys** only — not **`weapon_form`** or legacy **`stance`**. Hub LIVE_PATHS **`#wf-tier-44-pa`** (stamp / geometry / clear / lookup). Form home via **`assign_form`**; matrix **`#wf-form-guard-pa-matrix`**.
-## Canonical: apply_attack_step_on_windup · apply_defender_step_on_parry · apply_defender_step_on_dodge · guard_angle_deg · apply_offset_to_angle_deg · clear_on_exchange_end · clear_on_death · reconcile_idle_offset · return_to_waiting · return_to_cowering · CombatUiHints.footwork_hint_text.
+## Canonical: apply_attack_step_on_windup · apply_defender_step_on_parry · apply_defender_step_on_dodge · attack_eval_step_deg_for_attacker · attack_angle_deg_for_listing_preview · parry_eval_step_deg_for_defender · dodge_eval_step_deg_for_defender · guard_angle_deg · apply_offset_to_angle_deg · clear_on_exchange_end · clear_on_death · reconcile_idle_offset · return_to_waiting · return_to_cowering · CombatUiHints.footwork_hint_text.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 
 
 static func enabled() -> bool:
@@ -25,8 +27,13 @@ static func offset_visible_for_ui_state(c: Dictionary) -> bool:
 	)
 
 
-## Attacker PA stamp from **line id** (not form). Scrubs leaked idle keys before fresh stamp. Production callers: LIVE_PATHS **`#wf-pa-stamp-callers`**. Empty line clears offset.
-static func apply_attack_step_on_windup(attacker: Dictionary, attack_line: String) -> void:
+## Attacker PA stamp from **line id** (not form). Scrubs leaked idle keys before fresh stamp. Production callers: LIVE_PATHS **`#wf-pa-stamp-callers`**. Empty line clears offset. Optional **`opponent_id`** / **`manager`** for Tier 4.4 spatial band + flurry magnitude when flags on.
+static func apply_attack_step_on_windup(
+	attacker: Dictionary,
+	attack_line: String,
+	opponent_id: int = -1,
+	manager: Node = null
+) -> void:
 	if not enabled() or attacker == null:
 		return
 	reconcile_idle_offset(attacker)
@@ -34,39 +41,40 @@ static func apply_attack_step_on_windup(attacker: Dictionary, attack_line: Strin
 	if line.is_empty():
 		clear_position_offset(attacker)
 		return
-	attacker[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = (
-		CombatConstants.position_angle_offset_deg_for_attack_line(line)
-	)
+	var off: float = attack_eval_step_deg_for_attacker(attacker, line, opponent_id, manager)
+	attacker[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = off
 	refresh_ui_hint(attacker)
 
 
-## Defender parry PA stamp from live **`guard_line`**. Scrubs leaked idle keys before fresh stamp. **`#wf-pa-stamp-callers`**.
-static func apply_defender_step_on_parry(defender: Dictionary, guard_line: String) -> void:
+## Defender parry PA stamp from live **`guard_line`**. Scrubs leaked idle keys before fresh stamp. **`#wf-pa-stamp-callers`**. Optional **`attacker_id`** / **`manager`** for Tier 4.4 spatial band + flurry magnitude when flags on.
+static func apply_defender_step_on_parry(
+	defender: Dictionary, guard_line: String, attacker_id: int = -1, manager: Node = null
+) -> void:
 	if not enabled() or defender == null:
 		return
 	reconcile_idle_offset(defender)
 	var line: String = str(guard_line).strip_edges()
 	if line.is_empty():
 		line = CombatConstants.GUARD_DEFAULT
-	defender[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = (
-		CombatConstants.position_angle_defender_offset_deg_for_line(
-			line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
-		)
-	)
+	var off: float = parry_eval_step_deg_for_defender(defender, attacker_id, manager, line)
+	defender[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = off
 	refresh_ui_hint(defender)
 
 
-## Defender dodge PA stamp from body-part → line. Scrubs leaked idle keys before fresh stamp. **`#wf-pa-stamp-callers`**.
-static func apply_defender_step_on_dodge(defender: Dictionary, dodge_eval_part: String) -> void:
+## Defender dodge PA stamp from body-part → line. Scrubs leaked idle keys before fresh stamp. **`#wf-pa-stamp-callers`**. Optional **`attacker_id`** for band magnitude; optional **`manager`** for wing-file dodge bias when flag on.
+static func apply_defender_step_on_dodge(
+	defender: Dictionary,
+	dodge_eval_part: String,
+	attacker_id: int = -1,
+	manager: Node = null
+) -> void:
 	if not enabled() or defender == null:
 		return
 	reconcile_idle_offset(defender)
-	var line: String = CombatConstants.guard_line_for_body_part(dodge_eval_part)
-	defender[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = (
-		CombatConstants.position_angle_defender_offset_deg_for_line(
-			line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
-		)
+	var off: float = dodge_eval_step_deg_for_defender(
+		defender, dodge_eval_part, attacker_id, manager
 	)
+	defender[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = off
 	refresh_ui_hint(defender)
 
 
@@ -172,15 +180,76 @@ static func guard_angle_deg_with_step_deg(
 	return fmod(base + step_deg + 360.0, 360.0)
 
 
-static func parry_eval_step_deg_for_defender(defender: Dictionary) -> float:
+## Attacker alignment preview during wind-up / listing without stamping offset until wind-up commits.
+static func attack_eval_step_deg_for_attacker(
+	attacker: Dictionary,
+	attack_line: String,
+	opponent_id: int = -1,
+	manager: Node = null
+) -> float:
+	if not enabled() or attacker == null:
+		return 0.0
+	var line: String = str(attack_line).strip_edges()
+	if line.is_empty():
+		return 0.0
+	var base_off: float = CombatConstants.position_angle_offset_deg_for_attack_line(line)
+	return base_off * _t44_attacker_spatial_mult(attacker, opponent_id, manager)
+
+
+## Turn-listing attack angle: live stamp when wind-up/recovering; else **`attack_eval_step_deg_for_attacker`** preview. **`#wf-pick-vs-strike`** · **`CombatAIActionPicker`**.
+static func attack_angle_deg_for_listing_preview(
+	attacker: Dictionary,
+	attack_line: String,
+	base_angle_deg: float,
+	opponent_id: int = -1,
+	manager: Node = null
+) -> float:
+	if not enabled() or attacker == null:
+		return base_angle_deg
+	if offset_visible_for_ui_state(attacker):
+		return apply_offset_to_angle_deg(base_angle_deg, attacker)
+	var step: float = attack_eval_step_deg_for_attacker(attacker, attack_line, opponent_id, manager)
+	if absf(step) < 0.01:
+		return base_angle_deg
+	return fmod(base_angle_deg + step + 360.0, 360.0)
+
+
+static func parry_eval_step_deg_for_defender(
+	defender: Dictionary,
+	attacker_id: int = -1,
+	manager: Node = null,
+	guard_line: String = ""
+) -> float:
 	if not enabled() or defender == null:
 		return 0.0
-	var line: String = str(defender.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
+	var line: String = str(guard_line).strip_edges()
+	if line.is_empty():
+		line = str(defender.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
 	if line.is_empty():
 		line = CombatConstants.GUARD_DEFAULT
-	return CombatConstants.position_angle_defender_offset_deg_for_line(
+	var base_off: float = CombatConstants.position_angle_defender_offset_deg_for_line(
 		line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
 	)
+	return base_off * _t44_defender_parry_spatial_mult(defender, attacker_id, manager)
+
+
+## Dodge alignment preview during **`choose_defense`** without stamping offset until dodge commits.
+static func dodge_eval_step_deg_for_defender(
+	defender: Dictionary,
+	dodge_eval_part: String,
+	attacker_id: int = -1,
+	manager: Node = null
+) -> float:
+	if not enabled() or defender == null:
+		return 0.0
+	var part: String = str(dodge_eval_part).strip_edges()
+	if part.is_empty():
+		return 0.0
+	var line: String = CombatConstants.guard_line_for_body_part(part)
+	var base_off: float = CombatConstants.position_angle_defender_offset_deg_for_line(
+		line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
+	)
+	return base_off * _t44_defender_dodge_spatial_mult(defender, attacker_id, manager)
 
 
 ## Clears step offset + UI hint. Call when **`pending_attack`** is dropped or an exchange ends without **`AttackResolver`** resolve (abort, skip, recovery, medical halt). All production callers: LIVE_PATHS **`#wf-pa-clear-callers`**.
@@ -198,3 +267,69 @@ static func clear_position_offset(c: Dictionary) -> void:
 		return
 	c.erase(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG)
 	refresh_ui_hint(c)
+
+
+static func _t44_attacker_spatial_mult(attacker: Dictionary, opponent_id: int, manager: Node) -> float:
+	return (
+		_t44_band_pa_magnitude_mult_for_attacker(attacker, opponent_id)
+		* _t44_flurry_pa_mult(attacker, opponent_id, manager)
+	)
+
+
+static func _t44_defender_parry_spatial_mult(
+	defender: Dictionary, attacker_id: int, manager: Node
+) -> float:
+	return (
+		_t44_band_pa_magnitude_mult_for_defender(defender, attacker_id)
+		* _t44_flurry_pa_mult(defender, attacker_id, manager)
+	)
+
+
+static func _t44_defender_dodge_spatial_mult(
+	defender: Dictionary, attacker_id: int, manager: Node
+) -> float:
+	return (
+		_t44_band_pa_magnitude_mult_for_defender(defender, attacker_id)
+		* _t44_file_dodge_wing_mult(defender, manager)
+		* _t44_flurry_pa_mult(defender, attacker_id, manager)
+	)
+
+
+static func _t44_band_pa_magnitude_mult_for_attacker(attacker: Dictionary, opponent_id: int) -> float:
+	if not CombatConstants.is_feature_t44_spatial_band_pa_enabled():
+		return 1.0
+	var band: String = _EntityAccess.distance_to_opponent_band(
+		attacker, opponent_id, CombatConstants.DISTANCE_MID
+	)
+	return CombatConstants.t44_spatial_band_pa_magnitude_mult(band)
+
+
+static func _t44_file_dodge_wing_mult(defender: Dictionary, manager: Node) -> float:
+	if manager == null or defender.is_empty():
+		return 1.0
+	var fid: String = _EntityAccess.formation_id_str(defender)
+	if fid.is_empty():
+		return 1.0
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+	if formation.is_empty():
+		return 1.0
+	var files: int = maxi(1, int(formation.get("files", 1)))
+	return CombatConstants.t44_spatial_file_dodge_wing_mult(_EntityAccess.file_int(defender), files)
+
+
+static func _t44_band_pa_magnitude_mult_for_defender(defender: Dictionary, attacker_id: int) -> float:
+	if not CombatConstants.is_feature_t44_spatial_band_pa_enabled():
+		return 1.0
+	var band: String = CombatConstants.defender_distance_band_to_attacker_id(defender, attacker_id)
+	return CombatConstants.t44_spatial_band_pa_magnitude_mult(band)
+
+
+static func _t44_flurry_pa_mult(c: Dictionary, opponent_id: int, manager: Node) -> float:
+	if not CombatConstants.is_feature_t44_spatial_flurry_pa_enabled():
+		return 1.0
+	if manager == null or opponent_id < 0 or c.is_empty():
+		return 1.0
+	var clk: float = _EntityAccess.combat_clock_float(manager)
+	if not _FlurryBind.is_active_vs(c, opponent_id, clk):
+		return 1.0
+	return CombatConstants.T44_SPATIAL_FLURRY_PA_MULT

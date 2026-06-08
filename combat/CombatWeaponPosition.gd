@@ -33,11 +33,6 @@ static func is_weapon_near_body(combatant: Dictionary) -> bool:
 		)
 		if cause == "attack_deflect":
 			return true
-		var raw_cause: String = str(combatant.get("recovery_cause", "")).strip_edges()
-		if raw_cause == "parry_partial":
-			return true
-		if raw_cause.begins_with("parry"):
-			return true
 		var last_move: String = str(combatant.get("last_move_id", "")).strip_edges()
 		if last_move.is_empty():
 			return true

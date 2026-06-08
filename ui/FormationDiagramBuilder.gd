@@ -135,6 +135,7 @@ static func _cell_label_with_footwork(base: String, footwork_sources: Array) -> 
 	var got_fw: bool = false
 	var got_grd: bool = false
 	var got_form: bool = false
+	var got_leader: bool = false
 	for raw in footwork_sources:
 		if raw == null or typeof(raw) != TYPE_DICTIONARY:
 			continue
@@ -154,7 +155,14 @@ static func _cell_label_with_footwork(base: String, footwork_sources: Array) -> 
 			if not form.is_empty():
 				text += form
 				got_form = true
-		if got_fw and got_grd and got_form:
+		if not got_leader:
+			var ldr: String = _UiHints.party_leader_diagram_suffix(oc)
+			if ldr.is_empty():
+				ldr = _UiHints.enemy_leader_diagram_suffix(oc)
+			if not ldr.is_empty():
+				text += ldr
+				got_leader = true
+		if got_fw and got_grd and got_form and got_leader:
 			break
 	return text
 
@@ -316,7 +324,13 @@ static func _refresh_internal(diagram_root: Control) -> void:
 	for child in grid.get_children():
 		child.free()
 
-	# Build grid: first column = rank label, then file columns
+	var display_files: Array = _FormationSlots.column_display_files(formation, files)
+	if display_files.is_empty():
+		for fi in range(files):
+			display_files.append(fi)
+	grid.columns = display_files.size() + 1
+
+	# Build grid: first column = rank label, then file columns (gap mode shows empty gap cells)
 	for rank in range(ranks):
 		var rank_label = Label.new()
 		rank_label.text = "Front" if rank == 0 else ("Back" if rank == 1 else "Rank %d" % (rank + 1))
@@ -325,7 +339,8 @@ static func _refresh_internal(diagram_root: Control) -> void:
 		rank_label.custom_minimum_size = Vector2(48, 0)
 		grid.add_child(rank_label)
 
-		for file in range(files):
+		for file_idx in display_files:
+			var file: int = int(file_idx)
 			var key := Vector2i(rank, file)
 			var occ: Array = _FormationSlots.normalize_cell(slot_map.get(key, []))
 			var footwork_sources: Array = []

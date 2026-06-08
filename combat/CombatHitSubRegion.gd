@@ -4,7 +4,25 @@ extends RefCounted
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 
 ## Deterministic anatomy site on a hit part (S2). Path intercept + attack line bias; no combat RNG.
+## IV-10: **`combat_damage_mult`** scales post-armor mechanical cut/blunt (delegates **`BleedingConstants.get_severity_modifier`**).
 ## Footing: **`attack_line`** biases site pick; **`guard_line`** arg unused at resolve — not L3 drift or PA geometry. LIVE_PATHS **`#wf-layer-labels`**.
+
+## IV-10 doc-sync line (harness / calibration audit).
+static func iv10_doc_sync_line() -> String:
+	return (
+		"IV-10 subregion combat: feature=%s mechanical=severity_modifier no_double_severity"
+		% ("on" if CombatConstants.FEATURE_SUBREGION_COMBAT_MULT else "off")
+	)
+
+
+## Post-armor mechanical mult when IV-10 on; 1.0 when off or sub_region empty.
+static func combat_damage_mult(part: String, sub_region: String) -> float:
+	if not CombatConstants.is_feature_subregion_combat_mult_enabled():
+		return 1.0
+	if sub_region.is_empty():
+		return 1.0
+	return _Bleeding.get_severity_modifier(part, sub_region)
+
 
 static func resolve_sub_region(
 	part: String,

@@ -262,6 +262,16 @@ static func action_resolved_victim_id(attacker_id: int, target_id: int, _result:
 	return -1
 
 
+static func _leader_doctrine_order_log_line(
+	attacker_name: String, attacker_side: String, result: Dictionary, verb: String
+) -> String:
+	var fid: String = str(result.get("formation_id", "player")).strip_edges()
+	return (
+		"[color=gray]%s (%s) orders the line — %s (%s).[/color]"
+		% [attacker_name, attacker_side, verb, fid]
+	)
+
+
 static func format_action_line(attacker_name: String, attacker_side: String, target_name: String, target_side: String, result: Dictionary) -> String:
 	var part: String = result.get("part", "")
 	var died: bool = result.get("died", false)
@@ -306,6 +316,12 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		var guard_line: String = str(result.get("line", "")).strip_edges()
 		var guard_disp: String = guard_line.capitalize() if not guard_line.is_empty() else "guard"
 		return "[color=gray]%s (%s) shifts focus — %s line.[/color]" % [attacker_name, attacker_side, guard_disp]
+	elif outcome == "leader_order_hold_lane":
+		return _leader_doctrine_order_log_line(attacker_name, attacker_side, result, "hold lane")
+	elif outcome == "leader_order_probing":
+		return _leader_doctrine_order_log_line(attacker_name, attacker_side, result, "probe")
+	elif outcome == "leader_order_pinch_center":
+		return _leader_doctrine_order_log_line(attacker_name, attacker_side, result, "pinch center")
 	elif outcome == "skip":
 		return "[color=gray]%s (%s) — no functional arm; skips attack.[/color]" % [attacker_name, attacker_side]
 	elif outcome == "wait":

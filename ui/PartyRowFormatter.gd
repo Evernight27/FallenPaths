@@ -124,6 +124,16 @@ static func format_body_part_compact(part: String, bc: Dictionary, bb: Dictionar
 	var bo_cur: float = float(bone_h.get(part, 0.0))
 	return "%s %s|%s|%s" % [short, _compact_tissue_cell(c_cur), _compact_tissue_cell(b_cur), _compact_tissue_cell(bo_cur)]
 
+## IV-11 slice 7: roster name suffix for party leader (`PartyMenu`).
+static func format_party_role_suffix(member: Dictionary) -> String:
+	if member.get("is_party_leader", false) == true:
+		return " · Leader"
+	var node_ref: Variant = member.get("node_ref")
+	if is_instance_valid(node_ref) and node_ref is Node and node_ref.get("is_party_leader") == true:
+		return " · Leader"
+	return ""
+
+
 ## Formats blood volume only: "Blood: X%".
 static func format_blood_only(bv: float) -> String:
 	return "Blood: %d%%" % int(clampf(bv, 0.0, 100.0))
@@ -190,6 +200,16 @@ static func format_affliction_effects_line(member: Dictionary) -> String:
 	return ""
 
 
+## Bleeding stopped but part still counts as undressed for camp rest.
+static func format_dressing_gate_line(member: Dictionary) -> String:
+	if not bool(member.get("has_untreated_wounds", false)):
+		return ""
+	var bleed: float = float(member.get("total_bleeding_rate", 0.0))
+	if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
+		return ""
+	return "Bleeding controlled — bandage/pack/TQ still required before camp rest."
+
+
 ## Consciousness, wounds, and mobility between fights (party menu / overworld).
 static func format_vitality_status(member: Dictionary) -> String:
 	if bool(member.get("is_unconscious", false)):
@@ -208,3 +228,50 @@ static func format_vitality_status(member: Dictionary) -> String:
 	if not bool(member.get("can_flee_or_fall_back", true)) and not bool(member.get("is_unconscious", false)):
 		parts.append("Legs too damaged to retreat")
 	return " · ".join(parts)
+
+
+## Member row needs triage attention on the map (active bleed or undressed wound).
+static func member_needs_triage_attention(member: Dictionary) -> bool:
+	var bleed: float = float(member.get("total_bleeding_rate", 0.0))
+	if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
+		return true
+	return bool(member.get("has_untreated_wounds", false))
+
+
+## Lower = more urgent (undressed clot = −1; active bleed = ETA seconds to danger band).
+static func member_triage_priority(member: Dictionary) -> float:
+	if not member_needs_triage_attention(member):
+		return INF
+	var bleed: float = float(member.get("total_bleeding_rate", 0.0))
+	if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
+		return seconds_to_danger_band(float(member.get("blood_volume", 100.0)), bleed)
+	return -1.0
+
+
+## One-line triage summary for banners (settlement worst row, map bleed HUD).
+static func format_member_triage_banner_line(member: Dictionary) -> String:
+	var bleed: float = float(member.get("total_bleeding_rate", 0.0))
+	if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
+		return format_triage_line(float(member.get("blood_volume", 100.0)), bleed)
+	var dressing: String = format_dressing_gate_line(member)
+	return dressing
+
+
+## Highest-urgency living member from live party snapshots (or summary fallback rows).
+static func worst_triage_from_member_rows(rows: Array) -> Dictionary:
+	var worst: Dictionary = {}
+	var worst_pri: float = INF
+	for raw in rows:
+		if raw is not Dictionary:
+			continue
+		var member: Dictionary = raw as Dictionary
+		if not member_needs_triage_attention(member):
+			continue
+		var pri: float = member_triage_priority(member)
+		if pri < worst_pri:
+			worst_pri = pri
+			worst = {
+				"name": str(member.get("name", "?")),
+				"triage_line": format_member_triage_banner_line(member),
+			}
+	return worst
