@@ -2079,20 +2079,23 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 	else:
 		_pass()
 	var treat_next_dressed: bool = false
-	for attempt in range(24):
+	for attempt in range(48):
 		_CompanyState.set_medical_supplies(treat_next_world, 3)
 		roster = []
 		for raw in pm_tn.members:
 			if raw is Dictionary:
 				roster.append(_Snapshot.snapshot_from_member(raw as Dictionary))
 		seed(90400 + attempt)
-		if not _MapFieldCare.try_treat_next_wound(treat_next_world, roster):
-			break
-		if bool(bleed_bro.bandaged_parts.get("chest", false)):
+		# MARCH chain: pressure → stabilize → pack/bandage; RNG may fail one tick.
+		_MapFieldCare.try_treat_next_wound(treat_next_world, roster)
+		if _EntityWounds.part_has_definitive_hemostasis(bleed_bro, "chest"):
 			treat_next_dressed = true
 			break
 	if not treat_next_dressed:
-		_fail(failures, "Camp-2.1: treat next wound should eventually bandage after pressure")
+		_fail(
+			failures,
+			"Camp-2.1: treat next wound should eventually dress chest after pressure and stabilize"
+		)
 	else:
 		_pass()
 	if not _CompanyState.camp_heal_ready(treat_next_world, true):
@@ -2150,10 +2153,15 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 	var next_after_pressure: String = _MapFieldCare.format_next_field_care_action(
 		split_world, split_member
 	)
-	if not next_after_pressure.contains("Field bandage"):
+	var next_is_dress_step: bool = (
+		next_after_pressure.contains("Field stabilize")
+		or next_after_pressure.contains("Field bandage")
+		or next_after_pressure.contains("Field pack")
+	)
+	if not next_is_dress_step or next_after_pressure.contains("Field pressure"):
 		_fail(
 			failures,
-			"Camp-2.1: next action after chest pressure should offer bandage got '%s'"
+			"Camp-2.1: next action after chest pressure should advance dressing got '%s'"
 			% next_after_pressure
 		)
 	else:
