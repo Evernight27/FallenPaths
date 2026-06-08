@@ -20,6 +20,21 @@ const _F5Validator := preload("res://combat/CombatF5SoakLogValidator.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
 
+## One-line F5 follow-ups when optional Camp §8 validator tracks are still open.
+const _CAMP_OPTIONAL_PLAY_HINTS := {
+	"camp_field_care": "after messy win grep FP_WORLD field_care: hint on map",
+	"camp_field_care_action": "map Party -> bandage or pressure one part (grep FP_WORLD field_care bandage part=)",
+	"camp_paid_loss": "lose a paid contract (grep company_run_end reason=contract_failed reload=true)",
+	"camp_tutorial_soft_loss": "lose tutorial 2v2 (grep company_run_end reason=tutorial_failed reload=false)",
+	"camp_wage_warn": "End day with gold below next wage bill (grep company_wages: gold=)",
+	"camp_desertion": "End day while broke until desertion summary= or bankrupt run-end",
+	"camp_party_triage": "open Party on map once (grep party_triage_open living=)",
+	"camp_medical_exit": "Finish medical treatment batch on tutorial or messy fight (grep campaign_medical_exit)",
+	"camp_mopup_strike_finish": "win via rout mop-up strikes in Escort/Border (grep mop_up=true strikes_listed)",
+	"camp_line_plug_pick": "sparse post-flee rank-0 gap swap or ii_envelop wing fight (line_plug_pick=1)",
+	"camp_run_end": "any company_run_end reason= (paid loss, tutorial soft, or bankrupt)",
+}
+
 const MAX_FIGHT_TRACE_LINES := 5000
 
 static var _session_counts: Dictionary = {}
@@ -32,6 +47,7 @@ static var _soak_validate_hint_logged: bool = false
 static var _soak_coverage_deferred_note_logged: bool = false
 static var _last_camp_supplement_key: String = ""
 static var _session_camp_trace_lines: PackedStringArray = PackedStringArray()
+static var _session_camp_combat_trace_lines: PackedStringArray = PackedStringArray()
 static var _last_cowering_fall_back_executed_line: String = ""
 static var _last_fled_line: String = ""
 static var _last_ambient_pain_shock_line: String = ""
@@ -92,12 +108,15 @@ static func set_fight_profile(profile_id: String) -> void:
 ## Clear Camp §8 **`FP_WORLD`** lines accumulated since F5 session start (call once from **`main.gd`**).
 static func reset_session_camp_trace() -> void:
 	_session_camp_trace_lines = PackedStringArray()
+	_session_camp_combat_trace_lines = PackedStringArray()
 	_last_camp_supplement_key = ""
 
 
 ## Headless D-001 runs one log line per simulated fight (not only **`CombatManager`** phase_end).
-## New fight: reset per-fight trace (Camp **`FP_WORLD`** kept in **`_session_camp_trace_lines`** until session reset).
+## New fight: archive prior fight camp combat needles, then reset per-fight trace
+## (Camp **`FP_WORLD`** kept in **`_session_camp_trace_lines`** until session reset).
 static func prepare_fight_end_log() -> void:
+	_archive_fight_camp_combat_lines()
 	reset_fight_trace_buffer()
 	_EngagementDiag.reset_session()
 	_last_diagram_banner_line = ""
@@ -530,8 +549,21 @@ static func _camp_trace_pending_for_supplement() -> bool:
 	return false
 
 
+static func _archive_fight_camp_combat_lines() -> void:
+	for line in _fight_trace_lines:
+		var s: String = str(line)
+		if not _TrackSpecs.is_camp_ea_combat_trace_line(s):
+			continue
+		if s in _session_camp_combat_trace_lines:
+			continue
+		_session_camp_combat_trace_lines.append(s)
+
+
 static func _merged_camp_validation_lines() -> PackedStringArray:
-	var out: PackedStringArray = _session_camp_trace_lines.duplicate()
+	var out: PackedStringArray = _session_camp_combat_trace_lines.duplicate()
+	for line in _session_camp_trace_lines:
+		if line not in out:
+			out.append(line)
 	for line in _fight_trace_lines:
 		if line not in out:
 			out.append(line)
@@ -608,10 +640,14 @@ static func _log_soak_coverage_camp_supplement() -> void:
 	])
 	var result: Dictionary = _F5Validator.validate(merged, profiles)
 	_OperationalLog.play_combat(
-		"soak_coverage camp ok=%s session_world=%d fight_trace=%d — paste full Output for validate_f5_soak_log.ps1"
+		(
+			"soak_coverage camp ok=%s session_world=%d session_combat=%d fight_trace=%d"
+			+ " — paste full Output for validate_f5_soak_log.ps1"
+		)
 		% [
 			str(bool(result.get("ok", false))).to_lower(),
 			_session_camp_trace_lines.size(),
+			_session_camp_combat_trace_lines.size(),
 			_fight_trace_lines.size(),
 		]
 	)
@@ -664,6 +700,11 @@ static func _log_soak_coverage_camp_supplement() -> void:
 			"soak_coverage camp hint optional still missing: %s — separate F5 runs or docs/f5_soak_log.camp_full.example.txt"
 			% ", ".join(optional_missing)
 		)
+		for track_id in optional_missing:
+			var hint: String = str(_CAMP_OPTIONAL_PLAY_HINTS.get(track_id, ""))
+			if hint.is_empty():
+				continue
+			_OperationalLog.play_combat("soak_coverage camp next [%s] %s" % [track_id, hint])
 
 
 static func _validator_profiles_for_fight() -> PackedStringArray:
@@ -869,6 +910,27 @@ static func note_controlling_close_listed(c: Dictionary, hint: String) -> void:
 	)
 
 
+static func _fight_finish_hold_line_hint_text(text: String) -> bool:
+	return (
+		text.contains("Mop-up")
+		or text.contains("close in or strike")
+		or text.contains("close or strike")
+	)
+
+
+static func note_mopup_hold_line_listed(c: Dictionary, hint: String) -> void:
+	if not _OperationalLog.is_play_session_active() or c.is_empty():
+		return
+	var text: String = hint.strip_edges()
+	if text.is_empty() or not _fight_finish_hold_line_hint_text(text):
+		return
+	_bump("mopup_gauge_hint")
+	_OperationalLog.play_combat(
+		"mopup_hold_line_list id=%d %s hint=%s"
+		% [_EntityAccess.id_int(c), _EntityAccess.get_display_name(c), text]
+	)
+
+
 static func note_formation_move_pick(move_id: String, _initiator_id: int, partner_id: int) -> void:
 	if not _OperationalLog.is_play_session_active():
 		return
@@ -877,6 +939,18 @@ static func note_formation_move_pick(move_id: String, _initiator_id: int, partne
 		return
 	_last_formation_move_pick_line = line
 	_OperationalLog.play_combat(line)
+
+
+## IV-11: grep **`leader_order=`** on F5 paste when **`FEATURE_LEADER_FORMATION_COMMAND`** on.
+static func note_leader_formation_command_pick(
+	who: String, move_id: String, formation_id: String, side: String
+) -> void:
+	if not _OperationalLog.is_play_session_active():
+		return
+	_OperationalLog.play_combat(
+		"leader_order=%s side=%s formation=%s who=%s"
+		% [move_id.strip_edges(), side.strip_edges(), formation_id.strip_edges(), who.strip_edges()]
+	)
 
 
 ## Once per fight when player enters post-victory medical phase (grep **`medical_phase`**).
@@ -915,7 +989,7 @@ static func note_medical_action_pick(who: String, move_id: String, part: String,
 	_last_medical_action_pick_line = pick_line
 	_bump("medical_action_pick")
 	_OperationalLog.play_combat(pick_line)
-	if move_id == "pack_wound":
+	if move_id == CombatConstants.MOVE_ID_PACK_WOUND:
 		_bump("medical_pack_pick")
 		var pack_line: String = "medical_pack_wound pick %s part=%s (%s)" % [who, part, tgt_desc]
 		_OperationalLog.play_combat(pack_line)
@@ -1160,7 +1234,10 @@ static func _turn_ui_match_context(
 		state == CombatConstants.STATE_WAITING
 		and fp_line.is_empty()
 		and not hold_line.is_empty()
-		and _ListedActions.action_list_is_reserve_posture_only(actions)
+		and (
+			_ListedActions.action_list_is_reserve_posture_only(actions)
+			or _fight_finish_hold_line_hint_text(hold_line)
+		)
 	):
 		return "hold_line"
 	if state == CombatConstants.STATE_WAITING and fp_line.is_empty() and hold_line.is_empty():

@@ -31,6 +31,16 @@ const REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED := (
 const REGEX_ENGAGEMENT_DEBUG_LINE_PLUG_PICK := (
 	"engagement_debug turn .* line_plug=true .* line_plug_pick=1"
 )
+## MS-L5 — mental-stack plug layer stamped on rank-0 gap / incap plug picks.
+const NEEDLE_ENGAGEMENT_DEBUG_FORMATION_PLUG_LAYER := "layer=formation_plug"
+## III-4 **3e** post-flee sparse — CLOSE-band rotate suppress + mental-stack fight-first layer.
+const REGEX_ENGAGEMENT_DEBUG_SPARSE_CLOSE_BAND := (
+	"engagement_debug turn .*(?:rotate_suppress=true).*?(?:sparse_line=true)"
+	+ "|engagement_debug turn .*(?:sparse_line=true).*?(?:rotate_suppress=true)"
+)
+const REGEX_ENGAGEMENT_DEBUG_SPARSE_FIGHT_LAYER := (
+	"engagement_debug turn .* layer=sparse_fight"
+)
 
 
 static func headless_checks_for_preset(preset_id: String) -> Array:
@@ -57,10 +67,7 @@ static func detect_profiles(normalized: PackedStringArray) -> PackedStringArray:
 		profiles.append(PROFILE_PRESET_II4D)
 	if _blob_has(blob, ["soak_fight_enter preset=ii_envelop", "soak=ii_envelop", "dev_soak=ii_envelop"]):
 		profiles.append(PROFILE_PRESET_II_ENVELOP)
-	if _blob_has(
-		blob,
-		camp_ea_profile_markers()
-	):
+	if _camp_ea_profile_active(normalized):
 		profiles.append(PROFILE_CAMP_EA)
 	if _blob_has(blob, ["soak_fight_enter tile=red", "tile=red"]) or (
 		not _blob_has(
@@ -116,6 +123,7 @@ static func validator_tracks(active_profiles: PackedStringArray) -> Array:
 	if have.has(PROFILE_PRESET_II_ENVELOP):
 		tracks.append_array(_validator_ii_envelop_tracks())
 	tracks.append_array(_validator_wf_footing_tracks())
+	tracks.append_array(_validator_iv11_tracks())
 	if have.has(PROFILE_7V7) or have.has(PROFILE_CAMP_EA) or have.has(PROFILE_PRESET_II_ENVELOP):
 		tracks.append_array(_validator_mopup_strike_finish_tracks())
 		tracks.append_array(_validator_line_plug_pick_tracks())
@@ -183,13 +191,13 @@ static func camp_ea_profile_markers() -> Array:
 		"company_day_advanced",
 		"company_run_end reason=",
 		"field_care:",
-		"field_care bandage",
-		"field_care pressure",
-		"field_care stabilize",
+		"field_care bandage part=",
+		"field_care pressure part=",
+		"field_care stabilize part=",
 		"company_wages: gold=",
 		"Wages short",
 		"desertion summary=",
-		"party_triage_open",
+		"party_triage_open living=",
 	]
 
 
@@ -200,6 +208,43 @@ static func is_camp_ea_world_trace_line(s: String) -> bool:
 	for marker in camp_ea_profile_markers():
 		var m: String = str(marker)
 		if line.begins_with(m) or m in line:
+			return true
+	return false
+
+
+## Combat **`FP_COMBAT`** lines merged across F5 fights for in-session camp supplement (prior fights cleared per-fight trace).
+static func is_camp_ea_combat_trace_line(s: String) -> bool:
+	var line: String = s.strip_edges()
+	if line.is_empty():
+		return false
+	if "campaign_medical_exit" in line:
+		return true
+	if not line.begins_with("engagement_debug "):
+		return false
+	return "mop_up=true" in line or "line_plug=true" in line
+
+
+## Lines ignored when inferring **`camp_ea`** from pasted F5 / headless capture (matches validator skip rules).
+static func skip_profile_detection_line(line: String) -> bool:
+	var s: String = line.strip_edges()
+	if s.is_empty():
+		return true
+	if s.begins_with("soak_coverage "):
+		return true
+	if s.begins_with("--- FP_F5_SOAK_VALIDATION"):
+		return true
+	if s.begins_with("[camp_") or s.begins_with("[wf_m3_"):
+		return true
+	if s.begins_with("soak_guide ") or s.begins_with("soak_guide:"):
+		return true
+	return false
+
+
+static func _camp_ea_profile_active(normalized: PackedStringArray) -> bool:
+	for line in normalized:
+		if skip_profile_detection_line(line):
+			continue
+		if is_camp_ea_world_trace_line(line):
 			return true
 	return false
 
@@ -296,17 +341,27 @@ static func grep_stats(normalized: PackedStringArray, count_needle: Callable, _c
 		"strike_avoided": count_needle.call(normalized, "strike_avoided "),
 		"engagement_debug_mop_up": count_needle.call(normalized, "mop_up=true"),
 		"engagement_debug_rotate_suppress": count_needle.call(normalized, "rotate_suppress=true"),
+		"engagement_debug_sparse_line": count_needle.call(normalized, "sparse_line=true"),
+		"engagement_debug_fight_finish": count_needle.call(normalized, "fight_finish=true"),
+		"engagement_debug_sparse_prefer_finish": count_needle.call(
+			normalized, "sparse_prefer_finish=true"
+		),
+		"engagement_debug_sparse_fight_layer": _count_regex.call(
+			normalized,
+			REGEX_ENGAGEMENT_DEBUG_SPARSE_FIGHT_LAYER
+		),
 		"engagement_debug_mopup_strikes_listed": _count_regex.call(
 			normalized,
 			REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED
 		),
-		"mopup_gauge_hint": count_needle.call(normalized, "Mop-up"),
+		"mopup_gauge_hint": count_needle.call(normalized, "mopup_hold_line_list "),
 		"form_switch": count_needle.call(normalized, "form_switch id="),
 		"wf_m3_form_on_gauge": _count_regex.call(
 			normalized, "turn_ready_gauge .* label=.* Form "
 		),
 		"controlling_close_hint": count_needle.call(normalized, "controlling_close_list "),
-		"field_care_bandage": count_needle.call(normalized, "field_care bandage"),
+		"leader_order": count_needle.call(normalized, "leader_order="),
+		"field_care_bandage": count_needle.call(normalized, "field_care bandage part="),
 		"field_care_pressure": count_needle.call(normalized, "field_care pressure part="),
 		"company_day_advanced": count_needle.call(normalized, "company_day_advanced"),
 		"settlement_continue": count_needle.call(normalized, "settlement_continue"),
@@ -315,7 +370,7 @@ static func grep_stats(normalized: PackedStringArray, count_needle: Callable, _c
 			+ count_needle.call(normalized, "Wages short — paid")
 		),
 		"desertion_summary": count_needle.call(normalized, "desertion summary="),
-		"party_triage_open": count_needle.call(normalized, "party_triage_open"),
+		"party_triage_open": count_needle.call(normalized, "party_triage_open living="),
 	}
 
 
@@ -544,9 +599,8 @@ static func ii2b_worksheet_prefill_text(stats: Dictionary, headless_signed: bool
 		]
 	)
 	if headless_signed:
-		lines.append(
-			"III-3 constants: unchanged baseline (PARRY_DEFLECT_THRESHOLD=1.08 PARRY_BIND_CONTROL_THRESHOLD=0.65)"
-		)
+		lines.append(CombatConstants.iii3_baseline_constants_line())
+		lines.append(CombatConstants.p4d_parry_bind_doc_sync_line())
 	lines.append("--- END II-2b worksheet prefill ---")
 	return "\n".join(lines) + "\n"
 
@@ -658,6 +712,49 @@ static func _headless_preset_checks(preset_id: String) -> Array:
 					"min": 1,
 					"optional": true,
 					"when_ok_at_least": "mop_up=true",
+				},
+				{
+					"id": "ii_envelop_sparse_post_flee",
+					"needle": "fight_finish=true",
+					"min": 1,
+					"optional": true,
+					"alt_needles": [
+						"soak_setup ii_envelop_sparse_post_flee fight_finish_ok",
+						"soak_setup ii_envelop_sparse_post_flee hold_line_hint_ok",
+						"soak_setup 7v7_sparse_formation hold_line_hint_ok",
+					],
+				},
+				{
+					"id": "ii_envelop_sparse_close_band",
+					"regex": REGEX_ENGAGEMENT_DEBUG_SPARSE_CLOSE_BAND,
+					"min": 1,
+					"optional": true,
+					"alt_needles": [
+						"soak_setup ii_envelop_sparse_close_band rotate_suppress_ok",
+						"ii_envelop_sparse_close_band: PASS",
+					],
+				},
+				{
+					"id": "ii_envelop_sparse_fight_layer",
+					"regex": REGEX_ENGAGEMENT_DEBUG_SPARSE_FIGHT_LAYER,
+					"min": 1,
+					"optional": true,
+					"alt_needles": ["soak_setup ii_envelop_sparse_post_flee fight_finish_ok"],
+				},
+				{
+					"id": "ii_line_plug_swap",
+					"regex": REGEX_ENGAGEMENT_DEBUG_LINE_PLUG_PICK,
+					"min": 1,
+					"optional": true,
+					"alt_needles": ["soak_setup ii_line_plug engagement_debug_ok"],
+				},
+				{
+					"id": "ii_line_plug_formation_layer",
+					"needle": NEEDLE_ENGAGEMENT_DEBUG_FORMATION_PLUG_LAYER,
+					"min": 1,
+					"optional": true,
+					"when_ok_at_least": "line_plug_pick=1",
+					"alt_needles": ["soak_setup ii_line_plug engagement_debug_ok"],
 				},
 			]
 		"7v7":
@@ -961,6 +1058,50 @@ static func _validator_ii_envelop_tracks() -> Array:
 			"optional": true,
 			"when_ok_at_least": "mop_up=true",
 		},
+		{
+			"id": "ii_envelop_sparse_post_flee",
+			"needle": "fight_finish=true",
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+			"optional": true,
+			"alt_needles": ["soak_setup ii_envelop_sparse_post_flee fight_finish_ok"],
+		},
+		{
+			"id": "ii_envelop_sparse_close_band",
+			"regex": REGEX_ENGAGEMENT_DEBUG_SPARSE_CLOSE_BAND,
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+			"optional": true,
+			"alt_needles": [
+				"soak_setup ii_envelop_sparse_close_band rotate_suppress_ok",
+				"ii_envelop_sparse_close_band: PASS",
+			],
+		},
+		{
+			"id": "ii_envelop_sparse_fight_layer",
+			"regex": REGEX_ENGAGEMENT_DEBUG_SPARSE_FIGHT_LAYER,
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+			"optional": true,
+			"alt_needles": ["soak_setup ii_envelop_sparse_post_flee fight_finish_ok"],
+		},
+		{
+			"id": "ii_line_plug_swap",
+			"regex": REGEX_ENGAGEMENT_DEBUG_LINE_PLUG_PICK,
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+			"optional": true,
+			"alt_needles": ["soak_setup ii_line_plug engagement_debug_ok"],
+		},
+		{
+			"id": "ii_line_plug_formation_layer",
+			"needle": NEEDLE_ENGAGEMENT_DEBUG_FORMATION_PLUG_LAYER,
+			"min": 1,
+			"profiles": [PROFILE_PRESET_II_ENVELOP],
+			"optional": true,
+			"when_ok_at_least": "line_plug_pick=1",
+			"alt_needles": ["soak_setup ii_line_plug engagement_debug_ok"],
+		},
 	]
 
 
@@ -999,6 +1140,19 @@ static func _validator_wf_footing_tracks() -> Array:
 		{
 			"id": "wf_controlling_close_hint",
 			"needle": "controlling_close_list ",
+			"min": 1,
+			"profiles": [PROFILE_ALWAYS],
+			"optional": true,
+		},
+	]
+
+
+static func _validator_iv11_tracks() -> Array:
+	## IV-11 slice 10: optional F5 grep when **`FEATURE_LEADER_FORMATION_COMMAND`** exercised in soak.
+	return [
+		{
+			"id": "iv11_leader_order",
+			"needle": "leader_order=",
 			"min": 1,
 			"profiles": [PROFILE_ALWAYS],
 			"optional": true,
@@ -1060,15 +1214,13 @@ static func _validator_camp_ea_tracks() -> Array:
 		},
 		{
 			"id": "camp_field_care_action",
-			"needle": "field_care bandage",
+			"needle": "field_care bandage part=",
 			"min": 1,
 			"profiles": [PROFILE_CAMP_EA],
 			"optional": true,
 			"alt_needles": [
 				"field_care pressure part=",
 				"field_care stabilize part=",
-				"field_care bandage part=",
-				"parts_left=",
 			],
 		},
 		{
@@ -1080,7 +1232,7 @@ static func _validator_camp_ea_tracks() -> Array:
 		},
 		{
 			"id": "camp_tutorial_soft_loss",
-			"regex": "company_run_end reason=tutorial_failed.*reload=false",
+			"needle": "reason=tutorial_failed reload=false",
 			"min": 1,
 			"profiles": [PROFILE_CAMP_EA],
 			"optional": true,
@@ -1109,7 +1261,7 @@ static func _validator_camp_ea_tracks() -> Array:
 		},
 		{
 			"id": "camp_party_triage",
-			"needle": "party_triage_open",
+			"needle": "party_triage_open living=",
 			"min": 1,
 			"profiles": [PROFILE_CAMP_EA],
 			"optional": true,
