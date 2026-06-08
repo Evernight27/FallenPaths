@@ -8,6 +8,7 @@ const _CompanyState := preload("res://world/CompanyState.gd")
 const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _CampaignPersistence := preload("res://world/CampaignPersistence.gd")
 const _MapBleedPolicy := preload("res://world/MapBleedPolicy.gd")
+const _OverworldMap := preload("res://world/OverworldMap.gd")
 
 const WORLD_META_CAMP_HEAL_HINT_SHOWN := "camp_heal_hint_shown"
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
@@ -28,7 +29,7 @@ const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 func _tile_coords(pos: Vector2) -> Vector2i:
-	return Vector2i(floor((pos.x - 32) / 64.0), floor((pos.y - 32) / 64.0))
+	return _OverworldMap.tile_coords_from_pos(pos)
 
 func _ready():
 	var soak_id: String = dev_soak_encounter.strip_edges().to_lower()
@@ -57,16 +58,19 @@ func _ready():
 	# Create tileset programmatically
 	TilesetSetup.setup_tileset(tilemap)
 	
-	# Fill the 3x3 grid with tiles
+	# Fill the overworld grid with tiles (XCamp-3.2: 5×5 default).
+	_OverworldMap.stamp_world_map_size(self)
 	var source_id = 0
 	var atlas_coords = Vector2i(0, 0)
-	
-	for x in range(3):
-		for y in range(3):
+	var map_n: int = _OverworldMap.map_tiles_for_world(self)
+	for x in range(map_n):
+		for y in range(map_n):
 			var coords = Vector2i(x, y)
 			tilemap.set_cell(0, coords, source_id, atlas_coords)
 	
-	_CombatDebug.world_session("overworld ready (3x3 grid, encounters spawned)")
+	_CombatDebug.world_session(
+		"overworld ready (%s grid, encounters spawned)" % _OverworldMap.format_map_label(self)
+	)
 	
 	# Randomize RNG: cyan preset marker first (when set), then red 7v7 tiles (#4 #7 II-5a/b/c).
 	rng.randomize()
@@ -74,6 +78,10 @@ func _ready():
 	if not soak_id.is_empty():
 		# Prefer far tiles from player start (0,0) so cyan preset marker is easy to find in F5.
 		var soak_tile_prefs: Array = [
+			Vector2i(4, 4),
+			Vector2i(4, 3),
+			Vector2i(3, 4),
+			Vector2i(4, 2),
 			Vector2i(2, 2),
 			Vector2i(2, 1),
 			Vector2i(1, 2),
@@ -88,14 +96,21 @@ func _ready():
 			_OperationalLog.warn(
 				"dev_soak_encounter '%s' failed to spawn — grid full or unknown preset" % soak_id
 			)
+	var boot_save: Dictionary = {}
+	var restoring_campaign_save: bool = false
 	if soak_id.is_empty():
 		if _CompanyState.read_stub_persistence_mode() == "P1":
 			_CampaignPersistence.clear_slot()
-		_ContractSpawner.spawn_campaign_contracts(self, rng, enemy_scene)
-		_CombatDebug.world_session(
-			"campaign contracts spawned paid=%d (+ tutorial when incomplete)"
-			% _ContractSpawner.get_template_count()
-		)
+		boot_save = _CompanyState.load_campaign_autosave_for_boot()
+		restoring_campaign_save = not boot_save.is_empty()
+		if not restoring_campaign_save:
+			_ContractSpawner.spawn_campaign_contracts(self, rng, enemy_scene)
+			_CombatDebug.world_session(
+				"campaign contracts spawned paid=%d (+ tutorial when incomplete)"
+				% _ContractSpawner.get_template_count()
+			)
+			if _OperationalLog.is_play_session_active():
+				_OperationalLog.play_world("campaign_boot fresh=true reason=no_save")
 	else:
 		EncounterSpawner.spawn_encounters(self, rng, 1, 7, enemy_scene)
 	# Assign player and companion species/equipment before party setup so party UI shows correct stats
@@ -105,6 +120,19 @@ func _ready():
 		PlayerCompanionSetup.equip_party_weapons(self, party_weapon)
 	# Setup party manager, party menu, and Party button (after species so snapshot has correct stats)
 	PartySetup.setup_party(self)
+	if restoring_campaign_save:
+		_CompanyState.restore_campaign_autosave_on_main(self, boot_save, rng, enemy_scene)
+		_CombatDebug.world_session("campaign restored from %s" % _CampaignPersistence.SAVE_PATH)
+		if _OperationalLog.is_play_session_active():
+			_OperationalLog.play_world(
+				"campaign_restore path=%s gold=%d day=%d testing_restore=%s"
+				% [
+					_CampaignPersistence.SAVE_PATH,
+					_CompanyState.get_gold(self),
+					_CompanyState.get_day_index(self),
+					str(_CompanyState.persistence_restore_on_main_restart()).to_lower(),
+				]
+			)
 	set_meta("camp_tile", _CompanyState.DEFAULT_CAMP_TILE)
 	SoakEncounterPresets.apply_world_post_setup(self, soak_id)
 	SoakEncounterPresets.emit_f5_soak_guide(soak_id, soak_tile)
@@ -148,8 +176,8 @@ func _on_player_moved():
 		if _CampaignBridge.party_has_untreated_wounds(self):
 			var parts: int = _CampaignBridge.party_untreated_part_count(self)
 			_OperationalLog.play_world(
-				"Untreated wounds — %d part(s) need dressing in Party (pressure → bandage) before fighting."
-				% parts
+				"Untreated wounds — %d part(s) need dressing in Party (%s) before fighting."
+				% [parts, _CompanyState.format_field_care_march_chain()]
 			)
 		var marker: String = str(encounter.contract_marker_label).strip_edges()
 		if marker.is_empty() and encounter.has_method("get_combat_encounter_dict"):
@@ -195,7 +223,7 @@ func _maybe_camp_tile_hint(p_tile: Vector2i) -> void:
 		var parts: int = _CampaignBridge.party_untreated_part_count(self)
 		var budget: Dictionary = _CompanyState.triage_med_budget(self)
 		_CombatDebug.world_session(
-			"Camp: %d part(s) need dressing — Party → field care, then Camp rest (−1 med · +1 day)."
+			"Camp: %d part(s) need dressing — Party → field care, then Camp rest (−1 med · +1 day · +1 mood)."
 			% parts
 		)
 		if int(budget.get("med_shortfall", 0)) > 0:
@@ -204,15 +232,28 @@ func _maybe_camp_tile_hint(p_tile: Vector2i) -> void:
 				% int(budget.get("med_shortfall", 0))
 			)
 	elif _CompanyState.camp_heal_ready(self, true):
-		_CombatDebug.world_session("Camp: Party → Camp rest (−1 med · +1 day) or End day.")
+		_CombatDebug.world_session("Camp: Party → Camp rest (−1 med · +1 day · +1 mood) or End day.")
 	elif _CompanyState.can_offer_end_day(self):
 		_CombatDebug.world_session("Camp: Party → End day (wages) or Camp rest if wounded.")
+	elif _CompanyState.roster_has_hire_room(self):
+		_CombatDebug.world_session(
+			"Camp: Party → Hire rookie (−%dg) when roster has room after losses."
+			% _CompanyState.HIRE_GOLD_COST
+		)
 	else:
 		_CombatDebug.world_session("Camp tile — wages and rest are managed from the Party menu.")
+	if _CompanyState.should_show_next_provisions_hint(self):
+		_CombatDebug.world_session(_CompanyState.format_next_provisions_hint(self))
+	if _CompanyState.count_desertion_risk_roster(self) > 0:
+		_CombatDebug.world_session(_CompanyState.format_party_desertion_risk_footer(self))
+	if _CompanyState.persistence_uses_disk_autosave():
+		_CombatDebug.world_session(
+			"Camp: autosave on settlement continue, End day, Camp rest, and soft-defeat return."
+		)
 
 
 func _tile_center(tile: Vector2i) -> Vector2:
-	return Vector2(tile.x * 64 + 32, tile.y * 64 + 32)
+	return _OverworldMap.tile_center(tile)
 
 func _get_encounter_on_tile(tile: Vector2i) -> Node:
 	for child in get_children():

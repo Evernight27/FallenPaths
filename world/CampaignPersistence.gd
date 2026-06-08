@@ -3,11 +3,35 @@ extends RefCounted
 
 ## D-persistence P2 — single-slot autosave on settlement continue and **`CompanyState.try_advance_day`** (day tick).
 ## Atomic write: user://fallen_paths_slot0.json.tmp → slot0.json
-## Canonical: `save_slot` · `apply_save` · `normalize_marker_kind_for_restore` (harness + post-EA load).
+## Canonical: `save_slot` · `apply_save` · `normalize_marker_kind_for_restore` · `begin_harness_isolated_save` (headless harness).
 
 const SAVE_PATH := "user://fallen_paths_slot0.json"
 const SAVE_TMP_PATH := "user://fallen_paths_slot0.json.tmp"
 const SAVE_VERSION := 2
+
+## Headless harness: isolated slot so editor / parallel Godot do not lock production `user://` path.
+static var _harness_save_path: String = ""
+
+
+static func active_save_path() -> String:
+	return _harness_save_path if not _harness_save_path.is_empty() else SAVE_PATH
+
+
+static func active_save_tmp_path() -> String:
+	var path: String = active_save_path()
+	if path.ends_with(".json"):
+		return path.substr(0, path.length() - 5) + ".json.tmp"
+	return path + ".tmp"
+
+
+static func begin_harness_isolated_save() -> void:
+	_harness_save_path = "user://fallen_paths_harness_%d.json" % Time.get_ticks_usec()
+	clear_slot()
+
+
+static func end_harness_isolated_save() -> void:
+	clear_slot()
+	_harness_save_path = ""
 
 const WORLD_META_CONSUMED_CONTRACT_TILES := "consumed_contract_tiles"
 const WORLD_META_CAMP_HEAL_HINT_SHOWN := "camp_heal_hint_shown"
@@ -17,11 +41,12 @@ const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _EncounterNodeScript := preload("res://world/EncounterNode.gd")
 const _EncounterSpawner := preload("res://world/EncounterSpawner.gd")
+const _OverworldMap := preload("res://world/OverworldMap.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 
 static func has_save() -> bool:
-	return FileAccess.file_exists(SAVE_PATH)
+	return FileAccess.file_exists(active_save_path())
 
 
 ## Legacy saves may still carry removed `practice` markers — map to tutorial or paid contract.
@@ -35,10 +60,12 @@ static func normalize_marker_kind_for_restore(marker_kind: String, encounter_con
 
 
 static func clear_slot() -> void:
-	if FileAccess.file_exists(SAVE_PATH):
-		DirAccess.remove_absolute(SAVE_PATH)
-	if FileAccess.file_exists(SAVE_TMP_PATH):
-		DirAccess.remove_absolute(SAVE_TMP_PATH)
+	var path: String = active_save_path()
+	var tmp: String = active_save_tmp_path()
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	if FileAccess.file_exists(tmp):
+		DirAccess.remove_absolute(tmp)
 
 
 static func save_slot(world: Node2D) -> bool:
@@ -60,17 +87,25 @@ static func save_slot(world: Node2D) -> bool:
 	}
 	var text: String = JSON.stringify(payload, "\t")
 	if not _atomic_write(text):
-		push_warning("CampaignPersistence: failed to write %s" % SAVE_PATH)
+		push_warning("CampaignPersistence: failed to write %s" % active_save_path())
 		return false
 	if _OperationalLog.is_play_session_active():
-		_OperationalLog.play_world("campaign_autosave path=%s gold=%d" % [SAVE_PATH, _CompanyState.get_gold(world)])
+		_OperationalLog.play_world(
+			"campaign_autosave path=%s gold=%d day=%d living=%d"
+			% [
+				active_save_path(),
+				_CompanyState.get_gold(world),
+				_CompanyState.get_day_index(world),
+				_CompanyState.count_living_roster(world),
+			]
+		)
 	return true
 
 
 static func load_save() -> Dictionary:
 	if not has_save():
 		return {}
-	var text: String = FileAccess.get_file_as_string(SAVE_PATH)
+	var text: String = FileAccess.get_file_as_string(active_save_path())
 	var parsed: Variant = JSON.parse_string(text)
 	if parsed is Dictionary and is_valid_save(parsed as Dictionary):
 		return parsed as Dictionary
@@ -133,19 +168,21 @@ static func get_consumed_contract_tiles(world: Node) -> Array:
 
 
 static func _atomic_write(text: String) -> bool:
-	var f: FileAccess = FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
+	var save_path: String = active_save_path()
+	var tmp_path: String = active_save_tmp_path()
+	var f: FileAccess = FileAccess.open(tmp_path, FileAccess.WRITE)
 	if f == null:
 		return false
 	f.store_string(text)
 	f.close()
-	if FileAccess.file_exists(SAVE_PATH):
-		var removed: Error = DirAccess.remove_absolute(SAVE_PATH)
+	if FileAccess.file_exists(save_path):
+		var removed: Error = DirAccess.remove_absolute(save_path)
 		if removed != OK:
-			DirAccess.remove_absolute(SAVE_TMP_PATH)
+			DirAccess.remove_absolute(tmp_path)
 			return false
-	var renamed: Error = DirAccess.rename_absolute(SAVE_TMP_PATH, SAVE_PATH)
+	var renamed: Error = DirAccess.rename_absolute(tmp_path, save_path)
 	if renamed != OK:
-		DirAccess.remove_absolute(SAVE_TMP_PATH)
+		DirAccess.remove_absolute(tmp_path)
 		return false
 	return true
 
@@ -349,11 +386,9 @@ static func _restore_remaining_encounters(
 		if not (tile_raw is Array) or (tile_raw as Array).size() < 2:
 			continue
 		var tile := Vector2i(int((tile_raw as Array)[0]), int((tile_raw as Array)[1]))
-		var cfg: Dictionary = (
-			(entry as Dictionary).get("encounter_config", {}) as Dictionary
-		).duplicate(true)
-		if cfg.has("training"):
-			cfg.erase("training")
+		if not _OverworldMap.is_tile_in_bounds(tile, world):
+			continue
+		var cfg: Dictionary = (entry as Dictionary).get("encounter_config", {}) as Dictionary
 		var marker_kind: String = normalize_marker_kind_for_restore(
 			str((entry as Dictionary).get("marker_kind", "")),
 			cfg
@@ -374,6 +409,8 @@ static func _restore_player_tile(world: Node2D, tile_raw: Variant) -> void:
 	if world == null or tile_raw is not Array or (tile_raw as Array).size() < 2:
 		return
 	var tile := Vector2i(int((tile_raw as Array)[0]), int((tile_raw as Array)[1]))
+	if not _OverworldMap.is_tile_in_bounds(tile, world):
+		return
 	_CampaignBridge.place_player_on_overworld_tile(world, tile)
 
 

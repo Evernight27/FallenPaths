@@ -11,11 +11,16 @@ const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 var content_vbox: VBoxContainer
 var _end_day_button: Button
 var _camp_heal_button: Button
+var _hire_button: Button
+var _new_company_button: Button
+var _autosave_footer_label: Label
 var _title_label: Label
 var _world: Node2D
+var _triage_was_active: bool = false
+var _field_care_notice: String = ""
 
 func _ready() -> void:
-	min_size = Vector2(380, 420)
+	min_size = Vector2(420, 440)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -38,7 +43,7 @@ func _ready() -> void:
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(0, 280)
+	scroll.custom_minimum_size = Vector2(0, 300)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	main_vbox.add_child(scroll)
 
@@ -49,7 +54,7 @@ func _ready() -> void:
 	scroll.add_child(content_vbox)
 
 	_end_day_button = Button.new()
-	_end_day_button.text = "End day"
+	_end_day_button.text = _CompanyState.format_end_day_button_label()
 	_end_day_button.visible = false
 	_end_day_button.pressed.connect(_on_end_day_pressed)
 	main_vbox.add_child(_end_day_button)
@@ -60,36 +65,149 @@ func _ready() -> void:
 	_camp_heal_button.pressed.connect(_on_camp_heal_pressed)
 	main_vbox.add_child(_camp_heal_button)
 
+	_hire_button = Button.new()
+	_hire_button.text = _CompanyState.format_hire_button_label()
+	_hire_button.visible = false
+	_hire_button.pressed.connect(_on_hire_pressed)
+	main_vbox.add_child(_hire_button)
+
+	_new_company_button = Button.new()
+	_new_company_button.text = _CompanyState.format_new_company_button_label()
+	_new_company_button.visible = false
+	_new_company_button.pressed.connect(_on_new_company_pressed)
+	main_vbox.add_child(_new_company_button)
+
+	_autosave_footer_label = Label.new()
+	_autosave_footer_label.visible = false
+	_RowFormatter.configure_wrapped_label(_autosave_footer_label)
+	_autosave_footer_label.add_theme_color_override("font_color", Color(0.6, 0.75, 0.88))
+	main_vbox.add_child(_autosave_footer_label)
+
 func show_party(world: Node2D, members: Array) -> void:
+	if content_vbox == null:
+		return
 	_world = world
 	if _title_label != null and world != null:
 		var renown: int = _CompanyState.get_renown(world)
 		var renown_bit: String = " · renown %d" % renown if renown > 0 else ""
 		_title_label.text = (
-			"Party — %dg · %d med · %d tools · day %d%s%s"
+			"Party — %dg · %d med · %d tools · %d food · day %d%s%s%s%s%s"
 			% [
 				_CompanyState.get_gold(world),
 				_CompanyState.get_medical_supplies(world),
 				_CompanyState.get_tool_supplies(world),
+				_CompanyState.get_food_supplies(world),
 				_CompanyState.get_day_index(world),
 				renown_bit,
+				_CompanyState.format_hud_wage_suffix(world),
+				_CompanyState.format_hud_provisions_suffix(world),
 				_CompanyState.format_hud_triage_suffix(world),
+				_CompanyState.format_hud_persistence_suffix(world),
 			]
 		)
 	for child in content_vbox.get_children():
 		child.queue_free()
 
-	if world != null and _CampaignBridge.party_has_untreated_wounds(world):
+	if not _field_care_notice.is_empty():
+		var notice_lbl := Label.new()
+		notice_lbl.text = _field_care_notice
+		_RowFormatter.configure_wrapped_label(notice_lbl)
+		notice_lbl.add_theme_color_override("font_color", Color(0.95, 0.5, 0.45))
+		content_vbox.add_child(notice_lbl)
+
+	var triage_active: bool = world != null and _CampaignBridge.party_has_untreated_wounds(world)
+	# One-shot when the last untreated part is dressed (med may still be 0 — copy in complete_line).
+	var camp_unlock: bool = (
+		_triage_was_active
+		and not triage_active
+		and world != null
+	)
+	_triage_was_active = triage_active
+	if camp_unlock:
+		var ready_lbl := Label.new()
+		ready_lbl.text = _CompanyState.format_field_care_complete_line(world)
+		_RowFormatter.configure_wrapped_label(ready_lbl)
+		ready_lbl.add_theme_color_override("font_color", Color(0.55, 0.9, 0.62))
+		content_vbox.add_child(ready_lbl)
+	if triage_active:
 		var gate_lbl := Label.new()
 		gate_lbl.text = _CompanyState.format_party_triage_gate_line(world)
 		_RowFormatter.configure_wrapped_label(gate_lbl)
 		gate_lbl.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
 		content_vbox.add_child(gate_lbl)
+		if _MapFieldCare.can_treat_next_wound(world, members):
+			var treat_btn := Button.new()
+			treat_btn.text = _MapFieldCare.format_treat_next_wound_button_label(world, members)
+			treat_btn.tooltip_text = (
+				"One MARCH step on the highest-threat wounded brother "
+				+ "(same order as the buttons on each row below)."
+			)
+			treat_btn.pressed.connect(_on_treat_next_wound_pressed)
+			content_vbox.add_child(treat_btn)
 
-	for m in members:
+	var display_members: Array = members
+	if triage_active:
+		var wounded: Array = []
+		var healthy: Array = []
+		for raw in members:
+			if raw is not Dictionary:
+				continue
+			var row: Dictionary = raw as Dictionary
+			if bool(row.get("has_untreated_wounds", false)):
+				wounded.append(row)
+			else:
+				healthy.append(row)
+		wounded.sort_custom(
+			func(a: Dictionary, b: Dictionary) -> bool:
+				return _RowFormatter.member_triage_priority(a) < _RowFormatter.member_triage_priority(b)
+		)
+		display_members = wounded
+		if not healthy.is_empty():
+			var healthy_hdr := Label.new()
+			healthy_hdr.text = (
+				"%d unwounded — no field care needed (camp rest unlocks after everyone is dressed)."
+				% healthy.size()
+			)
+			_RowFormatter.configure_wrapped_label(healthy_hdr)
+			healthy_hdr.add_theme_color_override("font_color", Color(0.65, 0.7, 0.75))
+			content_vbox.add_child(healthy_hdr)
+			for h in healthy:
+				_append_compact_member_row(content_vbox, h)
+			if not wounded.is_empty():
+				var wounded_hdr := Label.new()
+				wounded_hdr.text = "Wounded — field care"
+				wounded_hdr.add_theme_font_size_override("font_size", 14)
+				_RowFormatter.configure_wrapped_label(wounded_hdr)
+				wounded_hdr.add_theme_color_override("font_color", Color(0.95, 0.72, 0.45))
+				content_vbox.add_child(wounded_hdr)
+
+	var triage_row_index: int = 0
+	for m in display_members:
+		var triage_row: bool = triage_active and bool(m.get("has_untreated_wounds", false))
+		if triage_row:
+			if triage_row_index > 0:
+				content_vbox.add_child(HSeparator.new())
+			triage_row_index += 1
 		var v = VBoxContainer.new()
 		var name_lbl = Label.new()
-		name_lbl.text = str(m.get("name", "Unknown")) + "  STR:" + str(m.get("strength", 100)) + " AGI:" + str(m.get("agility", 100)) + " INT:" + str(m.get("intelligence", 100)) + " END:" + str(m.get("endurance", 100)) + " PER:" + str(m.get("perception", 100))
+		if triage_row:
+			name_lbl.text = str(m.get("name", "Unknown")) + _RowFormatter.format_party_role_suffix(m)
+			name_lbl.add_theme_font_size_override("font_size", 15)
+		else:
+			name_lbl.text = (
+				str(m.get("name", "Unknown"))
+				+ _RowFormatter.format_party_role_suffix(m)
+				+ "  STR:"
+				+ str(m.get("strength", 100))
+				+ " AGI:"
+				+ str(m.get("agility", 100))
+				+ " INT:"
+				+ str(m.get("intelligence", 100))
+				+ " END:"
+				+ str(m.get("endurance", 100))
+				+ " PER:"
+				+ str(m.get("perception", 100))
+			)
 		_RowFormatter.configure_wrapped_label(name_lbl)
 		v.add_child(name_lbl)
 		var bv: float = float(m.get("blood_volume", 100.0))
@@ -107,6 +225,13 @@ func show_party(world: Node2D, members: Array) -> void:
 			if bleed > 0.0 or bv <= _RowFormatter.danger_blood_threshold():
 				triage_lbl.add_theme_color_override("font_color", Color(0.95, 0.55, 0.35))
 			v.add_child(triage_lbl)
+		var dressing_gate: String = _RowFormatter.format_dressing_gate_line(m)
+		if not dressing_gate.is_empty():
+			var dress_gate_lbl := Label.new()
+			dress_gate_lbl.text = dressing_gate
+			_RowFormatter.configure_wrapped_label(dress_gate_lbl)
+			dress_gate_lbl.add_theme_color_override("font_color", Color(0.85, 0.78, 0.5))
+			v.add_child(dress_gate_lbl)
 		var status_line: String = _RowFormatter.format_vitality_status(m)
 		if not status_line.is_empty():
 			var status_lbl = Label.new()
@@ -122,39 +247,40 @@ func show_party(world: Node2D, members: Array) -> void:
 			_RowFormatter.configure_wrapped_label(wound_lbl)
 			wound_lbl.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
 			v.add_child(wound_lbl)
-		var weapon_name: String = m.get("weapon_name", "")
-		if weapon_name != "":
-			var weapon_lbl = Label.new()
-			weapon_lbl.text = "Weapon: " + weapon_name
-			v.add_child(weapon_lbl)
-		var form_pref: String = str(m.get("stance_preference", "")).strip_edges()
-		if not form_pref.is_empty():
-			var form_lbl = Label.new()
-			form_lbl.text = (
-				"Form preference: "
-				+ _WeaponForm.display_name(_WeaponForm.normalize_form(form_pref))
-			)
-			v.add_child(form_lbl)
-		var armor_summary: Array = m.get("armor_summary", [])
-		if armor_summary.size() > 0:
-			var armor_lbl = Label.new()
-			armor_lbl.text = "Armor: " + ", ".join(armor_summary)
-			v.add_child(armor_lbl)
-		var bc: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_cutting")
-		var bb: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_blunt")
-		var bm: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_max")
-		var bone_h: Dictionary = _EntityAccess.nested_dictionary_read(m, "bone_health")
-		var bone_m: Dictionary = _EntityAccess.nested_dictionary_read(m, "bone_max")
-		for pair in _RowFormatter.PART_LINES:
-			var h = HBoxContainer.new()
-			for part in pair:
-				var line: String = _RowFormatter.format_body_part(part, bc, bb, bm, bone_h, bone_m)
-				if not line.is_empty():
-					var lbl = Label.new()
-					lbl.text = line
-					lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-					h.add_child(lbl)
-			v.add_child(h)
+		if not triage_row:
+			var weapon_name: String = m.get("weapon_name", "")
+			if weapon_name != "":
+				var weapon_lbl = Label.new()
+				weapon_lbl.text = "Weapon: " + weapon_name
+				v.add_child(weapon_lbl)
+			var form_pref: String = str(m.get("stance_preference", "")).strip_edges()
+			if not form_pref.is_empty():
+				var form_lbl = Label.new()
+				form_lbl.text = (
+					"Form preference: "
+					+ _WeaponForm.display_name(_WeaponForm.normalize_form(form_pref))
+				)
+				v.add_child(form_lbl)
+			var armor_summary: Array = m.get("armor_summary", [])
+			if armor_summary.size() > 0:
+				var armor_lbl = Label.new()
+				armor_lbl.text = "Armor: " + ", ".join(armor_summary)
+				v.add_child(armor_lbl)
+			var bc: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_cutting")
+			var bb: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_blunt")
+			var bm: Dictionary = _EntityAccess.nested_dictionary_read(m, "body_max")
+			var bone_h: Dictionary = _EntityAccess.nested_dictionary_read(m, "bone_health")
+			var bone_m: Dictionary = _EntityAccess.nested_dictionary_read(m, "bone_max")
+			for pair in _RowFormatter.PART_LINES:
+				var h = HBoxContainer.new()
+				for part in pair:
+					var line: String = _RowFormatter.format_body_part(part, bc, bb, bm, bone_h, bone_m)
+					if not line.is_empty():
+						var lbl = Label.new()
+						lbl.text = line
+						lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+						h.add_child(lbl)
+				v.add_child(h)
 		if _world != null:
 			var next_action: String = _MapFieldCare.format_next_field_care_action(_world, m)
 			if not next_action.is_empty():
@@ -163,16 +289,19 @@ func show_party(world: Node2D, members: Array) -> void:
 				_RowFormatter.configure_wrapped_label(next_lbl)
 				next_lbl.add_theme_color_override("font_color", Color(0.75, 0.88, 0.95))
 				v.add_child(next_lbl)
-			var care_row := HBoxContainer.new()
-			care_row.add_theme_constant_override("separation", 6)
+			var care_row := VBoxContainer.new()
+			care_row.add_theme_constant_override("separation", 4)
 			if _MapFieldCare.can_offer_field_pressure(_world, m):
 				var btn_p := Button.new()
 				btn_p.text = _MapFieldCare.format_field_pressure_button_label(_world, m)
 				var member_copy: Dictionary = m.duplicate(true)
 				btn_p.pressed.connect(
 					func() -> void:
-						_MapFieldCare.try_field_pressure(_world, member_copy)
-						_refresh_party_view()
+						_run_field_care_step(
+							func() -> bool:
+								return _MapFieldCare.try_field_pressure(_world, member_copy),
+							"pressure"
+						)
 				)
 				care_row.add_child(btn_p)
 			if _MapFieldCare.can_offer_field_bandage(_world, m):
@@ -181,8 +310,11 @@ func show_party(world: Node2D, members: Array) -> void:
 				var member_copy_b: Dictionary = m.duplicate(true)
 				btn_b.pressed.connect(
 					func() -> void:
-						_MapFieldCare.try_field_bandage(_world, member_copy_b)
-						_refresh_party_view()
+						_run_field_care_step(
+							func() -> bool:
+								return _MapFieldCare.try_field_bandage(_world, member_copy_b),
+							"bandage"
+						)
 				)
 				care_row.add_child(btn_b)
 			elif _MapFieldCare.field_bandage_needs_pressure_first(m):
@@ -196,8 +328,11 @@ func show_party(world: Node2D, members: Array) -> void:
 				var member_copy_pk: Dictionary = m.duplicate(true)
 				btn_pk.pressed.connect(
 					func() -> void:
-						_MapFieldCare.try_field_pack(_world, member_copy_pk)
-						_refresh_party_view()
+						_run_field_care_step(
+							func() -> bool:
+								return _MapFieldCare.try_field_pack(_world, member_copy_pk),
+							"pack"
+						)
 				)
 				care_row.add_child(btn_pk)
 			if _MapFieldCare.can_offer_field_tourniquet(_world, m):
@@ -206,8 +341,11 @@ func show_party(world: Node2D, members: Array) -> void:
 				var member_copy_tq: Dictionary = m.duplicate(true)
 				btn_tq.pressed.connect(
 					func() -> void:
-						_MapFieldCare.try_field_tourniquet(_world, member_copy_tq)
-						_refresh_party_view()
+						_run_field_care_step(
+							func() -> bool:
+								return _MapFieldCare.try_field_tourniquet(_world, member_copy_tq),
+							"tourniquet"
+						)
 				)
 				care_row.add_child(btn_tq)
 			if _MapFieldCare.can_offer_field_stabilize(_world, m):
@@ -216,8 +354,11 @@ func show_party(world: Node2D, members: Array) -> void:
 				var member_copy_s: Dictionary = m.duplicate(true)
 				btn_s.pressed.connect(
 					func() -> void:
-						_MapFieldCare.try_field_stabilize(_world, member_copy_s)
-						_refresh_party_view()
+						_run_field_care_step(
+							func() -> bool:
+								return _MapFieldCare.try_field_stabilize(_world, member_copy_s),
+							"stabilize"
+						)
 				)
 				care_row.add_child(btn_s)
 			if care_row.get_child_count() > 0:
@@ -261,8 +402,14 @@ func show_party(world: Node2D, members: Array) -> void:
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		content_vbox.add_child(v)
 
+	if _autosave_footer_label != null:
+		var menu_footer: String = _CompanyState.format_party_menu_footer(world)
+		_autosave_footer_label.visible = not menu_footer.is_empty()
+		_autosave_footer_label.text = menu_footer
 	if _end_day_button != null:
 		_end_day_button.visible = _CompanyState.can_offer_end_day(world)
+		_end_day_button.text = _CompanyState.format_end_day_button_label(world)
+		_end_day_button.tooltip_text = _CompanyState.format_end_day_tooltip(world)
 	if _camp_heal_button != null:
 		var ready_camp: bool = _CompanyState.camp_heal_ready(world, true)
 		_camp_heal_button.visible = _CompanyState.should_show_party_camp_rest_button(world)
@@ -271,6 +418,18 @@ func show_party(world: Node2D, members: Array) -> void:
 			_camp_heal_button.text = _CompanyState.format_camp_rest_button_label(world, true)
 		else:
 			_camp_heal_button.text = _CompanyState.format_camp_heal_block_reason(world, true)
+		_camp_heal_button.tooltip_text = _CompanyState.format_camp_rest_tooltip(world)
+	if _hire_button != null:
+		var ready_hire: bool = _CompanyState.can_offer_hire(world, true)
+		_hire_button.visible = _CompanyState.should_show_party_hire_button(world)
+		_hire_button.disabled = not ready_hire
+		if ready_hire:
+			_hire_button.text = _CompanyState.format_hire_button_label(world)
+		else:
+			_hire_button.text = _CompanyState.format_hire_block_reason(world, true)
+		_hire_button.tooltip_text = _CompanyState.format_hire_tooltip(world, true)
+	if _new_company_button != null:
+		_new_company_button.visible = _CompanyState.can_offer_new_campaign_from_menu()
 	var opening: bool = not visible
 	popup_centered()
 	self.grab_focus()
@@ -303,12 +462,60 @@ func show_party(world: Node2D, members: Array) -> void:
 		)
 
 
+func _append_compact_member_row(parent: VBoxContainer, m: Dictionary) -> void:
+	var row := HBoxContainer.new()
+	var name_lbl := Label.new()
+	name_lbl.text = "%s%s — OK" % [str(m.get("name", "Unknown")), _RowFormatter.format_party_role_suffix(m)]
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_RowFormatter.configure_wrapped_label(name_lbl)
+	row.add_child(name_lbl)
+	var bv: float = float(m.get("blood_volume", 100.0))
+	var bleed: float = float(m.get("total_bleeding_rate", 0.0))
+	var blood_lbl := Label.new()
+	blood_lbl.text = _RowFormatter.format_blood_line(bv, bleed)
+	row.add_child(blood_lbl)
+	parent.add_child(row)
+
+
+func _party_members() -> Array:
+	if _world == null:
+		return []
+	var pm: Variant = _world.get_meta("party_manager") if _world.has_meta("party_manager") else null
+	if pm != null and pm.has_method("get_members"):
+		return pm.get_members()
+	return []
+
+
+func _run_field_care_step(step: Callable, action: String) -> void:
+	if step.call():
+		_field_care_notice = ""
+	else:
+		_field_care_notice = _MapFieldCare.format_field_care_retry_hint(action)
+		if _OperationalLog.is_play_session_active():
+			_OperationalLog.play_world(_field_care_notice)
+	_refresh_party_view()
+
+
+func _on_treat_next_wound_pressed() -> void:
+	if _world == null:
+		return
+	if _MapFieldCare.try_treat_next_wound(_world, _party_members()):
+		_field_care_notice = ""
+	else:
+		_field_care_notice = (
+			"Field care step failed — retry Treat next wound or use a brother's buttons below."
+		)
+		if _OperationalLog.is_play_session_active():
+			_OperationalLog.play_world(_field_care_notice)
+	_refresh_party_view()
+
+
 func _refresh_party_view() -> void:
 	if _world == null:
 		return
-	var pm: Variant = _world.get_meta("party_manager") if _world.has_meta("party_manager") else null
-	if pm != null and pm.has_method("get_members"):
-		show_party(_world, pm.get_members())
+	var members: Array = _party_members()
+	if not members.is_empty():
+		show_party(_world, members)
 	_CompanyState.refresh_hud(_world)
 
 
@@ -318,6 +525,11 @@ func _on_end_day_pressed() -> void:
 	if _CompanyState.request_end_day(_world):
 		_CompanyState.refresh_hud(_world)
 		hide()
+	elif _OperationalLog.is_play_session_active():
+		var block_hint: String = _CompanyState.format_party_end_day_unavailable_hint(_world)
+		if block_hint.is_empty():
+			block_hint = "End day unavailable (check camp tile or day-tick mode)."
+		_OperationalLog.play_world("End day blocked — %s" % block_hint)
 
 
 func _on_camp_heal_pressed() -> void:
@@ -326,8 +538,29 @@ func _on_camp_heal_pressed() -> void:
 	if _CompanyState.try_camp_heal(_world, true):
 		_CompanyState.refresh_hud(_world)
 		hide()
-	else:
+	elif _OperationalLog.is_play_session_active():
 		_OperationalLog.play_world(
 			"Camp rest blocked — %s"
 			% _CompanyState.format_camp_heal_block_reason(_world, true).trim_prefix("Camp rest ")
 		)
+
+
+func _on_hire_pressed() -> void:
+	if _world == null:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	if _CompanyState.try_hire_rookie(_world, rng, true):
+		_refresh_party_view()
+	elif _OperationalLog.is_play_session_active():
+		_OperationalLog.play_world(
+			"Hire blocked — %s"
+			% _CompanyState.format_hire_block_reason(_world, true).trim_prefix("Hire ")
+		)
+
+
+func _on_new_company_pressed() -> void:
+	if _world == null:
+		return
+	hide()
+	_CompanyState.request_new_campaign(_world)

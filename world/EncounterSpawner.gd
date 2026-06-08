@@ -3,6 +3,7 @@ extends RefCounted
 
 const _EncounterNodeScript := preload("res://world/EncounterNode.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
+const _OverworldMap := preload("res://world/OverworldMap.gd")
 
 
 static func _tile_coords(world: Node, pos: Vector2) -> Vector2i:
@@ -34,14 +35,10 @@ static func _spawn_encounter_marker(parent: Node, rng: RandomNumberGenerator, en
 		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
 	if scene == null:
 		return null
-	var tx = 0
-	var ty = 0
 	var tries = 0
 	while tries < 100:
-		tx = rng.randi_range(0, 2)
-		ty = rng.randi_range(0, 2)
+		var tile: Vector2i = _OverworldMap.random_tile(rng, parent)
 		tries += 1
-		var tile = Vector2i(tx, ty)
 		var skip = false
 		for et in excluded_tiles:
 			if tile == et:
@@ -49,7 +46,7 @@ static func _spawn_encounter_marker(parent: Node, rng: RandomNumberGenerator, en
 				break
 		if skip:
 			continue
-		var tile_center = _tile_center(parent, Vector2i(tx, ty))
+		var tile_center = _tile_center(parent, tile)
 		var encounter = _EncounterNodeScript.new()
 		encounter.position = tile_center
 		encounter.enemy_count = mini(enemy_count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
@@ -90,7 +87,7 @@ static func spawn_soak_encounter_marker(
 		if tries < candidates.size():
 			tile = candidates[tries] as Vector2i
 		else:
-			tile = Vector2i(rng.randi_range(0, 2), rng.randi_range(0, 2))
+			tile = _OverworldMap.random_tile(rng, parent)
 		if tile in skip:
 			continue
 		var encounter = _EncounterNodeScript.new()

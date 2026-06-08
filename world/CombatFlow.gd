@@ -162,6 +162,7 @@ static func resume_overworld_after_soft_defeat(world: Node2D, lost_contract: Dic
 	var enemy_scene: PackedScene = _CampaignBridge.resolve_enemy_scene(world)
 	if rng != null:
 		_ContractSpawner.ensure_special_encounter_present(world, rng, enemy_scene, lost_contract)
+	_CompanyState.try_autosave(world)
 
 
 static func _append_death_recap_to_detail(detail: String, death_lines: PackedStringArray) -> String:

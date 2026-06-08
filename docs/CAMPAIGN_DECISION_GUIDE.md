@@ -108,9 +108,9 @@ Canonical shipped choices. Implementation lives in **`CompanyState`**; `read_stu
 | Battle **lost** (R3 paid run-end reload) | — | Scene reload; witness + loss mood skipped (`defeat_should_end_company_run`) |
 | Brother **died** | **−0.25** per death (each **living** brother) | `CampaignEncounterBridge.build_last_battle_summary` → `CompanyState.apply_battle_death_witness_mood` |
 | Permanent **affliction** | **−1.35** | `CampaignAfflictions.apply_after_victory` |
-| **Not fed** (when provisions ship) | **−1** | future `CompanyState.on_day_tick` |
+| **Not fed** (when provisions ship) | **−1** | `CompanyState.on_day_tick` → `_apply_daily_provisions` |
 | Battle **won** | **+0.35** | `SettlementPanel` continue |
-| Camp tavern / rest (post-EA) | **+1** | camp UI |
+| Camp tavern / rest (post-EA) | **+1** | `CompanyState.try_camp_heal` → `apply_camp_rest_mood` |
 
 **Desertion:** mood **≤ 15** (“Angry”) → daily roll **5%** per brother (`MOOD_DESERTION_CHANCE`; leader exempt). Remove from roster; log `FP_WORLD: brother_deserted`. **Company death:** roster empty → bankrupt modal (same shell as R3 contract loss). *(BB Disloyal/Loyal trait multipliers deferred post-EA.)*
 
@@ -404,7 +404,7 @@ Starting values in [SHIP_PLAN §12](SHIP_PLAN.md#ea-tuning-defaults) are **BB-sc
 | Med **3** | +1 starter | −1; force shop tension |
 | Pay **100–140** (shipped templates) | +20% base | −15% |
 
-**Physics-safe rule:** Do **not** fix map bleed frustration by changing `BLOOD_LOSS_RATE_MULTIPLIER` during EA close-out — use **D-bleed B** + tutorial block + supplies + field care ([`LIVE_PATHS` §12](LIVE_PATHS.md#12-tuning-order-keep-research-chain)).
+**Physics-safe rule:** Do **not** fix map bleed frustration by changing `BLOOD_LOSS_RATE_MULTIPLIER` during EA ship — use **D-bleed B** + tutorial block + supplies + field care ([`LIVE_PATHS` §12](LIVE_PATHS.md#12-tuning-order-keep-research-chain)).
 
 ---
 

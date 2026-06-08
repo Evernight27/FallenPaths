@@ -306,7 +306,7 @@ Log new product gates and completed phases here; mirror campaign gates in [`SHIP
 
 **Entries:**
 
-- **2026-06-08** — **Exp-3 ☑** — XCamp-3.1–3.8 shipped (hire, 5×5 map, deck refresh, affliction catalog, tavern mood, provisions, burial, MS-CAMP mood→form); `CompanyStateChecks` **404** — Campaign stream maintain (economy UX copy).
+- **2026-06-08** — **Exp-3 ☑** — XCamp-3.1–3.8 shipped (hire, 5×5 map, deck refresh, affliction catalog, tavern mood, provisions, burial, MS-CAMP mood→form); `CompanyStateChecks` **406** — Campaign stream maintain (economy UX copy).
 - **2026-06-08** — **Exp-0.2** ☑ — optional Camp §8 F5 tracks (steps 4, 8–10) PASS on Camp-5 human paste + `validate_camp_optional_smokes.ps1` 8/8; `human_signoff: READY` — Playtest stream.
 - **2026-06-08** — **Exp plan** — post-EA roadmap published; EA baseline Camp-5 ☑ 2026-06-07.
 - **2026-06-08** — **III-3** ☑ deflect/bind calibration harness — **`_run_iii3_deflect_bind_calibration_suite`** · Playtest **ii2b** maintain — Expand stream.

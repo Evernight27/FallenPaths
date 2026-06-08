@@ -19,6 +19,8 @@ const _BodyParts := preload("res://core/BodyPartConstants.gd")
 const FIELD_CARE_SECONDS := 120.0
 ## Procedure duration scale (2 min base × 1.25 ≈ 150 s sim); hemorrhage physics only — not tissue healing.
 const FIELD_CARE_PROCEDURE_TIME_MULT := 1.25
+## Sim seconds advanced per field-care step (bleed + blood loss); UI labels stay ~2 min player-facing.
+const FIELD_CARE_SIM_ADVANCE_SECONDS := FIELD_CARE_SECONDS * FIELD_CARE_PROCEDURE_TIME_MULT
 
 
 static func can_offer_field_pressure(world: Node2D, member: Dictionary) -> bool:
@@ -62,11 +64,8 @@ static func field_bandage_part_ready(member: Dictionary) -> String:
 static func format_field_bandage_button_label(world: Node2D, member: Dictionary = {}) -> String:
 	var part: String = field_bandage_part_ready(member) if not member.is_empty() else ""
 	var part_s: String = _format_part_label(part)
-	var med_bit: String = (
-		"−1 med"
-		if _CompanyState.get_medical_supplies(world) >= 1
-		else "0 med · %.0f%% eff" % (_CompanyState.compute_medical_supply_factor(world) * 100.0)
-	)
+	var entity: Node = _entity_for_member(member) if not member.is_empty() else null
+	var med_bit: String = _CompanyState.format_field_bandage_med_bit(world, entity)
 	if part_s.is_empty():
 		return "Field bandage (%s, 2m)" % med_bit
 	return "Field bandage (%s · %s, 2m)" % [part_s, med_bit]
@@ -124,8 +123,7 @@ static func field_bandage_waiting_part(member: Dictionary) -> String:
 			continue
 		if _EntityMedical.has_direct_pressure_on_part(entity, p):
 			continue
-		if entity.has_method("can_apply_bandage") and entity.can_apply_bandage(p):
-			return p
+		return p
 	return ""
 
 
@@ -158,9 +156,7 @@ static func format_member_pressure_held_line(member: Dictionary) -> String:
 	for p in _EntityWounds.sorted_untreated_part_names(entity):
 		if not _EntityMedical.has_direct_pressure_on_part(entity, p):
 			continue
-		var bleed: float = _EntityWounds.get_bleeding_rate_for_part(entity, p)
-		if bleed <= _Bleeding.BLEEDING_RATE_EPSILON:
-			continue
+		# TCCC: keep showing held compression until dressed — local clot may drop bleed ~0 while still held.
 		var part_s: String = _format_part_label(p)
 		if part_s.is_empty():
 			continue
@@ -173,8 +169,78 @@ static func format_member_field_care_hint(member: Dictionary) -> String:
 	if n <= 0:
 		return ""
 	if n == 1:
-		return "One part left on this brother — finish dressing to unlock camp rest."
-	return "Field care treats highest-threat part first — %d part(s) remain on this brother." % n
+		return "One part left — finish dressing this brother to unlock camp rest."
+	return "Highest-threat part first — %d untreated part(s) remain on this brother." % n
+
+
+## Highest-threat wounded member across the roster (map triage ordering).
+static func pick_next_triage_member(_world: Node2D, members: Array) -> Dictionary:
+	var best_member: Dictionary = {}
+	var best_threat: float = -1.0
+	for raw in members:
+		if raw is not Dictionary:
+			continue
+		var member: Dictionary = raw as Dictionary
+		if member_untreated_part_count(member) <= 0:
+			continue
+		var entity: Node = _entity_for_member(member)
+		if entity == null:
+			continue
+		for p in _EntityWounds.sorted_untreated_part_names(entity):
+			var threat: float = _EntityWounds.get_part_intervention_threat(entity, str(p))
+			if threat > best_threat:
+				best_threat = threat
+				best_member = member.duplicate(true)
+	return best_member
+
+
+## One MARCH step for the highest-threat untreated part (pressure → dress → pack/TQ → stabilize).
+static func try_treat_next_wound(world: Node2D, members: Array) -> bool:
+	var member: Dictionary = pick_next_triage_member(world, members)
+	if member.is_empty():
+		return false
+	if can_offer_field_pressure(world, member):
+		return try_field_pressure(world, member)
+	if can_offer_field_bandage(world, member):
+		return try_field_bandage(world, member)
+	if can_offer_field_pack(world, member):
+		return try_field_pack(world, member)
+	if can_offer_field_tourniquet(world, member):
+		return try_field_tourniquet(world, member)
+	if can_offer_field_stabilize(world, member):
+		return try_field_stabilize(world, member)
+	return false
+
+
+static func can_treat_next_wound(world: Node2D, members: Array) -> bool:
+	var member: Dictionary = pick_next_triage_member(world, members)
+	if member.is_empty():
+		return false
+	if can_offer_field_pressure(world, member):
+		return true
+	if can_offer_field_bandage(world, member):
+		return true
+	if can_offer_field_pack(world, member):
+		return true
+	if can_offer_field_tourniquet(world, member):
+		return true
+	return can_offer_field_stabilize(world, member)
+
+
+static func format_treat_next_wound_button_label(world: Node2D, members: Array) -> String:
+	var member: Dictionary = pick_next_triage_member(world, members)
+	if member.is_empty():
+		return "Treat next wound"
+	var name_s: String = str(member.get("name", "Brother"))
+	var next_s: String = format_next_field_care_action(world, member)
+	if next_s.is_empty():
+		return "Treat next wound (%s)" % name_s
+	return "Treat next — %s: %s" % [name_s, next_s.trim_prefix("Next: ")]
+
+
+## Player-facing hint when a field-care procedure fails (RNG bandage, etc.).
+static func format_field_care_retry_hint(action: String) -> String:
+	return "Field %s failed — keep pressure if held and retry, or try another step below." % action
 
 
 ## Suggested next field-care action for Party row (pressure → dress → pack/TQ → stabilize).
@@ -183,10 +249,10 @@ static func format_next_field_care_action(world: Node2D, member: Dictionary) -> 
 		return ""
 	if can_offer_field_pressure(world, member):
 		return "Next: %s" % format_field_pressure_button_label(world, member)
-	if field_bandage_needs_pressure_first(member):
-		return "Next: %s" % format_field_bandage_waiting_label(member)
 	if can_offer_field_bandage(world, member):
 		return "Next: %s" % format_field_bandage_button_label(world, member)
+	if field_bandage_needs_pressure_first(member):
+		return "Next: %s" % format_field_bandage_waiting_label(member)
 	if can_offer_field_pack(world, member):
 		return "Next: %s" % format_field_pack_button_label(world, member)
 	if can_offer_field_tourniquet(world, member):
@@ -214,18 +280,19 @@ static func try_field_pressure(world: Node2D, member: Dictionary) -> bool:
 	var part: String = _first_pressure_part(world, member)
 	if part.is_empty():
 		return false
-	_advance_field_care_time(entity)
 	var ok: bool = false
 	var performer: Node = _default_performer_entity(world)
 	if (
 		performer != null
-		and entity.has_method("apply_direct_pressure_from_ally")
+		and entity.has_method("can_apply_direct_pressure_from_ally")
 		and entity.can_apply_direct_pressure_from_ally(part, performer)
 	):
 		ok = entity.apply_direct_pressure_from_ally(part, performer)
 	elif entity.has_method("apply_direct_pressure"):
 		ok = entity.apply_direct_pressure(part)
 	if ok:
+		# Hold compression first, then advance procedure time (bleed sim runs with pressure on).
+		_advance_field_care_time(entity)
 		_CompanyState.refresh_hud(world)
 		_log_field_care_success(world, "pressure", part, member)
 	else:
@@ -243,7 +310,7 @@ static func try_field_stabilize(world: Node2D, member: Dictionary) -> bool:
 	if not _CompanyState.consume_medical(world, 1):
 		return false
 	_advance_field_care_time(entity)
-	var eff: float = _field_treatment_effectiveness(entity, world, true)
+	var eff: float = _CompanyState.compute_field_treatment_effectiveness(entity, world, true)
 	var ok: bool = entity.apply_stabilize(part, eff)
 	if not ok:
 		_CompanyState.set_medical_supplies(world, _CompanyState.get_medical_supplies(world) + 1)
@@ -276,7 +343,7 @@ static func try_field_bandage(world: Node2D, member: Dictionary) -> bool:
 			return false
 		consumed_med = true
 	_advance_field_care_time(entity)
-	var eff: float = _field_treatment_effectiveness(entity, world, false)
+	var eff: float = _CompanyState.compute_field_treatment_effectiveness(entity, world, false)
 	var ok: bool = entity.apply_bandage(part, eff)
 	if not ok:
 		if consumed_med:
@@ -313,7 +380,7 @@ static func try_field_pack(world: Node2D, member: Dictionary) -> bool:
 	if not _CompanyState.consume_medical(world, 1):
 		return false
 	_advance_field_care_time(entity)
-	var eff: float = _field_treatment_effectiveness(entity, world, true)
+	var eff: float = _CompanyState.compute_field_treatment_effectiveness(entity, world, true)
 	var ok: bool = entity.apply_packing(part, eff)
 	if not ok:
 		_CompanyState.set_medical_supplies(world, _CompanyState.get_medical_supplies(world) + 1)
@@ -341,7 +408,7 @@ static func try_field_tourniquet(world: Node2D, member: Dictionary) -> bool:
 	if part.is_empty() or not entity.has_method("apply_tourniquet"):
 		return false
 	_advance_field_care_time(entity)
-	var eff: float = _field_treatment_effectiveness(entity, world, false)
+	var eff: float = _CompanyState.compute_field_treatment_effectiveness(entity, world, false)
 	eff = clampf(eff, 0.25, 1.5)
 	var ok: bool = entity.apply_tourniquet(part, eff)
 	if not ok:
@@ -353,21 +420,8 @@ static func try_field_tourniquet(world: Node2D, member: Dictionary) -> bool:
 	return ok
 
 
-static func _field_treatment_effectiveness(entity: Node, world: Node2D, stabilize_floor: bool) -> float:
-	var eff: float = _CompanyState.compute_medical_supply_factor(world)
-	if entity != null and entity.has_method("get_medical_effectiveness"):
-		eff = float(entity.get_medical_effectiveness()) * eff
-	if stabilize_floor:
-		return clampf(maxf(eff, 1.15), 0.25, 2.0)
-	return clampf(eff, 0.25, 1.5)
-
-
 static func _advance_field_care_time(entity: Node) -> void:
-	_EntityTimeAdvance.advance(
-		entity,
-		FIELD_CARE_SECONDS * FIELD_CARE_PROCEDURE_TIME_MULT,
-		false
-	)
+	_EntityTimeAdvance.advance(entity, FIELD_CARE_SIM_ADVANCE_SECONDS, false)
 	if entity.has_method("ensure_consciousness_current"):
 		entity.ensure_consciousness_current()
 
@@ -397,7 +451,7 @@ static func _log_field_care_success(
 		tail += " all_dressed=true camp_rest_ready"
 	_OperationalLog.play_world(
 		"field_care %s part=%s target=%s seconds=%.0f parts_left=%d%s"
-		% [action, part, str(member.get("name", "?")), FIELD_CARE_SECONDS, parts_left, tail]
+		% [action, part, str(member.get("name", "?")), FIELD_CARE_SIM_ADVANCE_SECONDS, parts_left, tail]
 	)
 
 
@@ -419,6 +473,11 @@ static func _first_pressure_part(world: Node2D, member: Dictionary) -> String:
 	if entity == null:
 		return ""
 	for p in _EntityWounds.sorted_untreated_part_names(entity):
+		var bleed: float = _EntityWounds.get_bleeding_rate_for_part(entity, p)
+		if bleed <= _Bleeding.BLEEDING_RATE_EPSILON:
+			continue
+		if _EntityMedical.has_direct_pressure_on_part(entity, p):
+			continue
 		if entity.has_method("can_apply_direct_pressure") and entity.can_apply_direct_pressure(p):
 			return p
 		if entity.has_method("can_apply_direct_pressure_from_ally"):

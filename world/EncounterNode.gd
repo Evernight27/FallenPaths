@@ -118,7 +118,21 @@ func spawn_enemies(parent: Node, rng: RandomNumberGenerator) -> Array:
 		if not force_weapon.is_empty():
 			EncounterSpawner.equip_weapon_id(enemy, force_weapon)
 		enemies.append(enemy)
+	_stamp_enemy_leader_from_config(enemies)
 	return enemies
+
+
+func _stamp_enemy_leader_from_config(enemies: Array) -> void:
+	if enemies.is_empty():
+		return
+	var leader_idx: int = int(encounter_config.get(SoakEncounterPresets.ENCOUNTER_KEY_ENEMY_LEADER_INDEX, 0))
+	if leader_idx < 0:
+		return
+	if leader_idx >= enemies.size():
+		leader_idx = 0
+	var leader: Variant = enemies[leader_idx]
+	if leader != null and "is_enemy_leader" in leader:
+		leader.is_enemy_leader = true
 
 func _get_species_paths_for_encounter() -> Array:
 	var pool: Variant = encounter_config.get("enemy_species_pool", [])

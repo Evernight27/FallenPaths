@@ -175,9 +175,9 @@ Runs at **strike contact**, not on `turn_ready`:
 |------|--------|
 | Wind-up stamps `pending_attack` / telegraph on defender | `AttackWindUpStarter`, `GuardLineUpdater` |
 | Form wind-up tempo (not Tier 4.4 PA) | `AttackWindUpStarter` → `CombatWeaponForm.wind_up_transition_mult` |
-| Position-angle step (optional flag) | `CombatFootwork.apply_attack_step_on_windup(attack_line)` |
+| Position-angle step (optional flag) | `CombatFootwork.apply_attack_step_on_windup(attack_line, opponent_id, manager)` · preview: **`attack_eval_step_deg_for_attacker`** — T44 spatial mults when flags on |
 | Resolve hit | `AttackResolver` → **`DefenseChoiceResolver.choose_defense`** |
-| Parry/dodge step stamp | `CombatFootwork.apply_defender_step_on_parry(guard_line)` / `apply_defender_step_on_dodge(part→line)` |
+| Parry/dodge step stamp | `apply_defender_step_on_parry(guard_line, attacker_id, manager)` / `apply_defender_step_on_dodge(part, attacker_id, manager)` |
 | Angles on `pending_attack` | `AttackResolver` copies attacker offset into **`pa`** for arc/follow-through |
 | Optional active parry branch | `CombatIncomingParryChoice` when `FEATURE_INCOMING_PARRY_CHOICE` |
 
@@ -217,13 +217,13 @@ Harness: **`CombatRegressionHarnessAttentionFootworkTail`** — `_run_attention_
 
 <a id="tier-44-spatial-footwork-deferred"></a>
 
-**Tier 4.4 — position-angle pilot (shipped) vs spatial Expand (deferred):**
+**Tier 4.4 — position-angle pilot (shipped) vs spatial Expand (slice 1–3 ☑; world-position still deferred):**
 
 | Slice | Status | What it is | Module |
 |-------|--------|------------|--------|
 | **4.4 PA pilot** | **Shipped** | Single scalar **`position_angle_offset_deg`** per exchange from **line keys**; gauge **` · Step`**; no world positions | **`CombatFootwork.gd`** — hub [#wf-tier-44-pa](#wf-tier-44-pa) |
 | **Octant PA lookup** | **Shipped** | Diagonal guard/attack lines get non-zero step when **`FEATURE_HEMA_EIGHT_GUARD_LINES`** | **`CombatGuardLines`** → **`CombatConstants.position_angle_offset_deg_for_attack_line`** — [#wf-form-guard-pa-matrix](#wf-form-guard-pa-matrix) |
-| **4.4 spatial Expand** | **Deferred** post–Camp-5 | Footwork **beyond** abstract PA — see scope sketch in [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog) (formation-adjacent movement, not blade-only scalar) | **`CombatFootwork`** owner when scoped |
+| **4.4 spatial Expand** | **Slice 1–3 ☑** | Band ↔ PA · wing dodge bias · flurry bind PA boost | **`FEATURE_T44_SPATIAL_*`** (default off) · **`CombatFootwork`** + **`CombatFlurryBind`** · **`_run_t44_spatial_*`** ☑ 2026-06-08 |
 
 Exchange **Step** is from **line keys** — not **`weapon_form`**, legacy **`stance`**, or formation file. Tier 4.2 **`defense_footwork_*`** is a **separate** name (spacing/state mults).
 
@@ -344,7 +344,7 @@ Editor play session (`OperationalLog.begin_play_session`) layers diagnostics. Gr
 
 **MXm-3 (shipped):** burst **`Stm N%`** = `stamina_ratio()` vs `CombatExhaustion.effective_stamina_max()` (exhaustion + blood caps, floor 0.7 each). `clamp_stamina_to_effective_max` after spend. Refill rate scales down at high exhaustion. Progress bar always maps to burst stamina; counter-tempo readiness is label-only (`Rdy N%` / `Counter!`). `ZoneOfControl` opponent pressure and aggressive-stance gates use **`stamina_ratio`**, not absolute `/ STAMINA_MAX`.
 
-**MS-L7 (shipped):** `MentalStackDecider` **L5** (`Stack exhaustion`) + gradual offense damp in `CombatAIActionPicker` below tunnel threshold — harness `_run_mental_stack_exhaustion_tunnel_*`; threshold tune in **p4a** only.
+**MS-L7 (shipped):** `MentalStackDecider` **L5** (`Stack exhaustion`) + gradual offense damp in `CombatAIActionPicker` — ramp to floor at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (0.50, 50% FP band). Harness `_run_mental_stack_exhaustion_tunnel_*` · **`_run_p4a_ms_l7_exhaustion_threshold_parity`** ☑ 2026-06-08.
 
 <a id="battle-ui"></a>
 
@@ -421,7 +421,7 @@ Headless authoritative: `.d001_headless_signoff.txt` `ok=true`. F5 optional: [`P
 | 8 | **ii1e**/**ii8** | diagram |
 | — | **ii4d** Exh | 3–5 min |
 
-F5 workflow: optional `dev_soak_encounter` → `.f5_soak_in.txt` → `validate_f5_soak_log.ps1` (multi-fight: `append_f5_soak_log.ps1`; EA close-out: `run_camp_f5_closeout.ps1`). Validator smoke (no F5): copy `docs/f5_soak_log.camp_wf.example.txt` or `docs/f5_soak_log.camp_full.example.txt` → `.f5_soak_in.txt` (combat-only: `f5_soak_log.example.txt`). Q helpers: `run_q_feel.ps1 -Track Q1|Q2|Camp` · `run_q_audit.ps1 -Track Track`. Mandatory II-2b/5a/5b/5c/4d: headless ☑.
+F5 workflow: optional `dev_soak_encounter` → `.f5_soak_in.txt` → `validate_f5_soak_log.ps1` (multi-fight: `append_f5_soak_log.ps1`; Camp-5 status: `run_camp_f5_closeout.ps1`). Validator smoke (no F5): copy `docs/f5_soak_log.camp_wf.example.txt` or `docs/f5_soak_log.camp_full.example.txt` → `.f5_soak_in.txt` (combat-only: `f5_soak_log.example.txt`). Q helpers: `run_q_feel.ps1 -Track Q1|Q2|Camp` · `run_q_audit.ps1 -Track Track`. Mandatory II-2b/5a/5b/5c/4d: headless ☑. Camp-5 human ☑ (2026-06-07) — F5 on demand.
 
 <a id="integration-archive"></a>
 <a id="run-this-plan-cursor"></a>
@@ -440,7 +440,7 @@ F5 workflow: optional `dev_soak_encounter` → `.f5_soak_in.txt` → `validate_f
 
 POST **0–2** done · **Phase 3** (deepen shipped) + **Phase 4** (new systems) + **P4 playbooks** + **WF weapon forms** → [`Expand` stream](PLANNING.md#stream-expand) after [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist) unless a Camp row needs map↔battle. **Ship plan mirror:** [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry).
 
-**Flags** (`CombatConstants.gd`): `is_feature_sector_surround_load`, `FEATURE_SURROUND_ARC_OCCUPANCY`, `FEATURE_HEMA_EIGHT_GUARD_LINES`, `FEATURE_FLURRY_BIND_EXCHANGE`, `FEATURE_INCOMING_PARRY_CHOICE`, `FEATURE_AMBIENT_PAIN_SHOCK`, position-angle footwork, `FEATURE_FIGHT_EXHAUSTION_INDEX`, `FEATURE_AUTOMATIC_DOCTRINE`, `FEATURE_JOULE_ARMOR_BUDGET`, **`is_feature_mental_stack_ai_enabled`**, **`is_feature_combat_attention_enabled`**. Cognition: [#combat-cognition-pipeline](#combat-cognition-pipeline). **D-tracks:** D-001 ☑ · D-003–007 shipped · D-008 removed.
+**Flags** (`CombatConstants.gd`): `is_feature_sector_surround_load`, `FEATURE_SURROUND_ARC_OCCUPANCY`, `FEATURE_HEMA_EIGHT_GUARD_LINES`, `FEATURE_IV6_ATTACK_PATH_OCTANT`, `FEATURE_ARM_INTERPOSE`, `FEATURE_MS_L6_ROUT`, `FEATURE_FLURRY_BIND_EXCHANGE`, `FEATURE_INCOMING_PARRY_CHOICE`, `FEATURE_AMBIENT_PAIN_SHOCK`, position-angle footwork, **`FEATURE_T44_SPATIAL_BAND_PA`** · **`FEATURE_T44_SPATIAL_FILE_DODGE_BIAS`** · **`FEATURE_T44_SPATIAL_FLURRY_PA`** (default off), `FEATURE_FIGHT_EXHAUSTION_INDEX`, `FEATURE_AUTOMATIC_DOCTRINE`, `FEATURE_JOULE_ARMOR_BUDGET`, **`is_feature_mental_stack_ai_enabled`**, **`is_feature_combat_attention_enabled`**. Cognition: [#combat-cognition-pipeline](#combat-cognition-pipeline). **D-tracks:** D-001 ☑ · D-003–007 shipped · D-008 removed.
 
 New tier: harness row + one line in a tier table + row here — see [#redirects-tombstones](#redirects-tombstones) for deleted plan prose (full **IV-1…13** text was in `POST_MILESTONE_INTEGRATION_PLAN.md`).
 
@@ -461,14 +461,14 @@ Prefer harness + soak before constants churn. **III-4** is the active investigat
 
 | ID | Status | Intent | Primary modules |
 |----|--------|--------|-----------------|
-| **III-1** | Partial | Surround sector load + **multi-incoming** parry target scoring | `CombatSurroundArcOccupancy`, `TacticalCombat`, `CombatIncomingParryChoice` |
-| **III-2** | Partial | Guard-line fidelity (**D-006** eight lines shipped); BP6 interpose undecided | `CombatGuardLines`, `DefenseChoiceResolver` — blocks **IV-4** / **IV-5** |
-| **III-3** | Active | Deflect/bind calibration loop (editor **ii2b** + Q2 + `.calibration_audit.txt`) | `DefenseChoiceResolver`, `PARRY_DEFLECT_THRESHOLD` — [#iii-3](#iii-3--deflect--bind-calibration-loop-m3c) |
+| **III-1** | **Shipped ☑** | Surround sector load + multi-incoming parry target scoring | **`sector_weight_for_attacker_on_defender`** tie-break · **`can_parry_all`** live surround budget · **`_run_iii1_incoming_parry_sector_tiebreak`** ☑ 2026-06-08 |
+| **III-2** | Partial | Guard-line fidelity (**D-006** eight lines shipped); BP6 interpose ☑ (**IV-5**) | `CombatGuardLines`, `DefenseChoiceResolver` |
+| **III-3** | **Shipped ☑** | Deflect/bind calibration loop (editor **ii2b** + Q2 + `.calibration_audit.txt`) | **`PARRY_DEFLECT_THRESHOLD`** / **`PARRY_BIND_CONTROL_THRESHOLD`** · **`_run_iii3_deflect_bind_calibration_suite`** ☑ 2026-06-08 — Playtest maintain **ii2b** |
 | **III-4** | **Active (Track A ☑)** | Engagement geometry audit + **Track A bridge** (7v3 outnumber / wings) — [#iii-4](#iii-4--engagement-geometry-audit) | `EngagementOpposition`, `CombatTargetScoring`, `CombatFormationVacancyPlugs`, `MentalStackDecider`, `CombatEngagementMode` |
-| **III-5** | Partial | Medical **pack** depth vs research table | `CombatMedicalActionListing`, `EntityWounds`, **ii7** |
-| **III-6** | Open | Back-rank / depth scheduling vs wind-up abort | `CombatStateHandlers`, `CombatDepthPolearm` |
+| **III-5** | **Shipped ☑** | Medical **pack** depth vs research table | **`packing_channel_success_mult`** · **`get_treatment_channel_count`** · **`_run_iii5_packing_channel_success_depth`** ☑ 2026-06-08 · **ii7** |
+| **III-6** | **Shipped ☑** | Back-rank / depth scheduling vs wind-up abort | **`reschedule_same_file_depth_*`** · wind-up **start/abort** mirrors **`turn_resolved`** · **`_run_windup_*_depth_recheck`** · **`_run_back_rank_depth_lane_skip_recheck`** |
 | **III-7** | Maintain | Physics ↔ entity coherence (sim **closed** — no new mat tier) | `AttackResolver`, `core/EntityWounds` |
-| **III-8** | Partial | Recovery-cause → passive readiness / footwork mults | `PassiveParryContext`, `CombatFootwork`, feint dodge bias |
+| **III-8** | **Shipped ☑** | Recovery-cause → passive readiness / footwork mults | **`normalize_recovery_cause`** · **`READINESS_BY_CAUSE`** / **`DEFENSE_FOOTWORK_*`** parity · **`_run_iii8_recovery_cause_table_parity`** |
 
 <a id="iii-4--engagement-geometry-audit"></a>
 
@@ -483,7 +483,7 @@ Prefer harness + soak before constants churn. **III-4** is the active investigat
 | Rank-0 center (e.g. party files 2–4 on 7v3) | strict offset + nearest | melee or close | utility / L3 / close | **3a** mapped opposition |
 | Rank-0 wings (e.g. party files 0–1, 5–6 on 7v3) | often LONG, no strict pair | L4 → **`wait`** | **nearest-wing** → file-opposed weight + melee; L4 close when no rank-0 map (**3d**) or envelop mop-up (**3e**) | **3a** + **3d**; **3b** `rotate_file` optional |
 | Post-rout mop-up (e.g. 4v1, `wing_lack=false`) | MID/CLOSE band, out of swing reach | **`rotate_file`** / focus loop, **`strikes=0`**, close-only stall | **3e:** suppress rotate without melee; **`attempt_close`** at LONG; at MID/CLOSE list **melee** via **`envelop_mop_up_strike_at_band`** + **`can_melee_threaten`** resolve parity; L4 close when reserve-only; utility pick once strikes list | **3e** (`CombatMeleeListing` + `CombatDoctrine` + picker) |
-| Rank-1 (files 0–1) | depth polearm or reserve | wait/focus or thrust lane | L4 or utility | **III-6** back-rank (later) |
+| Rank-1 (files 0–1) | depth polearm or reserve | wait/focus or thrust lane | L4 or utility | **III-6** depth scheduling ☑ (line plug = Combat maintain) |
 | Skirmish compaction | any | slots repacked `0..n-1` | wider side keeps span when outnumbering | **2b** |
 
 **Cognition path:** [#combat-cognition-pipeline](#combat-cognition-pipeline) → L4 when reserve posture only → `_pick_hold_line_action` may **`pick_weighted`** listed **`attempt_close`** when wing lacks mapped opposition + LONG ([#tier-43 L4](#tier-43-mental-stack--combat-attention)). **`rotate_file`** on menu exits L4 → utility pick (**3b**).
@@ -739,7 +739,7 @@ Do **not** add a monolithic `EngagementGeometry.gd` facade unless IV-9 forces it
 | **Listing** | `CombatMeleeListing`, `CombatMeleeRankTargeting`, `CombatDepthPolearm`, `CombatFormationMoveListing`, `AvailableActionsBuilder`, `CombatListedActions`, `CombatMobilityRetreat` |
 | **Cognition** | `CombatTargetScoring`, `CombatAIActionPicker`, `MentalStackDecider`, `CombatDoctrine`, `TurnReadyHandler`, `CombatEventDispatch` |
 | **Resolution** | `CombatEngagementResolver`, `CombatResolveAction`, `AttackResolver`, `DefenseChoiceResolver`, `CombatStrikeStamping`, `CombatSurroundArcOccupancy`, `weapon/StrikeRealismProfile` |
-| **Tick / schedule** | `CombatProcessTick`, `CombatManager.get_available_actions`, `CombatEventScheduler`, `CombatStateHandlers` (back-rank vs wind-up — **III-6**) |
+| **Tick / schedule** | `CombatProcessTick`, `CombatManager.get_available_actions`, `CombatEventScheduler`, `AttackWindUpStarter`, `CounterTempo` (III-6 depth recheck — **Partial ☑**) |
 | **UI / telemetry** | `FormationDiagramBuilder`, `FormationLayoutBuilder`, `BattleUILayout`, `BattleScene`, `CombatCombatantsSnapshot`, `CombatDebug`, `CombatF5SoakTrace`, `CombatPlayerTurnHints`, `CombatUiHints` |
 | **Campaign (3c — Campaign leads)** | `PartySetup`, `CampaignEncounterBridge`, `ContractSpawner`, `CombatFlow`, `EncounterNode`, `SoakEncounterPresets` |
 | **Harness / audits** | `CombatRegressionHarnessTier1Tail`, `CombatRegressionHarness`, `CombatRegressionHarnessAttentionFootworkTail`, `CombatRegressionHarnessFeintTempoTail`, `CombatRegressionHarnessMedicalMobilityTail` (`movement_policy`), `CombatD001SoakRunner`, `scripts/run_company_state_checks.gd`, `scripts/run_q_track_audits.gd` (Q4 ii8), vacancy / formation-move tails |
@@ -790,7 +790,7 @@ Shared files **`CampaignEncounterBridge.gd`**, **`CombatFlow.gd`**: Campaign str
 | 12 | **L4 vs 3b** | Do not classify `rotate_file` as reserve posture. With **3b** on, wing menus leave L4 → utility pick handles close vs rotate. Test both **3d-only** and **3d+3b** in harness / F5. |
 | 13 | **Close resolve** | **3d** pick-only; **3e** adds MID/CLOSE band gate in `CombatEngagementResolver` when `envelop_close_allowed` — contest math unchanged. |
 
-**Do not implement yet (Track B / other rows):** gap columns · numeric auto-pinch (**p4c**) · MS-L5 plug layer · lower `ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE` · shared-grid slot moves · `CombatFootwork` tier 4.4 expansion.
+**Do not implement yet (Track B / other rows):** gap columns · MS-L5 plug layer · lower `ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE` · shared-grid slot moves · `CombatFootwork` tier 4.4 expansion.
 
 #### Track B — IV-9 (post–Camp-5)
 
@@ -799,7 +799,7 @@ Shared files **`CampaignEncounterBridge.gd`**, **`CombatFlow.gd`**: Campaign str
 | **Legacy** (flag off) | Contiguous column index | Skirmish packs unless **I8** gate | Mapped (Track A) or same-file |
 | **Gap-column** (flag on) | Column id with intentional gaps | **Off** or gap-aware | Reach graph / column arc |
 
-**IV-9 blockers to design first:** (1) disable `compact_native_line_files_if_thinned` in gap mode; (2) preserve vacancy reconcile loop + dual occupancy (`_run_vacancy_reconcile_*`). **MS-L5** plug cognition stays Expand — not Track A. **III-2** guard lines: flank **defense** may lag flank **position** until IV-4/5; not a Track A blocker.
+**IV-9 blockers to design first:** (1) disable `compact_native_line_files_if_thinned` in gap mode; (2) preserve vacancy reconcile loop + dual occupancy (`_run_vacancy_reconcile_*`). **MS-L5** plug cognition stays Expand — not Track A. **III-2** guard lines: flank path + zone fidelity ☑ (**IV-4/5/6**) — not a Track A blocker.
 
 **Dependencies:** IV-1 → IV-2 → IV-3; III-2 → IV-4/5; IV-7 → IV-8; **IV-9 last** (highest risk). Track A **does not** require IV-9.
 
@@ -822,14 +822,14 @@ Shared files **`CampaignEncounterBridge.gd`**, **`CombatFlow.gd`**: Campaign str
 
 | ID | Tier anchor | Intent | Modules / notes |
 |----|-------------|--------|-----------------|
-| **p4a** | [7.2 / exhaustion](#d-004-exhaustion) | Stamina depletion pacing; **Exh** / MS-L7 threshold tune | `CombatExhaustion`, `MentalStackDecider`, **ii4d** |
-| **p4b** | [0.1 formation duration](#tier-01-formation-move-duration-ui) | Formation move duration UI copy polish | `CombatFormationMoveDuration`, **ii5a** tooltips |
-| **p4c** | [1.10 auto doctrine](#p4c--tier-110-automatic-doctrine-pilot) | Widen **`evaluate_automatic_doctrine`** beyond hollow-center pinch (e.g. numeric outnumber) — **not** III-4 Track A | `CombatDoctrine`, `CombatFormationEngagement` |
-| **p4d** | [3.2 parry/bind](#tier-32-parry-bind-deflect) | Doc ↔ code sync for bind/deflect | Docs + harness parity |
-| **p4e** | [4.2b feint](#tier-42-feint-d-telegraph-ai) | Feint listing ↔ reveal progress parity | `CombatAIActionPicker`, `DefenseChoiceResolver` |
-| **p4f** | [6.2 flee](#tier-62-dedicated-flee-formation-action) | Dedicated **flee** formation action UX + AI | `CombatFormationFlee`, `CombatFormationRout` |
-| **p4g** | [4.5 flurry](#tier-45-flurry-bind-exchange-deferred) | Deepen bind-exchange flurry (flag **on**; tune windows) | `CombatFlurryBind` |
-| **p4h** | [3.2 bind riposte](#tier-32-parry-bind-deflect) | Bind riposte balance soak | Harness + **Q2** |
+| **p4a** | [7.2 / exhaustion](#d-004-exhaustion) | **☑ 2026-06-08** — tunnel 0.50 + offense damp ramp | `CombatExhaustion`, **ii4d** |
+| **p4b** | [0.1 formation duration](#tier-01-formation-move-duration-ui) | **☑ 2026-06-08** — Formation duration UI copy polish | **`p4b_formation_duration_ui_copy_line`** · **`_run_p4b_formation_duration_ui_copy_suite`** · **ii5a** |
+| **p4c** | [1.10 auto doctrine](#p4c--tier-110-automatic-doctrine-pilot) | **☑ 2026-06-08** — **`numeric_superiority_for_pinch`** + hollow center · **`_run_p4c_numeric_superiority_auto_pinch`** — **not** III-4 Track A | `CombatDoctrine`, `CombatFormationEngagement` |
+| **p4d** | [3.2 parry/bind](#tier-32-parry-bind-deflect) | **☑ 2026-06-08** — Doc ↔ code sync for bind/deflect | **`p4d_parry_bind_doc_sync_line`** · **`_run_p4d_parry_bind_doc_code_parity_suite`** · calibration audit + **ii2b** |
+| **p4e** | [4.2b feint](#tier-42-feint-d-telegraph-ai) | **☑ 2026-06-08** — Feint listing ↔ reveal progress parity | `CombatAIActionPicker` · `DefenseChoiceResolver._feint_readiness_reveal_mult` · **`_run_feint_move_listing_reveal_progress_dampens_early_wind_up`** |
+| **p4f** | [6.2 flee](#tier-62-dedicated-flee-formation-action) | **☑ 2026-06-08** — Dedicated **flee** formation action UX + AI | `CombatFormationFlee`, `CombatFormationRout` · **`CombatRegressionHarnessFleeTail`** |
+| **p4g** | [4.5 flurry](#tier-45-flurry-bind-exchange-deferred) | **☑ 2026-06-08** — Bind-exchange flurry depth (flag **on**) | `CombatFlurryBind` · **`_run_p4g_flurry_bind_depth_suite`** + existing **`_run_flurry_bind_*`** |
+| **p4h** | [3.2 bind riposte](#tier-32-parry-bind-deflect) | **☑ 2026-06-08** — Bind riposte balance soak | **`_run_p4h_bind_riposte_balance_suite`** + existing **`_run_bind_riposte_*`** · Playtest **ii2b** / **Q2** maintain |
 
 ### Phase 4 — New systems (**IV-\***)
 
@@ -837,32 +837,32 @@ One **`FEATURE_*`** (or explicit “no flag”) per PR. **Dependency hints:** IV
 
 | ID | Status | Intent | Notes |
 |----|--------|--------|-------|
-| **IV-1** | Open / review | Plug vs incursion **contest** | Reconcile with **D-008 removed** — may archive as wontfix |
+| **IV-1** | **Archived ☑** | Plug vs incursion **contest** | **Wontfix** — **D-008 removed** · plug=`VacancyPlugs` · incursion=`TacticalCombat`+ZoC · **`iv1_plug_incursion_doc_sync_line`** · **`_run_iv1_plug_incursion_review_suite`** ☑ 2026-06-08 |
 | **IV-2** | **Done** | Multi-target **close** slots | Shipped (spread at LONG) |
-| **IV-3** | **Partial ☑** | Engagement **1v1** classifier (`snapshot_is_true_duel`) | Mop-up 7v2 stays Skirmish; equal-file endgame still uses wing `attempt_close` (III-4 **3d**) |
-| **IV-4** | **Partial** | Guard **matrix** / eight-diagonal fidelity | **D-006** shipped; BP6 / matrix TBD after **III-2** |
-| **IV-5** | Open | Arm **interpose** (BP6) | After **III-2** |
-| **IV-6** | Open | Zone-specific guard | Lower priority than IV-4/5 |
-| **IV-7** | Open | **Armor burden** on initiative/readiness | `armor/*`, stamina |
-| **IV-7b** | Open | Stamina **engage floor** (`STAMINA_ENGAGE_MIN` investigate) | `CombatAIActionPicker` weights |
-| **IV-8** | Open | Combat-start **initiative** ordering | Event scheduler |
-| **IV-9** | Open | **Gap-column** slot topology | Highest risk — [**III-4 Track B**](LIVE_PATHS.md#iii-4--engagement-geometry-audit) |
-| **IV-10** | Open | **Subregion** combat multipliers | `CombatHitSubRegion`, wounds |
-| **IV-11** | Open | Leader formation **abilities** | Campaign-adjacent |
-| **IV-12** | Open | Multi-unit same slot + distraction | Design-heavy |
-| **IV-13** | Open | ZoC **reach** modifier | After IV-2/3 |
+| **IV-3** | **Shipped ☑** | Engagement **1v1** classifier (`snapshot_is_true_duel`) | **`iv3_doc_sync_line`** · **`_run_iv3_true_duel_classifier_edge_suite`** · **`_run_engagement_scenarios`** ☑ 2026-06-08 |
+| **IV-4** | **Shipped ☑** | Guard **matrix** / eight-diagonal fidelity | **`guard_cardinal_for_attack_path`** · **`guard_zone_part_for_line`** · **`_run_iv4_guard_matrix_suite`** ☑ 2026-06-08 |
+| **IV-5** | **Shipped ☑** | Arm **interpose** (BP6) | **`FEATURE_ARM_INTERPOSE`** · **`arm_interpose_eval`** ☑ 2026-06-08 · `_run_iv5_arm_interpose_suite` |
+| **IV-6** | **Shipped ☑** | Zone-specific guard / octant attack paths | **`FEATURE_IV6_ATTACK_PATH_OCTANT`** · **`get_attack_path`** / **`_iv6_diagonal_attack_path`** · **`_run_iv6_attack_path_octant_suite`** ☑ 2026-06-08 |
+| **IV-7** | **Shipped ☑** | **Armor burden** on initiative/readiness | **`FEATURE_ARMOR_BURDEN`** · **`armor_burden_action_ready_mult`** · **`armor_burden_passive_readiness_mult`** · **`_run_iv7_armor_burden_*`** ☑ 2026-06-08 |
+| **IV-7b** | **Shipped ☑** | Stamina engage floor for offense listing | **`AI_STAMINA_ENGAGE_FLOOR_RATIO`** · **`ai_offense_stamina_weight_mult`** · **`_run_iv7b_stamina_engage_floor_suite`** ☑ 2026-06-08 |
+| **IV-8** | **Shipped ☑** | Combat-start **initiative** ordering | **`FEATURE_INITIATIVE_ORDER`** · **`initiative_score_for_combatant`** · **`_run_iv8_initiative_order_*`** ☑ 2026-06-08 |
+| **IV-9** | **Shipped ☑** | **Gap-column** slot topology (flag default **off**) | **`FEATURE_GAP_COLUMN_TOPOLOGY`** · compaction gate · **`FormationSlots`** column graph · **`CombatPairGeometry`** arc · diagram gaps · **`_run_iv9_gap_column_*`** ☑ 2026-06-08 |
+| **IV-10** | **Shipped ☑** | **Subregion** combat multipliers | **`FEATURE_SUBREGION_COMBAT_MULT`** · **`CombatHitSubRegion.combat_damage_mult`** · **`_run_iv10_subregion_combat_mult_*`** ☑ 2026-06-08 |
+| **IV-11** | **Slice 1–10 ☑** | Leader formation **abilities** | player + enemy commander · pinch outnumber AI · F5 **`leader_order=`** (validator **`iv11_leader_order`**) · encounter spawn |
+| **IV-12** | **Shipped ☑** | Multi-unit same slot + distraction | **`FEATURE_IV12_SLOT_DISTRACTION`** (default off) · formation **slot cell** grouping · **`drag_back`** dual-occ · surround pad · **`iv12_offense_weight_mult`** · pile-on **`IV12_AI_COLOCATED_TARGET_BIAS_MULT`** · **`_run_iv12_*`** ☑ 2026-06-08 |
+| **IV-13** | **Shipped ☑** | ZoC **weapon-reach** bonus at weak front | **`FEATURE_IV13_WEAPON_REACH_ZOC`** (default off) · **`ZoneOfControl.weapon_reach_zoc_bonus_m`** · **`CombatMeleeListing`** + **`CombatDistanceBands`** · **`_run_iv13_weapon_reach_zoc_*`** ☑ 2026-06-08 |
 | **IV-INTR** | **Removed** | Line crash / intrusion | **D-008** — do not reschedule |
 
 ### Cognition & AI (Tier 4 — not IV)
 
 | ID | Status | Intent | Modules / notes |
 |----|--------|--------|-----------------|
-| **MS-L5–L6** | Expand | Mental-stack layers — formation plug, rout | `MentalStackDecider` |
-| **MS-L7** | **Shipped** (tune **p4a**) | Exhaustion tunnel L5 + offense damp | [#tier-43](#tier-43-mental-stack--combat-attention) |
-| **MS-MID** | Expand | Mid-fight ally medical listing + L1 coordination | `CombatMedicalCoordination` |
-| **MS-CAMP** | Post-Camp-5 | Trait/morale → stack thresholds via bridge meta | bridge meta only · pairs with [**WF-4**](#wf-weapon-form-stances) roster `stance_preference` |
+| **MS-L5–L6** | **Shipped ☑** | Mental-stack layers — formation plug, rout | **`MENTAL_STACK_LAYER_FORMATION_PLUG`** · **`FEATURE_MS_L6_ROUT`** ☑ 2026-06-08 · `_run_mental_stack_*` |
+| **MS-L7** | **Shipped ☑** | Exhaustion tunnel L5 + offense damp (p4a ☑ 2026-06-08) | [#tier-43](#tier-43-mental-stack--combat-attention) |
+| **MS-MID** | **Shipped ☑** | Mid-fight ally medical listing + L1 coordination | **`FEATURE_MS_MID_INFIGHT_MED`** · **`_run_ms_mid_infight_med_depth_suite`** ☑ 2026-06-08 |
+| **MS-CAMP** | **Shipped ☑** | Trait/morale → stack thresholds via bridge meta | **XCamp-3.8** · **`stance_preference_for_campaign_mood`** · **`apply_campaign_mood_stance_preferences`** · company checks **`_run_xcamp_38_ms_camp_bridge`** ☑ 2026-06-08 |
 | **Tier 4.4 PA pilot** | **Shipped** | Line-key exchange step + octant lookup | [#wf-tier-44-pa](#wf-tier-44-pa) · maintain [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog) |
-| **Tier 4.4 spatial** | Deferred | Beyond PA pilot — scope in [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog) | `CombatFootwork` — [#tier-44-spatial-footwork-deferred](#tier-44-spatial-footwork-deferred) |
+| **Tier 4.4 spatial** | **Slice 1–3 ☑** | Band · wing dodge · flurry PA | **`FEATURE_T44_SPATIAL_*`** · **`_run_t44_spatial_*`** |
 | **Player targets** | **Wontfix** | Per-click target UI | [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped) |
 | **WF-1a–1c** | **Shipped** | Module, picker **`mod`**, UI suffix, soak **ii5c**/**ii8** | [#wf-1a-shipped](#wf-1a-shipped) · [#wf-1b-shipped](#wf-1b-shipped) · [#wf-1c-shipped](#wf-1c-shipped) |
 | **WF-2a–2b** | **Shipped** | Yomi inference + counter picks | [#wf-2-open](#wf-2-open) |
@@ -1252,15 +1252,15 @@ exchange end ─► clear_on_exchange_end (both sides) — offset does not persi
 | `wall`, `balanced` | `high` | cardinal | 0 | 0 | Hi |
 | `plow` | `low` | cardinal | +6 | +3.3 | Lo |
 | `tempest` | `left` | cardinal | +14 | +7.7 | Lf |
-| `ox` | `high_right` | octant | −7 | −3.85 | HiR |
-| `wrath` | `high_left` | octant | +7 | +3.85 | HiL |
-| `fool` | `low_left` | octant | +10 | +5.5 | LoL |
+| `ox` | `high_right` | octant | −8 | −4.4 | HiR |
+| `wrath` | `high_left` | octant | +9 | +4.95 | HiL |
+| `fool` | `low_left` | octant | +11 | +6.05 | LoL |
 
-**Full octant raw table** (`CombatGuardLines.POSITION_ANGLE_OFFSET_DEG_BY_LINE`): `high_right` −7 · `low_right` −4 · `low_left` +10 · `high_left` +7 (cardinals match **`CombatConstants`** 4-key table).
+**Full octant raw table** (`CombatGuardLines.POSITION_ANGLE_OFFSET_DEG_BY_LINE`, **WF-T1 ☑ 2026-06-07**): `high_right` −8 · `low_right` −5 · `low_left` +11 · `high_left` +9 (cardinals match **`CombatConstants`** 4-key table).
 
 **Policy:** form identity sets **home line** and **geometry angle** always; **PA stamp** follows **live line string** through the lookup above — never a form-id table. Wind-up PA uses move **`attack_line`**, not form home — e.g. **`thrust`** from **`high_right`** home still stamps from the move’s attack line key.
 
-**Dodge PA step:** **`CombatConstants.guard_line_for_body_part(dodge_eval_part)`** → line → same Constants lookup × **`POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE`** (0.85).
+**Dodge PA step:** **`CombatConstants.guard_line_for_body_part(dodge_eval_part)`** → line → same Constants lookup × **`POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE`** (0.85). Octant example (WF-T1): **`left_leg`** → **`low_left`** (+11° × 0.85 = +9.35°) · **`right_leg`** → **`low_right`** (−5° × 0.85 = −4.25°).
 
 **Focus moves → `guard_line` (L3 override — not form home):**
 
@@ -1307,7 +1307,7 @@ Auto-switch (**WF-3**) and spawn (**WF-4**) both call **`assign_form`** — home
 |-------|---------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
 | **WF L2 form** | Move weights, **`wait_action_weight_mult`**, focus **`preferred_guards`** bias | **`mod(form, parry\|evasion\|feint_readthrough)`**; **`wind_up_transition_mult`** |
 | **WF L3 guard** | Focus-line listing when move resolves later; **`CombatAttention.append_focus_line_listing_actions`** (listing only) | Live **`guard_line`** + **`GuardLineUpdater`** outcomes; **`active_line_for_ui`** on gauge |
-| **Tier 4.4 PA** | **Not stamped** (listing may **read** geometry for path preview when flag on) | Stamp [#wf-pa-stamp-callers](#wf-pa-stamp-callers) · geometry [#wf-pa-geometry-callers](#wf-pa-geometry-callers) · clear [#wf-pa-clear-callers](#wf-pa-clear-callers) — hub [#wf-tier-44-pa](#wf-tier-44-pa) |
+| **Tier 4.4 PA** | **`attack_angle_deg_for_listing_preview`** when idle (eval + T44 mults); live stamp when wind-up/recovering — [#wf-pa-geometry-callers](#wf-pa-geometry-callers) | Stamp [#wf-pa-stamp-callers](#wf-pa-stamp-callers) · geometry [#wf-pa-geometry-callers](#wf-pa-geometry-callers) · clear [#wf-pa-clear-callers](#wf-pa-clear-callers) — hub [#wf-tier-44-pa](#wf-tier-44-pa) |
 | **Tier 4.2 “footwork”** | Feint listing spacing mults (menu) | **`choose_defense`** dodge mults vs **`distance_to`**, **`STATE_RECOVERING`** |
 | **MS-L4 hold-line** | **`attempt_close`**, reserve focus/wait | **Not** PA or form home |
 | **Formation lane footing** | Formation move **duration** only (`get_lane_and_footing_duration_multiplier`) | **Not read** at strike contact |
@@ -1328,7 +1328,7 @@ Auto-switch (**WF-3**) and spawn (**WF-4**) both call **`assign_form`** — home
 
 | Layer | Module | Inputs |
 |-------|--------|--------|
-| Alignment geometry | **`CombatConstants.get_alignment_from_angles`** | Attack angle (± attacker offset via **`CombatFootwork.apply_offset_to_angle_deg`**) vs **`CombatFootwork.guard_angle_deg`** — [#wf-pa-geometry-callers](#wf-pa-geometry-callers) |
+| Alignment geometry | **`CombatConstants.get_alignment_from_angles`** | Attack angle: listing **`attack_angle_deg_for_listing_preview`** or strike **`apply_offset_to_angle_deg`** vs **`CombatFootwork.guard_angle_deg`** — [#wf-pa-geometry-callers](#wf-pa-geometry-callers) |
 | Form temperament | **`CombatWeaponForm.mod(form, "parry"|"evasion"|"feint_readthrough")`** | **`form_str`** only — stacks on capacity/readiness, not line identity |
 | Tier 4.2 spacing | **`DefenseChoiceResolver`**, feint listing | **`distance_to`**, **`STATE_RECOVERING`**, off-balance — **not** **`guard_line`** |
 | Wind-up transition cost | **`AttackWindUpStarter`** | Angular guard→attack distance × **`wind_up_transition_mult(form, …)`** — separate from Tier 4.4 step |
@@ -1370,7 +1370,7 @@ Formation diagram cell (`FormationDiagramBuilder._cell_label_with_footwork`): op
 | **D-001 ii5c** | **`CombatD001SoakRunner._run_ii5c_gauge_label_checks`** | **`stm_ready`**, **`exh_grd_stack`**, **`grd_hir`**, **`stm_ready_exh_grd_row`**, **`form_ox_gauge`**, **`suffix_order_grd_form`**, **`suffix_order_step_atk_form`**, **`form_wrath_grd_hil`**, **`form_wrath_gauge`**, **`form_wrath_suffix_order`**, **`form_wrath_diagram`** (eight-guard) | — |
 | **Q4 ii8** | **`CombatQTrackAudits._append_q4_ii8`** / D-001 ii8 proxy | Presence gates + **`form_gauge_suffix`**, **`form_diagram_suffix`**, **`gauge_suffix_order`**, **`turn_ready_form_suffix`** | — |
 | **Regression (live)** | **`CombatRegressionHarnessWeaponFormTail`** | **18** rows — spawn through auto-switch + yomi/counter + UI suffix | — |
-| **Regression (PA)** | **`AttentionFootworkTail`** | **`_run_footwork_*`** (incl. **`_run_footwork_eight_line_home_guard_parry_step`** — **`ox`** / **`wrath`** / **`fool`** octant homes; **`_run_footwork_octant_windup_step_low_left`**) + **`_run_battle_ui_gauge_suffix_step_atk_form_order`** | — |
+| **Regression (PA)** | **`AttentionFootworkTail`** | **`_run_footwork_*`** (incl. **`_run_footwork_wf_t1_octant_suite`**) + **`_run_battle_ui_gauge_suffix_step_atk_form_order`** | — |
 
 Phase 0 **`run_q_track_audits`** proxies D-001 ii8 report checks (including WF suffix **content**). Trace modules: **`CombatD001SoakRunner`**, **`CombatQTrackAudits`**, **`CombatF5SoakTrace`**, **`TurnReadyHandler`**, **`BattleScene`** — compose via **`BattleUIUpdater`** / **`FormationDiagramBuilder`**.
 
@@ -1380,11 +1380,11 @@ Phase 0 **`run_q_track_audits`** proxies D-001 ii8 report checks (including WF s
 
 **At a glance:**
 
-| Stream | Headless | Human (Camp-5) | Doc anchor |
-|--------|----------|----------------|------------|
+| Stream | Headless | Human F5 | Doc anchor |
+|--------|----------|----------|------------|
 | **Combat maintain** | **WF-M1/M2/M4/M5 ☑** · Phase 0 **`_run_footwork_*`** + ii5c | — | This section |
-| **Playtest** | ii5c/ii8 + **`wf_m3_*`** validator on F5 paste ☑ | Camp §8 full loop human [#wf-m3-f5-playtest](#wf-m3-f5-playtest) | [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) |
-| **Expand** | Frozen until Camp-5 | — | Post–Camp-5 table below |
+| **Expand** | One §9c row + harness per PR | — | [Post–Camp-5 Expand](#post-camp-5-expand-priority-order) below |
+| **Playtest** | ii5c/ii8 + **`wf_m3_*`** validator ☑ | Camp §8 ☑ (2026-06-07); on demand [#wf-m3-f5-playtest](#wf-m3-f5-playtest) | [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) |
 
 **Scope:** weapon forms (L2), moment guard (L3), Tier 4.4 PA step, tier-4.2 spacing mults, formation lane footing. **Not** formation doctrine (L1) or player form-switch UI (design lock).
 
@@ -1407,7 +1407,7 @@ Phase 0 **`run_q_track_audits`** proxies D-001 ii8 report checks (including WF s
 |----|----------|------|--------------|-------------------|
 | **WF-M1** | **P0** | Doc sync: PA matrix, form catalog, soak table, agent prompts reflect octant lookup **shipped** | `docs/LIVE_PATHS.md` et al. | **☑ 2026-06-06** |
 | **WF-M2** | **P1** | Harness: octant home parry step for **`ox`**, **`wrath`**, **`fool`** | **`AttentionFootworkTail._run_footwork_eight_line_home_guard_parry_step`** | **☑ 2026-06-06** · **`PHASE0: PASS`** |
-| **WF-M3** | **P1** | F5 §8: gauge suffix readable + Camp loop markers in log | Playtest | **Automated ☑** — **`validate_f5_soak_log`** **`wf_m3_*`** (+ optional **`wf_m3_idle_step_leak`**) · **Human** — Camp §8 tick + glance sign-off [#wf-m3-f5-playtest](#wf-m3-f5-playtest) |
+| **WF-M3** | **P1** | F5 §8: gauge suffix readable + Camp loop markers in log | Playtest | **☑ 2026-06-07** — **`validate_f5_soak_log`** **`wf_m3_*`** (+ **`wf_m3_idle_step_leak`**) · human Camp §8 (`followup.log`) [#wf-m3-f5-playtest](#wf-m3-f5-playtest) |
 | **WF-M4** | **P2** | D-001 **ii5c**: **`wrath`** gauge + diagram (`high_left` drift) | **`CombatD001SoakRunner._run_ii5c_gauge_label_checks`** | **☑ 2026-06-06** (`form_wrath_*` + **`form_wrath_diagram`**) |
 | **WF-M5** | **P2** | Harness alias policy: **`get_stance_modifier`** harness-only; new rows use **`CombatWeaponForm.mod(form_str, …)`** | **`CombatConstants.get_stance_modifier`** doc + AGENTS anti-pattern | **☑ 2026-06-06** (grandfather existing harness rows) |
 
@@ -1440,24 +1440,24 @@ Manual sign-off for gauge suffix readability — complements headless **ii5c/ii8
 
 **In scope candidates (pick one PR at a time after IV-4/5):**
 
-| Candidate | Meaning | **Not** |
-|-----------|---------|---------|
-| Engagement band ↔ step magnitude | Stronger PA offset at CLOSE vs LONG | Form-id table |
-| Lateral file context → dodge step bias | Wing file affects **`position_angle_defender_offset_deg_for_line`** scale | Formation **`rotate_file`** duration |
-| Bind/flurry footwork window | **`CombatFlurryBind`** exchange adds transient step | World mesh / animation |
+| Candidate | Meaning | **Not** | Status |
+|-----------|---------|---------|--------|
+| Engagement band ↔ step magnitude | Stronger PA offset at CLOSE vs LONG | Form-id table | **☑ slice 1** — **`FEATURE_T44_SPATIAL_BAND_PA`** |
+| Lateral file context → dodge step bias | Wing file affects **`position_angle_defender_offset_deg_for_line`** scale | Formation **`rotate_file`** duration | **☑ slice 2** — **`FEATURE_T44_SPATIAL_FILE_DODGE_BIAS`** |
+| Bind/flurry footwork window | **`CombatFlurryBind`** exchange adds transient step | World mesh / animation | **☑ slice 3** — **`FEATURE_T44_SPATIAL_FLURRY_PA`** |
 
-**Out of scope until Camp-5+ explicit ask:** world-position locomotion · player form button · duplicate guard system.
+**Out of scope unless explicit ask:** world-position locomotion · player form button · duplicate guard system.
 
 ##### Post–Camp-5 Expand (priority order)
 
 | Order | ID | Intent | Depends on | Modules |
 |------:|----|--------|------------|---------|
-| 1 | **IV-4** / **IV-5** | Flank **guard matrix** + arm interpose — defense geometry may lag flank **position** today | **III-2** partial | `DefenseChoiceResolver`, `CombatGuardLines` |
-| 2 | **WF-T1** | Soak-tune PA octant raw table + defender scales (0.55 / 0.85) — constants only, no new architecture | WF-M2 green | **`CombatGuardLines`**, **`CombatConstants`** |
-| 3 | **WF-T2** | Soak-tune form **`mod`**, counter mults, auto-switch thresholds | F5 **`form_switch`** logs | **`CombatWeaponForm`**, **`WeaponFormTail`** |
+| 1 | **IV-4** / **IV-5** | Flank **guard matrix** + arm interpose | **III-2** partial | `DefenseChoiceResolver`, `CombatGuardLines` — **☑ 2026-06-08** |
+| 2 | **WF-T1** | Soak-tune PA octant raw table + defender scales (0.55 / 0.85) — constants only, no new architecture | WF-M2 green | **`CombatGuardLines`**, **`CombatConstants`** — **☑ 2026-06-07** |
+| 3 | **WF-T2** | Soak-tune form **`mod`**, counter mults, auto-switch thresholds | F5 **`form_switch`** logs | **`CombatWeaponForm`**, **`WeaponFormTail`** — **☑ 2026-06-08** |
 | 4 | **III-8** | Close recovery-cause → passive readiness / feint footwork mult parity | — | **`PassiveParryContext`**, tier-4.2 constants |
-| 5 | **Tier 4.4 spatial** | Footwork **beyond** abstract PA — define scope first (likely formation-adjacent movement, not blade-only scalar) | IV-9? | **`CombatFootwork`** — [#tier-44-spatial-footwork-deferred](#tier-44-spatial-footwork-deferred) |
-| 6 | **IV-6** | Zone-specific guard | IV-4/5 | `CombatGuardLines`, listing |
+| 5 | **Tier 4.4 spatial** | **Slice 1–3 ☑** | IV-9? | **`CombatFootwork`** · **`CombatFlurryBind`** |
+| 6 | **IV-6** | Zone-specific guard / octant paths | IV-4/5 | **`CombatConstants.get_attack_path`** — **☑ 2026-06-08** |
 | 7 | **MS-CAMP** | Campaign trait/morale → roster **`stance_preference`** at spawn | Camp-5 bridge | **`CampaignEncounterBridge`**, **`PartyMemberSnapshot`** |
 
 **Frozen policy (unchanged):** no player form-switch control · **`evaluate_automatic_form`** in **`pick`** only · **`assign_form`** → home **`guard_line`** only · PA from line keys only.
@@ -1480,10 +1480,11 @@ Manual sign-off for gauge suffix readability — complements headless **ii5c/ii8
 |-------|------|---------|
 | **Stamp / clear** | `_run_footwork_attack_step_offset_stamped_on_windup` · `_run_footwork_defender_parry_step_stamps_offset` · `_run_footwork_defender_dodge_step_stamps_offset` · `_run_footwork_defender_offset_scrubbed_after_exchange` · `_run_footwork_abort_attacker_wind_up_clears_offset` · `_run_footwork_offset_scrubbed_on_combat_start` | Line-key stamp; exchange/combat start scrub |
 | **Geometry** | `_run_footwork_offset_shifts_attack_angle_deg` · `_run_footwork_defender_offset_shifts_guard_angle_deg` · `_run_footwork_arc_contact_applies_offset_once` · `_run_footwork_windup_arc_intended_includes_attacker_step` · `_run_footwork_guard_line_for_body_part_maps_legs_and_chest` | Offset applied once; dodge part→line |
-| **choose_defense** | `_run_footwork_choose_defense_dodge_does_not_keep_parry_offset` | Parry vs dodge stamp exclusivity |
+| **choose_defense / pick preview** | `_run_footwork_choose_defense_dodge_does_not_keep_parry_offset` · `_run_footwork_picker_preview_*` (idle eval · wind-up stamp · flurry bind) | Parry vs dodge exclusivity · listing preview eval vs live stamp · T44 flurry on idle pick |
 | **UI / snapshot** | `_run_footwork_ui_hint_formats_offset` · `_run_footwork_waiting_hides_stale_step_ui` · `_run_footwork_diagram_label_suffix_compact` · `_run_footwork_snapshot_*` | Gauge **`Step`** visibility; diagram empty when flag on |
 | **Flag off** | `_run_footwork_disabled_skips_windup_stamp` | No stamp when feature load **false** |
-| **Octant PA** | `_run_footwork_eight_line_home_guard_parry_step` · `_run_footwork_octant_windup_step_low_left` | Diagonal homes parry PA; octant wind-up from **`low_left`** attack line |
+| **Octant PA (WF-T1 ☑)** | **`_run_footwork_wf_t1_octant_suite`** (bundle) | Lookup delegate · ox/wrath/fool home parry · diagonal wind-up + attack angle · leg dodge octants · **parry_eval + dodge_eval** (no stamp) · scale lock · guard geometry |
+| **Tier 4.4 spatial (T44 ☑)** | **`_run_t44_spatial_*_suite`** (band · file dodge · flurry) | Band PA · wing dodge · flurry bind boost · **eval/stamp parity** (attack · parry · dodge) · stacked close+wing/flurry · flag-off parity |
 | **Idle scrub** | `_run_footwork_process_waiting_scrubs_leaked_offset` · `_run_footwork_return_to_waiting_scrubs_leaked_offset` · `_run_footwork_return_to_cowering_scrubs_leaked_offset` · `_run_footwork_parry_idle_clears_pa_before_waiting` · `_run_footwork_medical_phase_halt_scrubs_leaked_offset` · `_run_footwork_flee_scrubs_leaked_offset` · `_run_footwork_death_tick_scrubs_leaked_offset` · `_run_footwork_finalize_dead_combatant_clears_offset` · `_run_footwork_formation_move_start_scrubs_leaked_offset` · `_run_footwork_medical_start_scrubs_target_receiving_offset` · `_run_footwork_enter_short_recovery_clears_offset` · `_run_footwork_parry_stamp_scrubs_leaked_idle_offset` · `_run_footwork_dodge_stamp_scrubs_leaked_idle_offset` · `_run_footwork_windup_stamp_scrubs_leaked_idle_offset` · `_run_footwork_medical_complete_scrubs_medic_offset` | Leaked PA on idle / transition; stamp entry scrubs before fresh step |
 | **Focus ↔ guard (L3)** | `_run_focus_line_resolve_sets_guard_and_focus` · `_run_guard_from_move_syncs_focus_part_with_guard_line` · `_run_focus_line_noop_skips_without_guard_change` | Focus resolve sets **`guard_line`** — not form home |
 
@@ -1525,7 +1526,7 @@ Smoke: **`docs/f5_soak_log.camp_wf.example.txt`** (minimal) or **`docs/f5_soak_l
 
 **Policy:** form **home** is a **soft anchor** — any row above may move **`guard_line`** away from **`home_guard_line(form)`** mid-fight. Tier 4.4 **`apply_defender_step_on_parry`** always reads **current** **`guard_line`**, not form catalog.
 
-**Wind-up bridge (form ↔ guard, not footwork):** **`CombatWeaponForm.wind_up_transition_mult(form, move_id, guard_line, attack_line)`** scales guard-transition component in **`AttackWindUpStarter`** when attack stays on home or **`preferred_guards`** — faster native-line wind-ups. Does **not** set **`position_angle_offset_deg`** (that remains **`CombatFootwork.apply_attack_step_on_windup(attack_line)`**).
+**Wind-up bridge (form ↔ guard, not footwork):** **`CombatWeaponForm.wind_up_transition_mult(form, move_id, guard_line, attack_line)`** scales guard-transition component in **`AttackWindUpStarter`** when attack stays on home or **`preferred_guards`** — faster native-line wind-ups. Does **not** set **`position_angle_offset_deg`** (that remains **`CombatFootwork.apply_attack_step_on_windup(attack_line, opponent_id, manager)`**).
 
 <a id="wf-production-call-sites"></a>
 
@@ -1541,6 +1542,7 @@ Smoke: **`docs/f5_soak_log.camp_wf.example.txt`** (minimal) or **`docs/f5_soak_l
 | Form → close pressure | `CombatEngagementResolver` → `mod(form, close_attempt|evasion)` — not **`guard_line`** |
 | Form → AI target weight | `CombatTargetScoring` → `form_ai_targeting_mult` — listing/pick adjacent |
 | Attack PA step | `AttackWindUpStarter`, `AttackResolver` → `apply_attack_step_on_windup` — hub [#wf-tier-44-pa](#wf-tier-44-pa) · detail [#wf-pa-stamp-callers](#wf-pa-stamp-callers) |
+| Pick-time PA preview | `CombatAIActionPicker` → `attack_angle_deg_for_listing_preview` — [#wf-pick-vs-strike](#wf-pick-vs-strike) |
 | Defense PA step | `DefenseChoiceResolver.choose_defense` → parry/dodge apply — [#wf-pa-stamp-callers](#wf-pa-stamp-callers) |
 | PA clear | `AttackResultApplier`, `AttackResolver`, `AfterblowHandler`, `CombatStateHandlers`, `CombatManager`, `MedicalPhaseController`, `CounterTempo`, `DefenseChoiceResolver` → `clear_on_exchange_end` — [#wf-pa-clear-callers](#wf-pa-clear-callers) |
 | Guard angle + offset | `CombatFootwork.guard_angle_deg` / `apply_offset_to_angle_deg` in strike assembly — [#wf-pa-geometry-callers](#wf-pa-geometry-callers) |
@@ -1558,6 +1560,7 @@ Smoke: **`docs/f5_soak_log.camp_wf.example.txt`** (minimal) or **`docs/f5_soak_l
 | Phase | Anchor | Module |
 |-------|--------|--------|
 | **Lookup** | [#wf-form-guard-pa-matrix](#wf-form-guard-pa-matrix) | **`CombatConstants`** 4-key (flag off) · **`CombatGuardLines`** octant (flag on) |
+| **Eval (no stamp)** | [#wf-pa-geometry-callers](#wf-pa-geometry-callers) | **`attack_eval_step_deg_for_attacker`**, **`parry_eval_step_deg_for_defender`**, **`dodge_eval_step_deg_for_defender`** — stamps delegate to same helpers |
 | **Stamp** | [#wf-pa-stamp-callers](#wf-pa-stamp-callers) | **`apply_attack_step_on_windup`**, **`apply_defender_step_on_parry/dodge`** |
 | **Geometry** | [#wf-pa-geometry-callers](#wf-pa-geometry-callers) | **`guard_angle_deg`**, **`apply_offset_to_angle_deg`** at contact |
 | **Clear** | [#wf-pa-clear-callers](#wf-pa-clear-callers) | **`clear_on_exchange_end`** on exchange / abort / combat start |
@@ -1571,10 +1574,10 @@ Smoke: **`docs/f5_soak_log.camp_wf.example.txt`** (minimal) or **`docs/f5_soak_l
 
 | Module | When | Line key source | Notes |
 |--------|------|-----------------|-------|
-| **`AttackWindUpStarter`** | Wind-up starts | Move **`attack_line`** | Primary attacker stamp |
+| **`AttackWindUpStarter`** | Wind-up starts | Move **`attack_line`** | Optional **`opponent_id`**, **`manager`** → T44 band + flurry mult |
 | **`AttackResolver`** | Strike resolve (non-passive-parry) | **`atk_line_base`** / rolled **`effective_attack_line`** | Re-stamps if diagonal **C** roll changed line vs wind-up |
-| **`DefenseChoiceResolver.choose_defense`** | Parry commit | Live **`guard_line`** | × **`POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY`** (0.55) |
-| **`DefenseChoiceResolver.choose_defense`** | Dodge commit | **`dodge_eval_part`** → **`guard_line_for_body_part`** | × dodge scale (0.85); may **`clear_on_exchange_end`** first |
+| **`DefenseChoiceResolver.choose_defense`** | Parry commit | Live **`guard_line`** | × parry scale (0.55); T44 band + flurry via **`attacker_id`**, **`manager`** |
+| **`DefenseChoiceResolver.choose_defense`** | Dodge commit | **`dodge_eval_part`** → line | × dodge scale (0.85); T44 band + wing file + flurry; **`dodge_eval_step_deg_for_defender`** for preview |
 
 Lookup: **`CombatConstants.position_angle_offset_deg_for_attack_line`** (4-cardinal keys) — [#wf-form-guard-pa-matrix](#wf-form-guard-pa-matrix). **Not** **`weapon_form`**.
 
@@ -1585,7 +1588,10 @@ Lookup: **`CombatConstants.position_angle_offset_deg_for_attack_line`** (4-cardi
 | API | Inputs | Production callers |
 |-----|--------|-------------------|
 | **`CombatFootwork.guard_angle_deg`** | Live **`guard_line`** (+ wobble) ± **`position_angle_offset_deg`** | **`AttackResolver`**, **`DefenseResolutionHandler`**, **`AttackResultApplier`** (clash), wind-up arc debug |
-| **`CombatFootwork.guard_angle_deg_with_step_deg`** | Same + hypothetical step before commit | **`DefenseChoiceResolver.choose_defense`** (parry capacity preview) |
+| **`CombatFootwork.attack_angle_deg_for_listing_preview`** | Attack line × eval or live stamp | **`CombatAIActionPicker`** (idle → eval; wind-up/recovering → stamp) |
+| **`CombatFootwork.attack_eval_step_deg_for_attacker`** | Attack line × spatial mults (no stamp) | Wind-up / listing preview; stamp via **`apply_attack_step_on_windup`** |
+| **`CombatFootwork.guard_angle_deg_with_step_deg`** | Same + hypothetical step before commit | **`DefenseChoiceResolver.choose_defense`** (parry capacity preview via **`parry_eval_step_deg_for_defender`**) |
+| **`CombatFootwork.dodge_eval_step_deg_for_defender`** | Dodge part → line × spatial mults (no stamp) | Available for dodge-path preview; stamp via **`apply_defender_step_on_dodge`** |
 | **`CombatFootwork.apply_offset_to_angle_deg`** | Attacker **`position_angle_offset_deg`** on attack angle | **`AttackWindUpStarter`**, **`AttackResolver`**, **`DefenseChoiceResolver`**, **`DefenseResolutionHandler`**, **`CombatAIActionPicker`** (listing alignment) |
 | **`CombatConstants.get_guard_angle_deg`** | **`guard_line`** only — **no PA offset** | Prefer **`CombatFootwork.guard_angle_deg`** at contact; raw use in harness / snapshot |
 
@@ -1669,7 +1675,7 @@ Grep checklist for paths above: [#wf-production-call-sites](#wf-production-call-
 | `CombatDoctrine.evaluate_automatic_doctrine` | Pattern for WF-3 auto-switch | **Done** (separate **`evaluate_automatic_form`**) |
 | `stance_preference` on combatant dict | Wire → spawn default | **Done** (WF-4) |
 
-**Gaps today (post WF ship):** **`opponent_disengage_mult`** unwired until disengage moves land; **`wrath`**/**`fool`** diagonal octant PA tune in soak only (no harness row yet).
+**Gaps today (post WF ship):** **`opponent_disengage_mult`** unwired until disengage moves land.
 
 #### P0 — Design lock (reference — WF-1a/b shipped)
 
@@ -1694,10 +1700,10 @@ Locked decisions below governed implementation; **do not reopen** without Expand
 
 | Form id | Default `guard_line` | PA @ home parry (× 0.55, flag on) | Favored moves | Pressure | Weak vs (WF-2 counter bias) |
 |---------|---------------------|-----------------------------------|---------------|----------|----------------------------|
-| `ox` | `high_right` | −3.85° | thrust, parry_thrust | neutral | low feints, `unterhau` |
+| `ox` | `high_right` | −4.4° | thrust, parry_thrust | neutral | low feints, `unterhau` |
 | `plow` | `low` | +3.3° | stab family, spear thrust | neutral | high cuts (`oberhau`) when guard misaligned |
-| `wrath` | `high_left` | +3.85° | oberhau, diagonal cuts | aggressive | controlling / wall, long recovery |
-| `fool` | `low_left` | +5.5° | feints, parry counters | controlling | committed thrust while extended |
+| `wrath` | `high_left` | +4.95° | oberhau, diagonal cuts | aggressive | controlling / wall, long recovery |
+| `fool` | `low_left` | +6.05° | feints, parry counters | controlling | committed thrust while extended |
 | `wall` | `high` | 0 | wait, focus, parry moves | defensive | envelop / multi-close (existing III-4) |
 | `tempest` | `left` | +7.7° | slash, quick_slash | aggressive | tight parry, focused thrust |
 | `balanced` | `high` | 0 | even | neutral | no strong counter bonus |
@@ -1852,6 +1858,8 @@ var w: float = base_stamina * ai_targeting * polearm_lane * form_move_m * form_c
 
 **Wind-up** — in **`AttackWindUpStarter`**, multiply guard transition component by **`wind_up_transition_mult(form, move_id, guard_line, attack_line)`** before **`WIND_UP_DURATION_MAX_S`** clamp.
 
+**Path preview (Tier 4.4)** — in **`CombatAIActionPicker`** attack path alignment (~line 930), use **`CombatFootwork.attack_angle_deg_for_listing_preview(atk, atk_line, base_deg, tgt_id, manager)`** — idle → **`attack_eval_step_deg_for_attacker`**; wind-up/recovering → live stamp ([#wf-pick-vs-strike](#wf-pick-vs-strike)).
+
 #### Tuning constants (`CombatConstants`, WF-1a–3)
 
 | Constant | Default | Status | Used by |
@@ -1861,6 +1869,11 @@ var w: float = base_stamina * ai_targeting * polearm_lane * form_move_m * form_c
 | `WF_YOMI_FORM_INFERENCE_MIN_OBS` | 4 | **Live** | **`infer_opponent_form`** (WF-2a) |
 | `WF_YOMI_FORM_INFERENCE_MARGIN` | 0.15 | **Live** | **`infer_opponent_form`** (WF-2a) |
 | `WF_FORM_COUNTER_MULT_CAP` | 1.15 | **Live** | **`form_counter_mult`** (WF-2b) |
+| `WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD` | 0.12 | **Live** (WF-T2 ☑) | Block offensive **`duel_read`** from **wall** until stamina recovers |
+| `WF_AUTO_SWITCH_DUEL_WRATH_PROMOTE_PAD` | 0.15 | **Live** (WF-T2 ☑) | Stamina band → **wrath** in isolated duel |
+| `WF_AUTO_SWITCH_DUEL_WRATH_DEMOTE_PAD` | 0.10 | **Live** (WF-T2 ☑) | Low stamina **wrath** → **fool** |
+| `WF_AUTO_SWITCH_SURROUND_WEIGHT_PAD` | 0.05 | **Live** (WF-T2 ☑) | **`_surround_pressure_high`** sector weight threshold |
+| `WF_AUTO_SWITCH_ISOLATED_DUEL_WEIGHT_PAD` | 0.08 | **Live** (WF-T2 ☑) | **`_is_isolated_duel`** max flank weight |
 | `AI_FOCUS_LINE_FORM_PREFERRED_MULT` | 1.25 | **Live** | Focus move when line ∈ **`preferred_guards`** |
 | `ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM` | key name | **Live** | WF-4 — bridge + **`CombatManager.start`** |
 | `ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM` | key name | **Live** | WF-4 — bridge + presets |
@@ -2201,6 +2214,7 @@ Register after **`AttentionFootworkTail`** in **`CombatRegressionHarness.gd`**. 
 | `_run_weapon_form_auto_switch_surround` | 3 | **PASS** | Multi-threat → **wall** / **tempest** |
 | `_run_weapon_form_auto_switch_envelop_block` | 3 | **PASS** | Envelop mop-up blocks low-stamina **wall** switch |
 | `_run_weapon_form_preference_spawn` | 4 | **PASS** | Roster **`stance_preference: fool`** → active **`weapon_form`** |
+| **`_run_weapon_form_wf_t2_suite`** | T2 | **PASS** ☑ 2026-06-08 | Mod identity bands · counter cap **1.15** · duel wall recovery pad · auto-switch threshold lock |
 
 Migrate existing feint/tier1 stance rows per [harness migration](#harness-migration-wf-1b) — do not duplicate assertions in **`FeintTempoTail`**.
 

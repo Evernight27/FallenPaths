@@ -2,7 +2,7 @@
 
 **Purpose:** Close the gap between **shipped combat/medical simulation** and a **shippable mercenary campaign** players can run for hours without dev soak presets.
 
-**Entry:** [`PLANNING.md`](PLANNING.md) · [`CURSOR.md`](CURSOR.md) · combat map [`LIVE_PATHS.md`](LIVE_PATHS.md) · bleeding [`LIVE_PATHS#bleeding-units`](LIVE_PATHS.md#bleeding-units).
+**Entry:** [`PLANNING.md`](PLANNING.md) · [`CURSOR.md`](CURSOR.md) · [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) (post-EA phases) · combat map [`LIVE_PATHS.md`](LIVE_PATHS.md) · bleeding [`LIVE_PATHS#bleeding-units`](LIVE_PATHS.md#bleeding-units).
 
 **Implementation appendices:** [§9 wiring](SHIP_PLAN.md#implementation-reference) · [**§9b mental stack (shipped)**](SHIP_PLAN.md#combat-mental-stack-shipped) · [**§9c combat Expand registry**](SHIP_PLAN.md#combat-expand-registry) · [§10 contracts](SHIP_PLAN.md#data-contracts) · [§11 encounters](SHIP_PLAN.md#encounter-lifecycle) · [§12 tuning](SHIP_PLAN.md#ea-tuning-defaults) · [§13 save](SHIP_PLAN.md#persistence-scope) · [§14 roster](SHIP_PLAN.md#roster-casualties) · [§15 dev soak](SHIP_PLAN.md#dev-vs-campaign-mode) · [§17 supplies](SHIP_PLAN.md#battle-supply-consumption) · [§18 templates](SHIP_PLAN.md#camp-4-config-examples) · [§19 gate constants](SHIP_PLAN.md#implementation-stubs) · [§20 pitfalls](SHIP_PLAN.md#implementation-pitfalls) · [decision guide (shipped bundle)](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22)
 
@@ -47,7 +47,7 @@ A new player can, without reading harness docs:
 
 ## 2. Current state (repo truth)
 
-**Campaign bundle (2026-05-22):** Camp-1 + Camp-2 + Camp-3 (headless) + Camp-4 implemented; gates closed in [`CompanyState`](world/CompanyState.gd) ([§19](SHIP_PLAN.md#implementation-stubs)). **Remaining EA:** Camp-3.4 F5 human sign-off, Camp-5 checklist close-out.
+**Campaign bundle (2026-05-22):** Camp-1 + Camp-2 + Camp-3 (headless) + Camp-4 implemented; gates closed in [`CompanyState`](world/CompanyState.gd) ([§19](SHIP_PLAN.md#implementation-stubs)). **Camp-5 EA (2026-06-07):** headless gates + F5 human sign-off (`followup.log` → `validate_f5_soak_log.ps1` **`ok=true`** · `run_camp_f5_closeout.ps1 -HumanSignOff` **`human_signoff: READY`**). Optional §8 tracks (field care action, paid loss, wage warn, desertion, party triage) PASS on human paste — **Exp-0.2** ☑ 2026-06-08.
 
 | Area | Shipped | Gap vs BB-like ship |
 |------|---------|---------------------|
@@ -139,7 +139,7 @@ flowchart TB
 - **Camp-2** after **Camp-1.5** (settlement exists); **2.2** can follow **1.8** (snapshot enriches settlement).
 - **Camp-3.2** before **Camp-3.1**; **D-bleed** closed (`warn_eta` + tutorial block + Party field care).
 - **Camp-4** after **Camp-1.4**; parallels late **Camp-2**.
-- **Expand** / **III-*** / **IV-*** / **P4** frozen until [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) unless map↔battle (see [§6](#work-streams-during-campaign) · [§9c](#combat-expand-registry)).
+- **Expand** / **III-*** / **IV-*** / **P4** unfrozen post–Camp-5 (2026-06-07) per [§9c](#combat-expand-registry) (see [§6](#work-streams-during-campaign)).
 
 ---
 
@@ -167,10 +167,10 @@ flowchart TB
 | 12 | **Camp-3.2** | — | Shipped | Party triage / field care UI |
 | 13 | **Camp-3.1** | — | Shipped | Tutorial marker + `MapBleedPolicy` block until first win |
 | — | **Camp-3.3** | — | Shipped (Combat-led) | Medical-phase hints |
-| — | **Camp-3.4** | — | Headless shipped · F5 human open | `run_campaign_ship_audit` tail |
+| — | **Camp-3.4** | — | Headless + F5 human ☑ (2026-06-07) | `run_campaign_ship_audit` tail |
 | — | **Camp-5** | **D-persistence** | Closed P1 EA | **P2** only if adding save |
 
-**Parallel agents (EA close-out):** Camp product gates are closed — default pairing is **Combat maintain** + **Playtest (F5 §8)**; **Campaign** agent only for [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) sign-off or optional **P2** save. See [§6](#work-streams-during-campaign) · [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents).
+**Parallel agents (post–Camp-5):** **Combat maintain** default; **Playtest** / **Expand** optional. **Campaign** for economy UX or **P2** save only. See [§6](#work-streams-during-campaign) · [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents).
 
 ---
 
@@ -245,7 +245,7 @@ Goal: **motivation + resources** on the existing 3×3 map.
 | **Meta keys** | Add to `CompanyState` or `CombatConstants`: `WORLD_META_COMPANY_STATE := "company_state"`, `WORLD_META_ACTIVE_CONTRACT := "active_contract"`, `WORLD_META_LAST_BATTLE_SUMMARY := "last_battle_summary"` ([§10](SHIP_PLAN.md#data-contracts)). |
 | **UI** | Minimal HUD on **`UIOverlayLayer`**: gold + supplies + day (+ `Next wage` after 1.2). |
 | **Input** | Settlement/defeat modals must **`set_process_input(false)`** on player until dismissed ([§20](SHIP_PLAN.md#implementation-pitfalls)). |
-| **Harness** | `.\scripts\run_company_state_checks.ps1` (**174** tests: Camp-1 + Camp-2 field-care e2e pressure→bandage→camp rest + P2 persistence); gate greps `FP_HARNESS_OK: CompanyStateChecks`. |
+| **Harness** | `.\scripts\run_company_state_checks.ps1` (**406** tests: Camp-1 + Camp-2 + XCamp-3.x + P2 persistence; isolated harness save slot); gate greps `FP_HARNESS_OK: CompanyStateChecks`. |
 | **Exit** | [x] HUD updates when gold/supplies change (`refresh_hud` on economy writes; headless Camp-1.1). |
 
 > **Historical (greenfield Camp-1.1):** first PR was `CompanyState` shell + HUD only ([§3d](SHIP_PLAN.md#camp-1-build-order) step 1). Full Camp-1 shipped 2026-05-22 — no separate slice table needed for EA work.
@@ -461,7 +461,7 @@ Goal: deep combat/medical **constrains** the merc loop without a second minigame
 | **Cognition** | In medical-phase F5, spot-check allies pick pressure/pack when **`Stack medical`** / **`self_medical`** appears on gauge ([§9b](SHIP_PLAN.md#combat-mental-stack-shipped)) — feel only, not a new gate ID. |
 | **Commands** | `run_campaign_ship_audit.ps1` (standalone) or `run_all_combat_checks.ps1` (includes Camp-3.4 tail); `run_q_feel.ps1 -Track Camp` (§8 checklist) or `-Track Q1` / `Q2` for soak feel |
 | **Headless** | `CompanyStateChecks` maps [§8](#camp-playtest-acceptance) steps 1–10; `[ii7]` + `[ii_envelop] pass=true` in `.d001_soak_out.txt`; Q1/Q2 via `run_q_audit.ps1 -Track Track` |
-| **Exit** | [x] Headless: `CAMPAIGN_SHIP_AUDIT: PASS` (tail of `run_all_combat_checks.ps1` · `run_campaign_ship_audit.ps1`). [ ] Human: F5 campaign mode + record in [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist). Optional F5: **`dev_soak_encounter=ii_envelop`** + `validate_f5_soak_log.ps1`. |
+| **Exit** | [x] Headless: `CAMPAIGN_SHIP_AUDIT: PASS` (tail of `run_all_combat_checks.ps1` · `run_campaign_ship_audit.ps1`). [x] Human (2026-06-07): F5 campaign mode — `followup.log` / `.f5_soak_in.txt`; [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist) tick. Optional F5: **`dev_soak_encounter=ii_envelop`** + `validate_f5_soak_log.ps1`. |
 
 **Phase Camp-3 exit:** External playtester completes tutorial + 1 contract without agent docs.
 
@@ -485,7 +485,7 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 
 ## Camp-5 — EA ship checklist
 
-> **EA close-out (2026-05-22):** Camp-1–4 + headless Camp-3.4 **implemented**. Remaining human sign-off: F5 [§8](SHIP_PLAN.md#camp-playtest-acceptance) (`dev_soak_encounter` empty) + tick rows below. Gate defaults: [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22).
+> **EA close-out (2026-05-22):** Camp-1–4 + headless Camp-3.4 **implemented**. **Human sign-off (2026-06-07):** F5 [§8](SHIP_PLAN.md#camp-playtest-acceptance) session in `followup.log` — tutorial win → Border Skirmish (field care + triage) → map days → Escort paid loss → mop-up combat; `PHASE0: PASS` + `CAMPAIGN_SHIP_AUDIT: PASS` + `validate_f5_soak_log` **`ok=true`** + `run_camp_f5_closeout.ps1 -HumanSignOff` **`human_signoff: READY`**. Gate defaults: [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22).
 
 > **Optional code gate:** [**D-persistence P2**](CAMPAIGN_DECISION_GUIDE.md#d-persistence) — add autosave on settlement continue; default **P1** (no save code).
 
@@ -497,29 +497,29 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 | Camp-2.4 ≥1 affliction | Camp-2.4 harness | Full affliction catalog |
 | Camp-2.6 fail screens | Camp-2.6 harness | Narrative events |
 | Camp-3.1–Camp-3.2 tutorial + triage | Camp-3.1/3.2 harness | Extra tutorial tooltips |
-| Camp-3.4 Q + **§8 F5** sign-off | `run_all_combat_checks.ps1` (Q + `[ii7]` + `[ii_envelop]`) or `run_campaign_ship_audit.ps1`; **F5 human** still required |
+| Camp-3.4 Q + **§8 F5** sign-off | [x] Headless + **F5 human (2026-06-07)** — `followup.log` · `run_camp_f5_closeout.ps1 -HumanSignOff` |
 | Camp-4.1–4.3 contract presets | Camp-4 harness | More template variety |
 | **Tier 4.3 mental stack** L0–L4 + salience damp + **MS-L7** shipped | Phase 0 `_run_mental_stack_*` | MS-L5–L6 (Expand); **p4a** tune |
 | **III-4 Track A** (7v3 wings / mapped opposition) | Phase 0 `[ii_envelop] pass=true` + tier-1 opposition/rotate harness ☑ | IV-9 gap-column (Track B) |
-| **WF footing / forms** (WF-1…4 + PA pilot shipped) | Phase 0 **`AttentionFootworkTail`** + **`WeaponFormTail`** + D-001 **ii5c** | F5 **WF-M3**: **`validate_f5_soak_log`** **`wf_m3_*`** on paste ☑ · full Camp §8 human — [#wf-m3-f5-playtest](LIVE_PATHS.md#wf-m3-f5-playtest) |
+| **WF footing / forms** (WF-1…4 + PA pilot shipped) | Phase 0 **`AttentionFootworkTail`** + **`WeaponFormTail`** + D-001 **ii5c** | F5 **WF-M3**: **`validate_f5_soak_log`** **`wf_m3_*`** ☑ · Camp §8 human ☑ (2026-06-07) — [#wf-m3-f5-playtest](LIVE_PATHS.md#wf-m3-f5-playtest) |
 | No dev soak required for normal play | `dev_soak_encounter` empty | Optional F5 **`ii_envelop`** wing feel |
 
-**Explicitly defer (post-EA Expand):** [§9c](SHIP_PLAN.md#combat-expand-registry) — III-*, IV-1,3,5–13, P4a–h, MS-L5–L6 · organ surgery · BMI F1 · bleed retune · new `FEATURE_*`. (**WF-1…WF-4** + tier-4.4 octant PA **shipped** — maintain harness.) (**MS-L7** baseline shipped — **p4a** is threshold tune only.)
+**Explicitly defer (post-EA Expand):** [§9c](SHIP_PLAN.md#combat-expand-registry) — sequenced in [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) (**Exp-1…4**). III-*, IV-1,3,5–13, P4a–h, MS-L5–L6 · organ surgery · BMI F1 · bleed retune · new `FEATURE_*`. (**WF-1…WF-4** + tier-4.4 octant PA **shipped** — maintain harness.) (**MS-L7** baseline shipped — **p4a** is threshold tune only.)
 
 ---
 
 <a id="work-streams-during-campaign"></a>
 
-## 6. Other work streams (EA close-out)
+## 6. Other work streams (post–Camp-5)
 
-| Work stream | During EA close-out |
-|-------------|---------------------|
-| **Campaign** | F5 [§8](SHIP_PLAN.md#camp-playtest-acceptance) + [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) sign-off — not new `Camp-*` code unless **P2** save |
-| **Combat** | Phase 0 maintain; [`LIVE_PATHS` tier 4.3](LIVE_PATHS.md#tier-43-mental-stack--combat-attention) regression (L0–L4 + MS-L7 L5 + salience damp; no player targets). |
-| **Playtest** | **Required before EA:** Camp-3.4 F5 human + Q1/Q2 feel; headless already in Phase 0. |
-| **Expand** | **WF shipped** — maintain only until Camp-5; new Expand tiers frozen. Registry: [§9c](SHIP_PLAN.md#combat-expand-registry) · [`LIVE_PATHS` phase 4](LIVE_PATHS.md#phase-4--new-systems-formal-tracks). |
+| Priority | Work stream | Default task |
+|:--------:|-------------|--------------|
+| 1 | **Combat** | Phase 0 maintain; [`LIVE_PATHS` tier 4.3](LIVE_PATHS.md#tier-43-mental-stack--combat-attention) regression (L0–L4 + MS-L7 L5 + salience damp; no player targets). |
+| 2 | **Expand** | One [§9c](SHIP_PLAN.md#combat-expand-registry) row (WF-T1/T2, IV-4/5, MS-L5–L6) — separate chat from Combat. |
+| 3 | **Playtest** | F5 append / validator / Q1/Q2 on demand |
+| 4 | **Campaign** | Economy UX bugs; optional **P2** save only if asked |
 
-**Session default until Camp-5 done:** **Combat maintain** + **Playtest (F5 §8)** in parallel; **Campaign** agent only for Camp-5 checklist / optional **P2** save. Single-agent fallback: F5 sign-off **or** one Combat fix ([`PLANNING#parallel-agents`](PLANNING.md#parallel-agents)).
+**Session default:** **Combat** chat + optional second chat (**Expand** or **Playtest**); **Campaign** on demand. Prompts: [`scripts/cursor/README.md`](../scripts/cursor/README.md) · [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents).
 
 ---
 
@@ -580,9 +580,9 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 
 #### §8 F5 close-out bundle (Camp-5 human + `run_camp_f5_closeout`)
 
-**Automated minimum** (`.\scripts\run_camp_f5_closeout.ps1` exit 0): headless **PHASE0 + CAMPAIGN_SHIP_AUDIT** + F5 paste with **`wf_m3_turn_ready_form`** + **`wf_m3_grd_before_form`** + **`camp_settlement_continue`** + **`camp_company_day`**.
+**Automated minimum** (`.\scripts\run_camp_f5_closeout.ps1` exit 0): headless **PHASE0 + CAMPAIGN_SHIP_AUDIT** + F5 paste with **`wf_m3_turn_ready_form`** + **`wf_m3_grd_before_form`** + **`camp_settlement_continue`** + **`camp_company_day`**. Docs example smoke (`camp_wf` / `camp_full` `.example.txt`) passes automated minimum but prints **`human_signoff: SMOKE ONLY`**. **Camp-5 human ☑ (2026-06-07):** baseline `human_signoff: READY` on `.f5_soak_in.f5_backup.txt`. Re-validate after new F5 appends: `.\scripts\run_camp_f5_closeout.ps1 -HumanSignOff`.
 
-**Full Camp-5 human** still requires separate runs or merged log for steps **4, 8–10** (field care action, paid loss, wage/desertion, Party triage). Merge sessions: `.\scripts\append_f5_soak_log.ps1 -AppendFrom fight2.log` → **`validate_f5_soak_log.ps1`**.
+**Full Camp-5 human** still requires separate runs or merged log for steps **4, 8–10** (field care action, paid loss, wage/desertion, Party triage). Preflight then merge: `.\scripts\preflight_f5_followup.ps1 followup.log` · `.\scripts\append_f5_soak_log.ps1 -AppendFrom followup.log -Label camp5_optional` → **`validate_f5_soak_log.ps1`**.
 
 | Marker / step | Grep / validator | Notes |
 |---------------|------------------|-------|
@@ -592,7 +592,7 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 | Paid loss | `company_run_end reason=contract_failed reload=true` | Optional `[camp_paid_loss]` |
 | Tutorial soft loss | `company_run_end reason=tutorial_failed reload=false` | Optional `[camp_tutorial_soft_loss]` |
 | Wage / desertion (step 9) | `company_wages: gold=` · `desertion summary=` | Optional `[camp_wage_warn]` · `[camp_desertion]` |
-| Party triage (step 10) | Human Party menu glance | No automated grep marker yet |
+| Party triage (step 10) | `party_triage_open living=` | Optional `[camp_party_triage]` · human row glance still recommended |
 | Mop-up anti-stall (3e) | `engagement_debug turn` + `mop_up=true` + `strikes=[1-9]` | Optional `[camp_mopup_strike_finish]`; rout-only wins OK for settlement but weaker 3e signal |
 | Fight end | `soak_fight_end` | In-editor **`soak_coverage`** includes fight-end line in trace; deferred until first medical pick when `medical_phase=true` |
 | WF-M3 | `turn_ready_gauge` · `Grd` before `Form` | Step 12 |
@@ -703,9 +703,9 @@ Full logical order: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#comba
 | **Camp bridge (not Expand)** | Campaign stream | Camp-1 economy · Camp-2.3 med efficacy · Camp-2.5 stabilize · Camp-4 `encounter_config` rows · III-4 **3c** player front preset keys ☑ |
 | **Phase 3 depth** | Expand after Camp-5 | III-1 surround/parry target · III-3 deflect soak · III-5 pack depth · III-6 back-rank · III-4 **Track B** (IV-9 gap-column) |
 | **P4 playbooks** | Expand | p4a exhaustion pacing · p4c auto doctrine · p4f flee action · p4g flurry tune |
-| **Phase 4 IV** | Expand | IV-3 1v1 rule · IV-4/5 guards · IV-7 armor burden · **IV-9 gap-column** ([III-4 Track B](LIVE_PATHS.md#iii-4--engagement-geometry-audit)) · IV-10 subregion |
-| **Weapon forms (WF)** | **Maintain** (Camp-5) | [**WF status**](LIVE_PATHS.md#wf-implementation-status) — **WF-1…4 shipped** · **M3** automated validator ☑ / Camp §8 human open · M1·M2·M4·M5 ☑ · post–Camp-5 [**WF-T1/T2**](LIVE_PATHS.md#wf-footing-improvement-backlog) |
-| **Cognition** | Expand | MS-L5–L6 · tier-4.4 spatial footwork · **no** player targets (**MS-L7** shipped — **p4a** tune) |
+| **Phase 4 IV** | Expand | IV-3 1v1 rule · **IV-4/5 ☑** · **IV-7 ☑** armor burden · **IV-8 ☑** initiative order · **IV-9 ☑** gap-column · **IV-10 ☑** subregion combat mult |
+| **Weapon forms (WF)** | **Maintain** (Camp-5) | [**WF status**](LIVE_PATHS.md#wf-implementation-status) — **WF-1…4 shipped** · **M3** ☑ · **WF-T1 ☑** (2026-06-07) · **WF-T2 ☑** (2026-06-08) · **IV-4/5 ☑** · MS-L5–L6 |
+| **Cognition** | Expand | MS-L5–L6 ☑ · **tier-4.4 spatial slices 1–3 ☑** · **no** player targets (**MS-L7** shipped — **p4a** tune) |
 | **Wontfix / closed** | — | IV-INTR (D-008) · P3b mat sim expand · bleed retune unless asked · F1 BMI |
 
 **Pick one row per Expand PR:** harness `_run_*` + live path line + optional `FEATURE_*` ([`PLANNING` policy](PLANNING.md#harness-and-flags)).
@@ -982,6 +982,7 @@ const PERSISTENCE_MODE := "P1"                 # Camp-5 D-persistence: session-o
 - **2026-06-05** (audit pass 2) — WF spec hardened: spawn/reset path, `form_str` resolution order, WF-1b production call-site table, weapon `default_form` seeds, WF-3 trigger table, cognition boundary (no new mental-stack layer), `engagement_posture` ≠ form anti-pattern; PLANNING duplicate WF row removed.
 - **2026-06-05** (audit pass 3) — WF spec expanded: `CombatWeaponForm` module API + `FORM_DEFS` shape, `mod()` seed table, move-family weights, pressure class mapping, WF-2 yomi/counter matrix, UI suffix spec, WF-4 data-flow diagram, harness row catalog, cognition pipeline WF-3 hook.
 - **2026-06-05** (plan pass 2) — WF: code inventory, PR checklists, agent prompts, module API status column, WF-2/3/4 implementation maps + pseudocode, stale "planned" text cleaned, **`WF_FORM_SWITCH_STAMINA_COST`** doc sync (**0.0** live).
+- **2026-06-07** — **Camp-5 EA human sign-off:** `followup.log` + `camp5_step9` append → `validate_f5_soak_log` **`ok=true`** · `run_camp_f5_closeout.ps1 -HumanSignOff` **`human_signoff: READY`**; all §8 validator tracks PASS (incl. optional tutorial soft loss, wage warn, desertion via step-9 smoke append); validator CRLF decode fix in **`CombatF5SoakLogValidator._decode_f5_log_text`** — [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist) · [`§8`](SHIP_PLAN.md#camp-playtest-acceptance)
 - **2026-06-06** — Camp §8 extended validator tracks (steps 4–9): **`camp_field_care_action`**, **`camp_paid_loss`**, **`camp_wage_warn`**, **`camp_desertion`** + **`docs/f5_soak_log.camp_full.example.txt`** — [`§8 close-out bundle`](SHIP_PLAN.md#camp-playtest-acceptance)
 - **2026-06-06** — III-4 **3e** mop-up strike finish: `envelop_mop_up_strike_at_band` (MID/CLOSE band/reach gap) + F5/validator **`camp_mopup_strike_finish`**; §8 close-out bundle table — [`LIVE_PATHS#iii-4`](LIVE_PATHS.md#iii-4--engagement-geometry-audit)
 - **2026-06-06** — Footing pass 9: regression harness **form_health_bar** freed-node read fix; **`run_camp_f5_closeout`** — [`#wf-m3-f5-playtest`](LIVE_PATHS.md#wf-m3-f5-playtest)

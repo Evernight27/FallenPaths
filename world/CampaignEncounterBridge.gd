@@ -9,7 +9,9 @@ const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
+const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
+const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const META_ENEMY_FORMATION := "enemy_formation"
 
 
@@ -57,7 +59,9 @@ static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> voi
 		return
 	clear_battle_kill_log(world)
 	if encounter.has_method("get_combat_encounter_dict"):
-		var enc: Dictionary = encounter.get_combat_encounter_dict()
+		var enc: Dictionary = _ContractSpawner.build_encounter_config(
+			encounter.get_combat_encounter_dict()
+		)
 		if "soak_preset_id" in encounter:
 			var soak_id: String = str(encounter.soak_preset_id).strip_edges()
 			if not soak_id.is_empty():
@@ -69,14 +73,14 @@ static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> voi
 		if (
 			enc.has("contract_title")
 			or enc.has("pay_gold")
-			or bool(enc.get("tutorial", false))
+			or _CompanyState.is_tutorial_contract(enc)
 		):
 			var contract: Dictionary = {
 				"contract_title": str(enc.get("contract_title", "Contract")),
 				"pay_gold": int(enc.get("pay_gold", 0)),
 				"difficulty_rating": int(enc.get("difficulty_rating", 1)),
 				"contract_type": str(enc.get("contract_type", "")),
-				"tutorial": bool(enc.get("tutorial", false)),
+				"tutorial": _CompanyState.is_tutorial_contract(enc),
 			}
 			_CompanyState.set_active_contract(world, contract)
 		if enc.has("map_bleed_mult"):
@@ -95,6 +99,7 @@ static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> voi
 		SoakEncounterPresets.clear_world_soak_meta(world)
 	refresh_party_formation_meta(world)
 	_CompanyState.wire_party_medical_supply(world)
+	apply_campaign_mood_stance_preferences(world)
 	_apply_party_mood_to_encounter_meta(world)
 	SoakEncounterPresets.emit_f5_fight_enter_hint(encounter)
 
@@ -128,27 +133,7 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
 	if party_has_untreated_wounds(world):
 		const _OpLog := preload("res://core/OperationalLog.gd")
 		if _OpLog.is_play_session_active():
-			var med_left: int = _CompanyState.get_medical_supplies(world)
-			var parts: int = party_untreated_part_count(world)
-			var budget: Dictionary = _CompanyState.triage_med_budget(world)
-			var zero_med_note: String = (
-				"; 0-med bandages OK for map dressings" if med_left <= 0 else ""
-			)
-			_OpLog.play_world(
-				(
-					"field_care: open Party — pressure (free) then bandage; %d part(s) need dressing; "
-					+ "med_left=%d; bandage_med_est=%d; total_med_est=%d; med_shortfall=%d%s; "
-					+ "battle bandages free; then Camp rest (−1 med · +1 day)"
-				)
-				% [
-					parts,
-					med_left,
-					int(budget.get("field_bandage_med_est", 0)),
-					int(budget.get("total_worst_case", 0)),
-					int(budget.get("med_shortfall", 0)),
-					zero_med_note,
-				]
-			)
+			_OpLog.play_world(_CompanyState.format_post_fight_field_care_world_log(world))
 
 
 ## Step onto contract tile: stash contract, spawn enemies, consume marker (R3).
@@ -171,6 +156,31 @@ static func _apply_party_mood_to_encounter_meta(world: Node2D) -> void:
 		var merged: Dictionary = enc.duplicate(true)
 		merged[CombatConstants.ENCOUNTER_KEY_MORALE_COHESION_PLAYER] = clampf(sum / float(n) / 100.0, 0.15, 1.0)
 		world.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, merged)
+
+
+## XCamp-3.8 (MS-CAMP): stamp fight-entry weapon form from campaign mood when roster has no explicit pref.
+static func apply_campaign_mood_stance_preferences(world: Node2D) -> void:
+	if world == null:
+		return
+	var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
+	if pm == null or not ("members" in pm):
+		return
+	for m in pm.members:
+		if m is not Dictionary:
+			continue
+		var node_ref: Variant = (m as Dictionary).get("node_ref")
+		if not is_instance_valid(node_ref) or not (node_ref is Node):
+			continue
+		var node: Node = node_ref as Node
+		if node.has_method("is_dead") and node.is_dead():
+			continue
+		if not ("stance_preference" in node):
+			continue
+		var existing: String = _WeaponForm.normalize_form(str(node.get("stance_preference")))
+		if not existing.is_empty() and existing != _WeaponForm.FORM_BALANCED:
+			continue
+		var mood: float = float((m as Dictionary).get("company_mood", _CompanyState.MOOD_DEFAULT))
+		node.set("stance_preference", _CompanyState.stance_preference_for_campaign_mood(mood))
 
 
 static func begin_contract_encounter(
@@ -405,11 +415,17 @@ static func refresh_party_formation_meta(world: Node2D) -> void:
 		var enc_raw: Variant = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
 		if enc_raw is Dictionary:
 			var enc: Dictionary = enc_raw as Dictionary
-			if enc.has(CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION):
+			if (
+				not _CompanyState.is_tutorial_contract(enc)
+				and enc.has(CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION)
+			):
 				var pf: Variant = enc.get(CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION)
 				if pf is Dictionary and not (pf as Dictionary).is_empty():
 					preset = (pf as Dictionary).duplicate(true)
-			elif enc.has(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT):
+			elif (
+				not _CompanyState.is_tutorial_contract(enc)
+				and enc.has(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT)
+			):
 				var front_n: int = int(enc.get(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT, 0))
 				if front_n > 0:
 					preset = _FormationPreset.for_front_count(n, front_n)
@@ -560,6 +576,31 @@ static func party_has_untreated_wounds(world: Node2D) -> bool:
 		if entity_has_untreated_wounds(entity):
 			return true
 	return false
+
+
+## Live party display rows (`PartyManager.get_members`); falls back to last battle summary snapshots.
+static func party_member_snapshots(world: Node2D) -> Array:
+	if world == null:
+		return []
+	var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
+	if pm != null and pm.has_method("get_members"):
+		return pm.get_members()
+	return _party_member_snapshots_from_summary(world)
+
+
+static func _party_member_snapshots_from_summary(world: Node2D) -> Array:
+	var summary: Dictionary = _CompanyState.get_last_battle_summary(world)
+	var members: Variant = summary.get("members", [])
+	if not (members is Array):
+		return []
+	var rows: Array = []
+	for entry in members as Array:
+		if entry is not Dictionary:
+			continue
+		var snap: Variant = (entry as Dictionary).get("snapshot", entry)
+		if snap is Dictionary:
+			rows.append(snap)
+	return rows
 
 
 static func health_entity_from_character(node: Node) -> Node:

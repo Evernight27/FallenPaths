@@ -1,9 +1,10 @@
 extends SceneTree
 
-## Headless Camp-1 economy loop (1.1–1.8) + Camp-2 bridge spot checks + P2 persistence roundtrip.
+## Headless Camp-1 economy loop + Camp-2 spot checks + XCamp-3.x + P2 persistence roundtrip.
 ## Run: .\scripts\run_company_state_checks.ps1
-## Labels: Camp-1.x in failure messages map to SHIP_PLAN § Camp-1.
+## Labels: Camp-1.x / XCamp-3.x in failure messages map to SHIP_PLAN § Camp-1 / EXPANSION_PLAN Exp-3.
 ## Gate: stdout `FP_HARNESS_OK: CompanyStateChecks` (test count in message; sync `scripts/README.md`).
+## P2 rows use `CampaignPersistence.begin_harness_isolated_save()` — production `user://fallen_paths_slot0.json` untouched.
 ## Fails if any `SCRIPT_ERROR` is logged during the run (`FallenPathsErrorLogger` tally).
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
@@ -22,12 +23,16 @@ const _CampaignWorldScript := preload("res://scripts/_harness_campaign_world.gd"
 const HARNESS_NAME := "CompanyStateChecks"
 const _CompanyHud := preload("res://ui/CompanyHud.gd")
 const _CombatFlow := preload("res://world/CombatFlow.gd")
-const _SettlementPanel := preload("res://ui/SettlementPanel.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _MgrScript := preload("res://combat/CombatManager.gd")
 const _PartySetup := preload("res://world/PartySetup.gd")
+const _PlayerCompanionSetup := preload("res://world/PlayerCompanionSetup.gd")
+const _OverworldMap := preload("res://world/OverworldMap.gd")
+const _CampaignAfflictions := preload("res://world/CampaignAfflictions.gd")
 const _Persistence := preload("res://world/CampaignPersistence.gd")
 const _EncounterSpawner := preload("res://world/EncounterSpawner.gd")
+const _CompanyRunEndPanel := preload("res://ui/CompanyRunEndPanel.gd")
+const _SettlementPanel := preload("res://ui/SettlementPanel.gd")
 
 static var _test_count: int = 0
 static var _party_manager_script: Script = load(ResourcePaths.PARTY_MANAGER) as Script
@@ -41,6 +46,7 @@ func _init() -> void:
 
 func _run_harness() -> void:
 	_OperationalLog.ensure_harness_error_logger()
+	_Persistence.begin_harness_isolated_save()
 	var failures: PackedStringArray = PackedStringArray()
 	_run_camp_1_1_company_state(failures)
 	_run_camp_1_2_wages_and_day(failures)
@@ -51,8 +57,17 @@ func _run_harness() -> void:
 	_run_camp_1_6_camp_heal(failures)
 	_run_camp_1_7_renown_scaling(failures)
 	_run_camp_1_8_roster_cleanup(failures)
+	_run_hire_rookie(failures)
+	_run_overworld_map_5x5(failures)
+	_run_contract_deck_refresh(failures)
+	_run_xcamp_34_affliction_catalog(failures)
+	_run_xcamp_35_camp_tavern_mood(failures)
+	_run_xcamp_36_provisions(failures)
+	_run_xcamp_37_burial_costs(failures)
+	_run_xcamp_38_ms_camp_bridge(failures)
 	_run_camp_2_bridge_spot_checks(failures)
 	_run_camp_3_player_front_count_encounter(failures)
+	_run_camp_5_ea_log_markers(failures)
 	_run_persistence_roundtrip(failures)
 	_cleanup_harness_tree_leaks()
 	call_deferred("_finish_harness", failures)
@@ -61,6 +76,7 @@ func _run_harness() -> void:
 func _finish_harness(failures: PackedStringArray) -> void:
 	await process_frame
 	_cleanup_harness_tree_leaks()
+	CombatRegressionHarness.flush_harness_live_nodes()
 	var script_errors: int = _OperationalLog.harness_script_error_count()
 	if script_errors > 0:
 		_fail(
@@ -68,6 +84,7 @@ func _finish_harness(failures: PackedStringArray) -> void:
 			"Harness: %d SCRIPT_ERROR(s) during CompanyStateChecks (see FP_ERROR lines)"
 			% script_errors
 		)
+	_Persistence.end_harness_isolated_save()
 	if failures.is_empty():
 		quit(_OperationalLog.harness_ok(HARNESS_NAME, "(%d tests)" % _test_count))
 	else:
@@ -190,7 +207,7 @@ static func _add_player_at_camp(world: Node2D) -> Node2D:
 
 
 static func _add_living_entity_member(pm: Node, member_name: String) -> Node:
-	var ent: Node = _CoreEntityScript.new()
+	var ent: Node = _harness_core_entity()
 	ent.name = member_name
 	ent.apply_species()
 	pm.add_child(ent)
@@ -202,6 +219,16 @@ static func _add_living_entity_member(pm: Node, member_name: String) -> Node:
 		}
 	)
 	return ent
+
+
+static func _harness_core_entity() -> Node:
+	var ent: Node = _CoreEntityScript.new()
+	CombatRegressionHarness._track_harness_node(ent)
+	return ent
+
+
+static func _free_harness_core_entity(ent: Node) -> void:
+	CombatRegressionHarness._free_harness_node(ent)
 
 
 # --- Camp-1.1 ---
@@ -226,6 +253,14 @@ static func _run_camp_1_1_company_state(failures: PackedStringArray) -> void:
 			failures,
 			"Camp-1.1: tools want %d got %s"
 			% [_CompanyState.DEFAULT_TOOL_SUPPLIES, state.get("tool_supplies")]
+		)
+	else:
+		_pass()
+	if int(state.get("food_supplies", -1)) != _CompanyState.DEFAULT_FOOD_SUPPLIES:
+		_fail(
+			failures,
+			"Camp-1.1: food want %d got %s"
+			% [_CompanyState.DEFAULT_FOOD_SUPPLIES, state.get("food_supplies")]
 		)
 	else:
 		_pass()
@@ -331,6 +366,15 @@ static func _run_camp_1_2_wages_and_day(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-1.2: end_day on camp should deduct one living wage")
 	else:
 		_pass()
+	world_hybrid.get_node("Character").position = Vector2(192, 192)
+	var off_camp_hint: String = _CompanyState.format_party_end_day_unavailable_hint(world_hybrid)
+	if not off_camp_hint.contains("camp tile"):
+		_fail(
+			failures,
+			"Camp-1.2: off-camp End day hint expected got '%s'" % off_camp_hint
+		)
+	else:
+		_pass()
 	_free_harness_world(world_hybrid)
 
 	var hint_state: Dictionary = {
@@ -346,6 +390,76 @@ static func _run_camp_1_2_wages_and_day(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-1.2: no wage hint when gold sufficient")
 	else:
 		_pass()
+
+	_OperationalLog.begin_play_session("headless://camp_wage_warn", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var wage_world: Node2D = _make_world(2, 0, true)
+	_CompanyState.set_gold(wage_world, 10)
+	_CompanyState.try_advance_day(wage_world)
+	var wage_warn_logged: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		var s: String = str(line)
+		if s.contains("company_wages: gold=") and s.contains("below next wage bill="):
+			wage_warn_logged = true
+			break
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if not wage_warn_logged:
+		_fail(failures, "Camp-5: try_advance_day should log company_wages warn when gold below bill")
+	else:
+		_pass()
+	_release_harness_world(wage_world)
+
+	_OperationalLog.begin_play_session("headless://camp_desertion_summary", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var desertion_logged: bool = false
+	for seed_try in range(4000):
+		seed(seed_try)
+		_OperationalLog.clear_capture()
+		var des_world: Node2D = _make_world(2)
+		var pm_des: Node = des_world.get_meta("party_manager")
+		for raw in pm_des.members:
+			if raw is Dictionary:
+				(raw as Dictionary)["company_mood"] = 12.0
+		_CompanyState._run_daily_desertion_pass(des_world)
+		for line in _OperationalLog.get_captured_lines():
+			var s: String = str(line)
+			if s.contains("desertion summary=") and s.contains("(mood="):
+				desertion_logged = true
+				break
+		_release_harness_world(des_world)
+		if desertion_logged:
+			break
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if not desertion_logged:
+		_fail(failures, "Camp-5: desertion summary should log name(mood=N) under desertion pass")
+	else:
+		_pass()
+	var risk_world: Node2D = _make_world(2)
+	var pm_risk: Node = risk_world.get_meta("party_manager")
+	for raw in pm_risk.members:
+		if raw is Dictionary:
+			(raw as Dictionary)["company_mood"] = 10.0
+	if _CompanyState.count_desertion_risk_roster(risk_world) < 1:
+		_fail(
+			failures,
+			"Camp-5: desertion risk count want >= 1 got %d"
+			% _CompanyState.count_desertion_risk_roster(risk_world)
+		)
+	else:
+		_pass()
+	var risk_footer: String = _CompanyState.format_party_desertion_risk_footer(risk_world)
+	if not risk_footer.contains("desertion"):
+		_fail(failures, "Camp-5: desertion risk footer expected got '%s'" % risk_footer)
+	else:
+		_pass()
+	var menu_footer: String = _CompanyState.format_party_menu_footer(risk_world)
+	if not menu_footer.contains("desertion"):
+		_fail(failures, "Camp-5: party menu footer should include desertion got '%s'" % menu_footer)
+	else:
+		_pass()
+	_release_harness_world(risk_world)
 
 
 # --- Camp-1.3 ---
@@ -386,8 +500,89 @@ static func _run_camp_1_3_supply_pools(failures: PackedStringArray) -> void:
 # --- Camp-1.4 ---
 
 static func _run_camp_1_4_contracts(failures: PackedStringArray) -> void:
-	if _CompanyState.read_stub_persistence_mode() != "P1":
-		_fail(failures, "Camp-5: persistence gate want P1 (session-only EA)")
+	if _CompanyState.read_stub_persistence_mode() != "P2":
+		_fail(failures, "Camp-5: persistence gate want P2 (single-slot autosave)")
+	else:
+		_pass()
+	if not _CompanyState.persistence_uses_disk_autosave():
+		_fail(failures, "Camp-5: persistence_uses_disk_autosave should be true for P2")
+	else:
+		_pass()
+	if not _CompanyState.persistence_restore_on_main_restart():
+		_fail(failures, "Camp-5: P2 testing should restore autosave on main restart")
+	else:
+		_pass()
+	if _CompanyState.persistence_clear_slot_on_run_end_reload():
+		_fail(failures, "Camp-5: P2 testing should keep slot on run-end reload")
+	else:
+		_pass()
+	if not _CompanyState.P2_RESTORE_ON_MAIN_RESTART:
+		_fail(failures, "Camp-5: P2_RESTORE_ON_MAIN_RESTART should be true for testing")
+	else:
+		_pass()
+	if not _CompanyState.can_offer_new_campaign_from_menu():
+		_fail(failures, "Camp-5: new company wipe should be offered during P2 testing")
+	else:
+		_pass()
+	var wage_world: Node2D = _make_world(2)
+	_CompanyState.set_gold(wage_world, 5)
+	var wage_hint: String = _CompanyState.format_next_wage_hint(
+		_CompanyState.get_state(wage_world), 2
+	)
+	if not wage_hint.contains("short") or not wage_hint.contains("mood"):
+		_fail(failures, "Camp-5: wage hint should note shortfall + mood got '%s'" % wage_hint)
+	else:
+		_pass()
+	var debt_hint: String = _CompanyState.format_next_wage_hint(
+		{"gold": -20, "wage_per_member": _CompanyState.DEFAULT_WAGE_PER_MEMBER}, 2
+	)
+	if not debt_hint.contains("desertion"):
+		_fail(failures, "Camp-5: wage hint in debt should cite desertion got '%s'" % debt_hint)
+	else:
+		_pass()
+	var end_day_lbl: String = _CompanyState.format_end_day_button_label(wage_world)
+	if not end_day_lbl.contains("wages short"):
+		_fail(failures, "Camp-2.6: End day button should warn when wages short got '%s'" % end_day_lbl)
+	else:
+		_pass()
+	if _CompanyState.format_wages_short_log(10, 30) != (
+		"Wages short — paid what you could; mood fell (gold 10, bill 30)."
+	):
+		_fail(failures, "Camp-2.6: wages short log shape drift")
+	else:
+		_pass()
+	if not _CompanyState.format_company_debt_log(-25).contains("desert"):
+		_fail(failures, "Camp-2.6: debt log should mention desertion")
+	else:
+		_pass()
+	var wage_suffix: String = _CompanyState.format_hud_wage_suffix(wage_world)
+	if not wage_suffix.contains("wages short"):
+		_fail(failures, "Camp-2.6: Party title wage suffix when short got '%s'" % wage_suffix)
+	else:
+		_pass()
+	_release_harness_world(wage_world)
+	var debt_suffix_world: Node2D = _make_world(2)
+	_CompanyState.set_gold(debt_suffix_world, 5)
+	_CompanyState.try_advance_day(debt_suffix_world)
+	if _CompanyState.get_gold(debt_suffix_world) >= 0:
+		_fail(failures, "Camp-2.6: debt suffix harness needs negative gold after wage tick")
+	else:
+		_pass()
+	var debt_suffix: String = _CompanyState.format_hud_wage_suffix(debt_suffix_world)
+	if not debt_suffix.contains("wage debt"):
+		_fail(failures, "Camp-2.6: Party title wage suffix in debt got '%s'" % debt_suffix)
+	else:
+		_pass()
+	var camp_lbl: String = _CompanyState.format_camp_rest_button_label(debt_suffix_world, true)
+	if not camp_lbl.contains("wage debt"):
+		_fail(failures, "Camp-2.6: Camp rest button should warn wage debt got '%s'" % camp_lbl)
+	else:
+		_pass()
+	_release_harness_world(debt_suffix_world)
+	if _CompanyRunEndPanel.format_company_run_end_log("contract_failed") != (
+		"company_run_end reason=contract_failed reload=true clears_slot=false"
+	):
+		_fail(failures, "Camp-5: run-end log should keep slot during P2 testing restore")
 	else:
 		_pass()
 	if _CompanyState.read_stub_encounter_lifecycle() != "r3_loss_ends_run":
@@ -549,6 +744,71 @@ static func _run_camp_1_4_contracts(failures: PackedStringArray) -> void:
 	var paid_contract: Dictionary = {"pay_gold": 100, "contract_type": "skirmish"}
 	if not _CompanyState.defeat_should_end_company_run(paid_contract):
 		_fail(failures, "Camp-1.4: paid contract loss should end run (R3)")
+	else:
+		_pass()
+	if not _CompanyRunEndPanel.run_end_logs_reload("contract_failed"):
+		_fail(failures, "Camp-5: paid contract loss should log reload=true")
+	else:
+		_pass()
+	if not _CompanyRunEndPanel.run_end_logs_reload("bankrupt"):
+		_fail(failures, "Camp-5: bankrupt run-end should log reload=true")
+	else:
+		_pass()
+	if _CompanyRunEndPanel.run_end_logs_reload("tutorial_failed"):
+		_fail(failures, "Camp-5: tutorial loss should log reload=false")
+	else:
+		_pass()
+	if _CompanyRunEndPanel.run_end_logs_reload("soft_defeat_resume"):
+		_fail(failures, "Camp-5: soft defeat resume should log reload=false")
+	else:
+		_pass()
+	var paid_detail: String = (
+		"Failed: Border Skirmish. The company cannot recover this contract."
+	)
+	var paid_body: String = _CompanyRunEndPanel.format_run_end_body("contract_failed", paid_detail)
+	if not paid_body.contains("Border Skirmish") or not paid_body.contains("Restart reloads main"):
+		_fail(
+			failures,
+			"Camp-2.6: paid loss detail should append reload footnote got '%s'"
+			% paid_body.substr(0, mini(160, paid_body.length()))
+		)
+	else:
+		_pass()
+	var soft_body: String = _CompanyRunEndPanel.format_run_end_body(
+		"soft_defeat_resume", "Battle lost. Return to camp and recover."
+	)
+	if not soft_body.contains("autosave"):
+		_fail(
+			failures,
+			"Camp-2.6: soft defeat detail should append autosave footnote got '%s'" % soft_body
+		)
+	else:
+		_pass()
+	var tut_body: String = _CompanyRunEndPanel.format_run_end_body(
+		"tutorial_failed", "Tutorial lost. You'll return to camp — try again when ready."
+	)
+	if tut_body.contains("Restart reloads") or tut_body.contains("autosave"):
+		_fail(
+			failures,
+			"Camp-2.6: tutorial loss detail should not append reload footnote got '%s'" % tut_body
+		)
+	else:
+		_pass()
+	if _CompanyRunEndPanel.format_run_end_button_label("contract_failed") != "Reload camp (autosave)":
+		_fail(failures, "Camp-2.6: paid loss button should offer P2 reload label")
+	else:
+		_pass()
+	if _CompanyRunEndPanel.format_run_end_button_label("tutorial_failed") != "Return to camp":
+		_fail(failures, "Camp-2.6: tutorial loss button should return to camp")
+	else:
+		_pass()
+	var bankrupt_body: String = _CompanyRunEndPanel.format_run_end_body("bankrupt")
+	if not bankrupt_body.contains("desert") or not bankrupt_body.contains("Restart reloads main"):
+		_fail(
+			failures,
+			"Camp-2.6: bankrupt body should explain desertion + reload got '%s'"
+			% bankrupt_body.substr(0, mini(160, bankrupt_body.length()))
+		)
 	else:
 		_pass()
 
@@ -757,6 +1017,697 @@ static func _run_camp_1_8_roster_cleanup(failures: PackedStringArray) -> void:
 	world.free()
 
 
+# --- XCamp-3.1 hire ---
+
+static func _instantiate_main_hire_world(in_tree: bool = false) -> Node2D:
+	var packed: PackedScene = load("res://main.tscn") as PackedScene
+	var world: Node2D = packed.instantiate() as Node2D
+	if in_tree:
+		var root: Node = _harness_root()
+		if root != null:
+			root.add_child(world)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	_PlayerCompanionSetup.setup_player_and_companion(world, rng)
+	_PartySetup.setup_party(world)
+	return world
+
+
+static func _trim_party_to_leader(world: Node2D) -> void:
+	var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
+	if pm == null or not pm.has_method("remove_member_by_name"):
+		return
+	for i in range(1, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP):
+		var suffix: String = "Companion" + ("" if i == 1 else str(i))
+		pm.remove_member_by_name(suffix)
+
+
+static func _run_hire_rookie(failures: PackedStringArray) -> void:
+	var world: Node2D = _instantiate_main_hire_world(true)
+	_trim_party_to_leader(world)
+	if _CompanyState.count_living_roster(world) != 1:
+		_fail(
+			failures,
+			"XCamp-3.1: trimmed roster want 1 living got %d"
+			% _CompanyState.count_living_roster(world)
+		)
+	else:
+		_pass()
+	if _PartySetup.find_vacant_companion_node(world) == null:
+		_fail(failures, "XCamp-3.1: vacant companion slot expected after trim")
+	else:
+		_pass()
+	_CompanyState.set_gold(world, _CompanyState.HIRE_GOLD_COST + 50)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99
+	if not _CompanyState.try_hire_rookie(world, rng, true):
+		_fail(failures, "XCamp-3.1: hire should succeed from Party menu with gold and vacant slot")
+	else:
+		_pass()
+	if _CompanyState.count_living_roster(world) != 2:
+		_fail(
+			failures,
+			"XCamp-3.1: roster after hire want 2 living got %d"
+			% _CompanyState.count_living_roster(world)
+		)
+	else:
+		_pass()
+	if _CompanyState.get_gold(world) != 50:
+		_fail(
+			failures,
+			"XCamp-3.1: gold after hire want 50 got %d" % _CompanyState.get_gold(world)
+		)
+	else:
+		_pass()
+	var pm: Node = world.get_meta("party_manager")
+	var hired_in_roster: bool = false
+	for member in pm.members:
+		if member is Dictionary and str((member as Dictionary).get("name", "")) == "Companion":
+			hired_in_roster = true
+			break
+	if not hired_in_roster:
+		_fail(failures, "XCamp-3.1: hired Companion should appear in party roster")
+	else:
+		_pass()
+	if not _CompanyState.roster_has_hire_room(world):
+		_fail(failures, "XCamp-3.1: roster should still have hire room after one replacement")
+	else:
+		_pass()
+	if _PartySetup.find_vacant_companion_node(world) == null:
+		_fail(failures, "XCamp-3.1: additional vacant companion slots expected after one hire")
+	else:
+		_pass()
+	_CompanyState.set_gold(world, 0)
+	if _CompanyState.can_offer_hire(world, true):
+		_fail(failures, "XCamp-3.1: broke company should not offer hire")
+	else:
+		_pass()
+	var broke_reason: String = _CompanyState.format_hire_block_reason(world, true)
+	if not broke_reason.contains("need"):
+		_fail(failures, "XCamp-3.1: broke hire reason should mention gold got '%s'" % broke_reason)
+	else:
+		_pass()
+	var full_world: Node2D = _instantiate_main_hire_world(true)
+	if _CompanyState.count_living_roster(full_world) != _CompanyState.ROSTER_MAX_LIVING:
+		_fail(
+			failures,
+			"XCamp-3.1: full roster want %d living got %d"
+			% [_CompanyState.ROSTER_MAX_LIVING, _CompanyState.count_living_roster(full_world)]
+		)
+	else:
+		_pass()
+	if _CompanyState.can_offer_hire(full_world, true):
+		_fail(failures, "XCamp-3.1: full roster should block hire")
+	else:
+		_pass()
+	_free_harness_world(full_world)
+	_free_harness_world(world)
+
+	_Persistence.clear_slot()
+	var persist_world: Node2D = _instantiate_main_hire_world(true)
+	var pm_persist: Node = persist_world.get_meta("party_manager")
+	for trim_i in range(2, 7):
+		pm_persist.remove_member_by_name("Companion" + str(trim_i))
+	_CompanyState.set_gold(persist_world, 500)
+	var persist_rng := RandomNumberGenerator.new()
+	persist_rng.seed = 77
+	if not _CompanyState.try_hire_rookie(persist_world, persist_rng, true):
+		_fail(failures, "XCamp-3.1 P2: hire before save should succeed")
+	else:
+		_pass()
+	if not _Persistence.save_slot(persist_world):
+		_fail(failures, "XCamp-3.1 P2: save_slot after hire failed")
+	else:
+		_pass()
+	var hire_loaded: Dictionary = _Persistence.load_save()
+	var hire_roster: Variant = hire_loaded.get("roster", [])
+	if hire_roster is not Array or (hire_roster as Array).size() != 3:
+		_fail(
+			failures,
+			"XCamp-3.1 P2: save roster want 3 got %s"
+			% str((hire_roster as Array).size() if hire_roster is Array else hire_roster)
+		)
+	else:
+		_pass()
+	var fresh_hire: Node2D = _instantiate_main_hire_world(true)
+	var restore_rng := RandomNumberGenerator.new()
+	restore_rng.seed = 1
+	_Persistence.apply_save(fresh_hire, hire_loaded, restore_rng, null)
+	if _CompanyState.count_living_roster(fresh_hire) != 3:
+		_fail(
+			failures,
+			"XCamp-3.1 P2: restore living want 3 got %d"
+			% _CompanyState.count_living_roster(fresh_hire)
+		)
+	else:
+		_pass()
+	_Persistence.clear_slot()
+	_free_harness_world(persist_world)
+	_free_harness_world(fresh_hire)
+
+
+# --- XCamp-3.2 overworld map ---
+
+static func _make_overworld_spawn_world(in_tree: bool = false) -> Node2D:
+	var world := Node2D.new()
+	world.set_script(_CampaignWorldScript)
+	_OverworldMap.stamp_world_map_size(world)
+	var pm_script: Script = load("res://PartyManager.gd") as Script
+	var pm: Node = pm_script.new()
+	pm.name = "PartyManagerHarness"
+	world.add_child(pm)
+	var brother: Node = _harness_core_entity()
+	brother.name = "Brother0"
+	brother.apply_species()
+	pm.add_child(brother)
+	pm.members.append({"name": brother.name, "node_ref": brother, "company_mood": 50.0})
+	world.set_meta("party_manager", pm)
+	_CompanyState.init_from_defaults(world)
+	var player := Node2D.new()
+	player.name = "Character"
+	player.position = _OverworldMap.tile_center(_CompanyState.DEFAULT_CAMP_TILE)
+	world.add_child(player)
+	if in_tree:
+		var root: Node = _harness_root()
+		if root != null:
+			root.add_child(world)
+	return world
+
+
+static func _count_encounter_markers(world: Node2D) -> int:
+	var n: int = 0
+	for child in world.get_children():
+		if child.get_script() == _EncounterNodeScript:
+			n += 1
+	return n
+
+
+static func _run_overworld_map_5x5(failures: PackedStringArray) -> void:
+	if _OverworldMap.MAP_TILES != 5:
+		_fail(failures, "XCamp-3.2: MAP_TILES want 5 got %d" % _OverworldMap.MAP_TILES)
+	else:
+		_pass()
+	if _OverworldMap.all_tiles().size() != 25:
+		_fail(failures, "XCamp-3.2: all_tiles want 25 got %d" % _OverworldMap.all_tiles().size())
+	else:
+		_pass()
+	if not _OverworldMap.is_tile_in_bounds(Vector2i(4, 4)):
+		_fail(failures, "XCamp-3.2: tile (4,4) should be in bounds")
+	else:
+		_pass()
+	if _OverworldMap.is_tile_in_bounds(Vector2i(5, 0)):
+		_fail(failures, "XCamp-3.2: tile (5,0) should be out of bounds")
+	else:
+		_pass()
+	var spawn_world: Node2D = _make_overworld_spawn_world(true)
+	_CompanyState.attach_to_world(spawn_world)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5151
+	_ContractSpawner.spawn_campaign_contracts(spawn_world, rng, null)
+	var markers: int = _count_encounter_markers(spawn_world)
+	var want_markers: int = 1 + _ContractSpawner.get_template_count()
+	if markers != want_markers:
+		_fail(
+			failures,
+			"XCamp-3.2: contract markers want %d (tutorial + paid) got %d"
+			% [want_markers, markers]
+		)
+	else:
+		_pass()
+	var markers_ok: bool = true
+	for child in spawn_world.get_children():
+		if child.get_script() != _EncounterNodeScript:
+			continue
+		var tile: Vector2i = spawn_world.call("_tile_coords", child.position) as Vector2i
+		if not _OverworldMap.is_tile_in_bounds(tile, spawn_world):
+			_fail(failures, "XCamp-3.2: marker tile OOB %s" % tile)
+			markers_ok = false
+			break
+		if tile == _ContractSpawner.CAMP_TILE:
+			_fail(failures, "XCamp-3.2: contract should not spawn on camp tile")
+			markers_ok = false
+			break
+	if markers_ok:
+		_pass()
+	_Persistence.clear_slot()
+	_CompanyState.set_gold(spawn_world, 888)
+	spawn_world.get_node("Character").position = _OverworldMap.tile_center(Vector2i(3, 2))
+	if not _Persistence.save_slot(spawn_world):
+		_fail(failures, "XCamp-3.2 P2: save on 5×5 map failed")
+	else:
+		_pass()
+	var map_loaded: Dictionary = _Persistence.load_save()
+	var player_tile: Variant = map_loaded.get("player_tile", [])
+	if (
+		player_tile is not Array
+		or (player_tile as Array).size() < 2
+		or int((player_tile as Array)[0]) != 3
+		or int((player_tile as Array)[1]) != 2
+	):
+		_fail(failures, "XCamp-3.2 P2: player_tile want [3,2] got %s" % player_tile)
+	else:
+		_pass()
+	var fresh_map: Node2D = _make_overworld_spawn_world(true)
+	_CompanyState.attach_to_world(fresh_map)
+	_Persistence.apply_save(fresh_map, map_loaded, rng, null)
+	var restored_pos: Vector2 = fresh_map.get_node("Character").position
+	var restored_tile: Vector2i = fresh_map.call("_tile_coords", restored_pos) as Vector2i
+	if restored_tile != Vector2i(3, 2):
+		_fail(
+			failures,
+			"XCamp-3.2 P2: restored player tile want (3,2) got %s"
+			% restored_tile
+		)
+	else:
+		_pass()
+	if _count_encounter_markers(fresh_map) != want_markers:
+		_fail(
+			failures,
+			"XCamp-3.2 P2: restored encounter count want %d got %d"
+			% [want_markers, _count_encounter_markers(fresh_map)]
+		)
+	else:
+		_pass()
+	_Persistence.clear_slot()
+	_free_harness_world(spawn_world)
+	_free_harness_world(fresh_map)
+
+
+static func _clear_paid_contract_markers(world: Node2D) -> void:
+	if world == null:
+		return
+	for child in world.get_children().duplicate():
+		if child.get_script() != _EncounterNodeScript:
+			continue
+		if str(child.marker_kind) == "contract":
+			child.free()
+
+
+static func _run_contract_deck_refresh(failures: PackedStringArray) -> void:
+	var world: Node2D = _make_overworld_spawn_world(true)
+	var pm: Node = _party_manager_script.new()
+	world.add_child(pm)
+	world.set_meta("party_manager", pm)
+	_add_living_entity_member(pm, "DeckBro")
+	_CompanyState.attach_to_world(world)
+	_CompanyState.mark_tutorial_completed(world)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3333
+	_ContractSpawner.spawn_campaign_contracts(world, rng, null)
+	if _ContractSpawner.count_paid_contract_markers(world) != _ContractSpawner.get_template_count():
+		_fail(
+			failures,
+			"XCamp-3.3: initial paid markers want %d got %d"
+			% [
+				_ContractSpawner.get_template_count(),
+				_ContractSpawner.count_paid_contract_markers(world),
+			]
+		)
+	else:
+		_pass()
+	if _ContractSpawner.try_refresh_contract_deck(world, rng, null) != 0:
+		_fail(failures, "XCamp-3.3: refresh should not run while paid markers remain")
+	else:
+		_pass()
+	_clear_paid_contract_markers(world)
+	if _ContractSpawner.count_paid_contract_markers(world) != 0:
+		_fail(failures, "XCamp-3.3: harness should clear paid markers")
+	else:
+		_pass()
+	var deck_hint: String = _ContractSpawner.format_settlement_deck_refresh_hint(world)
+	if not deck_hint.contains("new jobs"):
+		_fail(failures, "XCamp-3.3: deck refresh hint expected got '%s'" % deck_hint)
+	else:
+		_pass()
+	var placed: int = _ContractSpawner.try_refresh_contract_deck(world, rng, null)
+	if placed != _ContractSpawner.get_template_count():
+		_fail(
+			failures,
+			"XCamp-3.3: deck refresh want %d placed got %d"
+			% [_ContractSpawner.get_template_count(), placed]
+		)
+	else:
+		_pass()
+	if _CompanyState.get_contract_deck_index(world) != 1:
+		_fail(
+			failures,
+			"XCamp-3.3: contract_deck_index want 1 got %d"
+			% _CompanyState.get_contract_deck_index(world)
+		)
+	else:
+		_pass()
+	if _ContractSpawner.try_refresh_contract_deck(world, rng, null) != 0:
+		_fail(failures, "XCamp-3.3: second refresh should not run until wave cleared")
+	else:
+		_pass()
+	_Persistence.clear_slot()
+	if not _Persistence.save_slot(world):
+		_fail(failures, "XCamp-3.3 P2: save with deck_index failed")
+	else:
+		_pass()
+	var deck_loaded: Dictionary = _Persistence.load_save()
+	var deck_state: Variant = deck_loaded.get("company_state", {})
+	if deck_state is not Dictionary or int((deck_state as Dictionary).get("contract_deck_index", 0)) != 1:
+		_fail(failures, "XCamp-3.3 P2: contract_deck_index not saved got %s" % deck_state)
+	else:
+		_pass()
+	_Persistence.clear_slot()
+	_free_harness_world(world)
+
+
+static func _run_xcamp_34_affliction_catalog(failures: PackedStringArray) -> void:
+	if _CampaignAfflictions.CATALOG_IDS.size() < 6:
+		_fail(failures, "XCamp-3.4: affliction catalog want >= 6 ids")
+	else:
+		_pass()
+	var lung: Dictionary = _CampaignAfflictions.catalog_def(_CampaignAfflictions.AFFLICTION_PARTLY_COLLAPSED_LUNG)
+	if float(lung.get("stamina_mult", 1.0)) > 0.86:
+		_fail(failures, "XCamp-3.4: collapsed lung stamina debuff expected")
+	else:
+		_pass()
+	var grip: Dictionary = _CampaignAfflictions.catalog_def(
+		_CampaignAfflictions.AFFLICTION_SHAKY_GRIP, "right_arm"
+	)
+	if str(grip.get("label", "")) != "Shaky grip":
+		_fail(failures, "XCamp-3.4: shaky grip label")
+	else:
+		_pass()
+	var scar_line: String = _CampaignAfflictions.format_scar_line("Brother", lung)
+	if not scar_line.contains("Stamina"):
+		_fail(failures, "XCamp-3.4: scar line should include stamina effect got '%s'" % scar_line)
+	else:
+		_pass()
+	var ent: Node = _harness_core_entity()
+	ent.apply_species()
+	if _CampaignAfflictions._bone_affliction_id("left_arm") != _CampaignAfflictions.AFFLICTION_SHAKY_GRIP:
+		_fail(failures, "XCamp-3.4: crippled arm should map to shaky_grip")
+	else:
+		_pass()
+	if _CampaignAfflictions._bone_affliction_id("left_leg") != _CampaignAfflictions.AFFLICTION_LIMPING_LIMB:
+		_fail(failures, "XCamp-3.4: crippled leg should map to limping_limb")
+	else:
+		_pass()
+	if _CampaignAfflictions._bone_affliction_id("chest") != _CampaignAfflictions.AFFLICTION_CRACKED_RIBS:
+		_fail(failures, "XCamp-3.4: crippled chest should map to cracked_ribs")
+	else:
+		_pass()
+	if not ent.add_campaign_affliction(lung):
+		_fail(failures, "XCamp-3.4: should add catalog affliction")
+	else:
+		_pass()
+	if ent.add_campaign_affliction(lung):
+		_fail(failures, "XCamp-3.4: duplicate affliction id should be rejected")
+	else:
+		_pass()
+	var aff_world: Node2D = _make_world(1, 0, true)
+	_CompanyState.attach_to_world(aff_world)
+	var pm: Node = aff_world.get_meta("party_manager")
+	var bro: Node = _add_living_entity_member(pm, "ScarBro")
+	bro.add_campaign_affliction(_CampaignAfflictions.catalog_def(_CampaignAfflictions.AFFLICTION_OLD_WOUND_ACHE))
+	if _CampaignAfflictions.count_scarred_brothers(aff_world) != 1:
+		_fail(
+			failures,
+			"XCamp-3.4: count_scarred_brothers want 1 got %d"
+			% _CampaignAfflictions.count_scarred_brothers(aff_world)
+		)
+	else:
+		_pass()
+	_Persistence.clear_slot()
+	if not _Persistence.save_slot(aff_world):
+		_fail(failures, "XCamp-3.4 P2: save with afflictions failed")
+	else:
+		_pass()
+	var loaded: Dictionary = _Persistence.load_save()
+	var roster: Variant = loaded.get("roster", [])
+	var saved_aff: Variant = null
+	if roster is Array:
+		for raw_entry in roster as Array:
+			if raw_entry is not Dictionary:
+				continue
+			if str((raw_entry as Dictionary).get("name", "")) != "ScarBro":
+				continue
+			var entity_data: Variant = (raw_entry as Dictionary).get("entity", {})
+			if entity_data is Dictionary:
+				saved_aff = (entity_data as Dictionary).get("campaign_afflictions", [])
+			break
+	if saved_aff is not Array or (saved_aff as Array).is_empty():
+		_fail(failures, "XCamp-3.4 P2: campaign_afflictions not in save")
+	else:
+		_pass()
+	_Persistence.clear_slot()
+	_free_harness_core_entity(ent)
+	_release_harness_world(aff_world)
+
+
+static func _run_xcamp_35_camp_tavern_mood(failures: PackedStringArray) -> void:
+	var world: Node2D = _make_world(0, 0, true)
+	_CompanyState.attach_to_world(world)
+	var pm: Node = world.get_meta("party_manager")
+	var bro_a: Node = _add_living_entity_member(pm, "TavernA")
+	var bro_b: Node = _add_living_entity_member(pm, "TavernB")
+	pm.members[0]["company_mood"] = 49.0
+	pm.members[1]["company_mood"] = 50.0
+	_add_player_at_camp(world)
+	_CompanyState.set_medical_supplies(world, 2)
+	if not _CompanyState.try_camp_heal(world, true):
+		_fail(failures, "XCamp-3.5: camp rest should succeed for tavern mood test")
+	else:
+		_pass()
+	var mood_a: float = float(pm.members[0].get("company_mood", 49.0))
+	var mood_b: float = float(pm.members[1].get("company_mood", 50.0))
+	if not is_equal_approx(mood_a, 50.0):
+		_fail(failures, "XCamp-3.5: camp rest mood want 50.0 got %.2f" % mood_a)
+	else:
+		_pass()
+	if not is_equal_approx(mood_b, 51.0):
+		_fail(failures, "XCamp-3.5: camp rest mood want 51.0 got %.2f" % mood_b)
+	else:
+		_pass()
+	var label: String = _CompanyState.format_camp_rest_button_label(world, true)
+	if not label.contains("+1 mood"):
+		_fail(failures, "XCamp-3.5: camp rest label should mention mood got '%s'" % label)
+	else:
+		_pass()
+	_release_harness_world(world)
+
+
+static func _run_xcamp_36_provisions(failures: PackedStringArray) -> void:
+	var fed_world: Node2D = _make_world(2)
+	_CompanyState.attach_to_world(fed_world)
+	_CompanyState.set_food_supplies(fed_world, 2)
+	var pm_fed: Node = fed_world.get_meta("party_manager")
+	for raw in pm_fed.members:
+		if raw is Dictionary:
+			(raw as Dictionary)["company_mood"] = 50.0
+	if not _CompanyState.try_advance_day(fed_world):
+		_fail(failures, "XCamp-3.6: try_advance_day should succeed")
+	else:
+		_pass()
+	if _CompanyState.get_food_supplies(fed_world) != 0:
+		_fail(
+			failures,
+			"XCamp-3.6: fed roster should consume 2 food got %d"
+			% _CompanyState.get_food_supplies(fed_world)
+		)
+	else:
+		_pass()
+	var fed_mood: float = float(pm_fed.members[0].get("company_mood", 50.0))
+	if not is_equal_approx(fed_mood, 50.0):
+		_fail(failures, "XCamp-3.6: fed roster mood should stay 50 got %.2f" % fed_mood)
+	else:
+		_pass()
+	_release_harness_world(fed_world)
+
+	var short_world: Node2D = _make_world(2)
+	_CompanyState.attach_to_world(short_world)
+	_CompanyState.set_food_supplies(short_world, 1)
+	var pm_short: Node = short_world.get_meta("party_manager")
+	for raw in pm_short.members:
+		if raw is Dictionary:
+			(raw as Dictionary)["company_mood"] = 50.0
+	if not _CompanyState.try_advance_day(short_world):
+		_fail(failures, "XCamp-3.6: day tick with short food should still advance day")
+	else:
+		_pass()
+	if _CompanyState.get_food_supplies(short_world) != 0:
+		_fail(failures, "XCamp-3.6: short food should consume remaining rations")
+	else:
+		_pass()
+	var short_mood: float = float(pm_short.members[0].get("company_mood", 50.0))
+	if not is_equal_approx(short_mood, 49.0):
+		_fail(failures, "XCamp-3.6: not fed mood want 49 got %.2f" % short_mood)
+	else:
+		_pass()
+	var prov_end_world: Node2D = _make_world(2)
+	_CompanyState.attach_to_world(prov_end_world)
+	_CompanyState.set_food_supplies(prov_end_world, 0)
+	var prov_end_lbl: String = _CompanyState.format_end_day_button_label(prov_end_world)
+	if not prov_end_lbl.contains("rations short"):
+		_fail(
+			failures,
+			"XCamp-3.6: End day button should warn when rations short got '%s'" % prov_end_lbl
+		)
+	else:
+		_pass()
+	var prov_camp_world: Node2D = _make_world(2)
+	_CompanyState.attach_to_world(prov_camp_world)
+	_CompanyState.set_food_supplies(prov_camp_world, 0)
+	var prov_camp_lbl: String = _CompanyState.format_camp_rest_button_label(prov_camp_world, true)
+	if not prov_camp_lbl.contains("rations short"):
+		_fail(
+			failures,
+			"XCamp-3.6: Camp rest button should warn when rations short got '%s'" % prov_camp_lbl
+		)
+	else:
+		_pass()
+	var prov_hud_suffix: String = _CompanyState.format_hud_provisions_suffix(prov_camp_world)
+	if not prov_hud_suffix.contains("rations short"):
+		_fail(
+			failures,
+			"XCamp-3.6: Party title provisions suffix expected got '%s'" % prov_hud_suffix
+		)
+	else:
+		_pass()
+	var prov_hud_hints: PackedStringArray = _CompanyState.format_hud_economy_hint_lines(
+		_CompanyState.get_state(prov_camp_world), 2, prov_camp_world
+	)
+	if prov_hud_hints.is_empty() or not str(prov_hud_hints[0]).contains("rations"):
+		_fail(
+			failures,
+			"XCamp-3.6: HUD economy hint should include rations got %s" % str(prov_hud_hints)
+		)
+	else:
+		_pass()
+	_release_harness_world(prov_camp_world)
+	_Persistence.clear_slot()
+	_CompanyState.set_food_supplies(short_world, 7)
+	if not _Persistence.save_slot(short_world):
+		_fail(failures, "XCamp-3.6 P2: save with food failed")
+	else:
+		_pass()
+	var loaded: Dictionary = _Persistence.load_save()
+	var food_state: Variant = (loaded.get("company_state", {}) as Dictionary).get("food_supplies", -1)
+	if int(food_state) != 7:
+		_fail(failures, "XCamp-3.6 P2: food_supplies want 7 got %s" % str(food_state))
+	else:
+		_pass()
+	_Persistence.clear_slot()
+	_release_harness_world(short_world)
+
+
+static func _run_xcamp_37_burial_costs(failures: PackedStringArray) -> void:
+	var world: Node2D = _make_world(1)
+	_CompanyState.set_gold(world, 100)
+	world.set_meta(
+		_CompanyState.WORLD_META_LAST_BATTLE_SUMMARY,
+		{"deaths": [{"name": "Brother0", "part": "chest", "cause": "exsanguination"}]},
+	)
+	var lines: PackedStringArray = _CompanyState.apply_settlement_burial_costs(world)
+	if _CompanyState.get_gold(world) != 100 - _CompanyState.BURIAL_GOLD_COST:
+		_fail(
+			failures,
+			"XCamp-3.7: burial cost want gold %d got %d"
+			% [
+				100 - _CompanyState.BURIAL_GOLD_COST,
+				_CompanyState.get_gold(world),
+			]
+		)
+	else:
+		_pass()
+	if lines.is_empty() or not str(lines[0]).contains("Burial"):
+		_fail(failures, "XCamp-3.7: burial line expected got %s" % str(lines))
+	else:
+		_pass()
+	if _CompanyState.compute_settlement_burial_cost(world) != _CompanyState.BURIAL_GOLD_COST:
+		_fail(
+			failures,
+			"XCamp-3.7: compute_settlement_burial_cost want %d got %d"
+			% [_CompanyState.BURIAL_GOLD_COST, _CompanyState.compute_settlement_burial_cost(world)]
+		)
+	else:
+		_pass()
+	var debt_preview_world: Node2D = _make_world(1)
+	_CompanyState.set_gold(debt_preview_world, 10)
+	debt_preview_world.set_meta(
+		_CompanyState.WORLD_META_LAST_BATTLE_SUMMARY,
+		{"deaths": [{"name": "Brother0", "part": "chest", "cause": "exsanguination"}]},
+	)
+	var debt_warn: String = _CompanyState.format_settlement_burial_debt_warning(debt_preview_world)
+	if not debt_warn.contains("Burial") or not debt_warn.contains("debt"):
+		_fail(failures, "XCamp-3.7: burial debt warning expected got '%s'" % debt_warn)
+	else:
+		_pass()
+	_release_harness_world(debt_preview_world)
+	var no_death_world: Node2D = _make_world(1)
+	_CompanyState.set_gold(no_death_world, 50)
+	no_death_world.set_meta(_CompanyState.WORLD_META_LAST_BATTLE_SUMMARY, {"deaths": []})
+	if not _CompanyState.apply_settlement_burial_costs(no_death_world).is_empty():
+		_fail(failures, "XCamp-3.7: no deaths should not charge burial")
+	else:
+		_pass()
+	if _CompanyState.get_gold(no_death_world) != 50:
+		_fail(failures, "XCamp-3.7: gold should be unchanged without deaths")
+	else:
+		_pass()
+	_release_harness_world(world)
+	_release_harness_world(no_death_world)
+
+
+static func _run_xcamp_38_ms_camp_bridge(failures: PackedStringArray) -> void:
+	if (
+		_CompanyState.stance_preference_for_campaign_mood(10.0)
+		!= preload("res://combat/CombatWeaponForm.gd").FORM_WALL
+	):
+		_fail(failures, "XCamp-3.8: low mood should map to wall")
+	else:
+		_pass()
+	if (
+		_CompanyState.stance_preference_for_campaign_mood(80.0)
+		!= preload("res://combat/CombatWeaponForm.gd").FORM_WRATH
+	):
+		_fail(failures, "XCamp-3.8: high mood should map to wrath")
+	else:
+		_pass()
+	if (
+		_CompanyState.stance_preference_for_campaign_mood(50.0)
+		!= preload("res://combat/CombatWeaponForm.gd").FORM_BALANCED
+	):
+		_fail(failures, "XCamp-3.8: mid mood should map to balanced")
+	else:
+		_pass()
+	var world: Node2D = _make_world(1)
+	var pm: Node = world.get_meta("party_manager")
+	var char_script: Script = load("res://character.gd") as Script
+	var fighter := CharacterBody2D.new()
+	fighter.set_script(char_script)
+	fighter.name = "MoodFighter"
+	pm.add_child(fighter)
+	pm.members[0]["node_ref"] = fighter
+	pm.members[0]["company_mood"] = 12.0
+	_CampaignBridge.apply_campaign_mood_stance_preferences(world)
+	if str(fighter.get("stance_preference")) != preload("res://combat/CombatWeaponForm.gd").FORM_WALL:
+		_fail(
+			failures,
+			"XCamp-3.8: bridge should stamp wall for angry mood got '%s'"
+			% str(fighter.get("stance_preference"))
+		)
+	else:
+		_pass()
+	fighter.set("stance_preference", "fool")
+	pm.members[0]["company_mood"] = 12.0
+	_CampaignBridge.apply_campaign_mood_stance_preferences(world)
+	if str(fighter.get("stance_preference")) != "fool":
+		_fail(failures, "XCamp-3.8: explicit stance_preference should not be overwritten")
+	else:
+		_pass()
+	var stance_hint: String = _CompanyState.format_settlement_low_mood_stance_hint(world)
+	if not stance_hint.contains("wall"):
+		_fail(failures, "XCamp-3.8: low mood settlement hint expected got '%s'" % stance_hint)
+	else:
+		_pass()
+	_release_harness_world(world)
+
+
 # --- Camp-2+ (spot checks; full gates in combat harness) ---
 
 static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
@@ -826,7 +1777,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-2.2: worst_atls_band for 55%% blood")
 	else:
 		_pass()
-	var bleed_ent: Node = _CoreEntityScript.new()
+	var bleed_ent: Node = _harness_core_entity()
 	bleed_ent.apply_species()
 	bleed_ent.wounds["left_arm"] = [
 		{"current_bleeding_rate": 1.0, "is_arterial": false, "severity": "moderate"},
@@ -838,16 +1789,16 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_pass()
 	else:
 		_fail(failures, "Camp-2.2: battle snapshot should carry untreated_parts when present")
-	bleed_ent.free()
+	_free_harness_core_entity(bleed_ent)
 
-	var entity: Node = _CoreEntityScript.new()
+	var entity: Node = _harness_core_entity()
 	entity.intelligence = 100
 	entity.set_campaign_supply_factor(0.5)
 	if absf(entity.get_medical_effectiveness() - 0.5) > 0.02:
 		_fail(failures, "Camp-2.3: supply factor at 0 med floor")
 	else:
 		_pass()
-	entity.free()
+	_free_harness_core_entity(entity)
 
 	var world_med: Node2D = _make_world(1)
 	_CompanyState.set_medical_supplies(world_med, 0)
@@ -873,7 +1824,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_pass()
 	world_med.free()
 
-	var pre_stab: Node = _CoreEntityScript.new()
+	var pre_stab: Node = _harness_core_entity()
 	pre_stab.apply_species()
 	pre_stab.wounds["chest"] = [
 		{"current_bleeding_rate": 2.0, "is_arterial": true, "severity": "severe"},
@@ -882,10 +1833,10 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-2.5: stabilize should require pressure first")
 	else:
 		_pass()
-	pre_stab.free()
+	_free_harness_core_entity(pre_stab)
 
 	seed(90210)
-	var stab_ent: Node = _CoreEntityScript.new()
+	var stab_ent: Node = _harness_core_entity()
 	stab_ent.apply_species()
 	stab_ent.wounds["chest"] = [
 		{"current_bleeding_rate": 0.8, "is_arterial": true, "severity": "severe"}
@@ -906,10 +1857,10 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-2.5: stabilize must not set bandaged_parts")
 	else:
 		_pass()
-	stab_ent.free()
+	_free_harness_core_entity(stab_ent)
 
 	seed(90210)
-	var press_ent: Node = _CoreEntityScript.new()
+	var press_ent: Node = _harness_core_entity()
 	press_ent.apply_species()
 	press_ent.wounds["chest"] = [
 		{"current_bleeding_rate": 0.6, "severity": "moderate"},
@@ -930,10 +1881,10 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-2.5: failed bandage must retain direct pressure for retry")
 	else:
 		_pass()
-	press_ent.free()
+	_free_harness_core_entity(press_ent)
 
 	seed(90210)
-	var pack_ent: Node = _CoreEntityScript.new()
+	var pack_ent: Node = _harness_core_entity()
 	pack_ent.apply_species()
 	pack_ent.linen_strips_remaining = 4
 	pack_ent.wounds["chest"] = [
@@ -951,9 +1902,9 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-2.5: failed packing must retain direct pressure for retry")
 	else:
 		_pass()
-	pack_ent.free()
+	_free_harness_core_entity(pack_ent)
 
-	var pain_ent: Node = _CoreEntityScript.new()
+	var pain_ent: Node = _harness_core_entity()
 	pain_ent.apply_species()
 	if not pain_ent.add_campaign_affliction({"id": "old_wound_ache", "pain_mult": 1.1, "stamina_mult": 1.0}):
 		_fail(failures, "Camp-2.4: pain affliction add")
@@ -970,7 +1921,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-2.4: snapshot should expose affliction effect line")
 	else:
 		_pass()
-	pain_ent.free()
+	_free_harness_core_entity(pain_ent)
 
 	var day_world: Node2D = _make_world(1)
 	var day_line: String = _CompanyState.format_day_hud_line(day_world)
@@ -1074,6 +2025,151 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_pass()
 	_release_harness_world(dress_world)
 
+	var ally_pressure_world: Node2D = _make_world(1, 0, true)
+	var leader_ent: Node = _harness_core_entity()
+	leader_ent.name = "Character"
+	ally_pressure_world.add_child(leader_ent)
+	var pm_ap: Node = ally_pressure_world.get_meta("party_manager")
+	var patient_ent: Node = _harness_core_entity()
+	patient_ent.wounds["right_arm"] = [
+		{"current_bleeding_rate": 0.4, "severity": "moderate"},
+	]
+	pm_ap.add_child(patient_ent)
+	pm_ap.members.append({"name": "Patient", "node_ref": patient_ent, "company_mood": 50.0})
+	var patient_member: Dictionary = _Snapshot.snapshot_from_member(
+		{"name": "Patient", "node_ref": patient_ent}
+	)
+	var script_err_before: int = _OperationalLog.harness_script_error_count()
+	if not _MapFieldCare.try_field_pressure(ally_pressure_world, patient_member):
+		_fail(failures, "Camp-2.1: field pressure with leader performer should succeed on ally arm wound")
+	else:
+		_pass()
+	if not _EntityMedical.has_direct_pressure_on_part(patient_ent, "right_arm"):
+		_fail(failures, "Camp-2.1: ally field pressure should hold compression on right_arm")
+	else:
+		_pass()
+	if _OperationalLog.harness_script_error_count() > script_err_before:
+		_fail(
+			failures,
+			"Camp-2.1: field pressure with leader performer must not SCRIPT_ERROR (can_apply_direct_pressure_from_ally)"
+		)
+	else:
+		_pass()
+	_release_harness_world(ally_pressure_world)
+
+	var treat_next_world: Node2D = _make_world(1, 0, true)
+	var treat_leader: Node = _harness_core_entity()
+	treat_leader.name = "Character"
+	treat_next_world.add_child(treat_leader)
+	_CompanyState.set_medical_supplies(treat_next_world, 3)
+	var pm_tn: Node = treat_next_world.get_meta("party_manager")
+	var bleed_bro: Node = _add_living_entity_member(pm_tn, "BleedBro")
+	bleed_bro.wounds["chest"] = [{"current_bleeding_rate": 0.6, "severity": "moderate"}]
+	var ok_bro: Node = _add_living_entity_member(pm_tn, "OkBro")
+	var roster: Array = []
+	for raw in pm_tn.members:
+		if raw is Dictionary:
+			roster.append(_Snapshot.snapshot_from_member(raw as Dictionary))
+	if not _MapFieldCare.try_treat_next_wound(treat_next_world, roster):
+		_fail(failures, "Camp-2.1: treat next wound should apply field pressure on highest threat")
+	else:
+		_pass()
+	if not _EntityMedical.has_direct_pressure_on_part(bleed_bro, "chest"):
+		_fail(failures, "Camp-2.1: treat next wound should pressure highest-threat part first")
+	else:
+		_pass()
+	var treat_next_dressed: bool = false
+	for attempt in range(24):
+		_CompanyState.set_medical_supplies(treat_next_world, 3)
+		roster = []
+		for raw in pm_tn.members:
+			if raw is Dictionary:
+				roster.append(_Snapshot.snapshot_from_member(raw as Dictionary))
+		seed(90400 + attempt)
+		if not _MapFieldCare.try_treat_next_wound(treat_next_world, roster):
+			break
+		if bool(bleed_bro.bandaged_parts.get("chest", false)):
+			treat_next_dressed = true
+			break
+	if not treat_next_dressed:
+		_fail(failures, "Camp-2.1: treat next wound should eventually bandage after pressure")
+	else:
+		_pass()
+	if not _CompanyState.camp_heal_ready(treat_next_world, true):
+		_fail(failures, "Camp-2.1: camp rest should unlock after treat-next chain dresses wound")
+	else:
+		_pass()
+	_release_harness_world(treat_next_world)
+
+	var split_world: Node2D = _make_world(2, 0, true)
+	var split_leader: Node = _harness_core_entity()
+	split_leader.name = "Character"
+	split_world.add_child(split_leader)
+	_CompanyState.set_medical_supplies(split_world, 4)
+	var pm_split: Node = split_world.get_meta("party_manager")
+	var split_bro: Node = _add_living_entity_member(pm_split, "SplitDress")
+	split_bro.wounds["chest"] = [{"current_bleeding_rate": 0.5, "severity": "moderate"}]
+	split_bro.wounds["left_leg"] = [
+		{"current_bleeding_rate": 0.0, "base_bleeding_rate": 0.2, "severity": "moderate"},
+	]
+	var split_roster: Array = []
+	var split_member: Dictionary = {}
+	for raw in pm_split.members:
+		if raw is Dictionary:
+			var split_snap: Dictionary = _Snapshot.snapshot_from_member(raw as Dictionary)
+			split_roster.append(split_snap)
+			if str(split_snap.get("name", "")) == "SplitDress":
+				split_member = split_snap
+	if split_member.is_empty():
+		_fail(failures, "Camp-2.1: split dress harness member missing")
+	else:
+		_pass()
+	if not _MapFieldCare.can_offer_field_bandage(split_world, split_member):
+		_fail(
+			failures,
+			"Camp-2.1: treat-next should offer bandage on clotted part while another bleeds"
+		)
+	else:
+		_pass()
+	if not _MapFieldCare.can_treat_next_wound(split_world, split_roster):
+		_fail(
+			failures,
+			"Camp-2.1: treat-next should stay available when one part needs pressure and another can dress"
+		)
+	else:
+		_pass()
+	if not _MapFieldCare.try_treat_next_wound(split_world, split_roster):
+		_fail(failures, "Camp-2.1: treat-next should pressure bleeding part before dressing clotted part")
+	else:
+		_pass()
+	if not _EntityMedical.has_direct_pressure_on_part(split_bro, "chest"):
+		_fail(failures, "Camp-2.1: treat-next multi-part should hold pressure on bleeding chest first")
+	else:
+		_pass()
+	split_member = _Snapshot.snapshot_from_member({"name": "SplitDress", "node_ref": split_bro})
+	var next_after_pressure: String = _MapFieldCare.format_next_field_care_action(
+		split_world, split_member
+	)
+	if not next_after_pressure.contains("Field bandage"):
+		_fail(
+			failures,
+			"Camp-2.1: next action after chest pressure should offer bandage got '%s'"
+			% next_after_pressure
+		)
+	else:
+		_pass()
+	var treat_next_lbl: String = _MapFieldCare.format_treat_next_wound_button_label(
+		split_world, split_roster
+	)
+	if not treat_next_lbl.contains("Treat next") or not treat_next_lbl.contains("SplitDress"):
+		_fail(
+			failures,
+			"Camp-2.1: treat-next button should name brother and step got '%s'" % treat_next_lbl
+		)
+	else:
+		_pass()
+	_release_harness_world(split_world)
+
 	var retry_world: Node2D = _make_world(1)
 	var pm_retry: Node = retry_world.get_meta("party_manager")
 	var retry_ent: Node = _add_living_entity_member(pm_retry, "RetryBand")
@@ -1131,6 +2227,41 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-2.1: bandage failure log should include parts_left")
 	else:
 		_pass()
+	var retry_tree_root: Node = _harness_root()
+	if retry_tree_root != null and retry_world.get_parent() == null:
+		retry_tree_root.add_child(retry_world)
+	var retry_menu: PopupPanel = _party_menu_script.new() as PopupPanel
+	retry_world.add_child(retry_menu)
+	var retry_roster_ui: Array = []
+	for raw in pm_retry.members:
+		if raw is Dictionary:
+			retry_roster_ui.append(_Snapshot.snapshot_from_member(raw as Dictionary))
+	retry_menu.show_party(retry_world, retry_roster_ui)
+	var fail_notice: bool = false
+	for attempt in range(48):
+		seed(88200 + attempt)
+		_CompanyState.set_medical_supplies(retry_world, 2)
+		retry_ent.bandaged_parts.erase("chest")
+		if retry_ent.self_direct_pressure_part != "chest":
+			retry_ent.apply_direct_pressure("chest")
+		retry_member = _Snapshot.snapshot_from_member({"name": "RetryBand", "node_ref": retry_ent})
+		var fail_step := func() -> bool:
+			return _MapFieldCare.try_field_bandage(retry_world, retry_member)
+		retry_menu._run_field_care_step(fail_step, "bandage")
+		var ui_blob: String = " ".join(_collect_control_label_texts(retry_menu))
+		if ui_blob.contains("retry") or ui_blob.contains("keep pressure"):
+			fail_notice = true
+			break
+	if not fail_notice:
+		_fail(failures, "Camp-2.1: Party menu should surface bandage failure retry notice")
+	else:
+		_pass()
+	var retry_hint: String = _MapFieldCare.format_field_care_retry_hint("bandage")
+	if not retry_hint.contains("retry"):
+		_fail(failures, "Camp-2.1: field care retry hint should mention retry got '%s'" % retry_hint)
+	else:
+		_pass()
+	retry_menu.queue_free()
 	_release_harness_world(retry_world)
 
 	var clot_world: Node2D = _make_world(1)
@@ -1204,6 +2335,13 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		)
 	else:
 		_pass()
+	var zero_menu: PopupPanel = _party_menu_script.new() as PopupPanel
+	zero_med_world.add_child(zero_menu)
+	var zero_roster_before: Array = []
+	for raw in pm_zero.members:
+		if raw is Dictionary:
+			zero_roster_before.append(_Snapshot.snapshot_from_member(raw as Dictionary))
+	zero_menu.show_party(zero_med_world, zero_roster_before)
 	var zero_dressed: bool = false
 	for attempt in range(48):
 		_CompanyState.set_medical_supplies(zero_med_world, 0)
@@ -1221,7 +2359,52 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-2.1 E3: field bandage at 0 med must not consume company med")
 	else:
 		_pass()
+	var zero_roster_after: Array = []
+	for raw in pm_zero.members:
+		if raw is Dictionary:
+			zero_roster_after.append(_Snapshot.snapshot_from_member(raw as Dictionary))
+	zero_menu.show_party(zero_med_world, zero_roster_after)
+	var zero_labels: String = " ".join(_collect_control_label_texts(zero_menu))
+	if not zero_labels.contains("Camp rest unlocked"):
+		_fail(
+			failures,
+			"Camp-2.1 E3: Party should show dressed-complete banner at 0 med got '%s'"
+			% zero_labels.substr(0, mini(120, zero_labels.length()))
+		)
+	else:
+		_pass()
+	zero_menu.queue_free()
 	_release_harness_world(zero_med_world)
+
+	var wired_zero_world: Node2D = _make_world(1, 0, true)
+	_CompanyState.set_medical_supplies(wired_zero_world, 0)
+	_CompanyState.wire_party_medical_supply(wired_zero_world)
+	var pm_wz: Node = wired_zero_world.get_meta("party_manager")
+	var wired_ent: Node = _add_living_entity_member(pm_wz, "WiredZeroMed")
+	wired_ent.intelligence = 100
+	wired_ent.wounds["chest"] = [
+		{"current_bleeding_rate": 0.0, "base_bleeding_rate": 0.2, "severity": "moderate"},
+	]
+	var wired_eff: float = _CompanyState.compute_field_treatment_effectiveness(
+		wired_ent, wired_zero_world, false
+	)
+	if absf(wired_eff - 0.5) > 0.03:
+		_fail(
+			failures,
+			"Camp-2.1 E3: post-fight wired 0-med field efficacy want ~0.50 got %.2f"
+			% wired_eff
+		)
+	else:
+		_pass()
+	_CompanyState.set_medical_supplies(wired_zero_world, 4)
+	if absf(float(wired_ent.get_campaign_supply_factor()) - 1.0) > 0.03:
+		_fail(
+			failures,
+			"Camp-2.1 E3: set_medical_supplies should rewire entity supply stamp to 1.0 at 4 med"
+		)
+	else:
+		_pass()
+	_release_harness_world(wired_zero_world)
 
 	var sort_world: Node2D = _make_world(1)
 	var pm_sort: Node = sort_world.get_meta("party_manager")
@@ -1351,7 +2534,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 	multi_ent.wounds["left_leg"] = [{"current_bleeding_rate": 0.2, "severity": "moderate"}]
 	var multi_member: Dictionary = _Snapshot.snapshot_from_member({"name": "MultiPart", "node_ref": multi_ent})
 	var multi_hint: String = _MapFieldCare.format_member_field_care_hint(multi_member)
-	if not multi_hint.contains("2 part"):
+	if not multi_hint.contains("2 untreated part"):
 		_fail(failures, "Camp-2.1: member field care hint should count parts got '%s'" % multi_hint)
 	else:
 		_pass()
@@ -1484,11 +2667,20 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 	var move_msg: String = _MapBleedPolicy.map_move_blocked_message(undressed_world)
 	if not move_msg.contains("Dress wounds") or not move_msg.contains("1 part"):
 		_fail(failures, "Camp-2.1: undressed-only map block should mention dressing got '%s'" % move_msg)
+	elif not move_msg.contains("bandage"):
+		_fail(failures, "Camp-2.1: map block should cite MARCH chain got '%s'" % move_msg)
 	else:
 		_pass()
 	var hud_ud: String = _MapBleedPolicy.hud_bleed_hint(undressed_world)
 	if not hud_ud.contains("Dress wounds"):
 		_fail(failures, "Camp-2.1: HUD should hint dress when clotted but undressed got '%s'" % hud_ud)
+	elif not hud_ud.contains("pressure"):
+		_fail(failures, "Camp-2.1: HUD dress hint should cite MARCH chain got '%s'" % hud_ud)
+	else:
+		_pass()
+	var complete_line: String = _CompanyState.format_field_care_complete_line(undressed_world)
+	if not complete_line.contains("Camp rest unlocked"):
+		_fail(failures, "Camp-2.1: field care complete line expected got '%s'" % complete_line)
 	else:
 		_pass()
 	_release_harness_world(undressed_world)
@@ -1504,8 +2696,8 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-2.1: overworld step should warn when clotted but undressed")
 	else:
 		var warn_msg: String = str(step_world.get_meta(_MapBleedPolicy.WORLD_META_BLEED_WARN))
-		if not warn_msg.contains("undressed"):
-			_fail(failures, "Camp-2.1: clotted step warn should mention undressed got '%s'" % warn_msg)
+		if not warn_msg.contains("need dressing"):
+			_fail(failures, "Camp-2.1: clotted step warn should mention need dressing got '%s'" % warn_msg)
 		elif not warn_msg.contains("0-med"):
 			_fail(failures, "Camp-2.1: clotted step warn at 0 med should mention 0-med bandages got '%s'" % warn_msg)
 		else:
@@ -1513,6 +2705,12 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 	var settle_hint: String = _CompanyState.format_settlement_field_care_hint(step_world)
 	if not settle_hint.contains("1 part") or not settle_hint.contains("Party"):
 		_fail(failures, "Camp-2.1: settlement field care hint missing got '%s'" % settle_hint)
+	elif not settle_hint.contains("0 med"):
+		_fail(
+			failures,
+			"Camp-2.1: settlement field care hint at 0 med should cite dress note got '%s'"
+			% settle_hint
+		)
 	else:
 		_pass()
 	step_world.set_meta(
@@ -1533,12 +2731,24 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 			"winner": "player",
 		}
 	)
-	var worst_settle: Dictionary = _SettlementPanel._worst_triage_from_summary(step_world)
-	if not str(worst_settle.get("triage_line", "")).contains("Undressed"):
+	var worst_settle: Dictionary = _RowFormatter.worst_triage_from_member_rows(
+		_CampaignBridge.party_member_snapshots(step_world)
+	)
+	if not str(worst_settle.get("triage_line", "")).contains("bandage/pack/TQ"):
 		_fail(
 			failures,
 			"Camp-2.1: settlement worst triage should cover clotted undressed got '%s'"
 			% str(worst_settle.get("triage_line", ""))
+		)
+	else:
+		_pass()
+	var clot_snap: Dictionary = _Snapshot.snapshot_from_member({"name": "ClotStep", "node_ref": st_ent})
+	var settle_next: String = _MapFieldCare.format_next_field_care_action(step_world, clot_snap)
+	if not settle_next.contains("Field bandage"):
+		_fail(
+			failures,
+			"Camp-2.1: settlement row next-action should offer bandage on clotted part got '%s'"
+			% settle_next
 		)
 	else:
 		_pass()
@@ -1589,15 +2799,34 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 	else:
 		_pass()
 	var bandage_logged: bool = false
+	var bandage_part_logged: bool = false
+	var bandage_sim_seconds_logged: bool = false
 	var camp_logged: bool = false
+	var sim_seconds_s: String = "seconds=%.0f" % _MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS
 	for line in _OperationalLog.get_captured_lines():
 		var s: String = str(line)
 		if s.contains("field_care bandage") and s.contains("camp_rest_ready"):
 			bandage_logged = true
+		if s.contains("field_care bandage part=chest"):
+			bandage_part_logged = true
+		if s.contains("field_care bandage") and s.contains(sim_seconds_s):
+			bandage_sim_seconds_logged = true
 		if s.contains("camp_heal") and s.contains("all_dressed=true"):
 			camp_logged = true
 	if not bandage_logged:
 		_fail(failures, "Camp-2.1: field bandage success should log camp_rest_ready")
+	else:
+		_pass()
+	if not bandage_part_logged:
+		_fail(failures, "Camp-5: field bandage success should log part=chest for F5 grep")
+	else:
+		_pass()
+	if not bandage_sim_seconds_logged:
+		_fail(
+			failures,
+			"Camp-2.1: field bandage log should report sim advance %s (not UI 120s)"
+			% sim_seconds_s
+		)
 	else:
 		_pass()
 	if _CompanyState.try_camp_heal(log_world, true):
@@ -1696,11 +2925,13 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 	_release_harness_world(pay_world)
 
 	var mgr_cnt: Node = _MgrScript.new()
-	var wounded_cnt: Node = _CoreEntityScript.new()
+	var wounded_cnt: Node = _harness_core_entity()
 	wounded_cnt.apply_species()
 	wounded_cnt.wounds["chest"] = [{"current_bleeding_rate": 0.4, "severity": "moderate"}]
 	mgr_cnt.register(wounded_cnt, "player")
-	mgr_cnt.register(_CoreEntityScript.new(), "enemy")
+	var enemy_cnt: Node = _harness_core_entity()
+	enemy_cnt.apply_species()
+	mgr_cnt.register(enemy_cnt, "enemy")
 	mgr_cnt.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr_cnt.medical_phase = true
 	mgr_cnt.medical_phase_winner = "player"
@@ -1708,7 +2939,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-2.1: winner_side_untreated_part_count want 1")
 	else:
 		_pass()
-	mgr_cnt.free()
+	CombatRegressionHarness._free_manager(mgr_cnt)
 
 	var bleed_sim_world: Node2D = _make_world(1)
 	var pm_bleed: Node = bleed_sim_world.get_meta("party_manager")
@@ -1785,7 +3016,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 	rng.seed = 42
 	soft_world.set_meta("rng", rng)
 	soft_world.set_meta("enemy_scene", load(ResourcePaths.ENEMY_SCENE) as PackedScene)
-	var lost: Dictionary = _ContractSpawner.TUTORIAL_TEMPLATE.duplicate(true)
+	var lost: Dictionary = _ContractSpawner.build_encounter_config(_ContractSpawner.TUTORIAL_TEMPLATE)
 	_CombatFlow.resume_overworld_after_soft_defeat(soft_world, lost)
 	if _CompanyState.get_gold(soft_world) != 77:
 		_fail(failures, "Camp-2.6: soft defeat resume must preserve company gold")
@@ -1944,7 +3175,7 @@ static func _run_encounter_entry_rollback(failures: PackedStringArray) -> void:
 	var rng := RandomNumberGenerator.new()
 	var enc: Node2D = _EncounterNodeScript.new()
 	enc.enemy_count = 0
-	enc.encounter_config = _ContractSpawner.TUTORIAL_TEMPLATE.duplicate(true)
+	enc.encounter_config = _ContractSpawner.build_encounter_config(_ContractSpawner.TUTORIAL_TEMPLATE)
 	world.add_child(enc)
 	var before_children: int = world.get_child_count()
 	var enemies: Array = _CampaignBridge.begin_contract_encounter(world, enc, rng)
@@ -2103,29 +3334,496 @@ static func _run_camp_4_contract_flavor(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-4/III-4: skirmish marker label should show 7-wide formation hint")
 	else:
 		_pass()
-	var world_tut_pc: Node2D = _make_world(2)
-	var enc_tut: Node2D = _EncounterNodeScript.new()
-	enc_tut.encounter_config = _ContractSpawner.build_encounter_config(_ContractSpawner.TUTORIAL_TEMPLATE)
-	_CampaignBridge.prepare_combat_from_encounter(world_tut_pc, enc_tut)
-	var pf_tut: Dictionary = world_tut_pc.get_meta("party_formation", {}) as Dictionary
-	if int(pf_tut.get("files", 0)) != 2:
+	var tut_default: Dictionary = FormationPreset.default_for_count(7)
+	var world_fresh_tut: Node2D = _make_world(7)
+	_ContractSpawner._spawn_contract_at_tile(
+		world_fresh_tut, Vector2i(1, 0), _ContractSpawner.TUTORIAL_TEMPLATE, null
+	)
+	var fresh_enc: EncounterNode = null
+	for child in world_fresh_tut.get_children():
+		if child is EncounterNode:
+			fresh_enc = child as EncounterNode
+			break
+	if fresh_enc == null:
+		_fail(failures, "Camp-4/III-4: tutorial spawn should create encounter marker")
+	else:
+		_pass()
+	if fresh_enc != null:
+		_CampaignBridge.prepare_combat_from_encounter(world_fresh_tut, fresh_enc)
+		var pf_fresh: Dictionary = world_fresh_tut.get_meta("party_formation", {}) as Dictionary
+		if (
+			int(pf_fresh.get("files", 0)) != int(tut_default.get("files", 0))
+			or int(pf_fresh.get("ranks", 0)) != int(tut_default.get("ranks", 0))
+		):
+			_fail(
+				failures,
+				"Camp-4/III-4: tutorial spawn want default party_formation got files=%d ranks=%d"
+				% [int(pf_fresh.get("files", 0)), int(pf_fresh.get("ranks", 0))]
+			)
+		else:
+			_pass()
+	world_fresh_tut.free()
+	var tut_lbl: String = _ContractSpawner.format_marker_label(_ContractSpawner.TUTORIAL_TEMPLATE)
+	if not tut_lbl.contains("Tutorial") or not tut_lbl.contains("2 foes"):
+		_fail(failures, "Camp-4/III-4: tutorial marker label should show tutorial title and foe count")
+	else:
+		_pass()
+	if _ContractSpawner.TUTORIAL_TEMPLATE.has(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT):
+		_fail(failures, "Camp-4/III-4: tutorial template must not pin player_front_count")
+	else:
+		_pass()
+	var old_save_tut: Dictionary = _ContractSpawner.TUTORIAL_TEMPLATE.duplicate(true)
+	old_save_tut[CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT] = 2
+	old_save_tut[CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION] = {"files": 2, "ranks": 4}
+	var world_saved_tut: Node2D = _make_world(7)
+	_ContractSpawner.spawn_saved_encounter_at_tile(
+		world_saved_tut,
+		Vector2i(1, 0),
+		old_save_tut,
+		2,
+		{},
+		"Tutorial",
+		"tutorial",
+		null
+	)
+	var saved_enc: EncounterNode = null
+	for child in world_saved_tut.get_children():
+		if child is EncounterNode:
+			saved_enc = child as EncounterNode
+			break
+	if saved_enc == null:
+		_fail(failures, "Camp-4/III-4: spawn_saved_encounter_at_tile should create tutorial marker")
+	else:
+		_pass()
+	if saved_enc != null and (
+		saved_enc.encounter_config.has(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT)
+		or saved_enc.encounter_config.has(CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION)
+	):
+		_fail(failures, "Camp-4/III-4: saved tutorial marker must store normalized encounter_config")
+	else:
+		_pass()
+	if saved_enc != null:
+		_CampaignBridge.prepare_combat_from_encounter(world_saved_tut, saved_enc)
+		var pf_saved: Dictionary = world_saved_tut.get_meta("party_formation", {}) as Dictionary
+		if (
+			int(pf_saved.get("files", 0)) != int(tut_default.get("files", 0))
+			or int(pf_saved.get("ranks", 0)) != int(tut_default.get("ranks", 0))
+		):
+			_fail(
+				failures,
+				"Camp-4/III-4: saved tutorial marker want default party_formation got files=%d ranks=%d"
+				% [int(pf_saved.get("files", 0)), int(pf_saved.get("ranks", 0))]
+			)
+		else:
+			_pass()
+	world_saved_tut.free()
+
+
+static func _run_camp_5_ea_log_markers(failures: PackedStringArray) -> void:
+	_OperationalLog.set_capture_enabled(true)
+	if _OperationalLog.is_play_session_active():
+		_OperationalLog.end_play_session()
+	var silent_ok: bool = false
+	for seed_try in range(8000):
+		seed(seed_try)
+		_OperationalLog.clear_capture()
+		var silent_world: Node2D = _make_world(1)
+		var pm_silent: Node = silent_world.get_meta("party_manager")
+		for raw in pm_silent.members:
+			if raw is Dictionary:
+				(raw as Dictionary)["company_mood"] = 10.0
+		_CompanyState._run_daily_desertion_pass(silent_world)
+		var summary_logged: bool = false
+		for line in _OperationalLog.get_captured_lines():
+			if str(line).contains("desertion summary="):
+				summary_logged = true
+				break
+		if _CompanyState.is_bankrupt(silent_world) and not summary_logged:
+			silent_ok = true
+		_release_harness_world(silent_world)
+		if silent_ok:
+			break
+	_OperationalLog.set_capture_enabled(false)
+	if not silent_ok:
 		_fail(
 			failures,
-			"Camp-4/III-4: tutorial prepare_combat want 2-wide party_formation got files=%d ranks=%d"
-			% [int(pf_tut.get("files", 0)), int(pf_tut.get("ranks", 0))]
+			"Camp-5: desertion should collapse roster without desertion summary outside play session"
 		)
 	else:
 		_pass()
-	world_tut_pc.free()
-	enc_tut.free()
-	var tut_lbl: String = _ContractSpawner.format_marker_label(_ContractSpawner.TUTORIAL_TEMPLATE)
-	if not tut_lbl.contains("2-wide"):
-		_fail(failures, "Camp-4/III-4: tutorial marker label should show 2-wide formation hint")
+
+	_OperationalLog.begin_play_session("headless://camp_debt_warn", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var debt_world: Node2D = _make_world(2, 0, true)
+	_CompanyState.set_gold(debt_world, 5)
+	_CompanyState.try_advance_day(debt_world)
+	var debt_logged: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		if str(line).contains("Company is in debt"):
+			debt_logged = true
+			break
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if not debt_logged:
+		_fail(failures, "Camp-5: try_advance_day should log debt warning when gold negative")
+	else:
+		_pass()
+	_release_harness_world(debt_world)
+
+	_OperationalLog.begin_play_session("headless://camp_settlement_continue", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var settle_world: Node2D = _make_world(1)
+	_CompanyState.mark_tutorial_completed(settle_world)
+	_CompanyState.set_active_contract(
+		settle_world,
+		{
+			"pay_gold": 120,
+			"contract_title": "Border Skirmish",
+			"contract_type": "skirmish",
+		}
+	)
+	var settle_contract: Dictionary = _CompanyState.get_active_contract(settle_world)
+	var settle_pay: int = _CompanyState.apply_contract_victory_pay(settle_world)
+	_OperationalLog.play_world(
+		_SettlementPanel.format_settlement_continue_log(settle_world, settle_contract, settle_pay)
+	)
+	var victory_logged: bool = false
+	var continue_logged: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		var s: String = str(line)
+		if s.contains("contract_victory pay=") and s.contains("gold="):
+			victory_logged = true
+		if s.contains("settlement_continue pay=") and s.contains("tutorial=false"):
+			continue_logged = true
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if not victory_logged:
+		_fail(failures, "Camp-5: paid contract win should log contract_victory pay=")
+	else:
+		_pass()
+	if not continue_logged:
+		_fail(failures, "Camp-5: settlement continue should log pay= gold= renown= tutorial=false")
+	else:
+		_pass()
+	_release_harness_world(settle_world)
+
+	var tut_settle_world: Node2D = _make_world(1)
+	_CompanyState.set_active_contract(
+		tut_settle_world,
+		_ContractSpawner.build_encounter_config(_ContractSpawner.TUTORIAL_TEMPLATE)
+	)
+	var tut_contract: Dictionary = _CompanyState.get_active_contract(tut_settle_world)
+	_OperationalLog.begin_play_session("headless://camp_tutorial_settlement", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var tut_pay: int = _CompanyState.apply_contract_victory_pay(tut_settle_world)
+	_OperationalLog.play_world(
+		_SettlementPanel.format_settlement_continue_log(tut_settle_world, tut_contract, tut_pay)
+	)
+	var tut_victory_logged: bool = false
+	var tut_continue_logged: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		var s: String = str(line)
+		if s.contains("contract_victory tutorial"):
+			tut_victory_logged = true
+		if s.contains("settlement_continue pay=0") and s.contains("tutorial=true"):
+			tut_continue_logged = true
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if tut_pay != 0:
+		_fail(failures, "Camp-5: tutorial contract victory pay should be 0")
+	else:
+		_pass()
+	if not tut_victory_logged:
+		_fail(failures, "Camp-5: tutorial win should log contract_victory tutorial")
+	else:
+		_pass()
+	if not tut_continue_logged:
+		_fail(failures, "Camp-5: tutorial settlement continue should log pay=0 tutorial=true")
+	else:
+		_pass()
+	_release_harness_world(tut_settle_world)
+
+	_OperationalLog.begin_play_session("headless://camp_field_care_pressure", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var press_world: Node2D = _make_world(1, 0, true)
+	var leader_ent: Node = _harness_core_entity()
+	leader_ent.name = "Character"
+	press_world.add_child(leader_ent)
+	var pm_press: Node = press_world.get_meta("party_manager")
+	var press_patient: Node = _harness_core_entity()
+	press_patient.wounds["right_arm"] = [{"current_bleeding_rate": 0.4, "severity": "moderate"}]
+	pm_press.add_child(press_patient)
+	pm_press.members.append({"name": "PressBro", "node_ref": press_patient, "company_mood": 50.0})
+	var press_member: Dictionary = _Snapshot.snapshot_from_member(
+		{"name": "PressBro", "node_ref": press_patient}
+	)
+	if not _MapFieldCare.try_field_pressure(press_world, press_member):
+		_fail(failures, "Camp-5: field pressure action should succeed on ally arm wound")
+	else:
+		_pass()
+	var pressure_logged: bool = false
+	var pressure_sim_seconds_logged: bool = false
+	var field_care_sim_seconds_s: String = (
+		"seconds=%.0f" % _MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS
+	)
+	for line in _OperationalLog.get_captured_lines():
+		var s: String = str(line)
+		if s.contains("field_care pressure part=right_arm"):
+			pressure_logged = true
+		if s.contains("field_care pressure") and s.contains(field_care_sim_seconds_s):
+			pressure_sim_seconds_logged = true
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if not pressure_logged:
+		_fail(failures, "Camp-5: field pressure success should log field_care pressure part=")
+	else:
+		_pass()
+	if not pressure_sim_seconds_logged:
+		_fail(
+			failures,
+			"Camp-2.1: field pressure log should report sim advance %s" % field_care_sim_seconds_s
+		)
+	else:
+		_pass()
+	_release_harness_world(press_world)
+
+	_OperationalLog.begin_play_session("headless://camp_field_care_hint", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var hint_world: Node2D = _make_world(1)
+	var pm_hint: Node = hint_world.get_meta("party_manager")
+	var hint_ent: Node = _add_living_entity_member(pm_hint, "HintBro")
+	hint_ent.wounds["chest"] = [{"current_bleeding_rate": 0.5, "severity": "moderate"}]
+	var hint_line: String = _CompanyState.format_post_fight_field_care_world_log(hint_world)
+	if not hint_line.begins_with("field_care:"):
+		_fail(failures, "Camp-5: post-fight field care hint should begin with field_care:")
+	else:
+		_pass()
+	_OperationalLog.play_world(hint_line)
+	var hint_logged: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		if str(line).contains("field_care:") and str(line).contains("need dressing"):
+			hint_logged = true
+			break
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if not hint_logged:
+		_fail(failures, "Camp-5: field_care hint should log need dressing on map return")
+	else:
+		_pass()
+	_release_harness_world(hint_world)
+
+	_OperationalLog.begin_play_session("headless://camp_company_day", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var day_world: Node2D = _make_world(2, 0, true)
+	var day_before: int = _CompanyState.get_day_index(day_world)
+	_CompanyState.try_advance_day(day_world)
+	var day_logged: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		var s: String = str(line)
+		if (
+			s.contains("company_day_advanced day=%d" % (day_before + 1))
+			and s.contains("wages_paid=")
+			and s.contains("living=2")
+		):
+			day_logged = true
+			break
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if not day_logged:
+		_fail(
+			failures,
+			"Camp-5: try_advance_day should log company_day_advanced day=%d living=2"
+			% (day_before + 1)
+		)
+	else:
+		_pass()
+	_release_harness_world(day_world)
+
+	_OperationalLog.begin_play_session("headless://camp_rest_day_advance", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var rest_world: Node2D = _make_world(1, 0, true)
+	_CompanyState.mark_tutorial_completed(rest_world)
+	_CompanyState.set_medical_supplies(rest_world, 3)
+	var pm_rest: Node = rest_world.get_meta("party_manager")
+	var rest_ent: Node = _add_living_entity_member(pm_rest, "CampRest")
+	rest_ent.wounds["chest"] = [{"current_bleeding_rate": 0.5, "severity": "moderate"}]
+	rest_ent.apply_direct_pressure("chest")
+	var rest_member: Dictionary = _Snapshot.snapshot_from_member({"name": "CampRest", "node_ref": rest_ent})
+	var rest_dressed: bool = false
+	for attempt in range(24):
+		rest_ent.bandaged_parts.erase("chest")
+		if rest_ent.self_direct_pressure_part != "chest":
+			rest_ent.apply_direct_pressure("chest")
+		seed(90300 + attempt)
+		if _MapFieldCare.try_field_bandage(rest_world, rest_member):
+			rest_dressed = true
+			break
+	if not rest_dressed:
+		_fail(failures, "Camp-5: camp rest day test could not dress chest")
+	else:
+		_pass()
+	var rest_day_before: int = _CompanyState.get_day_index(rest_world)
+	if not _CompanyState.try_camp_heal(rest_world, true):
+		_fail(failures, "Camp-5: camp rest should succeed when all wounds dressed")
+	else:
+		_pass()
+	var camp_day_logged: bool = false
+	var camp_heal_logged: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		var s: String = str(line)
+		if s.contains("company_day_advanced day=%d" % (rest_day_before + 1)) and s.contains("wages_paid="):
+			camp_day_logged = true
+		if s.contains("camp_heal") and s.contains("all_dressed=true"):
+			camp_heal_logged = true
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if not camp_day_logged:
+		_fail(
+			failures,
+			"Camp-5: Party camp rest should log company_day_advanced day=%d"
+			% (rest_day_before + 1)
+		)
+	else:
+		_pass()
+	if not camp_heal_logged:
+		_fail(failures, "Camp-5: Party camp rest should log camp_heal all_dressed=true")
+	else:
+		_pass()
+	_release_harness_world(rest_world)
+
+	_OperationalLog.begin_play_session("headless://camp_bankrupt_collapse", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var bankrupt_collapse: bool = false
+	for seed_try in range(8000):
+		seed(seed_try)
+		_OperationalLog.clear_capture()
+		var broke_world: Node2D = _make_world(1)
+		var pm_broke: Node = broke_world.get_meta("party_manager")
+		for raw in pm_broke.members:
+			if raw is Dictionary:
+				(raw as Dictionary)["company_mood"] = 10.0
+		_CompanyState._run_daily_desertion_pass(broke_world)
+		if not _CompanyState.is_bankrupt(broke_world):
+			_release_harness_world(broke_world)
+			continue
+		if _CompanyState.count_living_roster(broke_world) > 0:
+			_release_harness_world(broke_world)
+			continue
+		_OperationalLog.play_world(_CompanyRunEndPanel.format_company_run_end_log("bankrupt"))
+		var desertion_seen: bool = false
+		var bankrupt_log_seen: bool = false
+		for line in _OperationalLog.get_captured_lines():
+			var s: String = str(line)
+			if s.contains("desertion summary=") and s.contains("(mood="):
+				desertion_seen = true
+			if s.contains("company_run_end reason=bankrupt reload=true"):
+				bankrupt_log_seen = true
+		if desertion_seen and bankrupt_log_seen:
+			bankrupt_collapse = true
+		_release_harness_world(broke_world)
+		if bankrupt_collapse:
+			break
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if not bankrupt_collapse:
+		_fail(failures, "Camp-5: total desertion should set bankrupt and log reason=bankrupt reload=true")
 	else:
 		_pass()
 
+	_OperationalLog.begin_play_session("headless://camp_run_end_logs", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	for reason in ["contract_failed", "tutorial_failed", "soft_defeat_resume"]:
+		_OperationalLog.play_world(_CompanyRunEndPanel.format_company_run_end_log(reason))
+	var paid_logged: bool = false
+	var tut_logged: bool = false
+	var soft_logged: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		var s: String = str(line)
+		if s.contains("company_run_end reason=contract_failed reload=true"):
+			paid_logged = true
+		if s.contains("company_run_end reason=tutorial_failed reload=false"):
+			tut_logged = true
+		if s.contains("company_run_end reason=soft_defeat_resume reload=false"):
+			soft_logged = true
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if not paid_logged:
+		_fail(failures, "Camp-5: company_run_end should log contract_failed reload=true")
+	else:
+		_pass()
+	if not tut_logged:
+		_fail(failures, "Camp-5: company_run_end should log tutorial_failed reload=false")
+	else:
+		_pass()
+	if not soft_logged:
+		_fail(failures, "Camp-5: company_run_end should log soft_defeat_resume reload=false")
+	else:
+		_pass()
+
+	_OperationalLog.begin_play_session("headless://camp_party_triage", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var triage_world: Node2D = _make_world(1, 0, true)
+	var pm_triage: Node = triage_world.get_meta("party_manager")
+	_add_living_entity_member(pm_triage, "OkBro")
+	var wound_bro: Node = _add_living_entity_member(pm_triage, "WoundBro")
+	wound_bro.wounds["chest"] = [{"current_bleeding_rate": 0.6, "severity": "moderate"}]
+	var roster: Array = []
+	for raw in pm_triage.members:
+		if raw is Dictionary:
+			roster.append(_Snapshot.snapshot_from_member(raw as Dictionary))
+	var menu: PopupPanel = _party_menu_script.new() as PopupPanel
+	triage_world.add_child(menu)
+	menu.show_party(triage_world, roster)
+	var triage_open_logged: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		var s: String = str(line)
+		if s.contains("party_triage_open living=") and s.contains("untreated="):
+			triage_open_logged = true
+			break
+	var label_blob: String = " ".join(_collect_control_label_texts(menu))
+	if not triage_open_logged:
+		_fail(failures, "Camp-5: Party open should log party_triage_open living=")
+	else:
+		_pass()
+	if not label_blob.contains("Needs dressing") or not label_blob.contains("Chest"):
+		_fail(
+			failures,
+			"Camp-5: Party triage row should list untreated part (got snippet '%s')"
+			% label_blob.substr(0, mini(120, label_blob.length()))
+		)
+	else:
+		_pass()
+	if not label_blob.contains("WoundBro") or not label_blob.contains("Wounded"):
+		_fail(failures, "Camp-5: Party triage should surface wounded brother section")
+	else:
+		_pass()
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	menu.queue_free()
+	_release_harness_world(triage_world)
+
+
+static func _collect_control_label_texts(root: Node) -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	if root is Label:
+		out.append((root as Label).text)
+	for child in root.get_children():
+		out.append_array(_collect_control_label_texts(child))
+	return out
+
 
 static func _run_persistence_roundtrip(failures: PackedStringArray) -> void:
+	if _Persistence.active_save_path() == _Persistence.SAVE_PATH:
+		_fail(failures, "P2 persistence: harness should use isolated save slot")
+	else:
+		_pass()
+	if not _Persistence.active_save_path().contains("fallen_paths_harness"):
+		_fail(
+			failures,
+			"P2 persistence: isolated path token missing got '%s'" % _Persistence.active_save_path()
+		)
+	else:
+		_pass()
 	_Persistence.clear_slot()
 	var world: Node2D = _make_world(0, 0, true)
 	_add_player_at_camp(world)
@@ -2250,7 +3948,7 @@ static func _run_persistence_roundtrip(failures: PackedStringArray) -> void:
 	var legacy_cfg: Dictionary = _ContractSpawner.build_encounter_config(
 		_ContractSpawner.CONTRACT_TEMPLATES[0]
 	)
-	legacy_cfg["training"] = true
+	legacy_cfg[_ContractSpawner.LEGACY_ENCOUNTER_CONFIG_KEY_TRAINING] = true
 	var legacy_save: Dictionary = {
 		"version": _Persistence.SAVE_VERSION,
 		"company_state": {"gold": 50},
@@ -2287,23 +3985,106 @@ static func _run_persistence_roundtrip(failures: PackedStringArray) -> void:
 		_pass()
 	if (
 		legacy_marker != null
-		and (legacy_marker.encounter_config as Dictionary).has("training")
+		and (legacy_marker.encounter_config as Dictionary).has(
+			_ContractSpawner.LEGACY_ENCOUNTER_CONFIG_KEY_TRAINING
+		)
 	):
 		_fail(failures, "P2 persistence: restored encounter_config should drop legacy training flag")
 	else:
 		_pass()
 	_release_harness_world(legacy_world)
 	_Persistence.clear_slot()
+	FileAccess.open(_Persistence.active_save_path(), FileAccess.WRITE).store_string('{"version":999}')
+	if not _CompanyState.load_campaign_autosave_for_boot().is_empty():
+		_fail(failures, "P2 persistence: load_campaign_autosave_for_boot should reject invalid save")
+	else:
+		_pass()
+	if _Persistence.has_save():
+		_fail(failures, "P2 persistence: invalid boot save should clear slot")
+	else:
+		_pass()
+	var restore_world: Node2D = _make_world(1, 0, true)
+	restore_world.set_meta(_CompanyState.WORLD_META_CAMPAIGN_RESTORED_FROM_SAVE, true)
+	if _CompanyState.format_hud_persistence_line(restore_world) != "Restored":
+		_fail(failures, "P2 persistence: HUD line want Restored after boot restore meta")
+	else:
+		_pass()
+	_release_harness_world(restore_world)
+	var autosave_world: Node2D = _make_world(1, 0, true)
+	_CompanyState.set_gold(autosave_world, 321)
+	if not _CompanyState.try_autosave(autosave_world):
+		_fail(failures, "P2 persistence: try_autosave should write slot when P2")
+	else:
+		_pass()
+	if autosave_world.has_meta(_CompanyState.WORLD_META_CAMPAIGN_RESTORED_FROM_SAVE):
+		autosave_world.set_meta(_CompanyState.WORLD_META_CAMPAIGN_RESTORED_FROM_SAVE, true)
+		if not _CompanyState.try_autosave(autosave_world):
+			_fail(failures, "P2 persistence: try_autosave should succeed with restored meta set")
+		elif autosave_world.has_meta(_CompanyState.WORLD_META_CAMPAIGN_RESTORED_FROM_SAVE):
+			_fail(failures, "P2 persistence: try_autosave should clear restored meta after write")
+		else:
+			_pass()
+	if _CompanyState.format_hud_persistence_line(autosave_world) != "Saved":
+		_fail(
+			failures,
+			"P2 persistence: HUD line want Saved after autosave got '%s'"
+			% _CompanyState.format_hud_persistence_line(autosave_world)
+		)
+	else:
+		_pass()
+	var autosave_loaded: Dictionary = _Persistence.load_save()
+	var autosave_state: Variant = autosave_loaded.get("company_state", {})
+	if autosave_state is not Dictionary or int((autosave_state as Dictionary).get("gold", 0)) != 321:
+		_fail(failures, "P2 persistence: try_autosave gold want 321 got %s" % autosave_state)
+	else:
+		_pass()
+	_Persistence.clear_slot()
+	_release_harness_world(autosave_world)
+	var day_world: Node2D = _make_world(2, 0, true)
+	var day_before: int = _CompanyState.get_day_index(day_world)
+	_CompanyState.try_advance_day(day_world)
+	if not _Persistence.has_save():
+		_fail(failures, "P2 persistence: try_advance_day should autosave when P2")
+	else:
+		_pass()
+	var day_loaded: Dictionary = _Persistence.load_save()
+	var day_state: Variant = day_loaded.get("company_state", {})
+	if day_state is not Dictionary or int((day_state as Dictionary).get("day_index", 0)) != day_before + 1:
+		_fail(
+			failures,
+			"P2 persistence: day autosave day_index want %d got %s"
+			% [day_before + 1, day_state]
+		)
+	else:
+		_pass()
+	_OperationalLog.begin_play_session("headless://p2_day_autosave_log", "", false, false)
+	_OperationalLog.set_capture_enabled(true)
+	var log_world: Node2D = _make_world(2, 0, true)
+	_CompanyState.try_advance_day(log_world)
+	var day_autosave_logged: bool = false
+	for line in _OperationalLog.get_captured_lines():
+		if str(line).contains("company_day_advanced") and str(line).contains("autosave=true"):
+			day_autosave_logged = true
+			break
+	_OperationalLog.set_capture_enabled(false)
+	_OperationalLog.end_play_session()
+	if not day_autosave_logged:
+		_fail(failures, "P2 persistence: company_day_advanced should log autosave=true")
+	else:
+		_pass()
+	_release_harness_world(log_world)
+	_Persistence.clear_slot()
+	_release_harness_world(day_world)
 	if _Persistence.has_save():
 		_fail(failures, "P2 persistence: clear_slot should remove save file")
 	else:
 		_pass()
-	FileAccess.open(_Persistence.SAVE_PATH, FileAccess.WRITE).store_string('{"version":1,"company_state":{},"roster":[{}]}')
+	FileAccess.open(_Persistence.active_save_path(), FileAccess.WRITE).store_string('{"version":1,"company_state":{},"roster":[{}]}')
 	if _Persistence.is_valid_save(_Persistence.load_save()):
 		_fail(failures, "P2 persistence: save version 1 should not validate")
 	else:
 		_pass()
-	FileAccess.open(_Persistence.SAVE_PATH, FileAccess.WRITE).store_string('{"version":999}')
+	FileAccess.open(_Persistence.active_save_path(), FileAccess.WRITE).store_string('{"version":999}')
 	if _Persistence.is_valid_save(_Persistence.load_save()):
 		_fail(failures, "P2 persistence: wrong version should not validate")
 	else:

@@ -1,7 +1,9 @@
 class_name CampaignAfflictions
 extends RefCounted
 
-## Post-victory permanent injuries (Camp-2.4) — tier RNG from user bundle.
+## Post-victory permanent injuries (Camp-2.4 / XCamp-3.4 catalog).
+## Tier RNG from [guide affliction table](../../docs/CAMPAIGN_DECISION_GUIDE.md#affliction-rng-medieval-alignment).
+## Canonical: `apply_after_victory` · `format_scar_line` · `count_scarred_brothers`.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
@@ -10,6 +12,9 @@ const _CompanyState := preload("res://world/CompanyState.gd")
 const AFFLICTION_SLOWED_CIRCULATION := "slowed_circulation"
 const AFFLICTION_OLD_WOUND_ACHE := "old_wound_ache"
 const AFFLICTION_LIMPING_LIMB := "limping_limb"
+const AFFLICTION_PARTLY_COLLAPSED_LUNG := "partly_collapsed_lung"
+const AFFLICTION_SHAKY_GRIP := "shaky_grip"
+const AFFLICTION_CRACKED_RIBS := "cracked_ribs"
 
 const P_PERIL := 0.30
 const P_DANGER := 0.12
@@ -17,6 +22,15 @@ const P_BONE_CRIPPLE := 0.45
 const P_ARTERIAL_FAIL := 0.55
 const P_STRUCK_DOWN := 0.33
 const P_CAP := 0.55
+
+const CATALOG_IDS: Array[String] = [
+	AFFLICTION_SLOWED_CIRCULATION,
+	AFFLICTION_OLD_WOUND_ACHE,
+	AFFLICTION_LIMPING_LIMB,
+	AFFLICTION_PARTLY_COLLAPSED_LUNG,
+	AFFLICTION_SHAKY_GRIP,
+	AFFLICTION_CRACKED_RIBS,
+]
 
 
 static func apply_after_victory(world: Node2D, rng: RandomNumberGenerator) -> PackedStringArray:
@@ -36,9 +50,34 @@ static func apply_after_victory(world: Node2D, rng: RandomNumberGenerator) -> Pa
 			continue
 		if entity.add_campaign_affliction(roll):
 			var name_s: String = str(n.name)
-			lines.append("%s — %s" % [name_s, str(roll.get("label", roll.get("id", "")))])
+			lines.append(format_scar_line(name_s, roll))
 			_CompanyState.adjust_member_mood(world, name_s, -1.35)
 	return lines
+
+
+static func count_scarred_brothers(world: Node2D) -> int:
+	if world == null:
+		return 0
+	var n: int = 0
+	for node in _Bridge.get_fightable_party_nodes(world):
+		var entity: Node = _Bridge.health_entity_from_character(node)
+		if entity == null or not ("campaign_afflictions" in entity):
+			continue
+		if entity.campaign_afflictions is Array and not (entity.campaign_afflictions as Array).is_empty():
+			n += 1
+	return n
+
+
+static func format_scar_line(member_name: String, def: Dictionary) -> String:
+	var label: String = str(def.get("label", def.get("id", "?")))
+	var fx: String = _effect_suffix(def)
+	if fx.is_empty():
+		return "%s — %s" % [member_name, label]
+	return "%s — %s (%s)" % [member_name, label, fx]
+
+
+static func catalog_def(id: String, bone_part: String = "") -> Dictionary:
+	return _affliction_def(id, bone_part)
 
 
 static func _roll_affliction_for_entity(entity: Node, character: Node, rng: RandomNumberGenerator) -> Dictionary:
@@ -47,6 +86,7 @@ static func _roll_affliction_for_entity(entity: Node, character: Node, rng: Rand
 		blood = float(entity.blood_volume)
 	var p: float = 0.0
 	var pick: String = AFFLICTION_SLOWED_CIRCULATION
+	var bone_part: String = _worst_bone_part(entity)
 	if character.has_method("is_unconscious") and character.is_unconscious():
 		p = maxf(p, P_STRUCK_DOWN)
 		pick = AFFLICTION_SLOWED_CIRCULATION
@@ -55,18 +95,32 @@ static func _roll_affliction_for_entity(entity: Node, character: Node, rng: Rand
 		pick = AFFLICTION_SLOWED_CIRCULATION
 	elif blood < _Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING:
 		p = maxf(p, P_DANGER)
-		pick = AFFLICTION_OLD_WOUND_ACHE
+		pick = (
+			AFFLICTION_PARTLY_COLLAPSED_LUNG
+			if rng.randf() < 0.35
+			else AFFLICTION_OLD_WOUND_ACHE
+		)
 	if _count_untreated_arterial(entity) >= 2:
 		p = maxf(p, P_ARTERIAL_FAIL)
 		pick = AFFLICTION_SLOWED_CIRCULATION
-	var bone_part: String = _worst_bone_part(entity)
 	if not bone_part.is_empty():
 		p = maxf(p, P_BONE_CRIPPLE)
-		pick = AFFLICTION_LIMPING_LIMB
+		pick = _bone_affliction_id(bone_part)
 	p = minf(p, P_CAP)
 	if p <= 0.0 or rng.randf() >= p:
 		return {}
 	return _affliction_def(pick, bone_part)
+
+
+static func _bone_affliction_id(part: String) -> String:
+	var p: String = part.to_lower()
+	if p.contains("leg") or p.contains("foot"):
+		return AFFLICTION_LIMPING_LIMB
+	if p.contains("arm") or p.contains("hand"):
+		return AFFLICTION_SHAKY_GRIP
+	if p.contains("chest") or p.contains("rib"):
+		return AFFLICTION_CRACKED_RIBS
+	return AFFLICTION_LIMPING_LIMB
 
 
 static func _affliction_def(id: String, bone_part: String) -> Dictionary:
@@ -78,10 +132,34 @@ static func _affliction_def(id: String, bone_part: String) -> Dictionary:
 				"stamina_mult": 1.0,
 				"pain_mult": 1.08,
 			}
-		AFFLICTION_LIMPING_LIMB:
+		AFFLICTION_PARTLY_COLLAPSED_LUNG:
 			return {
 				"id": id,
-				"label": "Limping %s" % bone_part,
+				"label": "Partly collapsed lung",
+				"stamina_mult": 0.85,
+				"pain_mult": 1.0,
+			}
+		AFFLICTION_SHAKY_GRIP:
+			return {
+				"id": id,
+				"label": "Shaky grip",
+				"stamina_mult": 0.94,
+				"pain_mult": 1.04,
+				"part": bone_part,
+			}
+		AFFLICTION_CRACKED_RIBS:
+			return {
+				"id": id,
+				"label": "Cracked ribs",
+				"stamina_mult": 0.88,
+				"pain_mult": 1.05,
+				"part": bone_part,
+			}
+		AFFLICTION_LIMPING_LIMB:
+			var limb_label: String = bone_part if not bone_part.is_empty() else "leg"
+			return {
+				"id": id,
+				"label": "Limping %s" % limb_label,
 				"stamina_mult": 0.92,
 				"pain_mult": 1.0,
 				"part": bone_part,
@@ -93,6 +171,17 @@ static func _affliction_def(id: String, bone_part: String) -> Dictionary:
 				"stamina_mult": 0.90,
 				"pain_mult": 1.0,
 			}
+
+
+static func _effect_suffix(def: Dictionary) -> String:
+	var bits: PackedStringArray = PackedStringArray()
+	var sm: float = float(def.get("stamina_mult", 1.0))
+	var pm: float = float(def.get("pain_mult", 1.0))
+	if absf(sm - 1.0) > 0.02:
+		bits.append("Stamina ×%.0f%%" % (sm * 100.0))
+	if absf(pm - 1.0) > 0.02:
+		bits.append("Pain ×%.0f%%" % (pm * 100.0))
+	return ", ".join(bits)
 
 
 static func _count_untreated_arterial(entity: Node) -> int:

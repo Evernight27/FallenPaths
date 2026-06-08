@@ -5,6 +5,7 @@ extends RefCounted
 ## Tutorial losses dismiss without scene reload (company meta preserved).
 
 const MAIN_SCENE := "res://main.tscn"
+const _CompanyState := preload("res://world/CompanyState.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _Persistence := preload("res://world/CampaignPersistence.gd")
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
@@ -40,7 +41,7 @@ static func show_and_await(world: Node2D, reason: String, detail: String = "") -
 	vbox.add_child(title)
 
 	var body := Label.new()
-	body.text = detail if not detail.is_empty() else _body_for_reason(reason)
+	body.text = format_run_end_body(reason, detail)
 	_RowFormatter.configure_wrapped_label(body)
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(body)
@@ -52,12 +53,10 @@ static func show_and_await(world: Node2D, reason: String, detail: String = "") -
 		wait_state["done"] = true
 		layer.queue_free()
 		if _OperationalLog.is_play_session_active():
-			_OperationalLog.play_world(
-				"company_run_end reason=%s reload=%s"
-				% [reason, str(not _uses_soft_resume(reason)).to_lower()]
-			)
-		if not _uses_soft_resume(reason):
-			_Persistence.clear_slot()
+			_OperationalLog.play_world(format_company_run_end_log(reason))
+		if not run_end_logs_reload(reason):
+			if _CompanyState.persistence_clear_slot_on_run_end_reload():
+				_Persistence.clear_slot()
 			world.get_tree().change_scene_to_file(MAIN_SCENE)
 	)
 	vbox.add_child(btn)
@@ -82,18 +81,38 @@ static func _title_for_reason(reason: String) -> String:
 			return "Company destroyed"
 
 
-static func _body_for_reason(reason: String) -> String:
+static func _soft_defeat_autosave_note() -> String:
+	if _CompanyState.persistence_uses_disk_autosave():
+		return " Map state autosaves when you return to camp."
+	return ""
+
+
+static func _run_end_restart_note() -> String:
+	if _CompanyState.persistence_restore_on_main_restart():
+		return " Restart reloads main and restores your last autosave."
+	if _CompanyState.persistence_uses_disk_autosave():
+		return " Saved progress is cleared — restart begins a new company."
+	return " EA: this run is not saved — restart begins a new company."
+
+
+static func format_run_end_body(reason: String, detail: String = "") -> String:
+	if not detail.is_empty():
+		return detail + _footnote_for_reason(reason)
+	return _base_body_for_reason(reason) + _footnote_for_reason(reason)
+
+
+static func format_run_end_button_label(reason: String) -> String:
+	return _button_label_for_reason(reason)
+
+
+static func _base_body_for_reason(reason: String) -> String:
 	match reason:
 		"contract_failed":
-			return (
-				"The company could not complete the contract. Your mercenaries are scattered. "
-				+ "EA: this run is not saved — restart begins a new company."
-			)
+			return "The company could not complete the contract. Your mercenaries are scattered."
 		"bankrupt":
 			return (
 				"You cannot pay wages or hold the company together. "
-				+ "Brothers with very low mood may desert instead of a total gold wipe. "
-				+ "EA: this run is not saved — restart begins a new company."
+				+ "Brothers with very low mood may desert instead of a total gold wipe."
 			)
 		"tutorial_failed":
 			return "Tutorial lost — return to camp and try again."
@@ -103,12 +122,43 @@ static func _body_for_reason(reason: String) -> String:
 			return "Your company has been defeated."
 
 
+static func _footnote_for_reason(reason: String) -> String:
+	match reason:
+		"contract_failed", "bankrupt":
+			return _run_end_restart_note()
+		"soft_defeat_resume":
+			return _soft_defeat_autosave_note()
+		_:
+			return ""
+
+
+static func _body_for_reason(reason: String) -> String:
+	return format_run_end_body(reason)
+
+
 static func _button_label_for_reason(reason: String) -> String:
 	match reason:
 		"tutorial_failed", "soft_defeat_resume":
 			return "Return to camp"
 		_:
+			if _CompanyState.persistence_restore_on_main_restart():
+				return "Reload camp (autosave)"
 			return "Restart company"
+
+
+## F5 §8 step 8: paid/bankrupt loss reloads main; tutorial + soft defeat preserve camp.
+static func run_end_logs_reload(reason: String) -> bool:
+	return not _uses_soft_resume(reason)
+
+
+static func format_company_run_end_log(reason: String) -> String:
+	var clears_slot: bool = (
+		run_end_logs_reload(reason) and _CompanyState.persistence_clear_slot_on_run_end_reload()
+	)
+	return (
+		"company_run_end reason=%s reload=%s clears_slot=%s"
+		% [reason, str(run_end_logs_reload(reason)).to_lower(), str(clears_slot).to_lower()]
+	)
 
 
 static func _uses_soft_resume(reason: String) -> bool:

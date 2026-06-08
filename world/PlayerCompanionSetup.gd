@@ -8,6 +8,18 @@ const COMPANION_STANCE_PREFS: Array[String] = [
 	"plow", "wall", "balanced", "ox", "tempest", "wrath",
 ]
 
+## XCamp-3.1: fresh rookie on a vacant companion slot (species + tutorial-tier gear).
+static func setup_hired_companion(
+	companion: Node, rng: RandomNumberGenerator, slot_index: int = 0
+) -> void:
+	if companion == null or rng == null:
+		return
+	companion.is_party_leader = false
+	if companion.has_method("set_process_input"):
+		companion.set_process_input(false)
+	_setup_character(companion, rng, true, slot_index)
+
+
 static func setup_player_and_companion(
 	world: Node2D, rng: RandomNumberGenerator, randomize_equipment: bool = true
 ) -> void:

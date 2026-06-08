@@ -7,6 +7,7 @@ extends RefCounted
 
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
+const _PlayerCompanionSetup := preload("res://world/PlayerCompanionSetup.gd")
 
 static func setup_party(world: Node2D) -> void:
 	if world == null or not world.is_inside_tree():
@@ -49,6 +50,64 @@ static func setup_party(world: Node2D) -> void:
 	# Default party formation for combat (front width capped in FormationPreset; BattleScene uses when starting combat).
 	world.set_meta("party_formation", _FormationPreset.default_for_count(pm.get_members().size()))
 	_CompanyState.attach_to_world(world)
+
+
+## XCamp-3.1: first companion scene node not on the living roster (post-casualty slot).
+static func find_vacant_companion_node(world: Node2D) -> Node:
+	if world == null or not world.has_node("Character"):
+		return null
+	var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
+	var occupied: Dictionary = {}
+	if pm != null and "members" in pm:
+		for member in pm.members:
+			if member is not Dictionary:
+				continue
+			var node_ref: Variant = (member as Dictionary).get("node_ref")
+			if not is_instance_valid(node_ref) or not (node_ref is Node):
+				continue
+			var node: Node = node_ref as Node
+			if node.has_method("is_dead") and node.is_dead():
+				continue
+			occupied[node] = true
+	for i in range(1, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP):
+		var path := "Character/%s" % _companion_node_name(i)
+		if not world.has_node(path):
+			continue
+		var companion: Node = world.get_node(path)
+		if not occupied.has(companion):
+			return companion
+	return null
+
+
+## Reset a vacant companion slot and register with PartyManager.
+static func spawn_hire_companion(world: Node2D, rng: RandomNumberGenerator) -> Node:
+	if world == null or rng == null:
+		return null
+	var companion: Node = find_vacant_companion_node(world)
+	if companion == null:
+		return null
+	var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
+	if pm == null or not pm.has_method("add_member"):
+		return null
+	var slot_index: int = _companion_slot_index(companion.name)
+	_PlayerCompanionSetup.setup_hired_companion(companion, rng, slot_index)
+	if "visible" in companion:
+		companion.visible = false
+	pm.add_member(companion)
+	world.set_meta("party_formation", _FormationPreset.default_for_count(pm.get_members().size()))
+	return companion
+
+
+static func _companion_node_name(index: int) -> String:
+	return "Companion" + ("" if index == 1 else str(index))
+
+
+static func _companion_slot_index(node_name: String) -> int:
+	for i in range(1, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP):
+		if node_name == _companion_node_name(i):
+			return i - 1
+	return 0
+
 
 static func _find_overlay(root: Node) -> CanvasLayer:
 	for child in root.get_children():

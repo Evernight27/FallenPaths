@@ -40,6 +40,8 @@ const ENCOUNTER_KEY_SOAK_PRESET_ID := "soak_preset_id"
 
 ## Written to **`EncounterNode.encounter_config`**; read in **`EncounterNode.spawn_enemies`**.
 const ENCOUNTER_KEY_FORCE_WEAPON_ID := "soak_force_weapon_id"
+## Index into spawned enemy array that receives **`is_enemy_leader`** (default **0**; **-1** = none).
+const ENCOUNTER_KEY_ENEMY_LEADER_INDEX := "enemy_leader_index"
 
 
 static func apply_preset(encounter: Node, preset_id: String) -> bool:
