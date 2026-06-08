@@ -249,8 +249,7 @@ static func format_field_care_retry_hint(action: String) -> String:
 	return "Field %s failed — keep pressure if held and retry, or try another step below." % action
 
 
-## Suggested next field-care action for Party row (pressure → TQ → stabilize → pack → bandage).
-## UI hint only — **`try_treat_next_wound`** dresses before optional stabilize.
+## Suggested next field-care action for Party row (pressure → TQ → bandage when dress-ready → pack → stabilize adjunct).
 static func format_next_field_care_action(world: Node2D, member: Dictionary) -> String:
 	if member_untreated_part_count(member) <= 0:
 		return ""
@@ -258,14 +257,14 @@ static func format_next_field_care_action(world: Node2D, member: Dictionary) -> 
 		return "Next: %s" % format_field_pressure_button_label(world, member)
 	if can_offer_field_tourniquet(world, member):
 		return "Next: %s" % format_field_tourniquet_button_label(world, member)
-	if can_offer_field_stabilize(world, member):
-		return "Next: %s" % format_field_stabilize_button_label(world, member)
-	if can_offer_field_pack(world, member):
-		return "Next: %s" % format_field_pack_button_label(world, member)
 	if can_offer_field_bandage(world, member):
 		return "Next: %s" % format_field_bandage_button_label(world, member)
 	if field_bandage_needs_pressure_first(member):
 		return "Next: %s" % format_field_bandage_waiting_label(member)
+	if can_offer_field_pack(world, member):
+		return "Next: %s" % format_field_pack_button_label(world, member)
+	if can_offer_field_stabilize(world, member):
+		return "Next: %s" % format_field_stabilize_button_label(world, member)
 	return ""
 
 
