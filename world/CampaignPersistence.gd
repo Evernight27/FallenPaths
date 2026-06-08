@@ -187,15 +187,11 @@ static func _atomic_write(text: String) -> bool:
 	return true
 
 
-static func _overworld_tile_coords(_world: Node2D, pos: Vector2) -> Vector2i:
-	return _CampaignBridge.overworld_tile_from_position(pos)
-
-
 static func _player_tile_array(world: Node2D) -> Array:
 	if world == null or not world.has_node("Character"):
 		return [0, 0]
 	var pos: Vector2 = world.get_node("Character").position
-	var tile: Vector2i = _overworld_tile_coords(world, pos)
+	var tile: Vector2i = _CampaignBridge.overworld_tile_from_position(pos)
 	return [tile.x, tile.y]
 
 
@@ -214,7 +210,7 @@ static func _serialize_remaining_encounters(world: Node2D) -> Array:
 		if child.get_script() != _EncounterNodeScript:
 			continue
 		var enc: Node = child
-		var tile: Vector2i = _overworld_tile_coords(world, enc.position)
+		var tile: Vector2i = _CampaignBridge.overworld_tile_from_position(enc.position)
 		out.append(
 			{
 				"tile": [tile.x, tile.y],
