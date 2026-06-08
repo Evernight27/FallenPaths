@@ -1,0 +1,2 @@
+FP_WORLD: settlement_continue pay=120 gold=200 renown=1 tutorial=false
+FP_WORLD: field_care bandage part=chest target=Leader seconds=150 med_left=2

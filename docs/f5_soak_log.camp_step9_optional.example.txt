@@ -1,0 +1,10 @@
+# Camp §8 step 8–9 optional append chunk (not one real session).
+# Merge after main human paste: .\scripts\preflight_f5_followup.ps1 step9.log -Step9Only
+#   .\scripts\append_f5_soak_log.ps1 -AppendFrom step9.log -Label camp5_step9
+#
+# Step 8 alt — tutorial soft loss (separate mini-run in real playtest)
+FP_WORLD: company_run_end reason=tutorial_failed reload=false
+#
+# Step 9 — wage debt + desertion (separate mini-run)
+FP_WORLD: company_wages: gold=10 below next wage bill=35 (day 4)
+FP_WORLD: desertion summary=Ally(mood=12)

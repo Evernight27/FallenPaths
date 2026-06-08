@@ -84,10 +84,10 @@ if (-not $TailOnly) {
 }
 
 Write-Host ""
-Write-Host "=== Still manual (Camp-3.4 / Camp-5 sign-off) ==="
+Write-Host "=== Human F5 (on demand; Camp-5 EA ☑ 2026-06-07) ==="
 Write-Host '  Status: .\scripts\print_phase0_status.ps1 (headless green vs human F5 reminder)'
 Write-Host '  F5 main.tscn: dev_soak_encounter empty - tutorial + paid contracts; post-fight Party pressure -> bandage -> Camp rest (+1 day)'
-Write-Host '  Camp-5 close-out: .\scripts\run_camp_f5_closeout.ps1 (headless + wf_m3 + camp settlement/day minimum)'
+Write-Host '  F5 status: .\scripts\run_camp_f5_closeout.ps1 (headless + wf_m3 + camp settlement/day minimum)'
 Write-Host '  Optional III-4 F5: dev_soak_encounter=ii_envelop -> validate_f5_soak_log.ps1 (wing + mop-up tail: mop_up=true rotate_suppress=true)'
 Write-Host '  Optional feel: .\scripts\run_q_feel.ps1 -Track Camp | Q1 | Q2'
 Write-Host "  Medical phase Stack labels: spot-check once in F5 after a fight with medical phase"

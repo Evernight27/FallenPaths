@@ -2,13 +2,13 @@
 
 [`docs/PLANNING.md`](docs/PLANNING.md) ? [`docs/CURSOR.md`](docs/CURSOR.md) ? [`docs/SHIP_PLAN.md`](docs/SHIP_PLAN.md) ? [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md) ? [`docs/CAMPAIGN_DECISION_GUIDE.md`](docs/CAMPAIGN_DECISION_GUIDE.md)
 
-**Cursor:** [`.cursor/rules/fallen-paths.mdc`](.cursor/rules/fallen-paths.mdc) (gate ? scope ? combat guardrails)
+**Cursor:** [`.cursor/rules/fallen-paths.mdc`](.cursor/rules/fallen-paths.mdc) (gate ? scope ? combat guardrails) · **Agent prompts:** [`scripts/cursor/README.md`](scripts/cursor/README.md)
 
 <a id="code-homes"></a>
 
 ## Code homes (folder map)
 
-Flat folders by design ? find modules by **name prefix**, not subfolder. Do not add `combat/harness/` or `ui/battle/` before Camp-5 unless moving files for another reason.
+Flat folders by design ? find modules by **name prefix**, not subfolder. Do not add `combat/harness/` or `ui/battle/` subfolders unless reorganizing for another reason.
 
 | Path | Contents |
 |------|----------|
@@ -18,7 +18,7 @@ Flat folders by design ? find modules by **name prefix**, not subfolder. Do not 
 | `ui/` | Battle + company UI (`BattleScene`, `PartyMenu`, `SettlementPanel`, ?) |
 | `weapon/`, `armor/`, `species/` | Strike, armor, species data |
 | Root | `main.gd`, `main.tscn`, `character.gd` (shared ? one stream per PR), `PartyManager.gd` |
-| `scripts/` | Phase 0, Q audits, campaign ship audit (not in-game sim) |
+| `scripts/` | Phase 0, Q audits, campaign ship audit (not in-game sim) · copy-paste prompts in [`scripts/cursor/`](scripts/cursor/README.md) |
 | `docs/` | Planning and agent entry |
 
 **Playtest artifacts (repo root, gitignored):** `.f5_soak_in.txt`, `.phase0_combat_checks.txt`, `.d001_*` ? one agent at a time; see [`scripts/README.md`](scripts/README.md).
@@ -30,17 +30,15 @@ Flat folders by design ? find modules by **name prefix**, not subfolder. Do not 
 
 ## Agent task prompts (copy/paste)
 
-**Combat fix**
+**Index:** [`scripts/cursor/README.md`](scripts/cursor/README.md) — **Combat → Playtest → Campaign** · **Expand** only if user reopens §9c · **Medical bundle:** [Hygiene → Audit → Medical Physics](scripts/cursor/README.md#parallel-medical-quality-bundle).
 
-> Stream: **Combat**. Smallest `combat/*.gd` owner per PLANNING. Use AGENTS canonical APIs. Prefer not to edit `world/*` unless bridge work. Gate before done: `PHASE0: PASS`.
-
-**Campaign / EA**
-
-> Stream: **Campaign**. `_CampaignBridge` + `CompanyState.gate_*()`. Lead on bridge files. Prefer not to edit `combat/*` unless cross-cutting. Gate: `PHASE0: PASS` + `CAMPAIGN_SHIP_AUDIT: PASS (headless)`.
-
-**Playtest**
-
-> Stream: **Playtest**. Phase 0 / F5 ?8 / Q scripts per `scripts/README.md`. One agent at a time on `.f5_soak_in.txt`.
+| Stream | Copy-paste from | Gate |
+|--------|-----------------|------|
+| **Combat** | [`agent_combat.md`](scripts/cursor/agent_combat.md) (incl. [3e](scripts/cursor/agent_combat.md#specialty-iii-4-3e-fight-finish) · [line plug](scripts/cursor/agent_combat.md#specialty-iii-6-line-plug)) | `PHASE0: PASS` |
+| **Expand** *(§9c reopen only)* | [`README#expand-reopen`](scripts/cursor/README.md#expand-reopen) | `PHASE0: PASS` |
+| **Playtest** | [`agent_playtest.md`](scripts/cursor/agent_playtest.md) · tools: [`scripts/README.md`](scripts/README.md) | one agent on `.f5_soak_in.txt` |
+| **Campaign** | [`agent_campaign.md`](scripts/cursor/agent_campaign.md) | `CompanyStateChecks` **404** or Phase 0 + ship audit |
+| **Hygiene · Audit · Medical** | [`README` sections](scripts/cursor/README.md#hygiene-cleanup) | Hygiene: no production `.gd`; hand off Audit for Phase 0 |
 
 ## Canonical APIs (combat / campaign)
 
@@ -49,11 +47,19 @@ Use these names in new code ? avoid duplicating membership tests, manager privat
 | Need | Use |
 |------|-----|
 | Advance day (wages, desertion, autosave) | `CompanyState.try_advance_day` ? manual: `request_end_day` |
-| Camp rest (heal + day tick) | `CompanyState.camp_heal_ready` ? `try_camp_heal` ? `format_camp_rest_button_label` |
-| Tutorial contract (no pay / soft defeat) | `CompanyState.is_tutorial_contract` ? `defeat_should_end_company_run` (paid R3 loss ends run) |
+| Camp rest (heal + day tick) | `CompanyState.camp_heal_ready` · `try_camp_heal` · `apply_camp_rest_mood` · `format_camp_rest_button_label` · `format_camp_rest_tooltip` |
+| Economy UX copy (Exp-3 maintain) | `format_end_day_button_label` · `format_wage_day_tick_suffix` · `format_provisions_day_tick_suffix` · `format_hud_economy_hint_lines` · `format_party_menu_footer` · `format_settlement_burial_debt_warning` · `ContractSpawner.format_settlement_deck_refresh_hint` · `format_hire_tooltip` |
+| Daily provisions | `CompanyState.on_day_tick` · `get_food_supplies` · `set_food_supplies` · `read_stub_provisions_enabled` |
+| Settlement burial costs | `CompanyState.apply_settlement_burial_costs` · `count_last_battle_deaths` · `BURIAL_GOLD_COST` |
+| MS-CAMP mood → weapon form | `CompanyState.stance_preference_for_campaign_mood` · `CampaignEncounterBridge.apply_campaign_mood_stance_preferences` |
+| Hire replacement at camp | `CompanyState.roster_has_hire_room` · `can_offer_hire` · `try_hire_rookie` · `PartySetup.spawn_hire_companion` |
+| Rolling contract deck (post-tutorial) | `ContractSpawner.try_refresh_contract_deck` · `count_paid_contract_markers` · `CompanyState.get_contract_deck_index` |
+| Post-victory afflictions | `CampaignAfflictions.apply_after_victory` · `format_scar_line` · `CompanyState.apply_post_victory_afflictions` |
+| Tutorial contract (no pay / soft defeat) | `CompanyState.is_tutorial_contract` · `defeat_should_end_company_run` (paid R3 loss ends run) |
 | Persistence gate (EA P1) | `CompanyState.read_stub_persistence_mode` ? `CampaignPersistence.clear_slot` on campaign boot / run-end reload |
-| P2 save restore (harness / post-EA) | `CampaignPersistence.normalize_marker_kind_for_restore` ? `apply_save` ? `save_slot` |
+| P2 save restore (harness / post-EA) | `CampaignPersistence.normalize_marker_kind_for_restore` · `apply_save` · `save_slot` · harness: `begin_harness_isolated_save` |
 | Overworld tile | `CampaignEncounterBridge.overworld_tile_from_position` / `overworld_tile_center` |
+| Overworld grid (XCamp-3.2) | `OverworldMap.MAP_TILES` · `map_tiles_for_world` · `is_tile_in_bounds` · `tile_coords_from_pos` · `tile_center` |
 | Campaign bridge preload | `_CampaignBridge` |
 | Combatant by id | `CombatantEntityAccess.manager_get_combatant` |
 | Health entity (combat) | `get_health_entity_from_node` / `get_entity_from_manager` |
@@ -63,10 +69,13 @@ Use these names in new code ? avoid duplicating membership tests, manager privat
 | Medical coordination | `CombatMedicalCoordination.medical_action_allowed` · `track_failure_and_maybe_retry` |
 | Ally medical menu | `MedicalPhaseController.get_ally_medical_actions` |
 | Move ID strings | `CombatConstants.MOVE_ID_*` |
-| Move membership | `CombatConstants.is_medical_move` · `is_formation_movement_move` (incl. flee) · `is_formation_reposition_move` (excl. flee) · `is_focus_line_move` |
+| Move membership | `CombatConstants.is_medical_move` · `is_formation_movement_move` (incl. flee) · `is_formation_reposition_move` (excl. flee) · `is_focus_line_move` · `is_leader_formation_command_move` |
+| Leader formation command (IV-11) | `FEATURE_LEADER_FORMATION_COMMAND` · `CombatLeaderFormationCommand` · `MOVE_ID_ORDER_*` · `CombatantEntityAccess.is_formation_command_issuer` · `AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT` · `AI_LEADER_FORMATION_COMMAND_PINCH_OUTNUMBER_MULT` · `is_party_leader` / `is_enemy_leader` · `CombatantEntityAccess.is_formation_telegraph_leader` |
+| Weapon-reach ZoC (IV-13) | `FEATURE_IV13_WEAPON_REACH_ZOC` · `ZoneOfControl.weapon_reach_zoc_bonus_m` |
+| Slot distraction (IV-12) | `FEATURE_IV12_SLOT_DISTRACTION` · `FormationSlots.slot_key_for_combatant_id` · `TacticalCombat._iv12_threat_cell_key` · `iv12_offense_weight_mult` · `attacker_has_co_located_slot_mate_threatening` |
 | Clear doctrine commit after slot shuffle | `CombatDoctrine.clear_combatant_doctrine_commitment` · **`CombatFormationFlow`** (rotate/swap) · **`CombatFormationVacancyPlugs._apply_plug_move`** |
 | Pincer role (center pin / flank wing) | `CombatDoctrine.pincer_role_for_combatant` · `pincer_flank_wing_should_close_at_long` · `propagate_pincer_wing_commitments_from_center` · `CombatTargetScoring.pincer_preferred_flank_target_mult` |
-| Post-rout envelop mop-up (**3e**) | `CombatDoctrine.envelop_mop_up_active` · `envelop_close_allowed` · `hold_line_close_pick_eligible` · `should_suppress_skirmish_rotate_file` · `CombatListedActions.action_list_has_hostile_melee_strike` |
+| Post-rout envelop mop-up (**3e**) | `CombatDoctrine.envelop_mop_up_active` · `envelop_close_allowed` · `hold_line_close_pick_eligible` · `fight_finish_tail_active` · `sparse_line_prefer_finish_over_shuffle` · `should_suppress_skirmish_rotate_file` · `CombatListedActions.action_list_has_hostile_melee_strike` |
 | Map field care (post-fight) | `MapFieldCare.try_field_*` · `format_next_field_care_action` · `format_*_button_label` · `triage_med_budget` / `format_party_triage_gate_line` / `format_settlement_field_care_hint` / `format_party_button_label` in `CompanyState` — hemorrhage sim only; camp rest heals |
 | Untreated wounds (entity) | `EntityWounds.entity_has_untreated_wounds` · `sorted_untreated_part_names` · campaign: `_CampaignBridge.entity_has_untreated_wounds` / `untreated_wound_part_names` · combat phase: `MedicalPhaseController.has_untreated_wounds` |
 | Action menu build | `AvailableActionsBuilder.build` ? `CombatMeleeListing` / `CombatFormationMoveListing` / `CombatMedicalActionListing` |
@@ -80,7 +89,7 @@ Use these names in new code ? avoid duplicating membership tests, manager privat
 | Formation diagram vitals | `PartyRowFormatter.total_body_health_ratio` ? `body_functionality_ratio` ? bars in `FormationDiagramBuilder` |
 | Weapon form (**WF shipped** — maintain) | `CombatantEntityAccess.form_str` · `CombatWeaponForm.*` (see [`LIVE_PATHS#wf-implementation-status`](docs/LIVE_PATHS.md#wf-implementation-status)) · spawn: **`CombatWeaponForm.seed_combatant_form`** — [`#spawn--reset-path-wf-1a`](docs/LIVE_PATHS.md#spawn--reset-path-wf-1a) · switch: **`assign_form`** · UI: `CombatUiHints.weapon_form_*` · auto-switch: **`evaluate_automatic_form`** in **`CombatAIActionPicker.pick`** only |
 | Footing / guard / form attachment | Doc map [`#wf-footing-doc-map`](docs/LIVE_PATHS.md#wf-footing-doc-map) · maintain backlog [`#wf-footing-improvement-backlog`](docs/LIVE_PATHS.md#wf-footing-improvement-backlog) · Tier 4.4 PA hub [`#wf-tier-44-pa`](docs/LIVE_PATHS.md#wf-tier-44-pa) · **`assign_form`** [`#wf-assign-form-contract`](docs/LIVE_PATHS.md#wf-assign-form-contract) · **`guard_line`** writers [`#wf-guard-writers`](docs/LIVE_PATHS.md#wf-guard-writers) · pick vs strike [`#wf-pick-vs-strike`](docs/LIVE_PATHS.md#wf-pick-vs-strike) · soak **ii5c/ii8** [`#wf-soak-audit-status`](docs/LIVE_PATHS.md#wf-soak-audit-status) · F5 paste **WF-M3:** `validate_f5_soak_log.ps1` / `run_q_feel.ps1 -Track Camp` → **`wf_m3_*`** tracks · UI: `CombatUiHints.active_line_for_ui` · gauge order Step → `guard_line_gauge_suffix` → `weapon_form_gauge_suffix` |
-| Tier 4.4 PA lifecycle | **`CombatFootwork.guard_angle_deg`** at strike contact · **`clear_on_exchange_end`** (exchange end + medical recovery) · **`clear_on_death`** (fatal wound / bleed-out) · idle scrub **`reconcile_idle_offset`** · stamp entry scrub in **`apply_attack_step_on_windup`** / **`apply_defender_step_*`** · **`return_to_waiting`** / **`return_to_cowering`** |
+| Tier 4.4 PA lifecycle | **`CombatFootwork.guard_angle_deg`** at strike contact · **`clear_on_exchange_end`** · **`attack_eval_step_deg_for_attacker`** · **`attack_angle_deg_for_listing_preview`** (idle eval / wind-up stamp) · **`parry_eval_step_deg_for_defender`** · **`dodge_eval_step_deg_for_defender`** match stamp mults · spatial: **`FEATURE_T44_SPATIAL_*`** |
 | Tier 4.2 / III-8 recovery cause | **`CombatConstants.normalize_recovery_cause`** · **`readiness_curve_for_cause`** · **`defense_footwork_recovering_dodge_mult_for_cause`** |
 | L3 guard line for UI / parry step | `CombatUiHints.active_line_for_ui` · live **`guard_line`** on dict (writers per **`GuardLineUpdater`**) |
 | Wait / focus form bias | `CombatWeaponForm.wait_action_weight_mult` · `preferred_guards` · `CombatConstants.AI_FOCUS_LINE_FORM_PREFERRED_MULT` |
@@ -132,12 +141,12 @@ Read in this order when tracing a cross-cutting concern:
 | Conflate **`ZoneOfControl.get_footing_duration_multiplier`** (lane step-over duration) with WF / PA / **`guard_line`** | Formation lane footing row — [`#wf-layer-labels`](docs/LIVE_PATHS.md#wf-layer-labels) |
 | Treat **`PassiveParryContext.guard_readiness_float`** as L3 **`guard_line`** | Readiness gauge 0..1 — blade posture is **`guard_line`** + PA via **`CombatFootwork.guard_angle_deg`** | [`#wf-layer-labels`](docs/LIVE_PATHS.md#wf-layer-labels) |
 | Use **`CombatConstants.get_guard_angle_deg`** at strike contact when PA flag on | Offset ignored — parry/path drift | **`CombatFootwork.guard_angle_deg`** — [`#wf-tier-44-pa`](docs/LIVE_PATHS.md#wf-tier-44-pa) (geometry) |
-| Wire PA lookup through **`CombatGuardLines`** octant table without **`_run_footwork_eight_line_home_guard_parry_step`** / **`_run_footwork_octant_windup_step_low_left`** | Octant delegate lives in **`CombatConstants.position_angle_offset_deg_for_attack_line`** when eight-guard flag on — [`#wf-form-guard-pa-matrix`](docs/LIVE_PATHS.md#wf-form-guard-pa-matrix) |
+| Wire PA lookup through **`CombatGuardLines`** octant table without **`_run_footwork_wf_t1_octant_suite`** (or its sub-rows) | Octant delegate lives in **`CombatConstants.position_angle_offset_deg_for_attack_line`** when eight-guard flag on — [`#wf-form-guard-pa-matrix`](docs/LIVE_PATHS.md#wf-form-guard-pa-matrix) |
 | **`get_stance_modifier`** at new production call sites | **`CombatWeaponForm.mod(_EntityAccess.form_str(c), effect)`** — delegate kept for harness only ([#wf-footing-improvement-backlog](docs/LIVE_PATHS.md#wf-footing-improvement-backlog) WF-M5) |
 | Wire **`weapon_form`** → **`position_angle_offset_deg`** | Steps from **attack_line** / **guard_line** / dodge part only — form sets home guard, not offset |
 | Assume eight-line **`high_right`** etc. get L4 step offset | **`POSITION_ANGLE_OFFSET_DEG_BY_LINE`** is **`high`/`low`/`left`/`right`** only — extend table + harness first |
 | Fold auto-switch into **`evaluate_automatic_doctrine`** or hook WF-3 on **`process_waiting`** **and** **`pick`** | **`evaluate_automatic_form`** in **`CombatAIActionPicker.pick`** only — see [`LIVE_PATHS#wf-implementation-pitfalls`](docs/LIVE_PATHS.md#wf-implementation-pitfalls) |
-| New `FEATURE_*` ? bleed retune ? Expand tiers | User must ask; frozen until Camp-5 per PLANNING |
+| New `FEATURE_*` ? bleed retune ? closed IV-1,3,5–13 | User must ask; Expand one row per PR per [§9c](docs/SHIP_PLAN.md#combat-expand-registry) |
 | Harness literal strings copied into production | Literals OK in `*Tail.gd` / fixtures; production uses constants |
 
 **Layers (do not conflate):** menu/resolver **move IDs** ? CoreEntity **method names** (`apply_bandage`) ? formation flow **`FORMATION_MOVE_KIND_*`** (`fall_back` menu vs `FORMATION_MOVE_KIND_FALL_BACK_PAIR` flow) ? see `CombatFormationFlow.gd` header.

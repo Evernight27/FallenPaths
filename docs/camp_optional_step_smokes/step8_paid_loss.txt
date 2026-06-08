@@ -1,0 +1,2 @@
+FP_WORLD: settlement_continue pay=100 gold=600 renown=1 tutorial=false
+FP_WORLD: company_run_end reason=contract_failed reload=true

@@ -1,0 +1,2 @@
+FP_WORLD: settlement_continue pay=100 gold=600 renown=1 tutorial=false
+FP_WORLD: party_triage_open living=7 untreated=2 bleeding=1 parts_need_dressing=3 med_left=12

@@ -13,7 +13,7 @@ FP_COMBAT: engagement_debug turn side=player id=0 mop_up=true rotate_suppress=tr
 #
 # Step 4 — field care action (not hint-only)
 FP_WORLD: field_care: open Party — dress untreated wounds (field care), then Camp rest
-FP_WORLD: field_care bandage part=chest target=Leader seconds=60 med_left=2
+FP_WORLD: field_care bandage part=chest target=Leader seconds=150 med_left=2
 #
 # Step 5-6 — day / wages (matches CompanyState.try_advance_day log shape)
 FP_WORLD: company_day_advanced day=2 wages_paid=105 gold=395 living=7

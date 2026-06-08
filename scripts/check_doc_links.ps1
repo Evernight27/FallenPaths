@@ -1,4 +1,4 @@
-# Doc link + tombstone gate — delegates to check_doc_links.py (single implementation).
+# Doc link + tombstone + res:// path gate — delegates to check_doc_links.py (single implementation).
 $ErrorActionPreference = "Stop"
 $pyScript = Join-Path $PSScriptRoot "check_doc_links.py"
 if (-not (Get-Command python3 -ErrorAction SilentlyContinue)) {

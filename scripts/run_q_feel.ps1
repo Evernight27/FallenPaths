@@ -6,8 +6,17 @@ param(
 )
 $ErrorActionPreference = "Continue"
 $Root = Split-Path -Parent $PSScriptRoot
+. (Join-Path $Root "scripts\F5SoakLogHelpers.ps1")
 
 if ($Track -eq "Camp") {
+	$logPath = Join-Path $Root ".f5_soak_in.txt"
+	$valPath = Join-Path $Root ".f5_soak_validation.txt"
+	if (Test-Path $logPath) {
+		& (Join-Path $Root "scripts\validate_f5_soak_log.ps1") -LogPath $logPath -Quiet
+		if (-not (Wait-F5ValidationReport $valPath)) {
+			Write-Host "WARN: F5 validation report incomplete - re-run .\scripts\validate_f5_soak_log.ps1"
+		}
+	}
 	& (Join-Path $Root "scripts\print_phase0_status.ps1")
 	Write-Host ""
 	Write-Host "=== Track Camp: EA campaign F5 (SHIP_PLAN section 8) ==="
@@ -34,18 +43,18 @@ if ($Track -eq "Camp") {
 	if (Test-Path $logPath) {
 		Write-Host "=== .f5_soak_in.txt (Camp section 8 markers) ==="
 		$campMarkers = @(
-			@{ Label = "settlement_continue (step 3)"; Pattern = "settlement_continue" },
-			@{ Label = "field_care hint (step 4)"; Pattern = "field_care:" },
-			@{ Label = "field_care bandage (step 4 action)"; Pattern = "field_care bandage" },
-			@{ Label = "company_day_advanced (step 5-6)"; Pattern = "company_day_advanced" },
-			@{ Label = "paid loss reload (step 8)"; Pattern = "company_run_end reason=contract_failed" },
-			@{ Label = "tutorial soft resume (step 8)"; Pattern = "company_run_end reason=tutorial_failed" },
-			@{ Label = "wage warn (step 9)"; Pattern = "company_wages: gold=" },
-			@{ Label = "desertion (step 9)"; Pattern = "desertion summary=" },
-			@{ Label = "party triage open (step 10)"; Pattern = "party_triage_open" },
-			@{ Label = "turn_ready_gauge (WF-M3 step 12)"; Pattern = "turn_ready_gauge" },
-			@{ Label = "form suffix on gauge (WF-M3)"; Pattern = "Form " },
-			@{ Label = "form_switch AI auto-switch (optional WF-M3)"; Pattern = "form_switch id=" }
+			@{ Label = "settlement_continue (step 3)"; Pattern = "^FP_WORLD: settlement_continue" },
+			@{ Label = "field_care hint (step 4)"; Pattern = "^FP_WORLD: field_care:" },
+			@{ Label = "field_care bandage (step 4 action)"; Pattern = "^FP_WORLD: field_care bandage part=" },
+			@{ Label = "company_day_advanced (step 5-6)"; Pattern = "^FP_WORLD: company_day_advanced" },
+			@{ Label = "paid loss reload (step 8)"; Pattern = "^FP_WORLD: company_run_end reason=contract_failed" },
+			@{ Label = "tutorial soft resume (step 8)"; Pattern = "^FP_WORLD: company_run_end reason=tutorial_failed" },
+			@{ Label = "wage warn (step 9)"; Pattern = "^FP_WORLD: company_wages: gold=" },
+			@{ Label = "desertion (step 9)"; Pattern = "^FP_WORLD: desertion summary=" },
+			@{ Label = "party triage open (step 10)"; Pattern = "^FP_WORLD: party_triage_open living=" },
+			@{ Label = "turn_ready_gauge (WF-M3 step 12)"; Pattern = "^FP_COMBAT: turn_ready_gauge" },
+			@{ Label = "form suffix on gauge (WF-M3)"; Pattern = " Form " },
+			@{ Label = "form_switch AI auto-switch (optional WF-M3)"; Pattern = "^FP_COMBAT: form_switch id=" }
 		)
 		$gaugeLines = Select-String -Path $logPath -Pattern "turn_ready_gauge" | Select-Object -First 3
 		if ($gaugeLines) {
@@ -54,7 +63,7 @@ if ($Track -eq "Camp") {
 			$gaugeLines | ForEach-Object { Write-Host ("  " + $_.Line.Trim()) }
 		}
 		foreach ($m in $campMarkers) {
-			$hit = Select-String -Path $logPath -Pattern $m.Pattern -SimpleMatch | Select-Object -First 1
+			$hit = Select-String -Path $logPath -Pattern $m.Pattern | Select-Object -First 1
 			if ($hit) {
 				Write-Host ("  [OK] " + $m.Label)
 				Write-Host ("        " + $hit.Line.Trim())
@@ -62,21 +71,22 @@ if ($Track -eq "Camp") {
 				Write-Host ("  [--] " + $m.Label + " (not in log yet)")
 			}
 		}
-		$campCore = @("settlement_continue", "contract_victory pay=", "company_day_advanced")
-		$campOk = 0
-		foreach ($pat in $campCore) {
-			if (Select-String -Path $logPath -Pattern $pat -SimpleMatch -Quiet) { $campOk++ }
+		$campOk = Get-F5CampCoreMarkerScore $logPath
+		Write-Host ""
+		Write-Host ("Camp core markers: $campOk / 2 (settlement or victory + day advance for Camp §8 F5)")
+		Show-F5SoakStatusHint $Root
+		$humanStatus = Get-F5HumanSignoffStatus $logPath
+		switch ($humanStatus) {
+			"READY" { Write-Host "Human sign-off: READY (Camp-5 baseline - re-run -HumanSignOff after new F5 append)" }
+			"SMOKE ONLY" { Write-Host "Human sign-off: SMOKE ONLY (docs example - paste real F5 Output)" }
+			"NOT READY (headless capture)" { Write-Host "Human sign-off: NOT READY (headless capture - restore_f5_soak_log.ps1)" }
+			default { Write-Host "Human sign-off: NOT READY" }
 		}
 		Write-Host ""
-		Write-Host ("Camp core markers: $campOk / $($campCore.Count) (settlement + day advance for EA close-out)")
-		Write-Host ""
-		if (Test-Path (Join-Path $Root "scripts\validate_f5_soak_log.ps1")) {
+		$report = Join-Path $Root ".f5_soak_validation.txt"
+		if (Test-Path $report) {
 			Write-Host "=== WF-M3 / Camp F5 validator (CombatF5SoakLogValidator) ==="
-			& (Join-Path $Root "scripts\validate_f5_soak_log.ps1") -LogPath $logPath 2>&1 | Select-Object -Last 25
-			$report = Join-Path $Root ".f5_soak_validation.txt"
-			if (Test-Path $report) {
-				Select-String -Path $report -Pattern "^\[wf_m3_|^\[camp_|^ok=|^profiles=" | ForEach-Object { $_.Line }
-			}
+			Show-F5ValidationTrackSummary $report -IncludeMeta
 			Write-Host ""
 		}
 	} else {

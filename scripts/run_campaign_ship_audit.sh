@@ -113,10 +113,10 @@ else
 fi
 
 echo ""
-echo "=== Still manual (Camp-3.4 / Camp-5 sign-off) ==="
+echo "=== Human F5 (on demand; Camp-5 EA ☑ 2026-06-07) ==="
 echo "  Status: ./scripts/print_phase0_status.sh (headless green vs human F5 reminder)"
 echo "  F5 main.tscn: dev_soak_encounter empty - tutorial + paid contracts; Party pressure -> bandage -> Camp rest (+1 day)"
-echo "  Camp-5 close-out: ./scripts/run_camp_f5_closeout.sh (headless + wf_m3 + camp settlement/day minimum)"
+echo "  F5 status: ./scripts/run_camp_f5_closeout.sh (headless + wf_m3 + camp settlement/day minimum)"
 echo "  Optional III-4 F5: dev_soak_encounter=ii_envelop -> validate_f5_soak_log.sh (wing + mop-up tail: mop_up=true rotate_suppress=true)"
 echo "  Optional feel: ./scripts/run_q_feel.ps1 -Track Camp | Q1 | Q2"
 echo "  Medical phase Stack labels: spot-check once in F5 after a fight with medical phase"

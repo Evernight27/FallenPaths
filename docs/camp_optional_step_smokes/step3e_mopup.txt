@@ -1,0 +1,3 @@
+FP_WORLD: settlement_continue pay=100 gold=600 renown=1 tutorial=false
+FP_COMBAT: soak_fight_end winner=player medical_phase=false fight_profile=7v7
+FP_COMBAT: engagement_debug turn side=player id=0 mop_up=true rotate_suppress=true menu=strikes_listed strikes=3

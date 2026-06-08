@@ -10,6 +10,7 @@ param(
 )
 $ErrorActionPreference = "Continue"
 . "$PSScriptRoot\Invoke-GodotHeadless.ps1"
+. "$PSScriptRoot\F5SoakLogHelpers.ps1"
 $Root = Get-FallenPathsRoot
 
 $partialOkPatterns = @{
@@ -30,13 +31,25 @@ $partialTeeLogs = @{
 if ($HarnessMode -ne "all") {
 	$tee = Join-Path $Root $partialTeeLogs[$HarnessMode]
 	Write-Host "=== FP_HARNESS_MODE=$HarnessMode ==="
-	Invoke-FallenPathsGodotScript -HarnessMode $HarnessMode -TeeLog $tee | Out-Null
+	$f5BackedUp = $false
+	if ($HarnessMode -eq "d001") {
+		$f5BackedUp = Backup-F5SoakHumanPaste $Root
+	}
+	$partialExit = 1
+	try {
+		Invoke-FallenPathsGodotScript -HarnessMode $HarnessMode -TeeLog $tee | Out-Null
+		$partialExit = $LASTEXITCODE
+	} finally {
+		if ($f5BackedUp) {
+			Restore-F5SoakHumanPaste $Root | Out-Null
+		}
+	}
 	if (Test-Path $tee) {
 		if (Select-String -Path $tee -Pattern $partialOkPatterns[$HarnessMode] -Quiet) {
 			exit 0
 		}
 	}
-	exit $LASTEXITCODE
+	exit $partialExit
 }
 
 $SummaryPath = Join-Path $Root ".phase0_combat_checks.txt"
@@ -51,7 +64,11 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host ""
 
-Write-Host "=== CompanyStateChecks (Camp-1.1-1.8) ==="
+Write-Host "=== Godot import warmup ==="
+Invoke-FallenPathsGodotImportWarmup
+Write-Host ""
+
+Write-Host "=== CompanyStateChecks (Camp-1 + XCamp-3.x) ==="
 $companyOut = @(& (Join-Path $Root "scripts\run_company_state_checks.ps1") 2>&1 | ForEach-Object { "$_" })
 $companyOut | ForEach-Object { Write-Host $_ }
 $companyOk = $companyOut | Where-Object { $_ -match "FP_HARNESS_OK:\s+CompanyStateChecks" } | Select-Object -Last 1
@@ -71,12 +88,16 @@ if ($companyOk) {
 Write-Host ""
 
 Write-Host "=== AllCombatChecks (regression + D-001 + calibration) ==="
+$f5BackedUp = Backup-F5SoakHumanPaste $Root
 $Godot = Get-FallenPathsGodot
 $env:FP_HARNESS_MODE = "all"
 try {
 	$out = @(& $Godot --headless --path $Root -s "res://scripts/run_all_combat_checks.gd" 2>&1 | ForEach-Object { "$_" })
 } finally {
 	Remove-Item Env:FP_HARNESS_MODE -ErrorAction SilentlyContinue
+	if ($f5BackedUp) {
+		Restore-F5SoakHumanPaste $Root | Out-Null
+	}
 }
 $exitCode = $LASTEXITCODE
 $out | ForEach-Object { Write-Host $_ }
@@ -167,10 +188,16 @@ if ($campaignExit -ne 0) {
 $lines.Add("ran_at=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
 $lines | Set-Content -Path $SummaryPath -Encoding utf8
 Write-Host "Summary: $SummaryPath"
+Show-F5SoakStatusHint $Root
+$bakPath = Get-F5SoakBackupPath $Root
+if ((Test-Path $bakPath) -and (Test-Path (Get-F5SoakLogPath $Root)) -and (Get-F5HumanSignoffStatus (Get-F5SoakLogPath $Root)) -ne "READY") {
+	Write-Host "F5 human paste backup: .f5_soak_in.f5_backup.txt (restore: .\scripts\restore_f5_soak_log.ps1)"
+}
+Write-Host "F5 Camp status (on demand): .\scripts\run_camp_f5_closeout.ps1 (-HumanSignOff after new F5 append)"
 Write-Host "Reports:"
 Write-Host "  .d001_soak_out.txt       (per-preset pass/fail)"
 Write-Host "  .f5_soak_validation.txt  (grep validator on headless capture)"
-Write-Host "  .f5_soak_in.txt          (headless FP_COMBAT paste shape)"
+Write-Host "  .f5_soak_in.txt          (headless FP_COMBAT paste shape; human F5 paste -> .f5_soak_in.f5_backup.txt during gate)"
 Write-Host "  .ii2b_worksheet_prefill.txt (III-3 Sword row counts; not feel sign-off)"
 	Write-Host "  .campaign_ship_audit.txt (Camp-3.4 Q + ii7 + ii_envelop headless gate)"
 Write-Host ""

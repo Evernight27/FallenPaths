@@ -1,11 +1,22 @@
 #!/usr/bin/env bash
 # F5 feel checklist (no Godot). Usage: ./scripts/run_q_feel.sh Camp|Q1|Q2
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=f5_soak_log_helpers.sh
+source "$SCRIPT_DIR/f5_soak_log_helpers.sh"
 TRACK="${1:-}"
 
 case "$TRACK" in
 	Camp)
+		LOG="$ROOT/.f5_soak_in.txt"
+		VAL="$ROOT/.f5_soak_validation.txt"
+		if [[ -f "$LOG" ]]; then
+			bash "$ROOT/scripts/validate_f5_soak_log.sh" --quiet "$LOG" || true
+			if ! f5_wait_validation_report "$VAL"; then
+				echo "WARN: F5 validation report incomplete - re-run ./scripts/validate_f5_soak_log.sh"
+			fi
+		fi
 		bash "$ROOT/scripts/print_phase0_status.sh"
 		echo ""
 		echo "=== Track Camp: EA campaign F5 (SHIP_PLAN section 8) ==="
@@ -57,7 +68,7 @@ case "$TRACK" in
 				grep -qF "$pat" "$LOG" && camp_ok=$((camp_ok + 1)) || true
 			done
 			echo ""
-			echo "Camp core markers: $camp_ok / 3 (settlement + day advance for EA close-out)"
+			echo "Camp core markers: $camp_ok / 3 (settlement + day advance for Camp §8 F5)"
 			if grep -q "turn_ready_gauge" "$LOG"; then
 				echo ""
 				echo "=== turn_ready_gauge samples (WF-M3 - check Step -> Grd/Atk -> Form) ==="

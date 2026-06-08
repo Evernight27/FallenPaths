@@ -1,37 +1,63 @@
 # Godot 4+ specific ignores
 .godot/
+.import/
 /android/
+*.tmp
 
 # Python
 __pycache__/
 docs/__pycache__/
 *.py[cod]
 
-# Local harness logs (do not commit)
-.harness_out.txt
-.harness_run.txt
-.d001_soak_out.txt
-.d001_soak_sanity_out.txt
-.medical_phase_harness_out.txt
-.ii5_ii6_soak_out.txt
-.f5_soak_in.txt
-.f5_soak_validation.txt
-.f5_*_live.txt
-.phase0_combat_checks.txt
-.phase0_run.txt
-.phase0_run2.txt
-.q_track_audits.txt
-.q*_feel_audit.txt
-.ii2b_worksheet_prefill.txt
-.d001_headless_signoff.txt
+# Local harness / playtest artifacts (repo root only; see scripts/README.md)
+# Keep local-artifact patterns in sync with .cursorignore
+# Duplicate camp smokes — canonical: docs/camp_optional_step_smokes/
+.camp_optional_tests/
+
+# Phase 0 gate outputs
+.harness_*.txt
+.phase0_*
+.d001_*
+.company_checks_out_*.txt
+.gate_out.txt
+.regression_*.txt
+.reg_*.txt
+.iv*_debug*.txt
+.iv*_dbg.txt
 .calibration_audit.txt
 .campaign_ship_audit.txt
-_harness*.txt
-harness_stderr.txt
-.tmp_*.txt
-.harness_pass*.txt
-.phase0_pass*.txt
+.medical_phase_harness_out.txt
+.ii5_ii6_soak_out.txt
+.ii2b_worksheet_prefill.txt
+.q_track_audits.txt
+.q*_feel_audit.txt
+
+# F5 human playtest paste (one agent at a time on .f5_soak_in.txt)
+/followup.log
+/followup*.log
+/chunk.txt
+/step9.log
+/extra.log
+/my_fight.log
+.f5_soak_in.txt
+.f5_soak_in.f5_backup.txt
+.f5_soak_validation.txt
+.f5_soak_smoke.txt
+.f5_*_live.txt
+.f5_step9_*.txt
+
+# Scratch / debug captures
+.audit_*.txt
+.leak_check*.txt
+.leak_verbose*.txt
+.pass3_gate.txt
+.reg_only.txt
 .regression_only.txt
 .sanitization*.txt
-.leak_verbose*.txt
 .debug_*.txt
+.tmp_*.txt
+_harness*.txt
+harness_stderr.txt
+
+# Editor-local overrides (machine-specific Godot path, etc.)
+.vscode/settings.local.json

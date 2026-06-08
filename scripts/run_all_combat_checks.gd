@@ -13,7 +13,7 @@ const _QTrack := preload("res://combat/CombatQTrackAudits.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const HARNESS_NAME := "AllCombatChecks"
 const MEDICAL_FAST_NAME := "MedicalPhaseHarness"
-const MEDICAL_FAST_TEST_COUNT := 12
+const MEDICAL_FAST_TEST_COUNT := 32
 const D001_PRESETS_NAME := "D001PresetsIi5Ii6"
 const F5_VALIDATOR_NAME := "CombatF5SoakLogValidator"
 
@@ -73,6 +73,7 @@ func _run_mode_medical() -> void:
 	_OperationalLog.harness_begin(MEDICAL_FAST_NAME)
 	var failures: PackedStringArray = PackedStringArray()
 	_MedicalPhaseTail.run_fast_phase_halt_checks(failures)
+	CombatRegressionHarness.flush_harness_live_nodes()
 	if failures.is_empty():
 		quit(_OperationalLog.harness_ok(MEDICAL_FAST_NAME, "(%d tests)" % MEDICAL_FAST_TEST_COUNT))
 		return
@@ -83,6 +84,7 @@ func _run_mode_medical() -> void:
 func _run_mode_sanity() -> void:
 	_OperationalLog.harness_begin(_SoakSanity.RUNNER_NAME)
 	var r: Dictionary = _SoakSanity.run_all()
+	CombatRegressionHarness.flush_harness_live_nodes()
 	if bool(r.get("ok", false)):
 		quit(_OperationalLog.harness_ok(_SoakSanity.RUNNER_NAME))
 	else:
@@ -99,6 +101,7 @@ func _run_mode_all() -> void:
 
 
 func _quit_mode(label: String, failures: PackedStringArray, detail: String) -> void:
+	CombatRegressionHarness.flush_harness_live_nodes()
 	if failures.is_empty():
 		quit(_OperationalLog.harness_ok(label, detail))
 	else:
@@ -143,6 +146,7 @@ func _run_mode_d001_presets() -> void:
 	_OperationalLog.harness_begin(D001_PRESETS_NAME)
 	var r: Dictionary = _D001Runner.run_preset_ids(preset_ids)
 	_print_d001_preset_summary(r)
+	CombatRegressionHarness.flush_harness_live_nodes()
 	if bool(r.get("ok", false)):
 		_OperationalLog.harness_ok(D001_PRESETS_NAME, "presets=%s" % ", ".join(preset_ids))
 		quit(0)
@@ -200,12 +204,11 @@ func _run_mode_f5_validate() -> void:
 			% path
 		)
 		_OperationalLog.harness_fail(F5_VALIDATOR_NAME, PackedStringArray([msg]))
+		CombatRegressionHarness.flush_harness_live_nodes()
 		quit(2)
 		return
 	var text: String = FileAccess.get_file_as_string(path)
-	var lines: PackedStringArray = PackedStringArray()
-	for part in text.split("\n", false):
-		lines.append(part)
+	var lines: PackedStringArray = _F5Validator._decode_f5_log_text(text)
 	var result: Dictionary = _F5Validator.validate(lines)
 	_F5Validator.write_report(result)
 	if bool(result.get("ok", false)):
@@ -214,14 +217,18 @@ func _run_mode_f5_validate() -> void:
 			"profiles=%s lines=%d"
 			% [", ".join(result.get("profiles", PackedStringArray())), int(result.get("line_count", 0))]
 		)
+		CombatRegressionHarness.flush_harness_live_nodes()
 		quit(0)
 		return
 	_OperationalLog.harness_fail(F5_VALIDATOR_NAME, result.get("failures", PackedStringArray()))
+	CombatRegressionHarness.flush_harness_live_nodes()
 	quit(1)
 
 
 func _run_mode_q_track() -> void:
-	quit(_QTrack.run_headless())
+	var code: int = _QTrack.run_headless()
+	CombatRegressionHarness.flush_harness_live_nodes()
+	quit(code)
 
 
 static func _resolve_f5_input_path() -> String:

@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_godot.sh
 source "$SCRIPT_DIR/_godot.sh"
+# shellcheck source=f5_soak_log_helpers.sh
+source "$SCRIPT_DIR/f5_soak_log_helpers.sh"
 ROOT="$(fp_project_root)"
 GODOT_BIN="$(fp_godot_bin)" || {
 	echo "run_all_combat_checks.sh: set GODOT to your Godot 4 binary" >&2
@@ -44,11 +46,18 @@ if [[ "$MODE" != "all" ]]; then
 	export FP_HARNESS_MODE="$MODE"
 	LOG="$ROOT/$LOG_NAME"
 	echo "=== FP_HARNESS_MODE=$MODE ==="
+	F5_BACKED_UP=0
+	if [[ "$MODE" == "d001" ]]; then
+		f5_backup_human_paste "$ROOT" && F5_BACKED_UP=1 || true
+	fi
 	set +e
 	"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_all_combat_checks.gd 2>&1 | tee "$LOG"
 	EXIT_CODE=${PIPESTATUS[0]}
 	set -e
 	unset FP_HARNESS_MODE
+	if [[ "$F5_BACKED_UP" -eq 1 ]]; then
+		f5_restore_human_paste "$ROOT" || true
+	fi
 	if grep -q "$OK_GREP" "$LOG" 2>/dev/null; then
 		exit 0
 	fi
@@ -70,7 +79,7 @@ else
 fi
 echo ""
 
-echo "=== CompanyStateChecks (Camp-1.1-1.8) ==="
+echo "=== CompanyStateChecks (Camp-1 + XCamp-3.x) ==="
 set +e
 COMPANY_OUT="$(bash "$ROOT/scripts/run_company_state_checks.sh" 2>&1)"
 COMPANY_EXIT=$?
@@ -91,10 +100,15 @@ fi
 echo ""
 
 echo "=== AllCombatChecks (regression + D-001 + calibration) ==="
+F5_BACKED_UP=0
+f5_backup_human_paste "$ROOT" && F5_BACKED_UP=1 || true
 set +e
 OUT="$("$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_all_combat_checks.gd 2>&1)"
 EXIT_CODE=$?
 set -e
+if [[ "$F5_BACKED_UP" -eq 1 ]]; then
+	f5_restore_human_paste "$ROOT" || true
+fi
 echo "$OUT"
 echo "$OUT" | grep -E '^FP_HARNESS_(OK|SUMMARY|FAIL):' >>"$SUMMARY_PATH" || true
 if [[ $EXIT_CODE -ne 0 ]]; then
@@ -192,7 +206,14 @@ if [[ $CAMPAIGN_EXIT -ne 0 ]]; then
 fi
 echo "ran_at=$(date '+%Y-%m-%d %H:%M:%s')" >>"$SUMMARY_PATH"
 echo "Summary: $SUMMARY_PATH"
-echo "Artifact summary: ./scripts/print_phase0_status.ps1"
+f5_show_status_hint "$ROOT" || true
+BAK="$(f5_soak_backup_path "$ROOT")"
+F5_LOG="$(f5_soak_log_path "$ROOT")"
+if [[ -f "$BAK" && -f "$F5_LOG" ]] && [[ "$(f5_human_signoff_status "$F5_LOG")" != "READY" ]]; then
+	echo "F5 human paste backup: .f5_soak_in.f5_backup.txt (restore: ./scripts/restore_f5_soak_log.sh)"
+fi
+echo "F5 Camp status (on demand): ./scripts/run_camp_f5_closeout.sh (--human-signoff after new F5 append)"
+echo "Artifact summary: ./scripts/print_phase0_status.sh"
 if [[ $VALIDATE_F5 -eq 1 ]]; then
 	bash "$ROOT/scripts/validate_f5_soak_log.sh" || exit $?
 fi

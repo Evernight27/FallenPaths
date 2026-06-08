@@ -25,11 +25,11 @@ function Invoke-FallenPathsGodotScript {
 		$env:FP_HARNESS_MODE = $HarnessMode
 		$hadMode = $true
 	}
-	$args = @("--headless", "--path", $Root, "-s", $Script) + $GodotExtraArgs
+	$godotInvokeArgs = @("--headless", "--path", $Root, "-s", $Script) + $GodotExtraArgs
 	if ($TeeLog -ne "") {
-		& $Godot @args 2>&1 | Tee-Object -FilePath $TeeLog
+		& $Godot @godotInvokeArgs 2>&1 | Tee-Object -FilePath $TeeLog
 	} else {
-		& $Godot @args 2>&1
+		& $Godot @godotInvokeArgs 2>&1
 	}
 	$script:LastFallenPathsGodotExitCode = $LASTEXITCODE
 	if ($hadMode) {
@@ -43,4 +43,15 @@ function Get-FallenPathsGodotExitCode {
 		return [int]$script:LastFallenPathsGodotExitCode
 	}
 	return [int]$LASTEXITCODE
+}
+
+## Headless `--import` so global class cache is warm before `-s` harness scripts (avoids cold-start parse flakes).
+function Invoke-FallenPathsGodotImportWarmup {
+	param([int]$SleepSeconds = 2)
+	$Godot = Get-FallenPathsGodot
+	$Root = Get-FallenPathsRoot
+	& $Godot --headless --path $Root --import 2>&1 | Out-Null
+	if ($SleepSeconds -gt 0) {
+		Start-Sleep -Seconds $SleepSeconds
+	}
 }
