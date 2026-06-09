@@ -130,6 +130,7 @@ Read in this order when tracing a cross-cutting concern:
 
 | Do not | Do instead |
 |--------|------------|
+| `const X := SomeClass.Y` (non-preload class ref) | `const _X := preload("res://path/SomeClass.gd")` then `const X := _X.Y` — or create standalone module with literal consts |
 | `manager._get_by_id` / new `CombatManager._*` query wrappers | `CombatantEntityAccess` ? specialist modules |
 | `move_id in MEDICAL_MOVE_IDS` or raw `"pack_wound"` in production | `CombatConstants.is_*` / `MOVE_ID_*` |
 | `manager._is_in_immediate_peril` (removed) | `CombatantEntityAccess.is_in_immediate_peril` |

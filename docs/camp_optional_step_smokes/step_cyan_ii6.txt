@@ -1,0 +1,6 @@
+# Cyan preset ii6 — ambient pain shock on wounded companion (clears missing_cyan_presets ii6 when merged).
+FP_COMBAT: soak_fight_enter tile=cyan preset=ii6 (grep soak=ii6)
+FP_COMBAT: soak_setup ii6 companion chest wounded bv=58 (grep ambient_pain_shock on Companion)
+FP_COMBAT: encounter_begin players=2 enemies=1 | encounter[soak=ii6]
+FP_COMBAT: ambient_pain_shock Companion effective_pain=3.0 duration=120.0s
+FP_COMBAT: soak_fight_end winner=player medical_phase=false turn_ready=6

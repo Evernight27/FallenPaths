@@ -3,7 +3,6 @@ extends RefCounted
 
 ## One frame of combat simulation: event queue, entity time advance, death/winner checks, per-state updates.
 
-const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _EventDispatch := preload("res://combat/CombatEventDispatch.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
@@ -43,7 +42,11 @@ static func tick(manager: Node, delta: float) -> void:
 		var adv_node: Node = _EntityAccess.scene_node(c)
 		if adv_node == null:
 			continue
-		_EntityTimeAdvance.advance(adv_node, delta, false)
+		# Advance bleeding/blood_loss tick, no healing
+		if adv_node.has_method("process_bleeding"):
+			adv_node.process_bleeding(delta)
+		if adv_node.has_method("process_blood_loss"):
+			adv_node.process_blood_loss(delta)
 		if not fast_forward and adv_node.has_method("_try_ambient_pain_shock_tick"):
 			adv_node._try_ambient_pain_shock_tick(delta)
 		manager._refresh_combatant_stats(c)

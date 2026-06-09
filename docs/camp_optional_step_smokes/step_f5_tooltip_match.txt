@@ -1,0 +1,18 @@
+# F5 turn_ready_gauge tooltip_match optional tracks — gate hint + matching gauge row.
+FP_COMBAT: soak_fight_enter tile=red f5_tooltip_smoke fight_profile=7v7
+FP_COMBAT: turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Grd Hi · Atk Mid · Form OHC side=player
+FP_COMBAT: tooltip_match=ok gauge=turn_ready detail=Grd
+FP_COMBAT: diagram_banner player: Line · Line · cohesion 80%
+FP_COMBAT: controlling_close_list id=0 Leader hint=Close is harder vs Fool — strike from range or commit with strength.
+FP_COMBAT: turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Close is harder vs Fool tooltip_match=controlling_close
+FP_COMBAT: turn_ready_gauge id=0 Leader label=Stm 50% · Ready · Stack formation_plug tooltip_match=stack
+FP_COMBAT: line_plug_list id=0 Leader hint=Front gap — swap rank with plug
+FP_COMBAT: turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Front gap — swap tooltip_match=line_plug
+FP_COMBAT: medical_triage_list id=0 Leader move=apply_direct_pressure
+FP_COMBAT: turn_ready_gauge id=0 Leader label=Stm 84% · Ready tooltip_match=medical
+FP_COMBAT: medical_action pick Leader move=pack_wound part=chest (ally chest)
+FP_COMBAT: mopup_hold_line_list id=4 Companion5 hint=Line open after rout — close in or strike; shuffle won't fill distant gaps.
+FP_COMBAT: turn_ready_gauge id=4 Companion5 label=Ready · Focus head 78% tooltip_match=hold_line
+FP_COMBAT: counter_tempo_list id=0 Leader hint=Counter!
+FP_COMBAT: turn_ready_gauge id=0 Leader label=Stm 80% · Ready · Counter! tooltip_match=counter
+FP_COMBAT: soak_fight_end winner=player medical_phase=false turn_ready=4 hit_resolve=1

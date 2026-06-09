@@ -1,0 +1,11 @@
+# F5 post-victory medical menu — grep medical_action pick / medical_pack_wound pick (validator optional tracks).
+FP_COMBAT: soak_fight_enter tile=red medical_phase_smoke fight_profile=7v7
+FP_COMBAT: turn_ready_gauge id=0 label=Stm 80% · Ready · Grd Hi · Atk Mid · Form OHC side=player
+FP_COMBAT: tooltip_match=ok gauge=turn_ready detail=Grd
+FP_COMBAT: diagram_banner player: Line · Line · cohesion 80%
+FP_COMBAT: medical_phase: full hemorrhage rates until TCCC control (pressure/TQ/pack/bandage); no passive blood recovery
+FP_COMBAT: medical_pack_wound listed for Ally part=head
+FP_COMBAT: medical_action pick Ally move=apply_direct_pressure part=chest (ally)
+FP_COMBAT: medical_action pick Ally move=pack_wound part=head (ally)
+FP_COMBAT: medical_pack_wound pick Ally part=head (ally)
+FP_COMBAT: soak_fight_end winner=player medical_phase=true turn_ready=4 hit_resolve=1

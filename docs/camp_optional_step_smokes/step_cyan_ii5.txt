@@ -1,0 +1,7 @@
+# Cyan preset ii5 — cowering fall-back listed (clears missing_cyan_presets ii5 when merged).
+FP_COMBAT: soak_fight_enter tile=cyan preset=ii5 (grep soak=ii5)
+FP_COMBAT: soak_setup ii5 leader armless + loose 1x2 (grep cowering_fall_back listed|executed)
+FP_COMBAT: encounter_begin players=1 enemies=2 | encounter[soak=ii5]
+FP_COMBAT: cowering_fall_back listed for Leader
+FP_COMBAT: cowering_fall_back executed Leader rank 0->1 file 1
+FP_COMBAT: soak_fight_end winner=player medical_phase=false turn_ready=4

@@ -1,0 +1,5 @@
+FP_WORLD: settlement_continue pay=0 gold=500 renown=0 tutorial=false
+FP_COMBAT: soak_fight_end winner=player medical_phase=false fight_profile=7v7
+FP_COMBAT: soak_setup ii_line_plug rank-0 gap smoke (engagement_debug line_plug_pick)
+FP_COMBAT: engagement_debug turn id=0 Rear file=0 rank=1 menu=formation bands=LONG opposed=Front mapped_opp=true wing_lack=false mop_up=false rotate_suppress=false sparse_line=false fight_finish=false sparse_prefer_finish=false line_plug=true pick=swap_rank layer=formation_plug line_plug_pick=1
+FP_COMBAT: soak_setup ii_line_plug engagement_debug_ok

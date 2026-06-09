@@ -3,7 +3,8 @@ extends RefCounted
 
 ## Tile texture generation and tileset creation. Used by main.gd.
 
-const TEXTURE_PATH := ResourcePaths.TILE_TEXTURE
+const _ResourcePaths := preload("res://core/ResourcePaths.gd")
+const TEXTURE_PATH := _ResourcePaths.TILE_TEXTURE
 const TILE_SIZE := 64
 
 static func generate_tile_texture_if_needed() -> void:

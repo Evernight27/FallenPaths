@@ -11,7 +11,6 @@ const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 const _EntityMedical := preload("res://core/EntityMedical.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
-const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _BodyParts := preload("res://core/BodyPartConstants.gd")
@@ -428,7 +427,11 @@ static func try_field_tourniquet(world: Node2D, member: Dictionary) -> bool:
 
 
 static func _advance_field_care_time(entity: Node) -> void:
-	_EntityTimeAdvance.advance(entity, FIELD_CARE_SIM_ADVANCE_SECONDS, false)
+	# Advance bleeding/blood_loss only, no healing
+	if entity.has_method("process_bleeding"):
+		entity.process_bleeding(FIELD_CARE_SIM_ADVANCE_SECONDS)
+	if entity.has_method("process_blood_loss"):
+		entity.process_blood_loss(FIELD_CARE_SIM_ADVANCE_SECONDS)
 	if entity.has_method("ensure_consciousness_current"):
 		entity.ensure_consciousness_current()
 

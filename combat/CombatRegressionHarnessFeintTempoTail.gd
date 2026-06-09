@@ -18,12 +18,6 @@ const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 
-static func _harness_cardinal_attack_line(cardinal: String) -> String:
-	if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
-		return _GuardLines.normalize_line(cardinal)
-	return cardinal
-
-
 static func _feint_listing_read_m_expect_for_move_on_target(
 	tgt_enemy: Dictionary,
 	combatant_id_for_spacing: int,

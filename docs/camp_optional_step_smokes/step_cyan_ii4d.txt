@@ -1,0 +1,7 @@
+# Cyan preset ii4d — Duel + exhaustion band (+ preset_ii4d when merged).
+FP_COMBAT: soak_fight_enter tile=cyan preset=ii4d (grep soak=ii4d dev_soak=ii4d)
+FP_COMBAT: soak_setup ii4d sustained exertion tail (grep exhaustion crossed 25|50|75)
+FP_COMBAT: encounter_begin players=1 enemies=1 | encounter[soak=ii4d]
+FP_COMBAT: engagement mode=Duel
+FP_COMBAT: exhaustion Ally crossed 25% (index 28% perf 92%)
+FP_COMBAT: soak_fight_end winner=player medical_phase=false turn_ready=12 hit_resolve=4

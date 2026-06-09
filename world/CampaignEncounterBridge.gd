@@ -7,7 +7,6 @@ extends RefCounted
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _OverworldMap := preload("res://world/OverworldMap.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
-const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
@@ -560,7 +559,12 @@ static func advance_party_overworld_minute(world: Node2D) -> void:
 			if health.has_method("process_healing"):
 				health.process_healing(SECONDS_PER_MOVE)
 		else:
-			_EntityTimeAdvance.advance(health, SECONDS_PER_MOVE, true)
+			if health.has_method("process_bleeding"):
+				health.process_bleeding(SECONDS_PER_MOVE)
+			if health.has_method("process_blood_loss"):
+				health.process_blood_loss(SECONDS_PER_MOVE)
+			if health.has_method("process_healing"):
+				health.process_healing(SECONDS_PER_MOVE)
 		if health.has_method("ensure_consciousness_current"):
 			health.ensure_consciousness_current()
 

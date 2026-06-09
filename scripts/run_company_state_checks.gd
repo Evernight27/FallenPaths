@@ -178,7 +178,7 @@ static func _cleanup_harness_tree_leaks() -> void:
 static func _make_world(living_count: int, dead_count: int = 0, in_tree: bool = false) -> Node2D:
 	var world := Node2D.new()
 	world.set_script(_CampaignWorldScript)
-	var pm_script: Script = load("res://PartyManager.gd") as Script
+	var pm_script: Script = load("res://world/PartyManager.gd") as Script
 	var pm: Node = pm_script.new()
 	pm.name = "PartyManagerHarness"
 	world.add_child(pm)
@@ -1172,7 +1172,7 @@ static func _make_overworld_spawn_world(in_tree: bool = false) -> Node2D:
 	var world := Node2D.new()
 	world.set_script(_CampaignWorldScript)
 	_OverworldMap.stamp_world_map_size(world)
-	var pm_script: Script = load("res://PartyManager.gd") as Script
+	var pm_script: Script = load("res://world/PartyManager.gd") as Script
 	var pm: Node = pm_script.new()
 	pm.name = "PartyManagerHarness"
 	world.add_child(pm)
@@ -1325,7 +1325,7 @@ static func _run_contract_deck_refresh(failures: PackedStringArray) -> void:
 		)
 	else:
 		_pass()
-	if _ContractSpawner.try_refresh_contract_deck(world, rng, null) != 0:
+	if _ContractSpawner.try_refresh_contract_deck(world, null) != 0:
 		_fail(failures, "XCamp-3.3: refresh should not run while paid markers remain")
 	else:
 		_pass()
@@ -1339,7 +1339,7 @@ static func _run_contract_deck_refresh(failures: PackedStringArray) -> void:
 		_fail(failures, "XCamp-3.3: deck refresh hint expected got '%s'" % deck_hint)
 	else:
 		_pass()
-	var placed: int = _ContractSpawner.try_refresh_contract_deck(world, rng, null)
+	var placed: int = _ContractSpawner.try_refresh_contract_deck(world, null)
 	if placed != _ContractSpawner.get_template_count():
 		_fail(
 			failures,
@@ -1356,7 +1356,7 @@ static func _run_contract_deck_refresh(failures: PackedStringArray) -> void:
 		)
 	else:
 		_pass()
-	if _ContractSpawner.try_refresh_contract_deck(world, rng, null) != 0:
+	if _ContractSpawner.try_refresh_contract_deck(world, null) != 0:
 		_fail(failures, "XCamp-3.3: second refresh should not run until wave cleared")
 	else:
 		_pass()

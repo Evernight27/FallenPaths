@@ -114,19 +114,19 @@ static func format_settlement_deck_refresh_hint(parent: Node2D) -> String:
 
 ## XCamp-3.3: when the paid deck is cleared, spawn another wave on free tiles.
 static func try_refresh_contract_deck(
-	parent: Node2D, rng: RandomNumberGenerator, enemy_scene: PackedScene
+	parent: Node2D, enemy_scene: PackedScene
 ) -> int:
-	if parent == null or rng == null:
+	if parent == null:
 		return 0
 	if not _CompanyState.is_tutorial_completed(parent):
 		return 0
 	if count_paid_contract_markers(parent) > 0:
 		return 0
-	return _spawn_paid_deck_wave(parent, rng, enemy_scene)
+	return _spawn_paid_deck_wave(parent, enemy_scene)
 
 
 static func _spawn_paid_deck_wave(
-	parent: Node2D, rng: RandomNumberGenerator, enemy_scene: PackedScene
+	parent: Node2D, enemy_scene: PackedScene
 ) -> int:
 	var reserved: Array = _reserve_tiles(parent)
 	var free_tiles: Array = _free_contract_tiles(parent, reserved)
@@ -389,5 +389,3 @@ static func _first_free_tile(parent: Node, reserved: Array) -> Vector2i:
 		if t not in reserved:
 			return t as Vector2i
 	return Vector2i(-1, -1)
-
-

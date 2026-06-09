@@ -182,10 +182,8 @@ static func show_and_await(world: Node2D) -> void:
 		_apply_victory_mood_boost(world)
 		layer.queue_free()
 		_CompanyState.clear_active_contract(world)
-		var rng: RandomNumberGenerator = _CampaignBridge.resolve_overworld_rng(world)
 		var enemy_scene: PackedScene = _CampaignBridge.resolve_enemy_scene(world)
-		if rng != null:
-			_ContractSpawner.try_refresh_contract_deck(world, rng, enemy_scene)
+		_ContractSpawner.try_refresh_contract_deck(world, enemy_scene)
 		_CompanyState.refresh_hud(world)
 		_CampaignBridge.sync_overworld_player_grid_anchor(world)
 		_disable_overworld_input(world, true)

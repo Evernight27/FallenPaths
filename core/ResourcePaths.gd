@@ -7,7 +7,7 @@ extends RefCounted
 # Scripts
 const COMBAT_MANAGER := "res://combat/CombatManager.gd"
 const BATTLE_SCENE := "res://ui/BattleScene.gd"
-const PARTY_MANAGER := "res://PartyManager.gd"
+const PARTY_MANAGER := "res://world/PartyManager.gd"
 const PARTY_MENU := "res://ui/PartyMenu.gd"
 
 # Species

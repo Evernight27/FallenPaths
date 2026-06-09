@@ -29,6 +29,23 @@ alwaysApply: true
 - `combat/CombatManager.gd` — thin orchestrator; `CombatFormationSetup` seeds; `get_health_entity` → `CombatantEntityAccess`; formation → `ZoneOfControl.formation_dict_for_zone_geometry`. **D-008:** no crash/intrusion; **`attempt_close`** live.
 - Extend smallest `combat/*.gd` per LIVE_PATHS. **III-4 Track A ☑** shipped — maintain `EngagementOpposition` + harness; **3b** = Skirmish **`rotate_file` only**; **3e** = post-rout mop-up (`envelop_mop_up_active`, rotate suppress, MID close). Pick: list → `MentalStackDecider` → `pick_weighted`; defense is strike-time (`DefenseChoiceResolver`), not turn pick. **Footing:** [`#wf-footing-improvement-backlog`](docs/LIVE_PATHS.md#wf-footing-improvement-backlog) · [`#wf-footing-doc-map`](docs/LIVE_PATHS.md#wf-footing-doc-map) · Tier 4.4 PA [`#wf-tier-44-pa`](docs/LIVE_PATHS.md#wf-tier-44-pa) · **`assign_form`** → home **`guard_line`**; **MS-L4** ≠ **WF-L4** [`#wf-layer-labels`](docs/LIVE_PATHS.md#wf-layer-labels). Harness: `CombatRegressionHarness.gd` + tails; headless **`ii_envelop_mopup`**.
 
+## GDScript const forwarding limitation
+
+**`const X := SomeClass.Y` does NOT work.** You cannot use a class reference as a const initializer unless it is a `preload()` result. This is a GDScript parse-time restriction — const initializers must be compile-time literal expressions.
+
+**Correct pattern:** Use `preload()` to get a class reference, then forward consts:
+```gdscript
+const _Module := preload("res://path/Module.gd")
+const FORWARDED := _Module.CONST_VALUE  # works — _Module is a preload result
+```
+
+**Wrong pattern:** Direct class reference without preload:
+```gdscript
+const BAD := ResourcePaths.TILE_TEXTURE  # FAILS — ResourcePaths not preloaded
+```
+
+**Standalone modules (preferred for cross-cutting constants):** Create a small dedicated `.gd` file with literal-string consts. New code `preload()`s it directly; existing callers keep using the monolith unchanged. Zero breaking changes.
+
 ## Campaign code (Campaign stream)
 
 - `main.gd` · `world/CampaignEncounterBridge.gd` · `EncounterNode.gd` · `CombatFlow.gd` · `PartyMemberSnapshot.gd` · `ui/PartyMenu.gd`

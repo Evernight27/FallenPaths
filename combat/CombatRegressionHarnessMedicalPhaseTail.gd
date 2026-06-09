@@ -31,7 +31,6 @@ const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _BattleScene := preload("res://ui/BattleScene.gd")
 const _MapFieldCare := preload("res://world/MapFieldCare.gd")
-const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 const _ResearchAnchors := preload("res://core/CombatResearchAnchors.gd")
 const _PartyRowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _EntityPainConsciousness := preload("res://core/EntityPainConsciousness.gd")
@@ -966,7 +965,10 @@ static func _run_field_care_procedure_sim_advance_seconds(failures: PackedString
 	]
 	ent.apply_direct_pressure("chest")
 	var bleed_before: float = _EntityWounds.get_bleeding_rate_for_part(ent, "chest")
-	_EntityTimeAdvance.advance(ent, want, false)
+	if ent.has_method("process_bleeding"):
+		ent.process_bleeding(want)
+	if ent.has_method("process_blood_loss"):
+		ent.process_blood_loss(want)
 	var bleed_after: float = _EntityWounds.get_bleeding_rate_for_part(ent, "chest")
 	if bleed_after >= bleed_before - 0.0001:
 		CombatRegressionHarness._fail(
@@ -995,7 +997,10 @@ static func _run_field_care_venous_clot_under_procedure(failures: PackedStringAr
 		)
 		_free_entity_fixture(ent)
 		return
-	_EntityTimeAdvance.advance(ent, _MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS, false)
+	if ent.has_method("process_bleeding"):
+		ent.process_bleeding(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
+	if ent.has_method("process_blood_loss"):
+		ent.process_blood_loss(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
 	var rate: float = _EntityWounds.get_bleeding_rate_for_part(ent, "left_leg")
 	if rate > _Bleeding.BLEEDING_RATE_EPSILON:
 		CombatRegressionHarness._fail(
@@ -1025,7 +1030,10 @@ static func _run_field_care_arterial_stays_lethal_under_procedure(failures: Pack
 		},
 	]
 	ent.apply_direct_pressure("chest")
-	_EntityTimeAdvance.advance(ent, _MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS, false)
+	if ent.has_method("process_bleeding"):
+		ent.process_bleeding(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
+	if ent.has_method("process_blood_loss"):
+		ent.process_blood_loss(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
 	var rate: float = _EntityWounds.get_bleeding_rate_for_part(ent, "chest")
 	if rate <= _Bleeding.BLEEDING_RATE_EPSILON:
 		CombatRegressionHarness._fail(
@@ -1050,7 +1058,10 @@ static func _run_field_care_venous_blood_loss_bounded(failures: PackedStringArra
 		},
 	]
 	ent.apply_direct_pressure("left_leg")
-	_EntityTimeAdvance.advance(ent, _MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS, false)
+	if ent.has_method("process_bleeding"):
+		ent.process_bleeding(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
+	if ent.has_method("process_blood_loss"):
+		ent.process_blood_loss(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
 	if float(ent.blood_volume) < 70.0:
 		CombatRegressionHarness._fail(
 			failures,
@@ -1591,7 +1602,10 @@ static func _run_dressings_allowed_when_locally_clotted_under_pressure(
 		},
 	]
 	ally_ent.apply_direct_pressure("left_leg")
-	_EntityTimeAdvance.advance(ally_ent, _MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS, false)
+	if ally_ent.has_method("process_bleeding"):
+		ally_ent.process_bleeding(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
+	if ally_ent.has_method("process_blood_loss"):
+		ally_ent.process_blood_loss(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
 	var intrinsic: float = float(ally_ent.wounds["left_leg"][0].get("current_bleeding_rate", 0.0))
 	if intrinsic > _Bleeding.BLEEDING_RATE_EPSILON:
 		CombatRegressionHarness._fail(
@@ -1646,7 +1660,10 @@ static func _run_field_stabilize_trim_before_procedure_advance(failures: PackedS
 		CombatRegressionHarness._fail(failures, "field_stab_order: pressure setup failed")
 		_free_entity_fixture(advance_only)
 		return
-	_EntityTimeAdvance.advance(advance_only, _MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS, false)
+	if advance_only.has_method("process_bleeding"):
+		advance_only.process_bleeding(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
+	if advance_only.has_method("process_blood_loss"):
+		advance_only.process_blood_loss(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
 	var rate_advance_only: float = float(
 		advance_only.wounds["chest"][0].get("current_bleeding_rate", 0.0)
 	)
@@ -1662,7 +1679,10 @@ static func _run_field_stabilize_trim_before_procedure_advance(failures: PackedS
 		_free_entity_fixture(advance_only)
 		_free_entity_fixture(trim_then_advance)
 		return
-	_EntityTimeAdvance.advance(trim_then_advance, _MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS, false)
+	if trim_then_advance.has_method("process_bleeding"):
+		trim_then_advance.process_bleeding(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
+	if trim_then_advance.has_method("process_blood_loss"):
+		trim_then_advance.process_blood_loss(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
 	var rate_trim_path: float = float(
 		trim_then_advance.wounds["chest"][0].get("current_bleeding_rate", 0.0)
 	)
@@ -1699,8 +1719,14 @@ static func _run_field_tourniquet_applies_before_procedure_advance(failures: Pac
 		_free_entity_fixture(tq_first)
 		_free_entity_fixture(bleed_first)
 		return
-	_EntityTimeAdvance.advance(tq_first, _MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS, false)
-	_EntityTimeAdvance.advance(bleed_first, _MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS, false)
+	if tq_first.has_method("process_bleeding"):
+		tq_first.process_bleeding(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
+	if tq_first.has_method("process_blood_loss"):
+		tq_first.process_blood_loss(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
+	if bleed_first.has_method("process_bleeding"):
+		bleed_first.process_bleeding(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
+	if bleed_first.has_method("process_blood_loss"):
+		bleed_first.process_blood_loss(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
 	seed(884401)
 	bleed_first.apply_tourniquet("left_leg", 1.5)
 	seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
@@ -1813,7 +1839,10 @@ static func _run_field_care_arterial_blood_loss_meaningful(failures: PackedStrin
 		},
 	]
 	ent.apply_direct_pressure("chest")
-	_EntityTimeAdvance.advance(ent, _MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS, false)
+	if ent.has_method("process_bleeding"):
+		ent.process_bleeding(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
+	if ent.has_method("process_blood_loss"):
+		ent.process_blood_loss(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
 	var loss_pct: float = _Bleeding.MAX_BLOOD_VOLUME - float(ent.blood_volume)
 	if loss_pct < 3.0:
 		CombatRegressionHarness._fail(

@@ -1578,13 +1578,17 @@ static func _party_bleeding_controlled(world: Node2D) -> bool:
 
 
 static func _advance_party_healing(world: Node2D, seconds: float, multiplier: float) -> void:
-	const _EntityTimeAdvance := preload("res://core/EntityTimeAdvance.gd")
 	const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
 	var effective: float = seconds * multiplier
 	for n in _Bridge.get_fightable_party_nodes(world):
 		var entity: Node = _Bridge.health_entity_from_character(n)
 		if entity != null:
-			_EntityTimeAdvance.advance(entity, effective, true)
+			if entity.has_method("process_bleeding"):
+				entity.process_bleeding(effective)
+			if entity.has_method("process_blood_loss"):
+				entity.process_blood_loss(effective)
+			if entity.has_method("process_healing"):
+				entity.process_healing(effective)
 		if n.has_method("ensure_consciousness_current"):
 			n.ensure_consciousness_current()
 

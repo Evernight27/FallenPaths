@@ -1,0 +1,6 @@
+# Cyan preset ii2b — Duel + parry trace (clears missing_cyan_presets ii2b when merged into human paste).
+FP_COMBAT: soak_fight_enter tile=cyan preset=ii2b (grep soak=ii2b)
+FP_COMBAT: encounter_begin players=1 enemies=1 | encounter[soak=ii2b]
+FP_COMBAT: engagement mode=Duel
+FP_COMBAT: parry_partial Companion vs Goblin ctrl=0.12 rem=0.85 reason=partial parry
+FP_COMBAT: soak_fight_end winner=player medical_phase=false turn_ready=8 hit_resolve=2
