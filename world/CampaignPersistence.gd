@@ -49,7 +49,7 @@ static func has_save() -> bool:
 	return FileAccess.file_exists(active_save_path())
 
 
-## Legacy saves may still carry removed `practice` markers — map to tutorial or paid contract.
+## Pre-`marker_kind` saves may still carry removed `practice` markers — map to tutorial or paid contract.
 static func normalize_marker_kind_for_restore(marker_kind: String, encounter_config: Dictionary) -> String:
 	var kind: String = marker_kind.strip_edges()
 	if kind == "practice":

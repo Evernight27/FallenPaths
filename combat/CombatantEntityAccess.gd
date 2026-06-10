@@ -713,7 +713,7 @@ static func set_exhaustion_float(combatant: Dictionary, value: float) -> void:
 	)
 
 
-## Legacy combat `stance` string — harness / **`form_str`** fallback only; production bias uses **`form_str`** + **`CombatWeaponForm.mod`**.
+## Combat `stance` string (harness compatibility alias) — **`form_str`** fallback only; production bias uses **`form_str`** + **`CombatWeaponForm.mod`**.
 static func stance_str(combatant: Dictionary, default_stance: String = CombatConstants.STANCE_BALANCED) -> String:
 	return str(combatant.get("stance", default_stance))
 

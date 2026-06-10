@@ -140,21 +140,21 @@ const SUB_REGION_SEVERITY_MODIFIERS: Dictionary = {
 }
 
 # --- Blood volume (percentage 0–100). ATLS: Class I <15% loss, II 15–30%, III 30–40%, IV >40% (fatal). ---
-## S6 pilot: literal mL pool on entity (`blood_volume_ml`); `blood_volume` % synced for ATLS/UI. Default off.
+## S6 pilot: literal mL pool on entity (`blood_volume_ml`); `blood_volume` % synced for ATLS/UI. Shipped.
 const FEATURE_LITERAL_BLOOD_ML := true
-## S6 pilot: soft-tissue penetration budget before bone (`CombatLayerTissue`). Default off.
+## S6 pilot: soft-tissue penetration budget before bone (`CombatLayerTissue`). Shipped.
 const FEATURE_LAYER_TISSUE := true
-## P3b M1–M2: `MaterialFailureCurves` pen/KE laws → game damage allocation. Default off.
+## P3b M1–M2: `MaterialFailureCurves` pen/KE laws → game damage allocation. Shipped.
 const FEATURE_MATERIAL_FAILURE_CURVES := true
 ## M2: blend weight toward curve alloc when `FEATURE_MATERIAL_FAILURE_CURVES` on (1.0 = full replace).
 const MATERIAL_CURVE_BLEND_WEIGHT := 1.0
-## M3: per-layer yield/rupture vs flat mm budget (`CombatLayerTissue`). Default off.
+## M3: per-layer yield/rupture vs flat mm budget (`CombatLayerTissue`). Shipped.
 const FEATURE_LAYER_TISSUE_CURVES := true
 ## M3: bleed bump when subcutaneous sheet is ruptured on this hit.
 const LAYER_RUPTURE_SUBCUT_BLEED_MULT := 1.08
 ## M4 (cancelled): continuum damage memory per sub_region — reserved; do not enable.
 const FEATURE_TISSUE_DAMAGE_D := false
-## M6: internal tissue J capacity; `body_cutting` as display derived from J. Default off.
+## M6: internal tissue J capacity; `body_cutting` as display derived from J. Shipped.
 const FEATURE_TISSUE_ENERGY_POOL := true
 ## S8: shallow cut track → lower severity/bleed; blunt KE absorbed in flesh before bone MFB.
 const FEATURE_PENETRATION_DEPTH_SEVERITY := true
@@ -338,8 +338,6 @@ const FEATURE_ABSOLUTE_SEVERITY_PCT_CAP: bool = false
 const SEVERITY_ABSOLUTE_CRITICAL: float = 10.0
 const SEVERITY_ABSOLUTE_SEVERE: float = 5.0
 const SEVERITY_ABSOLUTE_MODERATE: float = 2.0
-## Legacy alias kept for callers referencing SEVERITY_ABSOLUTE_MINOR.
-const SEVERITY_ABSOLUTE_MINOR: float = SEVERITY_ABSOLUTE_MODERATE
 const SEVERITY_ABSOLUTE_BONE_CRITICAL: float = 6.0
 const SEVERITY_ABSOLUTE_BONE_SEVERE: float = 3.0
 const SEVERITY_ABSOLUTE_BONE_MODERATE: float = 1.0

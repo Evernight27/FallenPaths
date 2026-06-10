@@ -71,7 +71,7 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 	if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
 		var pid: int = int(c.get("formation_move_partner_id", -1))
 		var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, pid)
-		_FormationFlow.abort_pair(manager, c, partner, "flee")
+		_FormationFlow.abort_pair(manager, c, partner, CombatConstants.MOVE_ID_FLEE)
 	_EventScheduler.cancel_pending_combat_events_for_combatant(manager, combatant_id)
 	_Footwork.clear_on_exchange_end(c)
 	var fid: String = _EntityAccess.formation_id_str(c)

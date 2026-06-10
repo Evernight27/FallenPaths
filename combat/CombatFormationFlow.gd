@@ -295,7 +295,7 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
 	var duration: float = _MoveDuration.estimate_adjacent_rank_pair_duration_s(
 		manager, init, partner, move_kind
 	)
-	var use_falling: bool = move_kind == "drag_back" or move_kind == "fall_back_pair"
+	var use_falling: bool = move_kind == CombatConstants.MOVE_ID_DRAG_BACK or move_kind == CombatConstants.FORMATION_MOVE_KIND_FALL_BACK_PAIR
 	var st: String = CombatConstants.STATE_FALLING_BACK if use_falling else CombatConstants.STATE_SWAP_RANK
 	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
 	var r_lo: int = mini(r0, r1)
@@ -489,7 +489,7 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	var data_raw: Variant = ev.get("data", null)
 	var data: Dictionary = data_raw if data_raw is Dictionary else {}
 	var partner_id: int = data.get("partner_id", -1)
-	var move_kind: String = data.get("move_kind", "swap_rank")
+	var move_kind: String = data.get("move_kind", CombatConstants.MOVE_ID_SWAP_RANK)
 	if _formation_resolve_medical_phase_skip(manager, initiator_id, partner_id):
 		return
 	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
@@ -554,9 +554,9 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
 	_set_combatant_waiting(partner)
 	var outcome: String = "swap_rank_complete"
 	match move_kind:
-		"drag_back":
+		CombatConstants.MOVE_ID_DRAG_BACK:
 			outcome = "drag_back_complete"
-		"fall_back_pair":
+		CombatConstants.FORMATION_MOVE_KIND_FALL_BACK_PAIR:
 			outcome = "fall_back_complete"
 		_:
 			outcome = "swap_rank_complete"

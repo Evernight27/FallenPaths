@@ -340,8 +340,12 @@ static func _run_sim_pack_neck_requires_subregion(failures: PackedStringArray) -
 		_fail(failures, "sim_pack_neck: expected one neck wound")
 		return
 	ent.wounds["head"][0]["is_arterial"] = true
+	# Compression must be held before packing when active bleed present.
+	if not ent.apply_direct_pressure("head"):
+		_fail(failures, "sim_pack_neck: direct pressure setup failed")
+		return
 	if not ent.can_apply_packing("head"):
-		_fail(failures, "sim_pack_neck: moderate arterial neck should allow packing")
+		_fail(failures, "sim_pack_neck: moderate arterial neck should allow packing after pressure")
 
 
 static func _has_fracture_wound(ent: Node, part: String) -> bool:

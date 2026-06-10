@@ -92,6 +92,9 @@ static func clamp_stamina_to_effective_max(combatant: Dictionary) -> void:
 
 
 ## MS-L7: mental stack tunnel — prefer wait / disengage over new offense.
+## Shares **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** with `exhaustion_offense_weight_mult`
+## and `CombatConstants.EXHAUSTION_OFFENSE_DAMP_START` ramp endpoint — both read the same constant,
+## ensuring hard layer override and gradual damp floor always align. Verified by harness p4a test.
 static func exhaustion_tunnel_active(combatant: Dictionary) -> bool:
 	if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
 		return false

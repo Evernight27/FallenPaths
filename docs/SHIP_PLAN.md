@@ -702,10 +702,10 @@ Full logical order: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#comba
 | **Maintain during Camp** | Parallel Combat agent | Phase 0 · mental stack L0–L4 + MS-L7 · Camp-3.3 UI · regression harness · [**III-4 Track A ☑**](LIVE_PATHS.md#iii-4--engagement-geometry-audit) (no new `FEATURE_*`) |
 | **Camp bridge (not Expand)** | Campaign stream | Camp-1 economy · Camp-2.3 med efficacy · Camp-2.5 stabilize · Camp-4 `encounter_config` rows · III-4 **3c** player front preset keys ☑ |
 | **Phase 3 depth** | Expand after Camp-5 | III-1 surround/parry target · III-3 deflect soak · III-5 pack depth · III-6 back-rank · III-4 **Track B** (IV-9 gap-column) |
-| **P4 playbooks** | Expand | p4a exhaustion pacing · p4c auto doctrine · p4f flee action · p4g flurry tune |
-| **Phase 4 IV** | Expand | IV-3 1v1 rule · **IV-4/5 ☑** · **IV-7 ☑** armor burden · **IV-8 ☑** initiative order · **IV-9 ☑** gap-column · **IV-10 ☑** subregion combat mult |
-| **Weapon forms (WF)** | **Maintain** (Camp-5) | [**WF status**](LIVE_PATHS.md#wf-implementation-status) — **WF-1…4 shipped** · **M3** ☑ · **WF-T1 ☑** (2026-06-07) · **WF-T2 ☑** (2026-06-08) · **IV-4/5 ☑** · MS-L5–L6 |
-| **Cognition** | Expand | MS-L5–L6 ☑ · **tier-4.4 spatial slices 1–3 ☑** · **no** player targets (**MS-L7** shipped — **p4a** tune) |
+| **P4 playbooks** | Expand | p4a ☑ · p4c ☑ · p4f ☑ · p4g ☑ — maintain tuning only |
+| **Phase 4 IV** | Expand | IV-3 1v1 rule · **IV-4/5 ☑** · **IV-7 ☑** armor burden · **IV-8 ☑** initiative order · **IV-9 ☑** gap-column · **IV-10 ☑** subregion combat mult · **IV-11 leader order ☑** · **IV-12 slot distraction ☑** · **IV-13 weapon-reach ZoC ☑** |
+| **Weapon forms (WF)** | **Maintain** (Camp-5) | [**WF status**](LIVE_PATHS.md#wf-implementation-status) — **WF-1…4 shipped** · **M3** ☑ · **WF-T1 ☑** (2026-06-07) · **WF-T2 ☑** (2026-06-08) · **IV-4/5 ☑** |
+| **Cognition** | Maintain | MS-L5–L6 ☑ · **tier-4.4 spatial slices 1–3 ☑** · **MS-L7 shipped** — tuning only |
 | **Wontfix / closed** | — | IV-INTR (D-008) · P3b mat sim expand · bleed retune unless asked · F1 BMI |
 
 **Pick one row per Expand PR:** harness `_run_*` + live path line + optional `FEATURE_*` ([`PLANNING` policy](PLANNING.md#harness-and-flags)).
@@ -1004,6 +1004,8 @@ const PERSISTENCE_MODE := "P1"                 # Camp-5 D-persistence: session-o
 - **2026-05-22** — D-affliction (Camp-2.4) → severity-tier RNG (peril ~30%, danger ~12%, bone cripple ~45%); see guide bundle.
 - **2026-05-22** — D-bankrupt (Camp-2.6) → **B3** desertion cascade (company mood → desertion; not instant gold&lt;0 wipe).
 - **2026-05-22** — D-persistence (Camp-5) → **P1** for EA testing; **P2** single-slot autosave when ship complete.
+- **2026-06-08** — **Exp-3 company depth shipped:** XCamp-3.1 hire at camp · XCamp-3.2 5x5 map · XCamp-3.3 deck refresh · XCamp-3.4 post-victory afflictions · XCamp-3.5 tavern mood → weapon form · XCamp-3.6 provisions/day-tick · XCamp-3.7 burial costs · XCamp-3.8 MS-CAMP bridge; 406 harness tests (`run_company_state_checks.ps1`); `CompanyState` closed gate constants — [`SHIP_PLAN#campaign`](SHIP_PLAN.md#campaign)
+- **2026-06-09** — **Combat harness dedup:** `HarnessFixtures.gd` consolidated; FpDedupeTail migrated; playtest script tooling (`run_playtest_*.ps1`) — [`scripts/README.md`](../scripts/README.md)
 
 ---
 

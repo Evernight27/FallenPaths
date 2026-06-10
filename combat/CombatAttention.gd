@@ -377,7 +377,15 @@ static func apply_yomi_focus_drift(
 	var dom: String = dominant_attack_line_toward_defender(c, atk_id)
 	if dom.is_empty():
 		return
-	if line_count_toward_defender(c, atk_id, dom) < CombatConstants.YOMI_FOCUS_DRIFT_MIN_LINE_COUNT:
+	# Short engagement shortcut: after fewer total ticks, one observation suffices.
+	var line_count: int = line_count_toward_defender(c, atk_id, dom)
+	var tick_idx: int = 0
+	if manager != null:
+		tick_idx = manager.get_combat_tick_index()
+	var min_lines: int = CombatConstants.YOMI_FOCUS_DRIFT_MIN_LINE_COUNT
+	if tick_idx < CombatConstants.YOMI_FOCUS_DRIFT_SHORT_ENGAGEMENT_TICK_THRESHOLD:
+		min_lines = CombatConstants.YOMI_FOCUS_DRIFT_SHORT_ENGAGEMENT_LINE_COUNT
+	if line_count < min_lines:
 		return
 	var habit_part: String = CombatConstants.LINE_TO_DEFAULT_PART.get(dom, "")
 	if habit_part.is_empty():

@@ -51,7 +51,7 @@ Hand off to Audit if two copies differ. PR prefix: hygiene:
 ```
 Stream: Medical Physics — see scripts/cursor/agent_medical.md
 
-Task: Review uncommitted medical WIP (core/EntityMedical.gd, EntityWounds.gd, EntityTimeAdvance.gd, combat/MedicalPhaseController.gd, CombatMedicalCoordination.gd, CombatMedicalActionListing.gd, medical harness tails). Finish one logical slice: coordination gates, compression-before-dress, or field-care parity. Smallest diff.
+Task: Review uncommitted medical WIP (core/EntityMedical.gd, EntityWounds.gd, combat/MedicalPhaseController.gd, CombatMedicalCoordination.gd, CombatMedicalActionListing.gd, medical harness tails). Finish one logical slice: coordination gates, compression-before-dress, or field-care parity. Smallest diff.
 
 Fast gate: .\scripts\run_all_combat_checks.ps1 -HarnessMode medical
 Full gate: .\scripts\run_all_combat_checks.ps1 → PHASE0: PASS

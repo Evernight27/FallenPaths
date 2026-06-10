@@ -31,7 +31,7 @@ Target: **`PHASE0: PASS`**. Docs-only pass: confirm `git status` has no accident
 | 3 | **Playtest artifacts** | Confirm `.f5_soak_in.txt`, `.phase0_*`, `.d001_*`, `.harness_out.txt`, `.audit_*.txt` gitignored per `scripts/README.md` |
 | 4 | **Cursor rules dupes** | One `.cursor/rules/fallen-paths.mdc` |
 | 5 | **VS Code dupes** | Single `.vscode/settings.json` / `tasks.json` |
-| 6 | **Stale script inventory** | `scripts/README.md` rows match on-disk `scripts/*`; remove doc refs to deleted runners (`run_d001_presets*`, `_print_phase0_status.ps1`, `validate_res_paths.py`) |
+| 6 | **Stale script inventory** | `scripts/README.md` rows match on-disk `scripts/*`; remove doc refs to deleted runners (`run_d001_presets*`) |
 | 7 | **Orphan prompt files** | One home per stream: `agent_*.md` in `scripts/cursor/`; delete unlinked stubs; specialty sections live in `agent_combat.md` (not separate files) |
 | 8 | **Doc tombstones** | `python3 scripts/check_doc_links.py --res-paths-only` (also in Phase 0); dead links → fix or tombstone row in [`LIVE_PATHS#redirects-tombstones`](../../docs/LIVE_PATHS.md#redirects-tombstones) |
 | 9 | **Untracked scripts** | Legitimate new `?? scripts/*` → `git add` + row in `scripts/README.md`; never delete without `rg` for imports/callers |

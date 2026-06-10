@@ -1,6 +1,0 @@
-# Cyan preset ii3 — Arc overlap surround hint (+ preset_ii3 when merged).
-FP_COMBAT: soak_fight_enter tile=cyan preset=ii3 (grep soak=ii3)
-FP_COMBAT: encounter_begin players=1 enemies=3 | encounter[soak=ii3]
-FP_COMBAT: ui_hint Arc overlap: 2 threat(s) share your front sector (reduced surround weight).
-FP_COMBAT: parry_partial Companion vs Goblin ctrl=0.10 rem=0.80 reason=partial parry
-FP_COMBAT: soak_fight_end winner=player medical_phase=false turn_ready=6 hit_resolve=2

@@ -11,8 +11,8 @@ const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const CAMP_TILE := Vector2i(0, 0)
 const TUTORIAL_TILE := Vector2i(1, 0)
-## Obsolete save flag (pre `marker_kind`); stripped in **`build_encounter_config`**.
-const LEGACY_ENCOUNTER_CONFIG_KEY_TRAINING := "training"
+## Pre-`marker_kind` save compatibility key; stripped in **`build_encounter_config`**.
+const COMPATIBILITY_ENCOUNTER_CONFIG_KEY_TRAINING := "training"
 
 const TUTORIAL_TEMPLATE: Dictionary = {
 	"contract_type": "tutorial",
@@ -210,7 +210,7 @@ static func ensure_special_encounter_present(
 
 static func build_encounter_config(template: Dictionary) -> Dictionary:
 	var out: Dictionary = template.duplicate(true)
-	out.erase(LEGACY_ENCOUNTER_CONFIG_KEY_TRAINING)
+	out.erase(COMPATIBILITY_ENCOUNTER_CONFIG_KEY_TRAINING)
 	if _CompanyState.is_tutorial_contract(out):
 		out.erase(_CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT)
 		out.erase(_CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION)

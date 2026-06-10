@@ -44,6 +44,7 @@ const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
+const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _MentalStack := preload("res://combat/MentalStackDecider.gd")
 const _MgrScript := preload("res://combat/CombatManager.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
@@ -185,28 +186,144 @@ static func _run_mental_stack_medical_overrides_attack(failures: PackedStringArr
 	var ally: Dictionary = mgr.combatants[1]
 	var medic_id: int = _EntityAccess.id_int(medic)
 	var ally_id: int = _EntityAccess.id_int(ally)
+	var enemy_id: int = _EntityAccess.id_int(mgr.combatants[2])
 	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
 	_harness_immediate_peril_bleeding_chest(ally_ent, 30.0)
 	mgr.medical_phase = true
 	mgr.medical_phase_winner = "player"
+
 	var actions: Array = [
-		{"move_id": "oberhau", "target_id": _EntityAccess.id_int(mgr.combatants[2])},
+		{"move_id": "oberhau", "target_id": enemy_id},
 		{
 			"move_id": "apply_direct_pressure",
 			"target_id": ally_id,
 			"target_part": "chest",
 		},
 	]
-	var picked: Dictionary = _MentalStack.try_pick(actions, medic_id, mgr)
-	if picked.is_empty():
-		CombatRegressionHarness._fail(failures, "mental_stack_medical: expected stack pick")
+
+	# --- Robust diagnostics: each step fails with full context on mismatch ---
+	var _ctx: String = ""
+	_ctx += "medic_id=%d ally_id=%d enemy_id=%d med_phase=%s |" % [
+		medic_id, ally_id, enemy_id, str(mgr.medical_phase)]
+
+	# 1. Verify entity setup
+	var _ally_bv: float = -1.0
+	if ally_ent != null:
+		_ally_bv = float(ally_ent.get("blood_volume"))
+	_ctx += " bv=%.1f|" % _ally_bv
+	if _ally_bv > 42.0:
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_medical diag: ally blood_volume=%.1f > 42 threshold — peril won't trigger" % _ally_bv)
 		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 		return
-	if not mgr._is_medical_move(str(picked.get("move_id", ""))):
+
+	# 2. Verify is_in_immediate_peril on ally (direct, via combatant dict)
+	var _ally_peril: bool = _EntityAccess.is_in_immediate_peril(mgr, ally)
+	_ctx += " peril=%s|" % str(_ally_peril)
+	if not _ally_peril:
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_medical diag: is_in_immediate_peril(ally)=false — expected true")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+
+	# 3. Verify L0: medic NOT in peril
+	var _medic_peril: bool = _EntityAccess.is_in_immediate_peril(mgr, medic)
+	_ctx += " medic_peril=%s|" % str(_medic_peril)
+	if _medic_peril:
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_medical diag: is_in_immediate_peril(medic)=true — should be false")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+
+	# 4. Verify L1 trigger: ally_in_immediate_peril from attention perspective
+	var _l1_ally_peril: bool = _Attention.ally_in_immediate_peril(mgr, medic_id)
+	_ctx += " l1_peril=%s|" % str(_l1_ally_peril)
+	if not _l1_ally_peril:
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_medical diag: ally_in_immediate_peril(medic)=false — expected true")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+
+	# 5. Verify coordinated medical filter includes the pressure action
+	var _coordinated: Array = _MentalStack._filter_coordinated_medical_actions(actions, medic_id, mgr)
+	var _coord_has_pressure: bool = false
+	for _ca in _coordinated:
+		if _ca is Dictionary:
+			var _dca: Dictionary = _ca as Dictionary
+			if str(_dca.get("move_id", "")) == "apply_direct_pressure":
+				_coord_has_pressure = true
+				break
+	_ctx += " coord_count=%d|" % _coordinated.size()
+	if not _coord_has_pressure:
+		var _fallback_list: Array = _MentalStack._filter_ally_medical_actions_fallback(actions, medic_id, mgr)
 		CombatRegressionHarness._fail(
 			failures,
-			"mental_stack_medical: want medical move got %s" % str(picked.get("move_id", ""))
-		)
+			"mental_stack_medical diag: coordinated filter empty (count=%d), fallback count=%d — medical_action_allowed likely failed"
+			% [_coordinated.size(), _fallback_list.size()])
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+
+	# 6. Verify coordination blocked reason is empty for the pressure action
+	var _blocked_reason: String = _MedicalCoord.medical_action_coordination_blocked(
+		mgr, medic_id, ally_id, "chest", "apply_direct_pressure")
+	if not _blocked_reason.is_empty():
+		_ctx += " blocked='%s'|" % _blocked_reason
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_medical diag: coordination_blocked='%s'" % _blocked_reason)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+
+	# 7. Verify can_stack_assist_pressure is FALSE (no compression yet)
+	var _can_stack: bool = _MedicalCoord.can_stack_assist_pressure(mgr, medic_id, ally_id, "chest")
+	_ctx += " can_stack=%s|" % str(_can_stack)
+	if _can_stack:
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_medical diag: can_stack_assist_pressure=true — expected false (no compression yet)")
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+
+	# 8. Verify entity bleeding rate for chest > 0
+	var _ally_dict: Dictionary = _EntityAccess.manager_get_combatant(mgr, ally_id)
+	var _bleed_rate: float = 0.0
+	if not _ally_dict.is_empty():
+		_bleed_rate = _EntityAccess.entity_bleeding_rate_for_part(mgr, _ally_dict, "chest")
+	_ctx += " bleed_rate=%.2f|" % _bleed_rate
+	if _bleed_rate <= 0.0:
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_medical diag: entity_bleeding_rate_for_part(chest)=%.2f — expected > 0" % _bleed_rate)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+
+	# --- Run try_pick and verify result ---
+	var picked: Dictionary = _MentalStack.try_pick(actions, medic_id, mgr)
+	_ctx += " pick=%s|" % str(picked)
+
+	if picked.is_empty():
+		CombatRegressionHarness._fail(
+			failures, "mental_stack_medical: expected stack pick (all layers returned empty). ctx=" + _ctx)
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+
+	var _picked_move: String = str(picked.get("move_id", ""))
+	var _post_c: Dictionary = _EntityAccess.manager_get_combatant(mgr, medic_id)
+	var _picked_layer: String = str(_post_c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "NONE"))
+	_ctx += " move=%s layer=%s" % [_picked_move, _picked_layer]
+
+	if not mgr._is_medical_move(_picked_move):
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_medical: want medical move got '%s' (ctx=%s)" % [_picked_move, _ctx])
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+
+	if _picked_layer != CombatConstants.MENTAL_STACK_LAYER_MEDICAL:
+		CombatRegressionHarness._fail(
+			failures,
+			"mental_stack_medical: expected layer=%s got layer=%s move=%s (ctx=%s)"
+			% [CombatConstants.MENTAL_STACK_LAYER_MEDICAL, _picked_layer, _picked_move, _ctx])
+		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		return
+
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
@@ -287,7 +404,7 @@ static func _run_mental_stack_counter_over_plain_attack_when_window_open(
 
 
 ## Tier 4.3: no salience → **`try_pick`** empty; attack weights unchanged with stack off.
-static func _run_mental_stack_attack_layer_matches_legacy_weights(failures: PackedStringArray) -> void:
+static func _run_mental_stack_attack_layer_matches_stance_alias_weights(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -299,16 +416,16 @@ static func _run_mental_stack_attack_layer_matches_legacy_weights(failures: Pack
 	var actions: Array = [a]
 	var stacked: Dictionary = _MentalStack.try_pick(actions, p_id, mgr)
 	if not stacked.is_empty():
-		CombatRegressionHarness._fail(failures, "mental_stack_legacy: try_pick should be empty without salience")
+		CombatRegressionHarness._fail(failures, "mental_stack: try_pick should be empty without salience")
 	var w: float = _AIPicker._get_action_weight(a, p_id, mgr, true)
 	CombatConstants.set_feature_mental_stack_ai_load(false)
 	var stacked_off: Dictionary = _MentalStack.try_pick(actions, p_id, mgr)
 	var w_off: float = _AIPicker._get_action_weight(a, p_id, mgr, true)
 	CombatConstants.set_feature_mental_stack_ai_load(true)
 	if not stacked_off.is_empty():
-		CombatRegressionHarness._fail(failures, "mental_stack_legacy: try_pick off should stay empty")
+		CombatRegressionHarness._fail(failures, "mental_stack: try_pick off should stay empty")
 	if absf(w - w_off) > 0.0001 * maxf(1.0, absf(w)):
-		CombatRegressionHarness._fail(failures, "mental_stack_legacy: weight changed %.6f vs %.6f" % [w, w_off])
+		CombatRegressionHarness._fail(failures, "mental_stack: weight changed %.6f vs %.6f" % [w, w_off])
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
@@ -3305,7 +3422,7 @@ static func _run_footwork_process_waiting_scrubs_leaked_offset(failures: PackedS
 		CombatRegressionHarness._fail(failures, "footwork_waiting_scrub: ui hint key should be erased")
 
 
-## Tier 4.4 + III-8: **`complete_recovery`** accepts legacy **`parry_deflect`** cause (deflect guard path + PA scrub).
+## Tier 4.4 + III-8: **`complete_recovery`** accepts compatibility **`parry_deflect`** cause (deflect guard path + PA scrub).
 static func _run_footwork_complete_recovery_parry_deflect_alias(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = _MgrScript.new()
@@ -5165,7 +5282,7 @@ static func run(failures: PackedStringArray) -> void:
 	_run_mental_stack_medical_overrides_attack(failures)
 	_run_mental_stack_incoming_windup_prefers_defense(failures)
 	_run_mental_stack_counter_over_plain_attack_when_window_open(failures)
-	_run_mental_stack_attack_layer_matches_legacy_weights(failures)
+	_run_mental_stack_attack_layer_matches_stance_alias_weights(failures)
 	_run_yomi_guard_tendency_boosts_feint_after_repeated_high(failures)
 	_run_yomi_updates_on_parry_deflect_clears_on_hit(failures)
 	_run_attention_ui_hint_formats_when_telegraph_set(failures)

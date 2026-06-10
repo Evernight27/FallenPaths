@@ -3942,11 +3942,11 @@ static func _run_persistence_roundtrip(failures: PackedStringArray) -> void:
 	else:
 		_pass()
 	if _Persistence.normalize_marker_kind_for_restore("practice", {"tutorial": false}) != "contract":
-		_fail(failures, "P2 persistence: legacy practice marker should restore as contract")
+		_fail(failures, "P2 persistence: pre-marker_kind practice marker should restore as contract")
 	else:
 		_pass()
 	if _Persistence.normalize_marker_kind_for_restore("practice", {"tutorial": true}) != "tutorial":
-		_fail(failures, "P2 persistence: legacy practice+tutorial config should restore as tutorial")
+		_fail(failures, "P2 persistence: pre-marker_kind practice+tutorial config should restore as tutorial")
 	else:
 		_pass()
 	var legacy_world: Node2D = _make_world(0, 0, true)
@@ -3956,7 +3956,7 @@ static func _run_persistence_roundtrip(failures: PackedStringArray) -> void:
 	var legacy_cfg: Dictionary = _ContractSpawner.build_encounter_config(
 		_ContractSpawner.CONTRACT_TEMPLATES[0]
 	)
-	legacy_cfg[_ContractSpawner.LEGACY_ENCOUNTER_CONFIG_KEY_TRAINING] = true
+	legacy_cfg[_ContractSpawner.COMPATIBILITY_ENCOUNTER_CONFIG_KEY_TRAINING] = true
 	var legacy_save: Dictionary = {
 		"version": _Persistence.SAVE_VERSION,
 		"company_state": {"gold": 50},
@@ -3982,11 +3982,11 @@ static func _run_persistence_roundtrip(failures: PackedStringArray) -> void:
 			legacy_marker = child
 			break
 	if legacy_marker == null:
-		_fail(failures, "P2 persistence: apply_save should restore legacy practice encounter marker")
+		_fail(failures, "P2 persistence: apply_save should restore pre-marker_kind practice encounter marker")
 	elif str(legacy_marker.marker_kind) != "contract":
 		_fail(
 			failures,
-			"P2 persistence: legacy practice marker_kind want contract got %s"
+			"P2 persistence: pre-marker_kind practice marker_kind want contract got %s"
 			% str(legacy_marker.marker_kind)
 		)
 	else:
@@ -3994,10 +3994,10 @@ static func _run_persistence_roundtrip(failures: PackedStringArray) -> void:
 	if (
 		legacy_marker != null
 		and (legacy_marker.encounter_config as Dictionary).has(
-			_ContractSpawner.LEGACY_ENCOUNTER_CONFIG_KEY_TRAINING
+			_ContractSpawner.COMPATIBILITY_ENCOUNTER_CONFIG_KEY_TRAINING
 		)
 	):
-		_fail(failures, "P2 persistence: restored encounter_config should drop legacy training flag")
+		_fail(failures, "P2 persistence: restored encounter_config should drop pre-marker_kind training flag")
 	else:
 		_pass()
 	_release_harness_world(legacy_world)

@@ -81,7 +81,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		return false
 	_PlayerTurnHints.clear_formation_listed_turn_hint_on_combatant(atk)
 	if move_id == CombatConstants.MOVE_ID_WAIT:
-		manager.skip_turn(attacker_id, "wait", "explicit wait move")
+		manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_WAIT, "explicit wait move")
 		return true
 	if move_id == CombatConstants.MOVE_ID_FLEE and target_id == attacker_id:
 		if not _FormationFlee.flee_action_legal(manager, atk):
@@ -112,7 +112,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			return false
 		var cur_line: String = str(atk.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
 		if cur_line == focus_line:
-			manager.skip_turn(attacker_id, "wait", "focus already set")
+			manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_WAIT, "focus already set")
 			return true
 		_GuardLineUpdater.set_guard_from_line(atk, focus_line)
 		manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "focus_line", "line": focus_line})
@@ -252,7 +252,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		if target_id == attacker_id:
 			manager._start_fall_back_solo(attacker_id)
 		else:
-			manager._start_formation_pair_move(attacker_id, target_id, "fall_back_pair")
+			manager._start_formation_pair_move(attacker_id, target_id, CombatConstants.FORMATION_MOVE_KIND_FALL_BACK_PAIR)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return true
 	if move_id == CombatConstants.MOVE_ID_ROTATE_FILE:
@@ -336,7 +336,7 @@ static func _commit_close_attempt_resolve(manager: Node, attacker_id: int, targe
 		_EntityAccess.state_str(atk_after) == CombatConstants.STATE_WAITING
 		and _EntityAccess.gauge_float(atk_after) >= 99.9
 	):
-		manager.skip_turn(attacker_id, "pass", "close resolve no-op")
+		manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_PASS, "close resolve no-op")
 		return false
 	manager.emit_signal("turn_resolved", attacker_id)
 	return true

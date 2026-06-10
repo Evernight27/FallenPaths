@@ -610,7 +610,8 @@ static func refresh_inferred_forms_for_observer(manager: Node, observer: Diction
 		observer[CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID] = cache
 
 
-static func _legacy_stance_from_pressure(form: String) -> String:
+## Stance → pressure_class alias (harness compatibility). Production uses **`form_str`** + **`CombatWeaponForm.mod`**.
+static func _stance_alias_from_pressure(form: String) -> String:
 	match pressure_class(form):
 		"defensive":
 			return CombatConstants.STANCE_DEFENSIVE
@@ -635,7 +636,7 @@ static func _side_encounter_default_form(manager: Node, c: Dictionary) -> String
 	return str(enc.get(key, "")).strip_edges()
 
 
-## L2 → L3 home write site: sets **`weapon_form`**, legacy **`stance`**, home **`guard_line`** — does **not** stamp/clear PA. Contract: LIVE_PATHS **`#wf-assign-form-contract`**.
+## L2 → L3 home write site: sets **`weapon_form`**, stance alias (harness compatibility), home **`guard_line`** — does **not** stamp/clear PA. Contract: LIVE_PATHS **`#wf-assign-form-contract`**.
 static func assign_form(
 	manager: Node, c: Dictionary, form: String, reason: String = ""
 ) -> void:
@@ -645,7 +646,7 @@ static func assign_form(
 		resolved = default_form_for_weapon(weapon)
 	var old_form: String = _EntityAccess.form_str(c)
 	c[CombatConstants.COMBATANT_KEY_WEAPON_FORM] = resolved
-	c["stance"] = _legacy_stance_from_pressure(resolved)
+	c["stance"] = _stance_alias_from_pressure(resolved)
 	_GuardLineUpdater.set_guard_from_line(c, home_guard_line(resolved))
 	if manager != null and not reason.is_empty() and CombatConstants.combat_event_debug_active():
 		const _CombatDebug := preload("res://combat/CombatDebug.gd")

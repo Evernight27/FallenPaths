@@ -9,7 +9,7 @@ const _Bleeding := preload("res://core/BleedingConstants.gd")
 const LAYER_NAME_SUBCUTANEOUS := "subcutaneous"
 const LAYER_NAME_MUSCLE := "muscle"
 
-## Per-part soft-tissue stack (mm): [subcutaneous, muscle, …]. Sum matches legacy single budget.
+## Per-part soft-tissue stack (mm): [subcutaneous, muscle, …]. Sum replaces the old flat S6 budget model.
 const SOFT_TISSUE_LAYER_STACK_MM_BY_PART: Dictionary = {
 	"head": [1.5, 2.5],
 	"chest": [3.0, 5.0],

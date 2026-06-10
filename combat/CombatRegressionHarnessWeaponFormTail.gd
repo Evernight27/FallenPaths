@@ -27,8 +27,8 @@ const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 static func run(failures: PackedStringArray) -> void:
 	_run_weapon_form_spawn_default_guard(failures)
 	_run_weapon_form_allowed_forms_clamp(failures)
-	_run_weapon_form_normalize_legacy_alias(failures)
-	_run_weapon_form_mod_parity_legacy_stance(failures)
+	_run_weapon_form_normalize_stance_alias(failures)
+	_run_weapon_form_mod_parity_stance_alias(failures)
 	_run_weapon_form_move_weight_distribution(failures)
 	_run_weapon_form_pressure_class_zoc(failures)
 	_run_weapon_form_close_controlling_evasion(failures)
@@ -89,7 +89,7 @@ static func _run_weapon_form_allowed_forms_clamp(failures: PackedStringArray) ->
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-static func _run_weapon_form_normalize_legacy_alias(failures: PackedStringArray) -> void:
+static func _run_weapon_form_normalize_stance_alias(failures: PackedStringArray) -> void:
 	if _WeaponForm.normalize_form("defensive") != _WeaponForm.FORM_WALL:
 		CombatRegressionHarness._fail(failures, "weapon_form: defensive alias")
 	if _WeaponForm.normalize_form("aggressive") != _WeaponForm.FORM_WRATH:
@@ -98,14 +98,14 @@ static func _run_weapon_form_normalize_legacy_alias(failures: PackedStringArray)
 		CombatRegressionHarness._fail(failures, "weapon_form: controlling alias")
 
 
-static func _run_weapon_form_mod_parity_legacy_stance(failures: PackedStringArray) -> void:
+static func _run_weapon_form_mod_parity_stance_alias(failures: PackedStringArray) -> void:
 	for effect in ["parry", "evasion", "damage", "close_attempt", "ai_melee_focus", "feint_readthrough", "ai_feint_listing"]:
-		var legacy_def: float = CombatConstants.get_stance_modifier(CombatConstants.STANCE_DEFENSIVE, effect)
+		var old_defensive: float = CombatConstants.get_stance_modifier(CombatConstants.STANCE_DEFENSIVE, effect)
 		var wall: float = _WeaponForm.mod(_WeaponForm.FORM_WALL, effect)
-		if absf(legacy_def - wall) > 0.001:
+		if absf(old_defensive - wall) > 0.001:
 			CombatRegressionHarness._fail(
 				failures,
-				"weapon_form: wall/%s parity want %.3f got %.3f" % [effect, legacy_def, wall]
+				"weapon_form: wall/%s parity want %.3f got %.3f" % [effect, old_defensive, wall]
 			)
 
 
@@ -156,28 +156,28 @@ static func _run_weapon_form_pressure_class_zoc(failures: PackedStringArray) -> 
 
 
 static func _run_weapon_form_close_controlling_evasion(failures: PackedStringArray) -> void:
-	var legacy_div: float = CombatConstants.STANCE_MOD_OPPONENT_CLOSE
+	var old_controlling_close: float = CombatConstants.STANCE_MOD_OPPONENT_CLOSE
 	var fool_div: float = _WeaponForm.opponent_close_evasion_divisor(_WeaponForm.FORM_FOOL)
-	if absf(legacy_div - fool_div) > 0.001:
+	if absf(old_controlling_close - fool_div) > 0.001:
 		CombatRegressionHarness._fail(
 			failures,
-			"weapon_form: fool close divisor want %.2f got %.2f" % [legacy_div, fool_div]
+			"weapon_form: fool close divisor want %.2f got %.2f" % [old_controlling_close, fool_div]
 		)
 	var close_list: float = _WeaponForm.opponent_close_listing_weight_mult(_WeaponForm.FORM_FOOL)
-	if absf(close_list - legacy_div) > 0.001:
+	if absf(close_list - old_controlling_close) > 0.001:
 		CombatRegressionHarness._fail(
 			failures,
-			"weapon_form: fool close listing mult want %.2f got %.2f" % [legacy_div, close_list]
+			"weapon_form: fool close listing mult want %.2f got %.2f" % [old_controlling_close, close_list]
 		)
 
 
 static func _run_weapon_form_controlling_disengage_pressure(failures: PackedStringArray) -> void:
-	var legacy_mult: float = 1.0 / CombatConstants.STANCE_MOD_OPPONENT_DISENGAGE
+	var old_controlling_disengage: float = 1.0 / CombatConstants.STANCE_MOD_OPPONENT_DISENGAGE
 	var fool_mult: float = _WeaponForm.opponent_disengage_pressure_mult(_WeaponForm.FORM_FOOL)
-	if absf(legacy_mult - fool_mult) > 0.001:
+	if absf(old_controlling_disengage - fool_mult) > 0.001:
 		CombatRegressionHarness._fail(
 			failures,
-			"weapon_form: fool disengage mult want %.4f got %.4f" % [legacy_mult, fool_mult]
+			"weapon_form: fool disengage mult want %.4f got %.4f" % [old_controlling_disengage, fool_mult]
 		)
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -189,7 +189,7 @@ static func _run_weapon_form_controlling_disengage_pressure(failures: PackedStri
 			c["stamina"] = CombatConstants.STAMINA_MAX
 			c["state"] = CombatConstants.STATE_WAITING
 	var mod_neutral: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(mgr, "player")
-	var want: float = CombatConstants.PRESSURE_MOD_NEUTRAL * legacy_mult
+	var want: float = CombatConstants.PRESSURE_MOD_NEUTRAL * old_controlling_disengage
 	if absf(mod_neutral - want) > 0.001:
 		CombatRegressionHarness._fail(
 			failures,
@@ -1077,7 +1077,7 @@ static func _run_weapon_form_wf_t2_thresholds_locked(failures: PackedStringArray
 		CombatRegressionHarness._fail(failures, "weapon_form_wf_t2: duel wrath demote pad")
 
 
-## WF-T2: identity-form **`mod`** bands (ox / plow / tempest) — legacy wall/wrath/fool stay parity harness.
+## WF-T2: identity-form **`mod`** bands (ox / plow / tempest) — stance alias wall/wrath/fool stay parity harness.
 static func _run_weapon_form_wf_t2_mod_identity_bands(failures: PackedStringArray) -> void:
 	var bands: Dictionary = {
 		_WeaponForm.FORM_OX: {"parry": 1.08, "damage": 1.04, "ai_melee_focus": 1.02},

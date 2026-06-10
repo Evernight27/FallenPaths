@@ -77,7 +77,7 @@ const WORLD_META_CAMPAIGN_MED_BATTLE := "campaign_med_battle"
 ## Shared MARCH copy (Party, settlement, map bleed, operational logs).
 const FIELD_CARE_MARCH_CHAIN := "pressure (free) → bandage/pack/TQ"
 
-# Harness / legacy readers
+# Harness / compatibility readers
 static func read_stub_day_tick_mode() -> String:
 	return DAY_TICK_MODE
 

@@ -4,7 +4,7 @@ extends RefCounted
 ## Tier 4.4 pilot: abstract step-on-attack shifts **`attack_angle_deg`** via per-combatant offset (no world positions).
 ## Tier 4.4.2: symmetric defender step on committed parry (guard line) or dodge (eval part line).
 ## Lifecycle: **`clear_on_exchange_end`** when **`pending_attack`** drops or exchange aborts; UI via **`offset_visible_for_ui_state`** (**`wind_up`** / **`recovering`** only).
-## Attachment: reads **line keys** only — not **`weapon_form`** or legacy **`stance`**. Hub LIVE_PATHS **`#wf-tier-44-pa`** (stamp / geometry / clear / lookup). Form home via **`assign_form`**; matrix **`#wf-form-guard-pa-matrix`**.
+## Attachment: reads **line keys** only — not **`weapon_form`** or stance alias. Hub LIVE_PATHS **`#wf-tier-44-pa`** (stamp / geometry / clear / lookup). Form home via **`assign_form`**; matrix **`#wf-form-guard-pa-matrix`**.
 ## Canonical: apply_attack_step_on_windup · apply_defender_step_on_parry · apply_defender_step_on_dodge · attack_eval_step_deg_for_attacker · attack_angle_deg_for_listing_preview · parry_eval_step_deg_for_defender · dodge_eval_step_deg_for_defender · guard_angle_deg · apply_offset_to_angle_deg · clear_on_exchange_end · clear_on_death · reconcile_idle_offset · return_to_waiting · return_to_cowering · CombatUiHints.footwork_hint_text.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")

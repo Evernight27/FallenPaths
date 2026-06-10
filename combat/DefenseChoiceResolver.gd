@@ -4,7 +4,7 @@ extends RefCounted
 ## Given attack params and defender state, chooses parry vs dodge and computes parry capacity/timing.
 ## Footing: Tier 4.2 spacing/state mults here — Tier 4.4 PA stamp + geometry preview: **`apply_defender_step_*`**, **`parry_eval_step_deg_for_defender`**, **`dodge_eval_step_deg_for_defender`**, **`guard_angle_deg_with_step_deg`**, dodge-path **`clear_on_exchange_end`**. LIVE_PATHS **`#wf-tier-44-pa`** · **`#wf-layer-labels`**.
 ## Pure function: returns a dict of computed values; caller handles resolution and mutation.
-## Tier 4.2: **`_guard_zone_modifier`** may treat the real hit line as the defender's guard focus when passive **`parry_readiness`** × stance **`feint_readthrough`** clears **`CombatConstants.FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** (omit extra arg → legacy / static calls).
+## Tier 4.2: **`_guard_zone_modifier`** may treat the real hit line as the defender's guard focus when passive **`parry_readiness`** × stance **`feint_readthrough`** clears **`CombatConstants.FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** (omit extra arg → harness compatibility / static calls).
 ## Tier 4.2 footwork: pair **`distance_to[attacker]`** scales **`parry_c_d`** (CLOSE / LONG vs MID) and **`dodge_chance`** at CLOSE / LONG (**`CombatConstants.DEFENSE_SPACING_*`**); **`STATE_RECOVERING`** / settled **`STATE_WAITING`** scale reported **`dodge_chance`** via **`defense_footwork_recovering_dodge_mult_for_cause`** / **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`** (waiting skipped when off-balance); feint-only spacing on dodge telegraph (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**), AI feint-listing readiness (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**), and **`_guard_zone_modifier`** read-through (**`FEINT_GUARD_ZONE_READINESS_SPACING_*`**, **`feint_guard_zone_readiness_spacing_mult`**).
 ## Tier 4.2 tempo: non-empty **`feint_part`** on **`pa`** uses **`CombatConstants.commitment_fraction_for_pending_attack`** (larger committed fraction → shorter **`effective_wind_up`** for passive parry timing vs plain attacks).
 ## Tier 4.2 telegraph delay: optional **`feint_target_reveal_at_progress`** on feint moves (stamped on **`pa`** in **`AttackWindUpStarter`**) scales feint read-through / dodge-telegraph readiness via **`CombatConstants.FEINT_PRE_REVEAL_READINESS_MULT`** until wind-up progress reaches that fraction (**`_feint_readiness_reveal_mult`**).
@@ -29,7 +29,7 @@ const _CombatDebug := preload("res://combat/CombatDebug.gd")
 ## Tier 3.1: `AttackResolver` / **`CombatStrikeStamping.stamp_attack_pair_geometry_on_dict`** set **`depth_polearm_attack`**, **`depth_polearm_allows_low_targets`**, and **`depth_polearm_lane_type`** when rank≥1 depth spear lane is live.
 static func _depth_polearm_lane_is_open(pa: Dictionary) -> bool:
 	## `stamp_attack_pair_geometry_on_dict` always sets the key (often `""`). Empty / unknown → `allows_low`
-	## (legacy `pa`); explicit ids match **`CombatConstants`** (`open` / `over_shoulder`).
+	## (baseline `pa`); explicit ids match **`CombatConstants`** (`open` / `over_shoulder`).
 	var lt: String = str(pa.get("depth_polearm_lane_type", "")).strip_edges()
 	if lt == "open":
 		return true
@@ -702,7 +702,7 @@ static func _apply_feint_telegraph_bias_to_dodge_eval_part(
 
 
 ## Guard zone modifier: bonus when defender guards the hit part, penalty when unguarded (feint D).
-## **`parry_readiness_for_feint`**: pass passive parry readiness from **`choose_defense`**; **`< 0`** skips feint read-through (legacy / harness static calls). **`atk_id_for_feint_spacing`**: defender **`distance_to[atk_id]`** scales readiness only for read-through (**`-1`** = omit footwork, default).
+## **`parry_readiness_for_feint`**: pass passive parry readiness from **`choose_defense`**; **`< 0`** skips feint read-through (harness compatibility / static calls). **`atk_id_for_feint_spacing`**: defender **`distance_to[atk_id]`** scales readiness only for read-through (**`-1`** = omit footwork, default).
 static func _guard_zone_modifier(
 	pa: Dictionary,
 	tgt: Dictionary,

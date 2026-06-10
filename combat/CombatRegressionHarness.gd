@@ -162,7 +162,7 @@ static func run_all() -> Dictionary:
 	_run_ai_attrition_offense_mult_duel_vs_line(failures)
 	_run_wind_up_duration_bounded_for_move(failures)
 	_run_kinematic_delivery_blunt_slip_momentum_mult_sword_v11(failures)
-	_run_kinematic_delivery_mace_weak_tap_pre_blunt_below_legacy_min(failures)
+	_run_kinematic_delivery_mace_weak_tap_pre_blunt_below_baseline_min(failures)
 	_run_resolve_aborts_when_threat_lost_mid_combat_arm_loss(failures)
 	_MedicalPhaseTail.run(failures)
 	_run_combat_end_enemy_win_stops_manager(failures)
@@ -332,14 +332,14 @@ static func flush_harness_live_nodes() -> void:
 	_harness_live_nodes.clear()
 
 
-## Expand WF: harness rows that set legacy **`stance`** must sync **`weapon_form`** for picker/defense paths.
+## Expand WF: harness rows that set stance alias must sync **`weapon_form`** for picker/defense paths.
 static func harness_sync_weapon_form_from_stance(c: Dictionary, stance: String) -> void:
 	const _WF := preload("res://combat/CombatWeaponForm.gd")
 	c["stance"] = stance
 	c[CombatConstants.COMBATANT_KEY_WEAPON_FORM] = _WF.normalize_form(stance)
 
 
-## Preferred harness path: **`assign_form`** with home guard + legacy **`stance`** sync (WF-M5).
+## Preferred harness path: **`assign_form`** with home guard + stance alias sync (WF-M5).
 static func harness_assign_form(mgr: Node, c: Dictionary, form: String) -> void:
 	const _WF := preload("res://combat/CombatWeaponForm.gd")
 	_WF.assign_form(mgr, c, form, "harness")
@@ -910,16 +910,16 @@ static func _run_medical_action_pick_single_fp_line(failures: PackedStringArray)
 	_OperationalLog.begin_play_session("test", "", false, true)
 	_F5SoakTrace.note_medical_action_pick("Medic", "apply_direct_pressure", "chest", "ally")
 	var pick_count: int = 0
-	var legacy_count: int = 0
+	var fp_count: int = 0
 	for line in _OperationalLog.get_captured_lines():
 		if line.begins_with("FP_COMBAT: medical_action pick "):
 			pick_count += 1
 		if line.begins_with("FP_COMBAT: action ") and " chose medical " in line:
-			legacy_count += 1
+			fp_count += 1
 	if pick_count != 1:
 		_fail(failures, "medical_action_pick: want 1 medical_action pick line got %d" % pick_count)
-	if legacy_count != 0:
-		_fail(failures, "medical_action_pick: want 0 legacy action chose medical lines got %d" % legacy_count)
+	if fp_count != 0:
+		_fail(failures, "medical_action_pick: want 0 FP action chose medical lines got %d" % fp_count)
 	_OperationalLog.end_play_session()
 	_OperationalLog.set_capture_enabled(false)
 
@@ -7480,7 +7480,7 @@ static func _run_iv9_gap_column_compact_suppressed_when_flag_on(failures: Packed
 	_free_manager(mgr)
 
 
-## IV-9: flag off — legacy compaction still packs gapped narrow enemy to files 0..n-1.
+## IV-9: flag off — baseline compaction still packs gapped narrow enemy to files 0..n-1.
 static func _run_iv9_gap_column_flag_off_parity(failures: PackedStringArray) -> void:
 	if CombatConstants.FEATURE_GAP_COLUMN_TOPOLOGY:
 		_fail(failures, "iv9_gap_off: FEATURE_GAP_COLUMN_TOPOLOGY should default off")
@@ -7557,7 +7557,7 @@ static func _run_iv9_gap_column_occupied_files_suite(failures: PackedStringArray
 	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
 	CombatConstants.set_feature_gap_column_topology_load(false)
 	if not _FormationVacancyPlugs.compact_native_line_files_if_thinned(mgr, "enemy"):
-		_fail(failures, "iv9_gap_slots: legacy compact should run when flag off")
+		_fail(failures, "iv9_gap_slots: baseline compact should run when flag off")
 	var occ_packed: PackedInt32Array = _FormationSlots.occupied_files_for_rank(mgr, form_enemy, 0)
 	if _FormationSlots.occupied_files_have_gaps(occ_packed):
 		_fail(failures, "iv9_gap_slots: after compact want contiguous files got %s" % str(occ_packed))
@@ -7587,9 +7587,9 @@ static func _run_iv9_gap_column_diagram_display_suite(failures: PackedStringArra
 	}
 	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
 	CombatConstants.set_feature_gap_column_topology_load(false)
-	var legacy: Array = _FormationSlots.column_display_files(form, 3)
-	if legacy.size() != 3 or int(legacy[0]) != 0:
-		_fail(failures, "iv9_gap_diagram_off: want legacy 0..2 got %s" % str(legacy))
+	var baseline: Array = _FormationSlots.column_display_files(form, 3)
+	if baseline.size() != 3 or int(baseline[0]) != 0:
+		_fail(failures, "iv9_gap_diagram_off: want baseline 0..2 got %s" % str(baseline))
 	CombatConstants.set_feature_gap_column_topology_load(true)
 	var display: Array = _FormationSlots.column_display_files(form, 3)
 	CombatConstants.set_feature_gap_column_topology_load(saved)
@@ -12113,7 +12113,7 @@ static func _run_wind_up_duration_bounded_for_move(failures: PackedStringArray) 
 
 
 ## **MACE** weak tap: when raw momentum blunt is below **`BLUNT_DAMAGE_MIN`**, slip path stays sub-min; clamped helper still floors to min.
-static func _run_kinematic_delivery_mace_weak_tap_pre_blunt_below_legacy_min(
+static func _run_kinematic_delivery_mace_weak_tap_pre_blunt_below_baseline_min(
 	failures: PackedStringArray
 ) -> void:
 	var mace: Weapon = Weapon.create_from_definition("MACE")

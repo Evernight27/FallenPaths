@@ -169,16 +169,16 @@ static func _run_medical_action_pick_single_fp_line(failures: PackedStringArray)
 	_OperationalLog.begin_play_session("test", "", false, true)
 	_F5SoakTrace.note_medical_action_pick("Medic", "apply_direct_pressure", "chest", "ally")
 	var pick_count: int = 0
-	var legacy_count: int = 0
+	var fp_count: int = 0
 	for line in _OperationalLog.get_captured_lines():
 		if line.begins_with("FP_COMBAT: medical_action pick "):
 			pick_count += 1
 		if line.begins_with("FP_COMBAT: action ") and " chose medical " in line:
-			legacy_count += 1
+			fp_count += 1
 	if pick_count != 1:
 		CombatRegressionHarness._fail(failures, "medical_action_pick: want 1 medical_action pick line got %d" % pick_count)
-	if legacy_count != 0:
-		CombatRegressionHarness._fail(failures, "medical_action_pick: want 0 legacy action chose medical lines got %d" % legacy_count)
+	if fp_count != 0:
+		CombatRegressionHarness._fail(failures, "medical_action_pick: want 0 FP action chose medical lines got %d" % fp_count)
 	_OperationalLog.end_play_session()
 	_OperationalLog.set_capture_enabled(false)
 

@@ -2,7 +2,7 @@ class_name CombatRegressionHarnessFeintTempoTail
 extends RefCounted
 
 ## Tier 4.2 feint / counter-tempo / riposte / defense telegraph tests (compile split).
-## Weapon form: **`CombatRegressionHarnessWeaponFormTail`** owns **`form_str`** / **`mod`** — legacy **`stance_str`** rows here stay feint/tempo only.
+## Weapon form: **`CombatRegressionHarnessWeaponFormTail`** owns **`form_str`** / **`mod`** — stance alias rows here stay feint/tempo only.
 ## Footing harness: tier-4.2 spacing/state **`defense_footwork_*`** / feint listing — **not** Tier 4.4 PA (**`CombatFootwork`**). LIVE_PATHS **`#wf-layer-labels`** · **`#harness-footwork-catalog`** (feint rows).
 
 const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
@@ -3538,7 +3538,7 @@ static func run_before_attention(failures: PackedStringArray) -> void:
 	_run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain(failures)
 
 
-## III-8: legacy **`parry_deflect`** cause alias aligns passive readiness + tier-4.2 footwork with **`attack_deflect`**.
+## III-8: compatibility **`parry_deflect`** cause alias aligns passive readiness + tier-4.2 footwork with **`attack_deflect`**.
 static func _run_recovery_cause_parry_deflect_alias_aligns_readiness_and_footwork(
 	failures: PackedStringArray
 ) -> void:

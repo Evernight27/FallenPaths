@@ -6890,12 +6890,12 @@ static func _run_depth_spear_tight_lane_parry_mult_invariant(failures: PackedStr
 		"depth_polearm_lane_type": "over_shoulder",
 	}
 	var a_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_open, "thrust")
-	var pa_legacy_lane: Dictionary = {
+	var pa_baseline_lane: Dictionary = {
 		"depth_polearm_attack": true,
 		"depth_polearm_allows_low_targets": true,
 		"depth_polearm_lane_type": "",
 	}
-	var a_legacy_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_legacy_lane, "thrust")
+	var a_baseline_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_baseline_lane, "thrust")
 	var a_tight_stab: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_tight, "thrust")
 	var a_slash: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult(pa_open, "slash")
 	var a0: float = _DefenseChoice.depth_spear_open_lane_stab_parry_p_a_mult({}, "thrust")
@@ -6905,11 +6905,11 @@ static func _run_depth_spear_tight_lane_parry_mult_invariant(failures: PackedStr
 			"depth_spear_parry_p_a: open+stab want %.4f got %.4f"
 			% [CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT, a_stab]
 		)
-	if not is_equal_approx(a_legacy_stab, CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT):
+	if not is_equal_approx(a_baseline_stab, CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT):
 		CombatRegressionHarness._fail(
 			failures,
 			"depth_spear_parry_p_a: empty lane_type + allows_low stab want %.4f got %.4f"
-			% [CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT, a_legacy_stab]
+			% [CombatConstants.DEPTH_SPEAR_OPEN_LANE_STAB_PARRY_P_A_MULT, a_baseline_stab]
 		)
 	var pa_open_tight_bool: Dictionary = {
 		"depth_polearm_attack": true,

@@ -190,7 +190,7 @@ static func resolve_picked_turn_or_skip(
 		actions = manager.get_available_actions(combatant_id)
 		actions = _MedicalCoord.filter_actions_for_pick(manager, combatant_id, actions)
 	if actions.is_empty():
-		_EntityAccess.manager_skip_turn(manager, combatant_id, "pass", "no available actions")
+		_EntityAccess.manager_skip_turn(manager, combatant_id, CombatConstants.SKIP_TURN_LOG_PASS, "no available actions")
 		return
 	resolve_picked_turn(manager, combatant_id, actions, log_side, self_target)
 
@@ -418,12 +418,33 @@ static func _get_action_weight(
 			return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT / _opponent_controlling_disengage_listing_divisor(manager, c)
 		return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT / _opponent_controlling_disengage_listing_divisor(manager, c)
 	# Attack or attempt_close: engaging the enemy — use stamina + hybrid targeting (doctrine, file, pressure).
+	var comps: Dictionary = _compute_attack_weight_components(
+		a, combatant_id, manager, mid, c, skip_targeting_prune,
+		actor_zone_geometry_line_context, zone_geometry_by_combatant_id, all_actions
+	)
+	return comps.weight * _salience_offense_weight_mult(c, manager)
+
+
+## Extracted from **`_get_action_weight`** for auditability. Returns `{weight, ...}` dictionary.
+## Computes all per-attack multipliers: stamina base, polearm lane, form weights, counter-read,
+## feint listing (readiness, footwork state, doctrine, yomi), counter-tempo, attrition, exhaustion.
+static func _compute_attack_weight_components(
+	a: Dictionary,
+	combatant_id: int,
+	manager: Node,
+	move_id: String,
+	c: Dictionary,
+	skip_targeting_prune: bool,
+	actor_zone_geometry_line_context: Dictionary,
+	zone_geometry_by_combatant_id: Dictionary,
+	all_actions: Array
+) -> Dictionary:
 	var stamina_ratio: float = _EntityAccess.stamina_ratio(c)
 	var base_stamina: float = CombatConstants.ai_offense_stamina_weight_mult(stamina_ratio)
 	var polearm_lane: float = _depth_polearm_action_weight_mult(
-		manager, c, mid, actor_zone_geometry_line_context
+		manager, c, move_id, actor_zone_geometry_line_context
 	)
-	var form_move_m: float = _WeaponForm.action_weight_mult(_EntityAccess.form_str(c), mid)
+	var form_move_m: float = _WeaponForm.action_weight_mult(_EntityAccess.form_str(c), move_id)
 	var form_counter_m: float = 1.0
 	var tid_counter: int = int(a.get("target_id", -1))
 	if tid_counter >= 0:
@@ -433,9 +454,9 @@ static func _get_action_weight(
 			inferred = str((cache_raw as Dictionary).get(str(tid_counter), "")).strip_edges()
 		if inferred.is_empty():
 			inferred = _WeaponForm.infer_opponent_form(manager, c, tid_counter)
-		form_counter_m = _WeaponForm.form_counter_mult(_EntityAccess.form_str(c), inferred, mid)
+		form_counter_m = _WeaponForm.form_counter_mult(_EntityAccess.form_str(c), inferred, move_id)
 	var feint_list_m: float = 1.0
-	if mid != CombatConstants.MOVE_ID_ATTEMPT_CLOSE and _WeaponConstants.is_feint_move(mid):
+	if move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE and _WeaponConstants.is_feint_move(move_id):
 		var pr_def: float = 0.0
 		var tid_feint: int = int(a.get("target_id", -1))
 		if tid_feint >= 0:
@@ -443,7 +464,7 @@ static func _get_action_weight(
 			if not tgt_feint.is_empty():
 				var pa_live: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
 				pr_def = _DefenseChoice.defender_feint_listing_pr_def(
-					tgt_feint, _EntityAccess.id_int(c), mid, c, pa_live
+					tgt_feint, _EntityAccess.id_int(c), move_id, c, pa_live
 				)
 		var read_m: float = lerpf(
 			1.0,
@@ -491,7 +512,7 @@ static func _get_action_weight(
 				feint_list_m *= _Attention.yomi_feint_listing_mult(tgt_yomi, combatant_id, fp_est)
 				feint_list_m *= _Attention.yomi_parry_deflect_feint_listing_mult(tgt_yomi, combatant_id)
 	var counter_tempo_m: float = _CounterTempo.counter_tempo_listing_weight_mult(
-		manager, combatant_id, a, mid
+		manager, combatant_id, a, move_id
 	)
 	var attrition_m: float = _attrition_offense_weight_mult(manager, c)
 	var exh_offense_m: float = _Exhaustion.exhaustion_offense_weight_mult(c)
@@ -514,12 +535,12 @@ static func _get_action_weight(
 		* exh_offense_m
 	)
 	if (
-		mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
+		move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
 		and _CombatDoctrine.envelop_mop_up_active(manager, _EntityAccess.formation_id_str(c))
 	):
 		w *= CombatConstants.ENVELOP_MOP_UP_CLOSE_AI_WEIGHT_MULT
 	if (
-		mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
+		move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
 		and _FormationFlow.skirmish_line_sparse_after_casualties(
 			manager, _EntityAccess.formation_id_str(c)
 		)
@@ -533,7 +554,7 @@ static func _get_action_weight(
 		and _ListedActions.action_list_has_hostile_strike(all_actions, combatant_id)
 	):
 		w *= CombatConstants.AI_SPARSE_LINE_OFFENSE_MULT
-	if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		var tgt_id_close_w: int = int(a.get("target_id", -1))
 		if tgt_id_close_w >= 0:
 			var tgt_close: Dictionary = _EntityAccess.manager_get_combatant(manager, tgt_id_close_w)
@@ -548,7 +569,7 @@ static func _get_action_weight(
 		elif _EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
 			w *= CombatConstants.AI_ATTEMPT_CLOSE_BIND_CLOSE_MULT
 	w *= _TacticalCombat.iv12_offense_weight_mult(manager, combatant_id)
-	return w * _salience_offense_weight_mult(c, manager)
+	return {"weight": w}
 
 
 ## IV-11: doctrine-context weight for party leader / enemy commander instant orders.

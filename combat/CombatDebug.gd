@@ -63,7 +63,7 @@ static func resolve_action_rejected(
 	if operational:
 		operational_warn("resolve_rejected id=%d move=%s — %s" % [attacker_id, mid, reason])
 	if manager != null and manager.has_method("skip_turn"):
-		manager.skip_turn(attacker_id, "reject", reason)
+		manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_REJECT, reason)
 
 
 ## After instant actions (focus line): clear gauge and schedule the next **`EVENT_ACTION_READY`**.

@@ -1820,7 +1820,7 @@ static func _run_kinematic_delivery_rear_afterblow_compose_on_strike_ke(
 
 
 ## Tier 5.1 (optional long-tail): **`CombatWeaponForm.mod(form_str, "damage")`** scales integration **`pre_cut_applied`** (wrath > wall).
-static func _run_kinematic_delivery_stance_modifier_scales_pre_cut_integration(
+static func _run_kinematic_delivery_weapon_form_damage_scales_pre_cut_integration(
 	failures: PackedStringArray
 ) -> void:
 	const vo_pin: float = 11.0
@@ -2713,7 +2713,7 @@ static func run(failures: PackedStringArray) -> void:
 	_run_kinematic_delivery_move_def_angle_variance_wider_than_bare_line(failures)
 	_run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_formula(failures)
 	_run_kinematic_delivery_rear_afterblow_compose_on_strike_ke(failures)
-	_run_kinematic_delivery_stance_modifier_scales_pre_cut_integration(failures)
+	_run_kinematic_delivery_weapon_form_damage_scales_pre_cut_integration(failures)
 	_run_kinematic_delivery_closing_speed_engagement_angle_scales_pre_cut(failures)
 	_run_kinematic_delivery_mixed_integration_pre_cut_scales_sqrt_ke(failures)
 	_run_kinematic_delivery_closing_speed_clamps_at_ceiling(failures)

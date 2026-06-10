@@ -213,7 +213,7 @@ Runs at **strike contact**, not on `turn_ready`:
 | `is_feature_counter_tempo_load` | Counter window + L2 stack + gauge **Counter!** |
 | Tier 3 | `FEATURE_INCOMING_PARRY_CHOICE`, `FEATURE_HEMA_EIGHT_GUARD_LINES`, … |
 
-Harness: **`CombatRegressionHarnessAttentionFootworkTail`** — `_run_attention_*`, `_run_mental_stack_medical_overrides_attack`, `_run_mental_stack_self_peril_before_ally_medical`, `_run_mental_stack_hold_line_only_picks_focus_or_wait`, `_run_mental_stack_incoming_windup_prefers_defense`, `_run_mental_stack_counter_over_plain_attack_when_window_open`, `_run_mental_stack_attack_layer_matches_legacy_weights`, `_run_mental_stack_stamps_layer_on_medical_pick`, `_run_attention_ui_hint_includes_mental_stack_layer`. F5: `turn_ready_gauge`, `tooltip_match=*`, `Stack *` on gauge. Plan: [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped).
+Harness: **`CombatRegressionHarnessAttentionFootworkTail`** — `_run_attention_*`, `_run_mental_stack_medical_overrides_attack`, `_run_mental_stack_self_peril_before_ally_medical`, `_run_mental_stack_hold_line_only_picks_focus_or_wait`, `_run_mental_stack_incoming_windup_prefers_defense`, `_run_mental_stack_counter_over_plain_attack_when_window_open`, `_run_mental_stack_attack_layer_matches_stance_alias_weights`, `_run_mental_stack_stamps_layer_on_medical_pick`, `_run_attention_ui_hint_includes_mental_stack_layer`. F5: `turn_ready_gauge`, `tooltip_match=*`, `Stack *` on gauge. Plan: [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped).
 
 <a id="tier-44-spatial-footwork-deferred"></a>
 
@@ -306,7 +306,24 @@ Editor play session (`OperationalLog.begin_play_session`) layers diagnostics. Gr
 | `blood_volume` | **%** (0–100) | UI, ATLS class, death threshold |
 | `blood_volume_ml` | **mL** | Pool when `FEATURE_LITERAL_BLOOD_ML` on |
 | Wound `bleeding_rate` | **abstract HP/s** | Severity × part × sub-region × arterial |
-| `BLOOD_LOSS_RATE_MULTIPLIER` | **dimensionless** | HP/s → % blood lost per second |
+|| `BLOOD_LOSS_RATE_MULTIPLIER` | **dimensionless** | HP/s → % blood lost per second |
+
+### Bleeding feature flags (shipped)
+
+All active `FEATURE_*` flags in `BleedingConstants.gd` are shipped and harness-verified. The harness simulation has explicit `_fail()` gates requiring them to be `true` for material-production, severity, and research test suites. `FEATURE_TISSUE_DAMAGE_D` is cancelled (M4) and must stay `false`.
+
+| Flag | Value | Pilot / Feature | What it gates |
+|------|-------|-----------------|---------------|
+| `FEATURE_LITERAL_BLOOD_ML` | true | S6 pilot | Literal mL blood pool on entity (`BloodVolumeMl.gd`) |
+| `FEATURE_LAYER_TISSUE` | true | S6 pilot | Soft-tissue penetration budget before bone (`CombatLayerTissue.gd`) |
+| `FEATURE_MATERIAL_FAILURE_CURVES` | true | P3b M1–M2 | MaterialFailureCurves pen/KE laws → damage allocation (`MaterialFailureCurves.gd`) |
+| `FEATURE_LAYER_TISSUE_CURVES` | true | M3 | Per-layer yield/rupture vs flat mm budget (`CombatLayerTissue.gd`) |
+| `FEATURE_TISSUE_ENERGY_POOL` | true | M6 | Internal tissue J capacity; `body_cutting` display derived from J (`TissueEnergyCapacity.gd`) |
+| `FEATURE_PENETRATION_DEPTH_SEVERITY` | true | S8 | Shallow cut track → lower severity/bleed; blunt KE absorbed in flesh before bone MFB |
+| `FEATURE_BLUNT_TISSUE_KE_GATE` | true | S8 | Blunt kinetic energy absorbed in soft tissue before reaching bone |
+| `FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS` | true | S7 | Stepped consciousness curve by ATLS hemorrhage class (vs single linear ramp) |
+| `FEATURE_ABSOLUTE_SEVERITY_BANDS` | true | P3b M1–M2 | Absolute tissue damage thresholds for severity mapping (independent of % body_max) |
+| `FEATURE_TISSUE_DAMAGE_D` | **false** | M4 cancelled | Continuum damage memory per sub_region — reserved; do not enable |
 
 <a id="1-hemorrhage-and-atls-blood-volume-ttd"></a>
 
@@ -839,7 +856,7 @@ One **`FEATURE_*`** (or explicit “no flag”) per PR. **Dependency hints:** IV
 |----|--------|--------|-------|
 | **IV-1** | **Archived ☑** | Plug vs incursion **contest** | **Wontfix** — **D-008 removed** · plug=`VacancyPlugs` · incursion=`TacticalCombat`+ZoC · **`iv1_plug_incursion_doc_sync_line`** · **`_run_iv1_plug_incursion_review_suite`** ☑ 2026-06-08 |
 | **IV-2** | **Done** | Multi-target **close** slots | Shipped (spread at LONG) |
-| **IV-3** | **Shipped ☑** | Engagement **1v1** classifier (`snapshot_is_true_duel`) | **`iv3_doc_sync_line`** · **`_run_iv3_true_duel_classifier_edge_suite`** · **`_run_engagement_scenarios`** ☑ 2026-06-08 |
+| **IV-3** | **Shipped ☑** | Engagement **1v1** classifier (`snapshot_is_true_duel`) | **`iv3_doc_sync_line`** · **`_run_iv3_true_duel_classifier_suite`** · **`_run_engagement_scenarios`** ☑ 2026-06-08 |
 | **IV-4** | **Shipped ☑** | Guard **matrix** / eight-diagonal fidelity | **`guard_cardinal_for_attack_path`** · **`guard_zone_part_for_line`** · **`_run_iv4_guard_matrix_suite`** ☑ 2026-06-08 |
 | **IV-5** | **Shipped ☑** | Arm **interpose** (BP6) | **`FEATURE_ARM_INTERPOSE`** · **`arm_interpose_eval`** ☑ 2026-06-08 · `_run_iv5_arm_interpose_suite` |
 | **IV-6** | **Shipped ☑** | Zone-specific guard / octant attack paths | **`FEATURE_IV6_ATTACK_PATH_OCTANT`** · **`get_attack_path`** / **`_iv6_diagonal_attack_path`** · **`_run_iv6_attack_path_octant_suite`** ☑ 2026-06-08 |
@@ -929,7 +946,7 @@ One **`FEATURE_*`** (or explicit “no flag”) per PR. **Dependency hints:** IV
 | **`CombatConstants`** | **`COMBATANT_KEY_WEAPON_FORM`**, **`COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL`**, encounter key *names* | **`get_stance_modifier`** delegates to **`mod(normalize_form(...))`** |
 | **`CombatManager`** | **`seed_combatant_form`** on register + start erase/re-seed | Copies roster **`stance_preference`** on register (**WF-4**) |
 | **`CombatantEntityAccess.form_str`** | **`weapon_form`** → else **`stance`** fallback | Normalize at use sites |
-| Harness | **`_run_weapon_form_spawn_default_guard`**, **`_allowed_forms_clamp`**, **`_normalize_legacy_alias`** | Registered after **`AttentionFootworkTail`** |
+| Harness | **`_run_weapon_form_spawn_default_guard`**, **`_allowed_forms_clamp`**, **`_run_weapon_form_normalize_stance_alias`** | Registered after **`AttentionFootworkTail`** |
 
 **Spawn resolution (live):** overlay **`weapon_form`** (WF-4) → encounter side key (WF-4) → **`stance_preference`** → weapon **`default_form`** → **`balanced`**, then **`form_allowed_for_weapon`** clamp.
 
@@ -939,7 +956,7 @@ One **`FEATURE_*`** (or explicit “no flag”) per PR. **Dependency hints:** IV
 
 | Deliverable | Migrated module(s) | Harness / fixture notes |
 |-------------|-------------------|-------------------------|
-| **`mod(form, effect)`** | **`AttackResolver`**, **`DefenseChoiceResolver`**, **`CombatEngagementResolver`**, feint listing | **`_run_weapon_form_mod_parity_legacy_stance`** |
+| **`mod(form, effect)`** | **`AttackResolver`**, **`DefenseChoiceResolver`**, **`CombatEngagementResolver`**, feint listing | **`_run_weapon_form_mod_parity_stance_alias`** |
 | **`action_weight_mult`** | **`CombatAIActionPicker._get_action_weight`** (after **`polearm_lane`**, before feint) | **`_run_weapon_form_move_weight_distribution`** |
 | **`form_ai_targeting_mult`** | **`CombatTargetScoring`** | Tier1 **`stance_ai_targeting_mult`** rows use **`form_str`** |
 | **`pressure_class`** | **`ZoneOfControl`**, close evasion | **`_pressure_class_zoc`**, **`_close_controlling_evasion`** |
@@ -1905,7 +1922,7 @@ static func seed_combatant_form(manager, c: Dictionary, overlay: Dictionary = {}
     c[COMBATANT_KEY_WEAPON_FORM] = form
     _GuardLineUpdater.set_guard_from_line(c, home_guard_line(form))
     # Optional harness-only until WF-1b:
-    c["stance"] = _legacy_stance_from_pressure(pressure_class(form))
+    c["stance"] = _stance_alias_from_pressure(pressure_class(form))
 ```
 
 Call from **`CombatManager.register_combatant`** tail and again for each combatant in **`CombatManager.start()`** after erase loop (**shipped**).
@@ -2038,7 +2055,7 @@ Flat **`combat/CombatWeaponForm.gd`** (`class_name CombatWeaponForm`). Owns form
 
 #### `mod(form, effect)` — temperament seeds (WF-1b)
 
-**Live code** uses legacy parity for **wall / wrath / fool / balanced** (matches old **`STANCE_MOD_*`**) and **widened identity** for **ox / plow / tempest**. Harness **`_run_weapon_form_mod_parity_legacy_stance`** locks wall/wrath/fool/balanced alias parity. Table below is the **design target** for future soak retune — do not churn constants without harness row.
+**Live code** uses legacy parity for **wall / wrath / fool / balanced** (matches old **`STANCE_MOD_*`**) and **widened identity** for **ox / plow / tempest**. Harness **`_run_weapon_form_mod_parity_stance_alias`** locks wall/wrath/fool/balanced alias parity. Table below is the **design target** for future soak retune — do not churn constants without harness row.
 
 | Form | parry | evasion | damage | close_attempt | ai_melee_focus | feint_readthrough | ai_feint_listing |
 |------|-------|---------|--------|---------------|----------------|-------------------|------------------|
@@ -2199,8 +2216,8 @@ Register after **`AttentionFootworkTail`** in **`CombatRegressionHarness.gd`**. 
 |-----|-------|--------|---------|
 | `_run_weapon_form_spawn_default_guard` | 1a | **PASS** | Spawn **`ox`** → **`guard_line == home_guard_line("ox")`** |
 | `_run_weapon_form_allowed_forms_clamp` | 1a | **PASS** | Dagger + encounter **`wrath`** → clamp to weapon default |
-| `_run_weapon_form_normalize_legacy_alias` | 1a | **PASS** | **`defensive`→`wall`**, etc. |
-| `_run_weapon_form_mod_parity_legacy_stance` | 1b | **PASS** | **`mod("wall",*)`** matches old **`get_stance_modifier("defensive",*)`** per effect |
+| `_run_weapon_form_normalize_stance_alias` | 1a | **PASS** | **`defensive`→`wall`**, etc. |
+| `_run_weapon_form_mod_parity_stance_alias` | 1b | **PASS** | **`mod("wall",*)`** matches old **`get_stance_modifier("defensive",*)`** per effect |
 | `_run_weapon_form_move_weight_distribution` | 1b | **PASS** | **plow** prefers stab listing weight > cut over **balanced** fixture |
 | `_run_weapon_form_pressure_class_zoc` | 1b | **PASS** | Two **wrath** rank-0 → aggressive pressure mod |
 | `_run_weapon_form_close_controlling_evasion` | 1b | **PASS** | **fool** defender ÷ close evasion matches legacy controlling |

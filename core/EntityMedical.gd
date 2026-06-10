@@ -37,7 +37,10 @@ static func part_is_packed(entity: Node, part: String) -> bool:
 
 
 ## TCCC: compressible hemorrhage needs sustained compression before dress/pack while still actively bleeding.
+## A packed part already has compression from the pack; bandage secures it without re-applying pressure.
 static func _compression_required_before_dressing(entity: Node, part: String) -> bool:
+	if part_is_packed(entity, part):
+		return false
 	return (
 		entity.get_bleeding_rate_for_part(part) > _Bleeding.BLEEDING_RATE_EPSILON
 		and not has_direct_pressure_on_part(entity, part)

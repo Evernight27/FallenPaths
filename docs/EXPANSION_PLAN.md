@@ -108,17 +108,17 @@ flowchart LR
 
 | ID | Deliverable | Harness / flag | Modules |
 |----|-------------|----------------|---------|
-| **MS-L5** | Formation plug / vacancy forward when line breaks | `_run_mental_stack_*` plug row | `MentalStackDecider`, `CombatFormationVacancyPlugs` |
-| **MS-L6** | Rout / cohesion → flee / fall_back priority | AttentionFootworkTail | `MentalStackDecider`, `CombatFormationRout` |
-| **p4a** | **☑ 2026-06-08** — MS-L7 tunnel 0.50 + offense damp ramp | **ii4d** | `CombatExhaustion` |
-| **p4f** | **☑ 2026-06-08** — Dedicated flee formation UX + AI | `CombatRegressionHarnessFleeTail` | `CombatFormationFlee`, `CombatFormationRout` |
-| **p4g** | **☑ 2026-06-08** — Bind-exchange flurry depth suite | `_run_p4g_flurry_bind_depth_suite` | `CombatFlurryBind` |
-| **p4b** | **☑ 2026-06-08** — Formation duration UI copy | **`p4b_formation_duration_ui_copy_line`** | `CombatFormationMoveDuration` |
-| **p4d** | **☑ 2026-06-08** — Parry/bind doc ↔ code sync | **`p4d_parry_bind_doc_sync_line`** | calibration audit + **ii2b** worksheet |
+|| **MS-L5** ☑ | Formation plug / vacancy forward when line breaks | `_run_mental_stack_*` plug row | `MentalStackDecider`, `CombatFormationVacancyPlugs` — shipped 2026-06-08 |
+|| **MS-L6** ☑ | Rout / cohesion → flee / fall_back priority | AttentionFootworkTail | `MentalStackDecider`, `CombatFormationRout` — shipped 2026-06-08 |
+|| **p4a** ☑ | MS-L7 tunnel 0.50 + offense damp ramp | **ii4d** | `CombatExhaustion` — shipped 2026-06-08 |
+|| **p4f** ☑ | Dedicated flee formation UX + AI | `CombatRegressionHarnessFleeTail` | `CombatFormationFlee`, `CombatFormationRout` — shipped 2026-06-08 |
+|| **p4g** ☑ | Bind-exchange flurry depth suite | `_run_p4g_flurry_bind_depth_suite` | `CombatFlurryBind` — shipped 2026-06-08 |
+|| **p4b** ☑ | Formation duration UI copy | **`p4b_formation_duration_ui_copy_line`** | `CombatFormationMoveDuration` — shipped 2026-06-08 |
+|| **p4d** ☑ | Parry/bind doc ↔ code sync | **`p4d_parry_bind_doc_sync_line`** | calibration audit + **ii2b** worksheet — shipped 2026-06-08 |
 
-**Phase exit:** P2 save restores gold, supplies, roster wounds, map position; MS-L5–L6 harness green; one 4–6 h human session without restart.
+**Phase exit:** P2 save restores gold, supplies, roster wounds, map position; one 4–6 h human session without restart. (MS-L5–L6 shipped.)
 
-**Suggested parallel:** Campaign **XCamp-1.1** + Expand **MS-L5** (no file overlap).
+**Suggested parallel:** Campaign **XCamp-1.1** (P2 autosave) — standalone, no combat overlap.
 
 ---
 
@@ -145,10 +145,10 @@ flowchart LR
 | 8 | **MS-MID** | **Shipped ☑** | Mid-fight ally medical listing + L1 coordination | **`FEATURE_MS_MID_INFIGHT_MED`** · **`_run_ms_mid_infight_med_depth_suite`** ☑ 2026-06-08 |
 | 9 | **p4c** | **Shipped ☑** | Auto-doctrine numeric outnumber pinch | **`numeric_superiority_for_pinch`** · **`_run_p4c_numeric_superiority_auto_pinch`** ☑ 2026-06-08 |
 | 10 | **p4e** | **Shipped ☑** | Feint listing ↔ reveal progress parity | `CombatRegressionHarnessFeintTempoTail` |
-| 11 | **p4g** | **Shipped ☑** | Bind-exchange flurry depth | **`_run_p4g_flurry_bind_depth_suite`** · **`FEATURE_FLURRY_BIND_EXCHANGE`** ☑ 2026-06-08 |
+|| **p4g** ☑ | Bind-exchange flurry depth suite | `_run_p4g_flurry_bind_depth_suite` | `CombatFlurryBind` — shipped 2026-06-08 |
 | 12 | **p4h** | **Shipped ☑** | Bind riposte balance soak | **`_run_p4h_bind_riposte_balance_suite`** · **`_run_bind_riposte_*`** · **ii2b** / **Q2** maintain ☑ 2026-06-08 |
-| 13 | **p4d** | **Shipped ☑** | Parry/bind doc ↔ code sync | **`p4d_parry_bind_doc_sync_line`** · **`_run_p4d_parry_bind_doc_code_parity_suite`** ☑ 2026-06-08 |
-| 14 | **p4b** | **Shipped ☑** | Formation duration UI copy | **`p4b_formation_duration_ui_copy_line`** · **`_run_p4b_formation_duration_ui_copy_suite`** ☑ 2026-06-08 |
+|| **p4d** ☑ | Parry/bind doc ↔ code sync | **`p4d_parry_bind_doc_sync_line`** | calibration audit + **ii2b** worksheet — shipped 2026-06-08 |
+|| **p4b** ☑ | Formation duration UI copy | **`p4b_formation_duration_ui_copy_line`** | `CombatFormationMoveDuration` — shipped 2026-06-08 |
 
 **WF maintain (no new tiers):** WF-T1/T2 ☑ · Tier 4.4 spatial slices 1–3 ☑ — keep **`WeaponFormTail`** + **ii5c** green + **`_run_t44_spatial_*`**; P4 playbook **p4a–p4h ☑** · combat-side Expand registry **complete** — default **Combat maintain** per [`CURSOR.md`](CURSOR.md).
 
@@ -201,7 +201,7 @@ flowchart LR
 | 4 | **IV-10** | **Shipped ☑** | Subregion combat multipliers | **`FEATURE_SUBREGION_COMBAT_MULT`** · **`_run_iv10_subregion_combat_mult_*`** |
 | 5 | **IV-1** | **Archived ☑** | Plug vs incursion contest review | **Wontfix** · **`iv1_plug_incursion_doc_sync_line`** · **`_run_iv1_plug_incursion_review_suite`** ☑ 2026-06-08 |
 | 6 | **IV-11** | **Shipped ☑** | Leader formation commands + bridge roster | **`FEATURE_LEADER_FORMATION_COMMAND`** · slices 1–10 (player + enemy commander · pinch outnumber AI · F5 trace) · **`_run_iv11_*`** ☑ 2026-06-08 |
-| 6b | **IV-3** | **Shipped ☑** | True-duel classifier edge cases | **`iv3_doc_sync_line`** · **`_run_iv3_true_duel_classifier_edge_suite`** ☑ 2026-06-08 |
+| 6b | **IV-3** | **Shipped ☑** | True-duel classifier edge cases | **`iv3_doc_sync_line`** · **`_run_iv3_true_duel_classifier_suite`** ☑ 2026-06-08 |
 | 7 | **IV-9** | **Shipped ☑** | Gap-column slot topology (III-4 Track B) | **`FEATURE_GAP_COLUMN_TOPOLOGY`** default off · **`_run_iv9_gap_column_*`** ☑ 2026-06-08 |
 | 8 | **IV-13** | **Shipped ☑** | ZoC weapon-reach bonus at weak front | **`FEATURE_IV13_WEAPON_REACH_ZOC`** · **`_run_iv13_weapon_reach_zoc_*`** ☑ 2026-06-08 |
 | 9 | **IV-12** | **Shipped ☑** | Co-located slot distraction + AI bias | **`FEATURE_IV12_SLOT_DISTRACTION`** · formation **slot cell** grouping · **`drag_back`** dual-occ (slice 3) · **`_run_iv12_*`** ☑ 2026-06-08 |
@@ -239,8 +239,8 @@ Treat Exp-5 as a **backlog pool** — pull items only after Exp-3 company loop f
 | Week band | Agent A (Combat) | Agent B (optional) | Gate |
 |-----------|------------------|--------------------|------|
 | Exp-0 | III-4 **3e** / harness maintain | Playtest — F5 optional tracks | Phase 0 both |
-| Exp-1a | MS-L5 harness | Campaign **XCamp-1.1** P2 | Phase 0 both |
-| Exp-1b | MS-L6 + **p4a** | Expand **p4f** flee OR Playtest | Phase 0 both |
+|| Exp-1a ☑ | ~~MS-L5 harness~~ (shipped) | Campaign **XCamp-1.1** P2 | Phase 0 both |
+|| Exp-1b ☑ | ~~MS-L6 + p4a~~ (shipped) | ~~p4f flee~~ (shipped) / Playtest | Phase 0 both |
 | Exp-2a | **IV-4** finish | Expand **III-6** back-rank | Phase 0 both |
 | Exp-2b | **IV-5** interpose | Combat maintain III-3 soak | Phase 0 both |
 | Exp-3a | Combat maintain | Campaign **XCamp-3.1** hire | Phase 0 both |

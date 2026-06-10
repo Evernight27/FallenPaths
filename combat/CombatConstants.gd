@@ -366,6 +366,9 @@ const YOMI_FEINT_LISTING_MULT_PER_LINE_COUNT := 0.04
 const YOMI_FEINT_LISTING_MULT_CAP := 1.25
 ## AI defender focus drift toward attacker's habitual line (see **`CombatAttention.apply_yomi_focus_drift`**).
 const YOMI_FOCUS_DRIFT_MIN_LINE_COUNT := 2
+## Short engagement shortcut: after fewer total ticks, one observation suffices.
+const YOMI_FOCUS_DRIFT_SHORT_ENGAGEMENT_TICK_THRESHOLD := 8
+const YOMI_FOCUS_DRIFT_SHORT_ENGAGEMENT_LINE_COUNT := 1
 const YOMI_FOCUS_DRIFT_INTENSITY := 0.78
 static var _feature_combat_attention_enabled: bool = true
 static var _feature_mental_stack_ai_enabled: bool = true
@@ -1576,8 +1579,6 @@ const ENGAGEMENT_MODE_CODE_FORMATION := 2
 ## Resolved **Duel** mode: `CombatEngagementMode.snapshot_is_true_duel` (exactly 1 living fighter per side).
 ## Per-side attrition AI damp when this side has at most this many actives (`CombatAIActionPicker._attrition_offense_weight_mult`).
 const AI_ATTRITION_LOW_STANDING_MAX := 2
-## @deprecated Use `AI_ATTRITION_LOW_STANDING_MAX` — not used for engagement-mode classification.
-const ENGAGEMENT_DUEL_MAX_ACTIVE_PER_SIDE := AI_ATTRITION_LOW_STANDING_MAX
 ## Formation requires both sides at/above this active count in addition to front/fill thresholds.
 const ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE := 4
 ## III-4 Track A **3b**: Skirmish **`rotate_file`** only when `our_files > opp_files + margin`.
@@ -1985,7 +1986,7 @@ const PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT := 0.88
 const PASSIVE_PARRY_READINESS_INCOMING_BLUNT_MULT := 1.0
 
 
-## Tier 4.2 / III-8: canonical **`recovery_cause`** for readiness + footwork lookups (aliases harness legacy keys).
+## Tier 4.2 / III-8: canonical **`recovery_cause`** for readiness + footwork lookups (aliases harness compatibility keys).
 static func normalize_recovery_cause(cause: String) -> String:
 	var k: String = str(cause).strip_edges()
 	if k.is_empty():
@@ -2137,7 +2138,7 @@ const STANCE_MOD_OPPONENT_DISENGAGE: float = 0.85  # Controlling makes opponent 
 # Density modifier for close attempt (defender evasion). tight=easier to close, loose=harder.
 const DENSITY_CLOSE_MOD: Dictionary = {"tight": 0.8, "normal": 1.0, "loose": 1.2}
 
-## Returns stance modifier for given effect. Delegates to **`CombatWeaponForm.mod`** (legacy stance aliases preserved).
+## Returns stance modifier for given effect. Delegates to **`CombatWeaponForm.mod`** (stance alias compatibility preserved).
 ## **Harness-only alias:** production uses **`CombatWeaponForm.mod(_EntityAccess.form_str(c), effect)`** — see LIVE_PATHS **`#wf-footing-improvement-backlog`** (WF-M5). Do not add new production call sites.
 static func get_stance_modifier(stance: String, effect: String) -> float:
 	const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
@@ -2377,7 +2378,7 @@ static func line_to_angle(line: String) -> float:
 	return float(LINE_TO_ANGLE_DEG.get(line, 0))
 
 
-## Map angle to nearest guard line (four-line legacy or eight-line octants when **`FEATURE_HEMA_EIGHT_GUARD_LINES`**).
+## Map angle to nearest guard line (four-line baseline or eight-line octants when **`FEATURE_HEMA_EIGHT_GUARD_LINES`**).
 static func angle_to_nearest_line(angle_deg: float) -> String:
 	if is_feature_hema_eight_guard_lines_enabled():
 		return _GuardLines.angle_to_line(angle_deg)

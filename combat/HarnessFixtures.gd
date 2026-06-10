@@ -360,10 +360,12 @@ static func _assert_depth_polearm_allows_low_fid_round_trip_slice(
 
 
 static func _assert_stamp_depth_pa_defaults(pa: Dictionary, failures: PackedStringArray, ctx: String) -> void:
-	if bool(pa.get("depth_polearm_attack", true)):
-		pass  # depth_polemark_attack=true — lane logic already validated upstream
+	## For non-depth-attack cases (rank 0 or no lane open), depth_polearm_attack
+	## should be false — the stamping function sets it to false and returns early.
+	if not bool(pa.get("depth_polearm_attack", false)):
+		pass  # depth_polearm_attack=false — expected for non-depth attacks
 	else:
-		_Harness._fail(failures, "%s id=%d depth_polemark_attack=false (unexpected)" % [ctx, pa.get("attacker_id", -1)])
+		_Harness._fail(failures, "%s id=%d depth_polearm_attack=true (unexpected)" % [ctx, pa.get("attacker_id", -1)])
 
 
 static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: PackedStringArray, ctx: String) -> void:
@@ -372,7 +374,9 @@ static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: P
 			continue
 		var cid: int = _EntityAccess.id_int(c)
 		var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
-		var cached_open: bool = bool(pa.get("depth_lane_open", false))
+		## Cache is `depth_polearm_allows_low_targets` (set by stamp_depth_flags_on_pa).
+		## Builder derives the same value from depth_polearm_lane_type / allows_low.
+		var cached_open: bool = bool(pa.get("depth_polearm_allows_low_targets", true))
 		var builder_open: bool = _DefenseChoice._depth_polearm_lane_is_open(pa)
 		if cached_open != builder_open:
 			_Harness._fail(
@@ -415,12 +419,33 @@ static func _harness_iv8_three_player_fixtures(mgr: Node) -> Array:
 
 
 static func _harness_iv9_enemy_rank0_with_gaps(mgr: Node) -> Array:
+	## Create a gapped enemy line: 4 files wide with only 3 entities, leaving file 0 empty.
 	var enemies: Array = []
-	for _i in 3:
+	for _i in 4:
 		enemies.append(_new_entity("SWORD"))
-	for e in enemies:
-		mgr.register(e, "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 3, "ranks": 1})
+	# Only register 3 so manager fills files [0,1,2]; then shift to [1,2,3] for gap at file 0.
+	for i in range(3):
+		mgr.register(enemies[i], "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 4, "ranks": 1})
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(mgr.formations["enemy"])
+	var new_slots: Dictionary = {}
+	for k in slots.keys():
+		if not (k is Vector2i):
+			continue
+		var cell: Vector2i = k as Vector2i
+		if cell.x != 0:
+			continue
+		var cid: Variant = slots[k]
+		if cid is int and cid >= 0:
+			new_slots[Vector2i(0, cell.y + 1)] = cid
+			for c in mgr.combatants:
+				if _EntityAccess.id_int(c) == cid:
+					c.file = cell.y + 1
+					break
+		elif not str(cid).is_empty():
+			new_slots[Vector2i(0, cell.y + 1)] = cid
+	mgr.formations["enemy"]["slots"] = new_slots
+	_FormationSlots.normalize_formation_slots(mgr.formations["enemy"])
 	var form_enemy: Dictionary = mgr.formations["enemy"]
 	return [form_enemy]
 

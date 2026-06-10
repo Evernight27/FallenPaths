@@ -1,7 +1,0 @@
-# Cyan preset ii8 — Formation line + diagram banner (+ preset_ii8 when merged).
-FP_COMBAT: soak_fight_enter tile=cyan preset=ii8 (grep soak=ii8)
-FP_COMBAT: encounter_begin players=4 enemies=4 | encounter[soak=ii8]
-FP_COMBAT: engagement mode=Formation line
-FP_COMBAT: turn_ready_gauge id=0 Leader label=Stm 80% · Ready · Exh 40% · Grd Hi · Form Ox tooltip_match=ok
-FP_COMBAT: diagram_banner player: Formation line · Line · cohesion 72%
-FP_COMBAT: soak_fight_end winner=player medical_phase=false turn_ready=8 tooltip_ok=1 diagram_banner=2
