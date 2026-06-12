@@ -45,7 +45,7 @@ static func handle_event(manager: Node, ev: Dictionary) -> void:
 		and _MedicalPhase.should_block_scheduled_event(manager, ev)
 	):
 		return
-	match ev_type:
+match ev_type:
 		CombatConstants.EVENT_ACTION_READY:
 			handle_action_ready(manager, c)
 		CombatConstants.EVENT_MELEE_ATTACK:
@@ -58,6 +58,8 @@ static func handle_event(manager: Node, ev: Dictionary) -> void:
 			manager._handle_fall_back_solo_resolve(ev)
 		CombatConstants.EVENT_ROTATE_FILE_RESOLVE:
 			manager._handle_rotate_file_resolve(ev)
+		_:
+			CombatDebug.flow_log_event("unknown event type %s" % str(ev_type), "event_dispatch_unknown")
 
 
 static func handle_action_ready(manager: Node, c: Dictionary) -> void:

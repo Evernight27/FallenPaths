@@ -423,6 +423,7 @@ static func _pressure_release_reason(entity: Node, part: String) -> String:
 
 
 ## Early release without dressing: partial rebleed (TCCC: do not let go until controlled).
+## When clotting has significantly reduced the rate, only partial rebound occurs (tissue trauma already initiated hemostasis cascade).
 static func rebound_bleeding_after_pressure_release(entity: Node, part: String) -> void:
 	if part.is_empty() or not entity.wounds.has(part):
 		return
@@ -432,12 +433,17 @@ static func rebound_bleeding_after_pressure_release(entity: Node, part: String) 
 	for injury in entity.wounds[part]:
 		var rate: float = float(injury.get("current_bleeding_rate", 0.0))
 		var base: float = float(injury.get("base_bleeding_rate", rate))
-		var target: float = maxf(rate, base * _Bleeding.DIRECT_PRESSURE_REBOUND_TO_INTRINSIC_MULT)
+		var clotting_ratio: float = clampf(rate / maxf(base, 0.001), 0.0, 1.0)
+		var full_rebound: float = base * _Bleeding.DIRECT_PRESSURE_REBOUND_TO_INTRINSIC_MULT
+		var partial_factor: float = lerpf(_Bleeding.DIRECT_PRESSURE_REBOUND_PARTIAL_MULT, 1.0, clotting_ratio)
+		var target: float = maxf(rate, full_rebound * partial_factor)
 		injury["current_bleeding_rate"] = target
 		injury["is_stabilized"] = false
 		injury.erase("stabilized_remaining_seconds")
 	var after: float = get_bleeding_rate_for_part(entity, part)
-	_EntityMedical.log_medical_session(
+	# Always log pressure rebound — it is a critical UX event (player sees bleeding spike without understanding why).
+	# Bypass EntityMedical.log_medical_session which filters these in F5 sessions.
+	_CombatDebug.medical_session(
 		"%s pressure_rebound part=%s bleed %.3f→%.3f (released without dressing)"
 		% [entity.name, part, before, after]
 	)

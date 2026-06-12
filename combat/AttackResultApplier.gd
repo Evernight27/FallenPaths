@@ -428,6 +428,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				atk.state = CombatConstants.STATE_RECOVERING
 				atk.state_timer = 0.0
 				atk.state_duration = result.get("recovery_duration", 0.5)
+				_set_post_strike_stamp(manager, atk, attacker_id, target_id)
 			return
 		winner = manager._check_for_winner()
 		if not winner.is_empty():
@@ -452,6 +453,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				atk.state = CombatConstants.STATE_RECOVERING
 				atk.state_timer = 0.0
 				atk.state_duration = result.get("recovery_duration", 0.5)
+				_set_post_strike_stamp(manager, atk, attacker_id, target_id)
 			manager._end_combat_phase(winner, tgt_scene)
 			return
 		if not _MedicalPhase.combat_resolution_blocked(manager):
@@ -467,6 +469,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk.state = CombatConstants.STATE_RECOVERING
 			atk.state_timer = 0.0
 			atk.state_duration = result.recovery_duration
+			_set_post_strike_stamp(manager, atk, attacker_id, target_id)
 		if tgt != null and _EntityAccess.alive_bool(tgt):
 			# Defender was hit; stagger/dropped guard — blade ends low. Sync guard_zone.
 			_GuardUpdater.set_guard_from_line(tgt, "low")
@@ -490,3 +493,16 @@ static func _record_resolved_exchange_yomi(
 		var md: Dictionary = WeaponConstants.get_move(move_id)
 		if md.get("is_feint", false) or WeaponConstants.is_feint_move(move_id):
 			_Attention.record_feint_resolved_toward_defender(defender, attacker_id)
+
+
+## MS-L8: stamp the attacker's dict with the combat clock so MS-L8 post-strike momentum fires next turn.
+static func _set_post_strike_stamp(manager: Node, atk: Dictionary, attacker_id: int, struck_target_id: int = -1) -> void:
+	if not CombatConstants.is_feature_ms_post_strike_enabled():
+		return
+	if atk.is_empty() or manager == null:
+		return
+	var atk_read: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	if not atk_read.is_empty():
+		atk_read[CombatConstants.COMBATANT_KEY_LAST_STRIKE_TICK] = manager.combat_clock
+		if struck_target_id >= 0:
+			atk_read[CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID] = struck_target_id

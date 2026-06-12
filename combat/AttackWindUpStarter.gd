@@ -166,6 +166,8 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	var counter_tempo: bool = bool(options.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false))
 	if counter_tempo:
 		wind_up_s *= CombatConstants.COUNTER_TEMPO_WINDUP_MULT
+		# Cap counter tempo wind-up at a lower max — a well-timed counter should be faster than a committed attack.
+		wind_up_s = minf(wind_up_s, CombatConstants.COUNTER_TEMPO_WINDUP_MAX_S)
 	var riposte_m: float = _CounterTempo.riposte_chain_windup_mult(manager, atk_d, target_id)
 	if riposte_m < 1.0:
 		wind_up_s *= riposte_m

@@ -229,6 +229,9 @@ static func stamp_listed_action_duration_hint(
 			# Resolve is instant (`CombatFormationFlee.apply_flee`); listing hint only.
 			action["formation_move_duration_hint"] = P4B_FLEE_INSTANT_HINT
 			return
+		_:
+			# Unknown move ID — return default duration; caller will log if needed.
+			pass
 	var armor_mult: float = _armor_mult(initiator, partner)
 	var controlling_front: bool = false
 	if not fid.is_empty():

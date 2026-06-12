@@ -89,8 +89,12 @@ if ($companyOk) {
 Write-Host ""
 
 Write-Host "=== AllCombatChecks (regression + D-001 + calibration) ==="
-Invoke-FallenPathsGodotImportWarmup
-$f5BackedUp = Backup-F5SoakHumanPaste $Root
+# L92 warmup is redundant — L69 already populated the class cache.
+$f5LogPath = Join-Path $Root ".f5_soak_in.txt"
+$f5BackedUp = $false
+if (Test-Path $f5LogPath) {
+	$f5BackedUp = Backup-F5SoakHumanPaste $Root
+}
 $allCombatTee = Join-Path $Root ".phase0_all_combat_checks.txt"
 try {
 	Invoke-FallenPathsGodotScript -HarnessMode "all" -TeeLog $allCombatTee *> $null

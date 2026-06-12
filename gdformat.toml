@@ -1,0 +1,14 @@
+# gdformat configuration for Fallen Paths
+# Run: gdformat res:// --check (CI) or gdformat res:// (local)
+
+[general]
+line_length = 120
+indent_size = 4
+trailing_comma = true
+
+# Harness files are large regression suites; formatting is already consistent.
+# These sections prevent agents from accidentally re-enabling rules that need to stay off.
+[path:"res://combat/CombatRegressionHarness*.gd"]
+line_length = 120
+indent_size = 4
+trailing_comma = true

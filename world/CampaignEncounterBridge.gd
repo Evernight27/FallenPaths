@@ -326,7 +326,7 @@ static func can_enter_combat(world: Node2D) -> Dictionary:
 		return out
 	var leader_ok: bool = false
 	for n in nodes:
-		if n != null and n.get("is_party_leader") == true:
+		if n != null and n.get("is_party_leader", false):
 			leader_ok = true
 			break
 	if not leader_ok and nodes.size() > 0:
@@ -384,7 +384,7 @@ static func _cap_fightable_party_leader_first(nodes: Array, cap: int) -> Array:
 	for n in nodes:
 		if n == null:
 			continue
-		if n.get("is_party_leader") == true:
+		if n.get("is_party_leader", false):
 			leader = n
 		else:
 			rest.append(n)
@@ -679,7 +679,8 @@ static func _log_party_vitality(world: Node2D, prefix: String) -> void:
 		if entity.has_method("get_wounded_parts"):
 			wounded_n = entity.get_wounded_parts().size()
 		var untreated: bool = entity_has_untreated_wounds(entity)
-		print(
-			"[World] %s %s: blood=%d%% bleed=%.1f/s wounds=%d untreated=%s"
-			% [prefix, n.name, int(bv), bleed, wounded_n, str(untreated)]
-		)
+		if CombatConstants.combat_debug_active():
+			print(
+				"[World] %s %s: blood=%d%% bleed=%.1f/s wounds=%d untreated=%s"
+				% [prefix, n.name, int(bv), bleed, wounded_n, str(untreated)]
+			)

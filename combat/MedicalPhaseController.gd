@@ -1182,3 +1182,22 @@ static func _battle_med_supplies_available(manager: Node) -> bool:
 	var world: Node2D = _CompanyState.resolve_world_from_battle(manager)
 	return world != null and _CompanyState.get_medical_supplies(world) >= 1
 
+
+## TCCC escalation ladder for a wound part. Returns the ordered list of valid medical actions
+## (bandage → pack → tourniquet), filtered to only actions that pass `medical_action_allowed()`.
+## The bandage variant used depends on `performer_id == tgt_id` (self vs ally).
+static func escalation_path_for_part(
+	tgt_id: int, performer_id: int, part: String, manager: Node
+) -> Array[String]:
+	var path: Array[String] = []
+	# Step 1: bandage (same move ID for self and ally; distinguished by target_id in listing).
+	if _MedicalCoord.medical_action_allowed(manager, performer_id, tgt_id, part, CombatConstants.MOVE_ID_BANDAGE_SELF):
+		path.append(CombatConstants.MOVE_ID_BANDAGE_SELF)
+	# Step 2: pack (shared move ID for self and ally).
+	if _MedicalCoord.medical_action_allowed(manager, performer_id, tgt_id, part, CombatConstants.MOVE_ID_PACK_WOUND):
+		path.append(CombatConstants.MOVE_ID_PACK_WOUND)
+	# Step 3: tourniquet (shared move ID for self and ally).
+	if _MedicalCoord.medical_action_allowed(manager, performer_id, tgt_id, part, CombatConstants.MOVE_ID_APPLY_TOURNIQUET):
+		path.append(CombatConstants.MOVE_ID_APPLY_TOURNIQUET)
+	return path
+

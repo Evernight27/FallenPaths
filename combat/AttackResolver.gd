@@ -88,6 +88,9 @@ static func compute_and_apply_damage(
 	var pre_blunt: float = 0.0
 	var strike_ke_j: float = -1.0
 	var tgt_n: Node = _EntityAccess.scene_node(tgt)
+	if tgt_n == null:
+		_debug("compute_and_apply_damage %s->%s target scene node freed, skip" % [atk_name, tgt_name])
+		return { "action": "skip", "target_id": target_id, "recovery_duration": 0.0 }
 
 	var weapon = _EntityAccess.get_weapon(atk)
 

@@ -92,9 +92,9 @@ static func clamp_stamina_to_effective_max(combatant: Dictionary) -> void:
 
 
 ## MS-L7: mental stack tunnel — prefer wait / disengage over new offense.
-## Shares **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** with `exhaustion_offense_weight_mult`
-## and `CombatConstants.EXHAUSTION_OFFENSE_DAMP_START` ramp endpoint — both read the same constant,
-## ensuring hard layer override and gradual damp floor always align. Verified by harness p4a test.
+## Fires at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (0.50). The `exhaustion_offense_weight_mult`
+## function uses the higher **`MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD`** (0.75) for its lerp span,
+## creating a "winded" zone (0.50-0.75) where offense is partially damped but disengage is preferred by layer presentation.
 static func exhaustion_tunnel_active(combatant: Dictionary) -> bool:
 	if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
 		return false
@@ -105,16 +105,16 @@ static func exhaustion_tunnel_active(combatant: Dictionary) -> bool:
 
 
 ## Gradual offense damp (below tunnel threshold); stacks with salience damp in **`CombatAIActionPicker`**.
+## Extended lerp range: [0.25, 0.75] — "fatigued" zone ramps down, "winded" (0.50-0.75) still allows offense (~0.675), "exhausted" (>=0.75) floors at damp floor.
 static func exhaustion_offense_weight_mult(combatant: Dictionary) -> float:
 	if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
 		return 1.0
 	var ex: float = _EntityAccess.exhaustion_float(combatant)
-	var tunnel: float = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD
-	if ex >= tunnel:
+	if ex >= CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD:
 		return CombatConstants.EXHAUSTION_OFFENSE_DAMP_FLOOR
 	if ex < CombatConstants.EXHAUSTION_OFFENSE_DAMP_START:
 		return 1.0
-	var span: float = maxf(0.001, tunnel - CombatConstants.EXHAUSTION_OFFENSE_DAMP_START)
+	var span: float = maxf(0.001, CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD - CombatConstants.EXHAUSTION_OFFENSE_DAMP_START)
 	var t: float = (ex - CombatConstants.EXHAUSTION_OFFENSE_DAMP_START) / span
 	return lerpf(1.0, CombatConstants.EXHAUSTION_OFFENSE_DAMP_FLOOR, clampf(t, 0.0, 1.0))
 

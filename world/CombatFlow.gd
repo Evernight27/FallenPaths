@@ -28,7 +28,7 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 		var roster: PackedStringArray = PackedStringArray()
 		for p in players:
 			if p is Node:
-				var role: String = "leader" if p.get("is_party_leader") == true else "member"
+				var role: String = "leader" if p.get("is_party_leader", false) else "member"
 				roster.append("%s(%s)" % [str(p.name), role])
 		_OperationalLog.play_combat(
 			"party_entering_combat count=%d [%s]" % [players.size(), ", ".join(roster)]

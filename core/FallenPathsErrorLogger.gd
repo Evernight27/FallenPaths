@@ -52,6 +52,7 @@ func _log_error(
 		if bt0 is String and not (bt0 as String).is_empty():
 			msg += " | %s" % bt0
 	_script_error_count += 1
+	printerr("[FP_ERR_LOGGER] %s" % msg)
 	_OperationalLog.emit(_OperationalLog.TAG_ERROR, msg)
 	_mutex.unlock()
 

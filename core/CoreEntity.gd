@@ -59,6 +59,8 @@ var blood_volume_ml: float = -1.0
 var blood_volume_ml_max: float = -1.0
 # Tourniquet: limb parts only. part -> { "applied_at": float, "effectiveness": float }. Effectiveness 0–1 scales bleeding reduction.
 var tourniquet_applied: Dictionary = {}  # part (String) -> Dictionary
+## Tracks failed tourniquet attempts per part for escalating retry chance. part -> int (failure count).
+var tourniquet_failures: Dictionary = {}  # part (String) -> int
 # Bandaged parts: part -> true when bandage has been applied. Mutually exclusive with tourniquet per part (can't bandage a tourniqueted limb, can't tourniquet a bandaged limb).
 var bandaged_parts: Dictionary = {}  # part (String) -> bool
 # Packed parts: head/chest only; linen packed into wound cavity. Mutually exclusive with bandage/tourniquet per part.
@@ -112,6 +114,15 @@ var effective_consciousness: float = 100.0  # for combat (after pain shock)
 var _pain_shock_until_time: float = -1.0    # Time.get_ticks_msec()/1000.0 when shock ends; -1 = not in shock
 var _last_hit_impact: float = 0.0            # Total damage of last hit (for pain-shock duration scaling); set on weapon hit, consumed when shock is entered
 var _ambient_pain_shock_accum: float = 0.0  # Combat tick accumulator for sustained-pain shock rolls
+var _last_ambient_pain_shock_time: float = -1.0  # Timestamp of last ambient pain shock trigger (for cooldown enforcement)
+
+
+func _get_last_ambient_pain_shock_time() -> float:
+	return _last_ambient_pain_shock_time
+
+
+func _set_last_ambient_pain_shock_time(value: float) -> void:
+	_last_ambient_pain_shock_time = value
 
 # Dirty flag: only recalc consciousness when something changed (damage, blood loss, healing).
 var _consciousness_dirty: bool = true
@@ -502,6 +513,13 @@ func apply_tourniquet(part: String, effectiveness: float = 1.0) -> bool:
 func remove_tourniquet(part: String) -> void:
 	_EntityMedical.remove_tourniquet(self, part)
 
+## Tracks failed tourniquet attempts per limb for escalating retry chance.
+func get_tourniquet_failures(part: String, default: int = 0) -> int:
+	return int(tourniquet_failures.get(part, default))
+
+func set_tourniquet_failures(part: String, count: int) -> void:
+	tourniquet_failures[part] = count
+
 # Healing: exponential deficit decay (tissue, bone, blood). Per-wound: pain decays by healing progress; resolved wounds removed.
 # Call on time advance. Game time advances here for per-wound healing and pain.
 func process_healing(seconds: float) -> void:
@@ -528,6 +546,7 @@ func _apply_species():
 	tissue_energy_capacity_j.clear()
 	tissue_energy_remaining_j.clear()
 	tourniquet_applied.clear()
+	tourniquet_failures.clear()
 	bandaged_parts.clear()
 	packed_parts.clear()
 	linen_strips_remaining = _Bleeding.PACKING_LINEN_PARTY_START

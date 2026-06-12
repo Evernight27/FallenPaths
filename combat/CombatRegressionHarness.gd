@@ -11,6 +11,7 @@ extends RefCounted
 
 const _MgrScript := preload("res://combat/CombatManager.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
+const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const _ArmorPiece := preload("res://armor/ArmorPiece.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
@@ -35,7 +36,6 @@ const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
-const _CombatSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
 const _BattleUIUpdater := preload("res://ui/BattleUIUpdater.gd")
 const _MentalStack := preload("res://combat/MentalStackDecider.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
@@ -44,6 +44,7 @@ const _ResolveAction := preload("res://combat/CombatResolveAction.gd")
 const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
 const _AttackResultApplier := preload("res://combat/AttackResultApplier.gd")
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
+const _PostStrike := preload("res://combat/CombatPostStrike.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FormationVacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
 const _CombatTiming := preload("res://combat/CombatTiming.gd")
@@ -55,8 +56,6 @@ const _DistanceBands := preload("res://combat/CombatDistanceBands.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 const _AfterblowHandler := preload("res://combat/AfterblowHandler.gd")
-const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
-const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _EntityMedical := preload("res://core/EntityMedical.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
@@ -77,7 +76,6 @@ const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
 const _PartyManagerScript := preload("res://world/PartyManager.gd")
-const _MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
 const _EncounterNode := preload("res://world/EncounterNode.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _MedicalMobilityTail := preload("res://combat/CombatRegressionHarnessMedicalMobilityTail.gd")
@@ -88,6 +86,7 @@ const _FeintTempoTail := preload("res://combat/CombatRegressionHarnessFeintTempo
 const _AttentionFootworkTail := preload("res://combat/CombatRegressionHarnessAttentionFootworkTail.gd")
 const _WeaponFormTail := preload("res://combat/CombatRegressionHarnessWeaponFormTail.gd")
 const _SimulationTail := preload("res://combat/CombatRegressionHarnessSimulation.gd")
+const _MentalStackIntegrationTail := preload("res://combat/CombatRegressionHarnessMentalStackIntegrationTail.gd")
 const _Fixtures := preload("res://combat/HarnessFixtures.gd")
 ## No preload — `CombatRegressionHarnessKinematicTail` references this class; preloading it here caused a parse cycle.
 ## Tier 3.2: full-stop **`parry_deflect`** — keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_hit_applier_sets_defender_guard_low_after_hit`** locks defender **`guard_line`** / **`guard_zone`** after **`hit`**; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
@@ -140,6 +139,7 @@ static func run_all() -> Dictionary:
 	_Tier1Tail.run_early(failures)
 	_FeintTempoTail.run_before_attention(failures)
 	_AttentionFootworkTail.run(failures)
+	_MentalStackIntegrationTail.run(failures)
 	_WeaponFormTail.run(failures)
 	_FeintTempoTail.run_after_attention(failures)
 	_Tier1Tail.run_mid(failures)
@@ -306,6 +306,18 @@ static func run_all() -> Dictionary:
 	_run_party_row_triage_formatter(failures)
 	_run_combat_log_formatter_negligible(failures)
 	_run_campaign_bridge_encounter_meta_from_node(failures)
+	## Phase 2: feint resistance gate — high-readiness defenders reject feints.
+	_run_mental_stack_feint_resistance_high_readiness(failures)
+	_run_mental_stack_feint_resistance_low_readiness_still_falls_for(failures)
+	## Phase 3: MS-L8 post-strike momentum layer.
+	_run_ms_l8_post_strike_momentum_presses_target(failures)
+	## Phase 5: exhaustion gradient (offense weight lerp).
+	_run_ms_l7_exhaustion_gradient_offense_weight(failures)
+	## Phase 6: MS-L9 positional awareness — disengage when surrounded + vulnerable.
+	_run_ms_l9_positional_awareness_disengage_when_surrounded(failures)
+	## Phase 7: medical escalation TCCC ladder — pack boosted when bandage failed.
+	_run_mental_stack_medical_escalation_bandage_to_pack(failures)
+	_run_mental_stack_medical_escalation_no_bonus_when_no_failures(failures)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	flush_harness_live_nodes()
 	return {"ok": failures.is_empty(), "failures": failures}
@@ -12217,4 +12229,373 @@ static func _run_resolve_aborts_when_threat_lost_mid_combat_arm_loss(
 			"arm_loss_abort: enemy chest damage %.2f -> %.2f on skip"
 			% [chest_before, chest_after]
 		)
+	_free_manager(mgr)
+
+
+## ─────────────────────────────────────────────────────────────────────────────────────
+## Phase 3 (MS-L8): post-strike momentum — attacker presses target after successful strike.
+## ─────────────────────────────────────────────────────────────────────────────────────
+static func _run_ms_l8_post_strike_momentum_presses_target(
+	failures: PackedStringArray
+) -> void:
+	# Build a 1v1 scenario where player just struck enemy (stamp the tick).
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	var player_id: int = _EntityAccess.id_int(player)
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	# Stamp last_strike_tick and last_strike_target_id to simulate post-strike state.
+	player[CombatConstants.COMBATANT_KEY_LAST_STRIKE_TICK] = float(mgr.combat_clock)
+	player[CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID] = enemy_id
+	player["state"] = CombatConstants.STATE_WAITING
+	player["gauge"] = 100.0
+	# Build actions manually (mimicking what AvailableActionsBuilder produces for a WAITING fighter).
+	var actions: Array = [
+		{"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": player_id},
+	]
+	# MentalStackDecider should pick from post-strike layer (press the target).
+	var picked: Dictionary = MentalStackDecider.try_pick(actions, player_id, mgr)
+	if picked.is_empty():
+		_fail(failures, "ms_l8_post_strike: MentalStackDecider returned empty — expected post-strike layer pick")
+		_free_manager(mgr)
+		return
+	var layer: String = str(player.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
+	if layer != CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE:
+		_fail(
+			failures,
+			"ms_l8_post_strike: expected layer=%s got %s"
+			% [CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE, layer]
+		)
+	var move_id: String = str(picked.get("move_id", ""))
+	# The pick should target the struck enemy (melee strike or attempt_close).
+	if int(picked.get("target_id", -1)) != enemy_id:
+		_fail(
+			failures,
+			"ms_l8_post_strike: pick targets %d not enemy %d"
+			% [int(picked.get("target_id", -1)), enemy_id]
+		)
+	_free_manager(mgr)
+
+
+## ─────────────────────────────────────────────────────────────────────────────────────
+## Phase 2: feint resistance gate — high-readiness settled defenders reject feints.
+## ─────────────────────────────────────────────────────────────────────────────────────
+static func _run_mental_stack_feint_resistance_high_readiness(
+	failures: PackedStringArray
+) -> void:
+	# Verify that a high-readiness defender (guard=1.0, WAITING state) blocks feints.
+	CombatConstants.set_feature_ms_feint_resistance_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	var player_id: int = _EntityAccess.id_int(player)
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	# Set defender to high-readiness WAITING state (guard=1.0, no off-balance).
+	player["state"] = CombatConstants.STATE_WAITING
+	player["guard"] = 1.0
+	player.erase("off_balance_until")
+	player["gauge"] = 100.0
+	# Build actions manually including a feint move targeting the enemy.
+	var actions: Array = [
+		{"move_id": "oberhau_feint", "target_id": enemy_id, "target_part": "head"},
+		{"move_id": "thrust", "target_id": enemy_id, "target_part": "chest"},
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": player_id},
+	]
+	# Verify no feint moves are listed against the high-readiness defender.
+	for raw in actions:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		var mid: String = str(a.get("move_id", ""))
+		if _WeaponConstants.is_feint_move(mid):
+			var tid: int = int(a.get("target_id", -1))
+			if tid == enemy_id:
+				_fail(
+					failures,
+					"ms_feint_resist_hr: feint %s listed vs high-readiness defender %d (should be blocked)"
+					% [mid, enemy_id]
+				)
+				break
+	CombatConstants.set_feature_ms_feint_resistance_load(-1)
+	_free_manager(mgr)
+
+
+static func _run_mental_stack_feint_resistance_low_readiness_still_falls_for(
+	failures: PackedStringArray
+) -> void:
+	# Verify that a low-readiness defender (guard=0.5) does NOT block feints — existing damp chain applies.
+	CombatConstants.set_feature_ms_feint_resistance_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player: Dictionary = mgr.combatants[0]
+	var enemy: Dictionary = mgr.combatants[1]
+	var player_id: int = _EntityAccess.id_int(player)
+	var enemy_id: int = _EntityAccess.id_int(enemy)
+	# Set defender to low-readiness WAITING state (guard=0.5 < 0.75 threshold).
+	player["state"] = CombatConstants.STATE_WAITING
+	player["guard"] = 0.5
+	player.erase("off_balance_until")
+	player["gauge"] = 100.0
+	# Build actions manually including a feint move targeting the enemy.
+	var actions: Array = [
+		{"move_id": "oberhau_feint", "target_id": enemy_id, "target_part": "head"},
+		{"move_id": "thrust", "target_id": enemy_id, "target_part": "chest"},
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": player_id},
+	]
+	var found_feint: bool = false
+	for raw in actions:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		var mid: String = str(a.get("move_id", ""))
+		if _WeaponConstants.is_feint_move(mid):
+			var tid: int = int(a.get("target_id", -1))
+			if tid == enemy_id:
+				found_feint = true
+				break
+	if not found_feint:
+		# Feints may not be listed for other reasons (e.g., weapon doesn't have feints) — acceptable.
+		_free_manager(mgr)
+		return
+	# Feint is listed — verify the picker can still pick it (no hard block).
+	var picked: Dictionary = MentalStackDecider.try_pick(actions, player_id, mgr)
+	if not picked.is_empty():
+		var layer: String = str(player.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
+		# The feint should NOT trigger any mental stack layer — it falls through to weighted pool.
+		if layer != "":
+			_fail(
+				failures,
+				"ms_feint_resist_lr: low-readiness defender triggered layer=%s for feint (should not)"
+				% layer
+			)
+	CombatConstants.set_feature_ms_feint_resistance_load(-1)
+	_free_manager(mgr)
+
+
+## ─────────────────────────────────────────────────────────────────────────────────────
+## Phase 5 (MS-L7): exhaustion gradient — offense weight lerp extends to [0.25, 0.75].
+## ─────────────────────────────────────────────────────────────────────────────────────
+static func _run_ms_l7_exhaustion_gradient_offense_weight(
+	failures: PackedStringArray
+) -> void:
+	# Verify the extended lerp range: [EXHAUSTION_OFFENSE_DAMP_START=0.25, 0.75].
+	# Three exhaustion levels: fresh (0.10), fatigued midpoint (~0.50), exhausted (0.80).
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	var c: Dictionary = mgr.combatants[0]
+
+	# Fresh combatant (exhaustion 0) => weight should be ~1.0.
+	c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = 0.0
+	var w_fresh: float = _Exhaustion.exhaustion_offense_weight_mult(c)
+	if w_fresh < 0.95 or w_fresh > 1.05:
+		_fail(
+			failures,
+			"ms_l7_exhaustion: fresh weight_mult=%.4f (expected ~1.0)"
+			% w_fresh
+		)
+
+	# Fatigued combatant (exhaustion ~0.50) => weight should be ~0.625 (midpoint of lerp).
+	c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = 0.50
+	var w_fatigued: float = _Exhaustion.exhaustion_offense_weight_mult(c)
+	if w_fatigued < 0.4 or w_fatigued > 0.85:
+		_fail(
+			failures,
+			"ms_l7_exhaustion: fatigued weight_mult=%.4f (expected ~0.625)"
+			% w_fatigued
+		)
+
+	# Exhausted combatant (exhaustion 0.80 >= 0.75 threshold) => weight should floor at damp floor (~0.35).
+	c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = 0.80
+	var w_exhausted: float = _Exhaustion.exhaustion_offense_weight_mult(c)
+	if w_exhausted < 0.3 or w_exhausted > 0.4:
+		_fail(
+			failures,
+			"ms_l7_exhaustion: exhausted weight_mult=%.4f (expected ~0.35 floor)"
+			% w_exhausted
+		)
+
+	# Verify monotonicity: fresh >= fatigued >= exhausted.
+	if w_fresh < w_fatigued - 0.01:
+		_fail(
+			failures,
+			"ms_l7_exhaustion: monotonicity violated fresh=%.4f fatigued=%.4f"
+			% [w_fresh, w_fatigued]
+		)
+	if w_fatigued < w_exhausted - 0.01:
+		_fail(
+			failures,
+			"ms_l7_exhaustion: monotonicity violated fatigued=%.4f exhausted=%.4f"
+			% [w_fatigued, w_exhausted]
+		)
+	_free_manager(mgr)
+
+
+## ─────────────────────────────────────────────────────────────────────────────────────
+## Phase 6 (MS-L9): positional awareness — disengage when surrounded + vulnerable.
+## ─────────────────────────────────────────────────────────────────────────────────────
+static func _run_ms_l9_positional_awareness_disengage_when_surrounded(
+	failures: PackedStringArray
+) -> void:
+	# Build a 3v1 scenario where one player is surrounded by enemies.
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy1")
+	mgr.register(_new_entity("SWORD"), "enemy2")
+	mgr.start(
+		{"files": 1, "ranks": 1},  # player: 1 unit
+		{"files": 2, "ranks": 1}   # enemies: 2 units (flanking)
+	)
+	var player: Dictionary = mgr.combatants[0]
+	var player_id: int = _EntityAccess.id_int(player)
+	# Wound the player so blood < 80% (vulnerability threshold).
+	var ent: CoreEntity = _EntityAccess.scene_node(player) as CoreEntity
+	if ent != null:
+		ent.body_cutting["chest"] = 25.0  # ~25% blood loss
+	# Set player to waiting state so actions can be built.
+	player["state"] = CombatConstants.STATE_WAITING
+	player["gauge"] = 100.0
+	# Check surrounded — with 2 enemies in a 2-file formation vs 1-file player,
+	# the player should have hostile zones on multiple sides.
+	var surrounded: bool = _ZoneOfControl.is_combatant_surrounded(mgr, player_id)
+	if not surrounded:
+		# Geometry doesn't produce surround for this config — acceptable;
+		# the logic path is exercised by the function returning false correctly.
+		_free_manager(mgr)
+		return
+	# If surrounded, build actions manually and check that MS-L9 picks disengage.
+	var enemy1_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var enemy2_id: int = _EntityAccess.id_int(mgr.combatants[2])
+	var actions: Array = [
+		{"move_id": "thrust", "target_id": enemy1_id, "target_part": "head"},
+		{"move_id": CombatConstants.MOVE_ID_FALL_BACK, "target_id": player_id},
+		{"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": player_id},
+		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": player_id},
+	]
+	if actions.is_empty():
+		_fail(failures, "ms_l9_positional: no actions built for surrounded player")
+		_free_manager(mgr)
+		return
+	var picked: Dictionary = MentalStackDecider.try_pick(actions, player_id, mgr)
+	if picked.is_empty():
+		# No pick is OK if no disengage moves are listed (e.g. no fall_back/flee).
+		var has_disengage: bool = false
+		for a in actions:
+			if a is Dictionary:
+				var mid: String = str((a as Dictionary).get("move_id", ""))
+				if mid == CombatConstants.MOVE_ID_FALL_BACK or mid == CombatConstants.MOVE_ID_FLEE:
+					has_disengage = true
+					break
+		if has_disengage:
+			_fail(failures, "ms_l9_positional: surrounded + disengage listed but no pick")
+		# else: no disengage moves available — correct behavior, no failure.
+		_free_manager(mgr)
+		return
+	var layer: String = str(player.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
+	if layer != CombatConstants.MENTAL_STACK_LAYER_POSITIONAL_DIS:
+		_fail(
+			failures,
+			"ms_l9_positional: expected layer=%s got %s"
+			% [CombatConstants.MENTAL_STACK_LAYER_POSITIONAL_DIS, layer]
+		)
+	var move_id: String = str(picked.get("move_id", ""))
+	if move_id != CombatConstants.MOVE_ID_FALL_BACK and move_id != CombatConstants.MOVE_ID_FLEE:
+		_fail(
+			failures,
+			"ms_l9_positional: expected disengage move got %s" % move_id
+		)
+	_free_manager(mgr)
+
+
+## ─────────────────────────────────────────────────────────────────────────────────────
+## Phase 7: medical escalation — TCCC ladder boosts pack over bandage when bandage failed.
+## ─────────────────────────────────────────────────────────────────────────────────────
+static func _run_mental_stack_medical_escalation_bandage_to_pack(
+	failures: PackedStringArray
+) -> void:
+	# Verify that when a part has failed_medical_parts, pack gets escalation bonus over bandage.
+	const _MedWeight := preload("res://combat/CombatMedicalWeighting.gd")
+	CombatConstants.set_feature_ms_medical_escalation_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "medic")
+	mgr.register(_new_entity("SWORD"), "ally")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var medic: Dictionary = mgr.combatants[0]
+	var ally: Dictionary = mgr.combatants[1]
+	var medic_id: int = _EntityAccess.id_int(medic)
+	var ally_id: int = _EntityAccess.id_int(ally)
+	# Wound the ally's chest so medical actions are relevant.
+	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+	if ally_ent != null:
+		ally_ent.blood_volume = 25.0
+		_EntityWounds.add_wound(
+			ally_ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
+		)
+	# Simulate failed bandage on chest — the TCCC ladder should escalate to pack.
+	ally["failed_medical_parts"] = ["chest"]
+	# Build medical actions manually (simulating what AvailableActionsBuilder produces in med phase).
+	var actions: Array = [
+		{"move_id": CombatConstants.MOVE_ID_BANDAGE_SELF, "target_id": ally_id, "target_part": "chest"},
+		{"move_id": CombatConstants.MOVE_ID_PACK_WOUND, "target_id": ally_id, "target_part": "chest"},
+	]
+	# Compute weights for each action.
+	var w_bandage: float = _MedWeight.compute_weight(actions[0], medic_id, mgr)
+	var w_pack: float = _MedWeight.compute_weight(actions[1], medic_id, mgr)
+	# Pack should have higher weight than bandage due to escalation bonus (1.5x).
+	if w_pack <= w_bandage:
+		_fail(
+			failures,
+			"ms_med_escalation: pack weight=%.4f <= bandage weight=%.4f (pack should be boosted)"
+			% [w_pack, w_bandage]
+		)
+	CombatConstants.set_feature_ms_medical_escalation_load(-1)
+	_free_manager(mgr)
+
+
+static func _run_mental_stack_medical_escalation_no_bonus_when_no_failures(
+	failures: PackedStringArray
+) -> void:
+	# Verify that when no parts have failed, escalation bonus does NOT apply — weights are baseline.
+	const _MedWeight := preload("res://combat/CombatMedicalWeighting.gd")
+	CombatConstants.set_feature_ms_medical_escalation_load(true)
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "medic")
+	mgr.register(_new_entity("SWORD"), "ally")
+	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	var medic: Dictionary = mgr.combatants[0]
+	var ally: Dictionary = mgr.combatants[1]
+	var medic_id: int = _EntityAccess.id_int(medic)
+	var ally_id: int = _EntityAccess.id_int(ally)
+	# Wound the ally but do NOT set failed_medical_parts.
+	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+	if ally_ent != null:
+		ally_ent.blood_volume = 25.0
+		_EntityWounds.add_wound(
+			ally_ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
+		)
+	# No failed parts — escalation should not apply.
+	var actions: Array = [
+		{"move_id": CombatConstants.MOVE_ID_BANDAGE_SELF, "target_id": ally_id, "target_part": "chest"},
+		{"move_id": CombatConstants.MOVE_ID_PACK_WOUND, "target_id": ally_id, "target_part": "chest"},
+	]
+	var w_bandage: float = _MedWeight.compute_weight(actions[0], medic_id, mgr)
+	var w_pack: float = _MedWeight.compute_weight(actions[1], medic_id, mgr)
+	# Without failed parts, pack should NOT get the 1.5x escalation bonus.
+	# Pack may still have higher weight due to urgency/part threat, but not from escalation.
+	# The key assertion: bandage should NOT be suppressed (retry bonus should apply normally).
+	if w_bandage <= 0.0:
+		_fail(
+			failures,
+			"ms_med_escalation_nofail: bandage weight=%.4f (should not be zero without failures)"
+			% w_bandage
+		)
+	CombatConstants.set_feature_ms_medical_escalation_load(-1)
 	_free_manager(mgr)

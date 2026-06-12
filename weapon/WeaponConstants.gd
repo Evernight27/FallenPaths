@@ -88,11 +88,11 @@ static func get_move(move_id: String) -> Dictionary:
 
 static func is_parry_move(move_id: String) -> bool:
 	var m = get_move(move_id)
-	return m.get("is_parry", false) == true
+	return bool(m.get("is_parry", false))
 
 static func is_feint_move(move_id: String) -> bool:
 	var m = get_move(move_id)
-	return m.get("is_feint", false) == true
+	return bool(m.get("is_feint", false))
 
 
 ## move_id (e.g. thrust, oberhau) -> stab | cut | blunt. Bare stab/cut/blunt pass through unchanged.

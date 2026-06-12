@@ -12,12 +12,14 @@ Stream: **Combat**. **Default post–Camp-5** — smallest `combat/*.gd` owner p
 
 1. **III-6 line plug** — rank-0 gap `swap_rank` / Skirmish `rotate_file`; validator `camp_line_plug_pick`. Deep spec: [§ III-6 line plug](#specialty-iii-6-line-plug) below.
 2. **Harness row fix** — failing Phase 0 / D001 tail; smallest `*Tail.gd` owner.
-3. **Mental stack regression** — `_run_mental_stack_*` in `CombatRegressionHarnessAttentionFootworkTail.gd` (L0–L4 + MS-L7 + salience damp).
+3. **Mental stack regression** — `_run_mental_stack_*` in `CombatRegressionHarnessAttentionFootworkTail.gd` (L0–L4, MS-L5 plug, MS-L6 rout, MS-L7 exhaustion + salience damp).
 4. **III-4 3e fight-finish** — sparse/mop-up pick stalls. Deep spec: [§ III-4 3e fight-finish](#specialty-iii-4-3e-fight-finish) below.
 5. **WF maintain** — PA octant + `WeaponFormTail` / ii5c + **`_run_t44_spatial_*`** when footing behavior changes (T44 flags default off; WF-M1–M5 ☑; no new tiers).
 6. **III-3 deflect/bind** — `DefenseChoiceResolver` calibration if research `warn` surfaces (not `note` rows).
 7. **BattleUIUpdater medical busy** — gauge primary label during medical wind-up / receiving care (`_run_medical_phase_gauge_*`).
 8. **Species S5 pilot** — `species/SpeciesResource.gd`, `human.tres`, `goblin.tres` + simulation harness rows.
+
+**Mental stack improvements (swordmaster gaps):** 2 of 7 phases shipped (MS-L5 plug, MS-L6 rout). 5 remaining: [feint resistance](../../docs/MENTAL_STACK_IMPROVEMENT_PLAN.md#phase-2-feint-resistance-gate-counter-tempo-integration) · [post-strike momentum](../../docs/MENTAL_STACK_IMPROVEMENT_PLAN.md#phase-3-post-strike-momentum-layer-ms-l8) · [exhaustion gradient](../../docs/MENTAL_STACK_IMPROVEMENT_PLAN.md#phase-5-exhaustion-gradient-replace-binary-tunnel-with-gradual-descent) · [positional awareness](../../docs/MENTAL_STACK_IMPROVEMENT_PLAN.md#phase-6-positional-awareness-surrounded-combatant-disengage-trigger) · [medical escalation](../../docs/MENTAL_STACK_IMPROVEMENT_PLAN.md#phase-7-medical-escalation-ladder-tccc-progression-on-repeated-failure). Full spec + validation + harness names: [`docs/MENTAL_STACK_IMPROVEMENT_PLAN.md`](../../docs/MENTAL_STACK_IMPROVEMENT_PLAN.md). Recommended order: feint resistance → medical escalation → exhaustion gradient → post-strike → positional awareness.
 
 Minimal diff. One logical fix. PR title prefix: `combat:`.
 

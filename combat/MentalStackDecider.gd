@@ -20,6 +20,8 @@ const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _PostStrike := preload("res://combat/CombatPostStrike.gd")
+const _ZoC := preload("res://combat/ZoneOfControl.gd")
 
 
 static func enabled() -> bool:
@@ -35,6 +37,12 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 	if c.is_empty():
 		return {}
 	c.erase(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER)
+	# MS-L8: read post-strike stamp (clock-based, naturally expires after ~1 turn).
+	var _strike_tick_val: float = float(c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TICK, 0.0))
+	var _current_clock: float = manager.combat_clock
+	var _strike_tick_active: bool = (
+		_strike_tick_val > 0.0 and absf(_strike_tick_val - _current_clock) < CombatConstants.POST_STRIKE_MOMENTUM_CLOCK_TOLERANCE
+	)
 	if _MobilityRetreat.cannot_commit_melee(c):
 		var retreat_only: Array = _MobilityRetreat.filter_actions_for_retreat_only(actions, c)
 		if retreat_only.is_empty():
@@ -151,6 +159,32 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 					c,
 					CombatConstants.MENTAL_STACK_LAYER_ROUT,
 					_AIPicker.pick_weighted(rout_pool, combatant_id, manager, actions)
+				)
+	# MS-L8: post-strike momentum — press advantage or disengage cleanly after a successful strike.
+	# Fight-finish tails skip MS-L8 so listed offense can win via L4b sparse-fight path.
+	if CombatConstants.is_feature_ms_post_strike_enabled() and _strike_tick_active:
+		var struck_id: int = int(c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID, -1))
+		if struck_id >= 0:
+			if not _Doctrine.fight_finish_tail_active(manager, c, actions, combatant_id):
+				var pool: Array = _PostStrike.filter_post_strike_actions(
+					actions, combatant_id, manager, struck_id
+				)
+				if not pool.is_empty():
+					return _stamp_layer_pick(
+						c,
+						CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE,
+						_AIPicker.pick_weighted(pool, combatant_id, manager)
+					)
+	# MS-L9: positional awareness — disengage when surrounded and vulnerable.
+	# Fight-finish tails skip MS-L9 so listed offense can win via L4b or salience-damped utility pick.
+	if CombatConstants.is_feature_ms_positional_awareness_enabled():
+		if not _Doctrine.fight_finish_tail_active(manager, c, actions, combatant_id):
+			var pos_pool: Array = _positional_disengage_check(manager, combatant_id, actions, c)
+			if not pos_pool.is_empty():
+				return _stamp_layer_pick(
+					c,
+					CombatConstants.MENTAL_STACK_LAYER_POSITIONAL_DIS,
+					_AIPicker.pick_weighted(pos_pool, combatant_id, manager)
 				)
 	# L5 (MS-L7): exhaustion tunnel or critical stamina — wait / disengage before salience utility pick.
 	# Fight-finish tails skip L5 so listed offense can win via L4b or salience-damped utility pick.
@@ -492,4 +526,42 @@ static func _filter_exhaustion_disengage_actions(
 			continue
 		if CombatConstants.is_focus_line_move(mid):
 			out.append(a)
+	return out
+
+
+## MS-L9: positional awareness — returns weighted disengage array when combatant is surrounded and vulnerable.
+## Returns empty when not surrounded OR when combatant is healthy (blood >= 80% AND NOT exhausted tunnel).
+## Only fires when actual disengage moves (fall_back/flee) exist — does not force wait over utility pick.
+static func _positional_disengage_check(
+	manager: Node, combatant_id: int, actions: Array, c: Dictionary
+) -> Array:
+	if not _ZoC.is_combatant_surrounded(manager, combatant_id):
+		return []
+	# Check vulnerability: must be wounded (blood < 80%) OR exhausted (tunnel active).
+	var blood: float = float(_EntityAccess.stats_dict(c).get("blood_volume", 100.0))
+	var exhausted_t: bool = _Exhaustion.exhaustion_tunnel_active(c)
+	if blood >= 80.0 and not exhausted_t:
+		return []
+	# Build disengage pool: fall_back first, flee second, wait third.
+	var out: Array = []
+	var fall_backs: Array = []
+	var flees: Array = []
+	var waits: Array = []
+	for raw in actions:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var a: Dictionary = raw as Dictionary
+		var mid: String = str(a.get("move_id", ""))
+		if mid == CombatConstants.MOVE_ID_FALL_BACK:
+			fall_backs.append(a)
+		elif mid == CombatConstants.MOVE_ID_FLEE and int(a.get("target_id", -1)) == combatant_id:
+			flees.append(a)
+		elif mid == CombatConstants.MOVE_ID_WAIT:
+			waits.append(a)
+	# Only fire when actual disengage moves exist — do not force wait over utility pick.
+	if fall_backs.is_empty() and flees.is_empty():
+		return []
+	out.append_array(fall_backs)
+	out.append_array(flees)
+	out.append_array(waits)
 	return out

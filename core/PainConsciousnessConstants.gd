@@ -59,7 +59,9 @@ const BLOOD_CONSCIOUSNESS_REDUCTION_MAX: float = 0.5     # At floor: modifier = 
 # --- Pain shock (temporary; reduces effective consciousness for combat, not incapacitation). ---
 # Research: Lighter impacts cause brief grogginess; more severe single impacts cause longer confusion/disorientation (Frontiers Neurology 2020, concussion/TBI). Acute stress reaction and traumatic shock duration scale with severity of the triggering insult (ATLS, StatPearls). Duration therefore scales with both cumulative pain and the impact of the move that triggered the shock.
 const PAIN_SHOCK_DURATION_BASE: float = 5.0    # base duration seconds; scaled by pain level and impact
-const PAIN_SHOCK_CONSCIOUSNESS_REDUCTION: float = 80.0  # -80% effective consciousness while in shock
+const PAIN_SHOCK_CONSCIOUSNESS_REDUCTION: float = 50.0  # -50% effective consciousness while in shock (acute stress impairs but does not obliterate function; combined with blood loss/head trauma can approach ~70-80% total reduction)
+## Cooldown between ambient pain shock triggers (prevents repeated re-entry during sustained high pain).
+const PAIN_SHOCK_AMBIENT_COOLDOWN_S: float = 15.0
 # Impact scaling: larger single hit → longer shock (mechanoporation / acute stress magnitude). Reference damage for 1.0x impact factor; bigger hits multiply duration up to IMPACT_MAX_MULTIPLIER.
 const PAIN_SHOCK_DURATION_IMPACT_REFERENCE: float = 10.0   # damage of triggering hit vs this (e.g. 10 → 1.0x, 20 → 2.0x until cap)
 const PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER: float = 2.0  # max duration multiplier from impact (e.g. 2.0 = double duration for a heavy blow)

@@ -7,7 +7,7 @@ extends RefCounted
 static func handle_defeat(world: Node2D, player: Node, winner: String) -> void:
 	if winner == "player":
 		return
-	print("You were defeated.")
+	push_error("[BattleEnd] Player defeated by %s" % winner)
 	if player != null and is_instance_valid(player) and player.has_node("Camera2D"):
 		var cam = player.get_node("Camera2D")
 		var cam_global_pos = cam.global_position

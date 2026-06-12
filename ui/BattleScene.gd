@@ -111,6 +111,8 @@ func start(
 	# register combatants
 	_player_list = get_node_or_null(BattleUIConstants.MAIN_LIST_PATH + "/PlayerStatsScroll/PlayerPanel/PlayerVBox/PlayerList")
 	_enemy_list = get_node_or_null(BattleUIConstants.MAIN_LIST_PATH + "/EnemyStatsScroll/EnemyPanel/EnemyVBox/EnemyList")
+	if _player_list == null or _enemy_list == null:
+		push_error("BattleScene: missing PlayerList or EnemyList in UI tree — combatant rows will not render")
 	for pl in players:
 		var pid = manager.register(pl, "player")
 		CombatantRowBuilder.create_row(pid, pl, _player_list, id_to_controls)

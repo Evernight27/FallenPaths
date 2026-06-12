@@ -63,6 +63,8 @@ static func append_medical_phase_winner_actions(
 			continue
 		if not _EntityAccess.is_on_side(ally, medical_phase_winner):
 			continue
+		if not _EntityAccess.is_available_medical_ally(c, ally):
+			continue
 		if not _EntityAccess.scene_has_wounded_parts_listing(ally):
 			continue
 		if immediate_peril and _EntityAccess.id_int(ally) != _EntityAccess.id_int(c):
@@ -110,6 +112,8 @@ static func append_mid_fight_ally_medical_actions(
 		):
 			continue
 		if _EntityAccess.id_int(ally) == performer_id:
+			continue
+		if not _EntityAccess.is_available_medical_ally(c, ally):
 			continue
 		if not _EntityAccess.is_in_immediate_peril(manager, ally):
 			continue

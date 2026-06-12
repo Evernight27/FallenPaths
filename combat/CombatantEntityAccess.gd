@@ -445,6 +445,17 @@ static func is_available_formation_partner(actor: Dictionary, other: Dictionary)
 	return is_living_same_side(actor, other) and is_alive_in_combat(other) and is_alive_in_combat(actor)
 
 
+## Ally available for medical targeting (alive, same side, on field, not unconscious).
+static func is_available_medical_ally(actor: Dictionary, other: Dictionary) -> bool:
+	if not is_living_same_side(actor, other):
+		return false
+	if not is_alive_in_combat(other):
+		return false
+	if is_unconscious(other):
+		return false
+	return true
+
+
 ## Alive opponent on the opposite side (incapacitated opponents still count — distance bands, threat scans).
 static func is_alive_opponent_of(actor: Dictionary, other: Dictionary) -> bool:
 	if not alive_bool(other):
@@ -513,9 +524,9 @@ static func leader_register_flags_from_node(node: Node, side: String) -> Diction
 	var party_leader := false
 	var enemy_leader := false
 	if node != null:
-		if side == "player" and node.get("is_party_leader") == true:
+		if side == "player" and node.get("is_party_leader", false):
 			party_leader = true
-		elif side == "enemy" and node.get("is_enemy_leader") == true:
+		elif side == "enemy" and node.get("is_enemy_leader", false):
 			enemy_leader = true
 	return {"is_party_leader": party_leader, "is_enemy_leader": enemy_leader}
 
@@ -524,9 +535,9 @@ static func leader_register_flags_from_node(node: Node, side: String) -> Diction
 static func is_formation_command_issuer(combatant: Dictionary) -> bool:
 	if combatant.is_empty():
 		return false
-	if is_player_side(combatant) and combatant.get("is_party_leader", false) == true:
+	if is_player_side(combatant) and combatant.get("is_party_leader", false):
 		return true
-	if is_enemy_side(combatant) and combatant.get("is_enemy_leader", false) == true:
+	if is_enemy_side(combatant) and combatant.get("is_enemy_leader", false):
 		return true
 	return false
 
@@ -536,8 +547,8 @@ static func is_formation_telegraph_leader(combatant: Dictionary) -> bool:
 	if combatant.is_empty():
 		return false
 	return (
-		combatant.get("is_party_leader", false) == true
-		or combatant.get("is_enemy_leader", false) == true
+		combatant.get("is_party_leader", false)
+		or combatant.get("is_enemy_leader", false)
 	)
 
 

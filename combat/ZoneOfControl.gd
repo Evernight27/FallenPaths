@@ -24,6 +24,7 @@ const _ENCOUNTER_PROTECTION_CIRCLE_KEY := "protection_circle_active"
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const _Opposition := preload("res://combat/EngagementOpposition.gd")
 
 static func all_zones() -> Array:
 	return [ZONE_FRONT, ZONE_LEFT_FLANK, ZONE_RIGHT_FLANK, ZONE_REAR]
@@ -692,3 +693,53 @@ static func get_footing_duration_multiplier(manager: Node, fid: String, file: in
 ## Lane × footing (pressure applied in CombatManager). Used for swap / fall back / rotate duration.
 static func get_lane_and_footing_duration_multiplier(manager: Node, fid: String, file: int) -> float:
 	return get_swap_lane_duration_multiplier(manager, fid, file) * get_footing_duration_multiplier(manager, fid, file)
+
+
+## MS-L9: positional awareness — check if a combatant is surrounded by hostiles on ≥2 directions.
+## Front + (left_flank OR right_flank) = surrounded. Rear excluded by design.
+## All hostile combatants are treated as front-line pressure (rank-0 assumption for cross-formation).
+## Same-fid intruders count as front pressure (they've breached our line).
+static func is_combatant_surrounded(manager: Node, combatant_id: int) -> bool:
+	var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
+	if c.is_empty():
+		return false
+	var my_zg: Dictionary = zone_geometry_for_combatant(manager, c)
+	var my_fid: String = zone_geometry_fid_from_pack(my_zg)
+	var my_formation: Dictionary = zone_geometry_formation_from_pack(my_zg)
+	if my_formation.is_empty():
+		return false
+	var hostile_zones: Array = [false, false, false]  # front, left_flank, right_flank
+	for other in manager.combatants:
+		if other is not Dictionary:
+			continue
+		var o: Dictionary = other as Dictionary
+		if not _EntityAccess.alive_bool(o):
+			continue
+		if _EntityAccess.side_str(o) == _EntityAccess.side_str(c):
+			continue
+		var other_zg: Dictionary = zone_geometry_for_combatant(manager, o)
+		var other_fid: String = zone_geometry_fid_from_pack(other_zg)
+		# Same formation: intruders on our grid count as front pressure.
+		if other_fid == my_fid:
+			hostile_zones[0] = true
+		# Different formation: use opposition offset to determine relative position.
+		else:
+			var opp_offset: int = _Opposition.opposition_file_offset(manager, _EntityAccess.side_str(o))
+			var my_files: int = int(my_formation.get("files", 1))
+			var other_file: int = _EntityAccess.file_int(o)
+			var mapped_file: int = other_file + opp_offset
+			# Flank pressure only when formation has ≥2 files.
+			if my_files >= 2:
+				# If mapped file is at or beyond our left edge → left flank pressure.
+				if mapped_file <= 0:
+					hostile_zones[1] = true
+				# If mapped file is at or beyond our right edge → right flank pressure.
+				elif mapped_file >= my_files - 1:
+					hostile_zones[2] = true
+				# Otherwise hostile is in front band.
+				else:
+					hostile_zones[0] = true
+			else:
+				# Single-file formation: all cross-formation hostiles are front.
+				hostile_zones[0] = true
+	return hostile_zones.count(true) >= 2

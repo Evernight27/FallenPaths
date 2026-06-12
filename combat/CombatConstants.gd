@@ -284,6 +284,8 @@ const COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED := "counter_tempo_ready_signale
 const COMBATANT_KEY_COUNTER_TEMPO_UI_HINT := "counter_tempo_ui_hint"
 ## Counter-attack wind-up multiplier vs a normal attack at the same rolls.
 const COUNTER_TEMPO_WINDUP_MULT := 0.65
+## Max counter tempo wind-up duration (hard cap). A well-timed counter should be faster than a committed attack, not similarly paced.
+const COUNTER_TEMPO_WINDUP_MAX_S := 1.5 # hard cap on counter tempo wind-up duration
 const COUNTER_TEMPO_ACTION_READY_DELAY_S := 0.02
 const COUNTER_TEMPO_INCOMING_DEFER_AFTER_COUNTER_S := 0.001
 ## Tier 4.2 counter-tempo AI: boost listed actions flagged **`ACTION_KEY_COUNTER_TEMPO`**; extra nudge vs the incoming wind-up attacker; damp feints mid-tempo.
@@ -349,9 +351,31 @@ const MENTAL_STACK_LAYER_SPARSE_FIGHT := "sparse_fight"
 const MENTAL_STACK_LAYER_FORMATION_PLUG := "formation_plug"
 ## MS-L6 Expand: cohesion break → flee / fall_back before salience utility (after MS-L5, before exhaustion).
 const MENTAL_STACK_LAYER_ROUT := "rout"
+## MS-L8: post-strike momentum — press advantage or disengage cleanly after a successful strike.
+const MENTAL_STACK_LAYER_POST_STRIKE := "post_strike"
+const COMBATANT_KEY_LAST_STRIKE_TICK := "last_strike_tick"
+const COMBATANT_KEY_LAST_STRIKE_TARGET_ID := "last_strike_target_id"
+const POST_STRIKE_MOMENTUM_CLOCK_TOLERANCE := 2.0
+const POST_STRIKE_HIT_WEIGHT_BONUS := 1.1
+const POST_STRIKE_MOMENTUM_WEIGHT_BONUS := 1.3
+## MS-L9: positional awareness — disengage when surrounded + wounded/vulnerable.
+const MENTAL_STACK_LAYER_POSITIONAL_DIS := "positional_dis"
+## FEATURE flag for positional awareness layer.
+const FEATURE_MS_POSITIONAL_AWARENESS := true
+static var _feature_ms_positional_awareness_load: int = -1
+
+static func is_feature_ms_positional_awareness_enabled() -> bool:
+	if _feature_ms_positional_awareness_load >= 0:
+		return _feature_ms_positional_awareness_load != 0
+	return FEATURE_MS_POSITIONAL_AWARENESS
+
+static func set_feature_ms_positional_awareness_load(enabled: bool) -> void:
+	_feature_ms_positional_awareness_load = 1 if enabled else 0
 ## MS-L7: high fight exhaustion → wait / formation disengage before salience utility pick.
 const MENTAL_STACK_LAYER_EXHAUSTION := "exhaustion"
 const MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD := 0.50
+## MS-GRADIENT: hard disengage tunnel threshold — exhaustion above this floors offense weight at damp floor.
+const MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD := 0.75
 ## When no stack layer fires: multiply offensive action weights by **`lerp(1, 1 - this, attention_load)`** (attacks, feints, attempt_close).
 const MENTAL_STACK_SALIENCE_OFFENSE_DAMP_MAX := 0.4
 const FOCUS_INTENSITY_DEFAULT := 1.0
@@ -401,6 +425,19 @@ static func set_feature_ms_l6_rout_load(enabled: bool) -> void:
 	_feature_ms_l6_rout_load = 1 if enabled else 0
 
 
+## MS-WEIGHT Expand: feint resistance gate — picker-level hard block for high-readiness defenders.
+const FEATURE_MS_FEINT_RESISTANCE := true
+static var _feature_ms_feint_resistance_load: int = -1
+
+static func is_feature_ms_feint_resistance_enabled() -> bool:
+	if _feature_ms_feint_resistance_load >= 0:
+		return _feature_ms_feint_resistance_load != 0
+	return FEATURE_MS_FEINT_RESISTANCE
+
+static func set_feature_ms_feint_resistance_load(enabled: bool) -> void:
+	_feature_ms_feint_resistance_load = 1 if enabled else 0
+
+
 ## MS-MID Expand: mid-fight ally medical listing when ally in immediate peril; L1 stack already coordinated.
 const FEATURE_MS_MID_INFIGHT_MED := true
 static var _feature_ms_mid_infight_med_load: int = -1
@@ -414,6 +451,35 @@ static func is_feature_ms_mid_infight_med_enabled() -> bool:
 
 static func set_feature_ms_mid_infight_med_load(enabled: bool) -> void:
 	_feature_ms_mid_infight_med_load = 1 if enabled else 0
+
+
+## MS-WEIGHT Expand: medical escalation ladder — TCCC progression on repeated failure.
+const FEATURE_MS_MEDICAL_ESCALATION := true
+static var _feature_ms_medical_escalation_load: int = -1
+
+static func is_feature_ms_medical_escalation_enabled() -> bool:
+	if _feature_ms_medical_escalation_load >= 0:
+		return _feature_ms_medical_escalation_load != 0
+	return FEATURE_MS_MEDICAL_ESCALATION
+
+static func set_feature_ms_medical_escalation_load(enabled: bool) -> void:
+	_feature_ms_medical_escalation_load = 1 if enabled else 0
+
+
+const MEDICAL_AI_WEIGHT_ESCALATION_BONUS := 1.5
+
+
+## MS-POST-STRIKE Expand: post-strike momentum layer — press advantage after successful strike.
+const FEATURE_MS_POST_STRIKE := true
+static var _feature_ms_post_strike_load: int = -1
+
+static func is_feature_ms_post_strike_enabled() -> bool:
+	if _feature_ms_post_strike_load >= 0:
+		return _feature_ms_post_strike_load != 0
+	return FEATURE_MS_POST_STRIKE
+
+static func set_feature_ms_post_strike_load(enabled: bool) -> void:
+	_feature_ms_post_strike_load = 1 if enabled else 0
 
 
 static func is_focus_line_move(move_id: String) -> bool:
@@ -1037,6 +1103,9 @@ static func set_feature_leader_formation_command_load(enabled: bool) -> void:
 
 ## Headless harness: clear **`set_feature_*_load`** overrides so **`run_all()`** / `-HarnessMode regression` starts from production defaults.
 static func reset_harness_feature_load_overrides() -> void:
+	_feature_ms_feint_resistance_load = -1
+	_feature_ms_post_strike_load = -1
+	_feature_ms_positional_awareness_load = -1
 	_feature_ms_l6_rout_load = -1
 	_feature_ms_mid_infight_med_load = -1
 	_feature_armor_burden_load = -1
@@ -1772,15 +1841,28 @@ const AI_FLEE_EXHAUSTION_TUNNEL_WEIGHT := 0.88
 ## Flee listing when stamina is nearly spent (even below MS-L7 tunnel threshold).
 const AI_FLEE_CRITICAL_STAMINA_RATIO := 0.12
 ## IV-7b: below this stamina ratio, attack / **`attempt_close`** listing weights use **`AI_STAMINA_ENGAGE_LOW_MULT`**.
+## Exhaustion ramp: as stamina approaches 0%, offense weight drops further (exhausted fighters can still defend but should not initiate fresh attacks at full weight).
 const AI_STAMINA_ENGAGE_FLOOR_RATIO := 0.20
 const AI_STAMINA_ENGAGE_LOW_MULT := 0.85
+## Below this stamina ratio, offense weight uses **`AI_STAMINA_DEEP_EXHAUST_MULT`** (near-total exhaustion — can defend but should not initiate).
+const AI_STAMINA_DEEP_EXHAUST_RATIO := 0.05
+const AI_STAMINA_DEEP_EXHAUST_MULT := 0.40
+## Exhaustion cap: below this ratio, offense weight floors at **`AI_STAMINA_EXHAUSTION_DEEP_MULT`** (realistic simulation — exhausted fighters cannot initiate).
+const AI_STAMINA_EXHAUSTION_DEEP_THRESHOLD := 0.05
+const AI_STAMINA_EXHAUSTION_DEEP_MULT := 0.40
 
 
 ## IV-7b: step-down offense engage weight (investigated 2026-05; locked 2026-06-08).
+## Exhaustion ramp: as stamina approaches 0%, offense weight drops further — exhausted fighters can still defend but should not initiate fresh attacks at full weight.
 static func ai_offense_stamina_weight_mult(stamina_ratio: float) -> float:
 	if stamina_ratio >= AI_STAMINA_ENGAGE_FLOOR_RATIO:
 		return 1.0
-	return AI_STAMINA_ENGAGE_LOW_MULT
+	var w: float = AI_STAMINA_ENGAGE_LOW_MULT
+	if stamina_ratio <= AI_STAMINA_DEEP_EXHAUST_RATIO:
+		w = AI_STAMINA_DEEP_EXHAUST_MULT
+	elif stamina_ratio < AI_STAMINA_EXHAUSTION_DEEP_THRESHOLD:
+		w = lerpf(AI_STAMINA_EXHAUSTION_DEEP_MULT, AI_STAMINA_ENGAGE_LOW_MULT, stamina_ratio / maxf(AI_STAMINA_EXHAUSTION_DEEP_THRESHOLD, 0.001))
+	return w
 
 
 static func iv7b_stamina_engage_doc_sync_line() -> String:

@@ -303,6 +303,8 @@ const DIRECT_PRESSURE_IMMEDIATE_REDUCTION: float = 0.25  # initial placement onl
 const DIRECT_PRESSURE_HELD_FLOW_RETAINED_VENOUS: float = 0.10  # ~90% flow reduction (compressible hemorrhage)
 const DIRECT_PRESSURE_HELD_FLOW_RETAINED_ARTERIAL: float = 0.50  # ~50% reduction; systolic pressure fights back
 const DIRECT_PRESSURE_REBOUND_TO_INTRINSIC_MULT: float = 1.0  # release before hemostasis → return to intrinsic wound rate (do not release early)
+## Partial rebound: when clotting reduced the current rate below base, only bounce back partially (realistic — tissue trauma already initiated hemostasis cascade).
+const DIRECT_PRESSURE_REBOUND_PARTIAL_MULT: float = 0.75  # at low clotting: rebound to 75% of intrinsic (not full 100%)
 const DIRECT_PRESSURE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.7  # first-touch trim on arterial wounds (vs bandage 50%)
 # Bleeding rate ±variance at wound creation (simulates hit in more/less vascular spot).
 const BLEEDING_RATE_VARIANCE_MIN: float = 0.9
@@ -326,6 +328,10 @@ const TOURNIQUET_SUCCESS_BASE_CHANCE: float = 0.85  # base success; medical skil
 # When applied successfully, bleeding reduction scales with application effectiveness (skill/tightness/placement).
 # Perfect application can achieve near-complete occlusion; poor application leaves significant flow. residual_rate = raw_rate * (1 - effectiveness * this).
 const TOURNIQUET_REDUCTION_AT_FULL: float = 0.99  # at 1.0 effectiveness → 99% reduction; 0.5 effectiveness → 49.5% (partial occlusion)
+# Partial bleed reduction on failed tourniquet: a failed TQ still partially occludes the vessel (realistic — tension was applied, just not sufficient for full hemostasis).
+const TOURNIQUET_FAILED_REDUCTION_MULT: float = 0.30  # failed TQ still reduces bleeding by ~30% of effectiveness * reduction_at_full
+# Escalating retry chance: +15% base success per prior failure on same part (models medic adjusting placement/tightness).
+const TOURNIQUET_RETRY_SUCCESS_BONUS: float = 0.15 # escalating retry bonus per prior failure
 
 # --- Severity thresholds (damage as fraction of part max) ---
 const SEVERITY_PERCENTAGE_CRITICAL: float = 0.75

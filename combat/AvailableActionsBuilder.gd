@@ -95,6 +95,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
 
 
 ## Drop hostile actions whose target died between listing and pick (death same tick / queue lag).
+## Also drop ally-medical actions whose target has left the battlefield (fled / combat_absent).
 static func _drop_actions_vs_dead_opponents(manager: Node, actor: Dictionary, actions: Array) -> Array:
 	if actions.is_empty() or actor.is_empty():
 		return actions
@@ -109,6 +110,8 @@ static func _drop_actions_vs_dead_opponents(manager: Node, actor: Dictionary, ac
 			kept.append(a)
 			continue
 		if _EntityAccess.is_living_same_side(actor, tgt):
+			if not _EntityAccess.is_alive_in_combat(tgt):
+				continue
 			kept.append(a)
 			continue
 		if _EntityAccess.is_alive_in_combat(tgt):

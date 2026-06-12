@@ -9,6 +9,7 @@ const _MgrScript := preload("res://combat/CombatManager.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _FallenPathsErrorLogger := preload("res://core/FallenPathsErrorLogger.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _EngagementResolver := preload("res://combat/CombatEngagementResolver.gd")
@@ -61,6 +62,7 @@ static func run_all() -> Dictionary:
 		if not bool(pr.get("ok", false)):
 			failures.append("%s: %s" % [preset_id, str(pr.get("summary", "failed"))])
 	_OperationalLog.clear_capture()
+	_FallenPathsErrorLogger.reset_script_error_count()
 	seed(_preset_seed("7v7"))
 	var pr7: Dictionary = _run_7v7_brawl()
 	preset_results["7v7"] = pr7
@@ -796,7 +798,8 @@ static func _run_7v7_brawl() -> Dictionary:
 	var mgr: Node = _start_manager("7v7", 7, 7, form, form)
 	_simulate_fight(mgr, 120.0, "7v7")
 	_free_manager(mgr)
-	return _evaluate("7v7", _OperationalLog.get_captured_lines(), _TrackSpecs.headless_checks_for_preset("7v7"))
+	var lines: PackedStringArray = _OperationalLog.get_captured_lines()
+	return _evaluate("7v7", lines, _TrackSpecs.headless_checks_for_preset("7v7"))
 
 
 static func _run_ii2b_duel(preset_id: String, max_sec: float = 90.0) -> Dictionary:

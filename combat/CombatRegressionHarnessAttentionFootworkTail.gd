@@ -1921,11 +1921,14 @@ static func _run_p4a_ms_l7_exhaustion_threshold_parity(failures: PackedStringArr
 	c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = tunnel
 	if not _Exhaustion.exhaustion_tunnel_active(c):
 		CombatRegressionHarness._fail(failures, "p4a_ms_l7: tunnel must fire at threshold")
-	if absf(_Exhaustion.exhaustion_offense_weight_mult(c) - floor_m) > 0.001:
+	## Phase 5 extended lerp: at tunnel (0.50) weight is ~0.675 (midpoint), not floor.
+	## Floor only applies at exhausted threshold (0.75+).
+	var at_tunnel_m: float = _Exhaustion.exhaustion_offense_weight_mult(c)
+	if at_tunnel_m < 0.55 or at_tunnel_m > 0.80:
 		CombatRegressionHarness._fail(
 			failures,
-			"p4a_ms_l7: at tunnel want floor mult=%.2f got %.3f"
-			% [floor_m, _Exhaustion.exhaustion_offense_weight_mult(c)]
+			"p4a_ms_l7: at tunnel want mid ramp %.3f got %.3f (extended lerp to 0.75)"
+			% [0.675, at_tunnel_m]
 		)
 
 

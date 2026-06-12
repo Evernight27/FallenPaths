@@ -41,6 +41,10 @@ const REGEX_ENGAGEMENT_DEBUG_SPARSE_CLOSE_BAND := (
 const REGEX_ENGAGEMENT_DEBUG_SPARSE_FIGHT_LAYER := (
 	"engagement_debug turn .* layer=sparse_fight"
 )
+## MS-L8: post-strike momentum layer stamped on press-the-target picks.
+const NEEDLE_ENGAGEMENT_DEBUG_POST_STRIKE_LAYER := "layer=post_strike"
+## MS-L9: positional awareness layer stamped on surrounded-disengage picks.
+const NEEDLE_ENGAGEMENT_DEBUG_POSITIONAL_DIS_LAYER := "layer=positional_dis"
 
 
 static func headless_checks_for_preset(preset_id: String) -> Array:
@@ -124,6 +128,7 @@ static func validator_tracks(active_profiles: PackedStringArray) -> Array:
 		tracks.append_array(_validator_ii_envelop_tracks())
 	tracks.append_array(_validator_wf_footing_tracks())
 	tracks.append_array(_validator_iv11_tracks())
+	tracks.append_array(_validator_mental_stack_layers_tracks())
 	if have.has(PROFILE_7V7) or have.has(PROFILE_CAMP_EA) or have.has(PROFILE_PRESET_II_ENVELOP):
 		tracks.append_array(_validator_mopup_strike_finish_tracks())
 		tracks.append_array(_validator_line_plug_pick_tracks())
@@ -350,6 +355,8 @@ static func grep_stats(normalized: PackedStringArray, count_needle: Callable, _c
 			normalized,
 			REGEX_ENGAGEMENT_DEBUG_SPARSE_FIGHT_LAYER
 		),
+		"engagement_debug_post_strike_layer": count_needle.call(normalized, NEEDLE_ENGAGEMENT_DEBUG_POST_STRIKE_LAYER),
+		"engagement_debug_positional_dis_layer": count_needle.call(normalized, NEEDLE_ENGAGEMENT_DEBUG_POSITIONAL_DIS_LAYER),
 		"engagement_debug_mopup_strikes_listed": _count_regex.call(
 			normalized,
 			REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED
@@ -1184,6 +1191,26 @@ static func _validator_line_plug_pick_tracks() -> Array:
 			"profiles": [PROFILE_CAMP_EA, PROFILE_7V7, PROFILE_PRESET_II_ENVELOP],
 			"optional": true,
 			"when_ok_at_least": "line_plug=true",
+		},
+	]
+
+
+static func _validator_mental_stack_layers_tracks() -> Array:
+	## MS-L8 (post-strike) and MS-L9 (positional awareness) — optional F5 grep when FEATURE flags active.
+	return [
+		{
+			"id": "ms_l8_post_strike_layer",
+			"needle": NEEDLE_ENGAGEMENT_DEBUG_POST_STRIKE_LAYER,
+			"min": 1,
+			"profiles": [PROFILE_ALWAYS],
+			"optional": true,
+		},
+		{
+			"id": "ms_l9_positional_dis_layer",
+			"needle": NEEDLE_ENGAGEMENT_DEBUG_POSITIONAL_DIS_LAYER,
+			"min": 1,
+			"profiles": [PROFILE_ALWAYS],
+			"optional": true,
 		},
 	]
 

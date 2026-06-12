@@ -91,7 +91,7 @@ static func debug_grid_cell_summary(grid: GridContainer) -> String:
 		else:
 			var bars: int = 0
 			for node in _nodes_under(child):
-				if node is ProgressBar or str(node.get_class()) == "ProgressBar":
+				if node is ProgressBar:
 					bars += 1
 			extra = " bars=%d children=%d" % [bars, child.get_child_count()]
 		parts.append("%s%s" % [kind, extra])
@@ -106,7 +106,7 @@ static func first_health_bar_in_grid(grid: GridContainer) -> ProgressBar:
 		if child is Label:
 			continue
 		for node in _nodes_under(child):
-			if node is ProgressBar or str(node.get_class()) == "ProgressBar":
+			if node is ProgressBar:
 				return node as ProgressBar
 	return null
 

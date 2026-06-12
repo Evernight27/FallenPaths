@@ -422,7 +422,8 @@ static func _get_action_weight(
 		a, combatant_id, manager, mid, c, skip_targeting_prune,
 		actor_zone_geometry_line_context, zone_geometry_by_combatant_id, all_actions
 	)
-	return comps.weight * _salience_offense_weight_mult(c, manager)
+	var post_strike_mult: float = _post_strike_weight_mult(c, a, manager)
+	return comps.weight * _salience_offense_weight_mult(c, manager) * post_strike_mult
 
 
 ## Extracted from **`_get_action_weight`** for auditability. Returns `{weight, ...}` dictionary.
@@ -457,60 +458,74 @@ static func _compute_attack_weight_components(
 		form_counter_m = _WeaponForm.form_counter_mult(_EntityAccess.form_str(c), inferred, move_id)
 	var feint_list_m: float = 1.0
 	if move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE and _WeaponConstants.is_feint_move(move_id):
-		var pr_def: float = 0.0
-		var tid_feint: int = int(a.get("target_id", -1))
-		if tid_feint >= 0:
-			var tgt_feint: Dictionary = _EntityAccess.manager_get_combatant(manager, tid_feint)
-			if not tgt_feint.is_empty():
-				var pa_live: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
-				pr_def = _DefenseChoice.defender_feint_listing_pr_def(
-					tgt_feint, _EntityAccess.id_int(c), move_id, c, pa_live
+		# Phase 2: hard block for high-readiness defenders — swordmaster teaches "do not react to the feint."
+		var _tid_feint: int = int(a.get("target_id", -1))
+		if (
+			CombatConstants.is_feature_ms_feint_resistance_enabled()
+			and _tid_feint >= 0
+		):
+			var _tgt_feint: Dictionary = _EntityAccess.manager_get_combatant(manager, _tid_feint)
+			if not _tgt_feint.is_empty() and _is_feint_resistance_active(_tid_feint, manager):
+				CombatDebug.flow_log(
+					"feint_resistance blocked move=%s vs defender=%d readiness=%.2f state=%s"
+					% [move_id, _tid_feint, _PassiveParry.get_passive_parry_readiness(_tgt_feint), _EntityAccess.state_str(_tgt_feint)]
 				)
-		var read_m: float = lerpf(
-			1.0,
-			CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT,
-			pr_def
-		)
-		var stance_feint_m: float = _WeaponForm.mod(_EntityAccess.form_str(c), "ai_feint_listing")
-		feint_list_m = (
-			CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m * stance_feint_m
-		)
-		if tid_feint >= 0:
-			var tgt_ob: Dictionary = _EntityAccess.manager_get_combatant(manager, tid_feint)
-			if not tgt_ob.is_empty():
-				if _PassiveParry.is_off_balance(tgt_ob):
-					feint_list_m *= CombatConstants.AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT
-				elif _EntityAccess.state_str(tgt_ob) == CombatConstants.STATE_RECOVERING:
-					feint_list_m *= CombatConstants.ai_feint_listing_defender_recovering_footwork_mult_for_cause(
-						str(tgt_ob.get("recovery_cause", "skip"))
+				feint_list_m = 0.0
+			else:
+				# Resistance not active — fall through to existing multiplicative damp chain below.
+				var pr_def: float = 0.0
+				if _tid_feint >= 0:
+					var tgt_feint: Dictionary = _EntityAccess.manager_get_combatant(manager, _tid_feint)
+					if not tgt_feint.is_empty():
+						var pa_live: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
+						pr_def = _DefenseChoice.defender_feint_listing_pr_def(
+							tgt_feint, _EntityAccess.id_int(c), move_id, c, pa_live
+						)
+				var read_m: float = lerpf(
+					1.0,
+					CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT,
+					pr_def
+				)
+				var stance_feint_m: float = _WeaponForm.mod(_EntityAccess.form_str(c), "ai_feint_listing")
+				feint_list_m = (
+					CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m * stance_feint_m
+				)
+				if _tid_feint >= 0:
+					var tgt_ob: Dictionary = _EntityAccess.manager_get_combatant(manager, _tid_feint)
+					if not tgt_ob.is_empty():
+						if _PassiveParry.is_off_balance(tgt_ob):
+							feint_list_m *= CombatConstants.AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT
+						elif _EntityAccess.state_str(tgt_ob) == CombatConstants.STATE_RECOVERING:
+							feint_list_m *= CombatConstants.ai_feint_listing_defender_recovering_footwork_mult_for_cause(
+								str(tgt_ob.get("recovery_cause", "skip"))
+							)
+						elif _EntityAccess.state_str(tgt_ob) == CombatConstants.STATE_WAITING:
+							feint_list_m *= CombatConstants.AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT
+				if stamina_ratio < CombatConstants.AI_FEINT_LISTING_STAMINA_GATE:
+					var st_feint_stamina: float = lerpf(
+						CombatConstants.AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO,
+						1.0,
+						stamina_ratio / CombatConstants.AI_FEINT_LISTING_STAMINA_GATE
 					)
-				elif _EntityAccess.state_str(tgt_ob) == CombatConstants.STATE_WAITING:
-					feint_list_m *= CombatConstants.AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT
-		if stamina_ratio < CombatConstants.AI_FEINT_LISTING_STAMINA_GATE:
-			var st_feint_stamina: float = lerpf(
-				CombatConstants.AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO,
-				1.0,
-				stamina_ratio / CombatConstants.AI_FEINT_LISTING_STAMINA_GATE
-			)
-			feint_list_m *= st_feint_stamina
-		var fid_atk: String = _EntityAccess.formation_id_str(c)
-		var doc_feint: String = _CombatDoctrine.doctrine_for_fid(manager, fid_atk)
-		if doc_feint == CombatConstants.DOCTRINE_PROBING:
-			feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_PROBING_MULT
-		elif doc_feint == CombatConstants.DOCTRINE_PINCH_CENTER:
-			feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT
-		elif doc_feint == CombatConstants.DOCTRINE_HOLD_LANE:
-			feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT
-		feint_list_m *= _feint_listing_opp_parry_deflect_pressure_mult(manager, c, tid_feint)
-		if tid_feint >= 0:
-			var tgt_yomi: Dictionary = _EntityAccess.manager_get_combatant(manager, tid_feint)
-			if not tgt_yomi.is_empty():
-				var dom_line: String = _Attention.dominant_attack_line_toward_defender(
-					tgt_yomi, combatant_id
-				)
-				var fp_est: String = CombatConstants.LINE_TO_DEFAULT_PART.get(dom_line, "head")
-				feint_list_m *= _Attention.yomi_feint_listing_mult(tgt_yomi, combatant_id, fp_est)
-				feint_list_m *= _Attention.yomi_parry_deflect_feint_listing_mult(tgt_yomi, combatant_id)
+					feint_list_m *= st_feint_stamina
+				var fid_atk: String = _EntityAccess.formation_id_str(c)
+				var doc_feint: String = _CombatDoctrine.doctrine_for_fid(manager, fid_atk)
+				if doc_feint == CombatConstants.DOCTRINE_PROBING:
+					feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_PROBING_MULT
+				elif doc_feint == CombatConstants.DOCTRINE_PINCH_CENTER:
+					feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT
+				elif doc_feint == CombatConstants.DOCTRINE_HOLD_LANE:
+					feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT
+				feint_list_m *= _feint_listing_opp_parry_deflect_pressure_mult(manager, c, _tid_feint)
+				if _tid_feint >= 0:
+					var tgt_yomi: Dictionary = _EntityAccess.manager_get_combatant(manager, _tid_feint)
+					if not tgt_yomi.is_empty():
+						var dom_line: String = _Attention.dominant_attack_line_toward_defender(
+							tgt_yomi, combatant_id
+						)
+						var fp_est: String = CombatConstants.LINE_TO_DEFAULT_PART.get(dom_line, "head")
+						feint_list_m *= _Attention.yomi_feint_listing_mult(tgt_yomi, combatant_id, fp_est)
+						feint_list_m *= _Attention.yomi_parry_deflect_feint_listing_mult(tgt_yomi, combatant_id)
 	var counter_tempo_m: float = _CounterTempo.counter_tempo_listing_weight_mult(
 		manager, combatant_id, a, move_id
 	)
@@ -620,6 +635,62 @@ static func _long_close_only_offense_menu(
 		if _MeleeListing.attempt_close_listed_for_pair(manager, c, tid, CombatConstants.DISTANCE_LONG):
 			return true
 	return false
+
+
+## MS-L8: post-strike weight bonus — apply multiplicative boost to strikes vs recently struck target.
+static func _post_strike_weight_mult(c: Dictionary, a: Dictionary, manager: Node) -> float:
+	if not CombatConstants.is_feature_ms_post_strike_enabled():
+		return 1.0
+	var strike_tick_val: float = float(c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TICK, 0.0))
+	if strike_tick_val <= 0.0:
+		return 1.0
+	var current_clock: float = manager.combat_clock
+	if absf(strike_tick_val - current_clock) >= CombatConstants.POST_STRIKE_MOMENTUM_CLOCK_TOLERANCE:
+		return 1.0
+	# Stamp is active — check if this action targets the struck combatant.
+	var struck_id: int = int(c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID, -1))
+	if struck_id < 0:
+		return 1.0
+	var tid: int = int(a.get("target_id", -1))
+	if tid != struck_id:
+		return 1.0
+	var mid: String = str(a.get("move_id", ""))
+	if CombatConstants.is_medical_move(mid):
+		return 1.0
+	if mid == CombatConstants.MOVE_ID_WAIT or mid == CombatConstants.MOVE_ID_FLEE:
+		return 1.0
+	if CombatConstants.is_formation_movement_move(mid):
+		return 1.0
+	# This is a strike/close vs the recently struck target — apply bonus.
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
+	if tgt.is_empty() or not _EntityAccess.alive_bool(tgt):
+		return 1.0
+	# Check if defender was forced to parry (has parry_against_id set).
+	var parry_forced: bool = tgt.has("parry_against_id") and int(tgt.get("parry_against_id", -1)) >= 0
+	if parry_forced:
+		return CombatConstants.POST_STRIKE_MOMENTUM_WEIGHT_BONUS
+	return CombatConstants.POST_STRIKE_HIT_WEIGHT_BONUS
+
+
+## Phase 2: Feint resistance gate — returns true when defender has high readiness and is not off-balance.
+## Swordmaster teaching: "Do not react to the feint - wait for the real attack."
+## Threshold >0.75 means: settled fighter with decent guard (>=0.80) rejects feints;
+## recovering fighter must be >89% through recovery (0.75 / 0.85 curve max).
+static func _is_feint_resistance_active(defender_id: int, manager: Node) -> bool:
+	if defender_id < 0:
+		return false
+	var defender: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+	if defender.is_empty():
+		return false
+	var readiness: float = _PassiveParry.get_passive_parry_readiness(defender)
+	if readiness <= 0.75:
+		return false
+	var state: String = _EntityAccess.state_str(defender)
+	if state == CombatConstants.STATE_WIND_UP:
+		return false
+	if _PassiveParry.is_off_balance(defender):
+		return false
+	return true
 
 
 ## When mental stack is on but no layer fired: high **`attention_load`** dampens offensive picks (still weighted, not hard block).

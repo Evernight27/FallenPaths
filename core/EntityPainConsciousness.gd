@@ -139,6 +139,13 @@ static func try_ambient_pain_shock_tick(entity: Node, delta: float) -> bool:
 	if entity._pain_shock_until_time >= 0.0 and now < entity._pain_shock_until_time:
 		entity._ambient_pain_shock_accum = 0.0
 		return false
+	# Ambient cooldown: prevent repeated ambient shock re-entry within cooldown window.
+	var last_ambient_shock: float = -1.0
+	if entity.has_method("_get_last_ambient_pain_shock_time"):
+		last_ambient_shock = float(entity.call("_get_last_ambient_pain_shock_time"))
+	if last_ambient_shock >= 0.0 and (now - last_ambient_shock) < _PainConscious.PAIN_SHOCK_AMBIENT_COOLDOWN_S:
+		entity._ambient_pain_shock_accum = 0.0
+		return false
 	var pain_value: float = get_effective_pain_for_thresholds(entity)
 	var shock_thresh: float = _PainConscious.get_pain_shock_threshold()
 	shock_thresh += (float(entity.endurance) - 100.0) * 0.02
@@ -160,6 +167,10 @@ static func try_ambient_pain_shock_tick(entity: Node, delta: float) -> bool:
 		return false
 	var duration: float = _PainConscious.get_pain_shock_duration_seconds(pain_value, 0.0)
 	entity._pain_shock_until_time = now + duration
+	if entity.has_method("_set_last_ambient_pain_shock_time"):
+		entity.call("_set_last_ambient_pain_shock_time", now)
+	else:
+		entity._last_ambient_pain_shock_time = now
 	entity._consciousness_dirty = true
 	var who: String = _session_entity_label(entity)
 	if _OperationalLog.play_session_is_editor_f5():
@@ -206,12 +217,12 @@ static func update_consciousness(entity: Node) -> void:
 	if old_consciousness != entity.consciousness or old_effective != entity.effective_consciousness:
 		if entity.has_method("notify_health_changed"):
 			entity.notify_health_changed()
-		else:
+		elif entity.has_signal("health_changed"):
 			entity.health_changed.emit()
 	if true_consciousness < _PainConscious.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
 		if entity.has_method("notify_creature_incapacitated"):
 			entity.notify_creature_incapacitated()
-		else:
+		elif entity.has_signal("creature_incapacitated"):
 			entity.creature_incapacitated.emit()
 
 # --- Performance modifiers ---

@@ -387,9 +387,17 @@ static func release_direct_pressure_on_part(entity: Node, part: String) -> void:
 			entity.direct_pressure_assist_held_by = null
 		entity.direct_pressure_part = ""
 		_EntityWounds.rebound_bleeding_after_pressure_release(entity, part)
+		log_medical_session(
+			"%s released direct pressure on %s (bleeding resumes without dressing)"
+			% [entity.name, part]
+		)
 	if entity.self_direct_pressure_part == part:
 		entity.self_direct_pressure_part = ""
 		_EntityWounds.rebound_bleeding_after_pressure_release(entity, part)
+		log_medical_session(
+			"%s released self pressure on %s (bleeding resumes without dressing)"
+			% [entity.name, part]
+		)
 
 ## True when **`assist_entity`** may add treatment-assist pressure without displacing **`direct_pressure_held_by`**.
 static func stack_assist_pressure_eligible(
@@ -605,20 +613,44 @@ static func apply_tourniquet(entity: Node, part: String, effectiveness: float = 
 		return false
 	effectiveness = clampf(effectiveness, 0.0, 1.5)
 	var success_chance: float = _Bleeding.TOURNIQUET_SUCCESS_BASE_CHANCE * effectiveness
+	# Escalating retry chance: +15% per prior failure on same part (medic adjusts placement).
+	var fail_count: int = 0
+	if entity.has_method("get_tourniquet_failures"):
+		fail_count = int(entity.get_tourniquet_failures(part, 0))
+	success_chance += _Bleeding.TOURNIQUET_RETRY_SUCCESS_BONUS * fail_count
 	success_chance = clampf(success_chance, 0.0, 1.0)
 	var success: bool = randf() < success_chance
 	if success:
 		clear_direct_pressure(entity)
 		var eff_clamped: float = clampf(effectiveness, 0.0, 1.0)
 		entity.tourniquet_applied[part] = { "applied_at": entity.get_game_time_seconds(), "effectiveness": eff_clamped }
+		if fail_count > 0:
+			if entity.has_method("get_tourniquet_failures"):
+				var fails_dict: Dictionary = entity.tourniquet_failures as Dictionary
+				fails_dict.erase(part)
+			elif entity.has_method("set_tourniquet_failures"):
+				entity.set_tourniquet_failures(part, 0)
 		var reduction_pct: float = eff_clamped * _Bleeding.TOURNIQUET_REDUCTION_AT_FULL * 100.0
 		log_medical_session(
 			"%s apply_tourniquet(%s) => success eff=%.2f => %.0f%% bleed reduction"
 			% [entity.name, part, eff_clamped, reduction_pct]
 		)
 	else:
+		# Partial bleed reduction on failure: failed TQ still partially occludes the vessel.
+		var partial_reduction: float = _Bleeding.TOURNIQUET_FAILED_REDUCTION_MULT * clampf(effectiveness, 0.0, 1.0) * _Bleeding.TOURNIQUET_REDUCTION_AT_FULL
+		for injury in entity.wounds.get(part, []):
+			var rate: float = float(injury.get("current_bleeding_rate", 0.0))
+			injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - partial_reduction))
+		# Track failure count for escalating retry chance.
+		if entity.has_method("get_tourniquet_failures"):
+			var fails_dict: Dictionary = entity.tourniquet_failures as Dictionary
+			fails_dict[part] = fail_count + 1
+			entity.tourniquet_failures = fails_dict
+		elif entity.has_method("set_tourniquet_failures"):
+			entity.set_tourniquet_failures(part, fail_count + 1)
 		log_medical_session(
-			"%s apply_tourniquet(%s) => failed (not tight enough); can retry" % [entity.name, part]
+			"%s apply_tourniquet(%s) => failed (not tight enough; %.0f%% partial occlusion); can retry"
+			% [entity.name, part, partial_reduction * 100]
 		)
 	return success
 
