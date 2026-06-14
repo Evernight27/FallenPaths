@@ -327,20 +327,15 @@ static func _fail(arr: PackedStringArray, msg: String) -> void:
 
 
 ## Headless `-s` scripts call `quit()` without flushing deferred deletes — track orphan nodes and `free()` at harness exit.
-static var _harness_live_nodes: Array = []
-
+## All node-lifecycle helpers forwarded to HarnessFixtures (single owner of `_harness_live_nodes`).
 
 static func _track_harness_node(n: Node) -> void:
-	if n != null and is_instance_valid(n):
-		_harness_live_nodes.append(n)
+	_Fixtures._track_harness_node(n)
 
 
 ## Final sweep for standalone `_new_entity` rows that omit explicit teardown.
 static func flush_harness_live_nodes() -> void:
-	for n in _harness_live_nodes.duplicate():
-		if n != null and is_instance_valid(n):
-			_free_harness_node(n)
-	_harness_live_nodes.clear()
+	_Fixtures.flush_harness_live_nodes()
 
 
 ## Expand WF: harness rows that set stance alias must sync **`weapon_form`** for picker/defense paths.

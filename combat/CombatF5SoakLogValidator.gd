@@ -35,7 +35,7 @@ static func validate(lines: PackedStringArray, profiles_override: PackedStringAr
 	var warnings: PackedStringArray = PackedStringArray()
 	for spec in tracks:
 		var id: String = str(spec.get("id", ""))
-		var result: Dictionary = _evaluate_track(normalized, spec)
+		var result: Dictionary = _evaluate_track(normalized, spec, warnings)
 		track_results[id] = result
 		if not bool(result.get("pass", false)):
 			if bool(spec.get("optional", false)):
@@ -127,7 +127,7 @@ static func _normalize_lines(lines: PackedStringArray) -> PackedStringArray:
 	return out
 
 
-static func _evaluate_track(normalized: PackedStringArray, spec: Dictionary) -> Dictionary:
+static func _evaluate_track(normalized: PackedStringArray, spec: Dictionary, warnings_out: PackedStringArray = PackedStringArray()) -> Dictionary:
 	var optional: bool = bool(spec.get("optional", false))
 	if spec.has("when_ok_at_least"):
 		var gate_id: String = str(spec.get("when_ok_at_least", ""))
@@ -135,6 +135,8 @@ static func _evaluate_track(normalized: PackedStringArray, spec: Dictionary) -> 
 		if gate_id == "tooltip_match_ok":
 			gate_needle = "tooltip_match=ok"
 		if _count_needle(normalized, gate_needle) < 1:
+			if not warnings_out.is_empty():
+				warnings_out.append("gate %s: skipped (absent — downstream tracks unvalidated)" % gate_id)
 			return {
 				"pass": true,
 				"detail": "skipped (no %s)" % gate_id,
@@ -178,6 +180,14 @@ static func _skip_needle_count_line(line: String) -> bool:
 	# Pasted validation report blocks must not re-count track needles.
 	if line.begins_with("--- FP_F5_SOAK_VALIDATION"):
 		return true
+	if line.begins_with("--- FP_HARNESS_REPORT ---"):
+		return true
+	if line.begins_with("--- FP_D001_SOAK_REPORT ---"):
+		return true
+	if line.begins_with("--- END FP_CALIBRATION_AUDIT ---"):
+		return true
+	if line.begins_with("--- END FP_F5_CAMP_SMOKES_BATCH ---"):
+		return true
 	if line.begins_with("[camp_") or line.begins_with("[wf_m3_"):
 		return true
 	if line.begins_with("[ii_envelop_") or line.begins_with("[wf_controlling"):
@@ -202,6 +212,7 @@ static func _count_regex(lines: PackedStringArray, pattern: String) -> int:
 		return 0
 	var re := RegEx.new()
 	if re.compile(pattern) != OK:
+		print(_OperationalLog.tag_line(_OperationalLog.TAG_WARN, "bad regex in track spec: %s" % pattern))
 		return 0
 	var n: int = 0
 	for line in lines:
