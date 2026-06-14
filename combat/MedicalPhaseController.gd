@@ -87,9 +87,10 @@ static func combat_resolution_blocked(manager: Node) -> bool:
 static func should_apply_phase_end(manager: Node, victor: String) -> bool:
 	if manager == null or victor.is_empty():
 		return false
-	if bool(manager.get("combat_resolution_closed")) and not bool(manager.medical_phase):
+	var _crc = manager.get("combat_resolution_closed")
+	if (_crc as bool) == true and manager.medical_phase != true:
 		return false
-	if not bool(manager.medical_phase):
+	if manager.medical_phase != true:
 		return true
 	return victor == str(manager.medical_phase_winner)
 
@@ -206,7 +207,7 @@ static func halt_losing_side_combat(manager: Node) -> void:
 		_CounterTempo.clear_window(c)
 		_CounterTempo.clear_riposte_chain(c)
 		_FlurryBind.clear(c)
-		if bool(c.get("combat_absent", false)) or _EntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+		if c.get("combat_absent", false) == true or _EntityAccess.state_str(c) == CombatConstants.STATE_FLED:
 			c["combat_absent"] = true
 			c.state = CombatConstants.STATE_FLED
 			_Footwork.reconcile_idle_offset(c)
@@ -216,7 +217,7 @@ static func halt_losing_side_combat(manager: Node) -> void:
 		_CounterTempo.clear_window(c)
 		_CounterTempo.clear_riposte_chain(c)
 		var had_fled: bool = (
-			bool(c.get("combat_absent", false))
+			c.get("combat_absent", false) == true
 			or _EntityAccess.state_str(c) == CombatConstants.STATE_FLED
 		)
 		_reset_fled_and_combat_absent(c)
@@ -668,7 +669,7 @@ static func _batch_medical_procedure_succeeded(result: Variant) -> bool:
 	if result == true:
 		return true
 	if result is Dictionary:
-		return bool((result as Dictionary).get("success", false))
+		return (result as Dictionary).get("success", false) == true
 	return false
 
 
@@ -736,7 +737,7 @@ static func _fast_forward_drive_sync(manager: Node, sim_state: Dictionary) -> St
 			float(sim_state["sim_cap"]),
 			INSTANT_FAST_FORWARD_MAX_ITERATIONS
 		)
-		if not bool(chunk.get("continue_loop", false)):
+		if chunk.get("continue_loop", false) != true:
 			break_reason = str(chunk.get("break_reason", "sim_cap"))
 			break
 	return break_reason
@@ -769,7 +770,7 @@ static func fast_forward_advance_chunk(
 				"break_reason": "iteration_cap",
 			}
 		var step: Dictionary = _instant_complete_fast_forward_step(manager, sim_state)
-		if not bool(step.get("continue_loop", true)):
+		if step.get("continue_loop", true) != true:
 			return {
 				"continue_loop": false,
 				"break_reason": "stagnant",
@@ -821,7 +822,7 @@ static func fast_forward_advance_time_slice(
 				"break_reason": "iteration_cap",
 			}
 		var step: Dictionary = _instant_complete_fast_forward_step(manager, sim_state)
-		if not bool(step.get("continue_loop", true)):
+		if step.get("continue_loop", true) != true:
 			return {
 				"continue_loop": false,
 				"break_reason": "stagnant",

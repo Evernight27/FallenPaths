@@ -853,7 +853,7 @@ static func _formation_has_blocking_formation_motion_for_compact(manager: Node, 
 		if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, c, fid):
 			continue
 		var st: String = _EntityAccess.state_str(c)
-		if st == CombatConstants.STATE_SWAP_RANK or st == CombatConstants.STATE_FALLING_BACK:
+		if st == CombatConstants.STATE_SWAP_RANK or st == CombatConstants.STATE_FALLING_BACK or st == CombatConstants.STATE_PLUG_FORWARD:
 			return true
 	return false
 

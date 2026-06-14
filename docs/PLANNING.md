@@ -172,7 +172,7 @@ Campaign **D-*** gates are **closed** in [`CompanyState`](world/CompanyState.gd)
 
 | Label | Meaning |
 |-------|---------|
-| **D-001…D-008** | Shipped combat/medical feature tracks (done) |
+| **D-001…D-007** | Shipped combat/medical feature tracks (done; D-008 removed) |
 | **Tier 0–6** | Shipped capability areas in LIVE_PATHS |
 | **Phase 0** | Headless + D-001 gate (same as **Gate**) |
 | **ii2b, ii7, …** | F5 soak scenario IDs (often used in **Playtest**) |

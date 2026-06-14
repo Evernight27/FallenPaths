@@ -24,11 +24,14 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 		_CampaignBridge.abort_contract_encounter_entry(world)
 		return
 	var player_node: Node = world.get_node_or_null("Character")
+	if enemies.is_empty():
+		_CampaignBridge.abort_contract_encounter_entry(world)
+		return
 	if _OperationalLog.is_play_session_active():
 		var roster: PackedStringArray = PackedStringArray()
 		for p in players:
 			if p is Node:
-				var role: String = "leader" if p.get("is_party_leader", false) else "member"
+				var role: String = "leader" if p.get("is_party_leader") == true else "member"
 				roster.append("%s(%s)" % [str(p.name), role])
 		_OperationalLog.play_combat(
 			"party_entering_combat count=%d [%s]" % [players.size(), ", ".join(roster)]
@@ -54,6 +57,8 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 	world.set_meta("_combat_enemies", enemies)
 
 	await world.get_tree().process_frame
+	if not is_instance_valid(world) or not world.is_inside_tree():
+		return
 	if battle.has_method("start"):
 		var party_formation: Dictionary = world.get_meta("party_formation", {}) if world.has_meta("party_formation") else {}
 		var enemy_formation: Dictionary = world.get_meta("enemy_formation", {}) if world.has_meta("enemy_formation") else {}
@@ -67,6 +72,8 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 		)
 		battle.start(players, enemies, party_formation, enemy_formation, combat_encounter)
 	await world.get_tree().process_frame
+	if not is_instance_valid(world) or not world.is_inside_tree():
+		return
 	if battle.has_signal("battle_ended"):
 		battle.connect("battle_ended", Callable(world, "_on_battle_ended"), CONNECT_ONE_SHOT)
 
@@ -106,7 +113,7 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -
 		elif soft_retry:
 			var kind: String = (
 				"Tutorial"
-				if bool(contract.get("tutorial", false))
+				if contract.get("tutorial", false) == true
 				else "Practice"
 			)
 			var detail: String = (

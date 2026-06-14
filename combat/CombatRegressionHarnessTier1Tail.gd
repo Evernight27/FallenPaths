@@ -2646,6 +2646,68 @@ static func _run_envelop_close_resolve_close_mop_up(failures: PackedStringArray)
 	CombatRegressionHarness._free_manager(mgr)
 
 
+## III-4 **3e**: depth fighter lists plug_forward during envelop mop-up (multi-rank formation).
+static func _run_plug_forward_listed_during_envelop_mop_up(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	# Multi-rank formation: 5 files x 2 ranks for player, 1 rank for enemy.
+	mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	# Kill 2 enemies to trigger envelop mop-up advantage.
+	var enemy_ids: Array = []
+	for c in mgr.combatants:
+		if _EntityAccess.is_living_on_side(c, "enemy"):
+			enemy_ids.append(_EntityAccess.id_int(c))
+	for k in range(mini(2, enemy_ids.size())):
+		CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
+	if not _CombatDoctrine.envelop_mop_up_active(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "plug_forward_mop_up: expected envelop mop-up active")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	# Find a depth fighter (rank 1) in file 0.
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	if rear.is_empty():
+		CombatRegressionHarness._fail(failures, "plug_forward_mop_up: missing rank-1 fixture")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	rear["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(rear))
+	if not _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_PLUG_FORWARD):
+		CombatRegressionHarness._fail(
+			failures,
+			"plug_forward_mop_up: want plug_forward listed for depth fighter during envelop mop-up"
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## III-4 **3e**: plug_forward NOT listed when envelop mop-up is inactive.
+static func _run_plug_forward_not_listed_without_mop_up(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 5:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	# Equal force — no mop-up advantage. 3 files x 2 ranks.
+	mgr.start({"files": 3, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 2, "density": "normal"})
+	if _CombatDoctrine.envelop_mop_up_active(mgr, "player"):
+		CombatRegressionHarness._fail(failures, "plug_forward_no_mop_up: mop-up should not be active with equal forces")
+	var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+	if rear.is_empty():
+		CombatRegressionHarness._fail(failures, "plug_forward_no_mop_up: missing rank-1 fixture")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	rear["gauge"] = 100.0
+	var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(rear))
+	if _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_PLUG_FORWARD):
+		CombatRegressionHarness._fail(
+			failures,
+			"plug_forward_no_mop_up: plug_forward must NOT list when envelop mop-up inactive"
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
 static func _run_envelop_mop_up_rotate_suppressed(failures: PackedStringArray) -> void:
 	var mgr: Node = _harness_7v3_mop_up_mgr()
 	var wing: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
@@ -4663,6 +4725,53 @@ static func _run_pincer_flank_omits_close_listing_at_close_band(
 		CombatRegressionHarness._fail(
 			failures, "pincer_close_band: flank wing LONG should still list attempt_close"
 		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## Pincer flank wing: close-arc spread damp — preferred enemy gets 1.0, offset enemies scale down.
+static func _run_pincer_close_arc_spread_mult(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	for _i in 7:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	for _j in 3:
+		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+	mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
+	var wing: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+	var pref_enemy: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 0)
+	var mid_enemy: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 1)
+	var off_enemy: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "enemy", 0, 2)
+	if wing.is_empty() or pref_enemy.is_empty() or mid_enemy.is_empty() or off_enemy.is_empty():
+		CombatRegressionHarness._fail(failures, "pincer_arc_spread: missing wing/enemy fixtures")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var m_pref: float = _CombatDoctrine.pincer_close_arc_spread_mult(mgr, wing, pref_enemy)
+	var m_mid: float = _CombatDoctrine.pincer_close_arc_spread_mult(mgr, wing, mid_enemy)
+	var m_off: float = _CombatDoctrine.pincer_close_arc_spread_mult(mgr, wing, off_enemy)
+	if not is_equal_approx(m_pref, 1.0):
+		CombatRegressionHarness._fail(
+			failures,
+			"pincer_arc_spread: preferred enemy want 1.0 got %.4f" % m_pref
+		)
+	if m_mid >= m_pref:
+		CombatRegressionHarness._fail(
+			failures,
+			"pincer_arc_spread: mid-file offset damp should be < preferred (got %.4f >= %.4f)" % [m_mid, m_pref]
+		)
+	if m_off >= m_mid:
+		CombatRegressionHarness._fail(
+			failures,
+			"pincer_arc_spread: off-file offset damp should be < mid (got %.4f >= %.4f)" % [m_off, m_mid]
+		)
+	# Non-wing combatant gets 1.0 always.
+	var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+	if not center.is_empty():
+		var m_center: float = _CombatDoctrine.pincer_close_arc_spread_mult(mgr, center, pref_enemy)
+		if not is_equal_approx(m_center, 1.0):
+			CombatRegressionHarness._fail(
+				failures,
+				"pincer_arc_spread: center role want 1.0 got %.4f" % m_center
+			)
 	CombatRegressionHarness._free_manager(mgr)
 
 
@@ -8240,6 +8349,8 @@ static func run_early(failures: PackedStringArray) -> void:
 	_run_envelop_close_listed_mid_mop_up(failures)
 	_run_envelop_close_resolve_mid_mop_up(failures)
 	_run_envelop_close_resolve_close_mop_up(failures)
+	_run_plug_forward_listed_during_envelop_mop_up(failures)
+	_run_plug_forward_not_listed_without_mop_up(failures)
 	_run_envelop_focus_ai_weight_damp_mop_up(failures)
 	_run_attempt_close_ai_weight_mid_mop_up(failures)
 	_run_envelop_mop_up_rotate_suppressed(failures)
@@ -8284,6 +8395,7 @@ static func run_early(failures: PackedStringArray) -> void:
 	_run_pincer_wing_commitment_propagates_from_center(failures)
 	_run_pincer_preferred_flank_target_mult(failures)
 	_run_pincer_flank_omits_close_listing_at_close_band(failures)
+	_run_pincer_close_arc_spread_mult(failures)
 	_run_posture_mirror_symmetric(failures)
 	_run_morale_cohesion_affects_line_cohesion(failures)
 	_run_engagement_classifier_multi_seed(failures)

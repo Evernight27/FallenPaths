@@ -89,7 +89,7 @@ static func _depth_lane_open_resolved(
 	zone_geometry_fid: String = ""
 ) -> bool:
 	if depth_lane_open_cache != null:
-		return bool(depth_lane_open_cache)
+		return depth_lane_open_cache == true
 	var fid: String = zone_geometry_fid
 	if fid.is_empty():
 		fid = _ZoneOfControl.zone_geometry_fid_str(manager, actor)
@@ -315,7 +315,7 @@ static func engagement_mode_targeting_mult(manager: Node) -> float:
 
 
 ## Tier 1.6 breadth: listed hostile weight vs **target** formation `engagement_posture` + `line_cohesion` (enemy LINE wall solid → slight hedge; OPEN/DUEL → small press).
-## Uses **`formation_for_combatant_cached`** (home-line **`formation_id`** after D-008).
+## Uses **`formation_for_combatant_cached`** (home-line **`formation_id`**).
 ## Optional **`formation_dict_cache`**: **`zone_geometry_line_context(manager, opp).formation`** when the caller already resolved it (e.g. hostile pair path).
 static func opponent_formation_targeting_mult(
 	manager: Node, opp: Dictionary, formation_dict_cache: Variant = null
@@ -408,6 +408,7 @@ static func hostile_pair_targeting_weight_mult(
 	var w: float = soft_geometry_score(manager, atk, opp, _PairGeometry.cached_eff_dist(pair_geom))
 	w *= pinch_score_mult(manager, atk, opp, depth_lane_atk, fid_atk)
 	w *= pincer_preferred_flank_target_mult(manager, atk, opp)
+	w *= _Doctrine.pincer_close_arc_spread_mult(manager, atk, opp)
 	w *= hold_lane_mult(manager, atk, opp, depth_lane_atk, fid_atk)
 	w *= file_opposed_mult(manager, atk, opp, depth_lane_atk, fid_atk)
 	w *= commitment_match_mult(atk, _EntityAccess.id_int(opp))
@@ -499,8 +500,8 @@ static func ordered_melee_opponents(
 	raw.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var aid: int = _EntityAccess.id_int(a)
 		var bid: int = _EntityAccess.id_int(b)
-		var afo: bool = bool(file_opposed_by_id.get(aid, false))
-		var bfo: bool = bool(file_opposed_by_id.get(bid, false))
+		var afo: bool = file_opposed_by_id.get(aid, false) == true
+		var bfo: bool = file_opposed_by_id.get(bid, false) == true
 		if afo != bfo:
 			return afo
 		var sa: float = float(weights_by_id.get(aid, 1.0))

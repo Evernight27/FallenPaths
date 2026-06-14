@@ -26,7 +26,7 @@ alwaysApply: true
 
 ## Combat code (Combat stream)
 
-- `combat/CombatManager.gd` — thin orchestrator; `CombatFormationSetup` seeds; `get_health_entity` → `CombatantEntityAccess`; formation → `ZoneOfControl.formation_dict_for_zone_geometry`. **D-008:** no crash/intrusion; **`attempt_close`** live.
+- `combat/CombatManager.gd` — thin orchestrator; `CombatFormationSetup` seeds; `get_health_entity` → `CombatantEntityAccess`; formation → `ZoneOfControl.formation_dict_for_zone_geometry`. **`attempt_close`** live.
 - Extend smallest `combat/*.gd` per LIVE_PATHS. **III-4 Track A ☑** shipped — maintain `EngagementOpposition` + harness; **3b** = Skirmish **`rotate_file` only**; **3e** = post-rout mop-up (`envelop_mop_up_active`, rotate suppress, MID close). Pick: list → `MentalStackDecider` → `pick_weighted`; defense is strike-time (`DefenseChoiceResolver`), not turn pick. **Footing:** [`#wf-footing-improvement-backlog`](docs/LIVE_PATHS.md#wf-footing-improvement-backlog) · [`#wf-footing-doc-map`](docs/LIVE_PATHS.md#wf-footing-doc-map) · Tier 4.4 PA [`#wf-tier-44-pa`](docs/LIVE_PATHS.md#wf-tier-44-pa) · **`assign_form`** → home **`guard_line`**; **MS-L4** ≠ **WF-L4** [`#wf-layer-labels`](docs/LIVE_PATHS.md#wf-layer-labels). Harness: `CombatRegressionHarness.gd` + tails; headless **`ii_envelop_mopup`**.
 
 ## GDScript const forwarding limitation

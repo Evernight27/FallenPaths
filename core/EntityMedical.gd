@@ -29,11 +29,11 @@ static func log_medical_session(msg: String) -> void:
 # --- Shared wound treatment (bandage, packing) ---
 
 static func part_is_bandaged(entity: Node, part: String) -> bool:
-	return bool(entity.bandaged_parts.get(part, false))
+	return entity.bandaged_parts.get(part, false) == true
 
 
 static func part_is_packed(entity: Node, part: String) -> bool:
-	return bool(entity.packed_parts.get(part, false))
+	return entity.packed_parts.get(part, false) == true
 
 
 ## TCCC: compressible hemorrhage needs sustained compression before dress/pack while still actively bleeding.
@@ -119,7 +119,7 @@ static func get_treatment_channel_count(entity: Node, part: String) -> int:
 		if sr.is_empty():
 			sr = "_default"
 		channels[sr] = true
-		if bool(injury.get("is_stump", false)) or bool(injury.get("is_arterial", false)):
+		if injury.get("is_stump", false) == true or injury.get("is_arterial", false) == true:
 			extra_severe += 1
 		else:
 			var sev: String = str(injury.get("severity", _Bleeding.SEVERITY_MODERATE))
@@ -259,7 +259,7 @@ static func injury_meets_packing_severity(part: String, injury: Dictionary) -> b
 	var rank: int = _wound_severity_rank(str(injury.get("severity", _Bleeding.SEVERITY_MODERATE)))
 	var min_rank: int = _wound_severity_rank(_Bleeding.PACKING_MIN_SEVERITY)
 	if _injury_in_strict_packing_sub_region(part, injury):
-		if bool(injury.get("is_arterial", false)):
+		if injury.get("is_arterial", false) == true:
 			return rank >= min_rank
 		return rank >= _wound_severity_rank(_Bleeding.PACKING_STRICT_SUB_REGION_MIN_SEVERITY)
 	return rank >= min_rank

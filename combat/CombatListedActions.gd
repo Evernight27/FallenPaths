@@ -3,6 +3,11 @@ extends RefCounted
 
 ## Shared scans over **`get_available_actions`** / **`build()`** output arrays (harness + UI hints).
 
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
+const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
+const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
+
 
 static func _entry(raw: Variant) -> Dictionary:
 	if raw is Dictionary:
@@ -262,3 +267,37 @@ static func filter_actions(actions: Array, keep_predicate: Callable) -> Array:
 		if keep_predicate.call(a):
 			out.append(a)
 	return out
+
+
+## LONG band, close listed but no melee strikes — mapped rank-0 band-lag shuffle (not bind-close wings).
+static func long_close_only_offense_menu(
+	manager: Node, c: Dictionary, combatant_id: int, all_actions: Array
+) -> bool:
+	if manager == null or c.is_empty() or combatant_id < 0 or all_actions.is_empty():
+		return false
+	if action_list_has_hostile_melee_strike(all_actions, combatant_id):
+		return false
+	if _EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
+		return false
+	var fid: String = _EntityAccess.formation_id_str(c)
+	if _CombatDoctrine.envelop_mop_up_active(manager, fid):
+		return false
+	if _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid):
+		return false
+	if _EngagementOpposition.wing_lacks_mapped_opposition(manager, c):
+		return false
+	if not action_list_has_hostile_strike(all_actions, combatant_id):
+		return false
+	for raw in all_actions:
+		var a: Dictionary = _entry(raw)
+		if a.is_empty():
+			continue
+		if str(a.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+			continue
+		var tid: int = int(a.get("target_id", -1))
+		if tid < 0:
+			continue
+		if _EntityAccess.distance_to_opponent_band(c, tid, "") != CombatConstants.DISTANCE_LONG:
+			continue
+		return true
+	return false

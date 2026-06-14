@@ -129,7 +129,7 @@ static func format_party_role_suffix(member: Dictionary) -> String:
 	if member.get("is_party_leader", false):
 		return " · Leader"
 	var node_ref: Variant = member.get("node_ref")
-	if is_instance_valid(node_ref) and node_ref is Node and node_ref.get("is_party_leader", false):
+	if is_instance_valid(node_ref) and node_ref is Node and node_ref.get("is_party_leader") == true:
 		return " · Leader"
 	return ""
 
@@ -235,7 +235,7 @@ static func member_needs_triage_attention(member: Dictionary) -> bool:
 	var bleed: float = float(member.get("total_bleeding_rate", 0.0))
 	if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
 		return true
-	return bool(member.get("has_untreated_wounds", false))
+	return member.get("has_untreated_wounds", false) == true
 
 
 ## Lower = more urgent (undressed clot = −1; active bleed = ETA seconds to danger band).

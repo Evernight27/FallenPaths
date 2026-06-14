@@ -21,7 +21,7 @@
 | **Exp-3 target** | Company arc: hire replacements, larger map, richer afflictions | Roster growth + map scale without new combat tiers |
 | **Exp-4+ target** | 8–12 h runs; armor/initiative/gap-column where designed | **IV-7 ☑** · **IV-8 ☑** · IV-9 (last) · optional town layer |
 
-**Design locks (unchanged):** AI picks moves and targets via mental stack + weights — **no** per-click target UI ([`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped)). Bleed retune · BMI (**F1**) · organ surgery · closed IV-INTR unless user asks.
+**Design locks (unchanged):** AI picks moves and targets via mental stack + weights — **no** per-click target UI ([`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped)). Bleed retune · BMI (**F1**) · organ surgery · IV-INTR removed.
 
 ---
 
@@ -199,7 +199,7 @@ flowchart LR
 | 2 | **IV-7b** | **Shipped ☑** | Stamina engage floor for AI offense | **`AI_STAMINA_ENGAGE_FLOOR_RATIO`** · **`_run_iv7b_stamina_engage_floor_suite`** ☑ 2026-06-08 |
 | 3 | **IV-8** | **Shipped ☑** | Combat-start initiative ordering | **`FEATURE_INITIATIVE_ORDER`** · **`_run_iv8_initiative_order_*`** |
 | 4 | **IV-10** | **Shipped ☑** | Subregion combat multipliers | **`FEATURE_SUBREGION_COMBAT_MULT`** · **`_run_iv10_subregion_combat_mult_*`** |
-| 5 | **IV-1** | **Archived ☑** | Plug vs incursion contest review | **Wontfix** · **`iv1_plug_incursion_doc_sync_line`** · **`_run_iv1_plug_incursion_review_suite`** ☑ 2026-06-08 |
+| 5 | **IV-1** | **Archived ☑** | Plug vs incursion contest review — removed (D-008); harness deleted |
 | 6 | **IV-11** | **Shipped ☑** | Leader formation commands + bridge roster | **`FEATURE_LEADER_FORMATION_COMMAND`** · slices 1–10 (player + enemy commander · pinch outnumber AI · F5 trace) · **`_run_iv11_*`** ☑ 2026-06-08 |
 | 6b | **IV-3** | **Shipped ☑** | True-duel classifier edge cases | **`iv3_doc_sync_line`** · **`_run_iv3_true_duel_classifier_suite`** ☑ 2026-06-08 |
 | 7 | **IV-9** | **Shipped ☑** | Gap-column slot topology (III-4 Track B) | **`FEATURE_GAP_COLUMN_TOPOLOGY`** default off · **`_run_iv9_gap_column_*`** ☑ 2026-06-08 |
@@ -208,7 +208,7 @@ flowchart LR
 
 **IV-9 ☑:** gap-column shipped behind flag (default off) — enable for playtest when ready; see [III-4 Track B](LIVE_PATHS.md#iii-4--engagement-geometry-audit).
 
-**Tier 4.4 spatial Expand ☑ (2026-06-08):** slices 1–3 shipped behind **`FEATURE_T44_SPATIAL_*`** (default off) — [`#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog) · harness **`_run_t44_spatial_*`**. **Still deferred:** world-position locomotion / file shuffle tied to blade line — anchor [#tier-44-spatial-footwork-deferred](#tier-44-spatial-footwork-deferred).
+**Tier 4.4 spatial Expand ☑ (2026-06-08):** slices 1–3 shipped behind **`FEATURE_T44_SPATIAL_*`** (default on) — [`#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog) · harness **`_run_t44_spatial_*`**. **Still deferred:** world-position locomotion / file shuffle tied to blade line — anchor [#tier-44-spatial-footwork-deferred](#tier-44-spatial-footwork-deferred).
 
 **Phase exit ☑ (2026-06-08):** IV-7/8 + IV-9–13 harness green; flag-gated rows default **off** until playtest enable.
 
@@ -272,7 +272,7 @@ Treat Exp-5 as a **backlog pool** — pull items only after Exp-3 company loop f
 ## 6. Frozen / wontfix (unless user asks)
 
 - Player per-target picking
-- **IV-INTR** (D-008 line crash)
+- **IV-INTR** (removed — line crash/D-008)
 - P3b material sim expansion
 - Bleed / **`BleedingConstants`** retune
 - BMI **F1**
@@ -308,7 +308,7 @@ Log new product gates and completed phases here; mirror campaign gates in [`SHIP
 
 - **2026-06-08** — **Exp-3 ☑** — XCamp-3.1–3.8 shipped (hire, 5×5 map, deck refresh, affliction catalog, tavern mood, provisions, burial, MS-CAMP mood→form); `CompanyStateChecks` **406** — Campaign stream maintain (economy UX copy).
 - **2026-06-08** — **Exp-0.2** ☑ — optional Camp §8 F5 tracks (steps 4, 8–10) PASS on Camp-5 human paste + `validate_camp_optional_smokes.ps1` 8/8; `human_signoff: READY` — Playtest stream.
-- **2026-06-08** — **Exp plan** — post-EA roadmap published; EA baseline Camp-5 ☑ 2026-06-07.
+- **2026-06-08** — **Exp plan** — post-EA roadmap published; EA baseline Camp-5 ☑ 2026-06-07. IV-1 / D-008 harness and sync line removed (archived wontfix).
 - **2026-06-08** — **III-3** ☑ deflect/bind calibration harness — **`_run_iii3_deflect_bind_calibration_suite`** · Playtest **ii2b** maintain — Expand stream.
 - **2026-06-08** — **p4d** ☑ parry/bind doc ↔ code sync — **`p4d_parry_bind_doc_sync_line`** · **`_run_p4d_parry_bind_doc_code_parity_suite`** — Expand stream.
 - **2026-06-08** — **p4c** ☑ numeric auto-pinch — **`numeric_superiority_for_pinch`** · **`_run_p4c_numeric_superiority_auto_pinch`** — Expand stream.

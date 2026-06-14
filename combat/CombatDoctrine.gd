@@ -257,6 +257,33 @@ static func preferred_pincer_flank_enemy_id(manager: Node, wing: Dictionary) -> 
 	return best_id
 
 
+## III-4 **3e**: spread damp for pincer flank wings — penalizes targeting enemies far from preferred outer-file.
+## Returns a multiplicative weight: `1.0` when not a wing or no preferred enemy; scales down with file distance.
+static func pincer_close_arc_spread_mult(manager: Node, actor: Dictionary, opp: Dictionary) -> float:
+	if manager == null or actor.is_empty() or opp.is_empty():
+		return 1.0
+	if pincer_role_for_combatant(manager, actor) != PINCER_ROLE_FLANK_WING:
+		return 1.0
+	var pref: int = preferred_pincer_flank_enemy_id(manager, actor)
+	if pref < 0:
+		return 1.0
+	var opp_file: int = _EntityAccess.file_int(opp)
+	var our_form: Dictionary = _FormationSlots.formation_record_for_manager(
+		manager, _EntityAccess.formation_id_str(actor)
+	)
+	if our_form.is_empty():
+		return 1.0
+	var pref_enemy: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, pref)
+	if pref_enemy.is_empty():
+		return 1.0
+	var pref_file: int = _EntityAccess.file_int(pref_enemy)
+	var file_offset: int = absi(opp_file - pref_file)
+	if file_offset <= 0:
+		return 1.0
+	var mult: float = pow(CombatConstants.DOCTRINE_PINCER_CLOSE_ARC_SPREAD_MULT, float(file_offset))
+	return clampf(mult, 0.1, 1.0)
+
+
 static func _pincer_wing_has_active_commitment(manager: Node, c: Dictionary) -> bool:
 	var tid: int = int(c.get("doctrine_target_commit_id", -1))
 	if tid < 0:

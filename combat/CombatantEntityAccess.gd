@@ -524,9 +524,9 @@ static func leader_register_flags_from_node(node: Node, side: String) -> Diction
 	var party_leader := false
 	var enemy_leader := false
 	if node != null:
-		if side == "player" and node.get("is_party_leader", false):
+		if side == "player" and node.get("is_party_leader") == true:
 			party_leader = true
-		elif side == "enemy" and node.get("is_enemy_leader", false):
+		elif side == "enemy" and node.get("is_enemy_leader") == true:
 			enemy_leader = true
 	return {"is_party_leader": party_leader, "is_enemy_leader": enemy_leader}
 
@@ -668,7 +668,8 @@ static func id_int(combatant: Dictionary, default_id: int = -1) -> int:
 
 ## `alive` flag; uses `default_alive` when missing (`false` for combat rules; `true` when absent should count as living).
 static func alive_bool(combatant: Dictionary, default_alive: bool = false) -> bool:
-	return bool(combatant.get("alive", default_alive))
+	var v = combatant.get("alive", default_alive)
+	return v == true
 
 
 ## `state` string; uses `default_state` when missing.

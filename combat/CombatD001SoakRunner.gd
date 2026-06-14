@@ -232,7 +232,7 @@ static func _run_preset(preset_id: String) -> Dictionary:
 
 ## **II-5c** headless: **`BattleUIUpdater.gauge_label_text_for_combatant`** (`Stm` / `Ready` / `Exh` / `Grd` in one row).
 ## **II-5a**: formation **`FP_COMBAT`** stamp + **`ui_hint`** on 4×4 line (player rank-0 turn-ready).
-## **II-5b** / **D-008**: aggregated preset captures must not contain live crash-through log vocabulary.
+## **II-5b**: aggregated preset captures must not contain stale crash/intrusion log vocabulary.
 ## II-0 **#7**: enter medical phase, list pressure on bleeding chest (live manager path).
 static func _run_ii7_medical_phase_smoke() -> Dictionary:
 	_OperationalLog.play_combat(
@@ -511,7 +511,7 @@ static func _run_ii5b_log_policy_checks(lines: PackedStringArray) -> Dictionary:
 		"ok": ok,
 		"summary": "ok" if ok else ", ".join(fail),
 		"checks": check_out,
-		"notes": "D-008 production policy across all preset sims",
+		"notes": "stale crash/intrusion log vocabulary not present in preset sims",
 	}
 
 

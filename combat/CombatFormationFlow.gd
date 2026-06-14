@@ -200,7 +200,7 @@ static func apply_hit_reaction_if_needed(manager: Node, combatant_id: int, inten
 	if c.is_empty() or not _EntityAccess.alive_bool(c):
 		return
 	var st: String = _EntityAccess.state_str(c)
-	if st != CombatConstants.STATE_SWAP_RANK and st != CombatConstants.STATE_FALLING_BACK:
+	if st != CombatConstants.STATE_SWAP_RANK and st != CombatConstants.STATE_FALLING_BACK and st != CombatConstants.STATE_PLUG_FORWARD:
 		return
 	if intensity >= CombatConstants.FORMATION_HIT_CANCEL_INTENSITY:
 		cancel_formation_move_from_hit(manager, combatant_id, intensity)
@@ -212,7 +212,7 @@ static func apply_hit_reaction_if_needed(manager: Node, combatant_id: int, inten
 		var p = _EntityAccess.manager_get_combatant(manager, pid)
 		if not p.is_empty() and _EntityAccess.alive_bool(p):
 			var pst: String = _EntityAccess.state_str(p)
-			if pst == CombatConstants.STATE_SWAP_RANK or pst == CombatConstants.STATE_FALLING_BACK:
+			if pst == CombatConstants.STATE_SWAP_RANK or pst == CombatConstants.STATE_FALLING_BACK or pst == CombatConstants.STATE_PLUG_FORWARD:
 				p.state_duration += extra
 	bump_resolve_events(manager, combatant_id, extra)
 
@@ -227,7 +227,7 @@ static func cancel_formation_move_from_hit(
 	if c.is_empty() or not _EntityAccess.alive_bool(c):
 		return
 	var st: String = _EntityAccess.state_str(c)
-	if st != CombatConstants.STATE_SWAP_RANK and st != CombatConstants.STATE_FALLING_BACK:
+	if st != CombatConstants.STATE_SWAP_RANK and st != CombatConstants.STATE_FALLING_BACK and st != CombatConstants.STATE_PLUG_FORWARD:
 		return
 	var pid: int = int(c.get("formation_move_partner_id", -1))
 	_EventScheduler.cancel_pending_formation_events_for_combatant(manager, combatant_id)
@@ -415,7 +415,7 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
 
 
 static func pair_state_ok(c) -> bool:
-	return not c.is_empty() and _EntityAccess.state_str(c) in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]
+	return not c.is_empty() and _EntityAccess.state_str(c) in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK, CombatConstants.STATE_PLUG_FORWARD]
 
 
 static func abort_pair(manager: Node, init, partner, reason: String = "") -> void:
@@ -683,6 +683,127 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
 	manager.notify_formation_changed(fid)
 	manager._reschedule_back_rank_turns(fid)
 	_EventScheduler.reschedule_same_file_depth_after_rotate_file(manager, fid, f0, f1)
+	_EventScheduler.schedule_action_ready_for_combatant(manager, init)
+	_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
+
+
+## III-4 **3e**: depth fighter steps forward into rank-0 during envelop mop-up.
+static func start_plug_forward(manager: Node, initiator_id: int, partner_id: int) -> void:
+	if MedicalPhaseController.combat_resolution_blocked(manager):
+		return
+	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
+	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
+	if init.is_empty() or partner.is_empty():
+		return
+	if not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
+		return
+	if _EntityAccess.formation_id_str(init) != _EntityAccess.formation_id_str(partner):
+		return
+	var fid: String = _EntityAccess.formation_id_str(init)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+	if formation.is_empty():
+		return
+	var r_init: int = _EntityAccess.rank_int(init)
+	var r_partner: int = _EntityAccess.rank_int(partner)
+	# Depth fighter (rank > 0) plugs into rank-0 partner's slot.
+	if r_init <= r_partner:
+		return
+	var f: int = _EntityAccess.file_int(init)
+	# Partner must be rank-0 in the same file.
+	if r_partner != 0 or _EntityAccess.file_int(partner) != f:
+		return
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+	# Target slot (rank-0, same file) must be empty or occupied by the partner we're swapping with.
+	var target_slot_id: int = _FormationSlots.slot_primary_id(slots, Vector2i(r_partner, f))
+	if target_slot_id != -1 and target_slot_id != partner_id:
+		return
+	var duration: float = CombatConstants.PLUG_FORWARD_DURATION_S
+	init["formation_move_partner_id"] = partner_id
+	partner["formation_move_partner_id"] = initiator_id
+	_scrub_idle_footwork_for_formation_move(init)
+	_scrub_idle_footwork_for_formation_move(partner)
+	init.state = CombatConstants.STATE_PLUG_FORWARD
+	init.state_timer = 0.0
+	init.state_duration = duration
+	partner.state = CombatConstants.STATE_PLUG_FORWARD
+	partner.state_timer = 0.0
+	partner.state_duration = duration
+	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(init))
+	_FormationSlots.slot_set_single(slots, Vector2i(r_partner, f), _EntityAccess.id_int(partner))
+	if CombatDebug.flow_verbose_enabled():
+		var n0: String = _EntityAccess.get_display_name(init, initiator_id)
+		var n1: String = _EntityAccess.get_display_name(partner, partner_id)
+		CombatDebug.flow_log(
+			"plug_forward_start %s (rank%d) -> %s (rank%d) (%.2fs)"
+			% [n0, r_init, n1, r_partner, duration]
+		)
+	_EntityAccess.manager_schedule_event(manager, {
+		"type": CombatConstants.EVENT_PLUG_FORWARD_RESOLVE,
+		"combatant_id": initiator_id,
+		"resolve_at": _EntityAccess.combat_clock_plus(manager, duration),
+		"data": {"partner_id": partner_id}
+	})
+
+
+static func handle_plug_forward_resolve(manager: Node, ev: Dictionary) -> void:
+	var initiator_id: int = ev.get("combatant_id", -1)
+	var partner_id: int = -1
+	var ev_data: Variant = ev.get("data", null)
+	if typeof(ev_data) == TYPE_DICTIONARY:
+		partner_id = int((ev_data as Dictionary).get("partner_id", -1))
+	if _formation_resolve_medical_phase_skip(manager, initiator_id, partner_id):
+		return
+	var init = _EntityAccess.manager_get_combatant(manager, initiator_id)
+	var partner = _EntityAccess.manager_get_combatant(manager, partner_id)
+	if init.is_empty() or partner.is_empty():
+		return
+	if not _EntityAccess.alive_bool(init) or not _EntityAccess.alive_bool(partner):
+		abort_pair(manager, init, partner, "plug_forward_resolve_null_or_dead")
+		return
+	var fid: String = _EntityAccess.formation_id_str(init)
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+	if formation.is_empty():
+		abort_pair(manager, init, partner, "plug_forward_resolve_formation_empty fid=%s" % fid)
+		return
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+	var f: int = _EntityAccess.file_int(init)
+	var r_init_old: int = _EntityAccess.rank_int(init)
+	var r_partner_old: int = _EntityAccess.rank_int(partner)
+	# Swap ranks in the same file: init goes to rank-0, partner goes to init's old rank.
+	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(init))
+	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(partner))
+	init.rank = r_partner_old
+	partner.rank = r_init_old
+	repack_lane_offset_after_rank_file_change(init)
+	repack_lane_offset_after_rank_file_change(partner)
+	_FormationSlots.slot_set_single(
+		slots,
+		Vector2i(r_partner_old, f),
+		_EntityAccess.id_int(init)
+	)
+	_FormationSlots.slot_set_single(
+		slots,
+		Vector2i(r_init_old, f),
+		_EntityAccess.id_int(partner)
+	)
+	_FormationSlots.refresh_gap_column_topology(formation)
+	init.erase("formation_move_partner_id")
+	partner.erase("formation_move_partner_id")
+	_clear_shuffle_doctrine_commitments([init, partner])
+	_set_combatant_waiting(init)
+	_set_combatant_waiting(partner)
+	if CombatDebug.flow_verbose_enabled():
+		var _n0: String = _EntityAccess.get_display_name(init, initiator_id)
+		var _n1: String = _EntityAccess.get_display_name(partner, partner_id)
+		CombatDebug.flow_log(
+			"plug_forward_resolve %s (rank%d) -> %s (rank%d) complete"
+			% [_n0, r_partner_old, _n1, r_init_old]
+		)
+	manager.emit_signal("action_resolved", initiator_id, partner_id, {"outcome": "plug_forward_complete", "dmg": 0, "died": false})
+	manager._recompute_zoc_and_distance()
+	manager.notify_formation_changed(fid)
+	manager._reschedule_back_rank_turns(fid)
+	_EventScheduler.reschedule_same_file_depth_after_rotate_file(manager, fid, f, f)
 	_EventScheduler.schedule_action_ready_for_combatant(manager, init)
 	_EventScheduler.schedule_action_ready_for_combatant(manager, partner)
 

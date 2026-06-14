@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Close attempts (`MOVE_ID_ATTEMPT_CLOSE`): close tactical range from **LONG** (or MID/CLOSE under III-4 **3e** envelop) so melee can threaten.
 ## Footing: reads **`form_str`** for close/evasion pressure only — not **`guard_line`** or Tier 4.4 PA. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-assign-form-contract`**.
-## Not line-crash / breach fiction (removed D-008). Listing: `CombatMeleeListing`; resolve: `CombatResolveAction` → `CombatManager._resolve_close_attempt`.
+## Listing: `CombatMeleeListing`; resolve: `CombatResolveAction` → `CombatManager._resolve_close_attempt`.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")

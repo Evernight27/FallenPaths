@@ -35,11 +35,11 @@ static func _depth_polearm_lane_is_open(pa: Dictionary) -> bool:
 		return true
 	if lt == "over_shoulder":
 		return false
-	return bool(pa.get("depth_polearm_allows_low_targets", true))
+	return pa.get("depth_polearm_allows_low_targets", true) == true
 
 
 static func depth_spear_tight_lane_parry_c_d_mult(pa: Dictionary) -> float:
-	if not bool(pa.get("depth_polearm_attack", false)):
+	if pa.get("depth_polearm_attack", false) != true:
 		return 1.0
 	if _depth_polearm_lane_is_open(pa):
 		return 1.0
@@ -47,7 +47,7 @@ static func depth_spear_tight_lane_parry_c_d_mult(pa: Dictionary) -> float:
 
 
 static func depth_spear_open_lane_stab_parry_p_a_mult(pa: Dictionary, attack_type: String) -> float:
-	if not bool(pa.get("depth_polearm_attack", false)):
+	if pa.get("depth_polearm_attack", false) != true:
 		return 1.0
 	if not _depth_polearm_lane_is_open(pa):
 		return 1.0
@@ -112,7 +112,7 @@ static func choose_defense(
 
 	var already_used_defense: bool = pa.get("passive_parry_attempted", false)
 	var st_def: String = _EntityAccess.state_str(tgt)
-	if bool(pa.get("parry_choice_blocked", false)):
+	if pa.get("parry_choice_blocked", false) == true:
 		result.effective_redirect = _get_effective_redirect(tgt)
 		return result
 	if (

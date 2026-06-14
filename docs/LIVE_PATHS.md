@@ -17,11 +17,10 @@
 | Lanes / ZoC | `CombatPairGeometry`, `CombatDistanceBands`, `TacticalCombat`, `ZoneOfControl` · **III-4:** `EngagementOpposition` (PR2 ☑) | `_run_lane_offset_*`, `_run_depth_polearm_*`, `_run_surround_*`, `_run_sector_surround_*` · III-4: `_run_opposition_offset_seeded_at_start`, `_run_geometry_skirmish_wide_line_no_compact`, `_run_skirmish_outnumber_allows_rotate_file`, `_run_mental_stack_hold_line_attempt_close_wing`, **3e:** `_run_envelop_mop_up_*`, `_run_pincer_*`, `_run_mental_stack_hold_line_attempt_close_mop_up`, `_run_envelop_melee_strike_listed_close_mop_up_reach_gap` |
 | Close | `CombatMeleeListing`, `CombatEngagementResolver` | `_run_attempt_close_*`, `_run_close_slot_cap_*` |
 
-<a id="development-gate-line-crash--intrusions-removed"></a>
 <a id="d-005-surround"></a>
 <a id="d-005--surround-arc-occupancy--shipped"></a>
 
-`attempt_close` at LONG (max 3 CLOSE) · **D-008** no line crash · **D-005** `CombatSurroundArcOccupancy` / `FEATURE_SURROUND_ARC_OCCUPANCY` (±38°, blocked ×0.35; sector load when `is_feature_sector_surround_load()`).
+`attempt_close` at LONG (max 3 CLOSE) · **D-008 removed** · **D-005** `CombatSurroundArcOccupancy` / `FEATURE_SURROUND_ARC_OCCUPANCY` (±38°, blocked ×0.35; sector load when `is_feature_sector_surround_load()`).
 
 <a id="tier-3--parry--bind--guards"></a>
 <a id="tier-0--formation--parry-choice"></a>
@@ -231,7 +230,7 @@ Harness: **`CombatRegressionHarnessAttentionFootworkTail`** — `_run_attention_
 |-------|--------|------------|--------|
 | **4.4 PA pilot** | **Shipped** | Single scalar **`position_angle_offset_deg`** per exchange from **line keys**; gauge **` · Step`**; no world positions | **`CombatFootwork.gd`** — hub [#wf-tier-44-pa](#wf-tier-44-pa) |
 | **Octant PA lookup** | **Shipped** | Diagonal guard/attack lines get non-zero step when **`FEATURE_HEMA_EIGHT_GUARD_LINES`** | **`CombatGuardLines`** → **`CombatConstants.position_angle_offset_deg_for_attack_line`** — [#wf-form-guard-pa-matrix](#wf-form-guard-pa-matrix) |
-| **4.4 spatial Expand** | **Slice 1–3 ☑** | Band ↔ PA · wing dodge bias · flurry bind PA boost | **`FEATURE_T44_SPATIAL_*`** (default off) · **`CombatFootwork`** + **`CombatFlurryBind`** · **`_run_t44_spatial_*`** ☑ 2026-06-08 |
+| **4.4 spatial Expand** | **Slice 1–3 ☑** | Band ↔ PA · wing dodge bias · flurry bind PA boost | **`FEATURE_T44_SPATIAL_*`** (default on) · **`CombatFootwork`** + **`CombatFlurryBind`** · **`_run_t44_spatial_*`** ☑ 2026-06-08 |
 
 Exchange **Step** is from **line keys** — not **`weapon_form`**, legacy **`stance`**, or formation file. Tier 4.2 **`defense_footwork_*`** is a **separate** name (spacing/state mults).
 
@@ -465,7 +464,7 @@ F5 workflow: optional `dev_soak_encounter` → `.f5_soak_in.txt` → `validate_f
 
 POST **0–2** done · **Phase 3** (deepen shipped) + **Phase 4** (new systems) + **P4 playbooks** + **WF weapon forms** → [`Expand` stream](PLANNING.md#stream-expand) after [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist) unless a Camp row needs map↔battle. **Ship plan mirror:** [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry).
 
-**Flags** (`CombatConstants.gd`): `is_feature_sector_surround_load`, `FEATURE_SURROUND_ARC_OCCUPANCY`, `FEATURE_HEMA_EIGHT_GUARD_LINES`, `FEATURE_IV6_ATTACK_PATH_OCTANT`, `FEATURE_ARM_INTERPOSE`, `FEATURE_MS_L6_ROUT`, `FEATURE_FLURRY_BIND_EXCHANGE`, `FEATURE_INCOMING_PARRY_CHOICE`, `FEATURE_AMBIENT_PAIN_SHOCK`, position-angle footwork, **`FEATURE_T44_SPATIAL_BAND_PA`** · **`FEATURE_T44_SPATIAL_FILE_DODGE_BIAS`** · **`FEATURE_T44_SPATIAL_FLURRY_PA`** (default off), `FEATURE_FIGHT_EXHAUSTION_INDEX`, `FEATURE_AUTOMATIC_DOCTRINE`, `FEATURE_JOULE_ARMOR_BUDGET`, **`is_feature_mental_stack_ai_enabled`**, **`is_feature_combat_attention_enabled`**. Cognition: [#combat-cognition-pipeline](#combat-cognition-pipeline). **D-tracks:** D-001 ☑ · D-003–007 shipped · D-008 removed.
+**Flags** (`CombatConstants.gd`): `is_feature_sector_surround_load`, `FEATURE_SURROUND_ARC_OCCUPANCY`, `FEATURE_HEMA_EIGHT_GUARD_LINES`, `FEATURE_IV6_ATTACK_PATH_OCTANT`, `FEATURE_ARM_INTERPOSE`, `FEATURE_MS_L6_ROUT`, `FEATURE_FLURRY_BIND_EXCHANGE`, `FEATURE_INCOMING_PARRY_CHOICE`, `FEATURE_AMBIENT_PAIN_SHOCK`, position-angle footwork, **`FEATURE_T44_SPATIAL_BAND_PA`** · **`FEATURE_T44_SPATIAL_FILE_DODGE_BIAS`** · **`FEATURE_T44_SPATIAL_FLURRY_PA`** (default on), `FEATURE_FIGHT_EXHAUSTION_INDEX`, `FEATURE_AUTOMATIC_DOCTRINE`, `FEATURE_JOULE_ARMOR_BUDGET`, **`is_feature_mental_stack_ai_enabled`**, **`is_feature_combat_attention_enabled`**. Cognition: [#combat-cognition-pipeline](#combat-cognition-pipeline). **D-tracks:** D-001 ☑ · D-003–007 shipped · D-008 removed.
 
 New tier: harness row + one line in a tier table + row here — see [#redirects-tombstones](#redirects-tombstones) for deleted plan prose (full **IV-1…13** text was in `POST_MILESTONE_INTEGRATION_PLAN.md`).
 

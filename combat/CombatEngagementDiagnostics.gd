@@ -222,7 +222,7 @@ static func _action_menu_counts(actions: Array) -> String:
 				rotate_n += 1
 			CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 				close_n += 1
-			CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK, CombatConstants.MOVE_ID_FLEE:
+			CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_FALL_BACK, CombatConstants.MOVE_ID_FLEE, CombatConstants.MOVE_ID_PLUG_FORWARD:
 				pass
 			_:
 				if not mid.begins_with("focus_") and not mid.is_empty():

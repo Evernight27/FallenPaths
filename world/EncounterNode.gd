@@ -83,7 +83,7 @@ func get_enemy_formation_dict() -> Dictionary:
 
 
 func is_tutorial_encounter() -> bool:
-	return bool(encounter_config.get("tutorial", false))
+	return encounter_config.get("tutorial", false) == true
 
 ## Spawns enemy units for combat. Call when player enters combat. Returns array of enemy nodes.
 ## parent: world node to add enemies to. rng: for species/equipment randomization.

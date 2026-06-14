@@ -201,7 +201,7 @@ static func can_parry_all(manager: Node, defender_id: int, anchor_time: float = 
 	for raw in incoming:
 		var aid: int = int(raw)
 		var est: Dictionary = _incoming_parry_estimate(manager, tgt, aid)
-		if not bool(est.get("viable", false)):
+		if est.get("viable", false) != true:
 			return false
 		total_p_a += float(est.get("parry_p_a", 0.0))
 		min_c_d = minf(min_c_d, float(est.get("parry_c_d", 0.0)))
@@ -248,7 +248,7 @@ static func _incoming_parry_estimate(
 	var c_d: float = float(dc.get("parry_c_d", 0.0))
 	out["parry_p_a"] = p_a
 	out["parry_c_d"] = c_d
-	if not bool(dc.get("can_parry_in_time", false)):
+	if dc.get("can_parry_in_time", false) != true:
 		return out
 	if p_a <= c_d * CombatConstants.PARRY_DODGE_STRENGTH_RATIO:
 		out["viable"] = true
@@ -258,7 +258,7 @@ static func _incoming_parry_estimate(
 static func _parry_viable_for_incoming_attack(
 	manager: Node, tgt: Dictionary, attacker_id: int
 ) -> bool:
-	return bool(_incoming_parry_estimate(manager, tgt, attacker_id).get("viable", false))
+	return _incoming_parry_estimate(manager, tgt, attacker_id).get("viable", false) == true
 
 
 ## Stamps **`pa`** when this resolve is not the committed parry target among overlapping wind-ups.

@@ -212,7 +212,7 @@ static func _general_soak_guide_lines() -> PackedStringArray:
 		"grep FP_COMBAT: exhaustion | engagement mode= | diagram_banner player: | engagement_debug | opposition offset | engagement_transition | fled id=",
 		"grep FP_COMBAT: cowering_fall_back | ambient_pain_shock | medical | soak= (on encounter_begin when using cyan preset)",
 		"grep FP_COMBAT: turn_ready_gauge | gauge_tooltip_formation | diagram_banner player: | medical_action pick",
-		"D-008: no crash_success / crash_through in normal play (line crash removed)",
+		"no crash/intrusion vocabulary in normal play logs",
 	])
 
 

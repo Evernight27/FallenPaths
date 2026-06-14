@@ -706,7 +706,7 @@ Full logical order: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#comba
 | **Phase 4 IV** | Expand | IV-3 1v1 rule · **IV-4/5 ☑** · **IV-7 ☑** armor burden · **IV-8 ☑** initiative order · **IV-9 ☑** gap-column · **IV-10 ☑** subregion combat mult · **IV-11 leader order ☑** · **IV-12 slot distraction ☑** · **IV-13 weapon-reach ZoC ☑** |
 | **Weapon forms (WF)** | **Maintain** (Camp-5) | [**WF status**](LIVE_PATHS.md#wf-implementation-status) — **WF-1…4 shipped** · **M3** ☑ · **WF-T1 ☑** (2026-06-07) · **WF-T2 ☑** (2026-06-08) · **IV-4/5 ☑** |
 | **Cognition** | Maintain | MS-L5–L6 ☑ · **tier-4.4 spatial slices 1–3 ☑** · **MS-L7 shipped** — tuning only |
-| **Wontfix / closed** | — | IV-INTR (D-008) · P3b mat sim expand · bleed retune unless asked · F1 BMI |
+| **Wontfix / closed** | — | IV-INTR (removed) · P3b mat sim expand · bleed retune unless asked · F1 BMI |
 
 **Pick one row per Expand PR:** harness `_run_*` + live path line + optional `FEATURE_*` ([`PLANNING` policy](PLANNING.md#harness-and-flags)).
 

@@ -57,31 +57,31 @@ func _ready() -> void:
 	_end_day_button.text = _CompanyState.format_end_day_button_label()
 	_end_day_button.visible = false
 	_end_day_button.pressed.connect(_on_end_day_pressed)
-	main_vbox.add_child(_end_day_button)
+	content_vbox.add_child(_end_day_button)
 
 	_camp_heal_button = Button.new()
 	_camp_heal_button.text = _CompanyState.format_camp_rest_button_label(null, true)
 	_camp_heal_button.visible = false
 	_camp_heal_button.pressed.connect(_on_camp_heal_pressed)
-	main_vbox.add_child(_camp_heal_button)
+	content_vbox.add_child(_camp_heal_button)
 
 	_hire_button = Button.new()
 	_hire_button.text = _CompanyState.format_hire_button_label()
 	_hire_button.visible = false
 	_hire_button.pressed.connect(_on_hire_pressed)
-	main_vbox.add_child(_hire_button)
+	content_vbox.add_child(_hire_button)
 
 	_new_company_button = Button.new()
 	_new_company_button.text = _CompanyState.format_new_company_button_label()
 	_new_company_button.visible = false
 	_new_company_button.pressed.connect(_on_new_company_pressed)
-	main_vbox.add_child(_new_company_button)
+	content_vbox.add_child(_new_company_button)
 
 	_autosave_footer_label = Label.new()
 	_autosave_footer_label.visible = false
 	_RowFormatter.configure_wrapped_label(_autosave_footer_label)
 	_autosave_footer_label.add_theme_color_override("font_color", Color(0.6, 0.75, 0.88))
-	main_vbox.add_child(_autosave_footer_label)
+	content_vbox.add_child(_autosave_footer_label)
 
 func show_party(world: Node2D, members: Array) -> void:
 	if content_vbox == null:
@@ -106,6 +106,8 @@ func show_party(world: Node2D, members: Array) -> void:
 			]
 		)
 	for child in content_vbox.get_children():
+		if child == _end_day_button or child == _camp_heal_button or child == _hire_button or child == _new_company_button or child == _autosave_footer_label:
+			continue
 		child.queue_free()
 
 	if not _field_care_notice.is_empty():
@@ -180,6 +182,26 @@ func show_party(world: Node2D, members: Array) -> void:
 				_RowFormatter.configure_wrapped_label(wounded_hdr)
 				wounded_hdr.add_theme_color_override("font_color", Color(0.95, 0.72, 0.45))
 				content_vbox.add_child(wounded_hdr)
+
+		## Consolidated repair buttons at top (extracted from member rows).
+		if not wounded.is_empty():
+			var repair_section := VBoxContainer.new()
+			repair_section.add_theme_constant_override("separation", 4)
+			var repair_hdr := Label.new()
+			repair_hdr.text = "Repair"
+			repair_hdr.add_theme_font_size_override("font_size", 13)
+			repair_hdr.add_theme_color_override("font_color", Color(0.6, 0.85, 0.7))
+			repair_section.add_child(repair_hdr)
+			for w in wounded:
+				var care_btns := _build_field_care_buttons(_world, w)
+				if care_btns.get_child_count() > 0:
+					var name_lbl := Label.new()
+					name_lbl.text = str(w.get("name", "Brother"))
+					name_lbl.add_theme_font_size_override("font_size", 12)
+					name_lbl.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95))
+					repair_section.add_child(name_lbl)
+					repair_section.add_child(care_btns)
+			content_vbox.add_child(repair_section)
 
 	var triage_row_index: int = 0
 	for m in display_members:
@@ -282,87 +304,6 @@ func show_party(world: Node2D, members: Array) -> void:
 						h.add_child(lbl)
 				v.add_child(h)
 		if _world != null:
-			var next_action: String = _MapFieldCare.format_next_field_care_action(_world, m)
-			if not next_action.is_empty():
-				var next_lbl := Label.new()
-				next_lbl.text = next_action
-				_RowFormatter.configure_wrapped_label(next_lbl)
-				next_lbl.add_theme_color_override("font_color", Color(0.75, 0.88, 0.95))
-				v.add_child(next_lbl)
-			var care_row := VBoxContainer.new()
-			care_row.add_theme_constant_override("separation", 4)
-			if _MapFieldCare.can_offer_field_pressure(_world, m):
-				var btn_p := Button.new()
-				btn_p.text = _MapFieldCare.format_field_pressure_button_label(_world, m)
-				var member_copy: Dictionary = m.duplicate(true)
-				btn_p.pressed.connect(
-					func() -> void:
-						_run_field_care_step(
-							func() -> bool:
-								return _MapFieldCare.try_field_pressure(_world, member_copy),
-							"pressure"
-						)
-				)
-				care_row.add_child(btn_p)
-			if _MapFieldCare.can_offer_field_bandage(_world, m):
-				var btn_b := Button.new()
-				btn_b.text = _MapFieldCare.format_field_bandage_button_label(_world, m)
-				var member_copy_b: Dictionary = m.duplicate(true)
-				btn_b.pressed.connect(
-					func() -> void:
-						_run_field_care_step(
-							func() -> bool:
-								return _MapFieldCare.try_field_bandage(_world, member_copy_b),
-							"bandage"
-						)
-				)
-				care_row.add_child(btn_b)
-			elif _MapFieldCare.field_bandage_needs_pressure_first(m):
-				var btn_b_wait := Button.new()
-				btn_b_wait.text = _MapFieldCare.format_field_bandage_waiting_label(m)
-				btn_b_wait.disabled = true
-				care_row.add_child(btn_b_wait)
-			if _MapFieldCare.can_offer_field_pack(_world, m):
-				var btn_pk := Button.new()
-				btn_pk.text = _MapFieldCare.format_field_pack_button_label(_world, m)
-				var member_copy_pk: Dictionary = m.duplicate(true)
-				btn_pk.pressed.connect(
-					func() -> void:
-						_run_field_care_step(
-							func() -> bool:
-								return _MapFieldCare.try_field_pack(_world, member_copy_pk),
-							"pack"
-						)
-				)
-				care_row.add_child(btn_pk)
-			if _MapFieldCare.can_offer_field_tourniquet(_world, m):
-				var btn_tq := Button.new()
-				btn_tq.text = _MapFieldCare.format_field_tourniquet_button_label(_world, m)
-				var member_copy_tq: Dictionary = m.duplicate(true)
-				btn_tq.pressed.connect(
-					func() -> void:
-						_run_field_care_step(
-							func() -> bool:
-								return _MapFieldCare.try_field_tourniquet(_world, member_copy_tq),
-							"tourniquet"
-						)
-				)
-				care_row.add_child(btn_tq)
-			if _MapFieldCare.can_offer_field_stabilize(_world, m):
-				var btn_s := Button.new()
-				btn_s.text = _MapFieldCare.format_field_stabilize_button_label(_world, m)
-				var member_copy_s: Dictionary = m.duplicate(true)
-				btn_s.pressed.connect(
-					func() -> void:
-						_run_field_care_step(
-							func() -> bool:
-								return _MapFieldCare.try_field_stabilize(_world, member_copy_s),
-							"stabilize"
-						)
-				)
-				care_row.add_child(btn_s)
-			if care_row.get_child_count() > 0:
-				v.add_child(care_row)
 			var pressure_line: String = _MapFieldCare.format_member_pressure_held_line(m)
 			if not pressure_line.is_empty():
 				var pressure_lbl := Label.new()
@@ -564,3 +505,80 @@ func _on_new_company_pressed() -> void:
 		return
 	hide()
 	_CompanyState.request_new_campaign(_world)
+
+
+## Build an HBox of field-care repair buttons for one member (used in the top-level repair section).
+func _build_field_care_buttons(world: Node2D, m: Dictionary) -> HBoxContainer:
+	var care_btns := HBoxContainer.new()
+	care_btns.add_theme_constant_override("separation", 4)
+	if _MapFieldCare.can_offer_field_pressure(world, m):
+		var btn_p := Button.new()
+		btn_p.text = _MapFieldCare.format_field_pressure_button_label(world, m)
+		var member_copy: Dictionary = m.duplicate(true)
+		btn_p.pressed.connect(
+			func() -> void:
+				_run_field_care_step(
+					func() -> bool:
+						return _MapFieldCare.try_field_pressure(world, member_copy),
+					"pressure"
+				)
+		)
+		care_btns.add_child(btn_p)
+	if _MapFieldCare.can_offer_field_bandage(world, m):
+		var btn_b := Button.new()
+		btn_b.text = _MapFieldCare.format_field_bandage_button_label(world, m)
+		var member_copy_b: Dictionary = m.duplicate(true)
+		btn_b.pressed.connect(
+			func() -> void:
+				_run_field_care_step(
+					func() -> bool:
+						return _MapFieldCare.try_field_bandage(world, member_copy_b),
+					"bandage"
+				)
+		)
+		care_btns.add_child(btn_b)
+	elif _MapFieldCare.field_bandage_needs_pressure_first(m):
+		var btn_b_wait := Button.new()
+		btn_b_wait.text = _MapFieldCare.format_field_bandage_waiting_label(m)
+		btn_b_wait.disabled = true
+		care_btns.add_child(btn_b_wait)
+	if _MapFieldCare.can_offer_field_pack(world, m):
+		var btn_pk := Button.new()
+		btn_pk.text = _MapFieldCare.format_field_pack_button_label(world, m)
+		var member_copy_pk: Dictionary = m.duplicate(true)
+		btn_pk.pressed.connect(
+			func() -> void:
+				_run_field_care_step(
+					func() -> bool:
+						return _MapFieldCare.try_field_pack(world, member_copy_pk),
+					"pack"
+				)
+		)
+		care_btns.add_child(btn_pk)
+	if _MapFieldCare.can_offer_field_tourniquet(world, m):
+		var btn_tq := Button.new()
+		btn_tq.text = _MapFieldCare.format_field_tourniquet_button_label(world, m)
+		var member_copy_tq: Dictionary = m.duplicate(true)
+		btn_tq.pressed.connect(
+			func() -> void:
+				_run_field_care_step(
+					func() -> bool:
+						return _MapFieldCare.try_field_tourniquet(world, member_copy_tq),
+					"tourniquet"
+				)
+		)
+		care_btns.add_child(btn_tq)
+	if _MapFieldCare.can_offer_field_stabilize(world, m):
+		var btn_s := Button.new()
+		btn_s.text = _MapFieldCare.format_field_stabilize_button_label(world, m)
+		var member_copy_s: Dictionary = m.duplicate(true)
+		btn_s.pressed.connect(
+			func() -> void:
+				_run_field_care_step(
+					func() -> bool:
+						return _MapFieldCare.try_field_stabilize(world, member_copy_s),
+					"stabilize"
+				)
+		)
+		care_btns.add_child(btn_s)
+	return care_btns

@@ -36,6 +36,7 @@ static func handle_event(manager: Node, ev: Dictionary) -> void:
 		ev_type != CombatConstants.EVENT_SWAP_RANK_RESOLVE
 		and ev_type != CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE
 		and ev_type != CombatConstants.EVENT_ROTATE_FILE_RESOLVE
+		and ev_type != CombatConstants.EVENT_PLUG_FORWARD_RESOLVE
 		and not c.is_empty()
 		and not _EntityAccess.is_alive_in_combat(c)
 	):
@@ -45,7 +46,7 @@ static func handle_event(manager: Node, ev: Dictionary) -> void:
 		and _MedicalPhase.should_block_scheduled_event(manager, ev)
 	):
 		return
-match ev_type:
+	match ev_type:
 		CombatConstants.EVENT_ACTION_READY:
 			handle_action_ready(manager, c)
 		CombatConstants.EVENT_MELEE_ATTACK:
@@ -58,6 +59,8 @@ match ev_type:
 			manager._handle_fall_back_solo_resolve(ev)
 		CombatConstants.EVENT_ROTATE_FILE_RESOLVE:
 			manager._handle_rotate_file_resolve(ev)
+		CombatConstants.EVENT_PLUG_FORWARD_RESOLVE:
+			manager._handle_plug_forward_resolve(ev)
 		_:
 			CombatDebug.flow_log_event("unknown event type %s" % str(ev_type), "event_dispatch_unknown")
 

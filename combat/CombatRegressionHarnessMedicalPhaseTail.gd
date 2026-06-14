@@ -1193,7 +1193,6 @@ static func _run_field_care_pressure_before_bandage_parity(failures: PackedStrin
 			failures, "field_pressure_first: combat dressings should allow after pressure held"
 		)
 	CombatRegressionHarness._free_manager(mgr)
-	_free_entity_fixture(ent)
 
 
 ## EntityMedical production gate: bandage/pack blocked on active bleed without compression (all call sites).
@@ -1644,8 +1643,6 @@ static func _run_dressings_allowed_when_locally_clotted_under_pressure(
 	if not has_bandage:
 		CombatRegressionHarness._fail(failures, "local_clot_dress: bandage should list after local clot under pressure")
 	CombatRegressionHarness._free_manager(mgr)
-	_free_entity_fixture(ally_ent)
-	_free_entity_fixture(healer_ent)
 
 
 ## Field stabilize: hemostatic trim must apply before procedure sim advance (not after).

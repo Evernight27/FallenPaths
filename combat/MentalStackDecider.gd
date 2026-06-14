@@ -193,6 +193,18 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 		or _EntityAccess.stamina_ratio(c) < CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO
 	):
 		if not _Doctrine.fight_finish_tail_active(manager, c, actions, combatant_id):
+			var ex: float = _EntityAccess.exhaustion_float(c)
+			if _CombatDebug.flow_verbose_enabled():
+				var offense_mult: float = _Exhaustion.exhaustion_offense_weight_mult(c)
+				var zone_label: String = "exhausted"
+				if ex < CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD:
+					zone_label = "fatigued"
+				elif ex < CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD:
+					zone_label = "winded"
+				_CombatDebug.flow_log(
+					"L5 exhaustion zone=%s ex=%.2f offense_mult=%.3f stamina_ratio=%.2f"
+					% [zone_label, ex, offense_mult, _EntityAccess.stamina_ratio(c)]
+				)
 			var disengage: Array = _filter_exhaustion_disengage_actions(
 				actions, combatant_id, manager, c
 			)
@@ -530,17 +542,20 @@ static func _filter_exhaustion_disengage_actions(
 
 
 ## MS-L9: positional awareness — returns weighted disengage array when combatant is surrounded and vulnerable.
-## Returns empty when not surrounded OR when combatant is healthy (blood >= 80% AND NOT exhausted tunnel).
+## Returns empty when not surrounded OR when combatant is healthy (blood >= L9 threshold AND NOT exhausted tunnel).
 ## Only fires when actual disengage moves (fall_back/flee) exist — does not force wait over utility pick.
 static func _positional_disengage_check(
 	manager: Node, combatant_id: int, actions: Array, c: Dictionary
 ) -> Array:
 	if not _ZoC.is_combatant_surrounded(manager, combatant_id):
 		return []
-	# Check vulnerability: must be wounded (blood < 80%) OR exhausted (tunnel active).
-	var blood: float = float(_EntityAccess.stats_dict(c).get("blood_volume", 100.0))
+	# Check vulnerability: must be wounded (blood < L9 threshold) OR exhausted (tunnel active).
+	# Reads from entity node (not stats dict) so it works in harness tests where CombatantStatsSync
+	# may not have re-synced after wounds are applied post-registration.
+	var _node: Variant = _EntityAccess.node_variant(c)
+	var blood: float = _EntityAccess.get_blood_volume_from_node(_node as Node) if _node != null else 100.0
 	var exhausted_t: bool = _Exhaustion.exhaustion_tunnel_active(c)
-	if blood >= 80.0 and not exhausted_t:
+	if blood >= CombatConstants.MENTAL_STACK_L9_VULNERABILITY_BLOOD_THRESHOLD and not exhausted_t:
 		return []
 	# Build disengage pool: fall_back first, flee second, wait third.
 	var out: Array = []

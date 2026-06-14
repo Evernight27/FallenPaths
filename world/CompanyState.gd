@@ -108,7 +108,8 @@ static func read_stub_map_bleed_policy() -> String:
 
 ## Camp-2.1 / Camp-3.1: persisted **first campaign win** — lifts map bleed block (`MapBleedPolicy` → `warn_eta`).
 static func is_tutorial_completed(world: Node) -> bool:
-	return bool(get_state(world).get("tutorial_completed", false))
+	var v = get_state(world).get("tutorial_completed")
+	return v == true
 
 
 static func mark_tutorial_completed(world: Node) -> void:
@@ -120,7 +121,7 @@ static func mark_tutorial_completed(world: Node) -> void:
 static func is_tutorial_contract(contract: Dictionary) -> bool:
 	if contract.is_empty():
 		return false
-	if bool(contract.get("tutorial", false)):
+	if contract.get("tutorial") == true:
 		return true
 	return str(contract.get("contract_type", "")) == "tutorial"
 
@@ -210,7 +211,7 @@ static func format_hud_persistence_suffix(world: Node) -> String:
 static func format_hud_persistence_line(world: Node) -> String:
 	if not persistence_uses_disk_autosave():
 		return ""
-	if world != null and bool(world.get_meta(WORLD_META_CAMPAIGN_RESTORED_FROM_SAVE, false)):
+	if world != null and world.get_meta(WORLD_META_CAMPAIGN_RESTORED_FROM_SAVE, false) == true:
 		return "Restored"
 	if _CampaignPersistence.has_save():
 		return "Saved"
@@ -242,7 +243,7 @@ static func count_desertion_risk_roster(world: Node) -> int:
 			continue
 		if (node_ref as Node).has_method("is_dead") and (node_ref as Node).is_dead():
 			continue
-		if (node_ref as Node).get("is_party_leader", false):
+		if (node_ref as Node).get("is_party_leader") == true:
 			continue
 		if float(m.get("company_mood", MOOD_DEFAULT)) <= MOOD_ANGRY_THRESHOLD:
 			at_risk += 1
@@ -669,7 +670,7 @@ static func set_day_index(world: Node, value: int) -> void:
 
 
 static func is_bankrupt(world: Node) -> bool:
-	return bool(get_state(world).get("bankrupt", false))
+	return get_state(world).get("bankrupt") == true
 
 
 static func set_bankrupt(world: Node, value: bool) -> void:
@@ -1032,7 +1033,7 @@ static func roster_recently_needed_field_dressing(world: Node2D) -> bool:
 		if entry is not Dictionary:
 			continue
 		var snap: Dictionary = (entry as Dictionary).get("snapshot", entry) as Dictionary
-		if bool(snap.get("has_untreated_wounds", false)):
+		if snap.get("has_untreated_wounds") == true:
 			return true
 	return false
 
@@ -1102,21 +1103,19 @@ static func refresh_party_button(world: Node2D) -> void:
 
 ## Party menu / camp tile button copy (heal + day tick).
 static func format_camp_rest_button_label(world: Node2D, from_party_menu: bool = false) -> String:
-	var mins: int = int(read_stub_camp_heal_seconds() / 60.0)
 	var save_bit: String = format_autosave_action_suffix()
 	if world == null:
-		return "Camp rest (−1 med, %d min · +1 day · +1 mood)%s" % [mins, save_bit]
+		return "Camp rest (−1 med · +1 day · +1 mood)%s" % save_bit
 	if can_offer_camp_heal(world, from_party_menu):
 		return (
-			"Camp rest (−1 med, %d min · +1 day · +1 mood)%s%s%s"
+			"Camp rest (−1 med · +1 day · +1 mood)%s%s%s"
 			% [
-				mins,
 				save_bit,
 				format_wage_day_tick_suffix(world),
 				format_provisions_day_tick_suffix(world),
 			]
 		)
-	return "Camp rest (−1 med, %d min)" % mins
+	return "Camp rest (−1 med · +1 day)"
 
 
 static func refresh_hud(world: Node) -> void:
@@ -1761,7 +1760,7 @@ static func _run_daily_desertion_pass(world: Node2D) -> void:
 			continue
 		if (node_ref as Node).has_method("is_dead") and (node_ref as Node).is_dead():
 			continue
-		if (node_ref as Node).get("is_party_leader", false):
+		if (node_ref as Node).get("is_party_leader") == true:
 			continue
 		var mood: float = float(m.get("company_mood", MOOD_DEFAULT))
 		if mood > MOOD_ANGRY_THRESHOLD:

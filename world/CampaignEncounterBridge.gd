@@ -326,7 +326,7 @@ static func can_enter_combat(world: Node2D) -> Dictionary:
 		return out
 	var leader_ok: bool = false
 	for n in nodes:
-		if n != null and n.get("is_party_leader", false):
+		if n != null and n.get("is_party_leader") == true:
 			leader_ok = true
 			break
 	if not leader_ok and nodes.size() > 0:
@@ -384,7 +384,7 @@ static func _cap_fightable_party_leader_first(nodes: Array, cap: int) -> Array:
 	for n in nodes:
 		if n == null:
 			continue
-		if n.get("is_party_leader", false):
+		if n.get("is_party_leader") == true:
 			leader = n
 		else:
 			rest.append(n)

@@ -50,6 +50,41 @@ static func show_and_await(world: Node2D) -> void:
 	hdr.add_theme_font_size_override("font_size", 18)
 	vbox.add_child(hdr)
 
+	## Action buttons at top: repair gear + continue (saves game).
+	var supplies_lbl := Label.new()
+	supplies_lbl.text = format_settlement_supplies_line(world)
+	var repair_state: Dictionary = {"done": false, "repaired": false}
+	if _CompanyState.can_offer_settlement_tool_repair(world):
+		var repair_btn := Button.new()
+		repair_btn.text = "Repair gear (−1 tool, light field maintenance)"
+		repair_btn.pressed.connect(func() -> void:
+			if _CompanyState.apply_settlement_tool_repair(world):
+				repair_state["repaired"] = true
+				supplies_lbl.text = format_settlement_supplies_line(world)
+				repair_btn.disabled = true
+				repair_btn.text = "Gear repaired"
+		)
+		vbox.add_child(repair_btn)
+	var wait_state: Dictionary = {"done": false}
+
+	var continue_btn := Button.new()
+	continue_btn.text = format_settlement_continue_button_label()
+	continue_btn.pressed.connect(func() -> void:
+		wait_state["done"] = true
+		_apply_victory_mood_boost(world)
+		layer.queue_free()
+		_CompanyState.clear_active_contract(world)
+		var enemy_scene: PackedScene = _CampaignBridge.resolve_enemy_scene(world)
+		_ContractSpawner.try_refresh_contract_deck(world, enemy_scene)
+		_CompanyState.refresh_hud(world)
+		_CampaignBridge.sync_overworld_player_grid_anchor(world)
+		_disable_overworld_input(world, true)
+		_CompanyState.try_autosave(world)
+		if _OperationalLog.is_play_session_active():
+			_OperationalLog.play_world(format_settlement_continue_log(world, contract, pay))
+	)
+	vbox.add_child(continue_btn)
+
 	var roster_rows: Array = _CampaignBridge.party_member_snapshots(world)
 	var worst: Dictionary = _RowFormatter.worst_triage_from_member_rows(roster_rows)
 	if not worst.is_empty():
@@ -115,29 +150,12 @@ static func show_and_await(world: Node2D) -> void:
 		burial_lbl.add_theme_color_override("font_color", Color(0.82, 0.72, 0.55))
 		vbox.add_child(burial_lbl)
 
-	var supplies_lbl := Label.new()
-	supplies_lbl.text = format_settlement_supplies_line(world)
-	vbox.add_child(supplies_lbl)
-
 	if _CampaignBridge.party_has_untreated_wounds(world):
 		var care_hint := Label.new()
 		care_hint.text = _CompanyState.format_settlement_field_care_hint(world)
 		_RowFormatter.configure_wrapped_label(care_hint)
 		care_hint.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
 		vbox.add_child(care_hint)
-
-	var repair_state: Dictionary = {"done": false, "repaired": false}
-	if _CompanyState.can_offer_settlement_tool_repair(world):
-		var repair_btn := Button.new()
-		repair_btn.text = "Repair gear (−1 tool, light field maintenance)"
-		repair_btn.pressed.connect(func() -> void:
-			if _CompanyState.apply_settlement_tool_repair(world):
-				repair_state["repaired"] = true
-				supplies_lbl.text = format_settlement_supplies_line(world)
-				repair_btn.disabled = true
-				repair_btn.text = "Gear repaired"
-		)
-		vbox.add_child(repair_btn)
 
 	for m in roster_rows:
 		var snap: Dictionary = m if m is Dictionary else {}
@@ -173,25 +191,6 @@ static func show_and_await(world: Node2D) -> void:
 		_RowFormatter.configure_wrapped_label(save_hint)
 		save_hint.add_theme_color_override("font_color", Color(0.65, 0.78, 0.88))
 		vbox.add_child(save_hint)
-
-	var btn := Button.new()
-	btn.text = format_settlement_continue_button_label()
-	var wait_state: Dictionary = {"done": false}
-	btn.pressed.connect(func() -> void:
-		wait_state["done"] = true
-		_apply_victory_mood_boost(world)
-		layer.queue_free()
-		_CompanyState.clear_active_contract(world)
-		var enemy_scene: PackedScene = _CampaignBridge.resolve_enemy_scene(world)
-		_ContractSpawner.try_refresh_contract_deck(world, enemy_scene)
-		_CompanyState.refresh_hud(world)
-		_CampaignBridge.sync_overworld_player_grid_anchor(world)
-		_disable_overworld_input(world, true)
-		_CompanyState.try_autosave(world)
-		if _OperationalLog.is_play_session_active():
-			_OperationalLog.play_world(format_settlement_continue_log(world, contract, pay))
-	)
-	vbox.add_child(btn)
 
 	while not bool(wait_state.get("done", false)):
 		await world.get_tree().process_frame

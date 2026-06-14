@@ -138,7 +138,7 @@ static func _abort_incoming_wind_up_if_target_died(manager: Node, target_id: int
 static func _defender_set_idle_after_parry(tgt: Dictionary) -> void:
 	if tgt.is_empty():
 		return
-	if _EntityAccess.state_str(tgt) in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
+	if _EntityAccess.state_str(tgt) in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK, CombatConstants.STATE_PLUG_FORWARD]:
 		return
 	_clear_defender_footwork(tgt)
 	_Footwork.return_to_waiting(tgt)

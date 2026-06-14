@@ -824,6 +824,8 @@ const EVENT_RECOVERY_END := "recovery_end"
 const EVENT_SWAP_RANK_RESOLVE := "swap_rank_resolve"
 const EVENT_FALL_BACK_SOLO_RESOLVE := "fall_back_solo_resolve"
 const EVENT_ROTATE_FILE_RESOLVE := "rotate_file_resolve"
+## III-4 **3e**: depth fighter steps forward into rank-0 during envelop mop-up.
+const EVENT_PLUG_FORWARD_RESOLVE := "plug_forward_resolve"
 # Time to "ready" from idle: replicates gauge fill. agility 100 -> ~2s. Stagger for combat start.
 const COOLDOWN_ACTION_READY_BASE := 2.0
 # Seconds until EVENT_ACTION_READY. Prefix READY_DELAY_ = delay until next turn check.
@@ -862,7 +864,7 @@ const INCURSION_LANE_HEADROOM_FACTOR := 0.88
 const LANE_STRESS_DUAL_LIVING := 0.42
 const LANE_STRESS_DENSITY_TIGHT := 0.12
 const LANE_STRESS_DENSITY_LOOSE := -0.07
-## --- Tier 1.3 P4 freeze: `lane_stress_by_file` + `lane_offset` (D-008: no intrusion wedge) ---
+## --- Tier 1.3 P4 freeze: `lane_stress_by_file` + `lane_offset` ---
 ## **`lane_stress_by_file`**: per-formation file → 0..1 stress from dual occupancy + density (`TacticalCombat._recompute_lane_stress_by_file`).
 ## **`lane_offset`**: per-combatant float; **lateral offset within the nominal file column** feeding `CombatPairGeometry.effective_pair_eff_dist` (`EFF_DIST_LANE_OFFSET_FILE_EQUIV`). **Range:** clamp every writer/read to **`[-LANE_OFFSET_ABS_MAX, LANE_OFFSET_ABS_MAX]`** (currently **[-0.5, 0.5]**). **0** = column center. **Sign:** **positive** = toward **increasing file index** (+file / “enemy-right” on default symmetric grids). `CombatFormationFlow.repack_lane_offset_after_rank_file_change` + `CombatManager.register` defaults must stay inside this interval.
 ## Vacancy reconcile: lateral slides can open a hole in a neighbor file; repeat until stable (safety cap).
@@ -1123,14 +1125,6 @@ static func reset_harness_feature_load_overrides() -> void:
 	_feature_iv6_attack_path_octant_load = -1
 
 
-## IV-1 review (archived wontfix): vacancy plug forward-fill vs incursion ZoC pressure — separate owners; D-008 removed line crash/contest.
-static func iv1_plug_incursion_doc_sync_line() -> String:
-	return (
-		"IV-1 plug-vs-incursion: archived=wontfix D-008=removed "
-		+ "plug=VacancyPlugs incursion=TacticalCombat+ZoC separate=no_contest attempt_close=live"
-	)
-
-
 ## IV-12 slice 1: co-located hostile slot mates add sector distraction load (default off).
 const FEATURE_IV12_SLOT_DISTRACTION := false
 static var _feature_iv12_slot_distraction_load: int = -1
@@ -1194,8 +1188,8 @@ static func iv13_weapon_reach_zoc_doc_sync_line() -> String:
 	)
 
 
-## Tier 4.4 spatial slice 1: engagement band scales PA step magnitude (default off).
-const FEATURE_T44_SPATIAL_BAND_PA := false
+## Tier 4.4 spatial slice 1: engagement band scales PA step magnitude (CLOSE > LONG).
+const FEATURE_T44_SPATIAL_BAND_PA := true
 static var _feature_t44_spatial_band_pa_load: int = -1
 const T44_SPATIAL_BAND_PA_MULT_CLOSE := 1.12
 const T44_SPATIAL_BAND_PA_MULT_MID := 1.0
@@ -1212,8 +1206,8 @@ static func set_feature_t44_spatial_band_pa_load(enabled: bool) -> void:
 	_feature_t44_spatial_band_pa_load = 1 if enabled else 0
 
 
-## Tier 4.4 spatial slice 2: wing file scales defender **dodge** PA step (default off).
-const FEATURE_T44_SPATIAL_FILE_DODGE_BIAS := false
+## Tier 4.4 spatial slice 2: wing file scales defender **dodge** PA step (wing > interior, files ≥ 2).
+const FEATURE_T44_SPATIAL_FILE_DODGE_BIAS := true
 static var _feature_t44_spatial_file_dodge_bias_load: int = -1
 const T44_SPATIAL_FILE_DODGE_WING_MULT := 1.1
 
@@ -1251,8 +1245,8 @@ static func t44_spatial_file_dodge_doc_sync_line() -> String:
 	)
 
 
-## Tier 4.4 spatial slice 3: bind-exchange flurry window scales PA step magnitude (default off).
-const FEATURE_T44_SPATIAL_FLURRY_PA := false
+## Tier 4.4 spatial slice 3: bind-exchange flurry window scales PA step magnitude (active flurry bind boost).
+const FEATURE_T44_SPATIAL_FLURRY_PA := true
 static var _feature_t44_spatial_flurry_pa_load: int = -1
 const T44_SPATIAL_FLURRY_PA_MULT := 1.08
 
@@ -1370,11 +1364,15 @@ const FORMATION_ROTATE_FILE_RETRY_COOLDOWN_S := 0.8
 const FORMATION_ROTATE_FILE_REVERSE_PAIR_LOCK_S := 6.0
 const STATE_FALLING_BACK := "falling_back"
 const STATE_SWAP_RANK := "swap_rank"
+## III-4 **3e**: depth fighter steps forward into rank-0 during envelop mop-up.
+const STATE_PLUG_FORWARD := "plug_forward"
 const MOVE_ID_SWAP_RANK := "swap_rank"
 ## Phase 5: formation movement (time-based, no stamina).
 const MOVE_ID_DRAG_BACK := "drag_back"
 const MOVE_ID_FALL_BACK := "fall_back"
 const MOVE_ID_ROTATE_FILE := "rotate_file"
+## III-4 **3e**: depth fighter steps forward into rank-0 during envelop mop-up.
+const MOVE_ID_PLUG_FORWARD := "plug_forward"
 const FORMATION_MOVE_KIND_SWAP_RANK := MOVE_ID_SWAP_RANK
 const FORMATION_MOVE_KIND_DRAG_BACK := MOVE_ID_DRAG_BACK
 const FORMATION_MOVE_KIND_FALL_BACK_PAIR := "fall_back_pair"
@@ -1391,7 +1389,7 @@ const LEADER_FORMATION_COMMAND_MOVE_IDS: Array[String] = [
 ]
 ## Swap / drag / fall back / rotate / flee — used so "only formation moves" still offers wait.
 const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = [
-	MOVE_ID_SWAP_RANK, MOVE_ID_DRAG_BACK, MOVE_ID_FALL_BACK, MOVE_ID_ROTATE_FILE, MOVE_ID_FLEE
+	MOVE_ID_SWAP_RANK, MOVE_ID_DRAG_BACK, MOVE_ID_FALL_BACK, MOVE_ID_ROTATE_FILE, MOVE_ID_FLEE, MOVE_ID_PLUG_FORWARD
 ]
 
 
@@ -1409,7 +1407,11 @@ static func is_formation_reposition_move(move_id: String) -> bool:
 
 static func is_partner_formation_move(move_id: String) -> bool:
 	var mid := str(move_id)
-	return mid == MOVE_ID_SWAP_RANK or mid == MOVE_ID_DRAG_BACK or mid == MOVE_ID_FALL_BACK
+	return mid == MOVE_ID_SWAP_RANK or mid == MOVE_ID_DRAG_BACK or mid == MOVE_ID_FALL_BACK or mid == MOVE_ID_PLUG_FORWARD
+
+
+static func is_plug_forward_move(move_id: String) -> bool:
+	return str(move_id) == MOVE_ID_PLUG_FORWARD
 
 
 static func is_formation_pair_move_kind(move_kind: String) -> bool:
@@ -1418,6 +1420,7 @@ static func is_formation_pair_move_kind(move_kind: String) -> bool:
 		k == FORMATION_MOVE_KIND_SWAP_RANK
 		or k == FORMATION_MOVE_KIND_DRAG_BACK
 		or k == FORMATION_MOVE_KIND_FALL_BACK_PAIR
+		or k == MOVE_ID_PLUG_FORWARD
 	)
 
 
@@ -1429,6 +1432,8 @@ static func formation_pair_move_kind_for_menu_move(move_id: String) -> String:
 			return FORMATION_MOVE_KIND_DRAG_BACK
 		MOVE_ID_FALL_BACK:
 			return FORMATION_MOVE_KIND_FALL_BACK_PAIR
+		MOVE_ID_PLUG_FORWARD:
+			return MOVE_ID_PLUG_FORWARD
 		_:
 			return str(move_id)
 ## Tactical rank penetration (0 = at their front line). Not armor RHA penetration.
@@ -1677,7 +1682,7 @@ const LINE_COHESION_POSTURE_LEAVE_LINE_BELOW := 0.50
 ## When **> 0**, each side’s `L_in`/`L_out` shift from **relative** cohesion vs the opponent (`delta = strength * (our_coh - opp_coh)`):
 ## stronger line → easier LINE (lower `L_in`, higher `L_out`); weaker → easier OPEN. Set encounter `posture_asymmetry_strength` to **0** to disable.
 const POSTURE_ASYMMETRY_COH_COUPLE_STRENGTH := 0.12
-## Combatant engagement role (D-008: line only; crash/intrusion roles removed).
+## Combatant engagement role.
 const ENGAGEMENT_ROLE_LINE := "line"
 ## Cohesion = (COHESION_BASE_FLOOR + COHESION_FILL_SCALE * front_fill) * (1 - COHESION_LANE_STRESS_WEIGHT * avg_lane_stress) * morale_cohesion_factor
 const COHESION_LANE_STRESS_WEIGHT := 0.45
@@ -1708,6 +1713,10 @@ const FORMATION_RETREAT_BLOOD_VOLUME_MAX := 85.0
 ## Abandon-field **flee** (rout): Class III+ personal crisis (~45% lost) or immediate bleed-out — not “step back in the file.”
 ## Aligns with `MedicalPhaseController.MEDICAL_DANGER_BLOOD_THRESHOLD` (55).
 const FORMATION_FLEE_BLOOD_VOLUME_MAX := 55.0
+## MS-L9 positional awareness: disengage when surrounded and blood below this threshold.
+## ~60% remaining (~40% lost): ATLS Class III boundary — real vulnerability, not minor bruising.
+## Higher than `FORMATION_FLEE_BLOOD_VOLUME_MAX` (55) so AI disengages before reaching bleed-out danger.
+const MENTAL_STACK_L9_VULNERABILITY_BLOOD_THRESHOLD := 60.0
 ## Formation keys (see `CombatFormationRout`, `CombatFormationEngagement`).
 const FORMATION_KEY_STANDING_AT_START := "standing_at_start"
 ## Wounded fighter may **rout** when cached `line_cohesion` falls below this (≈ below LINE leave band 0.50).
@@ -2181,9 +2190,17 @@ const DOCTRINE_FILE_OPPOSED_WEIGHT_MULT := 1.42
 const DOCTRINE_PINCH_INWARD_BIAS_PER_FILE := 0.18
 ## III-4 **3e**: pincer flank wing AI/listing bias toward outer-file enemy under pinch + file outnumber.
 const DOCTRINE_PINCER_PREFERRED_FLANK_TARGET_MULT := 1.28
+## III-4 **3e**: pincer flank wing targeting spread damp — penalizes wide-arc targets by this per-file offset from preferred enemy file.
+const DOCTRINE_PINCER_CLOSE_ARC_SPREAD_MULT := 0.92
 ## III-4 **3e**: post-rout envelop mop-up — enemy standing at or below this, our side above, standing advantage.
 const ENVELOP_MOP_UP_MAX_ENEMY_ACTIVE := 1
 const ENVELOP_MOP_UP_MIN_OUR_ACTIVE := 2
+## III-4 **3e**: depth fighter plug forward into rank-0 during envelop mop-up.
+const ENVELOP_MOP_UP_PLUG_FORWARD_ENABLED := true
+const PLUG_FORWARD_DURATION_S := 0.6
+## AI weight for plug_forward during envelop mop-up (high — entire formation should engage).
+const PLUG_FORWARD_AI_HIGH_WEIGHT := 1.5
+const PLUG_FORWARD_AI_LOW_WEIGHT := 0.3
 ## Utility-pick damp when rotate still lists during post-rout mop-up (listing gate is primary).
 const ENVELOP_MOP_UP_ROTATE_AI_WEIGHT_MULT := 0.12
 ## Utility-pick nudge for listed **`attempt_close`** during post-rout mop-up.

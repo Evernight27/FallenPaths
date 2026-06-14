@@ -18,9 +18,9 @@ static func _fled_rout_context_suffix(result: Dictionary) -> String:
 	var bits: PackedStringArray = PackedStringArray(["line %d%% cohesion" % int(roundf(coh * 100.0))])
 	if cas >= 0.0:
 		bits.append("%d%% casualties" % int(roundf(cas * 100.0)))
-	if bool(result.get("formation_stressed", false)):
+	if result.get("formation_stressed", false) == true:
 		bits.append("formation breaking")
-	if bool(result.get("side_holding_field", false)):
+	if result.get("side_holding_field", false) == true:
 		bits.append("side still holds field")
 	return " (%s)" % ", ".join(bits)
 
@@ -42,7 +42,7 @@ static func _medical_procedure_label(move_id: String, on_self: bool) -> String:
 
 static func _medical_on_self(result: Dictionary, attacker_name: String, target_name: String) -> bool:
 	if result.has("medical_target_is_self"):
-		return bool(result.get("medical_target_is_self", true))
+		return result.get("medical_target_is_self", true) == true
 	return attacker_name == target_name
 
 
@@ -110,7 +110,7 @@ static func damage_resolve_note(result: Dictionary) -> String:
 			)
 		"negligible":
 			var phys: float = float(result.get("total_physical", 0.0))
-			if bool(result.get("rounded_zero_chip", false)) or phys > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
+			if result.get("rounded_zero_chip", false) == true or phys > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
 				return "graze — %.3f physical, rounds to 0 counted HP" % phys
 			return "negligible contact (no counted HP)"
 		"hit":
@@ -248,7 +248,7 @@ static func last_hit_row_combatant_id(first_id: int, second_id: int, result: Dic
 	if outcome in ["parry_deflect", "parry_partial", "bled_out"]:
 		return first_id
 	# Tick bleed-out: `CombatStateHandlers` emits victim as first id, `target_id=-1`.
-	if bool(result.get("died", false)) and second_id < 0 and first_id >= 0:
+	if result.get("died", false) == true and second_id < 0 and first_id >= 0:
 		return first_id
 	return second_id
 

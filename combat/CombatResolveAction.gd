@@ -187,6 +187,12 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		):
 			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks rotate_file")
 			return false
+		if move_id == CombatConstants.MOVE_ID_PLUG_FORWARD:
+			var can_plug := bool(move_policy.get("allow_swap_rank", false)) \
+				or _Doctrine.envelop_mop_up_active(manager, _EntityAccess.side_str(atk))
+			if not can_plug:
+				CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks plug_forward")
+				return false
 		var ctx_mv: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, atk)
 		var fid_mv: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_mv)
 		if move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id:
@@ -225,6 +231,12 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 				if not _FormationMoves.front_rank_paired_retreat_action_legal(manager, atk, partner_mv, ctx_mv):
 					CombatDebug.resolve_action_rejected(
 						manager, attacker_id, move_id, "fall_back pair not legal for partner"
+					)
+					return false
+			elif move_id == CombatConstants.MOVE_ID_PLUG_FORWARD:
+				if not _FormationMoves.plug_forward_action_legal(manager, atk, partner_mv, ctx_mv):
+					CombatDebug.resolve_action_rejected(
+						manager, attacker_id, move_id, "plug_forward not legal for partner"
 					)
 					return false
 	if move_id == CombatConstants.MOVE_ID_SWAP_RANK:
@@ -272,6 +284,12 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		if _OperationalLog.is_play_session_active():
 			_F5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
 		manager._start_rotate_file(attacker_id, target_id)
+		manager.emit_signal("turn_resolved", attacker_id)
+		return true
+	if move_id == CombatConstants.MOVE_ID_PLUG_FORWARD:
+		if _OperationalLog.is_play_session_active():
+			_F5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
+		manager._start_plug_forward(attacker_id, target_id)
 		manager.emit_signal("turn_resolved", attacker_id)
 		return true
 	if _EntityAccess.is_applying_direct_pressure_scene(atk):

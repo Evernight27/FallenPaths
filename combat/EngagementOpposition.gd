@@ -112,7 +112,7 @@ static func _depth_lane_open_resolved(
 	zone_geometry_fid: String
 ) -> bool:
 	if depth_lane_open_cache != null:
-		return bool(depth_lane_open_cache)
+		return depth_lane_open_cache == true
 	var fid: String = zone_geometry_fid
 	if fid.is_empty():
 		fid = _ZoneOfControl.zone_geometry_fid_str(manager, actor)

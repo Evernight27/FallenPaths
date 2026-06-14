@@ -216,7 +216,7 @@ static func stamp_listed_action_duration_hint(
 					partner,
 					CombatConstants.formation_pair_move_kind_for_menu_move(mid)
 				)
-		CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_SWAP_RANK:
+		CombatConstants.MOVE_ID_DRAG_BACK, CombatConstants.MOVE_ID_SWAP_RANK, CombatConstants.MOVE_ID_PLUG_FORWARD:
 			dur = estimate_adjacent_rank_pair_duration_s(
 				manager,
 				initiator,

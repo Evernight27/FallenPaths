@@ -67,7 +67,7 @@ Prompt: [`agent_campaign.md`](../scripts/cursor/agent_campaign.md) · detail: [`
 
 ## Decision log
 
-- S1–S11/P3b closed · F1 BMI deferred · D-008 · medical winner lock
+- S1–S11/P3b closed · F1 BMI deferred · medical winner lock
 - **2026-05-22** — [`SHIP_PLAN.md`](SHIP_PLAN.md) merc EA plan
 - **2026-05-22** — Planning relabel: ~~S/M/Q/F3~~ → **Campaign / Combat / Playtest / Expand**; milestones **Camp-\*** ([`PLANNING.md`](PLANNING.md))
 - **2026-05-22** — **Parallel agents:** Campaign + Combat may run simultaneously (historical pre-ship; post–Camp-5 default: Combat + optional Expand/Playtest — [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents))
@@ -94,7 +94,7 @@ Prompt: [`agent_campaign.md`](../scripts/cursor/agent_campaign.md) · detail: [`
 - **2026-06-08** — **IV-6 ☑** — **`FEATURE_IV6_ATTACK_PATH_OCTANT`** · zone-first diagonal path merge in **`get_attack_path`** · **`_run_iv6_attack_path_octant_suite`** — [`#phase-4--new-systems-formal-tracks`](LIVE_PATHS.md#phase-4--new-systems-formal-tracks)
 - **2026-06-08** — **IV-12/IV-13 improve** — co-located pile-on **`IV12_AI_COLOCATED_TARGET_BIAS_MULT`** · **`CombatDistanceBands`** ZoC reach parity · **`mat_joule_prod`** stable sub-region seed
 - **2026-06-08** — **IV-11 ☑** — leader formation commands slices 1–10 (hold/probe/pinch · player + enemy commander · pinch outnumber AI · F5 **`leader_order=`** / validator **`iv11_leader_order`**) — **`FEATURE_LEADER_FORMATION_COMMAND`** · **`_run_iv11_*`**
-- **2026-06-08** — **IV-1 ☑ archived wontfix** — plug vs incursion contest review closed — **`iv1_plug_incursion_doc_sync_line`** · **`_run_iv1_plug_incursion_review_suite`**
+- **2026-06-08** — **IV-1 removed** — plug vs incursion contest review closed (D-008); harness `_run_iv1_plug_incursion_review_suite` and sync line deleted
 - **2026-06-08** — **IV-12 ☑** — **`FEATURE_IV12_SLOT_DISTRACTION`** surround pad + **`iv12_offense_weight_mult`** — **`_run_iv12_slot_distraction_*`**
 - **2026-06-08** — **IV-13 ☑** — **`FEATURE_IV13_WEAPON_REACH_ZOC`** virtual reach at weak front — **`weapon_reach_zoc_bonus_m`** · **`_run_iv13_weapon_reach_zoc_*`**
 - **2026-06-08** — **IV-10 ☑** — **`FEATURE_SUBREGION_COMBAT_MULT`** scales post-armor mechanical damage by sub-region — **`_run_iv10_subregion_combat_mult_*`** — [`#phase-4--new-systems-formal-tracks`](LIVE_PATHS.md#phase-4--new-systems-formal-tracks)

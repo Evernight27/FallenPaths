@@ -165,7 +165,7 @@ static func _evaluate_track(normalized: PackedStringArray, spec: Dictionary) -> 
 
 
 static func _is_soak_guide_line(line: String) -> bool:
-	# Startup hints mention grep targets (e.g. `FP_ERROR`, `crash_success`) — not real errors.
+	# Startup hints mention grep targets (e.g. `FP_ERROR`) — not real errors.
 	return line.begins_with("soak_guide ") or line.begins_with("soak_guide:")
 
 

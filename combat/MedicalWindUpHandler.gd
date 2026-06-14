@@ -72,7 +72,7 @@ static func _medical_procedure_succeeded(result: Variant) -> bool:
 	if result == true:
 		return true
 	if result is Dictionary:
-		return bool((result as Dictionary).get("success", false))
+		return (result as Dictionary).get("success", false) == true
 	return false
 
 

@@ -7,7 +7,7 @@ extends RefCounted
 ## **`assign_combatant_zones`**, **`count_alive_in_zone`** (zone strength), and ZoC **engagement parry** use **`zone_geometry_for_combatant`** / **`zone_geometry_fid_str`** (home **`formation_id`**).
 ## ZoC / engagement — docs/LIVE_PATHS.md#tier-1-spec.
 ##
-## Zone geometry API (D-008: home **`formation_id`** only — intrusion host-line removed):
+## Zone geometry API (home **`formation_id`** only):
 ## - **`zone_geometry_fid_str`** / **`formation_for_combatant_cached`**
 ## - One resolve: **`zone_geometry_line_context`** → **`zone_geometry_fid_from_pack`** / **`zone_geometry_formation_from_pack`**
 ## - Per-pass cache: **`zone_geometry_line_context_by_combatant_id`**

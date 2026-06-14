@@ -15,7 +15,7 @@ const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 ## 2. attempt_close toward that target
 ## 3. Empty array if the target is dead/gone (defer to other layers)
 static func filter_post_strike_actions(
-	actions: Array, combatant_id: int, manager: Node, struck_target_id: int
+	actions: Array, _combatant_id: int, manager: Node, struck_target_id: int
 ) -> Array:
 	var out: Array = []
 

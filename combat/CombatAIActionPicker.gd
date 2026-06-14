@@ -345,6 +345,24 @@ static func _get_action_weight(
 		):
 			rot_w = maxf(rot_w, CombatConstants.AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT)
 		return rot_w
+	## III-4 **3e**: plug_forward AI weight during envelop mop-up.
+	if mid == CombatConstants.MOVE_ID_PLUG_FORWARD:
+		var partner_id_pf: int = int(a.get("target_id", -1))
+		if partner_id_pf < 0:
+			return 0.0
+		var partner_pf: Dictionary = _EntityAccess.manager_get_combatant(manager, partner_id_pf)
+		if partner_pf.is_empty():
+			return 0.0
+		if not _CombatDoctrine.envelop_mop_up_active(manager, _EntityAccess.side_str(c)):
+			return 0.0
+		var pf_w: float = CombatConstants.PLUG_FORWARD_AI_HIGH_WEIGHT
+		var engagement_listed: bool = (
+			not all_actions.is_empty()
+			and _ListedActions.action_list_has_hostile_strike(all_actions, combatant_id)
+		)
+		if not engagement_listed:
+			pf_w *= CombatConstants.PLUG_FORWARD_AI_LOW_WEIGHT
+		return pf_w
 	if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		var tgt_id_close: int = int(a.get("target_id", -1))
 		if tgt_id_close < 0:

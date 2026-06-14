@@ -68,7 +68,7 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 	if c.is_empty() or not flee_action_legal(manager, c):
 		return
 	var st: String = _EntityAccess.state_str(c)
-	if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
+	if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK, CombatConstants.STATE_PLUG_FORWARD]:
 		var pid: int = int(c.get("formation_move_partner_id", -1))
 		var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, pid)
 		_FormationFlow.abort_pair(manager, c, partner, CombatConstants.MOVE_ID_FLEE)

@@ -788,6 +788,15 @@ func _handle_rotate_file_resolve(ev: Dictionary) -> void:
 	_FormationFlow.handle_rotate_file_resolve(self, ev)
 
 
+## III-4 **3e**: depth fighter plug forward into rank-0 during envelop mop-up.
+func _start_plug_forward(initiator_id: int, partner_id: int) -> void:
+	_FormationFlow.start_plug_forward(self, initiator_id, partner_id)
+
+
+func _handle_plug_forward_resolve(ev: Dictionary) -> void:
+	_FormationFlow.handle_plug_forward_resolve(self, ev)
+
+
 func _on_combatant_died(c: Dictionary) -> void:
 	_TargetScoring.clear_all_targeting_state_for_dead_defender(self, _EntityAccess.id_int(c))
 	_Footwork.clear_on_death(c)

@@ -134,9 +134,9 @@ static func listed_action_is_formation_plug_pick(
 		if partner.is_empty() or not swap_rank_action_legal(manager, c, partner):
 			return false
 		var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
-		if bool(pc.get("we_plug_forward", false)):
+		if pc.get("we_plug_forward", false) == true:
 			return true
-		return line_gap and our_rank > 0 and bool(pc.get("line_plug_relief", false))
+		return line_gap and our_rank > 0 and pc.get("line_plug_relief", false) == true
 	if mid != CombatConstants.MOVE_ID_ROTATE_FILE or our_rank != 0 or not line_gap:
 		return false
 	if _Doctrine.should_suppress_skirmish_rotate_file(manager, c, all_actions):
@@ -177,7 +177,47 @@ static func swap_rank_action_legal(
 	if fid.is_empty():
 		return false
 	var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
-	return bool(pc.get("eligible", false)) and bool(pc.get("allow_swap", false))
+	return pc.get("eligible", false) == true and pc.get("allow_swap", false) == true
+
+
+## III-4 **3e**: depth fighter can plug forward into rank-0 during envelop mop-up.
+static func plug_forward_action_legal(
+	manager: Node,
+	c: Dictionary,
+	partner: Dictionary,
+	zone_geometry_line_context_cache: Dictionary = {}
+) -> bool:
+	if manager == null or c.is_empty() or partner.is_empty():
+		return false
+	if not adjacent_rank_pair_move_legal(manager, c, partner, zone_geometry_line_context_cache):
+		return false
+	var ctx: Dictionary = zone_geometry_line_context_cache
+	if ctx.is_empty():
+		ctx = _ZoneOfControl.zone_geometry_line_context(manager, c)
+	var fid: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx)
+	if fid.is_empty():
+		return false
+	# Depth fighter (rank > 0) plugging into rank-0 partner.
+	if _EntityAccess.rank_int(c) <= _EntityAccess.rank_int(partner):
+		return false
+	if _EntityAccess.rank_int(partner) != 0:
+		return false
+	# Same file check — plug_forward requires same file, adjacent ranks.
+	if _EntityAccess.file_int(c) != _EntityAccess.file_int(partner):
+		return false
+	# Only during envelop mop-up.
+	if not _Doctrine.envelop_mop_up_active(manager, _EntityAccess.side_str(c)):
+		return false
+	# Target rank-0 slot must be empty or occupied by the partner.
+	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+	if formation.is_empty():
+		return false
+	var slots: Dictionary = _FormationSlots.formation_slots_dict(formation)
+	var f: int = _EntityAccess.file_int(c)
+	var target_slot_id: int = _FormationSlots.slot_primary_id(slots, Vector2i(0, f))
+	if target_slot_id != -1 and target_slot_id != _EntityAccess.id_int(partner):
+		return false
+	return true
 
 
 static func front_rank_paired_retreat_action_legal(
@@ -195,7 +235,7 @@ static func front_rank_paired_retreat_action_legal(
 	if fid.is_empty():
 		return false
 	var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
-	if not bool(pc.get("we_are_front", false)) or bool(pc.get("we_plug_forward", false)):
+	if pc.get("we_are_front", false) != true or pc.get("we_plug_forward", false) == true:
 		return false
 	return CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, partner, manager)
 
@@ -240,7 +280,7 @@ static func _is_adjacent_rank_ally(
 	if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, ally, fid):
 		return false
 	if _EntityAccess.state_str(ally) in [
-		CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK
+		CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK, CombatConstants.STATE_PLUG_FORWARD
 	]:
 		return false
 	var partner_rank: int = _EntityAccess.rank_int(ally)
@@ -256,7 +296,7 @@ static func _is_adjacent_file_same_rank_ally(
 	if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, ally, fid):
 		return false
 	if _EntityAccess.state_str(ally) in [
-		CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK
+		CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK, CombatConstants.STATE_PLUG_FORWARD
 	]:
 		return false
 	var partner_rank: int = _EntityAccess.rank_int(ally)
@@ -344,7 +384,7 @@ static func _append_adjacent_rank_partner_actions(
 			actions,
 			{"target_id": _EntityAccess.id_int(ally), "move_id": CombatConstants.MOVE_ID_SWAP_RANK}
 		)
-		if bool(pc.get("we_are_front", false)) and not bool(pc.get("we_plug_forward", false)) and can_drag_back:
+		if pc.get("we_are_front", false) == true and pc.get("we_plug_forward", false) != true and can_drag_back:
 			if front_rank_paired_retreat_action_legal(manager, c, ally, zone_geometry_line_context_cache):
 				_append_formation_action(
 					manager,
@@ -402,9 +442,9 @@ static func append_formation_move_actions(
 	var formation_ranks: int = int(our_formation.get("ranks", 1))
 	var pair_abort_blocked: bool = in_pair_abort_cooldown(manager, c)
 	var move_policy: Dictionary = _EngagementMode.movement_policy(manager)
-	var can_swap_rank: bool = bool(move_policy.get("allow_swap_rank", false))
-	var can_drag_back: bool = bool(move_policy.get("allow_drag_back", false))
-	var can_fall_back: bool = bool(move_policy.get("allow_fall_back", false))
+	var can_swap_rank: bool = move_policy.get("allow_swap_rank", false) == true
+	var can_drag_back: bool = move_policy.get("allow_drag_back", false) == true
+	var can_fall_back: bool = move_policy.get("allow_fall_back", false) == true
 	var home_fid: String = _EntityAccess.formation_id_str(c)
 	var can_rotate_file: bool = _EngagementMode.allow_rotate_file_for_formation(manager, home_fid)
 	if (
@@ -430,6 +470,31 @@ static func append_formation_move_actions(
 		_append_rotate_file_partner_actions(
 			manager, c, combatants, fid, our_rank, our_file, actions, ctx_c
 		)
+	# III-4 **3e**: depth fighter plug_forward listing (independent of swap_rank gate — fires during envelop mop-up).
+	if (
+		CombatConstants.ENVELOP_MOP_UP_PLUG_FORWARD_ENABLED
+		and not formation_retreat_only
+		and not our_formation.is_empty()
+		and formation_ranks > 1
+		and not pair_abort_blocked
+		and _EntityAccess.can_flee_or_fall_back(c)
+		and our_rank > 0
+	):
+		for ally in combatants:
+			if not _is_adjacent_rank_ally(manager, c, ally, fid, our_rank, our_file):
+				continue
+			if _ListedActions.actions_include_move_vs_target(
+				actions, _EntityAccess.id_int(ally), CombatConstants.MOVE_ID_PLUG_FORWARD
+			):
+				continue
+			if plug_forward_action_legal(manager, c, ally, ctx_c):
+				_append_formation_action(
+					manager,
+					c,
+					actions,
+					{"target_id": _EntityAccess.id_int(ally), "move_id": CombatConstants.MOVE_ID_PLUG_FORWARD}
+				)
+				break
 	var solo_fb_ok: bool = _solo_fall_back_listing_eligible(
 		manager, c, formation_ranks, our_rank, pair_abort_blocked, ctx_c
 	)

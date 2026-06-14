@@ -38,9 +38,9 @@ static func medical_phase_active(manager: Node) -> bool:
 
 static func medical_phase_hints_already_shown(manager: Node, world: Node = null) -> bool:
 	if world != null and world.has_meta(WORLD_META_MEDICAL_PHASE_HINTS_SHOWN):
-		return bool(world.get_meta(WORLD_META_MEDICAL_PHASE_HINTS_SHOWN))
+		return world.get_meta(WORLD_META_MEDICAL_PHASE_HINTS_SHOWN) == true
 	if manager != null and manager.has_meta(_META_MEDICAL_PHASE_HINTS_SHOWN_FIGHT):
-		return bool(manager.get_meta(_META_MEDICAL_PHASE_HINTS_SHOWN_FIGHT))
+		return manager.get_meta(_META_MEDICAL_PHASE_HINTS_SHOWN_FIGHT) == true
 	return false
 
 
@@ -527,7 +527,7 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 		tips.append("Counter window open — seize tempo.")
 	elif tempo == "counter_winding":
 		tips.append("Incoming wind-up — counter window building.")
-	if bool(c.get("is_counter_tempo_wind_up", false)):
+	if c.get("is_counter_tempo_wind_up", false) == true:
 		tips.append("Counter-tempo riposte — shortened wind-up.")
 	if _FlurryBind.enabled() and manager != null and _FlurryBind.is_active(c, _EntityAccess.combat_clock_float(manager)):
 		var left: int = int(c.get("flurry_exchanges_left", 0))
@@ -583,7 +583,7 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 		).strip_edges()
 		if not close_ctrl.is_empty():
 			tips.append(close_ctrl)
-	if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK]:
+	if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK, CombatConstants.STATE_PLUG_FORWARD]:
 		tips.append(
 			"Formation move — heavy hits (intensity ≥ %.0f) may cancel; lighter hits extend duration."
 			% CombatConstants.FORMATION_HIT_CANCEL_INTENSITY

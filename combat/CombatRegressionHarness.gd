@@ -1,7 +1,7 @@
 class_name CombatRegressionHarness
 extends RefCounted
 
-## Manual / editor-invoked checks for Tier 1.5–1.9 (morale cohesion, engagement classifier, depth polearm, ZoC). Line crash / intrusion harnesses **removed** (**D-008**).
+## Manual / editor-invoked checks for Tier 1.5–1.9 (morale cohesion, engagement classifier, depth polearm, ZoC).
 ## WF harness baseline: **`_harness_reset_combatants_form_balanced`** → **`assign_form(..., harness_baseline)`** — home guard + **`form_str`** for parity rows; LIVE_PATHS **`#spawn--reset-path-wf-1a`** · **`#wf-soak-audit-status`**.
 ## Tier 4.2: **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry`**, **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust`**, **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone`**, **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust`**, **`_run_feint_windup_duration_mult_extends_state_duration_vs_oberhau`**, **`_run_feint_windup_duration_mult_extends_state_duration_vs_thrust`**, **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target`**, **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target_thrust`**, **`_run_feint_move_ai_distinct_feint_and_target_parts`**, **`_run_feint_move_ai_distinct_feint_and_target_parts_thrust`**, **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau`**, **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard_thrust`**, **`_run_feint_move_listing_spacing_long_dampens_vs_mid`**, **`_run_feint_move_listing_spacing_close_boosts_vs_mid`**, **`_run_feint_move_listing_spacing_long_dampens_vs_mid_when_defender_recovering`**, **`_run_feint_move_listing_spacing_close_boosts_vs_mid_when_defender_recovering`**, **`_run_feint_move_listing_readiness_recovery_curve_when_defender_recovering`**, **`_run_feint_move_listing_stamina_low_dampens_feint_weight`**, **`_run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp`**, **`_run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult`**, **`_run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult`**, **`_run_feint_move_listing_doctrine_probing_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default`**, **`_run_feint_move_listing_stance_ai_feint_mult_ordering`**, **`_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight`**, **`_run_feint_move_listing_defender_off_balance_boosts_feint_weight`**, **`_run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance`**, **`_run_feint_move_listing_recovering_footwork_dampens_vs_settled_waiting`**, **`_run_feint_move_listing_recovery_cause_orders_recovering_footwork_mult`, **`_run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally`****, **`_run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally`**, **`_run_feint_opts_from_choice_and_non_feint_attack_no_feint_part`**, **`_run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readjust_bonus`**, **`_run_feint_guard_zone_readthrough_par_bonus_when_readiness_high`**, **`_run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid`**, **`_run_feint_guard_zone_readthrough_spacing_close_dampens_vs_mid`**, **`_run_feint_target_reveal_progress_scales_readiness_mult`**, **`_run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough`**, **`_feint_guard_zone_sample_global_seed_for_modifier`** (PathResolver RNG seed scan), **`_run_feint_second_windup_clears_prior_telegraph_before_restamp`**, **`_run_feint_telegraph_scrubbed_on_combat_manager_restart`**; footwork / pair spacing — **`_run_defense_spacing_band_modulates_parry_and_dodge`**, **`_run_defense_footwork_recovering_boosts_dodge_vs_waiting`**, **`_run_defense_footwork_recovery_cause_orders_recovering_dodge_mult`**, **`_run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_close`**, **`_run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balance`**, **`_run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_close`**, **`_run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid`**, **`_run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_long_vs_mid`**, **`_run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid`**, **`_run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut`**, **`_run_defender_low_stamina_scales_passive_parry_readiness_in_choose_defense`**, **`_run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_feint`**, **`_run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina`**, **`_run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally`** (**`DefenseChoiceResolver`**, **`CombatAIActionPicker`**, **`distance_to`**, **`DEFENSE_SPACING_*`**, **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**, **`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**, **`FEINT_GUARD_ZONE_READINESS_SPACING_*`**, **`feint_guard_zone_readiness_spacing_mult`**, **`CombatConstants.passive_parry_readiness_incoming_contact_mult`**, **`WeaponConstants`** **`thrust_feint`**).
 ## Tier 3.3: afterblow — **`_run_afterblow_deflected_triggers_full_resolve_hit`**, **`_run_afterblow_low_hindrance_allow_triggers_resolve_hit`** (fixed **`seed(1)`**, harness meta for mult); **`_run_afterblow_mid_hindrance_rand_cancel`** (**`seed(2)`**); **`_run_afterblow_mid_hindrance_rand_executes_hit`** (**`seed(0)`**, mult **0.55**); **`_afterblow_harness_seed_pending_cut`**. Hit reaction — **`_run_hit_applier_sets_defender_guard_low_after_hit`** (**`AttackResultApplier`** **`hit`** → **`GuardLineUpdater.set_guard_from_line`** low).
@@ -231,7 +231,6 @@ static func run_all() -> Dictionary:
 	_run_iv9_gap_column_dual_mode_formation_targeting_suite(failures)
 	_run_iv9_gap_column_topology_refresh_after_formation_moves(failures)
 	_run_iv9_gap_column_topology_refresh_drag_back_fall_back_pair(failures)
-	_run_iv1_plug_incursion_review_suite(failures)
 	# IV-11 leader formation (slices 1–10)
 	_run_iv11_leader_formation_ability_suite(failures)
 	_run_iv11_register_party_leader_stamp_suite(failures)
@@ -7392,9 +7391,9 @@ static func _run_iv8_initiative_order_stagger(failures: PackedStringArray) -> vo
 		_fail(failures, "iv8_initiative_order: want 3 player fixtures got %d" % players.size())
 		_free_manager(mgr)
 		return
-	var fast: Dictionary = players[0]
-	var mid: Dictionary = players[1]
-	var slow: Dictionary = players[2]
+	var fast: Dictionary = mgr.combatants[0]
+	var mid: Dictionary = mgr.combatants[1]
+	var slow: Dictionary = mgr.combatants[2]
 	_EntityAccess.stats_dict_for_mutation(fast)["agility"] = 140
 	_EntityAccess.stats_dict_for_mutation(fast)["perception"] = 110
 	_EntityAccess.stats_dict_for_mutation(mid)["agility"] = 100
@@ -7435,7 +7434,8 @@ static func _run_iv8_initiative_order_flag_off_parity(failures: PackedStringArra
 		_fail(failures, "iv8_initiative_off: want 3 player fixtures got %d" % players.size())
 		_free_manager(mgr)
 		return
-	for c in players:
+	for i in players.size():
+		var c: Dictionary = mgr.combatants[i]
 		var stats: Dictionary = _EntityAccess.stats_dict_for_mutation(c)
 		stats["agility"] = 100
 		stats["perception"] = 100
@@ -7443,9 +7443,9 @@ static func _run_iv8_initiative_order_flag_off_parity(failures: PackedStringArra
 	var saved: bool = CombatConstants.is_feature_initiative_order_enabled()
 	CombatConstants.set_feature_initiative_order_load(false)
 	_EventScheduler.schedule_initial_action_ready_events(mgr)
-	var at0: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(players[0]))
-	var at1: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(players[1]))
-	var at2: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(players[2]))
+	var at0: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(mgr.combatants[0]))
+	var at1: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(mgr.combatants[1]))
+	var at2: float = _harness_action_ready_resolve_at(mgr, _EntityAccess.id_int(mgr.combatants[2]))
 	CombatConstants.set_feature_initiative_order_load(saved)
 	_free_manager(mgr)
 	if at0 < 0.0 or at1 < 0.0 or at2 < 0.0:
@@ -8917,45 +8917,6 @@ static func _run_iv11_party_leader_roster_callout_suite(failures: PackedStringAr
 		_fail(failures, "iv11_roster: member must not get leader suffix")
 	_free_harness_node(leader_ent)
 	_free_harness_node(member_ent)
-
-
-## IV-1 review: plug forward-fill and incursion ZoC pressure stay separate; D-008 line crash/contest removed.
-static func _run_iv1_plug_incursion_review_suite(failures: PackedStringArray) -> void:
-	var line: String = CombatConstants.iv1_plug_incursion_doc_sync_line()
-	for token in [
-		"archived=wontfix",
-		"D-008=removed",
-		"plug=VacancyPlugs",
-		"incursion=TacticalCombat",
-		"no_contest",
-		"attempt_close=live",
-	]:
-		if token not in line:
-			_fail(failures, "iv1_review: sync line missing %s in %s" % [token, line])
-	var mgr: Node = _MgrScript.new()
-	for _i in 2:
-		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 3:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 2, "ranks": 1}, {"files": 3, "ranks": 1})
-	_harness_reset_combatants_form_balanced(mgr)
-	_TacticalCombat.recompute_incursion_pressure(mgr)
-	var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
-	if not form_p.has("incursion_pressure"):
-		_fail(failures, "iv1_review: player formation missing incursion_pressure after recompute")
-		_free_manager(mgr)
-		return
-	var pressure: float = float(form_p.get("incursion_pressure", 0.0))
-	if pressure <= 0.01:
-		_fail(
-			failures,
-			"iv1_review: outnumbered front want incursion_pressure>0 got %.3f" % pressure
-		)
-	var p: Dictionary = mgr.combatants[0]
-	var e_id: int = _EntityAccess.id_int(mgr.combatants[mgr.combatants.size() - 1])
-	if not _MeleeListing.attempt_close_listed_for_pair(mgr, p, e_id, CombatConstants.DISTANCE_LONG):
-		_fail(failures, "iv1_review: attempt_close must stay listed (D-008 live)")
-	_free_manager(mgr)
 
 
 ## IV-13: weak front ZoC — spear gains virtual reach; sword does not at marginal eff_dist.
@@ -12387,6 +12348,7 @@ static func _run_mental_stack_feint_resistance_low_readiness_still_falls_for(
 static func _run_ms_l7_exhaustion_gradient_offense_weight(
 	failures: PackedStringArray
 ) -> void:
+	const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 	# Verify the extended lerp range: [EXHAUSTION_OFFENSE_DAMP_START=0.25, 0.75].
 	# Three exhaustion levels: fresh (0.10), fatigued midpoint (~0.50), exhausted (0.80).
 	var mgr: Node = _MgrScript.new()
@@ -12456,10 +12418,10 @@ static func _run_ms_l9_positional_awareness_disengage_when_surrounded(
 	)
 	var player: Dictionary = mgr.combatants[0]
 	var player_id: int = _EntityAccess.id_int(player)
-	# Wound the player so blood < 80% (vulnerability threshold).
+	# Wound the player so blood < L9 threshold (60%). ~40% loss → blood ≈ 60%.
 	var ent: CoreEntity = _EntityAccess.scene_node(player) as CoreEntity
 	if ent != null:
-		ent.body_cutting["chest"] = 25.0  # ~25% blood loss
+		ent.body_cutting["chest"] = 40.0  # ~40% blood loss → triggers MS-L9 vulnerability
 	# Set player to waiting state so actions can be built.
 	player["state"] = CombatConstants.STATE_WAITING
 	player["gauge"] = 100.0
