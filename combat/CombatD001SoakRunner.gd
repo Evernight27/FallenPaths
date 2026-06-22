@@ -38,6 +38,7 @@ const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
+const _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const RUNNER_NAME := "CombatD001SoakRunner"
@@ -1956,7 +1957,9 @@ static func _start_manager(
 	_F5SoakTrace.prepare_fight_end_log()
 	var mgr: Node = _MgrScript.new()
 	mgr.encounter = (
-		{SoakEncounterPresets.ENCOUNTER_KEY_SOAK_PRESET_ID: "7v7"}
+		{SoakEncounterPresets.ENCOUNTER_KEY_SOAK_PRESET_ID: "7v7",
+		 _MoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER: 50.0,
+		 _MoodBias.ENCOUNTER_KEY_MOOD_BIAS_ENEMY: 50.0}
 		if preset_id == "7v7"
 		else _encounter_dict_for_preset(preset_id)
 	)
@@ -1997,6 +2000,8 @@ static func _register_players(mgr: Node, player_n: int, use_7v7_names: bool) -> 
 static func _encounter_dict_for_preset(preset_id: String) -> Dictionary:
 	var enc: Dictionary = {
 		SoakEncounterPresets.ENCOUNTER_KEY_SOAK_PRESET_ID: preset_id,
+		_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER: 50.0,
+		_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_ENEMY: 50.0,
 	}
 	if preset_id == _SoakPresets.PRESET_II2B_SWORD_DUEL or preset_id == _SoakPresets.PRESET_II4D_EXHAUSTION:
 		enc[SoakEncounterPresets.ENCOUNTER_KEY_FORCE_WEAPON_ID] = "SWORD"

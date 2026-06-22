@@ -25,6 +25,7 @@ const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _LogFormatter := preload("res://ui/CombatLogFormatter.gd")
+const _Proficiency := preload("res://core/EntityProficiency.gd")
 
 static func _log_outcome(action: String, atk_id: int, tgt_id: int) -> void:
 	if CombatConstants.combat_debug_active():
@@ -216,6 +217,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			miss_part
 		)
 		manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
+		# XCamp-4: proficiency gains on miss (wind-up completion).
+		notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "miss", empty_result)
 		if not atk.is_empty():
 			var pa_miss: Dictionary = _pending_attack_read(atk)
 			atk["last_move_id"] = pa_miss.get("attack_type", "")
@@ -249,6 +252,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			dodge_part
 		)
 		manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
+		# XCamp-4: proficiency gains on dodge (AGI for defender, STR wind-up for attacker).
+		notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "dodge", empty_result)
 		if not atk.is_empty():
 			var pa_dodge_atk: Dictionary = _pending_attack_read(atk)
 			atk["last_move_id"] = pa_dodge_atk.get("attack_type", "")
@@ -329,6 +334,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			result.get("parry_clash_context", {}) if result.get("parry_clash_context") is Dictionary else {}
 		)
 		_log_fp_parry_outcome(atk, tgt, attacker_id, target_id, "parry_deflect", clash_log)
+		# XCamp-4: proficiency gains on parry_deflect (partial STR for both).
+		notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "parry_deflect", empty_result)
 		if not atk.is_empty():
 			_AIPicker.record_opp_parry_deflect_for_feint_listing(manager, atk, target_id)
 		if not tgt.is_empty():
@@ -397,6 +404,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		_log_outcome("parry_partial", attacker_id, target_id)
 		var clash_partial: Dictionary = pcl_emit if pcl_emit is Dictionary else {}
 		_log_fp_parry_outcome(atk, tgt, attacker_id, target_id, "parry_partial", clash_partial)
+		# XCamp-4: proficiency gains on parry_partial (small STR for attacker).
+		notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "parry_partial", partial_emit)
 		manager.emit_signal("action_resolved", target_id, attacker_id, partial_emit)
 		manager._execute_attack(attacker_id)
 		return
@@ -417,6 +426,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			_abort_incoming_wind_up_if_target_died(manager, target_id)
 			_F5SoakTrace.note_hit_resolve(attacker_id, target_id, atk, tgt, result_dict)
 			manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
+			# XCamp-4: proficiency gains on hit (STR scaled by damage, END for absorbing).
+			notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "hit", result_dict)
 			winner = manager._check_for_winner()
 			if not winner.is_empty():
 				manager._end_combat_phase(winner, tgt_scene)
@@ -445,6 +456,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 					)
 			_F5SoakTrace.note_hit_resolve(attacker_id, target_id, atk, tgt, result_dict)
 			manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
+			# XCamp-4: proficiency gains on hit (STR scaled by damage, END for absorbing).
+			notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "hit", result_dict)
 			# Attacker still needs recovery; otherwise they stay in WIND_UP
 			if atk != null and _EntityAccess.alive_bool(atk):
 				_consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
@@ -462,6 +475,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		_log_outcome("hit", attacker_id, target_id)
 		_F5SoakTrace.note_hit_resolve(attacker_id, target_id, atk, tgt, result_dict)
 		manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
+		# XCamp-4: proficiency gains on hit (STR scaled by damage, END for absorbing).
+		notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "hit", result_dict)
 		if atk != null and _EntityAccess.alive_bool(atk):
 			_consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
 			atk["effective_attack_line"] = atk.get("effective_attack_line", "")  # Set in AttackResolver before clear
@@ -506,3 +521,124 @@ static func _set_post_strike_stamp(manager: Node, atk: Dictionary, attacker_id: 
 		atk_read[CombatConstants.COMBATANT_KEY_LAST_STRIKE_TICK] = manager.combat_clock
 		if struck_target_id >= 0:
 			atk_read[CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID] = struck_target_id
+
+
+## XCamp-4: award proficiency stat gains from a resolved attack action.
+## Called after each action outcome (miss, dodge, hit, parry) in apply_result.
+static func notify_proficiency_gains_from_resolve(
+	manager: Node,
+	attacker_id: int,
+	target_id: int,
+	action: String,
+	result_dict: Dictionary
+) -> void:
+	if not _CompanyState.read_stub_proficiency_enabled():
+		return
+
+	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
+	var tgt: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, target_id)
+	if atk.is_empty():
+		return
+
+	# Determine weapon ID from attacker dict for curve modifiers.
+	var weapon_id: String = ""
+	if _EntityAccess.has_weapon(atk):
+		var w = _EntityAccess.get_weapon(atk)
+		if w is Dictionary:
+			weapon_id = str(w.get("id", ""))
+
+	# Determine form string from attacker dict.
+	var form_str: String = ""
+	if atk.has("_form_str"):
+		form_str = atk._form_str
+
+	var attacker_entity: Node = _EntityAccess.scene_node(atk)
+	var target_entity: Node = _EntityAccess.scene_node(tgt) if not tgt.is_empty() else null
+
+	match action:
+		"miss":
+			# Wind-up completed — counts as strike attempted for both STR and AGI.
+			if attacker_entity != null and attacker_entity.has("_proficiency_bonus"):
+				_Proficiency.award_stat_gain(attacker_entity, "strength", _Proficiency.GAIN_STRIKE_ATTEMPTED_BASE, weapon_id, form_str)
+				_Proficiency.award_stat_gain(attacker_entity, "agility", _Proficiency.GAIN_WINDUP_COMPLETED_AGI_BASE, weapon_id, form_str)
+
+		"dodge":
+			# Defender dodged — AGI gain for defender. Attacker gets STR wind-up gain.
+			if tgt.is_empty() or target_entity == null:
+				if attacker_entity != null and attacker_entity.has("_proficiency_bonus"):
+					_Proficiency.award_stat_gain(attacker_entity, "strength", _Proficiency.GAIN_STRIKE_ATTEMPTED_BASE, weapon_id, form_str)
+				return
+			var outnumbered := _is_defender_outnumbered(manager, tgt)
+			var dodge_gain := _Proficiency.GAIN_DODGE_EVaded_BASE
+			if outnumbered:
+				dodge_gain += _Proficiency.GAIN_DODGE_OUTNUMBERED_BONUS
+			_Proficiency.award_stat_gain(target_entity, "agility", dodge_gain)
+			if attacker_entity != null and attacker_entity.has("_proficiency_bonus"):
+				_Proficiency.award_stat_gain(attacker_entity, "strength", _Proficiency.GAIN_STRIKE_ATTEMPTED_BASE, weapon_id, form_str)
+
+		"hit":
+			# Attacker hit — STR gain scaled by damage dealt.
+			if attacker_entity != null and attacker_entity.has("_proficiency_bonus"):
+				var dmg: float = float(result_dict.get("dmg", 0))
+				var str_gain := _Proficiency.GAIN_MELEE_HIT_BASE + minf(dmg / _Proficiency.GAIN_HIT_STR_DAMAGE_DIVIDER, _Proficiency.GAIN_MELEE_HIT_MAX_DMG_CONTRIB)
+				_Proficiency.award_stat_gain(attacker_entity, "strength", str_gain, weapon_id, form_str)
+
+				# Severe wound bonus (severity from result_dict).
+				var wound_severity: String = result_dict.get("wound_severity", "")
+				if not wound_severity.is_empty():
+					var sev_mult: float = _Proficiency.get_severity_mult(wound_severity)
+					_Proficiency.award_stat_gain(attacker_entity, "strength", _Proficiency.GAIN_SEVERE_WOUND_BASE * sev_mult, weapon_id, form_str)
+
+			# Defender END gain for absorbing damage.
+			if target_entity != null and target_entity.has("_proficiency_bonus"):
+				var dmg_taken: float = float(result_dict.get("dmg", 0))
+				var end_gain := _Proficiency.GAIN_DAMAGE_ABSORBED_BASE + minf(dmg_taken / _Proficiency.GAIN_END_DMG_TAKEN_DIVIDER, _Proficiency.GAIN_DAMAGE_ABSORBED_MAX_CONTRIB)
+				_Proficiency.award_stat_gain(target_entity, "endurance", end_gain)
+
+		"parry_deflect":
+			# Both attacker and defender get wind-up completion gains.
+			# Defender also gets END gain for successfully blocking (absorbing parry recoil).
+			if attacker_entity != null and attacker_entity.has("_proficiency_bonus"):
+				_Proficiency.award_stat_gain(attacker_entity, "strength", _Proficiency.GAIN_STRIKE_ATTEMPTED_BASE * _Proficiency.GAIN_PARRY_DEFLECT_STR_MULT, weapon_id, form_str)
+			if not tgt.is_empty() and target_entity != null and target_entity.has("_proficiency_bonus"):
+				_Proficiency.award_stat_gain(target_entity, "strength", _Proficiency.GAIN_STRIKE_ATTEMPTED_BASE * _Proficiency.GAIN_PARRY_DEFLECT_STR_MULT)
+				_Proficiency.award_stat_gain(target_entity, "endurance", _Proficiency.GAIN_DAMAGE_ABSORBED_BASE * _Proficiency.GAIN_PARRY_DEFLECT_END_MULT)
+
+		"parry_partial":
+			# Attacker gets partial STR gain; defender gets no gain (parry absorbed).
+			if attacker_entity != null and attacker_entity.has("_proficiency_bonus"):
+				_Proficiency.award_stat_gain(attacker_entity, "strength", _Proficiency.GAIN_STRIKE_ATTEMPTED_BASE * _Proficiency.GAIN_PARRY_PARTIAL_STR_MULT, weapon_id, form_str)
+
+		"defeated":
+			# No proficiency gains on defeated action.
+			pass
+
+		_:
+			# skip — no gains
+			pass
+
+
+## Checks if the defender combatant is the last alive in their slot group (outnumbered).
+static func _is_defender_outnumbered(manager: Node, defender: Dictionary) -> bool:
+	var slot_key := defender.get("slot_key", "")
+	if slot_key.is_empty():
+		return false
+	var slot_group := str(slot_key).get_slice("_", 1) if "_" in str(slot_key) else ""
+	if slot_group.is_empty():
+		return false
+	var defender_side := _EntityAccess.side_str(defender)
+	var count_alive_in_group: int = 0
+	if not manager.has_method("get_combatants"):
+		return false
+	for c in manager.get_combatants():
+		if not c is Dictionary:
+			continue
+		if not _EntityAccess.side_str(c) == defender_side:
+			continue
+		var c_slot := str(c.get("slot_key", "")).get_slice("_", 1)
+		if c_slot != slot_group:
+			continue
+		if not _EntityAccess.alive_bool(c):
+			continue
+		count_alive_in_group += 1
+	return count_alive_in_group <= 1

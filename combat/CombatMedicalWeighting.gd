@@ -9,6 +9,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _EntityMedical := preload("res://core/EntityMedical.gd")
 static var _MedicalPhase: Script = load("res://combat/MedicalPhaseController.gd") as Script
 
 ## Check if the medical escalation feature is active (inline to avoid circular preload).
@@ -53,7 +54,7 @@ static func compute_weight(a: Dictionary, combatant_id: int, manager: Node) -> f
 	# Failed-part retry
 	w = _compute_failed_part_retry_weight(a, tgt, mid, w, combatant_id, manager)
 
-	# Out-of-peril dampening for stabilize/dressing
+ 	# Out-of-peril dampening for stabilize/dressing
 	w = _compute_out_of_peril_dampening(tgt, mid, manager, w)
 
 	# Tourniquet indication boost
@@ -171,6 +172,18 @@ static func _compute_bleeding_interaction(
 				if not _MedicalPhase.dressings_allowed_for_part(manager, tgt, part):
 					return 0.001
 				if mid == CombatConstants.MOVE_ID_PACK_WOUND:
+					# When escalation is active and this part has failed bandage,
+					# pack IS the correct TCCC step — don't dampen it.
+					if is_feature_ms_medical_escalation_enabled():
+						var failed_raw: Variant = tgt.get("failed_medical_parts", null)
+						if failed_raw is Array and part_in_array(failed_raw as Array, part):
+							var esc_path: Array = _MedicalPhase.escalation_path_for_part(
+								int(tgt.get("id", -1)), combatant_id, part, manager
+							)
+							if not esc_path.is_empty():
+								var cur_idx: int = esc_path.find(CombatConstants.MOVE_ID_PACK_WOUND)
+								if cur_idx > 0:
+									return w  # Skip dampening — pack is an escalation step
 					return w * _MedicalPhase.MEDICAL_AI_WEIGHT_PACK_BEFORE_PRESSURE
 	return w
 
@@ -191,6 +204,18 @@ static func _escalation_path_has_next_step(
 	var current_idx: int = path.find(current_move_id)
 	if current_idx < 0 or current_idx >= path.size() - 1:
 		return false
+	# Verify the next step is actually performable — capability matters.
+	var perf: Dictionary = _EntityAccess.manager_get_combatant(manager, performer_id)
+	if not perf.is_empty():
+		var entity: Node = _EntityAccess.get_entity_from_manager(manager, perf)
+		if entity != null and path.size() > current_idx + 1:
+			var next_mid: String = path[current_idx + 1]
+			if next_mid == CombatConstants.MOVE_ID_PACK_WOUND:
+				if not _EntityMedical.can_apply_packing(entity, part):
+					return false
+			elif next_mid == CombatConstants.MOVE_ID_APPLY_TOURNIQUET:
+				if not _EntityMedical.can_apply_tourniquet(entity, part):
+					return false
 	return true
 
 

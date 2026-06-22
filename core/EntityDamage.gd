@@ -19,6 +19,7 @@ const _ArmorPenetrationTrace := preload("res://armor/ArmorPenetrationTrace.gd")
 const _MaterialFailureCurves := preload("res://core/MaterialFailureCurves.gd")
 const _TissueEnergyCapacity := preload("res://core/TissueEnergyCapacity.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
 
 # Damage resistance and severance (CoreEntity-aligned).
 const ENDURANCE_DAMAGE_RESISTANCE_PER_POINT: float = 0.0001
@@ -83,6 +84,12 @@ static func get_severance_ease_factor(entity: Node, part: String) -> float:
 	var severance_ease: float = 1.0 + (1.0 - tissue_ratio) * SEVERANCE_EASE_TISSUE_FACTOR + (1.0 - bone_ratio) * SEVERANCE_EASE_BONE_FACTOR + wound_factor + severity_bonus
 	return clampf(severance_ease, 1.0, SEVERANCE_EASE_MAX)
 
+static func _effective_endurance_for_damage(entity: Node) -> float:
+	var eff: float = float(entity.endurance)
+	if _CompanyState.read_stub_proficiency_enabled() and entity.has("_proficiency_bonus"):
+		eff += float(entity._proficiency_bonus.get("endurance", 0) or 0)
+	return eff
+
 ## Full damage-split application: armor, bone/tissue split, wounds, early severance, stump, vital death, pain shock.
 ## extras: strike_ke_j, hit_sub_region, hit_sub_region_seed, force_layer_tissue, force_layer_tissue_curves,
 ## force_material_curves, material_curve_blend_weight, force_joule_armor_budget, force_tissue_energy_pool,
@@ -98,7 +105,7 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 		return { "final_cut": 0.0, "final_blunt": 0.0, "final_bone": 0.0, "was_deflected": false, "mechanical_post_armor": 0.0 }
 	var cut_pre_val: float = maxf(0.0, cut_pre)
 	var blunt_pre_val: float = maxf(0.0, blunt_pre)
-	var end_resist: float = clampf(float(entity.endurance) * ENDURANCE_DAMAGE_RESISTANCE_PER_POINT, 0.0, ENDURANCE_DAMAGE_RESISTANCE_MAX)
+	var end_resist: float = clampf(_effective_endurance_for_damage(entity) * ENDURANCE_DAMAGE_RESISTANCE_PER_POINT, 0.0, ENDURANCE_DAMAGE_RESISTANCE_MAX)
 	cut_pre_val *= (1.0 - end_resist)
 	blunt_pre_val *= (1.0 - end_resist)
 	var armor_var: Variant = entity.get_armor_for_part(part)

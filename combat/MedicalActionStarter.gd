@@ -6,6 +6,8 @@ const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
+const _Proficiency := preload("res://core/EntityProficiency.gd")
 
 ## Starts a medical action: direct pressure (instant or during wind-up), bandage/tourniquet/pack wind-up.
 ## Footing: medic **`clear_on_exchange_end`** / **`reconcile_idle_offset`** on start · ally receiving scrub on entry — LIVE_PATHS **`#wf-tier-44-pa`**.
@@ -124,6 +126,13 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 					% [who_name, target_part, med_rec_dur]
 				)
 			manager.emit_signal("action_resolved", combatant_id, target_combatant_id, {"outcome": "direct_pressure", "part": target_part, "dmg": 0, "died": false})
+			# XCamp-4: proficiency gains for direct pressure (same INT gain as wind-up medical).
+			var perf_entity = _EntityAccess.get_entity_from_manager(manager, c)
+			var tgt_entity = _EntityAccess.get_entity_from_manager(manager, target_node)
+			if _CompanyState.read_stub_proficiency_enabled():
+				_Proficiency.award_stat_gain(perf_entity, "intelligence", _Proficiency.GAIN_MEDICAL_ACTION_BASE * _Proficiency.GAIN_DIRECT_PRESSURE_INT_MULT)
+				if tgt_entity != null and tgt_entity.has("_proficiency_bonus"):
+					_Proficiency.award_stat_gain(tgt_entity, "endurance", _Proficiency.GAIN_BLOOD_PERIL_BASE * _Proficiency.GAIN_DIRECT_PRESSURE_PATIENT_END_MULT)
 		_Footwork.clear_on_exchange_end(c)
 		c.gauge = 0.0
 		c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
@@ -143,7 +152,12 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 			duration = target_entity.call(dur_method)
 	if duration <= 0.0 and not wind_up_cfg.is_empty():
 		duration = 4.0  # fallback for custom entities
-	var speed_mod: float = _EntityAccess.get_medical_windup_speed_modifier(manager, c, target_node)
+	var speed_mod: float = 1.0
+	# XCamp-4: use effective INT (includes proficiency bonus) when system is enabled.
+	if _CompanyState.read_stub_proficiency_enabled():
+		speed_mod = _EntityAccess.get_effective_medical_windup_speed_modifier(manager, c, target_node)
+	else:
+		speed_mod = _EntityAccess.get_medical_windup_speed_modifier(manager, c, target_node)
 	if speed_mod > 0.0:
 		duration /= speed_mod
 	var assist_div: float = _EntityAccess.get_medical_windup_assist_duration_divisor(

@@ -13,6 +13,8 @@ const _CompanyState := preload("res://world/CompanyState.gd")
 const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
+const _Proficiency := preload("res://core/EntityProficiency.gd")
 const META_ENEMY_FORMATION := "enemy_formation"
 
 
@@ -55,10 +57,12 @@ static func _kill_log_entry_for_victim(world: Node, victim_name: String) -> Dict
 
 
 ## Apply encounter node config to world meta before **`CombatFlow.start_combat`**.
-static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> void:
+	static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> void:
 	if world == null or encounter == null:
 		return
 	clear_battle_kill_log(world)
+	# XCamp-4: reset medic action tracker for this combat (per-entity).
+	world.set_meta("campaign_medic_actions_by", {})
 	if encounter.has_method("get_combat_encounter_dict"):
 		var enc: Dictionary = _ContractSpawner.build_encounter_config(
 			encounter.get_combat_encounter_dict()
@@ -102,7 +106,41 @@ static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> voi
 	_CompanyState.wire_party_medical_supply(world)
 	apply_campaign_mood_stance_preferences(world)
 	_apply_party_mood_to_encounter_meta(world)
+	apply_campaign_mood_bias_to_encounter(world)
+	# XCamp-4: snapshot combat participation for post-combat decay tracking.
+	_proficiency_snapshot_combat_participation(world)
 	SoakEncounterPresets.emit_f5_fight_enter_hint(encounter)
+
+
+## XCamp-4: mark which party members are entering this combat (for decay tracking).
+static func _proficiency_snapshot_combat_participation(world: Node2D) -> void:
+	if world == null:
+		return
+	var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
+	if pm == null or not ("members" in pm):
+		return
+	for m in pm.members:
+		if m is not Dictionary:
+			continue
+		var node_ref: Variant = (m as Dictionary).get("node_ref")
+		if not is_instance_valid(node_ref) or not (node_ref is Node):
+			continue
+		var node: Node = node_ref as Node
+		if node.has_method("is_dead") and node.is_dead():
+			continue
+		var entity: Node = health_entity_from_character(node)
+		if entity != null:
+			entity._last_fought_in_combat = true  # Assume all in combat; cleared at end if they weren't.
+
+
+## XCamp-4: record a medic action performed by a specific entity (increments counter for INT floor).
+static func record_medic_action(world: Node2D, medic_entity: Node) -> void:
+	if world == null or medic_entity == null:
+		return
+	var actions: Dictionary = world.get_meta("campaign_medic_actions_by") if world.has_meta("campaign_medic_actions_by") else {}
+	var count: int = int(actions.get(medic_entity, 0) or 0)
+	actions[medic_entity] = count + 1
+	world.set_meta("campaign_medic_actions_by", actions)
 
 
 ## Drop transient combat meta after battle (entity wounds persist on **`CoreEntity`** nodes).
@@ -121,11 +159,23 @@ static func clear_transient_combat_meta(world: Node2D) -> void:
 ## After victory/defeat: refresh party formation count from living members.
 static func on_return_from_combat(world: Node2D, winner: String) -> void:
 	if world == null or winner != "player":
+		# XCamp-4: still apply decay for defeated mercenaries (decay applies regardless of outcome).
+		if _CompanyState.read_stub_proficiency_enabled():
+			var current_day: int = _CompanyState.get_day_index(world)
+			for n in get_fightable_party_nodes(world):
+				var entity: Node = health_entity_from_character(n)
+				if entity != null and entity.has("_proficiency_bonus") and entity.has("_last_fought_day"):
+					entity._last_fought_in_combat = false  # Combat ended; decay will track inactivity.
+					_Proficiency.apply_decay(entity, current_day)
 		clear_transient_combat_meta(world)
 		return
 	# Camp-2.1: any player victory lifts map bleed block (not only tutorial-tagged contracts).
 	_CompanyState.mark_tutorial_completed(world)
 	build_last_battle_summary(world)
+
+	# XCamp-4: proficiency — update _last_fought_day and apply decay for party members.
+	_proficiency_post_combat(world)
+
 	clear_transient_combat_meta(world)
 	refresh_party_formation_meta(world)
 	_CompanyState.wire_party_medical_supply(world)
@@ -135,6 +185,59 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
 		const _OpLog := preload("res://core/OperationalLog.gd")
 		if _OpLog.is_play_session_active():
 			_OpLog.play_world(_CompanyState.format_post_fight_field_care_world_log(world))
+
+
+## XCamp-4: post-combat proficiency processing — update fight day, apply decay, medic INT floor.
+	static func _proficiency_post_combat(world: Node2D) -> void:
+	if world == null or not _CompanyState.read_stub_proficiency_enabled():
+		return
+	var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
+	if pm == null or not ("members" in pm):
+		return
+	var current_day: int = _CompanyState.get_day_index(world)
+	for m in pm.members:
+		if m is not Dictionary:
+			continue
+		var node_ref: Variant = (m as Dictionary).get("node_ref")
+		if not is_instance_valid(node_ref) or not (node_ref is Node):
+			continue
+		var node: Node = node_ref as Node
+		if node.has_method("is_dead") and node.is_dead():
+			continue
+		var entity: Node = health_entity_from_character(node)
+		if entity == null or not entity.has("_proficiency_bonus"):
+			continue
+		# Update _last_fought_day for mercenaries who participated in combat.
+		if entity.has("_last_fought_in_combat") and entity._last_fought_in_combat:
+			if entity.has("_last_fought_day"):
+				entity._last_fought_day = current_day
+		# Apply decay (gated by CompanyState.read_stub_proficiency_enabled).
+		_Proficiency.apply_decay(entity, current_day)
+
+	# Medic INT floor: only the combatants who actually performed medical actions get a temporary INT boost.
+	var medic_actions_by_entity: Dictionary = world.get_meta("campaign_medic_actions_by") if world.has_meta("campaign_medic_actions_by") else {}
+	for entity_ptr in medic_actions_by_entity.keys():
+		if not is_instance_valid(entity_ptr):
+			continue
+		var action_count: int = int(medic_actions_by_entity[entity_ptr])
+		if action_count <= 0:
+			continue
+		for m in pm.members:
+			if m is not Dictionary:
+				continue
+			var node_ref: Variant = (m as Dictionary).get("node_ref")
+			if not is_instance_valid(node_ref) or not (node_ref is Node):
+				continue
+			var node: Node = node_ref as Node
+			if node.has_method("is_dead") and node.is_dead():
+				continue
+			var member_entity: Node = health_entity_from_character(node)
+			if member_entity == entity_ptr:
+				# Medic INT floor: flat bonus per medical action (not subject to diminishing returns via award_stat_gain).
+				# This is intentional — the medic floor is a guaranteed baseline reward, not practice-based growth.
+				if member_entity.has("_proficiency_bonus"):
+					member_entity._proficiency_bonus["intelligence"] += _Proficiency.GAIN_MEDIC_INT_FLOOR * action_count
+				break
 
 
 ## Step onto contract tile: stash contract, spawn enemies, consume marker (R3).
@@ -182,6 +285,32 @@ static func apply_campaign_mood_stance_preferences(world: Node2D) -> void:
 			continue
 		var mood: float = float((m as Dictionary).get("company_mood", _CompanyState.MOOD_DEFAULT))
 		node.set("stance_preference", _CompanyState.stance_preference_for_campaign_mood(mood))
+
+
+## XCamp-3.9 (MS-CAMP): stamp fight-entry campaign mood bias from average company mood into encounter meta.
+## Enemy side reads `enemy_mood_bias` from encounter config (0–100; default 50 = neutral).
+static func apply_campaign_mood_bias_to_encounter(world: Node2D) -> void:
+	if world == null or not world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER):
+		return
+	var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
+	if pm == null or not ("members" in pm):
+		return
+	var sum: float = 0.0
+	var n: int = 0
+	for m in pm.members:
+		if m is Dictionary:
+			sum += float(m.get("company_mood", _CompanyState.MOOD_DEFAULT))
+			n += 1
+	if n <= 0:
+		return
+	var avg_mood: float = sum / float(n)
+	var enc: Dictionary = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
+	if enc is Dictionary:
+		var merged: Dictionary = enc.duplicate(true)
+		merged[_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER] = avg_mood
+		var enemy_bias: float = float(enc.get("enemy_mood_bias", 50.0))
+		merged[_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_ENEMY] = clampf(enemy_bias, 0.0, 100.0)
+		world.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, merged)
 
 
 static func begin_contract_encounter(

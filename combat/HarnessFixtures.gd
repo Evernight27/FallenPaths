@@ -426,9 +426,12 @@ static func _harness_iv9_enemy_rank0_with_gaps(mgr: Node) -> Array:
 	# Only register 3 so manager fills files [0,1,2]; then shift to [1,2,3] for gap at file 0.
 	for i in range(3):
 		mgr.register(enemies[i], "enemy")
-	mgr.start({"files": 1, "ranks": 1}, {"files": 4, "ranks": 1})
+	# Use equal-width sides (both 4) to avoid SKIRMISH mode which would block compaction.
+	mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
 	var slots: Dictionary = _FormationSlots.formation_slots_dict(mgr.formations["enemy"])
 	var new_slots: Dictionary = {}
+	# Shift all occupied rank-0 slots to file+1 (creating gap at file 0).
+	# Slot keys are Vector2i(rank, file) — shift the .y (file) coordinate.
 	for k in slots.keys():
 		if not (k is Vector2i):
 			continue
@@ -436,14 +439,21 @@ static func _harness_iv9_enemy_rank0_with_gaps(mgr: Node) -> Array:
 		if cell.x != 0:
 			continue
 		var cid: Variant = slots[k]
-		if cid is int and cid >= 0:
-			new_slots[Vector2i(0, cell.y + 1)] = cid
+		var new_key: Vector2i = Vector2i(cell.x, cell.y + 1)
+		if cid is Array:
+			new_slots[new_key] = cid.duplicate()
+			for id_val in cid:
+				if id_val is int and id_val >= 0:
+					for c in mgr.combatants:
+						if _EntityAccess.id_int(c) == id_val:
+							c.file = cell.y + 1
+							break
+		elif cid is int and cid >= 0:
+			new_slots[new_key] = [cid]
 			for c in mgr.combatants:
 				if _EntityAccess.id_int(c) == cid:
 					c.file = cell.y + 1
 					break
-		elif not str(cid).is_empty():
-			new_slots[Vector2i(0, cell.y + 1)] = cid
 	mgr.formations["enemy"]["slots"] = new_slots
 	_FormationSlots.normalize_formation_slots(mgr.formations["enemy"])
 	var form_enemy: Dictionary = mgr.formations["enemy"]

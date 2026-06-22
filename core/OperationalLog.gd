@@ -1,7 +1,7 @@
 class_name OperationalLog
 extends RefCounted
 
-## Stable stdout tags for grep / Cursor — copy Godot **Output** after F5; search `FP_COMBAT` `FP_ERROR` `SCRIPT ERROR`.
+## Stable stdout tags for grep — copy Godot **Output** after F5; search `FP_COMBAT` `FP_ERROR` `SCRIPT ERROR`.
 ## Headless harness also writes `.harness_out.txt` (long runs, no editor UI to copy from).
 
 const TAG_ERROR := "FP_ERROR"

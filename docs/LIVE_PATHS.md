@@ -1,8 +1,8 @@
-# Shipped combat live paths
+﻿# Shipped combat live paths
 
 <a id="milestone-summary"></a>
 
-**Read:** [`PLANNING.md`](PLANNING.md) · [`CURSOR#what-to-do-next`](CURSOR.md#what-to-do-next) · [`SHIP_PLAN`](SHIP_PLAN.md) · [**mental stack §9b**](SHIP_PLAN.md#combat-mental-stack-shipped) · [**WF footing doc map**](LIVE_PATHS.md#wf-footing-doc-map) · scripts [`../scripts/README.md`](../scripts/README.md). Tombstones: [#redirects-tombstones](#redirects-tombstones).
+**Read:** [`PLANNING.md`](PLANNING.md) · [`AGENTS_ENTRY#what-to-do-next`](AGENTS_ENTRY.md#what-to-do-next) · [`SHIP_PLAN`](SHIP_PLAN.md) · [**mental stack §9b**](SHIP_PLAN.md#combat-mental-stack-shipped) · [**WF footing doc map**](LIVE_PATHS.md#wf-footing-doc-map) · scripts [`../scripts/README.md`](../scripts/README.md). Tombstones: [#redirects-tombstones](#redirects-tombstones).
 
 **III-4 Track A (shipped ☑):** engagement geometry bridge — mapped opposition, Skirmish compaction, L4+close, optional Skirmish **`rotate_file`**, campaign **`player_front_count`**, headless **`ii_envelop`** — [#iii-4](#iii-4--engagement-geometry-audit). **Track B (Expand):** IV-9 gap-column. **Expand (post–Camp-5):** [#phase-4--new-systems-formal-tracks](#phase-4--new-systems-formal-tracks) · [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry). **No** player target picker.
 
@@ -20,7 +20,7 @@
 <a id="d-005-surround"></a>
 <a id="d-005--surround-arc-occupancy--shipped"></a>
 
-`attempt_close` at LONG (max 3 CLOSE) · **D-008 removed** · **D-005** `CombatSurroundArcOccupancy` / `FEATURE_SURROUND_ARC_OCCUPANCY` (±38°, blocked ×0.35; sector load when `is_feature_sector_surround_load()`).
+`attempt_close` at LONG (max 3 CLOSE) · **D-005** `CombatSurroundArcOccupancy` / `FEATURE_SURROUND_ARC_OCCUPANCY` (±38°, blocked ×0.35; sector load when `is_feature_sector_surround_load()`).
 
 <a id="tier-3--parry--bind--guards"></a>
 <a id="tier-0--formation--parry-choice"></a>
@@ -243,7 +243,7 @@ Exchange **Step** is from **line keys** — not **`weapon_form`**, legacy **`sta
 | Camp-3.3 hints | `CombatUiHints`, `BattleUIUpdater` | Change `MentalStackDecider` order for tutorial |
 | Camp-2.5 stabilize (shipped) | `stabilize_wound` in `MedicalPhaseController` / `CombatMedicalActionListing`; −1 med via `CompanyState.on_battle_medical_complete` | Bypass `CombatMedicalCoordination` overlap rules |
 
-Mental-stack **Expand** items: table in [§D](#d-pick-order-after-listing) · [#post-expansion-backlog](#post-expansion-backlog). **Not** player target UI.
+Mental-stack **Expand** items: table in [§D](#d-pick-order-after-listing) · [#post-expansion-backlog](#post-expansion-backlog). Player target picker is a design lock — no per-strike UI.
 
 ### I. Safe extension checklist
 
@@ -256,7 +256,7 @@ Mental-stack **Expand** items: table in [§D](#d-pick-order-after-listing) · [#
 
 <a id="tier-5--kinematic-delivery"></a>
 <a id="closed-simulation-s11"></a>
-<a id="closed-material-p3b"></a>
+<a id="p3b-shipped"></a>
 
 ## Tier 5 — kinematic + simulation (maintain only)
 
@@ -288,7 +288,7 @@ Editor play session (`OperationalLog.begin_play_session`) layers diagnostics. Gr
 <a id="enable-per-hit-research_feel-lines"></a>
 <a id="f5-optional-crosswalk-feel-vs-headless"></a>
 
-**Research audit:** `.calibration_audit.txt` · `CombatResearchAnchors.gd` · `_run_research_*` (`RESEARCH_HARNESS_GATE_IDS`, 35 gates). Fail → fix constants/anchors + [`CURSOR` decision log](CURSOR.md#decision-log). **`note`** rows: ignore (`cut_bone_pen_gate_mm`, `forearm_blunt_fracture_anchor_J`, `layer_rupture_subcut_bleed_mult`, `blunt_fracture_scaling`, `human_head_tissue_pct`). **Footing / stances / PA offsets / form weights:** **not** in research audit — harness + F5 soak per [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog). F5: [#playtest-q1](#playtest-q1-research-feel-duel) · `dev_research_feel`+ii2b · [#enable-per-hit-research_feel-lines](#enable-per-hit-research_feel-lines). **§1/§6/§10:** [#bleeding-physics](#bleeding-physics). **Edit:** `BleedingConstants` · `CombatResearchAnchors` · `species/*.tres` · `CombatCalibrationAudit` · [#production-flags](#production-flags). One `FEATURE_*` per PR.
+**Research audit:** `.calibration_audit.txt` · `CombatResearchAnchors.gd` · `_run_research_*` (`RESEARCH_HARNESS_GATE_IDS`, 35 gates). Fail → fix constants/anchors + [`AGENTS_ENTRY` decision log](AGENTS_ENTRY.md#decision-log). **`note`** rows: ignore (`cut_bone_pen_gate_mm`, `forearm_blunt_fracture_anchor_J`, `layer_rupture_subcut_bleed_mult`, `blunt_fracture_scaling`, `human_head_tissue_pct`). **Footing / stances / PA offsets / form weights:** **not** in research audit — harness + F5 soak per [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog). F5: [#playtest-q1](#playtest-q1-research-feel-duel) · `dev_research_feel`+ii2b · [#enable-per-hit-research_feel-lines](#enable-per-hit-research_feel-lines). **§1/§6/§10:** [#bleeding-physics](#bleeding-physics). **Edit:** `BleedingConstants` · `CombatResearchAnchors` · `species/*.tres` · `CombatCalibrationAudit` · [#production-flags](#production-flags). One `FEATURE_*` per PR.
 
 <a id="tier-6--medical--flee"></a>
 <a id="bleeding-units"></a>
@@ -448,7 +448,7 @@ Headless authoritative: `.d001_headless_signoff.txt` `ok=true`. F5 optional: [`P
 F5 workflow: optional `dev_soak_encounter` → `.f5_soak_in.txt` → `validate_f5_soak_log.ps1` (multi-fight: `append_f5_soak_log.ps1`; Camp-5 status: `run_camp_f5_closeout.ps1`). Validator smoke (no F5): copy `docs/f5_soak_log.camp_wf.example.txt` or `docs/f5_soak_log.camp_full.example.txt` → `.f5_soak_in.txt` (combat-only: `f5_soak_log.example.txt`). Q helpers: `run_q_feel.ps1 -Track Q1|Q2|Camp` · `run_q_audit.ps1 -Track Track`. Mandatory II-2b/5a/5b/5c/4d: headless ☑. Camp-5 human ☑ (2026-06-07) — F5 on demand.
 
 <a id="integration-archive"></a>
-<a id="run-this-plan-cursor"></a>
+<a id="run-this-plan-agents-entry"></a>
 <a id="integration-wiring-index"></a>
 <a id="phase-3--integration-depth-shipped--deeper-wiring"></a>
 <a id="production-flags"></a>
@@ -464,7 +464,7 @@ F5 workflow: optional `dev_soak_encounter` → `.f5_soak_in.txt` → `validate_f
 
 POST **0–2** done · **Phase 3** (deepen shipped) + **Phase 4** (new systems) + **P4 playbooks** + **WF weapon forms** → [`Expand` stream](PLANNING.md#stream-expand) after [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist) unless a Camp row needs map↔battle. **Ship plan mirror:** [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry).
 
-**Flags** (`CombatConstants.gd`): `is_feature_sector_surround_load`, `FEATURE_SURROUND_ARC_OCCUPANCY`, `FEATURE_HEMA_EIGHT_GUARD_LINES`, `FEATURE_IV6_ATTACK_PATH_OCTANT`, `FEATURE_ARM_INTERPOSE`, `FEATURE_MS_L6_ROUT`, `FEATURE_FLURRY_BIND_EXCHANGE`, `FEATURE_INCOMING_PARRY_CHOICE`, `FEATURE_AMBIENT_PAIN_SHOCK`, position-angle footwork, **`FEATURE_T44_SPATIAL_BAND_PA`** · **`FEATURE_T44_SPATIAL_FILE_DODGE_BIAS`** · **`FEATURE_T44_SPATIAL_FLURRY_PA`** (default on), `FEATURE_FIGHT_EXHAUSTION_INDEX`, `FEATURE_AUTOMATIC_DOCTRINE`, `FEATURE_JOULE_ARMOR_BUDGET`, **`is_feature_mental_stack_ai_enabled`**, **`is_feature_combat_attention_enabled`**. Cognition: [#combat-cognition-pipeline](#combat-cognition-pipeline). **D-tracks:** D-001 ☑ · D-003–007 shipped · D-008 removed.
+**Flags** (`CombatConstants.gd`): `is_feature_sector_surround_load`, `FEATURE_SURROUND_ARC_OCCUPANCY`, `FEATURE_HEMA_EIGHT_GUARD_LINES`, `FEATURE_IV6_ATTACK_PATH_OCTANT`, `FEATURE_ARM_INTERPOSE`, `FEATURE_MS_L6_ROUT`, `FEATURE_FLURRY_BIND_EXCHANGE`, `FEATURE_INCOMING_PARRY_CHOICE`, `FEATURE_AMBIENT_PAIN_SHOCK`, position-angle footwork, **`FEATURE_T44_SPATIAL_BAND_PA`** · **`FEATURE_T44_SPATIAL_FILE_DODGE_BIAS`** · **`FEATURE_T44_SPATIAL_FLURRY_PA`** (default on), `FEATURE_FIGHT_EXHAUSTION_INDEX`, `FEATURE_AUTOMATIC_DOCTRINE`, `FEATURE_JOULE_ARMOR_BUDGET`, **`is_feature_mental_stack_ai_enabled`**, **`is_feature_combat_attention_enabled`**. Cognition: [#combat-cognition-pipeline](#combat-cognition-pipeline). **D-tracks:** D-001 ☑ · D-003–007 shipped.
 
 New tier: harness row + one line in a tier table + row here — see [#redirects-tombstones](#redirects-tombstones) for deleted plan prose (full **IV-1…13** text was in `POST_MILESTONE_INTEGRATION_PLAN.md`).
 
@@ -719,7 +719,7 @@ Utility **`pick_weighted`** still applies `_get_action_weight` for `attempt_clos
 | **`CombatPlayerTurnHints.gd`** ☑ | Wing hint (**3d**); **3e** mop-up hint (“finish the last enemy; close in or strike.”) |
 | **`CombatAIActionPicker.gd`** ☑ (**3e**) | Mop-up damp `rotate_file` + focus-line; boost listed **`attempt_close`** at **LONG** only (`ENVELOP_MOP_UP_CLOSE_AI_WEIGHT_MULT`); weight **0** at MID/CLOSE during mop-up (strike finish) |
 
-Do **not** add a monolithic `EngagementGeometry.gd` facade unless IV-9 forces it; prefer smallest owner per [`CURSOR`](CURSOR.md).
+Do **not** add a monolithic `EngagementGeometry.gd` facade unless IV-9 forces it; prefer smallest owner per [`AGENTS_ENTRY`](AGENTS_ENTRY.md).
 
 #### Secondary consumers (verify Track A — usually no code change)
 
@@ -752,7 +752,7 @@ Do **not** add a monolithic `EngagementGeometry.gd` facade unless IV-9 forces it
 | `CombatDoctrine` numeric-superiority auto-pinch | **p4c** Expand playbook |
 | `FormationLayoutBuilder` grid reparent | Optional layout; not battle logic |
 | `CombatEngagementResolver` close contest math | **3e** adds MID/CLOSE band gate only; contest math unchanged |
-| Player per-target UI | §9b wontfix |
+| Player per-target UI | Design lock — [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped) |
 
 #### Integration surfaces (by layer)
 
@@ -857,11 +857,11 @@ Shared files **`CampaignEncounterBridge.gd`**, **`CombatFlow.gd`**: Campaign str
 
 ### Phase 4 — New systems (**IV-\***)
 
-One **`FEATURE_*`** (or explicit “no flag”) per PR. **Dependency hints:** IV-1 → IV-2 → IV-3; III-2 → IV-4 / IV-5; IV-7 → IV-8; IV-9 last (high risk).
+One **$FEATURE_*$** (or explicit "no flag") per PR. **Dependency hints:** IV-2 → IV-3; III-2 → IV-4 / IV-5; IV-7 → IV-8; IV-9 last (high risk).
 
 | ID | Status | Intent | Notes |
 |----|--------|--------|-------|
-| **IV-1** | **Archived ☑** | Plug vs incursion **contest** | **Wontfix** — **D-008 removed** · plug=`VacancyPlugs` · incursion=`TacticalCombat`+ZoC · **`iv1_plug_incursion_doc_sync_line`** · **`_run_iv1_plug_incursion_review_suite`** ☑ 2026-06-08 |
+
 | **IV-2** | **Done** | Multi-target **close** slots | Shipped (spread at LONG) |
 | **IV-3** | **Shipped ☑** | Engagement **1v1** classifier (`snapshot_is_true_duel`) | **`iv3_doc_sync_line`** · **`_run_iv3_true_duel_classifier_suite`** · **`_run_engagement_scenarios`** ☑ 2026-06-08 |
 | **IV-4** | **Shipped ☑** | Guard **matrix** / eight-diagonal fidelity | **`guard_cardinal_for_attack_path`** · **`guard_zone_part_for_line`** · **`_run_iv4_guard_matrix_suite`** ☑ 2026-06-08 |
@@ -875,7 +875,7 @@ One **`FEATURE_*`** (or explicit “no flag”) per PR. **Dependency hints:** IV
 | **IV-11** | **Slice 1–10 ☑** | Leader formation **abilities** | player + enemy commander · pinch outnumber AI · F5 **`leader_order=`** (validator **`iv11_leader_order`**) · encounter spawn |
 | **IV-12** | **Shipped ☑** | Multi-unit same slot + distraction | **`FEATURE_IV12_SLOT_DISTRACTION`** (default off) · formation **slot cell** grouping · **`drag_back`** dual-occ · surround pad · **`iv12_offense_weight_mult`** · pile-on **`IV12_AI_COLOCATED_TARGET_BIAS_MULT`** · **`_run_iv12_*`** ☑ 2026-06-08 |
 | **IV-13** | **Shipped ☑** | ZoC **weapon-reach** bonus at weak front | **`FEATURE_IV13_WEAPON_REACH_ZOC`** (default off) · **`ZoneOfControl.weapon_reach_zoc_bonus_m`** · **`CombatMeleeListing`** + **`CombatDistanceBands`** · **`_run_iv13_weapon_reach_zoc_*`** ☑ 2026-06-08 |
-| **IV-INTR** | **Removed** | Line crash / intrusion | **D-008** — do not reschedule |
+
 
 ### Cognition & AI (Tier 4 — not IV)
 
@@ -884,7 +884,7 @@ One **`FEATURE_*`** (or explicit “no flag”) per PR. **Dependency hints:** IV
 | **MS-L5–L6** | **Shipped ☑** | Mental-stack layers — formation plug, rout | **`MENTAL_STACK_LAYER_FORMATION_PLUG`** · **`FEATURE_MS_L6_ROUT`** ☑ 2026-06-08 · `_run_mental_stack_*` |
 | **MS-L7** | **Shipped ☑** | Exhaustion tunnel L5 + offense damp (p4a ☑ 2026-06-08) | [#tier-43](#tier-43-mental-stack--combat-attention) |
 | **MS-MID** | **Shipped ☑** | Mid-fight ally medical listing + L1 coordination | **`FEATURE_MS_MID_INFIGHT_MED`** · **`_run_ms_mid_infight_med_depth_suite`** ☑ 2026-06-08 |
-| **MS-CAMP** | **Shipped ☑** | Trait/morale → stack thresholds via bridge meta | **XCamp-3.8** · **`stance_preference_for_campaign_mood`** · **`apply_campaign_mood_stance_preferences`** · company checks **`_run_xcamp_38_ms_camp_bridge`** ☑ 2026-06-08 |
+| **MS-CAMP** | **Shipped ☑** | Trait/morale → stack thresholds via bridge meta (XCamp-3.8: stance pref; XCamp-3.9: MS weight biases, enemy mood bias from encounter config) | **XCamp-3.8** · **`stance_preference_for_campaign_mood`** · **`apply_campaign_mood_stance_preferences`** · company checks **`_run_xcamp_38_ms_camp_bridge`** ☑ 2026-06-08 · **XCamp-3.9** · **`CombatCampaignMoodBias`** · **`apply_campaign_mood_bias_to_encounter`** · mood→MS multipliers (wait/focus/offense/flee/disengage) · enemy `enemy_mood_bias` from encounter config → `ENCOUNTER_KEY_MOOD_BIAS_ENEMY` · company checks **`_run_xcamp_39_mood_bias_to_ms`** ☑ 2026-06-21 |
 | **Tier 4.4 PA pilot** | **Shipped** | Line-key exchange step + octant lookup | [#wf-tier-44-pa](#wf-tier-44-pa) · maintain [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog) |
 | **Tier 4.4 spatial** | **Slice 1–3 ☑** | Band · wing dodge · flurry PA | **`FEATURE_T44_SPATIAL_*`** · **`_run_t44_spatial_*`** |
 | **Player targets** | **Wontfix** | Per-click target UI | [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped) |
@@ -2325,7 +2325,7 @@ Full module surface: [#wf-combat-weapon-form-module](#wf-combat-weapon-form-modu
 | Bleed retune | [`§12` tuning order](#12-tuning-order-keep-research-chain) only |
 | F1 BMI | Deferred |
 | Organ surgery / ACE chains | Not scheduled |
-| Full FEM / material curves expansion | **P3b closed** — maintain [`closed-material-p3b`](#closed-material-p3b) |
+| Full FEM / material curves expansion | **P3b shipped** — maintain [`p3b-shipped`](#p3b-shipped) |
 | Calibration `note` rows | Ignore per [#research-audit](#research-audit) |
 
 <a id="legacy-anchors"></a>
@@ -2376,21 +2376,21 @@ Full module surface: [#wf-combat-weapon-form-module](#wf-combat-weapon-form-modu
 <a id="tier-expansion-audit-2026-05-17"></a>
 <a id="post-expansion-backlog"></a>
 
-Status for shipped tiers → sections above · forward work → [`CURSOR#what-to-do-next`](CURSOR.md#what-to-do-next).
+Status for shipped tiers → sections above · forward work → [AGENTS_ENTRY#what-to-do-next](AGENTS_ENTRY.md#what-to-do-next).
 
-**Forward work:** full registry at [#phase-4--new-systems-formal-tracks](#phase-4--new-systems-formal-tracks) · [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry). **No** player per-target picker.
+**Forward work:** full registry at [#phase-4--new-systems-formal-tracks](#phase-4--new-systems-formal-tracks) · [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry). Player target picker is a design lock — no per-strike UI.
 
 <a id="redirects-tombstones"></a>
 
 ## Redirects (deleted `docs/*.md`)
 
-**Policy:** Do not recreate files in this table — Phase 0 fails `check_doc_links.ps1` if they exist. **Canonical (6):** [`PLANNING.md`](PLANNING.md) · [`CURSOR.md`](CURSOR.md) · [`SHIP_PLAN.md`](SHIP_PLAN.md) · [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) · this file. Scripts: [`../scripts/README.md`](../scripts/README.md). Restore prose: `git log -- docs/<file>.md`.
+**Policy:** Do not recreate files in this table — Phase 0 fails `check_doc_links.ps1` if they exist. **Canonical (6):** [`PLANNING.md`](PLANNING.md) · [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) · [`SHIP_PLAN.md`](SHIP_PLAN.md) · [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) · this file. Scripts: [`../scripts/README.md`](../scripts/README.md). Restore prose: `git log -- docs/<file>.md`.
 
 | File | Anchor |
 |------|--------|
 | `BLEEDING_PHYSICS_AND_UNITS.md` | [bleeding-physics](LIVE_PATHS.md#bleeding-physics) · [§12 tuning](LIVE_PATHS.md#12-tuning-order-keep-research-chain) |
 | `REDIRECTS.md` | [redirects-tombstones](LIVE_PATHS.md#redirects-tombstones) |
-| `NEXT_DEVELOPMENT_PLAN.md` | [PLANNING](PLANNING.md) · [what-to-do-next](CURSOR.md#what-to-do-next) · [SHIP_PLAN](SHIP_PLAN.md) |
+| `NEXT_DEVELOPMENT_PLAN.md` | [PLANNING](PLANNING.md) · [AGENTS_ENTRY#what-to-do-next](AGENTS_ENTRY.md#what-to-do-next) · [SHIP_PLAN](SHIP_PLAN.md) |
 | `RESEARCH_AUDIT_CHECKLIST.md` | [research-audit](LIVE_PATHS.md#research-audit) · [enable-per-hit-research_feel-lines](LIVE_PATHS.md#enable-per-hit-research_feel-lines) |
 | `README.md` (docs) | [scripts/README.md](../scripts/README.md) |
 | `ENGAGEMENT_LINE_COHESION_PLAN.md` | [tier-1-spec](LIVE_PATHS.md#tier-1-spec) |
@@ -2403,7 +2403,7 @@ Status for shipped tiers → sections above · forward work → [`CURSOR#what-to
 | `IMPLEMENTATION_ORDER.md` | [legacy-anchors](LIVE_PATHS.md#legacy-anchors) |
 | `REGRESSION_HARNESS_MAP_TIER19.md` | [harness-prefixes](LIVE_PATHS.md#harness-prefixes) |
 | `SIMULATION_REALISM_*.md` | [closed-simulation-s11](LIVE_PATHS.md#closed-simulation-s11) |
-| `MATERIAL_FAILURE_*.md` | [closed-material-p3b](LIVE_PATHS.md#closed-material-p3b) |
+| `MATERIAL_FAILURE_*.md` | [p3b-shipped](LIVE_PATHS.md#p3b-shipped) |
 | `POST_MILESTONE_*.md` | [integration-archive](LIVE_PATHS.md#integration-archive) · IV [#phase-4](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) |
 | `COMBAT_PHYSICS_MEDICAL_*.md` | [research-audit](LIVE_PATHS.md#research-audit) |
 | `PARRY_*` / `GUARDS_*` / `COMBAT_ROADMAP_*` | [tier-3](LIVE_PATHS.md#tier-3--parry--bind--guards) or [integration](LIVE_PATHS.md#integration-archive) |

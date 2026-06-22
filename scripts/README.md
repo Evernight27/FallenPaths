@@ -4,6 +4,13 @@ Phase 0: `.\scripts\run_all_combat_checks.ps1` (do not pipe stdout to `grep`). *
 
 ## Godot entry
 
+Harness scripts require a **Godot 4.x stable** headless binary. Resolution order:
+1. `$GODOT` environment variable (any Godot 4.x stable)
+2. `e:\Godot_v4.6-stable_win64.exe` (Windows) / `e:/Godot_v4.6-stable_win64.exe` (WSL/bash)
+3. `C:\Users\<User>\Downloads\Godot_v4.6-stable_win64.exe` (Windows fallback)
+
+To use a different binary: set `$env:GODOT` (PowerShell) or `$GODOT` (bash) before running harness scripts, or place your Godot 4.x stable build at one of the paths above. Download from https://godotengine.org/download/windows/ — choose **Godot 4.x.stable** (not beta/rc).
+
 `run_all_combat_checks.gd` — set **`FP_HARNESS_MODE`** (`all` default · `regression` · `d001` · `sanity` · `calibration` · `medical`).
 
 | PowerShell | Bash |
@@ -16,13 +23,13 @@ Phase 0: `.\scripts\run_all_combat_checks.ps1` (do not pipe stdout to `grep`). *
 | `.\scripts\run_all_combat_checks.ps1 -HarnessMode medical` | `FP_HARNESS_MODE=medical ./scripts/run_all_combat_checks.sh` |
 | `.\scripts\run_all_combat_checks.ps1 -ValidateF5` | `./scripts/run_all_combat_checks.sh --validate-f5` |
 
-Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`, `.d001_soak_sanity_out.txt`, `.calibration_audit.txt`, `.medical_phase_harness_out.txt`). Audit lane scratch: `.audit_*.txt`. Full pattern list: repo-root `.gitignore` (mirror `.cursorignore`). Bash also accepts `./scripts/run_all_combat_checks.sh <mode>` as the first argument.
+Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`, `.d001_soak_sanity_out.txt`, `.calibration_audit.txt`, `.medical_phase_harness_out.txt`). Audit lane scratch: `.audit_*.txt`. Full pattern list: repo-root `.gitignore`. Bash also accepts `./scripts/run_all_combat_checks.sh <mode>` as the first argument.
 
 ## Other runners
 
 **Bash:** every `*.ps1` gate runner above has a `*.sh` twin (same flags where applicable); `run_q_audit.ps1` is PowerShell-only.
 
-**Parallel Cursor chats (post–Camp-5 default):** [`cursor/README.md`](cursor/README.md) — **maintain** [`agent_maintain.md`](cursor/agent_maintain.md) · **hygiene** [`agent_hygiene.md`](cursor/agent_hygiene.md) · **audit** [`agent_audit.md`](cursor/agent_audit.md) · **enhance** [`agent_enhance.md`](cursor/agent_enhance.md) · expansion bundle [`#parallel-expansion-bundle`](cursor/README.md#parallel-expansion-bundle) · medical quality [`#parallel-medical-quality-bundle`](cursor/README.md#parallel-medical-quality-bundle).
+**Parallel agent chats (post–Camp-5 default):** [`agent_prompts/README.md`](agent_prompts/README.md) — **maintain** [`agent_maintain.md`](agent_prompts/agent_maintain.md) · **hygiene** [`agent_hygiene.md`](agent_prompts/agent_hygiene.md) · **audit** [`agent_audit.md`](agent_prompts/agent_audit.md) · **enhance** [`agent_enhance.md`](agent_prompts/agent_enhance.md) · expansion bundle [`#parallel-expansion-bundle`](agent_prompts/README.md#parallel-expansion-bundle) · medical quality [`#parallel-medical-quality-bundle`](agent_prompts/README.md#parallel-medical-quality-bundle).
 
 **F5 Output grep (canonical):** `hit_resolve reason=` · `strike_avoided reason=` · `parry_partial rem=` · `diagram_banner player:` · `engagement_transition` · `encounter_context` · `soak_fight_end`. [`docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers`](../docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers) · `main.tscn` `dev_hit_summary` (default on) · `dev_research_feel` · `dev_soak_encounter`.
 
@@ -42,6 +49,14 @@ Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`
 | `run_campaign_ship_audit.ps1` / `.sh` | Camp-3.4/5 headless standalone; `-TailOnly` / `--tail-only` skips company checks (Phase 0 already ran) |
 | `print_phase0_status.ps1` / `.sh` | Summarize `.phase0_*` / `.d001_*` / calibration + Camp-5 headless vs human F5 status |
 | `check_doc_links.ps1` | Doc link + tombstone gate + `res://` path audit (also run inside Phase 0) |
+| `run_fast_phase0.ps1` / `.sh` | Fast Phase 0 — doc links + company state + regression harness only (no D001 soak / calibration); **-Full** = same as `run_all_combat_checks`, **-D001Light** = adds D001 light (~2-4 min vs ~8-12 min) |
+| `rebuild_f5_maintained_paste.ps1` / `.sh` | Rebuild maintained human F5 paste from **`followup.log`** + standard append plan (Playtest stream); **-BaselineFrom**, **-SkipPreflight**, **-HumanSignOff**, **-DryRun** |
+| `run_playtest_merge_gaps.ps1` / `.sh` | Merge known validator gaps into `.f5_soak_in.txt` — reads `.f5_soak_validation.txt`, appends smoke/bundle chunks for missing tracks (no Phase 0) |
+| `run_playtest_after_append.ps1` / `.sh` | Append F5 chunk then safe re-validate — **`-AppendFrom`** required; optional **-Label**, **-HumanSignOff**, **-SkipCloseout** (no Phase 0) |
+| `run_playtest_recover.ps1` / `.sh` | Recover human F5 paste after Phase 0 clobber + merge validator gaps — restores backup, optional **-ForceRestore** (no Phase 0) |
+| `run_playtest_revalidate.ps1` / `.sh` | Safe Playtest re-validate — human paste + optional smokes + closeout; **-HumanSignOff**, **-SkipSmokes**, **-SkipCloseout**, **-Exp0Gate** (no Phase 0) |
+| `run_playtest_full_gate.ps1` / `.sh` | Full Playtest closeout (no Phase 0): merge gaps + revalidate + optional Exp-0.2 smokes gate; **-DryRun**, **-HumanSignOff**, **-SkipExp0** |
+| `run_playtest_status.ps1` / `.sh` | Fast Playtest status — reads `.f5_soak_validation.txt`; **-Refresh** runs Godot validator, **-ShowGaps**, **-SmokeLabels**, **-Quiet** (no Phase 0) |
 
 ## Internals
 

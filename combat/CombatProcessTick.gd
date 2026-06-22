@@ -14,6 +14,13 @@ static func tick(manager: Node, delta: float) -> void:
 	manager.combat_clock += delta
 	_EventDispatch.process_event_queue(manager)
 	manager._combat_tick_index += 1
+	# Check for winner after event queue drain — prevents remaining turns from firing
+	# when one side has zero standing combatants (all dead/fled/incapacitated).
+	if not bool(manager.medical_phase):
+		var early_victor: String = manager._check_for_winner()
+		if not early_victor.is_empty() and _MedicalPhase.should_apply_phase_end(manager, early_victor):
+			manager._end_combat_phase(early_victor, null)
+			return
 	var fast_forward: bool = _MedicalPhase.medical_fast_forward_active(manager)
 	if not fast_forward:
 		if (

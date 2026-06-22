@@ -6,7 +6,7 @@ $ErrorActionPreference = "Continue"
 $Root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "F5SoakLogHelpers.ps1")
 
-Write-Host "Docs: docs/CURSOR.md | docs/SHIP_PLAN.md#camp-playtest-acceptance (F5 section 8) | docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers | scripts/README.md"
+Write-Host "Docs: docs/AGENTS_ENTRY.md | docs/SHIP_PLAN.md#camp-playtest-acceptance (F5 section 8) | docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers | scripts/README.md"
 Write-Host "Streams: Combat (Phase 0 + Camp-3.4 tail) | Playtest F5 section 8 / Q1/Q2 | Expand after Camp-5"
 if (-not $Quiet) {
 	Write-Host "Q headless (no F5): .\scripts\run_q_audit.ps1 -Track Track  (+ -Track Q1)"
@@ -225,7 +225,7 @@ $f5Val = Join-Path $Root ".f5_soak_validation.txt"
 if (-not $Quiet) {
 	Write-Host "Human F5: main.tscn dev_soak_encounter empty -> .\scripts\run_q_feel.ps1 -Track Camp"
 	Write-Host "WF footing: headless ii5c green; WF-M3 validator on F5 paste -> docs/LIVE_PATHS.md#wf-m3-f5-playtest"
-	Write-Host "Camp-5 check 2026-06-07 - F5 on demand; prompts: scripts/cursor/README.md"
+	Write-Host "Camp-5 check 2026-06-07 - F5 on demand; prompts: scripts/agent_prompts/README.md"
 	Write-Host ""
 }
 Write-Host "=== F5 / Camp status summary ==="

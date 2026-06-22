@@ -647,6 +647,8 @@ static func assign_form(
 	var old_form: String = _EntityAccess.form_str(c)
 	c[CombatConstants.COMBATANT_KEY_WEAPON_FORM] = resolved
 	c["stance"] = _stance_alias_from_pressure(resolved)
+	if old_form != resolved and reason not in ["spawn", "harness_baseline"]:
+		c[CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON] = reason
 	_GuardLineUpdater.set_guard_from_line(c, home_guard_line(resolved))
 	if manager != null and not reason.is_empty() and CombatConstants.combat_event_debug_active():
 		const _CombatDebug := preload("res://combat/CombatDebug.gd")

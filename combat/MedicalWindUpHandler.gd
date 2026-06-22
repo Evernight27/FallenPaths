@@ -5,6 +5,8 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _Bridge := preload("res://world/CampaignEncounterBridge.gd")  # XCamp-4: medic action recording.
+const _Proficiency := preload("res://core/EntityProficiency.gd")
 
 ## Handles completion of medical wind-up: apply bandage/packing/tourniquet, emit outcome, track retry.
 ## Footing: medic **`clear_on_exchange_end`** before post-care **`STATE_RECOVERING`** — LIVE_PATHS **`#wf-tier-44-pa`**.
@@ -53,6 +55,8 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 					_CompanyState.on_battle_medical_complete(
 						world, target_method, _medical_procedure_succeeded(result)
 					)
+				# XCamp-4: proficiency gains for medical actions.
+				_proficiency_medical_gains(c, perf_entity, tgt_entity, world, med_id, result, who_m)
 	# Target finishes receiving care: ready to act immediately
 	if not tgt_c.is_empty() and tgt_cid != _EntityAccess.id_int(c):
 		tgt_c.receiving_medical_count = max(0, tgt_c.get("receiving_medical_count", 0) - 1)
@@ -153,3 +157,47 @@ static func _finish_medical_procedure(
 			tgt_cid,
 			{"outcome": outcome, "part": part, "dmg": 0, "died": false}
 		)
+
+
+## XCamp-4: award proficiency stat gains for completed medical actions.
+static func _proficiency_medical_gains(
+	c: Dictionary,
+	perf_entity: Node,
+	tgt_entity: Node,
+	world: Node2D,
+	med_id: String,
+	result: Variant,
+	who_m: String
+) -> void:
+	if not _CompanyState.read_stub_proficiency_enabled():
+		return
+	if perf_entity == null or not perf_entity.has("_proficiency_bonus"):
+		return
+
+	var succeeded: bool = _medical_procedure_succeeded(result)
+	if not succeeded:
+		return  # No gains for failed medical actions
+
+	# Determine item type from med_id for INT multiplier.
+	var item_type: String = ""
+	match med_id:
+		"apply_bandage", "bandage_self":
+			item_type = "bandage"
+		"apply_packing", "apply_stabilize":
+			item_type = "pack"
+		"apply_tourniquet":
+			item_type = "tourniquet"
+
+	var item_mult: float = _Proficiency.get_medical_item_mult(item_type)
+	var base_gain: float = _Proficiency.GAIN_MEDICAL_ACTION_BASE * item_mult
+
+	# INT gain for medic performing the action.
+	_Proficiency.award_stat_gain(perf_entity, "intelligence", base_gain)
+
+	# Patient END gain (exposure to blood peril).
+	if tgt_entity != null and tgt_entity.has("_proficiency_bonus"):
+		_Proficiency.award_stat_gain(tgt_entity, "endurance", _Proficiency.GAIN_BLOOD_PERIL_BASE * _Proficiency.GAIN_MEDICAL_PATIENT_END_MULT)
+
+	# Record this medic action for post-combat INT floor bonus (per-entity tracking).
+	if world != null:
+		_Bridge.record_medic_action(world, perf_entity)

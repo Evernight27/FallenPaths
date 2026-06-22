@@ -1,6 +1,6 @@
 # Planning model
 
-How work is organized in Fallen Paths. **Entry:** [`CURSOR.md`](CURSOR.md) · **Agent prompts:** [`scripts/cursor/README.md`](../scripts/cursor/README.md) · **Campaign (Camp-5 ☑):** [`SHIP_PLAN.md`](SHIP_PLAN.md) · **Post-EA roadmap:** [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · **Combat shipped map:** [`LIVE_PATHS.md`](LIVE_PATHS.md).
+How work is organized in Fallen Paths. **Entry:** [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) · **Agent prompts:** [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md) · **Campaign (Camp-5 ☑):** [`SHIP_PLAN.md`](SHIP_PLAN.md) · **Post-EA roadmap:** [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · **Combat shipped map:** [`LIVE_PATHS.md`](LIVE_PATHS.md).
 
 ---
 
@@ -33,7 +33,7 @@ How work is organized in Fallen Paths. **Entry:** [`CURSOR.md`](CURSOR.md) · **
 
 1. Run **Gate** (Phase 0).
 2. One **Combat** maintain fix (if not using [parallel](#parallel-agents)).
-3. Optional **Expand** via [`scripts/cursor/README.md#expand-reopen`](../scripts/cursor/README.md#expand-reopen) *(user must reopen §9c)*.
+3. Optional **Expand** via [`scripts/agent_prompts/README.md#expand-reopen`](../scripts/agent_prompts/README.md#expand-reopen) *(user must reopen §9c)*.
 4. **Playtest** on demand — F5 append, validator, Q audits.
 5. **Campaign** only for economy UX bugs or explicit **P2** save.
 
@@ -43,14 +43,14 @@ How work is organized in Fallen Paths. **Entry:** [`CURSOR.md`](CURSOR.md) · **
 
 ## Parallel agents (post–Camp-5)
 
-**Default:** **Combat** chat + optional second chat (**Expand** or **Playtest**); **Campaign** only for economy UX or **P2** save. Prompts: [`scripts/cursor/README.md`](../scripts/cursor/README.md). Stay in [file ownership](#file-ownership) and [bridge rules](#bridge-rows-camp-2).
+**Default:** **Combat** chat + optional second chat (**Expand** or **Playtest**); **Campaign** only for economy UX or **P2** save. Prompts: [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md). Stay in [file ownership](#file-ownership) and [bridge rules](#bridge-rows-camp-2).
 
 | Agent | Stream | Pick | Prompt | Gate |
 |-------|--------|------|--------|------|
-| **A** | Combat | One LIVE_PATHS maintain / harness fix | [`agent_combat.md`](../scripts/cursor/agent_combat.md) | Phase 0 at start/end |
-| **B** *(optional)* | Expand | One [§9c](SHIP_PLAN.md#combat-expand-registry) row | [`README#expand-reopen`](../scripts/cursor/README.md#expand-reopen) | Phase 0 at start/end |
-| **C** *(optional)* | Playtest | F5 append / `run_q_feel.ps1` — on demand | [`agent_playtest.md`](../scripts/cursor/agent_playtest.md) | Headless in Phase 0 |
-| **D** *(on demand)* | Campaign | Economy UX · optional **P2** save | [`agent_campaign.md`](../scripts/cursor/agent_campaign.md) | Phase 0 or company checks |
+| **A** | Combat | One LIVE_PATHS maintain / harness fix | [`agent_combat.md`](../scripts/agent_prompts/agent_combat.md) | Phase 0 at start/end |
+| **B** *(optional)* | Expand | One [§9c](SHIP_PLAN.md#combat-expand-registry) row | [`README#expand-reopen`](../scripts/agent_prompts/README.md#expand-reopen) | Phase 0 at start/end |
+| **C** *(optional)* | Playtest | F5 append / `run_q_feel.ps1` — on demand | [`agent_playtest.md`](../scripts/agent_prompts/agent_playtest.md) | Headless in Phase 0 |
+| **D** *(on demand)* | Campaign | Economy UX · optional **P2** save | [`agent_campaign.md`](../scripts/agent_prompts/agent_campaign.md) | Phase 0 or company checks |
 
 **Not parallel:** two **Expand** agents · bleed retune · same-file edits. (Combat maintain + one Expand PR is OK when files do not overlap.)
 
@@ -162,17 +162,17 @@ Campaign **D-*** gates are **closed** in [`CompanyState`](world/CompanyState.gd)
 
 ### Stream: Combat
 
-**Maintain** shipped tactical/medical systems. Smallest `combat/*.gd` owner per [`LIVE_PATHS`](LIVE_PATHS.md). Prompt: [`agent_combat.md`](../scripts/cursor/agent_combat.md) · III-4 **3e:** [`agent_combat.md#specialty-iii-4-3e-fight-finish`](../scripts/cursor/agent_combat.md#specialty-iii-4-3e-fight-finish).
+**Maintain** shipped tactical/medical systems. Smallest `combat/*.gd` owner per [`LIVE_PATHS`](LIVE_PATHS.md). Prompt: [`agent_combat.md`](../scripts/agent_prompts/agent_combat.md) · III-4 **3e:** [`agent_combat.md#specialty-iii-4-3e-fight-finish`](../scripts/agent_prompts/agent_combat.md#specialty-iii-4-3e-fight-finish).
 
 **Cognition wiring (read before pick / listing / defense edits):** [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#combat-cognition-pipeline) — tick → list → mental stack → weighted pick; defense at strike time only. Campaign agents must not fork this ([`SHIP_PLAN` §9](SHIP_PLAN.md#implementation-reference)).
 
-**Backlog:** `BattleUIUpdater` medical busy · D-001 `pack_wound` if wanted · research `warn` only (not `note`). **Mental stack:** maintain L0–L4 + MS-L7 L5 + salience damp ([`tier 4.3`](LIVE_PATHS.md#tier-43-mental-stack--combat-attention)). **Engagement geometry:** [**III-4 Track A ☑**](LIVE_PATHS.md#iii-4--engagement-geometry-audit) (headless `[ii_envelop]`; **3e** post-rout mop-up ☑). **No** player target picker.
+**Backlog:** `BattleUIUpdater` medical busy · D-001 `pack_wound` if wanted · research `warn` only (not `note`). **Mental stack:** maintain L0–L4 + MS-L7 L5 + salience damp ([`tier 4.3`](LIVE_PATHS.md#tier-43-mental-stack--combat-attention)). **Engagement geometry:** [**III-4 Track A ☑**](LIVE_PATHS.md#iii-4--engagement-geometry-audit) (headless `[ii_envelop]`; **3e** post-rout mop-up ☑). Player target picker is a design lock.
 
 **Other labels (not work streams):**
 
 | Label | Meaning |
 |-------|---------|
-| **D-001…D-007** | Shipped combat/medical feature tracks (done; D-008 removed) |
+| **D-001…D-007** | Shipped combat/medical feature tracks (done) |
 | **Tier 0–6** | Shipped capability areas in LIVE_PATHS |
 | **Phase 0** | Headless + D-001 gate (same as **Gate**) |
 | **ii2b, ii7, …** | F5 soak scenario IDs (often used in **Playtest**) |
@@ -183,16 +183,17 @@ Campaign **D-*** gates are **closed** in [`CompanyState`](world/CompanyState.gd)
 
 ### Stream: Expand
 
-New combat integration batches **`IV-*`** from POST Phase 4. One **`FEATURE_*`** per PR. **Registry ☑ 2026-06-08** — reopen only on user ask. Prompt: [`README#expand-reopen`](../scripts/cursor/README.md#expand-reopen).
+New combat integration batches **`IV-*`** from POST Phase 4. One **`FEATURE_*`** per PR. **Registry ☑ 2026-06-08** — reopen only on user ask. Prompt: [`README#expand-reopen`](../scripts/agent_prompts/README.md#expand-reopen).
 
 | Bucket | IDs | Doc section |
 |--------|-----|-------------|
 | **Phase 3** (deepen shipped) | **III-1,3,5,6,8 ☑** · **III-4** Track A ☑ · **III-2** partial | [`LIVE_PATHS` Phase 3 table](LIVE_PATHS.md#integration-depth-phase-3) |
 | **P4 playbooks** | p4a–p4h | [`LIVE_PATHS` P4 table](LIVE_PATHS.md#p4-playbooks-expansion) |
 | **Weapon forms (WF)** | **WF-1…4 shipped** — maintain; optional **WF-T1/T2** | [`#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog) · [`#wf-implementation-status`](LIVE_PATHS.md#wf-implementation-status) · soak [`#wf-soak-audit-status`](LIVE_PATHS.md#wf-soak-audit-status) |
-| **Phase 4 IV** | Done **IV-2,3,4,5,6,7,8,9,10,11,12,13** · Archived **IV-1** · Removed **IV-INTR** | [`LIVE_PATHS` IV table](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) |
+| **Phase 4 IV** | Done **IV-2,3,4,5,6,7,8,9,10,11,12,13** | [`LIVE_PATHS` IV table](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) |
 | **Mental stack** | MS-L5–L6 · Tier 4.4 **spatial** Expand (**PA pilot shipped**) | [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped) · [#wf-footing-improvement-backlog](LIVE_PATHS.md#wf-footing-improvement-backlog) |
-| **Wontfix** | Player target UI · IV-INTR · P3b mat expand · bleed/BMI unless asked | [`LIVE_PATHS` research table](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) |
+| **Wontfix** | Player target UI · player per-target picker · bleed/BMI unless asked | [`LIVE_PATHS` research table](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) |
+| **Maintain only** | P3b material sim (shipped, no expansion without user ask) | [`LIVE_PATHS#p3b-shipped`](LIVE_PATHS.md#p3b-shipped) |
 
 **Summary:** [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry).
 
@@ -202,7 +203,7 @@ New combat integration batches **`IV-*`** from POST Phase 4. One **`FEATURE_*`**
 
 ### Stream: Playtest
 
-**On demand** — human feel, F5 append, validator regression; headless Camp ship already in Phase 0. Not new mechanics. Prompt: [`agent_playtest.md`](../scripts/cursor/agent_playtest.md).
+**On demand** — human feel, F5 append, validator regression; headless Camp ship already in Phase 0. Not new mechanics. Prompt: [`agent_playtest.md`](../scripts/agent_prompts/agent_playtest.md).
 
 | Tool | Purpose |
 |------|---------|
@@ -221,7 +222,7 @@ New combat integration batches **`IV-*`** from POST Phase 4. One **`FEATURE_*`**
 
 ### Stream: Campaign
 
-Mercenary **company loop** → EA **shipped (2026-06-07)** — maintain economy UX; optional **P2** save only if asked. Prompt: [`agent_campaign.md`](../scripts/cursor/agent_campaign.md).
+Mercenary **company loop** → EA **shipped (2026-06-07)** — maintain economy UX; optional **P2** save only if asked. Prompt: [`agent_campaign.md`](../scripts/agent_prompts/agent_campaign.md).
 
 **Milestone prefix:** `Camp-*` in [`SHIP_PLAN.md`](SHIP_PLAN.md) only.
 
@@ -246,7 +247,7 @@ Mercenary **company loop** → EA **shipped (2026-06-07)** — maintain economy 
 | **`FEATURE_*`** | No new flags unless Expand stream + harness |
 | **Bleed retune** | Only [`LIVE_PATHS` §12](LIVE_PATHS.md#12-tuning-order-keep-research-chain) |
 | **F1 BMI** | Deferred unless asked |
-| **S1–S11 / P3b** | Closed — maintain only |
+| **S1–S11 / P3b** | Shipped — maintain only |
 
 ---
 
@@ -272,10 +273,10 @@ Mercenary **company loop** → EA **shipped (2026-06-07)** — maintain economy 
 | Doc | Role |
 |-----|------|
 | [`PLANNING.md`](PLANNING.md) | This file — glossary · [parallel](PLANNING.md#parallel-agents) · [closed gate index](PLANNING.md#closed-gates) |
-| [`CURSOR.md`](CURSOR.md) | Agent entry + decision log |
+| [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) | Agent entry + decision log |
 | [`SHIP_PLAN.md`](SHIP_PLAN.md) | Camp rows · [§3d build order](SHIP_PLAN.md#camp-1-build-order) · [§9–20 appendices](SHIP_PLAN.md#implementation-reference) |
 | [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) | Closed gate bundle + research appendix ([user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22)) |
 | [`LIVE_PATHS.md`](LIVE_PATHS.md) | Shipped combat + Phase 0 + IV list |
 | [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) | Post-EA phases · Exp-0…5 · XCamp shipped rows |
 | [`scripts/README.md`](../scripts/README.md) | Commands |
-| [`scripts/cursor/README.md`](../scripts/cursor/README.md) | Copy-paste agent prompts (post–Camp-5 default) |
+| [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md) | Copy-paste agent prompts (post-Camp-5 default) |

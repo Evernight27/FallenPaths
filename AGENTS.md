@@ -1,8 +1,8 @@
 # Fallen Paths
 
-[`docs/PLANNING.md`](docs/PLANNING.md) ? [`docs/CURSOR.md`](docs/CURSOR.md) ? [`docs/SHIP_PLAN.md`](docs/SHIP_PLAN.md) ? [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md) ? [`docs/CAMPAIGN_DECISION_GUIDE.md`](docs/CAMPAIGN_DECISION_GUIDE.md)
+[`docs/PLANNING.md`](docs/PLANNING.md) ? [`docs/AGENTS_ENTRY.md`](docs/AGENTS_ENTRY.md) ? [`docs/SHIP_PLAN.md`](docs/SHIP_PLAN.md) ? [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md) ? [`docs/CAMPAIGN_DECISION_GUIDE.md`](docs/CAMPAIGN_DECISION_GUIDE.md)
 
-**Cursor:** [`.cursor/rules/fallen-paths.mdc`](.cursor/rules/fallen-paths.mdc) (gate ? scope ? combat guardrails) · **Agent prompts:** [`scripts/cursor/README.md`](scripts/cursor/README.md)
+**Agent prompts:** [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.md)
 
 <a id="code-homes"></a>
 
@@ -18,29 +18,29 @@ Flat folders by design ? find modules by **name prefix**, not subfolder. Do not 
 | `ui/` | Battle + company UI (`BattleScene`, `PartyMenu`, `SettlementPanel`, ?) |
 | `weapon/`, `armor/`, `species/` | Strike, armor, species data |
 | Root | `main.gd`, `main.tscn`, `character.gd` (shared ? one stream per PR), `PartyManager.gd` |
-| `scripts/` | Phase 0, Q audits, campaign ship audit (not in-game sim) · copy-paste prompts in [`scripts/cursor/`](scripts/cursor/README.md) |
+| `scripts/` | Phase 0, Q audits, campaign ship audit (not in-game sim) · copy-paste prompts in [`scripts/agent_prompts/`](scripts/agent_prompts/README.md) |
 | `docs/` | Planning and agent entry |
 
 **Playtest artifacts (repo root, gitignored):** `.f5_soak_in.txt`, `.phase0_combat_checks.txt`, `.d001_*` ? one agent at a time; see [`scripts/README.md`](scripts/README.md).
 
 ## When implementing (skip for explain-only)
 
-1. [File ownership](docs/PLANNING.md#file-ownership) ? gate per `.cursor/rules/fallen-paths.mdc`
+1. [File ownership](docs/PLANNING.md#file-ownership) — no gate file; follow PLANNING ownership and AGENTS anti-patterns
 2. New **cross-cutting** API ? one row below; trivial fixes need not update this file
 
 ## Agent task prompts (copy/paste)
 
-**Index:** [`scripts/cursor/README.md`](scripts/cursor/README.md) — **Combat → Playtest → Campaign** · **Expand** only if user reopens §9c · **Medical bundle:** [Hygiene → Audit → Medical Physics](scripts/cursor/README.md#parallel-medical-quality-bundle).
+**Index:** [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.md) — **Combat → Playtest → Campaign** · **Expand** only if user reopens §9c · **Medical bundle:** [Hygiene → Audit → Medical](scripts/agent_prompts/README.md#parallel-medical-quality-bundle).
 
 | Stream | Copy-paste from | Gate |
 |--------|-----------------|------|
-| **Maintain** *(session default)* | [`agent_maintain.md`](scripts/cursor/agent_maintain.md) → stream `agent_*.md` | `PHASE0: PASS` |
-| **Combat** | [`agent_combat.md`](scripts/cursor/agent_combat.md) (incl. [3e](scripts/cursor/agent_combat.md#specialty-iii-4-3e-fight-finish) · [line plug](scripts/cursor/agent_combat.md#specialty-iii-6-line-plug)) | `PHASE0: PASS` |
-| **Enhance** *(user-named row)* | [`agent_enhance.md`](scripts/cursor/agent_enhance.md) · Expand: [`README#expand-reopen`](scripts/cursor/README.md#expand-reopen) | `PHASE0: PASS` |
-| **Playtest** | [`agent_playtest.md`](scripts/cursor/agent_playtest.md) · tools: [`scripts/README.md`](scripts/README.md) | one agent on `.f5_soak_in.txt` |
-| **Campaign** | [`agent_campaign.md`](scripts/cursor/agent_campaign.md) | `CompanyStateChecks` **406** or Phase 0 + ship audit |
-| **Hygiene · Audit** | [`agent_hygiene.md`](scripts/cursor/agent_hygiene.md) · [`agent_audit.md`](scripts/cursor/agent_audit.md) · bundle: [`README#project-health-bundle`](scripts/cursor/README.md#project-health-bundle) | Hygiene: no production `.gd`; hand off Audit for Phase 0 |
-| **Medical** | [`README#medical-physics`](scripts/cursor/README.md#medical-physics) | `PHASE0: PASS` |
+| **Maintain** *(session default)* | [`agent_maintain.md`](scripts/agent_prompts/agent_maintain.md) → stream `agent_*.md` | `PHASE0: PASS` |
+| **Combat** | [`agent_combat.md`](scripts/agent_prompts/agent_combat.md) (incl. [3e](scripts/agent_prompts/agent_combat.md#specialty-iii-4-3e-fight-finish) · [line plug](scripts/agent_prompts/agent_combat.md#specialty-iii-6-line-plug)) | `PHASE0: PASS` |
+| **Enhance** *(user-named row)* | [`agent_enhance.md`](scripts/agent_prompts/agent_enhance.md) · Expand: [`README#expand-reopen`](scripts/agent_prompts/README.md#expand-reopen) | `PHASE0: PASS` |
+| **Playtest** | [`agent_playtest.md`](scripts/agent_prompts/agent_playtest.md) · tools: [`scripts/README.md`](scripts/README.md) | one agent on `.f5_soak_in.txt` |
+| **Campaign** | [`agent_campaign.md`](scripts/agent_prompts/agent_campaign.md) | `CompanyStateChecks` **406** or Phase 0 + ship audit |
+| **Hygiene · Audit** | [`agent_hygiene.md`](scripts/agent_prompts/agent_hygiene.md) · [`agent_audit.md`](scripts/agent_prompts/agent_audit.md) · bundle: [`README#project-health-bundle`](scripts/agent_prompts/README.md#project-health-bundle) | Hygiene: no production `.gd`; hand off Audit for Phase 0 |
+| **Medical** | [`agent_medical.md`](scripts/agent_prompts/agent_medical.md) · bundle: [`README#parallel-medical-quality-bundle`](scripts/agent_prompts/README.md#parallel-medical-quality-bundle) | `PHASE0: PASS` |
 
 ## Canonical APIs (combat / campaign)
 
@@ -157,7 +157,7 @@ Read in this order when tracing a cross-cutting concern:
 ## Before adding code (light checklist)
 
 - [ ] Owner in [PLANNING](docs/PLANNING.md#file-ownership)? Smallest existing module extended?
-- [ ] Gate per [fallen-paths.mdc](.cursor/rules/fallen-paths.mdc) when shipping
+- [ ] New cross-cutting API ? row above (optional for one-liners)
 - [ ] New cross-cutting API ? row above (optional for one-liners)
 
 ## Module header template (combat / campaign modules)

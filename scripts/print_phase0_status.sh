@@ -12,7 +12,7 @@ for arg in "$@"; do
 	esac
 done
 
-echo "Docs: docs/CURSOR.md | docs/SHIP_PLAN.md#camp-playtest-acceptance (F5 §8) | scripts/README.md"
+echo "Docs: docs/AGENTS_ENTRY.md | docs/SHIP_PLAN.md#camp-playtest-acceptance (F5 §8) | scripts/README.md"
 echo "Streams: Combat (Phase 0 + Camp-3.4 tail) | Playtest F5 §8 / Q1/Q2 | Expand after Camp-5"
 if [[ $QUIET -eq 0 ]]; then
 	echo ""
@@ -164,6 +164,6 @@ fi
 if [[ $QUIET -eq 0 ]]; then
 	echo "Smoke: cp docs/f5_soak_log.camp_wf.example.txt .f5_soak_in.txt && ./scripts/validate_f5_soak_log.sh"
 	echo "Full optional tracks smoke: cp docs/f5_soak_log.camp_full.example.txt .f5_soak_in.txt"
-	echo "Camp-5 ☑ 2026-06-07 — F5 on demand; prompts: scripts/cursor/README.md"
+	echo "Camp-5 ☑ 2026-06-07 — F5 on demand; prompts: scripts/agent_prompts/README.md"
 fi
 echo ""

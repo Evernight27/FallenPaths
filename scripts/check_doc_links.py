@@ -16,7 +16,7 @@ DOCS = ROOT / "docs"
 LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^)#]+\.md)(?:#[^)]+)?\)")
 REDIRECT_CELL = re.compile(r"\|\s*`([^`]+)`\s*\|")
 CANONICAL_ON_DISK = {
-    "CURSOR.md",
+    "AGENTS_ENTRY.md",
     "LIVE_PATHS.md",
     "PLANNING.md",
     "SHIP_PLAN.md",
@@ -30,6 +30,9 @@ RES_SKIP_PARTS = {".git", ".godot"}
 RES_ALLOW_MISSING = {
     "species",  # DirAccess.open(ResourcePaths.SPECIES_DIR)
     "tile_texture.png",  # TilesetSetup.generate_tile_texture_if_needed()
+    ".q_track_audits.txt",  # CombatQTrackAudits output path (artifact, not resource)
+    ".d001_soak_out.txt",  # CombatQTrackAudits input path (artifact, not resource)
+    ".ii2b_worksheet_prefill.txt",  # CombatQTrackAudits worksheet path (artifact, not resource)
 }
 
 

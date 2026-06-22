@@ -208,7 +208,7 @@ Write-Host "  .ii2b_worksheet_prefill.txt (III-3 Sword row counts; not feel sign
 Write-Host ""
 Write-Host "  .d001_headless_signoff.txt (II-2b + II-5a/b/c mandatory, no F5)"
 Write-Host '  .calibration_audit.txt     (physics/medical + [research_benchmarks] verdict summary)'
-Write-Host '  docs/CURSOR.md (hub) | docs/LIVE_PATHS.md#research-audit (35 _run_research_* gates)'
+Write-Host '  docs/AGENTS_ENTRY.md (hub) | docs/LIVE_PATHS.md#research-audit (35 _run_research_* gates)'
 Write-Host "Optional F5: ii2b/ii5/ii8 feel spot-check only; gate does not require editor."
 Write-Host "Campaign audit (standalone): .\scripts\run_campaign_ship_audit.ps1"
 Write-Host "Artifact summary: .\scripts\print_phase0_status.ps1"

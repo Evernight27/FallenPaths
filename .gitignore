@@ -10,7 +10,7 @@ docs/__pycache__/
 *.py[cod]
 
 # Local harness / playtest artifacts (repo root only; see scripts/README.md)
-# Keep artifact patterns in sync with .cursorignore (cursorignore also has **/*.import for indexer)
+# Artifact patterns match scripts/README.md inventory
 # Phase 0 gate outputs
 .harness_*.txt
 .phase0_*
@@ -24,6 +24,9 @@ docs/__pycache__/
 scripts/.tmp_*
 .tmp_*
 phase0_raw_output*.txt
+phase0_baseline.txt
+phase0_regression.txt
+phase0_status.txt
 regression_debug.txt
 _regression_direct.txt
 

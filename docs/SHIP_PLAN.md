@@ -2,7 +2,7 @@
 
 **Purpose:** Close the gap between **shipped combat/medical simulation** and a **shippable mercenary campaign** players can run for hours without dev soak presets.
 
-**Entry:** [`PLANNING.md`](PLANNING.md) · [`CURSOR.md`](CURSOR.md) · [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) (post-EA phases) · combat map [`LIVE_PATHS.md`](LIVE_PATHS.md) · bleeding [`LIVE_PATHS#bleeding-units`](LIVE_PATHS.md#bleeding-units).
+**Entry:** [`PLANNING.md`](PLANNING.md) · [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) · [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) (post-EA phases) · combat map [`LIVE_PATHS.md`](LIVE_PATHS.md) · bleeding [`LIVE_PATHS#bleeding-units`](LIVE_PATHS.md#bleeding-units).
 
 **Implementation appendices:** [§9 wiring](SHIP_PLAN.md#implementation-reference) · [**§9b mental stack (shipped)**](SHIP_PLAN.md#combat-mental-stack-shipped) · [**§9c combat Expand registry**](SHIP_PLAN.md#combat-expand-registry) · [§10 contracts](SHIP_PLAN.md#data-contracts) · [§11 encounters](SHIP_PLAN.md#encounter-lifecycle) · [§12 tuning](SHIP_PLAN.md#ea-tuning-defaults) · [§13 save](SHIP_PLAN.md#persistence-scope) · [§14 roster](SHIP_PLAN.md#roster-casualties) · [§15 dev soak](SHIP_PLAN.md#dev-vs-campaign-mode) · [§17 supplies](SHIP_PLAN.md#battle-supply-consumption) · [§18 templates](SHIP_PLAN.md#camp-4-config-examples) · [§19 gate constants](SHIP_PLAN.md#implementation-stubs) · [§20 pitfalls](SHIP_PLAN.md#implementation-pitfalls) · [decision guide (shipped bundle)](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22)
 
@@ -31,10 +31,9 @@ A new player can, without reading harness docs:
 ### Not required for first ship (EA scope)
 
 - Full town UI, hiring hall, inventory grid, crafting economy.
-- Neurotrauma-style organ surgery or ACE cardiac arrest chains.
 - POST Phase 3 **III-*** integration depth + Phase 4 **IV-*** + **P4** playbooks ([§9c](SHIP_PLAN.md#combat-expand-registry) · [`LIVE_PATHS` phase 4](LIVE_PATHS.md#phase-4--new-systems-formal-tracks)).
 - Mental-stack **L5–L6** only ([§9b](SHIP_PLAN.md#combat-mental-stack-shipped)). (**MS-L7** baseline shipped; **p4a** threshold tune optional.)
-- New `FEATURE_*` flags, bleed retune, F1 BMI ([`PLANNING`](PLANNING.md) / [`CURSOR`](CURSOR.md) policy).
+- New `FEATURE_*` flags, bleed retune, F1 BMI ([`PLANNING`](PLANNING.md) / [`AGENTS_ENTRY`](AGENTS_ENTRY.md) policy).
 - Player per-target picking (design lock: [`LIVE_PATHS` tier 4.3](LIVE_PATHS.md#tier-43-mental-stack--combat-attention)).
 
 ### Success metric
@@ -185,7 +184,7 @@ flowchart TB
 | 1 | `.\scripts\run_all_combat_checks.ps1` → **Camp-0** PASS |
 | 2 | Read [§9](SHIP_PLAN.md#implementation-reference) (boot / battle / party paths) |
 | 3 | Create `world/CompanyState.gd` with [§19 gate constants](SHIP_PLAN.md#implementation-stubs) — **no product decisions yet** |
-| 4 | Campaign agent: **Camp-1.1** only · Combat agent: one [CURSOR backlog](CURSOR.md#stream-combat) item (respect [§9b](SHIP_PLAN.md#combat-mental-stack-shipped) — no stack reorder unless Expand) |
+| 4 | Campaign agent: **Camp-1.1** only · Combat agent: one [agent backlog](AGENTS_ENTRY.md#stream-combat) item (respect [§9b](SHIP_PLAN.md#combat-mental-stack-shipped) — no stack reorder unless Expand) |
 | 5 | Follow [§3d Camp-1 build order](SHIP_PLAN.md#camp-1-build-order); closed choices in [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22) |
 | 6 | Skim [§20 pitfalls](SHIP_PLAN.md#implementation-pitfalls) before editing `main.gd` / bridge |
 
@@ -504,7 +503,7 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 | **WF footing / forms** (WF-1…4 + PA pilot shipped) | Phase 0 **`AttentionFootworkTail`** + **`WeaponFormTail`** + D-001 **ii5c** | F5 **WF-M3**: **`validate_f5_soak_log`** **`wf_m3_*`** ☑ · Camp §8 human ☑ (2026-06-07) — [#wf-m3-f5-playtest](LIVE_PATHS.md#wf-m3-f5-playtest) |
 | No dev soak required for normal play | `dev_soak_encounter` empty | Optional F5 **`ii_envelop`** wing feel |
 
-**Explicitly defer (post-EA Expand):** [§9c](SHIP_PLAN.md#combat-expand-registry) — sequenced in [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) (**Exp-1…4**). III-*, IV-1,3,5–13, P4a–h, MS-L5–L6 · organ surgery · BMI F1 · bleed retune · new `FEATURE_*`. (**WF-1…WF-4** + tier-4.4 octant PA **shipped** — maintain harness.) (**MS-L7** baseline shipped — **p4a** is threshold tune only.)
+**Explicitly defer (post-EA Expand):** [§9c](SHIP_PLAN.md#combat-expand-registry) — sequenced in [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) (**Exp-1…4**). III-*, IV-1,3,5–13, P4a–h, MS-L5–L6 · BMI F1 · bleed retune · new `FEATURE_*`. (**WF-1…WF-4** + tier-4.4 octant PA **shipped** — maintain harness.) (**MS-L7** baseline shipped — **p4a** is threshold tune only.)
 
 ---
 
@@ -519,7 +518,7 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 | 3 | **Playtest** | F5 append / validator / Q1/Q2 on demand |
 | 4 | **Campaign** | Economy UX bugs; optional **P2** save only if asked |
 
-**Session default:** **Combat** chat + optional second chat (**Expand** or **Playtest**); **Campaign** on demand. Prompts: [`scripts/cursor/README.md`](../scripts/cursor/README.md) · [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents).
+**Session default:** **Combat** chat + optional second chat (**Expand** or **Playtest**); **Campaign** on demand. Prompts: [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md) · [`PLANNING#parallel-agents`](PLANNING.md#parallel-agents).
 
 ---
 
@@ -534,7 +533,7 @@ Run after **Camp-1.4** works. No new combat `FEATURE_*`.
 | Week | Campaign agent | Combat agent (parallel) |
 |------|----------------|-------------------------|
 | 1 | Camp-0.1 + Camp-1.1 | Phase 0 hygiene; verify [§9b](SHIP_PLAN.md#combat-mental-stack-shipped) harness green |
-| 2 | Camp-1.2 + Camp-1.3 | `BattleUIUpdater` medical busy ([Combat backlog](CURSOR.md#stream-combat)) |
+| 2 | Camp-1.2 + Camp-1.3 | `BattleUIUpdater` medical busy ([Combat backlog](LIVE_PATHS.md#combat-cognition-pipeline)) |
 | 3 | Camp-1.4 | D-001 / small LIVE_PATHS maintain (preserve mental-stack pick order) |
 | 4 | Camp-1.5 + Camp-1.8 ([§3d](SHIP_PLAN.md#camp-1-build-order)) | `CombatUiHints` prep (no `MentalStackDecider` reorder) |
 | 5 | Camp-1.6 + Camp-1.7 | Combat maintain / [§9b](SHIP_PLAN.md#combat-mental-stack-shipped) regression if touched pick path |
@@ -706,7 +705,8 @@ Full logical order: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#comba
 | **Phase 4 IV** | Expand | IV-3 1v1 rule · **IV-4/5 ☑** · **IV-7 ☑** armor burden · **IV-8 ☑** initiative order · **IV-9 ☑** gap-column · **IV-10 ☑** subregion combat mult · **IV-11 leader order ☑** · **IV-12 slot distraction ☑** · **IV-13 weapon-reach ZoC ☑** |
 | **Weapon forms (WF)** | **Maintain** (Camp-5) | [**WF status**](LIVE_PATHS.md#wf-implementation-status) — **WF-1…4 shipped** · **M3** ☑ · **WF-T1 ☑** (2026-06-07) · **WF-T2 ☑** (2026-06-08) · **IV-4/5 ☑** |
 | **Cognition** | Maintain | MS-L5–L6 ☑ · **tier-4.4 spatial slices 1–3 ☑** · **MS-L7 shipped** — tuning only |
-| **Wontfix / closed** | — | IV-INTR (removed) · P3b mat sim expand · bleed retune unless asked · F1 BMI |
+| **Wontfix** | — | bleed retune unless asked · F1 BMI |
+| **Maintain only** | — | P3b material sim (shipped, no expansion without user ask) |
 
 **Pick one row per Expand PR:** harness `_run_*` + live path line + optional `FEATURE_*` ([`PLANNING` policy](PLANNING.md#harness-and-flags)).
 
@@ -1005,6 +1005,7 @@ const PERSISTENCE_MODE := "P1"                 # Camp-5 D-persistence: session-o
 - **2026-05-22** — D-bankrupt (Camp-2.6) → **B3** desertion cascade (company mood → desertion; not instant gold&lt;0 wipe).
 - **2026-05-22** — D-persistence (Camp-5) → **P1** for EA testing; **P2** single-slot autosave when ship complete.
 - **2026-06-08** — **Exp-3 company depth shipped:** XCamp-3.1 hire at camp · XCamp-3.2 5x5 map · XCamp-3.3 deck refresh · XCamp-3.4 post-victory afflictions · XCamp-3.5 tavern mood → weapon form · XCamp-3.6 provisions/day-tick · XCamp-3.7 burial costs · XCamp-3.8 MS-CAMP bridge; 406 harness tests (`run_company_state_checks.ps1`); `CompanyState` closed gate constants — [`SHIP_PLAN#campaign`](SHIP_PLAN.md#campaign)
+- **2026-06-21** — **XCamp-3.9 shipped:** campaign mood → mental stack weight biases (low morale = defensive/wait/focus bias, high morale = aggressive/offense/flee damp); `CombatCampaignMoodBias` module; integrated into `CombatAIActionPicker._get_action_weight`; enemy side: `enemy_mood_bias` from encounter config stamped into `ENCOUNTER_KEY_MOOD_BIAS_ENEMY`; harness `_run_xcamp_39_mood_bias_to_ms` — [`LIVE_PATHS#ms-camp`](LIVE_PATHS.md#ms-camp)
 - **2026-06-09** — **Combat harness dedup:** `HarnessFixtures.gd` consolidated; FpDedupeTail migrated; playtest script tooling (`run_playtest_*.ps1`) — [`scripts/README.md`](../scripts/README.md)
 
 ---

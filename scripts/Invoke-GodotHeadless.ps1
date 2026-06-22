@@ -1,10 +1,20 @@
 # Shared Godot 4 headless launcher for scripts/*.ps1 wrappers.
 # Returns exit code only — do not pipe this function (use TeeLog for log capture).
+#
+# Godot binary resolution order:
+#   1. $env:GODOT environment variable (any Godot 4.x stable)
+#   2. e:\Godot_v4.6-stable_win64.exe
+#   3. C:\Users\<User>\Downloads\Godot_v4.6-stable_win64.exe
+#
+# To use a different binary: set $env:GODOT before running harness scripts,
+# or copy/symlink your Godot 4.x stable build to one of the paths above.
 function Get-FallenPathsGodot {
 	if ($env:GODOT) { return $env:GODOT }
 	$default = "e:\Godot_v4.6-stable_win64.exe"
 	if (Test-Path $default) { return $default }
-	throw "Set GODOT to your Godot 4 binary (or install at $default)"
+	$fallback = "C:\Users\Marshall\Downloads\Godot_v4.6-stable_win64.exe"
+	if (Test-Path $fallback) { return $fallback }
+	throw "Set GODOT to your Godot 4 binary (or install at $default or $fallback)"
 }
 
 function Get-FallenPathsRoot {

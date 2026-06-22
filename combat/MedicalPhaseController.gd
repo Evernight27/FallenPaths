@@ -20,6 +20,7 @@ const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _WindUpHandler := preload("res://combat/MedicalWindUpHandler.gd")
+const _Proficiency := preload("res://core/EntityProficiency.gd")
 
 ## Set on **`CombatManager`** while fast-forwarding post-victory triage (player picks → AI).
 const MANAGER_META_MEDICAL_FAST_FORWARD := "_medical_phase_fast_forward"
@@ -627,6 +628,11 @@ static func _batch_apply_medical_action(
 		var idx: int = failed.find(part)
 		if idx >= 0:
 			failed.remove_at(idx)
+		# XCamp-4: proficiency gains for batch medical actions.
+		if _CompanyState.read_stub_proficiency_enabled():
+			_Proficiency.award_stat_gain(perf_entity, "intelligence", _Proficiency.GAIN_MEDICAL_ACTION_BASE * _get_batch_item_mult(move_id))
+			if perf_entity != target_entity and target_entity.has("_proficiency_bonus"):
+				_Proficiency.award_stat_gain(target_entity, "endurance", _Proficiency.GAIN_BLOOD_PERIL_BASE * _Proficiency.GAIN_MEDICAL_PATIENT_END_MULT)
 	else:
 		var failed_mut: Array = _EntityAccess.nested_array_for_mutation(target, "failed_medical_parts")
 		if part not in failed_mut:
@@ -662,6 +668,14 @@ static func _batch_apply_direct_pressure(
 			"Medical batch: %s apply_direct_pressure on %s => held"
 			% [_EntityAccess.get_display_name(performer), part]
 		)
+		# XCamp-4: proficiency gains for batch direct pressure.
+		if _CompanyState.read_stub_proficiency_enabled():
+			var perf_entity = _EntityAccess.get_entity_from_manager(manager, performer)
+			var tgt_entity = _EntityAccess.get_entity_from_manager(manager, target)
+			if perf_entity != null and perf_entity.has("_proficiency_bonus"):
+				_Proficiency.award_stat_gain(perf_entity, "intelligence", _Proficiency.GAIN_MEDICAL_ACTION_BASE * _Proficiency.GAIN_DIRECT_PRESSURE_INT_MULT)
+			if tgt_entity != null and tgt_entity.has("_proficiency_bonus"):
+				_Proficiency.award_stat_gain(tgt_entity, "endurance", _Proficiency.GAIN_BLOOD_PERIL_BASE * _Proficiency.GAIN_DIRECT_PRESSURE_PATIENT_END_MULT)
 	return applied
 
 
@@ -688,6 +702,19 @@ static func _batch_outcome_for_method(
 			return "tourniquet_applied" if ok else "tourniquet_failed"
 		_:
 			return str(wind_up_cfg.get("outcome", med_id))
+
+
+## Returns the medical item type multiplier for batch resolve proficiency gains.
+static func _get_batch_item_mult(move_id: String) -> float:
+	match move_id:
+		"bandage_self", "apply_bandage":
+			return _Proficiency.get_medical_item_mult("bandage")
+		"pack_wound", "apply_packing", "apply_stabilize", "stabilize_wound":
+			return _Proficiency.get_medical_item_mult("pack")
+		"apply_tourniquet":
+			return _Proficiency.get_medical_item_mult("tourniquet")
+		_:
+			return 1.0
 
 
 static func _log_batch_resolve_result(manager: Node, parts_before: int) -> void:

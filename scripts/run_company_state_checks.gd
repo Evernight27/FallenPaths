@@ -65,6 +65,7 @@ func _run_harness() -> void:
 	_run_xcamp_36_provisions(failures)
 	_run_xcamp_37_burial_costs(failures)
 	_run_xcamp_38_ms_camp_bridge(failures)
+	_run_xcamp_39_mood_bias_to_ms(failures)
 	_run_camp_2_bridge_spot_checks(failures)
 	_run_camp_3_player_front_count_encounter(failures)
 	_run_camp_5_ea_log_markers(failures)
@@ -1706,6 +1707,128 @@ static func _run_xcamp_38_ms_camp_bridge(failures: PackedStringArray) -> void:
 	else:
 		_pass()
 	_release_harness_world(world)
+
+
+## XCamp-3.9: campaign mood bias → mental stack weight multipliers via bridge meta.
+static func _run_xcamp_39_mood_bias_to_ms(failures: PackedStringArray) -> void:
+	const _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
+	# Basic multiplier boundaries: low mood (≤25) → defensive bias, high mood (≥70) → aggressive bias.
+	if _MoodBias.wait_action_weight_mult(0.0) < 1.0:
+		_fail(failures, "XCamp-3.9: mood=0 should increase wait weight above 1.0")
+	else:
+		_pass()
+	if _MoodBias.wait_action_weight_mult(25.0) != 1.0:
+		_fail(failures, "XCamp-3.9: mood=25 should be neutral for wait (1.0)")
+	else:
+		_pass()
+	if _MoodBias.wait_action_weight_mult(70.0) < 1.0 or _MoodBias.wait_action_weight_mult(70.0) > 1.0:
+		_fail(failures, "XCamp-3.9: mood=70 should be neutral for wait (1.0)")
+	else:
+		_pass()
+	if _MoodBias.offense_action_weight_mult(0.0) > 1.0:
+		_fail(failures, "XCamp-3.9: mood=0 should damp offense below 1.0")
+	else:
+		_pass()
+	if _MoodBias.offense_action_weight_mult(25.0) != 1.0:
+		_fail(failures, "XCamp-3.9: mood=25 should be neutral for offense (1.0)")
+	else:
+		_pass()
+	if _MoodBias.offense_action_weight_mult(70.0) <= 1.0:
+		_fail(failures, "XCamp-3.9: mood=70 should boost offense above 1.0")
+	else:
+		_pass()
+	if _MoodBias.focus_line_action_weight_mult(0.0) < 1.0:
+		_fail(failures, "XCamp-3.9: mood=0 should boost focus above 1.0")
+	else:
+		_pass()
+	if _MoodBias.focus_line_action_weight_mult(70.0) > 1.0:
+		_fail(failures, "XCamp-3.9: mood=70 should damp focus below 1.0")
+	else:
+		_pass()
+	if _MoodBias.flee_action_weight_mult(0.0) < 1.0:
+		_fail(failures, "XCamp-3.9: mood=0 should boost flee above 1.0")
+	else:
+		_pass()
+	if _MoodBias.flee_action_weight_mult(70.0) > 1.0:
+		_fail(failures, "XCamp-3.9: mood=70 should damp flee below 1.0")
+	else:
+		_pass()
+	if _MoodBias.disengage_action_weight_mult(0.0) < 1.0:
+		_fail(failures, "XCamp-3.9: mood=0 should boost disengage above 1.0")
+	else:
+		_pass()
+	if _MoodBias.disengage_action_weight_mult(70.0) > 1.0:
+		_fail(failures, "XCamp-3.9: mood=70 should damp disengage below 1.0")
+	else:
+		_pass()
+	# Batch compute returns all multipliers.
+	var batch: Dictionary = _MoodBias.compute_all_multipliers(50.0)
+	if not batch.has("wait_mult") or not batch.has("offense_mult"):
+		_fail(failures, "XCamp-3.9: compute_all_multipliers should return wait_mult and offense_mult")
+	else:
+		_pass()
+	var world: Node2D = _make_world(1)
+	world.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {"difficulty_rating": 1})
+	var pm: Node = world.get_meta("party_manager")
+	var char_script := load("res://character.gd") as Script
+	var fighter := CharacterBody2D.new()
+	fighter.set_script(char_script)
+	fighter.name = "MoodBiasFighter"
+	pm.add_child(fighter)
+	pm.members[0]["node_ref"] = fighter
+	pm.members[0]["company_mood"] = 15.0
+	_CampaignBridge.apply_campaign_mood_bias_to_encounter(world)
+	var enc: Dictionary = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {})
+	if not enc.has(_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER):
+		_fail(failures, "XCamp-3.9: encounter meta should have mood bias key")
+	else:
+		_pass()
+	var biased_val: float = float(enc.get(_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER, 50.0))
+	if biased_val > 20.0:
+		_fail(failures, "XCamp-3.9: mood bias should reflect low roster mood (≈15) got %.1f" % biased_val)
+	else:
+		_pass()
+	pm.members[0]["company_mood"] = 85.0
+	_CampaignBridge.apply_campaign_mood_bias_to_encounter(world)
+	var enc2: Dictionary = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {})
+	var high_val: float = float(enc2.get(_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER, 50.0))
+	if high_val < 80.0:
+		_fail(failures, "XCamp-3.9: mood bias should reflect high roster mood (≈85) got %.1f" % high_val)
+	else:
+		_pass()
+	# Enemy side: default 50.0 when no enemy_mood_bias in encounter config.
+	var world2: Node2D = _make_world(1)
+	world2.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {"difficulty_rating": 1})
+	_CampaignBridge.apply_campaign_mood_bias_to_encounter(world2)
+	var enc3: Dictionary = world2.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {})
+	var enemy_default: float = float(enc3.get(_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_ENEMY, -1.0))
+	if enemy_default != 50.0:
+		_fail(failures, "XCamp-3.9: enemy mood bias default should be 50.0 (neutral), got %.1f" % enemy_default)
+	else:
+		_pass()
+	# Enemy side: explicit enemy_mood_bias from encounter config.
+	var world3: Node2D = _make_world(1)
+	world3.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {"difficulty_rating": 1, "enemy_mood_bias": 10.0})
+	_CampaignBridge.apply_campaign_mood_bias_to_encounter(world3)
+	var enc4: Dictionary = world3.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {})
+	var enemy_low: float = float(enc4.get(_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_ENEMY, -1.0))
+	if enemy_low < 5.0 or enemy_low > 15.0:
+		_fail(failures, "XCamp-3.9: enemy mood bias should reflect encounter config (≈10), got %.1f" % enemy_low)
+	else:
+		_pass()
+	# Enemy side: clamp at 100 boundary.
+	var world4: Node2D = _make_world(1)
+	world4.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {"difficulty_rating": 1, "enemy_mood_bias": 200.0})
+	_CampaignBridge.apply_campaign_mood_bias_to_encounter(world4)
+	var enc5: Dictionary = world4.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {})
+	var enemy_clamped: float = float(enc5.get(_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_ENEMY, -1.0))
+	if enemy_clamped != 100.0:
+		_fail(failures, "XCamp-3.9: enemy mood bias should clamp at 100 (got %.1f)" % enemy_clamped)
+	else:
+		_pass()
+	_release_harness_world(world2)
+	_release_harness_world(world3)
+	_release_harness_world(world4)
 
 
 # --- Camp-2+ (spot checks; full gates in combat harness) ---

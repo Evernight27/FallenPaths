@@ -18,6 +18,7 @@ const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _EntityEquipment := preload("res://core/EntityEquipment.gd")
 const _CombatLayerTissue := preload("res://core/CombatLayerTissue.gd")
 const _TissueEnergyCapacity := preload("res://core/TissueEnergyCapacity.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
 
 @export var species: Resource = null
 ## Campaign / harness: player party lead (stamped on **`CombatManager.register`** for player side only).
@@ -84,6 +85,31 @@ var _combat_blood_recovery_per_s: float = 0.0
 ## Camp-2.4 permanent injuries; each entry `{ id, label, stamina_mult, pain_mult }`.
 var campaign_afflictions: Array = []
 var _campaign_supply_factor: float = 1.0
+
+## Per-stat proficiency bonus above species base (int). Grows through combat, decays through inactivity.
+## Stored as SEPARATE dict from base stats so _apply_species() cannot wipe it.
+var _proficiency_bonus: Dictionary = {
+	"strength": 0.0,
+	"agility": 0.0,
+	"intelligence": 0.0,
+	"endurance": 0.0,
+	"perception": 0.0,
+}
+
+## Stats boosted by training drill (merged into proficiency bonus after each contract). Per-stat.
+var _training_pending: Dictionary = {
+	"strength": 0.0,
+	"agility": 0.0,
+	"intelligence": 0.0,
+	"endurance": 0.0,
+	"perception": 0.0,
+}
+
+## Day index of last combat participation (for calendar-day decay calculation).
+var _last_fought_day: int = 0
+
+## Whether this merc participated in the most recent combat (tracks who fought vs who stayed at camp).
+var _last_fought_in_combat: bool = false
 
 
 func get_combat_blood_loss_mult() -> float:
@@ -380,7 +406,10 @@ func get_bandage_application_time_seconds_for_part(part: String) -> float:
 
 """Medical effectiveness from intelligence (100 INT = 1.0; 50 = 0.75, 150 = 1.25). Used for bandage, direct pressure."""
 func get_medical_effectiveness() -> float:
-	var base: float = clampf(0.5 + float(intelligence) / 200.0, 0.5, 1.5)
+	var effective_int: float = float(intelligence)
+	if _CompanyState.read_stub_proficiency_enabled() and has("_proficiency_bonus"):
+		effective_int += float(_proficiency_bonus.get("intelligence", 0) or 0)
+	var base: float = clampf(effective_int / 100.0, 0.5, 1.5)
 	return base * clampf(_campaign_supply_factor, 0.25, 1.5)
 
 
@@ -390,6 +419,30 @@ func set_campaign_supply_factor(factor: float) -> void:
 
 func get_campaign_supply_factor() -> float:
 	return _campaign_supply_factor
+
+
+"""Max blood volume scaling from END (100 → 1.0x; 150 → 1.25x). Applied in BloodVolumeMl.init_entity_pool."""
+func get_endurance_blood_volume_mult() -> float:
+	var effective_end: float = float(endurance)
+	if _CompanyState.read_stub_proficiency_enabled() and has("_proficiency_bonus"):
+		effective_end += float(_proficiency_bonus.get("endurance", 0) or 0)
+	return 1.0 + (effective_end - 100) / 400.0
+
+
+"""Camp rest healing speed from END (100 → 1.0x; 150 → ~1.20x faster). Applied in EntityHealing tau calculations."""
+func get_endurance_healing_speed_mult() -> float:
+	var effective_end: float = float(endurance)
+	if _CompanyState.read_stub_proficiency_enabled() and has("_proficiency_bonus"):
+		effective_end += float(_proficiency_bonus.get("endurance", 0) or 0)
+	return 1.0 - clampf((effective_end - 100) / 500.0, 0.0, 0.25)
+
+
+"""Contract pay scaling from INT (100 → 1.0x; 150 → 1.075x max). Applied in CompanyState post-victory gold calculation."""
+func get_intelligence_contract_bonus_mult() -> float:
+	var effective_int: float = float(intelligence)
+	if _CompanyState.read_stub_proficiency_enabled() and has("_proficiency_bonus"):
+		effective_int += float(_proficiency_bonus.get("intelligence", 0) or 0)
+	return 1.0 + clampf((effective_int - 100) / 500.0, 0.0, 0.15)
 
 
 func get_campaign_stamina_mult() -> float:

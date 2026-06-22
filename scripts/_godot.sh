@@ -4,6 +4,10 @@ fp_project_root() {
 	(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 }
 
+# Godot binary resolution order:
+#   1. $GODOT environment variable (any Godot 4.x stable)
+#   2. e:/Godot_v4.6-stable_win64.exe
+#   3. ~/Downloads/Godot_v4.6-stable_win64.exe
 fp_godot_bin() {
 	if [[ -n "${GODOT:-}" ]]; then
 		echo "$GODOT"
@@ -15,6 +19,11 @@ fp_godot_bin() {
 	fi
 	if [[ -x "e:/Godot_v4.6-stable_win64.exe" ]]; then
 		echo "e:/Godot_v4.6-stable_win64.exe"
+		return 0
+	fi
+	local fallback="$HOME/Downloads/Godot_v4.6-stable_win64.exe"
+	if [[ -x "$fallback" ]]; then
+		echo "$fallback"
 		return 0
 	fi
 	return 1

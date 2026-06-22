@@ -100,6 +100,7 @@ static func handle_action_ready(manager: Node, c: Dictionary) -> void:
 		return
 	c.gauge = 100.0
 	c.erase("action_cooldown_until")
+	c.erase(CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON)
 	if _EntityAccess.is_player_side(c):
 		if _MedicalPhase.medical_fast_forward_active(manager):
 			_MedicalPhase.resolve_player_medical_turn_during_fast_forward(manager, cid_ready)

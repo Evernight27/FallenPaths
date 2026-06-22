@@ -8,6 +8,13 @@ const COMPANION_STANCE_PREFS: Array[String] = [
 	"plow", "wall", "balanced", "ox", "tempest", "wrath",
 ]
 
+## XCamp-4: rookie proficiency points per renown level (capped at +10 per stat).
+const ROOKIE_PROFICIENCY_PER_RENOWN: float = 0.5
+const ROOKIE_PROFICIENCY_CAP: float = 10.0
+
+const _CompanyState := preload("res://world/CompanyState.gd")
+const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
+
 ## XCamp-3.1: fresh rookie on a vacant companion slot (species + tutorial-tier gear).
 static func setup_hired_companion(
 	companion: Node, rng: RandomNumberGenerator, slot_index: int = 0
@@ -18,6 +25,7 @@ static func setup_hired_companion(
 	if companion.has_method("set_process_input"):
 		companion.set_process_input(false)
 	_setup_character(companion, rng, true, slot_index)
+	# XCamp-4: rookies start with zero proficiency — no combat experience yet.
 
 
 static func setup_player_and_companion(
@@ -28,6 +36,7 @@ static func setup_player_and_companion(
 	var player = world.get_node("Character")
 	player.is_party_leader = true
 	_setup_character(player, rng, randomize_equipment)
+	_setup_rookie_proficiency_for_world(world, player)
 
 	for i in range(1, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP):
 		var path = "Character/Companion" + ("" if i == 1 else str(i))
@@ -36,6 +45,7 @@ static func setup_player_and_companion(
 			companion.is_party_leader = false
 			companion.set_process_input(false)
 			_setup_character(companion, rng, randomize_equipment, i - 1)
+			_setup_rookie_proficiency_for_world(world, companion)
 
 static func _setup_character(
 	character: Node,
@@ -71,3 +81,18 @@ static func equip_party_weapons(world: Node2D, weapon_id: String) -> void:
 		var path := "Character/Companion" + ("" if i == 1 else str(i))
 		if world.has_node(path):
 			EncounterSpawner.equip_weapon_id(world.get_node(path), weapon_id)
+
+
+## XCamp-4: assign rookie proficiency bonuses scaled by company renown.
+static func _setup_rookie_proficiency_for_world(world: Node2D, character: Node) -> void:
+	if character == null or world == null:
+		return
+	if not _CompanyState.read_stub_proficiency_enabled():
+		return
+	var entity: Node = _Bridge.health_entity_from_character(character)
+	if entity == null or not entity.has("_proficiency_bonus"):
+		return
+	var renown: int = _CompanyState.get_renown(world)
+	for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
+		var bonus: float = minf(maxf(renown * ROOKIE_PROFICIENCY_PER_RENOWN, 0.0), ROOKIE_PROFICIENCY_CAP)
+		entity._proficiency_bonus[stat] = bonus

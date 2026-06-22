@@ -40,6 +40,7 @@ const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 const _MentalStack := preload("res://combat/MentalStackDecider.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
+const _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
 
 static func _assert_tactical_snapshot_matches(
 	failures: PackedStringArray,
@@ -1462,6 +1463,8 @@ static func _run_border_skirmish_encounter_enemy_pinch(failures: PackedStringArr
 	mgr.encounter = {
 		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY: CombatConstants.DOCTRINE_PINCH_CENTER,
 		CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT: 7,
+		_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER: 50.0,
+		_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_ENEMY: 50.0,
 	}
 	for _i in 7:
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")

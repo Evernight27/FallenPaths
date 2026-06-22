@@ -257,6 +257,29 @@ static func format_member_triage_banner_line(member: Dictionary) -> String:
 	return dressing
 
 
+## XCamp-4: formats proficiency bonus line for a party member — "+STR:3 AGI:2 INT:1 END:4 PER:0" or "" if no bonuses.
+static func format_proficiency_bonus_line(member: Dictionary) -> String:
+	const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
+	var node_ref: Variant = (member as Dictionary).get("node_ref")
+	if not is_instance_valid(node_ref) or not (node_ref is Node):
+		return ""
+	var node: Node = node_ref as Node
+	var entity: Node = _Bridge.health_entity_from_character(node)
+	if entity == null or not entity.has("_proficiency_bonus"):
+		return ""
+	var prof: Dictionary = entity._proficiency_bonus
+	var parts := []
+	const _PROF_LABELS := {"strength": "STR", "agility": "AGI", "intelligence": "INT", "endurance": "END", "perception": "PER"}
+	for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
+		var bonus_val: float = float(prof.get(stat, 0) or 0)
+		if bonus_val > 0.0:
+			var label := _PROF_LABELS[stat]
+			parts.append("+%s:%d" % [label, int(bonus_val)])
+	if parts.is_empty():
+		return ""
+	return " | ".join(parts)
+
+
 ## Highest-urgency living member from live party snapshots (or summary fallback rows).
 static func worst_triage_from_member_rows(rows: Array) -> Dictionary:
 	var worst: Dictionary = {}

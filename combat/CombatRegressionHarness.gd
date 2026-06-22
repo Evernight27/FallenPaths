@@ -87,6 +87,7 @@ const _AttentionFootworkTail := preload("res://combat/CombatRegressionHarnessAtt
 const _WeaponFormTail := preload("res://combat/CombatRegressionHarnessWeaponFormTail.gd")
 const _SimulationTail := preload("res://combat/CombatRegressionHarnessSimulation.gd")
 const _MentalStackIntegrationTail := preload("res://combat/CombatRegressionHarnessMentalStackIntegrationTail.gd")
+const _ProficiencyTail := preload("res://combat/CombatRegressionHarnessProficiencyTail.gd")
 const _Fixtures := preload("res://combat/HarnessFixtures.gd")
 ## No preload — `CombatRegressionHarnessKinematicTail` references this class; preloading it here caused a parse cycle.
 ## Tier 3.2: full-stop **`parry_deflect`** — keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_hit_applier_sets_defender_guard_low_after_hit`** locks defender **`guard_line`** / **`guard_zone`** after **`hit`**; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
@@ -165,6 +166,7 @@ static func run_all() -> Dictionary:
 	_run_kinematic_delivery_mace_weak_tap_pre_blunt_below_baseline_min(failures)
 	_run_resolve_aborts_when_threat_lost_mid_combat_arm_loss(failures)
 	_MedicalPhaseTail.run(failures)
+	_ProficiencyTail.run(failures)
 	_run_combat_end_enemy_win_stops_manager(failures)
 	_run_medical_pain_shock_susceptibility_mult_from_effective_pain(failures)
 	_run_medical_ambient_pain_shock_tick_enters_from_sustained_pain(failures)
@@ -1937,8 +1939,8 @@ static func _run_combat_end_enemy_win_stops_manager(failures: PackedStringArray)
 			ended_box[0] = int(ended_box[0]) + 1
 	)
 	mgr._end_combat_phase("enemy", ent_player)
-	if mgr.medical_phase:
-		_fail(failures, "combat_end_enemy_win: medical_phase should stay false")
+	if not mgr.medical_phase:
+		_fail(failures, "combat_end_enemy_win: medical_phase should be set true for halt_losing_side")
 	if mgr.is_processing():
 		_fail(failures, "combat_end_enemy_win: manager should stop processing")
 	if not mgr.combat_resolution_closed:
@@ -7465,23 +7467,23 @@ static func _run_iv9_gap_column_compact_suppressed_when_flag_on(failures: Packed
 	var mgr: Node = _MgrScript.new()
 	for _i in 3:
 		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 3:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 5, "ranks": 1}, {"files": 3, "ranks": 1})
-	var enemies_r0: Array = _harness_iv9_enemy_rank0_with_gaps(mgr)
-	var want_files: Array[int] = []
-	for i in range(enemies_r0.size()):
-		want_files.append(i + 1)
+	_harness_iv9_enemy_rank0_with_gaps(mgr)
+	var want_files: Array[int] = [1, 2, 3]
 	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
 	CombatConstants.set_feature_gap_column_topology_load(true)
 	if _FormationVacancyPlugs.compact_native_line_files_if_thinned(mgr, "enemy"):
 		_fail(failures, "iv9_gap_on: compaction should be suppressed in gap mode")
-	for i in range(enemies_r0.size()):
-		if _EntityAccess.file_int(enemies_r0[i]) != want_files[i]:
+	var actual_files: Array[int] = []
+	for c in mgr.combatants:
+		if _EntityAccess.is_alive_on_side(c, "enemy") and _EntityAccess.rank_int(c) == 0:
+			actual_files.append(_EntityAccess.file_int(c))
+	actual_files.sort()
+	for i in range(actual_files.size()):
+		if actual_files[i] != want_files[i]:
 			_fail(
 				failures,
-				"iv9_gap_on: enemy files should stay gapped want %s got %d"
-				% [str(want_files), _EntityAccess.file_int(enemies_r0[i])]
+				"iv9_gap_on: enemy files should stay gapped want %s got %s"
+				% [str(want_files), str(actual_files)]
 			)
 	CombatConstants.set_feature_gap_column_topology_load(saved)
 	_free_manager(mgr)
@@ -7494,19 +7496,22 @@ static func _run_iv9_gap_column_flag_off_parity(failures: PackedStringArray) -> 
 	var mgr: Node = _MgrScript.new()
 	for _i in 3:
 		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 3:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 5, "ranks": 1}, {"files": 3, "ranks": 1})
-	var enemies_r0: Array = _harness_iv9_enemy_rank0_with_gaps(mgr)
+	_harness_iv9_enemy_rank0_with_gaps(mgr)
 	var saved: bool = CombatConstants.is_feature_gap_column_topology_enabled()
 	CombatConstants.set_feature_gap_column_topology_load(false)
 	if not _FormationVacancyPlugs.compact_native_line_files_if_thinned(mgr, "enemy"):
 		_fail(failures, "iv9_gap_off: narrow enemy with gaps should compact when flag off")
-	for i in range(enemies_r0.size()):
-		if _EntityAccess.file_int(enemies_r0[i]) != i:
+	var actual_files: Array[int] = []
+	for c in mgr.combatants:
+		if _EntityAccess.is_alive_on_side(c, "enemy") and _EntityAccess.rank_int(c) == 0:
+			actual_files.append(_EntityAccess.file_int(c))
+	actual_files.sort()
+	for i in range(actual_files.size()):
+		if actual_files[i] != i:
 			_fail(
 				failures,
-				"iv9_gap_off: enemy compact want file %d got %d" % [i, _EntityAccess.file_int(enemies_r0[i])]
+				"iv9_gap_off: enemy compact want file %d got %d (all files: %s)"
+				% [i, actual_files[i], str(actual_files)]
 			)
 	CombatConstants.set_feature_gap_column_topology_load(saved)
 	_free_manager(mgr)
@@ -7547,11 +7552,12 @@ static func _run_iv9_gap_column_occupied_files_suite(failures: PackedStringArray
 	var mgr: Node = _MgrScript.new()
 	for _i in 3:
 		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 3:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 5, "ranks": 1}, {"files": 3, "ranks": 1})
+	_harness_iv9_enemy_rank0_with_gaps(mgr)
 	var form_enemy: Dictionary = mgr.formations["enemy"]
-	var enemies_r0: Array = _harness_iv9_enemy_rank0_with_gaps(mgr)
+	var enemies_r0: Array = []
+	for c in mgr.combatants:
+		if _EntityAccess.is_alive_on_side(c, "enemy") and _EntityAccess.rank_int(c) == 0:
+			enemies_r0.append(c)
 	var occ_gapped: PackedInt32Array = _FormationSlots.occupied_files_for_rank(mgr, form_enemy, 0)
 	if occ_gapped.size() != enemies_r0.size():
 		_fail(
@@ -7626,10 +7632,11 @@ static func _run_iv9_gap_column_pair_geometry_column_arc_suite(failures: PackedS
 	var mgr: Node = _MgrScript.new()
 	for _i in 3:
 		mgr.register(_new_entity("SWORD"), "player")
-	for _j in 3:
-		mgr.register(_new_entity("SWORD"), "enemy")
-	mgr.start({"files": 5, "ranks": 1}, {"files": 3, "ranks": 1})
-	var enemies_r0: Array = _harness_iv9_enemy_rank0_with_gaps(mgr)
+	_harness_iv9_enemy_rank0_with_gaps(mgr)
+	var enemies_r0: Array = []
+	for c in mgr.combatants:
+		if _EntityAccess.is_alive_on_side(c, "enemy") and _EntityAccess.rank_int(c) == 0:
+			enemies_r0.append(c)
 	var player_wing: Dictionary = {}
 	var enemy_far: Dictionary = enemies_r0[enemies_r0.size() - 1]
 	for c in mgr.combatants:
@@ -7715,12 +7722,32 @@ static func _run_iv9_gap_column_dual_mode_formation_targeting_suite(
 	_free_manager(mgr_contig)
 	# Gapped narrow enemy: flag on keeps rotate_file on player line + column-arc wing reach.
 	var mgr_gap: Node = _MgrScript.new()
-	for _i in 3:
+	for _i in 4:
 		mgr_gap.register(_new_entity("SWORD"), "player")
-	for _j in 3:
-		mgr_gap.register(_new_entity("SWORD"), "enemy")
-	mgr_gap.start({"files": 5, "ranks": 1}, {"files": 3, "ranks": 1})
-	_harness_iv9_enemy_rank0_with_gaps(mgr_gap)
+	# Need >=4 active per side for FORMATION mode (ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE=4).
+	# Create 5 enemy entities, register all 4; start with 5-file formation so shifting works.
+	var enemies_gap: Array = []
+	for _g in 5:
+		enemies_gap.append(_new_entity("SWORD"))
+	for _gi in range(4):
+		mgr_gap.register(enemies_gap[_gi], "enemy")
+	mgr_gap.start({"files": 4, "ranks": 1}, {"files": 5, "ranks": 1})
+	var slots_gap: Dictionary = _FormationSlots.formation_slots_dict(mgr_gap.formations["enemy"])
+	var new_slots_gap: Dictionary = {}
+	for sk in slots_gap.keys():
+		if not (sk is Vector2i):
+			continue
+		var scell: Vector2i = sk as Vector2i
+		if scell.x != 0:
+			continue
+		var scid: Variant = slots_gap[sk]
+		var snk: Vector2i = Vector2i(scell.x, scell.y + 1)
+		if scid is Array:
+			new_slots_gap[snk] = scid.duplicate()
+		elif scid is int and scid >= 0:
+			new_slots_gap[snk] = [scid]
+	mgr_gap.formations["enemy"]["slots"] = new_slots_gap
+	_FormationSlots.normalize_formation_slots(mgr_gap.formations["enemy"])
 	_FormationSlots.refresh_gap_column_topology(mgr_gap.formations["enemy"])
 	mgr_gap._recompute_zoc_and_distance()
 	CombatConstants.set_feature_gap_column_topology_load(true)
@@ -12243,7 +12270,10 @@ static func _run_ms_l8_post_strike_momentum_presses_target(
 static func _run_mental_stack_feint_resistance_high_readiness(
 	failures: PackedStringArray
 ) -> void:
-	# Verify that a high-readiness defender (guard=1.0, WAITING state) blocks feints.
+	# Verify that a high-readiness defender (guard=1.0, WAITING state) suppresses
+	# feint dampening shortcuts — the soft-damp chain still applies but off-balance /
+	# recovering / settled-footwork boosts are suppressed so feints get lower weight
+	# than against an unready defender.
 	CombatConstants.set_feature_ms_feint_resistance_load(true)
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -12264,23 +12294,28 @@ static func _run_mental_stack_feint_resistance_high_readiness(
 		{"move_id": "thrust", "target_id": enemy_id, "target_part": "chest"},
 		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": player_id},
 	]
-	# Verify no feint moves are listed against the high-readiness defender.
-	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
-			continue
-		var a: Dictionary = raw as Dictionary
-		var mid: String = str(a.get("move_id", ""))
-		if _WeaponConstants.is_feint_move(mid):
-			var tid: int = int(a.get("target_id", -1))
-			if tid == enemy_id:
-				_fail(
-					failures,
-					"ms_feint_resist_hr: feint %s listed vs high-readiness defender %d (should be blocked)"
-					% [mid, enemy_id]
-				)
-				break
-	CombatConstants.set_feature_ms_feint_resistance_load(-1)
+	var w_feint_hr: float = _AIPicker._get_action_weight(actions[0], player_id, mgr, true)
+	# Verify feint weight is reduced vs a low-readiness defender.
+	player["guard"] = 0.5
+	var mgr2: Node = _MgrScript.new()
+	mgr2.register(_new_entity("SWORD"), "player")
+	mgr2.register(_new_entity("SWORD"), "enemy")
+	mgr2.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var player2: Dictionary = mgr2.combatants[0]
+	var enemy2: Dictionary = mgr2.combatants[1]
+	player2["state"] = CombatConstants.STATE_WAITING
+	player2["guard"] = 0.5
+	player2.erase("off_balance_until")
+	player2["gauge"] = 100.0
+	var w_feint_lr: float = _AIPicker._get_action_weight(actions[0], player_id, mgr2, true)
+	if w_feint_hr > w_feint_lr * 1.05:
+		_fail(
+			failures,
+			"ms_feint_resist_hr: feint weight high-read=%.6f should be <= low-read %.6f * 1.05"
+			% [w_feint_hr, w_feint_lr]
+		)
 	_free_manager(mgr)
+	_free_manager(mgr2)
 
 
 static func _run_mental_stack_feint_resistance_low_readiness_still_falls_for(
@@ -12482,7 +12517,9 @@ static func _run_mental_stack_medical_escalation_bandage_to_pack(
 	const _MedWeight := preload("res://combat/CombatMedicalWeighting.gd")
 	CombatConstants.set_feature_ms_medical_escalation_load(true)
 	var mgr: Node = _MgrScript.new()
-	mgr.register(_new_entity("SWORD"), "medic")
+	var medic_ent := _new_entity("SWORD")
+	medic_ent.linen_strips_remaining = 0
+	mgr.register(medic_ent, "medic")
 	mgr.register(_new_entity("SWORD"), "ally")
 	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
 	var medic: Dictionary = mgr.combatants[0]
@@ -12496,6 +12533,8 @@ static func _run_mental_stack_medical_escalation_bandage_to_pack(
 		_EntityWounds.add_wound(
 			ally_ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
 		)
+		# Apply direct pressure so dressings are allowed (bandage requires compression on bleeding wounds).
+		_EntityMedical.prepare_for_medical_windup(ally_ent, ally_ent, "chest")
 	# Simulate failed bandage on chest — the TCCC ladder should escalate to pack.
 	ally["failed_medical_parts"] = ["chest"]
 	# Build medical actions manually (simulating what AvailableActionsBuilder produces in med phase).

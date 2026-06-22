@@ -262,6 +262,11 @@ static func _serialize_entity(entity: Node) -> Dictionary:
 		"body_cutting": _deep_dup(entity.body_cutting) if "body_cutting" in entity else {},
 		"body_blunt": _deep_dup(entity.body_blunt) if "body_blunt" in entity else {},
 		"bone_health": _deep_dup(entity.bone_health) if "bone_health" in entity else {},
+		# XCamp-4: proficiency data.
+		"proficiency_bonus": _deep_dup(entity._proficiency_bonus) if entity.has("_proficiency_bonus") else {},
+		"training_pending": _deep_dup(entity._training_pending) if entity.has("_training_pending") else {},
+		"last_fought_day": int(entity._last_fought_day) if entity.has("_last_fought_day") else 0,
+		"last_fought_in_combat": bool(entity._last_fought_in_combat) if entity.has("_last_fought_in_combat") else false,
 		"weapon_id": _EncounterSpawner.weapon_id_from_entity(entity),
 		"armor_by_part": _EncounterSpawner.armor_ids_from_entity(entity),
 	}
@@ -351,6 +356,21 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
 		entity.body_blunt = _deep_dup(data.get("body_blunt", {}))
 	if data.has("bone_health"):
 		entity.bone_health = _deep_dup(data.get("bone_health", {}))
+	# XCamp-4: restore proficiency data.
+	if data.has("proficiency_bonus") and entity.has("_proficiency_bonus"):
+		var saved_prof: Dictionary = data.get("proficiency_bonus", {})
+		var _prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
+		for key in _prof_keys:
+			entity._proficiency_bonus[key] = float(saved_prof.get(key, 0) or 0)
+	if data.has("training_pending") and entity.has("_training_pending"):
+		var saved_train: Dictionary = data.get("training_pending", {})
+		var _prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
+		for key in _prof_keys:
+			entity._training_pending[key] = float(saved_train.get(key, 0) or 0)
+	if data.has("last_fought_day") and entity.has("_last_fought_day"):
+		entity._last_fought_day = int(data.get("last_fought_day", 0))
+	if data.has("last_fought_in_combat") and entity.has("_last_fought_in_combat"):
+		entity._last_fought_in_combat = bool(data.get("last_fought_in_combat", false))
 	_sync_entity_vitals(entity)
 
 

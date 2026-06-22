@@ -1,7 +1,7 @@
 class_name MentalStackDecider
 extends RefCounted
 
-## Tier 4.3: prioritized AI decision layers (self-medical → ally medical → counter → incoming → L4b sparse fight → L4 hold line → MS-L5 formation plug → MS-L6 rout → L5 exhaustion → salience-damped utility pick).
+## Tier 4.3: prioritized AI decision layers (self-medical → ally medical → counter → incoming → MS-L8 post-strike → L4b sparse fight → L4 hold line → MS-L5 formation plug → MS-L6 rout → L5 exhaustion → salience-damped utility pick).
 ## **MS-L4 footing boundary:** hold-line layer picks listed moves only — does **not** write **`guard_line`**, PA offset, or **`weapon_form`**. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-layer-labels`**.
 ## **No player target UI** — same picker for all sides; layers only narrow/reweight the listed action pool.
 
@@ -41,7 +41,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 	var _strike_tick_val: float = float(c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TICK, 0.0))
 	var _current_clock: float = manager.combat_clock
 	var _strike_tick_active: bool = (
-		_strike_tick_val > 0.0 and absf(_strike_tick_val - _current_clock) < CombatConstants.POST_STRIKE_MOMENTUM_CLOCK_TOLERANCE
+		_strike_tick_val >= 0.0 and absf(_strike_tick_val - _current_clock) < CombatConstants.POST_STRIKE_MOMENTUM_CLOCK_TOLERANCE
 	)
 	if _MobilityRetreat.cannot_commit_melee(c):
 		var retreat_only: Array = _MobilityRetreat.filter_actions_for_retreat_only(actions, c)
@@ -90,9 +90,24 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 				CombatConstants.MENTAL_STACK_LAYER_INCOMING,
 				_AIPicker.pick_weighted(threat, combatant_id, manager)
 			)
+	# MS-L8: post-strike momentum — press advantage or disengage cleanly after a successful strike.
+	# Fires before L4b so pressing a specific target advantage takes priority over general
+	# fight-finishing pressure (L4b sparse-fight / mop-up).
+	var _fight_finish_tail: bool = false
+	if CombatConstants.is_feature_ms_post_strike_enabled() and _strike_tick_active:
+		var struck_id: int = int(c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID, -1))
+		if struck_id >= 0:
+			var ps_pool: Array = _PostStrike.filter_post_strike_actions(
+				actions, combatant_id, manager, struck_id
+			)
+			if not ps_pool.is_empty():
+				return _stamp_layer_pick(
+					c,
+					CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE,
+					_AIPicker.pick_weighted(ps_pool, combatant_id, manager)
+				)
 	# L4b (before L4): combat-finish tails — sparse post-flee rank-0 or mop-up underdog; offense over wait/focus shuffle.
 	# Skip when this combatant or any ally is in immediate peril — medical layers take priority.
-	var fight_finish_tail: bool = false
 	var _my_peril: bool = _EntityAccess.is_in_immediate_peril(manager, c)
 	var _ally_in_peril_count: int = 0
 	for _other in manager.combatants:
@@ -103,10 +118,10 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 		if _EntityAccess.is_in_immediate_peril(manager, _o):
 			_ally_in_peril_count += 1
 	if not _my_peril and _ally_in_peril_count == 0:
-		fight_finish_tail = _Doctrine.fight_finish_tail_active(
+		_fight_finish_tail = _Doctrine.fight_finish_tail_active(
 			manager, c, actions, combatant_id
 		)
-	if fight_finish_tail:
+	if _fight_finish_tail:
 		var fight_first: Array = _filter_sparse_fight_first_actions(
 			actions, combatant_id, manager, c
 		)
@@ -119,7 +134,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 	# L4: back rank / no reach — hold in place; retarget guard only on incoming telegraph mismatch.
 	# Fight-finish tails skip L4 wait/focus when L4b had no offense — utility pick handles trusted close/strikes.
 	if _ListedActions.action_list_is_reserve_posture_only(actions):
-		if fight_finish_tail:
+		if _fight_finish_tail:
 			var close_only: Array = _filter_hold_line_close_actions(
 				actions, combatant_id, manager, c
 			)
@@ -160,21 +175,6 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 					CombatConstants.MENTAL_STACK_LAYER_ROUT,
 					_AIPicker.pick_weighted(rout_pool, combatant_id, manager, actions)
 				)
-	# MS-L8: post-strike momentum — press advantage or disengage cleanly after a successful strike.
-	# Fight-finish tails skip MS-L8 so listed offense can win via L4b sparse-fight path.
-	if CombatConstants.is_feature_ms_post_strike_enabled() and _strike_tick_active:
-		var struck_id: int = int(c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID, -1))
-		if struck_id >= 0:
-			if not _Doctrine.fight_finish_tail_active(manager, c, actions, combatant_id):
-				var pool: Array = _PostStrike.filter_post_strike_actions(
-					actions, combatant_id, manager, struck_id
-				)
-				if not pool.is_empty():
-					return _stamp_layer_pick(
-						c,
-						CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE,
-						_AIPicker.pick_weighted(pool, combatant_id, manager)
-					)
 	# MS-L9: positional awareness — disengage when surrounded and vulnerable.
 	# Fight-finish tails skip MS-L9 so listed offense can win via L4b or salience-damped utility pick.
 	if CombatConstants.is_feature_ms_positional_awareness_enabled():

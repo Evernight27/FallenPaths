@@ -277,12 +277,7 @@ func show_party(world: Node2D, members: Array) -> void:
 				v.add_child(weapon_lbl)
 			var form_pref: String = str(m.get("stance_preference", "")).strip_edges()
 			if not form_pref.is_empty():
-				var form_lbl = Label.new()
-				form_lbl.text = (
-					"Form preference: "
-					+ _WeaponForm.display_name(_WeaponForm.normalize_form(form_pref))
-				)
-				v.add_child(form_lbl)
+				_append_weapon_form_specialty(v, _WeaponForm.normalize_form(form_pref))
 			var armor_summary: Array = m.get("armor_summary", [])
 			if armor_summary.size() > 0:
 				var armor_lbl = Label.new()
@@ -332,6 +327,13 @@ func show_party(world: Node2D, members: Array) -> void:
 			_RowFormatter.configure_wrapped_label(fx_lbl)
 			fx_lbl.add_theme_color_override("font_color", Color(0.7, 0.62, 0.88))
 			v.add_child(fx_lbl)
+		var prof_line: String = _RowFormatter.format_proficiency_bonus_line(m)
+		if not prof_line.is_empty():
+			var prof_lbl := Label.new()
+			prof_lbl.text = prof_line
+			_RowFormatter.configure_wrapped_label(prof_lbl)
+			prof_lbl.add_theme_color_override("font_color", Color(0.55, 0.85, 0.55))
+			v.add_child(prof_lbl)
 		if m.has("company_mood"):
 			var mood_val: float = float(m.get("company_mood", _CompanyState.MOOD_DEFAULT))
 			var mood_lbl = Label.new()
@@ -505,6 +507,88 @@ func _on_new_company_pressed() -> void:
 		return
 	hide()
 	_CompanyState.request_new_campaign(_world)
+
+
+## Append a compact weapon-form specialty readout to a member row.
+static func _append_weapon_form_specialty(v: VBoxContainer, form: String) -> void:
+	if form.is_empty():
+		return
+	const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+	var pressure: String = _WeaponForm.pressure_class(form)
+	var display: String = _WeaponForm.display_name(form)
+	if pressure.is_empty() or pressure == "neutral":
+		pressure = ""
+	var sig_lines: PackedStringArray = _get_weapon_form_signature_lines(form)
+	var mod_lines: PackedStringArray = _get_weapon_form_strength_lines(form)
+	var header := Label.new()
+	header.text = "Form — %s" % display
+	if not pressure.is_empty():
+		header.text += " (%s)" % pressure.capitalize()
+	header.add_theme_font_size_override("font_size", 11)
+	header.add_theme_color_override("font_color", Color(0.7, 0.82, 0.9))
+	v.add_child(header)
+	for line in sig_lines:
+		var lbl = Label.new()
+		lbl.text = "  %s" % line
+		lbl.add_theme_font_size_override("font_size", 10)
+		lbl.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+		v.add_child(lbl)
+	for line in mod_lines:
+		var lbl = Label.new()
+		lbl.text = "  %s" % line
+		lbl.add_theme_font_size_override("font_size", 10)
+		lbl.add_theme_color_override("font_color", Color(0.75, 0.8, 0.85))
+		v.add_child(lbl)
+
+
+static func _get_weapon_form_signature_lines(form: String) -> PackedStringArray:
+	const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+	var out: PackedStringArray = PackedStringArray()
+	var d: Dictionary = {}
+	if form == _WeaponForm.FORM_OX:
+		d = {"move_ids": "thrust, spear_thrust", "contact_types": "stab-heavy", "lines": "high_right, high"}
+	elif form == _WeaponForm.FORM_PLOW:
+		d = {"move_ids": "thrust, spear_thrust", "contact_types": "stab-heavy", "lines": "low, high"}
+	elif form == _WeaponForm.FORM_WRATH:
+		d = {"move_ids": "oberhau, slash, unterhau, quick_slash", "contact_types": "cut-heavy", "lines": "high_left, high_right"}
+	elif form == _WeaponForm.FORM_FOOL:
+		d = {"move_ids": "feints (oberhau_feint, thrust_feint, unterhau_feint)", "contact_types": "low focus", "lines": "low_left, low"}
+	elif form == _WeaponForm.FORM_WALL:
+		d = {"move_ids": "thrust, oberhau", "contact_types": "stab/cut balance", "lines": "high, high_right, high_left"}
+	elif form == _WeaponForm.FORM_TEMPEST:
+		d = {"move_ids": "slash, quick_slash, oberhau", "contact_types": "cut-heavy", "lines": "left, right, high"}
+	elif form == _WeaponForm.FORM_BALANCED:
+		d = {"move_ids": "no signature", "contact_types": "none", "lines": "high"}
+	for key in d.keys():
+		if not out.is_empty():
+			out.append(", ")
+		out.append("%s: %s" % [key, str(d[key])])
+	return out
+
+
+static func _get_weapon_form_strength_lines(form: String) -> PackedStringArray:
+	const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+	var out: PackedStringArray = PackedStringArray()
+	var mod_effects: Array[String] = ["parry", "evasion", "damage", "close_attempt", "feint_readthrough"]
+	var best_effects: Array = []
+	var worst_effects: Array = []
+	for eff in mod_effects:
+		var val: float = _WeaponForm.mod(form, eff)
+		if val >= 1.08:
+			best_effects.append({"eff": eff, "val": val})
+		elif val <= 0.92:
+			worst_effects.append({"eff": eff, "val": val})
+	if not best_effects.is_empty():
+		var bits: PackedStringArray = PackedStringArray()
+		for b in best_effects:
+			bits.append("%s +%.0f%%" % [b["eff"], (b["val"] - 1.0) * 100.0])
+		out.append("Strengths: " + ", ".join(bits))
+	if not worst_effects.is_empty():
+		var bits: PackedStringArray = PackedStringArray()
+		for w in worst_effects:
+			bits.append("%s −%.0f%%" % [w["eff"], (1.0 - w["val"]) * 100.0])
+		out.append("Weaker: " + ", ".join(bits))
+	return out
 
 
 ## Build an HBox of field-care repair buttons for one member (used in the top-level repair section).

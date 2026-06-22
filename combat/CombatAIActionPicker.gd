@@ -36,6 +36,7 @@ const _EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
+const _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
 
 static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary:
 	if actions.is_empty():
@@ -277,6 +278,10 @@ static func _get_action_weight(
 				or _CombatDoctrine.mop_up_underdog_active(manager, c)
 			):
 				wait_w *= CombatConstants.AI_WAIT_MOP_UP_FINISH_MULT
+		var mood_wait_mult: float = _MoodBias.wait_action_weight_mult(
+			_MoodBias.mood_bias_for_combatant(manager, c)
+		)
+		wait_w *= mood_wait_mult
 		return wait_w
 	if CombatConstants.is_focus_line_move(mid):
 		return _focus_line_action_weight(mid, combatant_id, manager, c, all_actions)
@@ -298,12 +303,19 @@ static func _get_action_weight(
 			or _EntityAccess.stamina_ratio(c) < CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO
 		):
 			flee_w = maxf(flee_w, CombatConstants.AI_FLEE_EXHAUSTION_TUNNEL_WEIGHT)
+		var mood_flee_mult: float = _MoodBias.flee_action_weight_mult(
+			_MoodBias.mood_bias_for_combatant(manager, c)
+		)
+		flee_w *= mood_flee_mult
 		return flee_w
 	if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get("target_id", -1) == combatant_id:
 		if _MobilityRetreat.formation_retreat_only_for(c):
 			return CombatConstants.COWERING_SOLO_FALL_BACK_AI_WEIGHT
 		# Offered only when desperate / peril (AvailableActionsBuilder); keep below routine wait.
-		return 0.45 / _opponent_controlling_disengage_listing_divisor(manager, c)
+		var mood_disengage_mult: float = _MoodBias.disengage_action_weight_mult(
+			_MoodBias.mood_bias_for_combatant(manager, c)
+		)
+		return 0.45 * mood_disengage_mult / _opponent_controlling_disengage_listing_divisor(manager, c)
 	if mid == CombatConstants.MOVE_ID_ROTATE_FILE:
 		var partner_id_rot: int = int(a.get("target_id", -1))
 		if _FormationFlow.rotate_file_reverse_pair_blocked(manager, c, partner_id_rot):
@@ -433,8 +445,14 @@ static func _get_action_weight(
 				return CombatConstants.SWAP_RANK_AI_LINE_PLUG_WEIGHT
 			return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
 		if not partner.is_empty() and is_disengage_swap_tactically_allowed(c, partner, manager):
-			return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT / _opponent_controlling_disengage_listing_divisor(manager, c)
-		return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT / _opponent_controlling_disengage_listing_divisor(manager, c)
+			var mood_dm: float = _MoodBias.disengage_action_weight_mult(
+				_MoodBias.mood_bias_for_combatant(manager, c)
+			)
+			return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT * mood_dm / _opponent_controlling_disengage_listing_divisor(manager, c)
+		var mood_dm2: float = _MoodBias.disengage_action_weight_mult(
+			_MoodBias.mood_bias_for_combatant(manager, c)
+		)
+		return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT * mood_dm2 / _opponent_controlling_disengage_listing_divisor(manager, c)
 	# Attack or attempt_close: engaging the enemy — use stamina + hybrid targeting (doctrine, file, pressure).
 	var comps: Dictionary = _compute_attack_weight_components(
 		a, combatant_id, manager, mid, c, skip_targeting_prune,
@@ -476,49 +494,47 @@ static func _compute_attack_weight_components(
 		form_counter_m = _WeaponForm.form_counter_mult(_EntityAccess.form_str(c), inferred, move_id)
 	var feint_list_m: float = 1.0
 	if move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE and _WeaponConstants.is_feint_move(move_id):
-		# Phase 2: hard block for high-readiness defenders — swordmaster teaches "do not react to the feint."
 		var _tid_feint: int = int(a.get("target_id", -1))
-		if (
+		var _resistance_active: bool = (
 			CombatConstants.is_feature_ms_feint_resistance_enabled()
 			and _tid_feint >= 0
-		):
-			var _tgt_feint: Dictionary = _EntityAccess.manager_get_combatant(manager, _tid_feint)
-			if not _tgt_feint.is_empty() and _is_feint_resistance_active(_tid_feint, manager):
-				CombatDebug.flow_log(
-					"feint_resistance blocked move=%s vs defender=%d readiness=%.2f state=%s"
-					% [move_id, _tid_feint, _PassiveParry.get_passive_parry_readiness(_tgt_feint), _EntityAccess.state_str(_tgt_feint)]
+			and not _EntityAccess.manager_get_combatant(manager, _tid_feint).is_empty()
+			and _is_feint_resistance_active(_tid_feint, manager)
+		)
+		if _resistance_active:
+			CombatDebug.flow_log(
+				"feint_resistance active move=%s vs defender=%d readiness=%.2f state=%s"
+				% [move_id, _tid_feint, _PassiveParry.get_passive_parry_readiness(_EntityAccess.manager_get_combatant(manager, _tid_feint)), _EntityAccess.state_str(_EntityAccess.manager_get_combatant(manager, _tid_feint))]
+			)
+		var pr_def: float = 0.0
+		if _tid_feint >= 0:
+			var tgt_feint: Dictionary = _EntityAccess.manager_get_combatant(manager, _tid_feint)
+			if not tgt_feint.is_empty():
+				var pa_live: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
+				pr_def = _DefenseChoice.defender_feint_listing_pr_def(
+					tgt_feint, _EntityAccess.id_int(c), move_id, c, pa_live
 				)
-				feint_list_m = 0.0
-			else:
-				# Resistance not active — fall through to existing multiplicative damp chain below.
-				var pr_def: float = 0.0
-				if _tid_feint >= 0:
-					var tgt_feint: Dictionary = _EntityAccess.manager_get_combatant(manager, _tid_feint)
-					if not tgt_feint.is_empty():
-						var pa_live: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
-						pr_def = _DefenseChoice.defender_feint_listing_pr_def(
-							tgt_feint, _EntityAccess.id_int(c), move_id, c, pa_live
+		var read_m: float = lerpf(
+			1.0,
+			CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT,
+			pr_def
+		)
+		var stance_feint_m: float = _WeaponForm.mod(_EntityAccess.form_str(c), "ai_feint_listing")
+		feint_list_m = (
+			CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m * stance_feint_m
+		)
+		if _tid_feint >= 0:
+			var tgt_ob: Dictionary = _EntityAccess.manager_get_combatant(manager, _tid_feint)
+			if not tgt_ob.is_empty():
+				if not _resistance_active:
+					if _PassiveParry.is_off_balance(tgt_ob):
+						feint_list_m *= CombatConstants.AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT
+					elif _EntityAccess.state_str(tgt_ob) == CombatConstants.STATE_RECOVERING:
+						feint_list_m *= CombatConstants.ai_feint_listing_defender_recovering_footwork_mult_for_cause(
+							str(tgt_ob.get("recovery_cause", "skip"))
 						)
-				var read_m: float = lerpf(
-					1.0,
-					CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT,
-					pr_def
-				)
-				var stance_feint_m: float = _WeaponForm.mod(_EntityAccess.form_str(c), "ai_feint_listing")
-				feint_list_m = (
-					CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m * stance_feint_m
-				)
-				if _tid_feint >= 0:
-					var tgt_ob: Dictionary = _EntityAccess.manager_get_combatant(manager, _tid_feint)
-					if not tgt_ob.is_empty():
-						if _PassiveParry.is_off_balance(tgt_ob):
-							feint_list_m *= CombatConstants.AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT
-						elif _EntityAccess.state_str(tgt_ob) == CombatConstants.STATE_RECOVERING:
-							feint_list_m *= CombatConstants.ai_feint_listing_defender_recovering_footwork_mult_for_cause(
-								str(tgt_ob.get("recovery_cause", "skip"))
-							)
-						elif _EntityAccess.state_str(tgt_ob) == CombatConstants.STATE_WAITING:
-							feint_list_m *= CombatConstants.AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT
+					elif _EntityAccess.state_str(tgt_ob) == CombatConstants.STATE_WAITING:
+						feint_list_m *= CombatConstants.AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT
 				if stamina_ratio < CombatConstants.AI_FEINT_LISTING_STAMINA_GATE:
 					var st_feint_stamina: float = lerpf(
 						CombatConstants.AI_FEINT_LISTING_STAMINA_LOW_MULT_AT_ZERO,
@@ -549,6 +565,9 @@ static func _compute_attack_weight_components(
 	)
 	var attrition_m: float = _attrition_offense_weight_mult(manager, c)
 	var exh_offense_m: float = _Exhaustion.exhaustion_offense_weight_mult(c)
+	var mood_offense_m: float = _MoodBias.offense_action_weight_mult(
+		_MoodBias.mood_bias_for_combatant(manager, c)
+	)
 	var w: float = (
 		base_stamina
 		* _TargetScoring.ai_targeting_weight_mult(
@@ -566,6 +585,7 @@ static func _compute_attack_weight_components(
 		* counter_tempo_m
 		* attrition_m
 		* exh_offense_m
+		* mood_offense_m
 	)
 	if (
 		move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
@@ -617,6 +637,8 @@ static func _leader_formation_command_pick_weight(
 		return w
 	if _CombatDoctrine.numeric_superiority_for_pinch(manager, fid):
 		w *= CombatConstants.AI_LEADER_FORMATION_COMMAND_PINCH_OUTNUMBER_MULT
+	var mood_bias: float = _MoodBias.mood_bias_for_combatant(manager, c)
+	w *= _MoodBias.offense_action_weight_mult(mood_bias)
 	return w
 
 
@@ -784,12 +806,16 @@ static func _focus_line_action_weight(
 		return 0.0
 	var part: String = CombatConstants.LINE_TO_DEFAULT_PART.get(line, "")
 	var fid_focus: String = _EntityAccess.formation_id_str(c)
+	var mood_focus_mult: float = _MoodBias.focus_line_action_weight_mult(
+		_MoodBias.mood_bias_for_combatant(manager, c)
+	)
 	if part.is_empty() or part == _Attention.get_focus_part(c):
 		var already_w: float = CombatConstants.AI_FOCUS_LINE_ALREADY_FOCUSED_WEIGHT
 		if _CombatDoctrine.envelop_mop_up_active(manager, fid_focus):
 			already_w *= CombatConstants.ENVELOP_MOP_UP_FOCUS_AI_WEIGHT_MULT
 		already_w *= _form_focus_preferred_mult(c, line)
 		already_w *= _fight_finish_focus_damp_mult(manager, c, combatant_id, all_actions)
+		already_w *= mood_focus_mult
 		return already_w
 	if _EntityAccess.is_formation_telegraph_leader(c) and _Attention.is_being_wind_up_targeted(manager, combatant_id):
 		var tele: String = str(
@@ -802,12 +828,14 @@ static func _focus_line_action_weight(
 				leader_w *= CombatConstants.ENVELOP_MOP_UP_FOCUS_AI_WEIGHT_MULT
 			leader_w *= _form_focus_preferred_mult(c, line)
 			leader_w *= _fight_finish_focus_damp_mult(manager, c, combatant_id, all_actions)
+			leader_w *= mood_focus_mult
 			return leader_w
 	var w: float = CombatConstants.AI_FOCUS_LINE_BASE_WEIGHT
 	if _CombatDoctrine.envelop_mop_up_active(manager, fid_focus):
 		w *= CombatConstants.ENVELOP_MOP_UP_FOCUS_AI_WEIGHT_MULT
 	w *= _form_focus_preferred_mult(c, line)
 	w *= _fight_finish_focus_damp_mult(manager, c, combatant_id, all_actions)
+	w *= mood_focus_mult
 	return w
 
 

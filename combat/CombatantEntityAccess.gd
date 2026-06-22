@@ -1078,6 +1078,27 @@ static func get_medical_windup_speed_modifier(
 	return med_eff * (1.0 - thrash)
 
 
+## Effective medical wind-up speed: reads INT from combatant stats dict (includes proficiency bonuses via _copy_core_stats()).
+## Use this when proficiency system is enabled instead of get_medical_windup_speed_modifier().
+static func get_effective_medical_windup_speed_modifier(
+	manager: Node, performer: Dictionary, target: Variant
+) -> float:
+	var perf_node = node_variant(performer)
+	var eff_int: float = 100.0
+	if perf_node != null and perf_node.has("_proficiency_bonus"):
+		eff_int = float(perf_node.intelligence or 0) + float(perf_node._proficiency_bonus.get("intelligence", 0) or 0)
+	else:
+		eff_int = float(performer.get("intelligence", 100))
+	var med_eff: float = clampf(eff_int / 100.0, 0.5, 1.5)
+	med_eff = maxf(0.5, med_eff)
+	if id_int(performer) == id_int(target):
+		var perf: float = get_performance_modifier(performer)
+		return maxf(CombatConstants.PERF_MOD_MIN, perf) * med_eff
+	var patient_perf: float = get_performance_modifier(target)
+	var thrash: float = clampf(1.0 - patient_perf, 0.0, 1.0) * CombatConstants.MEDICAL_ALLY_TASK_PATIENT_THRASH_MAX_PENALTY
+	return med_eff * (1.0 - thrash)
+
+
 ## Divisor for dressing wind-up when compression is held (primary holder / stacked assist).
 static func get_medical_windup_assist_duration_divisor(manager: Node, target: Dictionary, part: String) -> float:
 	var divisor: float = 1.0

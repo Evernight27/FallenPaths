@@ -1,4 +1,4 @@
-# Mental Stack Improvement Plan - Swordmaster Gap Analysis
+﻿# Mental Stack Improvement Plan - Swordmaster Gap Analysis
 
 ## Status: All 7 phases shipped
 
@@ -24,12 +24,12 @@ The code uses **descriptive layer names** (`MENTAL_STACK_LAYER_HOLD_LINE`, `MENT
 | L1 | `MEDICAL` | 2nd | Ally peril - coordinated medical |
 | L2 | `COUNTER` | 3rd | Counter-tempo window |
 | L3 | `INCOMING` | 4th | Incoming wind-up targeting |
-| L4b | `SPARSE_FIGHT` | 5th | Fight-finish tails - offense over wait/focus |
-| L4 | `HOLD_LINE` | 6th | Reserve posture (wait, focus, attempt_close) |
-| MS-L5 | `FORMATION_PLUG` | 7th | Vacancy plug-forward (shipped as Phase 4) |
-| MS-L6 | `ROUT` | 8th | Cohesion break - flee/fall_back (shipped as Phase 1) |
-| **MS-L8** | `POST_STRIKE` | 9th | Press advantage after strike (Phase 3, pending) |
-| **MS-L9** | `POSITIONAL_DIS` | 10th | Surrounded + wounded - disengage (Phase 6, pending) |
+| **MS-L8** | `POST_STRIKE` | 5th | Press advantage after strike (Phase 3, shipped 2026-06-12) |
+| L4b | `SPARSE_FIGHT` | 6th | Fight-finish tails - offense over wait/focus |
+| L4 | `HOLD_LINE` | 7th | Reserve posture (wait, focus, attempt_close) |
+| MS-L5 | `FORMATION_PLUG` | 8th | Vacancy plug-forward (shipped as Phase 4) |
+| MS-L6 | `ROUT` | 9th | Cohesion break - flee/fall_back (shipped as Phase 1) |
+| **MS-L9** | `POSITIONAL_DIS` | 10th | Surrounded + wounded - disengage (Phase 6, shipped 2026-06-12) |
 | L5 / MS-L7 | `EXHAUSTION` | 11th | Disengage tunnel — soft intercept at 0.50, hard tunnel at 0.75 (shipped, extended by Phase 5) |
 | **MS-WEIGHT** | *(none)* | - | Medical escalation weighting (Phase 7, picker-level only; not a layer) |
 | **Pre-layer infra** | `POST_STRIKE_TICK_CLEAR` | Top of `try_pick` | Erase strike tick stamp at start of cognition cycle (Phase 3 infrastructure) |
@@ -42,7 +42,7 @@ The code uses **descriptive layer names** (`MENTAL_STACK_LAYER_HOLD_LINE`, `MENT
 
 ## Lessons Learned from Shipped Phases
 
-These lessons inform how pending phases should be designed and implemented:
+These lessons inform how the shipped phases were designed and implemented:
 
 ### From Phase 4 (MS-L5 Vacancy Plug)
 - **Extract filter logic to the owning module.** `CombatFormationVacancyPlugs.filter_formation_plug_actions()` is the right pattern - the decider calls a single method on the specialist module. Do NOT inline filter logic in `MentalStackDecider`.
@@ -87,12 +87,12 @@ A swordmaster teaches combat through layered decision-making, not just technique
 | # | Swordmaster Teaching | System Gap | Phase | Status |
 |---|---|---|---|---|
 | 1 | "When the line breaks, run the right way" - rout is not random | MS-L6 used RNG for flee vs fall_back | **Phase 1** | **Shipped** |
-| 2 | "Do not react to the feint - wait for the real attack" | No active feint-resistance gate; AI falls for bait | **Phase 2** | Pending |
-| 3 | "After a good strike, press or disengage - do not linger aimlessly" | No post-strike momentum layer; fights stall | **Phase 3** | Pending |
+| 2 | "Do not react to the feint - wait for the real attack" | Feint-resistance gate ships in Phase 2 | **Phase 2** | **Shipped** |
+| 3 | "After a good strike, press or disengage - do not linger aimlessly" | Post-strike momentum layer ships in Phase 3 | **Phase 3** | **Shipped** |
 | 4 | "Close the gap when your brother falls" - vacancy before holding position | L5 plug fires before L4 hold-line | **Phase 4** | **Shipped** |
-| 5 | "When tired, reduce aggression gradually - do not fight heroically into collapse" | Binary exhaustion tunnel: full offense to complete passivity | **Phase 5** | Pending |
-| 6 | "Am I fighting from good ground?" - positioning awareness | No disengage trigger for surrounded positions with blocked retreat | **Phase 6** | Pending |
-| 7 | "If the bandage fails, pack it harder or tie it off" - medical escalation | Repeated same-action failures on wounds; no TCCC ladder progression | **Phase 7** | Pending |
+| 5 | "When tired, reduce aggression gradually - do not fight heroically into collapse" | Exhaustion gradient ships in Phase 5 | **Phase 5** | **Shipped** |
+| 6 | "Am I fighting from good ground?" - positioning awareness | Disengage trigger for surrounded positions ships in Phase 6 | **Phase 6** | **Shipped** |
+| 7 | "If the bandage fails, pack it harder or tie it off" - medical escalation | TCCC ladder progression ships in Phase 7 | **Phase 7** | **Shipped** |
 
 ---
 
@@ -336,55 +336,56 @@ The stamp is a **single-key system**:
 
    **Note:** `momentum_layer_blocked` is NOT a method on `CombatPostStrike`. The `fight_finish_tail_active` check is performed by the decider before calling the filter, following the same pattern as MS-L6 rout (`_FormationRout.rout_layer_blocked`). This avoids an unnecessary preload of `CombatDoctrine.gd` in the new module.
 
-4. Insert MS-L8 layer in `try_pick` after MS-L6 rout (after L154), before L5 exhaustion:
-   ```gdscript
-   # MS-L8: post-strike momentum - press advantage or disengage cleanly.
-   # Fight-finish tails skip MS-L8 so listed offense can win via L4b sparse-fight path.
-   if _strike_tick_active and _EntityAccess.id_int(c) == combatant_id:
-       if not _Doctrine.fight_finish_tail_active(manager, c, actions, combatant_id):
-           var pool: Array = CombatPostStrike.filter_post_strike_actions(
-               actions, combatant_id, manager, c
-           )
-           if not pool.is_empty():
-               return _stamp_layer_pick(
-                   c,
-                   CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE,
-                   _AIPicker.pick_weighted(pool, combatant_id, manager)
-               )
-   ```
+4. Insert MS-L8 layer in `try_pick` after L3 incoming (before L4b fight-finish tails):
+    ```gdscript
+    # MS-L8: post-strike momentum - press advantage or disengage cleanly after a successful strike.
+    # Fires before L4b so pressing a specific target advantage takes priority over general
+    # fight-finishing pressure (L4b sparse-fight / mop-up).
+    if CombatConstants.is_feature_ms_post_strike_enabled() and _strike_tick_active:
+        var struck_id: int = int(c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID, -1))
+        if struck_id >= 0:
+            var ps_pool: Array = _PostStrike.filter_post_strike_actions(
+                actions, combatant_id, manager, struck_id
+            )
+            if not ps_pool.is_empty():
+                return _stamp_layer_pick(
+                    c,
+                    CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE,
+                    _AIPicker.pick_weighted(ps_pool, combatant_id, manager)
+                )
+    ```
 
 5. Add to `CombatAIActionPicker._get_action_weight`: when computing weight for a melee strike move vs a target that was recently struck by this combatant (check: `_strike_tick_active` AND the action's `target_id` matches the struck target), apply `POST_STRIKE_MOMENTUM_WEIGHT_BONUS` or `POST_STRIKE_HIT_WEIGHT_BONUS` multiplicatively. The quality differentiation checks whether the defender has `parry_against_id` set (forced a defense) or has untreated wounds.
 
 6. Add layer constant to `MentalStackConfig.gd`: add `LAYER_POST_STRIKE := "post_strike"` to the const block (L13-21), update `is_layer_active()` match arm:
-   ```gdscript
-   LAYER_POST_STRIKE:
-       return is_enabled() and is_post_strike_enabled()
-   ```
-   Plus accessor method:
-   ```gdscript
-   static func is_post_strike_enabled() -> bool:
-       return _CombatConstants.is_feature_ms_post_strike_enabled()
-   ```
+    ```gdscript
+    LAYER_POST_STRIKE:
+        return is_enabled() and is_post_strike_enabled()
+    ```
+    Plus accessor method:
+    ```gdscript
+    static func is_post_strike_enabled() -> bool:
+        return _CombatConstants.is_feature_ms_post_strike_enabled()
+    ```
 
-**Placement:** After MS-L6 rout, before L5 exhaustion (new layer between L6 and L5 in `try_pick`). The filter `_filter_post_strike_actions` should check `fight_finish_tail_active()` and defer to the L4b sparse-fight path when active, so fight-finish tails can still finish via listed offense without MS-L8 interference.
+**Placement:** After L3 incoming, before L4b fight-finish tails. This differs from the original plan (which placed MS-L8 after MS-L6 rout). The new placement ensures that pressing a specific target advantage takes priority over general fight-finishing pressure from L4b sparse-fight/mop-up paths. The filter `_filter_post_strike_actions` checks `fight_finish_tail_active()` and defers to the L4b sparse-fight path when active.
 
-**Layer ordering with Phase 6 (MS-L9):** When both Phase 3 (post-strike, MS-L8) and Phase 6 (positional awareness, MS-L9) are implemented, MS-L8 fires first. The code structure is:
+**Layer ordering with Phase 6 (MS-L9):** MS-L8 fires before L4b, L4, MS-L5, and MS-L6. MS-L9 fires after MS-L6 rout. The code structure is:
 ```gdscript
-# After MS-L6 rout block (L144-154):
+# After L3 incoming block (existing ~L84-92):
 
-# MS-L8: post-strike momentum
-if _strike_tick_active and _EntityAccess.id_int(c) == combatant_id:
+# MS-L8: post-strike momentum (fires before fight-finish tails)
+if _strike_tick_active and struck_id >= 0:
     var pool = _filter_post_strike_actions(...)
     if not pool.is_empty():
         return _stamp_layer_pick(...)
 
-# MS-L9: positional check (only when post-strike filter returns empty):
-if _positional_disengage_check(manager, combatant_id, actions):
-    ...
-
-# L5: exhaustion tunnel (existing L157-170, extended by Phase 5)
+# L4b: fight-finish tails (sparse post-flee rank-0 or mop-up underdog)
+# MS-L5: formation plug
+# MS-L6: rout
+# MS-L9: positional check (only when surrounded + wounded)
 ```
-This prevents a surrounded combatant who just landed a strike from disengaging instead of pressing the advantage.
+MS-L8 fires first to prioritize pressing a specific target advantage. L4b fight-finish tails still handle general combat finish pressure but defer to MS-L8 when this combatant has a fresh strike momentum stamp.
 
 **Risk assessment:** Medium risk - new dict key (float) on attacker combatant dicts when stamp is active. The clock-based stamp naturally expires without erase — stale values are harmless because `absf(stored_clock - current_clock)` exceeds 2.0 seconds. Low memory footprint (one float per combatant, ~20 max). Rollback: remove the stamp write in `AttackResultApplier`, remove stamp consumption from `MentalStackDecider.try_pick`, delete `CombatPostStrike.gd`, revert constants in `CombatConstants.gd` and config in `MentalStackConfig.gd`. No other code depends on `COMBATANT_KEY_LAST_STRIKE_TICK`.
 
@@ -900,7 +901,7 @@ These phases map to the Expand registry in [`SHIP_PLAN.md S9c`](SHIP_PLAN.md#com
 - A decision-log entry in [`SHIP_PLAN.md`](SHIP_PLAN.md) when shipped
 - **MentalStackConfig.gd update:** each new phase requires adding a `LAYER_*` constant, updating the `is_layer_active()` match arm, and adding a feature flag accessor (e.g., `is_feint_resistance_enabled()`)
 
-**Agent prompt reference:** [`scripts/cursor/agent_combat.md`](../scripts/cursor/agent_combat.md) - Round 2 priorities include harness row fixes and mental stack regression testing. These phases extend that work.
+**Agent prompt reference:** [`scripts/agent_prompts/agent_combat.md`](../scripts/agent_prompts/agent_combat.md) - Round 2 priorities include harness row fixes and mental stack regression testing. These phases extend that work.
 
 ---
 
@@ -927,28 +928,27 @@ When all phases are implemented, the full `try_pick` order is:
 
 **Note on MS-WEIGHT (Phase 7):** Medical escalation is NOT a decision layer. It operates at the picker weight level within L0/L1 medical actions and does not appear in `try_pick` ordering.
 
-**Insertion point for MS-L8 and MS-L9:** Both phases insert between MS-L6 (rout) and L5 (exhaustion). The code structure is:
+**Insertion point for MS-L8 and MS-L9:** MS-L8 fires after L3 incoming (before L4b). MS-L9 fires after MS-L6 rout. The code structure is:
 
 ```gdscript
-# After MS-L6 rout block (existing L144-154):
+# After L3 incoming block (existing ~L84-92):
 
-# MS-L8: post-strike momentum (Phase 3)
-if _strike_tick_active and _EntityAccess.id_int(c) == combatant_id:
-    if not _Doctrine.fight_finish_tail_active(manager, c, actions, combatant_id):
-        var pool = CombatPostStrike.filter_post_strike_actions(actions, combatant_id, manager, c)
-        if not pool.is_empty():
-            return _stamp_layer_pick(c, CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE, ...)
+# MS-L8: post-strike momentum (Phase 3) — fires before fight-finish tails
+if _strike_tick_active and struck_id >= 0:
+    var pool = _PostStrike.filter_post_strike_actions(actions, combatant_id, manager, struck_id)
+    if not pool.is_empty():
+        return _stamp_layer_pick(c, CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE, ...)
 
-# MS-L9: positional awareness (Phase 6) - only when post-strike is empty
-if not _FormationRout.rout_layer_blocked(manager, c, actions, combatant_id):
-    var pos_pool = _positional_disengage_check(manager, combatant_id, actions, c)
-    if not pos_pool.is_empty():
-        return _stamp_layer_pick(c, CombatConstants.MENTAL_STACK_LAYER_POSITIONAL_DIS, ...)
+# L4b: fight-finish tails (sparse post-flee or mop-up underdog)
+# L4: hold-line reserve posture
+# MS-L5: formation plug
+# MS-L6: rout
+# MS-L9: positional awareness (Phase 6) - only when surrounded + wounded and rout not blocked
 
-# L5: exhaustion tunnel (existing L157-170, extended by Phase 5)
+# L5: exhaustion tunnel (existing, extended by Phase 5)
 ```
 
-MS-L9 fires **only when MS-L8 filter returns empty**. This ensures a combatant who just landed a strike presses the advantage rather than disengaging due to positional pressure. The `try_pick` function uses early returns, so once any layer produces a pick, subsequent layers are not evaluated.
+MS-L8 fires early to prioritize pressing a specific target advantage over general fight-finish pressure. MS-L9 fires after MS-L6 rout as originally planned — it intercepts when a combatant is surrounded + wounded and rout is not blocked by other layers. The `try_pick` function uses early returns, so once any layer produces a pick, subsequent layers are not evaluated.
 
 ---
 

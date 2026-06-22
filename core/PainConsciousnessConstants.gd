@@ -27,6 +27,9 @@ const NRS_MODERATE: float = 6.0
 const NRS_SEVERE: float = 8.0
 const NRS_INTOLERABLE: float = 10.0
 const NRS_SHOCK: float = 7.0
+# END slope: how much endurance shifts the pain shock threshold per point above 100.
+# +50 END → +1.0 shock threshold (7→8, ~14% increase on base). Realistic: well-conditioned individuals have higher pain tolerance but pain is neurological, not purely muscular.
+const ENDURANCE_PAIN_SHOCK_SLOPE_PER_POINT: float = 0.02
 const PAIN_SHOCK_RISK_PER_POINT_NORMALIZED: float = 0.15  # (effective - 7) * 0.15; 1 over = 15% risk
 # Ambient (sustained pain) shock: periodic roll in combat when effective pain stays above threshold (no new hit).
 const PAIN_SHOCK_AMBIENT_CHECK_INTERVAL_S: float = 3.0

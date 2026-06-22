@@ -6,12 +6,19 @@ extends RefCounted
 ## direct_pressure_part, self_direct_pressure_part, direct_pressure_held_by, name.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _CombatLayerTissue := preload("res://core/CombatLayerTissue.gd")
 const _BloodVolumeMl := preload("res://core/BloodVolumeMl.gd")
 const _Healing := preload("res://core/HealingConstants.gd")
 const _EntityMedical := preload("res://core/EntityMedical.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
+
+static func _effective_endurance_for_clotting(entity: Node) -> float:
+	var eff: float = float(entity.endurance)
+	if _CompanyState.read_stub_proficiency_enabled() and entity.has("_proficiency_bonus"):
+		eff += float(entity._proficiency_bonus.get("endurance", 0) or 0)
+	return eff
 
 # Impact KE coupling for wounds (tune with weapon KE bands in WeaponDamageHelper / ImpactVelocityModel).
 # ~55 J aligns with typical one-handed cut/thrust order of magnitude used in WeaponConstants / armor docs.
@@ -471,7 +478,7 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 					clotting *= _Bleeding.ARTERIAL_CLOTTING_MULTIPLIER
 				if under_pressure:
 					clotting = maxf(clotting, _Bleeding.CLOTTING_RATE_UNDER_DIRECT_PRESSURE)
-				var end_factor: float = clampf(0.9 + float(entity.endurance) / 1000.0, 0.9, 1.1)
+				var end_factor: float = clampf(0.9 + _effective_endurance_for_clotting(entity) / 1000.0, 0.9, 1.1)
 				clotting *= end_factor
 			rate = rate * exp(-clotting * delta)
 			rate = maxf(0.0, rate)

@@ -78,7 +78,10 @@ static func process_healing(entity: Node, seconds: float) -> void:
 		var cur_blunt: float = entity.body_blunt.get(part, 0.0)
 		var remain_cut: float = float(max_tissue) - cur_cut
 		var remain_blunt: float = float(max_tissue) - cur_blunt
-		var tau_tissue: float = tissue_duration / _Healing.EXPONENTIAL_HEAL_TAU_DIVISOR
+		var heal_speed: float = 1.0
+		if entity.has_method("get_endurance_healing_speed_mult"):
+			heal_speed = entity.get_endurance_healing_speed_mult()
+		var tau_tissue: float = tissue_duration / (_Healing.EXPONENTIAL_HEAL_TAU_DIVISOR * heal_speed)
 		var add_cut: float = remain_cut * (1.0 - exp(-seconds / tau_tissue))
 		var add_blunt: float = remain_blunt * (1.0 - exp(-seconds / tau_tissue))
 		entity.body_cutting[part] = entity._round_tissue(minf(float(max_tissue), cur_cut + add_cut))
@@ -89,7 +92,7 @@ static func process_healing(entity: Node, seconds: float) -> void:
 			bone_duration = _Healing.BONE_HEAL_DURATION_SECONDS
 		var cur_bone: float = entity.bone_health.get(part, 0.0)
 		var remain_bone: float = float(max_bone) - cur_bone
-		var tau_bone: float = bone_duration / _Healing.EXPONENTIAL_HEAL_TAU_DIVISOR
+		var tau_bone: float = bone_duration / (_Healing.EXPONENTIAL_HEAL_TAU_DIVISOR * heal_speed)
 		var bone_heal: float = remain_bone * (1.0 - exp(-seconds / tau_bone))
 		entity.bone_health[part] = entity._round_tissue(minf(float(max_bone), cur_bone + bone_heal))
 

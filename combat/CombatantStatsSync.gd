@@ -2,6 +2,7 @@ class_name CombatantStatsSync
 extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
 
 ## Syncs entity health/combat stats into a combatant stats dictionary.
 ## Used by CombatManager for _refresh_combatant_stats and get_combatants.
@@ -9,6 +10,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Copies core body/stats fields from entity to stats dict. Shared by sync_from_entity and sync_from_entity_for_register.
 static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
+	# Body parts (no proficiency involvement)
 	if "body_cutting" in entity:
 		stats.body_cutting = entity.body_cutting.duplicate()
 	if "body_blunt" in entity:
@@ -19,18 +21,32 @@ static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
 		stats.bone_max = entity.bone_max.duplicate()
 	if "body_max" in entity:
 		stats.body_max = entity.body_max.duplicate()
+	# Core stats — apply proficiency bonuses when system is enabled.
+	var prof_active := _CompanyState.read_stub_proficiency_enabled()
 	if "strength" in entity:
-		stats.strength = entity.strength
+		stats.strength = _apply_prof_bonus(entity, "strength", entity.strength, prof_active)
 	if "agility" in entity:
-		stats.agility = entity.agility
+		stats.agility = _apply_prof_bonus(entity, "agility", entity.agility, prof_active)
 	elif "speed" in entity:
-		stats.agility = entity.speed
+		stats.agility = _apply_prof_bonus(entity, "agility", entity.speed, prof_active)
 	if "intelligence" in entity:
-		stats.intelligence = entity.intelligence
+		stats.intelligence = _apply_prof_bonus(entity, "intelligence", entity.intelligence, prof_active)
 	if "endurance" in entity:
-		stats.endurance = entity.endurance
+		stats.endurance = _apply_prof_bonus(entity, "endurance", entity.endurance, prof_active)
 	if "perception" in entity:
-		stats.perception = entity.perception
+		stats.perception = _apply_prof_bonus(entity, "perception", entity.perception, prof_active)
+
+
+## Applies proficiency bonus to a single stat value. Returns raw value when stub is off or entity lacks proficiency data.
+static func _apply_prof_bonus(entity: Node, stat_key: String, base_value: Variant, prof_active: bool) -> int:
+	if not prof_active:
+		return int(base_value)
+	if not entity.has("_proficiency_bonus"):
+		return int(base_value)
+	var bonus := entity._proficiency_bonus.get(stat_key, 0)
+	if bonus == null:
+		bonus = 0
+	return int(base_value) + int(float(bonus))
 
 ## Syncs entity state into stats dict (mutates stats in place).
 ## If ensure_consciousness is true, calls entity.ensure_consciousness_current() first.

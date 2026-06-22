@@ -60,6 +60,9 @@ const PERSISTENCE_MODE := "P2"  # D-persistence: single-slot autosave (P1 = sess
 const P2_RESTORE_ON_MAIN_RESTART := true
 const WORLD_META_CAMPAIGN_RESTORED_FROM_SAVE := "campaign_restored_from_save"
 
+## XCamp-4: use-based stat proficiency system (disabled by default — harness gate).
+const PROFICIENCY_ENABLED := false
+
 const RENOWN_PAY_SCALE := 0.05
 
 const MOOD_DEFAULT := 50.0
@@ -177,6 +180,11 @@ static func persistence_restore_on_main_restart() -> bool:
 
 static func persistence_clear_slot_on_run_end_reload() -> bool:
 	return persistence_uses_disk_autosave() and not persistence_restore_on_main_restart()
+
+
+## XCamp-4 stub: whether use-based proficiency system is active (default false — harness gate).
+static func read_stub_proficiency_enabled() -> bool:
+	return PROFICIENCY_ENABLED
 
 
 static func load_campaign_autosave_for_boot() -> Dictionary:
@@ -1266,7 +1274,12 @@ static func apply_contract_victory_pay(world: Node) -> int:
 			)
 		return 0
 	var base_pay: int = int(contract.get("pay_gold", 0))
-	var scaled: int = int(round(float(base_pay) * (1.0 + float(get_renown(world)) * RENOWN_PAY_SCALE)))
+	var renown_mult: float = 1.0 + float(get_renown(world)) * RENOWN_PAY_SCALE
+	# XCamp-4: INT contract bonus from proficiency (only when stub is on — harness gate).
+	var int_mult: float = 1.0
+	if read_stub_proficiency_enabled():
+		int_mult = _apply_int_contract_bonus(world)
+	var scaled: int = int(round(float(base_pay) * renown_mult * int_mult))
 	add_gold(world, scaled)
 	set_renown(world, get_renown(world) + 1)
 	set_medical_supplies(world, get_medical_supplies(world) + CONTRACT_VICTORY_MED_RESUPPLY)
@@ -1498,6 +1511,8 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
 	var day_before: int = get_day_index(world)
 	_advance_party_healing(world, read_stub_camp_heal_seconds(), CAMP_HEAL_MULTIPLIER)
 	try_advance_day(world)
+	# XCamp-4: merge any pending training drills into proficiency bonuses.
+	_try_merge_training_pending(world)
 	CompanyState.apply_camp_rest_mood(world)
 	refresh_hud(world)
 	if _OperationalLog.is_play_session_active():
@@ -1834,3 +1849,26 @@ static func _resolve_hud(world: Node) -> Control:
 				world.set_meta(WORLD_META_COMPANY_HUD, found)
 			return found
 	return null
+
+
+# XCamp-4: merge pending training drills into proficiency bonuses for all living party members.
+static func _try_merge_training_pending(world: Node2D) -> void:
+	const _Proficiency := preload("res://core/EntityProficiency.gd")
+	const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
+	for n in _Bridge.get_fightable_party_nodes(world):
+		var entity: Node = _Bridge.health_entity_from_character(n)
+		if entity != null and entity.has("_proficiency_bonus") and entity.has("_training_pending"):
+			_Proficiency.merge_training_pending(entity)
+
+
+## XCamp-4: compute INT contract bonus multiplier from highest-INT living party member.
+static func _apply_int_contract_bonus(world: Node) -> float:
+	const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
+	var best_mult: float = 1.0
+	for n in _Bridge.get_fightable_party_nodes(world):
+		var entity: Node = _Bridge.health_entity_from_character(n)
+		if entity != null and entity.has_method("get_intelligence_contract_bonus_mult"):
+			var m: float = entity.get_intelligence_contract_bonus_mult()
+			if m > best_mult:
+				best_mult = m
+	return best_mult

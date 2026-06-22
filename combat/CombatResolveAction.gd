@@ -22,6 +22,8 @@ const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _LeaderCommand := preload("res://combat/CombatLeaderFormationCommand.gd")
+const _Proficiency := preload("res://core/EntityProficiency.gd")
+const _CompanyState := preload("res://world/CompanyState.gd")
 
 
 static func is_medical_move(move_id: String) -> bool:
@@ -64,6 +66,11 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			var who: String = _EntityAccess.get_display_name(atk, attacker_id)
 			CombatDebug.medical_session("%s (receiving care) holding direct pressure on %s" % [who, part])
 			manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "direct_pressure", "part": part, "dmg": 0, "died": false})
+			# XCamp-4: proficiency gains for self-pressure during receiving care.
+			if _CompanyState.read_stub_proficiency_enabled():
+				var perf_node := _EntityAccess.get_entity_from_manager(manager, atk)
+				if perf_node != null and perf_node.has("_proficiency_bonus"):
+					_Proficiency.award_stat_gain(perf_node, "intelligence", _Proficiency.GAIN_MEDICAL_ACTION_BASE * _Proficiency.GAIN_DIRECT_PRESSURE_INT_MULT)
 			manager.emit_signal("turn_resolved", attacker_id)
 			return true
 		return false

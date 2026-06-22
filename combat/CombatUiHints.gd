@@ -14,6 +14,7 @@ const _META_CAMPAIGN_MEDICAL_EXIT_HINT_SHOWN_FIGHT := "_fp_campaign_medical_exit
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _BattleUIConstants := preload("res://ui/BattleUIConstants.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
@@ -399,9 +400,28 @@ static func weapon_form_tooltip_line(c: Dictionary) -> String:
 	if name.is_empty():
 		return ""
 	var pressure: String = _WeaponForm.pressure_class_label_for_ui(c)
-	if pressure.is_empty():
-		return "Form: %s" % name
-	return "Form: %s (%s)" % [name, pressure]
+	var reason: String = str(c.get(_CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON, "")).strip_edges()
+	var base: String
+	if not pressure.is_empty():
+		base = "Form: %s (%s)" % [name, pressure]
+	else:
+		base = "Form: %s" % name
+	var is_auto: bool = (form != _WeaponForm.normalize_form(str(c.get("stance_preference", "")).strip_edges())) and not reason.is_empty()
+	if is_auto:
+		var reason_label: String = _format_switch_reason_label(reason)
+		base += " — auto-switched to %s (%s)" % [name, reason_label]
+	elif form != _WeaponForm.normalize_form(str(c.get("stance_preference", "")).strip_edges()):
+		base += " — AI-selected (no player preference set)"
+	return base
+
+
+static func _format_switch_reason_label(reason: String) -> String:
+	match reason:
+		"duel_read": return "read opponent duel pressure"
+		"counter_read": return "read incoming counter tempo"
+		"surround_pressure": return "respond to surround threat"
+		"low_stamina": return "recover stamina (defensive form)"
+		_: return reason
 
 
 ## Short label fragment for listed **`attempt_close`** vs a controlling defender.

@@ -1,9 +1,9 @@
-# Expansion plan — post-EA combat & campaign
+﻿# Expansion plan — post-EA combat & campaign
 
 **Purpose:** Sequenced roadmap from **Camp-5 EA (2026-06-07 ☑)** toward fuller Battle Brothers–like merc loop depth and POST Phase 3/4 combat integration.
 
 **Canonical detail (do not duplicate here):**
-[`PLANNING.md`](PLANNING.md) · [`SHIP_PLAN.md`](SHIP_PLAN.md) · [`LIVE_PATHS.md`](LIVE_PATHS.md) · [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) · [`CURSOR.md`](CURSOR.md) · agent prompts [`scripts/cursor/README.md`](../scripts/cursor/README.md)
+[`PLANNING.md`](PLANNING.md) · [`SHIP_PLAN.md`](SHIP_PLAN.md) · [`LIVE_PATHS.md`](LIVE_PATHS.md) · [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) · [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) · agent prompts [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md)
 
 **Milestone prefix:** **`Exp-*`** = expansion phase (this doc). Combat rows keep **`III-*` / `IV-*` / `P4*` / `MS-L*`** IDs. Campaign expansion rows use **`XCamp-*`** (not closed EA **`Camp-*`** gates).
 
@@ -21,7 +21,7 @@
 | **Exp-3 target** | Company arc: hire replacements, larger map, richer afflictions | Roster growth + map scale without new combat tiers |
 | **Exp-4+ target** | 8–12 h runs; armor/initiative/gap-column where designed | **IV-7 ☑** · **IV-8 ☑** · IV-9 (last) · optional town layer |
 
-**Design locks (unchanged):** AI picks moves and targets via mental stack + weights — **no** per-click target UI ([`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped)). Bleed retune · BMI (**F1**) · organ surgery · IV-INTR removed.
+**Design locks (unchanged):** AI picks moves and targets via mental stack + weights — **no** per-click target UI ([`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped)). Bleed retune · BMI (**F1**).
 
 ---
 
@@ -150,7 +150,7 @@ flowchart LR
 || **p4d** ☑ | Parry/bind doc ↔ code sync | **`p4d_parry_bind_doc_sync_line`** | calibration audit + **ii2b** worksheet — shipped 2026-06-08 |
 || **p4b** ☑ | Formation duration UI copy | **`p4b_formation_duration_ui_copy_line`** | `CombatFormationMoveDuration` — shipped 2026-06-08 |
 
-**WF maintain (no new tiers):** WF-T1/T2 ☑ · Tier 4.4 spatial slices 1–3 ☑ — keep **`WeaponFormTail`** + **ii5c** green + **`_run_t44_spatial_*`**; P4 playbook **p4a–p4h ☑** · combat-side Expand registry **complete** — default **Combat maintain** per [`CURSOR.md`](CURSOR.md).
+**WF maintain (no new tiers):** WF-T1/T2 ☑ · Tier 4.4 spatial slices 1–3 ☑ — keep **`WeaponFormTail`** + **ii5c** green + **`_run_t44_spatial_*`**; P4 playbook **p4a–p4h ☑** · combat-side Expand registry **complete** — default **Combat maintain**.
 
 **Phase exit:** F5 **ii_envelop** + depth-heavy contract feel OK; Q2 deflect soak stable; no long wing **`rotate_file`** / **`wait`** loops on 7v3+ (III-4 **3e** maintain).
 
@@ -174,12 +174,13 @@ flowchart LR
 | **XCamp-3.6** ☑ | **Provisions** (not fed → mood −1) | Optional **D-provisions** | `CompanyState.on_day_tick` |
 | **XCamp-3.7** ☑ | **Burial / replacement costs** (soft gold sink) | §12 tuning | `SettlementPanel`, `CompanyState` |
 | **XCamp-3.8** ☑ | **MS-CAMP** bridge — campaign mood → **`stance_preference`** at spawn | Meta only | `CampaignEncounterBridge` |
+| **XCamp-3.9** ☑ | **MS-CAMP bias** — campaign mood → AI weight multipliers (wait/focus/offense/flee/disengage) · enemy side: `enemy_mood_bias` from encounter config → `ENCOUNTER_KEY_MOOD_BIAS_ENEMY` | Meta stamping + picker hook | `CombatCampaignMoodBias`, `CombatAIActionPicker`, `CampaignEncounterBridge` |
 
 **Bridge discipline:** **`CampaignEncounterBridge`** + **`CombatFlow`** — Campaign leads; Combat read-only unless encounter keys change ([`PLANNING#bridge-rows`](PLANNING.md#bridge-rows-camp-2)).
 
 **Phase exit:** Player can hire after losses, complete **≥6 contracts** on expanded map in one P2 save; afflictions and mood visible in Party/settlement.
 
-**Economy UX maintain (2026-06-08):** Exp-3 rows shipped — ongoing work is **copy/surfacing only** via `CompanyState.format_*` helpers (End day wage+food suffixes, HUD hint strip, settlement burial/deck hints, desertion footer, hire tooltips). See [`AGENTS.md`](../AGENTS.md) economy UX row · [`agent_campaign.md`](../scripts/cursor/agent_campaign.md). Harness: **`CompanyStateChecks` (406 tests)** · P2 uses `CampaignPersistence.begin_harness_isolated_save`.
+**Economy UX maintain (2026-06-08):** Exp-3 rows shipped — ongoing work is **copy/surfacing only** via `CompanyState.format_*` helpers (End day wage+food suffixes, HUD hint strip, settlement burial/deck hints, desertion footer, hire tooltips). See [`AGENTS.md`](../AGENTS.md) economy UX row · [`agent_campaign.md`](../scripts/agent_prompts/agent_campaign.md). Harness: **`CompanyStateChecks` (406 tests)** · P2 uses `CampaignPersistence.begin_harness_isolated_save`.
 
 **Suggested build order:** **XCamp-3.1** hire → **XCamp-3.2** map → **XCamp-3.3** deck → **XCamp-3.4** afflictions → polish rows.
 
@@ -199,7 +200,7 @@ flowchart LR
 | 2 | **IV-7b** | **Shipped ☑** | Stamina engage floor for AI offense | **`AI_STAMINA_ENGAGE_FLOOR_RATIO`** · **`_run_iv7b_stamina_engage_floor_suite`** ☑ 2026-06-08 |
 | 3 | **IV-8** | **Shipped ☑** | Combat-start initiative ordering | **`FEATURE_INITIATIVE_ORDER`** · **`_run_iv8_initiative_order_*`** |
 | 4 | **IV-10** | **Shipped ☑** | Subregion combat multipliers | **`FEATURE_SUBREGION_COMBAT_MULT`** · **`_run_iv10_subregion_combat_mult_*`** |
-| 5 | **IV-1** | **Archived ☑** | Plug vs incursion contest review — removed (D-008); harness deleted |
+
 | 6 | **IV-11** | **Shipped ☑** | Leader formation commands + bridge roster | **`FEATURE_LEADER_FORMATION_COMMAND`** · slices 1–10 (player + enemy commander · pinch outnumber AI · F5 trace) · **`_run_iv11_*`** ☑ 2026-06-08 |
 | 6b | **IV-3** | **Shipped ☑** | True-duel classifier edge cases | **`iv3_doc_sync_line`** · **`_run_iv3_true_duel_classifier_suite`** ☑ 2026-06-08 |
 | 7 | **IV-9** | **Shipped ☑** | Gap-column slot topology (III-4 Track B) | **`FEATURE_GAP_COLUMN_TOPOLOGY`** default off · **`_run_iv9_gap_column_*`** ☑ 2026-06-08 |
@@ -208,7 +209,7 @@ flowchart LR
 
 **IV-9 ☑:** gap-column shipped behind flag (default off) — enable for playtest when ready; see [III-4 Track B](LIVE_PATHS.md#iii-4--engagement-geometry-audit).
 
-**Tier 4.4 spatial Expand ☑ (2026-06-08):** slices 1–3 shipped behind **`FEATURE_T44_SPATIAL_*`** (default on) — [`#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog) · harness **`_run_t44_spatial_*`**. **Still deferred:** world-position locomotion / file shuffle tied to blade line — anchor [#tier-44-spatial-footwork-deferred](#tier-44-spatial-footwork-deferred).
+**Tier 4.4 spatial Expand ☑ (2026-06-08):** slices 1–3 shipped behind **`FEATURE_T44_SPATIAL_*`** (default on) — [`#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog) · harness **`_run_t44_spatial_*`**. **Still deferred:** world-position locomotion / file shuffle tied to blade line — anchor [`LIVE_PATHS#tier-44-spatial-footwork-deferred`](LIVE_PATHS.md#tier-44-spatial-footwork-deferred).
 
 **Phase exit ☑ (2026-06-08):** IV-7/8 + IV-9–13 harness green; flag-gated rows default **off** until playtest enable.
 
@@ -239,7 +240,7 @@ Treat Exp-5 as a **backlog pool** — pull items only after Exp-3 company loop f
 | Week band | Agent A (Combat) | Agent B (optional) | Gate |
 |-----------|------------------|--------------------|------|
 | Exp-0 | III-4 **3e** / harness maintain | Playtest — F5 optional tracks | Phase 0 both |
-|| Exp-1a ☑ | ~~MS-L5 harness~~ (shipped) | Campaign **XCamp-1.1** P2 | Phase 0 both |
+|| Exp-1a ☑ | — | Campaign **XCamp-1.1** P2 (autosave restore) | Phase 0 both |
 || Exp-1b ☑ | ~~MS-L6 + p4a~~ (shipped) | ~~p4f flee~~ (shipped) / Playtest | Phase 0 both |
 | Exp-2a | **IV-4** finish | Expand **III-6** back-rank | Phase 0 both |
 | Exp-2b | **IV-5** interpose | Combat maintain III-3 soak | Phase 0 both |
@@ -271,13 +272,15 @@ Treat Exp-5 as a **backlog pool** — pull items only after Exp-3 company loop f
 
 ## 6. Frozen / wontfix (unless user asks)
 
-- Player per-target picking
-- **IV-INTR** (removed — line crash/D-008)
-- P3b material sim expansion
+- Player per-target picking (design lock)
 - Bleed / **`BleedingConstants`** retune
 - BMI **F1**
 - New **`FEATURE_*`** on WF-1 maintain path
-- Neurotrauma-style surgery chains
+
+## 7. Shipped — maintain only (no expansion)
+
+- P3b material sim expansion — shipped, harness green ([`LIVE_PATHS#p3b-shipped`](LIVE_PATHS.md#p3b-shipped))
+
 
 ---
 
@@ -285,7 +288,7 @@ Treat Exp-5 as a **backlog pool** — pull items only after Exp-3 company loop f
 
 ## 7. Agent entry (parallel bundle)
 
-Copy prompts from [`scripts/cursor/README.md#parallel-expansion-bundle`](../scripts/cursor/README.md#parallel-expansion-bundle) (Combat · Playtest · Campaign) · Expand reopen: [`README#expand-reopen`](../scripts/cursor/README.md#expand-reopen). Index: [`AGENTS.md`](../AGENTS.md#agent-task-prompts-copypaste).
+Copy prompts from [`scripts/agent_prompts/README.md#parallel-expansion-bundle`](../scripts/agent_prompts/README.md#parallel-expansion-bundle) (Combat · Playtest · Campaign) · Expand reopen: [`README#expand-reopen`](../scripts/agent_prompts/README.md#expand-reopen). Index: [`AGENTS.md`](../AGENTS.md#agent-task-prompts-copypaste).
 
 **Shipped rows:** this file · [`LIVE_PATHS.md`](LIVE_PATHS.md) · [`PLANNING#work-streams`](PLANNING.md#work-streams)
 
@@ -308,7 +311,7 @@ Log new product gates and completed phases here; mirror campaign gates in [`SHIP
 
 - **2026-06-08** — **Exp-3 ☑** — XCamp-3.1–3.8 shipped (hire, 5×5 map, deck refresh, affliction catalog, tavern mood, provisions, burial, MS-CAMP mood→form); `CompanyStateChecks` **406** — Campaign stream maintain (economy UX copy).
 - **2026-06-08** — **Exp-0.2** ☑ — optional Camp §8 F5 tracks (steps 4, 8–10) PASS on Camp-5 human paste + `validate_camp_optional_smokes.ps1` 8/8; `human_signoff: READY` — Playtest stream.
-- **2026-06-08** — **Exp plan** — post-EA roadmap published; EA baseline Camp-5 ☑ 2026-06-07. IV-1 / D-008 harness and sync line removed (archived wontfix).
+- **2026-06-08** — **Exp plan** — post-EA roadmap published; EA baseline Camp-5 ☑ 2026-06-07. IV-1/D-008 harness and sync line archived.
 - **2026-06-08** — **III-3** ☑ deflect/bind calibration harness — **`_run_iii3_deflect_bind_calibration_suite`** · Playtest **ii2b** maintain — Expand stream.
 - **2026-06-08** — **p4d** ☑ parry/bind doc ↔ code sync — **`p4d_parry_bind_doc_sync_line`** · **`_run_p4d_parry_bind_doc_code_parity_suite`** — Expand stream.
 - **2026-06-08** — **p4c** ☑ numeric auto-pinch — **`numeric_superiority_for_pinch`** · **`_run_p4c_numeric_superiority_auto_pinch`** — Expand stream.

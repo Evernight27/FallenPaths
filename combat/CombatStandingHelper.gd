@@ -40,3 +40,9 @@ static func get_winner(combatants: Array) -> String:
 		if b == 0:
 			return sides_list[0]
 	return ""
+
+
+## Returns true when one side has zero standing combatants (dead, fled, incapacitated).
+static func has_zero_standing(combatants: Array, side: String) -> bool:
+	var standing: Dictionary = get_standing_by_side(combatants)
+	return standing.get(side, 0) == 0

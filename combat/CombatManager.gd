@@ -327,6 +327,7 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 			_Attention.clear_focus_and_yomi(cd)
 			_Footwork.clear_on_exchange_end(cd)
 			cd.erase(CombatConstants.COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL)
+			cd.erase(CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON)
 			cd.erase(CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID)
 			_WeaponForm.seed_combatant_form(self, cd)
 	# III-4 PR2: one-shot reconcile + ZoC/bands before first action-ready (after opposition offset seed).
@@ -410,6 +411,7 @@ func stop():
 	for c in combatants:
 		if c is Dictionary:
 			(c as Dictionary).erase(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK)
+	event_queue.clear()
 	medical_phase = false
 	medical_phase_winner = ""
 	combat_resolution_closed = true
@@ -499,6 +501,8 @@ func _run_interactive_medical_fast_forward_pass(max_sim_seconds: float = -1.0) -
 
 
 func _emit_finish_battle_and_stop(ran_fast_forward: bool) -> void:
+	if combat_resolution_closed:
+		return
 	var can_end: bool = not medical_phase or can_end_medical_phase()
 	var is_campaign: bool = _is_campaign_contract_battle()
 	var used_batch_resolve: bool = ran_fast_forward and is_campaign
@@ -606,7 +610,11 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 	if winner == "enemy":
 		if not _OperationalLog.is_play_session_active():
 			CombatDebug.combat_session("enemy won => combat_ended stopping manager")
+		medical_phase = true
+		medical_phase_winner = winner
+		combat_resolution_closed = true
 		emit_signal("combat_ended", winner, defeated_node)
+		_halt_losing_side_combat()
 		stop()
 	else:
 		if fresh_medical:
@@ -617,6 +625,7 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 			CombatDebug.combat_session("player won => medical_phase refresh (teardown)")
 		medical_phase = true
 		medical_phase_winner = winner
+		combat_resolution_closed = true
 		_halt_losing_side_combat()
 		if fresh_medical:
 			emit_signal("enemies_eliminated", winner)

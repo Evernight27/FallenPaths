@@ -177,13 +177,10 @@ static func cancel_pending_formation_events_for_combatant(manager: Node, combata
 		if (
 			ev_type == CombatConstants.EVENT_SWAP_RANK_RESOLVE
 			or ev_type == CombatConstants.EVENT_ROTATE_FILE_RESOLVE
+			or ev_type == CombatConstants.EVENT_PLUG_FORWARD_RESOLVE
 		):
 			var cid: int = int(evc.get("combatant_id", -1))
-			var pid: int = -1
-			var dr: Variant = evc.get("data", null)
-			if dr is Dictionary:
-				pid = int((dr as Dictionary).get("partner_id", -1))
-			return cid != combatant_id and pid != combatant_id
+			return cid != combatant_id
 		return true
 	)
 

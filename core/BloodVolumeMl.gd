@@ -23,6 +23,9 @@ static func blood_volume_ml_max_for_reference_mass(reference_mass_kg: float) -> 
 
 static func init_entity_pool(entity: Node, reference_mass_kg: float) -> void:
 	var max_ml: float = blood_volume_ml_max_for_reference_mass(reference_mass_kg)
+	# END scaling: higher endurance → larger blood pool (END=150 → 1.25x max blood).
+	if entity.has_method("get_endurance_blood_volume_mult"):
+		max_ml *= entity.get_endurance_blood_volume_mult()
 	_set_ml_max(entity, max_ml)
 	_set_ml(entity, max_ml)
 	entity.blood_volume = _Bleeding.MAX_BLOOD_VOLUME

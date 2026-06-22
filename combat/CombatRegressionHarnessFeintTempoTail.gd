@@ -537,10 +537,14 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
 	var w_plain_hi: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
 	var w_feint_hi: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
 	var read_m_hi: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "oberhau_feint")
-	var settled_m_hi: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
 	var stance_m_hi: float = _WeaponForm.mod(
 		_EntityAccess.form_str(mgr.combatants[0]), "ai_feint_listing"
 	)
+	var settled_m_hi: float = 1.0
+	if not _PassiveParryCtx.is_off_balance(enemy) and _EntityAccess.state_str(enemy) != CombatConstants.STATE_WIND_UP:
+		var readiness_check: float = _PassiveParryCtx.get_passive_parry_readiness(enemy)
+		if readiness_check <= 0.75:
+			settled_m_hi = _feint_listing_defender_footwork_state_mult_for_target(enemy)
 	var want_hi: float = (
 		w_plain_hi
 		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
@@ -551,8 +555,8 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
 	if absf(w_feint_hi - want_hi) > 0.0001 * maxf(1.0, absf(w_plain_hi)):
 		CombatRegressionHarness._fail(
 			failures,
-			"feint_read_list hi: want feint weight %.6f got %.6f plain=%.6f read_m=%.6f stance_m=%.6f"
-			% [want_hi, w_feint_hi, w_plain_hi, read_m_hi, stance_m_hi]
+			"feint_read_list hi: want feint weight %.6f got %.6f plain=%.6f read_m=%.6f stance_m=%.6f settled_m=%.6f"
+			% [want_hi, w_feint_hi, w_plain_hi, read_m_hi, stance_m_hi, settled_m_hi]
 		)
 	if not is_equal_approx(w_plain_lo, w_plain_hi):
 		CombatRegressionHarness._fail(
@@ -602,10 +606,14 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
 	var w_plain_hi: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
 	var w_feint_hi: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
 	var read_m_hi_t: float = _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "thrust_feint")
-	var settled_m_hi_t: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
 	var stance_m_hi_t: float = _WeaponForm.mod(
 		_EntityAccess.form_str(mgr.combatants[0]), "ai_feint_listing"
 	)
+	var settled_m_hi_t: float = 1.0
+	if not _PassiveParryCtx.is_off_balance(enemy) and _EntityAccess.state_str(enemy) != CombatConstants.STATE_WIND_UP:
+		var readiness_check: float = _PassiveParryCtx.get_passive_parry_readiness(enemy)
+		if readiness_check <= 0.75:
+			settled_m_hi_t = _feint_listing_defender_footwork_state_mult_for_target(enemy)
 	var want_hi: float = (
 		w_plain_hi
 		* CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT
@@ -616,8 +624,8 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
 	if absf(w_feint_hi - want_hi) > 0.0001 * maxf(1.0, absf(w_plain_hi)):
 		CombatRegressionHarness._fail(
 			failures,
-			"feint_read_list_thrust hi: want feint weight %.6f got %.6f plain=%.6f read_m=%.6f stance_m=%.6f"
-			% [want_hi, w_feint_hi, w_plain_hi, read_m_hi_t, stance_m_hi_t]
+			"feint_read_list_thrust hi: want feint weight %.6f got %.6f plain=%.6f read_m=%.6f stance_m=%.6f settled_m=%.6f"
+			% [want_hi, w_feint_hi, w_plain_hi, read_m_hi_t, stance_m_hi_t, settled_m_hi_t]
 		)
 	if not is_equal_approx(w_plain_lo, w_plain_hi):
 		CombatRegressionHarness._fail(
@@ -2388,17 +2396,21 @@ static func _run_feint_move_listing_reveal_progress_dampens_early_wind_up(
 	var read_early: float = _feint_listing_read_m_expect_for_move_on_target(
 		enemy, p_id, "oberhau_feint", player, pa
 	)
-	var settled_m: float = _feint_listing_defender_footwork_state_mult_for_target(enemy)
 	var stance_m: float = _WeaponForm.mod(_EntityAccess.form_str(player), "ai_feint_listing")
+	var settled_m_reveal: float = 1.0
+	if not _PassiveParryCtx.is_off_balance(enemy) and _EntityAccess.state_str(enemy) != CombatConstants.STATE_WIND_UP:
+		var readiness_check: float = _PassiveParryCtx.get_passive_parry_readiness(enemy)
+		if readiness_check <= 0.75:
+			settled_m_reveal = _feint_listing_defender_footwork_state_mult_for_target(enemy)
 	var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
 	var w_plain: float = _AIPicker._get_action_weight(a_plain, p_id, mgr, true)
 	var want_early: float = (
-		w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_early * settled_m * stance_m
+		w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_early * settled_m_reveal * stance_m
 	)
 	if absf(w_early - want_early) > 0.0001 * maxf(1.0, absf(w_plain)):
 		CombatRegressionHarness._fail(
 			failures,
-			"feint_list_reveal early: want %.6f got %.6f read_m=%.6f" % [want_early, w_early, read_early]
+			"feint_list_reveal early: want %.6f got %.6f read_m=%.6f settled_m=%.6f" % [want_early, w_early, read_early, settled_m_reveal]
 		)
 	player["state_timer"] = 0.99
 	var w_late: float = _AIPicker._get_action_weight(a_feint, p_id, mgr, true)
@@ -2406,12 +2418,12 @@ static func _run_feint_move_listing_reveal_progress_dampens_early_wind_up(
 		enemy, p_id, "oberhau_feint", player, pa
 	)
 	var want_late: float = (
-		w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_late * settled_m * stance_m
+		w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_late * settled_m_reveal * stance_m
 	)
 	if absf(w_late - want_late) > 0.0001 * maxf(1.0, absf(w_plain)):
 		CombatRegressionHarness._fail(
 			failures,
-			"feint_list_reveal late: want %.6f got %.6f read_m=%.6f" % [want_late, w_late, read_late]
+			"feint_list_reveal late: want %.6f got %.6f read_m=%.6f settled_m=%.6f" % [want_late, w_late, read_late, settled_m_reveal]
 		)
 	if w_late <= w_early + 0.0001:
 		CombatRegressionHarness._fail(

@@ -333,6 +333,8 @@ const COMBATANT_KEY_YOMI_BY_ATTACKER := "yomi_by_attacker"
 ## Expand WF: active weapon form id (L2 — per fighter style package).
 const COMBATANT_KEY_WEAPON_FORM := "weapon_form"
 const COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL := "form_switch_cooldown_until"
+## Last reason the AI auto-switched weapon form (cleared at turn ready; surfaced in gauge tooltip).
+const COMBATANT_KEY_LAST_FORM_SWITCH_REASON := "last_form_switch_reason"
 const COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID := "inferred_opp_form_by_id"
 ## Tier 4.3 UI: short row hint from **`CombatAttention.refresh_for_waiting_tick`** (focus line + effective % + load %).
 const COMBATANT_KEY_ATTENTION_UI_HINT := "attention_ui_hint"

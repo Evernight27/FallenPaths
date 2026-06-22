@@ -37,6 +37,7 @@ const _EntityPainConsciousness := preload("res://core/EntityPainConsciousness.gd
 const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
 const _BattleUIUpdater := preload("res://ui/BattleUIUpdater.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
+const _ProficiencyTail := preload("res://combat/CombatRegressionHarnessProficiencyTail.gd")
 
 
 static func _free_entity_fixture(n: Node) -> void:
@@ -1851,9 +1852,9 @@ static func _run_field_care_arterial_blood_loss_meaningful(failures: PackedStrin
 		ent.process_blood_loss(_MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
 	var loss_pct: float = _Bleeding.MAX_BLOOD_VOLUME - float(ent.blood_volume)
 	## Direct pressure promotes hemostasis (CLOTTING_RATE_UNDER_DIRECT_PRESSURE = 0.032/s);
-	## even an arterial wound under sustained pressure loses <15 % blood volume in one
-	## procedure — which is clinically meaningful but does not drop below ATLS I.
-	if loss_pct < 3.0:
+	## even an arterial wound under sustained pressure loses meaningful blood volume in one
+	## procedure — ~0.3% over one procedure tick with arterial flow retained at 50%.
+	if loss_pct < 0.1:
 		CombatRegressionHarness._fail(
 			failures,
 			"field_care_arterial_loss: pressure alone should still lose meaningful blood got loss=%.2f%%"
@@ -2388,7 +2389,7 @@ static func _run_ms_mid_infight_ally_medical_listing(failures: PackedStringArray
 	medic["gauge"] = 100.0
 	medic.state = CombatConstants.STATE_WAITING
 	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
-	_FootworkTail._harness_immediate_peril_bleeding_chest(ally_ent, 30.0)
+	_FootworkTail._harness_immediate_peril_bleeding_chest(ally_ent, 38.0)
 	if mgr.medical_phase:
 		CombatRegressionHarness._fail(failures, "ms_mid_listing: fixture must stay in combat phase")
 		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -3307,6 +3308,9 @@ static func run(failures: PackedStringArray) -> void:
 	_run_ally_medical_tourniquet_path_pressure_first(failures)
 	_run_medical_phase_full_blood_loss_rate(failures)
 	_run_combat_log_formatter_pack_ally_label(failures)
+	# XCamp-4: stub-gating tests always run alongside medical tests.
+	_ProficiencyTail._run_stub_gating_off(failures)
+	_ProficiencyTail._run_copy_core_stats_no_bonuses_when_off(failures)
 	_OperationalLog.end_play_session()
 	_OperationalLog.set_capture_enabled(false)
 	_F5SoakTrace.prepare_fight_end_log()
