@@ -63,10 +63,10 @@ static func write_report(result: Dictionary) -> void:
 	lines.append("profiles=%s" % ", ".join(result.get("profiles", PackedStringArray())))
 	var missing: PackedStringArray = result.get("missing_cyan_presets", PackedStringArray()) as PackedStringArray
 	if missing.is_empty():
-		lines.append("missing_cyan_presets=(none — ii2b/ii5/ii6 present or not applicable)")
+		lines.append("missing_cyan_presets=(none  -  ii2b/ii5/ii6 present or not applicable)")
 	else:
 		lines.append(
-			"missing_cyan_presets=%s — F5 dev_soak_encounter then re-validate"
+			"missing_cyan_presets=%s  -  F5 dev_soak_encounter then re-validate"
 			% ", ".join(missing)
 		)
 	lines.append("lines=%d" % int(result.get("line_count", 0)))
@@ -84,7 +84,7 @@ static func write_report(result: Dictionary) -> void:
 		if bool(track_result.get("optional", false)) and not bool(track_result.get("pass", false)):
 			status = "OPTIONAL_MISS"
 		lines.append(
-			"[%s] %s — %s"
+			"[%s] %s  -  %s"
 			% [track_id, status, str(track_result.get("detail", ""))]
 		)
 	lines.append("")
@@ -101,7 +101,7 @@ static func write_report(result: Dictionary) -> void:
 	if f != null:
 		f.store_string(body)
 		f.close()
-	print(_OperationalLog.tag_line(_OperationalLog.TAG_HARNESS_SUMMARY, "wrote %s" % path))
+	_OperationalLog.harness_summary("wrote %s" % path)
 	print(body.strip_edges())
 
 
@@ -136,7 +136,7 @@ static func _evaluate_track(normalized: PackedStringArray, spec: Dictionary, war
 			gate_needle = "tooltip_match=ok"
 		if _count_needle(normalized, gate_needle) < 1:
 			if not warnings_out.is_empty():
-				warnings_out.append("gate %s: skipped (absent — downstream tracks unvalidated)" % gate_id)
+				warnings_out.append("gate %s: skipped (absent  -  downstream tracks unvalidated)" % gate_id)
 			return {
 				"pass": true,
 				"detail": "skipped (no %s)" % gate_id,
@@ -167,14 +167,14 @@ static func _evaluate_track(normalized: PackedStringArray, spec: Dictionary, war
 
 
 static func _is_soak_guide_line(line: String) -> bool:
-	# Startup hints mention grep targets (e.g. `FP_ERROR`) — not real errors.
+	# Startup hints mention grep targets (e.g. `FP_ERROR`)  -  not real errors.
 	return line.begins_with("soak_guide ") or line.begins_with("soak_guide:")
 
 
 static func _skip_needle_count_line(line: String) -> bool:
 	if _is_soak_guide_line(line):
 		return true
-	# Per-fight grep_stats echo needles (e.g. `party_triage_open=0`) — not world markers.
+	# Per-fight grep_stats echo needles (e.g. `party_triage_open=0`)  -  not world markers.
 	if line.begins_with("soak_coverage "):
 		return true
 	# Pasted validation report blocks must not re-count track needles.

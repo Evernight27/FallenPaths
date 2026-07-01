@@ -2,20 +2,21 @@ class_name CounterTempo
 extends RefCounted
 
 ## Tier 4.2 tempo pilot: partial-gauge counter during an incoming **`STATE_WIND_UP`** on this combatant.
-## Footing: counter wind-up scrubs stale PA via **`CombatFootwork.clear_on_exchange_end(atk)`** — LIVE_PATHS **`#wf-tier-44-pa`** (clear).
+## Footing: counter wind-up scrubs stale PA via **`CombatFootwork.clear_on_exchange_end(atk)`**  -  LIVE_PATHS **`#wf-tier-44-pa`** (clear).
 ## Opens **`COMBATANT_KEY_COUNTER_WINDOW_UNTIL`** on wind-up start; defender may act at **`COUNTER_TEMPO_GAUGE_THRESHOLD`**
-## (grants threshold gauge when below — readiness built during the incoming wind-up). Spends **`COUNTER_TEMPO_GAUGE_COST`**,
+## (grants threshold gauge when below  -  readiness built during the incoming wind-up). Spends **`COUNTER_TEMPO_GAUGE_COST`**,
 ## shortens wind-up via **`COUNTER_TEMPO_WINDUP_MULT`**, and defers the incoming **`EVENT_MELEE_ATTACK`** until after the counter's.
 ## When **`COUNTER_TEMPO_MIN_INCOMING_WINDUP_PROGRESS` > 0**, counter listing / **`can_act`** wait until the incoming attacker is that
 ## far through wind-up; **`process_waiting`** schedules **`EVENT_ACTION_READY`** once the gate opens.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
-const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
-const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 const _FORMATION_MOVE_IDS: Array[String] = [
@@ -41,7 +42,7 @@ static func clear_window(c: Dictionary) -> void:
 static func is_window_open(c: Dictionary, combat_clock: float) -> bool:
 	if not enabled() or c == null:
 		return false
-	var until: float = float(c.get(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL, -1.0))
+	var until: float = c.get(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL, -1.0)
 	return until > combat_clock
 
 
@@ -56,7 +57,7 @@ static func incoming_attacker_id(manager: Node, defender_id: int) -> int:
 		if _EntityAccess.state_str(other) != CombatConstants.STATE_WIND_UP:
 			continue
 		var pa: Dictionary = _EntityAccess.nested_dictionary_read(other, "pending_attack")
-		if int(pa.get("target_id", -1)) == defender_id:
+		if pa.get("target_id", -1) == defender_id:
 			return _EntityAccess.id_int(other)
 	return -1
 
@@ -67,10 +68,10 @@ static func incoming_wind_up_progress(manager: Node, attacker_id: int) -> float:
 	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
 	if atk.is_empty() or _EntityAccess.state_str(atk) != CombatConstants.STATE_WIND_UP:
 		return 0.0
-	var dur: float = float(atk.get("state_duration", 0.0))
+	var dur: float = atk.get("state_duration", 0.0)
 	if dur <= 0.0:
 		return 1.0
-	return clampf(float(atk.get("state_timer", 0.0)) / dur, 0.0, 1.0)
+	return clampf(atk.get("state_timer", 0.0) / dur, 0.0, 1.0)
 
 
 static func incoming_wind_up_meets_progress_gate(manager: Node, defender_id: int) -> bool:
@@ -132,7 +133,7 @@ static func filter_actions_for_counter_tempo(actions: Array, c: Dictionary = {})
 		actions = _MobilityRetreat.filter_actions_for_retreat_only(actions, c)
 	var out: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
 		var a: Dictionary = (raw as Dictionary).duplicate()
 		var mid: String = str(a.get("move_id", ""))
@@ -145,9 +146,9 @@ static func filter_actions_for_counter_tempo(actions: Array, c: Dictionary = {})
 
 static func actions_include_counter_tempo_tagged(actions: Array) -> bool:
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		if bool((raw as Dictionary).get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
+		if (raw as Dictionary).get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false):
 			return true
 	return false
 
@@ -184,7 +185,7 @@ static func try_schedule_counter_tempo_ready(manager: Node, defender: Dictionary
 	_refresh_ui_hint(manager, defender)
 	if not can_act(manager, defender):
 		return
-	if bool(defender.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED, false)):
+	if defender.get(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED, false):
 		return
 	defender[CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED] = true
 	var def_id: int = _EntityAccess.id_int(defender)
@@ -228,7 +229,7 @@ static func defer_incoming_melee_after_counter(
 	var counter: Dictionary = _EntityAccess.manager_get_combatant(manager, counter_id)
 	if counter.is_empty():
 		return
-	var counter_end: float = _EntityAccess.combat_clock_float(manager) + float(counter.get("state_duration", 0.0))
+	var counter_end: float = _EntityAccess.combat_clock_float(manager) + counter.get("state_duration", 0.0)
 	var defer_to: float = counter_end + CombatConstants.COUNTER_TEMPO_INCOMING_DEFER_AFTER_COUNTER_S
 	var incoming_at: float = _EventScheduler.get_pending_melee_attack_resolve_at(manager, deferred_attacker_id)
 	if incoming_at < 0.0:
@@ -245,7 +246,7 @@ static func abort_attacker_wind_up(manager: Node, attacker_id: int) -> void:
 		return
 	_EventScheduler.cancel_pending_melee_attack(manager, attacker_id)
 	var pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
-	var defender_id: int = int(pa.get("target_id", -1))
+	var defender_id: int = pa.get("target_id", -1)
 	if defender_id >= 0:
 		var def: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
 		if not def.is_empty():
@@ -256,13 +257,13 @@ static func abort_attacker_wind_up(manager: Node, attacker_id: int) -> void:
 	atk.pending_attack = {}
 	var was_wind_up: bool = _EntityAccess.state_str(atk) == CombatConstants.STATE_WIND_UP
 	if was_wind_up and not (manager.medical_phase and _MedicalPhase.is_losing_side(manager, atk)):
-		# III-6: mirror **`turn_resolved`** depth recheck — rank-0 abort wakes rank-1+; rank-1+ abort wakes deeper reserves.
+		# III-6: mirror **`turn_resolved`** depth recheck  -  rank-0 abort wakes rank-1+; rank-1+ abort wakes deeper reserves.
 		_EventScheduler.reschedule_same_file_depth_after_front_turn(manager, attacker_id)
 		_EventScheduler.reschedule_same_file_depth_after_reserve_turn(manager, attacker_id)
 	if was_wind_up:
 		_StateHandlers.enter_short_recovery(atk, manager)
-		if float(atk.get("state_duration", 0.0)) > 0.0 and manager.has_method("_schedule_event"):
-			manager._schedule_event({
+		if atk.get("state_duration", 0.0) > 0.0:
+			_EventScheduler.schedule_event(manager, {
 				"type": CombatConstants.EVENT_RECOVERY_END,
 				"combatant_id": attacker_id,
 				"resolve_at": _EntityAccess.combat_clock_float(manager) + float(atk.state_duration),
@@ -273,7 +274,7 @@ static func abort_attacker_wind_up(manager: Node, attacker_id: int) -> void:
 static func process_waiting(manager: Node, c: Dictionary) -> void:
 	if not enabled() or manager == null or c == null:
 		return
-	var until: float = float(c.get(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL, -1.0))
+	var until: float = c.get(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL, -1.0)
 	if until < 0.0:
 		return
 	if _EntityAccess.combat_clock_float(manager) >= until:
@@ -301,7 +302,7 @@ static func grant_riposte_chain(manager: Node, defender: Dictionary, attacker_id
 static func riposte_chain_windup_mult(manager: Node, attacker: Dictionary, target_id: int) -> float:
 	if manager == null or attacker == null or target_id < 0:
 		return 1.0
-	var until: float = float(attacker.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL, -1.0))
+	var until: float = attacker.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL, -1.0)
 	if until <= _EntityAccess.combat_clock_float(manager):
 		return 1.0
 	if int(attacker.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID, -1)) != target_id:
@@ -312,11 +313,11 @@ static func riposte_chain_windup_mult(manager: Node, attacker: Dictionary, targe
 static func counter_tempo_listing_weight_mult(
 	manager: Node, combatant_id: int, action: Dictionary, move_id: String
 ) -> float:
-	if not enabled() or manager == null or not bool(action.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
+	if not enabled() or manager == null or not action.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false):
 		return 1.0
 	var mult: float = CombatConstants.AI_COUNTER_TEMPO_LISTING_WEIGHT_MULT
 	var incoming_id: int = incoming_attacker_id(manager, combatant_id)
-	var tid: int = int(action.get("target_id", -1))
+	var tid: int = action.get("target_id", -1)
 	if incoming_id >= 0 and tid == incoming_id:
 		mult *= CombatConstants.AI_COUNTER_TEMPO_INCOMING_TARGET_MULT
 	if _WeaponConstants.is_feint_move(move_id):

@@ -2,16 +2,17 @@ class_name CombatUiHints
 extends RefCounted
 
 ## Shared UI hint resolution for snapshot rows and live combatant dicts.
-## Gauge suffix order (footing): Step (PA) → Grd/Atk (guard line) → Form — **`BattleUIUpdater._compose_waiting_gauge_label`**. LIVE_PATHS **`#battle-ui`** · **`#wf-1c--ui-surfacing`** · **`#wf-tier-44-pa`** (Step) · soak **`#wf-soak-audit-status`**.
-## **`active_line_for_ui`**: wind-up → **`pending_attack`** line; else **`guard_line`** — does **not** read **`weapon_form`** or PA offset.
-## Diagram: guard **`[short]`** then form **`[Ox]`** — **`FormationDiagramBuilder._cell_label_with_footwork`**. LIVE_PATHS **`#wf-footing-guards-stances`** · **`#wf-guard-writers`** (L3 drift).
-## **Camp-3.3:** one-shot medical-phase combat-log hints — **once per play session** when
+## Gauge suffix order (footing): Step (PA) ÃƒÂ¢Ã¢Â€Â ' Grd/Atk (guard line) ÃƒÂ¢Ã¢Â€Â ' Form â€” **`BattleUIUpdater._compose_waiting_gauge_label`**. LIVE_PATHS **`#battle-ui`** Â· **`#wf-1c--ui-surfacing`** Â· **`#wf-tier-44-pa`** (Step) Â· soak **`#wf-soak-audit-status`**.
+## **`active_line_for_ui`**: wind-up ÃƒÂ¢Ã¢Â€Â ' **`pending_attack`** line; else **`guard_line`** â€” does **not** read **`weapon_form`** or PA offset.
+## Diagram: guard **`[short]`** then form **`[Ox]`** â€” **`FormationDiagramBuilder._cell_label_with_footwork`**. LIVE_PATHS **`#wf-footing-guards-stances`** Â· **`#wf-guard-writers`** (L3 drift).
+## **Camp-3.3:** one-shot medical-phase combat-log hints â€” **once per play session** when
 ## `world` meta is set (campaign fights); **once per fight** on `manager` when no world node.
 
 const WORLD_META_MEDICAL_PHASE_HINTS_SHOWN := "fp_medical_phase_hints_shown"
 const _META_MEDICAL_PHASE_HINTS_SHOWN_FIGHT := "_fp_medical_phase_hints_shown_fight"
 const _META_CAMPAIGN_MEDICAL_EXIT_HINT_SHOWN_FIGHT := "_fp_campaign_medical_exit_hint_shown_fight"
 
+const _DataKeys := preload("res://core/DataKeys.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _BattleUIConstants := preload("res://ui/BattleUIConstants.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
@@ -26,7 +27,14 @@ const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
+
+# Runtime preload â€” circular dependency (CompanyState â†’ CampaignEncounterBridge â†’ CombatUiHints).
+static var _CompanyState: Variant = null
+
+static func _get_company_state() -> GDScript:
+	if CombatUiHints._CompanyState == null:
+		CombatUiHints._CompanyState = load("res://world/CompanyState.gd")
+	return CombatUiHints._CompanyState
 
 
 static func any_tactical_features_enabled() -> bool:
@@ -34,7 +42,7 @@ static func any_tactical_features_enabled() -> bool:
 
 
 static func medical_phase_active(manager: Node) -> bool:
-	return manager != null and bool(manager.medical_phase)
+	return manager != null and manager.medical_phase
 
 
 static func medical_phase_hints_already_shown(manager: Node, world: Node = null) -> bool:
@@ -56,19 +64,19 @@ static func mark_medical_phase_hints_shown(manager: Node, world: Node = null) ->
 static func medical_phase_combat_log_hints() -> PackedStringArray:
 	return PackedStringArray([
 		(
-			"Medical phase — your side triages only; defeated opponents cannot strike or act."
+			"Medical phase â€” your side triages only; defeated opponents cannot strike or act."
 		),
 		(
 			"Triage priority: hold direct pressure on active bleeds (especially arterial), "
 			+ "then bandage or pack "
-			+ "(battle bandages are free; pack/stabilize cost −1 company med each)."
+			+ "(battle bandages are free; pack/stabilize cost -1 company med each)."
 		),
 		(
-			"Allies choose medical actions automatically — gauge may show Stack medical or "
+			"Allies choose medical actions automatically â€” gauge may show Stack medical or "
 			+ "self_medical when triage is urgent."
 		),
 		(
-			"Stabilize (−1 med) slows bleeding but does not dress the wound — bandage, pack, or "
+			"Stabilize (1 med) slows bleeding but does not dress the wound â€” bandage, pack, or "
 			+ "tourniquet still required before camp rest or marching."
 		),
 	])
@@ -95,21 +103,21 @@ static func emit_medical_phase_session_hints(manager: Node, world: Node = null) 
 	if emit_general:
 		mark_medical_phase_hints_shown(manager, world)
 		for line in medical_phase_combat_log_hints():
-			# Combat log only — FP uses `note_medical_phase_intro` + `medical_action pick`.
+			# Combat log only â€” FP uses `note_medical_phase_intro` + `medical_action pick`.
 			manager.notify_combat_ui_hint(line, false)
 	if world != null:
-		var supply_hint: String = _CompanyState.format_battle_medical_supply_hint(world)
+		var supply_hint: String = _get_company_state().format_battle_medical_supply_hint(world)
 		if (
 			not supply_hint.is_empty()
 			and (
 				emit_general
-				or _CompanyState.is_campaign_contract_battle_world(world)
+				or _get_company_state().is_campaign_contract_battle_world(world)
 			)
 		):
 			manager.notify_combat_ui_hint(supply_hint, false)
 	if (
 		world != null
-		and _CompanyState.is_campaign_contract_battle_world(world)
+		and _get_company_state().is_campaign_contract_battle_world(world)
 		and not _campaign_medical_exit_hint_shown_this_fight(manager)
 	):
 		_mark_campaign_medical_exit_hint_shown(manager)
@@ -129,17 +137,17 @@ static func medical_phase_context_tooltip_lines(manager: Node, world: Node = nul
 		return PackedStringArray()
 	var winner: String = str(manager.medical_phase_winner).strip_edges()
 	var lines: PackedStringArray = []
-	var resolved_world: Node = world if world != null else _CompanyState.resolve_world_from_battle(manager)
-	var campaign_contract: bool = _CompanyState.is_campaign_contract_battle_world(resolved_world)
+	var resolved_world: Node = world if world != null else _get_company_state().resolve_world_from_battle(manager)
+	var campaign_contract: bool = _get_company_state().is_campaign_contract_battle_world(resolved_world)
 	if winner.is_empty():
 		lines.append(
-			"Medical phase — triage wounded allies before returning to camp."
+			"Medical phase â€” triage wounded allies before returning to camp."
 			if campaign_contract
-			else "Medical phase — triage wounded allies before ending the battle."
+			else "Medical phase â€” triage wounded allies before ending the battle."
 		)
 	else:
 		lines.append(
-			"Medical phase — %s side triages only; opponents cannot strike."
+			"Medical phase â€” %s side triages only; opponents cannot strike."
 			% winner
 		)
 	lines.append(
@@ -159,7 +167,7 @@ static func medical_phase_context_tooltip_lines(manager: Node, world: Node = nul
 
 static func medical_wind_up_gauge_primary_label(c: Dictionary, remain: float) -> String:
 	var pm: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_medical")
-	var mid: String = str(pm.get("medical_id", "")).strip_edges()
+	var mid: String = pm.get("medical_id", "").strip_edges()
 	var self_id: int = _EntityAccess.id_int(c)
 	var tgt_cid: int = int(pm.get("target_combatant_id", self_id))
 	var med_label: String = (
@@ -175,9 +183,9 @@ static func medical_wind_up_gauge_primary_label(c: Dictionary, remain: float) ->
 static func medical_busy_row_tooltip_line(c: Dictionary) -> String:
 	var st: String = _EntityAccess.state_str(c)
 	if st == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
-		return "Receiving care — another combatant is treating this wound."
+		return "Receiving care â€” another combatant is treating this wound."
 	if st == CombatConstants.STATE_MEDICAL_WIND_UP:
-		return "Medical wind-up — hold until the procedure completes."
+		return "Medical wind-up â€” hold until the procedure completes."
 	return ""
 
 
@@ -189,29 +197,29 @@ static func _first_exported_hint(c: Dictionary, keys: Array) -> String:
 	return ""
 
 
-## Tier 4.4 PA gauge text — from live offset when flag on; exported row key when off. LIVE_PATHS **`#wf-tier-44-pa`** (UI phase) · **`#battle-ui`**.
+## Tier 4.4 PA gauge text â€” from live offset when flag on; exported row key when off. LIVE_PATHS **`#wf-tier-44-pa`** (UI phase) Â· **`#battle-ui`**.
 static func footwork_hint_text(c: Dictionary) -> String:
 	if not _Footwork.enabled():
-		return str(c.get("position_angle_ui_hint", "")).strip_edges()
+		return c.get("position_angle_ui_hint", "").strip_edges()
 	return _Footwork.get_ui_hint(c)
 
 
-## Formation diagram cell suffix (empty — offset is not shown on the diagram); gauge via **`footwork_hint_text`**.
+## Formation diagram cell suffix (empty â€” offset is not shown on the diagram); gauge via **`footwork_hint_text`**.
 static func footwork_diagram_suffix(c: Dictionary) -> String:
 	if c == null:
 		return ""
-	var exported: String = str(c.get("position_angle_ui_hint", "")).strip_edges()
+	var exported: String = c.get("position_angle_ui_hint", "").strip_edges()
 	if not _Footwork.enabled():
 		if exported.is_empty():
 			return ""
-		return (" · " + exported) if not exported.begins_with(" · ") else exported
+		return (" Â· " + exported) if not exported.begins_with(" Â· ") else exported
 	return _Footwork.get_diagram_label_suffix(c)
 
 
-## Gauge **` · Step`** suffix from Tier 4.4 PA — **`#battle-ui`** · **`#wf-tier-44-pa`** (display only).
+## Gauge **` Â· Step`** suffix from Tier 4.4 PA â€” **`#battle-ui`** Â· **`#wf-tier-44-pa`** (display only).
 static func footwork_hint_suffix(c: Dictionary) -> String:
 	var hint: String = footwork_hint_text(c)
-	return (" · " + hint) if not hint.is_empty() else ""
+	return (" Â· " + hint) if not hint.is_empty() else ""
 
 
 static func attention_hint_text(c: Dictionary, manager: Node = null) -> String:
@@ -251,9 +259,9 @@ static func cowering_mobility_tooltip_line(c: Dictionary) -> String:
 	if _EntityAccess.state_str(c) != CombatConstants.STATE_COWERING:
 		return ""
 	if _EntityAccess.can_flee_or_fall_back(c):
-		return "No arms — may fall back when rear rank in your file is clear."
+		return "No arms â€” may fall back when rear rank in your file is clear."
 	if not _EntityAccess.is_unconscious(c):
-		return "No arms — holding position (fall back blocked)."
+		return "No arms â€” holding position (fall back blocked)."
 	return ""
 
 
@@ -268,7 +276,7 @@ static func flurry_bind_gauge_label(c: Dictionary, manager: Node = null) -> Stri
 
 static func flurry_bind_hint_suffix(c: Dictionary, manager: Node = null) -> String:
 	var label: String = flurry_bind_gauge_label(c, manager)
-	return (" · " + label) if not label.is_empty() else ""
+	return (" Â· " + label) if not label.is_empty() else ""
 
 
 static func exhaustion_hint_suffix(c: Dictionary) -> String:
@@ -284,7 +292,7 @@ static func _guard_line_ui_states() -> Array:
 	]
 
 
-## L3 moment line for gauge/diagram — wind-up → **`pending_attack`** line; else **`guard_line`**. Does **not** read **`weapon_form`** or PA offset. LIVE_PATHS **`#wf-guard-writers`** · **`#battle-ui`**.
+## L3 moment line for gauge/diagram â€” wind-up ÃƒÂ¢Ã¢Â€Â ' **`pending_attack`** line; else **`guard_line`**. Does **not** read **`weapon_form`** or PA offset. LIVE_PATHS **`#wf-guard-writers`** Â· **`#battle-ui`**.
 static func active_line_for_ui(c: Dictionary) -> String:
 	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled() or c.is_empty():
 		return ""
@@ -293,18 +301,18 @@ static func active_line_for_ui(c: Dictionary) -> String:
 		return ""
 	if st == CombatConstants.STATE_WIND_UP:
 		var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
-		var attack_line: String = str(pa.get("attack_line", "")).strip_edges()
+		var attack_line: String = pa.get("attack_line", "").strip_edges()
 		if not attack_line.is_empty():
 			return attack_line
-		var move_id: String = str(pa.get("attack_type", pa.get("move_id", ""))).strip_edges()
+		var move_id: String = pa.get("attack_type", pa.get("move_id", "")).strip_edges()
 		if not move_id.is_empty():
 			var move_def: Dictionary = _WeaponConstants.get_move(move_id)
-			return str(move_def.get("attack_line", "")).strip_edges()
+			return move_def.get("attack_line", "").strip_edges()
 		return ""
 	return str(c.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
 
 
-## Gauge **` · Grd`** / **` · Atk`** suffix from **`active_line_for_ui`**. LIVE_PATHS **`#battle-ui`** · soak content asserts open **`#wf-soak-audit-status`**.
+## Gauge **` Â· Grd`** / **` Â· Atk`** suffix from **`active_line_for_ui`**. LIVE_PATHS **`#battle-ui`** Â· soak content asserts open **`#wf-soak-audit-status`**.
 static func guard_line_gauge_suffix(c: Dictionary) -> String:
 	var line: String = active_line_for_ui(c)
 	if line.is_empty():
@@ -315,7 +323,7 @@ static func guard_line_gauge_suffix(c: Dictionary) -> String:
 	var prefix: String = (
 		"Atk" if _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP else "Grd"
 	)
-	return " · %s %s" % [prefix, short]
+	return " Â· %s %s" % [prefix, short]
 
 
 static func guard_line_diagram_suffix(c: Dictionary) -> String:
@@ -338,17 +346,17 @@ static func guard_line_tooltip_line(c: Dictionary) -> String:
 	return "Guard: %s" % long_label
 
 
-## Gauge **` · Form {name}`** from **`form_str`** — independent of **`guard_line`** drift. LIVE_PATHS **`#battle-ui`** · **`#wf-1c--ui-surfacing`** · soak **`#wf-soak-audit-status`** (ii5c open).
+## Gauge **` Â· Form {name}`** from **`form_str`** â€” independent of **`guard_line`** drift. LIVE_PATHS **`#battle-ui`** Â· **`#wf-1c--ui-surfacing`** Â· soak **`#wf-soak-audit-status`** (ii5c open).
 static func weapon_form_gauge_suffix(c: Dictionary) -> String:
 	if c.is_empty():
 		return ""
 	var name: String = _WeaponForm.display_name(_EntityAccess.form_str(c))
 	if name.is_empty():
 		return ""
-	return " · Form %s" % name
+	return " Â· Form %s" % name
 
 
-## Diagram **`[Ox]`** suffix from **`form_str`** — after guard short in **`FormationDiagramBuilder`**. LIVE_PATHS **`#battle-ui`**.
+## Diagram **`[Ox]`** suffix from **`form_str`** â€” after guard short in **`FormationDiagramBuilder`**. LIVE_PATHS **`#battle-ui`**.
 static func weapon_form_diagram_suffix(c: Dictionary) -> String:
 	if c.is_empty():
 		return ""
@@ -358,7 +366,7 @@ static func weapon_form_diagram_suffix(c: Dictionary) -> String:
 	return " [%s]" % name
 
 
-## IV-11 slice 4: diagram **`[Ldr]`** for player party leader — **`FormationDiagramBuilder`**. LIVE_PATHS **`#battle-ui`**.
+## IV-11 slice 4: diagram **`[Ldr]`** for player party leader â€” **`FormationDiagramBuilder`**. LIVE_PATHS **`#battle-ui`**.
 static func party_leader_diagram_suffix(c: Dictionary) -> String:
 	if c.is_empty():
 		return ""
@@ -369,7 +377,7 @@ static func party_leader_diagram_suffix(c: Dictionary) -> String:
 	return " [Ldr]"
 
 
-## IV-11 slice 6: diagram **`[Cmd]`** for enemy commander — **`FormationDiagramBuilder`**.
+## IV-11 slice 6: diagram **`[Cmd]`** for enemy commander â€” **`FormationDiagramBuilder`**.
 static func enemy_leader_diagram_suffix(c: Dictionary) -> String:
 	if c.is_empty():
 		return ""
@@ -406,12 +414,12 @@ static func weapon_form_tooltip_line(c: Dictionary) -> String:
 		base = "Form: %s (%s)" % [name, pressure]
 	else:
 		base = "Form: %s" % name
-	var is_auto: bool = (form != _WeaponForm.normalize_form(str(c.get("stance_preference", "")).strip_edges())) and not reason.is_empty()
+	var is_auto: bool = (form != _WeaponForm.normalize_form(c.get("stance_preference", "").strip_edges())) and not reason.is_empty()
 	if is_auto:
 		var reason_label: String = _format_switch_reason_label(reason)
-		base += " — auto-switched to %s (%s)" % [name, reason_label]
-	elif form != _WeaponForm.normalize_form(str(c.get("stance_preference", "")).strip_edges()):
-		base += " — AI-selected (no player preference set)"
+		base += " â€” auto-switched to %s (%s)" % [name, reason_label]
+	elif form != _WeaponForm.normalize_form(c.get("stance_preference", "").strip_edges()):
+		base += " â€” AI-selected (no player preference set)"
 	return base
 
 
@@ -446,12 +454,12 @@ static func controlling_defender_close_hint_line(
 	if not _EntityAccess.is_player_side(c):
 		return ""
 	for raw in actions:
-		if raw == null or typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		if str(a.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		var a: Dictionary = raw
+		if a.get("move_id", "") != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 			continue
-		var tid: int = int(a.get("target_id", -1))
+		var tid: int = a.get("target_id", -1)
 		if tid < 0:
 			continue
 		var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
@@ -461,7 +469,7 @@ static func controlling_defender_close_hint_line(
 		if tag.is_empty():
 			continue
 		return (
-			"Close is harder vs %s — strike from range or commit with strength."
+			"Close is harder vs %s â€” strike from range or commit with strength."
 			% tag.replace(" (controlling)", "")
 		)
 	return ""
@@ -487,7 +495,7 @@ static func counter_tempo_gauge_label(tempo_hint: String) -> String:
 	if tempo_hint == "counter_ready":
 		return "Counter!"
 	if tempo_hint == "counter_winding":
-		return "Seize tempo…"
+		return "Seize tempoâ€”Ã‚Â¦"
 	return ""
 
 
@@ -528,14 +536,14 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 		var ratio_pct: int = int(roundf(_EntityAccess.stamina_ratio(c) * 100.0))
 		var cap_pct: int = int(roundf(_Exhaustion.effective_stamina_max(c)))
 		tips.append(
-			"Stamina %d%% of %d burst max — progress bar (label shows Stm when waiting)."
+			"Stamina %d%% of %d burst max â€” progress bar (label shows Stm when waiting)."
 			% [ratio_pct, cap_pct]
 		)
 		var gauge_pct: int = int(roundf(_EntityAccess.gauge_float(c)))
 		if gauge_pct >= 100:
-			tips.append("Turn ready — action selection allowed for this combatant.")
+			tips.append("Turn ready â€” action selection allowed for this combatant.")
 		elif gauge_pct > 0:
-			tips.append("Readiness %d%% — turn / counter-tempo gauge (label only)." % gauge_pct)
+			tips.append("Readiness %d%% â€” turn / counter-tempo gauge (label only)." % gauge_pct)
 	var fw: String = footwork_hint_text(c)
 	if not fw.is_empty():
 		tips.append("Arc footwork (position-angle step): %s" % fw)
@@ -544,15 +552,15 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 		tips.append("Attention: %s" % attn)
 	var tempo: String = counter_tempo_hint_key(c, manager)
 	if tempo == "counter_ready":
-		tips.append("Counter window open — seize tempo.")
+		tips.append("Counter window open â€” seize tempo.")
 	elif tempo == "counter_winding":
-		tips.append("Incoming wind-up — counter window building.")
-	if c.get("is_counter_tempo_wind_up", false) == true:
-		tips.append("Counter-tempo riposte — shortened wind-up.")
+		tips.append("Incoming wind-up â€” counter window building.")
+	if c.get(_DataKeys.SNAPSHOT_COUNTER_TEMPO_WIND_UP, false):
+		tips.append("Counter-tempo riposte â€” shortened wind-up.")
 	if _FlurryBind.enabled() and manager != null and _FlurryBind.is_active(c, _EntityAccess.combat_clock_float(manager)):
-		var left: int = int(c.get("flurry_exchanges_left", 0))
+		var left: int = c.get("flurry_exchanges_left", 0)
 		tips.append(
-			"Bind exchange — faster blows vs bound opponent (%d exchange(s) left)."
+			"Bind exchange â€” faster blows vs bound opponent (%d exchange(s) left)."
 			% maxi(0, left)
 		)
 	var cow: String = cowering_mobility_tooltip_line(c)
@@ -605,7 +613,7 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 			tips.append(close_ctrl)
 	if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK, CombatConstants.STATE_PLUG_FORWARD]:
 		tips.append(
-			"Formation move — heavy hits (intensity ≥ %.0f) may cancel; lighter hits extend duration."
+			"Formation move â€” heavy hits (intensity ÃƒÂ¢Ã¢Â€Â°Ã‚Â¥ %.0f) may cancel; lighter hits extend duration."
 			% CombatConstants.FORMATION_HIT_CANCEL_INTENSITY
 		)
 	return tips
@@ -617,31 +625,32 @@ static func formation_cell_tooltip_lines(
 	var lines: PackedStringArray = []
 	var fw: String = footwork_hint_text(c)
 	if not fw.is_empty():
-		lines.append("%s — footwork: %s" % [display_name, fw])
+		lines.append("%s â€” footwork: %s" % [display_name, fw])
 	var attn: String = attention_hint_text(c, manager)
 	if not attn.is_empty():
-		lines.append("%s — attention: %s" % [display_name, attn])
+		lines.append("%s â€” attention: %s" % [display_name, attn])
 	var tempo: String = counter_tempo_hint_key(c, manager)
 	if tempo == "counter_ready":
-		lines.append("%s — counter window open" % display_name)
+		lines.append("%s â€” counter window open" % display_name)
 	elif tempo == "counter_winding":
-		lines.append("%s — counter window building" % display_name)
+		lines.append("%s â€” counter window building" % display_name)
 	var cow: String = cowering_mobility_tooltip_line(c)
 	if not cow.is_empty():
-		lines.append("%s — %s" % [display_name, cow])
+		lines.append("%s â€” %s" % [display_name, cow])
 	var fm: String = _FormationMoveDuration.formation_preview_tooltip_line(manager, c)
 	if not fm.is_empty():
-		lines.append("%s — %s" % [display_name, fm])
+		lines.append("%s â€” %s" % [display_name, fm])
 	var grd: String = guard_line_tooltip_line(c)
 	if not grd.is_empty():
-		lines.append("%s — %s" % [display_name, grd])
+		lines.append("%s â€” %s" % [display_name, grd])
 	var wf: String = weapon_form_tooltip_line(c)
 	if not wf.is_empty():
-		lines.append("%s — %s" % [display_name, wf])
+		lines.append("%s â€” %s" % [display_name, wf])
 	var ldr: String = party_leader_tooltip_line(c)
 	if not ldr.is_empty():
-		lines.append("%s — %s" % [display_name, ldr])
+		lines.append("%s â€” %s" % [display_name, ldr])
 	var cmd: String = enemy_leader_tooltip_line(c)
 	if not cmd.is_empty():
-		lines.append("%s — %s" % [display_name, cmd])
+		lines.append("%s â€” %s" % [display_name, cmd])
 	return lines
+                                                                                                                                                                               

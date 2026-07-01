@@ -15,7 +15,7 @@ static func formation_side_str(formation: Dictionary, default_side: String = "")
 	return str(formation.get("side", default_side))
 
 
-## Ensures `formation["slots"]` exists and returns it — avoids mutating a fresh `{}` from `Dictionary.get(..., {})`.
+## Ensures `formation["slots"]` exists and returns it  -  avoids mutating a fresh `{}` from `Dictionary.get(..., {})`.
 static func formation_slots_dict(formation: Dictionary) -> Dictionary:
 	if not formation.has("slots"):
 		formation["slots"] = {}
@@ -49,10 +49,10 @@ static func normalize_cell(val: Variant) -> Array:
 	if val == null:
 		return []
 	if val is Array:
-		return (val as Array).duplicate()
-	if typeof(val) == TYPE_INT:
-		return [val as int]
-	if typeof(val) == TYPE_FLOAT:
+		return val.duplicate()
+	if val is int:
+		return [val]
+	if val is float:
 		return [int(val)]
 	return []
 
@@ -83,9 +83,9 @@ static func prune_dead_ids_from_formation_slots(manager: Node, slots: Dictionary
 			continue
 		var kept: Array = []
 		for cid in arr:
-			var c: Dictionary = _EntityAccess.manager_get_combatant(manager, int(cid))
+			var c: Dictionary = _EntityAccess.manager_get_combatant(manager, cid)
 			if not c.is_empty() and _EntityAccess.is_alive_in_combat(c):
-				kept.append(int(cid))
+				kept.append(cid)
 		if kept.size() != arr.size():
 			changed = true
 		if kept.is_empty():
@@ -110,7 +110,7 @@ static func slot_key_for_combatant_id(
 		return null
 	var slots: Dictionary = formation_slots_dict(formation)
 	for k in slots.keys():
-		if typeof(k) != TYPE_VECTOR2I:
+		if k is not Vector2i:
 			continue
 		var arr: Array = normalize_cell(slots[k])
 		if arr.has(combatant_id):
@@ -128,8 +128,8 @@ static func remove_combatant_from_slots(slots: Dictionary, combatant_id: int) ->
 		var arr: Array = normalize_cell(slots[k])
 		var filtered: Array = []
 		for id in arr:
-			if int(id) != combatant_id:
-				filtered.append(int(id))
+			if id != combatant_id:
+				filtered.append(id)
 		if filtered.is_empty():
 			to_erase.append(k)
 		else:
@@ -153,7 +153,7 @@ static func living_count_in_slot(manager: Node, slots: Dictionary, key: Vector2i
 	var arr: Array = normalize_cell(slots.get(key, []))
 	var n: int = 0
 	for cid in arr:
-		var c: Dictionary = _EntityAccess.manager_get_combatant(manager, int(cid))
+		var c: Dictionary = _EntityAccess.manager_get_combatant(manager, cid)
 		if not c.is_empty() and _EntityAccess.is_alive_in_combat(c):
 			n += 1
 	return n
@@ -164,7 +164,7 @@ static func occupied_column_files(formation: Dictionary) -> Array:
 	var files_seen: Dictionary = {}
 	var slots: Dictionary = formation_slots_dict(formation)
 	for k in slots.keys():
-		if typeof(k) != TYPE_VECTOR2I:
+		if k is not Vector2i:
 			continue
 		files_seen[(k as Vector2i).y] = true
 	var out: Array = files_seen.keys()
@@ -209,7 +209,7 @@ static func column_display_files(formation: Dictionary, preset_files: int) -> Ar
 static func gap_column_files(formation: Dictionary) -> Array:
 	var cached: Variant = formation.get("gap_column_files", null)
 	if cached is Array and CombatConstants.is_feature_gap_column_topology_enabled():
-		return (cached as Array).duplicate()
+		return cached.duplicate()
 	return occupied_column_files(formation)
 
 

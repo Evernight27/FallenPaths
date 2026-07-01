@@ -4,8 +4,17 @@ extends RefCounted
 ## Run-ending modal (contract loss / defeat). Restarts main after dismiss (Camp-1.4 / Camp-2.6).
 ## Tutorial losses dismiss without scene reload (company meta preserved).
 
-const MAIN_SCENE := "res://main.tscn"
-const _CompanyState := preload("res://world/CompanyState.gd")
+## Aliased to CombatConstants.PATH_MAIN_SCENE for clarity.
+const MAIN_SCENE := CombatConstants.PATH_MAIN_SCENE
+
+# Runtime preload â€” circular dependency (CompanyState preloads CombatFlow which preloads CompanyRunEndPanel).
+static var _CompanyState: Variant = null
+
+static func _get_company_state() -> GDScript:
+	if CompanyRunEndPanel._CompanyState == null:
+		CompanyRunEndPanel._CompanyState = load("res://world/CompanyState.gd")
+	return CompanyRunEndPanel._CompanyState
+
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _Persistence := preload("res://world/CampaignPersistence.gd")
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
@@ -54,8 +63,8 @@ static func show_and_await(world: Node2D, reason: String, detail: String = "") -
 		layer.queue_free()
 		if _OperationalLog.is_play_session_active():
 			_OperationalLog.play_world(format_company_run_end_log(reason))
-		if not run_end_logs_reload(reason):
-			if _CompanyState.persistence_clear_slot_on_run_end_reload():
+		if run_end_logs_reload(reason):
+			if _get_company_state().persistence_clear_slot_on_run_end_reload():
 				_Persistence.clear_slot()
 			world.get_tree().change_scene_to_file(MAIN_SCENE)
 	)
@@ -63,7 +72,9 @@ static func show_and_await(world: Node2D, reason: String, detail: String = "") -
 
 	await world.get_tree().process_frame
 	btn.grab_focus()
-	while not bool(wait_state.get("done", false)):
+	while not wait_state.get("done", false):
+		if not is_instance_valid(world):
+			break
 		await world.get_tree().process_frame
 
 
@@ -82,17 +93,17 @@ static func _title_for_reason(reason: String) -> String:
 
 
 static func _soft_defeat_autosave_note() -> String:
-	if _CompanyState.persistence_uses_disk_autosave():
+	if _get_company_state().persistence_uses_disk_autosave():
 		return " Map state autosaves when you return to camp."
 	return ""
 
 
 static func _run_end_restart_note() -> String:
-	if _CompanyState.persistence_restore_on_main_restart():
+	if _get_company_state().persistence_restore_on_main_restart():
 		return " Restart reloads main and restores your last autosave."
-	if _CompanyState.persistence_uses_disk_autosave():
-		return " Saved progress is cleared — restart begins a new company."
-	return " EA: this run is not saved — restart begins a new company."
+	if _get_company_state().persistence_uses_disk_autosave():
+		return " Saved progress is cleared â€” restart begins a new company."
+	return " EA: this run is not saved â€” restart begins a new company."
 
 
 static func format_run_end_body(reason: String, detail: String = "") -> String:
@@ -115,7 +126,7 @@ static func _base_body_for_reason(reason: String) -> String:
 				+ "Brothers with very low mood may desert instead of a total gold wipe."
 			)
 		"tutorial_failed":
-			return "Tutorial lost — return to camp and try again."
+			return "Tutorial lost - return to camp and try again."
 		"soft_defeat_resume":
 			return "Battle lost. Return to camp and recover."
 		_:
@@ -141,19 +152,19 @@ static func _button_label_for_reason(reason: String) -> String:
 		"tutorial_failed", "soft_defeat_resume":
 			return "Return to camp"
 		_:
-			if _CompanyState.persistence_restore_on_main_restart():
+			if _get_company_state().persistence_restore_on_main_restart():
 				return "Reload camp (autosave)"
 			return "Restart company"
 
 
-## F5 §8 step 8: paid/bankrupt loss reloads main; tutorial + soft defeat preserve camp.
+## F5 Ã‚Â§8 step 8: paid/bankrupt loss reloads main; tutorial + soft defeat preserve camp.
 static func run_end_logs_reload(reason: String) -> bool:
 	return not _uses_soft_resume(reason)
 
 
 static func format_company_run_end_log(reason: String) -> String:
 	var clears_slot: bool = (
-		run_end_logs_reload(reason) and _CompanyState.persistence_clear_slot_on_run_end_reload()
+		run_end_logs_reload(reason) and _get_company_state().persistence_clear_slot_on_run_end_reload()
 	)
 	return (
 		"company_run_end reason=%s reload=%s clears_slot=%s"
@@ -177,16 +188,6 @@ static func _disable_overworld_input(world: Node2D, enabled: bool) -> void:
 	var player: Node = world.get_node_or_null("Character")
 	if player != null and player.has_method("set_process_input"):
 		player.set_process_input(enabled)
-	var pb: Control = _find_party_button(world)
+	var pb: Control = CombatFlow._find_party_button(world)
 	if pb != null:
 		pb.visible = enabled
-
-
-static func _find_party_button(world: Node2D) -> Control:
-	var root: Node = world.get_tree().root
-	for child in root.get_children():
-		if child.name == "UIOverlayLayer":
-			var pb: Node = child.get_node_or_null("PartyButton")
-			if pb is Control:
-				return pb
-	return null

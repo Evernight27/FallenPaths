@@ -1,8 +1,8 @@
-class_name CombatFormationMoveListing
+﻿class_name CombatFormationMoveListing
 extends RefCounted
 
 ## Formation movement actions: swap rank, drag/fall_back pair, solo fall_back, rotate file (line discipline).
-## Footing: lists/resolves slot moves only — lane duration via **`CombatFormationMoveDuration`**; **not** **`guard_line`** / PA / **`weapon_form`**. LIVE_PATHS **`#wf-footing-terminology`**.
+## Footing: lists/resolves slot moves only  -  lane duration via **`CombatFormationMoveDuration`**; **not** **`guard_line`** / PA / **`weapon_form`**. LIVE_PATHS **`#wf-footing-terminology`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
@@ -10,7 +10,14 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
-const _Flee := preload("res://combat/CombatFormationFlee.gd")
+# Runtime preload â€” circular dependency (CombatFormationFlee preloads CombatFormationMoveListing).
+static var _flee_cache: Variant = null
+
+static func _get_flee() -> GDScript:
+	if _flee_cache == null:
+		_flee_cache = load("res://combat/CombatFormationFlee.gd")
+	return _flee_cache
+
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
@@ -37,6 +44,11 @@ static func in_rotate_file_cooldown(manager: Node, c: Dictionary) -> bool:
 
 static func in_pair_abort_cooldown(manager: Node, c: Dictionary) -> bool:
 	return _in_formation_move_cooldown(manager, c, "formation_pair_abort_cooldown_until")
+
+
+static func _in_plug_forward_cooldown(manager: Node, c: Dictionary) -> bool:
+	return _in_formation_move_cooldown(manager, c, "formation_plug_forward_cooldown_until")
+
 
 
 static func pair_formation_move_abort_blocked(
@@ -129,14 +141,14 @@ static func listed_action_is_formation_plug_pick(
 	var fid: String = _EntityAccess.formation_id_str(c)
 	var line_gap: bool = _FormationFlow.formation_line_has_rank0_gap(manager, fid)
 	if mid == CombatConstants.MOVE_ID_SWAP_RANK:
-		var partner_id: int = int(action.get("target_id", -1))
+		var partner_id: int = action.get("target_id", -1)
 		var partner: Dictionary = _EntityAccess.manager_get_combatant(manager, partner_id)
 		if partner.is_empty() or not swap_rank_action_legal(manager, c, partner):
 			return false
 		var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
-		if pc.get("we_plug_forward", false) == true:
+		if pc.get("we_plug_forward", false):
 			return true
-		return line_gap and our_rank > 0 and pc.get("line_plug_relief", false) == true
+		return line_gap and our_rank > 0 and pc.get("line_plug_relief", false)
 	if mid != CombatConstants.MOVE_ID_ROTATE_FILE or our_rank != 0 or not line_gap:
 		return false
 	if _Doctrine.should_suppress_skirmish_rotate_file(manager, c, all_actions):
@@ -155,7 +167,7 @@ static func listed_action_is_formation_plug_pick(
 		return false
 	if str(_EngagementMode.engagement_mode(manager)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
 		return false
-	var rot_partner_id: int = int(action.get("target_id", -1))
+	var rot_partner_id: int = action.get("target_id", -1)
 	var rot_partner: Dictionary = _EntityAccess.manager_get_combatant(manager, rot_partner_id)
 	if rot_partner.is_empty():
 		return false
@@ -177,7 +189,7 @@ static func swap_rank_action_legal(
 	if fid.is_empty():
 		return false
 	var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
-	return pc.get("eligible", false) == true and pc.get("allow_swap", false) == true
+	return pc.get("eligible", false) and pc.get("allow_swap", false)
 
 
 ## III-4 **3e**: depth fighter can plug forward into rank-0 during envelop mop-up.
@@ -188,6 +200,8 @@ static func plug_forward_action_legal(
 	zone_geometry_line_context_cache: Dictionary = {}
 ) -> bool:
 	if manager == null or c.is_empty() or partner.is_empty():
+		return false
+	if _in_plug_forward_cooldown(manager, c):
 		return false
 	if not adjacent_rank_pair_move_legal(manager, c, partner, zone_geometry_line_context_cache):
 		return false
@@ -202,7 +216,7 @@ static func plug_forward_action_legal(
 		return false
 	if _EntityAccess.rank_int(partner) != 0:
 		return false
-	# Same file check — plug_forward requires same file, adjacent ranks.
+	# Same file check  -  plug_forward requires same file, adjacent ranks.
 	if _EntityAccess.file_int(c) != _EntityAccess.file_int(partner):
 		return false
 	# Only during envelop mop-up.
@@ -235,7 +249,7 @@ static func front_rank_paired_retreat_action_legal(
 	if fid.is_empty():
 		return false
 	var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
-	if pc.get("we_are_front", false) != true or pc.get("we_plug_forward", false) == true:
+	if pc.get("we_are_front", false) != true or pc.get("we_plug_forward", false):
 		return false
 	return CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, partner, manager)
 
@@ -384,7 +398,7 @@ static func _append_adjacent_rank_partner_actions(
 			actions,
 			{"target_id": _EntityAccess.id_int(ally), "move_id": CombatConstants.MOVE_ID_SWAP_RANK}
 		)
-		if pc.get("we_are_front", false) == true and pc.get("we_plug_forward", false) != true and can_drag_back:
+		if pc.get("we_are_front", false) and pc.get("we_plug_forward", false) != true and can_drag_back:
 			if front_rank_paired_retreat_action_legal(manager, c, ally, zone_geometry_line_context_cache):
 				_append_formation_action(
 					manager,
@@ -442,9 +456,9 @@ static func append_formation_move_actions(
 	var formation_ranks: int = int(our_formation.get("ranks", 1))
 	var pair_abort_blocked: bool = in_pair_abort_cooldown(manager, c)
 	var move_policy: Dictionary = _EngagementMode.movement_policy(manager)
-	var can_swap_rank: bool = move_policy.get("allow_swap_rank", false) == true
-	var can_drag_back: bool = move_policy.get("allow_drag_back", false) == true
-	var can_fall_back: bool = move_policy.get("allow_fall_back", false) == true
+	var can_swap_rank: bool = move_policy.get("allow_swap_rank", false)
+	var can_drag_back: bool = move_policy.get("allow_drag_back", false)
+	var can_fall_back: bool = move_policy.get("allow_fall_back", false)
 	var home_fid: String = _EntityAccess.formation_id_str(c)
 	var can_rotate_file: bool = _EngagementMode.allow_rotate_file_for_formation(manager, home_fid)
 	if (
@@ -470,7 +484,7 @@ static func append_formation_move_actions(
 		_append_rotate_file_partner_actions(
 			manager, c, combatants, fid, our_rank, our_file, actions, ctx_c
 		)
-	# III-4 **3e**: depth fighter plug_forward listing (independent of swap_rank gate — fires during envelop mop-up).
+	# III-4 **3e**: depth fighter plug_forward listing (independent of swap_rank gate  -  fires during envelop mop-up).
 	if (
 		CombatConstants.ENVELOP_MOP_UP_PLUG_FORWARD_ENABLED
 		and not formation_retreat_only
@@ -506,8 +520,8 @@ static func append_formation_move_actions(
 			{"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK}
 		)
 	_FormationRout.ensure_rout_baseline(manager)
-	if _Flee.flee_action_legal(manager, c):
-		_Flee.log_flee_listed_if_verbose(manager, c)
+	if _get_flee().flee_action_legal(manager, c):
+		_get_flee().log_flee_listed_if_verbose(manager, c)
 		_append_formation_action(
 			manager,
 			c,
@@ -520,18 +534,44 @@ static func append_formation_move_actions(
 	return out
 
 
-## When no combat actions exist, only formation moves remain, or only guard focus lines (no melee), offer **`wait`**.
-## Without the hold-line branch, back rank gets focus-only menus → AI cycles focus every turn (log/UI spam).
-static func append_combat_wait_if_needed(actions: Array, combatant_id: int) -> void:
+
+## When no combat actions exist, only formation moves remain, or only guard focus lines (no melee), offer **wait**.
+## Without the hold-line branch, back rank gets focus-only menus -> AI cycles focus every turn (log/UI spam).
+## Accepts manager/c to stamp a dampened weight when outnumbered/recovering.
+## 2-arg harness variant: `append_combat_wait_if_needed(actions, combatant_id)`.
+static func append_combat_wait_if_needed(
+	manager: Node, c: Dictionary, actions: Array, combatant_id: int
+) -> void:
 	if _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_WAIT):
 		return
+	var dampened: bool = false
+	if manager != null and not c.is_empty():
+		dampened = _is_wait_dampened(manager, c)
 	if actions.is_empty():
-		actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})
+		var entry: Dictionary = {"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT}
+		if dampened:
+			entry["weight"] = 0.01
+		actions.append(entry)
 		return
 	if _ListedActions.action_list_is_reserve_posture_only(actions):
-		actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})
+		var entry2: Dictionary = {"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT}
+		if dampened:
+			entry2["weight"] = 0.01
+		actions.append(entry2)
 		return
 	for a in actions:
 		if not CombatConstants.is_formation_movement_move(str(a.get("move_id", ""))):
 			return
-	actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT})
+	var entry3: Dictionary = {"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT}
+	if dampened:
+		entry3["weight"] = 0.01
+	actions.append(entry3)
+
+
+static func _is_wait_dampened(manager: Node, c: Dictionary) -> bool:
+	if manager == null or c.is_empty():
+		return false
+	var st: String = _EntityAccess.state_str(c)
+	if st == CombatConstants.STATE_RECOVERING:
+		return true
+	return not _FormationRout.side_holding_field(manager, c)

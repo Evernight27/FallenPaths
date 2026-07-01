@@ -5,18 +5,20 @@ extends RefCounted
 ## Extracted from CombatFlow for clearer separation of concerns.
 
 static func handle_defeat(world: Node2D, player: Node, winner: String) -> void:
-	if winner == "player":
+	if winner == CombatConstants.SIDE_PLAYER:
 		return
-	push_error("[BattleEnd] Player defeated by %s" % winner)
-	if player != null and is_instance_valid(player) and player.has_node("Camera2D"):
-		var cam = player.get_node("Camera2D")
+
+	if is_instance_valid(player) and player.has_node("Camera2D"):
+		var cam: Camera2D = player.get_node_or_null("Camera2D") as Camera2D
+		if not is_instance_valid(cam):
+			return
 		var cam_global_pos = cam.global_position
 		player.remove_child(cam)
 		world.add_child(cam)
 		cam.global_position = cam_global_pos
 		if cam.has_method("make_current"):
 			cam.make_current()
-	if player != null and is_instance_valid(player):
+	if is_instance_valid(player):
 		player.queue_free()
 	var pm_lost = world.get_meta("party_manager", null) if world.has_meta("party_manager") else null
 	if pm_lost != null and "members" in pm_lost:
@@ -28,9 +30,9 @@ static func handle_defeat(world: Node2D, player: Node, winner: String) -> void:
 		world.remove_meta("_combat_enemies")
 
 static func handle_victory(world: Node2D, player: Node, winner: String) -> void:
-	if winner != "player":
+	if winner != CombatConstants.SIDE_PLAYER:
 		return
-	# SettlementPanel re-enables input on Continue — avoid a gap where map keys queue moves.
+	# SettlementPanel re-enables input on Continue  -  avoid a gap where map keys queue moves.
 	restore_overworld_party(world, player, false)
 
 
@@ -45,9 +47,11 @@ static func restore_overworld_party(world: Node2D, player: Node, enable_player_i
 			if is_instance_valid(node_ref) and node_ref.has_method("set_process_input"):
 				var allow: bool = enable_player_input and node_ref == player
 				node_ref.set_process_input(allow)
-	if player != null and is_instance_valid(player) and player.has_node("Camera2D"):
-		var cam = player.get_node("Camera2D")
-		if cam and cam.has_method("make_current"):
+	if is_instance_valid(player) and player.has_node("Camera2D"):
+		var cam: Camera2D = player.get_node_or_null("Camera2D") as Camera2D
+		if not is_instance_valid(cam):
+			return
+		if cam.has_method("make_current"):
 			cam.make_current()
 	if world.has_meta("_combat_enemies"):
 		for enemy in world.get_meta("_combat_enemies"):

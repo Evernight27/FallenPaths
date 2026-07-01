@@ -1,3 +1,6 @@
+# macOS resource fork artifacts
+._*
+
 # Godot 4+ specific ignores
 .godot/
 .import/
@@ -33,6 +36,27 @@ _regression_direct.txt
 # F5 human playtest paste (one agent at a time on .f5_soak_in.txt)
 .f5_soak_in.txt
 .f5_soak_validation.txt
+
+# Ad-hoc analysis / investigation scratch files (repo root)
+.dead_consts_report.txt
+.COMBAT_PRELOAD_CYCLES_REPORT.txt
+.PRELOAD_ANALYSIS_*
+.combat_preload_analysis.txt
+.unused_preload_dead_var_*
+.find_cycles*.py
+missing_preloads_report.txt
+d001_full_output.txt
+temp_*
+tmp_*
+
+# opencode AI tool config
+.opencode/
+
+# Godot 4 resource UID files (auto-generated; rebuildable)
+*.uid
+
+# Stale orphaned .import files (cleanup; regenerated on editor open)
+*.import-*
 
 # Editor-local overrides (machine-specific Godot path, etc.)
 .vscode/settings.local.json

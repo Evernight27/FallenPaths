@@ -1,7 +1,7 @@
 class_name ImpactVelocityModel
 extends RefCounted
 
-## Tier A: default tip-speed bands (m/s) per weapon template × contact_type (stab/cut/blunt).
+## Tier A: default tip-speed bands (m/s) per weapon template - -  contact_type (stab/cut/blunt).
 ## Tier B: geometry multiplier from strike lever vs reference (~longsword cut arc).
 ## Tier C: optional per-weapon overrides in Weapon.impact_velocity_bands[contact] = Vector2 or {min,max}.
 ## Move ids map to contact via WeaponConstants.contact_type_for_move_id(move_id).
@@ -11,7 +11,7 @@ const _W := preload("res://weapon/WeaponConstants.gd")
 const ABS_VELOCITY_MIN_M_S := 2.0
 const ABS_VELOCITY_MAX_M_S := 30.0
 
-## Unarmed strike band (m/s): trained hand peak speeds often ~6–9 m/s; band allows fatigue/weak shots.
+## Unarmed strike band (m/s): trained hand peak speeds often ~6 - 9 m/s; band allows fatigue/weak shots.
 const UNARMED_VELOCITY_MIN_M_S := 4.5
 const UNARMED_VELOCITY_MAX_M_S := 10.0
 
@@ -77,8 +77,8 @@ static func _tier_c_override(weapon: RefCounted, contact_type: String) -> Vector
 	if entry is Vector2:
 		return entry
 	if entry is Dictionary:
-		var mn: float = float(entry.get("min", -1.0))
-		var mx: float = float(entry.get("max", -1.0))
+		var mn: float = entry.get("min", -1.0)
+		var mx: float = entry.get("max", -1.0)
 		if mn >= 0.0 and mx > mn:
 			return Vector2(mn, mx)
 	return Vector2(-1.0, -1.0)
@@ -107,7 +107,7 @@ static func strike_radius_m(weapon: RefCounted, contact_type: String) -> float:
 				var pd: Dictionary = p
 				var sf: Variant = pd.get("striking_for", [])
 				if sf is Array and ct in sf:
-					total_len_cm += float(pd.get("length_cm", 0.0))
+					total_len_cm += pd.get("length_cm", 0.0)
 		if total_len_cm > 0.0:
 			if ct == _W.ATTACK_TYPE_CUT or ct == _W.ATTACK_TYPE_BLUNT:
 				return clampf((total_len_cm / 100.0) * 0.58, 0.22, 1.05)

@@ -1,12 +1,15 @@
 extends PopupPanel
+## Party menu UI: party member display, field care, equipment management.
 
 # Simple party menu that displays member info (body parts: cutting + blunt)
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _CampaignTypes := preload("res://world/CampaignTypes.gd")
 const _MapFieldCare := preload("res://world/MapFieldCare.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 var content_vbox: VBoxContainer
 var _end_day_button: Button
@@ -91,7 +94,7 @@ func show_party(world: Node2D, members: Array) -> void:
 		var renown: int = _CompanyState.get_renown(world)
 		var renown_bit: String = " · renown %d" % renown if renown > 0 else ""
 		_title_label.text = (
-			"Party — %dg · %d med · %d tools · %d food · day %d%s%s%s%s%s"
+			"Party — %d g · %d med · %d tools · %d food · day %d%s%s%s%s%s"
 			% [
 				_CompanyState.get_gold(world),
 				_CompanyState.get_medical_supplies(world),
@@ -118,7 +121,7 @@ func show_party(world: Node2D, members: Array) -> void:
 		content_vbox.add_child(notice_lbl)
 
 	var triage_active: bool = world != null and _CampaignBridge.party_has_untreated_wounds(world)
-	# One-shot when the last untreated part is dressed (med may still be 0 — copy in complete_line).
+	# One-shot when the last untreated part is dressed (med may still be 0 —" copy in complete_line).
 	var camp_unlock: bool = (
 		_triage_was_active
 		and not triage_active
@@ -154,8 +157,8 @@ func show_party(world: Node2D, members: Array) -> void:
 		for raw in members:
 			if raw is not Dictionary:
 				continue
-			var row: Dictionary = raw as Dictionary
-			if bool(row.get("has_untreated_wounds", false)):
+			var row: Dictionary = raw
+			if row.get("has_untreated_wounds", false):
 				wounded.append(row)
 			else:
 				healthy.append(row)
@@ -205,7 +208,7 @@ func show_party(world: Node2D, members: Array) -> void:
 
 	var triage_row_index: int = 0
 	for m in display_members:
-		var triage_row: bool = triage_active and bool(m.get("has_untreated_wounds", false))
+		var triage_row: bool = triage_active and m.get("has_untreated_wounds", false)
 		if triage_row:
 			if triage_row_index > 0:
 				content_vbox.add_child(HSeparator.new())
@@ -220,20 +223,20 @@ func show_party(world: Node2D, members: Array) -> void:
 				str(m.get("name", "Unknown"))
 				+ _RowFormatter.format_party_role_suffix(m)
 				+ "  STR:"
-				+ str(m.get("strength", 100))
+				+ str(m.get("strength", _CombatConstants.DEFAULT_STAT_VALUE))
 				+ " AGI:"
-				+ str(m.get("agility", 100))
+				+ str(m.get("agility", _CombatConstants.DEFAULT_STAT_VALUE))
 				+ " INT:"
-				+ str(m.get("intelligence", 100))
+				+ str(m.get("intelligence", _CombatConstants.DEFAULT_STAT_VALUE))
 				+ " END:"
-				+ str(m.get("endurance", 100))
+				+ str(m.get("endurance", _CombatConstants.DEFAULT_STAT_VALUE))
 				+ " PER:"
-				+ str(m.get("perception", 100))
+				+ str(m.get("perception", _CombatConstants.DEFAULT_STAT_VALUE))
 			)
 		_RowFormatter.configure_wrapped_label(name_lbl)
 		v.add_child(name_lbl)
-		var bv: float = float(m.get("blood_volume", 100.0))
-		var bleed: float = float(m.get("total_bleeding_rate", 0.0))
+		var bv: float = m.get("blood_volume", 100.0)
+		var bleed: float = m.get("total_bleeding_rate", 0.0)
 		var blood_lbl = Label.new()
 		blood_lbl.text = _RowFormatter.format_blood_line(bv, bleed)
 		if bleed > 0.0:
@@ -259,7 +262,7 @@ func show_party(world: Node2D, members: Array) -> void:
 			var status_lbl = Label.new()
 			status_lbl.text = status_line
 			_RowFormatter.configure_wrapped_label(status_lbl)
-			if bool(m.get("has_untreated_wounds", false)) or bool(m.get("is_unconscious", false)):
+			if m.get("has_untreated_wounds", false) or m.get("is_unconscious", false):
 				status_lbl.add_theme_color_override("font_color", Color(0.95, 0.75, 0.35))
 			v.add_child(status_lbl)
 		var untreated_parts: Variant = m.get("untreated_parts", [])
@@ -335,7 +338,7 @@ func show_party(world: Node2D, members: Array) -> void:
 			prof_lbl.add_theme_color_override("font_color", Color(0.55, 0.85, 0.55))
 			v.add_child(prof_lbl)
 		if m.has("company_mood"):
-			var mood_val: float = float(m.get("company_mood", _CompanyState.MOOD_DEFAULT))
+			var mood_val: float = float(m.get("company_mood", _CampaignTypes.MOOD_DEFAULT))
 			var mood_lbl = Label.new()
 			mood_lbl.text = "Mood: %d" % int(roundf(mood_val))
 			if mood_val <= _CompanyState.MOOD_ANGRY_THRESHOLD:
@@ -380,9 +383,9 @@ func show_party(world: Node2D, members: Array) -> void:
 		var untreated: int = 0
 		var bleeding: int = 0
 		for m in members:
-			if bool(m.get("has_untreated_wounds", false)):
+			if m.get("has_untreated_wounds", false):
 				untreated += 1
-			if float(m.get("total_bleeding_rate", 0.0)) > 0.0:
+			if m.get("total_bleeding_rate", 0.0) > 0.0:
 				bleeding += 1
 		var parts_need: int = _CampaignBridge.party_untreated_part_count(world)
 		var budget: Dictionary = _CompanyState.triage_med_budget(world)
@@ -397,10 +400,10 @@ func show_party(world: Node2D, members: Array) -> void:
 				bleeding,
 				parts_need,
 				_CompanyState.get_medical_supplies(world),
-				int(budget.get("field_bandage_med_est", 0)),
-				int(budget.get("camp_med", 0)),
-				int(budget.get("total_worst_case", 0)),
-				int(budget.get("med_shortfall", 0)),
+				budget.get("field_bandage_med_est", 0),
+				budget.get("camp_med", 0),
+				budget.get("total_worst_case", 0),
+				budget.get("med_shortfall", 0),
 			]
 		)
 
@@ -412,8 +415,8 @@ func _append_compact_member_row(parent: VBoxContainer, m: Dictionary) -> void:
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_RowFormatter.configure_wrapped_label(name_lbl)
 	row.add_child(name_lbl)
-	var bv: float = float(m.get("blood_volume", 100.0))
-	var bleed: float = float(m.get("total_bleeding_rate", 0.0))
+	var bv: float = m.get("blood_volume", 100.0)
+	var bleed: float = m.get("total_bleeding_rate", 0.0)
 	var blood_lbl := Label.new()
 	blood_lbl.text = _RowFormatter.format_blood_line(bv, bleed)
 	row.add_child(blood_lbl)
@@ -446,7 +449,7 @@ func _on_treat_next_wound_pressed() -> void:
 		_field_care_notice = ""
 	else:
 		_field_care_notice = (
-			"Field care step failed — retry Treat next wound or use a brother's buttons below."
+			"Field care step failed — retry. Treat next wound or use a brother's buttons below."
 		)
 		if _OperationalLog.is_play_session_active():
 			_OperationalLog.play_world(_field_care_notice)
@@ -472,7 +475,7 @@ func _on_end_day_pressed() -> void:
 		var block_hint: String = _CompanyState.format_party_end_day_unavailable_hint(_world)
 		if block_hint.is_empty():
 			block_hint = "End day unavailable (check camp tile or day-tick mode)."
-		_OperationalLog.play_world("End day blocked — %s" % block_hint)
+		_OperationalLog.play_world("End day blocked — " + str(block_hint))
 
 
 func _on_camp_heal_pressed() -> void:
@@ -497,8 +500,8 @@ func _on_hire_pressed() -> void:
 		_refresh_party_view()
 	elif _OperationalLog.is_play_session_active():
 		_OperationalLog.play_world(
-			"Hire blocked — %s"
-			% _CompanyState.format_hire_block_reason(_world, true).trim_prefix("Hire ")
+		"Hire blocked -- %s"
+		% _CompanyState.format_hire_block_reason(_world, true).trim_prefix("Hire ")
 		)
 
 
@@ -513,7 +516,6 @@ func _on_new_company_pressed() -> void:
 static func _append_weapon_form_specialty(v: VBoxContainer, form: String) -> void:
 	if form.is_empty():
 		return
-	const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 	var pressure: String = _WeaponForm.pressure_class(form)
 	var display: String = _WeaponForm.display_name(form)
 	if pressure.is_empty() or pressure == "neutral":
@@ -542,23 +544,23 @@ static func _append_weapon_form_specialty(v: VBoxContainer, form: String) -> voi
 
 
 static func _get_weapon_form_signature_lines(form: String) -> PackedStringArray:
-	const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 	var out: PackedStringArray = PackedStringArray()
 	var d: Dictionary = {}
-	if form == _WeaponForm.FORM_OX:
-		d = {"move_ids": "thrust, spear_thrust", "contact_types": "stab-heavy", "lines": "high_right, high"}
-	elif form == _WeaponForm.FORM_PLOW:
-		d = {"move_ids": "thrust, spear_thrust", "contact_types": "stab-heavy", "lines": "low, high"}
-	elif form == _WeaponForm.FORM_WRATH:
-		d = {"move_ids": "oberhau, slash, unterhau, quick_slash", "contact_types": "cut-heavy", "lines": "high_left, high_right"}
-	elif form == _WeaponForm.FORM_FOOL:
-		d = {"move_ids": "feints (oberhau_feint, thrust_feint, unterhau_feint)", "contact_types": "low focus", "lines": "low_left, low"}
-	elif form == _WeaponForm.FORM_WALL:
-		d = {"move_ids": "thrust, oberhau", "contact_types": "stab/cut balance", "lines": "high, high_right, high_left"}
-	elif form == _WeaponForm.FORM_TEMPEST:
-		d = {"move_ids": "slash, quick_slash, oberhau", "contact_types": "cut-heavy", "lines": "left, right, high"}
-	elif form == _WeaponForm.FORM_BALANCED:
-		d = {"move_ids": "no signature", "contact_types": "none", "lines": "high"}
+	match form:
+		_WeaponForm.FORM_OX:
+			d = {"move_ids": "thrust, spear_thrust", "contact_types": "stab-heavy", "lines": "high_right, high"}
+		_WeaponForm.FORM_PLOW:
+			d = {"move_ids": "thrust, spear_thrust", "contact_types": "stab-heavy", "lines": "low, high"}
+		_WeaponForm.FORM_WRATH:
+			d = {"move_ids": "oberhau, slash, unterhau, quick_slash", "contact_types": "cut-heavy", "lines": "high_left, high_right"}
+		_WeaponForm.FORM_FOOL:
+			d = {"move_ids": "feints (oberhau_feint, thrust_feint, unterhau_feint)", "contact_types": "low focus", "lines": "low_left, low"}
+		_WeaponForm.FORM_WALL:
+			d = {"move_ids": "thrust, oberhau", "contact_types": "stab/cut balance", "lines": "high, high_right, high_left"}
+		_WeaponForm.FORM_TEMPEST:
+			d = {"move_ids": "slash, quick_slash, oberhau", "contact_types": "cut-heavy", "lines": "left, right, high"}
+		_:
+			d = {"move_ids": "no signature", "contact_types": "none", "lines": "high"}
 	for key in d.keys():
 		if not out.is_empty():
 			out.append(", ")
@@ -567,7 +569,6 @@ static func _get_weapon_form_signature_lines(form: String) -> PackedStringArray:
 
 
 static func _get_weapon_form_strength_lines(form: String) -> PackedStringArray:
-	const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 	var out: PackedStringArray = PackedStringArray()
 	var mod_effects: Array[String] = ["parry", "evasion", "damage", "close_attempt", "feint_readthrough"]
 	var best_effects: Array = []
@@ -586,7 +587,7 @@ static func _get_weapon_form_strength_lines(form: String) -> PackedStringArray:
 	if not worst_effects.is_empty():
 		var bits: PackedStringArray = PackedStringArray()
 		for w in worst_effects:
-			bits.append("%s −%.0f%%" % [w["eff"], (1.0 - w["val"]) * 100.0])
+			bits.append("%s Ã¢Ë'%.0f%%" % [w["eff"], (1.0 - w["val"]) * 100.0])
 		out.append("Weaker: " + ", ".join(bits))
 	return out
 
@@ -666,3 +667,4 @@ func _build_field_care_buttons(world: Node2D, m: Dictionary) -> HBoxContainer:
 		)
 		care_btns.add_child(btn_s)
 	return care_btns
+                                           

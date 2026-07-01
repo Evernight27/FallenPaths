@@ -4,7 +4,13 @@ extends RefCounted
 ## Post-victory settlement (Camp-1.5). Pay, wound summary, roster cleanup (Camp-1.8 K3).
 
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
+# Runtime preload â€” circular dependency (CompanyState preloads CombatFlow â†’ SettlementPanel).
+static var _company_state_cache: Variant = null
+
+static func _get_company_state() -> GDScript:
+	if _company_state_cache == null:
+		_company_state_cache = load("res://world/CompanyState.gd")
+	return _company_state_cache
 const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
@@ -17,16 +23,21 @@ static func show_and_await(world: Node2D) -> void:
 		return
 	_disable_overworld_input(world, false)
 	_hide_party_menu_if_open(world)
-	var contract: Dictionary = _CompanyState.get_active_contract(world)
-	var base_pay: int = int(contract.get("pay_gold", 0))
-	var pay: int = _CompanyState.apply_contract_victory_pay(world)
-	var affliction_lines: PackedStringArray = _CompanyState.apply_post_victory_afflictions(world)
+	var contract: Dictionary = _get_company_state().get_active_contract(world)
+	var base_pay: int = contract.get("pay_gold", 0)
+	var pay: int = _get_company_state().apply_contract_victory_pay(world)
+	var affliction_lines: PackedStringArray = _get_company_state().apply_post_victory_afflictions(world)
 	var title: String = str(contract.get("contract_title", "Contract"))
 
 	var layer := CanvasLayer.new()
 	layer.layer = 200
 	layer.name = "SettlementLayer"
 	world.get_tree().root.add_child(layer)
+	var _layer_exited := {"done": false}
+	layer.tree_exited.connect(func() -> void:
+		_layer_exited["done"] = true
+		_disable_overworld_input(world, true)
+	)
 
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
@@ -46,19 +57,19 @@ static func show_and_await(world: Node2D) -> void:
 	scroll.add_child(vbox)
 
 	var hdr := Label.new()
-	hdr.text = "Settlement — %s" % title
+	hdr.text = "Settlement" + " \u2014 " + title
 	hdr.add_theme_font_size_override("font_size", 18)
 	vbox.add_child(hdr)
 
-	## Action buttons at top: repair gear + continue (saves game).
+	# Action buttons at top: repair gear + continue (saves game).
 	var supplies_lbl := Label.new()
 	supplies_lbl.text = format_settlement_supplies_line(world)
 	var repair_state: Dictionary = {"done": false, "repaired": false}
-	if _CompanyState.can_offer_settlement_tool_repair(world):
+	if _get_company_state().can_offer_settlement_tool_repair(world):
 		var repair_btn := Button.new()
-		repair_btn.text = "Repair gear (−1 tool, light field maintenance)"
+		repair_btn.text = "Repair gear (\u22121 tool, light field maintenance)"
 		repair_btn.pressed.connect(func() -> void:
-			if _CompanyState.apply_settlement_tool_repair(world):
+			if _get_company_state().apply_settlement_tool_repair(world):
 				repair_state["repaired"] = true
 				supplies_lbl.text = format_settlement_supplies_line(world)
 				repair_btn.disabled = true
@@ -73,13 +84,13 @@ static func show_and_await(world: Node2D) -> void:
 		wait_state["done"] = true
 		_apply_victory_mood_boost(world)
 		layer.queue_free()
-		_CompanyState.clear_active_contract(world)
+		_get_company_state().clear_active_contract(world)
 		var enemy_scene: PackedScene = _CampaignBridge.resolve_enemy_scene(world)
 		_ContractSpawner.try_refresh_contract_deck(world, enemy_scene)
-		_CompanyState.refresh_hud(world)
+		_get_company_state().refresh_hud(world)
 		_CampaignBridge.sync_overworld_player_grid_anchor(world)
 		_disable_overworld_input(world, true)
-		_CompanyState.try_autosave(world)
+		_get_company_state().try_autosave(world)
 		if _OperationalLog.is_play_session_active():
 			_OperationalLog.play_world(format_settlement_continue_log(world, contract, pay))
 	)
@@ -89,7 +100,7 @@ static func show_and_await(world: Node2D) -> void:
 	var worst: Dictionary = _RowFormatter.worst_triage_from_member_rows(roster_rows)
 	if not worst.is_empty():
 		var warn := Label.new()
-		warn.text = "Worst triage — %s: %s" % [
+		warn.text = "Worst triage \u2014 %s: %s" % [
 			str(worst.get("name", "?")),
 			str(worst.get("triage_line", "")),
 		]
@@ -98,7 +109,7 @@ static func show_and_await(world: Node2D) -> void:
 		vbox.add_child(warn)
 
 	var pay_lbl := Label.new()
-	if _CompanyState.is_tutorial_contract(contract):
+	if _get_company_state().is_tutorial_contract(contract):
 		pay_lbl.text = "No contract pay (%s)" % title
 	elif pay > base_pay and base_pay > 0:
 		pay_lbl.text = (
@@ -106,12 +117,12 @@ static func show_and_await(world: Node2D) -> void:
 			% [pay, base_pay, pay - base_pay]
 		)
 	else:
-		pay_lbl.text = "Payment: +%d gold (renown %d)" % [pay, _CompanyState.get_renown(world)]
+		pay_lbl.text = "Payment: +%d gold (renown %d)" % [pay, _get_company_state().get_renown(world)]
 	vbox.add_child(pay_lbl)
 
 	for aff_line in affliction_lines:
 		var aff_lbl := Label.new()
-		aff_lbl.text = "Scarred — " + aff_line
+		aff_lbl.text = "Scarred \u2014 " + aff_line
 		_RowFormatter.configure_wrapped_label(aff_lbl)
 		aff_lbl.add_theme_color_override("font_color", Color(0.75, 0.65, 0.95))
 		vbox.add_child(aff_lbl)
@@ -126,7 +137,7 @@ static func show_and_await(world: Node2D) -> void:
 		scar_summary.add_theme_color_override("font_color", Color(0.7, 0.62, 0.88))
 		vbox.add_child(scar_summary)
 
-	var memorials: PackedStringArray = _CompanyState.apply_casualty_cleanup(world)
+	var memorials: PackedStringArray = _get_company_state().apply_casualty_cleanup(world)
 	for line in memorials:
 		var mem := Label.new()
 		mem.text = line
@@ -134,7 +145,7 @@ static func show_and_await(world: Node2D) -> void:
 		mem.add_theme_color_override("font_color", Color(0.85, 0.55, 0.45))
 		vbox.add_child(mem)
 
-	var burial_debt_warn: String = _CompanyState.format_settlement_burial_debt_warning(world)
+	var burial_debt_warn: String = _get_company_state().format_settlement_burial_debt_warning(world)
 	if not burial_debt_warn.is_empty():
 		var burial_warn_lbl := Label.new()
 		burial_warn_lbl.text = burial_debt_warn
@@ -142,7 +153,7 @@ static func show_and_await(world: Node2D) -> void:
 		burial_warn_lbl.add_theme_color_override("font_color", Color(0.95, 0.75, 0.35))
 		vbox.add_child(burial_warn_lbl)
 
-	var burial_lines: PackedStringArray = _CompanyState.apply_settlement_burial_costs(world)
+	var burial_lines: PackedStringArray = _get_company_state().apply_settlement_burial_costs(world)
 	for line in burial_lines:
 		var burial_lbl := Label.new()
 		burial_lbl.text = line
@@ -152,7 +163,7 @@ static func show_and_await(world: Node2D) -> void:
 
 	if _CampaignBridge.party_has_untreated_wounds(world):
 		var care_hint := Label.new()
-		care_hint.text = _CompanyState.format_settlement_field_care_hint(world)
+		care_hint.text = _get_company_state().format_settlement_field_care_hint(world)
 		_RowFormatter.configure_wrapped_label(care_hint)
 		care_hint.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
 		vbox.add_child(care_hint)
@@ -166,13 +177,13 @@ static func show_and_await(world: Node2D) -> void:
 
 	_append_settlement_hint_if_set(
 		vbox,
-		_CompanyState.format_settlement_victory_mood_hint(),
+		_get_company_state().format_settlement_victory_mood_hint(),
 		Color(0.72, 0.88, 0.72),
-		_CompanyState.count_living_roster(world) > 0
+		_get_company_state().count_living_roster(world) > 0
 	)
 	_append_settlement_hint_if_set(
 		vbox,
-		_CompanyState.format_settlement_low_mood_stance_hint(world),
+		_get_company_state().format_settlement_low_mood_stance_hint(world),
 		Color(0.75, 0.82, 0.95)
 	)
 	_append_settlement_hint_if_set(
@@ -181,18 +192,20 @@ static func show_and_await(world: Node2D) -> void:
 		Color(0.72, 0.85, 0.95)
 	)
 
-	if _CompanyState.persistence_uses_disk_autosave():
+	if _get_company_state().persistence_uses_disk_autosave():
 		var save_hint := Label.new()
 		save_hint.text = (
-			"Progress autosaves on continue — restart main restores your last save."
-			if _CompanyState.persistence_restore_on_main_restart()
+			"Progress autosaves on continue \u2014 restart main restores your last save."
+			if _get_company_state().persistence_restore_on_main_restart()
 			else "Progress autosaves when you continue."
 		)
 		_RowFormatter.configure_wrapped_label(save_hint)
 		save_hint.add_theme_color_override("font_color", Color(0.65, 0.78, 0.88))
 		vbox.add_child(save_hint)
 
-	while not bool(wait_state.get("done", false)):
+	while not wait_state.get("done", false) and not _layer_exited.get("done", false):
+		if not is_instance_valid(world):
+			break
 		await world.get_tree().process_frame
 
 
@@ -212,35 +225,35 @@ static func _append_settlement_hint_if_set(
 
 
 static func format_settlement_supplies_line(world: Node2D) -> String:
-	var med_n: int = _CompanyState.get_medical_supplies(world)
-	var med_suffix: String = _CompanyState.format_hud_triage_suffix(world)
+	var med_n: int = _get_company_state().get_medical_supplies(world)
+	var med_suffix: String = _get_company_state().format_hud_triage_suffix(world)
 	var line: String = (
-		"Supplies: %d med%s · %d tools · %d food"
-		% [med_n, med_suffix, _CompanyState.get_tool_supplies(world), _CompanyState.get_food_supplies(world)]
+		"Supplies: %d med%s Â· %d tools Â· %d food"
+		% [med_n, med_suffix, _get_company_state().get_tool_supplies(world), _get_company_state().get_food_supplies(world)]
 	)
-	if _CompanyState.should_show_next_provisions_hint(world):
-		line += " (rations short — mood −1 at next day end)"
+	if _get_company_state().should_show_next_provisions_hint(world):
+		line += " (rations short â€” mood -1 at next day end)"
 	return line
 
 
 static func format_settlement_continue_button_label() -> String:
-	if _CompanyState.persistence_uses_disk_autosave():
+	if _get_company_state().persistence_uses_disk_autosave():
 		return "Continue (saves progress)"
 	return "Continue"
 
 
-## F5 §8 step 3: settlement Continue button world log (paid win path).
+## F5 ÃƒÂ‚Ã‚Â§8 step 3: settlement Continue button world log (paid win path).
 static func format_settlement_continue_log(world: Node2D, contract: Dictionary, pay: int) -> String:
 	var autosave_bit: String = ""
-	if _CompanyState.persistence_uses_disk_autosave():
+	if _get_company_state().persistence_uses_disk_autosave():
 		autosave_bit = " autosave=true"
 	return (
 		"settlement_continue pay=%d gold=%d renown=%d tutorial=%s%s"
 		% [
 			pay,
-			_CompanyState.get_gold(world),
-			_CompanyState.get_renown(world),
-			str(_CompanyState.is_tutorial_contract(contract)).to_lower(),
+			_get_company_state().get_gold(world),
+			_get_company_state().get_renown(world),
+			str(_get_company_state().is_tutorial_contract(contract)).to_lower(),
 			autosave_bit,
 		]
 	)
@@ -254,15 +267,15 @@ static func _apply_victory_mood_boost(world: Node2D) -> void:
 		return
 	for m in pm.get_members():
 		if m is Dictionary:
-			_CompanyState.adjust_member_mood(world, str(m.get("name", "")), _CompanyState.MOOD_BATTLE_WON_DELTA)
+			_get_company_state().adjust_member_mood(world, str(m.get("name", "")), _get_company_state().MOOD_BATTLE_WON_DELTA)
 
 
 static func _append_member_vitals_labels(parent: VBoxContainer, m: Dictionary, world: Node2D = null) -> void:
 	var name_lbl := Label.new()
 	name_lbl.text = str(m.get("name", "?"))
 	parent.add_child(name_lbl)
-	var bv: float = float(m.get("blood_volume", 100.0))
-	var bleed: float = float(m.get("total_bleeding_rate", 0.0))
+	var bv: float = m.get("blood_volume", 100.0)
+	var bleed: float = m.get("total_bleeding_rate", 0.0)
 	var blood_lbl := Label.new()
 	blood_lbl.text = _RowFormatter.format_blood_line(bv, bleed)
 	if bleed > 0.0:
@@ -310,7 +323,7 @@ static func _append_member_vitals_labels(parent: VBoxContainer, m: Dictionary, w
 		var status_lbl := Label.new()
 		status_lbl.text = status_line
 		_RowFormatter.configure_wrapped_label(status_lbl)
-		if bool(m.get("has_untreated_wounds", false)) or bool(m.get("is_unconscious", false)):
+		if m.get("has_untreated_wounds", false) or m.get("is_unconscious", false):
 			status_lbl.add_theme_color_override("font_color", Color(0.95, 0.75, 0.35))
 		parent.add_child(status_lbl)
 	var aff_fx: String = _RowFormatter.format_affliction_effects_line(m)
@@ -334,16 +347,6 @@ static func _disable_overworld_input(world: Node2D, enabled: bool) -> void:
 	var player: Node = world.get_node_or_null("Character")
 	if player != null and player.has_method("set_process_input"):
 		player.set_process_input(enabled)
-	var pb: Control = _find_party_button(world)
+	var pb: Control = CombatFlow._find_party_button(world)
 	if pb != null:
 		pb.visible = enabled
-
-
-static func _find_party_button(world: Node2D) -> Control:
-	var root: Node = world.get_tree().root
-	for child in root.get_children():
-		if child.name == "UIOverlayLayer":
-			var pb: Node = child.get_node_or_null("PartyButton")
-			if pb is Control:
-				return pb
-	return null

@@ -20,8 +20,7 @@ const _CombatAttention := preload("res://combat/CombatAttention.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
-const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
-const _EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
+const _Bp := preload("res://core/BodyPartConstants.gd")
 
 
 ## Main entry: compute attack weight by composing all per-factor multipliers.
@@ -75,7 +74,7 @@ static func compute_weight(
 	return w
 
 
-# ── Per-factor functions ──────────────────────────────────────────────
+# â"€â"€ Per-factor functions â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 static func _factor_base_stamina(stamina_ratio: float) -> float:
 	return CombatConstants.ai_offense_stamina_weight_mult(stamina_ratio)
@@ -92,16 +91,16 @@ static func _factor_form_move(form: String, move_id: String) -> float:
 
 
 static func _factor_form_counter(manager: Node, c: Dictionary, a: Dictionary) -> float:
-	var tid_counter: int = int(a.get("target_id", -1))
+	var tid_counter: int = a.get("target_id", -1)
 	if tid_counter < 0:
 		return 1.0
 	var inferred: String = ""
 	var cache_raw: Variant = c.get(CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID, null)
 	if cache_raw is Dictionary:
-		inferred = str((cache_raw as Dictionary).get(str(tid_counter), "")).strip_edges()
+		inferred = (cache_raw as Dictionary).get(str(tid_counter), "").strip_edges()
 	if inferred.is_empty():
 		inferred = _WeaponForm.infer_opponent_form(manager, c, tid_counter)
-	return _WeaponForm.form_counter_mult(_EntityAccess.form_str(c), inferred, str(a.get("move_id", "")))
+	return _WeaponForm.form_counter_mult(_EntityAccess.form_str(c), inferred, a.get("move_id", ""))
 
 
 static func _factor_targeting(
@@ -143,7 +142,7 @@ static func _factor_exhaustion(c: Dictionary) -> float:
 static func _factor_feint_listing(
 	manager: Node, combatant_id: int, a: Dictionary, c: Dictionary, stamina_ratio: float
 ) -> float:
-	var tid_feint: int = int(a.get("target_id", -1))
+	var tid_feint: int = a.get("target_id", -1)
 
 	# Defender readiness (pr_def)
 	var pr_def: float = 0.0
@@ -152,7 +151,7 @@ static func _factor_feint_listing(
 		if not tgt_feint.is_empty():
 			var pa_live: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
 			pr_def = _DefenseChoice.defender_feint_listing_pr_def(
-				tgt_feint, _EntityAccess.id_int(c), str(a.get("move_id", "")), c, pa_live
+				tgt_feint, _EntityAccess.id_int(c), a.get("move_id", ""), c, pa_live
 			)
 
 	var read_m: float = lerpf(
@@ -184,12 +183,13 @@ static func _factor_feint_listing(
 	# Doctrine context
 	var fid_atk: String = _EntityAccess.formation_id_str(c)
 	var doc_feint: String = _CombatDoctrine.doctrine_for_fid(manager, fid_atk)
-	if doc_feint == CombatConstants.DOCTRINE_PROBING:
-		feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_PROBING_MULT
-	elif doc_feint == CombatConstants.DOCTRINE_PINCH_CENTER:
-		feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT
-	elif doc_feint == CombatConstants.DOCTRINE_HOLD_LANE:
-		feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT
+	match doc_feint:
+		CombatConstants.DOCTRINE_PROBING:
+			feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_PROBING_MULT
+		CombatConstants.DOCTRINE_PINCH_CENTER:
+			feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT
+		CombatConstants.DOCTRINE_HOLD_LANE:
+			feint_list_m *= CombatConstants.AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT
 
 	# Parry-deflect recency pressure
 	feint_list_m *= _feint_listing_opp_parry_deflect_pressure_mult(manager, c, tid_feint)
@@ -199,7 +199,7 @@ static func _factor_feint_listing(
 		var tgt_yomi: Dictionary = _EntityAccess.manager_get_combatant(manager, tid_feint)
 		if not tgt_yomi.is_empty():
 			var dom_line: String = _CombatAttention.dominant_attack_line_toward_defender(tgt_yomi, combatant_id)
-			var fp_est: String = CombatConstants.LINE_TO_DEFAULT_PART.get(dom_line, "head")
+			var fp_est: String = CombatConstants.LINE_TO_DEFAULT_PART.get(dom_line, _Bp.PART_HEAD)
 			feint_list_m *= _CombatAttention.yomi_feint_listing_mult(tgt_yomi, combatant_id, fp_est)
 			feint_list_m *= _CombatAttention.yomi_parry_deflect_feint_listing_mult(tgt_yomi, combatant_id)
 
@@ -213,7 +213,7 @@ static func _apply_attempt_close_modifiers(
 	if move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return w
 
-	var tgt_id_close_w: int = int(a.get("target_id", -1))
+	var tgt_id_close_w: int = a.get("target_id", -1)
 	var fid: String = _EntityAccess.formation_id_str(c)
 
 	# Envelop mop-up close boost
@@ -246,7 +246,7 @@ static func _apply_attempt_close_modifiers(
 	return w
 
 
-## LONG band, close listed but no melee strikes — mapped rank-0 band-lag shuffle.
+## LONG band, close listed but no melee strikes —" mapped rank-0 band-lag shuffle.
 static func _long_close_only_offense_menu(
 	manager: Node, c: Dictionary, combatant_id: int, all_actions: Array
 ) -> bool:
@@ -271,7 +271,7 @@ static func _feint_listing_opp_parry_deflect_pressure_mult(
 	if age < 0:
 		return 1.0
 	var win: int = maxi(1, CombatConstants.AI_FEINT_LISTING_OPP_PARRY_DEFLECT_RECENCY_TICKS)
-	var t: float = 1.0 - clampf(float(age) / float(win), 0.0, 1.0)
+	var t: float = 1.0 - clampf(float(age) / win, 0.0, 1.0)
 	return lerpf(
 		1.0, CombatConstants.AI_FEINT_LISTING_OPP_PARRY_DEFLECT_PRESSURE_TOP_MULT, t
 	)

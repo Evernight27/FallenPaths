@@ -28,7 +28,7 @@ const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
 const REPORT_FILENAME := ".calibration_audit.txt"
 const BIND_THRESHOLD := _CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
 const DEFLECT_THRESHOLD := _CombatConstants.PARRY_DEFLECT_THRESHOLD
-## Soak lines tag `parry_deflect` for full-stop outcomes; `parry_bind` only when `parry_was_bind` — allow ctrl at threshold on deflect rows.
+## Soak lines tag `parry_deflect` for full-stop outcomes; `parry_bind` only when `parry_was_bind`  -  allow ctrl at threshold on deflect rows.
 const BIND_CTRL_AUDIT_EPS := 0.001
 
 # de Leva (1996) whole-body segment mass % (adult male reference; game uses abstract 6-part lumping).
@@ -419,8 +419,8 @@ static func _append_material_failure_production_section(
 
 
 static func _material_failure_reference_arm_pen6() -> Dictionary:
-	const part: String = "right_arm"
-	const pen: float = 6.0
+	var part: String = "right_arm"
+	var pen: float = 6.0
 	if _Bleeding.FEATURE_LAYER_TISSUE_CURVES:
 		var arm_state: Array = _CombatLayerTissue.seed_layer_state_for_part(part)
 		return _CombatLayerTissue.penetration_through_layers(part, pen, arm_state, true)
@@ -464,8 +464,8 @@ static func _append_tissue_energy_pool_section(
 	lines.append("")
 	lines.append("[tissue_energy_pool_m6]")
 	lines.append("FEATURE_TISSUE_ENERGY_POOL=%s" % str(_Bleeding.FEATURE_TISSUE_ENERGY_POOL).to_lower())
-	const part: String = "right_arm"
-	const body_max: int = _DesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
+	var part: String = "right_arm"
+	var body_max: int = _DesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
 	var cap_j: float = _TissueEnergyCapacity.capacity_j_for_part(part, body_max)
 	var display_half: float = _TissueEnergyCapacity.display_tissue_from_remaining_j(
 		body_max, cap_j * 0.5, cap_j
@@ -500,7 +500,7 @@ static func _damage_within_pct_tolerance(baseline: float, actual: float, pct: fl
 
 ## Compare production J debit vs classic HP pools on same hit (harness/audit).
 static func tissue_energy_hp_vs_j_parity_metrics() -> Dictionary:
-	const part: String = "right_arm"
+	var part: String = "right_arm"
 	var extras: Dictionary = {
 		"hit_sub_region": "forearm",
 		"strike_ke_j": 12.0,
@@ -594,7 +594,7 @@ static func _audit_new_entity(weapon_id: String) -> CoreEntity:
 	return ent
 
 
-## M5 F5 proxy: forearm graze — shallow pen, no bone chip (production stack).
+## M5 F5 proxy: forearm graze  -  shallow pen, no bone chip (production stack).
 static func f5_forearm_graze_metrics() -> Dictionary:
 	var ent: CoreEntity = _audit_new_entity("SWORD")
 	var extras: Dictionary = {"hit_sub_region": "forearm", "strike_ke_j": 12.0}
@@ -609,12 +609,12 @@ static func f5_forearm_graze_metrics() -> Dictionary:
 	return out
 
 
-## M5 F5 proxy: cuirass chest hit — armor reduces tissue pen vs bare (committed-scale cut).
+## M5 F5 proxy: cuirass chest hit  -  armor reduces tissue pen vs bare (committed-scale cut).
 static func f5_armored_chest_metrics() -> Dictionary:
-	const part: String = "chest"
-	const sub: String = "thoracic"
-	const pen: float = 6.0
-	const cut: float = 18.0
+	var part: String = "chest"
+	var sub: String = "thoracic"
+	var pen: float = 6.0
+	var cut: float = 18.0
 	var extras: Dictionary = {"hit_sub_region": sub, "strike_ke_j": 120.0}
 	var bare: CoreEntity = _audit_new_entity("SWORD")
 	var res_bare: Dictionary = bare.take_damage_split(cut, 0.0, part, pen, -1.0, -1.0, extras)
@@ -647,7 +647,7 @@ static func f5_armored_chest_metrics() -> Dictionary:
 	return out
 
 
-## M5 F5 proxy: mace elbow — blunt KE above anchor fractures (production MFB).
+## M5 F5 proxy: mace elbow  -  blunt KE above anchor fractures (production MFB).
 static func f5_mace_elbow_metrics() -> Dictionary:
 	var ent: CoreEntity = _audit_new_entity("MACE")
 	var j_anchor: float = _DamageMechanism.blunt_fracture_j_anchor("right_arm", "elbow")
@@ -1085,3 +1085,4 @@ static func _packed_lines(text: String) -> PackedStringArray:
 		if not s.is_empty():
 			out.append(s)
 	return out
+  

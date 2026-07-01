@@ -28,10 +28,10 @@ static func clear(c: Dictionary) -> void:
 static func is_active(c: Dictionary, combat_clock: float) -> bool:
 	if not enabled() or c == null or c.is_empty():
 		return false
-	var left: int = int(c.get(KEY_EXCHANGES, 0))
+	var left: int = c.get(KEY_EXCHANGES, 0)
 	if left <= 0:
 		return false
-	var until: float = float(c.get(KEY_UNTIL, -1.0))
+	var until: float = c.get(KEY_UNTIL, -1.0)
 	if until < 0.0:
 		return false
 	if combat_clock >= until:
@@ -43,7 +43,7 @@ static func is_active(c: Dictionary, combat_clock: float) -> bool:
 static func is_active_vs(c: Dictionary, opponent_id: int, combat_clock: float) -> bool:
 	if not is_active(c, combat_clock):
 		return false
-	return int(c.get(KEY_AGAINST, -1)) == opponent_id
+	return c.get(KEY_AGAINST, -1) == opponent_id
 
 
 static func listing_restrict_opponent_id(c: Dictionary, manager: Node) -> int:
@@ -52,7 +52,7 @@ static func listing_restrict_opponent_id(c: Dictionary, manager: Node) -> int:
 	var clk: float = _EntityAccess.combat_clock_float(manager)
 	if not is_active(c, clk):
 		return -1
-	return int(c.get(KEY_AGAINST, -1))
+	return c.get(KEY_AGAINST, -1)
 
 
 static func open_window(manager: Node, combatant_id: int, against_id: int) -> void:
@@ -101,7 +101,7 @@ static func process_waiting(manager: Node, c: Dictionary) -> void:
 static func consume_exchange_on_wind_up_start(c: Dictionary) -> void:
 	if not enabled() or c == null or not c.has(KEY_EXCHANGES):
 		return
-	var left: int = int(c.get(KEY_EXCHANGES, 0)) - 1
+	var left: int = c.get(KEY_EXCHANGES, 0) - 1
 	c[KEY_EXCHANGES] = left
 
 

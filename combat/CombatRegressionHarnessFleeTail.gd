@@ -66,7 +66,7 @@ static func _run_flee_not_legal_light_blood_loss_only(failures: PackedStringArra
 
 ## Tier 6.2: moderate wound + firm line → hold; same wound + low cohesion or casualties → rout allowed.
 static func _run_flee_cohesion_casualty_wounded_not_firm_line(failures: PackedStringArray) -> void:
-	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var _Rout := preload("res://combat/CombatFormationRout.gd")
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -99,7 +99,7 @@ static func _run_flee_cohesion_casualty_wounded_not_firm_line(failures: PackedSt
 
 ## Tier 6.2: casualty ratio on formation side gates rout (independent of cohesion read).
 static func _run_flee_casualty_ratio_triggers_stress(failures: PackedStringArray) -> void:
-	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var _Rout := preload("res://combat/CombatFormationRout.gd")
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -130,7 +130,7 @@ static func _run_flee_casualty_ratio_triggers_stress(failures: PackedStringArray
 
 ## Tier 6.2: winning side with standing advantage should not rout from formation stress alone.
 static func _run_flee_winning_side_holds_wounded_stressed(failures: PackedStringArray) -> void:
-	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var _Rout := preload("res://combat/CombatFormationRout.gd")
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -156,7 +156,7 @@ static func _run_flee_winning_side_holds_wounded_stressed(failures: PackedString
 		CombatRegressionHarness._fail(failures, "flee_winning_hold: flee must not list when winning with numbers")
 	CombatRegressionHarness._soak_kill_combatant(mgr, _EntityAccess.id_int(mgr.combatants[2]))
 	if _Rout.side_holding_field(mgr, front_c):
-		CombatRegressionHarness._fail(failures, "flee_winning_hold: no enemy standing — holding_field dampener must be off")
+		CombatRegressionHarness._fail(failures, "flee_winning_hold: no enemy standing  -  holding_field dampener must be off")
 	# Death notify may recompute `line_cohesion`; re-apply wavering line for rout policy check.
 	form["line_cohesion"] = 0.35
 	if not _EntityAccess.flee_abandonment_warranted(front_c, mgr):
@@ -166,7 +166,7 @@ static func _run_flee_winning_side_holds_wounded_stressed(failures: PackedString
 
 ## Tier 6.2: encounter `flee_casualty_ratio_min_*` overrides default rout gate.
 static func _run_flee_encounter_casualty_threshold(failures: PackedStringArray) -> void:
-	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var _Rout := preload("res://combat/CombatFormationRout.gd")
 	var mgr: Node = _MgrScript.new()
 	mgr.encounter[CombatConstants.ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_PLAYER] = 0.50
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -203,7 +203,7 @@ static func _run_flee_encounter_casualty_threshold(failures: PackedStringArray) 
 
 ## Tier 6.2: encounter `flee_line_cohesion_max_*` tightens rout when cohesion is middling.
 static func _run_flee_encounter_line_cohesion_max(failures: PackedStringArray) -> void:
-	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var _Rout := preload("res://combat/CombatFormationRout.gd")
 	var mgr: Node = _MgrScript.new()
 	mgr.encounter[CombatConstants.ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_PLAYER] = 0.50
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -235,7 +235,7 @@ static func _run_flee_encounter_line_cohesion_max(failures: PackedStringArray) -
 
 ## Tier 6.2: preset **`FORMATION_PRESET_KEY_FLEE_*`** wins over encounter at **`start()`** (`rout_thresholds_by_fid`).
 static func _run_flee_preset_rout_threshold_overrides_encounter(failures: PackedStringArray) -> void:
-	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var _Rout := preload("res://combat/CombatFormationRout.gd")
 	var mgr: Node = _MgrScript.new()
 	mgr.encounter[CombatConstants.ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_PLAYER] = 0.30
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -288,7 +288,7 @@ static func _run_flee_manager_get_rout_threshold(failures: PackedStringArray) ->
 
 ## Tier 6.2: listed **`flee`** duration hint marks instant resolve (not fall_back seconds).
 static func _run_flee_listed_duration_hint_instant(failures: PackedStringArray) -> void:
-	const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
+	var _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
 	var mgr: Node = CombatRegressionHarness._harness_start_player_only()
 	var c: Dictionary = mgr.combatants[0]
 	var cid: int = _EntityAccess.id_int(c)
@@ -405,7 +405,7 @@ static func _run_flee_ai_pick_critical_stamina_never_rotate(failures: PackedStri
 
 ## Tier 6.2: AI flee weight stays high for personal crisis even when side holds the field.
 static func _run_flee_ai_pick_not_dampened_personal_crisis(failures: PackedStringArray) -> void:
-	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var _Rout := preload("res://combat/CombatFormationRout.gd")
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -441,7 +441,7 @@ static func _run_flee_ai_pick_not_dampened_personal_crisis(failures: PackedStrin
 
 ## p4f: losing side under formation stress gets extra flee pick weight.
 static func _run_flee_ai_losing_side_mult_boost(failures: PackedStringArray) -> void:
-	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var _Rout := preload("res://combat/CombatFormationRout.gd")
 	var mgr: Node = _MgrScript.new()
 	for _i in 2:
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -479,7 +479,7 @@ static func _run_flee_ai_losing_side_mult_boost(failures: PackedStringArray) -> 
 
 ## p4f UX: early rout hint when line wavers but **`flee`** is not listed yet.
 static func _run_rout_pressure_early_hint_when_losing_stressed(failures: PackedStringArray) -> void:
-	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var _Rout := preload("res://combat/CombatFormationRout.gd")
 	var mgr: Node = _MgrScript.new()
 	for _i in 2:
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -506,7 +506,7 @@ static func _run_rout_pressure_early_hint_when_losing_stressed(failures: PackedS
 
 ## Tier 6.2: gauge rout tooltip hidden when formation stress is blocked by holding the field.
 static func _run_flee_rout_tooltip_suppressed_when_holding(failures: PackedStringArray) -> void:
-	const _Rout := preload("res://combat/CombatFormationRout.gd")
+	var _Rout := preload("res://combat/CombatFormationRout.gd")
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -600,7 +600,7 @@ static func _run_flee_clears_doctrine_commitment(failures: PackedStringArray) ->
 
 ## Tier 6.2: formation diagram omits fled unit from rank/file cells; lists under **Fled:** line.
 static func _run_flee_formation_diagram_omits_fled_from_grid(failures: PackedStringArray) -> void:
-	const _Diagram := preload("res://ui/FormationDiagramBuilder.gd")
+	var _Diagram := preload("res://ui/FormationDiagramBuilder.gd")
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -682,7 +682,7 @@ static func _run_combat_log_formatter_fled_outcome(failures: PackedStringArray) 
 	if "fled the field" not in line:
 		CombatRegressionHarness._fail(failures, "combat_log_fled: want fled the field got %s" % line)
 
-## p4f Expand closeout entry — full Tier 6.2 flee / rout suite (listing, AI, UX, resolve).
+## p4f Expand closeout entry  -  full Tier 6.2 flee / rout suite (listing, AI, UX, resolve).
 static func run(failures: PackedStringArray) -> void:
 	_run_flee_not_listed_when_immobile(failures)
 	_run_flee_not_legal_light_blood_loss_only(failures)

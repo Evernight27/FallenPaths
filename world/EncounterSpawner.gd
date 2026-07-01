@@ -1,6 +1,7 @@
 class_name EncounterSpawner
 extends RefCounted
 
+const _ResourcePaths := preload("res://core/ResourcePaths.gd")
 const _EncounterNodeScript := preload("res://world/EncounterNode.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _OverworldMap := preload("res://world/OverworldMap.gd")
@@ -12,10 +13,9 @@ const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 
 static func spawn_encounters(parent: Node, rng: RandomNumberGenerator, num_encounters: int, enemies_per_encounter: int, enemy_scene: PackedScene) -> void:
 	var excluded_tiles: Array = []
-	if parent.has_node("Character"):
-		excluded_tiles.append(
-			_CampaignBridge.overworld_tile_from_position(parent.get_node("Character").position)
-		)
+	var player: Node2D = _CampaignBridge.get_player(parent)
+	if player != null:
+		excluded_tiles.append(_CampaignBridge.overworld_tile_from_position(player.position))
 	for i in num_encounters:
 		var used_tile = _spawn_encounter_marker(parent, rng, enemies_per_encounter, excluded_tiles, enemy_scene)
 		if used_tile != null:
@@ -23,7 +23,7 @@ static func spawn_encounters(parent: Node, rng: RandomNumberGenerator, num_encou
 static func _spawn_encounter_marker(parent: Node, rng: RandomNumberGenerator, enemy_count: int, excluded_tiles: Array, enemy_scene: PackedScene) -> Variant:
 	var scene = enemy_scene
 	if scene == null:
-		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
+		scene = _ResourcePaths.get_enemy_scene()
 	if scene == null:
 		return null
 	var tries = 0
@@ -60,14 +60,13 @@ static func spawn_soak_encounter_marker(
 		return null
 	var scene := enemy_scene
 	if scene == null:
-		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
+		scene = _ResourcePaths.get_enemy_scene()
 	if scene == null:
 		return null
 	var skip: Array = excluded_tiles.duplicate()
-	if parent.has_node("Character"):
-		skip.append(
-			_CampaignBridge.overworld_tile_from_position(parent.get_node("Character").position)
-		)
+	var player: Node2D = _CampaignBridge.get_player(parent)
+	if player != null:
+		skip.append(_CampaignBridge.overworld_tile_from_position(player.position))
 	for child in parent.get_children():
 		if child.get_script() == _EncounterNodeScript:
 			skip.append(_CampaignBridge.overworld_tile_from_position(child.position))
@@ -113,7 +112,7 @@ static func weapon_id_from_entity(entity: Node) -> String:
 	return ""
 
 
-## D-persistence P2: body_part → armor definition id (empty values omitted).
+## D-persistence P2: body_part â†' armor definition id (empty values omitted).
 static func armor_ids_from_entity(entity: Node) -> Dictionary:
 	var out: Dictionary = {}
 	if entity == null or not ("armor_slots" in entity):
@@ -151,7 +150,7 @@ static func _armor_piece_id_from_instance(piece: ArmorPiece) -> String:
 	for ids in options.values():
 		if ids is not Array:
 			continue
-		for raw_id in ids as Array:
+		for raw_id in ids:
 			var piece_id: String = str(raw_id)
 			var def: Dictionary = ArmorConstants.get_piece_definition(piece_id)
 			if def.is_empty():

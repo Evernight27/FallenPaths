@@ -6,19 +6,16 @@ extends RefCounted
 ## direct_pressure_part, self_direct_pressure_part, direct_pressure_held_by, name.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _CombatLayerTissue := preload("res://core/CombatLayerTissue.gd")
 const _BloodVolumeMl := preload("res://core/BloodVolumeMl.gd")
 const _Healing := preload("res://core/HealingConstants.gd")
 const _EntityMedical := preload("res://core/EntityMedical.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _StatsUtil := preload("res://core/EntityStatsUtil.gd")
 
-static func _effective_endurance_for_clotting(entity: Node) -> float:
-	var eff: float = float(entity.endurance)
-	if _CompanyState.read_stub_proficiency_enabled() and entity.has("_proficiency_bonus"):
-		eff += float(entity._proficiency_bonus.get("endurance", 0) or 0)
-	return eff
+static func effective_endurance_for_clotting(entity: Node) -> float:
+	return _StatsUtil.get_effective_stat(entity, "endurance")
 
 # Impact KE coupling for wounds (tune with weapon KE bands in WeaponDamageHelper / ImpactVelocityModel).
 # ~55 J aligns with typical one-handed cut/thrust order of magnitude used in WeaponConstants / armor docs.
@@ -94,7 +91,7 @@ static func severity_from_damage(
 	impact_ke_j: float = -1.0,
 	penetration_to_tissue_mm: float = -1.0
 ) -> String:
-	var max_hp: float = float(entity.body_max.get(part, 10))
+	var max_hp: float = entity.body_max.get(part, 10)
 	if max_hp <= 0.0:
 		return _Bleeding.SEVERITY_MODERATE
 	var ke_mult: float = 1.0
@@ -115,7 +112,7 @@ static func severity_from_damage(
 static func severity_from_bone_damage(entity: Node, part: String, bone_damage: float) -> String:
 	if bone_damage <= 0.0:
 		return _Bleeding.SEVERITY_MINOR
-	var max_bone: float = float(entity.bone_max.get(part, 1))
+	var max_bone: float = entity.bone_max.get(part, 1)
 	if max_bone <= 0.0:
 		return _Bleeding.SEVERITY_MODERATE
 	if _Bleeding.FEATURE_ABSOLUTE_SEVERITY_BANDS:
@@ -154,28 +151,28 @@ static func _try_merge_wound_into_channel(
 		return false
 	var sr_key: String = sub_region if not sub_region.is_empty() else ""
 	for injury in entity.wounds[part]:
-		if str(injury.get("sub_region", "")) != sr_key:
+		if injury.get("sub_region", "") != sr_key:
 			continue
-		var existing_type: String = str(injury.get("injury_type", ""))
+		var existing_type: String = injury.get("injury_type", "")
 		if existing_type != injury_type and base_rate > 0.0:
 			if existing_type not in [_Bleeding.INJURY_TYPE_CUT, _Bleeding.INJURY_TYPE_CRUSH]:
 				continue
 			if injury_type not in [_Bleeding.INJURY_TYPE_CUT, _Bleeding.INJURY_TYPE_CRUSH]:
 				continue
-		injury["damage"] = float(injury.get("damage", 0.0)) + damage
+		injury["damage"] = injury.get("damage", 0.0) + damage
 		if _severity_rank(severity) > _severity_rank(str(injury.get("severity", _Bleeding.SEVERITY_MODERATE))):
 			injury["severity"] = severity
 		if is_arterial:
 			injury["is_arterial"] = true
 		if base_rate > 0.0:
-			var prev_base: float = float(injury.get("base_bleeding_rate", 0.0))
-			var prev_cur: float = float(injury.get("current_bleeding_rate", 0.0))
+			var prev_base: float = injury.get("base_bleeding_rate", 0.0)
+			var prev_cur: float = injury.get("current_bleeding_rate", 0.0)
 			injury["base_bleeding_rate"] = prev_base + base_rate
 			injury["current_bleeding_rate"] = prev_cur + base_rate
 			injury["is_stabilized"] = false
 			injury.erase("stabilized_remaining_seconds")
 		injury["healing_duration_seconds"] = maxf(
-			float(injury.get("healing_duration_seconds", 0.0)), healing_duration
+			injury.get("healing_duration_seconds", 0.0), healing_duration
 		)
 		return true
 	return false
@@ -240,7 +237,7 @@ static func add_wound(
 	}
 	entity.wounds[part].append(injury)
 
-## When sub_region is empty, uses RNG stump site (not combat hit path — use resolved hit_sub_region from EntityDamage).
+## When sub_region is empty, uses RNG stump site (not combat hit path  -  use resolved hit_sub_region from EntityDamage).
 static func create_stump_wound(entity: Node, part: String, sub_region: String) -> Array:
 	if sub_region.is_empty():
 		sub_region = _Bleeding.get_random_sub_region(part)
@@ -252,7 +249,7 @@ static func create_stump_wound(entity: Node, part: String, sub_region: String) -
 	var is_arterial: bool = randf() < arterial_chance
 	if is_arterial:
 		base_rate *= _Bleeding.ARTERIAL_BLEEDING_MULTIPLIER
-	var damage: float = float(entity.body_max.get(part, 10))
+	var damage: float = entity.body_max.get(part, 10)
 	var healing_duration: float = _Healing.get_wound_healing_duration_seconds(part, _Bleeding.SEVERITY_CRITICAL, _Bleeding.INJURY_TYPE_CUT)
 	var injury: Dictionary = {
 		"injury_type": _Bleeding.INJURY_TYPE_CUT,
@@ -274,7 +271,7 @@ static func has_stump_wound(entity: Node, part: String) -> bool:
 	if part.is_empty() or not entity.wounds.has(part):
 		return false
 	for injury in entity.wounds[part]:
-		if bool(injury.get("is_stump", false)):
+		if injury.get("is_stump", false):
 			return true
 	return false
 
@@ -299,7 +296,7 @@ static func part_has_active_direct_pressure(entity: Node, part: String) -> bool:
 static func part_has_definitive_hemostasis(entity: Node, part: String) -> bool:
 	if part.is_empty():
 		return false
-	if bool(entity.bandaged_parts.get(part, false)) or bool(entity.packed_parts.get(part, false)):
+	if entity.bandaged_parts.get(part, false) or entity.packed_parts.get(part, false):
 		return true
 	return entity.tourniquet_applied.has(part)
 
@@ -310,15 +307,15 @@ static func get_bleeding_rate_for_part(entity: Node, part: String) -> float:
 	var rate: float = 0.0
 	var under_pressure: bool = part_has_active_direct_pressure(entity, part)
 	for injury in entity.wounds[part]:
-		var r: float = float(injury.get("current_bleeding_rate", 0.0))
+		var r: float = injury.get("current_bleeding_rate", 0.0)
 		if under_pressure:
-			r *= _Bleeding.direct_pressure_held_flow_retained(bool(injury.get("is_arterial", false)))
+			r *= _Bleeding.direct_pressure_held_flow_retained(injury.get("is_arterial", false))
 		rate += r
 	if not entity.tourniquet_applied.has(part):
 		return rate
 	_EntityMedical.ensure_tourniquet_dict_entry(entity, part)
 	var data: Dictionary = entity.tourniquet_applied[part]
-	var eff: float = float(data.get("effectiveness", 1.0))
+	var eff: float = data.get("effectiveness", 1.0)
 	var reduction: float = eff * _Bleeding.TOURNIQUET_REDUCTION_AT_FULL
 	return rate * (1.0 - reduction)
 
@@ -361,9 +358,9 @@ static func get_part_intervention_threat(entity: Node, part: String) -> float:
 	var rate: float = get_bleeding_rate_for_part(entity, part)
 	var bonus: float = 0.0
 	for injury in entity.wounds[part]:
-		if bool(injury.get("is_arterial", false)):
+		if injury.get("is_arterial", false):
 			bonus += 2.25
-		if bool(injury.get("is_stump", false)):
+		if injury.get("is_stump", false):
 			bonus += 4.5
 		var sev: String = str(injury.get("severity", _Bleeding.SEVERITY_MODERATE))
 		if sev == _Bleeding.SEVERITY_CRITICAL:
@@ -386,7 +383,7 @@ static func sorted_untreated_part_names(entity: Node) -> Array:
 			continue
 		parts.append(p)
 	parts.sort_custom(func(a, b) -> bool:
-		return get_part_intervention_threat(entity, str(a)) > get_part_intervention_threat(entity, str(b))
+		return get_part_intervention_threat(entity, a) > get_part_intervention_threat(entity, b)
 	)
 	return parts
 
@@ -406,20 +403,16 @@ static func _blood_volume_safe_to_release_pressure(entity: Node) -> bool:
 	return float(entity.blood_volume) > threshold
 
 
-## Safe to stop holding: dressed/packed/tourniqueted only — do not release on local clot alone (TCCC: keep compression until dressed).
+## Safe to stop holding: dressed/packed/tourniqueted only  -  do not release on local clot alone (TCCC: keep compression until dressed).
 static func _hemostasis_allows_pressure_release(entity: Node, part: String) -> bool:
-	if part_has_definitive_hemostasis(entity, part):
-		return true
-	if not _blood_volume_safe_to_release_pressure(entity):
-		return false
-	return false
+	return part_has_definitive_hemostasis(entity, part) and _blood_volume_safe_to_release_pressure(entity)
 
 
 static func _pressure_release_reason(entity: Node, part: String) -> String:
 	if part_has_definitive_hemostasis(entity, part):
-		if bool(entity.bandaged_parts.get(part, false)):
+		if entity.bandaged_parts.get(part, false):
 			return "bandaged"
-		if bool(entity.packed_parts.get(part, false)):
+		if entity.packed_parts.get(part, false):
 			return "packed"
 		if entity.tourniquet_applied.has(part):
 			return "tourniquet"
@@ -438,7 +431,7 @@ static func rebound_bleeding_after_pressure_release(entity: Node, part: String) 
 		return
 	var before: float = get_bleeding_rate_for_part(entity, part)
 	for injury in entity.wounds[part]:
-		var rate: float = float(injury.get("current_bleeding_rate", 0.0))
+		var rate: float = injury.get("current_bleeding_rate", 0.0)
 		var base: float = float(injury.get("base_bleeding_rate", rate))
 		var clotting_ratio: float = clampf(rate / maxf(base, 0.001), 0.0, 1.0)
 		var full_rebound: float = base * _Bleeding.DIRECT_PRESSURE_REBOUND_TO_INTRINSIC_MULT
@@ -448,7 +441,7 @@ static func rebound_bleeding_after_pressure_release(entity: Node, part: String) 
 		injury["is_stabilized"] = false
 		injury.erase("stabilized_remaining_seconds")
 	var after: float = get_bleeding_rate_for_part(entity, part)
-	# Always log pressure rebound — it is a critical UX event (player sees bleeding spike without understanding why).
+	# Always log pressure rebound  -  it is a critical UX event (player sees bleeding spike without understanding why).
 	# Bypass EntityMedical.log_medical_session which filters these in F5 sessions.
 	_CombatDebug.medical_session(
 		"%s pressure_rebound part=%s bleed %.3f→%.3f (released without dressing)"
@@ -478,7 +471,7 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 					clotting *= _Bleeding.ARTERIAL_CLOTTING_MULTIPLIER
 				if under_pressure:
 					clotting = maxf(clotting, _Bleeding.CLOTTING_RATE_UNDER_DIRECT_PRESSURE)
-				var end_factor: float = clampf(0.9 + _effective_endurance_for_clotting(entity) / 1000.0, 0.9, 1.1)
+				var end_factor: float = clampf(0.9 + EntityWounds.effective_endurance_for_clotting(entity) / 1000.0, 0.9, 1.1)
 				clotting *= end_factor
 			rate = rate * exp(-clotting * delta)
 			rate = maxf(0.0, rate)

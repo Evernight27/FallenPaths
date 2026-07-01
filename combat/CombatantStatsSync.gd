@@ -1,12 +1,19 @@
-class_name CombatantStatsSync
+﻿class_name CombatantStatsSync
 extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
+
+# Runtime preload â€” circular dependency (CompanyState â†’ CampaignEncounterBridge â†’ CombatantStatsSync).
+static var _CompanyState: Variant = null
+
+static func _get_company_state() -> GDScript:
+	if CombatantStatsSync._CompanyState == null:
+		CombatantStatsSync._CompanyState = load("res://world/CompanyState.gd")
+	return CombatantStatsSync._CompanyState
 
 ## Syncs entity health/combat stats into a combatant stats dictionary.
 ## Used by CombatManager for _refresh_combatant_stats and get_combatants.
-## Ensures single source of truth for entity→stats copy logic.
+## Ensures single source of truth for entityÃ¢â€ 'stats copy logic.
 
 ## Copies core body/stats fields from entity to stats dict. Shared by sync_from_entity and sync_from_entity_for_register.
 static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
@@ -21,8 +28,8 @@ static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
 		stats.bone_max = entity.bone_max.duplicate()
 	if "body_max" in entity:
 		stats.body_max = entity.body_max.duplicate()
-	# Core stats — apply proficiency bonuses when system is enabled.
-	var prof_active := _CompanyState.read_stub_proficiency_enabled()
+	# Core stats â€”" apply proficiency bonuses when system is enabled.
+	var prof_active: bool = _get_company_state().read_stub_proficiency_enabled()
 	if "strength" in entity:
 		stats.strength = _apply_prof_bonus(entity, "strength", entity.strength, prof_active)
 	if "agility" in entity:
@@ -41,12 +48,10 @@ static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
 static func _apply_prof_bonus(entity: Node, stat_key: String, base_value: Variant, prof_active: bool) -> int:
 	if not prof_active:
 		return int(base_value)
-	if not entity.has("_proficiency_bonus"):
+	if not "_proficiency_bonus" in entity:
 		return int(base_value)
-	var bonus := entity._proficiency_bonus.get(stat_key, 0)
-	if bonus == null:
-		bonus = 0
-	return int(base_value) + int(float(bonus))
+	var bonus: int = entity._proficiency_bonus.get(stat_key, 0)
+	return int(base_value) + bonus
 
 ## Syncs entity state into stats dict (mutates stats in place).
 ## If ensure_consciousness is true, calls entity.ensure_consciousness_current() first.
@@ -64,7 +69,7 @@ static func sync_from_entity(entity: Node, stats: Dictionary, ensure_consciousne
 		stats.effective_consciousness = entity.get_effective_consciousness()
 	if entity.has_method("get_performance_modifier"):
 		stats.performance_modifier = entity.get_performance_modifier()
-## Returns initial stats dict for combatant registration. Single source of truth for entity→stats copy.
+## Returns initial stats dict for combatant registration. Single source of truth for entityÃ¢â€ 'stats copy.
 ## Entity can be null; returns defaults. Handles CoreEntity-style and nodes with "speed" instead of "agility".
 static func sync_from_entity_for_register(entity: Node) -> Dictionary:
 	var s := {

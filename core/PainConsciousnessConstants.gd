@@ -1,7 +1,11 @@
 class_name PainConsciousnessConstants
 extends RefCounted
 
-# Pain and consciousness (Combat Extended–style), adjusted for fallen-paths action-bar combat.
+## Pain scale multipliers by body part and sub-region; consciousness thresholds.
+
+const _Bp := preload("res://core/BodyPartConstants.gd")
+
+# Pain and consciousness (Combat Extended - style), adjusted for fallen-paths action-bar combat.
 # Used by CoreEntity and CombatManager for gauge fill, hit chance, and incapacitation.
 
 # --- Pain normalization: Method A (reference-based) vs Method B (normalized) ---
@@ -10,7 +14,7 @@ extends RefCounted
 const USE_NORMALIZED_PAIN: bool = true  # Method B = canonical implementation
 
 # --- Method A: Reference-based thresholds (when USE_NORMALIZED_PAIN = false) ---
-# PAIN_REFERENCE = typical pain from 1 moderate hit. Thresholds = NRS × PAIN_PER_NRS. Update when damage scale changes.
+# PAIN_REFERENCE = typical pain from 1 moderate hit. Thresholds = NRS - -  PAIN_PER_NRS. Update when damage scale changes.
 const PAIN_REFERENCE_MODERATE_HIT: float = 6.0
 const PAIN_PER_NRS_POINT: float = 3.0  # total_pain / this ≈ NRS; research: NRS 4 = first effect
 const PAIN_MODERATE: float = PAIN_REFERENCE_MODERATE_HIT * 2.0   # ~12: ~2 moderate hits
@@ -22,7 +26,7 @@ const PAIN_SHOCK_RISK_PER_POINT_RAW: float = 0.02  # (pain - 30) * 0.02; 10 over
 
 # --- Method B: Normalized thresholds (when USE_NORMALIZED_PAIN = true) ---
 # effective_pain = total_pain / get_pain_reference(entity). Fixed NRS-equivalent thresholds.
-const NRS_FIRST_EFFECT: float = 4.0   # research: NRS 4–5 = first functional impairment
+const NRS_FIRST_EFFECT: float = 4.0   # research: NRS 4 - 5 = first functional impairment
 const NRS_MODERATE: float = 6.0
 const NRS_SEVERE: float = 8.0
 const NRS_INTOLERABLE: float = 10.0
@@ -41,9 +45,9 @@ const PAIN_SHOCK_SUSCEPTIBILITY_MULT_HIGH: float = 1.2  # at/above NRS_SEVERE
 
 # --- Pain → performance modifier (action bar fill, hit chance, wind-up, etc). Research-aligned; pain impairs function. ---
 const PAIN_PERFORMANCE_NONE: float = 0.0
-const PAIN_PERFORMANCE_MINOR: float = 0.08    # -8% (NRS 4–6: first functional impairment)
-const PAIN_PERFORMANCE_MODERATE: float = 0.20  # -20% (NRS 6–8: moderate impairment)
-const PAIN_PERFORMANCE_SEVERE: float = 0.35   # -35% (NRS 8–10: severe impairment)
+const PAIN_PERFORMANCE_MINOR: float = 0.08    # -8% (NRS 4 - 6: first functional impairment)
+const PAIN_PERFORMANCE_MODERATE: float = 0.20  # -20% (NRS 6 - 8: moderate impairment)
+const PAIN_PERFORMANCE_SEVERE: float = 0.35   # -35% (NRS 8 - 10: severe impairment)
 const PAIN_PERFORMANCE_EXTREME: float = 0.50   # -50% (NRS 10+: extreme impairment)
 
 # --- Consciousness: direct scale (effective_consciousness / 100 = performance scale). ---
@@ -72,7 +76,7 @@ const PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER: float = 2.0  # max duration mul
 # --- Performance floor (action bar and hit chance never below this). ---
 const MIN_PERFORMANCE_MODIFIER: float = 0.35
 
-# --- Per-injury pain: damage × severity_mult × body_part_mult × injury_type_mult × (1 - healing). ---
+# --- Per-injury pain: damage - -  severity_mult - -  body_part_mult - -  injury_type_mult - -  (1 - healing). ---
 const SEVERITY_PAIN_MULTIPLIERS: Dictionary = {
 	"minor": 0.5,
 	"moderate": 1.0,
@@ -83,22 +87,22 @@ const SEVERITY_PAIN_MULTIPLIERS: Dictionary = {
 # --- Body part pain multipliers (cortical representation + clinical pain salience). ---
 # Head/face/chest more salient; hands high; limbs baseline; feet lower. Research: somatosensory homunculus, wound pain.
 const BODY_PART_PAIN_MULTIPLIERS: Dictionary = {
-	"head": 1.4,
-	"chest": 1.25,
-	"right_arm": 1.0,
-	"left_arm": 1.0,
-	"right_leg": 0.95,
-	"left_leg": 0.95
+	_Bp.PART_HEAD: 1.4,
+	_Bp.PART_CHEST: 1.25,
+	_Bp.PART_RIGHT_ARM: 1.0,
+	_Bp.PART_LEFT_ARM: 1.0,
+	_Bp.PART_RIGHT_LEG: 0.95,
+	_Bp.PART_LEFT_LEG: 0.95
 }
 
 # --- Sub-region pain multipliers (hand, face, neck higher; foot lower). ---
 const SUB_REGION_PAIN_MULTIPLIERS: Dictionary = {
-	"head": {"scalp": 1.3, "face": 1.4, "neck": 1.35},
-	"chest": {"thoracic": 1.2, "abdominal": 1.15},
-	"right_arm": {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
-	"left_arm": {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
-	"right_leg": {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9},
-	"left_leg": {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9}
+	_Bp.PART_HEAD: {"scalp": 1.3, "face": 1.4, "neck": 1.35},
+	_Bp.PART_CHEST: {"thoracic": 1.2, "abdominal": 1.15},
+	_Bp.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
+	_Bp.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
+	_Bp.PART_RIGHT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9},
+	_Bp.PART_LEFT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9}
 }
 
 # --- Injury type pain multipliers (fracture/crush often more debilitating than cut). ---

@@ -3,12 +3,14 @@ extends RefCounted
 
 ## Tier 1.9 (P10): depth-rank spear/polearm lanes, line threat, low-target filtering, attack `pa` lane flags.
 
+const _DataKeys := preload("res://core/DataKeys.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FileKeyedDict := preload("res://combat/CombatFileKeyedDict.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
+const _Bp := preload("res://core/BodyPartConstants.gd")
 
 
 ## Host-line formation id for melee column / lane checks (same contract as **`zone_geometry_fid_str`**).
@@ -161,8 +163,8 @@ static func depth_polearm_lane_allows_low_targets(
 
 ## Depth spear lane flags on attack **`pa`** (after pair geometry stamped).
 static func stamp_depth_flags_on_pa(manager: Node, atk: Dictionary, pa: Dictionary) -> void:
-	pa["depth_polearm_attack"] = false
-	pa["depth_polearm_allows_low_targets"] = true
+	pa[_DataKeys.PA_DEPTH_POLEARM_ATTACK] = false
+	pa[_DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW] = true
 	pa["depth_polearm_lane_type"] = ""
 	if manager == null or atk.is_empty() or _EntityAccess.rank_int(atk) <= 0:
 		return
@@ -170,14 +172,14 @@ static func stamp_depth_flags_on_pa(manager: Node, atk: Dictionary, pa: Dictiona
 	var fid_stamp: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_stamp)
 	if not depth_polearm_lane_open(manager, atk, fid_stamp):
 		return
-	pa["depth_polearm_attack"] = true
+	pa[_DataKeys.PA_DEPTH_POLEARM_ATTACK] = true
 	var fd_stamp: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_stamp)
 	if not fd_stamp.is_empty():
 		pa["zone_geometry_atk_density"] = str(fd_stamp.get("density", "normal"))
 	var allow_low: bool = depth_polearm_lane_allows_low_targets(
 		manager, atk, fid_stamp, fd_stamp, true
 	)
-	pa["depth_polearm_allows_low_targets"] = allow_low
+	pa[_DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW] = allow_low
 	pa["depth_polearm_lane_type"] = (
 		CombatConstants.DEPTH_POLEARM_LANE_TYPE_OPEN
 		if allow_low
@@ -190,10 +192,10 @@ static func depth_polearm_targetable_parts_filter(
 ) -> Array:
 	if targetable.is_empty() or manager == null or attacker.is_empty():
 		return targetable
-	if stamped_pa.has("depth_polearm_attack"):
-		if stamped_pa.get("depth_polearm_attack", false) != true:
+	if stamped_pa.has(_DataKeys.PA_DEPTH_POLEARM_ATTACK):
+		if stamped_pa.get(_DataKeys.PA_DEPTH_POLEARM_ATTACK, false) != true:
 			return targetable
-		if stamped_pa.get("depth_polearm_allows_low_targets", true) == true:
+		if stamped_pa.get(_DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW, true):
 			return targetable
 	else:
 		var ctx_filt: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, attacker)
@@ -207,7 +209,7 @@ static func depth_polearm_targetable_parts_filter(
 			return targetable
 	var out: Array = []
 	for p in targetable:
-		if p == "left_leg" or p == "right_leg":
+		if p == _Bp.PART_LEFT_LEG or p == _Bp.PART_RIGHT_LEG:
 			continue
 		out.append(p)
 	return out if not out.is_empty() else targetable
@@ -254,33 +256,35 @@ static func _depth_polearm_action_weight_mult_internal(
 	if ct == _WeaponConstants.ATTACK_TYPE_STAB:
 		var w: float = CombatConstants.DEPTH_POLEARM_AI_STAB_WEIGHT_MULT
 		var doc: String = _CombatDoctrine.doctrine_for_fid(manager, fid)
-		if doc == CombatConstants.DOCTRINE_PINCH_CENTER:
-			w *= manager.get_depth_polearm_ai_doctrine_mult(
-				fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB
-			)
-		elif doc == CombatConstants.DOCTRINE_HOLD_LANE:
-			w *= manager.get_depth_polearm_ai_doctrine_mult(
-				fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_HOLD_STAB
-			)
-		elif doc == CombatConstants.DOCTRINE_PROBING:
-			w *= manager.get_depth_polearm_ai_doctrine_mult(
-				fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PROBING_STAB
-			)
+		match doc:
+			CombatConstants.DOCTRINE_PINCH_CENTER:
+				w *= manager.get_depth_polearm_ai_doctrine_mult(
+					fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB
+				)
+			CombatConstants.DOCTRINE_HOLD_LANE:
+				w *= manager.get_depth_polearm_ai_doctrine_mult(
+					fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_HOLD_STAB
+				)
+			CombatConstants.DOCTRINE_PROBING:
+				w *= manager.get_depth_polearm_ai_doctrine_mult(
+					fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PROBING_STAB
+				)
 		return w
 	if ct == _WeaponConstants.ATTACK_TYPE_CUT or ct == _WeaponConstants.ATTACK_TYPE_BLUNT:
 		var w2: float = CombatConstants.DEPTH_POLEARM_AI_NON_STAB_WEIGHT_MULT
 		var doc2: String = _CombatDoctrine.doctrine_for_fid(manager, fid)
-		if doc2 == CombatConstants.DOCTRINE_HOLD_LANE:
-			w2 *= manager.get_depth_polearm_ai_doctrine_mult(
-				fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_HOLD_NON_STAB
-			)
-		elif doc2 == CombatConstants.DOCTRINE_PINCH_CENTER:
-			w2 *= manager.get_depth_polearm_ai_doctrine_mult(
-				fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PINCH_NON_STAB
-			)
-		elif doc2 == CombatConstants.DOCTRINE_PROBING:
-			w2 *= manager.get_depth_polearm_ai_doctrine_mult(
-				fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PROBING_NON_STAB
-			)
+		match doc2:
+			CombatConstants.DOCTRINE_HOLD_LANE:
+				w2 *= manager.get_depth_polearm_ai_doctrine_mult(
+					fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_HOLD_NON_STAB
+				)
+			CombatConstants.DOCTRINE_PINCH_CENTER:
+				w2 *= manager.get_depth_polearm_ai_doctrine_mult(
+					fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PINCH_NON_STAB
+				)
+			CombatConstants.DOCTRINE_PROBING:
+				w2 *= manager.get_depth_polearm_ai_doctrine_mult(
+					fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PROBING_NON_STAB
+				)
 		return w2
 	return 1.0

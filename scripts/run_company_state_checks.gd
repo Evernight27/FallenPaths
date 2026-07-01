@@ -4,7 +4,7 @@ extends SceneTree
 ## Run: .\scripts\run_company_state_checks.ps1
 ## Labels: Camp-1.x / XCamp-3.x in failure messages map to SHIP_PLAN § Camp-1 / EXPANSION_PLAN Exp-3.
 ## Gate: stdout `FP_HARNESS_OK: CompanyStateChecks` (test count in message; sync `scripts/README.md`).
-## P2 rows use `CampaignPersistence.begin_harness_isolated_save()` — production `user://fallen_paths_slot0.json` untouched.
+## P2 rows use `CampaignPersistence.begin_harness_isolated_save()`  -  production `user://fallen_paths_slot0.json` untouched.
 ## Fails if any `SCRIPT_ERROR` is logged during the run (`FallenPathsErrorLogger` tally).
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
@@ -547,7 +547,7 @@ static func _run_camp_1_4_contracts(failures: PackedStringArray) -> void:
 	else:
 		_pass()
 	if _CompanyState.format_wages_short_log(10, 30) != (
-		"Wages short — paid what you could; mood fell (gold 10, bill 30)."
+		"Wages short  -  paid what you could; mood fell (gold 10, bill 30)."
 	):
 		_fail(failures, "Camp-2.6: wages short log shape drift")
 	else:
@@ -786,7 +786,7 @@ static func _run_camp_1_4_contracts(failures: PackedStringArray) -> void:
 	else:
 		_pass()
 	var tut_body: String = _CompanyRunEndPanel.format_run_end_body(
-		"tutorial_failed", "Tutorial lost. You'll return to camp — try again when ready."
+		"tutorial_failed", "Tutorial lost. You'll return to camp  -  try again when ready."
 	)
 	if tut_body.contains("Restart reloads") or tut_body.contains("autosave"):
 		_fail(
@@ -1254,7 +1254,7 @@ static func _run_overworld_map_5x5(failures: PackedStringArray) -> void:
 	_CompanyState.set_gold(spawn_world, 888)
 	spawn_world.get_node("Character").position = _OverworldMap.tile_center(Vector2i(3, 2))
 	if not _Persistence.save_slot(spawn_world):
-		_fail(failures, "XCamp-3.2 P2: save on 5×5 map failed")
+		_fail(failures, "XCamp-3.2 P2: save on 5- - 5 map failed")
 	else:
 		_pass()
 	var map_loaded: Dictionary = _Persistence.load_save()
@@ -1711,7 +1711,7 @@ static func _run_xcamp_38_ms_camp_bridge(failures: PackedStringArray) -> void:
 
 ## XCamp-3.9: campaign mood bias → mental stack weight multipliers via bridge meta.
 static func _run_xcamp_39_mood_bias_to_ms(failures: PackedStringArray) -> void:
-	const _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
+	var _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
 	# Basic multiplier boundaries: low mood (≤25) → defensive bias, high mood (≥70) → aggressive bias.
 	if _MoodBias.wait_action_weight_mult(0.0) < 1.0:
 		_fail(failures, "XCamp-3.9: mood=0 should increase wait weight above 1.0")
@@ -3358,8 +3358,8 @@ static func _run_camp_3_player_front_count_encounter(failures: PackedStringArray
 
 
 static func _run_camp_4_contract_flavor(failures: PackedStringArray) -> void:
-	const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
-	const _CombatConstants := preload("res://combat/CombatConstants.gd")
+	var _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
+	var _CombatConstants := preload("res://combat/CombatConstants.gd")
 	var skirmish: Dictionary = _ContractSpawner.build_encounter_config(
 		_ContractSpawner.CONTRACT_TEMPLATES[0]
 	)

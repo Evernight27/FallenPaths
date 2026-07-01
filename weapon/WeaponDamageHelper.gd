@@ -8,10 +8,10 @@ const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
 const _SwingPhysics := preload("res://weapon/WeaponSwingPhysics.gd")
 ## Physics-leaning intensity mapping: low commitment stays near lower band, full commitment still reaches cap.
 const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.2
-## Floor for effective delivery intensity (intensity × extension commit).
+## Floor for effective delivery intensity (intensity - -  extension commit).
 const DELIVERY_INTENSITY_FLOOR := 0.05
 const DELIVERY_COMMIT_FLOOR := 0.05
-## Rotational KE uses min(full I, m_strike r²); latter matches ½ m_strike v² for rigid v = ω r (point-mass ceiling).
+## Rotational KE uses min(full I, m_strike rÂ²); latter matches Â½ m_strike vÂ² for rigid v = Ï r (point-mass ceiling).
 const INERTIA_KE_STRIKE_CAP_MULT := 1.0
 
 ## Default effective target mass (kg) when no species / unknown part (mid-torso order of magnitude).
@@ -29,7 +29,7 @@ const _PART_BODY_MASS_FRACTION := {
 	"right_leg": 0.161,
 	"left_leg": 0.161,
 }
-## Fist/hand effective mass × nominal hand speed × coupling → same abstract scale as previous (strength/100)*8 at ~100 STR.
+## Fist/hand effective mass - -  nominal hand speed - -  coupling â same abstract scale as previous (strength/100)*8 at ~100 STR.
 const UNARMED_FIST_EFFECTIVE_MASS_KG := 0.55
 const UNARMED_TYPICAL_HAND_SPEED_M_S := 7.0
 const UNARMED_MOMENTUM_TO_PREARMOR := 2.10
@@ -67,7 +67,7 @@ static func reference_body_mass_kg_from_species(sp: Object) -> float:
 	return clampf(_REFERENCE_ADULT_BODY_MASS_KG * sum_t / maxf(1.0, _REFERENCE_SPECIES_TISSUE_SUM), 32.0, 120.0)
 
 
-## Unarmed pre-armor at full stance mod 1.0: ~ (STR/100)*8 in historical calibration units; derived from fist effective mass × hand speed.
+## Unarmed pre-armor at full stance mod 1.0: ~ (STR/100)*8 in historical calibration units; derived from fist effective mass - -  hand speed.
 static func unarmed_base_pre_armor(strength: float, mod: float) -> float:
 	var st: float = maxf(0.1, float(strength) / 100.0)
 	return st * mod * UNARMED_FIST_EFFECTIVE_MASS_KG * UNARMED_TYPICAL_HAND_SPEED_M_S * UNARMED_MOMENTUM_TO_PREARMOR
@@ -88,7 +88,7 @@ static func effective_blunt_target_mass_kg(tgt: Dictionary, part: String = "") -
 					return maxf(1.0, emf)
 			var m_body: float = reference_body_mass_kg_from_species(sp as Object)
 			var p: String = part if not part.is_empty() else "chest"
-			var frac: float = float(_PART_BODY_MASS_FRACTION.get(p, 0.19))
+			var frac: float = _PART_BODY_MASS_FRACTION.get(p, 0.19)
 			return maxf(1.0, m_body * frac)
 	return DEFAULT_BLUNT_TARGET_MASS_KG
 
@@ -98,8 +98,8 @@ static func move_id_from_attack_instance(attack_instance: RefCounted) -> String:
 	return str(v) if v is String else ""
 
 
-## Extension commit scales swing commitment for KE/cut: effective_i = intensity × commit (each clamped).
-## commit_frac < 0 → no extra scaling (treat commit as 1.0).
+## Extension commit scales swing commitment for KE/cut: effective_i = intensity - -  commit (each clamped).
+## commit_frac < 0 â no extra scaling (treat commit as 1.0).
 static func effective_intensity_for_delivery(intensity: float, commit_frac: float = -1.0) -> float:
 	var c: float = 1.0
 	if commit_frac >= 0.0:
@@ -144,7 +144,7 @@ static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> f
 	return WeaponConstants.weapon_mass_kg(weapon)
 
 
-## Thrust / swing / mixed from archetype; if missing, infer from move contact (stab → thrust).
+## Thrust / swing / mixed from archetype; if missing, infer from move contact (stab â thrust).
 static func kinematic_delivery(archetype: Dictionary, move_id: String) -> String:
 	var arch: Dictionary = archetype if archetype is Dictionary else {}
 	var raw: Variant = arch.get("kinematic_delivery", "")
@@ -189,7 +189,7 @@ static func _velocity_swing_from_g(weapon: RefCounted, move_id: String, g: float
 	return _velocity_linear_from_g(weapon, move_id, g)
 
 
-# Single place for intensity -> m/s. Thrust: linear band. Swing: ω–lever. Mixed: kinematic_mixed_blend.
+# Single place for intensity -> m/s. Thrust: linear band. Swing: Ï - lever. Mixed: kinematic_mixed_blend.
 static func velocity_m_s_from_intensity(intensity: float, archetype: Dictionary, weapon: RefCounted = null, move_id: String = "") -> float:
 	var arch: Dictionary = archetype if archetype is Dictionary else {}
 	var g: float = _velocity_intensity_g(intensity, arch)
@@ -246,7 +246,7 @@ static func _ke_swing_rotational(weapon: RefCounted, attack_instance: RefCounted
 	return _ke_thrust_point_mass(weapon, attack_instance, v, e_mult)
 
 
-# Kinetic energy (J): thrust → ½ m_strike v²; swing → ½ I ω² (capped I); mixed → blend. Unarmed/no parts uses thrust path on swing fallback.
+# Kinetic energy (J): thrust â Â½ m_strike vÂ²; swing â Â½ I ÏÂ² (capped I); mixed â blend. Unarmed/no parts uses thrust path on swing fallback.
 static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCounted) -> float:
 	if weapon == null:
 		return 0.0
@@ -317,7 +317,7 @@ static func compute_pre_armor_blunt_momentum_raw(
 	return raw * contact_factor
 
 
-## Cut-induced blunt slip: momentum raw × **`(1 - cut_ratio)`** × optional **`blunt_damage_mult`**, max-only clamp (no **`BLUNT_DAMAGE_MIN`** — see **`AttackResolver.compute_and_apply_damage`**).
+## Cut-induced blunt slip: momentum raw - -  **`(1 - cut_ratio)`** - -  optional **`blunt_damage_mult`**, max-only clamp (no **`BLUNT_DAMAGE_MIN`**  -  see **`AttackResolver.compute_and_apply_damage`**).
 static func compute_blunt_slip_pre_armor(
 	weapon: RefCounted,
 	attack_instance: RefCounted,
@@ -347,17 +347,17 @@ static func compute_pre_armor_blunt(weapon: RefCounted, attack_instance: RefCoun
 
 # Penetration: sharp (mm RHA from contact area); blunt uses momentum_per_area for cushion.
 # SHARP returns { penetration_sharp }. BLUNT returns { penetration_blunt_momentum_per_area, blunt_contact_cm }.
-# opts: optional { "armor_resistance_rha_mm": float, "pen_sharp_mm": float } — when both provided for thrusts, use energy-based contact.
+# opts: optional { "armor_resistance_rha_mm": float, "pen_sharp_mm": float }  -  when both provided for thrusts, use energy-based contact.
 static func compute_penetration(weapon: RefCounted, attack_instance: RefCounted, damage_type: String, opts: Dictionary = {}) -> Dictionary:
-	var armor_resistance_rha_mm: float = float(opts.get("armor_resistance_rha_mm", -1.0)) if opts is Dictionary else -1.0
-	var pen_sharp_mm: float = float(opts.get("pen_sharp_mm", -1.0)) if opts is Dictionary else -1.0
+	var armor_resistance_rha_mm: float = opts.get("armor_resistance_rha_mm", -1.0) if opts is Dictionary else -1.0
+	var pen_sharp_mm: float = opts.get("pen_sharp_mm", -1.0) if opts is Dictionary else -1.0
 	var ke_j: float = compute_kinetic_energy_j(weapon, attack_instance)
 	var attack_type: String = attack_instance.get("attack_type")
 	if attack_type == null or not (attack_type is String):
 		attack_type = WeaponConstants.ATTACK_TYPE_CUT
 
 	if damage_type == WeaponConstants.DAMAGE_TYPE_SHARP:
-		# Sharp: Williams nonlinear — pen = (KE/J_BASE)^exp * area_factor. E ∝ t^1.67 → pen ∝ KE^0.6.
+		# Sharp: Williams nonlinear  -  pen = (KE/J_BASE)^exp * area_factor. E â t^1.67 â pen â KE^0.6.
 		var contact_cm: float = _get_effective_sharp_contact_cm(weapon, attack_type)
 		contact_cm = maxf(contact_cm, WeaponConstants.MIN_CONTACT_WIDTH_CM)
 		var area_factor: float = pow(WeaponConstants.BASELINE_CONTACT_CM / contact_cm, WeaponConstants.CONTACT_AREA_EXPONENT)
@@ -367,7 +367,7 @@ static func compute_penetration(weapon: RefCounted, attack_instance: RefCounted,
 	else:
 		# Blunt: transmission-only. Returns momentum_per_area and contact_cm for area coupling.
 		var contact_cm: float = _get_blunt_contact_for_penetration(weapon, attack_instance, armor_resistance_rha_mm, pen_sharp_mm)
-		var tgt_m: float = float(opts.get("target_effective_mass_kg", -1.0)) if opts is Dictionary else -1.0
+		var tgt_m: float = opts.get("target_effective_mass_kg", -1.0) if opts is Dictionary else -1.0
 		var momentum_per_area: float = _compute_blunt_momentum_per_area_with_contact(weapon, attack_instance, contact_cm, tgt_m)
 		return { "penetration_blunt_momentum_per_area": momentum_per_area, "blunt_contact_cm": contact_cm }
 
@@ -404,7 +404,7 @@ static func _get_blunt_contact_for_penetration(weapon: RefCounted, attack_instan
 	return _get_blunt_contact_cm(weapon, attack_type)
 
 
-# Blunt cushion: momentum per area (kg·m/s)/m². Used by armor for transmission absorption.
+# Blunt cushion: momentum per area (kg·m/s)/mÂ². Used by armor for transmission absorption.
 static func compute_blunt_momentum_per_area(weapon: RefCounted, attack_instance: RefCounted) -> float:
 	var contact_cm: float = get_blunt_contact_cm(weapon, attack_instance)
 	return _compute_blunt_momentum_per_area_with_contact(weapon, attack_instance, contact_cm) if contact_cm > 0 else -1.0
@@ -445,8 +445,8 @@ static func _get_contact_width_cm(weapon: RefCounted, attack_type: String) -> fl
 
 # Sharp-component contact (cm): point, blade, or edge/flange. Uses weapon get_sharp_contact_cm (blade_width, point_width, edge_width).
 static func _get_sharp_contact_cm(weapon: RefCounted, attack_type: String) -> float:
-	if weapon != null and weapon is Object and (weapon as Object).has_method("get_sharp_contact_cm"):
-		var ret = (weapon as Object).get_sharp_contact_cm(attack_type)
+	if weapon is Object and weapon.has_method("get_sharp_contact_cm"):
+		var ret = weapon.get_sharp_contact_cm(attack_type)
 		if ret is float or ret is int:
 			return maxf(float(ret), WeaponConstants.MIN_CONTACT_WIDTH_CM)
 	if weapon != null:
@@ -456,8 +456,8 @@ static func _get_sharp_contact_cm(weapon: RefCounted, attack_type: String) -> fl
 
 # Effective sharp contact (cm): geometric sharp contact / sharpness factor. Sharper = smaller = higher penetration.
 static func _get_effective_sharp_contact_cm(weapon: RefCounted, attack_type: String) -> float:
-	if weapon != null and weapon is Object and (weapon as Object).has_method("get_effective_sharp_contact_cm"):
-		var ret = (weapon as Object).get_effective_sharp_contact_cm(attack_type)
+	if weapon is Object and weapon.has_method("get_effective_sharp_contact_cm"):
+		var ret = weapon.get_effective_sharp_contact_cm(attack_type)
 		if ret is float or ret is int:
 			return maxf(float(ret), WeaponConstants.MIN_CONTACT_WIDTH_CM)
 	return maxf(_get_sharp_contact_cm(weapon, attack_type), WeaponConstants.MIN_CONTACT_WIDTH_CM)
@@ -465,8 +465,8 @@ static func _get_effective_sharp_contact_cm(weapon: RefCounted, attack_type: Str
 
 # Blunt-component contact (cm): head, shaft, or slap (cut uses BLUNT_CUT_MIN). Used for blunt damage and penetration.
 static func _get_blunt_contact_cm(weapon: RefCounted, attack_type: String) -> float:
-	if weapon != null and weapon is Object and (weapon as Object).has_method("get_blunt_contact_cm"):
-		var ret = (weapon as Object).get_blunt_contact_cm(attack_type)
+	if weapon is Object and weapon.has_method("get_blunt_contact_cm"):
+		var ret = weapon.get_blunt_contact_cm(attack_type)
 		if ret is float or ret is int:
 			return float(ret)
 	if weapon != null:
@@ -501,17 +501,18 @@ static func _get_contact_width_for_damage(weapon: RefCounted, attack_instance: R
 	return WeaponConstants.BASELINE_CONTACT_CM
 
 
-# Cut ratio 0.0–1.0 for this move (rest blunt). From archetype or weapon blade_cut_ratio.
+# Cut ratio 0.0 - 1.0 for this move (rest blunt). From archetype or weapon blade_cut_ratio.
 # No weapon has 0% cutting: even maces can break skin (flanges/ridges); floor is MIN_CUT_RATIO.
 static func get_cut_ratio(weapon: RefCounted, attack_type: String, archetype_dict: Dictionary) -> float:
 	var cr: float = 0.75
 	if archetype_dict.has("cut_ratio") and float(archetype_dict.cut_ratio) >= 0.0:
 		cr = clampf(float(archetype_dict.cut_ratio), 0.0, 1.0)
-	elif weapon != null and weapon is Object and (weapon as Object).has_method("get_damage_type"):
-		if (weapon as Object).get_damage_type(attack_type) == WeaponConstants.DAMAGE_TYPE_BLUNT:
+	elif weapon is Object and weapon.has_method("get_damage_type"):
+		if weapon.get_damage_type(attack_type) == WeaponConstants.DAMAGE_TYPE_BLUNT:
 			cr = 0.0
 		elif "blade_cut_ratio" in weapon:
 			cr = clampf(float(weapon.blade_cut_ratio), 0.0, 1.0)
 	elif weapon != null and "blade_cut_ratio" in weapon:
 		cr = clampf(float(weapon.blade_cut_ratio), 0.0, 1.0)
 	return maxf(cr, WeaponConstants.MIN_CUT_RATIO)
+  

@@ -49,7 +49,7 @@ static func process_healing(entity: Node, seconds: float) -> void:
 		for part in entity.tourniquet_applied.keys():
 			_EntityMedical.ensure_tourniquet_dict_entry(entity, part)
 			var data: Dictionary = entity.tourniquet_applied[part]
-			var applied_at: float = float(data.get("applied_at", 0.0))
+			var applied_at: float = data.get("applied_at", 0.0)
 			if entity._game_time_seconds - applied_at >= _Bleeding.TOURNIQUET_MAX_DURATION_SECONDS:
 				entity.tourniquet_applied.erase(part)
 

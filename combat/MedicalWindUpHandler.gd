@@ -2,14 +2,24 @@ class_name MedicalWindUpHandler
 extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
+
+# Runtime preload â€” circular dependency (CompanyState â†’ CampaignEncounterBridge â†’ MedicalWindUpHandler).
+static var _CompanyState: Variant = null
+
+static func _get_company_state() -> GDScript:
+	if MedicalWindUpHandler._CompanyState == null:
+		MedicalWindUpHandler._CompanyState = load("res://world/CompanyState.gd")
+	return MedicalWindUpHandler._CompanyState
+
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _Bridge := preload("res://world/CampaignEncounterBridge.gd")  # XCamp-4: medic action recording.
 const _Proficiency := preload("res://core/EntityProficiency.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
+const _CombatConstantsMedical := preload("res://combat/CombatConstantsMedical.gd")
 
 ## Handles completion of medical wind-up: apply bandage/packing/tourniquet, emit outcome, track retry.
-## Footing: medic **`clear_on_exchange_end`** before post-care **`STATE_RECOVERING`** — LIVE_PATHS **`#wf-tier-44-pa`**.
+## Footing: medic **`clear_on_exchange_end`** before post-care **`STATE_RECOVERING`** - LIVE_PATHS **`#wf-tier-44-pa`**.
 ## Manager must have: get_health_entity (via CombatantEntityAccess), _track_medical_failure_and_maybe_retry, emit_signal, get.
 
 static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
@@ -27,7 +37,7 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 	# Only apply if target is still alive (may have died during wind-up)
 	var tgt_alive: bool = not tgt_c.is_empty() and _EntityAccess.is_alive_in_combat(tgt_c)
 	if not tgt_c.is_empty() and tgt_nd != null and tgt_alive and not part.is_empty():
-		var wind_raw: Variant = CombatConstants.MEDICAL_WIND_UP_CONFIG.get(med_id, {})
+		var wind_raw: Variant = _CombatConstantsMedical.MEDICAL_WIND_UP_CONFIG.get(med_id, {})
 		var wind_up_cfg: Dictionary = wind_raw if wind_raw is Dictionary else {}
 		var target_method: String = wind_up_cfg.get("target_method", "")
 		if not target_method.is_empty():
@@ -50,9 +60,9 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
 					manager, c, tgt_c, tgt_cid, med_id, part, who_m, med_rec_dur,
 					target_method, result, eff, wind_up_cfg
 				)
-				var world: Node2D = _CompanyState.resolve_world_from_battle(manager)
+				var world: Node2D = _get_company_state().resolve_world_from_battle(manager)
 				if world != null:
-					_CompanyState.on_battle_medical_complete(
+					_get_company_state().on_battle_medical_complete(
 						world, target_method, _medical_procedure_succeeded(result)
 					)
 				# XCamp-4: proficiency gains for medical actions.
@@ -76,7 +86,7 @@ static func _medical_procedure_succeeded(result: Variant) -> bool:
 	if result == true:
 		return true
 	if result is Dictionary:
-		return (result as Dictionary).get("success", false) == true
+		return (result as Dictionary).get("success", false)
 	return false
 
 
@@ -84,17 +94,10 @@ static func _outcome_for_medical_method(
 	target_method: String, result: Variant, wind_up_cfg: Dictionary, med_id: String
 ) -> String:
 	var ok: bool = _medical_procedure_succeeded(result)
-	match target_method:
-		"apply_bandage":
-			return "bandaged" if ok else "bandage_failed"
-		"apply_stabilize":
-			return "stabilized" if ok else "stabilize_failed"
-		"apply_packing":
-			return "packed" if ok else "packing_failed"
-		"apply_tourniquet":
-			return "tourniquet_applied" if ok else "tourniquet_failed"
-		_:
-			return str(wind_up_cfg.get("outcome", med_id))
+	var outcome := CombatConstants.medical_outcome_string(target_method, ok)
+	if outcome != "":
+		return outcome
+	return str(wind_up_cfg.get("outcome", med_id))
 
 
 static func _finish_medical_procedure(
@@ -111,9 +114,7 @@ static func _finish_medical_procedure(
 	eff: float,
 	wind_up_cfg: Dictionary
 ) -> void:
-	var tracked: bool = target_method in [
-		"apply_bandage", "apply_stabilize", "apply_packing", "apply_tourniquet"
-	]
+	var tracked: bool = _CombatConstants.is_medical_target_method(target_method)
 	if tracked:
 		var outcome: String = _outcome_for_medical_method(target_method, result, wind_up_cfg, med_id)
 		var med_log: String = med_id
@@ -139,7 +140,7 @@ static func _finish_medical_procedure(
 			}
 		)
 		if not _medical_procedure_succeeded(result):
-			manager._track_medical_failure_and_maybe_retry(c, tgt_c, part, tgt_cid)
+			manager.track_medical_failure_and_maybe_retry(c, tgt_c, part, tgt_cid)
 		else:
 			c.pending_retry = {}
 			var failed: Array = _EntityAccess.nested_array_for_mutation(tgt_c, "failed_medical_parts")
@@ -161,15 +162,15 @@ static func _finish_medical_procedure(
 
 ## XCamp-4: award proficiency stat gains for completed medical actions.
 static func _proficiency_medical_gains(
-	c: Dictionary,
+	_c: Dictionary,
 	perf_entity: Node,
 	tgt_entity: Node,
 	world: Node2D,
 	med_id: String,
 	result: Variant,
-	who_m: String
+	_who_m: String
 ) -> void:
-	if not _CompanyState.read_stub_proficiency_enabled():
+	if not _get_company_state().read_stub_proficiency_enabled():
 		return
 	if perf_entity == null or not perf_entity.has("_proficiency_bonus"):
 		return
@@ -181,12 +182,12 @@ static func _proficiency_medical_gains(
 	# Determine item type from med_id for INT multiplier.
 	var item_type: String = ""
 	match med_id:
-		"apply_bandage", "bandage_self":
+		_CombatConstants.MOVE_ID_BANDAGE_SELF, _CombatConstants.MOVE_TARGET_APPLY_BANDAGE:
 			item_type = "bandage"
-		"apply_packing", "apply_stabilize":
+		_CombatConstants.MOVE_TARGET_APPLY_PACKING, _CombatConstants.MOVE_TARGET_APPLY_STABILIZE:
 			item_type = "pack"
-		"apply_tourniquet":
-			item_type = "tourniquet"
+		_CombatConstants.MOVE_ID_APPLY_TOURNIQUET:
+			item_type = CombatConstants.MEDICAL_ITEM_TOURNIQUET
 
 	var item_mult: float = _Proficiency.get_medical_item_mult(item_type)
 	var base_gain: float = _Proficiency.GAIN_MEDICAL_ACTION_BASE * item_mult

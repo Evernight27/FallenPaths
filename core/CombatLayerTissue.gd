@@ -2,46 +2,47 @@ class_name CombatLayerTissue
 extends RefCounted
 
 ## S6/S9/M3 layer-tissue: flat budget (S6) or yield/rupture sheets (M3) before bone MFB.
-## Arm stack 2+3 mm: subcut + muscle order-of-magnitude vs upper-limb ultrasound SC fat (~3–8 mm, BMI-dependent).
+## Arm stack 2+3 mm: subcut + muscle order-of-magnitude vs upper-limb ultrasound SC fat (~3 - 8 mm, BMI-dependent).
 
+const _Bp := preload("res://core/BodyPartConstants.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 
 const LAYER_NAME_SUBCUTANEOUS := "subcutaneous"
 const LAYER_NAME_MUSCLE := "muscle"
 
-## Per-part soft-tissue stack (mm): [subcutaneous, muscle, …]. Sum replaces the old flat S6 budget model.
+## Per-part soft-tissue stack (mm): [subcutaneous, muscle, ...]. Sum replaces the old flat S6 budget model.
 const SOFT_TISSUE_LAYER_STACK_MM_BY_PART: Dictionary = {
-	"head": [1.5, 2.5],
-	"chest": [3.0, 5.0],
-	"right_arm": [2.0, 3.0],
-	"left_arm": [2.0, 3.0],
-	"right_leg": [2.5, 4.5],
-	"left_leg": [2.5, 4.5],
+	_Bp.PART_HEAD: [1.5, 2.5],
+	_Bp.PART_CHEST: [3.0, 5.0],
+	_Bp.PART_RIGHT_ARM: [2.0, 3.0],
+	_Bp.PART_LEFT_ARM: [2.0, 3.0],
+	_Bp.PART_RIGHT_LEG: [2.5, 4.5],
+	_Bp.PART_LEFT_LEG: [2.5, 4.5],
 }
 
-## M3 yield/rupture (mm into layer) — budget_mm matches stack slice.
+## M3 yield/rupture (mm into layer)  -  budget_mm matches stack slice.
 const LAYER_YIELD_RUPTURE_BY_PART: Dictionary = {
-	"head": [
+	_Bp.PART_HEAD: [
 		{"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 0.6, "rupture_pen_mm": 1.5, "budget_mm": 1.5},
 		{"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 1.2, "rupture_pen_mm": 2.5, "budget_mm": 2.5},
 	],
-	"chest": [
+	_Bp.PART_CHEST: [
 		{"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 1.0, "rupture_pen_mm": 2.5, "budget_mm": 3.0},
 		{"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 2.0, "rupture_pen_mm": 4.0, "budget_mm": 5.0},
 	],
-	"right_arm": [
+	_Bp.PART_RIGHT_ARM: [
 		{"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 0.8, "rupture_pen_mm": 2.0, "budget_mm": 2.0},
 		{"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 1.5, "rupture_pen_mm": 3.0, "budget_mm": 3.0},
 	],
-	"left_arm": [
+	_Bp.PART_LEFT_ARM: [
 		{"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 0.8, "rupture_pen_mm": 2.0, "budget_mm": 2.0},
 		{"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 1.5, "rupture_pen_mm": 3.0, "budget_mm": 3.0},
 	],
-	"right_leg": [
+	_Bp.PART_RIGHT_LEG: [
 		{"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 0.9, "rupture_pen_mm": 2.2, "budget_mm": 2.5},
 		{"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 1.6, "rupture_pen_mm": 3.2, "budget_mm": 4.5},
 	],
-	"left_leg": [
+	_Bp.PART_LEFT_LEG: [
 		{"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 0.9, "rupture_pen_mm": 2.2, "budget_mm": 2.5},
 		{"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 1.6, "rupture_pen_mm": 3.2, "budget_mm": 4.5},
 	],
@@ -64,10 +65,10 @@ static func is_layer_penetration_active(force_layer: bool = false, force_curves:
 
 
 static func layer_definitions(part: String) -> Array:
-	var row: Variant = LAYER_YIELD_RUPTURE_BY_PART.get(part, LAYER_YIELD_RUPTURE_BY_PART["right_arm"])
+	var row: Variant = LAYER_YIELD_RUPTURE_BY_PART.get(part, LAYER_YIELD_RUPTURE_BY_PART[_Bp.PART_RIGHT_ARM])
 	if row is Array:
 		return row.duplicate(true)
-	return LAYER_YIELD_RUPTURE_BY_PART["right_arm"].duplicate(true)
+	return LAYER_YIELD_RUPTURE_BY_PART[_Bp.PART_RIGHT_ARM].duplicate(true)
 
 
 static func seed_layer_state_for_part(part: String) -> Array:
@@ -75,7 +76,7 @@ static func seed_layer_state_for_part(part: String) -> Array:
 	for def: Dictionary in layer_definitions(part):
 		out.append(
 			{
-				"name": str(def.get("name", "")),
+				"name": def.get("name", ""),
 				"state": "intact",
 				"accumulated_pen_mm": 0.0,
 			}
@@ -88,7 +89,7 @@ static func seed_all_layer_states(entity: Node) -> void:
 		return
 	entity.tissue_layer_state = {}
 	for part: Variant in entity._get_body_part_list():
-		entity.tissue_layer_state[str(part)] = seed_layer_state_for_part(str(part))
+		entity.tissue_layer_state[part] = seed_layer_state_for_part(str(part))
 
 
 static func soft_tissue_layer_stack_mm(part: String) -> Array:
@@ -107,12 +108,12 @@ static func soft_tissue_budget_mm(part: String) -> float:
 
 ## J absorbed in muscle/fat before bone sees blunt fracture KE (order-of-magnitude; not FEM).
 const BLUNT_TISSUE_KE_BUDGET_J_BY_PART: Dictionary = {
-	"head": 25.0,
-	"chest": 35.0,
-	"right_arm": 22.0,
-	"left_arm": 22.0,
-	"right_leg": 28.0,
-	"left_leg": 28.0,
+	_Bp.PART_HEAD: 25.0,
+	_Bp.PART_CHEST: 35.0,
+	_Bp.PART_RIGHT_ARM: 22.0,
+	_Bp.PART_LEFT_ARM: 22.0,
+	_Bp.PART_RIGHT_LEG: 28.0,
+	_Bp.PART_LEFT_LEG: 28.0,
 }
 
 
@@ -122,7 +123,7 @@ static func blunt_ke_reaching_bone(part: String, strike_ke_j: float) -> float:
 		return -1.0
 	if not _Bleeding.FEATURE_BLUNT_TISSUE_KE_GATE:
 		return strike_ke_j
-	var budget: float = float(BLUNT_TISSUE_KE_BUDGET_J_BY_PART.get(part, 24.0))
+	var budget: float = BLUNT_TISSUE_KE_BUDGET_J_BY_PART.get(part, 24.0)
 	return maxf(-1.0, strike_ke_j - budget)
 
 
@@ -161,22 +162,22 @@ static func penetration_through_layers(
 	var defs: Array = layer_definitions(part)
 	for i in defs.size():
 		var def: Dictionary = defs[i]
-		var budget: float = float(def.get("budget_mm", 2.0))
-		var yield_mm: float = float(def.get("yield_pen_mm", 0.8))
-		var rupture_mm: float = float(def.get("rupture_pen_mm", 2.0))
+		var budget: float = def.get("budget_mm", 2.0)
+		var yield_mm: float = def.get("yield_pen_mm", 0.8)
+		var rupture_mm: float = def.get("rupture_pen_mm", 2.0)
 		var row: Dictionary = (
 			layer_state[i]
 			if i < layer_state.size() and layer_state[i] is Dictionary
-			else {"name": str(def.get("name", "")), "state": "intact", "accumulated_pen_mm": 0.0}
+			else {"name": def.get("name", ""), "state": "intact", "accumulated_pen_mm": 0.0}
 		)
 		var prev_state: String = str(row.get("state", "intact"))
 		if remaining <= 0.0:
 			per_layer_absorbed.append(0.0)
 			states_out.append(
 				{
-					"name": str(def.get("name", "")),
+					"name": def.get("name", ""),
 					"state": prev_state,
-					"accumulated_pen_mm": float(row.get("accumulated_pen_mm", 0.0)),
+					"accumulated_pen_mm": row.get("accumulated_pen_mm", 0.0),
 				}
 			)
 			continue
@@ -194,7 +195,7 @@ static func penetration_through_layers(
 		per_layer_absorbed.append(held)
 		states_out.append(
 			{
-				"name": str(def.get("name", "")),
+				"name": def.get("name", ""),
 				"state": new_state,
 				"accumulated_pen_mm": held,
 			}
@@ -246,8 +247,8 @@ static func layer_rupture_bleed_mult(entity: Node, part: String) -> float:
 	for row: Variant in rows:
 		if row is Dictionary:
 			if (
-				str(row.get("name", "")) == LAYER_NAME_SUBCUTANEOUS
-				and str(row.get("state", "")) == "ruptured"
+				row.get("name", "") == LAYER_NAME_SUBCUTANEOUS
+				and row.get("state", "") == "ruptured"
 			):
 				return _Bleeding.LAYER_RUPTURE_SUBCUT_BLEED_MULT
 	return 1.0

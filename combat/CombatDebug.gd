@@ -8,12 +8,12 @@ const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 
-## Log tiers: `COMBAT_EVENT_DEBUG` alone → `flow_log_turn` lists actions + pick. With `COMBAT_EVENT_DEBUG_VERBOSE`,
+## Log tiers: `COMBAT_EVENT_DEBUG` alone Ã¢â ' `flow_log_turn` lists actions + pick. With `COMBAT_EVENT_DEBUG_VERBOSE`,
 ## `get_available_actions` logs the action list once; `flow_log_turn` logs pick + count only (no duplicate list).
 ## `flow_log`: skip_turn, afterblow, close contest, incursion, formation rejects, resolve edge cases.
-## `COMBAT_DEBUG` → per-hit / armor / wind-up (`CombatDebug.log`, EntityDamage traces).
+## `COMBAT_DEBUG` Ã¢â ' per-hit / armor / wind-up (`CombatDebug.log`, EntityDamage traces).
 ## Unconditional `[Combat]` lines stay for phase boundaries, deaths, and UI-adjacent events (see grep print("[Combat")).
-## Play session (editor F5): **`combat_session`** / **`world_session`** → `FP_COMBAT` / `FP_WORLD` on stdout (copy Godot Output).
+## Play session (editor F5): **`combat_session`** / **`world_session`** Ã¢â ' `FP_COMBAT` / `FP_WORLD` on stdout (copy Godot Output).
 ## Invariant / logic faults: **`operational_error`** / **`operational_warn`** (`FP_ERROR` / `FP_WARN`; always on).
 ## Conditional combat logging. Only logs when CombatConstants.COMBAT_DEBUG is true.
 ## calibration_log: logs when COMBAT_DEBUG_CALIBRATION is true (alignment, parry_c_d, variance, etc.).
@@ -40,10 +40,10 @@ static func flow_log_event(msg: String, dedupe_key: String = "") -> void:
 	if not CombatConstants.combat_event_debug_active():
 		return
 	if CombatConstants.COMBAT_FLOW_LOG_SUPPRESS_REPEATED and not dedupe_key.is_empty():
-		var prev: Variant = _flow_log_last_by_key.get(dedupe_key, null)
+		var prev: Variant = _flow_log_event_last_by_key.get(dedupe_key, null)
 		if prev != null and str(prev) == msg:
 			return
-		_flow_log_last_by_key[dedupe_key] = msg
+		_flow_log_event_last_by_key[dedupe_key] = msg
 	print("[Combat.Flow] ", msg)
 
 
@@ -76,18 +76,18 @@ static func finish_instant_turn_and_schedule_ready(manager: Node, combatant: Dic
 
 ## Milestone combat lines during editor play (`FP_COMBAT`); falls back to `[Combat]` elsewhere.
 static func combat_session(msg: String) -> void:
+	if msg == _last_combat_session_line:
+		return
+	_last_combat_session_line = msg
 	if _OperationalLog.is_play_session_active():
-		if msg == _last_combat_session_line:
-			return
-		_last_combat_session_line = msg
 		_OperationalLog.play_combat(msg)
 	else:
 		print("[Combat] ", msg)
 
 
-## Hemostasis / pressure / dressings — always `FP_COMBAT` in play session (grep `medical` or `FP_COMBAT`).
+## Hemostasis / pressure / dressings —" always `FP_COMBAT` in play session (grep `medical` or `FP_COMBAT`).
 static func medical_session(msg: String) -> void:
-	var line: String = "medical %s" % msg.strip_edges()
+	var line: String = msg.strip_edges()
 	if _OperationalLog.is_play_session_active() and line == _last_medical_session_line:
 		return
 	_last_medical_session_line = line
@@ -118,12 +118,14 @@ static func flow_verbose_enabled() -> bool:
 
 ## Last message per dedupe key for `COMBAT_FLOW_LOG_SUPPRESS_REPEATED` (cleared on combat start/stop).
 static var _flow_log_last_by_key: Dictionary = {}
+static var _flow_log_event_last_by_key: Dictionary = {}
 static var _last_medical_session_line: String = ""
 static var _last_combat_session_line: String = ""
 
 
 static func clear_flow_log_dedup() -> void:
 	_flow_log_last_by_key.clear()
+	_flow_log_event_last_by_key.clear()
 	_last_medical_session_line = ""
 	_last_combat_session_line = ""
 
@@ -149,14 +151,14 @@ static func formation_vacancy_log(msg: String) -> void:
 static func format_actions_compact(actions: Array) -> String:
 	var parts: PackedStringArray = []
 	for a in actions:
-		var mid: String = str(a.get("move_id", ""))
+		var mid: String = a.get("move_id", "")
 		var tid: int = a.get("target_id", -1)
-		var part: String = str(a.get("target_part", ""))
+		var part: String = a.get("target_part", "")
 		var dur_s: String = ""
-		var dur_hint: String = str(a.get("formation_move_duration_hint", "")).strip_edges()
+		var dur_hint: String = a.get("formation_move_duration_hint", "").strip_edges()
 		if not dur_hint.is_empty():
 			dur_s = " {%s}" % _FormationMoveDuration.duration_hint_for_turn_display(dur_hint)
-		var close_hint: String = str(a.get(CombatConstants.ACTION_KEY_CLOSE_LIST_HINT, "")).strip_edges()
+		var close_hint: String = a.get(CombatConstants.ACTION_KEY_CLOSE_LIST_HINT, "").strip_edges()
 		if not close_hint.is_empty():
 			dur_s = " {vs %s}" % close_hint if dur_s.is_empty() else dur_s + " vs " + close_hint
 		if part.is_empty():
@@ -170,17 +172,17 @@ static func _medical_turn_vitals_suffix(manager: Node, choice: Dictionary) -> St
 		return ""
 	if not manager.has_method("_is_medical_move"):
 		return ""
-	var mid: String = str(choice.get("move_id", ""))
+	var mid: String = choice.get("move_id", "")
 	if not CombatConstants.is_medical_move(mid):
 		return ""
-	var tid: int = int(choice.get("target_id", -1))
+	var tid: int = choice.get("target_id", -1)
 	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
 	if tgt.is_empty():
 		return ""
 	var ent: Node = _EntityAccess.get_entity_from_manager(manager, tgt)
 	if ent == null:
 		return ""
-	var part: String = str(choice.get("target_part", ""))
+	var part: String = choice.get("target_part", "")
 	var bleed: float = (
 		_EntityAccess.entity_bleeding_rate_for_part(manager, tgt, part)
 		if not part.is_empty()
@@ -225,10 +227,10 @@ static func flow_log_turn(
 ) -> void:
 	if not CombatConstants.combat_event_debug_active():
 		return
-	var mid: String = str(choice.get("move_id", ""))
+	var mid: String = choice.get("move_id", "")
 	var tid: int = choice.get("target_id", -1)
-	var part: String = str(choice.get("target_part", ""))
-	var feint: String = str(choice.get("feint_part", ""))
+	var part: String = choice.get("target_part", "")
+	var feint: String = choice.get("feint_part", "")
 	var part_s: String = (" part=%s" % part) if not part.is_empty() else ""
 	var feint_s: String = (" feint=%s" % feint) if not feint.is_empty() else ""
 	var med_s: String = _medical_turn_vitals_suffix(manager, choice)
@@ -278,7 +280,7 @@ static func log_available_actions_build(
 		return
 	var medical_count: int = 0
 	for a in result_actions:
-		var mid: String = str(a.get("move_id", ""))
+		var mid: String = a.get("move_id", "")
 		if CombatConstants.is_medical_move(mid):
 			medical_count += 1
 	var polearm_extra: String = ""
@@ -401,3 +403,4 @@ static func _format_depth_polearm_melee_context_debug(
 			" ; ".join(bits)
 		]
 	)
+                  

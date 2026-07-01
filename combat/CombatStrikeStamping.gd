@@ -51,7 +51,7 @@ static func stamp_strike_realism_on_pa(
 		pa["strike_measure_ratio"] = 1.0
 		return
 	pa["strike_measure_ratio"] = strike_measure_ratio_for_attack_pair(
-		manager, atk, tgt, weapon, float(pa.get("effective_pair_eff_dist", -1.0))
+		manager, atk, tgt, weapon, pa.get("effective_pair_eff_dist", -1.0)
 	)
 	if str(pa.get("move_contact_type", "")).is_empty():
 		pa["move_contact_type"] = WeaponConstants.contact_type_for_move_id(attack_type)

@@ -29,6 +29,7 @@ RES_SCAN_EXT = {".gd", ".tscn", ".tres"}
 RES_SKIP_PARTS = {".git", ".godot"}
 RES_ALLOW_MISSING = {
     "species",  # DirAccess.open(ResourcePaths.SPECIES_DIR)
+    "world/companion_%d.tscn",  # format string: RuntimeFormats.companion_scene()
     "tile_texture.png",  # TilesetSetup.generate_tile_texture_if_needed()
     ".q_track_audits.txt",  # CombatQTrackAudits output path (artifact, not resource)
     ".d001_soak_out.txt",  # CombatQTrackAudits input path (artifact, not resource)

@@ -1,6 +1,6 @@
 extends Node2D
 
-## Overworld → `CombatFlow.start_combat` → `BattleScene` / `CombatManager`.
+## Overworld â `CombatFlow.start_combat` â `BattleScene` / `CombatManager`.
 
 const _EncounterNode := preload("res://world/EncounterNode.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
@@ -8,6 +8,7 @@ const _CompanyState := preload("res://world/CompanyState.gd")
 const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _CampaignPersistence := preload("res://world/CampaignPersistence.gd")
 const _MapBleedPolicy := preload("res://world/MapBleedPolicy.gd")
+const _ResourcePaths := preload("res://core/ResourcePaths.gd")
 const _OverworldMap := preload("res://world/OverworldMap.gd")
 
 const WORLD_META_CAMP_HEAL_HINT_SHOWN := "camp_heal_hint_shown"
@@ -15,11 +16,13 @@ const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _TilesetSetup := preload("res://world/TilesetSetup.gd")
 
 @onready var tilemap: TileMap = $TileMap
+@onready var player: Node2D = $Character
 
 @export var enemy_scene: PackedScene
-## F5 soak: `ii2b`/`ii4d`/`ii3`/`ii5`/`ii6`/`ii8` — Output grep **`soak_guide`** + **`soak_guide human`** at session start, **`soak=`** on encounter_begin.
+## F5 soak: `ii2b`/`ii4d`/`ii3`/`ii5`/`ii6`/`ii8`  -  Output grep **`soak_guide`** + **`soak_guide human`** at session start, **`soak=`** on encounter_begin.
 @export_enum("off: ", "ii2b", "ii3", "ii5", "ii6", "ii8", "ii4d", "ii_envelop") var dev_soak_encounter: String = ""
 ## Track Q1: per-hit **`research_feel`** lines in Output (no `COMBAT_DEV_VERBOSE` const edit). Use with **`ii2b`** duel.
 @export var dev_research_feel: bool = false
@@ -32,17 +35,22 @@ func _tile_coords(pos: Vector2) -> Vector2i:
 	return _OverworldMap.tile_coords_from_pos(pos)
 
 func _ready():
+	# --tuning CLI flag loads the combat tuning scene instead of the campaign.
+	if OS.get_cmdline_args().has("--tuning"):
+		get_tree().change_scene_to_file("res://combat_tuning/combat_tuning.tscn")
+		return
+
 	var soak_id: String = dev_soak_encounter.strip_edges().to_lower()
 	if soak_id == "off":
 		soak_id = ""
 	if dev_research_feel:
 		_CombatConstants.set_combat_dev_verbose_override(true)
 	if OS.has_feature("editor"):
-		_OperationalLog.begin_play_session("res://main.tscn", soak_id, dev_research_feel, dev_hit_summary)
+		_OperationalLog.begin_play_session(CombatConstants.PATH_MAIN_SCENE, soak_id, dev_research_feel, dev_hit_summary)
 		_F5SoakTrace.log_session_plan(soak_id, dev_research_feel)
 		_F5SoakTrace.reset_session_camp_trace()
 		_F5SoakTrace.prepare_fight_end_log()
-	# Match FallenFramework: fill screen — maximized window + stretch to viewport
+	# Match FallenFramework: fill screen  -  maximized window + stretch to viewport
 	var main_window = get_tree().root
 	main_window.content_scale_size = Vector2i(1920, 1080)
 	main_window.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
@@ -50,15 +58,15 @@ func _ready():
 	main_window.mode = Window.MODE_MAXIMIZED
 
 	# Generate tile texture if it doesn't exist
-	TilesetSetup.generate_tile_texture_if_needed()
+	_TilesetSetup.generate_tile_texture_if_needed()
 	
 	# Wait a frame for texture to be ready
 	await get_tree().process_frame
 	
 	# Create tileset programmatically
-	TilesetSetup.setup_tileset(tilemap)
+	_TilesetSetup.setup_tileset(tilemap)
 	
-	# Fill the overworld grid with tiles (XCamp-3.2: 5×5 default).
+	# Fill the overworld grid with tiles (XCamp-3.2: 5- - 5 default).
 	_OverworldMap.stamp_world_map_size(self)
 	var source_id = 0
 	var atlas_coords = Vector2i(0, 0)
@@ -94,7 +102,7 @@ func _ready():
 			_CombatDebug.world_session("dev soak encounter '%s' at tile=%s (cyan)" % [soak_id, soak_tile])
 		else:
 			_OperationalLog.warn(
-				"dev_soak_encounter '%s' failed to spawn — grid full or unknown preset" % soak_id
+				"dev_soak_encounter '%s' failed to spawn  -  grid full or unknown preset" % soak_id
 			)
 	var boot_save: Dictionary = {}
 	var restoring_campaign_save: bool = false
@@ -138,9 +146,8 @@ func _ready():
 	SoakEncounterPresets.emit_f5_soak_guide(soak_id, soak_tile)
 	# Connect to player moved signal to detect encounters
 	if has_node("Character"):
-		var player = $Character
 		set_meta("last_player_tile", _tile_coords(player.position))
-		if player.has_signal("moved"):
+		if player.has_signal("moved") and not player.moved.is_connected(Callable(self, "_on_player_moved")):
 			player.connect("moved", Callable(self, "_on_player_moved"))
 
 func _on_party_button_pressed() -> void:
@@ -154,7 +161,6 @@ func _revert_player_move(_player: Node2D, prev_tile: Vector2i) -> void:
 
 
 func _on_player_moved():
-	var player = $Character
 	var p_tile = _tile_coords(player.position)
 	var prev_tile: Vector2i = (
 		get_meta("last_player_tile") as Vector2i
@@ -165,7 +171,7 @@ func _on_player_moved():
 	var encounter = _get_encounter_on_tile(p_tile)
 	if encounter != null:
 		var can_enter: Dictionary = _CampaignBridge.can_enter_combat(self)
-		if not bool(can_enter.get("ok", false)):
+		if not can_enter.get("ok", false):
 			_CombatDebug.world_session(str(can_enter.get("message", "Cannot enter combat.")))
 			_revert_player_move(player, prev_tile)
 			return
@@ -176,19 +182,19 @@ func _on_player_moved():
 		if _CampaignBridge.party_has_untreated_wounds(self):
 			var parts: int = _CampaignBridge.party_untreated_part_count(self)
 			_OperationalLog.play_world(
-				"Untreated wounds — %d part(s) need dressing in Party (%s) before fighting."
+				"Untreated wounds  -  %d part(s) need dressing in Party (%s) before fighting."
 				% [parts, _CompanyState.format_field_care_march_chain()]
 			)
 		var marker: String = str(encounter.contract_marker_label).strip_edges()
 		if marker.is_empty() and encounter.has_method("get_combat_encounter_dict"):
 			var enc_dict: Dictionary = encounter.get_combat_encounter_dict()
-			marker = str(enc_dict.get("contract_title", ""))
+			marker = enc_dict.get("contract_title", "")
 		if not marker.is_empty():
-			_OperationalLog.play_world("Contract — %s" % marker.replace("\n", " · "))
+			_OperationalLog.play_world("Contract  -  %s" % marker.replace("\n", " · "))
 		var enemies: Array = _CampaignBridge.begin_contract_encounter(self, encounter, rng)
 		if enemies.is_empty():
 			_OperationalLog.warn(
-				"No enemies spawned — contract entry rolled back (marker kept). Check encounter config."
+				"No enemies spawned  -  contract entry rolled back (marker kept). Check encounter config."
 			)
 			_revert_player_move(player, prev_tile)
 			return
@@ -223,25 +229,25 @@ func _maybe_camp_tile_hint(p_tile: Vector2i) -> void:
 		var parts: int = _CampaignBridge.party_untreated_part_count(self)
 		var budget: Dictionary = _CompanyState.triage_med_budget(self)
 		_CombatDebug.world_session(
-			"Camp: %d part(s) need dressing — Party → field care, then Camp rest (−1 med · +1 day · +1 mood)."
+			"Camp: %d part(s) need dressing  -  Party â field care, then Camp rest (-1 med · +1 day · +1 mood)."
 			% parts
 		)
-		if int(budget.get("med_shortfall", 0)) > 0:
+		if budget.get("med_shortfall", 0) > 0:
 			_CombatDebug.world_session(
-				"Camp: med shortfall %d — bandage at reduced efficacy or win contracts (+4 med)."
-				% int(budget.get("med_shortfall", 0))
+				"Camp: med shortfall %d  -  bandage at reduced efficacy or win contracts (+4 med)."
+				% budget.get("med_shortfall", 0)
 			)
 	elif _CompanyState.camp_heal_ready(self, true):
-		_CombatDebug.world_session("Camp: Party → Camp rest (−1 med · +1 day · +1 mood) or End day.")
+		_CombatDebug.world_session("Camp: Party â Camp rest (-1 med · +1 day · +1 mood) or End day.")
 	elif _CompanyState.can_offer_end_day(self):
-		_CombatDebug.world_session("Camp: Party → End day (wages) or Camp rest if wounded.")
+		_CombatDebug.world_session("Camp: Party â End day (wages) or Camp rest if wounded.")
 	elif _CompanyState.roster_has_hire_room(self):
 		_CombatDebug.world_session(
-			"Camp: Party → Hire rookie (−%dg) when roster has room after losses."
+			"Camp: Party â Hire rookie (-%dg) when roster has room after losses."
 			% _CompanyState.HIRE_GOLD_COST
 		)
 	else:
-		_CombatDebug.world_session("Camp tile — wages and rest are managed from the Party menu.")
+		_CombatDebug.world_session("Camp tile  -  wages and rest are managed from the Party menu.")
 	if _CompanyState.should_show_next_provisions_hint(self):
 		_CombatDebug.world_session(_CompanyState.format_next_provisions_hint(self))
 	if _CompanyState.count_desertion_risk_roster(self) > 0:
@@ -271,7 +277,7 @@ func _on_battle_ended(winner: String, defeated: Node) -> void:
 
 
 func _company_run_end(reason: String) -> void:
-	const _RunEnd := preload("res://ui/CompanyRunEndPanel.gd")
+	var _RunEnd := preload("res://ui/CompanyRunEndPanel.gd")
 	await _RunEnd.show_and_await(self, reason)
 
 func _print_node_tree(node: Node, indent: String = "") -> void:
@@ -280,3 +286,4 @@ func _print_node_tree(node: Node, indent: String = "") -> void:
 	print(indent, node.name, "<", node.get_class(), ">")
 	for child in node.get_children():
 		_print_node_tree(child, indent + "  ")
+          

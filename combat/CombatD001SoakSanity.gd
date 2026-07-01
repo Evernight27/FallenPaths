@@ -136,7 +136,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 
 	var good_wf_m3: PackedStringArray = PackedStringArray([
 		"turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Grd HiR · Form Ox tooltip_match=melee_only",
-		"form_switch id=1 ox→wrath reason=duel_read",
+		"form_switch id=1 oxâwrath reason=duel_read",
 	])
 	var rwf: Dictionary = _Validator.validate(
 		good_wf_m3, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS])
@@ -190,7 +190,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 		"settlement_continue paid=120",
 		"company_day_advanced day=2 wages_paid=true",
 		"turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Grd HiR · Form Ox tooltip_match=melee_only",
-		"form_switch id=1 ox→wrath reason=duel_read",
+		"form_switch id=1 oxâwrath reason=duel_read",
 	])
 	var camp_wf_profiles: PackedStringArray = _TrackSpecs.detect_profiles(camp_wf_smoke)
 	var rcw: Dictionary = _Validator.validate(camp_wf_smoke, camp_wf_profiles)
@@ -261,7 +261,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 		failures.append("fixture_formation_plug_layer: ii_line_plug_formation_layer should pass")
 
 	var good_mopup_hold: PackedStringArray = PackedStringArray([
-		"mopup_hold_line_list id=3 Fighter hint=Mop-up — finish the last enemy with a listed strike.",
+		"mopup_hold_line_list id=3 Fighter hint=Mop-up  -  finish the last enemy with a listed strike.",
 	])
 	var rmopup_hold: Dictionary = _Validator.validate(
 		good_mopup_hold,
@@ -274,7 +274,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 		failures.append("fixture_mopup_hold_line: ii_envelop_mopup_hold_hint should pass on mopup_hold_line_list")
 
 	var good_sparse_hold: PackedStringArray = PackedStringArray([
-		"mopup_hold_line_list id=4 Companion5 hint=Line open after rout — close in or strike; shuffle won't fill distant gaps.",
+		"mopup_hold_line_list id=4 Companion5 hint=Line open after rout  -  close in or strike; shuffle won't fill distant gaps.",
 	])
 	var rsparse_hold: Dictionary = _Validator.validate(
 		good_sparse_hold, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS, _TrackSpecs.PROFILE_7V7])
@@ -286,7 +286,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 		)
 
 	var good_sparse_gauge: PackedStringArray = PackedStringArray([
-		"mopup_hold_line_list id=4 Companion5 hint=Line open after rout — close in or strike; shuffle won't fill distant gaps.",
+		"mopup_hold_line_list id=4 Companion5 hint=Line open after rout  -  close in or strike; shuffle won't fill distant gaps.",
 		"turn_ready_gauge id=4 Companion5 label=Ready · Focus head 78% tooltip_match=hold_line",
 	])
 	var rsparse_gauge: Dictionary = _Validator.validate(
@@ -299,7 +299,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 		)
 
 	var good_mopup_hold_close: PackedStringArray = PackedStringArray([
-		"mopup_hold_line_list id=1 Rear hint=Mop-up — finish the last enemy; close in or strike.",
+		"mopup_hold_line_list id=1 Rear hint=Mop-up  -  finish the last enemy; close in or strike.",
 	])
 	var rmopup_hold_close: Dictionary = _Validator.validate(
 		good_mopup_hold_close,
@@ -312,7 +312,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 		failures.append("fixture_mopup_hold_line_close: ii_envelop_mopup_hold_hint should pass on close copy")
 
 	var mopup_false_positives: PackedStringArray = PackedStringArray([
-		"[ii_envelop_mopup_hold_hint] PASS — count=6 need>=1",
+		"[ii_envelop_mopup_hold_hint] PASS  -  count=6 need>=1",
 		"soak_setup ii_envelop_mopup 3e attrition smoke (engagement_debug mop_up)",
 	])
 	var rmopup_fp: Dictionary = _Validator.validate(
@@ -328,7 +328,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 		)
 
 	var good_ctrl_close: PackedStringArray = PackedStringArray([
-		"controlling_close_list id=0 Leader hint=Close is harder vs Fool — strike from range or commit with strength.",
+		"controlling_close_list id=0 Leader hint=Close is harder vs Fool  -  strike from range or commit with strength.",
 	])
 	var rctrl: Dictionary = _Validator.validate(
 		good_ctrl_close, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS])
@@ -340,7 +340,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 		failures.append("fixture_wf_controlling_close: wf_controlling_close_hint should pass on controlling_close_list")
 
 	var ctrl_false_positives: PackedStringArray = PackedStringArray([
-		"[wf_controlling_close_hint] PASS — count=1 need>=1",
+		"[wf_controlling_close_hint] PASS  -  count=1 need>=1",
 		"soak_setup wf_controlling_close_hint ok",
 	])
 	var rctrl_fp: Dictionary = _Validator.validate(
@@ -406,9 +406,9 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 
 	var false_positives: PackedStringArray = PackedStringArray([
 		"soak_coverage camp grep_stats party_triage_open=0 field_care_bandage=0",
-		"field_care: untreated wounds remain after battle triage parts_left=5 — open Party on the map",
-		"field_care bandage failed part=chest target=Leader parts_left=1 — med refunded",
-		"[camp_party_triage] PASS — count=1 need>=1",
+		"field_care: untreated wounds remain after battle triage parts_left=5  -  open Party on the map",
+		"field_care bandage failed part=chest target=Leader parts_left=1  -  med refunded",
+		"[camp_party_triage] PASS  -  count=1 need>=1",
 	])
 	var rfp: Dictionary = _Validator.validate(
 		false_positives, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS, _TrackSpecs.PROFILE_CAMP_EA])
@@ -1012,7 +1012,7 @@ static func _ii5_plausibility_failures(lines: PackedStringArray) -> PackedString
 			if "cowering_fall_back executed" in s:
 				exec_line = s
 				break
-		if not exec_line.contains("rank 0->") and not exec_line.contains("rank 0→"):
+		if not exec_line.contains("rank 0->") and not exec_line.contains("rank 0â"):
 			failures.append("ii5: executed line should mention rear rank shift (rank 0->)")
 	return failures
 
@@ -1119,7 +1119,7 @@ static func _ii8_plausibility_failures(lines: PackedStringArray) -> PackedString
 
 
 static func _ii4d_log_plausibility_failures(lines: PackedStringArray) -> PackedStringArray:
-	## Band ordering only — full **ii4d** sign-off (gauge **Exh**) stays in **`CombatD001SoakRunner._run_ii4d_exhaustion`**.
+	## Band ordering only  -  full **ii4d** sign-off (gauge **Exh**) stays in **`CombatD001SoakRunner._run_ii4d_exhaustion`**.
 	var failures: PackedStringArray = PackedStringArray()
 	var stats: Dictionary = _TrackSpecs.exhaustion_band_stats(lines)
 	var c25: int = int(stats.get("crossed_25", 0))
@@ -1247,3 +1247,4 @@ static func _is_grep_hint_line(line: String) -> bool:
 	if s.begins_with("FP_SESSION_BEGIN:") or s.begins_with("FP_SESSION_END:"):
 		return true
 	return false
+                                

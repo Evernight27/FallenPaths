@@ -1,6 +1,8 @@
 class_name EncounterNode
 extends Node2D
 
+const _ResourcePaths := preload("res://core/ResourcePaths.gd")
+
 ## Singular map entity representing one encounter. One square on the map.
 ## One visual marker per encounter; unit count is separate (spawned when combat starts).
 
@@ -11,9 +13,9 @@ var marker_kind: String = ""
 
 ## Holds spawn config; enemies are instantiated when combat starts.
 @export var enemy_count: int = 1
-## Copied to world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when combat starts (doctrine, morale, posture, …).
+## Copied to world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when combat starts (doctrine, morale, posture, —¦).
 @export var encounter_config: Dictionary = {}
-## Optional enemy **`CombatManager.start`** preset; empty → default for **`enemy_count`**.
+## Optional enemy **`CombatManager.start`** preset; empty â†' default for **`enemy_count`**.
 @export var enemy_formation: Dictionary = {}
 ## Non-empty when spawned via **`SoakEncounterPresets`** (cyan map marker).
 var soak_preset_id: String = ""
@@ -83,14 +85,14 @@ func get_enemy_formation_dict() -> Dictionary:
 
 
 func is_tutorial_encounter() -> bool:
-	return encounter_config.get("tutorial", false) == true
+	return encounter_config.get("tutorial", false)
 
 ## Spawns enemy units for combat. Call when player enters combat. Returns array of enemy nodes.
 ## parent: world node to add enemies to. rng: for species/equipment randomization.
 func spawn_enemies(parent: Node, rng: RandomNumberGenerator) -> Array:
 	var scene = enemy_scene
 	if scene == null:
-		scene = load(ResourcePaths.ENEMY_SCENE) as PackedScene
+		scene = _ResourcePaths.get_enemy_scene()
 	if scene == null:
 		return []
 	var species_paths := _get_species_paths_for_encounter()
@@ -125,7 +127,7 @@ func spawn_enemies(parent: Node, rng: RandomNumberGenerator) -> Array:
 func _stamp_enemy_leader_from_config(enemies: Array) -> void:
 	if enemies.is_empty():
 		return
-	var leader_idx: int = int(encounter_config.get(SoakEncounterPresets.ENCOUNTER_KEY_ENEMY_LEADER_INDEX, 0))
+	var leader_idx: int = encounter_config.get(SoakEncounterPresets.ENCOUNTER_KEY_ENEMY_LEADER_INDEX, 0)
 	if leader_idx < 0:
 		return
 	if leader_idx >= enemies.size():

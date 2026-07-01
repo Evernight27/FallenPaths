@@ -2,7 +2,7 @@ class_name CombatCombatantsSnapshot
 extends RefCounted
 
 ## UI-facing combatant rows: fresh stats from entities, debug fields, status_override for cooldowns / next turn.
-## Footing exports: **`position_angle_offset_deg`** when PA flag on — display via **`CombatUiHints`** / **`#battle-ui`**. Does not stamp or clear offset. LIVE_PATHS **`#wf-tier-44-pa`** (UI phase).
+## Footing exports: **`position_angle_offset_deg`** when PA flag on  -  display via **`CombatUiHints`** / **`#battle-ui`**. Does not stamp or clear offset. LIVE_PATHS **`#wf-tier-44-pa`** (UI phase).
 
 const _StatsSync := preload("res://combat/CombatantStatsSync.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
@@ -29,7 +29,7 @@ static func _copy_live_ui_fields(item: Dictionary, c: Dictionary) -> void:
 		item[CombatConstants.COMBATANT_KEY_EXHAUSTION] = c[CombatConstants.COMBATANT_KEY_EXHAUSTION]
 	if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
 		item["guard_line"] = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
-	if bool(c.get("combat_absent", false)):
+	if c.get("combat_absent", false):
 		item["combat_absent"] = true
 	var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
 	if not pa.is_empty():
@@ -64,7 +64,7 @@ static func _status_override_text(manager: Node, c: Dictionary, combatant_id: in
 	if _counter_tempo_ui_blocks_status_override(manager, c):
 		return ""
 	var close_left: float = _EntityAccess.cooldown_remaining_s(
-		manager, float(c.get("action_cooldown_until", 0.0)), 0.0
+		manager, c.get("action_cooldown_until", 0.0), 0.0
 	)
 	if close_left > 0.0:
 		return "Closing %.1fs" % close_left
@@ -122,7 +122,7 @@ static func build(manager: Node) -> Array:
 			)
 		if _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
 			var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
-			if bool(pa.get(CombatConstants.PA_KEY_COUNTER_TEMPO, false)):
+			if pa.get(CombatConstants.PA_KEY_COUNTER_TEMPO, false):
 				item["is_counter_tempo_wind_up"] = true
 		var pm_raw: Variant = c.get("pending_medical", null)
 		if pm_raw is Dictionary:

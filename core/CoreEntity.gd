@@ -1,6 +1,20 @@
-extends Node2D
-
 class_name CoreEntity
+extends Node2D
+## Stats boosted by training drill (merged into proficiency bonus after each contract). Per-stat.
+var training_pending: Dictionary = {
+	"strength": 0.0,
+	"agility": 0.0,
+	"intelligence": 0.0,
+	"endurance": 0.0,
+	"perception": 0.0,
+}
+
+## Day index of last combat participation (for calendar-day decay calculation).
+var last_fought_day: int = 0
+
+## Whether this merc participated in the most recent combat (tracks who fought vs who stayed at camp).
+var last_fought_in_combat: bool = false
+
 
 # BleedingConstants is class_name in core/_Bleeding.gd; preload for linter/standalone parse
 const _Bleeding := preload("res://core/BleedingConstants.gd")
@@ -19,6 +33,7 @@ const _EntityEquipment := preload("res://core/EntityEquipment.gd")
 const _CombatLayerTissue := preload("res://core/CombatLayerTissue.gd")
 const _TissueEnergyCapacity := preload("res://core/TissueEnergyCapacity.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
+const _Bp := preload("res://core/BodyPartConstants.gd")
 
 @export var species: Resource = null
 ## Campaign / harness: player party lead (stamped on **`CombatManager.register`** for player side only).
@@ -37,8 +52,8 @@ var agility: int = 100
 var intelligence: int = 100
 var endurance: int = 100
 var perception: int = 100
-# Attacking arm: which hand is dominant and offhand effectiveness (0.6–1.0).
-var dominant_hand: String = "right_arm"
+# Attacking arm: which hand is dominant and offhand effectiveness (0.6—"1.0).
+var dominant_hand: String = _Bp.PART_RIGHT_ARM
 var offhand_functionality: float = 0.8
 # One armor piece per body part (e.g. chest -> Cuirass with plate + gambeson layers).
 var armor_slots: Dictionary = {}  # body_part (String) -> ArmorPiece
@@ -47,18 +62,18 @@ var weapon = null
 
 # Wound tracking and bleeding (injury-based). Body parts: head, chest, right_arm, left_arm, right_leg, left_leg.
 # wounds[part] = Array of injury dicts. Each wound has individual healing: created_at_game_time, healing_duration_seconds.
-# Pain contribution = damage × severity_mult × (1 - healing_progress); wounds are removed when progress >= _Healing.WOUND_RESOLVED_THRESHOLD.
+# Pain contribution = damage Ã -  severity_mult Ã -  (1 - healing_progress); wounds are removed when progress >= _Healing.WOUND_RESOLVED_THRESHOLD.
 var wounds: Dictionary = {}  # part (String) -> Array of Dictionary
 ## M3: per-part soft-tissue layer integrity (`intact` | `damaged` | `ruptured`); reset on `apply_species`.
 var tissue_layer_state: Dictionary = {}
 ## M6: internal tissue J (authoritative when `FEATURE_TISSUE_ENERGY_POOL`); display pools derived.
 var tissue_energy_capacity_j: Dictionary = {}
 var tissue_energy_remaining_j: Dictionary = {}
-var blood_volume: float = 100.0  # 0–100; death below _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+var blood_volume: float = 100.0  # 0—"100; death below _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
 ## S6 literal pool when `FEATURE_LITERAL_BLOOD_ML` (-1 = percent-only mode).
 var blood_volume_ml: float = -1.0
 var blood_volume_ml_max: float = -1.0
-# Tourniquet: limb parts only. part -> { "applied_at": float, "effectiveness": float }. Effectiveness 0–1 scales bleeding reduction.
+# Tourniquet: limb parts only. part -> { "applied_at": float, "effectiveness": float }. Effectiveness 0—"1 scales bleeding reduction.
 var tourniquet_applied: Dictionary = {}  # part (String) -> Dictionary
 ## Tracks failed tourniquet attempts per part for escalating retry chance. part -> int (failure count).
 var tourniquet_failures: Dictionary = {}  # part (String) -> int
@@ -96,21 +111,6 @@ var _proficiency_bonus: Dictionary = {
 	"perception": 0.0,
 }
 
-## Stats boosted by training drill (merged into proficiency bonus after each contract). Per-stat.
-var _training_pending: Dictionary = {
-	"strength": 0.0,
-	"agility": 0.0,
-	"intelligence": 0.0,
-	"endurance": 0.0,
-	"perception": 0.0,
-}
-
-## Day index of last combat participation (for calendar-day decay calculation).
-var _last_fought_day: int = 0
-
-## Whether this merc participated in the most recent combat (tracks who fought vs who stayed at camp).
-var _last_fought_in_combat: bool = false
-
 
 func get_combat_blood_loss_mult() -> float:
 	return clampf(_combat_blood_loss_mult, 0.0, 1.0)
@@ -134,7 +134,7 @@ var _game_time_seconds: float = 0.0
 func _round_tissue(v: float) -> float:
 	return roundf(v * 100.0) / 100.0
 
-# Pain and consciousness. Consciousness = head × blood only (pain does not affect it). Pain strongly affects performance.
+# Pain and consciousness. Consciousness = head Ã -  blood only (pain does not affect it). Pain strongly affects performance.
 var consciousness: float = 100.0       # true consciousness (incapacitation when < 10)
 var effective_consciousness: float = 100.0  # for combat (after pain shock)
 var _pain_shock_until_time: float = -1.0    # Time.get_ticks_msec()/1000.0 when shock ends; -1 = not in shock
@@ -206,7 +206,7 @@ func is_part_severed(part: String) -> bool:
 	return _BodyPartQuery.is_part_severed(self, part)
 
 func _get_offhand() -> String:
-	return "left_arm" if dominant_hand == "right_arm" else "right_arm"
+	return _Bp.PART_LEFT_ARM if dominant_hand == _Bp.PART_RIGHT_ARM else _Bp.PART_RIGHT_ARM
 
 func is_arm_destroyed(part: String) -> bool:
 	return _BodyPartQuery.is_arm_destroyed(self, part)
@@ -220,7 +220,7 @@ func get_leg_functionality() -> float:
 func get_part_dodge_modifier(part: String) -> float:
 	return _BodyPartQuery.get_part_dodge_modifier(self, part)
 
-# Effective speed for gauge fill / mobility: base agility × leg functionality (research: leg fracture → major mobility loss).
+# Effective speed for gauge fill / mobility: base agility Ã -  leg functionality (research: leg fracture â†' major mobility loss).
 func get_effective_speed() -> int:
 	var leg: float = get_leg_functionality()
 	return maxi(1, int(roundf(float(agility) * leg)))
@@ -266,7 +266,7 @@ func is_blood_critical() -> bool:
 	"""True when remaining blood is at or below this entity's critical threshold (for UI/effects)."""
 	return blood_volume <= _get_blood_loss_critical_threshold()
 
-# --- Pain and consciousness (Combat Extended–style) ---
+# --- Pain and consciousness (Combat Extended—"style) ---
 # Per-wound healing progress 0..1 (exponential: after healing_duration seconds ~95% healed). Backwards compat: missing fields => progress 0.
 func _get_wound_healing_progress(injury: Dictionary) -> float:
 	return _EntityWounds.get_wound_healing_progress(self, injury)
@@ -381,7 +381,7 @@ func get_bleeding_rate_for_part(part: String) -> float:
 func get_wounded_parts() -> Array:
 	return _EntityWounds.get_wounded_parts(self)
 
-func get_wounds() -> Dictionary:
+func get_wounds_snapshot() -> Dictionary:
 	return _EntityWounds.get_wounds(self)
 
 func get_wound_healing_progress(injury: Dictionary) -> float:
@@ -407,7 +407,7 @@ func get_bandage_application_time_seconds_for_part(part: String) -> float:
 """Medical effectiveness from intelligence (100 INT = 1.0; 50 = 0.75, 150 = 1.25). Used for bandage, direct pressure."""
 func get_medical_effectiveness() -> float:
 	var effective_int: float = float(intelligence)
-	if _CompanyState.read_stub_proficiency_enabled() and has("_proficiency_bonus"):
+	if _CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
 		effective_int += float(_proficiency_bonus.get("intelligence", 0) or 0)
 	var base: float = clampf(effective_int / 100.0, 0.5, 1.5)
 	return base * clampf(_campaign_supply_factor, 0.25, 1.5)
@@ -421,26 +421,26 @@ func get_campaign_supply_factor() -> float:
 	return _campaign_supply_factor
 
 
-"""Max blood volume scaling from END (100 → 1.0x; 150 → 1.25x). Applied in BloodVolumeMl.init_entity_pool."""
+"""Max blood volume scaling from END (100 â†' 1.0x; 150 â†' 1.25x). Applied in BloodVolumeMl.init_entity_pool."""
 func get_endurance_blood_volume_mult() -> float:
 	var effective_end: float = float(endurance)
-	if _CompanyState.read_stub_proficiency_enabled() and has("_proficiency_bonus"):
+	if _CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
 		effective_end += float(_proficiency_bonus.get("endurance", 0) or 0)
 	return 1.0 + (effective_end - 100) / 400.0
 
 
-"""Camp rest healing speed from END (100 → 1.0x; 150 → ~1.20x faster). Applied in EntityHealing tau calculations."""
+"""Camp rest healing speed from END (100 â†' 1.0x; 150 â†' ~1.20x faster). Applied in EntityHealing tau calculations."""
 func get_endurance_healing_speed_mult() -> float:
 	var effective_end: float = float(endurance)
-	if _CompanyState.read_stub_proficiency_enabled() and has("_proficiency_bonus"):
+	if _CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
 		effective_end += float(_proficiency_bonus.get("endurance", 0) or 0)
 	return 1.0 - clampf((effective_end - 100) / 500.0, 0.0, 0.25)
 
 
-"""Contract pay scaling from INT (100 → 1.0x; 150 → 1.075x max). Applied in CompanyState post-victory gold calculation."""
+"""Contract pay scaling from INT (100 â†' 1.0x; 150 â†' 1.075x max). Applied in CompanyState post-victory gold calculation."""
 func get_intelligence_contract_bonus_mult() -> float:
 	var effective_int: float = float(intelligence)
-	if _CompanyState.read_stub_proficiency_enabled() and has("_proficiency_bonus"):
+	if _CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
 		effective_int += float(_proficiency_bonus.get("intelligence", 0) or 0)
 	return 1.0 + clampf((effective_int - 100) / 500.0, 0.0, 0.15)
 
@@ -449,7 +449,7 @@ func get_campaign_stamina_mult() -> float:
 	var m: float = 1.0
 	for raw in campaign_afflictions:
 		if raw is Dictionary:
-			m *= clampf(float(raw.get("stamina_mult", 1.0)), 0.5, 1.0)
+			m *= clampf(raw.get("stamina_mult", 1.0), 0.5, 1.0)
 	return m
 
 
@@ -457,18 +457,18 @@ func get_campaign_pain_mult() -> float:
 	var m: float = 1.0
 	for raw in campaign_afflictions:
 		if raw is Dictionary:
-			m *= clampf(float(raw.get("pain_mult", 1.0)), 0.5, 1.5)
+			m *= clampf(raw.get("pain_mult", 1.0), 0.5, 1.5)
 	return m
 
 
 func add_campaign_affliction(def: Dictionary) -> bool:
 	if def.is_empty():
 		return false
-	var id: String = str(def.get("id", ""))
+	var id: String = def.get("id", "")
 	if id.is_empty():
 		return false
 	for raw in campaign_afflictions:
-		if raw is Dictionary and str(raw.get("id", "")) == id:
+		if raw is Dictionary and raw.get("id", "") == id:
 			return false
 	campaign_afflictions.append(def.duplicate(true))
 	return true
@@ -478,7 +478,7 @@ func get_campaign_affliction_labels() -> PackedStringArray:
 	var out: PackedStringArray = PackedStringArray()
 	for raw in campaign_afflictions:
 		if raw is Dictionary:
-			out.append(str(raw.get("label", raw.get("id", ""))))
+			out.append(raw.get("label", raw.get("id", "")))
 	return out
 
 func get_tourniquet_application_time_seconds() -> float:
@@ -630,17 +630,13 @@ func _apply_species():
 			body_blunt[p] = _round_tissue(float(m))
 			bone_max[p] = b
 			bone_health[p] = _round_tissue(float(b))
-		strength = species.get("strength") if "strength" in species else 100
-		agility = species.get("agility") if "agility" in species else (species.get("speed") if "speed" in species else 100)
-		intelligence = species.get("intelligence") if "intelligence" in species else 100
-		endurance = species.get("endurance") if "endurance" in species else 100
-		perception = species.get("perception") if "perception" in species else 100
-		dominant_hand = ["right_arm", "left_arm"][randi() % 2]
-		offhand_functionality = randf_range(0.6, 1.0)
-		_CombatLayerTissue.seed_all_layer_states(self)
-		_TissueEnergyCapacity.seed_entity_energy_pools(self, true)
-		if typeof(species.name) == TYPE_STRING and species.name != "":
-			self.name = species.name
+		strength = species.strength
+		agility = species.agility
+		intelligence = species.intelligence
+		endurance = species.endurance
+		perception = species.perception
+	if species != null and typeof(species.name) == TYPE_STRING and species.name != "":
+		self.name = species.name
 	else:
 		# Fallback when no species: use generic values consistent with aggressive realism scale
 		for p in _get_body_part_list():
@@ -654,7 +650,11 @@ func _apply_species():
 		intelligence = 100
 		endurance = 100
 		perception = 100
-		dominant_hand = ["right_arm", "left_arm"][randi() % 2]
-		offhand_functionality = randf_range(0.6, 1.0)
-		_CombatLayerTissue.seed_all_layer_states(self)
-		_TissueEnergyCapacity.seed_entity_energy_pools(self, true)
+	_apply_common_seed_defaults()
+
+## Common seed defaults shared by species and fallback branches.
+func _apply_common_seed_defaults():
+	dominant_hand = [_Bp.PART_RIGHT_ARM, _Bp.PART_LEFT_ARM][randi() % 2]
+	offhand_functionality = randf_range(0.6, 1.0)
+	_CombatLayerTissue.seed_all_layer_states(self)
+	_TissueEnergyCapacity.seed_entity_energy_pools(self, true)

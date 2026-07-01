@@ -2,20 +2,38 @@ class_name CombatWeaponForm
 extends RefCounted
 
 ## Per-fighter weapon form defs: temperament mods, move-family weights, pressure class, home guard, auto-switch.
-## Read order: FORM_DEFS → normalize → seed → mod/action_weight_mult → pressure → evaluate_automatic_form.
-## Canonical: CombatantEntityAccess.form_str · mod · action_weight_mult · home_guard_line · evaluate_automatic_form.
-## Footing: assign_form → home guard_line only (LIVE_PATHS **`#wf-assign-form-contract`**); picker uses form weights only — **`#wf-pick-vs-strike`**. Tier 4.4 PA: **`CombatFootwork`** — hub **`#wf-tier-44-pa`**. **`#wf-footing-guards-stances`** · **`#wf-form-guard-pa-matrix`**.
+## Read order: FORM_DEFS ÃƒÂ¢Ã¢Â€Â ' normalize ÃƒÂ¢Ã¢Â€Â ' seed ÃƒÂ¢Ã¢Â€Â ' mod/action_weight_mult ÃƒÂ¢Ã¢Â€Â ' pressure ÃƒÂ¢Ã¢Â€Â ' evaluate_automatic_form.
+## Canonical: CombatantEntityAccess.form_str Â· mod Â· action_weight_mult Â· home_guard_line Â· evaluate_automatic_form.
+## Footing: assign_form ÃƒÂ¢Ã¢Â€Â ' home guard_line only (LIVE_PATHS **`#wf-assign-form-contract`**); picker uses form weights only â€”" **`#wf-pick-vs-strike`**. Tier 4.4 PA: **`CombatFootwork`** â€”" hub **`#wf-tier-44-pa`**. **`#wf-footing-guards-stances`** Â· **`#wf-form-guard-pa-matrix`**.
 ## Manager requires: combatants, encounter, combat_clock (auto-switch cooldown only).
 
-const _Attention := preload("res://combat/CombatAttention.gd")
+# Runtime preload — circular dependency (CombatAttention preloads CombatWeaponForm).
+static var _attention_cache: Variant = null
+
+static func _get_attention() -> GDScript:
+	if _attention_cache == null:
+		_attention_cache = load("res://combat/CombatAttention.gd")
+	return _attention_cache
+
+# Runtime preload — circular dependency (CombatConstants → CombatConstantsStance → CombatWeaponForm → TacticalCombat).
+static var _tactical_combat_cache: Variant = null
+
+static func _get_tactical_combat() -> GDScript:
+	if CombatWeaponForm._tactical_combat_cache == null:
+		CombatWeaponForm._tactical_combat_cache = load("res://combat/TacticalCombat.gd")
+	return CombatWeaponForm._tactical_combat_cache
+
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
-const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
+
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 const FORM_OX := "ox"
 const FORM_PLOW := "plow"
@@ -24,16 +42,6 @@ const FORM_FOOL := "fool"
 const FORM_WALL := "wall"
 const FORM_TEMPEST := "tempest"
 const FORM_BALANCED := "balanced"
-
-const _MOD_EFFECTS: Array[String] = [
-	"parry",
-	"evasion",
-	"damage",
-	"close_attempt",
-	"ai_melee_focus",
-	"feint_readthrough",
-	"ai_feint_listing",
-]
 
 static var _FORM_DEFS: Dictionary = {}
 
@@ -320,7 +328,7 @@ static func default_form_for_weapon(weapon: Variant) -> String:
 
 static func home_guard_line(form: String) -> String:
 	var d: Dictionary = _def(form)
-	return str(d.get("home_guard", CombatConstants.GUARD_DEFAULT))
+	return str(d.get("home_guard", _CombatConstants.GUARD_DEFAULT))
 
 
 static func preferred_guards(form: String) -> PackedStringArray:
@@ -334,7 +342,7 @@ static func preferred_guards(form: String) -> PackedStringArray:
 static func mod(form: String, effect: String) -> float:
 	var d: Dictionary = _def(form)
 	var m: Dictionary = d.get("mod", {}) as Dictionary
-	return float(m.get(effect, 1.0))
+	return m.get(effect, 1.0)
 
 
 static func display_name(form: String) -> String:
@@ -363,11 +371,11 @@ static func controlling_pressure_active(c: Dictionary) -> bool:
 		return false
 	return (
 		_EntityAccess.stamina_ratio(c)
-		>= CombatConstants.STANCE_MIN_STAMINA_CONTROLLING_RATIO
+		>= _CombatConstants.STANCE_MIN_STAMINA_CONTROLLING_RATIO
 	)
 
 
-## Live pressure tag for UI — suppress **`controlling`** when the stamina gate is down.
+## Live pressure tag for UI â€”" suppress **`controlling`** when the stamina gate is down.
 static func pressure_class_label_for_ui(c: Dictionary) -> String:
 	if c.is_empty():
 		return ""
@@ -381,21 +389,21 @@ static func pressure_class_label_for_ui(c: Dictionary) -> String:
 
 static func opponent_close_evasion_divisor(form: String) -> float:
 	if pressure_class_is(form, "controlling"):
-		return CombatConstants.STANCE_MOD_OPPONENT_CLOSE
+		return _CombatConstants.STANCE_MOD_OPPONENT_CLOSE
 	return 1.0
 
 
-## Controlling pressure slows opponent formation disengage (fall_back / swap duration). LIVE_PATHS **`#wf-footing-improvement-backlog`** — pairs with **`STANCE_MOD_OPPONENT_DISENGAGE`**.
+## Controlling pressure slows opponent formation disengage (fall_back / swap duration). LIVE_PATHS **`#wf-footing-improvement-backlog`** â€”" pairs with **`STANCE_MOD_OPPONENT_DISENGAGE`**.
 static func opponent_disengage_pressure_mult(form: String) -> float:
 	if pressure_class_is(form, "controlling"):
-		return 1.0 / CombatConstants.STANCE_MOD_OPPONENT_DISENGAGE
+		return 1.0 / _CombatConstants.STANCE_MOD_OPPONENT_DISENGAGE
 	return 1.0
 
 
 ## AI **`attempt_close`** listing dampening vs controlling defender (mirrors resolve evasion divisor).
 static func opponent_close_listing_weight_mult(form: String) -> float:
 	if pressure_class_is(form, "controlling"):
-		return CombatConstants.STANCE_MOD_OPPONENT_CLOSE
+		return _CombatConstants.STANCE_MOD_OPPONENT_CLOSE
 	return 1.0
 
 
@@ -406,15 +414,15 @@ static func opponent_close_listing_weight_mult_for_defender(c: Dictionary) -> fl
 
 
 static func min_stamina_ratio_for_form(form: String) -> float:
-	return float(_def(form).get("min_stamina_ratio", 0.22))
+	return _def(form).get("min_stamina_ratio", 0.22)
 
 
 static func wait_action_weight_mult(form: String) -> float:
-	return float(_def(form).get("wait_weight_mult", 1.0))
+	return _def(form).get("wait_weight_mult", 1.0)
 
 
 static func _move_family_for_move_id(move_id: String) -> String:
-	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+	if move_id == _CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		return "close"
 	if _WeaponConstants.is_feint_move(move_id):
 		return "feint"
@@ -424,8 +432,8 @@ static func _move_family_for_move_id(move_id: String) -> String:
 	if ct == _WeaponConstants.ATTACK_TYPE_STAB:
 		return "thrust"
 	var md: Dictionary = _WeaponConstants.get_move(move_id)
-	var arch: String = str(md.get("archetype_id", ""))
-	var line: String = str(md.get("attack_line", ""))
+	var arch: String = md.get("archetype_id", "")
+	var line: String = md.get("attack_line", "")
 	if arch == _WeaponConstants.ARCHETYPE_QUICK_SLASH or move_id == "slash" or move_id == "quick_slash":
 		return "slash"
 	if line.begins_with("low") or move_id == "unterhau":
@@ -441,7 +449,7 @@ static func action_weight_mult(form: String, move_id: String) -> float:
 		return 1.0
 	var d: Dictionary = _def(form)
 	var fam: Dictionary = d.get("move_family_mult", {}) as Dictionary
-	return float(fam.get(family, 1.0))
+	return fam.get(family, 1.0)
 
 
 static func wind_up_transition_mult(
@@ -467,7 +475,7 @@ static func _counter_spec_for_inferred(my_form: String, inferred_opp: String) ->
 		return {"mult": float(raw), "families": PackedStringArray()}
 	if raw is Dictionary:
 		return {
-			"mult": float((raw as Dictionary).get("mult", 1.0)),
+			"mult": (raw as Dictionary).get("mult", 1.0),
 			"families": _coerce_string_array((raw as Dictionary).get("families", [])),
 		}
 	return {"mult": 1.0, "families": PackedStringArray()}
@@ -478,7 +486,7 @@ static func _coerce_string_array(raw: Variant) -> PackedStringArray:
 	if raw is PackedStringArray:
 		return raw as PackedStringArray
 	if raw is Array:
-		for item in raw as Array:
+		for item in raw:
 			var s: String = str(item).strip_edges()
 			if not s.is_empty():
 				out.append(s)
@@ -490,7 +498,7 @@ static func form_counter_mult(my_form: String, inferred_opp_form: String, move_i
 	if inferred_opp_form.is_empty() or move_id.is_empty():
 		return 1.0
 	var spec: Dictionary = _counter_spec_for_inferred(normalize_form(my_form), inferred_opp_form)
-	var mult: float = float(spec.get("mult", 1.0))
+	var mult: float = spec.get("mult", 1.0)
 	if mult <= 1.0:
 		return 1.0
 	var families: PackedStringArray = _coerce_string_array(spec.get("families", []))
@@ -498,24 +506,24 @@ static func form_counter_mult(my_form: String, inferred_opp_form: String, move_i
 		var family: String = _move_family_for_move_id(move_id)
 		if family.is_empty() or family not in families:
 			return 1.0
-	return minf(mult, CombatConstants.WF_FORM_COUNTER_MULT_CAP)
+	return minf(mult, _CombatConstants.WF_FORM_COUNTER_MULT_CAP)
 
 
 ## WF-2b: optional defense bump when defender form counters inferred attacker form.
 static func counter_readiness_nudge(my_form: String, inferred_opp_form: String) -> float:
 	if inferred_opp_form.is_empty():
 		return 0.0
-	var mult: float = float(_counter_spec_for_inferred(normalize_form(my_form), inferred_opp_form).get("mult", 1.0))
+	var mult: float = _counter_spec_for_inferred(normalize_form(my_form), inferred_opp_form).get("mult", 1.0)
 	if mult <= 1.0:
 		return 0.0
 	var t: float = clampf(
-		(mult - 1.0) / maxf(0.001, CombatConstants.WF_FORM_COUNTER_MULT_CAP - 1.0),
+		(mult - 1.0) / maxf(0.001, _CombatConstants.WF_FORM_COUNTER_MULT_CAP - 1.0),
 		0.0,
 		1.0
 	)
 	return lerpf(
-		CombatConstants.WF_COUNTER_READINESS_NUDGE_MIN,
-		CombatConstants.WF_COUNTER_READINESS_NUDGE_MAX,
+		_CombatConstants.WF_COUNTER_READINESS_NUDGE_MIN,
+		_CombatConstants.WF_COUNTER_READINESS_NUDGE_MAX,
 		t
 	)
 
@@ -528,23 +536,23 @@ static func _signature_score_for_entry(form: String, entry: Dictionary) -> float
 	var move_sig: Dictionary = sig.get("move_ids", {}) as Dictionary
 	var move_counts: Dictionary = entry.get("move_id_counts", {}) as Dictionary
 	for mid in move_counts.keys():
-		var w: float = float(move_sig.get(mid, 0.0))
+		var w: float = move_sig.get(mid, 0.0)
 		if w > 0.0:
 			score += float(move_counts[mid]) * w
 	var ct_sig: Dictionary = sig.get("contact_types", {}) as Dictionary
 	var ct_counts: Dictionary = entry.get("contact_type_counts", {}) as Dictionary
 	for ct in ct_counts.keys():
-		var cw: float = float(ct_sig.get(ct, 0.0))
+		var cw: float = ct_sig.get(ct, 0.0)
 		if cw > 0.0:
 			score += float(ct_counts[ct]) * cw
 	var line_sig: Dictionary = sig.get("lines", {}) as Dictionary
 	var line_counts: Dictionary = entry.get("line_counts", {}) as Dictionary
 	for ln in line_counts.keys():
-		var lw: float = float(line_sig.get(ln, 0.0))
+		var lw: float = line_sig.get(ln, 0.0)
 		if lw > 0.0:
 			score += float(line_counts[ln]) * lw
-	var feint_bias: float = float(sig.get("feint_bias", 0.0))
-	var feint_n: int = int(entry.get("feint_resolved", 0))
+	var feint_bias: float = sig.get("feint_bias", 0.0)
+	var feint_n: int = entry.get("feint_resolved", 0)
 	if feint_bias > 0.0 and feint_n > 0:
 		score += float(feint_n) * feint_bias
 	return score
@@ -553,11 +561,11 @@ static func _signature_score_for_entry(form: String, entry: Dictionary) -> float
 static func infer_opponent_form(_manager: Node, observer: Dictionary, opponent_id: int) -> String:
 	if observer == null or observer.is_empty() or opponent_id < 0:
 		return ""
-	if not _Attention.enabled():
+	if not _get_attention().enabled():
 		return ""
-	var entry: Dictionary = _Attention.yomi_entry_for_attacker(observer, opponent_id)
-	var total_obs: int = _Attention.yomi_observation_total(entry)
-	if total_obs < CombatConstants.WF_YOMI_FORM_INFERENCE_MIN_OBS:
+	var entry: Dictionary = _get_attention().yomi_entry_for_attacker(observer, opponent_id)
+	var total_obs: int = _get_attention().yomi_observation_total(entry)
+	if total_obs < _CombatConstants.WF_YOMI_FORM_INFERENCE_MIN_OBS:
 		return ""
 	_ensure_defs()
 	var best_form: String = ""
@@ -576,7 +584,7 @@ static func infer_opponent_form(_manager: Node, observer: Dictionary, opponent_i
 		return ""
 	if second_score < 0.0:
 		second_score = 0.0
-	if (best_score - second_score) < CombatConstants.WF_YOMI_FORM_INFERENCE_MARGIN:
+	if (best_score - second_score) < _CombatConstants.WF_YOMI_FORM_INFERENCE_MARGIN:
 		return ""
 	return normalize_form(best_form)
 
@@ -585,15 +593,15 @@ static func infer_opponent_form(_manager: Node, observer: Dictionary, opponent_i
 static func refresh_inferred_forms_for_observer(manager: Node, observer: Dictionary) -> void:
 	if observer == null or observer.is_empty() or manager == null:
 		return
-	if not _Attention.enabled():
-		observer.erase(CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID)
+	if not _get_attention().enabled():
+		observer.erase(_CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID)
 		return
 	var self_side: String = _EntityAccess.side_str(observer)
 	var cache: Dictionary = {}
 	for other in manager.combatants:
 		if other == null or other is not Dictionary:
 			continue
-		var oc: Dictionary = other as Dictionary
+		var oc: Dictionary = other
 		if not _EntityAccess.is_alive_in_combat(oc):
 			continue
 		if _EntityAccess.side_str(oc) == self_side:
@@ -605,22 +613,22 @@ static func refresh_inferred_forms_for_observer(manager: Node, observer: Diction
 		if not inferred.is_empty():
 			cache[str(oid)] = inferred
 	if cache.is_empty():
-		observer.erase(CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID)
+		observer.erase(_CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID)
 	else:
-		observer[CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID] = cache
+		observer[_CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID] = cache
 
 
-## Stance → pressure_class alias (harness compatibility). Production uses **`form_str`** + **`CombatWeaponForm.mod`**.
+## Stance ÃƒÂ¢Ã¢Â€Â ' pressure_class alias (harness compatibility). Production uses **`form_str`** + **`CombatWeaponForm.mod`**.
 static func _stance_alias_from_pressure(form: String) -> String:
 	match pressure_class(form):
 		"defensive":
-			return CombatConstants.STANCE_DEFENSIVE
+			return _CombatConstants.STANCE_DEFENSIVE
 		"aggressive":
-			return CombatConstants.STANCE_AGGRESSIVE
+			return _CombatConstants.STANCE_AGGRESSIVE
 		"controlling":
-			return CombatConstants.STANCE_CONTROLLING
+			return _CombatConstants.STANCE_CONTROLLING
 		_:
-			return CombatConstants.STANCE_BALANCED
+			return _CombatConstants.STANCE_BALANCED
 
 
 static func _side_encounter_default_form(manager: Node, c: Dictionary) -> String:
@@ -629,14 +637,14 @@ static func _side_encounter_default_form(manager: Node, c: Dictionary) -> String
 	var enc: Dictionary = manager.encounter if manager.encounter is Dictionary else {}
 	var side: String = _EntityAccess.side_str(c)
 	var key: String = (
-		CombatConstants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM
-		if side == "player"
-		else CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM
+		_CombatConstants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM
+		if side == _CombatConstants.SIDE_PLAYER
+		else _CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM
 	)
 	return str(enc.get(key, "")).strip_edges()
 
 
-## L2 → L3 home write site: sets **`weapon_form`**, stance alias (harness compatibility), home **`guard_line`** — does **not** stamp/clear PA. Contract: LIVE_PATHS **`#wf-assign-form-contract`**.
+## L2 ÃƒÂ¢Ã¢Â€Â ' L3 home write site: sets **`weapon_form`**, stance alias (harness compatibility), home **`guard_line`** â€”" does **not** stamp/clear PA. Contract: LIVE_PATHS **`#wf-assign-form-contract`**.
 static func assign_form(
 	manager: Node, c: Dictionary, form: String, reason: String = ""
 ) -> void:
@@ -645,13 +653,12 @@ static func assign_form(
 	if not form_allowed_for_weapon(resolved, weapon):
 		resolved = default_form_for_weapon(weapon)
 	var old_form: String = _EntityAccess.form_str(c)
-	c[CombatConstants.COMBATANT_KEY_WEAPON_FORM] = resolved
+	c[_CombatConstants.COMBATANT_KEY_WEAPON_FORM] = resolved
 	c["stance"] = _stance_alias_from_pressure(resolved)
 	if old_form != resolved and reason not in ["spawn", "harness_baseline"]:
-		c[CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON] = reason
+		c[_CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON] = reason
 	_GuardLineUpdater.set_guard_from_line(c, home_guard_line(resolved))
-	if manager != null and not reason.is_empty() and CombatConstants.combat_event_debug_active():
-		const _CombatDebug := preload("res://combat/CombatDebug.gd")
+	if manager != null and not reason.is_empty() and _CombatConstants.combat_event_debug_active():
 		_CombatDebug.flow_log(
 			"form_switch id=%d form=%s reason=%s"
 			% [_EntityAccess.id_int(c), resolved, reason]
@@ -659,20 +666,19 @@ static func assign_form(
 	if (
 		old_form != resolved
 		and reason not in ["spawn", "harness_baseline"]
-		and CombatConstants.WF_FORM_SWITCH_STAMINA_COST > 0.0
+		and _CombatConstants.WF_FORM_SWITCH_STAMINA_COST > 0.0
 	):
 		c["stamina"] = maxf(
-			0.0, _EntityAccess.stamina_float(c) - CombatConstants.WF_FORM_SWITCH_STAMINA_COST
+			0.0, _EntityAccess.stamina_float(c) - _CombatConstants.WF_FORM_SWITCH_STAMINA_COST
 		)
 	if (
 		manager != null
 		and old_form != resolved
 		and reason not in ["spawn", "harness_baseline"]
 	):
-		const _OperationalLog := preload("res://core/OperationalLog.gd")
 		if _OperationalLog.is_play_session_active():
 			_OperationalLog.play_combat(
-				"form_switch id=%d %s %s→%s reason=%s"
+				"form_switch id=%d %s %sÃƒÂ¢Ã¢Â€Â '%s reason=%s"
 				% [
 					_EntityAccess.id_int(c),
 					_EntityAccess.get_display_name(c, _EntityAccess.id_int(c)),
@@ -683,16 +689,16 @@ static func assign_form(
 			)
 
 
-## Spawn path entry: resolve form from overlay → encounter → **`stance_preference`** → weapon default → **`assign_form(..., "spawn")`**. LIVE_PATHS **`#spawn--reset-path-wf-1a`**.
+## Spawn path entry: resolve form from overlay ÃƒÂ¢Ã¢Â€Â ' encounter ÃƒÂ¢Ã¢Â€Â ' **`stance_preference`** ÃƒÂ¢Ã¢Â€Â ' weapon default ÃƒÂ¢Ã¢Â€Â ' **`assign_form(..., "spawn")`**. LIVE_PATHS **`#spawn--reset-path-wf-1a`**.
 static func seed_combatant_form(
 	manager: Node, c: Dictionary, spawn_overlay: Dictionary = {}
 ) -> void:
 	var weapon = _EntityAccess.get_weapon(c)
-	var raw: String = str(spawn_overlay.get("weapon_form", "")).strip_edges()
+	var raw: String = spawn_overlay.get("weapon_form", "").strip_edges()
 	if raw.is_empty():
 		raw = _side_encounter_default_form(manager, c)
 	if raw.is_empty():
-		raw = str(c.get("stance_preference", "")).strip_edges()
+		raw = c.get("stance_preference", "").strip_edges()
 	var form: String
 	if raw.is_empty():
 		form = default_form_for_weapon(weapon)
@@ -704,17 +710,17 @@ static func seed_combatant_form(
 
 
 static func _stamp_form_switch_cooldown(c: Dictionary, clk: float) -> void:
-	c[CombatConstants.COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL] = (
-		clk + CombatConstants.WF_FORM_SWITCH_COOLDOWN_S
+	c[_CombatConstants.COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL] = (
+		clk + _CombatConstants.WF_FORM_SWITCH_COOLDOWN_S
 	)
 
 
 static func _inferred_opponent_form(manager: Node, observer: Dictionary, opponent_id: int) -> String:
 	if opponent_id < 0:
 		return ""
-	var cache_raw: Variant = observer.get(CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID, null)
+	var cache_raw: Variant = observer.get(_CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID, null)
 	if cache_raw is Dictionary:
-		var cached: String = str((cache_raw as Dictionary).get(str(opponent_id), "")).strip_edges()
+		var cached: String = (cache_raw as Dictionary).get(str(opponent_id), "").strip_edges()
 		if not cached.is_empty():
 			return cached
 	return infer_opponent_form(manager, observer, opponent_id)
@@ -723,7 +729,7 @@ static func _inferred_opponent_form(manager: Node, observer: Dictionary, opponen
 static func _primary_melee_threat_id(manager: Node, c: Dictionary) -> int:
 	if manager == null or c.is_empty():
 		return -1
-	var engaged: int = int(c.get("engaged_with_id", -1))
+	var engaged: int = c.get("engaged_with_id", -1)
 	if engaged >= 0:
 		var engaged_c: Dictionary = _EntityAccess.manager_get_combatant(manager, engaged)
 		if (
@@ -736,7 +742,7 @@ static func _primary_melee_threat_id(manager: Node, c: Dictionary) -> int:
 	for other in manager.combatants:
 		if other == null or other is not Dictionary:
 			continue
-		var oc: Dictionary = other as Dictionary
+		var oc: Dictionary = other
 		if not _EntityAccess.is_living_hostile_to(c, oc):
 			continue
 		var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, oc, c)
@@ -752,13 +758,13 @@ static func _primary_melee_threat_id(manager: Node, c: Dictionary) -> int:
 static func _is_isolated_duel(manager: Node, c: Dictionary) -> bool:
 	if manager == null or c.is_empty():
 		return false
-	var scan: Dictionary = _TacticalCombat.surround_threat_scan_for_defender(manager, c)
-	if int(scan.get("count", 0)) != 1:
+	var scan: Dictionary = CombatWeaponForm._get_tactical_combat().surround_threat_scan_for_defender(manager, c)
+	if scan.get("count", 0) != 1:
 		return false
-	var wsum: float = float(scan.get("weight_sum", 0.0))
-	if wsum > CombatConstants.SURROUND_SECTOR_LOAD_FREE + CombatConstants.WF_AUTO_SWITCH_ISOLATED_DUEL_WEIGHT_PAD:
+	var wsum: float = scan.get("weight_sum", 0.0)
+	if wsum > _CombatConstants.SURROUND_SECTOR_LOAD_FREE + _CombatConstants.WF_AUTO_SWITCH_ISOLATED_DUEL_WEIGHT_PAD:
 		return false
-	if int(scan.get("arc_occupancy_blocked", 0)) > 0:
+	if scan.get("arc_occupancy_blocked", 0) > 0:
 		return false
 	return _primary_melee_threat_id(manager, c) >= 0
 
@@ -766,11 +772,11 @@ static func _is_isolated_duel(manager: Node, c: Dictionary) -> bool:
 static func _surround_pressure_high(manager: Node, c: Dictionary) -> bool:
 	if manager == null or c.is_empty():
 		return false
-	var scan: Dictionary = _TacticalCombat.surround_threat_scan_for_defender(manager, c)
-	if int(scan.get("count", 0)) >= 2:
+	var scan: Dictionary = CombatWeaponForm._get_tactical_combat().surround_threat_scan_for_defender(manager, c)
+	if scan.get("count", 0) >= 2:
 		return true
-	var wsum: float = float(scan.get("weight_sum", 0.0))
-	return wsum > CombatConstants.SURROUND_SECTOR_LOAD_FREE + CombatConstants.WF_AUTO_SWITCH_SURROUND_WEIGHT_PAD
+	var wsum: float = scan.get("weight_sum", 0.0)
+	return wsum > _CombatConstants.SURROUND_SECTOR_LOAD_FREE + _CombatConstants.WF_AUTO_SWITCH_SURROUND_WEIGHT_PAD
 
 
 static func _surround_form_for_weapon(weapon: Variant) -> String:
@@ -788,9 +794,9 @@ static func _duel_form_from_yomi_and_stamina(
 	min_stamina: float,
 	weapon: Variant = null
 ) -> String:
-	var offense_pad: float = CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
-	var promote_pad: float = CombatConstants.WF_AUTO_SWITCH_DUEL_WRATH_PROMOTE_PAD
-	var demote_pad: float = CombatConstants.WF_AUTO_SWITCH_DUEL_WRATH_DEMOTE_PAD
+	var offense_pad: float = _CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
+	var promote_pad: float = _CombatConstants.WF_AUTO_SWITCH_DUEL_WRATH_PROMOTE_PAD
+	var demote_pad: float = _CombatConstants.WF_AUTO_SWITCH_DUEL_WRATH_DEMOTE_PAD
 	if cur == FORM_WALL and stamina_ratio < min_stamina + offense_pad:
 		return ""
 	if not inferred.is_empty():
@@ -822,7 +828,7 @@ static func _counter_form_vs_inferred(weapon: Variant, inferred_opp: String) -> 
 		var fid: String = normalize_form(str(raw_form))
 		if not form_allowed_for_weapon(fid, weapon):
 			continue
-		var mult: float = float(_counter_spec_for_inferred(fid, inferred_opp).get("mult", 1.0))
+		var mult: float = _counter_spec_for_inferred(fid, inferred_opp).get("mult", 1.0)
 		if mult > best_mult:
 			best_mult = mult
 			best_form = fid
@@ -841,7 +847,7 @@ static func _duel_counter_form_vs_inferred(weapon: Variant, inferred_opp: String
 		var fid: String = normalize_form(fid_raw)
 		if not form_allowed_for_weapon(fid, weapon):
 			continue
-		var mult: float = float(_counter_spec_for_inferred(fid, inferred_opp).get("mult", 1.0))
+		var mult: float = _counter_spec_for_inferred(fid, inferred_opp).get("mult", 1.0)
 		if mult > best_mult:
 			best_mult = mult
 			best_form = fid
@@ -853,7 +859,7 @@ static func _duel_counter_form_vs_inferred(weapon: Variant, inferred_opp: String
 static func _try_assign_auto_switch(
 	manager: Node, c: Dictionary, next_form: String, reason: String, clk: float
 ) -> bool:
-	var next: String = str(next_form).strip_edges()
+	var next: String = next_form.strip_edges()
 	if next.is_empty() or next == _EntityAccess.form_str(c):
 		return false
 	var weapon = _EntityAccess.get_weapon(c)
@@ -864,13 +870,13 @@ static func _try_assign_auto_switch(
 	return true
 
 
-## WF-3 auto-switch hook — calls **`assign_form`** only; does **not** stamp/clear PA. Caller: **`CombatAIActionPicker.pick`** after mental-stack miss. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-assign-form-contract`**.
+## WF-3 auto-switch hook â€”" calls **`assign_form`** only; does **not** stamp/clear PA. Caller: **`CombatAIActionPicker.pick`** after mental-stack miss. LIVE_PATHS **`#wf-pick-vs-strike`** Â· **`#wf-assign-form-contract`**.
 static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 	if manager == null or c.is_empty():
 		return false
 	var clk: float = _EntityAccess.combat_clock_float(manager)
 	var until: float = float(
-		c.get(CombatConstants.COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL, 0.0)
+		c.get(_CombatConstants.COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL, 0.0)
 	)
 	if until > clk:
 		return false
@@ -899,7 +905,7 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 		var duel_id: int = _primary_melee_threat_id(manager, c)
 		if duel_id >= 0:
 			var inferred: String = _inferred_opponent_form(manager, c, duel_id)
-			var offense_pad: float = CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
+			var offense_pad: float = _CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
 			var can_offense: bool = not (
 				cur == FORM_WALL and ratio < min_r + offense_pad
 			)
@@ -914,10 +920,12 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 				return true
 	var threat_id: int = _primary_melee_threat_id(manager, c)
 	if threat_id >= 0:
-		var offense_pad_fb: float = CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
+		var offense_pad_fb: float = _CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
 		if not (cur == FORM_WALL and ratio < min_r + offense_pad_fb):
 			var inferred_opp: String = _inferred_opponent_form(manager, c, threat_id)
 			var counter: String = _counter_form_vs_inferred(weapon, inferred_opp)
 			if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
 				return true
 	return false
+                              
+

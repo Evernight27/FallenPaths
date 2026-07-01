@@ -3,9 +3,10 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
+const _WeightedSample := preload("res://core/WeightedSample.gd")
 
-## Option 6: Path + Guard Intercept — hit part selection from blade trajectory.
-## Footing: optional **`alignment_context`** **`attack_angle_deg`** / **`guard_angle_deg`** — use **`CombatFootwork.guard_angle_deg`** at contact, not raw **`guard_line`** alone when PA flag on. LIVE_PATHS **`#wf-tier-44-pa`** (geometry).
+## Option 6: Path + Guard Intercept  -  hit part selection from blade trajectory.
+## Footing: optional **`alignment_context`** **`attack_angle_deg`** / **`guard_angle_deg`**  -  use **`CombatFootwork.guard_angle_deg`** at contact, not raw **`guard_line`** alone when PA flag on. LIVE_PATHS **`#wf-tier-44-pa`** (geometry).
 ## Path varies by (attack_line, guard_line): defender posture determines what's in the blade's way.
 ## High guard vs high attack = arms first; low guard vs high attack = head exposed first.
 ## Intercept: high alignment = early contact; low = blade travels further.
@@ -42,21 +43,21 @@ static func resolve_hit_part(attack_line: String, guard_line: String, targetable
 	for p in path_segment:
 		part_weights[p] = 1.0
 	var recovery_cause: String = CombatConstants.normalize_recovery_cause(
-		str(defender_ctx.get("recovery_cause", ""))
+		defender_ctx.get("recovery_cause", "")
 	)
-	var passive_parry: bool = defender_ctx.get("passive_parry_attempted", false)
+	var passive_parry: bool = defender_ctx.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false)
 	if recovery_cause == "attack_hit" and _EntityAccess.state_str(defender_ctx) == CombatConstants.STATE_RECOVERING:
 		# Staggered: center mass (chest) more likely
-		if part_weights.has("chest"):
-			part_weights["chest"] = 1.5
+		if part_weights.has(BodyPartConstants.PART_CHEST):
+			part_weights[BodyPartConstants.PART_CHEST] = 1.5
 	if passive_parry:
 		# Blade met blade; if hit, limbs (arms) more likely in the way
-		for limb in ["left_arm", "right_arm"]:
+		for limb in [BodyPartConstants.PART_LEFT_ARM, BodyPartConstants.PART_RIGHT_ARM]:
 			if part_weights.has(limb):
 				part_weights[limb] = 1.4
 	var interpose: Dictionary = _GuardLines.arm_interpose_eval(attack_line, guard_line, alignment, targetable)
 	if interpose.get("active", false):
-		var interpose_arm: String = str(interpose.get("arm", ""))
+		var interpose_arm: String = interpose.get("arm", "")
 		if path_segment.has(interpose_arm):
 			part_weights[interpose_arm] = (
 				part_weights.get(interpose_arm, 1.0) * CombatConstants.ARM_INTERPOSE_HIT_WEIGHT_MULT
@@ -64,7 +65,7 @@ static func resolve_hit_part(attack_line: String, guard_line: String, targetable
 	# Intended target: boost weight when in path (attacker aimed here; pathway allows it)
 	if not intended_part.is_empty() and path_segment.has(intended_part):
 		part_weights[intended_part] = part_weights.get(intended_part, 1.0) * 2.0
-	var part: String = BodyPartConstants.get_weighted_random_part(path_segment) if part_weights.values().min() == part_weights.values().max() else _weighted_sample(part_weights)
+	var part: String = BodyPartConstants.get_weighted_random_part(path_segment) if part_weights.values().min() == part_weights.values().max() else _WeightedSample.pick_random(part_weights)
 	if part.is_empty():
 		part = BodyPartConstants.get_weighted_random_part(path_segment)
 	if CombatConstants.combat_debug_active():
@@ -104,15 +105,4 @@ static func path_intercept_max_index(
 	return intercept_max_index_for_alignment(path, alignment)
 
 
-static func _weighted_sample(weights: Dictionary) -> String:
-	var total: float = 0.0
-	for w in weights.values():
-		total += float(w)
-	if total <= 0.0:
-		return ""
-	var r: float = randf() * total
-	for p in weights:
-		r -= float(weights[p])
-		if r <= 0.0:
-			return p
-	return weights.keys()[0] if not weights.is_empty() else ""
+

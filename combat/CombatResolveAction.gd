@@ -2,14 +2,13 @@ class_name CombatResolveAction
 extends RefCounted
 
 ## Player/AI action dispatch: medical, close, formation moves, melee wind-up scheduling.
-## Footing: focus-line resolve → **`GuardLineUpdater.set_guard_from_line`** (L3 drift, not form home) · melee → **`AttackWindUpStarter`** (PA stamp when flag on). LIVE_PATHS **`#wf-guard-writers`** · **`#wf-pick-vs-strike`** · **`#wf-tier-44-pa`**.
+## Footing: focus-line resolve â **`GuardLineUpdater.set_guard_from_line`** (L3 drift, not form home) · melee â **`AttackWindUpStarter`** (PA stamp when flag on). LIVE_PATHS **`#wf-guard-writers`** · **`#wf-pick-vs-strike`** · **`#wf-tier-44-pa`**.
 
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
@@ -30,7 +29,7 @@ static func is_medical_move(move_id: String) -> bool:
 	return CombatConstants.is_medical_move(move_id)
 
 
-## True when the action changed combatant state (wind-up, formation move, flee, etc.). False → reject/skip path; no turn log.
+## True when the action changed combatant state (wind-up, formation move, flee, etc.). False â reject/skip path; no turn log.
 static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: String, options: Dictionary) -> bool:
 	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
 	if atk.is_empty():
@@ -40,7 +39,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			return false
 		if not is_medical_move(move_id):
 			return false
-	var use_counter_tempo: bool = bool(options.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false))
+	var use_counter_tempo: bool = options.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)
 	if (
 		_EntityAccess.state_str(atk) == CombatConstants.STATE_WAITING
 		and _EntityAccess.gauge_float(atk) < 100.0
@@ -166,20 +165,20 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			var atk_name: String = _EntityAccess.get_display_name(atk, attacker_id)
 			var tgt_name: String = _EntityAccess.get_display_name(tgt, target_id)
 			CombatDebug.combat_session(
-				"%s attempting to close on %s (tactical distance — pressure vs evasion roll)" % [atk_name, tgt_name]
+				"%s attempting to close on %s (tactical distance  -  pressure vs evasion roll)" % [atk_name, tgt_name]
 			)
 		if _OperationalLog.is_play_session_active():
 			_F5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
 		return _commit_close_attempt_resolve(manager, attacker_id, target_id)
 	if CombatConstants.is_formation_reposition_move(move_id):
 		var move_policy: Dictionary = _EngagementMode.movement_policy(manager)
-		if move_id == CombatConstants.MOVE_ID_SWAP_RANK and not bool(move_policy.get("allow_swap_rank", false)):
+		if move_id == CombatConstants.MOVE_ID_SWAP_RANK and not move_policy.get("allow_swap_rank", false):
 			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks swap_rank")
 			return false
-		if move_id == CombatConstants.MOVE_ID_DRAG_BACK and not bool(move_policy.get("allow_drag_back", false)):
+		if move_id == CombatConstants.MOVE_ID_DRAG_BACK and not move_policy.get("allow_drag_back", false):
 			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks drag_back")
 			return false
-		if move_id == CombatConstants.MOVE_ID_FALL_BACK and not bool(move_policy.get("allow_fall_back", false)):
+		if move_id == CombatConstants.MOVE_ID_FALL_BACK and not move_policy.get("allow_fall_back", false):
 			# Cowering solo retreat is listed without stable-line policy (`formation_retreat_only` in builder).
 			var cowering_solo_retreat: bool = (
 				target_id == attacker_id
@@ -195,7 +194,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks rotate_file")
 			return false
 		if move_id == CombatConstants.MOVE_ID_PLUG_FORWARD:
-			var can_plug := bool(move_policy.get("allow_swap_rank", false)) \
+			var can_plug: bool = move_policy.get("allow_swap_rank", false) \
 				or _Doctrine.envelop_mop_up_active(manager, _EntityAccess.side_str(atk))
 			if not can_plug:
 				CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks plug_forward")
@@ -216,36 +215,37 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			if partner_mv.is_empty() or not _EntityAccess.is_available_formation_partner(atk, partner_mv):
 				CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "invalid formation partner")
 				return false
-			if move_id == CombatConstants.MOVE_ID_ROTATE_FILE:
-				if not _FormationMoves.rotate_file_action_legal(manager, atk, partner_mv, ctx_mv):
-					CombatDebug.resolve_action_rejected(
-						manager, attacker_id, move_id, "rotate_file not legal for partner"
-					)
-					return false
-			elif move_id == CombatConstants.MOVE_ID_SWAP_RANK:
-				if not _FormationMoves.swap_rank_action_legal(manager, atk, partner_mv, ctx_mv):
-					CombatDebug.resolve_action_rejected(
-						manager, attacker_id, move_id, "swap_rank not legal for partner"
-					)
-					return false
-			elif move_id == CombatConstants.MOVE_ID_DRAG_BACK:
-				if not _FormationMoves.front_rank_paired_retreat_action_legal(manager, atk, partner_mv, ctx_mv):
-					CombatDebug.resolve_action_rejected(
-						manager, attacker_id, move_id, "drag_back not legal for partner"
-					)
-					return false
-			elif move_id == CombatConstants.MOVE_ID_FALL_BACK:
-				if not _FormationMoves.front_rank_paired_retreat_action_legal(manager, atk, partner_mv, ctx_mv):
-					CombatDebug.resolve_action_rejected(
-						manager, attacker_id, move_id, "fall_back pair not legal for partner"
-					)
-					return false
-			elif move_id == CombatConstants.MOVE_ID_PLUG_FORWARD:
-				if not _FormationMoves.plug_forward_action_legal(manager, atk, partner_mv, ctx_mv):
-					CombatDebug.resolve_action_rejected(
-						manager, attacker_id, move_id, "plug_forward not legal for partner"
-					)
-					return false
+			match move_id:
+				CombatConstants.MOVE_ID_ROTATE_FILE:
+					if not _FormationMoves.rotate_file_action_legal(manager, atk, partner_mv, ctx_mv):
+						CombatDebug.resolve_action_rejected(
+							manager, attacker_id, move_id, "rotate_file not legal for partner"
+						)
+						return false
+				CombatConstants.MOVE_ID_SWAP_RANK:
+					if not _FormationMoves.swap_rank_action_legal(manager, atk, partner_mv, ctx_mv):
+						CombatDebug.resolve_action_rejected(
+							manager, attacker_id, move_id, "swap_rank not legal for partner"
+						)
+						return false
+				CombatConstants.MOVE_ID_DRAG_BACK:
+					if not _FormationMoves.front_rank_paired_retreat_action_legal(manager, atk, partner_mv, ctx_mv):
+						CombatDebug.resolve_action_rejected(
+							manager, attacker_id, move_id, "drag_back not legal for partner"
+						)
+						return false
+				CombatConstants.MOVE_ID_FALL_BACK:
+					if not _FormationMoves.front_rank_paired_retreat_action_legal(manager, atk, partner_mv, ctx_mv):
+						CombatDebug.resolve_action_rejected(
+							manager, attacker_id, move_id, "fall_back pair not legal for partner"
+						)
+						return false
+				CombatConstants.MOVE_ID_PLUG_FORWARD:
+					if not _FormationMoves.plug_forward_action_legal(manager, atk, partner_mv, ctx_mv):
+						CombatDebug.resolve_action_rejected(
+							manager, attacker_id, move_id, "plug_forward not legal for partner"
+						)
+						return false
 	if move_id == CombatConstants.MOVE_ID_SWAP_RANK:
 		if _OperationalLog.is_play_session_active():
 			_F5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
@@ -343,7 +343,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 		if use_counter_tempo and incoming_attacker_id >= 0:
 			_CounterTempo.defer_incoming_melee_after_counter(manager, attacker_id, incoming_attacker_id)
 		return true
-	if wind_st != CombatConstants.STATE_WAITING or _EntityAccess.gauge_float(atk) < 99.9:
+	if wind_st != CombatConstants.STATE_WAITING or _EntityAccess.gauge_float(atk) < CombatConstants.GAUGE_FULL_THRESHOLD:
 		# e.g. short recovery when no functional arm
 		manager.emit_signal("turn_resolved", attacker_id)
 		return true
@@ -359,9 +359,10 @@ static func _commit_close_attempt_resolve(manager: Node, attacker_id: int, targe
 		return false
 	if (
 		_EntityAccess.state_str(atk_after) == CombatConstants.STATE_WAITING
-		and _EntityAccess.gauge_float(atk_after) >= 99.9
+		and _EntityAccess.gauge_float(atk_after) >= CombatConstants.GAUGE_FULL_THRESHOLD
 	):
 		manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_PASS, "close resolve no-op")
 		return false
 	manager.emit_signal("turn_resolved", attacker_id)
 	return true
+      

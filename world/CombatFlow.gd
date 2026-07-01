@@ -2,17 +2,25 @@ class_name CombatFlow
 extends RefCounted
 
 ## Handles combat initiation and battle-end cleanup. Used by main.gd.
-## Optional world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** (`"combat_encounter"`): copied into **`BattleScene.start`** → **`CombatManager.encounter`** before **`start()`** (doctrine, depth polearm AI mults, posture, morale, … — see **`CombatManager`** default_enc in **`CombatManager.gd`**).
+## Optional world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** (`"combat_encounter"`): copied into **`BattleScene.start`** â†’ **`CombatManager.encounter`** before **`start()`** (doctrine, depth polearm AI mults, posture, morale, ...  -  see **`CombatManager`** default_enc in **`CombatManager.gd`**).
 ## Encounter nodes set meta via **`CampaignEncounterBridge.prepare_combat_from_encounter`**.
 
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
+# Runtime preload â€” circular dependency (CompanyState preloads CombatFlow).
+static var _company_state_cache: Variant = null
+
+static func _get_company_state() -> GDScript:
+	if _company_state_cache == null:
+		_company_state_cache = load("res://world/CompanyState.gd")
+	return _company_state_cache
+
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _SettlementPanel := preload("res://ui/SettlementPanel.gd")
 const _CompanyRunEndPanel := preload("res://ui/CompanyRunEndPanel.gd")
 const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _BattleEndHandler := preload("res://world/BattleEndHandler.gd")
+const _Proficiency := preload("res://core/EntityProficiency.gd")
 
 static func start_combat(world: Node2D, enemies: Array) -> void:
 	var players: Array = _CampaignBridge.get_fightable_party_nodes(world)
@@ -42,7 +50,7 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 	var pb = _find_party_button(world)
 	if pb:
 		pb.visible = false
-	_CompanyState.set_overworld_hud_visible(world, false)
+	_get_company_state().set_overworld_hud_visible(world, false)
 	_CampaignBridge.clear_battle_kill_log(world)
 
 	var battle_script = load(ResourcePaths.BATTLE_SCENE)
@@ -74,6 +82,8 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 	await world.get_tree().process_frame
 	if not is_instance_valid(world) or not world.is_inside_tree():
 		return
+	if not is_instance_valid(battle):
+		return
 	if battle.has_signal("battle_ended"):
 		battle.connect("battle_ended", Callable(world, "_on_battle_ended"), CONNECT_ONE_SHOT)
 
@@ -90,19 +100,20 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -
 
 	if player_lost:
 		_CampaignBridge.build_last_battle_summary(world, winner)
-		var contract: Dictionary = _CompanyState.get_active_contract(world)
+		var contract: Dictionary = _get_company_state().get_active_contract(world)
 		var lost_contract: Dictionary = contract.duplicate(true)
-		var ends_run: bool = _CompanyState.defeat_should_end_company_run(contract)
+		var ends_run: bool = _get_company_state().defeat_should_end_company_run(contract)
 		var soft_retry: bool = (
-			not contract.is_empty() and _CompanyState.is_tutorial_contract(contract)
+			not contract.is_empty() and _get_company_state().is_tutorial_contract(contract)
 		)
-		var death_lines: PackedStringArray = _CompanyState.format_last_battle_death_lines(world)
+		var death_lines: PackedStringArray = _get_company_state().format_last_battle_death_lines(world)
 		if ends_run:
 			_BattleEndHandler.handle_defeat(world, player, winner)
 		elif not contract.is_empty():
-			_CompanyState.apply_battle_lost_mood(world)
+			_get_company_state().apply_battle_lost_mood(world)
 		_CampaignBridge.clear_transient_combat_meta(world)
-		_CompanyState.clear_active_contract(world)
+		_apply_last_fought_day_to_roster(world)
+		_get_company_state().clear_active_contract(world)
 		if ends_run:
 			var title: String = str(contract.get("contract_title", "Contract"))
 			var detail: String = (
@@ -113,11 +124,11 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -
 		elif soft_retry:
 			var kind: String = (
 				"Tutorial"
-				if contract.get("tutorial", false) == true
+				if contract.get("tutorial", false)
 				else "Practice"
 			)
 			var detail: String = (
-				"%s lost. You'll return to camp — try again when ready." % kind
+				"%s lost. You'll return to camp  -  try again when ready." % kind
 			)
 			detail = _append_death_recap_to_detail(detail, death_lines)
 			await _CompanyRunEndPanel.show_and_await(world, "tutorial_failed", detail)
@@ -131,12 +142,13 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -
 
 	_BattleEndHandler.handle_victory(world, player, winner)
 	_CampaignBridge.on_return_from_combat(world, winner)
+	_apply_last_fought_day_to_roster(world)
 	await _SettlementPanel.show_and_await(world)
 	var pb = _find_party_button(world)
 	if pb:
 		pb.visible = true
-	_CompanyState.set_overworld_hud_visible(world, true)
-	_CompanyState.refresh_hud(world)
+	_get_company_state().set_overworld_hud_visible(world, true)
+	_get_company_state().refresh_hud(world)
 
 ## Tutorial (and other non-run-ending) losses: keep company meta, restore map UI.
 static func _restore_overworld_after_aborted_combat(world: Node2D, player: Node) -> void:
@@ -147,8 +159,8 @@ static func _restore_overworld_after_aborted_combat(world: Node2D, player: Node)
 	var pb_abort := _find_party_button(world)
 	if pb_abort:
 		pb_abort.visible = true
-	_CompanyState.set_overworld_hud_visible(world, true)
-	_CompanyState.refresh_hud(world)
+	_get_company_state().set_overworld_hud_visible(world, true)
+	_get_company_state().refresh_hud(world)
 
 
 static func resume_overworld_after_soft_defeat(world: Node2D, lost_contract: Dictionary) -> void:
@@ -157,19 +169,29 @@ static func resume_overworld_after_soft_defeat(world: Node2D, lost_contract: Dic
 	var player: Node = world.get_node_or_null("Character")
 	_BattleEndHandler.restore_overworld_party(world, player, true)
 	_CampaignBridge.sync_overworld_player_grid_anchor(world)
-	for line in _CompanyState.apply_casualty_cleanup(world):
+	for line in _get_company_state().apply_casualty_cleanup(world):
 		_OperationalLog.play_world(line)
 	_CampaignBridge.nudge_player_toward_camp_tile(world)
 	var pb := _find_party_button(world)
 	if pb:
 		pb.visible = true
-	_CompanyState.set_overworld_hud_visible(world, true)
-	_CompanyState.refresh_hud(world)
+	_get_company_state().set_overworld_hud_visible(world, true)
+	_get_company_state().refresh_hud(world)
 	var rng: RandomNumberGenerator = _CampaignBridge.resolve_overworld_rng(world)
 	var enemy_scene: PackedScene = _CampaignBridge.resolve_enemy_scene(world)
 	if rng != null:
 		_ContractSpawner.ensure_special_encounter_present(world, rng, enemy_scene, lost_contract)
-	_CompanyState.try_autosave(world)
+	_get_company_state().try_autosave(world)
+
+
+static func _apply_last_fought_day_to_roster(world: Node2D) -> void:
+	if not _get_company_state().read_stub_proficiency_enabled():
+		return
+	var day_index: int = _get_company_state().get_day_index(world)
+	for n in _CampaignBridge.get_fightable_party_nodes(world):
+		var entity: Node = _CampaignBridge.health_entity_from_character(n)
+		if entity != null and entity.has_method("get_training_pending"):
+			entity.last_fought_day = day_index
 
 
 static func _append_death_recap_to_detail(detail: String, death_lines: PackedStringArray) -> String:
@@ -188,7 +210,9 @@ static func _find_party_button(world: Node2D) -> Control:
 	for child in root.get_children():
 		if "name" in child and child.name == "UIOverlayLayer":
 			if child.has_node("PartyButton"):
-				return child.get_node("PartyButton")
+				var pb = child.get_node_or_null("PartyButton")
+				if is_instance_valid(pb):
+					return pb
 			for gc in child.get_children():
 				if "name" in gc and gc.name == "PartyButton":
 					return gc
@@ -200,3 +224,4 @@ static func _find_party_button(world: Node2D) -> Control:
 		if "name" in child and child.name == "PartyButton":
 			return child
 	return null
+

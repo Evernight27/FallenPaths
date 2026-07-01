@@ -1,26 +1,42 @@
 class_name CampaignEncounterBridge
 extends RefCounted
 
-## Overworld ↔ combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
-## Canonical: `overworld_tile_from_position` · `overworld_tile_center` · `place_player_on_overworld_tile`.
+## Overworld ÃƒÂ¢Ã¢Â€Â " combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
+## Canonical: `overworld_tile_from_position` Â· `overworld_tile_center` Â· `place_player_on_overworld_tile`.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _OverworldMap := preload("res://world/OverworldMap.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
+const _CampaignTypes := preload("res://world/CampaignTypes.gd")
+# Runtime preload â€” circular dependency (CompanyState preloads CampaignEncounterBridge).
+static var _company_state_cache: Variant = null
+
+static func _get_company_state() -> GDScript:
+	if _company_state_cache == null:
+		_company_state_cache = load("res://world/CompanyState.gd")
+	return _company_state_cache
+
 const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
 const _Proficiency := preload("res://core/EntityProficiency.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
 const META_ENEMY_FORMATION := "enemy_formation"
+
+## Cached $Character accessor  -  replaces all `world.$Character` string lookups.
+## Uses `has_node` + typed cast to avoid silent failures on node rename.
+static func get_player(world: Node2D) -> Node2D:
+	if world == null or not world.has_node("Character"):
+		return null
+	return world.get_node("Character") as Node2D
 
 
 static func clear_battle_kill_log(world: Node) -> void:
-	if world != null and world.has_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG):
-		world.remove_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG)
+	if world != null and world.has_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
+		world.remove_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG)
 
 
 static func record_battle_kill(
@@ -29,8 +45,8 @@ static func record_battle_kill(
 	if world == null or victim_name.is_empty():
 		return
 	var kill_log: Array = []
-	if world.has_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG):
-		var raw: Variant = world.get_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG)
+	if world.has_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
+		var raw: Variant = world.get_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG)
 		if raw is Array:
 			kill_log = raw
 	kill_log.append(
@@ -41,23 +57,23 @@ static func record_battle_kill(
 			"part": part,
 		}
 	)
-	world.set_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG, kill_log)
+	world.set_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG, kill_log)
 
 
 static func _kill_log_entry_for_victim(world: Node, victim_name: String) -> Dictionary:
-	if world == null or not world.has_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG):
+	if world == null or not world.has_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
 		return {}
-	var raw: Variant = world.get_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG)
+	var raw: Variant = world.get_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG)
 	if raw is not Array:
 		return {}
-	for entry in raw as Array:
-		if entry is Dictionary and str((entry as Dictionary).get("victim", "")) == victim_name:
-			return entry as Dictionary
+	for entry in raw:
+		if entry is Dictionary and entry.get("victim", "") == victim_name:
+			return entry
 	return {}
 
 
 ## Apply encounter node config to world meta before **`CombatFlow.start_combat`**.
-	static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> void:
+static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> void:
 	if world == null or encounter == null:
 		return
 	clear_battle_kill_log(world)
@@ -78,18 +94,18 @@ static func _kill_log_entry_for_victim(world: Node, victim_name: String) -> Dict
 		if (
 			enc.has("contract_title")
 			or enc.has("pay_gold")
-			or _CompanyState.is_tutorial_contract(enc)
+			or _get_company_state().is_tutorial_contract(enc)
 		):
 			var contract: Dictionary = {
 				"contract_title": str(enc.get("contract_title", "Contract")),
-				"pay_gold": int(enc.get("pay_gold", 0)),
-				"difficulty_rating": int(enc.get("difficulty_rating", 1)),
-				"contract_type": str(enc.get("contract_type", "")),
-				"tutorial": _CompanyState.is_tutorial_contract(enc),
+				"pay_gold": enc.get("pay_gold", 0),
+				"difficulty_rating": enc.get("difficulty_rating", 1),
+				"contract_type": enc.get("contract_type", ""),
+				"tutorial": _get_company_state().is_tutorial_contract(enc),
 			}
-			_CompanyState.set_active_contract(world, contract)
+			_get_company_state().set_active_contract(world, contract)
 		if enc.has("map_bleed_mult"):
-			_CompanyState.set_map_bleed_mult(world, float(enc.get("map_bleed_mult", 1.0)))
+			_get_company_state().set_map_bleed_mult(world, enc.get("map_bleed_mult", 1.0))
 	if encounter.has_method("get_enemy_formation_dict"):
 		var ef: Dictionary = encounter.get_enemy_formation_dict()
 		if not ef.is_empty():
@@ -103,7 +119,7 @@ static func _kill_log_entry_for_victim(world: Node, victim_name: String) -> Dict
 		# Random red tiles must not inherit **`dev_soak_encounter`** world meta from **`main._ready`**.
 		SoakEncounterPresets.clear_world_soak_meta(world)
 	refresh_party_formation_meta(world)
-	_CompanyState.wire_party_medical_supply(world)
+	_get_company_state().wire_party_medical_supply(world)
 	apply_campaign_mood_stance_preferences(world)
 	_apply_party_mood_to_encounter_meta(world)
 	apply_campaign_mood_bias_to_encounter(world)
@@ -130,7 +146,7 @@ static func _proficiency_snapshot_combat_participation(world: Node2D) -> void:
 			continue
 		var entity: Node = health_entity_from_character(node)
 		if entity != null:
-			entity._last_fought_in_combat = true  # Assume all in combat; cleared at end if they weren't.
+			entity.set("_last_fought_in_combat", true)
 
 
 ## XCamp-4: record a medic action performed by a specific entity (increments counter for INT floor).
@@ -152,49 +168,48 @@ static func clear_transient_combat_meta(world: Node2D) -> void:
 		world.remove_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
 	if world.has_meta(META_ENEMY_FORMATION):
 		world.remove_meta(META_ENEMY_FORMATION)
-	if world.has_meta(_CompanyState.WORLD_META_MAP_BLEED_MULT):
-		world.remove_meta(_CompanyState.WORLD_META_MAP_BLEED_MULT)
+	if world.has_meta("map_bleed_mult"):
+		world.remove_meta("map_bleed_mult")
 
 
 ## After victory/defeat: refresh party formation count from living members.
 static func on_return_from_combat(world: Node2D, winner: String) -> void:
-	if world == null or winner != "player":
+	if world == null or winner != CombatConstants.SIDE_PLAYER:
 		# XCamp-4: still apply decay for defeated mercenaries (decay applies regardless of outcome).
-		if _CompanyState.read_stub_proficiency_enabled():
-			var current_day: int = _CompanyState.get_day_index(world)
+		if _get_company_state().read_stub_proficiency_enabled():
+			var current_day: int = _get_company_state().get_day_index(world)
 			for n in get_fightable_party_nodes(world):
 				var entity: Node = health_entity_from_character(n)
 				if entity != null and entity.has("_proficiency_bonus") and entity.has("_last_fought_day"):
-					entity._last_fought_in_combat = false  # Combat ended; decay will track inactivity.
+					entity.set("_last_fought_in_combat", false)
 					_Proficiency.apply_decay(entity, current_day)
 		clear_transient_combat_meta(world)
 		return
 	# Camp-2.1: any player victory lifts map bleed block (not only tutorial-tagged contracts).
-	_CompanyState.mark_tutorial_completed(world)
+	_get_company_state().mark_tutorial_completed(world)
 	build_last_battle_summary(world)
 
-	# XCamp-4: proficiency — update _last_fought_day and apply decay for party members.
+	# XCamp-4: proficiency â€”" update _last_fought_day and apply decay for party members.
 	_proficiency_post_combat(world)
 
 	clear_transient_combat_meta(world)
 	refresh_party_formation_meta(world)
-	_CompanyState.wire_party_medical_supply(world)
+	_get_company_state().wire_party_medical_supply(world)
 	sync_overworld_player_grid_anchor(world)
 	_log_party_vitality(world, "After battle")
 	if party_has_untreated_wounds(world):
-		const _OpLog := preload("res://core/OperationalLog.gd")
-		if _OpLog.is_play_session_active():
-			_OpLog.play_world(_CompanyState.format_post_fight_field_care_world_log(world))
+		if _OperationalLog.is_play_session_active():
+			_OperationalLog.play_world(_get_company_state().format_post_fight_field_care_world_log(world))
 
 
-## XCamp-4: post-combat proficiency processing — update fight day, apply decay, medic INT floor.
-	static func _proficiency_post_combat(world: Node2D) -> void:
-	if world == null or not _CompanyState.read_stub_proficiency_enabled():
+## XCamp-4: post-combat proficiency processing â€”" update fight day, apply decay, medic INT floor.
+static func _proficiency_post_combat(world: Node2D) -> void:
+	if world == null or not _get_company_state().read_stub_proficiency_enabled():
 		return
 	var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
 	if pm == null or not ("members" in pm):
 		return
-	var current_day: int = _CompanyState.get_day_index(world)
+	var current_day: int = _get_company_state().get_day_index(world)
 	for m in pm.members:
 		if m is not Dictionary:
 			continue
@@ -208,7 +223,7 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
 		if entity == null or not entity.has("_proficiency_bonus"):
 			continue
 		# Update _last_fought_day for mercenaries who participated in combat.
-		if entity.has("_last_fought_in_combat") and entity._last_fought_in_combat:
+		if entity.has("_last_fought_in_combat") and (entity.get("_last_fought_in_combat") == true):
 			if entity.has("_last_fought_day"):
 				entity._last_fought_day = current_day
 		# Apply decay (gated by CompanyState.read_stub_proficiency_enabled).
@@ -234,7 +249,7 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
 			var member_entity: Node = health_entity_from_character(node)
 			if member_entity == entity_ptr:
 				# Medic INT floor: flat bonus per medical action (not subject to diminishing returns via award_stat_gain).
-				# This is intentional — the medic floor is a guaranteed baseline reward, not practice-based growth.
+				# This is intentional â€”" the medic floor is a guaranteed baseline reward, not practice-based growth.
 				if member_entity.has("_proficiency_bonus"):
 					member_entity._proficiency_bonus["intelligence"] += _Proficiency.GAIN_MEDIC_INT_FLOOR * action_count
 				break
@@ -247,19 +262,29 @@ static func _apply_party_mood_to_encounter_meta(world: Node2D) -> void:
 	var pm = world.get_meta("party_manager", null) if world.has_meta("party_manager") else null
 	if pm == null:
 		return
-	var sum: float = 0.0
-	var n: int = 0
-	for m in pm.members:
-		if m is Dictionary:
-			sum += float(m.get("company_mood", _CompanyState.MOOD_DEFAULT))
-			n += 1
-	if n <= 0:
+	var avg: float = _compute_average_mood(pm)
+	if avg < 0:
 		return
 	var enc: Dictionary = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
 	if enc is Dictionary:
 		var merged: Dictionary = enc.duplicate(true)
-		merged[CombatConstants.ENCOUNTER_KEY_MORALE_COHESION_PLAYER] = clampf(sum / float(n) / 100.0, 0.15, 1.0)
+		merged[CombatConstants.ENCOUNTER_KEY_MORALE_COHESION_PLAYER] = clampf(avg / 100.0, 0.15, 1.0)
 		world.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, merged)
+
+
+## Average `company_mood` across party members; returns -1 when roster is empty.
+static func _compute_average_mood(pm: Variant) -> float:
+	if not ("members" in pm):
+		return -1.0
+	var sum: float = 0.0
+	var n: int = 0
+	for m in pm.members:
+		if m is Dictionary:
+			sum += float(m.get("company_mood", _CampaignTypes.MOOD_DEFAULT))
+			n += 1
+	if n <= 0:
+		return -1.0
+	return sum / float(n)
 
 
 ## XCamp-3.8 (MS-CAMP): stamp fight-entry weapon form from campaign mood when roster has no explicit pref.
@@ -283,32 +308,26 @@ static func apply_campaign_mood_stance_preferences(world: Node2D) -> void:
 		var existing: String = _WeaponForm.normalize_form(str(node.get("stance_preference")))
 		if not existing.is_empty() and existing != _WeaponForm.FORM_BALANCED:
 			continue
-		var mood: float = float((m as Dictionary).get("company_mood", _CompanyState.MOOD_DEFAULT))
-		node.set("stance_preference", _CompanyState.stance_preference_for_campaign_mood(mood))
+		var mood: float = float((m as Dictionary).get("company_mood", _CampaignTypes.MOOD_DEFAULT))
+		node.set("stance_preference", _get_company_state().stance_preference_for_campaign_mood(mood))
 
 
 ## XCamp-3.9 (MS-CAMP): stamp fight-entry campaign mood bias from average company mood into encounter meta.
-## Enemy side reads `enemy_mood_bias` from encounter config (0–100; default 50 = neutral).
+## Enemy side reads `enemy_mood_bias` from encounter config (0â€”"100; default 50 = neutral).
 static func apply_campaign_mood_bias_to_encounter(world: Node2D) -> void:
 	if world == null or not world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER):
 		return
 	var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
-	if pm == null or not ("members" in pm):
+	if pm == null:
 		return
-	var sum: float = 0.0
-	var n: int = 0
-	for m in pm.members:
-		if m is Dictionary:
-			sum += float(m.get("company_mood", _CompanyState.MOOD_DEFAULT))
-			n += 1
-	if n <= 0:
+	var avg_mood: float = _compute_average_mood(pm)
+	if avg_mood < 0:
 		return
-	var avg_mood: float = sum / float(n)
 	var enc: Dictionary = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
 	if enc is Dictionary:
 		var merged: Dictionary = enc.duplicate(true)
 		merged[_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER] = avg_mood
-		var enemy_bias: float = float(enc.get("enemy_mood_bias", 50.0))
+		var enemy_bias: float = enc.get("enemy_mood_bias", 50.0)
 		merged[_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_ENEMY] = clampf(enemy_bias, 0.0, 100.0)
 		world.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, merged)
 
@@ -329,25 +348,25 @@ static func begin_contract_encounter(
 	return enemies
 
 
-## Spawn failed or combat aborted after `prepare_combat_from_encounter` — keep map marker, drop stale meta.
+## Spawn failed or combat aborted after `prepare_combat_from_encounter` â€”" keep map marker, drop stale meta.
 static func abort_contract_encounter_entry(world: Node2D) -> void:
 	if world == null:
 		return
 	if world.has_meta("_combat_enemies"):
 		var raw: Variant = world.get_meta("_combat_enemies")
 		if raw is Array:
-			for enemy in raw as Array:
+			for enemy in raw:
 				if is_instance_valid(enemy) and enemy is Node:
 					(enemy as Node).queue_free()
 		world.remove_meta("_combat_enemies")
 	clear_transient_combat_meta(world)
-	_CompanyState.clear_active_contract(world)
+	_get_company_state().clear_active_contract(world)
 
 
-## Camp-2.2 row: blood, bleed, untreated parts, worst ATLS class (1–4).
+## Camp-2.2 row: blood, bleed, untreated parts, worst ATLS class (1â€”"4).
 static func member_battle_summary_entry(snap: Dictionary, entity: Node) -> Dictionary:
-	var blood_pct: float = float(snap.get("blood_volume", 100.0))
-	var bleed_rate: float = float(snap.get("total_bleeding_rate", 0.0))
+	var blood_pct: float = snap.get("blood_volume", 100.0)
+	var bleed_rate: float = snap.get("total_bleeding_rate", 0.0)
 	var snap_copy: Dictionary = snap.duplicate(true)
 	var untreated: PackedStringArray = untreated_wound_part_names(entity)
 	if not untreated.is_empty():
@@ -368,11 +387,11 @@ static func untreated_wound_part_names(entity: Node) -> PackedStringArray:
 	if entity == null:
 		return out
 	for p in _EntityWounds.sorted_untreated_part_names(entity):
-		out.append(str(p))
+		out.append(p as String)
 	return out
 
 
-static func build_last_battle_summary(world: Node2D, battle_winner: String = "player") -> void:
+static func build_last_battle_summary(world: Node2D, battle_winner: String = CombatConstants.SIDE_PLAYER) -> void:
 	if world == null:
 		return
 	var deaths: Array = []
@@ -392,7 +411,7 @@ static func build_last_battle_summary(world: Node2D, battle_winner: String = "pl
 				var name_s: String = str(member.get("name", node.name))
 				var info: Dictionary = _death_info_from_entity(entity)
 				var kill: Dictionary = _kill_log_entry_for_victim(world, name_s)
-				var part_s: String = str(kill.get("part", ""))
+				var part_s: String = kill.get("part", "")
 				if part_s.is_empty():
 					part_s = str(info.get("part", "unknown"))
 				deaths.append(
@@ -400,35 +419,35 @@ static func build_last_battle_summary(world: Node2D, battle_winner: String = "pl
 						"name": name_s,
 						"part": part_s,
 						"cause": str(info.get("cause", "fallen in battle")),
-						"weapon": str(kill.get("weapon", "")),
-						"killer": str(kill.get("killer", "")),
+						"weapon": kill.get("weapon", ""),
+						"killer": kill.get("killer", ""),
 					}
 				)
 				continue
 			members.append(member_battle_summary_entry(snap, entity))
-	if battle_winner != "player":
+	if battle_winner != CombatConstants.SIDE_PLAYER:
 		_merge_roster_kill_log_deaths(world, pm, deaths)
-	var contract: Dictionary = _CompanyState.get_active_contract(world)
-	if not _CompanyState.defeat_should_end_company_run(contract):
-		_CompanyState.apply_battle_death_witness_mood(world, deaths.size())
+	var contract: Dictionary = _get_company_state().get_active_contract(world)
+	if not _get_company_state().defeat_should_end_company_run(contract):
+		_get_company_state().apply_battle_death_witness_mood(world, deaths.size())
 	world.set_meta(
-		_CompanyState.WORLD_META_LAST_BATTLE_SUMMARY,
+		_CampaignTypes.WORLD_META_LAST_BATTLE_SUMMARY,
 		{"deaths": deaths, "members": members, "winner": str(battle_winner)}
 	)
 
 
-## On defeat, party nodes may not yet report `is_dead()` — honor battle kill log for roster names.
+## On defeat, party nodes may not yet report `is_dead()`  -  honor battle kill log for roster names.
 static func _merge_roster_kill_log_deaths(world: Node2D, pm: Node, deaths: Array) -> void:
-	if world == null or pm == null or not world.has_meta(_CompanyState.WORLD_META_BATTLE_KILL_LOG):
+	if world == null or pm == null or not world.has_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
 		return
 	var listed: Dictionary = {}
 	for d in deaths:
 		if d is Dictionary:
-			listed[str((d as Dictionary).get("name", ""))] = true
+			listed[(d as Dictionary).get("name", "")] = true
 	for member in pm.members:
 		if not member is Dictionary:
 			continue
-		var name_s: String = str(member.get("name", ""))
+		var name_s: String = member.get("name", "")
 		if name_s.is_empty() or listed.has(name_s):
 			continue
 		var kill: Dictionary = _kill_log_entry_for_victim(world, name_s)
@@ -439,8 +458,8 @@ static func _merge_roster_kill_log_deaths(world: Node2D, pm: Node, deaths: Array
 				"name": name_s,
 				"part": str(kill.get("part", "unknown")),
 				"cause": "fallen in battle",
-				"weapon": str(kill.get("weapon", "")),
-				"killer": str(kill.get("killer", "")),
+				"weapon": kill.get("weapon", ""),
+				"killer": kill.get("killer", ""),
 			}
 		)
 		listed[name_s] = true
@@ -544,19 +563,19 @@ static func refresh_party_formation_meta(world: Node2D) -> void:
 	if world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER):
 		var enc_raw: Variant = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
 		if enc_raw is Dictionary:
-			var enc: Dictionary = enc_raw as Dictionary
+			var enc: Dictionary = enc_raw
 			if (
-				not _CompanyState.is_tutorial_contract(enc)
+				not _get_company_state().is_tutorial_contract(enc)
 				and enc.has(CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION)
 			):
 				var pf: Variant = enc.get(CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION)
-				if pf is Dictionary and not (pf as Dictionary).is_empty():
-					preset = (pf as Dictionary).duplicate(true)
+				if pf is Dictionary and not pf.is_empty():
+					preset = pf.duplicate(true)
 			elif (
-				not _CompanyState.is_tutorial_contract(enc)
+				not _get_company_state().is_tutorial_contract(enc)
 				and enc.has(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT)
 			):
-				var front_n: int = int(enc.get(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT, 0))
+				var front_n: int = enc.get(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT, 0)
 				if front_n > 0:
 					preset = _FormationPreset.for_front_count(n, front_n)
 	var prior: Dictionary = (
@@ -605,7 +624,7 @@ static func resolve_enemy_scene(world: Node) -> PackedScene:
 	return null
 
 
-## Overworld grid math — delegates to **`OverworldMap`** (not per-world `_tile_coords` hooks).
+## Overworld grid math â€”" delegates to **`OverworldMap`** (not per-world `_tile_coords` hooks).
 static func overworld_tile_from_position(pos: Vector2) -> Vector2i:
 	return _OverworldMap.tile_coords_from_pos(pos)
 
@@ -616,9 +635,9 @@ static func overworld_tile_center(tile: Vector2i) -> Vector2:
 
 ## Snap player to tile center, reset movement target, and align **`last_player_tile`** (overworld reject uses this).
 static func place_player_on_overworld_tile(world: Node2D, tile: Vector2i) -> void:
-	if world == null or not world.has_node("Character"):
+	var player: Node2D = get_player(world)
+	if player == null:
 		return
-	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
 	var center: Vector2 = overworld_tile_center(tile)
@@ -630,9 +649,9 @@ static func place_player_on_overworld_tile(world: Node2D, tile: Vector2i) -> voi
 
 
 static func sync_overworld_player_grid_anchor(world: Node2D) -> void:
-	if world == null or not world.has_node("Character"):
+	var player: Node2D = get_player(world)
+	if player == null:
 		return
-	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
 	var tile: Vector2i = overworld_tile_from_position(player.position)
@@ -641,13 +660,13 @@ static func sync_overworld_player_grid_anchor(world: Node2D) -> void:
 
 ## After soft defeat, step one tile toward camp so a respawned marker is not under the player.
 static func nudge_player_toward_camp_tile(world: Node2D) -> void:
-	if world == null or not world.has_node("Character"):
+	var player: Node2D = get_player(world)
+	if player == null:
 		return
-	var player: Node2D = world.get_node("Character") as Node2D
 	if player == null:
 		return
 	var tile: Vector2i = overworld_tile_from_position(player.position)
-	var camp: Vector2i = _CompanyState.DEFAULT_CAMP_TILE
+	var camp: Vector2i = _CampaignTypes.DEFAULT_CAMP_TILE
 	if world.has_meta("camp_tile") and world.get_meta("camp_tile") is Vector2i:
 		camp = world.get_meta("camp_tile")
 	if tile == camp:
@@ -661,18 +680,19 @@ static func nudge_player_toward_camp_tile(world: Node2D) -> void:
 
 
 static func advance_party_overworld_minute(world: Node2D) -> void:
-	const SECONDS_PER_MOVE: float = 60.0
+	var SECONDS_PER_MOVE: float = 60.0
 	if world == null:
 		return
-	var bleed_mult: float = _CompanyState.get_map_bleed_mult(world)
+	var bleed_mult: float = _get_company_state().get_map_bleed_mult(world)
 	var to_process: Array = []
-	if world.has_node("Character"):
-		to_process.append(world.get_node("Character"))
+	var p: Node2D = get_player(world)
+	if p != null:
+		to_process.append(p)
 	var pm = world.get_meta("party_manager", null) if world.has_meta("party_manager") else null
 	var roster: Array = pm.members if pm != null and "members" in pm else []
 	for member in roster:
 		var node_ref = member.get("node_ref") if member is Dictionary else null
-		if is_instance_valid(node_ref) and node_ref != world.get_node_or_null("Character"):
+		if is_instance_valid(node_ref) and node_ref != p:
 			to_process.append(node_ref)
 	for entity in to_process:
 		if not is_instance_valid(entity):
@@ -731,15 +751,15 @@ static func party_member_snapshots(world: Node2D) -> Array:
 
 
 static func _party_member_snapshots_from_summary(world: Node2D) -> Array:
-	var summary: Dictionary = _CompanyState.get_last_battle_summary(world)
+	var summary: Dictionary = _get_company_state().get_last_battle_summary(world)
 	var members: Variant = summary.get("members", [])
 	if not (members is Array):
 		return []
 	var rows: Array = []
-	for entry in members as Array:
+	for entry in members:
 		if entry is not Dictionary:
 			continue
-		var snap: Variant = (entry as Dictionary).get("snapshot", entry)
+		var snap: Variant = entry.get("snapshot", entry)
 		if snap is Dictionary:
 			rows.append(snap)
 	return rows
@@ -770,7 +790,7 @@ static func _death_info_from_entity(entity: Node) -> Dictionary:
 			for injury in entity.wounds[part]:
 				if not injury is Dictionary:
 					continue
-				var rate: float = float(injury.get("current_bleeding_rate", 0.0))
+				var rate: float = injury.get("current_bleeding_rate", 0.0)
 				if rate > worst_rate:
 					worst_rate = rate
 					worst_part = str(part)
@@ -809,7 +829,9 @@ static func _log_party_vitality(world: Node2D, prefix: String) -> void:
 			wounded_n = entity.get_wounded_parts().size()
 		var untreated: bool = entity_has_untreated_wounds(entity)
 		if CombatConstants.combat_debug_active():
-			print(
+			CombatDebug.log(
 				"[World] %s %s: blood=%d%% bleed=%.1f/s wounds=%d untreated=%s"
 				% [prefix, n.name, int(bv), bleed, wounded_n, str(untreated)]
 			)
+                         
+

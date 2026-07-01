@@ -4,37 +4,40 @@ extends RefCounted
 ## Dedicated afterblow handler. Physically realistic: target can complete a previously planned
 ## attack iff the blow wasn't intense enough to hinder that action.
 ## Footing: **`CombatFootwork.clear_on_exchange_end`** on afterblow resolve path. LIVE_PATHS **`#wf-tier-44-pa`** (clear).
-## Choices: Hybrid hindrance, stance (supporting_leg), full resolution, damage *= (1-hindrance), B→A+B→C.
+## Choices: Hybrid hindrance, stance (supporting_leg), full resolution, damage *= (1-hindrance), B?A+B?C.
 
-const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
 const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _AfterblowConst := preload("res://combat/CombatAfterblowConstants.gd")
+const _Bp := preload("res://core/BodyPartConstants.gd")
 
 # Part relevance for hindrance (attacking arm from pending; supporting leg from stance)
 static func _get_part_relevance(hit_part: String, attacking_arm: String, supporting_leg: String) -> float:
 	if hit_part == attacking_arm:
-		return 1.0
-	if hit_part == "head":
-		return 0.8
-	if hit_part == "chest":
-		return 0.6
+		return _AfterblowConst.AFTERBLOW_RELEVANCE_ARM_ATTACKING
+	if hit_part == _Bp.PART_HEAD:
+		return _AfterblowConst.AFTERBLOW_RELEVANCE_HEAD
+	if hit_part == _Bp.PART_CHEST:
+		return _AfterblowConst.AFTERBLOW_RELEVANCE_TORSO
 	if hit_part == supporting_leg:
-		return 0.55
-	if hit_part == "left_leg" or hit_part == "right_leg":
-		return 0.3
-	if hit_part == "left_arm" or hit_part == "right_arm":
-		return 0.2
-	return 0.5
+		return _AfterblowConst.AFTERBLOW_RELEVANCE_SUPPORTING_LEG
+	if hit_part == _Bp.PART_LEFT_LEG or hit_part == _Bp.PART_RIGHT_LEG:
+		return _AfterblowConst.AFTERBLOW_RELEVANCE_LEG
+	if hit_part == _Bp.PART_LEFT_ARM or hit_part == _Bp.PART_RIGHT_ARM:
+		return _AfterblowConst.AFTERBLOW_RELEVANCE_ARM
+	return _AfterblowConst.AFTERBLOW_RELEVANCE_DEFAULT
 
 static func _get_supporting_leg(entity: Node) -> String:
 	if entity == null:
-		return "right_leg"
-	var dom: String = entity.get("dominant_hand") if "dominant_hand" in entity else "right_arm"
-	return "right_leg" if dom == "right_arm" else "left_leg"
+		return _Bp.PART_RIGHT_LEG
+	var dom: String = _Bp.PART_RIGHT_ARM
+	if "dominant_hand" in entity:
+		dom = entity.dominant_hand
+	return _Bp.PART_RIGHT_LEG if dom == _Bp.PART_RIGHT_ARM else _Bp.PART_LEFT_LEG
 
 ## Returns true if afterblow was triggered (B's attack resolved). False if hindered, cancelled, or no pending attack.
 static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, result_dict: Dictionary, intensity: float) -> bool:
@@ -54,9 +57,9 @@ static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, resu
 		return false
 	var hit_part: String = result_dict.get("part", "")
 	var outcome: String = result_dict.get("outcome", "hit")
-	var final_cut: float = float(result_dict.get("final_cut", 0.0))
-	var final_blunt: float = float(result_dict.get("final_blunt", 0.0))
-	var final_bone: float = float(result_dict.get("final_bone", 0.0))
+	var final_cut: float = result_dict.get("final_cut", 0.0)
+	var final_blunt: float = result_dict.get("final_blunt", 0.0)
+	var final_bone: float = result_dict.get("final_bone", 0.0)
 	var total_dmg: float = final_cut + final_blunt + final_bone
 
 	# Immediate disqualifiers
@@ -69,23 +72,23 @@ static func try_afterblow(manager: Node, _attacker_id: int, target_id: int, resu
 	if hit_part == attacking_arm and arm_inoperable:
 		_abort_afterblow_wind_up_no_arm(manager, target_id, tgt)
 		return false
-	if hit_part == "head" and _EntityAccess.is_incapacitated(tgt):
+	if hit_part == _Bp.PART_HEAD and _EntityAccess.is_incapacitated(tgt):
 		_cancel_pending(manager, tgt)
 		return false
 
 	# Hindrance score (hybrid model)
 	if outcome == "deflected":
-		# Not hindered — allow
+		# Not hindered  -  allow
 		return _execute_afterblow(manager, tgt, 0.0)
 	var part_relevance: float = _get_part_relevance(hit_part, attacking_arm, _get_supporting_leg(tgt_n))
-	var severity: float = clampf(total_dmg / CombatConstants.AFTERBLOW_DAMAGE_HINDER_THRESHOLD, 0.0, 1.5)
+	var severity: float = clampf(total_dmg / _AfterblowConst.AFTERBLOW_DAMAGE_HINDER_THRESHOLD, 0.0, 1.5)
 	var outcome_mult: float = 0.6 if outcome == "glancing" or outcome == "negligible" else 1.0
 	var hindrance: float = clampf(part_relevance * severity * intensity * outcome_mult, 0.0, 1.0)
 
-	if hindrance >= CombatConstants.AFTERBLOW_HINDRANCE_BLOCK:
+	if hindrance >= _AfterblowConst.AFTERBLOW_HINDRANCE_BLOCK:
 		_cancel_pending(manager, tgt)
 		return false
-	if hindrance <= CombatConstants.AFTERBLOW_HINDRANCE_ALLOW:
+	if hindrance <= _AfterblowConst.AFTERBLOW_HINDRANCE_ALLOW:
 		return _execute_afterblow(manager, tgt, hindrance)
 	if randf() < hindrance:
 		_cancel_pending(manager, tgt)

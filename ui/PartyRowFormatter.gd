@@ -7,6 +7,7 @@ extends RefCounted
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
 
 const ATLS_CLASS_LABELS := {
 	1: "Class I (minimal)",
@@ -30,7 +31,7 @@ static func read_body_stat_dicts(row: Dictionary) -> Dictionary:
 	}
 
 
-## Combined tissue + bone remaining across all body parts (0–1). Matches battle body-bar tissue = min(cut, blunt).
+## Combined tissue + bone remaining across all body parts (0—"1). Matches battle body-bar tissue = min(cut, blunt).
 static func total_body_health_ratio(stats_row: Dictionary) -> float:
 	var body_stats: Dictionary = read_body_stat_dicts(stats_row)
 	var bc: Dictionary = body_stats["body_cutting"]
@@ -41,13 +42,13 @@ static func total_body_health_ratio(stats_row: Dictionary) -> float:
 	var total_cur: float = 0.0
 	var total_max: float = 0.0
 	for part in BodyPartConstants.BODY_PARTS:
-		var tissue_mx: float = float(bm.get(part, 0))
+		var tissue_mx: float = bm.get(part, 0)
 		if tissue_mx > 0.0:
-			total_cur += minf(float(bc.get(part, 0.0)), float(bb.get(part, 0.0)))
+			total_cur += minf(bc.get(part, 0.0), bb.get(part, 0.0))
 			total_max += tissue_mx
-		var bo_mx: int = int(bone_m.get(part, 0))
+		var bo_mx: int = bone_m.get(part, 0)
 		if bo_mx > 0:
-			total_cur += float(bone_h.get(part, 0.0))
+			total_cur += bone_h.get(part, 0.0)
 			total_max += float(bo_mx)
 	if total_max <= 0.0:
 		return 1.0
@@ -62,7 +63,7 @@ static func body_functionality_ratio(combatant: Dictionary, manager: Node = null
 	if node == null:
 		node = _EntityAccess.scene_node(combatant)
 	if node == null:
-		var perf: float = float(_EntityAccess.stats_dict(combatant).get("performance_modifier", 1.0))
+		var perf: float = _EntityAccess.stats_dict(combatant).get("performance_modifier", 1.0)
 		return clampf(perf, 0.0, 1.0)
 	var samples: PackedFloat32Array = PackedFloat32Array([
 		_BodyPartQuery.get_arm_functionality(node, "right_arm"),
@@ -119,9 +120,9 @@ static func format_body_part_compact(part: String, bc: Dictionary, bb: Dictionar
 	if mx <= 0:
 		return ""
 	var short: String = BODY_LABELS_SHORT.get(part, part)
-	var c_cur: float = float(bc.get(part, 0.0))
-	var b_cur: float = float(bb.get(part, 0.0))
-	var bo_cur: float = float(bone_h.get(part, 0.0))
+	var c_cur: float = bc.get(part, 0.0)
+	var b_cur: float = bb.get(part, 0.0)
+	var bo_cur: float = bone_h.get(part, 0.0)
 	return "%s %s|%s|%s" % [short, _compact_tissue_cell(c_cur), _compact_tissue_cell(b_cur), _compact_tissue_cell(bo_cur)]
 
 ## IV-11 slice 7: roster name suffix for party leader (`PartyMenu`).
@@ -195,16 +196,16 @@ static func format_triage_line(blood_volume_pct: float, total_bleeding_rate: flo
 ## Campaign scar stat lines (stamina / pain mults from `campaign_afflictions`).
 static func format_affliction_effects_line(member: Dictionary) -> String:
 	var raw: Variant = member.get("affliction_effects", "")
-	if raw is String and not str(raw).is_empty():
-		return str(raw)
+	if raw is String and not (raw as String).is_empty():
+		return raw
 	return ""
 
 
 ## Bleeding stopped but part still counts as undressed for camp rest.
 static func format_dressing_gate_line(member: Dictionary) -> String:
-	if not bool(member.get("has_untreated_wounds", false)):
+	if not member.get("has_untreated_wounds", false):
 		return ""
-	var bleed: float = float(member.get("total_bleeding_rate", 0.0))
+	var bleed: float = member.get("total_bleeding_rate", 0.0)
 	if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
 		return ""
 	return "Bleeding controlled — bandage/pack/TQ still required before camp rest."
@@ -212,68 +213,67 @@ static func format_dressing_gate_line(member: Dictionary) -> String:
 
 ## Consciousness, wounds, and mobility between fights (party menu / overworld).
 static func format_vitality_status(member: Dictionary) -> String:
-	if bool(member.get("is_unconscious", false)):
+	if member.get("is_unconscious", false):
 		return "Unconscious — cannot fight until recovered."
 	var parts: PackedStringArray = []
-	var con: float = float(member.get("effective_consciousness", 100.0))
+	var con: float = member.get("effective_consciousness", 100.0)
 	parts.append("Consciousness: %d%%" % int(roundf(con)))
-	var wn: int = int(member.get("wounded_part_count", 0))
+	var wn: int = member.get("wounded_part_count", 0)
 	if wn > 0:
 		var wound_line: String = "Wounds: %d part(s)" % wn
-		if bool(member.get("has_untreated_wounds", false)):
+		if member.get("has_untreated_wounds", false):
 			var up: Variant = member.get("untreated_parts", [])
 			if not (up is PackedStringArray and (up as PackedStringArray).size() > 0):
 				wound_line += " — needs dressing (Party field care)"
 		parts.append(wound_line)
-	if not bool(member.get("can_flee_or_fall_back", true)) and not bool(member.get("is_unconscious", false)):
+	if not member.get("can_flee_or_fall_back", true) and not member.get("is_unconscious", false):
 		parts.append("Legs too damaged to retreat")
 	return " · ".join(parts)
 
 
 ## Member row needs triage attention on the map (active bleed or undressed wound).
 static func member_needs_triage_attention(member: Dictionary) -> bool:
-	var bleed: float = float(member.get("total_bleeding_rate", 0.0))
+	var bleed: float = member.get("total_bleeding_rate", 0.0)
 	if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
 		return true
-	return member.get("has_untreated_wounds", false) == true
+	return member.get("has_untreated_wounds", false)
 
 
-## Lower = more urgent (undressed clot = −1; active bleed = ETA seconds to danger band).
+## Lower = more urgent (undressed clot = Ã¢Ë'1; active bleed = ETA seconds to danger band).
 static func member_triage_priority(member: Dictionary) -> float:
 	if not member_needs_triage_attention(member):
 		return INF
-	var bleed: float = float(member.get("total_bleeding_rate", 0.0))
+	var bleed: float = member.get("total_bleeding_rate", 0.0)
 	if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
-		return seconds_to_danger_band(float(member.get("blood_volume", 100.0)), bleed)
+		return seconds_to_danger_band(member.get("blood_volume", 100.0), bleed)
 	return -1.0
 
 
 ## One-line triage summary for banners (settlement worst row, map bleed HUD).
 static func format_member_triage_banner_line(member: Dictionary) -> String:
-	var bleed: float = float(member.get("total_bleeding_rate", 0.0))
+	var bleed: float = member.get("total_bleeding_rate", 0.0)
 	if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
-		return format_triage_line(float(member.get("blood_volume", 100.0)), bleed)
+		return format_triage_line(member.get("blood_volume", 100.0), bleed)
 	var dressing: String = format_dressing_gate_line(member)
 	return dressing
 
 
-## XCamp-4: formats proficiency bonus line for a party member — "+STR:3 AGI:2 INT:1 END:4 PER:0" or "" if no bonuses.
+## XCamp-4: formats proficiency bonus line for a party member —" "+STR:3 AGI:2 INT:1 END:4 PER:0" or "" if no bonuses.
 static func format_proficiency_bonus_line(member: Dictionary) -> String:
-	const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
 	var node_ref: Variant = (member as Dictionary).get("node_ref")
 	if not is_instance_valid(node_ref) or not (node_ref is Node):
 		return ""
 	var node: Node = node_ref as Node
 	var entity: Node = _Bridge.health_entity_from_character(node)
-	if entity == null or not entity.has("_proficiency_bonus"):
+	if entity == null or not "_proficiency_bonus" in entity:
 		return ""
 	var prof: Dictionary = entity._proficiency_bonus
 	var parts := []
-	const _PROF_LABELS := {"strength": "STR", "agility": "AGI", "intelligence": "INT", "endurance": "END", "perception": "PER"}
+	var _PROF_LABELS := {"strength": "STR", "agility": "AGI", "intelligence": "INT", "endurance": "END", "perception": "PER"}
 	for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
 		var bonus_val: float = float(prof.get(stat, 0) or 0)
 		if bonus_val > 0.0:
-			var label := _PROF_LABELS[stat]
+			var label: String = _PROF_LABELS[stat]
 			parts.append("+%s:%d" % [label, int(bonus_val)])
 	if parts.is_empty():
 		return ""
@@ -287,7 +287,7 @@ static func worst_triage_from_member_rows(rows: Array) -> Dictionary:
 	for raw in rows:
 		if raw is not Dictionary:
 			continue
-		var member: Dictionary = raw as Dictionary
+		var member: Dictionary = raw
 		if not member_needs_triage_attention(member):
 			continue
 		var pri: float = member_triage_priority(member)
@@ -298,3 +298,4 @@ static func worst_triage_from_member_rows(rows: Array) -> Dictionary:
 				"triage_line": format_member_triage_banner_line(member),
 			}
 	return worst
+                       

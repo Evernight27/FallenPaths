@@ -2,13 +2,13 @@ class_name PartyMemberSnapshot
 extends RefCounted
 
 ## Builds party member display dicts from nodes. Reduces duplication between PartyManager.add_member
-## and get_members. Single source for entity→display snapshot logic.
+## and get_members. Single source for entityâ†'display snapshot logic.
 ## Uses CombatantStatsSync for base stats (single source of truth with combat registration).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StatsSync := preload("res://combat/CombatantStatsSync.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
+const _CampaignTypes := preload("res://world/CampaignTypes.gd")
 
 static func init_from_node(node: Node) -> Dictionary:
 	"""Returns stored member dict for PartyManager.members. Call when adding a member."""
@@ -18,7 +18,7 @@ static func init_from_node(node: Node) -> Dictionary:
 	var base := _read_from_node(node)
 	base["name"] = member_name
 	base["node_ref"] = node
-	base["company_mood"] = _CompanyState.MOOD_DEFAULT
+	base["company_mood"] = _CampaignTypes.MOOD_DEFAULT
 	return base
 
 ## Returns full display dict for get_members. Prefers node_ref when valid; else uses member's stored values.
@@ -48,11 +48,11 @@ static func snapshot_from_member(member: Dictionary) -> Dictionary:
 			"body_max": _duplicate_if_dictionary(member.get("body_max", null)),
 			"bone_health": _duplicate_if_dictionary(member.get("bone_health", null)),
 			"bone_max": _duplicate_if_dictionary(member.get("bone_max", null)),
-			"strength": member.get("strength", 100),
-			"agility": member.get("agility", 100),
-			"intelligence": member.get("intelligence", 100),
-			"endurance": member.get("endurance", 100),
-			"perception": member.get("perception", 100),
+			"strength": member.get("strength", CombatConstants.DEFAULT_STAT_VALUE),
+			"agility": member.get("agility", CombatConstants.DEFAULT_STAT_VALUE),
+			"intelligence": member.get("intelligence", CombatConstants.DEFAULT_STAT_VALUE),
+			"endurance": member.get("endurance", CombatConstants.DEFAULT_STAT_VALUE),
+			"perception": member.get("perception", CombatConstants.DEFAULT_STAT_VALUE),
 			"weapon_name": "",
 			"armor_summary": [],
 			"blood_volume": 100.0,
@@ -62,11 +62,11 @@ static func snapshot_from_member(member: Dictionary) -> Dictionary:
 		result["affliction_labels"] = PackedStringArray()
 		result["affliction_effects"] = ""
 		if member.has("company_mood"):
-			result["company_mood"] = member.get("company_mood", _CompanyState.MOOD_DEFAULT)
+			result["company_mood"] = member.get("company_mood", _CampaignTypes.MOOD_DEFAULT)
 		if member.has("stance_preference"):
 			result["stance_preference"] = str(member.get("stance_preference", "")).strip_edges()
 	if member.has("company_mood") and not result.has("company_mood"):
-		result["company_mood"] = member.get("company_mood", _CompanyState.MOOD_DEFAULT)
+		result["company_mood"] = member.get("company_mood", _CampaignTypes.MOOD_DEFAULT)
 	return result
 
 static func _format_affliction_effects(entity: Node) -> String:
@@ -79,12 +79,12 @@ static func _format_affliction_effects(entity: Node) -> String:
 		var def: Dictionary = raw as Dictionary
 		var label: String = str(def.get("label", def.get("id", "")))
 		var bits: PackedStringArray = PackedStringArray()
-		var sm: float = float(def.get("stamina_mult", 1.0))
-		var pm: float = float(def.get("pain_mult", 1.0))
+		var sm: float = def.get("stamina_mult", 1.0)
+		var pm: float = def.get("pain_mult", 1.0)
 		if absf(sm - 1.0) > 0.02:
-			bits.append("Stamina ×%.0f%%" % (sm * 100.0))
+			bits.append("Stamina Ã - %.0f%%" % (sm * 100.0))
 		if absf(pm - 1.0) > 0.02:
-			bits.append("Pain ×%.0f%%" % (pm * 100.0))
+			bits.append("Pain Ã - %.0f%%" % (pm * 100.0))
 		if bits.is_empty():
 			lines.append(label)
 		else:

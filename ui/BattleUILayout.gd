@@ -33,7 +33,7 @@ static func create(parent: Node) -> Dictionary:
 	content_vbox.add_theme_constant_override("separation", 8)
 	ui_root.add_child(content_vbox)
 
-	# Formation diagram: compact rank×file view (party | enemies) — shows positions, updates on swap
+	# Formation diagram: compact rank- - file view (party | enemies)  -  shows positions, updates on swap
 	var formation_header = Label.new()
 	formation_header.text = "Formation (Front / Back)"
 	formation_header.add_theme_font_size_override("font_size", 12)
@@ -71,7 +71,7 @@ static func create(parent: Node) -> Dictionary:
 	player_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	main_hbox.add_child(player_stats_scroll)
 
-	# Column 1: Party (PanelContainer sizes to child — plain Panel does not, so ScrollContainer got ~0 content height)
+	# Column 1: Party (PanelContainer sizes to child  -  plain Panel does not, so ScrollContainer got ~0 content height)
 	var player_panel = PanelContainer.new()
 	player_panel.name = "PlayerPanel"
 	player_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -119,7 +119,7 @@ static func create(parent: Node) -> Dictionary:
 	enemy_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	enemy_vbox.add_child(enemy_title)
 
-	# Two columns: registration order is row-major (left, right, next row — unchanged when formation updates)
+	# Two columns: registration order is row-major (left, right, next row  -  unchanged when formation updates)
 	var enemy_list = GridContainer.new()
 	enemy_list.name = "EnemyList"
 	enemy_list.columns = 2

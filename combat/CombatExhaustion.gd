@@ -1,8 +1,8 @@
 class_name CombatExhaustion
 extends RefCounted
 
-## MXm: cumulative fight exhaustion (0–1) on combatant dict; gain on stamina spend; recovery in WAITING.
-## MXm-2: **`performance_mult_for_combatant`** → parry readiness, wind-up, surround awareness.
+## MXm: cumulative fight exhaustion (0—"1) on combatant dict; gain on stamina spend; recovery in WAITING.
+## MXm-2: **`performance_mult_for_combatant`** Ã¢â ' parry readiness, wind-up, surround awareness.
 ## MXm-3: **`effective_stamina_max`** / **`effective_stamina_refill_rate`** — central fatigue + blood cap burst pool.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -25,7 +25,7 @@ static func apply_exertion_from_stamina_spend(
 		return
 	var exertion: float = stamina_spent * CombatConstants.EXHAUSTION_EXERTION_PER_STAMINA_POINT
 	var stats: Dictionary = _EntityAccess.stats_dict(combatant)
-	var end_stat: float = float(stats.get("endurance", 100))
+	var end_stat: float = float(stats.get("endurance", CombatConstants.DEFAULT_STAT_VALUE))
 	var end_ratio: float = clampf(end_stat / 100.0, 0.0, 1.0)
 	var relief: float = end_ratio * CombatConstants.EXHAUSTION_ENDURANCE_MAX_RELIEF
 	exertion *= 1.0 - relief
@@ -38,11 +38,11 @@ static func apply_exertion_from_stamina_spend(
 	clamp_stamina_to_effective_max(combatant)
 
 
-## Hypovolemia reduces peak burst power (O₂ delivery to working muscle).
+## Hypovolemia reduces peak burst power (OÃ¢ââ delivery to working muscle).
 static func blood_stamina_cap_mult(combatant: Dictionary) -> float:
 	if combatant.is_empty():
 		return 1.0
-	var blood: float = float(_EntityAccess.stats_dict(combatant).get("blood_volume", 100.0))
+	var blood: float = _EntityAccess.stats_dict(combatant).get("blood_volume", 100.0)
 	var start_t: float = _PainConscious.BLOOD_CONSCIOUSNESS_START_THRESHOLD
 	var floor_t: float = _PainConscious.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD
 	if blood >= start_t:
@@ -61,7 +61,7 @@ static func effective_stamina_max(combatant: Dictionary) -> float:
 		return base * blood_m
 	var ex: float = _EntityAccess.exhaustion_float(combatant)
 	var exh_m: float = lerpf(1.0, CombatConstants.STAMINA_EXHAUSTION_MAX_MULT_FLOOR, ex)
-	var camp_m: float = clampf(float(combatant.get("campaign_stamina_mult", 1.0)), 0.5, 1.0)
+	var camp_m: float = clampf(combatant.get("campaign_stamina_mult", 1.0), CombatConstants.STAMINA_MULT_FLOOR, CombatConstants.STAMINA_MULT_CEILING)
 	return base * exh_m * blood_m * camp_m
 
 
@@ -76,7 +76,7 @@ static func effective_stamina_refill_rate(combatant: Dictionary) -> float:
 	)
 
 
-## Stamina / **`effective_stamina_max`** — use for ratios, UI %, and turn-delay curves.
+## Stamina / **`effective_stamina_max`** —" use for ratios, UI %, and turn-delay curves.
 static func stamina_ratio(combatant: Dictionary) -> float:
 	var cap: float = effective_stamina_max(combatant)
 	if cap <= 0.001:
@@ -91,7 +91,7 @@ static func clamp_stamina_to_effective_max(combatant: Dictionary) -> void:
 	combatant["stamina"] = minf(_EntityAccess.stamina_float(combatant, 0.0), cap)
 
 
-## MS-L7: mental stack tunnel — prefer wait / disengage over new offense.
+## MS-L7: mental stack tunnel —" prefer wait / disengage over new offense.
 ## Fires at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (0.50). The `exhaustion_offense_weight_mult`
 ## function uses the higher **`MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD`** (0.75) for its lerp span,
 ## creating a "winded" zone (0.50-0.75) where offense is partially damped but disengage is preferred by layer presentation.
@@ -105,7 +105,7 @@ static func exhaustion_tunnel_active(combatant: Dictionary) -> bool:
 
 
 ## Gradual offense damp (below tunnel threshold); stacks with salience damp in **`CombatAIActionPicker`**.
-## Extended lerp range: [0.25, 0.75] — "fatigued" zone ramps down, "winded" (0.50-0.75) still allows offense (~0.675), "exhausted" (>=0.75) floors at damp floor.
+## Extended lerp range: [0.25, 0.75] —" "fatigued" zone ramps down, "winded" (0.50-0.75) still allows offense (~0.675), "exhausted" (>=0.75) floors at damp floor.
 static func exhaustion_offense_weight_mult(combatant: Dictionary) -> float:
 	if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
 		return 1.0
@@ -234,7 +234,7 @@ static func _medical_exertion_gain_mult(manager: Node, combatant: Dictionary) ->
 	if entity == null:
 		return mult
 	if "blood_volume" in entity:
-		var blood: float = float(entity.blood_volume)
+		var blood: float = entity.blood_volume
 		if blood < _PainConscious.BLOOD_CONSCIOUSNESS_START_THRESHOLD:
 			mult *= CombatConstants.EXHAUSTION_GAIN_BLOOD_LOSS_MULT
 	if "_pain_shock_until_time" in entity:
@@ -243,3 +243,5 @@ static func _medical_exertion_gain_mult(manager: Node, combatant: Dictionary) ->
 		if until >= 0.0 and now < until:
 			mult *= CombatConstants.EXHAUSTION_GAIN_PAIN_SHOCK_MULT
 	return mult
+
+                       

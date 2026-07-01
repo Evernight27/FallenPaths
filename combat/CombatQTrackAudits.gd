@@ -1,8 +1,8 @@
 class_name CombatQTrackAudits
 extends RefCounted
 
-## Headless Track **Q** proxies (Q1–Q4) vs **`.d001_soak_out.txt`** — writes **`.q_track_audits.txt`**.
-## Q4 **ii8** (`II8_CHECKS`): formation trace gates + WF **` · Form`** / **`[Ox]`** / suffix-order content from D-001 report — LIVE_PATHS **`#wf-soak-audit-status`** · **`#battle-ui`**.
+## Headless Track **Q** proxies (Q1 - Q4) vs **`.d001_soak_out.txt`**  -  writes **`.q_track_audits.txt`**.
+## Q4 **ii8** (`II8_CHECKS`): formation trace gates + WF **` · Form`** / **`[Ox]`** / suffix-order content from D-001 report  -  LIVE_PATHS **`#wf-soak-audit-status`** · **`#battle-ui`**.
 ## Entry: **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=q_track`) · **`run_q_feel.ps1 -Headless`**.
 
 const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
@@ -144,12 +144,12 @@ static func _append_q2_worksheet_snapshot(lines: PackedStringArray) -> void:
 		for part in body.split("\n", false):
 			lines.append("    %s" % part)
 	else:
-		lines.append("    (missing .ii2b_worksheet_prefill.txt — written by D-001 harness after ii2b)")
+		lines.append("    (missing .ii2b_worksheet_prefill.txt  -  written by D-001 harness after ii2b)")
 	lines.append("")
 
 
 static func _append_q2_f5_subjective_checklist(lines: PackedStringArray) -> void:
-	lines.append("  [f5_subjective — human only]")
+	lines.append("  [f5_subjective  -  human only]")
 	lines.append("    main.tscn: dev_soak_encounter=ii2b (dev_research_feel optional)")
 	lines.append("    play: deflect timing readable; riposte after deflect; flurry window after bind")
 	lines.append("    grep: parry_deflect | parry_bind | riposte_chain | flurry_bind | parry_stats deflect=")
@@ -258,21 +258,21 @@ static func _append_q1_research_feel(lines: PackedStringArray) -> bool:
 
 static func _q1_bare_row_from_chest(m: Dictionary) -> Dictionary:
 	return {
-		"final_cut": float(m.get("bare_damage_sum", 0.0)),
+		"final_cut": m.get("bare_damage_sum", 0.0),
 		"final_blunt": 0.0,
 		"final_bone": 0.0,
-		"penetration_to_tissue_mm": float(m.get("bare_tissue_pen_mm", 0.0)),
+		"penetration_to_tissue_mm": m.get("bare_tissue_pen_mm", 0.0),
 		"transmitted_ke_fraction": 1.0,
 	}
 
 
 static func _q1_armored_row_from_chest(m: Dictionary) -> Dictionary:
 	return {
-		"final_cut": float(m.get("armored_damage_sum", 0.0)),
+		"final_cut": m.get("armored_damage_sum", 0.0),
 		"final_blunt": 0.0,
 		"final_bone": 0.0,
-		"penetration_to_tissue_mm": float(m.get("armored_tissue_pen_mm", 0.0)),
-		"transmitted_ke_fraction": float(m.get("transmitted_ke_fraction", 1.0)),
+		"penetration_to_tissue_mm": m.get("armored_tissue_pen_mm", 0.0),
+		"transmitted_ke_fraction": m.get("transmitted_ke_fraction", 1.0),
 	}
 
 
@@ -285,11 +285,11 @@ static func _log_q1_scenario(
 		% [
 			part,
 			sub,
-			float(res.get("final_cut", 0.0)),
-			float(res.get("final_blunt", 0.0)),
-			float(res.get("final_bone", 0.0)),
-			float(res.get("penetration_to_tissue_mm", -1.0)),
-			float(res.get("transmitted_ke_fraction", 1.0)),
+			res.get("final_cut", 0.0),
+			res.get("final_blunt", 0.0),
+			res.get("final_bone", 0.0),
+			res.get("penetration_to_tissue_mm", -1.0),
+			res.get("transmitted_ke_fraction", 1.0),
 		]
 	)
 
@@ -338,48 +338,48 @@ static func _append_q1_boundary_checks(
 	fail = _append_q1_check(
 		lines,
 		"graze_no_bone",
-		float(graze.get("final_bone", 0.0)) < 0.01,
-		"bone=%.2f" % float(graze.get("final_bone", 0.0)),
+		graze.get("final_bone", 0.0) < 0.01,
+		"bone=%.2f" % graze.get("final_bone", 0.0),
 	) or fail
 	fail = _append_q1_check(
 		lines,
 		"graze_shallow_pen",
-		float(graze.get("penetration_to_tissue_mm", 99.0)) <= 1.5,
-		"pen_mm=%.2f" % float(graze.get("penetration_to_tissue_mm", 0.0)),
+		graze.get("penetration_to_tissue_mm", 99.0) <= 1.5,
+		"pen_mm=%.2f" % graze.get("penetration_to_tissue_mm", 0.0),
 	) or fail
 	fail = _append_q1_check(
 		lines,
 		"graze_has_cut",
-		float(graze.get("final_cut", 0.0)) > 0.0,
-		"cut=%.2f" % float(graze.get("final_cut", 0.0)),
+		graze.get("final_cut", 0.0) > 0.0,
+		"cut=%.2f" % graze.get("final_cut", 0.0),
 	) or fail
 	fail = _append_q1_check(
 		lines,
 		"cuirass_lowers_pen",
-		float(chest.get("armored_tissue_pen_mm", 0.0)) < float(chest.get("bare_tissue_pen_mm", 0.0)) - 0.01,
+		chest.get("armored_tissue_pen_mm", 0.0) < chest.get("bare_tissue_pen_mm", 0.0) - 0.01,
 		"bare=%.2f armored=%.2f"
-		% [float(chest.get("bare_tissue_pen_mm", 0.0)), float(chest.get("armored_tissue_pen_mm", 0.0))],
+		% [chest.get("bare_tissue_pen_mm", 0.0), chest.get("armored_tissue_pen_mm", 0.0)],
 	) or fail
 	fail = _append_q1_check(
 		lines,
 		"cuirass_ke_frac",
-		float(chest.get("transmitted_ke_fraction", 0.0)) > 0.5
-		and float(chest.get("transmitted_ke_fraction", 0.0)) < 1.0,
-		"ke_frac=%.3f" % float(chest.get("transmitted_ke_fraction", 1.0)),
+		chest.get("transmitted_ke_fraction", 0.0) > 0.5
+		and chest.get("transmitted_ke_fraction", 0.0) < 1.0,
+		"ke_frac=%.3f" % chest.get("transmitted_ke_fraction", 1.0),
 	) or fail
 	fail = _append_q1_check(
 		lines,
 		"cuirass_lowers_damage",
-		float(chest.get("armored_damage_sum", 0.0)) < float(chest.get("bare_damage_sum", 0.0)) - 0.5,
+		chest.get("armored_damage_sum", 0.0) < chest.get("bare_damage_sum", 0.0) - 0.5,
 		"bare_dmg=%.1f armored_dmg=%.1f"
-		% [float(chest.get("bare_damage_sum", 0.0)), float(chest.get("armored_damage_sum", 0.0))],
+		% [chest.get("bare_damage_sum", 0.0), chest.get("armored_damage_sum", 0.0)],
 	) or fail
 	fail = _append_q1_check(
 		lines,
 		"mace_bone_chip",
-		float(mace.get("final_bone", 0.0)) >= 0.5,
+		mace.get("final_bone", 0.0) >= 0.5,
 		"bone=%.2f KE=%.0f anchor=%.0f"
-		% [float(mace.get("final_bone", 0.0)), float(mace.get("strike_ke_j", 0.0)), float(mace.get("j_anchor", 0.0))],
+		% [mace.get("final_bone", 0.0), mace.get("strike_ke_j", 0.0), mace.get("j_anchor", 0.0)],
 	) or fail
 	lines.append(
 		"    note=matches .calibration_audit.txt [f5_scenario_headless]; F5 editor adds live duel parry/bind lines"
@@ -395,3 +395,4 @@ static func _append_q1_check(
 	var tag: String = "pass" if ok else "BOUNDARY_FAIL"
 	lines.append("    %s %s (%s)" % [id, tag, detail])
 	return not ok
+      

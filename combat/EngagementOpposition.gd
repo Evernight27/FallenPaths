@@ -3,8 +3,8 @@ extends RefCounted
 
 ## III-4 Track A: logical file opposition between independent side grids (center offset + nearest wing).
 ## Seeded once at combat start; **`CombatTargetScoring.is_file_opposed_rank0_pair`** delegates here (PR4).
-
 const META_OPPOSITION_FILE_OFFSET_BY_SIDE := "_opposition_file_offset_by_side"
+const NO_OPPONENT_DISTANCE := 999999
 
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -50,7 +50,7 @@ static func opposition_file_offset(manager: Node, side: String) -> int:
 	return int(_offset_dict(manager).get(str(side), 0))
 
 
-## Mapped file gap for reach/bands when Track A opposition applies (wings use nearest, not raw `|Δfile|`).
+## Mapped file gap for reach/bands when Track A opposition applies (wings use nearest, not raw `|ÃŽ—file|`).
 static func mapped_opposition_file_distance(
 	manager: Node, actor: Dictionary, opp: Dictionary
 ) -> int:
@@ -66,14 +66,14 @@ static func _mapped_opposition_file_distance(actor_file: int, opp_file: int, act
 	return absi(actor_file - (opp_file + actor_side_offset))
 
 
-## Minimum mapped distance from `ref` (rank-0) to any living rank-0 melee target; **999999** when none.
+## Minimum mapped distance from `ref` (rank-0) to any living rank-0 melee target; **NO_OPPONENT_DISTANCE** when none.
 static func _min_mapped_opposition_distance(
 	manager: Node, ref: Dictionary, actor_side_offset: int
 ) -> int:
 	if manager == null or ref.is_empty():
-		return 999999
+		return NO_OPPONENT_DISTANCE
 	var actor_file: int = _EntityAccess.file_int(ref)
-	var best: int = 999999
+	var best: int = NO_OPPONENT_DISTANCE
 	for other in manager.combatants:
 		if not _EntityAccess.is_living_hostile_to(ref, other):
 			continue
@@ -100,7 +100,7 @@ static func is_mapped_file_opposed(manager: Node, actor: Dictionary, opp: Dictio
 	if actor_file == opp_file + offset:
 		return true
 	var best: int = _min_mapped_opposition_distance(manager, actor, offset)
-	if best >= 999999:
+	if best >= NO_OPPONENT_DISTANCE:
 		return false
 	return _mapped_opposition_file_distance(actor_file, opp_file, offset) == best
 
@@ -136,7 +136,7 @@ static func wing_lacks_mapped_opposition(
 	var offset: int = opposition_file_offset(manager, _EntityAccess.side_str(ref))
 	var ref_file: int = _EntityAccess.file_int(ref)
 	var best: int = _min_mapped_opposition_distance(manager, ref, offset)
-	if best >= 999999:
+	if best >= NO_OPPONENT_DISTANCE:
 		return true
 	for opp in manager.combatants:
 		if not _EntityAccess.is_living_hostile_to(actor, opp):
@@ -150,7 +150,7 @@ static func wing_lacks_mapped_opposition(
 	return true
 
 
-## Mapped rank-0 at **LONG** when weapon reach does not cover assigned foe — bind close before strikes.
+## Mapped rank-0 at **LONG** when weapon reach does not cover assigned foe Ã¢â‚¬— bind close before strikes.
 static func rank0_needs_bind_close_at_long(manager: Node, c: Dictionary) -> bool:
 	if manager == null or c.is_empty() or _EntityAccess.rank_int(c) != 0:
 		return false

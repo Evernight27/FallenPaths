@@ -1,9 +1,9 @@
 class_name MentalStackDecider
 extends RefCounted
 
-## Tier 4.3: prioritized AI decision layers (self-medical → ally medical → counter → incoming → MS-L8 post-strike → L4b sparse fight → L4 hold line → MS-L5 formation plug → MS-L6 rout → L5 exhaustion → salience-damped utility pick).
-## **MS-L4 footing boundary:** hold-line layer picks listed moves only — does **not** write **`guard_line`**, PA offset, or **`weapon_form`**. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-layer-labels`**.
-## **No player target UI** — same picker for all sides; layers only narrow/reweight the listed action pool.
+## Tier 4.3: prioritized AI decision layers (self-medical â ally medical â counter â incoming â MS-L8 post-strike â L4b sparse fight â L4 hold line â MS-L5 formation plug â MS-L6 rout â L5 exhaustion â salience-damped utility pick).
+## **MS-L4 footing boundary:** hold-line layer picks listed moves only  -  does **not** write **`guard_line`**, PA offset, or **`weapon_form`**. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-layer-labels`**.
+## **No player target UI**  -  same picker for all sides; layers only narrow/reweight the listed action pool.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
@@ -16,10 +16,8 @@ const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
-const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
-const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _PostStrike := preload("res://combat/CombatPostStrike.gd")
 const _ZoC := preload("res://combat/ZoneOfControl.gd")
 
@@ -28,7 +26,7 @@ static func enabled() -> bool:
 	return CombatConstants.is_feature_mental_stack_ai_enabled()
 
 
-## Returns a picked action when a high-priority layer applies; empty **`{}`** → caller uses salience-damped **`pick_weighted`**.
+## Returns a picked action when a high-priority layer applies; empty **`{}`** â caller uses salience-damped **`pick_weighted`**.
 static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary:
 	if not enabled() or actions.is_empty() or manager == null or combatant_id < 0:
 		return {}
@@ -38,7 +36,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 		return {}
 	c.erase(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER)
 	# MS-L8: read post-strike stamp (clock-based, naturally expires after ~1 turn).
-	var _strike_tick_val: float = float(c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TICK, 0.0))
+	var _strike_tick_val: float = c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TICK, 0.0)
 	var _current_clock: float = manager.combat_clock
 	var _strike_tick_active: bool = (
 		_strike_tick_val >= 0.0 and absf(_strike_tick_val - _current_clock) < CombatConstants.POST_STRIKE_MOMENTUM_CLOCK_TOLERANCE
@@ -48,7 +46,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 		if retreat_only.is_empty():
 			return {}
 		return _AIPicker.pick_weighted(retreat_only, combatant_id, manager)
-	# L0: own immediate peril — self-aid before helping allies (TCCC-style).
+	# L0: own immediate peril  -  self-aid before helping allies (TCCC-style).
 	if _EntityAccess.is_in_immediate_peril(manager, c):
 		var self_med: Array = _filter_self_medical_actions(actions, combatant_id, manager)
 		if self_med.is_empty():
@@ -59,7 +57,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 				CombatConstants.MENTAL_STACK_LAYER_SELF_MEDICAL,
 				_AIPicker.pick_weighted(self_med, combatant_id, manager)
 			)
-	# L1: ally peril → coordinated medical only.
+	# L1: ally peril â coordinated medical only.
 	var _l1_ally_peril: bool = _Attention.ally_in_immediate_peril(manager, combatant_id)
 	if _l1_ally_peril:
 		var medical: Array = _filter_coordinated_medical_actions(actions, combatant_id, manager)
@@ -80,7 +78,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 				CombatConstants.MENTAL_STACK_LAYER_COUNTER,
 				_AIPicker.pick_weighted(counters, combatant_id, manager)
 			)
-	# L3: incoming wind-up on me → counter (if listed) or melee vs that attacker.
+	# L3: incoming wind-up on me â counter (if listed) or melee vs that attacker.
 	if _Attention.is_being_wind_up_targeted(manager, combatant_id):
 		var incoming_id: int = _CounterTempo.incoming_attacker_id(manager, combatant_id)
 		var threat: Array = _filter_incoming_threat_actions(actions, incoming_id)
@@ -90,12 +88,12 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 				CombatConstants.MENTAL_STACK_LAYER_INCOMING,
 				_AIPicker.pick_weighted(threat, combatant_id, manager)
 			)
-	# MS-L8: post-strike momentum — press advantage or disengage cleanly after a successful strike.
+	# MS-L8: post-strike momentum  -  press advantage or disengage cleanly after a successful strike.
 	# Fires before L4b so pressing a specific target advantage takes priority over general
 	# fight-finishing pressure (L4b sparse-fight / mop-up).
 	var _fight_finish_tail: bool = false
 	if CombatConstants.is_feature_ms_post_strike_enabled() and _strike_tick_active:
-		var struck_id: int = int(c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID, -1))
+		var struck_id: int = c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID, -1)
 		if struck_id >= 0:
 			var ps_pool: Array = _PostStrike.filter_post_strike_actions(
 				actions, combatant_id, manager, struck_id
@@ -106,13 +104,13 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 					CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE,
 					_AIPicker.pick_weighted(ps_pool, combatant_id, manager)
 				)
-	# L4b (before L4): combat-finish tails — sparse post-flee rank-0 or mop-up underdog; offense over wait/focus shuffle.
-	# Skip when this combatant or any ally is in immediate peril — medical layers take priority.
+	# L4b (before L4): combat-finish tails  -  sparse post-flee rank-0 or mop-up underdog; offense over wait/focus shuffle.
+	# Skip when this combatant or any ally is in immediate peril  -  medical layers take priority.
 	var _my_peril: bool = _EntityAccess.is_in_immediate_peril(manager, c)
 	var _ally_in_peril_count: int = 0
 	for _other in manager.combatants:
 		if _other is not Dictionary: continue
-		var _o: Dictionary = _other as Dictionary
+		var _o: Dictionary = _other
 		if _EntityAccess.side_str(_o) != _EntityAccess.side_str(c): continue
 		if _EntityAccess.id_int(_o) == combatant_id: continue
 		if _EntityAccess.is_in_immediate_peril(manager, _o):
@@ -131,8 +129,8 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 				CombatConstants.MENTAL_STACK_LAYER_SPARSE_FIGHT,
 				_AIPicker.pick_weighted(fight_first, combatant_id, manager)
 			)
-	# L4: back rank / no reach — hold in place; retarget guard only on incoming telegraph mismatch.
-	# Fight-finish tails skip L4 wait/focus when L4b had no offense — utility pick handles trusted close/strikes.
+	# L4: back rank / no reach  -  hold in place; retarget guard only on incoming telegraph mismatch.
+	# Fight-finish tails skip L4 wait/focus when L4b had no offense  -  utility pick handles trusted close/strikes.
 	if _ListedActions.action_list_is_reserve_posture_only(actions):
 		if _fight_finish_tail:
 			var close_only: Array = _filter_hold_line_close_actions(
@@ -152,7 +150,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 				return _stamp_layer_pick(
 					c, CombatConstants.MENTAL_STACK_LAYER_HOLD_LINE, hold_pick
 				)
-	# MS-L5: vacancy / plug-forward — close rank-0 gaps before utility offense when plug moves are listed.
+	# MS-L5: vacancy / plug-forward  -  close rank-0 gaps before utility offense when plug moves are listed.
 	if not _VacancyPlugs.formation_plug_layer_blocked(manager, c, actions, combatant_id):
 		var plug_pool: Array = _VacancyPlugs.filter_formation_plug_actions(
 			manager, c, combatant_id, actions
@@ -163,7 +161,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 				CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG,
 				_AIPicker.pick_weighted(plug_pool, combatant_id, manager, actions)
 			)
-	# MS-L6: cohesion break / abandon-field — flee or fall_back before salience utility offense.
+	# MS-L6: cohesion break / abandon-field  -  flee or fall_back before salience utility offense.
 	if CombatConstants.is_feature_ms_l6_rout_enabled():
 		if not _FormationRout.rout_layer_blocked(manager, c, actions, combatant_id):
 			var rout_pool: Array = _FormationRout.filter_rout_disengage_actions(
@@ -175,7 +173,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 					CombatConstants.MENTAL_STACK_LAYER_ROUT,
 					_AIPicker.pick_weighted(rout_pool, combatant_id, manager, actions)
 				)
-	# MS-L9: positional awareness — disengage when surrounded and vulnerable.
+	# MS-L9: positional awareness  -  disengage when surrounded and vulnerable.
 	# Fight-finish tails skip MS-L9 so listed offense can win via L4b or salience-damped utility pick.
 	if CombatConstants.is_feature_ms_positional_awareness_enabled():
 		if not _Doctrine.fight_finish_tail_active(manager, c, actions, combatant_id):
@@ -186,7 +184,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 					CombatConstants.MENTAL_STACK_LAYER_POSITIONAL_DIS,
 					_AIPicker.pick_weighted(pos_pool, combatant_id, manager)
 				)
-	# L5 (MS-L7): exhaustion tunnel or critical stamina — wait / disengage before salience utility pick.
+	# L5 (MS-L7): exhaustion tunnel or critical stamina  -  wait / disengage before salience utility pick.
 	# Fight-finish tails skip L5 so listed offense can win via L4b or salience-damped utility pick.
 	if (
 		_Exhaustion.exhaustion_tunnel_active(c)
@@ -225,7 +223,7 @@ static func _stamp_layer_pick(c: Dictionary, layer: String, picked: Dictionary) 
 	if _CombatDebug.flow_verbose_enabled():
 		_CombatDebug.flow_log(
 			"mental_stack %s layer=%s move=%s"
-			% [_EntityAccess.get_display_name(c), layer, str(picked.get("move_id", ""))]
+			% [_EntityAccess.get_display_name(c), layer, picked.get("move_id", "")]
 		)
 	return picked
 
@@ -233,14 +231,14 @@ static func _stamp_layer_pick(c: Dictionary, layer: String, picked: Dictionary) 
 static func _filter_coordinated_medical_actions(actions: Array, performer_id: int, manager: Node) -> Array:
 	var out: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		var mid: String = str(a.get("move_id", ""))
+		var a: Dictionary = raw
+		var mid: String = a.get("move_id", "")
 		if not CombatConstants.is_medical_move(mid):
 			continue
-		var tgt_id: int = int(a.get("target_id", -1))
-		var part: String = str(a.get("target_part", ""))
+		var tgt_id: int = a.get("target_id", -1)
+		var part: String = a.get("target_part", "")
 		if _MedicalCoord.medical_action_allowed(manager, performer_id, tgt_id, part, mid):
 			out.append(a)
 	return out
@@ -249,15 +247,15 @@ static func _filter_coordinated_medical_actions(actions: Array, performer_id: in
 static func _filter_self_medical_actions(actions: Array, combatant_id: int, manager: Node) -> Array:
 	var out: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		if int(a.get("target_id", -1)) != combatant_id:
+		var a: Dictionary = raw
+		if a.get("target_id", -1) != combatant_id:
 			continue
-		var mid: String = str(a.get("move_id", ""))
+		var mid: String = a.get("move_id", "")
 		if not CombatConstants.is_medical_move(mid):
 			continue
-		var part: String = str(a.get("target_part", ""))
+		var part: String = a.get("target_part", "")
 		if _MedicalCoord.medical_action_allowed(manager, combatant_id, combatant_id, part, mid):
 			out.append(a)
 	return out
@@ -268,12 +266,12 @@ static func _filter_self_medical_actions(actions: Array, combatant_id: int, mana
 static func _filter_self_medical_actions_fallback(actions: Array, combatant_id: int) -> Array:
 	var out: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		if int(a.get("target_id", -1)) != combatant_id:
+		var a: Dictionary = raw
+		if a.get("target_id", -1) != combatant_id:
 			continue
-		var mid: String = str(a.get("move_id", ""))
+		var mid: String = a.get("move_id", "")
 		if CombatConstants.is_medical_move(mid):
 			out.append(a)
 	return out
@@ -284,13 +282,13 @@ static func _filter_self_medical_actions_fallback(actions: Array, combatant_id: 
 static func _filter_ally_medical_actions_fallback(actions: Array, combatant_id: int, manager: Node) -> Array:
 	var out: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		var mid: String = str(a.get("move_id", ""))
+		var a: Dictionary = raw
+		var mid: String = a.get("move_id", "")
 		if not CombatConstants.is_medical_move(mid):
 			continue
-		var tgt_id: int = int(a.get("target_id", -1))
+		var tgt_id: int = a.get("target_id", -1)
 		if tgt_id == combatant_id:
 			continue  # skip self-medical (handled by L0)
 		var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
@@ -308,10 +306,10 @@ static func _filter_ally_medical_actions_fallback(actions: Array, combatant_id: 
 static func _filter_counter_tempo_actions(actions: Array) -> Array:
 	var out: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		if bool(a.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
+		var a: Dictionary = raw
+		if a.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false):
 			out.append(a)
 	return out
 
@@ -319,10 +317,10 @@ static func _filter_counter_tempo_actions(actions: Array) -> Array:
 static func _filter_hold_line_actions(actions: Array) -> Array:
 	var out: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		var mid: String = str(a.get("move_id", ""))
+		var a: Dictionary = raw
+		var mid: String = a.get("move_id", "")
 		if mid == CombatConstants.MOVE_ID_WAIT or CombatConstants.is_focus_line_move(mid):
 			out.append(a)
 	return out
@@ -335,10 +333,10 @@ static func _filter_sparse_fight_first_actions(
 	for raw in _filter_hold_line_close_actions(actions, combatant_id, manager, c):
 		out.append(raw)
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		var mid: String = str(a.get("move_id", ""))
+		var a: Dictionary = raw
+		var mid: String = a.get("move_id", "")
 		if mid.is_empty() or mid == CombatConstants.MOVE_ID_WAIT:
 			continue
 		if CombatConstants.is_focus_line_move(mid):
@@ -366,12 +364,12 @@ static func _filter_hold_line_close_actions(
 	)
 	var out: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		if str(a.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		var a: Dictionary = raw
+		if a.get("move_id", "") != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 			continue
-		var tgt_id: int = int(a.get("target_id", -1))
+		var tgt_id: int = a.get("target_id", -1)
 		if tgt_id < 0:
 			continue
 		var dist: String = _EntityAccess.distance_to_opponent_band(c, tgt_id, "")
@@ -407,10 +405,10 @@ static func _pick_hold_line_action(
 	var focus_pool: Array = []
 	var cur_line: String = str(c.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
 	for raw in hold:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		var mid: String = str(a.get("move_id", ""))
+		var a: Dictionary = raw
+		var mid: String = a.get("move_id", "")
 		if mid == CombatConstants.MOVE_ID_WAIT:
 			wait_pick = a.duplicate()
 			continue
@@ -434,8 +432,8 @@ static func _pick_hold_line_action(
 		).strip_edges()
 		var tele_line: String = str(CombatConstants.PART_TO_LINE.get(tele, "")).strip_edges()
 		for raw in focus_pool:
-			var a: Dictionary = raw as Dictionary
-			if CombatConstants.guard_line_for_focus_move_id(str(a.get("move_id", ""))) == tele_line:
+			var a: Dictionary = raw
+			if CombatConstants.guard_line_for_focus_move_id(a.get("move_id", "")) == tele_line:
 				return a.duplicate()
 		return _AIPicker.pick_weighted(focus_pool, combatant_id, manager)
 	if wait_pick.is_empty():
@@ -465,14 +463,14 @@ static func _hold_line_needs_focus_retarget(manager: Node, combatant_id: int, c:
 static func _filter_incoming_threat_actions(actions: Array, incoming_attacker_id: int) -> Array:
 	var out: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		if bool(a.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
+		var a: Dictionary = raw
+		if a.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false):
 			out.append(a)
 			continue
-		if incoming_attacker_id >= 0 and int(a.get("target_id", -1)) == incoming_attacker_id:
-			var mid: String = str(a.get("move_id", ""))
+		if incoming_attacker_id >= 0 and a.get("target_id", -1) == incoming_attacker_id:
+			var mid: String = a.get("move_id", "")
 			if CombatConstants.is_medical_move(mid):
 				continue
 			if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
@@ -486,12 +484,12 @@ static func _filter_exhaustion_disengage_actions(
 ) -> Array:
 	var flee_listed: bool = false
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var probe: Dictionary = raw as Dictionary
+		var probe: Dictionary = raw
 		if (
-			str(probe.get("move_id", "")) == CombatConstants.MOVE_ID_FLEE
-			and int(probe.get("target_id", -1)) == combatant_id
+			probe.get("move_id", "") == CombatConstants.MOVE_ID_FLEE
+			and probe.get("target_id", -1) == combatant_id
 		):
 			flee_listed = true
 			break
@@ -503,14 +501,14 @@ static func _filter_exhaustion_disengage_actions(
 	)
 	var out: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		var mid: String = str(a.get("move_id", ""))
+		var a: Dictionary = raw
+		var mid: String = a.get("move_id", "")
 		if mid == CombatConstants.MOVE_ID_WAIT:
 			out.append(a)
 			continue
-		if mid == CombatConstants.MOVE_ID_FLEE and int(a.get("target_id", -1)) == combatant_id:
+		if mid == CombatConstants.MOVE_ID_FLEE and a.get("target_id", -1) == combatant_id:
 			out.append(a)
 			continue
 		if flee_listed and mid in [
@@ -541,9 +539,9 @@ static func _filter_exhaustion_disengage_actions(
 	return out
 
 
-## MS-L9: positional awareness — returns weighted disengage array when combatant is surrounded and vulnerable.
+## MS-L9: positional awareness  -  returns weighted disengage array when combatant is surrounded and vulnerable.
 ## Returns empty when not surrounded OR when combatant is healthy (blood >= L9 threshold AND NOT exhausted tunnel).
-## Only fires when actual disengage moves (fall_back/flee) exist — does not force wait over utility pick.
+## Only fires when actual disengage moves (fall_back/flee) exist  -  does not force wait over utility pick.
 static func _positional_disengage_check(
 	manager: Node, combatant_id: int, actions: Array, c: Dictionary
 ) -> Array:
@@ -553,7 +551,7 @@ static func _positional_disengage_check(
 	# Reads from entity node (not stats dict) so it works in harness tests where CombatantStatsSync
 	# may not have re-synced after wounds are applied post-registration.
 	var _node: Variant = _EntityAccess.node_variant(c)
-	var blood: float = _EntityAccess.get_blood_volume_from_node(_node as Node) if _node != null else 100.0
+	var blood: float = _EntityAccess.get_blood_volume_from_node(_node as Node)
 	var exhausted_t: bool = _Exhaustion.exhaustion_tunnel_active(c)
 	if blood >= CombatConstants.MENTAL_STACK_L9_VULNERABILITY_BLOOD_THRESHOLD and not exhausted_t:
 		return []
@@ -563,20 +561,23 @@ static func _positional_disengage_check(
 	var flees: Array = []
 	var waits: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
-		var mid: String = str(a.get("move_id", ""))
-		if mid == CombatConstants.MOVE_ID_FALL_BACK:
-			fall_backs.append(a)
-		elif mid == CombatConstants.MOVE_ID_FLEE and int(a.get("target_id", -1)) == combatant_id:
-			flees.append(a)
-		elif mid == CombatConstants.MOVE_ID_WAIT:
-			waits.append(a)
-	# Only fire when actual disengage moves exist — do not force wait over utility pick.
+		var a: Dictionary = raw
+		var mid: String = a.get("move_id", "")
+		match mid:
+			CombatConstants.MOVE_ID_FALL_BACK:
+				fall_backs.append(a)
+			CombatConstants.MOVE_ID_FLEE:
+				if a.get("target_id", -1) == combatant_id:
+					flees.append(a)
+			CombatConstants.MOVE_ID_WAIT:
+				waits.append(a)
+	# Only fire when actual disengage moves exist  -  do not force wait over utility pick.
 	if fall_backs.is_empty() and flees.is_empty():
 		return []
 	out.append_array(fall_backs)
 	out.append_array(flees)
 	out.append_array(waits)
 	return out
+  

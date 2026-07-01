@@ -22,8 +22,8 @@ static func measure_ratio(manager: Node, atk: Dictionary, tgt: Dictionary, weapo
 
 static func roll_blade_station(weapon: RefCounted, move_id: String, intensity: float) -> float:
 	var phys: Dictionary = _phys(weapon)
-	var mean: float = float(phys.get("station_mean", 0.56))
-	var spread: float = float(phys.get("station_spread", 0.11))
+	var mean: float = phys.get("station_mean", 0.56)
+	var spread: float = phys.get("station_spread", 0.11)
 	var md: Dictionary = _W.get_move(move_id)
 	if md.get("impact_station_mean", null) is float or md.get("impact_station_mean", null) is int:
 		mean = float(md.impact_station_mean)
@@ -35,7 +35,7 @@ static func roll_blade_station(weapon: RefCounted, move_id: String, intensity: f
 
 
 static func blade_station_from_pa(pa: Dictionary, weapon: RefCounted, move_id: String, intensity: float) -> float:
-	var s: float = float(pa.get("impact_blade_station", -1.0))
+	var s: float = pa.get("impact_blade_station", -1.0)
 	if s >= 0.0 and s <= 1.0:
 		return s
 	return roll_blade_station(weapon, move_id, intensity)
@@ -43,8 +43,8 @@ static func blade_station_from_pa(pa: Dictionary, weapon: RefCounted, move_id: S
 
 static func _station_velocity_mult(contact: String, station: float, phys: Dictionary) -> float:
 	if contact == _W.ATTACK_TYPE_CUT:
-		var lo: float = float(phys.get("station_cut_vel_guard", 0.9))
-		var hi: float = float(phys.get("station_cut_vel_tip", 1.08))
+		var lo: float = phys.get("station_cut_vel_guard", 0.9)
+		var hi: float = phys.get("station_cut_vel_tip", 1.08)
 		return lerpf(lo, hi, station)
 	if contact == _W.ATTACK_TYPE_STAB:
 		return lerpf(0.94, 1.06, station)
@@ -63,21 +63,21 @@ static func velocity_intent_mult_from_pa(pa: Dictionary, weapon: RefCounted, mov
 	var contact: String = _W.contact_type_for_move_id(move_id)
 	var phys: Dictionary = _phys(weapon)
 	var station: float = blade_station_from_pa(pa, weapon, move_id, intensity)
-	var meas: float = float(pa.get("strike_measure_ratio", 1.0))
+	var meas: float = pa.get("strike_measure_ratio", 1.0)
 	return _station_velocity_mult(contact, station, phys) * _measure_velocity_mult(contact, meas)
 
 
 static func _coupling(contact: String, phys: Dictionary) -> float:
 	var k: String = "coupling_%s" % contact
-	return clampf(float(phys.get(k, 1.0)), 0.45, 1.15)
+	return clampf(phys.get(k, 1.0), 0.45, 1.15)
 
 
 static func _blunt_pressure_mult(weapon: RefCounted, phys: Dictionary) -> float:
-	var base: float = clampf(float(phys.get("blunt_pressure", 1.0)), 0.75, 1.35)
+	var base: float = clampf(phys.get("blunt_pressure", 1.0), 0.75, 1.35)
 	if weapon == null:
 		return base
 	var hd: float = float(weapon.head_diameter) if (weapon.head_diameter is float or weapon.head_diameter is int) else 4.0
-	var ref: float = float(phys.get("blunt_head_ref_cm", 6.0))
+	var ref: float = phys.get("blunt_head_ref_cm", 6.0)
 	return base * clampf(ref / maxf(hd, 0.4), 0.82, 1.22)
 
 

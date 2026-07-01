@@ -1,6 +1,8 @@
 extends CharacterBody2D
 
 const _OverworldMap := preload("res://world/OverworldMap.gd")
+const _CoreEntity := preload("res://core/CoreEntity.gd")
+const _CombatConstantsMisc := preload("res://combat/CombatConstantsMisc.gd")
 
 const TILE_SIZE = 64.0
 var target_position: Vector2
@@ -12,11 +14,11 @@ signal moved
 @export var species: Resource = null
 ## True for the player-controlled lead only. Companions stay false. Set in scene and/or `PlayerCompanionSetup`; copied into combatant dict on `CombatManager.register`.
 @export var is_party_leader: bool = false
-## IV-11: enemy formation commander — set in `EncounterNode.spawn_enemies` (default index 0) or scene export; copied on `CombatManager.register` (enemy side only).
+## IV-11: enemy formation commander —" set in `EncounterNode.spawn_enemies` (default index 0) or scene export; copied on `CombatManager.register` (enemy side only).
 @export var is_enemy_leader: bool = false
-## Expand WF-4: preferred weapon form id (`ox`, `wall`, …). Empty → encounter side default → weapon default at `CombatWeaponForm.seed_combatant_form`.
+## Expand WF-4: preferred weapon form id (`ox`, `wall`, —¦). Empty â†' encounter side default â†' weapon default at `CombatWeaponForm.seed_combatant_form`.
 @export var stance_preference: String = ""
-@onready var _combat_body: CoreEntity = $CombatBody
+@onready var _combat_body: _CoreEntity = $CombatBody
 var _combat_body_death_logged: bool = false
 
 var body_cutting: Dictionary: get = _get_body_cutting
@@ -52,19 +54,19 @@ func _get_bone_max() -> Dictionary:
 	return _combat_body.bone_max if _combat_body else {}
 
 func _get_strength() -> int:
-	return _combat_body.strength if _combat_body else 100
+	return _combat_body.strength if _combat_body else _CombatConstantsMisc.DEFAULT_STAT_VALUE
 
 func _get_agility() -> int:
-	return _combat_body.agility if _combat_body else 100
+	return _combat_body.agility if _combat_body else _CombatConstantsMisc.DEFAULT_STAT_VALUE
 
 func _get_intelligence() -> int:
-	return _combat_body.intelligence if _combat_body else 100
+	return _combat_body.intelligence if _combat_body else _CombatConstantsMisc.DEFAULT_STAT_VALUE
 
 func _get_endurance() -> int:
-	return _combat_body.endurance if _combat_body else 100
+	return _combat_body.endurance if _combat_body else _CombatConstantsMisc.DEFAULT_STAT_VALUE
 
 func _get_perception() -> int:
-	return _combat_body.perception if _combat_body else 100
+	return _combat_body.perception if _combat_body else _CombatConstantsMisc.DEFAULT_STAT_VALUE
 
 func get_medical_effectiveness() -> float:
 	return _combat_body.get_medical_effectiveness() if _combat_body else 1.0
@@ -79,9 +81,11 @@ func get_attack_damage_modifier() -> float:
 	return _combat_body.get_attack_damage_modifier() if _combat_body else 0.0
 
 func get_weapon():
-	return _combat_body.get_weapon() if _combat_body else null
+	if _combat_body:
+		return _combat_body.get_weapon()
+	return null
 
-func equip_weapon(w) -> void:
+func equip_weapon(w: Variant) -> void:
 	if _combat_body:
 		_combat_body.equip_weapon(w)
 
@@ -122,7 +126,7 @@ func get_passive_parry_reaction_time() -> float:
 	return _combat_body.get_passive_parry_reaction_time() if _combat_body else 0.5
 
 func get_effective_consciousness() -> float:
-	return _combat_body.get_effective_consciousness() if _combat_body else 100.0
+	return _combat_body.get_effective_consciousness() if _combat_body else float(_CombatConstantsMisc.DEFAULT_STAT_VALUE)
 
 func get_death_reason() -> String:
 	return _combat_body.get_death_reason() if _combat_body else "no_combat_body"
@@ -132,7 +136,7 @@ func take_damage_split(cut_pre: float, blunt_pre: float, part: String, penetrati
 		return _combat_body.take_damage_split(cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt_momentum_per_area, blunt_contact_cm, extras)
 	return { "final_cut": 0, "final_blunt": 0, "final_bone": 0.0, "was_deflected": false, "mechanical_post_armor": 0.0 }
 
-func get_armor_for_part(part: String) -> Variant:
+func get_armor_for_part(part: String) -> Resource:
 	return _combat_body.get_armor_for_part(part) if _combat_body else null
 
 func get_armor_sharp_resistance_for_part(part: String) -> float:
@@ -146,7 +150,7 @@ func equip_armor(part: String, piece: Variant) -> void:
 		_combat_body.equip_armor(part, piece)
 
 func get_blood_volume() -> float:
-	return _combat_body.blood_volume if _combat_body else 100.0
+	return _combat_body.blood_volume if _combat_body else float(_CombatConstantsMisc.DEFAULT_STAT_VALUE)
 
 func get_total_bleeding_rate() -> float:
 	return _combat_body.get_total_bleeding_rate() if _combat_body else 0.0
@@ -163,8 +167,8 @@ func ensure_consciousness_current() -> void:
 func get_wounded_parts() -> Array:
 	return _combat_body.get_wounded_parts() if _combat_body else []
 
-func get_wounds() -> Dictionary:
-	return _combat_body.get_wounds() if _combat_body else {}
+func get_wounds_snapshot() -> Dictionary:
+	return _combat_body.get_wounds_snapshot() if _combat_body else {}
 
 func get_wound_healing_progress(injury: Dictionary) -> float:
 	return _combat_body.get_wound_healing_progress(injury) if _combat_body else 0.0
@@ -225,7 +229,7 @@ func prepare_for_medical_windup(target: Node, part: String) -> void:
 		return
 	var tgt_entity: Node = target
 	if target != null and target.has_method("get_combat_body"):
-		var body: Variant = target.get_combat_body()
+		var body = target.get_combat_body()
 		if body is Node:
 			tgt_entity = body as Node
 	_combat_body.prepare_for_medical_windup(tgt_entity, part)
@@ -304,7 +308,7 @@ func _snap_to_grid(pos: Vector2) -> Vector2:
 	)
 
 
-## Overworld rejected a step (bleed block, combat gate, …) — keep sprite and next input on the same tile.
+## Overworld rejected a step (bleed block, combat gate, —¦) —" keep sprite and next input on the same tile.
 func cancel_grid_move_to(world_pos: Vector2) -> void:
 	var grid_pos: Vector2 = _snap_to_grid(world_pos)
 	position = grid_pos

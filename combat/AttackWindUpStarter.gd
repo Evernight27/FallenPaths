@@ -2,7 +2,7 @@ class_name AttackWindUpStarter
 extends RefCounted
 
 ## Starts attack wind-up: stamps **`pending_attack`**, telegraph, duration.
-## Footing (strike path): **`CombatWeaponForm.wind_up_transition_mult`** (form × guard × attack line) — not PA step · **`CombatFootwork.apply_attack_step_on_windup(attack_line, target_id, manager)`** when flag on. LIVE_PATHS **`#wf-tier-44-pa`** · **`#wf-pick-vs-strike`**.
+## Footing (strike path): **`CombatWeaponForm.wind_up_transition_mult`** (form - -  guard - -  attack line)  -  not PA step · **`CombatFootwork.apply_attack_step_on_windup(attack_line, target_id, manager)`** when flag on. LIVE_PATHS **`#wf-tier-44-pa`** · **`#wf-pick-vs-strike`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
@@ -10,9 +10,11 @@ const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _Attention := preload("res://combat/CombatAttention.gd")
-const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+
+const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 const _IncomingParryChoice := preload("res://combat/CombatIncomingParryChoice.gd")
@@ -20,7 +22,6 @@ const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
-const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 
 static var _last_fp_tempo_wind_up_line: String = ""
 
@@ -40,22 +41,23 @@ static func _log_fp_tempo_wind_up(
 ) -> void:
 	if not _OperationalLog.is_play_session_active():
 		return
-	var lines: PackedStringArray = PackedStringArray()
+	var mod_parts: PackedStringArray = PackedStringArray()
 	if riposte_chain:
-		lines.append("riposte_chain %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s])
-	elif counter_tempo:
-		lines.append("counter_tempo %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s])
+		mod_parts.append("riposte")
+	if counter_tempo:
+		mod_parts.append("counter")
 	if flurry_bind:
-		lines.append("flurry_bind %s vs %s wind_up=%.2fs" % [atk_name, tgt_name, wind_up_s])
-	for line in lines:
-		if line == _last_fp_tempo_wind_up_line:
-			continue
-		_last_fp_tempo_wind_up_line = line
-		_CombatDebug.combat_session(line)
+		mod_parts.append("flurry")
+	var mods = "" if mod_parts.is_empty() else " mods=%s" % ",".join(mod_parts)
+	var line: String = "tempo_wind_up %s vs %s wind_up=%.2fs%s" % [atk_name, tgt_name, wind_up_s, mods]
+	if line == _last_fp_tempo_wind_up_line:
+		return
+	_last_fp_tempo_wind_up_line = line
+	_CombatDebug.combat_session(line)
 
 
 ## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.
-## Replaces **`atk.pending_attack`**: clears the prior wind-up’s defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (if any) before assigning the new **`pa`**.
+## Replaces **`atk.pending_attack`**: clears the prior wind-up's defender **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (if any) before assigning the new **`pa`**.
 ## **`is_feint`** moves may apply **`feint_windup_duration_mult`** from **`WeaponConstants.get_move`** (extra **`state_duration`** / **`pa.wind_up_duration`** vs honest cut at same rolls) and optional **`feint_target_reveal_at_progress`** (stamped on **`pa`** for **`DefenseChoiceResolver._feint_readiness_reveal_mult`**).
 ## Manager must have: get_health_entity (via CombatantEntityAccess); combatant lookup via manager_get_combatant.
 ## Mutates attacker combatant in place.
@@ -73,21 +75,21 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		_MobilityRetreat.sync_cowering_state_if_no_functional_arm(atk_d)
 		_StateHandlers.enter_short_recovery(atk_d, manager)
 		if manager != null and atk_d.state_duration > 0.0:
-			manager._schedule_event({
+			manager.schedule_event({
 				"type": CombatConstants.EVENT_RECOVERY_END,
 				"combatant_id": attacker_id,
 				"resolve_at": _EntityAccess.combat_clock_plus(manager, atk_d.state_duration),
 				"data": {},
 			})
 		return
-	# Power and follow_through (0.2–1.0) per attack; intensity drives velocity, wind-up, and recovery. Strength biases toward higher commitment.
+	# Power and follow_through (0.2 - 1.0) per attack; intensity drives velocity, wind-up, and recovery. Strength biases toward higher commitment.
 	var power: float = randf_range(CombatConstants.POWER_MIN, CombatConstants.POWER_MAX)
 	var follow_through: float = randf_range(CombatConstants.FOLLOW_THROUGH_MIN, CombatConstants.FOLLOW_THROUGH_MAX)
 	var rolled_intensity: float = (0.5 + 0.5 * power) * (0.5 + 0.5 * follow_through)
 	var strength_intensity: float = CombatTiming.intensity_from_stats(atk_d)
 	var intensity: float = clampf(lerpf(rolled_intensity, strength_intensity, CombatConstants.INTENSITY_STRENGTH_BIAS), CombatConstants.INTENSITY_MIN, 1.0)
 	var weapon = _EntityAccess.get_weapon(atk_d)
-	var requested_move: String = str(move_id).strip_edges()
+	var requested_move: String = move_id.strip_edges()
 	var attack_type: String = WeaponConstants.ATTACK_TYPE_CUT
 	var archetype: Dictionary = WeaponConstants.get_archetype(WeaponConstants.ARCHETYPE_SLASH)
 	if _EntityAccess.weapon_has_attack_types(weapon):
@@ -110,7 +112,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 			if not non_parry.is_empty():
 				attack_type = non_parry[randi() % non_parry.size()]
 		archetype = _EntityAccess.weapon_archetype_for_move(weapon, attack_type)
-	var windup_mult: float = float(archetype.get("windup_multiplier", 1.0))
+	var windup_mult: float = archetype.get("windup_multiplier", 1.0)
 	var wind_up_s: float = CombatTiming.wind_up_duration(intensity, windup_mult)
 	# Guard transition: blade must move from current guard to attack line. Physics: angular distance (angle-based).
 	var move_def: Dictionary = WeaponConstants.get_move(attack_type)
@@ -137,14 +139,14 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		attack_line
 	)
 	wind_up_s *= trans_mult
-	# Bind riposte: parry_part × contact_type. Extend=fast, wind=moderate, swing=slow.
+	# Bind riposte: parry_part - -  contact_type. Extend=fast, wind=moderate, swing=slow.
 	if weapon != null and atk_d.get("parry_was_bind", false) and atk_d.get("parry_against_id", -1) == target_id:
 		var contact_type: String = _EntityAccess.weapon_contact_type(weapon, attack_type, "")
 		var eligible: Array = weapon.bind_riposte_contact_types if weapon.get("bind_riposte_contact_types") is Array else []
 		if contact_type in eligible:
 			var parry_part: String = _EntityAccess.weapon_parry_contact_type(weapon)
 			var part_row: Variant = CombatConstants.PARRY_BIND_RIPOSTE_BY_PART_CONTACT.get(parry_part, {})
-			var mult: float = float(part_row.get(contact_type, -1.0)) if part_row is Dictionary else -1.0
+			var mult: float = part_row.get(contact_type, -1.0) if part_row is Dictionary else -1.0
 			if mult < 0.0:
 				mult = CombatConstants.PARRY_BIND_RIPOSTE_MULT_FALLBACK
 			wind_up_s *= mult
@@ -156,17 +158,17 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	if atk_perf_mod > 0.0:
 		wind_up_s /= maxf(CombatConstants.PERF_MOD_MIN, atk_perf_mod)
 	# Agility: higher agility shortens wind-up (faster into position)
-	var atk_agi: float = float(_EntityAccess.stats_dict(atk_d).get("agility", 100))
+	var atk_agi: float = float(_EntityAccess.stats_dict(atk_d).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
 	wind_up_s /= clampf(atk_agi / 100.0, 0.7, 1.3)
 	var feint_windup_mult: float = 1.0
-	if move_def.get("is_feint", false):
-		feint_windup_mult = float(move_def.get("feint_windup_duration_mult", 1.0))
+	if move_def.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false):
+		feint_windup_mult = move_def.get("feint_windup_duration_mult", 1.0)
 		if feint_windup_mult > 0.0:
 			wind_up_s *= feint_windup_mult
-	var counter_tempo: bool = bool(options.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false))
+	var counter_tempo: bool = options.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)
 	if counter_tempo:
 		wind_up_s *= CombatConstants.COUNTER_TEMPO_WINDUP_MULT
-		# Cap counter tempo wind-up at a lower max — a well-timed counter should be faster than a committed attack.
+		# Cap counter tempo wind-up at a lower max  -  a well-timed counter should be faster than a committed attack.
 		wind_up_s = minf(wind_up_s, CombatConstants.COUNTER_TEMPO_WINDUP_MAX_S)
 	var riposte_m: float = _CounterTempo.riposte_chain_windup_mult(manager, atk_d, target_id)
 	if riposte_m < 1.0:
@@ -187,23 +189,23 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	atk_d.state = CombatConstants.STATE_WIND_UP
 	atk_d.state_timer = 0.0
 	atk_d.state_duration = wind_up_s
-	# arc_intended_deg: intended target angle (no variance) — lets systems query blade position during wind-up.
+	# arc_intended_deg: intended target angle (no variance)  -  lets systems query blade position during wind-up.
 	var arc_intended_deg: float = align_ctx["attack_angle_deg"]
 	var pa: Dictionary = {"target_id": target_id, "intensity": intensity, "power": power, "follow_through": follow_through, "attack_type": attack_type, "archetype": archetype, "wind_up_duration": wind_up_s, "arc_start_deg": arc_start_deg, "arc_intended_deg": arc_intended_deg}
 	pa["weapon_extension_commit_fraction"] = _WeaponPosition.commit_fraction_from_move_def(move_def)
 	if weapon != null:
 		pa["impact_blade_station"] = _StrikeRealism.roll_blade_station(weapon, attack_type, intensity)
-	var target_part: String = str(options.get("target_part", ""))
-	var feint_part: String = str(options.get("feint_part", ""))
+	var target_part: String = options.get("target_part", "")
+	var feint_part: String = options.get("feint_part", "")
 	if not target_part.is_empty():
 		pa["target_part"] = target_part
 	if not feint_part.is_empty():
 		pa["feint_part"] = feint_part
 	# Tier 3.1: pair geometry + depth lane flags (`CombatStrikeStamping`; re-stamped each resolve).
 	_StrikeStamping.stamp_attack_pair_and_strike_realism(manager, atk_d, tgt_d, pa, weapon, attack_type)
-	if move_def.get("is_feint", false):
+	if move_def.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false):
 		pa["feint_windup_duration_mult"] = feint_windup_mult
-		var reveal_at: float = float(move_def.get("feint_target_reveal_at_progress", 0.0))
+		var reveal_at: float = move_def.get("feint_target_reveal_at_progress", 0.0)
 		if reveal_at > 0.0:
 			pa["feint_target_reveal_at_progress"] = clampf(reveal_at, 0.0, 1.0)
 	_IncomingParryChoice.stamp_parry_telegraph_on_pa(pa, move_def)
@@ -221,11 +223,11 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	tgt_d["guard_zone"] = telegraph_part
 	tgt_d[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = telegraph_part
 	_Attention.set_focus_from_incoming_telegraph(tgt_d, telegraph_part)
-	var hit_part_log: String = str(pa.get("target_part", "")).strip_edges()
+	var hit_part_log: String = pa.get("target_part", "").strip_edges()
 	if not hit_part_log.is_empty():
 		_Attention.record_attack_toward_defender(manager, attacker_id, tgt_d, hit_part_log)
 	_CounterTempo.on_attacker_wind_up_started(manager, attacker_id, tgt_d, wind_up_s)
-	# III-6: front/reserve wind-up engages the file — wake same-file depth reserves (wait/focus/thrust menu).
+	# III-6: front/reserve wind-up engages the file  -  wake same-file depth reserves (wait/focus/thrust menu).
 	if not (manager.medical_phase and _MedicalPhase.is_losing_side(manager, atk_d)):
 		_EventScheduler.reschedule_same_file_depth_after_front_turn(manager, attacker_id)
 		_EventScheduler.reschedule_same_file_depth_after_reserve_turn(manager, attacker_id)
@@ -240,7 +242,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		flurry_m < 1.0
 	)
 	if CombatConstants.combat_debug_active():
-		var angle_info: String = " [atk=%.0f° guard=%.0f°]" % [align_ctx["attack_angle_deg"], align_ctx["guard_angle_deg"]]
+		var angle_info: String = " [atk=%.0fÂ° guard=%.0fÂ°]" % [align_ctx["attack_angle_deg"], align_ctx["guard_angle_deg"]]
 		CombatDebug.log("%s | guard=%s atk_line=%s align=%.2f trans=%.2f%s | wind_up=%.2fs" % [atk_name_log, atk_d.get("guard_line", CombatConstants.GUARD_DEFAULT), attack_line, align, trans_mult, angle_info, wind_up_s])
 
 
@@ -248,7 +250,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 static func clear_incoming_attack_telegraph_from_pa(manager: Node, pa: Dictionary) -> void:
 	if manager == null or pa.is_empty():
 		return
-	var tid: int = int(pa.get("target_id", -1))
+	var tid: int = pa.get("target_id", -1)
 	if tid < 0:
 		return
 	var def_d: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
@@ -256,3 +258,4 @@ static func clear_incoming_attack_telegraph_from_pa(manager: Node, pa: Dictionar
 		return
 	def_d.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
 	def_d.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)
+    

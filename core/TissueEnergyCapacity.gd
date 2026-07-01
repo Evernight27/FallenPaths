@@ -80,8 +80,8 @@ static func ensure_energy_pools_for_part(entity: Node, part: String) -> void:
 	entity.tissue_energy_capacity_j[part] = cap_j
 	var rem_j: float = remaining_j_from_display_pools(
 		body_max_t,
-		float(entity.body_cutting.get(part, 0.0)),
-		float(entity.body_blunt.get(part, 0.0)),
+		entity.body_cutting.get(part, 0.0),
+		entity.body_blunt.get(part, 0.0),
 		cap_j,
 	)
 	entity.tissue_energy_remaining_j[part] = clampf(rem_j, 0.0, cap_j)
@@ -95,7 +95,7 @@ static func sync_display_pools_from_j(
 		return
 	var body_max_t: int = int(entity.body_max.get(part, 1))
 	var cap_j: float = float(entity.tissue_energy_capacity_j[part])
-	var rem_j: float = float(entity.tissue_energy_remaining_j.get(part, 0.0))
+	var rem_j: float = entity.tissue_energy_remaining_j.get(part, 0.0)
 	var total_display: float = display_total_from_remaining_j(body_max_t, rem_j, cap_j)
 	var share: float = clampf(cut_share, 0.0, 1.0)
 	var cut_disp: float = total_display * share
@@ -112,14 +112,14 @@ static func apply_tissue_damage_to_entity(
 		return
 	var body_max_t: int = int(entity.body_max.get(part, 1))
 	var cap_j: float = float(entity.tissue_energy_capacity_j[part])
-	var cur_cut: float = float(entity.body_cutting.get(part, 0.0))
-	var cur_blunt: float = float(entity.body_blunt.get(part, 0.0))
+	var cur_cut: float = entity.body_cutting.get(part, 0.0)
+	var cur_blunt: float = entity.body_blunt.get(part, 0.0)
 	entity.body_cutting[part] = entity._round_tissue(maxf(0.0, cur_cut - maxf(0.0, to_cut)))
 	entity.body_blunt[part] = entity._round_tissue(maxf(0.0, cur_blunt - maxf(0.0, to_blunt)))
 	var rem_j: float = remaining_j_from_display_pools(
 		body_max_t,
-		float(entity.body_cutting.get(part, 0.0)),
-		float(entity.body_blunt.get(part, 0.0)),
+		entity.body_cutting.get(part, 0.0),
+		entity.body_blunt.get(part, 0.0),
 		cap_j,
 	)
 	entity.tissue_energy_remaining_j[part] = clampf(rem_j, 0.0, cap_j)

@@ -2,10 +2,37 @@ root = true
 
 [*]
 charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
 
 [*.gd]
-indent_style = tab
-
-[*.py]
 indent_style = space
 indent_size = 4
+max_line_length = 120
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.tres]
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.tscn]
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.cfg]
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.sh]
+indent_style = space
+indent_size = 4
+
+[*.ps1]
+indent_style = tab
+
+[*.{md,rst,txt}]
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true

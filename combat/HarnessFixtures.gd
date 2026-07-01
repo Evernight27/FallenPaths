@@ -4,7 +4,7 @@ extends RefCounted
 ## Shared combat harness fixtures, setup helpers, cleanup utilities, and assertion methods.
 ## Extracted from CombatRegressionHarness to reduce its 12,515-line monolith.
 ## All methods are static; called by CombatRegressionHarness.run_all() and tail files.
-## No behavioral changes — zero-diff refactor.
+## No behavioral changes  -  zero-diff refactor.
 
 const _MgrScript := preload("res://combat/CombatManager.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
@@ -70,7 +70,7 @@ static func _free_manager(mgr: Node) -> void:
 	_free_harness_node(mgr)
 
 
-## seed(_HARNESS_RESTORE_GLOBAL_SEED) then _free_manager — keeps run_all() order-stable.
+## seed(_HARNESS_RESTORE_GLOBAL_SEED) then _free_manager  -  keeps run_all() order-stable.
 static func _free_manager_restore_global_rng(mgr: Node) -> void:
 	seed(_Harness._HARNESS_RESTORE_GLOBAL_SEED)
 	_free_manager(mgr)
@@ -116,7 +116,7 @@ static func _harness_start_1v1(
 
 
 static func _harness_reset_combatants_form_balanced(mgr: Node) -> void:
-	const _WF := preload("res://combat/CombatWeaponForm.gd")
+	var _WF := preload("res://combat/CombatWeaponForm.gd")
 	for c in mgr.combatants:
 		if c is Dictionary:
 			_WF.assign_form(mgr, c as Dictionary, _WF.FORM_BALANCED, "harness_baseline")
@@ -171,7 +171,7 @@ static func _harness_find_living_at_rank_file(
 
 # ── Formation fixtures ────────────────────────────────────────────────────
 
-## 6v3 skirmish — flee rank-0 files, survivor at rank-0 (default file 4).
+## 6v3 skirmish  -  flee rank-0 files, survivor at rank-0 (default file 4).
 ## Returns {mgr, survivor, survivor_id} or {} on fixture failure (frees mgr).
 static func _harness_sparse_post_flee_6v3_mgr(
 	survivor_file: int = 4,
@@ -242,7 +242,7 @@ static func _soak_kill_combatant(mgr: Node, combatant_id: int) -> void:
 	if not _EntityAccess.alive_bool(c):
 		return
 	c["alive"] = false
-	mgr._on_combatant_died(c)
+	mgr.on_combatant_died(c)
 
 
 static func _windup_duration_for_bind_test(weapon_id: String, move_id: String, bind: bool) -> float:
@@ -361,9 +361,9 @@ static func _assert_depth_polearm_allows_low_fid_round_trip_slice(
 
 static func _assert_stamp_depth_pa_defaults(pa: Dictionary, failures: PackedStringArray, ctx: String) -> void:
 	## For non-depth-attack cases (rank 0 or no lane open), depth_polearm_attack
-	## should be false — the stamping function sets it to false and returns early.
+	## should be false  -  the stamping function sets it to false and returns early.
 	if not bool(pa.get("depth_polearm_attack", false)):
-		pass  # depth_polearm_attack=false — expected for non-depth attacks
+		pass  # depth_polearm_attack=false  -  expected for non-depth attacks
 	else:
 		_Harness._fail(failures, "%s id=%d depth_polearm_attack=true (unexpected)" % [ctx, pa.get("attacker_id", -1)])
 
@@ -431,7 +431,7 @@ static func _harness_iv9_enemy_rank0_with_gaps(mgr: Node) -> Array:
 	var slots: Dictionary = _FormationSlots.formation_slots_dict(mgr.formations["enemy"])
 	var new_slots: Dictionary = {}
 	# Shift all occupied rank-0 slots to file+1 (creating gap at file 0).
-	# Slot keys are Vector2i(rank, file) — shift the .y (file) coordinate.
+	# Slot keys are Vector2i(rank, file)  -  shift the .y (file) coordinate.
 	for k in slots.keys():
 		if not (k is Vector2i):
 			continue

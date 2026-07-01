@@ -15,12 +15,12 @@ const MFB_BLUNT_MAX_BONE_SHARE_OF_BLUNT := 0.42
 
 ## Blunt fracture anchor energy (J) by sub-region (research order-of-magnitude; elbow low, thigh high).
 const MFB_BLUNT_FRACTURE_J_BY_SUBREGION: Dictionary = {
-	"head": {"scalp": 12.0, "face": 15.0, "neck": 25.0},
-	"chest": {"thoracic": 30.0, "abdominal": 35.0},
-	"right_arm": {"upper_arm": 28.0, "elbow": 18.0, "forearm": 22.0, "hand": 20.0},
-	"left_arm": {"upper_arm": 28.0, "elbow": 18.0, "forearm": 22.0, "hand": 20.0},
-	"right_leg": {"thigh": 35.0, "knee": 22.0, "calf": 25.0, "foot": 28.0},
-	"left_leg": {"thigh": 35.0, "knee": 22.0, "calf": 25.0, "foot": 28.0},
+	_BodyPartConstants.PART_HEAD: {"scalp": 12.0, "face": 15.0, "neck": 25.0},
+	_BodyPartConstants.PART_CHEST: {"thoracic": 30.0, "abdominal": 35.0},
+	_BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 28.0, "elbow": 18.0, "forearm": 22.0, "hand": 20.0},
+	_BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 28.0, "elbow": 18.0, "forearm": 22.0, "hand": 20.0},
+	_BodyPartConstants.PART_RIGHT_LEG: {"thigh": 35.0, "knee": 22.0, "calf": 25.0, "foot": 28.0},
+	_BodyPartConstants.PART_LEFT_LEG: {"thigh": 35.0, "knee": 22.0, "calf": 25.0, "foot": 28.0},
 }
 
 
@@ -70,16 +70,16 @@ static func blunt_fracture_j_anchor(part: String, sub_region: String) -> float:
 	var part_row: Variant = MFB_BLUNT_FRACTURE_J_BY_SUBREGION.get(part, {})
 	if part_row is Dictionary and not sub_region.is_empty() and part_row.has(sub_region):
 		return float(part_row[sub_region])
-	return float(_PART_DEFAULT_BLUNT_J.get(part, 28.0))
+	return _PART_DEFAULT_BLUNT_J.get(part, 28.0)
 
 
 const _PART_DEFAULT_BLUNT_J: Dictionary = {
-	"head": 18.0,
-	"chest": 32.0,
-	"right_arm": 24.0,
-	"left_arm": 24.0,
-	"right_leg": 30.0,
-	"left_leg": 30.0,
+	_BodyPartConstants.PART_HEAD: 18.0,
+	_BodyPartConstants.PART_CHEST: 32.0,
+	_BodyPartConstants.PART_RIGHT_ARM: 24.0,
+	_BodyPartConstants.PART_LEFT_ARM: 24.0,
+	_BodyPartConstants.PART_RIGHT_LEG: 30.0,
+	_BodyPartConstants.PART_LEFT_LEG: 30.0,
 }
 
 

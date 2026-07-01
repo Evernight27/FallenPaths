@@ -2,6 +2,8 @@ extends Resource
 
 class_name SpeciesResource
 
+## Species data: body plan, pain reference, stat modifiers.
+
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
 const _BodyPartConstants := preload("res://core/BodyPartConstants.gd")
@@ -11,7 +13,7 @@ const _BodyPartConstants := preload("res://core/BodyPartConstants.gd")
 const BODY_PARTS := _BodyPartConstants.BODY_PARTS
 const VITAL_PARTS := _BodyPartConstants.VITAL_PARTS
 const LIMB_PARTS := ["right_arm", "left_arm", "left_leg", "right_leg"]
-## Narrative KE / reference mass — canonical values in `CombatDesignAnchors`.
+## Narrative KE / reference mass  -  canonical values in `CombatDesignAnchors`.
 const DESIGN_KE_ARM_J := _DesignAnchors.DESIGN_KE_ARM_J
 const DESIGN_KE_LEG_J := _DesignAnchors.DESIGN_KE_LEG_J
 const REFERENCE_ADULT_MASS_KG := _DesignAnchors.REFERENCE_ADULT_MASS_KG
@@ -24,10 +26,10 @@ const DERIVED_BONE_TO_TISSUE_LEG := 12.0 / 16.0
 
 # Basic stats for a species. Save as .tres in res://species/
 # Tissue max = abstract capacity per part. Give each species UNIQUE mass proportions so they play differently:
-#   Human: segment-mass (de Leva/Plagenhoef) — chest > leg > head = arm.
-#   Goblin: top-heavy, spindly limbs — large head/chest share, thin arms/legs.
+#   Human: segment-mass (de Leva/Plagenhoef)  -  chest > leg > head = arm.
+#   Goblin: top-heavy, spindly limbs  -  large head/chest share, thin arms/legs.
 #   (Future: e.g. Orc = limb-heavy; Elf = lean limbs, smaller chest.)
-# Mass proportions: clinical segment models; calibration → docs/LIVE_PATHS.md#species-calibration · docs/LIVE_PATHS.md#5-literal-blood-volume-ml.
+# Mass proportions: clinical segment models; calibration â docs/LIVE_PATHS.md#species-calibration · docs/LIVE_PATHS.md#5-literal-blood-volume-ml.
 @export var name: String = "Unknown"
 @export var head: int = 10       # human ~9% of total; goblin larger share
 @export var chest: int = 30      # human largest; scale per species
@@ -44,15 +46,15 @@ const DERIVED_BONE_TO_TISSUE_LEG := 12.0 / 16.0
 @export var left_arm_bone: int = 8
 @export var left_leg_bone: int = 12
 @export var right_leg_bone: int = 12
-# Core attributes: one scale for all. 100 = average, 50–150 typical range → stat/100.0 gives 0.5–1.5 multiplier.
-@export var strength: int = 100     # Damage, parry (50–150: 100 = average)
-@export var agility: int = 100      # Gauge fill, dodge, cooldowns (50–150: 100 = average)
-@export var intelligence: int = 100 # Medical effectiveness modifier (50–150)
-@export var endurance: int = 100    # Damage resistance, pain shock resistance (50–150)
-@export var perception: int = 100   # Dodge (not ranged accuracy) (50–150)
+# Core attributes: one scale for all. 100 = average, 50 - 150 typical range â stat/100.0 gives 0.5 - 1.5 multiplier.
+@export var strength: int = 100     # Damage, parry (50 - 150: 100 = average)
+@export var agility: int = 100      # Gauge fill, dodge, cooldowns (50 - 150: 100 = average)
+@export var intelligence: int = 100 # Medical effectiveness modifier (50 - 150)
+@export var endurance: int = 100    # Damage resistance, pain shock resistance (50 - 150)
+@export var perception: int = 100   # Dodge (not ranged accuracy) (50 - 150)
 @export var description: String = ""
 
-# Blood loss thresholds (0–100 remaining %). If < 0, use BleedingConstants defaults (death 35, critical 30).
+# Blood loss thresholds (0 - 100 remaining %). If < 0, use BleedingConstants defaults (death 35, critical 30).
 # Lets different species be more/less tolerant: e.g. death at 40% = more fragile, 30% = more resilient.
 @export var blood_loss_death_threshold: float = -1.0    # death when remaining <= this; -1 = use global default
 @export var blood_loss_critical_threshold: float = -1.0  # critical state when remaining <= this; -1 = use global default
@@ -62,7 +64,7 @@ const DERIVED_BONE_TO_TISSUE_LEG := 12.0 / 16.0
 @export var reference_body_mass_kg: float = -1.0
 
 # Pain reference for normalized pain (Method B). Typical pain from 1 moderate hit for this species.
-# Smaller species get higher severity per damage → more pain per hit. -1 = auto-compute from body proportions.
+# Smaller species get higher severity per damage â more pain per hit. -1 = auto-compute from body proportions.
 @export var pain_reference_scale: float = -1.0
 ## S5 pilot: derive limb tissue/bone max from reference mass + DESIGN_KE anchors (head/chest stay exported).
 @export var feature_derived_limb_capacity: bool = false
@@ -194,7 +196,7 @@ func get_bone_max(part: String) -> int:
 	return maxi(1, int(get_body_part_max(part) / 2.0))
 
 ## Typical pain from one moderate hit for this species. Used for normalized pain (Method B).
-## Auto-computed from body_max sum when pain_reference_scale < 0. Human (sum 96) → ~3.
+## Auto-computed from body_max sum when pain_reference_scale < 0. Human (sum 96) â ~3.
 ## Divisor 32: ~2 moderate hits to NRS 4 (first effect). Research: Krebs 4-6 band, acute trauma 57% NRS 5-10.
 ## See PAIN_MEDICAL_RESEARCH_SYNTHESIS.md.
 func get_pain_reference(body_max_dict: Dictionary) -> float:
@@ -203,7 +205,8 @@ func get_pain_reference(body_max_dict: Dictionary) -> float:
 		total += body_max_dict.get(p, 0)
 	if total <= 0:
 		return 6.0  # fallback
-	var base_ref: float = float(total) / 32.0  # human 96 → ~3; ~2 moderate hits to first effect
+	var base_ref: float = float(total) / 32.0  # human 96 â ~3; ~2 moderate hits to first effect
 	if pain_reference_scale > 0.0:
 		return base_ref * pain_reference_scale
 	return base_ref
+  

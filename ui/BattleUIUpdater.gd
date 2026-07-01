@@ -1,6 +1,7 @@
 class_name BattleUIUpdater
 extends RefCounted
 
+const _DataKeys := preload("res://core/DataKeys.gd")
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
@@ -9,7 +10,7 @@ const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 ## Updates a single combatant's UI row: gauge, state label, blood, consciousness, body bars.
-## Gauge suffix order (footing): pick · attention · Step (PA) · flurry · exhaustion · Grd/Atk · Form — `_compose_waiting_gauge_label`. LIVE_PATHS **`#battle-ui`** · **`#wf-tier-44-pa`** (Step) · **`#wf-soak-audit-status`** (ii5c open for **` · Form`**).
+## Gauge suffix order (footing): pick · attention · Step (PA) · flurry · exhaustion · Grd/Atk · Form —" `_compose_waiting_gauge_label`. LIVE_PATHS **`#battle-ui`** · **`#wf-tier-44-pa`** (Step) · **`#wf-soak-audit-status`** (ii5c open for **` · Form`**).
 ## ctrl = id_to_controls[id], c = combatant dict from manager.get_combatants().
 ## Pass **`manager`** for live counter-tempo, attention salience, cooldown **`status_override`**, and
 ## Camp-3.3 medical-phase gauge tooltips (**`CombatUiHints.medical_phase_context_tooltip_lines`**).
@@ -61,37 +62,38 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
 	# Partial snapshot rows omit `alive`; treat missing as living (matches `_sync_gauge_label` tooltips).
 	if not _EntityAccess.alive_bool(c, true):
 		return "Defeated"
-	if bool(c.get("combat_absent", false)) or _EntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+	if c.get("combat_absent", false) or _EntityAccess.state_str(c) == CombatConstants.STATE_FLED:
 		return "Fled"
 	var state: String = _EntityAccess.state_str(c, "waiting")
-	var state_timer: float = float(c.get("state_timer", 0.0))
-	var state_duration: float = float(c.get("state_duration", 0.0))
+	var state_timer: float = c.get("state_timer", 0.0)
+	var state_duration: float = c.get("state_duration", 0.0)
 	var remain: float = maxf(0.0, state_duration - state_timer)
-	if state == "wind_up":
-		var wu_prefix: String = "Counter" if bool(c.get("is_counter_tempo_wind_up", false)) else "Wind-up"
-		return _compose_waiting_gauge_label(c, "%s %.1fs" % [wu_prefix, remain], manager)
-	if state == "medical_wind_up":
-		return _compose_waiting_gauge_label(
-			c, _UiHints.medical_wind_up_gauge_primary_label(c, remain), manager
-		)
-	if state == "recovering":
-		return _compose_waiting_gauge_label(c, "Recov. %.1fs" % remain, manager)
-	if state == CombatConstants.STATE_SWAP_RANK:
-		return _compose_waiting_gauge_label(c, "Swap %.1fs · vulnerable" % remain, manager)
-	if state == CombatConstants.STATE_FALLING_BACK:
-		return _compose_waiting_gauge_label(c, "Fall back %.1fs · vulnerable" % remain, manager)
-	if state == CombatConstants.STATE_COWERING:
-		var cow_label: String = "Cowering"
-		if _EntityAccess.can_flee_or_fall_back(c):
-			cow_label = "Cowering · can fall back"
-		elif not _EntityAccess.is_unconscious(c):
-			cow_label = "Cowering · immobile"
-		return _compose_waiting_gauge_label(c, cow_label, manager)
-	if state == "receiving_medical_attention":
-		return _compose_waiting_gauge_label(c, "Receiving care", manager)
+	match state:
+		"wind_up":
+			var wu_prefix: String = "Counter" if c.get(_DataKeys.SNAPSHOT_COUNTER_TEMPO_WIND_UP, false) else "Wind-up"
+			return _compose_waiting_gauge_label(c, "%s %.1fs" % [wu_prefix, remain], manager)
+		"medical_wind_up":
+			return _compose_waiting_gauge_label(
+				c, _UiHints.medical_wind_up_gauge_primary_label(c, remain), manager
+			)
+		"recovering":
+			return _compose_waiting_gauge_label(c, "Recov. %.1fs" % remain, manager)
+		CombatConstants.STATE_SWAP_RANK:
+			return _compose_waiting_gauge_label(c, "Swap %.1fs · vulnerable" % remain, manager)
+		CombatConstants.STATE_FALLING_BACK:
+			return _compose_waiting_gauge_label(c, "Fall back %.1fs · vulnerable" % remain, manager)
+		CombatConstants.STATE_COWERING:
+			var cow_label: String = "Cowering"
+			if _EntityAccess.can_flee_or_fall_back(c):
+				cow_label = "Cowering · can fall back"
+			elif not _EntityAccess.is_unconscious(c):
+				cow_label = "Cowering · immobile"
+			return _compose_waiting_gauge_label(c, cow_label, manager)
+		"receiving_medical_attention":
+			return _compose_waiting_gauge_label(c, "Receiving care", manager)
 	var tempo_hint: String = _UiHints.counter_tempo_hint_key(c, manager)
 	var counter_primary: String = _UiHints.counter_tempo_gauge_label(tempo_hint)
-	var status_override: String = str(c.get("status_override", "")).strip_edges()
+	var status_override: String = c.get("status_override", "").strip_edges()
 	if status_override.is_empty() and manager != null:
 		status_override = _CombatSnapshot.live_status_override_text(manager, c)
 	if not counter_primary.is_empty():
@@ -102,7 +104,7 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
 		return _compose_waiting_gauge_label(c, status_override, manager)
 	var primary: String = _waiting_stamina_primary_label(c)
 	if CombatConstants.COMBAT_DEBUG and c.get("guard_angle_deg", null) is float:
-		primary += " %.0f°" % float(c.get("guard_angle_deg"))
+		primary += " %.0fÃÂ°" % float(c.get("guard_angle_deg"))
 	return _compose_waiting_gauge_label(c, primary, manager)
 
 
@@ -179,3 +181,4 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary, manager: Node 
 				if part in _EntityAccess.nested_dictionary_read(ctrl, "body_labels"):
 					ctrl.body_labels[part].text = _RowFormatter.format_body_part_compact(part, bc, bb, bm, bone_h, bone_m)
 					ctrl.body_labels[part].visible = mx > 0
+                                         

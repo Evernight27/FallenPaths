@@ -12,8 +12,16 @@ const COMPANION_STANCE_PREFS: Array[String] = [
 const ROOKIE_PROFICIENCY_PER_RENOWN: float = 0.5
 const ROOKIE_PROFICIENCY_CAP: float = 10.0
 
-const _CompanyState := preload("res://world/CompanyState.gd")
+# Runtime preload â€” circular dependency (CompanyState preloads PlayerCompanionSetup).
+static var _company_state_cache: Variant = null
+
+static func _get_company_state() -> GDScript:
+	if _company_state_cache == null:
+		_company_state_cache = load("res://world/CompanyState.gd")
+	return _company_state_cache
+
 const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
+const _EncounterSpawner := preload("res://world/EncounterSpawner.gd")
 
 ## XCamp-3.1: fresh rookie on a vacant companion slot (species + tutorial-tier gear).
 static func setup_hired_companion(
@@ -25,23 +33,25 @@ static func setup_hired_companion(
 	if companion.has_method("set_process_input"):
 		companion.set_process_input(false)
 	_setup_character(companion, rng, true, slot_index)
-	# XCamp-4: rookies start with zero proficiency — no combat experience yet.
+	# XCamp-4: rookies start with zero proficiency  -  no combat experience yet.
 
 
 static func setup_player_and_companion(
 	world: Node2D, rng: RandomNumberGenerator, randomize_equipment: bool = true
 ) -> void:
-	if not world.has_node("Character"):
+	var player: Node2D = _Bridge.get_player(world)
+	if player == null:
 		return
-	var player = world.get_node("Character")
 	player.is_party_leader = true
 	_setup_character(player, rng, randomize_equipment)
 	_setup_rookie_proficiency_for_world(world, player)
 
 	for i in range(1, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP):
-		var path = "Character/Companion" + ("" if i == 1 else str(i))
+		var path: String = "Character/%s" % PartySetup._companion_node_name(i)
 		if world.has_node(path):
-			var companion = world.get_node(path)
+			var companion: Node = world.get_node_or_null(path)
+			if not is_instance_valid(companion):
+				continue
 			companion.is_party_leader = false
 			companion.set_process_input(false)
 			_setup_character(companion, rng, randomize_equipment, i - 1)
@@ -75,24 +85,27 @@ static func _setup_character(
 static func equip_party_weapons(world: Node2D, weapon_id: String) -> void:
 	if world == null or weapon_id.is_empty():
 		return
-	if world.has_node("Character"):
-		EncounterSpawner.equip_weapon_id(world.get_node("Character"), weapon_id)
+	var player: Node2D = _Bridge.get_player(world)
+	if player != null:
+		_EncounterSpawner.equip_weapon_id(player, weapon_id)
 	for i in range(1, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP):
-		var path := "Character/Companion" + ("" if i == 1 else str(i))
+		var path: String = "Character/%s" % PartySetup._companion_node_name(i)
 		if world.has_node(path):
-			EncounterSpawner.equip_weapon_id(world.get_node(path), weapon_id)
+			var companion_node: Node = world.get_node_or_null(path)
+			if is_instance_valid(companion_node):
+				_EncounterSpawner.equip_weapon_id(companion_node, weapon_id)
 
 
 ## XCamp-4: assign rookie proficiency bonuses scaled by company renown.
 static func _setup_rookie_proficiency_for_world(world: Node2D, character: Node) -> void:
 	if character == null or world == null:
 		return
-	if not _CompanyState.read_stub_proficiency_enabled():
+	if not _get_company_state().read_stub_proficiency_enabled():
 		return
 	var entity: Node = _Bridge.health_entity_from_character(character)
-	if entity == null or not entity.has("_proficiency_bonus"):
+	if entity == null or not "_proficiency_bonus" in entity:
 		return
-	var renown: int = _CompanyState.get_renown(world)
+	var renown: int = _get_company_state().get_renown(world)
 	for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
 		var bonus: float = minf(maxf(renown * ROOKIE_PROFICIENCY_PER_RENOWN, 0.0), ROOKIE_PROFICIENCY_CAP)
 		entity._proficiency_bonus[stat] = bonus

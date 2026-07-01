@@ -14,7 +14,8 @@ const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
+const _StatsUtil := preload("res://core/EntityStatsUtil.gd")
+const _Bp := preload("res://core/BodyPartConstants.gd")
 
 # --- Pain contribution (single wound; used for pain-shock from hit) ---
 
@@ -78,13 +79,13 @@ static func get_effective_pain_for_region(entity: Node, region: String) -> float
 	var raw: float = 0.0
 	match region:
 		"arms":
-			raw = get_pain_for_part(entity, "right_arm") + get_pain_for_part(entity, "left_arm")
+			raw = get_pain_for_part(entity, _Bp.PART_RIGHT_ARM) + get_pain_for_part(entity, _Bp.PART_LEFT_ARM)
 		"legs":
-			raw = get_pain_for_part(entity, "left_leg") + get_pain_for_part(entity, "right_leg")
-		"chest":
-			raw = get_pain_for_part(entity, "chest")
-		"head":
-			raw = get_pain_for_part(entity, "head")
+			raw = get_pain_for_part(entity, _Bp.PART_LEFT_LEG) + get_pain_for_part(entity, _Bp.PART_RIGHT_LEG)
+		_Bp.PART_CHEST:
+			raw = get_pain_for_part(entity, _Bp.PART_CHEST)
+		_Bp.PART_HEAD:
+			raw = get_pain_for_part(entity, _Bp.PART_HEAD)
 		_:
 			return 0.0
 	if not _PainConscious.USE_NORMALIZED_PAIN:
@@ -196,9 +197,9 @@ static func _session_entity_label(entity: Node) -> String:
 
 
 static func update_consciousness(entity: Node) -> void:
-	var head_cut: float = entity.body_cutting.get("head", 0.0)
-	var head_blunt: float = entity.body_blunt.get("head", 0.0)
-	var head_max: int = entity.body_max.get("head", 1)
+	var head_cut: float = entity.body_cutting.get(_Bp.PART_HEAD, 0.0)
+	var head_blunt: float = entity.body_blunt.get(_Bp.PART_HEAD, 0.0)
+	var head_max: int = entity.body_max.get(_Bp.PART_HEAD, 1)
 	var head_total: float = float(head_cut + head_blunt)
 	var head_max_total: float = float(head_max * 2)
 	var base_consciousness: float = 100.0
@@ -235,12 +236,12 @@ static func get_performance_modifier(entity: Node) -> float:
 
 static func get_action_bar_performance_modifier(entity: Node) -> float:
 	var base: float = get_performance_modifier(entity)
-	var chest_pain_mod: float = _PainConscious.get_pain_performance_modifier(get_effective_pain_for_region(entity, "chest"))
+	var chest_pain_mod: float = _PainConscious.get_pain_performance_modifier(get_effective_pain_for_region(entity, _Bp.PART_CHEST))
 	return maxf(_PainConscious.MIN_PERFORMANCE_MODIFIER, base * chest_pain_mod)
 
 static func get_hit_chance_performance_modifier(entity: Node) -> float:
 	var base: float = get_performance_modifier(entity)
-	var head_pain_mod: float = _PainConscious.get_pain_performance_modifier(get_effective_pain_for_region(entity, "head"))
+	var head_pain_mod: float = _PainConscious.get_pain_performance_modifier(get_effective_pain_for_region(entity, _Bp.PART_HEAD))
 	return maxf(_PainConscious.MIN_PERFORMANCE_MODIFIER, base * head_pain_mod)
 
 # get_effective_consciousness: ensure current then return (used by get_performance_modifier and callers)
@@ -252,30 +253,21 @@ static func get_effective_consciousness(entity: Node) -> float:
 # --- Parry and dodge (depend on consciousness and pain) ---
 
 const PASSIVE_PARRY_BASE_REACTION_S: float = 0.24
-const DODGE_CHANCE_AT_FULL_SPEED: float = 0.10  # HEMA: void is valid but timing-sensitive; research supports modest base (0.08–0.15)
+const DODGE_CHANCE_AT_FULL_SPEED: float = 0.10  # HEMA: void is valid but timing-sensitive; research supports modest base (0.08 - 0.15)
 
 static func _effective_perception(entity: Node) -> float:
-	var eff: float = float(entity.perception)
-	if _CompanyState.read_stub_proficiency_enabled() and entity.has("_proficiency_bonus"):
-		eff += float(entity._proficiency_bonus.get("perception", 0) or 0)
-	return eff
+	return _StatsUtil.get_effective_stat(entity, "perception")
 
 static func _effective_agility(entity: Node) -> float:
-	var eff: float = float(entity.agility)
-	if _CompanyState.read_stub_proficiency_enabled() and entity.has("_proficiency_bonus"):
-		eff += float(entity._proficiency_bonus.get("agility", 0) or 0)
-	return eff
+	return _StatsUtil.get_effective_stat(entity, "agility")
 
 static func _effective_endurance(entity: Node) -> float:
-	var eff: float = float(entity.endurance)
-	if _CompanyState.read_stub_proficiency_enabled() and entity.has("_proficiency_bonus"):
-		eff += float(entity._proficiency_bonus.get("endurance", 0) or 0)
-	return eff
+	return _StatsUtil.get_effective_stat(entity, "endurance")
 
 static func get_passive_parry_reaction_time(entity: Node) -> float:
 	var perception_norm: float = clampf(_effective_perception(entity) / 100.0, 0.2, 1.5)
 	var consciousness_norm: float = clampf(get_effective_consciousness(entity) / 100.0, 0.1, 1.0)
-	var head_pain_mod: float = _PainConscious.get_pain_performance_modifier(get_effective_pain_for_region(entity, "head"))
+	var head_pain_mod: float = _PainConscious.get_pain_performance_modifier(get_effective_pain_for_region(entity, _Bp.PART_HEAD))
 	var perception_factor: float = clampf(perception_norm * consciousness_norm * head_pain_mod, 0.15, 1.0)
 	return PASSIVE_PARRY_BASE_REACTION_S / perception_factor
 
@@ -283,5 +275,5 @@ static func get_dodge_chance(entity: Node) -> float:
 	var leg: float = entity.get_leg_functionality() if entity.has_method("get_leg_functionality") else 1.0
 	var perf: float = get_performance_modifier(entity)
 	var leg_pain_mod: float = _PainConscious.get_pain_performance_modifier(get_effective_pain_for_region(entity, "legs"))
-	var dodge_stat_factor: float = clampf((_effective_agility(entity) + _effective_perception(entity)) / 100.0 * 0.5, 0.5, 1.5)
+	var dodge_stat_factor: float = clampf((_effective_agility(entity) + _effective_perception(entity)) / 100.0 * 0.5, CombatConstants.STAT_EFFECT_MULT_MIN, CombatConstants.STAT_EFFECT_MULT_MAX)
 	return clampf(dodge_stat_factor * DODGE_CHANCE_AT_FULL_SPEED * leg * perf * leg_pain_mod, 0.0, 1.0)

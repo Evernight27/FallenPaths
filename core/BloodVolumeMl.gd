@@ -1,12 +1,12 @@
 class_name BloodVolumeMl
 extends RefCounted
 
-## S6 literal blood pool (mL) pilot — canonical `blood_volume_ml` when active; `blood_volume` % stays in sync for UI/ATLS.
+## S6 literal blood pool (mL) pilot  -  canonical `blood_volume_ml` when active; `blood_volume` % stays in sync for UI/ATLS.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
 
-## Adult reference pool — derived from `CombatDesignAnchors` (75 kg × 70 mL/kg = 5250 mL).
+## Adult reference pool  -  derived from `CombatDesignAnchors` (75 kg - -  70 mL/kg = 5250 mL).
 const REFERENCE_BLOOD_VOLUME_ML_ADULT: float = _DesignAnchors.REFERENCE_BLOOD_VOLUME_ML_ADULT
 const REFERENCE_BLOOD_ML_PER_KG: float = _DesignAnchors.REFERENCE_BLOOD_ML_PER_KG
 
@@ -54,7 +54,7 @@ static func sync_ml_from_percent(entity: Node) -> void:
 	var max_ml: float = _ml_max(entity)
 	if max_ml <= 0.0:
 		return
-	var pct: float = clampf(float(entity.blood_volume), 0.0, _Bleeding.MAX_BLOOD_VOLUME)
+	var pct: float = clampf(entity.blood_volume, 0.0, _Bleeding.MAX_BLOOD_VOLUME)
 	_set_ml(entity, max_ml * pct / _Bleeding.MAX_BLOOD_VOLUME)
 
 

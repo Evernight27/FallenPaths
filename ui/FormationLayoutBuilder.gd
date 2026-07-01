@@ -5,7 +5,7 @@ const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 
-## Optional: rank×file grid layout for combatant stat rows (not used by BattleScene — stats stay in registration order).
+## Optional: rank- - file grid layout for combatant stat rows (not used by BattleScene  -  stats stay in registration order).
 ## Formation positions use FormationDiagramBuilder. Kept for tests or alternate UIs.
 ## Reparents existing combatant rows from list parents into GridContainers by (rank, file).
 
@@ -19,7 +19,7 @@ static func apply_formation_layout(
 	preset: Dictionary,
 	side: String
 ) -> void:
-	# Use manager's formation dimensions when available — CombatManager may override ranks/files
+	# Use manager's formation dimensions when available  -  CombatManager may override ranks/files
 	# from combatant count (e.g. front_count, or preset.ranks missing), causing preset mismatch.
 	var formation: Dictionary = {}
 	if "formations" in manager and manager.formations is Dictionary:
@@ -34,7 +34,7 @@ static func apply_formation_layout(
 	var slot_to_combatant: Dictionary = {}
 	# Map (rank, file) -> [combatant] for dead (keep at death position)
 	var slot_to_dead: Dictionary = {}
-	# Fled but still alive — off the grid (rows reparented below)
+	# Fled but still alive  -  off the grid (rows reparented below)
 	var fled_combatants: Array = []
 	var combatants: Array = manager.get_combatants() if manager.has_method("get_combatants") else []
 	for c in combatants:
@@ -87,7 +87,7 @@ static func apply_formation_layout(
 					var cid = _row_id_from_name(gc.name)
 					if cid >= 0:
 						id_to_row[cid] = gc
-					# Do not free — we keep the row for reparenting
+					# Do not free  -  we keep the row for reparenting
 				else:
 					gc.queue_free()
 

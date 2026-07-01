@@ -195,7 +195,7 @@ static func _run_mental_stack_integration_rout_medical_peril(
 
 
 ## 4. Feint vs exhausted orthogonal: Phase 2 blocks feints on attacker, Phase 5 fires on defender.
-## Independent layers — attacker gets weight dampened, defender gets exhaustion tunnel.
+## Independent layers  -  attacker gets weight dampened, defender gets exhaustion tunnel.
 static func _run_mental_stack_integration_feint_exhausted_orthogonal(
 	failures: PackedStringArray
 ) -> void:
@@ -219,7 +219,7 @@ static func _run_mental_stack_integration_feint_exhausted_orthogonal(
 	attacker["state"] = CombatConstants.STATE_WAITING
 	attacker["gauge"] = 100.0
 
-	# Build actions for the EXHAUSTED attacker — should get exhaustion tunnel, not feints.
+	# Build actions for the EXHAUSTED attacker  -  should get exhaustion tunnel, not feints.
 	var actions: Array = [
 		{"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": attacker_id},
 		{"move_id": "oberhau_feint", "target_id": defender_id, "target_part": "head"},
@@ -267,7 +267,7 @@ static func _run_mental_stack_integration_medical_escalation_rout(
 	medic["state"] = CombatConstants.STATE_WAITING
 	medic["gauge"] = 100.0
 
-	# Build medical actions — pack should win over bandage due to escalation.
+	# Build medical actions  -  pack should win over bandage due to escalation.
 	var actions: Array = [
 		{"move_id": CombatConstants.MOVE_ID_BANDAGE_SELF, "target_id": medic_id},
 		{"move_id": CombatConstants.MOVE_ID_BANDAGE_SELF, "target_id": ally_id, "target_part": "chest"},
@@ -331,7 +331,7 @@ static func _run_mental_stack_integration_full_stack_post_strike_surrounded_exha
 	# Set exhaustion above tunnel threshold (layer 5 would fire).
 	fighter[CombatConstants.COMBATANT_KEY_EXHAUSTION] = 0.80
 
-	# Set up ally in immediate peril with failed bandage on chest — triggers L1 medical.
+	# Set up ally in immediate peril with failed bandage on chest  -  triggers L1 medical.
 	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
 	_set_immediate_peril(ally_ent)
 	ally["failed_medical_parts"] = ["chest"]
@@ -396,7 +396,7 @@ static func _run_mental_stack_integration_post_strike_vs_dead_target(
 		{"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
 	]
 
-	# The stamp is set but the target is dead — filter_post_strike_actions returns empty.
+	# The stamp is set but the target is dead  -  filter_post_strike_actions returns empty.
 	# try_pick should fall through and return {} (no stamp layer).
 	var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
 	if not picked.is_empty():
@@ -438,7 +438,7 @@ static func _run_mental_stack_integration_post_strike_stamp_expires(
 		{"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
 	]
 
-	# Stamp expired — absf(10.0 - 12.5) = 2.5 > POST_STRIKE_MOMENTUM_CLOCK_TOLERANCE (2.0).
+	# Stamp expired  -  absf(10.0 - 12.5) = 2.5 > POST_STRIKE_MOMENTUM_CLOCK_TOLERANCE (2.0).
 	# try_pick should return {} (no stamp, falls through to weighted pick).
 	var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
 	if not picked.is_empty():
@@ -456,7 +456,7 @@ static func _run_mental_stack_integration_post_strike_stamp_expires(
 ## 9. Feint resistance + post-strike (2+3).
 ## Attacker with feints lands a real strike (not feint); stamp set; next turn defender has high readiness.
 ## Phase 2 blocks feints on attacker's attack weight computation. Phase 3 sets stamp from the real strike.
-## On attacker's next turn, MS-L8 fires — press the struck target.
+## On attacker's next turn, MS-L8 fires  -  press the struck target.
 static func _run_mental_stack_integration_feint_resistance_plus_post_strike(
 	failures: PackedStringArray
 ) -> void:
@@ -575,14 +575,14 @@ static func _run_mental_stack_integration_positional_vs_rout_priority(
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
- ## 11. Medical escalation — no escalation path exists (Phase 7 only, weight-only).
+ ## 11. Medical escalation  -  no escalation path exists (Phase 7 only, weight-only).
 ## Combatant with failed bandage on chest; NO pack item in inventory, NO TK item.
 ## _escalation_path_has_next_step returns false (no next step available).
 ## Retry bonus applies normally (2.8x). AI retries bandage because escalation is impossible.
 static func _run_mental_stack_integration_medical_escalation_no_path(
 	failures: PackedStringArray
 ) -> void:
-	const _MedWeight := preload("res://combat/CombatMedicalWeighting.gd")
+	var _MedWeight := preload("res://combat/CombatMedicalWeighting.gd")
 	CombatConstants.set_feature_ms_medical_escalation_load(true)
 
 	var mgr: Node = _MgrScript.new()
@@ -596,7 +596,7 @@ static func _run_mental_stack_integration_medical_escalation_no_path(
 	var medic_id: int = _EntityAccess.id_int(medic)
 	var ally_id: int = _EntityAccess.id_int(ally)
 
-	# Wound the ally's chest — blood below death threshold but above peril threshold so entity is alive and in peril.
+	# Wound the ally's chest  -  blood below death threshold but above peril threshold so entity is alive and in peril.
 	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
 	if ally_ent != null:
 		ally_ent.blood_volume = 40.0
@@ -606,7 +606,7 @@ static func _run_mental_stack_integration_medical_escalation_no_path(
 		# Apply direct pressure so dressings are allowed (bandage requires compression on bleeding wounds).
 		ally_ent.apply_direct_pressure_from_ally("chest", medic_ent)
 
-	# Simulate failed bandage on chest — but pack/TK are NOT available (no escalation path).
+	# Simulate failed bandage on chest  -  but pack/TK are NOT available (no escalation path).
 	ally["failed_medical_parts"] = ["chest"]
 
 	# Build actions: only bandage is listed (pack/TK not in inventory → not listed).
@@ -614,7 +614,7 @@ static func _run_mental_stack_integration_medical_escalation_no_path(
 		{"move_id": CombatConstants.MOVE_ID_BANDAGE_SELF, "target_id": ally_id, "target_part": "chest"},
 	]
 
-	# Compute weight — should have retry bonus (2.8x) since escalation is impossible.
+	# Compute weight  -  should have retry bonus (2.8x) since escalation is impossible.
 	var w_bandage: float = _MedWeight.compute_weight(actions[0], medic_id, mgr)
 	if w_bandage < 2.0:
 		CombatRegressionHarness._fail(
@@ -627,14 +627,14 @@ static func _run_mental_stack_integration_medical_escalation_no_path(
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
- ## 12. Medical escalation — success clears path (Phase 7 only, weight-only).
+ ## 12. Medical escalation  -  success clears path (Phase 7 only, weight-only).
 ## Combatant with failed bandage on chest; escalates to pack which succeeds.
 ## failed_medical_parts removal on success clears the part.
-## Subsequent actions on that part return to normal weights — no escalation bonus, no suppressed retry.
+## Subsequent actions on that part return to normal weights  -  no escalation bonus, no suppressed retry.
 static func _run_mental_stack_integration_medical_escalation_success_clears_path(
 	failures: PackedStringArray
 ) -> void:
-	const _MedWeight := preload("res://combat/CombatMedicalWeighting.gd")
+	var _MedWeight := preload("res://combat/CombatMedicalWeighting.gd")
 	CombatConstants.set_feature_ms_medical_escalation_load(true)
 
 	var mgr: Node = _MgrScript.new()
@@ -648,7 +648,7 @@ static func _run_mental_stack_integration_medical_escalation_success_clears_path
 	var medic_id: int = _EntityAccess.id_int(medic)
 	var ally_id: int = _EntityAccess.id_int(ally)
 
-	# Wound the ally's chest — blood below death threshold but above peril threshold so entity is alive and in peril.
+	# Wound the ally's chest  -  blood below death threshold but above peril threshold so entity is alive and in peril.
 	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
 	if ally_ent != null:
 		ally_ent.blood_volume = 40.0

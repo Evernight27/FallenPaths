@@ -1,17 +1,22 @@
 class_name CombatF5SoakTrace
 extends RefCounted
 
-## Editor F5 **D-001** traces — mirror on-screen battle UI in **`FP_COMBAT`** Output (grep, no human glance).
-## **`turn_ready_gauge`**: full label via **`BattleUIUpdater`** — suffix order **Step → Grd/Atk → Form** when present; content asserts **open** — LIVE_PATHS **`#wf-soak-audit-status`** · **`#battle-ui`** · **`#wf-footing-doc-map`**.
+## Editor F5 **D-001** traces  -  mirror on-screen battle UI in **`FP_COMBAT`** Output (grep, no human glance).
+## **`turn_ready_gauge`**: full label via **`BattleUIUpdater`**  -  suffix order **Step â Grd/Atk â Form** when present; content asserts **open**  -  LIVE_PATHS **`#wf-soak-audit-status`** · **`#battle-ui`** · **`#wf-footing-doc-map`**.
 ## Call sites: **`TurnReadyHandler`**, **`BattleScene`**, **`CombatResolveAction`**.
 ## **`ingest_trace_line`** (via **`OperationalLog.play_combat`**) feeds **`soak_coverage`** at fight end.
-## **`ingest_world_trace_line`** (via **`OperationalLog.play_world`**) appends Camp §8 markers for post-medical supplement.
+## **`ingest_world_trace_line`** (via **`OperationalLog.play_world`**) appends Camp Â§8 markers for post-medical supplement.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _BattleUIUpdater := preload("res://ui/BattleUIUpdater.gd")
 const _LogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
-const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
+static var _player_turn_hints_cache: Variant = null
+
+static func _get_player_turn_hints() -> Variant:
+	if _player_turn_hints_cache == null:
+		_player_turn_hints_cache = load("res://combat/CombatPlayerTurnHints.gd")
+	return _player_turn_hints_cache
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
@@ -20,7 +25,7 @@ const _F5Validator := preload("res://combat/CombatF5SoakLogValidator.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
 
-## One-line F5 follow-ups when optional Camp §8 validator tracks are still open.
+## One-line F5 follow-ups when optional Camp Â§8 validator tracks are still open.
 const _CAMP_OPTIONAL_PLAY_HINTS := {
 	"camp_field_care": "after messy win grep FP_WORLD field_care: hint on map",
 	"camp_field_care_action": "map Party -> bandage or pressure one part (grep FP_WORLD field_care bandage part=)",
@@ -82,22 +87,22 @@ static func log_session_plan(dev_soak_encounter: String, dev_research_feel: bool
 	)
 	if soak.is_empty():
 		_OperationalLog.play_combat(
-			"soak_session_plan fight=walk red 7v7 tile — covers formation gauge medical parry exhaustion flee (not ii5 cowering / ii6 shock / ii2b bind-only)"
+			"soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge medical parry exhaustion flee (not ii5 cowering / ii6 shock / ii2b bind-only)"
 		)
 	else:
 		_OperationalLog.play_combat(
-			"soak_session_plan fight=walk cyan marker preset=%s — grep soak= on encounter_begin" % soak
+			"soak_session_plan fight=walk cyan marker preset=%s  -  grep soak= on encounter_begin" % soak
 		)
 	if dev_research_feel:
 		_OperationalLog.play_combat(
-			"soak_session_plan Q1=on — expect research_feel per hit; best with dev_soak_encounter=ii2b"
+			"soak_session_plan Q1=on  -  expect research_feel per hit; best with dev_soak_encounter=ii2b"
 		)
 	else:
 		_OperationalLog.play_combat(
-			"soak_session_plan Q1=off — enable main dev_research_feel for per-hit research_feel lines"
+			"soak_session_plan Q1=off  -  enable main dev_research_feel for per-hit research_feel lines"
 		)
 	_OperationalLog.play_combat(
-		"soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage — paste full Output"
+		"soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage  -  paste full Output"
 	)
 
 
@@ -105,7 +110,7 @@ static func set_fight_profile(profile_id: String) -> void:
 	_fight_profile = profile_id.strip_edges().to_lower()
 
 
-## Clear Camp §8 **`FP_WORLD`** lines accumulated since F5 session start (call once from **`main.gd`**).
+## Clear Camp Â§8 **`FP_WORLD`** lines accumulated since F5 session start (call once from **`main.gd`**).
 static func reset_session_camp_trace() -> void:
 	_session_camp_trace_lines = PackedStringArray()
 	_session_camp_combat_trace_lines = PackedStringArray()
@@ -151,7 +156,7 @@ static func prepare_fight_end_log() -> void:
 	}
 
 
-## Headless **`_simulate_fight`**: clear trace only — keep **`_session_counts`** from setup / early probes.
+## Headless **`_simulate_fight`**: clear trace only  -  keep **`_session_counts`** from setup / early probes.
 static func reset_fight_trace_buffer() -> void:
 	_fight_end_logged = false
 	_defer_soak_coverage_for_medical = false
@@ -193,7 +198,7 @@ static func ingest_trace_line(message: String) -> void:
 		return
 	if s.begins_with("soak_coverage "):
 		return
-	# Fight-end rollups — do not re-ingest (avoids inflating parry/grep stats if trace is re-parsed).
+	# Fight-end rollups  -  do not re-ingest (avoids inflating parry/grep stats if trace is re-parsed).
 	if (
 		s.begins_with("parry_stats ")
 		or s.begins_with("hit_outcome_stats ")
@@ -218,7 +223,7 @@ static func ingest_trace_line(message: String) -> void:
 		refresh_camp_supplement_after_medical_exit()
 
 
-## Rollup lines are emitted via **`play_combat`** but excluded from **`ingest_trace_line`** — append directly.
+## Rollup lines are emitted via **`play_combat`** but excluded from **`ingest_trace_line`**  -  append directly.
 static func _append_fight_trace_line_direct(s: String) -> void:
 	var line: String = s.strip_edges()
 	if line.is_empty():
@@ -230,7 +235,7 @@ static func _append_fight_trace_line_direct(s: String) -> void:
 		_fight_trace_lines.remove_at(0)
 
 
-## Camp §8 markers (**`FP_WORLD`**) land after medical — extend trace for in-editor camp supplement.
+## Camp Â§8 markers (**`FP_WORLD`**) land after medical  -  extend trace for in-editor camp supplement.
 static func ingest_world_trace_line(message: String) -> void:
 	if not _OperationalLog.is_play_session_active():
 		return
@@ -274,12 +279,12 @@ static func log_fight_end_summary(winner: String, entering_medical_phase: bool) 
 		_research_validate_hint_logged = true
 		if int(_session_counts.get("research_feel", 0)) > 0:
 			_OperationalLog.play_combat(
-				"research_validate_hint %d research_feel lines — compare to docs/LIVE_PATHS.md#f5-optional-crosswalk-feel-vs-headless"
+				"research_validate_hint %d research_feel lines  -  compare to docs/LIVE_PATHS.md#f5-optional-crosswalk-feel-vs-headless"
 				% int(_session_counts["research_feel"])
 			)
 		elif _CombatConstants.combat_event_debug_verbose_active():
 			_OperationalLog.play_combat(
-				"research_validate_hint 0 research_feel lines — enable main dev_research_feel or land hits in combat"
+				"research_validate_hint 0 research_feel lines  -  enable main dev_research_feel or land hits in combat"
 			)
 	_log_parry_rollup()
 	_log_hit_outcome_rollup()
@@ -358,7 +363,7 @@ static func _log_hit_coverage_hint() -> void:
 	if avoided > 0:
 		avoided_note = " strike_avoided=%d" % avoided
 	_OperationalLog.play_combat(
-		"hit_coverage_hint hit_resolve=0 turn_ready=%d%s — grep strike_avoided reason= parry_partial rem=; formation-only or all avoids/parries"
+		"hit_coverage_hint hit_resolve=0 turn_ready=%d%s  -  grep strike_avoided reason= parry_partial rem=; formation-only or all avoids/parries"
 		% [turns, avoided_note]
 	)
 
@@ -405,11 +410,11 @@ static func _log_q2_parry_rollup() -> void:
 	var plaus: PackedStringArray = _TrackSpecs.ii2b_plausibility_failures(stats)
 	if plaus.is_empty():
 		_OperationalLog.play_combat(
-			"q2_validate_hint pass — F5 feel OK if bind/deflect/riposte timing read well; compare .ii2b_worksheet_prefill.txt"
+			"q2_validate_hint pass  -  F5 feel OK if bind/deflect/riposte timing read well; compare .ii2b_worksheet_prefill.txt"
 		)
 	else:
 		_OperationalLog.play_combat(
-			"q2_validate_hint warn %s — headless would fail; tune only if design changes (III-3)"
+			"q2_validate_hint warn %s  -  headless would fail; tune only if design changes (III-3)"
 			% ", ".join(plaus)
 		)
 
@@ -430,11 +435,11 @@ static func _log_q3_ii5_rollup() -> void:
 	if not _fight_trace_has_line_prefix("q3_validate_hint "):
 		if listed >= 1 and executed >= 1:
 			_OperationalLog.play_combat(
-				"q3_validate_hint pass — F5 only: confirm fall_back pick UX on 2x3 world grid"
+				"q3_validate_hint pass  -  F5 only: confirm fall_back pick UX on 2x3 world grid"
 			)
 		else:
 			_OperationalLog.play_combat(
-				"q3_validate_hint warn missing cowering_fall_back listed|executed — pick fall_back when listed"
+				"q3_validate_hint warn missing cowering_fall_back listed|executed  -  pick fall_back when listed"
 			)
 
 
@@ -448,11 +453,11 @@ static func _log_q3_ii4d_rollup() -> void:
 	var plaus: PackedStringArray = _TrackSpecs.ii4d_plausibility_failures(stats, _gauge_has_exh_suffix())
 	if plaus.is_empty():
 		_OperationalLog.play_combat(
-			"q3_validate_hint pass bands — F5 optional: 3–5 min duel pacing feel"
+			"q3_validate_hint pass bands  -  F5 optional: 3 - 5 min duel pacing feel"
 		)
 	else:
 		_OperationalLog.play_combat(
-			"q3_validate_hint warn %s — headless ii4d would fail"
+			"q3_validate_hint warn %s  -  headless ii4d would fail"
 			% ", ".join(plaus)
 		)
 
@@ -480,7 +485,7 @@ static func _log_q4_ii8_rollup() -> void:
 	if not _fight_trace_has_line_prefix("q4_validate_hint "):
 		if banner >= 1 and tooltip_ok >= 1:
 			_OperationalLog.play_combat(
-				"q4_validate_hint pass traces — F5 optional: widget layout / label centering glance"
+				"q4_validate_hint pass traces  -  F5 optional: widget layout / label centering glance"
 			)
 		else:
 			_OperationalLog.play_combat(
@@ -533,7 +538,7 @@ static func _log_soak_coverage() -> void:
 		)
 	if ok:
 		_OperationalLog.play_combat(
-			"soak_coverage pass this fight matches D-001 validator for %s — still grep FP_ERROR SCRIPT_ERROR in Output"
+			"soak_coverage pass this fight matches D-001 validator for %s  -  still grep FP_ERROR SCRIPT_ERROR in Output"
 			% ", ".join(profiles)
 		)
 	if _camp_trace_pending_for_supplement():
@@ -642,7 +647,7 @@ static func _log_soak_coverage_camp_supplement() -> void:
 	_OperationalLog.play_combat(
 		(
 			"soak_coverage camp ok=%s session_world=%d session_combat=%d fight_trace=%d"
-			+ " — paste full Output for validate_f5_soak_log.ps1"
+			+ "  -  paste full Output for validate_f5_soak_log.ps1"
 		)
 		% [
 			str(bool(result.get("ok", false))).to_lower(),
@@ -697,7 +702,7 @@ static func _log_soak_coverage_camp_supplement() -> void:
 		optional_missing.append(str(track_id))
 	if not optional_missing.is_empty():
 		_OperationalLog.play_combat(
-			"soak_coverage camp hint optional still missing: %s — separate F5 runs or docs/f5_soak_log.camp_full.example.txt"
+			"soak_coverage camp hint optional still missing: %s  -  separate F5 runs or docs/f5_soak_log.camp_full.example.txt"
 			% ", ".join(optional_missing)
 		)
 		for track_id in optional_missing:
@@ -833,7 +838,7 @@ static func note_cowering_fall_back_executed(who: String, file: int) -> void:
 static func note_death_tick(who: String, death_reason: String) -> void:
 	if not _OperationalLog.play_session_is_editor_f5():
 		return
-	var line: String = "DEATH (tick) %s — %s" % [who.strip_edges(), death_reason.strip_edges()]
+	var line: String = "DEATH (tick) %s  -  %s" % [who.strip_edges(), death_reason.strip_edges()]
 	if line == _last_death_tick_line:
 		return
 	_last_death_tick_line = line
@@ -960,7 +965,7 @@ static func note_medical_phase_intro() -> void:
 	if _medical_phase_intro_logged:
 		return
 	_medical_phase_intro_logged = true
-	# Grep **`medical_phase`** — not `medical_session` (would emit `medical medical_phase:`).
+	# Grep **`medical_phase`**  -  not `medical_session` (would emit `medical medical_phase:`).
 	_OperationalLog.play_combat(
 		"medical_phase: full hemorrhage rates until TCCC control (pressure/TQ/pack/bandage); no passive blood recovery"
 	)
@@ -996,12 +1001,12 @@ static func note_medical_action_pick(who: String, move_id: String, part: String,
 	_maybe_flush_deferred_soak_coverage()
 
 
-## Call when post-victory medical phase ends (early exit or End battle) — not only on medical picks.
+## Call when post-victory medical phase ends (early exit or End battle)  -  not only on medical picks.
 static func flush_deferred_soak_coverage() -> void:
 	_maybe_flush_deferred_soak_coverage()
 
 
-## Re-validate Camp §8 optional tracks when **`campaign_medical_exit`** lands after an earlier medical flush.
+## Re-validate Camp Â§8 optional tracks when **`campaign_medical_exit`** lands after an earlier medical flush.
 static func refresh_camp_supplement_after_medical_exit() -> void:
 	if not _OperationalLog.is_play_session_active() or not _soak_coverage_logged:
 		return
@@ -1033,7 +1038,7 @@ static func log_turn_ready_player_ui(manager: Node, c: Dictionary, actions: Arra
 	var hold: String = str(
 		c.get(_CombatConstants.COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT, "")
 	).strip_edges()
-	var fp_line: String = _PlayerTurnHints.formation_and_rout_turn_ready_hint(manager, c, actions).strip_edges()
+	var fp_line: String = _get_player_turn_hints().formation_and_rout_turn_ready_hint(manager, c, actions).strip_edges()
 	var ctx: String = _turn_ui_match_context(manager, c, actions, label, fp_line, hold)
 	var formation_tip: String = ""
 	var match_s: String = ctx
@@ -1043,7 +1048,7 @@ static func log_turn_ready_player_ui(manager: Node, c: Dictionary, actions: Arra
 			formation_tip = hold
 		match_s = _tooltip_formation_match_label(formation_tip, fp_line, hold)
 	else:
-		# Counter / medical / melee-only — avoid stale formation stamp in gauge_tooltip_formation.
+		# Counter / medical / melee-only  -  avoid stale formation stamp in gauge_tooltip_formation.
 		if not fp_line.is_empty():
 			formation_tip = fp_line
 		elif ctx == "hold_line" and not hold.is_empty():
@@ -1076,7 +1081,7 @@ static func log_form_switch(
 	var cid: int = _EntityAccess.id_int(c)
 	var who: String = _EntityAccess.get_display_name(c, cid)
 	_OperationalLog.play_combat(
-		"form_switch id=%d %s %s→%s reason=%s"
+		"form_switch id=%d %s %sâ%s reason=%s"
 		% [cid, who, old_form.strip_edges(), new_form.strip_edges(), reason.strip_edges()]
 	)
 
@@ -1091,12 +1096,12 @@ static func _emit_turn_ready_formation_fp(combatant_id: int, who: String, fp_lin
 	)
 
 
-## Party diagram header above player rows (**#8** — grep **`diagram_banner player:`**).
+## Party diagram header above player rows (**#8**  -  grep **`diagram_banner player:`**).
 static func log_diagram_banner_player(line: String) -> void:
 	if not _OperationalLog.is_play_session_active():
 		return
 	var text: String = line.strip_edges()
-	if text.is_empty() or text == "—":
+	if text.is_empty() or text == " - ":
 		return
 	if text == _last_diagram_banner_line:
 		return
@@ -1105,16 +1110,16 @@ static func log_diagram_banner_player(line: String) -> void:
 	_OperationalLog.play_combat("diagram_banner player: %s" % text)
 
 
-## Enemy-side diagram (**II-8** symmetry — grep **`diagram_banner enemy:`**).
+## Enemy-side diagram (**II-8** symmetry  -  grep **`diagram_banner enemy:`**).
 static func log_diagram_banner_enemy(line: String) -> void:
 	if not _OperationalLog.is_play_session_active():
 		return
 	var text: String = line.strip_edges()
-	if text.is_empty() or text == "—":
+	if text.is_empty() or text == " - ":
 		return
 	if text == _last_diagram_banner_enemy_line:
 		return
-	# UI may refresh before doctrine suffix is known (e.g. Pinch Center) — skip duplicate row.
+	# UI may refresh before doctrine suffix is known (e.g. Pinch Center)  -  skip duplicate row.
 	if (
 		not _last_diagram_banner_enemy_line.is_empty()
 		and text.begins_with(_last_diagram_banner_enemy_line)
@@ -1172,7 +1177,7 @@ static func _formation_line_from_tooltip(c: Dictionary, manager: Node) -> String
 	return ""
 
 
-## Generic duration preview (`Formation move: ~1.4s, under pressure`) — not the stamped turn line.
+## Generic duration preview (`Formation move: ~1.4s, under pressure`)  -  not the stamped turn line.
 static func _is_formation_duration_preview_only(text: String) -> bool:
 	var t: String = text.strip_edges()
 	if not t.begins_with("Formation move:"):
@@ -1202,7 +1207,7 @@ static func _looks_like_formation_turn_hint(text: String) -> bool:
 	return false
 
 
-## Non-formation row labels — grep **`tooltip_match=counter`** / **`medical`** / **`melee_only`** (not II-5a failures).
+## Non-formation row labels  -  grep **`tooltip_match=counter`** / **`medical`** / **`melee_only`** (not II-5a failures).
 static func _turn_ui_match_context(
 	manager: Node,
 	c: Dictionary,
@@ -1288,3 +1293,4 @@ static func _tooltip_formation_match_label(
 	if tooltip_line in fp_line or fp_line in tooltip_line:
 		return "ok"
 	return "mismatch"
+    

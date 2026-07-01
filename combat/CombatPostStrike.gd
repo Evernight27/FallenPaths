@@ -2,12 +2,10 @@ class_name CombatPostStrike
 extends RefCounted
 
 ## Post-strike momentum layer (MS-L8): press advantage after successful strike.
-## Filter function owned here — MentalStackDecider calls a single method.
+## Filter function owned here  -  MentalStackDecider calls a single method.
 ## Read order: target alive check → hostile melee strikes vs struck target → attempt_close eligibility.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _ListedActions := preload("res://combat/CombatListedActions.gd")
-const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 
 
 ## Returns a prioritized array for pick_weighted():
@@ -21,9 +19,9 @@ static func filter_post_strike_actions(
 
 	# Phase 1: hostile melee strikes vs the struck target.
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
+		var a: Dictionary = raw
 		var mid: String = str(a.get("move_id", ""))
 		if mid == CombatConstants.MOVE_ID_WAIT:
 			continue
@@ -35,23 +33,23 @@ static func filter_post_strike_actions(
 			continue
 		if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 			continue
-		var tid: int = int(a.get("target_id", -1))
+		var tid: int = a.get("target_id", -1)
 		if tid != struck_target_id:
 			continue
 		var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
 		if tgt.is_empty() or not _EntityAccess.alive_bool(tgt):
-			continue  # target dead — defer to other layers
+			continue  # target dead  -  defer to other layers
 		out.append(a)
 
 	# Phase 2: attempt_close toward the struck target (if no strikes found).
 	if out.is_empty():
 		for raw in actions:
-			if typeof(raw) != TYPE_DICTIONARY:
+			if raw is not Dictionary:
 				continue
-			var a: Dictionary = raw as Dictionary
+			var a: Dictionary = raw
 			if str(a.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 				continue
-			var tid: int = int(a.get("target_id", -1))
+			var tid: int = a.get("target_id", -1)
 			if tid != struck_target_id:
 				continue
 			out.append(a)

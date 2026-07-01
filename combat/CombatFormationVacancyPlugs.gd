@@ -48,9 +48,9 @@ static func _vacancy_lateral_is_reverse_blocked(
 	for e in arr:
 		if _EntityAccess.id_int(e, -9) != ally_id:
 			continue
-		if int(e.get("rk", -9)) != rk:
+		if e.get("rk", -9) != rk:
 			continue
-		if int(e.get("src_f", -9)) == hole_file and int(e.get("dst_f", -9)) == donor_file:
+		if e.get("src_f", -9) == hole_file and e.get("dst_f", -9) == donor_file:
 			return true
 	return false
 
@@ -69,7 +69,7 @@ static func _vacancy_lateral_undo_blocked_persistent(
 		return false
 	if not ally.has("formation_vacancy_lateral_reverse_lock_until"):
 		return false
-	var until: float = float(ally.get("formation_vacancy_lateral_reverse_lock_until", -1.0))
+	var until: float = ally.get("formation_vacancy_lateral_reverse_lock_until", -1.0)
 	if _EntityAccess.combat_clock_float(manager) >= until:
 		return false
 	var last_from: int = int(ally.get("formation_vacancy_lateral_last_from_file", -999))
@@ -147,9 +147,9 @@ static func filter_formation_plug_actions(
 	if manager == null or c.is_empty() or actions.is_empty():
 		return out
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var a: Dictionary = raw as Dictionary
+		var a: Dictionary = raw
 		if _FormationMoveListing.listed_action_is_formation_plug_pick(
 			manager, c, a, actions, combatant_id
 		):
@@ -221,12 +221,12 @@ static func _is_ineligible_vacancy_donor(manager: Node, c: Dictionary) -> bool:
 		CombatConstants.STATE_COWERING,
 	]:
 		return true
-	var until: float = float(c.get("formation_autofill_cooldown_until", -1.0))
+	var until: float = c.get("formation_autofill_cooldown_until", -1.0)
 	if until >= 0.0 and manager != null:
 		var clk: float = _EntityAccess.combat_clock_float(manager)
 		# Hard lock: never allow two automatic plug donations in the same simulation clock,
 		# even when frontline-first override is active.
-		var last_move_clk: float = float(c.get("formation_autofill_last_move_clock", -9999.0))
+		var last_move_clk: float = c.get("formation_autofill_last_move_clock", -9999.0)
 		if absf(last_move_clk - clk) < 0.0001:
 			return true
 		if clk < until:
@@ -308,10 +308,10 @@ static func _plug_priority_score(manager: Node, prox_steps: int, c: Dictionary, 
 
 
 ## Best vertical option for this hole (same column, deeper ranks). Evaluated separately from lateral.
-## When `adjacent_rank_only`, walk ranks shallowâ†’deep: skip empty ranks; **skip** ranks whose primary native
+## When `adjacent_rank_only`, walk ranks shallowâ†'deep: skip empty ranks; **skip** ranks whose primary native
 ## is not a legal donor (wind-up, reserved elsewhere, foreign occupant cell, etc.) and keep scanning so a deeper
 ## reserve can still plug the hole without forcing a front-rank lateral shuffle. Stop at the first **eligible,
-## unreserved** donor (closest promotable native — do not jump over them to pull someone even deeper).
+## unreserved** donor (closest promotable native  -  do not jump over them to pull someone even deeper).
 ## When false, scan the full column and keep the best-scoring eligible donor (full-column donor scan).
 static func _evaluate_best_vertical_plug_for_cell(
 	manager: Node,
@@ -326,7 +326,7 @@ static func _evaluate_best_vertical_plug_for_cell(
 ) -> Dictionary:
 	var best: Dictionary = {}
 	var best_pri: float = -1.0
-	const rank_tie_eps: float = 1e-4
+	var rank_tie_eps: float = 1e-4
 	if adjacent_rank_only:
 		var search_rank: int = fill_rank + 1
 		while search_rank < formation_ranks:
@@ -413,7 +413,7 @@ static func _rear_infill_hole_column_passable(
 
 
 ## Rank-0 hole only: best **rear** donor on **any other** file (rank â‰¥ 1) who can occupy the front slot in one plug.
-## Deeper ranks preferred as donors first (then shallower); ties prefer smaller |file âˆ’ hole| then lower file index.
+## Deeper ranks preferred as donors first (then shallower); ties prefer smaller |file âˆ' hole| then lower file index.
 ## Proximity for scoring includes file distance so farther sidesteps lose to nearer fit reserves before front-rank lateral.
 static func _evaluate_best_rear_infill_for_rank0_hole(
 	manager: Node,
@@ -427,7 +427,7 @@ static func _evaluate_best_rear_infill_for_rank0_hole(
 ) -> Dictionary:
 	var best: Dictionary = {}
 	var best_pri: float = -1.0
-	const rank_tie_eps: float = 1e-4
+	var rank_tie_eps: float = 1e-4
 	for nf in range(nfiles):
 		if nf == hole_file:
 			continue
@@ -494,7 +494,7 @@ static func _evaluate_best_lateral_plug_for_cell(
 ) -> Dictionary:
 	var best: Dictionary = {}
 	var best_pri: float = -1.0
-	const file_tie_eps: float = 1e-4
+	var file_tie_eps: float = 1e-4
 	for dfile in [-1, 1]:
 		var nf: int = file + dfile
 		if nf < 0 or nf >= nfiles:
@@ -614,7 +614,7 @@ static func _apply_plug_move(
 ) -> void:
 	var ally: Dictionary = move["ally"]
 	var kind: String = str(move.get("kind", "vertical"))
-	var from_f: int = int(move.get("from_file", 0))
+	var from_f: int = move.get("from_file", 0)
 	_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(ally))
 	ally.rank = fill_rank
 	ally.file = file
@@ -645,7 +645,7 @@ static func _apply_plug_move(
 		elif kind == "rear_infill":
 			plug_msg = (
 				"%s: %s rear infill rank %d file %d -> rank %d file %d"
-				% [log_prefix, name_p, int(move.get("from_rank", 0)), from_f, fill_rank, file]
+				% [log_prefix, name_p, move.get("from_rank", 0), from_f, fill_rank, file]
 			)
 		else:
 			plug_msg = "%s: %s advanced to rank %d (file %d)" % [log_prefix, name_p, fill_rank, file]
@@ -653,7 +653,7 @@ static func _apply_plug_move(
 			CombatDebug.combat_session(plug_msg)
 	elif CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG and str(log_prefix).begins_with("Vacancy"):
 		var name_v: String = _EntityAccess.get_display_name(ally, _EntityAccess.id_int(ally))
-		CombatDebug.formation_vacancy_log("%s: %s â†’ rank %d file %d (%s)" % [log_prefix, name_v, fill_rank, file, kind])
+		CombatDebug.formation_vacancy_log("%s: %s â†' rank %d file %d (%s)" % [log_prefix, name_v, fill_rank, file, kind])
 	if manager.has_meta(VACANCY_PLUG_RESERVED_DONORS_META):
 		var rd: Dictionary = manager.get_meta(VACANCY_PLUG_RESERVED_DONORS_META) as Dictionary
 		rd[_EntityAccess.id_int(ally)] = true
@@ -718,7 +718,7 @@ static func _formation_has_any_promotable_rear_donor(
 
 ## Rank-0 lateral: only when the **hole** column cannot pull a reserve up (no promotable native deeper).
 ## If this column has anyone who can vertical-plug (possibly after skipping empty ranks), do not slide a
-## neighbor's front sideways — that read as "shuffling files" instead of filling from behind.
+## neighbor's front sideways  -  that read as "shuffling files" instead of filling from behind.
 ## `donor_file` kept for call-site stability; lateral donor search may use it later.
 static func _rank0_lateral_slide_allowed(
 	manager: Node,
@@ -799,7 +799,7 @@ static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) 
 	return any_promoted
 
 
-## Skirmish outnumber (III-4 **2b**): wider side keeps intentional file span — do not pack to `0..n-1`.
+## Skirmish outnumber (III-4 **2b**): wider side keeps intentional file span  -  do not pack to `0..n-1`.
 static func _skirmish_wide_line_skip_compact(manager: Node, fid: String) -> bool:
 	if manager == null:
 		return false
@@ -808,7 +808,7 @@ static func _skirmish_wide_line_skip_compact(manager: Node, fid: String) -> bool
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 	if formation.is_empty():
 		return false
-	var opp_fid: String = "enemy" if str(fid) == "player" else "player"
+	var opp_fid: String = CombatConstants.SIDE_ENEMY if fid == CombatConstants.SIDE_PLAYER else CombatConstants.SIDE_PLAYER
 	var forms: Variant = manager.get("formations")
 	if forms == null or not forms is Dictionary or not (forms as Dictionary).has(opp_fid):
 		return false
@@ -986,7 +986,7 @@ static func _log_rank0_vacancy_gaps_if_debug(manager: Node, fid: String) -> void
 ## Run vacancy plug on every file column so empty front cells do not persist while deeper ranks are alive (avoids soft deadlock: no enemy rank 0 while enemies remain).
 ## Repeats rounds so lateral slides that open a gap in a neighbor file get a chance to fill.
 ## Each round processes **files with an empty rank 0 first** (then the rest) so an edge column does not pull a
-## neighbor's front fighter into a shallow hole before that neighbor's own rank-0 gap is closed — that pattern
+## neighbor's front fighter into a shallow hole before that neighbor's own rank-0 gap is closed  -  that pattern
 ## read as the line scooting over and then back when the center finally pulls a reserve.
 static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> bool:
 	var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
@@ -1044,12 +1044,12 @@ static func reconcile_vacancy_plugs_track_changed_fids(manager: Node) -> Array:
 	return changed_fids
 
 
-## Entry point: full pass when `COMBAT_VACANCY_RECONCILE_DIRTY_ONLY` is false; otherwise only `CombatManager._vacancy_dirty_fids` (cleared as processed).
+## Entry point: full pass when `COMBAT_VACANCY_RECONCILE_DIRTY_ONLY` is false; otherwise only `Combatmanager.get_vacancy_dirty_fids()` (cleared as processed).
 static func reconcile_vacancy_plugs(manager: Node) -> Array:
 	if manager == null or not manager.formations is Dictionary:
 		return []
 	if not CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
-		manager._vacancy_dirty_fids.clear()
+		manager.clear_vacancy_dirty_fids()
 		return reconcile_vacancy_plugs_track_changed_fids(manager)
 	return reconcile_vacancy_plugs_dirty_fids(manager)
 
@@ -1058,7 +1058,7 @@ static func reconcile_vacancy_plugs_dirty_fids(manager: Node) -> Array:
 	var changed_fids: Array = []
 	if manager == null or not manager.formations is Dictionary:
 		return changed_fids
-	var dirty_dict: Dictionary = manager._vacancy_dirty_fids
+	var dirty_dict: Dictionary = manager.get_vacancy_dirty_fids()
 	if dirty_dict.is_empty():
 		debug_verify_vacancy_invariants_after_reconcile(manager)
 		return changed_fids
@@ -1093,7 +1093,7 @@ static func finish_vacancy_reconcile_follow_up(
 ) -> void:
 	if manager == null or changed_fids.is_empty():
 		return
-	manager._recompute_zoc_and_distance()
+	manager.recompute_zoc_and_distance()
 	var moved: Array = CombatEventScheduler.ids_with_changed_rank_file_since_snapshot(manager, placement_snap_before)
 	CombatEventScheduler.reschedule_formation_recheck_for_moved_back_ranks(manager, moved)
 	if not emit_formation_changed_signals:

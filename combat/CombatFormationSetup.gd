@@ -30,11 +30,11 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 		p_ranks = int(ceilf(float(maxi(1, player_count)) / float(maxi(1, p_files))))
 	if e_preset.has("front_count") or not e_preset.has("ranks"):
 		e_ranks = int(ceilf(float(maxi(1, enemy_count)) / float(maxi(1, e_files))))
-	manager.formations["player"] = {
+	manager.formations[CombatConstants.SIDE_PLAYER] = {
 		"files": p_files,
 		"ranks": p_ranks,
 		"density": p_preset.get("density", "normal"),
-		"side": "player",
+		"side": CombatConstants.SIDE_PLAYER,
 		"slots": {},
 		"slot_obstacles": {},
 		"zone_control": {},
@@ -42,18 +42,18 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 		"engagement_posture": CombatConstants.ENGAGEMENT_POSTURE_LINE,
 		"morale_cohesion_factor": 1.0,
 		CombatConstants.FORMATION_KEY_STANDING_AT_START: 0,
-		"discipline_posture_enter_delta": float(p_preset.get("discipline_posture_enter_delta", 0.0)),
-		"discipline_posture_leave_delta": float(p_preset.get("discipline_posture_leave_delta", 0.0)),
+		"discipline_posture_enter_delta": p_preset.get("discipline_posture_enter_delta", 0.0),
+		"discipline_posture_leave_delta": p_preset.get("discipline_posture_leave_delta", 0.0),
 		"line_discipline": str(p_preset.get("line_discipline", "")),
 		CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE: CombatConstants.normalize_spear_lane_profile(
 			p_preset.get(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE, "")
 		),
 	}
-	manager.formations["enemy"] = {
+	manager.formations[CombatConstants.SIDE_ENEMY] = {
 		"files": e_files,
 		"ranks": e_ranks,
 		"density": e_preset.get("density", "normal"),
-		"side": "enemy",
+		"side": CombatConstants.SIDE_ENEMY,
 		"slots": {},
 		"slot_obstacles": {},
 		"zone_control": {},
@@ -61,15 +61,15 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 		"engagement_posture": CombatConstants.ENGAGEMENT_POSTURE_LINE,
 		"morale_cohesion_factor": 1.0,
 		CombatConstants.FORMATION_KEY_STANDING_AT_START: 0,
-		"discipline_posture_enter_delta": float(e_preset.get("discipline_posture_enter_delta", 0.0)),
-		"discipline_posture_leave_delta": float(e_preset.get("discipline_posture_leave_delta", 0.0)),
+		"discipline_posture_enter_delta": e_preset.get("discipline_posture_enter_delta", 0.0),
+		"discipline_posture_leave_delta": e_preset.get("discipline_posture_leave_delta", 0.0),
 		"line_discipline": str(e_preset.get("line_discipline", "")),
 		CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE: CombatConstants.normalize_spear_lane_profile(
 			e_preset.get(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE, "")
 		),
 	}
-	var form_player: Dictionary = manager.formations["player"]
-	var form_enemy: Dictionary = manager.formations["enemy"]
+	var form_player: Dictionary = manager.formations[CombatConstants.SIDE_PLAYER]
+	var form_enemy: Dictionary = manager.formations[CombatConstants.SIDE_ENEMY]
 	var pi: int = 0
 	var ei: int = 0
 	for c in manager.combatants:
@@ -78,7 +78,7 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 			var f: int = pi % p_files
 			c.rank = r
 			c.file = f
-			c.formation_id = "player"
+			c.formation_id = CombatConstants.SIDE_PLAYER
 			_FormationSlots.slot_set_single(_FormationSlots.formation_slots_dict(form_player), Vector2i(r, f), _EntityAccess.id_int(c))
 			pi += 1
 		else:
@@ -86,7 +86,7 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 			var f2: int = ei % e_files
 			c.rank = r2
 			c.file = f2
-			c.formation_id = "enemy"
+			c.formation_id = CombatConstants.SIDE_ENEMY
 			_FormationSlots.slot_set_single(_FormationSlots.formation_slots_dict(form_enemy), Vector2i(r2, f2), _EntityAccess.id_int(c))
 			ei += 1
 	_FormationSlots.normalize_formation_slots(form_player)
@@ -99,7 +99,7 @@ static func build_formations_and_assign_slots(manager: Node, player_formation: D
 static func preset_for_formation_id(
 	formation_id: String, player_preset: Dictionary, enemy_preset: Dictionary
 ) -> Dictionary:
-	return player_preset if str(formation_id) == "player" else enemy_preset
+	return player_preset if formation_id == CombatConstants.SIDE_PLAYER else enemy_preset
 
 
 ## Encounter doctrine first, then preset per side (preset wins). Calls **`CombatManager.set_formation_doctrine`**.
@@ -113,12 +113,12 @@ static func seed_formation_doctrine_from_encounter_and_presets(
 		return
 	var sides: Array = [
 		[
-			"player",
+			CombatConstants.SIDE_PLAYER,
 			CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER,
 			CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT,
 		],
 		[
-			"enemy",
+			CombatConstants.SIDE_ENEMY,
 			CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY,
 			CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT,
 		],

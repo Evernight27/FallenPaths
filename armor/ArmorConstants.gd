@@ -1,10 +1,23 @@
 class_name ArmorConstants
 extends RefCounted
 
+## Armor piece definitions, layer config, material properties constants.
+
 const _Combat := preload("res://combat/CombatConstants.gd")
+
 # Damage types (canonical in CombatConstants)
 const DAMAGE_TYPE_SHARP: String = _Combat.DAMAGE_TYPE_SHARP
 const DAMAGE_TYPE_BLUNT: String = _Combat.DAMAGE_TYPE_BLUNT
+
+# Armor layer dict keys (canonical strings  -  use ARMOR_LAYER_KEY_*, not literals)
+const ARMOR_LAYER_KEY_DURABILITY := "durability"
+const DEFAULT_ARMOR_LAYER_DURABILITY := 100.0
+const ARMOR_LAYER_KEY_SHARP_RESISTANCE_RHA_MM := "sharp_resistance_rha_mm"
+const DEFAULT_ARMOR_LAYER_SHARP_RESISTANCE := 0.0
+const ARMOR_LAYER_KEY_BLUNT_CUSHION := "blunt_cushion"
+const DEFAULT_ARMOR_LAYER_BLUNT_CUSHION := 0.0
+const ARMOR_LAYER_KEY_RIGIDITY := "rigidity"
+const DEFAULT_ARMOR_LAYER_RIGIDITY := 0.0
 
 # Armor: sharp penetration vs resistance; blunt transmission (no penetration). Durability loss per layer from absorbed damage.
 const PENETRATION_DAMAGE_REDUCTION_MAX: float = 0.5
@@ -17,7 +30,7 @@ const DURABILITY_MIN_DAMAGE_RATIO: float = 0.05
 const BLUNT_DURABILITY_THRESHOLD_RATIO: float = 0.5
 
 # --- Generic layer stats (cloth, leather, mail, plate only) ---
-# Sharp resistance: mm RHA equivalent. Nonlinear pen = (KE/55)^0.6 × area_factor (Williams).
+# Sharp resistance: mm RHA equivalent. Nonlinear pen = (KE/55)^0.6 - -  area_factor (Williams).
 # Blunt: transmission-only (no penetration check). Durability uses sharp_resistance_rha_mm and blunt_transmission.
 # Sharp deflect transmission: fraction of damage that becomes blunt when sharp is stopped by layer (plate transmits more, cloth absorbs).
 # Blunt transmission: fraction of blunt damage that passes through layer (transmission-only; no penetration).
@@ -27,9 +40,9 @@ const SHARP_DEFLECT_TRANSMISSION_DEFAULT: float = 0.5
 const BLUNT_TRANSMISSION_DEFAULT: float = 0.65
 
 # blunt_cushion 0-1: transmission = base * (1 - cushion * momentum_factor). High cushion = padding absorbs.
-# When momentum/area (kg·m/s)/m² exceeds this, cushion is overwhelmed (heavy blows push through padding).
-# Example: mace 1.7 kg, 12 m/s, 8 cm head → p/A ≈ 20.4/0.005 ≈ 4080 (kg·m/s)/m² → above threshold.
-const BLUNT_CUSHION_MOMENTUM_THRESHOLD: float = 3000.0  # (kg·m/s)/m²
+# When momentum/area (kg·m/s)/mÂ² exceeds this, cushion is overwhelmed (heavy blows push through padding).
+# Example: mace 1.7 kg, 12 m/s, 8 cm head â p/A â 20.4/0.005 â 4080 (kg·m/s)/mÂ² â above threshold.
+const BLUNT_CUSHION_MOMENTUM_THRESHOLD: float = 3000.0  # (kg·m/s)/mÂ²
 
 # Area coupling for rigid layers: coupling = lerp(1, contact_cm/REFERENCE, rigidity). No clamp.
 # ArmorPiece uses WeaponConstants.get_blunt_coupling_reference_cm() (mean head_diameter from weapon defs).
@@ -43,8 +56,8 @@ const BLUNT_AREA_FACTOR_WARN_MAX: float = 5.0
 const BLUNT_TRANSMISSION_WARN_MIN: float = 0.0
 const BLUNT_TRANSMISSION_WARN_MAX: float = 1.0
 
-# rigidity 0–1: area coupling for blunt. Rigid (plate) transmits more with large contact (mace); flexible (cloth) no effect.
-# Cloth: gambeson padding, leg wraps, coif. Williams: 50 J for 16 layers linen. pen=(50/55)^0.6 ≈ 0.9 mm.
+# rigidity 0 - 1: area coupling for blunt. Rigid (plate) transmits more with large contact (mace); flexible (cloth) no effect.
+# Cloth: gambeson padding, leg wraps, coif. Williams: 50 J for 16 layers linen. pen=(50/55)^0.6 â 0.9 mm.
 const LAYER_CLOTH: Dictionary = {
 	"sharp_resistance_rha_mm": 0.9,
 	"blunt_cushion": 0.8,
@@ -55,7 +68,7 @@ const LAYER_CLOTH: Dictionary = {
 	"mass_kg": 0.45
 }
 
-# Leather: buff coat, boiled leather. Williams: buff 30 J, cuir-bouilli 20–30 J. pen=(30/55)^0.6 ≈ 0.6 mm.
+# Leather: buff coat, boiled leather. Williams: buff 30 J, cuir-bouilli 20 - 30 J. pen=(30/55)^0.6 â 0.6 mm.
 const LAYER_LEATHER: Dictionary = {
 	"sharp_resistance_rha_mm": 0.6,
 	"blunt_cushion": 0.5,
@@ -66,7 +79,7 @@ const LAYER_LEATHER: Dictionary = {
 	"mass_kg": 1.05
 }
 
-# Mail: chainmail + jack. Williams: 80–120 J. pen=(120/55)^0.6 ≈ 1.5 mm.
+# Mail: chainmail + jack. Williams: 80 - 120 J. pen=(120/55)^0.6 â 1.5 mm.
 const LAYER_MAIL: Dictionary = {
 	"sharp_resistance_rha_mm": 1.5,
 	"blunt_cushion": 0.2,
@@ -77,7 +90,7 @@ const LAYER_MAIL: Dictionary = {
 	"mass_kg": 2.45
 }
 
-# Plate: medieval steel. Williams: 2 mm=175 J, 3.5 mm≈380 J. Rigid → area coupling (mace > thrust).
+# Plate: medieval steel. Williams: 2 mm=175 J, 3.5 mmâ380 J. Rigid â area coupling (mace > thrust).
 const LAYER_PLATE: Dictionary = {
 	"sharp_resistance_rha_mm": 3.5,
 	"blunt_cushion": 0.0,
@@ -228,3 +241,4 @@ static func _piece_definitions_build() -> Dictionary:
 
 # Default penetration when no weapon is specified (strength-scaled later)
 const DEFAULT_PENETRATION_SHARP: float = 5.0
+      

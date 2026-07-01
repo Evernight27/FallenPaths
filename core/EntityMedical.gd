@@ -9,8 +9,10 @@ const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _EntityWounds := preload("res://core/EntityWounds.gd")
+
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 
 
 ## F5: dressings/pack/TQ outcomes stay; skip hold/release pressure spam (`medical_action pick` + combat log cover menu use).
@@ -29,11 +31,11 @@ static func log_medical_session(msg: String) -> void:
 # --- Shared wound treatment (bandage, packing) ---
 
 static func part_is_bandaged(entity: Node, part: String) -> bool:
-	return entity.bandaged_parts.get(part, false) == true
+	return entity.bandaged_parts.get(part, false)
 
 
 static func part_is_packed(entity: Node, part: String) -> bool:
-	return entity.packed_parts.get(part, false) == true
+	return entity.packed_parts.get(part, false)
 
 
 ## TCCC: compressible hemorrhage needs sustained compression before dress/pack while still actively bleeding.
@@ -55,6 +57,11 @@ static func _apply_stabilizing_treatment(
 	pressure_held: bool = false,
 	mark_injury_stabilized: bool = true
 ) -> Dictionary:
+	if part.is_empty() or not ("wounds" in entity):
+		return { "success": false, "wound_count": 0, "reduction": 0.0 }
+	var w: Variant = entity.get("wounds")
+	if not (w is Dictionary) or not w.has(part):
+		return { "success": false, "wound_count": 0, "reduction": 0.0 }
 	effectiveness = clampf(effectiveness, 0.0, 1.5)
 	var has_arterial: bool = false
 	for injury in entity.wounds[part]:
@@ -115,11 +122,11 @@ static func get_treatment_channel_count(entity: Node, part: String) -> int:
 	var channels: Dictionary = {}
 	var extra_severe: int = 0
 	for injury in entity.wounds[part]:
-		var sr: String = str(injury.get("sub_region", ""))
+		var sr: String = injury.get("sub_region", "")
 		if sr.is_empty():
 			sr = "_default"
 		channels[sr] = true
-		if injury.get("is_stump", false) == true or injury.get("is_arterial", false) == true:
+		if injury.get("is_stump", false) or injury.get("is_arterial", false):
 			extra_severe += 1
 		else:
 			var sev: String = str(injury.get("severity", _Bleeding.SEVERITY_MODERATE))
@@ -141,8 +148,8 @@ static func can_apply_bandage(entity: Node, part: String) -> bool:
 		return false
 	if entity.tourniquet_applied.has(part) or part_is_bandaged(entity, part):
 		return false
-	# Life-threatening limb hemorrhage: TQ path — do not bandage over indicated extremity bleed (combat listing parity).
-	if part in _Bleeding.LIMB_PARTS and is_tourniquet_indicated_for_part(entity, part):
+	# Life-threatening limb hemorrhage: TQ path —" do not bandage over indicated extremity bleed (combat listing parity).
+	if _BodyPartQuery.is_limb(part) and is_tourniquet_indicated_for_part(entity, part):
 		return false
 	if _compression_required_before_dressing(entity, part):
 		return false
@@ -186,7 +193,7 @@ static func get_stabilize_application_time_seconds_for_part(entity: Node, part: 
 	)
 
 
-## Quick hemostatic control while pressure is held; trims bleed rate only — does **not** set `is_stabilized` (definitive dress still required).
+## Quick hemostatic control while pressure is held; trims bleed rate only —" does **not** set `is_stabilized` (definitive dress still required).
 static func can_apply_stabilize(entity: Node, part: String) -> bool:
 	if part.is_empty() or not entity.wounds.has(part) or entity.wounds[part].is_empty():
 		return false
@@ -194,13 +201,12 @@ static func can_apply_stabilize(entity: Node, part: String) -> bool:
 		return false
 	if entity.bandaged_parts.get(part, false) or entity.packed_parts.get(part, false):
 		return false
-	if part in _Bleeding.LIMB_PARTS and is_tourniquet_indicated_for_part(entity, part):
+	if _BodyPartQuery.is_limb(part) and is_tourniquet_indicated_for_part(entity, part):
 		return false
 	if not has_direct_pressure_on_part(entity, part):
-		return false
-	for injury in entity.wounds[part]:
-		if float(injury.get("current_bleeding_rate", 0.0)) > _Bleeding.BLEEDING_RATE_EPSILON:
-			return true
+		for injury in entity.wounds[part]:
+			if injury.get("current_bleeding_rate", 0.0) > _Bleeding.BLEEDING_RATE_EPSILON:
+				return true
 	return false
 
 
@@ -240,13 +246,13 @@ static func _wound_severity_rank(severity: String) -> int:
 
 
 static func _injury_in_strict_packing_sub_region(part: String, injury: Dictionary) -> bool:
-	var sr: String = str(injury.get("sub_region", ""))
+	var sr: String = injury.get("sub_region", "")
 	if sr.is_empty():
 		return false
 	var strict_list: Variant = _Bleeding.PACKING_STRICT_SUB_REGIONS.get(part, [])
 	if not (strict_list is Array):
 		return false
-	for strict_sr in strict_list as Array:
+	for strict_sr in strict_list:
 		if str(strict_sr) == sr:
 			return true
 	return false
@@ -254,12 +260,12 @@ static func _injury_in_strict_packing_sub_region(part: String, injury: Dictionar
 
 ## One wound channel eligible for pack: moderate+ default; junctional neck/abdominal need severe+ unless arterial.
 static func injury_meets_packing_severity(part: String, injury: Dictionary) -> bool:
-	if typeof(injury) != TYPE_DICTIONARY:
+	if injury is not Dictionary:
 		return false
 	var rank: int = _wound_severity_rank(str(injury.get("severity", _Bleeding.SEVERITY_MODERATE)))
 	var min_rank: int = _wound_severity_rank(_Bleeding.PACKING_MIN_SEVERITY)
 	if _injury_in_strict_packing_sub_region(part, injury):
-		if injury.get("is_arterial", false) == true:
+		if injury.get("is_arterial", false):
 			return rank >= min_rank
 		return rank >= _wound_severity_rank(_Bleeding.PACKING_STRICT_SUB_REGION_MIN_SEVERITY)
 	return rank >= min_rank
@@ -351,7 +357,7 @@ static func prepare_for_medical_windup(performer: Node, target: Node, part: Stri
 		return
 	if performer.direct_pressure_on_ally.has("node") and performer.direct_pressure_on_ally.has("part"):
 		var on_node: Node = performer.direct_pressure_on_ally.get("node")
-		var on_part: String = str(performer.direct_pressure_on_ally.get("part", ""))
+		var on_part: String = performer.direct_pressure_on_ally.get("part", "")
 		if on_node != target or on_part != part:
 			if on_node != null and not on_part.is_empty() and "direct_pressure_part" in on_node:
 				if on_node.direct_pressure_part == on_part:
@@ -446,7 +452,7 @@ static func can_apply_direct_pressure(entity: Node, target_part: String) -> bool
 	var arm: String = entity.get_attacking_arm()
 	if arm.is_empty():
 		return false
-	if target_part == "right_arm" or target_part == "left_arm":
+	if _BodyPartQuery.is_arm(target_part):
 		if arm == target_part:
 			return false
 	return true
@@ -574,7 +580,7 @@ static func clear_direct_pressure(entity: Node) -> void:
 # --- Tourniquet ---
 
 static func is_tourniquet_indicated_for_part(entity: Node, part: String) -> bool:
-	if part not in _Bleeding.LIMB_PARTS or not entity.wounds.has(part) or entity.wounds[part].is_empty():
+	if not _BodyPartQuery.is_limb(part) or not entity.wounds.has(part) or entity.wounds[part].is_empty():
 		return false
 	for injury in entity.wounds[part]:
 		if injury.get("is_stump", false):
@@ -588,7 +594,7 @@ static func is_tourniquet_indicated_for_part(entity: Node, part: String) -> bool
 	return false
 
 static func can_apply_tourniquet(entity: Node, part: String) -> bool:
-	if part not in _Bleeding.LIMB_PARTS:
+	if not _BodyPartQuery.is_limb(part):
 		return false
 	if not entity.wounds.has(part) or entity.wounds[part].is_empty():
 		return false
@@ -601,7 +607,7 @@ static func ensure_tourniquet_dict_entry(entity: Node, part: String) -> void:
 	if not entity.tourniquet_applied.has(part):
 		return
 	var data = entity.tourniquet_applied[part]
-	if typeof(data) == TYPE_FLOAT or typeof(data) == TYPE_INT:
+	if data is float or data is int:
 		entity.tourniquet_applied[part] = { "applied_at": float(data), "effectiveness": 1.0 }
 
 
@@ -639,7 +645,7 @@ static func apply_tourniquet(entity: Node, part: String, effectiveness: float = 
 		# Partial bleed reduction on failure: failed TQ still partially occludes the vessel.
 		var partial_reduction: float = _Bleeding.TOURNIQUET_FAILED_REDUCTION_MULT * clampf(effectiveness, 0.0, 1.0) * _Bleeding.TOURNIQUET_REDUCTION_AT_FULL
 		for injury in entity.wounds.get(part, []):
-			var rate: float = float(injury.get("current_bleeding_rate", 0.0))
+			var rate: float = injury.get("current_bleeding_rate", 0.0)
 			injury["current_bleeding_rate"] = maxf(0.0, rate * (1.0 - partial_reduction))
 		# Track failure count for escalating retry chance.
 		if entity.has_method("get_tourniquet_failures"):

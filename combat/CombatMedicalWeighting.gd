@@ -10,7 +10,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _EntityMedical := preload("res://core/EntityMedical.gd")
-static var _MedicalPhase: Script = load("res://combat/MedicalPhaseController.gd") as Script
+const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 
 ## Check if the medical escalation feature is active (inline to avoid circular preload).
 static func is_feature_ms_medical_escalation_enabled() -> bool:
@@ -20,7 +20,7 @@ static func is_feature_ms_medical_escalation_enabled() -> bool:
 ## Compute triage weight for a single medical action. Returns **`MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED`** when coordination gate fails.
 static func compute_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
 	var mid: String = a.get("move_id", "")
-	var tgt_id: int = int(a.get("target_id", -1))
+	var tgt_id: int = a.get("target_id", -1)
 	var part: String = str(a.get("target_part", ""))
 
 	# Coordination gate
@@ -93,7 +93,7 @@ static func _compute_pending_retry_weight(
 	var pending: Dictionary = {}
 	if performer != null:
 		var pnd_raw: Variant = performer.get("pending_retry", null)
-		if typeof(pnd_raw) == TYPE_DICTIONARY:
+		if pnd_raw is Dictionary:
 			pending = pnd_raw as Dictionary
 	if not pending.is_empty() and pending.get("target_id", -1) == a.get("target_id", -1) and pending.get("part", "") == a.get("target_part", ""):
 		if not tgt.is_empty() and _EntityAccess.is_in_immediate_peril(manager, tgt):
@@ -121,7 +121,7 @@ static func _compute_failed_part_retry_weight(
 				tgt, a.get("target_part", ""), mid, manager, performer_id
 			)
 			if escalation_available:
-				return w  # Suppress retry bonus — escalate instead
+				return w  # Suppress retry bonus —" escalate instead
 		return w * _MedicalPhase.MEDICAL_AI_WEIGHT_FAILED_PART_RETRY
 	return w
 
@@ -173,7 +173,7 @@ static func _compute_bleeding_interaction(
 					return 0.001
 				if mid == CombatConstants.MOVE_ID_PACK_WOUND:
 					# When escalation is active and this part has failed bandage,
-					# pack IS the correct TCCC step — don't dampen it.
+					# pack IS the correct TCCC step —" don't dampen it.
 					if is_feature_ms_medical_escalation_enabled():
 						var failed_raw: Variant = tgt.get("failed_medical_parts", null)
 						if failed_raw is Array and part_in_array(failed_raw as Array, part):
@@ -183,7 +183,7 @@ static func _compute_bleeding_interaction(
 							if not esc_path.is_empty():
 								var cur_idx: int = esc_path.find(CombatConstants.MOVE_ID_PACK_WOUND)
 								if cur_idx > 0:
-									return w  # Skip dampening — pack is an escalation step
+									return w  # Skip dampening —" pack is an escalation step
 					return w * _MedicalPhase.MEDICAL_AI_WEIGHT_PACK_BEFORE_PRESSURE
 	return w
 
@@ -204,7 +204,7 @@ static func _escalation_path_has_next_step(
 	var current_idx: int = path.find(current_move_id)
 	if current_idx < 0 or current_idx >= path.size() - 1:
 		return false
-	# Verify the next step is actually performable — capability matters.
+	# Verify the next step is actually performable —" capability matters.
 	var perf: Dictionary = _EntityAccess.manager_get_combatant(manager, performer_id)
 	if not perf.is_empty():
 		var entity: Node = _EntityAccess.get_entity_from_manager(manager, perf)
@@ -240,11 +240,11 @@ static func _compute_escalation_bonus(
 	var failed_raw: Variant = tgt.get("failed_medical_parts", null)
 	if failed_raw is not Array:
 		return 1.0
-	var failed_list: Array = failed_raw as Array
+	var failed_list: Array = failed_raw
 	if failed_list.is_empty():
 		return 1.0
 	# If the current step is NOT the first in the path, and the part has failed,
-	# this is an escalation — apply bonus.
+	# this is an escalation —" apply bonus.
 	if current_idx > 0 and part_in_array(failed_list, part):
 		return CombatConstants.MEDICAL_AI_WEIGHT_ESCALATION_BONUS
 	return 1.0

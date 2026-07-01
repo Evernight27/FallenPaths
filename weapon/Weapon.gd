@@ -1,6 +1,8 @@
 class_name Weapon
 extends RefCounted
 
+## Weapon data model: create from definition, type info, damage stats.
+
 const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
 
 # Template-backed weapon instance. Load from WeaponConstants; can later add
@@ -49,21 +51,21 @@ static func parry_part_id_from_parts(parts_arr: Array, preferred_id: String = ""
 	var wanted: String = _normalize_part_id(preferred_id)
 	if not wanted.is_empty():
 		for p in parts_arr:
-			if p is Dictionary and _normalize_part_id((p as Dictionary).get("id", "")) == wanted:
-				if bool((p as Dictionary).get("parry_eligible", false)):
-					return str((p as Dictionary).get("id", ""))
+			if p is Dictionary and _normalize_part_id(p.get("id", "")) == wanted:
+				if p.get("parry_eligible", false):
+					return p.get("id", "")
 				break
 	for p in parts_arr:
-		if p is Dictionary and bool((p as Dictionary).get("parry_eligible", false)):
-			return str((p as Dictionary).get("id", ""))
+		if p is Dictionary and p.get("parry_eligible", false):
+			return p.get("id", "")
 	var best_id: String = ""
 	var best_fraction: float = -1.0
 	for p in parts_arr:
 		if p is Dictionary:
-			var frac: float = float((p as Dictionary).get("mass_fraction", 0.0))
+			var frac: float = p.get("mass_fraction", 0.0)
 			if frac > best_fraction:
 				best_fraction = frac
-				best_id = str((p as Dictionary).get("id", ""))
+				best_id = p.get("id", "")
 	return best_id
 
 
@@ -82,7 +84,7 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 	w.head_diameter = def.get("head_diameter", 0.0)
 	w.edge_width = def.get("edge_width", 0.0)
 	w.melee_range = def.get("melee_range", 1.5)
-	w.depth_melee_eligible = bool(def.get("depth_melee_eligible", false))
+	w.depth_melee_eligible = def.get("depth_melee_eligible", false)
 	w.blade_cut_ratio = def.get("blade_cut_ratio", 0.75)
 	w.sharpness = def.get("sharpness", 1.0)
 	var parts_arr = def.get("parts", [])
@@ -90,7 +92,7 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 		for p in parts_arr:
 			if p is Dictionary:
 				w.parts.append(p.duplicate())
-		w.parry_part_id = parry_part_id_from_parts(w.parts, str(def.get("parry_part_id", "")))
+		w.parry_part_id = parry_part_id_from_parts(w.parts, def.get("parry_part_id", ""))
 	if w.parts.is_empty():
 		var len_cm: float = maxf(30.0, w.melee_range * 60.0)
 		w.parts = [
@@ -145,7 +147,7 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 	return w
 
 
-## Resolved impact speed band (m/s) for Tier A–C model. contact_type: stab | cut | blunt.
+## Resolved impact speed band (m/s) for Tier A - C model. contact_type: stab | cut | blunt.
 func get_impact_velocity_band_m_s(contact_type: String) -> Vector2:
 	return _ImpactVelocityModel.resolve_band_m_s(self, contact_type)
 
@@ -154,7 +156,7 @@ func get_cooldown(move_id: String) -> float:
 	if attack_types.has(move_id):
 		return attack_types[move_id].get("cooldown", WeaponConstants.DEFAULT_COOLDOWN)
 	var m = WeaponConstants.get_move(move_id)
-	return float(m.get("base_cooldown", WeaponConstants.DEFAULT_COOLDOWN))
+	return m.get("base_cooldown", WeaponConstants.DEFAULT_COOLDOWN)
 
 
 # Contact type for this move (stab/cut/blunt); canonical resolver (move id or bare contact).
@@ -273,7 +275,7 @@ func get_parry_part_mass_kg() -> float:
 	var wanted_part_id: String = _normalize_part_id(parry_part_id)
 	for p in parts:
 		if p is Dictionary and _normalize_part_id(p.get("id", "")) == wanted_part_id:
-			var frac: float = float(p.get("mass_fraction", 1.0))
+			var frac: float = p.get("mass_fraction", 1.0)
 			return mass * clampf(frac, 0.0, 1.0)
 	return mass
 
@@ -284,7 +286,7 @@ func get_parry_part_length_cm() -> float:
 	var wanted_part_id: String = _normalize_part_id(parry_part_id)
 	for p in parts:
 		if p is Dictionary and _normalize_part_id(p.get("id", "")) == wanted_part_id:
-			return float(p.get("length_cm", 0))
+			return p.get("length_cm", 0)
 	return 0.0
 
 ## Mass (kg) of the part that strikes for the given contact_type. Without parts, uses total mass.
@@ -298,7 +300,7 @@ func get_striking_part_mass_kg(contact_type: String) -> float:
 			if sf is Array:
 				for listed in sf:
 					if str(listed).to_lower().strip_edges() == ct:
-						var frac: float = float(p.get("mass_fraction", 1.0))
+						var frac: float = p.get("mass_fraction", 1.0)
 						return mass * clampf(frac, 0.0, 1.0)
 	match ct:
 		WeaponConstants.ATTACK_TYPE_STAB:
@@ -306,22 +308,22 @@ func get_striking_part_mass_kg(contact_type: String) -> float:
 				if p is Dictionary:
 					var pid: String = _normalize_part_id(p.get("id", ""))
 					if pid in ["point", "blade", "spike", "head"]:
-						var frac: float = float(p.get("mass_fraction", 1.0))
+						var frac: float = p.get("mass_fraction", 1.0)
 						return mass * clampf(frac, 0.0, 1.0)
 		WeaponConstants.ATTACK_TYPE_CUT:
 			for p in parts:
 				if p is Dictionary and _normalize_part_id(p.get("id", "")) == "blade":
-					var frac: float = float(p.get("mass_fraction", 1.0))
+					var frac: float = p.get("mass_fraction", 1.0)
 					return mass * clampf(frac, 0.0, 1.0)
 		WeaponConstants.ATTACK_TYPE_BLUNT:
 			for p in parts:
 				if p is Dictionary:
 					var pid: String = _normalize_part_id(p.get("id", ""))
 					if pid in ["head", "haft", "shaft"]:
-						var frac: float = float(p.get("mass_fraction", 1.0))
+						var frac: float = p.get("mass_fraction", 1.0)
 						return mass * clampf(frac, 0.0, 1.0)
 	if parts.size() > 0 and parts[0] is Dictionary:
-		var frac: float = float(parts[0].get("mass_fraction", 1.0))
+		var frac: float = parts[0].get("mass_fraction", 1.0)
 		return mass * clampf(frac, 0.0, 1.0)
 	return mass
 
@@ -344,7 +346,7 @@ func get_parry_strong_fraction() -> float:
 	var total: float = 0.0
 	for p in parts:
 		if p is Dictionary:
-			var plen: float = float(p.get("length_cm", 0))
+			var plen: float = p.get("length_cm", 0)
 			total += plen
 			var pid: String = _normalize_part_id(p.get("id", ""))
 			if pid == "handle":

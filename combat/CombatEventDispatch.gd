@@ -15,14 +15,14 @@ const _Footwork := preload("res://combat/CombatFootwork.gd")
 static func process_event_queue(manager: Node) -> void:
 	while manager.event_queue.size() > 0:
 		var head_raw: Variant = manager.event_queue[0]
-		if typeof(head_raw) != TYPE_DICTIONARY:
+		if head_raw is not Dictionary:
 			CombatDebug.operational_warn(
 				"event_queue dropped non-dictionary head type=%s" % type_string(typeof(head_raw))
 			)
 			manager.event_queue.pop_front()
 			continue
-		var head: Dictionary = head_raw as Dictionary
-		if float(head.get("resolve_at", 0.0)) > _EntityAccess.combat_clock_float(manager):
+		var head: Dictionary = head_raw
+		if head.get("resolve_at", 0.0) > _EntityAccess.combat_clock_float(manager):
 			break
 		var ev: Dictionary = manager.event_queue.pop_front() as Dictionary
 		handle_event(manager, ev)
@@ -62,7 +62,7 @@ static func handle_event(manager: Node, ev: Dictionary) -> void:
 		CombatConstants.EVENT_PLUG_FORWARD_RESOLVE:
 			manager._handle_plug_forward_resolve(ev)
 		_:
-			CombatDebug.flow_log_event("unknown event type %s" % str(ev_type), "event_dispatch_unknown")
+			CombatDebug.flow_log_event("unknown event type %s" % ev_type, "event_dispatch_unknown")
 
 
 static func handle_action_ready(manager: Node, c: Dictionary) -> void:
@@ -71,10 +71,10 @@ static func handle_action_ready(manager: Node, c: Dictionary) -> void:
 	var cid_ready: int = _EntityAccess.id_int(c)
 	if (
 		_EntityAccess.state_str(c) == CombatConstants.STATE_WAITING
-		and _EntityAccess.gauge_float(c) >= 99.9
+		and _EntityAccess.gauge_float(c) >= CombatConstants.GAUGE_FULL_THRESHOLD
 	):
 		CombatDebug.flow_log(
-			"stale ACTION_READY id=%d (gauge full) — skip_turn recover" % cid_ready,
+			"stale ACTION_READY id=%d (gauge full)  -  skip_turn recover" % cid_ready,
 			"stale_action_ready:%d" % cid_ready
 		)
 		_EntityAccess.manager_skip_turn(
@@ -108,7 +108,7 @@ static func handle_action_ready(manager: Node, c: Dictionary) -> void:
 			manager.notify_turn_ready(_EntityAccess.id_int(c))
 	else:
 		var actions: Array = manager.get_available_actions(_EntityAccess.id_int(c))
-		CombatAIActionPicker.resolve_picked_turn_or_skip(manager, _EntityAccess.id_int(c), actions, "enemy")
+		CombatAIActionPicker.resolve_picked_turn_or_skip(manager, _EntityAccess.id_int(c), actions, CombatConstants.SIDE_ENEMY)
 
 
 static func handle_melee_attack(manager: Node, c: Dictionary) -> void:

@@ -19,7 +19,7 @@ const _ArmorPenetrationTrace := preload("res://armor/ArmorPenetrationTrace.gd")
 const _MaterialFailureCurves := preload("res://core/MaterialFailureCurves.gd")
 const _TissueEnergyCapacity := preload("res://core/TissueEnergyCapacity.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
+const _StatsUtil := preload("res://core/EntityStatsUtil.gd")
 
 # Damage resistance and severance (CoreEntity-aligned).
 const ENDURANCE_DAMAGE_RESISTANCE_PER_POINT: float = 0.0001
@@ -39,14 +39,14 @@ const SEVERANCE_EASE_WOUND_CAP: float = 0.25
 const SEVERANCE_EASE_SEVERITY_BONUS: Dictionary = { "minor": 0.0, "moderate": 0.05, "severe": 0.12, "critical": 0.20 }
 
 ## --- Armor energy accounting (design options, not implemented) ---
-## Option A — Layer joule budget: each layer absorbs KE from a running total; sharp vs blunt uses split
+## Option A  -  Layer joule budget: each layer absorbs KE from a running total; sharp vs blunt uses split
 ## absorption curves. Pros: matches armor literature, one conserved quantity. Cons: needs per-material
 ## data, larger refactor, tuning all weapons again.
-## Option B — Impedance chain: sequential reflection coefficients per interface. Pros: fast, stable.
+## Option B  -  Impedance chain: sequential reflection coefficients per interface. Pros: fast, stable.
 ## Cons: still many tuned coefficients, less intuitive than joules for designers.
-## Option C — Hybrid: keep current scalar streams but report "estimated absorbed joules" for logs/AI
+## Option C  -  Hybrid: keep current scalar streams but report "estimated absorbed joules" for logs/AI
 ## only. Pros: incremental. Cons: not physically authoritative, can disagree with gameplay damage.
-## Option D — Monte Carlo micro-deflect: sample yarn/ring deflections. Pros: rich variance. Cons: CPU,
+## Option D  -  Monte Carlo micro-deflect: sample yarn/ring deflections. Pros: rich variance. Cons: CPU,
 ## hard to balance, opaque to players.
 
 static func _layer_state_rows_for_part(entity: Node, part: String) -> Array:
@@ -85,10 +85,7 @@ static func get_severance_ease_factor(entity: Node, part: String) -> float:
 	return clampf(severance_ease, 1.0, SEVERANCE_EASE_MAX)
 
 static func _effective_endurance_for_damage(entity: Node) -> float:
-	var eff: float = float(entity.endurance)
-	if _CompanyState.read_stub_proficiency_enabled() and entity.has("_proficiency_bonus"):
-		eff += float(entity._proficiency_bonus.get("endurance", 0) or 0)
-	return eff
+	return _StatsUtil.get_effective_stat(entity, "endurance")
 
 ## Full damage-split application: armor, bone/tissue split, wounds, early severance, stump, vital death, pain shock.
 ## extras: strike_ke_j, hit_sub_region, hit_sub_region_seed, force_layer_tissue, force_layer_tissue_curves,
@@ -96,7 +93,7 @@ static func _effective_endurance_for_damage(entity: Node) -> float:
 ## disable_layer_tissue, disable_layer_tissue_curves, disable_tissue_energy_pool, disable_joule_armor_budget (harness baselines).
 ## Returns final_* , was_deflected, mechanical_post_armor (cut+blunt sum immediately after armor, game units).
 static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, part: String, penetration_sharp: float = -1.0, penetration_blunt_momentum_per_area: float = -1.0, blunt_contact_cm: float = -1.0, extras: Dictionary = {}) -> Dictionary:
-	var impact_ke: float = float(extras.get("strike_ke_j", -1.0))
+	var impact_ke: float = extras.get("strike_ke_j", -1.0)
 	if part not in entity.body_cutting or part not in entity.body_blunt or part not in entity.bone_health:
 		return { "final_cut": 0.0, "final_blunt": 0.0, "final_bone": 0.0, "was_deflected": false, "mechanical_post_armor": 0.0 }
 	if entity._is_part_severed(part):
@@ -111,11 +108,11 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 	var armor_var: Variant = entity.get_armor_for_part(part)
 	var pen_s: float = penetration_sharp if penetration_sharp >= 0.0 else _ArmorConstants.DEFAULT_PENETRATION_SHARP
 	var joule_ke: Dictionary = {}
-	var force_joule: bool = bool(extras.get("force_joule_armor_budget", false))
+	var force_joule: bool = extras.get("force_joule_armor_budget", false)
 	var joule_authoritative: bool = false
 	if (
 		_ArmorJouleBudget.is_active(force_joule)
-		and not bool(extras.get("disable_joule_armor_budget", false))
+		and not extras.get("disable_joule_armor_budget", false)
 		and impact_ke > 0.0
 		and armor_var != null
 		and armor_var.get_script() == _ArmorPieceScript
@@ -128,7 +125,7 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 			penetration_blunt_momentum_per_area,
 			blunt_contact_cm
 		)
-		var ke_frac: float = float(joule_ke.get("transmitted_ke_fraction", 1.0))
+		var ke_frac: float = joule_ke.get("transmitted_ke_fraction", 1.0)
 		cut_pre_val *= ke_frac
 		blunt_pre_val *= ke_frac
 		joule_authoritative = true
@@ -142,14 +139,14 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 			final_blunt = blunt_pre_val
 			blunt_from_direct = blunt_pre_val
 			if _CombatConstants.combat_debug_active():
-				print(
+				CombatDebug.log(
 					"[Armor] %s %s: joule-authoritative cut=%.1f blunt=%.1f ke_frac=%.3f (scalar ArmorPiece skipped)"
 					% [
 						entity.name,
 						part,
 						final_cut,
 						final_blunt,
-						float(joule_ke.get("transmitted_ke_fraction", 1.0)),
+						joule_ke.get("transmitted_ke_fraction", 1.0),
 					]
 				)
 		else:
@@ -175,18 +172,18 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 				var result_blunt: Dictionary = armor_var.apply_damage(blunt_pre_val, _CombatConstants.DAMAGE_TYPE_BLUNT, 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm, 0)
 				final_blunt = maxf(0.0, result_blunt.get("damage", 0.0))
 			if _CombatConstants.combat_debug_active():
-				print("[Armor] %s %s: pre cut=%.1f blunt=%.1f | transmitted_raw=%.1f direct_blunt=%.1f | pen_sharp=%.2f mm RHA | blunt: => post-armor cut=%.1f blunt=%.1f" % [entity.name, part, cut_pre_val, blunt_pre_val, deflected_raw, blunt_pre_val, pen_s, final_cut, final_blunt])
+				CombatDebug.log("[Armor] %s %s: pre cut=%.1f blunt=%.1f | transmitted_raw=%.1f direct_blunt=%.1f | pen_sharp=%.2f mm RHA | blunt: => post-armor cut=%.1f blunt=%.1f" % [entity.name, part, cut_pre_val, blunt_pre_val, deflected_raw, blunt_pre_val, pen_s, final_cut, final_blunt])
 	else:
 		final_cut = cut_pre_val
 		final_blunt = blunt_pre_val
 		blunt_from_direct = blunt_pre_val
 		if _CombatConstants.combat_debug_active() and (cut_pre_val > 0.0 or blunt_pre_val > 0.0):
-			print("[Armor] %s %s: no armor => post cut=%.1f blunt=%.1f" % [entity.name, part, final_cut, final_blunt])
+			CombatDebug.log("[Armor] %s %s: no armor => post cut=%.1f blunt=%.1f" % [entity.name, part, final_cut, final_blunt])
 	var total_final: float = final_cut + final_blunt
 	var mechanical_post_armor: float = total_final
 	if total_final <= 0.0:
 		return { "final_cut": 0.0, "final_blunt": 0.0, "final_bone": 0.0, "was_deflected": false, "mechanical_post_armor": 0.0 }
-	var sub_region: String = str(extras.get("hit_sub_region", "")).strip_edges()
+	var sub_region: String = extras.get("hit_sub_region", "").strip_edges()
 	if sub_region.is_empty():
 		var seed_key: int = int(extras.get("hit_sub_region_seed", entity.get_instance_id()))
 		sub_region = _HitSubRegion.fallback_sub_region(part, seed_key)
@@ -201,19 +198,19 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 		pen_to_tissue = pen_s
 		if armor_var != null and armor_var.get_script() == _ArmorPieceScript:
 			var pen_trace: Dictionary = _ArmorPenetrationTrace.sharp_penetration_to_tissue_mm(armor_var, pen_s)
-			pen_to_tissue = float(pen_trace.get("penetration_to_tissue_mm", 0.0))
+			pen_to_tissue = pen_trace.get("penetration_to_tissue_mm", 0.0)
 	var pen_for_mfb: float = pen_to_tissue
 	var layer_meta: Dictionary = {}
-	var force_layer: bool = bool(extras.get("force_layer_tissue", false))
-	var force_layer_curves: bool = bool(extras.get("force_layer_tissue_curves", false))
+	var force_layer: bool = extras.get("force_layer_tissue", false)
+	var force_layer_curves: bool = extras.get("force_layer_tissue_curves", false)
 	if (
 		final_cut > 0.0
-		and not bool(extras.get("disable_layer_tissue", false))
+		and not extras.get("disable_layer_tissue", false)
 		and _CombatLayerTissue.is_layer_penetration_active(force_layer, force_layer_curves)
 	):
 		if (
 			_CombatLayerTissue.is_curves_active(force_layer_curves)
-			and not bool(extras.get("disable_layer_tissue_curves", false))
+			and not extras.get("disable_layer_tissue_curves", false)
 		):
 			var state_rows: Array = _layer_state_rows_for_part(entity, part)
 			layer_meta = _CombatLayerTissue.penetration_through_layers(
@@ -236,7 +233,7 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 		ke_blunt_bone
 	)
 	var alloc: Dictionary = mfb_alloc
-	var force_curves: bool = bool(extras.get("force_material_curves", false))
+	var force_curves: bool = extras.get("force_material_curves", false)
 	var curve_alloc: Dictionary = {}
 	if _MaterialFailureCurves.is_active(force_curves):
 		curve_alloc = _MaterialFailureCurves.allocate_bone_and_tissue(
@@ -258,9 +255,9 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 	if final_cut > 0.0:
 		wound_pen_mm = pen_to_tissue
 	var to_tissue_total: float = float(alloc.get("to_tissue_total", total_final))
-	var to_bone: float = float(alloc.get("to_bone", 0.0))
-	var to_cut: float = float(alloc.get("to_cut", 0.0))
-	var to_blunt: float = float(alloc.get("to_blunt", 0.0))
+	var to_bone: float = alloc.get("to_bone", 0.0)
+	var to_cut: float = alloc.get("to_cut", 0.0)
+	var to_blunt: float = alloc.get("to_blunt", 0.0)
 	var mfb_mechanism: String = str(mfb_alloc.get("mechanism", alloc.get("mechanism", "mixed")))
 	var applied_mechanism: String = str(alloc.get("mechanism", "mixed"))
 	var bone_threshold: int = _BodyPartConstants.get_bone_damage_threshold(part, sub_region)
@@ -276,10 +273,10 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 	var total_damage_this_hit: float = to_cut + to_blunt + to_bone
 	if total_damage_this_hit < float(MIN_DAMAGE_TO_SEVER) and (cur_cut - to_cut) <= 0.0 and (cur_bone - to_bone) <= 0.0 and cur_bone > 0.0:
 		to_bone = maxf(0.0, cur_bone - 1.0)
-	var force_energy_pool: bool = bool(extras.get("force_tissue_energy_pool", false))
+	var force_energy_pool: bool = extras.get("force_tissue_energy_pool", false)
 	var use_energy_pool: bool = (
 		_TissueEnergyCapacity.is_active(force_energy_pool)
-		and not bool(extras.get("disable_tissue_energy_pool", false))
+		and not extras.get("disable_tissue_energy_pool", false)
 	)
 	if use_energy_pool:
 		_TissueEnergyCapacity.apply_tissue_damage_to_entity(entity, part, to_cut, to_blunt)
@@ -298,7 +295,7 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 	var blunt_after: float = entity.body_blunt.get(part, 0.0)
 	var bone_after: float = entity.bone_health.get(part, 0.0)
 	if _CombatConstants.combat_debug_active():
-		print(
+		CombatDebug.log(
 			"[Bone/tissue] %s %s (%s): mechanism=%s%s total_post_armor=%.1f | threshold=%d fraction=%.2f => allocated bone=%.2f tissue=%.2f | severance_ease=%.2f => applied cut=%.2f blunt=%.2f bone=%.2f | part state: cut %.2f->%.2f blunt %.2f->%.2f bone %.2f->%.2f"
 			% [
 				entity.name,
@@ -361,7 +358,7 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 						entity.body_cutting[part] = 0.0
 						entity.body_blunt[part] = 0.0
 						entity.bone_health[part] = 0.0
-						print("[Severance] %s %s: early severance triggered (remaining ratio < threshold) => part destroyed" % [entity.name, part])
+						CombatDebug.log("[Severance] %s %s: early severance triggered (remaining ratio < threshold) => part destroyed" % [entity.name, part])
 	if entity._is_part_severed(part):
 		_EntityWounds.ensure_stump_wound(entity, part, sub_region)
 	var vital: Array = entity._get_vital_parts()
@@ -369,7 +366,7 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 		_EntityWounds.emit_death_once(entity)
 	var pain_from_this_hit_raw: float = 0.0
 	if entity._is_part_severed(part):
-		var stump_damage: float = float(entity.body_max.get(part, 10))
+		var stump_damage: float = entity.body_max.get(part, 10)
 		pain_from_this_hit_raw = entity._get_pain_contribution_for_wound(part, stump_damage, _Bleeding.SEVERITY_CRITICAL, _Bleeding.INJURY_TYPE_CUT, sub_region, true)
 	else:
 		if to_cut > 0.0:
@@ -403,25 +400,25 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 		"mechanical_post_armor": mechanical_post_armor,
 	}
 	if not joule_ke.is_empty():
-		result["armor_ke_absorbed_j"] = float(joule_ke.get("armor_ke_absorbed_j", 0.0))
-		result["armor_ke_remaining_j"] = float(joule_ke.get("armor_ke_remaining_j", 0.0))
-		result["transmitted_ke_fraction"] = float(joule_ke.get("transmitted_ke_fraction", 1.0))
+		result["armor_ke_absorbed_j"] = joule_ke.get("armor_ke_absorbed_j", 0.0)
+		result["armor_ke_remaining_j"] = joule_ke.get("armor_ke_remaining_j", 0.0)
+		result["transmitted_ke_fraction"] = joule_ke.get("transmitted_ke_fraction", 1.0)
 	if final_cut > 0.0:
 		result["penetration_to_tissue_mm"] = pen_to_tissue
 	if not layer_meta.is_empty():
-		result["layer_absorbed_mm"] = float(layer_meta.get("layer_absorbed_mm", 0.0))
+		result["layer_absorbed_mm"] = layer_meta.get("layer_absorbed_mm", 0.0)
 		result["penetration_to_bone_mm"] = float(layer_meta.get("penetration_to_bone_mm", pen_for_mfb))
 		if layer_meta.has("layer_states"):
 			result["layer_states"] = layer_meta["layer_states"]
 	if use_energy_pool and entity.tissue_energy_remaining_j.has(part):
-		result["tissue_energy_remaining_j"] = float(entity.tissue_energy_remaining_j.get(part, 0.0))
-		result["tissue_energy_capacity_j"] = float(entity.tissue_energy_capacity_j.get(part, 0.0))
+		result["tissue_energy_remaining_j"] = entity.tissue_energy_remaining_j.get(part, 0.0)
+		result["tissue_energy_capacity_j"] = entity.tissue_energy_capacity_j.get(part, 0.0)
 	if force_curves and not curve_alloc.is_empty():
-		result["mfb_cut"] = float(mfb_alloc.get("to_cut", 0.0))
-		result["mfb_blunt"] = float(mfb_alloc.get("to_blunt", 0.0))
-		result["mfb_bone"] = float(mfb_alloc.get("to_bone", 0.0))
-		result["curve_cut"] = float(curve_alloc.get("to_cut", 0.0))
-		result["curve_blunt"] = float(curve_alloc.get("to_blunt", 0.0))
-		result["curve_bone"] = float(curve_alloc.get("to_bone", 0.0))
+		result["mfb_cut"] = mfb_alloc.get("to_cut", 0.0)
+		result["mfb_blunt"] = mfb_alloc.get("to_blunt", 0.0)
+		result["mfb_bone"] = mfb_alloc.get("to_bone", 0.0)
+		result["curve_cut"] = curve_alloc.get("to_cut", 0.0)
+		result["curve_blunt"] = curve_alloc.get("to_blunt", 0.0)
+		result["curve_bone"] = curve_alloc.get("to_bone", 0.0)
 	_F5SoakTrace.note_research_damage_outcome(part, result, extras)
 	return result

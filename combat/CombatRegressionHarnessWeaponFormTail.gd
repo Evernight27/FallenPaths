@@ -2,7 +2,7 @@ class_name CombatRegressionHarnessWeaponFormTail
 extends RefCounted
 
 ## Expand WF: weapon form spawn, mods, picker weights, pressure class, UI suffix parity.
-## Footing rows: home guard on **`assign_form`** · gauge/diagram **` · Form`** / **`[Ox]`** — not PA step. LIVE_PATHS **`#harness-row-catalog-combatregressionharnessweaponformtailgd`** · soak open scope **`#wf-soak-audit-status`** · compose **`#battle-ui`**.
+## Footing rows: home guard on **`assign_form`** · gauge/diagram **` · Form`** / **`[Ox]`**  -  not PA step. LIVE_PATHS **`#harness-row-catalog-combatregressionharnessweaponformtailgd`** · soak open scope **`#wf-soak-audit-status`** · compose **`#battle-ui`**.
 
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
@@ -1077,7 +1077,7 @@ static func _run_weapon_form_wf_t2_thresholds_locked(failures: PackedStringArray
 		CombatRegressionHarness._fail(failures, "weapon_form_wf_t2: duel wrath demote pad")
 
 
-## WF-T2: identity-form **`mod`** bands (ox / plow / tempest) — stance alias wall/wrath/fool stay parity harness.
+## WF-T2: identity-form **`mod`** bands (ox / plow / tempest)  -  stance alias wall/wrath/fool stay parity harness.
 static func _run_weapon_form_wf_t2_mod_identity_bands(failures: PackedStringArray) -> void:
 	var bands: Dictionary = {
 		_WeaponForm.FORM_OX: {"parry": 1.08, "damage": 1.04, "ai_melee_focus": 1.02},
@@ -1158,9 +1158,10 @@ static func _run_weapon_form_wf_t2_duel_wall_recovery_gate(failures: PackedStrin
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr_switch)
 
 
-## WF-T2 suite: mod bands + counter cap + auto-switch thresholds — single Phase 0 maintain entry.
+## WF-T2 suite: mod bands + counter cap + auto-switch thresholds  -  single Phase 0 maintain entry.
 static func _run_weapon_form_wf_t2_suite(failures: PackedStringArray) -> void:
 	_run_weapon_form_wf_t2_thresholds_locked(failures)
 	_run_weapon_form_wf_t2_mod_identity_bands(failures)
 	_run_weapon_form_wf_t2_counter_mult_cap(failures)
 	_run_weapon_form_wf_t2_duel_wall_recovery_gate(failures)
+                

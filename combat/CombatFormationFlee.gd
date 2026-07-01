@@ -2,11 +2,10 @@ class_name CombatFormationFlee
 extends RefCounted
 
 ## Tier 6.2: abandon the engagement (leave the field) vs tactical **`fall_back`** within formation.
-## Footing: **`clear_on_exchange_end`** + idle scrub on **`STATE_FLED`** — LIVE_PATHS **`#wf-tier-44-pa`**.
+## Footing: **`clear_on_exchange_end`** + idle scrub on **`STATE_FLED`**  -  LIVE_PATHS **`#wf-tier-44-pa`**.
 ## Rout policy: **`CombatFormationRout`** (`line_cohesion` + side casualty ratio); listing via **`flee_abandonment_warranted`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
@@ -14,7 +13,6 @@ const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
-const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 
@@ -23,7 +21,7 @@ static func flee_action_legal(manager: Node, c: Dictionary) -> bool:
 	if manager == null or c.is_empty():
 		return false
 	_FormationRout.ensure_rout_baseline(manager)
-	if bool(c.get("combat_absent", false)):
+	if c.get("combat_absent", false):
 		return false
 	if not _EntityAccess.can_flee_or_fall_back(c):
 		return false
@@ -52,8 +50,8 @@ static func log_flee_listed_if_verbose(manager: Node, c: Dictionary) -> void:
 			% [
 				_EntityAccess.id_int(c),
 				_EntityAccess.get_display_name(c, _EntityAccess.id_int(c)),
-				float(ctx.get("line_cohesion", 0.0)),
-				float(ctx.get("casualty_ratio", 0.0)),
+				ctx.get("line_cohesion", 0.0),
+				ctx.get("casualty_ratio", 0.0),
 				str(ctx.get("formation_stressed", false)),
 				str(ctx.get("side_holding_field", false)),
 			]
@@ -69,7 +67,7 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 		return
 	var st: String = _EntityAccess.state_str(c)
 	if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK, CombatConstants.STATE_PLUG_FORWARD]:
-		var pid: int = int(c.get("formation_move_partner_id", -1))
+		var pid: int = c.get("formation_move_partner_id", -1)
 		var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, pid)
 		_FormationFlow.abort_pair(manager, c, partner, CombatConstants.MOVE_ID_FLEE)
 	_EventScheduler.cancel_pending_combat_events_for_combatant(manager, combatant_id)
@@ -97,8 +95,8 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 					combatant_id,
 					_EntityAccess.get_display_name(c, combatant_id),
 					fid,
-					float(ctx.get("line_cohesion", 0.0)),
-					float(ctx.get("casualty_ratio", 0.0)),
+					ctx.get("line_cohesion", 0.0),
+					ctx.get("casualty_ratio", 0.0),
 					str(ctx.get("formation_stressed", false)),
 					str(ctx.get("side_holding_field", false)),
 				]
@@ -107,14 +105,14 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 	_F5SoakTrace.note_fled(
 		combatant_id,
 		_EntityAccess.get_display_name(c, combatant_id),
-		float(ctx.get("line_cohesion", 0.0)),
-		float(ctx.get("casualty_ratio", 0.0)) * 100.0,
-		bool(ctx.get("side_holding_field", false))
+		ctx.get("line_cohesion", 0.0),
+		ctx.get("casualty_ratio", 0.0) * 100.0,
+		ctx.get("side_holding_field", false)
 	)
 	if not fid.is_empty():
 		manager.notify_formation_changed(fid)
-		manager._recompute_zoc_and_distance()
-		manager._reschedule_back_rank_turns(fid)
+		manager.recompute_zoc_and_distance()
+		_EventScheduler.reschedule_back_rank_turns(manager, fid)
 	manager.emit_signal(
 		"action_resolved",
 		combatant_id,
@@ -123,10 +121,10 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
 			"outcome": "fled",
 			"dmg": 0,
 			"died": false,
-			"line_cohesion": float(ctx.get("line_cohesion", -1.0)),
-			"casualty_ratio": float(ctx.get("casualty_ratio", -1.0)),
-			"formation_stressed": bool(ctx.get("formation_stressed", false)),
-			"side_holding_field": bool(ctx.get("side_holding_field", false)),
+			"line_cohesion": ctx.get("line_cohesion", -1.0),
+			"casualty_ratio": ctx.get("casualty_ratio", -1.0),
+			"formation_stressed": ctx.get("formation_stressed", false),
+			"side_holding_field": ctx.get("side_holding_field", false),
 		}
 	)
 	manager.emit_signal("turn_resolved", combatant_id)

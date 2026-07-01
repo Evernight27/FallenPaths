@@ -14,9 +14,9 @@ static func tick(manager: Node, delta: float) -> void:
 	manager.combat_clock += delta
 	_EventDispatch.process_event_queue(manager)
 	manager._combat_tick_index += 1
-	# Check for winner after event queue drain — prevents remaining turns from firing
+	# Check for winner after event queue drain  -  prevents remaining turns from firing
 	# when one side has zero standing combatants (all dead/fled/incapacitated).
-	if not bool(manager.medical_phase):
+	if not manager.medical_phase:
 		var early_victor: String = manager._check_for_winner()
 		if not early_victor.is_empty() and _MedicalPhase.should_apply_phase_end(manager, early_victor):
 			manager._end_combat_phase(early_victor, null)
@@ -42,9 +42,9 @@ static func tick(manager: Node, delta: float) -> void:
 	for c in manager.combatants:
 		if not _EntityAccess.alive_bool(c):
 			continue
-		if bool(c.get("combat_absent", false)):
+		if c.get("combat_absent", false):
 			continue
-		if bool(c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false)):
+		if c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false):
 			continue
 		var adv_node: Node = _EntityAccess.scene_node(c)
 		if adv_node == null:
@@ -56,7 +56,7 @@ static func tick(manager: Node, delta: float) -> void:
 			adv_node.process_blood_loss(delta)
 		if not fast_forward and adv_node.has_method("_try_ambient_pain_shock_tick"):
 			adv_node._try_ambient_pain_shock_tick(delta)
-		manager._refresh_combatant_stats(c)
+		manager.refresh_combatant_stats(c)
 	for c in manager.combatants:
 		if not _EntityAccess.alive_bool(c):
 			continue
@@ -70,7 +70,7 @@ static func tick(manager: Node, delta: float) -> void:
 	# Winner is sticky during medical triage; only enter phase_end once from the tick loop.
 	if (
 		not victor.is_empty()
-		and not bool(manager.medical_phase)
+		and not manager.medical_phase
 		and _MedicalPhase.should_apply_phase_end(manager, victor)
 	):
 		manager._end_combat_phase(victor, last_death_node)
@@ -78,7 +78,7 @@ static func tick(manager: Node, delta: float) -> void:
 	victor = manager._check_for_winner()
 	if (
 		not victor.is_empty()
-		and not bool(manager.medical_phase)
+		and not manager.medical_phase
 		and _MedicalPhase.should_apply_phase_end(manager, victor)
 	):
 		manager._end_combat_phase(victor, null)
@@ -90,30 +90,28 @@ static func tick(manager: Node, delta: float) -> void:
 			continue
 		if _StateHandlers.process_medical_wind_up_cancel(manager, c):
 			continue
-		if _EntityAccess.state_str(c) == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
-			_StateHandlers.process_receiving_medical(manager, c, delta)
-		elif _EntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
-			_StateHandlers.process_waiting(manager, c, delta)
-		elif _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
-			if not (
-				_MedicalPhase.combat_resolution_blocked(manager)
-				and _MedicalPhase.is_losing_side(manager, c)
-			):
-				_StateHandlers.process_wind_up(manager, c, delta)
-		elif _EntityAccess.state_str(c) == CombatConstants.STATE_MEDICAL_WIND_UP:
-			_StateHandlers.process_medical_wind_up(manager, c, delta)
-		elif _EntityAccess.state_str(c) == CombatConstants.STATE_RECOVERING:
-			if not (
-				_MedicalPhase.combat_resolution_blocked(manager)
-				and _MedicalPhase.is_losing_side(manager, c)
-			):
-				_StateHandlers.process_recovering(manager, c, delta)
-		elif (
-			_EntityAccess.state_str(c) == CombatConstants.STATE_SWAP_RANK
-			or _EntityAccess.state_str(c) == CombatConstants.STATE_FALLING_BACK
-		):
-			if not (
-				_MedicalPhase.combat_resolution_blocked(manager)
-				and _MedicalPhase.is_losing_side(manager, c)
-			):
-				_StateHandlers.process_formation_move_timer(c, delta)
+		match _EntityAccess.state_str(c):
+			CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
+				_StateHandlers.process_receiving_medical(manager, c, delta)
+			CombatConstants.STATE_WAITING:
+				_StateHandlers.process_waiting(manager, c, delta)
+			CombatConstants.STATE_WIND_UP:
+				if not (
+					_MedicalPhase.combat_resolution_blocked(manager)
+					and _MedicalPhase.is_losing_side(manager, c)
+				):
+					_StateHandlers.process_wind_up(manager, c, delta)
+			CombatConstants.STATE_MEDICAL_WIND_UP:
+				_StateHandlers.process_medical_wind_up(manager, c, delta)
+			CombatConstants.STATE_RECOVERING:
+				if not (
+					_MedicalPhase.combat_resolution_blocked(manager)
+					and _MedicalPhase.is_losing_side(manager, c)
+				):
+					_StateHandlers.process_recovering(manager, c, delta)
+			CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK:
+				if not (
+					_MedicalPhase.combat_resolution_blocked(manager)
+					and _MedicalPhase.is_losing_side(manager, c)
+				):
+					_StateHandlers.process_formation_move_timer(c, delta)

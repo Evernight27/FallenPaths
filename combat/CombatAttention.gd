@@ -2,17 +2,16 @@ class_name CombatAttention
 extends RefCounted
 
 ## Tier 4.3: salience probes, attention load, combat focus (**`focus_part`**, **`focus_intensity`**), and per-attacker yomi memory.
-## Footing: appends focus **listing** only — L3 **`guard_line`** write on focus resolve is **`CombatResolveAction`**. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-guard-writers`**.
-## **Read order:** enable/clear → salience refresh → focus line listing append → yomi read/write helpers.
+## Footing: appends focus **listing** only  -  L3 **`guard_line`** write on focus resolve is **`CombatResolveAction`**. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-guard-writers`**.
+## **Read order:** enable/clear â salience refresh â focus line listing append â yomi read/write helpers.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 
 
 static func _counter_tempo() -> GDScript:
-	return load("res://combat/CounterTempo.gd") as GDScript
+	return preload(CombatConstants.PATH_COUNTER_TEMPO)
 
 
 static func enabled() -> bool:
@@ -34,7 +33,7 @@ static func clear_focus_and_yomi(c: Dictionary) -> void:
 static func get_focus_part(c: Dictionary) -> String:
 	if c == null:
 		return "head"
-	var fp: String = str(c.get(CombatConstants.COMBATANT_KEY_FOCUS_PART, "")).strip_edges()
+	var fp: String = c.get(CombatConstants.COMBATANT_KEY_FOCUS_PART, "").strip_edges()
 	if not fp.is_empty():
 		return fp
 	return str(c.get("guard_zone", "head"))
@@ -53,7 +52,7 @@ static func get_focus_intensity(c: Dictionary) -> float:
 static func set_focus(c: Dictionary, part: String, intensity: float = -1.0) -> void:
 	if c == null:
 		return
-	var p: String = str(part).strip_edges()
+	var p: String = part.strip_edges()
 	if p.is_empty():
 		c.erase(CombatConstants.COMBATANT_KEY_FOCUS_PART)
 	else:
@@ -66,7 +65,7 @@ static func set_focus(c: Dictionary, part: String, intensity: float = -1.0) -> v
 static func set_focus_from_incoming_telegraph(defender: Dictionary, telegraph_part: String) -> void:
 	if not enabled() or defender == null:
 		return
-	var p: String = str(telegraph_part).strip_edges()
+	var p: String = telegraph_part.strip_edges()
 	if p.is_empty():
 		return
 	set_focus(defender, p, CombatConstants.FOCUS_INTENSITY_DEFAULT)
@@ -75,7 +74,7 @@ static func set_focus_from_incoming_telegraph(defender: Dictionary, telegraph_pa
 static func get_attention_load(c: Dictionary) -> float:
 	if c == null:
 		return 0.0
-	return clampf(float(c.get(CombatConstants.COMBATANT_KEY_ATTENTION_LOAD, 0.0)), 0.0, 1.0)
+	return clampf(c.get(CombatConstants.COMBATANT_KEY_ATTENTION_LOAD, 0.0), 0.0, 1.0)
 
 
 static func focus_effective(c: Dictionary) -> float:
@@ -106,10 +105,10 @@ static func refresh_salience(manager: Node, combatant_id: int) -> void:
 static func format_attention_ui_hint(c: Dictionary) -> String:
 	if not enabled() or c.is_empty():
 		return ""
-	var tele: String = str(c.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")).strip_edges()
+	var tele: String = c.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "").strip_edges()
 	var attention_load: float = get_attention_load(c)
-	var stack_layer: String = str(
-		c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")
+	var stack_layer: String = c.get(
+		CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""
 	).strip_edges()
 	if tele.is_empty() and attention_load < 0.05 and stack_layer.is_empty():
 		return ""
@@ -130,7 +129,7 @@ static func format_attention_ui_hint(c: Dictionary) -> String:
 static func snapshot_ui_hint(c: Dictionary) -> String:
 	if not enabled() or c.is_empty():
 		return ""
-	var stamped: String = str(c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "")).strip_edges()
+	var stamped: String = c.get(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "").strip_edges()
 	if not stamped.is_empty():
 		return stamped
 	return format_attention_ui_hint(c)
@@ -170,7 +169,7 @@ static func is_being_wind_up_targeted(manager: Node, defender_id: int) -> bool:
 	var def: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
 	if def.is_empty():
 		return false
-	if not str(def.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")).is_empty():
+	if not def.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "").is_empty():
 		return true
 	return _counter_tempo().call("incoming_attacker_id", manager, defender_id) >= 0
 
@@ -188,7 +187,7 @@ static func ally_in_immediate_peril(manager: Node, combatant_id: int) -> bool:
 	for other in manager.combatants:
 		if other == null or other is not Dictionary:
 			continue
-		var o: Dictionary = other as Dictionary
+		var o: Dictionary = other
 		if _EntityAccess.id_int(o) == combatant_id:
 			continue
 		if not _EntityAccess.is_living_same_side(self_c, o):
@@ -204,13 +203,13 @@ static func ally_in_immediate_peril(manager: Node, combatant_id: int) -> bool:
 static func focus_line_mult_for_feint(defender: Dictionary, pa: Dictionary) -> float:
 	if not enabled() or defender == null or pa.is_empty():
 		return 1.0
-	var fp: String = str(pa.get("feint_part", "")).strip_edges()
+	var fp: String = pa.get("feint_part", "").strip_edges()
 	if fp.is_empty():
 		return 1.0
-	var tele: String = str(
-		defender.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, fp)
+	var tele: String = defender.get(
+		CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, fp
 	).strip_edges()
-	var real: String = str(pa.get("target_part", "")).strip_edges()
+	var real: String = pa.get("target_part", "").strip_edges()
 	var focus: String = get_focus_part(defender)
 	if not tele.is_empty() and focus == tele and not real.is_empty() and real != tele:
 		return CombatConstants.FOCUS_WRONG_LINE_READTHROUGH_MULT
@@ -263,7 +262,7 @@ static func yomi_observation_total(entry: Dictionary) -> int:
 		total += int(raw)
 	for raw in (entry.get("move_id_counts", {}) as Dictionary).values():
 		total += int(raw)
-	total += int(entry.get("feint_resolved", 0))
+	total += entry.get("feint_resolved", 0)
 	return total
 
 
@@ -276,8 +275,8 @@ static func record_attack_toward_defender(
 ) -> void:
 	if not enabled() or defender == null or attacker_id < 0:
 		return
-	var part: String = str(target_part).strip_edges()
-	var mid: String = str(move_id).strip_edges()
+	var part: String = target_part.strip_edges()
+	var mid: String = move_id.strip_edges()
 	if part.is_empty() and mid.is_empty():
 		return
 	var root: Dictionary = _yomi_root(defender)
@@ -286,15 +285,15 @@ static func record_attack_toward_defender(
 	if not part.is_empty():
 		var line: String = CombatConstants.PART_TO_LINE.get(part, "high")
 		var counts: Dictionary = entry.get("line_counts", {}) as Dictionary
-		counts[line] = int(counts.get(line, 0)) + 1
+		counts[line] = counts.get(line, 0) + 1
 		entry["line_counts"] = counts
 	if not mid.is_empty():
 		var move_counts: Dictionary = entry.get("move_id_counts", {}) as Dictionary
-		move_counts[mid] = int(move_counts.get(mid, 0)) + 1
+		move_counts[mid] = move_counts.get(mid, 0) + 1
 		entry["move_id_counts"] = move_counts
 		var ct: String = _WeaponConstants.contact_type_for_move_id(mid)
 		var ct_counts: Dictionary = entry.get("contact_type_counts", {}) as Dictionary
-		ct_counts[ct] = int(ct_counts.get(ct, 0)) + 1
+		ct_counts[ct] = ct_counts.get(ct, 0) + 1
 		entry["contact_type_counts"] = ct_counts
 	root[key] = entry
 	defender[CombatConstants.COMBATANT_KEY_YOMI_BY_ATTACKER] = root
@@ -313,7 +312,7 @@ static func record_feint_resolved_toward_defender(defender: Dictionary, attacker
 	var root: Dictionary = _yomi_root(defender)
 	var key: String = str(attacker_id)
 	var entry: Dictionary = _yomi_entry(defender, attacker_id)
-	entry["feint_resolved"] = int(entry.get("feint_resolved", 0)) + 1
+	entry["feint_resolved"] = entry.get("feint_resolved", 0) + 1
 	root[key] = entry
 	defender[CombatConstants.COMBATANT_KEY_YOMI_BY_ATTACKER] = root
 
@@ -324,7 +323,7 @@ static func record_parry_deflect_on_attacker_memory(defender: Dictionary, attack
 	var root: Dictionary = _yomi_root(defender)
 	var key: String = str(attacker_id)
 	var entry: Dictionary = _yomi_entry(defender, attacker_id)
-	entry["parry_deflect"] = int(entry.get("parry_deflect", 0)) + 1
+	entry["parry_deflect"] = entry.get("parry_deflect", 0) + 1
 	root[key] = entry
 	defender[CombatConstants.COMBATANT_KEY_YOMI_BY_ATTACKER] = root
 
@@ -362,7 +361,7 @@ static func line_count_toward_defender(defender: Dictionary, attacker_id: int, l
 	if entry is not Dictionary or line.is_empty():
 		return 0
 	var counts: Dictionary = (entry as Dictionary).get("line_counts", {}) as Dictionary
-	return int(counts.get(line, 0))
+	return counts.get(line, 0)
 
 
 ## AI (non party-lead): nudge **`focus_part`** toward attacker's habitual line; mismatched feint telegraph keeps habit.
@@ -417,7 +416,7 @@ static func yomi_feint_listing_mult(
 ) -> float:
 	if not enabled() or defender == null or attacker_id < 0:
 		return 1.0
-	var fp: String = str(feint_part).strip_edges()
+	var fp: String = feint_part.strip_edges()
 	if fp.is_empty():
 		return 1.0
 	var dom: String = dominant_attack_line_toward_defender(defender, attacker_id)
@@ -429,7 +428,7 @@ static func yomi_feint_listing_mult(
 	var root: Dictionary = _yomi_root(defender)
 	var entry: Dictionary = root.get(str(attacker_id), {}) as Dictionary
 	var counts: Dictionary = entry.get("line_counts", {}) as Dictionary
-	var n: int = int(counts.get(dom, 0))
+	var n: int = counts.get(dom, 0)
 	if n < CombatConstants.YOMI_FEINT_LISTING_MIN_LINE_COUNT:
 		return 1.0
 	var boost: float = 1.0 + float(n - CombatConstants.YOMI_FEINT_LISTING_MIN_LINE_COUNT + 1) * CombatConstants.YOMI_FEINT_LISTING_MULT_PER_LINE_COUNT
@@ -444,7 +443,7 @@ static func yomi_parry_deflect_feint_listing_mult(defender: Dictionary, attacker
 	var entry: Variant = root.get(str(attacker_id), null)
 	if entry is not Dictionary:
 		return 1.0
-	var n: int = int((entry as Dictionary).get("parry_deflect", 0))
+	var n: int = (entry as Dictionary).get("parry_deflect", 0)
 	if n <= 0:
 		return 1.0
 	var boost: float = 1.0 + float(n) * CombatConstants.YOMI_PARRY_DEFLECT_FEINT_LISTING_MULT_PER
@@ -459,7 +458,7 @@ static func yomi_defense_readiness_mult(defender: Dictionary, attacker_id: int) 
 	var entry: Variant = root.get(str(attacker_id), null)
 	if entry is not Dictionary:
 		return 1.0
-	var n: int = int((entry as Dictionary).get("parry_deflect", 0))
+	var n: int = (entry as Dictionary).get("parry_deflect", 0)
 	if n <= 0:
 		return 1.0
 	var boost: float = 1.0 + float(n) * CombatConstants.YOMI_DEFENSE_READINESS_MULT_PER_PARRY_DEFLECT
@@ -472,3 +471,4 @@ static func append_focus_line_listing_actions(c: Dictionary, combatant_id: int, 
 		return
 	for move_id in CombatConstants.FOCUS_LINE_MOVE_IDS:
 		actions.append({"target_id": combatant_id, "move_id": move_id})
+    

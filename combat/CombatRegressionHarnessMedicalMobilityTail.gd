@@ -31,7 +31,7 @@ const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 
-## Tier 6.1: **`can_flee_or_fall_back`** — leg **`MOBILITY_FLEE_THRESHOLD`** and unconscious gate.
+## Tier 6.1: **`can_flee_or_fall_back`**  -  leg **`MOBILITY_FLEE_THRESHOLD`** and unconscious gate.
 static func _run_medical_mobility_can_flee_leg_and_consciousness(failures: PackedStringArray) -> void:
 	var mobile: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
 	if not mobile.can_flee_or_fall_back():
@@ -193,7 +193,7 @@ static func _run_medical_mobility_cowering_mobile_solo_fall_back_legal(
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 6.1: formation engagement — mobile cowering rank-0 lists **`fall_back`** in **`AvailableActionsBuilder.build`**.
+## Tier 6.1: formation engagement  -  mobile cowering rank-0 lists **`fall_back`** in **`AvailableActionsBuilder.build`**.
 static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 	failures: PackedStringArray
 ) -> void:
@@ -202,7 +202,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	for _j in 4:
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	# Six players on 2×3 — kill rank-2 file-0 before rank-1 file-0; need ≥4 actives after kills for formation hysteresis.
+	# Six players on 2- - 3  -  kill rank-2 file-0 before rank-1 file-0; need ≥4 actives after kills for formation hysteresis.
 	mgr.start(
 		{
 			"files": 2,
@@ -741,7 +741,7 @@ static func _run_medical_mobility_cowering_ai_pick_never_offensive(
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 6.1: arm loss during wind-up — **`EVENT_MELEE_ATTACK`** aborts before resolve.
+## Tier 6.1: arm loss during wind-up  -  **`EVENT_MELEE_ATTACK`** aborts before resolve.
 static func _run_medical_mobility_cowering_mid_windup_arm_loss_aborts_melee(
 	failures: PackedStringArray
 ) -> void:

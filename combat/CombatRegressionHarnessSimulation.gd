@@ -1,7 +1,7 @@
 class_name CombatRegressionHarnessSimulation
 extends RefCounted
 
-## Simulation realism track (S1–S10): `_run_sim_*` — docs/LIVE_PATHS.md#harness-prefixes.
+## Simulation realism track (S1 - S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
 
 const _Weapon := preload("res://weapon/Weapon.gd")
 const _WeaponDamage := preload("res://weapon/WeaponDamageHelper.gd")
@@ -174,10 +174,10 @@ static func _run_sim_delivery_commit_scales_ke_and_cut(failures: PackedStringArr
 	if sword == null:
 		_fail(failures, "sim_delivery: missing SWORD")
 		return
-	const strength: float = 100.0
-	const arm_mod: float = 1.0
-	const commit_lo: float = 0.45
-	const commit_hi: float = 0.90
+	var strength: float = 100.0
+	var arm_mod: float = 1.0
+	var commit_lo: float = 0.45
+	var commit_hi: float = 0.90
 	var ai_lo: AttackInstance = _oberhau_swing_instance(1.0, commit_lo)
 	var ai_hi: AttackInstance = _oberhau_swing_instance(1.0, commit_hi)
 	var ke_lo: float = _WeaponDamage.compute_kinetic_energy_j(sword, ai_lo)
@@ -196,7 +196,7 @@ static func _run_sim_delivery_commit_scales_ke_and_cut(failures: PackedStringArr
 			"sim_delivery: cut commit_hi=%.2f %.2f should exceed commit_lo=%.2f %.2f"
 			% [commit_hi, cut_hi, commit_lo, cut_lo]
 		)
-	const pin_commit: float = 0.78
+	var pin_commit: float = 0.78
 	var ai_half: AttackInstance = _oberhau_swing_instance(0.5, pin_commit)
 	var ai_full: AttackInstance = _oberhau_swing_instance(1.0, pin_commit)
 	var ke_half: float = _WeaponDamage.compute_kinetic_energy_j(sword, ai_half)
@@ -231,7 +231,7 @@ static func _run_sim_calibration_audit_committed_ke_in_band(failures: PackedStri
 	if not _DesignAnchors.committed_strike_ke_in_strict_band(ke_commit):
 		_fail(
 			failures,
-			"sim_audit_ke: committed oberhau i=1.0 KE %.0fJ outside 70–140J (commit=%.2f bare=%.0f)"
+			"sim_audit_ke: committed oberhau i=1.0 KE %.0fJ outside 70 - 140J (commit=%.2f bare=%.0f)"
 			% [ke_commit, oberhau_commit, ke_bare]
 		)
 	var err_bare: float = absf(ke_bare - _DesignAnchors.DESIGN_KE_ARM_J)
@@ -307,7 +307,7 @@ static func _run_iv10_subregion_combat_mult_elbow_vs_upper_arm(failures: PackedS
 		)
 
 
-## IV-10: flag off — identical sub_region hits apply same mechanical damage.
+## IV-10: flag off  -  identical sub_region hits apply same mechanical damage.
 static func _run_iv10_subregion_combat_mult_flag_off_parity(failures: PackedStringArray) -> void:
 	var cut_pre: float = 16.0
 	var saved: bool = _CombatConstants.is_feature_subregion_combat_mult_enabled()
@@ -441,8 +441,8 @@ static func _run_sim_severity_absolute_stable(failures: PackedStringArray) -> vo
 	if not _Bleeding.FEATURE_ABSOLUTE_SEVERITY_BANDS:
 		_fail(failures, "sim_severity_abs: FEATURE_ABSOLUTE_SEVERITY_BANDS must be on")
 		return
-	const dmg: float = 5.5
-	const part: String = "right_arm"
+	var dmg: float = 5.5
+	var part: String = "right_arm"
 	var human: CoreEntity = _entity_for_species(_HumanSpecies)
 	var goblin: CoreEntity = _entity_for_species(_GoblinSpecies)
 	var sev_h: String = _EntityWounds.severity_from_damage(human, part, dmg, "forearm", -1.0)
@@ -468,8 +468,8 @@ static func _run_sim_severity_absolute_stable(failures: PackedStringArray) -> vo
 ## S4: high impact_ke_j still raises severity band vs low-KE same damage.
 static func _run_sim_severity_ke_still_upgrades(failures: PackedStringArray) -> void:
 	var ent: CoreEntity = _entity_for_species(_HumanSpecies)
-	const part: String = "chest"
-	const dmg: float = 1.8
+	var part: String = "chest"
+	var dmg: float = 1.8
 	var sev_low: String = _EntityWounds.severity_from_damage(ent, part, dmg, "thoracic", -1.0)
 	var sev_hi: String = _EntityWounds.severity_from_damage(ent, part, dmg, "thoracic", 140.0)
 	var order: Array = [
@@ -558,7 +558,7 @@ static func _hand_tuned_limb_bone(sp: SpeciesResource, part: String) -> int:
 ## S5: derived human arm tissue/bone within ±15% of hand-tuned 12/8 when pilot flag on.
 static func _run_sim_derived_limb_capacity_human_arm_reference(failures: PackedStringArray) -> void:
 	var sp: SpeciesResource = _species_with_derived_flag(_HumanSpecies)
-	const part: String = "right_arm"
+	var part: String = "right_arm"
 	var tissue: int = sp.get_body_part_max(part)
 	var bone: int = sp.get_bone_max(part)
 	if not _within_pct(tissue, 12, 0.15):
@@ -585,7 +585,7 @@ static func _run_sim_derived_limb_capacity_human_arm_reference(failures: PackedS
 ## S5: derived human leg tissue/bone within ±15% of hand-tuned 16/12 when pilot flag on.
 static func _run_sim_derived_limb_capacity_human_leg_reference(failures: PackedStringArray) -> void:
 	var sp: SpeciesResource = _species_with_derived_flag(_HumanSpecies)
-	const part: String = "left_leg"
+	var part: String = "left_leg"
 	var tissue: int = sp.get_body_part_max(part)
 	var bone: int = sp.get_bone_max(part)
 	if not _within_pct(tissue, 16, 0.15):
@@ -665,8 +665,8 @@ static func _run_sim_joule_armor_ke_conserved(failures: PackedStringArray) -> vo
 	if cuirass == null:
 		_fail(failures, "sim_joule_ke: missing CUIRASS")
 		return
-	const strike_ke: float = 120.0
-	const pen: float = 2.0
+	var strike_ke: float = 120.0
+	var pen: float = 2.0
 	var r: Dictionary = _ArmorJouleBudget.account_ke_through_armor(cuirass, strike_ke, pen, true)
 	var absorbed: float = float(r.get("armor_ke_absorbed_j", 0.0))
 	var remaining: float = float(r.get("armor_ke_remaining_j", 0.0))
@@ -685,8 +685,8 @@ static func _run_sim_joule_armor_cuirass_absorbs_more_than_gambeson(failures: Pa
 	if cuirass == null or gambeson == null:
 		_fail(failures, "sim_joule_armor: missing CUIRASS or GAMBESON")
 		return
-	const strike_ke: float = 100.0
-	const pen: float = 2.0
+	var strike_ke: float = 100.0
+	var pen: float = 2.0
 	var heavy: Dictionary = _ArmorJouleBudget.account_ke_through_armor(cuirass, strike_ke, pen, true)
 	var light: Dictionary = _ArmorJouleBudget.account_ke_through_armor(gambeson, strike_ke, pen, true)
 	var rem_heavy: float = float(heavy.get("armor_ke_remaining_j", strike_ke))
@@ -699,7 +699,7 @@ static func _run_sim_joule_armor_cuirass_absorbs_more_than_gambeson(failures: Pa
 		)
 
 
-## S10: joule-authoritative path matches ke_frac × pre (no second scalar ArmorPiece pass).
+## S10: joule-authoritative path matches ke_frac - -  pre (no second scalar ArmorPiece pass).
 static func _run_sim_joule_armor_authoritative_ke_frac(failures: PackedStringArray) -> void:
 	var ent: CoreEntity = _sim_entity()
 	ent.species = _HumanSpecies
@@ -709,8 +709,8 @@ static func _run_sim_joule_armor_authoritative_ke_frac(failures: PackedStringArr
 		_fail(failures, "sim_joule_authoritative: missing CUIRASS")
 		return
 	ent.equip_armor("chest", armor)
-	const strike_ke: float = 90.0
-	const cut_pre: float = 14.0
+	var strike_ke: float = 90.0
+	var cut_pre: float = 14.0
 	var extras: Dictionary = {"strike_ke_j": strike_ke, "force_joule_armor_budget": true}
 	var res: Dictionary = _EntityDamage.apply_damage_split(
 		ent, cut_pre, 0.0, "chest", 2.0, -1.0, -1.0, extras
@@ -736,8 +736,8 @@ static func _run_sim_joule_armor_not_below_ke_frac_floor(failures: PackedStringA
 	if armor == null:
 		_fail(failures, "sim_joule_floor: missing CUIRASS")
 		return
-	const strike_ke: float = 90.0
-	const cut_pre: float = 14.0
+	var strike_ke: float = 90.0
+	var cut_pre: float = 14.0
 	var joule_ke: Dictionary = _ArmorJouleBudget.account_ke_through_armor(armor, strike_ke, 2.0, true)
 	var frac: float = float(joule_ke.get("transmitted_ke_fraction", 1.0))
 	var ent: CoreEntity = _sim_entity()
@@ -791,7 +791,7 @@ static func _run_sim_blood_ml_pool_human_goblin_mass_scale(failures: PackedStrin
 
 ## S6: same bleed rate → same seconds-to-death in % mode vs mL mode (ATLS bridge).
 static func _run_sim_blood_ml_ttd_matches_percent_mode(failures: PackedStringArray) -> void:
-	const rate: float = _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE
+	var rate: float = _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE
 	var ttd_pct: float = _Bleeding.seconds_to_exsanguination(rate, _Bleeding.MAX_BLOOD_VOLUME, 1.0)
 	_BloodVolumeMl._harness_force_literal_blood_ml = true
 	var ent_ml: CoreEntity = _harness_entity_with_ml_pool(_HumanSpecies)
@@ -887,10 +887,10 @@ static func _run_sim_notify_died_emits_once(failures: PackedStringArray) -> void
 ## S6 layer tissue: shallow penetration absorbed by soft-tissue budget → less bone via MFB pen gate.
 static func _run_sim_layer_tissue_shallow_pen_reduces_bone(failures: PackedStringArray) -> void:
 	_CombatLayerTissue._harness_force_layer_tissue = true
-	const part: String = "right_arm"
-	const sub: String = "forearm"
-	const cut: float = 14.0
-	const pen_mid: float = 6.0
+	var part: String = "right_arm"
+	var sub: String = "forearm"
+	var cut: float = 14.0
+	var pen_mid: float = 6.0
 	var off: Dictionary = _DamageMechanism.allocate_bone_and_tissue(
 		cut, 0.0, cut, part, sub, pen_mid, -1.0
 	)
@@ -928,10 +928,10 @@ static func _run_sim_layer_tissue_shallow_pen_reduces_bone(failures: PackedStrin
 ## S6 layer tissue: penetration beyond budget reaches bone MFB pen threshold.
 static func _run_sim_layer_tissue_deep_pen_reaches_bone(failures: PackedStringArray) -> void:
 	_CombatLayerTissue._harness_force_layer_tissue = true
-	const part: String = "right_arm"
-	const sub: String = "forearm"
-	const cut: float = 14.0
-	const pen_deep: float = 8.0
+	var part: String = "right_arm"
+	var sub: String = "forearm"
+	var cut: float = 14.0
+	var pen_deep: float = 8.0
 	var layer: Dictionary = _CombatLayerTissue.penetration_after_soft_tissue(part, pen_deep, true)
 	var pen_bone: float = float(layer.get("penetration_to_bone_mm", 0.0))
 	if pen_bone < _DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM:
@@ -952,7 +952,7 @@ static func _run_sim_layer_tissue_deep_pen_reaches_bone(failures: PackedStringAr
 		)
 
 
-## S7: armor layer stack consumes RHA depth — shallow pen stopped before tissue.
+## S7: armor layer stack consumes RHA depth  -  shallow pen stopped before tissue.
 static func _run_sim_pen_trace_cuirass_stops_shallow(failures: PackedStringArray) -> void:
 	var cuirass: ArmorPiece = _ArmorPiece.create_from_definition("CUIRASS")
 	if cuirass == null:
@@ -975,7 +975,7 @@ static func _run_sim_pen_trace_cuirass_deep_reaches_tissue(failures: PackedStrin
 	if cuirass == null:
 		_fail(failures, "sim_pen_trace_deep: missing CUIRASS")
 		return
-	const pen_deep: float = 6.0
+	var pen_deep: float = 6.0
 	var trace: Dictionary = _ArmorPenetrationTrace.sharp_penetration_to_tissue_mm(cuirass, pen_deep)
 	var to_tissue: float = float(trace.get("penetration_to_tissue_mm", 0.0))
 	var want_remainder: float = pen_deep - 0.9 - 3.5
@@ -993,10 +993,10 @@ static func _run_sim_pen_entity_damage_armor_reduces_bone(failures: PackedString
 	if armor == null:
 		_fail(failures, "sim_pen_damage: missing CUIRASS")
 		return
-	const pen: float = 5.0
-	const cut: float = 14.0
-	const part: String = "chest"
-	const sub: String = "thoracic"
+	var pen: float = 5.0
+	var cut: float = 14.0
+	var part: String = "chest"
+	var sub: String = "thoracic"
 	var trace: Dictionary = _ArmorPenetrationTrace.sharp_penetration_to_tissue_mm(armor, pen)
 	var pen_tissue: float = float(trace.get("penetration_to_tissue_mm", 0.0))
 	var bare_alloc: Dictionary = _DamageMechanism.allocate_bone_and_tissue(
@@ -1068,9 +1068,9 @@ static func _run_sim_depth_shallow_pen_lowers_severity(failures: PackedStringArr
 		_fail(failures, "sim_depth_severity: FEATURE_PENETRATION_DEPTH_SEVERITY must be on")
 		return
 	var ent: CoreEntity = _entity_for_species(_HumanSpecies)
-	const part: String = "right_arm"
-	const sub: String = "forearm"
-	const dmg: float = 5.5
+	var part: String = "right_arm"
+	var sub: String = "forearm"
+	var dmg: float = 5.5
 	var sev_shallow: String = _EntityWounds.severity_from_damage(ent, part, dmg, sub, -1.0, 0.8)
 	var sev_deep: String = _EntityWounds.severity_from_damage(ent, part, dmg, sub, -1.0, 6.0)
 	var order: Array = _EntityWounds._severity_order()
@@ -1085,9 +1085,9 @@ static func _run_sim_depth_shallow_pen_lowers_severity(failures: PackedStringArr
 ## S8: deep penetration reaches severe+ band where shallow stays moderate at tuned damage.
 static func _run_sim_depth_deep_pen_raises_severity(failures: PackedStringArray) -> void:
 	var ent: CoreEntity = _entity_for_species(_HumanSpecies)
-	const part: String = "right_arm"
-	const sub: String = "forearm"
-	const dmg: float = 5.5
+	var part: String = "right_arm"
+	var sub: String = "forearm"
+	var dmg: float = 5.5
 	var sev_shallow: String = _EntityWounds.severity_from_damage(ent, part, dmg, sub, -1.0, 0.5)
 	var sev_deep: String = _EntityWounds.severity_from_damage(ent, part, dmg, sub, -1.0, 6.0)
 	if sev_shallow == _Bleeding.SEVERITY_SEVERE or sev_shallow == _Bleeding.SEVERITY_CRITICAL:
@@ -1105,13 +1105,13 @@ static func _run_sim_blunt_tissue_ke_reduces_fracture(failures: PackedStringArra
 	if not _Bleeding.FEATURE_BLUNT_TISSUE_KE_GATE:
 		_fail(failures, "sim_blunt_tissue_ke: FEATURE_BLUNT_TISSUE_KE_GATE must be on")
 		return
-	const part: String = "right_arm"
-	const sub: String = "elbow"
+	var part: String = "right_arm"
+	var sub: String = "elbow"
 	var j_anchor: float = _DamageMechanism.blunt_fracture_j_anchor(part, sub)
 	var budget: float = float(_CombatLayerTissue.BLUNT_TISSUE_KE_BUDGET_J_BY_PART.get(part, 22.0))
 	var ke_hi: float = j_anchor + budget + 18.0
 	var ke_lo: float = j_anchor + budget - 4.0
-	const blunt_stream: float = 2.0
+	var blunt_stream: float = 2.0
 	var hi: Dictionary = _DamageMechanism.allocate_bone_and_tissue(
 		0.0, blunt_stream, blunt_stream, part, sub, -1.0, ke_hi, _CombatLayerTissue.blunt_ke_reaching_bone(part, ke_hi)
 	)
@@ -1130,7 +1130,7 @@ static func _run_sim_blunt_tissue_ke_reduces_fracture(failures: PackedStringArra
 
 ## S9: deep tissue penetration raises arterial chance vs shallow slash (same severity/part).
 static func _run_sim_depth_deep_pen_raises_arterial_chance(failures: PackedStringArray) -> void:
-	const sev: String = _Bleeding.SEVERITY_SEVERE
+	var sev: String = _Bleeding.SEVERITY_SEVERE
 	var ch_shallow: float = _Bleeding.get_arterial_chance(
 		sev, _Bleeding.INJURY_TYPE_CUT, "right_arm", "forearm", 0.8
 	)
@@ -1148,7 +1148,7 @@ static func _run_sim_depth_deep_pen_raises_arterial_chance(failures: PackedStrin
 ## S9: subcutaneous + muscle stack (2 mm + 3 mm arm) absorbs before bone.
 static func _run_sim_layer_stack_two_sheets_absorb_pen(failures: PackedStringArray) -> void:
 	_CombatLayerTissue._harness_force_layer_tissue = true
-	const part: String = "right_arm"
+	var part: String = "right_arm"
 	var mid: Dictionary = _CombatLayerTissue.penetration_after_soft_tissue(part, 4.0, true)
 	var deep: Dictionary = _CombatLayerTissue.penetration_after_soft_tissue(part, 6.5, true)
 	_CombatLayerTissue._harness_force_layer_tissue = false
@@ -1170,13 +1170,13 @@ static func _run_sim_layer_stack_two_sheets_absorb_pen(failures: PackedStringArr
 		)
 
 
-## S10: full EntityDamage path — layer tissue reduces bone vs same hit without layer stack.
+## S10: full EntityDamage path  -  layer tissue reduces bone vs same hit without layer stack.
 static func _run_sim_layer_tissue_entity_path_reduces_bone(failures: PackedStringArray) -> void:
 	var off_ent: Node = _Harness._new_entity("SWORD")
 	var on_ent: Node = _Harness._new_entity("SWORD")
-	const pen: float = _DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 2.0
+	var pen: float = _DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 2.0
 	# Below forearm J anchor so bone comes from penetration gate, not KE excess alone.
-	const extras: Dictionary = {"hit_sub_region": "forearm", "strike_ke_j": 12.0}
+	var extras: Dictionary = {"hit_sub_region": "forearm", "strike_ke_j": 12.0}
 	var extras_off: Dictionary = extras.duplicate()
 	if _Bleeding.FEATURE_LAYER_TISSUE:
 		extras_off["disable_layer_tissue"] = true
@@ -1205,8 +1205,8 @@ static func _run_sim_layer_tissue_entity_path_reduces_bone(failures: PackedStrin
 
 ## M1: pen and KE curves monotonic; no EntityDamage mutation.
 static func _run_mat_curve_monotonic_pen_and_ke(failures: PackedStringArray) -> void:
-	const part: String = "right_arm"
-	const sub: String = "forearm"
+	var part: String = "right_arm"
+	var sub: String = "forearm"
 	var cut_sh: float = _MaterialFailureCurves.cut_tissue_damage_from_pen(0.8, part)
 	var cut_mid: float = _MaterialFailureCurves.cut_tissue_damage_from_pen(3.0, part)
 	var cut_deep: float = _MaterialFailureCurves.cut_tissue_damage_from_pen(6.0, part)
@@ -1231,9 +1231,9 @@ static func _run_mat_curve_monotonic_pen_and_ke(failures: PackedStringArray) -> 
 
 ## M1: blunt bone curve matches MFB `j_excess_to_bone_damage` at harness anchor.
 static func _run_mat_curve_matches_mfb_baseline_at_anchor(failures: PackedStringArray) -> void:
-	const part: String = "right_arm"
-	const sub: String = "forearm"
-	const excess_j: float = 24.0
+	var part: String = "right_arm"
+	var sub: String = "forearm"
+	var excess_j: float = 24.0
 	var j_anchor: float = _DamageMechanism.blunt_fracture_j_anchor(part, sub)
 	var ke_hit: float = j_anchor + excess_j
 	var curve_bone: float = _MaterialFailureCurves.blunt_bone_damage_from_ke(ke_hit, part, sub)
@@ -1284,13 +1284,13 @@ static func _mat_within_pct_tolerance(baseline: float, actual: float, pct: float
 	return absf(actual - baseline) <= baseline * pct
 
 
-## M2: unarmored forearm — curve path within ±15% of MFB entity path (blend weight 1.0).
+## M2: unarmored forearm  -  curve path within ±15% of MFB entity path (blend weight 1.0).
 static func _run_mat_entity_curve_matches_hp_baseline_unarmored(failures: PackedStringArray) -> void:
-	const part: String = "right_arm"
-	const sub: String = "forearm"
-	const pen: float = _DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 1.5
-	const cut: float = 12.0
-	const strike_ke: float = 12.0
+	var part: String = "right_arm"
+	var sub: String = "forearm"
+	var pen: float = _DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 1.5
+	var cut: float = 12.0
+	var strike_ke: float = 12.0
 	var extras_base: Dictionary = {
 		"hit_sub_region": sub,
 		"strike_ke_j": strike_ke,
@@ -1307,7 +1307,7 @@ static func _run_mat_entity_curve_matches_hp_baseline_unarmored(failures: Packed
 	var res_curve: Dictionary = ent_curve.take_damage_split(
 		cut, 0.0, part, pen, -1.0, -1.0, extras_curve
 	)
-	const tol: float = 0.15
+	var tol: float = 0.15
 	for key: String in ["final_cut", "final_blunt", "final_bone"]:
 		var base_v: float = float(res_mfb.get(key, 0.0))
 		var curve_v: float = float(res_curve.get(key, 0.0))
@@ -1321,10 +1321,10 @@ static func _run_mat_entity_curve_matches_hp_baseline_unarmored(failures: Packed
 
 ## M2: production off → MFB path; production on → matches explicit `force_material_curves`.
 static func _run_mat_entity_flag_off_matches_mfb_path(failures: PackedStringArray) -> void:
-	const part: String = "right_arm"
-	const pen: float = _DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 1.5
-	const cut: float = 12.0
-	const strike_ke: float = 12.0
+	var part: String = "right_arm"
+	var pen: float = _DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 1.5
+	var cut: float = 12.0
+	var strike_ke: float = 12.0
 	var extras: Dictionary = {
 		"hit_sub_region": "forearm",
 		"strike_ke_j": strike_ke,
@@ -1360,7 +1360,7 @@ static func _run_mat_entity_flag_off_matches_mfb_path(failures: PackedStringArra
 	var res_force: Dictionary = ent_force.take_damage_split(
 		cut, 0.0, part, pen, -1.0, -1.0, extras_force
 	)
-	const tol: float = 0.15
+	var tol: float = 0.15
 	for key: String in ["final_cut", "final_blunt", "final_bone"]:
 		var prod_v: float = float(res_prod.get(key, 0.0))
 		var force_v: float = float(res_force.get(key, 0.0))
@@ -1378,10 +1378,10 @@ static func _run_mat_armored_pen_reduces_curve_damage(failures: PackedStringArra
 	if cuirass == null:
 		_fail(failures, "mat_armored_pen: missing CUIRASS")
 		return
-	const part: String = "chest"
-	const sub: String = "thoracic"
-	const pen: float = 5.0
-	const cut: float = 14.0
+	var part: String = "chest"
+	var sub: String = "thoracic"
+	var pen: float = 5.0
+	var cut: float = 14.0
 	var extras: Dictionary = {
 		"hit_sub_region": sub,
 		"force_material_curves": true,
@@ -1418,10 +1418,10 @@ static func _run_mat_armored_pen_reduces_curve_damage(failures: PackedStringArra
 		)
 
 
-## M3: shallow pen — yield stack leaves no bone penetration.
+## M3: shallow pen  -  yield stack leaves no bone penetration.
 static func _run_mat_layer_yield_stops_shallow_pen(failures: PackedStringArray) -> void:
 	_CombatLayerTissue._harness_force_layer_tissue_curves = true
-	const part: String = "right_arm"
+	var part: String = "right_arm"
 	var state: Array = _CombatLayerTissue.seed_layer_state_for_part(part)
 	var layer: Dictionary = _CombatLayerTissue.penetration_through_layers(part, 0.5, state, true)
 	_CombatLayerTissue._harness_force_layer_tissue_curves = false
@@ -1439,7 +1439,7 @@ static func _run_mat_layer_yield_stops_shallow_pen(failures: PackedStringArray) 
 ## M3: deep pen ruptures subcut; wound depth uses full tissue pen.
 static func _run_mat_layer_rupture_deepens_wound_depth(failures: PackedStringArray) -> void:
 	_CombatLayerTissue._harness_force_layer_tissue_curves = true
-	const part: String = "right_arm"
+	var part: String = "right_arm"
 	var state: Array = _CombatLayerTissue.seed_layer_state_for_part(part)
 	var layer: Dictionary = _CombatLayerTissue.penetration_through_layers(part, 2.5, state, true)
 	_CombatLayerTissue._harness_force_layer_tissue_curves = false
@@ -1454,13 +1454,13 @@ static func _run_mat_layer_rupture_deepens_wound_depth(failures: PackedStringArr
 		)
 
 
-## M3: entity path — curves + layer tissue reduces bone vs flat MFB at same pen.
+## M3: entity path  -  curves + layer tissue reduces bone vs flat MFB at same pen.
 static func _run_mat_layer_entity_path_reduces_bone(failures: PackedStringArray) -> void:
-	const part: String = "right_arm"
+	var part: String = "right_arm"
 	# Through 5 mm arm stack + bone gate (2.5 mm); 6 mm only reaches 1 mm to bone when flat layer on.
 	var pen: float = 8.0 if _Bleeding.FEATURE_LAYER_TISSUE else 6.0
-	const cut: float = 12.0
-	const extras: Dictionary = {
+	var cut: float = 12.0
+	var extras: Dictionary = {
 		"hit_sub_region": "forearm",
 		"strike_ke_j": 12.0,
 		"force_material_curves": true,
@@ -1493,8 +1493,8 @@ static func _run_mat_layer_entity_path_reduces_bone(failures: PackedStringArray)
 
 ## M3: flat layer budget (5 mm arm stack) when yield/rupture curves inactive.
 static func _run_mat_layer_flat_budget_unchanged_when_curves_off(failures: PackedStringArray) -> void:
-	const part: String = "right_arm"
-	const pen: float = 6.0
+	var part: String = "right_arm"
+	var pen: float = 6.0
 	var flat: Dictionary
 	if _Bleeding.FEATURE_LAYER_TISSUE and not _Bleeding.FEATURE_LAYER_TISSUE_CURVES:
 		flat = _CombatLayerTissue.penetration_after_soft_tissue(part, pen, true)
@@ -1535,7 +1535,7 @@ static func _run_mat_production_layer_curves_flag_enabled(failures: PackedString
 static func _run_mat_production_layer_curves_entity_matches_forced(failures: PackedStringArray) -> void:
 	if not _Bleeding.FEATURE_LAYER_TISSUE_CURVES:
 		return
-	const part: String = "right_arm"
+	var part: String = "right_arm"
 	var pen: float = 8.0 if _Bleeding.FEATURE_LAYER_TISSUE else 6.0
 	var extras_prod: Dictionary = {"hit_sub_region": "forearm", "strike_ke_j": 12.0}
 	var extras_force: Dictionary = extras_prod.duplicate()
@@ -1561,8 +1561,8 @@ static func _run_mat_production_layer_curves_entity_matches_forced(failures: Pac
 static func _run_mat_production_layer_entity_matches_forced(failures: PackedStringArray) -> void:
 	if not _Bleeding.FEATURE_LAYER_TISSUE:
 		return
-	const part: String = "right_arm"
-	const pen: float = _DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 2.0
+	var part: String = "right_arm"
+	var pen: float = _DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 2.0
 	var extras_prod: Dictionary = {"hit_sub_region": "forearm", "strike_ke_j": 12.0}
 	if _Bleeding.FEATURE_LAYER_TISSUE_CURVES:
 		extras_prod["disable_layer_tissue_curves"] = true
@@ -1601,9 +1601,9 @@ static func _run_mat_production_joule_authoritative_matches_forced(failures: Pac
 		_fail(failures, "mat_joule_prod: missing CUIRASS")
 		_CombatConstants.set_feature_subregion_combat_mult_load(saved_sub)
 		return
-	const strike_ke: float = 90.0
-	const cut_pre: float = 14.0
-	const part: String = "chest"
+	var strike_ke: float = 90.0
+	var cut_pre: float = 14.0
+	var part: String = "chest"
 	var extras_prod: Dictionary = {
 		"strike_ke_j": strike_ke,
 		"hit_sub_region": "thoracic",
@@ -1650,9 +1650,9 @@ static func _run_mat_production_joule_disable_restores_scalar_armor(failures: Pa
 	if armor == null:
 		_fail(failures, "mat_joule_disable: missing CUIRASS")
 		return
-	const strike_ke: float = 90.0
-	const cut_pre: float = 14.0
-	const part: String = "chest"
+	var strike_ke: float = 90.0
+	var cut_pre: float = 14.0
+	var part: String = "chest"
 	var extras_joule: Dictionary = {"strike_ke_j": strike_ke}
 	var extras_scalar: Dictionary = extras_joule.duplicate()
 	extras_scalar["disable_joule_armor_budget"] = true
@@ -1723,7 +1723,7 @@ static func _run_mat_production_blood_ml_pools_seeded(failures: PackedStringArra
 static func _run_mat_production_blood_ttd_matches_percent(failures: PackedStringArray) -> void:
 	if not _Bleeding.FEATURE_LITERAL_BLOOD_ML:
 		return
-	const rate: float = _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE
+	var rate: float = _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE
 	var ttd_pct: float = _Bleeding.seconds_to_exsanguination(rate, _Bleeding.MAX_BLOOD_VOLUME, 1.0)
 	_BloodVolumeMl._harness_force_literal_blood_ml = false
 	var ent: CoreEntity = _sim_entity()
@@ -1860,7 +1860,7 @@ static func _run_mat_production_energy_pool_flag_enabled(failures: PackedStringA
 static func _run_mat_production_energy_pools_seeded(failures: PackedStringArray) -> void:
 	if not _Bleeding.FEATURE_TISSUE_ENERGY_POOL:
 		return
-	const part: String = "right_arm"
+	var part: String = "right_arm"
 	var ent: Node = _Harness._new_entity("SWORD")
 	var cap_j: float = float(ent.tissue_energy_capacity_j.get(part, 0.0))
 	var rem_j: float = float(ent.tissue_energy_remaining_j.get(part, 0.0))
@@ -1874,7 +1874,7 @@ static func _run_mat_production_energy_pools_seeded(failures: PackedStringArray)
 static func _run_mat_production_energy_severance_streams_independent(failures: PackedStringArray) -> void:
 	if not _Bleeding.FEATURE_TISSUE_ENERGY_POOL:
 		return
-	const part: String = "right_arm"
+	var part: String = "right_arm"
 	var extras: Dictionary = {
 		"hit_sub_region": "forearm",
 		"strike_ke_j": 12.0,
@@ -1969,8 +1969,8 @@ static func _run_mat_production_ttd_and_oberhau_unchanged(failures: PackedString
 
 ## M6: human arm 12 display ↔ ~100 J capacity anchor.
 static func _run_mat_energy_arm_capacity_anchor(failures: PackedStringArray) -> void:
-	const part: String = "right_arm"
-	const body_max: int = _DesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
+	var part: String = "right_arm"
+	var body_max: int = _DesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
 	var cap_j: float = _TissueEnergyCapacity.capacity_j_for_part(part, body_max)
 	if cap_j < 95.0 or cap_j > 105.0:
 		_fail(failures, "mat_energy: arm capacity_J %.0f want ~100" % cap_j)
@@ -1978,7 +1978,7 @@ static func _run_mat_energy_arm_capacity_anchor(failures: PackedStringArray) -> 
 
 ## M6: display bridge 50% J → ~50% display tissue.
 static func _run_mat_energy_display_bridge(failures: PackedStringArray) -> void:
-	const body_max: int = _DesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
+	var body_max: int = _DesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
 	var cap_j: float = _TissueEnergyCapacity.capacity_j_for_part("right_arm", body_max)
 	var display: float = _TissueEnergyCapacity.display_tissue_from_remaining_j(
 		body_max, cap_j * 0.5, cap_j
@@ -2009,7 +2009,7 @@ static func _run_mat_energy_flag_off_no_entity_fields(failures: PackedStringArra
 static func _run_mat_energy_entity_j_path_debits_internal(failures: PackedStringArray) -> void:
 	if not _Bleeding.FEATURE_TISSUE_ENERGY_POOL:
 		return
-	const part: String = "right_arm"
+	var part: String = "right_arm"
 	var ent: Node = _Harness._new_entity("SWORD")
 	var cap_before: float = float(ent.tissue_energy_capacity_j.get(part, 0.0))
 	if cap_before < 1.0:
@@ -2039,7 +2039,7 @@ static func _run_mat_energy_entity_j_path_debits_internal(failures: PackedString
 
 ## M6: HP pool path (disable J) matches itself; production J path reproducible.
 static func _run_mat_energy_entity_flag_off_matches_display_pools(failures: PackedStringArray) -> void:
-	const part: String = "right_arm"
+	var part: String = "right_arm"
 	var extras: Dictionary = {
 		"hit_sub_region": "forearm",
 		"strike_ke_j": 12.0,
@@ -2058,7 +2058,7 @@ static func _run_mat_energy_entity_flag_off_matches_display_pools(failures: Pack
 			_fail(failures, "%s: %s diverged" % [fail_tag, key])
 
 
-## Research gate: untreated arterial TTD in clinical 30–120 s band.
+## Research gate: untreated arterial TTD in clinical 30 - 120 s band.
 static func _run_research_clinical_ttd_band(failures: PackedStringArray) -> void:
 	var ttd_s: float = _Bleeding.seconds_to_exsanguination(
 		_Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE, _Bleeding.MAX_BLOOD_VOLUME, 1.0
@@ -2216,7 +2216,7 @@ static func _run_research_pen_depth_monotonic(failures: PackedStringArray) -> vo
 		_fail(failures, "research_pen_depth: arterial mult must rise shallow→deep")
 
 
-## Research gate: clotting half-life increases with wound severity; bandage in 60–300 s band.
+## Research gate: clotting half-life increases with wound severity; bandage in 60 - 300 s band.
 static func _run_research_clotting_half_life_order(failures: PackedStringArray) -> void:
 	if not _ResearchAnchors.clotting_half_life_ordering_ok():
 		_fail(failures, "research_clot: half-life must increase minor→critical")
@@ -2479,7 +2479,7 @@ static func _run_research_gate_registry_count(failures: PackedStringArray) -> vo
 	if want < 1:
 		_fail(failures, "research_registry: RESEARCH_HARNESS_GATE_IDS is empty")
 	# Meta-gate: when adding `_run_research_*`, append id to RESEARCH_HARNESS_GATE_IDS + checklist table.
-	const EXPECTED_RESEARCH_GATES: int = 37
+	var EXPECTED_RESEARCH_GATES: int = 37
 	if want != EXPECTED_RESEARCH_GATES:
 		_fail(
 			failures,
@@ -2498,7 +2498,7 @@ static func _run_research_triage_danger_seconds_vs_ttd(failures: PackedStringArr
 		)
 
 
-## F5 headless proxy: shallow forearm graze — no bone, tissue pen shallow.
+## F5 headless proxy: shallow forearm graze  -  no bone, tissue pen shallow.
 static func _run_f5_headless_forearm_graze(failures: PackedStringArray) -> void:
 	var m: Dictionary = _CalibrationAudit.f5_forearm_graze_metrics()
 	if float(m.get("final_bone", 0.0)) >= 0.01:

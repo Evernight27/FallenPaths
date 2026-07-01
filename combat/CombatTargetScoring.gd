@@ -1,18 +1,18 @@
 class_name CombatTargetScoring
 extends RefCounted
 
-## Hybrid targeting (AI logic gates only — see `CombatManager.resolve_action` / `TurnReadyHandler`).
+## Hybrid targeting (AI logic gates only â€”" see `CombatManager.resolve_action` / `TurnReadyHandler`).
 ##
 ## **Data flow (high level):**
-## 1. `CombatManager.start` → `formation_doctrine` defaults; combatants get commitment + close-block dicts.
-## 2. `_recompute_zoc_and_distance` → `CombatDistanceBands` (incl. reach/band alignment) → pair `distance_to`.
-## 3. `get_available_actions` → `AvailableActionsBuilder.build` → `CombatMeleeListing` / formation / medical listing modules (`attempt_close` at LONG, or MID/CLOSE under III-4 **3e** `CombatDoctrine.envelop_close_allowed`; gated by `close_attempt_pair_blocked`; picker weight 0 if stale).
-## 4. `CombatAIActionPicker.pick` → prune once → `ai_targeting_weight_mult(..., skip_prune=true)` (doctrine, file, commitment, pressure, **engagement mode**, our posture+cohesion, **opponent** formation, stance, **incap** defender hedge) × stamina × depth-spear move weights (incl. doctrine stab/cut nudge). **`ally_pressure_count`** for rank>0 uses **`CombatMeleeRankTargeting.melee_pair_rank_allowed`** to the committed defender (not **`depth_polearm_lane_open`** alone).
-## 5. `CombatResolveAction` → melee wind-up → `on_combat_commitment`; close → `CombatEngagementResolver` (success → commitment + clear close block; fail → per-target cooldown).
-## 6. `set_formation_doctrine` → clears commitments on that formation (doctrine change); death → `clear_all_targeting_state_for_dead_defender`.
+## 1. `CombatManager.start` Ã¢â€ ' `formation_doctrine` defaults; combatants get commitment + close-block dicts.
+## 2. `_recompute_zoc_and_distance` Ã¢â€ ' `CombatDistanceBands` (incl. reach/band alignment) Ã¢â€ ' pair `distance_to`.
+## 3. `get_available_actions` Ã¢â€ ' `AvailableActionsBuilder.build` Ã¢â€ ' `CombatMeleeListing` / formation / medical listing modules (`attempt_close` at LONG, or MID/CLOSE under III-4 **3e** `CombatDoctrine.envelop_close_allowed`; gated by `close_attempt_pair_blocked`; picker weight 0 if stale).
+## 4. `CombatAIActionPicker.pick` Ã¢â€ ' prune once Ã¢â€ ' `ai_targeting_weight_mult(..., skip_prune=true)` (doctrine, file, commitment, pressure, **engagement mode**, our posture+cohesion, **opponent** formation, stance, **incap** defender hedge) Ãƒ -  stamina Ãƒ -  depth-spear move weights (incl. doctrine stab/cut nudge). **`ally_pressure_count`** for rank>0 uses **`CombatMeleeRankTargeting.melee_pair_rank_allowed`** to the committed defender (not **`depth_polearm_lane_open`** alone).
+## 5. `CombatResolveAction` Ã¢â€ ' melee wind-up Ã¢â€ ' `on_combat_commitment`; close Ã¢â€ ' `CombatEngagementResolver` (success Ã¢â€ ' commitment + clear close block; fail Ã¢â€ ' per-target cooldown).
+## 6. `set_formation_doctrine` Ã¢â€ ' clears commitments on that formation (doctrine change); death Ã¢â€ ' `clear_all_targeting_state_for_dead_defender`.
 ##
 ## **Doctrine:** `DOCTRINE_PINCH_CENTER` / `HOLD_LANE` steer **listed** melee/close weights and ordering; `DOCTRINE_PROBING` nudges **depth spear** stab/cut listing weights only.
-## Footing: **`form_ai_targeting_mult`** (L2) scales AI target weights — not **`guard_line`** or PA. LIVE_PATHS **`#wf-pick-vs-strike`**.
+## Footing: **`form_ai_targeting_mult`** (L2) scales AI target weights â€”" not **`guard_line`** or PA. LIVE_PATHS **`#wf-pick-vs-strike`**.
 
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
@@ -21,8 +21,14 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
+# Runtime preload â€” circular dependency (CombatMeleeListing preloads CombatTargetScoring).
+static var _melee_listing_cache: Variant = null
+
+static func _get_melee_listing() -> GDScript:
+	if _melee_listing_cache == null:
+		_melee_listing_cache = load("res://combat/CombatMeleeListing.gd")
+	return _melee_listing_cache
+
 const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
@@ -32,7 +38,7 @@ static func clear_all_targeting_state_for_dead_defender(manager: Node, dead_id: 
 	if manager == null or dead_id < 0:
 		return
 	for c in manager.combatants:
-		if int(c.get("doctrine_target_commit_id", -1)) == dead_id:
+		if c.get("doctrine_target_commit_id", -1) == dead_id:
 			c["doctrine_target_commit_id"] = -1
 		var blk: Dictionary = _EntityAccess.nested_dictionary_for_mutation(c, "close_block_until_by_target_id")
 		if blk.has(dead_id):
@@ -44,10 +50,10 @@ static func prune_expired_commitments(manager: Node) -> void:
 		return
 	var clock: float = _EntityAccess.combat_clock_float(manager)
 	for c in manager.combatants:
-		var tid: int = int(c.get("doctrine_target_commit_id", -1))
+		var tid: int = c.get("doctrine_target_commit_id", -1)
 		if tid < 0:
 			continue
-		if clock > float(c.get("doctrine_commit_until", 0.0)):
+		if clock > c.get("doctrine_commit_until", 0.0):
 			c["doctrine_target_commit_id"] = -1
 			continue
 		var t: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
@@ -114,7 +120,7 @@ static func is_melee_file_opposed_priority(
 	return is_file_opposed_rank0_pair(manager, front, opp)
 
 
-## True when no enemy rank 0 is **file-opposed** to this fighter’s **reference rank-0** (self, or same-file partner if depth polearm lane is open — Tier 1.6 pinch geometry).
+## True when no enemy rank 0 is **file-opposed** to this fighterâ€”â„¢s **reference rank-0** (self, or same-file partner if depth polearm lane is open â€”" Tier 1.6 pinch geometry).
 static func wing_lacks_file_opposed(
 	manager: Node, actor: Dictionary, depth_lane_open_cache: Variant = null, zone_geometry_fid: String = ""
 ) -> bool:
@@ -160,7 +166,7 @@ static func _enemy_front_file_center(manager: Node, enemy_side: String) -> float
 	return (float(lo) + float(hi)) * 0.5
 
 
-## Optional **`eff_dist_cache`**: **`effective_pair_geometry` → `eff_dist`** when the caller already computed pair geometry (e.g. **`hostile_pair_targeting_weight_mult`**).
+## Optional **`eff_dist_cache`**: **`effective_pair_geometry` Ã¢â€ ' `eff_dist`** when the caller already computed pair geometry (e.g. **`hostile_pair_targeting_weight_mult`**).
 static func soft_geometry_score(
 	manager: Node, actor: Dictionary, opp: Dictionary, eff_dist_cache: Variant = null
 ) -> float:
@@ -230,7 +236,7 @@ static func ally_pressure_count(manager: Node, defender_id: int, ally_side: Stri
 			continue
 		if _EntityAccess.id_int(c) == exclude_attacker_id:
 			continue
-		if int(c.get("doctrine_target_commit_id", -1)) != defender_id:
+		if c.get("doctrine_target_commit_id", -1) != defender_id:
 			continue
 		var rk: int = _EntityAccess.rank_int(c)
 		if rk == 0:
@@ -261,7 +267,7 @@ static func close_slot_saturation_targeting_mult(
 ) -> float:
 	if manager == null or defender.is_empty():
 		return 1.0
-	if _MeleeListing.defender_has_free_close_slot(
+	if _get_melee_listing().defender_has_free_close_slot(
 		manager, defender, exclude_attacker_id
 	):
 		return 1.0
@@ -269,12 +275,12 @@ static func close_slot_saturation_targeting_mult(
 
 
 static func commitment_match_mult(actor: Dictionary, target_id: int) -> float:
-	if int(actor.get("doctrine_target_commit_id", -1)) == target_id:
+	if actor.get("doctrine_target_commit_id", -1) == target_id:
 		return CombatConstants.DOCTRINE_COMMIT_MATCH_WEIGHT_MULT
 	return 1.0
 
 
-## Tier 1.6 (P7): LINE posture scales with cohesion (ragged → slightly lower listed-target weights; solid → slight commit). OPEN/DUEL: looser cohesion → small aggression nudge.
+## Tier 1.6 (P7): LINE posture scales with cohesion (ragged Ã¢â€ ' slightly lower listed-target weights; solid Ã¢â€ ' slight commit). OPEN/DUEL: looser cohesion Ã¢â€ ' small aggression nudge.
 ## Intruders: uses host-line formation via **`formation_for_combatant_cached`** (cohesion/posture match tactical position).
 ## Optional **`formation_dict_cache`**: **`zone_geometry_line_context(manager, actor).formation`** when the caller already resolved it (e.g. **`hostile_pair_targeting_weight_mult`**).
 static func posture_cohesion_targeting_mult(
@@ -283,8 +289,8 @@ static func posture_cohesion_targeting_mult(
 	var fd: Dictionary = _ZoneOfControl.formation_for_combatant_cached(manager, actor, formation_dict_cache)
 	if fd.is_empty():
 		return 1.0
-	var coh: float = clampf(float(fd.get("line_cohesion", 1.0)), 0.0, 1.0)
-	var pst: String = str(fd.get("engagement_posture", "")).strip_edges().to_lower()
+	var coh: float = clampf(fd.get("line_cohesion", 1.0), 0.0, 1.0)
+	var pst: String = fd.get("engagement_posture", "").strip_edges().to_lower()
 	if pst == CombatConstants.ENGAGEMENT_POSTURE_LINE:
 		return lerpf(
 			CombatConstants.AI_TARGETING_LINE_COH_LO_MULT,
@@ -314,7 +320,7 @@ static func engagement_mode_targeting_mult(manager: Node) -> float:
 			return CombatConstants.AI_TARGETING_ENGAGEMENT_MODE_SKIRMISH_MULT
 
 
-## Tier 1.6 breadth: listed hostile weight vs **target** formation `engagement_posture` + `line_cohesion` (enemy LINE wall solid → slight hedge; OPEN/DUEL → small press).
+## Tier 1.6 breadth: listed hostile weight vs **target** formation `engagement_posture` + `line_cohesion` (enemy LINE wall solid Ã¢â€ ' slight hedge; OPEN/DUEL Ã¢â€ ' small press).
 ## Uses **`formation_for_combatant_cached`** (home-line **`formation_id`**).
 ## Optional **`formation_dict_cache`**: **`zone_geometry_line_context(manager, opp).formation`** when the caller already resolved it (e.g. hostile pair path).
 static func opponent_formation_targeting_mult(
@@ -325,8 +331,8 @@ static func opponent_formation_targeting_mult(
 	var fd: Dictionary = _ZoneOfControl.formation_for_combatant_cached(manager, opp, formation_dict_cache)
 	if fd.is_empty():
 		return 1.0
-	var coh: float = clampf(float(fd.get("line_cohesion", 1.0)), 0.0, 1.0)
-	var pst: String = str(fd.get("engagement_posture", "")).strip_edges().to_lower()
+	var coh: float = clampf(fd.get("line_cohesion", 1.0), 0.0, 1.0)
+	var pst: String = fd.get("engagement_posture", "").strip_edges().to_lower()
 	if pst == CombatConstants.ENGAGEMENT_POSTURE_LINE:
 		return lerpf(
 			CombatConstants.AI_TARGETING_OPP_LINE_COH_SOLID_MULT,
@@ -369,7 +375,7 @@ static func targets_hostile_for_scoring(move_id: String) -> bool:
 	return true
 
 
-## Tier 1.6: same multipliers as hostile `ai_targeting_weight_mult` rows, for a fixed attacker–opponent pair (listing order, AI weights, tests; engagement mode + opponent formation).
+## Tier 1.6: same multipliers as hostile `ai_targeting_weight_mult` rows, for a fixed attackerâ€”"opponent pair (listing order, AI weights, tests; engagement mode + opponent formation).
 ## `cached_engagement_mode_targeting_mult`: pass a float from `engagement_mode_targeting_mult(manager)` when sorting many opponents (avoids repeated mode snapshots); default **null** recomputes.
 ## Optional **`actor_zone_geometry_line_context`**: reuse **`zone_geometry_line_context(manager, atk)`** when scoring many opponents (listing sort).
 ## Optional **`opponent_zone_geometry_line_context`**: reuse per-id cache from **`zone_geometry_line_context_by_combatant_id`** (avoids home-roster **`formation_for_combatant_cached`** on the defender).
@@ -425,11 +431,13 @@ static func hostile_pair_targeting_weight_mult(
 		w *= CombatConstants.IV12_AI_COLOCATED_TARGET_BIAS_MULT
 	if _EntityAccess.is_incapacitated(opp):
 		w *= CombatConstants.AI_TARGETING_INCAP_HOSTILE_MULT
+	if _EntityAccess.state_str(opp) == CombatConstants.STATE_MEDICAL_WIND_UP:
+		w *= CombatConstants.AI_TARGETING_MEDICAL_WIND_UP_MULT
 	return clampf(w, CombatConstants.DOCTRINE_AI_WEIGHT_MULT_MIN, CombatConstants.DOCTRINE_AI_WEIGHT_MULT_MAX)
 
 
 ## Extra weight for AI pick only (player UI unchanged).
-## `skip_prune`: when **true**, skip `prune_expired_commitments` (caller already pruned — e.g. `CombatAIActionPicker.pick`).
+## `skip_prune`: when **true**, skip `prune_expired_commitments` (caller already pruned â€”" e.g. `CombatAIActionPicker.pick`).
 ## Optional zone caches: same as **`hostile_pair_targeting_weight_mult`** ( **`CombatAIActionPicker.pick_weighted`** passes both).
 static func ai_targeting_weight_mult(
 	manager: Node,
@@ -441,10 +449,10 @@ static func ai_targeting_weight_mult(
 ) -> float:
 	if not skip_prune:
 		prune_expired_commitments(manager)
-	var mid: String = str(action.get("move_id", ""))
+	var mid: String = action.get("move_id", "")
 	if not targets_hostile_for_scoring(mid):
 		return 1.0
-	var tid: int = int(action.get("target_id", -1))
+	var tid: int = action.get("target_id", -1)
 	if tid < 0:
 		return 1.0
 	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
@@ -461,7 +469,7 @@ static func ai_targeting_weight_mult(
 	)
 
 
-## (A) Order rank-line opponents: file-opposed first, then `hostile_pair_targeting_weight_mult` (geometry, doctrine, commitment, pressure, engagement mode, posture, opponent formation, stance — Tier 1.6).
+## (A) Order rank-line opponents: file-opposed first, then `hostile_pair_targeting_weight_mult` (geometry, doctrine, commitment, pressure, engagement mode, posture, opponent formation, stance â€”" Tier 1.6).
 static func ordered_melee_opponents(
 	manager: Node,
 	actor: Dictionary,
@@ -500,12 +508,12 @@ static func ordered_melee_opponents(
 	raw.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var aid: int = _EntityAccess.id_int(a)
 		var bid: int = _EntityAccess.id_int(b)
-		var afo: bool = file_opposed_by_id.get(aid, false) == true
-		var bfo: bool = file_opposed_by_id.get(bid, false) == true
+		var afo: bool = file_opposed_by_id.get(aid, false)
+		var bfo: bool = file_opposed_by_id.get(bid, false)
 		if afo != bfo:
 			return afo
-		var sa: float = float(weights_by_id.get(aid, 1.0))
-		var sb: float = float(weights_by_id.get(bid, 1.0))
+		var sa: float = weights_by_id.get(aid, 1.0)
+		var sb: float = weights_by_id.get(bid, 1.0)
 		if not is_equal_approx(sa, sb):
 			return sa > sb
 		return aid < bid

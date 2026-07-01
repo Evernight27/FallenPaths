@@ -1,12 +1,18 @@
 class_name SoakEncounterPresets
 extends RefCounted
 
-## F5 soak encounter markers — docs/LIVE_PATHS.md#headless-gate-authoritative (editor-only convenience).
+## F5 soak encounter markers  -  docs/LIVE_PATHS.md#headless-gate-authoritative (editor-only convenience).
 ## **`emit_f5_soak_guide`** prints **`FP_COMBAT: soak_guide`** lines at session start (grep **`soak_guide`** in Output).
 
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
-const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+static var _f5_soak_trace_cache: Variant = null
+
+static func _get_f5_soak_trace() -> Variant:
+	if _f5_soak_trace_cache == null:
+		_f5_soak_trace_cache = load("res://combat/CombatF5SoakTrace.gd")
+	return _f5_soak_trace_cache
 
 const PRESET_II2B_SWORD_DUEL := "ii2b"
 const PRESET_II3_SURROUND := "ii3"
@@ -29,7 +35,7 @@ const D001_PRESET_RUN_ORDER: PackedStringArray = [
 
 ## World meta: **`CampaignEncounterBridge.get_fightable_party_nodes`** sends only **`is_party_leader`**.
 const WORLD_META_PLAYER_LEADER_ONLY := "soak_player_leader_only"
-## Cap fightable roster (leader first, then companions) — **ii6** expects **`party_entering_combat count=2`**.
+## Cap fightable roster (leader first, then companions)  -  **ii6** expects **`party_entering_combat count=2`**.
 const WORLD_META_SOAK_PARTY_FIGHTER_CAP := "soak_party_fighter_cap"
 ## Set when **ii5** destroys leader arms; cleared + restored on non-soak **`clear_world_soak_meta`**.
 const WORLD_META_SOAK_LEADER_ARMS_DESTROYED := "soak_leader_arms_destroyed"
@@ -77,7 +83,7 @@ static func apply_preset(encounter: Node, preset_id: String) -> bool:
 static func apply_world_post_setup(world: Node2D, preset_id: String) -> void:
 	if world == null or preset_id.is_empty():
 		return
-	# Cyan→cyan in one F5 session: drop prior preset meta (e.g. **ii5** armless leader before **ii6**).
+	# Cyanâcyan in one F5 session: drop prior preset meta (e.g. **ii5** armless leader before **ii6**).
 	clear_world_soak_meta(world)
 	match preset_id:
 		PRESET_II2B_SWORD_DUEL, PRESET_II4D_EXHAUSTION:
@@ -112,7 +118,7 @@ static func is_known_preset(preset_id: String) -> bool:
 	]
 
 
-## Editor F5: grep **`soak_guide`** after **`FP_SESSION_BEGIN`** — scenario targets + Output patterns (no separate test scene).
+## Editor F5: grep **`soak_guide`** after **`FP_SESSION_BEGIN`**  -  scenario targets + Output patterns (no separate test scene).
 static func emit_f5_soak_guide(preset_id: String, marker_tile: Variant = null) -> void:
 	if not OS.has_feature("editor"):
 		return
@@ -128,7 +134,7 @@ static func emit_f5_soak_guide(preset_id: String, marker_tile: Variant = null) -
 	_emit_d001_run_order_hint(preset_id)
 	if not id.is_empty() and marker_tile == null:
 		_OperationalLog.play_combat(
-			"soak_guide WARN no cyan marker spawned — re-F5 or free a grid tile; preset world setup still applied"
+			"soak_guide WARN no cyan marker spawned  -  re-F5 or free a grid tile; preset world setup still applied"
 		)
 
 
@@ -140,14 +146,14 @@ static func emit_f5_fight_enter_hint(encounter: Node) -> void:
 	if encounter != null and "soak_preset_id" in encounter:
 		preset = str(encounter.soak_preset_id).strip_edges().to_lower()
 	if preset.is_empty():
-		_F5SoakTrace.set_fight_profile("7v7")
-		_F5SoakTrace.prepare_fight_end_log()
+		_get_f5_soak_trace().set_fight_profile("7v7")
+		_get_f5_soak_trace().prepare_fight_end_log()
 		_OperationalLog.play_combat(
-			"soak_fight_enter tile=red 7v7 — play until win/medical; end grep soak_fight_end soak_coverage"
+			"soak_fight_enter tile=red 7v7  -  play until win/medical; end grep soak_fight_end soak_coverage"
 		)
 		return
-	_F5SoakTrace.set_fight_profile(preset)
-	_F5SoakTrace.prepare_fight_end_log()
+	_get_f5_soak_trace().set_fight_profile(preset)
+	_get_f5_soak_trace().prepare_fight_end_log()
 	_OperationalLog.play_combat("soak_fight_enter tile=cyan preset=%s (grep soak=%s on encounter_begin)" % [preset, preset])
 	for line in _fight_enter_hint_lines(preset):
 		_OperationalLog.play_combat("soak_fight_enter %s" % line)
@@ -157,38 +163,38 @@ static func _fight_enter_hint_lines(preset_id: String) -> PackedStringArray:
 	match preset_id:
 		PRESET_II2B_SWORD_DUEL:
 			return PackedStringArray([
-				"human II-2b + #1 — 1v1 swords; party_entering_combat count=1",
+				"human II-2b + #1  -  1v1 swords; party_entering_combat count=1",
 				"grep parry_deflect|parry_bind|riposte_chain|flurry_bind",
 			])
 		PRESET_II3_SURROUND:
 			return PackedStringArray([
-				"human #3 — 4-wide front; grep ui_hint Arc overlap",
+				"human #3  -  4-wide front; grep ui_hint Arc overlap",
 			])
 		PRESET_II5_COWERING:
 			return PackedStringArray([
-				"human #5 — pick fall_back when cowering_fall_back listed",
+				"human #5  -  pick fall_back when cowering_fall_back listed",
 			])
 		PRESET_II6_AMBIENT_SHOCK:
 			return PackedStringArray([
-				"human #6 — count=2; wait 30-60s no hits on Companion; grep ambient_pain_shock Companion",
+				"human #6  -  count=2; wait 30-60s no hits on Companion; grep ambient_pain_shock Companion",
 			])
 		PRESET_II8_FORMATION:
 			return PackedStringArray([
-				"human #8 + II-5c — count=4; grep diagram_banner player: + turn_ready_gauge",
+				"human #8 + II-5c  -  count=4; grep diagram_banner player: + turn_ready_gauge",
 			])
 		PRESET_II4D_EXHAUSTION:
 			return PackedStringArray([
-				"human II-4d — long duel; grep exhaustion crossed 25|50|75; gauge Exh on row",
+				"human II-4d  -  long duel; grep exhaustion crossed 25|50|75; gauge Exh on row",
 			])
 		_:
 			return PackedStringArray()
 
 
 static func _emit_d001_run_order_hint(active_preset: String) -> void:
-	var order_s: String = " → ".join(D001_PRESET_RUN_ORDER)
+	var order_s: String = " â ".join(D001_PRESET_RUN_ORDER)
 	if active_preset.is_empty():
 		_OperationalLog.play_combat(
-			"soak_guide D-001 preset order: %s — then 7v7 red tiles for #4 #7 II-5a/b/c" % order_s
+			"soak_guide D-001 preset order: %s  -  then 7v7 red tiles for #4 #7 II-5a/b/c" % order_s
 		)
 		return
 	var idx: int = D001_PRESET_RUN_ORDER.find(active_preset)
@@ -200,14 +206,14 @@ static func _emit_d001_run_order_hint(active_preset: String) -> void:
 		)
 	else:
 		_OperationalLog.play_combat(
-			"soak_guide D-001 presets done — use 7v7 for formation/medical/gauge II-5a/b/c (#4 #7)"
+			"soak_guide D-001 presets done  -  use 7v7 for formation/medical/gauge II-5a/b/c (#4 #7)"
 		)
 
 
 static func _general_soak_guide_lines() -> PackedStringArray:
 	return PackedStringArray([
-		"POST one fight — copy all Godot Output; grep soak_fight_end | soak_coverage | soak_validate_hint | FP_ERROR | SCRIPT_ERROR",
-		"II-0 general — walk any encounter tile (2×7v7 on grid) or set main.tscn dev_soak_encounter=ii2b|ii4d|ii3|ii5|ii6|ii8|ii_envelop",
+		"POST one fight  -  copy all Godot Output; grep soak_fight_end | soak_coverage | soak_validate_hint | FP_ERROR | SCRIPT_ERROR",
+		"II-0 general  -  walk any encounter tile (2- - 7v7 on grid) or set main.tscn dev_soak_encounter=ii2b|ii4d|ii3|ii5|ii6|ii8|ii_envelop",
 		"grep FP_COMBAT: hit_resolve reason= | strike_avoided reason= | hit_outcome_stats | parry_stats | ui_hint | parry_deflect | parry_bind | parry_partial rem= | riposte_chain | flurry_bind | counter_tempo",
 		"grep FP_COMBAT: exhaustion | engagement mode= | diagram_banner player: | engagement_debug | opposition offset | engagement_transition | fled id=",
 		"grep FP_COMBAT: cowering_fall_back | ambient_pain_shock | medical | soak= (on encounter_begin when using cyan preset)",
@@ -216,33 +222,34 @@ static func _general_soak_guide_lines() -> PackedStringArray:
 	])
 
 
-## Human-only **D-001** rows — printed every F5 session (grep **`soak_guide human`**).
+## Human-only **D-001** rows  -  printed every F5 session (grep **`soak_guide human`**).
 static func _emit_d001_human_blocker_checklist(active_preset: String) -> void:
 	if not OS.has_feature("editor"):
 		return
 	var lines: PackedStringArray = PackedStringArray([
-		"II-2b feel: cyan ii2b (or 7v7) — bind/deflect timing; III-3 worksheet after",
+		"II-2b feel: cyan ii2b (or 7v7)  -  bind/deflect timing; III-3 worksheet after",
 		"II-5c gauge: grep turn_ready_gauge label=Stm.*Ready.*Exh.*Grd (any player turn)",
 		"II-5a tooltip: grep tooltip_match=ok on formation turns (counter/medical/melee_only are OK)",
 		"#8 diagram: grep diagram_banner player:",
-		"#5 fall_back: cyan ii5 — grep cowering_fall_back listed then pick (grep cowering_fall_back pick|executed)",
-		"#6 companion shock: cyan ii6 — party_entering_combat count=2; grep ambient_pain_shock Companion",
+		"#5 fall_back: cyan ii5  -  grep cowering_fall_back listed then pick (grep cowering_fall_back pick|executed)",
+		"#6 companion shock: cyan ii6  -  party_entering_combat count=2; grep ambient_pain_shock Companion",
 		"#7 medical: grep medical_pack_wound listed then medical_action pick move=pack_wound",
 	])
-	if active_preset == PRESET_II4D_EXHAUSTION:
-		lines.append("II-4d: this preset — confirm Exh N% on waiting gauge during long duel")
-	elif active_preset == PRESET_II8_FORMATION:
-		lines.append(
-			"#8: this preset — count=4 party_entering_combat; engagement label above party diagram"
-		)
-	elif active_preset == PRESET_II5_COWERING:
-		lines.append("#5: this preset — arms destroyed until red-tile fight clears soak meta")
-	elif active_preset == PRESET_II2B_SWORD_DUEL:
-		lines.append("#1/II-2b: this preset — walk cyan ii2b label; count=1; bind/deflect feel")
-	elif active_preset == PRESET_II3_SURROUND:
-		lines.append("#3: this preset — 4 enemies; Arc overlap on front-rank turns")
-	elif active_preset == PRESET_II6_AMBIENT_SHOCK:
-		lines.append("#6: this preset — soak_setup ii6; do not hit Companion early")
+	match active_preset:
+		PRESET_II4D_EXHAUSTION:
+			lines.append("II-4d: this preset  -  confirm Exh N% on waiting gauge during long duel")
+		PRESET_II8_FORMATION:
+			lines.append(
+				"#8: this preset  -  count=4 party_entering_combat; engagement label above party diagram"
+			)
+		PRESET_II5_COWERING:
+			lines.append("#5: this preset  -  arms destroyed until red-tile fight clears soak meta")
+		PRESET_II2B_SWORD_DUEL:
+			lines.append("#1/II-2b: this preset  -  walk cyan ii2b label; count=1; bind/deflect feel")
+		PRESET_II3_SURROUND:
+			lines.append("#3: this preset  -  4 enemies; Arc overlap on front-rank turns")
+		PRESET_II6_AMBIENT_SHOCK:
+			lines.append("#6: this preset  -  soak_setup ii6; do not hit Companion early")
 	for line in lines:
 		_OperationalLog.play_combat("soak_guide human %s" % line)
 
@@ -250,73 +257,73 @@ static func _emit_d001_human_blocker_checklist(active_preset: String) -> void:
 static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) -> PackedStringArray:
 	if not is_known_preset(preset_id):
 		return PackedStringArray([
-			"unknown preset '%s' — valid: ii2b ii4d ii3 ii5 ii6 ii8 ii_envelop" % preset_id,
+			"unknown preset '%s'  -  valid: ii2b ii4d ii3 ii5 ii6 ii8 ii_envelop" % preset_id,
 		])
-	var tile_s: String = "walk cyan marker on 3×3 grid"
+	var tile_s: String = "walk cyan marker on 3- - 3 grid"
 	if marker_tile is Vector2i:
 		tile_s = "cyan marker tile=%s" % str(marker_tile)
 	match preset_id:
 		PRESET_II2B_SWORD_DUEL:
 			var lines_ii2b: PackedStringArray = PackedStringArray([
-				"preset=ii2b — II-0 #1 + D-001 II-2b deflect/bind | %s" % tile_s,
+				"preset=ii2b  -  II-0 #1 + D-001 II-2b deflect/bind | %s" % tile_s,
 				"setup: leader-only 1v1 swords; expect FP_COMBAT engagement mode=Duel on encounter_begin soak=ii2b",
 				"grep: hit_resolve reason= | strike_avoided reason= | parry_deflect | parry_bind | parry_partial rem= | riposte_chain | flurry_bind | counter_tempo",
 				"play: exchange until bind/deflect; riposte after deflect; flurry after bind if window opens",
 			])
 			if _CombatConstants.combat_dev_verbose_active():
 				lines_ii2b.append(
-					"Q1 research_feel ON — grep research_feel | research_validate_hint; crosswalk docs/LIVE_PATHS.md#enable-per-hit-research_feel-lines"
+					"Q1 research_feel ON  -  grep research_feel | research_validate_hint; crosswalk docs/LIVE_PATHS.md#enable-per-hit-research_feel-lines"
 				)
 			else:
 				lines_ii2b.append(
 					"Q1 optional: main dev_research_feel=true then re-F5; grep research_feel (pen_mm ke_frac cut/blunt/bone)"
 				)
 			lines_ii2b.append(
-				"Q2 feel: exchange until bind+deflect; riposte after deflect; flurry after bind — grep parry_stats deflect= q2_validate_hint at fight end"
+				"Q2 feel: exchange until bind+deflect; riposte after deflect; flurry after bind  -  grep parry_stats deflect= q2_validate_hint at fight end"
 			)
 			lines_ii2b.append("Q2 headless: .\\scripts\\run_q_audit.ps1 -Track Q2 after run_all_combat_checks")
 			return lines_ii2b
 		PRESET_II4D_EXHAUSTION:
 			return PackedStringArray([
-				"preset=ii4d — II-4d stamina/exhaustion (3–5 min duel) | %s" % tile_s,
+				"preset=ii4d  -  II-4d stamina/exhaustion (3 - 5 min duel) | %s" % tile_s,
 				"setup: same as ii2b; soak=ii4d on encounter_begin",
 				"grep: exhaustion crossed 25|50|75 | engagement mode= | parry_* during long fight",
 				"on-screen: waiting gauge Stm N% · Ready · Exh N% · Grd",
-				"Q3 headless: [ii4d] exhaustion_* PASS — F5 optional 3–5 min pacing (q3_validate_hint)",
+				"Q3 headless: [ii4d] exhaustion_* PASS  -  F5 optional 3 - 5 min pacing (q3_validate_hint)",
 			])
 		PRESET_II3_SURROUND:
 			return PackedStringArray([
-				"preset=ii3 — II-0 #3 multi-threat surround | %s" % tile_s,
+				"preset=ii3  -  II-0 #3 multi-threat surround | %s" % tile_s,
 				"setup: 4-wide enemy front; surround arc occupancy on",
 				"grep: ui_hint Arc overlap | parry_* under 2+ front threats | surround_threat in [Combat.Flow] if COMBAT_EVENT_DEBUG_VERBOSE",
 			])
 		PRESET_II5_COWERING:
 			return PackedStringArray([
-				"preset=ii5 — II-0 #5 cowering → fall_back | %s" % tile_s,
-				"setup: leader armless (cowering); loose 2×3 party formation",
+				"preset=ii5  -  II-0 #5 cowering â fall_back | %s" % tile_s,
+				"setup: leader armless (cowering); loose 2- - 3 party formation",
 				"grep: cowering_fall_back listed | cowering_fall_back executed | ui_hint No arms",
 				"play: on your turn pick fall_back when listed (not flee-only path)",
-				"Q3 headless: .\\scripts\\run_q_audit.ps1 -Track Track — [ii5] cowering_* PASS in .d001_soak_out.txt",
+				"Q3 headless: .\\scripts\\run_q_audit.ps1 -Track Track  -  [ii5] cowering_* PASS in .d001_soak_out.txt",
 				"Q3 F5 only: confirm fall_back pick UX on world grid (grep q3_validate_hint at fight end)",
 			])
 		PRESET_II6_AMBIENT_SHOCK:
 			return PackedStringArray([
-				"preset=ii6 — II-0 #6 ambient pain shock | %s" % tile_s,
+				"preset=ii6  -  II-0 #6 ambient pain shock | %s" % tile_s,
 				"setup: companion chest wounded pre-fight; 1 enemy",
-				"grep: ambient_pain_shock | avoid new hits on companion — wait several combat ticks",
+				"grep: ambient_pain_shock | avoid new hits on companion  -  wait several combat ticks",
 				"note: shock rolls on sustained pain, not every hit",
 			])
 		PRESET_II8_FORMATION:
 			return PackedStringArray([
-				"preset=ii8 — II-0 #8 skirmish vs LINE labels | %s" % tile_s,
+				"preset=ii8  -  II-0 #8 skirmish vs LINE labels | %s" % tile_s,
 				"setup: 4 fightable party + 4-wide line + 4 enemies (grep party_entering_combat count=4)",
 				"grep: engagement mode=Formation line | diagram_banner player: | engagement_transition",
-				"on-screen: centered label above party diagram (Formation line · Line · cohesion) — ZoC line below title is separate",
-				"Q4 headless: [ii8] diagram_banner + tooltip_match_ok PASS — F5 optional layout glance (q4_validate_hint)",
+				"on-screen: centered label above party diagram (Formation line · Line · cohesion)  -  ZoC line below title is separate",
+				"Q4 headless: [ii8] diagram_banner + tooltip_match_ok PASS  -  F5 optional layout glance (q4_validate_hint)",
 			])
 		PRESET_II_ENVELOP:
 			return PackedStringArray([
-				"preset=ii_envelop — III-4 outnumber 7v3 skirmish | %s" % tile_s,
+				"preset=ii_envelop  -  III-4 outnumber 7v3 skirmish | %s" % tile_s,
 				"setup: cap=7 party, 7-wide front vs 3 enemies (grep party_entering_combat count=7)",
 				"grep: engagement mode=Skirmish | attempt_close | Stack hold_line | rotate_file@ (opening only)",
 				"tail (3e mop-up): engagement_debug mop_up=true rotate_suppress=true pick=attempt_close; avoid rotate=1 strikes=0 loops",
@@ -475,9 +482,10 @@ static func _apply_ii6_world(world: Node2D) -> void:
 
 
 static func _restore_leader_arms(world: Node2D) -> void:
-	if world == null or not world.has_node("Character/CombatBody"):
+	var player: Node2D = _CampaignBridge.get_player(world)
+	if player == null or not player.has_node("CombatBody"):
 		return
-	var ent: CoreEntity = world.get_node("Character/CombatBody") as CoreEntity
+	var ent: CoreEntity = player.get_node("CombatBody") as CoreEntity
 	if ent == null:
 		return
 	if ent.has_method("apply_species"):
@@ -507,9 +515,10 @@ static func _destroy_limb_for_soak(entity: CoreEntity, part: String) -> void:
 
 
 static func _wound_companion_for_ambient_shock(world: Node2D) -> void:
-	if not world.has_node("Character/Companion"):
+	var player: Node2D = _CampaignBridge.get_player(world)
+	if player == null or not player.has_node("Companion"):
 		return
-	var companion: Node = world.get_node("Character/Companion")
+	var companion: Node = player.get_node("Companion")
 	if not companion.has_node("CombatBody"):
 		return
 	var ent: CoreEntity = companion.get_node("CombatBody") as CoreEntity
@@ -524,3 +533,4 @@ static func _wound_companion_for_ambient_shock(world: Node2D) -> void:
 			"soak_setup ii6 companion chest wounded bv=%.0f (grep ambient_pain_shock on Companion)"
 			% ent.blood_volume
 		)
+          

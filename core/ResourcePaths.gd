@@ -20,3 +20,8 @@ const ENEMY_SCENE := "res://enemy/Enemy.tscn"
 
 # Assets
 const TILE_TEXTURE := "res://tile_texture.png"
+
+## Load enemy scene (cached). Replaces `load(ResourcePaths.ENEMY_SCENE) as PackedScene` across 3+ callers.
+static var _enemy_scene_cache: PackedScene = preload("res://enemy/Enemy.tscn")
+static func get_enemy_scene() -> PackedScene:
+	return _enemy_scene_cache

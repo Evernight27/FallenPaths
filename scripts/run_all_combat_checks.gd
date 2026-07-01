@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Headless combat checks — set **`FP_HARNESS_MODE`** (`all` default · `regression` · `d001` · `d001_presets` · `sanity` · `calibration` · `medical` · `f5_validate` · `f5_validate_camp_smokes` · `q_track`).
+## Headless combat checks  -  set **`FP_HARNESS_MODE`** (`all` default · `regression` · `d001` · `d001_presets` · `sanity` · `calibration` · `medical` · `f5_validate` · `f5_validate_camp_smokes` · `q_track`).
 ## Phase 0: **`run_all_combat_checks.ps1`** / **`.sh`**. Q track: mode **`q_track`**. F5 validate: **`f5_validate`** (+ optional path after **`--`**). Camp smokes batch: **`f5_validate_camp_smokes`**.
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
@@ -215,7 +215,7 @@ func _run_mode_f5_validate() -> void:
 	var path: String = _resolve_f5_input_path()
 	if not FileAccess.file_exists(path):
 		var msg: String = (
-			"Missing log file: %s — copy Godot Output after F5 soak, save as that path, re-run."
+			"Missing log file: %s  -  copy Godot Output after F5 soak, save as that path, re-run."
 			% path
 		)
 		_OperationalLog.harness_fail(F5_VALIDATOR_NAME, PackedStringArray([msg]))
@@ -273,7 +273,7 @@ func _run_mode_f5_validate_camp_smokes() -> void:
 				"pass" if track_pass else "fail",
 			]
 			failures.append("%s: %s" % [file_name, detail])
-			batch_lines.append("[%s] %s FAIL — %s" % [file_name, track_id, detail])
+			batch_lines.append("[%s] %s FAIL  -  %s" % [file_name, track_id, detail])
 	batch_lines.append("ok=%s" % str(failures.is_empty()).to_lower())
 	batch_lines.append("passed=%d/%d" % [passed, CAMP_SMOKE_ROWS.size()])
 	batch_lines.append(F5_CAMP_SMOKES_BATCH_TAG_END)
@@ -325,3 +325,4 @@ static func _resolve_f5_input_path() -> String:
 			return a if a.is_absolute_path() else root.path_join(a)
 		return root.path_join(a)
 	return root.path_join(_F5Validator.DEFAULT_INPUT_FILENAME)
+                  

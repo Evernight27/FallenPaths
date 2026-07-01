@@ -2,8 +2,8 @@ class_name CombatD001SoakRunner
 extends RefCounted
 
 ## Headless **D-001** preset fights: simulates F5 cyan soaks, captures **`FP_COMBAT`**, parses runbook grep targets.
-## Mandatory **II-2b / II-5a–c** sign-off is headless-only via plausibility + **`BattleUIUpdater`** probes (see **`.d001_headless_signoff.txt`**).
-## **ii5c** (`_run_ii5c_gauge_label_checks`): **`Stm`/`Ready`/`Exh`/`Grd`** + WF gauge/diagram suffix order (incl. **`form_wrath_*`**) — LIVE_PATHS **`#wf-soak-audit-status`** · **`#battle-ui`**.
+## Mandatory **II-2b / II-5a - c** sign-off is headless-only via plausibility + **`BattleUIUpdater`** probes (see **`.d001_headless_signoff.txt`**).
+## **ii5c** (`_run_ii5c_gauge_label_checks`): **`Stm`/`Ready`/`Exh`/`Grd`** + WF gauge/diagram suffix order (incl. **`form_wrath_*`**)  -  LIVE_PATHS **`#wf-soak-audit-status`** · **`#battle-ui`**.
 
 const _MgrScript := preload("res://combat/CombatManager.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
@@ -11,6 +11,7 @@ const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _FallenPathsErrorLogger := preload("res://core/FallenPathsErrorLogger.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _EngagementResolver := preload("res://combat/CombatEngagementResolver.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
@@ -148,7 +149,7 @@ static func run_all() -> Dictionary:
 	}
 
 
-## Headless subset (e.g. **`ii5`** + **`ii6`**) — same checks as **`run_all`**, without other presets.
+## Headless subset (e.g. **`ii5`** + **`ii6`**)  -  same checks as **`run_all`**, without other presets.
 static func run_preset_ids(preset_ids: PackedStringArray) -> Dictionary:
 	var failures: PackedStringArray = PackedStringArray()
 	var sanity: Dictionary = _SoakSanity.run_all()
@@ -232,7 +233,7 @@ static func _run_preset(preset_id: String) -> Dictionary:
 
 
 ## **II-5c** headless: **`BattleUIUpdater.gauge_label_text_for_combatant`** (`Stm` / `Ready` / `Exh` / `Grd` in one row).
-## **II-5a**: formation **`FP_COMBAT`** stamp + **`ui_hint`** on 4×4 line (player rank-0 turn-ready).
+## **II-5a**: formation **`FP_COMBAT`** stamp + **`ui_hint`** on 4- - 4 line (player rank-0 turn-ready).
 ## **II-5b**: aggregated preset captures must not contain stale crash/intrusion log vocabulary.
 ## II-0 **#7**: enter medical phase, list pressure on bleeding chest (live manager path).
 static func _run_ii7_medical_phase_smoke() -> Dictionary:
@@ -271,7 +272,7 @@ static func _run_ii7_medical_phase_smoke() -> Dictionary:
 				continue
 			if str(a.get("target_part", "")) != "chest":
 				continue
-			if str(a.get("move_id", "")) == "apply_direct_pressure":
+			if str(a.get("move_id", "")) == _CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE:
 				found_pressure = true
 				break
 		check_out["pressure_listed"] = {
@@ -285,7 +286,7 @@ static func _run_ii7_medical_phase_smoke() -> Dictionary:
 			var committed: bool = mgr.resolve_action(
 				healer_id,
 				ally_id,
-				"apply_direct_pressure",
+				_CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE,
 				{"target_part": "chest"}
 			)
 			check_out["pressure_resolve"] = {
@@ -321,9 +322,9 @@ static func _run_ii7_medical_phase_smoke() -> Dictionary:
 					if who_pack.is_empty() and healer_ent != null:
 						who_pack = str(healer_ent.name)
 					_F5SoakTrace.note_medical_pack_listed(who_pack, "chest")
-					_F5SoakTrace.note_medical_action_pick(who_pack, "pack_wound", "chest", "ally")
+					_F5SoakTrace.note_medical_action_pick(who_pack, _CombatConstants.MOVE_ID_PACK_WOUND, "chest", "ally")
 					var pack_ok: bool = mgr.resolve_action(
-						healer_id, ally_id, "pack_wound", {"target_part": "chest"}
+						healer_id, ally_id, _CombatConstants.MOVE_ID_PACK_WOUND, {"target_part": "chest"}
 					)
 					check_out["pack_wound_resolve"] = {
 						"pass": pack_ok,
@@ -334,7 +335,7 @@ static func _run_ii7_medical_phase_smoke() -> Dictionary:
 						fail.append("pack_wound_resolve failed")
 					else:
 						var elapsed_pack: float = 0.0
-						while elapsed_pack < 8.0:
+						while elapsed_pack < _CombatConstants.PACK_WOUND_TIMEOUT_S:
 							if _EntityAccess.state_str(mgr.combatants[0]) == CombatConstants.STATE_WAITING:
 								break
 							mgr._process(TICK_DT)
@@ -468,10 +469,10 @@ static func _medical_pack_wound_listed_for_ally(
 	ally_id: int,
 	actions: Array
 ) -> bool:
-	if not _ListedActions.first_action_move_vs_target(actions, "pack_wound", ally_id).is_empty():
+	if not _ListedActions.first_action_move_vs_target(actions, _CombatConstants.MOVE_ID_PACK_WOUND, ally_id).is_empty():
 		return true
 	for raw in _MedicalPhase.get_ally_medical_actions(mgr, healer, ally, "chest"):
-		if raw is Dictionary and str((raw as Dictionary).get("move_id", "")) == "pack_wound":
+		if raw is Dictionary and str((raw as Dictionary).get("move_id", "")) == _CombatConstants.MOVE_ID_PACK_WOUND:
 			return true
 	return false
 
@@ -577,7 +578,7 @@ static func _run_ii5a_formation_hint_checks() -> Dictionary:
 		"ok": ok,
 		"summary": "ok" if ok else ", ".join(fail),
 		"checks": check_out,
-		"notes": "II-5a log paths — F5 tooltip match still required",
+		"notes": "II-5a log paths  -  F5 tooltip match still required",
 	}
 
 
@@ -791,7 +792,7 @@ static func _label_tokens_in_order(label: String, tokens: PackedStringArray) -> 
 ## Red-tile 7v7 brawl (headless substitute for F5 random encounter).
 static func _run_7v7_brawl() -> Dictionary:
 	_OperationalLog.play_combat(
-		"soak_fight_enter tile=red 7v7 — headless 5x2 grep turn_ready_gauge diagram_banner medical_action"
+		"soak_fight_enter tile=red 7v7  -  headless 5x2 grep turn_ready_gauge diagram_banner medical_action"
 	)
 	_OperationalLog.play_combat("party_entering_combat count=7 (headless)")
 	_probe_7v7_sparse_formation_hold_hint()
@@ -805,7 +806,7 @@ static func _run_7v7_brawl() -> Dictionary:
 
 static func _run_ii2b_duel(preset_id: String, max_sec: float = 90.0) -> Dictionary:
 	var lines: PackedStringArray = PackedStringArray()
-	const REPS: int = 3
+	var REPS: int = 3
 	for rep in range(REPS):
 		_OperationalLog.clear_capture()
 		seed(_preset_seed(preset_id) + rep * 7919)
@@ -902,7 +903,7 @@ static func _run_ii_envelop(preset_id: String) -> Dictionary:
 	return _run_generic_fight(preset_id, 7, 3, player_form, enemy_form, 55.0)
 
 
-## III-4 **3e**: deterministic 7v1 attrition slice — `engagement_debug` mop_up + hold-line hint smoke.
+## III-4 **3e**: deterministic 7v1 attrition slice  -  `engagement_debug` mop_up + hold-line hint smoke.
 static func _probe_ii_envelop_mopup_engagement_debug(preset_id: String) -> void:
 	_OperationalLog.play_combat(
 		"soak_setup ii_envelop_mopup 3e attrition smoke (engagement_debug mop_up)"
@@ -969,7 +970,7 @@ static func _probe_ii_envelop_mopup_engagement_debug(preset_id: String) -> void:
 	).strip_edges()
 	if hold_hint.contains("Mop-up"):
 		_OperationalLog.play_combat("soak_setup ii_envelop_mopup hold_line_hint_ok")
-	# 3e strike-finish: CLOSE + listed melee → `engagement_debug` strikes_listed line for validator/F5.
+	# 3e strike-finish: CLOSE + listed melee â `engagement_debug` strikes_listed line for validator/F5.
 	var strike_actor: Dictionary = _player_at_rank_file(mgr, 0, 3)
 	if strike_actor.is_empty():
 		strike_actor = actor
@@ -998,7 +999,7 @@ static func _probe_ii_envelop_mopup_engagement_debug(preset_id: String) -> void:
 	CombatConstants.set_headless_harness_quiet(was_quiet)
 
 
-## III-4 **3e**: rear rank reserve + `attempt_close` during mop-up (7×2 line).
+## III-4 **3e**: rear rank reserve + `attempt_close` during mop-up (7- - 2 line).
 static func _probe_ii_envelop_mopup_rear_rank_hint() -> void:
 	_OperationalLog.play_combat(
 		"soak_setup ii_envelop_mopup rear rank hold-line smoke (7x2 reserve + close)"
@@ -1367,7 +1368,7 @@ static func _probe_ii_sparse_close_band_rotate_suppress(preset_id: String) -> vo
 	CombatConstants.set_headless_harness_quiet(was_quiet)
 
 
-## III-6 maintain: deterministic rank-0 gap → rear **`swap_rank`** → `engagement_debug line_plug_pick=1`.
+## III-6 maintain: deterministic rank-0 gap â rear **`swap_rank`** â `engagement_debug line_plug_pick=1`.
 static func _probe_ii_line_plug_engagement_debug(preset_id: String) -> void:
 	_OperationalLog.play_combat(
 		"soak_setup ii_line_plug rank-0 gap smoke (engagement_debug line_plug_pick)"
@@ -1452,7 +1453,7 @@ static func _probe_ii_line_plug_engagement_debug(preset_id: String) -> void:
 	CombatConstants.set_headless_harness_quiet(was_quiet)
 
 
-## III-6 maintain: Skirmish rank-0 hole → front **`rotate_file`** → `engagement_debug line_plug_pick=1`.
+## III-6 maintain: Skirmish rank-0 hole â front **`rotate_file`** â `engagement_debug line_plug_pick=1`.
 static func _probe_ii_skirmish_rotate_line_plug_engagement_debug(preset_id: String) -> void:
 	_OperationalLog.play_combat(
 		"soak_setup ii_skirmish_rotate rank-0 gap smoke (engagement_debug line_plug_pick rotate)"
@@ -1552,7 +1553,7 @@ static func _soak_kill_combatant(mgr: Node, combatant_id: int) -> void:
 	if not _EntityAccess.alive_bool(c):
 		return
 	c["alive"] = false
-	mgr._on_combatant_died(c)
+	mgr.on_combatant_died(c)
 
 
 static func _probe_formation_turn_hints(mgr: Node) -> Dictionary:
@@ -1800,7 +1801,7 @@ static func _run_ii4d_exhaustion(preset_id: String) -> Dictionary:
 		"min": 1,
 	}
 	pr["checks"] = checks
-	pr["notes"] = "headless II-4d band + Exh gauge (F5 3–5 min feel optional)"
+	pr["notes"] = "headless II-4d band + Exh gauge (F5 3 - 5 min feel optional)"
 	_free_manager(mgr)
 	return pr
 
@@ -1841,7 +1842,7 @@ static func _run_ii6_ambient(preset_id: String) -> Dictionary:
 	_OperationalLog.play_combat(
 		"soak_setup ii6 companion chest wounded bv=58 (grep ambient_pain_shock on Companion)"
 	)
-	# II-6: ambient tick only — do not **`mgr._process`** (AI combat would end the fight / kill the probe).
+	# II-6: ambient tick only  -  do not **`mgr._process`** (AI combat would end the fight / kill the probe).
 	var ambient_ok: bool = false
 	for _t in 120:
 		if companion.is_empty():
@@ -1854,7 +1855,7 @@ static func _run_ii6_ambient(preset_id: String) -> Dictionary:
 		_F5SoakTrace.log_fight_end_summary("player", false)
 	else:
 		_OperationalLog.play_combat(
-			"soak_setup ii6 WARN ambient_pain_shock not fired in 120s — check PAIN_SHOCK_AMBIENT interval / feature flag"
+			"soak_setup ii6 WARN ambient_pain_shock not fired in 120s  -  check PAIN_SHOCK_AMBIENT interval / feature flag"
 		)
 		_simulate_fight(mgr, 8.0, preset_id)
 	_free_manager(mgr)
@@ -1901,7 +1902,7 @@ static func _evaluate(_preset_id: String, lines: PackedStringArray, checks: Arra
 		"summary": summary,
 		"checks": check_out,
 		"plausibility_ok": plaus_fail.is_empty(),
-		"notes": "headless sim — II-5c gauge not verified",
+		"notes": "headless sim  -  II-5c gauge not verified",
 	}
 
 
@@ -1932,7 +1933,7 @@ static func _count_regex(lines: PackedStringArray, pattern: String) -> int:
 	return n
 
 
-## Session banners mention **`grep SCRIPT_ERROR`** — not real errors (see **`CombatF5SoakLogValidator`**).
+## Session banners mention **`grep SCRIPT_ERROR`**  -  not real errors (see **`CombatF5SoakLogValidator`**).
 static func _is_soak_grep_hint_line(line: String) -> bool:
 	var s: String = line.strip_edges()
 	if s.begins_with("soak_guide ") or s.begins_with("soak_session_plan "):
@@ -2017,7 +2018,7 @@ static func _formation_engagement_banner_line(mgr: Node) -> String:
 	if form.is_empty():
 		return ""
 	var mode_disp: String = _EngagementMode.mode_display_name(_EngagementMode.engagement_mode(mgr))
-	var posture: String = str(form.get("engagement_posture", "—"))
+	var posture: String = str(form.get("engagement_posture", " - "))
 	var coh: float = float(form.get("line_cohesion", 0.0))
 	return "%s · %s · cohesion %d%%" % [
 		mode_disp,
@@ -2031,7 +2032,7 @@ static func _log_diagram_banner_once(mgr: Node) -> void:
 	if form.is_empty():
 		return
 	var mode_disp: String = _EngagementMode.mode_display_name(_EngagementMode.engagement_mode(mgr))
-	var posture: String = str(form.get("engagement_posture", "—"))
+	var posture: String = str(form.get("engagement_posture", " - "))
 	var coh: float = float(form.get("line_cohesion", 0.0))
 	var line: String = "%s · %s · cohesion %d%%" % [
 		mode_disp,
@@ -2096,7 +2097,7 @@ static func _auto_resolve_ready_combatants(mgr: Node, preset_id: String) -> void
 		var st: String = _EntityAccess.state_str(c)
 		if st != CombatConstants.STATE_WAITING and st != CombatConstants.STATE_COWERING:
 			continue
-		if _EntityAccess.gauge_float(c) < 99.0:
+		if _EntityAccess.gauge_float(c) < CombatConstants.GAUGE_FULL_THRESHOLD:
 			continue
 		var cid: int = _EntityAccess.id_int(c)
 		var actions: Array = mgr.get_available_actions(cid)
@@ -2341,3 +2342,4 @@ static func _destroy_limb(entity: CoreEntity, part: String) -> void:
 
 static func _free_manager(mgr: Node) -> void:
 	CombatRegressionHarness._free_manager(mgr)
+                                    

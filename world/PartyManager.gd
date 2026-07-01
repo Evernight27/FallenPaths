@@ -1,10 +1,11 @@
 extends Node
+## Party roster management: member tracking, node references, party_updated signal.
 
 signal party_updated()
 
 const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
 
-var members: Array = []
+var members: Array[Dictionary] = []
 
 func _ready():
 	pass

@@ -2,14 +2,14 @@ class_name CombatFormationMoveDuration
 extends RefCounted
 
 ## Estimated seconds for formation pair / solo moves (matches **`CombatFormationFlow`** resolve timing).
-## Formation lane footing: **`ZoneOfControl.get_lane_and_footing_duration_multiplier`** — step-over bodies in file column; **not** blade **`guard_line`** / PA. LIVE_PATHS **`#wf-footing-terminology`**.
+## Formation lane footing: **`ZoneOfControl.get_lane_and_footing_duration_multiplier`** —" step-over bodies in file column; **not** blade **`guard_line`** / PA. LIVE_PATHS **`#wf-footing-terminology`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _Timing := preload("res://combat/CombatTiming.gd")
 const _BattleUIConstants := preload("res://ui/BattleUIConstants.gd")
 
-## P4b canonical UI copy (Tier 0.1) — locked by **`_run_p4b_formation_duration_ui_copy_suite`**.
+## P4b canonical UI copy (Tier 0.1) —" locked by **`_run_p4b_formation_duration_ui_copy_suite`**.
 const P4B_HINT_PREFIX := "Formation move:"
 const P4B_TOKEN_CROWDED_LANE := "crowded lane"
 const P4B_TOKEN_BLOCKED_LANE := "blocked lane"
@@ -43,7 +43,7 @@ static func p4b_formation_duration_ui_copy_line() -> String:
 
 
 static func duration_hint_for_turn_display(hint: String) -> String:
-	var h: String = str(hint).strip_edges()
+	var h: String = hint.strip_edges()
 	var prefix: String = P4B_HINT_PREFIX + " "
 	if h.begins_with(prefix):
 		return h.substr(prefix.length())
@@ -58,7 +58,7 @@ static func _zone_fid_for_lane_timing(manager: Node, c: Dictionary) -> String:
 
 
 static func _agi_scale_s(initiator: Dictionary) -> float:
-	var agi: float = float(_EntityAccess.stats_dict(initiator).get("agility", 100))
+	var agi: float = float(_EntityAccess.stats_dict(initiator).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
 	return CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi))
 
 
@@ -171,8 +171,8 @@ static func formation_preview_tooltip_line(manager: Node, c: Dictionary) -> Stri
 		float(pv.get("duration_s", CombatConstants.BASE_FALL_BACK_S)),
 		float(pv.get("lane_foot", CombatConstants.LANE_MOD_CLEAR)),
 		float(pv.get("pressure_mod", CombatConstants.PRESSURE_MOD_NEUTRAL)),
-		float(pv.get("armor_mult", 1.0)),
-		bool(pv.get("controlling_front", false))
+		pv.get("armor_mult", 1.0),
+		pv.get("controlling_front", false)
 	)
 
 
@@ -181,7 +181,7 @@ static func stamp_listed_action_duration_hint(
 ) -> void:
 	if manager == null or initiator.is_empty() or action.is_empty():
 		return
-	var mid: String = str(action.get("move_id", ""))
+	var mid: String = action.get("move_id", "")
 	if CombatConstants.is_leader_formation_command_move(mid):
 		if mid == CombatConstants.MOVE_ID_ORDER_HOLD_LANE:
 			action["formation_move_duration_hint"] = P4B_LEADER_HOLD_LANE_INSTANT_HINT
@@ -192,7 +192,7 @@ static func stamp_listed_action_duration_hint(
 		return
 	if not CombatConstants.is_formation_movement_move(mid):
 		return
-	var tid: int = int(action.get("target_id", -1))
+	var tid: int = action.get("target_id", -1)
 	var self_id: int = _EntityAccess.id_int(initiator)
 	var partner: Dictionary = {}
 	if tid >= 0 and tid != self_id:
@@ -230,7 +230,7 @@ static func stamp_listed_action_duration_hint(
 			action["formation_move_duration_hint"] = P4B_FLEE_INSTANT_HINT
 			return
 		_:
-			# Unknown move ID — return default duration; caller will log if needed.
+			# Unknown move ID —" return default duration; caller will log if needed.
 			pass
 	var armor_mult: float = _armor_mult(initiator, partner)
 	var controlling_front: bool = false
@@ -258,7 +258,7 @@ static func formation_listed_moves_menu_line(actions: Array) -> String:
 	for a in actions:
 		if a is not Dictionary:
 			continue
-		var mid: String = str(a.get("move_id", ""))
+		var mid: String = a.get("move_id", "")
 		if (
 			not CombatConstants.is_formation_movement_move(mid)
 			and mid != CombatConstants.MOVE_ID_ATTEMPT_CLOSE
@@ -266,7 +266,7 @@ static func formation_listed_moves_menu_line(actions: Array) -> String:
 		):
 			continue
 		var label: String = _formation_action_display_label(mid)
-		var tid: int = int(a.get("target_id", -1))
+		var tid: int = a.get("target_id", -1)
 		if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 			var close_tag: String = str(
 				a.get(CombatConstants.ACTION_KEY_CLOSE_LIST_HINT, "")
@@ -274,13 +274,13 @@ static func formation_listed_moves_menu_line(actions: Array) -> String:
 			if not close_tag.is_empty():
 				label = "%s vs %s" % [label, close_tag]
 			elif tid >= 0:
-				label = "%s → target %d" % [label, tid]
+				label = "%s â†' target %d" % [label, tid]
 		elif (
 			tid >= 0
 			and mid != CombatConstants.MOVE_ID_FLEE
 			and not CombatConstants.is_leader_formation_command_move(mid)
 		):
-			label = "%s → ally %d" % [label, tid]
+			label = "%s â†' ally %d" % [label, tid]
 		parts.append(label)
 	if parts.is_empty():
 		return ""
@@ -293,7 +293,7 @@ static func formation_listed_moves_turn_hint(actions: Array) -> String:
 	for a in actions:
 		if a is not Dictionary:
 			continue
-		var mid: String = str(a.get("move_id", ""))
+		var mid: String = a.get("move_id", "")
 		if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 			var close_tag: String = str(
 				a.get(CombatConstants.ACTION_KEY_CLOSE_LIST_HINT, "")
@@ -303,20 +303,20 @@ static func formation_listed_moves_turn_hint(actions: Array) -> String:
 				parts.append("%s — harder vs %s" % [close_label, close_tag])
 			continue
 		if CombatConstants.is_leader_formation_command_move(mid):
-			var leader_hint: String = str(a.get("formation_move_duration_hint", "")).strip_edges()
+			var leader_hint: String = a.get("formation_move_duration_hint", "").strip_edges()
 			if not leader_hint.is_empty():
 				parts.append(leader_hint)
 			continue
 		if not CombatConstants.is_formation_movement_move(mid):
 			continue
-		var hint: String = str(a.get("formation_move_duration_hint", "")).strip_edges()
+		var hint: String = a.get("formation_move_duration_hint", "").strip_edges()
 		if hint.is_empty():
 			continue
-		var tid: int = int(a.get("target_id", -1))
+		var tid: int = a.get("target_id", -1)
 		var label: String = _formation_action_display_label(mid)
 		if tid >= 0:
 			label = "%s (ally %d)" % [label, tid]
-		parts.append("%s — %s" % [label, duration_hint_for_turn_display(hint)])
+		parts.append("%s \u2014 %s" % [label, duration_hint_for_turn_display(hint)])
 	if parts.is_empty():
 		return ""
 	if parts.size() == 1:

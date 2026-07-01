@@ -5,7 +5,6 @@ extends RefCounted
 ## Footing: does **not** write **`guard_line`**, **`weapon_form`**, or PA offset — gauge suffixes via **`BattleUIUpdater`**. LIVE_PATHS **`#battle-ui`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
@@ -18,7 +17,6 @@ const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _BattleUIConstants := preload("res://ui/BattleUIConstants.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 
 
@@ -58,7 +56,7 @@ static func _formation_segment_is_flee(segment: String) -> bool:
 static func _merge_rout_into_formation_hint(form: String, rout: String) -> String:
 	if rout.is_empty() or form.contains(rout):
 		return form
-	const listed_prefix := "Listed formation moves: "
+	var listed_prefix := "Listed formation moves: "
 	if form.begins_with(listed_prefix):
 		var segments: PackedStringArray = form.substr(listed_prefix.length()).split("; ", false)
 		var merged_any := false
@@ -269,7 +267,7 @@ static func rout_hint_when_flee_listed(manager: Node, c: Dictionary, actions: Ar
 		return ""
 	if not _EntityAccess.is_player_side(c):
 		return ""
-	if bool(manager.medical_phase):
+	if manager.medical_phase:
 		return ""
 	if _MobilityRetreat.formation_retreat_only_for(c):
 		return ""
@@ -282,7 +280,7 @@ static func rout_pressure_early_hint(manager: Node, c: Dictionary, actions: Arra
 		return ""
 	if not _EntityAccess.is_player_side(c):
 		return ""
-	if bool(manager.medical_phase):
+	if manager.medical_phase:
 		return ""
 	if _MobilityRetreat.formation_retreat_only_for(c):
 		return ""
@@ -309,7 +307,7 @@ static func front_gap_line_plug_hint(manager: Node, c: Dictionary, actions: Arra
 		return ""
 	if not _EntityAccess.is_player_side(c):
 		return ""
-	if bool(manager.medical_phase):
+	if manager.medical_phase:
 		return ""
 	if _EntityAccess.rank_int(c) <= 0:
 		return ""
@@ -331,7 +329,7 @@ static func plug_forward_incap_partner_hint(manager: Node, c: Dictionary, action
 		return ""
 	if not _EntityAccess.is_player_side(c):
 		return ""
-	if bool(manager.medical_phase):
+	if manager.medical_phase:
 		return ""
 	if _EntityAccess.rank_int(c) <= 0:
 		return ""
@@ -342,10 +340,10 @@ static func plug_forward_incap_partner_hint(manager: Node, c: Dictionary, action
 		if raw is not Dictionary:
 			continue
 		var a: Dictionary = raw as Dictionary
-		if str(a.get("move_id", "")) != CombatConstants.MOVE_ID_SWAP_RANK:
+		if a.get("move_id", "") != CombatConstants.MOVE_ID_SWAP_RANK:
 			continue
 		var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(
-			manager, int(a.get("target_id", -1))
+			manager, a.get("target_id", -1)
 		)
 		if partner.is_empty():
 			continue
@@ -363,7 +361,7 @@ static func skirmish_line_gap_rotate_hint(manager: Node, c: Dictionary, actions:
 		return ""
 	if not _EntityAccess.is_player_side(c):
 		return ""
-	if bool(manager.medical_phase):
+	if manager.medical_phase:
 		return ""
 	if _EntityAccess.rank_int(c) != 0:
 		return ""
@@ -417,17 +415,17 @@ static func _log_medical_pack_wound_listed_if_applicable(
 		return
 	if not _EntityAccess.is_player_side(c):
 		return
-	if not bool(manager.medical_phase):
+	if not manager.medical_phase:
 		return
 	for entry in actions:
 		if not (entry is Dictionary):
 			continue
-		var mid: String = str(entry.get("move_id", entry.get("id", ""))).strip_edges()
+		var mid: String = entry.get("move_id", entry.get("id", "")).strip_edges()
 		if mid != CombatConstants.MOVE_ID_PACK_WOUND:
 			continue
 		_F5SoakTrace.note_medical_pack_listed(
 			_EntityAccess.get_display_name(c),
-			str(entry.get("target_part", "")).strip_edges()
+			entry.get("target_part", "").strip_edges()
 		)
 		return
 
@@ -440,7 +438,7 @@ static func cowering_retreat_hint_if_applicable(
 		return ""
 	if not _EntityAccess.is_player_side(c):
 		return ""
-	if bool(manager.medical_phase):
+	if manager.medical_phase:
 		return ""
 	if not _MobilityRetreat.formation_retreat_only_for(c):
 		return ""
@@ -471,7 +469,7 @@ static func counter_tempo_hint_if_applicable(
 		return ""
 	if not _EntityAccess.is_player_side(c):
 		return ""
-	if bool(manager.medical_phase):
+	if manager.medical_phase:
 		return ""
 	if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 		return ""

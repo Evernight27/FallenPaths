@@ -85,8 +85,8 @@ static func count_active_for_side(manager: Node, side: String) -> int:
 ## True 1v1: exactly one living, non-incapacitated fighter per side (not 7v2 mop-up / 2v2).
 static func snapshot_is_true_duel(snap: Dictionary) -> bool:
 	return (
-		int(snap.get("player_active", 0)) == 1
-		and int(snap.get("enemy_active", 0)) == 1
+		snap.get("player_active", 0) == 1
+		and snap.get("enemy_active", 0) == 1
 	)
 
 
@@ -104,12 +104,12 @@ static func iv3_true_duel_doc_sync_line() -> String:
 
 
 static func snapshot(manager: Node) -> Dictionary:
-	var p: int = count_front_rank_alive(manager, "player")
-	var e: int = count_front_rank_alive(manager, "enemy")
-	var p_active: int = count_active_for_side(manager, "player")
-	var e_active: int = count_active_for_side(manager, "enemy")
-	var pf: int = _front_files_for_side(manager, "player")
-	var ef: int = _front_files_for_side(manager, "enemy")
+	var p: int = count_front_rank_alive(manager, CombatConstants.SIDE_PLAYER)
+	var e: int = count_front_rank_alive(manager, CombatConstants.SIDE_ENEMY)
+	var p_active: int = count_active_for_side(manager, CombatConstants.SIDE_PLAYER)
+	var e_active: int = count_active_for_side(manager, CombatConstants.SIDE_ENEMY)
+	var pf: int = _front_files_for_side(manager, CombatConstants.SIDE_PLAYER)
+	var ef: int = _front_files_for_side(manager, CombatConstants.SIDE_ENEMY)
 	var p_fill: float = clampf(float(p) / float(pf), 0.0, 1.0)
 	var e_fill: float = clampf(float(e) / float(ef), 0.0, 1.0)
 	var raw_mode: String = _MODE_SKIRMISH
@@ -145,26 +145,26 @@ static func snapshot(manager: Node) -> Dictionary:
 
 static func can_enter_formation_from_snapshot(snap: Dictionary) -> bool:
 	return (
-		int(snap.get("player_active", 0)) >= int(CombatConstants.ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE)
-		and int(snap.get("enemy_active", 0)) >= int(CombatConstants.ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE)
-		and int(snap.get("player_front", 0)) >= int(CombatConstants.FORMATION_MIN_FRONT_FIGHTERS_PER_SIDE)
-		and int(snap.get("enemy_front", 0)) >= int(CombatConstants.FORMATION_MIN_FRONT_FIGHTERS_PER_SIDE)
-		and float(snap.get("player_front_fill", 0.0)) >= float(CombatConstants.FORMATION_MIN_FRONT_FILL_RATIO)
-		and float(snap.get("enemy_front_fill", 0.0)) >= float(CombatConstants.FORMATION_MIN_FRONT_FILL_RATIO)
+		snap.get("player_active", 0) >= CombatConstants.ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE
+		and snap.get("enemy_active", 0) >= CombatConstants.ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE
+		and snap.get("player_front", 0) >= CombatConstants.FORMATION_MIN_FRONT_FIGHTERS_PER_SIDE
+		and snap.get("enemy_front", 0) >= CombatConstants.FORMATION_MIN_FRONT_FIGHTERS_PER_SIDE
+		and snap.get("player_front_fill", 0.0) >= float(CombatConstants.FORMATION_MIN_FRONT_FILL_RATIO)
+		and snap.get("enemy_front_fill", 0.0) >= float(CombatConstants.FORMATION_MIN_FRONT_FILL_RATIO)
 	)
 
 
 static func can_stay_formation_from_snapshot(snap: Dictionary) -> bool:
-	var min_act: int = int(CombatConstants.ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE)
-	var p: int = int(snap.get("player_front", 0))
-	var e: int = int(snap.get("enemy_front", 0))
+	var min_act: int = CombatConstants.ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE
+	var p: int = snap.get("player_front", 0)
+	var e: int = snap.get("enemy_front", 0)
 	return (
-		int(snap.get("player_active", 0)) >= min_act
-		and int(snap.get("enemy_active", 0)) >= min_act
-		and p >= int(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FIGHTERS_PER_SIDE)
-		and e >= int(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FIGHTERS_PER_SIDE)
-		and float(snap.get("player_front_fill", 0.0)) >= float(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FILL_RATIO)
-		and float(snap.get("enemy_front_fill", 0.0)) >= float(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FILL_RATIO)
+		snap.get("player_active", 0) >= min_act
+		and snap.get("enemy_active", 0) >= min_act
+		and p >= CombatConstants.FORMATION_LEAVE_MIN_FRONT_FIGHTERS_PER_SIDE
+		and e >= CombatConstants.FORMATION_LEAVE_MIN_FRONT_FIGHTERS_PER_SIDE
+		and snap.get("player_front_fill", 0.0) >= float(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FILL_RATIO)
+		and snap.get("enemy_front_fill", 0.0) >= float(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FILL_RATIO)
 		and not snapshot_is_true_duel(snap)
 	)
 
@@ -189,8 +189,8 @@ static func engagement_mode(manager: Node) -> String:
 static func movement_policy(manager: Node) -> Dictionary:
 	var mode_now: String = engagement_mode(manager)
 	var stable_line: bool = mode_now == _MODE_FORMATION
-	var rotate_player: bool = allow_rotate_file_for_formation(manager, "player")
-	var rotate_enemy: bool = allow_rotate_file_for_formation(manager, "enemy")
+	var rotate_player: bool = allow_rotate_file_for_formation(manager, CombatConstants.SIDE_PLAYER)
+	var rotate_enemy: bool = allow_rotate_file_for_formation(manager, CombatConstants.SIDE_ENEMY)
 	return {
 		"mode": mode_now,
 		"mode_code": mode_code(mode_now),
@@ -216,7 +216,7 @@ static func allow_rotate_file_for_formation(manager: Node, formation_id: String)
 	if mode_now != _MODE_SKIRMISH:
 		return false
 	var our_files: int = _front_files_for_side(manager, fid)
-	var opp_fid: String = "enemy" if fid == "player" else "player"
+	var opp_fid: String = CombatConstants.SIDE_ENEMY if fid == CombatConstants.SIDE_PLAYER else CombatConstants.SIDE_PLAYER
 	var opp_files: int = _front_files_for_side(manager, opp_fid)
 	return our_files > opp_files + int(CombatConstants.SKIRMISH_ROTATE_OUTNUMBER_FILE_MARGIN)
 
@@ -232,12 +232,12 @@ static func mode_summary_line(manager: Node) -> String:
 			mode_now,
 			mode_now_code,
 			str(snap.get("raw_mode", _MODE_SKIRMISH)),
-			int(snap.get("raw_mode_code", mode_code(str(snap.get("raw_mode", _MODE_SKIRMISH))))),
-			int(snap.get("player_active", 0)),
-			int(snap.get("enemy_active", 0)),
-			int(snap.get("player_front", 0)),
-			int(snap.get("enemy_front", 0)),
-			float(snap.get("player_front_fill", 0.0)),
-			float(snap.get("enemy_front_fill", 0.0)),
+			snap.get("raw_mode_code", mode_code(str(snap.get("raw_mode", _MODE_SKIRMISH)))),
+			snap.get("player_active", 0),
+			snap.get("enemy_active", 0),
+			snap.get("player_front", 0),
+			snap.get("enemy_front", 0),
+			snap.get("player_front_fill", 0.0),
+			snap.get("enemy_front_fill", 0.0),
 		]
 	)

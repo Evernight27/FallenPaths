@@ -1,7 +1,7 @@
 class_name CombatResearchAnchors
 extends RefCounted
 
-## Literature bands and **derived** game anchors — not tuned in isolation.
+## Literature bands and **derived** game anchors  -  not tuned in isolation.
 ## Narrative: docs/LIVE_PATHS.md#bleeding-physics · docs/LIVE_PATHS.md#research-audit
 ## Headless: `[research_benchmarks]` · harness `_run_research_*`
 
@@ -46,16 +46,16 @@ const LITERATURE_ARM_SC_FAT_MM_MAX: float = 12.0
 ## HEMA committed oberhau calibration (project biomechanics band, not cadaver J fracture).
 const LITERATURE_HEMA_COMMITTED_KE_J_MIN: float = _DesignAnchors.COMMITTED_STRIKE_KE_J_MIN
 const LITERATURE_HEMA_COMMITTED_KE_J_MAX: float = _DesignAnchors.COMMITTED_STRIKE_KE_J_MAX
-## Manual compression: arterial hemorrhage often incompletely occluded (~30–50% flow may persist).
+## Manual compression: arterial hemorrhage often incompletely occluded (~30 - 50% flow may persist).
 const LITERATURE_DIRECT_PRESSURE_ARTERIAL_FLOW_RETAINED: float = 0.50
 const LITERATURE_PRESSURE_TTD_RATIO_TARGET: float = 2.0
 const LITERATURE_PRESSURE_TTD_RATIO_TOLERANCE: float = 0.15
 const LITERATURE_MULTIPLIER_TOLERANCE: float = 0.012
-## Penetrating extremity vascular injury: blunt ~18–36%% of cases → crush arterial mult ≤0.36 (game 0.35).
+## Penetrating extremity vascular injury: blunt ~18 - 36%% of cases â crush arterial mult â¤0.36 (game 0.35).
 const LITERATURE_BLUNT_VASCULAR_FRACTION_MAX: float = 0.36
 ## Scalp profuse bleeding vs limb baseline (StatPearls scalp vascularity).
 const LITERATURE_SCALP_BLEED_MULT_MIN: float = 1.4
-## Bandaged clotting half-life target ~2–5 min hemostasis (first-order k).
+## Bandaged clotting half-life target ~2 - 5 min hemostasis (first-order k).
 const LITERATURE_BANDAGE_HEMOSTASIS_HALF_LIFE_S_MIN: float = 60.0
 const LITERATURE_BANDAGE_HEMOSTASIS_HALF_LIFE_S_MAX: float = 300.0
 ## Sustained compression: faster local rate decay than open bleed; compressible venous hemostasis over field-care window.
@@ -65,7 +65,7 @@ const GOBLIN_REFERENCE_MASS_KG: float = 38.0
 ## Goblin live tissue sum band with S5 profiled derived limbs (hand exports via mini() cap).
 const GOBLIN_LIVE_TISSUE_SUM_MIN: int = 40
 const GOBLIN_LIVE_TISSUE_SUM_MAX: int = 56
-## NRS 4–5 = first functional impairment (acute pain literature); Method B thresholds in PainConsciousnessConstants.
+## NRS 4 - 5 = first functional impairment (acute pain literature); Method B thresholds in PainConsciousnessConstants.
 const LITERATURE_NRS_FIRST_EFFECT: float = 4.0
 const LITERATURE_HUMAN_PAIN_REFERENCE: float = 3.0
 const LITERATURE_HUMAN_PAIN_REFERENCE_TOLERANCE: float = 0.15
@@ -73,13 +73,13 @@ const LITERATURE_HUMAN_PAIN_REFERENCE_TOLERANCE: float = 0.15
 const LITERATURE_MODERATE_HIT_RAW_PAIN: float = 6.0
 const LITERATURE_HITS_TO_NRS4_MIN: float = 1.5
 const LITERATURE_HITS_TO_NRS4_MAX: float = 3.0
-## de Leva (1996) whole-body segment mass % — game head lump includes face/scalp (wider than head-only).
+## de Leva (1996) whole-body segment mass %  -  game head lump includes face/scalp (wider than head-only).
 const LITERATURE_DE_LEVA_HEAD_PCT: float = 6.9
 const LITERATURE_DE_LEVA_HEAD_PCT_TOLERANCE: float = 4.0
 const LITERATURE_FOREARM_ARTERIAL_MULT_MIN: float = 1.1
 ## Post-S11 full production gate id (mirrors CombatCalibrationAudit.material_failure_headless_gate_line).
 const LITERATURE_HEADLESS_GATE_FULL: String = "p3b_full_including_energy_pool_joule_armor_and_literal_blood_ml"
-## M6 arm anchor: body_max 12 ↔ design KE arm slot (`CombatDesignAnchors`).
+## M6 arm anchor: body_max 12 â design KE arm slot (`CombatDesignAnchors`).
 const LITERATURE_ARM_TISSUE_CAPACITY_J: float = _DesignAnchors.DESIGN_KE_ARM_J
 const LITERATURE_ARM_CAPACITY_J_TOLERANCE: float = 5.0
 const LITERATURE_ARM_DISPLAY_HALF_J: float = 6.0
@@ -94,7 +94,7 @@ const LITERATURE_JOULE_REFERENCE_STRIKE_KE_J: float = 120.0
 const LITERATURE_JOULE_REFERENCE_PEN_MM: float = 6.0
 const LITERATURE_JOULE_KE_FRAC_MIN: float = 0.15
 const LITERATURE_JOULE_KE_FRAC_MAX: float = 0.85
-## Headless research gates — keep in sync with `_run_research_*` in CombatRegressionHarnessSimulation + docs/LIVE_PATHS.md#research-audit.
+## Headless research gates  -  keep in sync with `_run_research_*` in CombatRegressionHarnessSimulation + docs/LIVE_PATHS.md#research-audit.
 const RESEARCH_HARNESS_GATE_IDS: Array[String] = [
 	"clinical_ttd_band",
 	"blood_ml_nominal_70_per_kg",
@@ -213,8 +213,8 @@ static func derived_blood_loss_multiplier_for_ttd(target_ttd_s: float) -> float:
 	return buffer / denom
 
 
-## Implied mL/s from abstract HP/s bleed via percent↔mL bridge (`BloodVolumeMl`).
-## Not a clinical flow-rate claim — **TTD** (30–120 s band) is the calibrated outcome.
+## Implied mL/s from abstract HP/s bleed via percentâmL bridge (`BloodVolumeMl`).
+## Not a clinical flow-rate claim  -  **TTD** (30 - 120 s band) is the calibrated outcome.
 static func reference_uncontrolled_implied_ml_per_second(
 	reference_mass_kg: float = _DesignAnchors.REFERENCE_ADULT_MASS_KG,
 	loss_mult: float = 1.0
@@ -356,7 +356,7 @@ static func penetration_arterial_mult_monotonic() -> bool:
 
 
 static func ml_percent_ttd_parity_ok() -> bool:
-	const rate: float = _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE
+	var rate: float = _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE
 	var ttd_pct: float = _Bleeding.seconds_to_exsanguination(rate, _Bleeding.MAX_BLOOD_VOLUME, 1.0)
 	var max_ml: float = _BloodVolumeMl.blood_volume_ml_max_for_reference_mass(
 		_DesignAnchors.REFERENCE_ADULT_MASS_KG
@@ -583,7 +583,7 @@ static func neck_arterial_mult_exceeds_forearm() -> bool:
 	return neck > forearm
 
 
-## Danger/peril blood bands sit in ATLS Class IV (≤60% remaining, above death threshold).
+## Danger/peril blood bands sit in ATLS Class IV (â¤60% remaining, above death threshold).
 static func medical_triage_blood_bands_in_class_iv_window() -> bool:
 	var class_iii_min: float = _Bleeding.ATLS_CLASS_III_MIN_REMAINING
 	var death: float = _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
@@ -1193,3 +1193,4 @@ static func append_research_verdict_summary(lines: PackedStringArray) -> void:
 	lines.append("production_stack=P3b_S11_full_headless_gate_documented_in_audit")
 	lines.append("joule_armor=sqrt_ke_remaining_over_strike_ke_gameplay_transmission")
 	lines.append("blunt_J_vs_Nm=rank_order_only_cadaver_bending_uses_Nm_not_1to1_J")
+    

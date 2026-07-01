@@ -1,6 +1,8 @@
 class_name StrikePhysics
 extends RefCounted
 
+const _DataKeys := preload("res://core/DataKeys.gd")
+
 # Closing-speed tuning: docs/LIVE_PATHS.md#research-audit when stable.
 # Conservative vs peak hand speed: geometry/reaction advantage, not a second full weapon multiplier.
 const _CLOSING_FRONT := 1.0
@@ -17,9 +19,9 @@ const _AMBUSH_DIV := 1.12
 
 ## ctx: `tactical_ambush_mult`; optional `depth_polearm_attack` + `attack_type` + lane fields (align with **`DefenseChoiceResolver._depth_polearm_lane_is_open`**).
 static func depth_polearm_thrust_closing_factor(ctx: Dictionary) -> float:
-	if not bool(ctx.get("depth_polearm_attack", false)):
+	if not ctx.get(_DataKeys.PA_DEPTH_POLEARM_ATTACK, false):
 		return 1.0
-	var atk_type: String = str(ctx.get("attack_type", ""))
+	var atk_type: String = str(ctx.get(CombatConstants.PA_KEY_ATTACK_TYPE, ""))
 	if atk_type.is_empty():
 		return 1.0
 	var md: Dictionary = WeaponConstants.get_move(atk_type)
@@ -30,7 +32,7 @@ static func depth_polearm_thrust_closing_factor(ctx: Dictionary) -> float:
 		return 1.0
 	if lane == "open":
 		return CombatConstants.DEPTH_SPEAR_THRUST_CLOSING_SPEED_MULT
-	var allow_low: bool = bool(ctx.get("depth_polearm_allows_low_targets", true))
+	var allow_low: bool = ctx.get(_DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW, true)
 	if not allow_low:
 		return 1.0
 	return CombatConstants.DEPTH_SPEAR_THRUST_CLOSING_SPEED_MULT
@@ -48,7 +50,7 @@ static func closing_speed_multiplier(_manager: Node, _atk: Dictionary, tgt: Dict
 		_:
 			mult = _CLOSING_FRONT
 	mult *= depth_polearm_thrust_closing_factor(ctx)
-	var amb: float = float(ctx.get("tactical_ambush_mult", 1.0))
+	var amb: float = ctx.get("tactical_ambush_mult", 1.0)
 	if amb > 1.001:
 		mult *= lerpf(1.0, _AMBUSH_CAP, clampf((amb - 1.0) / maxf(0.001, _AMBUSH_DIV - 1.0), 0.0, 1.0))
 	return clampf(mult, _CLOSING_MIN, _CLOSING_MAX)

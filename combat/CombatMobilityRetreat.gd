@@ -1,13 +1,23 @@
 class_name CombatMobilityRetreat
 extends RefCounted
 
-## Tier 6.1: cowering / no functional arms — retreat-only listing, resolve gates, arm-loss react.
+## Tier 6.1: cowering / no functional arms  -  retreat-only listing, resolve gates, arm-loss react.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+
+static func _get_counter_tempo() -> GDScript:
+	return _CounterTempo
+
+static func _get_event_scheduler() -> GDScript:
+	return _EventScheduler
+
+static func _get_state_handlers() -> GDScript:
+	return _StateHandlers
+
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 
 

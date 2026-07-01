@@ -2,7 +2,7 @@ class_name TacticalCombat
 extends RefCounted
 
 ## Phase 6: Ambush penalties, surround (multi-threat defense split + perception), incursion pressure for ZoC.
-## Formations / ambush: CombatConstants presets; plan Tier 1 — docs/LIVE_PATHS.md#tier-1-spec.
+## Formations / ambush: CombatConstants presets; plan Tier 1 —" docs/LIVE_PATHS.md#tier-1-spec.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
@@ -10,10 +10,10 @@ const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
-const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _ArcOccupancy := preload("res://combat/CombatSurroundArcOccupancy.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 
 ## Tier 1.8 (P9): counters on the combat manager for soak / debug (mode transitions, illegal melee / close resolves).
 ## Keys are stable for logs, **`_tactical_mode_snapshot["telemetry"]`**, and **`CombatRegressionHarness`** (`_run_telemetry_*`).
@@ -37,7 +37,7 @@ static func _iv12_slot_distraction_pad(manager: Node, defender: Dictionary, thre
 		return 0.0
 	var pad: float = 0.0
 	for cell_key in threaten_per_cell.keys():
-		if int(threaten_per_cell.get(cell_key, 0)) < 1:
+		if threaten_per_cell.get(cell_key, 0) < 1:
 			continue
 		var parts: PackedStringArray = str(cell_key).split(":")
 		if parts.size() != 3:
@@ -86,7 +86,7 @@ static func _melee_threat_scan(manager: Node, defender: Dictionary) -> Dictionar
 		if not _MeleeListing.can_melee_threaten(manager, c, defender, pair_geom):
 			continue
 		count += 1
-		var eff_f: float = float(pair_geom.get("file_spacing_equiv", 0.0))
+		var eff_f: float = pair_geom.get("file_spacing_equiv", 0.0)
 		var w: float = eff_f / maxf(0.001, CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN)
 		w = clampf(w, CombatConstants.SURROUND_SECTOR_WEIGHT_MIN, 1.0)
 		var pa: Dictionary = _EntityAccess.nested_dictionary_read(c, "pending_attack")
@@ -98,14 +98,14 @@ static func _melee_threat_scan(manager: Node, defender: Dictionary) -> Dictionar
 			center = fmod(90.0 + df * 38.0 + 360.0, 360.0)
 		entries.append({"weight": w, "arc_center_deg": center})
 		var cell_key: String = _iv12_threat_cell_key(manager, c)
-		threaten_per_cell[cell_key] = int(threaten_per_cell.get(cell_key, 0)) + 1
+		threaten_per_cell[cell_key] = threaten_per_cell.get(cell_key, 0) + 1
 	var surround_load: Dictionary = _ArcOccupancy.surround_load_from_threat_entries(entries)
-	var weight_sum: float = float(surround_load.get("weight_sum", 0.0))
+	var weight_sum: float = surround_load.get("weight_sum", 0.0)
 	weight_sum += _iv12_slot_distraction_pad(manager, defender, threaten_per_cell)
 	return {
 		"count": count,
 		"weight_sum": weight_sum,
-		"arc_occupancy_blocked": int(surround_load.get("arc_occupancy_blocked", 0)),
+		"arc_occupancy_blocked": surround_load.get("arc_occupancy_blocked", 0),
 		"threaten_per_cell": threaten_per_cell,
 	}
 
@@ -171,20 +171,20 @@ static func attacker_has_co_located_slot_mate_threatening(
 
 
 ## Enemy front-rank units that could actually land a melee strike on the defender (weapon reach + spacing + band).
-## Not merely “MID distance” from formation geometry — matches **`CombatMeleeListing.can_melee_threaten`**.
+## Not merely —œMID distance— from formation geometry —" matches **`CombatMeleeListing.can_melee_threaten`**.
 static func count_engaging_threats(manager: Node, defender_id: int) -> int:
 	var d: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
 	if d.is_empty():
 		return 0
-	return int(_melee_threat_scan(manager, d).get("count", 0))
+	return _melee_threat_scan(manager, d).get("count", 0)
 
 static func _surround_awareness_factor(defender: Dictionary) -> float:
-	var perc_norm: float = clampf(float(_EntityAccess.stats_dict(defender).get("perception", 100)) / 100.0, 0.0, 1.0)
+	var perc_norm: float = clampf(float(_EntityAccess.stats_dict(defender).get("perception", CombatConstants.DEFAULT_STAT_VALUE)) / 100.0, 0.0, 1.0)
 	var base: float = lerpf(CombatConstants.SURROUND_AWARENESS_AT_LOW_PERCEPTION, 1.0, perc_norm)
 	return base * _Exhaustion.performance_mult_for_combatant(defender)
 
 
-## Sum of sector weights for each enemy that `can_melee_threaten` the defender (Tier 3.1 — uses `effective_pair_file_spacing_equivalent` vs flank spacing).
+## Sum of sector weights for each enemy that `can_melee_threaten` the defender (Tier 3.1 —" uses `effective_pair_file_spacing_equivalent` vs flank spacing).
 ## Live scan: count, sector **`weight_sum`**, and arc-overlap demotions (**`arc_occupancy_blocked`**).
 static func surround_threat_scan_for_defender(manager: Node, defender: Dictionary) -> Dictionary:
 	if manager == null or defender.is_empty():
@@ -193,26 +193,26 @@ static func surround_threat_scan_for_defender(manager: Node, defender: Dictionar
 
 
 static func arc_occupancy_blocked_for_defender(manager: Node, defender: Dictionary) -> int:
-	return int(surround_threat_scan_for_defender(manager, defender).get("arc_occupancy_blocked", 0))
+	return surround_threat_scan_for_defender(manager, defender).get("arc_occupancy_blocked", 0)
 
 
 static func stamp_surround_threat_on_pa(manager: Node, defender: Dictionary, pa: Dictionary) -> void:
 	if manager == null or defender.is_empty() or pa.is_empty():
 		return
 	var sur_scan: Dictionary = surround_threat_scan_for_defender(manager, defender)
-	pa["surround_threat_count"] = int(sur_scan.get("count", 0))
+	pa["surround_threat_count"] = sur_scan.get("count", 0)
 	if CombatConstants.is_feature_sector_surround_load():
-		pa["surround_threat_weight_sum"] = float(sur_scan.get("weight_sum", 0.0))
+		pa["surround_threat_weight_sum"] = sur_scan.get("weight_sum", 0.0)
 	else:
 		pa.erase("surround_threat_weight_sum")
-	var arc_blocked: int = int(sur_scan.get("arc_occupancy_blocked", 0))
+	var arc_blocked: int = sur_scan.get("arc_occupancy_blocked", 0)
 	if arc_blocked > 0 and CombatConstants.is_feature_surround_arc_occupancy_enabled():
 		pa["arc_occupancy_blocked"] = arc_blocked
 	else:
 		pa.erase("arc_occupancy_blocked")
 
 
-## Per-attacker sector weight (0.35–1.0) for one defender — same geometry as surround threat scan.
+## Per-attacker sector weight (0.35—"1.0) for one defender —" same geometry as surround threat scan.
 static func sector_weight_for_attacker_on_defender(
 	manager: Node, defender_id: int, attacker_id: int
 ) -> float:
@@ -225,7 +225,7 @@ static func sector_weight_for_attacker_on_defender(
 	var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, atk, defender)
 	if not _MeleeListing.can_melee_threaten(manager, atk, defender, pair_geom):
 		return 1.0
-	var eff_f: float = float(pair_geom.get("file_spacing_equiv", 0.0))
+	var eff_f: float = pair_geom.get("file_spacing_equiv", 0.0)
 	var w: float = eff_f / maxf(0.001, CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN)
 	return clampf(w, CombatConstants.SURROUND_SECTOR_WEIGHT_MIN, 1.0)
 
@@ -234,7 +234,7 @@ static func compute_surround_threat_weight_sum(manager: Node, defender_id: int) 
 	var d: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
 	if d.is_empty():
 		return 0.0
-	return float(_melee_threat_scan(manager, d).get("weight_sum", 0.0))
+	return _melee_threat_scan(manager, d).get("weight_sum", 0.0)
 
 
 static func _surround_from_weight_sum(defender: Dictionary, weight_sum: float) -> float:
@@ -258,7 +258,7 @@ static func surround_defense_multiplier_from_pa_with_sector(
 	defender: Dictionary, pa: Dictionary, use_sector_weight_sum: bool
 ) -> float:
 	if use_sector_weight_sum:
-		var wsum: float = float(pa.get("surround_threat_weight_sum", pa.get("surround_threat_count", 1)))
+		var wsum: float = pa.get("surround_threat_weight_sum", pa.get("surround_threat_count", 1))
 		return _surround_from_weight_sum(defender, wsum)
 	var n: int = int(pa.get("surround_threat_count", 1))
 	return surround_defense_multiplier(defender, n)
@@ -282,7 +282,7 @@ static func ambush_defense_multiplier(manager: Node, defender: Dictionary) -> fl
 	if manager == null or defender.is_empty():
 		return 1.0
 	var enc: Variant = manager.get("encounter")
-	if enc == null or typeof(enc) != TYPE_DICTIONARY:
+	if enc is not Dictionary:
 		return 1.0
 	var e: Dictionary = enc
 	var at: String = str(e.get("ambush_type", CombatConstants.AMBUSH_TYPE_NONE))
@@ -291,19 +291,19 @@ static func ambush_defense_multiplier(manager: Node, defender: Dictionary) -> fl
 	var ambushed: String = str(e.get(CombatConstants.ENCOUNTER_AMBUSHED_SIDE, "player"))
 	if not _EntityAccess.is_on_side(defender, ambushed):
 		return 1.0
-	var p: float = float(e.get("ambush_penalty", 0.25))
+	var p: float = e.get("ambush_penalty", 0.25)
 	p = clampf(p, 0.0, 0.85)
 	if at == CombatConstants.AMBUSH_TYPE_PARTIAL:
 		p *= 0.5
 	return 1.0 - p
 
-## Global incursion 0..INCURSION_PRESSURE_MAX from front-rank imbalance; lane_stress_by_file from dual occupancy + density (not bodies — those are obs_pen in ZoC).
+## Global incursion 0..INCURSION_PRESSURE_MAX from front-rank imbalance; lane_stress_by_file from dual occupancy + density (not bodies —" those are obs_pen in ZoC).
 static func recompute_incursion_pressure(manager: Node) -> void:
 	if manager == null or not manager.get("formations"):
 		return
 	var snap: Dictionary = _EngagementMode.snapshot(manager)
-	var p_front: int = int(snap.get("player_front", 0))
-	var e_front: int = int(snap.get("enemy_front", 0))
+	var p_front: int = snap.get("player_front", 0)
+	var e_front: int = snap.get("enemy_front", 0)
 	var mode_now: String = _EngagementMode.engagement_mode(manager)
 	var mode_now_code: int = _EngagementMode.mode_code(mode_now)
 	var raw_mode: String = str(snap.get("raw_mode", "skirmish"))
@@ -322,21 +322,21 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 			mode_now,
 			mode_now_code,
 			raw_mode,
-			int(snap.get("raw_mode_code", _EngagementMode.mode_code(raw_mode))),
-			int(snap.get("player_active", 0)),
-			int(snap.get("enemy_active", 0)),
+			snap.get("raw_mode_code", _EngagementMode.mode_code(raw_mode)),
+			snap.get("player_active", 0),
+			snap.get("enemy_active", 0),
 			p_front,
 			e_front,
-			float(snap.get("player_front_fill", 0.0)),
-			float(snap.get("enemy_front_fill", 0.0)),
+			snap.get("player_front_fill", 0.0),
+			snap.get("enemy_front_fill", 0.0),
 		]
 	)
-	for fid in ["player", "enemy"]:
+	for fid in [_CombatConstants.SIDE_PLAYER, _CombatConstants.SIDE_ENEMY]:
 		var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 		if formation.is_empty():
 			continue
-		var our_front: int = p_front if fid == "player" else e_front
-		var opp_front: int = e_front if fid == "player" else p_front
+		var our_front: int = p_front if fid == _CombatConstants.SIDE_PLAYER else e_front
+		var opp_front: int = e_front if fid == _CombatConstants.SIDE_PLAYER else p_front
 		var delta: int = opp_front - our_front
 		var pressure: float = clampf(float(delta) * CombatConstants.INCURSION_PRESSURE_PER_RANK_ADVANTAGE, 0.0, CombatConstants.INCURSION_PRESSURE_MAX)
 		formation["incursion_pressure"] = pressure
@@ -348,7 +348,7 @@ static func recompute_incursion_pressure(manager: Node) -> void:
 				)
 				% [
 					fid,
-					float(formation.get("incursion_pressure", 0.0)),
+					formation.get("incursion_pressure", 0.0),
 					CombatDebug.format_lane_stress(
 						_FormationSlots.formation_nested_dictionary_read(formation, "lane_stress_by_file")
 					),
@@ -393,7 +393,7 @@ static func _bump_telemetry_counter(manager: Node, key: String, extra: Dictionar
 	if manager == null:
 		return
 	var tel: Dictionary = _telemetry_dict(manager)
-	tel[key] = int(tel.get(key, 0)) + 1
+	tel[key] = tel.get(key, 0) + 1
 	for ek in extra.keys():
 		tel[ek] = extra[ek]
 	manager.set_meta(META_COMBAT_TELEMETRY, tel)
@@ -413,7 +413,7 @@ static func _telemetry_after_mode_resolve(manager: Node, mode_now: String) -> vo
 	var tel: Dictionary = _telemetry_dict(manager)
 	var prev: String = str(tel.get("last_resolved_mode", ""))
 	if prev != "" and prev != mode_now:
-		tel["engagement_mode_transitions"] = int(tel.get("engagement_mode_transitions", 0)) + 1
+		tel["engagement_mode_transitions"] = tel.get("engagement_mode_transitions", 0) + 1
 		tel["last_mode_transition"] = {
 			"from": prev,
 			"to": mode_now,

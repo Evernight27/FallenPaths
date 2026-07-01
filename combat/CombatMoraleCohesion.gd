@@ -2,7 +2,7 @@ class_name CombatMoraleCohesion
 extends RefCounted
 
 ## Tier 1.5 (P6): drives `formations[fid].morale_cohesion_factor` before line cohesion each recompute.
-## Priority: encounter per-side override → mean of combatant `morale_cohesion` (alive, not incapacitated) → 1.0.
+## Priority: encounter per-side override â†' mean of combatant `morale_cohesion` (alive, not incapacitated) â†' 1.0.
 ## Flee / rout reads **`line_cohesion`** + casualty ratio via **`CombatFormationRout`** (not this factor directly).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -12,8 +12,10 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 static func apply_to_formations(manager: Node) -> void:
 	if manager == null or not manager.get("formations"):
 		return
-	var enc: Dictionary = manager.encounter if typeof(manager.encounter) == TYPE_DICTIONARY else {}
-	for fid in ["player", "enemy"]:
+	var enc: Dictionary = {}
+	if manager.encounter is Dictionary:
+		enc = manager.encounter as Dictionary
+	for fid in [CombatConstants.SIDE_PLAYER, CombatConstants.SIDE_ENEMY]:
 		var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
 		if form.is_empty():
 			continue
@@ -25,7 +27,7 @@ static func apply_to_formations(manager: Node) -> void:
 static func _resolve_morale_cohesion_factor(manager: Node, enc: Dictionary, side: String) -> float:
 	var key: String = (
 		CombatConstants.ENCOUNTER_KEY_MORALE_COHESION_PLAYER
-		if side == "player"
+		if side == CombatConstants.SIDE_PLAYER
 		else CombatConstants.ENCOUNTER_KEY_MORALE_COHESION_ENEMY
 	)
 	if enc.has(key):
@@ -39,7 +41,7 @@ static func _average_combatant_morale_cohesion(manager: Node, side: String) -> f
 	for c in manager.combatants:
 		if not _EntityAccess.is_living_on_side(c, side):
 			continue
-		s += clampf(float(c.get("morale_cohesion", 1.0)), 0.0, 1.0)
+		s += clampf(c.get("morale_cohesion", 1.0), 0.0, 1.0)
 		n += 1
 	if n <= 0:
 		return 1.0

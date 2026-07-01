@@ -6,15 +6,21 @@ extends RefCounted
 
 const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
+const _Bp := preload("res://core/BodyPartConstants.gd")
 
 static func get_armor_for_part(entity: Node, part: String) -> Variant:
 	if entity == null or not "armor_slots" in entity:
 		return null
-	return entity.armor_slots.get(part, null)
+	var result = entity.armor_slots.get(part)
+	if result == null:
+		return null
+	if result is ArmorPiece:
+		return result
+	return null
 
 static func get_armor_sharp_resistance_for_part(entity: Node, part: String) -> float:
-	var armor_var: Variant = get_armor_for_part(entity, part)
-	if armor_var != null and armor_var is ArmorPiece:
+	var armor_var = get_armor_for_part(entity, part)
+	if armor_var is ArmorPiece:
 		return armor_var.get_outer_layer_sharp_resistance_rha_mm()
 	return 0.0
 
@@ -35,24 +41,24 @@ static func equip_armor(entity: Node, part: String, piece: Variant) -> void:
 		return
 	entity.armor_slots[part] = piece
 
-static func get_weapon(entity: Node):
+static func get_weapon(entity: Node) -> Variant:
 	if entity == null or not "weapon" in entity:
 		return null
 	return entity.weapon
 
-static func equip_weapon(entity: Node, w) -> void:
+static func equip_weapon(entity: Node, w: Variant) -> void:
 	if entity != null and "weapon" in entity:
 		entity.weapon = w
 
 static func _get_offhand(entity: Node) -> String:
 	if entity == null or not "dominant_hand" in entity:
-		return "left_arm"
-	return "left_arm" if entity.dominant_hand == "right_arm" else "right_arm"
+		return _Bp.PART_LEFT_ARM
+	return _Bp.PART_LEFT_ARM if entity.dominant_hand == _Bp.PART_RIGHT_ARM else _Bp.PART_RIGHT_ARM
 
 static func get_attacking_arm(entity: Node) -> String:
 	if entity == null:
 		return ""
-	var dominant_hand: String = entity.dominant_hand if "dominant_hand" in entity else "right_arm"
+	var dominant_hand: String = entity.dominant_hand if "dominant_hand" in entity else _Bp.PART_RIGHT_ARM
 	var offhand_functionality: float = entity.offhand_functionality if "offhand_functionality" in entity else 0.8
 	var offhand: String = _get_offhand(entity)
 	var dom_ok: bool = not _BodyPartQuery.is_arm_destroyed(entity, dominant_hand)
@@ -71,7 +77,7 @@ static func get_attack_damage_modifier(entity: Node) -> float:
 	var arm: String = get_attacking_arm(entity)
 	if arm.is_empty():
 		return 0.0
-	var dominant_hand: String = entity.dominant_hand if "dominant_hand" in entity else "right_arm"
+	var dominant_hand: String = entity.dominant_hand if "dominant_hand" in entity else _Bp.PART_RIGHT_ARM
 	var offhand_functionality: float = entity.offhand_functionality if "offhand_functionality" in entity else 0.8
 	var base: float = 1.0 if arm == dominant_hand else offhand_functionality
 	var arm_func: float = _BodyPartQuery.get_arm_functionality(entity, arm)

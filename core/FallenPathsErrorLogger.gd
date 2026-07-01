@@ -2,10 +2,16 @@ class_name FallenPathsErrorLogger
 extends Logger
 
 ## Mirrors Godot script/runtime/shader errors to **`FP_ERROR`** during editor play (grep with `SCRIPT_ERROR`).
-## Skips Godot warnings and operational **`FP_WARN`** lines — those stay on stdout only.
+## Skips Godot warnings and operational **`FP_WARN`** lines  -  those stay on stdout only.
 ## Registered from **`OperationalLog.begin_play_session`**; do not **`print`** / **`push_error`** here (recursion).
 
-const _OperationalLog := preload("res://core/OperationalLog.gd")
+# Runtime preload â€” circular dependency (OperationalLog preloads FallenPathsErrorLogger).
+static var _operational_log_cache: Variant = null
+
+static func _get_operational_log() -> GDScript:
+	if _operational_log_cache == null:
+		_operational_log_cache = load("res://core/OperationalLog.gd")
+	return _operational_log_cache
 
 static var _script_error_count: int = 0
 
@@ -44,7 +50,7 @@ func _log_error(
 	var where: String = "%s:%d" % [file, line]
 	if not function.is_empty():
 		where = "%s in %s()" % [where, function]
-	var msg: String = "%s %s — %s" % [kind, where, code]
+	var msg: String = "%s %s  -  %s" % [kind, where, code]
 	if not rationale.is_empty():
 		msg += " (%s)" % rationale
 	if not _script_backtraces.is_empty():
@@ -53,7 +59,7 @@ func _log_error(
 			msg += " | %s" % bt0
 	_script_error_count += 1
 	printerr("[FP_ERR_LOGGER] %s" % msg)
-	_OperationalLog.emit(_OperationalLog.TAG_ERROR, msg)
+	_get_operational_log().emit(_get_operational_log().TAG_ERROR, msg)
 	_mutex.unlock()
 
 
@@ -64,5 +70,7 @@ func _log_message(message: String, error: bool) -> void:
 	if body.begins_with("FP_"):
 		return
 	_mutex.lock()
-	_OperationalLog.emit(_OperationalLog.TAG_ERROR, "RUNTIME %s" % body)
+	_get_operational_log().emit(_get_operational_log().TAG_ERROR, "RUNTIME %s" % body)
 	_mutex.unlock()
+
+

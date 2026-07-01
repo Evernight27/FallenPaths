@@ -2,14 +2,15 @@ class_name CombatMeleeListing
 extends RefCounted
 
 ## Melee strike / attempt-close action listing and **`can_melee_threaten`** (reach + band + rank gates).
-## Footing: lists strikes only — does **not** stamp PA or write **`guard_line`**. LIVE_PATHS **`#wf-pick-vs-strike`**.
-## **Read order:** live rows → threaten checks → append listing (uses **`ZoneOfControl.opponent_formation_for_listing`**).
+## Footing: lists strikes only —" does **not** stamp PA or write **`guard_line`**. LIVE_PATHS **`#wf-pick-vs-strike`**.
+## **Read order:** live rows â†' threaten checks â†' append listing (uses **`ZoneOfControl.opponent_formation_for_listing`**).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
+
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
@@ -65,7 +66,7 @@ static func can_melee_threaten(
 	return dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID
 
 
-## III-4 **3e**: post-rout mop-up — CLOSE/MID band may lag geometric reach; finish with strikes.
+## III-4 **3e**: post-rout mop-up —" CLOSE/MID band may lag geometric reach; finish with strikes.
 static func envelop_mop_up_strike_at_band(
 	manager: Node, attacker: Dictionary, band: String
 ) -> bool:
@@ -104,7 +105,7 @@ static func count_close_attackers_on_defender(
 		return 0
 	var n: int = 0
 	for raw in _live_combatant_rows(manager):
-		if raw == null or typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
 		var atk: Dictionary = raw as Dictionary
 		var aid: int = _EntityAccess.id_int(atk)
@@ -139,14 +140,14 @@ static func strip_redundant_attempt_close_for_finish(
 		return
 	var kept: Array = []
 	for raw in actions:
-		if typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			kept.append(raw)
 			continue
-		var a: Dictionary = raw as Dictionary
+		var a: Dictionary = raw
 		if str(a.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 			kept.append(raw)
 			continue
-		var tgt_id: int = int(a.get("target_id", -1))
+		var tgt_id: int = a.get("target_id", -1)
 		if tgt_id < 0:
 			kept.append(raw)
 			continue
@@ -232,7 +233,7 @@ static func append_melee_vs_enemy_line_rank(
 		var dist: String = _EntityAccess.distance_to_opponent_band(c, _EntityAccess.id_int(opp))
 		var mop_up_strike: bool = envelop_mop_up_strike_at_band(manager, c, dist)
 		if in_swing_range or mop_up_strike:
-			# Geometric reach covers even when band still says LONG (pre-recompute lag) — strike, don't close.
+			# Geometric reach covers even when band still says LONG (pre-recompute lag) —" strike, don't close.
 			if (
 				dist == CombatConstants.DISTANCE_CLOSE
 				or dist == CombatConstants.DISTANCE_MID

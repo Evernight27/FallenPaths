@@ -30,7 +30,7 @@ static func weapon_mass_kg(weapon: Variant) -> float:
 
 
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
-# Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J → E ∝ t^1.67. Nonlinear: pen = (KE/J_BASE)^PEN_EXPONENT.
+# Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J â E â t^1.67. Nonlinear: pen = (KE/J_BASE)^PEN_EXPONENT.
 const J_PER_MM_BASE: float = 55.0  # Williams: 55 J for 1 mm mild steel
 const PENETRATION_EXPONENT: float = 0.6  # 1/1.67; thicker armor needs disproportionately more energy
 # Global impact speed floor/ceiling (m/s): fallback when a weapon template has no Tier-A band entry; ImpactVelocityModel uses these (see ImpactVelocityModel._tier_a_default_band).
@@ -45,14 +45,14 @@ const DAMAGE_KE_MAX: float = 80.0
 const PENETRATION_KE_CAP_MM_RHA: float = 15.0
 
 # --- Physics-based contact area ---
-# Sharp: smaller contact (point) penetrates better than wide (cut). Factor = (BASELINE / contact_width_cm)^α.
+# Sharp: smaller contact (point) penetrates better than wide (cut). Factor = (BASELINE / contact_width_cm)^Î±.
 const CONTACT_AREA_EXPONENT: float = 0.5
 const MIN_CONTACT_WIDTH_CM: float = 0.2
 # Contact area in damage: smaller contact -> more local damage. Cap factor so stab doesn't overscale.
 const CONTACT_DAMAGE_EXPONENT: float = 0.3
 const CONTACT_DAMAGE_FACTOR_MAX: float = 2.0
 # Blunt: transmission-only (no rigid check). Older blunt rigid-penetration constants were removed in favor of this model.
-# Floor so tiny contacts don't produce absurd momentum/area; 1 cm² min keeps normal blade areas unchanged.
+# Floor so tiny contacts don't produce absurd momentum/area; 1 cmÂ² min keeps normal blade areas unchanged.
 const MIN_BLUNT_AREA_M2: float = 1e-4
 # For CUT moves, blunt stream uses at least this contact (cm) so the "slap" doesn't get blade pressure.
 const BLUNT_CUT_MIN_CONTACT_CM: float = 5.0
@@ -88,17 +88,17 @@ static func get_move(move_id: String) -> Dictionary:
 
 static func is_parry_move(move_id: String) -> bool:
 	var m = get_move(move_id)
-	return m.get("is_parry", false) == true
+	return m.get("is_parry", false)
 
 static func is_feint_move(move_id: String) -> bool:
 	var m = get_move(move_id)
-	return m.get("is_feint", false) == true
+	return m.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false)
 
 
 ## move_id (e.g. thrust, oberhau) -> stab | cut | blunt. Bare stab/cut/blunt pass through unchanged.
 ## Single source for combat + velocity; use this directly (not a separate forwarder).
 static func contact_type_for_move_id(move_id: String) -> String:
-	var key: String = str(move_id).to_lower().strip_edges()
+	var key: String = move_id.to_lower().strip_edges()
 	if key == ATTACK_TYPE_STAB or key == ATTACK_TYPE_CUT or key == ATTACK_TYPE_BLUNT:
 		return key
 	var md: Dictionary = get_move(move_id)
@@ -111,16 +111,16 @@ static func contact_type_for_move_id(move_id: String) -> String:
 
 
 static func _move_definitions_build() -> Dictionary:
-	# attack_line: Liechtenauer 4 lines — high (0°), low (180°), left (270°), right (90°). Blade path, not body target.
-	# angle_variance_deg: optional ±deg human error; heavier/awkward moves have more variance.
+	# attack_line: Liechtenauer 4 lines  -  high (0Â°), low (180Â°), left (270Â°), right (90Â°). Blade path, not body target.
+	# angle_variance_deg: optional Â±deg human error; heavier/awkward moves have more variance.
 	# angle_offset_deg: optional bias from base line (e.g. off_line_thrust angled toward flank).
 	return {
 		# Sword (Liechtenauer/KDF): thrust, Oberhau, Unterhau, horizontal (Zwerchau-style), pommel, parry-counters
 		"thrust": {"name": "Point thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.2, "attack_line": "high", "preferred_parts": ["chest"], "impact_station_mean": 0.76, "impact_station_spread": 0.0},
 		"oberhau": {"name": "Downward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.4, "attack_line": "high_right", "preferred_parts": ["head"], "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.78, "impact_station_mean": 0.70, "impact_station_spread": 0.05},
-		# Tier 4.2: optional feint_windup_duration_mult (>1) — extra wind-up vs same-archetype honest cut (two-line commitment cost).
+		# Tier 4.2: optional feint_windup_duration_mult (>1)  -  extra wind-up vs same-archetype honest cut (two-line commitment cost).
 		"oberhau_feint": {"name": "Feint high, cut low", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.6, "attack_line": "high_right", "preferred_parts": ["head"], "is_feint": true, "feint_windup_duration_mult": 1.1, "feint_target_reveal_at_progress": 0.45, "angle_variance_deg": 10, "impact_station_mean": 0.58, "impact_station_spread": 0.06},
-		# Tier 4.2: stab feint — feint_target_reveal_at_progress earlier than oberhau_feint (faster thrust telegraph); feint_windup_duration_mult < cut feint (stab archetype already tighter).
+		# Tier 4.2: stab feint  -  feint_target_reveal_at_progress earlier than oberhau_feint (faster thrust telegraph); feint_windup_duration_mult < cut feint (stab archetype already tighter).
 		"thrust_feint": {"name": "Feint line, thrust true", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.4, "attack_line": "high", "preferred_parts": ["chest"], "is_feint": true, "feint_windup_duration_mult": 1.07, "feint_target_reveal_at_progress": 0.4, "angle_variance_deg": 9, "impact_station_mean": 0.62, "impact_station_spread": 0.05},
 		"unterhau": {"name": "Upward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.2, "attack_line": "low_left", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.74, "impact_station_mean": 0.66, "impact_station_spread": 0.05},
 		"slash": {"name": "Horizontal cut (cross)", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.0, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm", "chest"], "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.72, "impact_station_mean": 0.64, "impact_station_spread": 0.05},
@@ -133,12 +133,12 @@ static func _move_definitions_build() -> Dictionary:
 		"diagonal_chop": {"name": "Diagonal chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 3.0, "attack_line": "high_left", "preferred_parts": ["left_arm", "right_arm", "chest"], "angle_variance_deg": 11, "impact_station_mean": 0.68, "impact_station_spread": 0.06},
 		"poll_strike": {"name": "Back-of-head strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 11, "impact_station_mean": 0.22, "impact_station_spread": 0.0},
 		"parry_chop": {"name": "Parry and chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 3.0, "is_parry": true, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm"], "impact_station_mean": 0.64, "impact_station_spread": 0.06},
-		# Mace: overhead, side, direct — heavy weapon, more wobble
+		# Mace: overhead, side, direct  -  heavy weapon, more wobble
 		"overhead_strike": {"name": "Overhead strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.5, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 13, "impact_station_mean": 0.44, "impact_station_spread": 0.05},
 		"side_strike": {"name": "Side strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.2, "attack_line": "right", "preferred_parts": ["left_arm", "right_arm"], "angle_variance_deg": 12, "impact_station_mean": 0.40, "impact_station_spread": 0.05},
 		"direct_blow": {"name": "Direct blow", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "attack_line": "high", "preferred_parts": ["head", "chest"], "angle_variance_deg": 11, "impact_station_mean": 0.38, "impact_station_spread": 0.0},
 		"parry_strike": {"name": "Parry and strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "is_parry": true, "attack_line": "high", "preferred_parts": ["head"], "impact_station_mean": 0.42, "impact_station_spread": 0.04},
-		# Dagger / rondel — small, quick, tighter control
+		# Dagger / rondel  -  small, quick, tighter control
 		"quick_thrust": {"name": "Quick thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.7, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 5, "weapon_extension_commit_fraction": 0.55, "impact_station_mean": 0.68, "impact_station_spread": 0.0},
 		"committed_thrust": {"name": "Strong thrust (armor-piercing)", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 1.0, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 6, "weapon_extension_commit_fraction": 0.60, "impact_station_mean": 0.78, "impact_station_spread": 0.0},
 		"quick_slash": {"name": "Quick slash", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_QUICK_SLASH, "base_cooldown": 0.6, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm"], "angle_variance_deg": 6, "weapon_extension_commit_fraction": 0.62, "impact_station_mean": 0.58, "impact_station_spread": 0.04},
@@ -157,8 +157,8 @@ static func _move_definitions_build() -> Dictionary:
 # Dimensions: blade_width = edge contact for cuts; point_width = tip for thrusts; head_diameter = striking head for blunt.
 # thrust_head_width = width of head/shaft behind point (cm); used for blunt momentum/area on thrusts. Broader head = lower p/A.
 # edge_width = effective sharp contact for blunt weapons (flanges/ridges that can break skin); used for sharp-component penetration.
-# impact_velocity_bands (optional): Tier C overrides — keys stab|cut|blunt → {"min":m/s,"max":m/s} or Vector2; see ImpactVelocityModel.gd.
-# Data: Oakeshott/longsword 2–3 cm edge, 0.3–0.6 cm point; Le Jeu axe 3–4 cm edge, 0.5–1 cm spike; mace flanges 0.4–0.6 cm (Williams, Tod Cutler); Fiore/Talhoffer dagger ~1.5 cm edge, 0.2–0.4 cm point; spear 0.4–0.8 cm point, head blade 2–3 cm.
+# impact_velocity_bands (optional): Tier C overrides  -  keys stab|cut|blunt â {"min":m/s,"max":m/s} or Vector2; see ImpactVelocityModel.gd.
+# Data: Oakeshott/longsword 2 - 3 cm edge, 0.3 - 0.6 cm point; Le Jeu axe 3 - 4 cm edge, 0.5 - 1 cm spike; mace flanges 0.4 - 0.6 cm (Williams, Tod Cutler); Fiore/Talhoffer dagger ~1.5 cm edge, 0.2 - 0.4 cm point; spear 0.4 - 0.8 cm point, head blade 2 - 3 cm.
 # No weapon has 0% cutting (MIN_CUT_RATIO); each component uses get_sharp_contact_cm / get_blunt_contact_cm for its damage type.
 static func get_all_weapon_ids() -> Array:
 	return ["SWORD", "AXE", "MACE", "DAGGER", "SPEAR"]
@@ -387,7 +387,7 @@ const ARCHETYPE_QUICK_SLASH: String = "quick_slash"
 const ARCHETYPE_POMMEL: String = "pommel_strike"
 const ARCHETYPE_HEAVY_BLUNT: String = "heavy_blunt"
 
-## Kinematic delivery for `WeaponDamageHelper` (abstract — no unit positions): thrust = linear band + point-mass KE; swing = ω–lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
+## Kinematic delivery for `WeaponDamageHelper` (abstract  -  no unit positions): thrust = linear band + point-mass KE; swing = Ï - lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
 const KINEMATIC_DELIVERY_THRUST := "thrust"
 const KINEMATIC_DELIVERY_SWING := "swing"
 const KINEMATIC_DELIVERY_MIXED := "mixed"
@@ -484,7 +484,7 @@ static func default_form_for_weapon(weapon: Variant) -> String:
 	return str(def.get("default_form", "balanced")).strip_edges().to_lower()
 
 
-## Expand WF: allowed form ids for weapon template; empty → no clamp.
+## Expand WF: allowed form ids for weapon template; empty â no clamp.
 static func allowed_forms_for_weapon(weapon: Variant) -> Array:
 	var wt: String = _weapon_template_id(weapon)
 	if wt.is_empty():
@@ -496,3 +496,4 @@ static func allowed_forms_for_weapon(weapon: Variant) -> Array:
 	if raw is Array:
 		return raw
 	return ["balanced"]
+  

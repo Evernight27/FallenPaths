@@ -5,17 +5,18 @@ extends RefCounted
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _DamageMechanism := preload("res://core/CombatDamageMechanism.gd")
+const _Bp := preload("res://core/BodyPartConstants.gd")
 const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
 ## Graze → penetrating cut in tissue (mm).
 const CUT_TISSUE_YIELD_PEN_MM := 0.5
 ## Game damage at ultimate pen (forearm anchor ≈ moderate laceration stream before MFB split).
 const CUT_TISSUE_ULTIMATE_DAMAGE_BY_PART: Dictionary = {
-	"head": 14.0,
-	"chest": 16.0,
-	"right_arm": 11.0,
-	"left_arm": 11.0,
-	"right_leg": 13.0,
-	"left_leg": 13.0,
+	_Bp.PART_HEAD: 14.0,
+	_Bp.PART_CHEST: 16.0,
+	_Bp.PART_RIGHT_ARM: 11.0,
+	_Bp.PART_LEFT_ARM: 11.0,
+	_Bp.PART_RIGHT_LEG: 13.0,
+	_Bp.PART_LEFT_LEG: 13.0,
 }
 
 
@@ -28,7 +29,7 @@ static func cut_tissue_ultimate_pen_mm() -> float:
 	return _DesignAnchors.cut_tissue_ultimate_pen_mm()
 
 
-## Shallow/deep branch — single delegate to `BleedingConstants` (no fork).
+## Shallow/deep branch  -  single delegate to `BleedingConstants` (no fork).
 static func penetration_depth_mult(penetration_to_tissue_mm: float) -> float:
 	return _Bleeding.penetration_depth_severity_mult(penetration_to_tissue_mm)
 
@@ -37,7 +38,7 @@ static func penetration_depth_mult(penetration_to_tissue_mm: float) -> float:
 static func cut_tissue_damage_from_pen(pen_mm: float, part: String, scale: float = 1.0) -> float:
 	if pen_mm <= 0.0:
 		return 0.0
-	var ultimate_damage: float = float(CUT_TISSUE_ULTIMATE_DAMAGE_BY_PART.get(part, 11.0)) * maxf(0.0, scale)
+	var ultimate_damage: float = CUT_TISSUE_ULTIMATE_DAMAGE_BY_PART.get(part, 11.0) * maxf(0.0, scale)
 	var depth_mult: float = penetration_depth_mult(pen_mm)
 	if pen_mm <= CUT_TISSUE_YIELD_PEN_MM:
 		var graze_frac: float = pen_mm / CUT_TISSUE_YIELD_PEN_MM
@@ -142,11 +143,11 @@ static func _pack(
 static func blend_allocations(mfb: Dictionary, curve: Dictionary, blend_weight: float) -> Dictionary:
 	var w: float = clampf(blend_weight, 0.0, 1.0)
 	return {
-		"to_cut": lerpf(float(mfb.get("to_cut", 0.0)), float(curve.get("to_cut", 0.0)), w),
-		"to_blunt": lerpf(float(mfb.get("to_blunt", 0.0)), float(curve.get("to_blunt", 0.0)), w),
-		"to_bone": lerpf(float(mfb.get("to_bone", 0.0)), float(curve.get("to_bone", 0.0)), w),
+		"to_cut": lerpf(mfb.get("to_cut", 0.0), curve.get("to_cut", 0.0), w),
+		"to_blunt": lerpf(mfb.get("to_blunt", 0.0), curve.get("to_blunt", 0.0), w),
+		"to_bone": lerpf(mfb.get("to_bone", 0.0), curve.get("to_bone", 0.0), w),
 		"to_tissue_total": lerpf(
-			float(mfb.get("to_tissue_total", 0.0)), float(curve.get("to_tissue_total", 0.0)), w
+			mfb.get("to_tissue_total", 0.0), curve.get("to_tissue_total", 0.0), w
 		),
 		"mechanism": str(curve.get("mechanism", mfb.get("mechanism", "mixed"))),
 	}

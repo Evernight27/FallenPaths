@@ -23,17 +23,17 @@ const NEEDLE_DIAGRAM_BANNER := "diagram_banner player:"
 const NEEDLE_ENGAGEMENT_FORMATION := "engagement mode=Formation line"
 const NEEDLE_ENGAGEMENT_DUEL := "engagement mode=Duel"
 const NEEDLE_PARRY_TRACE := "parry_"
-## III-4 **3e** — combat-phase mop-up with listed strikes (shared by headless + F5 validator).
+## III-4 **3e**  -  combat-phase mop-up with listed strikes (shared by headless + F5 validator).
 const REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED := (
 	"engagement_debug turn .* mop_up=true .* (menu=strikes_listed|strikes=[1-9])"
 )
-## III-6 maintain — rank-0 gap or incap plug-forward pick (`line_plug_pick=1`; log sets `line_plug=true` for both).
+## III-6 maintain  -  rank-0 gap or incap plug-forward pick (`line_plug_pick=1`; log sets `line_plug=true` for both).
 const REGEX_ENGAGEMENT_DEBUG_LINE_PLUG_PICK := (
 	"engagement_debug turn .* line_plug=true .* line_plug_pick=1"
 )
-## MS-L5 — mental-stack plug layer stamped on rank-0 gap / incap plug picks.
+## MS-L5  -  mental-stack plug layer stamped on rank-0 gap / incap plug picks.
 const NEEDLE_ENGAGEMENT_DEBUG_FORMATION_PLUG_LAYER := "layer=formation_plug"
-## III-4 **3e** post-flee sparse — CLOSE-band rotate suppress + mental-stack fight-first layer.
+## III-4 **3e** post-flee sparse  -  CLOSE-band rotate suppress + mental-stack fight-first layer.
 const REGEX_ENGAGEMENT_DEBUG_SPARSE_CLOSE_BAND := (
 	"engagement_debug turn .*(?:rotate_suppress=true).*?(?:sparse_line=true)"
 	+ "|engagement_debug turn .*(?:sparse_line=true).*?(?:rotate_suppress=true)"
@@ -137,7 +137,7 @@ static func validator_tracks(active_profiles: PackedStringArray) -> Array:
 	return tracks.filter(func(spec: Dictionary) -> bool: return _track_applies(spec, active_profiles))
 
 
-## Maps headless preset id → validator profile id (`preset_ii2b`, `7v7`, …).
+## Maps headless preset id â validator profile id (`preset_ii2b`, `7v7`, ...).
 static func preset_id_to_profile(preset_id: String) -> String:
 	match preset_id:
 		_SoakPresets.PRESET_II2B_SWORD_DUEL:
@@ -374,7 +374,7 @@ static func grep_stats(normalized: PackedStringArray, count_needle: Callable, _c
 		"settlement_continue": count_needle.call(normalized, "settlement_continue"),
 		"company_wages_warn": (
 			count_needle.call(normalized, "company_wages: gold=")
-			+ count_needle.call(normalized, "Wages short — paid")
+			+ count_needle.call(normalized, "Wages short  -  paid")
 		),
 		"desertion_summary": count_needle.call(normalized, "desertion summary="),
 		"party_triage_open": count_needle.call(normalized, "party_triage_open living="),
@@ -417,7 +417,7 @@ static func _encounter_soak_id_from_line(line: String) -> String:
 	return tail.substr(0, end)
 
 
-## Grep counts for **III-3** worksheet prefill (headless — not II-2b feel sign-off).
+## Grep counts for **III-3** worksheet prefill (headless  -  not II-2b feel sign-off).
 static func parry_outcome_stats(lines: PackedStringArray) -> Dictionary:
 	var stats: Dictionary = {
 		"parry_deflect": 0,
@@ -479,7 +479,7 @@ static func hit_outcome_stats_summary_line(session_counts: Dictionary) -> String
 	)
 
 
-## Parse **`FP_COMBAT: parry_stats deflect=N …`** rollup (headless II-2b worksheet).
+## Parse **`FP_COMBAT: parry_stats deflect=N ...`** rollup (headless II-2b worksheet).
 static func parry_stats_from_summary_line(line: String) -> Dictionary:
 	var stats: Dictionary = {
 		"parry_deflect": 0,
@@ -543,7 +543,7 @@ static func ii2b_plausibility_failures(stats: Dictionary) -> PackedStringArray:
 	return failures
 
 
-## Grep band crossings for **II-4d** headless sign-off (F5 3–5 min feel remains optional).
+## Grep band crossings for **II-4d** headless sign-off (F5 3 - 5 min feel remains optional).
 static func exhaustion_band_stats(lines: PackedStringArray) -> Dictionary:
 	var stats: Dictionary = {
 		"crossed_25": 0,
@@ -1113,7 +1113,7 @@ static func _validator_ii_envelop_tracks() -> Array:
 
 
 static func _validator_wf_footing_tracks() -> Array:
-	## WF-M3 F5 paste checks — gated on **`turn_ready_gauge`** presence (Camp-5 human footing).
+	## WF-M3 F5 paste checks  -  gated on **`turn_ready_gauge`** presence (Camp-5 human footing).
 	return [
 		{
 			"id": "wf_m3_turn_ready_form",
@@ -1168,7 +1168,7 @@ static func _validator_iv11_tracks() -> Array:
 
 
 static func _validator_mopup_strike_finish_tracks() -> Array:
-	## III-4 **3e** — listed strikes during mop-up (7v7 campaign fights + Camp paste).
+	## III-4 **3e**  -  listed strikes during mop-up (7v7 campaign fights + Camp paste).
 	return [
 		{
 			"id": "camp_mopup_strike_finish",
@@ -1182,7 +1182,7 @@ static func _validator_mopup_strike_finish_tracks() -> Array:
 
 
 static func _validator_line_plug_pick_tracks() -> Array:
-	## III-6 maintain — F5 / Camp paste when rear plugs rank-0 gap (`line_plug_pick=1`).
+	## III-6 maintain  -  F5 / Camp paste when rear plugs rank-0 gap (`line_plug_pick=1`).
 	return [
 		{
 			"id": "camp_line_plug_pick",
@@ -1196,7 +1196,7 @@ static func _validator_line_plug_pick_tracks() -> Array:
 
 
 static func _validator_mental_stack_layers_tracks() -> Array:
-	## MS-L8 (post-strike) and MS-L9 (positional awareness) — optional F5 grep when FEATURE flags active.
+	## MS-L8 (post-strike) and MS-L9 (positional awareness)  -  optional F5 grep when FEATURE flags active.
 	return [
 		{
 			"id": "ms_l8_post_strike_layer",
@@ -1270,7 +1270,7 @@ static func _validator_camp_ea_tracks() -> Array:
 			"min": 1,
 			"profiles": [PROFILE_CAMP_EA],
 			"optional": true,
-			"alt_needles": ["Wages short — paid"],
+			"alt_needles": ["Wages short  -  paid"],
 		},
 		{
 			"id": "camp_desertion",
@@ -1364,3 +1364,4 @@ static func d001_report_field_line(section: PackedStringArray, prefix: String) -
 		if line.begins_with(prefix):
 			return line
 	return ""
+    

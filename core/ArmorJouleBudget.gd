@@ -10,6 +10,19 @@ const _ArmorPiece := preload("res://armor/ArmorPiece.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 
+## Delegates to ArmorPiece for sharp penetration math  -  single source of truth.
+static func _sharp_ke_through_layer(ke: float, pen_rha: float, layer: Dictionary) -> Dictionary:
+	return _ArmorPiece.sharp_penetration_math(pen_rha, layer, ke)
+
+## Delegates to ArmorPiece for blunt transmission math  -  single source of truth.
+static func _blunt_ke_through_layer(
+	ke: float,
+	layer: Dictionary,
+	blunt_momentum_per_area: float,
+	blunt_contact_cm: float
+) -> float:
+	return _ArmorPiece.blunt_transmission_math(ke, layer, blunt_momentum_per_area, blunt_contact_cm)
+
 
 static func account_ke_through_armor(
 	armor: ArmorPiece,
@@ -33,7 +46,7 @@ static func account_ke_through_armor(
 			var sharp_out: Dictionary = _sharp_ke_through_layer(ke_rem, pen_rha, layer)
 			ke_rem = float(sharp_out.get("ke", ke_rem))
 			absorbed += maxf(0.0, before - ke_rem)
-			if bool(sharp_out.get("deflected", false)):
+			if sharp_out.get("deflected", false):
 				sharp_mode = false
 		else:
 			ke_rem = _blunt_ke_through_layer(
@@ -68,50 +81,4 @@ static func _full_transmission(strike_ke_j: float) -> Dictionary:
 
 
 static func _is_layer_destroyed(layer: Dictionary) -> bool:
-	return float(layer.get("durability", 100.0)) <= 0.0
-
-
-static func _sharp_ke_through_layer(ke: float, pen_rha: float, layer: Dictionary) -> Dictionary:
-	var sharp_res: float = float(layer.get("sharp_resistance_rha_mm", 0.0))
-	if pen_rha < sharp_res:
-		var tx: float = float(
-			layer.get(
-				"sharp_deflect_transmission",
-				layer.get("deflection_transmission", _ArmorConstants.SHARP_DEFLECT_TRANSMISSION_DEFAULT)
-			)
-		)
-		var after: float = ke * clampf(tx, 0.0, 1.0)
-		return {"ke": after, "deflected": true}
-	var factor: float = clampf(
-		1.0
-			- (sharp_res / maxf(1.0, pen_rha)) * _ArmorConstants.PENETRATION_DAMAGE_REDUCTION_MAX,
-		0.0,
-		1.0
-	)
-	return {"ke": ke * factor, "deflected": false}
-
-
-static func _blunt_ke_through_layer(
-	ke: float,
-	layer: Dictionary,
-	blunt_momentum_per_area: float,
-	blunt_contact_cm: float
-) -> float:
-	var base_tx: float = float(
-		layer.get("blunt_transmission", layer.get("blunt_bat_transmission", _ArmorConstants.BLUNT_TRANSMISSION_DEFAULT))
-	)
-	var cushion: float = float(layer.get("blunt_cushion", 0.0))
-	var transmission: float
-	if blunt_momentum_per_area < 0.0 or cushion <= 0.0:
-		transmission = base_tx * (1.0 - cushion)
-	else:
-		var thresh: float = _ArmorConstants.BLUNT_CUSHION_MOMENTUM_THRESHOLD
-		var momentum_factor: float = clampf(1.0 - blunt_momentum_per_area / thresh, 0.0, 1.0)
-		transmission = base_tx * (1.0 - cushion * momentum_factor)
-	var rigidity: float = float(layer.get("rigidity", 0.0))
-	if rigidity >= _ArmorConstants.RIGIDITY_THRESHOLD and blunt_contact_cm > 0.0:
-		var ref_cm: float = _WeaponConstants.get_blunt_coupling_reference_cm()
-		var area_factor: float = blunt_contact_cm / ref_cm
-		var coupling: float = lerpf(1.0, area_factor, rigidity)
-		transmission *= coupling
-	return ke * clampf(transmission, 0.0, 1.0)
+	return float(layer.get(ArmorConstants.ARMOR_LAYER_KEY_DURABILITY, ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY)) <= 0.0

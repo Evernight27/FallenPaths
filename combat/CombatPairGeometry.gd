@@ -1,8 +1,8 @@
 class_name CombatPairGeometry
 extends RefCounted
 
-## Pair reach geometry: file spacing, lane offset, ZoC mult → **`eff_dist`** / **`file_spacing_equiv`**.
-## Track A mapped rank-0 opposition uses logical file gap (not raw grid `|Δfile|`) so wings reach their assigned foe.
+## Pair reach geometry: file spacing, lane offset, ZoC mult â†' **`eff_dist`** / **`file_spacing_equiv`**.
+## Track A mapped rank-0 opposition uses logical file gap (not raw grid `|Î"file|`) so wings reach their assigned foe.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
@@ -15,7 +15,7 @@ static func _file_spacing_for_pair(manager: Node, a: Dictionary, b: Dictionary) 
 		var band: String = _EntityAccess.distance_to_opponent_band(
 			a, _EntityAccess.id_int(b), ""
 		)
-		# CLOSE band = successful bind for this pair — grid file gap no longer limits weapon reach.
+		# CLOSE band = successful bind for this pair —" grid file gap no longer limits weapon reach.
 		if band == CombatConstants.DISTANCE_CLOSE:
 			return 0.0
 	var df: float = absf(float(_EntityAccess.file_int(a) - _EntityAccess.file_int(b)))
@@ -109,9 +109,9 @@ static func cached_eff_dist(pair_geometry_cache: Variant) -> float:
 		return -1.0
 	var g: Dictionary = pair_geometry_cache as Dictionary
 	if g.has("effective_pair_eff_dist"):
-		return float(g.get("effective_pair_eff_dist", -1.0))
+		return g.get("effective_pair_eff_dist", -1.0)
 	if g.has("eff_dist"):
-		return float(g.get("eff_dist", -1.0))
+		return g.get("eff_dist", -1.0)
 	return -1.0
 
 

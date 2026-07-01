@@ -8,9 +8,10 @@ const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _CompanyState := preload("res://world/CompanyState.gd")
 const _Proficiency := preload("res://core/EntityProficiency.gd")
+const _ConstantsMedical := preload("res://combat/CombatConstantsMedical.gd")
 
 ## Starts a medical action: direct pressure (instant or during wind-up), bandage/tourniquet/pack wind-up.
-## Footing: medic **`clear_on_exchange_end`** / **`reconcile_idle_offset`** on start · ally receiving scrub on entry — LIVE_PATHS **`#wf-tier-44-pa`**.
+	## Footing: medic **`clear_on_exchange_end`** / **`reconcile_idle_offset`** on start · ally receiving scrub on entry — LIVE_PATHS **`#wf-tier-44-pa`**.
 ## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), emit_signal.
 
 static func _try_windup_pressure_while_preparing(
@@ -79,8 +80,8 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 		return
 	# Clear pending_retry when starting a different action (e.g. helping another ally)
 	var pr_raw: Variant = c.get("pending_retry", null)
-	if typeof(pr_raw) == TYPE_DICTIONARY:
-		var pr: Dictionary = pr_raw as Dictionary
+	if pr_raw is Dictionary:
+		var pr: Dictionary = pr_raw
 		if not pr.is_empty() and (pr.get("target_id", -1) != target_combatant_id or pr.get("part", "") != target_part):
 			c["pending_retry"] = {}
 	var who_name: String = _EntityAccess.get_display_name(c, combatant_id)
@@ -140,7 +141,7 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 		c.state_timer = 0.0
 		c.state_duration = med_rec_dur
 		return
-	var wind_raw: Variant = CombatConstants.MEDICAL_WIND_UP_CONFIG.get(medical_id, {})
+	var wind_raw: Variant = _ConstantsMedical.MEDICAL_WIND_UP_CONFIG.get(medical_id, {})
 	var wind_up_cfg: Dictionary = wind_raw if wind_raw is Dictionary else {}
 	var dur_method: String = wind_up_cfg.get("duration_method", "")
 	var dur_takes_part: bool = wind_up_cfg.get("duration_takes_part", false)
@@ -182,3 +183,4 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 		target_node.receiving_medical_count = target_node.get("receiving_medical_count", 0) + 1
 		target_node.state = CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
 		target_node.gauge = 100.0
+     

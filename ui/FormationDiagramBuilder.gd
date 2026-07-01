@@ -8,9 +8,10 @@ const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 const _UiConstants := preload("res://ui/BattleUIConstants.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 
-## Builds a compact visual formation diagram: rank×file grid with per-unit health bars + names.
-## Cell label suffix order (footing): optional footwork → **`[HiL]`** guard → **`[Wrath]`** form — `_cell_label_with_footwork`. LIVE_PATHS **`#battle-ui`** · **`#wf-soak-audit-status`** · **`#wf-footing-doc-map`**.
+## Builds a compact visual formation diagram: rankÃ - file grid with per-unit health bars + names.
+## Cell label suffix order (footing): optional footwork Ã¢â ' **`[HiL]`** guard Ã¢â ' **`[Wrath]`** form — `_cell_label_with_footwork`. LIVE_PATHS **`#battle-ui`** · **`#wf-soak-audit-status`** · **`#wf-footing-doc-map`**.
 ## Shows Front (rank 0) and Back (rank 1+) so formation changes (swap rank, etc.) are trackable.
 ## Canonical: PartyRowFormatter.total_body_health_ratio / body_functionality_ratio for bar fill + tint.
 ## Returns the root Control; caller reparents into layout and calls refresh() when formation changes.
@@ -32,7 +33,7 @@ static func create(manager: Node, preset: Dictionary, side: String) -> Control:
 	root.add_child(vbox)
 
 	var title = Label.new()
-	title.text = "Enemies" if side == "enemy" else "Party"
+	title.text = "Enemies" if side == _CombatConstants.SIDE_ENEMY else "Party"
 	title.add_theme_font_size_override("font_size", 14)
 	title.add_theme_color_override("font_color", Color(0.9, 0.85, 0.8))
 	vbox.add_child(title)
@@ -129,7 +130,7 @@ static func labels_under_cell(node: Node) -> Array:
 
 
 static func _cell_label_with_footwork(base: String, footwork_sources: Array) -> String:
-	if base.is_empty() or base == "—" or footwork_sources.is_empty():
+	if base.is_empty() or base == "\u2014" or footwork_sources.is_empty():
 		return base
 	var text: String = base
 	var got_fw: bool = false
@@ -137,9 +138,9 @@ static func _cell_label_with_footwork(base: String, footwork_sources: Array) -> 
 	var got_form: bool = false
 	var got_leader: bool = false
 	for raw in footwork_sources:
-		if raw == null or typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var oc: Dictionary = raw as Dictionary
+		var oc: Dictionary = raw
 		if not got_fw:
 			var fw: String = _UiHints.footwork_diagram_suffix(oc)
 			if not fw.is_empty():
@@ -172,9 +173,9 @@ static func _append_cell_tooltips(cell: Control, combatants: Array, manager: Nod
 		return
 	var lines: PackedStringArray = []
 	for raw in combatants:
-		if raw == null or typeof(raw) != TYPE_DICTIONARY:
+		if raw is not Dictionary:
 			continue
-		var oc: Dictionary = raw as Dictionary
+		var oc: Dictionary = raw
 		var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))
 		var stats: Dictionary = _EntityAccess.stats_dict(oc)
 		var hp_pct: int = int(roundf(_RowFormatter.total_body_health_ratio(stats) * 100.0))
@@ -239,7 +240,7 @@ static func _build_formation_cell(
 		cell.add_child(dash)
 	else:
 		for entry in unit_entries:
-			if typeof(entry) != TYPE_DICTIONARY:
+			if entry is not Dictionary:
 				continue
 			var e: Dictionary = entry
 			var oc: Dictionary = e.get("combatant", {})
@@ -249,9 +250,9 @@ static func _build_formation_cell(
 			cell.add_child(_make_unit_stack(oc, nm, manager))
 	if cell.get_child_count() == 0 and not footwork_sources.is_empty():
 		for raw in footwork_sources:
-			if raw == null or typeof(raw) != TYPE_DICTIONARY:
+			if raw is not Dictionary:
 				continue
-			var oc_fb: Dictionary = raw as Dictionary
+			var oc_fb: Dictionary = raw
 			var nm_fb: String = _EntityAccess.get_display_name(oc_fb, _EntityAccess.id_int(oc_fb))
 			cell.add_child(_make_unit_stack(oc_fb, nm_fb, manager))
 			break
@@ -280,9 +281,9 @@ static func _refresh_internal(diagram_root: Control) -> void:
 	var caps: Array = manager.get_combatants()
 	var snap_by_id: Dictionary = {}
 	for raw_cap in caps:
-		if raw_cap == null or typeof(raw_cap) != TYPE_DICTIONARY:
+		if raw_cap is not Dictionary:
 			continue
-		var cap: Dictionary = raw_cap as Dictionary
+		var cap: Dictionary = raw_cap
 		snap_by_id[_EntityAccess.id_int(cap)] = cap
 
 	var files: int = preset.get("files", 1)
@@ -293,7 +294,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 	var slot_map: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "slots")
 	# Keep diagram bounds synced with actual slot occupancy (not just preset), so deep swaps/plugs remain visible.
 	for k in slot_map.keys():
-		if typeof(k) == TYPE_VECTOR2I:
+		if k is Vector2i:
 			var kk: Vector2i = k
 			ranks = maxi(ranks, kk.x + 1)
 			files = maxi(files, kk.y + 1)
@@ -350,7 +351,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
 					var oc: Variant = snap_by_id.get(int(cid), null)
 					if (
 						oc != null
-						and typeof(oc) == TYPE_DICTIONARY
+						and oc is Dictionary
 						and _EntityAccess.is_on_battlefield(oc)
 					):
 						if _ZoneOfControl.zone_geometry_fid_from_row(manager, oc) != side:
@@ -360,8 +361,8 @@ static func _refresh_internal(diagram_root: Control) -> void:
 						footwork_sources.append(oc)
 			if unit_entries.is_empty():
 				var fallback: Variant = slot_to_combatant.get(key, null)
-				if fallback != null and typeof(fallback) == TYPE_DICTIONARY:
-					var fc: Dictionary = fallback as Dictionary
+				if fallback is Dictionary:
+					var fc: Dictionary = fallback
 					unit_entries.append({
 						"combatant": fc,
 						"name": _EntityAccess.get_display_name(fc, _EntityAccess.id_int(fc)),
@@ -372,3 +373,4 @@ static func _refresh_internal(diagram_root: Control) -> void:
 				footwork_sources, unit_entries, unit_entries.is_empty(), manager
 			)
 			grid.add_child(cell)
+                  

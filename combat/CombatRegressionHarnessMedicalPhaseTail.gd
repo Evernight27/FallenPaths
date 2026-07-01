@@ -356,7 +356,7 @@ static func _run_medical_phase_end_combat_idempotent(failures: PackedStringArray
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 6.2: winner fled before medical phase — clear **`combat_absent`**, suspend bleed, list triage.
+## Tier 6.2: winner fled before medical phase  -  clear **`combat_absent`**, suspend bleed, list triage.
 static func _run_medical_phase_winner_fled_suspends_bleed_tick(failures: PackedStringArray) -> void:
 	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var c: Dictionary = mgr.combatants[0]
@@ -1079,7 +1079,7 @@ static func _run_field_care_venous_blood_loss_bounded(failures: PackedStringArra
 static func _run_direct_pressure_flow_retention_venous_vs_arterial_parity(
 	failures: PackedStringArray
 ) -> void:
-	const intrinsic: float = 0.4
+	var intrinsic: float = 0.4
 	var venous: Node = CombatRegressionHarness._new_entity("SWORD")
 	venous.wounds["left_leg"] = [
 		{
@@ -1281,7 +1281,7 @@ static func _run_failed_packing_retains_direct_pressure(failures: PackedStringAr
 	_free_entity_fixture(ent)
 
 
-## Research anchor: severity clot half-life ordering + bandaged hemostasis band (60–300 s).
+## Research anchor: severity clot half-life ordering + bandaged hemostasis band (60 - 300 s).
 static func _run_research_anchor_clotting_half_life_physics(failures: PackedStringArray) -> void:
 	if not _ResearchAnchors.clotting_half_life_ordering_ok():
 		CombatRegressionHarness._fail(
@@ -1334,7 +1334,7 @@ static func _run_research_anchor_reference_bleed_derivation_parity(failures: Pac
 
 ## Reference uncontrolled bleed: danger/peril gates + PartyRowFormatter danger ETA match BleedingConstants TTD math.
 static func _run_medical_triage_reference_bleed_peril_parity(failures: PackedStringArray) -> void:
-	const ref_rate: float = _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE
+	var ref_rate: float = _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE
 	var ref_ttd: float = _ResearchAnchors.clinical_ttd_seconds(1.0)
 	if ref_ttd < 30.0 or ref_ttd > 120.0:
 		CombatRegressionHarness._fail(
@@ -1555,7 +1555,7 @@ static func _run_ambient_pain_shock_skips_when_feature_off(failures: PackedStrin
 	_free_entity_fixture(ent)
 
 
-## Stabilize (hemostatic hold) trims rate but does not mark injuries `is_stabilized` — definitive dress still required.
+## Stabilize (hemostatic hold) trims rate but does not mark injuries `is_stabilized`  -  definitive dress still required.
 static func _run_stabilize_hold_does_not_mark_injury_stabilized(failures: PackedStringArray) -> void:
 	var ent: Node = CombatRegressionHarness._new_entity("SWORD")
 	ent.wounds["chest"] = [
@@ -1648,7 +1648,7 @@ static func _run_dressings_allowed_when_locally_clotted_under_pressure(
 
 ## Field stabilize: hemostatic trim must apply before procedure sim advance (not after).
 static func _run_field_stabilize_trim_before_procedure_advance(failures: PackedStringArray) -> void:
-	const wound_row: Dictionary = {
+	var wound_row: Dictionary = {
 		"current_bleeding_rate": 0.35,
 		"base_bleeding_rate": 0.8,
 		"severity": _Bleeding.SEVERITY_MODERATE,
@@ -1699,7 +1699,7 @@ static func _run_field_stabilize_trim_before_procedure_advance(failures: PackedS
 
 ## Field tourniquet: occlude limb hemorrhage before procedure sim advance (not 2 min open bleed first).
 static func _run_field_tourniquet_applies_before_procedure_advance(failures: PackedStringArray) -> void:
-	const wound_row: Dictionary = {
+	var wound_row: Dictionary = {
 		"current_bleeding_rate": 1.4,
 		"base_bleeding_rate": 2.0,
 		"severity": _Bleeding.SEVERITY_SEVERE,
@@ -1743,7 +1743,7 @@ static func _run_field_tourniquet_applies_before_procedure_advance(failures: Pac
 	_free_entity_fixture(bleed_first)
 
 
-## Stabilize requires intrinsic active bleed — not arterial label alone after local clot under compression.
+## Stabilize requires intrinsic active bleed  -  not arterial label alone after local clot under compression.
 static func _run_stabilize_requires_intrinsic_active_bleed(failures: PackedStringArray) -> void:
 	var ent: Node = CombatRegressionHarness._new_entity("SWORD")
 	# Start with low bleed so pressure reduces it below epsilon (simulating clot under sustained compression).
@@ -1835,7 +1835,7 @@ static func _run_field_care_tourniquet_before_bandage_parity(failures: PackedStr
 static func _run_field_care_arterial_blood_loss_meaningful(failures: PackedStringArray) -> void:
 	var ent: Node = CombatRegressionHarness._new_entity("SWORD")
 	ent.blood_volume = _Bleeding.MAX_BLOOD_VOLUME
-	# Severe arterial chest wound — high initial rate that stays meaningful even with clotting under pressure.
+	# Severe arterial chest wound  -  high initial rate that stays meaningful even with clotting under pressure.
 	ent.wounds["chest"] = [
 		{
 			"current_bleeding_rate": 3.0,
@@ -1853,7 +1853,7 @@ static func _run_field_care_arterial_blood_loss_meaningful(failures: PackedStrin
 	var loss_pct: float = _Bleeding.MAX_BLOOD_VOLUME - float(ent.blood_volume)
 	## Direct pressure promotes hemostasis (CLOTTING_RATE_UNDER_DIRECT_PRESSURE = 0.032/s);
 	## even an arterial wound under sustained pressure loses meaningful blood volume in one
-	## procedure — ~0.3% over one procedure tick with arterial flow retained at 50%.
+	## procedure  -  ~0.3% over one procedure tick with arterial flow retained at 50%.
 	if loss_pct < 0.1:
 		CombatRegressionHarness._fail(
 			failures,
@@ -1914,7 +1914,7 @@ static func _run_clotting_pressure_faster_than_open_bleed(failures: PackedString
 		_free_entity_fixture(open)
 		_free_entity_fixture(pressed)
 		return
-	const steps: int = 45
+	var steps: int = 45
 	for _i in range(steps):
 		_EntityWounds.process_bleeding(open, 1.0)
 		_EntityWounds.process_bleeding(pressed, 1.0)
@@ -1954,7 +1954,7 @@ static func _run_medical_phase_blood_loss_clotting_below_constant_drain(failures
 		CombatRegressionHarness._fail(failures, "med_clot_drain: need active bleed")
 		_free_entity_fixture(ent)
 		return
-	const seconds: float = 12.0
+	var seconds: float = 12.0
 	var constant_want: float = rate0 * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER * seconds
 	var steps: int = int(seconds)
 	for _i in range(steps):
@@ -1972,8 +1972,8 @@ static func _run_medical_phase_blood_loss_clotting_below_constant_drain(failures
 
 ## Hemostasis k: definitive bandage (`CLOTTING_RATE_STABILIZED`) decays slower than sustained compression (`CLOTTING_RATE_UNDER_DIRECT_PRESSURE`) at matched intrinsic rate.
 static func _run_clotting_bandaged_slower_k_than_pressure_held(failures: PackedStringArray) -> void:
-	const start_rate: float = 0.08
-	const steps: int = 60
+	var start_rate: float = 0.08
+	var steps: int = 60
 	var bandaged: Node = CombatRegressionHarness._new_entity("SWORD")
 	bandaged.wounds["left_leg"] = [
 		{
@@ -2047,7 +2047,7 @@ static func _run_battle_ui_receiving_care_gauge_primary(failures: PackedStringAr
 		)
 
 
-## TCCC: sustained compression raises dressing success (`TREATMENT_PRESSURE_HELD_SUCCESS_MULT`) — combat + field care share `EntityMedical.apply_bandage`.
+## TCCC: sustained compression raises dressing success (`TREATMENT_PRESSURE_HELD_SUCCESS_MULT`)  -  combat + field care share `EntityMedical.apply_bandage`.
 static func _run_pressure_held_bandage_success_mult_parity(failures: PackedStringArray) -> void:
 	if not is_equal_approx(_Bleeding.TREATMENT_PRESSURE_HELD_SUCCESS_MULT, 1.18):
 		CombatRegressionHarness._fail(
@@ -2055,7 +2055,7 @@ static func _run_pressure_held_bandage_success_mult_parity(failures: PackedStrin
 			"pressure_held_mult: expected 1.18 got %.3f"
 			% _Bleeding.TREATMENT_PRESSURE_HELD_SUCCESS_MULT
 		)
-	const eff: float = 0.55
+	var eff: float = 0.55
 	var extra_with_pressure: int = 0
 	for i in range(256):
 		seed(88100 + i)
@@ -2370,8 +2370,8 @@ static func _run_ms_mid_infight_med_depth_suite(failures: PackedStringArray) -> 
 
 
 static func _run_ms_mid_infight_ally_medical_listing(failures: PackedStringArray) -> void:
-	const _FootworkTail := preload("res://combat/CombatRegressionHarnessAttentionFootworkTail.gd")
-	const _MentalStack := preload("res://combat/MentalStackDecider.gd")
+	var _FootworkTail := preload("res://combat/CombatRegressionHarnessAttentionFootworkTail.gd")
+	var _MentalStack := preload("res://combat/MentalStackDecider.gd")
 	if not CombatConstants.is_feature_ms_mid_infight_med_enabled():
 		CombatRegressionHarness._fail(
 			failures, "ms_mid_listing: FEATURE_MS_MID_INFIGHT_MED must be on in production"
@@ -2381,13 +2381,22 @@ static func _run_ms_mid_infight_ally_medical_listing(failures: PackedStringArray
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-	mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+	mgr.start({"files": 2, "ranks": 2}, {"files": 1, "ranks": 1})
+	mgr._recompute_zoc_and_distance()
 	var medic: Dictionary = mgr.combatants[0]
 	var ally: Dictionary = mgr.combatants[1]
 	var medic_id: int = _EntityAccess.id_int(medic)
 	var ally_id: int = _EntityAccess.id_int(ally)
 	medic["gauge"] = 100.0
 	medic.state = CombatConstants.STATE_WAITING
+	medic.rank = 1
+	medic["file"] = 0
+	ally["file"] = 0
+	var perf_fid_med: String = _EntityAccess.formation_id_str(medic)
+	if not perf_fid_med.is_empty():
+		var fdict: Dictionary = mgr.formations.get(perf_fid_med, {})
+		if not fdict.is_empty():
+			fdict.engagement_posture = CombatConstants.ENGAGEMENT_POSTURE_LINE
 	var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
 	_FootworkTail._harness_immediate_peril_bleeding_chest(ally_ent, 38.0)
 	if mgr.medical_phase:
@@ -3162,7 +3171,7 @@ static func _run_combat_log_formatter_pack_ally_label(failures: PackedStringArra
 	if not line.contains("pack wound (ally)"):
 		CombatRegressionHarness._fail(failures, "pack_ally_log: want pack wound (ally) got '%s'" % line)
 
-## Fast medical-phase halt subset — **`FP_HARNESS_MODE=medical`** (full suite: `run()`).
+## Fast medical-phase halt subset  -  **`FP_HARNESS_MODE=medical`** (full suite: `run()`).
 static func run_fast_phase_halt_checks(failures: PackedStringArray) -> void:
 	_run_medical_phase_cancels_pending_enemy_melee(failures)
 	_run_medical_phase_blocks_afterblow_on_loser(failures)

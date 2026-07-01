@@ -2,10 +2,12 @@ class_name CombatHitSubRegion
 extends RefCounted
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _WeightedSample := preload("res://core/WeightedSample.gd")
+const _Bp := preload("res://core/BodyPartConstants.gd")
 
 ## Deterministic anatomy site on a hit part (S2). Path intercept + attack line bias; no combat RNG.
 ## IV-10: **`combat_damage_mult`** scales post-armor mechanical cut/blunt (delegates **`BleedingConstants.get_severity_modifier`**).
-## Footing: **`attack_line`** biases site pick; **`guard_line`** arg unused at resolve — not L3 drift or PA geometry. LIVE_PATHS **`#wf-layer-labels`**.
+## Footing: **`attack_line`** biases site pick; **`guard_line`** arg unused at resolve —" not L3 drift or PA geometry. LIVE_PATHS **`#wf-layer-labels`**.
 
 ## IV-10 doc-sync line (harness / calibration audit).
 static func iv10_doc_sync_line() -> String:
@@ -62,19 +64,8 @@ static func _stable_unit(stable_seed: int) -> float:
 
 
 static func _weighted_pick_deterministic(weights: Dictionary, stable_seed: int) -> String:
-	var total: float = 0.0
-	for w in weights.values():
-		total += float(w)
-	if total <= 0.0:
-		return ""
-	var r: float = _stable_unit(stable_seed) * total
-	var acc: float = 0.0
-	for sub in weights:
-		acc += float(weights[sub])
-		if r < acc:
-			return str(sub)
-	var keys: Array = weights.keys()
-	return str(keys[keys.size() - 1]) if not keys.is_empty() else ""
+	var unit_fn: Callable = _stable_unit.bind(stable_seed)
+	return _WeightedSample.pick_deterministic(weights, unit_fn)
 
 
 static func _intercept_norm(path_intercept_index: int) -> float:
@@ -98,7 +89,7 @@ static func _height_bias_from_attack_line(attack_line: String, alignment_context
 		if deg >= 135.0 and deg <= 225.0:
 			return 1.0
 		return 0.5
-	var line: String = str(attack_line).strip_edges().to_lower()
+	var line: String = attack_line.strip_edges().to_lower()
 	if line.is_empty():
 		return 0.5
 	if line.contains("high"):
@@ -114,17 +105,17 @@ static func _height_bias_from_attack_line(attack_line: String, alignment_context
 
 static func _sub_region_for_part(part: String, site_t: float, move_id: String) -> String:
 	match part:
-		"head":
+		_Bp.PART_HEAD:
 			if site_t < 0.38:
 				return "scalp"
 			if site_t < 0.72:
 				return "face"
 			return "neck"
-		"chest":
+		_Bp.PART_CHEST:
 			return "abdominal" if site_t >= 0.55 else "thoracic"
-		"right_arm", "left_arm":
+		_Bp.PART_RIGHT_ARM, _Bp.PART_LEFT_ARM:
 			return _sub_region_for_limb(site_t, move_id)
-		"right_leg", "left_leg":
+		_Bp.PART_RIGHT_LEG, _Bp.PART_LEFT_LEG:
 			if site_t < 0.28:
 				return "thigh"
 			if site_t < 0.48:
@@ -137,7 +128,7 @@ static func _sub_region_for_part(part: String, site_t: float, move_id: String) -
 
 
 static func _sub_region_for_limb(site_t: float, move_id: String) -> String:
-	var mid: String = str(move_id).strip_edges()
+	var mid: String = move_id.strip_edges()
 	if mid.contains("thrust") or mid.contains("stab"):
 		if site_t < 0.35:
 			return "upper_arm"

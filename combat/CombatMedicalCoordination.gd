@@ -1,7 +1,7 @@
 class_name CombatMedicalCoordination
 extends RefCounted
 
-## Retry tracking, “who can treat this ally”, parts under ally wind-up, and overlap guards (listing + resolve).
+## Retry tracking, —œwho can treat this ally—, parts under ally wind-up, and overlap guards (listing + resolve).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
@@ -21,9 +21,9 @@ static func get_parts_being_treated_on(manager: Node, combatant_id: int) -> Arra
 		if _EntityAccess.state_str(other) != CombatConstants.STATE_MEDICAL_WIND_UP:
 			continue
 		var pm_raw: Variant = other.get("pending_medical", null)
-		if typeof(pm_raw) != TYPE_DICTIONARY:
+		if pm_raw is not Dictionary:
 			continue
-		var pm: Dictionary = pm_raw as Dictionary
+		var pm: Dictionary = pm_raw
 		if pm.get("target_combatant_id", -1) == combatant_id:
 			var part: String = pm.get("target_part", "")
 			if not part.is_empty() and part not in out:
@@ -31,7 +31,7 @@ static func get_parts_being_treated_on(manager: Node, combatant_id: int) -> Arra
 	return out
 
 
-## Another medic’s in-flight wind-up on **`target_id`** + **`part`** (excludes **`exclude_performer_id`**).
+## Another medic—™s in-flight wind-up on **`target_id`** + **`part`** (excludes **`exclude_performer_id`**).
 static func get_active_windup_treatment_by_other(
 	manager: Node, exclude_performer_id: int, target_id: int, part: String
 ) -> Dictionary:
@@ -43,16 +43,16 @@ static func get_active_windup_treatment_by_other(
 		if _EntityAccess.state_str(other) != CombatConstants.STATE_MEDICAL_WIND_UP:
 			continue
 		var pm_raw: Variant = other.get("pending_medical", null)
-		if typeof(pm_raw) != TYPE_DICTIONARY:
+		if pm_raw is not Dictionary:
 			continue
-		var pm: Dictionary = pm_raw as Dictionary
+		var pm: Dictionary = pm_raw
 		if pm.get("target_combatant_id", -1) != target_id:
 			continue
-		if str(pm.get("target_part", "")) != part:
+		if pm.get("target_part", "") != part:
 			continue
 		return {
 			"performer_id": _EntityAccess.id_int(other),
-			"medical_id": str(pm.get("medical_id", "")),
+			"medical_id": pm.get("medical_id", ""),
 		}
 	return {}
 
@@ -120,7 +120,7 @@ static func medical_action_allowed(
 static func filter_actions_for_pick(manager: Node, performer_id: int, actions: Array) -> Array:
 	if manager == null:
 		return actions
-	var filter_coord: bool = bool(manager.medical_phase)
+	var filter_coord: bool = manager.medical_phase
 	if (
 		not filter_coord
 		and CombatConstants.is_feature_ms_mid_infight_med_enabled()
@@ -132,18 +132,18 @@ static func filter_actions_for_pick(manager: Node, performer_id: int, actions: A
 	for raw in actions:
 		if raw is not Dictionary:
 			continue
-		var act: Dictionary = raw as Dictionary
-		var part: String = str(act.get("target_part", ""))
-		var mid: String = str(act.get("move_id", ""))
-		if bool(manager.medical_phase):
-			var tgt_id: int = int(act.get("target_id", -1))
+		var act: Dictionary = raw
+		var part: String = act.get("target_part", "")
+		var mid: String = act.get("move_id", "")
+		if manager.medical_phase:
+			var tgt_id: int = act.get("target_id", -1)
 			if medical_action_allowed(manager, performer_id, tgt_id, part, mid):
 				out.append(act)
 			continue
 		if not CombatConstants.is_medical_move(mid):
 			out.append(act)
 			continue
-		var tgt_id_mid: int = int(act.get("target_id", -1))
+		var tgt_id_mid: int = act.get("target_id", -1)
 		if medical_action_allowed(manager, performer_id, tgt_id_mid, part, mid):
 			out.append(act)
 	return out
@@ -158,9 +158,9 @@ static func filter_ally_medical_actions(
 	for raw in actions:
 		if raw is not Dictionary:
 			continue
-		var act: Dictionary = raw as Dictionary
-		var part: String = str(act.get("target_part", ""))
-		var mid: String = str(act.get("move_id", ""))
+		var act: Dictionary = raw
+		var part: String = act.get("target_part", "")
+		var mid: String = act.get("move_id", "")
 		if medical_action_allowed(manager, performer_id, ally_id, part, mid):
 			out.append(act)
 	return out

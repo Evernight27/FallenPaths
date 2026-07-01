@@ -1,7 +1,7 @@
 class_name CombatEngagementDiagnostics
 extends RefCounted
 
-## F5 / play-session lines (grep **`engagement_debug`**) — opposition map, distance bands, non-strike picks.
+## F5 / play-session lines (grep **`engagement_debug`**)  -  opposition map, distance bands, non-strike picks.
 ## Off under headless harness quiet; on with **`OperationalLog.begin_play_session`**.
 
 const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
@@ -64,7 +64,7 @@ static func log_fight_start_summary(manager: Node) -> void:
 	for line in pairs:
 		_OperationalLog.play_combat("engagement_debug rank0_map %s" % line)
 	_OperationalLog.play_combat(
-		"engagement_debug hint grep engagement_debug turn — reach=gap/eff/reach/band/threaten/in_swing; bind_close=true outer wing must close not rotate; reserve_only+LONG=no strikes; in-swing at LONG lists strikes not close; rotate needs skirmish outnumber; rotate_suppress=true sparse/mop-up/CLOSE-band/bind_close; sparse_line=true post-flee fight-first; fight_finish=true L4b/trusted-close tail; sparse_prefer_finish=true finish-over-shuffle; wing_lack=true enables L4 close; mop_up=true suppresses rotate without melee; mop_up combat tail want strikes_listed/strikes>0 not close-only stall (3e); line_plug=false when sparse_line unless line_plug_pick=1; line_plug_pick=1 on rank-0 gap swap/rotate or incap plug-forward swap; sparse rank-0 CLOSE/MID omits redundant attempt_close when melee listed"
+		"engagement_debug hint grep engagement_debug turn  -  reach=gap/eff/reach/band/threaten/in_swing; bind_close=true outer wing must close not rotate; reserve_only+LONG=no strikes; in-swing at LONG lists strikes not close; rotate needs skirmish outnumber; rotate_suppress=true sparse/mop-up/CLOSE-band/bind_close; sparse_line=true post-flee fight-first; fight_finish=true L4b/trusted-close tail; sparse_prefer_finish=true finish-over-shuffle; wing_lack=true enables L4 close; mop_up=true suppresses rotate without melee; mop_up combat tail want strikes_listed/strikes>0 not close-only stall (3e); line_plug=false when sparse_line unless line_plug_pick=1; line_plug_pick=1 on rank-0 gap swap/rotate or incap plug-forward swap; sparse rank-0 CLOSE/MID omits redundant attempt_close when melee listed"
 	)
 
 
@@ -139,7 +139,7 @@ static func maybe_log_turn_pick(
 	)
 
 
-## Harness / F5: whether **`line_plug=true`** should appear on the turn line (sparse → plug pick only).
+## Harness / F5: whether **`line_plug=true`** should appear on the turn line (sparse â plug pick only).
 ## Canonical: **`listed_action_is_formation_plug_pick`** (`CombatFormationMoveListing`) · MS-L5 **`FORMATION_PLUG`** layer.
 static func line_plug_logged_for_pick(
 	manager: Node,
@@ -170,7 +170,7 @@ static func line_plug_logged_for_pick(
 
 ## F5 engagement_debug: posture / formation / close picks (not ordinary strikes).
 static func _is_engagement_pick_trace_move(move_id: String) -> bool:
-	var mid: String = str(move_id)
+	var mid: String = move_id
 	return (
 		mid == CombatConstants.MOVE_ID_WAIT
 		or mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
@@ -244,7 +244,7 @@ static func _distance_band_summary(c: Dictionary) -> String:
 
 static func _nearest_opposed_label(manager: Node, actor: Dictionary) -> String:
 	if manager == null or actor.is_empty():
-		return "—"
+		return " - "
 	var side: String = _EntityAccess.side_str(actor)
 	var offset: int = _EngagementOpposition.opposition_file_offset(manager, side)
 	var actor_file: int = _EntityAccess.file_int(actor)
@@ -279,7 +279,7 @@ static func _nearest_opposed_label(manager: Node, actor: Dictionary) -> String:
 
 static func _reach_hint_for_nearest_opposed(manager: Node, actor: Dictionary) -> String:
 	if manager == null or actor.is_empty():
-		return "—"
+		return " - "
 	var side: String = _EntityAccess.side_str(actor)
 	var offset: int = _EngagementOpposition.opposition_file_offset(manager, side)
 	var actor_file: int = _EntityAccess.file_int(actor)
@@ -330,3 +330,4 @@ static func _rank0_opposition_pair_lines(manager: Node) -> PackedStringArray:
 		var reach: String = _reach_hint_for_nearest_opposed(manager, p)
 		out.append("p_f%d->%s %s" % [pf, label, reach])
 	return out
+  

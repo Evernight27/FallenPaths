@@ -6,26 +6,32 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _MedicalPhase := preload("res://combat/MedicalPhaseController.gd")
+# Runtime preload â€” circular dependency (MedicalPhaseController preloads CombatEventScheduler).
+static var _medical_phase_cache: Variant = null
+
+static func _get_medical_phase() -> GDScript:
+	if _medical_phase_cache == null:
+		_medical_phase_cache = load("res://combat/MedicalPhaseController.gd")
+	return _medical_phase_cache
+
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 
 
 static func compare_events(manager: Node, a: Variant, b: Variant) -> bool:
-	if typeof(a) != TYPE_DICTIONARY:
+	if a is not Dictionary:
 		return false
-	if typeof(b) != TYPE_DICTIONARY:
+	if b is not Dictionary:
 		return true
-	var ad: Dictionary = a as Dictionary
-	var bd: Dictionary = b as Dictionary
+	var ad: Dictionary = a
+	var bd: Dictionary = b
 	var at_a: float = ad.get("resolve_at", 0.0)
 	var at_b: float = bd.get("resolve_at", 0.0)
 	if at_a != at_b:
 		return at_a < at_b
 	var ca: Dictionary = _EntityAccess.manager_get_combatant(manager, int(ad.get("combatant_id", -1)))
 	var cb: Dictionary = _EntityAccess.manager_get_combatant(manager, int(bd.get("combatant_id", -1)))
-	var agi_a: int = int(_EntityAccess.stats_dict(ca).get("agility", 100)) if not ca.is_empty() else 0
-	var agi_b: int = int(_EntityAccess.stats_dict(cb).get("agility", 100)) if not cb.is_empty() else 0
+	var agi_a: int = int(_EntityAccess.stats_dict(ca).get("agility", CombatConstants.DEFAULT_STAT_VALUE)) if not ca.is_empty() else 0
+	var agi_b: int = int(_EntityAccess.stats_dict(cb).get("agility", CombatConstants.DEFAULT_STAT_VALUE)) if not cb.is_empty() else 0
 	if agi_a != agi_b:
 		return agi_a > agi_b
 	return ad.get("combatant_id", 0) < bd.get("combatant_id", 0)
@@ -36,7 +42,7 @@ static func sort_event_queue(manager: Node) -> void:
 
 
 static func schedule_event(manager: Node, ev: Dictionary) -> void:
-	if _MedicalPhase.should_block_scheduled_event(manager, ev):
+	if _get_medical_phase().should_block_scheduled_event(manager, ev):
 		return
 	manager.event_queue.append(ev)
 	sort_event_queue(manager)
@@ -45,7 +51,7 @@ static func schedule_event(manager: Node, ev: Dictionary) -> void:
 static func get_next_action_ready_at(manager: Node, combatant_id: int) -> float:
 	var best: float = -1.0
 	for ev in manager.event_queue:
-		if typeof(ev) != TYPE_DICTIONARY:
+		if ev is not Dictionary:
 			continue
 		var evd: Dictionary = ev as Dictionary
 		if evd.get("type", "") == CombatConstants.EVENT_ACTION_READY and evd.get("combatant_id", -1) == combatant_id:
@@ -56,14 +62,14 @@ static func get_next_action_ready_at(manager: Node, combatant_id: int) -> float:
 
 
 ## Single pass over `event_queue`: earliest future `EVENT_ACTION_READY` per `combatant_id` (vs `combat_clock`).
-## Use for UI snapshots instead of O(combatants × queue) per-frame scans.
+## Use for UI snapshots instead of O(combatants Ãƒ -  queue) per-frame scans.
 static func build_next_action_ready_times(manager: Node) -> Dictionary:
 	var best_by_id: Dictionary = {}
 	if manager == null:
 		return best_by_id
 	var clk: float = _EntityAccess.combat_clock_float(manager)
 	for ev in manager.event_queue:
-		if typeof(ev) != TYPE_DICTIONARY:
+		if ev is not Dictionary:
 			continue
 		var evb: Dictionary = ev as Dictionary
 		if evb.get("type", "") != CombatConstants.EVENT_ACTION_READY:
@@ -71,7 +77,7 @@ static func build_next_action_ready_times(manager: Node) -> Dictionary:
 		var cid: int = int(evb.get("combatant_id", -1))
 		if cid < 0:
 			continue
-		var at: float = float(evb.get("resolve_at", 0.0))
+		var at: float = evb.get("resolve_at", 0.0)
 		if at <= clk:
 			continue
 		if not best_by_id.has(cid) or at < float(best_by_id[cid]):
@@ -83,14 +89,14 @@ static func get_pending_melee_attack_resolve_at(manager: Node, combatant_id: int
 	if manager == null or combatant_id < 0:
 		return -1.0
 	for ev in manager.event_queue:
-		if typeof(ev) != TYPE_DICTIONARY:
+		if ev is not Dictionary:
 			continue
 		var evd: Dictionary = ev as Dictionary
 		if (
 			evd.get("type", "") == CombatConstants.EVENT_MELEE_ATTACK
 			and int(evd.get("combatant_id", -1)) == combatant_id
 		):
-			return float(evd.get("resolve_at", -1.0))
+			return evd.get("resolve_at", -1.0)
 	return -1.0
 
 
@@ -99,7 +105,7 @@ static func set_pending_melee_attack_resolve_at(
 ) -> bool:
 	if manager == null or combatant_id < 0:
 		return false
-	if _MedicalPhase.should_block_scheduled_event(
+	if _get_medical_phase().should_block_scheduled_event(
 		manager,
 		{
 			"type": CombatConstants.EVENT_MELEE_ATTACK,
@@ -111,7 +117,7 @@ static func set_pending_melee_attack_resolve_at(
 		cancel_pending_melee_attack(manager, combatant_id)
 		return false
 	for ev in manager.event_queue:
-		if typeof(ev) != TYPE_DICTIONARY:
+		if ev is not Dictionary:
 			continue
 		var evd: Dictionary = ev as Dictionary
 		if (
@@ -128,23 +134,23 @@ static func cancel_pending_melee_attack(manager: Node, combatant_id: int) -> voi
 	if manager == null or combatant_id < 0:
 		return
 	manager.event_queue = manager.event_queue.filter(func(ev: Variant) -> bool:
-		if typeof(ev) != TYPE_DICTIONARY:
+		if ev is not Dictionary:
 			return false
-		var evc: Dictionary = ev as Dictionary
+		var evd: Dictionary = ev as Dictionary
 		return not (
-			evc.get("type", "") == CombatConstants.EVENT_MELEE_ATTACK
-			and int(evc.get("combatant_id", -1)) == combatant_id
+			evd.get("type", "") == CombatConstants.EVENT_MELEE_ATTACK
+			and int(evd.get("combatant_id", -1)) == combatant_id
 		)
 	)
 
 
 static func cancel_pending_action_ready(manager: Node, combatant_id: int) -> void:
 	manager.event_queue = manager.event_queue.filter(func(ev: Variant) -> bool:
-		if typeof(ev) != TYPE_DICTIONARY:
+		if ev is not Dictionary:
 			return false
-		var evc: Dictionary = ev as Dictionary
+		var evd: Dictionary = ev as Dictionary
 		return not (
-			evc.get("type", "") == CombatConstants.EVENT_ACTION_READY and evc.get("combatant_id", -1) == combatant_id
+			evd.get("type", "") == CombatConstants.EVENT_ACTION_READY and evd.get("combatant_id", -1) == combatant_id
 		)
 	)
 
@@ -153,12 +159,12 @@ static func cancel_pending_recovery_end(manager: Node, combatant_id: int) -> voi
 	if manager == null or combatant_id < 0:
 		return
 	manager.event_queue = manager.event_queue.filter(func(ev: Variant) -> bool:
-		if typeof(ev) != TYPE_DICTIONARY:
+		if ev is not Dictionary:
 			return false
-		var evc: Dictionary = ev as Dictionary
+		var evd: Dictionary = ev as Dictionary
 		return not (
-			evc.get("type", "") == CombatConstants.EVENT_RECOVERY_END
-			and int(evc.get("combatant_id", -1)) == combatant_id
+			evd.get("type", "") == CombatConstants.EVENT_RECOVERY_END
+			and int(evd.get("combatant_id", -1)) == combatant_id
 		)
 	)
 
@@ -168,18 +174,18 @@ static func cancel_pending_formation_events_for_combatant(manager: Node, combata
 	if manager == null or combatant_id < 0:
 		return
 	manager.event_queue = manager.event_queue.filter(func(ev: Variant) -> bool:
-		if typeof(ev) != TYPE_DICTIONARY:
+		if ev is not Dictionary:
 			return false
-		var evc: Dictionary = ev as Dictionary
-		var ev_type: String = str(evc.get("type", ""))
+		var evd: Dictionary = ev as Dictionary
+		var ev_type: String = str(evd.get("type", ""))
 		if ev_type == CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE:
-			return int(evc.get("combatant_id", -1)) != combatant_id
+			return int(evd.get("combatant_id", -1)) != combatant_id
 		if (
 			ev_type == CombatConstants.EVENT_SWAP_RANK_RESOLVE
 			or ev_type == CombatConstants.EVENT_ROTATE_FILE_RESOLVE
 			or ev_type == CombatConstants.EVENT_PLUG_FORWARD_RESOLVE
 		):
-			var cid: int = int(evc.get("combatant_id", -1))
+			var cid: int = int(evd.get("combatant_id", -1))
 			return cid != combatant_id
 		return true
 	)
@@ -198,16 +204,16 @@ static func cancel_pending_swap_rank_pair_events(manager: Node, id_a: int, id_b:
 	if manager == null or id_a < 0 or id_b < 0:
 		return
 	manager.event_queue = manager.event_queue.filter(func(ev: Variant) -> bool:
-		if typeof(ev) != TYPE_DICTIONARY:
+		if ev is not Dictionary:
 			return true
-		var evc: Dictionary = ev as Dictionary
-		if evc.get("type", "") != CombatConstants.EVENT_SWAP_RANK_RESOLVE:
+		var evd: Dictionary = ev as Dictionary
+		if evd.get("type", "") != CombatConstants.EVENT_SWAP_RANK_RESOLVE:
 			return true
-		var cid: int = int(evc.get("combatant_id", -1))
+		var cid: int = int(evd.get("combatant_id", -1))
 		var pid: int = -1
-		var dr: Variant = evc.get("data", null)
+		var dr: Variant = evd.get("data", null)
 		if dr is Dictionary:
-			pid = int((dr as Dictionary).get("partner_id", -1))
+			pid = int(dr.get("partner_id", -1))
 		var touches: bool = cid == id_a or cid == id_b or pid == id_a or pid == id_b
 		return not touches
 	)
@@ -221,7 +227,7 @@ static func schedule_action_ready(manager: Node, combatant_id: int, delay_s: flo
 		"data": {},
 	}
 	cancel_pending_action_ready(manager, combatant_id)
-	if _MedicalPhase.should_block_scheduled_event(manager, ev):
+	if _get_medical_phase().should_block_scheduled_event(manager, ev):
 		return
 	var c_ready: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
 	if (
@@ -244,7 +250,7 @@ static func schedule_action_ready_for_combatant(
 
 
 static func action_ready_cooldown(c: Dictionary) -> float:
-	var agi: float = float(_EntityAccess.stats_dict(c).get("agility", 100))
+	var agi: float = float(_EntityAccess.stats_dict(c).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
 	var cooldown: float = CombatConstants.COOLDOWN_ACTION_READY_BASE * (100.0 / maxf(50.0, agi))
 	var off_until: float = c.get("off_balance_until", -1.0)
 	if off_until > CombatTiming.now_seconds():
@@ -263,7 +269,7 @@ static func schedule_initial_action_ready_events(manager: Node) -> void:
 	for c in manager.combatants:
 		if not _EntityAccess.alive_bool(c) or _EntityAccess.is_unconscious(c):
 			continue
-		if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
+		if manager.medical_phase and _get_medical_phase().is_losing_side(manager, c):
 			continue
 		pending.append(c)
 	if CombatConstants.is_feature_initiative_order_enabled() and pending.size() > 1:
@@ -284,7 +290,7 @@ static func reschedule_back_rank_turns(manager: Node, fid: String) -> void:
 	for c in manager.combatants:
 		if not _EntityAccess.alive_bool(c) or not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, c, fid):
 			continue
-		if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
+		if manager.medical_phase and _get_medical_phase().is_losing_side(manager, c):
 			continue
 		if _EntityAccess.rank_int(c) < 1 or _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 			continue
@@ -300,7 +306,7 @@ static func reschedule_same_file_depth_after_front_turn(manager: Node, front_com
 	var front: Dictionary = _EntityAccess.manager_get_combatant(manager, front_combatant_id)
 	if front.is_empty() or _EntityAccess.rank_int(front) != 0:
 		return
-	if manager.medical_phase and _MedicalPhase.is_losing_side(manager, front):
+	if manager.medical_phase and _get_medical_phase().is_losing_side(manager, front):
 		return
 	var fid: String = _EntityAccess.formation_id_str(front)
 	if fid.is_empty():
@@ -331,7 +337,7 @@ static func reschedule_same_file_depth_after_reserve_turn(manager: Node, reserve
 	var actor: Dictionary = _EntityAccess.manager_get_combatant(manager, reserve_combatant_id)
 	if actor.is_empty() or _EntityAccess.rank_int(actor) < 1:
 		return
-	if manager.medical_phase and _MedicalPhase.is_losing_side(manager, actor):
+	if manager.medical_phase and _get_medical_phase().is_losing_side(manager, actor):
 		return
 	var fid: String = _EntityAccess.formation_id_str(actor)
 	if fid.is_empty():
@@ -369,7 +375,7 @@ static func reschedule_same_file_depth_after_rotate_file(
 		files.append(file_b)
 	for file in files:
 		for c in manager.combatants:
-			if typeof(c) != TYPE_DICTIONARY:
+			if c is not Dictionary:
 				continue
 			if _EntityAccess.formation_id_str(c) != fid:
 				continue
@@ -379,7 +385,7 @@ static func reschedule_same_file_depth_after_rotate_file(
 				continue
 			if _EntityAccess.rank_int(c) <= 0:
 				continue
-			if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
+			if manager.medical_phase and _get_medical_phase().is_losing_side(manager, c):
 				continue
 			if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 				continue
@@ -397,7 +403,7 @@ static func reschedule_same_file_depth_rank2_plus(
 	if manager == null or fid.is_empty() or file < 0:
 		return
 	for c in manager.combatants:
-		if typeof(c) != TYPE_DICTIONARY:
+		if c is not Dictionary:
 			continue
 		if _EntityAccess.formation_id_str(c) != fid:
 			continue
@@ -407,7 +413,7 @@ static func reschedule_same_file_depth_rank2_plus(
 			continue
 		if _EntityAccess.rank_int(c) < 2:
 			continue
-		if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
+		if manager.medical_phase and _get_medical_phase().is_losing_side(manager, c):
 			continue
 		if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
 			continue
@@ -477,6 +483,6 @@ static func reschedule_formation_recheck_for_moved_back_ranks(manager: Node, mov
 			continue
 		if _EntityAccess.is_unconscious(c):
 			continue
-		if manager.medical_phase and _MedicalPhase.is_losing_side(manager, c):
+		if manager.medical_phase and _get_medical_phase().is_losing_side(manager, c):
 			continue
 		schedule_action_ready(manager, cid, CombatConstants.READY_DELAY_FORMATION_RECHECK_S)

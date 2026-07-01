@@ -1,8 +1,17 @@
 class_name BodyPartConstants
 extends RefCounted
 
+## Body part lists, bone damage thresholds, targeting weights (single source of truth).
+
 # --- Body part lists (single source of truth) ---
 # Used by SpeciesResource, BodyPartQuery, BattleScene, PartyMenu, PartyManager.
+const PART_HEAD: String = "head"
+const PART_CHEST: String = "chest"
+const PART_RIGHT_ARM: String = "right_arm"
+const PART_LEFT_ARM: String = "left_arm"
+const PART_RIGHT_LEG: String = "right_leg"
+const PART_LEFT_LEG: String = "left_leg"
+
 const BODY_PARTS := ["head", "chest", "right_arm", "left_arm", "left_leg", "right_leg"]
 const VITAL_PARTS := ["head", "chest"]
 const BODY_LABELS := {"head": "Head", "chest": "Chest", "right_arm": "R.Arm", "left_arm": "L.Arm", "left_leg": "L.Leg", "right_leg": "R.Leg"}
@@ -10,7 +19,7 @@ const BODY_LABELS := {"head": "Head", "chest": "Chest", "right_arm": "R.Arm", "l
 const BODY_BAR_COLUMNS := [["head", "right_arm", "left_leg"], ["chest", "left_arm", "right_leg"]]
 
 # --- Per-body-part and per-sub-region bone damage (tissue vs bone split) ---
-# Research: skull fracture 4–23 J, femoral ~35 J, tibial ~25 J (PubMed 20803457; SciDirect long bone).
+# Research: skull fracture 4 - 23 J, femoral ~35 J, tibial ~25 J (PubMed 20803457; SciDirect long bone).
 # Sub-regions: scalp thin over skull; face facial bones; neck less bone; thoracic ribs; abdominal soft;
 # humerus shaft/deep brachial; elbow; forearm radius/ulna (distal most common); hand; thigh femur; knee; calf tibia; foot.
 # See RESEARCH_BASED_APPROXIMATIONS.md, BleedingConstants.SUB_REGIONS.
@@ -88,7 +97,7 @@ static func get_weighted_random_part(targetable_parts: Array, preferred_parts: A
 		return ""
 	var total: float = 0.0
 	for part in targetable_parts:
-		var w: float = float(BODY_PART_TARGET_WEIGHTS.get(part, 1.0))
+		var w: float = BODY_PART_TARGET_WEIGHTS.get(part, 1.0)
 		if preferred_parts.has(part) and preferred_mult > 1.0:
 			w *= preferred_mult
 		total += w
@@ -97,7 +106,7 @@ static func get_weighted_random_part(targetable_parts: Array, preferred_parts: A
 	var r: float = randf() * total
 	var acc: float = 0.0
 	for part in targetable_parts:
-		var w: float = float(BODY_PART_TARGET_WEIGHTS.get(part, 1.0))
+		var w: float = BODY_PART_TARGET_WEIGHTS.get(part, 1.0)
 		if preferred_parts.has(part) and preferred_mult > 1.0:
 			w *= preferred_mult
 		acc += w
