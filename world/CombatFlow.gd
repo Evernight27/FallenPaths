@@ -2,11 +2,11 @@ class_name CombatFlow
 extends RefCounted
 
 ## Handles combat initiation and battle-end cleanup. Used by main.gd.
-## Optional world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** (`"combat_encounter"`): copied into **`BattleScene.start`** â†’ **`CombatManager.encounter`** before **`start()`** (doctrine, depth polearm AI mults, posture, morale, ...  -  see **`CombatManager`** default_enc in **`CombatManager.gd`**).
+## Optional world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** (`"combat_encounter"`): copied into **`BattleScene.start`** |' **`CombatManager.encounter`** before **`start()`** (doctrine, depth polearm AI mults, posture, morale, ...  -  see **`CombatManager`** default_enc in **`CombatManager.gd`**).
 ## Encounter nodes set meta via **`CampaignEncounterBridge.prepare_combat_from_encounter`**.
 
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-# Runtime preload â€” circular dependency (CompanyState preloads CombatFlow).
+# Runtime preload ' circular dependency (CompanyState preloads CombatFlow).
 static var _company_state_cache: Variant = null
 
 static func _get_company_state() -> GDScript:
@@ -150,7 +150,7 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -
 	_get_company_state().set_overworld_hud_visible(world, true)
 	_get_company_state().refresh_hud(world)
 
-## Tutorial (and other non-run-ending) losses: keep company meta, restore map UI.
+## Tutorial (and other non-run-ending) losses: keep company met" restore map UI.
 static func _restore_overworld_after_aborted_combat(world: Node2D, player: Node) -> void:
 	if world == null:
 		return

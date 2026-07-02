@@ -5,7 +5,7 @@ extends RefCounted
 ## Tier 4.4.2: symmetric defender step on committed parry (guard line) or dodge (eval part line).
 ## Lifecycle: **`clear_on_exchange_end`** when **`pending_attack`** drops or exchange aborts; UI via **`offset_visible_for_ui_state`** (**`wind_up`** / **`recovering`** only).
 ## Attachment: reads **line keys** only  -  not **`weapon_form`** or stance alias. Hub LIVE_PATHS **`#wf-tier-44-pa`** (stamp / geometry / clear / lookup). Form home via **`assign_form`**; matrix **`#wf-form-guard-pa-matrix`**.
-## Canonical: apply_attack_step_on_windup · apply_defender_step_on_parry · apply_defender_step_on_dodge · attack_eval_step_deg_for_attacker · attack_angle_deg_for_listing_preview · parry_eval_step_deg_for_defender · dodge_eval_step_deg_for_defender · guard_angle_deg · apply_offset_to_angle_deg · clear_on_exchange_end · clear_on_death · reconcile_idle_offset · return_to_waiting · return_to_cowering · CombatUiHints.footwork_hint_text.
+## Canonical: apply_attack_step_on_windup . apply_defender_step_on_parry . apply_defender_step_on_dodge . attack_eval_step_deg_for_attacker . attack_angle_deg_for_listing_preview . parry_eval_step_deg_for_defender . dodge_eval_step_deg_for_defender . guard_angle_deg . apply_offset_to_angle_deg . clear_on_exchange_end . clear_on_death . reconcile_idle_offset . return_to_waiting . return_to_cowering . CombatUiHints.footwork_hint_text.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationSlots := preload("res://combat/FormationSlots.gd")
@@ -61,7 +61,7 @@ static func apply_defender_step_on_parry(
 	refresh_ui_hint(defender)
 
 
-## Defender dodge PA stamp from body-part â line. Scrubs leaked idle keys before fresh stamp. **`#wf-pa-stamp-callers`**. Optional **`attacker_id`** for band magnitude; optional **`manager`** for wing-file dodge bias when flag on.
+## Defender dodge PA stamp from body-part -> line. Scrubs leaked idle keys before fresh stamp. **`#wf-pa-stamp-callers`**. Optional **`attacker_id`** for band magnitude; optional **`manager`** for wing-file dodge bias when flag on.
 static func apply_defender_step_on_dodge(
 	defender: Dictionary,
 	dodge_eval_part: String,
@@ -164,7 +164,7 @@ static func apply_defender_offset_to_guard_deg(base_guard_deg: float, defender: 
 	return fmod(base_guard_deg + get_defender_offset_deg(defender) + 360.0, 360.0)
 
 
-## Defender contact guard angle: **`get_guard_angle_deg(guard_line)`** Â± PA offset. **`#wf-pa-geometry-callers`**.
+## Defender contact guard angle: **`get_guard_angle_deg(guard_line)`** '+/- PA offset. **`#wf-pa-geometry-callers`**.
 static func guard_angle_deg(combatant: Dictionary, wobble_context: Dictionary = {}) -> float:
 	var base: float = CombatConstants.get_guard_angle_deg(combatant, wobble_context)
 	return apply_defender_offset_to_guard_deg(base, combatant)
@@ -196,7 +196,7 @@ static func attack_eval_step_deg_for_attacker(
 	return base_off * _t44_attacker_spatial_mult(attacker, opponent_id, manager)
 
 
-## Turn-listing attack angle: live stamp when wind-up/recovering; else **`attack_eval_step_deg_for_attacker`** preview. **`#wf-pick-vs-strike`** · **`CombatAIActionPicker`**.
+## Turn-listing attack angle: live stamp when wind-up/recovering; else **`attack_eval_step_deg_for_attacker`** preview. **`#wf-pick-vs-strike`** . **`CombatAIActionPicker`**.
 static func attack_angle_deg_for_listing_preview(
 	attacker: Dictionary,
 	attack_line: String,
@@ -333,4 +333,3 @@ static func _t44_flurry_pa_mult(c: Dictionary, opponent_id: int, manager: Node) 
 	if not _FlurryBind.is_active_vs(c, opponent_id, clk):
 		return 1.0
 	return CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
-                              

@@ -4,7 +4,7 @@ extends RefCounted
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Array-based formation occupancy: slots[Vector2i(rank,file)] = combatant_ids.
-## **Read order:** formation record helpers → slot dict access → rank/file queries → vacancy/death plug hooks.
+## **Read order:** formation record helpers -> slot dict access -> rank/file queries -> vacancy/death plug hooks.
 ## Normal length 1. During same-column adjacent-rank moves, the shallower rank cell lists both [shallow, deep]
 ## and the deeper rank key is omitted until resolve (dual occupancy for dragging UI / lane crowding).
 ## Vacancy/death plugs promote natives within `slots`; dual-occupancy cells may list two ids during adjacent-rank moves.
@@ -274,7 +274,7 @@ static func column_index_in_occupied_files(files: PackedInt32Array, file: int) -
 	return -1
 
 
-## IV-9: reach distance along occupied column order (not raw grid `|Δfile|`).
+## IV-9: reach distance along occupied column order (not raw grid `|I"file|`).
 static func column_arc_file_distance(
 	occ_a: PackedInt32Array,
 	file_a: int,

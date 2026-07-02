@@ -2,7 +2,7 @@ class_name AttackWindUpStarter
 extends RefCounted
 
 ## Starts attack wind-up: stamps **`pending_attack`**, telegraph, duration.
-## Footing (strike path): **`CombatWeaponForm.wind_up_transition_mult`** (form - -  guard - -  attack line)  -  not PA step · **`CombatFootwork.apply_attack_step_on_windup(attack_line, target_id, manager)`** when flag on. LIVE_PATHS **`#wf-tier-44-pa`** · **`#wf-pick-vs-strike`**.
+## Footing (strike path): **`CombatWeaponForm.wind_up_transition_mult`** (form - -  guard - -  attack line)  -  not PA step . **`CombatFootwork.apply_attack_step_on_windup(attack_line, target_id, manager)`** when flag on. LIVE_PATHS **`#wf-tier-44-pa`** . **`#wf-pick-vs-strike`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
@@ -136,7 +136,8 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		_EntityAccess.form_str(atk_d),
 		attack_type,
 		str(atk_d.get("guard_line", CombatConstants.GUARD_DEFAULT)),
-		attack_line
+		attack_line,
+		weapon
 	)
 	wind_up_s *= trans_mult
 	# Bind riposte: parry_part - -  contact_type. Extend=fast, wind=moderate, swing=slow.
@@ -180,6 +181,8 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		_FlurryBind.consume_exchange_on_wind_up_start(atk_d)
 	wind_up_s = _Exhaustion.apply_attacker_wind_up_exhaustion_mult(wind_up_s, atk_d)
 	wind_up_s = minf(wind_up_s, CombatConstants.WIND_UP_DURATION_MAX_S)
+	var gauge_atk_pre: float = float(atk_d.get("gauge", 0.0))
+	var gauge_def_pre: float = float(tgt_d.get("gauge", 0.0))
 	atk_d.gauge = 0.0
 	atk_d["guard"] = CombatConstants.GUARD_AFTER_ATTACK
 	atk_d.erase("guard_deflect_blend")
@@ -192,6 +195,8 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 	# arc_intended_deg: intended target angle (no variance)  -  lets systems query blade position during wind-up.
 	var arc_intended_deg: float = align_ctx["attack_angle_deg"]
 	var pa: Dictionary = {"target_id": target_id, "intensity": intensity, "power": power, "follow_through": follow_through, "attack_type": attack_type, "archetype": archetype, "wind_up_duration": wind_up_s, "arc_start_deg": arc_start_deg, "arc_intended_deg": arc_intended_deg}
+	pa["gauge_atk_pre"] = gauge_atk_pre
+	pa["gauge_def_pre"] = gauge_def_pre
 	pa["weapon_extension_commit_fraction"] = _WeaponPosition.commit_fraction_from_move_def(move_def)
 	if weapon != null:
 		pa["impact_blade_station"] = _StrikeRealism.roll_blade_station(weapon, attack_type, intensity)
@@ -242,7 +247,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		flurry_m < 1.0
 	)
 	if CombatConstants.combat_debug_active():
-		var angle_info: String = " [atk=%.0fÂ° guard=%.0fÂ°]" % [align_ctx["attack_angle_deg"], align_ctx["guard_angle_deg"]]
+		var angle_info: String = " [atk=%.0f'deg guard=%.0f'deg]" % [align_ctx["attack_angle_deg"], align_ctx["guard_angle_deg"]]
 		CombatDebug.log("%s | guard=%s atk_line=%s align=%.2f trans=%.2f%s | wind_up=%.2fs" % [atk_name_log, atk_d.get("guard_line", CombatConstants.GUARD_DEFAULT), attack_line, align, trans_mult, angle_info, wind_up_s])
 
 
@@ -258,4 +263,3 @@ static func clear_incoming_attack_telegraph_from_pa(manager: Node, pa: Dictionar
 		return
 	def_d.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
 	def_d.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)
-    

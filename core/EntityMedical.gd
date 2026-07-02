@@ -148,7 +148,7 @@ static func can_apply_bandage(entity: Node, part: String) -> bool:
 		return false
 	if entity.tourniquet_applied.has(part) or part_is_bandaged(entity, part):
 		return false
-	# Life-threatening limb hemorrhage: TQ path —" do not bandage over indicated extremity bleed (combat listing parity).
+	# Life-threatening limb hemorrhage: TQ path --" do not bandage over indicated extremity bleed (combat listing parity).
 	if _BodyPartQuery.is_limb(part) and is_tourniquet_indicated_for_part(entity, part):
 		return false
 	if _compression_required_before_dressing(entity, part):
@@ -193,7 +193,7 @@ static func get_stabilize_application_time_seconds_for_part(entity: Node, part: 
 	)
 
 
-## Quick hemostatic control while pressure is held; trims bleed rate only —" does **not** set `is_stabilized` (definitive dress still required).
+## Quick hemostatic control while pressure is held; trims bleed rate only --" does **not** set `is_stabilized` (definitive dress still required).
 static func can_apply_stabilize(entity: Node, part: String) -> bool:
 	if part.is_empty() or not entity.wounds.has(part) or entity.wounds[part].is_empty():
 		return false
@@ -204,9 +204,10 @@ static func can_apply_stabilize(entity: Node, part: String) -> bool:
 	if _BodyPartQuery.is_limb(part) and is_tourniquet_indicated_for_part(entity, part):
 		return false
 	if not has_direct_pressure_on_part(entity, part):
-		for injury in entity.wounds[part]:
-			if injury.get("current_bleeding_rate", 0.0) > _Bleeding.BLEEDING_RATE_EPSILON:
-				return true
+		return false
+	for injury in entity.wounds[part]:
+		if injury.get("current_bleeding_rate", 0.0) > _Bleeding.BLEEDING_RATE_EPSILON:
+			return true
 	return false
 
 

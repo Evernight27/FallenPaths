@@ -12,7 +12,7 @@ const COMPANION_STANCE_PREFS: Array[String] = [
 const ROOKIE_PROFICIENCY_PER_RENOWN: float = 0.5
 const ROOKIE_PROFICIENCY_CAP: float = 10.0
 
-# Runtime preload â€” circular dependency (CompanyState preloads PlayerCompanionSetup).
+# Runtime preload ' circular dependency (CompanyState preloads PlayerCompanionSetup).
 static var _company_state_cache: Variant = null
 
 static func _get_company_state() -> GDScript:

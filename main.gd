@@ -1,6 +1,6 @@
 extends Node2D
 
-## Overworld â `CombatFlow.start_combat` â `BattleScene` / `CombatManager`.
+## Overworld -> `CombatFlow.start_combat` -> `BattleScene` / `CombatManager`.
 
 const _EncounterNode := preload("res://world/EncounterNode.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
@@ -190,7 +190,7 @@ func _on_player_moved():
 			var enc_dict: Dictionary = encounter.get_combat_encounter_dict()
 			marker = enc_dict.get("contract_title", "")
 		if not marker.is_empty():
-			_OperationalLog.play_world("Contract  -  %s" % marker.replace("\n", " · "))
+			_OperationalLog.play_world("Contract  -  %s" % marker.replace("\n", " . "))
 		var enemies: Array = _CampaignBridge.begin_contract_encounter(self, encounter, rng)
 		if enemies.is_empty():
 			_OperationalLog.warn(
@@ -229,7 +229,7 @@ func _maybe_camp_tile_hint(p_tile: Vector2i) -> void:
 		var parts: int = _CampaignBridge.party_untreated_part_count(self)
 		var budget: Dictionary = _CompanyState.triage_med_budget(self)
 		_CombatDebug.world_session(
-			"Camp: %d part(s) need dressing  -  Party â field care, then Camp rest (-1 med · +1 day · +1 mood)."
+			"Camp: %d part(s) need dressing  -  Party -> field care, then Camp rest (-1 med . +1 day . +1 mood)."
 			% parts
 		)
 		if budget.get("med_shortfall", 0) > 0:
@@ -238,12 +238,12 @@ func _maybe_camp_tile_hint(p_tile: Vector2i) -> void:
 				% budget.get("med_shortfall", 0)
 			)
 	elif _CompanyState.camp_heal_ready(self, true):
-		_CombatDebug.world_session("Camp: Party â Camp rest (-1 med · +1 day · +1 mood) or End day.")
+		_CombatDebug.world_session("Camp: Party -> Camp rest (-1 med . +1 day . +1 mood) or End day.")
 	elif _CompanyState.can_offer_end_day(self):
-		_CombatDebug.world_session("Camp: Party â End day (wages) or Camp rest if wounded.")
+		_CombatDebug.world_session("Camp: Party -> End day (wages) or Camp rest if wounded.")
 	elif _CompanyState.roster_has_hire_room(self):
 		_CombatDebug.world_session(
-			"Camp: Party â Hire rookie (-%dg) when roster has room after losses."
+			"Camp: Party -> Hire rookie (-%dg) when roster has room after losses."
 			% _CompanyState.HIRE_GOLD_COST
 		)
 	else:
@@ -286,4 +286,3 @@ func _print_node_tree(node: Node, indent: String = "") -> void:
 	print(indent, node.name, "<", node.get_class(), ">")
 	for child in node.get_children():
 		_print_node_tree(child, indent + "  ")
-          

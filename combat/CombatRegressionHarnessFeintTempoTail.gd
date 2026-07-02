@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Tier 4.2 feint / counter-tempo / riposte / defense telegraph tests (compile split).
 ## Weapon form: **`CombatRegressionHarnessWeaponFormTail`** owns **`form_str`** / **`mod`**  -  stance alias rows here stay feint/tempo only.
-## Footing harness: tier-4.2 spacing/state **`defense_footwork_*`** / feint listing  -  **not** Tier 4.4 PA (**`CombatFootwork`**). LIVE_PATHS **`#wf-layer-labels`** · **`#harness-footwork-catalog`** (feint rows).
+## Footing harness: tier-4.2 spacing/state **`defense_footwork_*`** / feint listing  -  **not** Tier 4.4 PA (**`CombatFootwork`**). LIVE_PATHS **`#wf-layer-labels`** . **`#harness-footwork-catalog`** (feint rows).
 
 const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
@@ -80,7 +80,7 @@ static func _feint_guard_zone_sample_global_seed_for_modifier(
 	return -1
 
 
-## Tier 4.2: **`DefenseChoiceResolver._guard_zone_modifier`**  -  feint telegraph mismatch â **`GUARD_ZONE_UNGUARDED_PENALTY`**; defender **`guard_zone`** moved to real line â **`GUARD_ZONE_BONUS`**; non-feint unchanged. **`AttackPathResolver`** uses **`randf`**  -  scan stable seeds per fixture, then restore global RNG.
+## Tier 4.2: **`DefenseChoiceResolver._guard_zone_modifier`**  -  feint telegraph mismatch -> **`GUARD_ZONE_UNGUARDED_PENALTY`**; defender **`guard_zone`** moved to real line -> **`GUARD_ZONE_BONUS`**; non-feint unchanged. **`AttackPathResolver`** uses **`randf`**  -  scan stable seeds per fixture, then restore global RNG.
 static func _run_feint_windup_options_stamp_pa_and_telegraph_guard_zone(failures: PackedStringArray) -> void:
 	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var p: Dictionary = mgr.combatants[0]
@@ -395,7 +395,7 @@ static func _run_feint_windup_target_only_sets_defender_guard_zone_to_target_thr
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2: **`CombatAIActionPicker._add_attack_target_part`** for **`is_feint`** moves picks **`feint_part`** â  **`target_part`** when at least two targetable parts exist (bounded **`seed(0..4095)`** search on Godot **4.6.stable**). Restores **`CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED`** after the scan so **`run_all()`** order stays stable.
+## Tier 4.2: **`CombatAIActionPicker._add_attack_target_part`** for **`is_feint`** moves picks **`feint_part`** >=  **`target_part`** when at least two targetable parts exist (bounded **`seed(0..4095)`** search on Godot **4.6.stable**). Restores **`CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED`** after the scan so **`run_all()`** order stays stable.
 static func _run_feint_move_ai_distinct_feint_and_target_parts(failures: PackedStringArray) -> void:
 	if not WeaponConstants.is_feint_move("oberhau_feint"):
 		CombatRegressionHarness._fail(failures, "feint_ai: WeaponConstants.is_feint_move(oberhau_feint) should be true")
@@ -1768,7 +1768,7 @@ static func _run_counter_tempo_ui_hint_winding_then_ready(failures: PackedString
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2 riposte chain: **`grant_riposte_chain`** after deflect â next wind-up vs that attacker - -  **`RIPOSTE_CHAIN_WINDUP_MULT`**.
+## Tier 4.2 riposte chain: **`grant_riposte_chain`** after deflect -> next wind-up vs that attacker - -  **`RIPOSTE_CHAIN_WINDUP_MULT`**.
 static func _run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain(
 	failures: PackedStringArray
 ) -> void:
@@ -2254,7 +2254,7 @@ static func _run_feint_guard_zone_readthrough_spacing_close_dampens_vs_mid(failu
 	seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
 
 
-## Tier 4.2 telegraph delay: **`DefenseChoiceResolver._feint_readiness_reveal_mult`**  -  early wind-up damps toward **`FEINT_PRE_REVEAL_READINESS_MULT`** until progress â¥ **`feint_target_reveal_at_progress`** (**`WeaponConstants`** / **`pa`**); no feint / reveal **0** â **1.0**; **`choose_defense`** **`parry_readiness`** echoes the same mult when feint passive parry applies.
+## Tier 4.2 telegraph delay: **`DefenseChoiceResolver._feint_readiness_reveal_mult`**  -  early wind-up damps toward **`FEINT_PRE_REVEAL_READINESS_MULT`** until progress >= **`feint_target_reveal_at_progress`** (**`WeaponConstants`** / **`pa`**); no feint / reveal **0** -> **1.0**; **`choose_defense`** **`parry_readiness`** echoes the same mult when feint passive parry applies.
 static func _run_feint_target_reveal_progress_scales_readiness_mult(failures: PackedStringArray) -> void:
 	var pa: Dictionary = {"feint_part": "head", "attack_type": "oberhau_feint"}
 	var atk0: Dictionary = {
@@ -2497,7 +2497,7 @@ static func _run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough(fai
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2 footwork: **`feint_guard_zone_readiness_spacing_mult`** on **`pr_rt`** for **`_feint_guard_reads_real_line`** in **`_apply_feint_telegraph_bias_to_dodge_eval_part`**  -  defensive **`guard`** - -  **`STANCE_MOD_FEINT_READTHROUGH`** fails at **MID** (**`DISTANCE_MID`**) but clears at **LONG** (**`FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG`**). Same global **`seed(s)`** before each **`choose_defense`**: **LONG** keeps the initial **`BodyPartConstants.get_weighted_random_part`** draw (scan for **â ** **`left_leg`**); **MID** with harness bias **1.0** always telegraphs **`dodge_eval_part`** to **`feint_part`**.
+## Tier 4.2 footwork: **`feint_guard_zone_readiness_spacing_mult`** on **`pr_rt`** for **`_feint_guard_reads_real_line`** in **`_apply_feint_telegraph_bias_to_dodge_eval_part`**  -  defensive **`guard`** - -  **`STANCE_MOD_FEINT_READTHROUGH`** fails at **MID** (**`DISTANCE_MID`**) but clears at **LONG** (**`FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG`**). Same global **`seed(s)`** before each **`choose_defense`**: **LONG** keeps the initial **`BodyPartConstants.get_weighted_random_part`** draw (scan for **>= ** **`left_leg`**); **MID** with harness bias **1.0** always telegraphs **`dodge_eval_part`** to **`feint_part`**.
 static func _run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_long_vs_mid(failures: PackedStringArray) -> void:
 	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
@@ -2677,7 +2677,7 @@ static func _run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid(failures
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2 tempo: non-empty **`feint_part`** â **`CombatConstants.COMMITMENT_FRACTION_FEINT`**  -  same **`wind_up_duration`** and defender **`reaction_time`** can yield on-time plain parry vs late feint parry (bracket duration between the two **`effective_wind_up`** thresholds).
+## Tier 4.2 tempo: non-empty **`feint_part`** -> **`CombatConstants.COMMITMENT_FRACTION_FEINT`**  -  same **`wind_up_duration`** and defender **`reaction_time`** can yield on-time plain parry vs late feint parry (bracket duration between the two **`effective_wind_up`** thresholds).
 static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry(
 	failures: PackedStringArray
 ) -> void:
@@ -3662,4 +3662,3 @@ static func run_after_attention(failures: PackedStringArray) -> void:
 	_run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina(failures)
 	_run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally(failures)
 	_run_feint_telegraph_scrubbed_on_combat_manager_restart(failures)
-  

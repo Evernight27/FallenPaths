@@ -141,7 +141,7 @@ static func _strike_participant_clause(
 	target_side: String,
 	part_label: String
 ) -> String:
-	return "%s (%s) â %s (%s) %s" % [attacker_name, attacker_side, target_name, target_side, part_label]
+	return "%s (%s) → %s (%s) %s" % [attacker_name, attacker_side, target_name, target_side, part_label]
 
 
 static func _tissue_breakdown_suffix(result: Dictionary) -> String:
@@ -296,7 +296,7 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		"miss":
 			var miss_aim: String = (" at %s" % part_label) if part else ""
 			return (
-				"[color=gray]%s (%s) â %s (%s)%s: [b]Miss![/b]  -  %s[/color]"
+				"[color=gray]%s (%s) → %s (%s)%s: [b]Miss![/b]  -  %s[/color]"
 				% [
 					attacker_name,
 					attacker_side,
@@ -309,7 +309,7 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 		"dodge":
 			var dodge_aim: String = (" (%s)" % part_label) if part else ""
 			return (
-				"[color=green]%s (%s) â %s (%s): [b]Dodge![/b]%s  -  %s[/color]"
+				"[color=green]%s (%s) → %s (%s): [b]Dodge![/b]%s  -  %s[/color]"
 				% [
 					attacker_name,
 					attacker_side,
@@ -472,7 +472,7 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 				% [strike_g, dmg_g, damage_resolve_note(result), _tissue_breakdown_suffix(result)]
 			)
 			if health_before >= 0 and health_after >= 0:
-				line_g += " [size=10][color=gray](%dâ%d HP)[/color][/size]" % [health_before, health_after]
+				line_g += " [size=10][color=gray](%d→%d HP)[/color][/size]" % [health_before, health_after]
 			return line_g
 		"negligible":
 			var strike_n: String = _strike_participant_clause(
@@ -483,7 +483,7 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 				% [strike_n, damage_resolve_note(result), _tissue_breakdown_suffix(result)]
 			)
 			if health_before >= 0 and health_after >= 0:
-				line_n += " [size=10][color=gray](%dâ%d HP)[/color][/size]" % [health_before, health_after]
+				line_n += " [size=10][color=gray](%d→%d HP)[/color][/size]" % [health_before, health_after]
 			return line_n
 		_:
 			var strike_h: String = _strike_participant_clause(
@@ -499,8 +499,7 @@ static func format_action_line(attacker_name: String, attacker_side: String, tar
 				line_h = "%s: [b]no damage[/b]" % strike_h
 			line_h += _tissue_breakdown_suffix(result)
 			if health_before >= 0 and health_after >= 0:
-				line_h += " (%dâ%d)" % [health_before, health_after]
+				line_h += " (%d→%d)" % [health_before, health_after]
 			if died:
 				line_h += " [color=red](defeated)[/color]"
 			return line_h
-      

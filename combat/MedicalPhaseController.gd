@@ -1,8 +1,8 @@
-﻿class_name MedicalPhaseController
+class_name MedicalPhaseController
 extends RefCounted
 
 ## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, ally medical actions, campaign **`batch_resolve_on_campaign_exit`**.
-## Footing: halting wind-up on phase entry ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ¢â€šÂ¬Ãƒâ€šÃ‚Â ' **`CombatFootwork.clear_on_exchange_end`** per combatant Ãƒâ€šÃ‚Â· **`return_to_waiting`** on idle reset ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â" LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
+## Footing: halting wind-up on phase entry ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' ' **`CombatFootwork.clear_on_exchange_end`** per combatant ->''''A!f''s'. **`return_to_waiting`** on idle reset ->''--''''A!''--'''s''?" LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
 ## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), get_health_entity(node) -> Node (or use CombatantEntityAccess).
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
@@ -11,7 +11,7 @@ const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 
-# Runtime preload Ã¢â‚¬â€ circular dependency (CompanyState Ã¢â€ â€™ CampaignEncounterBridge Ã¢â€ â€™ CombatantStatsSync Ã¢â€ â€™ MedicalPhaseController).
+# Runtime preload --'''s'''''? circular dependency (CompanyState --'' -> CampaignEncounterBridge --'' -> CombatantStatsSync --'' -> MedicalPhaseController).
 static var _CompanyState: Variant = null
 
 static func _get_company_state() -> GDScript:
@@ -19,14 +19,14 @@ static func _get_company_state() -> GDScript:
 		MedicalPhaseController._CompanyState = load("res://world/CompanyState.gd")
 	return MedicalPhaseController._CompanyState
 
-# Runtime preload Ã¢â‚¬â€ circular dependency (CounterTempo preloads MedicalPhaseController).
+# Runtime preload --'''s'''''? circular dependency (CounterTempo preloads MedicalPhaseController).
 static var _counter_tempo_cache: Variant = null
 
 static func _get_counter_tempo() -> GDScript:
 	if _counter_tempo_cache == null:
 		_counter_tempo_cache = load("res://combat/CounterTempo.gd")
 	return _counter_tempo_cache
-# Runtime preload — circular dependency (AttackWindUpStarter preloads MedicalPhaseController).
+# Runtime preload -- circular dependency (AttackWindUpStarter preloads MedicalPhaseController).
 static var _wind_up_starter_cache: Variant = null
 
 static func _get_wind_up_starter() -> GDScript:
@@ -34,7 +34,7 @@ static func _get_wind_up_starter() -> GDScript:
 		_wind_up_starter_cache = load("res://combat/AttackWindUpStarter.gd")
 	return _wind_up_starter_cache
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
-# Runtime preload ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â circular dependency (CombatProcessTick preloads MedicalPhaseController).
+# Runtime preload ->''--''''A!''--'''s''? circular dependency (CombatProcessTick preloads MedicalPhaseController).
 static var _process_tick_cache: Variant = null
 
 static func _get_process_tick() -> GDScript:
@@ -51,7 +51,7 @@ const _Proficiency := preload("res://core/EntityProficiency.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _CombatConstantsMedical := preload("res://combat/CombatConstantsMedical.gd")
 
-## Set on **`CombatManager`** while fast-forwarding post-victory triage (player picks ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ¢â€šÂ¬Ãƒâ€šÃ‚Â ' AI).
+## Set on **`CombatManager`** while fast-forwarding post-victory triage (player picks ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' ' AI).
 const MANAGER_META_MEDICAL_FAST_FORWARD := "_medical_phase_fast_forward"
 const INSTANT_FAST_FORWARD_MAX_SECONDS: float = 7200.0
 ## Harness-only cap for sim_cap termination tests (`instant_complete_on_early_exit(mgr, cap)`).
@@ -64,7 +64,7 @@ const INSTANT_FAST_FORWARD_MIN_STEP_S: float = 0.001
 ## Idle tick when queue has no resolve_at but triage work remains (avoids sim_s=0 stall).
 const INSTANT_FAST_FORWARD_IDLE_STEP_S: float = 1.0
 const INSTANT_FAST_FORWARD_YIELD_EVERY_TICKS: int = 12
-## Campaign contract early exit: best-effort dress passes (fighters ÃƒÆ’Ã†â€™Ãƒâ€šÃ†â€™ -  wounds); not used for soak tick-replay.
+## Campaign contract early exit: best-effort dress passes (fighters ->'f??' ->->''''A!f??' -> -  wounds); not used for soak tick-replay.
 const CAMPAIGN_BATCH_DRESS_MAX_ROUNDS: int = 256
 
 ## Queued events suppressed for the losing side once **`medical_phase`** is active.
@@ -77,7 +77,7 @@ const POST_VICTORY_BLOCKED_EVENT_TYPES: Array[String] = [
 	CombatConstants.EVENT_ROTATE_FILE_RESOLVE,
 ]
 
-# AI / phase gating ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â" ATLS bands in BleedingConstants (docs/LIVE_PATHS.md#bleeding-units).
+# AI / phase gating ->''--''''A!''--'''s''?" ATLS bands in BleedingConstants (docs/LIVE_PATHS.md#bleeding-units).
 const MEDICAL_DANGER_BLOOD_THRESHOLD: float = _Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING
 const MEDICAL_DANGER_SECONDS: float = _Bleeding.MEDICAL_TRIAGE_DANGER_SECONDS
 const IMMEDIATE_PERIL_BLOOD_THRESHOLD: float = _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING
@@ -103,7 +103,7 @@ const MEDICAL_AI_WEIGHT_FAILED_PART_RETRY: float = 2.8
 ## Out of immediate peril: prefer definitive dressings (bandage/pack) over stabilize-only holds.
 const MEDICAL_AI_WEIGHT_STABILIZE_OUT_OF_PERIL: float = 0.32
 const MEDICAL_AI_WEIGHT_DRESSING_OUT_OF_PERIL: float = 2.6
-## Listing/resolve overlap guard ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â" redundant pressure or another medicÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÆ’Ã‚Â¢Ãƒâ€šÃ¢â‚¬Å¾Ãƒâ€šÃ‚Â¢s wind-up on the same part.
+## Listing/resolve overlap guard ->''--''''A!''--'''s''?" redundant pressure or another medic->''--''''A!''--'''s''?->'f''s''->''''A!--'''s'...3/4->''''A!f''s''s wind-up on the same part.
 const MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED: float = 0.001
 ## Second pair of hands on an ally-held wound (stack assist only; no takeover).
 const MEDICAL_AI_WEIGHT_TREATMENT_ASSIST_PRESSURE: float = 3.5
@@ -252,7 +252,7 @@ static func halt_losing_side_combat(manager: Node) -> void:
 		)
 		_reset_fled_and_combat_absent(c)
 		# Fled winners: triage needs them on-field (`is_alive_in_combat`); suspend bleed ticks only
-		# (they left before victory ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â" wounds should not drain during post-victory medical phase).
+		# (they left before victory ->''--''''A!''--'''s''?" wounds should not drain during post-victory medical phase).
 		if had_fled:
 			c[CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK] = true
 	purge_blocked_events_from_queue(manager)
@@ -975,7 +975,7 @@ static func _log_instant_complete_result(
 			_OperationalLog.play_combat(
 				(
 					"medical_fast_forward incomplete sim_s=%.1f can_end=false parts_left=%d "
-					+ "iters=%d reason=%s ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â field care may still be needed"
+					+ "iters=%d reason=%s ->''--''''A!''--'''s''? field care may still be needed"
 				)
 				% [sim_seconds, winner_side_untreated_part_count(manager), total_iterations, reason]
 			)
@@ -1109,7 +1109,7 @@ static func get_medical_urgency(manager: Node, c: Dictionary) -> float:
 	raw *= randf_range(MEDICAL_URGENCY_RANDOM_MIN, MEDICAL_URGENCY_RANDOM_MAX)
 	return clampf(raw, 0.0, 1.0)
 
-## Same blood/time urgency as `get_medical_urgency` but **no randomness** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â used for medical action weights so triage is stable.
+## Same blood/time urgency as `get_medical_urgency` but **no randomness** ->''--''''A!''--'''s''? used for medical action weights so triage is stable.
 static func get_medical_urgency_deterministic(manager: Node, c: Dictionary) -> float:
 	var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
 	if entity == null:
@@ -1184,7 +1184,7 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
 	var tq_can: bool = _EntityAccess.entity_can_apply_tourniquet(manager, ally, part)
 	var junctional: bool = part in _Bleeding.PACKING_PARTS
 
-	# Life-threatening limb: pressure (if needed) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ¢â€šÂ¬Ãƒâ€šÃ‚Â ' tourniquet before slow dressings.
+	# Life-threatening limb: pressure (if needed) ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' ' tourniquet before slow dressings.
 	if tq_indicated and tq_can:
 		_append_pressure_action_if_needed(
 			manager, performer, ally, part, has_pressure, actively_bleeding, out
@@ -1234,7 +1234,7 @@ static func _battle_med_supplies_available(manager: Node) -> bool:
 
 
 ## TCCC escalation ladder for a wound part. Returns the ordered list of valid medical actions
-## (bandage ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ¢â€šÂ¬Ãƒâ€šÃ‚Â ' pack ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ¢â€šÂ¬Ãƒâ€šÃ‚Â ' tourniquet), filtered to only actions that pass `medical_action_allowed()`.
+## (bandage ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' ' pack ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' ' tourniquet), filtered to only actions that pass `medical_action_allowed()`.
 ## The bandage variant used depends on `performer_id == tgt_id` (self vs ally).
 static func escalation_path_for_part(
 	tgt_id: int, performer_id: int, part: String, manager: Node

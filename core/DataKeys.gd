@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Canonical dictionary string keys used across armor, combat, entity state, and persistence.
 ## Eliminates bare-string dict key typos that silently return `.get()` defaults.
-## Read order: combatant → entity state → armor layer → attack data → action/choice → formation/event → persistence.
+## Read order: combatant -> entity state -> armor layer -> attack data -> action/choice -> formation/event -> persistence.
 
 const _Bp := preload("res://core/BodyPartConstants.gd")
 

@@ -16,7 +16,7 @@ const USE_NORMALIZED_PAIN: bool = true  # Method B = canonical implementation
 # --- Method A: Reference-based thresholds (when USE_NORMALIZED_PAIN = false) ---
 # PAIN_REFERENCE = typical pain from 1 moderate hit. Thresholds = NRS - -  PAIN_PER_NRS. Update when damage scale changes.
 const PAIN_REFERENCE_MODERATE_HIT: float = 6.0
-const PAIN_PER_NRS_POINT: float = 3.0  # total_pain / this ≈ NRS; research: NRS 4 = first effect
+const PAIN_PER_NRS_POINT: float = 3.0  # total_pain / this 'permille^ NRS; research: NRS 4 = first effect
 const PAIN_MODERATE: float = PAIN_REFERENCE_MODERATE_HIT * 2.0   # ~12: ~2 moderate hits
 const PAIN_SEVERE: float = PAIN_REFERENCE_MODERATE_HIT * 4.0     # ~24
 const PAIN_EXTREME: float = PAIN_REFERENCE_MODERATE_HIT * 6.0    # ~36
@@ -32,7 +32,7 @@ const NRS_SEVERE: float = 8.0
 const NRS_INTOLERABLE: float = 10.0
 const NRS_SHOCK: float = 7.0
 # END slope: how much endurance shifts the pain shock threshold per point above 100.
-# +50 END → +1.0 shock threshold (7→8, ~14% increase on base). Realistic: well-conditioned individuals have higher pain tolerance but pain is neurological, not purely muscular.
+# +50 END -> +1.0 shock threshold (7->8, ~14% increase on base). Realistic: well-conditioned individuals have higher pain tolerance but pain is neurological, not purely muscular.
 const ENDURANCE_PAIN_SHOCK_SLOPE_PER_POINT: float = 0.02
 const PAIN_SHOCK_RISK_PER_POINT_NORMALIZED: float = 0.15  # (effective - 7) * 0.15; 1 over = 15% risk
 # Ambient (sustained pain) shock: periodic roll in combat when effective pain stays above threshold (no new hit).
@@ -43,7 +43,7 @@ const PAIN_SHOCK_AMBIENT_RISK_MULT: float = 0.35
 const PAIN_SHOCK_SUSCEPTIBILITY_MULT_LOW: float = 0.8   # at/below NRS_FIRST_EFFECT
 const PAIN_SHOCK_SUSCEPTIBILITY_MULT_HIGH: float = 1.2  # at/above NRS_SEVERE
 
-# --- Pain → performance modifier (action bar fill, hit chance, wind-up, etc). Research-aligned; pain impairs function. ---
+# --- Pain -> performance modifier (action bar fill, hit chance, wind-up, etc). Research-aligned; pain impairs function. ---
 const PAIN_PERFORMANCE_NONE: float = 0.0
 const PAIN_PERFORMANCE_MINOR: float = 0.08    # -8% (NRS 4 - 6: first functional impairment)
 const PAIN_PERFORMANCE_MODERATE: float = 0.20  # -20% (NRS 6 - 8: moderate impairment)
@@ -53,10 +53,10 @@ const PAIN_PERFORMANCE_EXTREME: float = 0.50   # -50% (NRS 10+: extreme impairme
 # --- Consciousness: direct scale (effective_consciousness / 100 = performance scale). ---
 # Incapacitation when true consciousness < this (no longer able to act).
 const INCAPACITATION_CONSCIOUSNESS_THRESHOLD: float = 10.0
-# Leg functionality below this ⇒ cannot walk for formation retreat (flee / fall_back). Tier 6.1.
+# Leg functionality below this '**' cannot walk for formation retreat (flee / fall_back). Tier 6.1.
 const MOBILITY_FLEE_THRESHOLD: float = 0.2
 
-# --- Blood → consciousness (ATLS-aligned: effect starts at Class II, max at death threshold). ---
+# --- Blood -> consciousness (ATLS-aligned: effect starts at Class II, max at death threshold). ---
 # Below START: consciousness modifier ramps down; at FLOOR (death threshold) modifier = 1.0 - REDUCTION_MAX.
 # See BLOOD_LOSS_CONSCIOUSNESS_RESEARCH.md.
 const BLOOD_CONSCIOUSNESS_START_THRESHOLD: float = 85.0   # No effect above this (Class I: <15% lost)
@@ -69,8 +69,8 @@ const PAIN_SHOCK_DURATION_BASE: float = 5.0    # base duration seconds; scaled b
 const PAIN_SHOCK_CONSCIOUSNESS_REDUCTION: float = 50.0  # -50% effective consciousness while in shock (acute stress impairs but does not obliterate function; combined with blood loss/head trauma can approach ~70-80% total reduction)
 ## Cooldown between ambient pain shock triggers (prevents repeated re-entry during sustained high pain).
 const PAIN_SHOCK_AMBIENT_COOLDOWN_S: float = 15.0
-# Impact scaling: larger single hit → longer shock (mechanoporation / acute stress magnitude). Reference damage for 1.0x impact factor; bigger hits multiply duration up to IMPACT_MAX_MULTIPLIER.
-const PAIN_SHOCK_DURATION_IMPACT_REFERENCE: float = 10.0   # damage of triggering hit vs this (e.g. 10 → 1.0x, 20 → 2.0x until cap)
+# Impact scaling: larger single hit -> longer shock (mechanoporation / acute stress magnitude). Reference damage for 1.0x impact factor; bigger hits multiply duration up to IMPACT_MAX_MULTIPLIER.
+const PAIN_SHOCK_DURATION_IMPACT_REFERENCE: float = 10.0   # damage of triggering hit vs this (e.g. 10 -> 1.0x, 20 -> 2.0x until cap)
 const PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER: float = 2.0  # max duration multiplier from impact (e.g. 2.0 = double duration for a heavy blow)
 
 # --- Performance floor (action bar and hit chance never below this). ---

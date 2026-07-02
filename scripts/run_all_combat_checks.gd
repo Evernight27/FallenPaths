@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Headless combat checks  -  set **`FP_HARNESS_MODE`** (`all` default · `regression` · `d001` · `d001_presets` · `sanity` · `calibration` · `medical` · `f5_validate` · `f5_validate_camp_smokes` · `q_track`).
+## Headless combat checks  -  set **`FP_HARNESS_MODE`** (`all` default . `regression` . `d001` . `d001_presets` . `sanity` . `calibration` . `medical` . `f5_validate` . `f5_validate_camp_smokes` . `q_track`).
 ## Phase 0: **`run_all_combat_checks.ps1`** / **`.sh`**. Q track: mode **`q_track`**. F5 validate: **`f5_validate`** (+ optional path after **`--`**). Camp smokes batch: **`f5_validate_camp_smokes`**.
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
@@ -325,4 +325,3 @@ static func _resolve_f5_input_path() -> String:
 			return a if a.is_absolute_path() else root.path_join(a)
 		return root.path_join(a)
 	return root.path_join(_F5Validator.DEFAULT_INPUT_FILENAME)
-                  

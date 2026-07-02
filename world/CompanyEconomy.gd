@@ -9,7 +9,7 @@ const _CompanyHud := preload("res://ui/CompanyHud.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _CombatConstantsMedical := preload("res://combat/CombatConstantsMedical.gd")
 
-# Runtime preload for sibling module â€” avoids circular parse-time dependencies
+# Runtime preload for sibling module ' avoids circular parse-time dependencies
 # (CompanyState preloads CompanyEconomy, so CompanyEconomy must lazy-load CompanyState).
 static var _CompanyState: Variant = null
 
@@ -19,7 +19,7 @@ static func _get_state() -> GDScript:
 	return CompanyEconomy._CompanyState
 
 
-## Â§12 EA tuning defaults (not decision stubs).
+## 'Sec12 EA tuning defaults (not decision stubs).
 const DEFAULT_GOLD: int = 500
 const DEFAULT_WAGE_PER_MEMBER: int = 15
 const DEFAULT_MEDICAL_SUPPLIES: int = 15
@@ -302,7 +302,7 @@ static func format_next_provisions_hint(world: Node2D) -> String:
 
 
 static func format_wages_short_log(gold_before: int, bill: int) -> String:
-	return "Wages short -- paid what you could; mood fell (gold %d, bill %d)." % [gold_before, bill]
+	return "Wages short  -  paid what you could; mood fell (gold %d, bill %d)." % [gold_before, bill]
 
 
 static func format_autosave_action_suffix() -> String:

@@ -1,9 +1,9 @@
 class_name CampaignPersistence
 extends RefCounted
 
-## D-persistence P2 â€”" single-slot autosave on settlement continue and **`CompanyState.try_advance_day`** (day tick).
-## Atomic write: user://fallen_paths_slot0.json.tmp ÃƒÂ¢Ã¢Â€Â ' slot0.json
-## Canonical: `save_slot` Â· `apply_save` Â· `normalize_marker_kind_for_restore` Â· `begin_harness_isolated_save` (headless harness).
+## D-persistence P2 ''"" single-slot autosave on settlement continue and **`CompanyState.try_advance_day`** (day tick).
+## Atomic write: user://fallen_paths_slot0.json.tmp f''' ' slot0.json
+## Canonical: `save_slot` . `apply_save` . `normalize_marker_kind_for_restore` . `begin_harness_isolated_save` (headless harness).
 
 const SAVE_PATH := "user://fallen_paths_slot0.json"
 const SAVE_TMP_PATH := "user://fallen_paths_slot0.json.tmp"
@@ -38,7 +38,7 @@ const WORLD_META_CAMP_HEAL_HINT_SHOWN := "camp_heal_hint_shown"
 
 const _CampaignTypes := preload("res://world/CampaignTypes.gd")
 
-# Runtime preload â€” circular dependency (CompanyState preloads CampaignPersistence).
+# Runtime preload ''" circular dependency (CompanyState preloads CampaignPersistence).
 static var _CompanyState: Variant = null
 
 static func _get_company_state() -> GDScript:
@@ -58,7 +58,7 @@ static func has_save() -> bool:
 	return FileAccess.file_exists(active_save_path())
 
 
-## Pre-`marker_kind` saves may still carry removed `practice` markers â€”" map to tutorial or paid contract.
+## Pre-`marker_kind` saves may still carry removed `practice` markers ''"" map to tutorial or paid contract.
 static func normalize_marker_kind_for_restore(marker_kind: String, encounter_config: Dictionary) -> String:
 	var kind: String = marker_kind.strip_edges()
 	if kind == "practice":

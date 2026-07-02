@@ -2,8 +2,8 @@ class_name CombatQTrackAudits
 extends RefCounted
 
 ## Headless Track **Q** proxies (Q1 - Q4) vs **`.d001_soak_out.txt`**  -  writes **`.q_track_audits.txt`**.
-## Q4 **ii8** (`II8_CHECKS`): formation trace gates + WF **` · Form`** / **`[Ox]`** / suffix-order content from D-001 report  -  LIVE_PATHS **`#wf-soak-audit-status`** · **`#battle-ui`**.
-## Entry: **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=q_track`) · **`run_q_feel.ps1 -Headless`**.
+## Q4 **ii8** (`II8_CHECKS`): formation trace gates + WF **` . Form`** / **`[Ox]`** / suffix-order content from D-001 report  -  LIVE_PATHS **`#wf-soak-audit-status`** . **`#battle-ui`**.
+## Entry: **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=q_track`) . **`run_q_feel.ps1 -Headless`**.
 
 const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
@@ -395,4 +395,3 @@ static func _append_q1_check(
 	var tag: String = "pass" if ok else "BOUNDARY_FAIL"
 	lines.append("    %s %s (%s)" % [id, tag, detail])
 	return not ok
-      

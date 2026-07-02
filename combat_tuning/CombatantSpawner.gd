@@ -6,7 +6,12 @@ extends RefCounted
 
 const _CoreEntity := preload("res://core/CoreEntity.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+static var _entity_access_cache: Variant = null
+
+static func _get_entity_access() -> GDScript:
+	if CombatantSpawner._entity_access_cache == null:
+		CombatantSpawner._entity_access_cache = load("res://combat/CombatantEntityAccess.gd")
+	return CombatantSpawner._entity_access_cache
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _StatsSync := preload("res://combat/CombatantStatsSync.gd")
@@ -24,21 +29,13 @@ static func spawn_1v1(
 	var atk_id: int = manager.register(atk_ent, "player")
 	var def_id: int = manager.register(def_ent, "enemy")
 
-	manager.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-
-	var atk_c: Dictionary = _EntityAccess.manager_get_combatant(manager, atk_id)
-	var def_c: Dictionary = _EntityAccess.manager_get_combatant(manager, def_id)
-
-	_WeaponForm.assign_form(manager, atk_c, attacker_cfg.form, "harness_baseline")
-	_WeaponForm.assign_form(manager, def_c, defender_cfg.form, "harness_baseline")
-	atk_c["guard_line"] = attacker_cfg.guard_line
-	def_c["guard_line"] = defender_cfg.guard_line
-
 	return {
 		"attacker_entity": atk_ent,
 		"defender_entity": def_ent,
 		"attacker_id": atk_id,
 		"defender_id": def_id,
+		"attacker_config": attacker_cfg,
+		"defender_config": defender_cfg,
 	}
 
 ## Creates a single CoreEntity from config.
@@ -47,8 +44,11 @@ static func _create_entity(cfg: Variant) -> Node:
 	if not cfg.species_tres_path.is_empty() and ResourceLoader.exists(cfg.species_tres_path):
 		e.species = load(cfg.species_tres_path)
 	e.apply_species()
-	e.dominant_hand = "right_arm"
+	e.name = cfg.display_name
+	var hands: Array[String] = ["right_arm", "left_arm"]
+	e.dominant_hand = hands[randi() % hands.size()]
 	e.offhand_functionality = 1.0
+	e._proficiency_bonus = {"strength": 0, "endurance": 0, "intelligence": 0, "agility": 0, "perception": 0}
 
 	e.strength = cfg.strength
 	e.agility = cfg.agility
@@ -88,18 +88,18 @@ static func reset_combatants(
 		c.stamina = _CombatConstants.STAMINA_MAX
 		c.pending_attack = {}
 
-	var atk_c: Dictionary = _EntityAccess.manager_get_combatant(manager, atk_id)
-	var def_c: Dictionary = _EntityAccess.manager_get_combatant(manager, def_id)
+	var atk_c: Dictionary = _get_entity_access().manager_get_combatant(manager, atk_id)
+	var def_c: Dictionary = _get_entity_access().manager_get_combatant(manager, def_id)
 
 	if not atk_c.is_empty():
 		_WeaponForm.assign_form(manager, atk_c, atk_cfg.form, "harness_baseline")
 		atk_c["guard_line"] = atk_cfg.guard_line
-		_StatsSync.sync_from_entity(atk_ent, _EntityAccess.stats_dict_for_mutation(atk_c))
+		_StatsSync.sync_from_entity(atk_ent, _get_entity_access().stats_dict_for_mutation(atk_c))
 
 	if not def_c.is_empty():
 		_WeaponForm.assign_form(manager, def_c, def_cfg.form, "harness_baseline")
 		def_c["guard_line"] = def_cfg.guard_line
-		_StatsSync.sync_from_entity(def_ent, _EntityAccess.stats_dict_for_mutation(def_c))
+		_StatsSync.sync_from_entity(def_ent, _get_entity_access().stats_dict_for_mutation(def_c))
 
 ## Restores entity to full health across all body parts.
 static func _heal_entity(e: Node) -> void:

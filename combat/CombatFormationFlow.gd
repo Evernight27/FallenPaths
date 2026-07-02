@@ -2,7 +2,7 @@ class_name CombatFormationFlow
 extends RefCounted
 
 ## Formation moves, resolve events, slot plug on death, hit reaction delays on pending formation events.
-## Footing: rank/file shuffle only  -  does **not** write **`guard_line`**, **`weapon_form`**, or **`position_angle_offset_deg`**. Lane duration mult: **`ZoneOfControl.get_footing_duration_multiplier`**. LIVE_PATHS **`#wf-footing-terminology`** · **`#wf-pick-vs-strike`**.
+## Footing: rank/file shuffle only  -  does **not** write **`guard_line`**, **`weapon_form`**, or **`position_angle_offset_deg`**. Lane duration mult: **`ZoneOfControl.get_footing_duration_multiplier`**. LIVE_PATHS **`#wf-footing-terminology`** . **`#wf-pick-vs-strike`**.
 ##
 ## **Vacancy plug** on the home formation (empty rank-0 without death). **Death plug** stays in
 ## `on_combatant_died` only; same-tick ordering avoids mixing vacancy with death removal.
@@ -15,14 +15,14 @@ extends RefCounted
 ## applies ZoC, moved-only back-rank `action_ready`, and optional `formation_changed`. `notify_formation_changed` marks dirty then reconciles;
 ## `get_available_actions` marks all lines then reconciles (full pass); `CombatProcessTick` reconciles dirty formations only.
 ## **Plug priority (rank-0 hole, after same-column vertical):** **rear infill** from **any** other file (`rear_infill`:
-## rank Ã¢â°Â¥ 1 steps into the empty front slot when the hole column is passable) before **front-rank lateral**
-## (same-rank neighbor slide). Cross-file rear uses `prox` = rank depth + |Ã"file| so closer reserves win; lateral is last resort.
+## rank --''deg'' 1 steps into the empty front slot when the hole column is passable) before **front-rank lateral**
+## (same-rank neighbor slide). Cross-file rear uses `prox` = rank depth + |f"file| so closer reserves win; lateral is last resort.
 ## Front lateral at rank 0 only when `_rank0_lateral_slide_allowed` (hole column has no promotable native deeper).
 ## Deeper empty ranks: same-rank lateral from neighbors is allowed so the rear echelon can close gaps without rank-0 shuffling.
 ## `apply_vacancy_plug_same_file` scans **deepest empty rank first** so a gap under the front is closed from the rear before rank-0 considers lateral.
 ## Donors are **reserved** for the reconcile pass so the same unit is not assigned to two holes.
 ## Rank/file shuffle resolve + vacancy plug call **`CombatDoctrine.clear_combatant_doctrine_commitment`** (stale target lock).
-## Footing: return-to-waiting via **`_set_combatant_waiting`** · shuffle start via **`_scrub_idle_footwork_for_formation_move`**  -  LIVE_PATHS **`#wf-tier-44-pa`**.
+## Footing: return-to-waiting via **`_set_combatant_waiting`** . shuffle start via **`_scrub_idle_footwork_for_formation_move`**  -  LIVE_PATHS **`#wf-tier-44-pa`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
@@ -103,7 +103,7 @@ static func _rotate_file_cooldown_active(manager: Node, c: Dictionary) -> bool:
 	)
 
 
-## Tier 1.3 P4: after rank/file changes from plugs or formation moves, keep `lane_offset` bounded (ÃÂ§4.2 repack).
+## Tier 1.3 P4: after rank/file changes from plugs or formation moves, keep `lane_offset` bounded (f''Sec4.2 repack).
 ## Intruders keep seam bias; line fighters reset to column center.
 static func repack_lane_offset_after_rank_file_change(c: Dictionary) -> void:
 	if c.is_empty():
@@ -850,4 +850,3 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
 	_EventScheduler.reschedule_back_rank_turns(manager, fid_geom)
 	if fid_home != fid_geom:
 		_EventScheduler.reschedule_back_rank_turns(manager, fid_home)
-    

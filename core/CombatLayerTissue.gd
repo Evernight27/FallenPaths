@@ -149,7 +149,7 @@ static func _state_from_pen(absorbed_mm: float, yield_mm: float, rupture_mm: flo
 	return "intact"
 
 
-## M3: yield → damaged → ruptured; excess pen past rupture flows to deeper layers.
+## M3: yield -> damaged -> ruptured; excess pen past rupture flows to deeper layers.
 static func penetration_through_layers(
 	part: String, penetration_sharp_mm: float, layer_state: Array, active: bool = true
 ) -> Dictionary:

@@ -40,7 +40,7 @@ static func compute_weight(
 	# Core factors (always computed)
 	var base_stamina: float = _factor_base_stamina(stamina_ratio)
 	var polearm_lane: float = _factor_polearm_lane(manager, c, move_id, actor_zone_geometry_line_context)
-	var form_move_m: float = _factor_form_move(_EntityAccess.form_str(c), move_id)
+	var form_move_m: float = _factor_form_move(_EntityAccess.form_str(c), move_id, c)
 	var form_counter_m: float = _factor_form_counter(manager, c, a)
 	var targeting_m: float = _factor_targeting(manager, combatant_id, a, skip_targeting_prune, actor_zone_geometry_line_context, zone_geometry_by_combatant_id)
 	var counter_tempo_m: float = _factor_counter_tempo(manager, combatant_id, a, move_id)
@@ -74,7 +74,7 @@ static func compute_weight(
 	return w
 
 
-# â"€â"€ Per-factor functions â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+# '"''''"''' Per-factor functions '"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"''''"'''
 
 static func _factor_base_stamina(stamina_ratio: float) -> float:
 	return CombatConstants.ai_offense_stamina_weight_mult(stamina_ratio)
@@ -86,8 +86,8 @@ static func _factor_polearm_lane(
 	return _DepthPolearm.depth_polearm_action_weight_mult(manager, c, move_id, actor_zone_geometry_line_context)
 
 
-static func _factor_form_move(form: String, move_id: String) -> float:
-	return _WeaponForm.action_weight_mult(form, move_id)
+static func _factor_form_move(form: String, move_id: String, c: Dictionary) -> float:
+	return _WeaponForm.action_weight_mult(form, move_id, _EntityAccess.get_weapon(c))
 
 
 static func _factor_form_counter(manager: Node, c: Dictionary, a: Dictionary) -> float:
@@ -100,7 +100,9 @@ static func _factor_form_counter(manager: Node, c: Dictionary, a: Dictionary) ->
 		inferred = (cache_raw as Dictionary).get(str(tid_counter), "").strip_edges()
 	if inferred.is_empty():
 		inferred = _WeaponForm.infer_opponent_form(manager, c, tid_counter)
-	return _WeaponForm.form_counter_mult(_EntityAccess.form_str(c), inferred, a.get("move_id", ""))
+	return _WeaponForm.form_counter_mult(
+		_EntityAccess.form_str(c), inferred, a.get("move_id", ""), _EntityAccess.get_weapon(c)
+	)
 
 
 static func _factor_targeting(
@@ -157,7 +159,9 @@ static func _factor_feint_listing(
 	var read_m: float = lerpf(
 		1.0, CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, pr_def
 	)
-	var stance_feint_m: float = _WeaponForm.mod(_EntityAccess.form_str(c), "ai_feint_listing")
+	var stance_feint_m: float = _WeaponForm.mod(
+		_EntityAccess.form_str(c), "ai_feint_listing", _EntityAccess.get_weapon(c)
+	)
 	var feint_list_m: float = CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m * stance_feint_m
 
 	if tid_feint >= 0:
@@ -246,7 +250,7 @@ static func _apply_attempt_close_modifiers(
 	return w
 
 
-## LONG band, close listed but no melee strikes —" mapped rank-0 band-lag shuffle.
+## LONG band, close listed but no melee strikes --" mapped rank-0 band-lag shuffle.
 static func _long_close_only_offense_menu(
 	manager: Node, c: Dictionary, combatant_id: int, all_actions: Array
 ) -> bool:

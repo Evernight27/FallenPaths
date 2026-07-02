@@ -7,7 +7,7 @@ const _Bp := preload("res://core/BodyPartConstants.gd")
 
 ## Deterministic anatomy site on a hit part (S2). Path intercept + attack line bias; no combat RNG.
 ## IV-10: **`combat_damage_mult`** scales post-armor mechanical cut/blunt (delegates **`BleedingConstants.get_severity_modifier`**).
-## Footing: **`attack_line`** biases site pick; **`guard_line`** arg unused at resolve —" not L3 drift or PA geometry. LIVE_PATHS **`#wf-layer-labels`**.
+## Footing: **`attack_line`** biases site pick; **`guard_line`** arg unused at resolve --" not L3 drift or PA geometry. LIVE_PATHS **`#wf-layer-labels`**.
 
 ## IV-10 doc-sync line (harness / calibration audit).
 static func iv10_doc_sync_line() -> String:

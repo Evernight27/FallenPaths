@@ -1,12 +1,11 @@
-class_name WeaponConstants
+﻿class_name WeaponConstants
 extends RefCounted
 
-## Per-weapon move defs + Expand WF spawn keys: **`default_form`** / **`allowed_forms[]`** feed **`CombatWeaponForm.seed_combatant_form`** (resolution step 4). LIVE_PATHS **`#spawn--reset-path-wf-1a`** · **`#wf-assign-form-contract`**.
+## Per-weapon move defs + Expand WF spawn keys: **`default_form`** / **`allowed_forms[]`** feed **`CombatWeaponForm.seed_combatant_form`** (resolution step 4). LIVE_PATHS **`#spawn--reset-path-wf-1a`** ?? **`#wf-assign-form-contract`**.
 
-const _Combat := preload("res://combat/CombatConstants.gd")
-# Damage types (canonical in CombatConstants)
-const DAMAGE_TYPE_SHARP: String = _Combat.DAMAGE_TYPE_SHARP
-const DAMAGE_TYPE_BLUNT: String = _Combat.DAMAGE_TYPE_BLUNT
+# Damage types (also in CombatConstants; defined here to avoid circular preload)
+const DAMAGE_TYPE_SHARP: String = "sharp"
+const DAMAGE_TYPE_BLUNT: String = "blunt"
 
 # Attack types: stab (point), cut/slash (edge), blunt/swing (head).
 # Contact area per attack: stab -> point_width, cut -> blade_width, blunt -> head_diameter.
@@ -30,7 +29,7 @@ static func weapon_mass_kg(weapon: Variant) -> float:
 
 
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
-# Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J â E â t^1.67. Nonlinear: pen = (KE/J_BASE)^PEN_EXPONENT.
+# Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J ?????? E ?????? t^1.67. Nonlinear: pen = (KE/J_BASE)^PEN_EXPONENT.
 const J_PER_MM_BASE: float = 55.0  # Williams: 55 J for 1 mm mild steel
 const PENETRATION_EXPONENT: float = 0.6  # 1/1.67; thicker armor needs disproportionately more energy
 # Global impact speed floor/ceiling (m/s): fallback when a weapon template has no Tier-A band entry; ImpactVelocityModel uses these (see ImpactVelocityModel._tier_a_default_band).
@@ -45,14 +44,14 @@ const DAMAGE_KE_MAX: float = 80.0
 const PENETRATION_KE_CAP_MM_RHA: float = 15.0
 
 # --- Physics-based contact area ---
-# Sharp: smaller contact (point) penetrates better than wide (cut). Factor = (BASELINE / contact_width_cm)^Î±.
+# Sharp: smaller contact (point) penetrates better than wide (cut). Factor = (BASELINE / contact_width_cm)^????.
 const CONTACT_AREA_EXPONENT: float = 0.5
 const MIN_CONTACT_WIDTH_CM: float = 0.2
 # Contact area in damage: smaller contact -> more local damage. Cap factor so stab doesn't overscale.
 const CONTACT_DAMAGE_EXPONENT: float = 0.3
 const CONTACT_DAMAGE_FACTOR_MAX: float = 2.0
 # Blunt: transmission-only (no rigid check). Older blunt rigid-penetration constants were removed in favor of this model.
-# Floor so tiny contacts don't produce absurd momentum/area; 1 cmÂ² min keeps normal blade areas unchanged.
+# Floor so tiny contacts don't produce absurd momentum/area; 1 cm???? min keeps normal blade areas unchanged.
 const MIN_BLUNT_AREA_M2: float = 1e-4
 # For CUT moves, blunt stream uses at least this contact (cm) so the "slap" doesn't get blade pressure.
 const BLUNT_CUT_MIN_CONTACT_CM: float = 5.0
@@ -92,7 +91,44 @@ static func is_parry_move(move_id: String) -> bool:
 
 static func is_feint_move(move_id: String) -> bool:
 	var m = get_move(move_id)
-	return m.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false)
+	return m.get("is_feint", false)
+
+
+# Per-weapon overrides for shared move defs (Layer B aim).
+const WEAPON_MOVE_PREFERRED_PARTS: Dictionary = {
+	"SPEAR": {
+		"spear_thrust": ["chest"],
+		"off_line_thrust": ["chest"],
+		"parry_thrust_spear": ["chest"],
+	},
+	"DAGGER": {
+		"quick_thrust": ["chest"],
+		"committed_thrust": ["chest"],
+		"parry_thrust_dagger": ["chest"],
+	},
+	"MACE": {
+		"overhead_strike": ["head"],
+		"side_strike": ["left_arm", "right_arm"],
+		"direct_blow": ["head", "chest"],
+	},
+	"AXE": {
+		"overhead_chop": ["head"],
+		"spike_thrust": ["chest"],
+		"poll_strike": ["head"],
+	},
+}
+
+
+static func preferred_parts_for_weapon_move(weapon_id: String, move_id: String) -> Array:
+	var wid: String = str(weapon_id).to_upper().strip_edges()
+	if WEAPON_MOVE_PREFERRED_PARTS.has(wid):
+		var per_weapon: Variant = WEAPON_MOVE_PREFERRED_PARTS[wid]
+		if per_weapon is Dictionary and (per_weapon as Dictionary).has(move_id):
+			var parts: Variant = (per_weapon as Dictionary)[move_id]
+			if parts is Array:
+				return (parts as Array).duplicate()
+	var md: Dictionary = get_move(move_id)
+	return md.get("preferred_parts", [])
 
 
 ## move_id (e.g. thrust, oberhau) -> stab | cut | blunt. Bare stab/cut/blunt pass through unchanged.
@@ -111,8 +147,8 @@ static func contact_type_for_move_id(move_id: String) -> String:
 
 
 static func _move_definitions_build() -> Dictionary:
-	# attack_line: Liechtenauer 4 lines  -  high (0Â°), low (180Â°), left (270Â°), right (90Â°). Blade path, not body target.
-	# angle_variance_deg: optional Â±deg human error; heavier/awkward moves have more variance.
+	# attack_line: Liechtenauer 4 lines  -  high (0????), low (180????), left (270????), right (90????). Blade path, not body target.
+	# angle_variance_deg: optional ????deg human error; heavier/awkward moves have more variance.
 	# angle_offset_deg: optional bias from base line (e.g. off_line_thrust angled toward flank).
 	return {
 		# Sword (Liechtenauer/KDF): thrust, Oberhau, Unterhau, horizontal (Zwerchau-style), pommel, parry-counters
@@ -157,7 +193,7 @@ static func _move_definitions_build() -> Dictionary:
 # Dimensions: blade_width = edge contact for cuts; point_width = tip for thrusts; head_diameter = striking head for blunt.
 # thrust_head_width = width of head/shaft behind point (cm); used for blunt momentum/area on thrusts. Broader head = lower p/A.
 # edge_width = effective sharp contact for blunt weapons (flanges/ridges that can break skin); used for sharp-component penetration.
-# impact_velocity_bands (optional): Tier C overrides  -  keys stab|cut|blunt â {"min":m/s,"max":m/s} or Vector2; see ImpactVelocityModel.gd.
+# impact_velocity_bands (optional): Tier C overrides  -  keys stab|cut|blunt ?????? {"min":m/s,"max":m/s} or Vector2; see ImpactVelocityModel.gd.
 # Data: Oakeshott/longsword 2 - 3 cm edge, 0.3 - 0.6 cm point; Le Jeu axe 3 - 4 cm edge, 0.5 - 1 cm spike; mace flanges 0.4 - 0.6 cm (Williams, Tod Cutler); Fiore/Talhoffer dagger ~1.5 cm edge, 0.2 - 0.4 cm point; spear 0.4 - 0.8 cm point, head blade 2 - 3 cm.
 # No weapon has 0% cutting (MIN_CUT_RATIO); each component uses get_sharp_contact_cm / get_blunt_contact_cm for its damage type.
 static func get_all_weapon_ids() -> Array:
@@ -218,8 +254,12 @@ static func _weapon_definitions_build() -> Dictionary:
 		# Battle axe: spike, chops, poll, parry-counter (Le Jeu de la Hache style).
 		"AXE": {
 			"name": "Axe",
-			"default_form": "wrath",
-			"allowed_forms": ["wrath", "tempest", "wall", "balanced"],
+			"default_form": "demi_hache",
+			"allowed_forms": ["demi_hache", "bec_point", "queue_bind", "wall", "balanced"],
+			"form_legacy_aliases": {
+				"wrath": "demi_hache", "aggressive": "demi_hache", "tempest": "demi_hache",
+				"defensive": "wall", "ox": "bec_point", "plow": "queue_bind",
+			},
 			"mass": 1.5,
 			"parry_speed_factor": 0.95,
 			"bind_riposte_contact_types": ["cut", "stab"],
@@ -258,8 +298,12 @@ static func _weapon_definitions_build() -> Dictionary:
 		# Mace: overhead, side, direct, parry-counter (blunt only).
 		"MACE": {
 			"name": "Mace",
-			"default_form": "wrath",
-			"allowed_forms": ["wrath", "wall", "balanced"],
+			"default_form": "crown_guard",
+			"allowed_forms": ["crown_guard", "flank_guard", "wall", "balanced"],
+			"form_legacy_aliases": {
+				"wrath": "crown_guard", "aggressive": "crown_guard", "tempest": "flank_guard",
+				"defensive": "wall", "braced": "wall",
+			},
 			"mass": 1.7,
 			"parry_speed_factor": 0.9,
 			"blade_width": 0.0,
@@ -294,8 +338,12 @@ static func _weapon_definitions_build() -> Dictionary:
 		# Dagger / rondel: thrusts, slash, pommel, parry-counter (Fiore, Talhoffer).
 		"DAGGER": {
 			"name": "Dagger",
-			"default_form": "fool",
-			"allowed_forms": ["fool", "wall", "balanced"],
+			"default_form": "high_hut",
+			"allowed_forms": ["high_hut", "low_bind", "reverse_seize", "wall", "balanced"],
+			"form_legacy_aliases": {
+				"fool": "high_hut", "wrath": "high_hut", "aggressive": "high_hut",
+				"controlling": "reverse_seize", "defensive": "wall", "ox": "high_hut",
+			},
 			"mass": 0.3,
 			"parry_speed_factor": 1.2,
 			"blade_width": 1.5,
@@ -332,8 +380,12 @@ static func _weapon_definitions_build() -> Dictionary:
 		# Spear (Fiore): thrusts, slash, pole swing (shaft), parry-counter.
 		"SPEAR": {
 			"name": "Spear",
-			"default_form": "plow",
-			"allowed_forms": ["plow", "wrath", "wall", "balanced"],
+			"default_form": "iron_gate",
+			"allowed_forms": ["iron_gate", "true_cross", "high_port", "wall", "balanced"],
+			"form_legacy_aliases": {
+				"plow": "iron_gate", "wrath": "high_port", "aggressive": "high_port",
+				"ox": "true_cross", "defensive": "wall", "tempest": "high_port",
+			},
 			"mass": 1.8,
 			"parry_speed_factor": 1.0,
 			"blade_width": 2.5,
@@ -387,7 +439,7 @@ const ARCHETYPE_QUICK_SLASH: String = "quick_slash"
 const ARCHETYPE_POMMEL: String = "pommel_strike"
 const ARCHETYPE_HEAVY_BLUNT: String = "heavy_blunt"
 
-## Kinematic delivery for `WeaponDamageHelper` (abstract  -  no unit positions): thrust = linear band + point-mass KE; swing = Ï - lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
+## Kinematic delivery for `WeaponDamageHelper` (abstract  -  no unit positions): thrust = linear band + point-mass KE; swing = ???? - lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
 const KINEMATIC_DELIVERY_THRUST := "thrust"
 const KINEMATIC_DELIVERY_SWING := "swing"
 const KINEMATIC_DELIVERY_MIXED := "mixed"
@@ -463,6 +515,11 @@ static func _archetype_definitions_build() -> Dictionary:
 	}
 
 
+## Weapon template id (`SWORD`, `AXE`, …) from equipped weapon node/dict.
+static func weapon_type_id(weapon: Variant) -> String:
+	return _weapon_template_id(weapon)
+
+
 static func _weapon_template_id(weapon: Variant) -> String:
 	if weapon == null:
 		return ""
@@ -471,6 +528,23 @@ static func _weapon_template_id(weapon: Variant) -> String:
 		if wt != null:
 			return str(wt).strip_edges().to_upper()
 	return ""
+
+
+## Legacy encounter / mood keys -> weapon-native form id (e.g. axe `wrath` -> `demi_hache`).
+static func resolve_form_legacy_alias(weapon: Variant, raw_form: String) -> String:
+	var s: String = str(raw_form).strip_edges().to_lower()
+	if s.is_empty():
+		return s
+	var wt: String = _weapon_template_id(weapon)
+	if wt.is_empty():
+		return s
+	var def: Dictionary = get_weapon_definition(wt)
+	if def.is_empty():
+		return s
+	var aliases: Variant = def.get("form_legacy_aliases", {})
+	if aliases is Dictionary and (aliases as Dictionary).has(s):
+		return str((aliases as Dictionary)[s]).strip_edges().to_lower()
+	return s
 
 
 ## Expand WF: default form id for equipped weapon ( **`balanced`** when unarmed).
@@ -484,7 +558,7 @@ static func default_form_for_weapon(weapon: Variant) -> String:
 	return str(def.get("default_form", "balanced")).strip_edges().to_lower()
 
 
-## Expand WF: allowed form ids for weapon template; empty â no clamp.
+## Expand WF: allowed form ids for weapon template; empty ?????? no clamp.
 static func allowed_forms_for_weapon(weapon: Variant) -> Array:
 	var wt: String = _weapon_template_id(weapon)
 	if wt.is_empty():
@@ -496,4 +570,4 @@ static func allowed_forms_for_weapon(weapon: Variant) -> Array:
 	if raw is Array:
 		return raw
 	return ["balanced"]
-  
+

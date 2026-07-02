@@ -28,7 +28,7 @@ func vacancy_reconcile_pass(emit_formation_changed_signals: bool) -> Array:
 
 
 func notify_formation_changed(formation_id: String) -> void:
-	if CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
+	if _Constants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
 		mark_formation_vacancy_dirty(formation_id)
 	var reconciled_fids: Array = vacancy_reconcile_pass(false)
 	emit_signal("formation_changed", formation_id)
@@ -39,8 +39,8 @@ func notify_formation_changed(formation_id: String) -> void:
 
 func notify_engagement_state_changed(formation_id: String, line_cohesion: float, engagement_posture: String) -> void:
 	emit_signal("engagement_state_changed", formation_id, line_cohesion, engagement_posture)
-	if CombatDebug.flow_verbose_enabled():
-		CombatDebug.flow_log(
+	if _Debug.flow_verbose_enabled():
+		_Debug.flow_log(
 			"engagement_state_changed fid=%s cohesion=%.3f posture=%s"
 			% [formation_id, line_cohesion, engagement_posture],
 			"engagement_state:%s" % formation_id
@@ -61,7 +61,7 @@ func notify_combat_ui_hint(message: String, echo_to_fp: bool = true) -> void:
 
 
 func mark_formation_vacancy_dirty(formation_id: String) -> void:
-	if not CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
+	if not _Constants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
 		return
 	var fk: String = str(formation_id)
 	if fk.is_empty():
@@ -70,7 +70,7 @@ func mark_formation_vacancy_dirty(formation_id: String) -> void:
 
 
 func mark_all_formations_vacancy_dirty() -> void:
-	if not CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
+	if not _Constants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
 		return
 	for k in formations.keys():
 		_vacancy_dirty_fids[str(k)] = true
@@ -87,7 +87,7 @@ var event_queue: Array[Dictionary] = []
 var combat_clock: float = 0.0
 var encounter: Dictionary = {}
 var formations: Dictionary = {}
-## Per `formation_id` (e.g. player / enemy): `CombatConstants.DOCTRINE_*`  -  hybrid targeting + AI weights.
+## Per `formation_id` (e.g. player / enemy): `_Constants.DOCTRINE_*`  -  hybrid targeting + AI weights.
 ## Seeded in `start()` via **`CombatFormationSetup.seed_formation_doctrine_from_encounter_and_presets`** (encounter then preset; preset wins). Runtime: **`set_formation_doctrine`**.
 var formation_doctrine: Dictionary = {}
 ## Per `formation_id`: depth-spear AI mults  -  **`CombatFormationSetup.seed_encounter_overlays_by_formation`** at **`start()`**; read **`get_depth_polearm_ai_doctrine_mult`**.
@@ -107,6 +107,8 @@ func clear_vacancy_dirty_fids() -> void:
 ## Combat simulation tick counter  -  incremented each frame by `CombatProcessTick.tick()`. Used for periodic safety passes (vacancy reconciliation) and harness debugging.
 var _combat_tick_index: int = 0
 
+const _Constants := preload("res://combat/CombatConstants.gd")
+const _Debug := preload("res://combat/CombatDebug.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _AttackResolver := preload("res://combat/AttackResolver.gd")
@@ -210,17 +212,17 @@ func register(node: Node, side: String) -> int:
 		"stats": stats,
 		"gauge": 0.0,
 		"alive": true,
-		"state": CombatConstants.STATE_WAITING,
+		"state": _Constants.STATE_WAITING,
 		"state_timer": 0.0,
 		"state_duration": 0.0,
 		"pending_attack": {},
 		"receiving_medical_count": 0,
 		"guard": 1.0,
-		"guard_line": CombatConstants.GUARD_DEFAULT,
+		"guard_line": _Constants.GUARD_DEFAULT,
 		"guard_zone": _Bp.PART_HEAD,
-		"stamina": CombatConstants.STAMINA_MAX,
-		CombatConstants.COMBATANT_KEY_EXHAUSTION: 0.0,
-		CombatConstants.COMBATANT_KEY_EXHAUSTION_FP_BAND_LOGGED: -1,
+		"stamina": _Constants.STAMINA_MAX,
+		_Constants.COMBATANT_KEY_EXHAUSTION: 0.0,
+		_Constants.COMBATANT_KEY_EXHAUSTION_FP_BAND_LOGGED: -1,
 		# FF4 formation fields (Phase 0). Phase 3 assigns rank/file.
 		"rank": 0,
 		"file": 0,
@@ -230,10 +232,10 @@ func register(node: Node, side: String) -> int:
 		"engagement_angle": "front",
 		"zone_id": "",
 		"occupied_zone_id": "",
-		"stance": CombatConstants.STANCE_BALANCED,
+		"stance": _Constants.STANCE_BALANCED,
 		"stance_preference": stance_pref,
-		"engagement_role": CombatConstants.ENGAGEMENT_ROLE_LINE,
-		"lane_offset": CombatConstants.LANE_OFFSET_DEFAULT,
+		"engagement_role": _Constants.ENGAGEMENT_ROLE_LINE,
+		"lane_offset": _Constants.LANE_OFFSET_DEFAULT,
 		"doctrine_target_commit_id": -1,
 		"doctrine_commit_until": 0.0,
 		"close_block_until_by_target_id": {},
@@ -261,17 +263,17 @@ func _on_entity_health_changed(combatant_id: int) -> void:
 ## Resets per-combatant engagement fields (combat end, new encounter, medical phase handoff).
 func _reset_tactical_engagement_state() -> void:
 	for c in combatants:
-		c["engagement_role"] = CombatConstants.ENGAGEMENT_ROLE_LINE
-		c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
+		c["engagement_role"] = _Constants.ENGAGEMENT_ROLE_LINE
+		c["lane_offset"] = _Constants.LANE_OFFSET_DEFAULT
 	if not formations.is_empty():
 		_FormationEngagement.recompute_all(self)
 
 ## Start combat. Optional player_formation and enemy_formation presets: { files, ranks, density, optional **`FORMATION_PRESET_KEY_DOCTRINE`** / **`FORMATION_PRESET_KEY_FLEE_*`**,  -  }  -  seeds **`rout_thresholds_by_fid`** and **`depth_polearm_ai_doctrine_mults_by_fid`** per side.
 ## Clears **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** on each combatant (Tier 4.2) so a second **`start()`** on the same manager does not carry feint telegraph from a prior encounter.
 ## When provided, builds formations and assigns rank/file to combatants (spawn order).
-## Phase 4: Set encounter before start() for ZoC flags (e.g. CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE).
+## Phase 4: Set encounter before start() for ZoC flags (e.g. _Constants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE).
 func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
-	CombatDebug.clear_flow_log_dedup()
+	_Debug.clear_flow_log_dedup()
 	_OperationalLog.reset_fight_fp_channel_dedupe()
 	_WindUpStarter.reset_fp_session_dedup()
 	_combat_tick_index = 0
@@ -285,21 +287,21 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 		remove_meta(_TacticalCombat.META_COMBAT_TELEMETRY)
 	_EngagementOpposition.clear_opposition_meta(self)
 	var default_enc := {
-		"ambush_type": CombatConstants.AMBUSH_TYPE_NONE,
+		"ambush_type": _Constants.AMBUSH_TYPE_NONE,
 		"ambush_penalty": 0.0,
-		CombatConstants.ENCOUNTER_KEY_POSTURE_ENTER_DELTA: 0.0,
-		CombatConstants.ENCOUNTER_KEY_POSTURE_LEAVE_DELTA: 0.0,
-		CombatConstants.ENCOUNTER_KEY_LINE_DISCIPLINE: "",
-		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER: "",
-		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY: "",
-		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT: "",
-		CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT: "",
-		CombatConstants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM: "",
-		CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM: "",
-		CombatConstants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_PLAYER: {},
-		CombatConstants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY: {},
-		CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE: false,
-		CombatConstants.ENCOUNTER_AMBUSHED_SIDE: "player",
+		_Constants.ENCOUNTER_KEY_POSTURE_ENTER_DELTA: 0.0,
+		_Constants.ENCOUNTER_KEY_POSTURE_LEAVE_DELTA: 0.0,
+		_Constants.ENCOUNTER_KEY_LINE_DISCIPLINE: "",
+		_Constants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER: "",
+		_Constants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY: "",
+		_Constants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT: "",
+		_Constants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT: "",
+		_Constants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM: "",
+		_Constants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM: "",
+		_Constants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_PLAYER: {},
+		_Constants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY: {},
+		_Constants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE: false,
+		_Constants.ENCOUNTER_AMBUSHED_SIDE: "player",
 	}
 	if encounter.is_empty():
 		encounter = default_enc.duplicate(true)
@@ -315,7 +317,7 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	mark_all_formations_vacancy_dirty()
 	for fk in formations.keys():
 
-		formation_doctrine[str(fk)] = CombatConstants.DOCTRINE_DEFAULT
+		formation_doctrine[str(fk)] = _Constants.DOCTRINE_DEFAULT
 	_FormationSetup.seed_formation_doctrine_from_encounter_and_presets(
 		self, encounter, player_formation, enemy_formation
 	)
@@ -329,21 +331,21 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 	for c in combatants:
 		if c is Dictionary:
 			var cd: Dictionary = c as Dictionary
-			cd.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
-			cd.erase(CombatConstants.COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK)
-			cd.erase(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL)
-			cd.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED)
-			cd.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
-			cd.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL)
-			cd.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID)
-			cd.erase(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK)
+			cd.erase(_Constants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
+			cd.erase(_Constants.COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK)
+			cd.erase(_Constants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL)
+			cd.erase(_Constants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED)
+			cd.erase(_Constants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
+			cd.erase(_Constants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL)
+			cd.erase(_Constants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID)
+			cd.erase(_Constants.COMBATANT_KEY_SUSPEND_BLEED_TICK)
 			_FlurryBind.clear(cd)
 			_MedicalPhase._reset_fled_and_combat_absent(cd)
 			_Attention.clear_focus_and_yomi(cd)
 			_Footwork.clear_on_exchange_end(cd)
-			cd.erase(CombatConstants.COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL)
-			cd.erase(CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON)
-			cd.erase(CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID)
+			cd.erase(_Constants.COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL)
+			cd.erase(_Constants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON)
+			cd.erase(_Constants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID)
 			_WeaponForm.seed_combatant_form(self, cd)
 	# III-4 PR2: one-shot reconcile + ZoC/bands before first action-ready (after opposition offset seed).
 	vacancy_reconcile_pass(false)
@@ -379,10 +381,10 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 		_OperationalLog.play_combat_manager_started(alive_p, alive_e, formation_doctrine, encounter)
 		_OperationalLog.play_combat(eng_line)
 	else:
-		CombatDebug.combat_session(
+		_Debug.combat_session(
 			"manager_started alive=%d/%d doctrine=%s" % [alive_p, alive_e, str(formation_doctrine)]
 		)
-		CombatDebug.combat_session(eng_line)
+		_Debug.combat_session(eng_line)
 	if has_meta(_EngagementOpposition.META_OPPOSITION_FILE_OFFSET_BY_SIDE):
 		var pf: int = int((formations.get("player", {}) as Dictionary).get("files", 1))
 		var ef: int = int((formations.get("enemy", {}) as Dictionary).get("files", 1))
@@ -399,7 +401,7 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 			_OperationalLog.play_combat(opp_line)
 			_EngagementDiag.log_fight_start_summary(self)
 		else:
-			CombatDebug.combat_session(opp_line)
+			_Debug.combat_session(opp_line)
 	_TacticalCombat.seed_engagement_mode_telemetry(self, eng_mode)
 
 ## Phase 4 - 6: Incursion pressure from front-rank imbalance, then zone control, assign zone_id, distance bands.
@@ -420,13 +422,13 @@ func _schedule_event(ev: Dictionary) -> void:
 	_EventScheduler.schedule_event(self, ev)
 
 func stop():
-	CombatDebug.clear_flow_log_dedup()
+	_Debug.clear_flow_log_dedup()
 	_vacancy_dirty_fids.clear()
 	_EngagementOpposition.clear_opposition_meta(self)
 	_reset_tactical_engagement_state()
 	for c in combatants:
 		if c is Dictionary:
-			(c as Dictionary).erase(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK)
+			(c as Dictionary).erase(_Constants.COMBATANT_KEY_SUSPEND_BLEED_TICK)
 			var entity = _EntityAccess.get_health_entity_from_node(self, _EntityAccess.node_variant(c))
 			if entity != null and entity.has_signal("health_changed"):
 				var _hcb = _on_entity_health_changed.bind(_EntityAccess.id_int(c))
@@ -551,7 +553,7 @@ func _emit_finish_battle_and_stop(ran_fast_forward: bool) -> void:
 			)
 		)
 	elif not _OperationalLog.is_play_session_active():
-		CombatDebug.combat_session(
+		_Debug.combat_session(
 			"finish_battle medical exit winner=%s can_end=%s fast_forward=%s"
 			% [medical_phase_winner, str(can_end).to_lower(), str(ran_fast_forward).to_lower()]
 		)
@@ -580,12 +582,12 @@ func _notify_incomplete_campaign_medical_fast_forward_if_needed() -> void:
 ## log_outcome: "wait" = explicit pass; "pass" = no actions available (CombatLogFormatter).
 func skip_turn(combatant_id: int, log_outcome: String = "pass", flow_reason: String = "") -> void:
 	var c = _get_by_id(combatant_id)
-	if c == null or _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+	if c == null or _EntityAccess.state_str(c) != _Constants.STATE_WAITING:
 		return
 	if _MedicalPhase.combat_resolution_blocked(self) and _MedicalPhase.is_losing_side(self, c):
 		return
 	var extra: String = (" (%s)" % flow_reason) if not flow_reason.is_empty() else ""
-	CombatDebug.flow_log(
+	_Debug.flow_log(
 		"skip_turn id=%d outcome=%s rank=%d%s" % [combatant_id, log_outcome, _EntityAccess.rank_int(c), extra],
 		"skip_turn:%d" % combatant_id
 	)
@@ -597,11 +599,11 @@ func skip_turn(combatant_id: int, log_outcome: String = "pass", flow_reason: Str
 	})
 	emit_signal("turn_resolved", combatant_id)
 	c.gauge = 0.0
-	var delay: float = CombatConstants.READY_DELAY_SKIP_DEFAULT_S
+	var delay: float = _Constants.READY_DELAY_SKIP_DEFAULT_S
 	if _EntityAccess.rank_int(c) > 0:
-		delay = CombatConstants.READY_DELAY_SKIP_BACK_RANK_S
+		delay = _Constants.READY_DELAY_SKIP_BACK_RANK_S
 		if _DepthPolearm.depth_polearm_lane_open(self, c):
-			delay = CombatConstants.READY_DELAY_SKIP_BACK_RANK_DEPTH_LANE_S
+			delay = _Constants.READY_DELAY_SKIP_BACK_RANK_DEPTH_LANE_S
 	_schedule_action_ready(combatant_id, delay)
 
 ## When player wins: enter medical phase, emit enemies_eliminated, keep battle running. When enemy wins: end immediately.
@@ -610,7 +612,7 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 		return
 	if not _MedicalPhase.should_apply_phase_end(self, winner):
 		if not _OperationalLog.is_play_session_active():
-			CombatDebug.combat_session(
+			_Debug.combat_session(
 				"phase_end locked during medical_phase (requested=%s locked=%s)"
 				% [winner, medical_phase_winner]
 			)
@@ -624,7 +626,7 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 			alive_by_side[sd] = alive_by_side.get(sd, 0) + 1
 		if (
 			bool(c.get("combat_absent", false))
-			or _EntityAccess.state_str(c) == CombatConstants.STATE_FLED
+			or _EntityAccess.state_str(c) == _Constants.STATE_FLED
 		):
 			fled_by_side[sd] = fled_by_side.get(sd, 0) + 1
 	var standing_by_side: Dictionary = _StandingHelper.get_standing_by_side(combatants)
@@ -632,7 +634,7 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 	var fresh_medical: bool = winner == "player" and not medical_phase
 	if fresh_medical or winner == "enemy":
 		if not _OperationalLog.play_session_is_editor_f5():
-			CombatDebug.combat_session(
+			_Debug.combat_session(
 				"phase_end winner=%s defeated_node=%s alive_by_side=%s standing_by_side=%s fled_by_side=%s"
 				% [winner, def_node, alive_by_side, standing_by_side, fled_by_side]
 			)
@@ -642,7 +644,7 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 		_F5SoakTrace.log_fight_end_summary(winner, true)
 	if winner == "enemy":
 		if not _OperationalLog.is_play_session_active():
-			CombatDebug.combat_session("enemy won => combat_ended stopping manager")
+			_Debug.combat_session("enemy won => combat_ended stopping manager")
 		medical_phase = true
 		medical_phase_winner = winner
 		combat_resolution_closed = true
@@ -652,10 +654,10 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 	else:
 		if fresh_medical:
 			if not _OperationalLog.is_play_session_active():
-				CombatDebug.combat_session("player won => medical_phase enemies_eliminated")
+				_Debug.combat_session("player won => medical_phase enemies_eliminated")
 			_F5SoakTrace.note_medical_phase_intro()
 		elif not _OperationalLog.is_play_session_active():
-			CombatDebug.combat_session("player won => medical_phase refresh (teardown)")
+			_Debug.combat_session("player won => medical_phase refresh (teardown)")
 		medical_phase = true
 		medical_phase_winner = winner
 		combat_resolution_closed = true
@@ -711,7 +713,7 @@ func _get_ally_medical_actions(performer: Dictionary, ally: Dictionary, part: St
 
 ## Ensures vacancy reconcile before listing actions. With dirty-only mode, marks **all** lines first so this stays a full pass (covers slot writes that skipped `notify_formation_changed`); per-frame tick uses dirty set only.
 func get_available_actions(combatant_id: int) -> Array:
-	if CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
+	if _Constants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
 		mark_all_formations_vacancy_dirty()
 	vacancy_reconcile_pass(true)
 	var c_list: Variant = _get_by_id(combatant_id)
@@ -735,7 +737,7 @@ func get_formation_doctrine(formation_id: String) -> String:
 	return _Doctrine.doctrine_for_fid(self, str(formation_id))
 
 
-## Tier 1.9: effective depth-spear listing mult for **`key`** (`CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_*`) after encounter + preset merge at **`start()`**.
+## Tier 1.9: effective depth-spear listing mult for **`key`** (`_Constants.DEPTH_POLEARM_AI_MULT_KEY_*`) after encounter + preset merge at **`start()`**.
 func get_depth_polearm_ai_doctrine_mult(formation_id: String, key: String) -> float:
 	var fid: String = str(formation_id)
 	var by_fid: Variant = depth_polearm_ai_doctrine_mults_by_fid.get(fid)
@@ -743,7 +745,7 @@ func get_depth_polearm_ai_doctrine_mult(formation_id: String, key: String) -> fl
 		var d: Dictionary = by_fid as Dictionary
 		if d.has(key):
 			return float(d[key])
-	var fallback: Dictionary = CombatConstants.default_depth_polearm_ai_doctrine_mults_dict()
+	var fallback: Dictionary = _Constants.default_depth_polearm_ai_doctrine_mults_dict()
 	return float(fallback.get(key, 1.0))
 
 
@@ -756,10 +758,10 @@ func get_rout_threshold(formation_id: String, key: String) -> float:
 		if d.has(key):
 			return float(d[key])
 	match key:
-		CombatConstants.ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX:
-			return CombatConstants.FORMATION_FLEE_LINE_COHESION_MAX
-		CombatConstants.ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN:
-			return CombatConstants.FORMATION_FLEE_CASUALTY_RATIO_MIN
+		_Constants.ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX:
+			return _Constants.FORMATION_FLEE_LINE_COHESION_MAX
+		_Constants.ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN:
+			return _Constants.FORMATION_FLEE_CASUALTY_RATIO_MIN
 	return 0.0
 
 
@@ -798,11 +800,11 @@ func _execute_attack(attacker_id: int) -> void:
 		if (
 			tgt != null
 			and _EntityAccess.alive_bool(tgt)
-			and _EntityAccess.state_str(tgt) == CombatConstants.STATE_WAITING
+			and _EntityAccess.state_str(tgt) == _Constants.STATE_WAITING
 			and not _MobilityRetreat.cannot_commit_melee(tgt)
 			and not (_MedicalPhase.combat_resolution_blocked(self) and _MedicalPhase.is_losing_side(self, tgt))
 		):
-			_schedule_action_ready(tgt_id, CombatConstants.READY_DELAY_PARRY_RIPOSTE_S)
+			_schedule_action_ready(tgt_id, _Constants.READY_DELAY_PARRY_RIPOSTE_S)
 
 func _resolve_close_attempt(attacker_id: int, target_id: int) -> void:
 	_EngagementResolver.resolve_close_attempt(self, attacker_id, target_id)
@@ -848,7 +850,7 @@ func on_combatant_died(c: Dictionary) -> void:
 	_Footwork.clear_on_death(c)
 	_CounterTempo.clear_window(c)
 	_Attention.clear_focus_and_yomi(c)
-	c.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
+	c.erase(_Constants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
 	_FormationFlow.on_combatant_died(self, c)
 
 func _get_by_id(id: int):

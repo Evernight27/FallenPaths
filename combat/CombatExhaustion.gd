@@ -1,9 +1,9 @@
 class_name CombatExhaustion
 extends RefCounted
 
-## MXm: cumulative fight exhaustion (0—"1) on combatant dict; gain on stamina spend; recovery in WAITING.
-## MXm-2: **`performance_mult_for_combatant`** Ã¢â ' parry readiness, wind-up, surround awareness.
-## MXm-3: **`effective_stamina_max`** / **`effective_stamina_refill_rate`** — central fatigue + blood cap burst pool.
+## MXm: cumulative fight exhaustion (0--"1) on combatant dict; gain on stamina spend; recovery in WAITING.
+## MXm-2: **`performance_mult_for_combatant`** --'' ' parry readiness, wind-up, surround awareness.
+## MXm-3: **`effective_stamina_max`** / **`effective_stamina_refill_rate`** -- central fatigue + blood cap burst pool.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
@@ -38,7 +38,7 @@ static func apply_exertion_from_stamina_spend(
 	clamp_stamina_to_effective_max(combatant)
 
 
-## Hypovolemia reduces peak burst power (OÃ¢ââ delivery to working muscle).
+## Hypovolemia reduces peak burst power (O--''s''s delivery to working muscle).
 static func blood_stamina_cap_mult(combatant: Dictionary) -> float:
 	if combatant.is_empty():
 		return 1.0
@@ -76,7 +76,7 @@ static func effective_stamina_refill_rate(combatant: Dictionary) -> float:
 	)
 
 
-## Stamina / **`effective_stamina_max`** —" use for ratios, UI %, and turn-delay curves.
+## Stamina / **`effective_stamina_max`** --" use for ratios, UI %, and turn-delay curves.
 static func stamina_ratio(combatant: Dictionary) -> float:
 	var cap: float = effective_stamina_max(combatant)
 	if cap <= 0.001:
@@ -91,7 +91,7 @@ static func clamp_stamina_to_effective_max(combatant: Dictionary) -> void:
 	combatant["stamina"] = minf(_EntityAccess.stamina_float(combatant, 0.0), cap)
 
 
-## MS-L7: mental stack tunnel —" prefer wait / disengage over new offense.
+## MS-L7: mental stack tunnel --" prefer wait / disengage over new offense.
 ## Fires at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (0.50). The `exhaustion_offense_weight_mult`
 ## function uses the higher **`MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD`** (0.75) for its lerp span,
 ## creating a "winded" zone (0.50-0.75) where offense is partially damped but disengage is preferred by layer presentation.
@@ -105,7 +105,7 @@ static func exhaustion_tunnel_active(combatant: Dictionary) -> bool:
 
 
 ## Gradual offense damp (below tunnel threshold); stacks with salience damp in **`CombatAIActionPicker`**.
-## Extended lerp range: [0.25, 0.75] —" "fatigued" zone ramps down, "winded" (0.50-0.75) still allows offense (~0.675), "exhausted" (>=0.75) floors at damp floor.
+## Extended lerp range: [0.25, 0.75] --" "fatigued" zone ramps down, "winded" (0.50-0.75) still allows offense (~0.675), "exhausted" (>=0.75) floors at damp floor.
 static func exhaustion_offense_weight_mult(combatant: Dictionary) -> float:
 	if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
 		return 1.0
@@ -160,7 +160,7 @@ static func gauge_suffix_text(combatant: Dictionary) -> String:
 
 static func gauge_hint_suffix(combatant: Dictionary) -> String:
 	var text: String = gauge_suffix_text(combatant)
-	return (" · " + text) if not text.is_empty() else ""
+	return (" . " + text) if not text.is_empty() else ""
 
 
 static func stamina_cap_tooltip_line(combatant: Dictionary) -> String:
@@ -169,7 +169,7 @@ static func stamina_cap_tooltip_line(combatant: Dictionary) -> String:
 		return ""
 	var cap_pct: int = int(roundf(cap))
 	return (
-		"Burst max %d — central fatigue and/or blood loss cap stamina (bar max shrinks)."
+		"Burst max %d -- central fatigue and/or blood loss cap stamina (bar max shrinks)."
 		% cap_pct
 	)
 
@@ -182,7 +182,7 @@ static func gauge_tooltip_line(combatant: Dictionary) -> String:
 		return ""
 	var perf_pct: int = int(roundf(performance_mult_for_combatant(combatant) * 100.0))
 	return (
-		"Fight exhaustion %d%% — performance %d%% (slower wind-up, duller parries; rest in WAITING recovers)."
+		"Fight exhaustion %d%% -- performance %d%% (slower wind-up, duller parries; rest in WAITING recovers)."
 		% [int(roundf(ex * 100.0)), perf_pct]
 	)
 
@@ -244,4 +244,3 @@ static func _medical_exertion_gain_mult(manager: Node, combatant: Dictionary) ->
 			mult *= CombatConstants.EXHAUSTION_GAIN_PAIN_SHOCK_MULT
 	return mult
 
-                       

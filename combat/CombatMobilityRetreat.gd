@@ -69,6 +69,7 @@ static func first_disallowed_retreat_only_move_id(actions: Array) -> String:
 				CombatConstants.MOVE_ID_WAIT,
 				CombatConstants.MOVE_ID_FALL_BACK,
 				CombatConstants.MOVE_ID_FLEE,
+				CombatConstants.MOVE_ID_YIELD,
 			],
 			CombatConstants.MEDICAL_MOVE_IDS,
 		]
@@ -85,6 +86,7 @@ static func resolve_move_allowed_when_cannot_melee(
 	return (
 		(move_id == CombatConstants.MOVE_ID_FALL_BACK and target_id == attacker_id)
 		or (move_id == CombatConstants.MOVE_ID_FLEE and target_id == attacker_id)
+		or (move_id == CombatConstants.MOVE_ID_YIELD and target_id == attacker_id)
 	)
 
 

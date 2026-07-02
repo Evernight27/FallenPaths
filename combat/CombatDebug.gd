@@ -8,12 +8,12 @@ const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
 const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 
-## Log tiers: `COMBAT_EVENT_DEBUG` alone Ã¢â ' `flow_log_turn` lists actions + pick. With `COMBAT_EVENT_DEBUG_VERBOSE`,
+## Log tiers: `COMBAT_EVENT_DEBUG` alone --'' ' `flow_log_turn` lists actions + pick. With `COMBAT_EVENT_DEBUG_VERBOSE`,
 ## `get_available_actions` logs the action list once; `flow_log_turn` logs pick + count only (no duplicate list).
 ## `flow_log`: skip_turn, afterblow, close contest, incursion, formation rejects, resolve edge cases.
-## `COMBAT_DEBUG` Ã¢â ' per-hit / armor / wind-up (`CombatDebug.log`, EntityDamage traces).
+## `COMBAT_DEBUG` --'' ' per-hit / armor / wind-up (`CombatDebug.log`, EntityDamage traces).
 ## Unconditional `[Combat]` lines stay for phase boundaries, deaths, and UI-adjacent events (see grep print("[Combat")).
-## Play session (editor F5): **`combat_session`** / **`world_session`** Ã¢â ' `FP_COMBAT` / `FP_WORLD` on stdout (copy Godot Output).
+## Play session (editor F5): **`combat_session`** / **`world_session`** --'' ' `FP_COMBAT` / `FP_WORLD` on stdout (copy Godot Output).
 ## Invariant / logic faults: **`operational_error`** / **`operational_warn`** (`FP_ERROR` / `FP_WARN`; always on).
 ## Conditional combat logging. Only logs when CombatConstants.COMBAT_DEBUG is true.
 ## calibration_log: logs when COMBAT_DEBUG_CALIBRATION is true (alignment, parry_c_d, variance, etc.).
@@ -57,11 +57,11 @@ static func resolve_action_rejected(
 ) -> void:
 	var mid: String = move_id if not move_id.is_empty() else "?"
 	flow_log_event(
-		"resolve_rejected id=%d move=%s — %s" % [attacker_id, mid, reason],
+		"resolve_rejected id=%d move=%s -- %s" % [attacker_id, mid, reason],
 		"resolve_reject:%d:%s" % [attacker_id, reason]
 	)
 	if operational:
-		operational_warn("resolve_rejected id=%d move=%s — %s" % [attacker_id, mid, reason])
+		operational_warn("resolve_rejected id=%d move=%s -- %s" % [attacker_id, mid, reason])
 	if manager != null and manager.has_method("skip_turn"):
 		manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_REJECT, reason)
 
@@ -85,7 +85,7 @@ static func combat_session(msg: String) -> void:
 		print("[Combat] ", msg)
 
 
-## Hemostasis / pressure / dressings —" always `FP_COMBAT` in play session (grep `medical` or `FP_COMBAT`).
+## Hemostasis / pressure / dressings --" always `FP_COMBAT` in play session (grep `medical` or `FP_COMBAT`).
 static func medical_session(msg: String) -> void:
 	var line: String = msg.strip_edges()
 	if _OperationalLog.is_play_session_active() and line == _last_medical_session_line:
@@ -210,11 +210,11 @@ static func _is_non_damage_turn_pick(move_id: String) -> bool:
 ## Short suffix for battle row gauge (non-damaging picks).
 static func turn_pick_kind_suffix(move_id: String) -> String:
 	if move_id.begins_with("focus_"):
-		return " · Focus"
+		return " . Focus"
 	if move_id == CombatConstants.MOVE_ID_WAIT or move_id == "pass":
-		return " · Hold"
+		return " . Hold"
 	if move_id.begins_with(CombatConstants.MOVE_ID_ATTEMPT_CLOSE):
-		return " · Close"
+		return " . Close"
 	return ""
 
 
@@ -348,7 +348,7 @@ static func _depth_polearm_opp_debug_line(
 		return "opp%d eff=%.2f dist=%s reach_ok=%s line_ok=%s threaten=%s" % [
 			oid, eff, dist, reach_ok, line_ok, threaten
 		]
-	return "opp%d eff=%.2f dist=%s reach_ok=%s (no spear lane — geometry only)" % [oid, eff, dist, reach_ok]
+	return "opp%d eff=%.2f dist=%s reach_ok=%s (no spear lane -- geometry only)" % [oid, eff, dist, reach_ok]
 
 
 static func _format_depth_polearm_melee_context_debug(
@@ -403,4 +403,3 @@ static func _format_depth_polearm_melee_context_debug(
 			" ; ".join(bits)
 		]
 	)
-                  

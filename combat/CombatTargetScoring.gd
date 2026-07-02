@@ -1,18 +1,18 @@
 class_name CombatTargetScoring
 extends RefCounted
 
-## Hybrid targeting (AI logic gates only â€”" see `CombatManager.resolve_action` / `TurnReadyHandler`).
+## Hybrid targeting (AI logic gates only '" see `CombatManager.resolve_action` / `TurnReadyHandler`).
 ##
 ## **Data flow (high level):**
-## 1. `CombatManager.start` Ã¢â€ ' `formation_doctrine` defaults; combatants get commitment + close-block dicts.
-## 2. `_recompute_zoc_and_distance` Ã¢â€ ' `CombatDistanceBands` (incl. reach/band alignment) Ã¢â€ ' pair `distance_to`.
-## 3. `get_available_actions` Ã¢â€ ' `AvailableActionsBuilder.build` Ã¢â€ ' `CombatMeleeListing` / formation / medical listing modules (`attempt_close` at LONG, or MID/CLOSE under III-4 **3e** `CombatDoctrine.envelop_close_allowed`; gated by `close_attempt_pair_blocked`; picker weight 0 if stale).
-## 4. `CombatAIActionPicker.pick` Ã¢â€ ' prune once Ã¢â€ ' `ai_targeting_weight_mult(..., skip_prune=true)` (doctrine, file, commitment, pressure, **engagement mode**, our posture+cohesion, **opponent** formation, stance, **incap** defender hedge) Ãƒ -  stamina Ãƒ -  depth-spear move weights (incl. doctrine stab/cut nudge). **`ally_pressure_count`** for rank>0 uses **`CombatMeleeRankTargeting.melee_pair_rank_allowed`** to the committed defender (not **`depth_polearm_lane_open`** alone).
-## 5. `CombatResolveAction` Ã¢â€ ' melee wind-up Ã¢â€ ' `on_combat_commitment`; close Ã¢â€ ' `CombatEngagementResolver` (success Ã¢â€ ' commitment + clear close block; fail Ã¢â€ ' per-target cooldown).
-## 6. `set_formation_doctrine` Ã¢â€ ' clears commitments on that formation (doctrine change); death Ã¢â€ ' `clear_all_targeting_state_for_dead_defender`.
+## 1. `CombatManager.start` --'' `formation_doctrine` defaults; combatants get commitment + close-block dicts.
+## 2. `_recompute_zoc_and_distance` --'' `CombatDistanceBands` (incl. reach/band alignment) --'' pair `distance_to`.
+## 3. `get_available_actions` --'' `AvailableActionsBuilder.build` --'' `CombatMeleeListing` / formation / medical listing modules (`attempt_close` at LONG, or MID/CLOSE under III-4 **3e** `CombatDoctrine.envelop_close_allowed`; gated by `close_attempt_pair_blocked`; picker weight 0 if stale).
+## 4. `CombatAIActionPicker.pick` --'' prune once --'' `ai_targeting_weight_mult(..., skip_prune=true)` (doctrine, file, commitment, pressure, **engagement mode**, our posture+cohesion, **opponent** formation, stance, **incap** defender hedge) -> -  stamina -> -  depth-spear move weights (incl. doctrine stab/cut nudge). **`ally_pressure_count`** for rank>0 uses **`CombatMeleeRankTargeting.melee_pair_rank_allowed`** to the committed defender (not **`depth_polearm_lane_open`** alone).
+## 5. `CombatResolveAction` --'' melee wind-up --'' `on_combat_commitment`; close --'' `CombatEngagementResolver` (success --'' commitment + clear close block; fail --'' per-target cooldown).
+## 6. `set_formation_doctrine` --'' clears commitments on that formation (doctrine change); death --'' `clear_all_targeting_state_for_dead_defender`.
 ##
 ## **Doctrine:** `DOCTRINE_PINCH_CENTER` / `HOLD_LANE` steer **listed** melee/close weights and ordering; `DOCTRINE_PROBING` nudges **depth spear** stab/cut listing weights only.
-## Footing: **`form_ai_targeting_mult`** (L2) scales AI target weights â€”" not **`guard_line`** or PA. LIVE_PATHS **`#wf-pick-vs-strike`**.
+## Footing: **`form_ai_targeting_mult`** (L2) scales AI target weights '" not **`guard_line`** or PA. LIVE_PATHS **`#wf-pick-vs-strike`**.
 
 const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
@@ -21,7 +21,7 @@ const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _Doctrine := preload("res://combat/CombatDoctrine.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
-# Runtime preload â€” circular dependency (CombatMeleeListing preloads CombatTargetScoring).
+# Runtime preload ' circular dependency (CombatMeleeListing preloads CombatTargetScoring).
 static var _melee_listing_cache: Variant = null
 
 static func _get_melee_listing() -> GDScript:
@@ -120,7 +120,7 @@ static func is_melee_file_opposed_priority(
 	return is_file_opposed_rank0_pair(manager, front, opp)
 
 
-## True when no enemy rank 0 is **file-opposed** to this fighterâ€”â„¢s **reference rank-0** (self, or same-file partner if depth polearm lane is open â€”" Tier 1.6 pinch geometry).
+## True when no enemy rank 0 is **file-opposed** to this fighter''''z's **reference rank-0** (self, or same-file partner if depth polearm lane is open '" Tier 1.6 pinch geometry).
 static func wing_lacks_file_opposed(
 	manager: Node, actor: Dictionary, depth_lane_open_cache: Variant = null, zone_geometry_fid: String = ""
 ) -> bool:
@@ -166,7 +166,7 @@ static func _enemy_front_file_center(manager: Node, enemy_side: String) -> float
 	return (float(lo) + float(hi)) * 0.5
 
 
-## Optional **`eff_dist_cache`**: **`effective_pair_geometry` Ã¢â€ ' `eff_dist`** when the caller already computed pair geometry (e.g. **`hostile_pair_targeting_weight_mult`**).
+## Optional **`eff_dist_cache`**: **`effective_pair_geometry` --'' `eff_dist`** when the caller already computed pair geometry (e.g. **`hostile_pair_targeting_weight_mult`**).
 static func soft_geometry_score(
 	manager: Node, actor: Dictionary, opp: Dictionary, eff_dist_cache: Variant = null
 ) -> float:
@@ -280,7 +280,7 @@ static func commitment_match_mult(actor: Dictionary, target_id: int) -> float:
 	return 1.0
 
 
-## Tier 1.6 (P7): LINE posture scales with cohesion (ragged Ã¢â€ ' slightly lower listed-target weights; solid Ã¢â€ ' slight commit). OPEN/DUEL: looser cohesion Ã¢â€ ' small aggression nudge.
+## Tier 1.6 (P7): LINE posture scales with cohesion (ragged --'' slightly lower listed-target weights; solid --'' slight commit). OPEN/DUEL: looser cohesion --'' small aggression nudge.
 ## Intruders: uses host-line formation via **`formation_for_combatant_cached`** (cohesion/posture match tactical position).
 ## Optional **`formation_dict_cache`**: **`zone_geometry_line_context(manager, actor).formation`** when the caller already resolved it (e.g. **`hostile_pair_targeting_weight_mult`**).
 static func posture_cohesion_targeting_mult(
@@ -320,7 +320,7 @@ static func engagement_mode_targeting_mult(manager: Node) -> float:
 			return CombatConstants.AI_TARGETING_ENGAGEMENT_MODE_SKIRMISH_MULT
 
 
-## Tier 1.6 breadth: listed hostile weight vs **target** formation `engagement_posture` + `line_cohesion` (enemy LINE wall solid Ã¢â€ ' slight hedge; OPEN/DUEL Ã¢â€ ' small press).
+## Tier 1.6 breadth: listed hostile weight vs **target** formation `engagement_posture` + `line_cohesion` (enemy LINE wall solid --'' slight hedge; OPEN/DUEL --'' small press).
 ## Uses **`formation_for_combatant_cached`** (home-line **`formation_id`**).
 ## Optional **`formation_dict_cache`**: **`zone_geometry_line_context(manager, opp).formation`** when the caller already resolved it (e.g. hostile pair path).
 static func opponent_formation_targeting_mult(
@@ -375,7 +375,7 @@ static func targets_hostile_for_scoring(move_id: String) -> bool:
 	return true
 
 
-## Tier 1.6: same multipliers as hostile `ai_targeting_weight_mult` rows, for a fixed attackerâ€”"opponent pair (listing order, AI weights, tests; engagement mode + opponent formation).
+## Tier 1.6: same multipliers as hostile `ai_targeting_weight_mult` rows, for a fixed attacker'"opponent pair (listing order, AI weights, tests; engagement mode + opponent formation).
 ## `cached_engagement_mode_targeting_mult`: pass a float from `engagement_mode_targeting_mult(manager)` when sorting many opponents (avoids repeated mode snapshots); default **null** recomputes.
 ## Optional **`actor_zone_geometry_line_context`**: reuse **`zone_geometry_line_context(manager, atk)`** when scoring many opponents (listing sort).
 ## Optional **`opponent_zone_geometry_line_context`**: reuse per-id cache from **`zone_geometry_line_context_by_combatant_id`** (avoids home-roster **`formation_for_combatant_cached`** on the defender).
@@ -437,7 +437,7 @@ static func hostile_pair_targeting_weight_mult(
 
 
 ## Extra weight for AI pick only (player UI unchanged).
-## `skip_prune`: when **true**, skip `prune_expired_commitments` (caller already pruned â€”" e.g. `CombatAIActionPicker.pick`).
+## `skip_prune`: when **true**, skip `prune_expired_commitments` (caller already pruned '" e.g. `CombatAIActionPicker.pick`).
 ## Optional zone caches: same as **`hostile_pair_targeting_weight_mult`** ( **`CombatAIActionPicker.pick_weighted`** passes both).
 static func ai_targeting_weight_mult(
 	manager: Node,
@@ -469,7 +469,7 @@ static func ai_targeting_weight_mult(
 	)
 
 
-## (A) Order rank-line opponents: file-opposed first, then `hostile_pair_targeting_weight_mult` (geometry, doctrine, commitment, pressure, engagement mode, posture, opponent formation, stance â€”" Tier 1.6).
+## (A) Order rank-line opponents: file-opposed first, then `hostile_pair_targeting_weight_mult` (geometry, doctrine, commitment, pressure, engagement mode, posture, opponent formation, stance '" Tier 1.6).
 static func ordered_melee_opponents(
 	manager: Node,
 	actor: Dictionary,

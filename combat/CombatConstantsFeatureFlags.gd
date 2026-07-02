@@ -1,6 +1,10 @@
 class_name CombatConstantsFeatureFlags
 extends RefCounted
 
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _Distance := preload("res://combat/CombatConstantsDistance.gd")
+const _Parry := preload("res://combat/CombatConstantsParry.gd")
+
 ## Tier 4.3 combat attention (default on; harness may toggle).
 static var _feature_combat_attention_enabled: bool = true
 
@@ -111,7 +115,7 @@ static func set_feature_position_angle_footwork_load(enabled: bool) -> void:
 	_feature_position_angle_footwork_enabled = enabled
 
 ## Phase D: sector-weighted surround load vs integer-only threat count (Tier 3.1).
-## Default **true** (sector `surround_threat_weight_sum` + `1/(1+k·excess)`). **`set_feature_sector_surround_load(false)`** for integer `surround_threat_count` regression / compare.
+## Default **true** (sector `surround_threat_weight_sum` + `1/(1+k.excess)`). **`set_feature_sector_surround_load(false)`** for integer `surround_threat_count` regression / compare.
 static var _feature_sector_surround_load: bool = true
 ## First `SURROUND_SECTOR_LOAD_FREE` units of summed threat weight incur no surround split (one primary engagement axis).
 const SURROUND_SECTOR_LOAD_FREE := 1.0
@@ -175,7 +179,7 @@ const SURROUND_ARC_BLOCKED_THREAT_WEIGHT_MULT := 0.35
 static func is_feature_surround_arc_occupancy_enabled() -> bool:
 	return FEATURE_SURROUND_ARC_OCCUPANCY
 
-## Tier 0 pilot: overlapping melee wind-ups on one defender —" parry only the highest-threat attacker.
+## Tier 0 pilot: overlapping melee wind-ups on one defender --" parry only the highest-threat attacker.
 ## Tier 6.1: sustained high pain rolls for pain shock during combat ticks (see **`EntityPainConsciousness.try_ambient_pain_shock_tick`**).
 const FEATURE_AMBIENT_PAIN_SHOCK := true
 static var _feature_ambient_pain_shock: bool = FEATURE_AMBIENT_PAIN_SHOCK
@@ -205,10 +209,10 @@ static func set_feature_armor_burden_load(enabled: bool) -> void:
 static func armor_burden_mass_ratio_for_combatant(combatant: Dictionary) -> float:
 	if combatant.is_empty():
 		return 0.0
-	var node: Node = CombatConstants._get_entity_access().scene_node(combatant)
+	var node: Node = _EntityAccess.scene_node(combatant)
 	if node == null:
 		return 0.0
-	var mass_kg: float = CombatConstants._get_entity_access().get_total_armor_mass_kg_from_node(node)
+	var mass_kg: float = _EntityAccess.get_total_armor_mass_kg_from_node(node)
 	return clampf(mass_kg / FORMATION_ARMOR_MASS_REF_KG, 0.0, 1.5)
 
 static func armor_burden_action_ready_mult(combatant: Dictionary) -> float:
@@ -239,23 +243,23 @@ static func set_feature_initiative_order_load(enabled: bool) -> void:
 static func initiative_score_for_combatant(combatant: Dictionary) -> float:
 	if combatant.is_empty():
 		return 0.0
-	var stats: Dictionary = CombatConstants._get_entity_access().stats_dict(combatant)
+	var stats: Dictionary = _EntityAccess.stats_dict(combatant)
 	var agi: float = stats.get("agility", 100)
 	var perc: float = stats.get("perception", 100)
-	var rank_factor: float = maxf(0.65, 1.2 - float(CombatConstants._get_entity_access().rank_int(combatant)) * 0.18)
+	var rank_factor: float = maxf(0.65, 1.2 - float(_EntityAccess.rank_int(combatant)) * 0.18)
 	var armor_factor: float = 1.0 / maxf(0.01, armor_burden_action_ready_mult(combatant))
-	return CombatConstants.stats_factor_agi_perc(agi, perc) * rank_factor * armor_factor
+	return _Parry.stats_factor_agi_perc(agi, perc) * rank_factor * armor_factor
 
 static func compare_combatants_for_initiative_order(a: Dictionary, b: Dictionary) -> bool:
 	var sa: float = initiative_score_for_combatant(a)
 	var sb: float = initiative_score_for_combatant(b)
 	if sa != sb:
 		return sa > sb
-	var agi_a: int = int(CombatConstants._get_entity_access().stats_dict(a).get("agility", 100))
-	var agi_b: int = int(CombatConstants._get_entity_access().stats_dict(b).get("agility", 100))
+	var agi_a: int = int(_EntityAccess.stats_dict(a).get("agility", 100))
+	var agi_b: int = int(_EntityAccess.stats_dict(b).get("agility", 100))
 	if agi_a != agi_b:
 		return agi_a > agi_b
-	return CombatConstants._get_entity_access().id_int(a) < CombatConstants._get_entity_access().id_int(b)
+	return _EntityAccess.id_int(a) < _EntityAccess.id_int(b)
 
 ## IV-9: gap-column slot topology.
 const FEATURE_GAP_COLUMN_TOPOLOGY := false
@@ -402,9 +406,9 @@ static func set_feature_t44_spatial_band_pa_load(enabled: bool) -> void:
 
 static func t44_spatial_band_pa_magnitude_mult(band: String) -> float:
 	match str(band):
-		CombatConstants.DISTANCE_CLOSE:
+		_Distance.DISTANCE_CLOSE:
 			return T44_SPATIAL_BAND_PA_MULT_CLOSE
-		CombatConstants.DISTANCE_LONG:
+		_Distance.DISTANCE_LONG:
 			return T44_SPATIAL_BAND_PA_MULT_LONG
 		_:
 			return T44_SPATIAL_BAND_PA_MULT_MID
@@ -481,7 +485,7 @@ const FEATURE_AUTOMATIC_DOCTRINE := true
 const FEATURE_JOULE_ARMOR_BUDGET := true
 ## Dev: re-equip back ranks with SPEAR after start for polearm debugging.
 const DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT := false
-## Fight exhaustion index —" exhaustion_performance_mult gates (Stamina sub-module).
+## Fight exhaustion index --" exhaustion_performance_mult gates (Stamina sub-module).
 const FEATURE_FIGHT_EXHAUSTION_INDEX := true
 static var _feature_fight_exhaustion_index: bool = FEATURE_FIGHT_EXHAUSTION_INDEX
 

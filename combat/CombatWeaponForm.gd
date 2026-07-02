@@ -43,245 +43,38 @@ const FORM_WALL := "wall"
 const FORM_TEMPEST := "tempest"
 const FORM_BALANCED := "balanced"
 
-static var _FORM_DEFS: Dictionary = {}
+const _FormDefs := preload("res://combat/CombatWeaponFormDefs.gd")
+
+const FORM_AXE_DEMI := "demi_hache"
+const FORM_AXE_BEC := "bec_point"
+const FORM_AXE_QUEUE := "queue_bind"
+const FORM_MACE_CROWN := "crown_guard"
+const FORM_MACE_FLANK := "flank_guard"
+const FORM_DAGGER_HIGH := "high_hut"
+const FORM_DAGGER_LOW := "low_bind"
+const FORM_DAGGER_REVERSE := "reverse_seize"
+const FORM_SPEAR_IRON := "iron_gate"
+const FORM_SPEAR_CROSS := "true_cross"
+const FORM_SPEAR_PORT := "high_port"
+
+static var _FORM_DEFS_BY_WEAPON: Dictionary = {}
 
 
 static func _ensure_defs() -> void:
-	if not _FORM_DEFS.is_empty():
+	if not _FORM_DEFS_BY_WEAPON.is_empty():
 		return
-	_FORM_DEFS = {
-		FORM_WALL: {
-			"display_name": "Wall",
-			"home_guard": "high",
-			"preferred_guards": PackedStringArray(["high", "high_right", "high_left"]),
-			"pressure_class": "defensive",
-			"min_stamina_ratio": 0.18,
-			"wait_weight_mult": 1.35,
-			"mod": {
-				"parry": 1.2,
-				"evasion": 1.15,
-				"damage": 0.85,
-				"close_attempt": 0.9,
-				"ai_melee_focus": 0.92,
-				"feint_readthrough": 1.06,
-				"ai_feint_listing": 0.94,
-			},
-			"move_family_mult": {
-				"thrust": 1.0,
-				"high_cut": 0.88,
-				"low_cut": 0.9,
-				"slash": 0.75,
-				"feint": 0.8,
-				"parry": 1.15,
-				"close": 0.85,
-			},
-			"signature": {
-				"move_ids": {"thrust": 0.85, "oberhau": 0.7},
-				"contact_types": {"stab": 0.9, "cut": 0.75},
-				"lines": {"high": 1.0, "high_right": 0.85},
-				"feint_bias": 0.35,
-			},
-			"counters": {
-				FORM_WRATH: {"mult": 1.1, "families": ["parry", "feint"]},
-				FORM_TEMPEST: {"mult": 1.08, "families": ["parry"]},
-			},
-		},
-		FORM_BALANCED: {
-			"display_name": "Balanced",
-			"home_guard": "high",
-			"preferred_guards": PackedStringArray(["high"]),
-			"pressure_class": "neutral",
-			"min_stamina_ratio": 0.22,
-			"wait_weight_mult": 1.0,
-			"mod": _neutral_mod(),
-			"move_family_mult": {},
-			"signature": {
-				"move_ids": {},
-				"contact_types": {},
-				"lines": {"high": 0.35},
-				"feint_bias": 0.1,
-			},
-		},
-		FORM_WRATH: {
-			"display_name": "Wrath",
-			"home_guard": "high_left",
-			"preferred_guards": PackedStringArray(["high_left", "high_right"]),
-			"pressure_class": "aggressive",
-			"min_stamina_ratio": 0.28,
-			"wait_weight_mult": 0.85,
-			"mod": {
-				"parry": 0.8,
-				"evasion": 0.85,
-				"damage": 1.2,
-				"close_attempt": 1.1,
-				"ai_melee_focus": 1.1,
-				"feint_readthrough": 0.95,
-				"ai_feint_listing": 1.02,
-			},
-			"move_family_mult": {
-				"thrust": 0.9,
-				"high_cut": 1.18,
-				"low_cut": 1.05,
-				"slash": 1.08,
-				"feint": 1.0,
-				"parry": 0.92,
-				"close": 1.1,
-			},
-			"signature": {
-				"move_ids": {"oberhau": 1.2, "slash": 1.0, "unterhau": 0.85, "quick_slash": 0.9},
-				"contact_types": {"cut": 1.0},
-				"lines": {"high": 0.9, "high_left": 0.75, "high_right": 0.7},
-				"feint_bias": 0.12,
-			},
-			"counters": {
-				FORM_PLOW: {"mult": 1.1, "families": ["high_cut", "slash"]},
-				FORM_FOOL: {"mult": 1.06, "families": ["high_cut"]},
-			},
-		},
-		FORM_FOOL: {
-			"display_name": "Fool",
-			"home_guard": "low_left",
-			"preferred_guards": PackedStringArray(["low_left", "low"]),
-			"pressure_class": "controlling",
-			"min_stamina_ratio": 0.24,
-			"wait_weight_mult": 0.95,
-			"mod": {
-				"parry": 1.0,
-				"evasion": 1.0,
-				"damage": 0.95,
-				"close_attempt": 1.0,
-				"ai_melee_focus": 0.98,
-				"feint_readthrough": 1.04,
-				"ai_feint_listing": 1.06,
-			},
-			"move_family_mult": {
-				"thrust": 0.95,
-				"high_cut": 0.92,
-				"low_cut": 1.1,
-				"slash": 0.95,
-				"feint": 1.25,
-				"parry": 1.02,
-				"close": 1.0,
-			},
-			"signature": {
-				"move_ids": {"oberhau_feint": 1.25, "thrust_feint": 1.2, "unterhau_feint": 1.1},
-				"contact_types": {"cut": 0.55},
-				"lines": {"low": 0.75, "low_left": 0.85},
-				"feint_bias": 1.45,
-			},
-			"counters": {
-				FORM_OX: {"mult": 1.12, "families": ["feint", "thrust", "low_cut"]},
-				FORM_WRATH: {"mult": 1.06, "families": ["feint"]},
-			},
-		},
-		FORM_OX: {
-			"display_name": "Ox",
-			"home_guard": "high_right",
-			"preferred_guards": PackedStringArray(["high_right", "high"]),
-			"pressure_class": "neutral",
-			"min_stamina_ratio": 0.2,
-			"wait_weight_mult": 1.0,
-			"mod": {
-				"parry": 1.08,
-				"evasion": 1.04,
-				"damage": 1.04,
-				"close_attempt": 1.0,
-				"ai_melee_focus": 1.02,
-				"feint_readthrough": 1.02,
-				"ai_feint_listing": 0.98,
-			},
-			"move_family_mult": {
-				"thrust": 1.15,
-				"high_cut": 0.95,
-				"low_cut": 0.85,
-				"slash": 0.95,
-				"feint": 0.95,
-				"parry": 1.08,
-				"close": 1.0,
-			},
-			"signature": {
-				"move_ids": {"thrust": 1.25, "spear_thrust": 1.15, "oberhau": 0.65},
-				"contact_types": {"stab": 1.2, "cut": 0.55},
-				"lines": {"high_right": 0.85, "high": 0.65},
-				"feint_bias": 0.08,
-			},
-			"counters": {
-				FORM_FOOL: {"mult": 1.1, "families": ["thrust"]},
-				FORM_TEMPEST: {"mult": 1.08, "families": ["thrust", "parry"]},
-			},
-		},
-		FORM_PLOW: {
-			"display_name": "Plow",
-			"home_guard": "low",
-			"preferred_guards": PackedStringArray(["low", "high"]),
-			"pressure_class": "neutral",
-			"min_stamina_ratio": 0.22,
-			"wait_weight_mult": 1.0,
-			"mod": {
-				"parry": 1.14,
-				"evasion": 1.06,
-				"damage": 0.96,
-				"close_attempt": 0.94,
-				"ai_melee_focus": 0.94,
-				"feint_readthrough": 1.04,
-				"ai_feint_listing": 0.96,
-			},
-			"move_family_mult": {
-				"thrust": 1.2,
-				"high_cut": 0.88,
-				"low_cut": 0.95,
-				"slash": 0.9,
-				"feint": 0.92,
-				"parry": 1.1,
-				"close": 0.95,
-			},
-			"signature": {
-				"move_ids": {"thrust": 1.3, "spear_thrust": 1.2},
-				"contact_types": {"stab": 1.25},
-				"lines": {"low": 0.8, "high": 0.55},
-				"feint_bias": 0.06,
-			},
-			"counters": {
-				FORM_WRATH: {"mult": 1.08, "families": ["thrust", "high_cut"]},
-			},
-		},
-		FORM_TEMPEST: {
-			"display_name": "Tempest",
-			"home_guard": "left",
-			"preferred_guards": PackedStringArray(["left", "right"]),
-			"pressure_class": "aggressive",
-			"min_stamina_ratio": 0.26,
-			"wait_weight_mult": 0.9,
-			"mod": {
-				"parry": 0.84,
-				"evasion": 0.88,
-				"damage": 1.18,
-				"close_attempt": 1.08,
-				"ai_melee_focus": 1.08,
-				"feint_readthrough": 0.94,
-				"ai_feint_listing": 1.04,
-			},
-			"move_family_mult": {
-				"thrust": 0.92,
-				"high_cut": 1.12,
-				"low_cut": 1.0,
-				"slash": 1.2,
-				"feint": 1.05,
-				"parry": 0.9,
-				"close": 1.05,
-			},
-			"signature": {
-				"move_ids": {"slash": 1.2, "quick_slash": 1.15, "oberhau": 0.95},
-				"contact_types": {"cut": 1.05},
-				"lines": {"left": 0.85, "right": 0.85, "high": 0.6},
-				"feint_bias": 0.18,
-			},
-			"counters": {
-				FORM_WALL: {"mult": 1.1, "families": ["slash", "high_cut"]},
-				FORM_OX: {"mult": 1.06, "families": ["slash"]},
-			},
-		},
-	}
+	_FORM_DEFS_BY_WEAPON = _FormDefs.build_all()
+
+
+static func _weapon_key(weapon: Variant) -> String:
+	if weapon is String:
+		var sid: String = str(weapon).strip_edges().to_upper()
+		if not sid.is_empty():
+			return sid
+	var wid: String = _WeaponConstants.weapon_type_id(weapon)
+	if wid.is_empty():
+		return "SWORD"
+	return wid
 
 
 static func _neutral_mod() -> Dictionary:
@@ -296,78 +89,177 @@ static func _neutral_mod() -> Dictionary:
 	}
 
 
-static func _def(form: String) -> Dictionary:
+static func _def(form: String, weapon: Variant = null) -> Dictionary:
 	_ensure_defs()
-	return _FORM_DEFS.get(normalize_form(form), _FORM_DEFS[FORM_BALANCED]) as Dictionary
+	var fid: String = _normalize_form_id(raw_form(form, weapon), weapon)
+	var wid: String = _weapon_key(weapon) if weapon != null else ""
+	if wid.is_empty():
+		for wkey in _FORM_DEFS_BY_WEAPON.keys():
+			var bucket: Variant = _FORM_DEFS_BY_WEAPON[wkey]
+			if bucket is Dictionary and (bucket as Dictionary).has(fid):
+				return (bucket as Dictionary)[fid] as Dictionary
+		wid = "SWORD"
+	var bucket2: Variant = _FORM_DEFS_BY_WEAPON.get(wid, null)
+	if bucket2 is not Dictionary:
+		return (_FORM_DEFS_BY_WEAPON.get("SWORD", {}) as Dictionary).get(FORM_BALANCED, {}) as Dictionary
+	var defs: Dictionary = bucket2 as Dictionary
+	if defs.has(fid):
+		return defs[fid] as Dictionary
+	return defs.get(FORM_BALANCED, {}) as Dictionary
 
 
-static func normalize_form(raw: String) -> String:
+static func raw_form(raw: String, weapon: Variant = null) -> String:
 	var s: String = str(raw).strip_edges().to_lower()
+	if s.is_empty():
+		return FORM_BALANCED
+	if weapon != null:
+		s = _WeaponConstants.resolve_form_legacy_alias(weapon, s)
 	match s:
-		"defensive", FORM_WALL:
+		"defensive":
 			return FORM_WALL
-		"aggressive", FORM_WRATH:
+		"aggressive":
+			if weapon != null:
+				return _WeaponConstants.resolve_form_legacy_alias(weapon, "wrath")
 			return FORM_WRATH
-		"controlling", FORM_FOOL:
+		"controlling":
+			if weapon != null:
+				return _WeaponConstants.resolve_form_legacy_alias(weapon, "fool")
 			return FORM_FOOL
-		FORM_OX, FORM_PLOW, FORM_TEMPEST, FORM_BALANCED:
-			return s
 		_:
-			return FORM_BALANCED
+			return s
+
+
+static func _normalize_form_id(s: String, weapon: Variant = null) -> String:
+	if s.is_empty():
+		return FORM_BALANCED
+	if weapon != null:
+		var allowed: Array = _WeaponConstants.allowed_forms_for_weapon(weapon)
+		if not allowed.is_empty() and s not in allowed:
+			return raw_form(_WeaponConstants.default_form_for_weapon(weapon), weapon)
+	return s
+
+
+static func normalize_form(raw: String, weapon: Variant = null) -> String:
+	return _normalize_form_id(raw_form(raw, weapon), weapon)
 
 
 static func form_allowed_for_weapon(form: String, weapon: Variant) -> bool:
-	var fid: String = normalize_form(form)
+	var fid: String = raw_form(form, weapon)
 	var allowed: Array = _WeaponConstants.allowed_forms_for_weapon(weapon)
 	return allowed.is_empty() or fid in allowed
 
 
 static func default_form_for_weapon(weapon: Variant) -> String:
-	return normalize_form(_WeaponConstants.default_form_for_weapon(weapon))
+	return normalize_form(_WeaponConstants.default_form_for_weapon(weapon), weapon)
 
 
-static func home_guard_line(form: String) -> String:
-	var d: Dictionary = _def(form)
+static func home_guard_line(form: String, weapon: Variant = null) -> String:
+	var d: Dictionary = _def(form, weapon)
 	return str(d.get("home_guard", _CombatConstants.GUARD_DEFAULT))
 
 
-static func preferred_guards(form: String) -> PackedStringArray:
-	var d: Dictionary = _def(form)
+static func preferred_guards(form: String, weapon: Variant = null) -> PackedStringArray:
+	var d: Dictionary = _def(form, weapon)
 	var raw: Variant = d.get("preferred_guards", PackedStringArray())
 	if raw is PackedStringArray:
 		return raw
 	return PackedStringArray()
 
 
-static func mod(form: String, effect: String) -> float:
-	var d: Dictionary = _def(form)
+## Stance limb bias for AI target pick (multiplies per-part weights; 1.0 = neutral).
+static func target_part_weight_mult(
+	form: String, part: String, form_prof_tier: float = -1.0, weapon: Variant = null
+) -> float:
+	var bias: Variant = _def(form, weapon).get("target_part_bias", {})
+	var base: float = 1.0
+	if bias is Dictionary:
+		base = float((bias as Dictionary).get(part, 1.0))
+	if base == 1.0:
+		return 1.0
+	if form_prof_tier < 0.0:
+		return base
+	return lerpf(1.0, base, 0.5 + clampf(form_prof_tier, 0.0, 1.0) * 0.5)
+
+
+## Move-family limb bias (links Layer A occurrence posture to Layer B aim).
+static func move_family_part_weight_mult(
+	form: String, move_id: String, part: String, weapon: Variant = null
+) -> float:
+	var family: String = _move_family_for_move_id(move_id)
+	if family.is_empty():
+		return 1.0
+	var fam_bias: Variant = _def(form, weapon).get("move_family_part_bias", {})
+	if fam_bias is not Dictionary:
+		return 1.0
+	var row: Variant = (fam_bias as Dictionary).get(family, null)
+	if row is Dictionary:
+		return float((row as Dictionary).get(part, 1.0))
+	return 1.0
+
+
+static func _form_ids_for_weapon(weapon: Variant) -> Array:
+	_ensure_defs()
+	var bucket: Variant = _FORM_DEFS_BY_WEAPON.get(_weapon_key(weapon), null)
+	if bucket is Dictionary:
+		return (bucket as Dictionary).keys()
+	return []
+
+
+static func _defensive_form_for_weapon(weapon: Variant) -> String:
+	if form_allowed_for_weapon(FORM_WALL, weapon):
+		return FORM_WALL
+	for fid in _form_ids_for_weapon(weapon):
+		if pressure_class_is(str(fid), "defensive", weapon):
+			return normalize_form(str(fid), weapon)
+	return ""
+
+
+static func _duel_offense_form_ids(weapon: Variant) -> PackedStringArray:
+	_ensure_defs()
+	var seen: Dictionary = {}
+	var out: PackedStringArray = PackedStringArray()
+	for fid in _form_ids_for_weapon(weapon):
+		var row: Variant = _def(str(fid), weapon).get("duel_offense_forms", PackedStringArray())
+		if row is PackedStringArray:
+			for d in row:
+				var s: String = str(d)
+				if s.is_empty() or seen.has(s):
+					continue
+				seen[s] = true
+				out.append(s)
+	return out
+
+
+static func mod(form: String, effect: String, weapon: Variant = null) -> float:
+	var d: Dictionary = _def(form, weapon)
 	var m: Dictionary = d.get("mod", {}) as Dictionary
 	return m.get(effect, 1.0)
 
 
-static func display_name(form: String) -> String:
-	return str(_def(form).get("display_name", "Balanced"))
+static func display_name(form: String, weapon: Variant = null) -> String:
+	return str(_def(form, weapon).get("display_name", "Balanced"))
 
 
 static func form_ai_targeting_mult(actor: Dictionary) -> float:
 	if actor.is_empty():
 		return 1.0
-	return mod(_EntityAccess.form_str(actor), "ai_melee_focus")
+	return mod(_EntityAccess.form_str(actor), "ai_melee_focus", _EntityAccess.get_weapon(actor))
 
 
-static func pressure_class(form: String) -> String:
-	return str(_def(form).get("pressure_class", "neutral"))
+static func pressure_class(form: String, weapon: Variant = null) -> String:
+	return str(_def(form, weapon).get("pressure_class", "neutral"))
 
 
-static func pressure_class_is(form: String, class_id: String) -> bool:
-	return pressure_class(form) == str(class_id).strip_edges().to_lower()
+static func pressure_class_is(form: String, class_id: String, weapon: Variant = null) -> bool:
+	return pressure_class(form, weapon) == str(class_id).strip_edges().to_lower()
 
 
 static func controlling_pressure_active(c: Dictionary) -> bool:
 	if c.is_empty():
 		return false
+	var weapon = _EntityAccess.get_weapon(c)
 	var form: String = _EntityAccess.form_str(c)
-	if not pressure_class_is(form, "controlling"):
+	if not pressure_class_is(form, "controlling", weapon):
 		return false
 	return (
 		_EntityAccess.stamina_ratio(c)
@@ -379,7 +271,7 @@ static func controlling_pressure_active(c: Dictionary) -> bool:
 static func pressure_class_label_for_ui(c: Dictionary) -> String:
 	if c.is_empty():
 		return ""
-	var pressure: String = pressure_class(_EntityAccess.form_str(c))
+	var pressure: String = pressure_class(_EntityAccess.form_str(c), _EntityAccess.get_weapon(c))
 	if pressure.is_empty() or pressure == "neutral":
 		return ""
 	if pressure == "controlling" and not controlling_pressure_active(c):
@@ -413,12 +305,12 @@ static func opponent_close_listing_weight_mult_for_defender(c: Dictionary) -> fl
 	return opponent_close_listing_weight_mult(_EntityAccess.form_str(c))
 
 
-static func min_stamina_ratio_for_form(form: String) -> float:
-	return _def(form).get("min_stamina_ratio", 0.22)
+static func min_stamina_ratio_for_form(form: String, weapon: Variant = null) -> float:
+	return _def(form, weapon).get("min_stamina_ratio", 0.22)
 
 
-static func wait_action_weight_mult(form: String) -> float:
-	return _def(form).get("wait_weight_mult", 1.0)
+static func wait_action_weight_mult(form: String, weapon: Variant = null) -> float:
+	return _def(form, weapon).get("wait_weight_mult", 1.0)
 
 
 static func _move_family_for_move_id(move_id: String) -> String:
@@ -443,34 +335,45 @@ static func _move_family_for_move_id(move_id: String) -> String:
 	return ""
 
 
-static func action_weight_mult(form: String, move_id: String) -> float:
+static func action_weight_mult(form: String, move_id: String, weapon: Variant = null) -> float:
 	var family: String = _move_family_for_move_id(move_id)
 	if family.is_empty():
 		return 1.0
-	var d: Dictionary = _def(form)
+	var d: Dictionary = _def(form, weapon)
 	var fam: Dictionary = d.get("move_family_mult", {}) as Dictionary
-	return fam.get(family, 1.0)
+	var base: float = fam.get(family, 1.0)
+	var move_row: Variant = d.get("move_id_mult", {})
+	if move_row is Dictionary:
+		base *= float((move_row as Dictionary).get(move_id, 1.0))
+	return base
 
 
 static func wind_up_transition_mult(
-	form: String, _move_id: String, guard_line: String, attack_line: String
+	form: String,
+	_move_id: String,
+	guard_line: String,
+	attack_line: String,
+	weapon: Variant = null
 ) -> float:
-	var home: String = home_guard_line(form)
+	var home: String = home_guard_line(form, weapon)
 	if home.is_empty() or attack_line.is_empty():
 		return 1.0
 	if guard_line == home and attack_line == home:
 		return 0.88
-	for pg in preferred_guards(form):
+	for pg in preferred_guards(form, weapon):
 		if pg == attack_line and (guard_line == pg or guard_line == home):
 			return 0.92
 	return 1.0
 
 
-static func _counter_spec_for_inferred(my_form: String, inferred_opp: String) -> Dictionary:
-	var opp: String = normalize_form(inferred_opp)
+static func _counter_spec_for_inferred(
+	my_form: String, inferred_opp: String, weapon: Variant = null
+) -> Dictionary:
+	var mine: String = normalize_form(my_form, weapon)
+	var opp: String = str(inferred_opp).strip_edges().to_lower()
 	if opp.is_empty():
 		return {"mult": 1.0, "families": PackedStringArray()}
-	var raw: Variant = (_def(my_form).get("counters", {}) as Dictionary).get(opp, null)
+	var raw: Variant = (_def(mine, weapon).get("counters", {}) as Dictionary).get(opp, null)
 	if raw is float or raw is int:
 		return {"mult": float(raw), "families": PackedStringArray()}
 	if raw is Dictionary:
@@ -494,10 +397,12 @@ static func _coerce_string_array(raw: Variant) -> PackedStringArray:
 
 
 ## WF-2b: picker boost when **`my_form`** counters inferred opponent habit for this **`move_id`** family.
-static func form_counter_mult(my_form: String, inferred_opp_form: String, move_id: String) -> float:
+static func form_counter_mult(
+	my_form: String, inferred_opp_form: String, move_id: String, weapon: Variant = null
+) -> float:
 	if inferred_opp_form.is_empty() or move_id.is_empty():
 		return 1.0
-	var spec: Dictionary = _counter_spec_for_inferred(normalize_form(my_form), inferred_opp_form)
+	var spec: Dictionary = _counter_spec_for_inferred(my_form, inferred_opp_form, weapon)
 	var mult: float = spec.get("mult", 1.0)
 	if mult <= 1.0:
 		return 1.0
@@ -510,10 +415,12 @@ static func form_counter_mult(my_form: String, inferred_opp_form: String, move_i
 
 
 ## WF-2b: optional defense bump when defender form counters inferred attacker form.
-static func counter_readiness_nudge(my_form: String, inferred_opp_form: String) -> float:
+static func counter_readiness_nudge(
+	my_form: String, inferred_opp_form: String, weapon: Variant = null
+) -> float:
 	if inferred_opp_form.is_empty():
 		return 0.0
-	var mult: float = _counter_spec_for_inferred(normalize_form(my_form), inferred_opp_form).get("mult", 1.0)
+	var mult: float = _counter_spec_for_inferred(my_form, inferred_opp_form, weapon).get("mult", 1.0)
 	if mult <= 1.0:
 		return 0.0
 	var t: float = clampf(
@@ -528,8 +435,8 @@ static func counter_readiness_nudge(my_form: String, inferred_opp_form: String) 
 	)
 
 
-static func _signature_score_for_entry(form: String, entry: Dictionary) -> float:
-	var sig: Dictionary = _def(form).get("signature", {}) as Dictionary
+static func _signature_score_for_entry(form: String, entry: Dictionary, weapon: Variant = null) -> float:
+	var sig: Dictionary = _def(form, weapon).get("signature", {}) as Dictionary
 	if sig.is_empty() or entry.is_empty():
 		return 0.0
 	var score: float = 0.0
@@ -558,7 +465,7 @@ static func _signature_score_for_entry(form: String, entry: Dictionary) -> float
 	return score
 
 
-static func infer_opponent_form(_manager: Node, observer: Dictionary, opponent_id: int) -> String:
+static func infer_opponent_form(manager: Node, observer: Dictionary, opponent_id: int) -> String:
 	if observer == null or observer.is_empty() or opponent_id < 0:
 		return ""
 	if not _get_attention().enabled():
@@ -567,13 +474,15 @@ static func infer_opponent_form(_manager: Node, observer: Dictionary, opponent_i
 	var total_obs: int = _get_attention().yomi_observation_total(entry)
 	if total_obs < _CombatConstants.WF_YOMI_FORM_INFERENCE_MIN_OBS:
 		return ""
+	var opp_c: Dictionary = _EntityAccess.manager_get_combatant(manager, opponent_id)
+	var opp_weapon: Variant = _EntityAccess.get_weapon(opp_c) if not opp_c.is_empty() else null
 	_ensure_defs()
 	var best_form: String = ""
 	var best_score: float = -1.0
 	var second_score: float = -1.0
-	for raw_form in _FORM_DEFS.keys():
+	for raw_form in _form_ids_for_weapon(opp_weapon):
 		var fid: String = str(raw_form)
-		var s: float = _signature_score_for_entry(fid, entry)
+		var s: float = _signature_score_for_entry(fid, entry, opp_weapon)
 		if s > best_score:
 			second_score = best_score
 			best_score = s
@@ -586,7 +495,7 @@ static func infer_opponent_form(_manager: Node, observer: Dictionary, opponent_i
 		second_score = 0.0
 	if (best_score - second_score) < _CombatConstants.WF_YOMI_FORM_INFERENCE_MARGIN:
 		return ""
-	return normalize_form(best_form)
+	return normalize_form(best_form, opp_weapon)
 
 
 ## WF-2a: cache inferred opponent forms on observer (waiting-tick refresh).
@@ -619,8 +528,8 @@ static func refresh_inferred_forms_for_observer(manager: Node, observer: Diction
 
 
 ## Stance ÃƒÂ¢Ã¢Â€Â ' pressure_class alias (harness compatibility). Production uses **`form_str`** + **`CombatWeaponForm.mod`**.
-static func _stance_alias_from_pressure(form: String) -> String:
-	match pressure_class(form):
+static func _stance_alias_from_pressure(form: String, weapon: Variant = null) -> String:
+	match pressure_class(form, weapon):
 		"defensive":
 			return _CombatConstants.STANCE_DEFENSIVE
 		"aggressive":
@@ -649,15 +558,15 @@ static func assign_form(
 	manager: Node, c: Dictionary, form: String, reason: String = ""
 ) -> void:
 	var weapon = _EntityAccess.get_weapon(c)
-	var resolved: String = normalize_form(form)
+	var resolved: String = normalize_form(form, weapon)
 	if not form_allowed_for_weapon(resolved, weapon):
 		resolved = default_form_for_weapon(weapon)
 	var old_form: String = _EntityAccess.form_str(c)
 	c[_CombatConstants.COMBATANT_KEY_WEAPON_FORM] = resolved
-	c["stance"] = _stance_alias_from_pressure(resolved)
+	c["stance"] = _stance_alias_from_pressure(resolved, weapon)
 	if old_form != resolved and reason not in ["spawn", "harness_baseline"]:
 		c[_CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON] = reason
-	_GuardLineUpdater.set_guard_from_line(c, home_guard_line(resolved))
+	_GuardLineUpdater.set_guard_from_line(c, home_guard_line(resolved, weapon))
 	if manager != null and not reason.is_empty() and _CombatConstants.combat_event_debug_active():
 		_CombatDebug.flow_log(
 			"form_switch id=%d form=%s reason=%s"
@@ -703,7 +612,7 @@ static func seed_combatant_form(
 	if raw.is_empty():
 		form = default_form_for_weapon(weapon)
 	else:
-		form = normalize_form(raw)
+		form = normalize_form(raw, weapon)
 		if not form_allowed_for_weapon(form, weapon):
 			form = default_form_for_weapon(weapon)
 	assign_form(manager, c, form, "spawn")
@@ -780,10 +689,33 @@ static func _surround_pressure_high(manager: Node, c: Dictionary) -> bool:
 
 
 static func _surround_form_for_weapon(weapon: Variant) -> String:
-	if form_allowed_for_weapon(FORM_WALL, weapon):
-		return FORM_WALL
+	var wall: String = _defensive_form_for_weapon(weapon)
+	if not wall.is_empty():
+		return wall
 	if form_allowed_for_weapon(FORM_TEMPEST, weapon):
 		return FORM_TEMPEST
+	for fid in _form_ids_for_weapon(weapon):
+		if pressure_class_is(str(fid), "controlling", weapon):
+			return normalize_form(str(fid), weapon)
+	return ""
+
+
+static func _preferred_aggressive_duel_form(weapon: Variant) -> String:
+	for fid in _duel_offense_form_ids(weapon):
+		if pressure_class_is(fid, "aggressive", weapon):
+			return normalize_form(fid, weapon)
+	var ids: PackedStringArray = _duel_offense_form_ids(weapon)
+	if ids.size() > 0:
+		return normalize_form(ids[0], weapon)
+	return ""
+
+
+static func _duel_demote_form(weapon: Variant, cur: String) -> String:
+	for fid in _duel_offense_form_ids(weapon):
+		if fid == cur:
+			continue
+		if not pressure_class_is(fid, "aggressive", weapon):
+			return normalize_form(fid, weapon)
 	return ""
 
 
@@ -794,27 +726,28 @@ static func _duel_form_from_yomi_and_stamina(
 	min_stamina: float,
 	weapon: Variant = null
 ) -> String:
+	var def_form: String = _defensive_form_for_weapon(weapon)
 	var offense_pad: float = _CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
 	var promote_pad: float = _CombatConstants.WF_AUTO_SWITCH_DUEL_WRATH_PROMOTE_PAD
 	var demote_pad: float = _CombatConstants.WF_AUTO_SWITCH_DUEL_WRATH_DEMOTE_PAD
-	if cur == FORM_WALL and stamina_ratio < min_stamina + offense_pad:
+	if not def_form.is_empty() and cur == def_form and stamina_ratio < min_stamina + offense_pad:
 		return ""
 	if not inferred.is_empty():
-		if inferred == FORM_WRATH and cur != FORM_FOOL:
-			return FORM_FOOL
-		if inferred == FORM_FOOL and cur != FORM_WRATH:
-			return FORM_WRATH
-		if inferred == FORM_OX and stamina_ratio >= min_stamina + offense_pad:
-			if cur != FORM_FOOL and form_allowed_for_weapon(FORM_FOOL, weapon):
-				return FORM_FOOL
-			if cur != FORM_WRATH and form_allowed_for_weapon(FORM_WRATH, weapon):
-				return FORM_WRATH
-	if stamina_ratio >= min_stamina + promote_pad and cur != FORM_WRATH:
-		if form_allowed_for_weapon(FORM_WRATH, weapon):
-			return FORM_WRATH
-	if cur == FORM_WRATH and stamina_ratio < min_stamina + demote_pad:
-		if form_allowed_for_weapon(FORM_FOOL, weapon):
-			return FORM_FOOL
+		var counter: String = _duel_counter_form_vs_inferred(weapon, inferred)
+		if not counter.is_empty() and counter != cur:
+			return counter
+	var agg: String = _preferred_aggressive_duel_form(weapon)
+	if (
+		not agg.is_empty()
+		and stamina_ratio >= min_stamina + promote_pad
+		and cur != agg
+		and not pressure_class_is(cur, "aggressive", weapon)
+	):
+		return agg
+	if pressure_class_is(cur, "aggressive", weapon) and stamina_ratio < min_stamina + demote_pad:
+		var demote: String = _duel_demote_form(weapon, cur)
+		if not demote.is_empty() and demote != cur:
+			return demote
 	return ""
 
 
@@ -824,11 +757,11 @@ static func _counter_form_vs_inferred(weapon: Variant, inferred_opp: String) -> 
 	_ensure_defs()
 	var best_form: String = ""
 	var best_mult: float = 1.0
-	for raw_form in _FORM_DEFS.keys():
-		var fid: String = normalize_form(str(raw_form))
+	for raw_form in _form_ids_for_weapon(weapon):
+		var fid: String = normalize_form(str(raw_form), weapon)
 		if not form_allowed_for_weapon(fid, weapon):
 			continue
-		var mult: float = _counter_spec_for_inferred(fid, inferred_opp).get("mult", 1.0)
+		var mult: float = _counter_spec_for_inferred(fid, inferred_opp, weapon).get("mult", 1.0)
 		if mult > best_mult:
 			best_mult = mult
 			best_form = fid
@@ -843,11 +776,11 @@ static func _duel_counter_form_vs_inferred(weapon: Variant, inferred_opp: String
 		return ""
 	var best_form: String = ""
 	var best_mult: float = 1.0
-	for fid_raw in [FORM_FOOL, FORM_WRATH, FORM_OX]:
-		var fid: String = normalize_form(fid_raw)
+	for fid_raw in _duel_offense_form_ids(weapon):
+		var fid: String = normalize_form(fid_raw, weapon)
 		if not form_allowed_for_weapon(fid, weapon):
 			continue
-		var mult: float = _counter_spec_for_inferred(fid, inferred_opp).get("mult", 1.0)
+		var mult: float = _counter_spec_for_inferred(fid, inferred_opp, weapon).get("mult", 1.0)
 		if mult > best_mult:
 			best_mult = mult
 			best_form = fid
@@ -882,18 +815,19 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 		return false
 	var cur: String = _EntityAccess.form_str(c)
 	var ratio: float = _EntityAccess.stamina_ratio(c)
-	var min_r: float = min_stamina_ratio_for_form(cur)
 	var weapon = _EntityAccess.get_weapon(c)
+	var min_r: float = min_stamina_ratio_for_form(cur, weapon)
+	var def_form: String = _defensive_form_for_weapon(weapon)
 	var envelop: bool = _CombatDoctrine.envelop_mop_up_active(
 		manager, _EntityAccess.formation_id_str(c)
 	)
 	if (
 		ratio < min_r
-		and cur != FORM_WALL
-		and form_allowed_for_weapon(FORM_WALL, weapon)
+		and not def_form.is_empty()
+		and cur != def_form
 		and not envelop
 	):
-		return _try_assign_auto_switch(manager, c, FORM_WALL, "low_stamina", clk)
+		return _try_assign_auto_switch(manager, c, def_form, "low_stamina", clk)
 	if not envelop:
 		if _surround_pressure_high(manager, c):
 			var sur_form: String = _surround_form_for_weapon(weapon)
@@ -907,7 +841,7 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 			var inferred: String = _inferred_opponent_form(manager, c, duel_id)
 			var offense_pad: float = _CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
 			var can_offense: bool = not (
-				cur == FORM_WALL and ratio < min_r + offense_pad
+				not def_form.is_empty() and cur == def_form and ratio < min_r + offense_pad
 			)
 			if can_offense:
 				var counter: String = _duel_counter_form_vs_inferred(weapon, inferred)
@@ -921,7 +855,7 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 	var threat_id: int = _primary_melee_threat_id(manager, c)
 	if threat_id >= 0:
 		var offense_pad_fb: float = _CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
-		if not (cur == FORM_WALL and ratio < min_r + offense_pad_fb):
+		if not (not def_form.is_empty() and cur == def_form and ratio < min_r + offense_pad_fb):
 			var inferred_opp: String = _inferred_opponent_form(manager, c, threat_id)
 			var counter: String = _counter_form_vs_inferred(weapon, inferred_opp)
 			if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):

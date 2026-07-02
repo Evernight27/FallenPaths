@@ -6,7 +6,7 @@ extends RefCounted
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 
-# Runtime preload — circular dependency (CompanyState preloads CompanyRoster).
+# Runtime preload -- circular dependency (CompanyState preloads CompanyRoster).
 static var _company_state_cache: Variant = null
 
 static func _get_state() -> GDScript:

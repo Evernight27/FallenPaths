@@ -209,4 +209,3 @@ func get_pain_reference(body_max_dict: Dictionary) -> float:
 	if pain_reference_scale > 0.0:
 		return base_ref * pain_reference_scale
 	return base_ref
-  

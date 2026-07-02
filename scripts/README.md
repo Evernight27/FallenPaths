@@ -6,8 +6,7 @@ Phase 0: `.\scripts\run_all_combat_checks.ps1` (do not pipe stdout to `grep`). *
 
 Harness scripts require a **Godot 4.x stable** headless binary. Resolution order:
 1. `$GODOT` environment variable (any Godot 4.x stable)
-2. `e:\Godot_v4.6-stable_win64.exe` (Windows) / `e:/Godot_v4.6-stable_win64.exe` (WSL/bash)
-3. `C:\Users\<User>\Downloads\Godot_v4.6-stable_win64.exe` (Windows fallback)
+2. `e:\Godot_v4.7-stable_win64.exe` (Windows) / `E:\Godot_v4.7-stable_win64.exe` (WSL/bash)
 
 To use a different binary: set `$env:GODOT` (PowerShell) or `$GODOT` (bash) before running harness scripts, or place your Godot 4.x stable build at one of the paths above. Download from https://godotengine.org/download/windows/ — choose **Godot 4.x.stable** (not beta/rc).
 

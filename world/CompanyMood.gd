@@ -6,7 +6,7 @@ extends RefCounted
 
 const _CombatWeaponForm := preload("res://combat/CombatWeaponForm.gd")
 
-# Runtime preload — circular dependency (CompanyState preloads CompanyMood).
+# Runtime preload -- circular dependency (CompanyState preloads CompanyMood).
 static var _CompanyState: Variant = null
 
 static func _get_state() -> GDScript:

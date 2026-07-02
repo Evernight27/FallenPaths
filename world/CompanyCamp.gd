@@ -18,7 +18,7 @@ const CAMP_HEAL_MULTIPLIER: float = 3.0
 const FIELD_CARE_MARCH_CHAIN: String = "pressure (free) -- bandage/pack/TQ"
 
 
-# Runtime preload — circular dependency (CompanyState preloads CompanyCamp).
+# Runtime preload -- circular dependency (CompanyState preloads CompanyCamp).
 static var _company_state_cache: Variant = null
 
 static func _get_state() -> GDScript:

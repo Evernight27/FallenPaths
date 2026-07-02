@@ -8,7 +8,7 @@ extends RefCounted
 ## Posture: `discipline_posture_*_delta` + hysteresis via `CombatFormationEngagement`. Movement: only `loose` allows
 ## rank-0 solo `fall_back` into an empty same-file rear; `strict` / `normal` / empty use paired swap/drag/fall_back_pair only.
 ## Fill order: rank 0 first (primary melee), then rank 1, etc. See FORMATION_FILE_DENSITY_SURVIVABILITY_INVESTIGATION.
-## Density spacing: tight→compact UI, normal→default, loose→wide.
+## Density spacing: tight->compact UI, normal->default, loose->wide.
 
 const DENSITY_TIGHT := "tight"
 const DENSITY_NORMAL := "normal"

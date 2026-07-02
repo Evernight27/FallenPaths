@@ -579,7 +579,7 @@ static func _append_research_benchmarks_section(lines: PackedStringArray) -> voi
 			"note" if absf(pct_head - DE_LEVA_REFERENCE_PCT["head"]) > 4.0 else "pass",
 		]
 	)
-	lines.append("doc=docs/LIVE_PATHS.md#research-audit · core/CombatResearchAnchors.gd")
+	lines.append("doc=docs/LIVE_PATHS.md#research-audit . core/CombatResearchAnchors.gd")
 
 
 static func _audit_new_entity(weapon_id: String) -> CoreEntity:
@@ -1085,4 +1085,3 @@ static func _packed_lines(text: String) -> PackedStringArray:
 		if not s.is_empty():
 			out.append(s)
 	return out
-  

@@ -5,7 +5,7 @@ extends RefCounted
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 
-# Runtime preload â€” circular dependency (CombatConstants preloads CombatantEntityAccess).
+# Runtime preload '" circular dependency (CombatConstants preloads CombatantEntityAccess).
 static var _CombatConstants: Variant = null
 
 static func _get_combat_constants() -> GDScript:
@@ -75,7 +75,7 @@ static func _get_rout() -> GDScript:
 
 ## Centralized access to combatant node/entity for weapon, armor, performance, etc.
 ## Reduces repeated node.has_method("get_weapon") patterns across AttackResolver, DefenseChoiceResolver, etc.
-## Footing: **`form_str`** is canonical L2 id for picker/UI/close  -  not **`guard_line`** or PA offset. LIVE_PATHS **`#wf-assign-form-contract`** Ã‚Â· **`#wf-footing-doc-map`**.
+## Footing: **`form_str`** is canonical L2 id for picker/UI/close  -  not **`guard_line`** or PA offset. LIVE_PATHS **`#wf-assign-form-contract`** f''s'. **`#wf-footing-doc-map`**.
 
 ## Scene `node` on the combatant dict (e.g. Character); null if missing.
 static func node_variant(combatant: Dictionary) -> Variant:
@@ -174,7 +174,7 @@ static func weapon_has_attack_types(weapon: Variant) -> bool:
 
 
 static func weapon_contact_type(
-	weapon: Variant, move_id: String, default_contact: String = WeaponConstants.ATTACK_TYPE_CUT
+	weapon: Variant, move_id: String, default_contact: String = "cut"
 ) -> String:
 	if weapon == null or not weapon.has_method("get_contact_type"):
 		return default_contact
@@ -195,7 +195,7 @@ static func parry_wobble_context_for_combatant(combatant: Dictionary, parry_read
 
 
 static func weapon_archetype_id(
-	weapon: Variant, move_id: String, default_id: String = WeaponConstants.ARCHETYPE_SLASH
+	weapon: Variant, move_id: String, default_id: String = "slash"
 ) -> String:
 	if weapon == null or not weapon.has_method("get_archetype_id"):
 		return default_id
@@ -245,7 +245,7 @@ static func weapon_parry_contact_type(weapon: Variant, default_pct: String = "bl
 	return str(weapon.get_parry_contact_type())
 
 
-## Cut vs blunt band for parry-speed reference (shaft/haft ÃƒÂ¢Ã‚â€ Ã‚â€™ blunt).
+## Cut vs blunt band for parry-speed reference (shaft/haft ->''f''s'f''s' -> blunt).
 static func weapon_parry_ref_contact_type(weapon: Variant) -> String:
 	var pct: String = weapon_parry_contact_type(weapon)
 	if pct == "shaft" or pct == "haft":
@@ -487,6 +487,22 @@ static func get_weapon(combatant: Dictionary) -> Variant:
 	return node.get_weapon()
 
 
+## Canonical weapon template id (SWORD, AXE, …) from equipped Weapon instance.
+static func weapon_type_id(combatant: Dictionary) -> String:
+	var weapon: Variant = get_weapon(combatant)
+	if weapon == null:
+		return ""
+	if "weapon_type" in weapon:
+		return str(weapon.weapon_type).to_upper().strip_edges()
+	return ""
+
+
+## CoreEntity from combatant dict when present.
+static func scene_entity(combatant: Dictionary) -> CoreEntity:
+	var node: Node = scene_node(combatant)
+	return node as CoreEntity if node is CoreEntity else null
+
+
 ## Abstract weapon reach in meters; **`default_reach`** when no weapon (listing uses **0**, contests often **1.5**).
 static func weapon_melee_reach(combatant: Dictionary, default_reach: float = 1.5) -> float:
 	var weapon: Variant = get_weapon(combatant)
@@ -614,16 +630,16 @@ static func is_formation_telegraph_leader(combatant: Dictionary) -> bool:
 	)
 
 
-## Opponent side label for **`actor`** (`player` ÃƒÂ¢Ã‚â€ Ã‚â€™ `enemy`, else `player`).
+## Opponent side label for **`actor`** (`player` ->''f''s'f''s' -> `enemy`, else `player`).
 static func opponent_side_for(actor: Dictionary) -> String:
 	return opponent_side_label(side_str(actor))
 
 
-## `player` ÃƒÂ¢Ã‚â€ Ã‚â€ `enemy` roster / formation id flip (same strings as **`side_str`**).
+## `player` ->''f''s'f''s'? `enemy` roster / formation id flip (same strings as **`side_str`**).
 static func opponent_side_label(side: String) -> String:
 	return CombatConstants.SIDE_ENEMY if side == CombatConstants.SIDE_PLAYER else CombatConstants.SIDE_PLAYER
 
-## Resolves the health/wounds holder for a combat scene node (e.g. Character ÃƒÂ¢Ã‚â€ Ã‚â€™ CoreEntity). Prefers **`manager.get_health_entity(node)`** (see **`CombatManager`**).
+## Resolves the health/wounds holder for a combat scene node (e.g. Character ->''f''s'f''s' -> CoreEntity). Prefers **`manager.get_health_entity(node)`** (see **`CombatManager`**).
 static func get_health_entity_from_node(manager: Node, node: Node) -> Node:
 	if node == null:
 		return null
@@ -1055,12 +1071,19 @@ static func get_targetable_parts_from_node(node: Node) -> Array:
 		return []
 	return node.get_targetable_parts()
 
-## Returns true if combatant's node is incapacitated (consciousness/cowering).
+## Returns true if combatant's node is incapacitated (consciousness/cowering) or has yielded.
 static func is_incapacitated(combatant: Dictionary) -> bool:
+	if is_yielded(combatant):
+		return true
 	var node = node_variant(combatant)
 	if node == null or not node.has_method("is_incapacitated"):
 		return false
 	return node.is_incapacitated()
+
+
+## Voluntary surrender: non-standing but remains on the field.
+static func is_yielded(combatant: Dictionary) -> bool:
+	return state_str(combatant) == CombatConstants.STATE_YIELDED
 
 ## True when consciousness is below incapacitation floor (unconscious; cannot act or move).
 static func is_unconscious(combatant: Dictionary) -> bool:
@@ -1143,7 +1166,7 @@ static func get_effective_medical_windup_speed_modifier(
 ) -> float:
 	var perf_node = node_variant(performer)
 	var eff_int: float = 100.0
-	if perf_node != null and perf_node.has("_proficiency_bonus"):
+	if perf_node != null and "_proficiency_bonus" in perf_node:
 		eff_int = float(perf_node.intelligence or 0) + float(perf_node._proficiency_bonus.get("intelligence", 0) or 0)
 	else:
 		eff_int = float(performer.get("intelligence", CombatConstants.DEFAULT_STAT_VALUE))

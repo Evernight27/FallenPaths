@@ -1,8 +1,8 @@
 class_name MentalStackDecider
 extends RefCounted
 
-## Tier 4.3: prioritized AI decision layers (self-medical â ally medical â counter â incoming â MS-L8 post-strike â L4b sparse fight â L4 hold line â MS-L5 formation plug â MS-L6 rout â L5 exhaustion â salience-damped utility pick).
-## **MS-L4 footing boundary:** hold-line layer picks listed moves only  -  does **not** write **`guard_line`**, PA offset, or **`weapon_form`**. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-layer-labels`**.
+## Tier 4.3: prioritized AI decision layers (self-medical -> ally medical -> counter -> incoming -> MS-L8 post-strike -> L4b sparse fight -> L4 hold line -> MS-L5 formation plug -> MS-L6 rout -> L5 exhaustion -> salience-damped utility pick).
+## **MS-L4 footing boundary:** hold-line layer picks listed moves only  -  does **not** write **`guard_line`**, PA offset, or **`weapon_form`**. LIVE_PATHS **`#wf-pick-vs-strike`** . **`#wf-layer-labels`**.
 ## **No player target UI**  -  same picker for all sides; layers only narrow/reweight the listed action pool.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -26,7 +26,7 @@ static func enabled() -> bool:
 	return CombatConstants.is_feature_mental_stack_ai_enabled()
 
 
-## Returns a picked action when a high-priority layer applies; empty **`{}`** â caller uses salience-damped **`pick_weighted`**.
+## Returns a picked action when a high-priority layer applies; empty **`{}`** -> caller uses salience-damped **`pick_weighted`**.
 static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary:
 	if not enabled() or actions.is_empty() or manager == null or combatant_id < 0:
 		return {}
@@ -57,7 +57,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 				CombatConstants.MENTAL_STACK_LAYER_SELF_MEDICAL,
 				_AIPicker.pick_weighted(self_med, combatant_id, manager)
 			)
-	# L1: ally peril â coordinated medical only.
+	# L1: ally peril -> coordinated medical only.
 	var _l1_ally_peril: bool = _Attention.ally_in_immediate_peril(manager, combatant_id)
 	if _l1_ally_peril:
 		var medical: Array = _filter_coordinated_medical_actions(actions, combatant_id, manager)
@@ -78,7 +78,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
 				CombatConstants.MENTAL_STACK_LAYER_COUNTER,
 				_AIPicker.pick_weighted(counters, combatant_id, manager)
 			)
-	# L3: incoming wind-up on me â counter (if listed) or melee vs that attacker.
+	# L3: incoming wind-up on me -> counter (if listed) or melee vs that attacker.
 	if _Attention.is_being_wind_up_targeted(manager, combatant_id):
 		var incoming_id: int = _CounterTempo.incoming_attacker_id(manager, combatant_id)
 		var threat: Array = _filter_incoming_threat_actions(actions, incoming_id)
@@ -509,6 +509,8 @@ static func _filter_exhaustion_disengage_actions(
 			out.append(a)
 			continue
 		if mid == CombatConstants.MOVE_ID_FLEE and a.get("target_id", -1) == combatant_id:
+			if not _FormationRout.duel_flee_allowed_for_action(manager, c, mid):
+				continue
 			out.append(a)
 			continue
 		if flee_listed and mid in [
@@ -569,7 +571,9 @@ static func _positional_disengage_check(
 			CombatConstants.MOVE_ID_FALL_BACK:
 				fall_backs.append(a)
 			CombatConstants.MOVE_ID_FLEE:
-				if a.get("target_id", -1) == combatant_id:
+				if a.get("target_id", -1) == combatant_id and _FormationRout.duel_flee_allowed_for_action(
+					manager, c, mid
+				):
 					flees.append(a)
 			CombatConstants.MOVE_ID_WAIT:
 				waits.append(a)
@@ -580,4 +584,3 @@ static func _positional_disengage_check(
 	out.append_array(flees)
 	out.append_array(waits)
 	return out
-  

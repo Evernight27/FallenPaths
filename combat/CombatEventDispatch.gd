@@ -2,7 +2,7 @@ class_name CombatEventDispatch
 extends RefCounted
 
 ## Drains the combat event queue and dispatches to CombatManager handlers.
-## **Read order:** queue drain loop → event type dispatch → state/medical/counter side effects.
+## **Read order:** queue drain loop -> event type dispatch -> state/medical/counter side effects.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")

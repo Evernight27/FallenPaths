@@ -9,7 +9,7 @@ extends RefCounted
 
 const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
 
-# Runtime preload â€” circular dependency (CompanyState â†’ CampaignEncounterBridge â†’ MapFieldCare).
+# Runtime preload ' circular dependency (CompanyState |' CampaignEncounterBridge |' MapFieldCare).
 static var _CompanyState: Variant = null
 
 static func _get_company_state() -> GDScript:
@@ -25,7 +25,7 @@ const _BodyParts := preload("res://core/BodyPartConstants.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 
 const FIELD_CARE_SECONDS := 120.0
-## Procedure duration scale (2 min base - -  1.25 Ã¢Â‰Âˆ 150 s sim); hemorrhage physics only  -  not tissue healing.
+## Procedure duration scale (2 min base - -  1.25 --'''deg* 150 s sim); hemorrhage physics only  -  not tissue healing.
 const FIELD_CARE_PROCEDURE_TIME_MULT := 1.25
 ## Sim seconds advanced per field-care step (bleed + blood loss); UI labels stay ~2 min player-facing.
 const FIELD_CARE_SIM_ADVANCE_SECONDS := FIELD_CARE_SECONDS * FIELD_CARE_PROCEDURE_TIME_MULT
@@ -81,7 +81,7 @@ static func format_field_bandage_button_label(world: Node2D, member: Dictionary 
 	var med_bit: String = _get_company_state().format_field_bandage_med_bit(world, entity)
 	if part_s.is_empty():
 		return "Field bandage (%s, 2m)" % med_bit
-	return "Field bandage (%s Â· %s, 2m)" % [part_s, med_bit]
+	return "Field bandage (%s '. %s, 2m)" % [part_s, med_bit]
 
 
 static func format_field_pressure_button_label(world: Node2D, member: Dictionary) -> String:
@@ -89,7 +89,7 @@ static func format_field_pressure_button_label(world: Node2D, member: Dictionary
 	var part_s: String = _format_part_label(part)
 	if part_s.is_empty():
 		return "Field pressure (2m)"
-	return "Field pressure (%s Â· 2m)" % part_s
+	return "Field pressure (%s '. 2m)" % part_s
 
 
 static func format_field_stabilize_button_label(_world: Node2D, member: Dictionary) -> String:
@@ -97,8 +97,8 @@ static func format_field_stabilize_button_label(_world: Node2D, member: Dictiona
 	var part: String = _first_stabilize_part(entity)
 	var part_s: String = _format_part_label(part)
 	if part_s.is_empty():
-		return "Field stabilize (-1 med, hold only Â· 2m)"
-	return "Field stabilize (%s Â· -1 med, hold only Â· 2m)" % part_s
+		return "Field stabilize (-1 med, hold only '. 2m)"
+	return "Field stabilize (%s '. -1 med, hold only '. 2m)" % part_s
 
 
 static func format_field_pack_button_label(_world: Node2D, member: Dictionary) -> String:
@@ -106,7 +106,7 @@ static func format_field_pack_button_label(_world: Node2D, member: Dictionary) -
 	var part_s: String = _format_part_label(part)
 	if part_s.is_empty():
 		return "Field pack (-1 med, 2m)"
-	return "Field pack (%s Â· -1 med, 2m)" % part_s
+	return "Field pack (%s '. -1 med, 2m)" % part_s
 
 
 static func format_field_tourniquet_button_label(_world: Node2D, member: Dictionary) -> String:
@@ -115,7 +115,7 @@ static func format_field_tourniquet_button_label(_world: Node2D, member: Diction
 	var part_s: String = _format_part_label(part)
 	if part_s.is_empty():
 		return "Field tourniquet (2m)"
-	return "Field tourniquet (%s Â· 2m)" % part_s
+	return "Field tourniquet (%s '. 2m)" % part_s
 
 
 static func member_untreated_part_count(member: Dictionary) -> int:
@@ -145,7 +145,7 @@ static func format_field_bandage_waiting_label(member: Dictionary) -> String:
 	var part_s: String = _format_part_label(part)
 	if part_s.is_empty():
 		return "Field bandage (pressure first)"
-	return "Field bandage (%s needs pressure Â· 2m)" % part_s
+	return "Field bandage (%s needs pressure '. 2m)" % part_s
 
 
 static func format_part_list(parts: Array) -> String:
@@ -203,7 +203,7 @@ static func pick_next_triage_member(_world: Node2D, members: Array) -> Dictionar
 	return best_member
 
 
-## One MARCH step for the highest-threat untreated part (pressure Ã¢Â†Â’ TQ Ã¢Â†Â’ bandage when dress-ready Ã¢Â†Â’ pack Ã¢Â†Â’ stabilize).
+## One MARCH step for the highest-threat untreated part (pressure --'??'' TQ --'??'' bandage when dress-ready --'??'' pack --'??'' stabilize).
 ## Stabilize stays on manual buttons; treat-next finishes dressing before optional hemostatic trim.
 static func try_treat_next_wound(world: Node2D, members: Array) -> bool:
 	var member: Dictionary = pick_next_triage_member(world, members)
@@ -253,7 +253,7 @@ static func format_field_care_retry_hint(action: String) -> String:
 	return "Field %s failed  -  keep pressure if held and retry, or try another step below." % action
 
 
-## Suggested next field-care action for Party row (pressure Ã¢Â†Â’ TQ Ã¢Â†Â’ bandage when dress-ready Ã¢Â†Â’ pack Ã¢Â†Â’ stabilize adjunct).
+## Suggested next field-care action for Party row (pressure --'??'' TQ --'??'' bandage when dress-ready --'??'' pack --'??'' stabilize adjunct).
 static func format_next_field_care_action(world: Node2D, member: Dictionary) -> String:
 	if member_untreated_part_count(member) <= 0:
 		return ""

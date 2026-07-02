@@ -2,7 +2,7 @@ class_name CombatRegressionHarnessAttentionFootworkTail
 extends RefCounted
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
-## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) · **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) · **`_run_mental_stack_*`** (MS-L4/L5 boundary). Catalog: LIVE_PATHS **`#harness-footwork-catalog`** · PA hub **`#wf-tier-44-pa`**.
+## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) . **`_run_mental_stack_*`** (MS-L4/L5 boundary). Catalog: LIVE_PATHS **`#harness-footwork-catalog`** . PA hub **`#wf-tier-44-pa`**.
 
 const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
 const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
@@ -48,6 +48,10 @@ const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _MentalStack := preload("res://combat/MentalStackDecider.gd")
 const _MgrScript := preload("res://combat/CombatManager.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const _PathResolver := preload("res://combat/AttackPathResolver.gd")
+const _Bp := preload("res://core/BodyPartConstants.gd")
+const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+const _Proficiency := preload("res://core/EntityProficiency.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
@@ -359,7 +363,7 @@ static func _run_mental_stack_incoming_windup_prefers_defense(failures: PackedSt
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.3: counter window open â stack prefers counter-tempo listing.
+## Tier 4.3: counter window open -> stack prefers counter-tempo listing.
 static func _run_mental_stack_counter_over_plain_attack_when_window_open(
 	failures: PackedStringArray
 ) -> void:
@@ -403,7 +407,7 @@ static func _run_mental_stack_counter_over_plain_attack_when_window_open(
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.3: no salience â **`try_pick`** empty; attack weights unchanged with stack off.
+## Tier 4.3: no salience -> **`try_pick`** empty; attack weights unchanged with stack off.
 static func _run_mental_stack_attack_layer_matches_stance_alias_weights(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -624,7 +628,7 @@ static func _run_mental_stack_self_peril_before_ally_medical(failures: PackedStr
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.3: hold-line-only menu â **`wait`** unless incoming telegraph needs another guard line.
+## Tier 4.3: hold-line-only menu -> **`wait`** unless incoming telegraph needs another guard line.
 static func _run_mental_stack_hold_line_only_picks_focus_or_wait(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -668,7 +672,7 @@ static func _run_mental_stack_hold_line_only_picks_focus_or_wait(failures: Packe
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## III-4 Track A PR7: L4 reserve posture wing with LONG close listed â **`attempt_close`** (not **`wait`**).
+## III-4 Track A PR7: L4 reserve posture wing with LONG close listed -> **`attempt_close`** (not **`wait`**).
 static func _run_mental_stack_hold_line_attempt_close_wing(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	for _i in 7:
@@ -1103,7 +1107,7 @@ static func _run_hold_line_hint_back_rank_not_mopup(failures: PackedStringArray)
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## MS-L5: rank-0 gap â rear **`swap_rank`** beats listed strikes; stamps **`formation_plug`**.
+## MS-L5: rank-0 gap -> rear **`swap_rank`** beats listed strikes; stamps **`formation_plug`**.
 static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	for _i in 7:
@@ -1170,7 +1174,7 @@ static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: Pac
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## MS-L5: incapacitated front partner â rear **`swap_rank`** stamps **`formation_plug`**.
+## MS-L5: incapacitated front partner -> rear **`swap_rank`** stamps **`formation_plug`**.
 static func _run_mental_stack_formation_plug_incap_forward(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	for _i in 7:
@@ -1215,7 +1219,7 @@ static func _run_mental_stack_formation_plug_incap_forward(failures: PackedStrin
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## MS-L5: Skirmish rank-0 hole â front **`rotate_file`** when formation-only menu; stamps **`formation_plug`**.
+## MS-L5: Skirmish rank-0 hole -> front **`rotate_file`** when formation-only menu; stamps **`formation_plug`**.
 static func _run_mental_stack_formation_plug_rotate_skirmish_hole(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	for _i in 7:
@@ -1420,7 +1424,7 @@ static func _run_mental_stack_formation_plug_skipped_mop_up_offense(failures: Pa
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## MS-L5: intact line + strikes only â stack miss (no **`formation_plug`** stamp).
+## MS-L5: intact line + strikes only -> stack miss (no **`formation_plug`** stamp).
 static func _run_mental_stack_formation_plug_no_gap_stack_miss(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -1618,7 +1622,7 @@ static func _run_mental_stack_formation_plug_picker_e2e(failures: PackedStringAr
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## MS-L6: low cohesion + wounded front on losing side â **`flee`** beats listed strike; stamps **`rout`**.
+## MS-L6: low cohesion + wounded front on losing side -> **`flee`** beats listed strike; stamps **`rout`**.
 static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -1668,7 +1672,7 @@ static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedSt
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## MS-L6: heavy side casualties â **`flee`** beats **`wait`**; stamps **`rout`**.
+## MS-L6: heavy side casualties -> **`flee`** beats **`wait`**; stamps **`rout`**.
 static func _run_mental_stack_rout_casualty_flee_beats_wait(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -1790,7 +1794,7 @@ static func _run_mental_stack_rout_firm_line_no_stamp(failures: PackedStringArra
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## MS-L7: high fight exhaustion â wait / disengage layer before utility pick.
+## MS-L7: high fight exhaustion -> wait / disengage layer before utility pick.
 static func _run_mental_stack_exhaustion_tunnel_prefers_disengage(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -1955,7 +1959,7 @@ static func _run_focus_line_actions_listed_when_attention_enabled(failures: Pack
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Hold-line menus must include **`wait`** (focus-only lists used to omit it â focus spam).
+## Hold-line menus must include **`wait`** (focus-only lists used to omit it -> focus spam).
 static func _run_append_combat_wait_lists_wait_for_focus_only_menu(failures: PackedStringArray) -> void:
 	var cid: int = 3
 	var actions: Array = []
@@ -1984,7 +1988,7 @@ static func _run_append_combat_wait_lists_wait_for_close_and_focus_menu(failures
 		CombatRegressionHarness._fail(failures, "append_combat_wait: want wait on close+focus menu")
 
 
-## No-op focus (guard already on that line) â **`skip_turn`** / wait, not another focus_line resolve.
+## No-op focus (guard already on that line) -> **`skip_turn`** / wait, not another focus_line resolve.
 static func _run_focus_line_noop_skips_without_guard_change(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -2343,7 +2347,7 @@ static func _assert_octant_windup_stamps_line(failures: PackedStringArray, line:
 		)
 
 
-## WF-T1: all four diagonals stamp wind-up PA via **`CombatConstants`** â **`CombatGuardLines`** lookup.
+## WF-T1: all four diagonals stamp wind-up PA via **`CombatConstants`** -> **`CombatGuardLines`** lookup.
 static func _run_footwork_octant_windup_step_diagonals(failures: PackedStringArray) -> void:
 	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
 		return
@@ -2386,7 +2390,7 @@ static func _run_footwork_octant_lookup_delegates_to_guard_lines(failures: Packe
 			)
 
 
-## WF-T1: dodge body-part â octant line  -  scaled dodge step uses octant raw, not mapped cardinal.
+## WF-T1: dodge body-part -> octant line  -  scaled dodge step uses octant raw, not mapped cardinal.
 static func _assert_defender_dodge_octant_via_leg(
 	failures: PackedStringArray, part: String, expect_line: String, cardinal_line: String
 ) -> void:
@@ -2853,7 +2857,7 @@ static func _run_t44_spatial_flurry_pa_bind_boost(failures: PackedStringArray) -
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 4.4 spatial slice 3: flurry window open but flag off â base PA only.
+## Tier 4.4 spatial slice 3: flurry window open but flag off -> base PA only.
 static func _run_t44_spatial_flurry_pa_flag_off_parity(failures: PackedStringArray) -> void:
 	var saved_pa: bool = CombatConstants.is_feature_position_angle_footwork_enabled()
 	var saved_flurry: bool = CombatConstants.is_feature_t44_spatial_flurry_pa_enabled()
@@ -3905,7 +3909,7 @@ static func _run_footwork_medical_complete_scrubs_medic_offset(failures: PackedS
 		)
 
 
-## Tier 4.4: rank-1 depth spear abort clears footwork (back rank reserve stuck -14Â°).
+## Tier 4.4: rank-1 depth spear abort clears footwork (back rank reserve stuck -14deg).
 static func _run_footwork_back_rank_abort_clears_depth_windup(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = _MgrScript.new()
@@ -3968,7 +3972,7 @@ static func _run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures: Pack
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var c: Dictionary = {"state": CombatConstants.STATE_WIND_UP}
 	_Footwork.apply_attack_step_on_windup(c, "right")
-	c[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT] = "Step +99Â°"
+	c[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT] = "Step +99deg"
 	var live: String = _Footwork.get_ui_hint(c)
 	var want_live: String = _Footwork.format_position_angle_ui_hint(c)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
@@ -3981,7 +3985,7 @@ static func _run_combat_ui_hints_footwork_stale_stamp_prefers_live_offset(failur
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var c: Dictionary = {"state": CombatConstants.STATE_WIND_UP}
 	_Footwork.apply_attack_step_on_windup(c, "right")
-	c[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT] = "Step +99Â°"
+	c[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT] = "Step +99deg"
 	var live: String = _UiHints.footwork_hint_text(c)
 	var want_live: String = _Footwork.format_position_angle_ui_hint(c)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
@@ -4538,7 +4542,7 @@ static func _run_combat_ui_hints_formation_counter_tempo_needs_manager(
 static func _run_combat_ui_hints_attention_stale_stamp_prefers_live(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_combat_attention_load(true)
 	var c: Dictionary = {"guard_zone": "head", CombatConstants.COMBATANT_KEY_FOCUS_PART: "head"}
-	c[CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT] = "Tel head · Focus head 99%"
+	c[CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT] = "Tel head . Focus head 99%"
 	var mgr: Node = _MgrScript.new()
 	var stamped_path: String = _UiHints.attention_hint_text(c)
 	var live_path: String = _UiHints.attention_hint_text(c, mgr)
@@ -4593,7 +4597,7 @@ static func _run_strike_stamping_weapon_eff_dist_sanity(failures: PackedStringAr
 static func _run_footwork_ui_hint_ignores_orphan_stamp_without_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var c: Dictionary = {}
-	c[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT] = "Step +99Â°"
+	c[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT] = "Step +99deg"
 	var live: String = _Footwork.get_ui_hint(c)
 	var sfx: String = _Footwork.get_diagram_label_suffix(c)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
@@ -4691,7 +4695,7 @@ static func _run_footwork_snapshot_omits_position_when_disabled(failures: Packed
 		)
 
 
-## Tier 4.4: body-part â guard line for dodge step direction.
+## Tier 4.4: body-part -> guard line for dodge step direction.
 static func _run_combat_snapshot_exports_attention_ui_hint_when_stamped(
 	failures: PackedStringArray
 ) -> void:
@@ -4699,7 +4703,7 @@ static func _run_combat_snapshot_exports_attention_ui_hint_when_stamped(
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	var def: Dictionary = mgr.combatants[0]
-	var stamped: String = "Tel head · Focus head 80%"
+	var stamped: String = "Tel head . Focus head 80%"
 	def[CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT] = stamped
 	var rows: Array = _CombatSnapshot.build(mgr)
 	CombatConstants.set_feature_combat_attention_load(false)
@@ -4859,7 +4863,7 @@ static func _run_battle_ui_gauge_label_counter_beats_status_override(failures: P
 ## Tier 4.3 UI: **`status_override`** row still shows attention fragment.
 static func _run_battle_ui_gauge_label_status_override_includes_attention(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_combat_attention_load(true)
-	var attn: String = "Tel head · Focus head 80%"
+	var attn: String = "Tel head . Focus head 80%"
 	var row: Dictionary = {
 		"alive": true,
 		"state": CombatConstants.STATE_WAITING,
@@ -4917,7 +4921,7 @@ static func _run_combat_snapshot_omits_closing_override_during_counter_tempo(
 
 
 ## Tier 4.4 UI soak: **`gauge_label_text_for_combatant`** matches **`CombatCombatantsSnapshot.build`** row.
-## WF-1c + Tier 4.4: gauge suffix order **Step â Atk â Form** during wind-up  -  LIVE_PATHS **`#wf-soak-audit-status`**.
+## WF-1c + Tier 4.4: gauge suffix order **Step -> Atk -> Form** during wind-up  -  LIVE_PATHS **`#wf-soak-audit-status`**.
 static func _run_battle_ui_gauge_suffix_step_atk_form_order(failures: PackedStringArray) -> void:
 	if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
 		return
@@ -4935,7 +4939,7 @@ static func _run_battle_ui_gauge_suffix_step_atk_form_order(failures: PackedStri
 		"pending_attack": {"attack_line": "high_right", "move_id": "oberhau"},
 	}
 	var label: String = _BattleUIUpdater.gauge_label_text_for_combatant(c)
-	for needle in ["Step", "Atk", " · Form Ox"]:
+	for needle in ["Step", "Atk", " . Form Ox"]:
 		if needle not in label:
 			CombatRegressionHarness._fail(
 				failures,
@@ -4944,7 +4948,7 @@ static func _run_battle_ui_gauge_suffix_step_atk_form_order(failures: PackedStri
 			return
 	var step_i: int = label.find("Step")
 	var atk_i: int = label.find("Atk")
-	var form_i: int = label.find(" · Form Ox")
+	var form_i: int = label.find(" . Form Ox")
 	if step_i < 0 or atk_i < 0 or form_i < 0 or not (step_i < atk_i and atk_i < form_i):
 		CombatRegressionHarness._fail(
 			failures,
@@ -4987,9 +4991,9 @@ static func _run_battle_ui_gauge_label_renders_exported_hints_when_features_off(
 	var row: Dictionary = {
 		"alive": true,
 		"state": CombatConstants.STATE_WAITING,
-		"attention_ui_hint": "Tel head · Focus head 80%",
+		"attention_ui_hint": "Tel head . Focus head 80%",
 		"counter_tempo_ui_hint": "counter_ready",
-		"position_angle_ui_hint": "Step +14Â°",
+		"position_angle_ui_hint": "Step +14deg",
 		"gauge": 100.0,
 		"stamina": 100.0,
 	}
@@ -5017,7 +5021,7 @@ static func _run_battle_ui_gauge_label_recovering_includes_exported_attention(
 		"state": "recovering",
 		"state_timer": 0.2,
 		"state_duration": 1.0,
-		"attention_ui_hint": "Tel head · Focus head 80%",
+		"attention_ui_hint": "Tel head . Focus head 80%",
 	}
 	var text: String = _BattleUIUpdater.gauge_label_text_for_combatant(row)
 	if not text.begins_with("Recov."):
@@ -5275,6 +5279,88 @@ static func _run_footwork_disabled_skips_windup_stamp(failures: PackedStringArra
 		CombatRegressionHarness._fail(failures, "footwork_disabled: offset must not stamp when flag off")
 
 
+## AI target pick: weapon/form limb bias + perception/intelligence scale off-focus exploitation.
+static func _run_ai_pick_weapon_form_stat_part_weights(failures: PackedStringArray) -> void:
+	if _Bp.weapon_part_target_mult("MACE", "head") <= _Bp.weapon_part_target_mult("MACE", "left_leg"):
+		CombatRegressionHarness._fail(
+			failures,
+			"ai_pick_part_weights: mace should prefer head over leg got head=%s leg=%s"
+			% [str(_Bp.weapon_part_target_mult("MACE", "head")), str(_Bp.weapon_part_target_mult("MACE", "left_leg"))]
+		)
+	if _WeaponForm.target_part_weight_mult(_WeaponForm.FORM_WRATH, "head") <= _WeaponForm.target_part_weight_mult(_WeaponForm.FORM_FOOL, "head"):
+		CombatRegressionHarness._fail(failures, "ai_pick_part_weights: wrath should bias head above fool")
+	if _WeaponForm.target_part_weight_mult(_WeaponForm.FORM_FOOL, "left_leg") <= 1.0:
+		CombatRegressionHarness._fail(failures, "ai_pick_part_weights: fool should bias low-line legs")
+	var segment: Array = ["head", "chest"]
+	var move_def: Dictionary = {"preferred_parts": ["head"], "attack_line": "high"}
+	var defender: Dictionary = {CombatConstants.COMBATANT_KEY_FOCUS_PART: "head"}
+	var novice: Dictionary = {
+		"weapon_form": _WeaponForm.FORM_BALANCED,
+		"stats": {"perception": 70, "intelligence": 70},
+	}
+	var veteran: Dictionary = {
+		"weapon_form": _WeaponForm.FORM_BALANCED,
+		"stats": {"perception": 130, "intelligence": 130},
+	}
+	var w_novice: Dictionary = _PathResolver.part_weights_for_ai_pick(
+		segment, "high", move_def, novice, defender, 2
+	)
+	var w_vet: Dictionary = _PathResolver.part_weights_for_ai_pick(
+		segment, "high", move_def, veteran, defender, 2
+	)
+	if float(w_vet.get("chest", 0.0)) <= float(w_novice.get("chest", 0.0)):
+		CombatRegressionHarness._fail(
+			failures,
+			"ai_pick_part_weights: veteran perception should weight off-focus chest higher got novice=%s veteran=%s"
+			% [str(w_novice.get("chest", "")), str(w_vet.get("chest", ""))]
+		)
+	var mace_head_blunt: float = _Bp.weapon_part_target_mult("MACE", "head", "blunt")
+	var mace_leg_blunt: float = _Bp.weapon_part_target_mult("MACE", "left_leg", "blunt")
+	if mace_head_blunt <= mace_leg_blunt:
+		CombatRegressionHarness._fail(
+			failures,
+			"ai_pick_part_weights: mace blunt head should exceed leg got head=%.3f leg=%.3f"
+			% [mace_head_blunt, mace_leg_blunt]
+		)
+	var spear_pref: Array = _WeaponConstants.preferred_parts_for_weapon_move("SPEAR", "spear_thrust")
+	if spear_pref != ["chest"]:
+		CombatRegressionHarness._fail(
+			failures,
+			"ai_pick_part_weights: spear_thrust preferred want [chest] got %s" % str(spear_pref)
+		)
+	var dagger_pref: Array = _WeaponConstants.preferred_parts_for_weapon_move("DAGGER", "quick_thrust")
+	if dagger_pref != ["chest"]:
+		CombatRegressionHarness._fail(
+			failures,
+			"ai_pick_part_weights: dagger quick_thrust preferred want [chest] got %s" % str(dagger_pref)
+		)
+	if _WeaponForm.move_family_part_weight_mult(_WeaponForm.FORM_OX, "thrust", "chest") <= 1.0:
+		CombatRegressionHarness._fail(failures, "ai_pick_part_weights: ox thrust should bias chest")
+	var old_stub: bool = _CompanyState.read_stub_proficiency_enabled()
+	_CompanyState.PROFICIENCY_ENABLED = true
+	var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+	_Proficiency.award_weapon_proficiency(ent, "SWORD", 20.0)
+	if _Proficiency.weapon_proficiency_tier(ent, "SWORD") < 0.95:
+		CombatRegressionHarness._fail(
+			failures,
+			"ai_pick_part_weights: weapon prof tier want ~1.0 got %.2f"
+			% _Proficiency.weapon_proficiency_tier(ent, "SWORD")
+		)
+	_Proficiency.award_form_proficiency(ent, _WeaponForm.FORM_WRATH, 20.0)
+	if _Proficiency.form_proficiency_tier(ent, _WeaponForm.FORM_WRATH) < 0.95:
+		CombatRegressionHarness._fail(failures, "ai_pick_part_weights: form prof tier want ~1.0")
+	var occ_novice: float = _Proficiency.proficiency_occurrence_mult(ent, "SWORD", _WeaponForm.FORM_BALANCED, "thrust")
+	var occ_vet: float = _Proficiency.proficiency_occurrence_mult(ent, "SWORD", _WeaponForm.FORM_WRATH, "thrust")
+	if occ_vet <= occ_novice:
+		CombatRegressionHarness._fail(
+			failures,
+			"ai_pick_part_weights: wrath+prof occurrence should exceed balanced novice got %.3f vs %.3f"
+			% [occ_vet, occ_novice]
+		)
+	_CompanyState.PROFICIENCY_ENABLED = old_stub
+	_CombatRegressionHarness._free_harness_node(ent)
+
+
 ## Tier 4.3.8: attention UI hint shows last mental-stack layer stamp.
 static func run(failures: PackedStringArray) -> void:
 	_run_attention_being_wind_up_targeted_when_telegraph_set(failures)
@@ -5427,4 +5513,4 @@ static func run(failures: PackedStringArray) -> void:
 	_run_footwork_windup_arc_intended_includes_attacker_step(failures)
 	_run_footwork_partial_follow_through_freezes_resolve_angles(failures)
 	_run_footwork_disabled_skips_windup_stamp(failures)
-                    
+	_run_ai_pick_weapon_form_stat_part_weights(failures)

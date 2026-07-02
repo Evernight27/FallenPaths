@@ -308,7 +308,7 @@ static func _plug_priority_score(manager: Node, prox_steps: int, c: Dictionary, 
 
 
 ## Best vertical option for this hole (same column, deeper ranks). Evaluated separately from lateral.
-## When `adjacent_rank_only`, walk ranks shallowâ†'deep: skip empty ranks; **skip** ranks whose primary native
+## When `adjacent_rank_only`, walk ranks shallow|'deep: skip empty ranks; **skip** ranks whose primary native
 ## is not a legal donor (wind-up, reserved elsewhere, foreign occupant cell, etc.) and keep scanning so a deeper
 ## reserve can still plug the hole without forcing a front-rank lateral shuffle. Stop at the first **eligible,
 ## unreserved** donor (closest promotable native  -  do not jump over them to pull someone even deeper).
@@ -412,8 +412,8 @@ static func _rear_infill_hole_column_passable(
 	return true
 
 
-## Rank-0 hole only: best **rear** donor on **any other** file (rank â‰¥ 1) who can occupy the front slot in one plug.
-## Deeper ranks preferred as donors first (then shallower); ties prefer smaller |file âˆ' hole| then lower file index.
+## Rank-0 hole only: best **rear** donor on **any other** file (rank '''deg' 1) who can occupy the front slot in one plug.
+## Deeper ranks preferred as donors first (then shallower); ties prefer smaller |file 'I??' hole| then lower file index.
 ## Proximity for scoring includes file distance so farther sidesteps lose to nearer fit reserves before front-rank lateral.
 static func _evaluate_best_rear_infill_for_rank0_hole(
 	manager: Node,
@@ -653,7 +653,7 @@ static func _apply_plug_move(
 			CombatDebug.combat_session(plug_msg)
 	elif CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG and str(log_prefix).begins_with("Vacancy"):
 		var name_v: String = _EntityAccess.get_display_name(ally, _EntityAccess.id_int(ally))
-		CombatDebug.formation_vacancy_log("%s: %s â†' rank %d file %d (%s)" % [log_prefix, name_v, fill_rank, file, kind])
+		CombatDebug.formation_vacancy_log("%s: %s |' rank %d file %d (%s)" % [log_prefix, name_v, fill_rank, file, kind])
 	if manager.has_meta(VACANCY_PLUG_RESERVED_DONORS_META):
 		var rd: Dictionary = manager.get_meta(VACANCY_PLUG_RESERVED_DONORS_META) as Dictionary
 		rd[_EntityAccess.id_int(ally)] = true

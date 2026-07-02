@@ -2,7 +2,7 @@ class_name CombatResolveAction
 extends RefCounted
 
 ## Player/AI action dispatch: medical, close, formation moves, melee wind-up scheduling.
-## Footing: focus-line resolve â **`GuardLineUpdater.set_guard_from_line`** (L3 drift, not form home) · melee â **`AttackWindUpStarter`** (PA stamp when flag on). LIVE_PATHS **`#wf-guard-writers`** · **`#wf-pick-vs-strike`** · **`#wf-tier-44-pa`**.
+## Footing: focus-line resolve -> **`GuardLineUpdater.set_guard_from_line`** (L3 drift, not form home) . melee -> **`AttackWindUpStarter`** (PA stamp when flag on). LIVE_PATHS **`#wf-guard-writers`** . **`#wf-pick-vs-strike`** . **`#wf-tier-44-pa`**.
 
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
@@ -15,6 +15,7 @@ const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
 const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 const _FormationFlee := preload("res://combat/CombatFormationFlee.gd")
+const _FormationYield := preload("res://combat/CombatFormationYield.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
 const _MedicalCoord := preload("res://combat/CombatMedicalCoordination.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
@@ -29,7 +30,7 @@ static func is_medical_move(move_id: String) -> bool:
 	return CombatConstants.is_medical_move(move_id)
 
 
-## True when the action changed combatant state (wind-up, formation move, flee, etc.). False â reject/skip path; no turn log.
+## True when the action changed combatant state (wind-up, formation move, flee, etc.). False -> reject/skip path; no turn log.
 static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: String, options: Dictionary) -> bool:
 	var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
 	if atk.is_empty():
@@ -94,6 +95,12 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
 			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "flee not legal")
 			return false
 		_FormationFlee.apply_flee(manager, attacker_id)
+		return true
+	if move_id == CombatConstants.MOVE_ID_YIELD and target_id == attacker_id:
+		if not _FormationYield.yield_action_legal(manager, atk):
+			CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "yield not legal")
+			return false
+		_FormationYield.apply_yield(manager, attacker_id)
 		return true
 	if (
 		CombatConstants.is_leader_formation_command_move(move_id)
@@ -365,4 +372,3 @@ static func _commit_close_attempt_resolve(manager: Node, attacker_id: int, targe
 		return false
 	manager.emit_signal("turn_resolved", attacker_id)
 	return true
-      

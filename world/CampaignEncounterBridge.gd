@@ -1,8 +1,8 @@
 class_name CampaignEncounterBridge
 extends RefCounted
 
-## Overworld ÃƒÂ¢Ã¢Â€Â " combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
-## Canonical: `overworld_tile_from_position` Â· `overworld_tile_center` Â· `place_player_on_overworld_tile`.
+## Overworld f''' " combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
+## Canonical: `overworld_tile_from_position` . `overworld_tile_center` . `place_player_on_overworld_tile`.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _OverworldMap := preload("res://world/OverworldMap.gd")
@@ -10,7 +10,7 @@ const _EntityWounds := preload("res://core/EntityWounds.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
 const _CampaignTypes := preload("res://world/CampaignTypes.gd")
-# Runtime preload â€” circular dependency (CompanyState preloads CampaignEncounterBridge).
+# Runtime preload ''" circular dependency (CompanyState preloads CampaignEncounterBridge).
 static var _company_state_cache: Variant = null
 
 static func _get_company_state() -> GDScript:
@@ -18,7 +18,13 @@ static func _get_company_state() -> GDScript:
 		_company_state_cache = load("res://world/CompanyState.gd")
 	return _company_state_cache
 
-const _ContractSpawner := preload("res://world/ContractSpawner.gd")
+# Runtime preload ''" circular dependency (ContractSpawner preloads CampaignEncounterBridge).
+static var _contract_spawner_cache: Variant = null
+
+static func _get_contract_spawner() -> GDScript:
+	if _contract_spawner_cache == null:
+		_contract_spawner_cache = load("res://world/ContractSpawner.gd")
+	return _contract_spawner_cache
 const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
@@ -80,7 +86,7 @@ static func prepare_combat_from_encounter(world: Node2D, encounter: Node) -> voi
 	# XCamp-4: reset medic action tracker for this combat (per-entity).
 	world.set_meta("campaign_medic_actions_by", {})
 	if encounter.has_method("get_combat_encounter_dict"):
-		var enc: Dictionary = _ContractSpawner.build_encounter_config(
+		var enc: Dictionary = _get_contract_spawner().build_encounter_config(
 			encounter.get_combat_encounter_dict()
 		)
 		if "soak_preset_id" in encounter:
@@ -168,8 +174,8 @@ static func clear_transient_combat_meta(world: Node2D) -> void:
 		world.remove_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
 	if world.has_meta(META_ENEMY_FORMATION):
 		world.remove_meta(META_ENEMY_FORMATION)
-	if world.has_meta("map_bleed_mult"):
-		world.remove_meta("map_bleed_mult")
+	if world.has_meta("campaign_map_bleed_mult"):
+		world.remove_meta("campaign_map_bleed_mult")
 
 
 ## After victory/defeat: refresh party formation count from living members.
@@ -180,8 +186,8 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
 			var current_day: int = _get_company_state().get_day_index(world)
 			for n in get_fightable_party_nodes(world):
 				var entity: Node = health_entity_from_character(n)
-				if entity != null and entity.has("_proficiency_bonus") and entity.has("_last_fought_day"):
-					entity.set("_last_fought_in_combat", false)
+				if entity != null and "_proficiency_bonus" in entity and "last_fought_day" in entity:
+					entity.last_fought_in_combat = false
 					_Proficiency.apply_decay(entity, current_day)
 		clear_transient_combat_meta(world)
 		return
@@ -189,7 +195,7 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
 	_get_company_state().mark_tutorial_completed(world)
 	build_last_battle_summary(world)
 
-	# XCamp-4: proficiency â€”" update _last_fought_day and apply decay for party members.
+	# XCamp-4: proficiency ''"" update _last_fought_day and apply decay for party members.
 	_proficiency_post_combat(world)
 
 	clear_transient_combat_meta(world)
@@ -202,7 +208,7 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
 			_OperationalLog.play_world(_get_company_state().format_post_fight_field_care_world_log(world))
 
 
-## XCamp-4: post-combat proficiency processing â€”" update fight day, apply decay, medic INT floor.
+## XCamp-4: post-combat proficiency processing ''"" update fight day, apply decay, medic INT floor.
 static func _proficiency_post_combat(world: Node2D) -> void:
 	if world == null or not _get_company_state().read_stub_proficiency_enabled():
 		return
@@ -220,12 +226,16 @@ static func _proficiency_post_combat(world: Node2D) -> void:
 		if node.has_method("is_dead") and node.is_dead():
 			continue
 		var entity: Node = health_entity_from_character(node)
-		if entity == null or not entity.has("_proficiency_bonus"):
+		if entity == null or not ("_proficiency_bonus" in entity):
 			continue
-		# Update _last_fought_day for mercenaries who participated in combat.
-		if entity.has("_last_fought_in_combat") and (entity.get("_last_fought_in_combat") == true):
-			if entity.has("_last_fought_day"):
-				entity._last_fought_day = current_day
+		# Update last_fought_day for mercenaries who participated in combat.
+		var fought: bool = false
+		if "last_fought_in_combat" in entity:
+			fought = bool(entity.last_fought_in_combat)
+		elif "_last_fought_in_combat" in entity:
+			fought = bool(entity.get("_last_fought_in_combat"))
+		if fought and "last_fought_day" in entity:
+			entity.last_fought_day = current_day
 		# Apply decay (gated by CompanyState.read_stub_proficiency_enabled).
 		_Proficiency.apply_decay(entity, current_day)
 
@@ -249,8 +259,8 @@ static func _proficiency_post_combat(world: Node2D) -> void:
 			var member_entity: Node = health_entity_from_character(node)
 			if member_entity == entity_ptr:
 				# Medic INT floor: flat bonus per medical action (not subject to diminishing returns via award_stat_gain).
-				# This is intentional â€”" the medic floor is a guaranteed baseline reward, not practice-based growth.
-				if member_entity.has("_proficiency_bonus"):
+				# This is intentional ''"" the medic floor is a guaranteed baseline reward, not practice-based growth.
+				if "_proficiency_bonus" in member_entity:
 					member_entity._proficiency_bonus["intelligence"] += _Proficiency.GAIN_MEDIC_INT_FLOOR * action_count
 				break
 
@@ -313,7 +323,7 @@ static func apply_campaign_mood_stance_preferences(world: Node2D) -> void:
 
 
 ## XCamp-3.9 (MS-CAMP): stamp fight-entry campaign mood bias from average company mood into encounter meta.
-## Enemy side reads `enemy_mood_bias` from encounter config (0â€”"100; default 50 = neutral).
+## Enemy side reads `enemy_mood_bias` from encounter config (0''""100; default 50 = neutral).
 static func apply_campaign_mood_bias_to_encounter(world: Node2D) -> void:
 	if world == null or not world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER):
 		return
@@ -348,7 +358,7 @@ static func begin_contract_encounter(
 	return enemies
 
 
-## Spawn failed or combat aborted after `prepare_combat_from_encounter` â€”" keep map marker, drop stale meta.
+## Spawn failed or combat aborted after `prepare_combat_from_encounter` ''"" keep map marker, drop stale meta.
 static func abort_contract_encounter_entry(world: Node2D) -> void:
 	if world == null:
 		return
@@ -363,7 +373,7 @@ static func abort_contract_encounter_entry(world: Node2D) -> void:
 	_get_company_state().clear_active_contract(world)
 
 
-## Camp-2.2 row: blood, bleed, untreated parts, worst ATLS class (1â€”"4).
+## Camp-2.2 row: blood, bleed, untreated parts, worst ATLS class (1''""4).
 static func member_battle_summary_entry(snap: Dictionary, entity: Node) -> Dictionary:
 	var blood_pct: float = snap.get("blood_volume", 100.0)
 	var bleed_rate: float = snap.get("total_bleeding_rate", 0.0)
@@ -624,7 +634,7 @@ static func resolve_enemy_scene(world: Node) -> PackedScene:
 	return null
 
 
-## Overworld grid math â€”" delegates to **`OverworldMap`** (not per-world `_tile_coords` hooks).
+## Overworld grid math ''"" delegates to **`OverworldMap`** (not per-world `_tile_coords` hooks).
 static func overworld_tile_from_position(pos: Vector2) -> Vector2i:
 	return _OverworldMap.tile_coords_from_pos(pos)
 

@@ -11,7 +11,7 @@ const _Proficiency := preload("res://core/EntityProficiency.gd")
 const _ConstantsMedical := preload("res://combat/CombatConstantsMedical.gd")
 
 ## Starts a medical action: direct pressure (instant or during wind-up), bandage/tourniquet/pack wind-up.
-	## Footing: medic **`clear_on_exchange_end`** / **`reconcile_idle_offset`** on start · ally receiving scrub on entry — LIVE_PATHS **`#wf-tier-44-pa`**.
+	## Footing: medic **`clear_on_exchange_end`** / **`reconcile_idle_offset`** on start . ally receiving scrub on entry -- LIVE_PATHS **`#wf-tier-44-pa`**.
 ## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), emit_signal.
 
 static func _try_windup_pressure_while_preparing(
@@ -132,7 +132,7 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 			var tgt_entity = _EntityAccess.get_entity_from_manager(manager, target_node)
 			if _CompanyState.read_stub_proficiency_enabled():
 				_Proficiency.award_stat_gain(perf_entity, "intelligence", _Proficiency.GAIN_MEDICAL_ACTION_BASE * _Proficiency.GAIN_DIRECT_PRESSURE_INT_MULT)
-				if tgt_entity != null and tgt_entity.has("_proficiency_bonus"):
+				if tgt_entity != null and "_proficiency_bonus" in tgt_entity:
 					_Proficiency.award_stat_gain(tgt_entity, "endurance", _Proficiency.GAIN_BLOOD_PERIL_BASE * _Proficiency.GAIN_DIRECT_PRESSURE_PATIENT_END_MULT)
 		_Footwork.clear_on_exchange_end(c)
 		c.gauge = 0.0
@@ -183,4 +183,3 @@ static func start(manager: Node, combatant_id: int, target_combatant_id: int, me
 		target_node.receiving_medical_count = target_node.get("receiving_medical_count", 0) + 1
 		target_node.state = CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
 		target_node.gauge = 100.0
-     

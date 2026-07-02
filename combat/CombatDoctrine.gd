@@ -52,7 +52,7 @@ static func clear_commitments_for_side(manager: Node, formation_id: String) -> v
 		c["close_block_until_by_target_id"] = {}
 
 
-## Drop stale target commit after rank/file shuffle (rotate, swap, plug, flee) —" mapped opposition may change.
+## Drop stale target commit after rank/file shuffle (rotate, swap, plug, flee) --" mapped opposition may change.
 static func clear_combatant_doctrine_commitment(c: Dictionary) -> void:
 	if c.is_empty():
 		return
@@ -61,7 +61,7 @@ static func clear_combatant_doctrine_commitment(c: Dictionary) -> void:
 	c["close_block_until_by_target_id"] = {}
 
 
-## True when the **opposing** formation—™s front rank has a **hollow center**: middle file(s) empty with at least one living rank-0 on both wings (`files >= 3`). Rank-0 on **`combatant_on_zone_geometry_fid`**. Used for automatic pinch doctrine; exposed for harness.
+## True when the **opposing** formation--'"'s front rank has a **hollow center**: middle file(s) empty with at least one living rank-0 on both wings (`files >= 3`). Rank-0 on **`combatant_on_zone_geometry_fid`**. Used for automatic pinch doctrine; exposed for harness.
 static func enemy_line_hollow_center_for_pinch(manager: Node, our_formation_id: String) -> bool:
 	if manager == null:
 		return false
@@ -133,7 +133,7 @@ static func living_rank0_front_count(manager: Node, formation_id: String) -> int
 	return n
 
 
-## p4c: wider formation + rank-0 count advantage â†' auto envelopment pinch (doctrine still **default**).
+## p4c: wider formation + rank-0 count advantage |' auto envelopment pinch (doctrine still **default**).
 static func numeric_superiority_for_pinch(manager: Node, our_formation_id: String) -> bool:
 	if manager == null:
 		return false
@@ -155,7 +155,7 @@ static func numeric_superiority_for_pinch(manager: Node, our_formation_id: Strin
 	)
 
 
-## Option 4 pilot (`CombatConstants.FEATURE_AUTOMATIC_DOCTRINE`): **default** doctrine â†' **pinch_center** when hollow enemy front or numeric superiority (p4c). Does not override player-set **hold** / **pinch**; does not auto-revert. Single call site: `CombatFormationEngagement.recompute_all`.
+## Option 4 pilot (`CombatConstants.FEATURE_AUTOMATIC_DOCTRINE`): **default** doctrine |' **pinch_center** when hollow enemy front or numeric superiority (p4c). Does not override player-set **hold** / **pinch**; does not auto-revert. Single call site: `CombatFormationEngagement.recompute_all`.
 static func evaluate_automatic_doctrine(manager: Node) -> void:
 	if manager == null or not CombatConstants.FEATURE_AUTOMATIC_DOCTRINE:
 		return
@@ -221,7 +221,7 @@ static func pincer_center_should_pin(manager: Node, c: Dictionary) -> bool:
 	return pincer_role_for_combatant(manager, c) == PINCER_ROLE_CENTER
 
 
-## Living rank-0 enemy id on the outer flank file matching this wing (left wing â†' min enemy file, right â†' max).
+## Living rank-0 enemy id on the outer flank file matching this wing (left wing |' min enemy file, right |' max).
 static func preferred_pincer_flank_enemy_id(manager: Node, wing: Dictionary) -> int:
 	if manager == null or wing.is_empty():
 		return -1
@@ -256,7 +256,7 @@ static func preferred_pincer_flank_enemy_id(manager: Node, wing: Dictionary) -> 
 	return best_id
 
 
-## III-4 **3e**: spread damp for pincer flank wings —" penalizes targeting enemies far from preferred outer-file.
+## III-4 **3e**: spread damp for pincer flank wings --" penalizes targeting enemies far from preferred outer-file.
 ## Returns a multiplicative weight: `1.0` when not a wing or no preferred enemy; scales down with file distance.
 static func pincer_close_arc_spread_mult(manager: Node, actor: Dictionary, opp: Dictionary) -> float:
 	if manager == null or actor.is_empty() or opp.is_empty():
@@ -366,7 +366,7 @@ static func fight_finish_tail_active(
 	)
 
 
-## Opponent has mop-up advantage —" this fighter's side is the last-enemy tail (underdog finish).
+## Opponent has mop-up advantage --" this fighter's side is the last-enemy tail (underdog finish).
 static func mop_up_underdog_active(manager: Node, c: Dictionary) -> bool:
 	if manager == null or c.is_empty():
 		return false
@@ -377,7 +377,7 @@ static func mop_up_underdog_active(manager: Node, c: Dictionary) -> bool:
 
 
 ## Close listing/resolve when band/reach disagree (MID/CLOSE band, out of swing range) during envelop.
-## Pincer flank closes from **LONG** only —" already CLOSE/MID without mop-up must not re-list close (F5 stall).
+## Pincer flank closes from **LONG** only --" already CLOSE/MID without mop-up must not re-list close (F5 stall).
 static func envelop_close_allowed(
 	manager: Node, attacker: Dictionary, defender_id: int
 ) -> bool:
@@ -436,9 +436,9 @@ static func sparse_line_prefer_finish_over_shuffle(
 	return false
 
 
-## Skirmish rotate shuffle —" skip when mop-up and menu has no listed melee (close-only still suppresses).
-## Also skip on sparse post-flee lines when strikes/close are listed (distant holes —" adjacent rotate cannot help).
-## Rank-0 sparse + CLOSE/MID opposed band: finish engagement —" line-plug rotate cannot help distant holes.
+## Skirmish rotate shuffle --" skip when mop-up and menu has no listed melee (close-only still suppresses).
+## Also skip on sparse post-flee lines when strikes/close are listed (distant holes --" adjacent rotate cannot help).
+## Rank-0 sparse + CLOSE/MID opposed band: finish engagement --" line-plug rotate cannot help distant holes.
 static func should_suppress_skirmish_rotate_file(
 	manager: Node, c: Dictionary, actions: Array
 ) -> bool:

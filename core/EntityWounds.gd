@@ -135,7 +135,7 @@ static func _severity_rank(sev: String) -> int:
 	return idx if idx >= 0 else 1
 
 
-## Same part + sub_region during one fight → one wound channel worsens (not N separate pack procedures).
+## Same part + sub_region during one fight -> one wound channel worsens (not N separate pack procedures).
 static func _try_merge_wound_into_channel(
 	entity: Node,
 	part: String,
@@ -444,7 +444,7 @@ static func rebound_bleeding_after_pressure_release(entity: Node, part: String) 
 	# Always log pressure rebound  -  it is a critical UX event (player sees bleeding spike without understanding why).
 	# Bypass EntityMedical.log_medical_session which filters these in F5 sessions.
 	_CombatDebug.medical_session(
-		"%s pressure_rebound part=%s bleed %.3f→%.3f (released without dressing)"
+		"%s pressure_rebound part=%s bleed %.3f->%.3f (released without dressing)"
 		% [entity.name, part, before, after]
 	)
 

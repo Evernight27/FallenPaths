@@ -622,7 +622,7 @@ static func _run_kinematic_delivery_angle_diff_symmetry_and_zero(
 		CombatRegressionHarness._fail(failures, "kin_angle_sym: identical angles want align 1")
 
 
-## Tier 5.1 (optional long-tail): **`StrikePhysics.closing_speed_multiplier`**  -  target **`engagement_angle`** rear > flank > front scales exposed **`strike_ke_j`** (~**v²**).
+## Tier 5.1 (optional long-tail): **`StrikePhysics.closing_speed_multiplier`**  -  target **`engagement_angle`** rear > flank > front scales exposed **`strike_ke_j`** (~**v2**).
 static func _run_kinematic_delivery_closing_speed_engagement_angle_scales_strike_ke(
 	failures: PackedStringArray
 ) -> void:
@@ -988,7 +988,7 @@ static func _run_kinematic_delivery_depth_polearm_thrust_ctx_scales_strike_ke(
 		)
 
 
-## Tier 5.1 (optional long-tail): **`strike_physics_ctx.tactical_ambush_mult`** at cap raises **`strike_ke_j`** (~**v²**); **≤ 1** unchanged.
+## Tier 5.1 (optional long-tail): **`strike_physics_ctx.tactical_ambush_mult`** at cap raises **`strike_ke_j`** (~**v2**); **<= 1** unchanged.
 static func _run_kinematic_delivery_tactical_ambush_mult_scales_strike_ke(
 	failures: PackedStringArray
 ) -> void:
@@ -1038,7 +1038,7 @@ static func _run_kinematic_delivery_tactical_ambush_mult_scales_strike_ke(
 		)
 
 
-## Tier 5.1 (optional long-tail): depth-polearm stab with **`depth_polearm_allows_low_targets` false** and non-open lane ⇒ no closing boost; default **true** still boosts.
+## Tier 5.1 (optional long-tail): depth-polearm stab with **`depth_polearm_allows_low_targets` false** and non-open lane -> no closing boost; default **true** still boosts.
 static func _run_kinematic_delivery_depth_polearm_allows_low_false_no_closing_boost(
 	failures: PackedStringArray
 ) -> void:
@@ -1150,7 +1150,7 @@ static func _kin_strike_ke_on_manager(
 	return float(res.get("result_dict", {}).get("strike_ke_j_applied", -999.0))
 
 
-## Tier 5.1 (optional long-tail): rank-1 depth **`stamp_attack_pair_geometry_on_dict`** → **`strike_physics_ctx`** matches **`AttackResolver`**; open lane **`strike_ke_j`** matches manual ctx.
+## Tier 5.1 (optional long-tail): rank-1 depth **`stamp_attack_pair_geometry_on_dict`** -> **`strike_physics_ctx`** matches **`AttackResolver`**; open lane **`strike_ke_j`** matches manual ctx.
 static func _run_kinematic_delivery_pa_stamp_open_lane_strike_ke_matches_manual_ctx(
 	failures: PackedStringArray
 ) -> void:
@@ -1263,7 +1263,7 @@ static func _run_kinematic_delivery_attack_angle_deg_variance_weapon_mass_spread
 		)
 
 
-## Tier 5.1 (optional long-tail): **`StrikePhysics.closing_speed_multiplier`**  -  **`tactical_ambush_mult` ≤ 1** does not raise closing (only **`amb > 1.001`** lerps toward **`_AMBUSH_CAP`**; code authoritative vs narrative "ambush cap" only).
+## Tier 5.1 (optional long-tail): **`StrikePhysics.closing_speed_multiplier`**  -  **`tactical_ambush_mult` <= 1** does not raise closing (only **`amb > 1.001`** lerps toward **`_AMBUSH_CAP`**; code authoritative vs narrative "ambush cap" only).
 static func _run_kinematic_delivery_tactical_ambush_mult_unity_no_boost(
 	failures: PackedStringArray
 ) -> void:
@@ -1297,7 +1297,7 @@ static func _run_kinematic_delivery_tactical_ambush_mult_unity_no_boost(
 		)
 
 
-## Tier 5.1 (optional long-tail): unknown **`engagement_angle`** on target ⇒ same closing multiplier as **`front`** (StrikePhysics default branch).
+## Tier 5.1 (optional long-tail): unknown **`engagement_angle`** on target -> same closing multiplier as **`front`** (StrikePhysics default branch).
 static func _run_kinematic_delivery_engagement_angle_unknown_matches_front(
 	failures: PackedStringArray
 ) -> void:
@@ -1360,7 +1360,7 @@ static func _run_kinematic_delivery_parry_v_intent_thrust_archetype(
 		)
 
 
-## Tier 5.1 (optional long-tail): **SPEAR** **`spear_thrust`** integration  -  **`pre_cut_applied`** ∝ **`sqrt(strike_ke_j)`** at two pinned **`velocity_override`** values.
+## Tier 5.1 (optional long-tail): **SPEAR** **`spear_thrust`** integration  -  **`pre_cut_applied`** ~ **`sqrt(strike_ke_j)`** at two pinned **`velocity_override`** values.
 static func _run_kinematic_delivery_thrust_integration_pre_cut_scales_sqrt_ke(
 	failures: PackedStringArray
 ) -> void:
@@ -1418,7 +1418,7 @@ static func _run_kinematic_delivery_mace_integration_pre_blunt_rises_with_vo(
 		)
 
 
-## Tier 5.1 (optional long-tail): **SPEAR** thrust integration  -  applied **`penetration_sharp`** ∝ **`KE^PENETRATION_EXPONENT`** at two pinned **`vo`**.
+## Tier 5.1 (optional long-tail): **SPEAR** thrust integration  -  applied **`penetration_sharp`** ~ **`KE^PENETRATION_EXPONENT`** at two pinned **`vo`**.
 static func _run_kinematic_delivery_thrust_integration_pen_sharp_scales_ke_exponent(
 	failures: PackedStringArray
 ) -> void:
@@ -1452,7 +1452,7 @@ static func _run_kinematic_delivery_thrust_integration_pen_sharp_scales_ke_expon
 		)
 
 
-## Tier 5.1 (optional long-tail): **`AttackPathResolver.resolve_hit_part`**  -  both angles ⇒ path keys from **`angle_to_nearest_line`**; hit part stays inside intercept segment.
+## Tier 5.1 (optional long-tail): **`AttackPathResolver.resolve_hit_part`**  -  both angles -> path keys from **`angle_to_nearest_line`**; hit part stays inside intercept segment.
 static func _run_kinematic_delivery_resolve_hit_part_angle_path_keys(
 	failures: PackedStringArray
 ) -> void:
@@ -1783,7 +1783,7 @@ static func _run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_fo
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 5.1 (optional long-tail): rear **`engagement_angle`** - -  **`afterblow_damage_mult`** compose on assembled **`v`** → **`strike_ke_j`** (~**(cls - -  √ab)²**).
+## Tier 5.1 (optional long-tail): rear **`engagement_angle`** - -  **`afterblow_damage_mult`** compose on assembled **`v`** -> **`strike_ke_j`** (~**(cls - -  sqrtab)2**).
 static func _run_kinematic_delivery_rear_afterblow_compose_on_strike_ke(
 	failures: PackedStringArray
 ) -> void:
@@ -1814,7 +1814,7 @@ static func _run_kinematic_delivery_rear_afterblow_compose_on_strike_ke(
 	if absf(ratio_ke - ratio_want) > 0.07:
 		CombatRegressionHarness._fail(
 			failures,
-			"kin_compose: ke ratio %.4f want (cls- - √ab)² %.4f (cls front=%.4f rear=%.4f)"
+			"kin_compose: ke ratio %.4f want (cls- - sqrtab)2 %.4f (cls front=%.4f rear=%.4f)"
 			% [ratio_ke, ratio_want, cls_front, cls_rear]
 		)
 
@@ -1906,7 +1906,7 @@ static func _run_kinematic_delivery_weapon_form_damage_scales_pre_cut_integratio
 		)
 
 
-## Tier 5.1 (optional long-tail): rear **`engagement_angle`** raises integration **`pre_cut_applied`** (~√**`strike_ke_j`** ratio).
+## Tier 5.1 (optional long-tail): rear **`engagement_angle`** raises integration **`pre_cut_applied`** (~sqrt**`strike_ke_j`** ratio).
 static func _run_kinematic_delivery_closing_speed_engagement_angle_scales_pre_cut(
 	failures: PackedStringArray
 ) -> void:
@@ -2029,7 +2029,7 @@ static func _run_kinematic_delivery_variance_off_balance_and_stamina_compose(
 		)
 
 
-## Tier 5.1 (optional long-tail): **`get_deflected_line_from_angles`**  -  guard on attack opposite line + severity ≥ threshold ⇒ opposite bind (no magnitude RNG).
+## Tier 5.1 (optional long-tail): **`get_deflected_line_from_angles`**  -  guard on attack opposite line + severity >= threshold -> opposite bind (no magnitude RNG).
 static func _run_kinematic_delivery_deflected_line_opposite_severity_bind(
 	failures: PackedStringArray
 ) -> void:
@@ -2146,7 +2146,7 @@ static func _run_kinematic_delivery_target_mass_scales_blunt_pre_armor(
 		)
 
 
-## Tier 5.1 (optional long-tail): **AXE** **`diagonal_chop`** integration  -  **`pre_cut_applied`** ∝ **`sqrt(strike_ke_j)`**.
+## Tier 5.1 (optional long-tail): **AXE** **`diagonal_chop`** integration  -  **`pre_cut_applied`** ~ **`sqrt(strike_ke_j)`**.
 static func _run_kinematic_delivery_axe_integration_pre_cut_scales_sqrt_ke(
 	failures: PackedStringArray
 ) -> void:
@@ -2259,7 +2259,7 @@ static func _run_kinematic_delivery_unarmed_afterblow_scales_pre_blunt(
 		)
 
 
-## Tier 5.1 (optional long-tail): **DAGGER** **`quick_slash`** integration  -  **`pre_cut_applied`** ∝ **`sqrt(strike_ke_j)`**.
+## Tier 5.1 (optional long-tail): **DAGGER** **`quick_slash`** integration  -  **`pre_cut_applied`** ~ **`sqrt(strike_ke_j)`**.
 static func _run_kinematic_delivery_dagger_integration_pre_cut_scales_sqrt_ke(
 	failures: PackedStringArray
 ) -> void:
@@ -2399,7 +2399,7 @@ static func _run_kinematic_delivery_empty_arch_sword_thrust_infers_delivery(
 		)
 
 
-## Tier 5.1 (optional long-tail): partial parry on cut (**`velocity_override` ≥ 0**)  -  **`pre_blunt_applied`** rises, **`pre_cut_applied`** falls  -  **SWORD** / **AXE** / **DAGGER**.
+## Tier 5.1 (optional long-tail): partial parry on cut (**`velocity_override` >= 0**)  -  **`pre_blunt_applied`** rises, **`pre_cut_applied`** falls  -  **SWORD** / **AXE** / **DAGGER**.
 static func _run_kinematic_delivery_partial_parry_cut_to_blunt_integration_sword(
 	failures: PackedStringArray
 ) -> void:
@@ -2473,7 +2473,7 @@ static func _run_kinematic_delivery_pinned_vo_misalign_scales_pen_integration(
 			)
 
 
-## Tier 5.1 (optional long-tail): assembled **`v`** stamina scale  -  low striker **`strike_ke_j`** ratio ≈ **`stamina_vel_scale²`** (pinned **`vo`**).
+## Tier 5.1 (optional long-tail): assembled **`v`** stamina scale  -  low striker **`strike_ke_j`** ratio ~= **`stamina_vel_scale2`** (pinned **`vo`**).
 static func _run_kinematic_delivery_striker_stamina_strike_ke_matches_sqrt_stamina_scale(
 	failures: PackedStringArray
 ) -> void:
@@ -2493,7 +2493,7 @@ static func _run_kinematic_delivery_striker_stamina_strike_ke_matches_sqrt_stami
 	if absf(ke_low / ke_full - want_ratio) > 0.06:
 		CombatRegressionHarness._fail(
 			failures,
-			"kin_stam_ke: ke ratio %.4f want stamina_vel² %.4f (full=%.4f low=%.4f)"
+			"kin_stam_ke: ke ratio %.4f want stamina_vel2 %.4f (full=%.4f low=%.4f)"
 			% [ke_low / ke_full, want_ratio, ke_full, ke_low]
 		)
 
@@ -2516,7 +2516,7 @@ static func _kin_result_split_fields_sample(
 	}
 
 
-## Tier 5.1 (optional long-tail): weapon path  -  **`afterblow_damage_mult`** scales **`pre_cut_applied`** by **`sqrt(mult)`** (**`v`** - -  √mult → **`pre_cut`** ∝ √KE).
+## Tier 5.1 (optional long-tail): weapon path  -  **`afterblow_damage_mult`** scales **`pre_cut_applied`** by **`sqrt(mult)`** (**`v`** - -  sqrtmult -> **`pre_cut`** ~ sqrtKE).
 static func _run_kinematic_delivery_afterblow_scales_pre_cut_integration(
 	failures: PackedStringArray
 ) -> void:
@@ -2671,6 +2671,94 @@ static func run_core(failures: PackedStringArray) -> void:
 	CombatRegressionHarness._run_kinematic_delivery_angle_to_nearest_line_boundaries(failures)
 
 
+## HEMA defense: misaligned guard (high atk vs low def) prefers dodge over leaky parry.
+static func _run_choose_defense_misaligned_prefers_dodge(failures: PackedStringArray) -> void:
+	var attack_type: String = "oberhau"
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	defender["guard"] = 0.55
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["guard_line"] = "low"
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
+	if parts.is_empty():
+		CombatRegressionHarness._fail(failures, "choose_defense_misaligned: targetable parts empty")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var pa: Dictionary = {
+		"attack_type": attack_type,
+		"effective_attack_line": "high",
+		"intensity": 0.65,
+		"wind_up_duration": 0.85,
+		"tactical_ambush_mult": 1.0,
+	}
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var dc: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, attack_type, arch, -1.0, mgr
+	)
+	var preview: float = float(dc.get("parry_preview_alignment", 1.0))
+	if preview >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
+		CombatRegressionHarness._fail(
+			failures,
+			"choose_defense_misaligned: want low preview align got %.3f" % preview
+		)
+	if str(dc.get("defense", "")) != "dodge":
+		CombatRegressionHarness._fail(
+			failures,
+			"choose_defense_misaligned: high vs low want dodge got %s" % str(dc.get("defense", ""))
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
+## HEMA defense: aligned guard may still choose parry when in time.
+static func _run_choose_defense_aligned_can_parry(failures: PackedStringArray) -> void:
+	var attack_type: String = "oberhau"
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var defender: Dictionary = mgr.combatants[0]
+	var attacker: Dictionary = mgr.combatants[1]
+	defender["guard"] = 0.55
+	defender["state"] = CombatConstants.STATE_WAITING
+	defender["guard_line"] = "high"
+	var def_n: Node = _EntityAccess.scene_node(defender)
+	var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
+	if parts.is_empty():
+		CombatRegressionHarness._fail(failures, "choose_defense_aligned: targetable parts empty")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var pa: Dictionary = {
+		"attack_type": attack_type,
+		"effective_attack_line": "high",
+		"intensity": 0.65,
+		"wind_up_duration": 0.85,
+		"tactical_ambush_mult": 1.0,
+	}
+	var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+	var dc: Dictionary = _DefenseChoice.choose_defense(
+		pa, attacker, defender, parts, attack_type, arch, -1.0, mgr
+	)
+	if not bool(dc.get("can_parry_in_time", false)):
+		CombatRegressionHarness._fail(failures, "choose_defense_aligned: want can_parry_in_time")
+	var preview: float = float(dc.get("parry_preview_alignment", 0.0))
+	if preview < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
+		CombatRegressionHarness._fail(
+			failures,
+			"choose_defense_aligned: want aligned preview got %.3f" % preview
+		)
+	if str(dc.get("defense", "")) != "parry":
+		CombatRegressionHarness._fail(
+			failures,
+			"choose_defense_aligned: high vs high want parry got %s" % str(dc.get("defense", ""))
+		)
+	CombatRegressionHarness._free_manager(mgr)
+
+
 ## Entry point  -  defined last so Godot resolves all `_run_*` bodies before `run()` (large-script forward-ref limit).
 static func run(failures: PackedStringArray) -> void:
 	_run_kinematic_delivery_line_to_angle_unknown_line_returns_zero(failures)
@@ -2682,6 +2770,8 @@ static func run(failures: PackedStringArray) -> void:
 	_run_iv6_attack_path_octant_suite(failures)
 	_run_iv5_arm_interpose_suite(failures)
 	_run_iv5_choose_defense_interpose_boost(failures)
+	_run_choose_defense_misaligned_prefers_dodge(failures)
+	_run_choose_defense_aligned_can_parry(failures)
 	_run_iv5_parry_clash_context_carries_interpose(failures)
 	_run_kinematic_delivery_near_full_parry_respects_min_cut_ratio_floor(failures)
 	_run_kinematic_delivery_discrete_line_alignment_matches_with_deflect_no_angles(failures)

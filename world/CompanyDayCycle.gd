@@ -6,7 +6,7 @@ extends RefCounted
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 
-# Runtime preload — circular dependency (CompanyState preloads CompanyDayCycle).
+# Runtime preload -- circular dependency (CompanyState preloads CompanyDayCycle).
 static var _company_state_cache: Variant = null
 
 static func _get_state() -> GDScript:
@@ -163,10 +163,19 @@ static func _run_daily_desertion_pass(world: Node2D) -> void:
 		if rng.randf() >= _get_mood().MOOD_DESERTION_CHANCE:
 			continue
 		var name_s: String = str(m.get("name", (node_ref as Node).name))
-		deserted_names.append(name_s)
+		deserted_names.append({"name": name_s, "mood": mood})
 		if _OperationalLog.is_play_session_active():
 			_OperationalLog.play_world("brother_deserted name=%s mood=%.1f" % [name_s, mood])
-	for name_s in deserted_names:
+	if deserted_names.size() > 0 and _OperationalLog.is_play_session_active():
+		var summary_bits: PackedStringArray = PackedStringArray()
+		for row in deserted_names:
+			if row is Dictionary:
+				summary_bits.append(
+					"%s(mood=%.0f)" % [str((row as Dictionary).get("name", "")), float((row as Dictionary).get("mood", 0.0))]
+				)
+		_OperationalLog.play_world("desertion summary=%s" % ", ".join(summary_bits))
+	for row in deserted_names:
+		var name_s: String = str(row.get("name", "")) if row is Dictionary else str(row)
 		if pm.has_method("remove_member_by_name"):
 			pm.remove_member_by_name(name_s)
 		var member_node: Node = _get_state()._resolve_member_node_by_name(world, name_s)

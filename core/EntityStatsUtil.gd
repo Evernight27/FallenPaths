@@ -1,4 +1,4 @@
-﻿class_name EntityStatsUtil
+class_name EntityStatsUtil
 extends RefCounted
 
 ## Centralized effective stat calculation with proficiency bonus stacking.

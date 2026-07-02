@@ -2,8 +2,8 @@ class_name CombatAttention
 extends RefCounted
 
 ## Tier 4.3: salience probes, attention load, combat focus (**`focus_part`**, **`focus_intensity`**), and per-attacker yomi memory.
-## Footing: appends focus **listing** only  -  L3 **`guard_line`** write on focus resolve is **`CombatResolveAction`**. LIVE_PATHS **`#wf-pick-vs-strike`** · **`#wf-guard-writers`**.
-## **Read order:** enable/clear â salience refresh â focus line listing append â yomi read/write helpers.
+## Footing: appends focus **listing** only  -  L3 **`guard_line`** write on focus resolve is **`CombatResolveAction`**. LIVE_PATHS **`#wf-pick-vs-strike`** . **`#wf-guard-writers`**.
+## **Read order:** enable/clear -> salience refresh -> focus line listing append -> yomi read/write helpers.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
@@ -122,7 +122,7 @@ static func format_attention_ui_hint(c: Dictionary) -> String:
 		chunks.append("Load %d%%" % int(roundf(attention_load * 100.0)))
 	if not stack_layer.is_empty():
 		chunks.append("Stack %s" % stack_layer)
-	return " · ".join(chunks)
+	return " . ".join(chunks)
 
 
 ## UI snapshot: stamped row hint when present, else derive from live telegraph/focus/load (same frame as **`build`**).
@@ -471,4 +471,3 @@ static func append_focus_line_listing_actions(c: Dictionary, combatant_id: int, 
 		return
 	for move_id in CombatConstants.FOCUS_LINE_MOVE_IDS:
 		actions.append({"target_id": combatant_id, "move_id": move_id})
-    

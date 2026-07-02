@@ -1,4 +1,4 @@
-﻿class_name CombatFormationMoveListing
+class_name CombatFormationMoveListing
 extends RefCounted
 
 ## Formation movement actions: swap rank, drag/fall_back pair, solo fall_back, rotate file (line discipline).
@@ -10,13 +10,19 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
 const _MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
-# Runtime preload â€” circular dependency (CombatFormationFlee preloads CombatFormationMoveListing).
+# Runtime preload '" circular dependency (CombatFormationFlee preloads CombatFormationMoveListing).
 static var _flee_cache: Variant = null
+static var _yield_cache: Variant = null
 
 static func _get_flee() -> GDScript:
 	if _flee_cache == null:
 		_flee_cache = load("res://combat/CombatFormationFlee.gd")
 	return _flee_cache
+
+static func _get_yield() -> GDScript:
+	if _yield_cache == null:
+		_yield_cache = load("res://combat/CombatFormationYield.gd")
+	return _yield_cache
 
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
@@ -520,6 +526,13 @@ static func append_formation_move_actions(
 			{"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_FALL_BACK}
 		)
 	_FormationRout.ensure_rout_baseline(manager)
+	if _get_yield().yield_action_legal(manager, c):
+		_append_formation_action(
+			manager,
+			c,
+			actions,
+			{"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_YIELD}
+		)
 	if _get_flee().flee_action_legal(manager, c):
 		_get_flee().log_flee_listed_if_verbose(manager, c)
 		_append_formation_action(
@@ -560,7 +573,11 @@ static func append_combat_wait_if_needed(
 		actions.append(entry2)
 		return
 	for a in actions:
-		if not CombatConstants.is_formation_movement_move(str(a.get("move_id", ""))):
+		var mid: String = str(a.get("move_id", ""))
+		if (
+			not CombatConstants.is_formation_movement_move(mid)
+			and mid != CombatConstants.MOVE_ID_YIELD
+		):
 			return
 	var entry3: Dictionary = {"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT}
 	if dampened:

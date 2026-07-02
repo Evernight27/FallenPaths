@@ -10,7 +10,7 @@ const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 
 ## Updates a single combatant's UI row: gauge, state label, blood, consciousness, body bars.
-## Gauge suffix order (footing): pick · attention · Step (PA) · flurry · exhaustion · Grd/Atk · Form —" `_compose_waiting_gauge_label`. LIVE_PATHS **`#battle-ui`** · **`#wf-tier-44-pa`** (Step) · **`#wf-soak-audit-status`** (ii5c open for **` · Form`**).
+## Gauge suffix order (footing): pick . attention . Step (PA) . flurry . exhaustion . Grd/Atk . Form --" `_compose_waiting_gauge_label`. LIVE_PATHS **`#battle-ui`** . **`#wf-tier-44-pa`** (Step) . **`#wf-soak-audit-status`** (ii5c open for **` . Form`**).
 ## ctrl = id_to_controls[id], c = combatant dict from manager.get_combatants().
 ## Pass **`manager`** for live counter-tempo, attention salience, cooldown **`status_override`**, and
 ## Camp-3.3 medical-phase gauge tooltips (**`CombatUiHints.medical_phase_context_tooltip_lines`**).
@@ -22,7 +22,7 @@ static func _last_pick_suffix(c: Dictionary) -> String:
 static func _compose_waiting_gauge_label(c: Dictionary, primary: String, manager: Node = null) -> String:
 	var attn_hint: String = _UiHints.attention_hint_text(c, manager)
 	var foot_suffix: String = _UiHints.footwork_hint_suffix(c)
-	var attn_suffix: String = (" · " + attn_hint) if not attn_hint.is_empty() else ""
+	var attn_suffix: String = (" . " + attn_hint) if not attn_hint.is_empty() else ""
 	var flurry_suffix: String = _UiHints.flurry_bind_hint_suffix(c, manager)
 	var exh_suffix: String = _UiHints.exhaustion_hint_suffix(c)
 	var grd_suffix: String = _UiHints.guard_line_gauge_suffix(c)
@@ -34,9 +34,9 @@ static func _compose_waiting_gauge_label(c: Dictionary, primary: String, manager
 static func _readiness_hint_suffix(c: Dictionary) -> String:
 	var gauge_pct: int = int(roundf(_EntityAccess.gauge_float(c)))
 	if gauge_pct >= 100:
-		return " · Ready"
+		return " . Ready"
 	if gauge_pct > 0:
-		return " · Rdy %d%%" % gauge_pct
+		return " . Rdy %d%%" % gauge_pct
 	return ""
 
 
@@ -79,15 +79,15 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
 		"recovering":
 			return _compose_waiting_gauge_label(c, "Recov. %.1fs" % remain, manager)
 		CombatConstants.STATE_SWAP_RANK:
-			return _compose_waiting_gauge_label(c, "Swap %.1fs · vulnerable" % remain, manager)
+			return _compose_waiting_gauge_label(c, "Swap %.1fs . vulnerable" % remain, manager)
 		CombatConstants.STATE_FALLING_BACK:
-			return _compose_waiting_gauge_label(c, "Fall back %.1fs · vulnerable" % remain, manager)
+			return _compose_waiting_gauge_label(c, "Fall back %.1fs . vulnerable" % remain, manager)
 		CombatConstants.STATE_COWERING:
 			var cow_label: String = "Cowering"
 			if _EntityAccess.can_flee_or_fall_back(c):
-				cow_label = "Cowering · can fall back"
+				cow_label = "Cowering . can fall back"
 			elif not _EntityAccess.is_unconscious(c):
-				cow_label = "Cowering · immobile"
+				cow_label = "Cowering . immobile"
 			return _compose_waiting_gauge_label(c, cow_label, manager)
 		"receiving_medical_attention":
 			return _compose_waiting_gauge_label(c, "Receiving care", manager)
@@ -104,7 +104,7 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
 		return _compose_waiting_gauge_label(c, status_override, manager)
 	var primary: String = _waiting_stamina_primary_label(c)
 	if CombatConstants.COMBAT_DEBUG and c.get("guard_angle_deg", null) is float:
-		primary += " %.0fÃÂ°" % float(c.get("guard_angle_deg"))
+		primary += " %.0ff''deg" % float(c.get("guard_angle_deg"))
 	return _compose_waiting_gauge_label(c, primary, manager)
 
 
@@ -113,10 +113,10 @@ static func _sync_gauge_label(ctrl: Dictionary, c: Dictionary, text: String, man
 		return
 	ctrl.gauge_label.text = text
 	if not _EntityAccess.alive_bool(c, true):
-		ctrl.gauge_label.tooltip_text = "Defeated — out of the fight."
+		ctrl.gauge_label.tooltip_text = "Defeated -- out of the fight."
 		return
 	if _EntityAccess.has_left_battlefield(c):
-		ctrl.gauge_label.tooltip_text = "Fled the field — not in formation."
+		ctrl.gauge_label.tooltip_text = "Fled the field -- not in formation."
 		return
 	ctrl.gauge_label.tooltip_text = "\n".join(_UiHints.gauge_tooltip_lines(c, manager))
 
@@ -181,4 +181,3 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary, manager: Node 
 				if part in _EntityAccess.nested_dictionary_read(ctrl, "body_labels"):
 					ctrl.body_labels[part].text = _RowFormatter.format_body_part_compact(part, bc, bb, bm, bone_h, bone_m)
 					ctrl.body_labels[part].visible = mx > 0
-                                         

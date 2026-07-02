@@ -6,7 +6,7 @@ extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-# Runtime preload â€” circular dependency (MedicalPhaseController preloads CombatEventScheduler).
+# Runtime preload '" circular dependency (MedicalPhaseController preloads CombatEventScheduler).
 static var _medical_phase_cache: Variant = null
 
 static func _get_medical_phase() -> GDScript:
@@ -62,7 +62,7 @@ static func get_next_action_ready_at(manager: Node, combatant_id: int) -> float:
 
 
 ## Single pass over `event_queue`: earliest future `EVENT_ACTION_READY` per `combatant_id` (vs `combat_clock`).
-## Use for UI snapshots instead of O(combatants Ãƒ -  queue) per-frame scans.
+## Use for UI snapshots instead of O(combatants -> -  queue) per-frame scans.
 static func build_next_action_ready_times(manager: Node) -> Dictionary:
 	var best_by_id: Dictionary = {}
 	if manager == null:

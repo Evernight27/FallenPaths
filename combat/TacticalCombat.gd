@@ -2,7 +2,7 @@ class_name TacticalCombat
 extends RefCounted
 
 ## Phase 6: Ambush penalties, surround (multi-threat defense split + perception), incursion pressure for ZoC.
-## Formations / ambush: CombatConstants presets; plan Tier 1 —" docs/LIVE_PATHS.md#tier-1-spec.
+## Formations / ambush: CombatConstants presets; plan Tier 1 --" docs/LIVE_PATHS.md#tier-1-spec.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
@@ -171,7 +171,7 @@ static func attacker_has_co_located_slot_mate_threatening(
 
 
 ## Enemy front-rank units that could actually land a melee strike on the defender (weapon reach + spacing + band).
-## Not merely —œMID distance— from formation geometry —" matches **`CombatMeleeListing.can_melee_threaten`**.
+## Not merely --A"MID distance--? from formation geometry --" matches **`CombatMeleeListing.can_melee_threaten`**.
 static func count_engaging_threats(manager: Node, defender_id: int) -> int:
 	var d: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
 	if d.is_empty():
@@ -184,7 +184,7 @@ static func _surround_awareness_factor(defender: Dictionary) -> float:
 	return base * _Exhaustion.performance_mult_for_combatant(defender)
 
 
-## Sum of sector weights for each enemy that `can_melee_threaten` the defender (Tier 3.1 —" uses `effective_pair_file_spacing_equivalent` vs flank spacing).
+## Sum of sector weights for each enemy that `can_melee_threaten` the defender (Tier 3.1 --" uses `effective_pair_file_spacing_equivalent` vs flank spacing).
 ## Live scan: count, sector **`weight_sum`**, and arc-overlap demotions (**`arc_occupancy_blocked`**).
 static func surround_threat_scan_for_defender(manager: Node, defender: Dictionary) -> Dictionary:
 	if manager == null or defender.is_empty():
@@ -212,7 +212,7 @@ static func stamp_surround_threat_on_pa(manager: Node, defender: Dictionary, pa:
 		pa.erase("arc_occupancy_blocked")
 
 
-## Per-attacker sector weight (0.35—"1.0) for one defender —" same geometry as surround threat scan.
+## Per-attacker sector weight (0.35--"1.0) for one defender --" same geometry as surround threat scan.
 static func sector_weight_for_attacker_on_defender(
 	manager: Node, defender_id: int, attacker_id: int
 ) -> float:
@@ -297,7 +297,7 @@ static func ambush_defense_multiplier(manager: Node, defender: Dictionary) -> fl
 		p *= 0.5
 	return 1.0 - p
 
-## Global incursion 0..INCURSION_PRESSURE_MAX from front-rank imbalance; lane_stress_by_file from dual occupancy + density (not bodies —" those are obs_pen in ZoC).
+## Global incursion 0..INCURSION_PRESSURE_MAX from front-rank imbalance; lane_stress_by_file from dual occupancy + density (not bodies --" those are obs_pen in ZoC).
 static func recompute_incursion_pressure(manager: Node) -> void:
 	if manager == null or not manager.get("formations"):
 		return

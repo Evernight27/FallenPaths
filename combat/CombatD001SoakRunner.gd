@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Headless **D-001** preset fights: simulates F5 cyan soaks, captures **`FP_COMBAT`**, parses runbook grep targets.
 ## Mandatory **II-2b / II-5a - c** sign-off is headless-only via plausibility + **`BattleUIUpdater`** probes (see **`.d001_headless_signoff.txt`**).
-## **ii5c** (`_run_ii5c_gauge_label_checks`): **`Stm`/`Ready`/`Exh`/`Grd`** + WF gauge/diagram suffix order (incl. **`form_wrath_*`**)  -  LIVE_PATHS **`#wf-soak-audit-status`** · **`#battle-ui`**.
+## **ii5c** (`_run_ii5c_gauge_label_checks`): **`Stm`/`Ready`/`Exh`/`Grd`** + WF gauge/diagram suffix order (incl. **`form_wrath_*`**)  -  LIVE_PATHS **`#wf-soak-audit-status`** . **`#battle-ui`**.
 
 const _MgrScript := preload("res://combat/CombatManager.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
@@ -586,7 +586,7 @@ static func _run_ii5c_gauge_label_checks() -> Dictionary:
 	var checks: Array = [
 		{
 			"id": "stm_ready",
-			"needle": "Stm 67% · Ready",
+			"needle": "Stm 67% . Ready",
 			"label": _BattleUIUpdater.gauge_label_text_for_combatant(
 				{
 					"alive": true,
@@ -645,7 +645,7 @@ static func _run_ii5c_gauge_label_checks() -> Dictionary:
 	checks.append(
 		{
 			"id": "form_ox_gauge",
-			"needle": " · Form Ox",
+			"needle": " . Form Ox",
 			"label": form_label,
 			"min": 1,
 		}
@@ -656,7 +656,7 @@ static func _run_ii5c_gauge_label_checks() -> Dictionary:
 			"needle": "",
 			"label": form_label,
 			"min": 1,
-			"ordered_substrings": ["Grd", " · Form Ox"],
+			"ordered_substrings": ["Grd", " . Form Ox"],
 		}
 	)
 	if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
@@ -680,7 +680,7 @@ static func _run_ii5c_gauge_label_checks() -> Dictionary:
 		checks.append(
 			{
 				"id": "form_wrath_gauge",
-				"needle": " · Form Wrath",
+				"needle": " . Form Wrath",
 				"label": wrath_label,
 				"min": 1,
 			}
@@ -691,7 +691,7 @@ static func _run_ii5c_gauge_label_checks() -> Dictionary:
 				"needle": "",
 				"label": wrath_label,
 				"min": 1,
-				"ordered_substrings": ["Grd HiL", " · Form Wrath"],
+				"ordered_substrings": ["Grd HiL", " . Form Wrath"],
 			}
 		)
 		var wrath_cell: String = _Diagram._cell_label_with_footwork("P0", [wrath_row])
@@ -717,7 +717,7 @@ static func _run_ii5c_gauge_label_checks() -> Dictionary:
 				"needle": "",
 				"label": step_label,
 				"min": 1,
-				"ordered_substrings": ["Step", "Atk", " · Form Ox"],
+				"ordered_substrings": ["Step", "Atk", " . Form Ox"],
 			}
 		)
 	var full_row: String = _BattleUIUpdater.gauge_label_text_for_combatant(
@@ -730,7 +730,7 @@ static func _run_ii5c_gauge_label_checks() -> Dictionary:
 			CombatConstants.COMBATANT_KEY_EXHAUSTION: 0.12,
 		}
 	)
-	var row_subs: Array = ["Stm", " · Ready", "Grd"]
+	var row_subs: Array = ["Stm", " . Ready", "Grd"]
 	if CombatConstants.is_feature_fight_exhaustion_enabled():
 		row_subs.append("Exh")
 	checks.append(
@@ -970,7 +970,7 @@ static func _probe_ii_envelop_mopup_engagement_debug(preset_id: String) -> void:
 	).strip_edges()
 	if hold_hint.contains("Mop-up"):
 		_OperationalLog.play_combat("soak_setup ii_envelop_mopup hold_line_hint_ok")
-	# 3e strike-finish: CLOSE + listed melee â `engagement_debug` strikes_listed line for validator/F5.
+	# 3e strike-finish: CLOSE + listed melee -> `engagement_debug` strikes_listed line for validator/F5.
 	var strike_actor: Dictionary = _player_at_rank_file(mgr, 0, 3)
 	if strike_actor.is_empty():
 		strike_actor = actor
@@ -1368,7 +1368,7 @@ static func _probe_ii_sparse_close_band_rotate_suppress(preset_id: String) -> vo
 	CombatConstants.set_headless_harness_quiet(was_quiet)
 
 
-## III-6 maintain: deterministic rank-0 gap â rear **`swap_rank`** â `engagement_debug line_plug_pick=1`.
+## III-6 maintain: deterministic rank-0 gap -> rear **`swap_rank`** -> `engagement_debug line_plug_pick=1`.
 static func _probe_ii_line_plug_engagement_debug(preset_id: String) -> void:
 	_OperationalLog.play_combat(
 		"soak_setup ii_line_plug rank-0 gap smoke (engagement_debug line_plug_pick)"
@@ -1453,7 +1453,7 @@ static func _probe_ii_line_plug_engagement_debug(preset_id: String) -> void:
 	CombatConstants.set_headless_harness_quiet(was_quiet)
 
 
-## III-6 maintain: Skirmish rank-0 hole â front **`rotate_file`** â `engagement_debug line_plug_pick=1`.
+## III-6 maintain: Skirmish rank-0 hole -> front **`rotate_file`** -> `engagement_debug line_plug_pick=1`.
 static func _probe_ii_skirmish_rotate_line_plug_engagement_debug(preset_id: String) -> void:
 	_OperationalLog.play_combat(
 		"soak_setup ii_skirmish_rotate rank-0 gap smoke (engagement_debug line_plug_pick rotate)"
@@ -1605,7 +1605,7 @@ static func _probe_formation_turn_hints(mgr: Node) -> Dictionary:
 	var turn_ready_form_ok: bool = false
 	for line in _OperationalLog.get_captured_lines():
 		var s: String = str(line)
-		if "turn_ready_gauge" in s and " · Form" in s:
+		if "turn_ready_gauge" in s and " . Form" in s:
 			turn_ready_form_ok = true
 			break
 	return {
@@ -1659,10 +1659,10 @@ static func _merge_probe_ii8_checks(pr: Dictionary, probe: Dictionary) -> Dictio
 	}
 	var snap_label: String = str(probe.get("snapshot_label", ""))
 	var diagram_cell: String = str(probe.get("diagram_cell_label", ""))
-	var form_gauge_ok: bool = " · Form" in snap_label
+	var form_gauge_ok: bool = " . Form" in snap_label
 	var form_diagram_ok: bool = " [Ox]" in diagram_cell
 	var suffix_order_ok: bool = (
-		form_gauge_ok and _label_tokens_in_order(snap_label, PackedStringArray(["Grd", " · Form"]))
+		form_gauge_ok and _label_tokens_in_order(snap_label, PackedStringArray(["Grd", " . Form"]))
 	)
 	var turn_ready_form_ok: bool = bool(probe.get("turn_ready_form_suffix", false))
 	check_out["form_gauge_suffix"] = {
@@ -1686,13 +1686,13 @@ static func _merge_probe_ii8_checks(pr: Dictionary, probe: Dictionary) -> Dictio
 		"min": 1,
 	}
 	if not form_gauge_ok:
-		required_fail.append("form_gauge_suffix missing · Form in snapshot_label")
+		required_fail.append("form_gauge_suffix missing . Form in snapshot_label")
 	if not form_diagram_ok:
 		required_fail.append("form_diagram_suffix missing [Ox] in diagram cell")
 	if not suffix_order_ok:
-		required_fail.append("gauge_suffix_order Grd before · Form")
+		required_fail.append("gauge_suffix_order Grd before . Form")
 	if not turn_ready_form_ok:
-		required_fail.append("turn_ready_form_suffix missing · Form in turn_ready_gauge")
+		required_fail.append("turn_ready_form_suffix missing . Form in turn_ready_gauge")
 	ok = ok and form_gauge_ok and form_diagram_ok and suffix_order_ok and turn_ready_form_ok
 	summary = "ok" if ok else ", ".join(required_fail)
 	return {
@@ -2020,7 +2020,7 @@ static func _formation_engagement_banner_line(mgr: Node) -> String:
 	var mode_disp: String = _EngagementMode.mode_display_name(_EngagementMode.engagement_mode(mgr))
 	var posture: String = str(form.get("engagement_posture", " - "))
 	var coh: float = float(form.get("line_cohesion", 0.0))
-	return "%s · %s · cohesion %d%%" % [
+	return "%s . %s . cohesion %d%%" % [
 		mode_disp,
 		posture.capitalize(),
 		int(roundf(coh * 100.0)),
@@ -2034,7 +2034,7 @@ static func _log_diagram_banner_once(mgr: Node) -> void:
 	var mode_disp: String = _EngagementMode.mode_display_name(_EngagementMode.engagement_mode(mgr))
 	var posture: String = str(form.get("engagement_posture", " - "))
 	var coh: float = float(form.get("line_cohesion", 0.0))
-	var line: String = "%s · %s · cohesion %d%%" % [
+	var line: String = "%s . %s . cohesion %d%%" % [
 		mode_disp,
 		posture.capitalize(),
 		int(roundf(coh * 100.0)),
@@ -2342,4 +2342,3 @@ static func _destroy_limb(entity: CoreEntity, part: String) -> void:
 
 static func _free_manager(mgr: Node) -> void:
 	CombatRegressionHarness._free_manager(mgr)
-                                    

@@ -2,7 +2,7 @@ extends SceneTree
 
 ## Headless Camp-1 economy loop + Camp-2 spot checks + XCamp-3.x + P2 persistence roundtrip.
 ## Run: .\scripts\run_company_state_checks.ps1
-## Labels: Camp-1.x / XCamp-3.x in failure messages map to SHIP_PLAN § Camp-1 / EXPANSION_PLAN Exp-3.
+## Labels: Camp-1.x / XCamp-3.x in failure messages map to SHIP_PLAN S Camp-1 / EXPANSION_PLAN Exp-3.
 ## Gate: stdout `FP_HARNESS_OK: CompanyStateChecks` (test count in message; sync `scripts/README.md`).
 ## P2 rows use `CampaignPersistence.begin_harness_isolated_save()`  -  production `user://fallen_paths_slot0.json` untouched.
 ## Fails if any `SCRIPT_ERROR` is logged during the run (`FallenPathsErrorLogger` tally).
@@ -30,13 +30,26 @@ const _PlayerCompanionSetup := preload("res://world/PlayerCompanionSetup.gd")
 const _OverworldMap := preload("res://world/OverworldMap.gd")
 const _CampaignAfflictions := preload("res://world/CampaignAfflictions.gd")
 const _Persistence := preload("res://world/CampaignPersistence.gd")
+const _HarnessFixtures := preload("res://combat/HarnessFixtures.gd")
 const _EncounterSpawner := preload("res://world/EncounterSpawner.gd")
 const _CompanyRunEndPanel := preload("res://ui/CompanyRunEndPanel.gd")
 const _SettlementPanel := preload("res://ui/SettlementPanel.gd")
 
 static var _test_count: int = 0
-static var _party_manager_script: Script = load(ResourcePaths.PARTY_MANAGER) as Script
-static var _party_menu_script: Script = load(ResourcePaths.PARTY_MENU) as Script
+static func _new_party_manager() -> Node:
+	return load("res://world/PartyManager.gd").new()
+
+
+static func _new_party_menu() -> PopupPanel:
+	return load("res://ui/PartyMenu.gd").new() as PopupPanel
+
+
+static func _party_manager_script_ref() -> Script:
+	return load("res://world/PartyManager.gd") as Script
+
+
+static func _party_menu_script_ref() -> Script:
+	return load("res://ui/PartyMenu.gd") as Script
 
 
 func _init() -> void:
@@ -77,7 +90,7 @@ func _run_harness() -> void:
 func _finish_harness(failures: PackedStringArray) -> void:
 	await process_frame
 	_cleanup_harness_tree_leaks()
-	CombatRegressionHarness.flush_harness_live_nodes()
+	_HarnessFixtures.flush_harness_live_nodes()
 	var script_errors: int = _OperationalLog.harness_script_error_count()
 	if script_errors > 0:
 		_fail(
@@ -224,12 +237,12 @@ static func _add_living_entity_member(pm: Node, member_name: String) -> Node:
 
 static func _harness_core_entity() -> Node:
 	var ent: Node = _CoreEntityScript.new()
-	CombatRegressionHarness._track_harness_node(ent)
+	_HarnessFixtures._track_harness_node(ent)
 	return ent
 
 
 static func _free_harness_core_entity(ent: Node) -> void:
-	CombatRegressionHarness._free_harness_node(ent)
+	_HarnessFixtures._free_harness_node(ent)
 
 
 # --- Camp-1.1 ---
@@ -662,7 +675,7 @@ static func _run_camp_1_4_contracts(failures: PackedStringArray) -> void:
 	enc.free()
 
 	var label: String = _ContractSpawner.format_marker_label(_ContractSpawner.CONTRACT_TEMPLATES[0])
-	if not label.contains("100") or not label.contains("★"):
+	if not label.contains("100") or not label.contains("*"):
 		_fail(failures, "Camp-1.4: marker label should show pay and difficulty")
 	else:
 		_pass()
@@ -1306,7 +1319,7 @@ static func _clear_paid_contract_markers(world: Node2D) -> void:
 
 static func _run_contract_deck_refresh(failures: PackedStringArray) -> void:
 	var world: Node2D = _make_overworld_spawn_world(true)
-	var pm: Node = _party_manager_script.new()
+	var pm: Node = _new_party_manager()
 	world.add_child(pm)
 	world.set_meta("party_manager", pm)
 	_add_living_entity_member(pm, "DeckBro")
@@ -1709,10 +1722,10 @@ static func _run_xcamp_38_ms_camp_bridge(failures: PackedStringArray) -> void:
 	_release_harness_world(world)
 
 
-## XCamp-3.9: campaign mood bias → mental stack weight multipliers via bridge meta.
+## XCamp-3.9: campaign mood bias -> mental stack weight multipliers via bridge meta.
 static func _run_xcamp_39_mood_bias_to_ms(failures: PackedStringArray) -> void:
 	var _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
-	# Basic multiplier boundaries: low mood (≤25) → defensive bias, high mood (≥70) → aggressive bias.
+	# Basic multiplier boundaries: low mood (<=25) -> defensive bias, high mood (>=70) -> aggressive bias.
 	if _MoodBias.wait_action_weight_mult(0.0) < 1.0:
 		_fail(failures, "XCamp-3.9: mood=0 should increase wait weight above 1.0")
 	else:
@@ -1785,7 +1798,7 @@ static func _run_xcamp_39_mood_bias_to_ms(failures: PackedStringArray) -> void:
 		_pass()
 	var biased_val: float = float(enc.get(_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER, 50.0))
 	if biased_val > 20.0:
-		_fail(failures, "XCamp-3.9: mood bias should reflect low roster mood (≈15) got %.1f" % biased_val)
+		_fail(failures, "XCamp-3.9: mood bias should reflect low roster mood (~=15) got %.1f" % biased_val)
 	else:
 		_pass()
 	pm.members[0]["company_mood"] = 85.0
@@ -1793,7 +1806,7 @@ static func _run_xcamp_39_mood_bias_to_ms(failures: PackedStringArray) -> void:
 	var enc2: Dictionary = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {})
 	var high_val: float = float(enc2.get(_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER, 50.0))
 	if high_val < 80.0:
-		_fail(failures, "XCamp-3.9: mood bias should reflect high roster mood (≈85) got %.1f" % high_val)
+		_fail(failures, "XCamp-3.9: mood bias should reflect high roster mood (~=85) got %.1f" % high_val)
 	else:
 		_pass()
 	# Enemy side: default 50.0 when no enemy_mood_bias in encounter config.
@@ -1813,7 +1826,7 @@ static func _run_xcamp_39_mood_bias_to_ms(failures: PackedStringArray) -> void:
 	var enc4: Dictionary = world3.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, {})
 	var enemy_low: float = float(enc4.get(_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_ENEMY, -1.0))
 	if enemy_low < 5.0 or enemy_low > 15.0:
-		_fail(failures, "XCamp-3.9: enemy mood bias should reflect encounter config (≈10), got %.1f" % enemy_low)
+		_fail(failures, "XCamp-3.9: enemy mood bias should reflect encounter config (~=10), got %.1f" % enemy_low)
 	else:
 		_pass()
 	# Enemy side: clamp at 100 boundary.
@@ -2209,7 +2222,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 			if raw is Dictionary:
 				roster.append(_Snapshot.snapshot_from_member(raw as Dictionary))
 		seed(90400 + attempt)
-		# MARCH chain: pressure → stabilize → pack/bandage; RNG may fail one tick.
+		# MARCH chain: pressure -> stabilize -> pack/bandage; RNG may fail one tick.
 		_MapFieldCare.try_treat_next_wound(treat_next_world, roster)
 		if _EntityWounds.part_has_definitive_hemostasis(bleed_bro, "chest"):
 			treat_next_dressed = true
@@ -2361,7 +2374,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 	var retry_tree_root: Node = _harness_root()
 	if retry_tree_root != null and retry_world.get_parent() == null:
 		retry_tree_root.add_child(retry_world)
-	var retry_menu: PopupPanel = _party_menu_script.new() as PopupPanel
+	var retry_menu: PopupPanel = _new_party_menu()
 	retry_world.add_child(retry_menu)
 	var retry_roster_ui: Array = []
 	for raw in pm_retry.members:
@@ -2466,7 +2479,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		)
 	else:
 		_pass()
-	var zero_menu: PopupPanel = _party_menu_script.new() as PopupPanel
+	var zero_menu: PopupPanel = _new_party_menu()
 	zero_med_world.add_child(zero_menu)
 	var zero_roster_before: Array = []
 	for raw in pm_zero.members:
@@ -3070,7 +3083,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 		_fail(failures, "Camp-2.1: winner_side_untreated_part_count want 1")
 	else:
 		_pass()
-	CombatRegressionHarness._free_manager(mgr_cnt)
+	_HarnessFixtures._free_manager(mgr_cnt)
 
 	var bleed_sim_world: Node2D = _make_world(1)
 	var pm_bleed: Node = bleed_sim_world.get_meta("party_manager")
@@ -3228,7 +3241,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 	var pm_b: Variant = restart_world.get_meta("party_manager")
 	var pm_on_world: int = 0
 	for child in restart_world.get_children():
-		if child.get_script() == _party_manager_script and not child.is_queued_for_deletion():
+		if child.get_script() == _party_manager_script_ref() and not child.is_queued_for_deletion():
 			pm_on_world += 1
 	if pm_a == pm_b or pm_on_world != 1:
 		_fail(
@@ -3245,7 +3258,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
 			if layer.name != "UIOverlayLayer":
 				continue
 			for gc in layer.get_children():
-				if gc.get_script() == _party_menu_script:
+				if gc.get_script() == _party_menu_script_ref():
 					overlay_menus += 1
 				elif gc is Button and gc.name == "PartyButton":
 					overlay_buttons += 1
@@ -3902,7 +3915,7 @@ static func _run_camp_5_ea_log_markers(failures: PackedStringArray) -> void:
 	for raw in pm_triage.members:
 		if raw is Dictionary:
 			roster.append(_Snapshot.snapshot_from_member(raw as Dictionary))
-	var menu: PopupPanel = _party_menu_script.new() as PopupPanel
+	var menu: PopupPanel = _new_party_menu()
 	triage_world.add_child(menu)
 	menu.show_party(triage_world, roster)
 	var triage_open_logged: bool = false

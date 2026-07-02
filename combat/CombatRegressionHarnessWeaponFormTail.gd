@@ -2,7 +2,7 @@ class_name CombatRegressionHarnessWeaponFormTail
 extends RefCounted
 
 ## Expand WF: weapon form spawn, mods, picker weights, pressure class, UI suffix parity.
-## Footing rows: home guard on **`assign_form`** · gauge/diagram **` · Form`** / **`[Ox]`**  -  not PA step. LIVE_PATHS **`#harness-row-catalog-combatregressionharnessweaponformtailgd`** · soak open scope **`#wf-soak-audit-status`** · compose **`#battle-ui`**.
+## Footing rows: home guard on **`assign_form`** . gauge/diagram **` . Form`** / **`[Ox]`**  -  not PA step. LIVE_PATHS **`#harness-row-catalog-combatregressionharnessweaponformtailgd`** . soak open scope **`#wf-soak-audit-status`** . compose **`#battle-ui`**.
 
 const _Attention := preload("res://combat/CombatAttention.gd")
 const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
@@ -30,6 +30,7 @@ static func run(failures: PackedStringArray) -> void:
 	_run_weapon_form_normalize_stance_alias(failures)
 	_run_weapon_form_mod_parity_stance_alias(failures)
 	_run_weapon_form_move_weight_distribution(failures)
+	_run_weapon_form_axe_chop_weight_bias(failures)
 	_run_weapon_form_pressure_class_zoc(failures)
 	_run_weapon_form_close_controlling_evasion(failures)
 	_run_weapon_form_controlling_disengage_pressure(failures)
@@ -81,10 +82,10 @@ static func _run_weapon_form_allowed_forms_clamp(failures: PackedStringArray) ->
 	mgr.register(CombatRegressionHarness._new_entity("DAGGER"), "player")
 	var c: Dictionary = mgr.combatants[0]
 	_WeaponForm.assign_form(mgr, c, _WeaponForm.FORM_WRATH, "test")
-	if _EntityAccess.form_str(c) != _WeaponForm.FORM_FOOL:
+	if _EntityAccess.form_str(c) != _WeaponForm.FORM_DAGGER_HIGH:
 		CombatRegressionHarness._fail(
 			failures,
-			"weapon_form: dagger clamp want fool got %s" % _EntityAccess.form_str(c)
+			"weapon_form: dagger wrath alias want high_hut got %s" % _EntityAccess.form_str(c)
 		)
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
@@ -132,6 +133,47 @@ static func _run_weapon_form_move_weight_distribution(failures: PackedStringArra
 		CombatRegressionHarness._fail(
 			failures,
 			"weapon_form: plow stab want > slash (%.3f vs %.3f)" % [w_stab, w_slash]
+		)
+	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+static func _run_weapon_form_axe_chop_weight_bias(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("AXE"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("AXE"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var c: Dictionary = mgr.combatants[0]
+	var weapon: Variant = _EntityAccess.get_weapon(c)
+	_WeaponForm.assign_form(mgr, c, _WeaponForm.FORM_AXE_DEMI, "test")
+	var cid: int = _EntityAccess.id_int(c)
+	var tid: int = _EntityAccess.id_int(mgr.combatants[1])
+	var act_chop: Dictionary = {"move_id": "overhead_chop", "target_id": tid}
+	var act_thrust: Dictionary = {"move_id": "spike_thrust", "target_id": tid}
+	var w_chop: float = _AIPicker._get_action_weight(act_chop, cid, mgr, true, {}, {})
+	var w_thrust: float = _AIPicker._get_action_weight(act_thrust, cid, mgr, true, {}, {})
+	_WeaponForm.assign_form(mgr, c, _WeaponForm.FORM_BALANCED, "test")
+	var w_chop_bal: float = _AIPicker._get_action_weight(act_chop, cid, mgr, true, {}, {})
+	if w_chop <= w_chop_bal:
+		CombatRegressionHarness._fail(
+			failures,
+			"weapon_form: demi_hache chop want > balanced (%.3f vs %.3f)" % [w_chop, w_chop_bal]
+		)
+	if w_chop <= w_thrust:
+		CombatRegressionHarness._fail(
+			failures,
+			"weapon_form: demi_hache chop want > spike_thrust (%.3f vs %.3f)" % [w_chop, w_thrust]
+		)
+	var bec_chop: float = _WeaponForm.action_weight_mult(
+		_WeaponForm.FORM_AXE_BEC, "overhead_chop", weapon
+	)
+	var demi_chop: float = _WeaponForm.action_weight_mult(
+		_WeaponForm.FORM_AXE_DEMI, "overhead_chop", weapon
+	)
+	if demi_chop <= bec_chop:
+		CombatRegressionHarness._fail(
+			failures,
+			"weapon_form: demi_hache overhead_chop mult want > bec_point (%.3f vs %.3f)"
+			% [demi_chop, bec_chop]
 		)
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
@@ -1014,10 +1056,10 @@ static func _run_weapon_form_ui_suffix(failures: PackedStringArray) -> void:
 	var c: Dictionary = mgr.combatants[0]
 	c["state"] = CombatConstants.STATE_WAITING
 	var gauge_suffix: String = _UiHints.weapon_form_gauge_suffix(c)
-	if gauge_suffix != " · Form Ox":
+	if gauge_suffix != " . Form Ox":
 		CombatRegressionHarness._fail(
 			failures,
-			"weapon_form_ui: gauge suffix want ' · Form Ox' got '%s'" % gauge_suffix
+			"weapon_form_ui: gauge suffix want ' . Form Ox' got '%s'" % gauge_suffix
 		)
 	var diagram_suffix: String = _UiHints.weapon_form_diagram_suffix(c)
 	if diagram_suffix != " [Ox]":
@@ -1031,7 +1073,7 @@ static func _run_weapon_form_ui_suffix(failures: PackedStringArray) -> void:
 			failures, "weapon_form_ui: tooltip want 'Form: Ox' got '%s'" % tip
 		)
 	var label: String = _BattleUIUpdater.gauge_label_text_for_combatant(c, mgr)
-	if not label.contains(" · Form Ox"):
+	if not label.contains(" . Form Ox"):
 		CombatRegressionHarness._fail(
 			failures,
 			"weapon_form_ui: gauge label missing Form Ox suffix (got '%s')" % label
@@ -1051,7 +1093,7 @@ static func _run_weapon_form_ui_suffix(failures: PackedStringArray) -> void:
 			"weapon_form_ui: diagram cell missing [Ox] (got '%s')" % cell_label
 		)
 	_WeaponForm.assign_form(mgr, c, _WeaponForm.FORM_WALL, "harness_ui")
-	if _UiHints.weapon_form_gauge_suffix(c) != " · Form Wall":
+	if _UiHints.weapon_form_gauge_suffix(c) != " . Form Wall":
 		CombatRegressionHarness._fail(failures, "weapon_form_ui: wall gauge suffix after assign")
 	var wall_tip: String = _UiHints.weapon_form_tooltip_line(c)
 	if wall_tip != "Form: Wall (defensive)":
@@ -1164,4 +1206,3 @@ static func _run_weapon_form_wf_t2_suite(failures: PackedStringArray) -> void:
 	_run_weapon_form_wf_t2_mod_identity_bands(failures)
 	_run_weapon_form_wf_t2_counter_mult_cap(failures)
 	_run_weapon_form_wf_t2_duel_wall_recovery_gate(failures)
-                

@@ -7,11 +7,11 @@ extends RefCounted
 ##
 ## Gain tiers (diminishing returns): 0-5 = 1.0x, 6-10 = 0.7x, 11-20 = 0.4x, 21-30 = 0.2x, 31+ = 0.1x.
 ## Decay tiers (per-stat calibrated): 11-15 = -0.03/day, 16-20 = -0.05/day, 21-25 = -0.08/day, 26+ = -0.12/day.
-## Gain and decay use separate thresholds  -  gain follows a "proficiency level" model (noviceâ†’elite),
+## Gain and decay use separate thresholds  -  gain follows a "proficiency level" model (novice|'elite),
 ## decay follows a "bonus magnitude" model calibrated for how quickly different magnitudes erode.
 ## Decay only applies to bonuses > 10.0  -  characters below +11 don't lose ground on basic training.
 
-# Runtime preload â€” circular dependency (CompanyState preloads CompanyCamp/Roster which preload EntityProficiency).
+# Runtime preload ' circular dependency (CompanyState preloads CompanyCamp/Roster which preload EntityProficiency).
 static var _CompanyState: Variant = null
 
 static func _get_company_state() -> GDScript:
@@ -47,11 +47,11 @@ const DECAY_MULT_INT: float = 0.4
 
 # --- Stance/form gain modifiers  -  derived from CombatWeaponForm._FORM_DEFS ---
 ## Maps form pressure class to stat training bonus profile.
-## Aggressive forms â†’ strength bonus (overwhelming force).
-## Defensive forms â†’ endurance bonus (durability under pressure).
-## Controlling forms â†’ intelligence bonus (reading the fight).
-## Neutral Ox â†’ agility + perception (thrust precision).
-## Neutral Plow â†’ mixed endurance/agility (methodical spacing).
+## Aggressive forms |' strength bonus (overwhelming force).
+## Defensive forms |' endurance bonus (durability under pressure).
+## Controlling forms |' intelligence bonus (reading the fight).
+## Neutral Ox |' agility + perception (thrust precision).
+## Neutral Plow |' mixed endurance/agility (methodical spacing).
 ## Tempest is aggressive but gets unique STR/AGI treatment  -  checked before pressure match.
 static func stance_mods_for_form(form: String) -> Dictionary:
 	if form.is_empty():
@@ -71,14 +71,26 @@ static func stance_mods_for_form(form: String) -> Dictionary:
 		return {"strength": 1.05, "endurance": 1.05, "intelligence": 1.15}
 	return {"strength": 1.0, "endurance": 1.0}
 
-# --- Weapon type learning curve modifiers ---
+# --- Weapon type learning curve modifiers (keys match Weapon.weapon_type) ---
 const WEAPON_CURVES: Dictionary = {
-	"spear": {"strength": 1.3, "agility": 1.0},
-	"polearm": {"strength": 1.3, "agility": 1.0},
-	"one_handed_shield": {"strength": 0.9, "agility": 1.1},
-	"two_handed": {"strength": 0.8, "agility": 0.9},
-	"dual_wielding": {"strength": 0.7, "agility": 1.2},
+	"SWORD": {"strength": 0.8, "agility": 0.9},
+	"AXE": {"strength": 1.2, "agility": 0.95},
+	"MACE": {"strength": 1.25, "agility": 0.85},
+	"DAGGER": {"strength": 0.7, "agility": 1.2},
+	"SPEAR": {"strength": 1.3, "agility": 1.0},
 }
+
+const GAIN_OFF_FOCUS_HIT_PER_BASE: float = 0.12
+const GAIN_PREFERRED_PART_INT_BASE: float = 0.10
+const GAIN_WEAPON_PROF_HIT_BASE: float = 0.25
+const GAIN_FORM_PROF_HIT_BASE: float = 0.20
+
+const WEAPON_PROF_VETERAN_MAX: float = 20.0
+const FORM_PROF_VETERAN_MAX: float = 20.0
+const PROF_OCCURRENCE_MULT_MAX: float = 1.35
+const PROF_AIM_MULT_MAX: float = 1.15
+const PROF_INTENDED_PART_BOOST_MIN: float = 2.0
+const PROF_INTENDED_PART_BOOST_MAX: float = 3.0
 
 # --- Base gain amounts per combat event (raw proficiency points) ---
 const GAIN_MELEE_HIT_BASE: float = 0.3
@@ -143,13 +155,128 @@ static func award_stat_gain(entity: CoreEntity, stat: String, raw_amount: float,
 		if stance_mods.has(stat):
 			modified_amount *= float(stance_mods[stat])
 
-	# Apply weapon curve modifier
-	if not weapon_id.is_empty() and WEAPON_CURVES.has(weapon_id):
-		var weapon_mods: Dictionary = WEAPON_CURVES[weapon_id]
+	var wid: String = normalize_weapon_id(weapon_id)
+	if not wid.is_empty() and WEAPON_CURVES.has(wid):
+		var weapon_mods: Dictionary = WEAPON_CURVES[wid]
 		if weapon_mods.has(stat):
 			modified_amount *= float(weapon_mods[stat])
 
 	entity._proficiency_bonus[stat] = current_bonus + modified_amount
+
+
+static func normalize_weapon_id(weapon_id: String) -> String:
+	return str(weapon_id).to_upper().strip_edges()
+
+
+static func normalize_form_id(form: String) -> String:
+	return _WeaponForm.normalize_form(form)
+
+
+static func weapon_proficiency_value(entity: CoreEntity, weapon_id: String) -> float:
+	if entity == null or not "_weapon_proficiency" in entity:
+		return 0.0
+	return float(entity._weapon_proficiency.get(normalize_weapon_id(weapon_id), 0.0))
+
+
+static func form_proficiency_value(entity: CoreEntity, form: String) -> float:
+	if entity == null or not "_form_proficiency" in entity:
+		return 0.0
+	return float(entity._form_proficiency.get(normalize_form_id(form), 0.0))
+
+
+static func weapon_proficiency_tier(entity: CoreEntity, weapon_id: String) -> float:
+	return clampf(weapon_proficiency_value(entity, weapon_id) / WEAPON_PROF_VETERAN_MAX, 0.0, 1.0)
+
+
+static func form_proficiency_tier(entity: CoreEntity, form: String) -> float:
+	return clampf(form_proficiency_value(entity, form) / FORM_PROF_VETERAN_MAX, 0.0, 1.0)
+
+
+static func combined_aim_prof_tier(entity: CoreEntity, weapon_id: String, form: String) -> float:
+	return clampf((weapon_proficiency_tier(entity, weapon_id) + form_proficiency_tier(entity, form)) * 0.5, 0.0, 1.0)
+
+
+static func proficiency_occurrence_mult(
+	entity: CoreEntity, weapon_id: String, form: String, move_id: String
+) -> float:
+	if entity == null:
+		return 1.0
+	var wt: float = weapon_proficiency_tier(entity, weapon_id)
+	var ft: float = form_proficiency_tier(entity, form)
+	var sig: float = _WeaponForm.action_weight_mult(normalize_form_id(form), move_id, weapon_id)
+	var boost: float = 1.0 + wt * 0.12 + ft * 0.08
+	if sig > 1.05:
+		boost += (sig - 1.0) * ft * 0.35
+	return clampf(boost, 1.0, PROF_OCCURRENCE_MULT_MAX)
+
+
+static func proficiency_aim_part_mult(entity: CoreEntity, weapon_id: String, form: String) -> float:
+	if entity == null:
+		return 1.0
+	var tier: float = combined_aim_prof_tier(entity, weapon_id, form)
+	return lerpf(1.0, PROF_AIM_MULT_MAX, tier)
+
+
+static func intended_part_boost_mult(entity: CoreEntity, weapon_id: String, form: String) -> float:
+	if entity == null:
+		return PROF_INTENDED_PART_BOOST_MIN
+	return lerpf(PROF_INTENDED_PART_BOOST_MIN, PROF_INTENDED_PART_BOOST_MAX, combined_aim_prof_tier(entity, weapon_id, form))
+
+
+static func award_weapon_proficiency(entity: CoreEntity, weapon_id: String, raw_amount: float) -> void:
+	if not _get_company_state().read_stub_proficiency_enabled():
+		return
+	if entity == null or not "_weapon_proficiency" in entity:
+		return
+	var wid: String = normalize_weapon_id(weapon_id)
+	if wid.is_empty():
+		return
+	var current: float = weapon_proficiency_value(entity, wid)
+	var gain_mult: float = _get_gain_multiplier_for_float(current)
+	entity._weapon_proficiency[wid] = current + raw_amount * gain_mult
+
+
+static func award_form_proficiency(entity: CoreEntity, form: String, raw_amount: float) -> void:
+	if not _get_company_state().read_stub_proficiency_enabled():
+		return
+	if entity == null or not "_form_proficiency" in entity:
+		return
+	var fid: String = normalize_form_id(form)
+	if fid.is_empty():
+		return
+	var current: float = form_proficiency_value(entity, fid)
+	var gain_mult: float = _get_gain_multiplier_for_float(current)
+	entity._form_proficiency[fid] = current + raw_amount * gain_mult
+
+
+## Strike-time targeting proficiency: PER on off-focus, INT on preferred part, weapon/form track.
+static func notify_targeting_gains_from_hit(
+	entity: CoreEntity,
+	weapon_id: String,
+	form_str: String,
+	move_def: Dictionary,
+	hit_part: String,
+	intended_part: String,
+	defender_focus_part: String
+) -> void:
+	if not _get_company_state().read_stub_proficiency_enabled():
+		return
+	if entity == null:
+		return
+	award_weapon_proficiency(entity, weapon_id, GAIN_WEAPON_PROF_HIT_BASE)
+	if not form_str.is_empty():
+		award_form_proficiency(entity, form_str, GAIN_FORM_PROF_HIT_BASE)
+	var preferred: Array = move_def.get("preferred_parts", [])
+	if not intended_part.is_empty() and hit_part == intended_part:
+		if not preferred.is_empty() and preferred.has(hit_part):
+			award_stat_gain(entity, "intelligence", GAIN_PREFERRED_PART_INT_BASE, weapon_id, form_str)
+	if (
+		not defender_focus_part.is_empty()
+		and not intended_part.is_empty()
+		and intended_part != defender_focus_part
+		and hit_part == intended_part
+	):
+		award_stat_gain(entity, "perception", GAIN_OFF_FOCUS_HIT_PER_BASE, weapon_id, form_str)
 
 
 ## Called between contracts  -  applies decay for inactive mercenaries using calendar days.
@@ -159,7 +286,11 @@ static func apply_decay(entity: CoreEntity, current_day_index: int) -> void:
 	if entity == null or not "_proficiency_bonus" in entity:
 		return
 
-	var last_fought: int = entity.get_last_fought_day() if "last_fought_day" in entity else 0
+	var last_fought: int = 0
+	if "last_fought_day" in entity:
+		last_fought = int(entity.last_fought_day)
+	elif "_last_fought_day" in entity:
+		last_fought = int(entity.get("_last_fought_day"))
 	if last_fought == 0:
 		return  # Never fought  -  no combat bonuses to decay yet
 	var inactive_days: int = current_day_index - last_fought
@@ -177,7 +308,7 @@ static func apply_decay(entity: CoreEntity, current_day_index: int) -> void:
 
 		# Wounded mercenary protection: decay x0.5 if below 40% blood volume.
 		var bv: float = 100.0
-		if entity.has("blood_volume"):
+		if "blood_volume" in entity:
 			bv = float(entity.blood_volume)
 		elif entity.has_method("get_blood_volume"):
 			bv = float(entity.get_blood_volume())
@@ -186,7 +317,6 @@ static func apply_decay(entity: CoreEntity, current_day_index: int) -> void:
 
 		var new_bonus: float = maxf(0.0, bonus + daily_decay * inactive_days)
 		entity._proficiency_bonus[stat] = new_bonus
-
 
 ## Called during camp drill  -  merges pending training into proficiency bonus.
 static func merge_training_pending(entity: CoreEntity) -> void:

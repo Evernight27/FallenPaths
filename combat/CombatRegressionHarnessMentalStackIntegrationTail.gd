@@ -147,7 +147,7 @@ static func _run_mental_stack_integration_post_strike_surrounded_wounded(
 
 
 ## 3. Rout + medical peril: Phase 7 (medical escalation) fires, rout blocked by peril.
-## Ally in immediate peril → L1 medical layer fires; rout layer blocked.
+## Ally in immediate peril -> L1 medical layer fires; rout layer blocked.
 static func _run_mental_stack_integration_rout_medical_peril(
 	failures: PackedStringArray
 ) -> void:
@@ -245,7 +245,7 @@ static func _run_mental_stack_integration_feint_exhausted_orthogonal(
 
 
 ## 5. Medical escalation + rout: Rout doesn't trigger (medical peril), L1 medical fires with escalation boost.
-## Failed bandage on ally chest → pack gets 1.5x escalation bonus.
+## Failed bandage on ally chest -> pack gets 1.5x escalation bonus.
 static func _run_mental_stack_integration_medical_escalation_rout(
 	failures: PackedStringArray
 ) -> void:
@@ -304,7 +304,7 @@ static func _run_mental_stack_integration_medical_escalation_rout(
 ## 6. Full stack: post-strike + surrounded + exhausted + medical (3+5+6+7).
 ## MS-L8 post-strike fires first (press struck target). If no valid strikes in filter pool,
 ## MS-L9 positional check fires but returns empty (rout_layer_blocked by plug logic).
-## L5 exhaustion would fire but medical peril takes priority → L1 medical layer with escalation boost.
+## L5 exhaustion would fire but medical peril takes priority -> L1 medical layer with escalation boost.
 static func _run_mental_stack_integration_full_stack_post_strike_surrounded_exhausted_medical(
 	failures: PackedStringArray
 ) -> void:
@@ -518,7 +518,7 @@ static func _run_mental_stack_integration_feint_resistance_plus_post_strike(
 
 ## 10. Positional awareness vs rout priority (6+1).
 ## Combatant surrounded by 2+ hostiles; also has cohesion pressure (blood volume low).
-## MS-L6 rout fires first if rout_cognition_pressure() is true → picks flee/fall_back.
+## MS-L6 rout fires first if rout_cognition_pressure() is true -> picks flee/fall_back.
 ## If rout blocked (medical peril), MS-L9 fires and returns disengage pool when surrounded + wounded.
 static func _run_mental_stack_integration_positional_vs_rout_priority(
 	failures: PackedStringArray
@@ -538,7 +538,7 @@ static func _run_mental_stack_integration_positional_vs_rout_priority(
 
 	# Set low blood on the entity node so L9 vulnerability check fires.
 	# Blood must be below FORMATION_FLEE_BLOOD_VOLUME_MAX (55) to trigger
-	# abandonment_warranted → rout_cognition_pressure → MS-L6 rout pick.
+	# abandonment_warranted -> rout_cognition_pressure -> MS-L6 rout pick.
 	var fighter_ent: Node = _EntityAccess.get_entity_from_manager(mgr, fighter)
 	if fighter_ent != null:
 		fighter_ent.blood_volume = CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX - 5.0
@@ -609,7 +609,7 @@ static func _run_mental_stack_integration_medical_escalation_no_path(
 	# Simulate failed bandage on chest  -  but pack/TK are NOT available (no escalation path).
 	ally["failed_medical_parts"] = ["chest"]
 
-	# Build actions: only bandage is listed (pack/TK not in inventory → not listed).
+	# Build actions: only bandage is listed (pack/TK not in inventory -> not listed).
 	var actions: Array = [
 		{"move_id": CombatConstants.MOVE_ID_BANDAGE_SELF, "target_id": ally_id, "target_part": "chest"},
 	]

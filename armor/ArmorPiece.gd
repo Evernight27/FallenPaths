@@ -9,7 +9,7 @@ const _Bp := preload("res://core/BodyPartConstants.gd")
 # (e.g. plate + gambeson) to reflect medieval kit. Damage is processed through
 # layers in order: outer first, then inner.
 #
-# SHARP: Penetration model. pen_sharp vs sharp_resistance → penetrate or stop.
+# SHARP: Penetration model. pen_sharp vs sharp_resistance -> penetrate or stop.
 #        When stopped: fraction transmitted as blunt (sharp_deflect_transmission); durability loss on absorbed share.
 # BLUNT: Transmission-only model. Fraction of damage passes (blunt_transmission); cushion and area coupling reduce it. Durability loss on absorbed share.
 

@@ -83,7 +83,7 @@ static func apply_preset(encounter: Node, preset_id: String) -> bool:
 static func apply_world_post_setup(world: Node2D, preset_id: String) -> void:
 	if world == null or preset_id.is_empty():
 		return
-	# Cyanâcyan in one F5 session: drop prior preset meta (e.g. **ii5** armless leader before **ii6**).
+	# Cyan->cyan in one F5 session: drop prior preset meta (e.g. **ii5** armless leader before **ii6**).
 	clear_world_soak_meta(world)
 	match preset_id:
 		PRESET_II2B_SWORD_DUEL, PRESET_II4D_EXHAUSTION:
@@ -191,7 +191,7 @@ static func _fight_enter_hint_lines(preset_id: String) -> PackedStringArray:
 
 
 static func _emit_d001_run_order_hint(active_preset: String) -> void:
-	var order_s: String = " â ".join(D001_PRESET_RUN_ORDER)
+	var order_s: String = " -> ".join(D001_PRESET_RUN_ORDER)
 	if active_preset.is_empty():
 		_OperationalLog.play_combat(
 			"soak_guide D-001 preset order: %s  -  then 7v7 red tiles for #4 #7 II-5a/b/c" % order_s
@@ -288,7 +288,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
 				"preset=ii4d  -  II-4d stamina/exhaustion (3 - 5 min duel) | %s" % tile_s,
 				"setup: same as ii2b; soak=ii4d on encounter_begin",
 				"grep: exhaustion crossed 25|50|75 | engagement mode= | parry_* during long fight",
-				"on-screen: waiting gauge Stm N% · Ready · Exh N% · Grd",
+				"on-screen: waiting gauge Stm N% . Ready . Exh N% . Grd",
 				"Q3 headless: [ii4d] exhaustion_* PASS  -  F5 optional 3 - 5 min pacing (q3_validate_hint)",
 			])
 		PRESET_II3_SURROUND:
@@ -299,7 +299,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
 			])
 		PRESET_II5_COWERING:
 			return PackedStringArray([
-				"preset=ii5  -  II-0 #5 cowering â fall_back | %s" % tile_s,
+				"preset=ii5  -  II-0 #5 cowering -> fall_back | %s" % tile_s,
 				"setup: leader armless (cowering); loose 2- - 3 party formation",
 				"grep: cowering_fall_back listed | cowering_fall_back executed | ui_hint No arms",
 				"play: on your turn pick fall_back when listed (not flee-only path)",
@@ -318,7 +318,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
 				"preset=ii8  -  II-0 #8 skirmish vs LINE labels | %s" % tile_s,
 				"setup: 4 fightable party + 4-wide line + 4 enemies (grep party_entering_combat count=4)",
 				"grep: engagement mode=Formation line | diagram_banner player: | engagement_transition",
-				"on-screen: centered label above party diagram (Formation line · Line · cohesion)  -  ZoC line below title is separate",
+				"on-screen: centered label above party diagram (Formation line . Line . cohesion)  -  ZoC line below title is separate",
 				"Q4 headless: [ii8] diagram_banner + tooltip_match_ok PASS  -  F5 optional layout glance (q4_validate_hint)",
 			])
 		PRESET_II_ENVELOP:
@@ -533,4 +533,3 @@ static func _wound_companion_for_ambient_shock(world: Node2D) -> void:
 			"soak_setup ii6 companion chest wounded bv=%.0f (grep ambient_pain_shock on Companion)"
 			% ent.blood_volume
 		)
-          

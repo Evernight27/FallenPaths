@@ -244,7 +244,7 @@ static func format_marker_label(template: Dictionary, world: Node = null) -> Str
 	if _get_company_state().is_tutorial_contract(template):
 		var tut_title: String = str(template.get("contract_title", "Training Drills"))
 		var tut_foes: int = template.get("enemy_count", 0)
-		return "Tutorial\n%s Â· %d foes" % [tut_title, tut_foes]
+		return "Tutorial\n%s · %d foes" % [tut_title, tut_foes]
 	var title: String = str(template.get("contract_title", "Job"))
 	var pay: int = template.get("pay_gold", 0)
 	var skulls: int = int(template.get("difficulty_rating", 1))
@@ -260,17 +260,17 @@ static func format_marker_label(template: Dictionary, world: Node = null) -> Str
 	var enemy_n: int = template.get("enemy_count", 0)
 	var enemy_hint: String = ""
 	if enemy_n > 0:
-		enemy_hint = " Â· %d foes" % enemy_n
+		enemy_hint = " · %d foes" % enemy_n
 	var bleed_mult: float = template.get("map_bleed_mult", 1.0)
 	var bleed_hint: String = ""
 	if bleed_mult < 0.99:
-		bleed_hint = " Â· map bleed ÃƒÂƒ - %.0f%%" % (bleed_mult * 100.0)
+		bleed_hint = " · map bleed ~ %.0f%%" % (bleed_mult * 100.0)
 	var formation_hint: String = _format_player_formation_hint(template)
 	var flavor_hint: String = _format_combat_flavor_hint(template)
-	return "%s\n%s Â· %s%s%s%s%s" % [
+	return "%s\n%s · %s%s%s%s%s" % [
 		title,
 		pay_line,
-		"ÃƒÂ¢Ã‹Âœ...".repeat(mini(3, maxi(1, skulls))),
+		"*".repeat(mini(3, maxi(1, skulls))),
 		enemy_hint,
 		formation_hint,
 		bleed_hint,

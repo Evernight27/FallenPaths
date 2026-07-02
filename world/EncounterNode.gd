@@ -13,9 +13,9 @@ var marker_kind: String = ""
 
 ## Holds spawn config; enemies are instantiated when combat starts.
 @export var enemy_count: int = 1
-## Copied to world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when combat starts (doctrine, morale, posture, —¦).
+## Copied to world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when combat starts (doctrine, morale, posture, --|).
 @export var encounter_config: Dictionary = {}
-## Optional enemy **`CombatManager.start`** preset; empty â†' default for **`enemy_count`**.
+## Optional enemy **`CombatManager.start`** preset; empty |' default for **`enemy_count`**.
 @export var enemy_formation: Dictionary = {}
 ## Non-empty when spawned via **`SoakEncounterPresets`** (cyan map marker).
 var soak_preset_id: String = ""

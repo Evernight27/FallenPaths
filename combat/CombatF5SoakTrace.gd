@@ -2,10 +2,10 @@ class_name CombatF5SoakTrace
 extends RefCounted
 
 ## Editor F5 **D-001** traces  -  mirror on-screen battle UI in **`FP_COMBAT`** Output (grep, no human glance).
-## **`turn_ready_gauge`**: full label via **`BattleUIUpdater`**  -  suffix order **Step â Grd/Atk â Form** when present; content asserts **open**  -  LIVE_PATHS **`#wf-soak-audit-status`** · **`#battle-ui`** · **`#wf-footing-doc-map`**.
+## **`turn_ready_gauge`**: full label via **`BattleUIUpdater`**  -  suffix order **Step -> Grd/Atk -> Form** when present; content asserts **open**  -  LIVE_PATHS **`#wf-soak-audit-status`** . **`#battle-ui`** . **`#wf-footing-doc-map`**.
 ## Call sites: **`TurnReadyHandler`**, **`BattleScene`**, **`CombatResolveAction`**.
 ## **`ingest_trace_line`** (via **`OperationalLog.play_combat`**) feeds **`soak_coverage`** at fight end.
-## **`ingest_world_trace_line`** (via **`OperationalLog.play_world`**) appends Camp Â§8 markers for post-medical supplement.
+## **`ingest_world_trace_line`** (via **`OperationalLog.play_world`**) appends Camp S8 markers for post-medical supplement.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _BattleUIUpdater := preload("res://ui/BattleUIUpdater.gd")
@@ -25,7 +25,7 @@ const _F5Validator := preload("res://combat/CombatF5SoakLogValidator.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
 
-## One-line F5 follow-ups when optional Camp Â§8 validator tracks are still open.
+## One-line F5 follow-ups when optional Camp S8 validator tracks are still open.
 const _CAMP_OPTIONAL_PLAY_HINTS := {
 	"camp_field_care": "after messy win grep FP_WORLD field_care: hint on map",
 	"camp_field_care_action": "map Party -> bandage or pressure one part (grep FP_WORLD field_care bandage part=)",
@@ -110,7 +110,7 @@ static func set_fight_profile(profile_id: String) -> void:
 	_fight_profile = profile_id.strip_edges().to_lower()
 
 
-## Clear Camp Â§8 **`FP_WORLD`** lines accumulated since F5 session start (call once from **`main.gd`**).
+## Clear Camp S8 **`FP_WORLD`** lines accumulated since F5 session start (call once from **`main.gd`**).
 static func reset_session_camp_trace() -> void:
 	_session_camp_trace_lines = PackedStringArray()
 	_session_camp_combat_trace_lines = PackedStringArray()
@@ -235,7 +235,7 @@ static func _append_fight_trace_line_direct(s: String) -> void:
 		_fight_trace_lines.remove_at(0)
 
 
-## Camp Â§8 markers (**`FP_WORLD`**) land after medical  -  extend trace for in-editor camp supplement.
+## Camp S8 markers (**`FP_WORLD`**) land after medical  -  extend trace for in-editor camp supplement.
 static func ingest_world_trace_line(message: String) -> void:
 	if not _OperationalLog.is_play_session_active():
 		return
@@ -1006,7 +1006,7 @@ static func flush_deferred_soak_coverage() -> void:
 	_maybe_flush_deferred_soak_coverage()
 
 
-## Re-validate Camp Â§8 optional tracks when **`campaign_medical_exit`** lands after an earlier medical flush.
+## Re-validate Camp S8 optional tracks when **`campaign_medical_exit`** lands after an earlier medical flush.
 static func refresh_camp_supplement_after_medical_exit() -> void:
 	if not _OperationalLog.is_play_session_active() or not _soak_coverage_logged:
 		return
@@ -1081,7 +1081,7 @@ static func log_form_switch(
 	var cid: int = _EntityAccess.id_int(c)
 	var who: String = _EntityAccess.get_display_name(c, cid)
 	_OperationalLog.play_combat(
-		"form_switch id=%d %s %sâ%s reason=%s"
+		"form_switch id=%d %s %s->%s reason=%s"
 		% [cid, who, old_form.strip_edges(), new_form.strip_edges(), reason.strip_edges()]
 	)
 
@@ -1293,4 +1293,3 @@ static func _tooltip_formation_match_label(
 	if tooltip_line in fp_line or fp_line in tooltip_line:
 		return "ok"
 	return "mismatch"
-    

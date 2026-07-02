@@ -1,9 +1,9 @@
-﻿class_name CombatantStatsSync
+class_name CombatantStatsSync
 extends RefCounted
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
-# Runtime preload â€” circular dependency (CompanyState â†’ CampaignEncounterBridge â†’ CombatantStatsSync).
+# Runtime preload '" circular dependency (CompanyState |' CampaignEncounterBridge |' CombatantStatsSync).
 static var _CompanyState: Variant = null
 
 static func _get_company_state() -> GDScript:
@@ -13,7 +13,7 @@ static func _get_company_state() -> GDScript:
 
 ## Syncs entity health/combat stats into a combatant stats dictionary.
 ## Used by CombatManager for _refresh_combatant_stats and get_combatants.
-## Ensures single source of truth for entityÃ¢â€ 'stats copy logic.
+## Ensures single source of truth for entity--''stats copy logic.
 
 ## Copies core body/stats fields from entity to stats dict. Shared by sync_from_entity and sync_from_entity_for_register.
 static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
@@ -28,7 +28,7 @@ static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
 		stats.bone_max = entity.bone_max.duplicate()
 	if "body_max" in entity:
 		stats.body_max = entity.body_max.duplicate()
-	# Core stats â€”" apply proficiency bonuses when system is enabled.
+	# Core stats '"" apply proficiency bonuses when system is enabled.
 	var prof_active: bool = _get_company_state().read_stub_proficiency_enabled()
 	if "strength" in entity:
 		stats.strength = _apply_prof_bonus(entity, "strength", entity.strength, prof_active)
@@ -69,7 +69,7 @@ static func sync_from_entity(entity: Node, stats: Dictionary, ensure_consciousne
 		stats.effective_consciousness = entity.get_effective_consciousness()
 	if entity.has_method("get_performance_modifier"):
 		stats.performance_modifier = entity.get_performance_modifier()
-## Returns initial stats dict for combatant registration. Single source of truth for entityÃ¢â€ 'stats copy.
+## Returns initial stats dict for combatant registration. Single source of truth for entity--''stats copy.
 ## Entity can be null; returns defaults. Handles CoreEntity-style and nodes with "speed" instead of "agility".
 static func sync_from_entity_for_register(entity: Node) -> Dictionary:
 	var s := {

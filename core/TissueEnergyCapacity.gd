@@ -1,7 +1,7 @@
 class_name TissueEnergyCapacity
 extends RefCounted
 
-## M6: J-internal tissue capacity ↔ display `body_cutting` / `body_blunt` (production on).
+## M6: J-internal tissue capacity '??" display `body_cutting` / `body_blunt` (production on).
 ## One J reservoir per part; cut and blunt displays debit independently (severance parity with HP path).
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
@@ -26,7 +26,7 @@ static func dual_display_max(body_max_tissue: int) -> float:
 	return float(maxi(1, body_max_tissue * 2))
 
 
-## Total cut+blunt display points from remaining J (both streams full → dual_display_max).
+## Total cut+blunt display points from remaining J (both streams full -> dual_display_max).
 static func display_total_from_remaining_j(
 	body_max_tissue: int, remaining_j: float, capacity_j: float
 ) -> float:
@@ -87,7 +87,7 @@ static func ensure_energy_pools_for_part(entity: Node, part: String) -> void:
 	entity.tissue_energy_remaining_j[part] = clampf(rem_j, 0.0, cap_j)
 
 
-## Full J → split cut/blunt display (seed / lazy init).
+## Full J -> split cut/blunt display (seed / lazy init).
 static func sync_display_pools_from_j(
 	entity: Node, part: String, cut_share: float = 0.5
 ) -> void:

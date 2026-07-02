@@ -1,4 +1,4 @@
-﻿class_name CompanyState
+class_name CompanyState
 extends RefCounted
 
 ## Thin facade over split company modules -- backward-compatible re-export for all 141+ static functions.
@@ -15,7 +15,7 @@ const _PartySetup := preload("res://world/PartySetup.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-# Runtime preload — circular dependency (CombatFlow preloads CampaignEncounterBridge → EntityWounds → EntityStatsUtil).
+# Runtime preload -- circular dependency (CombatFlow preloads CampaignEncounterBridge -> EntityWounds -> EntityStatsUtil).
 static var _combat_flow_cache: Variant = null
 static func _get_combat_flow() -> Variant:
 	if _combat_flow_cache == null:
@@ -32,14 +32,14 @@ const _CompanyRoster := preload("res://world/CompanyRoster.gd")
 ## Re-exported from CampaignTypes for backward compat -- preload CampaignTypes directly in new code.
 const DEFAULT_CAMP_TILE: Vector2i = preload("res://world/CampaignTypes.gd").DEFAULT_CAMP_TILE
 
-# World meta keys (§10) -- re-exported from CampaignTypes for backward compat.
+# World meta keys (Sec10) -- re-exported from CampaignTypes for backward compat.
 const WORLD_META_COMPANY_STATE: String = preload("res://world/CampaignTypes.gd").WORLD_META_COMPANY_STATE
 const WORLD_META_ACTIVE_CONTRACT: String = preload("res://world/CampaignTypes.gd").WORLD_META_ACTIVE_CONTRACT
 const WORLD_META_LAST_BATTLE_SUMMARY: String = preload("res://world/CampaignTypes.gd").WORLD_META_LAST_BATTLE_SUMMARY
 const WORLD_META_BATTLE_KILL_LOG: String = preload("res://world/CampaignTypes.gd").WORLD_META_BATTLE_KILL_LOG
 const WORLD_META_COMPANY_HUD: String = preload("res://world/CampaignTypes.gd").WORLD_META_COMPANY_HUD
 
-## §12 EA tuning defaults (inline -- kept here for backward compat with all callers).
+## Sec12 EA tuning defaults (inline -- kept here for backward compat with all callers).
 const DEFAULT_GOLD: int = 500
 const DEFAULT_WAGE_PER_MEMBER: int = 15
 const DEFAULT_MEDICAL_SUPPLIES: int = 15

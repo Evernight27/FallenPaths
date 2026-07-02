@@ -24,7 +24,7 @@ const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
 const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
 
 
-# ── Node lifecycle ────────────────────────────────────────────────────────
+# -- Node lifecycle --------------------------------------------------------
 
 static var _harness_live_nodes: Array = []
 
@@ -76,7 +76,7 @@ static func _free_manager_restore_global_rng(mgr: Node) -> void:
 	_free_manager(mgr)
 
 
-# ── Entity creation ───────────────────────────────────────────────────────
+# -- Entity creation -------------------------------------------------------
 
 static func _new_entity(weapon_id: String) -> CoreEntity:
 	var e := CoreEntity.new()
@@ -99,7 +99,7 @@ static func _new_entity_unarmed() -> CoreEntity:
 	return e
 
 
-# ── Manager setup ─────────────────────────────────────────────────────────
+# -- Manager setup ---------------------------------------------------------
 
 ## Standard harness duel (SWORD 1x1 vs SWORD 1x1).
 static func _harness_start_1v1(
@@ -133,7 +133,7 @@ static func _harness_start_player_only(
 	return mgr
 
 
-# ── Equipment ─────────────────────────────────────────────────────────────
+# -- Equipment -------------------------------------------------------------
 
 ## Full plate kit for armor-mass harness probes.
 static func _harness_equip_heavy_plate_kit(e: CoreEntity) -> void:
@@ -151,7 +151,7 @@ static func _harness_equip_heavy_plate_kit(e: CoreEntity) -> void:
 			e.equip_armor(str(row[0]), ap)
 
 
-# ── Roster / formation lookups ────────────────────────────────────────────
+# -- Roster / formation lookups --------------------------------------------
 
 static func _harness_find_living_at_rank_file(
 	mgr: Node, side: String, rank: int, file: int
@@ -169,7 +169,7 @@ static func _harness_find_living_at_rank_file(
 	return {}
 
 
-# ── Formation fixtures ────────────────────────────────────────────────────
+# -- Formation fixtures ----------------------------------------------------
 
 ## 6v3 skirmish  -  flee rank-0 files, survivor at rank-0 (default file 4).
 ## Returns {mgr, survivor, survivor_id} or {} on fixture failure (frees mgr).
@@ -230,7 +230,7 @@ static func _harness_bind_pair_long_band(p: Dictionary, e: Dictionary) -> void:
 	)
 
 
-# ── Soak / test utilities ─────────────────────────────────────────────────
+# -- Soak / test utilities -------------------------------------------------
 
 ## Tier 1.8 (P9): kill a combatant through the manager's internal path.
 static func _soak_kill_combatant(mgr: Node, combatant_id: int) -> void:
@@ -271,7 +271,7 @@ static func _shuffle_int_array_in_place(ids: Array, rng: RandomNumberGenerator) 
 		ids[j] = tmp
 
 
-# ── Entity manipulation ───────────────────────────────────────────────────
+# -- Entity manipulation ---------------------------------------------------
 
 static func _harness_destroy_limb(entity: CoreEntity, part: String) -> void:
 	entity.body_cutting[part] = 0.0
@@ -290,7 +290,7 @@ static func _harness_restore_limb(entity: CoreEntity, part: String) -> void:
 		entity.bone_health[part] = float(entity.bone_max[part])
 
 
-# ── Counter-tempo helper ──────────────────────────────────────────────────
+# -- Counter-tempo helper --------------------------------------------------
 
 static func _harness_counter_tempo_set_incoming_progress(
 	mgr: Node, attacker_id: int, fraction: float
@@ -305,7 +305,7 @@ static func _harness_counter_tempo_set_incoming_progress(
 	atk["state_timer"] = clampf(fraction, 0.0, 1.0) * dur
 
 
-# ── Guard-line helpers ────────────────────────────────────────────────────
+# -- Guard-line helpers ----------------------------------------------------
 
 static func _harness_cardinal_attack_line(cardinal: String) -> String:
 	if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
@@ -339,7 +339,7 @@ static func _harness_opposite_cardinal(cardinal: String) -> String:
 	return "low"
 
 
-# ── Assertion helpers (depth polearm) ─────────────────────────────────────
+# -- Assertion helpers (depth polearm) -------------------------------------
 
 static func _assert_depth_polearm_allows_low_fid_round_trip_slice(
 	mgr: Node, failures: PackedStringArray, ctx: String
@@ -386,7 +386,7 @@ static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: P
 			)
 
 
-# ── IV-7 / IV-8 / IV-9 fixtures ───────────────────────────────────────────
+# -- IV-7 / IV-8 / IV-9 fixtures -------------------------------------------
 
 static func _harness_iv7_fixture_combatant(ent: CoreEntity) -> Dictionary:
 	return {

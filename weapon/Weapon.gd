@@ -37,7 +37,7 @@ var parts: Array = []  # Array of {id, length_cm, mass_fraction, parry_eligible,
 var parry_part_id: String = ""  # Which part parries; must match a part with parry_eligible true.
 # Bind riposte: contact types eligible for wind-up bonus. From def or inferred from is_parry moves.
 var bind_riposte_contact_types: Array = []
-## Tier C: optional per-contact velocity bands (m/s). Keys: stab | cut | blunt → Vector2(min,max) or {"min":f,"max":f}.
+## Tier C: optional per-contact velocity bands (m/s). Keys: stab | cut | blunt -> Vector2(min,max) or {"min":f,"max":f}.
 var impact_velocity_bands: Dictionary = {}
 ## Strike realism defaults (station, coupling, blunt pressure); see StrikeRealismProfile.gd.
 var strike_physics: Dictionary = {}

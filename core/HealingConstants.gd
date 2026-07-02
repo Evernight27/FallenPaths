@@ -7,13 +7,13 @@ const _Bp := preload("res://core/BodyPartConstants.gd")
 
 # Medically realistic healing: duration-based (days/weeks) for tissue, bone, and blood volume.
 # Bleeding continues outside combat; time advance runs bleeding, blood loss, then healing.
-# Healing uses EXPONENTIAL decay of deficit (rate ∝ current deficit): 72% of wounds fit exponential; 35% vs 21% closure (BMC Dermatol 9:2). See RESEARCH_BASED_APPROXIMATIONS.md.
+# Healing uses EXPONENTIAL decay of deficit (rate ~ current deficit): 72% of wounds fit exponential; 35% vs 21% closure (BMC Dermatol 9:2). See RESEARCH_BASED_APPROXIMATIONS.md.
 # Body parts: head, chest, right_arm, left_arm, right_leg, left_leg (match CoreEntity).
 # References: wound healing phases (inflammatory 2 - 5 days, proliferation ~3 weeks); fracture 6 - 8 weeks.
 
 const SECONDS_PER_DAY: float = 86400.0
 
-# --- Tissue healing: "duration" = time (seconds) to ~95% healed when using exponential model (deficit *= exp(-t/τ), τ = duration/3) ---
+# --- Tissue healing: "duration" = time (seconds) to ~95% healed when using exponential model (deficit *= exp(-t/tau), tau = duration/3) ---
 # Minor: superficial ~3 - 5 days. Moderate: 1 - 2 weeks. Severe: 3 - 6 weeks. Critical: 6+ weeks.
 const TISSUE_HEAL_DURATION_SECONDS: Dictionary = {
 	"minor": 4.0 * SECONDS_PER_DAY,    # ~4 days
@@ -48,7 +48,7 @@ const BONE_PART_DURATION_MULTIPLIERS: Dictionary = {
 # Body replenishes blood over hours - days. Full recovery from low volume over ~24 - 48 h.
 const BLOOD_VOLUME_RECOVERY_DURATION_SECONDS: float = 24.0 * 3600.0  # 24 hours to approach 100%
 
-# Exponential healing: time constant τ = duration / EXPONENTIAL_HEAL_TAU_DIVISOR so that after duration seconds, ~95% healed (1 - e^(-3) ≈ 0.95).
+# Exponential healing: time constant tau = duration / EXPONENTIAL_HEAL_TAU_DIVISOR so that after duration seconds, ~95% healed (1 - e^(-3) 'permille^ 0.95).
 const EXPONENTIAL_HEAL_TAU_DIVISOR: float = 3.0
 
 # --- Per-wound healing (individual pain resolution and wound lifecycle) ---

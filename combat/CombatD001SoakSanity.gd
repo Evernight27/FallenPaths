@@ -2,7 +2,7 @@ class_name CombatD001SoakSanity
 extends RefCounted
 
 ## Headless **D-001** plausibility + validator cross-checks (grep needles vs log semantics).
-## Called from **`CombatD001SoakRunner._evaluate`**, **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=sanity` · `d001_presets`).
+## Called from **`CombatD001SoakRunner._evaluate`**, **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=sanity` . `d001_presets`).
 
 const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
 const _Validator := preload("res://combat/CombatF5SoakLogValidator.gd")
@@ -135,8 +135,8 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 		failures.append("fixture_ii2b_good: %s" % ", ".join(r2b.get("failures", PackedStringArray()) as PackedStringArray))
 
 	var good_wf_m3: PackedStringArray = PackedStringArray([
-		"turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Grd HiR · Form Ox tooltip_match=melee_only",
-		"form_switch id=1 oxâwrath reason=duel_read",
+		"turn_ready_gauge id=0 Leader label=Stm 84% . Ready . Grd HiR . Form Ox tooltip_match=melee_only",
+		"form_switch id=1 ox->wrath reason=duel_read",
 	])
 	var rwf: Dictionary = _Validator.validate(
 		good_wf_m3, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS])
@@ -150,7 +150,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 			failures.append("fixture_wf_m3_good: %s not pass" % tid)
 
 	var bad_wf_m3: PackedStringArray = PackedStringArray([
-		"turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Form Ox tooltip_match=melee_only",
+		"turn_ready_gauge id=0 Leader label=Stm 84% . Ready . Form Ox tooltip_match=melee_only",
 	])
 	var rwf_bad: Dictionary = _Validator.validate(
 		bad_wf_m3, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS])
@@ -161,14 +161,14 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 		failures.append("fixture_wf_m3_bad: wf_m3_grd_before_form should fail without Grd/Atk before Form")
 
 	var leak_wf_m3: PackedStringArray = PackedStringArray([
-		"turn_ready_gauge id=0 Leader label=Stm 92% · Ready · Step tooltip_match=melee_only",
+		"turn_ready_gauge id=0 Leader label=Stm 92% . Ready . Step tooltip_match=melee_only",
 	])
 	var rwf_leak: Dictionary = _Validator.validate(
 		leak_wf_m3, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS])
 	)
 	var leak_tr: Dictionary = (rwf_leak.get("tracks", {}) as Dictionary).get("wf_m3_idle_step_leak", {}) as Dictionary
 	if bool(leak_tr.get("pass", false)):
-		failures.append("fixture_wf_m3_leak: wf_m3_idle_step_leak should fail on Ready · Step idle gauge")
+		failures.append("fixture_wf_m3_leak: wf_m3_idle_step_leak should fail on Ready . Step idle gauge")
 
 	var good_camp: PackedStringArray = PackedStringArray([
 		"settlement_continue paid=120",
@@ -189,8 +189,8 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 	var camp_wf_smoke: PackedStringArray = PackedStringArray([
 		"settlement_continue paid=120",
 		"company_day_advanced day=2 wages_paid=true",
-		"turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Grd HiR · Form Ox tooltip_match=melee_only",
-		"form_switch id=1 oxâwrath reason=duel_read",
+		"turn_ready_gauge id=0 Leader label=Stm 84% . Ready . Grd HiR . Form Ox tooltip_match=melee_only",
+		"form_switch id=1 ox->wrath reason=duel_read",
 	])
 	var camp_wf_profiles: PackedStringArray = _TrackSpecs.detect_profiles(camp_wf_smoke)
 	var rcw: Dictionary = _Validator.validate(camp_wf_smoke, camp_wf_profiles)
@@ -287,7 +287,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 
 	var good_sparse_gauge: PackedStringArray = PackedStringArray([
 		"mopup_hold_line_list id=4 Companion5 hint=Line open after rout  -  close in or strike; shuffle won't fill distant gaps.",
-		"turn_ready_gauge id=4 Companion5 label=Ready · Focus head 78% tooltip_match=hold_line",
+		"turn_ready_gauge id=4 Companion5 label=Ready . Focus head 78% tooltip_match=hold_line",
 	])
 	var rsparse_gauge: Dictionary = _Validator.validate(
 		good_sparse_gauge, PackedStringArray([_TrackSpecs.PROFILE_ALWAYS, _TrackSpecs.PROFILE_7V7])
@@ -422,7 +422,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 		"soak_coverage camp warn [camp_settlement_continue] count=0 need>=1",
 		"soak_coverage camp next [camp_party_triage] open Party on map (grep party_triage_open living=)",
 		"soak_coverage camp next [camp_paid_loss] lose a paid contract (grep company_run_end reason=contract_failed reload=true)",
-		"turn_ready_gauge id=0 Leader label=Stm 84% · Ready · Grd HiR · Form Ox",
+		"turn_ready_gauge id=0 Leader label=Stm 84% . Ready . Grd HiR . Form Ox",
 	])
 	if _TrackSpecs.PROFILE_CAMP_EA in _TrackSpecs.detect_profiles(soak_echo_only):
 		failures.append("fixture_camp_ea_detect: soak_coverage echoes must not activate camp_ea profile")
@@ -1012,7 +1012,7 @@ static func _ii5_plausibility_failures(lines: PackedStringArray) -> PackedString
 			if "cowering_fall_back executed" in s:
 				exec_line = s
 				break
-		if not exec_line.contains("rank 0->") and not exec_line.contains("rank 0â"):
+		if not exec_line.contains("rank 0->") and not exec_line.contains("rank 0->"):
 			failures.append("ii5: executed line should mention rear rank shift (rank 0->)")
 	return failures
 
@@ -1247,4 +1247,3 @@ static func _is_grep_hint_line(line: String) -> bool:
 	if s.begins_with("FP_SESSION_BEGIN:") or s.begins_with("FP_SESSION_END:"):
 		return true
 	return false
-                                

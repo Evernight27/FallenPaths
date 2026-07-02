@@ -373,4 +373,3 @@ static func _refresh_internal(diagram_root: Control) -> void:
 				footwork_sources, unit_entries, unit_entries.is_empty(), manager
 			)
 			grid.add_child(cell)
-                  

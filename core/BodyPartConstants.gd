@@ -88,6 +88,76 @@ const BODY_PART_TARGET_WEIGHTS: Dictionary = {
 	"left_leg": 2.0   # each leg ~20%; large, stable target
 }
 
+# Per-weapon limb targeting bias (multiplies BODY_PART_TARGET_WEIGHTS). Empty = neutral sword baseline.
+const WEAPON_PART_TARGET_MULT: Dictionary = {
+	"SWORD": {},
+	"AXE": {
+		"head": 1.22,
+		"chest": 0.95,
+		"left_arm": 1.12,
+		"right_arm": 1.12,
+	},
+	"MACE": {
+		"head": 1.32,
+		"chest": 1.10,
+		"left_arm": 0.90,
+		"right_arm": 0.90,
+		"left_leg": 0.88,
+		"right_leg": 0.88,
+	},
+	"DAGGER": {
+		"chest": 1.22,
+		"head": 1.08,
+		"left_arm": 0.95,
+		"right_arm": 0.95,
+	},
+	"SPEAR": {
+		"chest": 1.25,
+		"head": 0.92,
+		"left_leg": 1.10,
+		"right_leg": 1.10,
+	},
+}
+
+# Contact-type refinement per weapon (multiplies weapon base row).
+const WEAPON_CONTACT_PART_MULT: Dictionary = {
+	"SWORD": {
+		"stab": {"chest": 1.10, "head": 1.05},
+		"cut": {"head": 1.08, "left_arm": 1.05, "right_arm": 1.05},
+	},
+	"AXE": {
+		"cut": {"head": 1.10, "left_arm": 1.08, "right_arm": 1.08},
+		"stab": {"chest": 1.12},
+		"blunt": {"head": 1.15},
+	},
+	"MACE": {
+		"blunt": {"head": 1.14, "chest": 1.08},
+	},
+	"DAGGER": {
+		"stab": {"chest": 1.18, "head": 1.10},
+		"cut": {"left_arm": 1.08, "right_arm": 1.08},
+	},
+	"SPEAR": {
+		"stab": {"chest": 1.15, "left_leg": 1.08, "right_leg": 1.08},
+	},
+}
+
+
+static func weapon_part_target_mult(weapon_id: String, part: String, contact_type: String = "") -> float:
+	var wid: String = str(weapon_id).to_upper().strip_edges()
+	var w: float = 1.0
+	if WEAPON_PART_TARGET_MULT.has(wid):
+		var row: Variant = WEAPON_PART_TARGET_MULT[wid]
+		if row is Dictionary:
+			w = float((row as Dictionary).get(part, 1.0))
+	if not contact_type.is_empty() and WEAPON_CONTACT_PART_MULT.has(wid):
+		var ct_row: Variant = WEAPON_CONTACT_PART_MULT[wid]
+		if ct_row is Dictionary and (ct_row as Dictionary).has(contact_type):
+			var part_row: Variant = (ct_row as Dictionary)[contact_type]
+			if part_row is Dictionary:
+				w *= float((part_row as Dictionary).get(part, 1.0))
+	return w
+
 # Pick one body part from targetable_parts with optional preferred_parts bonus.
 # preferred_parts: Array of part names that get bonus weight (e.g. move's cut geometry).
 # preferred_mult: weight multiplier for parts in preferred_parts (1.0 = no bonus).

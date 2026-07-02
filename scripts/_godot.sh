@@ -6,8 +6,7 @@ fp_project_root() {
 
 # Godot binary resolution order:
 #   1. $GODOT environment variable (any Godot 4.x stable)
-#   2. e:/Godot_v4.6-stable_win64.exe
-#   3. ~/Downloads/Godot_v4.6-stable_win64.exe
+#   2. E:\Godot_v4.7-stable_win64.exe
 fp_godot_bin() {
 	if [[ -n "${GODOT:-}" ]]; then
 		echo "$GODOT"
@@ -17,13 +16,8 @@ fp_godot_bin() {
 		echo "/Applications/Godot.app/Contents/MacOS/Godot"
 		return 0
 	fi
-	if [[ -x "e:/Godot_v4.6-stable_win64.exe" ]]; then
-		echo "e:/Godot_v4.6-stable_win64.exe"
-		return 0
-	fi
-	local fallback="$HOME/Downloads/Godot_v4.6-stable_win64.exe"
-	if [[ -x "$fallback" ]]; then
-		echo "$fallback"
+	if [[ -x "E:\Godot_v4.7-stable_win64.exe" ]]; then
+		echo "E:\Godot_v4.7-stable_win64.exe"
 		return 0
 	fi
 	return 1

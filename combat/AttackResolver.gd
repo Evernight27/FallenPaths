@@ -28,9 +28,10 @@ const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _LogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 const _HitSubRegion := preload("res://combat/CombatHitSubRegion.gd")
+const _Proficiency := preload("res://core/EntityProficiency.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 
-## Debug logging —" delegates to `CombatDebug.log` which gates on `combat_debug_active`.
+## Debug logging --" delegates to `CombatDebug.log` which gates on `combat_debug_active`.
 
 
 ## Multiplier applied to sharp/blunt penetration for oblique incidence (parry/deflect or misaligned guard).
@@ -118,7 +119,7 @@ static func compute_and_apply_damage(
 		var arm_mod: float = _EntityAccess.get_attack_damage_modifier(atk)
 		var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, part)
 		var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, attack_type, archetype)
-		# Physics: deflected cut presents flat/slap; edge doesn't bite. Shift cutâ†'blunt on partial parry.
+		# Physics: deflected cut presents flat/slap; edge doesn't bite. Shift cut|'blunt on partial parry.
 		var move_contact: String = _EntityAccess.weapon_contact_type(weapon, attack_type)
 		if move_contact == WeaponConstants.ATTACK_TYPE_CUT and velocity_override >= 0.0 and parry_remaining_ratio < 1.0:
 			var shift_const: float = CombatConstants.PARRY_CUT_TO_BLUNT_SHIFT
@@ -176,8 +177,10 @@ static func compute_and_apply_damage(
 		pre_cut = 0.0
 		CombatDebug.log("dmg %s->%s unarmed pre_armor=%.1f" % [atk_name, tgt_name, pre_armor])
 
-	# Stance modifier (defensive Ã - 0.85, aggressive Ã - 1.2, etc.) —" commitment, not raw speed.
-	var stance_dmg_mult: float = _WeaponForm.mod(_EntityAccess.form_str(atk), "damage")
+	# Stance modifier (defensive f - 0.85, aggressive f - 1.2, etc.) --" commitment, not raw speed.
+	var stance_dmg_mult: float = _WeaponForm.mod(
+		_EntityAccess.form_str(atk), "damage", _EntityAccess.get_weapon(atk)
+	)
 	pre_cut *= stance_dmg_mult
 	pre_blunt *= stance_dmg_mult
 	pre_armor = pre_cut + pre_blunt
@@ -297,7 +300,7 @@ static func compute_and_apply_damage(
 		"final_blunt": final_blunt,
 		"final_bone": final_bone,
 		"outcome": outcome,
-		# Armor sharpâ†'blunt conversion; unrelated to outcome "deflected" (no net physical chip).
+		# Armor sharp|'blunt conversion; unrelated to outcome "deflected" (no net physical chip).
 		"was_deflected": take_result.get("was_deflected", false),
 		"was_glancing": outcome == "glancing",
 		"was_negligible": outcome == "negligible",
@@ -329,7 +332,7 @@ static func compute_and_apply_damage(
 		if not (
 			_OperationalLog.is_play_session_active() and CombatConstants.combat_hit_summary_active()
 		):
-			CombatDebug.combat_session("DEATH %s — %s" % [tgt_name, _EntityAccess.get_death_reason(tgt)])
+			CombatDebug.combat_session("DEATH %s -- %s" % [tgt_name, _EntityAccess.get_death_reason(tgt)])
 
 	var rec_dur: float = CombatTiming.recovery_duration(intensity, outcome, recovery_mult, perf_mod, _EntityAccess.stats_dict(atk).get("agility", CombatConstants.DEFAULT_STAT_VALUE), glancing_severity)
 	return {
@@ -550,7 +553,9 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 			"passive_parry_attempted": pa.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false)
 		}
 		var intended_part: String = pa.get("target_part", "")
-		part = _PathResolver.resolve_hit_part(atk_line, guard_line, targetable, defender_ctx, intended_part, tgt, align_ctx)
+		part = _PathResolver.resolve_hit_part(
+			atk_line, guard_line, targetable, defender_ctx, intended_part, tgt, align_ctx, atk, move_def
+		)
 		if part.is_empty():
 			part = BodyPartConstants.get_weighted_random_part(targetable)
 	atk["last_move_id"] = pa.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
@@ -586,10 +591,22 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		power, follow_through, parry_remaining_ratio, afterblow_damage_mult, hit_alignment, strike_mods,
 		strike_phys_ctx
 	)
+	var rd_out: Dictionary = res.result_dict
+	rd_out["target_part"] = intended_part
+	rd_out["move_id"] = attack_type
+	rd_out["attack_type"] = attack_type
+	var ent_aim: CoreEntity = _EntityAccess.scene_entity(atk)
+	if ent_aim != null:
+		rd_out["aim_prof_tier"] = _Proficiency.combined_aim_prof_tier(
+			ent_aim, _EntityAccess.weapon_type_id(atk), _EntityAccess.form_str(atk)
+		)
+		rd_out["occ_mult"] = _Proficiency.proficiency_occurrence_mult(
+			ent_aim, _EntityAccess.weapon_type_id(atk), _EntityAccess.form_str(atk), attack_type
+		)
 	return {
 		"action": "hit",
 		"target_id": target_id,
-		"result_dict": res.result_dict,
+		"result_dict": rd_out,
 		"recovery_duration": res.recovery_duration,
 		"outcome": res.outcome,
 		"intensity": intensity

@@ -587,7 +587,7 @@ static func _get_weapon_form_strength_lines(form: String) -> PackedStringArray:
 	if not worst_effects.is_empty():
 		var bits: PackedStringArray = PackedStringArray()
 		for w in worst_effects:
-			bits.append("%s Ã¢Ë'%.0f%%" % [w["eff"], (1.0 - w["val"]) * 100.0])
+			bits.append("%s →%.0f%%" % [w["eff"], (1.0 - w["val"]) * 100.0])
 		out.append("Weaker: " + ", ".join(bits))
 	return out
 

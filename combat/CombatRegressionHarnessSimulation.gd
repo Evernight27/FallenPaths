@@ -258,7 +258,7 @@ static func _run_sim_subregion_deterministic_same_inputs(failures: PackedStringA
 		_fail(failures, "sim_subregion_det: want stable non-empty got a=%s b=%s" % [a, b])
 
 
-## S2: high attack vs high guard on arm path → proximal site (upper_arm).
+## S2: high attack vs high guard on arm path -> proximal site (upper_arm).
 static func _run_sim_subregion_high_line_arm(failures: PackedStringArray) -> void:
 	var align: Dictionary = {"attack_angle_deg": 0.0, "guard_angle_deg": 0.0}
 	var intercept_idx: int = _PathResolver.path_intercept_max_index("high", "high", 1.0, align)
@@ -355,7 +355,7 @@ static func _has_fracture_wound(ent: Node, part: String) -> bool:
 	return false
 
 
-## S3: cut-dominant, low penetration → no fracture (old pool would often chip bone).
+## S3: cut-dominant, low penetration -> no fracture (old pool would often chip bone).
 static func _run_sim_mfb_cut_only_no_fracture(failures: PackedStringArray) -> void:
 	var ent: Node = _Harness._new_entity("SWORD")
 	var res: Dictionary = ent.take_damage_split(
@@ -371,7 +371,7 @@ static func _run_sim_mfb_cut_only_no_fracture(failures: PackedStringArray) -> vo
 		_fail(failures, "sim_mfb_cut_low_pen: sharp-dominant low pen should not chip bone")
 
 
-## S3: blunt-dominant arm hit with KE above sub-region anchor → fracture.
+## S3: blunt-dominant arm hit with KE above sub-region anchor -> fracture.
 static func _run_sim_mfb_mace_arm_fracture(failures: PackedStringArray) -> void:
 	var ent: Node = _Harness._new_entity("MACE")
 	var j_anchor: float = _DamageMechanism.blunt_fracture_j_anchor("right_arm", "elbow")
@@ -436,7 +436,7 @@ static func _entity_for_species(sp: SpeciesResource) -> CoreEntity:
 	return ent
 
 
-## S4: same raw tissue damage → same severity on human vs goblin arm (absolute bands on).
+## S4: same raw tissue damage -> same severity on human vs goblin arm (absolute bands on).
 static func _run_sim_severity_absolute_stable(failures: PackedStringArray) -> void:
 	if not _Bleeding.FEATURE_ABSOLUTE_SEVERITY_BANDS:
 		_fail(failures, "sim_severity_abs: FEATURE_ABSOLUTE_SEVERITY_BANDS must be on")
@@ -555,7 +555,7 @@ static func _hand_tuned_limb_bone(sp: SpeciesResource, part: String) -> int:
 	return 1
 
 
-## S5: derived human arm tissue/bone within ±15% of hand-tuned 12/8 when pilot flag on.
+## S5: derived human arm tissue/bone within +/-15% of hand-tuned 12/8 when pilot flag on.
 static func _run_sim_derived_limb_capacity_human_arm_reference(failures: PackedStringArray) -> void:
 	var sp: SpeciesResource = _species_with_derived_flag(_HumanSpecies)
 	var part: String = "right_arm"
@@ -582,7 +582,7 @@ static func _run_sim_derived_limb_capacity_human_arm_reference(failures: PackedS
 		)
 
 
-## S5: derived human leg tissue/bone within ±15% of hand-tuned 16/12 when pilot flag on.
+## S5: derived human leg tissue/bone within +/-15% of hand-tuned 16/12 when pilot flag on.
 static func _run_sim_derived_limb_capacity_human_leg_reference(failures: PackedStringArray) -> void:
 	var sp: SpeciesResource = _species_with_derived_flag(_HumanSpecies)
 	var part: String = "left_leg"
@@ -772,7 +772,7 @@ static func _harness_entity_with_ml_pool(sp: SpeciesResource) -> CoreEntity:
 	return ent
 
 
-## S6 literal blood: mL max scales with species reference mass (human 75 kg → 5250 mL via `CombatDesignAnchors`).
+## S6 literal blood: mL max scales with species reference mass (human 75 kg -> 5250 mL via `CombatDesignAnchors`).
 static func _run_sim_blood_ml_pool_human_goblin_mass_scale(failures: PackedStringArray) -> void:
 	_BloodVolumeMl._harness_force_literal_blood_ml = true
 	var human: CoreEntity = _harness_entity_with_ml_pool(_HumanSpecies)
@@ -789,7 +789,7 @@ static func _run_sim_blood_ml_pool_human_goblin_mass_scale(failures: PackedStrin
 	_BloodVolumeMl._harness_force_literal_blood_ml = false
 
 
-## S6: same bleed rate → same seconds-to-death in % mode vs mL mode (ATLS bridge).
+## S6: same bleed rate -> same seconds-to-death in % mode vs mL mode (ATLS bridge).
 static func _run_sim_blood_ml_ttd_matches_percent_mode(failures: PackedStringArray) -> void:
 	var rate: float = _Bleeding.REFERENCE_UNCONTROLLED_BLEED_RATE
 	var ttd_pct: float = _Bleeding.seconds_to_exsanguination(rate, _Bleeding.MAX_BLOOD_VOLUME, 1.0)
@@ -884,7 +884,7 @@ static func _run_sim_notify_died_emits_once(failures: PackedStringArray) -> void
 		)
 
 
-## S6 layer tissue: shallow penetration absorbed by soft-tissue budget → less bone via MFB pen gate.
+## S6 layer tissue: shallow penetration absorbed by soft-tissue budget -> less bone via MFB pen gate.
 static func _run_sim_layer_tissue_shallow_pen_reduces_bone(failures: PackedStringArray) -> void:
 	_CombatLayerTissue._harness_force_layer_tissue = true
 	var part: String = "right_arm"
@@ -1062,7 +1062,7 @@ static func _run_sim_atls_consciousness_monotonic(failures: PackedStringArray) -
 		prev = mod
 
 
-## S8: shallow post-armor penetration → lower cut severity than deep track at same damage.
+## S8: shallow post-armor penetration -> lower cut severity than deep track at same damage.
 static func _run_sim_depth_shallow_pen_lowers_severity(failures: PackedStringArray) -> void:
 	if not _Bleeding.FEATURE_PENETRATION_DEPTH_SEVERITY:
 		_fail(failures, "sim_depth_severity: FEATURE_PENETRATION_DEPTH_SEVERITY must be on")
@@ -1284,7 +1284,7 @@ static func _mat_within_pct_tolerance(baseline: float, actual: float, pct: float
 	return absf(actual - baseline) <= baseline * pct
 
 
-## M2: unarmored forearm  -  curve path within ±15% of MFB entity path (blend weight 1.0).
+## M2: unarmored forearm  -  curve path within +/-15% of MFB entity path (blend weight 1.0).
 static func _run_mat_entity_curve_matches_hp_baseline_unarmored(failures: PackedStringArray) -> void:
 	var part: String = "right_arm"
 	var sub: String = "forearm"
@@ -1319,7 +1319,7 @@ static func _run_mat_entity_curve_matches_hp_baseline_unarmored(failures: Packed
 			)
 
 
-## M2: production off → MFB path; production on → matches explicit `force_material_curves`.
+## M2: production off -> MFB path; production on -> matches explicit `force_material_curves`.
 static func _run_mat_entity_flag_off_matches_mfb_path(failures: PackedStringArray) -> void:
 	var part: String = "right_arm"
 	var pen: float = _DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 1.5
@@ -1372,7 +1372,7 @@ static func _run_mat_entity_flag_off_matches_mfb_path(failures: PackedStringArra
 			)
 
 
-## M2: cuirass reduces post-armor pen → curve damage ≤ bare at pen 5.
+## M2: cuirass reduces post-armor pen -> curve damage <= bare at pen 5.
 static func _run_mat_armored_pen_reduces_curve_damage(failures: PackedStringArray) -> void:
 	var cuirass: ArmorPiece = _ArmorPiece.create_from_definition("CUIRASS")
 	if cuirass == null:
@@ -1967,7 +1967,7 @@ static func _run_mat_production_ttd_and_oberhau_unchanged(failures: PackedString
 		_fail(failures, "mat_production: committed oberhau KE %.0f outside 70-140 J" % ke_j)
 
 
-## M6: human arm 12 display ↔ ~100 J capacity anchor.
+## M6: human arm 12 display <-> ~100 J capacity anchor.
 static func _run_mat_energy_arm_capacity_anchor(failures: PackedStringArray) -> void:
 	var part: String = "right_arm"
 	var body_max: int = _DesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
@@ -1976,7 +1976,7 @@ static func _run_mat_energy_arm_capacity_anchor(failures: PackedStringArray) -> 
 		_fail(failures, "mat_energy: arm capacity_J %.0f want ~100" % cap_j)
 
 
-## M6: display bridge 50% J → ~50% display tissue.
+## M6: display bridge 50% J -> ~50% display tissue.
 static func _run_mat_energy_display_bridge(failures: PackedStringArray) -> void:
 	var body_max: int = _DesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
 	var cap_j: float = _TissueEnergyCapacity.capacity_j_for_part("right_arm", body_max)
@@ -2099,7 +2099,7 @@ static func _run_research_blood_ml_nominal_70_per_kg(failures: PackedStringArray
 	if absf(per_kg - _ResearchAnchors.LITERATURE_BLOOD_ML_PER_KG_NOMINAL) > tol:
 		_fail(
 			failures,
-			"research_blood_ml: %.2f mL/kg want %.0f ± %.1f"
+			"research_blood_ml: %.2f mL/kg want %.0f +/- %.1f"
 			% [per_kg, _ResearchAnchors.LITERATURE_BLOOD_ML_PER_KG_NOMINAL, tol]
 		)
 	if not is_equal_approx(
@@ -2112,7 +2112,7 @@ static func _run_research_blood_ml_nominal_70_per_kg(failures: PackedStringArray
 ## Research gate: ATLS 10th ed. class boundaries from remaining %.
 static func _run_research_atls_class_boundaries(failures: PackedStringArray) -> void:
 	if not _ResearchAnchors.atls_class_boundaries_match_atls10():
-		_fail(failures, "research_atls: remaining%% → class mapping does not match ATLS 10 loss bands")
+		_fail(failures, "research_atls: remaining%% -> class mapping does not match ATLS 10 loss bands")
 
 
 ## Research gate: BLOOD_LOSS_RATE_MULTIPLIER matches closed-form derivation for 48 s TTD.
@@ -2187,7 +2187,7 @@ static func _run_research_committed_ke_hema_band(failures: PackedStringArray) ->
 		)
 
 
-## Research gate: loss_mult 0.5 ≈ doubles TTD (direct pressure heuristic).
+## Research gate: loss_mult 0.5 ~= doubles TTD (direct pressure heuristic).
 static func _run_research_direct_pressure_ttd_halving(failures: PackedStringArray) -> void:
 	var ratio: float = _ResearchAnchors.pressure_halved_ttd_ratio()
 	if absf(ratio - _ResearchAnchors.LITERATURE_PRESSURE_TTD_RATIO_TARGET) > _ResearchAnchors.LITERATURE_PRESSURE_TTD_RATIO_TOLERANCE:
@@ -2211,15 +2211,15 @@ static func _run_research_pen_depth_monotonic(failures: PackedStringArray) -> vo
 	if not _Bleeding.FEATURE_PENETRATION_DEPTH_SEVERITY:
 		_fail(failures, "research_pen_depth: FEATURE_PENETRATION_DEPTH_SEVERITY must be on")
 	if not _ResearchAnchors.penetration_depth_mult_monotonic():
-		_fail(failures, "research_pen_depth: severity mult must rise shallow→deep")
+		_fail(failures, "research_pen_depth: severity mult must rise shallow->deep")
 	if not _ResearchAnchors.penetration_arterial_mult_monotonic():
-		_fail(failures, "research_pen_depth: arterial mult must rise shallow→deep")
+		_fail(failures, "research_pen_depth: arterial mult must rise shallow->deep")
 
 
 ## Research gate: clotting half-life increases with wound severity; bandage in 60 - 300 s band.
 static func _run_research_clotting_half_life_order(failures: PackedStringArray) -> void:
 	if not _ResearchAnchors.clotting_half_life_ordering_ok():
-		_fail(failures, "research_clot: half-life must increase minor→critical")
+		_fail(failures, "research_clot: half-life must increase minor->critical")
 	var bandage_hl: float = _ResearchAnchors.bandage_clot_half_life_s()
 	if (
 		bandage_hl < _ResearchAnchors.LITERATURE_BANDAGE_HEMOSTASIS_HALF_LIFE_S_MIN
@@ -2269,7 +2269,7 @@ static func _run_research_goblin_blood_ml_per_kg(failures: PackedStringArray) ->
 	if not _ResearchAnchors.goblin_blood_ml_per_kg_matches_human_anchor():
 		_fail(
 			failures,
-			"research_goblin_blood: mL/kg must match %.0f ± %.1f at %.0f kg"
+			"research_goblin_blood: mL/kg must match %.0f +/- %.1f at %.0f kg"
 			% [
 				_ResearchAnchors.LITERATURE_BLOOD_ML_PER_KG_NOMINAL,
 				_ResearchAnchors.LITERATURE_BLOOD_ML_PER_KG_TOLERANCE,
@@ -2290,12 +2290,12 @@ static func _run_research_absolute_severity_bands(failures: PackedStringArray) -
 		_fail(failures, "research_abs_severity: tissue and bone absolute bands must be strictly ordered")
 
 
-## Research gate: human auto pain_reference ≈ 3.0 (tissue_sum/32).
+## Research gate: human auto pain_reference ~= 3.0 (tissue_sum/32).
 static func _run_research_pain_human_reference(failures: PackedStringArray) -> void:
 	if not _ResearchAnchors.human_pain_reference_matches_literature():
 		_fail(
 			failures,
-			"research_pain_ref: human %.3f want %.1f ± %.2f"
+			"research_pain_ref: human %.3f want %.1f +/- %.2f"
 			% [
 				_ResearchAnchors.pain_reference_for_species(_HumanSpecies),
 				_ResearchAnchors.LITERATURE_HUMAN_PAIN_REFERENCE,
@@ -2324,7 +2324,7 @@ static func _run_research_pain_nrs_thresholds_ordered(failures: PackedStringArra
 		_fail(failures, "research_pain_nrs: NRS thresholds must be strictly ordered")
 
 
-## Research gate: smaller goblin tissue sum → lower pain_reference (more pain per hit).
+## Research gate: smaller goblin tissue sum -> lower pain_reference (more pain per hit).
 static func _run_research_pain_goblin_below_human(failures: PackedStringArray) -> void:
 	if not _ResearchAnchors.goblin_pain_reference_below_human():
 		_fail(
@@ -2366,7 +2366,7 @@ static func _run_research_tissue_energy_arm_anchor(failures: PackedStringArray) 
 	if not _ResearchAnchors.tissue_energy_arm_capacity_matches_design():
 		_fail(
 			failures,
-			"research_tissue_energy: arm capacity %.0f J want %.0f ± %.0f"
+			"research_tissue_energy: arm capacity %.0f J want %.0f +/- %.0f"
 			% [
 				_ResearchAnchors.tissue_energy_arm_capacity_j(),
 				_ResearchAnchors.LITERATURE_ARM_TISSUE_CAPACITY_J,
@@ -2376,7 +2376,7 @@ static func _run_research_tissue_energy_arm_anchor(failures: PackedStringArray) 
 	if not _ResearchAnchors.tissue_energy_arm_display_half_matches_anchor():
 		_fail(
 			failures,
-			"research_tissue_energy: display half at 50%% J=%.0f want %.0f ± %.0f"
+			"research_tissue_energy: display half at 50%% J=%.0f want %.0f +/- %.0f"
 			% [
 				_ResearchAnchors.tissue_energy_arm_display_half_at_50pct(),
 				_ResearchAnchors.LITERATURE_ARM_DISPLAY_HALF_J,
@@ -2417,7 +2417,7 @@ static func _run_research_atls_blood_consciousness_monotonic(failures: PackedStr
 	if not _Bleeding.FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS:
 		_fail(failures, "research_atls_consciousness: FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS must be on")
 	if not _ResearchAnchors.atls_blood_consciousness_monotonic():
-		_fail(failures, "research_atls_consciousness: modifier must decrease 100%%→35%% remaining")
+		_fail(failures, "research_atls_consciousness: modifier must decrease 100%%->35%% remaining")
 
 
 ## Research gate: pain performance decreases at NRS 4/6/8; -8% at first effect.
@@ -2461,7 +2461,7 @@ static func _run_research_joule_sqrt_transmission(failures: PackedStringArray) -
 		)
 
 
-## Research gate: material curves on → full blend weight 1.0 (M2 production).
+## Research gate: material curves on -> full blend weight 1.0 (M2 production).
 static func _run_research_material_curve_full_blend(failures: PackedStringArray) -> void:
 	if not _Bleeding.FEATURE_MATERIAL_FAILURE_CURVES:
 		_fail(failures, "research_mat_curve: FEATURE_MATERIAL_FAILURE_CURVES must be on")

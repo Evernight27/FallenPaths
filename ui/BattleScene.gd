@@ -729,4 +729,3 @@ func _exit_tree() -> void:
 	# Restore visibility of the parent scene when this battle UI is removed
 	if parent_scene != null:
 		parent_scene.visible = true
-                                                                                                

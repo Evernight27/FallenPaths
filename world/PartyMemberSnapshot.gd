@@ -2,7 +2,7 @@ class_name PartyMemberSnapshot
 extends RefCounted
 
 ## Builds party member display dicts from nodes. Reduces duplication between PartyManager.add_member
-## and get_members. Single source for entityâ†'display snapshot logic.
+## and get_members. Single source for entity|'display snapshot logic.
 ## Uses CombatantStatsSync for base stats (single source of truth with combat registration).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -82,9 +82,9 @@ static func _format_affliction_effects(entity: Node) -> String:
 		var sm: float = def.get("stamina_mult", 1.0)
 		var pm: float = def.get("pain_mult", 1.0)
 		if absf(sm - 1.0) > 0.02:
-			bits.append("Stamina Ã - %.0f%%" % (sm * 100.0))
+			bits.append("Stamina f - %.0f%%" % (sm * 100.0))
 		if absf(pm - 1.0) > 0.02:
-			bits.append("Pain Ã - %.0f%%" % (pm * 100.0))
+			bits.append("Pain f - %.0f%%" % (pm * 100.0))
 		if bits.is_empty():
 			lines.append(label)
 		else:

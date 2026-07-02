@@ -1,15 +1,15 @@
 class_name MaterialFailureCurves
 extends RefCounted
 
-## M1+ material failure constitutive laws: pen/KE → game damage; M2 blend in `EntityDamage`.
+## M1+ material failure constitutive laws: pen/KE -> game damage; M2 blend in `EntityDamage`.
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _DamageMechanism := preload("res://core/CombatDamageMechanism.gd")
 const _Bp := preload("res://core/BodyPartConstants.gd")
 const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
-## Graze → penetrating cut in tissue (mm).
+## Graze -> penetrating cut in tissue (mm).
 const CUT_TISSUE_YIELD_PEN_MM := 0.5
-## Game damage at ultimate pen (forearm anchor ≈ moderate laceration stream before MFB split).
+## Game damage at ultimate pen (forearm anchor 'permille^ moderate laceration stream before MFB split).
 const CUT_TISSUE_ULTIMATE_DAMAGE_BY_PART: Dictionary = {
 	_Bp.PART_HEAD: 14.0,
 	_Bp.PART_CHEST: 16.0,

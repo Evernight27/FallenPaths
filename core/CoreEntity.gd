@@ -52,7 +52,7 @@ var agility: int = 100
 var intelligence: int = 100
 var endurance: int = 100
 var perception: int = 100
-# Attacking arm: which hand is dominant and offhand effectiveness (0.6—"1.0).
+# Attacking arm: which hand is dominant and offhand effectiveness (0.6--"1.0).
 var dominant_hand: String = _Bp.PART_RIGHT_ARM
 var offhand_functionality: float = 0.8
 # One armor piece per body part (e.g. chest -> Cuirass with plate + gambeson layers).
@@ -62,18 +62,18 @@ var weapon = null
 
 # Wound tracking and bleeding (injury-based). Body parts: head, chest, right_arm, left_arm, right_leg, left_leg.
 # wounds[part] = Array of injury dicts. Each wound has individual healing: created_at_game_time, healing_duration_seconds.
-# Pain contribution = damage Ã -  severity_mult Ã -  (1 - healing_progress); wounds are removed when progress >= _Healing.WOUND_RESOLVED_THRESHOLD.
+# Pain contribution = damage f -  severity_mult f -  (1 - healing_progress); wounds are removed when progress >= _Healing.WOUND_RESOLVED_THRESHOLD.
 var wounds: Dictionary = {}  # part (String) -> Array of Dictionary
 ## M3: per-part soft-tissue layer integrity (`intact` | `damaged` | `ruptured`); reset on `apply_species`.
 var tissue_layer_state: Dictionary = {}
 ## M6: internal tissue J (authoritative when `FEATURE_TISSUE_ENERGY_POOL`); display pools derived.
 var tissue_energy_capacity_j: Dictionary = {}
 var tissue_energy_remaining_j: Dictionary = {}
-var blood_volume: float = 100.0  # 0—"100; death below _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+var blood_volume: float = 100.0  # 0--"100; death below _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
 ## S6 literal pool when `FEATURE_LITERAL_BLOOD_ML` (-1 = percent-only mode).
 var blood_volume_ml: float = -1.0
 var blood_volume_ml_max: float = -1.0
-# Tourniquet: limb parts only. part -> { "applied_at": float, "effectiveness": float }. Effectiveness 0—"1 scales bleeding reduction.
+# Tourniquet: limb parts only. part -> { "applied_at": float, "effectiveness": float }. Effectiveness 0--"1 scales bleeding reduction.
 var tourniquet_applied: Dictionary = {}  # part (String) -> Dictionary
 ## Tracks failed tourniquet attempts per part for escalating retry chance. part -> int (failure count).
 var tourniquet_failures: Dictionary = {}  # part (String) -> int
@@ -110,6 +110,9 @@ var _proficiency_bonus: Dictionary = {
 	"endurance": 0.0,
 	"perception": 0.0,
 }
+## Per-weapon / per-form fight familiarity (XCamp-4 targeting extension). Not decayed yet.
+var _weapon_proficiency: Dictionary = {}
+var _form_proficiency: Dictionary = {}
 
 
 func get_combat_blood_loss_mult() -> float:
@@ -134,7 +137,7 @@ var _game_time_seconds: float = 0.0
 func _round_tissue(v: float) -> float:
 	return roundf(v * 100.0) / 100.0
 
-# Pain and consciousness. Consciousness = head Ã -  blood only (pain does not affect it). Pain strongly affects performance.
+# Pain and consciousness. Consciousness = head f -  blood only (pain does not affect it). Pain strongly affects performance.
 var consciousness: float = 100.0       # true consciousness (incapacitation when < 10)
 var effective_consciousness: float = 100.0  # for combat (after pain shock)
 var _pain_shock_until_time: float = -1.0    # Time.get_ticks_msec()/1000.0 when shock ends; -1 = not in shock
@@ -220,7 +223,7 @@ func get_leg_functionality() -> float:
 func get_part_dodge_modifier(part: String) -> float:
 	return _BodyPartQuery.get_part_dodge_modifier(self, part)
 
-# Effective speed for gauge fill / mobility: base agility Ã -  leg functionality (research: leg fracture â†' major mobility loss).
+# Effective speed for gauge fill / mobility: base agility f -  leg functionality (research: leg fracture |' major mobility loss).
 func get_effective_speed() -> int:
 	var leg: float = get_leg_functionality()
 	return maxi(1, int(roundf(float(agility) * leg)))
@@ -266,7 +269,7 @@ func is_blood_critical() -> bool:
 	"""True when remaining blood is at or below this entity's critical threshold (for UI/effects)."""
 	return blood_volume <= _get_blood_loss_critical_threshold()
 
-# --- Pain and consciousness (Combat Extended—"style) ---
+# --- Pain and consciousness (Combat Extended--"style) ---
 # Per-wound healing progress 0..1 (exponential: after healing_duration seconds ~95% healed). Backwards compat: missing fields => progress 0.
 func _get_wound_healing_progress(injury: Dictionary) -> float:
 	return _EntityWounds.get_wound_healing_progress(self, injury)
@@ -421,7 +424,7 @@ func get_campaign_supply_factor() -> float:
 	return _campaign_supply_factor
 
 
-"""Max blood volume scaling from END (100 â†' 1.0x; 150 â†' 1.25x). Applied in BloodVolumeMl.init_entity_pool."""
+"""Max blood volume scaling from END (100 |' 1.0x; 150 |' 1.25x). Applied in BloodVolumeMl.init_entity_pool."""
 func get_endurance_blood_volume_mult() -> float:
 	var effective_end: float = float(endurance)
 	if _CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
@@ -429,7 +432,7 @@ func get_endurance_blood_volume_mult() -> float:
 	return 1.0 + (effective_end - 100) / 400.0
 
 
-"""Camp rest healing speed from END (100 â†' 1.0x; 150 â†' ~1.20x faster). Applied in EntityHealing tau calculations."""
+"""Camp rest healing speed from END (100 |' 1.0x; 150 |' ~1.20x faster). Applied in EntityHealing tau calculations."""
 func get_endurance_healing_speed_mult() -> float:
 	var effective_end: float = float(endurance)
 	if _CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
@@ -437,7 +440,7 @@ func get_endurance_healing_speed_mult() -> float:
 	return 1.0 - clampf((effective_end - 100) / 500.0, 0.0, 0.25)
 
 
-"""Contract pay scaling from INT (100 â†' 1.0x; 150 â†' 1.075x max). Applied in CompanyState post-victory gold calculation."""
+"""Contract pay scaling from INT (100 |' 1.0x; 150 |' 1.075x max). Applied in CompanyState post-victory gold calculation."""
 func get_intelligence_contract_bonus_mult() -> float:
 	var effective_int: float = float(intelligence)
 	if _CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:

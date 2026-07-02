@@ -73,7 +73,7 @@ static func process_healing(entity: Node, seconds: float) -> void:
 		var tissue_duration: float = _Healing.get_tissue_heal_duration_seconds(part, severity)
 		if tissue_duration <= 0.0:
 			tissue_duration = _Healing.SECONDS_PER_DAY * 4.0
-		# Tissue: exponential healing (deficit *= exp(-t/τ)); rate ∝ current deficit. See RESEARCH_BASED_APPROXIMATIONS.md.
+		# Tissue: exponential healing (deficit *= exp(-t/tau)); rate ~ current deficit. See RESEARCH_BASED_APPROXIMATIONS.md.
 		var cur_cut: float = entity.body_cutting.get(part, 0.0)
 		var cur_blunt: float = entity.body_blunt.get(part, 0.0)
 		var remain_cut: float = float(max_tissue) - cur_cut
@@ -96,7 +96,7 @@ static func process_healing(entity: Node, seconds: float) -> void:
 		var bone_heal: float = remain_bone * (1.0 - exp(-seconds / tau_bone))
 		entity.bone_health[part] = entity._round_tissue(minf(float(max_bone), cur_bone + bone_heal))
 
-	# Blood volume recovery when not bleeding: exponential (deficit ∝ current deficit). Body replenishes over ~24 h.
+	# Blood volume recovery when not bleeding: exponential (deficit ~ current deficit). Body replenishes over ~24 h.
 	if entity.get_total_bleeding_rate() <= 0.0:
 		var remain_blood: float = _Bleeding.MAX_BLOOD_VOLUME - entity.blood_volume
 		if remain_blood > 0.0:

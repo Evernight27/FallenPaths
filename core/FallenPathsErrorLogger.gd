@@ -5,7 +5,7 @@ extends Logger
 ## Skips Godot warnings and operational **`FP_WARN`** lines  -  those stay on stdout only.
 ## Registered from **`OperationalLog.begin_play_session`**; do not **`print`** / **`push_error`** here (recursion).
 
-# Runtime preload â€” circular dependency (OperationalLog preloads FallenPathsErrorLogger).
+# Runtime preload ' circular dependency (OperationalLog preloads FallenPathsErrorLogger).
 static var _operational_log_cache: Variant = null
 
 static func _get_operational_log() -> GDScript:

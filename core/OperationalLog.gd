@@ -97,7 +97,7 @@ static func emit(tag: String, message: String) -> void:
 			_captured_lines = _captured_lines.slice(_captured_lines.size() - CAPTURE_MAX_LINES)
 
 
-## Harness-only summary output — uses bare `print()` (not `emit`) so it does not feed into the F5 capture buffer.
+## Harness-only summary output -- uses bare `print()` (not `emit`) so it does not feed into the F5 capture buffer.
 static func harness_summary(message: String) -> void:
 	print(tag_line(TAG_HARNESS_SUMMARY, message))
 

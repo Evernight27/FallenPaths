@@ -84,7 +84,7 @@ static func _tier_c_override(weapon: RefCounted, contact_type: String) -> Vector
 	return Vector2(-1.0, -1.0)
 
 
-## Approximate strike radius (m) for scaling Tier B: longer lever → slightly higher v_cap at same effort.
+## Approximate strike radius (m) for scaling Tier B: longer lever -> slightly higher v_cap at same effort.
 static func strike_radius_m(weapon: RefCounted, contact_type: String) -> float:
 	if weapon == null:
 		return _REFERENCE_STRIKE_RADIUS_M

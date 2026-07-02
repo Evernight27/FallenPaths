@@ -2,7 +2,7 @@ class_name CombatPlayerTurnHints
 extends RefCounted
 
 ## Player `turn_ready` combat log / UI hints (action-list dependent). Display-only row hints live in **`CombatUiHints`**.
-## Footing: does **not** write **`guard_line`**, **`weapon_form`**, or PA offset — gauge suffixes via **`BattleUIUpdater`**. LIVE_PATHS **`#battle-ui`**.
+## Footing: does **not** write **`guard_line`**, **`weapon_form`**, or PA offset -- gauge suffixes via **`BattleUIUpdater`**. LIVE_PATHS **`#battle-ui`**.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
@@ -63,11 +63,11 @@ static func _merge_rout_into_formation_hint(form: String, rout: String) -> Strin
 		for i in range(segments.size()):
 			var seg: String = str(segments[i]).strip_edges()
 			if _formation_segment_is_flee(seg):
-				segments[i] = "%s — %s" % [seg, rout]
+				segments[i] = "%s -- %s" % [seg, rout]
 				merged_any = true
 		if merged_any:
 			return listed_prefix + "; ".join(segments)
-	return "%s — %s" % [form, rout]
+	return "%s -- %s" % [form, rout]
 
 
 ## Stamp or clear **`COMBATANT_KEY_FORMATION_MOVES_TURN_HINT`** for gauge tooltips this turn.
@@ -89,7 +89,7 @@ static func sync_formation_listed_turn_hint_on_combatant(
 	var line: String = formation_and_rout_turn_ready_hint(manager, c, actions)
 	var plug_suffix: String = line_plug_gauge_suffix(manager, c, actions)
 	if not plug_suffix.is_empty():
-		line = ("%s — %s" % [line, plug_suffix]) if not line.is_empty() else plug_suffix
+		line = ("%s -- %s" % [line, plug_suffix]) if not line.is_empty() else plug_suffix
 	if line.is_empty():
 		clear_formation_listed_turn_hint_on_combatant(c)
 	else:
@@ -110,13 +110,13 @@ static func hold_line_focus_only_hint(manager: Node, c: Dictionary, actions: Arr
 		and _CombatDoctrine.envelop_mop_up_active(manager, fid)
 		and _ListedActions.action_list_has_hostile_melee_strike(actions, cid)
 	):
-		return "Mop-up — finish the last enemy with a listed strike."
+		return "Mop-up -- finish the last enemy with a listed strike."
 	if (
 		manager != null
 		and _CombatDoctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, cid)
 		and _ListedActions.action_list_has_hostile_melee_strike(actions, cid)
 	):
-		return "Line open after rout — close in or strike; shuffle won't fill distant gaps."
+		return "Line open after rout -- close in or strike; shuffle won't fill distant gaps."
 	if not _ListedActions.action_list_is_reserve_posture_only(actions):
 		return ""
 	if (
@@ -125,31 +125,31 @@ static func hold_line_focus_only_hint(manager: Node, c: Dictionary, actions: Arr
 		and _CombatDoctrine.envelop_mop_up_active(manager, fid)
 		and _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
 	):
-		return "Mop-up — finish the last enemy; close in or strike."
+		return "Mop-up -- finish the last enemy; close in or strike."
 	if _EntityAccess.rank_int(c) >= 1:
-		return "Back rank — no front reach this turn; adjust guard focus lines only."
+		return "Back rank -- no front reach this turn; adjust guard focus lines only."
 	if (
 		manager != null
 		and _reserve_posture_needs_bind_close(manager, c, actions)
 	):
-		return "Assigned foe out of reach — close in to bind."
+		return "Assigned foe out of reach -- close in to bind."
 	if (
 		manager != null
 		and _EngagementOpposition.wing_lacks_mapped_opposition(manager, c)
 		and _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
 	):
-		return "Wing — no mapped front; close in or adjust guard focus."
+		return "Wing -- no mapped front; close in or adjust guard focus."
 	if (
 		manager != null
 		and _CombatDoctrine.sparse_line_prefer_finish_over_shuffle(
 			manager, c, actions, _EntityAccess.id_int(c)
 		)
 	):
-		return "Line open after rout — close in or strike; shuffle won't fill distant gaps."
+		return "Line open after rout -- close in or strike; shuffle won't fill distant gaps."
 	return ""
 
 
-## Reserve-only menu with **`attempt_close`** at LONG when geometric reach already covers — false.
+## Reserve-only menu with **`attempt_close`** at LONG when geometric reach already covers -- false.
 static func _reserve_posture_needs_bind_close(
 	manager: Node, c: Dictionary, actions: Array
 ) -> bool:
@@ -204,13 +204,13 @@ static func emit_turn_ready_hints(manager: Node, c: Dictionary, actions: Array) 
 		manager.notify_combat_ui_hint(arc_hint)
 	var cow_hint: String = cowering_retreat_hint_if_applicable(manager, c, actions)
 	if not cow_hint.is_empty():
-		# Combat log only — row gauge tooltip carries the shorter cowering copy for FP.
+		# Combat log only -- row gauge tooltip carries the shorter cowering copy for FP.
 		manager.notify_combat_ui_hint(cow_hint, false)
 	var counter_hint: String = counter_tempo_hint_if_applicable(manager, c, actions)
 	if not counter_hint.is_empty():
-		# Combat log only — gauge + **`turn_ready_gauge`** (`tooltip_match=counter`) cover FP.
+		# Combat log only -- gauge + **`turn_ready_gauge`** (`tooltip_match=counter`) cover FP.
 		manager.notify_combat_ui_hint(counter_hint, false)
-	# Combat log only — **`TurnReadyHandler`** logs **`turn_ready_formation_line`** / gauge tooltip to FP.
+	# Combat log only -- **`TurnReadyHandler`** logs **`turn_ready_formation_line`** / gauge tooltip to FP.
 	var form_hint: String = formation_and_rout_turn_ready_hint(manager, c, actions)
 	if not form_hint.is_empty():
 		manager.notify_combat_ui_hint(form_hint, false)
@@ -240,7 +240,7 @@ static func emit_turn_ready_hints(manager: Node, c: Dictionary, actions: Array) 
 		manager.notify_combat_ui_hint(close_ctrl_hint, false)
 
 
-## Player-side spawn form identity (read-only — no in-fight switch).
+## Player-side spawn form identity (read-only -- no in-fight switch).
 static func _weapon_form_turn_ready_hint_if_applicable(c: Dictionary) -> String:
 	if c.is_empty() or not _EntityAccess.is_player_side(c):
 		return ""
@@ -250,7 +250,7 @@ static func _weapon_form_turn_ready_hint_if_applicable(c: Dictionary) -> String:
 	return line
 
 
-## Player formation hint for gauge tooltip — same resolver as primary formation **`FP_COMBAT`** line.
+## Player formation hint for gauge tooltip -- same resolver as primary formation **`FP_COMBAT`** line.
 static func formation_listed_moves_hint_if_applicable(
 	manager: Node, c: Dictionary, actions: Array
 ) -> String:
@@ -261,7 +261,7 @@ static func formation_listed_moves_hint_if_applicable(
 	return formation_and_rout_turn_ready_hint(manager, c, actions)
 
 
-## Armed player with **`flee`** listed — cohesion / casualty context (`CombatFormationRout`).
+## Armed player with **`flee`** listed -- cohesion / casualty context (`CombatFormationRout`).
 static func rout_hint_when_flee_listed(manager: Node, c: Dictionary, actions: Array) -> String:
 	if manager == null or c.is_empty():
 		return ""
@@ -298,7 +298,7 @@ static func rout_pressure_early_hint(manager: Node, c: Dictionary, actions: Arra
 	var line: String = _FormationRout.rout_pressure_tooltip_line(manager, c)
 	if line.is_empty():
 		return ""
-	return "Line wavering — %s" % line
+	return "Line wavering -- %s" % line
 
 
 ## Player hint when a rank-0 gap exists and **`swap_rank`** is listed for a rear reserve.
@@ -320,7 +320,7 @@ static func front_gap_line_plug_hint(manager: Node, c: Dictionary, actions: Arra
 		return ""
 	if not _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_SWAP_RANK):
 		return ""
-	return "Front gap — swap up to fill the line."
+	return "Front gap -- swap up to fill the line."
 
 
 ## Player hint when a rear reserve may **`swap_rank`** forward over an incapacitated partner.
@@ -351,7 +351,7 @@ static func plug_forward_incap_partner_hint(manager: Node, c: Dictionary, action
 			continue
 		if not _EntityAccess.is_incapacitated(partner):
 			continue
-		return "Partner down — step up to hold the line."
+		return "Partner down -- step up to hold the line."
 	return ""
 
 
@@ -374,10 +374,10 @@ static func skirmish_line_gap_rotate_hint(manager: Node, c: Dictionary, actions:
 		return ""
 	var cid: int = _EntityAccess.id_int(c)
 	if _CombatDoctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, cid):
-		return "Line open — close or strike; adjacent shuffle won't fill distant gaps."
+		return "Line open -- close or strike; adjacent shuffle won't fill distant gaps."
 	if not _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ROTATE_FILE):
 		return ""
-	return "Line gap — rotate with an adjacent file to tighten the front."
+	return "Line gap -- rotate with an adjacent file to tighten the front."
 
 
 ## Multi-threat surround (**II-0 #3**): same copy as gauge tooltip when arc occupancy blocks weight.
@@ -430,7 +430,7 @@ static func _log_medical_pack_wound_listed_if_applicable(
 		return
 
 
-## Cowering (no arms) with mobile legs — when solo **fall_back** is listed vs wait-only.
+## Cowering (no arms) with mobile legs -- when solo **fall_back** is listed vs wait-only.
 static func cowering_retreat_hint_if_applicable(
 	manager: Node, c: Dictionary, actions: Array
 ) -> String:
@@ -453,11 +453,11 @@ static func cowering_retreat_hint_if_applicable(
 	)
 	var has_wait: bool = _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_WAIT)
 	if has_flee:
-		return "No arms — flee abandons the fight; fall back keeps you in formation if the rear rank is clear."
+		return "No arms -- flee abandons the fight; fall back keeps you in formation if the rear rank is clear."
 	if has_fall_back:
-		return "No arms — fall back is available (rear rank in your file must be clear)."
+		return "No arms -- fall back is available (rear rank in your file must be clear)."
 	if has_wait:
-		return "No arms — holding position (fall back blocked: movement policy, line discipline, or rear rank occupied)."
+		return "No arms -- holding position (fall back blocked: movement policy, line discipline, or rear rank occupied)."
 	return ""
 
 
@@ -479,5 +479,5 @@ static func counter_tempo_hint_if_applicable(
 	if not _CounterTempo.actions_include_counter_tempo_tagged(actions):
 		return ""
 	if tempo_ui == "counter_ready":
-		return "Counter window open — pick a melee action to seize tempo."
-	return "Incoming attack winding up — counter window building."
+		return "Counter window open -- pick a melee action to seize tempo."
+	return "Incoming attack winding up -- counter window building."

@@ -2,9 +2,9 @@ class_name CombatRegressionHarness
 extends RefCounted
 
 ## Manual / editor-invoked checks for Tier 1.5 - 1.9 (morale cohesion, engagement classifier, depth polearm, ZoC).
-## WF harness baseline: **`_harness_reset_combatants_form_balanced`** â **`assign_form(..., harness_baseline)`**  -  home guard + **`form_str`** for parity rows; LIVE_PATHS **`#spawn--reset-path-wf-1a`** · **`#wf-soak-audit-status`**.
+## WF harness baseline: **`_harness_reset_combatants_form_balanced`** -> **`assign_form(..., harness_baseline)`**  -  home guard + **`form_str`** for parity rows; LIVE_PATHS **`#spawn--reset-path-wf-1a`** . **`#wf-soak-audit-status`**.
 ## Tier 4.2: **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry`**, **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust`**, **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone`**, **`_run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust`**, **`_run_feint_windup_duration_mult_extends_state_duration_vs_oberhau`**, **`_run_feint_windup_duration_mult_extends_state_duration_vs_thrust`**, **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target`**, **`_run_feint_windup_target_only_sets_defender_guard_zone_to_target_thrust`**, **`_run_feint_move_ai_distinct_feint_and_target_parts`**, **`_run_feint_move_ai_distinct_feint_and_target_parts_thrust`**, **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau`**, **`_run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard`**, **`_run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard_thrust`**, **`_run_feint_move_listing_spacing_long_dampens_vs_mid`**, **`_run_feint_move_listing_spacing_close_boosts_vs_mid`**, **`_run_feint_move_listing_spacing_long_dampens_vs_mid_when_defender_recovering`**, **`_run_feint_move_listing_spacing_close_boosts_vs_mid_when_defender_recovering`**, **`_run_feint_move_listing_readiness_recovery_curve_when_defender_recovering`**, **`_run_feint_move_listing_stamina_low_dampens_feint_weight`**, **`_run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp`**, **`_run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult`**, **`_run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult`**, **`_run_feint_move_listing_doctrine_probing_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weight`**, **`_run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default`**, **`_run_feint_move_listing_stance_ai_feint_mult_ordering`**, **`_run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight`**, **`_run_feint_move_listing_defender_off_balance_boosts_feint_weight`**, **`_run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance`**, **`_run_feint_move_listing_recovering_footwork_dampens_vs_settled_waiting`**, **`_run_feint_move_listing_recovery_cause_orders_recovering_footwork_mult`, **`_run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally`****, **`_run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally`**, **`_run_feint_opts_from_choice_and_non_feint_attack_no_feint_part`**, **`_run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readjust_bonus`**, **`_run_feint_guard_zone_readthrough_par_bonus_when_readiness_high`**, **`_run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid`**, **`_run_feint_guard_zone_readthrough_spacing_close_dampens_vs_mid`**, **`_run_feint_target_reveal_progress_scales_readiness_mult`**, **`_run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough`**, **`_feint_guard_zone_sample_global_seed_for_modifier`** (PathResolver RNG seed scan), **`_run_feint_second_windup_clears_prior_telegraph_before_restamp`**, **`_run_feint_telegraph_scrubbed_on_combat_manager_restart`**; footwork / pair spacing  -  **`_run_defense_spacing_band_modulates_parry_and_dodge`**, **`_run_defense_footwork_recovering_boosts_dodge_vs_waiting`**, **`_run_defense_footwork_recovery_cause_orders_recovering_dodge_mult`**, **`_run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_close`**, **`_run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balance`**, **`_run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_close`**, **`_run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid`**, **`_run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_long_vs_mid`**, **`_run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid`**, **`_run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut`**, **`_run_defender_low_stamina_scales_passive_parry_readiness_in_choose_defense`**, **`_run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_feint`**, **`_run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina`**, **`_run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally`** (**`DefenseChoiceResolver`**, **`CombatAIActionPicker`**, **`distance_to`**, **`DEFENSE_SPACING_*`**, **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**, **`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**, **`FEINT_GUARD_ZONE_READINESS_SPACING_*`**, **`feint_guard_zone_readiness_spacing_mult`**, **`CombatConstants.passive_parry_readiness_incoming_contact_mult`**, **`WeaponConstants`** **`thrust_feint`**).
-## Tier 3.3: afterblow  -  **`_run_afterblow_deflected_triggers_full_resolve_hit`**, **`_run_afterblow_low_hindrance_allow_triggers_resolve_hit`** (fixed **`seed(1)`**, harness meta for mult); **`_run_afterblow_mid_hindrance_rand_cancel`** (**`seed(2)`**); **`_run_afterblow_mid_hindrance_rand_executes_hit`** (**`seed(0)`**, mult **0.55**); **`_afterblow_harness_seed_pending_cut`**. Hit reaction  -  **`_run_hit_applier_sets_defender_guard_low_after_hit`** (**`AttackResultApplier`** **`hit`** â **`GuardLineUpdater.set_guard_from_line`** low).
+## Tier 3.3: afterblow  -  **`_run_afterblow_deflected_triggers_full_resolve_hit`**, **`_run_afterblow_low_hindrance_allow_triggers_resolve_hit`** (fixed **`seed(1)`**, harness meta for mult); **`_run_afterblow_mid_hindrance_rand_cancel`** (**`seed(2)`**); **`_run_afterblow_mid_hindrance_rand_executes_hit`** (**`seed(0)`**, mult **0.55**); **`_afterblow_harness_seed_pending_cut`**. Hit reaction  -  **`_run_hit_applier_sets_defender_guard_low_after_hit`** (**`AttackResultApplier`** **`hit`** -> **`GuardLineUpdater.set_guard_from_line`** low).
 ## Does not require a running battle scene. Example:
 ##   var r := CombatRegressionHarness.run_all()
 ##   assert(r.ok, str(r.failures))
@@ -812,7 +812,7 @@ static func _run_diagram_banner_fp_dedupe(failures: PackedStringArray) -> void:
 	_OperationalLog.set_capture_enabled(true)
 	_OperationalLog.clear_capture()
 	_OperationalLog.begin_play_session("test", "", false, true)
-	var banner: String = "Formation line · Hold · cohesion 80%"
+	var banner: String = "Formation line . Hold . cohesion 80%"
 	_F5SoakTrace.log_diagram_banner_player(banner)
 	_F5SoakTrace.log_diagram_banner_player(banner)
 	var count: int = 0
@@ -830,7 +830,7 @@ static func _run_fight_trace_buffer_preserves_session_counts(failures: PackedStr
 	_OperationalLog.set_capture_enabled(true)
 	_OperationalLog.clear_capture()
 	_OperationalLog.begin_play_session("test", "", false, true)
-	_F5SoakTrace.log_diagram_banner_player("Formation line · Hold · cohesion 50%")
+	_F5SoakTrace.log_diagram_banner_player("Formation line . Hold . cohesion 50%")
 	_F5SoakTrace.reset_fight_trace_buffer()
 	_F5SoakTrace.log_fight_end_summary("player", false)
 	var summary: String = ""
@@ -1050,8 +1050,8 @@ static func _run_diagram_banner_enemy_fp(failures: PackedStringArray) -> void:
 	_OperationalLog.set_capture_enabled(true)
 	_OperationalLog.clear_capture()
 	_OperationalLog.begin_play_session("test", "", false, true)
-	_F5SoakTrace.log_diagram_banner_enemy("Skirmish · Loose · cohesion 40%")
-	_F5SoakTrace.log_diagram_banner_enemy("Skirmish · Loose · cohesion 40%")
+	_F5SoakTrace.log_diagram_banner_enemy("Skirmish . Loose . cohesion 40%")
+	_F5SoakTrace.log_diagram_banner_enemy("Skirmish . Loose . cohesion 40%")
 	var count: int = 0
 	for line in _OperationalLog.get_captured_lines():
 		if line.begins_with("FP_COMBAT: diagram_banner enemy:"):
@@ -1258,8 +1258,8 @@ static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: P
 	_Fixtures._assert_depth_lane_open_cache_matches_builder(mgr, failures, ctx)
 
 
-## Tier 3.1: pack / protection-circle parry flank uses wedge/lane-aware effective file spacing (falls back to |Îfile|â¥2).
-## Tier 3.1: sector surround `1/(1+k·excess)` matches integer **`surround_defense_multiplier`** when total weight = 2 (two full-width flank threats).
+## Tier 3.1: pack / protection-circle parry flank uses wedge/lane-aware effective file spacing (falls back to |-file|>=2).
+## Tier 3.1: sector surround `1/(1+k.excess)` matches integer **`surround_defense_multiplier`** when total weight = 2 (two full-width flank threats).
 static func _run_strike_measure_constants_sanity(failures: PackedStringArray) -> void:
 	var w: Weapon = _Weapon.create_from_definition("SWORD")
 	if w == null:
@@ -1602,7 +1602,7 @@ static func _run_attack_result_applier_terminal_clears_pending(failures: PackedS
 	_free_manager(mgr5)
 
 
-## **`AttackResultApplier`**: **`parry_deflect`** â **`action_resolved`** payload includes resolver **`parry_clash_context`** (signal args: defender id, attacker id, **`BattleScene`** slot names reversed).
+## **`AttackResultApplier`**: **`parry_deflect`** -> **`action_resolved`** payload includes resolver **`parry_clash_context`** (signal args: defender id, attacker id, **`BattleScene`** slot names reversed).
 static func _run_action_resolved_parry_deflect_payload_includes_clash_context(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -1834,7 +1834,7 @@ static func _run_hit_applier_sets_defender_guard_low_after_hit(failures: PackedS
 	_free_manager(mgr)
 
 
-## **`parry_partial`**: defender **`parry_was_bind`** / **`parry_against_id`** when alignment â¥ partial threshold and clash **`parry_control`** crosses bind threshold; cleared when misaligned or control low (misaligned path **`erase`**s stale **`parry_was_bind`**).
+## **`parry_partial`**: defender **`parry_was_bind`** / **`parry_against_id`** when alignment >= partial threshold and clash **`parry_control`** crosses bind threshold; cleared when misaligned or control low (misaligned path **`erase`**s stale **`parry_was_bind`**).
 static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedStringArray) -> void:
 	var _apply_partial_bind := func(
 		attack_angle_deg: float,
@@ -2336,7 +2336,7 @@ static func _run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_
 		)
 
 
-## Tier 5.1: **`velocity_m_s_from_intensity`** must match **`get_effective_velocity_m_s`** when **`AttackInstance.velocity_m_s` < 0** (derived path). Intensity **0.05 â 0.95** increases speed where expected: **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (inferred swing, thrust override, mixed **`kinematic_mixed_blend` 0.35**), **SPEAR** **`spear_thrust`** (inferred thrust), **MACE** **`direct_blow`** (blunt â swing path).
+## Tier 5.1: **`velocity_m_s_from_intensity`** must match **`get_effective_velocity_m_s`** when **`AttackInstance.velocity_m_s` < 0** (derived path). Intensity **0.05 -> 0.95** increases speed where expected: **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (inferred swing, thrust override, mixed **`kinematic_mixed_blend` 0.35**), **SPEAR** **`spear_thrust`** (inferred thrust), **MACE** **`direct_blow`** (blunt -> swing path).
 static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effective_and_monotone(
 	failures: PackedStringArray
 ) -> void:
@@ -2447,7 +2447,7 @@ static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effectiv
 			failures,
 			"kin_vel_mono: spear thrust expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [v_sp_hi - v_sp_lo]
 		)
-	## Blunt contact â swing kinematic path: MACE + direct_blow.
+	## Blunt contact -> swing kinematic path: MACE + direct_blow.
 	var mace: Weapon = _Weapon.create_from_definition("MACE")
 	if mace == null:
 		_fail(failures, "kin_vel_bridge: missing mace")
@@ -2945,7 +2945,7 @@ static func _run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and
 		{"def": "SWORD", "move": "oberhau", "pfx": "kin_p_mult_cb_sw"},
 		{"def": "AXE", "move": "diagonal_chop", "pfx": "kin_p_mult_cb_ax"},
 		# Light blade: raise pinned **`v`** so raw blunt clears **`BLUNT_DAMAGE_MIN`** for both mults (narrow blade
-		# otherwise clamps both samples to **1.0** â ratio **1.0**).
+		# otherwise clamps both samples to **1.0** -> ratio **1.0**).
 		{"def": "DAGGER", "move": "quick_slash", "pfx": "kin_p_mult_cb_dg", "v": 20.0},
 	]:
 		var wcb: Weapon = _Weapon.create_from_definition(str(cb["def"]))
@@ -2993,7 +2993,7 @@ static func _run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and
 			)
 
 
-## Tier 5.1: **`strike_momentum_mult`** must not change **`compute_kinetic_energy_j`** (pinned **`velocity_m_s`** or derived **`velocity_m_s` < 0** on **SWORD** / **AXE** / **DAGGER** swing, **MACE** bluntâswing, **SPEAR** thrust), **SHARP** **`compute_penetration`** / **`compute_pre_armor_cut`** (pinned **`v`** or same derived-**`v`** **`sv_p_*`**, **`sp_p_*`**, **`mv_p_*`**, **`ax_p_*`**, **`dg_p_*`** pairs), or derived **`get_effective_velocity_m_s`** (`AttackInstance.velocity_m_s` < 0; **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`**, **MACE** **`direct_blow`**, **SPEAR** **`spear_thrust`**); pinned **`v`**: **`get_effective_velocity_m_s`** â¥ **`strike_momentum_mult`** (**SWORD** **`ai_*_p`**, **`wcx_pm`** **AXE** / **DAGGER**); **`strike_energy_mult`** must not change **`compute_pre_armor_blunt`** (pinned **`v`** or derived **`velocity_m_s` < 0** on **MACE** **`mv_e_*`**, **SPEAR** **`sp_e_*`**, **SWORD** **`sv_e_*`**, **AXE** **`ax_sv_e_*`**, **DAGGER** **`dg_sv_e_*`**, incl. **`target_effective_mass_kg`** reduced-mass + opts), **BLUNT** **`compute_penetration`** **`penetration_blunt_momentum_per_area`** (same), or derived **`get_effective_velocity_m_s`** (**SWORD** + **MACE** + **SPEAR** + **AXE** + **DAGGER**); pinned **`v`**: **`get_effective_velocity_m_s`** â¥ **`strike_energy_mult`** (**SWORD** **`sw_*`**, **`swx`** **AXE** / **DAGGER**)  -  same blunt-channel â¥ on **MACE** **`direct_blow`** and **SWORD** / **AXE** / **DAGGER** cut swing (pinned **`v`**)  -  orthogonal energy vs momentum paths.
+## Tier 5.1: **`strike_momentum_mult`** must not change **`compute_kinetic_energy_j`** (pinned **`velocity_m_s`** or derived **`velocity_m_s` < 0** on **SWORD** / **AXE** / **DAGGER** swing, **MACE** blunt->swing, **SPEAR** thrust), **SHARP** **`compute_penetration`** / **`compute_pre_armor_cut`** (pinned **`v`** or same derived-**`v`** **`sv_p_*`**, **`sp_p_*`**, **`mv_p_*`**, **`ax_p_*`**, **`dg_p_*`** pairs), or derived **`get_effective_velocity_m_s`** (`AttackInstance.velocity_m_s` < 0; **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`**, **MACE** **`direct_blow`**, **SPEAR** **`spear_thrust`**); pinned **`v`**: **`get_effective_velocity_m_s`** >= **`strike_momentum_mult`** (**SWORD** **`ai_*_p`**, **`wcx_pm`** **AXE** / **DAGGER**); **`strike_energy_mult`** must not change **`compute_pre_armor_blunt`** (pinned **`v`** or derived **`velocity_m_s` < 0** on **MACE** **`mv_e_*`**, **SPEAR** **`sp_e_*`**, **SWORD** **`sv_e_*`**, **AXE** **`ax_sv_e_*`**, **DAGGER** **`dg_sv_e_*`**, incl. **`target_effective_mass_kg`** reduced-mass + opts), **BLUNT** **`compute_penetration`** **`penetration_blunt_momentum_per_area`** (same), or derived **`get_effective_velocity_m_s`** (**SWORD** + **MACE** + **SPEAR** + **AXE** + **DAGGER**); pinned **`v`**: **`get_effective_velocity_m_s`** >= **`strike_energy_mult`** (**SWORD** **`sw_*`**, **`swx`** **AXE** / **DAGGER**)  -  same blunt-channel >= on **MACE** **`direct_blow`** and **SWORD** / **AXE** / **DAGGER** cut swing (pinned **`v`**)  -  orthogonal energy vs momentum paths.
 static func _run_kinematic_delivery_strike_mult_cross_coupling_ke_vs_blunt_isolated(
 	failures: PackedStringArray
 ) -> void:
@@ -3900,7 +3900,7 @@ static func _run_kinematic_delivery_strike_mult_cross_coupling_ke_vs_blunt_isola
 		)
 
 
-## Tier 5.1 (optional long-tail): **`AttackResolver.penetration_oblique_angle_factor`** matches parry vs misaligned-guard **`lerp`** rules; **`velocity_override` < 0** â **1** (no penetration oblique here).
+## Tier 5.1 (optional long-tail): **`AttackResolver.penetration_oblique_angle_factor`** matches parry vs misaligned-guard **`lerp`** rules; **`velocity_override` < 0** -> **1** (no penetration oblique here).
 static func _run_kinematic_delivery_penetration_oblique_angle_factor_attack_resolver(
 	failures: PackedStringArray
 ) -> void:
@@ -3988,7 +3988,7 @@ static func _kin_dmg_pen_sample(vo: float, parry_r: float, align: float, strike_
 	return Vector2(ps, pb)
 
 
-## Tier 5.1 (optional long-tail): **`compute_and_apply_damage`** applies the same oblique factor to **SHARP** / **BLUNT** penetration as **`penetration_oblique_angle_factor`** (fresh manager per sample; manager meta **`_harness_expose_penetration_applied`** â **`penetration_sharp_applied`** / **`penetration_blunt_mpa_applied`** on **`result_dict`**).
+## Tier 5.1 (optional long-tail): **`compute_and_apply_damage`** applies the same oblique factor to **SHARP** / **BLUNT** penetration as **`penetration_oblique_angle_factor`** (fresh manager per sample; manager meta **`_harness_expose_penetration_applied`** -> **`penetration_sharp_applied`** / **`penetration_blunt_mpa_applied`** on **`result_dict`**).
 static func _run_kinematic_delivery_compute_damage_oblique_penetration_integration(
 	failures: PackedStringArray
 ) -> void:
@@ -4140,7 +4140,7 @@ static func _run_kinematic_delivery_compute_damage_strike_mods_penetration_integ
 		)
 
 
-## Tier 5.1 (optional long-tail): **`CombatConstants.get_line_alignment_with_deflect`**  -  continuous cos(Î¸) vs attack-angle-only vs discrete **`get_line_alignment`** vs **`guard_deflect_blend`** lerp.
+## Tier 5.1 (optional long-tail): **`CombatConstants.get_line_alignment_with_deflect`**  -  continuous cos(theta) vs attack-angle-only vs discrete **`get_line_alignment`** vs **`guard_deflect_blend`** lerp.
 static func _run_kinematic_delivery_line_alignment_with_deflect_branches(
 	failures: PackedStringArray
 ) -> void:
@@ -4209,21 +4209,21 @@ static func _run_kinematic_delivery_deflected_angle_bilateral_and_line_angle_hel
 	failures: PackedStringArray
 ) -> void:
 	if CombatConstants.angle_to_nearest_line(0.0) != "high":
-		_fail(failures, "kin_line_angle: 0Â° want high got %s" % CombatConstants.angle_to_nearest_line(0.0))
+		_fail(failures, "kin_line_angle: 0deg want high got %s" % CombatConstants.angle_to_nearest_line(0.0))
 	if CombatConstants.angle_to_nearest_line(90.0) != "right":
-		_fail(failures, "kin_line_angle: 90Â° want right got %s" % CombatConstants.angle_to_nearest_line(90.0))
+		_fail(failures, "kin_line_angle: 90deg want right got %s" % CombatConstants.angle_to_nearest_line(90.0))
 	if CombatConstants.angle_to_nearest_line(180.0) != "low":
-		_fail(failures, "kin_line_angle: 180Â° want low got %s" % CombatConstants.angle_to_nearest_line(180.0))
+		_fail(failures, "kin_line_angle: 180deg want low got %s" % CombatConstants.angle_to_nearest_line(180.0))
 	if CombatConstants.angle_to_nearest_line(270.0) != "left":
-		_fail(failures, "kin_line_angle: 270Â° want left got %s" % CombatConstants.angle_to_nearest_line(270.0))
+		_fail(failures, "kin_line_angle: 270deg want left got %s" % CombatConstants.angle_to_nearest_line(270.0))
 	if CombatConstants.angle_to_nearest_line(360.0) != "high":
-		_fail(failures, "kin_line_angle: 360Â° want high got %s" % CombatConstants.angle_to_nearest_line(360.0))
+		_fail(failures, "kin_line_angle: 360deg want high got %s" % CombatConstants.angle_to_nearest_line(360.0))
 	for ln in ["high", "right", "low", "left"]:
 		var a: float = CombatConstants.line_to_angle(ln)
 		if CombatConstants.angle_to_nearest_line(a) != ln:
 			_fail(
 				failures,
-				"kin_line_angle: round-trip line %s angle %.1f â %s"
+				"kin_line_angle: round-trip line %s angle %.1f -> %s"
 				% [ln, a, CombatConstants.angle_to_nearest_line(a)]
 			)
 	var b1: float = CombatConstants.get_deflected_angle_bilateral(0.0, 270.0, 10.0)
@@ -4255,29 +4255,29 @@ static func _run_kinematic_delivery_deflected_line_from_angles_same_line_bind(
 		_fail(failures, "kin_deflect_same: left bind want left got %s" % lf)
 
 
-## Tier 5.1: **`CombatConstants.angle_diff_deg`** (shortest arc 0 - 180) + **`get_alignment_from_angles`** (cos Î¸ floor).
+## Tier 5.1: **`CombatConstants.angle_diff_deg`** (shortest arc 0 - 180) + **`get_alignment_from_angles`** (cos theta floor).
 static func _run_kinematic_delivery_angle_diff_and_alignment_from_angles_helpers(
 	failures: PackedStringArray
 ) -> void:
 	if CombatConstants.angle_diff_deg(350.0, 10.0) != 20.0:
 		_fail(
 			failures,
-			"kin_angle_diff: 350â10 want 20 got %.4f" % CombatConstants.angle_diff_deg(350.0, 10.0)
+			"kin_angle_diff: 350->10 want 20 got %.4f" % CombatConstants.angle_diff_deg(350.0, 10.0)
 		)
 	if CombatConstants.angle_diff_deg(10.0, 350.0) != 20.0:
 		_fail(
 			failures,
-			"kin_angle_diff: 10â350 want 20 got %.4f" % CombatConstants.angle_diff_deg(10.0, 350.0)
+			"kin_angle_diff: 10->350 want 20 got %.4f" % CombatConstants.angle_diff_deg(10.0, 350.0)
 		)
 	if CombatConstants.angle_diff_deg(0.0, 180.0) != 180.0:
 		_fail(
 			failures,
-			"kin_angle_diff: 0â180 want 180 got %.4f" % CombatConstants.angle_diff_deg(0.0, 180.0)
+			"kin_angle_diff: 0->180 want 180 got %.4f" % CombatConstants.angle_diff_deg(0.0, 180.0)
 		)
 	if CombatConstants.angle_diff_deg(400.0, 40.0) != 0.0:
 		_fail(
 			failures,
-			"kin_angle_diff: 400â40 (wrap) want 0 got %.4f" % CombatConstants.angle_diff_deg(400.0, 40.0)
+			"kin_angle_diff: 400->40 (wrap) want 0 got %.4f" % CombatConstants.angle_diff_deg(400.0, 40.0)
 		)
 	var a1: float = CombatConstants.get_alignment_from_angles(0.0, 0.0)
 	if absf(a1 - 1.0) > 0.0001:
@@ -4350,7 +4350,7 @@ static func _run_kinematic_delivery_path_lookup_discrete_from_angles_continuous_
 	if intercept_cont <= intercept_disc:
 		_fail(
 			failures,
-			"kin_path_angle_split: low continuous align â later intercept (cont=%d disc=%d)"
+			"kin_path_angle_split: low continuous align -> later intercept (cont=%d disc=%d)"
 			% [intercept_cont, intercept_disc]
 		)
 	var partial_ctx: Dictionary = {"attack_angle_deg": atk_deg}
@@ -4374,7 +4374,7 @@ static func _kin_path_intercept_max_index(path: Array, alignment: float) -> int:
 	return clampi(intercept_max, 0, path.size() - 1)
 
 
-## Tier 5.1 (optional long-tail): **`get_guard_angle_deg`** lerps **`guard_deflect_from_line` â `guard_line`**; **`get_line_alignment_with_deflect`** attack-angle-only branch uses that blended guard (not discrete **`guard_line`** alone).
+## Tier 5.1 (optional long-tail): **`get_guard_angle_deg`** lerps **`guard_deflect_from_line` -> `guard_line`**; **`get_line_alignment_with_deflect`** attack-angle-only branch uses that blended guard (not discrete **`guard_line`** alone).
 static func _run_kinematic_delivery_guard_deflect_blend_guard_angle_and_attack_only_align(
 	failures: PackedStringArray
 ) -> void:
@@ -4415,10 +4415,10 @@ static func _run_kinematic_delivery_guard_deflect_blend_guard_angle_and_attack_o
 	if absf(align_match - exp_match) > 0.0001:
 		_fail(
 			failures,
-			"kin_guard_blend: attack-only align@90Â° want %.6f got %.6f (guard=%.4f)"
+			"kin_guard_blend: attack-only align@90deg want %.6f got %.6f (guard=%.4f)"
 			% [exp_match, align_match, g_blend]
 		)
-	# 10Â° vs blended guard (~90Â°) stays above PARRY_ALIGNMENT_FLOOR; static low (~180Â°) floors.
+	# 10deg vs blended guard (~90deg) stays above PARRY_ALIGNMENT_FLOOR; static low (~180deg) floors.
 	var atk_mid: float = 10.0
 	var align_blend_mid: float = CombatConstants.get_line_alignment_with_deflect(
 		"high",
@@ -4433,7 +4433,7 @@ static func _run_kinematic_delivery_guard_deflect_blend_guard_angle_and_attack_o
 	if absf(align_blend_mid - exp_blend_mid) > 0.0001:
 		_fail(
 			failures,
-			"kin_guard_blend: attack-only align@10Â° want %.6f got %.6f" % [exp_blend_mid, align_blend_mid]
+			"kin_guard_blend: attack-only align@10deg want %.6f got %.6f" % [exp_blend_mid, align_blend_mid]
 		)
 	var align_static_mid: float = CombatConstants.get_line_alignment_with_deflect(
 		"high",
@@ -4627,7 +4627,7 @@ static func _kin_pen_sharp_at_velocity(
 	)
 
 
-## Tier 5.1 (optional long-tail): hit damage **`velocity_m_s`** path matches **`WeaponDamageHelper`** at replicated effective **`v`**; **`compute_and_apply_damage`** â **`take_damage_split`** contract (**`damage_type` SPLIT**, **`mechanical_post_armor`**, tissue delta).
+## Tier 5.1 (optional long-tail): hit damage **`velocity_m_s`** path matches **`WeaponDamageHelper`** at replicated effective **`v`**; **`compute_and_apply_damage`** -> **`take_damage_split`** contract (**`damage_type` SPLIT**, **`mechanical_post_armor`**, tissue delta).
 static func _run_kinematic_delivery_compute_damage_velocity_and_entity_split(
 	failures: PackedStringArray
 ) -> void:
@@ -4742,7 +4742,7 @@ static func _run_kinematic_delivery_alignment_context_guard_angle_only_uses_comb
 	if absf(got - wrong_ctx_pair) < 0.0001:
 		_fail(
 			failures,
-			"kin_align_ctx: must not pair line highÂ° with context guard 180Â° alone (floor %.6f)"
+			"kin_align_ctx: must not pair line highdeg with context guard 180deg alone (floor %.6f)"
 			% wrong_ctx_pair
 		)
 	if exp_discrete <= CombatConstants.PARRY_ALIGNMENT_FLOOR + 0.01:
@@ -5036,7 +5036,7 @@ static func _run_kinematic_delivery_compute_damage_strike_ke_and_blunt_contact_e
 	_free_manager(m)
 
 
-## Tier 5.1 (optional long-tail): both angles in **`alignment_context`** â continuous cos(Î¸); **`wobble_context`** ignored.
+## Tier 5.1 (optional long-tail): both angles in **`alignment_context`** -> continuous cos(theta); **`wobble_context`** ignored.
 static func _run_kinematic_delivery_alignment_both_angles_ignores_wobble(
 	failures: PackedStringArray
 ) -> void:
@@ -5191,7 +5191,7 @@ static func _kin_expected_pre_armor_cut_blunt(
 	return Vector2(pre_cut * stance_mult, pre_blunt * stance_mult)
 
 
-## Tier 5.1 (optional long-tail): exposed **`pre_cut_applied`** / **`pre_blunt_applied`** match **`WeaponDamageHelper`** at assembled **`v`** (incl. parry cutâblunt shift + stance).
+## Tier 5.1 (optional long-tail): exposed **`pre_cut_applied`** / **`pre_blunt_applied`** match **`WeaponDamageHelper`** at assembled **`v`** (incl. parry cut->blunt shift + stance).
 static func _run_kinematic_delivery_compute_damage_pre_armor_matches_helper_at_assembled_v(
 	failures: PackedStringArray
 ) -> void:
@@ -5237,7 +5237,7 @@ static func _run_kinematic_delivery_compute_damage_pre_armor_matches_helper_at_a
 		_free_manager(m)
 
 
-## Tier 5.1 (optional long-tail): partial parry on cut (**`velocity_override` â¥ 0**) shifts **`PARRY_CUT_TO_BLUNT_SHIFT`**  -  **`pre_blunt_applied`** rises vs clean parry; **`pre_cut_applied`** falls.
+## Tier 5.1 (optional long-tail): partial parry on cut (**`velocity_override` >= 0**) shifts **`PARRY_CUT_TO_BLUNT_SHIFT`**  -  **`pre_blunt_applied`** rises vs clean parry; **`pre_cut_applied`** falls.
 static func _run_kinematic_delivery_partial_parry_cut_to_blunt_shift(
 	failures: PackedStringArray
 ) -> void:
@@ -5274,7 +5274,7 @@ static func _run_kinematic_delivery_partial_parry_cut_to_blunt_shift(
 		)
 
 
-## Tier 5.1 (optional long-tail): **`velocity_override` < 0**  -  partial parry does not apply **`PARRY_CUT_TO_BLUNT_SHIFT`** (pre-armor mix unchanged; pens already â¥ oblique).
+## Tier 5.1 (optional long-tail): **`velocity_override` < 0**  -  partial parry does not apply **`PARRY_CUT_TO_BLUNT_SHIFT`** (pre-armor mix unchanged; pens already >= oblique).
 static func _run_kinematic_delivery_derived_velocity_no_cut_to_blunt_shift_on_partial_parry(
 	failures: PackedStringArray
 ) -> void:
@@ -5416,7 +5416,7 @@ static func _run_kinematic_delivery_strike_mods_damage_mults_scale_pre_armor_onl
 				_fail(failures, "%s: kin_dmg_mults pen_sharp should ignore blunt_damage_mult" % tag_b)
 
 
-## Tier 5.1 (optional long-tail): **STAB** contact  -  partial parry at pinned **`vo`** does not apply cutâblunt shift (**`PARRY_CUT_TO_BLUNT`** is cut-only).
+## Tier 5.1 (optional long-tail): **STAB** contact  -  partial parry at pinned **`vo`** does not apply cut->blunt shift (**`PARRY_CUT_TO_BLUNT`** is cut-only).
 static func _run_kinematic_delivery_stab_partial_parry_no_cut_to_blunt_shift(
 	failures: PackedStringArray
 ) -> void:
@@ -5527,7 +5527,7 @@ static func _run_kinematic_delivery_blunt_momentum_mult_scales_pen_not_pre_armor
 			)
 
 
-## Tier 5.1 (optional long-tail): unknown **`attack_line`** â **`ATTACK_PATH_HIGH`** default.
+## Tier 5.1 (optional long-tail): unknown **`attack_line`** -> **`ATTACK_PATH_HIGH`** default.
 static func _run_kinematic_delivery_get_attack_path_unknown_attack_line_fallback(
 	failures: PackedStringArray
 ) -> void:
@@ -5698,7 +5698,7 @@ static func _run_kinematic_delivery_entity_split_final_fields_on_hit(
 			)
 
 
-## Tier 5.1 (optional long-tail): **BLUNT** contact (**MACE** **`direct_blow`**)  -  no cutâblunt shift on partial parry at pinned **`vo`**.
+## Tier 5.1 (optional long-tail): **BLUNT** contact (**MACE** **`direct_blow`**)  -  no cut->blunt shift on partial parry at pinned **`vo`**.
 static func _run_kinematic_delivery_mace_blunt_partial_parry_no_cut_to_blunt_shift(
 	failures: PackedStringArray
 ) -> void:
@@ -5755,7 +5755,7 @@ static func _run_kinematic_delivery_misaligned_guard_scales_sharp_and_blunt_pen(
 				_fail(failures, "%s: kin_misalign_both blunt mpa ratio %.4f want %.4f" % [tag, r_blunt, want])
 
 
-## Tier 5.1 (optional long-tail): **`strike_mods.strike_energy_mult`** in **`compute_and_apply_damage`**  -  **`strike_ke_j`** â mult; **`pre_cut`** â **`sqrt(mult)`**; **`penetration_sharp`** â **`mult^PENETRATION_EXPONENT`**  -  cut swings.
+## Tier 5.1 (optional long-tail): **`strike_mods.strike_energy_mult`** in **`compute_and_apply_damage`**  -  **`strike_ke_j`** * mult; **`pre_cut`** * **`sqrt(mult)`**; **`penetration_sharp`** * **`mult^PENETRATION_EXPONENT`**  -  cut swings.
 static func _run_kinematic_delivery_strike_energy_mult_integration_pre_cut_not_pen(
 	failures: PackedStringArray
 ) -> void:
@@ -5796,7 +5796,7 @@ static func _run_kinematic_delivery_strike_energy_mult_integration_pre_cut_not_p
 			)
 
 
-## Tier 5.1 (optional long-tail): **`afterblow_damage_mult`** scales assembled **`v`** (sqrt) â **`strike_ke_j_applied`** (~linear in mult)  -  cut swings, thrust, blunt.
+## Tier 5.1 (optional long-tail): **`afterblow_damage_mult`** scales assembled **`v`** (sqrt) -> **`strike_ke_j_applied`** (~linear in mult)  -  cut swings, thrust, blunt.
 static func _run_kinematic_delivery_afterblow_mult_scales_strike_ke_via_velocity(
 	failures: PackedStringArray
 ) -> void:
@@ -5825,7 +5825,7 @@ static func _run_kinematic_delivery_afterblow_mult_scales_strike_ke_via_velocity
 			)
 
 
-## Tier 5.1 (optional long-tail): **`angle_to_nearest_line`** quadrant boundaries at **45Â° / 135Â° / 225Â° / 315Â°**.
+## Tier 5.1 (optional long-tail): **`angle_to_nearest_line`** quadrant boundaries at **45deg / 135deg / 225deg / 315deg**.
 static func _run_kinematic_delivery_angle_to_nearest_line_boundaries(
 	failures: PackedStringArray
 ) -> void:
@@ -5845,25 +5845,25 @@ static func _run_kinematic_delivery_angle_to_nearest_line_boundaries(
 			if got != str(pair[1]):
 				_fail(
 					failures,
-					"kin_line_bound: %.1fÂ° want %s got %s" % [float(pair[0]), str(pair[1]), got]
+					"kin_line_bound: %.1fdeg want %s got %s" % [float(pair[0]), str(pair[1]), got]
 				)
 		return
 	if CombatConstants.angle_to_nearest_line(44.9) != "high":
-		_fail(failures, "kin_line_bound: 44.9Â° want high")
+		_fail(failures, "kin_line_bound: 44.9deg want high")
 	if CombatConstants.angle_to_nearest_line(45.0) != "right":
-		_fail(failures, "kin_line_bound: 45.0Â° want right")
+		_fail(failures, "kin_line_bound: 45.0deg want right")
 	if CombatConstants.angle_to_nearest_line(134.9) != "right":
-		_fail(failures, "kin_line_bound: 134.9Â° want right")
+		_fail(failures, "kin_line_bound: 134.9deg want right")
 	if CombatConstants.angle_to_nearest_line(135.0) != "low":
-		_fail(failures, "kin_line_bound: 135.0Â° want low")
+		_fail(failures, "kin_line_bound: 135.0deg want low")
 	if CombatConstants.angle_to_nearest_line(224.9) != "low":
-		_fail(failures, "kin_line_bound: 224.9Â° want low")
+		_fail(failures, "kin_line_bound: 224.9deg want low")
 	if CombatConstants.angle_to_nearest_line(225.0) != "left":
-		_fail(failures, "kin_line_bound: 225.0Â° want left")
+		_fail(failures, "kin_line_bound: 225.0deg want left")
 	if CombatConstants.angle_to_nearest_line(314.9) != "left":
-		_fail(failures, "kin_line_bound: 314.9Â° want left")
+		_fail(failures, "kin_line_bound: 314.9deg want left")
 	if CombatConstants.angle_to_nearest_line(315.0) != "high":
-		_fail(failures, "kin_line_bound: 315.0Â° want high")
+		_fail(failures, "kin_line_bound: 315.0deg want high")
 
 
 static func _harness_destroy_limb(entity: CoreEntity, part: String) -> void:
@@ -7375,7 +7375,7 @@ static func _harness_iv8_three_player_fixtures(mgr: Node) -> Array:
 	return _Fixtures._harness_iv8_three_player_fixtures(mgr)
 
 
-## IV-8: high initiative score â earlier first **`EVENT_ACTION_READY`** at combat start.
+## IV-8: high initiative score -> earlier first **`EVENT_ACTION_READY`** at combat start.
 static func _run_iv8_initiative_order_stagger(failures: PackedStringArray) -> void:
 	if not CombatConstants.is_feature_initiative_order_enabled():
 		_fail(failures, "iv8_initiative_order: FEATURE_INITIATIVE_ORDER must be on in production")
@@ -7421,7 +7421,7 @@ static func _run_iv8_initiative_order_stagger(failures: PackedStringArray) -> vo
 		)
 
 
-## IV-8: flag off  -  identical stats â identical first resolve_at (no initiative stagger).
+## IV-8: flag off  -  identical stats -> identical first resolve_at (no initiative stagger).
 static func _run_iv8_initiative_order_flag_off_parity(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	for _i in 3:
@@ -7616,7 +7616,7 @@ static func _run_iv9_gap_column_diagram_display_suite(failures: PackedStringArra
 		_fail(failures, "iv9_gap_diagram_on: file 0 should be empty gap cell")
 
 
-## IV-9 slice 3: gap mode uses column-arc spacing instead of raw grid |Îfile| when either line has gaps.
+## IV-9 slice 3: gap mode uses column-arc spacing instead of raw grid |-file| when either line has gaps.
 static func _run_iv9_gap_column_pair_geometry_column_arc_suite(failures: PackedStringArray) -> void:
 	var sync_line: String = CombatConstants.iv9_gap_column_doc_sync_line()
 	if "pair_geometry=column_arc_when_gaps" not in sync_line:
@@ -7923,7 +7923,7 @@ static func _run_iv11_register_party_leader_stamp_suite(failures: PackedStringAr
 	_free_manager(mgr)
 
 
-## IV-11 slice 4: roster **`is_party_leader`** on party nodes â **`get_fightable_party_nodes`** â **`CombatManager.register`** stamp.
+## IV-11 slice 4: roster **`is_party_leader`** on party nodes -> **`get_fightable_party_nodes`** -> **`CombatManager.register`** stamp.
 static func _run_iv11_campaign_bridge_party_leader_stamp_suite(failures: PackedStringArray) -> void:
 	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
 	if "slice4=bridge_roster_stamp" not in sync_line:
@@ -8417,7 +8417,7 @@ static func _run_iv11_enemy_commander_order_suite(failures: PackedStringArray) -
 	_free_manager(mgr)
 
 
-## IV-11 slice 9: enemy commander cycles hold â probe â pinch â hold (mirror player leader).
+## IV-11 slice 9: enemy commander cycles hold -> probe -> pinch -> hold (mirror player leader).
 static func _run_iv11_enemy_commander_doctrine_cycle_suite(failures: PackedStringArray) -> void:
 	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
 	if "slice9=enemy_commander_orders+doctrine_cycle" not in sync_line:
@@ -8476,7 +8476,7 @@ static func _run_iv11_enemy_commander_doctrine_cycle_suite(failures: PackedStrin
 	_free_manager(mgr)
 
 
-## IV-11 slice 9: party leader can cycle hold â probe â pinch â hold without re-listing active doctrine.
+## IV-11 slice 9: party leader can cycle hold -> probe -> pinch -> hold without re-listing active doctrine.
 static func _run_iv11_leader_doctrine_cycle_suite(failures: PackedStringArray) -> void:
 	var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
 	CombatConstants.set_feature_leader_formation_command_load(true)
@@ -8916,7 +8916,7 @@ static func _run_iv11_enemy_leader_diagram_callout_suite(failures: PackedStringA
 	_free_manager(mgr)
 
 
-## IV-11 slice 7: **`PartyRowFormatter`** roster **` · Leader`** suffix from snapshot / node.
+## IV-11 slice 7: **`PartyRowFormatter`** roster **` . Leader`** suffix from snapshot / node.
 static func _run_iv11_party_leader_roster_callout_suite(failures: PackedStringArray) -> void:
 	var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
 	if "slice7=roster_menu_leader_suffix" not in sync_line:
@@ -8931,10 +8931,10 @@ static func _run_iv11_party_leader_roster_callout_suite(failures: PackedStringAr
 	var member_snap: Dictionary = _Snapshot.snapshot_from_member(
 		{"name": "Mate", "node_ref": member_ent}
 	)
-	if _PartyRowFormatter.format_party_role_suffix(leader_snap) != " · Leader":
+	if _PartyRowFormatter.format_party_role_suffix(leader_snap) != " . Leader":
 		_fail(
 			failures,
-			"iv11_roster: leader want ' · Leader' got '%s'"
+			"iv11_roster: leader want ' . Leader' got '%s'"
 			% _PartyRowFormatter.format_party_role_suffix(leader_snap)
 		)
 	if not _PartyRowFormatter.format_party_role_suffix(member_snap).is_empty():
@@ -9656,7 +9656,7 @@ static func _run_incoming_parry_can_parry_all_weak_pair(failures: PackedStringAr
 	_free_manager_restore_global_rng(mgr)
 
 
-## III-1: equal perceived telegraph â sector flank weight breaks parry-target tie (not outright telegraph wins).
+## III-1: equal perceived telegraph -> sector flank weight breaks parry-target tie (not outright telegraph wins).
 static func _run_iii1_incoming_parry_sector_tiebreak(failures: PackedStringArray) -> void:
 	if not CombatConstants.FEATURE_INCOMING_PARRY_CHOICE:
 		_fail(failures, "iii1_parry_tie: FEATURE_INCOMING_PARRY_CHOICE should be enabled")
@@ -9759,6 +9759,13 @@ static func _run_iii3_deflect_bind_calibration_suite(failures: PackedStringArray
 		_fail(failures, "iii3_calibration: full_stop should be true at threshold")
 	if CombatConstants.parry_full_stop_reached(stop_at, pa, false):
 		_fail(failures, "iii3_calibration: full_stop should require block parry")
+	var edge_cd: float = pa * CombatConstants.PARRY_DEFLECT_THRESHOLD * 1.05
+	if not CombatConstants.parry_edge_deflect_reached(edge_cd, pa, 0.85, false):
+		_fail(failures, "iii3_calibration: edge deflect should reach at aligned non-block margin")
+	if CombatConstants.parry_edge_deflect_reached(edge_cd, pa, 0.85, true):
+		_fail(failures, "iii3_calibration: edge deflect must not apply when block parry")
+	if CombatConstants.parry_full_stop_reached(edge_cd, pa, false):
+		_fail(failures, "iii3_calibration: edge deflect must not use full_stop without block")
 	if CombatConstants.parry_bind_control_reached(0.649):
 		_fail(failures, "iii3_calibration: bind control should be false below 0.65")
 	if not CombatConstants.parry_bind_control_reached(0.65):
@@ -9903,7 +9910,7 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(
 	if absf(cd_ext - want_ext) > cd_wait * 0.02:
 		_fail(
 			failures,
-			"weapon_pos: extended recover want c_dâ%.4f got %.4f (waiting=%.4f)"
+			"weapon_pos: extended recover want c_d>=>=%.4f got %.4f (waiting=%.4f)"
 			% [want_ext, cd_ext, cd_wait]
 		)
 	defender["recovery_cause"] = "parry_deflect"
@@ -9915,7 +9922,7 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(
 	if absf(float(dc_parry.get("parry_c_d", 0.0)) - cd_wait) > cd_wait * 0.02:
 		_fail(
 			failures,
-			"weapon_pos: parry recovery want c_dâwaiting got %.4f vs %.4f"
+			"weapon_pos: parry recovery want c_d>=>=waiting got %.4f vs %.4f"
 			% [float(dc_parry.get("parry_c_d", 0.0)), cd_wait]
 		)
 	defender["recovery_cause"] = "parry_partial"
@@ -9926,7 +9933,7 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(
 	if absf(float(dc_partial.get("parry_c_d", 0.0)) - cd_wait) > cd_wait * 0.02:
 		_fail(
 			failures,
-			"weapon_pos: parry_partial recovery want c_dâwaiting got %.4f vs %.4f"
+			"weapon_pos: parry_partial recovery want c_d>=>=waiting got %.4f vs %.4f"
 			% [float(dc_partial.get("parry_c_d", 0.0)), cd_wait]
 		)
 	_free_manager_restore_global_rng(mgr)
@@ -9993,7 +10000,7 @@ static func _run_weapon_committed_attack_dampens_defender_parry_c_d(
 	if absf(cd_commit - want_commit) > cd_coil * 0.02:
 		_fail(
 			failures,
-			"weapon_pos_commit: committed attack want c_dâ%.4f got %.4f (coil=%.4f)"
+			"weapon_pos_commit: committed attack want c_d>=>=%.4f got %.4f (coil=%.4f)"
 			% [want_commit, cd_commit, cd_coil]
 		)
 	_free_manager_restore_global_rng(mgr)
@@ -10076,7 +10083,7 @@ static func _run_weapon_commit_fraction_inferred_for_untagged_thrust_move(
 		)
 
 
-## Tier 7.5 pilot: **`impact_station_spread` 0** â roll equals move **`impact_station_mean`** (+ intensity focus only).
+## Tier 7.5 pilot: **`impact_station_spread` 0** -> roll equals move **`impact_station_mean`** (+ intensity focus only).
 static func _run_impact_station_mean_zero_spread_equals_move_mean(
 	failures: PackedStringArray
 ) -> void:
@@ -10307,7 +10314,7 @@ static func _run_campaign_bridge_entity_untreated_wounds(failures: PackedStringA
 	_free_harness_node(tq)
 
 
-## Campaign bridge: encounter node exports â world meta.
+## Campaign bridge: encounter node exports -> world meta.
 static func _run_campaign_bridge_encounter_meta_from_node(failures: PackedStringArray) -> void:
 	var world: Node2D = Node2D.new()
 	var enc: Node = _EncounterNode.new()
@@ -10595,7 +10602,7 @@ static func _run_p4h_bind_riposte_balance_suite(failures: PackedStringArray) -> 
 		_fail(failures, "p4h_riposte: ii2b good band should pass: %s" % ", ".join(band_fail))
 
 
-## P4d: doc â code sync  -  canonical bind/deflect/riposte lines in ii2b worksheet + calibration audit source.
+## P4d: doc <-> code sync  -  canonical bind/deflect/riposte lines in ii2b worksheet + calibration audit source.
 static func _run_p4d_parry_bind_doc_code_parity_suite(failures: PackedStringArray) -> void:
 	var _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
 	var _CalibrationAudit := preload("res://combat/CombatCalibrationAudit.gd")
@@ -10633,7 +10640,7 @@ static func _run_p4d_parry_bind_doc_code_parity_suite(failures: PackedStringArra
 		_fail(failures, "p4d_sync: calibration audit must echo III-3 threshold pair")
 
 
-## Tier 4.5: open bind-exchange window â wind-up vs partner - -  **`FLURRY_BIND_WIND_UP_MULT`** (feature on).
+## Tier 4.5: open bind-exchange window -> wind-up vs partner - -  **`FLURRY_BIND_WIND_UP_MULT`** (feature on).
 static func _run_flurry_bind_exchange_wind_up_reduced_vs_plain(failures: PackedStringArray) -> void:
 	var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
 	CombatConstants.set_feature_flurry_bind_exchange_load(true)
@@ -11066,7 +11073,7 @@ static func _run_parry_defender_vs_attack_modifiers(failures: PackedStringArray)
 	_free_manager(mgr)
 
 
-## Tier 3.2 + 3.0: parry clash context preserves bind/deflect calibration + strike kinematics; asserts geometry + move ids vs **`DefenseResolutionHandler._resolve_parry`** and **`WeaponDamageHelper`** / **`StrikeRealismProfile`**; Tier **3.1** **`strike_measure_ratio`** vs **`pa`** after **`stamp_attack_pair_geometry_on_dict`** + **`strike_measure_ratio_for_attack_pair`** (full-stop key set **`PARRY_CLASH_CONTEXT_KEYS_FULL_STOP`**); stamped path sets **`impact_blade_station`** before **`resolve`** so post-resolve kinematics recompute matches **`velocity_intent_mult_from_pa`** (no extra **`randf()`** vs resolver); unstamped **`pa`** â clash **`strike_measure_ratio`** **-1**, then **`seed(3312)`** before stamped path for stable RNG.
+## Tier 3.2 + 3.0: parry clash context preserves bind/deflect calibration + strike kinematics; asserts geometry + move ids vs **`DefenseResolutionHandler._resolve_parry`** and **`WeaponDamageHelper`** / **`StrikeRealismProfile`**; Tier **3.1** **`strike_measure_ratio`** vs **`pa`** after **`stamp_attack_pair_geometry_on_dict`** + **`strike_measure_ratio_for_attack_pair`** (full-stop key set **`PARRY_CLASH_CONTEXT_KEYS_FULL_STOP`**); stamped path sets **`impact_blade_station`** before **`resolve`** so post-resolve kinematics recompute matches **`velocity_intent_mult_from_pa`** (no extra **`randf()`** vs resolver); unstamped **`pa`** -> clash **`strike_measure_ratio`** **-1**, then **`seed(3312)`** before stamped path for stable RNG.
 static func _parry_clash_context_expected_strike_kinematics(
 	pa: Dictionary,
 	attacker: Dictionary,
@@ -11157,7 +11164,7 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 		"late_parry": false,
 		"parry_off_balance": false
 	}
-	# Tier 3.1 sentinel: no **`strike_measure_ratio`** on **`pa`** â clash carries **-1** (same RNG as main branch after re-seed).
+	# Tier 3.1 sentinel: no **`strike_measure_ratio`** on **`pa`** -> clash carries **-1** (same RNG as main branch after re-seed).
 	seed(3312)
 	var pa_unstamped: Dictionary = pa_template.duplicate(true)
 	var res_unstamped: Variant = _DefenseResolution.resolve(
@@ -11734,9 +11741,9 @@ static func _run_guard_line_deflected_severity_from_margin_ratio(failures: Packe
 
 ## Godot **4.6.stable** global RNG: **`seed(1)`** yields **`attack_hit`** on the afterblow execute path for the SWORD 1v1 **`_afterblow_harness_seed_pending_cut`** fixture (avoids scanning thousands of seeds in **`run_all()`**).
 const _AFTERBLOW_EXECUTE_HIT_SEED: int = 1
-## **`seed(2)`**: hybrid hindrance in **(ALLOW, BLOCK)** and first **`randf()` < hindrance** â **`try_afterblow` false** + **`_cancel_pending`** (chest **`final_cut` 11.25**).
+## **`seed(2)`**: hybrid hindrance in **(ALLOW, BLOCK)** and first **`randf()` < hindrance** -> **`try_afterblow` false** + **`_cancel_pending`** (chest **`final_cut` 11.25**).
 const _AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED: int = 2
-## **`seed(0)`**: same fixture + chest **`final_cut` 11.25** â **`randf() â¥ hindrance`** â **`_execute_afterblow`** (**`afterblow_damage_mult` 0.55**) + **`attack_hit`** resolve.
+## **`seed(0)`**: same fixture + chest **`final_cut` 11.25** -> **`randf() >= hindrance`** -> **`_execute_afterblow`** (**`afterblow_damage_mult` 0.55**) + **`attack_hit`** resolve.
 const _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED: int = 0
 const _HARNESS_META_RECORD_AFTERBLOW_MULT := "_harness_record_afterblow_damage_mult"
 const _HARNESS_META_LAST_AFTERBLOW_MULT := "_harness_last_afterblow_damage_mult"
@@ -11744,7 +11751,7 @@ const _HARNESS_META_EXPOSE_PENETRATION_APPLIED := "_harness_expose_penetration_a
 const _HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinematics"
 
 
-## Tier 3.3 harness: deterministic **`pending_attack`** (cut + stamped geometry) so **`AfterblowHandler`** â **`_execute_attack`** does not depend on wind-up RNG.
+## Tier 3.3 harness: deterministic **`pending_attack`** (cut + stamped geometry) so **`AfterblowHandler`** -> **`_execute_attack`** does not depend on wind-up RNG.
 static func _afterblow_harness_seed_pending_cut(mgr: Node, attacker_index: int, defender_index: int) -> void:
 	var atk: Dictionary = mgr.combatants[attacker_index]
 	var defc: Dictionary = mgr.combatants[defender_index]
@@ -11773,7 +11780,7 @@ static func _afterblow_harness_seed_pending_cut(mgr: Node, attacker_index: int, 
 	atk["pending_attack"] = pa
 
 
-## Tier 3.3: **`outcome` == `"deflected"`** â **`_execute_afterblow`** (**hindrance 0**) â **`CombatManager._execute_attack`**; fixed **`seed(1)`** (**`_AFTERBLOW_EXECUTE_HIT_SEED`**) must yield **`recovery_cause` == `attack_hit`** and **`afterblow_damage_mult` == 1.0** (via harness meta on manager).
+## Tier 3.3: **`outcome` == `"deflected"`** -> **`_execute_afterblow`** (**hindrance 0**) -> **`CombatManager._execute_attack`**; fixed **`seed(1)`** (**`_AFTERBLOW_EXECUTE_HIT_SEED`**) must yield **`recovery_cause` == `attack_hit`** and **`afterblow_damage_mult` == 1.0** (via harness meta on manager).
 static func _run_afterblow_deflected_triggers_full_resolve_hit(failures: PackedStringArray) -> void:
 	seed(_AFTERBLOW_EXECUTE_HIT_SEED)
 	var mgr: Node = _MgrScript.new()
@@ -11826,7 +11833,7 @@ static func _run_afterblow_deflected_triggers_full_resolve_hit(failures: PackedS
 	_free_manager_restore_global_rng(mgr)
 
 
-## Tier 3.3: low hybrid hindrance (**â¤ `AFTERBLOW_HINDRANCE_ALLOW`**) â **`_execute_afterblow`** stamps **`afterblow_damage_mult` < 1.0**; same fixed seed + **`attack_hit`** resolve.
+## Tier 3.3: low hybrid hindrance (**<= `AFTERBLOW_HINDRANCE_ALLOW`**) -> **`_execute_afterblow`** stamps **`afterblow_damage_mult` < 1.0**; same fixed seed + **`attack_hit`** resolve.
 static func _run_afterblow_low_hindrance_allow_triggers_resolve_hit(failures: PackedStringArray) -> void:
 	seed(_AFTERBLOW_EXECUTE_HIT_SEED)
 	var mgr: Node = _MgrScript.new()
@@ -11871,7 +11878,7 @@ static func _run_afterblow_low_hindrance_allow_triggers_resolve_hit(failures: Pa
 	_free_manager_restore_global_rng(mgr)
 
 
-## Tier 3.3: hindrance strictly between **`AFTERBLOW_HINDRANCE_ALLOW`** and **`AFTERBLOW_HINDRANCE_BLOCK`** â **`randf() < hindrance`** cancels (**`_cancel_pending`**, **`try_afterblow` false**); fixed **`seed(2)`** on the same fixture + chest **`final_cut` 11.25** (hybrid hindrance **0.45**).
+## Tier 3.3: hindrance strictly between **`AFTERBLOW_HINDRANCE_ALLOW`** and **`AFTERBLOW_HINDRANCE_BLOCK`** -> **`randf() < hindrance`** cancels (**`_cancel_pending`**, **`try_afterblow` false**); fixed **`seed(2)`** on the same fixture + chest **`final_cut` 11.25** (hybrid hindrance **0.45**).
 static func _run_afterblow_mid_hindrance_rand_cancel(failures: PackedStringArray) -> void:
 	seed(_AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED)
 	var mgr: Node = _MgrScript.new()
@@ -11914,7 +11921,7 @@ static func _run_afterblow_mid_hindrance_rand_cancel(failures: PackedStringArray
 	_free_manager_restore_global_rng(mgr)
 
 
-## Tier 3.3: middle hindrance + **`randf() â¥ hindrance`** â **`_execute_afterblow`** (**`afterblow_damage_mult` 0.55**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
+## Tier 3.3: middle hindrance + **`randf() >= hindrance`** -> **`_execute_afterblow`** (**`afterblow_damage_mult` 0.55**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
 static func _run_afterblow_mid_hindrance_rand_executes_hit(failures: PackedStringArray) -> void:
 	seed(_AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED)
 	var mgr: Node = _MgrScript.new()
@@ -11984,7 +11991,7 @@ static func _run_guard_from_move_sets_guard_line_and_zone(failures: PackedString
 		)
 
 
-## Tier 3.3: **`AfterblowHandler.try_afterblow`**  -  no **`pending_attack`** â **false** (no **`_execute_attack`**).
+## Tier 3.3: **`AfterblowHandler.try_afterblow`**  -  no **`pending_attack`** -> **false** (no **`_execute_attack`**).
 static func _run_afterblow_no_pending_returns_false(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -11999,7 +12006,7 @@ static func _run_afterblow_no_pending_returns_false(failures: PackedStringArray)
 	_free_manager(mgr)
 
 
-## Tier 3.3: **`AfterblowHandler.try_afterblow`**  -  not **`STATE_WIND_UP`** â **false**.
+## Tier 3.3: **`AfterblowHandler.try_afterblow`**  -  not **`STATE_WIND_UP`** -> **false**.
 static func _run_afterblow_wrong_state_returns_false(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -12014,7 +12021,7 @@ static func _run_afterblow_wrong_state_returns_false(failures: PackedStringArray
 	_free_manager(mgr)
 
 
-## Tier 3.3: **`AfterblowHandler`** hybrid hindrance â¥ **`AFTERBLOW_HINDRANCE_BLOCK`** cancels **`pending_attack`** (no **`_execute_attack`**).
+## Tier 3.3: **`AfterblowHandler`** hybrid hindrance >= **`AFTERBLOW_HINDRANCE_BLOCK`** cancels **`pending_attack`** (no **`_execute_attack`**).
 static func _run_afterblow_hindrance_block_cancels_pending(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(_new_entity("SWORD"), "player")
@@ -12217,9 +12224,9 @@ static func _run_resolve_aborts_when_threat_lost_mid_combat_arm_loss(
 	_free_manager(mgr)
 
 
-## âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+## -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ## Phase 3 (MS-L8): post-strike momentum  -  attacker presses target after successful strike.
-## âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+## -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 static func _run_ms_l8_post_strike_momentum_presses_target(
 	failures: PackedStringArray
 ) -> void:
@@ -12266,9 +12273,9 @@ static func _run_ms_l8_post_strike_momentum_presses_target(
 	_free_manager(mgr)
 
 
-## âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+## -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ## Phase 2: feint resistance gate  -  high-readiness settled defenders reject feints.
-## âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+## -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 static func _run_mental_stack_feint_resistance_high_readiness(
 	failures: PackedStringArray
 ) -> void:
@@ -12374,9 +12381,9 @@ static func _run_mental_stack_feint_resistance_low_readiness_still_falls_for(
 	_free_manager(mgr)
 
 
-## âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+## -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ## Phase 5 (MS-L7): exhaustion gradient  -  offense weight lerp extends to [0.25, 0.75].
-## âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+## -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 static func _run_ms_l7_exhaustion_gradient_offense_weight(
 	failures: PackedStringArray
 ) -> void:
@@ -12433,9 +12440,9 @@ static func _run_ms_l7_exhaustion_gradient_offense_weight(
 	_free_manager(mgr)
 
 
-## âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+## -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ## Phase 6 (MS-L9): positional awareness  -  disengage when surrounded + vulnerable.
-## âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+## -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 static func _run_ms_l9_positional_awareness_disengage_when_surrounded(
 	failures: PackedStringArray
 ) -> void:
@@ -12450,10 +12457,10 @@ static func _run_ms_l9_positional_awareness_disengage_when_surrounded(
 	)
 	var player: Dictionary = mgr.combatants[0]
 	var player_id: int = _EntityAccess.id_int(player)
-	# Wound the player so blood < L9 threshold (60%). ~40% loss â blood â 60%.
+	# Wound the player so blood < L9 threshold (60%). ~40% loss -> blood >=>= 60%.
 	var ent: CoreEntity = _EntityAccess.scene_node(player) as CoreEntity
 	if ent != null:
-		ent.body_cutting["chest"] = 40.0  # ~40% blood loss â triggers MS-L9 vulnerability
+		ent.body_cutting["chest"] = 40.0  # ~40% blood loss -> triggers MS-L9 vulnerability
 	# Set player to waiting state so actions can be built.
 	player["state"] = CombatConstants.STATE_WAITING
 	player["gauge"] = 100.0
@@ -12509,9 +12516,9 @@ static func _run_ms_l9_positional_awareness_disengage_when_surrounded(
 	_free_manager(mgr)
 
 
-## âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+## -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ## Phase 7: medical escalation  -  TCCC ladder boosts pack over bandage when bandage failed.
-## âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+## -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 static func _run_mental_stack_medical_escalation_bandage_to_pack(
 	failures: PackedStringArray
 ) -> void:
@@ -12597,4 +12604,3 @@ static func _run_mental_stack_medical_escalation_no_bonus_when_no_failures(
 		)
 	CombatConstants.set_feature_ms_medical_escalation_load(-1)
 	_free_manager(mgr)
-                          

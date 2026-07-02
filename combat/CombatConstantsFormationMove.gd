@@ -38,6 +38,7 @@ const FORMATION_MOVE_KIND_SWAP_RANK := MOVE_ID_SWAP_RANK
 const FORMATION_MOVE_KIND_DRAG_BACK := MOVE_ID_DRAG_BACK
 const FORMATION_MOVE_KIND_FALL_BACK_PAIR := "fall_back_pair"
 const MOVE_ID_FLEE := "flee"
+const MOVE_ID_YIELD := "yield"
 const MOVE_ID_ORDER_HOLD_LANE := "order_hold_lane"
 const MOVE_ID_ORDER_PROBING := "order_probing"
 const MOVE_ID_ORDER_PINCH_CENTER := "order_pinch_center"

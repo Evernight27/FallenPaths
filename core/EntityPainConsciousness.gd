@@ -92,7 +92,7 @@ static func get_effective_pain_for_region(entity: Node, region: String) -> float
 		return raw
 	return raw / get_pain_reference(entity)
 
-# --- Blood → consciousness modifier ---
+# --- Blood -> consciousness modifier ---
 
 static func get_blood_consciousness_modifier(entity: Node) -> float:
 	return _Bleeding.blood_consciousness_modifier_from_remaining(
@@ -253,7 +253,7 @@ static func get_effective_consciousness(entity: Node) -> float:
 # --- Parry and dodge (depend on consciousness and pain) ---
 
 const PASSIVE_PARRY_BASE_REACTION_S: float = 0.24
-const DODGE_CHANCE_AT_FULL_SPEED: float = 0.10  # HEMA: void is valid but timing-sensitive; research supports modest base (0.08 - 0.15)
+const DODGE_CHANCE_AT_FULL_SPEED: float = 0.12  # HEMA: void is valid but timing-sensitive; research supports modest base (0.08 - 0.15)
 
 static func _effective_perception(entity: Node) -> float:
 	return _StatsUtil.get_effective_stat(entity, "perception")

@@ -515,4 +515,3 @@ static func get_cut_ratio(weapon: RefCounted, attack_type: String, archetype_dic
 	elif weapon != null and "blade_cut_ratio" in weapon:
 		cr = clampf(float(weapon.blade_cut_ratio), 0.0, 1.0)
 	return maxf(cr, WeaponConstants.MIN_CUT_RATIO)
-  

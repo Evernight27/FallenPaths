@@ -7,7 +7,7 @@ extends RefCounted
 
 const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 const _FormationPreset := preload("res://combat/FormationPreset.gd")
-# Runtime preload â€” circular dependency (CompanyState preloads PartySetup).
+# Runtime preload ' circular dependency (CompanyState preloads PartySetup).
 static var _company_state_cache: Variant = null
 
 static func _get_company_state() -> GDScript:

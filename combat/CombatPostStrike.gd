@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Post-strike momentum layer (MS-L8): press advantage after successful strike.
 ## Filter function owned here  -  MentalStackDecider calls a single method.
-## Read order: target alive check → hostile melee strikes vs struck target → attempt_close eligibility.
+## Read order: target alive check -> hostile melee strikes vs struck target -> attempt_close eligibility.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 

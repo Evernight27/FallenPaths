@@ -3,18 +3,15 @@
 #
 # Godot binary resolution order:
 #   1. $env:GODOT environment variable (any Godot 4.x stable)
-#   2. e:\Godot_v4.6-stable_win64.exe
-#   3. C:\Users\<User>\Downloads\Godot_v4.6-stable_win64.exe
+#   2. E:\Godot_v4.7-stable_win64.exe
 #
 # To use a different binary: set $env:GODOT before running harness scripts,
 # or copy/symlink your Godot 4.x stable build to one of the paths above.
 function Get-FallenPathsGodot {
 	if ($env:GODOT) { return $env:GODOT }
-	$default = "e:\Godot_v4.6-stable_win64.exe"
+	$default = "E:\Godot_v4.7-stable_win64.exe"
 	if (Test-Path $default) { return $default }
-	$fallback = "C:\Users\Marshall\Downloads\Godot_v4.6-stable_win64.exe"
-	if (Test-Path $fallback) { return $fallback }
-	throw "Set GODOT to your Godot 4 binary (or install at $default or $fallback)"
+	throw "Set GODOT to your Godot 4 binary (or install at $default)"
 }
 
 function Get-FallenPathsRoot {

@@ -14,9 +14,9 @@ signal moved
 @export var species: Resource = null
 ## True for the player-controlled lead only. Companions stay false. Set in scene and/or `PlayerCompanionSetup`; copied into combatant dict on `CombatManager.register`.
 @export var is_party_leader: bool = false
-## IV-11: enemy formation commander —" set in `EncounterNode.spawn_enemies` (default index 0) or scene export; copied on `CombatManager.register` (enemy side only).
+## IV-11: enemy formation commander --" set in `EncounterNode.spawn_enemies` (default index 0) or scene export; copied on `CombatManager.register` (enemy side only).
 @export var is_enemy_leader: bool = false
-## Expand WF-4: preferred weapon form id (`ox`, `wall`, —¦). Empty â†' encounter side default â†' weapon default at `CombatWeaponForm.seed_combatant_form`.
+## Expand WF-4: preferred weapon form id (`ox`, `wall`, ...). Empty |' encounter side default |' weapon default at `CombatWeaponForm.seed_combatant_form`.
 @export var stance_preference: String = ""
 @onready var _combat_body: _CoreEntity = $CombatBody
 var _combat_body_death_logged: bool = false
@@ -308,7 +308,7 @@ func _snap_to_grid(pos: Vector2) -> Vector2:
 	)
 
 
-## Overworld rejected a step (bleed block, combat gate, —¦) —" keep sprite and next input on the same tile.
+## Overworld rejected a step (bleed block, combat gate, ...) --" keep sprite and next input on the same tile.
 func cancel_grid_move_to(world_pos: Vector2) -> void:
 	var grid_pos: Vector2 = _snap_to_grid(world_pos)
 	position = grid_pos

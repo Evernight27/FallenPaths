@@ -64,7 +64,7 @@ static func _run_flee_not_legal_light_blood_loss_only(failures: PackedStringArra
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 6.2: moderate wound + firm line → hold; same wound + low cohesion or casualties → rout allowed.
+## Tier 6.2: moderate wound + firm line -> hold; same wound + low cohesion or casualties -> rout allowed.
 static func _run_flee_cohesion_casualty_wounded_not_firm_line(failures: PackedStringArray) -> void:
 	var _Rout := preload("res://combat/CombatFormationRout.gd")
 	var mgr: Node = _MgrScript.new()

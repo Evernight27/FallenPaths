@@ -2,7 +2,7 @@ class_name CombatF5SoakLogValidator
 extends RefCounted
 
 ## Parses pasted **F5 Output** (or **`.f5_soak_in.txt`**) for **D-001** / II-0 grep sign-offs.
-## Headless entry: **`validate_f5_soak_log.ps1`** / **`.sh`** → **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=f5_validate`) → **`.f5_soak_validation.txt`**.
+## Headless entry: **`validate_f5_soak_log.ps1`** / **`.sh`** -> **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=f5_validate`) -> **`.f5_soak_validation.txt`**.
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")

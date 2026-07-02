@@ -3,7 +3,7 @@ extends RefCounted
 
 const PARRY_V_FRACTION_OF_MAX_STRIKE := 0.5
 const PARRY_STRENGTH_NORM := 100.0
-const PARRY_DEFLECT_THRESHOLD := 0.92
+const PARRY_DEFLECT_THRESHOLD := 1.08
 const PARRY_TECHNIQUE_VARIANCE := 0.15
 const PARRY_V_MIN_FRACTION := 0.2
 const PARRY_V_MIN_NEAR_DEFLECT := 0.1
@@ -27,7 +27,7 @@ const PARRY_BLOCK_MASS_THRESHOLD := 0.9
 const PARRY_BLOCK_STR_THRESHOLD := 0.95
 const PARRY_REDIRECT_BONUS := 0.18
 const PARRY_REDIRECT_SKILL_SCALE := 0.35
-const PARRY_REDIRECT_ATTEMPT_RATIO := 3.5
+const PARRY_REDIRECT_ATTEMPT_RATIO := 2.5
 const PARRY_REDIRECT_ATTEMPT_AGILITY_SCALE := 0.5
 const PARRY_GLANCING_EXPONENT := 0.5
 const PARRY_REDIRECT_THRUST_BONUS := 0.22
@@ -40,6 +40,16 @@ const PARRY_BIND_CONTROL_THRESHOLD := 0.65
 
 static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry: bool) -> bool:
 	return is_block_parry and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
+
+static func parry_edge_deflect_reached(
+	c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool
+) -> bool:
+	if is_block_parry:
+		return false
+	return (
+		alignment >= PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
+		and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
+	)
 
 static func parry_bind_control_reached(parry_control: float) -> bool:
 	return parry_control >= PARRY_BIND_CONTROL_THRESHOLD
@@ -76,7 +86,7 @@ const PARRY_LATE_CONTROL_FACTOR := 0.6
 const PARRY_OFF_BALANCE_CONTROL_FACTOR := 0.7
 const PARRY_THRUST_CONTROL_MULT := 0.85
 const PARRY_DESPERATE_DODGE_THRESHOLD := 0.06
-const PARRY_PREFER_DODGE_FULL_THRESHOLD := 0.12
+const PARRY_PREFER_DODGE_FULL_THRESHOLD := 0.04
 const PARRY_MASS_DISPARITY_BONUS := 0.18
 const PARRY_LATE_CAPACITY_FLOOR := 0.22
 const PARRY_CONTACT_MODIFIERS: Dictionary = {"blade": 1.0, "shaft": 0.88, "haft": 0.92}
@@ -88,6 +98,18 @@ const PARRY_LEVERAGE_FLOOR: float = 0.65
 const GUARD_TRANSITION_COST_SCALE := 0.4
 const GUARD_TRANSITION_MULT_MAX := 1.35
 const PREFERRED_PART_BONUS_MULT := 1.5
+## AI pick: attack parts off defender mental focus / guard line.
+const AI_PICK_OFF_FOCUS_PART_MULT := 1.35
+const AI_PICK_ON_FOCUS_LINE_PENALTY_MULT := 0.82
+## AI pick: yomi habit line pressure vs counter-line surprise.
+const AI_PICK_YOMI_HABIT_LINE_PART_MULT := 1.28
+const AI_PICK_YOMI_COUNTER_LINE_PART_MULT := 1.32
+const AI_PICK_STAT_BASELINE := 100.0
+const AI_PICK_STAT_SPREAD := 60.0
+const AI_PICK_NOVICE_OFF_FOCUS_MULT := 1.06
+const AI_PICK_NOVICE_YOMI_HABIT_MULT := 1.04
+const AI_PICK_NOVICE_YOMI_COUNTER_MULT := 1.06
+const AI_PICK_NOVICE_PREFERRED_MULT := 1.15
 
 const FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD := 0.9
 const FEINT_PRE_REVEAL_READINESS_MULT := 0.5

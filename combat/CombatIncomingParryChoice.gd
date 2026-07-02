@@ -1,10 +1,10 @@
 class_name CombatIncomingParryChoice
 extends RefCounted
 
-## Tier 0: overlapping melee wind-ups on one defender —" run **`can_parry_all`** first (split capacity via
+## Tier 0: overlapping melee wind-ups on one defender --" run **`can_parry_all`** first (split capacity via
 ## **`choose_defense`**); if false, commit passive parry to highest **perceived telegraph** only.
-## III-1 tie-break: equal threat scores â†' highest sector flank weight (**`TacticalCombat.sector_weight_for_attacker_on_defender`**).
-## **`can_parry_all`** surround estimate uses **`TacticalCombat.stamp_surround_threat_on_pa`** (live scan —" matches **`AttackResolver`**).
+## III-1 tie-break: equal threat scores |' highest sector flank weight (**`TacticalCombat.sector_weight_for_attacker_on_defender`**).
+## **`can_parry_all`** surround estimate uses **`TacticalCombat.stamp_surround_threat_on_pa`** (live scan --" matches **`AttackResolver`**).
 ## **`parry_telegraph`** on **`pa`** (stamped at wind-up): commitment + contact type; feints inflate apparent telegraph until reveal.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -43,7 +43,7 @@ static func incoming_attacker_ids_on_defender(
 	return out
 
 
-## Base telegraph 0—"1 from commitment rolls + contact type; optional move **`parry_telegraph`** override.
+## Base telegraph 0--"1 from commitment rolls + contact type; optional move **`parry_telegraph`** override.
 static func compute_base_parry_telegraph(pa: Dictionary, move_def: Dictionary) -> float:
 	var move_override: float = move_def.get("parry_telegraph", -1.0)
 	if move_override >= 0.0:
@@ -157,7 +157,7 @@ static func choose_parry_target_attacker_id(
 		if score > best_score:
 			best_score = score
 			best_id = aid
-	# III-1: sector flank weight breaks ties only —" intensity / telegraph still wins outright.
+	# III-1: sector flank weight breaks ties only --" intensity / telegraph still wins outright.
 	if CombatConstants.is_feature_sector_surround_load() and incoming.size() > 1:
 		var TIE_EPS := 0.001
 		var tied_ids: Array[int] = []

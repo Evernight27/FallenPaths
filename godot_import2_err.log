@@ -1,0 +1,144 @@
+SCRIPT ERROR: Parse Error: Invalid argument for "distance_to_opponent_band()" function: argument 1 should be "Dictionary" but is "int".
+   at: GDScript::reload (res://combat/CombatPairGeometry.gd:16)
+SCRIPT ERROR: Parse Error: Too many arguments for "format_body_part_compact()" call. Expected at most 5 but received 6.
+   at: GDScript::reload (res://ui/BattleUIUpdater.gd:182)
+SCRIPT ERROR: Parse Error: Invalid argument for "format_body_part_compact()" function: argument 2 should be "float" but is "Dictionary".
+   at: GDScript::reload (res://ui/BattleUIUpdater.gd:182)
+SCRIPT ERROR: Parse Error: Invalid argument for "format_body_part_compact()" function: argument 3 should be "float" but is "Dictionary".
+   at: GDScript::reload (res://ui/BattleUIUpdater.gd:182)
+SCRIPT ERROR: Parse Error: Invalid argument for "format_body_part_compact()" function: argument 4 should be "float" but is "Dictionary".
+   at: GDScript::reload (res://ui/BattleUIUpdater.gd:182)
+SCRIPT ERROR: Parse Error: Invalid argument for "format_body_part_compact()" function: argument 5 should be "float" but is "Dictionary".
+   at: GDScript::reload (res://ui/BattleUIUpdater.gd:182)
+SCRIPT ERROR: Parse Error: Could not preload resource script "res://combat/CombatFormationVacancyPlugs.gd".
+   at: GDScript::reload (res://combat/CombatFormationFlow.gd:31)
+SCRIPT ERROR: Parse Error: Could not resolve script "res://combat/CombatFormationVacancyPlugs.gd".
+   at: GDScript::reload (res://combat/CombatFormationFlow.gd:31)
+SCRIPT ERROR: Parse Error: Cannot infer the type of "_VacancyPlugs" constant because the value doesn't have a set type.
+   at: GDScript::reload (res://combat/CombatFormationFlow.gd:31)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatListedActions.gd:0)
+SCRIPT ERROR: Parse Error: Could not resolve class "CombatAIActionPicker", because of a parser error.
+   at: GDScript::reload (res://combat/CombatStateHandlers.gd:210)
+SCRIPT ERROR: Parse Error: Could not resolve class "CombatAIActionPicker", because of a parser error.
+   at: GDScript::reload (res://combat/CombatStateHandlers.gd:216)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatMobilityRetreat.gd:0)
+SCRIPT ERROR: Parse Error: Could not preload resource script "res://combat/CombatAIActionPicker.gd".
+   at: GDScript::reload (res://combat/MedicalPhaseController.gd:46)
+SCRIPT ERROR: Parse Error: Could not resolve script "res://combat/CombatAIActionPicker.gd".
+   at: GDScript::reload (res://combat/MedicalPhaseController.gd:46)
+SCRIPT ERROR: Parse Error: Cannot infer the type of "_AIPicker" constant because the value doesn't have a set type.
+   at: GDScript::reload (res://combat/MedicalPhaseController.gd:46)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/AttackWindUpStarter.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CounterTempo.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatAttention.gd:0)
+SCRIPT ERROR: Parse Error: Could not resolve script "res://combat/CombatFormationVacancyPlugs.gd".
+   at: GDScript::reload (res://combat/CombatFormationRout.gd:20)
+SCRIPT ERROR: Parse Error: Cannot infer the type of "_VacancyPlugs" constant because the value doesn't have a set type.
+   at: GDScript::reload (res://combat/CombatFormationRout.gd:20)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatUiHints.gd:0)
+SCRIPT ERROR: Parse Error: Could not preload resource script "res://world/ContractSpawner.gd".
+   at: GDScript::reload (res://world/CampaignEncounterBridge.gd:21)
+SCRIPT ERROR: Parse Error: Could not resolve script "res://world/ContractSpawner.gd".
+   at: GDScript::reload (res://world/CampaignEncounterBridge.gd:21)
+SCRIPT ERROR: Parse Error: Cannot infer the type of "_ContractSpawner" constant because the value doesn't have a set type.
+   at: GDScript::reload (res://world/CampaignEncounterBridge.gd:21)
+SCRIPT ERROR: Parse Error: Could not resolve script "res://world/ContractSpawner.gd".
+   at: GDScript::reload (res://world/CampaignPersistence.gd:50)
+SCRIPT ERROR: Parse Error: Cannot infer the type of "_ContractSpawner" constant because the value doesn't have a set type.
+   at: GDScript::reload (res://world/CampaignPersistence.gd:50)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://world/CompanyState.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://core/CoreEntity.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://world/SoakEncounterPresets.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatD001TrackSpecs.gd:0)
+SCRIPT ERROR: Parse Error: Could not resolve class "CombatAIActionPicker", because of a parser error.
+   at: GDScript::reload (res://combat/CombatFormationMoveListing.gd:98)
+SCRIPT ERROR: Parse Error: Could not resolve class "CombatAIActionPicker", because of a parser error.
+   at: GDScript::reload (res://combat/CombatFormationMoveListing.gd:119)
+SCRIPT ERROR: Parse Error: Could not resolve class "CombatAIActionPicker", because of a parser error.
+   at: GDScript::reload (res://combat/CombatFormationMoveListing.gd:254)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatEngagementDiagnostics.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatF5SoakTrace.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://core/OperationalLog.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatFlurryBind.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatMeleeListing.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/TacticalCombat.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatDoctrine.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatDepthPolearm.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatDebug.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/GuardLineUpdater.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatWeaponForm.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatConstantsStance.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatConstants.gd:0)
+SCRIPT ERROR: Parse Error: Too many arguments for "compute_blunt_slip_pre_armor()" call. Expected at most 5 but received 7.
+   at: GDScript::reload (res://combat/AttackResolver.gd:135)
+SCRIPT ERROR: Parse Error: Too few arguments for "compute_penetration()" call. Expected at least 4 but received 3.
+   at: GDScript::reload (res://combat/AttackResolver.gd:140)
+SCRIPT ERROR: Parse Error: Could not resolve script "res://combat/CombatAIActionPicker.gd".
+   at: GDScript::reload (res://combat/AttackResultApplier.gd:12)
+SCRIPT ERROR: Parse Error: Cannot infer the type of "_AIPicker" constant because the value doesn't have a set type.
+   at: GDScript::reload (res://combat/AttackResultApplier.gd:12)
+SCRIPT ERROR: Parse Error: Could not resolve class "CombatAIActionPicker", because of a parser error.
+   at: GDScript::reload (res://combat/CombatEventDispatch.gd:111)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatProcessTick.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat/CombatManager.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat_tuning/TuningCombatManager.gd:0)
+SCRIPT ERROR: Parse Error: Could not resolve class "CombatAIActionPicker", because of a parser error.
+   at: GDScript::reload (res://ui/TurnReadyHandler.gd:26)
+SCRIPT ERROR: Parse Error: Cannot find member "_EntityAccess" in base "CombatantSpawner".
+   at: GDScript::reload (res://combat_tuning/CombatantSpawner.gd:12)
+SCRIPT ERROR: Parse Error: Cannot find member "_EntityAccess" in base "CombatantSpawner".
+   at: GDScript::reload (res://combat_tuning/CombatantSpawner.gd:13)
+SCRIPT ERROR: Parse Error: Cannot find member "_EntityAccess" in base "CombatantSpawner".
+   at: GDScript::reload (res://combat_tuning/CombatantSpawner.gd:14)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://combat_tuning/CombatTuningMain.gd:0)
+ERROR: Failed to load script "res://combat_tuning/CombatTuningMain.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
+SCRIPT ERROR: Parse Error: Expected closing ")" after call arguments.
+   at: GDScript::reload (res://combat/CombatAttackWeighting.gd:45)
+ERROR: Failed to load script "res://combat/CombatAttackWeighting.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
+SCRIPT ERROR: Parse Error: Expected closing ")" after call arguments.
+   at: GDScript::reload (res://combat/CombatFormationVacancyPlugs.gd:154)
+ERROR: Failed to load script "res://combat/CombatFormationVacancyPlugs.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
+SCRIPT ERROR: Parse Error: Invalid argument for "get_effective_velocity_m_s()" function: argument 2 should be "Dictionary" but is "AttackInstance".
+   at: GDScript::reload (res://combat/DefenseResolutionHandler.gd:336)
+SCRIPT ERROR: Parse Error: Invalid argument for "compute_kinetic_energy_j()" function: argument 2 should be "Dictionary" but is "AttackInstance".
+   at: GDScript::reload (res://combat/DefenseResolutionHandler.gd:341)
+ERROR: Failed to load script "res://combat/DefenseResolutionHandler.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
+SCRIPT ERROR: Parse Error: Cannot find member "_EntityAccess" in base "MedicalWindUpHandler".
+   at: GDScript::reload (res://combat/MedicalWindUpHandler.gd:7)
+SCRIPT ERROR: Parse Error: Cannot find member "_EntityAccess" in base "MedicalWindUpHandler".
+   at: GDScript::reload (res://combat/MedicalWindUpHandler.gd:8)
+SCRIPT ERROR: Parse Error: Cannot find member "_EntityAccess" in base "MedicalWindUpHandler".
+   at: GDScript::reload (res://combat/MedicalWindUpHandler.gd:9)
+ERROR: Failed to load script "res://combat/MedicalWindUpHandler.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)

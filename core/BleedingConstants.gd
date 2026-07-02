@@ -149,7 +149,7 @@ const SUB_REGION_SEVERITY_MODIFIERS: Dictionary = {
 const FEATURE_LITERAL_BLOOD_ML := true
 ## S6 pilot: soft-tissue penetration budget before bone (`CombatLayerTissue`). Shipped.
 const FEATURE_LAYER_TISSUE := true
-## P3b M1 - M2: `MaterialFailureCurves` pen/KE laws → game damage allocation. Shipped.
+## P3b M1 - M2: `MaterialFailureCurves` pen/KE laws -> game damage allocation. Shipped.
 const FEATURE_MATERIAL_FAILURE_CURVES := true
 ## M2: blend weight toward curve alloc when `FEATURE_MATERIAL_FAILURE_CURVES` on (1.0 = full replace).
 const MATERIAL_CURVE_BLEND_WEIGHT := 1.0
@@ -161,10 +161,10 @@ const LAYER_RUPTURE_SUBCUT_BLEED_MULT := 1.08
 const FEATURE_TISSUE_DAMAGE_D := false
 ## M6: internal tissue J capacity; `body_cutting` as display derived from J. Shipped.
 const FEATURE_TISSUE_ENERGY_POOL := true
-## S8: shallow cut track → lower severity/bleed; blunt KE absorbed in flesh before bone MFB.
+## S8: shallow cut track -> lower severity/bleed; blunt KE absorbed in flesh before bone MFB.
 const FEATURE_PENETRATION_DEPTH_SEVERITY := true
 const FEATURE_BLUNT_TISSUE_KE_GATE := true
-## mm into tissue: at/below MIN → shallow mult; at/above FULL → full depth scaling (penetrating trauma).
+## mm into tissue: at/below MIN -> shallow mult; at/above FULL -> full depth scaling (penetrating trauma).
 const PENETRATION_DEPTH_SEVERITY_MIN_MM := 1.0
 const PENETRATION_DEPTH_SEVERITY_FULL_MM := 5.0
 const PENETRATION_DEPTH_SEVERITY_SHALLOW_MULT := 0.82
@@ -174,7 +174,7 @@ const PENETRATION_DEPTH_ARTERIAL_DEEP_MULT := 1.12
 
 const MAX_BLOOD_VOLUME: float = 100.0
 # total_bleeding_rate - -  this = blood % lost per second (see docs/LIVE_PATHS.md#bleeding-physics).
-# Derived: buffer (100-35)% / (REFERENCE_UNCONTROLLED_BLEED_RATE - -  48 s) ≈ 0.1003; shipped 0.10 within tolerance.
+# Derived: buffer (100-35)% / (REFERENCE_UNCONTROLLED_BLEED_RATE - -  48 s) 'permille^ 0.1003; shipped 0.10 within tolerance.
 # Calibrates TTD to ATLS/CoTCCC untreated major-bleed band (30 - 120 s). Tune lethality here, not raw HP/s alone.
 const BLOOD_LOSS_RATE_MULTIPLIER: float = 0.10
 # Death when remaining blood_volume <= this. 35% remaining = 65% lost (deep Class IV; ATLS IV begins >40% lost).
@@ -206,15 +206,15 @@ const CLOTTING_RATE_BY_SEVERITY: Dictionary = {
 }
 # Multiplier on clotting rate by severity: minor clots faster (superficial); severe/critical slower (vessel involvement).
 const CLOTTING_SEVERITY_MULTIPLIERS: Dictionary = {
-	SEVERITY_MINOR: 1.5,     # minor: effective k higher → ~9 s half-life ("stop in seconds")
+	SEVERITY_MINOR: 1.5,     # minor: effective k higher -> ~9 s half-life ("stop in seconds")
 	SEVERITY_MODERATE: 1.0,
-	SEVERITY_SEVERE: 0.5,     # severe/critical: vessel involvement → clot slower
+	SEVERITY_SEVERE: 0.5,     # severe/critical: vessel involvement -> clot slower
 	SEVERITY_CRITICAL: 0.25
 }
 # When bandaged: clotting rate (Option A: tuned for ~2-5 min to hemostasis, research-based).
 const CLOTTING_RATE_STABILIZED: float = 0.006  # per second when bandaged; half-life ~2 min
 ## Sustained direct pressure: faster local clotting than unstabilized open bleed (compression aids hemostasis).
-## Tuned for MapFieldCare FIELD_CARE_SIM_ADVANCE_SECONDS (~150 s): moderate venous → local hemostasis while held.
+## Tuned for MapFieldCare FIELD_CARE_SIM_ADVANCE_SECONDS (~150 s): moderate venous -> local hemostasis while held.
 const CLOTTING_RATE_UNDER_DIRECT_PRESSURE: float = 0.032
 ## Success mult when dressing completes while compression was still on the part (TCCC: do not release early).
 const TREATMENT_PRESSURE_HELD_SUCCESS_MULT: float = 1.18
@@ -291,7 +291,7 @@ const PACKING_SUCCESS_BASE_CHANCE: float = 0.65  # harder technique than bandage
 const PACKING_SUCCESS_ARTERIAL_MULT: float = 0.6  # arterial harder to pack successfully
 const PACKING_APPLICATION_TIME_SECONDS: float = 10.0
 const PACKING_PER_WOUND_EXTRA_SECONDS: float = 3.0
-## Junctional sub-regions: shallow/moderate bleeds → pressure/bandage first; pack when severe+ OR arterial
+## Junctional sub-regions: shallow/moderate bleeds -> pressure/bandage first; pack when severe+ OR arterial
 ## (TCCC junctional / penetrating vascular  -  moderate neck/abd can still be arterial in this model).
 const PACKING_STRICT_SUB_REGIONS: Dictionary = {
 	_Bp.PART_HEAD: ["neck"],
@@ -307,11 +307,11 @@ const PACKING_SUCCESS_PER_EXTRA_CHANNEL: float = 0.92
 const DIRECT_PRESSURE_IMMEDIATE_REDUCTION: float = 0.25  # initial placement only; sustained hold dominates
 const DIRECT_PRESSURE_HELD_FLOW_RETAINED_VENOUS: float = 0.10  # ~90% flow reduction (compressible hemorrhage)
 const DIRECT_PRESSURE_HELD_FLOW_RETAINED_ARTERIAL: float = 0.50  # ~50% reduction; systolic pressure fights back
-const DIRECT_PRESSURE_REBOUND_TO_INTRINSIC_MULT: float = 1.0  # release before hemostasis → return to intrinsic wound rate (do not release early)
+const DIRECT_PRESSURE_REBOUND_TO_INTRINSIC_MULT: float = 1.0  # release before hemostasis -> return to intrinsic wound rate (do not release early)
 ## Partial rebound: when clotting reduced the current rate below base, only bounce back partially (realistic  -  tissue trauma already initiated hemostasis cascade).
 const DIRECT_PRESSURE_REBOUND_PARTIAL_MULT: float = 0.75  # at low clotting: rebound to 75% of intrinsic (not full 100%)
 const DIRECT_PRESSURE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.7  # first-touch trim on arterial wounds (vs bandage 50%)
-# Bleeding rate ±variance at wound creation (simulates hit in more/less vascular spot).
+# Bleeding rate +/-variance at wound creation (simulates hit in more/less vascular spot).
 const BLEEDING_RATE_VARIANCE_MIN: float = 0.9
 const BLEEDING_RATE_VARIANCE_MAX: float = 1.1
 
@@ -333,7 +333,7 @@ const TOURNIQUET_APPLICATION_TIME_SECONDS: float = 18.0
 const TOURNIQUET_SUCCESS_BASE_CHANCE: float = 0.85  # base success; medical skill scales this
 # When applied successfully, bleeding reduction scales with application effectiveness (skill/tightness/placement).
 # Perfect application can achieve near-complete occlusion; poor application leaves significant flow. residual_rate = raw_rate * (1 - effectiveness * this).
-const TOURNIQUET_REDUCTION_AT_FULL: float = 0.99  # at 1.0 effectiveness → 99% reduction; 0.5 effectiveness → 49.5% (partial occlusion)
+const TOURNIQUET_REDUCTION_AT_FULL: float = 0.99  # at 1.0 effectiveness -> 99% reduction; 0.5 effectiveness -> 49.5% (partial occlusion)
 # Partial bleed reduction on failed tourniquet: a failed TQ still partially occludes the vessel (realistic  -  tension was applied, just not sufficient for full hemostasis).
 const TOURNIQUET_FAILED_REDUCTION_MULT: float = 0.30  # failed TQ still reduces bleeding by ~30% of effectiveness * reduction_at_full
 # Escalating retry chance: +15% base success per prior failure on same part (models medic adjusting placement/tightness).
@@ -345,7 +345,7 @@ const SEVERITY_PERCENTAGE_SEVERE: float = 0.5
 const SEVERITY_PERCENTAGE_MODERATE: float = 0.25
 # Absolute tissue damage (game units)  -  S4: decouple label from % body_max (prep for derived capacities).
 const FEATURE_ABSOLUTE_SEVERITY_BANDS: bool = true
-## When true with absolute bands: severity cannot exceed %‑based label (ceil on fragile small parts).
+## When true with absolute bands: severity cannot exceed %'''based label (ceil on fragile small parts).
 const FEATURE_ABSOLUTE_SEVERITY_PCT_CAP: bool = false
 const SEVERITY_ABSOLUTE_CRITICAL: float = 10.0
 const SEVERITY_ABSOLUTE_SEVERE: float = 5.0
@@ -421,7 +421,7 @@ static func blood_consciousness_modifier_from_remaining(
 	if not use_stepped:
 		var reduction: float = (linear_start - remaining_pct) / (linear_start - linear_floor) * linear_reduction_max
 		return maxf(0.0, 1.0 - reduction)
-	# Piecewise within ATLS classes (mild Class II → marked Class IV toward death threshold).
+	# Piecewise within ATLS classes (mild Class II -> marked Class IV toward death threshold).
 	if remaining_pct >= ATLS_CLASS_II_MIN_REMAINING:
 		return lerpf(0.96, 1.0, (remaining_pct - ATLS_CLASS_II_MIN_REMAINING) / (ATLS_CLASS_I_MIN_REMAINING - ATLS_CLASS_II_MIN_REMAINING))
 	if remaining_pct >= ATLS_CLASS_III_MIN_REMAINING:

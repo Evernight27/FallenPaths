@@ -139,8 +139,8 @@ static func maybe_log_turn_pick(
 	)
 
 
-## Harness / F5: whether **`line_plug=true`** should appear on the turn line (sparse â plug pick only).
-## Canonical: **`listed_action_is_formation_plug_pick`** (`CombatFormationMoveListing`) · MS-L5 **`FORMATION_PLUG`** layer.
+## Harness / F5: whether **`line_plug=true`** should appear on the turn line (sparse -> plug pick only).
+## Canonical: **`listed_action_is_formation_plug_pick`** (`CombatFormationMoveListing`) . MS-L5 **`FORMATION_PLUG`** layer.
 static func line_plug_logged_for_pick(
 	manager: Node,
 	c: Dictionary,
@@ -330,4 +330,3 @@ static func _rank0_opposition_pair_lines(manager: Node) -> PackedStringArray:
 		var reach: String = _reach_hint_for_nearest_opposed(manager, p)
 		out.append("p_f%d->%s %s" % [pf, label, reach])
 	return out
-  

@@ -2,8 +2,8 @@ class_name CombatMeleeListing
 extends RefCounted
 
 ## Melee strike / attempt-close action listing and **`can_melee_threaten`** (reach + band + rank gates).
-## Footing: lists strikes only —" does **not** stamp PA or write **`guard_line`**. LIVE_PATHS **`#wf-pick-vs-strike`**.
-## **Read order:** live rows â†' threaten checks â†' append listing (uses **`ZoneOfControl.opponent_formation_for_listing`**).
+## Footing: lists strikes only --" does **not** stamp PA or write **`guard_line`**. LIVE_PATHS **`#wf-pick-vs-strike`**.
+## **Read order:** live rows |' threaten checks |' append listing (uses **`ZoneOfControl.opponent_formation_for_listing`**).
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
@@ -66,7 +66,7 @@ static func can_melee_threaten(
 	return dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID
 
 
-## III-4 **3e**: post-rout mop-up —" CLOSE/MID band may lag geometric reach; finish with strikes.
+## III-4 **3e**: post-rout mop-up --" CLOSE/MID band may lag geometric reach; finish with strikes.
 static func envelop_mop_up_strike_at_band(
 	manager: Node, attacker: Dictionary, band: String
 ) -> bool:
@@ -233,7 +233,7 @@ static func append_melee_vs_enemy_line_rank(
 		var dist: String = _EntityAccess.distance_to_opponent_band(c, _EntityAccess.id_int(opp))
 		var mop_up_strike: bool = envelop_mop_up_strike_at_band(manager, c, dist)
 		if in_swing_range or mop_up_strike:
-			# Geometric reach covers even when band still says LONG (pre-recompute lag) —" strike, don't close.
+			# Geometric reach covers even when band still says LONG (pre-recompute lag) --" strike, don't close.
 			if (
 				dist == CombatConstants.DISTANCE_CLOSE
 				or dist == CombatConstants.DISTANCE_MID

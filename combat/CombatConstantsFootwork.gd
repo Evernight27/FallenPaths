@@ -1,6 +1,8 @@
 class_name CombatConstantsFootwork
 extends RefCounted
 
+const _RecoveryCause := preload("res://combat/CombatConstantsRecoveryCause.gd")
+
 const DEFENSE_SPACING_PARRY_MULT_CLOSE := 1.04
 const DEFENSE_SPACING_PARRY_MULT_LONG := 0.92
 const DEFENSE_SPACING_DODGE_MULT_CLOSE := 0.94
@@ -32,7 +34,7 @@ static func normalize_recovery_cause(cause: String) -> String:
 
 static func readiness_curve_for_cause(cause: String) -> Array:
 	var k: String = normalize_recovery_cause(cause)
-	return CombatConstants.READINESS_BY_CAUSE.get(k, CombatConstants.READINESS_BY_CAUSE.get("medical", [0.5, 0.85]))
+	return _RecoveryCause.READINESS_BY_CAUSE.get(k, _RecoveryCause.READINESS_BY_CAUSE.get("medical", [0.5, 0.85]))
 
 static func defense_footwork_recovering_dodge_mult_for_cause(cause: String) -> float:
 	var k: String = normalize_recovery_cause(cause)

@@ -139,7 +139,7 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.9: reciprocal bands  -  rank-0 defender is not stuck at LONG vs an enemy depth spear when spear→defender is MID/CLOSE.
+## Tier 1.9: reciprocal bands  -  rank-0 defender is not stuck at LONG vs an enemy depth spear when spear->defender is MID/CLOSE.
 static func _run_depth_polearm_reciprocal_distance_bands(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -157,11 +157,11 @@ static func _run_depth_polearm_reciprocal_distance_bands(failures: PackedStringA
 	var d_depth_to_p: String = _EntityAccess.distance_to_opponent_band(en_depth, pid, "")
 	var d_p_to_depth: String = _EntityAccess.distance_to_opponent_band(player, did, "")
 	if d_depth_to_p == CombatConstants.DISTANCE_LONG:
-		CombatRegressionHarness._fail(failures, "depth_polearm_recip: spear→player band unexpected LONG (got %s)" % d_depth_to_p)
+		CombatRegressionHarness._fail(failures, "depth_polearm_recip: spear->player band unexpected LONG (got %s)" % d_depth_to_p)
 	if d_p_to_depth == CombatConstants.DISTANCE_LONG:
 		CombatRegressionHarness._fail(
 			failures,
-			"depth_polearm_recip: player→spear should not be LONG when spear threatens (player=%s spear=%s)"
+			"depth_polearm_recip: player->spear should not be LONG when spear threatens (player=%s spear=%s)"
 			% [d_p_to_depth, d_depth_to_p]
 		)
 	var mgr2: Node = _MgrScript.new()
@@ -211,28 +211,28 @@ static func _run_depth_polearm_only_file_opposed_line(failures: PackedStringArra
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.9: **`depth_polearm_threatens_line_target`** pure guards (no manager): empty ally/opp, rank≠0, same side, dead, **`abs(Δfile)`** vs **`DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES`**.
+## Tier 1.9: **`depth_polearm_threatens_line_target`** pure guards (no manager): empty ally/opp, rank!=0, same side, dead, **`abs(Deltafile)`** vs **`DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES`**.
 static func _run_depth_polearm_threatens_line_target_pure_guards(failures: PackedStringArray) -> void:
 	var front: Dictionary = {"rank": 0, "file": 1, "side": "player", "alive": true}
 	var opp_line: Dictionary = {"rank": 0, "file": 1, "side": "enemy", "alive": true}
 	if _DepthPolearm.depth_polearm_threatens_line_target({}, opp_line):
-		CombatRegressionHarness._fail(failures, "threatens_pure: empty front ally → false")
+		CombatRegressionHarness._fail(failures, "threatens_pure: empty front ally -> false")
 	if _DepthPolearm.depth_polearm_threatens_line_target(front, {}):
-		CombatRegressionHarness._fail(failures, "threatens_pure: empty opp → false")
+		CombatRegressionHarness._fail(failures, "threatens_pure: empty opp -> false")
 	var ally_same: Dictionary = {"rank": 0, "file": 2, "side": "player", "alive": true}
 	if _DepthPolearm.depth_polearm_threatens_line_target(front, ally_same):
-		CombatRegressionHarness._fail(failures, "threatens_pure: same-side rank-0 → false")
+		CombatRegressionHarness._fail(failures, "threatens_pure: same-side rank-0 -> false")
 	var opp_deep: Dictionary = {"rank": 1, "file": 1, "side": "enemy", "alive": true}
 	if _DepthPolearm.depth_polearm_threatens_line_target(front, opp_deep):
-		CombatRegressionHarness._fail(failures, "threatens_pure: enemy rank≠0 → false")
+		CombatRegressionHarness._fail(failures, "threatens_pure: enemy rank!=0 -> false")
 	var opp_dead: Dictionary = {"rank": 0, "file": 1, "side": "enemy", "alive": false}
 	if _DepthPolearm.depth_polearm_threatens_line_target(front, opp_dead):
-		CombatRegressionHarness._fail(failures, "threatens_pure: dead enemy → false")
+		CombatRegressionHarness._fail(failures, "threatens_pure: dead enemy -> false")
 	if not _DepthPolearm.depth_polearm_threatens_line_target(front, opp_line):
-		CombatRegressionHarness._fail(failures, "threatens_pure: file-opposed same file → true")
+		CombatRegressionHarness._fail(failures, "threatens_pure: file-opposed same file -> true")
 	var opp_near: Dictionary = {"rank": 0, "file": 2, "side": "enemy", "alive": true}
 	if not _DepthPolearm.depth_polearm_threatens_line_target(front, opp_near):
-		CombatRegressionHarness._fail(failures, "threatens_pure: neighbor within lateral max → true")
+		CombatRegressionHarness._fail(failures, "threatens_pure: neighbor within lateral max -> true")
 	var max_lat: int = int(CombatConstants.DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES)
 	var opp_beyond: Dictionary = {
 		"rank": 0,
@@ -241,7 +241,7 @@ static func _run_depth_polearm_threatens_line_target_pure_guards(failures: Packe
 		"alive": true
 	}
 	if _DepthPolearm.depth_polearm_threatens_line_target(front, opp_beyond):
-		CombatRegressionHarness._fail(failures, "threatens_pure: beyond lateral max → false")
+		CombatRegressionHarness._fail(failures, "threatens_pure: beyond lateral max -> false")
 
 
 ## Tier 1.9: **`depth_polearm_valid_line_threat`** is **false** when **`depth_polearm_lane_open`** is **false**, even if **`depth_polearm_threatens_line_target`** (same-file rank-0 vs enemy rank-0) is **true**.
@@ -510,7 +510,7 @@ static func _run_front_rank_pair_melee_listed(failures: PackedStringArray) -> vo
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## IV-3: `snapshot_is_true_duel` classifier  -  doc-sync, helper parity, attrition 7v2 → true 1v1 duel.
+## IV-3: `snapshot_is_true_duel` classifier  -  doc-sync, helper parity, attrition 7v2 -> true 1v1 duel.
 static func _run_iv3_true_duel_classifier_suite(failures: PackedStringArray) -> void:
 	var sync_line: String = _EngagementMode.iv3_doc_sync_line()
 	for token in [
@@ -553,7 +553,7 @@ static func _run_iv3_true_duel_classifier_suite(failures: PackedStringArray) -> 
 	if _CombatDoctrine.envelop_mop_up_active(duel_mgr, "player"):
 		CombatRegressionHarness._fail(failures, "iv3_duel: true 1v1 must not activate envelop mop-up")
 	CombatRegressionHarness._free_manager(duel_mgr)
-	# 2v2 front line → attrition to rank-0 1v1 resolves duel (rear-only survivor would stay skirmish).
+	# 2v2 front line -> attrition to rank-0 1v1 resolves duel (rear-only survivor would stay skirmish).
 	var pair: Node = _MgrScript.new()
 	for _i in 2:
 		pair.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -602,7 +602,7 @@ static func _run_iv3_true_duel_classifier_suite(failures: PackedStringArray) -> 
 
 static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 	# Tier 1.8 (P9): small / medium / large representative headcounts  -  raw classifier + tactical snapshot stay aligned.
-	# Small: 1v1 → duel classifier
+	# Small: 1v1 -> duel classifier
 	var d: Node = _MgrScript.new()
 	d.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	d.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -662,7 +662,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 	if str(_EngagementMode.snapshot(one).get("raw_mode", "")) == CombatConstants.ENGAGEMENT_MODE_DUEL:
 		CombatRegressionHarness._fail(failures, "engagement: 7v1 must not classify as duel")
 	CombatRegressionHarness._free_manager(one)
-	# Formation hysteresis: 7v5 line → 7v2 releases resolved formation (active floor + thin fill).
+	# Formation hysteresis: 7v5 line -> 7v2 releases resolved formation (active floor + thin fill).
 	var attr: Node = _MgrScript.new()
 	for _i in 7:
 		attr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -688,7 +688,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 	if m_after == CombatConstants.ENGAGEMENT_MODE_DUEL:
 		CombatRegressionHarness._fail(failures, "engagement: 7v2 after attrition must not be duel")
 	CombatRegressionHarness._free_manager(attr)
-	# Tutorial-scale 2v2: was misclassified as duel under old "either side ≤2 actives" rule.
+	# Tutorial-scale 2v2: was misclassified as duel under old "either side <=2 actives" rule.
 	var tut: Node = _MgrScript.new()
 	tut.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	tut.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -698,7 +698,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 	if str(_EngagementMode.snapshot(tut).get("raw_mode", "")) == CombatConstants.ENGAGEMENT_MODE_DUEL:
 		CombatRegressionHarness._fail(failures, "engagement: 2v2 expected skirmish not duel")
 	CombatRegressionHarness._free_manager(tut)
-	# Medium: 3v3 wide front (active 3 < formation floor) → skirmish, not duel (multi-file front)
+	# Medium: 3v3 wide front (active 3 < formation floor) -> skirmish, not duel (multi-file front)
 	var m: Node = _MgrScript.new()
 	for _i in 3:
 		m.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -716,7 +716,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
 		CombatRegressionHarness._fail(failures, "engagement: 3v3 snap must not claim formation-eligible (below active floor)")
 	_assert_tactical_snapshot_matches(failures, m, "engagement medium 3v3")
 	CombatRegressionHarness._free_manager(m)
-	# Large: 4v4 two-wide line → formation-classifier band (Option 2 minimums)
+	# Large: 4v4 two-wide line -> formation-classifier band (Option 2 minimums)
 	var f: Node = _MgrScript.new()
 	for _i in 4:
 		f.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -1603,7 +1603,7 @@ static func _run_swap_rank_line_plug_weight_when_front_hole(failures: PackedStri
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## III-6: rank-0 turn resolves → same-file reserves get formation recheck delay.
+## III-6: rank-0 turn resolves -> same-file reserves get formation recheck delay.
 static func _run_same_file_depth_recheck_after_front_turn(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -1638,7 +1638,7 @@ static func _run_same_file_depth_recheck_after_front_turn(failures: PackedString
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## III-6: rank-0 wind-up abort → same-file reserves get formation recheck delay.
+## III-6: rank-0 wind-up abort -> same-file reserves get formation recheck delay.
 static func _run_windup_abort_same_file_depth_recheck(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -1678,7 +1678,7 @@ static func _run_windup_abort_same_file_depth_recheck(failures: PackedStringArra
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## III-6: rank-1 wind-up abort → rank-2+ same-file reserves get formation recheck delay.
+## III-6: rank-1 wind-up abort -> rank-2+ same-file reserves get formation recheck delay.
 static func _run_windup_abort_rank1_same_file_depth_recheck(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -1723,7 +1723,7 @@ static func _run_windup_abort_rank1_same_file_depth_recheck(failures: PackedStri
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## III-6: rank-0 wind-up start → same-file depth reserves get formation recheck delay.
+## III-6: rank-0 wind-up start -> same-file depth reserves get formation recheck delay.
 static func _run_windup_start_same_file_depth_recheck(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -2173,7 +2173,7 @@ static func _run_line_plug_gauge_suffix_when_swap_listed(failures: PackedStringA
 		CombatRegressionHarness._fail(failures, "line_plug_gauge: want plug suffix on gauge stamp got %s" % stamp)
 
 
-## III-6: rank-1 turn resolves → rank-2+ same-file reserves get formation recheck delay.
+## III-6: rank-1 turn resolves -> rank-2+ same-file reserves get formation recheck delay.
 static func _run_same_file_depth_recheck_after_rank1_turn(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -4778,7 +4778,7 @@ static func _run_pincer_close_arc_spread_mult(failures: PackedStringArray) -> vo
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.4: mirrored line → same cohesion → same `engagement_posture` (two-pass recompute + coupling neutral when equal).
+## Tier 1.4: mirrored line -> same cohesion -> same `engagement_posture` (two-pass recompute + coupling neutral when equal).
 static func _run_posture_mirror_symmetric(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	for _i in 4:
@@ -5742,14 +5742,14 @@ static func _run_parry_pack_flank_effective_spacing(failures: PackedStringArray)
 	if eff_far + 1e-4 < float(CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN):
 		CombatRegressionHarness._fail(
 			failures,
-			"parry_pack_flank: |Δfile|==2 expected eff spacing >= PARRY_FLANK_EFFECTIVE_FILES_MIN got %.4f"
+			"parry_pack_flank: |Deltafile|==2 expected eff spacing >= PARRY_FLANK_EFFECTIVE_FILES_MIN got %.4f"
 			% eff_far
 		)
 	var m_far: float = _ZoneOfControl.get_engagement_parry_multiplier(mgr, p_id, e_id)
 	if not is_equal_approx(m_far, CombatConstants.FLANK_PARRY_MOD):
 		CombatRegressionHarness._fail(
 			failures,
-			"parry_pack_flank: |Δfile|==2 with protection circle should apply flank mod (got %.4f want %.4f)"
+			"parry_pack_flank: |Deltafile|==2 with protection circle should apply flank mod (got %.4f want %.4f)"
 			% [m_far, CombatConstants.FLANK_PARRY_MOD]
 		)
 	CombatRegressionHarness._free_manager(mgr)
@@ -5874,7 +5874,7 @@ static func _run_surround_live_weight_sum_matches_from_pa_sector_path(failures: 
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 3.1: one engaging threat  -  integer **n≤1** and sector **`wsum`≤`SURROUND_SECTOR_LOAD_FREE`** both stay neutral (**1.0**).
+## Tier 3.1: one engaging threat  -  integer **n<=1** and sector **`wsum`<=`SURROUND_SECTOR_LOAD_FREE`** both stay neutral (**1.0**).
 static func _run_surround_single_threat_int_and_sector_neutral(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -5894,7 +5894,7 @@ static func _run_surround_single_threat_int_and_sector_neutral(failures: PackedS
 	if wsum > CombatConstants.SURROUND_SECTOR_LOAD_FREE + 0.02:
 		CombatRegressionHarness._fail(
 			failures,
-			"surround_single: wsum=%.4f should sit in free tier (≤%.3f)" % [wsum, CombatConstants.SURROUND_SECTOR_LOAD_FREE]
+			"surround_single: wsum=%.4f should sit in free tier (<=%.3f)" % [wsum, CombatConstants.SURROUND_SECTOR_LOAD_FREE]
 		)
 		CombatRegressionHarness._free_manager(mgr)
 		return
@@ -5968,7 +5968,7 @@ static func _run_sector_surround_feature_flag_respects_runtime_toggle(failures: 
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.6: `posture_cohesion_targeting_mult` rises with line cohesion in LINE posture; OPEN uses inverse (looser line → higher mult).
+## Tier 1.6: `posture_cohesion_targeting_mult` rises with line cohesion in LINE posture; OPEN uses inverse (looser line -> higher mult).
 static func _run_ai_targeting_posture_cohesion_mult(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -6077,7 +6077,7 @@ static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures:
 	var p1nid: int = _EntityAccess.id_int(p1n)
 	var e0nid: int = _EntityAccess.id_int(e0n)
 	if not _MeleeRank.melee_pair_rank_allowed(mgr_near, p1n, e0n):
-		CombatRegressionHarness._fail(failures, "ally_press_dep: near layout expected _melee_pair_rank_allowed depth→e0")
+		CombatRegressionHarness._fail(failures, "ally_press_dep: near layout expected _melee_pair_rank_allowed depth->e0")
 		CombatRegressionHarness._free_manager(mgr_near)
 		return
 	_TargetScoring.on_combat_commitment(mgr_near, p1nid, e0nid)
@@ -6107,7 +6107,7 @@ static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures:
 	mgr_far._recompute_zoc_and_distance()
 	var e0_far: Dictionary = mgr_far.combatants[2]
 	if _MeleeRank.melee_pair_rank_allowed(mgr_far, depth_far, e0_far):
-		CombatRegressionHarness._fail(failures, "ally_press_dep: far enemies expected no _melee_pair_rank_allowed depth→e0")
+		CombatRegressionHarness._fail(failures, "ally_press_dep: far enemies expected no _melee_pair_rank_allowed depth->e0")
 		CombatRegressionHarness._free_manager(mgr_far)
 		return
 	var p0f: Dictionary = mgr_far.combatants[0]
@@ -6165,7 +6165,7 @@ static func _run_targeting_hold_lane_off_file_mult(failures: PackedStringArray) 
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.6: **`CombatTargetScoring.file_opposed_mult`**  -  same-file rank-0 pair (or depth polearm using same-file rank-0 ally) applies **`DOCTRINE_FILE_OPPOSED_WEIGHT_MULT`**; off-file → **1.0**.
+## Tier 1.6: **`CombatTargetScoring.file_opposed_mult`**  -  same-file rank-0 pair (or depth polearm using same-file rank-0 ally) applies **`DOCTRINE_FILE_OPPOSED_WEIGHT_MULT`**; off-file -> **1.0**.
 static func _run_targeting_file_opposed_mult(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -6318,7 +6318,7 @@ static func _run_targeting_commitment_match_mult(failures: PackedStringArray) ->
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.6: **`CombatTargetScoring.soft_geometry_score`** = **`1/(1 + effective_pair_eff_dist - -  DOCTRINE_SOFT_DISTANCE_SCALE)`**; larger eff → lower score (monotone).
+## Tier 1.6: **`CombatTargetScoring.soft_geometry_score`** = **`1/(1 + effective_pair_eff_dist - -  DOCTRINE_SOFT_DISTANCE_SCALE)`**; larger eff -> lower score (monotone).
 static func _run_targeting_soft_geometry_eff_dist_formula(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -6602,7 +6602,7 @@ static func _run_hostile_pair_cached_engagement_mode_matches_live(failures: Pack
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 3.1: depth spear lane parry mults in `DefenseChoiceResolver` (tight → `parry_c_d`; open + stab → `parry_p_a`).
+## Tier 3.1: depth spear lane parry mults in `DefenseChoiceResolver` (tight -> `parry_c_d`; open + stab -> `parry_p_a`).
 static func _run_ai_targeting_stance_mult_ordering(failures: PackedStringArray) -> void:
 	var m_def: float = _TargetScoring.stance_ai_targeting_mult({"stance": CombatConstants.STANCE_DEFENSIVE})
 	var m_bal: float = _TargetScoring.stance_ai_targeting_mult({"stance": CombatConstants.STANCE_BALANCED})
@@ -6650,7 +6650,7 @@ static func _run_ai_targeting_incap_hostile_mult(failures: PackedStringArray) ->
 	if not is_equal_approx(w_down, expected_w):
 		CombatRegressionHarness._fail(
 			failures,
-			"ai_incap: expected down=%.6f ≈ clamp(up*mult)=%.6f (up=%.6f raw=%.6f mult=%.4f)"
+			"ai_incap: expected down=%.6f ~= clamp(up*mult)=%.6f (up=%.6f raw=%.6f mult=%.4f)"
 			% [w_down, expected_w, w_up, raw_down, CombatConstants.AI_TARGETING_INCAP_HOSTILE_MULT]
 		)
 	if not _EntityAccess.is_incapacitated(opp):
@@ -6690,7 +6690,7 @@ static func _run_no_hostile_actions_listed_vs_incap_enemy(failures: PackedString
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.6 / stalemate: all rank-0 enemies incap → `any_enemy_rank0` false → rank-1 pass may list vs deeper hostiles (no soft-lock).
+## Tier 1.6 / stalemate: all rank-0 enemies incap -> `any_enemy_rank0` false -> rank-1 pass may list vs deeper hostiles (no soft-lock).
 static func _run_stalemate_melee_rank1_when_rank0_incap(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -7168,7 +7168,7 @@ static func _run_weapon_depth_melee_eligible_fixture(failures: PackedStringArray
 		CombatRegressionHarness._fail(failures, "depth_melee_elig: SWORD should not be depth_melee_eligible by default")
 
 
-## Tier 1.9: rank>1 without **`depth_melee_eligible`** weapon → **`depth_polearm_lane_open`** **false** even with same-file living rank-0 ally (lane predicate, not only **`can_melee_threaten`**).
+## Tier 1.9: rank>1 without **`depth_melee_eligible`** weapon -> **`depth_polearm_lane_open`** **false** even with same-file living rank-0 ally (lane predicate, not only **`can_melee_threaten`**).
 static func _run_depth_polearm_lane_open_false_for_non_eligible_weapon(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -7186,7 +7186,7 @@ static func _run_depth_polearm_lane_open_false_for_non_eligible_weapon(failures:
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.9: **`depth_polearm_lane_open`** is **false** at **`rank` ≤ 0** (lane is for **home** depth ranks only).
+## Tier 1.9: **`depth_polearm_lane_open`** is **false** at **`rank` <= 0** (lane is for **home** depth ranks only).
 static func _run_depth_polearm_lane_open_false_at_rank_zero(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
@@ -7200,7 +7200,7 @@ static func _run_depth_polearm_lane_open_false_at_rank_zero(failures: PackedStri
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.9: no **living** same-file rank-0 partner → **`depth_polearm_lane_open`** **false** (even with **`depth_melee_eligible`** weapon).
+## Tier 1.9: no **living** same-file rank-0 partner -> **`depth_polearm_lane_open`** **false** (even with **`depth_melee_eligible`** weapon).
 static func _run_depth_polearm_lane_open_false_without_living_same_file_rank0(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -7286,7 +7286,7 @@ static func _run_depth_polearm_lane_cache_matches_builder(failures: PackedString
 	CombatRegressionHarness._free_manager(mgr2)
 
 
-## Tier 1.9: same-file rank-0 partner **incapacitated** → **`depth_polearm_lane_open`** **false** (**`same_file_living_rank0_ally`** skips incap).
+## Tier 1.9: same-file rank-0 partner **incapacitated** -> **`depth_polearm_lane_open`** **false** (**`same_file_living_rank0_ally`** skips incap).
 static func _run_depth_polearm_lane_open_false_when_same_file_rank0_incap(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	var ent_r0: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
@@ -7336,7 +7336,7 @@ static func _run_depth_polearm_lane_open_zone_geometry_fid_round_trip(failures: 
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.9: **`depth_polearm_lane_allows_low_targets`**  -  open depth lane + **strict** + **tight** + no lane stress → **false** (over-shoulder); **`spear_lane_profile` open** on same geometry → **true**.
+## Tier 1.9: **`depth_polearm_lane_allows_low_targets`**  -  open depth lane + **strict** + **tight** + no lane stress -> **false** (over-shoulder); **`spear_lane_profile` open** on same geometry -> **true**.
 static func _run_depth_polearm_allows_low_targets_strict_tight_when_lane_open(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -7604,7 +7604,7 @@ static func _run_depth_polearm_allows_low_formation_dict_cache_matches_null(fail
 	CombatRegressionHarness._free_manager(mgr)
 
 
-## Tier 1.9: **`depth_polearm_targetable_parts_filter`** is a **pass-through** when **`depth_polearm_lane_open`** is **false** (rank-1 non-polearm) or attacker **`rank` ≤ 0** (no depth lane use).
+## Tier 1.9: **`depth_polearm_targetable_parts_filter`** is a **pass-through** when **`depth_polearm_lane_open`** is **false** (rank-1 non-polearm) or attacker **`rank` <= 0** (no depth lane use).
 static func _run_depth_polearm_parts_filter_pass_through_when_no_depth_lane_use(failures: PackedStringArray) -> void:
 	var m0: Node = _MgrScript.new()
 	m0.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
@@ -7642,7 +7642,7 @@ static func _run_depth_polearm_parts_filter_pass_through_when_no_depth_lane_use(
 	CombatRegressionHarness._free_manager(m1)
 
 
-## Tier 1.9: **`depth_polearm_lane_allows_low_targets`**  -  **`assume_depth_lane_open` false** returns **true** when **`depth_polearm_lane_open`** is **false** (depth lane N/A); **`assume_depth_lane_open` true** skips that guard and runs wedge / **`spear_lane_profile`** / discipline (strict+tight → **false** without open profile).
+## Tier 1.9: **`depth_polearm_lane_allows_low_targets`**  -  **`assume_depth_lane_open` false** returns **true** when **`depth_polearm_lane_open`** is **false** (depth lane N/A); **`assume_depth_lane_open` true** skips that guard and runs wedge / **`spear_lane_profile`** / discipline (strict+tight -> **false** without open profile).
 static func _run_depth_polearm_allows_low_assume_skips_closed_lane_guard(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -7672,7 +7672,7 @@ static func _run_depth_polearm_allows_low_assume_skips_closed_lane_guard(failure
 	if with_assume:
 		CombatRegressionHarness._fail(
 			failures,
-			"depth_al_assume: strict+tight + assume true should evaluate lane rules → false (no open profile)"
+			"depth_al_assume: strict+tight + assume true should evaluate lane rules -> false (no open profile)"
 		)
 	if without_assume == with_assume:
 		CombatRegressionHarness._fail(failures, "depth_al_assume: assume flag must change result when lane closed vs strict+tight body")
@@ -7974,7 +7974,7 @@ static func _run_depth_polearm_ai_doctrine_mults_encounter_preset(failures: Pack
 	CombatRegressionHarness._free_manager(mgr3)
 
 
-## Tier 1.9: **`CombatAIActionPicker._depth_polearm_action_weight_mult`** stays neutral (**1.0**) when no **`depth_polearm_valid_line_threat`** to any hostile rank 0 (lane may still be open); boosts stab when **3-wide** yields ≥1 valid line.
+## Tier 1.9: **`CombatAIActionPicker._depth_polearm_action_weight_mult`** stays neutral (**1.0**) when no **`depth_polearm_valid_line_threat`** to any hostile rank 0 (lane may still be open); boosts stab when **3-wide** yields >=1 valid line.
 static func _run_depth_polearm_ai_weight_mult_requires_valid_line_to_any_rank0(failures: PackedStringArray) -> void:
 	var mgr_far: Node = _MgrScript.new()
 	mgr_far.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -8014,7 +8014,7 @@ static func _run_depth_polearm_ai_weight_mult_requires_valid_line_to_any_rank0(f
 	mgr3._recompute_zoc_and_distance()
 	var depth3: Dictionary = mgr3.combatants[1]
 	if not _DepthPolearm.depth_polearm_has_valid_line_threat_to_any_rank0_hostile(mgr3, depth3, mgr3.combatants):
-		CombatRegressionHarness._fail(failures, "ai_vlt_any: standard 3-wide should have ≥1 valid-line rank-0 target")
+		CombatRegressionHarness._fail(failures, "ai_vlt_any: standard 3-wide should have >=1 valid-line rank-0 target")
 		CombatRegressionHarness._free_manager(mgr3)
 		return
 	var w_boost: float = _AIPicker._depth_polearm_action_weight_mult(mgr3, depth3, "spear_thrust")
@@ -8086,9 +8086,9 @@ static func _run_doctrine_normalize_and_manager_roundtrip(failures: PackedString
 	if _CombatDoctrine.normalize(CombatConstants.DOCTRINE_PROBING) != CombatConstants.DOCTRINE_PROBING:
 		CombatRegressionHarness._fail(failures, "doctrine_norm: probing canonical")
 	if _CombatDoctrine.normalize("not_a_real_doctrine_string") != CombatConstants.DOCTRINE_DEFAULT:
-		CombatRegressionHarness._fail(failures, "doctrine_norm: unknown → default")
+		CombatRegressionHarness._fail(failures, "doctrine_norm: unknown -> default")
 	if _CombatDoctrine.doctrine_for_fid(null, "player") != CombatConstants.DOCTRINE_DEFAULT:
-		CombatRegressionHarness._fail(failures, "doctrine_for_fid: null manager → default")
+		CombatRegressionHarness._fail(failures, "doctrine_for_fid: null manager -> default")
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")

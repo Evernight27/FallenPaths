@@ -7,7 +7,7 @@ extends RefCounted
 ## Aliased to CombatConstants.PATH_MAIN_SCENE for clarity.
 const MAIN_SCENE := CombatConstants.PATH_MAIN_SCENE
 
-# Runtime preload â€” circular dependency (CompanyState preloads CombatFlow which preloads CompanyRunEndPanel).
+# Runtime preload ' circular dependency (CompanyState preloads CombatFlow which preloads CompanyRunEndPanel).
 static var _CompanyState: Variant = null
 
 static func _get_company_state() -> GDScript:
@@ -102,8 +102,8 @@ static func _run_end_restart_note() -> String:
 	if _get_company_state().persistence_restore_on_main_restart():
 		return " Restart reloads main and restores your last autosave."
 	if _get_company_state().persistence_uses_disk_autosave():
-		return " Saved progress is cleared â€” restart begins a new company."
-	return " EA: this run is not saved â€” restart begins a new company."
+		return " Saved progress is cleared ' restart begins a new company."
+	return " EA: this run is not saved ' restart begins a new company."
 
 
 static func format_run_end_body(reason: String, detail: String = "") -> String:
@@ -157,7 +157,7 @@ static func _button_label_for_reason(reason: String) -> String:
 			return "Restart company"
 
 
-## F5 Ã‚Â§8 step 8: paid/bankrupt loss reloads main; tutorial + soft defeat preserve camp.
+## F5 f''s'Sec8 step 8: paid/bankrupt loss reloads main; tutorial + soft defeat preserve camp.
 static func run_end_logs_reload(reason: String) -> bool:
 	return not _uses_soft_resume(reason)
 

@@ -24,7 +24,7 @@ static func get_parry_config() -> Dictionary:
 	cfg["strong_contact_by_arch"] = _CombatConstants.PARRY_STRONG_CONTACT_BY_ARCH
 	return cfg
 
-## 0..1 guard gauge for passive parry (not **`guard_line`**). Coerces numeric types; non-numeric → 1.0.
+## 0..1 guard gauge for passive parry (not **`guard_line`**). Coerces numeric types; non-numeric -> 1.0.
 static func guard_readiness_float(c: Dictionary) -> float:
 	var raw: Variant = c.get("guard", 1.0)
 	if raw is float or raw is int:

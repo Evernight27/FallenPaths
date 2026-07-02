@@ -2,8 +2,8 @@ class_name DefenseResolutionHandler
 extends RefCounted
 
 ## Resolves defense outcomes: partial parry follow-through (twist dodge), full/partial dodge, parry deflect/partial.
-## Footing (strike geometry): reads **`CombatFootwork.guard_angle_deg`** + attacker offset on contact —" not form home guard. LIVE_PATHS **`#wf-tier-44-pa`** (geometry) · **`#wf-guard-writers`**.
-## **Read order:** parry deflect/partial branches Ã¢â ' dodge branches Ã¢â ' follow-through re-entry hooks.
+## Footing (strike geometry): reads **`CombatFootwork.guard_angle_deg`** + attacker offset on contact --" not form home guard. LIVE_PATHS **`#wf-tier-44-pa`** (geometry) . **`#wf-guard-writers`**.
+## **Read order:** parry deflect/partial branches --'' ' dodge branches --'' ' follow-through re-entry hooks.
 ## **`parry_deflect`** full-stop and **`parry_partial`** follow-through both attach a **`parry_clash_context`** dict on the returned result (partial adds **`remaining_ratio`** / **`geometric_leak`**; Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**).
 ## Returns a result dict to return from resolve_attack, or null to fall through to hit.
 
@@ -13,7 +13,7 @@ const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
 
-## Debug logging —" delegates to `CombatDebug.log` which gates on `combat_debug_active`.
+## Debug logging --" delegates to `CombatDebug.log` which gates on `combat_debug_active`.
 
 ## Resolves defense. Returns dict with action, target_id, recovery_duration (if applicable); or null to fall through to hit.
 static func resolve(
@@ -247,6 +247,32 @@ static func _resolve_parry(
 		CombatDebug.log("parry_deflect %s blocked %s align=%.3f eff_align=%.3f ctrl=%.3f%s" % [def_name, atk_name, _alignment, _effective_alignment, parry_clash_context.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL), interpose_note])
 		CombatDebug.calibration_log("outcome=parry_deflect c_d_final=%.2f p_a=%.2f ctrl=%.3f align=%.3f eff_align=%.3f glancing_exp=%.2f%s" % [c_d_final, parry_p_a, parry_clash_context.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL), _alignment, _effective_alignment, glancing_exp, interpose_note])
 		return { "action": "parry_deflect", "target_id": target_id, "recovery_duration": rec_dur, "parry_clash_context": parry_clash_context }
+	var edge_deflect: bool = CombatConstants.parry_edge_deflect_reached(
+		c_d_final, parry_p_a, _effective_alignment, is_block_parry
+	)
+	if edge_deflect:
+		var parry_intensity_edge: float = pa.get(CombatConstants.PA_KEY_INTENSITY, CombatConstants.PA_DEFAULT_INTENSITY)
+		var atk_perf_edge: float = _EntityAccess.get_performance_modifier(atk)
+		var rec_dur_edge: float = CombatTiming.recovery_duration(parry_intensity_edge, "full_stop", recovery_mult, atk_perf_edge, _EntityAccess.stats_dict(atk).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
+		var eff_atk_line_edge: String = pa.get("effective_attack_line", _attack_line)
+		var atk_weapon_edge = _EntityAccess.get_weapon(atk)
+		var atk_angle_edge: float = _parry_attack_angle_deg(
+			atk, arc_start, arc_end, _parry_progress, eff_atk_line_edge
+		)
+		var _wobble_edge: Dictionary = _EntityAccess.parry_wobble_context_for_combatant(tgt, parry_readiness)
+		var kinematics_edge: Dictionary = _strike_kinematics_for_parry_clash(
+			atk_weapon_edge, pa, attack_type, intensity, archetype
+		)
+		var parry_clash_edge: Dictionary = _build_parry_clash_context(
+			eff_atk_line_edge, attack_type, atk_angle_edge, c_d_final, parry_p_a, parry_c_d,
+			_alignment, _guard_line, _Footwork.guard_angle_deg(tgt, _wobble_edge),
+			parry_time_to_react, parry_readiness, late_parry, parry_off_balance, is_block_parry,
+			m_a_parry, m_d_parry, m_a_velocity, kinematics_edge,
+			pa.get("strike_measure_ratio", -1.0),
+			interpose_extra
+		)
+		CombatDebug.log("parry_deflect_edge %s blocked %s align=%.3f eff_align=%.3f ctrl=%.3f%s" % [def_name, atk_name, _alignment, _effective_alignment, parry_clash_edge.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL), interpose_note])
+		return { "action": "parry_deflect", "target_id": target_id, "recovery_duration": rec_dur_edge, "parry_clash_context": parry_clash_edge }
 	var attacker_weapon = _EntityAccess.get_weapon(atk)
 	var agi_d: float = float(_EntityAccess.stats_dict(tgt).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
 	var perc_d: float = float(_EntityAccess.stats_dict(tgt).get("perception", CombatConstants.DEFAULT_STAT_VALUE))
@@ -254,7 +280,10 @@ static func _resolve_parry(
 	var effective_reduction: float = c_d_final * redirect_mult
 	var remaining_momentum: float = maxf(0.0, parry_p_a - effective_reduction)
 	var remaining_ratio: float = remaining_momentum / parry_p_a if parry_p_a > 0.0 else 0.0
+	var margin_ratio_leak: float = CombatConstants.parry_deflect_margin_ratio(c_d_final, parry_p_a)
 	var geometric_leak: float = (1.0 - _effective_alignment) * CombatConstants.GEOMETRIC_LEAK_MAX
+	if margin_ratio_leak < 1.0:
+		geometric_leak *= clampf(margin_ratio_leak, 0.0, 1.0)
 	var pre_leak_ratio: float = remaining_ratio
 	remaining_ratio = minf(1.0, remaining_ratio + geometric_leak)
 	if CombatConstants.combat_debug_active():
@@ -330,7 +359,7 @@ static func _strike_kinematics_for_parry_clash(
 	var strike_v: float = strike_velocity_m_s
 	var strike_ke: float = 0.0
 	if atk_weapon != null:
-		var attack_instance := AttackInstance.new(attack_type, intensity)
+		var attack_instance: AttackInstance = AttackInstance.new(attack_type, intensity, -1.0)
 		attack_instance.archetype = archetype
 		if strike_v < -900.0:
 			strike_v = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
@@ -384,7 +413,7 @@ static func _build_parry_clash_context(
 		"m_d_parry": m_d_parry,
 		"m_a_velocity": m_a_velocity,
 		"margin_ratio": margin_ratio,
-		## IV-5: raw (pre-interpose) alignment —" parry_control and harness validation use this same value;
+		## IV-5: raw (pre-interpose) alignment --" parry_control and harness validation use this same value;
 		## interpose boost is captured separately in arm_interpose_boost / arm_interpose_arm fields.
 		"alignment": alignment,
 		"defender_guard_line": guard_line,
@@ -407,4 +436,3 @@ static func _build_parry_clash_context(
 	for k in extra:
 		ctx[k] = extra[k]
 	return ctx
-           

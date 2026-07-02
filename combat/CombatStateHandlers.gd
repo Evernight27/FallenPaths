@@ -5,7 +5,7 @@ const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
 ## Per-state handlers for CombatManager _process loop.
-## Footing: parry/deflect Ã¢Â†Â’ **`GuardLineUpdater.set_guard_deflected`** Â· recovery Ã¢Â†Â’ **`set_guard_from_move`** Â· **`CombatFootwork.clear_on_exchange_end`** Â· idle **`reconcile_idle_offset`** on tick paths Â· **`return_to_waiting`** / **`return_to_cowering`** on state transitions. LIVE_PATHS **`#wf-guard-writers`** Â· **`#wf-tier-44-pa`**.
+## Footing: parry/deflect --'??'' **`GuardLineUpdater.set_guard_deflected`** '. recovery --'??'' **`set_guard_from_move`** '. **`CombatFootwork.clear_on_exchange_end`** '. idle **`reconcile_idle_offset`** on tick paths '. **`return_to_waiting`** / **`return_to_cowering`** on state transitions. LIVE_PATHS **`#wf-guard-writers`** '. **`#wf-tier-44-pa`**.
 ## Each handler mutates combatant (c) and may call manager methods.
 ## Manager must have: get_available_actions, resolve_action, emit_signal, _get_by_id, _find_first_opponent, _execute_attack.
 
@@ -13,7 +13,7 @@ const _MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
 const _CounterTempo := preload("res://combat/CounterTempo.gd")
 const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
 const _UiHints := preload("res://combat/CombatUiHints.gd")
-# Runtime preload â€” circular dependency (CombatMobilityRetreat preloads CombatStateHandlers).
+# Runtime preload ' circular dependency (CombatMobilityRetreat preloads CombatStateHandlers).
 static var _mobility_retreat_cache: Variant = null
 
 static func _get_mobility_retreat() -> GDScript:

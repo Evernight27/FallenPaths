@@ -12,7 +12,7 @@ var attack_type: String = "cut"
 var intensity: float = 0.5   # 0.0 - 1.0: swing commitment (from strength + random; speed only affects gauge fill)
 var velocity_m_s: float = -1.0  # If < 0, helper derives from intensity.
 var archetype: Dictionary = {}  # Set by CombatManager from weapon + attack_type.
-## StrikeRealismProfile: scales KE (v² - -  coupling) and momentum (v - -  coupling) vs baseline band speed.
+## StrikeRealismProfile: scales KE (v2 - -  coupling) and momentum (v - -  coupling) vs baseline band speed.
 var strike_energy_mult: float = 1.0
 var strike_momentum_mult: float = 1.0
 ## Weapon extension at impact (0 - 1). When >= 0, scales effective intensity for KE/cut (not blunt slip).

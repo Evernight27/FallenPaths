@@ -494,7 +494,7 @@ static func _run_combat_log_formatter_bandage_ally_label(failures: PackedStringA
 static func _harness_wound_chest_for_packing(ent: Node) -> void:
 	if ent == null:
 		return
-	# Thoracic cut at moderate+ (≥25% of chest max) so pack eligibility is stable; keep damage below vital collapse.
+	# Thoracic cut at moderate+ (>=25% of chest max) so pack eligibility is stable; keep damage below vital collapse.
 	_EntityWounds.add_wound(
 		ent, "chest", _Bleeding.INJURY_TYPE_CUT, 9.0, "thoracic",
 		_Bleeding.SEVERITY_MODERATE
@@ -977,13 +977,13 @@ static func _run_field_care_procedure_sim_advance_seconds(failures: PackedString
 	if bleed_after >= bleed_before - 0.0001:
 		CombatRegressionHarness._fail(
 			failures,
-			"field_care_sim: procedure advance should reduce bleed under pressure got %.4f→%.4f"
+			"field_care_sim: procedure advance should reduce bleed under pressure got %.4f->%.4f"
 			% [bleed_before, bleed_after]
 		)
 	_free_entity_fixture(ent)
 
 
-## LIVE_PATHS §1: moderate venous may reach local hemostasis under sustained pressure over field-care window.
+## LIVE_PATHS S1: moderate venous may reach local hemostasis under sustained pressure over field-care window.
 static func _run_field_care_venous_clot_under_procedure(failures: PackedStringArray) -> void:
 	var ent: Node = CombatRegressionHarness._new_entity("SWORD")
 	ent.wounds["left_leg"] = [
@@ -1143,7 +1143,7 @@ static func _run_direct_pressure_flow_retention_venous_vs_arterial_parity(
 	_free_entity_fixture(arterial)
 
 
-## Camp-2.1 ↔ combat: active bleed blocks field bandage until compression; matches medical-phase dressings gate.
+## Camp-2.1 <-> combat: active bleed blocks field bandage until compression; matches medical-phase dressings gate.
 static func _run_field_care_pressure_before_bandage_parity(failures: PackedStringArray) -> void:
 	var ent: Node = CombatRegressionHarness._new_entity("SWORD")
 	ent.wounds["chest"] = [
@@ -1218,7 +1218,7 @@ static func _run_entity_medical_dressing_requires_compression_when_bleeding(
 	_free_entity_fixture(ent)
 
 
-## Camp-2.1 ↔ combat: junctional pack waits on compression like bandage.
+## Camp-2.1 <-> combat: junctional pack waits on compression like bandage.
 static func _run_field_care_pressure_before_pack_parity(failures: PackedStringArray) -> void:
 	var ent: Node = CombatRegressionHarness._new_entity("SWORD")
 	_harness_wound_chest_for_packing(ent)
@@ -1376,7 +1376,7 @@ static func _run_medical_triage_reference_bleed_peril_parity(failures: PackedStr
 	if not _MedicalPhase.is_in_immediate_peril(mgr, fighter):
 		CombatRegressionHarness._fail(
 			failures,
-			"triage_ref: bv=%.1f at reference bleed should be immediate peril (TTD≈%.0fs)"
+			"triage_ref: bv=%.1f at reference bleed should be immediate peril (TTD~=%.0fs)"
 			% [peril_bv, _Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS]
 		)
 	var eta_danger: float = _PartyRowFormatter.seconds_to_danger_band(
@@ -1760,7 +1760,7 @@ static func _run_stabilize_requires_intrinsic_active_bleed(failures: PackedStrin
 		CombatRegressionHarness._fail(failures, "stabilize_intrinsic: pressure setup failed")
 		_free_entity_fixture(ent)
 		return
-	# Pressure immediate reduction (25% * 0.7 arterial mult ≈ 17.5%) drops 0.002 → ~0.0016;
+	# Pressure immediate reduction (25% * 0.7 arterial mult ~= 17.5%) drops 0.002 -> ~0.0016;
 	# then simulate clotting under sustained compression to push below epsilon.
 	if ent.has_method("process_bleeding"):
 		ent.process_bleeding(60.0)  # 60s of clotting while pressure held
@@ -2593,7 +2593,7 @@ static func _run_medical_phase_full_blood_loss_rate(failures: PackedStringArray)
 	if absf(loss - want) > 0.05:
 		CombatRegressionHarness._fail(
 			failures,
-			"med_phase_bleed: expect full ATLS drain rate got loss=%.4f want≈%.4f" % [loss, want]
+			"med_phase_bleed: expect full ATLS drain rate got loss=%.4f want~=%.4f" % [loss, want]
 		)
 	# No passive recovery without fluids (post-victory medical phase uses same physiology).
 	ent.blood_volume = 55.0

@@ -137,7 +137,7 @@ static func validator_tracks(active_profiles: PackedStringArray) -> Array:
 	return tracks.filter(func(spec: Dictionary) -> bool: return _track_applies(spec, active_profiles))
 
 
-## Maps headless preset id â validator profile id (`preset_ii2b`, `7v7`, ...).
+## Maps headless preset id -> validator profile id (`preset_ii2b`, `7v7`, ...).
 static func preset_id_to_profile(preset_id: String) -> String:
 	match preset_id:
 		_SoakPresets.PRESET_II2B_SWORD_DUEL:
@@ -1138,7 +1138,7 @@ static func _validator_wf_footing_tracks() -> Array:
 		},
 		{
 			"id": "wf_m3_idle_step_leak",
-			"regex": "turn_ready_gauge .* label=Stm [0-9]+% · Ready · Step",
+			"regex": "turn_ready_gauge .* label=Stm [0-9]+% . Ready . Step",
 			"max": 0,
 			"profiles": [PROFILE_ALWAYS],
 			"when_ok_at_least": "turn_ready_gauge",
@@ -1364,4 +1364,3 @@ static func d001_report_field_line(section: PackedStringArray, prefix: String) -
 		if line.begins_with(prefix):
 			return line
 	return ""
-    

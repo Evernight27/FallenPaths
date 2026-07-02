@@ -26,6 +26,6 @@ static func get_density_close_mod(density: String) -> float:
 
 static func get_spacing_from_density(density: String) -> float:
 	match density:
-		"tight": return CombatConstants.SPACING_TIGHT
-		"loose": return CombatConstants.SPACING_LOOSE
-		_: return CombatConstants.SPACING_NORMAL
+		"tight": return 0.9
+		"loose": return 1.8
+		_: return 1.2

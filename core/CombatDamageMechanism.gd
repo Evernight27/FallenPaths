@@ -83,7 +83,7 @@ const _PART_DEFAULT_BLUNT_J: Dictionary = {
 }
 
 
-## J excess → game bone damage (~`DAMAGE_KE_SCALE * sqrt(J)` tissue scale).
+## J excess -> game bone damage (~`DAMAGE_KE_SCALE * sqrt(J)` tissue scale).
 static func j_excess_to_bone_damage(excess_j: float) -> float:
 	return _WeaponConstants.DAMAGE_KE_SCALE * sqrt(maxf(0.0, excess_j))
 

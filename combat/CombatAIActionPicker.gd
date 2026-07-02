@@ -2,11 +2,11 @@ class_name CombatAIActionPicker
 extends RefCounted
 
 ## Picks one action from available actions using weighted randomness. **Combat move choice is fully AI-driven:**
-## WF turn pick (L2): **`CombatWeaponForm.action_weight_mult`**, **`wait_action_weight_mult`**, focus **`preferred_guards`**; listing path preview uses **`CombatFootwork.attack_angle_deg_for_listing_preview`** + **`guard_angle_deg`** when PA on â€”" **`#wf-tier-44-pa`** (geometry) Â· **`#wf-pick-vs-strike`**; **`evaluate_automatic_form`** after mental-stack miss â€”" **`assign_form`** only.
+## WF turn pick (L2): **`CombatWeaponForm.action_weight_mult`**, **`wait_action_weight_mult`**, focus **`preferred_guards`**; listing path preview uses **`CombatFootwork.attack_angle_deg_for_listing_preview`** + **`guard_angle_deg`** when PA on '"" **`#wf-tier-44-pa`** (geometry) '. **`#wf-pick-vs-strike`**; **`evaluate_automatic_form`** after mental-stack miss '"" **`assign_form`** only.
 ## weights combine stamina + `CombatTargetScoring` (doctrine, file bias, commitment, distributed pressure, **engagement mode**, our formation posture+cohesion, **opponent** formation, stance). No human pick path.
 ## Medical: deterministic urgency + per-part threat; bandage/pack/tourniquet favor high `get_medical_effectiveness`, pressure favors lower skill.
 ## Pending retry: strongly prefer retrying the failed part when target is still in peril.
-## For attacks: adds target_part from path when pathway allows (unguarded bonus). Counter-tempo listing (**`ACTION_KEY_COUNTER_TEMPO`**) ÃƒÂƒ -  **`CounterTempo.counter_tempo_listing_weight_mult`** (**`AI_COUNTER_TEMPO_*`**). **`is_feint`** moves get **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** ÃƒÂƒ -  defender-readiness lerp (**`PassiveParryContext.get_passive_parry_readiness`** ÃƒÂƒ -  **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this moveâ€”Ã¢Â„Â¢s **`contact_type`** ÃƒÂƒ -  **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** on the defender ÃƒÂƒ -  **`CombatConstants.ai_feint_listing_defender_readiness_spacing_mult`** from defender **`distance_to[attacker]`** â€”" same curve as **`DefenseChoiceResolver`** reported readiness, not attacker stamina) ÃƒÂƒ -  attacker **`CombatWeaponForm.mod(form_str, "ai_feint_listing")`** ÃƒÂƒ -  defender footwork state mult (**`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** when off-balance; elif **`STATE_RECOVERING`**, **`AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT`**; elif settled **`STATE_WAITING`**, **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**) ÃƒÂƒ -  optional low-stamina feint dampening ÃƒÂƒ -  formation doctrine **`probing`** / **`pinch_center`** / **`hold_lane`** (**`AI_FEINT_LISTING_DOCTRINE_*_MULT`**) ÃƒÂƒ -  short-horizon boost after that defender **`parry_deflect`** (**`COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`**, **`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_*`**) (Tier 4.2).
+## For attacks: adds target_part from path when pathway allows (unguarded bonus). Counter-tempo listing (**`ACTION_KEY_COUNTER_TEMPO`**) ->'' -  **`CounterTempo.counter_tempo_listing_weight_mult`** (**`AI_COUNTER_TEMPO_*`**). **`is_feint`** moves get **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** ->'' -  defender-readiness lerp (**`PassiveParryContext.get_passive_parry_readiness`** ->'' -  **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move'"--"''s **`contact_type`** ->'' -  **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** on the defender ->'' -  **`CombatConstants.ai_feint_listing_defender_readiness_spacing_mult`** from defender **`distance_to[attacker]`** '"" same curve as **`DefenseChoiceResolver`** reported readiness, not attacker stamina) ->'' -  attacker **`CombatWeaponForm.mod(form_str, "ai_feint_listing")`** ->'' -  defender footwork state mult (**`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** when off-balance; elif **`STATE_RECOVERING`**, **`AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT`**; elif settled **`STATE_WAITING`**, **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**) ->'' -  optional low-stamina feint dampening ->'' -  formation doctrine **`probing`** / **`pinch_center`** / **`hold_lane`** (**`AI_FEINT_LISTING_DOCTRINE_*_MULT`**) ->'' -  short-horizon boost after that defender **`parry_deflect`** (**`COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`**, **`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_*`**) (Tier 4.2).
 ## Feint **listing** applies **`DefenseChoiceResolver._feint_readiness_reveal_mult`** when the attacker has live **`pending_attack`** on the listed target (same move / wind-up progress as **`choose_defense`**).
 ## Manager must have: _get_by_id, get_health_entity (via CombatantEntityAccess), _is_medical_move.
 
@@ -35,11 +35,13 @@ const _Footwork := preload("res://combat/CombatFootwork.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const _Proficiency := preload("res://core/EntityProficiency.gd")
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _FormationRout := preload("res://combat/CombatFormationRout.gd")
 const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
 const _AttackWeighting := preload("res://combat/CombatAttackWeighting.gd")
+const _PathResolver := preload("res://combat/AttackPathResolver.gd")
 
 static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary:
 	if actions.is_empty():
@@ -228,7 +230,7 @@ static func _swap_rank_fitness_swap_allowed(
 	return gap >= CombatConstants.SWAP_RANK_AI_MIN_FITNESS_GAP
 
 
-## True when frontÃƒÂ¢Ã¢Â€Â 'back disengage swap is tactically justified (matches high-weight rules in _get_action_weight).
+## True when front->''--''''' 'back disengage swap is tactically justified (matches high-weight rules in _get_action_weight).
 ## Plug-forward (incapacitated partner) is handled separately in `CombatFormationMoveListing`.
 ## `manager`: required for body-damage / peril gate (fatigue alone must not justify retreat).
 static func is_disengage_swap_tactically_allowed(
@@ -271,7 +273,14 @@ static func _get_action_weight(
 		var preset_w: float = a.get("weight", -1.0)
 		if preset_w >= 0.0:
 			return preset_w
-		var wait_w: float = _WeaponForm.wait_action_weight_mult(_EntityAccess.form_str(c))
+		if (
+			_MobilityRetreat.formation_retreat_only_for(c)
+			and _FormationRout.duel_disarmed_retreat_menu(manager, c)
+		):
+			return CombatConstants.DUEL_DISARMED_WAIT_AI_WEIGHT
+		var wait_w: float = _WeaponForm.wait_action_weight_mult(
+			_EntityAccess.form_str(c), _EntityAccess.get_weapon(c)
+		)
 		var fid_wait: String = _EntityAccess.formation_id_str(c)
 		if not all_actions.is_empty():
 			if _ListedActions.action_list_has_hostile_strike(all_actions, combatant_id):
@@ -299,10 +308,14 @@ static func _get_action_weight(
 		return _leader_formation_command_pick_weight(manager, c, mid)
 	if mid == CombatConstants.MOVE_ID_FLEE and a.get("target_id", -1) == combatant_id:
 		if _MobilityRetreat.formation_retreat_only_for(c):
+			if _FormationRout.duel_disarmed_retreat_menu(manager, c):
+				return CombatConstants.DUEL_DISARMED_FLEE_AI_WEIGHT
 			return CombatConstants.COWERING_FLEE_AI_WEIGHT
 		var flee_w: float = (
 			CombatConstants.AI_FLEE_ROUTINE_WEIGHT * _FormationRout.flee_ai_pick_mult(manager, c)
 		)
+		if _FormationRout.duel_blocks_armed_flee(manager, c):
+			return 0.0
 		if (
 			_Exhaustion.exhaustion_tunnel_active(c)
 			or _EntityAccess.stamina_ratio(c) < CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO
@@ -313,6 +326,10 @@ static func _get_action_weight(
 		)
 		flee_w *= mood_flee_mult
 		return flee_w
+	if mid == CombatConstants.MOVE_ID_YIELD and a.get("target_id", -1) == combatant_id:
+		if _FormationRout.duel_disarmed_retreat_menu(manager, c):
+			return CombatConstants.DUEL_DISARMED_YIELD_AI_WEIGHT
+		return 0.0
 	if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get("target_id", -1) == combatant_id:
 		if _MobilityRetreat.formation_retreat_only_for(c):
 			return CombatConstants.COWERING_SOLO_FALL_BACK_AI_WEIGHT
@@ -382,7 +399,7 @@ static func _get_action_weight(
 		if engagement_listed:
 			return CombatConstants.PLUG_FORWARD_AI_LOW_WEIGHT
 		## When the rank-0 partner already has strikes, plugging forward would displace a fighter
-		## that can already engage â€”" suppress so the line does not shuffle unnecessarily during mop-up.
+		## that can already engage '"" suppress so the line does not shuffle unnecessarily during mop-up.
 		## Uses cheap distance check instead of rebuilding partner's full action list (avoids
 		## vacancy reconciliation cost when _get_action_weight is called twice per action).
 		var partner_has_strikes: bool = false
@@ -448,10 +465,10 @@ static func _get_action_weight(
 		var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, partner_id)
 		var partner_incapacitated: bool = not partner.is_empty() and _EntityAccess.is_incapacitated(partner)
 		if partner_incapacitated:
-			# Back rank plugging forward â€”" partner (front) is incapacitated; strongly prefer.
+			# Back rank plugging forward '"" partner (front) is incapacitated; strongly prefer.
 			return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
 		if not partner.is_empty() and _EntityAccess.rank_int(c) > _EntityAccess.rank_int(partner):
-			# Deeper rank swapping up (relief) â€”" only swap_rank is offered for this path in builder.
+			# Deeper rank swapping up (relief) '"" only swap_rank is offered for this path in builder.
 			if mid != CombatConstants.MOVE_ID_SWAP_RANK:
 				return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
 			if is_relief_swap_tactically_allowed(c, partner):
@@ -478,7 +495,7 @@ static func _get_action_weight(
 			_MoodBias.mood_bias_for_combatant(manager, c)
 		)
 		return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT * mood_dm2 / _opponent_controlling_disengage_listing_divisor(manager, c)
-	# Attack or attempt_close: engaging the enemy â€”" use stamina + hybrid targeting (doctrine, file, pressure).
+	# Attack or attempt_close: engaging the enemy '"" use stamina + hybrid targeting (doctrine, file, pressure).
 	var comps: Dictionary = _compute_attack_weight_components(
 		a, combatant_id, manager, mid, c, skip_targeting_prune,
 		actor_zone_geometry_line_context, zone_geometry_by_combatant_id, all_actions
@@ -506,7 +523,16 @@ static func _compute_attack_weight_components(
 	var polearm_lane: float = _depth_polearm_action_weight_mult(
 		manager, c, move_id, actor_zone_geometry_line_context
 	)
-	var form_move_m: float = _WeaponForm.action_weight_mult(_EntityAccess.form_str(c), move_id)
+	var form_move_m: float = _WeaponForm.action_weight_mult(
+		_EntityAccess.form_str(c), move_id, _EntityAccess.get_weapon(c)
+	)
+	var prof_occ_m: float = 1.0
+	var ent_node: CoreEntity = _EntityAccess.scene_entity(c)
+	if ent_node != null:
+		prof_occ_m = _Proficiency.proficiency_occurrence_mult(
+			ent_node, _EntityAccess.weapon_type_id(c), _EntityAccess.form_str(c), move_id
+		)
+	form_move_m *= prof_occ_m
 	var form_counter_m: float = 1.0
 	var tid_counter: int = a.get("target_id", -1)
 	if tid_counter >= 0:
@@ -516,7 +542,9 @@ static func _compute_attack_weight_components(
 			inferred = cache_raw.get(str(tid_counter), "").strip_edges()
 		if inferred.is_empty():
 			inferred = _WeaponForm.infer_opponent_form(manager, c, tid_counter)
-		form_counter_m = _WeaponForm.form_counter_mult(_EntityAccess.form_str(c), inferred, move_id)
+		form_counter_m = _WeaponForm.form_counter_mult(
+			_EntityAccess.form_str(c), inferred, move_id, _EntityAccess.get_weapon(c)
+		)
 	var feint_list_m: float = 1.0
 	if move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE and _WeaponConstants.is_feint_move(move_id):
 		var _tid_feint: int = a.get("target_id", -1)
@@ -544,7 +572,9 @@ static func _compute_attack_weight_components(
 			CombatConstants.AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT,
 			pr_def
 		)
-		var stance_feint_m: float = _WeaponForm.mod(_EntityAccess.form_str(c), "ai_feint_listing")
+		var stance_feint_m: float = _WeaponForm.mod(
+			_EntityAccess.form_str(c), "ai_feint_listing", _EntityAccess.get_weapon(c)
+		)
 		feint_list_m = (
 			CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m * stance_feint_m
 		)
@@ -648,7 +678,7 @@ static func _compute_attack_weight_components(
 		elif _EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
 			w *= CombatConstants.AI_ATTEMPT_CLOSE_BIND_CLOSE_MULT
 	w *= _TacticalCombat.iv12_offense_weight_mult(manager, combatant_id)
-	return {"weight": w}
+	return {"weight": w, "occ_mult": prof_occ_m}
 
 
 ## IV-11: doctrine-context weight for party leader / enemy commander instant orders.
@@ -668,7 +698,7 @@ static func _leader_formation_command_pick_weight(
 	return w
 
 
-## LONG band, close listed but no melee strikes â€”" mapped rank-0 band-lag shuffle (not bind-close wings).
+## LONG band, close listed but no melee strikes '"" mapped rank-0 band-lag shuffle (not bind-close wings).
 static func _long_close_only_offense_menu(
 	manager: Node, c: Dictionary, combatant_id: int, all_actions: Array
 ) -> bool:
@@ -703,7 +733,7 @@ static func _long_close_only_offense_menu(
 	return false
 
 
-## MS-L8: post-strike weight bonus â€”" apply multiplicative boost to strikes vs recently struck target.
+## MS-L8: post-strike weight bonus '"" apply multiplicative boost to strikes vs recently struck target.
 static func _post_strike_weight_mult(c: Dictionary, a: Dictionary, manager: Node) -> float:
 	if not CombatConstants.is_feature_ms_post_strike_enabled():
 		return 1.0
@@ -713,7 +743,7 @@ static func _post_strike_weight_mult(c: Dictionary, a: Dictionary, manager: Node
 	var current_clock: float = manager.combat_clock
 	if absf(strike_tick_val - current_clock) >= CombatConstants.POST_STRIKE_MOMENTUM_CLOCK_TOLERANCE:
 		return 1.0
-	# Stamp is active â€”" check if this action targets the struck combatant.
+	# Stamp is active '"" check if this action targets the struck combatant.
 	var struck_id: int = c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID, -1)
 	if struck_id < 0:
 		return 1.0
@@ -727,7 +757,7 @@ static func _post_strike_weight_mult(c: Dictionary, a: Dictionary, manager: Node
 		return 1.0
 	if CombatConstants.is_formation_movement_move(mid):
 		return 1.0
-	# This is a strike/close vs the recently struck target â€”" apply bonus.
+	# This is a strike/close vs the recently struck target '"" apply bonus.
 	var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
 	if tgt.is_empty() or not _EntityAccess.alive_bool(tgt):
 		return 1.0
@@ -738,7 +768,7 @@ static func _post_strike_weight_mult(c: Dictionary, a: Dictionary, manager: Node
 	return CombatConstants.POST_STRIKE_HIT_WEIGHT_BONUS
 
 
-## Phase 2: Feint resistance gate â€”" returns true when defender has high readiness and is not off-balance.
+## Phase 2: Feint resistance gate '"" returns true when defender has high readiness and is not off-balance.
 ## Swordmaster teaching: "Do not react to the feint - wait for the real attack."
 ## Threshold >0.75 means: settled fighter with decent guard (>=0.80) rejects feints;
 ## recovering fighter must be >89% through recovery (0.75 / 0.85 curve max).
@@ -785,7 +815,7 @@ static func _salience_offense_weight_mult(c: Dictionary, manager: Node = null) -
 
 
 ## Duel/skirmish (few standing on side): damp routine offense.
-## Skip damp on post-flee sparse lines and mop-up tails â€”" low headcount should finish, not idle.
+## Skip damp on post-flee sparse lines and mop-up tails '"" low headcount should finish, not idle.
 static func _attrition_offense_weight_mult(manager: Node, c: Dictionary) -> float:
 	if manager == null:
 		return 1.0
@@ -818,7 +848,7 @@ static func _fight_finish_focus_damp_mult(
 	return CombatConstants.AI_FOCUS_LINE_SPARSE_ENGAGEMENT_LISTED_MULT
 
 
-## Tier 4.3.7: focus-line retarget â€”" party lead favors matching incoming telegraph; others rarely shift.
+## Tier 4.3.7: focus-line retarget '"" party lead favors matching incoming telegraph; others rarely shift.
 static func _focus_line_action_weight(
 	move_id: String, combatant_id: int, manager: Node, c: Dictionary, all_actions: Array = []
 ) -> float:
@@ -867,13 +897,13 @@ static func _focus_line_action_weight(
 
 static func _form_focus_preferred_mult(c: Dictionary, line: String) -> float:
 	var form: String = _EntityAccess.form_str(c)
-	for pg in _WeaponForm.preferred_guards(form):
+	for pg in _WeaponForm.preferred_guards(form, _EntityAccess.get_weapon(c)):
 		if pg == line:
 			return CombatConstants.AI_FOCUS_LINE_FORM_PREFERRED_MULT
 	return 1.0
 
 
-## Controlling opponent front rank ÃƒÂ¢Ã¢Â€Â ' lower disengage listing weight (pairs with duration mult).
+## Controlling opponent front rank ->''--''''' ' lower disengage listing weight (pairs with duration mult).
 static func _opponent_controlling_disengage_listing_divisor(manager: Node, c: Dictionary) -> float:
 	if manager == null or c.is_empty():
 		return 1.0
@@ -946,7 +976,7 @@ static func _depth_polearm_action_weight_mult(
 		return w2
 	return 1.0
 
-## Fitness for formation positioning: performance (attack capability) ÃƒÂƒ -  health (blood). Higher = more able to fight.
+## Fitness for formation positioning: performance (attack capability) ->'' -  health (blood). Higher = more able to fight.
 ## Used for swap rank: lowest fitness should be in back. Does not use stamina/action-ready.
 static func _get_positioning_fitness(c: Dictionary) -> float:
 	var perf: float = _EntityAccess.get_performance_modifier(c)
@@ -1089,10 +1119,10 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
 		targetable = _DepthPolearm.depth_polearm_targetable_parts_filter(manager, atk_pick, targetable)
 	if targetable.is_empty():
 		return
-	var move_def: Dictionary = WeaponConstants.get_move(choice.get("move_id", ""))
+	var move_id_pick: String = choice.get("move_id", "")
+	var move_def: Dictionary = WeaponConstants.get_move(move_id_pick)
 	var atk_line: String = move_def.get("attack_line", "high")
 	var guard_line: String = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)
-	var path: Array = CombatConstants.get_attack_path(atk_line, guard_line)
 	var atk_angle_list: float = CombatConstants.line_to_angle(atk_line)
 	if atk_pick != null and not atk_pick.is_empty():
 		atk_angle_list = _Footwork.attack_angle_deg_for_listing_preview(
@@ -1108,26 +1138,15 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
 		"guard_angle_deg": guard_angle_list,
 	}
 	var alignment: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx)
-	var intercept_max: int = int(lerpf(
-		float(CombatConstants.PATH_INTERCEPT_EARLY_MAX),
-		float(path.size() - 1),
-		1.0 - alignment
-	))
-	intercept_max = clampi(intercept_max, 0, path.size() - 1)
-	var path_segment: Array = []
-	for i in range(intercept_max + 1):
-		if i < path.size() and targetable.has(path[i]):
-			path_segment.append(path[i])
-	if not path_segment.is_empty():
-		var preferred: Array = move_def.get("preferred_parts", [])
-		var mult: float = CombatConstants.PREFERRED_PART_BONUS_MULT if not preferred.is_empty() else 1.0
-		choice["target_part"] = BodyPartConstants.get_weighted_random_part(path_segment, preferred, mult)
-		# Feint D: for feint moves, pick feint_part != target_part to bait defender
-		if move_def.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false):
-			var others: Array = []
-			for p in targetable:
-				if p != choice["target_part"]:
-					others.append(p)
-			if not others.is_empty():
-				choice["feint_part"] = others[randi() % others.size()]
-                                             
+	choice["target_part"] = _PathResolver.pick_ai_target_part(
+		atk_line, guard_line, targetable, alignment, move_def,
+		atk_pick, tgt, attacker_id, align_ctx, move_id_pick
+	)
+	if choice.get("target_part", "").is_empty():
+		return
+	if move_def.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false):
+		var feint_part: String = _PathResolver.pick_feint_part_for_attack(
+			choice["target_part"], targetable, tgt, attacker_id
+		)
+		if not feint_part.is_empty():
+			choice["feint_part"] = feint_part

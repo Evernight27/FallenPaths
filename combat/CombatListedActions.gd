@@ -34,7 +34,7 @@ static func action_list_has_hostile_strike(actions: Array, self_id: int) -> bool
 	return _action_list_has_hostile_engagement(actions, self_id, true)
 
 
-## Listed melee/feint vs hostile target —" excludes **`attempt_close`** (III-4 **3e** rotate suppress).
+## Listed melee/feint vs hostile target --" excludes **`attempt_close`** (III-4 **3e** rotate suppress).
 static func action_list_has_hostile_melee_strike(actions: Array, self_id: int) -> bool:
 	return _action_list_has_hostile_engagement(actions, self_id, false)
 
@@ -96,7 +96,7 @@ static func action_list_is_hold_line_only(actions: Array) -> bool:
 	return saw_action
 
 
-## Hold-line plus **`attempt_close`** only (no melee) —" same reserve posture / wait requirement.
+## Hold-line plus **`attempt_close`** only (no melee) --" same reserve posture / wait requirement.
 static func action_list_is_reserve_posture_only(actions: Array) -> bool:
 	var saw_action: bool = false
 	for raw in actions:
@@ -269,7 +269,7 @@ static func filter_actions(actions: Array, keep_predicate: Callable) -> Array:
 	return out
 
 
-## LONG band, close listed but no melee strikes —" mapped rank-0 band-lag shuffle (not bind-close wings).
+## LONG band, close listed but no melee strikes --" mapped rank-0 band-lag shuffle (not bind-close wings).
 static func long_close_only_offense_menu(
 	manager: Node, c: Dictionary, combatant_id: int, all_actions: Array
 ) -> bool:

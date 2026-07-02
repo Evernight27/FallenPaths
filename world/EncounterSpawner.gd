@@ -112,7 +112,7 @@ static func weapon_id_from_entity(entity: Node) -> String:
 	return ""
 
 
-## D-persistence P2: body_part â†' armor definition id (empty values omitted).
+## D-persistence P2: body_part |' armor definition id (empty values omitted).
 static func armor_ids_from_entity(entity: Node) -> Dictionary:
 	var out: Dictionary = {}
 	if entity == null or not ("armor_slots" in entity):
