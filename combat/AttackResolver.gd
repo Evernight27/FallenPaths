@@ -36,20 +36,20 @@ const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 ## Multiplier applied to sharp/blunt penetration for oblique incidence (parry/deflect or misaligned guard).
 ## When `velocity_override` < 0, intensity-derived speed is used and this factor stays **1** (no oblique scaling here).
+## Compound model: parry_factor × align_factor — a parried strike that also arrives obliquely suffers both reductions simultaneously.
 static func penetration_oblique_angle_factor(
 	velocity_override: float, parry_remaining_ratio: float, alignment: float
 ) -> float:
 	if velocity_override < 0.0:
 		return 1.0
-	var angle_factor: float = 1.0
+	var parry_factor: float = 1.0
 	if parry_remaining_ratio < 1.0:
-		var angle_min_p: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
-		angle_factor = lerpf(1.0, angle_min_p, 1.0 - parry_remaining_ratio)
-	elif parry_remaining_ratio >= 1.0 and alignment < 1.0:
-		var align_scale: float = CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
-		var angle_min_a: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
-		angle_factor = lerpf(1.0, angle_min_a, (1.0 - alignment) * align_scale)
-	return angle_factor
+		parry_factor = lerpf(1.0, CombatConstants.PARRY_PENETRATION_ANGLE_MIN, 1.0 - parry_remaining_ratio)
+	var align_factor: float = 1.0
+	if alignment < 1.0:
+		var obliquity_deg: float = (1.0 - alignment) * 75.0
+		align_factor = cos(deg_to_rad(obliquity_deg))
+	return parry_factor * align_factor
 
 
 ## Returns { "result_dict": Dictionary, "outcome": String, "recovery_duration": float }.
@@ -554,7 +554,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		}
 		var intended_part: String = pa.get("target_part", "")
 		part = _PathResolver.resolve_hit_part(
-			atk_line, guard_line, targetable, defender_ctx, intended_part, tgt, align_ctx, atk, move_def
+			atk_line, guard_line, targetable, defender_ctx, intended_part, tgt, align_ctx, atk, move_def, pa.get(_DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW, true)
 		)
 		if part.is_empty():
 			part = BodyPartConstants.get_weighted_random_part(targetable)

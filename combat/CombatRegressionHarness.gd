@@ -3921,8 +3921,7 @@ static func _run_kinematic_delivery_penetration_oblique_angle_factor_attack_reso
 			"kin_oblique: parry 0.5 want %.6f got %.6f" % [w_parry_half, f_parry_half]
 		)
 	var f_align_edge: float = _AttackResolver.penetration_oblique_angle_factor(5.0, 1.0, 0.0)
-	var t_align: float = (1.0 - 0.0) * ascale
-	var w_align: float = lerpf(1.0, amin, t_align)
+	var w_align: float = cos(deg_to_rad(75.0))
 	if absf(f_align_edge - w_align) > tol:
 		_fail(
 			failures,
@@ -3933,16 +3932,15 @@ static func _run_kinematic_delivery_penetration_oblique_angle_factor_attack_reso
 	if absf(f_parry_zero - w_pz) > tol:
 		_fail(failures, "kin_oblique: parry 0 want %.6f got %.6f" % [w_pz, f_parry_zero])
 	var f_parry_wins: float = _AttackResolver.penetration_oblique_angle_factor(5.0, 0.25, 0.0)
-	var w_pw: float = lerpf(1.0, amin, 0.75)
+	var w_pw: float = lerpf(1.0, amin, 0.75) * cos(deg_to_rad(75.0))
 	if absf(f_parry_wins - w_pw) > tol:
 		_fail(
 			failures,
-			"kin_oblique: parry 0.25+align0 should use parry branch want %.6f got %.6f"
+			"kin_oblique: parry 0.25+align0 should compound factors want %.6f got %.6f"
 			% [w_pw, f_parry_wins]
 		)
 	var f_align_mid: float = _AttackResolver.penetration_oblique_angle_factor(3.0, 1.0, 0.5)
-	var t_mid: float = (1.0 - 0.5) * ascale
-	var w_mid: float = lerpf(1.0, amin, t_mid)
+	var w_mid: float = cos(deg_to_rad((1.0 - 0.5) * 75.0))
 	if absf(f_align_mid - w_mid) > tol:
 		_fail(failures, "kin_oblique: align 0.5 want %.6f got %.6f" % [w_mid, f_align_mid])
 
@@ -3996,7 +3994,7 @@ static func _run_kinematic_delivery_compute_damage_oblique_penetration_integrati
 	var amin: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
 	var ascale: float = CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
 	var want_parry_half: float = lerpf(1.0, amin, 0.5)
-	var want_align_zero: float = lerpf(1.0, amin, ascale)
+	var want_align_zero: float = cos(deg_to_rad(75.0))
 
 	var base: Vector2 = _kin_dmg_pen_sample(vo_pin, 1.0, 1.0, {})
 	if base.x <= 0.001:

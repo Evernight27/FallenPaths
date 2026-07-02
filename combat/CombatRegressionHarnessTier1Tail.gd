@@ -8484,3 +8484,68 @@ static func run_late(failures: PackedStringArray) -> void:
 	_run_doctrine_normalize_and_manager_roundtrip(failures)
 	_run_encounter_formation_doctrine_on_start(failures)
 	_run_encounter_formation_doctrine_string_helper(failures)
+	_run_gap1_axe_overhead_chop_head_weight_clamp(failures)
+	_run_gap6_diagonal_variance_distribution(failures)
+
+
+static func _run_gap1_axe_overhead_chop_head_weight_clamp(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("AXE"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var atk: Dictionary = mgr.combatants[0]
+	var enm: Dictionary = mgr.combatants[1]
+	_CombatDoctrine.normalize_doctrine(mgr)
+	for c in mgr.combatants:
+		if c is Dictionary:
+			_WeaponForm.assign_form(mgr, c as Dictionary, _WeaponForm.FORM_BALANCED, "harness_gap1")
+	var move_def: Dictionary = WeaponConstants.get_move("overhead_chop")
+	var attack_line: String = move_def.get("attack_line", "high")
+	var guard_line: String = enm.get("guard_line", CombatConstants.GUARD_DEFAULT)
+	var targetable: Array = _EntityAccess.get_targetable_parts(enm)
+	if targetable.is_empty():
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var segment: Array = AttackPathResolver.path_segment_for_strike(attack_line, guard_line, targetable, 0.9, {})
+	if segment.is_empty():
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var weights: Dictionary = AttackPathResolver.part_weights_for_ai_pick(segment, attack_line, move_def, atk, enm, _EntityAccess.id_int(atk), "overhead_chop", true)
+	var head_w: float = weights.get("head", 1.0)
+	var anatomy_head: float = BodyPartConstants.BODY_PART_TARGET_WEIGHTS.get("head", 1.2)
+	var max_allowed: float = anatomy_head * AttackPathResolver.MAX_PRE_INT_WEIGHT_MULT * 1.5
+	if head_w > max_allowed + 0.01:
+		CombatRegressionHarness._fail(failures, "gap1_axe_overhead_chop_head: weight %.4f exceeds cap %.4f (anatomy %.2f × 1.5 × preferred 1.5)" % [head_w, max_allowed, anatomy_head])
+	CombatRegressionHarness._free_manager(mgr)
+
+
+static func _run_gap6_diagonal_variance_distribution(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+	var atk: Dictionary = mgr.combatants[0]
+	var enm: Dictionary = mgr.combatants[1]
+	_CombatDoctrine.normalize_doctrine(mgr)
+	for c in mgr.combatants:
+		if c is Dictionary:
+			_WeaponForm.assign_form(mgr, c as Dictionary, _WeaponForm.FORM_BALANCED, "harness_gap6")
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+	var attack_line: String = move_def.get("attack_line", "high")
+	enm["guard_line"] = "high"
+	var targetable: Array = _EntityAccess.get_targetable_parts(enm)
+	if targetable.is_empty():
+		targetable = ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"]
+	var segment: Array = AttackPathResolver.path_segment_for_strike(attack_line, "high", targetable, 0.9, {})
+	if segment.is_empty():
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var weights: Dictionary = AttackPathResolver.part_weights_for_ai_pick(segment, attack_line, move_def, atk, enm, _EntityAccess.id_int(atk), "oberhau", true)
+	var has_nonhigh: bool = false
+	for p in weights.keys():
+		if not p.begins_with("right_arm") and not p.begins_with("left_arm") and p != "head" and p != "chest":
+			has_nonhigh = true
+			break
+	if not has_nonhigh:
+		CombatRegressionHarness._fail(failures, "gap6_oberhau_high_guard: diagonal variance should distribute weight beyond declared line parts (got %s)" % str(weights.keys()))
+	CombatRegressionHarness._free_manager(mgr)

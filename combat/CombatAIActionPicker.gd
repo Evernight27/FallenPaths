@@ -1117,6 +1117,7 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
 	var atk_pick: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
 	if not atk_pick.is_empty():
 		targetable = _DepthPolearm.depth_polearm_targetable_parts_filter(manager, atk_pick, targetable)
+	var depth_allows_low: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(manager, atk_pick, move_id_pick) if not atk_pick.is_empty() else true
 	if targetable.is_empty():
 		return
 	var move_id_pick: String = choice.get("move_id", "")
@@ -1140,7 +1141,7 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
 	var alignment: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx)
 	choice["target_part"] = _PathResolver.pick_ai_target_part(
 		atk_line, guard_line, targetable, alignment, move_def,
-		atk_pick, tgt, attacker_id, align_ctx, move_id_pick
+		atk_pick, tgt, attacker_id, align_ctx, move_id_pick, depth_allows_low
 	)
 	if choice.get("target_part", "").is_empty():
 		return

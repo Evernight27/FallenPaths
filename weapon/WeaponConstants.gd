@@ -66,7 +66,7 @@ const SHARPNESS_FACTOR_MIN: float = 0.2
 # --- Momentum-based blunt damage ---
 # Pre-armor blunt = DAMAGE_MOMENTUM_SCALE * (mass_kg * velocity_m_s) * strength_mod * arm_mod * contact_factor, clamped.
 # Tuned so typical mace (1.7 kg, 12 m/s) and sword blunt portion sit in same band as before.
-const DAMAGE_MOMENTUM_SCALE: float = 0.42
+const DAMAGE_MOMENTUM_SCALE: float = 0.65
 const BLUNT_DAMAGE_MIN: float = 1.0
 const BLUNT_DAMAGE_MAX: float = 80.0
 

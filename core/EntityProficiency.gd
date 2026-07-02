@@ -164,6 +164,19 @@ static func award_stat_gain(entity: CoreEntity, stat: String, raw_amount: float,
 	entity._proficiency_bonus[stat] = current_bonus + modified_amount
 
 
+## Like award_stat_gain but without stance_mods lookup — for cognitive stats where form-dependent modifiers don't apply.
+static func award_stat_gain_raw(entity: CoreEntity, stat: String, raw_amount: float) -> void:
+	if not _get_company_state().read_stub_proficiency_enabled():
+		return
+	if entity == null or not "_proficiency_bonus" in entity:
+		return
+	if not _is_valid_stat(stat):
+		return
+	var current_bonus: float = maxf(0.0, float(entity._proficiency_bonus.get(stat, 0) or 0))
+	var gain_mult: float = _get_gain_multiplier_for_float(current_bonus)
+	entity._proficiency_bonus[stat] = current_bonus + raw_amount * gain_mult
+
+
 static func normalize_weapon_id(weapon_id: String) -> String:
 	return str(weapon_id).to_upper().strip_edges()
 
@@ -269,14 +282,14 @@ static func notify_targeting_gains_from_hit(
 	var preferred: Array = move_def.get("preferred_parts", [])
 	if not intended_part.is_empty() and hit_part == intended_part:
 		if not preferred.is_empty() and preferred.has(hit_part):
-			award_stat_gain(entity, "intelligence", GAIN_PREFERRED_PART_INT_BASE, weapon_id, form_str)
+			award_stat_gain_raw(entity, "intelligence", GAIN_PREFERRED_PART_INT_BASE)
 	if (
 		not defender_focus_part.is_empty()
 		and not intended_part.is_empty()
 		and intended_part != defender_focus_part
 		and hit_part == intended_part
 	):
-		award_stat_gain(entity, "perception", GAIN_OFF_FOCUS_HIT_PER_BASE, weapon_id, form_str)
+		award_stat_gain_raw(entity, "perception", GAIN_OFF_FOCUS_HIT_PER_BASE)
 
 
 ## Called between contracts  -  applies decay for inactive mercenaries using calendar days.
