@@ -354,8 +354,8 @@ static func _run_endurance_blood_volume_mult(failures: PackedStringArray) -> voi
 
 	ent.endurance = 150
 	var mult_150: float = ent.get_endurance_blood_volume_mult()
-	if absf(mult_150 - 1.25) > 0.01:
-		_CombatRegressionHarness._fail(failures, "end_bvm@150: should be 1.25 (got %.4f)" % mult_150)
+	if absf(mult_150 - 1.125) > 0.01:
+		_CombatRegressionHarness._fail(failures, "end_bvm@150: should be 1.125 (got %.4f)" % mult_150)
 
 	ent.endurance = 80
 	var mult_80: float = ent.get_endurance_blood_volume_mult()

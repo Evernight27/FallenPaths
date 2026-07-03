@@ -274,9 +274,9 @@ static func _serialize_entity(entity: Node) -> Dictionary:
 		"bone_health": _deep_dup(entity.bone_health) if "bone_health" in entity else {},
 		# XCamp-4: proficiency data.
 		"proficiency_bonus": _deep_dup(entity._proficiency_bonus) if "_proficiency_bonus" in entity else {},
-		"training_pending": _deep_dup(entity._training_pending) if "_training_pending" in entity else {},
-		"last_fought_day": int(entity._last_fought_day) if "_last_fought_day" in entity else 0,
-		"last_fought_in_combat": bool(entity._last_fought_in_combat) if "_last_fought_in_combat" in entity else false,
+		"training_pending": _deep_dup(entity.training_pending) if "training_pending" in entity else {},
+		"last_fought_day": int(entity.last_fought_day) if "last_fought_day" in entity else 0,
+		"last_fought_in_combat": bool(entity.last_fought_in_combat) if "last_fought_in_combat" in entity else false,
 		"weapon_id": _EncounterSpawner.weapon_id_from_entity(entity),
 		"armor_by_part": _EncounterSpawner.armor_ids_from_entity(entity),
 	}
@@ -372,15 +372,15 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
 		var _prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
 		for key in _prof_keys:
 			entity._proficiency_bonus[key] = float(saved_prof.get(key, 0) or 0)
-	if data.has("training_pending") and "_training_pending" in entity:
+	if data.has("training_pending") and "training_pending" in entity:
 		var saved_train: Dictionary = data.get("training_pending", {})
-		var _prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
-		for key in _prof_keys:
-			entity._training_pending[key] = float(saved_train.get(key, 0) or 0)
-	if data.has("last_fought_day") and "_last_fought_day" in entity:
-		entity._last_fought_day = data.get("last_fought_day", 0)
-	if data.has("last_fought_in_combat") and "_last_fought_in_combat" in entity:
-		entity._last_fought_in_combat = data.get("last_fought_in_combat", false)
+		var _prof_keys_p := ["strength", "agility", "intelligence", "endurance", "perception"]
+		for key in _prof_keys_p:
+			entity.training_pending[key] = float(saved_train.get(key, 0) or 0)
+	if data.has("last_fought_day") and "last_fought_day" in entity:
+		entity.last_fought_day = data.get("last_fought_day", 0)
+	if data.has("last_fought_in_combat") and "last_fought_in_combat" in entity:
+		entity.last_fought_in_combat = data.get("last_fought_in_combat", false)
 	_sync_entity_vitals(entity)
 
 

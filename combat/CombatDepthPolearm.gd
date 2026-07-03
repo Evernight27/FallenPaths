@@ -239,7 +239,7 @@ static func _depth_polearm_action_weight_mult_internal(
 	if manager == null or c.is_empty():
 		return 1.0
 	var fid_depth: String = (
-		actor_zone_geometry_line_context.get("zone_geometry_fid", "")
+		_ZoneOfControl.zone_geometry_fid_from_pack(actor_zone_geometry_line_context)
 		if not actor_zone_geometry_line_context.is_empty()
 		else ""
 	)

@@ -195,7 +195,11 @@ static func part_weights_for_ai_pick(
 	defender: Dictionary,
 	attacker_id: int,
 	move_id: String = "",
-	depth_allows_low: bool = true
+	depth_allows_low: bool = true,
+	targetable: Array = [],
+	guard_line: String = "",
+	alignment: float = -1.0,
+	alignment_context: Dictionary = {}
 ) -> Dictionary:
 	var weights: Dictionary = {}
 	if path_segment.is_empty():
@@ -288,7 +292,7 @@ static func part_weights_for_ai_pick(
 				break
 		weights[p] = maxf(w, 0.001)
 	# Diagonal variance: blend across resolved lines instead of using declared attack_line weights.
-	weights = _apply_diagonal_variance_weights(weights, path_segment, attack_line, move_def, attacker, defender, attacker_id, move_id, preferred_mult, preferred)
+	weights = _apply_diagonal_variance_weights(weights, path_segment, move_def, attacker, defender, attacker_id, move_id, preferred_mult, preferred, depth_allows_low, targetable, guard_line, alignment, alignment_context)
 	return weights
 
 
@@ -331,7 +335,8 @@ static func pick_ai_target_part(
 	if segment.is_empty():
 		return _Bp.get_weighted_random_part(targetable)
 	var weights: Dictionary = part_weights_for_ai_pick(
-		segment, attack_line, move_def, attacker, defender, attacker_id, move_id, depth_allows_low
+		segment, attack_line, move_def, attacker, defender, attacker_id, move_id, depth_allows_low,
+		targetable, guard_line, alignment, alignment_context
 	)
 	return pick_weighted_part_from_weights(weights, segment)
 
@@ -378,20 +383,36 @@ static func _get_diagonal_resolve_distribution(move_id: String, guard_line: Stri
 
 
 ## Compute Layer B weights as expected distribution over diagonal resolve lines, replacing declared-line weighting.
-static func _apply_diagonal_variance_weights(weights: Dictionary, segment: Array, attack_line: String, move_def: Dictionary, attacker: Dictionary, defender: Dictionary, attacker_id: int, move_id: String, preferred_mult: float, preferred: Array) -> Dictionary:
+## When `targetable`, `guard_line`, and `alignment` are provided, computes a fresh segment per resolved line
+## so that parts from different attack lines (legs, etc.) receive weight.
+static func _apply_diagonal_variance_weights(weights: Dictionary, segment: Array, move_def: Dictionary, attacker: Dictionary, defender: Dictionary, attacker_id: int, move_id: String, preferred_mult: float, preferred: Array, depth_allows_low: bool = true, targetable: Array = [], guard_line: String = "", alignment: float = -1.0, alignment_context: Dictionary = {}) -> Dictionary:
 	if move_id.is_empty():
 		return weights
-	var diagonal_dist: Dictionary = _get_diagonal_resolve_distribution(move_id, attack_line)
+	if guard_line.is_empty():
+		guard_line = defender.get("guard_line", CombatConstants.GUARD_DEFAULT)
+	var diagonal_dist: Dictionary = _get_diagonal_resolve_distribution(move_id, guard_line)
 	if diagonal_dist.is_empty():
 		return weights
 	var expected_weights: Dictionary = {}
+	var can_segment_per_line: bool = not targetable.is_empty() and alignment >= 0.0
 	for resolved_line in diagonal_dist.keys():
-		var line_w: Dictionary = _compute_weights_for_segment(segment, resolved_line, move_def, attacker, defender, attacker_id, move_id, preferred_mult, preferred)
+		var line_seg: Array = segment
+		if can_segment_per_line:
+			var resolved_seg: Array = path_segment_for_strike(resolved_line, guard_line, targetable, alignment, alignment_context)
+			if not resolved_seg.is_empty():
+				line_seg = resolved_seg
+		var line_w: Dictionary = _compute_weights_for_segment(line_seg, resolved_line, move_def, attacker, defender, attacker_id, move_id, preferred_mult, preferred, depth_allows_low)
 		for p in line_w.keys():
 			expected_weights[p] = expected_weights.get(p, 0.0) + line_w[p] * diagonal_dist[resolved_line]
 	var result: Dictionary = {}
+	var seen: Dictionary = {}
 	for p in weights.keys():
+		seen[p] = true
 		result[p] = maxf(expected_weights.get(p, 0.001), 0.001)
+	for p in expected_weights.keys():
+		if not seen.has(p):
+			seen[p] = true
+			result[p] = maxf(expected_weights[p], 0.001)
 	return result
 
 
@@ -405,13 +426,15 @@ static func _compute_weights_for_segment(
 	attacker_id: int,
 	move_id: String,
 	preferred_mult: float,
-	preferred: Array
+	preferred: Array,
+	depth_allows_low: bool = true
 ) -> Dictionary:
 	var weights: Dictionary = {}
 	if path_segment.is_empty():
 		return weights
 	var wid_pick: String = _weapon_id_for_attacker(attacker)
-	var preferred_guards: Array = _WeaponForm.preferred_guards(_EntityAccess.form_str(attacker))
+	var form: String = _EntityAccess.form_str(attacker)
+	var preferred_guards: Array = _WeaponForm.preferred_guards(form)
 	var form_prof_tier: float = 0.0
 	var weapon_prof_tier: float = 0.0
 	var prof_aim_mult: float = 1.0
@@ -431,9 +454,9 @@ static func _compute_weights_for_segment(
 			dom_count = _Attention.line_count_toward_defender(defender, attacker_id, dom_line)
 	var ent: CoreEntity = _EntityAccess.scene_entity(attacker)
 	if ent != null:
-		form_prof_tier = _Proficiency.form_proficiency_tier(ent, _EntityAccess.form_str(attacker))
+		form_prof_tier = _Proficiency.form_proficiency_tier(ent, form)
 		weapon_prof_tier = _Proficiency.weapon_proficiency_tier(ent, wid_pick)
-		prof_aim_mult = _Proficiency.proficiency_aim_part_mult(ent, wid_pick, _EntityAccess.form_str(attacker))
+		prof_aim_mult = _Proficiency.proficiency_aim_part_mult(ent, wid_pick, form)
 	var stats: Dictionary = _EntityAccess.stats_dict(attacker)
 	var perception: float = float(stats.get("perception", CombatConstants.DEFAULT_STAT_VALUE))
 	var perc_tier: float = _stat_exploit_tier(perception)
@@ -444,11 +467,16 @@ static func _compute_weights_for_segment(
 	var contact_type: String = str(move_def.get("contact_type", "")).to_lower()
 	for p in path_segment:
 		var w: float = _Bp.BODY_PART_TARGET_WEIGHTS.get(p, 1.0)
-		w *= _Bp.weapon_part_target_mult(wid_pick, p, contact_type)
-		w *= _WeaponForm.target_part_weight_mult(_EntityAccess.form_str(attacker), p, form_prof_tier, _EntityAccess.get_weapon(attacker))
+		var wid_mult: float = _Bp.weapon_part_target_mult(wid_pick, p, contact_type)
+		if not depth_allows_low and (p == BodyPartConstants.PART_LEFT_LEG or p == BodyPartConstants.PART_RIGHT_LEG):
+			wid_mult = 1.0
+		w *= wid_mult
+		w *= _WeaponForm.target_part_weight_mult(form, p, form_prof_tier, _EntityAccess.get_weapon(attacker))
 		if not move_id.is_empty():
-			w *= _WeaponForm.move_family_part_weight_mult(_EntityAccess.form_str(attacker), move_id, p, _EntityAccess.get_weapon(attacker))
+			w *= _WeaponForm.move_family_part_weight_mult(form, move_id, p, _EntityAccess.get_weapon(attacker))
 		w *= lerpf(1.0, prof_aim_mult, weapon_prof_tier * 0.5 + form_prof_tier * 0.5)
+		var anatomy_base_clamp: float = _Bp.BODY_PART_TARGET_WEIGHTS.get(p, 1.0)
+		w = minf(w, anatomy_base_clamp * MAX_PRE_INT_WEIGHT_MULT)
 		if preferred.has(p):
 			w *= preferred_mult
 		var part_line: String = CombatConstants.PART_TO_LINE.get(p, "")

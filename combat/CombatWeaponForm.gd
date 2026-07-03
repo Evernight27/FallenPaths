@@ -480,8 +480,8 @@ static func infer_opponent_form(manager: Node, observer: Dictionary, opponent_id
 	var best_form: String = ""
 	var best_score: float = -1.0
 	var second_score: float = -1.0
-	for raw_form in _form_ids_for_weapon(opp_weapon):
-		var fid: String = str(raw_form)
+	for entry_raw_form in _form_ids_for_weapon(opp_weapon):
+		var fid: String = str(entry_raw_form)
 		var s: float = _signature_score_for_entry(fid, entry, opp_weapon)
 		if s > best_score:
 			second_score = best_score
@@ -757,8 +757,8 @@ static func _counter_form_vs_inferred(weapon: Variant, inferred_opp: String) -> 
 	_ensure_defs()
 	var best_form: String = ""
 	var best_mult: float = 1.0
-	for raw_form in _form_ids_for_weapon(weapon):
-		var fid: String = normalize_form(str(raw_form), weapon)
+	for entry_raw_form in _form_ids_for_weapon(weapon):
+		var fid: String = normalize_form(str(entry_raw_form), weapon)
 		if not form_allowed_for_weapon(fid, weapon):
 			continue
 		var mult: float = _counter_spec_for_inferred(fid, inferred_opp, weapon).get("mult", 1.0)

@@ -1118,7 +1118,7 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
 	if not atk_pick.is_empty():
 		targetable = _DepthPolearm.depth_polearm_targetable_parts_filter(manager, atk_pick, targetable)
 	var move_id_pick: String = choice.get("move_id", "")
-	var depth_allows_low: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(manager, atk_pick, move_id_pick) if not atk_pick.is_empty() else true
+	var depth_allows_low: bool = _DepthPolearm.depth_polearm_lane_allows_low_targets(manager, atk_pick) if not atk_pick.is_empty() else true
 	if targetable.is_empty():
 		return
 	var move_def: Dictionary = WeaponConstants.get_move(move_id_pick)

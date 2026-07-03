@@ -8486,6 +8486,7 @@ static func run_late(failures: PackedStringArray) -> void:
 	_run_encounter_formation_doctrine_on_start(failures)
 	_run_encounter_formation_doctrine_string_helper(failures)
 	_run_gap1_axe_overhead_chop_head_weight_clamp(failures)
+	_run_gap3_spear_diagonal_depth_gate(failures)
 	_run_gap6_diagonal_variance_distribution(failures)
 
 
@@ -8520,6 +8521,65 @@ static func _run_gap1_axe_overhead_chop_head_weight_clamp(failures: PackedString
 	CombatRegressionHarness._free_manager(mgr)
 
 
+## Gap 3: spear depth gating must protect legs during diagonal attacks (diagonal variance path should not re-introduce legs excluded by depth).
+static func _run_gap3_spear_diagonal_depth_gate(failures: PackedStringArray) -> void:
+	var mgr: Node = _MgrScript.new()
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	var p_preset := {"files": 1, "ranks": 2, "density": "normal"}
+	var e_preset := {"files": 1, "ranks": 1, "density": "normal"}
+	mgr.start(p_preset, e_preset)
+	var atk: Dictionary = mgr.combatants[1]
+	var enm: Dictionary = mgr.combatants[2]
+	if not _DepthPolearm.depth_polearm_lane_open(mgr, atk):
+		CombatRegressionHarness._fail(failures, "gap3_spear_diagonal_depth: expected depth lane open")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	_CombatDoctrine.evaluate_automatic_doctrine(mgr)
+	for c in mgr.combatants:
+		if c is Dictionary:
+			_WeaponForm.assign_form(mgr, c as Dictionary, _WeaponForm.FORM_BALANCED, "harness_gap3")
+	mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
+	mgr.formations["player"]["density"] = "tight"
+	mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
+	if _DepthPolearm.depth_polearm_lane_allows_low_targets(mgr, atk):
+		CombatRegressionHarness._fail(failures, "gap3_spear_diagonal_depth: expected strict+tight+no wedge to block low targets")
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var targetable: Array = _EntityAccess.get_targetable_parts(enm)
+	if targetable.is_empty():
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var filtered: Array = _DepthPolearm.depth_polearm_targetable_parts_filter(mgr, atk, targetable)
+	if filtered.is_empty():
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var has_legs: bool = false
+	for p in filtered:
+		if p == BodyPartConstants.PART_LEFT_LEG or p == BodyPartConstants.PART_RIGHT_LEG:
+			has_legs = true
+			break
+	if has_legs:
+		CombatRegressionHarness._fail(failures, "gap3_spear_diagonal_depth: depth_polearm_targetable_parts_filter should exclude legs when depth blocks low (got %s)" % str(filtered))
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	# Production flow: pre-filtered targetable (no legs) + diagonal oberhau -> no leg weights
+	var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+	var attack_line: String = move_def.get("attack_line", "high")
+	var guard_line: String = enm.get("guard_line", CombatConstants.GUARD_DEFAULT)
+	var segment: Array = AttackPathResolver.path_segment_for_strike(attack_line, guard_line, filtered, 0.9, {})
+	if segment.is_empty():
+		CombatRegressionHarness._free_manager(mgr)
+		return
+	var weights: Dictionary = AttackPathResolver.part_weights_for_ai_pick(segment, attack_line, move_def, atk, enm, _EntityAccess.id_int(atk), "oberhau", false, filtered, guard_line, 0.9, {})
+	for p in weights.keys():
+		if p == BodyPartConstants.PART_LEFT_LEG or p == BodyPartConstants.PART_RIGHT_LEG:
+			CombatRegressionHarness._fail(failures, "gap3_spear_diagonal_depth: diagonal oberhau should not distribute weight to legs with pre-filtered targetable (got %s)" % str(weights.keys()))
+			break
+	CombatRegressionHarness._free_manager(mgr)
+
+
 static func _run_gap6_diagonal_variance_distribution(failures: PackedStringArray) -> void:
 	var mgr: Node = _MgrScript.new()
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
@@ -8541,7 +8601,7 @@ static func _run_gap6_diagonal_variance_distribution(failures: PackedStringArray
 	if segment.is_empty():
 		CombatRegressionHarness._free_manager(mgr)
 		return
-	var weights: Dictionary = AttackPathResolver.part_weights_for_ai_pick(segment, attack_line, move_def, atk, enm, _EntityAccess.id_int(atk), "oberhau", true)
+	var weights: Dictionary = AttackPathResolver.part_weights_for_ai_pick(segment, attack_line, move_def, atk, enm, _EntityAccess.id_int(atk), "oberhau", true, targetable, "high", 0.9, {})
 	var has_nonhigh: bool = false
 	for p in weights.keys():
 		if not p.begins_with("right_arm") and not p.begins_with("left_arm") and p != "head" and p != "chest":

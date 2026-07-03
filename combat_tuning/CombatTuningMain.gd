@@ -1552,7 +1552,7 @@ func _open_batch_window() -> void:
 	var cycle_spin := SpinBox.new()
 	cycle_spin.min_value = 1
 	cycle_spin.max_value = 10000
-	cycle_spin.value = 100
+	cycle_spin.value = 3
 	cycle_spin.step = 1
 	cycle_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cycle_row.add_child(cycle_spin)

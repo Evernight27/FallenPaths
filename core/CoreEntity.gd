@@ -16,6 +16,14 @@ var last_fought_day: int = 0
 var last_fought_in_combat: bool = false
 
 
+func get_training_pending() -> Dictionary:
+	return training_pending
+
+
+func set_training_pending_value(stat: String, value: float) -> void:
+	training_pending[stat] = value
+
+
 # BleedingConstants is class_name in core/_Bleeding.gd; preload for linter/standalone parse
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _BloodVolumeMl := preload("res://core/BloodVolumeMl.gd")
@@ -113,6 +121,14 @@ var _proficiency_bonus: Dictionary = {
 ## Per-weapon / per-form fight familiarity (XCamp-4 targeting extension). Not decayed yet.
 var _weapon_proficiency: Dictionary = {}
 var _form_proficiency: Dictionary = {}
+
+
+func get_weapon_proficiency() -> Dictionary:
+	return _weapon_proficiency
+
+
+func get_form_proficiency() -> Dictionary:
+	return _form_proficiency
 
 
 func get_combat_blood_loss_mult() -> float:

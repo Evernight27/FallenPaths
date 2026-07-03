@@ -29,6 +29,7 @@ const _LogFormatter := preload("res://ui/CombatLogFormatter.gd")
 const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
 const _HitSubRegion := preload("res://combat/CombatHitSubRegion.gd")
 const _Proficiency := preload("res://core/EntityProficiency.gd")
+const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 
 ## Debug logging --" delegates to `CombatDebug.log` which gates on `combat_debug_active`.
@@ -138,13 +139,13 @@ static func compute_and_apply_damage(
 		)
 		pre_cut *= sm.get("cut_damage_mult", 1.0)
 		pre_armor = pre_cut + pre_blunt
-		var pen_sharp_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, CombatConstants.DAMAGE_TYPE_SHARP)
+		var pen_sharp_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, _WeaponConstants.DAMAGE_TYPE_SHARP)
 		pen_sharp = pen_sharp_dict.get("penetration_sharp", -1.0)
 		var blunt_opts: Dictionary = {}
 		_EntityAccess.apply_armor_sharp_resistance_to_blunt_opts(blunt_opts, tgt, part)
 		blunt_opts["pen_sharp_mm"] = pen_sharp
 		blunt_opts["target_effective_mass_kg"] = target_mass
-		var pen_blunt_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, CombatConstants.DAMAGE_TYPE_BLUNT, blunt_opts)
+		var pen_blunt_dict: Dictionary = WeaponDamageHelper.compute_penetration(weapon, attack_instance, _WeaponConstants.DAMAGE_TYPE_BLUNT, blunt_opts)
 		pen_blunt_momentum_per_area = pen_blunt_dict.get("penetration_blunt_momentum_per_area", -1.0)
 		blunt_contact_cm = pen_blunt_dict.get("blunt_contact_cm", -1.0)
 		# Angle (deflection): oblique impact = less penetration (armor research).

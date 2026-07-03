@@ -34,7 +34,7 @@ const PARRY_REDIRECT_THRUST_BONUS := 0.22
 const PARRY_REDIRECT_BLUNT_PENALTY := 0.12
 const PARRY_CUT_TO_BLUNT_SHIFT := 0.45
 const PARRY_PENETRATION_ANGLE_MIN := 0.72
-const PARRY_PENETRATION_ALIGNMENT_SCALE := 0.5
+const PARRY_PENETRATION_ALIGNMENT_SCALE := 0.5  # Legacy: replaced by cosine obliquity model (AttackResolver.penetration_oblique_angle_factor). Kept for harness regression tests.
 const PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD := 0.6
 const PARRY_BIND_CONTROL_THRESHOLD := 0.65
 
