@@ -545,6 +545,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var align_ctx: Dictionary = {"attack_angle_deg": atk_angle, "guard_angle_deg": guard_angle}
 	var hit_alignment: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx, wobble_hit)
 	var part: String = pa.get("partial_dodge_part", "")
+	var intended_part: String = pa.get("target_part", "")
 	if part.is_empty():
 		# Path + guard intercept; defender_ctx and intended_part refine hit distribution. Angle-based trajectory.
 		var defender_ctx: Dictionary = {
@@ -552,7 +553,6 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 			"recovery_cause": CombatConstants.normalize_recovery_cause(tgt.get("recovery_cause", "")),
 			"passive_parry_attempted": pa.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false)
 		}
-		var intended_part: String = pa.get("target_part", "")
 		part = _PathResolver.resolve_hit_part(
 			atk_line, guard_line, targetable, defender_ctx, intended_part, tgt, align_ctx, atk, move_def, pa.get(_DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW, true)
 		)

@@ -224,4 +224,3 @@ static func _find_party_button(world: Node2D) -> Control:
 		if "name" in child and child.name == "PartyButton":
 			return child
 	return null
-

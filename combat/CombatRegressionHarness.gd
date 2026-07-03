@@ -89,6 +89,7 @@ const _SimulationTail := preload("res://combat/CombatRegressionHarnessSimulation
 const _MentalStackIntegrationTail := preload("res://combat/CombatRegressionHarnessMentalStackIntegrationTail.gd")
 const _ProficiencyTail := preload("res://combat/CombatRegressionHarnessProficiencyTail.gd")
 const _Proficiency1v1Tail := preload("res://combat/CombatRegressionHarnessProficiency1v1Tail.gd")
+const _Targeting1v1Tail := preload("res://combat/CombatRegressionHarnessTargeting1v1Tail.gd")
 const _Fixtures := preload("res://combat/HarnessFixtures.gd")
 ## No preload  -  `CombatRegressionHarnessKinematicTail` references this class; preloading it here caused a parse cycle.
 ## Tier 3.2: full-stop **`parry_deflect`**  -  keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_hit_applier_sets_defender_guard_low_after_hit`** locks defender **`guard_line`** / **`guard_zone`** after **`hit`**; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
@@ -169,6 +170,7 @@ static func run_all() -> Dictionary:
 	_MedicalPhaseTail.run(failures)
 	_ProficiencyTail.run(failures)
 	_Proficiency1v1Tail.run(failures)
+	_Targeting1v1Tail.run(failures)
 	_run_combat_end_enemy_win_stops_manager(failures)
 	_run_medical_pain_shock_susceptibility_mult_from_effective_pain(failures)
 	_run_medical_ambient_pain_shock_tick_enters_from_sustained_pain(failures)

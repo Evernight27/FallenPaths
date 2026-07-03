@@ -363,7 +363,7 @@ static func pick_feint_part_for_attack(
 
 ## Get diagonal resolve distribution for a move_id and guard_line. Returns {resolved_line: probability} or empty if no diagonal variance.
 static func _get_diagonal_resolve_distribution(move_id: String, guard_line: String) -> Dictionary:
-	var raw: Dictionary = _WeaponConstants.DIAGONAL_WEIGHTS.get(move_id, {}).get(guard_line, {})
+	var raw: Dictionary = CombatConstants.DIAGONAL_WEIGHTS.get(move_id, {}).get(guard_line, {})
 	if raw.is_empty():
 		return {}
 	var total: float = 0.0

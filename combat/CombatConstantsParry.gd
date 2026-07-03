@@ -101,6 +101,7 @@ const PREFERRED_PART_BONUS_MULT := 1.5
 ## AI pick: attack parts off defender mental focus / guard line.
 const AI_PICK_OFF_FOCUS_PART_MULT := 1.35
 const AI_PICK_ON_FOCUS_LINE_PENALTY_MULT := 0.82
+const AI_PICK_NOVICE_ON_FOCUS_LINE_PENALTY_MULT := 0.95
 ## AI pick: yomi habit line pressure vs counter-line surprise.
 const AI_PICK_YOMI_HABIT_LINE_PART_MULT := 1.28
 const AI_PICK_YOMI_COUNTER_LINE_PART_MULT := 1.32

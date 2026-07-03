@@ -34,6 +34,7 @@ const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 const _FormationMoveListing := preload("res://combat/CombatFormationMoveListing.gd")
 const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
 const _Weapon := preload("res://weapon/Weapon.gd")
+const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
 const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
@@ -8495,7 +8496,7 @@ static func _run_gap1_axe_overhead_chop_head_weight_clamp(failures: PackedString
 	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var atk: Dictionary = mgr.combatants[0]
 	var enm: Dictionary = mgr.combatants[1]
-	_CombatDoctrine.normalize_doctrine(mgr)
+	_CombatDoctrine.evaluate_automatic_doctrine(mgr)
 	for c in mgr.combatants:
 		if c is Dictionary:
 			_WeaponForm.assign_form(mgr, c as Dictionary, _WeaponForm.FORM_BALANCED, "harness_gap1")
@@ -8526,7 +8527,7 @@ static func _run_gap6_diagonal_variance_distribution(failures: PackedStringArray
 	mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var atk: Dictionary = mgr.combatants[0]
 	var enm: Dictionary = mgr.combatants[1]
-	_CombatDoctrine.normalize_doctrine(mgr)
+	_CombatDoctrine.evaluate_automatic_doctrine(mgr)
 	for c in mgr.combatants:
 		if c is Dictionary:
 			_WeaponForm.assign_form(mgr, c as Dictionary, _WeaponForm.FORM_BALANCED, "harness_gap6")

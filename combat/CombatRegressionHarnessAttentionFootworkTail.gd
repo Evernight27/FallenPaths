@@ -5338,7 +5338,7 @@ static func _run_ai_pick_weapon_form_stat_part_weights(failures: PackedStringArr
 		CombatRegressionHarness._fail(failures, "ai_pick_part_weights: ox thrust should bias chest")
 	var old_stub: bool = _CompanyState.read_stub_proficiency_enabled()
 	_CompanyState.PROFICIENCY_ENABLED = true
-	var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+	var ent: Node = CombatRegressionHarness._new_entity("SWORD")
 	_Proficiency.award_weapon_proficiency(ent, "SWORD", 20.0)
 	if _Proficiency.weapon_proficiency_tier(ent, "SWORD") < 0.95:
 		CombatRegressionHarness._fail(
@@ -5358,7 +5358,7 @@ static func _run_ai_pick_weapon_form_stat_part_weights(failures: PackedStringArr
 			% [occ_vet, occ_novice]
 		)
 	_CompanyState.PROFICIENCY_ENABLED = old_stub
-	_CombatRegressionHarness._free_harness_node(ent)
+	CombatRegressionHarness._free_harness_node(ent)
 
 
 ## Tier 4.3.8: attention UI hint shows last mental-stack layer stamp.
