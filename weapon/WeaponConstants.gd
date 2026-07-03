@@ -234,7 +234,7 @@ static func _weapon_definitions_build() -> Dictionary:
 				"station_cut_vel_guard": 0.9,
 				"station_cut_vel_tip": 1.06,
 				"coupling_stab": 0.9,
-				"coupling_cut": 0.84,
+				"coupling_cut": 0.92,
 				"coupling_blunt": 0.96,
 				"blunt_pressure": 1.0,
 				"blunt_head_ref_cm": 6.0
@@ -282,7 +282,7 @@ static func _weapon_definitions_build() -> Dictionary:
 				"station_cut_vel_guard": 0.88,
 				"station_cut_vel_tip": 1.07,
 				"coupling_stab": 0.88,
-				"coupling_cut": 0.86,
+				"coupling_cut": 0.92,
 				"coupling_blunt": 0.98,
 				"blunt_pressure": 1.05,
 				"blunt_head_ref_cm": 6.0

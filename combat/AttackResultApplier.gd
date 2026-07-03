@@ -522,7 +522,9 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			if parent_idx > 0:
 				atk["tuning_ft_parent_strike"] = parent_idx
 		manager.emit_signal("action_resolved", target_id, attacker_id, partial_emit)
-		manager._execute_attack(attacker_id)
+		var remaining_ratio: float = pa_partial_emit.get("parry_remaining_ratio", 1.0)
+		if remaining_ratio > 0.1:
+			manager._execute_attack(attacker_id)
 		return
 	if action == "hit":
 		_FlurryBind.clear_pair(manager, attacker_id, target_id)

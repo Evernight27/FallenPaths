@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-03
 **Triggered by:** D001 soak + regression harness analysis of spear KE, sword/axe damage, parry outcomes, follow-through fairness, miss rates.
-**Status:** Planned — not yet implemented.
+**Status:** Implemented — changes in working tree (2026-07-03).
 
 ---
 

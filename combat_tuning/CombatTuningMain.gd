@@ -1658,22 +1658,31 @@ func _run_balance_matrix_batch(
 		if _batch_abort:
 			break
 		var skey: String = matrix_keys[i]
-		status_label.text = "Matrix %d/%d: %s" % [i + 1, matrix_keys.size(), skey]
-		progress_bar.value = float(i) / float(maxf(matrix_keys.size(), 1)) * 100.0
+		if is_instance_valid(status_label):
+			status_label.text = "Matrix %d/%d: %s" % [i + 1, matrix_keys.size(), skey]
+		if is_instance_valid(progress_bar):
+			progress_bar.value = float(i) / float(maxf(matrix_keys.size(), 1)) * 100.0
 		await _run_batch(
 			skey, num_cycles_per_scenario, csv_enabled,
 			run_btn, cancel_btn, close_btn, progress_bar, status_label, result_label,
 			false
 		)
-		matrix_lines.append(result_label.text.strip_edges())
+		if is_instance_valid(result_label):
+			matrix_lines.append(result_label.text.strip_edges())
 		await get_tree().process_frame
-	progress_bar.value = 100.0
-	result_label.text = "\n\n".join(matrix_lines)
-	status_label.text = "Balance matrix complete"
+	if is_instance_valid(progress_bar):
+		progress_bar.value = 100.0
+	if is_instance_valid(result_label):
+		result_label.text = "\n\n".join(matrix_lines)
+	if is_instance_valid(status_label):
+		status_label.text = "Balance matrix complete"
 	_batch_running = false
-	run_btn.disabled = false
-	cancel_btn.disabled = true
-	close_btn.disabled = false
+	if is_instance_valid(run_btn):
+		run_btn.disabled = false
+	if is_instance_valid(cancel_btn):
+		cancel_btn.disabled = true
+	if is_instance_valid(close_btn):
+		close_btn.disabled = false
 	_auto_enabled = true
 	_log_line("[Balance Matrix] %d scenarios complete" % matrix_keys.size(), "#88ff88")
 
@@ -1695,23 +1704,32 @@ func _run_weapon_sweep_batch(
 			break
 		var skey: String = sweep_keys[i]
 		var wid: String = _Config.weapon_id_from_sweep_key(skey)
-		status_label.text = "Weapon %d/%d: %s" % [i + 1, sweep_keys.size(), wid]
-		progress_bar.value = float(i) / float(maxf(sweep_keys.size(), 1)) * 100.0
+		if is_instance_valid(status_label):
+			status_label.text = "Weapon %d/%d: %s" % [i + 1, sweep_keys.size(), wid]
+		if is_instance_valid(progress_bar):
+			progress_bar.value = float(i) / float(maxf(sweep_keys.size(), 1)) * 100.0
 		_log_line("[Weapon sweep] starting %s (%d cycles, random stats/armor/species)" % [wid, num_cycles_per_weapon], "#aaccff")
 		await _run_batch(
 			skey, num_cycles_per_weapon, csv_enabled,
 			run_btn, cancel_btn, close_btn, progress_bar, status_label, result_label,
 			false
 		)
-		sweep_lines.append("--- %s ---\n%s" % [wid, result_label.text.strip_edges()])
+		if is_instance_valid(result_label):
+			sweep_lines.append("--- %s ---\n%s" % [wid, result_label.text.strip_edges()])
 		await get_tree().process_frame
-	progress_bar.value = 100.0
-	result_label.text = "\n\n".join(sweep_lines)
-	status_label.text = "Weapon sweep complete"
+	if is_instance_valid(progress_bar):
+		progress_bar.value = 100.0
+	if is_instance_valid(result_label):
+		result_label.text = "\n\n".join(sweep_lines)
+	if is_instance_valid(status_label):
+		status_label.text = "Weapon sweep complete"
 	_batch_running = false
-	run_btn.disabled = false
-	cancel_btn.disabled = true
-	close_btn.disabled = false
+	if is_instance_valid(run_btn):
+		run_btn.disabled = false
+	if is_instance_valid(cancel_btn):
+		cancel_btn.disabled = true
+	if is_instance_valid(close_btn):
+		close_btn.disabled = false
 	_auto_enabled = true
 	_log_line("[Weapon sweep] %d weapon types complete" % sweep_keys.size(), "#88ff88")
 
@@ -1726,12 +1744,16 @@ func _run_batch(scenario_key: String, num_cycles: int, csv_enabled: bool,
 
 	var configs: Array = _load_scenario(scenario_key)
 	if configs.size() < 2:
-		status_label.text = "ERROR: invalid scenario config"
+		if is_instance_valid(status_label):
+			status_label.text = "ERROR: invalid scenario config"
 		_batch_running = false
 		if reset_batch_ui:
-			run_btn.disabled = false
-			cancel_btn.disabled = true
-			close_btn.disabled = false
+			if is_instance_valid(run_btn):
+				run_btn.disabled = false
+			if is_instance_valid(cancel_btn):
+				cancel_btn.disabled = true
+			if is_instance_valid(close_btn):
+				close_btn.disabled = false
 		return
 
 	var atk_cfg = configs[0]
@@ -1839,15 +1861,20 @@ func _run_batch(scenario_key: String, num_cycles: int, csv_enabled: bool,
 		cycle += 1
 
 		if cycle % 10 == 0 or cycle == num_cycles:
-			progress_bar.value = float(cycle) / float(num_cycles) * 100.0
-			status_label.text = "Cycle %d / %d" % [cycle, num_cycles]
+			if is_instance_valid(progress_bar):
+				progress_bar.value = float(cycle) / float(num_cycles) * 100.0
+			if is_instance_valid(status_label):
+				status_label.text = "Cycle %d / %d" % [cycle, num_cycles]
 			await get_tree().process_frame
 
 	_batch_running = false
 	if reset_batch_ui:
-		run_btn.disabled = false
-		cancel_btn.disabled = true
-		close_btn.disabled = false
+		if is_instance_valid(run_btn):
+			run_btn.disabled = false
+		if is_instance_valid(cancel_btn):
+			cancel_btn.disabled = true
+		if is_instance_valid(close_btn):
+			close_btn.disabled = false
 
 	var atk_name: String = attacker_config.display_name
 	var def_name: String = defender_config.display_name
@@ -1861,8 +1888,10 @@ func _run_batch(scenario_key: String, num_cycles: int, csv_enabled: bool,
 		b_def_dmg / float(maxf(b_total_cycles, 1))
 	]
 
-	result_label.text = summary
-	status_label.text = "Done -- %d cycles" % b_total_cycles
+	if is_instance_valid(result_label):
+		result_label.text = summary
+	if is_instance_valid(status_label):
+		status_label.text = "Done -- %d cycles" % b_total_cycles
 
 	var batch_line := "[Batch] %s: %d cycles, %s %d - %s %d (%.0f%% atk win) | avg_strikes=%.1f" % [
 		scenario_key, b_total_cycles, atk_name, b_atk_wins, def_name, b_def_wins,

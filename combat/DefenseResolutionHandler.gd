@@ -80,7 +80,7 @@ static func _resolve_partial_parry_follow_through(
 	var twist_readiness: float = pa.get("parry_twist_readiness", 1.0)
 	var time_factor: float = clampf(time_to_react / maxf(0.001, CombatConstants.PASSIVE_PARRY_MIN_TIME_FOR_FULL_S), 0.0, 1.0)
 	if time_to_react <= 0.0:
-		time_factor = 0.15
+		time_factor = 0.35
 	var leg: float = _EntityAccess.get_leg_functionality(tgt)
 	var perf: float = _EntityAccess.get_performance_modifier(tgt)
 	var agi: float = float(_EntityAccess.stats_dict(tgt).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
