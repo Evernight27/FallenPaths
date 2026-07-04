@@ -1,4 +1,4 @@
-﻿class_name WeaponConstants
+class_name WeaponConstants
 extends RefCounted
 
 ## Per-weapon move defs + Expand WF spawn keys: **`default_form`** / **`allowed_forms[]`** feed **`CombatWeaponForm.seed_combatant_form`** (resolution step 4). LIVE_PATHS **`#spawn--reset-path-wf-1a`** ?? **`#wf-assign-form-contract`**.
@@ -99,22 +99,39 @@ const WEAPON_MOVE_PREFERRED_PARTS: Dictionary = {
 	"SPEAR": {
 		"spear_thrust": ["chest"],
 		"off_line_thrust": ["chest"],
+		"false_cut": ["chest"],
+		"inside_stab": ["chest"],
+		"low_thrust_spear": ["left_leg", "right_leg"],
 		"parry_thrust_spear": ["chest"],
 	},
 	"DAGGER": {
 		"quick_thrust": ["chest"],
 		"committed_thrust": ["chest"],
+		"reverse_thrust": ["left_leg", "right_leg"],
+		"low_thrust_dagger": ["left_leg", "right_leg"],
+		"feint_thrust_dagger": ["chest"],
+		"grab_strike": ["head"],
 		"parry_thrust_dagger": ["chest"],
 	},
 	"MACE": {
 		"overhead_strike": ["head"],
 		"side_strike": ["left_arm", "right_arm"],
 		"direct_blow": ["head", "chest"],
+		"upcut_mace": ["left_leg", "right_leg"],
+		"low_strike": ["left_leg", "right_leg"],
+		"thrusting_blow": ["head", "chest"],
+		"feint_overhead_mace": ["head"],
+		"parry_thrust_mace": ["chest"],
 	},
 	"AXE": {
 		"overhead_chop": ["head"],
 		"spike_thrust": ["chest"],
 		"poll_strike": ["head"],
+		"horizontal_chop": ["left_arm", "right_arm", "chest"],
+		"low_chop": ["left_leg", "right_leg"],
+		"reverse_grip_thrust": ["chest"],
+		"overhead_feint": ["head"],
+		"parry_thrust_axe": ["chest"],
 	},
 }
 
@@ -147,45 +164,73 @@ static func contact_type_for_move_id(move_id: String) -> String:
 
 
 static func _move_definitions_build() -> Dictionary:
-	# attack_line: Liechtenauer 4 lines  -  high (0????), low (180????), left (270????), right (90????). Blade path, not body target.
+	# attack_line: Liechtenauer 4 lines - high (0????), low (180????), left (270????), right (90????) + compound octants high_left, high_right, low_left. Blade path, not body target.
 	# angle_variance_deg: optional ????deg human error; heavier/awkward moves have more variance.
 	# angle_offset_deg: optional bias from base line (e.g. off_line_thrust angled toward flank).
+	# impact_station_mean: fraction along weapon from hands (0=hands, 1=tip). Spear thrusts may exceed 0.8 due to long shaft; clamped at 0.80.
+	# impact_station_spread: per-strike jitter around mean. Precision strikes use small nonzero value (0.01-0.02).
 	return {
 		# Sword (Liechtenauer/KDF): thrust, Oberhau, Unterhau, horizontal (Zwerchau-style), pommel, parry-counters
-		"thrust": {"name": "Point thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.2, "attack_line": "high", "preferred_parts": ["chest"], "impact_station_mean": 0.76, "impact_station_spread": 0.0},
+		"thrust": {"name": "Point thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.2, "attack_line": "high", "preferred_parts": ["chest"], "weapon_extension_commit_fraction": 0.56, "impact_station_mean": 0.76, "impact_station_spread": 0.01},
 		"oberhau": {"name": "Downward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.4, "attack_line": "high_right", "preferred_parts": ["head"], "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.78, "impact_station_mean": 0.70, "impact_station_spread": 0.05},
 		# Tier 4.2: optional feint_windup_duration_mult (>1)  -  extra wind-up vs same-archetype honest cut (two-line commitment cost).
 		"oberhau_feint": {"name": "Feint high, cut low", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 2.6, "attack_line": "high_right", "preferred_parts": ["head"], "is_feint": true, "feint_windup_duration_mult": 1.1, "feint_target_reveal_at_progress": 0.45, "angle_variance_deg": 10, "impact_station_mean": 0.58, "impact_station_spread": 0.06},
 		# Tier 4.2: stab feint  -  feint_target_reveal_at_progress earlier than oberhau_feint (faster thrust telegraph); feint_windup_duration_mult < cut feint (stab archetype already tighter).
-		"thrust_feint": {"name": "Feint line, thrust true", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.4, "attack_line": "high", "preferred_parts": ["chest"], "is_feint": true, "feint_windup_duration_mult": 1.07, "feint_target_reveal_at_progress": 0.4, "angle_variance_deg": 9, "impact_station_mean": 0.62, "impact_station_spread": 0.05},
+		"thrust_feint": {"name": "Feint line, thrust true", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.4, "attack_line": "high", "preferred_parts": ["chest"], "is_feint": true, "feint_windup_duration_mult": 1.07, "feint_target_reveal_at_progress": 0.4, "angle_variance_deg": 9, "weapon_extension_commit_fraction": 0.52, "impact_station_mean": 0.62, "impact_station_spread": 0.05},
 		"unterhau": {"name": "Upward diagonal cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.2, "attack_line": "low_left", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.74, "impact_station_mean": 0.66, "impact_station_spread": 0.05},
 		"slash": {"name": "Horizontal cut (cross)", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.0, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm", "chest"], "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.72, "impact_station_mean": 0.64, "impact_station_spread": 0.05},
-		"pommel_strike": {"name": "Pommel strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_POMMEL, "base_cooldown": 1.8, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 9, "impact_station_mean": 0.16, "impact_station_spread": 0.0},
-		"parry_thrust": {"name": "Parry and thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.0, "is_parry": true, "attack_line": "high", "preferred_parts": ["chest"], "impact_station_mean": 0.74, "impact_station_spread": 0.03},
+		"pommel_strike": {"name": "Pommel strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_POMMEL, "base_cooldown": 1.8, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 9, "impact_station_mean": 0.16, "impact_station_spread": 0.02},
+		"parry_thrust": {"name": "Parry and riposte", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.0, "is_parry": true, "attack_line": "high", "preferred_parts": ["chest"], "weapon_extension_commit_fraction": 0.50, "impact_station_mean": 0.74, "impact_station_spread": 0.03},
 		"parry_cut": {"name": "Parry and cut", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 1.9, "is_parry": true, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm"], "impact_station_mean": 0.62, "impact_station_spread": 0.05},
 		# Axe (Le Jeu de la Hache): spike, overhead chop, diagonal chop, poll
-		"spike_thrust": {"name": "Spike thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 3.2, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 9, "weapon_extension_commit_fraction": 0.58, "impact_station_mean": 0.80, "impact_station_spread": 0.0},
+		"spike_thrust": {"name": "Spike thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 3.2, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 9, "weapon_extension_commit_fraction": 0.58, "impact_station_mean": 0.80, "impact_station_spread": 0.01},
 		"overhead_chop": {"name": "Overhead chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 3.5, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 12, "weapon_extension_commit_fraction": 0.80, "impact_station_mean": 0.72, "impact_station_spread": 0.06},
 		"diagonal_chop": {"name": "Diagonal chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 3.0, "attack_line": "high_left", "preferred_parts": ["left_arm", "right_arm", "chest"], "angle_variance_deg": 11, "impact_station_mean": 0.68, "impact_station_spread": 0.06},
-		"poll_strike": {"name": "Back-of-head strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 11, "impact_station_mean": 0.22, "impact_station_spread": 0.0},
+		"poll_strike": {"name": "Back-of-head strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 11, "impact_station_mean": 0.22, "impact_station_spread": 0.02},
 		"parry_chop": {"name": "Parry and chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 3.0, "is_parry": true, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm"], "impact_station_mean": 0.64, "impact_station_spread": 0.06},
 		# Mace: overhead, side, direct  -  heavy weapon, more wobble
 		"overhead_strike": {"name": "Overhead strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.5, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 13, "impact_station_mean": 0.44, "impact_station_spread": 0.05},
 		"side_strike": {"name": "Side strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.2, "attack_line": "right", "preferred_parts": ["left_arm", "right_arm"], "angle_variance_deg": 12, "impact_station_mean": 0.40, "impact_station_spread": 0.05},
-		"direct_blow": {"name": "Direct blow", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "attack_line": "high", "preferred_parts": ["head", "chest"], "angle_variance_deg": 11, "impact_station_mean": 0.38, "impact_station_spread": 0.0},
+		"direct_blow": {"name": "Direct blow", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "attack_line": "high", "preferred_parts": ["head", "chest"], "angle_variance_deg": 11, "impact_station_mean": 0.38, "impact_station_spread": 0.02},
 		"parry_strike": {"name": "Parry and strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "is_parry": true, "attack_line": "high", "preferred_parts": ["head"], "impact_station_mean": 0.42, "impact_station_spread": 0.04},
 		# Dagger / rondel  -  small, quick, tighter control
-		"quick_thrust": {"name": "Quick thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.7, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 5, "weapon_extension_commit_fraction": 0.55, "impact_station_mean": 0.68, "impact_station_spread": 0.0},
-		"committed_thrust": {"name": "Strong thrust (armor-piercing)", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 1.0, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 6, "weapon_extension_commit_fraction": 0.60, "impact_station_mean": 0.78, "impact_station_spread": 0.0},
+		"quick_thrust": {"name": "Quick thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.7, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 5, "weapon_extension_commit_fraction": 0.55, "impact_station_mean": 0.68, "impact_station_spread": 0.01},
+		"committed_thrust": {"name": "Strong thrust (armor-piercing)", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 1.0, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 6, "weapon_extension_commit_fraction": 0.60, "impact_station_mean": 0.78, "impact_station_spread": 0.01},
 		"quick_slash": {"name": "Quick slash", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_QUICK_SLASH, "base_cooldown": 0.6, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm"], "angle_variance_deg": 6, "weapon_extension_commit_fraction": 0.62, "impact_station_mean": 0.58, "impact_station_spread": 0.04},
-		"dagger_pommel": {"name": "Pommel strike (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_POMMEL, "base_cooldown": 0.5, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 6, "impact_station_mean": 0.18, "impact_station_spread": 0.0},
-		"parry_thrust_dagger": {"name": "Parry and thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.6, "is_parry": true, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 5, "impact_station_mean": 0.72, "impact_station_spread": 0.03},
+		"dagger_pommel": {"name": "Pommel blow", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_POMMEL, "base_cooldown": 0.5, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 6, "impact_station_mean": 0.18, "impact_station_spread": 0.02},
+		"parry_thrust_dagger": {"name": "Parry and stab", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.6, "is_parry": true, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 5, "impact_station_mean": 0.72, "impact_station_spread": 0.03},
 		# Spear (Fiore): thrust, angled thrust, slash, pole swing
-		"spear_thrust": {"name": "Forward thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 3.0, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 7, "weapon_extension_commit_fraction": 0.58, "impact_station_mean": 0.84, "impact_station_spread": 0.0},
-		"off_line_thrust": {"name": "Angled thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.8, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 20, "angle_offset_deg": 25, "impact_station_mean": 0.78, "impact_station_spread": 0.04},
+		"spear_thrust": {"name": "Forward thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 3.0, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 7, "weapon_extension_commit_fraction": 0.58, "impact_station_mean": 0.80, "impact_station_spread": 0.02},
+		"off_line_thrust": {"name": "Angled thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.8, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 15, "angle_offset_deg": 25, "impact_station_mean": 0.78, "impact_station_spread": 0.04},
 		"spear_slash": {"name": "Slash with spearhead", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.8, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm"], "angle_variance_deg": 10, "impact_station_mean": 0.72, "impact_station_spread": 0.05},
 		"pole_swing": {"name": "Pole swing (blunt)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 2.5, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm", "head"], "angle_variance_deg": 12, "impact_station_mean": 0.55, "impact_station_spread": 0.08},
-		"parry_thrust_spear": {"name": "Parry and thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.7, "is_parry": true, "attack_line": "high", "preferred_parts": ["chest"], "impact_station_mean": 0.82, "impact_station_spread": 0.03}
+		# SWORD additions (HEMA expansion): zwerchau (inside-line crossing cut), bind_press (post-bind center thrust), low_thrust (leg/groin)
+		"zwerchau": {"name": "Crossing cut (Zwerchau)", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.3, "attack_line": "high_left", "preferred_parts": ["head", "chest"], "is_feint": false, "angle_variance_deg": 10, "weapon_extension_commit_fraction": 0.76, "impact_station_mean": 0.68, "impact_station_spread": 0.05},
+		"bind_press": {"name": "Bind and press", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.1, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 7, "weapon_extension_commit_fraction": 0.54, "impact_station_mean": 0.76, "impact_station_spread": 0.03},
+		"low_thrust_sword": {"name": "Low thrust (Grifo)", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.0, "attack_line": "low", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 8, "weapon_extension_commit_fraction": 0.55, "impact_station_mean": 0.72, "impact_station_spread": 0.03},
+		# AXE additions (Le Jeu de la Hache expansion): horizontal_chop, low_chop, reverse_grip_thrust, overhead_feint, parry_thrust_axe
+		"horizontal_chop": {"name": "Horizontal chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.8, "attack_line": "left", "preferred_parts": ["left_arm", "right_arm", "chest"], "angle_variance_deg": 10, "impact_station_mean": 0.70, "impact_station_spread": 0.06},
+		"low_chop": {"name": "Low chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_SLASH, "base_cooldown": 2.9, "attack_line": "low_left", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 11, "impact_station_mean": 0.66, "impact_station_spread": 0.06},
+		"reverse_grip_thrust": {"name": "Reverse spike thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.0, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 9, "weapon_extension_commit_fraction": 0.52, "impact_station_mean": 0.68, "impact_station_spread": 0.03},
+		"overhead_feint": {"name": "Feint overhead chop", "contact_type": ATTACK_TYPE_CUT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 3.2, "attack_line": "high", "preferred_parts": ["head"], "is_feint": true, "feint_windup_duration_mult": 1.15, "feint_target_reveal_at_progress": 0.4, "angle_variance_deg": 12, "impact_station_mean": 0.70, "impact_station_spread": 0.06},
+		"parry_thrust_axe": {"name": "Parry and spike thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.5, "is_parry": true, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 9, "impact_station_mean": 0.74, "impact_station_spread": 0.03},
+		# MACE additions (Vadi/Talhoffer expansion): upcut_mace, low_strike, thrusting_blow, feint_overhead_mace, parry_thrust_mace
+		"upcut_mace": {"name": "Rising mace blow", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 3.0, "attack_line": "low_left", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 12, "impact_station_mean": 0.42, "impact_station_spread": 0.05},
+		"low_strike": {"name": "Low mace strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 2.8, "attack_line": "low", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 11, "impact_station_mean": 0.40, "impact_station_spread": 0.05},
+		"thrusting_blow": {"name": "Spike thrust (armor gap)", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_THRUSTING_BLUNT, "base_cooldown": 2.5, "attack_line": "high", "preferred_parts": ["head", "chest"], "angle_variance_deg": 9, "weapon_extension_commit_fraction": 0.56, "impact_station_mean": 0.44, "impact_station_spread": 0.03},
+		"feint_overhead_mace": {"name": "Feint overhead smash", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_OVERHEAD, "base_cooldown": 3.2, "attack_line": "high", "preferred_parts": ["head"], "is_feint": true, "feint_windup_duration_mult": 1.15, "feint_target_reveal_at_progress": 0.38, "angle_variance_deg": 13, "impact_station_mean": 0.42, "impact_station_spread": 0.05},
+		"parry_thrust_mace": {"name": "Parry and spike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_THRUSTING_BLUNT, "base_cooldown": 2.4, "is_parry": true, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 9, "impact_station_mean": 0.46, "impact_station_spread": 0.03},
+		# DAGGER additions (Fiore expansion): reverse_thrust, grab_strike, low_thrust_dagger, feint_thrust_dagger
+		"reverse_thrust": {"name": "Inverted grip thrust (Rovera)", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.8, "attack_line": "low", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 5, "weapon_extension_commit_fraction": 0.48, "impact_station_mean": 0.65, "impact_station_spread": 0.03},
+		"grab_strike": {"name": "Grapple pommel strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_POMMEL, "base_cooldown": 0.9, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 6, "impact_station_mean": 0.16, "impact_station_spread": 0.02},
+		"low_thrust_dagger": {"name": "Low thrust (groin/legs)", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.75, "attack_line": "low", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 5, "weapon_extension_commit_fraction": 0.52, "impact_station_mean": 0.66, "impact_station_spread": 0.03},
+		"feint_thrust_dagger": {"name": "Feint thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 0.9, "attack_line": "high", "preferred_parts": ["chest"], "is_feint": true, "feint_windup_duration_mult": 1.05, "feint_target_reveal_at_progress": 0.35, "angle_variance_deg": 5, "impact_station_mean": 0.68, "impact_station_spread": 0.03},
+		# SPEAR additions (Fiore expansion): false_cut, inside_stab, shaft_thrust, low_thrust_spear
+		"false_cut": {"name": "False cut and thrust", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.8, "attack_line": "high", "preferred_parts": ["chest"], "is_feint": true, "feint_windup_duration_mult": 1.08, "feint_target_reveal_at_progress": 0.42, "angle_variance_deg": 8, "weapon_extension_commit_fraction": 0.56, "impact_station_mean": 0.78, "impact_station_spread": 0.03},
+		"inside_stab": {"name": "Close-range stab", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 1.5, "attack_line": "high", "preferred_parts": ["chest"], "angle_variance_deg": 7, "weapon_extension_commit_fraction": 0.44, "impact_station_mean": 0.68, "impact_station_spread": 0.03},
+		"shaft_thrust": {"name": "Shaft butt strike", "contact_type": ATTACK_TYPE_BLUNT, "archetype_id": ARCHETYPE_HEAVY_BLUNT, "base_cooldown": 2.0, "attack_line": "high", "preferred_parts": ["head"], "angle_variance_deg": 10, "impact_station_mean": 0.15, "impact_station_spread": 0.02},
+		"low_thrust_spear": {"name": "Low thrust (legs)", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.6, "attack_line": "low", "preferred_parts": ["left_leg", "right_leg"], "angle_variance_deg": 7, "weapon_extension_commit_fraction": 0.54, "impact_station_mean": 0.80, "impact_station_spread": 0.03},
+		"parry_thrust_spear": {"name": "Parry and stab", "contact_type": ATTACK_TYPE_STAB, "archetype_id": ARCHETYPE_STAB, "base_cooldown": 2.7, "is_parry": true, "attack_line": "high", "preferred_parts": ["chest"], "weapon_extension_commit_fraction": 0.68, "impact_station_mean": 0.80, "impact_station_spread": 0.03}
 	}
 
 # --- Weapon template definitions ---
@@ -246,6 +291,9 @@ static func _weapon_definitions_build() -> Dictionary:
 				{"id": "thrust_feint"},
 				{"id": "unterhau"},
 				{"id": "slash"},
+				{"id": "zwerchau"},
+				{"id": "bind_press"},
+				{"id": "low_thrust_sword"},
 				{"id": "pommel_strike"},
 				{"id": "parry_thrust"},
 				{"id": "parry_cut"}
@@ -255,9 +303,9 @@ static func _weapon_definitions_build() -> Dictionary:
 		"AXE": {
 			"name": "Axe",
 			"default_form": "demi_hache",
-			"allowed_forms": ["demi_hache", "bec_point", "queue_bind", "wall", "balanced"],
+			"allowed_forms": ["demi_hache", "bec_point", "queue_bind", "debout_haut", "envers", "wall", "balanced"],
 			"form_legacy_aliases": {
-				"wrath": "demi_hache", "aggressive": "demi_hache", "tempest": "demi_hache",
+				"wrath": "demi_hache", "aggressive": "demi_hache", "tempest": "debout_haut",
 				"defensive": "wall", "ox": "bec_point", "plow": "queue_bind",
 			},
 			"mass": 1.5,
@@ -290,28 +338,34 @@ static func _weapon_definitions_build() -> Dictionary:
 			"moves": [
 				{"id": "spike_thrust"},
 				{"id": "overhead_chop"},
+				{"id": "overhead_feint"},
 				{"id": "diagonal_chop"},
+				{"id": "horizontal_chop"},
+				{"id": "low_chop"},
+				{"id": "reverse_grip_thrust"},
 				{"id": "poll_strike"},
-				{"id": "parry_chop"}
+				{"id": "parry_chop"},
+				{"id": "parry_thrust_axe"}
 			]
 		},
 		# Mace: overhead, side, direct, parry-counter (blunt only).
 		"MACE": {
 			"name": "Mace",
 			"default_form": "crown_guard",
-			"allowed_forms": ["crown_guard", "flank_guard", "wall", "balanced"],
+			"allowed_forms": ["crown_guard", "flank_guard", "envers", "debout_devant", "basse_garde", "wall", "balanced"],
 			"form_legacy_aliases": {
 				"wrath": "crown_guard", "aggressive": "crown_guard", "tempest": "flank_guard",
-				"defensive": "wall", "braced": "wall",
+				"defensive": "wall", "braced": "basse_garde",
 			},
 			"mass": 1.7,
 			"parry_speed_factor": 0.9,
 			"blade_width": 0.0,
-			"point_width": 0.0,
+			"point_width": 0.5,
+			"thrust_head_width": 2.0,
 			"head_diameter": 8.0,
 			"edge_width": 0.5,
 			"blade_cut_ratio": 0.0,
-			"melee_range": 1.5,
+			"melee_range": 1.3,
 			"parts": [
 				{"id": "head", "length_cm": 15, "mass_fraction": 0.7, "parry_eligible": false, "striking_for": ["blunt"]},
 				{"id": "shaft", "length_cm": 55, "mass_fraction": 0.3, "parry_eligible": true}
@@ -332,14 +386,19 @@ static func _weapon_definitions_build() -> Dictionary:
 				{"id": "overhead_strike"},
 				{"id": "side_strike"},
 				{"id": "direct_blow"},
-				{"id": "parry_strike"}
+				{"id": "upcut_mace"},
+				{"id": "low_strike"},
+				{"id": "thrusting_blow"},
+				{"id": "feint_overhead_mace"},
+				{"id": "parry_strike"},
+				{"id": "parry_thrust_mace"}
 			]
 		},
 		# Dagger / rondel: thrusts, slash, pommel, parry-counter (Fiore, Talhoffer).
 		"DAGGER": {
 			"name": "Dagger",
 			"default_form": "high_hut",
-			"allowed_forms": ["high_hut", "low_bind", "reverse_seize", "wall", "balanced"],
+			"allowed_forms": ["high_hut", "low_bind", "reverse_seize", "rovera", "dente_di_porc", "wall", "balanced"],
 			"form_legacy_aliases": {
 				"fool": "high_hut", "wrath": "high_hut", "aggressive": "high_hut",
 				"controlling": "reverse_seize", "defensive": "wall", "ox": "high_hut",
@@ -364,7 +423,7 @@ static func _weapon_definitions_build() -> Dictionary:
 				"station_cut_vel_guard": 0.91,
 				"station_cut_vel_tip": 1.1,
 				"coupling_stab": 0.94,
-				"coupling_cut": 0.88,
+				"coupling_cut": 0.92,
 				"coupling_blunt": 0.9,
 				"blunt_pressure": 0.95,
 				"blunt_head_ref_cm": 6.0
@@ -372,7 +431,11 @@ static func _weapon_definitions_build() -> Dictionary:
 			"moves": [
 				{"id": "quick_thrust"},
 				{"id": "committed_thrust"},
+				{"id": "reverse_thrust"},
+				{"id": "low_thrust_dagger"},
+				{"id": "feint_thrust_dagger"},
 				{"id": "quick_slash"},
+				{"id": "grab_strike"},
 				{"id": "dagger_pommel"},
 				{"id": "parry_thrust_dagger"}
 			]
@@ -381,7 +444,7 @@ static func _weapon_definitions_build() -> Dictionary:
 		"SPEAR": {
 			"name": "Spear",
 			"default_form": "iron_gate",
-			"allowed_forms": ["iron_gate", "true_cross", "high_port", "wall", "balanced"],
+			"allowed_forms": ["iron_gate", "true_cross", "high_port", "guarda_di_corpo", "guarda_di_corpo_basso", "wall", "balanced"],
 			"form_legacy_aliases": {
 				"plow": "iron_gate", "wrath": "high_port", "aggressive": "high_port",
 				"ox": "true_cross", "defensive": "wall", "tempest": "high_port",
@@ -410,7 +473,7 @@ static func _weapon_definitions_build() -> Dictionary:
 				"station_cut_vel_guard": 0.89,
 				"station_cut_vel_tip": 1.05,
 				"coupling_stab": 0.91,
-				"coupling_cut": 0.87,
+				"coupling_cut": 0.92,
 				"coupling_blunt": 0.99,
 				"blunt_pressure": 1.02,
 				"blunt_head_ref_cm": 6.0
@@ -418,8 +481,12 @@ static func _weapon_definitions_build() -> Dictionary:
 			"moves": [
 				{"id": "spear_thrust"},
 				{"id": "off_line_thrust"},
+				{"id": "false_cut"},
+				{"id": "inside_stab"},
+				{"id": "low_thrust_spear"},
 				{"id": "spear_slash"},
 				{"id": "pole_swing"},
+				{"id": "shaft_thrust"},
 				{"id": "parry_thrust_spear"}
 			]
 		}
@@ -438,6 +505,7 @@ const ARCHETYPE_OVERHEAD: String = "overhead"
 const ARCHETYPE_QUICK_SLASH: String = "quick_slash"
 const ARCHETYPE_POMMEL: String = "pommel_strike"
 const ARCHETYPE_HEAVY_BLUNT: String = "heavy_blunt"
+const ARCHETYPE_THRUSTING_BLUNT: String = "thrusting_blunt"
 
 ## Kinematic delivery for `WeaponDamageHelper` (abstract  -  no unit positions): thrust = linear band + point-mass KE; swing = ???? - lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
 const KINEMATIC_DELIVERY_THRUST := "thrust"
@@ -511,11 +579,19 @@ static func _archetype_definitions_build() -> Dictionary:
 			"recovery_multiplier": 1.15,
 			"windup_multiplier": 1.1,
 			"kinematic_delivery": KINEMATIC_DELIVERY_SWING
+		},
+		ARCHETYPE_THRUSTING_BLUNT: {
+			"velocity_factor": 0.85,
+			"velocity_intensity_curve": 0.95,
+			"cut_ratio": 0.05,
+			"recovery_multiplier": 0.95,
+			"windup_multiplier": 0.9,
+			"kinematic_delivery": KINEMATIC_DELIVERY_THRUST
 		}
 	}
 
 
-## Weapon template id (`SWORD`, `AXE`, …) from equipped weapon node/dict.
+## Weapon template id (`SWORD`, `AXE`, �) from equipped weapon node/dict.
 static func weapon_type_id(weapon: Variant) -> String:
 	return _weapon_template_id(weapon)
 

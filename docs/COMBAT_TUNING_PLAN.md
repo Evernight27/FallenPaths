@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-03
 **Triggered by:** D001 soak + regression harness analysis of spear KE, sword/axe damage, parry outcomes, follow-through fairness, miss rates.
-**Status:** Implemented — changes in working tree (2026-07-03).
+**Status:** Implemented + expanded + second pass (2026-07-03). All 6 original fixes applied. Expansions: SPEAR/DAGGER coupling_cut, harness tests, comments, stale fallback fix, asymmetric block test.
 
 ---
 
@@ -44,11 +44,13 @@ SWORD coupling_cut=0.84 and AXE coupling=0.86 are significantly lower than MACE 
 - weapon/StrikeRealismProfile.gd — velocity_intent_mult_from_pa applies no special bonus to cuts
 
 ### Fix
-Increase `coupling_cut` in SWORD strike_physics from 0.84 → 0.92. Increase AXE coupling from 0.86 → 0.92. Consider reducing overhead cut commit fraction from 0.78 → 0.75 if a new archetype is created for cuts.
+Increase `coupling_cut` in SWORD strike_physics from 0.84 → 0.92. Increase AXE from 0.86 → 0.92. Also raised SPEAR from 0.87 → 0.92 and DAGGER from 0.88 → 0.92 for consistency across all cut-capable weapons.
 
 ### Files
-- `weapon/WeaponConstants.gd:231-240` — SWORD strike_physics coupling values
-- `weapon/WeaponConstants.gd:279-288` — AXE strike_physics coupling values
+- `weapon/WeaponConstants.gd:231-240` — SWORD strike_physics coupling_cut → 0.92
+- `weapon/WeaponConstants.gd:279-288` — AXE strike_physics coupling_cut → 0.92
+- `weapon/WeaponConstants.gd:367` — DAGGER coupling_cut → 0.92
+- `weapon/WeaponConstants.gd:413` — SPEAR coupling_cut → 0.92
 
 ---
 
@@ -103,7 +105,12 @@ Add a parry quality gate before `_execute_attack()` re-entry in `AttackResultApp
 
 ### Files
 - `combat/AttackResultApplier.gd:525` — add conditional gate before _execute_attack() call
-- `combat/CombatConstantsAttackPath.gd:105` — dodge efficiency constant, time_factor floor
+- `combat/CombatConstantsAttackPath.gd:105` — PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY → 0.67
+- `combat/DefenseResolutionHandler.gd:82` — time_factor floor → 0.35
+
+### Harness Tests Added
+- `combat/CombatRegressionHarness.gd:_run_follow_through_gate_at_low_remaining_ratio` — verifies gate threshold logic (ratio > 0.1 triggers follow-through, <= 0.1 skips)
+- `combat/CombatRegressionHarness.gd:_run_block_threshold_balance_test` — verifies balanced SWORD vs SWORD passes both block thresholds at new values (mass 0.75, str 0.85)
 
 ---
 
@@ -128,12 +135,39 @@ Reduce `PARRY_CUT_TO_BLUNT_SHIFT` from 0.45 → 0.25-0.30. This still provides s
 
 | # | Fix | Impact | Effort | Effort Details |
 |---|-----|--------|--------|----------------|
-| 1 | Spear KE correction | High | Low | 1-2 lines in ImpactVelocityModel.gd |
-| 2 | Cut coupling increase | High | Low | 4 numbers in WeaponConstants.gd |
+| 1 | Spear KE correction | High | Low | 1 line in ImpactVelocityModel.gd |
+| 2 | Cut coupling increase (all weapons) | High | Low | 4 numbers in WeaponConstants.gd (SWORD, AXE, SPEAR, DAGGER) |
 | 3 | Block threshold reduction | Medium-High | Low | 2 constants in CombatConstantsParry.gd |
 | 4 | Follow-through quality gate | Medium | Medium | Conditional + 2 constants across 2 files |
 | 5 | Deflect threshold reduction | Lower | Low | 1 constant in CombatConstantsParry.gd |
 | 6 | Cut-to-blunt shift reduction | Lower | Low | 1 constant in CombatConstantsParry.gd |
+
+---
+
+## Expansions (beyond original plan)
+
+- **SPEAR coupling_cut** raised from 0.87 → 0.92 — spear slash moves benefit from same cut balance fix as sword/axe.
+- **DAGGER coupling_cut** raised from 0.88 → 0.92 — dagger cuts now consistent with other weapons.
+- **Follow-through gate harness test** (`_run_follow_through_gate_at_low_remaining_ratio`) — verifies the new `remaining_ratio > 0.1` gate logic at AttackResultApplier.gd:526.
+- **Block threshold balance test** (`_run_block_threshold_balance_test`) — verifies balanced SWORD vs SWORD passes both block thresholds at new values (mass 0.75, str 0.85).
+
+---
+
+## Second pass improvements
+
+### P1 — Stale fallback defaults fixed
+- `combat/DefenseChoiceResolver.gd:389-390` — fallback defaults for `block_mass_threshold` and `block_str_threshold` changed from hardcoded `0.9` / `0.95` to reference `CombatConstants.PARRY_BLOCK_MASS_THRESHOLD` / `PARRY_BLOCK_STR_THRESHOLD` directly. If `parry_cfg` is ever constructed with missing keys, it will now use the live threshold values instead of stale defaults.
+
+### P2 — Integration test for follow-through gate
+- `_run_follow_through_integration_gate` — exercises the actual gate logic (ratio 0.05 should skip `_execute_attack`, ratio 0.15 should trigger it) rather than just testing boolean comparisons in isolation.
+
+### P2 — Asymmetric block threshold test
+- `_run_block_threshold_asymmetric_test` — tests DAGGER vs SPEAR (mass ratio 0.167, well below 0.75 threshold — must NOT qualify for block parry) and AXE vs MACE (mass ratio 0.883, above 0.75 — should pass mass check).
+
+### P3 — Inline comments on all tuning changes
+- `combat/AttackResultApplier.gd:526` — comment explaining follow-through gate rationale
+- `combat/DefenseResolutionHandler.gd:83` — comment on time_factor floor change from 0.15 → 0.35
+- `weapon/ImpactVelocityModel.gd:44` — comment on SPEAR blunt vmax reduction from 17.5 → 12.0
 
 ---
 

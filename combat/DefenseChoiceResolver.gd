@@ -386,8 +386,8 @@ static func choose_defense(
 	result.s_atk_parry = s_atk_parry
 	result.s_d_parry = s_d_parry
 
-	var block_mass_t: float = parry_cfg.get("block_mass_threshold", 0.9)
-	var block_str_t: float = parry_cfg.get("block_str_threshold", 0.95)
+	var block_mass_t: float = parry_cfg.get("block_mass_threshold", CombatConstants.PARRY_BLOCK_MASS_THRESHOLD)
+	var block_str_t: float = parry_cfg.get("block_str_threshold", CombatConstants.PARRY_BLOCK_STR_THRESHOLD)
 	var effective_redirect: float = _get_effective_redirect(tgt)
 	result.effective_redirect = effective_redirect
 	result.is_block_parry = m_d_parry >= m_a_parry * block_mass_t and s_d_parry >= s_atk_parry * block_str_t

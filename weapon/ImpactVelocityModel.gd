@@ -41,7 +41,7 @@ static var _default_bands: Dictionary = {
 	"SPEAR": {
 		"stab": Vector2(5.0, 20.0),
 		"cut": Vector2(5.5, 17.5),
-		"blunt": Vector2(5.5, 12.0)
+		"blunt": Vector2(5.5, 12.0)  # vmax reduced from 17.5 (Tuning T3.2): shaft mass distribution limits tip speed on off-axis pole_swing.
 	}
 }
 

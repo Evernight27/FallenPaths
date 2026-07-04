@@ -1,6 +1,6 @@
 # Fallen Paths
 
-[`docs/PLANNING.md`](docs/PLANNING.md) ? [`docs/AGENTS_ENTRY.md`](docs/AGENTS_ENTRY.md) ? [`docs/SHIP_PLAN.md`](docs/SHIP_PLAN.md) ? [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md) ? [`docs/CAMPAIGN_DECISION_GUIDE.md`](docs/CAMPAIGN_DECISION_GUIDE.md)
+[`docs/PLANNING.md`](docs/PLANNING.md) ? [`docs/AGENTS_ENTRY.md`](docs/AGENTS_ENTRY.md) ? [`docs/SHIP_PLAN.md`](docs/SHIP_PLAN.md) ? [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md) ? [`docs/CAMPAIGN_DECISION_GUIDE.md`](docs/CAMPAIGN_DECISION_GUIDE.md) ? [`docs/COMPOSURE_PLAN.md`](docs/COMPOSURE_PLAN.md)
 
 **Agent prompts:** [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.md)
 
@@ -95,6 +95,14 @@ Use these names in new code ? avoid duplicating membership tests, manager privat
 | Tier 4.2 / III-8 recovery cause | **`CombatConstants.normalize_recovery_cause`** · **`readiness_curve_for_cause`** · **`defense_footwork_recovering_dodge_mult_for_cause`** |
 | L3 guard line for UI / parry step | `CombatUiHints.active_line_for_ui` · live **`guard_line`** on dict (writers per **`GuardLineUpdater`**) |
 | Wait / focus form bias | `CombatWeaponForm.wait_action_weight_mult` · `preferred_guards` · `CombatConstants.AI_FOCUS_LINE_FORM_PREFERRED_MULT` |
+| Composure (gauge) fill | `CombatConstants.COMPOSURE_FILL_WAITING` (25/s) · `COMPOSURE_FILL_RECOVERING` (8/s) — set in `CombatStateHandlers.process_waiting` / `process_recovering` |
+| Composure cost deduction | `AttackWindUpStarter._resolve_composure_cost(move_id)` at wind-up start — `gauge = maxf(0, gauge_pre - cost)` · cost table in [`COMPOSURE_PLAN.md`](docs/COMPOSURE_PLAN.md#3c--cost-deduction-at-wind-up-start) |
+| Composure-based quality | `CombatTiming.gd` quality scaling: `1.5 - 0.5 × (gauge_pre / 100)` on wind-up duration · `DefenseChoiceResolver` parry_p_a scaling `0.6 + 0.4 × (gauge_pre / 100)` |
+| Parry lockout | `CombatConstantsParry.OFF_BALANCE_DURATION_S` (0.4s) — set on parry_deflect in `AttackResultApplier`, gated in `DefenseChoiceResolver` |
+| Under attack check | `CombatantEntityAccess.is_combatant_threatened(manager, id)` — scans WIND_UP combatants for pending_attack targeting this id |
+| Two-handed weapon | `weapon/Weapon.gd` `is_two_handed` flag · `WeaponConstants.weapon_is_two_handed(weapon)` helper |
+| Breath (was stamina) | `CombatConstantsStamina.gd` renamed constants (`BREATH_*`) · combatant keys: `"stamina"` (kept for compat) + `"breath"` (added) · fill via `CombatExhaustion.effective_breath_refill_rate` |
+| Wait (no gauge reset) | `CombatResolveAction.gd` — wait resolves directly (not via `skip_turn`), no gauge change, schedules action_ready at 0.1s |
 
 Implementation: `combat/CombatantEntityAccess.gd` ? `combat/CombatConstants.gd` ? `combat/MedicalPhaseController.gd` ? `world/CampaignEncounterBridge.gd`
 
@@ -151,6 +159,10 @@ Read in this order when tracing a cross-cutting concern:
 | Fold auto-switch into **`evaluate_automatic_doctrine`** or hook WF-3 on **`process_waiting`** **and** **`pick`** | **`evaluate_automatic_form`** in **`CombatAIActionPicker.pick`** only — see [`LIVE_PATHS#wf-implementation-pitfalls`](docs/LIVE_PATHS.md#wf-implementation-pitfalls) |
 | New `FEATURE_*` ? bleed retune ? closed IV-1,3,5–13 | User must ask; Expand one row per PR per [§9c](docs/SHIP_PLAN.md#combat-expand-registry) |
 | Harness literal strings copied into production | Literals OK in `*Tail.gd` / fixtures; production uses constants |
+| `c.gauge = 0.0` in wind-up/recovery/complete_recovery handlers | Gauge zeroes are removed from state handlers — cost deduction at wind-up start; fill during WAITING/RECOVERING |
+| Read `c.stamina` without `c.breath` fallback | Both keys set on combatant — `"stamina"` kept for backward compat, `"breath"` key is canonical in new code |
+| `move_id in COST_TABLE` in production | `AttackWindUpStarter._resolve_composure_cost(move_id)` — single cost table |
+| `stamina_factor()` in new code | `breath_factor()` — renamed function
 
 **Layers (do not conflate):** menu/resolver **move IDs** ? CoreEntity **method names** (`apply_bandage`) ? formation flow **`FORMATION_MOVE_KIND_*`** (`fall_back` menu vs `FORMATION_MOVE_KIND_FALL_BACK_PAIR` flow) ? see `CombatFormationFlow.gd` header.
 

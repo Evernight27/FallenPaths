@@ -370,6 +370,24 @@ All active `FEATURE_*` flags in `BleedingConstants.gd` are shipped and harness-v
 
 **MS-L7 (shipped):** `MentalStackDecider` **L5** (`Stack exhaustion`) + gradual offense damp in `CombatAIActionPicker` — ramp to floor at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (0.50, 50% FP band). Harness `_run_mental_stack_exhaustion_tunnel_*` · **`_run_p4a_ms_l7_exhaustion_threshold_parity`** ☑ 2026-06-08.
 
+<a id="composure-rework"></a>
+
+## Composure (planned)
+
+Design: [`docs/COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) — 8-step plan replacing binary ready/not-ready with continuous composure gauge.
+
+| Concept | Old | New |
+|---------|-----|-----|
+| Gauge semantics | Binary ready (100) / not-ready (0) | Continuous 0-100, cost deducted at wind-up start |
+| Fill rate | Instant to 100 on action_ready | 25/s WAITING, 8/s RECOVERING |
+| Action cost | None (gauge=0 → gauge=100 auto) | Cost per action (table in plan Step 3C) |
+| Quality | Not affected by gauge | Wind-up duration × `(1.5 - 0.5 × gauge/100)` |
+| Parry | Not affected by gauge | Parry_p_a × `(0.6 + 0.4 × gauge/100)` |
+| Wait action | Calls skip_turn → gauge=0 | Resolves directly, gauge unchanged |
+| Breach fill | Stamina → fill at 5/s, exhaustion accumulation | Breath renamed from stamina, same mechanics |
+
+**Implementation order:** Step 1 (primitives) → Step 2 (remove zeroes) → Step 3 (fill + cost) → Step 4 (quality) → Step 5 (rename) → Step 6 (AI) → Step 7 (harness) → Step 8 (campaign).
+
 <a id="battle-ui"></a>
 
 ## Battle UI

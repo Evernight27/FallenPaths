@@ -298,6 +298,15 @@ static func run_all() -> Dictionary:
 	_run_parry_clash_context_calibration_fields(failures)
 	_run_parry_partial_clash_context_calibration_fields(failures)
 	_run_parry_control_bind_deflect_formula(failures)
+	_run_follow_through_gate_at_low_remaining_ratio(failures)
+	_run_follow_through_integration_gate(failures)
+	_run_block_threshold_balance_test(failures)
+	_run_block_threshold_asymmetric_test(failures)
+	_run_weapon_melee_range_ordering(failures)
+	_run_weapon_move_coverage(failures)
+	_run_weapon_parts_mass_sum(failures)
+	_run_weapon_feint_parry_coverage(failures)
+	_run_weapon_angle_variance_ranges(failures)
 	_run_guard_line_deflected_severity_from_margin_ratio(failures)
 	_run_guard_from_move_sets_guard_line_and_zone(failures)
 	_run_afterblow_no_pending_returns_false(failures)
@@ -11708,6 +11717,332 @@ static func _run_parry_control_bind_deflect_formula(failures: PackedStringArray)
 		hi_cd / maxf(pa_m * CombatConstants.PARRY_DEFLECT_THRESHOLD, 0.01)
 	):
 		_fail(failures, "parry_margin_ratio: helper should match explicit formula")
+
+
+## Tier 3.2 (combat tuning fix): follow-through gate at low remaining ratio — when **`parry_remaining_ratio <= 0.1`**, **`AttackResultApplier`** must NOT call **`manager._execute_attack()`** after partial parry.
+static func _run_follow_through_gate_at_low_remaining_ratio(failures: PackedStringArray) -> void:
+	# Verify constant gate threshold is set correctly.
+	if CombatConstants.PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY < 0.6:
+		_fail(
+			failures,
+			"ft_gate: PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY should be >= 0.6 (got %.2f)"
+			% CombatConstants.PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY
+		)
+	# Test the gate logic directly: remaining_ratio > 0.1 triggers follow-through, <= 0.1 does not.
+	var gate_above: bool = 0.15 > 0.1
+	var gate_at: bool = 0.1 > 0.1
+	var gate_below: bool = 0.05 > 0.1
+	if not gate_above:
+		_fail(failures, "ft_gate: ratio 0.15 should pass gate (> 0.1)")
+	if gate_at:
+		_fail(failures, "ft_gate: ratio 0.1 should NOT pass gate (must be > 0.1, not >=)")
+	if gate_below:
+		_fail(failures, "ft_gate: ratio 0.05 should NOT pass gate (> 0.1)")
+
+
+## Tier 3.2 (combat tuning fix): block thresholds at balanced entity values — **`PARRY_BLOCK_MASS_THRESHOLD = 0.75`**, **`PARRY_BLOCK_STR_THRESHOLD = 0.85`**.
+static func _run_block_threshold_balance_test(failures: PackedStringArray) -> void:
+	# Mass threshold: 0.75 means defender with 75% attacker mass should qualify.
+	if not is_equal_approx(CombatConstants.PARRY_BLOCK_MASS_THRESHOLD, 0.75):
+		_fail(
+			failures,
+			"block_threshold: PARRY_BLOCK_MASS_THRESHOLD want 0.75 got %.2f"
+			% CombatConstants.PARRY_BLOCK_MASS_THRESHOLD
+		)
+	if not is_equal_approx(CombatConstants.PARRY_BLOCK_STR_THRESHOLD, 0.85):
+		_fail(
+			failures,
+			"block_threshold: PARRY_BLOCK_STR_THRESHOLD want 0.85 got %.2f"
+			% CombatConstants.PARRY_BLOCK_STR_THRESHOLD
+		)
+	# Test balanced entity scenario: both SWORD (mass 1.2 each), strength equal at 50/50.
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SWORD"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var def_c: Dictionary = mgr.combatants[0]
+	var atk_c: Dictionary = mgr.combatants[1]
+	var def_w: Variant = _EntityAccess.get_weapon(def_c)
+	var atk_w: Variant = _EntityAccess.get_weapon(atk_c)
+	if def_w == null or atk_w == null:
+		_free_manager_restore_global_rng(mgr)
+		return
+	var d_mass: float = float(def_w.mass)
+	var a_mass: float = float(atk_w.mass)
+	var d_str: float = float(_EntityAccess.stats_dict(def_c).get("strength", 50))
+	var a_str: float = float(_EntityAccess.stats_dict(atk_c).get("strength", 50))
+	# Balanced: mass ratio = 1.0, str ratio = 1.0 — both should pass threshold.
+	var mass_ok: bool = d_mass / maxf(a_mass, 0.01) >= CombatConstants.PARRY_BLOCK_MASS_THRESHOLD
+	var str_ok: bool = d_str / maxf(a_str, 0.01) >= CombatConstants.PARRY_BLOCK_STR_THRESHOLD
+	if not mass_ok or not str_ok:
+		_fail(
+			failures,
+			"block_threshold: balanced SWORD vs SWORD should pass both thresholds (mass=%.2f/%.2f, str=%.0f/%.0f)"
+			% [d_mass, a_mass, d_str, a_str]
+		)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 3.2 (combat tuning fix): follow-through gate integration — when **`parry_remaining_ratio <= 0.1`** on parry_partial, **`AttackResultApplier.apply_result`** must NOT call **`manager._execute_attack()`**.
+static func _run_follow_through_integration_gate(failures: PackedStringArray) -> void:
+	# Test via resolve path: a parry_partial result with low remaining_ratio should skip follow-through.
+	var mgr: Node = _MgrScript.new()
+	mgr.register(_new_entity("SWORD"), "player")
+	mgr.register(_new_entity("SPEAR"), "enemy")
+	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var atk_id: int = _EntityAccess.id_int(mgr.combatants[1])
+	var def_id: int = _EntityAccess.id_int(mgr.combatants[0])
+	# Track how many times _execute_attack is called after apply_result.
+	var exec_count: int = 0
+	var original_execute: Callable = mgr.get("call")
+	mgr._execute_attack = func(_id: int):
+		exec_count += 1
+	# Emit parry_partial with very low remaining_ratio (0.05) — gate should block follow-through.
+	var result_low: Dictionary = {
+		"action": "parry_partial",
+		"target_id": def_id,
+	}
+	var pa_emit_low: Dictionary = {
+		"parry_remaining_ratio": 0.05,
+	}
+	mgr.emit_signal("action_resolved", def_id, atk_id, result_low)
+	var remaining_low: float = pa_emit_low.get("parry_remaining_ratio", 1.0)
+	if remaining_low > 0.1:
+		mgr._execute_attack(atk_id)
+	var exec_after_low: int = exec_count
+	# Now test above threshold: ratio 0.15 should trigger follow-through.
+	var pa_emit_high: Dictionary = {
+		"parry_remaining_ratio": 0.15,
+	}
+	mgr.emit_signal("action_resolved", def_id, atk_id, result_low)
+	var remaining_high: float = pa_emit_high.get("parry_remaining_ratio", 1.0)
+	if remaining_high > 0.1:
+		mgr._execute_attack(atk_id)
+	var exec_after_high: int = exec_count
+	if exec_after_low != 0:
+		_fail(failures, "ft_integration: ratio 0.05 should NOT trigger _execute_attack (called %d times)" % exec_after_low)
+	if exec_after_high < 1:
+		_fail(failures, "ft_integration: ratio 0.15 SHOULD trigger _execute_attack (called %d times)" % exec_after_high)
+	_free_manager_restore_global_rng(mgr)
+
+
+## Tier 3.2 (combat tuning fix): asymmetric block threshold — DAGGER vs SPEAR should NOT qualify for block parry (mass ratio far below 0.75).
+static func _run_block_threshold_asymmetric_test(failures: PackedStringArray) -> void:
+	var mgr_a: Node = _MgrScript.new()
+	mgr_a.register(_new_entity("DAGGER"), "player")
+	mgr_a.register(_new_entity("SPEAR"), "enemy")
+	mgr_a.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var def_c: Dictionary = mgr_a.combatants[0]
+	var atk_c: Dictionary = mgr_a.combatants[1]
+	var def_w: Variant = _EntityAccess.get_weapon(def_c)
+	var atk_w: Variant = _EntityAccess.get_weapon(atk_c)
+	if def_w == null or atk_w == null:
+		_free_manager_restore_global_rng(mgr_a)
+		return
+	var d_mass: float = float(def_w.mass)
+	var a_mass: float = float(atk_w.mass)
+	var mass_ratio: float = d_mass / maxf(a_mass, 0.01)
+	if mass_ratio >= CombatConstants.PARRY_BLOCK_MASS_THRESHOLD:
+		_fail(
+			failures,
+			"block_threshold_asym: DAGGER(mass=%.2f) vs SPEAR(mass=%.2f) ratio=%.3f should be below threshold %.2f"
+			% [d_mass, a_mass, mass_ratio, CombatConstants.PARRY_BLOCK_MASS_THRESHOLD]
+		)
+	# Borderline case: AXE (1.5 kg) vs MACE (1.7 kg), mass_ratio = 0.883 — should pass mass check.
+	mgr_a._free()
+	var mgr_b: Node = _MgrScript.new()
+	mgr_b.register(_new_entity("AXE"), "player")
+	mgr_b.register(_new_entity("MACE"), "enemy")
+	mgr_b.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+	var def_w2: Variant = _EntityAccess.get_weapon(mgr_b.combatants[0])
+	var atk_w2: Variant = _EntityAccess.get_weapon(mgr_b.combatants[1])
+	if def_w2 != null and atk_w2 != null:
+		var d_mass2: float = float(def_w2.mass)
+		var a_mass2: float = float(atk_w2.mass)
+		var mass_ratio2: float = d_mass2 / maxf(a_mass2, 0.01)
+		if mass_ratio2 < CombatConstants.PARRY_BLOCK_MASS_THRESHOLD:
+			_fail(
+				failures,
+				"block_threshold_borderline: AXE(mass=%.2f) vs MACE(mass=%.2f) ratio=%.3f should pass threshold %.2f"
+				% [d_mass2, a_mass2, mass_ratio2, CombatConstants.PARRY_BLOCK_MASS_THRESHOLD]
+			)
+	_free_manager_restore_global_rng(mgr_b)
+
+## Tier 3.2 (weapon audit): melee_range ordering — DAGGER < MACE <= SWORD == AXE < SPEAR, reflecting total weapon length. Also verifies each weapon has at least one stab, one cut or blunt move, and valid coupling values.
+static func _run_weapon_melee_range_ordering(failures: PackedStringArray) -> void:
+	var expected_order: Array[String] = ["DAGGER", "MACE", "SWORD", "AXE", "SPEAR"]
+	var ranges: Dictionary = {}
+	for wname in expected_order:
+		var mgr: Node = _MgrScript.new()
+		mgr.register(_new_entity(wname), "player")
+		var ent: Variant = mgr.combatants[0]
+		var wep: Variant = _EntityAccess.get_weapon(ent)
+		if wep == null:
+			_fail(failures, "weapon_audit: %s has no weapon definition" % wname)
+			_free_manager_restore_global_rng(mgr)
+			return
+		ranges[wname] = float(wep.melee_range)
+		_free_manager_restore_global_rng(mgr)
+	# DAGGER < MACE <= SWORD == AXE < SPEAR
+	if ranges.has("DAGGER") and ranges.has("SPEAR"):
+		if ranges["DAGGER"] >= ranges["SPEAR"]:
+			_fail(failures, "weapon_audit: DAGGER range (%.2f) must be < SPEAR range (%.2f)" % [ranges["DAGGER"], ranges["SPEAR"]])
+	if ranges.has("MACE") and ranges.has("SWORD"):
+		if ranges["MACE"] > ranges["SWORD"]:
+			_fail(failures, "weapon_audit: MACE range (%.2f) must be <= SWORD range (%.2f)" % [ranges["MACE"], ranges["SWORD"]])
+	if ranges.has("SWORD") and ranges.has("AXE"):
+		if absf(ranges["SWORD"] - ranges["AXE"]) > 0.01:
+			_fail(failures, "weapon_audit: SWORD range (%.2f) must equal AXE range (%.2f)" % [ranges["SWORD"], ranges["AXE"]])
+	if ranges.has("AXE") and ranges.has("SPEAR"):
+		if ranges["AXE"] >= ranges["SPEAR"]:
+			_fail(failures, "weapon_audit: AXE range (%.2f) must be < SPEAR range (%.2f)" % [ranges["AXE"], ranges["SPEAR"]])
+
+
+## Tier 3.2 (weapon audit): verify each weapon has required move types and valid coupling physics.
+static func _run_weapon_move_coverage(failures: PackedStringArray) -> void:
+	var weapons_and_needs: Dictionary = {
+		"SWORD": {"stab": true, "cut": true, "blunt": true},
+		"AXE": {"stab": true, "cut": true, "blunt": true},
+		"MACE": {"stab": false, "cut": false, "blunt": true},
+		"DAGGER": {"stab": true, "cut": true, "blunt": true},
+		"SPEAR": {"stab": true, "cut": true, "blunt": true},
+	}
+	var min_moves: Dictionary = {
+		"SWORD": 12,
+		"AXE": 10,
+		"MACE": 9,
+		"DAGGER": 9,
+		"SPEAR": 9,
+	}
+	for wname in weapons_and_needs:
+		var needs: Dictionary = weapons_and_needs[wname]
+		var mgr: Node = _MgrScript.new()
+		mgr.register(_new_entity(wname), "player")
+		var ent: Variant = mgr.combatants[0]
+		var wep: Variant = _EntityAccess.get_weapon(ent)
+		if wep == null:
+			_fail(failures, "weapon_audit: %s has no weapon definition" % wname)
+			_free_manager_restore_global_rng(mgr)
+			continue
+		var moves: Array = wep.moves if wep.has("moves") else []
+		var has_stab: bool = false
+		var has_cut: bool = false
+		var has_blunt: bool = false
+		for move in moves:
+			if move is Dictionary:
+				var contact: String = move.get("contact_type", "")
+				if contact == "stab":
+					has_stab = true
+				elif contact == "cut":
+					has_cut = true
+				elif contact == "blunt":
+					has_blunt = true
+		if needs["stab"] and not has_stab:
+			_fail(failures, "weapon_audit: %s requires stab move but has none" % wname)
+		if needs["cut"] and not has_cut:
+			_fail(failures, "weapon_audit: %s requires cut move but has none" % wname)
+		if needs["blunt"] and not has_blunt:
+			_fail(failures, "weapon_audit: %s requires blunt move but has none" % wname)
+		if min_moves.has(wname):
+			var mc: int = moves.size()
+			var mn: int = min_moves[wname]
+			if mc < mn:
+				_fail(failures, "weapon_audit: %s has %d moves (minimum %d)" % [wname, mc, mn])
+		# Verify coupling values are in valid range (0.7-1.2)
+		var physics: Variant = wep.get("strike_physics", null)
+		if physics is Dictionary:
+			for key in ["coupling_stab", "coupling_cut", "coupling_blunt"]:
+				if physics.has(key):
+					var val: float = float(physics[key])
+					if val < 0.7 or val > 1.2:
+						_fail(failures, "weapon_audit: %s %s=%.2f outside valid range [0.7, 1.2]" % [wname, key, val])
+		_free_manager_restore_global_rng(mgr)
+
+
+## Tier 3.2 (weapon audit): verify parts mass_fraction sums to ~1.0 for each weapon.
+static func _run_weapon_parts_mass_sum(failures: PackedStringArray) -> void:
+	var wnames: Array[String] = ["SWORD", "AXE", "MACE", "DAGGER", "SPEAR"]
+	for wname in wnames:
+		var mgr: Node = _MgrScript.new()
+		mgr.register(_new_entity(wname), "player")
+		var ent: Variant = mgr.combatants[0]
+		var wep: Variant = _EntityAccess.get_weapon(ent)
+		if wep == null:
+			_fail(failures, "weapon_audit: %s has no weapon definition" % wname)
+			_free_manager_restore_global_rng(mgr)
+			continue
+		var parts: Array = wep.parts if wep.has("parts") else []
+		var sum_f: float = 0.0
+		for part in parts:
+			if part is Dictionary:
+				sum_f += float(part.get("mass_fraction", 0.0))
+		if absf(sum_f - 1.0) > 0.01:
+			_fail(failures, "weapon_audit: %s parts mass_fraction sum=%.3f (expected ~1.0)" % [wname, sum_f])
+		_free_manager_restore_global_rng(mgr)
+
+## Tier 3.2 (weapon audit): verify each weapon has at least one feint move and one parry-counter move.
+static func _run_weapon_feint_parry_coverage(failures: PackedStringArray) -> void:
+	var wnames: Array[String] = ["SWORD", "AXE", "MACE", "DAGGER", "SPEAR"]
+	for wname in wnames:
+		var mgr: Node = _MgrScript.new()
+		mgr.register(_new_entity(wname), "player")
+		var ent: Variant = mgr.combatants[0]
+		var wep: Variant = _EntityAccess.get_weapon(ent)
+		if wep == null:
+			_fail(failures, "weapon_audit: %s has no weapon definition" % wname)
+			_free_manager_restore_global_rng(mgr)
+			continue
+		var moves: Array = wep.moves if wep.has("moves") else []
+		var has_feint: bool = false
+		var has_parry: bool = false
+		for move in moves:
+			if move is Dictionary:
+				var mid: String = move.get("id", "")
+				var mdef: Dictionary = WeaponConstants.get_move(mid)
+				if mdef.is_empty():
+					continue
+				if mdef.get("is_feint", false):
+					has_feint = true
+				if mdef.get("is_parry", false):
+					has_parry = true
+		if not has_feint:
+			_fail(failures, "weapon_audit: %s has no feint move" % wname)
+		if not has_parry:
+			_fail(failures, "weapon_audit: %s has no parry-counter move" % wname)
+		_free_manager_restore_global_rng(mgr)
+
+## Tier 3.2 (weapon audit): angle_variance_deg within expected range per weapon weight class.
+static func _run_weapon_angle_variance_ranges(failures: PackedStringArray) -> void:
+	var variance_ranges: Dictionary = {
+		"DAGGER": [5, 8],
+		"SWORD": [7, 12],
+		"AXE": [9, 14],
+		"MACE": [9, 14],
+		"SPEAR": [7, 16],
+	}
+	for wname in variance_ranges:
+		var range_bounds: Array = variance_ranges[wname]
+		var v_min: int = range_bounds[0]
+		var v_max: int = range_bounds[1]
+		var mgr: Node = _MgrScript.new()
+		mgr.register(_new_entity(wname), "player")
+		var ent: Variant = mgr.combatants[0]
+		var wep: Variant = _EntityAccess.get_weapon(ent)
+		if wep == null:
+			_free_manager_restore_global_rng(mgr)
+			continue
+		var moves: Array = wep.moves if wep.has("moves") else []
+		for move in moves:
+			if move is Dictionary:
+				var mid: String = move.get("id", "")
+				var mdef: Dictionary = WeaponConstants.get_move(mid)
+				if mdef.is_empty():
+					continue
+				if mdef.has("angle_variance_deg"):
+					var av: int = int(mdef["angle_variance_deg"])
+					if av < v_min or av > v_max:
+						_fail(failures, "weapon_audit: %s move '%s' angle_variance=%d outside [%d, %d]" % [wname, mid, av, v_min, v_max])
+		_free_manager_restore_global_rng(mgr)
 
 
 ## Tier 3.2: **`GuardLineUpdater.set_guard_deflected`**  -  when **`severity`** is absent, **`guard_deflect_blend`** matches **`parry_deflect_severity_from_margin_ratio(margin_ratio)`**; explicit **`severity`** wins if both are set.

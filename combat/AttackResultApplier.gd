@@ -523,6 +523,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				atk["tuning_ft_parent_strike"] = parent_idx
 		manager.emit_signal("action_resolved", target_id, attacker_id, partial_emit)
 		var remaining_ratio: float = pa_partial_emit.get("parry_remaining_ratio", 1.0)
+		# Follow-through gate: skip strike execution when parry absorbed >=90% of energy (remaining <= 0.1). Tuning fix T3.2.
 		if remaining_ratio > 0.1:
 			manager._execute_attack(attacker_id)
 		return
