@@ -367,19 +367,19 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
 	if data.has("bone_health"):
 		entity.bone_health = _deep_dup(data.get("bone_health", {}))
 	# XCamp-4: restore proficiency data.
-	if data.has("proficiency_bonus") and "_proficiency_bonus" in entity:
+	if data.has("proficiency_bonus"):
 		var saved_prof: Dictionary = data.get("proficiency_bonus", {})
 		var _prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
 		for key in _prof_keys:
 			entity._proficiency_bonus[key] = float(saved_prof.get(key, 0) or 0)
-	if data.has("training_pending") and "training_pending" in entity:
+	if data.has("training_pending"):
 		var saved_train: Dictionary = data.get("training_pending", {})
 		var _prof_keys_p := ["strength", "agility", "intelligence", "endurance", "perception"]
 		for key in _prof_keys_p:
 			entity.training_pending[key] = float(saved_train.get(key, 0) or 0)
-	if data.has("last_fought_day") and "last_fought_day" in entity:
+	if data.has("last_fought_day"):
 		entity.last_fought_day = data.get("last_fought_day", 0)
-	if data.has("last_fought_in_combat") and "last_fought_in_combat" in entity:
+	if data.has("last_fought_in_combat"):
 		entity.last_fought_in_combat = data.get("last_fought_in_combat", false)
 	_sync_entity_vitals(entity)
 

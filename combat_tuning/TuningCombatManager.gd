@@ -12,11 +12,18 @@ var tuning_override_provider: Callable
 ## When true (default), player wins end combat immediately without medical triage.
 var tuning_skip_medical: bool = true
 
+## When true, skip scheduling initial action-ready events so the first turn
+## waits for an explicit trigger (Strike / Exchange / Auto). Combat starts but
+## neither side can act until something fires the first EVENT_ACTION_READY.
+var tuning_wait_for_player: bool = false
+
 func start(player_preset: Dictionary = {}, enemy_preset: Dictionary = {}) -> void:
 	set_meta("tuning_expose_strike_context", true)
 	set_meta("_harness_expose_penetration_applied", true)
 	set_meta("_harness_expose_damage_kinematics", true)
 	super.start(player_preset, enemy_preset)
+	if tuning_wait_for_player:
+		set_process(false)
 
 func get_available_actions(combatant_id: int) -> Array:
 	if tuning_override_provider != null:

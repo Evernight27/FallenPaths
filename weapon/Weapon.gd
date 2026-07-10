@@ -13,6 +13,7 @@ var weapon_type: String = ""
 
 # Physical properties (cm, kg). Used for contact area per attack type and per damage component.
 var mass: float = 1.0
+var is_two_handed: bool = false
 var parry_speed_factor: float = 1.0  # Scale for parry blade speed (1.0 = default; dagger > 1, mace < 1)
 var blade_width: float = 2.0
 var point_width: float = 0.5
@@ -77,6 +78,7 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 	w.display_name = def.get("name", weapon_id)
 	w.weapon_type = weapon_id.to_upper()
 	w.mass = def.get("mass", WeaponConstants.BASELINE_MASS_KG)
+	w.is_two_handed = def.get("is_two_handed", false)
 	w.parry_speed_factor = def.get("parry_speed_factor", 1.0)
 	w.blade_width = def.get("blade_width", WeaponConstants.BASELINE_CONTACT_CM)
 	w.point_width = def.get("point_width", 0.5)

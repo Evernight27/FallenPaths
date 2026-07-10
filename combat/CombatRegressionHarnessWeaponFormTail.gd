@@ -289,7 +289,7 @@ static func _run_weapon_form_controlling_close_listing_weight(failures: PackedSt
 	for _j in 3:
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
 		mgr, "player", 0, 6
 	)
@@ -415,7 +415,7 @@ static func _run_weapon_form_controlling_close_list_stamp(failures: PackedString
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var player: Dictionary = mgr.combatants[0]
 	var enemy: Dictionary = mgr.combatants[1]
 	var e_id: int = _EntityAccess.id_int(enemy)
@@ -639,7 +639,7 @@ static func _run_weapon_form_turn_ready_listing_close_controlling(failures: Pack
 	for _j in 3:
 		mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var player: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
 		mgr, "player", 0, 6
 	)
@@ -880,7 +880,7 @@ static func _run_weapon_form_auto_switch_surround(failures: PackedStringArray) -
 	mgr.combatants[2]["file"] = 2
 	for c in mgr.combatants:
 		c["gauge"] = 100.0
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var def: Dictionary = mgr.combatants[0]
 	var def_id: int = _EntityAccess.id_int(def)
 	if _TacticalCombat.count_engaging_threats(mgr, def_id) < 2:

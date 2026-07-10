@@ -231,8 +231,8 @@ static func _run_sim_calibration_audit_committed_ke_in_band(failures: PackedStri
 	if not _DesignAnchors.committed_strike_ke_in_strict_band(ke_commit):
 		_fail(
 			failures,
-			"sim_audit_ke: committed oberhau i=1.0 KE %.0fJ outside 70 - 140J (commit=%.2f bare=%.0f)"
-			% [ke_commit, oberhau_commit, ke_bare]
+			"sim_audit_ke: committed oberhau i=1.0 KE %.0fJ outside %s-%sj (commit=%.2f bare=%.0f)"
+			% [ke_commit, _DesignAnchors.COMMITTED_STRIKE_KE_J_MIN, _DesignAnchors.COMMITTED_STRIKE_KE_J_MAX, oberhau_commit, ke_bare]
 		)
 	var err_bare: float = absf(ke_bare - _DesignAnchors.DESIGN_KE_ARM_J)
 	var err_commit: float = absf(ke_commit - _DesignAnchors.DESIGN_KE_ARM_J)
@@ -1964,7 +1964,7 @@ static func _run_mat_production_ttd_and_oberhau_unchanged(failures: PackedString
 	ai.delivery_commit_fraction = 0.78
 	var ke_j: float = _WeaponDamage.compute_kinetic_energy_j(sword, ai)
 	if not _DesignAnchors.committed_strike_ke_in_strict_band(ke_j):
-		_fail(failures, "mat_production: committed oberhau KE %.0f outside 70-140 J" % ke_j)
+		_fail(failures, "mat_production: committed oberhau KE %.0f outside %s-%sj" % [ke_j, _DesignAnchors.COMMITTED_STRIKE_KE_J_MIN, _DesignAnchors.COMMITTED_STRIKE_KE_J_MAX])
 
 
 ## M6: human arm 12 display <-> ~100 J capacity anchor.

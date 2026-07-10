@@ -18,9 +18,11 @@ const COMBATANT_RANK: String = "rank"
 const COMBATANT_FILE: String = "file"
 const COMBATANT_GAUGE: String = "gauge"
 const COMBATANT_STAMINA: String = "stamina"
+const COMBATANT_BREATH: String = "breath"
 const COMBATANT_STANCE: String = "stance"
 const COMBATANT_FORMATION_ID: String = "formation_id"
 const COMBATANT_COMBAT_ABSENT: String = "combat_absent"
+const COMBATANT_KEY_MUSCLE_FATIGUE: String = "muscle_fatigue"
 
 # --- Entity state (body stats, wounds, blood) ---
 const BLOOD_VOLUME: String = "blood_volume"

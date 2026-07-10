@@ -1,0 +1,15 @@
+E:\FallenPaths\fallen-paths\character.gd|moved
+E:\FallenPaths\fallen-paths\combat\CombatManager.gd|turn_ready
+E:\FallenPaths\fallen-paths\combat\CombatManager.gd|action_resolved
+E:\FallenPaths\fallen-paths\combat\CombatManager.gd|combat_ended
+E:\FallenPaths\fallen-paths\combat\CombatManager.gd|enemies_eliminated
+E:\FallenPaths\fallen-paths\combat\CombatManager.gd|combatant_health_changed
+E:\FallenPaths\fallen-paths\combat\CombatManager.gd|formation_changed
+E:\FallenPaths\fallen-paths\combat\CombatManager.gd|engagement_state_changed
+E:\FallenPaths\fallen-paths\combat\CombatManager.gd|turn_resolved
+E:\FallenPaths\fallen-paths\combat\CombatManager.gd|combat_ui_hint
+E:\FallenPaths\fallen-paths\core\CoreEntity.gd|died
+E:\FallenPaths\fallen-paths\core\CoreEntity.gd|creature_incapacitated
+E:\FallenPaths\fallen-paths\core\CoreEntity.gd|health_changed
+E:\FallenPaths\fallen-paths\ui\BattleScene.gd|battle_ended
+E:\FallenPaths\fallen-paths\world\PartyManager.gd|party_updated

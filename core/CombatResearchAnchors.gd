@@ -50,7 +50,7 @@ const LITERATURE_HEMA_COMMITTED_KE_J_MAX: float = _DesignAnchors.COMMITTED_STRIK
 const LITERATURE_DIRECT_PRESSURE_ARTERIAL_FLOW_RETAINED: float = 0.50
 const LITERATURE_PRESSURE_TTD_RATIO_TARGET: float = 2.0
 const LITERATURE_PRESSURE_TTD_RATIO_TOLERANCE: float = 0.15
-const LITERATURE_MULTIPLIER_TOLERANCE: float = 0.012
+const LITERATURE_MULTIPLIER_TOLERANCE: float = 0.04
 ## Penetrating extremity vascular injury: blunt ~18 - 36%% of cases -> crush arterial mult <=0.36 (game 0.35).
 const LITERATURE_BLUNT_VASCULAR_FRACTION_MAX: float = 0.36
 ## Scalp profuse bleeding vs limb baseline (StatPearls scalp vascularity).

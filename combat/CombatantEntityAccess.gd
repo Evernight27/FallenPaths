@@ -780,6 +780,13 @@ static func stamina_float(combatant: Dictionary, default_if_missing: float = Com
 	return float(combatant.get("stamina", default_if_missing))
 
 
+## Breath (alternate/alias burst pool; canonical in new code per anti-patterns).
+static func breath_float(combatant: Dictionary, default_if_missing: float = CombatConstants.STAMINA_MAX) -> float:
+	if combatant.has("breath"):
+		return float(combatant["breath"])
+	return stamina_float(combatant, default_if_missing)
+
+
 ## Burst pool ratio vs **`CombatExhaustion.effective_stamina_max`** (exhaustion + blood).
 static func stamina_ratio(combatant: Dictionary) -> float:
 	return _load_exhaustion().stamina_ratio(combatant)

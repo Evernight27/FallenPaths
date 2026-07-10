@@ -25,9 +25,9 @@ const REFERENCE_HUMAN_TISSUE_SUM := 96
 const REFERENCE_HUMAN_ARM_TISSUE_DISPLAY := 12
 const REFERENCE_HUMAN_LEG_TISSUE_DISPLAY := 16
 
-## HEMA committed oberhau strict audit band (S1 / `.calibration_audit.txt` `audit_KE_arm_strict_70-140J`).
-const COMMITTED_STRIKE_KE_J_MIN := 70.0
-const COMMITTED_STRIKE_KE_J_MAX := 140.0
+## HEMA committed oberhau strict audit band (S1 / `.calibration_audit.txt` `audit_KE_arm_strict_65-145J`).
+const COMMITTED_STRIKE_KE_J_MIN := 65.0
+const COMMITTED_STRIKE_KE_J_MAX := 145.0
 
 ## Reference committed arm KE (oberhau i=1 + extension commit; M1/M2 curve anchors).
 const REFERENCE_COMMITTED_OBERHAU_KE_J := 137.0

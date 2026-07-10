@@ -22,7 +22,7 @@ const _ContractSpawner := preload("res://world/ContractSpawner.gd")
 const _BattleEndHandler := preload("res://world/BattleEndHandler.gd")
 const _Proficiency := preload("res://core/EntityProficiency.gd")
 
-static func start_combat(world: Node2D, enemies: Array) -> void:
+static func start_combat(world: Node2D, enemies: Array):
 	var players: Array = _CampaignBridge.get_fightable_party_nodes(world)
 	if players.is_empty():
 		if not CombatConstants.is_headless_harness_quiet():
@@ -87,7 +87,7 @@ static func start_combat(world: Node2D, enemies: Array) -> void:
 	if battle.has_signal("battle_ended"):
 		battle.connect("battle_ended", Callable(world, "_on_battle_ended"), CONNECT_ONE_SHOT)
 
-static func handle_battle_ended(world: Node2D, winner: String, defeated: Node) -> void:
+static func handle_battle_ended(world: Node2D, winner: String, defeated: Node):
 	if not _OperationalLog.is_play_session_active():
 		var def_name: String = str(defeated.name) if defeated != null else "null"
 		_CombatDebug.combat_session("handle_battle_ended winner=%s defeated=%s" % [winner, def_name])
@@ -184,7 +184,7 @@ static func resume_overworld_after_soft_defeat(world: Node2D, lost_contract: Dic
 	_get_company_state().try_autosave(world)
 
 
-static func _apply_last_fought_day_to_roster(world: Node2D) -> void:
+static func _apply_last_fought_day_to_roster(world: Node2D):
 	if not _get_company_state().read_stub_proficiency_enabled():
 		return
 	var day_index: int = _get_company_state().get_day_index(world)

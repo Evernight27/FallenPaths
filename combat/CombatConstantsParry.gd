@@ -81,7 +81,8 @@ const PARRY_BIND_RIPOSTE_BY_PART_CONTACT: Dictionary = {
 	"haft": {"stab": 0.55, "cut": 0.78}
 }
 const PARRY_BIND_RIPOSTE_MULT_FALLBACK: float = 0.78
-const PARRY_BIND_RIPOSTE_GAUGE_BONUS: float = 10.0
+const _Stamina := preload("res://combat/CombatConstantsStamina.gd")
+const PARRY_BIND_RIPOSTE_GAUGE_BONUS := float(_Stamina.PARRY_BIND_RIPOSTE_GAUGE_BONUS)
 const PARRY_LATE_CONTROL_FACTOR := 0.6
 const PARRY_OFF_BALANCE_CONTROL_FACTOR := 0.7
 const PARRY_THRUST_CONTROL_MULT := 0.85

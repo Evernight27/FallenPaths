@@ -79,7 +79,7 @@ func start(
 	p_player_formation: Dictionary = {},
 	p_enemy_formation: Dictionary = {},
 	p_encounter: Dictionary = {}
-) -> void:
+):
 	# Accept either a single Node or an Array of Nodes for each side
 	if p_players == null:
 		players = []
@@ -668,7 +668,7 @@ func _refresh_medical_fast_forward_exit_button() -> void:
 	)
 
 
-func _on_end_battle_button_pressed() -> void:
+func _on_end_battle_button_pressed():
 	if _end_battle_exit_in_progress:
 		return
 	_end_battle_exit_in_progress = true

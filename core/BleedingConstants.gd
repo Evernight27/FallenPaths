@@ -192,8 +192,8 @@ const FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS: bool = true
 # --- Medical triage bands (remaining % volume). Used by MedicalPhaseController AI/urgency. ---
 const MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING: float = 55.0
 const MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING: float = 42.0
-const MEDICAL_TRIAGE_DANGER_SECONDS: float = 90.0
-const MEDICAL_TRIAGE_PERIL_SECONDS: float = 45.0
+const MEDICAL_TRIAGE_DANGER_SECONDS: float = 60.0
+const MEDICAL_TRIAGE_PERIL_SECONDS: float = 30.0
 
 # --- Clotting: exponential decay of bleeding rate (rate *= exp(-k*delta)). First-order kinetics. ---
 # Per-severity clotting rate (k) per second. Half-life of rate = ln(2)/k (first-order clot decay).

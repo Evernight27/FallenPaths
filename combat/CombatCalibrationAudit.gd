@@ -403,9 +403,9 @@ static func _append_material_failure_production_section(
 		ai.delivery_commit_fraction = 0.78
 		var ke_j: float = _WeaponDamage.compute_kinetic_energy_j(sword, ai)
 		var ke_ok: bool = _DesignAnchors.committed_strike_ke_in_strict_band(ke_j)
-		lines.append("committed_oberhau_ke_J=%.0f strict_70-140=%s" % [ke_j, str(ke_ok).to_lower()])
+		lines.append("committed_oberhau_ke_J=%.0f strict_%.0f-%.0f=%s" % [ke_j, _DesignAnchors.COMMITTED_STRIKE_KE_J_MIN, _DesignAnchors.COMMITTED_STRIKE_KE_J_MAX, str(ke_ok).to_lower()])
 		if not ke_ok:
-			failures.append("material_production: committed oberhau KE %.0f outside 70-140 J" % ke_j)
+			failures.append("material_production: committed oberhau KE %.0f outside %.0f-%.0f J" % [ke_j, _DesignAnchors.COMMITTED_STRIKE_KE_J_MIN, _DesignAnchors.COMMITTED_STRIKE_KE_J_MAX])
 	var arm_pen6: Dictionary = _material_failure_reference_arm_pen6()
 	lines.append(
 		"reference_arm_pen6_to_bone=%.2f curve_cut_pen6=%.2f"

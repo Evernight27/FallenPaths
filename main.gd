@@ -272,11 +272,11 @@ func _exit_tree() -> void:
 		_OperationalLog.end_play_session()
 
 
-func _on_battle_ended(winner: String, defeated: Node) -> void:
+func _on_battle_ended(winner: String, defeated: Node):
 	await CombatFlow.handle_battle_ended(self, winner, defeated)
 
 
-func _company_run_end(reason: String) -> void:
+func _company_run_end(reason: String):
 	var _RunEnd := preload("res://ui/CompanyRunEndPanel.gd")
 	await _RunEnd.show_and_await(self, reason)
 
@@ -286,3 +286,4 @@ func _print_node_tree(node: Node, indent: String = "") -> void:
 	print(indent, node.name, "<", node.get_class(), ">")
 	for child in node.get_children():
 		_print_node_tree(child, indent + "  ")
+

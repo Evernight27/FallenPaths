@@ -18,7 +18,7 @@ const _MapFieldCare := preload("res://world/MapFieldCare.gd")
 const _CampaignAfflictions := preload("res://world/CampaignAfflictions.gd")
 
 
-static func show_and_await(world: Node2D) -> void:
+static func show_and_await(world: Node2D):
 	if world == null or world.get_tree() == null:
 		return
 	_disable_overworld_input(world, false)

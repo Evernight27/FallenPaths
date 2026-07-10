@@ -26,6 +26,8 @@ static func _get_combat_ai_picker() -> GDScript:
 	if _CombatAIPicker == null:
 		_CombatAIPicker = load("res://combat/CombatAIActionPicker.gd")
 	return _CombatAIPicker
+const _EventDispatch := preload("res://combat/CombatEventDispatch.gd")
+const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 
 # --- Preloads (tuning modules) ---
@@ -49,7 +51,7 @@ var _current_intensity: float = 0.62
 var _strike_count: int = 0
 
 # Auto-combat settings
-var _auto_enabled: bool = true
+var _auto_enabled: bool = false
 var _auto_waiting_for_death: bool = false
 var _auto_respawn_delay: float = 0.0
 var _auto_medical_ff: bool = false  # fast-forward medical in auto mode
@@ -180,7 +182,7 @@ func _auto_try_respawn(delta: float) -> bool:
 	return false
 
 
-func _fast_forward_medical_phase() -> void:
+func _fast_forward_medical_phase():
 	if manager == null or not is_instance_valid(manager):
 		_auto_medical_ff = false
 		_spawn_combatants()
@@ -302,7 +304,7 @@ func _on_combat_ended(winner_side: String, _defeated_node: Node) -> void:
 		attacker_config.display_name, defender_config.display_name,
 		attacker_entity, defender_entity
 	))
-	if not _auto_enabled:
+	if not _auto_enabled and not _batch_running:
 		_show_end_battle_button()
 
 
@@ -315,7 +317,7 @@ var _in_medical_phase: bool = false
 func _in_medical_phase_start() -> void:
 	_in_medical_phase = true
 	_append_log("[color=orange]------ Enemies eliminated. Medical phase active. ------[/color]", false)
-	if not _auto_enabled:
+	if not _auto_enabled and not _batch_running:
 		_show_end_battle_button()
 
 
@@ -718,6 +720,7 @@ func _spawn_combatants() -> void:
 
 	manager = _MgrScript.new()
 	manager.tuning_skip_medical = true
+	manager.tuning_wait_for_player = true
 	add_child(manager)
 
 	var result: Dictionary = _Spawner.spawn_1v1(manager, attacker_config, defender_config)
@@ -894,13 +897,15 @@ func _set_tuning_override(combatant_id: int, target_id: int) -> void:
 	if manager != null and is_instance_valid(manager):
 		_EventScheduler.cancel_pending_action_ready(manager, combatant_id)
 		_EventScheduler.schedule_action_ready(manager, combatant_id, 0.05)
+		# Kick the process tick if it was held waiting for player
+		manager.set_process(true)
 
 
 func _show_end_battle_button(
 	button_text: String = "End battle",
 	button_min_width: int = 160
 ) -> void:
-	if _auto_enabled:
+	if _auto_enabled or _batch_running:
 		return
 	# In manual mode, show an end-battle button in the tuning overlay
 	if _tuning_main_vbox == null:
@@ -916,7 +921,7 @@ func _show_end_battle_button(
 	_tuning_main_vbox.add_child(btn)
 
 
-func _on_tuning_end_battle() -> void:
+func _on_tuning_end_battle():
 	if manager == null or not is_instance_valid(manager):
 		_spawn_combatants()
 		return
@@ -927,6 +932,59 @@ func _on_tuning_end_battle() -> void:
 		elif manager.has_method("finish_battle"):
 			manager.finish_battle()
 	_spawn_combatants()
+
+
+# ============================================================
+#  Batch fast-forward combat runner
+# ============================================================
+
+func _batch_run_cycle_to_completion():
+	## Drive combat from the current state to resolution without waiting real-time.
+	## Pumps event queue and process ticks in tight loops, yielding occasionally
+	## for UI responsiveness but advancing many logical seconds per yield.
+	var eac := _get_entity_access()
+
+	var max_cycles: int = 5000
+	var logical_seconds: float = 0.0
+	var tick_delta: float = 0.1
+	var events_per_burst: int = 20
+
+	for _cycle in range(max_cycles):
+		if manager == null or not is_instance_valid(manager):
+			return
+		if "combat_resolution_closed" in manager and manager.combat_resolution_closed:
+			break
+
+		var atk_c = eac.manager_get_combatant(manager, attacker_id)
+		var def_c = eac.manager_get_combatant(manager, defender_id)
+		if atk_c.is_empty() or def_c.is_empty():
+			break
+		if not eac.alive_bool(atk_c) or not eac.alive_bool(def_c):
+			break
+
+		for _b in range(events_per_burst):
+			if manager == null or not is_instance_valid(manager):
+				return
+			_EventDispatch.process_event_queue(manager)
+			_ProcessTick.tick(manager, tick_delta)
+			logical_seconds += tick_delta
+
+			if "combat_resolution_closed" in manager and manager.combat_resolution_closed:
+				break
+			if not manager.medical_phase:
+				var early_victor := ""
+				if manager.has_method("_check_for_winner"):
+					early_victor = manager._check_for_winner()
+				if not early_victor.is_empty():
+					var _MedicalPhase = preload("res://combat/MedicalPhaseController.gd")
+					if _MedicalPhase.should_apply_phase_end(manager, early_victor):
+						manager._end_combat_phase(early_victor, null)
+						break
+
+		logical_seconds += tick_delta * events_per_burst
+		if logical_seconds >= 2.0:
+			await get_tree().process_frame
+			logical_seconds = 0.0
 
 
 # ============================================================
@@ -1285,7 +1343,7 @@ func _on_exchange_pressed() -> void:
 func _on_reset_pressed() -> void:
 	_auto_enabled = false
 	_spawn_combatants()
-	_append_log("[color=#8888ff]Reset: fresh combatants spawned.[/color]")
+	_append_log("[color=#8888ff]Reset: fresh combatants spawned (waiting for action).[/color]")
 
 
 func _on_randomize_pressed() -> void:
@@ -1325,6 +1383,9 @@ func _toggle_auto() -> void:
 	_auto_enabled = not _auto_enabled
 	_auto_waiting_for_death = false
 	_update_auto_buttons()
+	# Kick process tick if combat was held waiting for player
+	if manager != null and is_instance_valid(manager):
+		manager.set_process(true)
 	_append_log("[color=%s]Auto-combat %s.[/color]" % [
 		"#88ff88" if _auto_enabled else "#ff8888",
 		"enabled" if _auto_enabled else "disabled"
@@ -1650,7 +1711,7 @@ func _run_balance_matrix_batch(
 	csv_enabled: bool,
 	run_btn: Button, cancel_btn: Button, close_btn: Button,
 	progress_bar: ProgressBar, status_label: Label, result_label: Label
-) -> void:
+):
 	var matrix_keys: Array[String] = _Config.balance_matrix_keys()
 	var matrix_lines := PackedStringArray()
 	matrix_lines.append("=== Balance Matrix (%d scenarios x %d cycles) ===" % [matrix_keys.size(), num_cycles_per_scenario])
@@ -1692,7 +1753,7 @@ func _run_weapon_sweep_batch(
 	csv_enabled: bool,
 	run_btn: Button, cancel_btn: Button, close_btn: Button,
 	progress_bar: ProgressBar, status_label: Label, result_label: Label
-) -> void:
+):
 	var sweep_keys: Array[String] = _Config.weapon_sweep_keys()
 	var sweep_lines := PackedStringArray()
 	sweep_lines.append(
@@ -1737,7 +1798,7 @@ func _run_weapon_sweep_batch(
 func _run_batch(scenario_key: String, num_cycles: int, csv_enabled: bool,
 	run_btn: Button, cancel_btn: Button, close_btn: Button,
 	progress_bar: ProgressBar, status_label: Label, result_label: Label,
-	reset_batch_ui: bool = true) -> void:
+	reset_batch_ui: bool = true):
 
 	_batch_csv_lines.clear()
 	_batch_strike_idx = 0
@@ -1807,33 +1868,11 @@ func _run_batch(scenario_key: String, num_cycles: int, csv_enabled: bool,
 
 		var start_strikes: int = _strike_count
 
-		# Let the AI-driven battle run until combat ends
-		var poll_wait: int = 0
-		var max_poll: int = 6000  # ~60s at 100fps
-		while not _batch_abort and poll_wait < max_poll:
-			await get_tree().process_frame
-			poll_wait += 1
-			if manager == null or not is_instance_valid(manager):
-				break
-
-			var atk_c = _get_entity_access().manager_get_combatant(manager, attacker_id)
-			var def_c = _get_entity_access().manager_get_combatant(manager, defender_id)
-			if atk_c.is_empty() or def_c.is_empty():
-				break
-			if not _get_entity_access().alive_bool(atk_c) or not _get_entity_access().alive_bool(def_c):
-				break
-			if "combat_resolution_closed" in manager and manager.combat_resolution_closed:
-				break
+		# Fast-forward the AI-driven battle to completion (no real-time waiting)
+		_batch_run_cycle_to_completion()
 
 		if _batch_abort:
 			break
-
-		if poll_wait >= max_poll:
-			var timed_strikes: int = _strike_count - start_strikes
-			_log_line(
-				"[color=orange]Batch cycle %d/%d: poll timeout (~%ds, %d strikes logged)[/color]"
-				% [cycle + 1, num_cycles, int(max_poll / 60.0), timed_strikes]
-			)
 
 		if manager == null or not is_instance_valid(manager):
 			break

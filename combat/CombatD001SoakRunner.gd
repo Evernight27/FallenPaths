@@ -1072,7 +1072,7 @@ static func _probe_wf_controlling_close_turn_hint() -> void:
 	mgr.register(_new_entity("SWORD"), "player")
 	mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var player: Dictionary = mgr.combatants[0]
 	var enemy: Dictionary = mgr.combatants[1]
 	var p_id: int = _EntityAccess.id_int(player)
@@ -1132,7 +1132,7 @@ static func _probe_ii_sparse_post_flee_engagement_debug(preset_id: String) -> vo
 		_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(fled))
 		fled["combat_absent"] = true
 		fled["state"] = CombatConstants.STATE_FLED
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var survivor: Dictionary = _player_at_rank_file(mgr, 0, 4)
 	if survivor.is_empty():
 		_OperationalLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip missing survivor")
@@ -1211,7 +1211,7 @@ static func _probe_7v7_sparse_formation_hold_hint() -> void:
 		_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(fled))
 		fled["combat_absent"] = true
 		fled["state"] = CombatConstants.STATE_FLED
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var survivor: Dictionary = _player_at_rank_file(mgr, 0, 4)
 	if survivor.is_empty():
 		_OperationalLog.play_combat("soak_setup 7v7_sparse_formation skip missing survivor")
@@ -1314,7 +1314,7 @@ static func _probe_ii_sparse_close_band_rotate_suppress(preset_id: String) -> vo
 		_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(fled))
 		fled["combat_absent"] = true
 		fled.state = CombatConstants.STATE_FLED
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var survivor: Dictionary = _player_at_rank_file(mgr, 0, 4)
 	var enemy: Dictionary = {}
 	for c in mgr.combatants:

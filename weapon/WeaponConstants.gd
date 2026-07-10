@@ -28,6 +28,16 @@ static func weapon_mass_kg(weapon: Variant) -> float:
 	return BASELINE_MASS_KG
 
 
+## True when weapon requires two hands (muscle fatigue off-hand share).
+static func weapon_is_two_handed(weapon: Variant) -> bool:
+	if weapon == null:
+		return false
+	if weapon is Weapon:
+		return weapon.is_two_handed
+	var v: Variant = weapon.get("is_two_handed") if weapon is Object else null
+	return v is bool and v
+
+
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
 # Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J ?????? E ?????? t^1.67. Nonlinear: pen = (KE/J_BASE)^PEN_EXPONENT.
 const J_PER_MM_BASE: float = 55.0  # Williams: 55 J for 1 mm mild steel

@@ -87,7 +87,7 @@ func _run_harness() -> void:
 	call_deferred("_finish_harness", failures)
 
 
-func _finish_harness(failures: PackedStringArray) -> void:
+func _finish_harness(failures: PackedStringArray):
 	await process_frame
 	_cleanup_harness_tree_leaks()
 	_HarnessFixtures.flush_harness_live_nodes()
@@ -4238,3 +4238,4 @@ static func _run_persistence_roundtrip(failures: PackedStringArray) -> void:
 	_release_harness_world(world)
 	_release_harness_world(fresh)
 	_cleanup_harness_ui_overlay()
+

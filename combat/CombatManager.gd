@@ -457,7 +457,7 @@ func finish_battle() -> void:
 
 
 ## Yields one frame after campaign batch_resolve; soak uses time-sliced tick-replay between frames.
-func finish_battle_interactive() -> void:
+func finish_battle_interactive():
 	var ran_fast_forward := await _run_medical_fast_forward_on_exit_async()
 	_emit_finish_battle_and_stop(ran_fast_forward)
 
@@ -512,7 +512,7 @@ func _run_medical_fast_forward_on_exit_async() -> bool:
 
 
 ## Time-sliced fast-forward on **`CombatManager`**  -  full sim like sync exit, one frame budget per slice.
-func _run_interactive_medical_fast_forward_pass(max_sim_seconds: float = -1.0) -> void:
+func _run_interactive_medical_fast_forward_pass(max_sim_seconds: float = -1.0):
 	var sim_state: Dictionary = _MedicalPhase.fast_forward_prepare(self, max_sim_seconds)
 	if sim_state.is_empty():
 		return

@@ -20,7 +20,7 @@ const _Persistence := preload("res://world/CampaignPersistence.gd")
 const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
 
 
-static func show_and_await(world: Node2D, reason: String, detail: String = "") -> void:
+static func show_and_await(world: Node2D, reason: String, detail: String = ""):
 	if world == null or world.get_tree() == null:
 		return
 	_disable_overworld_input(world, false)

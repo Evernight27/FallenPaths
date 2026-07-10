@@ -28,6 +28,7 @@ const _MentalStack := preload("res://combat/CombatConstantsMentalStack.gd")
 const _Parry := preload("res://combat/CombatConstantsParry.gd")
 const _Footwork := preload("res://combat/CombatConstantsFootwork.gd")
 const _FormationMove := preload("res://combat/CombatConstantsFormationMove.gd")
+const _DataKeys := preload("res://core/DataKeys.gd")
 const _CloseSlots := preload("res://combat/CombatConstantsCloseSlots.gd")
 const _Encounter := preload("res://combat/CombatConstantsEncounter.gd")
 const _Misc := preload("res://combat/CombatConstantsMisc.gd")
@@ -57,6 +58,19 @@ const STAMINA_MULT_CEILING: float = 1.0
 const FIELD_CARE_STABILIZE_FLOOR: float = 0.3
 const FIELD_CARE_EFF_MIN: float = 0.5
 const FIELD_CARE_EFF_MAX: float = 1.5
+
+## Phase D: muscle fatigue tuning (per-limb exertion pools).
+const MUSCLE_FATIGUE_WIND_UP_PERF_FLOOR: float = 0.45
+const MUSCLE_FATIGUE_EXERTION_PER_BREATH_POINT: float = 0.012
+const MUSCLE_FATIGUE_TWO_HANDED_OFF_ARM_SHARE: float = 0.3
+const MUSCLE_FATIGUE_RECOVERY_RATE: float = 0.06
+const MUSCLE_FATIGUE_RECOVERING_RATE_MULT: float = 0.5
+const MUSCLE_FATIGUE_UI_SHOW_THRESHOLD: float = 0.12
+const MUSCLE_FATIGUE_WAIT_RECOVERY_BOOST_TOP: float = 1.6
+const MUSCLE_FATIGUE_FORMATION_DAMP_FLOOR: float = 0.45
+const MUSCLE_FATIGUE_OFFENSE_DAMP_FLOOR: float = 0.55
+const MUSCLE_FATIGUE_PARRY_CAPACITY_FLOOR: float = 0.35
+const MUSCLE_FATIGUE_DODGE_CHANCE_FLOOR: float = 0.4
 
 ## Combat tuning constants. Single source for CombatManager and AttackResolver.
 ## Reduces CombatManager from ~150 lines of constants to references.
@@ -344,6 +358,9 @@ const YOMI_FOCUS_DRIFT_SHORT_ENGAGEMENT_LINE_COUNT := _MentalStack.YOMI_FOCUS_DR
 const YOMI_FOCUS_DRIFT_INTENSITY := _MentalStack.YOMI_FOCUS_DRIFT_INTENSITY
 const MEDICAL_AI_WEIGHT_ESCALATION_BONUS := _MentalStack.MEDICAL_AI_WEIGHT_ESCALATION_BONUS
 
+## Re-export muscle fatigue key.
+const COMBATANT_KEY_MUSCLE_FATIGUE := _DataKeys.COMBATANT_KEY_MUSCLE_FATIGUE
+
 ## Re-export feature flag helpers.
 static func is_feature_combat_attention_enabled() -> bool:
 	return _FeatureFlags.is_feature_combat_attention_enabled()
@@ -476,6 +493,16 @@ static func is_feature_surround_arc_occupancy_enabled() -> bool:
 static func reset_harness_feature_load_overrides() -> void:
 	_FeatureFlags.reset_harness_feature_load_overrides()
 
+## Phase D: muscle fatigue feature flag.
+const FEATURE_MUSCLE_GROUP_FATIGUE := true
+static var _feature_muscle_group_fatigue_load: int = -1
+static func is_feature_muscle_group_fatigue_enabled() -> bool:
+	if _feature_muscle_group_fatigue_load >= 0:
+		return _feature_muscle_group_fatigue_load != 0
+	return FEATURE_MUSCLE_GROUP_FATIGUE
+static func set_feature_muscle_group_fatigue_load(enabled: bool) -> void:
+	_feature_muscle_group_fatigue_load = 1 if enabled else 0
+
 static func is_focus_line_move(move_id: String) -> bool:
 	return move_id in FOCUS_LINE_MOVE_IDS
 
@@ -484,7 +511,8 @@ static func position_angle_offset_deg_for_attack_line(line: String) -> float:
 	var k: String = line.strip_edges()
 	if is_feature_hema_eight_guard_lines_enabled():
 		return _GuardLines.position_angle_offset_deg_for_line(k)
-	return POSITION_ANGLE_OFFSET_DEG_BY_LINE.get(k, 0.0)
+	# Fallback for harness/tests with eight-guard flag off — delegate to guard lines module.
+	return _GuardLines.position_angle_offset_deg_for_line(k)
 
 
 static func guard_line_for_focus_move_id(move_id: String) -> String:
@@ -1103,6 +1131,12 @@ const FORMATION_FLEE_CASUALTY_RATIO_MIN := 0.30
 ## Wounded + stressed rout blocked when this side still has --''deg'' this ff -  opponent standing (tactical win --" hold the field).
 const FORMATION_FLEE_WINNING_STANDING_RATIO := 1.15
 
+## Strike move IDs (wind-up / stamina cost tiers).
+const MOVE_ID_QUICK := "quick"
+const MOVE_ID_MEDIUM := "medium"
+const MOVE_ID_HEAVY := "heavy"
+const MOVE_ID_FEINT := "feint"
+
 ## Explicit no-op: pass turn, schedule next action_ready (same delays as skip_turn).
 const MOVE_ID_WAIT := "wait"
 ## Tier 4.3.7: retarget mental **`focus_part`** + **`guard_line`** while waiting (no strike).
@@ -1131,13 +1165,7 @@ const COMBATANT_KEY_FORMATION_MOVES_TURN_HINT := "formation_moves_turn_hint"
 const COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT := "hold_line_focus_only_hint"
 ## Player turn-ready: **`attempt_close`** listed vs controlling defender (gauge + combat log).
 const COMBATANT_KEY_CONTROLLING_CLOSE_TURN_HINT := "controlling_close_turn_hint"
-const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
-	"high": 0.0,
-	"low": 6.0,
-	"left": 14.0,
-	"right": -14.0,
-}
-## L4 pilot: 4-cardinal keys when eight-guard flag off; when on, **`CombatGuardLines.position_angle_offset_deg_for_line`** (octant table). LIVE_PATHS **`#wf-form-guard-pa-matrix`**.
+## L4 pilot: when eight-guard flag on, **`CombatGuardLines.position_angle_offset_deg_for_line`** uses octant table. LIVE_PATHS **`#wf-form-guard-pa-matrix`**.
 ## Tier 4.4.2: defender step scales (symmetric to attacker step-on-wind-up; still flag-gated).
 ## WF-T1 (2026-06-07): Camp-5 soak confirms parry 0.55 / dodge 0.85 --" tune octant raw table first.
 const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY := 0.55
@@ -1647,6 +1675,21 @@ static func medical_outcome_string(target_method: String, ok: bool) -> String:
 			return "tourniquet_applied" if ok else "tourniquet_failed"
 		_:
 			return ""  # caller falls back to wind_up_cfg.get("outcome", med_id)
+
+## Check if a target_method string matches one of the medical action targets.
+## Bind pressure: thresholds, durations, costs (CombatBindPressure.gd).
+const BIND_STATE_LIGHT_THRESHOLD := 0.25
+const BIND_STATE_MEDIUM_THRESHOLD := 0.50
+const BIND_STATE_HARD_THRESHOLD := 0.75
+const BIND_PRESSURE_DURATION_S := 6.0
+const BIND_PRESSURE_DECAY_RATE := 0.04
+const BREATH_BIND_PRESS_COST := 8.0
+const BREATH_BIND_VOID_COST := 12.0
+const BREATH_BIND_WIND_COST := 5.0
+const BIND_ACTION_COOLDOWN_S := 1.5
+const LATERAL_STEP_DELTA := 0.2
+const ANGULAR_ADVANTAGE_DURATION_S := 4.0
+
 
 ## Check if a target_method string matches one of the medical action targets.
 static func is_medical_target_method(target_method: String) -> bool:

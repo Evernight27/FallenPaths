@@ -1,0 +1,8 @@
+DCR_TRACE attack=false_cut wind_up=0.8443 comm_frac=0.35 eff_windup=0.5488 feint=head
+DCR_TRACE attack=false_cut wind_up=0.8443 comm_frac=0.35 eff_windup=0.5488 feint=head
+DCR_TRACE tgt has_w=true has_p=true
+DCR_TRACE r=1.0552 eff=0.5488 cmp=false
+DCR_TRACE r=1.0552 eff=0.5488 cmp=false
+DCR_TRACE LATE_PARRY entered
+DCR_TRACE EARLY_PARRY entered
+DCR_TRACE EARLY_PARRY entered

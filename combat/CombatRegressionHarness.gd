@@ -90,6 +90,8 @@ const _MentalStackIntegrationTail := preload("res://combat/CombatRegressionHarne
 const _ProficiencyTail := preload("res://combat/CombatRegressionHarnessProficiencyTail.gd")
 const _Proficiency1v1Tail := preload("res://combat/CombatRegressionHarnessProficiency1v1Tail.gd")
 const _Targeting1v1Tail := preload("res://combat/CombatRegressionHarnessTargeting1v1Tail.gd")
+const _MuscleFatigueTail := preload("res://combat/CombatRegressionHarnessMuscleFatigueTail.gd")
+const _ComposureSeeds := preload("res://combat/CombatHarnessComposureSeeds.gd")
 const _Fixtures := preload("res://combat/HarnessFixtures.gd")
 ## No preload  -  `CombatRegressionHarnessKinematicTail` references this class; preloading it here caused a parse cycle.
 ## Tier 3.2: full-stop **`parry_deflect`**  -  keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**) incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else **-1**); harness schema lock in **`_run_parry_clash_context_calibration_fields`**. **`parry_partial`** adds the same key set plus **`remaining_ratio`** / **`geometric_leak`** (**`_run_parry_partial_clash_context_calibration_fields`**); Tier **3.0** KE on partial uses reduced **`pa["velocity_m_s"]`**; **`CombatLogFormatter`** + harness **`_run_parry_partial_formatter_clash_context_branches`** (**`rem=`** when calibration **on**); **`_run_action_resolved_parry_partial_payload_includes_clash_context`** locks first **`action_resolved`** emit; **`_run_hit_clears_attacker_parry_calibration_fields`** locks **`hit`** erase of calibration carry; **`_run_hit_applier_sets_defender_guard_low_after_hit`** locks defender **`guard_line`** / **`guard_zone`** after **`hit`**; **`_run_parry_partial_bind_riposte_flags_when_aligned`** locks defender bind-riposte flags vs alignment + **`parry_control`** (misaligned **`erase`** vs aligned explicit **false**, stale-bind seed).
@@ -170,6 +172,7 @@ static func run_all() -> Dictionary:
 	_MedicalPhaseTail.run(failures)
 	_ProficiencyTail.run(failures)
 	_Proficiency1v1Tail.run(failures)
+	_MuscleFatigueTail.run(failures)
 	_Targeting1v1Tail.run(failures)
 	_run_combat_end_enemy_win_stops_manager(failures)
 	_run_medical_pain_shock_susceptibility_mult_from_effective_pain(failures)
@@ -332,6 +335,9 @@ static func run_all() -> Dictionary:
 	## Phase 7: medical escalation TCCC ladder  -  pack boosted when bandage failed.
 	_run_mental_stack_medical_escalation_bandage_to_pack(failures)
 	_run_mental_stack_medical_escalation_no_bonus_when_no_failures(failures)
+	## Tier 1.7-1.8: stale swap-rank event cleanup and parry formation-pair state preservation.
+	_run_cancel_stale_swap_rank_resolve_events(failures)
+	_run_parry_preserves_formation_pair_state(failures)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	flush_harness_live_nodes()
 	return {"ok": failures.is_empty(), "failures": failures}
@@ -1300,7 +1306,7 @@ static func _run_effective_pair_geometry_single_pass_matches_wrappers(
 	mgr.register(_new_entity("SPEAR"), "player")
 	mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 2, "density": "loose"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var a: Dictionary = mgr.combatants[0]
 	var b: Dictionary = mgr.combatants[2]
 	var geom: Dictionary = _PairGeometry.effective_pair_geometry(mgr, a, b)
@@ -9687,7 +9693,7 @@ static func _run_iii1_incoming_parry_sector_tiebreak(failures: PackedStringArray
 	e1["file"] = 3
 	for c in mgr.combatants:
 		c["gauge"] = 100.0
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(p)
 	var e0_id: int = _EntityAccess.id_int(e0)
 	var e1_id: int = _EntityAccess.id_int(e1)
@@ -11563,7 +11569,7 @@ static func _run_parry_partial_clash_context_calibration_fields(failures: Packed
 		"intensity": 0.5,
 		"wind_up_duration": 1.0,
 		"arc_start_deg": 0.0,
-		"arc_end_deg": 180.0,
+		"arc_end_deg": 360.0,
 		"attack_angle_deg": 180.0,
 	}
 	var parry_p_a_p: float = 5.0
@@ -12123,7 +12129,7 @@ static func _run_afterblow_deflected_triggers_full_resolve_hit(failures: PackedS
 	mgr.register(_new_entity("SWORD"), "player")
 	mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
 	var atk: Dictionary = mgr.combatants[1]
 	var tid: int = _EntityAccess.id_int(atk)
@@ -12176,7 +12182,7 @@ static func _run_afterblow_low_hindrance_allow_triggers_resolve_hit(failures: Pa
 	mgr.register(_new_entity("SWORD"), "player")
 	mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
 	var atk: Dictionary = mgr.combatants[1]
 	var tid: int = _EntityAccess.id_int(atk)
@@ -12220,7 +12226,7 @@ static func _run_afterblow_mid_hindrance_rand_cancel(failures: PackedStringArray
 	mgr.register(_new_entity("SWORD"), "player")
 	mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
 	var atk: Dictionary = mgr.combatants[1]
 	var tid: int = _EntityAccess.id_int(atk)
@@ -12264,7 +12270,7 @@ static func _run_afterblow_mid_hindrance_rand_executes_hit(failures: PackedStrin
 	mgr.register(_new_entity("SWORD"), "player")
 	mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	_afterblow_harness_seed_pending_cut(mgr, 1, 0)
 	var atk: Dictionary = mgr.combatants[1]
 	var tid: int = _EntityAccess.id_int(atk)
@@ -12524,7 +12530,7 @@ static func _run_resolve_aborts_when_threat_lost_mid_combat_arm_loss(
 	mgr.register(_new_entity("SWORD"), "player")
 	mgr.register(_new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
 	var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
 	_WindUpStarter.start(mgr, p_id, e_id, "thrust")
