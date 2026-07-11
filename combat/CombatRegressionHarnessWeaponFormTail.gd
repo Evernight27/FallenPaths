@@ -331,7 +331,7 @@ static func _run_weapon_form_controlling_close_listing_weight(failures: PackedSt
 	for _j in 3:
 		mgr_bal.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr_bal.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr_bal._recompute_zoc_and_distance()
+	mgr_bal.recompute_zoc_and_distance()
 	var player_bal: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(
 		mgr_bal, "player", 0, 6
 	)

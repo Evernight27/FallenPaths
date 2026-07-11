@@ -342,7 +342,7 @@ static func _run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_th
 	for _i in 3:
 		mgr_open.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr_open.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr_open._recompute_zoc_and_distance()
+	mgr_open.recompute_zoc_and_distance()
 	var depth_open: Dictionary = mgr_open.combatants[1]
 	if not _DepthPolearm.depth_polearm_lane_open(mgr_open, depth_open):
 		CombatRegressionHarness._fail(failures, "mpra_vlt: open fixture expected depth polearm lane")
@@ -364,7 +364,7 @@ static func _run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_th
 	mgr_closed.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr_closed.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr_closed.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
-	mgr_closed._recompute_zoc_and_distance()
+	mgr_closed.recompute_zoc_and_distance()
 	var depth_closed: Dictionary = mgr_closed.combatants[1]
 	if _DepthPolearm.depth_polearm_lane_open(mgr_closed, depth_closed):
 		CombatRegressionHarness._fail(failures, "mpra_vlt: closed fixture expected lane closed")
@@ -413,7 +413,7 @@ static func _run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_d
 	mgr2.register(CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr2.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr2.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
-	mgr2._recompute_zoc_and_distance()
+	mgr2.recompute_zoc_and_distance()
 	var depth_sw: Dictionary = mgr2.combatants[1]
 	var en: Dictionary = mgr2.combatants[2]
 	if _DepthPolearm.depth_polearm_valid_line_threat(mgr2, depth_sw, en):
@@ -828,7 +828,7 @@ static func _run_opposition_offset_seeded_at_start(failures: PackedStringArray) 
 		)
 	for c in wide.combatants:
 		c["gauge"] = 100.0
-	wide._recompute_zoc_and_distance()
+	wide.recompute_zoc_and_distance()
 	var ordered: Array = _TargetScoring.ordered_melee_opponents(
 		wide, p_left, wide.combatants, 0
 	)
@@ -930,7 +930,7 @@ static func _run_opposition_aware_pair_geometry_wing_reach(failures: PackedStrin
 		CombatRegressionHarness._fail(
 			failures, "opposition_pair_geom: want can_melee_threaten on mapped center pair"
 		)
-	wide._recompute_zoc_and_distance()
+	wide.recompute_zoc_and_distance()
 	var center_band: String = _EntityAccess.distance_to_opponent_band(
 		p_center, _EntityAccess.id_int(e_center), ""
 	)
@@ -988,7 +988,7 @@ static func _run_engagement_reach_audit_close_bind_and_wing_gap(failures: Packed
 		return
 	if not _MeleeListing.can_melee_threaten(wide, p_wing, e_wing):
 		CombatRegressionHarness._fail(failures, "reach_audit: CLOSE bind want can_melee_threaten")
-	wide._recompute_zoc_and_distance()
+	wide.recompute_zoc_and_distance()
 	var band_after: String = _EntityAccess.distance_to_opponent_band(p_wing, e_id, "")
 	if band_after != CombatConstants.DISTANCE_CLOSE:
 		CombatRegressionHarness._fail(
@@ -1069,7 +1069,7 @@ static func _run_inner_wing_gap1_mid_strikes_after_recompute(failures: PackedStr
 		CombatRegressionHarness._fail(failures, "inner_wing_mid: missing fixtures")
 		CombatRegressionHarness._free_manager(wide)
 		return
-	wide._recompute_zoc_and_distance()
+	wide.recompute_zoc_and_distance()
 	var e_id: int = _EntityAccess.id_int(e_left)
 	var band: String = _EntityAccess.distance_to_opponent_band(p_inner, e_id, "")
 	if band == CombatConstants.DISTANCE_LONG:
@@ -6070,7 +6070,7 @@ static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures:
 	for c in mgr_near.combatants:
 		c["gauge"] = 100.0
 	mgr_near.combat_clock = 10.0
-	mgr_near._recompute_zoc_and_distance()
+	mgr_near.recompute_zoc_and_distance()
 	var p0n: Dictionary = mgr_near.combatants[0]
 	var p1n: Dictionary = mgr_near.combatants[1]
 	var e0n: Dictionary = mgr_near.combatants[2]
@@ -6097,7 +6097,7 @@ static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures:
 	for c2 in mgr_far.combatants:
 		c2["gauge"] = 100.0
 	mgr_far.combat_clock = 10.0
-	mgr_far._recompute_zoc_and_distance()
+	mgr_far.recompute_zoc_and_distance()
 	var depth_far: Dictionary = mgr_far.combatants[1]
 	if not _DepthPolearm.depth_polearm_lane_open(mgr_far, depth_far):
 		CombatRegressionHarness._fail(failures, "ally_press_dep: far layout expected open depth lane")
@@ -6105,7 +6105,7 @@ static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures:
 		return
 	for i in range(2, 5):
 		(mgr_far.combatants[i] as Dictionary)["file"] = 7 + i
-	mgr_far._recompute_zoc_and_distance()
+	mgr_far.recompute_zoc_and_distance()
 	var e0_far: Dictionary = mgr_far.combatants[2]
 	if _MeleeRank.melee_pair_rank_allowed(mgr_far, depth_far, e0_far):
 		CombatRegressionHarness._fail(failures, "ally_press_dep: far enemies expected no _melee_pair_rank_allowed depth->e0")
@@ -6220,7 +6220,7 @@ static func _run_targeting_file_opposed_mult(failures: PackedStringArray) -> voi
 	en_same["rank"] = 0
 	en_off["file"] = 1
 	en_off["rank"] = 0
-	mgr2._recompute_zoc_and_distance()
+	mgr2.recompute_zoc_and_distance()
 	if not _DepthPolearm.depth_polearm_lane_open(mgr2, depth):
 		CombatRegressionHarness._fail(failures, "file_opposed_mult_depth: expected depth spear lane open")
 		CombatRegressionHarness._free_manager(mgr2)
@@ -7282,7 +7282,7 @@ static func _run_depth_polearm_lane_cache_matches_builder(failures: PackedString
 		CombatRegressionHarness._free_manager(mgr2)
 		return
 	front_f1["alive"] = false
-	mgr2._recompute_zoc_and_distance()
+	mgr2.recompute_zoc_and_distance()
 	CombatRegressionHarness._assert_depth_lane_open_cache_matches_builder(mgr2, failures, "depth_lane_cache:2wide_dead_r0f1")
 	CombatRegressionHarness._free_manager(mgr2)
 
@@ -7983,7 +7983,7 @@ static func _run_depth_polearm_ai_weight_mult_requires_valid_line_to_any_rank0(f
 	for _i in 3:
 		mgr_far.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr_far.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr_far._recompute_zoc_and_distance()
+	mgr_far.recompute_zoc_and_distance()
 	var depth_far: Dictionary = mgr_far.combatants[1]
 	if not _DepthPolearm.depth_polearm_lane_open(mgr_far, depth_far):
 		CombatRegressionHarness._fail(failures, "ai_vlt_any: expected open lane")
@@ -7991,7 +7991,7 @@ static func _run_depth_polearm_ai_weight_mult_requires_valid_line_to_any_rank0(f
 		return
 	for i in range(2, 5):
 		(mgr_far.combatants[i] as Dictionary)["file"] = 7 + i
-	mgr_far._recompute_zoc_and_distance()
+	mgr_far.recompute_zoc_and_distance()
 	if _DepthPolearm.depth_polearm_has_valid_line_threat_to_any_rank0_hostile(mgr_far, depth_far, mgr_far.combatants):
 		CombatRegressionHarness._fail(failures, "ai_vlt_any: expected no valid-line rank-0 hostile after pushing files")
 		CombatRegressionHarness._free_manager(mgr_far)
@@ -8012,7 +8012,7 @@ static func _run_depth_polearm_ai_weight_mult_requires_valid_line_to_any_rank0(f
 	for _j in 3:
 		mgr3.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr3.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-	mgr3._recompute_zoc_and_distance()
+	mgr3.recompute_zoc_and_distance()
 	var depth3: Dictionary = mgr3.combatants[1]
 	if not _DepthPolearm.depth_polearm_has_valid_line_threat_to_any_rank0_hostile(mgr3, depth3, mgr3.combatants):
 		CombatRegressionHarness._fail(failures, "ai_vlt_any: standard 3-wide should have >=1 valid-line rank-0 target")

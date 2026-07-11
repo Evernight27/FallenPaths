@@ -44,7 +44,7 @@ static func account_ke_through_armor(
 		var before: float = ke_rem
 		if sharp_mode:
 			var sharp_out: Dictionary = _sharp_ke_through_layer(ke_rem, pen_rha, layer)
-			ke_rem = float(sharp_out.get("ke", ke_rem))
+			ke_rem = float(sharp_out.get("damage", ke_rem))
 			absorbed += maxf(0.0, before - ke_rem)
 			if sharp_out.get("deflected", false):
 				sharp_mode = false

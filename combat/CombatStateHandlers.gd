@@ -21,6 +21,14 @@ static func _get_mobility_retreat() -> GDScript:
 		_mobility_retreat_cache = load("res://combat/CombatMobilityRetreat.gd")
 	return _mobility_retreat_cache
 
+# Runtime load ' CombatMuscleFatigue may be unavailable during early bootstrap.
+static var _muscle_fatigue_cache: Variant = null
+
+static func _get_muscle_fatigue() -> GDScript:
+	if _muscle_fatigue_cache == null:
+		_muscle_fatigue_cache = load("res://combat/CombatMuscleFatigue.gd")
+	return _muscle_fatigue_cache
+
 const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
 const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
 const _Footwork := preload("res://combat/CombatFootwork.gd")
@@ -263,4 +271,11 @@ static func process_recovering(manager: Node, c: Dictionary, delta: float) -> vo
 static func process_formation_move_timer(c: Dictionary, delta: float) -> void:
 	_Footwork.reconcile_idle_offset(c)
 	c.state_timer = minf(c.state_timer + delta, c.get("state_duration", 1.0))
+
+
+## Cowering idle: limb fatigue decay + composure fill while cowering.
+static func process_cowering_idle(_manager: Node, c: Dictionary, delta: float) -> void:
+	_get_muscle_fatigue().process_waiting_recovery(c, delta)
+	var g: float = _EntityAccess.gauge_float(c)
+	c.gauge = minf(100.0, g + 0.5 * delta)
           

@@ -145,7 +145,14 @@ static func award_stat_gain(entity: CoreEntity, stat: String, raw_amount: float,
 	if not _is_valid_stat(stat):
 		return
 
-	var current_bonus: float = maxf(0.0, float(entity._proficiency_bonus.get(stat, 0) or 0))
+	# Use Variant access to avoid GDScript 4 typed-dictionary member issues.
+	var ce := entity as CoreEntity
+	var prof_dict: Dictionary = ce._proficiency_bonus
+	var current_bonus: float = 0.0
+	if stat in prof_dict:
+		current_bonus = maxf(0.0, float(prof_dict[stat]))
+	else:
+		current_bonus = 0.0
 	var gain_mult: float = _get_gain_multiplier_for_float(current_bonus)
 	var modified_amount: float = raw_amount * gain_mult
 
@@ -161,7 +168,8 @@ static func award_stat_gain(entity: CoreEntity, stat: String, raw_amount: float,
 		if weapon_mods.has(stat):
 			modified_amount *= float(weapon_mods[stat])
 
-	entity._proficiency_bonus[stat] = current_bonus + modified_amount
+	var new_bonus: float = current_bonus + modified_amount
+	prof_dict[stat] = new_bonus
 
 
 ## Like award_stat_gain but without stance_mods lookup — for cognitive stats where form-dependent modifiers don't apply.
@@ -172,7 +180,12 @@ static func award_stat_gain_raw(entity: CoreEntity, stat: String, raw_amount: fl
 		return
 	if not _is_valid_stat(stat):
 		return
-	var current_bonus: float = maxf(0.0, float(entity._proficiency_bonus.get(stat, 0) or 0))
+	var prof_dict: Dictionary = entity._proficiency_bonus
+	var current_bonus: float = 0.0
+	if stat in prof_dict:
+		current_bonus = maxf(0.0, float(prof_dict[stat]))
+	else:
+		current_bonus = 0.0
 	var gain_mult: float = _get_gain_multiplier_for_float(current_bonus)
 	entity._proficiency_bonus[stat] = current_bonus + raw_amount * gain_mult
 
@@ -188,13 +201,21 @@ static func normalize_form_id(form: String) -> String:
 static func weapon_proficiency_value(entity: CoreEntity, weapon_id: String) -> float:
 	if entity == null or not "_weapon_proficiency" in entity:
 		return 0.0
-	return float(entity._weapon_proficiency.get(normalize_weapon_id(weapon_id), 0.0))
+	var wp_dict: Dictionary = entity._weapon_proficiency
+	var wp_key: String = normalize_weapon_id(weapon_id)
+	if wp_key in wp_dict:
+		return float(wp_dict[wp_key])
+	return 0.0
 
 
 static func form_proficiency_value(entity: CoreEntity, form: String) -> float:
 	if entity == null or not "_form_proficiency" in entity:
 		return 0.0
-	return float(entity._form_proficiency.get(normalize_form_id(form), 0.0))
+	var fp_dict: Dictionary = entity._form_proficiency
+	var fp_key: String = normalize_form_id(form)
+	if fp_key in fp_dict:
+		return float(fp_dict[fp_key])
+	return 0.0
 
 
 static func weapon_proficiency_tier(entity: CoreEntity, weapon_id: String) -> float:
@@ -279,7 +300,9 @@ static func notify_targeting_gains_from_hit(
 	award_weapon_proficiency(entity, weapon_id, GAIN_WEAPON_PROF_HIT_BASE)
 	if not form_str.is_empty():
 		award_form_proficiency(entity, form_str, GAIN_FORM_PROF_HIT_BASE)
-	var preferred: Array = move_def.get("preferred_parts", [])
+	var preferred: Array = []
+	if "preferred_parts" in move_def and move_def["preferred_parts"] is Array:
+		preferred = move_def["preferred_parts"] as Array
 	if not intended_part.is_empty() and hit_part == intended_part:
 		if not preferred.is_empty() and preferred.has(hit_part):
 			award_stat_gain_raw(entity, "intelligence", GAIN_PREFERRED_PART_INT_BASE)
@@ -311,7 +334,10 @@ static func apply_decay(entity: CoreEntity, current_day_index: int) -> void:
 		return
 
 	for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
-		var bonus: float = float(entity._proficiency_bonus.get(stat, 0) or 0)
+		var prof_dict: Dictionary = entity._proficiency_bonus
+		var bonus: float = 0.0
+		if stat in prof_dict:
+			bonus = float(prof_dict[stat])
 		if bonus <= 10.0:
 			continue  # Only decay above proficient baseline
 
@@ -339,9 +365,15 @@ static func merge_training_pending(entity: CoreEntity) -> void:
 		return
 
 	for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
-		var pending: float = float(entity.get_training_pending().get(stat, 0) or 0)
+		var tp_dict: Dictionary = entity.get_training_pending()
+		var pending: float = 0.0
+		if stat in tp_dict:
+			pending = float(tp_dict[stat])
 		if pending > 0.0:
-			var current: float = float(entity._proficiency_bonus.get(stat, 0) or 0)
+			var prof_dict: Dictionary = entity._proficiency_bonus
+			var current: float = 0.0
+			if stat in prof_dict:
+				current = float(prof_dict[stat])
 			entity._proficiency_bonus[stat] = current + pending
 			entity.set_training_pending_value(stat, 0.0)
 
@@ -380,12 +412,16 @@ static func get_decay_multiplier(stat: String) -> float:
 
 ## Returns the medical item type multiplier for INT gain.
 static func get_medical_item_mult(item_type: String) -> float:
-	return MEDICAL_ITEM_MULT.get(item_type, 1.0)
+	if item_type in MEDICAL_ITEM_MULT:
+		return float(MEDICAL_ITEM_MULT[item_type])
+	return 1.0
 
 
 ## Returns the severity multiplier for wound-based STR gain.
 static func get_severity_mult(severity: String) -> float:
-	return SEVERITY_MULT.get(severity, 1.0)
+	if severity in SEVERITY_MULT:
+		return float(SEVERITY_MULT[severity])
+	return 1.0
 
 
 # --- Internal helpers ---

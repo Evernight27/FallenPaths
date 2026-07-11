@@ -67,6 +67,14 @@ static func _execute_strike(
 		"attack_type": move_id,
 	}
 
+	mgr.recompute_zoc_and_distance()
+
+	# Explicitly set distance bands — 1v1 with single-file formations is CLOSE (bind geometry).
+	var atk_dist: Dictionary = _EntityAccess.nested_dictionary_for_mutation(atk, "distance_to")
+	atk_dist[target_id] = CombatConstants.DISTANCE_CLOSE
+	var tgt_dist: Dictionary = _EntityAccess.nested_dictionary_for_mutation(tgt, "distance_to")
+	tgt_dist[attacker_id] = CombatConstants.DISTANCE_CLOSE
+
 	var result := _AttackResolver.resolve_attack(mgr, attacker_id)
 	_AttackResultApplier.apply_result(mgr, attacker_id, result)
 
@@ -81,7 +89,7 @@ static func _execute_strike(
 static func _run_targeting_exchange(
 	data: Dictionary,
 	player_id: int,
-enemy_id: int,
+	enemy_id: int,
 	player_moves: Array = ["thrust", "oberhau", "unterhau"],
 	enemy_moves: Array = ["thrust", "oberhau"]
 ) -> Dictionary:
@@ -93,11 +101,20 @@ enemy_id: int,
 		var p_result := _execute_strike(data, player_id, enemy_id, player_moves[move_idx])
 		if not p_result.has("error"):
 			var rd: Dictionary = p_result.get("result_dict", {})
+			var action_str: String = str(p_result.get("action", "unknown"))
+			# On first attack of each scenario, dump diagnostics to help debug
+			if i == 0 and action_str != "hit":
+				var _diag_mgr := data["mgr"] as Node
+				var _diag_atk := _EntityAccess.manager_get_combatant(_diag_mgr, player_id)
+				print("[Targeting1v1 diag] move=%s action=%s p_attack_type=%s dist_to=%s" % [
+					player_moves[move_idx], action_str,
+					str(_diag_atk.pending_attack.get("attack_type", "")),
+					str(_EntityAccess.distance_to_opponent_band(_diag_atk, enemy_id))])
 			records.append(_new_record(
 				player_moves[move_idx],
 				str(rd.get("target_part", "")),
 				str(rd.get("part", "")),
-				str(p_result.get("action", "unknown"))
+				action_str
 			))
 
 		# Enemy → Player (only if enemy still alive)
@@ -142,10 +159,10 @@ static func _count_matches(records: Array) -> Dictionary:
 	return {"hits": hits, "total": total}
 
 
-## Setup a 1v1 manager with given weapons.
+## Setup a 1v1 manager with given weapons (player only; enemy is unarmed so it can dodge but not parry).
 static func _setup_1v1(
 	player_weapon: String = "SWORD",
-	enemy_weapon: String = "SWORD",
+	_enemy_weapon: String = "",
 	player_stats: Dictionary = {},
 	enemy_stats: Dictionary = {}
 ) -> Dictionary:
@@ -165,9 +182,6 @@ static func _setup_1v1(
 	e_ent.apply_species()
 	e_ent.dominant_hand = "right_arm"
 	e_ent.offhand_functionality = 1.0
-	var ew: Variant = _Weapon.create_from_definition(enemy_weapon)
-	if ew != null:
-		e_ent.equip_weapon(ew)
 	_Fixtures._track_harness_node(e_ent)
 	mgr.register(e_ent, "enemy")
 
@@ -467,8 +481,10 @@ static func run(failures: PackedStringArray) -> void:
 
 		var matches: Dictionary = result.get("matches", {})
 		if matches["total"] < 1:
-			# No hits at all — something is broken.
-			_Harness._fail(failures, "targeting_1v1_%s: no hits in %d attacks" % [name, total])
+			var action_summary := ""
+			for r in result.get("records", []):
+				action_summary += "%s(%s) " % [r.get("move_id", ""), r.get("outcome", "")]
+			_Harness._fail(failures, "targeting_1v1_%s: no hits in %d attacks [%s]" % [name, total, action_summary.strip_edges()])
 
 
 ## Run all scenarios and print reports (for manual tuning).

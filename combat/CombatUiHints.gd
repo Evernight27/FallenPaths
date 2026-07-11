@@ -212,14 +212,14 @@ static func footwork_diagram_suffix(c: Dictionary) -> String:
 	if not _Footwork.enabled():
 		if exported.is_empty():
 			return ""
-		return (" '. " + exported) if not exported.begins_with(" '. ") else exported
+		return (" . " + exported) if not exported.begins_with(" . ") else exported
 	return _Footwork.get_diagram_label_suffix(c)
 
 
-## Gauge **` '. Step`** suffix from Tier 4.4 PA ' **`#battle-ui`** '. **`#wf-tier-44-pa`** (display only).
+## Gauge **` . Step`** suffix from Tier 4.4 PA · **`#battle-ui`** · **`#wf-tier-44-pa`** (display only).
 static func footwork_hint_suffix(c: Dictionary) -> String:
 	var hint: String = footwork_hint_text(c)
-	return (" '. " + hint) if not hint.is_empty() else ""
+	return (" . " + hint) if not hint.is_empty() else ""
 
 
 static func attention_hint_text(c: Dictionary, manager: Node = null) -> String:
@@ -276,7 +276,7 @@ static func flurry_bind_gauge_label(c: Dictionary, manager: Node = null) -> Stri
 
 static func flurry_bind_hint_suffix(c: Dictionary, manager: Node = null) -> String:
 	var label: String = flurry_bind_gauge_label(c, manager)
-	return (" '. " + label) if not label.is_empty() else ""
+	return (" . " + label) if not label.is_empty() else ""
 
 
 static func exhaustion_hint_suffix(c: Dictionary) -> String:
@@ -312,7 +312,7 @@ static func active_line_for_ui(c: Dictionary) -> String:
 	return str(c.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
 
 
-## Gauge **` '. Grd`** / **` '. Atk`** suffix from **`active_line_for_ui`**. LIVE_PATHS **`#battle-ui`** '. soak content asserts open **`#wf-soak-audit-status`**.
+## Gauge **` . Grd`** / **` . Atk`** suffix from **`active_line_for_ui`**. LIVE_PATHS **`#battle-ui`** · soak content asserts open **`#wf-soak-audit-status`**.
 static func guard_line_gauge_suffix(c: Dictionary) -> String:
 	var line: String = active_line_for_ui(c)
 	if line.is_empty():
@@ -323,7 +323,7 @@ static func guard_line_gauge_suffix(c: Dictionary) -> String:
 	var prefix: String = (
 		"Atk" if _EntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP else "Grd"
 	)
-	return " '. %s %s" % [prefix, short]
+	return " . %s %s" % [prefix, short]
 
 
 static func guard_line_diagram_suffix(c: Dictionary) -> String:
@@ -346,14 +346,14 @@ static func guard_line_tooltip_line(c: Dictionary) -> String:
 	return "Guard: %s" % long_label
 
 
-## Gauge **` '. Form {name}`** from **`form_str`** ' independent of **`guard_line`** drift. LIVE_PATHS **`#battle-ui`** '. **`#wf-1c--ui-surfacing`** '. soak **`#wf-soak-audit-status`** (ii5c open).
+## Gauge **` . Form {name}`** from **`form_str`** · independent of **`guard_line`** drift. LIVE_PATHS **`#battle-ui`** · **`#wf-1c--ui-surfacing`** · soak **`#wf-soak-audit-status`** (ii5c open).
 static func weapon_form_gauge_suffix(c: Dictionary) -> String:
 	if c.is_empty():
 		return ""
 	var name: String = _WeaponForm.display_name(_EntityAccess.form_str(c))
 	if name.is_empty():
 		return ""
-	return " '. Form %s" % name
+	return " . Form %s" % name
 
 
 ## Diagram **`[Ox]`** suffix from **`form_str`** ' after guard short in **`FormationDiagramBuilder`**. LIVE_PATHS **`#battle-ui`**.

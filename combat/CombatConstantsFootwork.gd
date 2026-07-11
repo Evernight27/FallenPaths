@@ -7,13 +7,13 @@ const DEFENSE_SPACING_PARRY_MULT_CLOSE := 1.04
 const DEFENSE_SPACING_PARRY_MULT_LONG := 0.92
 const DEFENSE_SPACING_DODGE_MULT_CLOSE := 0.94
 const DEFENSE_SPACING_DODGE_MULT_LONG := 1.06
-const DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT := 1.05
+const DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT := 0.50
 const DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE: Dictionary = {
-	"attack_hit": 1.05,
-	"attack_miss": 1.09,
-	"attack_deflect": 1.06,
-	"skip": 1.05,
-	"medical": 1.04,
+	"attack_hit": 0.50,
+	"attack_miss": 0.25,
+	"attack_deflect": 0.40,
+	"skip": 0.60,
+	"medical": 0.45,
 }
 const DEFENSE_FOOTWORK_WAITING_DODGE_MULT := 1.02
 const AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT := 0.98

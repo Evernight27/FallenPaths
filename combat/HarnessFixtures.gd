@@ -194,7 +194,7 @@ static func _harness_sparse_post_flee_6v3_mgr(
 		_FormationSlots.remove_combatant_from_slots(slots, _EntityAccess.id_int(fled))
 		fled["combat_absent"] = true
 		fled.state = CombatConstants.STATE_FLED
-	mgr._recompute_zoc_and_distance()
+	mgr.recompute_zoc_and_distance()
 	var survivor: Dictionary = _harness_find_living_at_rank_file(mgr, "player", 0, survivor_file)
 	if survivor.is_empty():
 		_free_manager(mgr)

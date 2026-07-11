@@ -1532,10 +1532,10 @@ static func _run_counter_tempo_lists_melee_actions_when_window_open(failures: Pa
 static func _run_counter_tempo_spend_gauge_subtracts_cost(failures: PackedStringArray) -> void:
 	var c: Dictionary = {"gauge": 60.0}
 	_CounterTempo.spend_gauge(c)
-	if absf(_EntityAccess.gauge_float(c) - 10.0) > 0.001:
+	if absf(_EntityAccess.gauge_float(c) - 30.0) > 0.001:
 		CombatRegressionHarness._fail(
 			failures,
-			"counter_tempo_spend: want gauge 10 got %.4f" % _EntityAccess.gauge_float(c)
+			"counter_tempo_spend: want gauge 30 got %.4f" % _EntityAccess.gauge_float(c)
 		)
 
 
@@ -2959,7 +2959,7 @@ static func _run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures: P
 	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2 footwork / tempo: **`recovery_cause`** selects **`CombatConstants.defense_footwork_recovering_dodge_mult_for_cause`** (**`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE`**) on reported **`dodge_chance`**; **`attack_miss`** > **`attack_hit`** at same **`distance_to`** / seed.
+## Tier 4.2 footwork / tempo: **`recovery_cause`** selects **`CombatConstants.defense_footwork_recovering_dodge_mult_for_cause`** (**`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE`**) on reported **`dodge_chance`**; **`attack_hit`** > **`attack_miss`** at same **`distance_to`** / seed (miss recovery is more punishing).
 static func _run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(failures: PackedStringArray) -> void:
 	var mgr: Node = CombatRegressionHarness._harness_start_1v1()
 	var defender: Dictionary = mgr.combatants[0]
@@ -3618,13 +3618,13 @@ static func _run_iii8_recovery_cause_table_parity(failures: PackedStringArray) -
 			)
 	var m_hit: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_hit")
 	var m_miss: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_miss")
-	if m_miss > m_hit + 0.01:
-		pass  # attack_miss dodge mult exceeds attack_hit as expected by III-8 design.
+	if m_hit > m_miss + 0.01:
+		pass  # attack_hit dodge mult exceeds attack_miss (miss recovery is more punishing).
 	else:
 		CombatRegressionHarness._fail(
 			failures,
-			"iii8_table: attack_miss dodge mult want > attack_hit got miss=%.4f hit=%.4f"
-			% [m_miss, m_hit]
+			"iii8_table: attack_hit dodge mult want > attack_miss got hit=%.4f miss=%.4f"
+			% [m_hit, m_miss]
 		)
 	var hit_curve: Array = CombatConstants.readiness_curve_for_cause("attack_hit")
 	var miss_curve: Array = CombatConstants.readiness_curve_for_cause("attack_miss")

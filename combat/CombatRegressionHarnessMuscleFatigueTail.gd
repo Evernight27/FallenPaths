@@ -391,9 +391,7 @@ static func _run_muscle_fatigue_entity_seed_from_campaign(failures: PackedString
 				_Harness._fail(failures, "muscle_fatigue_seed: entity missing muscle_fatigue")
 				return
 			player.muscle_fatigue = {_Bp.PART_RIGHT_ARM: 0.28}
-			var root_h := _Harness._get_or_create_manager_root()
-			var mgr: Node = _Harness._make_mgr(_MgrScript)
-			root_h.add_child(mgr)
+			var mgr: Node = _MgrScript.new()
 			mgr.register(player, "player")
 			mgr.register(_Fixtures._new_entity("SWORD"), "enemy")
 			mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})

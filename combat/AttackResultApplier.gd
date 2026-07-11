@@ -462,8 +462,6 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 			atk["defender_guard_line_at_parry"] = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT) if not tgt.is_empty() else ""
 		if not tgt.is_empty():
 			_consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_partial_intensity))
-			# Weapon position: only update when alignment was good (blade properly met attack).
-			# Use effective_attack_line for diagonal moves (actual contact line).
 			var pa_partial: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
 			if not pa_partial.is_empty():
 				_record_resolved_exchange_yomi(tgt, attacker_id, pa_partial, true)
