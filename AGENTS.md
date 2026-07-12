@@ -1,14 +1,14 @@
 # Fallen Paths
 
-[`docs/PLANNING.md`](docs/PLANNING.md) · [`docs/AGENTS_ENTRY.md`](docs/AGENTS_ENTRY.md) · APIs on demand: [`docs/AGENTS_API.md`](docs/AGENTS_API.md) · Combat map (section-only): [`docs/LIVE_PATHS.md#phase-0-gate`](docs/LIVE_PATHS.md#phase-0-gate)
+[`docs/PLANNING.md`](docs/PLANNING.md) · [`docs/AGENTS_ENTRY.md`](docs/AGENTS_ENTRY.md) · [`docs/AGENTS_API.md`](docs/AGENTS_API.md) · [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md)
 
-**Prompts:** [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.md) · **Budget:** ≤1 doc section + ≤3 owning `.gd` before first edit. Do **not** open whole `LIVE_PATHS.md` / `SHIP_PLAN.md`.
+**Prompts:** [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.md) · **Budget:** ≤1 doc section + ≤3 owning `.gd` · **Contract:** [`README#session-contract`](scripts/agent_prompts/README.md#session-contract)
 
 <a id="code-homes"></a>
 
 ## Code homes
 
-Flat folders by name prefix. Production: `combat/`. Regression/soak: `harness/` (not production resolvers). Keep `CombatF5SoakTrace.gd` in `combat/` (production tracer).
+Flat folders by name prefix. Production: `combat/`. Regression/soak: `harness/` (not production resolvers). Keep `CombatF5SoakTrace.gd` in `combat/`.
 
 | Path | Contents |
 |------|----------|
@@ -18,31 +18,20 @@ Flat folders by name prefix. Production: `combat/`. Regression/soak: `harness/` 
 | `world/` | Campaign |
 | `ui/` | Battle + company UI |
 | `weapon/`, `armor/`, `species/` | Data |
-| `combat_tuning/` | Local tuning UI only — not agent streams |
 | Root | `main.gd`, `main.tscn`, `character.gd`, `PartyManager.gd` |
 | `scripts/` | Phase 0 / audits · [`agent_prompts/`](scripts/agent_prompts/README.md) |
-| `docs/` | Planning · `docs/archive/` historical (not entry) |
+| `docs/` | Planning · [`archive/`](docs/archive/README.md) history |
 
 Playtest artifacts (gitignored): `.f5_soak_in.txt`, `.phase0_combat_checks.txt`, `.d001_*` — one agent at a time ([`scripts/README.md`](scripts/README.md)).
 
+<a id="checklist"></a>
+
 ## Implementing
 
-1. [Ownership](docs/PLANNING.md#file-ownership) · [anti-patterns](docs/AGENTS_API.md#anti-patterns)
-2. New cross-cutting API → row in [`AGENTS_API`](docs/AGENTS_API.md#canonical-apis)
+1. [Ownership](docs/PLANNING.md#file-ownership) · [anti-patterns](docs/AGENTS_API.md#anti-patterns) · [preserve](docs/FEATURE_PRESERVATION.md)
+2. Cross-cutting API → [`AGENTS_API`](docs/AGENTS_API.md#canonical-apis)
 
-## Streams
-
-Index + gates: [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.md).
-
-| Stream | Prompt | Gate |
-|--------|--------|------|
-| **Maintain** | [`agent_maintain.md`](scripts/agent_prompts/agent_maintain.md) | `PHASE0: PASS` |
-| **Combat** | [`agent_combat.md`](scripts/agent_prompts/agent_combat.md) | `PHASE0: PASS` |
-| **Enhance** | [`agent_enhance.md`](scripts/agent_prompts/agent_enhance.md) | `PHASE0: PASS` |
-| **Playtest** | [`agent_playtest.md`](scripts/agent_prompts/agent_playtest.md) | one agent on `.f5_soak_in.txt` |
-| **Campaign** | [`agent_campaign.md`](scripts/agent_prompts/agent_campaign.md) | company **406** or Phase 0 + ship audit |
-| **Hygiene · Audit** | [`agent_hygiene.md`](scripts/agent_prompts/agent_hygiene.md) · [`agent_audit.md`](scripts/agent_prompts/agent_audit.md) | Hygiene: no production `.gd` |
-| **Medical** | [`agent_medical.md`](scripts/agent_prompts/agent_medical.md) | `PHASE0: PASS` |
+Streams + gates: [`agent_prompts/README.md`](scripts/agent_prompts/README.md).
 
 ## Anti-patterns (short)
 
@@ -55,20 +44,14 @@ Index + gates: [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.
 | Conflate WF / `guard_line` / doctrine / PA | [`LIVE_PATHS#wf-footing-guards-stances`](docs/LIVE_PATHS.md#wf-footing-guards-stances) |
 | New `FEATURE_*` without ask | [§9c](docs/SHIP_PLAN.md#combat-expand-registry) |
 
-Full: [`AGENTS_API#anti-patterns`](docs/AGENTS_API.md#anti-patterns) · flags: [`PLANNING#harness-and-flags`](docs/PLANNING.md#harness-and-flags) · delete rules: [`FEATURE_PRESERVATION`](docs/FEATURE_PRESERVATION.md) (Hygiene only)
-
-<a id="checklist"></a>
-
-## Checklist
-
-- [ ] Owner in [PLANNING](docs/PLANNING.md#file-ownership)? Smallest module?
-- [ ] Cross-cutting API → [`AGENTS_API`](docs/AGENTS_API.md#canonical-apis)?
-
-```gdscript
-## <One line: what this file owns.>
-## Canonical: <API or docs/AGENTS_API.md>.
-```
+Full: [`AGENTS_API#anti-patterns`](docs/AGENTS_API.md#anti-patterns) · flags: [`PLANNING#harness-and-flags`](docs/PLANNING.md#harness-and-flags)
 
 ## Ownership
 
-Canonical: [`PLANNING#file-ownership`](docs/PLANNING.md#file-ownership) — Campaign `world/*` + company UI; Combat `combat/*` + `harness/*` + battle UI; Shared `CampaignEncounterBridge` / `CombatFlow` (one agent).
+| Stream | Paths |
+|--------|-------|
+| **Campaign** | `world/*`, `main.gd`, party/settlement/HUD UI, `CompanyState.gd` |
+| **Combat** | `combat/*`, `harness/*`, battle UI formatters |
+| **Shared** | `CampaignEncounterBridge.gd`, `CombatFlow.gd` (one agent) |
+
+Full table: [`PLANNING#file-ownership`](docs/PLANNING.md#file-ownership).
