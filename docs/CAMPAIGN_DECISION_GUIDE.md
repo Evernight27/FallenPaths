@@ -1,28 +1,8 @@
 # Campaign decision guide — research-backed defaults
 
-**When to open this file:** Reading **closed gate defaults** (2026-05-22 bundle), tuning §12 economy, or **adding a new gate** after EA.
+**Start:** [User bundle (2026-05-22)](#user-bundle-2026-05-22) · [`CompanyState`](../world/CompanyState.gd) · [§19](SHIP_PLAN.md#implementation-stubs) · [decision log](SHIP_PLAN.md#decision-log).
 
-**Start here (all Camp gates closed):** [User bundle (2026-05-22)](#user-bundle-2026-05-22) · constants in [`CompanyState`](../world/CompanyState.gd) · [SHIP_PLAN §19](SHIP_PLAN.md#implementation-stubs) · [decision log](SHIP_PLAN.md#decision-log).
-
-**Purpose:** Pros/cons + physics alignment for each gate. Grounded in the **shipped sim** (`BleedingConstants`, `CombatResearchAnchors`) plus ATLS/CoTCCC, merc-game peers, and RimWorld CE patterns.
-
-**New gates only:** Log one line in [decision log](SHIP_PLAN.md#decision-log) · add const + `read_stub_*()` in **`CompanyState`** ([§19](SHIP_PLAN.md#implementation-stubs)).
-
-| Gate (Camp row) | Shipped | Research section |
-|-----------------|---------|------------------|
-| Camp-1.2 | **T3** (N=5 + End day) | [D-day](#d-day) |
-| Camp-1.4 | **R3** (paid loss = run end) | [D-encounter](#d-encounter) |
-| Camp-1.6 | **H3** (600 s × 3×, −1 med) | [D-camp-ui](#d-camp-ui) |
-| Camp-1.8 | **K3** (memorial + kill recap) | [D-casualty](#d-casualty) |
-| Camp-2.1 | **B** + tutorial block + field care | [D-bleed](#d-bleed) |
-| Camp-2.3 / 2.5 | **E3** (efficacy floor + pack/stabilize −1) | [D-supply-battle](#d-supply-battle) |
-| Camp-2.4 | Tier RNG afflictions | [D-affliction](#d-affliction) |
-| Camp-2.6 | **B3** desertion | [D-bankrupt](#d-bankrupt) |
-| Camp-5 | **P1** EA (session-only) | [D-persistence](#d-persistence) |
-
-**No gate (§12 tuning only):** Camp-1.1, 1.3 map pools, 1.5 layout, 1.7 formulas, Camp-4 templates · [§12 sensitivity](#ea-tuning).
-
-**Remaining EA work:** F5 human playtest + [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist) — not new D-* decisions unless you add save (**P2**) or a post-EA gate.
+Open for closed-gate defaults, §12 economy, or **new gates** (appendix + `read_stub_*` + decision-log line). Optional post-EA: [**P2** save](#d-persistence).
 
 ---
 
@@ -412,22 +392,7 @@ Starting values in [SHIP_PLAN §12](SHIP_PLAN.md#ea-tuning-defaults) are **BB-sc
 
 ## Recommended bundle (superseded)
 
-**Use [User bundle (2026-05-22)](#user-bundle-2026-05-22)** — gates closed there and in [`SHIP_PLAN` decision log](SHIP_PLAN.md#decision-log). Block below is a **historical paste template** only.
-
-```markdown
-# Historical template only — see SHIP_PLAN decision log for actual 2026-05-22 entries
-- YYYY-MM-DD — D-bleed → B + tutorial block + field care
-- YYYY-MM-DD — D-supply-battle → E3
-- YYYY-MM-DD — D-day → T3 (5 steps + End day at camp)
-- YYYY-MM-DD — D-bankrupt → B3
-- YYYY-MM-DD — D-encounter → R3
-- YYYY-MM-DD — D-camp-ui → H3; camp heal 600 s × 3 mult, −1 med
-- YYYY-MM-DD — D-affliction → tier RNG (see guide bundle)
-- YYYY-MM-DD — D-casualty → K3
-- YYYY-MM-DD — D-persistence → P1 (EA)
-```
-
----
+Use [User bundle](#user-bundle-2026-05-22) · [`SHIP_PLAN` decision log](SHIP_PLAN.md#decision-log).
 
 ## References (external)
 

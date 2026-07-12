@@ -4,7 +4,7 @@ Local exertion pools per fighting limb — **not** composure (mental readiness),
 
 **Status:** **Shipped** — `FEATURE_MUSCLE_GROUP_FATIGUE` default **on** (Expand MXf, 2026-07).
 
-**Parent:** [`COMPOSURE_PLAN.md`](../COMPOSURE_PLAN.md) (composure shipped; muscle fatigue is a separate Expand row) · [`LIVE_PATHS#muscle-fatigue-phase-2`](../LIVE_PATHS.md#muscle-fatigue-phase-2) · Expand registry [`SHIP_PLAN §9c`](../SHIP_PLAN.md#combat-expand-registry).
+**Parent:** [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) (archive; composure shipped) · stub [`../COMPOSURE_PLAN.md`](../COMPOSURE_PLAN.md) · [`LIVE_PATHS#muscle-fatigue-phase-2`](../LIVE_PATHS.md#muscle-fatigue-phase-2) · [`SHIP_PLAN` §9c](../SHIP_PLAN.md#combat-expand-registry).
 
 ---
 

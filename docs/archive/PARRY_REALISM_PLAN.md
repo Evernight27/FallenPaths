@@ -1,6 +1,6 @@
 # Parry Realism Improvements Plan
 
-**Status:** Research complete, planning phase. Parent: [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) · Expand registry [`SHIP_PLAN §9c`](SHIP_PLAN.md#combat-expand-registry).
+**Status:** Research complete, planning phase. Parent: [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) · Expand [`SHIP_PLAN` §9c](../SHIP_PLAN.md#combat-expand-registry).
 
 **Core files involved:** `DefenseResolutionHandler.gd`, `AttackResultApplier.gd`, `CombatConstantsParry.gd`, `CombatMuscleFatigue.gd`, `CombatFootwork.gd`, `DefenseChoiceResolver.gd`.
 
