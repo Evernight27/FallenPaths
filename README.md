@@ -42,7 +42,7 @@ CI runs the bash versions on GitHub Actions (`.github/workflows/ci.yml`).
 | `weapon/`, `armor/`, `species/` | Strike, armor, species data resources |
 | `combat_tuning/` | Local tuning UI only — not production combat / not agent streams |
 | `scripts/` | Phase 0, audits, agent prompts |
-| `docs/` | Planning · `docs/archive/` = historical plans (not entry) |
+| `docs/` | Planning |
 
 See [`AGENTS.md#code-homes`](AGENTS.md#code-homes).
 

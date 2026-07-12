@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Phase 2: per-limb exertion fatigue (local pools on combatant dict).
 ## Layers on whole-body breath + fight exhaustion — does NOT replace composure (`gauge`) or tissue J pools.
-## Design: `docs/archive/MUSCLE_FATIGUE_PLAN.md`. Production default on: `FEATURE_MUSCLE_GROUP_FATIGUE`.
+## Design: muscle group fatigue (`FEATURE_MUSCLE_GROUP_FATIGUE`). Production default on.
 
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")

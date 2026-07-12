@@ -104,4 +104,4 @@ Combat/Expand: [`LIVE_PATHS`](LIVE_PATHS.md) · [§9b](SHIP_PLAN.md#combat-menta
 
 <a id="doc-map"></a>
 
-[`AGENTS_ENTRY`](AGENTS_ENTRY.md) · [`AGENTS_API`](AGENTS_API.md) · [`SHIP_PLAN`](SHIP_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE`](CAMPAIGN_DECISION_GUIDE.md) · [`LIVE_PATHS`](LIVE_PATHS.md) (section-only) · [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md) · [`FEATURE_PRESERVATION`](FEATURE_PRESERVATION.md) · [`archive/`](archive/README.md) · [`scripts/README`](../scripts/README.md) · [`agent_prompts`](../scripts/agent_prompts/README.md).
+[`AGENTS_ENTRY`](AGENTS_ENTRY.md) · [`AGENTS_API`](AGENTS_API.md) · [`SHIP_PLAN`](SHIP_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE`](CAMPAIGN_DECISION_GUIDE.md) · [`LIVE_PATHS`](LIVE_PATHS.md) (section-only) · [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md) · [`FEATURE_PRESERVATION`](FEATURE_PRESERVATION.md) · [`scripts/README`](../scripts/README.md) · [`agent_prompts`](../scripts/agent_prompts/README.md).

@@ -1,6 +1,6 @@
 # Ship plan — merc company loop (EA)
 
-**Section-only.** Full EA narrative: [`archive/SHIP_PLAN_EA_NARRATIVE.md`](archive/SHIP_PLAN_EA_NARRATIVE.md).
+**Section-only.**
 
 Entry: [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · gates: [`CAMPAIGN_DECISION_GUIDE`](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22) · combat: [`LIVE_PATHS`](LIVE_PATHS.md) (section-only) · Expand queue: [`EXPANSION_PLAN`](EXPANSION_PLAN.md).
 
@@ -14,13 +14,13 @@ EA: playable merc loop (contracts → fight → settlement → wages) with Phase
 
 ## 2. Current state
 
-Camp-0…5 **shipped** (human F5 ☑ 2026-06-07). Detail: archive narrative §2.
+Camp-0…5 **shipped** (human F5 ☑ 2026-06-07).
 
 <a id="dependency-overview"></a>
 
 ## 3. Dependencies
 
-Historical mermaid → [`archive/SHIP_PLAN_EA_NARRATIVE.md#dependency-overview`](archive/SHIP_PLAN_EA_NARRATIVE.md#dependency-overview).
+Shipped dependency order complete — Camp-0 gate first, then company loop.
 
 <a id="decision-gates-at-implementation"></a>
 
@@ -32,13 +32,13 @@ Closed 2026-05-22 → [`CAMPAIGN_DECISION_GUIDE#user-bundle-2026-05-22`](CAMPAIG
 
 ## 3c. Pre-start checklist
 
-Historical → archive.
+Shipped.
 
 <a id="camp-1-build-order"></a>
 
 ## 3d. Camp-1 build order
 
-Historical → archive.
+Shipped.
 
 <a id="camp-0-release-gate"></a>
 
@@ -53,13 +53,13 @@ Expect **`PHASE0: PASS`**. Always-on.
 
 ## Camp-1 — Company loop
 
-☑ Shipped. Detail → archive.
+☑ Shipped. Shipped.
 
 <a id="camp-2-sim-campaign-bridge"></a>
 
 ## Camp-2 — Sim ↔ campaign
 
-☑ Shipped. Detail → archive.
+☑ Shipped. Shipped.
 
 <a id="camp-3-player-ready"></a>
 
@@ -77,7 +77,7 @@ Headless ship audit + [#camp-playtest-acceptance](#camp-playtest-acceptance) F5.
 
 ## Camp-4 — Content
 
-☑ Shipped contract presets. Detail → archive.
+☑ Shipped contract presets. Shipped.
 
 <a id="camp-5-ea-checklist"></a>
 
@@ -111,7 +111,7 @@ Prompts: [`agent_prompts/README`](../scripts/agent_prompts/README.md).
 
 ## 7. Session order
 
-Historical greenfield weeks → archive.
+Historical greenfield weeks — shipped; use [#camp-playtest-acceptance](#camp-playtest-acceptance).
 
 <a id="camp-playtest-acceptance"></a>
 
@@ -142,7 +142,7 @@ Close-out: automated minimum = Phase 0 + ship audit + `wf_m3_*` + camp settlemen
 
 ## 9. Implementation reference
 
-Boot / overworld / battle-end wiring → archive §9. Cognition: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#combat-cognition-pipeline).
+Boot/overworld/battle-end: `main.gd` · `CombatFlow` · `CampaignEncounterBridge`. Cognition: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#combat-cognition-pipeline).
 
 <a id="combat-mental-stack-shipped"></a>
 
@@ -173,13 +173,13 @@ Canonical status tables: [`LIVE_PATHS#phase-4--new-systems-formal-tracks`](LIVE_
 
 ## 10. Data contracts
 
-`encounter_config` keys → archive §10. Prefer `CompanyState` / bridge APIs in [`AGENTS_API`](AGENTS_API.md).
+`encounter_config` keys via bridge / `CompanyState` — see [`AGENTS_API`](AGENTS_API.md).
 
 <a id="encounter-lifecycle"></a>
 
 ## 11. Encounter lifecycle
 
-**R3 shipped:** marker consumed on entry; paid loss ends run. Detail → archive / [D-encounter](CAMPAIGN_DECISION_GUIDE.md#d-encounter).
+**R3 shipped:** marker consumed on entry; paid loss ends run — [D-encounter](CAMPAIGN_DECISION_GUIDE.md#d-encounter).
 
 <a id="ea-tuning-defaults"></a>
 
@@ -215,7 +215,7 @@ Normal play: `dev_soak_encounter` empty. Cyan presets = F5 soak only.
 
 ## 18. Camp-4 config
 
-Examples → archive.
+Shipped contract presets.
 
 ## 19. Gate constants (`CompanyState.gd`)
 
@@ -257,7 +257,7 @@ Branch via `read_stub_*()`. New gates: const + reader + [decision log](#decision
 | Player target UI | Forbidden — [§9b](#combat-mental-stack-shipped) |
 | Confuse WF / PA / formation footing | [`LIVE_PATHS#wf-layer-labels`](LIVE_PATHS.md#wf-layer-labels) |
 
-Combat/WF pitfalls → [`LIVE_PATHS`](LIVE_PATHS.md) / archive narrative.
+Combat/WF pitfalls → [`LIVE_PATHS`](LIVE_PATHS.md).
 
 <a id="campaign"></a>
 
@@ -275,13 +275,13 @@ Closed D-* gates: [user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-2
 - YYYY-MM-DD — D-* (Camp-x.y) → choice — rationale
 ```
 
-Full historical log → [`archive/SHIP_PLAN_EA_NARRATIVE.md#decision-log`](archive/SHIP_PLAN_EA_NARRATIVE.md#decision-log).
+Closed D-* lines are in the 2026-05-22 user bundle; append new gates only.
 
 <a id="external-comparables-index"></a>
 
 ## External comparables
 
-BB / RimWorld CE / ACE3 / Phoenix Command — archive index. Do not block ship on full tissue sim.
+Do not block ship on full tissue sim.
 
 <a id="camp-33-battle-medical-phase-hints-combat-led"></a>
 
