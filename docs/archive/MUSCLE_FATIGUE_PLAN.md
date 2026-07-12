@@ -4,7 +4,7 @@ Local exertion pools per fighting limb — **not** composure (mental readiness),
 
 **Status:** **Shipped** — `FEATURE_MUSCLE_GROUP_FATIGUE` default **on** (Expand MXf, 2026-07).
 
-**Parent:** [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md#step-9--per-limb-muscle-fatigue-phase-2) · [`LIVE_PATHS#muscle-fatigue-phase-2`](LIVE_PATHS.md#muscle-fatigue-phase-2) · Expand registry [`SHIP_PLAN §9c`](SHIP_PLAN.md#combat-expand-registry).
+**Parent:** [`COMPOSURE_PLAN.md`](../COMPOSURE_PLAN.md) (composure shipped; muscle fatigue is a separate Expand row) · [`LIVE_PATHS#muscle-fatigue-phase-2`](../LIVE_PATHS.md#muscle-fatigue-phase-2) · Expand registry [`SHIP_PLAN §9c`](../SHIP_PLAN.md#combat-expand-registry).
 
 ---
 
@@ -15,7 +15,7 @@ Local exertion pools per fighting limb — **not** composure (mental readiness),
 | **Composure rework** | ✅ Shipped — do not block on muscle fatigue |
 | **Breath + fight exhaustion (MXm / MS-L7)** | ✅ Shipped — muscle fatigue **layers on top**, does not replace |
 | EA / Phase 0 | Muscle fatigue **shipped** (Expand MXf, flag default on) |
-| **Expand PR** | One row per PR: flag + harness `_run_muscle_fatigue_*` + LIVE_PATHS line ([`PLANNING#harness-and-flags`](PLANNING.md#harness-and-flags)) |
+| **Expand PR** | One row per PR: flag + harness `_run_muscle_fatigue_*` + LIVE_PATHS line ([`PLANNING#harness-and-flags`](../PLANNING.md#harness-and-flags)) |
 | **Suggested timing** | Post–Camp-5 Expand, **after** composure/breath soak stable · optional tie-in with tier-4.4 footwork feel pass — not before |
 
 **Do not implement** during maintain-only composure PRs. Pick explicitly from Expand stream when local limb degradation is the next combat-feel priority.
@@ -79,9 +79,9 @@ Chest/head: **out of scope** for MVP unless a Expand row explicitly adds posture
 
 ## Expand registry row
 
-Add to [`SHIP_PLAN §9c`](SHIP_PLAN.md#combat-expand-registry) **Phase 4 / cognition feel** bucket:
+Add to [`SHIP_PLAN §9c`](../SHIP_PLAN.md#combat-expand-registry) **Phase 4 / cognition feel** bucket:
 
-**MXf — per-limb muscle fatigue:** `FEATURE_MUSCLE_GROUP_FATIGUE` · `CombatMuscleFatigue` · harness `_run_muscle_fatigue_*` · LIVE_PATHS [#muscle-fatigue-phase-2](LIVE_PATHS.md#muscle-fatigue-phase-2).
+**MXf — per-limb muscle fatigue:** `FEATURE_MUSCLE_GROUP_FATIGUE` · `CombatMuscleFatigue` · harness `_run_muscle_fatigue_*` · LIVE_PATHS [#muscle-fatigue-phase-2](../LIVE_PATHS.md#muscle-fatigue-phase-2).
 
 ---
 

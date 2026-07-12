@@ -1,59 +1,33 @@
-Stream: **Medical Physics**. Medically sound hemorrhage, triage, treatment, pain/shock sim grounded in research anchors. Organ surgery / cardiac chains are post-EA scope.
+Stream: **Medical Physics**. Hemorrhage / triage / treatment / pain-shock grounded in research anchors.
 
-**Gate before done:**
+**Gate:** `./scripts/run_all_combat_checks.sh` → **`PHASE0: PASS`**. Fast: `FP_HARNESS_MODE=medical|calibration`.
 
-```powershell
-.\scripts\run_all_combat_checks.ps1
-```
+**Own:** `core/EntityMedical.gd`, `core/EntityWounds.gd`, `core/EntityHealing.gd`, `core/EntityDamage.gd`, `core/BleedingConstants.gd`, `core/CombatResearchAnchors.gd`, `combat/MedicalPhaseController.gd` (time-advance slices), `combat/CombatMedicalCoordination.gd`, `combat/CombatMedicalActionListing.gd`, `combat/MedicalActionStarter.gd`, `combat/MedicalWindUpHandler.gd`, `harness/CombatRegressionHarnessMedicalPhaseTail.gd`, `harness/CombatRegressionHarnessMedicalMobilityTail.gd`, `harness/CombatCalibrationAudit.gd`, `ui/BattleUIUpdater.gd` (medical busy gauge).
 
-Target: **`PHASE0: PASS`**. Fast iterate: `-HarnessMode medical` · `-HarnessMode calibration`.
+**Do not:** mental-stack order · formation/WF/IV · economy · new `FEATURE_*` · closed bleed/BMI without ask. One agent on `EntityMedical`/`EntityWounds` at a time.
 
-**Own:** `core/EntityMedical.gd`, `EntityWounds.gd`, `EntityHealing.gd`, `EntityDamage.gd`, `EntityTimeAdvance.gd`, `BleedingConstants.gd`, `CombatResearchAnchors.gd`, `combat/MedicalPhaseController.gd`, `CombatMedicalCoordination.gd`, `CombatMedicalActionListing.gd`, `MedicalActionStarter.gd`, `MedicalWindUpHandler.gd`, `CombatRegressionHarnessMedicalPhaseTail.gd`, `CombatRegressionHarnessMedicalMobilityTail.gd`, `CombatCalibrationAudit.gd`, `ui/BattleUIUpdater.gd` (medical busy gauge only).
+**Read first:** [`LIVE_PATHS#bleeding-physics`](../../docs/LIVE_PATHS.md#bleeding-physics) · [`#tier-6--medical--flee`](../../docs/LIVE_PATHS.md#tier-6--medical--flee) · [`AGENTS_API`](../../docs/AGENTS_API.md#canonical-apis).
 
-**Read-only unless bridge row:** `world/MapFieldCare.gd` (field-care constants must match combat — coordinate Campaign if API changes).
-
-**Do not touch:** `MentalStackDecider` layer order · formation / WF / IV · `world/CompanyState` economy · new `FEATURE_*` · closed-gate constants (bleed/BMI) unless I explicitly ask. Parallel: one agent on `core/EntityMedical.gd` / `EntityWounds.gd` at a time. Not parallel with Hygiene on same `core/*.gd`.
-
-**Read first:** [`LIVE_PATHS#bleeding-physics`](../../docs/LIVE_PATHS.md#bleeding-physics) · [`LIVE_PATHS#tier-6--medical--flee`](../../docs/LIVE_PATHS.md#tier-6--medical--flee) · medical APIs: [`docs/AGENTS_API.md#canonical-apis`](../../docs/AGENTS_API.md#canonical-apis).
+**Contract:** [`README#session-contract`](README.md#session-contract).
 
 ---
 
-## Session start (copy-paste task line)
+## Session start
 
-> Run `-HarnessMode medical` then full Phase 0. Pick **one** medical row from the table below (or I will name it). Smallest diff in the owning module. Re-run gate before done. Do not bypass `CombatMedicalCoordination.medical_action_allowed`.
+> Medical harness then Phase 0. Pick **one** row. Never bypass `medical_action_allowed`.
 
----
+| P | Work |
+|:-:|------|
+| 1 | Failing medical/calibration row |
+| 2 | TTD / triage parity |
+| 3 | Clotting / hemostasis |
+| 4 | Pain-shock coupling |
+| 5 | Treatment coordination |
+| 6 | Pack / channel depth |
+| 7 | Field care ↔ combat parity |
+| 8 | Medical phase UI gauge |
+| 9 | Blunt KE rank-order |
 
-## Priority table (2026-06-08+)
+**Tune order (when asked):** `BLEEDING_RATES` → `REFERENCE_UNCONTROLLED_BLEED_RATE` → `BLOOD_LOSS_RATE_MULTIPLIER` → part mults → death threshold.
 
-| P | Work | Harness / gate |
-|:-:|------|----------------|
-| 1 | Failing medical/calibration row | `MedicalPhaseTail` · `CombatCalibrationAudit` |
-| 2 | TTD / triage parity | `_run_medical_phase_full_blood_loss_rate` |
-| 3 | Clotting / hemostasis | pressure vs definitive bandage |
-| 4 | Pain-shock coupling | `_run_ambient_pain_shock_*` |
-| 5 | Treatment overlap / coordination | `_run_medical_coordination_*` |
-| 6 | Pack / channel depth | `_run_iii5_packing_channel_success_depth` |
-| 7 | Field care ↔ combat parity | `MapFieldCare` + `EntityMedical` constants |
-| 8 | Medical phase UI gauge | `_run_medical_phase_gauge_*` |
-| 9 | Blunt KE rank-order | harness before production mult change |
-
-**Tuning order** (constants only when asked): `BLEEDING_RATES` → `REFERENCE_UNCONTROLLED_BLEED_RATE` → `BLOOD_LOSS_RATE_MULTIPLIER` → part mults → death threshold — then calibration harness + PR citation.
-
-**Do not:** bypass `CombatMedicalCoordination.medical_action_allowed` · duplicate untreated-wound checks · import `CompanyState` in `combat/*`.
-
----
-
-## Done checklist
-
-- [ ] Phase 0 PASS at start and end
-- [ ] One logical fix (or explicit "gate-only" session)
-- [ ] No edits outside stream ownership without handoff
-
-**If gate was green at start but fails after your change:** revert the change, re-run gate to confirm it was your edit that broke it, then report with FINDING/SITES/CANONICAL/FIX format. Do not chase harness failures present at session start unless the failing harness is in your owning module.
-
-**Escalation:** if you find an issue in files outside your owning module (especially `combat/` non-medical, `world/*`), report it (FINDING/SITES/CANONICAL/FIX format) and do not edit those files. Hand off to the appropriate stream owner.
-
-**Success:** gate green · smallest diff in owning module · research anchor cited for constant changes.
-
-PR prefix: `combat:` or `medical:` · cite research anchor when changing a constant.
+PR prefix: `combat:` or `medical:` · cite research anchor for constants.

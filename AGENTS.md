@@ -1,8 +1,8 @@
 # Fallen Paths
 
-[`docs/PLANNING.md`](docs/PLANNING.md) · [`docs/AGENTS_ENTRY.md`](docs/AGENTS_ENTRY.md) · [`docs/AGENTS_API.md`](docs/AGENTS_API.md) · [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md)
+[`docs/PLANNING.md`](docs/PLANNING.md) · [`docs/AGENTS_ENTRY.md`](docs/AGENTS_ENTRY.md) · APIs on demand: [`docs/AGENTS_API.md`](docs/AGENTS_API.md) · Combat map (section-only): [`docs/LIVE_PATHS.md#phase-0-gate`](docs/LIVE_PATHS.md#phase-0-gate)
 
-**Prompts:** [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.md) · **Budget:** ≤1 doc section + ≤3 owning `.gd` before first edit.
+**Prompts:** [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.md) · **Budget:** ≤1 doc section + ≤3 owning `.gd` before first edit. Do **not** open whole `LIVE_PATHS.md` / `SHIP_PLAN.md`.
 
 <a id="code-homes"></a>
 
@@ -18,9 +18,10 @@ Flat folders by name prefix. Production: `combat/`. Regression/soak: `harness/` 
 | `world/` | Campaign |
 | `ui/` | Battle + company UI |
 | `weapon/`, `armor/`, `species/` | Data |
+| `combat_tuning/` | Local tuning UI only — not agent streams |
 | Root | `main.gd`, `main.tscn`, `character.gd`, `PartyManager.gd` |
 | `scripts/` | Phase 0 / audits · [`agent_prompts/`](scripts/agent_prompts/README.md) |
-| `docs/` | Planning |
+| `docs/` | Planning · `docs/archive/` historical (not entry) |
 
 Playtest artifacts (gitignored): `.f5_soak_in.txt`, `.phase0_combat_checks.txt`, `.d001_*` — one agent at a time ([`scripts/README.md`](scripts/README.md)).
 
@@ -54,7 +55,9 @@ Index + gates: [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.
 | Conflate WF / `guard_line` / doctrine / PA | [`LIVE_PATHS#wf-footing-guards-stances`](docs/LIVE_PATHS.md#wf-footing-guards-stances) |
 | New `FEATURE_*` without ask | [§9c](docs/SHIP_PLAN.md#combat-expand-registry) |
 
-Full: [`AGENTS_API#anti-patterns`](docs/AGENTS_API.md#anti-patterns) · flags: [`PLANNING#harness-and-flags`](docs/PLANNING.md#harness-and-flags) · preserve: [`FEATURE_PRESERVATION`](docs/FEATURE_PRESERVATION.md)
+Full: [`AGENTS_API#anti-patterns`](docs/AGENTS_API.md#anti-patterns) · flags: [`PLANNING#harness-and-flags`](docs/PLANNING.md#harness-and-flags) · delete rules: [`FEATURE_PRESERVATION`](docs/FEATURE_PRESERVATION.md) (Hygiene only)
+
+<a id="checklist"></a>
 
 ## Checklist
 
@@ -68,10 +71,4 @@ Full: [`AGENTS_API#anti-patterns`](docs/AGENTS_API.md#anti-patterns) · flags: [
 
 ## Ownership
 
-Full: [`PLANNING#file-ownership`](docs/PLANNING.md#file-ownership)
-
-| Stream | Paths |
-|--------|-------|
-| **Campaign** | `world/*`, `main.gd`, party/settlement/HUD UI, `CompanyState.gd` |
-| **Combat** | `combat/*`, `harness/*`, battle UI formatters |
-| **Shared** | `CampaignEncounterBridge.gd`, `CombatFlow.gd` (one agent) |
+Canonical: [`PLANNING#file-ownership`](docs/PLANNING.md#file-ownership) — Campaign `world/*` + company UI; Combat `combat/*` + `harness/*` + battle UI; Shared `CampaignEncounterBridge` / `CombatFlow` (one agent).

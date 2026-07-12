@@ -388,6 +388,12 @@ Design: [`docs/COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) — 8-step plan replacing 
 
 **Implementation order:** Step 1 (primitives) → Step 2 (remove zeroes) → Step 3 (fill + cost) → Step 4 (quality) → Step 5 (rename) → Step 6 (AI) → Step 7 (harness) → Step 8 (campaign).
 
+<a id="muscle-fatigue-phase-2"></a>
+
+## Muscle fatigue (shipped)
+
+Per-limb exertion pools — **not** composure, **not** whole-body breath. Owner: `combat/CombatMuscleFatigue.gd` · flag `FEATURE_MUSCLE_GROUP_FATIGUE` · harness `harness/CombatRegressionHarnessMuscleFatigueTail.gd`. Design archive: [`archive/MUSCLE_FATIGUE_PLAN.md`](archive/MUSCLE_FATIGUE_PLAN.md).
+
 <a id="battle-ui"></a>
 
 ## Battle UI

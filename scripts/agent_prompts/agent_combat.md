@@ -1,37 +1,29 @@
-Stream: **Combat**. **Default post–Camp-5** — smallest `combat/*.gd` owner per [`docs/PLANNING.md#file-ownership`](../../docs/PLANNING.md#file-ownership). Copy into parallel bundle chat 1 ([`README#parallel-expansion-bundle`](README.md#parallel-expansion-bundle)).
+Stream: **Combat**. Default post–Camp-5 — smallest `combat/*.gd` owner per [`PLANNING#file-ownership`](../../docs/PLANNING.md#file-ownership). Bundle chat 1: [`README#parallel-expansion-bundle`](README.md#parallel-expansion-bundle).
 
-**Gate before done:**
+**Gate:** `./scripts/run_all_combat_checks.sh` → **`PHASE0: PASS`**.
 
-```powershell
-.\scripts\run_all_combat_checks.ps1
-```
+**Own:** `combat/*`, `harness/*`, battle UI formatters (`BattleUIUpdater`, `FormationDiagramBuilder`, `TurnReadyHandler`, `CombatLogFormatter`), `character.gd` (combat hooks).
 
-Target: **`PHASE0: PASS`**.
+**Do not touch:** `world/*`, `main.gd`, party/settlement UI, new `FEATURE_*`, closed gates, bridge files without Campaign coord. Expand → [`README#expand-reopen`](README.md#expand-reopen). Frozen: [`PLANNING#harness-and-flags`](../../docs/PLANNING.md#harness-and-flags).
 
-**Own:** `combat/*`, `harness/*` (regression/soak), `ui/BattleUIUpdater.gd`, `ui/FormationDiagramBuilder.gd`, `ui/TurnReadyHandler.gd`, `ui/CombatLogFormatter.gd`, `character.gd` (combat hooks only).
+**Read first:** [`LIVE_PATHS#combat-cognition-pipeline`](../../docs/LIVE_PATHS.md#combat-cognition-pipeline) · [`SHIP_PLAN` §9b](../../docs/SHIP_PLAN.md#combat-mental-stack-shipped).
 
-**Do not touch:** `world/*`, `main.gd`, `ui/PartyMenu.gd`, `ui/SettlementPanel.gd`, new `FEATURE_*`, closed-gate constants (bleed/BMI), `CampaignEncounterBridge.gd`, `CombatFlow.gd` (coordinate with Campaign agent — one at a time). **Expand rows** → [`README.md#expand-reopen`](README.md#expand-reopen). See [`PLANNING#harness-and-flags`](../../docs/PLANNING.md#harness-and-flags) for frozen items policy.
-
-**Read first:** [`docs/LIVE_PATHS.md#combat-cognition-pipeline`](../../docs/LIVE_PATHS.md#combat-cognition-pipeline) · [`docs/SHIP_PLAN.md#combat-mental-stack-shipped`](../../docs/SHIP_PLAN.md#combat-mental-stack-shipped).
-
-**Before pick / attention / defense:** pipeline: `AvailableActionsBuilder.build` → `MentalStackDecider.try_pick` → `CombatAIActionPicker.pick_weighted` → `CombatResolveAction.resolve`; defense at strike via `DefenseChoiceResolver`.
+**Contract:** [`README#session-contract`](README.md#session-contract).
 
 ---
 
-## Session start (copy-paste task line)
+## Session start
 
-> Run Phase 0. If green, pick **one** priority from the list below (or I will name it). Smallest diff in the owning module. Re-run gate before done. One logical fix per session.
+> Run Phase 0. Pick **one** priority. Smallest owning-module diff. Re-gate.
 
-**Current priorities (2026-06-08+, gate green) — pick one:**
-
-1. **III-6 line plug** — rank-0 gap `swap_rank` / Skirmish `rotate_file`; validator `camp_line_plug_pick`. Deep spec: [§ III-6 line plug](#specialty-iii-6-line-plug) below.
-2. **Harness row fix** — failing Phase 0 / D001 tail; smallest `*Tail.gd` owner.
-3. **Mental stack regression** — `_run_mental_stack_*` in `harness/CombatRegressionHarnessAttentionFootworkTail.gd` (L0–L4, MS-L5 plug, MS-L6 rout, MS-L7 exhaustion + salience damp).
-4. **III-4 3e fight-finish** — sparse/mop-up pick stalls. Deep spec: [§ III-4 3e fight-finish](#specialty-iii-4-3e-fight-finish) below.
-5. **WF maintain** — PA octant + `harness/CombatRegressionHarnessWeaponFormTail.gd` / ii5c + `_run_t44_spatial_*` when footing behavior changes (T44 flags default off; WF-M1–M5 ☑; no new tiers).
-6. **III-3 deflect/bind** — `DefenseChoiceResolver` calibration if research `warn` surfaces (not `note` rows).
-7. **BattleUIUpdater medical busy** — gauge primary label during medical wind-up / receiving care (`_run_medical_phase_gauge_*`).
-8. **Species S5 pilot** — `species/SpeciesResource.gd`, `human.tres`, `goblin.tres` + simulation harness rows.
+1. **III-6 line plug** — [§](#specialty-iii-6-line-plug) · `camp_line_plug_pick`
+2. **Harness row fix** — failing Phase 0 / D001 `*Tail.gd`
+3. **Mental stack** — `_run_mental_stack_*` in `AttentionFootworkTail`
+4. **III-4 3e fight-finish** — [§](#specialty-iii-4-3e-fight-finish) · `ii_envelop_mopup: PASS`
+5. **WF maintain** — WeaponFormTail / ii5c / `_run_t44_spatial_*` (no new tiers)
+6. **III-3 deflect/bind** — research `warn` only
+7. **BattleUI medical busy** — `_run_medical_phase_gauge_*`
+8. **Species S5** — `species/*` + harness
 
 <a id="priority-harness-row-fix"></a>
 <a id="priority-mental-stack-regression"></a>
@@ -40,7 +32,7 @@ Target: **`PHASE0: PASS`**.
 <a id="priority-battleui-medical-busy"></a>
 <a id="priority-species-s5"></a>
 
-**Mental stack:** shipped layers — [`SHIP_PLAN` §9b](../../docs/SHIP_PLAN.md#combat-mental-stack-shipped) · [`LIVE_PATHS` tier 4.3](../../docs/LIVE_PATHS.md#tier-43-mental-stack--combat-attention). Spec archive: [`docs/archive/MENTAL_STACK_IMPROVEMENT_PLAN.md`](../../docs/archive/MENTAL_STACK_IMPROVEMENT_PLAN.md).
+Mental stack map: [`SHIP_PLAN` §9b](../../docs/SHIP_PLAN.md#combat-mental-stack-shipped) · archive [`MENTAL_STACK_IMPROVEMENT_PLAN`](../../docs/archive/MENTAL_STACK_IMPROVEMENT_PLAN.md).
 
 ---
 
@@ -48,19 +40,15 @@ Target: **`PHASE0: PASS`**.
 
 ## Specialty: III-4 3e fight-finish
 
-Post-rout mop-up and post-flee sparse skirmish pick pipeline: rotate suppress, L4b `sparse_fight`, trusted close, listing strip, fight-finish weights. Close audit gaps only — no new features.
+Post-rout mop-up / sparse skirmish: rotate suppress, L4b `sparse_fight`, fight-finish weights. Close audit gaps only.
 
 **Extra gate:** `ii_envelop_mopup: PASS`.
 
-**Read first:** `CombatDoctrine.gd` (`fight_finish_tail_active`, `sparse_line_prefer_finish_over_shuffle`, `should_suppress_skirmish_rotate_file`) → `MentalStackDecider.gd` (L4b before L4) → `CombatAIActionPicker.gd` → `CombatMeleeListing.gd` → `harness/CombatRegressionHarnessTier1Tail.gd`.
+**Read:** `CombatDoctrine` → `MentalStackDecider` (L4b) → `CombatAIActionPicker` → `CombatMeleeListing` → `harness/CombatRegressionHarnessTier1Tail.gd`.
 
-**Own:** above plus `CombatFormationFlow.gd`, `CombatFormationMoveListing.gd`, `CombatPlayerTurnHints.gd`, `CombatEngagementDiagnostics.gd`, `harness/CombatD001SoakRunner.gd`, `harness/CombatD001TrackSpecs.gd`.
+**Do not:** `world/*` · new `FEATURE_*` · regress rotate on full lines.
 
-**Do not:** edit `world/*`; add `FEATURE_*`; regress rotate on full formation lines (4/5 rank-0 occupied).
-
-**F5 grep:** `sparse_line=true`, `fight_finish=true`, `sparse_prefer_finish=true`, `rotate_suppress=true`; post-flee picks on `layer=sparse_fight`, not rotate ping-pong.
-
-**Harness:** `_run_sparse_skirmish_line_rotate_suppressed_*`, `_run_fight_finish_*`, `_run_mop_up_*`, D001 `ii_envelop_sparse_*`.
+**Grep:** `sparse_line=true`, `fight_finish=true`, `rotate_suppress=true`. Harness: `_run_sparse_skirmish_*`, `_run_fight_finish_*`, `_run_mop_up_*`, D001 `ii_envelop_sparse_*`.
 
 ---
 
@@ -68,24 +56,14 @@ Post-rout mop-up and post-flee sparse skirmish pick pipeline: rotate suppress, L
 
 ## Specialty: III-6 line plug
 
-Rank-0 **line plug** pick pipeline: rear `swap_rank` / Skirmish `rotate_file` when front rank-0 has a gap; incap plug-forward; gauge/hint suffix; sparse-line weight floor.
+Rank-0 gap → rear `swap_rank` / Skirmish `rotate_file`; incap plug-forward; sparse-line weight floor.
 
-**Extra gate:** validator fixture `camp_line_plug_pick` green in D001 sanity.
+**Extra gate:** `camp_line_plug_pick` in D001.
 
-**Read first:** `CombatFormationMoveListing.gd` → `CombatAIActionPicker.gd` → `CombatPlayerTurnHints.gd` → `CombatEngagementDiagnostics.gd` → `harness/CombatRegressionHarnessTier1Tail.gd`.
+**Read:** `CombatFormationMoveListing` → `CombatAIActionPicker` → `CombatPlayerTurnHints` → `Tier1Tail`.
 
-**Own:** above plus `CombatFormationFlow.gd`, `CombatF5SoakTrace.gd`, `harness/CombatD001SoakRunner.gd`, `harness/CombatD001TrackSpecs.gd`.
+**Do not:** regress 3e rotate suppress · conflate with MS-L5 · edit `world/*`.
 
-**Do not:** regress sparse/mop-up rotate suppress ([§ III-4 3e](#specialty-iii-4-3e-fight-finish)); conflate line plug with MS-L5 Expand layer · edit `world/*`.
-
-**F5 / validator grep:** `line_plug_pick=1`, `pick=swap_rank` or `pick=rotate_file`, `line_plug=false` when `sparse_line=true` + `rotate_suppress=true`.
-
-**Harness:** `_run_swap_rank_line_plug_weight_when_front_hole`, `_run_rotate_file_line_plug_weight_when_front_hole`, `_run_sparse_line_rotate_no_line_plug_weight_floor`, D001 `ii_line_plug` / `ii_skirmish_rotate` probes.
-
-**Escalation:** if you find an issue in files outside your owning module (especially `world/*`, `core/*`), report it (FINDING/SITES/CANONICAL/FIX format) and do not edit those files. Hand off to the appropriate stream owner.
-
-**If gate was green at start but fails after your change:** revert the change, re-run gate to confirm it was your edit that broke it, then report with FINDING/SITES/CANONICAL/FIX format. Do not chase harness failures present at session start unless the failing harness is in your owning module.
-
-**Success:** gate green · smallest diff in owning module · one logical fix delivered.
+**Grep:** `line_plug_pick=1`. Harness: `_run_swap_rank_line_plug_*`, `_run_rotate_file_line_plug_*`, D001 `ii_line_plug`.
 
 PR prefix: `combat:`.

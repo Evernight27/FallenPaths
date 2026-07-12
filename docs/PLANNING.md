@@ -1,6 +1,6 @@
 # Planning model
 
-How work is organized in Fallen Paths. **Entry:** [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) · **Agent prompts:** [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md) · **Campaign (Camp-5 ☑):** [`SHIP_PLAN.md`](SHIP_PLAN.md) · **Post-EA roadmap:** [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · **Combat shipped map:** [`LIVE_PATHS.md`](LIVE_PATHS.md).
+How work is organized in Fallen Paths. **Entry:** [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) · **Agent prompts:** [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md) · **Campaign (Camp-5 ☑):** [`SHIP_PLAN.md#camp-playtest-acceptance`](SHIP_PLAN.md#camp-playtest-acceptance) · **Post-EA roadmap:** [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · **Combat shipped map (section-only):** [`LIVE_PATHS.md#phase-0-gate`](LIVE_PATHS.md#phase-0-gate).
 
 ---
 
@@ -10,7 +10,7 @@ How work is organized in Fallen Paths. **Entry:** [`AGENTS_ENTRY.md`](AGENTS_ENT
 
 | Layer | What it is | Examples |
 |-------|------------|----------|
-| **1. Gate** | Mandatory every session — not a work stream | Phase 0 · `run_all_combat_checks.ps1` · **`PHASE0: PASS`** |
+| **1. Gate** | Mandatory every session — not a work stream | Phase 0 · `./scripts/run_all_combat_checks.sh` · **`PHASE0: PASS`** |
 | **2. Work stream** | Per agent (see [parallel](#parallel-agents)) — priority order | **Combat** · **Expand** · **Playtest** · **Campaign** |
 | **3. Milestone ID** | Actionable row inside a plan | `Camp-1.4` · `D-007` · `IV-2` · harness `ii2b` |
 
@@ -162,78 +162,25 @@ Campaign **D-*** gates are **closed** in [`CompanyState`](world/CompanyState.gd)
 
 ### Stream: Combat
 
-**Maintain** shipped tactical/medical systems. Smallest `combat/*.gd` owner per [`LIVE_PATHS`](LIVE_PATHS.md). Prompt: [`agent_combat.md`](../scripts/agent_prompts/agent_combat.md) · III-4 **3e:** [`agent_combat.md#specialty-iii-4-3e-fight-finish`](../scripts/agent_prompts/agent_combat.md#specialty-iii-4-3e-fight-finish).
-
-**Cognition wiring (read before pick / listing / defense edits):** [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#combat-cognition-pipeline) — tick → list → mental stack → weighted pick; defense at strike time only. Campaign agents must not fork this ([`SHIP_PLAN` §9](SHIP_PLAN.md#implementation-reference)).
-
-**Backlog:** `BattleUIUpdater` medical busy · D-001 `pack_wound` if wanted · research `warn` only (not `note`). **Mental stack:** maintain L0–L4 + MS-L7 L5 + salience damp ([`tier 4.3`](LIVE_PATHS.md#tier-43-mental-stack--combat-attention)). **Engagement geometry:** [**III-4 Track A ☑**](LIVE_PATHS.md#iii-4--engagement-geometry-audit) (headless `[ii_envelop]`; **3e** post-rout mop-up ☑). Player target picker is a design lock.
-
-**Other labels (not work streams):**
-
-| Label | Meaning |
-|-------|---------|
-| **D-001…D-007** | Shipped combat/medical feature tracks (done) |
-| **Tier 0–6** | Shipped capability areas in LIVE_PATHS |
-| **Phase 0** | Headless + D-001 gate (same as **Gate**) |
-| **ii2b, ii7, …** | F5 soak scenario IDs (often used in **Playtest**) |
-
----
+Maintain shipped systems — [`agent_combat.md`](../scripts/agent_prompts/agent_combat.md). Cognition: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#combat-cognition-pipeline). Labels **D-001…**, **Tier 0–6**, **ii\*** = shipped tracks / soak IDs (not work streams). Player target picker locked.
 
 <a id="stream-expand"></a>
 
 ### Stream: Expand
 
-New combat integration batches **`IV-*`** from POST Phase 4. One **`FEATURE_*`** per PR. **Registry ☑ 2026-06-08** — reopen only on user ask. Prompt: [`README#expand-reopen`](../scripts/agent_prompts/README.md#expand-reopen).
-
-| Bucket | IDs | Doc section |
-|--------|-----|-------------|
-| **Phase 3** (deepen shipped) | **III-1,3,5,6,8 ☑** · **III-4** Track A ☑ · **III-2** partial | [`LIVE_PATHS` Phase 3 table](LIVE_PATHS.md#integration-depth-phase-3) |
-| **P4 playbooks** | p4a–p4h | [`LIVE_PATHS` P4 table](LIVE_PATHS.md#p4-playbooks-expansion) |
-| **Weapon forms (WF)** | **WF-1…4 shipped** — maintain; optional **WF-T1/T2** | [`#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog) · [`#wf-implementation-status`](LIVE_PATHS.md#wf-implementation-status) · soak [`#wf-soak-audit-status`](LIVE_PATHS.md#wf-soak-audit-status) |
-| **Phase 4 IV** | Done **IV-2,3,4,5,6,7,8,9,10,11,12,13** | [`LIVE_PATHS` IV table](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) |
-| **Mental stack** | MS-L5–L6 · Tier 4.4 **spatial** Expand (**PA pilot shipped**) | [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped) · [#wf-footing-improvement-backlog](LIVE_PATHS.md#wf-footing-improvement-backlog) |
-| **Wontfix** | Player target UI · player per-target picker · bleed/BMI unless asked | [`LIVE_PATHS` research table](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) |
-| **Maintain only** | P3b material sim (shipped, no expansion without user ask) | [`LIVE_PATHS#p3b-shipped`](LIVE_PATHS.md#p3b-shipped) |
-
-**Summary:** [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry).
-
----
+One **`FEATURE_*`** / §9c row per PR on user reopen — [`README#expand-reopen`](../scripts/agent_prompts/README.md#expand-reopen) · buckets: [`LIVE_PATHS` Phase 4](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) · [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry) · open queue [`EXPANSION_PLAN`](EXPANSION_PLAN.md).
 
 <a id="stream-playtest"></a>
 
 ### Stream: Playtest
 
-**On demand** — human feel, F5 append, validator regression; headless Camp ship already in Phase 0. Not new mechanics. Prompt: [`agent_playtest.md`](../scripts/agent_prompts/agent_playtest.md).
-
-| Tool | Purpose |
-|------|---------|
-| `dev_soak_encounter` / cyan tiles | Editor scenarios |
-| `run_q_feel.ps1 -Track Q1\|Q2\|Camp` | Checklist only (no Godot); **Camp** = SHIP_PLAN section 8 |
-| `run_q_audit.ps1 -Track Q1\|Q2\|Track` | Headless Q audits |
-| `validate_f5_soak_log.ps1` / `.sh` | Parse `.f5_soak_in.txt`; Camp tracks via `CombatD001TrackSpecs.camp_ea_profile_markers()` |
-| `run_camp_f5_closeout.ps1` / `.sh` | Headless + WF-M3 + camp settlement/day minimum; optional extended `camp_*` track report |
-| `append_f5_soak_log.ps1` | Merge multi-session F5 Output into `.f5_soak_in.txt` |
-
-**Script `Q1` / `Q2`** = soak track names in tooling; work stream name is **Playtest**.
-
----
+On demand — [`agent_playtest.md`](../scripts/agent_prompts/agent_playtest.md). Tools: `validate_f5_soak_log` · `run_q_feel` / `run_q_audit` · `run_camp_f5_closeout` · `append_f5_soak_log` ([`scripts/README.md`](../scripts/README.md)). Script tracks `Q1`/`Q2` ≠ stream name.
 
 <a id="stream-campaign"></a>
 
 ### Stream: Campaign
 
-Mercenary **company loop** → EA **shipped (2026-06-07)** — maintain economy UX; optional **P2** save only if asked. Prompt: [`agent_campaign.md`](../scripts/agent_prompts/agent_campaign.md).
-
-**Milestone prefix:** `Camp-*` in [`SHIP_PLAN.md`](SHIP_PLAN.md) only.
-
-| Phase | Name | Was |
-|-------|------|-----|
-| Camp-0 | Gate (parallel Phase 0) | S0 |
-| Camp-1 | Economy + contracts | S1 |
-| Camp-2 | Sim ↔ map bridge | S2 |
-| Camp-3 | Player-ready UX | S3 |
-| Camp-4 | Content (V-1–V-3) | S4 |
-| Camp-5 | EA ship checklist ☑ | S5 |
+EA shipped — economy UX maintain; optional **P2** — [`agent_campaign.md`](../scripts/agent_prompts/agent_campaign.md). Milestones `Camp-0…5` in [`SHIP_PLAN`](SHIP_PLAN.md) (was Track S).
 
 ---
 

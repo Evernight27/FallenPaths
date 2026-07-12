@@ -1,69 +1,31 @@
-Stream: **Enhance**. Go beyond maintain — new combat tiers, medical tuning, docs/tooling, or user-requested features. **User must ask** for closed gates (bleed/BMI/S1-S11/closed IV rows). See [`PLANNING#harness-and-flags`](../../docs/PLANNING.md#harness-and-flags) for frozen items policy.
+Stream: **Enhance**. New tiers / medical depth / tooling — **user must ask** for closed gates. Frozen: [`PLANNING#harness-and-flags`](../../docs/PLANNING.md#harness-and-flags).
 
-Bundle: optional second chat alongside [`agent_maintain.md`](agent_maintain.md) when files do not overlap.
+**Gate:** `./scripts/run_all_combat_checks.sh` → **`PHASE0: PASS`**. Campaign touch: also company state checks.
 
-**Gate before done:**
+**Read first:** [`EXPANSION_PLAN`](../../docs/EXPANSION_PLAN.md) · [`SHIP_PLAN` §9c](../../docs/SHIP_PLAN.md#combat-expand-registry) · named LIVE_PATHS row · [`AGENTS_API#anti-patterns`](../../docs/AGENTS_API.md#anti-patterns).
 
-```powershell
-.\scripts\run_all_combat_checks.ps1
-```
+**Do not touch:** `world/*` (unless P2), `main.gd`, economy UI, `.f5_soak_in.txt`, closed gates without ask.
 
-Target: **`PHASE0: PASS`**. Campaign touch: also `.\scripts\run_company_state_checks.ps1`.
-
-**Read first (section-only; do not open whole LIVE_PATHS):** [`docs/EXPANSION_PLAN.md`](../../docs/EXPANSION_PLAN.md) · [`docs/SHIP_PLAN.md#combat-expand-registry`](../../docs/SHIP_PLAN.md#combat-expand-registry) · named LIVE_PATHS anchor for your row · [`docs/AGENTS_API.md#anti-patterns`](../../docs/AGENTS_API.md#anti-patterns).
-
-**Do not touch:** `world/*` (unless P2 save lane), `main.gd`, economy UI, `.f5_soak_in.txt` (Playtest exclusive), closed gate constants without user ask.
+**Contract:** [`README#session-contract`](README.md#session-contract).
 
 ---
 
-## Session start (copy-paste task line)
+## Session start
 
-> Name an enhancement row (e.g., IV-12, WF-T2, medical clotting, P2 save). One `FEATURE_*` or one expansion row per PR. Harness row required for combat tiers. Gate **`PHASE0: PASS`** before done.
+> Name one enhancement row. One `FEATURE_*` or expansion row per PR. Harness for combat tiers. Gate green.
 
----
+| Lane | Prompt / doc |
+|------|--------------|
+| Expand (§9c) | One registry row + `FEATURE_*` + harness · no `world/*` |
+| Medical | [`agent_medical.md`](agent_medical.md) · cite research anchor |
+| WF-T1/T2 | [`agent_combat.md`](agent_combat.md) + [`agent_playtest.md`](agent_playtest.md) |
+| P2 save | [`agent_campaign.md#task-p2-save`](agent_campaign.md#task-p2-save) |
+| Species S5 | [`agent_combat.md#priority-species-s5`](agent_combat.md#priority-species-s5) |
+| Docs / tooling | [`agent_hygiene.md`](agent_hygiene.md) · [`agent_audit.md`](agent_audit.md) |
+| Playtest coverage | [`agent_playtest.md`](agent_playtest.md) |
 
-## Enhancement lanes (pick one)
+**Medical enhance (outside medical agent):** tune order `BLEEDING_RATES` → `REFERENCE_UNCONTROLLED_BLEED_RATE` → `BLOOD_LOSS_RATE_MULTIPLIER` → part mults → death threshold · `-HarnessMode medical|calibration` · never bypass `medical_action_allowed`.
 
-| Lane | When | Prompt / doc | Constraints |
-|------|------|--------------|-------------|
-| **Expand (combat)** | User reopened §9c | [`README#expand-reopen`](README.md#expand-reopen) | One `FEATURE_*` per PR · no `world/*` |
-| **Medical physics** | Hemorrhage / triage / treatment depth | [`agent_medical.md`](agent_medical.md) | Cite research anchor |
-| **WF optional tracks** | WF-T1/T2 evidence | [`agent_combat.md`](agent_combat.md) + [`agent_playtest.md`](agent_playtest.md) `form_switch` | No new WF tiers without user ask |
-| **Campaign P2 save** | Explicit user ask | [`agent_campaign.md`](agent_campaign.md) [P2 save](agent_campaign.md#task-p2-save) | [`docs/CAMPAIGN_DECISION_GUIDE.md#d-persistence`](../../docs/CAMPAIGN_DECISION_GUIDE.md#d-persistence) |
-| **Species S5 pilot** | User asks | [`agent_combat.md`](agent_combat.md) [Species S5 pilot](agent_combat.md#priority-species-s5) | `species/*` + harness rows |
-| **Docs / tooling** | Validator, gate scripts, agent prompts | [`agent_hygiene.md`](agent_hygiene.md) + [`agent_audit.md`](agent_audit.md) | No gameplay logic in hygiene |
-| **Playtest coverage** | New F5 scenario or validator track | [`agent_playtest.md`](agent_playtest.md) | Only agent on `.f5_soak_in.txt` |
-
----
-
-## Expand rules (§9c reopen only)
-
-- One row from [`SHIP_PLAN#combat-expand-registry`](../../docs/SHIP_PLAN.md#combat-expand-registry) per PR.
-- Add `FEATURE_*` constant + harness tail row before shipping.
-- **Do not:** `world/*`, `main.gd`, economy UI, closed-gate constants (bleed/BMI) without user ask.
-
----
-
-## Medical enhance rules
-
-- Delegate to [`agent_medical.md`](agent_medical.md) for standard medical work. These rules apply only when implementing medical enhancements outside the standard medical agent scope.
-- Tuning order: `BLEEDING_RATES` → `REFERENCE_UNCONTROLLED_BLEED_RATE` → `BLOOD_LOSS_RATE_MULTIPLIER` → part mults → death threshold.
-- Fast iterate: `-HarnessMode medical` · `-HarnessMode calibration`.
-- **Do not:** bypass `CombatMedicalCoordination.medical_action_allowed` · duplicate untreated-wound checks.
-
----
-
-## Not enhance (maintain instead)
-
-- Economy UX `format_*` copy tweaks → `agent_campaign.md`
-- Harness row fix for shipped behavior → `agent_combat.md`
-- Repo delete / ignore → `agent_hygiene.md`
-- Anti-pattern grep only → `agent_audit.md`
-
-**If gate was green at start but fails after your change:** revert the change, re-run gate to confirm it was your edit that broke it, then report with FINDING/SITES/CANONICAL/FIX format.
-
-**Escalation:** if you find an issue in files outside your owning module, report it (FINDING/SITES/CANONICAL/FIX format) and do not edit those files. New `FEATURE_*` requires user ask — do not open closed gates. Hand off to the appropriate stream owner.
-
-**Success:** user-named row delivered · harness/soak evidence · gate green · one PR scope.
+**Not enhance:** economy `format_*` → Campaign · harness fix → Combat · delete/ignore → Hygiene · grep-only → Audit.
 
 PR prefix: `combat:` or `expand:`.
