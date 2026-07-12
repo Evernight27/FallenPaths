@@ -1,23 +1,37 @@
 #!/usr/bin/env bash
-# Grep followup F5 Output chunk before append.
-# Usage: ./scripts/preflight_f5_followup.sh followup.log
-#        ./scripts/preflight_f5_followup.sh step9.log --step9-only
+# Grep followup F5 Output before append.
+# Usage: ./scripts/preflight_f5_followup.sh followup.log [--step9-only]
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=_lib.sh
+source "$(cd "$(dirname "$0")" && pwd)/_lib.sh"
 SRC="${1:-}"
-STEP9=""
+MODE=full
 shift || true
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--step9-only) STEP9="-Step9Only" ;;
-		*) echo "Unknown option: $1" >&2; exit 2 ;;
+		--step9-only) MODE=step9 ;;
+		*) fp_die "Unknown option: $1" 2 ;;
 	esac
 	shift || true
 done
-if [[ -z "$SRC" ]]; then
-	echo "Usage: ./scripts/preflight_f5_followup.sh followup.log [--step9-only]" >&2
-	exit 1
+[[ -n "$SRC" ]] || fp_die "Usage: $0 followup.log [--step9-only]" 1
+SRC="$(fp_abs "$SRC")"
+[[ -f "$SRC" ]] || fp_die "Log not found: $SRC" 2
+echo "=== Preflight: $SRC ==="
+if f5_preflight_log "$SRC" "$MODE"; then
+	echo ""
+	echo "Preflight: PASS"
+	if [[ "$MODE" == "step9" ]]; then
+		echo "  ./scripts/append_f5_soak_log.sh $SRC --label camp5_step9"
+	else
+		echo "  ./scripts/append_f5_soak_log.sh $SRC --label camp5_optional"
+	fi
+	exit 0
 fi
-if [[ "$SRC" != /* ]]; then SRC="$ROOT/$SRC"; fi
-powershell -NoProfile -ExecutionPolicy Bypass -File "$ROOT/scripts/preflight_f5_followup.ps1" "$SRC" $STEP9
-exit $?
+echo ""
+if f5_has_fatal_errors "$SRC"; then
+	echo "Preflight: FAIL — remove FP_ERROR / SCRIPT_ERROR before append"
+else
+	echo "Preflight: FAIL — missing required markers"
+fi
+exit 1

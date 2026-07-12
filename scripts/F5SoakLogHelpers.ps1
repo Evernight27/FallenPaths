@@ -451,3 +451,97 @@ function Test-F5Step9FollowupLog {
 		fatal_errors = $fatal
 	}
 }
+
+function Restore-F5SoakHumanPasteIfClobbered {
+	param([string]$Root)
+	$log = Get-F5SoakLogPath $Root
+	$bak = Get-F5SoakBackupPath $Root
+	if (-not ((Test-Path $log) -and (Test-F5SoakHeadlessCaptureOnly $log) -and (Test-Path $bak))) { return $false }
+	if (Test-F5SoakIsExampleSmoke $bak) { return $false }
+	return (Restore-F5SoakHumanPaste -Root $Root)
+}
+
+function Ensure-F5HumanPasteValidationFresh {
+	param([string]$Root, [switch]$ForceRefresh)
+	if (-not $ForceRefresh -and (Test-F5ValidationFresh $Root)) { return $true }
+	& (Join-Path $PSScriptRoot "validate_f5_soak_log.ps1") -Quiet
+	return (Test-F5ValidationFresh $Root)
+}
+
+function Ensure-F5PlaytestValidatorReport {
+	param([string]$Root, [switch]$ForceRefresh)
+	return (Ensure-F5HumanPasteValidationFresh -Root $Root -ForceRefresh:$ForceRefresh)
+}
+
+function Get-F5PlaytestGapMergePlan {
+	param([string]$Root, [string]$ValPath)
+	$rows = @(
+		@{ Track = "camp_mopup_strike_finish"; Label = "camp_mopup_smoke"; Rel = "docs/camp_optional_step_smokes/step3e_mopup.txt" },
+		@{ Track = "camp_field_care_action"; Label = "camp_field_care_smoke"; Rel = "docs/camp_optional_step_smokes/step4_field_care_action.txt" },
+		@{ Track = "camp_paid_loss"; Label = "camp_paid_loss_smoke"; Rel = "docs/camp_optional_step_smokes/step8_paid_loss.txt" },
+		@{ Track = "camp_tutorial_soft_loss"; Label = "camp_tutorial_soft_smoke"; Rel = "docs/camp_optional_step_smokes/step8_tutorial_soft.txt" },
+		@{ Track = "camp_wage_warn"; Label = "camp_wage_warn_smoke"; Rel = "docs/camp_optional_step_smokes/step9_wage_warn.txt" },
+		@{ Track = "camp_desertion"; Label = "camp_desertion_smoke"; Rel = "docs/camp_optional_step_smokes/step9_desertion.txt" },
+		@{ Track = "camp_party_triage"; Label = "camp_party_triage_smoke"; Rel = "docs/camp_optional_step_smokes/step10_party_triage.txt" },
+		@{ Track = "camp_medical_exit"; Label = "camp_medical_exit_smoke"; Rel = "docs/camp_optional_step_smokes/medical_exit.txt" }
+	)
+	$plan = @()
+	foreach ($row in $rows) {
+		$st = Get-F5ValidatorTrackStatus -ValPath $ValPath -TrackId $row.Track
+		if ($st -eq "pass") { continue }
+		$plan += @{
+			Reason = $row.Track
+			Label = $row.Label
+			Path = (Join-Path $Root $row.Rel)
+		}
+	}
+	return $plan
+}
+
+function Test-F5PlaytestGapMergeRowAlreadySatisfied {
+	param($Row, [string]$LogPath)
+	return $false
+}
+
+function Get-F5MaintainedPasteAppendPlan {
+	# Baseline replace is handled by rebuild script; gap fill via merge plan.
+	return @()
+}
+
+function Show-F5SmokeAppendSummary {
+	param([string]$LogPath, [switch]$Quiet)
+	if ($Quiet -or -not (Test-Path $LogPath)) { return }
+	$labels = Select-String -Path $LogPath -Pattern '^--- f5_soak_append: (.+) ---' | ForEach-Object { $_.Matches.Groups[1].Value }
+	if ($labels.Count -eq 0) { Write-Host "Smoke append labels: (none)"; return }
+	Write-Host ("Smoke append labels: {0}" -f ($labels -join ", "))
+}
+
+function Test-F5HumanCoverageComplete {
+	param([string]$ValPath, [string]$LogPath)
+	$plan = Get-F5PlaytestGapMergePlan -Root (Split-Path -Parent $ValPath) -ValPath $ValPath
+	return ($plan.Count -eq 0)
+}
+
+function Show-F5HumanCoverageHints {
+	param([string]$Root, [string]$ValPath)
+	$plan = Get-F5PlaytestGapMergePlan -Root $Root -ValPath $ValPath
+	if ($plan.Count -eq 0) {
+		Write-Host "PLAYTEST_COVERAGE: PASS"
+		return
+	}
+	Write-Host "PLAYTEST_COVERAGE: GAPS"
+	foreach ($row in $plan) {
+		Write-Host ("  [{0}] {1}" -f $row.Reason, $row.Label)
+	}
+}
+
+function Show-F5PlaytestWorkflowHints {
+	param([string]$Root, [string]$ValPath)
+	Write-Host "Next: .\scripts\run_playtest_merge_gaps.ps1 -DryRun"
+}
+
+function Get-F5HumanPasteAppendLabels {
+	param([string]$LogPath)
+	if (-not (Test-Path $LogPath)) { return @() }
+	return @(Select-String -Path $LogPath -Pattern '^--- f5_soak_append: (.+) ---' | ForEach-Object { $_.Matches.Groups[1].Value })
+}
