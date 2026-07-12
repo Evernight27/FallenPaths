@@ -470,7 +470,7 @@ static func write_d001_soak_report(
 
 ## Markdown-friendly **II-2b** counts for **`.calibration_audit.txt`** / III-3 (not feel sign-off).
 static func write_ii2b_worksheet_prefill(parry_stats: Dictionary, headless_signed: bool) -> void:
-	var _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
+	var _TrackSpecs := preload("res://harness/CombatD001TrackSpecs.gd")
 	var body: String = _TrackSpecs.ii2b_worksheet_prefill_text(parry_stats, headless_signed)
 	var path: String = _project_root().path_join(II2B_WORKSHEET_PREFILL_FILENAME)
 	_write_text_file(path, body, false)
@@ -482,7 +482,7 @@ static func write_d001_headless_signoff(
 	preset_results: Dictionary,
 	validator_ok: bool
 ) -> void:
-	var _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
+	var _TrackSpecs := preload("res://harness/CombatD001TrackSpecs.gd")
 	var mandatory: PackedStringArray = _TrackSpecs.headless_mandatory_signoff_failures(preset_results)
 	var signoff_ok: bool = run_ok and validator_ok and mandatory.is_empty()
 	var lines: PackedStringArray = PackedStringArray()

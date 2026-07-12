@@ -12,7 +12,7 @@ disable = [
 
 # Harness files are large regression suites with many test functions and locals.
 # Explicitly disable size-related rules so agents don't re-enable them.
-[path:"res://combat/CombatRegressionHarness*.gd"]
+[path:"res://harness/CombatRegressionHarness*.gd"]
 disable = [
     "too-many-lines",
     "too-many-locals",

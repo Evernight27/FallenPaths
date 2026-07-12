@@ -1,71 +1,34 @@
-Stream: **Playtest**. **On demand** — F5 append, validator regression, Q audits. Bundle chat 2 ([`README#parallel-expansion-bundle`](README.md#parallel-expansion-bundle)). **Only agent on `.f5_soak_in.txt` this session.**
+Stream: **Playtest**. On demand — F5 append, validator, Q audits. Bundle chat 2: [`README#parallel-expansion-bundle`](README.md#parallel-expansion-bundle). **Only agent on `.f5_soak_in.txt`.**
 
-**Gate before done:**
+**Gate:** `./scripts/validate_f5_soak_log.sh` · `./scripts/run_camp_f5_closeout.sh --human-signoff` → validator 0 + **`human_signoff: READY`**.
 
-```powershell
-.\scripts\validate_f5_soak_log.ps1
-.\scripts\run_camp_f5_closeout.ps1 -HumanSignOff
-```
+**Read first:** [`LIVE_PATHS#f5-combat-diagnostic-tiers`](../../docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers). Edit validators under `harness/` OK.
 
-Target: validator exit 0 + **`human_signoff: READY`**.
+**Do not touch:** production `combat/*` / `world/*` (report-only).
 
-**Read first:** [`docs/AGENTS_ENTRY.md#what-to-do-next`](../../docs/AGENTS_ENTRY.md#what-to-do-next) · [`docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers`](../../docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers).
+**Contract:** [`README#session-contract`](README.md#session-contract).
 
-**Do not touch:** `combat/*` or `world/*` production code. Report failures to Combat/Campaign agents.
-
-**Baseline ☑ 2026-06-07:** `followup.log` + `.f5_soak_in.f5_backup.txt` · `validate_f5_soak_log.ps1` `ok=true` · all `[camp_*]` PASS · `run_camp_f5_closeout.ps1 -HumanSignOff` → **`human_signoff: READY`**. Phase 0 auto-restores backup after D001; manual: `restore_f5_soak_log.ps1`.
-
-**Headless checks:**
-
-```powershell
-.\scripts\run_q_audit.ps1 -Track Q1
-.\scripts\run_q_audit.ps1 -Track Q2
-.\scripts\run_campaign_ship_audit.ps1
-```
-**F5 setup (`main.tscn`):** `dev_soak_encounter` empty · `dev_research_feel` false. Grep Output: `engagement_debug`, `soak_fight_end`, `FP_COMBAT`, `FP_ERROR`, `SCRIPT_ERROR`. See [`docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers`](../../docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers).
-
-**Exp-0.2 ☑ 2026-06-08:** optional §8 steps 4, 8–10 PASS on human paste · `.\scripts\run_exp0_playtest_gate.ps1` → `EXP_0_2_PLAYTEST_GATE: PASS`.
+**F5 setup:** `dev_soak_encounter` empty · `dev_research_feel` false. Grep: `engagement_debug`, `soak_fight_end`, `FP_COMBAT`, `FP_ERROR`, `SCRIPT_ERROR`.
 
 ---
 
-## Session start (copy-paste task line)
+## Session start
 
-> Run validator + closeout. Pick **one** F5 session from the list below (or I will name it). Gate green before done. Only agent on `.f5_soak_in.txt`.
-
-**Current sessions (pick one):**
+> Validator + closeout. Pick **one** session. Only agent on `.f5_soak_in.txt`.
 
 <a id="session-camp-steps"></a>
-1. **Camp §8 optional steps (maintain)** — after validator edits: `.\scripts\validate_camp_optional_smokes.ps1` or `.\scripts\run_exp0_playtest_gate.ps1` · smokes in `docs/camp_optional_step_smokes/*.txt`
-
+1. **Camp §8 optional smokes** — `validate_camp_optional_smokes` / `run_exp0_playtest_gate`
 <a id="session-line-plug-pick"></a>
-2. **`camp_line_plug_pick` human coverage** — F5 fight with rank-0 casualty → grep `line_plug_pick=1` · `pick=swap_rank` or `pick=rotate_file`. Report gaps to Combat ([`agent_combat.md#specialty-iii-6-line-plug`](agent_combat.md#specialty-iii-6-line-plug)).
-
+2. **`camp_line_plug_pick`** — F5 → grep `line_plug_pick=1` · hand gaps to Combat
 <a id="session-form-switch"></a>
-3. **`form_switch` soak for WF-T2** — 2+ sword fights, grep `form_switch id=` for Expand evidence.
-
+3. **`form_switch` soak (WF-T2)** — grep `form_switch id=`
 <a id="session-envelop-wing"></a>
-4. **ii_envelop wing feel** — `dev_soak_encounter=ii_envelop` · sparse post-flee `fight_finish` traces.
-
+4. **ii_envelop wing** — `dev_soak_encounter=ii_envelop`
 <a id="session-full-camp-append"></a>
-5. **Full Camp append** — §8 bundle when validating a new human paste.
+5. **Full Camp append** — new human paste
 
-**When appending a new paste:**
+**Append:** F5 → `preflight_f5_followup` → `append_f5_soak_log` → validate + `run_q_feel -Track Camp` → closeout → refresh `.f5_soak_in.f5_backup.txt`.
 
-1. Run F5 scenario (§8 bundle or targeted cyan preset).
-2. `.\scripts\preflight_f5_followup.ps1 followup.log` · `.\scripts\append_f5_soak_log.ps1 -AppendFrom chunk.txt -Label "camp_append"`
-3. `.\scripts\validate_f5_soak_log.ps1` · `.\scripts\run_q_feel.ps1 -Track Camp` · `.\scripts\run_camp_f5_closeout.ps1 -HumanSignOff`
-4. Refresh backup: `Copy-Item .f5_soak_in.txt .f5_soak_in.f5_backup.txt`
-
-**Smoke vs human:** docs `camp_* .example.txt` passes validator but closeout prints `human_signoff: SMOKE ONLY`.
-
-**WF-M3:** validator `wf_m3_*` on paste; glance Form suffix on gauge when touching footing UI. [`docs/LIVE_PATHS.md#wf-m3-f5-playtest`](../../docs/LIVE_PATHS.md#wf-m3-f5-playtest).
-
-**Do not:** edit `combat/*` or `world/*` production code · run two Playtest sessions on the same `.f5_soak_in.txt` · add new harness logic (report to Combat agent).
-
-**Escalation:** if you find a failure in `combat/*` or `world/*` production code, report it with FINDING/SITES/CANONICAL/FIX format and do not edit those files. Hand off to the appropriate stream owner.
-
-**If gate was green at start but fails after your change:** revert paste/appends, re-run validator to confirm it was your data that broke it, then report with FINDING/SITES/CANONICAL/FIX format. Do not chase failures present before your paste.
-
-**Success:** no `FP_ERROR` / `SCRIPT_ERROR` in paste; validator exit 0; closeout **`human_signoff: READY`** on human paste.
+**WF-M3:** [`LIVE_PATHS#wf-m3-f5-playtest`](../../docs/LIVE_PATHS.md#wf-m3-f5-playtest).
 
 PR prefix: `playtest:`.

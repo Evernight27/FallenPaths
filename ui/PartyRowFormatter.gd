@@ -298,4 +298,3 @@ static func worst_triage_from_member_rows(rows: Array) -> Dictionary:
 				"triage_line": format_member_triage_banner_line(member),
 			}
 	return worst
-                       

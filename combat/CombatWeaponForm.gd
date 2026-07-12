@@ -861,5 +861,3 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 			if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
 				return true
 	return false
-                              
-

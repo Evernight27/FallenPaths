@@ -2,6 +2,10 @@ class_name CombatantEntityAccess
 extends RefCounted
 
 ## Central combatant dictionary lookups: health, identity, wounds, weapon, side/alive, vitals.
+## Nested dict helpers: CombatantDictAccess (delegated below — public API unchanged).
+## Canonical: docs/AGENTS_API.md
+
+const _DictAccess := preload("res://combat/CombatantDictAccess.gd")
 
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 
@@ -89,9 +93,7 @@ static func scene_node(combatant: Dictionary) -> Node:
 
 ## `_get_by_id` (or test doubles) may return null or a non-dict. Use before `Dictionary` ops / `stats_dict` on lookups.
 static func combatant_dict_or_empty(v: Variant) -> Dictionary:
-	if v is Dictionary:
-		return v
-	return {}
+	return _DictAccess.combatant_dict_or_empty(v)
 
 
 ## CombatManager (or harness stub) lookup by id; `{}` when missing or unavailable.
@@ -125,41 +127,23 @@ static func manager_notify_engagement_state_changed(
 
 ## Live `stats` sub-dictionary for mutation (e.g. `sync_from_entity`). Creates `combatant["stats"]` if missing or wrong type.
 static func stats_dict_for_mutation(combatant: Dictionary) -> Dictionary:
-	var s: Variant = combatant.get("stats", null)
-	if s is Dictionary:
-		return s
-	var d: Dictionary = {}
-	combatant["stats"] = d
-	return d
+	return _DictAccess.stats_dict_for_mutation(combatant)
 
 
 ## Nested `Dictionary` on a combatant record (e.g. `distance_to`, `close_block_until_by_target_id`).
 ## Avoids mutating a throwaway `{}` from `Dictionary.get(key, {})` when the field is missing or wrong-typed.
 static func nested_dictionary_for_mutation(combatant: Dictionary, key: String) -> Dictionary:
-	var v: Variant = combatant.get(key, null)
-	if v is Dictionary:
-		return v
-	var d: Dictionary = {}
-	combatant[key] = d
-	return d
+	return _DictAccess.nested_dictionary_for_mutation(combatant, key)
 
 
 ## Read-only nested dict: returns stored dict or `{}` without assigning `combatant[key]` (safe for pure reads when key missing / wrong-typed).
 static func nested_dictionary_read(combatant: Dictionary, key: String) -> Dictionary:
-	var v: Variant = combatant.get(key, null)
-	if v is Dictionary:
-		return v
-	return {}
+	return _DictAccess.nested_dictionary_read(combatant, key)
 
 
 ## Nested `Array` field (e.g. `failed_medical_parts`).
 static func nested_array_for_mutation(combatant: Dictionary, key: String) -> Array:
-	var v: Variant = combatant.get(key, null)
-	if v is Array:
-		return v as Array
-	var a: Array = []
-	combatant[key] = a
-	return a
+	return _DictAccess.nested_array_for_mutation(combatant, key)
 
 
 ## Weapon exposes melee move ids (empty when weapon null or lacks attack list).
@@ -1244,8 +1228,3 @@ static func get_permanent_bleeding_rate_from_node(node: Node, fallback: float = 
 	if node.has_method("get_permanent_bleeding_rate"):
 		return node.get_permanent_bleeding_rate()
 	return fallback
-  
-
-
-
-

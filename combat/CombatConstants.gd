@@ -1,7 +1,9 @@
 class_name CombatConstants
 extends RefCounted
 
-## Central combat constants: states, timing, move IDs, medical config, formation/focus moves, flags.
+## Central combat constants facade: re-exports sibling CombatConstants*.gd modules.
+## New consts belong in the owning sibling module, then re-export here if call sites use CombatConstants.X.
+## Do not grow large literal tables in this file.
 
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
@@ -637,6 +639,10 @@ const FEATURE_FIGHT_EXHAUSTION_INDEX := _FeatureFlags.FEATURE_FIGHT_EXHAUSTION_I
 
 static func stamina_factor(ratio: float) -> float:
 	return _Stamina.stamina_factor(ratio)
+
+
+static func breath_factor(ratio: float) -> float:
+	return _Stamina.breath_factor(ratio)
 
 
 static func stamina_attack_cost_from_intensity(intensity: float) -> float:
@@ -1527,13 +1533,6 @@ const DOCTRINE_AI_WEIGHT_MULT_MIN := 0.35
 const DOCTRINE_AI_WEIGHT_MULT_MAX := 2.6
 ## Re-export stance constants and helpers from CombatConstantsStance.
 ## Maintain canonical values in the sub-module, not here.
-const STANCE_MOD_PARRY: Dictionary = _Stance.STANCE_MOD_PARRY
-const STANCE_MOD_EVASION: Dictionary = _Stance.STANCE_MOD_EVASION
-const STANCE_MOD_DAMAGE: Dictionary = _Stance.STANCE_MOD_DAMAGE
-const STANCE_MOD_CLOSE_ATTEMPT: Dictionary = _Stance.STANCE_MOD_CLOSE_ATTEMPT
-const STANCE_MOD_AI_MELEE_FOCUS: Dictionary = _Stance.STANCE_MOD_AI_MELEE_FOCUS
-const STANCE_MOD_FEINT_READTHROUGH: Dictionary = _Stance.STANCE_MOD_FEINT_READTHROUGH
-const STANCE_MOD_AI_FEINT_LISTING: Dictionary = _Stance.STANCE_MOD_AI_FEINT_LISTING
 const STANCE_MOD_OPPONENT_CLOSE: float = _Stance.STANCE_MOD_OPPONENT_CLOSE
 const STANCE_MOD_OPPONENT_DISENGAGE: float = _Stance.STANCE_MOD_OPPONENT_DISENGAGE
 const DENSITY_CLOSE_MOD: Dictionary = _Stance.DENSITY_CLOSE_MOD

@@ -1,6 +1,9 @@
 # macOS resource fork artifacts
 ._*
 
+# Local process / tool logs (Godot import, harness, etc.)
+*.log
+
 # Godot 4+ specific ignores
 .godot/
 .import/
@@ -22,6 +25,9 @@ docs/__pycache__/
 .campaign_ship_audit.txt
 .ii2b_worksheet_prefill.txt
 .q_track_audits.txt
+.audit_*.txt
+.medical_phase_harness_out.txt
+.f5_camp_smokes_batch.txt
 
 # Phase 0 / harness scratch (transient temp files)
 scripts/.tmp_*
@@ -32,10 +38,18 @@ phase0_regression.txt
 phase0_status.txt
 regression_debug.txt
 _regression_direct.txt
+/harness_run_output.txt
 
 # F5 human playtest paste (one agent at a time on .f5_soak_in.txt)
 .f5_soak_in.txt
+.f5_soak_in.f5_backup.txt
 .f5_soak_validation.txt
+
+# Local company / probe tee outputs (repo root)
+/.company_check*
+/.bind_debug.txt
+/.debug_*.txt
+/.probe_*.txt
 
 # Ad-hoc analysis / investigation scratch files (repo root)
 .dead_consts_report.txt
@@ -48,6 +62,8 @@ missing_preloads_report.txt
 d001_full_output.txt
 temp_*
 tmp_*
+/.temp_*
+/.test_*.gd
 
 # opencode AI tool config
 .opencode/

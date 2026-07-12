@@ -843,5 +843,3 @@ static func _log_party_vitality(world: Node2D, prefix: String) -> void:
 				"[World] %s %s: blood=%d%% bleed=%.1f/s wounds=%d untreated=%s"
 				% [prefix, n.name, int(bv), bleed, wounded_n, str(untreated)]
 			)
-                         
-

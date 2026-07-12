@@ -2,10 +2,10 @@
 
 Godot 4.7 (Forward Plus) — tactical combat + mercenary campaign sim.
 
-- Planning & architecture: [`docs/PLANNING.md`](docs/PLANNING.md)
-- Agent prompts: [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.md)
-- Shipped combat map: [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md)
-- Campaign ship plan: [`docs/SHIP_PLAN.md`](docs/SHIP_PLAN.md)
+- Agents: [`AGENTS.md`](AGENTS.md) · prompts: [`scripts/agent_prompts/README.md`](scripts/agent_prompts/README.md)
+- Planning: [`docs/PLANNING.md`](docs/PLANNING.md)
+- Combat map (section-only): [`docs/LIVE_PATHS.md#phase-0-gate`](docs/LIVE_PATHS.md#phase-0-gate)
+- Campaign ship (section-only): [`docs/SHIP_PLAN.md#camp-playtest-acceptance`](docs/SHIP_PLAN.md#camp-playtest-acceptance)
 
 ## Quick start
 
@@ -15,14 +15,18 @@ Godot 4.7 (Forward Plus) — tactical combat + mercenary campaign sim.
 
 ## Running headless tests
 
-Scripts live in `scripts/`:
+Scripts live in `scripts/`. Godot resolve: [`scripts/README.md#godot-entry`](scripts/README.md#godot-entry).
 
 | Script | Purpose |
 |--------|---------|
-| `run_all_combat_checks.ps1` / `.sh` | Phase 0 gate — headless combat regression suite |
-| `run_company_state_checks.sh` | Campaign company state validation |
-| `run_q_feel.ps1` | F5 soak feel audit (tracks: Camp, IV, WF) |
-| `run_q_audit.ps1` | Q-track soak audit |
+| `run_all_combat_checks.sh` / `.ps1` | Phase 0 gate — expect `PHASE0: PASS` |
+| `run_company_state_checks.sh` / `.ps1` | Campaign company state validation |
+| `run_q_feel.sh` / `.ps1` | F5 soak feel audit (tracks: Camp, IV, WF) |
+| `run_q_audit.ps1` | Q-track soak audit (PowerShell-only) |
+
+```bash
+./scripts/run_all_combat_checks.sh
+```
 
 CI runs the bash versions on GitHub Actions (`.github/workflows/ci.yml`).
 
@@ -30,15 +34,17 @@ CI runs the bash versions on GitHub Actions (`.github/workflows/ci.yml`).
 
 | Folder | Contents |
 |--------|----------|
-| `combat/` | Tactical combat (~120 scripts, flat). Harness files: `CombatRegressionHarness*.gd`, `CombatD001*`, `CombatF5Soak*` |
+| `combat/` | Tactical combat (production). Tracer: `CombatF5SoakTrace.gd` |
+| `harness/` | Regression, D001, F5 validators, calibration (not production resolvers) |
 | `core/` | Entity sim: wounds, medical, damage, `CoreEntity` |
 | `world/` | Campaign: economy, map, encounters, party setup |
 | `ui/` | Battle + company UI (`BattleScene`, `PartyMenu`, `SettlementPanel`) |
 | `weapon/`, `armor/`, `species/` | Strike, armor, species data resources |
-| `scripts/` | Phase 0 harness, Q audits, campaign ship audit, agent prompts |
-| `docs/` | Planning, live paths, ship plan |
+| `combat_tuning/` | Local tuning UI only — not production combat / not agent streams |
+| `scripts/` | Phase 0, audits, agent prompts |
+| `docs/` | Planning · `docs/archive/` = historical plans (not entry) |
 
-See [`AGENTS.md#code-homes`](AGENTS.md#code-homes) for the full folder map.
+See [`AGENTS.md#code-homes`](AGENTS.md#code-homes).
 
 ## Coding standards
 
@@ -46,15 +52,9 @@ See [`AGENTS.md#code-homes`](AGENTS.md#code-homes) for the full folder map.
 - **Format:** `gdformat res:// --check` (config: `gdformat.toml`, 120 char lines, 4-space indent)
 - **No raw `get_node()` in combat** — use `CombatantEntityAccess` or specialist modules
 - **No `print()` outside `CombatDebug`** — use `CombatDebug.combat_session()`, `medical_session()`, `flow_log()`
-- **Feature flags:** new cross-cutting features gated behind `FEATURE_*` consts in `CombatConstantsFeatureFlags.gd`
-- **Module headers:** follow the template in [`AGENTS.md#module-header-template`](AGENTS.md#module-header-template)
+- **Feature flags:** new cross-cutting features gated behind `FEATURE_*` in `CombatConstantsFeatureFlags.gd`
+- **Module headers:** [`AGENTS.md#checklist`](AGENTS.md#checklist)
 
-## File ownership (summary)
+## File ownership
 
-| Stream | Primary paths |
-|--------|----------------|
-| **Campaign** | `world/*`, `main.gd`, `PartyManager.gd`, `ui/PartyMenu.gd`, `ui/SettlementPanel.gd` |
-| **Combat** | `combat/*`, `ui/BattleUIUpdater.gd`, battle formatters in `ui/` |
-| **Shared** | `world/CampaignEncounterBridge.gd`, `world/CombatFlow.gd` (one agent at a time) |
-
-Full ownership table: [`docs/PLANNING.md#file-ownership`](docs/PLANNING.md#file-ownership).
+Canonical table: [`docs/PLANNING.md#file-ownership`](docs/PLANNING.md#file-ownership). Summary: Campaign → `world/*` + company UI; Combat → `combat/*` + `harness/*` + battle UI; Shared → `CampaignEncounterBridge` / `CombatFlow` (one agent).

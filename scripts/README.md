@@ -1,36 +1,50 @@
 # Combat scripts
 
-Phase 0: `.\scripts\run_all_combat_checks.ps1` (do not pipe stdout to `grep`). **F5 paste:** human `.f5_soak_in.txt` is auto-backed up to `.f5_soak_in.f5_backup.txt` during D001 capture and restored after Phase 0; backup is not downgraded when the live paste lacks `camp5_step9` append. **`append_f5_soak_log.ps1 -Label camp5_*`** updates the backup on success. Includes **`run_company_state_checks`** (Camp-1.1–1.8) and **Camp-3.4 tail** (Q track + `[ii7]` + `[ii_envelop]` + **`ii_envelop_mopup: PASS`** under `[ii_envelop]` → `CAMPAIGN_SHIP_AUDIT: PASS` in `.phase0_combat_checks.txt`). Regression tail includes **`CombatRegressionHarnessWeaponFormTail`** (18 rows) + **`AttentionFootworkTail`** **`_run_footwork_*`** — footing spec: [`#wf-footing-improvement-backlog`](../docs/LIVE_PATHS.md#wf-footing-improvement-backlog) · [`#wf-footing-doc-map`](../docs/LIVE_PATHS.md#wf-footing-doc-map) · Tier 4.4 PA hub [`#wf-tier-44-pa`](../docs/LIVE_PATHS.md#wf-tier-44-pa) · UI compose [`#battle-ui`](../docs/LIVE_PATHS.md#battle-ui) · soak **ii5c/ii8** [`#wf-soak-audit-status`](../docs/LIVE_PATHS.md#wf-soak-audit-status) (incl. **`form_wrath_*`** rows). **F5 on demand (Camp-5 ☑):** [`docs/SHIP_PLAN.md#camp-playtest-acceptance`](../docs/SHIP_PLAN.md#camp-playtest-acceptance) (`dev_soak_encounter` empty); **WF-M3** suffix spot-check; **3e mop-up:** `mop_up=true` + `strikes>0` / `menu=strikes_listed` on combat-phase `engagement_debug turn` (optional **`ii_envelop`** cyan preset).
+Phase 0 (bash-first):
+
+```bash
+./scripts/run_all_combat_checks.sh
+```
+
+Do not pipe stdout to `grep`. Expect **`PHASE0: PASS`**. Windows: `.\scripts\run_all_combat_checks.ps1`.
+
+Harness sources: `res://harness/…` (not `combat/`). Production tracer: `combat/CombatF5SoakTrace.gd`.
+
+**F5 paste:** human `.f5_soak_in.txt` is auto-backed up to `.f5_soak_in.f5_backup.txt` during D001 capture and restored after Phase 0; backup is not downgraded when the live paste lacks `camp5_step9` append. **`append_f5_soak_log.sh`** / `.ps1` with camp5 labels updates the backup on success. Includes **`run_company_state_checks`** (Camp-1.1–1.8) and **Camp-3.4 tail** (Q track + `[ii7]` + `[ii_envelop]` + **`ii_envelop_mopup: PASS`** under `[ii_envelop]` → `CAMPAIGN_SHIP_AUDIT: PASS` in `.phase0_combat_checks.txt`). Regression tail includes **`CombatRegressionHarnessWeaponFormTail`** (18 rows) + **`AttentionFootworkTail`** **`_run_footwork_*`** — footing: [`#wf-footing-improvement-backlog`](../docs/LIVE_PATHS.md#wf-footing-improvement-backlog) · [`#wf-footing-doc-map`](../docs/LIVE_PATHS.md#wf-footing-doc-map) · Tier 4.4 PA [`#wf-tier-44-pa`](../docs/LIVE_PATHS.md#wf-tier-44-pa) · UI [`#battle-ui`](../docs/LIVE_PATHS.md#battle-ui) · soak **ii5c/ii8** [`#wf-soak-audit-status`](../docs/LIVE_PATHS.md#wf-soak-audit-status). **F5 on demand (Camp-5 ☑):** [`SHIP_PLAN#camp-playtest-acceptance`](../docs/SHIP_PLAN.md#camp-playtest-acceptance).
+
+<a id="godot-entry"></a>
 
 ## Godot entry
 
-Harness scripts require a **Godot 4.x stable** headless binary. Resolution order:
-1. `$GODOT` environment variable (any Godot 4.x stable)
-2. `e:\Godot_v4.7-stable_win64.exe` (Windows) / `E:\Godot_v4.7-stable_win64.exe` (WSL/bash)
+Godot **4.x stable** headless. Override anytime with `$GODOT` / `$env:GODOT`.
 
-To use a different binary: set `$env:GODOT` (PowerShell) or `$GODOT` (bash) before running harness scripts, or place your Godot 4.x stable build at one of the paths above. Download from https://godotengine.org/download/windows/ — choose **Godot 4.x.stable** (not beta/rc).
+| Platform | Default resolution (`scripts/_godot.sh` / `Invoke-GodotHeadless.ps1`) |
+|----------|-----------------------------------------------------------------------|
+| **Linux** | PATH (`godot4`/`godot`) → Steam `…/steamapps/common/Godot*` → Flathub `org.godotengine.Godot` (`godot_via_flatpak.sh`) |
+| **Windows** | `E:\Godot_v4.7-stable_win64.exe` |
+| **macOS** | `/Applications/Godot.app/Contents/MacOS/Godot` |
 
 `run_all_combat_checks.gd` — set **`FP_HARNESS_MODE`** (`all` default · `regression` · `d001` · `sanity` · `calibration` · `medical`).
 
-| PowerShell | Bash |
-|------------|------|
-| `.\scripts\run_all_combat_checks.ps1` | `./scripts/run_all_combat_checks.sh` |
-| `.\scripts\run_all_combat_checks.ps1 -HarnessMode regression` | `FP_HARNESS_MODE=regression ./scripts/run_all_combat_checks.sh` |
-| `.\scripts\run_all_combat_checks.ps1 -HarnessMode d001` | `FP_HARNESS_MODE=d001 ./scripts/run_all_combat_checks.sh` |
-| `.\scripts\run_all_combat_checks.ps1 -HarnessMode sanity` | `FP_HARNESS_MODE=sanity ./scripts/run_all_combat_checks.sh` |
-| `.\scripts\run_all_combat_checks.ps1 -HarnessMode calibration` | `FP_HARNESS_MODE=calibration ./scripts/run_all_combat_checks.sh` |
-| `.\scripts\run_all_combat_checks.ps1 -HarnessMode medical` | `FP_HARNESS_MODE=medical ./scripts/run_all_combat_checks.sh` |
-| `.\scripts\run_all_combat_checks.ps1 -ValidateF5` | `./scripts/run_all_combat_checks.sh --validate-f5` |
+| Bash | PowerShell |
+|------|------------|
+| `./scripts/run_all_combat_checks.sh` | `.\scripts\run_all_combat_checks.ps1` |
+| `FP_HARNESS_MODE=regression ./scripts/run_all_combat_checks.sh` | `.\scripts\run_all_combat_checks.ps1 -HarnessMode regression` |
+| `FP_HARNESS_MODE=d001 ./scripts/run_all_combat_checks.sh` | `.\scripts\run_all_combat_checks.ps1 -HarnessMode d001` |
+| `FP_HARNESS_MODE=sanity ./scripts/run_all_combat_checks.sh` | `.\scripts\run_all_combat_checks.ps1 -HarnessMode sanity` |
+| `FP_HARNESS_MODE=calibration ./scripts/run_all_combat_checks.sh` | `.\scripts\run_all_combat_checks.ps1 -HarnessMode calibration` |
+| `FP_HARNESS_MODE=medical ./scripts/run_all_combat_checks.sh` | `.\scripts\run_all_combat_checks.ps1 -HarnessMode medical` |
+| `./scripts/run_all_combat_checks.sh --validate-f5` | `.\scripts\run_all_combat_checks.ps1 -ValidateF5` |
 
 Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`, `.d001_soak_sanity_out.txt`, `.calibration_audit.txt`, `.medical_phase_harness_out.txt`). Audit lane scratch: `.audit_*.txt`. Full pattern list: repo-root `.gitignore`. Bash also accepts `./scripts/run_all_combat_checks.sh <mode>` as the first argument.
 
 ## Other runners
 
-**Bash:** every `*.ps1` gate runner above has a `*.sh` twin (same flags where applicable); `run_q_audit.ps1` is PowerShell-only.
+**Bash twins:** most `*.ps1` gate runners have a `*.sh` twin. **PowerShell-only:** `run_q_audit.ps1`. **Fast Phase 0:** `run_fast_phase0.ps1` only (no `.sh` twin) — doc links + company state + regression harness; **-Full** = full Phase 0; **-D001Light** adds D001 light.
 
-**Parallel agent chats (post–Camp-5 default):** [`agent_prompts/README.md`](agent_prompts/README.md) — **maintain** [`agent_maintain.md`](agent_prompts/agent_maintain.md) · **hygiene** [`agent_hygiene.md`](agent_prompts/agent_hygiene.md) · **audit** [`agent_audit.md`](agent_prompts/agent_audit.md) · **enhance** [`agent_enhance.md`](agent_prompts/agent_enhance.md) · expansion bundle [`#parallel-expansion-bundle`](agent_prompts/README.md#parallel-expansion-bundle) · medical quality [`#parallel-medical-quality-bundle`](agent_prompts/README.md#parallel-medical-quality-bundle).
+**Parallel agent chats (post–Camp-5 default):** [`agent_prompts/README.md`](agent_prompts/README.md).
 
-**F5 Output grep (canonical):** `hit_resolve reason=` · `strike_avoided reason=` · `parry_partial rem=` · `diagram_banner player:` · `engagement_transition` · `encounter_context` · `soak_fight_end`. [`docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers`](../docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers) · `main.tscn` `dev_hit_summary` (default on) · `dev_research_feel` · `dev_soak_encounter`.
+**F5 Output grep (canonical):** `hit_resolve reason=` · `strike_avoided reason=` · `parry_partial rem=` · `diagram_banner player:` · `engagement_transition` · `encounter_context` · `soak_fight_end`. [`docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers`](../docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers).
 
 | Script | When |
 |--------|------|
@@ -48,7 +62,7 @@ Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`
 | `run_campaign_ship_audit.ps1` / `.sh` | Camp-3.4/5 headless standalone; `-TailOnly` / `--tail-only` skips company checks (Phase 0 already ran) |
 | `print_phase0_status.ps1` / `.sh` | Summarize `.phase0_*` / `.d001_*` / calibration + Camp-5 headless vs human F5 status |
 | `check_doc_links.ps1` | Doc link + tombstone gate + `res://` path audit (also run inside Phase 0) |
-| `run_fast_phase0.ps1` / `.sh` | Fast Phase 0 — doc links + company state + regression harness only (no D001 soak / calibration); **-Full** = same as `run_all_combat_checks`, **-D001Light** = adds D001 light (~2-4 min vs ~8-12 min) |
+| `run_fast_phase0.ps1` | Fast Phase 0 — doc links + company state + regression harness only (no D001 soak / calibration); **-Full** = same as `run_all_combat_checks`, **-D001Light** = adds D001 light (~2-4 min vs ~8-12 min). No `.sh` twin. |
 | `rebuild_f5_maintained_paste.ps1` / `.sh` | Rebuild maintained human F5 paste from **`followup.log`** + standard append plan (Playtest stream); **-BaselineFrom**, **-SkipPreflight**, **-HumanSignOff**, **-DryRun** |
 | `run_playtest_merge_gaps.ps1` / `.sh` | Merge known validator gaps into `.f5_soak_in.txt` — reads `.f5_soak_validation.txt`, appends smoke/bundle chunks for missing tracks (no Phase 0) |
 | `run_playtest_after_append.ps1` / `.sh` | Append F5 chunk then safe re-validate — **`-AppendFrom`** required; optional **-Label**, **-HumanSignOff**, **-SkipCloseout** (no Phase 0) |

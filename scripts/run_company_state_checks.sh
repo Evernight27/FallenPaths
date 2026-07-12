@@ -10,6 +10,7 @@ GODOT_BIN="$(fp_godot_bin)" || {
 	echo "run_company_state_checks.sh: set GODOT to your Godot 4 binary" >&2
 	exit 127
 }
+fp_godot_import_warmup "$ROOT" || true
 set +e
 OUT="$("$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_company_state_checks.gd 2>&1)"
 EXIT_CODE=$?

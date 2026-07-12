@@ -3,6 +3,9 @@
 
 Canonical implementation for check_doc_links.ps1 / .sh (Phase 0).
 Standalone res-path audit: python3 scripts/check_doc_links.py --res-paths-only
+
+Scans: docs/*.md (not archive/), AGENTS.md, README.md, scripts/**/*.md.
+Optional anchor check for a small allowlist of agent-critical ids.
 """
 from __future__ import annotations
 
@@ -13,7 +16,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
-LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^)#]+\.md)(?:#[^)]+)?\)")
+LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^)#]+\.md)(?:#([^)]+))?\)")
+ANCHOR_ID_PATTERN = re.compile(r'<a\s+id="([^"]+)"\s*>', re.IGNORECASE)
 REDIRECT_CELL = re.compile(r"\|\s*`([^`]+)`\s*\|")
 CANONICAL_ON_DISK = {
     "AGENTS_ENTRY.md",
@@ -22,36 +26,83 @@ CANONICAL_ON_DISK = {
     "SHIP_PLAN.md",
     "CAMPAIGN_DECISION_GUIDE.md",
     "EXPANSION_PLAN.md",
+    "COMPOSURE_PLAN.md",
+    "FEATURE_PRESERVATION.md",
+    "AGENTS_API.md",
+}
+
+# Agent-critical anchors — fail if linked but missing <a id=>
+CRITICAL_ANCHORS = {
+    "godot-entry",
+    "what-to-do-next",
+    "checklist",
+    "code-homes",
+    "file-ownership",
+    "work-streams",
+    "anti-patterns",
+    "canonical-apis",
+    "phase-0-gate",
+    "harness-and-flags",
+    "muscle-fatigue-phase-2",
+    "3c--cost-deduction-at-wind-up-start",
+    "combat-expand-registry",
+    "camp-playtest-acceptance",
+    "wf-footing-guards-stances",
+    "project-health-bundle",
+    "expand-reopen",
 }
 
 RES_PATH_PATTERN = re.compile(r"res://([^\s\"'#)]+)")
 RES_SCAN_EXT = {".gd", ".tscn", ".tres"}
 RES_SKIP_PARTS = {".git", ".godot"}
 RES_ALLOW_MISSING = {
-    "species",  # DirAccess.open(ResourcePaths.SPECIES_DIR)
-    "world/companion_%d.tscn",  # format string: RuntimeFormats.companion_scene()
-    "tile_texture.png",  # TilesetSetup.generate_tile_texture_if_needed()
-    ".q_track_audits.txt",  # CombatQTrackAudits output path (artifact, not resource)
-    ".d001_soak_out.txt",  # CombatQTrackAudits input path (artifact, not resource)
-    ".ii2b_worksheet_prefill.txt",  # CombatQTrackAudits worksheet path (artifact, not resource)
+    "species",
+    "world/companion_%d.tscn",
+    "tile_texture.png",
+    ".q_track_audits.txt",
+    ".d001_soak_out.txt",
+    ".ii2b_worksheet_prefill.txt",
 }
 
 
 def resolve_link(from_file: Path, target: str) -> Path:
     if target.startswith("http://") or target.startswith("https://"):
-        return from_file  # skipped by caller
-    if target.startswith("../") or target.startswith("./"):
+        return from_file
+    if target.startswith("../") or target.startswith("./") or "/" in target:
         return (from_file.parent / target).resolve()
-    return (DOCS / target).resolve()
+    if from_file.is_relative_to(DOCS):
+        return (DOCS / target).resolve()
+    return (from_file.parent / target).resolve()
 
 
-def collect_tombstones() -> list[str]:
-    live_paths = DOCS / "LIVE_PATHS.md"
-    if not live_paths.is_file():
-        return []
-    text = live_paths.read_text(encoding="utf-8")
-    start = text.find("## Redirects")
-    section = text[start:] if start >= 0 else ""
+def markdown_files_to_scan() -> list[Path]:
+    files: list[Path] = []
+    # Active docs only — archive/ is historical and may have stale relatives
+    files.extend(sorted(DOCS.glob("*.md")))
+    for name in ("AGENTS.md", "README.md"):
+        p = ROOT / name
+        if p.is_file():
+            files.append(p)
+    scripts_md = ROOT / "scripts"
+    if scripts_md.is_dir():
+        files.extend(sorted(scripts_md.rglob("*.md")))
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for f in files:
+        if f not in seen:
+            seen.add(f)
+            out.append(f)
+    return out
+
+
+def collect_explicit_anchors(path: Path) -> set[str]:
+    if not path.is_file():
+        return set()
+    text = path.read_text(encoding="utf-8", errors="replace")
+    return set(ANCHOR_ID_PATTERN.findall(text))
+
+
+def _tombstone_names_from_text(section: str) -> list[str]:
     names: list[str] = []
     for raw in REDIRECT_CELL.findall(section):
         raw = raw.strip()
@@ -65,17 +116,43 @@ def collect_tombstones() -> list[str]:
     return names
 
 
+def collect_tombstones() -> list[str]:
+    """Tombstones from LIVE_PATHS redirects + archive/REDIRECTS.md (full table)."""
+    names: list[str] = []
+    live_paths = DOCS / "LIVE_PATHS.md"
+    if live_paths.is_file():
+        text = live_paths.read_text(encoding="utf-8")
+        start = text.find("## Redirects")
+        if start >= 0:
+            names.extend(_tombstone_names_from_text(text[start:]))
+    redirects = DOCS / "archive" / "REDIRECTS.md"
+    if redirects.is_file():
+        names.extend(_tombstone_names_from_text(redirects.read_text(encoding="utf-8")))
+    return names
+
+
 def check_doc_links() -> tuple[int, list[str]]:
     broken: list[str] = []
-    for md in sorted(DOCS.glob("*.md")):
-        text = md.read_text(encoding="utf-8")
+    anchor_cache: dict[Path, set[str]] = {}
+    scanned = markdown_files_to_scan()
+
+    for md in scanned:
+        text = md.read_text(encoding="utf-8", errors="replace")
+        rel_from = str(md.relative_to(ROOT))
         for m in LINK_PATTERN.finditer(text):
             target = m.group(1)
+            frag = m.group(2)
             if target.startswith("http://") or target.startswith("https://"):
                 continue
             resolved = resolve_link(md, target)
             if not resolved.is_file():
-                broken.append(f"broken link: {md.name} -> {target}")
+                broken.append(f"broken link: {rel_from} -> {target}")
+                continue
+            if frag and frag in CRITICAL_ANCHORS:
+                if resolved not in anchor_cache:
+                    anchor_cache[resolved] = collect_explicit_anchors(resolved)
+                if frag not in anchor_cache[resolved]:
+                    broken.append(f"broken anchor: {rel_from} -> {target}#{frag}")
 
     for name in sorted(set(collect_tombstones())):
         if name in CANONICAL_ON_DISK:
@@ -86,7 +163,7 @@ def check_doc_links() -> tuple[int, list[str]]:
                 f"tombstone file still on disk (delete or merge into LIVE_PATHS): docs/{name}"
             )
 
-    md_count = len(list(DOCS.glob("*.md")))
+    md_count = len(scanned)
     tomb_count = len(set(collect_tombstones()))
     if broken:
         print(f"DOC_LINKS: FAIL ({len(broken)} issues)")

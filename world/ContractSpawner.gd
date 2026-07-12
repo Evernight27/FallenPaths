@@ -397,4 +397,3 @@ static func _first_free_tile(parent: Node, reserved: Array) -> Vector2i:
 		if t not in reserved:
 			return t as Vector2i
 	return Vector2i(-1, -1)
-                       

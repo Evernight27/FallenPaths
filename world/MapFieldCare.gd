@@ -550,4 +550,3 @@ static func _first_tourniquet_part(entity: Node) -> String:
 		if entity.has_method("can_apply_tourniquet") and entity.can_apply_tourniquet(p):
 			return p
 	return ""
-                

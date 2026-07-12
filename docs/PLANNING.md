@@ -1,6 +1,6 @@
 # Planning model
 
-How work is organized in Fallen Paths. **Entry:** [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) · **Agent prompts:** [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md) · **Campaign (Camp-5 ☑):** [`SHIP_PLAN.md`](SHIP_PLAN.md) · **Post-EA roadmap:** [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · **Combat shipped map:** [`LIVE_PATHS.md`](LIVE_PATHS.md).
+How work is organized in Fallen Paths. **Entry:** [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) · **Agent prompts:** [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md) · **Campaign (Camp-5 ☑):** [`SHIP_PLAN.md#camp-playtest-acceptance`](SHIP_PLAN.md#camp-playtest-acceptance) · **Post-EA roadmap:** [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · **Combat shipped map (section-only):** [`LIVE_PATHS.md#phase-0-gate`](LIVE_PATHS.md#phase-0-gate).
 
 ---
 
@@ -10,7 +10,7 @@ How work is organized in Fallen Paths. **Entry:** [`AGENTS_ENTRY.md`](AGENTS_ENT
 
 | Layer | What it is | Examples |
 |-------|------------|----------|
-| **1. Gate** | Mandatory every session — not a work stream | Phase 0 · `run_all_combat_checks.ps1` · **`PHASE0: PASS`** |
+| **1. Gate** | Mandatory every session — not a work stream | Phase 0 · `./scripts/run_all_combat_checks.sh` · **`PHASE0: PASS`** |
 | **2. Work stream** | Per agent (see [parallel](#parallel-agents)) — priority order | **Combat** · **Expand** · **Playtest** · **Campaign** |
 | **3. Milestone ID** | Actionable row inside a plan | `Camp-1.4` · `D-007` · `IV-2` · harness `ii2b` |
 
@@ -63,9 +63,9 @@ How work is organized in Fallen Paths. **Entry:** [`AGENTS_ENTRY.md`](AGENTS_ENT
 | Owner | Paths | May read |
 |-------|-------|----------|
 | **Campaign** | `world/CompanyState.gd`, `world/ContractSpawner.gd`, `world/MapBleedPolicy.gd`, `world/MapFieldCare.gd`, `world/*`, `main.gd`, `PartyManager.gd`, `PartySetup.gd`, `ui/PartyMenu.gd`, `ui/PartyRowFormatter.gd`, `ui/SettlementPanel.gd`, `ui/CompanyRunEndPanel.gd`, `ui/CompanyHud.gd`, `world/PartyMemberSnapshot.gd`, `world/EncounterSpawner.gd`, `PlayerCompanionSetup.gd`, `SoakEncounterPresets.gd` (contract rows only) | `combat/*`, `core/*` (APIs only) |
-| **Combat** | `combat/*`, `combat/CombatRegressionHarness*.gd`, `ui/BattleUIUpdater.gd`, `ui/BattleScene.gd`, `ui/BattleUILayout.gd`, `ui/CombatLogFormatter.gd`, `ui/TurnReadyHandler.gd`, `ui/FormationDiagramBuilder.gd`, `character.gd` (combat hooks only) | `world/*` (read-only unless bridge row) |
-| **Combat** (Expand WF) | `combat/CombatWeaponForm.gd`, `CombatRegressionHarnessWeaponFormTail.gd`, `weapon/WeaponConstants.gd`, `combat/CombatUiHints.gd`, `ui/BattleUIUpdater.gd`, `ui/FormationDiagramBuilder.gd` — **WF-1…4 shipped** — maintain per [#wf-footing-improvement-backlog](LIVE_PATHS.md#wf-footing-improvement-backlog) | One maintain row per PR |
-| **Combat** (Tier 4.4 PA maintain) | `combat/CombatFootwork.gd`, `combat/CombatGuardLines.gd`, `combat/GuardLineUpdater.gd`, `combat/DefenseChoiceResolver.gd` — hub [`#wf-tier-44-pa`](LIVE_PATHS.md#wf-tier-44-pa) · octant lookup **shipped** [`#wf-form-guard-pa-matrix`](LIVE_PATHS.md#wf-form-guard-pa-matrix) | **`AttentionFootworkTail._run_footwork_*`** |
+| **Combat** | `combat/*`, `harness/*` (regression/soak), `ui/BattleUIUpdater.gd`, `ui/BattleScene.gd`, `ui/BattleUILayout.gd`, `ui/CombatLogFormatter.gd`, `ui/TurnReadyHandler.gd`, `ui/FormationDiagramBuilder.gd`, `character.gd` (combat hooks only) | `world/*` (read-only unless bridge row) |
+| **Combat** (Expand WF) | `combat/CombatWeaponForm.gd`, `harness/CombatRegressionHarnessWeaponFormTail.gd`, `weapon/WeaponConstants.gd`, `combat/CombatUiHints.gd`, `ui/BattleUIUpdater.gd`, `ui/FormationDiagramBuilder.gd` — **WF-1…4 shipped** — maintain per [#wf-footing-improvement-backlog](LIVE_PATHS.md#wf-footing-improvement-backlog) | One maintain row per PR |
+| **Combat** (Tier 4.4 PA maintain) | `combat/CombatFootwork.gd`, `combat/CombatGuardLines.gd`, `combat/GuardLineUpdater.gd`, `combat/DefenseChoiceResolver.gd` — hub [`#wf-tier-44-pa`](LIVE_PATHS.md#wf-tier-44-pa) · octant lookup **shipped** [`#wf-form-guard-pa-matrix`](LIVE_PATHS.md#wf-form-guard-pa-matrix) | **`AttentionFootworkTail._run_footwork_*`** (under `harness/`) |
 | **Combat** (core sim) | `core/EntityMedical.gd`, `core/EntityHealing.gd`, `core/EntityWounds.gd`, `core/BleedingConstants.gd`, `core/CombatResearchAnchors.gd`, `combat/CombatUiHints.gd`, `weapon/*`, `armor/*` | — |
 | **Campaign** (scripts) | New `scripts/run_company_*` or harness `_run_company_*` only with Combat review | Do not change `run_all_combat_checks.gd` gate order without sync |
 | **Either, one PR** | `character.gd` | Campaign: roster/map hooks · Combat: combat delegate — **not same PR** |
@@ -82,158 +82,50 @@ How work is organized in Fallen Paths. **Entry:** [`AGENTS_ENTRY.md`](AGENTS_ENT
 
 <a id="bridge-rows-camp-2"></a>
 
-### Bridge rows (Camp-2) — shipped 2026-05-22
+### Bridge rows (Camp-2) — shipped
 
-Camp-2 connects sim ↔ map. Table kept for **ownership** when touching bridge files; rows are **done**.
+Sim ↔ map ownership when touching shared files: bleed/snapshot/supplies/afflictions/stabilize/fail screens — **Campaign** lead except Combat on stabilize listing. Details: [`SHIP_PLAN`](SHIP_PLAN.md).
 
-| Row | Lead agent | Why |
-|-----|------------|-----|
-| Camp-2.1 Map bleed policy | **Campaign** | `main.gd`, `PartyMenu` |
-| Camp-2.2 Post-fight snapshot | **Campaign** | `CampaignEncounterBridge`, settlement UI |
-| Camp-2.3 Supplies → med efficacy | **Campaign** (calls Combat API) | `CompanyState` + `get_medical_effectiveness()` — Combat implements multiplier in `CoreEntity` if needed |
-| Camp-2.4 Campaign afflictions | **Campaign** (data) + **Combat** (apply rules) | Split PRs: affliction dict vs wound application |
-| Camp-2.5 Combat stabilize | **Combat** | `CombatMedicalActionListing` |
-| Camp-2.6 Fail screens | **Campaign** | `CompanyRunEndPanel` / `CombatFlow` soft defeat |
-
-### Playtest (third lane — not a third code agent by default)
-
-| When | Who | Why |
-|------|-----|-----|
-| Feel / validator regression | You (F5) or one **Playtest**-only session | Needs editor + log files; avoid two agents fighting over `.f5_soak_in.txt` |
-| After parallel week | Run Playtest checklists once both agents merged | [`Camp-3.4`](SHIP_PLAN.md#camp-34-playtest-ship-gate) (headless ☑) |
-
-### Merge / gate discipline
-
-1. **Rebase often** — both agents on the same branch; pull before each new row.
-2. **Phase 0** — each agent runs `run_all_combat_checks.ps1` after edits; **merge only when both PASS**. If only Campaign touched `world/*`/`main.gd`, Combat still runs full gate before merge.
-3. **Artifact conflicts** — do not commit conflicting `.phase0_combat_checks.txt` / `.d001_*` from two machines; regenerate after merge.
-4. **One PR per agent** when possible — label PR `campaign:` / `combat:` in title.
-5. **Hotspots:** `CampaignEncounterBridge.gd`, `CombatFlow.gd`, `PartyMenu.gd`, `CoreEntity.gd` — Campaign first on bridge files; Combat rebases.
-
-### What runs in parallel (examples — historical)
-
-| Campaign agent (was) | Combat agent (same week) |
-|----------------|---------------------------|
-| Camp-1.1 Company HUD | Phase 0 + [SHIP §9b](SHIP_PLAN.md#combat-mental-stack-shipped) `_run_mental_stack_*` green |
-| Camp-1.4 Contracts on tiles | D-001 harness row / parry maintain (preserve pick order) |
-| Camp-1.5 Settlement panel | Phase 0 + mental-stack maintain (Camp-3.3 shipped) |
-| Camp-3.2 Party triage | Phase 0 maintain; mental-stack regression if pick path touched |
-| **Camp-5 ☑ (2026-06-07)** — economy UX only | Phase 0 maintain + optional Expand |
-
----
+**Playtest:** one agent on `.f5_soak_in.txt`. **Merge:** rebase · Phase 0 both sides · no conflicting `.phase0_*` / `.d001_*` commits · PR prefixes `campaign:` / `combat:` · hotspots: bridge, `CombatFlow`, `PartyMenu`, `CoreEntity`.
 
 <a id="open-decisions"></a>
 <a id="closed-gates"></a>
 
-## Closed gate index (2026-05-22)
+## Closed gate index
 
-Campaign **D-*** gates are **closed** in [`CompanyState`](world/CompanyState.gd) ([§19](SHIP_PLAN.md#implementation-stubs)). **Canonical summary:** [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22). Per-gate research: [guide appendix](CAMPAIGN_DECISION_GUIDE.md#gate-research-appendix). **Optional post–Camp-5:** [**D-persistence P2**](CAMPAIGN_DECISION_GUIDE.md#d-persistence) save only if explicitly asked.
-
-| Gate ID | Camp row | Shipped | Guide |
-|---------|----------|---------|-------|
-| **D-day** | 1.2 | T3 | [d-day](CAMPAIGN_DECISION_GUIDE.md#d-day) |
-| **D-encounter** | 1.4 | R3 | [d-encounter](CAMPAIGN_DECISION_GUIDE.md#d-encounter) |
-| **D-camp-ui** | 1.6 | H3 | [d-camp-ui](CAMPAIGN_DECISION_GUIDE.md#d-camp-ui) |
-| **D-casualty** | 1.8 | K3 | [d-casualty](CAMPAIGN_DECISION_GUIDE.md#d-casualty) |
-| **D-bleed** | 2.1 | B + tutorial block | [d-bleed](CAMPAIGN_DECISION_GUIDE.md#d-bleed) |
-| **D-supply-battle** | 2.3 (+ 2.5) | E3 | [d-supply-battle](CAMPAIGN_DECISION_GUIDE.md#d-supply-battle) |
-| **D-affliction** | 2.4 | Tier RNG | [d-affliction](CAMPAIGN_DECISION_GUIDE.md#d-affliction) |
-| **D-bankrupt** | 2.6 | B3 | [d-bankrupt](CAMPAIGN_DECISION_GUIDE.md#d-bankrupt) |
-| **D-persistence** | 5 | P1 EA | [d-persistence](CAMPAIGN_DECISION_GUIDE.md#d-persistence) |
-
-**No gate:** Camp-1.1, 1.3 (map), 1.5 UI, 1.7, 3.2, 3.3, 4.x — use §12 tuning only.
-
-**Build order:** [`SHIP_PLAN` §3d](SHIP_PLAN.md#camp-1-build-order) · **pitfalls:** [§20](SHIP_PLAN.md#implementation-pitfalls).
-
----
+Campaign **D-*** gates closed in [`CompanyState`](../world/CompanyState.gd). Summary: [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22) · appendix: [gate research](CAMPAIGN_DECISION_GUIDE.md#gate-research-appendix). Optional: [**P2** save](CAMPAIGN_DECISION_GUIDE.md#d-persistence) only if asked. Build order / pitfalls: [`SHIP_PLAN` §3d](SHIP_PLAN.md#camp-1-build-order) · [§20](SHIP_PLAN.md#implementation-pitfalls).
 
 <a id="milestone-tracking"></a>
 
 ## Milestone tracking
 
-- **Combat:** [`LIVE_PATHS`](LIVE_PATHS.md) + [`PLANNING#stream-combat`](#stream-combat) backlog; [SHIP §9b](SHIP_PLAN.md#combat-mental-stack-shipped) mental-stack baseline; one decision-log line per merged fix.
-- **Expand:** one [§9c](SHIP_PLAN.md#combat-expand-registry) row per PR; track in decision log when shipped.
-- **EA shipped (2026-06-07):** [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist) ☑ — Campaign checkboxes in [`SHIP_PLAN.md`](SHIP_PLAN.md) are maintain-only reference.
-- **Post-EA phases:** [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) — **Exp-0…5**, **`XCamp-*`**, combat queue with dependencies.
-
----
+- **Combat / Expand:** [`LIVE_PATHS`](LIVE_PATHS.md) · [§9b](SHIP_PLAN.md#combat-mental-stack-shipped) · one [§9c](SHIP_PLAN.md#combat-expand-registry) row per Expand PR
+- **EA ☑:** [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist) — Campaign maintain-only
+- **Post-EA open queue:** [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md)
 
 <a id="stream-combat"></a>
 
 ### Stream: Combat
 
-**Maintain** shipped tactical/medical systems. Smallest `combat/*.gd` owner per [`LIVE_PATHS`](LIVE_PATHS.md). Prompt: [`agent_combat.md`](../scripts/agent_prompts/agent_combat.md) · III-4 **3e:** [`agent_combat.md#specialty-iii-4-3e-fight-finish`](../scripts/agent_prompts/agent_combat.md#specialty-iii-4-3e-fight-finish).
-
-**Cognition wiring (read before pick / listing / defense edits):** [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#combat-cognition-pipeline) — tick → list → mental stack → weighted pick; defense at strike time only. Campaign agents must not fork this ([`SHIP_PLAN` §9](SHIP_PLAN.md#implementation-reference)).
-
-**Backlog:** `BattleUIUpdater` medical busy · D-001 `pack_wound` if wanted · research `warn` only (not `note`). **Mental stack:** maintain L0–L4 + MS-L7 L5 + salience damp ([`tier 4.3`](LIVE_PATHS.md#tier-43-mental-stack--combat-attention)). **Engagement geometry:** [**III-4 Track A ☑**](LIVE_PATHS.md#iii-4--engagement-geometry-audit) (headless `[ii_envelop]`; **3e** post-rout mop-up ☑). Player target picker is a design lock.
-
-**Other labels (not work streams):**
-
-| Label | Meaning |
-|-------|---------|
-| **D-001…D-007** | Shipped combat/medical feature tracks (done) |
-| **Tier 0–6** | Shipped capability areas in LIVE_PATHS |
-| **Phase 0** | Headless + D-001 gate (same as **Gate**) |
-| **ii2b, ii7, …** | F5 soak scenario IDs (often used in **Playtest**) |
-
----
+Maintain shipped systems — [`agent_combat.md`](../scripts/agent_prompts/agent_combat.md). Cognition: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#combat-cognition-pipeline). Labels **D-001…**, **Tier 0–6**, **ii\*** = shipped tracks / soak IDs (not work streams). Player target picker locked.
 
 <a id="stream-expand"></a>
 
 ### Stream: Expand
 
-New combat integration batches **`IV-*`** from POST Phase 4. One **`FEATURE_*`** per PR. **Registry ☑ 2026-06-08** — reopen only on user ask. Prompt: [`README#expand-reopen`](../scripts/agent_prompts/README.md#expand-reopen).
-
-| Bucket | IDs | Doc section |
-|--------|-----|-------------|
-| **Phase 3** (deepen shipped) | **III-1,3,5,6,8 ☑** · **III-4** Track A ☑ · **III-2** partial | [`LIVE_PATHS` Phase 3 table](LIVE_PATHS.md#integration-depth-phase-3) |
-| **P4 playbooks** | p4a–p4h | [`LIVE_PATHS` P4 table](LIVE_PATHS.md#p4-playbooks-expansion) |
-| **Weapon forms (WF)** | **WF-1…4 shipped** — maintain; optional **WF-T1/T2** | [`#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog) · [`#wf-implementation-status`](LIVE_PATHS.md#wf-implementation-status) · soak [`#wf-soak-audit-status`](LIVE_PATHS.md#wf-soak-audit-status) |
-| **Phase 4 IV** | Done **IV-2,3,4,5,6,7,8,9,10,11,12,13** | [`LIVE_PATHS` IV table](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) |
-| **Mental stack** | MS-L5–L6 · Tier 4.4 **spatial** Expand (**PA pilot shipped**) | [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped) · [#wf-footing-improvement-backlog](LIVE_PATHS.md#wf-footing-improvement-backlog) |
-| **Wontfix** | Player target UI · player per-target picker · bleed/BMI unless asked | [`LIVE_PATHS` research table](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) |
-| **Maintain only** | P3b material sim (shipped, no expansion without user ask) | [`LIVE_PATHS#p3b-shipped`](LIVE_PATHS.md#p3b-shipped) |
-
-**Summary:** [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry).
-
----
+One **`FEATURE_*`** / §9c row per PR on user reopen — [`README#expand-reopen`](../scripts/agent_prompts/README.md#expand-reopen) · buckets: [`LIVE_PATHS` Phase 4](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) · [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry) · open queue [`EXPANSION_PLAN`](EXPANSION_PLAN.md).
 
 <a id="stream-playtest"></a>
 
 ### Stream: Playtest
 
-**On demand** — human feel, F5 append, validator regression; headless Camp ship already in Phase 0. Not new mechanics. Prompt: [`agent_playtest.md`](../scripts/agent_prompts/agent_playtest.md).
-
-| Tool | Purpose |
-|------|---------|
-| `dev_soak_encounter` / cyan tiles | Editor scenarios |
-| `run_q_feel.ps1 -Track Q1\|Q2\|Camp` | Checklist only (no Godot); **Camp** = SHIP_PLAN section 8 |
-| `run_q_audit.ps1 -Track Q1\|Q2\|Track` | Headless Q audits |
-| `validate_f5_soak_log.ps1` / `.sh` | Parse `.f5_soak_in.txt`; Camp tracks via `CombatD001TrackSpecs.camp_ea_profile_markers()` |
-| `run_camp_f5_closeout.ps1` / `.sh` | Headless + WF-M3 + camp settlement/day minimum; optional extended `camp_*` track report |
-| `append_f5_soak_log.ps1` | Merge multi-session F5 Output into `.f5_soak_in.txt` |
-
-**Script `Q1` / `Q2`** = soak track names in tooling; work stream name is **Playtest**.
-
----
+On demand — [`agent_playtest.md`](../scripts/agent_prompts/agent_playtest.md). Tools: `validate_f5_soak_log` · `run_q_feel` / `run_q_audit` · `run_camp_f5_closeout` · `append_f5_soak_log` ([`scripts/README.md`](../scripts/README.md)). Script tracks `Q1`/`Q2` ≠ stream name.
 
 <a id="stream-campaign"></a>
 
 ### Stream: Campaign
 
-Mercenary **company loop** → EA **shipped (2026-06-07)** — maintain economy UX; optional **P2** save only if asked. Prompt: [`agent_campaign.md`](../scripts/agent_prompts/agent_campaign.md).
-
-**Milestone prefix:** `Camp-*` in [`SHIP_PLAN.md`](SHIP_PLAN.md) only.
-
-| Phase | Name | Was |
-|-------|------|-----|
-| Camp-0 | Gate (parallel Phase 0) | S0 |
-| Camp-1 | Economy + contracts | S1 |
-| Camp-2 | Sim ↔ map bridge | S2 |
-| Camp-3 | Player-ready UX | S3 |
-| Camp-4 | Content (V-1–V-3) | S4 |
-| Camp-5 | EA ship checklist ☑ | S5 |
+EA shipped — economy UX maintain; optional **P2** — [`agent_campaign.md`](../scripts/agent_prompts/agent_campaign.md). Milestones `Camp-0…5` in [`SHIP_PLAN`](SHIP_PLAN.md) (was Track S).
 
 ---
 
@@ -270,13 +162,4 @@ Mercenary **company loop** → EA **shipped (2026-06-07)** — maintain economy 
 
 ## Doc map
 
-| Doc | Role |
-|-----|------|
-| [`PLANNING.md`](PLANNING.md) | This file — glossary · [parallel](PLANNING.md#parallel-agents) · [closed gate index](PLANNING.md#closed-gates) |
-| [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) | Agent entry + decision log |
-| [`SHIP_PLAN.md`](SHIP_PLAN.md) | Camp rows · [§3d build order](SHIP_PLAN.md#camp-1-build-order) · [§9–20 appendices](SHIP_PLAN.md#implementation-reference) |
-| [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) | Closed gate bundle + research appendix ([user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22)) |
-| [`LIVE_PATHS.md`](LIVE_PATHS.md) | Shipped combat + Phase 0 + IV list |
-| [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) | Post-EA phases · Exp-0…5 · XCamp shipped rows |
-| [`scripts/README.md`](../scripts/README.md) | Commands |
-| [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md) | Copy-paste agent prompts (post-Camp-5 default) |
+Entry: [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · APIs: [`AGENTS_API`](AGENTS_API.md) · Camp: [`SHIP_PLAN`](SHIP_PLAN.md) · gates: [`CAMPAIGN_DECISION_GUIDE`](CAMPAIGN_DECISION_GUIDE.md) · combat: [`LIVE_PATHS`](LIVE_PATHS.md) (section-only) · open queue: [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · composure stub: [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md) · preserve: [`FEATURE_PRESERVATION`](FEATURE_PRESERVATION.md) · history: [`archive/`](archive/README.md) · cmds: [`scripts/README`](../scripts/README.md) · prompts: [`agent_prompts`](../scripts/agent_prompts/README.md).

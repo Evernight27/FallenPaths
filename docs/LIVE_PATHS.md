@@ -2,9 +2,9 @@
 
 <a id="milestone-summary"></a>
 
-**Read:** [`PLANNING.md`](PLANNING.md) · [`AGENTS_ENTRY#what-to-do-next`](AGENTS_ENTRY.md#what-to-do-next) · [`SHIP_PLAN`](SHIP_PLAN.md) · [**mental stack §9b**](SHIP_PLAN.md#combat-mental-stack-shipped) · [**WF footing doc map**](LIVE_PATHS.md#wf-footing-doc-map) · scripts [`../scripts/README.md`](../scripts/README.md). Tombstones: [#redirects-tombstones](#redirects-tombstones).
+**Section-only** — do not open whole file. Entry: [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped) · [WF doc map](#wf-footing-doc-map) · Expand: [#phase-4](#phase-4--new-systems-formal-tracks) · tombstones: [#redirects-tombstones](#redirects-tombstones).
 
-**III-4 Track A (shipped ☑):** engagement geometry bridge — mapped opposition, Skirmish compaction, L4+close, optional Skirmish **`rotate_file`**, campaign **`player_front_count`**, headless **`ii_envelop`** — [#iii-4](#iii-4--engagement-geometry-audit). **Track B (Expand):** IV-9 gap-column. **Expand (post–Camp-5):** [#phase-4--new-systems-formal-tracks](#phase-4--new-systems-formal-tracks) · [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry). **No** player target picker.
+**III-4 Track A ☑** — [#iii-4](#iii-4--engagement-geometry-audit). **Track B:** IV-9. **No** player target picker.
 
 <a id="tier-1-spec"></a>
 
@@ -155,7 +155,7 @@ On stack pick: stamps **`COMBATANT_KEY_MENTAL_STACK_LAYER`**. **`try_pick`** cle
 
 #### Mental stack — Expand backlog (realistic influence, no player targets)
 
-**Shipped:** MS-L5 plug ☑ · MS-L6 rout ☑ · MS-L7 exhaustion tunnel ☑ · MS-L8 post-strike momentum ☑ · Feint resistance hard block ☑ · Exhaustion gradient (gradual descent) ☑ · Positional awareness / surrounded disengage ☑ · Medical escalation TCCC ladder ☑. See [`MENTAL_STACK_IMPROVEMENT_PLAN.md`](MENTAL_STACK_IMPROVEMENT_PLAN.md).
+**Shipped:** MS-L5 plug ☑ · MS-L6 rout ☑ · MS-L7 exhaustion tunnel ☑ · MS-L8 post-strike momentum ☑ · Feint resistance hard block ☑ · Exhaustion gradient (gradual descent) ☑ · Positional awareness / surrounded disengage ☑ · Medical escalation TCCC ladder ☑. Spec archive: [`archive/MENTAL_STACK_IMPROVEMENT_PLAN.md`](archive/MENTAL_STACK_IMPROVEMENT_PLAN.md).
 
 | Item | Intent | Module | Status |
 |------|--------|--------|--------|
@@ -170,7 +170,7 @@ On stack pick: stamps **`COMBATANT_KEY_MENTAL_STACK_LAYER`**. **`try_pick`** cle
 | Medical mid-fight | If in-fight ally aid is listed later, L1 already coordinated | `CombatMedicalActionListing` | Deferred |
 | Campaign traits | Morale / stress → layer thresholds (post Camp-5) | bridge meta, not `CompanyState` in `combat/*` | Deferred |
 
-Harness: `CombatRegressionHarnessAttentionFootworkTail` — full `_run_mental_stack_*` list in [§G](#g-feature-flags-combatconstantsgd). Ship plan: [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped). Full spec + validation criteria: [`MENTAL_STACK_IMPROVEMENT_PLAN.md`](MENTAL_STACK_IMPROVEMENT_PLAN.md).
+Harness: `CombatRegressionHarnessAttentionFootworkTail` — full `_run_mental_stack_*` list in [§G](#g-feature-flags-combatconstantsgd). Ship plan: [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped). Spec archive: [`archive/MENTAL_STACK_IMPROVEMENT_PLAN.md`](archive/MENTAL_STACK_IMPROVEMENT_PLAN.md).
 
 **Footing boundary:** **MS-L4** (`hold_line` stamp) chooses **listed moves** only — it does **not** write **`guard_line`**, **`position_angle_offset_deg`**, or **`weapon_form`**. Reserve posture is orthogonal to WF L2–L3 and Tier 4.4 PA — [#wf-layer-labels](#wf-layer-labels) · [#wf-pick-vs-strike](#wf-pick-vs-strike) · [#wf-footing-guards-stances](#wf-footing-guards-stances).
 
@@ -372,21 +372,15 @@ All active `FEATURE_*` flags in `BleedingConstants.gd` are shipped and harness-v
 
 <a id="composure-rework"></a>
 
-## Composure (planned)
+## Composure (shipped)
 
-Design: [`docs/COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) — 8-step plan replacing binary ready/not-ready with continuous composure gauge.
+Continuous 0–100 gauge: fill 25/s WAITING · 8/s RECOVERING · cost at wind-up · quality/parry scale with gauge · wait does not zero. APIs: [`AGENTS_API`](AGENTS_API.md) · design archive: [`archive/COMPOSURE_PLAN.md`](archive/COMPOSURE_PLAN.md) · stub: [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md).
 
-| Concept | Old | New |
-|---------|-----|-----|
-| Gauge semantics | Binary ready (100) / not-ready (0) | Continuous 0-100, cost deducted at wind-up start |
-| Fill rate | Instant to 100 on action_ready | 25/s WAITING, 8/s RECOVERING |
-| Action cost | None (gauge=0 → gauge=100 auto) | Cost per action (table in plan Step 3C) |
-| Quality | Not affected by gauge | Wind-up duration × `(1.5 - 0.5 × gauge/100)` |
-| Parry | Not affected by gauge | Parry_p_a × `(0.6 + 0.4 × gauge/100)` |
-| Wait action | Calls skip_turn → gauge=0 | Resolves directly, gauge unchanged |
-| Breach fill | Stamina → fill at 5/s, exhaustion accumulation | Breath renamed from stamina, same mechanics |
+<a id="muscle-fatigue-phase-2"></a>
 
-**Implementation order:** Step 1 (primitives) → Step 2 (remove zeroes) → Step 3 (fill + cost) → Step 4 (quality) → Step 5 (rename) → Step 6 (AI) → Step 7 (harness) → Step 8 (campaign).
+## Muscle fatigue (shipped)
+
+Per-limb exertion pools — **not** composure, **not** whole-body breath. Owner: `combat/CombatMuscleFatigue.gd` · flag `FEATURE_MUSCLE_GROUP_FATIGUE` · harness `harness/CombatRegressionHarnessMuscleFatigueTail.gd`. Design archive: [`archive/MUSCLE_FATIGUE_PLAN.md`](archive/MUSCLE_FATIGUE_PLAN.md).
 
 <a id="battle-ui"></a>
 
@@ -424,7 +418,7 @@ F5 soak: `turn_ready_gauge`, `tooltip_match=`, `diagram_banner` — trace path *
 
 **Run:** `.\scripts\run_all_combat_checks.ps1` (full gate) · fast paths: `-HarnessMode regression|d001|sanity|calibration|medical` ([`scripts/README`](../scripts/README.md)).
 
-`grep '_run_' combat/CombatRegressionHarness.gd` (+ tails, `CombatRegressionHarnessSimulation.gd`). **No** `_run_crash_*` / `_run_intrusion_*`.
+`grep '_run_' harness/CombatRegressionHarness.gd` (+ tails, `CombatRegressionHarnessSimulation.gd`). **No** `_run_crash_*` / `_run_intrusion_*`.
 
 | Area | Prefixes |
 |------|----------|
@@ -933,7 +927,7 @@ One **$FEATURE_*$** (or explicit "no flag") per PR. **Dependency hints:** IV-2 �
 | Path | Role |
 |------|------|
 | `combat/CombatWeaponForm.gd` | Module owner — defs, seed, mod, yomi inference, counter mult, auto-switch |
-| `combat/CombatRegressionHarnessWeaponFormTail.gd` | WF harness (registered after **`AttentionFootworkTail`**) |
+| `harness/CombatRegressionHarnessWeaponFormTail.gd` | WF harness (registered after **`AttentionFootworkTail`**) |
 | `weapon/WeaponConstants.gd` | Per-weapon **`default_form`** / **`allowed_forms[]`** — spawn step 4 ([#spawn--reset-path-wf-1a](#spawn--reset-path-wf-1a)) |
 | `combat/CombatManager.gd` | **`seed_combatant_form`** on register; **`stance_preference`** copy; erase + re-seed on **`start()`** |
 | `combat/CombatAttention.gd` · `combat/AttackResultApplier.gd` | Yomi tallies + resolved-strike hooks (**WF-2a**) |
@@ -942,11 +936,11 @@ One **$FEATURE_*$** (or explicit "no flag") per PR. **Dependency hints:** IV-2 �
 | `combat/CombatAIActionPicker.gd` | **`form_move_m`**, **`form_counter_m`** slot, wait/focus, **`evaluate_automatic_form`** hook |
 | `combat/AttackResolver.gd` · `DefenseChoiceResolver.gd` · `CombatEngagementResolver.gd` · `CombatTargetScoring.gd` · `ZoneOfControl.gd` · `AttackWindUpStarter.gd` | **`form_str`** / **`CombatWeaponForm`** reads |
 | `combat/CombatUiHints.gd` · `ui/BattleUIUpdater.gd` · `ui/FormationDiagramBuilder.gd` · `ui/TurnReadyHandler.gd` · `combat/CombatF5SoakTrace.gd` | WF-1c suffix + F5 **`turn_ready_gauge`** trace ([#battle-ui](#battle-ui) · [#wf-soak-audit-status](#wf-soak-audit-status)) |
-| `combat/CombatD001SoakRunner.gd` · `combat/CombatQTrackAudits.gd` | Headless **ii5c** / Q4 **ii8** — **` · Form`** / **`[Ox]`** / suffix-order content asserts |
+| `harness/CombatD001SoakRunner.gd` · `harness/CombatQTrackAudits.gd` | Headless **ii5c** / Q4 **ii8** — **` · Form`** / **`[Ox]`** / suffix-order content asserts |
 | `combat/GuardLineUpdater.gd` | Outcome **`guard_line`** drift (L3) — form home via **`assign_form`** only |
 | **`CombatFootwork.gd`** | Tier 4.4 PA owner — hub [#wf-tier-44-pa](#wf-tier-44-pa) |
 | `combat/CombatGuardLines.gd` | D-006 normalize + octant PA step table — **`CombatConstants`** delegates when eight-guard on |
-| `combat/CombatRegressionHarness.gd` | **`harness_sync_weapon_form_from_stance`**, **`_harness_reset_combatants_form_balanced`** |
+| `harness/CombatRegressionHarness.gd` | **`harness_sync_weapon_form_from_stance`**, **`_harness_reset_combatants_form_balanced`** |
 
 | Phase | Status | Summary |
 |-------|--------|---------|
@@ -1148,19 +1142,9 @@ CombatWeaponForm.seed_combatant_form(mgr, c, { "weapon_form": member.get("stance
 
 <a id="wf-agent-prompts"></a>
 
-##### WF — agent copy-paste prompts (maintain)
+##### WF — agent prompts
 
-**WF maintain (Combat / Playtest)**
-
-> Stream: **Combat** or **Playtest**. WF-1…4 **shipped** — extend **`CombatRegressionHarnessWeaponFormTail`** / D-001 **ii5c** / Q4 **ii8** only when suffix compose or auto-switch behavior changes. **No** new player form control · **no** `FEATURE_*`. Gate: **`PHASE0: PASS`**.
-
-**Tier 4.4 PA maintain (Combat — Camp-5)**
-
-> Stream: **Combat**. Octant PA lookup **shipped** — maintain **`AttentionFootworkTail._run_footwork_*`** when changing **`CombatGuardLines`** offsets or stamp/clear paths. **Do not** add form-id → PA table. Backlog: [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog). Gate: **`PHASE0: PASS`**.
-
-**WF-M3 playtest (Playtest — Camp-5 human)**
-
-> Stream: **Playtest**. F5 [§8](SHIP_PLAN.md#camp-playtest-acceptance) with **`dev_soak_encounter` empty** — follow [#wf-m3-f5-playtest](#wf-m3-f5-playtest). Run **`run_q_feel.ps1 -Track Camp`** (invokes **`validate_f5_soak_log`**) — expect **`wf_m3_turn_ready_form`** + **`wf_m3_grd_before_form`** PASS; optional **`wf_m3_idle_step_leak`** PASS. Headless footing green (ii5c + **`AttentionFootworkTail`**). Record tick on [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist).
+Use [`agent_combat.md`](../scripts/agent_prompts/agent_combat.md) (WF / PA) · [`agent_playtest.md`](../scripts/agent_prompts/agent_playtest.md) (WF-M3 / [#wf-m3-f5-playtest](#wf-m3-f5-playtest)). Backlog: [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog).
 
 #### Four layers (do not conflate)
 
@@ -2264,7 +2248,7 @@ Migrate existing feint/tier1 stance rows per [harness migration](#harness-migrat
 
 See [harness row catalog](#harness-row-catalog-combatregressionharnessweaponformtailgd). Summary:
 
-1. Create **`combat/CombatRegressionHarnessWeaponFormTail.gd`** with `run(failures)`.
+1. Create **`harness/CombatRegressionHarnessWeaponFormTail.gd`** with `run(failures)`.
 2. In **`CombatRegressionHarness.gd`**, preload + invoke **after** **`_AttentionFootworkTail.run(failures)`** (~line 167), **before** **`_FeintTempoTail.run_after_attention`** — form spawn must run before feint stance migration rows consume fixtures.
 3. Prefix failures **`weapon_form:`**; do **not** fold into **`FeintTempoTail`**.
 
@@ -2311,7 +2295,7 @@ Bridge: **`CampaignEncounterBridge.prepare_combat_from_encounter`** copies into 
 | **`CombatRegressionHarnessKinematicTail.gd`** tier 5.1 / infer arch | **`_harness_reset_combatants_form_balanced`** on manual mgr paths | **Done** |
 | **`_harness_start_1v1`** baseline | Reset all combatants to **`balanced`** after start | **Done** |
 
-New tail file: **`combat/CombatRegressionHarnessWeaponFormTail.gd`** (colocate per repo flat `combat/` policy).
+New tail file: **`harness/CombatRegressionHarnessWeaponFormTail.gd`** (colocate per repo flat `combat/` policy).
 
 #### Canonical APIs ([`AGENTS.md`](../AGENTS.md) — WF-1a…1c shipped)
 
@@ -2402,26 +2386,10 @@ Status for shipped tiers → sections above · forward work → [AGENTS_ENTRY#wh
 
 ## Redirects (deleted `docs/*.md`)
 
-**Policy:** Do not recreate files in this table — Phase 0 fails `check_doc_links.ps1` if they exist. **Canonical (6):** [`PLANNING.md`](PLANNING.md) · [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) · [`SHIP_PLAN.md`](SHIP_PLAN.md) · [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) · this file. Scripts: [`../scripts/README.md`](../scripts/README.md). Restore prose: `git log -- docs/<file>.md`.
+**Canonical on disk:** [`PLANNING`](PLANNING.md) · [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · [`AGENTS_API`](AGENTS_API.md) · [`SHIP_PLAN`](SHIP_PLAN.md) · [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE`](CAMPAIGN_DECISION_GUIDE.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md) · [`FEATURE_PRESERVATION`](FEATURE_PRESERVATION.md) · this file. History: [`archive/`](archive/README.md). Full tombstone table: [`archive/REDIRECTS.md`](archive/REDIRECTS.md).
 
 | File | Anchor |
 |------|--------|
-| `BLEEDING_PHYSICS_AND_UNITS.md` | [bleeding-physics](LIVE_PATHS.md#bleeding-physics) · [§12 tuning](LIVE_PATHS.md#12-tuning-order-keep-research-chain) |
-| `REDIRECTS.md` | [redirects-tombstones](LIVE_PATHS.md#redirects-tombstones) |
-| `NEXT_DEVELOPMENT_PLAN.md` | [PLANNING](PLANNING.md) · [AGENTS_ENTRY#what-to-do-next](AGENTS_ENTRY.md#what-to-do-next) · [SHIP_PLAN](SHIP_PLAN.md) |
-| `RESEARCH_AUDIT_CHECKLIST.md` | [research-audit](LIVE_PATHS.md#research-audit) · [enable-per-hit-research_feel-lines](LIVE_PATHS.md#enable-per-hit-research_feel-lines) |
-| `README.md` (docs) | [scripts/README.md](../scripts/README.md) |
-| `ENGAGEMENT_LINE_COHESION_PLAN.md` | [tier-1-spec](LIVE_PATHS.md#tier-1-spec) |
-| `BATTLE_UI_DATA_FLOW.md` | [battle-ui](LIVE_PATHS.md#battle-ui) |
-| `STAMINA_EXHAUSTION_INTEGRATION.md` | [d-004](LIVE_PATHS.md#d-004-exhaustion) |
-| `SURROUND_GEOMETRY_INVESTIGATION.md` | [d-005](LIVE_PATHS.md#d-005-surround) |
-| `HEMA_EIGHT_GUARD_LINES.md` | [d-006](LIVE_PATHS.md#d-006-guard-lines) |
-| `D001_AUTOMATION_PLAN.md` | [phase-0](LIVE_PATHS.md#phase-0-gate) |
-| `II_0_SOAK_RUNBOOK.md` | [phase-0 / II-0](LIVE_PATHS.md#headless-gate-authoritative) · [#playtest-q1](LIVE_PATHS.md#playtest-q1-research-feel-duel) |
-| `IMPLEMENTATION_ORDER.md` | [legacy-anchors](LIVE_PATHS.md#legacy-anchors) |
-| `REGRESSION_HARNESS_MAP_TIER19.md` | [harness-prefixes](LIVE_PATHS.md#harness-prefixes) |
-| `SIMULATION_REALISM_*.md` | [closed-simulation-s11](LIVE_PATHS.md#closed-simulation-s11) |
-| `MATERIAL_FAILURE_*.md` | [p3b-shipped](LIVE_PATHS.md#p3b-shipped) |
-| `POST_MILESTONE_*.md` | [integration-archive](LIVE_PATHS.md#integration-archive) · IV [#phase-4](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) |
-| `COMBAT_PHYSICS_MEDICAL_*.md` | [research-audit](LIVE_PATHS.md#research-audit) |
-| `PARRY_*` / `GUARDS_*` / `COMBAT_ROADMAP_*` | [tier-3](LIVE_PATHS.md#tier-3--parry--bind--guards) or [integration](LIVE_PATHS.md#integration-archive) |
+| `COMPOSURE_PLAN.md` (design) | [`archive/COMPOSURE_PLAN.md`](archive/COMPOSURE_PLAN.md) · stub [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) · [#composure-rework](#composure-rework) |
+| `EXPANSION_PLAN.md` (history) | [`archive/EXPANSION_PLAN.md`](archive/EXPANSION_PLAN.md) · open queue [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) |
+| Other deleted docs | [`archive/REDIRECTS.md`](archive/REDIRECTS.md) |

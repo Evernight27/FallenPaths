@@ -41,6 +41,11 @@ static func stamina_factor(ratio: float) -> float:
 	return pow(clampf(ratio, 0.0, 1.0), STAMINA_FACTOR_POWER)
 
 
+## Compat alias of stamina_factor (call sites may use either).
+static func breath_factor(ratio: float) -> float:
+	return stamina_factor(ratio)
+
+
 static func stamina_attack_cost_from_intensity(intensity: float) -> float:
 	return STAMINA_ATTACK_COST_BASE + STAMINA_ATTACK_COST_SCALE * clampf(intensity, 0.0, 1.0)
 
