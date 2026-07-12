@@ -2,9 +2,9 @@
 
 <a id="milestone-summary"></a>
 
-**Read:** [`PLANNING.md`](PLANNING.md) · [`AGENTS_ENTRY#what-to-do-next`](AGENTS_ENTRY.md#what-to-do-next) · [`SHIP_PLAN`](SHIP_PLAN.md) · [**mental stack §9b**](SHIP_PLAN.md#combat-mental-stack-shipped) · [**WF footing doc map**](LIVE_PATHS.md#wf-footing-doc-map) · scripts [`../scripts/README.md`](../scripts/README.md). Tombstones: [#redirects-tombstones](#redirects-tombstones).
+**Section-only** — do not open whole file. Entry: [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped) · [WF doc map](#wf-footing-doc-map) · Expand: [#phase-4](#phase-4--new-systems-formal-tracks) · tombstones: [#redirects-tombstones](#redirects-tombstones).
 
-**III-4 Track A (shipped ☑):** engagement geometry bridge — mapped opposition, Skirmish compaction, L4+close, optional Skirmish **`rotate_file`**, campaign **`player_front_count`**, headless **`ii_envelop`** — [#iii-4](#iii-4--engagement-geometry-audit). **Track B (Expand):** IV-9 gap-column. **Expand (post–Camp-5):** [#phase-4--new-systems-formal-tracks](#phase-4--new-systems-formal-tracks) · [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry). **No** player target picker.
+**III-4 Track A ☑** — [#iii-4](#iii-4--engagement-geometry-audit). **Track B:** IV-9. **No** player target picker.
 
 <a id="tier-1-spec"></a>
 
@@ -372,21 +372,9 @@ All active `FEATURE_*` flags in `BleedingConstants.gd` are shipped and harness-v
 
 <a id="composure-rework"></a>
 
-## Composure (planned)
+## Composure (shipped)
 
-Design: [`docs/COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) — 8-step plan replacing binary ready/not-ready with continuous composure gauge.
-
-| Concept | Old | New |
-|---------|-----|-----|
-| Gauge semantics | Binary ready (100) / not-ready (0) | Continuous 0-100, cost deducted at wind-up start |
-| Fill rate | Instant to 100 on action_ready | 25/s WAITING, 8/s RECOVERING |
-| Action cost | None (gauge=0 → gauge=100 auto) | Cost per action (table in plan Step 3C) |
-| Quality | Not affected by gauge | Wind-up duration × `(1.5 - 0.5 × gauge/100)` |
-| Parry | Not affected by gauge | Parry_p_a × `(0.6 + 0.4 × gauge/100)` |
-| Wait action | Calls skip_turn → gauge=0 | Resolves directly, gauge unchanged |
-| Breach fill | Stamina → fill at 5/s, exhaustion accumulation | Breath renamed from stamina, same mechanics |
-
-**Implementation order:** Step 1 (primitives) → Step 2 (remove zeroes) → Step 3 (fill + cost) → Step 4 (quality) → Step 5 (rename) → Step 6 (AI) → Step 7 (harness) → Step 8 (campaign).
+Continuous 0–100 gauge: fill 25/s WAITING · 8/s RECOVERING · cost at wind-up · quality/parry scale with gauge · wait does not zero. APIs: [`AGENTS_API`](AGENTS_API.md) · design archive: [`archive/COMPOSURE_PLAN.md`](archive/COMPOSURE_PLAN.md) · stub: [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md).
 
 <a id="muscle-fatigue-phase-2"></a>
 
@@ -1154,19 +1142,9 @@ CombatWeaponForm.seed_combatant_form(mgr, c, { "weapon_form": member.get("stance
 
 <a id="wf-agent-prompts"></a>
 
-##### WF — agent copy-paste prompts (maintain)
+##### WF — agent prompts
 
-**WF maintain (Combat / Playtest)**
-
-> Stream: **Combat** or **Playtest**. WF-1…4 **shipped** — extend **`CombatRegressionHarnessWeaponFormTail`** / D-001 **ii5c** / Q4 **ii8** only when suffix compose or auto-switch behavior changes. **No** new player form control · **no** `FEATURE_*`. Gate: **`PHASE0: PASS`**.
-
-**Tier 4.4 PA maintain (Combat — Camp-5)**
-
-> Stream: **Combat**. Octant PA lookup **shipped** — maintain **`AttentionFootworkTail._run_footwork_*`** when changing **`CombatGuardLines`** offsets or stamp/clear paths. **Do not** add form-id → PA table. Backlog: [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog). Gate: **`PHASE0: PASS`**.
-
-**WF-M3 playtest (Playtest — Camp-5 human)**
-
-> Stream: **Playtest**. F5 [§8](SHIP_PLAN.md#camp-playtest-acceptance) with **`dev_soak_encounter` empty** — follow [#wf-m3-f5-playtest](#wf-m3-f5-playtest). Run **`run_q_feel.ps1 -Track Camp`** (invokes **`validate_f5_soak_log`**) — expect **`wf_m3_turn_ready_form`** + **`wf_m3_grd_before_form`** PASS; optional **`wf_m3_idle_step_leak`** PASS. Headless footing green (ii5c + **`AttentionFootworkTail`**). Record tick on [Camp-5](SHIP_PLAN.md#camp-5-ea-checklist).
+Use [`agent_combat.md`](../scripts/agent_prompts/agent_combat.md) (WF / PA) · [`agent_playtest.md`](../scripts/agent_prompts/agent_playtest.md) (WF-M3 / [#wf-m3-f5-playtest](#wf-m3-f5-playtest)). Backlog: [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog).
 
 #### Four layers (do not conflate)
 
@@ -2408,38 +2386,10 @@ Status for shipped tiers → sections above · forward work → [AGENTS_ENTRY#wh
 
 ## Redirects (deleted `docs/*.md`)
 
-**Canonical (on disk):** [`PLANNING.md`](PLANNING.md) · [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) · [`AGENTS_API.md`](AGENTS_API.md) · [`SHIP_PLAN.md`](SHIP_PLAN.md) · [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) · [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) · [`FEATURE_PRESERVATION.md`](FEATURE_PRESERVATION.md) · this file. Historical: [`archive/`](archive/README.md). Scripts: [`../scripts/README.md`](../scripts/README.md). Restore prose: `git log -- docs/<file>.md`.
+**Canonical on disk:** [`PLANNING`](PLANNING.md) · [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · [`AGENTS_API`](AGENTS_API.md) · [`SHIP_PLAN`](SHIP_PLAN.md) · [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE`](CAMPAIGN_DECISION_GUIDE.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md) · [`FEATURE_PRESERVATION`](FEATURE_PRESERVATION.md) · this file. History: [`archive/`](archive/README.md). Full tombstone table: [`archive/REDIRECTS.md`](archive/REDIRECTS.md).
 
 | File | Anchor |
 |------|--------|
-| `BLEEDING_PHYSICS_AND_UNITS.md` | [bleeding-physics](LIVE_PATHS.md#bleeding-physics) · [§12 tuning](LIVE_PATHS.md#12-tuning-order-keep-research-chain) |
-| `REDIRECTS.md` | [redirects-tombstones](LIVE_PATHS.md#redirects-tombstones) |
-| `NEXT_DEVELOPMENT_PLAN.md` | [PLANNING](PLANNING.md) · [AGENTS_ENTRY#what-to-do-next](AGENTS_ENTRY.md#what-to-do-next) · [SHIP_PLAN](SHIP_PLAN.md) |
-| `RESEARCH_AUDIT_CHECKLIST.md` | [research-audit](LIVE_PATHS.md#research-audit) · [enable-per-hit-research_feel-lines](LIVE_PATHS.md#enable-per-hit-research_feel-lines) |
-| `README.md` (docs) | [scripts/README.md](../scripts/README.md) |
-| `ENGAGEMENT_LINE_COHESION_PLAN.md` | [tier-1-spec](LIVE_PATHS.md#tier-1-spec) |
-| `BATTLE_UI_DATA_FLOW.md` | [battle-ui](LIVE_PATHS.md#battle-ui) |
-| `STAMINA_EXHAUSTION_INTEGRATION.md` | [d-004](LIVE_PATHS.md#d-004-exhaustion) |
-| `SURROUND_GEOMETRY_INVESTIGATION.md` | [d-005](LIVE_PATHS.md#d-005-surround) |
-| `HEMA_EIGHT_GUARD_LINES.md` | [d-006](LIVE_PATHS.md#d-006-guard-lines) |
-| `D001_AUTOMATION_PLAN.md` | [phase-0](LIVE_PATHS.md#phase-0-gate) |
-| `II_0_SOAK_RUNBOOK.md` | [phase-0 / II-0](LIVE_PATHS.md#headless-gate-authoritative) · [#playtest-q1](LIVE_PATHS.md#playtest-q1-research-feel-duel) |
-| `IMPLEMENTATION_ORDER.md` | [legacy-anchors](LIVE_PATHS.md#legacy-anchors) |
-| `REGRESSION_HARNESS_MAP_TIER19.md` | [harness-prefixes](LIVE_PATHS.md#harness-prefixes) |
-| `SIMULATION_REALISM_*.md` | [closed-simulation-s11](LIVE_PATHS.md#closed-simulation-s11) |
-| `MATERIAL_FAILURE_*.md` | [p3b-shipped](LIVE_PATHS.md#p3b-shipped) |
-| `POST_MILESTONE_*.md` | [integration-archive](LIVE_PATHS.md#integration-archive) · IV [#phase-4](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) |
-| `COMBAT_PHYSICS_MEDICAL_*.md` | [research-audit](LIVE_PATHS.md#research-audit) |
-| `PARRY_*` / `GUARDS_*` / `COMBAT_ROADMAP_*` | [tier-3](LIVE_PATHS.md#tier-3--parry--bind--guards) or [integration](LIVE_PATHS.md#integration-archive) |
-| `MENTAL_STACK_IMPROVEMENT_PLAN.md` | [tier-4.3](LIVE_PATHS.md#tier-43-mental-stack--combat-attention) · [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped) · archive [`archive/MENTAL_STACK_IMPROVEMENT_PLAN.md`](archive/MENTAL_STACK_IMPROVEMENT_PLAN.md) |
-| `TARGETING_RESEARCH.md` | archive [`archive/TARGETING_RESEARCH.md`](archive/TARGETING_RESEARCH.md) |
-| `PHYSIOLOGY_AUDIT.md` | archive [`archive/PHYSIOLOGY_AUDIT.md`](archive/PHYSIOLOGY_AUDIT.md) |
-| `combat-tuning-integration-audit.md` | archive [`archive/combat-tuning-integration-audit.md`](archive/combat-tuning-integration-audit.md) |
-| `DUEL_PLAN.md` | archive [`archive/DUEL_PLAN.md`](archive/DUEL_PLAN.md) |
-| `PARRY_REALISM_PLAN.md` | [tier-3](LIVE_PATHS.md#tier-3--parry--bind--guards) · archive [`archive/PARRY_REALISM_PLAN.md`](archive/PARRY_REALISM_PLAN.md) |
-| `PROFICIENCY_IMPROVEMENTS.md` | archive [`archive/PROFICIENCY_IMPROVEMENTS.md`](archive/PROFICIENCY_IMPROVEMENTS.md) |
-| `COMBAT_TUNING_PLAN.md` | archive [`archive/COMBAT_TUNING_PLAN.md`](archive/COMBAT_TUNING_PLAN.md) |
-| `R_SERIES_AUDIT.md` | archive [`archive/R_SERIES_AUDIT.md`](archive/R_SERIES_AUDIT.md) |
-| `HARNESS_REGRESSION_PLAN.md` | [harness-prefixes](LIVE_PATHS.md#harness-prefixes) · archive [`archive/HARNESS_REGRESSION_PLAN.md`](archive/HARNESS_REGRESSION_PLAN.md) |
-| `AUDIT_COMBAT_EXERTION_SYSTEMS.md` | [d-004](LIVE_PATHS.md#d-004-exhaustion) · archive [`archive/AUDIT_COMBAT_EXERTION_SYSTEMS.md`](archive/AUDIT_COMBAT_EXERTION_SYSTEMS.md) |
-| `MUSCLE_FATIGUE_PLAN.md` | archive [`archive/MUSCLE_FATIGUE_PLAN.md`](archive/MUSCLE_FATIGUE_PLAN.md) |
+| `COMPOSURE_PLAN.md` (design) | [`archive/COMPOSURE_PLAN.md`](archive/COMPOSURE_PLAN.md) · stub [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) · [#composure-rework](#composure-rework) |
+| `EXPANSION_PLAN.md` (history) | [`archive/EXPANSION_PLAN.md`](archive/EXPANSION_PLAN.md) · open queue [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) |
+| Other deleted docs | [`archive/REDIRECTS.md`](archive/REDIRECTS.md) |

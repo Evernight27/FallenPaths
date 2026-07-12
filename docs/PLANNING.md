@@ -82,81 +82,26 @@ How work is organized in Fallen Paths. **Entry:** [`AGENTS_ENTRY.md`](AGENTS_ENT
 
 <a id="bridge-rows-camp-2"></a>
 
-### Bridge rows (Camp-2) — shipped 2026-05-22
+### Bridge rows (Camp-2) — shipped
 
-Camp-2 connects sim ↔ map. Table kept for **ownership** when touching bridge files; rows are **done**.
+Sim ↔ map ownership when touching shared files: bleed/snapshot/supplies/afflictions/stabilize/fail screens — **Campaign** lead except Combat on stabilize listing. Details: [`SHIP_PLAN`](SHIP_PLAN.md).
 
-| Row | Lead agent | Why |
-|-----|------------|-----|
-| Camp-2.1 Map bleed policy | **Campaign** | `main.gd`, `PartyMenu` |
-| Camp-2.2 Post-fight snapshot | **Campaign** | `CampaignEncounterBridge`, settlement UI |
-| Camp-2.3 Supplies → med efficacy | **Campaign** (calls Combat API) | `CompanyState` + `get_medical_effectiveness()` — Combat implements multiplier in `CoreEntity` if needed |
-| Camp-2.4 Campaign afflictions | **Campaign** (data) + **Combat** (apply rules) | Split PRs: affliction dict vs wound application |
-| Camp-2.5 Combat stabilize | **Combat** | `CombatMedicalActionListing` |
-| Camp-2.6 Fail screens | **Campaign** | `CompanyRunEndPanel` / `CombatFlow` soft defeat |
-
-### Playtest (third lane — not a third code agent by default)
-
-| When | Who | Why |
-|------|-----|-----|
-| Feel / validator regression | You (F5) or one **Playtest**-only session | Needs editor + log files; avoid two agents fighting over `.f5_soak_in.txt` |
-| After parallel week | Run Playtest checklists once both agents merged | [`Camp-3.4`](SHIP_PLAN.md#camp-34-playtest-ship-gate) (headless ☑) |
-
-### Merge / gate discipline
-
-1. **Rebase often** — both agents on the same branch; pull before each new row.
-2. **Phase 0** — each agent runs `run_all_combat_checks.ps1` after edits; **merge only when both PASS**. If only Campaign touched `world/*`/`main.gd`, Combat still runs full gate before merge.
-3. **Artifact conflicts** — do not commit conflicting `.phase0_combat_checks.txt` / `.d001_*` from two machines; regenerate after merge.
-4. **One PR per agent** when possible — label PR `campaign:` / `combat:` in title.
-5. **Hotspots:** `CampaignEncounterBridge.gd`, `CombatFlow.gd`, `PartyMenu.gd`, `CoreEntity.gd` — Campaign first on bridge files; Combat rebases.
-
-### What runs in parallel (examples — historical)
-
-| Campaign agent (was) | Combat agent (same week) |
-|----------------|---------------------------|
-| Camp-1.1 Company HUD | Phase 0 + [SHIP §9b](SHIP_PLAN.md#combat-mental-stack-shipped) `_run_mental_stack_*` green |
-| Camp-1.4 Contracts on tiles | D-001 harness row / parry maintain (preserve pick order) |
-| Camp-1.5 Settlement panel | Phase 0 + mental-stack maintain (Camp-3.3 shipped) |
-| Camp-3.2 Party triage | Phase 0 maintain; mental-stack regression if pick path touched |
-| **Camp-5 ☑ (2026-06-07)** — economy UX only | Phase 0 maintain + optional Expand |
-
----
+**Playtest:** one agent on `.f5_soak_in.txt`. **Merge:** rebase · Phase 0 both sides · no conflicting `.phase0_*` / `.d001_*` commits · PR prefixes `campaign:` / `combat:` · hotspots: bridge, `CombatFlow`, `PartyMenu`, `CoreEntity`.
 
 <a id="open-decisions"></a>
 <a id="closed-gates"></a>
 
-## Closed gate index (2026-05-22)
+## Closed gate index
 
-Campaign **D-*** gates are **closed** in [`CompanyState`](world/CompanyState.gd) ([§19](SHIP_PLAN.md#implementation-stubs)). **Canonical summary:** [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22). Per-gate research: [guide appendix](CAMPAIGN_DECISION_GUIDE.md#gate-research-appendix). **Optional post–Camp-5:** [**D-persistence P2**](CAMPAIGN_DECISION_GUIDE.md#d-persistence) save only if explicitly asked.
-
-| Gate ID | Camp row | Shipped | Guide |
-|---------|----------|---------|-------|
-| **D-day** | 1.2 | T3 | [d-day](CAMPAIGN_DECISION_GUIDE.md#d-day) |
-| **D-encounter** | 1.4 | R3 | [d-encounter](CAMPAIGN_DECISION_GUIDE.md#d-encounter) |
-| **D-camp-ui** | 1.6 | H3 | [d-camp-ui](CAMPAIGN_DECISION_GUIDE.md#d-camp-ui) |
-| **D-casualty** | 1.8 | K3 | [d-casualty](CAMPAIGN_DECISION_GUIDE.md#d-casualty) |
-| **D-bleed** | 2.1 | B + tutorial block | [d-bleed](CAMPAIGN_DECISION_GUIDE.md#d-bleed) |
-| **D-supply-battle** | 2.3 (+ 2.5) | E3 | [d-supply-battle](CAMPAIGN_DECISION_GUIDE.md#d-supply-battle) |
-| **D-affliction** | 2.4 | Tier RNG | [d-affliction](CAMPAIGN_DECISION_GUIDE.md#d-affliction) |
-| **D-bankrupt** | 2.6 | B3 | [d-bankrupt](CAMPAIGN_DECISION_GUIDE.md#d-bankrupt) |
-| **D-persistence** | 5 | P1 EA | [d-persistence](CAMPAIGN_DECISION_GUIDE.md#d-persistence) |
-
-**No gate:** Camp-1.1, 1.3 (map), 1.5 UI, 1.7, 3.2, 3.3, 4.x — use §12 tuning only.
-
-**Build order:** [`SHIP_PLAN` §3d](SHIP_PLAN.md#camp-1-build-order) · **pitfalls:** [§20](SHIP_PLAN.md#implementation-pitfalls).
-
----
+Campaign **D-*** gates closed in [`CompanyState`](../world/CompanyState.gd). Summary: [guide user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22) · appendix: [gate research](CAMPAIGN_DECISION_GUIDE.md#gate-research-appendix). Optional: [**P2** save](CAMPAIGN_DECISION_GUIDE.md#d-persistence) only if asked. Build order / pitfalls: [`SHIP_PLAN` §3d](SHIP_PLAN.md#camp-1-build-order) · [§20](SHIP_PLAN.md#implementation-pitfalls).
 
 <a id="milestone-tracking"></a>
 
 ## Milestone tracking
 
-- **Combat:** [`LIVE_PATHS`](LIVE_PATHS.md) + [`PLANNING#stream-combat`](#stream-combat) backlog; [SHIP §9b](SHIP_PLAN.md#combat-mental-stack-shipped) mental-stack baseline; one decision-log line per merged fix.
-- **Expand:** one [§9c](SHIP_PLAN.md#combat-expand-registry) row per PR; track in decision log when shipped.
-- **EA shipped (2026-06-07):** [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist) ☑ — Campaign checkboxes in [`SHIP_PLAN.md`](SHIP_PLAN.md) are maintain-only reference.
-- **Post-EA phases:** [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) — **Exp-0…5**, **`XCamp-*`**, combat queue with dependencies.
-
----
+- **Combat / Expand:** [`LIVE_PATHS`](LIVE_PATHS.md) · [§9b](SHIP_PLAN.md#combat-mental-stack-shipped) · one [§9c](SHIP_PLAN.md#combat-expand-registry) row per Expand PR
+- **EA ☑:** [`Camp-5`](SHIP_PLAN.md#camp-5-ea-checklist) — Campaign maintain-only
+- **Post-EA open queue:** [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md)
 
 <a id="stream-combat"></a>
 
@@ -217,17 +162,4 @@ EA shipped — economy UX maintain; optional **P2** — [`agent_campaign.md`](..
 
 ## Doc map
 
-| Doc | Role |
-|-----|------|
-| [`PLANNING.md`](PLANNING.md) | This file — glossary · parallel · ownership · closed gates |
-| [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) | Agent session entry |
-| [`AGENTS_API.md`](AGENTS_API.md) | On-demand APIs / anti-patterns |
-| [`SHIP_PLAN.md`](SHIP_PLAN.md) | Camp rows · §9b mental stack · §9c Expand |
-| [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) | Closed campaign gate bundle |
-| [`LIVE_PATHS.md`](LIVE_PATHS.md) | Shipped combat + Phase 0 + IV list |
-| [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) | Post-EA phases |
-| [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) | Composure design |
-| [`FEATURE_PRESERVATION.md`](FEATURE_PRESERVATION.md) | Deletion / flag-collapse rules |
-| [`archive/`](archive/README.md) | Historical plans/audits (not entry) |
-| [`scripts/README.md`](../scripts/README.md) | Commands |
-| [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md) | Copy-paste prompts |
+Entry: [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · APIs: [`AGENTS_API`](AGENTS_API.md) · Camp: [`SHIP_PLAN`](SHIP_PLAN.md) · gates: [`CAMPAIGN_DECISION_GUIDE`](CAMPAIGN_DECISION_GUIDE.md) · combat: [`LIVE_PATHS`](LIVE_PATHS.md) (section-only) · open queue: [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · composure stub: [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md) · preserve: [`FEATURE_PRESERVATION`](FEATURE_PRESERVATION.md) · history: [`archive/`](archive/README.md) · cmds: [`scripts/README`](../scripts/README.md) · prompts: [`agent_prompts`](../scripts/agent_prompts/README.md).
