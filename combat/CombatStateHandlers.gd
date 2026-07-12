@@ -278,4 +278,3 @@ static func process_cowering_idle(_manager: Node, c: Dictionary, delta: float) -
 	_get_muscle_fatigue().process_waiting_recovery(c, delta)
 	var g: float = _EntityAccess.gauge_float(c)
 	c.gauge = minf(100.0, g + 0.5 * delta)
-          

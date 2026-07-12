@@ -14,7 +14,7 @@ Target: **`PHASE0: PASS`**. Fast iterate: `-HarnessMode medical` · `-HarnessMod
 
 **Do not touch:** `MentalStackDecider` layer order · formation / WF / IV · `world/CompanyState` economy · new `FEATURE_*` · closed-gate constants (bleed/BMI) unless I explicitly ask. Parallel: one agent on `core/EntityMedical.gd` / `EntityWounds.gd` at a time. Not parallel with Hygiene on same `core/*.gd`.
 
-**Read first:** [`LIVE_PATHS#bleeding-physics`](../../docs/LIVE_PATHS.md#bleeding-physics) · [`LIVE_PATHS#tier-6--medical--flee`](../../docs/LIVE_PATHS.md#tier-6--medical--flee) · [`AGENTS.md`](../../AGENTS.md) medical APIs.
+**Read first:** [`LIVE_PATHS#bleeding-physics`](../../docs/LIVE_PATHS.md#bleeding-physics) · [`LIVE_PATHS#tier-6--medical--flee`](../../docs/LIVE_PATHS.md#tier-6--medical--flee) · medical APIs: [`docs/AGENTS_API.md#canonical-apis`](../../docs/AGENTS_API.md#canonical-apis).
 
 ---
 

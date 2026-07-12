@@ -24,12 +24,12 @@ Copy an `agent_*.md` file or a section below (Hygiene · Audit · Medical · Exp
 - F5 playtest → [`agent_playtest.md`](agent_playtest.md)
 - campaign maintain → [`agent_campaign.md`](agent_campaign.md).
 
-**Read first:**
+**Read first (section-only; budget ≤1 doc section + ≤3 owning `.gd` files):**
 - [`docs/AGENTS_ENTRY.md#what-to-do-next`](../../docs/AGENTS_ENTRY.md#what-to-do-next)
 - [`docs/PLANNING.md#work-streams`](../../docs/PLANNING.md#work-streams)
-- agent prompts index above.
+- APIs on demand: [`docs/AGENTS_API.md`](../../docs/AGENTS_API.md)
 
-**Shipped Expand rows:** [`docs/EXPANSION_PLAN.md`](../../docs/EXPANSION_PLAN.md) · [`docs/LIVE_PATHS.md`](../../docs/LIVE_PATHS.md).
+**Shipped Expand rows:** [`docs/EXPANSION_PLAN.md`](../../docs/EXPANSION_PLAN.md) · section anchors in [`docs/LIVE_PATHS.md`](../../docs/LIVE_PATHS.md) (do not open the whole file). Harness lives under `harness/` (Playtest/Audit).
 
 ---
 
@@ -127,12 +127,12 @@ Target: **`PHASE0: PASS`**. Campaign touch: also `.\scripts\run_company_state_ch
 
 **Do not touch:** `world/*`, `main.gd`, economy UI, harness logic outside owning module.
 
-**Do not:** add `FEATURE_*` without user ask · open closed gates (S1–S11, BMI) · edit `.f5_soak_in.txt`. See [`AGENTS.md`](../../AGENTS.md#harness-and-flags) for frozen items policy.
+**Do not:** add `FEATURE_*` without user ask · open closed gates (S1–S11, BMI) · edit `.f5_soak_in.txt`. See [`PLANNING#harness-and-flags`](../../docs/PLANNING.md#harness-and-flags) for frozen items policy.
 
-**Read first:**
-- [`docs/EXPANSION_PLAN.md`](../../docs/EXPANSION_PLAN.md)
-- [`docs/LIVE_PATHS.md`](../../docs/LIVE_PATHS.md)
-- [`AGENTS.md`](../../AGENTS.md) anti-patterns.
+**Read first (section-only):**
+- [`docs/SHIP_PLAN.md#combat-expand-registry`](../../docs/SHIP_PLAN.md#combat-expand-registry)
+- [`docs/LIVE_PATHS.md#phase-4--new-systems-formal-tracks`](../../docs/LIVE_PATHS.md#phase-4--new-systems-formal-tracks) (that section only)
+- [`docs/AGENTS_API.md#anti-patterns`](../../docs/AGENTS_API.md#anti-patterns)
 
 **Escalation:** if you find an issue outside `combat/*`, report it (FINDING/SITES/CANONICAL/FIX format) and do not edit those files. New `FEATURE_*` requires user ask. Hand off to the appropriate stream owner.
 

@@ -5,7 +5,7 @@ extends SceneTree
 ## Prints per-scenario summary reports + per-round details for tuning
 ## gain constants in EntityProficiency.gd.
 
-const _Tail := preload("res://combat/CombatRegressionHarnessProficiency1v1Tail.gd")
+const _Tail := preload("res://harness/CombatRegressionHarnessProficiency1v1Tail.gd")
 
 
 func _init() -> void:

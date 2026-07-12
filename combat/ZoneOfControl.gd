@@ -749,4 +749,3 @@ static func is_combatant_surrounded(manager: Node, combatant_id: int) -> bool:
 				# Single-file formation: all cross-formation hostiles are front.
 				hostile_zones[0] = true
 	return hostile_zones.count(true) >= 2
-    

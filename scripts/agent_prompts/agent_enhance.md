@@ -1,4 +1,4 @@
-Stream: **Enhance**. Go beyond maintain — new combat tiers, medical tuning, docs/tooling, or user-requested features. **User must ask** for closed gates (bleed/BMI/S1-S11/closed IV rows). See [`AGENTS.md`](../../AGENTS.md#harness-and-flags) for frozen items policy.
+Stream: **Enhance**. Go beyond maintain — new combat tiers, medical tuning, docs/tooling, or user-requested features. **User must ask** for closed gates (bleed/BMI/S1-S11/closed IV rows). See [`PLANNING#harness-and-flags`](../../docs/PLANNING.md#harness-and-flags) for frozen items policy.
 
 Bundle: optional second chat alongside [`agent_maintain.md`](agent_maintain.md) when files do not overlap.
 
@@ -10,7 +10,7 @@ Bundle: optional second chat alongside [`agent_maintain.md`](agent_maintain.md) 
 
 Target: **`PHASE0: PASS`**. Campaign touch: also `.\scripts\run_company_state_checks.ps1`.
 
-**Read first:** [`docs/EXPANSION_PLAN.md`](../../docs/EXPANSION_PLAN.md) · [`docs/LIVE_PATHS.md`](../../docs/LIVE_PATHS.md) · [`docs/CAMPAIGN_DECISION_GUIDE.md`](../../docs/CAMPAIGN_DECISION_GUIDE.md) · [`AGENTS.md`](../../AGENTS.md) anti-patterns.
+**Read first (section-only; do not open whole LIVE_PATHS):** [`docs/EXPANSION_PLAN.md`](../../docs/EXPANSION_PLAN.md) · [`docs/SHIP_PLAN.md#combat-expand-registry`](../../docs/SHIP_PLAN.md#combat-expand-registry) · named LIVE_PATHS anchor for your row · [`docs/AGENTS_API.md#anti-patterns`](../../docs/AGENTS_API.md#anti-patterns).
 
 **Do not touch:** `world/*` (unless P2 save lane), `main.gd`, economy UI, `.f5_soak_in.txt` (Playtest exclusive), closed gate constants without user ask.
 

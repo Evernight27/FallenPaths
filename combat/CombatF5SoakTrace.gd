@@ -20,8 +20,8 @@ static func _get_player_turn_hints() -> Variant:
 const _ListedActions := preload("res://combat/CombatListedActions.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
-const _TrackSpecs := preload("res://combat/CombatD001TrackSpecs.gd")
-const _F5Validator := preload("res://combat/CombatF5SoakLogValidator.gd")
+const _TrackSpecs := preload("res://harness/CombatD001TrackSpecs.gd")
+const _F5Validator := preload("res://harness/CombatF5SoakLogValidator.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const _EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
 

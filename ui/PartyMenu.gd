@@ -667,4 +667,3 @@ func _build_field_care_buttons(world: Node2D, m: Dictionary) -> HBoxContainer:
 		)
 		care_btns.add_child(btn_s)
 	return care_btns
-                                           

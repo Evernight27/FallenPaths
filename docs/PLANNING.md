@@ -63,9 +63,9 @@ How work is organized in Fallen Paths. **Entry:** [`AGENTS_ENTRY.md`](AGENTS_ENT
 | Owner | Paths | May read |
 |-------|-------|----------|
 | **Campaign** | `world/CompanyState.gd`, `world/ContractSpawner.gd`, `world/MapBleedPolicy.gd`, `world/MapFieldCare.gd`, `world/*`, `main.gd`, `PartyManager.gd`, `PartySetup.gd`, `ui/PartyMenu.gd`, `ui/PartyRowFormatter.gd`, `ui/SettlementPanel.gd`, `ui/CompanyRunEndPanel.gd`, `ui/CompanyHud.gd`, `world/PartyMemberSnapshot.gd`, `world/EncounterSpawner.gd`, `PlayerCompanionSetup.gd`, `SoakEncounterPresets.gd` (contract rows only) | `combat/*`, `core/*` (APIs only) |
-| **Combat** | `combat/*`, `combat/CombatRegressionHarness*.gd`, `ui/BattleUIUpdater.gd`, `ui/BattleScene.gd`, `ui/BattleUILayout.gd`, `ui/CombatLogFormatter.gd`, `ui/TurnReadyHandler.gd`, `ui/FormationDiagramBuilder.gd`, `character.gd` (combat hooks only) | `world/*` (read-only unless bridge row) |
-| **Combat** (Expand WF) | `combat/CombatWeaponForm.gd`, `CombatRegressionHarnessWeaponFormTail.gd`, `weapon/WeaponConstants.gd`, `combat/CombatUiHints.gd`, `ui/BattleUIUpdater.gd`, `ui/FormationDiagramBuilder.gd` — **WF-1…4 shipped** — maintain per [#wf-footing-improvement-backlog](LIVE_PATHS.md#wf-footing-improvement-backlog) | One maintain row per PR |
-| **Combat** (Tier 4.4 PA maintain) | `combat/CombatFootwork.gd`, `combat/CombatGuardLines.gd`, `combat/GuardLineUpdater.gd`, `combat/DefenseChoiceResolver.gd` — hub [`#wf-tier-44-pa`](LIVE_PATHS.md#wf-tier-44-pa) · octant lookup **shipped** [`#wf-form-guard-pa-matrix`](LIVE_PATHS.md#wf-form-guard-pa-matrix) | **`AttentionFootworkTail._run_footwork_*`** |
+| **Combat** | `combat/*`, `harness/*` (regression/soak), `ui/BattleUIUpdater.gd`, `ui/BattleScene.gd`, `ui/BattleUILayout.gd`, `ui/CombatLogFormatter.gd`, `ui/TurnReadyHandler.gd`, `ui/FormationDiagramBuilder.gd`, `character.gd` (combat hooks only) | `world/*` (read-only unless bridge row) |
+| **Combat** (Expand WF) | `combat/CombatWeaponForm.gd`, `harness/CombatRegressionHarnessWeaponFormTail.gd`, `weapon/WeaponConstants.gd`, `combat/CombatUiHints.gd`, `ui/BattleUIUpdater.gd`, `ui/FormationDiagramBuilder.gd` — **WF-1…4 shipped** — maintain per [#wf-footing-improvement-backlog](LIVE_PATHS.md#wf-footing-improvement-backlog) | One maintain row per PR |
+| **Combat** (Tier 4.4 PA maintain) | `combat/CombatFootwork.gd`, `combat/CombatGuardLines.gd`, `combat/GuardLineUpdater.gd`, `combat/DefenseChoiceResolver.gd` — hub [`#wf-tier-44-pa`](LIVE_PATHS.md#wf-tier-44-pa) · octant lookup **shipped** [`#wf-form-guard-pa-matrix`](LIVE_PATHS.md#wf-form-guard-pa-matrix) | **`AttentionFootworkTail._run_footwork_*`** (under `harness/`) |
 | **Combat** (core sim) | `core/EntityMedical.gd`, `core/EntityHealing.gd`, `core/EntityWounds.gd`, `core/BleedingConstants.gd`, `core/CombatResearchAnchors.gd`, `combat/CombatUiHints.gd`, `weapon/*`, `armor/*` | — |
 | **Campaign** (scripts) | New `scripts/run_company_*` or harness `_run_company_*` only with Combat review | Do not change `run_all_combat_checks.gd` gate order without sync |
 | **Either, one PR** | `character.gd` | Campaign: roster/map hooks · Combat: combat delegate — **not same PR** |
@@ -272,11 +272,15 @@ Mercenary **company loop** → EA **shipped (2026-06-07)** — maintain economy 
 
 | Doc | Role |
 |-----|------|
-| [`PLANNING.md`](PLANNING.md) | This file — glossary · [parallel](PLANNING.md#parallel-agents) · [closed gate index](PLANNING.md#closed-gates) |
-| [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) | Agent entry + decision log |
-| [`SHIP_PLAN.md`](SHIP_PLAN.md) | Camp rows · [§3d build order](SHIP_PLAN.md#camp-1-build-order) · [§9–20 appendices](SHIP_PLAN.md#implementation-reference) |
-| [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) | Closed gate bundle + research appendix ([user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22)) |
+| [`PLANNING.md`](PLANNING.md) | This file — glossary · parallel · ownership · closed gates |
+| [`AGENTS_ENTRY.md`](AGENTS_ENTRY.md) | Agent session entry |
+| [`AGENTS_API.md`](AGENTS_API.md) | On-demand APIs / anti-patterns |
+| [`SHIP_PLAN.md`](SHIP_PLAN.md) | Camp rows · §9b mental stack · §9c Expand |
+| [`CAMPAIGN_DECISION_GUIDE.md`](CAMPAIGN_DECISION_GUIDE.md) | Closed campaign gate bundle |
 | [`LIVE_PATHS.md`](LIVE_PATHS.md) | Shipped combat + Phase 0 + IV list |
-| [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) | Post-EA phases · Exp-0…5 · XCamp shipped rows |
+| [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) | Post-EA phases |
+| [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) | Composure design |
+| [`FEATURE_PRESERVATION.md`](FEATURE_PRESERVATION.md) | Deletion / flag-collapse rules |
+| [`archive/`](archive/README.md) | Historical plans/audits (not entry) |
 | [`scripts/README.md`](../scripts/README.md) | Commands |
-| [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md) | Copy-paste agent prompts (post-Camp-5 default) |
+| [`scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md) | Copy-paste prompts |

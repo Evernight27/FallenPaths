@@ -1251,4 +1251,3 @@ static func escalation_path_for_part(
 		path.append(CombatConstants.MOVE_ID_APPLY_TOURNIQUET)
 	return path
 
-                       

@@ -13,7 +13,7 @@ Target: **`FP_HARNESS_OK: CompanyStateChecks (406 tests)`** (fast path) or **PHA
 
 **Read first:** [`docs/AGENTS_ENTRY.md#what-to-do-next`](../../docs/AGENTS_ENTRY.md#what-to-do-next) · [`docs/PLANNING.md#work-streams`](../../docs/PLANNING.md#work-streams) · [`docs/CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22`](../../docs/CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22).
 
-**Do not touch:** `combat/*` (except shared files below), harness tails, new `FEATURE_*`, closed-gate constants (bleed/BMI). **Shared files** (`CampaignEncounterBridge.gd`, `CombatFlow.gd`): coordinate with Combat agent — one at a time. See [`AGENTS.md`](../../AGENTS.md#harness-and-flags) for frozen items policy and gate API.
+**Do not touch:** `combat/*` (except shared files below), `harness/*`, new `FEATURE_*`, closed-gate constants (bleed/BMI). **Shared files** (`CampaignEncounterBridge.gd`, `CombatFlow.gd`): coordinate with Combat agent — one at a time. See [`PLANNING#harness-and-flags`](../../docs/PLANNING.md#harness-and-flags) for frozen items policy and gate API.
 
 **Camp-5 ☑ 2026-06-07:** headless `_run_camp_5_ea_log_markers` + human F5 (`human_signoff: READY`). Playtest owns `.f5_soak_in.txt`; Phase 0 restores `.f5_soak_in.f5_backup.txt`. Harness P2 uses `CampaignPersistence.begin_harness_isolated_save()` (does not touch production slot).
 
@@ -45,7 +45,7 @@ Target: **`FP_HARNESS_OK: CompanyStateChecks (406 tests)`** (fast path) or **PHA
 <a id="task-p2-save"></a>
 4. **P2 save** — only if I explicitly ask ([`docs/CAMPAIGN_DECISION_GUIDE.md#d-persistence`](../../docs/CAMPAIGN_DECISION_GUIDE.md#d-persistence)).
 
-**Do not:** use inline gate stubs (use `CompanyState.gate_*()` — see [`AGENTS.md`](../../AGENTS.md#harness-and-flags)) · add new economy features without user ask · touch combat harness · edit `combat/*` or harness tails.
+**Do not:** use inline gate stubs (use `CompanyState.read_stub_*` / `gate_*()` — see [`PLANNING#harness-and-flags`](../../docs/PLANNING.md#harness-and-flags)) · add new economy features without user ask · touch `harness/*` · edit `combat/*` except shared bridge files.
 
 **If gate was green at start but fails after your change:** revert the change, re-run gate to confirm it was your edit that broke it, then report with FINDING/SITES/CANONICAL/FIX format. Do not chase harness failures present at session start unless the failing harness is in your owning module.
 

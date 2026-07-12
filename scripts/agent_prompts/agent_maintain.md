@@ -8,7 +8,7 @@ Stream: **Maintain**. Post–Camp-5 default — keep shipped combat, campaign, a
 
 Target: **`PHASE0: PASS`**. When a maintain row references campaign (`agent_campaign.md` [economy UX copy](agent_campaign.md#task-economy-ux-copy)), also run `.\scripts\run_company_state_checks.ps1` + `.\scripts\run_campaign_ship_audit.ps1`.
 
-**Read first:** [`docs/AGENTS_ENTRY.md#what-to-do-next`](../../docs/AGENTS_ENTRY.md#what-to-do-next) · [`docs/PLANNING.md#work-streams`](../../docs/PLANNING.md#work-streams) · [`AGENTS.md`](../../AGENTS.md) canonical APIs.
+**Read first (section-only; ≤3 owning `.gd` files):** [`docs/AGENTS_ENTRY.md#what-to-do-next`](../../docs/AGENTS_ENTRY.md#what-to-do-next) · [`docs/PLANNING.md#work-streams`](../../docs/PLANNING.md#work-streams) · APIs on demand: [`docs/AGENTS_API.md#canonical-apis`](../../docs/AGENTS_API.md#canonical-apis).
 
 ---
 
@@ -54,7 +54,7 @@ Target: **`PHASE0: PASS`**. When a maintain row references campaign (`agent_camp
 
 **Do not touch:** `world/*` (economy UI, CampaignPersistence), `main.gd`, closed gate constants, economy `read_stub_*` wiring. For shared files (`CampaignEncounterBridge.gd`, `CombatFlow.gd`) coordinate with Campaign agent — one at a time.
 
-**Do not:** add new `FEATURE_*` · change closed-gate constants without user ask · edit harness logic outside owning module · change campaign gate constants inline. See [`AGENTS.md`](../../AGENTS.md#harness-and-flags) for frozen items policy.
+**Do not:** add new `FEATURE_*` · change closed-gate constants without user ask · edit harness logic outside owning module · change campaign gate constants inline. See [`PLANNING#harness-and-flags`](../../docs/PLANNING.md#harness-and-flags) for frozen items policy.
 
 **Escalation:** if you find an issue in files outside your owning module, report it (FINDING/SITES/CANONICAL/FIX format) and do not edit those files. Hand off to the appropriate stream owner.
 

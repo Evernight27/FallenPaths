@@ -13,7 +13,7 @@ Target: **`PHASE0: PASS`** + `FP_HARNESS_OK`. If hygiene only touches docs/scrip
 
 **Own:** `.gitignore`, untracked duplicates, editor artifacts, stale prompt/doc mirrors, `scripts/README.md` inventory rows.
 
-**Read first:** [`AGENTS.md`](../../AGENTS.md) code homes · [`docs/PLANNING.md#file-ownership`](../../docs/PLANNING.md#file-ownership) · [`scripts/README.md`](../README.md) on-disk script inventory.
+**Read first:** [`AGENTS.md`](../../AGENTS.md) code homes · [`docs/PLANNING.md#file-ownership`](../../docs/PLANNING.md#file-ownership) · [`scripts/README.md`](../README.md) on-disk script inventory · [`docs/FEATURE_PRESERVATION.md`](../../docs/FEATURE_PRESERVATION.md).
 
 **Do not touch:** `combat/*`, `world/*`, `core/*` production `.gd` (except proven byte-identical dupes after `git diff`).
 

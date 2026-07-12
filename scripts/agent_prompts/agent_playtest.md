@@ -9,7 +9,7 @@ Stream: **Playtest**. **On demand** — F5 append, validator regression, Q audit
 
 Target: validator exit 0 + **`human_signoff: READY`**.
 
-**Read first:** [`docs/AGENTS_ENTRY.md#what-to-do-next`](../../docs/AGENTS_ENTRY.md#what-to-do-next) · [`docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers`](../../docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers).
+**Read first:** [`docs/AGENTS_ENTRY.md#what-to-do-next`](../../docs/AGENTS_ENTRY.md#what-to-do-next) · [`docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers`](../../docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers). Edit soak runners/validators under `harness/`.
 
 **Do not touch:** `combat/*` or `world/*` production code. Report failures to Combat/Campaign agents.
 

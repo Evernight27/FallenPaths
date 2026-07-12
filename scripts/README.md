@@ -4,11 +4,13 @@ Phase 0: `.\scripts\run_all_combat_checks.ps1` (do not pipe stdout to `grep`). *
 
 ## Godot entry
 
-Harness scripts require a **Godot 4.x stable** headless binary. Resolution order:
-1. `$GODOT` environment variable (any Godot 4.x stable)
-2. `e:\Godot_v4.7-stable_win64.exe` (Windows) / `E:\Godot_v4.7-stable_win64.exe` (WSL/bash)
+Godot **4.x stable** headless. Override anytime with `$GODOT` / `$env:GODOT`.
 
-To use a different binary: set `$env:GODOT` (PowerShell) or `$GODOT` (bash) before running harness scripts, or place your Godot 4.x stable build at one of the paths above. Download from https://godotengine.org/download/windows/ — choose **Godot 4.x.stable** (not beta/rc).
+| Platform | Default resolution (`scripts/_godot.sh` / `Invoke-GodotHeadless.ps1`) |
+|----------|-----------------------------------------------------------------------|
+| **Linux** | PATH (`godot4`/`godot`) → Steam `…/steamapps/common/Godot*` → Flathub `org.godotengine.Godot` (`godot_via_flatpak.sh`) |
+| **Windows** | `E:\Godot_v4.7-stable_win64.exe` |
+| **macOS** | `/Applications/Godot.app/Contents/MacOS/Godot` |
 
 `run_all_combat_checks.gd` — set **`FP_HARNESS_MODE`** (`all` default · `regression` · `d001` · `sanity` · `calibration` · `medical`).
 

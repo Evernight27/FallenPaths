@@ -4,12 +4,12 @@ extends SceneTree
 ## Phase 0: **`run_all_combat_checks.ps1`** / **`.sh`**. Q track: mode **`q_track`**. F5 validate: **`f5_validate`** (+ optional path after **`--`**). Camp smokes batch: **`f5_validate_camp_smokes`**.
 
 const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _D001Runner := preload("res://combat/CombatD001SoakRunner.gd")
-const _CalibrationAudit := preload("res://combat/CombatCalibrationAudit.gd")
-const _SoakSanity := preload("res://combat/CombatD001SoakSanity.gd")
-const _MedicalPhaseTail := preload("res://combat/CombatRegressionHarnessMedicalPhaseTail.gd")
-const _F5Validator := preload("res://combat/CombatF5SoakLogValidator.gd")
-const _QTrack := preload("res://combat/CombatQTrackAudits.gd")
+const _D001Runner := preload("res://harness/CombatD001SoakRunner.gd")
+const _CalibrationAudit := preload("res://harness/CombatCalibrationAudit.gd")
+const _SoakSanity := preload("res://harness/CombatD001SoakSanity.gd")
+const _MedicalPhaseTail := preload("res://harness/CombatRegressionHarnessMedicalPhaseTail.gd")
+const _F5Validator := preload("res://harness/CombatF5SoakLogValidator.gd")
+const _QTrack := preload("res://harness/CombatQTrackAudits.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 const HARNESS_NAME := "AllCombatChecks"
 const MEDICAL_FAST_NAME := "MedicalPhaseHarness"

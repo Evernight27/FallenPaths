@@ -15,7 +15,7 @@ Targets: **`PHASE0: PASS`** + **`CAMPAIGN_SHIP_AUDIT: PASS (headless)`** (or **`
 
 **Do not touch:** `.f5_soak_in.txt` · closed-gate constants (bleed/BMI) · pick-pipeline refactor · new `FEATURE_*` · economy gate constants.
 
-**Read first:** [`AGENTS.md`](../../AGENTS.md) anti-patterns · [`docs/LIVE_PATHS.md#harness-prefixes`](../../docs/LIVE_PATHS.md#harness-prefixes) · [`docs/PLANNING.md#file-ownership`](../../docs/PLANNING.md#file-ownership).
+**Read first:** [`docs/AGENTS_API.md#anti-patterns`](../../docs/AGENTS_API.md#anti-patterns) · [`docs/LIVE_PATHS.md#harness-prefixes`](../../docs/LIVE_PATHS.md#harness-prefixes) · [`docs/PLANNING.md#file-ownership`](../../docs/PLANNING.md#file-ownership). Harness under `harness/`.
 
 ---
 

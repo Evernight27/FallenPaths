@@ -75,7 +75,7 @@ const PERSISTENCE_MODE: String = "P2"
 const P2_RESTORE_ON_MAIN_RESTART: bool = true
 const WORLD_META_CAMPAIGN_RESTORED_FROM_SAVE: String = "campaign_restored_from_save"
 
-## XCamp-4: use-based stat proficiency system (disabled by default, harness gate).
+## XCamp-4: use-based stat proficiency system (enabled by default; harness may gate).
 static var PROFICIENCY_ENABLED: bool = true
 
 const RENOWN_PAY_SCALE: float = 0.05

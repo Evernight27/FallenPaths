@@ -444,4 +444,3 @@ static func _deep_dup(value: Variant) -> Variant:
 	if value is Array:
 		return (value as Array).duplicate(true)
 	return value
-            
