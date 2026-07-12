@@ -54,7 +54,7 @@ Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`
 | `append_f5_soak_log.ps1` / `.sh` | Merge chunk into `.f5_soak_in.txt` then **`validate_f5_soak_log`** — **`-Label camp5_*`** auto-runs preflight; **`-Preflight`** / **`--preflight`** explicit |
 | `validate_f5_soak_log.ps1` | Parse `.f5_soak_in.txt` (or **`-LogPath`**); **`-Quiet`** for wrappers (do not pipe script to `Out-Null` on Windows). Normalizes Windows CRLF before grep; **WF-M3** + **Camp** + optional **`camp_*`** — smoke: **`docs/f5_soak_log.camp_wf.example.txt`** · **`docs/f5_soak_log.camp_full.example.txt`** · per-step: **`docs/camp_optional_step_smokes/`** · step-9 append: **`docs/f5_soak_log.camp_step9_optional.example.txt`** |
 | `validate_camp_optional_smokes.ps1` / `.sh` | Playtest — headless **`camp_*`** regression on all **`docs/camp_optional_step_smokes/*.txt`**; restores **`.f5_soak_in.txt`** validation when present; prints **`EXP_0_2_OPTIONAL: PASS`** when human paste has steps 4, 8 paid, 9, 10 |
-| `run_exp0_playtest_gate.ps1` / `.sh` | **Exp-0.2** — optional smokes + **`-HumanSignOff`** closeout (prereq: Phase 0 green); **`--skip-closeout`** smokes only |
+| `run_playtest.sh exp0` (wrapper: `run_exp0_playtest_gate`) | **Exp-0.2** optional smokes + closeout; `--skip-closeout` smokes only |
 | `run_q_audit.ps1 -Track Q1\|Q2\|Track` | Playtest stream — headless audits (**Q1/Q2** = soak scenario ids) |
 | `run_q_track_audits.gd` (via `run_q_audit.ps1`) | Q4 **ii8** proxies D-001 (`formation_mode`, `turn_ready_gauge`, `tooltip_match_ok`, `diagram_banner`, **`form_*`** suffix content) — see [#wf-soak-audit-status](../docs/LIVE_PATHS.md#wf-soak-audit-status) |
 | `run_q_feel.ps1` / `run_q_feel.sh` `-Track Camp` / `Camp` | Playtest — F5 checklists (**Camp** = SHIP_PLAN §8 step 12 **WF-M3** + `.f5_soak_in.txt` scan + **`validate_f5_soak_log`**) |
@@ -63,17 +63,12 @@ Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`
 | `print_phase0_status.ps1` / `.sh` | Summarize `.phase0_*` / `.d001_*` / calibration + Camp-5 headless vs human F5 status |
 | `check_doc_links.ps1` | Doc link + tombstone gate + `res://` path audit (also run inside Phase 0) |
 | `run_fast_phase0.ps1` | Fast Phase 0 — doc links + company state + regression harness only (no D001 soak / calibration); **-Full** = same as `run_all_combat_checks`, **-D001Light** = adds D001 light (~2-4 min vs ~8-12 min). No `.sh` twin. |
-| `rebuild_f5_maintained_paste.ps1` / `.sh` | Rebuild maintained human F5 paste from **`followup.log`** + standard append plan (Playtest stream); **-BaselineFrom**, **-SkipPreflight**, **-HumanSignOff**, **-DryRun** |
-| `run_playtest_merge_gaps.ps1` / `.sh` | Merge known validator gaps into `.f5_soak_in.txt` — reads `.f5_soak_validation.txt`, appends smoke/bundle chunks for missing tracks (no Phase 0) |
-| `run_playtest_after_append.ps1` / `.sh` | Append F5 chunk then safe re-validate — **`-AppendFrom`** required; optional **-Label**, **-HumanSignOff**, **-SkipCloseout** (no Phase 0) |
-| `run_playtest_recover.ps1` / `.sh` | Recover human F5 paste after Phase 0 clobber + merge validator gaps — restores backup, optional **-ForceRestore** (no Phase 0) |
-| `run_playtest_revalidate.ps1` / `.sh` | Safe Playtest re-validate — human paste + optional smokes + closeout; **-HumanSignOff**, **-SkipSmokes**, **-SkipCloseout**, **-Exp0Gate** (no Phase 0) |
-| `run_playtest_full_gate.ps1` / `.sh` | Full Playtest closeout (no Phase 0): merge gaps + revalidate + optional Exp-0.2 smokes gate; **-DryRun**, **-HumanSignOff**, **-SkipExp0** |
-| `run_playtest_status.ps1` / `.sh` | Fast Playtest status — reads `.f5_soak_validation.txt`; **-Refresh** runs Godot validator, **-ShowGaps**, **-SmokeLabels**, **-Quiet** (no Phase 0) |
+| `run_playtest.sh` / `.ps1` | **Playtest dispatcher** (no Phase 0): `status` · `merge` · `revalidate` · `recover` · `after-append` · `full` · `exp0` · `rebuild`. Thin `run_playtest_*.sh` / `run_exp0_*` / `rebuild_f5_*` wrappers remain for old paths. |
 
 ## Internals
 
 - `_lib.sh` — bash bootstrap (`_godot.sh` + `f5_soak_log_helpers.sh`)
+- `run_playtest.sh` / `.ps1` — playtest subcommand dispatcher
 - `Invoke-GodotHeadless.ps1` / `_godot.sh` — Godot resolve
 - `F5SoakLogHelpers.ps1` / `f5_soak_log_helpers.sh` — F5 backup, validate, gap merge, preflight
 - `check_doc_links.py` — single implementation (`.sh` / `.ps1` wrappers)

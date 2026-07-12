@@ -214,8 +214,11 @@ f5_stop_stuck_godot() { pkill -f "Godot" 2>/dev/null || true; }
 
 f5_invoke_camp_smokes_batch() {
 	local root="$1" godot batch code
-	# shellcheck source=_godot.sh
-	source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_godot.sh"
+	# Prefer already-loaded fp_godot_bin from _lib.sh / _godot.sh.
+	if ! declare -F fp_godot_bin >/dev/null 2>&1; then
+		# shellcheck source=_godot.sh
+		source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_godot.sh"
+	fi
 	godot="$(fp_godot_bin)" || return 127
 	batch="$(f5_camp_smokes_batch_path "$root")"
 	rm -f "$batch"
