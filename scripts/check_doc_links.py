@@ -102,13 +102,7 @@ def collect_explicit_anchors(path: Path) -> set[str]:
     return set(ANCHOR_ID_PATTERN.findall(text))
 
 
-def collect_tombstones() -> list[str]:
-    live_paths = DOCS / "LIVE_PATHS.md"
-    if not live_paths.is_file():
-        return []
-    text = live_paths.read_text(encoding="utf-8")
-    start = text.find("## Redirects")
-    section = text[start:] if start >= 0 else ""
+def _tombstone_names_from_text(section: str) -> list[str]:
     names: list[str] = []
     for raw in REDIRECT_CELL.findall(section):
         raw = raw.strip()
@@ -119,6 +113,21 @@ def collect_tombstones() -> list[str]:
             if " (" in raw:
                 raw = raw.split(" (", 1)[0].strip()
             names.append(raw)
+    return names
+
+
+def collect_tombstones() -> list[str]:
+    """Tombstones from LIVE_PATHS redirects + archive/REDIRECTS.md (full table)."""
+    names: list[str] = []
+    live_paths = DOCS / "LIVE_PATHS.md"
+    if live_paths.is_file():
+        text = live_paths.read_text(encoding="utf-8")
+        start = text.find("## Redirects")
+        if start >= 0:
+            names.extend(_tombstone_names_from_text(text[start:]))
+    redirects = DOCS / "archive" / "REDIRECTS.md"
+    if redirects.is_file():
+        names.extend(_tombstone_names_from_text(redirects.read_text(encoding="utf-8")))
     return names
 
 
