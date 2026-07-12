@@ -20,7 +20,7 @@ Flat folders by name prefix. Production: `combat/`. Regression/soak: `harness/` 
 | `weapon/`, `armor/`, `species/` | Data |
 | Root | `main.gd`, `main.tscn`, `character.gd`, `PartyManager.gd` |
 | `scripts/` | Phase 0 / audits · [`agent_prompts/`](scripts/agent_prompts/README.md) |
-| `docs/` | Planning · [`archive/`](docs/archive/README.md) history |
+| `docs/` | Planning |
 
 Playtest artifacts (gitignored): `.f5_soak_in.txt`, `.phase0_combat_checks.txt`, `.d001_*` — one agent at a time ([`scripts/README.md`](scripts/README.md)).
 

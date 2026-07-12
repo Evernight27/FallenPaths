@@ -2,7 +2,7 @@
 
 <a id="milestone-summary"></a>
 
-**Section-only — do not open whole file.** History: [`archive/LIVE_PATHS_HISTORY.md`](archive/LIVE_PATHS_HISTORY.md) · WF detail: [`archive/WF_LIVE.md`](archive/WF_LIVE.md) · III-4: [`archive/III4_LIVE.md`](archive/III4_LIVE.md).
+**Section-only — do not open whole file.**
 
 Entry: [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · Expand: [#phase-4--new-systems-formal-tracks](#phase-4--new-systems-formal-tracks) · WF map: [#wf-footing-doc-map](#wf-footing-doc-map) · tombstones: [#redirects-tombstones](#redirects-tombstones).
 
@@ -157,7 +157,7 @@ On stack pick: stamps **`COMBATANT_KEY_MENTAL_STACK_LAYER`**. **`try_pick`** cle
 
 #### Mental stack — Expand backlog (realistic influence, no player targets)
 
-**Shipped:** MS-L5 plug ☑ · MS-L6 rout ☑ · MS-L7 exhaustion tunnel ☑ · MS-L8 post-strike momentum ☑ · Feint resistance hard block ☑ · Exhaustion gradient (gradual descent) ☑ · Positional awareness / surrounded disengage ☑ · Medical escalation TCCC ladder ☑. Spec archive: [`archive/MENTAL_STACK_IMPROVEMENT_PLAN.md`](archive/MENTAL_STACK_IMPROVEMENT_PLAN.md).
+**Shipped:** MS-L5 plug ☑ · MS-L6 rout ☑ · MS-L7 exhaustion tunnel ☑ · MS-L8 post-strike momentum ☑ · Feint resistance hard block ☑ · Exhaustion gradient (gradual descent) ☑ · Positional awareness / surrounded disengage ☑ · Medical escalation TCCC ladder ☑.
 
 | Item | Intent | Module | Status |
 |------|--------|--------|--------|
@@ -172,30 +172,20 @@ On stack pick: stamps **`COMBATANT_KEY_MENTAL_STACK_LAYER`**. **`try_pick`** cle
 | Medical mid-fight | If in-fight ally aid is listed later, L1 already coordinated | `CombatMedicalActionListing` | Deferred |
 | Campaign traits | Morale / stress → layer thresholds (post Camp-5) | bridge meta, not `CompanyState` in `combat/*` | Deferred |
 
-Harness: `CombatRegressionHarnessAttentionFootworkTail` — full `_run_mental_stack_*` list in [§G](#g-feature-flags-combatconstantsgd). Ship plan: [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped). Spec archive: [`archive/MENTAL_STACK_IMPROVEMENT_PLAN.md`](archive/MENTAL_STACK_IMPROVEMENT_PLAN.md).
+Harness: `CombatRegressionHarnessAttentionFootworkTail` — full `_run_mental_stack_*` list in [§G](#g-feature-flags-combatconstantsgd). Ship plan: [`SHIP_PLAN` §9b](SHIP_PLAN.md#combat-mental-stack-shipped).
 
 **Footing boundary:** **MS-L4** (`hold_line` stamp) chooses **listed moves** only — it does **not** write **`guard_line`**, **`position_angle_offset_deg`**, or **`weapon_form`**. Reserve posture is orthogonal to WF L2–L3 and Tier 4.4 PA — [#wf-layer-labels](#wf-layer-labels) · [#wf-pick-vs-strike](#wf-pick-vs-strike) · [#wf-footing-guards-stances](#wf-footing-guards-stances).
 
 ### E. Passive defense (separate from turn pick)
 
-Detail → [`archive/LIVE_PATHS_HISTORY.md`](archive/LIVE_PATHS_HISTORY.md).
-
 ### F. Combatant dict keys (Tier 4.3 — do not rename without harness + F5)
 
-Detail → [`archive/LIVE_PATHS_HISTORY.md`](archive/LIVE_PATHS_HISTORY.md).
-
 ### G. Feature flags (`CombatConstants.gd`)
-
-Detail → [`archive/LIVE_PATHS_HISTORY.md`](archive/LIVE_PATHS_HISTORY.md).
 
 <a id="tier-44-spatial-footwork-deferred"></a>
 ### H. Campaign ↔ combat boundaries (ship)
 
-Detail → [`archive/LIVE_PATHS_HISTORY.md`](archive/LIVE_PATHS_HISTORY.md).
-
 ### I. Safe extension checklist
-
-Detail → [`archive/LIVE_PATHS_HISTORY.md`](archive/LIVE_PATHS_HISTORY.md).
 
 <a id="tier-5--kinematic-delivery"></a>
 <a id="closed-simulation-s11"></a>
@@ -270,7 +260,7 @@ Literal mL · layer tissue · material curves · ATLS consciousness · absolute 
 
 **TTD:** `(blood_volume − threshold) / (rate × BLOOD_LOSS_RATE_MULTIPLIER × loss_mult)` → default **~48 s**; tune mult for **30–120 s** band. **Sustained direct pressure** uses TCCC retained-flow fractions (**venous ~10%**, **arterial ~50%** of intrinsic wound rate for blood-loss integration) plus faster local clotting k (`CLOTTING_RATE_UNDER_DIRECT_PRESSURE`); constant-rate halving anchor (`clinical_ttd_seconds(0.5)`) ≈ **2×** TTD is the research gate only — live sim includes clotting `exp(-k×Δt)`.
 
-**Field care:** `MapFieldCare` (pressure → bandage → stabilize). **Camp rest:** `CompanyState.try_camp_heal`. Detail → archive.
+**Field care:** `MapFieldCare` (pressure → bandage → stabilize). **Camp rest:** `CompanyState.try_camp_heal`.
 
 <a id="5-literal-blood-volume-ml"></a>
 
@@ -304,13 +294,13 @@ Literal mL · layer tissue · material curves · ATLS consciousness · absolute 
 
 ## Composure (shipped)
 
-Continuous 0–100 gauge: fill 25/s WAITING · 8/s RECOVERING · cost at wind-up · quality/parry scale with gauge · wait does not zero. APIs: [`AGENTS_API`](AGENTS_API.md) · design archive: [`archive/COMPOSURE_PLAN.md`](archive/COMPOSURE_PLAN.md) · stub: [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md).
+Continuous 0–100 gauge: fill 25/s WAITING · 8/s RECOVERING · cost at wind-up · quality/parry scale with gauge · wait does not zero. APIs: [`AGENTS_API`](AGENTS_API.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md).
 
 <a id="muscle-fatigue-phase-2"></a>
 
 ## Muscle fatigue (shipped)
 
-Per-limb exertion pools — **not** composure, **not** whole-body breath. Owner: `combat/CombatMuscleFatigue.gd` · flag `FEATURE_MUSCLE_GROUP_FATIGUE` · harness `harness/CombatRegressionHarnessMuscleFatigueTail.gd`. Design archive: [`archive/MUSCLE_FATIGUE_PLAN.md`](archive/MUSCLE_FATIGUE_PLAN.md).
+Per-limb exertion pools — **not** composure, **not** whole-body breath. Owner: `combat/CombatMuscleFatigue.gd` · flag `FEATURE_MUSCLE_GROUP_FATIGUE` · harness `harness/CombatRegressionHarnessMuscleFatigueTail.gd`.
 
 <a id="battle-ui"></a>
 
@@ -436,7 +426,7 @@ Maintain Phase 0 · mental stack · Camp-2/3 medical UX · WF harness. Frozen: b
 
 ### III-4 — Engagement geometry (Track A ☑)
 
-Mapped opposition · Skirmish compact/rotate · L4+close · mop-up **3e**. Track B = IV-9 Expand. Full audit/PR history: [`archive/III4_LIVE.md`](archive/III4_LIVE.md).
+Mapped opposition · Skirmish compact/rotate · L4+close · mop-up **3e**. Track B = IV-9 Expand.
 
 <a id="p4-playbooks-expansion"></a>
 <a id="expansion-backlog-p4-playbooks"></a>
@@ -446,8 +436,6 @@ Mapped opposition · Skirmish compact/rotate · L4+close · mop-up **3e**. Track
 | ID | Status |
 |----|--------|
 | p4a–p4h | Mostly ☑ — maintain / threshold tune only |
-
-Detail → [`archive/LIVE_PATHS_HISTORY.md`](archive/LIVE_PATHS_HISTORY.md).
 
 <a id="phase-4--new-systems-formal-tracks"></a>
 
@@ -520,8 +508,6 @@ Open queue: [`EXPANSION_PLAN`](EXPANSION_PLAN.md). Policy: [`SHIP_PLAN` §9c](SH
 
 **PA:** `CombatFootwork.guard_angle_deg` at contact · clear on exchange end. **Soak:** ii5c + ii8. **WF-M3:** Step → Grd/Atk → Form on `turn_ready_gauge`. **MS-CAMP:** mood → pick bias (`CombatCampaignMoodBias`).
 
-Essays / module API / PR catalogs → [`archive/WF_LIVE.md`](archive/WF_LIVE.md).
-
 ## Legacy anchors (redirect targets)
 
 <a id="development-gate-sector-surround-load-temporary"></a>
@@ -576,13 +562,9 @@ Status for shipped tiers → sections above · forward work → [AGENTS_ENTRY#wh
 
 ## Redirects (deleted `docs/*.md`)
 
-**Canonical on disk:** [`PLANNING`](PLANNING.md) · [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · [`AGENTS_API`](AGENTS_API.md) · [`SHIP_PLAN`](SHIP_PLAN.md) · [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE`](CAMPAIGN_DECISION_GUIDE.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md) · [`FEATURE_PRESERVATION`](FEATURE_PRESERVATION.md) · this file. History: [`archive/`](archive/README.md). Full tombstone table: [`archive/REDIRECTS.md`](archive/REDIRECTS.md).
+Canonical live docs: [`PLANNING`](PLANNING.md) · [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · [`AGENTS_API`](AGENTS_API.md) · [`SHIP_PLAN`](SHIP_PLAN.md) · [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE`](CAMPAIGN_DECISION_GUIDE.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md) · [`FEATURE_PRESERVATION`](FEATURE_PRESERVATION.md) · this file.
 
-| File | Anchor |
-|------|--------|
-| `COMPOSURE_PLAN.md` (design) | [`archive/COMPOSURE_PLAN.md`](archive/COMPOSURE_PLAN.md) · stub [`COMPOSURE_PLAN.md`](COMPOSURE_PLAN.md) · [#composure-rework](#composure-rework) |
-| `EXPANSION_PLAN.md` (history) | [`archive/EXPANSION_PLAN.md`](archive/EXPANSION_PLAN.md) · open queue [`EXPANSION_PLAN.md`](EXPANSION_PLAN.md) |
-| Other deleted docs | [`archive/REDIRECTS.md`](archive/REDIRECTS.md) |
+Deleted plan names must not reappear under `docs/`. Prefer section anchors in this file or `SHIP_PLAN` / `EXPANSION_PLAN`.
 
 <a id="wf-footing-terminology"></a>
 
@@ -608,8 +590,7 @@ Status for shipped tiers → sections above · forward work → [AGENTS_ENTRY#wh
 
 
 
-Unresolved deep links resolve here; prose → archive.
-
+Unresolved deep links resolve here.
 <a id="wf-1b-shipped"></a>
 <a id="wf-1c-shipped"></a>
 <a id="wf-2-open"></a>

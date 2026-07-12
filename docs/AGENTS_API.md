@@ -60,7 +60,7 @@ Use these names in new code — avoid duplicating membership tests, manager priv
 | L3 guard line for UI / parry step | `CombatUiHints.active_line_for_ui` · live **`guard_line`** on dict (writers per **`GuardLineUpdater`**) |
 | Wait / focus form bias | `CombatWeaponForm.wait_action_weight_mult` · `preferred_guards` · `CombatConstants.AI_FOCUS_LINE_FORM_PREFERRED_MULT` |
 | Composure (gauge) fill | `CombatConstants.COMPOSURE_FILL_WAITING` (25/s) · `COMPOSURE_FILL_RECOVERING` (8/s) — set in `CombatStateHandlers.process_waiting` / `process_recovering` |
-| Composure cost deduction | `AttackWindUpStarter._resolve_composure_cost(move_id)` at wind-up start — `gauge = maxf(0, gauge_pre - cost)` · design table archive [`COMPOSURE_PLAN` §3C](archive/COMPOSURE_PLAN.md#3c--cost-deduction-at-wind-up-start) |
+| Composure cost deduction | `AttackWindUpStarter._resolve_composure_cost(move_id)` at wind-up start — `gauge = maxf(0, gauge_pre - cost)` · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md#3c--cost-deduction-at-wind-up-start) |
 | Composure-based quality | `CombatTiming.gd` quality scaling: `1.5 - 0.5 × (gauge_pre / 100)` on wind-up duration · `DefenseChoiceResolver` parry_p_a scaling `0.6 + 0.4 × (gauge_pre / 100)` |
 | Parry lockout | `CombatConstantsParry.OFF_BALANCE_DURATION_S` (0.4s) — set on parry_deflect in `AttackResultApplier`, gated in `DefenseChoiceResolver` |
 | Under attack check | `CombatantEntityAccess.is_combatant_threatened(manager, id)` — scans WIND_UP combatants for pending_attack targeting this id |

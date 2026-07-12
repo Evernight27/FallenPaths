@@ -2,7 +2,7 @@
 
 **Start:** [User bundle](#user-bundle-2026-05-22) · [`CompanyState`](../world/CompanyState.gd) · [§19](SHIP_PLAN.md#implementation-stubs) · [decision log](SHIP_PLAN.md#decision-log).
 
-Closed-gate defaults, §12 economy, or **new gates** (const + `read_stub_*` + decision-log line). Optional: [**P2** save](#d-persistence). Research essays: [`archive/CAMPAIGN_GATE_RESEARCH.md`](archive/CAMPAIGN_GATE_RESEARCH.md).
+Closed-gate defaults, §12 economy, or **new gates** (const + `read_stub_*` + decision-log line). Optional: [**P2** save](#d-persistence).
 
 ---
 
@@ -44,11 +44,11 @@ Consts in `CompanyState`; `read_stub_*()` forwards ([SHIP_PLAN §19](SHIP_PLAN.m
 
 <a id="affliction-rng-medieval-alignment"></a>
 
-**Affliction RNG:** peril 30% · danger 12% · bone cripple 45% · max one per fight · mood −1.35 on permanent. Detail → archive.
+**Affliction RNG:** peril 30% · danger 12% · bone cripple 45% · max one per fight · mood −1.35 on permanent.
 
 <a id="b3-desertion-integration-points"></a>
 
-**B3 desertion:** `company_mood` ≤ 15 → 5%/day desertion (leader exempt). Empty roster → bankrupt modal. Detail → archive.
+**B3 desertion:** `company_mood` ≤ 15 → 5%/day desertion (leader exempt). Empty roster → bankrupt modal.
 
 ---
 
@@ -64,7 +64,7 @@ Consts in `CompanyState`; `read_stub_*()` forwards ([SHIP_PLAN §19](SHIP_PLAN.m
 
 ## Gate notes
 
-Pros/cons / literature for each D-* → [`archive/CAMPAIGN_GATE_RESEARCH.md`](archive/CAMPAIGN_GATE_RESEARCH.md).
+Each D-* choice is closed in the [user bundle](#user-bundle-2026-05-22); consts in [#d-persistence](#d-persistence) / [SHIP_PLAN §19](SHIP_PLAN.md#implementation-stubs).
 
 <a id="d-persistence"></a>
 

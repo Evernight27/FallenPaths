@@ -4,7 +4,7 @@
 Canonical implementation for check_doc_links.ps1 / .sh (Phase 0).
 Standalone res-path audit: python3 scripts/check_doc_links.py --res-paths-only
 
-Scans: docs/*.md (not archive/), AGENTS.md, README.md, scripts/**/*.md.
+Scans: docs/*.md, AGENTS.md, README.md, scripts/**/*.md.
 Optional anchor check for a small allowlist of agent-critical ids.
 """
 from __future__ import annotations
@@ -77,7 +77,6 @@ def resolve_link(from_file: Path, target: str) -> Path:
 
 def markdown_files_to_scan() -> list[Path]:
     files: list[Path] = []
-    # Active docs only — archive/ is historical and may have stale relatives
     files.extend(sorted(DOCS.glob("*.md")))
     for name in ("AGENTS.md", "README.md"):
         p = ROOT / name
@@ -117,18 +116,15 @@ def _tombstone_names_from_text(section: str) -> list[str]:
 
 
 def collect_tombstones() -> list[str]:
-    """Tombstones from LIVE_PATHS redirects + archive/REDIRECTS.md (full table)."""
-    names: list[str] = []
+    """Tombstones from LIVE_PATHS redirects section."""
     live_paths = DOCS / "LIVE_PATHS.md"
-    if live_paths.is_file():
-        text = live_paths.read_text(encoding="utf-8")
-        start = text.find("## Redirects")
-        if start >= 0:
-            names.extend(_tombstone_names_from_text(text[start:]))
-    redirects = DOCS / "archive" / "REDIRECTS.md"
-    if redirects.is_file():
-        names.extend(_tombstone_names_from_text(redirects.read_text(encoding="utf-8")))
-    return names
+    if not live_paths.is_file():
+        return []
+    text = live_paths.read_text(encoding="utf-8")
+    start = text.find("## Redirects")
+    if start < 0:
+        return []
+    return _tombstone_names_from_text(text[start:])
 
 
 def check_doc_links() -> tuple[int, list[str]]:

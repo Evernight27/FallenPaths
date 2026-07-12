@@ -1,7 +1,7 @@
 class_name CombatRegressionHarnessTargeting1v1Tail
 extends RefCounted
 
-## 1v1 targeting validation harness for docs/archive/TARGETING_RESEARCH.md soak calibration.
+## 1v1 targeting validation harness (soak calibration).
 ## Runs short (3-exchange) strikes per weapon and logs aim=part distributions.
 ## Usage: run() from CombatRegressionHarness.run_all() or invoke run_tuning_all() manually.
 ## Each scenario fires exactly 3 exchanges (player→enemy, enemy→player = 2 attacks each).
