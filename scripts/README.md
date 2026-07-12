@@ -73,11 +73,11 @@ Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`
 
 ## Internals
 
-- `Invoke-GodotHeadless.ps1` — `GODOT` resolve + headless invoke
-- `_godot.sh` — bash equivalent (source only)
-- `check_doc_links.ps1` / `.sh` / `.py` — doc link + tombstone + `res://` path gate
-- `F5SoakLogHelpers.ps1` / `f5_soak_log_helpers.sh` — shared F5 log path, backup, CRLF decode (dot-source from Phase 0 / validator / append / restore runners)
+- `_lib.sh` — bash bootstrap (`_godot.sh` + `f5_soak_log_helpers.sh`)
+- `Invoke-GodotHeadless.ps1` / `_godot.sh` — Godot resolve
+- `F5SoakLogHelpers.ps1` / `f5_soak_log_helpers.sh` — F5 backup, validate, gap merge, preflight
+- `check_doc_links.py` — single implementation (`.sh` / `.ps1` wrappers)
+- `ci_ensure_godot.sh` — CI Godot download
+- `.shellcheckrc` — `shellcheck -x scripts/*.sh` (source-path=SCRIPTDIR)
 
-Godot `-s` entry points: **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE`: `all` · `regression` · `d001` · `sanity` · `calibration` · `medical` · **`f5_validate`** via `validate_f5_soak_log.ps1` / `.sh`) · **`run_company_state_checks.gd`** · **`run_q_track_audits.gd`** (Q1/Q2 sections via `run_q_audit.ps1`; Q4 ii8 D-001 proxy — extend **ii5c/ii8** per [#wf-soak-audit-status](../docs/LIVE_PATHS.md#wf-soak-audit-status)).
-
-**Invoke rule:** after `Invoke-FallenPathsGodotScript`, prefer `exit (Get-FallenPathsGodotExitCode)` or grep `FP_HARNESS_OK` in captured stdout — Godot `-s` exit codes are unreliable on Windows. **`run_company_state_checks`** always greps harness OK.
+Godot `-s`: `run_all_combat_checks.gd` · `run_company_state_checks.gd` · `run_q_track_audits.gd`. Prefer grep `FP_HARNESS_OK` over Godot exit codes on Windows.
