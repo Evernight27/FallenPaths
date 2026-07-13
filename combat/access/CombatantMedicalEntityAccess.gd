@@ -120,6 +120,18 @@ static func scene_can_apply_direct_pressure(combatant: Dictionary, part: String)
 
 ## Wind-up completion: `apply_bandage` / `apply_packing` / `apply_tourniquet` pass `effectiveness`; other methods get
 ## `part` only.
+static func _resolve_medical_entity_method(method: String) -> String:
+    match method:
+        CombatConstants.MOVE_TARGET_APPLY_BANDAGE:
+            return "_apply_bandage"
+        CombatConstants.MOVE_TARGET_APPLY_PACKING:
+            return "_apply_packing"
+        CombatConstants.MOVE_TARGET_APPLY_STABILIZE:
+            return "_apply_stabilize"
+        CombatConstants.MOVE_TARGET_APPLY_TOURNIQUET:
+            return "_apply_tourniquet"
+        _:
+            return method
 
 
 ## Wind-up completion: `apply_bandage` / `apply_packing` / `apply_tourniquet` pass `effectiveness`; other methods get
@@ -127,7 +139,10 @@ static func scene_can_apply_direct_pressure(combatant: Dictionary, part: String)
 static func entity_invoke_medical_method(
     entity: Node, method: String, part: String, effectiveness: float = 1.0
 ) -> Variant:
-    if entity == null or method.is_empty() or not entity.has_method(method):
+    if entity == null or method.is_empty():
+        return null
+    var resolved: String = _resolve_medical_entity_method(method)
+    if not entity.has_method(resolved):
         return null
     if (
         method == _get_combat_constants().MOVE_TARGET_APPLY_BANDAGE
@@ -135,8 +150,8 @@ static func entity_invoke_medical_method(
         or method == _get_combat_constants().MOVE_TARGET_APPLY_STABILIZE
         or method == _get_combat_constants().MOVE_TARGET_APPLY_TOURNIQUET
     ):
-        return entity.call(method, part, effectiveness)
-    return entity.call(method, part)
+        return entity.call(resolved, part, effectiveness)
+    return entity.call(resolved, part)
 
 
 static func entity_apply_direct_pressure(manager: Node, combatant: Dictionary, part: String) -> bool:

@@ -30,8 +30,8 @@ static func snapshot_from_member(member: Dictionary) -> Dictionary:
         result["blood_volume"] = CombatantEntityAccess.get_blood_volume_from_node(node_ref)
         result["total_bleeding_rate"] = CombatantEntityAccess.get_total_bleeding_rate_from_node(node_ref)
         var entity: Node = CampaignEncounterBridge.health_entity_from_character(node_ref)
-        if entity != null and entity.has_method("get_campaign_affliction_labels"):
-            result["affliction_labels"] = entity.get_campaign_affliction_labels()
+        if entity != null and entity.has_method("_get_campaign_affliction_labels"):
+            result["affliction_labels"] = entity._get_campaign_affliction_labels()
             result["affliction_effects"] = _format_affliction_effects(entity)
         else:
             result["affliction_labels"] = PackedStringArray()

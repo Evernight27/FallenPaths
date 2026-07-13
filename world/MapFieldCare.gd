@@ -309,7 +309,7 @@ static func try_field_stabilize(world: Node2D, member: Dictionary) -> bool:
         return false
     var entity: Node = _entity_for_member(member)
     var part: String = _first_stabilize_part(entity)
-    if part.is_empty() or not entity.has_method(CombatConstants.MOVE_TARGET_APPLY_STABILIZE):
+    if part.is_empty() or not entity.has_method("_apply_stabilize"):
         return false
     if not _get_company_state().consume_medical(world, 1):
         return false
@@ -338,7 +338,7 @@ static func try_field_bandage(world: Node2D, member: Dictionary) -> bool:
         return false
     var entity: Node = _entity_for_member(member)
     var part: String = field_bandage_part_ready(member)
-    if part.is_empty() or not entity.has_method(CombatConstants.MOVE_TARGET_APPLY_BANDAGE):
+    if part.is_empty() or not entity.has_method("_apply_bandage"):
         return false
     var consumed_med: bool = false
     if _get_company_state().get_medical_supplies(world) >= 1:
@@ -376,7 +376,7 @@ static func try_field_pack(world: Node2D, member: Dictionary) -> bool:
         return false
     var entity: Node = _entity_for_member(member)
     var part: String = _first_pack_part(member)
-    if part.is_empty() or not entity.has_method(CombatConstants.MOVE_TARGET_APPLY_PACKING):
+    if part.is_empty() or not entity.has_method("_apply_packing"):
         return false
     if not _get_company_state().consume_medical(world, 1):
         return false
@@ -400,7 +400,7 @@ static func try_field_tourniquet(world: Node2D, member: Dictionary) -> bool:
         return false
     var entity: Node = _entity_for_member(member)
     var part: String = _first_tourniquet_part(entity)
-    if part.is_empty() or not entity.has_method(CombatConstants.MOVE_TARGET_APPLY_TOURNIQUET):
+    if part.is_empty() or not entity.has_method("_apply_tourniquet"):
         return false
     var eff: float = _get_company_state().compute_field_treatment_effectiveness(entity, world, false)
     eff = clampf(eff, CombatConstants.FIELD_CARE_EFF_MIN, CombatConstants.FIELD_CARE_EFF_MAX)

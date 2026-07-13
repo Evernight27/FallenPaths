@@ -418,7 +418,10 @@ static func cowering_retreat_hint_if_applicable(manager: Node, c: Dictionary, ac
     if has_fall_back:
         return "No arms -- fall back is available (rear rank in your file must be clear)."
     if has_wait:
-        return "No arms -- holding position (fall back blocked: movement policy, line discipline, or rear rank occupied)."
+        return (
+            "No arms -- holding position (fall back blocked: movement policy, "
+            + "line discipline, or rear rank occupied)."
+        )
     return ""
 
 

@@ -587,11 +587,6 @@ func _get_campaign_affliction_labels() -> PackedStringArray:
     return out
 
 
-## Public alias for snapshot / UI `has_method("get_campaign_affliction_labels")`.
-func get_campaign_affliction_labels() -> PackedStringArray:
-    return _get_campaign_affliction_labels()
-
-
 func _get_tourniquet_application_time_seconds() -> float:
     return EntityMedical._get_tourniquet_application_time_seconds()
 
@@ -604,22 +599,12 @@ func _apply_bandage(part: String, effectiveness: float = 1.0) -> bool:
     return EntityMedical._apply_bandage(self, part, effectiveness)
 
 
-## Public alias matching `CombatConstants.MOVE_TARGET_APPLY_BANDAGE`.
-func apply_bandage(part: String, effectiveness: float = 1.0) -> bool:
-    return _apply_bandage(part, effectiveness)
-
-
 func _can_apply_stabilize(part: String) -> bool:
     return EntityMedical._can_apply_stabilize(self, part)
 
 
 func _apply_stabilize(part: String, effectiveness: float = 1.0) -> bool:
     return EntityMedical._apply_stabilize(self, part, effectiveness)
-
-
-## Public alias matching `CombatConstants.MOVE_TARGET_APPLY_STABILIZE`.
-func apply_stabilize(part: String, effectiveness: float = 1.0) -> bool:
-    return _apply_stabilize(part, effectiveness)
 
 
 func _get_stabilize_application_time_seconds_for_part(part: String) -> float:
@@ -632,11 +617,6 @@ func can_apply_packing(part: String) -> bool:
 
 func _apply_packing(part: String, effectiveness: float = 1.0) -> bool:
     return EntityMedical._apply_packing(self, part, effectiveness)
-
-
-## Public alias matching `CombatConstants.MOVE_TARGET_APPLY_PACKING`.
-func apply_packing(part: String, effectiveness: float = 1.0) -> bool:
-    return _apply_packing(part, effectiveness)
 
 
 func _get_packing_application_time_seconds_for_part(part: String) -> float:
@@ -710,11 +690,6 @@ func _is_tourniquet_applied(part: String) -> bool:
 
 func _apply_tourniquet(part: String, effectiveness: float = 1.0) -> bool:
     return EntityMedical._apply_tourniquet(self, part, effectiveness)
-
-
-## Public alias matching `CombatConstants.MOVE_TARGET_APPLY_TOURNIQUET`.
-func apply_tourniquet(part: String, effectiveness: float = 1.0) -> bool:
-    return _apply_tourniquet(part, effectiveness)
 
 
 func _remove_tourniquet(part: String) -> void:
