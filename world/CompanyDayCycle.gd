@@ -143,6 +143,32 @@ static func format_day_hud_line(world: Node) -> String:
     )
 
 
+static func format_party_end_day_unavailable_hint(world: Node2D) -> String:
+    var st: GDScript = _get_state()
+    if world == null or st.can_offer_end_day(world):
+        return ""
+    if st.read_stub_day_tick_mode() == "hybrid":
+        var steps_left: int = maxi(0, st.read_stub_steps_per_day() - st.get_overworld_step_count(world))
+        if steps_left <= 0:
+            return "End day: stand on the camp tile to pay wages -- or move to finish today's steps."
+        return "End day: stand on the camp tile (0,0) -- or take %d more step(s) for an auto day tick." % steps_left
+    return ""
+
+
+static func format_party_menu_footer(world: Node2D) -> String:
+    var lines: PackedStringArray = PackedStringArray()
+    var end_day_hint: String = format_party_end_day_unavailable_hint(world)
+    if not end_day_hint.is_empty():
+        lines.append(end_day_hint)
+    var desertion_hint: String = _get_mood().format_party_desertion_risk_footer(world)
+    if not desertion_hint.is_empty():
+        lines.append(desertion_hint)
+    var autosave_hint: String = _get_state().format_party_autosave_footer()
+    if not autosave_hint.is_empty():
+        lines.append(autosave_hint)
+    return "\n".join(lines)
+
+
 static func _run_daily_desertion_pass(world: Node2D) -> void:
     var pm: Node = _get_state()._resolve_party_manager(world)
     if pm == null:

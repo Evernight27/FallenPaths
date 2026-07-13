@@ -8,9 +8,9 @@ extends RefCounted
 
 static func build_all() -> Dictionary:
     return {
-        "SWORD": CombatWeaponFormDefsPartA._sword_forms(),
-        "AXE": CombatWeaponFormDefsPartA._axe_forms(),
-        "MACE": CombatWeaponFormDefsPartA._mace_forms(),
-        "DAGGER": CombatWeaponFormDefsPartB._dagger_forms(),
-        "SPEAR": CombatWeaponFormDefsPartB._spear_forms(),
+        "SWORD": CombatWeaponFormDefsSwordAxeMace._sword_forms(),
+        "AXE": CombatWeaponFormDefsSwordAxeMace._axe_forms(),
+        "MACE": CombatWeaponFormDefsSwordAxeMace._mace_forms(),
+        "DAGGER": CombatWeaponFormDefsDaggerSpear._dagger_forms(),
+        "SPEAR": CombatWeaponFormDefsDaggerSpear._spear_forms(),
     }

@@ -59,7 +59,7 @@ See [`AGENTS.md#code-homes`](AGENTS.md#code-homes).
 
 ## Coding standards
 
-- **Lint:** `gdlint .` — gdtoolkit defaults in `.gdlintrc` (only deltas: 120-col lines, 4-space tab width, exclude `.godot`/`.ci-venv`/`combat_tuning`)
+- **Lint:** `gdlint .` — `.gdlintrc` holds overrides only (120-col, 4-space tab width, extra exclude dirs); everything else is gdtoolkit default
 - **Format:** `gdformat --check .` (`.gdformatrc`: 120 cols, 4-space indent)
 - **Shell:** `shellcheck --rcfile=scripts/.shellcheckrc -x scripts/*.sh`
 - **One-shot:** `./scripts/ci_lint.sh`

@@ -1,2 +1,2 @@
 class_name CombatConstants
-extends CombatConstantsPartC
+extends CombatConstantsMethods

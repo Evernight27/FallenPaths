@@ -41,7 +41,7 @@ static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary
     var stacked: Dictionary = MentalStackDecider.try_pick(actions, combatant_id, manager)
     if not stacked.is_empty():
         var choice_stacked: Dictionary = stacked.duplicate()
-        CombatAIActionPickerPartB._add_attack_target_part(choice_stacked, manager, combatant_id)
+        CombatAIAttackTargetPart._add_attack_target_part(choice_stacked, manager, combatant_id)
         return choice_stacked
     CombatWeaponForm.evaluate_automatic_form(manager, c_pick)
     return pick_weighted(actions, combatant_id, manager)
@@ -68,21 +68,21 @@ static func pick_weighted(
     var weight_ctx: Array = weight_menu_context if not weight_menu_context.is_empty() else actions
     var total: float = 0.0
     for a in actions:
-        total += CombatAIActionPickerPartA._get_action_weight(
+        total += CombatAIActionWeights._get_action_weight(
             a, combatant_id, manager, true, ctx_actor, zone_by_id, weight_ctx
         )
     var r: float = randf() * total
     for a in actions:
-        var w: float = CombatAIActionPickerPartA._get_action_weight(
+        var w: float = CombatAIActionWeights._get_action_weight(
             a, combatant_id, manager, true, ctx_actor, zone_by_id, weight_ctx
         )
         if r < w:
             var choice: Dictionary = a.duplicate()
-            CombatAIActionPickerPartB._add_attack_target_part(choice, manager, combatant_id)
+            CombatAIAttackTargetPart._add_attack_target_part(choice, manager, combatant_id)
             return choice
         r -= w
     var fallback: Dictionary = actions[0].duplicate()
-    CombatAIActionPickerPartB._add_attack_target_part(fallback, manager, combatant_id)
+    CombatAIAttackTargetPart._add_attack_target_part(fallback, manager, combatant_id)
     return fallback
 
 
@@ -98,7 +98,7 @@ static func pick_highest_medical(actions: Array, combatant_id: int, manager: Nod
     for a in actions:
         if a is not Dictionary:
             continue
-        var w: float = CombatAIActionPickerPartA._get_medical_weight(a as Dictionary, combatant_id, manager)
+        var w: float = CombatAIActionWeights._get_medical_weight(a as Dictionary, combatant_id, manager)
         if w > best_w:
             best_w = w
             best = a.duplicate()
@@ -130,7 +130,7 @@ static func resolve_choice(manager: Node, combatant_id: int, choice: Dictionary,
     var move_id: String = choice.get("move_id", "")
     var committed: bool = manager.resolve_action(combatant_id, target_id, move_id, opts)
     if not committed:
-        CombatAIActionPickerPartA._verify_turn_committed_after_resolve(manager, combatant_id, move_id)
+        CombatAIActionWeights._verify_turn_committed_after_resolve(manager, combatant_id, move_id)
     return committed
 
 
@@ -148,7 +148,7 @@ static func resolve_picked_turn(
             manager, combatant_id, "pass", "medical coordination blocked stale pick"
         )
     elif not committed:
-        CombatAIActionPickerPartA._verify_turn_committed_after_resolve(manager, combatant_id, choice.get("move_id", ""))
+        CombatAIActionWeights._verify_turn_committed_after_resolve(manager, combatant_id, choice.get("move_id", ""))
     if not log_side.is_empty() and committed:
         CombatDebug.flow_log_turn(log_side, combatant_id, actions, choice, manager)
 
@@ -179,7 +179,7 @@ static func resolve_picked_turn_or_skip(
 ## Plug-forward (incapacitated partner) is handled separately in `CombatFormationMoveListing`.
 ## `manager`: required for body-damage / peril gate (fatigue alone must not justify retreat).
 static func is_disengage_swap_tactically_allowed(c: Dictionary, partner: Dictionary, manager: Node) -> bool:
-    return CombatAIActionPickerPartA._swap_rank_fitness_swap_allowed(c, partner, manager, true)
+    return CombatAIActionWeights._swap_rank_fitness_swap_allowed(c, partner, manager, true)
 
 
 ## True when deeper rank (higher rank #) should swap forward with the rank ahead (relief / rotation).
@@ -187,7 +187,7 @@ static func is_disengage_swap_tactically_allowed(c: Dictionary, partner: Diction
 
 ## True when deeper rank (higher rank #) should swap forward with the rank ahead (relief / rotation).
 static func is_relief_swap_tactically_allowed(c: Dictionary, partner: Dictionary) -> bool:
-    return CombatAIActionPickerPartA._swap_rank_fitness_swap_allowed(c, partner, null, false)
+    return CombatAIActionWeights._swap_rank_fitness_swap_allowed(c, partner, null, false)
 
 
 ## Returns weight for action. Medical: urgency + direct pressure bleed + pending retry.

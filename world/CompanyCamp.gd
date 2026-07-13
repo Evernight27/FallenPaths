@@ -16,6 +16,7 @@ const FIELD_CARE_MARCH_CHAIN: String = "pressure (free) -- bandage/pack/TQ"
 static var _company_state_cache: Variant = null
 static var _company_economy_cache: Variant = null
 static var _company_mood_cache: Variant = null
+static var _combat_flow_cache: Variant = null
 
 
 static func _get_state() -> GDScript:
@@ -34,6 +35,12 @@ static func _get_mood() -> GDScript:
     if _company_mood_cache == null:
         _company_mood_cache = load("res://world/CompanyMood.gd")
     return _company_mood_cache
+
+
+static func _get_combat_flow() -> Variant:
+    if _combat_flow_cache == null:
+        _combat_flow_cache = load("res://world/CombatFlow.gd")
+    return _combat_flow_cache
 
 
 static func format_field_bandage_dress_note(world: Node2D) -> String:
@@ -358,3 +365,69 @@ static func format_post_fight_field_care_world_log(world: Node2D) -> String:
             zero_med_note,
         ]
     )
+
+
+static func format_party_button_label(world: Node2D) -> String:
+    if world == null or not CampaignEncounterBridge.party_has_untreated_wounds(world):
+        return "Party"
+    var parts: int = CampaignEncounterBridge.party_untreated_part_count(world)
+    if parts <= 0:
+        return "Party"
+    return "Party /  %d to dress" % parts
+
+
+static func format_hud_triage_suffix(world: Node2D) -> String:
+    if world == null or not CampaignEncounterBridge.party_has_untreated_wounds(world):
+        return ""
+    var budget: Dictionary = triage_med_budget(world)
+    var parts: int = budget.get("parts_need", 0)
+    if parts <= 0:
+        return ""
+    var total: int = budget.get("total_worst_case", 0)
+    var med_left: int = _get_economy().get_medical_supplies(world)
+    if med_left == 0 and parts > 0:
+        return " /  %d to dress /  0-med bandages OK /  need 1 med for camp" % parts
+    if total > 0 and med_left < total:
+        return " /  %d to dress /  need about %d med (have %d)" % [parts, total, med_left]
+    if total > 0:
+        return " /  %d to dress /  about %d med" % [parts, total]
+    return " /  %d to dress" % parts
+
+
+static func refresh_party_button(world: Node2D) -> void:
+    if world == null:
+        return
+    var pb: Control = _get_combat_flow()._find_party_button(world)
+    if pb == null or not pb is Button:
+        return
+    var btn: Button = pb as Button
+    btn.text = format_party_button_label(world)
+    btn.custom_minimum_size.x = maxf(100.0, btn.get_minimum_size().x + 8.0)
+    if CampaignEncounterBridge.party_has_untreated_wounds(world):
+        btn.add_theme_color_override("font_color", Color(0.95, 0.78, 0.42))
+    else:
+        btn.remove_theme_color_override("font_color")
+    var tips: PackedStringArray = PackedStringArray()
+    if CampaignEncounterBridge.party_has_untreated_wounds(world):
+        var budget: Dictionary = triage_med_budget(world)
+        var shortfall: int = budget.get("med_shortfall", 0)
+        var med_left: int = _get_economy().get_medical_supplies(world)
+        var march: String = format_field_care_march_chain()
+        if med_left == 0:
+            tips.append("Field care -- %s; 0-med bandages; win contracts for camp med (+4)." % march)
+        elif shortfall > 0:
+            tips.append("Field care -- %s; short %d med." % [march, shortfall])
+        else:
+            tips.append("Field care -- %s." % march)
+    var st: GDScript = _get_state()
+    if _get_economy().should_show_next_wage_hint(st.get_state(world), st.count_living_roster(world)):
+        tips.append(_get_economy().format_next_wage_hint(st.get_state(world), st.count_living_roster(world)))
+    if _get_economy().should_show_next_provisions_hint(world):
+        tips.append(_get_economy().format_next_provisions_hint(world))
+    if st.roster_has_hire_room(world):
+        var hire_tip: String = st.format_hire_tooltip(world, false)
+        if not hire_tip.is_empty():
+            tips.append(hire_tip)
+    if st.persistence_uses_disk_autosave():
+        tips.append(st.format_party_autosave_footer())
+    btn.tooltip_text = " ".join(tips)

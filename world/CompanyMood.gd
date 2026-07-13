@@ -155,3 +155,29 @@ static func format_party_desertion_risk_footer(world: Node2D) -> String:
         "%d brother(s) at desertion risk (mood <=%d) -- 5%% roll each at day end."
         % [at_risk, int(MOOD_ANGRY_THRESHOLD)]
     )
+
+
+static func format_settlement_low_mood_stance_hint(world: Node2D) -> String:
+    var pm: Node = _get_state()._resolve_party_manager(world)
+    if pm == null:
+        return ""
+    var low: int = 0
+    for m in pm.members:
+        if not m is Dictionary:
+            continue
+        var node_ref: Variant = m.get("node_ref")
+        if not is_instance_valid(node_ref) or not (node_ref is Node):
+            continue
+        if (node_ref as Node).has_method("is_dead") and (node_ref as Node).is_dead():
+            continue
+        if float(m.get("company_mood", MOOD_DEFAULT)) <= MOOD_STANCE_WALL_THRESHOLD:
+            low += 1
+    if low <= 0:
+        return ""
+    return (
+        (
+            "Low company mood -- %d brother(s) may default to wall form in the next fight "
+            + "(unless they have an explicit form preference)."
+        )
+        % low
+    )

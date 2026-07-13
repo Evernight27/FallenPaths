@@ -139,11 +139,11 @@ static func weapon_is_two_handed(weapon: Variant) -> bool:
 # Weapons reference move ids; get_available_attack_types() returns move ids for that weapon.
 # contact_type maps to weapon dimensions: stab->point_width, cut->blade_width, blunt->head_diameter.
 static func get_all_move_ids() -> Array:
-    return WeaponConstantsPartA._move_definitions_build().keys()
+    return WeaponMoveDefinitions._move_definitions_build().keys()
 
 
 static func get_move(move_id: String) -> Dictionary:
-    var all_moves := WeaponConstantsPartA._move_definitions_build()
+    var all_moves := WeaponMoveDefinitions._move_definitions_build()
     if not all_moves.has(move_id):
         return {}
     return all_moves[move_id].duplicate(true)
@@ -200,14 +200,14 @@ static func get_all_weapon_ids() -> Array:
 # Use get_weapon_definition(weapon_id) for a fresh copy.
 static func get_weapon_definition(weapon_id: String) -> Dictionary:
     var id_normalized := weapon_id.to_upper()
-    var all := WeaponConstantsPartB._weapon_definitions_build()
+    var all := WeaponTemplateDefinitions._weapon_definitions_build()
     if not all.has(id_normalized):
         return {}
     return all[id_normalized].duplicate(true)
 
 
 static func get_archetype(archetype_id: String) -> Dictionary:
-    var all_arch := WeaponConstantsPartB._archetype_definitions_build()
+    var all_arch := WeaponTemplateDefinitions._archetype_definitions_build()
     if not all_arch.has(archetype_id):
         return all_arch.get(ARCHETYPE_SLASH, {})
     return all_arch[archetype_id].duplicate(true)
@@ -228,7 +228,7 @@ static func get_blunt_coupling_reference_cm() -> float:
 
 ## Weapon template id (`SWORD`, `AXE`, �) from equipped weapon node/dict.
 static func weapon_type_id(weapon: Variant) -> String:
-    return WeaponConstantsPartB._weapon_template_id(weapon)
+    return WeaponTemplateDefinitions._weapon_template_id(weapon)
 
 
 ## Legacy encounter / mood keys -> weapon-native form id (e.g. axe `wrath` -> `demi_hache`).
@@ -236,7 +236,7 @@ static func resolve_form_legacy_alias(weapon: Variant, raw_form: String) -> Stri
     var s: String = str(raw_form).strip_edges().to_lower()
     if s.is_empty():
         return s
-    var wt: String = WeaponConstantsPartB._weapon_template_id(weapon)
+    var wt: String = WeaponTemplateDefinitions._weapon_template_id(weapon)
     if wt.is_empty():
         return s
     var def: Dictionary = get_weapon_definition(wt)
@@ -253,7 +253,7 @@ static func resolve_form_legacy_alias(weapon: Variant, raw_form: String) -> Stri
 
 ## Expand WF: default form id for equipped weapon ( **`balanced`** when unarmed).
 static func default_form_for_weapon(weapon: Variant) -> String:
-    var wt: String = WeaponConstantsPartB._weapon_template_id(weapon)
+    var wt: String = WeaponTemplateDefinitions._weapon_template_id(weapon)
     if wt.is_empty():
         return "balanced"
     var def: Dictionary = get_weapon_definition(wt)
@@ -267,7 +267,7 @@ static func default_form_for_weapon(weapon: Variant) -> String:
 
 ## Expand WF: allowed form ids for weapon template; empty ?????? no clamp.
 static func allowed_forms_for_weapon(weapon: Variant) -> Array:
-    var wt: String = WeaponConstantsPartB._weapon_template_id(weapon)
+    var wt: String = WeaponTemplateDefinitions._weapon_template_id(weapon)
     if wt.is_empty():
         return ["balanced", "wall"]
     var def: Dictionary = get_weapon_definition(wt)

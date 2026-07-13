@@ -1,2 +1,2 @@
-class_name CombatRegressionHarness
-extends CombatRegressionHarnessPartP
+## Legacy path alias — canonical: res://harness/regression/CombatRegressionHarness.gd
+extends "res://harness/regression/CombatRegressionHarness.gd"

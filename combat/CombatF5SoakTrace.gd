@@ -74,7 +74,7 @@ static func reset_session_camp_trace() -> void:
 ## New fight: archive prior fight camp combat needles, then reset per-fight trace
 ## (Camp **`FP_WORLD`** kept in **`_session_camp_trace_lines`** until session reset).
 static func prepare_fight_end_log() -> void:
-    CombatF5SoakTracePartA._archive_fight_camp_combat_lines()
+    CombatF5SoakTraceRollups._archive_fight_camp_combat_lines()
     reset_fight_trace_buffer()
     _EngagementDiag.reset_session()
     _last_diagram_banner_line = ""
@@ -194,11 +194,11 @@ static func ingest_world_trace_line(message: String) -> void:
         return
     if not _TrackSpecs.is_camp_ea_world_trace_line(s):
         return
-    CombatF5SoakTracePartA._append_fight_trace_line_direct(s)
+    CombatF5SoakTraceRollups._append_fight_trace_line_direct(s)
     if _session_camp_trace_lines.is_empty() or _session_camp_trace_lines[_session_camp_trace_lines.size() - 1] != s:
         _session_camp_trace_lines.append(s)
-    if _fight_end_logged and _soak_coverage_logged and CombatF5SoakTracePartB._should_refresh_camp_supplement(s):
-        CombatF5SoakTracePartB._log_soak_coverage_camp_supplement()
+    if _fight_end_logged and _soak_coverage_logged and CombatF5SoakTraceUiMatch._should_refresh_camp_supplement(s):
+        CombatF5SoakTraceUiMatch._log_soak_coverage_camp_supplement()
 
 
 ## End-of-fight rollup for pasted-log validation (grep **`soak_fight_end`**).
@@ -208,7 +208,7 @@ static func ingest_world_trace_line(message: String) -> void:
 static func log_fight_end_summary(winner: String, entering_medical_phase: bool) -> void:
     if _fight_end_logged or not _OperationalLog.is_play_session_active():
         return
-    CombatF5SoakTracePartA._reconcile_session_hit_counts_from_fight_trace()
+    CombatF5SoakTraceRollups._reconcile_session_hit_counts_from_fight_trace()
     _fight_end_logged = true
     var parts: PackedStringArray = PackedStringArray()
     parts.append("winner=%s" % winner.strip_edges())
@@ -218,11 +218,11 @@ static func log_fight_end_summary(winner: String, entering_medical_phase: bool) 
         parts.append("%s=%d" % [key, int(_session_counts[key])])
     var end_line: String = "soak_fight_end %s" % " ".join(parts)
     _OperationalLog.play_combat(end_line)
-    CombatF5SoakTracePartA._append_fight_trace_line_direct(end_line)
+    CombatF5SoakTraceRollups._append_fight_trace_line_direct(end_line)
     if entering_medical_phase:
         _defer_soak_coverage_for_medical = true
     else:
-        CombatF5SoakTracePartA._log_soak_coverage()
+        CombatF5SoakTraceRollups._log_soak_coverage()
     if not _soak_validate_hint_logged:
         _soak_validate_hint_logged = true
         _OperationalLog.play_combat(
@@ -241,17 +241,17 @@ static func log_fight_end_summary(winner: String, entering_medical_phase: bool) 
             _OperationalLog.play_combat(
                 "research_validate_hint 0 research_feel lines  -  enable main dev_research_feel or land hits in combat"
             )
-    CombatF5SoakTracePartA._log_parry_rollup()
-    CombatF5SoakTracePartA._log_hit_outcome_rollup()
-    CombatF5SoakTracePartA._log_hit_coverage_hint()
+    CombatF5SoakTraceRollups._log_parry_rollup()
+    CombatF5SoakTraceRollups._log_hit_outcome_rollup()
+    CombatF5SoakTraceRollups._log_hit_coverage_hint()
     if _fight_profile in [_SoakPresets.PRESET_II2B_SWORD_DUEL, _SoakPresets.PRESET_II4D_EXHAUSTION]:
-        CombatF5SoakTracePartA._log_q2_parry_rollup()
+        CombatF5SoakTraceRollups._log_q2_parry_rollup()
     if _fight_profile == _SoakPresets.PRESET_II5_COWERING:
-        CombatF5SoakTracePartA._log_q3_ii5_rollup()
+        CombatF5SoakTraceRollups._log_q3_ii5_rollup()
     if _fight_profile == _SoakPresets.PRESET_II4D_EXHAUSTION:
-        CombatF5SoakTracePartA._log_q3_ii4d_rollup()
+        CombatF5SoakTraceRollups._log_q3_ii4d_rollup()
     if _fight_profile == _SoakPresets.PRESET_II8_FORMATION:
-        CombatF5SoakTracePartA._log_q4_ii8_rollup()
+        CombatF5SoakTraceRollups._log_q4_ii8_rollup()
 
 
 ## F5: miss / dodge (grep **`strike_avoided`**).
@@ -273,10 +273,10 @@ static func note_strike_avoided(
     if line == _last_strike_avoided_line:
         return
     _last_strike_avoided_line = line
-    CombatF5SoakTracePartB._bump("strike_avoided")
+    CombatF5SoakTraceUiMatch._bump("strike_avoided")
     var sub_key: String = "strike_avoided_%s" % oc
     if _session_counts.has(sub_key):
-        CombatF5SoakTracePartB._bump(sub_key)
+        CombatF5SoakTraceUiMatch._bump(sub_key)
     _OperationalLog.play_combat(line)
 
 
@@ -311,12 +311,12 @@ static func note_hit_resolve(
     if line == _last_hit_resolve_line:
         return
     _last_hit_resolve_line = line
-    CombatF5SoakTracePartB._bump("hit_resolve")
+    CombatF5SoakTraceUiMatch._bump("hit_resolve")
     var bump_key: String = "hit_outcome_%s" % outcome
     if _session_counts.has(bump_key):
-        CombatF5SoakTracePartB._bump(bump_key)
+        CombatF5SoakTraceUiMatch._bump(bump_key)
     else:
-        CombatF5SoakTracePartB._bump("hit_outcome_other")
+        CombatF5SoakTraceUiMatch._bump("hit_outcome_other")
     _OperationalLog.play_combat(line)
 
 
@@ -347,7 +347,7 @@ static func note_research_damage_outcome(part: String, result: Dictionary, extra
     if line == _last_research_feel_line:
         return
     _last_research_feel_line = line
-    CombatF5SoakTracePartB._bump("research_feel")
+    CombatF5SoakTraceUiMatch._bump("research_feel")
     _OperationalLog.play_combat(line)
 
 
@@ -358,7 +358,7 @@ static func note_engagement_transition(from_mode: String, to_mode: String) -> vo
     if line == _last_engagement_transition_line:
         return
     _last_engagement_transition_line = line
-    CombatF5SoakTracePartB._bump("engagement_transition")
+    CombatF5SoakTraceUiMatch._bump("engagement_transition")
     _OperationalLog.play_combat(line)
 
 
@@ -451,7 +451,7 @@ static func note_controlling_close_listed(c: Dictionary, hint: String) -> void:
     var text: String = hint.strip_edges()
     if text.is_empty():
         return
-    CombatF5SoakTracePartB._bump("controlling_close_hint")
+    CombatF5SoakTraceUiMatch._bump("controlling_close_hint")
     _OperationalLog.play_combat(
         (
             "controlling_close_list id=%d %s hint=%s"
@@ -464,9 +464,9 @@ static func note_mopup_hold_line_listed(c: Dictionary, hint: String) -> void:
     if not _OperationalLog.is_play_session_active() or c.is_empty():
         return
     var text: String = hint.strip_edges()
-    if text.is_empty() or not CombatF5SoakTracePartB._fight_finish_hold_line_hint_text(text):
+    if text.is_empty() or not CombatF5SoakTraceUiMatch._fight_finish_hold_line_hint_text(text):
         return
-    CombatF5SoakTracePartB._bump("mopup_gauge_hint")
+    CombatF5SoakTraceUiMatch._bump("mopup_gauge_hint")
     _OperationalLog.play_combat(
         (
             "mopup_hold_line_list id=%d %s hint=%s"
@@ -525,9 +525,9 @@ static func note_medical_pack_listed(who: String, part: String) -> void:
     if line == _last_medical_pack_listed_line:
         return
     _last_medical_pack_listed_line = line
-    CombatF5SoakTracePartB._bump("medical_pack_listed")
+    CombatF5SoakTraceUiMatch._bump("medical_pack_listed")
     _OperationalLog.play_combat(line)
-    CombatF5SoakTracePartB._maybe_flush_deferred_soak_coverage()
+    CombatF5SoakTraceUiMatch._maybe_flush_deferred_soak_coverage()
 
 
 static func note_medical_action_pick(who: String, move_id: String, part: String, tgt_desc: String) -> void:
@@ -537,13 +537,13 @@ static func note_medical_action_pick(who: String, move_id: String, part: String,
     if pick_line == _last_medical_action_pick_line:
         return
     _last_medical_action_pick_line = pick_line
-    CombatF5SoakTracePartB._bump("medical_action_pick")
+    CombatF5SoakTraceUiMatch._bump("medical_action_pick")
     _OperationalLog.play_combat(pick_line)
     if move_id == CombatConstants.MOVE_ID_PACK_WOUND:
-        CombatF5SoakTracePartB._bump("medical_pack_pick")
+        CombatF5SoakTraceUiMatch._bump("medical_pack_pick")
         var pack_line: String = "medical_pack_wound pick %s part=%s (%s)" % [who, part, tgt_desc]
         _OperationalLog.play_combat(pack_line)
-    CombatF5SoakTracePartB._maybe_flush_deferred_soak_coverage()
+    CombatF5SoakTraceUiMatch._maybe_flush_deferred_soak_coverage()
 
 
 ## Call when post-victory medical phase ends (early exit or End battle)  -  not only on medical picks.
@@ -551,7 +551,7 @@ static func note_medical_action_pick(who: String, move_id: String, part: String,
 
 ## Call when post-victory medical phase ends (early exit or End battle)  -  not only on medical picks.
 static func flush_deferred_soak_coverage() -> void:
-    CombatF5SoakTracePartB._maybe_flush_deferred_soak_coverage()
+    CombatF5SoakTraceUiMatch._maybe_flush_deferred_soak_coverage()
 
 
 ## Re-validate Camp S8 optional tracks when **`campaign_medical_exit`** lands after an earlier medical flush.
@@ -561,7 +561,7 @@ static func flush_deferred_soak_coverage() -> void:
 static func refresh_camp_supplement_after_medical_exit() -> void:
     if not _OperationalLog.is_play_session_active() or not _soak_coverage_logged:
         return
-    CombatF5SoakTracePartB._log_soak_coverage_camp_supplement()
+    CombatF5SoakTraceUiMatch._log_soak_coverage_camp_supplement()
 
 
 ## Player **`turn_ready`**: row gauge label + formation tooltip vs turn-ready formation line (**II-5a / II-5c**).
@@ -573,32 +573,32 @@ static func log_turn_ready_player_ui(manager: Node, c: Dictionary, actions: Arra
     var cid: int = CombatantEntityAccess.id_int(c)
     var who: String = CombatantEntityAccess.get_display_name(c, cid)
     var label: String = BattleUIUpdater.gauge_label_text_for_combatant(c, manager)
-    var stamp: String = CombatF5SoakTracePartB._formation_stamp_on_combatant(c)
+    var stamp: String = CombatF5SoakTraceUiMatch._formation_stamp_on_combatant(c)
     var hold: String = str(c.get(_combat_constants.COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT, "")).strip_edges()
     var fp_line: String = (
-        CombatF5SoakTracePartA
+        CombatF5SoakTraceRollups
         . _get_player_turn_hints()
         . formation_and_rout_turn_ready_hint(manager, c, actions)
         . strip_edges()
     )
-    var ctx: String = CombatF5SoakTracePartB._turn_ui_match_context(manager, c, actions, label, fp_line, hold)
+    var ctx: String = CombatF5SoakTraceUiMatch._turn_ui_match_context(manager, c, actions, label, fp_line, hold)
     var formation_tip: String = ""
     var match_s: String = ctx
     if ctx.is_empty():
         formation_tip = (
-            stamp if not stamp.is_empty() else CombatF5SoakTracePartB._formation_line_from_tooltip(c, manager)
+            stamp if not stamp.is_empty() else CombatF5SoakTraceUiMatch._formation_line_from_tooltip(c, manager)
         )
         if formation_tip.is_empty() and not hold.is_empty():
             formation_tip = hold
-        match_s = CombatF5SoakTracePartB._tooltip_formation_match_label(formation_tip, fp_line, hold)
+        match_s = CombatF5SoakTraceUiMatch._tooltip_formation_match_label(formation_tip, fp_line, hold)
     else:
         # Counter / medical / melee-only  -  avoid stale formation stamp in gauge_tooltip_formation.
         if not fp_line.is_empty():
             formation_tip = fp_line
         elif ctx == "hold_line" and not hold.is_empty():
             formation_tip = hold
-    CombatF5SoakTracePartB._bump("turn_ready")
-    CombatF5SoakTracePartB._bump(CombatF5SoakTracePartB._tooltip_match_counter_key(match_s))
+    CombatF5SoakTraceUiMatch._bump("turn_ready")
+    CombatF5SoakTraceUiMatch._bump(CombatF5SoakTraceUiMatch._tooltip_match_counter_key(match_s))
     var gauge_sig: String = "%d|%s|%s" % [cid, label, match_s]
     var skip_gauge_line: bool = gauge_sig == _last_turn_ready_gauge_sig
     _last_turn_ready_gauge_sig = gauge_sig
@@ -608,7 +608,7 @@ static func log_turn_ready_player_ui(manager: Node, c: Dictionary, actions: Arra
         if formation_tip != _last_gauge_tooltip_formation_fp_line:
             _last_gauge_tooltip_formation_fp_line = formation_tip
             _OperationalLog.play_combat("gauge_tooltip_formation id=%d %s line=%s" % [cid, who, formation_tip])
-    CombatF5SoakTracePartB._emit_turn_ready_formation_fp(cid, who, fp_line)
+    CombatF5SoakTraceUiMatch._emit_turn_ready_formation_fp(cid, who, fp_line)
 
 
 ## Auto / manual weapon form change (**WF-1c / WF-3** soak grep). Production path: **`CombatWeaponForm.assign_form`**.
@@ -638,7 +638,7 @@ static func log_diagram_banner_player(line: String) -> void:
     if text == _last_diagram_banner_line:
         return
     _last_diagram_banner_line = text
-    CombatF5SoakTracePartB._bump("diagram_banner")
+    CombatF5SoakTraceUiMatch._bump("diagram_banner")
     _OperationalLog.play_combat("diagram_banner player: %s" % text)
 
 
@@ -659,5 +659,5 @@ static func log_diagram_banner_enemy(line: String) -> void:
         _last_diagram_banner_enemy_line = text
         return
     _last_diagram_banner_enemy_line = text
-    CombatF5SoakTracePartB._bump("diagram_banner_enemy")
+    CombatF5SoakTraceUiMatch._bump("diagram_banner_enemy")
     _OperationalLog.play_combat("diagram_banner enemy: %s" % text)

@@ -423,3 +423,44 @@ static func refresh_hud(world: Node) -> void:
             should_show_next_wage_hint(get_state(world), count_living_roster(world)),
             world
         )
+
+
+static func format_hud_wage_suffix(world: Node2D) -> String:
+    if world == null:
+        return ""
+    var state: Dictionary = get_state(world)
+    var living: int = count_living_roster(world)
+    if not should_show_next_wage_hint(state, living):
+        return ""
+    var gold: int = state.get("gold", 0)
+    if gold < 0:
+        return " /  wage debt"
+    return " /  wages short"
+
+
+static func format_battle_medical_supply_hint(world: Node) -> String:
+    if world == null or not world.has_meta(WORLD_META_CAMPAIGN_MED_BATTLE):
+        return ""
+    var raw: Variant = world.get_meta(WORLD_META_CAMPAIGN_MED_BATTLE)
+    if raw is not Dictionary:
+        return ""
+    var med: int = (raw as Dictionary).get("med_count", 0)
+    var factor: float = (raw as Dictionary).get("supply_factor", 1.0)
+    if med <= 0:
+        return (
+            (
+                "Company med depleted -- bandages free in battle; on map use field bandage at %.0f%% efficacy "
+                % (factor * 100.0)
+            )
+            + " (pack / stabilize need -1 med when available)."
+        )
+    if med == 1:
+        return (
+            "One med left -- pack or stabilize in medical phase costs your last supply; "
+            + "battle bandages are free; save med for map dressings + camp rest."
+        )
+    if med <= 5:
+        return "Med supplies tight (%d) -- battle bandages free; plan field dressings + camp rest on the map." % med
+    if factor < 0.99:
+        return "Medical supplies low - treatment efficacy %.0f%%." % (factor * 100.0)
+    return ""

@@ -125,14 +125,14 @@ static func halt_losing_side_combat(manager: Node) -> void:
         CombatEventScheduler.cancel_pending_combat_events_for_combatant(manager, cid)
         var st: String = CombatantEntityAccess.state_str(c)
         if st == CombatConstants.STATE_WIND_UP:
-            MedicalPhaseControllerPartA._get_counter_tempo().abort_attacker_wind_up(manager, cid)
+            MedicalPhaseBatchResolve._get_counter_tempo().abort_attacker_wind_up(manager, cid)
             CombatEventScheduler.cancel_pending_recovery_end(manager, cid)
             _Footwork.return_to_waiting(c)
             c.gauge = 0.0
             continue
         var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, "pending_attack")
         if not pa.is_empty():
-            MedicalPhaseControllerPartA._get_wind_up_starter().clear_incoming_attack_telegraph_from_pa(manager, pa)
+            MedicalPhaseBatchResolve._get_wind_up_starter().clear_incoming_attack_telegraph_from_pa(manager, pa)
             _Footwork.clear_on_exchange_end(c)
             c.pending_attack = {}
         if (
@@ -152,8 +152,8 @@ static func halt_losing_side_combat(manager: Node) -> void:
         c.erase("parry_was_bind")
         c.erase("parry_against_id")
         c.erase("parry_bonus_until")
-        MedicalPhaseControllerPartA._get_counter_tempo().clear_window(c)
-        MedicalPhaseControllerPartA._get_counter_tempo().clear_riposte_chain(c)
+        MedicalPhaseBatchResolve._get_counter_tempo().clear_window(c)
+        MedicalPhaseBatchResolve._get_counter_tempo().clear_riposte_chain(c)
         _FlurryBind.clear(c)
         if c.get("combat_absent", false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
             c["combat_absent"] = true
@@ -162,12 +162,12 @@ static func halt_losing_side_combat(manager: Node) -> void:
     for c in manager.combatants:
         if not CombatantEntityAccess.is_on_side(c, winner):
             continue
-        MedicalPhaseControllerPartA._get_counter_tempo().clear_window(c)
-        MedicalPhaseControllerPartA._get_counter_tempo().clear_riposte_chain(c)
+        MedicalPhaseBatchResolve._get_counter_tempo().clear_window(c)
+        MedicalPhaseBatchResolve._get_counter_tempo().clear_riposte_chain(c)
         var had_fled: bool = (
             c.get("combat_absent", false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED
         )
-        MedicalPhaseControllerPartA._reset_fled_and_combat_absent(c)
+        MedicalPhaseBatchResolve._reset_fled_and_combat_absent(c)
         # Fled winners: triage needs them on-field (`is_alive_in_combat`); suspend bleed ticks only
         # (they left before victory ->''--''''A!''--'''s''?" wounds should not drain during post-victory medical phase).
         if had_fled:
@@ -264,12 +264,12 @@ static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
     if rate <= 0.0:
         return false
     var perm_rate: float = CombatantEntityAccess.get_permanent_bleeding_rate_from_node(entity, rate)
-    var death_thresh: float = MedicalPhaseControllerPartA._blood_loss_death_threshold_for_entity(entity)
+    var death_thresh: float = MedicalPhaseBatchResolve._blood_loss_death_threshold_for_entity(entity)
     var buffer: float = bv - death_thresh
     if (
         buffer > 0.0
         and perm_rate > 0.0
-        and perm_rate <= MedicalPhaseControllerPartA._max_safe_permanent_bleed_rate(buffer)
+        and perm_rate <= MedicalPhaseBatchResolve._max_safe_permanent_bleed_rate(buffer)
     ):
         return false
     var time_to_death: float = BleedingConstants.seconds_to_exsanguination_at_death_threshold(
@@ -292,7 +292,7 @@ static func is_in_immediate_peril(manager: Node, c: Dictionary) -> bool:
     var rate: float = CombatantEntityAccess.get_total_bleeding_rate_from_node(entity)
     if rate <= 0.0:
         return false
-    var death_thresh_im: float = MedicalPhaseControllerPartA._blood_loss_death_threshold_for_entity(entity)
+    var death_thresh_im: float = MedicalPhaseBatchResolve._blood_loss_death_threshold_for_entity(entity)
     var time_to_death: float = BleedingConstants.seconds_to_exsanguination_at_death_threshold(
         rate, bv, death_thresh_im, 1.0
     )
@@ -311,9 +311,9 @@ static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -
     if perm_rate <= BleedingConstants.BLEEDING_RATE_EPSILON:
         return true
     var bv: float = CombatantEntityAccess.get_blood_volume_from_node(entity)
-    var death_thresh_pp: float = MedicalPhaseControllerPartA._blood_loss_death_threshold_for_entity(entity)
+    var death_thresh_pp: float = MedicalPhaseBatchResolve._blood_loss_death_threshold_for_entity(entity)
     var buffer: float = bv - death_thresh_pp
-    if buffer > 0.0 and perm_rate <= MedicalPhaseControllerPartA._max_safe_permanent_bleed_rate(buffer):
+    if buffer > 0.0 and perm_rate <= MedicalPhaseBatchResolve._max_safe_permanent_bleed_rate(buffer):
         return true
     var time_to_death: float = BleedingConstants.seconds_to_exsanguination_at_death_threshold(
         perm_rate, bv, death_thresh_pp, 1.0
@@ -354,10 +354,10 @@ static func batch_resolve_on_campaign_exit(manager: Node) -> void:
     if manager == null or not manager.medical_phase or can_end_medical_phase(manager):
         return
     var parts_before: int = winner_side_untreated_part_count(manager)
-    MedicalPhaseControllerPartA._batch_complete_in_progress_windups(manager)
-    MedicalPhaseControllerPartA._batch_scrub_winner_busy_states_for_exit(manager)
-    MedicalPhaseControllerPartA._batch_best_effort_dress_winner_side(manager)
-    MedicalPhaseControllerPartB._log_batch_resolve_result(manager, parts_before)
+    MedicalPhaseBatchResolve._batch_complete_in_progress_windups(manager)
+    MedicalPhaseBatchResolve._batch_scrub_winner_busy_states_for_exit(manager)
+    MedicalPhaseBatchResolve._batch_best_effort_dress_winner_side(manager)
+    MedicalPhaseFastForward._log_batch_resolve_result(manager, parts_before)
 
 
 ## When the player ends battle during medical phase, advance **`combat_clock`** through the tick pipeline until triage
@@ -366,7 +366,7 @@ static func instant_complete_on_early_exit(manager: Node, max_sim_seconds: float
     var sim_state: Dictionary = fast_forward_prepare(manager, max_sim_seconds)
     if sim_state.is_empty():
         return
-    var break_reason: String = MedicalPhaseControllerPartB._fast_forward_drive_sync(manager, sim_state)
+    var break_reason: String = MedicalPhaseFastForward._fast_forward_drive_sync(manager, sim_state)
     fast_forward_finalize(manager, sim_state, break_reason)
 
 
@@ -378,7 +378,7 @@ static func fast_forward_prepare(manager: Node, max_sim_seconds: float) -> Dicti
         "sim_seconds": 0.0,
         "stagnant_steps": 0,
         "total_iterations": 0,
-        "sim_cap": MedicalPhaseControllerPartB._instant_complete_sim_cap(max_sim_seconds),
+        "sim_cap": MedicalPhaseFastForward._instant_complete_sim_cap(max_sim_seconds),
     }
 
 
@@ -405,7 +405,7 @@ static func fast_forward_advance_chunk(
                 "continue_loop": false,
                 "break_reason": "iteration_cap",
             }
-        var step: Dictionary = MedicalPhaseControllerPartB._instant_complete_fast_forward_step(manager, sim_state)
+        var step: Dictionary = MedicalPhaseFastForward._instant_complete_fast_forward_step(manager, sim_state)
         if step.get("continue_loop", true) != true:
             return {
                 "continue_loop": false,
@@ -453,7 +453,7 @@ static func fast_forward_advance_time_slice(
                 "continue_loop": false,
                 "break_reason": "iteration_cap",
             }
-        var step: Dictionary = MedicalPhaseControllerPartB._instant_complete_fast_forward_step(manager, sim_state)
+        var step: Dictionary = MedicalPhaseFastForward._instant_complete_fast_forward_step(manager, sim_state)
         if step.get("continue_loop", true) != true:
             return {
                 "continue_loop": false,
@@ -478,8 +478,8 @@ static func fast_forward_advance_time_slice(
 static func fast_forward_finalize(manager: Node, sim_state: Dictionary, break_reason: String) -> void:
     if manager == null or not is_instance_valid(manager):
         return
-    MedicalPhaseControllerPartB._clear_instant_complete_fast_forward_meta(manager)
-    MedicalPhaseControllerPartB._log_instant_complete_result(manager, sim_state, break_reason)
+    MedicalPhaseFastForward._clear_instant_complete_fast_forward_meta(manager)
+    MedicalPhaseFastForward._log_instant_complete_result(manager, sim_state, break_reason)
 
 
 ## 0..1: higher when more hurt (lower blood, shorter time to death). Includes randomness.
@@ -487,9 +487,9 @@ static func get_medical_urgency(manager: Node, c: Dictionary) -> float:
     var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, c)
     if entity == null:
         return 0.0
-    var comps: Vector2 = MedicalPhaseControllerPartA._medical_urgency_components(
+    var comps: Vector2 = MedicalPhaseBatchResolve._medical_urgency_components(
         CombatantEntityAccess.get_blood_volume_from_node(entity),
-        MedicalPhaseControllerPartA._blood_loss_death_threshold_for_entity(entity),
+        MedicalPhaseBatchResolve._blood_loss_death_threshold_for_entity(entity),
         CombatantEntityAccess.get_total_bleeding_rate_from_node(entity)
     )
     var raw: float = maxf(comps.x, comps.y)
@@ -507,9 +507,9 @@ static func get_medical_urgency_deterministic(manager: Node, c: Dictionary) -> f
     var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, c)
     if entity == null:
         return 0.0
-    var comps: Vector2 = MedicalPhaseControllerPartA._medical_urgency_components(
+    var comps: Vector2 = MedicalPhaseBatchResolve._medical_urgency_components(
         CombatantEntityAccess.get_blood_volume_from_node(entity),
-        MedicalPhaseControllerPartA._blood_loss_death_threshold_for_entity(entity),
+        MedicalPhaseBatchResolve._blood_loss_death_threshold_for_entity(entity),
         CombatantEntityAccess.get_total_bleeding_rate_from_node(entity)
     )
     return clampf(maxf(comps.x, comps.y), 0.0, 1.0)
@@ -551,7 +551,7 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
     # Life-threatening limb: pressure (if needed) ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' '
     # tourniquet before slow dressings.
     if tq_indicated and tq_can:
-        MedicalPhaseControllerPartB._append_pressure_action_if_needed(
+        MedicalPhaseFastForward._append_pressure_action_if_needed(
             manager, performer, ally, part, has_pressure, actively_bleeding, out
         )
         out.append({"move_id": CombatConstants.MOVE_ID_APPLY_TOURNIQUET, "target_part": part})
@@ -564,7 +564,7 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
         and not has_pressure
         and CombatantEntityAccess.entity_can_apply_packing(manager, ally, part)
     ):
-        MedicalPhaseControllerPartB._append_pressure_action_if_needed(
+        MedicalPhaseFastForward._append_pressure_action_if_needed(
             manager, performer, ally, part, has_pressure, actively_bleeding, out
         )
         if not out.is_empty():
@@ -572,7 +572,7 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
 
     # Default menu: pressure before dressings while actively bleeding (TCCC); pack/bandage once compression is held.
     if not has_pressure:
-        MedicalPhaseControllerPartB._append_pressure_action_if_needed(
+        MedicalPhaseFastForward._append_pressure_action_if_needed(
             manager, performer, ally, part, has_pressure, actively_bleeding, out
         )
     var dressings_ok: bool = dressings_allowed_for_part(manager, ally, part)
@@ -580,7 +580,7 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
         dressings_ok
         and has_pressure
         and actively_bleeding
-        and MedicalPhaseControllerPartB._battle_med_supplies_available(manager)
+        and MedicalPhaseFastForward._battle_med_supplies_available(manager)
         and CombatantEntityAccess.entity_can_apply_stabilize(manager, ally, part)
     ):
         out.append({"move_id": CombatConstants.MOVE_ID_STABILIZE_WOUND, "target_part": part})

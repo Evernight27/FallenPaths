@@ -96,7 +96,7 @@ static func formation_has_frontline_fill_opportunity(manager: Node, fid: String)
         if FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
             continue
         var reserved: Dictionary = {}
-        var move: Dictionary = CombatFormationVacancyPlugsPartB._select_best_plug_move_for_empty_cell(
+        var move: Dictionary = FormationVacancyPlugMoves._select_best_plug_move_for_empty_cell(
             manager, fid, slots, 0, file, formation_ranks, nfiles, side_wanted, reserved, true, true
         )
         if not move.is_empty():
@@ -127,7 +127,7 @@ static func formation_has_frontline_fill_opportunity_at_file(manager: Node, fid:
         return false
     var side_wanted: String = FormationSlots.formation_side_str(formation)
     var reserved: Dictionary = {}
-    var move: Dictionary = CombatFormationVacancyPlugsPartB._select_best_plug_move_for_empty_cell(
+    var move: Dictionary = FormationVacancyPlugMoves._select_best_plug_move_for_empty_cell(
         manager, fid, slots, 0, file, formation_ranks, nfiles, side_wanted, reserved, true, true
     )
     return not move.is_empty()
@@ -164,14 +164,14 @@ static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) 
             # someone exists behind them in the same file; otherwise the empty cell is valid reserve space.
             if (
                 fill_rank > 0
-                and not CombatFormationVacancyPlugsPartB._has_living_deeper_in_file(
+                and not FormationVacancyPlugMoves._has_living_deeper_in_file(
                     manager, slots, fill_rank, file, formation_ranks
                 )
             ):
                 continue
-            var reserved: Dictionary = CombatFormationVacancyPlugsPartA._vacancy_plug_reserved_donors(manager)
+            var reserved: Dictionary = FormationVacancyDonorScoring._vacancy_plug_reserved_donors(manager)
             var allow_lateral: bool = true
-            var move: Dictionary = CombatFormationVacancyPlugsPartB._select_best_plug_move_for_empty_cell(
+            var move: Dictionary = FormationVacancyPlugMoves._select_best_plug_move_for_empty_cell(
                 manager,
                 fid,
                 slots,
@@ -186,7 +186,7 @@ static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) 
             )
             if move.is_empty():
                 continue
-            CombatFormationVacancyPlugsPartB._apply_plug_move(manager, slots, move, fill_rank, file, "Vacancy plug")
+            FormationVacancyPlugMoves._apply_plug_move(manager, slots, move, fill_rank, file, "Vacancy plug")
             any_promoted = true
             moved_step = true
             break
@@ -201,9 +201,9 @@ static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) 
 ## Pack home-line `formation_id` natives to files `0..n-1` per rank (stable sort by current file, then id).
 ## Returns true if any combatant moved or slots were repaired.
 static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> bool:
-    if manager == null or not CombatFormationVacancyPlugsPartB._should_compact_native_line_files(manager, fid):
+    if manager == null or not FormationVacancyPlugMoves._should_compact_native_line_files(manager, fid):
         return false
-    if CombatFormationVacancyPlugsPartB._formation_has_blocking_formation_motion_for_compact(manager, fid):
+    if FormationVacancyPlugMoves._formation_has_blocking_formation_motion_for_compact(manager, fid):
         return false
     var formation: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
     if formation.is_empty():
@@ -244,7 +244,7 @@ static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> 
                 need = not occ.has(nid)
             if not need:
                 continue
-            CombatFormationVacancyPlugsPartB._slot_place_native_preserving_other_occupants(
+            FormationVacancyPlugMoves._slot_place_native_preserving_other_occupants(
                 manager, slots, fid, rank, new_f, nid
             )
             any = true
@@ -270,7 +270,7 @@ static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> boo
     var slots_prune: Dictionary = FormationSlots.formation_slots_dict(formation)
     if FormationSlots.prune_dead_ids_from_formation_slots(manager, slots_prune):
         CombatDebug.formation_vacancy_log("pruned dead occupant ids from slots fid=%s" % fid)
-    CombatFormationVacancyPlugsPartA._vacancy_lateral_begin_tracking(manager)
+    FormationVacancyDonorScoring._vacancy_lateral_begin_tracking(manager)
     var nfiles: int = int(formation.get("files", 1))
     var any: bool = false
     var max_rounds: int = CombatConstants.FORMATION_VACANCY_RECONCILE_MAX_ROUNDS
@@ -293,7 +293,7 @@ static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> boo
             break
         if ri == max_rounds - 1:
             exhausted_unstable = true
-    CombatFormationVacancyPlugsPartA._vacancy_lateral_end_tracking(manager)
+    FormationVacancyDonorScoring._vacancy_lateral_end_tracking(manager)
     if compact_native_line_files_if_thinned(manager, fid):
         any = true
     if exhausted_unstable and OS.is_debug_build():
@@ -306,7 +306,7 @@ static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> boo
                 )
             )
         )
-    CombatFormationVacancyPlugsPartB._log_rank0_vacancy_gaps_if_debug(manager, fid)
+    FormationVacancyPlugMoves._log_rank0_vacancy_gaps_if_debug(manager, fid)
     if any:
         FormationSlots.refresh_gap_column_topology(formation)
     return any
@@ -428,7 +428,7 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
                     continue
                 if CombatantEntityAccess.formation_id_str(ally) != fid_str:
                     continue
-                if CombatFormationVacancyPlugsPartA._is_ineligible_vacancy_donor(manager, ally):
+                if FormationVacancyDonorScoring._is_ineligible_vacancy_donor(manager, ally):
                     continue
                 if CombatantEntityAccess.file_int(ally) == file and CombatantEntityAccess.rank_int(ally) >= 1:
                     has_promotable_deeper = true
@@ -453,7 +453,7 @@ static func run_death_column_micro_plug(
         return
     var formation_ranks: int = int(formation.get("ranks", 1))
     var nfiles_death: int = int(formation.get("files", 1))
-    CombatFormationVacancyPlugsPartA._vacancy_lateral_begin_tracking(manager)
+    FormationVacancyDonorScoring._vacancy_lateral_begin_tracking(manager)
     var micro_max_d: int = CombatConstants.FORMATION_VACANCY_MICRO_STEPS_MAX
     for _micro_d in range(micro_max_d):
         var moved_step_d: bool = false
@@ -462,14 +462,14 @@ static func run_death_column_micro_plug(
                 continue
             if (
                 fill_rank > 0
-                and not CombatFormationVacancyPlugsPartB._has_living_deeper_in_file(
+                and not FormationVacancyPlugMoves._has_living_deeper_in_file(
                     manager, slots, fill_rank, death_file, formation_ranks
                 )
             ):
                 continue
-            var reserved_d: Dictionary = CombatFormationVacancyPlugsPartA._vacancy_plug_reserved_donors(manager)
+            var reserved_d: Dictionary = FormationVacancyDonorScoring._vacancy_plug_reserved_donors(manager)
             var side_death: String = FormationSlots.formation_side_str(formation)
-            var move_d: Dictionary = CombatFormationVacancyPlugsPartB._select_best_plug_move_for_empty_cell(
+            var move_d: Dictionary = FormationVacancyPlugMoves._select_best_plug_move_for_empty_cell(
                 manager,
                 fid_geom,
                 slots,
@@ -484,9 +484,9 @@ static func run_death_column_micro_plug(
             )
             if move_d.is_empty():
                 continue
-            CombatFormationVacancyPlugsPartB._apply_plug_move(manager, slots, move_d, fill_rank, death_file, "Plug")
+            FormationVacancyPlugMoves._apply_plug_move(manager, slots, move_d, fill_rank, death_file, "Plug")
             moved_step_d = true
             break
         if not moved_step_d:
             break
-    CombatFormationVacancyPlugsPartA._vacancy_lateral_end_tracking(manager)
+    FormationVacancyDonorScoring._vacancy_lateral_end_tracking(manager)
