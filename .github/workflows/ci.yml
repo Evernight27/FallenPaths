@@ -35,9 +35,8 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: shellcheck scripts/*.sh
-        # Ubuntu apt shellcheck is 0.9 (no --rcfile=). Per-file discovery picks up scripts/.shellcheckrc.
+        # Ubuntu apt shellcheck is 0.9 (no --rcfile=). Discovers repo-root .shellcheckrc from cwd.
         run: shellcheck -x scripts/*.sh
-
   gdscript-lint:
     name: GDScript lint (gdlint + gdformat)
     runs-on: ubuntu-latest
