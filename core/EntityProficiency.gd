@@ -426,6 +426,14 @@ static func get_severity_mult(severity: String) -> float:
 
 # --- Internal helpers ---
 
+## Safe dictionary-get helper — avoids GDScript `or` bug (GDScript `a or b` returns bool, not first truthy value).
+## Usage instead of: `float(dict.get(key, 0) or 0)` → `get_float_or_zero(dict, key)`
+static func get_float_or_zero(d: Dictionary, key: Variant) -> float:
+	var v = d.get(key, null)
+	if v != null:
+		return float(v)
+	return 0.0
+
 static func _is_valid_stat(stat: String) -> bool:
 	return stat in ["strength", "agility", "intelligence", "endurance", "perception"]
 

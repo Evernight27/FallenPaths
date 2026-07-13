@@ -160,7 +160,8 @@ static func record_medic_action(world: Node2D, medic_entity: Node) -> void:
 	if world == null or medic_entity == null:
 		return
 	var actions: Dictionary = world.get_meta("campaign_medic_actions_by") if world.has_meta("campaign_medic_actions_by") else {}
-	var count: int = int(actions.get(medic_entity, 0) or 0)
+	var _ae_val = actions.get(medic_entity, null)
+	var count: int = int(_ae_val) if _ae_val != null else 0
 	actions[medic_entity] = count + 1
 	world.set_meta("campaign_medic_actions_by", actions)
 

@@ -87,6 +87,7 @@ static func compute_and_apply_damage(
 	var pre_cut: float = 0.0
 	var pre_blunt: float = 0.0
 	var strike_ke_j: float = -1.0
+	var move_contact: String = ""
 	var tgt_n: Node = _EntityAccess.scene_node(tgt)
 	if tgt_n == null:
 		CombatDebug.log("compute_and_apply_damage %s->%s target scene node freed, skip" % [atk_name, tgt_name])
@@ -121,7 +122,7 @@ static func compute_and_apply_damage(
 		var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, part)
 		var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, attack_type, archetype)
 		# Physics: deflected cut presents flat/slap; edge doesn't bite. Shift cut|'blunt on partial parry.
-		var move_contact: String = _EntityAccess.weapon_contact_type(weapon, attack_type)
+		move_contact = _EntityAccess.weapon_contact_type(weapon, attack_type)
 		if move_contact == WeaponConstants.ATTACK_TYPE_CUT and velocity_override >= 0.0 and parry_remaining_ratio < 1.0:
 			var shift_const: float = CombatConstants.PARRY_CUT_TO_BLUNT_SHIFT
 			var redirect_shift: float = shift_const * (1.0 - parry_remaining_ratio)
@@ -198,6 +199,8 @@ static func compute_and_apply_damage(
 		dmg_extras["hit_sub_region"] = hit_sub
 	if strike_physics_ctx.has("hit_sub_region_seed"):
 		dmg_extras["hit_sub_region_seed"] = int(strike_physics_ctx["hit_sub_region_seed"])
+	if move_contact != "":
+		dmg_extras["contact_type"] = move_contact
 	var take_result: Dictionary = tgt_n.take_damage_split(
 		pre_cut, pre_blunt, part, pen_sharp, pen_blunt_momentum_per_area, blunt_contact_cm, dmg_extras
 	)

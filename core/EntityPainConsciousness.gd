@@ -16,6 +16,7 @@ const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _StatsUtil := preload("res://core/EntityStatsUtil.gd")
 const _Bp := preload("res://core/BodyPartConstants.gd")
+const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 
 # --- Pain contribution (single wound; used for pain-shock from hit) ---
 
@@ -106,6 +107,62 @@ static func get_blood_consciousness_modifier(entity: Node) -> float:
 
 static func mark_consciousness_dirty(entity: Node) -> void:
 	entity._consciousness_dirty = true
+
+# --- Concussion constants (GCS-aligned: mild 10% / moderate 30% / severe 60% reduction with amplification when pain shock active) ---
+const CONCUSSION_GCS_MILD_BONE_DAMAGE: float = 2.0      # GCS 13-15 equivalent; ~10% consciousness reduction
+const CONCUSSION_GCS_MODERATE_BONE_DAMAGE: float = 4.0   # GCS 9-12 equivalent; ~30% reduction
+# Duration formula: 2.5 + min(bone_damage * 1.2, 7.5) seconds (max 10s total). Research: stunned 3-8s, flash KO <3s unconscious, full KO 10-20s.
+const CONCUSSION_DURATION_BASE: float = 2.5
+const CONCUSSION_DURATION_DAMAGE_SCALE: float = 1.2
+const CONCUSSION_DURATION_MAX_EXTRA: float = 7.5
+
+# --- Concussion trigger (head bone damage, not random) ---
+
+static func try_enter_concussion_from_head_bone_damage(entity: Node, bone_damage: float) -> void:
+	if entity._is_part_destroyed(_Bp.PART_HEAD):
+		return
+	var severity_reduction: float = 0.0
+	if bone_damage >= CONCUSSION_GCS_MODERATE_BONE_DAMAGE:
+		severity_reduction = 0.30   # moderate (GCS 9-12)
+	elif bone_damage >= CONCUSSION_GCS_MILD_BONE_DAMAGE:
+		severity_reduction = 0.10   # mild (GCS 13-15)
+	else:
+		return
+	var duration: float = CONCUSSION_DURATION_BASE + minf(bone_damage * CONCUSSION_DURATION_DAMAGE_SCALE, CONCUSSION_DURATION_MAX_EXTRA)
+	var now: float = _CombatTiming.now_seconds()
+	entity._concussion_until_time = now + duration
+	if _CombatConstants.combat_debug_active():
+		_CombatDebug.combat_session(
+			"concussion %s severity=%.0f%% duration=%.1fs (bone_damage=%.1f)"
+			% [entity.name, severity_reduction * 100.0, duration, bone_damage]
+		)
+
+# --- Concussion severity computation (based on remaining head integrity after damage) ---
+
+static func _compute_concussion_severity(entity: Node) -> float:
+	var head_cut: float = entity.body_cutting.get(_Bp.PART_HEAD, 0.0)
+	var head_blunt: float = entity.body_blunt.get(_Bp.PART_HEAD, 0.0)
+	var head_max: int = entity.body_max.get(_Bp.PART_HEAD, 1)
+	if head_max <= 0:
+		return 0.0
+	var head_total: float = head_cut + head_blunt
+	var head_max_total: float = float(head_max * 2)
+	var head_ratio: float = 1.0
+	if head_max_total > 0:
+		head_ratio = head_total / head_max_total
+	if head_ratio <= 0.0:
+		return 0.60
+	var bone_health: float = entity.bone_health.get(_Bp.PART_HEAD, float(head_max))
+	var bone_max: float = float(entity.bone_max.get(_Bp.PART_HEAD, 1))
+	var bone_ratio: float = 1.0
+	if bone_max > 0:
+		bone_ratio = bone_health / bone_max
+	if bone_ratio <= 0.1:
+		return 0.60
+	if bone_ratio <= 0.4:
+		return 0.30
+	return 0.10
+
 
 static func try_enter_pain_shock_from_hit(entity: Node, pain_from_this_hit_raw: float) -> void:
 	if entity._last_hit_impact <= 0.0 or pain_from_this_hit_raw <= 0.0:
@@ -215,6 +272,14 @@ static func update_consciousness(entity: Node) -> void:
 	else:
 		entity._pain_shock_until_time = -1.0
 		entity.effective_consciousness = true_consciousness
+	if entity._concussion_until_time >= 0.0 and now < entity._concussion_until_time:
+		var concussion_reduction: float = _compute_concussion_severity(entity)
+		var pain_amplified: bool = entity._pain_shock_until_time >= 0.0 and now < entity._pain_shock_until_time
+		if pain_amplified:
+			concussion_reduction = minf(concussion_reduction * 1.5, 0.60)
+		entity.effective_consciousness *= (1.0 - concussion_reduction)
+	else:
+		entity._concussion_until_time = -1.0
 	entity._consciousness_dirty = false
 	if old_consciousness != entity.consciousness or old_effective != entity.effective_consciousness:
 		if entity.has_method("notify_health_changed"):
@@ -242,7 +307,20 @@ static func get_action_bar_performance_modifier(entity: Node) -> float:
 static func get_hit_chance_performance_modifier(entity: Node) -> float:
 	var base: float = get_performance_modifier(entity)
 	var head_pain_mod: float = _PainConscious.get_pain_performance_modifier(get_effective_pain_for_region(entity, _Bp.PART_HEAD))
-	return maxf(_PainConscious.MIN_PERFORMANCE_MODIFIER, base * head_pain_mod)
+	# Sub-region arm precision degradation (Issue 2): wounded arms reduce hit chance proportionally.
+	# Both arms contribute — the dominant hand has more impact on weapon accuracy.
+	var dom: String = entity.dominant_hand if "dominant_hand" in entity else _Bp.PART_RIGHT_ARM
+	var offhand_func: float = entity.offhand_functionality if "offhand_functionality" in entity else 0.8
+	var arm_precision_mod: float = _compute_arm_precision_modifier(entity, dom, offhand_func)
+	return maxf(_PainConscious.MIN_PERFORMANCE_MODIFIER, base * head_pain_mod * arm_precision_mod)
+
+static func _compute_arm_precision_modifier(entity: Node, dominant_hand: String, offhand_functionality: float) -> float:
+	var right_mod: float = _BodyPartQuery.get_arm_hit_chance_modifier(entity, _Bp.PART_RIGHT_ARM)
+	var left_mod: float = _BodyPartQuery.get_arm_hit_chance_modifier(entity, _Bp.PART_LEFT_ARM)
+	# Weighted by which arm is dominant (dominant hand matters more for precision).
+	var dom_weight: float = 0.7 if dominant_hand == _Bp.PART_RIGHT_ARM else 0.7
+	var off_weight: float = 1.0 - dom_weight
+	return maxf(0.45, right_mod * dom_weight + left_mod * off_weight)
 
 # get_effective_consciousness: ensure current then return (used by get_performance_modifier and callers)
 static func get_effective_consciousness(entity: Node) -> float:

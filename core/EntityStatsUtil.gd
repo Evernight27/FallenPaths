@@ -17,5 +17,7 @@ static func get_effective_stat(entity: Node, stat_name: String) -> float:
 		return float(entity.get(stat_name) if entity else 0)
 	var eff: float = float(entity.get(stat_name))
 	if "_proficiency_bonus" in entity:
-		eff += float(entity._proficiency_bonus.get(stat_name, 0) or 0)
+		var _pb_val = entity._proficiency_bonus.get(stat_name, null)
+		if _pb_val != null:
+			eff += float(_pb_val)
 	return eff

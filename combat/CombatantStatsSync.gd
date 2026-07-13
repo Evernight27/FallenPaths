@@ -69,6 +69,8 @@ static func sync_from_entity(entity: Node, stats: Dictionary, ensure_consciousne
 		stats.effective_consciousness = entity.get_effective_consciousness()
 	if entity.has_method("get_performance_modifier"):
 		stats.performance_modifier = entity.get_performance_modifier()
+	if entity.has_method("is_concussed"):
+		stats.is_concussed = entity.is_concussed()
 ## Returns initial stats dict for combatant registration. Single source of truth for entity--''stats copy.
 ## Entity can be null; returns defaults. Handles CoreEntity-style and nodes with "speed" instead of "agility".
 static func sync_from_entity_for_register(entity: Node) -> Dictionary:

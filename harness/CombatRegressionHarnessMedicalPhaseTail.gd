@@ -2853,7 +2853,7 @@ static func _run_winner_side_triage_busy_gauge_and_complete(
 	mgr.medical_phase = true
 	mgr.medical_phase_winner = "player"
 	mgr.combatants[0]["state"] = CombatConstants.STATE_WAITING
-	mgr.combatants[0]["gauge"] = 40.0
+	mgr.combatants[0]["gauge"] = 0.40
 	if not _MedicalPhase.winner_side_triage_busy(mgr):
 		CombatRegressionHarness._fail(
 			failures, "winner_triage_busy: partial gauge should count as busy"

@@ -192,3 +192,26 @@ static func get_pain_shock_duration_seconds(pain_value: float, triggering_hit_da
 		return base_duration
 	var impact_mult: float = 1.0 + minf(triggering_hit_damage / PAIN_SHOCK_DURATION_IMPACT_REFERENCE, PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER - 1.0)
 	return base_duration * impact_mult
+
+# --- Arm sub-region functional degradation (Issue 2: weapon function from arm wounds) ---
+# Maps a sub-region's remaining tissue ratio (0-1) to a functional modifier for hit chance precision.
+# Hand injuries cause the largest hit-chance penalty because they control fine motor grip/trigger control.
+# Forearm causes moderate hit-chance loss (grip strength affects weapon angle control).
+# Upper arm and elbow have smaller direct hit-chance impact but affect swing power more.
+const ARM_HIT_CHANCE_PENALTIES: Dictionary = {
+	_Bp.PART_RIGHT_ARM: {"upper_arm": 0.7, "elbow": 0.65, "forearm": 0.72, "hand": 0.5},
+	_Bp.PART_LEFT_ARM: {"upper_arm": 0.7, "elbow": 0.65, "forearm": 0.72, "hand": 0.5}
+}
+
+# Maps a sub-region's remaining tissue ratio (0-1) to a functional modifier for damage/swing power.
+# Forearm and upper arm cause the largest swing-power penalty because they house flexor/extensor muscles.
+# Hand injuries have smaller direct impact on raw power but affect weapon retention.
+# Elbow affects both (lever arm mechanics).
+const ARM_DAMAGE_POWER_PENALTIES: Dictionary = {
+	_Bp.PART_RIGHT_ARM: {"upper_arm": 0.55, "elbow": 0.6, "forearm": 0.52, "hand": 0.7},
+	_Bp.PART_LEFT_ARM: {"upper_arm": 0.55, "elbow": 0.6, "forearm": 0.52, "hand": 0.7}
+}
+
+# Minimum functional modifier (floor) for each arm function type — even severely wounded arms retain some baseline.
+const ARM_HIT_CHANCE_MIN_MODIFIER: float = 0.45
+const ARM_DAMAGE_POWER_MIN_MODIFIER: float = 0.35

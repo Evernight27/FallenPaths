@@ -371,12 +371,13 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
 		var saved_prof: Dictionary = data.get("proficiency_bonus", {})
 		var _prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
 		for key in _prof_keys:
-			entity._proficiency_bonus[key] = float(saved_prof.get(key, 0) or 0)
+			var raw_val = saved_prof.get(key, 0)
+			entity._proficiency_bonus[key] = float(raw_val if raw_val != null else 0.0)
 	if data.has("training_pending"):
 		var saved_train: Dictionary = data.get("training_pending", {})
 		var _prof_keys_p := ["strength", "agility", "intelligence", "endurance", "perception"]
 		for key in _prof_keys_p:
-			entity.training_pending[key] = float(saved_train.get(key, 0) or 0)
+			entity.training_pending[key] = float(saved_train.get(key, 0) if saved_train.get(key, null) != null else 0.0)
 	if data.has("last_fought_day"):
 		entity.last_fought_day = data.get("last_fought_day", 0)
 	if data.has("last_fought_in_combat"):

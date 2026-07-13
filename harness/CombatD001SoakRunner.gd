@@ -1662,7 +1662,11 @@ static func _merge_probe_ii8_checks(pr: Dictionary, probe: Dictionary) -> Dictio
 	var form_gauge_ok: bool = " . Form" in snap_label
 	var form_diagram_ok: bool = " [Ox]" in diagram_cell
 	var suffix_order_ok: bool = (
-		form_gauge_ok and _label_tokens_in_order(snap_label, PackedStringArray(["Grd", " . Form"]))
+		form_gauge_ok
+		and (
+			not CombatConstants.is_feature_hema_eight_guard_lines_enabled()
+			or _label_tokens_in_order(snap_label, PackedStringArray(["Grd", " . Form"]))
+		)
 	)
 	var turn_ready_form_ok: bool = bool(probe.get("turn_ready_form_suffix", false))
 	check_out["form_gauge_suffix"] = {

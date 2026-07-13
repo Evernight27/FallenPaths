@@ -246,6 +246,8 @@ func register(node: Node, side: String) -> int:
 		"campaign_stamina_mult": camp_stamina,
 	})
 	_WeaponForm.seed_combatant_form(self, combatants[id] as Dictionary)
+	if _Constants.is_feature_muscle_group_fatigue_enabled():
+		load("res://combat/CombatMuscleFatigue.gd").seed_combatant_if_enabled(combatants[id] as Dictionary, entity)
 	# Connect health_changed so UI can refresh when consciousness/pain/blood changes
 	if entity != null and entity.has_signal("health_changed"):
 		var _hcb = _on_entity_health_changed.bind(id)
@@ -440,8 +442,6 @@ func stop():
 				if entity.creature_incapacitated.is_connected(_hcb2):
 					entity.creature_incapacitated.disconnect(_hcb2)
 	event_queue.clear()
-	medical_phase = false
-	medical_phase_winner = ""
 	combat_resolution_closed = true
 	if has_meta(_META_LAST_COMBAT_UI_HINT):
 		remove_meta(_META_LAST_COMBAT_UI_HINT)
@@ -561,6 +561,8 @@ func _emit_finish_battle_and_stop(ran_fast_forward: bool) -> void:
 	if _OperationalLog.is_play_session_active():
 		_F5SoakTrace.flush_deferred_soak_coverage()
 	emit_signal("combat_ended", medical_phase_winner, null)
+	medical_phase = false
+	medical_phase_winner = ""
 	stop()
 
 

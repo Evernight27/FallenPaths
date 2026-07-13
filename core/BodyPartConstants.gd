@@ -26,7 +26,7 @@ const BODY_BAR_COLUMNS := [["head", "right_arm", "left_leg"], ["chest", "left_ar
 const BONE_DAMAGE_MIN: int = 1
 
 const _PART_BONE_THRESHOLD: Dictionary = {
-	"head": 3,
+	"head": 2,
 	"chest": 8,
 	"right_arm": 5,
 	"left_arm": 5,
@@ -35,7 +35,7 @@ const _PART_BONE_THRESHOLD: Dictionary = {
 }
 
 const _PART_BONE_FRACTION: Dictionary = {
-	"head": 0.55,
+	"head": 0.65,
 	"chest": 0.30,
 	"right_arm": 0.38,
 	"left_arm": 0.38,

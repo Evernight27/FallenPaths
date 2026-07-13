@@ -27,6 +27,7 @@ const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+const _MuscleFatigue := preload("res://combat/CombatMuscleFatigue.gd")
 
 # Runtime preload ' circular dependency (CompanyState |' CampaignEncounterBridge |' CombatUiHints).
 static var _CompanyState: Variant = null
@@ -414,11 +415,12 @@ static func weapon_form_tooltip_line(c: Dictionary) -> String:
 		base = "Form: %s (%s)" % [name, pressure]
 	else:
 		base = "Form: %s" % name
-	var is_auto: bool = (form != _WeaponForm.normalize_form(c.get("stance_preference", "").strip_edges())) and not reason.is_empty()
+	var pref_set: bool = c.has("stance_preference") and not str(c.get("stance_preference", "")).is_empty()
+	var is_auto: bool = pref_set and form != _WeaponForm.normalize_form(str(c.get("stance_preference", "")).strip_edges()) and not reason.is_empty()
 	if is_auto:
 		var reason_label: String = _format_switch_reason_label(reason)
 		base += " ' auto-switched to %s (%s)" % [name, reason_label]
-	elif form != _WeaponForm.normalize_form(c.get("stance_preference", "").strip_edges()):
+	elif pref_set and form != _WeaponForm.normalize_form(str(c.get("stance_preference", "")).strip_edges()):
 		base += " ' AI-selected (no player preference set)"
 	return base
 
@@ -588,6 +590,9 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 	var wf: String = weapon_form_tooltip_line(c)
 	if not wf.is_empty():
 		tips.append(wf)
+	var msc_tip: String = _MuscleFatigue.gauge_tooltip_line(c)
+	if not msc_tip.is_empty():
+		tips.append(msc_tip)
 	var st: String = _EntityAccess.state_str(c)
 	if manager != null and medical_phase_active(manager):
 		for mp_line in medical_phase_context_tooltip_lines(manager):
@@ -622,34 +627,35 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
 static func formation_cell_tooltip_lines(
 	c: Dictionary, display_name: String, manager: Node = null
 ) -> PackedStringArray:
+	var _sep: String = "\u2019 "
 	var lines: PackedStringArray = []
 	var fw: String = footwork_hint_text(c)
 	if not fw.is_empty():
-		lines.append("%s ' footwork: %s" % [display_name, fw])
+		lines.append("%s %sfootwork: %s" % [display_name, _sep, fw])
 	var attn: String = attention_hint_text(c, manager)
 	if not attn.is_empty():
-		lines.append("%s ' attention: %s" % [display_name, attn])
+		lines.append("%s %sattention: %s" % [display_name, _sep, attn])
 	var tempo: String = counter_tempo_hint_key(c, manager)
 	if tempo == "counter_ready":
-		lines.append("%s ' counter window open" % display_name)
+		lines.append("%s %scounter window open" % [display_name, _sep])
 	elif tempo == "counter_winding":
-		lines.append("%s ' counter window building" % display_name)
+		lines.append("%s %scounter window building" % [display_name, _sep])
 	var cow: String = cowering_mobility_tooltip_line(c)
 	if not cow.is_empty():
-		lines.append("%s ' %s" % [display_name, cow])
+		lines.append("%s %s%s" % [display_name, _sep, cow])
 	var fm: String = _FormationMoveDuration.formation_preview_tooltip_line(manager, c)
 	if not fm.is_empty():
-		lines.append("%s ' %s" % [display_name, fm])
+		lines.append("%s %s%s" % [display_name, _sep, fm])
 	var grd: String = guard_line_tooltip_line(c)
 	if not grd.is_empty():
-		lines.append("%s ' %s" % [display_name, grd])
+		lines.append("%s %s%s" % [display_name, _sep, grd])
 	var wf: String = weapon_form_tooltip_line(c)
 	if not wf.is_empty():
-		lines.append("%s ' %s" % [display_name, wf])
+		lines.append("%s %s%s" % [display_name, _sep, wf])
 	var ldr: String = party_leader_tooltip_line(c)
 	if not ldr.is_empty():
-		lines.append("%s ' %s" % [display_name, ldr])
+		lines.append("%s %s%s" % [display_name, _sep, ldr])
 	var cmd: String = enemy_leader_tooltip_line(c)
 	if not cmd.is_empty():
-		lines.append("%s ' %s" % [display_name, cmd])
+		lines.append("%s %s%s" % [display_name, _sep, cmd])
 	return lines

@@ -225,7 +225,7 @@ static func choose_defense(
 				if result.has("arm_interpose_boost") and result["arm_interpose_boost"] > 0.0:
 					interpose_note = " interpose_arm=%s boost=%.3f" % [result.get("arm_interpose_arm", ""), result["arm_interpose_boost"]]
 				_CombatDebug.calibration_log("parry_pre atk_line=%s guard=%s raw=%.3f align=%.3f parry_c_d=%.2f%s%s" % [WeaponConstants.get_move(attack_type).get("attack_line", "high"), tgt.get("guard_line", CombatConstants.GUARD_DEFAULT), _al_raw, _al, parry_c_d, cal_suffix, interpose_note])
-			if atk_weapon != null:
+			elif atk_weapon != null:
 				# Late parry: reflexive/partial contact when "too late"
 				can_parry_in_time = true
 				late_parry = true
@@ -240,7 +240,8 @@ static func choose_defense(
 				attack_instance.velocity_m_s = velocity_override if velocity_override >= 0.0 else -1.0
 				var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
 				v_intent *= _StrikeRealism.velocity_intent_mult_from_pa(pa, atk_weapon, attack_type, float(pa.get(CombatConstants.PA_KEY_INTENSITY, CombatConstants.PA_DEFAULT_INTENSITY)), archetype)
-				parry_p_a = m_a_striking_late * v_intent * CombatTiming.velocity_curve_factor(1.0)
+				if parry_p_a <= 0.0:
+					parry_p_a = m_a_striking_late * v_intent * CombatTiming.velocity_curve_factor(1.0)
 				parry_time_to_react = 0.0
 				parry_c_d = _compute_parry_c_d(def_weapon, tgt, contact_type_late)
 				parry_c_d *= CombatConstants.PARRY_LATE_CAPACITY_FLOOR
@@ -395,10 +396,11 @@ static func choose_defense(
 	var desperate_parry: bool = can_parry_in_time and dodge_chance < CombatConstants.PARRY_DESPERATE_DODGE_THRESHOLD
 	var redirect_viable: bool = can_parry_in_time and (result.parry_p_a <= result.parry_c_d * effective_redirect or desperate_parry)
 	var preview_align: float = float(result.get("parry_preview_alignment", 1.0))
+	var boosted_align_val: float = minf(1.0, preview_align + result.get("arm_interpose_boost", 0.0))
 	if (
 		can_parry_in_time
 		and preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
-		and not late_parry
+		and boosted_align_val < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
 		and not desperate_parry
 	):
 		block_viable = false
@@ -413,6 +415,7 @@ static func choose_defense(
 	elif not can_parry_in_time:
 		choose_parry = false
 	elif can_parry_in_time and def_has_weapon:
+		var arm_interpose_boost: float = result.get("arm_interpose_boost", 0.0)
 		var part_mod: float = _EntityAccess.get_part_dodge_modifier(tgt, result.dodge_eval_part)
 		var effective_dodge_chance: float = dodge_chance * part_mod
 		if preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
@@ -436,7 +439,15 @@ static func choose_defense(
 		var E_parry: float = 0.0 if (parry_full or parry_edge) else CombatConstants.glancing_factor(parry_remaining_est, glancing_exp)
 		var dodge_better: bool = E_dodge < E_parry
 		var clean_dodge_likely: bool = full_dodge_prob >= CombatConstants.PARRY_PREFER_DODGE_FULL_THRESHOLD
-		choose_parry = late_parry or ((block_viable or redirect_viable) and not dodge_better and not clean_dodge_likely)
+		var boosted_align: float = minf(1.0, preview_align + arm_interpose_boost)
+		if arm_interpose_boost > 0.0 and can_parry_in_time and not late_parry and boosted_align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
+			dodge_better = false
+		var aligned_can_parry: bool = can_parry_in_time and boosted_align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
+		var parry_full_stop: bool = CombatConstants.parry_full_stop_reached(result.parry_c_d, result.parry_p_a, result.is_block_parry)
+		var parry_viable_margin: float = result.parry_c_d / maxf(result.parry_p_a, 0.001)
+		choose_parry = (late_parry and aligned_can_parry) or ((block_viable or redirect_viable) and (not dodge_better or preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD) and not clean_dodge_likely) or (aligned_can_parry and parry_c_d > 0.5 * parry_p_a and not dodge_better)
+		if parry_full_stop and parry_viable_margin >= 1.0:
+			choose_parry = true
 	if choose_parry:
 		_Footwork.apply_defender_step_on_parry(
 			tgt, str(tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)), _EntityAccess.id_int(atk), manager

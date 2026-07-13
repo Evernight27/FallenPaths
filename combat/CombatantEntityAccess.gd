@@ -1158,7 +1158,10 @@ static func get_effective_medical_windup_speed_modifier(
 	var perf_node = node_variant(performer)
 	var eff_int: float = 100.0
 	if perf_node != null and "_proficiency_bonus" in perf_node:
-		eff_int = float(perf_node.intelligence or 0) + float(perf_node._proficiency_bonus.get("intelligence", 0) or 0)
+		var _pb_val = perf_node._proficiency_bonus.get("intelligence", null)
+		var _pb_int: float = float(_pb_val) if _pb_val != null else 0.0
+		var _int_v = perf_node.get("intelligence")
+		eff_int = float(_int_v if _int_v != null else 0) + _pb_int
 	else:
 		eff_int = float(performer.get("intelligence", CombatConstants.DEFAULT_STAT_VALUE))
 	var med_eff: float = clampf(eff_int / 100.0, CombatConstants.STAT_EFFECT_MULT_MIN, CombatConstants.STAT_EFFECT_MULT_MAX)

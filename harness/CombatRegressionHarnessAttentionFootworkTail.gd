@@ -4162,7 +4162,7 @@ static func _run_medical_phase_hints_campaign_each_contract_fight(
 				"medical_phase_hints_campaign_each: second fight want early-exit copy got '%s'"
 				% joined_b
 			)
-		if joined_b.contains("Medical phase  -  your side triages only"):
+		if joined_b.contains("Medical phase ' your side triages only"):
 			CombatRegressionHarness._fail(
 				failures,
 				"medical_phase_hints_campaign_each: second fight should not repeat general triage hints"
@@ -4173,7 +4173,7 @@ static func _run_medical_phase_hints_campaign_each_contract_fight(
 				"medical_phase_hints_campaign_each: second fight want 1 hint got %d (%s)"
 				% [hints_b.size(), joined_b]
 			)
-		if not joined_a.contains("Medical phase  -  your side triages only"):
+		if not joined_a.contains("Medical phase ' your side triages only"):
 			CombatRegressionHarness._fail(
 				failures,
 				"medical_phase_hints_campaign_each: first fight should include general triage hints"

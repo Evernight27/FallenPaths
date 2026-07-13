@@ -18,8 +18,10 @@ const _CombatLayerTissue := preload("res://core/CombatLayerTissue.gd")
 const _ArmorPenetrationTrace := preload("res://armor/ArmorPenetrationTrace.gd")
 const _MaterialFailureCurves := preload("res://core/MaterialFailureCurves.gd")
 const _TissueEnergyCapacity := preload("res://core/TissueEnergyCapacity.gd")
+const _EntityPainConsciousness := preload("res://core/EntityPainConsciousness.gd")
 const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
 const _StatsUtil := preload("res://core/EntityStatsUtil.gd")
+const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 
 # Damage resistance and severance (CoreEntity-aligned).
 const ENDURANCE_DAMAGE_RESISTANCE_PER_POINT: float = 0.0001
@@ -262,6 +264,9 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 	var applied_mechanism: String = str(alloc.get("mechanism", "mixed"))
 	var bone_threshold: int = _BodyPartConstants.get_bone_damage_threshold(part, sub_region)
 	var bone_fraction: float = _BodyPartConstants.get_bone_damage_fraction(part, sub_region)
+	var contact_type: String = extras.get("contact_type", _WeaponConstants.ATTACK_TYPE_CUT)
+	if contact_type == _WeaponConstants.ATTACK_TYPE_STAB:
+		bone_fraction *= 1.25
 	var severance_ease: float = get_severance_ease_factor(entity, part)
 	var cur_cut: float = entity.body_cutting.get(part, 0.0)
 	var cur_blunt: float = entity.body_blunt.get(part, 0.0)
@@ -321,8 +326,13 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 			]
 		)
 	if to_cut > 0.0:
+		var injury_type: String = extras.get("contact_type", _WeaponConstants.ATTACK_TYPE_CUT)
+		if injury_type == _WeaponConstants.ATTACK_TYPE_STAB:
+			injury_type = _Bleeding.INJURY_TYPE_STAB
+		else:
+			injury_type = _Bleeding.INJURY_TYPE_CUT
 		_EntityWounds.add_wound(
-			entity, part, _Bleeding.INJURY_TYPE_CUT, to_cut, sub_region, "", impact_ke, wound_pen_mm
+			entity, part, injury_type, to_cut, sub_region, "", impact_ke, wound_pen_mm
 		)
 	if to_blunt > 0.0:
 		var total_blunt_source: float = blunt_from_deflection + blunt_from_direct
@@ -342,6 +352,8 @@ static func apply_damage_split(entity: Node, cut_pre: float, blunt_pre: float, p
 	if to_bone > 0.0:
 		var fracture_severity: String = _EntityWounds.severity_from_bone_damage(entity, part, to_bone)
 		_EntityWounds.add_wound(entity, part, _Bleeding.INJURY_TYPE_FRACTURE, to_bone, sub_region, fracture_severity, impact_ke)
+	if to_bone > 0.0 and part == "head":
+		_EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(entity, to_bone)
 	if not entity._is_part_severed(part) and total_damage_this_hit >= float(MIN_DAMAGE_TO_SEVER):
 		if not SEVERANCE_EARLY_LIMBS_ONLY or part not in entity._get_vital_parts():
 			var max_cut: int = entity.body_max.get(part, 1)

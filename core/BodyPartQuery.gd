@@ -8,6 +8,8 @@ extends RefCounted
 ## Canonical membership helpers: `is_arm()`, `is_leg()`, `is_vital()`, `is_limb()`  -  replace all hardcoded string comparisons.
 
 const _Bp := preload("res://core/BodyPartConstants.gd")
+const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
+const _Bleeding := preload("res://core/BleedingConstants.gd")
 
 # --- Part lists (from species or default) ---
 
@@ -147,3 +149,43 @@ static func get_leg_functionality(entity: Node) -> float:
 	if left <= 0.0 or right <= 0.0:
 		return 0.08
 	return sqrt(left * right)
+
+# --- Arm sub-region functional degradation (Issue 2: weapon function from arm wounds) ---
+# Derives hit-chance and damage-power modifiers per arm by analyzing tissue state.
+# Since entity tracks part-level body_cutting/body_blunt (not sub-region level), we use
+# the ratio of remaining tissue to estimate worst-case sub-region impact.
+# The formula: penalty = base_penalty * max(0, 1.0 - tissue_ratio) — damage proportional loss.
+
+static func get_arm_hit_chance_modifier(entity: Node, part: String) -> float:
+	if not is_arm(part):
+		return 1.0
+	var tissue_factor: float = get_arm_tissue_factor(entity, part)
+	var worst_mult: float = _get_worst_sub_region_modifier(part, "hit_chance")
+	var penalty: float = maxf(0.0, 1.0 - tissue_factor) * (1.0 - worst_mult)
+	return clampf(worst_mult + penalty * worst_mult, _PainConscious.ARM_HIT_CHANCE_MIN_MODIFIER, 1.0)
+
+static func get_arm_damage_power_modifier(entity: Node, part: String) -> float:
+	if not is_arm(part):
+		return 1.0
+	var tissue_factor: float = get_arm_tissue_factor(entity, part)
+	var worst_mult: float = _get_worst_sub_region_modifier(part, "damage_power")
+	var penalty: float = maxf(0.0, 1.0 - tissue_factor) * (1.0 - worst_mult)
+	return clampf(worst_mult + penalty * worst_mult, _PainConscious.ARM_DAMAGE_POWER_MIN_MODIFIER, 1.0)
+
+static func _get_worst_sub_region_modifier(part: String, function_type: String) -> float:
+	var subs: Array = _Bleeding.SUB_REGIONS.get(part, [])
+	if subs.size() == 0:
+		return 1.0
+	
+	var penalties: Dictionary = {}
+	if function_type == "hit_chance":
+		penalties = _PainConscious.ARM_HIT_CHANCE_PENALTIES.get(part, {})
+	else:
+		penalties = _PainConscious.ARM_DAMAGE_POWER_PENALTIES.get(part, {})
+	
+	var worst: float = 1.0
+	for sub in subs:
+		var val: float = penalties.get(sub, 1.0)
+		if val < worst:
+			worst = val
+	return worst

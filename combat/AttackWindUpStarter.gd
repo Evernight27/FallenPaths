@@ -22,6 +22,7 @@ const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
 const _OperationalLog := preload("res://core/OperationalLog.gd")
 const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const _MuscleFatigue := preload("res://combat/CombatMuscleFatigue.gd")
 
 static var _last_fp_tempo_wind_up_line: String = ""
 
@@ -180,6 +181,7 @@ static func start(manager: Node, attacker_id: int, target_id: int, move_id: Stri
 		wind_up_s *= flurry_m
 		_FlurryBind.consume_exchange_on_wind_up_start(atk_d)
 	wind_up_s = _Exhaustion.apply_attacker_wind_up_exhaustion_mult(wind_up_s, atk_d)
+	wind_up_s = _MuscleFatigue.apply_attacker_wind_up_mult(wind_up_s, atk_d, move_id, manager)
 	wind_up_s = minf(wind_up_s, CombatConstants.WIND_UP_DURATION_MAX_S)
 	var gauge_atk_pre: float = float(atk_d.get("gauge", 0.0))
 	var gauge_def_pre: float = float(tgt_d.get("gauge", 0.0))

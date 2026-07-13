@@ -8,6 +8,10 @@ const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
 const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
 const _Bp := preload("res://core/BodyPartConstants.gd")
 
+# --- Sub-region arm functional degradation (Issue 2: weapon function from arm wounds) ---
+# When an arm is wounded, the specific sub-region damaged affects different combat functions.
+# This module adds a damage-power multiplier that scales with tissue health on the attacking arm.
+
 static func get_armor_for_part(entity: Node, part: String) -> Variant:
 	if entity == null or not "armor_slots" in entity:
 		return null
@@ -84,4 +88,7 @@ static func get_attack_damage_modifier(entity: Node) -> float:
 	var arm_pain_mod: float = 1.0
 	if entity.has_method("get_effective_pain_for_region"):
 		arm_pain_mod = _PainConscious.get_pain_performance_modifier(entity.get_effective_pain_for_region("arms"))
-	return base * arm_func * arm_pain_mod
+	# Sub-region degradation: wounded arms lose swing power proportional to tissue damage,
+	# with worst-case sub-region penalty (forearm/upper arm penalize power most).
+	var arm_power_mod: float = _BodyPartQuery.get_arm_damage_power_modifier(entity, arm)
+	return base * arm_func * arm_pain_mod * arm_power_mod

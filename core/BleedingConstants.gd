@@ -21,6 +21,7 @@ const INJURY_TYPE_CUT: String = "cut"
 const INJURY_TYPE_CRUSH: String = "crush"
 const INJURY_TYPE_BRUISE: String = "bruise"
 const INJURY_TYPE_FRACTURE: String = "fracture"
+const INJURY_TYPE_STAB: String = "stab"
 
 # --- Severity levels (from damage vs part max; maps to wound depth/vessel involvement) ---
 const SEVERITY_MINOR: String = "minor"
@@ -57,6 +58,14 @@ const BLEEDING_RATES: Dictionary = {
 		SEVERITY_MODERATE: 0.0,
 		SEVERITY_SEVERE: 0.0,
 		SEVERITY_CRITICAL: 0.0
+	},
+	# Stab wounds penetrate deeper than cuts — higher bleeding due to vessel/organ damage at depth.
+	# Forensic consensus (Knight/Spitz): stab mortality ~1.6× equivalent-length incised wound.
+	INJURY_TYPE_STAB: {
+		SEVERITY_MINOR: 0.5,
+		SEVERITY_MODERATE: 2.0,
+		SEVERITY_SEVERE: 3.75,
+		SEVERITY_CRITICAL: 7.5
 	}
 }
 
@@ -93,7 +102,7 @@ const SUB_REGION_WEIGHTS: Dictionary = {
 }
 # Bleeding multiplier per sub-region (relative to limb baseline 1.0). Scalp bleeds profusely; neck carotid/jugular; forearm most injured in UE.
 const SUB_REGION_BLEEDING_MULTIPLIERS: Dictionary = {
-	_Bp.PART_HEAD: {"scalp": 1.8, "face": 1.4, "neck": 1.6},
+	_Bp.PART_HEAD: {"scalp": 23.0, "face": 1.4, "neck": 1.6},
 	_Bp.PART_CHEST: {"thoracic": 1.15, "abdominal": 1.25},
 	_Bp.PART_RIGHT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05},
 	_Bp.PART_LEFT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05},
@@ -234,6 +243,8 @@ const ARTERIAL_CHANCE_BY_SEVERITY: Dictionary = {
 	SEVERITY_CRITICAL: 0.26  # high damage; 25% vascular in penetrating neck / 2+ soft signs
 }
 const ARTERIAL_CRUSH_MULTIPLIER: float = 0.35  # blunt arterial chance = 35% of cut's; literature: penetrating 64-82% of extremity vascular injuries (blunt 18-36%)
+# Stab wounds penetrate deeper than cuts — higher probability of hitting major vessels at depth (forensic pathology consensus).
+const ARTERIAL_STAB_DEEPENING_MULT: float = 1.5  # stabs have ~50% more arterial chance than equivalent-depth cuts
 # Body part: neck/head 25% vascular in penetrating; chest major vessels; limbs vascular injury ~1% of extremity trauma but when present = major arteries.
 const ARTERIAL_BODY_PART_MULTIPLIERS: Dictionary = {
 	_Bp.PART_HEAD: 1.4,   # scalp/face/neck highly vascular; penetrating neck ~25% vascular
@@ -533,6 +544,9 @@ static func get_arterial_chance(
 		base_chance *= ARTERIAL_CRUSH_MULTIPLIER
 		if not sub_region.is_empty():
 			base_chance *= SUB_REGION_BLUNT_ARTERIAL_MODIFIERS.get(part, {}).get(sub_region, 1.0)
+	elif injury_type == INJURY_TYPE_STAB and penetration_to_tissue_mm >= 0.0:
+		# Stabs penetrate deeper than cuts — higher arterial chance at equivalent depth (forensic pathology consensus).
+		base_chance *= penetration_depth_arterial_mult(penetration_to_tissue_mm) * ARTERIAL_STAB_DEEPENING_MULT
 	elif injury_type == INJURY_TYPE_CUT and penetration_to_tissue_mm >= 0.0:
 		base_chance *= penetration_depth_arterial_mult(penetration_to_tissue_mm)
 	var part_mult: float = ARTERIAL_BODY_PART_MULTIPLIERS.get(part, 1.0)

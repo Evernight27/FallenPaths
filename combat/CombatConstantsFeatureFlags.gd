@@ -144,7 +144,7 @@ static func set_feature_hema_eight_guard_lines_load(enabled: bool) -> void:
 const FEATURE_ARM_INTERPOSE := true
 static var _feature_arm_interpose_load: int = -1
 const ARM_INTERPOSE_MIN_ANGLE_DEG := 45.0
-const ARM_INTERPOSE_MIN_ALIGN := 0.6
+const ARM_INTERPOSE_MIN_ALIGN := 0.15
 const ARM_INTERPOSE_MAX_ALIGN := 0.72
 const ARM_INTERPOSE_ALIGNMENT_BOOST := 0.22
 const ARM_INTERPOSE_MAX_PATH_INDEX := 4

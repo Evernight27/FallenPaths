@@ -122,6 +122,9 @@ var _proficiency_bonus: Dictionary = {
 var _weapon_proficiency: Dictionary = {}
 var _form_proficiency: Dictionary = {}
 
+## Phase 2b: per-limb muscle fatigue pools (persisted across combat/camp resets).
+var muscle_fatigue: Dictionary = {}
+
 
 func get_weapon_proficiency() -> Dictionary:
 	return _weapon_proficiency
@@ -157,6 +160,7 @@ func _round_tissue(v: float) -> float:
 var consciousness: float = 100.0       # true consciousness (incapacitation when < 10)
 var effective_consciousness: float = 100.0  # for combat (after pain shock)
 var _pain_shock_until_time: float = -1.0    # Time.get_ticks_msec()/1000.0 when shock ends; -1 = not in shock
+var _concussion_until_time: float = -1.0    # Time.get_ticks_msec()/1000.0 when concussion ends; -1 = not concussed
 var _last_hit_impact: float = 0.0            # Total damage of last hit (for pain-shock duration scaling); set on weapon hit, consumed when shock is entered
 var _ambient_pain_shock_accum: float = 0.0  # Combat tick accumulator for sustained-pain shock rolls
 var _last_ambient_pain_shock_time: float = -1.0  # Timestamp of last ambient pain shock trigger (for cooldown enforcement)
@@ -336,6 +340,11 @@ func is_incapacitated() -> bool:
 		return true
 	return is_cowering()
 
+## True when entity is currently concussed (head bone damage triggered temporary impairment).
+func is_concussed() -> bool:
+	var now: float = Time.get_ticks_msec() / 1000.0
+	return _concussion_until_time >= 0.0 and now < _concussion_until_time
+
 func get_effective_consciousness() -> float:
 	return _EntityPainConsciousness.get_effective_consciousness(self)
 
@@ -427,7 +436,9 @@ func get_bandage_application_time_seconds_for_part(part: String) -> float:
 func get_medical_effectiveness() -> float:
 	var effective_int: float = float(intelligence)
 	if _CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-		effective_int += float(_proficiency_bonus.get("intelligence", 0) or 0)
+		var _int_val = _proficiency_bonus.get("intelligence", null)
+		if _int_val != null:
+			effective_int += float(_int_val)
 	var base: float = clampf(effective_int / 100.0, 0.5, 1.5)
 	return base * clampf(_campaign_supply_factor, 0.25, 1.5)
 
@@ -444,7 +455,9 @@ func get_campaign_supply_factor() -> float:
 func get_endurance_blood_volume_mult() -> float:
 	var effective_end: float = float(endurance)
 	if _CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-		effective_end += float(_proficiency_bonus.get("endurance", 0) or 0)
+		var _end_val = _proficiency_bonus.get("endurance", null)
+		if _end_val != null:
+			effective_end += float(_end_val)
 	return 1.0 + (effective_end - 100) / 400.0
 
 
@@ -452,7 +465,9 @@ func get_endurance_blood_volume_mult() -> float:
 func get_endurance_healing_speed_mult() -> float:
 	var effective_end: float = float(endurance)
 	if _CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-		effective_end += float(_proficiency_bonus.get("endurance", 0) or 0)
+		var _end_val = _proficiency_bonus.get("endurance", null)
+		if _end_val != null:
+			effective_end += float(_end_val)
 	return 1.0 - clampf((effective_end - 100) / 500.0, 0.0, 0.25)
 
 
@@ -460,7 +475,9 @@ func get_endurance_healing_speed_mult() -> float:
 func get_intelligence_contract_bonus_mult() -> float:
 	var effective_int: float = float(intelligence)
 	if _CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-		effective_int += float(_proficiency_bonus.get("intelligence", 0) or 0)
+		var _int_val = _proficiency_bonus.get("intelligence", null)
+		if _int_val != null:
+			effective_int += float(_int_val)
 	return 1.0 + clampf((effective_int - 100) / 500.0, 0.0, 0.15)
 
 
@@ -638,6 +655,7 @@ func _apply_species():
 	effective_consciousness = 100.0
 	_consciousness_dirty = false
 	_pain_shock_until_time = -1.0
+	_concussion_until_time = -1.0
 	_last_hit_impact = 0.0
 	_ambient_pain_shock_accum = 0.0
 	if species != null:
@@ -677,3 +695,8 @@ func _apply_common_seed_defaults():
 	offhand_functionality = randf_range(0.6, 1.0)
 	_CombatLayerTissue.seed_all_layer_states(self)
 	_TissueEnergyCapacity.seed_entity_energy_pools(self, true)
+	muscle_fatigue.clear()
+
+## Phase 2b: clear muscle fatigue pools at camp rest (used by CampaignComposureSync).
+func restore_muscle_fatigue_at_camp() -> void:
+	muscle_fatigue.clear()

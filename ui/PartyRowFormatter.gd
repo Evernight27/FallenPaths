@@ -271,7 +271,8 @@ static func format_proficiency_bonus_line(member: Dictionary) -> String:
 	var parts := []
 	var _PROF_LABELS := {"strength": "STR", "agility": "AGI", "intelligence": "INT", "endurance": "END", "perception": "PER"}
 	for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
-		var bonus_val: float = float(prof.get(stat, 0) or 0)
+		var _bv = prof.get(stat, null)
+		var bonus_val: float = float(_bv) if _bv != null else 0.0
 		if bonus_val > 0.0:
 			var label: String = _PROF_LABELS[stat]
 			parts.append("+%s:%d" % [label, int(bonus_val)])

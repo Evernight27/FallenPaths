@@ -8,6 +8,7 @@ const _UiHints := preload("res://combat/CombatUiHints.gd")
 const _CombatSnapshot := preload("res://combat/CombatCombatantsSnapshot.gd")
 const _Exhaustion := preload("res://combat/CombatExhaustion.gd")
 const _CombatDebug := preload("res://combat/CombatDebug.gd")
+const _MuscleFatigue := preload("res://combat/CombatMuscleFatigue.gd")
 
 ## Updates a single combatant's UI row: gauge, state label, blood, consciousness, body bars.
 ## Gauge suffix order (footing): pick . attention . Step (PA) . flurry . exhaustion . Grd/Atk . Form --" `_compose_waiting_gauge_label`. LIVE_PATHS **`#battle-ui`** . **`#wf-tier-44-pa`** (Step) . **`#wf-soak-audit-status`** (ii5c open for **` . Form`**).
@@ -28,7 +29,8 @@ static func _compose_waiting_gauge_label(c: Dictionary, primary: String, manager
 	var grd_suffix: String = _UiHints.guard_line_gauge_suffix(c)
 	var form_suffix: String = _UiHints.weapon_form_gauge_suffix(c)
 	var pick_suffix: String = _last_pick_suffix(c)
-	return primary + pick_suffix + attn_suffix + foot_suffix + flurry_suffix + exh_suffix + grd_suffix + form_suffix
+	var msc_suffix: String = _MuscleFatigue.gauge_hint_suffix(c)
+	return primary + pick_suffix + attn_suffix + foot_suffix + flurry_suffix + exh_suffix + grd_suffix + form_suffix + msc_suffix
 
 
 static func _readiness_hint_suffix(c: Dictionary) -> String:
@@ -160,7 +162,10 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary, manager: Node 
 		var pain: float = s_row.get("total_pain", 0.0)
 		var consc: float = s_row.get("effective_consciousness", 100.0)
 		var perf: float = s_row.get("performance_modifier", 1.0)
-		ctrl.consciousness_label.text = "Pain: %.1f | Consc: %d%% | Perf: %d%%" % [pain, int(clampf(consc, 0.0, 100.0)), int(roundf(perf * 100.0))]
+		var row_text: String = "Pain: %.1f | Consc: %d%% | Perf: %d%%" % [pain, int(clampf(consc, 0.0, 100.0)), int(roundf(perf * 100.0))]
+		if s_row.get("is_concussed", false):
+			row_text = "[STUNNED] " + row_text
+		ctrl.consciousness_label.text = row_text
 	if "body_bars" in ctrl and ctrl.body_bars:
 		var body_stats: Dictionary = _RowFormatter.read_body_stat_dicts(s_row)
 		var bc: Dictionary = body_stats["body_cutting"]

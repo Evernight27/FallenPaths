@@ -155,9 +155,10 @@ static func _try_merge_wound_into_channel(
 			continue
 		var existing_type: String = injury.get("injury_type", "")
 		if existing_type != injury_type and base_rate > 0.0:
-			if existing_type not in [_Bleeding.INJURY_TYPE_CUT, _Bleeding.INJURY_TYPE_CRUSH]:
+			var mergeable_types: Array = [_Bleeding.INJURY_TYPE_CUT, _Bleeding.INJURY_TYPE_STAB, _Bleeding.INJURY_TYPE_CRUSH]
+			if existing_type not in mergeable_types:
 				continue
-			if injury_type not in [_Bleeding.INJURY_TYPE_CUT, _Bleeding.INJURY_TYPE_CRUSH]:
+			if injury_type not in mergeable_types:
 				continue
 		injury["damage"] = injury.get("damage", 0.0) + damage
 		if _severity_rank(severity) > _severity_rank(str(injury.get("severity", _Bleeding.SEVERITY_MODERATE))):
