@@ -197,6 +197,51 @@ static func is_relief_swap_tactically_allowed(c: Dictionary, partner: Dictionary
 ## redundant prunes).
 
 
+## Harness / audit alias for **`CombatAIActionWeights._get_action_weight`**.
+static func _get_action_weight(
+    a: Dictionary,
+    combatant_id: int,
+    manager: Node,
+    skip_targeting_prune: bool = false,
+    actor_zone_geometry_line_context: Dictionary = {},
+    zone_geometry_by_combatant_id: Dictionary = {},
+    all_actions: Array = []
+) -> float:
+    return CombatAIActionWeights._get_action_weight(
+        a,
+        combatant_id,
+        manager,
+        skip_targeting_prune,
+        actor_zone_geometry_line_context,
+        zone_geometry_by_combatant_id,
+        all_actions
+    )
+
+
+static func _long_close_only_offense_menu(manager: Node, c: Dictionary, combatant_id: int, all_actions: Array) -> bool:
+    return CombatAIActionWeights._long_close_only_offense_menu(manager, c, combatant_id, all_actions)
+
+
+static func _attrition_offense_weight_mult(manager: Node, c: Dictionary) -> float:
+    return CombatAIActionWeights._attrition_offense_weight_mult(manager, c)
+
+
+static func _depth_polearm_action_weight_mult(
+    manager: Node, c: Dictionary, move_id: String, actor_zone_geometry_line_context: Dictionary = {}
+) -> float:
+    return CombatAIActionWeights._depth_polearm_action_weight_mult(
+        manager, c, move_id, actor_zone_geometry_line_context
+    )
+
+
+static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_id: int) -> void:
+    CombatAIAttackTargetPart._add_attack_target_part(choice, manager, attacker_id)
+
+
+static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
+    return CombatAIActionWeights._get_medical_weight(a, combatant_id, manager)
+
+
 ## Tier 4.2: after **`AttackResultApplier`** **`parry_deflect`**, record defender tick on **`attacker`** for
 ## short-horizon feint listing pressure.
 static func record_opp_parry_deflect_for_feint_listing(manager: Node, attacker: Dictionary, defender_id: int) -> void:

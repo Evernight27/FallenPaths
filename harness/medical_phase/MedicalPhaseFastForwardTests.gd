@@ -108,7 +108,7 @@ static func _run_fast_forward_sim_cap_terminates(failures: PackedStringArray) ->
         c["state"] = CombatConstants.STATE_WAITING
         c["gauge"] = 100.0
     mgr.event_queue.clear()
-    var cap: float = MedicalPhaseController.INSTANT_FAST_FORWARD_INTERACTIVE_MAX_SECONDS
+    var cap: float = MedicalPhaseBatchResolve.INSTANT_FAST_FORWARD_INTERACTIVE_MAX_SECONDS
     seed(88208)
     MedicalPhaseController.instant_complete_on_early_exit(mgr, cap)
     seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)

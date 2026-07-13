@@ -486,7 +486,7 @@ static func _append_material_failure_production_section(lines: PackedStringArray
             )
         )
     )
-    lines.append(material_failure_headless_gate_line())
+    lines.append(CombatCalibrationAudit.material_failure_headless_gate_line())
     CalibrationBleedingParryTests._append_tissue_energy_pool_section(lines, failures)
 
 
@@ -515,7 +515,7 @@ static func _append_tissue_energy_pool_section(lines: PackedStringArray, failure
             % [body_max, cap_j, display_half]
         )
     )
-    var parity: Dictionary = tissue_energy_hp_vs_j_parity_metrics()
+    var parity: Dictionary = CombatCalibrationAudit.tissue_energy_hp_vs_j_parity_metrics()
     var tissue_j: float = float(parity.get("tissue_applied_j", 0.0))
     var tissue_hp: float = float(parity.get("tissue_applied_hp", 0.0))
     var parity_ok: bool = CalibrationBleedingParryTests._damage_within_pct_tolerance(tissue_hp, tissue_j, 0.05)
@@ -651,7 +651,7 @@ static func _append_f5_scenario_headless_section(lines: PackedStringArray, failu
     lines.append("")
     lines.append("[f5_scenario_headless]")
     lines.append("purpose=M5_playtest_proxies_full_entity_path; F5_feel_still_optional")
-    var graze: Dictionary = f5_forearm_graze_metrics()
+    var graze: Dictionary = CombatCalibrationAudit.f5_forearm_graze_metrics()
     var graze_ok: bool = (
         float(graze.get("final_bone", 0.0)) < 0.01
         and float(graze.get("final_cut", 0.0)) > 0.0
@@ -673,7 +673,7 @@ static func _append_f5_scenario_headless_section(lines: PackedStringArray, failu
     )
     if not graze_ok:
         failures.append("f5_headless: forearm graze want no bone and shallow tissue pen")
-    var chest: Dictionary = f5_armored_chest_metrics()
+    var chest: Dictionary = CombatCalibrationAudit.f5_armored_chest_metrics()
     var chest_ok: bool = (
         (
             float(chest.get("armored_tissue_pen_mm", 99.0)) < float(chest.get("bare_tissue_pen_mm", 0.0)) - 0.01
@@ -705,7 +705,7 @@ static func _append_f5_scenario_headless_section(lines: PackedStringArray, failu
         failures.append("f5_headless: armored chest missing transmitted_ke_fraction with joule armor on")
     if not chest_ok:
         failures.append("f5_headless: cuirass should reduce chest pen or total damage")
-    var mace: Dictionary = f5_mace_elbow_metrics()
+    var mace: Dictionary = CombatCalibrationAudit.f5_mace_elbow_metrics()
     var mace_ok: bool = float(mace.get("final_bone", 0.0)) >= 0.5
     (
         lines

@@ -1,40 +1,96 @@
 class_name CombatRegressionHarness
-extends RefCounted
+extends CombatRegressionHarnessCore
 
 ## Thin facade: orchestrates regression modules under harness/regression/ and subsystem tails.
 
 
-static func _fail(arr: PackedStringArray, msg: String) -> void:
-    CombatRegressionHarnessCore._fail(arr, msg)
+static func _kin_fixtures_cut_swing() -> Array:
+    return KinematicDeliveryPenetrationTests._kin_fixtures_cut_swing()
 
 
-static func _new_entity(weapon_id: String) -> CoreEntity:
-    return CombatRegressionHarnessCore._new_entity(weapon_id)
+static func _kin_fixtures_thrust() -> Array:
+    return KinematicDeliveryPenetrationTests._kin_fixtures_thrust()
 
 
-static func _free_harness_node(n: Node) -> void:
-    CombatRegressionHarnessCore._free_harness_node(n)
+static func _kin_fixtures_blunt() -> Array:
+    return KinematicDeliveryPenetrationTests._kin_fixtures_blunt()
 
 
-static func _free_manager(mgr: Node) -> void:
-    CombatRegressionHarnessCore._free_manager(mgr)
+static func _kin_fixtures_with_sharp_pen() -> Array:
+    return KinematicDeliveryPenetrationTests._kin_fixtures_with_sharp_pen()
 
 
-static func _harness_start_1v1(
+static func _kin_fixtures_with_blunt_pen() -> Array:
+    return KinematicDeliveryPenetrationTests._kin_fixtures_with_blunt_pen()
+
+
+static func _kin_fixtures_all_damage() -> Array:
+    return KinematicDeliveryPartialParryTests._kin_fixtures_all_damage()
+
+
+static func _kin_arch_for_move(move_id: String) -> Dictionary:
+    return KinematicDeliveryPartialParryTests._kin_arch_for_move(move_id)
+
+
+static func _kin_fixture_vo(cfx: Dictionary, default_vo: float) -> float:
+    return KinematicDeliveryPartialParryTests._kin_fixture_vo(cfx, default_vo)
+
+
+static func _kin_dmg_integration_sample(
+    vo: float,
+    parry_r: float,
+    align: float,
+    strike_mods: Dictionary,
     weapon_id: String = "SWORD",
-    player_side: Dictionary = {"files": 1, "ranks": 1},
-    enemy_side: Dictionary = {"files": 1, "ranks": 1}
-) -> Node:
-    return CombatRegressionHarnessCore._harness_start_1v1(weapon_id, player_side, enemy_side)
+    move_id: String = "oberhau",
+    afterblow_mult: float = 1.0,
+    arch_override: Dictionary = {},
+    tgt_overrides: Dictionary = {},
+    tgt_chest_armor_id: String = "",
+    strike_physics_ctx: Dictionary = {}
+) -> Dictionary:
+    return KinematicDeliveryPartialParryTests._kin_dmg_integration_sample(
+        vo,
+        parry_r,
+        align,
+        strike_mods,
+        weapon_id,
+        move_id,
+        afterblow_mult,
+        arch_override,
+        tgt_overrides,
+        tgt_chest_armor_id,
+        strike_physics_ctx
+    )
 
 
-static func flush_harness_live_nodes() -> void:
-    CombatRegressionHarnessCore.flush_harness_live_nodes()
+static func _kin_expected_damage_velocity_m_s(
+    mgr: Node,
+    atk: Dictionary,
+    tgt: Dictionary,
+    intensity: float,
+    arch: Dictionary,
+    move_id: String,
+    velocity_override: float,
+    afterblow_damage_mult: float,
+    strike_physics_ctx: Dictionary = {}
+) -> float:
+    return KinematicDeliveryPenetrationTests._kin_expected_damage_velocity_m_s(
+        mgr, atk, tgt, intensity, arch, move_id, velocity_override, afterblow_damage_mult, strike_physics_ctx
+    )
+
+
+static func _kin_path_intercept_max_index(path: Array, alignment: float) -> int:
+    return KinematicDeliveryPenetrationTests._kin_path_intercept_max_index(path, alignment)
+
+
+static func _afterblow_harness_seed_pending_cut(mgr: Node, attacker_index: int, defender_index: int) -> void:
+    WeaponAfterblowGuardTests._afterblow_harness_seed_pending_cut(mgr, attacker_index, defender_index)
 
 
 static func run_all() -> Dictionary:
     var failures: PackedStringArray = PackedStringArray()
-    seed(CombatRegressionHarnessCore._HARNESS_RESTORE_GLOBAL_SEED)
+    seed(_HARNESS_RESTORE_GLOBAL_SEED)
     CombatConstants.reset_harness_feature_load_overrides()
     CombatConstants.set_feature_position_angle_footwork_load(true)
     CombatRegressionHarnessCore._run_next_action_ready_map_matches_per_id(failures)

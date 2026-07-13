@@ -1,5 +1,16 @@
 class_name AttentionFootworkMentalStackFormationPlugTests
 extends CombatRegressionHarnessCore
+const MgrScript := preload("res://combat/CombatManager.gd")
+const MentalStack := preload("res://combat/MentalStackDecider.gd")
+const PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
+const FormationSlots := preload("res://combat/FormationSlots.gd")
+const FormationFlow := preload("res://combat/CombatFormationFlow.gd")
+const ListedActions := preload("res://combat/CombatListedActions.gd")
+const EngagementMode := preload("res://combat/CombatEngagementMode.gd")
+const FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
+const VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
+const FormationRout := preload("res://combat/CombatFormationRout.gd")
+
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .
 ## **`_run_mental_stack_*`** (MS-L4/L5 boundary). Catalog: LIVE_PATHS **`#harness-footwork-catalog`** . PA hub
@@ -7,7 +18,7 @@ extends CombatRegressionHarnessCore
 
 
 static func _run_mental_stack_close_beats_focus_mop_up_under_telegraph(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 7:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 3:
@@ -45,7 +56,7 @@ static func _run_mental_stack_close_beats_focus_mop_up_under_telegraph(failures:
         {"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": center_id},
         {"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE, "target_id": enemy_id},
     ]
-    var picked: Dictionary = _MentalStack.try_pick(actions, center_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(actions, center_id, mgr)
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
         CombatRegressionHarness._fail(
             failures,
@@ -59,7 +70,7 @@ static func _run_mental_stack_close_beats_focus_mop_up_under_telegraph(failures:
 
 ## III-4 **3e**: mop-up hold-line gauge hint when `attempt_close` is listed.
 static func _run_hold_line_hint_mop_up(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 7:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 3:
@@ -88,7 +99,7 @@ static func _run_hold_line_hint_mop_up(failures: PackedStringArray) -> void:
         {"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": center_id},
         {"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE, "target_id": enemy_id},
     ]
-    var hint: String = _PlayerTurnHints.hold_line_focus_only_hint(mgr, center, actions)
+    var hint: String = PlayerTurnHints.hold_line_focus_only_hint(mgr, center, actions)
     if hint.is_empty() or not hint.contains("Mop-up"):
         CombatRegressionHarness._fail(failures, "hold_line_hint_mop_up: want mop-up hint got '%s'" % hint)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -99,7 +110,7 @@ static func _run_hold_line_hint_mop_up(failures: PackedStringArray) -> void:
 
 ## III-4 **3e**: mop-up hold-line hint when listed melee strikes finish the last enemy.
 static func _run_hold_line_hint_mop_up_strikes_listed(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 7:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 3:
@@ -129,7 +140,7 @@ static func _run_hold_line_hint_mop_up_strikes_listed(failures: PackedStringArra
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": center_id},
         {"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
     ]
-    var hint: String = _PlayerTurnHints.hold_line_focus_only_hint(mgr, center, actions)
+    var hint: String = PlayerTurnHints.hold_line_focus_only_hint(mgr, center, actions)
     if hint.is_empty() or not hint.contains("Mop-up"):
         CombatRegressionHarness._fail(failures, "hold_line_hint_mop_up_strikes: want mop-up hint got '%s'" % hint)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -140,7 +151,7 @@ static func _run_hold_line_hint_mop_up_strikes_listed(failures: PackedStringArra
 
 ## III-4 **3e**: rear rank reserve + `attempt_close` during mop-up beats generic back-rank copy.
 static func _run_hold_line_hint_mop_up_rear_rank(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 14:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 3:
@@ -169,7 +180,7 @@ static func _run_hold_line_hint_mop_up_rear_rank(failures: PackedStringArray) ->
         {"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": rear_id},
         {"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE, "target_id": enemy_id},
     ]
-    var hint: String = _PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
+    var hint: String = PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
     if hint.is_empty() or not hint.contains("Mop-up"):
         CombatRegressionHarness._fail(failures, "hold_line_hint_mop_up_rear: want mop-up hint got '%s'" % hint)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -180,7 +191,7 @@ static func _run_hold_line_hint_mop_up_rear_rank(failures: PackedStringArray) ->
 
 ## III-4 **3e**: rear rank with listed strikes during mop-up gets strike-finish mop-up copy.
 static func _run_hold_line_hint_mop_up_rear_rank_strikes(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 14:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 3:
@@ -210,7 +221,7 @@ static func _run_hold_line_hint_mop_up_rear_rank_strikes(failures: PackedStringA
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": rear_id},
         {"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
     ]
-    var hint: String = _PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
+    var hint: String = PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
     if hint.is_empty() or not hint.contains("listed strike"):
         CombatRegressionHarness._fail(
             failures, "hold_line_hint_mop_up_rear_strikes: want strike mop-up hint got '%s'" % hint
@@ -223,7 +234,7 @@ static func _run_hold_line_hint_mop_up_rear_rank_strikes(failures: PackedStringA
 
 ## Back rank reserve-only when not mop-up stays generic back-rank copy.
 static func _run_hold_line_hint_back_rank_not_mopup(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 14:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 3:
@@ -239,7 +250,7 @@ static func _run_hold_line_hint_back_rank_not_mopup(failures: PackedStringArray)
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": rear_id},
         {"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": rear_id},
     ]
-    var hint: String = _PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
+    var hint: String = PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
     if hint.is_empty() or not hint.begins_with("Back rank"):
         CombatRegressionHarness._fail(failures, "hold_line_hint_back_rank: want back-rank copy got '%s'" % hint)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -250,7 +261,7 @@ static func _run_hold_line_hint_back_rank_not_mopup(failures: PackedStringArray)
 
 ## MS-L5: rank-0 gap -> rear **`swap_rank`** beats listed strikes; stamps **`formation_plug`**.
 static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 7:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 5:
@@ -265,9 +276,9 @@ static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: Pac
         return
     hole_front["alive"] = false
     var form_player: Dictionary = mgr.formations["player"]
-    var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
-    _FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
-    if not _FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
+    var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
+    FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+    if not FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: want rank-0 hole on line after kill")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
@@ -279,11 +290,11 @@ static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: Pac
     var front_id: int = CombatantEntityAccess.id_int(front)
     rear["gauge"] = 100.0
     var acts: Array = AvailableActionsBuilder.build(mgr, rear_id)
-    if not _ListedActions.actions_include_move_vs_target(acts, front_id, CombatConstants.MOVE_ID_SWAP_RANK):
+    if not ListedActions.actions_include_move_vs_target(acts, front_id, CombatConstants.MOVE_ID_SWAP_RANK):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: want swap_rank listed vs front partner")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
-    if not _ListedActions.action_list_has_hostile_strike(acts, rear_id):
+    if not ListedActions.action_list_has_hostile_strike(acts, rear_id):
         var enemy_id: int = -1
         for c in mgr.combatants:
             if CombatantEntityAccess.is_living_on_side(c, "enemy"):
@@ -294,7 +305,7 @@ static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: Pac
             CombatRegressionHarness._free_manager_restore_global_rng(mgr)
             return
         acts.append({"move_id": "thrust", "target_id": enemy_id, "target_part": "head"})
-    var picked: Dictionary = _MentalStack.try_pick(acts, rear_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(acts, rear_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: expected stack pick")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -322,7 +333,7 @@ static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: Pac
 
 ## MS-L5: incapacitated front partner -> rear **`swap_rank`** stamps **`formation_plug`**.
 static func _run_mental_stack_formation_plug_incap_forward(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 7:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 5:
@@ -342,11 +353,11 @@ static func _run_mental_stack_formation_plug_incap_forward(failures: PackedStrin
     rear["gauge"] = 100.0
     var rear_id: int = CombatantEntityAccess.id_int(rear)
     var acts: Array = AvailableActionsBuilder.build(mgr, rear_id)
-    if not _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_SWAP_RANK):
+    if not ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_SWAP_RANK):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_incap: want swap_rank listed over incap front")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
-    var picked: Dictionary = _MentalStack.try_pick(acts, rear_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(acts, rear_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(failures, "mental_stack_plug_incap: expected stack pick")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -374,13 +385,13 @@ static func _run_mental_stack_formation_plug_incap_forward(failures: PackedStrin
 
 ## MS-L5: Skirmish rank-0 hole -> front **`rotate_file`** when formation-only menu; stamps **`formation_plug`**.
 static func _run_mental_stack_formation_plug_rotate_skirmish_hole(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 7:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 3:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-    if str(_EngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+    if str(EngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
         CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: expected skirmish mode")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
@@ -393,16 +404,16 @@ static func _run_mental_stack_formation_plug_rotate_skirmish_hole(failures: Pack
         return
     hole_front["alive"] = false
     var form_player: Dictionary = mgr.formations["player"]
-    var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
-    _FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
-    if not _FormationFlow.formation_has_rank0_hole(mgr, "player"):
+    var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
+    FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+    if not FormationFlow.formation_has_rank0_hole(mgr, "player"):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: want rank-0 hole after kill")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var rot_src_id: int = CombatantEntityAccess.id_int(rot_src)
     var rot_tgt_id: int = CombatantEntityAccess.id_int(rot_tgt)
     rot_src["gauge"] = 100.0
-    if not _FormationMoves.rotate_file_action_legal(mgr, rot_src, rot_tgt):
+    if not FormationMoves.rotate_file_action_legal(mgr, rot_src, rot_tgt):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: want legal rotate_file vs adjacent file")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
@@ -411,7 +422,7 @@ static func _run_mental_stack_formation_plug_rotate_skirmish_hole(failures: Pack
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": rot_src_id},
         {"move_id": CombatConstants.MOVE_ID_ROTATE_FILE, "target_id": rot_tgt_id},
     ]
-    var picked: Dictionary = _MentalStack.try_pick(acts, rot_src_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(acts, rot_src_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: expected stack pick")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -439,7 +450,7 @@ static func _run_mental_stack_formation_plug_rotate_skirmish_hole(failures: Pack
 
 ## MS-L5: fight-finish tail with listed offense must not stamp **`formation_plug`**.
 static func _run_mental_stack_formation_plug_skipped_fight_finish(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 7:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 3:
@@ -467,11 +478,11 @@ static func _run_mental_stack_formation_plug_skipped_fight_finish(failures: Pack
         CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: want fight_finish_tail")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
-    if not _ListedActions.action_list_has_hostile_strike(acts, center_id):
+    if not ListedActions.action_list_has_hostile_strike(acts, center_id):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: want listed offense")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
-    var picked: Dictionary = _MentalStack.try_pick(acts, center_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(acts, center_id, mgr)
     if (
         str(center.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         == (CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG)
@@ -513,7 +524,7 @@ static func _run_mental_stack_formation_plug_skipped_fight_finish(failures: Pack
 
 ## MS-L5: envelop mop-up + listed strikes defers plug (rear rank with hole still finishes).
 static func _run_mental_stack_formation_plug_skipped_mop_up_offense(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 10:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 5:
@@ -542,16 +553,16 @@ static func _run_mental_stack_formation_plug_skipped_mop_up_offense(failures: Pa
         return
     hole_front["alive"] = false
     var form_player: Dictionary = mgr.formations["player"]
-    var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
-    _FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
-    if not _FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
+    var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
+    FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+    if not FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_mop: want rank-0 hole on line after kill")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     rear["gauge"] = 100.0
     var rear_id: int = CombatantEntityAccess.id_int(rear)
     var acts: Array = AvailableActionsBuilder.build(mgr, rear_id)
-    if not _ListedActions.action_list_has_hostile_strike(acts, rear_id):
+    if not ListedActions.action_list_has_hostile_strike(acts, rear_id):
         var enemy_id: int = -1
         for c in mgr.combatants:
             if CombatantEntityAccess.is_living_on_side(c, "enemy"):
@@ -563,15 +574,15 @@ static func _run_mental_stack_formation_plug_skipped_mop_up_offense(failures: Pa
             return
         acts.append({"move_id": "thrust", "target_id": enemy_id, "target_part": "head"})
     var front_id: int = CombatantEntityAccess.id_int(front)
-    if not _ListedActions.actions_include_move_vs_target(acts, front_id, CombatConstants.MOVE_ID_SWAP_RANK):
-        if not _FormationMoves.swap_rank_action_legal(mgr, rear, front):
+    if not ListedActions.actions_include_move_vs_target(acts, front_id, CombatConstants.MOVE_ID_SWAP_RANK):
+        if not FormationMoves.swap_rank_action_legal(mgr, rear, front):
             CombatRegressionHarness._fail(
                 failures, "mental_stack_plug_skip_mop: want legal swap_rank for plug-defer fixture"
             )
             CombatRegressionHarness._free_manager_restore_global_rng(mgr)
             return
         acts.append({"move_id": CombatConstants.MOVE_ID_SWAP_RANK, "target_id": front_id})
-    if not _VacancyPlugs.formation_plug_layer_blocked(mgr, rear, acts, rear_id):
+    if not VacancyPlugs.formation_plug_layer_blocked(mgr, rear, acts, rear_id):
         CombatRegressionHarness._fail(
             failures, "mental_stack_plug_skip_mop: want formation_plug_layer_blocked during mop-up offense"
         )
@@ -607,7 +618,7 @@ static func _run_mental_stack_formation_plug_skipped_mop_up_offense(failures: Pa
 
 ## MS-L5: intact line + strikes only -> stack miss (no **`formation_plug`** stamp).
 static func _run_mental_stack_formation_plug_no_gap_stack_miss(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -616,19 +627,19 @@ static func _run_mental_stack_formation_plug_no_gap_stack_miss(failures: PackedS
     var enemy_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
     player["gauge"] = 100.0
     var acts: Array = AvailableActionsBuilder.build(mgr, player_id)
-    if not _ListedActions.action_list_has_hostile_strike(acts, player_id):
+    if not ListedActions.action_list_has_hostile_strike(acts, player_id):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want listed strikes")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
-    if _ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_SWAP_RANK):
+    if ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_SWAP_RANK):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want no swap_rank on intact duel")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
-    if _VacancyPlugs.formation_plug_layer_eligible(mgr, player, player_id, acts):
+    if VacancyPlugs.formation_plug_layer_eligible(mgr, player, player_id, acts):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want plug layer ineligible")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
-    var stacked: Dictionary = _MentalStack.try_pick(acts, player_id, mgr)
+    var stacked: Dictionary = MentalStack.try_pick(acts, player_id, mgr)
     if not stacked.is_empty():
         (
             CombatRegressionHarness
@@ -667,7 +678,7 @@ static func _run_mental_stack_formation_plug_skipped_sparse_line_offense(failure
     var survivor_id: int = int(fix["survivor_id"])
     survivor["gauge"] = 100.0
     var acts: Array = AvailableActionsBuilder.build(mgr, survivor_id)
-    if not _ListedActions.action_list_has_hostile_melee_strike(acts, survivor_id):
+    if not ListedActions.action_list_has_hostile_melee_strike(acts, survivor_id):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_sparse: want listed melee")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
@@ -677,7 +688,7 @@ static func _run_mental_stack_formation_plug_skipped_sparse_line_offense(failure
         )
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
-    if not _VacancyPlugs.formation_plug_layer_blocked(mgr, survivor, acts, survivor_id):
+    if not VacancyPlugs.formation_plug_layer_blocked(mgr, survivor, acts, survivor_id):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_sparse: want formation_plug_layer_blocked")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
@@ -728,17 +739,17 @@ static func _run_mental_stack_sparse_fight_stamps_layer_on_try_pick(failures: Pa
     var mgr: Node = fix["mgr"]
     var survivor: Dictionary = fix["survivor"]
     var survivor_id: int = int(fix["survivor_id"])
-    if not _FormationFlow.skirmish_line_sparse_after_casualties(mgr, "player"):
+    if not FormationFlow.skirmish_line_sparse_after_casualties(mgr, "player"):
         CombatRegressionHarness._fail(failures, "mental_stack_sparse_fight: want sparse line")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     survivor["gauge"] = 100.0
     var acts: Array = AvailableActionsBuilder.build(mgr, survivor_id)
-    if not _ListedActions.action_list_has_hostile_strike(acts, survivor_id):
+    if not ListedActions.action_list_has_hostile_strike(acts, survivor_id):
         CombatRegressionHarness._fail(failures, "mental_stack_sparse_fight: want hostile strike listed for survivor")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
-    var picked: Dictionary = _MentalStack.try_pick(acts, survivor_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(acts, survivor_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(failures, "mental_stack_sparse_fight: expected try_pick")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -749,7 +760,7 @@ static func _run_mental_stack_sparse_fight_stamps_layer_on_try_pick(failures: Pa
         CombatRegressionHarness._fail(
             failures, "mental_stack_sparse_fight: want offense pick got %s layer=%s" % [mid, layer]
         )
-    var reserve_only: bool = _ListedActions.action_list_is_reserve_posture_only(acts)
+    var reserve_only: bool = ListedActions.action_list_is_reserve_posture_only(acts)
     if reserve_only:
         if (
             layer
@@ -771,7 +782,7 @@ static func _run_mental_stack_sparse_fight_stamps_layer_on_try_pick(failures: Pa
 
 ## MS-L5: full **`CombatAIActionPicker.pick`** path stamps **`formation_plug`** on rank-0 gap relief.
 static func _run_mental_stack_formation_plug_picker_e2e(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 7:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 5:
@@ -786,8 +797,8 @@ static func _run_mental_stack_formation_plug_picker_e2e(failures: PackedStringAr
         return
     hole_front["alive"] = false
     var form_player: Dictionary = mgr.formations["player"]
-    var slots: Dictionary = _FormationSlots.formation_slots_dict(form_player)
-    _FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
+    var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
+    FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
     if CombatAIActionPicker.is_relief_swap_tactically_allowed(rear, front):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_picker: want relief swap blocked")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -819,7 +830,7 @@ static func _run_mental_stack_formation_plug_picker_e2e(failures: PackedStringAr
 
 ## MS-L6: low cohesion + wounded front on losing side -> **`flee`** beats listed strike; stamps **`rout`**.
 static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -830,7 +841,7 @@ static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedSt
     mgr.set_meta("_engagement_mode_cached", "formation")
     var front_c: Dictionary = mgr.combatants[0]
     var ent: CoreEntity = CombatantEntityAccess.scene_node(front_c) as CoreEntity
-    var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+    var form: Dictionary = FormationSlots.formation_record_for_manager(mgr, "player")
     ent.blood_volume = 82.0
     form["line_cohesion"] = 0.38
     form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
@@ -845,7 +856,7 @@ static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedSt
         {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": fighter_id},
         {"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
     ]
-    var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(failures, "mental_stack_rout_stress: expected rout layer pick")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -873,7 +884,7 @@ static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedSt
 
 ## MS-L6: heavy side casualties -> **`flee`** beats **`wait`**; stamps **`rout`**.
 static func _run_mental_stack_rout_casualty_flee_beats_wait(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -882,7 +893,7 @@ static func _run_mental_stack_rout_casualty_flee_beats_wait(failures: PackedStri
         {"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT}, {"files": 1, "ranks": 2}
     )
     mgr.set_meta("_engagement_mode_cached", "formation")
-    var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+    var form: Dictionary = FormationSlots.formation_record_for_manager(mgr, "player")
     form["line_cohesion"] = 0.9
     form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
     var rear_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
@@ -890,7 +901,7 @@ static func _run_mental_stack_rout_casualty_flee_beats_wait(failures: PackedStri
     var front_c: Dictionary = mgr.combatants[0]
     var ent: CoreEntity = CombatantEntityAccess.scene_node(front_c) as CoreEntity
     ent.blood_volume = 82.0
-    if not _FormationRout.rout_cognition_pressure(mgr, front_c):
+    if not FormationRout.rout_cognition_pressure(mgr, front_c):
         CombatRegressionHarness._fail(failures, "mental_stack_rout_casualty: want rout pressure")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
@@ -899,7 +910,7 @@ static func _run_mental_stack_rout_casualty_flee_beats_wait(failures: PackedStri
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": fighter_id},
         {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": fighter_id},
     ]
-    var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(actions, fighter_id, mgr)
     if (
         str(front_c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != (CombatConstants.MENTAL_STACK_LAYER_ROUT)

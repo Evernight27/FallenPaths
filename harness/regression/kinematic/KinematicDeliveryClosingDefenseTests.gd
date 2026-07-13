@@ -1,10 +1,5 @@
 class_name KinematicDeliveryClosingDefenseTests
 extends CombatRegressionHarnessCore
-## Tier 5.1 optional long-tail kinematic tests split from **`CombatRegressionHarness`** (Godot compile size).
-## Footing: strike delivery / energy  -  may pass **`guard_line`** into path context; not L2 form or Tier 4.4 PA owner.
-## LIVE_PATHS **`#wf-layer-labels`**.
-
-const _HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinematics"
 ## Tier 5.1 (optional long-tail): rear **`engagement_angle`** - -  **`afterblow_damage_mult`** compose on **`v`**.
 ## -> **`strike_ke_j`** (~**(cls - -  sqrtab)2**).
 const HumanSpecies := preload("res://species/human.tres")

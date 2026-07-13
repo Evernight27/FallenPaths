@@ -1,5 +1,15 @@
 class_name AttentionFootworkFocusLineFootworkPickerTests
 extends CombatRegressionHarnessCore
+const MgrScript := preload("res://combat/CombatManager.gd")
+const MentalStack := preload("res://combat/MentalStackDecider.gd")
+const FormationSlots := preload("res://combat/FormationSlots.gd")
+const ListedActions := preload("res://combat/CombatListedActions.gd")
+const FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
+const FormationRout := preload("res://combat/CombatFormationRout.gd")
+const Exhaustion := preload("res://combat/CombatExhaustion.gd")
+const GuardLines := preload("res://combat/CombatGuardLines.gd")
+const WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .
 ## **`_run_mental_stack_*`** (MS-L4/L5 boundary). Catalog: LIVE_PATHS **`#harness-footwork-catalog`** . PA hub
@@ -7,7 +17,7 @@ extends CombatRegressionHarnessCore
 
 
 static func _run_mental_stack_rout_skipped_fight_finish(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 7:
         mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     for _j in 3:
@@ -36,7 +46,7 @@ static func _run_mental_stack_rout_skipped_fight_finish(failures: PackedStringAr
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     acts.append({"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": center_id})
-    var picked: Dictionary = _MentalStack.try_pick(acts, center_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(acts, center_id, mgr)
     if (
         str(center.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         == (CombatConstants.MENTAL_STACK_LAYER_ROUT)
@@ -52,7 +62,7 @@ static func _run_mental_stack_rout_skipped_fight_finish(failures: PackedStringAr
 
 ## MS-L6: winning side on firm line  -  no **`rout`** stamp when only wait + strike listed.
 static func _run_mental_stack_rout_firm_line_no_stamp(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -62,11 +72,11 @@ static func _run_mental_stack_rout_firm_line_no_stamp(failures: PackedStringArra
     mgr.set_meta("_engagement_mode_cached", "formation")
     var front_c: Dictionary = mgr.combatants[0]
     var ent: CoreEntity = CombatantEntityAccess.scene_node(front_c) as CoreEntity
-    var form: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
+    var form: Dictionary = FormationSlots.formation_record_for_manager(mgr, "player")
     ent.blood_volume = 82.0
     form["line_cohesion"] = 0.88
     form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
-    if _FormationRout.rout_cognition_pressure(mgr, front_c):
+    if FormationRout.rout_cognition_pressure(mgr, front_c):
         CombatRegressionHarness._fail(failures, "mental_stack_rout_firm: winning firm line must not have rout pressure")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
@@ -76,7 +86,7 @@ static func _run_mental_stack_rout_firm_line_no_stamp(failures: PackedStringArra
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": fighter_id},
         {"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
     ]
-    _MentalStack.try_pick(actions, fighter_id, mgr)
+    MentalStack.try_pick(actions, fighter_id, mgr)
     if (
         str(front_c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         == (CombatConstants.MENTAL_STACK_LAYER_ROUT)
@@ -90,7 +100,7 @@ static func _run_mental_stack_rout_firm_line_no_stamp(failures: PackedStringArra
 
 ## MS-L7: high fight exhaustion -> wait / disengage layer before utility pick.
 static func _run_mental_stack_exhaustion_tunnel_prefers_disengage(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -102,7 +112,7 @@ static func _run_mental_stack_exhaustion_tunnel_prefers_disengage(failures: Pack
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": fighter_id},
         {"move_id": "thrust", "target_id": enemy_id, "target_part": "head"},
     ]
-    var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(failures, "mental_stack_exhaustion: expected stack pick")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -130,7 +140,7 @@ static func _run_mental_stack_exhaustion_tunnel_prefers_disengage(failures: Pack
 
 ## MS-L7: when flee is listed, exhaustion tunnel must not pick rotate_file over abandon-field.
 static func _run_mental_stack_exhaustion_tunnel_flee_beats_rotate_file(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -146,7 +156,7 @@ static func _run_mental_stack_exhaustion_tunnel_flee_beats_rotate_file(failures:
         {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": fighter_id},
         {"move_id": CombatConstants.MOVE_ID_ROTATE_FILE, "target_id": fighter_id},
     ]
-    var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(failures, "mental_stack_flee_rotate: expected exhaustion layer pick")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -174,7 +184,7 @@ static func _run_mental_stack_exhaustion_tunnel_flee_beats_rotate_file(failures:
 
 ## Critical stamina (below MS-L7 index): L5 must not pick rotate_file when flee is listed.
 static func _run_mental_stack_critical_stamina_flee_beats_rotate_file(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -191,7 +201,7 @@ static func _run_mental_stack_critical_stamina_flee_beats_rotate_file(failures: 
         {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": fighter_id},
         {"move_id": CombatConstants.MOVE_ID_ROTATE_FILE, "target_id": fighter_id},
     ]
-    var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+    var picked: Dictionary = MentalStack.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
         pass  # Harness gap: full combat state may suppress L5 layer in headless context
     elif str(picked.get("move_id", "")) == CombatConstants.MOVE_ID_ROTATE_FILE:
@@ -215,23 +225,23 @@ static func _run_p4a_ms_l7_exhaustion_threshold_parity(failures: PackedStringArr
         )
     var c: Dictionary = {}
     c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = damp_start - 0.02
-    if absf(_Exhaustion.exhaustion_offense_weight_mult(c) - 1.0) > 0.001:
+    if absf(Exhaustion.exhaustion_offense_weight_mult(c) - 1.0) > 0.001:
         CombatRegressionHarness._fail(
             failures,
-            "p4a_ms_l7: below damp start want mult=1.0 got %.3f" % _Exhaustion.exhaustion_offense_weight_mult(c)
+            "p4a_ms_l7: below damp start want mult=1.0 got %.3f" % Exhaustion.exhaustion_offense_weight_mult(c)
         )
     c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = tunnel - 0.01
-    if _Exhaustion.exhaustion_tunnel_active(c):
+    if Exhaustion.exhaustion_tunnel_active(c):
         CombatRegressionHarness._fail(failures, "p4a_ms_l7: tunnel must not fire below threshold")
-    var mid_m: float = _Exhaustion.exhaustion_offense_weight_mult(c)
+    var mid_m: float = Exhaustion.exhaustion_offense_weight_mult(c)
     if mid_m <= floor_m + 0.001 or mid_m >= 1.0 - 0.001:
         CombatRegressionHarness._fail(failures, "p4a_ms_l7: mid ramp want partial damp got %.3f" % mid_m)
     c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = tunnel
-    if not _Exhaustion.exhaustion_tunnel_active(c):
+    if not Exhaustion.exhaustion_tunnel_active(c):
         CombatRegressionHarness._fail(failures, "p4a_ms_l7: tunnel must fire at threshold")
     ## Phase 5 extended lerp: at tunnel (0.50) weight is ~0.675 (midpoint), not floor.
     ## Floor only applies at exhausted threshold (0.75+).
-    var at_tunnel_m: float = _Exhaustion.exhaustion_offense_weight_mult(c)
+    var at_tunnel_m: float = Exhaustion.exhaustion_offense_weight_mult(c)
     if at_tunnel_m < 0.55 or at_tunnel_m > 0.80:
         CombatRegressionHarness._fail(
             failures, "p4a_ms_l7: at tunnel want mid ramp %.3f got %.3f (extended lerp to 0.75)" % [0.675, at_tunnel_m]
@@ -243,7 +253,7 @@ static func _run_p4a_ms_l7_exhaustion_threshold_parity(failures: PackedStringArr
 
 ## Tier 4.3.7: focus-line moves listed when combat attention is on.
 static func _run_focus_line_actions_listed_when_attention_enabled(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -276,10 +286,10 @@ static func _run_append_combat_wait_lists_wait_for_focus_only_menu(failures: Pac
     var actions: Array = []
     for move_id in CombatConstants.FOCUS_LINE_MOVE_IDS:
         actions.append({"target_id": cid, "move_id": move_id})
-    if not _ListedActions.action_list_is_hold_line_only(actions):
+    if not ListedActions.action_list_is_hold_line_only(actions):
         CombatRegressionHarness._fail(failures, "append_combat_wait: setup want hold_line_only menu")
-    _FormationMoves.append_combat_wait_if_needed(null, {}, actions, cid)
-    if not _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_WAIT):
+    FormationMoves.append_combat_wait_if_needed(null, {}, actions, cid)
+    if not ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_WAIT):
         CombatRegressionHarness._fail(failures, "append_combat_wait: want wait on focus-only menu")
 
 
@@ -295,10 +305,10 @@ static func _run_append_combat_wait_lists_wait_for_close_and_focus_menu(failures
     ]
     for move_id in CombatConstants.FOCUS_LINE_MOVE_IDS:
         actions.append({"target_id": cid, "move_id": move_id})
-    if not _ListedActions.action_list_is_reserve_posture_only(actions):
+    if not ListedActions.action_list_is_reserve_posture_only(actions):
         CombatRegressionHarness._fail(failures, "append_combat_wait: setup want reserve_posture_only menu")
-    _FormationMoves.append_combat_wait_if_needed(null, {}, actions, cid)
-    if not _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_WAIT):
+    FormationMoves.append_combat_wait_if_needed(null, {}, actions, cid)
+    if not ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_WAIT):
         CombatRegressionHarness._fail(failures, "append_combat_wait: want wait on close+focus menu")
 
 
@@ -307,7 +317,7 @@ static func _run_append_combat_wait_lists_wait_for_close_and_focus_menu(failures
 
 ## No-op focus (guard already on that line) -> **`skip_turn`** / wait, not another focus_line resolve.
 static func _run_focus_line_noop_skips_without_guard_change(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
@@ -338,7 +348,7 @@ static func _run_focus_line_noop_skips_without_guard_change(failures: PackedStri
 
 ## Tier 4.3.7: **`resolve_action`** on **`focus_high`** sets guard + focus.
 static func _run_focus_line_resolve_sets_guard_and_focus(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -365,7 +375,7 @@ static func _run_focus_line_resolve_sets_guard_and_focus(failures: PackedStringA
 
 ## Tier 4.3.7: party lead weights telegraph-matching focus line above other focus lines.
 static func _run_focus_line_party_leader_prefers_telegraph_match(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -535,7 +545,7 @@ static func _run_footwork_picker_preview_flurry_bind_when_idle(failures: PackedS
         CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
         AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
         return
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -586,7 +596,7 @@ static func _run_footwork_offset_shifts_attack_angle_deg(failures: PackedStringA
 ## Tier 4.4: **`CombatManager.start()`** scrubs position offset.
 static func _run_footwork_offset_scrubbed_on_combat_start(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     var atk: Dictionary = mgr.combatants[0]
@@ -609,7 +619,7 @@ static func _run_footwork_offset_scrubbed_on_combat_start(failures: PackedString
 static func _assert_form_home_parry_step_via_octant(
     failures: PackedStringArray, form_id: String, expect_home: String
 ) -> void:
-    var home: String = _WeaponForm.home_guard_line(form_id)
+    var home: String = WeaponForm.home_guard_line(form_id)
     if home != expect_home:
         CombatRegressionHarness._fail(
             failures, "footwork_eight_line: %s home want %s got %s" % [form_id, expect_home, home]
@@ -618,7 +628,7 @@ static func _assert_form_home_parry_step_via_octant(
     var def: Dictionary = {"guard_line": home}
     CombatFootwork.apply_defender_step_on_parry(def, home)
     var raw: float = CombatConstants.position_angle_offset_deg_for_attack_line(home)
-    var anchor: float = _GuardLines.position_angle_offset_deg_for_line(home)
+    var anchor: float = GuardLines.position_angle_offset_deg_for_line(home)
     if absf(raw - anchor) > 0.01:
         CombatRegressionHarness._fail(
             failures, "footwork_eight_line: %s raw delegate want %.2f got %.2f" % [form_id, anchor, raw]
@@ -644,13 +654,13 @@ static func _run_footwork_eight_line_home_guard_parry_step(failures: PackedStrin
         return
     CombatConstants.set_feature_position_angle_footwork_load(true)
     AttentionFootworkFocusLineFootworkPickerTests._assert_form_home_parry_step_via_octant(
-        failures, _WeaponForm.FORM_OX, _GuardLines.LINE_HIGH_RIGHT
+        failures, WeaponForm.FORM_OX, GuardLines.LINE_HIGH_RIGHT
     )
     AttentionFootworkFocusLineFootworkPickerTests._assert_form_home_parry_step_via_octant(
-        failures, _WeaponForm.FORM_WRATH, _GuardLines.LINE_HIGH_LEFT
+        failures, WeaponForm.FORM_WRATH, GuardLines.LINE_HIGH_LEFT
     )
     AttentionFootworkFocusLineFootworkPickerTests._assert_form_home_parry_step_via_octant(
-        failures, _WeaponForm.FORM_FOOL, _GuardLines.LINE_LOW_LEFT
+        failures, WeaponForm.FORM_FOOL, GuardLines.LINE_LOW_LEFT
     )
 
 
@@ -662,7 +672,7 @@ static func _assert_octant_windup_stamps_line(failures: PackedStringArray, line:
     var atk: Dictionary = {}
     CombatFootwork.apply_attack_step_on_windup(atk, line)
     var want: float = CombatConstants.position_angle_offset_deg_for_attack_line(line)
-    var anchor: float = _GuardLines.position_angle_offset_deg_for_line(line)
+    var anchor: float = GuardLines.position_angle_offset_deg_for_line(line)
     var off: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     if absf(want - anchor) > 0.01:
         CombatRegressionHarness._fail(
@@ -684,10 +694,10 @@ static func _run_footwork_octant_windup_step_diagonals(failures: PackedStringArr
         return
     CombatConstants.set_feature_position_angle_footwork_load(true)
     for line in [
-        _GuardLines.LINE_HIGH_RIGHT,
-        _GuardLines.LINE_LOW_RIGHT,
-        _GuardLines.LINE_LOW_LEFT,
-        _GuardLines.LINE_HIGH_LEFT,
+        GuardLines.LINE_HIGH_RIGHT,
+        GuardLines.LINE_LOW_RIGHT,
+        GuardLines.LINE_LOW_LEFT,
+        GuardLines.LINE_HIGH_LEFT,
     ]:
         AttentionFootworkFocusLineFootworkPickerTests._assert_octant_windup_stamps_line(failures, line)
 
@@ -701,22 +711,22 @@ static func _run_footwork_octant_windup_step_diagonals(failures: PackedStringArr
 static func _run_footwork_octant_lookup_delegates_to_guard_lines(failures: PackedStringArray) -> void:
     if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
         return
-    for line in _GuardLines.ALL_LINES:
-        var anchor: float = _GuardLines.position_angle_offset_deg_for_line(line)
+    for line in GuardLines.ALL_LINES:
+        var anchor: float = GuardLines.position_angle_offset_deg_for_line(line)
         var got: float = CombatConstants.position_angle_offset_deg_for_attack_line(line)
         if absf(got - anchor) > 0.01:
             CombatRegressionHarness._fail(
                 failures, "footwork_octant_lookup: %s want %.2f got %.2f" % [line, anchor, got]
             )
     for line in [
-        _GuardLines.LINE_HIGH_RIGHT,
-        _GuardLines.LINE_LOW_RIGHT,
-        _GuardLines.LINE_LOW_LEFT,
-        _GuardLines.LINE_HIGH_LEFT,
+        GuardLines.LINE_HIGH_RIGHT,
+        GuardLines.LINE_LOW_RIGHT,
+        GuardLines.LINE_LOW_LEFT,
+        GuardLines.LINE_HIGH_LEFT,
     ]:
-        var cardinal: String = _GuardLines.cardinal_for_path_lookup(line)
-        var diag_raw: float = _GuardLines.position_angle_offset_deg_for_line(line)
-        var card_raw: float = _GuardLines.position_angle_offset_deg_for_line(cardinal)
+        var cardinal: String = GuardLines.cardinal_for_path_lookup(line)
+        var diag_raw: float = GuardLines.position_angle_offset_deg_for_line(line)
+        var card_raw: float = GuardLines.position_angle_offset_deg_for_line(cardinal)
         if absf(diag_raw - card_raw) < 0.01:
             CombatRegressionHarness._fail(
                 failures,
@@ -766,7 +776,7 @@ static func _run_footwork_defender_dodge_step_stamps_octant_low_left(failures: P
     if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
         return
     AttentionFootworkFocusLineFootworkPickerTests._assert_defender_dodge_octant_via_leg(
-        failures, "left_leg", _GuardLines.LINE_LOW_LEFT, _GuardLines.LINE_LOW
+        failures, "left_leg", GuardLines.LINE_LOW_LEFT, GuardLines.LINE_LOW
     )
 
 
@@ -774,7 +784,7 @@ static func _run_footwork_defender_dodge_step_stamps_octant_right_leg(failures: 
     if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
         return
     AttentionFootworkFocusLineFootworkPickerTests._assert_defender_dodge_octant_via_leg(
-        failures, "right_leg", _GuardLines.LINE_LOW_RIGHT, _GuardLines.LINE_LOW
+        failures, "right_leg", GuardLines.LINE_LOW_RIGHT, GuardLines.LINE_LOW
     )
 
 
@@ -786,7 +796,7 @@ static func _run_footwork_parry_eval_step_octant_home(failures: PackedStringArra
     if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
         return
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    var line: String = _GuardLines.LINE_LOW_LEFT
+    var line: String = GuardLines.LINE_LOW_LEFT
     var def: Dictionary = {"guard_line": line}
     var eval: float = CombatFootwork.parry_eval_step_deg_for_defender(def)
     if def.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
@@ -855,7 +865,7 @@ static func _run_footwork_defender_scales_wf_t1_locked(failures: PackedStringArr
 static func _run_footwork_defender_parry_step_lt_dodge_on_octant(failures: PackedStringArray) -> void:
     if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
         return
-    var line: String = _GuardLines.LINE_HIGH_LEFT
+    var line: String = GuardLines.LINE_HIGH_LEFT
     var parry: float = CombatConstants.position_angle_defender_offset_deg_for_line(
         line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
     )
@@ -876,7 +886,7 @@ static func _run_footwork_guard_angle_deg_octant_parry_step(failures: PackedStri
     if not CombatConstants.is_feature_hema_eight_guard_lines_enabled():
         return
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    var line: String = _GuardLines.LINE_HIGH_LEFT
+    var line: String = GuardLines.LINE_HIGH_LEFT
     var def: Dictionary = {"guard_line": line}
     CombatFootwork.apply_defender_step_on_parry(def, line)
     var base_deg: float = CombatConstants.get_guard_angle_deg(def, {})

@@ -7,17 +7,17 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
     var deriv: Dictionary = reference_bleed_rate_derivation()
     var ttd_s: float = clinical_ttd_seconds()
     var loss_pct: float = loss_pct_to_death_threshold()
-    var ref_kg: float = _DesignAnchors.REFERENCE_ADULT_MASS_KG
+    var ref_kg: float = CombatDesignAnchors.REFERENCE_ADULT_MASS_KG
     var ml_per_kg: float = blood_ml_per_kg_at_reference_mass(ref_kg)
     var ke_j: float = committed_oberhau_ke_j()
-    var arm_stack: float = _CombatLayerTissue.soft_tissue_budget_mm("right_arm")
-    var forearm_j: float = _DamageMechanism.blunt_fracture_j_anchor("right_arm", "forearm")
-    var ke_commit: float = _MaterialFailureCurves.reference_committed_arm_ke_j()
-    var bone_at_ke: float = _MaterialFailureCurves.blunt_bone_damage_from_ke(ke_commit, "right_arm", "forearm")
-    var crit_arterial: float = float(_Bleeding.ARTERIAL_CHANCE_BY_SEVERITY[_Bleeding.SEVERITY_CRITICAL])
+    var arm_stack: float = CombatLayerTissue.soft_tissue_budget_mm("right_arm")
+    var forearm_j: float = CombatDamageMechanism.blunt_fracture_j_anchor("right_arm", "forearm")
+    var ke_commit: float = MaterialFailureCurves.reference_committed_arm_ke_j()
+    var bone_at_ke: float = MaterialFailureCurves.blunt_bone_damage_from_ke(ke_commit, "right_arm", "forearm")
+    var crit_arterial: float = float(BleedingConstants.ARTERIAL_CHANCE_BY_SEVERITY[BleedingConstants.SEVERITY_CRITICAL])
     var press_ratio: float = pressure_halved_ttd_ratio()
     var derived_mult: float = derived_blood_loss_multiplier_for_ttd(LITERATURE_TTD_TARGET_S)
-    var dp_retained: float = _Bleeding.DIRECT_PRESSURE_HELD_FLOW_RETAINED_ARTERIAL
+    var dp_retained: float = BleedingConstants.DIRECT_PRESSURE_HELD_FLOW_RETAINED_ARTERIAL
     var dp_verdict: String = (
         "pass" if absf(dp_retained - LITERATURE_DIRECT_PRESSURE_ARTERIAL_FLOW_RETAINED) <= 0.06 else "warn"
     )
@@ -62,7 +62,7 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "ATLS_death_remaining_%.0f%%_below_class_IV_entry_60%% verdict=%s"
                 % [
-                    _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD,
+                    BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD,
                     "pass" if death_threshold_deep_in_class_iv() else "warn",
                 ]
             )
@@ -94,7 +94,7 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
                 % [
                     LITERATURE_BLOOD_ML_PER_KG_NOMINAL,
                     ml_per_kg,
-                    _BloodVolumeMl.blood_volume_ml_max_for_reference_mass(ref_kg),
+                    BloodVolumeMl.blood_volume_ml_max_for_reference_mass(ref_kg),
                     (
                         "pass"
                         if absf(ml_per_kg - LITERATURE_BLOOD_ML_PER_KG_NOMINAL) <= LITERATURE_BLOOD_ML_PER_KG_TOLERANCE
@@ -110,10 +110,10 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "BLOOD_LOSS_RATE_MULTIPLIER=%.3f derived_for_%.0fs_TTD=%.3f delta_from_derived=%.4f verdict=%s"
                 % [
-                    _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER,
+                    BleedingConstants.BLOOD_LOSS_RATE_MULTIPLIER,
                     LITERATURE_TTD_TARGET_S,
                     derived_mult,
-                    absf(_Bleeding.BLOOD_LOSS_RATE_MULTIPLIER - derived_mult),
+                    absf(BleedingConstants.BLOOD_LOSS_RATE_MULTIPLIER - derived_mult),
                     "pass" if blood_loss_multiplier_matches_derived() else "warn",
                 ]
             )
@@ -128,12 +128,12 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
                     + "human_tissue_sum=%d goblin_tissue_sum=%d verdict=%s"
                 )
                 % [
-                    _HumanSpecies.resolved_reference_mass_kg(),
-                    _DesignAnchors.REFERENCE_ADULT_MASS_KG,
-                    _GoblinSpecies.resolved_reference_mass_kg(),
+                    HumanSpecies.resolved_reference_mass_kg(),
+                    CombatDesignAnchors.REFERENCE_ADULT_MASS_KG,
+                    GoblinSpecies.resolved_reference_mass_kg(),
                     GOBLIN_REFERENCE_MASS_KG,
-                    _HumanSpecies.live_tissue_sum(),
-                    _GoblinSpecies.live_tissue_sum(),
+                    HumanSpecies.live_tissue_sum(),
+                    GoblinSpecies.live_tissue_sum(),
                     "pass" if species_reference_mass_anchors_match() else "warn",
                 ]
             )
@@ -183,7 +183,7 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
                 "cut_bone_pen_gate_mm game_MFB=%.1f curve_graze_yield=%.1f literature_deep_laceration_reaches_cortex no"
                 + "te=abstract_RHA_mm_not_CT"
             )
-            % [_DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM, _MaterialFailureCurves.CUT_TISSUE_YIELD_PEN_MM]
+            % [CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM, MaterialFailureCurves.CUT_TISSUE_YIELD_PEN_MM]
         )
     )
     lines.append(
@@ -201,11 +201,11 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "blunt_flesh_ke_budget_arm_J game=%.0f committed_KE=%.0f KE_to_bone_after_flesh=%.0f verdict=%s"
                 % [
-                    float(_CombatLayerTissue.BLUNT_TISSUE_KE_BUDGET_J_BY_PART.get("right_arm", 22.0)),
+                    float(CombatLayerTissue.BLUNT_TISSUE_KE_BUDGET_J_BY_PART.get("right_arm", 22.0)),
                     ke_commit,
                     maxf(
                         0.0,
-                        ke_commit - float(_CombatLayerTissue.BLUNT_TISSUE_KE_BUDGET_J_BY_PART.get("right_arm", 22.0))
+                        ke_commit - float(CombatLayerTissue.BLUNT_TISSUE_KE_BUDGET_J_BY_PART.get("right_arm", 22.0))
                     ),
                     "pass" if ke_commit > 80.0 else "note",
                 ]
@@ -256,13 +256,13 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
                 "penetration_depth_full_mm game=%.1f curve_ultimate_mm=%.1f literature_penetrating_trauma_track_depth_v"
                 + "aries verdict=pass"
             )
-            % [_Bleeding.PENETRATION_DEPTH_SEVERITY_FULL_MM, _MaterialFailureCurves.cut_tissue_ultimate_pen_mm()]
+            % [BleedingConstants.PENETRATION_DEPTH_SEVERITY_FULL_MM, MaterialFailureCurves.cut_tissue_ultimate_pen_mm()]
         )
     )
     lines.append(
         (
             "layer_rupture_subcut_bleed_mult game=%.2f literature_ruptured_subcut_increases_cavity_bleed verdict=note"
-            % _Bleeding.LAYER_RUPTURE_SUBCUT_BLEED_MULT
+            % BleedingConstants.LAYER_RUPTURE_SUBCUT_BLEED_MULT
         )
     )
     lines.append(
@@ -271,8 +271,12 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             % [dp_retained, (1.0 - LITERATURE_DIRECT_PRESSURE_ARTERIAL_FLOW_RETAINED) * 100.0, dp_verdict]
         )
     )
-    var cut_crit: float = float(_Bleeding.BLEEDING_RATES[_Bleeding.INJURY_TYPE_CUT][_Bleeding.SEVERITY_CRITICAL])
-    var crush_crit: float = float(_Bleeding.BLEEDING_RATES[_Bleeding.INJURY_TYPE_CRUSH][_Bleeding.SEVERITY_CRITICAL])
+    var cut_crit: float = float(
+        BleedingConstants.BLEEDING_RATES[BleedingConstants.INJURY_TYPE_CUT][BleedingConstants.SEVERITY_CRITICAL]
+    )
+    var crush_crit: float = float(
+        BleedingConstants.BLEEDING_RATES[BleedingConstants.INJURY_TYPE_CRUSH][BleedingConstants.SEVERITY_CRITICAL]
+    )
     (
         lines
         . append(
@@ -297,9 +301,13 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "ARTERIAL_CRUSH_MULTIPLIER=%.2f literature_blunt_vascular_fraction<=%.2f verdict=%s"
                 % [
-                    _Bleeding.ARTERIAL_CRUSH_MULTIPLIER,
+                    BleedingConstants.ARTERIAL_CRUSH_MULTIPLIER,
                     LITERATURE_BLUNT_VASCULAR_FRACTION_MAX,
-                    "pass" if _Bleeding.ARTERIAL_CRUSH_MULTIPLIER <= LITERATURE_BLUNT_VASCULAR_FRACTION_MAX else "warn",
+                    (
+                        "pass"
+                        if BleedingConstants.ARTERIAL_CRUSH_MULTIPLIER <= LITERATURE_BLUNT_VASCULAR_FRACTION_MAX
+                        else "warn"
+                    ),
                 ]
             )
         )
@@ -310,8 +318,8 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "pen_depth_severity_mult shallow=%.2f deep=%.2f verdict=%s"
                 % [
-                    _Bleeding.penetration_depth_severity_mult(0.5),
-                    _Bleeding.penetration_depth_severity_mult(6.0),
+                    BleedingConstants.penetration_depth_severity_mult(0.5),
+                    BleedingConstants.penetration_depth_severity_mult(6.0),
                     "pass" if penetration_depth_mult_monotonic() else "warn",
                 ]
             )
@@ -323,8 +331,8 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "pen_depth_arterial_mult shallow=%.2f deep=%.2f verdict=%s"
                 % [
-                    _Bleeding.penetration_depth_arterial_mult(0.5),
-                    _Bleeding.penetration_depth_arterial_mult(6.0),
+                    BleedingConstants.penetration_depth_arterial_mult(0.5),
+                    BleedingConstants.penetration_depth_arterial_mult(6.0),
                     "pass" if penetration_arterial_mult_monotonic() else "warn",
                 ]
             )
@@ -337,8 +345,8 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "clotting_half_life_s minor=%.0f critical=%.0f bandage=%.0f verdict=%s"
                 % [
-                    clotting_half_life_s(_Bleeding.SEVERITY_MINOR),
-                    clotting_half_life_s(_Bleeding.SEVERITY_CRITICAL),
+                    clotting_half_life_s(BleedingConstants.SEVERITY_MINOR),
+                    clotting_half_life_s(BleedingConstants.SEVERITY_CRITICAL),
                     bandage_hl,
                     "pass" if clotting_half_life_ordering_ok() else "warn",
                 ]
@@ -378,9 +386,13 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
         )
     )
     var ttd_pct_p: float = clinical_ttd_seconds(1.0)
-    var max_ml_h: float = _BloodVolumeMl.blood_volume_ml_max_for_reference_mass(ref_kg)
+    var max_ml_h: float = BloodVolumeMl.blood_volume_ml_max_for_reference_mass(ref_kg)
     var buffer_ml_h: float = (
-        max_ml_h * ((_Bleeding.MAX_BLOOD_VOLUME - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD) / _Bleeding.MAX_BLOOD_VOLUME)
+        max_ml_h
+        * (
+            (BleedingConstants.MAX_BLOOD_VOLUME - BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD)
+            / BleedingConstants.MAX_BLOOD_VOLUME
+        )
     )
     var loss_ml_s_h: float = reference_uncontrolled_implied_ml_per_second(ref_kg, 1.0)
     var loss_ml_min_h: float = loss_ml_s_h * 60.0
@@ -416,8 +428,8 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "scalp_bleed_mult=%.2f forearm=%.2f verdict=%s"
                 % [
-                    float(_Bleeding.SUB_REGION_BLEEDING_MULTIPLIERS["head"]["scalp"]),
-                    float(_Bleeding.SUB_REGION_BLEEDING_MULTIPLIERS["right_arm"]["forearm"]),
+                    float(BleedingConstants.SUB_REGION_BLEEDING_MULTIPLIERS["head"]["scalp"]),
+                    float(BleedingConstants.SUB_REGION_BLEEDING_MULTIPLIERS["right_arm"]["forearm"]),
                     "pass" if scalp_bleed_mult_exceeds_limb() else "warn",
                 ]
             )
@@ -429,12 +441,12 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "absolute_severity_tissue=%.0f/%.0f/%.0f bone=%.0f/%.0f/%.0f verdict=%s"
                 % [
-                    _Bleeding.SEVERITY_ABSOLUTE_MODERATE,
-                    _Bleeding.SEVERITY_ABSOLUTE_SEVERE,
-                    _Bleeding.SEVERITY_ABSOLUTE_CRITICAL,
-                    _Bleeding.SEVERITY_ABSOLUTE_BONE_MODERATE,
-                    _Bleeding.SEVERITY_ABSOLUTE_BONE_SEVERE,
-                    _Bleeding.SEVERITY_ABSOLUTE_BONE_CRITICAL,
+                    BleedingConstants.SEVERITY_ABSOLUTE_MODERATE,
+                    BleedingConstants.SEVERITY_ABSOLUTE_SEVERE,
+                    BleedingConstants.SEVERITY_ABSOLUTE_CRITICAL,
+                    BleedingConstants.SEVERITY_ABSOLUTE_BONE_MODERATE,
+                    BleedingConstants.SEVERITY_ABSOLUTE_BONE_SEVERE,
+                    BleedingConstants.SEVERITY_ABSOLUTE_BONE_CRITICAL,
                     "pass" if absolute_severity_bands_ordered() else "warn",
                 ]
             )
@@ -446,20 +458,20 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "forearm_bleed_mult=%.2f UE_vascular_epidemiology_weighted verdict=%s"
                 % [
-                    float(_Bleeding.SUB_REGION_BLEEDING_MULTIPLIERS["right_arm"]["forearm"]),
+                    float(BleedingConstants.SUB_REGION_BLEEDING_MULTIPLIERS["right_arm"]["forearm"]),
                     (
                         "pass"
-                        if float(_Bleeding.SUB_REGION_BLEEDING_MULTIPLIERS["right_arm"]["forearm"]) >= 1.0
+                        if float(BleedingConstants.SUB_REGION_BLEEDING_MULTIPLIERS["right_arm"]["forearm"]) >= 1.0
                         else "note"
                     ),
                 ]
             )
         )
     )
-    var human_pref: float = pain_reference_for_species(_HumanSpecies)
-    var hits_nrs4: float = hits_to_nrs_first_effect(_HumanSpecies)
+    var human_pref: float = pain_reference_for_species(HumanSpecies)
+    var hits_nrs4: float = hits_to_nrs_first_effect(HumanSpecies)
     var pct_head: float = (
-        100.0 * float(_HumanSpecies.get_body_part_max("head")) / float(maxi(1, _HumanSpecies.live_tissue_sum()))
+        100.0 * float(HumanSpecies.get_body_part_max("head")) / float(maxi(1, HumanSpecies.live_tissue_sum()))
     )
     lines.append(
         (
@@ -477,7 +489,7 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "pain_moderate_hit_effective=%.2f hits_to_NRS4=%.2f want_%.1f-%.1f verdict=%s"
                 % [
-                    moderate_hit_effective_pain(_HumanSpecies),
+                    moderate_hit_effective_pain(HumanSpecies),
                     hits_nrs4,
                     LITERATURE_HITS_TO_NRS4_MIN,
                     LITERATURE_HITS_TO_NRS4_MAX,
@@ -492,11 +504,11 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "pain_NRS_thresholds first=%.0f mod=%.0f shock=%.0f sev=%.0f intol=%.0f verdict=%s"
                 % [
-                    _Pain.NRS_FIRST_EFFECT,
-                    _Pain.NRS_MODERATE,
-                    _Pain.NRS_SHOCK,
-                    _Pain.NRS_SEVERE,
-                    _Pain.NRS_INTOLERABLE,
+                    PainConsciousnessConstants.NRS_FIRST_EFFECT,
+                    PainConsciousnessConstants.NRS_MODERATE,
+                    PainConsciousnessConstants.NRS_SHOCK,
+                    PainConsciousnessConstants.NRS_SEVERE,
+                    PainConsciousnessConstants.NRS_INTOLERABLE,
                     "pass" if nrs_thresholds_ordered() else "warn",
                 ]
             )
@@ -508,7 +520,7 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "pain_goblin_reference=%.2f human=%.2f below_human=%s verdict=%s"
                 % [
-                    pain_reference_for_species(_GoblinSpecies),
+                    pain_reference_for_species(GoblinSpecies),
                     human_pref,
                     str(goblin_pain_reference_below_human()).to_lower(),
                     "pass" if goblin_pain_reference_below_human() else "warn",
@@ -539,8 +551,8 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "forearm_arterial_mult=%.2f upper_arm=%.2f verdict=%s"
                 % [
-                    float(_Bleeding.SUB_REGION_ARTERIAL_MULTIPLIERS["right_arm"]["forearm"]),
-                    float(_Bleeding.SUB_REGION_ARTERIAL_MULTIPLIERS["right_arm"]["upper_arm"]),
+                    float(BleedingConstants.SUB_REGION_ARTERIAL_MULTIPLIERS["right_arm"]["forearm"]),
+                    float(BleedingConstants.SUB_REGION_ARTERIAL_MULTIPLIERS["right_arm"]["upper_arm"]),
                     "pass" if forearm_arterial_mult_exceeds_upper_arm() else "warn",
                 ]
             )
@@ -562,7 +574,10 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
     lines.append(
         (
             "normalized_pain_method_B=%s verdict=%s"
-            % [str(_Pain.USE_NORMALIZED_PAIN).to_lower(), "pass" if normalized_pain_method_b_enabled() else "warn"]
+            % [
+                str(PainConsciousnessConstants.USE_NORMALIZED_PAIN).to_lower(),
+                "pass" if normalized_pain_method_b_enabled() else "warn"
+            ]
         )
     )
     (
@@ -571,8 +586,8 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "species_derived_limb human=%s goblin=%s verdict=%s"
                 % [
-                    str(_HumanSpecies.feature_derived_limb_capacity).to_lower(),
-                    str(_GoblinSpecies.feature_derived_limb_capacity).to_lower(),
+                    str(HumanSpecies.feature_derived_limb_capacity).to_lower(),
+                    str(GoblinSpecies.feature_derived_limb_capacity).to_lower(),
                     "pass" if derived_limb_capacity_on_both_species() else "warn",
                 ]
             )
@@ -604,7 +619,7 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
     lines.append(
         (
             "MFB_cut_bone_min_pen_mm=%.1f literature_abstract_cortex_gate verdict=pass"
-            % _DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM
+            % CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM
         )
     )
     var blunt_ke_bone: float = blunt_ke_after_arm_budget_at_committed_oberhau()
@@ -641,7 +656,7 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
     lines.append(
         (
             "layer_rupture_subcut_bleed_mult=%.2f literature_cavity_bleed_bump verdict=note"
-            % _Bleeding.LAYER_RUPTURE_SUBCUT_BLEED_MULT
+            % BleedingConstants.LAYER_RUPTURE_SUBCUT_BLEED_MULT
         )
     )
     (
@@ -650,11 +665,14 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "FEATURE_tissue_damage_D=%s FEATURE_absolute_severity_pct_cap=%s verdict=%s"
                 % [
-                    str(_Bleeding.FEATURE_TISSUE_DAMAGE_D).to_lower(),
-                    str(_Bleeding.FEATURE_ABSOLUTE_SEVERITY_PCT_CAP).to_lower(),
+                    str(BleedingConstants.FEATURE_TISSUE_DAMAGE_D).to_lower(),
+                    str(BleedingConstants.FEATURE_ABSOLUTE_SEVERITY_PCT_CAP).to_lower(),
                     (
                         "pass"
-                        if not _Bleeding.FEATURE_TISSUE_DAMAGE_D and not _Bleeding.FEATURE_ABSOLUTE_SEVERITY_PCT_CAP
+                        if (
+                            not BleedingConstants.FEATURE_TISSUE_DAMAGE_D
+                            and not BleedingConstants.FEATURE_ABSOLUTE_SEVERITY_PCT_CAP
+                        )
                         else "warn"
                     ),
                 ]
@@ -667,7 +685,9 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "pain_performance_at_NRS4=%.2f want=%.2f monotonic_with_NRS verdict=%s"
                 % [
-                    _Pain.get_pain_performance_modifier(_Pain.NRS_FIRST_EFFECT),
+                    PainConsciousnessConstants.get_pain_performance_modifier(
+                        PainConsciousnessConstants.NRS_FIRST_EFFECT
+                    ),
                     LITERATURE_PAIN_PERF_AT_NRS4,
                     "pass" if pain_performance_monotonic_with_nrs() else "warn",
                 ]
@@ -680,8 +700,8 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "neck_arterial_mult=%.2f forearm=%.2f verdict=%s"
                 % [
-                    float(_Bleeding.SUB_REGION_ARTERIAL_MULTIPLIERS["head"]["neck"]),
-                    float(_Bleeding.SUB_REGION_ARTERIAL_MULTIPLIERS["right_arm"]["forearm"]),
+                    float(BleedingConstants.SUB_REGION_ARTERIAL_MULTIPLIERS["head"]["neck"]),
+                    float(BleedingConstants.SUB_REGION_ARTERIAL_MULTIPLIERS["right_arm"]["forearm"]),
                     "pass" if neck_arterial_mult_exceeds_forearm() else "warn",
                 ]
             )
@@ -696,15 +716,15 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
                     + "class_IV_window=%s danger_s=%.0f peril_s=%.0f reference_TTD_s=%.1f peril<TTD=%s verdict=%s"
                 )
                 % [
-                    _Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING,
-                    _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING,
-                    _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD,
-                    _Bleeding.ATLS_CLASS_III_MIN_REMAINING,
+                    BleedingConstants.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING,
+                    BleedingConstants.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING,
+                    BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD,
+                    BleedingConstants.ATLS_CLASS_III_MIN_REMAINING,
                     str(medical_triage_blood_bands_in_class_iv_window()).to_lower(),
-                    _Bleeding.MEDICAL_TRIAGE_DANGER_SECONDS,
-                    _Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS,
+                    BleedingConstants.MEDICAL_TRIAGE_DANGER_SECONDS,
+                    BleedingConstants.MEDICAL_TRIAGE_PERIL_SECONDS,
                     clinical_ttd_seconds(1.0),
-                    str(_Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS < clinical_ttd_seconds(1.0)).to_lower(),
+                    str(BleedingConstants.MEDICAL_TRIAGE_PERIL_SECONDS < clinical_ttd_seconds(1.0)).to_lower(),
                     "pass" if medical_triage_thresholds_ordered() else "warn",
                 ]
             )
@@ -732,8 +752,8 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "MATERIAL_CURVE_BLEND_WEIGHT=%.2f curves_on=%s verdict=%s"
                 % [
-                    _Bleeding.MATERIAL_CURVE_BLEND_WEIGHT,
-                    str(_Bleeding.FEATURE_MATERIAL_FAILURE_CURVES).to_lower(),
+                    BleedingConstants.MATERIAL_CURVE_BLEND_WEIGHT,
+                    str(BleedingConstants.FEATURE_MATERIAL_FAILURE_CURVES).to_lower(),
                     "pass" if material_curves_full_blend_when_on() else "warn",
                 ]
             )
@@ -753,7 +773,7 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             (
                 "medical_triage_danger_s=%.0f reference_TTD_s=%.1f danger>TTD=%s verdict=%s"
                 % [
-                    _Bleeding.MEDICAL_TRIAGE_DANGER_SECONDS,
+                    BleedingConstants.MEDICAL_TRIAGE_DANGER_SECONDS,
                     clinical_ttd_seconds(1.0),
                     str(medical_triage_danger_seconds_exceeds_reference_ttd()).to_lower(),
                     "pass" if medical_triage_danger_seconds_exceeds_reference_ttd() else "warn",

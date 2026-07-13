@@ -3,8 +3,8 @@ extends CombatRegressionHarnessCore
 
 
 static func _kin_fixtures_all_damage() -> Array:
-    var out: Array = _kin_fixtures_with_sharp_pen()
-    out.append_array(_kin_fixtures_blunt())
+    var out: Array = KinematicDeliveryPenetrationTests._kin_fixtures_with_sharp_pen()
+    out.append_array(KinematicDeliveryPenetrationTests._kin_fixtures_blunt())
     return out
 
 
@@ -130,7 +130,9 @@ static func _run_kinematic_delivery_compute_damage_strike_ke_and_blunt_contact_e
     var tgt: Dictionary = sample["tgt"] as Dictionary
     var intensity: float = float(sample["intensity"])
     var arch: Dictionary = sample["arch"] as Dictionary
-    var v_asm: float = _kin_expected_damage_velocity_m_s(m, atk, tgt, intensity, arch, move_id, vo_pin, 1.0)
+    var v_asm: float = KinematicDeliveryPenetrationTests._kin_expected_damage_velocity_m_s(
+        m, atk, tgt, intensity, arch, move_id, vo_pin, 1.0
+    )
     var weapon: Weapon = _EntityAccess.get_weapon(atk) as Weapon
     if weapon == null:
         _fail(failures, "kin_dmg_kin_exposed: missing weapon")
@@ -327,7 +329,9 @@ static func _run_kinematic_delivery_compute_damage_pre_armor_matches_helper_at_a
             _fail(failures, "kin_pre_armor: missing weapon (%s)" % case["label"])
             _free_manager(m)
             return
-        var v_asm: float = _kin_expected_damage_velocity_m_s(m, atk, tgt, intensity, arch, move_id, vo_pin, 1.0)
+        var v_asm: float = KinematicDeliveryPenetrationTests._kin_expected_damage_velocity_m_s(
+            m, atk, tgt, intensity, arch, move_id, vo_pin, 1.0
+        )
         var want: Vector2 = _kin_expected_pre_armor_cut_blunt(
             weapon, atk, tgt, move_id, intensity, arch, v_asm, float(case["parry_r"]), {}
         )
@@ -494,7 +498,7 @@ static func _run_kinematic_delivery_strike_mods_damage_mults_scale_pre_armor_onl
     var vo_pin: float = 11.0
     var cut_mult: float = 1.4
     var blunt_mult: float = 1.25
-    for cfx in _kin_fixtures_cut_swing():
+    for cfx in KinematicDeliveryPenetrationTests._kin_fixtures_cut_swing():
         var wid: String = str(cfx["wid"])
         var move: String = str(cfx["move"])
         var tag: String = str(cfx["tag"])
@@ -530,7 +534,7 @@ static func _run_kinematic_delivery_strike_mods_damage_mults_scale_pre_armor_onl
                     % [tag, float(base["pen_sharp"]), float(shaped["pen_sharp"])]
                 )
             )
-    for bfx in _kin_fixtures_blunt():
+    for bfx in KinematicDeliveryPenetrationTests._kin_fixtures_blunt():
         var wid_b: String = str(bfx["wid"])
         var move_b: String = str(bfx["move"])
         var tag_b: String = str(bfx["tag"])
@@ -598,7 +602,7 @@ static func _run_kinematic_delivery_partial_parry_misalign_oblique_parry_branch_
     var vo_pin: float = 11.0
     var parry_r: float = 0.25
     var amin: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
-    for cfx in _kin_fixtures_cut_swing():
+    for cfx in KinematicDeliveryPenetrationTests._kin_fixtures_cut_swing():
         var wid: String = str(cfx["wid"])
         var move: String = str(cfx["move"])
         var tag: String = str(cfx["tag"])
@@ -649,7 +653,7 @@ static func _run_kinematic_delivery_partial_parry_misalign_oblique_parry_branch_
 static func _run_kinematic_delivery_blunt_momentum_mult_scales_pen_not_pre_armor(failures: PackedStringArray) -> void:
     var vo_pin: float = 11.0
     var mult: float = 1.28
-    for cfx in _kin_fixtures_with_blunt_pen():
+    for cfx in KinematicDeliveryPenetrationTests._kin_fixtures_with_blunt_pen():
         var wid: String = str(cfx["wid"])
         var move: String = str(cfx["move"])
         var tag: String = str(cfx["tag"])
@@ -702,7 +706,7 @@ static func _run_kinematic_delivery_get_attack_path_unknown_attack_line_fallback
 static func _run_kinematic_delivery_sharp_penetration_mult_scales_pen_not_pre_cut(failures: PackedStringArray) -> void:
     var vo_pin: float = 11.0
     var mult: float = 1.33
-    for cfx in _kin_fixtures_with_sharp_pen():
+    for cfx in KinematicDeliveryPenetrationTests._kin_fixtures_with_sharp_pen():
         var wid: String = str(cfx["wid"])
         var move: String = str(cfx["move"])
         var tag: String = str(cfx["tag"])
@@ -768,7 +772,7 @@ static func _run_kinematic_delivery_partial_parry_align_compose_on_pen_not_pre_a
     var parry_r: float = 0.25
     var amin: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
     var ascale: float = CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
-    for cfx in _kin_fixtures_cut_swing():
+    for cfx in KinematicDeliveryPenetrationTests._kin_fixtures_cut_swing():
         var wid: String = str(cfx["wid"])
         var move: String = str(cfx["move"])
         var tag: String = str(cfx["tag"])
@@ -909,7 +913,7 @@ static func _run_kinematic_delivery_misaligned_guard_scales_sharp_and_blunt_pen(
     var want: float = lerpf(
         1.0, CombatConstants.PARRY_PENETRATION_ANGLE_MIN, CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
     )
-    for cfx in _kin_fixtures_with_blunt_pen():
+    for cfx in KinematicDeliveryPenetrationTests._kin_fixtures_with_blunt_pen():
         var wid: String = str(cfx["wid"])
         var move: String = str(cfx["move"])
         var tag: String = str(cfx["tag"])

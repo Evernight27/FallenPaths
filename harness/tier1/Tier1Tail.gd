@@ -185,3 +185,7 @@ static func run_late(failures: PackedStringArray) -> void:
     Tier1EncounterGapTests._run_gap1_axe_overhead_chop_head_weight_clamp(failures)
     Tier1EncounterGapTests._run_gap3_spear_diagonal_depth_gate(failures)
     Tier1EncounterGapTests._run_gap6_diagonal_variance_distribution(failures)
+
+
+static func _harness_7v3_mop_up_mgr() -> Node:
+    return Tier1EnvelopPlugSkirmishTests._harness_7v3_mop_up_mgr()

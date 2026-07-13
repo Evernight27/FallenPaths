@@ -9,14 +9,16 @@ static func _run_kinematic_delivery_strike_energy_mult_integration_pre_cut_not_p
     var vo_pin: float = 11.0
     var mult: float = 1.45
     var want_pen: float = pow(mult, WeaponConstants.PENETRATION_EXPONENT)
-    for cfx in _kin_fixtures_cut_swing():
+    for cfx in KinematicDeliveryPenetrationTests._kin_fixtures_cut_swing():
         var wid: String = str(cfx["wid"])
         var move: String = str(cfx["move"])
         var tag: String = str(cfx["tag"])
-        var vo: float = _kin_fixture_vo(cfx, vo_pin)
-        var arch: Dictionary = _kin_arch_for_move(move)
-        var base: Dictionary = _kin_dmg_integration_sample(vo, 1.0, 1.0, {}, wid, move, 1.0, arch)
-        var shaped: Dictionary = _kin_dmg_integration_sample(
+        var vo: float = KinematicDeliveryPartialParryTests._kin_fixture_vo(cfx, vo_pin)
+        var arch: Dictionary = KinematicDeliveryPartialParryTests._kin_arch_for_move(move)
+        var base: Dictionary = KinematicDeliveryPartialParryTests._kin_dmg_integration_sample(
+            vo, 1.0, 1.0, {}, wid, move, 1.0, arch
+        )
+        var shaped: Dictionary = KinematicDeliveryPartialParryTests._kin_dmg_integration_sample(
             vo, 1.0, 1.0, {"strike_energy_mult": mult}, wid, move, 1.0, arch
         )
         _free_manager(base["mgr"] as Node)
@@ -45,15 +47,19 @@ static func _run_kinematic_delivery_afterblow_mult_scales_strike_ke_via_velocity
     var vo_pin: float = 11.0
     var ab_mult: float = 0.64
     var want_ke: float = ab_mult
-    var fixtures: Array = _kin_fixtures_all_damage()
+    var fixtures: Array = KinematicDeliveryPartialParryTests._kin_fixtures_all_damage()
     for cfx in fixtures:
         var wid: String = str(cfx["wid"])
         var move: String = str(cfx["move"])
         var tag: String = str(cfx["tag"])
-        var vo: float = _kin_fixture_vo(cfx, vo_pin)
-        var arch: Dictionary = _kin_arch_for_move(move)
-        var clean: Dictionary = _kin_dmg_integration_sample(vo, 1.0, 1.0, {}, wid, move, 1.0, arch)
-        var hindered: Dictionary = _kin_dmg_integration_sample(vo, 1.0, 1.0, {}, wid, move, ab_mult, arch)
+        var vo: float = KinematicDeliveryPartialParryTests._kin_fixture_vo(cfx, vo_pin)
+        var arch: Dictionary = KinematicDeliveryPartialParryTests._kin_arch_for_move(move)
+        var clean: Dictionary = KinematicDeliveryPartialParryTests._kin_dmg_integration_sample(
+            vo, 1.0, 1.0, {}, wid, move, 1.0, arch
+        )
+        var hindered: Dictionary = KinematicDeliveryPartialParryTests._kin_dmg_integration_sample(
+            vo, 1.0, 1.0, {}, wid, move, ab_mult, arch
+        )
         _free_manager(clean["mgr"] as Node)
         _free_manager(hindered["mgr"] as Node)
         var ke_ratio: float = float(hindered["strike_ke_j"]) / maxf(float(clean["strike_ke_j"]), 0.001)

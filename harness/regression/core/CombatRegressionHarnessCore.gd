@@ -75,9 +75,84 @@ extends RefCounted
 ##   var r := CombatRegressionHarness.run_all()
 ##   assert(r.ok, str(r.failures))
 
-const Snapshot := preload("res://world/PartyMemberSnapshot.gd")
-
-const PartyManagerScript := preload("res://world/PartyManager.gd")
+# Inherited harness modules still call these underscore aliases; keep names stable across the split.
+# gdlint: disable = load-constant-name
+const _MgrScript := preload("res://combat/CombatManager.gd")
+const _Weapon := preload("res://weapon/Weapon.gd")
+const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+const _ArmorPiece := preload("res://armor/ArmorPiece.gd")
+const _ActionsBuilder := preload("res://combat/AvailableActionsBuilder.gd")
+const _FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
+const _ListedActions := preload("res://combat/CombatListedActions.gd")
+const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
+const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
+const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
+const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
+const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
+const _EngagementResolver := preload("res://combat/CombatEngagementResolver.gd")
+const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
+const _FormationEngagement := preload("res://combat/CombatFormationEngagement.gd")
+const _AIPicker := preload("res://combat/CombatAIActionPicker.gd")
+const _PassiveParryCtx := preload("res://combat/PassiveParryContext.gd")
+const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
+const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
+const _DefenseChoice := preload("res://combat/DefenseChoiceResolver.gd")
+const _DefenseResolution := preload("res://combat/DefenseResolutionHandler.gd")
+const _WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
+const _CounterTempo := preload("res://combat/CounterTempo.gd")
+const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
+const _Attention := preload("res://combat/CombatAttention.gd")
+const _Footwork := preload("res://combat/CombatFootwork.gd")
+const _BattleUIUpdater := preload("res://ui/BattleUIUpdater.gd")
+const _MentalStack := preload("res://combat/MentalStackDecider.gd")
+const _StateHandlers := preload("res://combat/CombatStateHandlers.gd")
+const _EventDispatch := preload("res://combat/CombatEventDispatch.gd")
+const _ResolveAction := preload("res://combat/CombatResolveAction.gd")
+const _StrikePhysics := preload("res://combat/StrikePhysics.gd")
+const _AttackResultApplier := preload("res://combat/AttackResultApplier.gd")
+const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
+const _PostStrike := preload("res://combat/CombatPostStrike.gd")
+const _FormationSlots := preload("res://combat/FormationSlots.gd")
+const _FormationVacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
+const _CombatTiming := preload("res://combat/CombatTiming.gd")
+const _CombatLogFormatter := preload("res://ui/CombatLogFormatter.gd")
+const _AttackResolver := preload("res://combat/AttackResolver.gd")
+const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
+const _StrikeRealism := preload("res://weapon/StrikeRealismProfile.gd")
+const _DistanceBands := preload("res://combat/CombatDistanceBands.gd")
+const _GuardLineUpdater := preload("res://combat/GuardLineUpdater.gd")
+const _GuardLines := preload("res://combat/CombatGuardLines.gd")
+const _AfterblowHandler := preload("res://combat/AfterblowHandler.gd")
+const _EntityWounds := preload("res://core/EntityWounds.gd")
+const _EntityMedical := preload("res://core/EntityMedical.gd")
+const _Bleeding := preload("res://core/BleedingConstants.gd")
+const _PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
+const _UiHints := preload("res://combat/CombatUiHints.gd")
+const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
+const _IncomingParryChoice := preload("res://combat/CombatIncomingParryChoice.gd")
+const _WeaponPosition := preload("res://combat/CombatWeaponPosition.gd")
+const _FormationFlee := preload("res://combat/CombatFormationFlee.gd")
+const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
+const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
+const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
+const _MeleeRank := preload("res://combat/CombatMeleeRankTargeting.gd")
+const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
+const _PartyRowFormatter := preload("res://ui/PartyRowFormatter.gd")
+const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
+const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+const _OperationalLog := preload("res://core/OperationalLog.gd")
+const _ProcessTick := preload("res://combat/CombatProcessTick.gd")
+const _PartyManagerScript := preload("res://world/PartyManager.gd")
+const _EncounterNode := preload("res://world/EncounterNode.gd")
+const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
+const _Fixtures := preload("res://harness/HarnessFixtures.gd")
+# gdlint: enable = load-constant-name
+## No preload — `CombatRegressionHarnessKinematicTail` references this class; preloading it here caused a parse cycle.
+const _HARNESS_META_RECORD_AFTERBLOW_MULT := "_harness_record_afterblow_damage_mult"
+const _HARNESS_META_LAST_AFTERBLOW_MULT := "_harness_last_afterblow_damage_mult"
+const _HARNESS_META_EXPOSE_PENETRATION_APPLIED := "_harness_expose_penetration_applied"
+const _HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinematics"
 
 ## Tier 3.2: full-stop **`parry_deflect`**  -  keys on **`parry_clash_context`** (see **`DefenseResolutionHandler`**)
 ## incl. Tier **3.0** strike kinematics + Tier **3.1** **`strike_measure_ratio`** (from **`pa`** when stamped, else
@@ -141,18 +216,6 @@ static func _fail(arr: PackedStringArray, msg: String) -> void:
 ## exit.
 ## All node-lifecycle helpers forwarded to HarnessFixtures (single owner of `_harness_live_nodes`).
 
-## Headless `-s` scripts call `quit()` without flushing deferred deletes  -  track orphan nodes and `free()` at harness
-## exit.
-## All node-lifecycle helpers forwarded to HarnessFixtures (single owner of `_harness_live_nodes`).
-
-## Headless `-s` scripts call `quit()` without flushing deferred deletes  -  track orphan nodes and `free()` at harness
-## exit.
-## All node-lifecycle helpers forwarded to HarnessFixtures (single owner of `_harness_live_nodes`).
-
-## Headless `-s` scripts call `quit()` without flushing deferred deletes  -  track orphan nodes and `free()` at harness
-## exit.
-## All node-lifecycle helpers forwarded to HarnessFixtures (single owner of `_harness_live_nodes`).
-
 
 static func _track_harness_node(n: Node) -> void:
     HarnessFixtures._track_harness_node(n)
@@ -160,24 +223,14 @@ static func _track_harness_node(n: Node) -> void:
 
 ## Final sweep for standalone `_new_entity` rows that omit explicit teardown.
 
-## Final sweep for standalone `_new_entity` rows that omit explicit teardown.
 
-## Final sweep for standalone `_new_entity` rows that omit explicit teardown.
-
-
-## Final sweep for standalone `_new_entity` rows that omit explicit teardown.
 static func flush_harness_live_nodes() -> void:
     HarnessFixtures.flush_harness_live_nodes()
 
 
 ## Expand CombatWeaponForm: harness rows that set stance alias must sync **`weapon_form`** for picker/defense paths.
 
-## Expand CombatWeaponForm: harness rows that set stance alias must sync **`weapon_form`** for picker/defense paths.
 
-## Expand CombatWeaponForm: harness rows that set stance alias must sync **`weapon_form`** for picker/defense paths.
-
-
-## Expand CombatWeaponForm: harness rows that set stance alias must sync **`weapon_form`** for picker/defense paths.
 static func harness_sync_weapon_form_from_stance(c: Dictionary, stance: String) -> void:
     c["stance"] = stance
     c[CombatConstants.COMBATANT_KEY_WEAPON_FORM] = CombatWeaponForm.normalize_form(stance)
@@ -185,24 +238,14 @@ static func harness_sync_weapon_form_from_stance(c: Dictionary, stance: String) 
 
 ## Preferred harness path: **`assign_form`** with home guard + stance alias sync (CombatWeaponForm-M5).
 
-## Preferred harness path: **`assign_form`** with home guard + stance alias sync (CombatWeaponForm-M5).
 
-## Preferred harness path: **`assign_form`** with home guard + stance alias sync (CombatWeaponForm-M5).
-
-
-## Preferred harness path: **`assign_form`** with home guard + stance alias sync (CombatWeaponForm-M5).
 static func harness_assign_form(mgr: Node, c: Dictionary, form: String) -> void:
     CombatWeaponForm.assign_form(mgr, c, form, "harness")
 
 
 ## `build_next_action_ready_times` must agree with per-id `get_next_action_ready_at` (UI snapshot correctness).
 
-## `build_next_action_ready_times` must agree with per-id `get_next_action_ready_at` (UI snapshot correctness).
 
-## `build_next_action_ready_times` must agree with per-id `get_next_action_ready_at` (UI snapshot correctness).
-
-
-## `build_next_action_ready_times` must agree with per-id `get_next_action_ready_at` (UI snapshot correctness).
 static func _run_next_action_ready_map_matches_per_id(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
     mgr.register(_new_entity("SWORD"), "player")
@@ -225,12 +268,7 @@ static func _run_next_action_ready_map_matches_per_id(failures: PackedStringArra
 
 ## Empty follow-up is a no-op; stable line reconcile does not thrash the event queue.
 
-## Empty follow-up is a no-op; stable line reconcile does not thrash the event queue.
 
-## Empty follow-up is a no-op; stable line reconcile does not thrash the event queue.
-
-
-## Empty follow-up is a no-op; stable line reconcile does not thrash the event queue.
 static func _run_vacancy_reconcile_follow_up_regression(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
     for _i in 2:
@@ -266,12 +304,7 @@ static func _run_vacancy_reconcile_follow_up_regression(failures: PackedStringAr
 
 ## Front-rank death + reconcile + shared follow-up promotes reserve without breaking invariants.
 
-## Front-rank death + reconcile + shared follow-up promotes reserve without breaking invariants.
 
-## Front-rank death + reconcile + shared follow-up promotes reserve without breaking invariants.
-
-
-## Front-rank death + reconcile + shared follow-up promotes reserve without breaking invariants.
 static func _run_vacancy_reconcile_after_front_death(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
     mgr.register(_new_entity("SWORD"), "player")
@@ -297,12 +330,7 @@ static func _run_vacancy_reconcile_after_front_death(failures: PackedStringArray
 
 ## Entity creation  -  forwards to HarnessFixtures.
 
-## Entity creation  -  forwards to HarnessFixtures.
 
-## Entity creation  -  forwards to HarnessFixtures.
-
-
-## Entity creation  -  forwards to HarnessFixtures.
 static func _new_entity(weapon_id: String) -> CoreEntity:
     return HarnessFixtures._new_entity(weapon_id)
 
@@ -313,12 +341,7 @@ static func _new_entity_unarmed() -> CoreEntity:
 
 ## Manager setup  -  forwards to HarnessFixtures.
 
-## Manager setup  -  forwards to HarnessFixtures.
 
-## Manager setup  -  forwards to HarnessFixtures.
-
-
-## Manager setup  -  forwards to HarnessFixtures.
 static func _harness_start_1v1(
     weapon_id: String = "SWORD",
     player_side: Dictionary = {"files": 1, "ranks": 1},
@@ -337,36 +360,21 @@ static func _harness_start_player_only(player_side: Dictionary = {"files": 1, "r
 
 ## Equipment  -  forwards to HarnessFixtures.
 
-## Equipment  -  forwards to HarnessFixtures.
 
-## Equipment  -  forwards to HarnessFixtures.
-
-
-## Equipment  -  forwards to HarnessFixtures.
 static func _harness_equip_heavy_plate_kit(e: CoreEntity) -> void:
     HarnessFixtures._harness_equip_heavy_plate_kit(e)
 
 
 ## Roster / formation lookups  -  forwards to HarnessFixtures.
 
-## Roster / formation lookups  -  forwards to HarnessFixtures.
 
-## Roster / formation lookups  -  forwards to HarnessFixtures.
-
-
-## Roster / formation lookups  -  forwards to HarnessFixtures.
 static func _harness_find_living_at_rank_file(mgr: Node, side: String, rank: int, file: int) -> Dictionary:
     return HarnessFixtures._harness_find_living_at_rank_file(mgr, side, rank, file)
 
 
 ## Formation fixtures  -  forwards to HarnessFixtures.
 
-## Formation fixtures  -  forwards to HarnessFixtures.
 
-## Formation fixtures  -  forwards to HarnessFixtures.
-
-
-## Formation fixtures  -  forwards to HarnessFixtures.
 static func _harness_sparse_post_flee_6v3_mgr(survivor_file: int = 4, fled_files: Array = [0, 1, 2, 3]) -> Dictionary:
     return HarnessFixtures._harness_sparse_post_flee_6v3_mgr(survivor_file, fled_files)
 
@@ -381,12 +389,7 @@ static func _harness_bind_pair_long_band(p: Dictionary, e: Dictionary) -> void:
 
 ## Guard-line helpers  -  forwards to HarnessFixtures.
 
-## Guard-line helpers  -  forwards to HarnessFixtures.
 
-## Guard-line helpers  -  forwards to HarnessFixtures.
-
-
-## Guard-line helpers  -  forwards to HarnessFixtures.
 static func _harness_cardinal_attack_line(cardinal: String) -> String:
     return HarnessFixtures._harness_cardinal_attack_line(cardinal)
 
@@ -401,12 +404,7 @@ static func _harness_opposite_cardinal(cardinal: String) -> String:
 
 ## IV-9 harness helpers  -  forwards to HarnessFixtures.
 
-## IV-9 harness helpers  -  forwards to HarnessFixtures.
 
-## IV-9 harness helpers  -  forwards to HarnessFixtures.
-
-
-## IV-9 harness helpers  -  forwards to HarnessFixtures.
 static func _harness_iv9_player_rotate_file_listed(mgr: Node) -> bool:
     return HarnessFixtures._harness_iv9_player_rotate_file_listed(mgr)
 
@@ -427,12 +425,7 @@ static func _harness_iv9_resolve_adjacent_rank_pair_move(
 
 ## Cleanup  -  forwards to HarnessFixtures.
 
-## Cleanup  -  forwards to HarnessFixtures.
 
-## Cleanup  -  forwards to HarnessFixtures.
-
-
-## Cleanup  -  forwards to HarnessFixtures.
 static func _free_harness_node(n: Node) -> void:
     HarnessFixtures._free_harness_node(n)
 
@@ -443,24 +436,14 @@ static func _free_manager(mgr: Node) -> void:
 
 ## seed(_HARNESS_RESTORE_GLOBAL_SEED) then _free_manager  -  keeps run_all() order-stable.
 
-## seed(_HARNESS_RESTORE_GLOBAL_SEED) then _free_manager  -  keeps run_all() order-stable.
 
-## seed(_HARNESS_RESTORE_GLOBAL_SEED) then _free_manager  -  keeps run_all() order-stable.
-
-
-## seed(_HARNESS_RESTORE_GLOBAL_SEED) then _free_manager  -  keeps run_all() order-stable.
 static func _free_manager_restore_global_rng(mgr: Node) -> void:
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## Harness utility forwards  -  all forwarded to HarnessFixtures.
 
-## Harness utility forwards  -  all forwarded to HarnessFixtures.
 
-## Harness utility forwards  -  all forwarded to HarnessFixtures.
-
-
-## Harness utility forwards  -  all forwarded to HarnessFixtures.
 static func _windup_duration_for_bind_test(weapon_id: String, move_id: String, bind: bool) -> float:
     return HarnessFixtures._windup_duration_for_bind_test(weapon_id, move_id, bind)
 
@@ -473,18 +456,26 @@ static func _soak_kill_combatant(mgr: Node, combatant_id: int) -> void:
     HarnessFixtures._soak_kill_combatant(mgr, combatant_id)
 
 
-## Tier 1.7 - 1.8: many random headcounts + default presets; raw formation must satisfy Option 2 gate; tactical snapshot
-## stays in sync.
+static func _harness_counter_tempo_set_incoming_progress(mgr: Node, attacker_id: int, fraction: float) -> void:
+    HarnessFixtures._harness_counter_tempo_set_incoming_progress(mgr, attacker_id, fraction)
+
+
+static func _harness_destroy_limb(entity: CoreEntity, part: String) -> void:
+    HarnessFixtures._harness_destroy_limb(entity, part)
+
+
+static func _harness_restore_limb(entity: CoreEntity, part: String) -> void:
+    HarnessFixtures._harness_restore_limb(entity, part)
+
+
+static func _harness_iv9_enemy_rank0_with_gaps(mgr: Node) -> Array:
+    return HarnessFixtures._harness_iv9_enemy_rank0_with_gaps(mgr)
+
 
 ## Tier 1.7 - 1.8: many random headcounts + default presets; raw formation must satisfy Option 2 gate; tactical snapshot
 ## stays in sync.
 
-## Tier 1.7 - 1.8: many random headcounts + default presets; raw formation must satisfy Option 2 gate; tactical snapshot
-## stays in sync.
 
-
-## Tier 1.7 - 1.8: many random headcounts + default presets; raw formation must satisfy Option 2 gate; tactical snapshot
-## stays in sync.
 static func _run_cancel_stale_swap_rank_resolve_events(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
     mgr.register(_new_entity("SWORD"), "player")
@@ -538,12 +529,7 @@ static func _run_cancel_stale_swap_rank_resolve_events(failures: PackedStringArr
 
 ## Parry deflect must not force a defender out of `swap_rank` / `falling_back` (pair resolve expects both in motion).
 
-## Parry deflect must not force a defender out of `swap_rank` / `falling_back` (pair resolve expects both in motion).
 
-## Parry deflect must not force a defender out of `swap_rank` / `falling_back` (pair resolve expects both in motion).
-
-
-## Parry deflect must not force a defender out of `swap_rank` / `falling_back` (pair resolve expects both in motion).
 static func _run_parry_preserves_formation_pair_state(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
     mgr.register(_new_entity("SWORD"), "player")
@@ -594,6 +580,21 @@ static func _run_parry_preserves_formation_pair_state(failures: PackedStringArra
         _fail(failures, "parry_swap: partner must stay swap_rank (got %s)" % CombatantEntityAccess.state_str(p1))
     _free_manager(mgr)
 
-## `handle_swap_rank_resolve` completes rank swap when both combatants remain in pair motion state.
+
+## Depth-polearm assertion helpers — forwards to HarnessFixtures.
+
+
+static func _assert_depth_polearm_allows_low_fid_round_trip_slice(
+    mgr: Node, failures: PackedStringArray, ctx: String
+) -> void:
+    HarnessFixtures._assert_depth_polearm_allows_low_fid_round_trip_slice(mgr, failures, ctx)
+
+
+static func _assert_stamp_depth_pa_defaults(pa: Dictionary, failures: PackedStringArray, ctx: String) -> void:
+    HarnessFixtures._assert_stamp_depth_pa_defaults(pa, failures, ctx)
+
+
+static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: PackedStringArray, ctx: String) -> void:
+    HarnessFixtures._assert_depth_lane_open_cache_matches_builder(mgr, failures, ctx)
 
 ## `handle_swap_rank_resolve` completes rank swap when both combatants remain in pair motion state.

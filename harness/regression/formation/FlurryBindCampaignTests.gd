@@ -419,7 +419,7 @@ static func _run_p4d_parry_bind_doc_code_parity_suite(failures: PackedStringArra
         _fail(failures, "p4d_sync: signed ii2b worksheet must include P4d bind sync line")
     var audit_lines: PackedStringArray = PackedStringArray()
     var audit_fail: PackedStringArray = PackedStringArray()
-    CalibrationAudit._append_parry_formula_section(audit_lines, audit_fail)
+    CalibrationBleedingParryTests._append_parry_formula_section(audit_lines, audit_fail)
     var audit_text: String = "\n".join(audit_lines)
     if sync_line not in audit_text:
         _fail(failures, "p4d_sync: calibration audit parry section must include P4d bind sync line")

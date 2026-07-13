@@ -7,10 +7,6 @@ const _AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED: int = 2
 ## **`seed(0)`**: same fixture + chest **`final_cut` 11.25** -> **`randf() >= hindrance`** -> **`_execute_afterblow`**
 ## (**`afterblow_damage_mult` 0.55**) + **`attack_hit`** resolve.
 const _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED: int = 0
-const _HARNESS_META_RECORD_AFTERBLOW_MULT := "_harness_record_afterblow_damage_mult"
-const _HARNESS_META_LAST_AFTERBLOW_MULT := "_harness_last_afterblow_damage_mult"
-const _HARNESS_META_EXPOSE_PENETRATION_APPLIED := "_harness_expose_penetration_applied"
-const _HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinematics"
 
 
 ## Tier 3.2 (weapon audit): verify each weapon has required move types and valid coupling physics.
@@ -39,7 +35,7 @@ static func _run_weapon_move_coverage(failures: PackedStringArray) -> void:
             _fail(failures, "weapon_audit: %s has no weapon definition" % wname)
             _free_manager_restore_global_rng(mgr)
             continue
-        var all_moves := WeaponConstants._move_definitions_build()
+        var all_moves := WeaponMoveDefinitions._move_definitions_build()
         var weapon_move_ids: Array = wep.attack_types.keys()
         var has_stab: bool = false
         var has_cut: bool = false
@@ -712,8 +708,10 @@ static func _run_kinematic_delivery_blunt_slip_momentum_mult_sword_v11(failures:
     var vo: float = 11.0
     var mult: float = 1.32
     var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
-    var base: Dictionary = _kin_dmg_integration_sample(vo, 1.0, 1.0, {}, "SWORD", "oberhau", 1.0, arch)
-    var shaped: Dictionary = _kin_dmg_integration_sample(
+    var base: Dictionary = KinematicDeliveryPartialParryTests._kin_dmg_integration_sample(
+        vo, 1.0, 1.0, {}, "SWORD", "oberhau", 1.0, arch
+    )
+    var shaped: Dictionary = KinematicDeliveryPartialParryTests._kin_dmg_integration_sample(
         vo, 1.0, 1.0, {"strike_momentum_mult": mult}, "SWORD", "oberhau", 1.0, arch
     )
     var b_blunt: float = float(base["pre_blunt"])

@@ -1,5 +1,14 @@
 class_name AttentionFootworkCombatUiSnapshotGaugeTests
 extends CombatRegressionHarnessCore
+const MgrScript := preload("res://combat/CombatManager.gd")
+const PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
+const GuardLines := preload("res://combat/CombatGuardLines.gd")
+const WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
+const StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
+const UiHints := preload("res://combat/CombatUiHints.gd")
+const Weapon := preload("res://weapon/Weapon.gd")
+
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .
 ## **`_run_mental_stack_*`** (MS-L4/L5 boundary). Catalog: LIVE_PATHS **`#harness-footwork-catalog`** . PA hub
@@ -7,7 +16,7 @@ extends CombatRegressionHarnessCore
 
 
 static func _run_combat_ui_hints_cowering_gauge_tooltip(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var c: Dictionary = mgr.combatants[0]
@@ -15,12 +24,12 @@ static func _run_combat_ui_hints_cowering_gauge_tooltip(failures: PackedStringAr
     CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
     CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
     c["state"] = CombatConstants.STATE_COWERING
-    var mobile_tip: String = "\n".join(_UiHints.gauge_tooltip_lines(c, mgr))
+    var mobile_tip: String = "\n".join(UiHints.gauge_tooltip_lines(c, mgr))
     if not mobile_tip.contains("fall back"):
         CombatRegressionHarness._fail(failures, "ui_hints_cowering: mobile want fall back tip got '%s'" % mobile_tip)
     CombatRegressionHarness._harness_destroy_limb(ent, "left_leg")
     CombatRegressionHarness._harness_destroy_limb(ent, "right_leg")
-    var immobile_tip: String = "\n".join(_UiHints.gauge_tooltip_lines(c, mgr))
+    var immobile_tip: String = "\n".join(UiHints.gauge_tooltip_lines(c, mgr))
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
     if not immobile_tip.contains("holding position"):
         CombatRegressionHarness._fail(failures, "ui_hints_cowering: immobile want holding tip got '%s'" % immobile_tip)
@@ -31,7 +40,7 @@ static func _run_combat_ui_hints_cowering_gauge_tooltip(failures: PackedStringAr
 
 ## Tier 6.1 UI: formation diagram cell tooltips include cowering mobility.
 static func _run_combat_ui_hints_formation_cowering_tooltip(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var c: Dictionary = mgr.combatants[0]
@@ -40,7 +49,7 @@ static func _run_combat_ui_hints_formation_cowering_tooltip(failures: PackedStri
     CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
     c["state"] = CombatConstants.STATE_COWERING
     var nm: String = CombatantEntityAccess.get_display_name(c, CombatantEntityAccess.id_int(c))
-    var lines: PackedStringArray = _UiHints.formation_cell_tooltip_lines(c, nm, mgr)
+    var lines: PackedStringArray = UiHints.formation_cell_tooltip_lines(c, nm, mgr)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
     var joined: String = "\n".join(lines)
     if not joined.contains("fall back"):
@@ -49,7 +58,7 @@ static func _run_combat_ui_hints_formation_cowering_tooltip(failures: PackedStri
 
 static func _run_battle_ui_gauge_label_live_counter_tempo_needs_manager(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_counter_tempo_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -58,7 +67,7 @@ static func _run_battle_ui_gauge_label_live_counter_tempo_needs_manager(failures
     var atk_id: int = CombatantEntityAccess.id_int(atk)
     var def_id: int = CombatantEntityAccess.id_int(def)
     def["gauge"] = 55.0
-    _WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+    WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
     CombatRegressionHarness._harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.2)
     def.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
     def.erase("counter_tempo_ui_hint")
@@ -93,7 +102,7 @@ static func _run_battle_ui_gauge_label_live_counter_tempo_needs_manager(failures
 ## Tier 4.2 UI: formation tooltips derive counter window from **`manager`** when unstamped.
 static func _run_combat_ui_hints_formation_counter_tempo_needs_manager(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_counter_tempo_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -101,13 +110,13 @@ static func _run_combat_ui_hints_formation_counter_tempo_needs_manager(failures:
     var def: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(atk)
     var def_id: int = CombatantEntityAccess.id_int(def)
-    _WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+    WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
     CombatRegressionHarness._harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.2)
     def.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
     def.erase("counter_tempo_ui_hint")
     var nm: String = CombatantEntityAccess.get_display_name(def, def_id)
-    var without_mgr: String = "\n".join(_UiHints.formation_cell_tooltip_lines(def, nm))
-    var with_mgr: String = "\n".join(_UiHints.formation_cell_tooltip_lines(def, nm, mgr))
+    var without_mgr: String = "\n".join(UiHints.formation_cell_tooltip_lines(def, nm))
+    var with_mgr: String = "\n".join(UiHints.formation_cell_tooltip_lines(def, nm, mgr))
     CombatConstants.set_feature_counter_tempo_load(true)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
     if without_mgr.contains("counter window"):
@@ -126,9 +135,9 @@ static func _run_combat_ui_hints_attention_stale_stamp_prefers_live(failures: Pa
     CombatConstants.set_feature_combat_attention_load(true)
     var c: Dictionary = {"guard_zone": "head", CombatConstants.COMBATANT_KEY_FOCUS_PART: "head"}
     c[CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT] = "Tel head . Focus head 99%"
-    var mgr: Node = _MgrScript.new()
-    var stamped_path: String = _UiHints.attention_hint_text(c)
-    var live_path: String = _UiHints.attention_hint_text(c, mgr)
+    var mgr: Node = MgrScript.new()
+    var stamped_path: String = UiHints.attention_hint_text(c)
+    var live_path: String = UiHints.attention_hint_text(c, mgr)
     CombatConstants.set_feature_combat_attention_load(false)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
     if not stamped_path.contains("Tel head"):
@@ -143,13 +152,13 @@ static func _run_combat_ui_hints_attention_stale_stamp_prefers_live(failures: Pa
 ## Tier 4.3 UI: **`attention_hint_text(..., manager)`** refreshes load during incoming wind-up.
 static func _run_combat_ui_hints_attention_live_refresh_load_during_windup(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_combat_attention_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = mgr.combatants[0]
     var def: Dictionary = mgr.combatants[1]
-    _WindUpStarter.start(
+    WindUpStarter.start(
         mgr,
         CombatantEntityAccess.id_int(atk),
         CombatantEntityAccess.id_int(def),
@@ -159,8 +168,8 @@ static func _run_combat_ui_hints_attention_live_refresh_load_during_windup(failu
     def.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)
     def.erase("attention_ui_hint")
     def[CombatConstants.COMBATANT_KEY_ATTENTION_LOAD] = 0.0
-    var without_mgr: String = _UiHints.attention_hint_text(def)
-    var with_mgr: String = _UiHints.attention_hint_text(def, mgr)
+    var without_mgr: String = UiHints.attention_hint_text(def)
+    var with_mgr: String = UiHints.attention_hint_text(def, mgr)
     CombatConstants.set_feature_combat_attention_load(false)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
     if without_mgr.contains("Load 45") or without_mgr.contains("Load 40"):
@@ -174,12 +183,12 @@ static func _run_combat_ui_hints_attention_live_refresh_load_during_windup(failu
 
 
 static func _run_strike_stamping_weapon_eff_dist_sanity(failures: PackedStringArray) -> void:
-    var w: Weapon = _Weapon.create_from_definition("SWORD")
+    var w: Weapon = Weapon.create_from_definition("SWORD")
     if w == null:
         CombatRegressionHarness._fail(failures, "strike_stamp: missing SWORD")
         return
     var eff: float = 1.25
-    var ratio: float = _StrikeStamping.strike_measure_ratio_for_weapon_eff_dist(w, eff)
+    var ratio: float = StrikeStamping.strike_measure_ratio_for_weapon_eff_dist(w, eff)
     if not is_finite(ratio) or ratio < 0.0:
         CombatRegressionHarness._fail(failures, "strike_stamp: want finite non-negative ratio got %.4f" % ratio)
 
@@ -221,13 +230,13 @@ static func _run_footwork_diagram_label_suffix_compact(failures: PackedStringArr
 ## Tier 4.4.3: stale stamped hint yields live offset when they disagree.
 static func _run_footwork_snapshot_includes_position_hint_when_enabled(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = mgr.combatants[0]
     var def: Dictionary = mgr.combatants[1]
-    _WindUpStarter.start(mgr, CombatantEntityAccess.id_int(atk), CombatantEntityAccess.id_int(def), "slash")
+    WindUpStarter.start(mgr, CombatantEntityAccess.id_int(atk), CombatantEntityAccess.id_int(def), "slash")
     var rows: Array = CombatCombatantsSnapshot.build(mgr)
     CombatConstants.set_feature_position_angle_footwork_load(true)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -254,7 +263,7 @@ static func _run_footwork_snapshot_includes_position_hint_when_enabled(failures:
 ## Tier 4.4.3: snapshot derives UI hint from offset when stamp key missing.
 static func _run_footwork_snapshot_ui_hint_from_unstamped_offset(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     var atk: Dictionary = mgr.combatants[0]
     var off: float = CombatConstants.position_angle_offset_deg_for_attack_line("left")
@@ -284,7 +293,7 @@ static func _run_footwork_snapshot_ui_hint_from_unstamped_offset(failures: Packe
 ## Tier 4.4 UI soak: snapshot copies stamped attention hint for gauge/diagram consumers.
 static func _run_footwork_snapshot_omits_position_when_disabled(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     var atk: Dictionary = mgr.combatants[0]
     CombatFootwork.apply_attack_step_on_windup(atk, "left")
@@ -308,7 +317,7 @@ static func _run_footwork_snapshot_omits_position_when_disabled(failures: Packed
 ## Tier 4.4: body-part -> guard line for dodge step direction.
 static func _run_combat_snapshot_exports_attention_ui_hint_when_stamped(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_combat_attention_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     var def: Dictionary = mgr.combatants[0]
     var stamped: String = "Tel head . Focus head 80%"
@@ -331,7 +340,7 @@ static func _run_combat_snapshot_exports_attention_ui_hint_when_stamped(failures
 ## Tier 4.4 UI soak: snapshot copies stamped counter-tempo hint for gauge consumers.
 static func _run_combat_snapshot_exports_counter_tempo_ui_hint_when_stamped(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_counter_tempo_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     var def: Dictionary = mgr.combatants[0]
     var stamped: String = "counter_ready"
@@ -354,7 +363,7 @@ static func _run_combat_snapshot_exports_counter_tempo_ui_hint_when_stamped(fail
 ## Tier 4.2 UI soak: counter-tempo row hint wins over scheduled-next **`status_override`**.
 static func _run_combat_snapshot_suppresses_next_override_during_counter_tempo(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_counter_tempo_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     var def: Dictionary = mgr.combatants[0]
     var def_id: int = CombatantEntityAccess.id_int(def)
@@ -394,12 +403,12 @@ static func _run_combat_snapshot_suppresses_next_override_during_counter_tempo(f
 ## Tier 4.3 UI soak: snapshot derives attention row hint from telegraph when stamp missing.
 static func _run_combat_snapshot_derives_attention_ui_hint_from_telegraph(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_combat_attention_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     var def: Dictionary = mgr.combatants[0]
     def[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
     def.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)
-    var want: String = _UiHints.attention_hint_text(def, mgr)
+    var want: String = UiHints.attention_hint_text(def, mgr)
     var rows: Array = CombatCombatantsSnapshot.build(mgr)
     CombatConstants.set_feature_combat_attention_load(false)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
@@ -421,7 +430,7 @@ static func _run_combat_snapshot_derives_attention_ui_hint_from_telegraph(failur
 ## Tier 4.2 UI soak: snapshot derives counter-tempo hint from open window when stamp missing.
 static func _run_combat_snapshot_derives_counter_tempo_ui_hint_from_open_window(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_counter_tempo_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -430,7 +439,7 @@ static func _run_combat_snapshot_derives_counter_tempo_ui_hint_from_open_window(
     var atk_id: int = CombatantEntityAccess.id_int(atk)
     var def_id: int = CombatantEntityAccess.id_int(def)
     def["gauge"] = 60.0
-    _WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
+    WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
     CombatRegressionHarness._harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.2)
     def.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
     var rows: Array = CombatCombatantsSnapshot.build(mgr)
@@ -519,7 +528,7 @@ static func _run_battle_ui_gauge_label_counter_wind_up_prefix(failures: PackedSt
 ## Tier 4.2 UI soak: snapshot skips Closing/Crash/Next overrides while counter window UI active.
 static func _run_combat_snapshot_omits_closing_override_during_counter_tempo(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_counter_tempo_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     var def: Dictionary = mgr.combatants[0]
     def[CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT] = "counter_ready"
@@ -560,7 +569,7 @@ static func _run_battle_ui_gauge_suffix_step_atk_form_order(failures: PackedStri
         "gauge": 100.0,
         "stamina": 67.0,
         "guard_line": "high",
-        CombatConstants.COMBATANT_KEY_WEAPON_FORM: _WeaponForm.FORM_OX,
+        CombatConstants.COMBATANT_KEY_WEAPON_FORM: WeaponForm.FORM_OX,
         CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG: 14.0,
         "pending_attack": {"attack_line": "high_right", "move_id": "oberhau"},
     }
@@ -582,7 +591,7 @@ static func _run_battle_ui_gauge_label_matches_snapshot_row(failures: PackedStri
     CombatConstants.set_feature_position_angle_footwork_load(true)
     CombatConstants.set_feature_combat_attention_load(true)
     CombatConstants.set_feature_counter_tempo_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     var def: Dictionary = mgr.combatants[0]
     def[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
@@ -660,7 +669,7 @@ static func _run_battle_ui_gauge_label_recovering_includes_exported_attention(fa
 ## Tier 4.2 UI: player turn-ready combat log hint when counter-tempo melee is listed.
 static func _run_player_counter_tempo_turn_ready_hint_when_window_open(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_counter_tempo_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -669,11 +678,11 @@ static func _run_player_counter_tempo_turn_ready_hint_when_window_open(failures:
     var ply_id: int = CombatantEntityAccess.id_int(ply)
     var en_id: int = CombatantEntityAccess.id_int(en)
     ply["gauge"] = 80.0
-    _WindUpStarter.start(mgr, en_id, ply_id, "oberhau")
+    WindUpStarter.start(mgr, en_id, ply_id, "oberhau")
     CombatRegressionHarness._harness_counter_tempo_set_incoming_progress(mgr, en_id, 0.6)
     CounterTempo.process_waiting(mgr, ply)
     var actions: Array = mgr.get_available_actions(ply_id)
-    var hint: String = _PlayerTurnHints.counter_tempo_hint_if_applicable(mgr, ply, actions)
+    var hint: String = PlayerTurnHints.counter_tempo_hint_if_applicable(mgr, ply, actions)
     CombatConstants.set_feature_counter_tempo_load(true)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
     if hint.is_empty():
@@ -713,10 +722,10 @@ static func _run_battle_ui_gauge_bar_always_stamina_even_during_counter_tempo(fa
 ## Tier 4.4.3: snapshot omits position-angle fields when footwork flag off.
 static func _run_footwork_guard_line_for_body_part_maps_legs_and_chest(failures: PackedStringArray) -> void:
     var want_leg: String = (
-        _GuardLines.LINE_LOW_RIGHT if CombatConstants.is_feature_hema_eight_guard_lines_enabled() else "low"
+        GuardLines.LINE_LOW_RIGHT if CombatConstants.is_feature_hema_eight_guard_lines_enabled() else "low"
     )
     var want_chest: String = (
-        _GuardLines.LINE_HIGH if CombatConstants.is_feature_hema_eight_guard_lines_enabled() else "high"
+        GuardLines.LINE_HIGH if CombatConstants.is_feature_hema_eight_guard_lines_enabled() else "high"
     )
     if CombatConstants.guard_line_for_body_part("right_leg") != want_leg:
         CombatRegressionHarness._fail(failures, "footwork_part_line: right_leg want %s" % want_leg)
@@ -825,7 +834,7 @@ static func _run_footwork_arc_end_fallback_prefers_intended_over_attack_angle(fa
 ## Tier 4.4: **`parry_partial`** follow-through must not re-roll resolve angle geometry.
 static func _run_footwork_windup_arc_intended_includes_attacker_step(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     var p_ent: Node = CombatRegressionHarness._new_entity("SWORD")
     var e_ent: Node = CombatRegressionHarness._new_entity("SWORD")
     mgr.register(p_ent, "player")
@@ -834,7 +843,7 @@ static func _run_footwork_windup_arc_intended_includes_attacker_step(failures: P
     var p_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
     var e_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
     seed(42)
-    _WindUpStarter.start(mgr, p_id, e_id, "oberhau", {"target_part": "chest"})
+    WindUpStarter.start(mgr, p_id, e_id, "oberhau", {"target_part": "chest"})
     seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
     var atk: Dictionary = mgr._get_by_id(p_id)
     var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(atk, "pending_attack")
