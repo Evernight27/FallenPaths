@@ -676,7 +676,7 @@ static func _run_kinematic_delivery_mace_weak_tap_pre_blunt_below_baseline_min(f
     var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
     var ai: AttackInstance = AttackInstance.new("direct_blow", 0.35)
     ai.archetype = arch
-    ai.velocity_m_s = 4.0
+    ai.velocity_m_s = 3.5
     var str_weak: float = 52.0
     var raw: float = WeaponDamageHelper.compute_pre_armor_blunt_momentum_raw(mace, ai, str_weak, 1.0)
     if raw >= WeaponConstants.BLUNT_DAMAGE_MIN:

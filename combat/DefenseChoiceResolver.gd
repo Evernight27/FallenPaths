@@ -290,8 +290,8 @@ static func choose_defense(
                         ]
                     )
                 )
-            if atk_weapon != null:
-                # Late parry: reflexive/partial contact when "too late"
+            elif atk_weapon != null:
+                # Late parry: reflexive/partial contact when "too late" (only if on-time branch did not run).
                 can_parry_in_time = true
                 late_parry = true
                 var parry_eval_step_deg_late: float = CombatFootwork.parry_eval_step_deg_for_defender(
@@ -522,11 +522,13 @@ static func choose_defense(
         can_parry_in_time and (result.parry_p_a <= result.parry_c_d * effective_redirect or desperate_parry)
     )
     var preview_align: float = float(result.get("parry_preview_alignment", 1.0))
+    var interpose_active: bool = float(result.get("arm_interpose_boost", 0.0)) > 0.0
     if (
         can_parry_in_time
         and preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
         and not late_parry
         and not desperate_parry
+        and not interpose_active
     ):
         block_viable = false
         redirect_viable = false
@@ -542,7 +544,7 @@ static func choose_defense(
     elif can_parry_in_time and def_has_weapon:
         var part_mod: float = CombatantEntityAccess._get_part_dodge_modifier(tgt, result.dodge_eval_part)
         var effective_dodge_chance: float = dodge_chance * part_mod
-        if preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
+        if preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and not interpose_active:
             effective_dodge_chance *= 1.15
         var full_dodge_prob: float = effective_dodge_chance * CombatConstants.DODGE_FULL_THRESHOLD
         var partial_dodge_avg_ratio: float = (CombatConstants.DODGE_PARTIAL_RATIO_MIN + 1.0) * 0.5
@@ -582,7 +584,15 @@ static func choose_defense(
         )
         var dodge_better: bool = energy_dodge < energy_parry
         var clean_dodge_likely: bool = full_dodge_prob >= CombatConstants.PARRY_PREFER_DODGE_FULL_THRESHOLD
-        choose_parry = late_parry or ((block_viable or redirect_viable) and not dodge_better and not clean_dodge_likely)
+        # Well-aligned on-time steel prefers parry; arm interpose also keeps steel in play when capacity is viable.
+        var well_aligned: bool = preview_align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
+        choose_parry = (
+            late_parry
+            or (
+                (block_viable or redirect_viable)
+                and (well_aligned or interpose_active or (not dodge_better and not clean_dodge_likely))
+            )
+        )
     if choose_parry:
         CombatFootwork.apply_defender_step_on_parry(
             tgt, str(tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)), CombatantEntityAccess.id_int(atk), manager

@@ -80,7 +80,7 @@ static func combat_session(msg: String) -> void:
 
 ## Hemostasis / pressure / dressings --" always `FP_COMBAT` in play session (grep `medical` or `FP_COMBAT`).
 static func medical_session(msg: String) -> void:
-    var line: String = msg.strip_edges()
+    var line: String = "medical %s" % msg.strip_edges()
     if OperationalLog.is_play_session_active() and line == _last_medical_session_line:
         return
     _last_medical_session_line = line

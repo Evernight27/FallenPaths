@@ -20,10 +20,21 @@ static func _compose_waiting_gauge_label(c: Dictionary, primary: String, manager
     var attn_suffix: String = (" . " + attn_hint) if not attn_hint.is_empty() else ""
     var flurry_suffix: String = CombatUiHints.flurry_bind_hint_suffix(c, manager)
     var exh_suffix: String = CombatUiHints.exhaustion_hint_suffix(c)
+    var msc_suffix: String = CombatMuscleFatigue.gauge_hint_suffix(c, manager)
     var grd_suffix: String = CombatUiHints.guard_line_gauge_suffix(c)
     var form_suffix: String = CombatUiHints.weapon_form_gauge_suffix(c)
     var pick_suffix: String = _last_pick_suffix(c)
-    return primary + pick_suffix + attn_suffix + foot_suffix + flurry_suffix + exh_suffix + grd_suffix + form_suffix
+    return (
+        primary
+        + pick_suffix
+        + attn_suffix
+        + foot_suffix
+        + flurry_suffix
+        + exh_suffix
+        + msc_suffix
+        + grd_suffix
+        + form_suffix
+    )
 
 
 static func _readiness_hint_suffix(c: Dictionary) -> String:

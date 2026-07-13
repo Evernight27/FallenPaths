@@ -10,21 +10,22 @@ extends RefCounted
 
 ## Multiplier applied to sharp/blunt penetration for oblique incidence (parry/deflect or misaligned guard).
 ## When `velocity_override` < 0, intensity-derived speed is used and this factor stays **1** (no oblique scaling here).
-## Compound model: parry_factor × align_factor — a parried strike that also arrives obliquely suffers both reductions
-## simultaneously.
+## Parry branch wins when `parry_remaining_ratio` < 1 (partial contact already encodes obliquity). Otherwise misaligned
+## guard uses the alignment scale against `PARRY_PENETRATION_ANGLE_MIN`.
 static func penetration_oblique_angle_factor(
     velocity_override: float, parry_remaining_ratio: float, alignment: float
 ) -> float:
     if velocity_override < 0.0:
         return 1.0
-    var parry_factor: float = 1.0
     if parry_remaining_ratio < 1.0:
-        parry_factor = lerpf(1.0, CombatConstants.PARRY_PENETRATION_ANGLE_MIN, 1.0 - parry_remaining_ratio)
-    var align_factor: float = 1.0
+        return lerpf(1.0, CombatConstants.PARRY_PENETRATION_ANGLE_MIN, 1.0 - parry_remaining_ratio)
     if alignment < 1.0:
-        var obliquity_deg: float = (1.0 - alignment) * 75.0
-        align_factor = cos(deg_to_rad(obliquity_deg))
-    return parry_factor * align_factor
+        return lerpf(
+            1.0,
+            CombatConstants.PARRY_PENETRATION_ANGLE_MIN,
+            (1.0 - alignment) * CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
+        )
+    return 1.0
 
 
 ## Returns { "result_dict": Dictionary, "outcome": String, "recovery_duration": float }.

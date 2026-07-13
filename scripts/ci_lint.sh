@@ -6,7 +6,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 echo "=== shellcheck ==="
-shellcheck --rcfile=scripts/.shellcheckrc -x scripts/*.sh
+# Prefer auto-discovered scripts/.shellcheckrc (works on shellcheck 0.9+ in CI apt packages).
+shellcheck -x scripts/*.sh
 
 echo "=== gdlint ==="
 if ! command -v gdlint >/dev/null 2>&1; then

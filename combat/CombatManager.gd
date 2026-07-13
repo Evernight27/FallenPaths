@@ -232,6 +232,7 @@ func register(node: Node, side: String) -> int:
         )
     )
     CombatWeaponForm.seed_combatant_form(self, combatants[id] as Dictionary)
+    CombatMuscleFatigue.seed_combatant_if_enabled(combatants[id] as Dictionary, entity)
     # Connect health_changed so UI can refresh when consciousness/pain/blood changes
     if entity != null and entity.has_signal("health_changed"):
         var hcb = _on_entity_health_changed.bind(id)
@@ -659,6 +660,10 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
         emit_signal("combat_ended", winner, defeated_node)
         _halt_losing_side_combat()
         stop()
+        # stop() clears medical flags; restore so halt_losing_side / UI still see enemy-win medical halt.
+        medical_phase = true
+        medical_phase_winner = winner
+        combat_resolution_closed = true
     else:
         if fresh_medical:
             if not OperationalLog.is_play_session_active():

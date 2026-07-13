@@ -142,8 +142,7 @@ static func start(
         c.state_timer = 0.0
         c.state_duration = med_rec_dur
         return
-    var wind_raw: Variant = CombatConstantsMedical.MEDICAL_WIND_UP_CONFIG.get(medical_id, {})
-    var wind_up_cfg: Dictionary = wind_raw if wind_raw is Dictionary else {}
+    var wind_up_cfg: Dictionary = CombatConstantsMedical.wind_up_config_for(medical_id)
     var dur_method: String = wind_up_cfg.get("duration_method", "")
     var dur_takes_part: bool = wind_up_cfg.get("duration_takes_part", false)
     var target_entity = CombatantEntityAccess.get_entity_from_manager(manager, target_node)

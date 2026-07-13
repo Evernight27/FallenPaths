@@ -53,18 +53,18 @@ static func mark_medical_phase_hints_shown(manager: Node, world: Node = null) ->
 static func medical_phase_combat_log_hints() -> PackedStringArray:
     return PackedStringArray(
         [
-            "Medical phase ' your side triages only; defeated opponents cannot strike or act.",
+            "Medical phase  -  your side triages only; defeated opponents cannot strike or act.",
             (
                 "Triage priority: hold direct pressure on active bleeds (especially arterial), "
                 + "then bandage or pack "
                 + "(battle bandages are free; pack/stabilize cost -1 company med each)."
             ),
             (
-                "Allies choose medical actions automatically ' gauge may show Stack medical or "
+                "Allies choose medical actions automatically  -  gauge may show Stack medical or "
                 + "self_medical when triage is urgent."
             ),
             (
-                "Stabilize (1 med) slows bleeding but does not dress the wound ' bandage, pack, or "
+                "Stabilize (1 med) slows bleeding but does not dress the wound  -  bandage, pack, or "
                 + "tourniquet still required before camp rest or marching."
             ),
         ]
@@ -391,36 +391,9 @@ static func weapon_form_tooltip_line(c: Dictionary) -> String:
     if name.is_empty():
         return ""
     var pressure: String = CombatWeaponForm.pressure_class_label_for_ui(c)
-    var reason: String = str(c.get(CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON, "")).strip_edges()
-    var base: String
     if not pressure.is_empty():
-        base = "Form: %s (%s)" % [name, pressure]
-    else:
-        base = "Form: %s" % name
-    var is_auto: bool = (
-        (form != CombatWeaponForm.normalize_form(c.get("stance_preference", "").strip_edges()))
-        and not reason.is_empty()
-    )
-    if is_auto:
-        var reason_label: String = _format_switch_reason_label(reason)
-        base += " ' auto-switched to %s (%s)" % [name, reason_label]
-    elif form != CombatWeaponForm.normalize_form(c.get("stance_preference", "").strip_edges()):
-        base += " ' AI-selected (no player preference set)"
-    return base
-
-
-static func _format_switch_reason_label(reason: String) -> String:
-    match reason:
-        "duel_read":
-            return "read opponent duel pressure"
-        "counter_read":
-            return "read incoming counter tempo"
-        "surround_pressure":
-            return "respond to surround threat"
-        "low_stamina":
-            return "recover stamina (defensive form)"
-        _:
-            return reason
+        return "Form: %s (%s)" % [name, pressure]
+    return "Form: %s" % name
 
 
 ## Short label fragment for listed **`attempt_close`** vs a controlling defender.
@@ -562,6 +535,9 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
     var exh: String = CombatExhaustion.gauge_tooltip_line(c)
     if not exh.is_empty():
         tips.append(exh)
+    var msc: String = CombatMuscleFatigue.gauge_tooltip_line(c, manager)
+    if not msc.is_empty():
+        tips.append(msc)
     var arc_sur: String = surround_arc_occupancy_tooltip_line(c, manager)
     if not arc_sur.is_empty():
         tips.append(arc_sur)
@@ -607,31 +583,31 @@ static func formation_cell_tooltip_lines(
     var lines: PackedStringArray = []
     var fw: String = footwork_hint_text(c)
     if not fw.is_empty():
-        lines.append("%s ' footwork: %s" % [display_name, fw])
+        lines.append("%s  -  footwork: %s" % [display_name, fw])
     var attn: String = attention_hint_text(c, manager)
     if not attn.is_empty():
-        lines.append("%s ' attention: %s" % [display_name, attn])
+        lines.append("%s  -  attention: %s" % [display_name, attn])
     var tempo: String = counter_tempo_hint_key(c, manager)
     if tempo == "counter_ready":
-        lines.append("%s ' counter window open" % display_name)
+        lines.append("%s  -  counter window open" % display_name)
     elif tempo == "counter_winding":
-        lines.append("%s ' counter window building" % display_name)
+        lines.append("%s  -  counter window building" % display_name)
     var cow: String = cowering_mobility_tooltip_line(c)
     if not cow.is_empty():
-        lines.append("%s ' %s" % [display_name, cow])
+        lines.append("%s  -  %s" % [display_name, cow])
     var fm: String = CombatFormationMoveDuration.formation_preview_tooltip_line(manager, c)
     if not fm.is_empty():
-        lines.append("%s ' %s" % [display_name, fm])
+        lines.append("%s  -  %s" % [display_name, fm])
     var grd: String = guard_line_tooltip_line(c)
     if not grd.is_empty():
-        lines.append("%s ' %s" % [display_name, grd])
+        lines.append("%s  -  %s" % [display_name, grd])
     var wf: String = weapon_form_tooltip_line(c)
     if not wf.is_empty():
-        lines.append("%s ' %s" % [display_name, wf])
+        lines.append("%s  -  %s" % [display_name, wf])
     var ldr: String = party_leader_tooltip_line(c)
     if not ldr.is_empty():
-        lines.append("%s ' %s" % [display_name, ldr])
+        lines.append("%s  -  %s" % [display_name, ldr])
     var cmd: String = enemy_leader_tooltip_line(c)
     if not cmd.is_empty():
-        lines.append("%s ' %s" % [display_name, cmd])
+        lines.append("%s  -  %s" % [display_name, cmd])
     return lines

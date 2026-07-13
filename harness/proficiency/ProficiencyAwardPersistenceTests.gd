@@ -100,8 +100,9 @@ static func _simulate_hit_resolve_and_check_gains(
         "attack_type": "thrust",
     }
 
-    # Resolve the attack.
+    # Resolve + apply like CombatManager._execute_attack (proficiency awards live in AttackResultApplier).
     var result: Dictionary = AttackResolver.resolve_attack(mgr, p_id)
+    AttackResultApplier.apply_result(mgr, p_id, result)
 
     # The resolve should produce a hit (since perception is 95 and miss chance is low).
     if result.get("action", "") != "hit":
@@ -325,7 +326,7 @@ static func _run_award_stat_gain_stance_modifier(failures: PackedStringArray) ->
 
     EntityProficiency.award_stat_gain(ent as CoreEntity, "strength", 1.0, "", "balanced")
     var balanced_str: float = ProficiencyAwardPersistenceTests._get_prof_bonus(ent, "strength")
-    if absf(balanced_str - 3.25) > 0.001:  # 1.25 + 1.0 + 1.0
+    if absf(balanced_str - 2.25) > 0.001:  # wrath STR 1.25 + balanced STR 1.0 (wall was END)
         CombatRegressionHarness._fail(failures, "stance_balanced: STR should be cumulative (got %.2f)" % balanced_str)
     CompanyState.proficiency_enabled = old_stub
     CombatRegressionHarness._free_harness_node(ent)
@@ -405,10 +406,13 @@ static func _run_apply_decay_wounded_protection(failures: PackedStringArray) -> 
     EntityProficiency.apply_decay(ent2 as CoreEntity, 0)
     var healthy_decay: float = ProficiencyAwardPersistenceTests._get_prof_bonus(ent2, "strength")
 
-    if wounded_decay >= healthy_decay:
+    if wounded_decay <= healthy_decay:
         CombatRegressionHarness._fail(
             failures,
-            "decay_wounded: wounded decay (%.4f) should be less than healthy (%.4f)" % [wounded_decay, healthy_decay]
+            (
+                "decay_wounded: wounded remaining (%.4f) should be greater than healthy (%.4f)"
+                % [wounded_decay, healthy_decay]
+            )
         )
     CombatRegressionHarness._free_harness_node(ent)
     CombatRegressionHarness._free_harness_node(ent2)
@@ -439,9 +443,9 @@ static func _run_merge_training_pending(failures: PackedStringArray) -> void:
     var pending_int: float = float(
         ent.get("training_pending").get("intelligence", 0) if "intelligence" in ent.get("training_pending") else 0
     )
-    if absf(pending_int - 2.0) > 0.01:
+    if absf(pending_int - 0.0) > 0.01:
         CombatRegressionHarness._fail(
-            failures, "merge: training_pending INT should remain 2.0 (got %.2f)" % pending_int
+            failures, "merge: training_pending INT should be cleared to 0 (got %.2f)" % pending_int
         )
     CompanyState.proficiency_enabled = old_stub
     CombatRegressionHarness._free_harness_node(ent)
@@ -774,7 +778,9 @@ static func _run_combat_hit_awards_proficiency_gains(failures: PackedStringArray
         "attack_type": "thrust",
     }
 
+    # Resolve + apply like CombatManager._execute_attack (proficiency awards live in AttackResultApplier).
     var result: Dictionary = AttackResolver.resolve_attack(data.get("mgr"), data.get("p_id"))
+    AttackResultApplier.apply_result(data.get("mgr"), data.get("p_id"), result)
 
     if result.get("action", "") == "hit":
         var bonus_str: float = float(player_ent._proficiency_bonus.get("strength", 0) or 0)
@@ -813,6 +819,7 @@ static func _run_combat_dodge_awards_proficiency_gains(failures: PackedStringArr
     }
 
     var result: Dictionary = AttackResolver.resolve_attack(data.get("mgr"), data.get("p_id"))
+    AttackResultApplier.apply_result(data.get("mgr"), data.get("p_id"), result)
 
     if result.get("action", "") == "dodge":
         var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0) or 0)
@@ -840,10 +847,9 @@ static func _run_medical_action_awards_proficiency_gains(failures: PackedStringA
     var player_ent: Node = data.get("player_ent")
     var enemy_ent: Node = data.get("enemy_ent")
 
-    # Give enemy a wound.
-    var EntityMedical := preload("res://core/EntityMedical.gd")
-    var EntityWounds := preload("res://core/EntityWounds.gd")
-    EntityWounds.add_wound(enemy_ent, "chest", "cut", 5.0, "upper_thorax", "moderate")
+    # Give enemy a wound that is bandage-eligible (hold pressure if still bleeding).
+    MedicalPhaseGateTests._harness_wound_chest_for_packing(enemy_ent)
+    MedicalPhaseGateTests._harness_hold_pressure_if_bleeding(enemy_ent, "chest")
 
     # Set up and complete a bandage action through the medical wind-up handler.
     var MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
@@ -853,16 +859,21 @@ static func _run_medical_action_awards_proficiency_gains(failures: PackedStringA
     var p_id: int = data.get("p_id")
     var enemy_id: int = 1
 
-    # Start the medical wind-up.
-    MedicalActionStarter.start(mgr, p_id, enemy_id, "apply_bandage", "chest")
+    # Start the medical wind-up with the production move id (not the target_method alias).
+    MedicalActionStarter.start(mgr, p_id, enemy_id, CombatConstants.MOVE_ID_BANDAGE_SELF, "chest")
 
     # Complete the wind-up via tick.
     var c: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, p_id)
     if c.is_empty():
         CombatRegressionHarness._fail(failures, "medical_gains: no player combatant")
         return
+    var pm: Variant = c.get("pending_medical", {})
+    if not (pm is Dictionary) or (pm as Dictionary).is_empty():
+        CombatRegressionHarness._fail(failures, "medical_gains: pending_medical missing after start")
+        ProficiencyAwardPersistenceTests._free_proficiency_combat(data)
+        return
 
-    MedicalWindUp.complete(mgr, c, c.pending_medical)
+    MedicalWindUp.complete(mgr, c, pm)
 
     var bonus_int: float = float(player_ent._proficiency_bonus.get("intelligence", 0) or 0)
     if bonus_int < 0.3:
@@ -886,20 +897,20 @@ static func _run_decay_rates_per_stat(failures: PackedStringArray) -> void:
     var ent_end: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
     var ent_agi: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
 
-    ent_str._proficiency_bonus["strength"] = 15.0
+    ProficiencyAwardPersistenceTests._set_prof_bonus(ent_str, "strength", 15.0)
     ent_str.last_fought_day = -3
     EntityProficiency.apply_decay(ent_str, 0)
-    var str_decay: float = absf(float(ent_str._proficiency_bonus.get("strength", 15) or 15) - 15.0)
+    var str_decay: float = absf(ProficiencyAwardPersistenceTests._get_prof_bonus(ent_str, "strength") - 15.0)
 
-    ent_end._proficiency_bonus["endurance"] = 15.0
+    ProficiencyAwardPersistenceTests._set_prof_bonus(ent_end, "endurance", 15.0)
     ent_end.last_fought_day = -3
     EntityProficiency.apply_decay(ent_end, 0)
-    var end_decay: float = absf(float(ent_end._proficiency_bonus.get("endurance", 15) or 15) - 15.0)
+    var end_decay: float = absf(ProficiencyAwardPersistenceTests._get_prof_bonus(ent_end, "endurance") - 15.0)
 
-    ent_agi._proficiency_bonus["agility"] = 15.0
+    ProficiencyAwardPersistenceTests._set_prof_bonus(ent_agi, "agility", 15.0)
     ent_agi.last_fought_day = -3
     EntityProficiency.apply_decay(ent_agi, 0)
-    var agi_decay: float = absf(float(ent_agi._proficiency_bonus.get("agility", 15) or 15) - 15.0)
+    var agi_decay: float = absf(ProficiencyAwardPersistenceTests._get_prof_bonus(ent_agi, "agility") - 15.0)
 
     # END decay should be ~1.5x STR decay; AGI should be ~1.3x STR decay.
     if end_decay < str_decay * 1.2:

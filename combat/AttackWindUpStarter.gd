@@ -175,6 +175,7 @@ static func start(
         wind_up_s *= flurry_m
         CombatFlurryBind.consume_exchange_on_wind_up_start(atk_d)
     wind_up_s = CombatExhaustion.apply_attacker_wind_up_exhaustion_mult(wind_up_s, atk_d)
+    wind_up_s = CombatMuscleFatigue.apply_attacker_wind_up_mult(wind_up_s, atk_d, attack_type, manager)
     wind_up_s = minf(wind_up_s, CombatConstants.WIND_UP_DURATION_MAX_S)
     var gauge_atk_pre: float = float(atk_d.get("gauge", 0.0))
     var gauge_def_pre: float = float(tgt_d.get("gauge", 0.0))

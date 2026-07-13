@@ -137,7 +137,6 @@ static func _move_definitions_build() -> Dictionary:
             "is_parry": true,
             "attack_line": "high",
             "preferred_parts": ["chest"],
-            "weapon_extension_commit_fraction": 0.50,
             "impact_station_mean": 0.74,
             "impact_station_spread": 0.03
         },
@@ -342,7 +341,7 @@ static func _move_definitions_build() -> Dictionary:
             "angle_variance_deg": 7,
             "weapon_extension_commit_fraction": 0.58,
             "impact_station_mean": 0.80,
-            "impact_station_spread": 0.02
+            "impact_station_spread": 0.0
         },
         "off_line_thrust":
         {

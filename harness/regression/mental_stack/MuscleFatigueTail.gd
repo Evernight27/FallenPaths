@@ -406,11 +406,11 @@ static func _run_muscle_fatigue_two_handed_off_arm_share(failures: PackedStringA
 
 static func _run_muscle_fatigue_camp_rest_clears_entity(failures: PackedStringArray) -> void:
     var entity: Node = HarnessFixtures._new_entity("SWORD")
-    if not entity.has_method("restore_muscle_fatigue_at_camp"):
+    if not entity.has_method("_restore_muscle_fatigue_at_camp"):
         CombatRegressionHarness._fail(failures, "muscle_fatigue_camp: entity missing restore API")
         return
     entity.muscle_fatigue = {BodyPartConstants.PART_RIGHT_ARM: 0.5}
-    entity.restore_muscle_fatigue_at_camp()
+    entity._restore_muscle_fatigue_at_camp()
     if not (entity.muscle_fatigue as Dictionary).is_empty():
         CombatRegressionHarness._fail(failures, "muscle_fatigue_camp: want cleared pools")
 

@@ -172,6 +172,7 @@ static func award_stat_gain(
 
     var new_bonus: float = current_bonus + modified_amount
     prof_dict[stat] = new_bonus
+    ce._proficiency_bonus = prof_dict
 
 
 ## Like award_stat_gain but without stance_mods lookup — for cognitive stats where form-dependent modifiers don't apply.
@@ -189,7 +190,8 @@ static func award_stat_gain_raw(entity: CoreEntity, stat: String, raw_amount: fl
     else:
         current_bonus = 0.0
     var gain_mult: float = _get_gain_multiplier_for_float(current_bonus)
-    entity._proficiency_bonus[stat] = current_bonus + raw_amount * gain_mult
+    prof_dict[stat] = current_bonus + raw_amount * gain_mult
+    entity._proficiency_bonus = prof_dict
 
 
 static func normalize_weapon_id(weapon_id: String) -> String:
@@ -357,7 +359,8 @@ static func apply_decay(entity: CoreEntity, current_day_index: int) -> void:
             daily_decay *= 0.5
 
         var new_bonus: float = maxf(0.0, bonus + daily_decay * inactive_days)
-        entity._proficiency_bonus[stat] = new_bonus
+        prof_dict[stat] = new_bonus
+        entity._proficiency_bonus = prof_dict
 
 
 ## Called during camp drill  -  merges pending training into proficiency bonus.
@@ -377,7 +380,8 @@ static func merge_training_pending(entity: CoreEntity) -> void:
             var current: float = 0.0
             if stat in prof_dict:
                 current = float(prof_dict[stat])
-            entity._proficiency_bonus[stat] = current + pending
+            prof_dict[stat] = current + pending
+            entity._proficiency_bonus = prof_dict
             entity._set_training_pending_value(stat, 0.0)
 
 

@@ -120,13 +120,15 @@ static func _run_medic_int_floor_per_entity_tracking(failures: PackedStringArray
     Bridge.record_medic_action(world, ent2)
 
     var stored: Dictionary = world.get_meta("campaign_medic_actions_by")
-    if int(stored.get(ent1, 0)) != 3:
+    if int(stored.get(ent1.get_instance_id(), 0)) != 3:
         CombatRegressionHarness._fail(
-            failures, "medic_int_floor: entity1 should have 3 actions (got %s)" % str(stored.get(ent1))
+            failures,
+            "medic_int_floor: entity1 should have 3 actions (got %s)" % str(stored.get(ent1.get_instance_id()))
         )
-    if int(stored.get(ent2, 0)) != 5:
+    if int(stored.get(ent2.get_instance_id(), 0)) != 5:
         CombatRegressionHarness._fail(
-            failures, "medic_int_floor: entity2 should have 5 actions (got %s)" % str(stored.get(ent2))
+            failures,
+            "medic_int_floor: entity2 should have 5 actions (got %s)" % str(stored.get(ent2.get_instance_id()))
         )
 
     world.queue_free()
@@ -143,13 +145,13 @@ static func _run_merge_training_pending_wired_in_camp_heal(failures: PackedStrin
         return
 
     var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
-    ent._proficiency_bonus["strength"] = 5.0
+    ProficiencyAwardPersistenceTests._set_prof_bonus(ent, "strength", 5.0)
     ent.training_pending["strength"] = 3.0
     ent.training_pending["intelligence"] = 2.0
 
     # Call merge directly to verify it works (the wiring is in CompanyState.try_camp_heal).
     EntityProficiency.merge_training_pending(ent)
-    var merged_str: float = float(ent._proficiency_bonus.get("strength", 0) or 0)
+    var merged_str: float = ProficiencyAwardPersistenceTests._get_prof_bonus(ent, "strength")
     if absf(merged_str - 8.0) > 0.01:
         CombatRegressionHarness._fail(failures, "merge_wired: STR should be 8.0 after merge (got %.2f)" % merged_str)
 
@@ -221,30 +223,30 @@ static func _run_decay_low_blood_volume_protection(failures: PackedStringArray) 
     var old_stub: bool = CompanyState.read_stub_proficiency_enabled()
     CompanyState.proficiency_enabled = true
     var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
-    ent._proficiency_bonus["strength"] = 15.0
+    ProficiencyAwardPersistenceTests._set_prof_bonus(ent, "strength", 15.0)
     ent.last_fought_day = -3
-    # CoreEntity default blood_volume is not set to <40, so add a mock entity with low bv
     var ent_low_bv := CombatRegressionHarness._new_entity("SWORD")
-    ent_low_bv._proficiency_bonus["strength"] = 15.0
+    ProficiencyAwardPersistenceTests._set_prof_bonus(ent_low_bv, "strength", 15.0)
     ent_low_bv.last_fought_day = -3
 
     EntityProficiency.apply_decay(ent, 0)
-    var normal_decay: float = float(ent._proficiency_bonus.get("strength", 15) or 15)
+    var normal_remaining: float = ProficiencyAwardPersistenceTests._get_prof_bonus(ent, "strength")
 
     # Set low blood volume on second entity to test wounded protection (decay x0.5).
     ent_low_bv.blood_volume = 30.0
     EntityProficiency.apply_decay(ent_low_bv, 0)
-    var low_bv_decay: float = float(ent_low_bv._proficiency_bonus.get("strength", 15) or 15)
+    var low_bv_remaining: float = ProficiencyAwardPersistenceTests._get_prof_bonus(ent_low_bv, "strength")
 
-    if low_bv_decay >= normal_decay:
+    if low_bv_remaining <= normal_remaining:
         CombatRegressionHarness._fail(
             failures,
             (
-                "decay_low_blood: low blood volume decay (%.4f) should be less than normal (%.4f)"
-                % [low_bv_decay, normal_decay]
+                "decay_low_blood: low blood volume remaining (%.4f) should exceed normal (%.4f)"
+                % [low_bv_remaining, normal_remaining]
             )
         )
 
+    CompanyState.proficiency_enabled = old_stub
     CombatRegressionHarness._free_harness_node(ent)
     CombatRegressionHarness._free_harness_node(ent_low_bv)
 
@@ -538,7 +540,7 @@ static func _run_stub_gating_post_combat(failures: PackedStringArray) -> void:
 
     CompanyState.proficiency_enabled = true
     var expected_after_decay: float = maxf(
-        0.0, 20.0 + (EntityProficiency.DECAY_RATE_VETERAN_PLUS * EntityProficiency.DECAY_MULT_INT) * 6
+        0.0, 20.0 + (EntityProficiency.DECAY_RATE_PROFICIENT_PLUS * EntityProficiency.DECAY_MULT_INT) * 6
     )
     EntityProficiency.apply_decay(ent, 1)
 

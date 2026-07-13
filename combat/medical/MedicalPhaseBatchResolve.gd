@@ -328,8 +328,7 @@ static func _batch_apply_medical_action(
         return MedicalPhaseFastForward._batch_apply_direct_pressure(
             manager, performer, target, performer_id, target_id, part
         )
-    var wind_raw: Variant = CombatConstantsMedical.MEDICAL_WIND_UP_CONFIG.get(move_id, {})
-    var wind_up_cfg: Dictionary = wind_raw if wind_raw is Dictionary else {}
+    var wind_up_cfg: Dictionary = CombatConstantsMedical.wind_up_config_for(move_id)
     var target_method: String = wind_up_cfg.get("target_method", "")
     if target_method.is_empty():
         return false

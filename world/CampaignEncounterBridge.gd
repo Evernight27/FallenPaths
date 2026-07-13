@@ -152,8 +152,9 @@ static func record_medic_action(world: Node2D, medic_entity: Node) -> void:
     var actions: Dictionary = (
         world.get_meta("campaign_medic_actions_by") if world.has_meta("campaign_medic_actions_by") else {}
     )
-    var count: int = int(actions.get(medic_entity, 0) or 0)
-    actions[medic_entity] = count + 1
+    var key: int = medic_entity.get_instance_id()
+    var count: int = int(actions.get(key, 0))
+    actions[key] = count + 1
     world.set_meta("campaign_medic_actions_by", actions)
 
 
@@ -235,10 +236,8 @@ static func _proficiency_post_combat(world: Node2D) -> void:
     var medic_actions_by_entity: Dictionary = (
         world.get_meta("campaign_medic_actions_by") if world.has_meta("campaign_medic_actions_by") else {}
     )
-    for entity_ptr in medic_actions_by_entity.keys():
-        if not is_instance_valid(entity_ptr):
-            continue
-        var action_count: int = int(medic_actions_by_entity[entity_ptr])
+    for entity_key in medic_actions_by_entity.keys():
+        var action_count: int = int(medic_actions_by_entity[entity_key])
         if action_count <= 0:
             continue
         for m in pm.members:
@@ -251,15 +250,25 @@ static func _proficiency_post_combat(world: Node2D) -> void:
             if node.has_method("is_dead") and node.is_dead():
                 continue
             var member_entity: Node = health_entity_from_character(node)
-            if member_entity == entity_ptr:
-                # Medic INT floor: flat bonus per medical action (not subject to diminishing returns via
-                # award_stat_gain).
-                # This is intentional ''"" the medic floor is a guaranteed baseline reward, not practice-based growth.
-                if "_proficiency_bonus" in member_entity:
-                    member_entity._proficiency_bonus["intelligence"] += (
-                        EntityProficiency.GAIN_MEDIC_INT_FLOOR * action_count
-                    )
-                break
+            if member_entity == null:
+                continue
+            var key_match: bool = false
+            if entity_key is int:
+                key_match = member_entity.get_instance_id() == int(entity_key)
+            elif entity_key is Object:
+                key_match = member_entity == entity_key
+            if not key_match:
+                continue
+            # Medic INT floor: flat bonus per medical action (not subject to diminishing returns via
+            # award_stat_gain).
+            # This is intentional ''"" the medic floor is a guaranteed baseline reward, not practice-based growth.
+            if "_proficiency_bonus" in member_entity:
+                var prof: Dictionary = member_entity._proficiency_bonus
+                prof["intelligence"] = (
+                    float(prof.get("intelligence", 0.0)) + EntityProficiency.GAIN_MEDIC_INT_FLOOR * action_count
+                )
+                member_entity._proficiency_bonus = prof
+            break
 
 
 ## Step onto contract tile: stash contract, spawn enemies, consume marker (R3).
