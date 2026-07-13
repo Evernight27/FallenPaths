@@ -82,14 +82,14 @@ static func _run_kinematic_delivery_afterblow_mult_scales_strike_ke_via_velocity
 static func _run_kinematic_delivery_angle_to_nearest_line_boundaries(failures: PackedStringArray) -> void:
     if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
         var oct: Array = [
-            [0.0, _GuardLines.LINE_HIGH],
-            [45.0, _GuardLines.LINE_HIGH_RIGHT],
-            [90.0, _GuardLines.LINE_RIGHT],
-            [135.0, _GuardLines.LINE_LOW_RIGHT],
-            [180.0, _GuardLines.LINE_LOW],
-            [225.0, _GuardLines.LINE_LOW_LEFT],
-            [270.0, _GuardLines.LINE_LEFT],
-            [315.0, _GuardLines.LINE_HIGH_LEFT],
+            [0.0, GuardLines.LINE_HIGH],
+            [45.0, GuardLines.LINE_HIGH_RIGHT],
+            [90.0, GuardLines.LINE_RIGHT],
+            [135.0, GuardLines.LINE_LOW_RIGHT],
+            [180.0, GuardLines.LINE_LOW],
+            [225.0, GuardLines.LINE_LOW_LEFT],
+            [270.0, GuardLines.LINE_LEFT],
+            [315.0, GuardLines.LINE_HIGH_LEFT],
         ]
         for pair in oct:
             var got: String = CombatConstants.angle_to_nearest_line(float(pair[0]))
@@ -115,11 +115,11 @@ static func _run_kinematic_delivery_angle_to_nearest_line_boundaries(failures: P
 
 
 static func _harness_destroy_limb(entity: CoreEntity, part: String) -> void:
-    _Fixtures._harness_destroy_limb(entity, part)
+    Fixtures._harness_destroy_limb(entity, part)
 
 
 static func _harness_restore_limb(entity: CoreEntity, part: String) -> void:
-    _Fixtures._harness_restore_limb(entity, part)
+    Fixtures._harness_restore_limb(entity, part)
 
 
 ## Tier 6.1: cumulative effective pain scales pain-shock **chance** (0.8- -  - 1.2- - ); hit pain remains primary.
@@ -190,9 +190,9 @@ static func _run_medical_ambient_pain_shock_skips_when_feature_off(failures: Pac
 
 static func _run_campaign_bridge_can_enter_combat_rejects_empty_party(failures: PackedStringArray) -> void:
     var world: Node2D = Node2D.new()
-    var pm: Node = _PartyManagerScript.new()
+    var pm: Node = PartyManagerScript.new()
     world.set_meta("party_manager", pm)
-    var ready: Dictionary = _CampaignBridge.can_enter_combat(world)
+    var ready: Dictionary = CampaignBridge.can_enter_combat(world)
     world.free()
     pm.free()
     if bool(ready.get("ok", true)):
@@ -203,7 +203,7 @@ static func _run_campaign_bridge_can_enter_combat_rejects_empty_party(failures: 
 
 static func _run_campaign_bridge_can_enter_combat_rejects_unconscious(failures: PackedStringArray) -> void:
     var world: Node2D = Node2D.new()
-    var pm: Node = _PartyManagerScript.new()
+    var pm: Node = PartyManagerScript.new()
     var ent: CoreEntity = _new_entity("SWORD")
     ent.name = "UnconsciousFighter"
     ent.consciousness = 0.0
@@ -211,7 +211,7 @@ static func _run_campaign_bridge_can_enter_combat_rejects_unconscious(failures: 
     ent._consciousness_dirty = false
     pm.add_member(ent)
     world.set_meta("party_manager", pm)
-    var ready: Dictionary = _CampaignBridge.can_enter_combat(world)
+    var ready: Dictionary = CampaignBridge.can_enter_combat(world)
     world.free()
     _free_harness_node(ent)
     pm.free()
@@ -222,9 +222,9 @@ static func _run_campaign_bridge_can_enter_combat_rejects_unconscious(failures: 
 
 
 static func _run_weapon_blade_strong_fraction(failures: PackedStringArray) -> void:
-    var sword: Weapon = _Weapon.create_from_definition("SWORD")
-    var dagger: Weapon = _Weapon.create_from_definition("DAGGER")
-    var spear: Weapon = _Weapon.create_from_definition("SPEAR")
+    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var dagger: Weapon = Weapon.create_from_definition("DAGGER")
+    var spear: Weapon = Weapon.create_from_definition("SPEAR")
     if sword == null or dagger == null or spear == null:
         _fail(failures, "weapon_strong_fraction: missing sword/dagger/spear")
         return
@@ -261,7 +261,7 @@ static func _run_bind_riposte_contact_types_normalized(failures: PackedStringArr
         "SPEAR": [WeaponConstants.ATTACK_TYPE_STAB]
     }
     for wid in expected.keys():
-        var weapon: Weapon = _Weapon.create_from_definition(str(wid))
+        var weapon: Weapon = Weapon.create_from_definition(str(wid))
         if weapon == null:
             _fail(failures, "bind_contacts: missing weapon %s" % str(wid))
             continue
@@ -309,18 +309,18 @@ static func _run_tier7_stamina_parry_cost_scales_with_intensity(failures: Packed
     var want_heavy: float = CombatConstants.STAMINA_PARRY_COST_BASE + CombatConstants.STAMINA_PARRY_COST_SCALE
     if not is_equal_approx(heavy, want_heavy):
         _fail(failures, "tier7_parry_stam: heavy want %.1f got %.1f" % [want_heavy, heavy])
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
-    var p_id: int = _EntityAccess.id_int(defender)
-    var e_id: int = _EntityAccess.id_int(attacker)
+    var p_id: int = EntityAccess.id_int(defender)
+    var e_id: int = EntityAccess.id_int(attacker)
     defender["stamina"] = CombatConstants.STAMINA_MAX
     attacker["pending_attack"] = {"attack_type": "oberhau", "effective_attack_line": "high", "intensity": 1.0}
     (
-        _AttackResultApplier
+        AttackResultApplier
         . apply_result(
             mgr,
             e_id,
@@ -332,7 +332,7 @@ static func _run_tier7_stamina_parry_cost_scales_with_intensity(failures: Packed
             }
         )
     )
-    var spent: float = CombatConstants.STAMINA_MAX - _EntityAccess.stamina_float(defender)
+    var spent: float = CombatConstants.STAMINA_MAX - EntityAccess.stamina_float(defender)
     if not is_equal_approx(spent, want_heavy):
         _fail(failures, "tier7_parry_stam: heavy parry want spend %.1f got %.1f" % [want_heavy, spent])
     _free_manager(mgr)
@@ -438,14 +438,14 @@ static func _run_stamina_effective_refill_slows_with_exhaustion(failures: Packed
 ## Formation pressure: defensive threshold uses burst ratio vs effective max (not absolute / STAMINA_MAX).
 static func _run_opponent_pressure_defensive_uses_burst_ratio(failures: PackedStringArray) -> void:
     var ZOC := preload("res://combat/ZoneOfControl.gd")
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var player: Dictionary = mgr.combatants[0]
     var enemy: Dictionary = mgr.combatants[1]
-    var fid: String = _EntityAccess.formation_id_str(player)
-    _EntityAccess.set_exhaustion_float(enemy, 1.0)
+    var fid: String = EntityAccess.formation_id_str(player)
+    EntityAccess.set_exhaustion_float(enemy, 1.0)
     enemy["stats"] = {"blood_volume": 100.0}
     enemy["state"] = CombatConstants.STATE_WAITING
     enemy["stamina"] = 30.0
@@ -478,8 +478,8 @@ static func _run_opponent_pressure_defensive_uses_burst_ratio(failures: PackedSt
 static func _run_tier7_stamina_action_ready_cooldown_scales_with_fatigue(failures: PackedStringArray) -> void:
     var fresh: Dictionary = {"stamina": CombatConstants.STAMINA_MAX, "stats": {"agility": 100}}
     var tired: Dictionary = {"stamina": 0.0, "stats": {"agility": 100}}
-    var cd_fresh: float = _EventScheduler.action_ready_cooldown(fresh)
-    var cd_tired: float = _EventScheduler.action_ready_cooldown(tired)
+    var cd_fresh: float = EventScheduler.action_ready_cooldown(fresh)
+    var cd_tired: float = EventScheduler.action_ready_cooldown(tired)
     if cd_fresh <= 0.0:
         _fail(failures, "tier7_ready_delay: fresh cooldown invalid %.3f" % cd_fresh)
         return
@@ -493,17 +493,17 @@ static func _run_tier7_stamina_action_ready_cooldown_scales_with_fatigue(failure
 
 ## Tier 0.1 / P4b: lane obstacles slow formation-move duration estimates.
 static func _run_formation_move_duration_lane_obstacle_slows_estimate(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
     var c: Dictionary = mgr.combatants[0]
-    var clear_dur: float = _FormationMoveDuration.estimate_solo_fall_back_duration_s(mgr, c)
-    var lane_clear: float = _ZoneOfControl.get_swap_lane_duration_multiplier(mgr, "player", _EntityAccess.file_int(c))
-    var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
-    form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
-    var lane_slow: float = _ZoneOfControl.get_swap_lane_duration_multiplier(mgr, "player", _EntityAccess.file_int(c))
-    var slow_dur: float = _FormationMoveDuration.estimate_solo_fall_back_duration_s(mgr, c)
+    var clear_dur: float = FormationMoveDuration.estimate_solo_fall_back_duration_s(mgr, c)
+    var lane_clear: float = ZoneOfControl.get_swap_lane_duration_multiplier(mgr, "player", EntityAccess.file_int(c))
+    var form_p: Dictionary = FormationSlots.formation_record_for_manager(mgr, "player")
+    form_p["slot_obstacles"] = {Vector2i(0, EntityAccess.file_int(c)): [999]}
+    var lane_slow: float = ZoneOfControl.get_swap_lane_duration_multiplier(mgr, "player", EntityAccess.file_int(c))
+    var slow_dur: float = FormationMoveDuration.estimate_solo_fall_back_duration_s(mgr, c)
     _free_manager(mgr)
     if lane_slow < CombatConstants.LANE_MOD_CROWDED - 0.01:
         _fail(failures, "form_dur_lane: obstacle lane mult want >= crowded got %.3f" % lane_slow)
@@ -518,17 +518,17 @@ static func _run_formation_move_duration_lane_obstacle_slows_estimate(failures: 
 
 ## Tier 0.1: **`CombatFormationFlow`** pair duration matches **`CombatFormationMoveDuration`** estimate.
 static func _run_formation_move_duration_matches_flow_pair_start(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
     var p0: Dictionary = mgr.combatants[0]
     var p1: Dictionary = mgr.combatants[1]
-    var id0: int = _EntityAccess.id_int(p0)
-    var id1: int = _EntityAccess.id_int(p1)
-    var want: float = _FormationMoveDuration.estimate_adjacent_rank_pair_duration_s(mgr, p0, p1, "swap_rank")
-    _FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
+    var id0: int = EntityAccess.id_int(p0)
+    var id1: int = EntityAccess.id_int(p1)
+    var want: float = FormationMoveDuration.estimate_adjacent_rank_pair_duration_s(mgr, p0, p1, "swap_rank")
+    FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
     var got: float = float(p0.get("state_duration", -1.0))
     _free_manager(mgr)
     if not is_equal_approx(got, want):
@@ -540,7 +540,7 @@ static func _run_formation_move_duration_matches_flow_pair_start(failures: Packe
 
 ## Tier 0.1: listed formation moves carry **`formation_move_duration_hint`** when lane is crowded.
 static func _run_formation_move_duration_listed_actions_stamp_hint(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 4:
         mgr.register(_new_entity("SWORD"), "player")
     for _j in 4:
@@ -549,22 +549,22 @@ static func _run_formation_move_duration_listed_actions_stamp_hint(failures: Pac
     var c: Dictionary = {}
     var ally_id: int = -1
     for raw in mgr.combatants:
-        if not _EntityAccess.is_player_side(raw):
+        if not EntityAccess.is_player_side(raw):
             continue
-        if _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 0:
+        if EntityAccess.rank_int(raw) == 0 and EntityAccess.file_int(raw) == 0:
             c = raw
-        elif _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 1:
-            ally_id = _EntityAccess.id_int(raw)
+        elif EntityAccess.rank_int(raw) == 0 and EntityAccess.file_int(raw) == 1:
+            ally_id = EntityAccess.id_int(raw)
     if c.is_empty() or ally_id < 0:
         _fail(failures, "form_dur_list: need rank-0 allies at files 0 and 1")
         _free_manager(mgr)
         return
-    var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
-    form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+    var form_p: Dictionary = FormationSlots.formation_record_for_manager(mgr, "player")
+    form_p["slot_obstacles"] = {Vector2i(0, EntityAccess.file_int(c)): [999]}
     c["gauge"] = 100.0
-    var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
+    var acts: Array = ActionsBuilder.build(mgr, EntityAccess.id_int(c))
     _free_manager(mgr)
-    var rotate_act: Dictionary = _ListedActions.first_action_move_vs_target(
+    var rotate_act: Dictionary = ListedActions.first_action_move_vs_target(
         acts, CombatConstants.MOVE_ID_ROTATE_FILE, ally_id
     )
     if rotate_act.is_empty():
@@ -580,7 +580,7 @@ static func _run_formation_move_duration_listed_actions_stamp_hint(failures: Pac
 
 ## Tier 0.1 UI: player turn-ready lists formation-move duration from stamped action hints.
 static func _run_formation_move_duration_player_turn_hint_from_listed_actions(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 4:
         mgr.register(_new_entity("SWORD"), "player")
     for _j in 4:
@@ -589,21 +589,21 @@ static func _run_formation_move_duration_player_turn_hint_from_listed_actions(fa
     var c: Dictionary = {}
     var ally_id: int = -1
     for raw in mgr.combatants:
-        if not _EntityAccess.is_player_side(raw):
+        if not EntityAccess.is_player_side(raw):
             continue
-        if _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 0:
+        if EntityAccess.rank_int(raw) == 0 and EntityAccess.file_int(raw) == 0:
             c = raw
-        elif _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 1:
-            ally_id = _EntityAccess.id_int(raw)
+        elif EntityAccess.rank_int(raw) == 0 and EntityAccess.file_int(raw) == 1:
+            ally_id = EntityAccess.id_int(raw)
     if c.is_empty() or ally_id < 0:
         _fail(failures, "form_dur_turn_hint: need rank-0 allies at files 0 and 1")
         _free_manager(mgr)
         return
-    var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
-    form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+    var form_p: Dictionary = FormationSlots.formation_record_for_manager(mgr, "player")
+    form_p["slot_obstacles"] = {Vector2i(0, EntityAccess.file_int(c)): [999]}
     c["gauge"] = 100.0
-    var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
-    var line: String = _PlayerTurnHints.formation_listed_moves_hint_if_applicable(mgr, c, acts)
+    var acts: Array = ActionsBuilder.build(mgr, EntityAccess.id_int(c))
+    var line: String = PlayerTurnHints.formation_listed_moves_hint_if_applicable(mgr, c, acts)
     if line.is_empty() or not line.contains("crowded"):
         _fail(failures, "form_dur_turn_hint: want crowded lane in hint got '%s'" % line)
     var compact: String = CombatDebug.format_actions_compact(acts)
@@ -617,7 +617,7 @@ static func _run_formation_move_duration_player_turn_hint_from_listed_actions(fa
 
 ## Tier 0.1: listed formation-move duration appears on waiting gauge tooltip after turn-ready sync.
 static func _run_formation_move_duration_gauge_tooltip_listed_hint(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 4:
         mgr.register(_new_entity("SWORD"), "player")
     for _j in 4:
@@ -626,22 +626,22 @@ static func _run_formation_move_duration_gauge_tooltip_listed_hint(failures: Pac
     var c: Dictionary = {}
     var ally_id: int = -1
     for raw in mgr.combatants:
-        if not _EntityAccess.is_player_side(raw):
+        if not EntityAccess.is_player_side(raw):
             continue
-        if _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 0:
+        if EntityAccess.rank_int(raw) == 0 and EntityAccess.file_int(raw) == 0:
             c = raw
-        elif _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 1:
-            ally_id = _EntityAccess.id_int(raw)
+        elif EntityAccess.rank_int(raw) == 0 and EntityAccess.file_int(raw) == 1:
+            ally_id = EntityAccess.id_int(raw)
     if c.is_empty() or ally_id < 0:
         _fail(failures, "form_dur_gauge: need rank-0 allies at files 0 and 1")
         _free_manager(mgr)
         return
-    var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
-    form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+    var form_p: Dictionary = FormationSlots.formation_record_for_manager(mgr, "player")
+    form_p["slot_obstacles"] = {Vector2i(0, EntityAccess.file_int(c)): [999]}
     c["gauge"] = 100.0
-    var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
-    _PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(mgr, c, acts)
-    var tips: PackedStringArray = _UiHints.gauge_tooltip_lines(c, mgr)
+    var acts: Array = ActionsBuilder.build(mgr, EntityAccess.id_int(c))
+    PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(mgr, c, acts)
+    var tips: PackedStringArray = UiHints.gauge_tooltip_lines(c, mgr)
     var joined: String = "\n".join(tips)
     _free_manager(mgr)
     if not joined.contains("crowded"):
@@ -653,7 +653,7 @@ static func _run_formation_move_duration_gauge_tooltip_listed_hint(failures: Pac
 
 ## Tier 0.1: listed formation duration not shown on gauge tooltip after leaving waiting.
 static func _run_formation_move_duration_gauge_tooltip_clears_when_not_waiting(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 4:
         mgr.register(_new_entity("SWORD"), "player")
     for _j in 4:
@@ -661,26 +661,26 @@ static func _run_formation_move_duration_gauge_tooltip_clears_when_not_waiting(f
     mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
     var c: Dictionary = {}
     for raw in mgr.combatants:
-        if not _EntityAccess.is_player_side(raw):
+        if not EntityAccess.is_player_side(raw):
             continue
-        if _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 0:
+        if EntityAccess.rank_int(raw) == 0 and EntityAccess.file_int(raw) == 0:
             c = raw
     if c.is_empty():
         _fail(failures, "form_dur_gauge_wait: need rank-0 player at file 0")
         _free_manager(mgr)
         return
-    var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
-    form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+    var form_p: Dictionary = FormationSlots.formation_record_for_manager(mgr, "player")
+    form_p["slot_obstacles"] = {Vector2i(0, EntityAccess.file_int(c)): [999]}
     c["gauge"] = 100.0
-    var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
-    _PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(mgr, c, acts)
+    var acts: Array = ActionsBuilder.build(mgr, EntityAccess.id_int(c))
+    PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(mgr, c, acts)
     var stamped: String = str(c.get(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")).strip_edges()
     if stamped.is_empty():
         _fail(failures, "form_dur_gauge_wait: want stamped listed hint before state change")
         _free_manager(mgr)
         return
     c["state"] = CombatConstants.STATE_WIND_UP
-    var tips: PackedStringArray = _UiHints.gauge_tooltip_lines(c, mgr)
+    var tips: PackedStringArray = UiHints.gauge_tooltip_lines(c, mgr)
     var joined: String = "\n".join(tips)
     _free_manager(mgr)
     if stamped in joined:
@@ -692,7 +692,7 @@ static func _run_formation_move_duration_gauge_tooltip_clears_when_not_waiting(f
 
 ## Tier 0.1: resolve clears **`COMBATANT_KEY_FORMATION_MOVES_TURN_HINT`** on the actor.
 static func _run_formation_move_duration_gauge_tooltip_clears_on_resolve(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 4:
         mgr.register(_new_entity("SWORD"), "player")
     for _j in 4:
@@ -700,25 +700,25 @@ static func _run_formation_move_duration_gauge_tooltip_clears_on_resolve(failure
     mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
     var c: Dictionary = {}
     for raw in mgr.combatants:
-        if not _EntityAccess.is_player_side(raw):
+        if not EntityAccess.is_player_side(raw):
             continue
-        if _EntityAccess.rank_int(raw) == 0 and _EntityAccess.file_int(raw) == 0:
+        if EntityAccess.rank_int(raw) == 0 and EntityAccess.file_int(raw) == 0:
             c = raw
     if c.is_empty():
         _fail(failures, "form_dur_gauge_resolve: need rank-0 player at file 0")
         _free_manager(mgr)
         return
-    var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
-    form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
+    var form_p: Dictionary = FormationSlots.formation_record_for_manager(mgr, "player")
+    form_p["slot_obstacles"] = {Vector2i(0, EntityAccess.file_int(c)): [999]}
     c["gauge"] = 100.0
-    var acts: Array = _ActionsBuilder.build(mgr, _EntityAccess.id_int(c))
-    _PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(mgr, c, acts)
+    var acts: Array = ActionsBuilder.build(mgr, EntityAccess.id_int(c))
+    PlayerTurnHints.sync_formation_listed_turn_hint_on_combatant(mgr, c, acts)
     if not c.has(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT):
         _fail(failures, "form_dur_gauge_resolve: want stamped hint before resolve")
         _free_manager(mgr)
         return
-    var cid: int = _EntityAccess.id_int(c)
-    _ResolveAction.resolve(mgr, cid, cid, CombatConstants.MOVE_ID_WAIT, {})
+    var cid: int = EntityAccess.id_int(c)
+    ResolveAction.resolve(mgr, cid, cid, CombatConstants.MOVE_ID_WAIT, {})
     _free_manager(mgr)
     if c.has(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT):
         _fail(failures, "form_dur_gauge_resolve: hint key should clear after wait resolve")
@@ -729,18 +729,18 @@ static func _run_formation_move_duration_gauge_tooltip_clears_on_resolve(failure
 
 ## Tier 0 / wind-up: explicit **`move_id`** not on weapon does not start wind-up or substitute a random move.
 static func _run_wind_up_rejects_move_not_on_weapon(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = mgr.combatants[0]
-    var atk_id: int = _EntityAccess.id_int(atk)
-    var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
+    var atk_id: int = EntityAccess.id_int(atk)
+    var def_id: int = EntityAccess.id_int(mgr.combatants[1])
     atk["gauge"] = 100.0
-    _WindUpStarter.start(mgr, atk_id, def_id, "spear_thrust")
-    if _EntityAccess.state_str(atk) == CombatConstants.STATE_WIND_UP:
+    WindUpStarter.start(mgr, atk_id, def_id, "spear_thrust")
+    if EntityAccess.state_str(atk) == CombatConstants.STATE_WIND_UP:
         _fail(failures, "wind_up_reject: SWORD should not wind up with spear_thrust")
-    if not _EntityAccess.nested_dictionary_read(atk, "pending_attack").is_empty():
+    if not EntityAccess.nested_dictionary_read(atk, "pending_attack").is_empty():
         _fail(failures, "wind_up_reject: pending_attack should stay empty")
     _free_manager(mgr)
 
@@ -753,7 +753,7 @@ static func _run_formation_diagram_health_bar_reflects_body_damage(failures: Pac
     )
     mgr.set_meta("_engagement_mode_cached", CombatConstants.ENGAGEMENT_MODE_FORMATION)
     var c: Dictionary = mgr.combatants[0]
-    var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+    var ent: CoreEntity = EntityAccess.scene_node(c) as CoreEntity
     var diagram: Control = FormationDiagramBuilder.create(mgr, {"files": 1, "ranks": 1, "density": "normal"}, "player")
     var grid: GridContainer = diagram.get_meta("_formation_grid", null) as GridContainer
     var bar_before: ProgressBar = FormationDiagramBuilder.first_health_bar_in_grid(grid)
@@ -768,7 +768,7 @@ static func _run_formation_diagram_health_bar_reflects_body_damage(failures: Pac
         diagram.free()
         _free_manager(mgr)
         return
-    var ratio_before: float = _PartyRowFormatter.total_body_health_ratio(_EntityAccess.stats_dict(c))
+    var ratio_before: float = PartyRowFormatter.total_body_health_ratio(EntityAccess.stats_dict(c))
     if ratio_before < 0.95:
         _fail(failures, "form_health_bar: want near-full body ratio got %.3f" % ratio_before)
     var bar_before_val: float = bar_before.value
@@ -778,10 +778,10 @@ static func _run_formation_diagram_health_bar_reflects_body_damage(failures: Pac
     ent.body_blunt[part] = mx * 0.35
     FormationDiagramBuilder.refresh(diagram)
     for raw in mgr.get_combatants():
-        if _EntityAccess.id_int(raw) == _EntityAccess.id_int(c):
+        if EntityAccess.id_int(raw) == EntityAccess.id_int(c):
             c = raw as Dictionary
             break
-    var ratio_after: float = _PartyRowFormatter.total_body_health_ratio(_EntityAccess.stats_dict(c))
+    var ratio_after: float = PartyRowFormatter.total_body_health_ratio(EntityAccess.stats_dict(c))
     var bar_after: ProgressBar = FormationDiagramBuilder.first_health_bar_in_grid(grid)
     if bar_after == null:
         diagram.free()
@@ -819,7 +819,7 @@ static func _run_formation_diagram_health_bar_tint_reflects_function_loss(failur
     )
     mgr.set_meta("_engagement_mode_cached", CombatConstants.ENGAGEMENT_MODE_FORMATION)
     var c: Dictionary = mgr.combatants[0]
-    var ent: CoreEntity = _EntityAccess.scene_node(c) as CoreEntity
+    var ent: CoreEntity = EntityAccess.scene_node(c) as CoreEntity
     var diagram: Control = FormationDiagramBuilder.create(mgr, {"files": 1, "ranks": 1, "density": "normal"}, "player")
     var grid: GridContainer = diagram.get_meta("_formation_grid", null) as GridContainer
     var bar_before: ProgressBar = FormationDiagramBuilder.first_health_bar_in_grid(grid)
@@ -834,7 +834,7 @@ static func _run_formation_diagram_health_bar_tint_reflects_function_loss(failur
         diagram.free()
         _free_manager(mgr)
         return
-    var func_before: float = _PartyRowFormatter.body_functionality_ratio(c, mgr)
+    var func_before: float = PartyRowFormatter.body_functionality_ratio(c, mgr)
     var color_before: Color = _formation_health_bar_fill_color(bar_before)
     var arm: String = "right_arm"
     var mx: float = float(ent.body_max.get(arm, 1))
@@ -843,10 +843,10 @@ static func _run_formation_diagram_health_bar_tint_reflects_function_loss(failur
     ent.bone_health[arm] = 0
     FormationDiagramBuilder.refresh(diagram)
     for raw in mgr.get_combatants():
-        if _EntityAccess.id_int(raw) == _EntityAccess.id_int(c):
+        if EntityAccess.id_int(raw) == EntityAccess.id_int(c):
             c = raw as Dictionary
             break
-    var func_after: float = _PartyRowFormatter.body_functionality_ratio(c, mgr)
+    var func_after: float = PartyRowFormatter.body_functionality_ratio(c, mgr)
     var bar_after: ProgressBar = FormationDiagramBuilder.first_health_bar_in_grid(grid)
     if bar_after == null:
         diagram.free()
@@ -873,15 +873,15 @@ static func _run_formation_diagram_health_bar_tint_reflects_function_loss(failur
 
 ## Tier 0.1 UI: crowded lane shows formation-move duration hint on diagram tooltips.
 static func _run_formation_move_duration_ui_hint_when_lane_crowded(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
     var c: Dictionary = mgr.combatants[0]
-    var form_p: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "player")
-    form_p["slot_obstacles"] = {Vector2i(0, _EntityAccess.file_int(c)): [999]}
-    var nm: String = _EntityAccess.get_display_name(c, _EntityAccess.id_int(c))
-    var tip: String = "\n".join(_UiHints.formation_cell_tooltip_lines(c, nm, mgr))
+    var form_p: Dictionary = FormationSlots.formation_record_for_manager(mgr, "player")
+    form_p["slot_obstacles"] = {Vector2i(0, EntityAccess.file_int(c)): [999]}
+    var nm: String = EntityAccess.get_display_name(c, EntityAccess.id_int(c))
+    var tip: String = "\n".join(UiHints.formation_cell_tooltip_lines(c, nm, mgr))
     _free_manager(mgr)
     if not tip.contains("Formation move"):
         _fail(failures, "form_dur_ui: want Formation move hint got '%s'" % tip)

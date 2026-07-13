@@ -5,12 +5,12 @@ extends CombatRegressionHarnessCore
 static func _run_kinematic_delivery_strike_mult_cross_coupling_ke_vs_blunt_isolated(
     failures: PackedStringArray
 ) -> void:
-    var sword: Weapon = _Weapon.create_from_definition("SWORD")
+    var sword: Weapon = Weapon.create_from_definition("SWORD")
     if sword == null:
         _fail(failures, "kin_cross: missing sword")
         return
-    var w_axe: Weapon = _Weapon.create_from_definition("AXE")
-    var w_dagger: Weapon = _Weapon.create_from_definition("DAGGER")
+    var w_axe: Weapon = Weapon.create_from_definition("AXE")
+    var w_dagger: Weapon = Weapon.create_from_definition("DAGGER")
     if w_axe == null or w_dagger == null:
         _fail(failures, "kin_cross: missing axe or dagger")
         return
@@ -187,11 +187,11 @@ static func _run_kinematic_delivery_strike_mult_cross_coupling_ke_vs_blunt_isola
                 + "6f)" % [ev_dg_lo, ev_dg_hi]
             )
         )
-    var mace: Weapon = _Weapon.create_from_definition("MACE")
+    var mace: Weapon = Weapon.create_from_definition("MACE")
     if mace == null:
         _fail(failures, "kin_cross: missing mace")
         return
-    var spear: Weapon = _Weapon.create_from_definition("SPEAR")
+    var spear: Weapon = Weapon.create_from_definition("SPEAR")
     if spear == null:
         _fail(failures, "kin_cross: missing spear")
         return

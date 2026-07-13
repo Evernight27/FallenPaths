@@ -35,7 +35,7 @@ static func _run_kinematic_delivery_guard_wobble_heavy_mass_increases_spread(fai
 
 static func _kin_striker_stamina_strike_ke_sample(stamina_ratio: float) -> float:
     var m: Node = CombatManager.new()
-    m.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    m.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
     m.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     m.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -717,7 +717,7 @@ static func _run_kinematic_delivery_gambeson_and_cuirass_chest_both_below_bare(f
 
 static func _kin_unarmed_pre_blunt_sample(parry_r: float) -> float:
     var m: Node = CombatManager.new()
-    m.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    m.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
     m.register(CombatRegressionHarness._new_entity_unarmed(), "player")
     m.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -757,7 +757,7 @@ static func _kin_unarmed_pre_blunt_sample(parry_r: float) -> float:
 ## **`unarmed_base_pre_armor`** - -  closing - -  stamina - -  stance (no **`strike_ke_j`**).
 static func _run_kinematic_delivery_unarmed_pre_blunt_matches_helper(failures: PackedStringArray) -> void:
     var m: Node = CombatManager.new()
-    m.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    m.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
     m.register(CombatRegressionHarness._new_entity_unarmed(), "player")
     m.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})

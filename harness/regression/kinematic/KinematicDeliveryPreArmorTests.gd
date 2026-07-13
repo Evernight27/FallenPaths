@@ -11,7 +11,7 @@ static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_
 ) -> void:
     var strength: float = 100.0
     var arm_mod: float = 1.0
-    var sword: Weapon = _Weapon.create_from_definition("SWORD")
+    var sword: Weapon = Weapon.create_from_definition("SWORD")
     if sword == null:
         _fail(failures, "kin_pre_armor: missing sword")
         return
@@ -45,7 +45,7 @@ static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_
         {"def": "AXE", "move": "diagonal_chop", "pfx": "kin_pre_armor_cut_ax", "v_lo": 8.0, "v_hi": 15.0},
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_pre_armor_cut_dg", "v_lo": 8.0, "v_hi": 15.0},
     ]:
-        var w_c: Weapon = _Weapon.create_from_definition(str(cfx["def"]))
+        var w_c: Weapon = Weapon.create_from_definition(str(cfx["def"]))
         if w_c == null:
             _fail(failures, "%s: missing %s" % [str(cfx["pfx"]), str(cfx["def"])])
             return
@@ -77,7 +77,7 @@ static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_
                     % [pfx_c, got_r_c, want_r_c, ke_lo_c, ke_hi_c]
                 )
             )
-    var mace: Weapon = _Weapon.create_from_definition("MACE")
+    var mace: Weapon = Weapon.create_from_definition("MACE")
     if mace == null:
         _fail(failures, "kin_pre_armor: missing mace")
         return
@@ -105,7 +105,7 @@ static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_
 static func _run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_rises(
     failures: PackedStringArray
 ) -> void:
-    var sword: Weapon = _Weapon.create_from_definition("SWORD")
+    var sword: Weapon = Weapon.create_from_definition("SWORD")
     if sword == null:
         _fail(failures, "kin_pen: missing sword")
         return
@@ -151,7 +151,7 @@ static func _run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_
         {"def": "AXE", "move": "diagonal_chop", "pfx": "kin_pen_sharp_ax"},
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_pen_sharp_dg"},
     ]:
-        var w_p: Weapon = _Weapon.create_from_definition(str(pfx_row["def"]))
+        var w_p: Weapon = Weapon.create_from_definition(str(pfx_row["def"]))
         if w_p == null:
             _fail(failures, "%s: missing %s" % [str(pfx_row["pfx"]), str(pfx_row["def"])])
             return
@@ -191,7 +191,7 @@ static func _run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_
                     % [pfx_p, got_rp, want_rp, ke_lo_p, ke_hi_p, WeaponConstants.PENETRATION_EXPONENT]
                 )
             )
-    var mace: Weapon = _Weapon.create_from_definition("MACE")
+    var mace: Weapon = Weapon.create_from_definition("MACE")
     if mace == null:
         _fail(failures, "kin_pen: missing mace")
         return
@@ -225,7 +225,7 @@ static func _run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_c
 ) -> void:
     var strength: float = 100.0
     var arm_mod: float = 1.0
-    var sword: Weapon = _Weapon.create_from_definition("SWORD")
+    var sword: Weapon = Weapon.create_from_definition("SWORD")
     if sword == null:
         _fail(failures, "kin_e_mult: missing sword")
         return
@@ -264,7 +264,7 @@ static func _run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_c
         {"def": "AXE", "move": "diagonal_chop", "pfx": "kin_e_mult_pin_ax"},
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_e_mult_pin_dg"},
     ]:
-        var wp: Weapon = _Weapon.create_from_definition(str(pin_fx["def"]))
+        var wp: Weapon = Weapon.create_from_definition(str(pin_fx["def"]))
         if wp == null:
             _fail(failures, "%s: missing %s" % [str(pin_fx["pfx"]), str(pin_fx["def"])])
             return
@@ -329,7 +329,7 @@ static func _run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_c
         {"def": "AXE", "move": "diagonal_chop", "pfx": "kin_e_mult_mix_ax"},
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_e_mult_mix_dg"},
     ]:
-        var w_ex: Weapon = _Weapon.create_from_definition(str(fx["def"]))
+        var w_ex: Weapon = Weapon.create_from_definition(str(fx["def"]))
         if w_ex == null:
             _fail(failures, "%s: missing %s" % [str(fx["pfx"]), str(fx["def"])])
             return
@@ -378,7 +378,7 @@ static func _run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and
 ) -> void:
     var strength: float = 100.0
     var arm_mod: float = 1.0
-    var mace: Weapon = _Weapon.create_from_definition("MACE")
+    var mace: Weapon = Weapon.create_from_definition("MACE")
     if mace == null:
         _fail(failures, "kin_p_mult: missing mace")
         return
@@ -415,7 +415,7 @@ static func _run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and
         # otherwise clamps both samples to **1.0** -> ratio **1.0**).
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_p_mult_cb_dg", "v": 20.0},
     ]:
-        var wcb: Weapon = _Weapon.create_from_definition(str(cb["def"]))
+        var wcb: Weapon = Weapon.create_from_definition(str(cb["def"]))
         if wcb == null:
             _fail(failures, "%s: missing %s" % [str(cb["pfx"]), str(cb["def"])])
             return

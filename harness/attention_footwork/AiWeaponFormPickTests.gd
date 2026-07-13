@@ -3,7 +3,6 @@ extends CombatRegressionHarnessCore
 const Bp := preload("res://core/BodyPartConstants.gd")
 const WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 const PathResolver := preload("res://combat/AttackPathResolver.gd")
-const WeaponConstants := preload("res://weapon/WeaponConstants.gd")
 const CompanyState := preload("res://world/CompanyState.gd")
 const Proficiency := preload("res://core/EntityProficiency.gd")
 

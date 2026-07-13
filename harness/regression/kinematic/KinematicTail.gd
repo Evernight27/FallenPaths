@@ -4,7 +4,7 @@ extends RefCounted
 ## Footing: strike delivery / energy  -  may pass **`guard_line`** into path context; not L2 form or Tier 4.4 PA owner.
 ## LIVE_PATHS **`#wf-layer-labels`**.
 
-const _HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinematics"
+const HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinematics"
 ## Tier 5.1 core kinematic rows (bodies live on **`CombatRegressionHarness`** to avoid parse cycles).
 const HumanSpecies := preload("res://species/human.tres")
 

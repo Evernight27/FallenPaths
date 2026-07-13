@@ -1,13 +1,7 @@
 class_name AttentionFootworkFocusLineFootworkPickerTests
 extends CombatRegressionHarnessCore
-const MgrScript := preload("res://combat/CombatManager.gd")
-const MentalStack := preload("res://combat/MentalStackDecider.gd")
-const FormationSlots := preload("res://combat/FormationSlots.gd")
-const ListedActions := preload("res://combat/CombatListedActions.gd")
-const FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
 const FormationRout := preload("res://combat/CombatFormationRout.gd")
 const Exhaustion := preload("res://combat/CombatExhaustion.gd")
-const GuardLines := preload("res://combat/CombatGuardLines.gd")
 const WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).

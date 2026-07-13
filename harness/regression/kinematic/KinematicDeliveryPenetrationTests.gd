@@ -10,31 +10,31 @@ static func _run_kinematic_delivery_penetration_oblique_angle_factor_attack_reso
     var tol: float = 0.00001
     var amin: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
     var ascale: float = CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
-    var f_neg: float = _AttackResolver.penetration_oblique_angle_factor(-1.0, 0.0, 0.0)
+    var f_neg: float = AttackResolver.penetration_oblique_angle_factor(-1.0, 0.0, 0.0)
     if absf(f_neg - 1.0) > tol:
         _fail(failures, "kin_oblique: vo<0 should be 1 got %.6f" % f_neg)
-    var f_clean: float = _AttackResolver.penetration_oblique_angle_factor(10.0, 1.0, 1.0)
+    var f_clean: float = AttackResolver.penetration_oblique_angle_factor(10.0, 1.0, 1.0)
     if absf(f_clean - 1.0) > tol:
         _fail(failures, "kin_oblique: full parry+align should be 1 got %.6f" % f_clean)
-    var f_parry_half: float = _AttackResolver.penetration_oblique_angle_factor(0.0, 0.5, 1.0)
+    var f_parry_half: float = AttackResolver.penetration_oblique_angle_factor(0.0, 0.5, 1.0)
     var w_parry_half: float = lerpf(1.0, amin, 0.5)
     if absf(f_parry_half - w_parry_half) > tol:
         _fail(failures, "kin_oblique: parry 0.5 want %.6f got %.6f" % [w_parry_half, f_parry_half])
-    var f_align_edge: float = _AttackResolver.penetration_oblique_angle_factor(5.0, 1.0, 0.0)
+    var f_align_edge: float = AttackResolver.penetration_oblique_angle_factor(5.0, 1.0, 0.0)
     var w_align: float = cos(deg_to_rad(75.0))
     if absf(f_align_edge - w_align) > tol:
         _fail(failures, "kin_oblique: align 0 parry=1 want %.6f got %.6f" % [w_align, f_align_edge])
-    var f_parry_zero: float = _AttackResolver.penetration_oblique_angle_factor(5.0, 0.0, 1.0)
+    var f_parry_zero: float = AttackResolver.penetration_oblique_angle_factor(5.0, 0.0, 1.0)
     var w_pz: float = lerpf(1.0, amin, 1.0)
     if absf(f_parry_zero - w_pz) > tol:
         _fail(failures, "kin_oblique: parry 0 want %.6f got %.6f" % [w_pz, f_parry_zero])
-    var f_parry_wins: float = _AttackResolver.penetration_oblique_angle_factor(5.0, 0.25, 0.0)
+    var f_parry_wins: float = AttackResolver.penetration_oblique_angle_factor(5.0, 0.25, 0.0)
     var w_pw: float = lerpf(1.0, amin, 0.75) * cos(deg_to_rad(75.0))
     if absf(f_parry_wins - w_pw) > tol:
         _fail(
             failures, "kin_oblique: parry 0.25+align0 should compound factors want %.6f got %.6f" % [w_pw, f_parry_wins]
         )
-    var f_align_mid: float = _AttackResolver.penetration_oblique_angle_factor(3.0, 1.0, 0.5)
+    var f_align_mid: float = AttackResolver.penetration_oblique_angle_factor(3.0, 1.0, 0.5)
     var w_mid: float = cos(deg_to_rad((1.0 - 0.5) * 75.0))
     if absf(f_align_mid - w_mid) > tol:
         _fail(failures, "kin_oblique: align 0.5 want %.6f got %.6f" % [w_mid, f_align_mid])
@@ -49,16 +49,16 @@ static func _run_kinematic_delivery_penetration_oblique_angle_factor_attack_reso
 static func _kin_dmg_pen_sample(vo: float, parry_r: float, align: float, strike_mods: Dictionary) -> Vector2:
     var intensity: float = 0.62
     var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
-    var m: Node = _MgrScript.new()
-    m.set_meta(_HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
+    var m: Node = MgrScript.new()
+    m.set_meta(HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
     m.register(_new_entity("SWORD"), "player")
     m.register(_new_entity("SWORD"), "enemy")
     m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = m.combatants[0]
     var tgt: Dictionary = m.combatants[1]
-    var aid: int = _EntityAccess.id_int(atk)
-    var tid: int = _EntityAccess.id_int(tgt)
-    var res: Dictionary = _AttackResolver.compute_and_apply_damage(
+    var aid: int = EntityAccess.id_int(atk)
+    var tid: int = EntityAccess.id_int(tgt)
+    var res: Dictionary = AttackResolver.compute_and_apply_damage(
         m,
         aid,
         tid,
@@ -534,9 +534,9 @@ static func _run_kinematic_delivery_guard_deflect_blend_guard_angle_and_attack_o
 static func _run_kinematic_delivery_compute_penetration_return_keys_and_thrust_blunt_contact(
     failures: PackedStringArray
 ) -> void:
-    var sword: Weapon = _Weapon.create_from_definition("SWORD")
-    var mace: Weapon = _Weapon.create_from_definition("MACE")
-    var spear: Weapon = _Weapon.create_from_definition("SPEAR")
+    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var mace: Weapon = Weapon.create_from_definition("MACE")
+    var spear: Weapon = Weapon.create_from_definition("SPEAR")
     if sword == null or mace == null or spear == null:
         _fail(failures, "kin_pen_keys: missing sword/mace/spear")
         return
@@ -663,24 +663,24 @@ static func _kin_expected_damage_velocity_m_s(
     afterblow_damage_mult: float,
     strike_physics_ctx: Dictionary = {}
 ) -> float:
-    var weapon: Weapon = _EntityAccess.get_weapon(atk) as Weapon
+    var weapon: Weapon = EntityAccess.get_weapon(atk) as Weapon
     if weapon == null:
         return -1.0
     var commit_frac: float = float(strike_physics_ctx.get("weapon_extension_commit_fraction", -1.0))
     if commit_frac < 0.0:
-        commit_frac = _WeaponPosition.commit_fraction_from_move_def(WeaponConstants.get_move(move_id))
+        commit_frac = WeaponPosition.commit_fraction_from_move_def(WeaponConstants.get_move(move_id))
     var delivery_intensity: float = WeaponDamageHelper.effective_intensity_for_delivery(intensity, commit_frac)
     var v_base: float = (
         velocity_override
         if velocity_override >= 0.0
         else WeaponDamageHelper.velocity_m_s_from_intensity(delivery_intensity, arch, weapon, move_id)
     )
-    var v: float = v_base * _StrikePhysics.closing_speed_multiplier(mgr, atk, tgt, strike_physics_ctx)
-    var st_ratio: float = clampf(_EntityAccess.stamina_float(atk) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
+    var v: float = v_base * StrikePhysics.closing_speed_multiplier(mgr, atk, tgt, strike_physics_ctx)
+    var st_ratio: float = clampf(EntityAccess.stamina_float(atk) / CombatConstants.STAMINA_MAX, 0.0, 1.0)
     v *= sqrt(lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(st_ratio)))
     if afterblow_damage_mult < 1.0:
         v *= sqrt(maxf(0.04, afterblow_damage_mult))
-    return _ImpactVelocityModel.clamp_velocity_m_s(v)
+    return ImpactVelocityModel.clamp_velocity_m_s(v)
 
 
 static func _kin_pen_sharp_at_velocity(
@@ -710,18 +710,18 @@ static func _run_kinematic_delivery_compute_damage_velocity_and_entity_split(fai
     var intensity: float = 0.62
     var move_id: String = "oberhau"
     var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
-    var sword: Weapon = _Weapon.create_from_definition("SWORD")
+    var sword: Weapon = Weapon.create_from_definition("SWORD")
     if sword == null:
         _fail(failures, "kin_dmg_v_entity: missing sword")
         return
-    var m: Node = _MgrScript.new()
-    m.set_meta(_HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
+    var m: Node = MgrScript.new()
+    m.set_meta(HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
     m.register(_new_entity("SWORD"), "player")
     m.register(_new_entity("SWORD"), "enemy")
     m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = m.combatants[0]
     var tgt: Dictionary = m.combatants[1]
-    var tgt_n: Node = _EntityAccess.scene_node(tgt)
+    var tgt_n: Node = EntityAccess.scene_node(tgt)
     if tgt_n == null:
         _fail(failures, "kin_dmg_v_entity: missing target node")
         _free_manager(m)
@@ -745,10 +745,10 @@ static func _run_kinematic_delivery_compute_damage_velocity_and_entity_split(fai
                     % [case["label"], pen_int / pen_exp, pen_int, pen_exp, v_exp]
                 )
             )
-    var res: Dictionary = _AttackResolver.compute_and_apply_damage(
+    var res: Dictionary = AttackResolver.compute_and_apply_damage(
         m,
-        _EntityAccess.id_int(atk),
-        _EntityAccess.id_int(tgt),
+        EntityAccess.id_int(atk),
+        EntityAccess.id_int(tgt),
         atk,
         tgt,
         "chest",
@@ -797,7 +797,7 @@ static func _run_kinematic_delivery_alignment_context_guard_angle_only_uses_comb
     failures: PackedStringArray
 ) -> void:
     var def_line: String = (
-        _GuardLines.LINE_HIGH_RIGHT if CombatConstants.is_feature_hema_eight_guard_lines_enabled() else "right"
+        GuardLines.LINE_HIGH_RIGHT if CombatConstants.is_feature_hema_eight_guard_lines_enabled() else "right"
     )
     var defender: Dictionary = {"guard_line": def_line}
     var ctx_guard_only: Dictionary = {"guard_angle_deg": 180.0}
@@ -829,7 +829,7 @@ static func _run_kinematic_delivery_alignment_context_guard_angle_only_uses_comb
 ## **`StrikeRealismProfile.velocity_intent_mult_from_pa`** (pinned station); damage **KE** uses effective **`v`**
 ## without intent mult.
 static func _run_kinematic_delivery_parry_v_intent_effective_velocity_base(failures: PackedStringArray) -> void:
-    var sword: Weapon = _Weapon.create_from_definition("SWORD")
+    var sword: Weapon = Weapon.create_from_definition("SWORD")
     if sword == null:
         _fail(failures, "kin_parry_v: missing sword")
         return
@@ -850,8 +850,8 @@ static func _run_kinematic_delivery_parry_v_intent_effective_velocity_base(failu
         _fail(failures, "kin_parry_v: pinned v_eff should be 10")
     var pa_tip: Dictionary = {"impact_blade_station": 0.92, "strike_measure_ratio": 1.0}
     var pa_guard: Dictionary = {"impact_blade_station": 0.12, "strike_measure_ratio": 1.0}
-    var mult_tip: float = _StrikeRealism.velocity_intent_mult_from_pa(pa_tip, sword, move_id, intensity, arch)
-    var mult_guard: float = _StrikeRealism.velocity_intent_mult_from_pa(pa_guard, sword, move_id, intensity, arch)
+    var mult_tip: float = StrikeRealism.velocity_intent_mult_from_pa(pa_tip, sword, move_id, intensity, arch)
+    var mult_guard: float = StrikeRealism.velocity_intent_mult_from_pa(pa_guard, sword, move_id, intensity, arch)
     if mult_tip <= mult_guard + 0.0001:
         _fail(failures, "kin_parry_v: cut tip station mult %.4f should exceed guard %.4f" % [mult_tip, mult_guard])
     var v_intent_tip: float = v_eff * mult_tip

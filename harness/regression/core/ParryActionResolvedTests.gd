@@ -5,14 +5,14 @@ extends CombatRegressionHarnessCore
 ## **`AttackResultApplier`**: first **`action_resolved`** on **`parry_partial`** is defender, attacker, payload with
 ## **`parry_clash_context`** (nested **`_execute_attack`** may append further rows).
 static func _run_action_resolved_parry_partial_payload_includes_clash_context(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var p: Dictionary = mgr.combatants[0]
     var e: Dictionary = mgr.combatants[1]
-    var p_id: int = _EntityAccess.id_int(p)
-    var e_id: int = _EntityAccess.id_int(e)
+    var p_id: int = EntityAccess.id_int(p)
+    var e_id: int = EntityAccess.id_int(e)
     var captured: Array = []
     mgr.action_resolved.connect(
         func(first_id: int, second_id: int, res: Dictionary) -> void:
@@ -24,7 +24,7 @@ static func _run_action_resolved_parry_partial_payload_includes_clash_context(fa
     var pclash: Dictionary = {
         "kinematic_delivery": "thrust", "strike_measure_ratio": 1.05, "parry_control": 0.41, "remaining_ratio": 0.33
     }
-    _AttackResultApplier.apply_result(
+    AttackResultApplier.apply_result(
         mgr, e_id, {"action": "parry_partial", "target_id": p_id, "parry_clash_context": pclash}
     )
     if captured.is_empty():
@@ -78,14 +78,14 @@ static func _run_action_resolved_parry_partial_payload_includes_clash_context(fa
 ## **`AttackResultApplier`**: **`hit`** erases **`parry_clash_context`** / **`defender_guard_line_at_parry`** on the
 ## striker (stale calibration after **`parry_partial`** follow-through).
 static func _run_hit_clears_attacker_parry_calibration_fields(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var p: Dictionary = mgr.combatants[0]
     var e: Dictionary = mgr.combatants[1]
-    var p_id: int = _EntityAccess.id_int(p)
-    var e_id: int = _EntityAccess.id_int(e)
+    var p_id: int = EntityAccess.id_int(p)
+    var e_id: int = EntityAccess.id_int(e)
     p.state = CombatConstants.STATE_WAITING
     p.pending_attack = {}
     e.state = CombatConstants.STATE_WIND_UP
@@ -111,7 +111,7 @@ static func _run_hit_clears_attacker_parry_calibration_fields(failures: PackedSt
         "total_physical": 2.0,
     }
     (
-        _AttackResultApplier
+        AttackResultApplier
         . apply_result(
             mgr,
             e_id,
@@ -138,14 +138,14 @@ static func _run_hit_clears_attacker_parry_calibration_fields(failures: PackedSt
 ## **`AttackResultApplier`**: **`hit`** sets defender **`guard_line`** low and syncs **`guard_zone`** via
 ## **`GuardLineUpdater.set_guard_from_line`** (stagger / dropped guard).
 static func _run_hit_applier_sets_defender_guard_low_after_hit(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var p: Dictionary = mgr.combatants[0]
     var e: Dictionary = mgr.combatants[1]
-    var p_id: int = _EntityAccess.id_int(p)
-    var e_id: int = _EntityAccess.id_int(e)
+    var p_id: int = EntityAccess.id_int(p)
+    var e_id: int = EntityAccess.id_int(e)
     p.state = CombatConstants.STATE_WAITING
     p.pending_attack = {}
     p["guard_line"] = "high"
@@ -171,7 +171,7 @@ static func _run_hit_applier_sets_defender_guard_low_after_hit(failures: PackedS
         "total_physical": 2.0,
     }
     (
-        _AttackResultApplier
+        AttackResultApplier
         . apply_result(
             mgr,
             e_id,
@@ -212,14 +212,14 @@ static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedS
         seed_stale_bind: bool = false,
         misaligned_erase_bind_key: bool = false
     ) -> void:
-        var mgr: Node = _MgrScript.new()
+        var mgr: Node = MgrScript.new()
         mgr.register(_new_entity("SWORD"), "player")
         mgr.register(_new_entity("SWORD"), "enemy")
         mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
         var p: Dictionary = mgr.combatants[0]
         var e: Dictionary = mgr.combatants[1]
-        var p_id: int = _EntityAccess.id_int(p)
-        var e_id: int = _EntityAccess.id_int(e)
+        var p_id: int = EntityAccess.id_int(p)
+        var e_id: int = EntityAccess.id_int(e)
         p.state = CombatConstants.STATE_WAITING
         p["guard"] = 1.0
         p["guard_line"] = "high"
@@ -238,7 +238,7 @@ static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedS
             "parry_remaining_ratio": 0.05,
         }
         var pclash: Dictionary = {"parry_control": parry_control, "archetype_id": "stab"}
-        _AttackResultApplier.apply_result(
+        AttackResultApplier.apply_result(
             mgr, e_id, {"action": "parry_partial", "target_id": p_id, "parry_clash_context": pclash}
         )
         if expect_bind:
@@ -326,7 +326,7 @@ static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedS
 
 
 static func _harness_counter_tempo_set_incoming_progress(mgr: Node, attacker_id: int, fraction: float) -> void:
-    _Fixtures._harness_counter_tempo_set_incoming_progress(mgr, attacker_id, fraction)
+    Fixtures._harness_counter_tempo_set_incoming_progress(mgr, attacker_id, fraction)
 
 
 ## Tier 4.2 counter-tempo pilot: incoming wind-up opens defender **`COMBATANT_KEY_COUNTER_WINDOW_UNTIL`**.
@@ -334,7 +334,7 @@ static func _harness_counter_tempo_set_incoming_progress(mgr: Node, attacker_id:
 
 ## Tier 4.2 counter-tempo pilot: incoming wind-up opens defender **`COMBATANT_KEY_COUNTER_WINDOW_UNTIL`**.
 static func _run_combat_end_enemy_win_stops_manager(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     var ent_player := _new_entity("SWORD")
     mgr.register(ent_player, "player")
@@ -351,7 +351,7 @@ static func _run_combat_end_enemy_win_stops_manager(failures: PackedStringArray)
     if not mgr.combat_resolution_closed:
         _fail(failures, "combat_end_enemy_win: combat_resolution_closed should be true")
     for _i in 24:
-        _ProcessTick.tick(mgr, 0.05)
+        ProcessTick.tick(mgr, 0.05)
     if int(ended_box[0]) != 1:
         _fail(
             failures,
@@ -365,17 +365,17 @@ static func _run_combat_end_enemy_win_stops_manager(failures: PackedStringArray)
 
 ## Tier 4.3: mental stack L1 picks medical when ally in peril.
 static func _run_feint_second_windup_clears_prior_telegraph_before_restamp(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var p: Dictionary = mgr.combatants[0]
     var e: Dictionary = mgr.combatants[1]
-    var p_id: int = _EntityAccess.id_int(p)
-    var e_id: int = _EntityAccess.id_int(e)
+    var p_id: int = EntityAccess.id_int(p)
+    var e_id: int = EntityAccess.id_int(e)
     e["guard_zone"] = "chest"
     seed(_FEINT_WINDUP_HARNESS_SEED)
-    _WindUpStarter.start(mgr, p_id, e_id, "oberhau_feint", {"target_part": "left_leg", "feint_part": "head"})
+    WindUpStarter.start(mgr, p_id, e_id, "oberhau_feint", {"target_part": "left_leg", "feint_part": "head"})
     if str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")) != "head":
         _fail(
             failures,
@@ -385,7 +385,7 @@ static func _run_feint_second_windup_clears_prior_telegraph_before_restamp(failu
             )
         )
     seed(_FEINT_WINDUP_HARNESS_SEED)
-    _WindUpStarter.start(mgr, p_id, e_id, "oberhau_feint", {"target_part": "right_leg", "feint_part": "chest"})
+    WindUpStarter.start(mgr, p_id, e_id, "oberhau_feint", {"target_part": "right_leg", "feint_part": "chest"})
     if str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")) != "chest":
         _fail(
             failures,
@@ -407,7 +407,7 @@ static func _run_feint_second_windup_clears_prior_telegraph_before_restamp(failu
 ## (second **`start()`** without re-**`register`**).
 static func _run_weapon_part_mass_model_normalized(failures: PackedStringArray) -> void:
     for wid in WeaponConstants.get_all_weapon_ids():
-        var weapon: Weapon = _Weapon.create_from_definition(wid)
+        var weapon: Weapon = Weapon.create_from_definition(wid)
         if weapon == null:
             _fail(failures, "weapon_parts: could not create %s" % wid)
             continue
@@ -420,7 +420,7 @@ static func _run_weapon_part_mass_model_normalized(failures: PackedStringArray) 
                 total_fraction += float((part as Dictionary).get("mass_fraction", 0.0))
         if absf(total_fraction - 1.0) > 0.001:
             _fail(failures, "weapon_parts: %s mass fractions sum %.3f, want 1.000" % [wid, total_fraction])
-    var spear: Weapon = _Weapon.create_from_definition("SPEAR")
+    var spear: Weapon = Weapon.create_from_definition("SPEAR")
     if spear == null:
         _fail(failures, "weapon_parts: missing spear")
         return
@@ -446,7 +446,7 @@ static func _run_weapon_parry_part_selection_fallbacks(failures: PackedStringArr
         {"id": "head", "length_cm": 10, "mass_fraction": 0.65, "parry_eligible": false},
         {"id": "shaft", "length_cm": 60, "mass_fraction": 0.35, "parry_eligible": true}
     ]
-    var selector := Callable(_Weapon, "parry_part_id_from_parts")
+    var selector := Callable(Weapon, "parry_part_id_from_parts")
     var preferred: String = str(selector.call(parts, " Shaft "))
     if preferred != "shaft":
         _fail(failures, "weapon_parry_part: normalized preferred id got %s want shaft" % preferred)
@@ -470,9 +470,9 @@ static func _run_weapon_parry_part_selection_fallbacks(failures: PackedStringArr
 
 ## Tier 3.2: attack momentum / KE helpers use the intended striking part mass.
 static func _run_weapon_striking_part_mass_model(failures: PackedStringArray) -> void:
-    var spear: Weapon = _Weapon.create_from_definition("SPEAR")
-    var mace: Weapon = _Weapon.create_from_definition("MACE")
-    var axe: Weapon = _Weapon.create_from_definition("AXE")
+    var spear: Weapon = Weapon.create_from_definition("SPEAR")
+    var mace: Weapon = Weapon.create_from_definition("MACE")
+    var axe: Weapon = Weapon.create_from_definition("AXE")
     if spear == null or mace == null or axe == null:
         _fail(failures, "weapon_striking_parts: missing spear/mace/axe")
         return
@@ -526,7 +526,7 @@ static func _run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_
         != WeaponConstants.KINEMATIC_DELIVERY_MIXED
     ):
         _fail(failures, "kin_del: mixed archetype should win over stab inference")
-    var sword: Weapon = _Weapon.create_from_definition("SWORD")
+    var sword: Weapon = Weapon.create_from_definition("SWORD")
     if sword == null:
         _fail(failures, "kin_del_mixed: missing sword")
         return
@@ -589,7 +589,7 @@ static func _run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_
         _fail(failures, "kin_del_mixed: mixed blend 1 KE %.6f should match swing KE %.6f" % [ke_m1, ke_sw])
     ## Second weapon: AXE + diagonal_chop (cut)  -  same mixed brackets (Tier 5.1); avoids **`spear_slash`**
     ## thrust/swing KE degeneracy at some intensities.
-    var axe: Weapon = _Weapon.create_from_definition("AXE")
+    var axe: Weapon = Weapon.create_from_definition("AXE")
     if axe == null:
         _fail(failures, "kin_del_axe: missing axe")
         return
@@ -648,7 +648,7 @@ static func _run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_
     if absf(ke_ax_m1 - ke_ax_sw) > 0.001:
         _fail(failures, "kin_del_axe: mixed blend 1 KE %.6f should match swing KE %.6f" % [ke_ax_m1, ke_ax_sw])
     ## Third weapon: DAGGER + quick_slash (cut)  -  same mixed brackets (Tier 5.1 light weapon coverage).
-    var dagger: Weapon = _Weapon.create_from_definition("DAGGER")
+    var dagger: Weapon = Weapon.create_from_definition("DAGGER")
     if dagger == null:
         _fail(failures, "kin_del_dagger: missing dagger")
         return
@@ -723,7 +723,7 @@ static func _run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_
 static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effective_and_monotone(
     failures: PackedStringArray
 ) -> void:
-    var sword: Weapon = _Weapon.create_from_definition("SWORD")
+    var sword: Weapon = Weapon.create_from_definition("SWORD")
     if sword == null:
         _fail(failures, "kin_vel_bridge: missing sword")
         return
@@ -797,7 +797,7 @@ static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effectiv
             failures, "kin_vel_mono: mixed blend expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [v_mx_hi - v_mx_lo]
         )
     ## Stab-inferred thrust: SPEAR + spear_thrust (linear band).
-    var spear: Weapon = _Weapon.create_from_definition("SPEAR")
+    var spear: Weapon = Weapon.create_from_definition("SPEAR")
     if spear == null:
         _fail(failures, "kin_vel_bridge: missing spear")
         return
@@ -825,7 +825,7 @@ static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effectiv
             "kin_vel_mono: spear thrust expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [v_sp_hi - v_sp_lo]
         )
     ## Blunt contact -> swing kinematic path: MACE + direct_blow.
-    var mace: Weapon = _Weapon.create_from_definition("MACE")
+    var mace: Weapon = Weapon.create_from_definition("MACE")
     if mace == null:
         _fail(failures, "kin_vel_bridge: missing mace")
         return
@@ -855,7 +855,7 @@ static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effectiv
         {"def": "AXE", "move": "diagonal_chop", "pfx": "kin_vel_ax"},
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_vel_dg"},
     ]:
-        var w_b: Weapon = _Weapon.create_from_definition(str(blade_spec["def"]))
+        var w_b: Weapon = Weapon.create_from_definition(str(blade_spec["def"]))
         if w_b == null:
             _fail(failures, "%s: missing %s" % [str(blade_spec["pfx"]), str(blade_spec["def"])])
             return

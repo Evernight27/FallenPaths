@@ -49,7 +49,7 @@ static func _run_kinematic_delivery_rear_afterblow_compose_on_strike_ke(failures
 static func _run_kinematic_delivery_weapon_form_damage_scales_pre_cut_integration(failures: PackedStringArray) -> void:
     var vo_pin: float = 11.0
     var mgr_a: Node = CombatManager.new()
-    mgr_a.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    mgr_a.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
     mgr_a.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr_a.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr_a.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -80,7 +80,7 @@ static func _run_kinematic_delivery_weapon_form_damage_scales_pre_cut_integratio
     var cut_agg: float = float(res_a.get("result_dict", {}).get("pre_cut_applied", -1.0))
     CombatRegressionHarness._free_manager(mgr_a)
     var mgr_d: Node = CombatManager.new()
-    mgr_d.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    mgr_d.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
     mgr_d.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr_d.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr_d.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -297,8 +297,8 @@ static func _kin_dmg_sample_on_part(
     part: String, vo: float, weapon_id: String, move_id: String, arch: Dictionary
 ) -> Dictionary:
     var m: Node = CombatManager.new()
-    m.set_meta(CombatRegressionHarness._HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
-    m.set_meta(CombatRegressionHarness._HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
+    m.set_meta(CombatRegressionHarness.HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    m.set_meta(CombatRegressionHarness.HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
     m.register(KinematicDeliveryClosingDefenseTests._kin_entity_with_human_species(weapon_id), "player")
     m.register(KinematicDeliveryClosingDefenseTests._kin_entity_with_human_species(weapon_id), "enemy")
     m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -440,7 +440,7 @@ static func _run_kinematic_delivery_cut_damage_mult_integration_scales_pre_cut_o
 
 static func _kin_unarmed_pre_blunt_afterblow_sample(afterblow_mult: float) -> float:
     var m: Node = CombatManager.new()
-    m.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    m.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
     m.register(CombatRegressionHarness._new_entity_unarmed(), "player")
     m.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -609,7 +609,7 @@ static func _run_kinematic_delivery_empty_arch_sword_thrust_infers_delivery(fail
         vo_pin, 1.0, 1.0, {}, "SWORD", move_id, 1.0, {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
     )
     var mgr: Node = CombatManager.new()
-    mgr.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    mgr.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})

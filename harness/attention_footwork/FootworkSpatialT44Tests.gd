@@ -1,9 +1,5 @@
 class_name AttentionFootworkSpatialT44Tests
 extends CombatRegressionHarnessCore
-const MgrScript := preload("res://combat/CombatManager.gd")
-const GuardLines := preload("res://combat/CombatGuardLines.gd")
-const WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
-const StateHandlers := preload("res://combat/CombatStateHandlers.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .

@@ -1,14 +1,5 @@
 class_name AttentionFootworkMentalStackFormationPlugTests
 extends CombatRegressionHarnessCore
-const MgrScript := preload("res://combat/CombatManager.gd")
-const MentalStack := preload("res://combat/MentalStackDecider.gd")
-const PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
-const FormationSlots := preload("res://combat/FormationSlots.gd")
-const FormationFlow := preload("res://combat/CombatFormationFlow.gd")
-const ListedActions := preload("res://combat/CombatListedActions.gd")
-const EngagementMode := preload("res://combat/CombatEngagementMode.gd")
-const FormationMoves := preload("res://combat/CombatFormationMoveListing.gd")
-const VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
 const FormationRout := preload("res://combat/CombatFormationRout.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
@@ -582,7 +573,7 @@ static func _run_mental_stack_formation_plug_skipped_mop_up_offense(failures: Pa
             CombatRegressionHarness._free_manager_restore_global_rng(mgr)
             return
         acts.append({"move_id": CombatConstants.MOVE_ID_SWAP_RANK, "target_id": front_id})
-    if not VacancyPlugs.formation_plug_layer_blocked(mgr, rear, acts, rear_id):
+    if not FormationVacancyPlugs.formation_plug_layer_blocked(mgr, rear, acts, rear_id):
         CombatRegressionHarness._fail(
             failures, "mental_stack_plug_skip_mop: want formation_plug_layer_blocked during mop-up offense"
         )
@@ -635,7 +626,7 @@ static func _run_mental_stack_formation_plug_no_gap_stack_miss(failures: PackedS
         CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want no swap_rank on intact duel")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
-    if VacancyPlugs.formation_plug_layer_eligible(mgr, player, player_id, acts):
+    if FormationVacancyPlugs.formation_plug_layer_eligible(mgr, player, player_id, acts):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want plug layer ineligible")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
@@ -688,7 +679,7 @@ static func _run_mental_stack_formation_plug_skipped_sparse_line_offense(failure
         )
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
-    if not VacancyPlugs.formation_plug_layer_blocked(mgr, survivor, acts, survivor_id):
+    if not FormationVacancyPlugs.formation_plug_layer_blocked(mgr, survivor, acts, survivor_id):
         CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_sparse: want formation_plug_layer_blocked")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return

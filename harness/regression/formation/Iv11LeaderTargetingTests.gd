@@ -6,16 +6,16 @@ extends CombatRegressionHarnessCore
 static func _run_iv11_leader_doctrine_cycle_suite(failures: PackedStringArray) -> void:
     var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
     CombatConstants.set_feature_leader_formation_command_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
     var leader: Dictionary = {}
     for c in mgr.combatants:
-        if not _EntityAccess.is_living_on_side(c, "player"):
+        if not EntityAccess.is_living_on_side(c, "player"):
             continue
-        if _EntityAccess.rank_int(c) == 0:
+        if EntityAccess.rank_int(c) == 0:
             leader = c
             break
     if leader.is_empty():
@@ -24,7 +24,7 @@ static func _run_iv11_leader_doctrine_cycle_suite(failures: PackedStringArray) -
         _free_manager(mgr)
         return
     leader["is_party_leader"] = true
-    var leader_id: int = _EntityAccess.id_int(leader)
+    var leader_id: int = EntityAccess.id_int(leader)
     mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
     var steps: Array = [
         CombatConstants.MOVE_ID_ORDER_HOLD_LANE,
@@ -42,7 +42,7 @@ static func _run_iv11_leader_doctrine_cycle_suite(failures: PackedStringArray) -
         leader["state"] = CombatConstants.STATE_WAITING
         leader["gauge"] = 100.0
         var move_id: String = str(steps[i])
-        if not _ResolveAction.resolve(mgr, leader_id, leader_id, move_id, {}):
+        if not ResolveAction.resolve(mgr, leader_id, leader_id, move_id, {}):
             _fail(failures, "iv11_cycle: resolve %s failed at step %d" % [move_id, i])
             break
         if mgr.get_formation_doctrine("player") != want_docs[i]:
@@ -61,7 +61,7 @@ static func _run_iv11_leader_doctrine_cycle_suite(failures: PackedStringArray) -
 static func _run_iv11_leader_command_ai_weight_suite(failures: PackedStringArray) -> void:
     var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
     CombatConstants.set_feature_leader_formation_command_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -69,7 +69,7 @@ static func _run_iv11_leader_command_ai_weight_suite(failures: PackedStringArray
     leader["is_party_leader"] = true
     leader["state"] = CombatConstants.STATE_WAITING
     leader["gauge"] = 100.0
-    var leader_id: int = _EntityAccess.id_int(leader)
+    var leader_id: int = EntityAccess.id_int(leader)
     var acts: Array = mgr.get_available_actions(leader_id)
     var hold_act: Dictionary = {}
     for raw in acts:
@@ -84,14 +84,14 @@ static func _run_iv11_leader_command_ai_weight_suite(failures: PackedStringArray
         CombatConstants.set_feature_leader_formation_command_load(saved)
         _free_manager(mgr)
         return
-    var w: float = _AIPicker._get_action_weight(hold_act, leader_id, mgr, true, {}, {}, acts)
+    var w: float = AIPicker._get_action_weight(hold_act, leader_id, mgr, true, {}, {}, acts)
     if not is_equal_approx(w, CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT):
         _fail(
             failures,
             "iv11_ai_weight: want %.2f got %.4f" % [CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT, w]
         )
     leader["is_party_leader"] = false
-    var w_member: float = _AIPicker._get_action_weight(hold_act, leader_id, mgr, true, {}, {}, acts)
+    var w_member: float = AIPicker._get_action_weight(hold_act, leader_id, mgr, true, {}, {}, acts)
     if w_member != 0.0:
         _fail(failures, "iv11_ai_weight: non-issuer want weight 0 got %.4f" % w_member)
     CombatConstants.set_feature_leader_formation_command_load(saved)
@@ -105,7 +105,7 @@ static func _run_iv11_leader_command_ai_weight_suite(failures: PackedStringArray
 static func _run_iv11_enemy_commander_ai_weight_suite(failures: PackedStringArray) -> void:
     var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
     CombatConstants.set_feature_leader_formation_command_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     var cmd_ent: CoreEntity = _new_entity("SWORD")
     cmd_ent.is_enemy_leader = true
@@ -114,7 +114,7 @@ static func _run_iv11_enemy_commander_ai_weight_suite(failures: PackedStringArra
     var commander: Dictionary = mgr.combatants[1]
     commander["state"] = CombatConstants.STATE_WAITING
     commander["gauge"] = 100.0
-    var cmd_id: int = _EntityAccess.id_int(commander)
+    var cmd_id: int = EntityAccess.id_int(commander)
     var acts: Array = mgr.get_available_actions(cmd_id)
     var hold_act: Dictionary = {}
     for raw in acts:
@@ -129,14 +129,14 @@ static func _run_iv11_enemy_commander_ai_weight_suite(failures: PackedStringArra
         CombatConstants.set_feature_leader_formation_command_load(saved)
         _free_manager(mgr)
         return
-    var w: float = _AIPicker._get_action_weight(hold_act, cmd_id, mgr, true, {}, {}, acts)
+    var w: float = AIPicker._get_action_weight(hold_act, cmd_id, mgr, true, {}, {}, acts)
     if not is_equal_approx(w, CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT):
         _fail(
             failures,
             "iv11_enemy_ai_weight: want %.2f got %.4f" % [CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT, w]
         )
     commander["is_enemy_leader"] = false
-    var w_grunt: float = _AIPicker._get_action_weight(hold_act, cmd_id, mgr, true, {}, {}, acts)
+    var w_grunt: float = AIPicker._get_action_weight(hold_act, cmd_id, mgr, true, {}, {}, acts)
     if w_grunt != 0.0:
         _fail(failures, "iv11_enemy_ai_weight: non-issuer want weight 0 got %.4f" % w_grunt)
     CombatConstants.set_feature_leader_formation_command_load(saved)
@@ -153,16 +153,16 @@ static func _run_iv11_pinch_outnumber_ai_weight_suite(failures: PackedStringArra
         _fail(failures, "iv11_pinch_ai: sync line missing slice10 token in %s" % sync_line)
     var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
     CombatConstants.set_feature_leader_formation_command_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
     var leader: Dictionary = {}
     for c in mgr.combatants:
-        if not _EntityAccess.is_living_on_side(c, "player"):
+        if not EntityAccess.is_living_on_side(c, "player"):
             continue
-        if _EntityAccess.rank_int(c) == 0 and _EntityAccess.file_int(c) == 0 and leader.is_empty():
+        if EntityAccess.rank_int(c) == 0 and EntityAccess.file_int(c) == 0 and leader.is_empty():
             leader = c
     if leader.is_empty():
         _fail(failures, "iv11_pinch_ai: missing rank-0 leader")
@@ -172,10 +172,10 @@ static func _run_iv11_pinch_outnumber_ai_weight_suite(failures: PackedStringArra
     leader["is_party_leader"] = true
     leader["state"] = CombatConstants.STATE_WAITING
     leader["gauge"] = 100.0
-    if not _CombatDoctrine.numeric_superiority_for_pinch(mgr, "player"):
+    if not CombatDoctrine.numeric_superiority_for_pinch(mgr, "player"):
         _fail(failures, "iv11_pinch_ai: fixture want numeric superiority for player")
     mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PROBING)
-    var leader_id: int = _EntityAccess.id_int(leader)
+    var leader_id: int = EntityAccess.id_int(leader)
     var acts: Array = mgr.get_available_actions(leader_id)
     var pinch_act: Dictionary = {}
     var hold_act: Dictionary = {}
@@ -193,8 +193,8 @@ static func _run_iv11_pinch_outnumber_ai_weight_suite(failures: PackedStringArra
         CombatConstants.set_feature_leader_formation_command_load(saved)
         _free_manager(mgr)
         return
-    var w_pinch: float = _AIPicker._get_action_weight(pinch_act, leader_id, mgr, true, {}, {}, acts)
-    var w_hold: float = _AIPicker._get_action_weight(hold_act, leader_id, mgr, true, {}, {}, acts)
+    var w_pinch: float = AIPicker._get_action_weight(pinch_act, leader_id, mgr, true, {}, {}, acts)
+    var w_hold: float = AIPicker._get_action_weight(hold_act, leader_id, mgr, true, {}, {}, acts)
     var want_pinch: float = (
         CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT
         * CombatConstants.AI_LEADER_FORMATION_COMMAND_PINCH_OUTNUMBER_MULT
@@ -219,7 +219,7 @@ static func _run_iv11_enemy_pinch_outnumber_ai_weight_suite(failures: PackedStri
         _fail(failures, "iv11_enemy_pinch_ai: sync line missing slice10 token in %s" % sync_line)
     var saved: bool = CombatConstants.is_feature_leader_formation_command_enabled()
     CombatConstants.set_feature_leader_formation_command_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     var cmd_ent: CoreEntity = _new_entity("SWORD")
     cmd_ent.is_enemy_leader = true
@@ -228,13 +228,9 @@ static func _run_iv11_enemy_pinch_outnumber_ai_weight_suite(failures: PackedStri
     mgr.start({"files": 1, "ranks": 1}, {"files": 2, "ranks": 1})
     var commander: Dictionary = {}
     for c in mgr.combatants:
-        if not _EntityAccess.is_living_on_side(c, "enemy"):
+        if not EntityAccess.is_living_on_side(c, "enemy"):
             continue
-        if (
-            c.get("is_enemy_leader", false) == true
-            and _EntityAccess.rank_int(c) == 0
-            and _EntityAccess.file_int(c) == 0
-        ):
+        if c.get("is_enemy_leader", false) == true and EntityAccess.rank_int(c) == 0 and EntityAccess.file_int(c) == 0:
             commander = c
             break
     if commander.is_empty():
@@ -244,10 +240,10 @@ static func _run_iv11_enemy_pinch_outnumber_ai_weight_suite(failures: PackedStri
         return
     commander["state"] = CombatConstants.STATE_WAITING
     commander["gauge"] = 100.0
-    if not _CombatDoctrine.numeric_superiority_for_pinch(mgr, "enemy"):
+    if not CombatDoctrine.numeric_superiority_for_pinch(mgr, "enemy"):
         _fail(failures, "iv11_enemy_pinch_ai: fixture want numeric superiority for enemy")
     mgr.set_formation_doctrine("enemy", CombatConstants.DOCTRINE_PROBING)
-    var cmd_id: int = _EntityAccess.id_int(commander)
+    var cmd_id: int = EntityAccess.id_int(commander)
     var acts: Array = mgr.get_available_actions(cmd_id)
     var pinch_act: Dictionary = {}
     var hold_act: Dictionary = {}
@@ -265,8 +261,8 @@ static func _run_iv11_enemy_pinch_outnumber_ai_weight_suite(failures: PackedStri
         CombatConstants.set_feature_leader_formation_command_load(saved)
         _free_manager(mgr)
         return
-    var w_pinch: float = _AIPicker._get_action_weight(pinch_act, cmd_id, mgr, true, {}, {}, acts)
-    var w_hold: float = _AIPicker._get_action_weight(hold_act, cmd_id, mgr, true, {}, {}, acts)
+    var w_pinch: float = AIPicker._get_action_weight(pinch_act, cmd_id, mgr, true, {}, {}, acts)
+    var w_hold: float = AIPicker._get_action_weight(hold_act, cmd_id, mgr, true, {}, {}, acts)
     var want_pinch: float = (
         CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT
         * CombatConstants.AI_LEADER_FORMATION_COMMAND_PINCH_OUTNUMBER_MULT
@@ -287,22 +283,16 @@ static func _run_iv11_f5_leader_order_trace_suite(failures: PackedStringArray) -
     var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
     if "f5_track=iv11_leader_order" not in sync_line:
         _fail(failures, "iv11_f5_trace: sync line missing f5_track token in %s" % sync_line)
-    _OperationalLog.set_capture_enabled(true)
-    _OperationalLog.clear_capture()
-    _OperationalLog.begin_play_session("test", "", false, true)
-    _F5SoakTrace.note_leader_formation_command_pick(
-        "Captain", CombatConstants.MOVE_ID_ORDER_PROBING, "player", "player"
-    )
-    _F5SoakTrace.note_leader_formation_command_pick(
-        "Captain", CombatConstants.MOVE_ID_ORDER_PROBING, "player", "player"
-    )
-    _F5SoakTrace.note_leader_formation_command_pick(
-        "Warlord", CombatConstants.MOVE_ID_ORDER_HOLD_LANE, "enemy", "enemy"
-    )
+    OperationalLog.set_capture_enabled(true)
+    OperationalLog.clear_capture()
+    OperationalLog.begin_play_session("test", "", false, true)
+    F5SoakTrace.note_leader_formation_command_pick("Captain", CombatConstants.MOVE_ID_ORDER_PROBING, "player", "player")
+    F5SoakTrace.note_leader_formation_command_pick("Captain", CombatConstants.MOVE_ID_ORDER_PROBING, "player", "player")
+    F5SoakTrace.note_leader_formation_command_pick("Warlord", CombatConstants.MOVE_ID_ORDER_HOLD_LANE, "enemy", "enemy")
     var count: int = 0
     var player_sample: String = ""
     var enemy_sample: String = ""
-    for line in _OperationalLog.get_captured_lines():
+    for line in OperationalLog.get_captured_lines():
         if "leader_order=" not in line:
             continue
         count += 1
@@ -316,8 +306,8 @@ static func _run_iv11_f5_leader_order_trace_suite(failures: PackedStringArray) -
         _fail(failures, "iv11_f5_trace: bad player leader_order line %s" % player_sample)
     elif "order_hold_lane" not in enemy_sample or "formation=enemy" not in enemy_sample:
         _fail(failures, "iv11_f5_trace: bad enemy leader_order line %s" % enemy_sample)
-    _OperationalLog.end_play_session()
-    _OperationalLog.set_capture_enabled(false)
+    OperationalLog.end_play_session()
+    OperationalLog.set_capture_enabled(false)
 
 
 ## IV-11 slice 10: **`EncounterNode.spawn_enemies`** stamps **`is_enemy_leader`** from config index.
@@ -329,10 +319,10 @@ static func _run_iv11_encounter_spawn_enemy_leader_suite(failures: PackedStringA
     if "encounter_spawn=enemy_leader_index" not in sync_line:
         _fail(failures, "iv11_enc_spawn: sync line missing encounter_spawn token in %s" % sync_line)
     var world: Node2D = Node2D.new()
-    var enc: Node = _EncounterNode.new()
+    var enc: Node = EncounterNode.new()
     enc.enemy_count = 3
     enc.encounter_config = {
-        _SoakPresets.ENCOUNTER_KEY_ENEMY_LEADER_INDEX: 1,
+        SoakPresets.ENCOUNTER_KEY_ENEMY_LEADER_INDEX: 1,
     }
     var rng: RandomNumberGenerator = RandomNumberGenerator.new()
     rng.seed = 42
@@ -346,7 +336,7 @@ static func _run_iv11_encounter_spawn_enemy_leader_suite(failures: PackedStringA
         _fail(failures, "iv11_enc_spawn: index 1 want is_enemy_leader true")
     if enemies[0].get("is_enemy_leader") == true or enemies[2].get("is_enemy_leader") == true:
         _fail(failures, "iv11_enc_spawn: only configured index may be commander")
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     var cmd_id: int = mgr.register(enemies[1], "enemy")
     mgr.register(enemies[0], "enemy")
@@ -369,7 +359,7 @@ static func _run_iv11_register_enemy_leader_stamp_suite(failures: PackedStringAr
     var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
     if "slice6=enemy_leader" not in sync_line:
         _fail(failures, "iv11_enemy_leader: sync line missing slice6 token in %s" % sync_line)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     var cmd_ent: Node = _new_entity("SWORD")
     cmd_ent.is_enemy_leader = true
     var grunt_ent: Node = _new_entity("SWORD")
@@ -395,7 +385,7 @@ static func _run_iv11_register_enemy_leader_stamp_suite(failures: PackedStringAr
 ## IV-11 slice 6: formation diagram **`[Cmd]`** callout for enemy commander only.
 static func _run_iv11_enemy_leader_diagram_callout_suite(failures: PackedStringArray) -> void:
     var Diagram := preload("res://ui/FormationDiagramBuilder.gd")
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
@@ -405,9 +395,9 @@ static func _run_iv11_enemy_leader_diagram_callout_suite(failures: PackedStringA
     var grunt: Dictionary = {}
     var player: Dictionary = {}
     for c in mgr.combatants:
-        if _EntityAccess.is_living_on_side(c, "player") and player.is_empty():
+        if EntityAccess.is_living_on_side(c, "player") and player.is_empty():
             player = c
-        elif _EntityAccess.is_living_on_side(c, "enemy"):
+        elif EntityAccess.is_living_on_side(c, "enemy"):
             if commander.is_empty():
                 commander = c
             elif grunt.is_empty():
@@ -415,25 +405,25 @@ static func _run_iv11_enemy_leader_diagram_callout_suite(failures: PackedStringA
     commander["is_enemy_leader"] = true
     grunt["is_enemy_leader"] = false
     player["is_party_leader"] = true
-    if _UiHints.enemy_leader_diagram_suffix(commander) != " [Cmd]":
+    if UiHints.enemy_leader_diagram_suffix(commander) != " [Cmd]":
         _fail(
             failures,
             (
                 "iv11_enemy_diagram: commander suffix want ' [Cmd]' got '%s'"
-                % _UiHints.enemy_leader_diagram_suffix(commander)
+                % UiHints.enemy_leader_diagram_suffix(commander)
             )
         )
-    if not _UiHints.enemy_leader_diagram_suffix(grunt).is_empty():
+    if not UiHints.enemy_leader_diagram_suffix(grunt).is_empty():
         _fail(failures, "iv11_enemy_diagram: grunt must not get commander suffix")
-    if not _UiHints.party_leader_diagram_suffix(commander).is_empty():
+    if not UiHints.party_leader_diagram_suffix(commander).is_empty():
         _fail(failures, "iv11_enemy_diagram: enemy must not get party [Ldr] suffix")
     var cmd_cell: String = Diagram._cell_label_with_footwork("Cmd", [commander])
     if " [Cmd]" not in cmd_cell:
         _fail(failures, "iv11_enemy_diagram: commander cell want [Cmd] got '%s'" % cmd_cell)
     if " [Cmd]" in Diagram._cell_label_with_footwork("Grunt", [grunt]):
         _fail(failures, "iv11_enemy_diagram: grunt cell must not show [Cmd]")
-    var tips: PackedStringArray = _UiHints.formation_cell_tooltip_lines(
-        commander, _EntityAccess.get_display_name(commander, _EntityAccess.id_int(commander)), mgr
+    var tips: PackedStringArray = UiHints.formation_cell_tooltip_lines(
+        commander, EntityAccess.get_display_name(commander, EntityAccess.id_int(commander)), mgr
     )
     var tip_hit: bool = false
     for line in tips:
@@ -457,14 +447,14 @@ static func _run_iv11_party_leader_roster_callout_suite(failures: PackedStringAr
     leader_ent.is_party_leader = true
     var member_ent: CoreEntity = _new_entity("SWORD")
     member_ent.is_party_leader = false
-    var leader_snap: Dictionary = _Snapshot.snapshot_from_member({"name": "Lead", "node_ref": leader_ent})
-    var member_snap: Dictionary = _Snapshot.snapshot_from_member({"name": "Mate", "node_ref": member_ent})
-    if _PartyRowFormatter.format_party_role_suffix(leader_snap) != " . Leader":
+    var leader_snap: Dictionary = Snapshot.snapshot_from_member({"name": "Lead", "node_ref": leader_ent})
+    var member_snap: Dictionary = Snapshot.snapshot_from_member({"name": "Mate", "node_ref": member_ent})
+    if PartyRowFormatter.format_party_role_suffix(leader_snap) != " . Leader":
         _fail(
             failures,
-            "iv11_roster: leader want ' . Leader' got '%s'" % _PartyRowFormatter.format_party_role_suffix(leader_snap)
+            "iv11_roster: leader want ' . Leader' got '%s'" % PartyRowFormatter.format_party_role_suffix(leader_snap)
         )
-    if not _PartyRowFormatter.format_party_role_suffix(member_snap).is_empty():
+    if not PartyRowFormatter.format_party_role_suffix(member_snap).is_empty():
         _fail(failures, "iv11_roster: member must not get leader suffix")
     _free_harness_node(leader_ent)
     _free_harness_node(member_ent)
@@ -480,7 +470,7 @@ static func _run_iv13_weapon_reach_zoc_suite(failures: PackedStringArray) -> voi
         _fail(failures, "iv13_zoc: sync line missing token in %s" % sync_line)
     var saved: bool = CombatConstants.is_feature_iv13_weapon_reach_zoc_enabled()
     CombatConstants.set_feature_iv13_weapon_reach_zoc_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SPEAR"), "player")
     for _j in 2:
@@ -502,11 +492,11 @@ static func _run_iv13_weapon_reach_zoc_suite(failures: PackedStringArray) -> voi
     var spear: Dictionary = {}
     var enemy: Dictionary = {}
     for c in mgr.combatants:
-        if _EntityAccess.is_living_on_side(c, "enemy") and _EntityAccess.rank_int(c) == 0:
-            if enemy.is_empty() or _EntityAccess.file_int(c) < _EntityAccess.file_int(enemy):
+        if EntityAccess.is_living_on_side(c, "enemy") and EntityAccess.rank_int(c) == 0:
+            if enemy.is_empty() or EntityAccess.file_int(c) < EntityAccess.file_int(enemy):
                 enemy = c
-        elif _EntityAccess.is_living_on_side(c, "player") and _EntityAccess.rank_int(c) == 0:
-            if _EntityAccess.weapon_melee_reach(c) > 2.0:
+        elif EntityAccess.is_living_on_side(c, "player") and EntityAccess.rank_int(c) == 0:
+            if EntityAccess.weapon_melee_reach(c) > 2.0:
                 spear = c
             else:
                 sword = c
@@ -515,21 +505,21 @@ static func _run_iv13_weapon_reach_zoc_suite(failures: PackedStringArray) -> voi
         CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
         _free_manager(mgr)
         return
-    var e_id: int = _EntityAccess.id_int(enemy)
-    var sword_id: int = _EntityAccess.id_int(sword)
-    var spear_id: int = _EntityAccess.id_int(spear)
-    _EntityAccess.nested_dictionary_for_mutation(sword, "distance_to")[e_id] = CombatConstants.DISTANCE_MID
-    _EntityAccess.nested_dictionary_for_mutation(spear, "distance_to")[e_id] = CombatConstants.DISTANCE_MID
-    _EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[sword_id] = CombatConstants.DISTANCE_MID
-    _EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[spear_id] = CombatConstants.DISTANCE_MID
+    var e_id: int = EntityAccess.id_int(enemy)
+    var sword_id: int = EntityAccess.id_int(sword)
+    var spear_id: int = EntityAccess.id_int(spear)
+    EntityAccess.nested_dictionary_for_mutation(sword, "distance_to")[e_id] = CombatConstants.DISTANCE_MID
+    EntityAccess.nested_dictionary_for_mutation(spear, "distance_to")[e_id] = CombatConstants.DISTANCE_MID
+    EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[sword_id] = CombatConstants.DISTANCE_MID
+    EntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[spear_id] = CombatConstants.DISTANCE_MID
     var pair_geom: Dictionary = {"eff_dist": 2.6, "effective_pair_eff_dist": 2.6}
-    var bonus_spear: float = _ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, spear, enemy)
-    var bonus_sword: float = _ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, sword, enemy)
+    var bonus_spear: float = ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, spear, enemy)
+    var bonus_sword: float = ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, sword, enemy)
     if bonus_spear <= bonus_sword + 0.04:
         _fail(failures, "iv13_zoc: want spear bonus > sword (spear=%.3f sword=%.3f)" % [bonus_spear, bonus_sword])
-    if not _MeleeListing.can_melee_threaten(mgr, spear, enemy, pair_geom):
+    if not MeleeListing.can_melee_threaten(mgr, spear, enemy, pair_geom):
         _fail(failures, "iv13_zoc: spear want can_melee_threaten with weak front + IV-13 on")
-    if _MeleeListing.can_melee_threaten(mgr, sword, enemy, pair_geom):
+    if MeleeListing.can_melee_threaten(mgr, sword, enemy, pair_geom):
         _fail(failures, "iv13_zoc: sword must not threaten at eff_dist=2.6 without reach bonus")
     CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
     _free_manager(mgr)
@@ -542,7 +532,7 @@ static func _run_iv13_weapon_reach_zoc_suite(failures: PackedStringArray) -> voi
 static func _run_iv13_weapon_reach_zoc_flag_off_parity(failures: PackedStringArray) -> void:
     var saved: bool = CombatConstants.is_feature_iv13_weapon_reach_zoc_enabled()
     CombatConstants.set_feature_iv13_weapon_reach_zoc_load(false)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 2:
         mgr.register(_new_entity("SPEAR"), "player")
     for _j in 2:
@@ -553,7 +543,7 @@ static func _run_iv13_weapon_reach_zoc_flag_off_parity(failures: PackedStringArr
     var spear: Dictionary = mgr.combatants[0]
     var enemy: Dictionary = mgr.combatants[2]
     var pair_geom: Dictionary = {"eff_dist": 2.6, "effective_pair_eff_dist": 2.6}
-    var bonus: float = _ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, spear, enemy)
+    var bonus: float = ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, spear, enemy)
     CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
     _free_manager(mgr)
     if absf(bonus) > 0.001:
@@ -567,7 +557,7 @@ static func _run_iv13_weapon_reach_zoc_flag_off_parity(failures: PackedStringArr
 static func _run_iv13_weapon_reach_zoc_distance_band_suite(failures: PackedStringArray) -> void:
     var saved: bool = CombatConstants.is_feature_iv13_weapon_reach_zoc_enabled()
     CombatConstants.set_feature_iv13_weapon_reach_zoc_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 2:
         mgr.register(_new_entity("SPEAR"), "player")
     for _j in 4:
@@ -588,25 +578,25 @@ static func _run_iv13_weapon_reach_zoc_distance_band_suite(failures: PackedStrin
     var spear: Dictionary = {}
     var enemy_far: Dictionary = {}
     for c in mgr.combatants:
-        if _EntityAccess.is_living_on_side(c, "player") and _EntityAccess.file_int(c) == 0:
+        if EntityAccess.is_living_on_side(c, "player") and EntityAccess.file_int(c) == 0:
             spear = c
-        elif _EntityAccess.is_living_on_side(c, "enemy") and _EntityAccess.file_int(c) == 3:
+        elif EntityAccess.is_living_on_side(c, "enemy") and EntityAccess.file_int(c) == 3:
             enemy_far = c
     if spear.is_empty() or enemy_far.is_empty():
         _fail(failures, "iv13_zoc_band: missing spear / far-enemy fixture")
         CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
         _free_manager(mgr)
         return
-    var eid: int = _EntityAccess.id_int(enemy_far)
-    var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(mgr, spear, enemy_far)
-    if _ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, spear, enemy_far) <= 0.01:
+    var eid: int = EntityAccess.id_int(enemy_far)
+    var pair_geom: Dictionary = PairGeometry.effective_pair_geometry(mgr, spear, enemy_far)
+    if ZoneOfControl.weapon_reach_zoc_bonus_m(mgr, spear, enemy_far) <= 0.01:
         _fail(failures, "iv13_zoc_band: want positive ZoC reach bonus on wide-line fixture")
         CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
         _free_manager(mgr)
         return
-    _DistanceBands.update_distance_to_from_formations(mgr)
-    var band_on: String = _EntityAccess.distance_to_opponent_band(spear, eid)
-    var threaten_on: bool = _MeleeListing.can_melee_threaten(mgr, spear, enemy_far, pair_geom)
+    DistanceBands.update_distance_to_from_formations(mgr)
+    var band_on: String = EntityAccess.distance_to_opponent_band(spear, eid)
+    var threaten_on: bool = MeleeListing.can_melee_threaten(mgr, spear, enemy_far, pair_geom)
     CombatConstants.set_feature_iv13_weapon_reach_zoc_load(saved)
     _free_manager(mgr)
     var band_implies_threaten: bool = (
@@ -626,7 +616,7 @@ static func _run_iv12_slot_distraction_suite(failures: PackedStringArray) -> voi
         _fail(failures, "iv12_distraction: sync line missing token in %s" % sync_line)
     var saved: bool = CombatConstants.is_feature_iv12_slot_distraction_enabled()
     CombatConstants.set_feature_iv12_slot_distraction_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.register(_new_entity("SWORD"), "enemy")
@@ -634,11 +624,11 @@ static func _run_iv12_slot_distraction_suite(failures: PackedStringArray) -> voi
     var player: Dictionary = mgr.combatants[0]
     var e0: Dictionary = mgr.combatants[1]
     var e1: Dictionary = mgr.combatants[2]
-    var pid: int = _EntityAccess.id_int(player)
-    var e0_id: int = _EntityAccess.id_int(e0)
-    var e1_id: int = _EntityAccess.id_int(e1)
-    var form_e: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "enemy")
-    var slots: Dictionary = _FormationSlots.formation_slots_dict(form_e)
+    var pid: int = EntityAccess.id_int(player)
+    var e0_id: int = EntityAccess.id_int(e0)
+    var e1_id: int = EntityAccess.id_int(e1)
+    var form_e: Dictionary = FormationSlots.formation_record_for_manager(mgr, "enemy")
+    var slots: Dictionary = FormationSlots.formation_slots_dict(form_e)
     slots[Vector2i(0, 0)] = [e0_id, e1_id]
     e0["rank"] = 0
     e0["file"] = 0
@@ -647,15 +637,15 @@ static func _run_iv12_slot_distraction_suite(failures: PackedStringArray) -> voi
     for c in [player, e0, e1]:
         c["gauge"] = 100.0
     for pair in [[player, e0_id], [player, e1_id], [e0, pid], [e1, pid]]:
-        _EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (CombatConstants.DISTANCE_CLOSE)
-    if int(_TacticalCombat.count_engaging_threats(mgr, pid)) < 2:
+        EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (CombatConstants.DISTANCE_CLOSE)
+    if int(TacticalCombat.count_engaging_threats(mgr, pid)) < 2:
         _fail(failures, "iv12_distraction: fixture want 2 engaging threats")
         CombatConstants.set_feature_iv12_slot_distraction_load(saved)
         _free_manager(mgr)
         return
-    var w_on: float = _TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
+    var w_on: float = TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
     CombatConstants.set_feature_iv12_slot_distraction_load(false)
-    var w_off: float = _TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
+    var w_off: float = TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
     CombatConstants.set_feature_iv12_slot_distraction_load(saved)
     _free_manager(mgr)
     var pad: float = CombatConstants.IV12_SLOT_DISTRACTION_WEIGHT_PAD
@@ -670,7 +660,7 @@ static func _run_iv12_slot_distraction_suite(failures: PackedStringArray) -> voi
 static func _run_iv12_slot_distraction_ai_offense_damp(failures: PackedStringArray) -> void:
     var saved: bool = CombatConstants.is_feature_iv12_slot_distraction_enabled()
     CombatConstants.set_feature_iv12_slot_distraction_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.register(_new_entity("SWORD"), "enemy")
@@ -678,28 +668,28 @@ static func _run_iv12_slot_distraction_ai_offense_damp(failures: PackedStringArr
     var player: Dictionary = mgr.combatants[0]
     var e0: Dictionary = mgr.combatants[1]
     var e1: Dictionary = mgr.combatants[2]
-    var pid: int = _EntityAccess.id_int(player)
-    var e0_id: int = _EntityAccess.id_int(e0)
-    var form_e: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "enemy")
-    var slots: Dictionary = _FormationSlots.formation_slots_dict(form_e)
-    slots[Vector2i(0, 0)] = [e0_id, _EntityAccess.id_int(e1)]
+    var pid: int = EntityAccess.id_int(player)
+    var e0_id: int = EntityAccess.id_int(e0)
+    var form_e: Dictionary = FormationSlots.formation_record_for_manager(mgr, "enemy")
+    var slots: Dictionary = FormationSlots.formation_slots_dict(form_e)
+    slots[Vector2i(0, 0)] = [e0_id, EntityAccess.id_int(e1)]
     e0["rank"] = 0
     e0["file"] = 0
     e1["rank"] = 0
     e1["file"] = 0
     for c in [player, e0, e1]:
         c["gauge"] = 100.0
-    for pair in [[player, e0_id], [player, _EntityAccess.id_int(e1)], [e0, pid], [e1, pid]]:
-        _EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (CombatConstants.DISTANCE_CLOSE)
-    if _TacticalCombat.iv12_slot_distraction_pad_for_defender(mgr, pid) <= 0.0:
+    for pair in [[player, e0_id], [player, EntityAccess.id_int(e1)], [e0, pid], [e1, pid]]:
+        EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (CombatConstants.DISTANCE_CLOSE)
+    if TacticalCombat.iv12_slot_distraction_pad_for_defender(mgr, pid) <= 0.0:
         _fail(failures, "iv12_ai_offense: fixture want distraction pad on player")
         CombatConstants.set_feature_iv12_slot_distraction_load(saved)
         _free_manager(mgr)
         return
     var act: Dictionary = {"move_id": "oberhau", "target_id": e0_id}
-    var w_on: float = _AIPicker._get_action_weight(act, pid, mgr, true)
+    var w_on: float = AIPicker._get_action_weight(act, pid, mgr, true)
     CombatConstants.set_feature_iv12_slot_distraction_load(false)
-    var w_off: float = _AIPicker._get_action_weight(act, pid, mgr, true)
+    var w_off: float = AIPicker._get_action_weight(act, pid, mgr, true)
     CombatConstants.set_feature_iv12_slot_distraction_load(saved)
     _free_manager(mgr)
     var want_ratio: float = CombatConstants.IV12_AI_OFFENSE_WEIGHT_MULT
@@ -717,7 +707,7 @@ static func _run_iv12_slot_distraction_ai_offense_damp(failures: PackedStringArr
 static func _run_iv12_co_located_target_bias_suite(failures: PackedStringArray) -> void:
     var saved: bool = CombatConstants.is_feature_iv12_slot_distraction_enabled()
     CombatConstants.set_feature_iv12_slot_distraction_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.register(_new_entity("SWORD"), "enemy")
@@ -725,11 +715,11 @@ static func _run_iv12_co_located_target_bias_suite(failures: PackedStringArray) 
     var player: Dictionary = mgr.combatants[0]
     var e0: Dictionary = mgr.combatants[1]
     var e1: Dictionary = mgr.combatants[2]
-    var pid: int = _EntityAccess.id_int(player)
-    var e0_id: int = _EntityAccess.id_int(e0)
-    var e1_id: int = _EntityAccess.id_int(e1)
-    var form_e: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "enemy")
-    var slots: Dictionary = _FormationSlots.formation_slots_dict(form_e)
+    var pid: int = EntityAccess.id_int(player)
+    var e0_id: int = EntityAccess.id_int(e0)
+    var e1_id: int = EntityAccess.id_int(e1)
+    var form_e: Dictionary = FormationSlots.formation_record_for_manager(mgr, "enemy")
+    var slots: Dictionary = FormationSlots.formation_slots_dict(form_e)
     slots[Vector2i(0, 0)] = [e0_id, e1_id]
     e0["rank"] = 0
     e0["file"] = 0
@@ -738,15 +728,15 @@ static func _run_iv12_co_located_target_bias_suite(failures: PackedStringArray) 
     for c in [player, e0, e1]:
         c["gauge"] = 100.0
     for pair in [[player, e0_id], [player, e1_id], [e0, pid], [e1, pid]]:
-        _EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (CombatConstants.DISTANCE_CLOSE)
-    if not _TacticalCombat.attacker_has_co_located_slot_mate_threatening(mgr, e1, player):
+        EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (CombatConstants.DISTANCE_CLOSE)
+    if not TacticalCombat.attacker_has_co_located_slot_mate_threatening(mgr, e1, player):
         _fail(failures, "iv12_pile_on: want co-located mate threatening player")
         CombatConstants.set_feature_iv12_slot_distraction_load(saved)
         _free_manager(mgr)
         return
-    var w_on: float = _TargetScoring.hostile_pair_targeting_weight_mult(mgr, e1, player)
+    var w_on: float = TargetScoring.hostile_pair_targeting_weight_mult(mgr, e1, player)
     CombatConstants.set_feature_iv12_slot_distraction_load(false)
-    var w_off: float = _TargetScoring.hostile_pair_targeting_weight_mult(mgr, e1, player)
+    var w_off: float = TargetScoring.hostile_pair_targeting_weight_mult(mgr, e1, player)
     CombatConstants.set_feature_iv12_slot_distraction_load(saved)
     _free_manager(mgr)
     var want: float = CombatConstants.IV12_AI_COLOCATED_TARGET_BIAS_MULT
@@ -764,7 +754,7 @@ static func _run_iv12_drag_back_dual_occupancy_distraction_suite(failures: Packe
         _fail(failures, "iv12_drag_back: sync line missing slice3 token in %s" % sync_line)
     var saved: bool = CombatConstants.is_feature_iv12_slot_distraction_enabled()
     CombatConstants.set_feature_iv12_slot_distraction_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.register(_new_entity("SWORD"), "enemy")
@@ -773,34 +763,34 @@ static func _run_iv12_drag_back_dual_occupancy_distraction_suite(failures: Packe
     var e_front: Dictionary = {}
     var e_rear: Dictionary = {}
     for c in mgr.combatants:
-        if not _EntityAccess.is_living_on_side(c, "enemy"):
+        if not EntityAccess.is_living_on_side(c, "enemy"):
             continue
-        if _EntityAccess.rank_int(c) == 0:
+        if EntityAccess.rank_int(c) == 0:
             e_front = c
-        elif _EntityAccess.rank_int(c) == 1:
+        elif EntityAccess.rank_int(c) == 1:
             e_rear = c
     if e_front.is_empty() or e_rear.is_empty():
         _fail(failures, "iv12_drag_back: want enemy rank-0/rank-1 pair")
         CombatConstants.set_feature_iv12_slot_distraction_load(saved)
         _free_manager(mgr)
         return
-    var pid: int = _EntityAccess.id_int(player)
-    var e0_id: int = _EntityAccess.id_int(e_front)
-    var e1_id: int = _EntityAccess.id_int(e_rear)
+    var pid: int = EntityAccess.id_int(player)
+    var e0_id: int = EntityAccess.id_int(e_front)
+    var e1_id: int = EntityAccess.id_int(e_rear)
     for c in [player, e_front, e_rear]:
         c["gauge"] = 100.0
-    _EntityAccess.nested_dictionary_for_mutation(player, "distance_to")[e0_id] = (CombatConstants.DISTANCE_CLOSE)
-    _EntityAccess.nested_dictionary_for_mutation(e_front, "distance_to")[pid] = (CombatConstants.DISTANCE_CLOSE)
-    _EntityAccess.nested_dictionary_for_mutation(e_rear, "distance_to")[pid] = (CombatConstants.DISTANCE_CLOSE)
-    _FormationFlow.start_pair_move(mgr, e0_id, e1_id, "drag_back")
-    var form_e: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "enemy")
-    var slots: Dictionary = _FormationSlots.formation_slots_dict(form_e)
-    if _FormationSlots.living_count_in_slot(mgr, slots, Vector2i(0, 0)) < 2:
+    EntityAccess.nested_dictionary_for_mutation(player, "distance_to")[e0_id] = (CombatConstants.DISTANCE_CLOSE)
+    EntityAccess.nested_dictionary_for_mutation(e_front, "distance_to")[pid] = (CombatConstants.DISTANCE_CLOSE)
+    EntityAccess.nested_dictionary_for_mutation(e_rear, "distance_to")[pid] = (CombatConstants.DISTANCE_CLOSE)
+    FormationFlow.start_pair_move(mgr, e0_id, e1_id, "drag_back")
+    var form_e: Dictionary = FormationSlots.formation_record_for_manager(mgr, "enemy")
+    var slots: Dictionary = FormationSlots.formation_slots_dict(form_e)
+    if FormationSlots.living_count_in_slot(mgr, slots, Vector2i(0, 0)) < 2:
         _fail(failures, "iv12_drag_back: want dual occupancy at rank-0 during drag_back")
         CombatConstants.set_feature_iv12_slot_distraction_load(saved)
         _free_manager(mgr)
         return
-    var pad: float = _TacticalCombat.iv12_slot_distraction_pad_for_defender(mgr, pid)
+    var pad: float = TacticalCombat.iv12_slot_distraction_pad_for_defender(mgr, pid)
     CombatConstants.set_feature_iv12_slot_distraction_load(saved)
     _free_manager(mgr)
     if pad < CombatConstants.IV12_SLOT_DISTRACTION_WEIGHT_PAD - 0.05:
@@ -814,7 +804,7 @@ static func _run_iv12_drag_back_dual_occupancy_distraction_suite(failures: Packe
 static func _run_iv12_slot_distraction_flag_off_parity(failures: PackedStringArray) -> void:
     var saved: bool = CombatConstants.is_feature_iv12_slot_distraction_enabled()
     CombatConstants.set_feature_iv12_slot_distraction_load(false)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.register(_new_entity("SWORD"), "enemy")
@@ -822,11 +812,11 @@ static func _run_iv12_slot_distraction_flag_off_parity(failures: PackedStringArr
     var player: Dictionary = mgr.combatants[0]
     var e0: Dictionary = mgr.combatants[1]
     var e1: Dictionary = mgr.combatants[2]
-    var pid: int = _EntityAccess.id_int(player)
-    var e0_id: int = _EntityAccess.id_int(e0)
-    var e1_id: int = _EntityAccess.id_int(e1)
-    var form_e: Dictionary = _FormationSlots.formation_record_for_manager(mgr, "enemy")
-    var slots: Dictionary = _FormationSlots.formation_slots_dict(form_e)
+    var pid: int = EntityAccess.id_int(player)
+    var e0_id: int = EntityAccess.id_int(e0)
+    var e1_id: int = EntityAccess.id_int(e1)
+    var form_e: Dictionary = FormationSlots.formation_record_for_manager(mgr, "enemy")
+    var slots: Dictionary = FormationSlots.formation_slots_dict(form_e)
     slots[Vector2i(0, 0)] = [e0_id, e1_id]
     e0["rank"] = 0
     e0["file"] = 0
@@ -835,9 +825,9 @@ static func _run_iv12_slot_distraction_flag_off_parity(failures: PackedStringArr
     for c in [player, e0, e1]:
         c["gauge"] = 100.0
     for pair in [[player, e0_id], [player, e1_id], [e0, pid], [e1, pid]]:
-        _EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (CombatConstants.DISTANCE_CLOSE)
-    var w0: float = _TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
-    var w1: float = _TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
+        EntityAccess.nested_dictionary_for_mutation(pair[0], "distance_to")[pair[1]] = (CombatConstants.DISTANCE_CLOSE)
+    var w0: float = TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
+    var w1: float = TacticalCombat.compute_surround_threat_weight_sum(mgr, pid)
     CombatConstants.set_feature_iv12_slot_distraction_load(saved)
     _free_manager(mgr)
     if not is_equal_approx(w0, w1):
@@ -870,19 +860,19 @@ static func _run_iv11_leader_formation_ability_suite(failures: PackedStringArray
                 % CombatConstants.AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT
             )
         )
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var leader: Dictionary = mgr.combatants[0]
-    var pid: int = _EntityAccess.id_int(leader)
+    var pid: int = EntityAccess.id_int(leader)
     leader["is_party_leader"] = true
     leader[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
-    var w_leader: float = _AIPicker._get_action_weight(
+    var w_leader: float = AIPicker._get_action_weight(
         {"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": pid}, pid, mgr, true
     )
     leader["is_party_leader"] = false
-    var w_member: float = _AIPicker._get_action_weight(
+    var w_member: float = AIPicker._get_action_weight(
         {"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": pid}, pid, mgr, true
     )
     if w_leader <= w_member:

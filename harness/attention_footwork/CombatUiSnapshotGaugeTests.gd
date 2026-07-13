@@ -1,13 +1,6 @@
 class_name AttentionFootworkCombatUiSnapshotGaugeTests
 extends CombatRegressionHarnessCore
-const MgrScript := preload("res://combat/CombatManager.gd")
-const PlayerTurnHints := preload("res://combat/CombatPlayerTurnHints.gd")
-const GuardLines := preload("res://combat/CombatGuardLines.gd")
 const WeaponForm := preload("res://combat/CombatWeaponForm.gd")
-const WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
-const StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
-const UiHints := preload("res://combat/CombatUiHints.gd")
-const Weapon := preload("res://weapon/Weapon.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .

@@ -15,7 +15,7 @@ static func _parry_clash_context_expected_strike_kinematics(
     var want_kdel: String = WeaponDamageHelper.kinematic_delivery(archetype_passed, atk_move)
     var ai := AttackInstance.new(atk_move, intensity_val)
     ai.archetype = archetype_passed
-    var atk_w = _EntityAccess.get_weapon(attacker)
+    var atk_w = EntityAccess.get_weapon(attacker)
     var want_sv: float = -1.0
     var want_ke: float = 0.0
     if atk_w != null:
@@ -44,7 +44,7 @@ static func _parry_clash_expected_partial_strike_kinematics(
     var want_kdel: String = WeaponDamageHelper.kinematic_delivery(archetype_passed, atk_move)
     var ai := AttackInstance.new(atk_move, intensity_val)
     ai.archetype = archetype_passed
-    var atk_w = _EntityAccess.get_weapon(attacker)
+    var atk_w = EntityAccess.get_weapon(attacker)
     var want_sv: float = float(pa.get("velocity_m_s", -1.0))
     ai.velocity_m_s = want_sv
     var want_ke: float = 0.0
@@ -58,7 +58,7 @@ static func _parry_clash_expected_partial_strike_kinematics(
 
 
 static func _run_parry_clash_context_calibration_fields(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SPEAR"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -100,7 +100,7 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
     # after re-seed).
     seed(3312)
     var pa_unstamped: Dictionary = pa_template.duplicate(true)
-    var res_unstamped: Variant = _DefenseResolution.resolve(
+    var res_unstamped: Variant = DefenseResolution.resolve(
         pa_unstamped,
         attacker,
         defender,
@@ -112,9 +112,9 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
         -1.0,
         1.0,
         1.0,
-        _EntityAccess.id_int(defender),
-        _EntityAccess.get_display_name(attacker),
-        _EntityAccess.get_display_name(defender)
+        EntityAccess.id_int(defender),
+        EntityAccess.get_display_name(attacker),
+        EntityAccess.get_display_name(defender)
     )
     if not (res_unstamped is Dictionary) or res_unstamped.get("action", "") != "parry_deflect":
         _fail(failures, "parry_clash_context unstamped: expected parry_deflect result")
@@ -141,16 +141,16 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
             return
     seed(3312)
     var pa1: Dictionary = pa_template.duplicate(true)
-    _StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, attacker, defender, pa1)
-    var atk_w_for_meas: RefCounted = _EntityAccess.get_weapon(attacker)
-    _StrikeStamping.stamp_strike_realism_on_pa(mgr, attacker, defender, pa1, atk_w_for_meas, "spear_thrust")
+    StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, attacker, defender, pa1)
+    var atk_w_for_meas: RefCounted = EntityAccess.get_weapon(attacker)
+    StrikeStamping.stamp_strike_realism_on_pa(mgr, attacker, defender, pa1, atk_w_for_meas, "spear_thrust")
     if atk_w_for_meas != null:
         # Match wind-up: fixed blade station so **`velocity_intent_mult_from_pa`** does not draw a second RNG stream vs
         # post-resolve recompute.
         pa1["impact_blade_station"] = StrikeRealismProfile.blade_station_from_pa(
             pa1, atk_w_for_meas, "spear_thrust", 0.5
         )
-    var result = _DefenseResolution.resolve(
+    var result = DefenseResolution.resolve(
         pa1,
         attacker,
         defender,
@@ -162,9 +162,9 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
         -1.0,
         1.0,
         1.0,
-        _EntityAccess.id_int(defender),
-        _EntityAccess.get_display_name(attacker),
-        _EntityAccess.get_display_name(defender)
+        EntityAccess.id_int(defender),
+        EntityAccess.get_display_name(attacker),
+        EntityAccess.get_display_name(defender)
     )
     if not (result is Dictionary) or result.get("action", "") != "parry_deflect":
         _fail(failures, "parry_clash_context: expected parry_deflect result")
@@ -217,7 +217,7 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
     var arc_s: float = float(pa_template.get("arc_start_deg", 0.0))
     var arc_e: float = CombatConstants.arc_end_deg_for_contact_geometry(pa_template)
     var atk_line_for_align: String = str(pa_template.get("effective_attack_line", "high"))
-    var def_w0 = _EntityAccess.get_weapon(defender)
+    var def_w0 = EntityAccess.get_weapon(defender)
     var def_mass: float = WeaponConstants.weapon_mass_kg(def_w0)
     if str(clash.get("effective_attack_line", "")) != str(pa_template.get("effective_attack_line", "")):
         _fail(
@@ -235,8 +235,8 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
                 % [str(defender.get("guard_line", "")), str(clash.get("defender_guard_line", ""))]
             )
         )
-    var atk_w = _EntityAccess.get_weapon(attacker)
-    var want_arch: String = _EntityAccess.weapon_archetype_id(atk_w, atk_move, "")
+    var atk_w = EntityAccess.get_weapon(attacker)
+    var want_arch: String = EntityAccess.weapon_archetype_id(atk_w, atk_move, "")
     if str(clash.get("archetype_id", "")) != want_arch:
         _fail(
             failures,
@@ -364,13 +364,13 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
     dc_late["parry_time_to_react"] = 0.02
     seed(3313)
     var pa2: Dictionary = pa_template.duplicate(true)
-    _StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, attacker, defender, pa2)
-    _StrikeStamping.stamp_strike_realism_on_pa(mgr, attacker, defender, pa2, atk_w_for_meas, "spear_thrust")
+    StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, attacker, defender, pa2)
+    StrikeStamping.stamp_strike_realism_on_pa(mgr, attacker, defender, pa2, atk_w_for_meas, "spear_thrust")
     if atk_w_for_meas != null:
         pa2["impact_blade_station"] = StrikeRealismProfile.blade_station_from_pa(
             pa2, atk_w_for_meas, "spear_thrust", 0.5
         )
-    var result2 = _DefenseResolution.resolve(
+    var result2 = DefenseResolution.resolve(
         pa2,
         attacker,
         defender,
@@ -382,9 +382,9 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
         -1.0,
         1.0,
         1.0,
-        _EntityAccess.id_int(defender),
-        _EntityAccess.get_display_name(attacker),
-        _EntityAccess.get_display_name(defender)
+        EntityAccess.id_int(defender),
+        EntityAccess.get_display_name(attacker),
+        EntityAccess.get_display_name(defender)
     )
     if not (result2 is Dictionary) or result2.get("action", "") != "parry_deflect":
         _fail(failures, "parry_clash_context late: expected parry_deflect result")
@@ -534,7 +534,7 @@ static func _run_parry_clash_context_calibration_fields(failures: PackedStringAr
 ## **`geometric_leak`**; Tier **3.0** KE uses reduced **`pa["velocity_m_s"]`** (not intent-speed from
 ## **`_parry_clash_context_expected_strike_kinematics`**).
 static func _run_parry_partial_clash_context_calibration_fields(failures: PackedStringArray) -> void:
-    var mgr2: Node = _MgrScript.new()
+    var mgr2: Node = MgrScript.new()
     mgr2.register(_new_entity("SWORD"), "player")
     mgr2.register(_new_entity("SPEAR"), "enemy")
     mgr2.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -570,14 +570,14 @@ static func _run_parry_partial_clash_context_calibration_fields(failures: Packed
         "parry_off_balance": false,
     }
     seed(3312)
-    _StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr2, attacker_p, defender_p, pa_partial)
-    var atk_w_part: RefCounted = _EntityAccess.get_weapon(attacker_p)
-    _StrikeStamping.stamp_strike_realism_on_pa(mgr2, attacker_p, defender_p, pa_partial, atk_w_part, "spear_thrust")
+    StrikeStamping.stamp_attack_pair_geometry_on_dict(mgr2, attacker_p, defender_p, pa_partial)
+    var atk_w_part: RefCounted = EntityAccess.get_weapon(attacker_p)
+    StrikeStamping.stamp_strike_realism_on_pa(mgr2, attacker_p, defender_p, pa_partial, atk_w_part, "spear_thrust")
     if atk_w_part != null:
         pa_partial["impact_blade_station"] = StrikeRealismProfile.blade_station_from_pa(
             pa_partial, atk_w_part, "spear_thrust", 0.5
         )
-    var res_partial: Variant = _DefenseResolution.resolve(
+    var res_partial: Variant = DefenseResolution.resolve(
         pa_partial,
         attacker_p,
         defender_p,
@@ -589,9 +589,9 @@ static func _run_parry_partial_clash_context_calibration_fields(failures: Packed
         -1.0,
         1.0,
         1.0,
-        _EntityAccess.id_int(defender_p),
-        _EntityAccess.get_display_name(attacker_p),
-        _EntityAccess.get_display_name(defender_p)
+        EntityAccess.id_int(defender_p),
+        EntityAccess.get_display_name(attacker_p),
+        EntityAccess.get_display_name(defender_p)
     )
     if not (res_partial is Dictionary) or str((res_partial as Dictionary).get("action", "")) != "parry_partial":
         _fail(failures, "parry_partial_clash: expected parry_partial result")
@@ -770,21 +770,21 @@ static func _run_block_threshold_balance_test(failures: PackedStringArray) -> vo
             "block_threshold: PARRY_BLOCK_STR_THRESHOLD want 0.85 got %.2f" % CombatConstants.PARRY_BLOCK_STR_THRESHOLD
         )
     # Test balanced entity scenario: both SWORD (mass 1.2 each), strength equal at 50/50.
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var def_c: Dictionary = mgr.combatants[0]
     var atk_c: Dictionary = mgr.combatants[1]
-    var def_w: Variant = _EntityAccess.get_weapon(def_c)
-    var atk_w: Variant = _EntityAccess.get_weapon(atk_c)
+    var def_w: Variant = EntityAccess.get_weapon(def_c)
+    var atk_w: Variant = EntityAccess.get_weapon(atk_c)
     if def_w == null or atk_w == null:
         _free_manager_restore_global_rng(mgr)
         return
     var d_mass: float = float(def_w.mass)
     var a_mass: float = float(atk_w.mass)
-    var d_str: float = float(_EntityAccess.stats_dict(def_c).get("strength", 50))
-    var a_str: float = float(_EntityAccess.stats_dict(atk_c).get("strength", 50))
+    var d_str: float = float(EntityAccess.stats_dict(def_c).get("strength", 50))
+    var a_str: float = float(EntityAccess.stats_dict(atk_c).get("strength", 50))
     # Balanced: mass ratio = 1.0, str ratio = 1.0 — both should pass threshold.
     var mass_ok: bool = d_mass / maxf(a_mass, 0.01) >= CombatConstants.PARRY_BLOCK_MASS_THRESHOLD
     var str_ok: bool = d_str / maxf(a_str, 0.01) >= CombatConstants.PARRY_BLOCK_STR_THRESHOLD
@@ -822,14 +822,14 @@ static func _run_follow_through_integration_gate(failures: PackedStringArray) ->
 ## Tier 3.2 (combat tuning fix): asymmetric block threshold — DAGGER vs SPEAR should NOT qualify for block parry (mass
 ## ratio far below 0.75).
 static func _run_block_threshold_asymmetric_test(failures: PackedStringArray) -> void:
-    var mgr_a: Node = _MgrScript.new()
+    var mgr_a: Node = MgrScript.new()
     mgr_a.register(_new_entity("DAGGER"), "player")
     mgr_a.register(_new_entity("SPEAR"), "enemy")
     mgr_a.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var def_c: Dictionary = mgr_a.combatants[0]
     var atk_c: Dictionary = mgr_a.combatants[1]
-    var def_w: Variant = _EntityAccess.get_weapon(def_c)
-    var atk_w: Variant = _EntityAccess.get_weapon(atk_c)
+    var def_w: Variant = EntityAccess.get_weapon(def_c)
+    var atk_w: Variant = EntityAccess.get_weapon(atk_c)
     if def_w == null or atk_w == null:
         _free_manager_restore_global_rng(mgr_a)
         return
@@ -846,12 +846,12 @@ static func _run_block_threshold_asymmetric_test(failures: PackedStringArray) ->
         )
     # Borderline case: AXE (1.5 kg) vs MACE (1.7 kg), mass_ratio = 0.883 — should pass mass check.
     _free_manager_restore_global_rng(mgr_a)
-    var mgr_b: Node = _MgrScript.new()
+    var mgr_b: Node = MgrScript.new()
     mgr_b.register(_new_entity("AXE"), "player")
     mgr_b.register(_new_entity("MACE"), "enemy")
     mgr_b.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-    var def_w2: Variant = _EntityAccess.get_weapon(mgr_b.combatants[0])
-    var atk_w2: Variant = _EntityAccess.get_weapon(mgr_b.combatants[1])
+    var def_w2: Variant = EntityAccess.get_weapon(mgr_b.combatants[0])
+    var atk_w2: Variant = EntityAccess.get_weapon(mgr_b.combatants[1])
     if def_w2 != null and atk_w2 != null:
         var d_mass2: float = float(def_w2.mass)
         var a_mass2: float = float(atk_w2.mass)
@@ -877,10 +877,10 @@ static func _run_weapon_melee_range_ordering(failures: PackedStringArray) -> voi
     var expected_order: Array[String] = ["DAGGER", "MACE", "SWORD", "AXE", "SPEAR"]
     var ranges: Dictionary = {}
     for wname in expected_order:
-        var mgr: Node = _MgrScript.new()
+        var mgr: Node = MgrScript.new()
         mgr.register(_new_entity(wname), "player")
         var ent: Variant = mgr.combatants[0]
-        var wep: Variant = _EntityAccess.get_weapon(ent)
+        var wep: Variant = EntityAccess.get_weapon(ent)
         if wep == null:
             _fail(failures, "weapon_audit: %s has no weapon definition" % wname)
             _free_manager_restore_global_rng(mgr)

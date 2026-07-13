@@ -5,14 +5,14 @@ extends CombatRegressionHarnessCore
 static func _run_mental_stack_feint_resistance_low_readiness_still_falls_for(failures: PackedStringArray) -> void:
     # Verify that a low-readiness defender (guard=0.5) does NOT block feints  -  existing damp chain applies.
     CombatConstants.set_feature_ms_feint_resistance_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var player: Dictionary = mgr.combatants[0]
     var enemy: Dictionary = mgr.combatants[1]
-    var player_id: int = _EntityAccess.id_int(player)
-    var enemy_id: int = _EntityAccess.id_int(enemy)
+    var player_id: int = EntityAccess.id_int(player)
+    var enemy_id: int = EntityAccess.id_int(enemy)
     # Set defender to low-readiness WAITING state (guard=0.5 < 0.75 threshold).
     player["state"] = CombatConstants.STATE_WAITING
     player["guard"] = 0.5
@@ -30,7 +30,7 @@ static func _run_mental_stack_feint_resistance_low_readiness_still_falls_for(fai
             continue
         var a: Dictionary = raw as Dictionary
         var mid: String = str(a.get("move_id", ""))
-        if _WeaponConstants.is_feint_move(mid):
+        if WeaponConstants.is_feint_move(mid):
             var tid: int = int(a.get("target_id", -1))
             if tid == enemy_id:
                 found_feint = true
@@ -72,7 +72,7 @@ static func _run_ms_l7_exhaustion_gradient_offense_weight(failures: PackedString
     var Exhaustion := preload("res://combat/CombatExhaustion.gd")
     # Verify the extended lerp range: [EXHAUSTION_OFFENSE_DAMP_START=0.25, 0.75].
     # Three exhaustion levels: fresh (0.10), fatigued midpoint (~0.50), exhausted (0.80).
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     var c: Dictionary = mgr.combatants[0]
 
@@ -122,15 +122,15 @@ static func _run_ms_l7_exhaustion_gradient_offense_weight(failures: PackedString
 ## -------------------------------------------------------------------------------------------------------
 static func _run_ms_l9_positional_awareness_disengage_when_surrounded(failures: PackedStringArray) -> void:
     # Build a 3v1 scenario where one player is surrounded by enemies.
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy1")
     mgr.register(_new_entity("SWORD"), "enemy2")
     mgr.start({"files": 1, "ranks": 1}, {"files": 2, "ranks": 1})  # player: 1 unit  # enemies: 2 units (flanking)
     var player: Dictionary = mgr.combatants[0]
-    var player_id: int = _EntityAccess.id_int(player)
+    var player_id: int = EntityAccess.id_int(player)
     # Wound the player so blood < L9 threshold (60%). ~40% loss -> blood >=>= 60%.
-    var ent: CoreEntity = _EntityAccess.scene_node(player) as CoreEntity
+    var ent: CoreEntity = EntityAccess.scene_node(player) as CoreEntity
     if ent != null:
         ent.body_cutting["chest"] = 40.0  # ~40% blood loss -> triggers MS-L9 vulnerability
     # Set player to waiting state so actions can be built.
@@ -138,15 +138,15 @@ static func _run_ms_l9_positional_awareness_disengage_when_surrounded(failures: 
     player["gauge"] = 100.0
     # Check surrounded  -  with 2 enemies in a 2-file formation vs 1-file player,
     # the player should have hostile zones on multiple sides.
-    var surrounded: bool = _ZoneOfControl.is_combatant_surrounded(mgr, player_id)
+    var surrounded: bool = ZoneOfControl.is_combatant_surrounded(mgr, player_id)
     if not surrounded:
         # Geometry doesn't produce surround for this config  -  acceptable;
         # the logic path is exercised by the function returning false correctly.
         _free_manager(mgr)
         return
     # If surrounded, build actions manually and check that MS-L9 picks disengage.
-    var enemy1_id: int = _EntityAccess.id_int(mgr.combatants[1])
-    var enemy2_id: int = _EntityAccess.id_int(mgr.combatants[2])
+    var enemy1_id: int = EntityAccess.id_int(mgr.combatants[1])
+    var enemy2_id: int = EntityAccess.id_int(mgr.combatants[2])
     var actions: Array = [
         {"move_id": "thrust", "target_id": enemy1_id, "target_part": "head"},
         {"move_id": CombatConstants.MOVE_ID_FALL_BACK, "target_id": player_id},
@@ -203,7 +203,7 @@ static func _run_ms_l9_positional_awareness_disengage_when_surrounded(failures: 
 static func _run_mental_stack_medical_escalation_bandage_to_pack(failures: PackedStringArray) -> void:
     # Verify that when a part has failed_medical_parts, pack gets escalation bonus over bandage.
     CombatConstants.set_feature_ms_medical_escalation_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     var medic_ent := _new_entity("SWORD")
     medic_ent.linen_strips_remaining = 0
     mgr.register(medic_ent, "medic")
@@ -211,17 +211,17 @@ static func _run_mental_stack_medical_escalation_bandage_to_pack(failures: Packe
     mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
     var medic: Dictionary = mgr.combatants[0]
     var ally: Dictionary = mgr.combatants[1]
-    var medic_id: int = _EntityAccess.id_int(medic)
-    var ally_id: int = _EntityAccess.id_int(ally)
+    var medic_id: int = EntityAccess.id_int(medic)
+    var ally_id: int = EntityAccess.id_int(ally)
     # Wound the ally's chest so medical actions are relevant.
-    var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+    var ally_ent: Node = EntityAccess.get_entity_from_manager(mgr, ally)
     if ally_ent != null:
         ally_ent.blood_volume = 25.0
-        _EntityWounds.add_wound(
+        EntityWounds.add_wound(
             ally_ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
         )
         # Apply direct pressure so dressings are allowed (bandage requires compression on bleeding wounds).
-        _EntityMedical._prepare_for_medical_windup(ally_ent, ally_ent, "chest")
+        EntityMedical._prepare_for_medical_windup(ally_ent, ally_ent, "chest")
     # Simulate failed bandage on chest  -  the TCCC ladder should escalate to pack.
     ally["failed_medical_parts"] = ["chest"]
     # Build medical actions manually (simulating what AvailableActionsBuilder produces in med phase).
@@ -245,19 +245,19 @@ static func _run_mental_stack_medical_escalation_bandage_to_pack(failures: Packe
 static func _run_mental_stack_medical_escalation_no_bonus_when_no_failures(failures: PackedStringArray) -> void:
     # Verify that when no parts have failed, escalation bonus does NOT apply  -  weights are baseline.
     CombatConstants.set_feature_ms_medical_escalation_load(true)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "medic")
     mgr.register(_new_entity("SWORD"), "ally")
     mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
     var medic: Dictionary = mgr.combatants[0]
     var ally: Dictionary = mgr.combatants[1]
-    var medic_id: int = _EntityAccess.id_int(medic)
-    var ally_id: int = _EntityAccess.id_int(ally)
+    var medic_id: int = EntityAccess.id_int(medic)
+    var ally_id: int = EntityAccess.id_int(ally)
     # Wound the ally but do NOT set failed_medical_parts.
-    var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+    var ally_ent: Node = EntityAccess.get_entity_from_manager(mgr, ally)
     if ally_ent != null:
         ally_ent.blood_volume = 25.0
-        _EntityWounds.add_wound(
+        EntityWounds.add_wound(
             ally_ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
         )
     # No failed parts  -  escalation should not apply.

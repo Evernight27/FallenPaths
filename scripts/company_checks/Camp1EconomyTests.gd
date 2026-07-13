@@ -8,9 +8,7 @@ extends CompanyChecksCore
 ## untouched.
 ## Fails if any `SCRIPT_ERROR` is logged during the run (`FallenPathsErrorLogger` tally).
 
-const CampaignWorldScript := preload("res://scripts/_harness_campaign_world.gd")
 const HARNESS_NAME := "CompanyStateChecks"
-static var _test_count: int = 0
 
 
 static func _run_camp_1_1_company_state(failures: PackedStringArray) -> void:

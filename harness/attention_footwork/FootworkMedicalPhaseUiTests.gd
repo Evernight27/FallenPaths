@@ -1,10 +1,5 @@
 class_name AttentionFootworkMedicalPhaseUiTests
 extends CombatRegressionHarnessCore
-const MgrScript := preload("res://combat/CombatManager.gd")
-const FormationFlow := preload("res://combat/CombatFormationFlow.gd")
-const StateHandlers := preload("res://combat/CombatStateHandlers.gd")
-const WindUpStarter := preload("res://combat/AttackWindUpStarter.gd")
-const UiHints := preload("res://combat/CombatUiHints.gd")
 const CompanyState := preload("res://world/CompanyState.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).

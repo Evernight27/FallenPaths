@@ -13,19 +13,19 @@ static func _run_iv7b_stamina_engage_floor_suite(failures: PackedStringArray) ->
         CombatConstants.ai_offense_stamina_weight_mult(0.15), CombatConstants.AI_STAMINA_ENGAGE_LOW_MULT
     ):
         _fail(failures, "iv7b_engage: below floor want mult %.2f" % CombatConstants.AI_STAMINA_ENGAGE_LOW_MULT)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var p: Dictionary = mgr.combatants[0]
-    var p_id: int = _EntityAccess.id_int(p)
-    var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+    var p_id: int = EntityAccess.id_int(p)
+    var e_id: int = EntityAccess.id_int(mgr.combatants[1])
     p["gauge"] = 100.0
     p["stamina"] = CombatConstants.STAMINA_MAX * 0.15
     var act: Dictionary = {"move_id": "oberhau", "target_id": e_id}
-    var w_low: float = _AIPicker._get_action_weight(act, p_id, mgr, true)
+    var w_low: float = AIPicker._get_action_weight(act, p_id, mgr, true)
     p["stamina"] = CombatConstants.STAMINA_MAX * 0.50
-    var w_hi: float = _AIPicker._get_action_weight(act, p_id, mgr, true)
+    var w_hi: float = AIPicker._get_action_weight(act, p_id, mgr, true)
     _free_manager(mgr)
     if w_low <= 0.0 or w_hi <= 0.0:
         _fail(failures, "iv7b_engage: want positive attack weights low=%.4f hi=%.4f" % [w_low, w_hi])
@@ -46,7 +46,7 @@ static func _run_iv7b_stamina_engage_floor_suite(failures: PackedStringArray) ->
 
 ## Tier 0: hit during **`STATE_SWAP_RANK`** extends duration and delays resolve event (does not cancel).
 static func _run_formation_hit_reaction_extends_pair_move_duration(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 4:
         mgr.register(_new_entity("SWORD"), "player")
     for _j in 4:
@@ -55,19 +55,19 @@ static func _run_formation_hit_reaction_extends_pair_move_duration(failures: Pac
     var p0: Dictionary = {}
     var p1: Dictionary = {}
     for c in mgr.combatants:
-        if not _EntityAccess.is_player_side(c):
+        if not EntityAccess.is_player_side(c):
             continue
-        if _EntityAccess.rank_int(c) == 0 and _EntityAccess.file_int(c) == 0:
+        if EntityAccess.rank_int(c) == 0 and EntityAccess.file_int(c) == 0:
             p0 = c
-        elif _EntityAccess.rank_int(c) == 1 and _EntityAccess.file_int(c) == 0:
+        elif EntityAccess.rank_int(c) == 1 and EntityAccess.file_int(c) == 0:
             p1 = c
     if p0.is_empty() or p1.is_empty():
         _fail(failures, "form_hit_rx: need rank-0/1 same-file pair")
         _free_manager(mgr)
         return
-    var id0: int = _EntityAccess.id_int(p0)
-    var id1: int = _EntityAccess.id_int(p1)
-    _FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
+    var id0: int = EntityAccess.id_int(p0)
+    var id1: int = EntityAccess.id_int(p1)
+    FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
     var dur_before: float = float(p0.get("state_duration", -1.0))
     var resolve_before: float = -1.0
     for ev in mgr.event_queue:
@@ -80,7 +80,7 @@ static func _run_formation_hit_reaction_extends_pair_move_duration(failures: Pac
         ):
             resolve_before = float(evd.get("resolve_at", -1.0))
             break
-    _FormationFlow.apply_hit_reaction_if_needed(mgr, id0, 0.35)
+    FormationFlow.apply_hit_reaction_if_needed(mgr, id0, 0.35)
     var dur_after: float = float(p0.get("state_duration", -1.0))
     var resolve_after: float = resolve_before
     for ev in mgr.event_queue:
@@ -105,7 +105,7 @@ static func _run_formation_hit_reaction_extends_pair_move_duration(failures: Pac
 
 ## Tier 0: hard hit during pair formation move aborts to waiting and removes resolve event.
 static func _run_formation_hit_cancel_aborts_pair_move(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     for _i in 4:
         mgr.register(_new_entity("SWORD"), "player")
     for _j in 4:
@@ -114,22 +114,22 @@ static func _run_formation_hit_cancel_aborts_pair_move(failures: PackedStringArr
     var p0: Dictionary = {}
     var p1: Dictionary = {}
     for c in mgr.combatants:
-        if not _EntityAccess.is_player_side(c):
+        if not EntityAccess.is_player_side(c):
             continue
-        if _EntityAccess.rank_int(c) == 0 and _EntityAccess.file_int(c) == 0:
+        if EntityAccess.rank_int(c) == 0 and EntityAccess.file_int(c) == 0:
             p0 = c
-        elif _EntityAccess.rank_int(c) == 1 and _EntityAccess.file_int(c) == 0:
+        elif EntityAccess.rank_int(c) == 1 and EntityAccess.file_int(c) == 0:
             p1 = c
     if p0.is_empty() or p1.is_empty():
         _fail(failures, "form_hit_cancel: need rank-0/1 same-file pair")
         _free_manager(mgr)
         return
-    var id0: int = _EntityAccess.id_int(p0)
-    var id1: int = _EntityAccess.id_int(p1)
-    _FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
-    _FormationFlow.apply_hit_reaction_if_needed(mgr, id0, 0.9)
-    var st0: String = _EntityAccess.state_str(p0)
-    var st1: String = _EntityAccess.state_str(p1)
+    var id0: int = EntityAccess.id_int(p0)
+    var id1: int = EntityAccess.id_int(p1)
+    FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
+    FormationFlow.apply_hit_reaction_if_needed(mgr, id0, 0.9)
+    var st0: String = EntityAccess.state_str(p0)
+    var st1: String = EntityAccess.state_str(p1)
     var resolve_left: bool = false
     for ev in mgr.event_queue:
         if typeof(ev) != TYPE_DICTIONARY:
@@ -161,7 +161,7 @@ static func _run_incoming_parry_choice_blocks_non_chosen_attacker(failures: Pack
         _fail(failures, "incoming_parry: FEATURE_INCOMING_PARRY_CHOICE should be enabled")
         return
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.register(_new_entity("SWORD"), "enemy")
@@ -169,20 +169,20 @@ static func _run_incoming_parry_choice_blocks_non_chosen_attacker(failures: Pack
     var p: Dictionary = mgr.combatants[0]
     var e0: Dictionary = mgr.combatants[1]
     var e1: Dictionary = mgr.combatants[2]
-    var p_id: int = _EntityAccess.id_int(p)
-    var e0_id: int = _EntityAccess.id_int(e0)
-    var e1_id: int = _EntityAccess.id_int(e1)
+    var p_id: int = EntityAccess.id_int(p)
+    var e0_id: int = EntityAccess.id_int(e0)
+    var e1_id: int = EntityAccess.id_int(e1)
     p["gauge"] = 100.0
     e0["gauge"] = 100.0
     e1["gauge"] = 100.0
-    _WindUpStarter.start(mgr, e0_id, p_id, "oberhau")
-    _EntityAccess.nested_dictionary_for_mutation(e0, "pending_attack")["intensity"] = 1.0
-    _WindUpStarter.start(mgr, e1_id, p_id, "oberhau")
-    _EntityAccess.nested_dictionary_for_mutation(e1, "pending_attack")["intensity"] = 0.95
-    var resolve_at: float = _EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
+    WindUpStarter.start(mgr, e0_id, p_id, "oberhau")
+    EntityAccess.nested_dictionary_for_mutation(e0, "pending_attack")["intensity"] = 1.0
+    WindUpStarter.start(mgr, e1_id, p_id, "oberhau")
+    EntityAccess.nested_dictionary_for_mutation(e1, "pending_attack")["intensity"] = 0.95
+    var resolve_at: float = EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
     for aid in [e0_id, e1_id]:
         (
-            _EntityAccess
+            EntityAccess
             . manager_schedule_event(
                 mgr,
                 {
@@ -193,13 +193,13 @@ static func _run_incoming_parry_choice_blocks_non_chosen_attacker(failures: Pack
                 }
             )
         )
-    var incoming: Array = _IncomingParryChoice.incoming_attacker_ids_on_defender(mgr, p_id, resolve_at)
+    var incoming: Array = IncomingParryChoice.incoming_attacker_ids_on_defender(mgr, p_id, resolve_at)
     if incoming.size() < 2:
         _fail(failures, "incoming_parry: want 2 incoming attackers got %s" % str(incoming))
         _free_manager_restore_global_rng(mgr)
         return
-    var s0: float = _IncomingParryChoice.threat_score_for_attacker(mgr, e0_id)
-    var s1: float = _IncomingParryChoice.threat_score_for_attacker(mgr, e1_id)
+    var s0: float = IncomingParryChoice.threat_score_for_attacker(mgr, e0_id)
+    var s1: float = IncomingParryChoice.threat_score_for_attacker(mgr, e1_id)
     if s0 <= s1:
         _fail(
             failures,
@@ -208,14 +208,14 @@ static func _run_incoming_parry_choice_blocks_non_chosen_attacker(failures: Pack
                 % [
                     s0,
                     s1,
-                    float(_EntityAccess.nested_dictionary_read(e0, "pending_attack").get("intensity", -1.0)),
-                    float(_EntityAccess.nested_dictionary_read(e1, "pending_attack").get("intensity", -1.0)),
+                    float(EntityAccess.nested_dictionary_read(e0, "pending_attack").get("intensity", -1.0)),
+                    float(EntityAccess.nested_dictionary_read(e1, "pending_attack").get("intensity", -1.0)),
                 ]
             )
         )
-    if _IncomingParryChoice.can_parry_all(mgr, p_id, resolve_at):
+    if IncomingParryChoice.can_parry_all(mgr, p_id, resolve_at):
         _fail(failures, "incoming_parry: dual heavy pair should fail can_parry_all")
-    var chosen: int = _IncomingParryChoice.choose_parry_target_attacker_id(mgr, p_id, resolve_at)
+    var chosen: int = IncomingParryChoice.choose_parry_target_attacker_id(mgr, p_id, resolve_at)
     if chosen != e0_id:
         _fail(
             failures,
@@ -223,22 +223,22 @@ static func _run_incoming_parry_choice_blocks_non_chosen_attacker(failures: Pack
                 "incoming_parry: want higher-intensity e0 chosen got %d (i0=%.2f i1=%.2f)"
                 % [
                     chosen,
-                    float(_EntityAccess.nested_dictionary_read(e0, "pending_attack").get("intensity", -1.0)),
-                    float(_EntityAccess.nested_dictionary_read(e1, "pending_attack").get("intensity", -1.0)),
+                    float(EntityAccess.nested_dictionary_read(e0, "pending_attack").get("intensity", -1.0)),
+                    float(EntityAccess.nested_dictionary_read(e1, "pending_attack").get("intensity", -1.0)),
                 ]
             )
         )
-    if _IncomingParryChoice.parry_choice_blocked_for_resolve(mgr, p_id, e1_id, resolve_at):
+    if IncomingParryChoice.parry_choice_blocked_for_resolve(mgr, p_id, e1_id, resolve_at):
         pass
     else:
         _fail(
             failures,
             (
                 "incoming_parry: low-threat resolve should block parry choice (incoming=%s)"
-                % str(_IncomingParryChoice.incoming_attacker_ids_on_defender(mgr, p_id, resolve_at))
+                % str(IncomingParryChoice.incoming_attacker_ids_on_defender(mgr, p_id, resolve_at))
             )
         )
-    if _IncomingParryChoice.parry_choice_blocked_for_resolve(mgr, p_id, e0_id, resolve_at):
+    if IncomingParryChoice.parry_choice_blocked_for_resolve(mgr, p_id, e0_id, resolve_at):
         _fail(failures, "incoming_parry: high-threat resolve should not block parry choice")
     _free_manager_restore_global_rng(mgr)
 
@@ -252,7 +252,7 @@ static func _run_incoming_parry_can_parry_all_weak_pair(failures: PackedStringAr
         _fail(failures, "incoming_parry_all: FEATURE_INCOMING_PARRY_CHOICE should be enabled")
         return
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.register(_new_entity("SWORD"), "enemy")
@@ -261,21 +261,21 @@ static func _run_incoming_parry_can_parry_all_weak_pair(failures: PackedStringAr
     var p: Dictionary = mgr.combatants[0]
     var e0: Dictionary = mgr.combatants[1]
     var e1: Dictionary = mgr.combatants[2]
-    var p_id: int = _EntityAccess.id_int(p)
-    var e0_id: int = _EntityAccess.id_int(e0)
-    var e1_id: int = _EntityAccess.id_int(e1)
+    var p_id: int = EntityAccess.id_int(p)
+    var e0_id: int = EntityAccess.id_int(e0)
+    var e1_id: int = EntityAccess.id_int(e1)
     p["gauge"] = 100.0
     p["guard_line"] = "high_right"
     e0["gauge"] = 100.0
     e1["gauge"] = 100.0
-    _WindUpStarter.start(mgr, e0_id, p_id, "oberhau")
-    _EntityAccess.nested_dictionary_for_mutation(e0, "pending_attack")["intensity"] = 0.40
-    _WindUpStarter.start(mgr, e1_id, p_id, "oberhau")
-    _EntityAccess.nested_dictionary_for_mutation(e1, "pending_attack")["intensity"] = 0.40
-    var resolve_at: float = _EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
+    WindUpStarter.start(mgr, e0_id, p_id, "oberhau")
+    EntityAccess.nested_dictionary_for_mutation(e0, "pending_attack")["intensity"] = 0.40
+    WindUpStarter.start(mgr, e1_id, p_id, "oberhau")
+    EntityAccess.nested_dictionary_for_mutation(e1, "pending_attack")["intensity"] = 0.40
+    var resolve_at: float = EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
     for aid in [e0_id, e1_id]:
         (
-            _EntityAccess
+            EntityAccess
             . manager_schedule_event(
                 mgr,
                 {
@@ -286,20 +286,20 @@ static func _run_incoming_parry_can_parry_all_weak_pair(failures: PackedStringAr
                 }
             )
         )
-    var incoming: Array = _IncomingParryChoice.incoming_attacker_ids_on_defender(mgr, p_id, resolve_at)
+    var incoming: Array = IncomingParryChoice.incoming_attacker_ids_on_defender(mgr, p_id, resolve_at)
     if incoming.size() < 2:
         _fail(failures, "incoming_parry_all: want 2 incoming got %s" % str(incoming))
         _free_manager_restore_global_rng(mgr)
         return
-    if not _IncomingParryChoice.can_parry_all(mgr, p_id, resolve_at):
+    if not IncomingParryChoice.can_parry_all(mgr, p_id, resolve_at):
         _fail(failures, "incoming_parry_all: weak pair should pass can_parry_all")
     for aid in [e0_id, e1_id]:
-        if _IncomingParryChoice.parry_choice_blocked_for_resolve(mgr, p_id, aid, resolve_at):
+        if IncomingParryChoice.parry_choice_blocked_for_resolve(mgr, p_id, aid, resolve_at):
             _fail(failures, "incoming_parry_all: aid=%d should not be parry_choice_blocked" % aid)
-        var pa: Dictionary = _EntityAccess.nested_dictionary_read(
-            _EntityAccess.manager_get_combatant(mgr, aid), "pending_attack"
+        var pa: Dictionary = EntityAccess.nested_dictionary_read(
+            EntityAccess.manager_get_combatant(mgr, aid), "pending_attack"
         )
-        _IncomingParryChoice.stamp_parry_choice_on_pa(mgr, pa, p_id, aid, resolve_at)
+        IncomingParryChoice.stamp_parry_choice_on_pa(mgr, pa, p_id, aid, resolve_at)
         if bool(pa.get("parry_choice_blocked", false)):
             _fail(failures, "incoming_parry_all: stamp should not block aid=%d" % aid)
         if not bool(pa.get("parry_all_incoming_batch", false)):
@@ -319,7 +319,7 @@ static func _run_iii1_incoming_parry_sector_tiebreak(failures: PackedStringArray
         _fail(failures, "iii1_parry_tie: sector surround load should be enabled")
         return
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.register(_new_entity("SWORD"), "enemy")
@@ -333,19 +333,19 @@ static func _run_iii1_incoming_parry_sector_tiebreak(failures: PackedStringArray
     for c in mgr.combatants:
         c["gauge"] = 100.0
     mgr.recompute_zoc_and_distance()
-    var p_id: int = _EntityAccess.id_int(p)
-    var e0_id: int = _EntityAccess.id_int(e0)
-    var e1_id: int = _EntityAccess.id_int(e1)
-    var w0: float = _TacticalCombat.sector_weight_for_attacker_on_defender(mgr, p_id, e0_id)
-    var w1: float = _TacticalCombat.sector_weight_for_attacker_on_defender(mgr, p_id, e1_id)
+    var p_id: int = EntityAccess.id_int(p)
+    var e0_id: int = EntityAccess.id_int(e0)
+    var e1_id: int = EntityAccess.id_int(e1)
+    var w0: float = TacticalCombat.sector_weight_for_attacker_on_defender(mgr, p_id, e0_id)
+    var w1: float = TacticalCombat.sector_weight_for_attacker_on_defender(mgr, p_id, e1_id)
     if absf(w0 - w1) < 0.02:
         _fail(failures, "iii1_parry_tie: want distinct sector weights got w0=%.3f w1=%.3f" % [w0, w1])
         _free_manager_restore_global_rng(mgr)
         return
     var want_id: int = e0_id if w0 > w1 else e1_id
-    _WindUpStarter.start(mgr, e0_id, p_id, "oberhau")
-    _WindUpStarter.start(mgr, e1_id, p_id, "oberhau")
-    var pa0: Dictionary = _EntityAccess.nested_dictionary_for_mutation(e0, "pending_attack")
+    WindUpStarter.start(mgr, e0_id, p_id, "oberhau")
+    WindUpStarter.start(mgr, e1_id, p_id, "oberhau")
+    var pa0: Dictionary = EntityAccess.nested_dictionary_for_mutation(e0, "pending_attack")
     pa0["intensity"] = 0.85
     pa0["power"] = 0.55
     pa0["follow_through"] = 0.55
@@ -356,11 +356,11 @@ static func _run_iii1_incoming_parry_sector_tiebreak(failures: PackedStringArray
     e1["state_duration"] = e0["state_duration"]
     var tie_strength := 100.0
     for atk in [e0, e1]:
-        _EntityAccess.stats_dict_for_mutation(atk)["strength"] = tie_strength
-    var resolve_at: float = _EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
+        EntityAccess.stats_dict_for_mutation(atk)["strength"] = tie_strength
+    var resolve_at: float = EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
     for aid in [e0_id, e1_id]:
         (
-            _EntityAccess
+            EntityAccess
             . manager_schedule_event(
                 mgr,
                 {
@@ -371,13 +371,13 @@ static func _run_iii1_incoming_parry_sector_tiebreak(failures: PackedStringArray
                 }
             )
         )
-    var s0: float = _IncomingParryChoice.threat_score_for_attacker(mgr, e0_id, p_id, resolve_at)
-    var s1: float = _IncomingParryChoice.threat_score_for_attacker(mgr, e1_id, p_id, resolve_at)
+    var s0: float = IncomingParryChoice.threat_score_for_attacker(mgr, e0_id, p_id, resolve_at)
+    var s1: float = IncomingParryChoice.threat_score_for_attacker(mgr, e1_id, p_id, resolve_at)
     if absf(s0 - s1) > 0.001:
         _fail(failures, "iii1_parry_tie: want tied threat scores s0=%.4f s1=%.4f" % [s0, s1])
         _free_manager_restore_global_rng(mgr)
         return
-    var chosen: int = _IncomingParryChoice.choose_parry_target_attacker_id(mgr, p_id, resolve_at)
+    var chosen: int = IncomingParryChoice.choose_parry_target_attacker_id(mgr, p_id, resolve_at)
     if chosen != want_id:
         _fail(failures, "iii1_parry_tie: want sector-heavy aid=%d got %d (w0=%.3f w1=%.3f)" % [want_id, chosen, w0, w1])
     _free_manager_restore_global_rng(mgr)
@@ -465,10 +465,10 @@ static func _run_iii3_deflect_bind_calibration_suite(failures: PackedStringArray
 
 ## Tier 0 / FF4: extended weapon (recovering from own attack) dampens defender **`parry_c_d`**.
 static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(failures: PackedStringArray) -> void:
-    if not _WeaponPosition.is_weapon_near_body({"state": CombatConstants.STATE_WAITING}):
+    if not WeaponPosition.is_weapon_near_body({"state": CombatConstants.STATE_WAITING}):
         _fail(failures, "weapon_pos: waiting should be near body")
     if (
-        _WeaponPosition
+        WeaponPosition
         . is_weapon_near_body(
             {
                 "state": CombatConstants.STATE_RECOVERING,
@@ -478,16 +478,16 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(f
         )
     ):
         _fail(failures, "weapon_pos: recovering from own attack should be extended")
-    if not _WeaponPosition.is_weapon_near_body(
+    if not WeaponPosition.is_weapon_near_body(
         {"state": CombatConstants.STATE_RECOVERING, "recovery_cause": "parry_deflect"}
     ):
         _fail(failures, "weapon_pos: recovering from parry should stay near body")
-    if not _WeaponPosition.is_weapon_near_body(
+    if not WeaponPosition.is_weapon_near_body(
         {"state": CombatConstants.STATE_RECOVERING, "recovery_cause": "parry_partial"}
     ):
         _fail(failures, "weapon_pos: parry_partial recovery should stay near body")
     if not (
-        _WeaponPosition
+        WeaponPosition
         . is_weapon_near_body(
             {
                 "state": CombatConstants.STATE_RECOVERING,
@@ -498,7 +498,7 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(f
     ):
         _fail(failures, "weapon_pos: parry_partial recovery should stay near body with last_move_id")
     if not (
-        _WeaponPosition
+        WeaponPosition
         . is_weapon_near_body(
             {
                 "state": CombatConstants.STATE_RECOVERING,
@@ -508,11 +508,11 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(f
         )
     ):
         _fail(failures, "weapon_pos: parry_deflect recovery should stay near body with last_move_id")
-    if not _WeaponPosition.is_weapon_near_body(
+    if not WeaponPosition.is_weapon_near_body(
         {"state": CombatConstants.STATE_RECOVERING, "recovery_cause": "attack_deflect"}
     ):
         _fail(failures, "weapon_pos: attack_deflect recovery should stay near body")
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -521,8 +521,8 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(f
     defender["guard"] = 0.55
     defender["stamina"] = CombatConstants.STAMINA_MAX
     defender["state"] = CombatConstants.STATE_WAITING
-    var def_n: Node = _EntityAccess.scene_node(defender)
-    var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
+    var def_n: Node = EntityAccess.scene_node(defender)
+    var parts: Array = EntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
         _fail(failures, "weapon_pos: targetable parts empty")
         _free_manager_restore_global_rng(mgr)
@@ -541,7 +541,7 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(f
     attacker["state_duration"] = 1.0
     attacker["state_timer"] = 0.0
     seed(92011)
-    var dc_wait: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
+    var dc_wait: Dictionary = DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
     var cd_wait: float = float(dc_wait.get("parry_c_d", 0.0))
     if cd_wait <= 1e-6:
         _fail(failures, "weapon_pos: want positive parry_c_d while waiting got %.6f" % cd_wait)
@@ -551,7 +551,7 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(f
     defender["recovery_cause"] = "attack_hit"
     defender["last_move_id"] = "oberhau"
     seed(92011)
-    var dc_ext: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
+    var dc_ext: Dictionary = DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
     var cd_ext: float = float(dc_ext.get("parry_c_d", 0.0))
     var want_ext: float = cd_wait * CombatConstants.WEAPON_EXTENDED_PARRY_MULT
     if absf(cd_ext - want_ext) > cd_wait * 0.02:
@@ -562,7 +562,7 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(f
     defender["recovery_cause"] = "parry_deflect"
     defender.erase("last_move_id")
     seed(92011)
-    var dc_parry: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
+    var dc_parry: Dictionary = DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
     if absf(float(dc_parry.get("parry_c_d", 0.0)) - cd_wait) > cd_wait * 0.02:
         _fail(
             failures,
@@ -573,7 +573,7 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(f
         )
     defender["recovery_cause"] = "parry_partial"
     seed(92011)
-    var dc_partial: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
+    var dc_partial: Dictionary = DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
     if absf(float(dc_partial.get("parry_c_d", 0.0)) - cd_wait) > cd_wait * 0.02:
         _fail(
             failures,
@@ -590,7 +590,7 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(f
 
 ## Tier 0 / FF4: attacker wind-up past commit (extended) dampens defender **`parry_c_d`**.
 static func _run_weapon_committed_attack_dampens_defender_parry_c_d(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -599,8 +599,8 @@ static func _run_weapon_committed_attack_dampens_defender_parry_c_d(failures: Pa
     defender["guard"] = 0.55
     defender["stamina"] = CombatConstants.STAMINA_MAX
     defender["state"] = CombatConstants.STATE_WAITING
-    var def_n: Node = _EntityAccess.scene_node(defender)
-    var parts: Array = _EntityAccess.get_targetable_parts_from_node(def_n)
+    var def_n: Node = EntityAccess.scene_node(defender)
+    var parts: Array = EntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
         _fail(failures, "weapon_pos_commit: targetable parts empty")
         _free_manager_restore_global_rng(mgr)
@@ -619,18 +619,18 @@ static func _run_weapon_committed_attack_dampens_defender_parry_c_d(failures: Pa
     attacker["state_duration"] = 1.0
     attacker["state_timer"] = 0.0
     attacker["pending_attack"] = pa.duplicate()
-    if not _WeaponPosition.is_weapon_near_body(attacker):
+    if not WeaponPosition.is_weapon_near_body(attacker):
         _fail(failures, "weapon_pos_commit: early wind-up should be near body")
     seed(92012)
-    var dc_coil: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
+    var dc_coil: Dictionary = DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
     var cd_coil: float = float(dc_coil.get("parry_c_d", 0.0))
     if cd_coil <= 1e-6:
         _fail(failures, "weapon_pos_commit: want positive parry_c_d early wind-up")
         _free_manager_restore_global_rng(mgr)
         return
-    var commit_frac: float = _WeaponPosition.commit_fraction_from_move_def(move_def)
+    var commit_frac: float = WeaponPosition.commit_fraction_from_move_def(move_def)
     attacker["state_timer"] = commit_frac * 1.0 + 0.05
-    if _WeaponPosition.is_weapon_near_body(attacker):
+    if WeaponPosition.is_weapon_near_body(attacker):
         _fail(
             failures,
             (
@@ -639,7 +639,7 @@ static func _run_weapon_committed_attack_dampens_defender_parry_c_d(failures: Pa
             )
         )
     seed(92012)
-    var dc_commit: Dictionary = _DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
+    var dc_commit: Dictionary = DefenseChoice.choose_defense(pa, attacker, defender, parts, "oberhau", arch, -1.0)
     var cd_commit: float = float(dc_commit.get("parry_c_d", 0.0))
     var want_commit: float = cd_coil * CombatConstants.WEAPON_COMMITTED_ATTACK_PARRY_C_D_MULT
     if absf(cd_commit - want_commit) > cd_coil * 0.02:
@@ -674,7 +674,7 @@ static func _run_weapon_commit_fraction_stab_before_overhead_cut(failures: Packe
             "weapon_extension_commit_fraction": stab_frac,
         },
     }
-    if _WeaponPosition.is_weapon_near_body(atk_stab):
+    if WeaponPosition.is_weapon_near_body(atk_stab):
         _fail(failures, "weapon_commit_frac: spear at 65%% wind-up should be extended")
     var atk_cut: Dictionary = {
         "state": CombatConstants.STATE_WIND_UP,
@@ -687,7 +687,7 @@ static func _run_weapon_commit_fraction_stab_before_overhead_cut(failures: Packe
             "weapon_extension_commit_fraction": cut_frac,
         },
     }
-    if not _WeaponPosition.is_weapon_near_body(atk_cut):
+    if not WeaponPosition.is_weapon_near_body(atk_cut):
         _fail(failures, "weapon_commit_frac: oberhau at 65%% wind-up should still be coiled")
 
 
@@ -696,16 +696,16 @@ static func _run_weapon_commit_fraction_stab_before_overhead_cut(failures: Packe
 
 ## Tier 0 / FF4: wind-up stamps per-move commit fraction on **`pending_attack`**.
 static func _run_weapon_windup_stamps_commit_fraction_on_pa(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SPEAR"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = mgr.combatants[0]
-    var atk_id: int = _EntityAccess.id_int(atk)
-    var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
-    _WindUpStarter.start(mgr, atk_id, def_id, "spear_thrust")
-    var pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
-    var want: float = _WeaponPosition.commit_fraction_from_move_def(WeaponConstants.get_move("spear_thrust"))
+    var atk_id: int = EntityAccess.id_int(atk)
+    var def_id: int = EntityAccess.id_int(mgr.combatants[1])
+    WindUpStarter.start(mgr, atk_id, def_id, "spear_thrust")
+    var pa: Dictionary = EntityAccess.nested_dictionary_read(atk, "pending_attack")
+    var want: float = WeaponPosition.commit_fraction_from_move_def(WeaponConstants.get_move("spear_thrust"))
     if absf(float(pa.get("weapon_extension_commit_fraction", -1.0)) - want) > 0.001:
         _fail(
             failures,
@@ -725,7 +725,7 @@ static func _run_weapon_commit_fraction_inferred_for_untagged_thrust_move(failur
     var move_def: Dictionary = WeaponConstants.get_move("parry_thrust")
     if move_def.has("weapon_extension_commit_fraction"):
         _fail(failures, "weapon_commit_infer: parry_thrust should rely on contact inference")
-    var want: float = _WeaponPosition.commit_fraction_from_move_def(move_def)
+    var want: float = WeaponPosition.commit_fraction_from_move_def(move_def)
     if absf(want - CombatConstants.WEAPON_COMMIT_FRACTION_STAB) > 0.001:
         _fail(
             failures,
@@ -749,7 +749,7 @@ static func _run_impact_station_mean_zero_spread_equals_move_mean(failures: Pack
     var focus: float = clampf((intensity - 0.35) * 0.08, -0.04, 0.04)
     var want_mean: float = float(WeaponConstants.get_move("spear_thrust").get("impact_station_mean", -1.0))
     seed(7701)
-    var got: float = _StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
+    var got: float = StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
     if absf(got - clampf(want_mean + focus, 0.06, 0.99)) > 0.001:
         _fail(
             failures,
@@ -771,9 +771,9 @@ static func _run_impact_station_mean_move_overrides_weapon_default(failures: Pac
         return
     var intensity: float = 0.5
     seed(7702)
-    var tagged: float = _StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
+    var tagged: float = StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
     seed(7702)
-    var untagged: float = _StrikeRealism.roll_blade_station(spear, "off_line_thrust", intensity)
+    var untagged: float = StrikeRealism.roll_blade_station(spear, "off_line_thrust", intensity)
     if tagged <= untagged:
         _fail(
             failures,
@@ -793,9 +793,9 @@ static func _run_impact_station_mean_ordering_spear_thrust_above_mace_direct_blo
         return
     var intensity: float = 0.35
     seed(7703)
-    var spear_station: float = _StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
+    var spear_station: float = StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
     seed(7703)
-    var mace_station: float = _StrikeRealism.roll_blade_station(mace, "direct_blow", intensity)
+    var mace_station: float = StrikeRealism.roll_blade_station(mace, "direct_blow", intensity)
     if spear_station <= mace_station:
         _fail(
             failures,
@@ -811,15 +811,15 @@ static func _run_impact_station_mean_ordering_spear_thrust_above_mace_direct_blo
 
 ## Tier 7.5 pilot: wind-up stamps tip-biased **`impact_blade_station`** (move mean, not weapon default).
 static func _run_impact_station_mean_windup_stamps_move_override(failures: PackedStringArray) -> void:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SPEAR"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = mgr.combatants[0]
-    var atk_id: int = _EntityAccess.id_int(atk)
-    var def_id: int = _EntityAccess.id_int(mgr.combatants[1])
-    _WindUpStarter.start(mgr, atk_id, def_id, "spear_thrust")
-    var pa: Dictionary = _EntityAccess.nested_dictionary_read(atk, "pending_attack")
+    var atk_id: int = EntityAccess.id_int(atk)
+    var def_id: int = EntityAccess.id_int(mgr.combatants[1])
+    WindUpStarter.start(mgr, atk_id, def_id, "spear_thrust")
+    var pa: Dictionary = EntityAccess.nested_dictionary_read(atk, "pending_attack")
     var station: float = float(pa.get("impact_blade_station", -1.0))
     if station < 0.0:
         _fail(failures, "impact_station_windup: missing impact_blade_station on pa")
@@ -864,9 +864,9 @@ static func _run_impact_station_mean_feint_coiled_below_honest_cut(failures: Pac
         return
     var intensity: float = 0.35
     seed(7705)
-    var feint_station: float = _StrikeRealism.roll_blade_station(sword, "oberhau_feint", intensity)
+    var feint_station: float = StrikeRealism.roll_blade_station(sword, "oberhau_feint", intensity)
     seed(7705)
-    var honest_station: float = _StrikeRealism.roll_blade_station(sword, "oberhau", intensity)
+    var honest_station: float = StrikeRealism.roll_blade_station(sword, "oberhau", intensity)
     if feint_station >= honest_station:
         _fail(
             failures,
@@ -885,9 +885,9 @@ static func _run_impact_station_mean_pole_swing_below_spear_thrust(failures: Pac
         return
     var intensity: float = 0.35
     seed(7706)
-    var swing_station: float = _StrikeRealism.roll_blade_station(spear, "pole_swing", intensity)
+    var swing_station: float = StrikeRealism.roll_blade_station(spear, "pole_swing", intensity)
     seed(7706)
-    var thrust_station: float = _StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
+    var thrust_station: float = StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
     if swing_station >= thrust_station:
         _fail(
             failures,

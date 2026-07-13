@@ -265,7 +265,7 @@ static func _strike_physics_ctx_from_pa(pa: Dictionary, attack_type: String) -> 
 static func _kin_strike_ke_on_manager(
     mgr: Node, atk: Dictionary, tgt: Dictionary, move_id: String, vo_pin: float, strike_physics_ctx: Dictionary
 ) -> float:
-    mgr.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    mgr.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
     var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
     var res: Dictionary = AttackResolver.compute_and_apply_damage(
         mgr,
@@ -672,8 +672,8 @@ static func _run_kinematic_delivery_empty_arch_spear_thrust_infers_delivery(fail
         vo_pin, 1.0, 1.0, {}, "SPEAR", move_id, 1.0, {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
     )
     var mgr: Node = CombatManager.new()
-    mgr.set_meta(CombatRegressionHarness._HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
-    mgr.set_meta(CombatRegressionHarness._HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
+    mgr.set_meta(CombatRegressionHarness.HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    mgr.set_meta(CombatRegressionHarness.HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
     mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -817,7 +817,7 @@ static func _run_kinematic_delivery_mace_integration_pen_blunt_mpa_rises_with_vo
 
 static func _kin_striker_pre_cut_sample(stamina_ratio: float) -> float:
     var m: Node = CombatManager.new()
-    m.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    m.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
     m.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     m.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     m.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})

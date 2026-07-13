@@ -49,13 +49,13 @@ static func _kin_dmg_integration_sample(
             if move_id == "spear_thrust"
             else {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
         )
-    var m: Node = _MgrScript.new()
-    m.set_meta(_HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
-    m.set_meta(_HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
+    var m: Node = MgrScript.new()
+    m.set_meta(HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
+    m.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
     m.register(_new_entity(weapon_id), "player")
     var tgt_ent: CoreEntity = _new_entity(weapon_id)
     if not tgt_chest_armor_id.is_empty():
-        var ap: Variant = _ArmorPiece.create_from_definition(tgt_chest_armor_id)
+        var ap: Variant = ArmorPiece.create_from_definition(tgt_chest_armor_id)
         if ap != null:
             tgt_ent.equip_armor("chest", ap)
     m.register(tgt_ent, "enemy")
@@ -65,10 +65,10 @@ static func _kin_dmg_integration_sample(
     var tgt: Dictionary = m.combatants[1]
     for ok in tgt_overrides:
         tgt[ok] = tgt_overrides[ok]
-    var res: Dictionary = _AttackResolver.compute_and_apply_damage(
+    var res: Dictionary = AttackResolver.compute_and_apply_damage(
         m,
-        _EntityAccess.id_int(atk),
-        _EntityAccess.id_int(tgt),
+        EntityAccess.id_int(atk),
+        EntityAccess.id_int(tgt),
         atk,
         tgt,
         "chest",
@@ -133,7 +133,7 @@ static func _run_kinematic_delivery_compute_damage_strike_ke_and_blunt_contact_e
     var v_asm: float = KinematicDeliveryPenetrationTests._kin_expected_damage_velocity_m_s(
         m, atk, tgt, intensity, arch, move_id, vo_pin, 1.0
     )
-    var weapon: Weapon = _EntityAccess.get_weapon(atk) as Weapon
+    var weapon: Weapon = EntityAccess.get_weapon(atk) as Weapon
     if weapon == null:
         _fail(failures, "kin_dmg_kin_exposed: missing weapon")
         _free_manager(m)
@@ -162,8 +162,8 @@ static func _run_kinematic_delivery_compute_damage_strike_ke_and_blunt_contact_e
         "pen_sharp_mm": pen_sharp_raw,
         "target_effective_mass_kg": WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, "chest"),
     }
-    var tgt_n: Node = _EntityAccess.scene_node(tgt)
-    _EntityAccess.apply_armor_sharp_resistance_to_blunt_opts(blunt_opts, tgt, "chest")
+    var tgt_n: Node = EntityAccess.scene_node(tgt)
+    EntityAccess.apply_armor_sharp_resistance_to_blunt_opts(blunt_opts, tgt, "chest")
     var bc_want: float = float(
         WeaponDamageHelper.compute_penetration(weapon, ai, WeaponConstants.DAMAGE_TYPE_BLUNT, blunt_opts).get(
             "blunt_contact_cm", -1.0
@@ -282,9 +282,9 @@ static func _kin_expected_pre_armor_cut_blunt(
     ai.velocity_m_s = v_m_s
     ai.strike_energy_mult = float(strike_mods.get("strike_energy_mult", 1.0))
     ai.strike_momentum_mult = float(strike_mods.get("strike_momentum_mult", 1.0))
-    var atk_n: Node = _EntityAccess.scene_node(atk)
-    var arm_mod: float = _EntityAccess.get_attack_damage_modifier(atk)
-    var atk_str: float = float(_EntityAccess.stats_dict(atk).get("strength", 100))
+    var atk_n: Node = EntityAccess.scene_node(atk)
+    var arm_mod: float = EntityAccess.get_attack_damage_modifier(atk)
+    var atk_str: float = float(EntityAccess.stats_dict(atk).get("strength", 100))
     var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, "chest")
     var cut_ratio: float = WeaponDamageHelper.get_cut_ratio(weapon, move_id, arch)
     if weapon.get_contact_type(move_id) == WeaponConstants.ATTACK_TYPE_CUT and v_m_s >= 0.0 and parry_r < 1.0:
@@ -299,7 +299,7 @@ static func _kin_expected_pre_armor_cut_blunt(
         weapon, ai, atk_str, arm_mod, cut_ratio, target_mass, float(strike_mods.get("blunt_damage_mult", 1.0))
     )
     var WF := preload("res://combat/CombatWeaponForm.gd")
-    var stance_mult: float = WF.mod(_EntityAccess.form_str(atk), "damage")
+    var stance_mult: float = WF.mod(EntityAccess.form_str(atk), "damage")
     return Vector2(pre_cut * stance_mult, pre_blunt * stance_mult)
 
 
@@ -324,7 +324,7 @@ static func _run_kinematic_delivery_compute_damage_pre_armor_matches_helper_at_a
         var m: Node = sample["mgr"] as Node
         var atk: Dictionary = sample["atk"] as Dictionary
         var tgt: Dictionary = sample["tgt"] as Dictionary
-        var weapon: Weapon = _EntityAccess.get_weapon(atk) as Weapon
+        var weapon: Weapon = EntityAccess.get_weapon(atk) as Weapon
         if weapon == null:
             _fail(failures, "kin_pre_armor: missing weapon (%s)" % case["label"])
             _free_manager(m)
