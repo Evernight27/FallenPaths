@@ -43,48 +43,57 @@ const MOVE_ID_ORDER_HOLD_LANE := "order_hold_lane"
 const MOVE_ID_ORDER_PROBING := "order_probing"
 const MOVE_ID_ORDER_PINCH_CENTER := "order_pinch_center"
 const LEADER_FORMATION_COMMAND_MOVE_IDS: Array[String] = [
-	MOVE_ID_ORDER_HOLD_LANE,
-	MOVE_ID_ORDER_PROBING,
-	MOVE_ID_ORDER_PINCH_CENTER,
+    MOVE_ID_ORDER_HOLD_LANE,
+    MOVE_ID_ORDER_PROBING,
+    MOVE_ID_ORDER_PINCH_CENTER,
 ]
 const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = [
-	MOVE_ID_SWAP_RANK, MOVE_ID_DRAG_BACK, MOVE_ID_FALL_BACK, MOVE_ID_ROTATE_FILE, MOVE_ID_FLEE, MOVE_ID_PLUG_FORWARD
+    MOVE_ID_SWAP_RANK, MOVE_ID_DRAG_BACK, MOVE_ID_FALL_BACK, MOVE_ID_ROTATE_FILE, MOVE_ID_FLEE, MOVE_ID_PLUG_FORWARD
 ]
 
+
 static func is_formation_movement_move(move_id: String) -> bool:
-	return move_id in FORMATION_MOVEMENT_MOVE_IDS
+    return move_id in FORMATION_MOVEMENT_MOVE_IDS
+
 
 static func is_leader_formation_command_move(move_id: String) -> bool:
-	return move_id in LEADER_FORMATION_COMMAND_MOVE_IDS
+    return move_id in LEADER_FORMATION_COMMAND_MOVE_IDS
+
 
 static func is_formation_reposition_move(move_id: String) -> bool:
-	return is_formation_movement_move(move_id) and str(move_id) != MOVE_ID_FLEE
+    return is_formation_movement_move(move_id) and str(move_id) != MOVE_ID_FLEE
+
 
 static func is_partner_formation_move(move_id: String) -> bool:
-	var mid := move_id
-	return mid == MOVE_ID_SWAP_RANK or mid == MOVE_ID_DRAG_BACK or mid == MOVE_ID_FALL_BACK or mid == MOVE_ID_PLUG_FORWARD
+    var mid := move_id
+    return (
+        mid == MOVE_ID_SWAP_RANK or mid == MOVE_ID_DRAG_BACK or mid == MOVE_ID_FALL_BACK or mid == MOVE_ID_PLUG_FORWARD
+    )
+
 
 static func is_plug_forward_move(move_id: String) -> bool:
-	return move_id == MOVE_ID_PLUG_FORWARD
+    return move_id == MOVE_ID_PLUG_FORWARD
+
 
 static func is_formation_pair_move_kind(move_kind: String) -> bool:
-	var k := str(move_kind)
-	return (
-		k == FORMATION_MOVE_KIND_SWAP_RANK
-		or k == FORMATION_MOVE_KIND_DRAG_BACK
-		or k == FORMATION_MOVE_KIND_FALL_BACK_PAIR
-		or k == MOVE_ID_PLUG_FORWARD
-	)
+    var k := str(move_kind)
+    return (
+        k == FORMATION_MOVE_KIND_SWAP_RANK
+        or k == FORMATION_MOVE_KIND_DRAG_BACK
+        or k == FORMATION_MOVE_KIND_FALL_BACK_PAIR
+        or k == MOVE_ID_PLUG_FORWARD
+    )
+
 
 static func formation_pair_move_kind_for_menu_move(move_id: String) -> String:
-	match move_id:
-		MOVE_ID_SWAP_RANK:
-			return FORMATION_MOVE_KIND_SWAP_RANK
-		MOVE_ID_DRAG_BACK:
-			return FORMATION_MOVE_KIND_DRAG_BACK
-		MOVE_ID_FALL_BACK:
-			return FORMATION_MOVE_KIND_FALL_BACK_PAIR
-		MOVE_ID_PLUG_FORWARD:
-			return MOVE_ID_PLUG_FORWARD
-		_:
-			return str(move_id)
+    match move_id:
+        MOVE_ID_SWAP_RANK:
+            return FORMATION_MOVE_KIND_SWAP_RANK
+        MOVE_ID_DRAG_BACK:
+            return FORMATION_MOVE_KIND_DRAG_BACK
+        MOVE_ID_FALL_BACK:
+            return FORMATION_MOVE_KIND_FALL_BACK_PAIR
+        MOVE_ID_PLUG_FORWARD:
+            return MOVE_ID_PLUG_FORWARD
+        _:
+            return str(move_id)

@@ -245,7 +245,7 @@ Write-Host ("wf_m3_f5_paste: " + $(if ($eaWfM3) { "READY (validator)" } elseif (
 Write-Host ("camp_section_8: " + $(if ($eaCamp) { "READY (settlement + day markers)" } elseif (Test-Path $f5Log) { "NOT READY - need full Camp loop in log" } else { "NOT READY - F5 Camp playtest" }))
 if (Test-Path $f5Val) {
 	$exp02 = Test-F5Exp02OptionalTracksPass $f5Val
-	Write-Host ("exp_0_2_optional: " + $(if ($exp02) { "PASS (steps 4, 8 paid, 9, 10)" } else { "incomplete - run .\scripts\run_exp0_playtest_gate.ps1" }))
+	Write-Host ("exp_0_2_optional: " + $(if ($exp02) { "PASS (steps 4, 8 paid, 9, 10)" } else { "incomplete - run .\scripts\run_playtest.ps1 exp0" }))
 }
 $f5HumanStatus = "NOT READY"
 if (Test-Path $f5Log) {

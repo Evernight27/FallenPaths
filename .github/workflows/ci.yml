@@ -5,6 +5,14 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   # Official Linux editor asset uses dots: linux.x86_64 (not linux_x86_64).
@@ -16,15 +24,77 @@ jobs:
     name: Doc links
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: python3 scripts/check_doc_links.py
 
-  phase0-combat:
-    name: Phase 0 Combat Checks
+  shellcheck:
+    name: Shellcheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@v7
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: shellcheck scripts/*.sh
+        # Ubuntu apt shellcheck is 0.9 (no --rcfile=). Discovers repo-root .shellcheckrc from cwd.
+        run: shellcheck -x scripts/*.sh
+  gdscript-lint:
+    name: GDScript lint (gdlint + gdformat)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+      - name: Install gdtoolkit
+        run: pip install -r requirements-ci.txt
+      - name: gdlint
+        run: gdlint .
+      - name: gdformat --check
+        run: gdformat --check .
+
+  # PRs: company (~406) + combat regression harness. Full Phase 0 on main push.
+  fast-phase0:
+    name: Harness (company + regression)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux.x86_64
+      - name: Ensure Godot
+        run: |
+          chmod +x scripts/ci_ensure_godot.sh
+          GODOT_DIR="${{ runner.temp }}/godot" scripts/ci_ensure_godot.sh
+      - name: Fast Phase 0
+        env:
+          GODOT: ${{ runner.temp }}/godot/${{ env.GODOT_BIN_NAME }}
+          FP_SKIP_DOC_LINKS: "1"
+        run: |
+          chmod +x scripts/run_fast_phase0.sh
+          bash scripts/run_fast_phase0.sh
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fast-phase0-logs-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            .phase0_*.txt
+            .phase0_fast_regression.txt
+            .harness_*.txt
+
+  # main/master push + manual: full Phase 0 (includes company; docs covered by doc-links).
+  phase0-combat:
+    name: Phase 0 (full harness)
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/godot
           key: godot-${{ env.GODOT_VERSION }}-linux.x86_64
@@ -33,24 +103,20 @@ jobs:
           chmod +x scripts/ci_ensure_godot.sh
           GODOT_DIR="${{ runner.temp }}/godot" scripts/ci_ensure_godot.sh
       - name: Run Phase 0
-        run: |
-          export GODOT="${{ runner.temp }}/godot/${{ env.GODOT_BIN_NAME }}"
-          bash scripts/run_all_combat_checks.sh
-
-  company-state:
-    name: Company State Checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+        env:
+          GODOT: ${{ runner.temp }}/godot/${{ env.GODOT_BIN_NAME }}
+          FP_SKIP_DOC_LINKS: "1"
+        run: bash scripts/run_all_combat_checks.sh
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
         with:
-          path: ${{ runner.temp }}/godot
-          key: godot-${{ env.GODOT_VERSION }}-linux.x86_64
-      - name: Ensure Godot
-        run: |
-          chmod +x scripts/ci_ensure_godot.sh
-          GODOT_DIR="${{ runner.temp }}/godot" scripts/ci_ensure_godot.sh
-      - name: Run company state checks
-        run: |
-          export GODOT="${{ runner.temp }}/godot/${{ env.GODOT_BIN_NAME }}"
-          bash scripts/run_company_state_checks.sh
+          name: phase0-logs-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            .phase0_*.txt
+            .d001_*.txt
+            .calibration_*.txt
+            .campaign_ship_audit.txt
+            .harness_*.txt
+            .medical_phase_harness_out.txt

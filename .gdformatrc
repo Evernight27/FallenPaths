@@ -1,0 +1,10 @@
+# gdtoolkit gdformat config (YAML). Used by `gdformat` — not gdformat.toml.
+line_length: 120
+use_spaces: 4
+safety_checks: true
+excluded_directories:
+  - .git
+  - .godot
+  - .ci-venv
+  # Keep combat_tuning under gdformat so Godot never sees tab/space mixes
+  # (gdlint still excludes it; see .gdlintrc).

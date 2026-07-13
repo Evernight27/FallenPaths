@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
 # Source from scripts/*.sh — do not execute directly.
+# shellcheck shell=bash
 fp_project_root() {
 	(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 }

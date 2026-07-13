@@ -32,7 +32,7 @@ Stream: **Combat**. Default post–Camp-5 — smallest `combat/*.gd` owner per [
 <a id="priority-battleui-medical-busy"></a>
 <a id="priority-species-s5"></a>
 
-Mental stack map: [`SHIP_PLAN` §9b](../../docs/SHIP_PLAN.md#combat-mental-stack-shipped) · archive [`MENTAL_STACK_IMPROVEMENT_PLAN`](../../docs/archive/MENTAL_STACK_IMPROVEMENT_PLAN.md).
+Mental stack map: [`SHIP_PLAN` §9b](../../docs/SHIP_PLAN.md#combat-mental-stack-shipped) · [`LIVE_PATHS#tier-43-mental-stack--combat-attention`](../../docs/LIVE_PATHS.md#tier-43-mental-stack--combat-attention).
 
 ---
 

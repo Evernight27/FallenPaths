@@ -1,0 +1,13 @@
+# Overrides only — all other keys use gdtoolkit defaults.
+# https://github.com/Scony/godot-gdscript-toolkit/wiki/3.-Linter
+#
+# max-line-length / tab-characters match .gdformatrc (120 cols, 4-space indent).
+# excluded_directories replaces the default set (keep .git).
+
+max-line-length: 120
+tab-characters: 4
+excluded_directories:
+  - .git
+  - .godot
+  - .ci-venv
+  - combat_tuning

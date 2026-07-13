@@ -5,8 +5,6 @@ extends RefCounted
 ## Consumers: `SpeciesResource`, `TissueEnergyCapacity`, `BloodVolumeMl`, `WeaponDamageHelper`,
 ## `MaterialFailureCurves`, `CombatCalibrationAudit`, harness simulation, `CombatResearchAnchors`.
 
-const _Bleeding := preload("res://core/BleedingConstants.gd")
-
 ## Narrative committed-strike KE (J) for arm / leg slots (S1 delivery, S5 derived limbs, M6 pool).
 const DESIGN_KE_ARM_J := 100.0
 const DESIGN_KE_LEG_J := 200.0
@@ -37,52 +35,52 @@ const CUT_TISSUE_ULTIMATE_PEN_OFFSET_MM := 1.0
 
 
 static func design_ke_j_for_part(part: String) -> float:
-	if part.ends_with("_leg"):
-		return DESIGN_KE_LEG_J
-	return DESIGN_KE_ARM_J
+    if part.ends_with("_leg"):
+        return DESIGN_KE_LEG_J
+    return DESIGN_KE_ARM_J
 
 
 static func reference_tissue_display_for_part(part: String) -> int:
-	if part.ends_with("_leg"):
-		return REFERENCE_HUMAN_LEG_TISSUE_DISPLAY
-	return REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
+    if part.ends_with("_leg"):
+        return REFERENCE_HUMAN_LEG_TISSUE_DISPLAY
+    return REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
 
 
 static func cut_tissue_ultimate_pen_mm() -> float:
-	return _Bleeding.PENETRATION_DEPTH_SEVERITY_FULL_MM + CUT_TISSUE_ULTIMATE_PEN_OFFSET_MM
+    return BleedingConstants.PENETRATION_DEPTH_SEVERITY_FULL_MM + CUT_TISSUE_ULTIMATE_PEN_OFFSET_MM
 
 
 static func reference_blood_volume_ml_for_mass(reference_mass_kg: float) -> float:
-	if reference_mass_kg <= 0.0:
-		return REFERENCE_BLOOD_VOLUME_ML_ADULT
-	return REFERENCE_BLOOD_ML_PER_KG * reference_mass_kg
+    if reference_mass_kg <= 0.0:
+        return REFERENCE_BLOOD_VOLUME_ML_ADULT
+    return REFERENCE_BLOOD_ML_PER_KG * reference_mass_kg
 
 
 static func committed_strike_ke_in_strict_band(ke_j: float) -> bool:
-	return ke_j >= COMMITTED_STRIKE_KE_J_MIN and ke_j <= COMMITTED_STRIKE_KE_J_MAX
+    return ke_j >= COMMITTED_STRIKE_KE_J_MIN and ke_j <= COMMITTED_STRIKE_KE_J_MAX
 
 
 ## Per-weapon KE audit bands for tuning / balance matrix (committed delivery, i≈0.65–0.85).
 static func ke_band_min_max_for_weapon(weapon_id: String, kinematic_delivery: String = "") -> Vector2:
-	var wid: String = weapon_id.to_upper().strip_edges()
-	var delivery: String = kinematic_delivery.to_lower().strip_edges()
-	if delivery == "thrust" or wid == "DAGGER":
-		if wid == "DAGGER":
-			return Vector2(3.0, 45.0)
-		return Vector2(40.0, 120.0)
-	match wid:
-		"AXE":
-			return Vector2(55.0, 155.0)
-		"MACE":
-			return Vector2(75.0, 220.0)
-		"SPEAR":
-			return Vector2(45.0, 130.0)
-		_:
-			return Vector2(COMMITTED_STRIKE_KE_J_MIN, COMMITTED_STRIKE_KE_J_MAX)
+    var wid: String = weapon_id.to_upper().strip_edges()
+    var delivery: String = kinematic_delivery.to_lower().strip_edges()
+    if delivery == "thrust" or wid == "DAGGER":
+        if wid == "DAGGER":
+            return Vector2(3.0, 45.0)
+        return Vector2(40.0, 120.0)
+    match wid:
+        "AXE":
+            return Vector2(55.0, 155.0)
+        "MACE":
+            return Vector2(75.0, 220.0)
+        "SPEAR":
+            return Vector2(45.0, 130.0)
+        _:
+            return Vector2(COMMITTED_STRIKE_KE_J_MIN, COMMITTED_STRIKE_KE_J_MAX)
 
 
 static func ke_in_weapon_band(ke_j: float, weapon_id: String, kinematic_delivery: String = "") -> bool:
-	if ke_j <= 0.0:
-		return false
-	var band: Vector2 = ke_band_min_max_for_weapon(weapon_id, kinematic_delivery)
-	return ke_j >= band.x and ke_j <= band.y
+    if ke_j <= 0.0:
+        return false
+    var band: Vector2 = ke_band_min_max_for_weapon(weapon_id, kinematic_delivery)
+    return ke_j >= band.x and ke_j <= band.y

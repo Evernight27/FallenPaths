@@ -18,38 +18,38 @@ const MEDICAL := 100.0
 
 
 static func gauge_for_move_id(move_id: String) -> float:
-	if move_id.is_empty():
-		return DEFAULT
-	if CombatConstants.is_medical_move(move_id):
-		return MEDICAL
-	if move_id == CombatConstants.MOVE_ID_WAIT:
-		return WAIT
-	if move_id == CombatConstants.MOVE_ID_FEINT:
-		return FEINT
-	if move_id == CombatConstants.MOVE_ID_QUICK:
-		return QUICK_STRIKE
-	if move_id == CombatConstants.MOVE_ID_MEDIUM:
-		return MEDIUM_STRIKE
-	if move_id == CombatConstants.MOVE_ID_HEAVY:
-		return HEAVY_STRIKE
-	if "retreat" in move_id or move_id == "flee":
-		return RETREAT
-	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-		return CLOSE_ATTEMPT
-	if move_id == "counter_tempo":
-		return COUNTER_TEMPO
-	if CombatConstants.is_formation_movement_move(move_id):
-		return FORMATION
-	return DEFAULT
+    if move_id.is_empty():
+        return DEFAULT
+    if CombatConstants.is_medical_move(move_id):
+        return MEDICAL
+    if move_id == CombatConstants.MOVE_ID_WAIT:
+        return WAIT
+    if move_id == CombatConstants.MOVE_ID_FEINT:
+        return FEINT
+    if move_id == CombatConstants.MOVE_ID_QUICK:
+        return QUICK_STRIKE
+    if move_id == CombatConstants.MOVE_ID_MEDIUM:
+        return MEDIUM_STRIKE
+    if move_id == CombatConstants.MOVE_ID_HEAVY:
+        return HEAVY_STRIKE
+    if "retreat" in move_id or move_id == "flee":
+        return RETREAT
+    if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+        return CLOSE_ATTEMPT
+    if move_id == "counter_tempo":
+        return COUNTER_TEMPO
+    if CombatConstants.is_formation_movement_move(move_id):
+        return FORMATION
+    return DEFAULT
 
 
 static func apply_gauge(combatant: Dictionary, move_id: String = "") -> void:
-	if combatant.is_empty():
-		return
-	combatant["gauge"] = gauge_for_move_id(move_id)
+    if combatant.is_empty():
+        return
+    combatant["gauge"] = gauge_for_move_id(move_id)
 
 
 static func apply_gauge_value(combatant: Dictionary, gauge: float) -> void:
-	if combatant.is_empty():
-		return
-	combatant["gauge"] = clampf(gauge, 0.0, 100.0)
+    if combatant.is_empty():
+        return
+    combatant["gauge"] = clampf(gauge, 0.0, 100.0)
