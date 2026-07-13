@@ -32,8 +32,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Install latest shellcheck
+        run: |
+          wget -qO- https://github.com/koalaman/shellcheck/releases/latest/download/shellcheck-latest.linux.x86_64.tar.xz | tar -xJ --strip-components=1 -C /usr/local
       - name: shellcheck scripts/*.sh
         run: shellcheck --rcfile=scripts/.shellcheckrc -x scripts/*.sh
 
