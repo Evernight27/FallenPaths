@@ -20,6 +20,7 @@ Scripts live in `scripts/`. Godot resolve: [`scripts/README.md#godot-entry`](scr
 | Script | Purpose |
 |--------|---------|
 | `run_all_combat_checks.sh` / `.ps1` | Phase 0 gate — expect `PHASE0: PASS` |
+| `run_fast_phase0.sh` / `.ps1` | Fast gate — docs + company + regression (CI PRs) |
 | `run_company_state_checks.sh` / `.ps1` | Campaign company state validation |
 | `run_q_feel.sh` / `.ps1` | F5 soak feel audit (tracks: Camp, IV, WF) |
 | `run_q_audit.ps1` | Q-track soak audit (PowerShell-only) |
@@ -28,7 +29,7 @@ Scripts live in `scripts/`. Godot resolve: [`scripts/README.md#godot-entry`](scr
 ./scripts/run_all_combat_checks.sh
 ```
 
-CI runs the bash versions on GitHub Actions (`.github/workflows/ci.yml`).
+CI (`.github/workflows/ci.yml`): **doc links** always; **fast Phase 0** on PRs; **full Phase 0** on `main`/`master` push (and `workflow_dispatch`).
 
 ## Code structure
 

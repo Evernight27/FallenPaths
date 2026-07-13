@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Phase 0 gate (default) or partial harness: FP_HARNESS_MODE / first arg = regression|d001|sanity|calibration|medical.
-# Optional: --validate-f5
+# Optional: --validate-f5 · Env: FP_SKIP_DOC_LINKS=1 (CI when doc-links job already ran).
 set -euo pipefail
 # shellcheck source=_lib.sh
 source "$(cd "$(dirname "$0")" && pwd)/_lib.sh"
@@ -53,8 +53,12 @@ SUMMARY_TMP="$SUMMARY.tmp"
 commit() { mv -f "$SUMMARY_TMP" "$SUMMARY"; }
 append_ok_line() { local f="$1" tag="$2"; [[ -f "$f" ]] || return; local l; l="$(grep -m1 '^ok=' "$f" || true)"; [[ -n "$l" ]] && echo "$tag: $l" >>"$SUMMARY_TMP"; }
 
-echo "=== Doc link check ==="
-bash "$SCRIPT_DIR/check_doc_links.sh" || exit $?
+if [[ "${FP_SKIP_DOC_LINKS:-0}" == "1" ]]; then
+	echo "=== Doc link check (skipped; FP_SKIP_DOC_LINKS=1) ==="
+else
+	echo "=== Doc link check ==="
+	bash "$SCRIPT_DIR/check_doc_links.sh" || exit $?
+fi
 echo ""
 echo "=== Godot import warmup ==="
 fp_godot_import_warmup "$ROOT" || true

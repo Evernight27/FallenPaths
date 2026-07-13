@@ -5,6 +5,14 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   # Official Linux editor asset uses dots: linux.x86_64 (not linux_x86_64).
@@ -19,8 +27,43 @@ jobs:
       - uses: actions/checkout@v4
       - run: python3 scripts/check_doc_links.py
 
+  # PRs: company + regression only (~2–4 min). Full Phase 0 runs on main push.
+  fast-phase0:
+    name: Fast Phase 0
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux.x86_64
+      - name: Ensure Godot
+        run: |
+          chmod +x scripts/ci_ensure_godot.sh
+          GODOT_DIR="${{ runner.temp }}/godot" scripts/ci_ensure_godot.sh
+      - name: Fast Phase 0
+        env:
+          GODOT: ${{ runner.temp }}/godot/${{ env.GODOT_BIN_NAME }}
+          FP_SKIP_DOC_LINKS: "1"
+        run: |
+          chmod +x scripts/run_fast_phase0.sh
+          bash scripts/run_fast_phase0.sh
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-phase0-logs-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            .phase0_*.txt
+            .phase0_fast_regression.txt
+            .harness_*.txt
+
+  # main/master push + manual: full Phase 0 (includes company; docs covered by doc-links).
   phase0-combat:
     name: Phase 0 Combat Checks
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,24 +76,20 @@ jobs:
           chmod +x scripts/ci_ensure_godot.sh
           GODOT_DIR="${{ runner.temp }}/godot" scripts/ci_ensure_godot.sh
       - name: Run Phase 0
-        run: |
-          export GODOT="${{ runner.temp }}/godot/${{ env.GODOT_BIN_NAME }}"
-          bash scripts/run_all_combat_checks.sh
-
-  company-state:
-    name: Company State Checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+        env:
+          GODOT: ${{ runner.temp }}/godot/${{ env.GODOT_BIN_NAME }}
+          FP_SKIP_DOC_LINKS: "1"
+        run: bash scripts/run_all_combat_checks.sh
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          path: ${{ runner.temp }}/godot
-          key: godot-${{ env.GODOT_VERSION }}-linux.x86_64
-      - name: Ensure Godot
-        run: |
-          chmod +x scripts/ci_ensure_godot.sh
-          GODOT_DIR="${{ runner.temp }}/godot" scripts/ci_ensure_godot.sh
-      - name: Run company state checks
-        run: |
-          export GODOT="${{ runner.temp }}/godot/${{ env.GODOT_BIN_NAME }}"
-          bash scripts/run_company_state_checks.sh
+          name: phase0-logs-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            .phase0_*.txt
+            .d001_*.txt
+            .calibration_*.txt
+            .campaign_ship_audit.txt
+            .harness_*.txt
+            .medical_phase_harness_out.txt

@@ -40,7 +40,7 @@ Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`
 
 ## Other runners
 
-**Bash twins:** most `*.ps1` gate runners have a `*.sh` twin. **PowerShell-only:** `run_q_audit.ps1`. **Fast Phase 0:** `run_fast_phase0.ps1` only (no `.sh` twin) — doc links + company state + regression harness; **-Full** = full Phase 0; **-D001Light** adds D001 light.
+**Bash twins:** most `*.ps1` gate runners have a `*.sh` twin. **PowerShell-only:** `run_q_audit.ps1`. **Fast Phase 0:** `run_fast_phase0.sh` / `.ps1` — doc links + company state + regression; `--full` / **-Full** = full Phase 0; **-D001Light** is PowerShell-only.
 
 **Parallel agent chats (post–Camp-5 default):** [`agent_prompts/README.md`](agent_prompts/README.md).
 
@@ -62,7 +62,7 @@ Partial modes tee logs under repo root (`.harness_out.txt`, `.d001_soak_out.txt`
 | `run_campaign_ship_audit.ps1` / `.sh` | Camp-3.4/5 headless standalone; `-TailOnly` / `--tail-only` skips company checks (Phase 0 already ran) |
 | `print_phase0_status.ps1` / `.sh` | Summarize `.phase0_*` / `.d001_*` / calibration + Camp-5 headless vs human F5 status |
 | `check_doc_links.ps1` | Doc link + tombstone gate + `res://` path audit (also run inside Phase 0) |
-| `run_fast_phase0.ps1` | Fast Phase 0 — doc links + company state + regression harness only (no D001 soak / calibration); **-Full** = same as `run_all_combat_checks`, **-D001Light** = adds D001 light (~2-4 min vs ~8-12 min). No `.sh` twin. |
+| `run_fast_phase0.sh` / `.ps1` | Fast Phase 0 — doc links + company state + regression (no D001 soak / calibration); `--full` / **-Full** = full Phase 0; **-D001Light** = PS1 only. CI PRs use this (with `FP_SKIP_DOC_LINKS=1`). |
 | `run_playtest.sh` / `.ps1` | **Playtest dispatcher** (no Phase 0): `status` · `merge` · `revalidate` · `recover` · `after-append` · `full` · `exp0` · `rebuild`. Thin `run_playtest_*.sh` / `run_exp0_*` / `rebuild_f5_*` wrappers remain for old paths. |
 
 ## Internals
