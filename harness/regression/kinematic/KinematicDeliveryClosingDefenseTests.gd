@@ -702,9 +702,9 @@ static func _run_kinematic_delivery_partial_parry_cut_to_blunt_integration_sword
 ## active); complements derived-**`v`** skip test.
 static func _run_kinematic_delivery_pinned_vo_misalign_scales_pen_integration(failures: PackedStringArray) -> void:
     var vo_pin: float = 11.0
-    var amin: float = CombatConstants.PARRY_PENETRATION_ANGLE_MIN
-    var ascale: float = CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
-    var want_ratio: float = cos(deg_to_rad(75.0))
+    var want_ratio: float = lerpf(
+        1.0, CombatConstants.PARRY_PENETRATION_ANGLE_MIN, CombatConstants.PARRY_PENETRATION_ALIGNMENT_SCALE
+    )
     for cfx in CombatRegressionHarness._kin_fixtures_with_sharp_pen():
         var wid: String = str(cfx["wid"])
         var move: String = str(cfx["move"])

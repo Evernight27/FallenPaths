@@ -11,7 +11,7 @@ const FIELD_CARE_EFF_MIN: float = 0.5
 
 const FIELD_CARE_STABILIZE_FLOOR: float = 0.3
 
-const GAUGE_FULL_THRESHOLD: float = 0.95
+const GAUGE_FULL_THRESHOLD: float = 99.0
 
 const PACK_WOUND_TIMEOUT_S := 3.0
 

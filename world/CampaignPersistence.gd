@@ -274,7 +274,8 @@ static func _serialize_entity(entity: Node) -> Dictionary:
         "body_blunt": _deep_dup(entity.body_blunt) if "body_blunt" in entity else {},
         "bone_health": _deep_dup(entity.bone_health) if "bone_health" in entity else {},
         # XCamp-4: proficiency data.
-        "proficiency_bonus": _deep_dup(entity._proficiency_bonus) if "_proficiency_bonus" in entity else {},
+        "proficiency_bonus":
+        _deep_dup(entity.get("_proficiency_bonus")) if entity.get("_proficiency_bonus") is Dictionary else {},
         "training_pending": _deep_dup(entity.training_pending) if "training_pending" in entity else {},
         "last_fought_day": int(entity.last_fought_day) if "last_fought_day" in entity else 0,
         "last_fought_in_combat": bool(entity.last_fought_in_combat) if "last_fought_in_combat" in entity else false,
@@ -370,14 +371,20 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
     # XCamp-4: restore proficiency data.
     if data.has("proficiency_bonus"):
         var saved_prof: Dictionary = data.get("proficiency_bonus", {})
-        var prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
-        for key in prof_keys:
-            entity._proficiency_bonus[key] = float(saved_prof.get(key, 0))
+        var prof_raw: Variant = entity.get("_proficiency_bonus")
+        if prof_raw is Dictionary:
+            var prof_dict: Dictionary = prof_raw as Dictionary
+            var prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
+            for key in prof_keys:
+                prof_dict[key] = float(saved_prof.get(key, 0.0))
     if data.has("training_pending"):
         var saved_train: Dictionary = data.get("training_pending", {})
-        var prof_keys_p := ["strength", "agility", "intelligence", "endurance", "perception"]
-        for key in prof_keys_p:
-            entity.training_pending[key] = float(saved_train.get(key, 0))
+        var train_raw: Variant = entity.get("training_pending")
+        if train_raw is Dictionary:
+            var train_dict: Dictionary = train_raw as Dictionary
+            var prof_keys_p := ["strength", "agility", "intelligence", "endurance", "perception"]
+            for key in prof_keys_p:
+                train_dict[key] = float(saved_train.get(key, 0.0))
     if data.has("last_fought_day"):
         entity.last_fought_day = data.get("last_fought_day", 0)
     if data.has("last_fought_in_combat"):

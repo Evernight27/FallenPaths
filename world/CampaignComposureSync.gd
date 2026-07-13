@@ -28,5 +28,5 @@ static func restore_party_at_camp(world: Node2D) -> void:
         var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
         if entity != null and entity.has_method("restore_campaign_composure_at_camp"):
             entity.restore_campaign_composure_at_camp()
-        if entity != null and entity.has_method("restore_muscle_fatigue_at_camp"):
-            entity.restore_muscle_fatigue_at_camp()
+        if entity != null and entity.has_method("_restore_muscle_fatigue_at_camp"):
+            entity._restore_muscle_fatigue_at_camp()

@@ -1,3 +1,5 @@
 # Resolve `# shellcheck source=` and `source "$SCRIPT_DIR/..."` relative to each script.
 source-path=SCRIPTDIR
 external-sources=true
+# Intentional `A && B || true` guards in playtest runners (not if/else).
+disable=SC2015

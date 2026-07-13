@@ -288,7 +288,7 @@ static func gauge_hint_suffix(c: Dictionary, _manager: Node = null) -> String:
         return ""
     var part: String = most_fatigued_limb(c)
     var line: String = gauge_suffix_for_limb(c, part)
-    return (" · " + line) if not line.is_empty() else ""
+    return (" . " + line) if not line.is_empty() else ""
 
 
 static func gauge_tooltip_line(c: Dictionary, _manager: Node = null) -> String:

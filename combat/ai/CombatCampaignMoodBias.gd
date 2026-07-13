@@ -74,20 +74,15 @@ static func wait_action_weight_mult(mood_bias: float) -> float:
 
 
 ## XCamp-3.9: returns a weight multiplier for attack/close actions based on campaign mood bias.
-## Low morale -> lower attack aggression (damp). High morale -> higher attack aggression (boost).
+## Low morale (<=25) -> damp. Mid (25-70) -> 1.0. High (>=70) -> boost.
 static func offense_action_weight_mult(mood_bias: float) -> float:
     if mood_bias < 0.0:
         return 1.0
-    if mood_bias > MOOD_BIAS_HIGH_THRESHOLD:
-        return 1.0
-    # At NEUTRAL: neutral (1.0). Below NEUTRAL: damp up to LOW_MIN at mood=0.
-    # Above NEUTRAL toward HIGH: boost up to HIGH_MAX at mood=HIGH.
     if mood_bias <= MOOD_BIAS_NEUTRAL_THRESHOLD:
-        return lerpf(
-            1.0,
-            MOOD_OFFENSE_MULT_LOW_MIN,
-            clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
-        )
+        return lerpf(MOOD_OFFENSE_MULT_LOW_MIN, 1.0, clampf(mood_bias / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0))
+    if mood_bias < MOOD_BIAS_HIGH_THRESHOLD:
+        return 1.0
+    # High (>=70): boost using the neutral→high ramp so mood=70 is already aggressive.
     return lerpf(
         1.0,
         MOOD_OFFENSE_MULT_HIGH_MAX,
@@ -96,18 +91,14 @@ static func offense_action_weight_mult(mood_bias: float) -> float:
 
 
 ## XCamp-3.9: returns a weight multiplier for focus-line moves based on campaign mood bias.
-## Low morale -> higher focus weight (defensive guard discipline). High morale -> lower focus weight.
+## Low morale (<=25) -> higher focus. Mid (25-70) -> 1.0. High (>=70) -> lower focus.
 static func focus_line_action_weight_mult(mood_bias: float) -> float:
     if mood_bias < 0.0:
         return 1.0
-    if mood_bias > MOOD_BIAS_HIGH_THRESHOLD:
-        return 1.0
     if mood_bias <= MOOD_BIAS_NEUTRAL_THRESHOLD:
-        return lerpf(
-            1.0,
-            MOOD_FOCUS_MULT_LOW_MAX,
-            clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
-        )
+        return lerpf(MOOD_FOCUS_MULT_LOW_MAX, 1.0, clampf(mood_bias / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0))
+    if mood_bias < MOOD_BIAS_HIGH_THRESHOLD:
+        return 1.0
     return lerpf(
         1.0,
         MOOD_FOCUS_MULT_HIGH_MIN,
@@ -116,36 +107,28 @@ static func focus_line_action_weight_mult(mood_bias: float) -> float:
 
 
 ## XCamp-3.9: returns a weight multiplier for flee actions based on campaign mood bias.
-## Low morale -> higher flee tendency (desperation). High morale -> lower flee tendency (resolve).
+## Low morale (<=25) -> higher flee. Mid (25-70) -> 1.0. High (>=70) -> lower flee.
 static func flee_action_weight_mult(mood_bias: float) -> float:
     if mood_bias < 0.0:
         return 1.0
-    if mood_bias > MOOD_BIAS_HIGH_THRESHOLD:
-        return 1.0
     if mood_bias <= MOOD_BIAS_NEUTRAL_THRESHOLD:
-        return lerpf(
-            1.0,
-            MOOD_FLEE_MULT_LOW_MAX,
-            clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
-        )
+        return lerpf(MOOD_FLEE_MULT_LOW_MAX, 1.0, clampf(mood_bias / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0))
+    if mood_bias < MOOD_BIAS_HIGH_THRESHOLD:
+        return 1.0
     return lerpf(
         1.0, MOOD_FLEE_MULT_HIGH_MIN, clampf((mood_bias - MOOD_BIAS_NEUTRAL_THRESHOLD) / MOOD_BIAS_RANGE_HIGH, 0.0, 1.0)
     )
 
 
 ## XCamp-3.9: returns a weight multiplier for swap_rank/fall_back disengage moves based on mood bias.
-## Low morale -> higher disengage (fragile cohesion). High morale -> lower disengage (hold ground).
+## Low morale (<=25) -> higher disengage. Mid (25-70) -> 1.0. High (>=70) -> lower disengage.
 static func disengage_action_weight_mult(mood_bias: float) -> float:
     if mood_bias < 0.0:
         return 1.0
-    if mood_bias > MOOD_BIAS_HIGH_THRESHOLD:
-        return 1.0
     if mood_bias <= MOOD_BIAS_NEUTRAL_THRESHOLD:
-        return lerpf(
-            1.0,
-            MOOD_DISENGAGE_MULT_LOW_MAX,
-            clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
-        )
+        return lerpf(MOOD_DISENGAGE_MULT_LOW_MAX, 1.0, clampf(mood_bias / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0))
+    if mood_bias < MOOD_BIAS_HIGH_THRESHOLD:
+        return 1.0
     return lerpf(
         1.0,
         MOOD_DISENGAGE_MULT_HIGH_MIN,

@@ -95,7 +95,7 @@ var direct_pressure_held_by: Node = null
 # Optional second ally pressing the same part during stabilizing treatment wind-up (helper holds, medic treats).
 var direct_pressure_assist_held_by: Node = null
 var campaign_afflictions: Array = []
-## Campaign → combat muscle fatigue carry-over (part -> 0..1). Synced by CombatMuscleFatigue.sync_to_player_entity.
+## Campaign → combat muscle fatigue carry-over (part -> 0..1). Synced from combatant dict after fights.
 var muscle_fatigue: Dictionary = {}
 var consciousness: float = 100.0  # true consciousness (incapacitation when < 10)
 var effective_consciousness: float = 100.0  # for combat (after pain shock)
@@ -146,6 +146,11 @@ func _get_weapon_proficiency() -> Dictionary:
 
 func _get_form_proficiency() -> Dictionary:
     return _form_proficiency
+
+
+## Camp rest clears local limb exertion pools (FEATURE_MUSCLE_GROUP_FATIGUE campaign bridge).
+func _restore_muscle_fatigue_at_camp() -> void:
+    muscle_fatigue = {}
 
 
 func _get_combat_blood_loss_mult() -> float:

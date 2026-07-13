@@ -41,8 +41,7 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
     # Only apply if target is still alive (may have died during wind-up)
     var tgt_alive: bool = not tgt_c.is_empty() and _get_entity_access().is_alive_in_combat(tgt_c)
     if not tgt_c.is_empty() and tgt_nd != null and tgt_alive and not part.is_empty():
-        var wind_raw: Variant = CombatConstantsMedical.MEDICAL_WIND_UP_CONFIG.get(med_id, {})
-        var wind_up_cfg: Dictionary = wind_raw if wind_raw is Dictionary else {}
+        var wind_up_cfg: Dictionary = CombatConstantsMedical.wind_up_config_for(med_id)
         var target_method: String = wind_up_cfg.get("target_method", "")
         if not target_method.is_empty():
             var tgt_entity: Node = _get_entity_access().get_entity_from_manager(manager, tgt_c)
@@ -59,6 +58,7 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
             var result: Variant = _get_entity_access().entity_invoke_medical_method(
                 tgt_entity, target_method, part, eff
             )
+            var world: Node2D = _get_company_state().resolve_world_from_battle(manager)
             if result != null:
                 _finish_medical_procedure(
                     manager,
@@ -74,13 +74,12 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
                     eff,
                     wind_up_cfg
                 )
-                var world: Node2D = _get_company_state().resolve_world_from_battle(manager)
                 if world != null:
                     _get_company_state().on_battle_medical_complete(
                         world, target_method, _medical_procedure_succeeded(result)
                     )
-                # XCamp-4: proficiency gains for medical actions.
-                _proficiency_medical_gains(c, perf_entity, tgt_entity, world, med_id, result, who_m)
+            # XCamp-4: award for completed wind-up even when the procedure fails / returns null.
+            _proficiency_medical_gains(c, perf_entity, tgt_entity, world, med_id, result, who_m)
     # Target finishes receiving care: ready to act immediately
     if not tgt_c.is_empty() and tgt_cid != _get_entity_access().id_int(c):
         tgt_c.receiving_medical_count = max(0, tgt_c.get("receiving_medical_count", 0) - 1)
@@ -178,16 +177,14 @@ static func _finish_medical_procedure(
 
 ## XCamp-4: award proficiency stat gains for completed medical actions.
 static func _proficiency_medical_gains(
-    _c: Dictionary, perf_entity: Node, tgt_entity: Node, world: Node2D, med_id: String, result: Variant, _who_m: String
+    _c: Dictionary, perf_entity: Node, tgt_entity: Node, world: Node2D, med_id: String, _result: Variant, _who_m: String
 ) -> void:
     if not _get_company_state().read_stub_proficiency_enabled():
         return
     if perf_entity == null or not "_proficiency_bonus" in perf_entity:
         return
 
-    var succeeded: bool = _medical_procedure_succeeded(result)
-    if not succeeded:
-        return  # No gains for failed medical actions
+    # Medic INT + patient END: award for completed wind-up (practice / exposure), even when the procedure fails.
 
     # Determine item type from med_id for INT multiplier.
     var item_type: String = ""
@@ -205,7 +202,7 @@ static func _proficiency_medical_gains(
     # INT gain for medic performing the action.
     EntityProficiency.award_stat_gain(perf_entity, "intelligence", base_gain)
 
-    # Patient END gain (exposure to blood peril).
+    # Patient END gain (exposure to blood peril during treatment attempt).
     if tgt_entity != null and "_proficiency_bonus" in tgt_entity:
         EntityProficiency.award_stat_gain(
             tgt_entity,

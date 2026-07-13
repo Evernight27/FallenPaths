@@ -13,7 +13,7 @@ const AFTERBLOW_CANCELLED_RECOVERY_S: float = 0.5
 # Part relevance weights for afterblow hindrance calculation
 const AFTERBLOW_RELEVANCE_ARM_ATTACKING: float = 1.0
 const AFTERBLOW_RELEVANCE_HEAD: float = 1.0
-const AFTERBLOW_RELEVANCE_TORSO: float = 0.7
+const AFTERBLOW_RELEVANCE_TORSO: float = 0.6
 const AFTERBLOW_RELEVANCE_SUPPORTING_LEG: float = 0.9
 const AFTERBLOW_RELEVANCE_LEG: float = 0.5
 const AFTERBLOW_RELEVANCE_ARM: float = 0.4

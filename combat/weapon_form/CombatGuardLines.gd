@@ -242,9 +242,8 @@ static func arm_interpose_eval(
     var empty: Dictionary = {"active": false, "arm": "", "align_boost": 0.0, "path_index": -1}
     if not CombatConstants.is_feature_arm_interpose_enabled():
         return empty
+    # Only when guard is imperfectly aligned — fully aligned blades do not need a limb cross.
     if alignment >= CombatConstants.ARM_INTERPOSE_MAX_ALIGN:
-        return empty
-    if alignment < CombatConstants.ARM_INTERPOSE_MIN_ALIGN:
         return empty
     if not guard_attack_misaligned_for_interpose(attack_line, guard_line):
         return empty
@@ -257,6 +256,7 @@ static func arm_interpose_eval(
     var arm_idx: int = path.find(arm)
     if arm_idx < 0 or arm_idx > CombatConstants.ARM_INTERPOSE_MAX_PATH_INDEX:
         return empty
+    # MIN_ALIGN..MAX_ALIGN spans the boost ramp; below MIN_ALIGN → full boost (worst misalignment).
     var t: float = clampf(
         (
             (CombatConstants.ARM_INTERPOSE_MAX_ALIGN - alignment)

@@ -6,17 +6,20 @@ extends RefCounted
 
 const _CoreEntity := preload("res://core/CoreEntity.gd")
 const _Weapon := preload("res://resources/weapons/Weapon.gd")
-static var _entity_access_cache: Variant = null
-
-static func _get_entity_access() -> GDScript:
-	if CombatantSpawner._entity_access_cache == null:
-		CombatantSpawner._entity_access_cache = load("res://combat/access/CombatantEntityAccess.gd")
-	return CombatantSpawner._entity_access_cache
 const _WeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
 const _StatsSync := preload("res://combat/access/CombatantStatsSync.gd")
 const _ConfigData := preload("res://tools/combat_tuning/TuningConfigData.gd")
 const _ArmorPiece := preload("res://resources/armor/ArmorPiece.gd")
+static var _entity_access_cache: Variant = null
+
+
+static func _get_entity_access() -> GDScript:
+	if CombatantSpawner._entity_access_cache == null:
+		CombatantSpawner._entity_access_cache = load("res://combat/access/CombatantEntityAccess.gd")
+	return CombatantSpawner._entity_access_cache
+
+
 ## Returns {attacker_entity, defender_entity, attacker_id, defender_id}.
 static func spawn_1v1(
 	manager: Node,
