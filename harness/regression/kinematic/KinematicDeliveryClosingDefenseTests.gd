@@ -2,7 +2,7 @@ class_name KinematicDeliveryClosingDefenseTests
 extends CombatRegressionHarnessCore
 ## Tier 5.1 (optional long-tail): rear **`engagement_angle`** - -  **`afterblow_damage_mult`** compose on **`v`**.
 ## -> **`strike_ke_j`** (~**(cls - -  sqrtab)2**).
-const HumanSpecies := preload("res://species/human.tres")
+const HumanSpecies := preload("res://resources/species/human.tres")
 
 
 static func _run_kinematic_delivery_rear_afterblow_compose_on_strike_ke(failures: PackedStringArray) -> void:

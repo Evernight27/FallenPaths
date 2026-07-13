@@ -316,9 +316,9 @@ static func _run_editor_f5_skips_verbose_phase_end(failures: PackedStringArray) 
     F5SoakTrace.prepare_fight_end_log()
     OperationalLog.set_capture_enabled(true)
     OperationalLog.clear_capture()
-    OperationalLog.begin_play_session("res://main.tscn", "", false, true)
+    OperationalLog.begin_play_session("res://scenes/campaign/main.tscn", "", false, true)
     if not OperationalLog.play_session_is_editor_f5():
-        _fail(failures, "editor_f5_detect: main.tscn session should be editor F5")
+        _fail(failures, "editor_f5_detect: scenes/campaign/main.tscn session should be editor F5")
     # Mirror CombatManager.finish_battle gate (editor F5 uses soak_fight_end, not phase_end).
     if not OperationalLog.play_session_is_editor_f5():
         CombatDebug.combat_session(phase_stub)

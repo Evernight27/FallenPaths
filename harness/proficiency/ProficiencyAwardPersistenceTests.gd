@@ -106,7 +106,7 @@ static func _simulate_hit_resolve_and_check_gains(
     # The resolve should produce a hit (since perception is 95 and miss chance is low).
     if result.get("action", "") != "hit":
         # Even if miss, we should still get wind-up gains.
-        var bonus_str: float = float(player_ent._proficiency_bonus.get("strength", 0) or 0)
+        var bonus_str: float = float(player_ent._proficiency_bonus.get("strength", 0))
         if bonus_str < expected_str_gain_min * 0.5:
             CombatRegressionHarness._fail(
                 failures,
@@ -117,13 +117,13 @@ static func _simulate_hit_resolve_and_check_gains(
             )
         return
 
-    var bonus_str: float = float(player_ent._proficiency_bonus.get("strength", 0) or 0)
+    var bonus_str: float = float(player_ent._proficiency_bonus.get("strength", 0))
     if bonus_str < expected_str_gain_min:
         CombatRegressionHarness._fail(
             failures, "hit_gains: STR gain too low (got %.2f, want >= %.1f)" % [bonus_str, expected_str_gain_min]
         )
 
-    var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0) or 0)
+    var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
     if bonus_end < expected_end_gain_min:
         CombatRegressionHarness._fail(
             failures,
@@ -777,7 +777,7 @@ static func _run_combat_hit_awards_proficiency_gains(failures: PackedStringArray
     var result: Dictionary = AttackResolver.resolve_attack(data.get("mgr"), data.get("p_id"))
 
     if result.get("action", "") == "hit":
-        var bonus_str: float = float(player_ent._proficiency_bonus.get("strength", 0) or 0)
+        var bonus_str: float = float(player_ent._proficiency_bonus.get("strength", 0))
         if bonus_str < 0.25:
             CombatRegressionHarness._fail(failures, "combat_hit_gains: STR gain too low on hit (got %.2f)" % bonus_str)
 
@@ -815,7 +815,7 @@ static func _run_combat_dodge_awards_proficiency_gains(failures: PackedStringArr
     var result: Dictionary = AttackResolver.resolve_attack(data.get("mgr"), data.get("p_id"))
 
     if result.get("action", "") == "dodge":
-        var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0) or 0)
+        var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
         if bonus_end < 0.1:
             CombatRegressionHarness._fail(
                 failures, "combat_dodge_gains: defender END gain too low on dodge (got %.2f)" % bonus_end
@@ -846,8 +846,8 @@ static func _run_medical_action_awards_proficiency_gains(failures: PackedStringA
     EntityWounds.add_wound(enemy_ent, "chest", "cut", 5.0, "upper_thorax", "moderate")
 
     # Set up and complete a bandage action through the medical wind-up handler.
-    var MedicalWindUp := preload("res://combat/MedicalWindUpHandler.gd")
-    var MedicalActionStarter := preload("res://combat/MedicalActionStarter.gd")
+    var MedicalWindUp := preload("res://combat/medical/MedicalWindUpHandler.gd")
+    var MedicalActionStarter := preload("res://combat/medical/MedicalActionStarter.gd")
 
     var mgr: Node = data.get("mgr")
     var p_id: int = data.get("p_id")
@@ -864,11 +864,11 @@ static func _run_medical_action_awards_proficiency_gains(failures: PackedStringA
 
     MedicalWindUp.complete(mgr, c, c.pending_medical)
 
-    var bonus_int: float = float(player_ent._proficiency_bonus.get("intelligence", 0) or 0)
+    var bonus_int: float = float(player_ent._proficiency_bonus.get("intelligence", 0))
     if bonus_int < 0.3:
         CombatRegressionHarness._fail(failures, "medical_gains: INT gain too low (got %.2f)" % bonus_int)
 
-    var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0) or 0)
+    var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
     if bonus_end < 0.1:
         CombatRegressionHarness._fail(failures, "medical_gains: END gain on patient too low (got %.2f)" % bonus_end)
 
@@ -889,17 +889,17 @@ static func _run_decay_rates_per_stat(failures: PackedStringArray) -> void:
     ent_str._proficiency_bonus["strength"] = 15.0
     ent_str.last_fought_day = -3
     EntityProficiency.apply_decay(ent_str, 0)
-    var str_decay: float = absf(float(ent_str._proficiency_bonus.get("strength", 15) or 15) - 15.0)
+    var str_decay: float = absf(float(ent_str._proficiency_bonus.get("strength", 15)) - 15.0)
 
     ent_end._proficiency_bonus["endurance"] = 15.0
     ent_end.last_fought_day = -3
     EntityProficiency.apply_decay(ent_end, 0)
-    var end_decay: float = absf(float(ent_end._proficiency_bonus.get("endurance", 15) or 15) - 15.0)
+    var end_decay: float = absf(float(ent_end._proficiency_bonus.get("endurance", 15)) - 15.0)
 
     ent_agi._proficiency_bonus["agility"] = 15.0
     ent_agi.last_fought_day = -3
     EntityProficiency.apply_decay(ent_agi, 0)
-    var agi_decay: float = absf(float(ent_agi._proficiency_bonus.get("agility", 15) or 15) - 15.0)
+    var agi_decay: float = absf(float(ent_agi._proficiency_bonus.get("agility", 15)) - 15.0)
 
     # END decay should be ~1.5x STR decay; AGI should be ~1.3x STR decay.
     if end_decay < str_decay * 1.2:

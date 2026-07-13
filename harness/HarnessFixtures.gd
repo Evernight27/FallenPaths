@@ -100,7 +100,7 @@ static func _harness_start_1v1(
 
 
 static func _harness_reset_combatants_form_balanced(mgr: Node) -> void:
-    var WF := preload("res://combat/CombatWeaponForm.gd")
+    var WF := preload("res://combat/weapon_form/CombatWeaponForm.gd")
     for c in mgr.combatants:
         if c is Dictionary:
             WF.assign_form(mgr, c as Dictionary, WF.FORM_BALANCED, "harness_baseline")

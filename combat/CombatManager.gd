@@ -38,10 +38,10 @@ var rout_thresholds_by_fid: Dictionary = {}
 var _vacancy_dirty_fids: Dictionary[String, bool] = {}
 var _combat_tick_index: int = 0
 
-## Combat orchestrator  -  turn loop, register combatants, vacancy/ZoC. WF spawn:
-## **`CombatWeaponForm.seed_combatant_form`** at **`register_combatant`** + post-**`start()`** re-seed  -  LIVE_PATHS
-## **`#spawn--reset-path-wf-1a`**  -  **`#wf-assign-form-contract`**. PA scrub: **`start()`** loop +
-## **`on_combatant_died`**  -  **`#wf-tier-44-pa`** (clear).
+## Combat orchestrator  -  turn loop, register combatants, vacancy/ZoC. Register dict:
+## **`CombatantRegister.build_initial`**. WF spawn: **`CombatWeaponForm.seed_combatant_form`** at
+## **`register`** + post-**`start()`** re-seed  -  LIVE_PATHS **`#spawn--reset-path-wf-1a`**.
+## PA scrub: **`start()`** loop + **`on_combatant_died`**  -  **`#wf-tier-44-pa`** (clear).
 
 
 ## Player side became ready to act; UI / TurnReadyHandler listen on `turn_ready`. Subsystems call this instead of
@@ -187,50 +187,12 @@ func register(node: Node, side: String) -> int:
         if raw_pref != null:
             stance_pref = str(raw_pref).strip_edges()
     var leader_flags: Dictionary = CombatantEntityAccess.leader_register_flags_from_node(node, side)
-    (
-        combatants
-        . append(
-            {
-                "id": id,
-                "node": node,
-                "side": side,
-                "stats": stats,
-                "gauge": 0.0,
-                "alive": true,
-                "state": CombatConstants.STATE_WAITING,
-                "state_timer": 0.0,
-                "state_duration": 0.0,
-                "pending_attack": {},
-                "receiving_medical_count": 0,
-                "guard": 1.0,
-                "guard_line": CombatConstants.GUARD_DEFAULT,
-                "guard_zone": BodyPartConstants.PART_HEAD,
-                "stamina": CombatConstants.STAMINA_MAX,
-                CombatConstants.COMBATANT_KEY_EXHAUSTION: 0.0,
-                CombatConstants.COMBATANT_KEY_EXHAUSTION_FP_BAND_LOGGED: -1,
-                # FF4 formation fields (Phase 0). Phase 3 assigns rank/file.
-                "rank": 0,
-                "file": 0,
-                "formation_id": "",
-                "distance_to": {},
-                "engaged_with_id": -1,
-                "engagement_angle": "front",
-                "zone_id": "",
-                "occupied_zone_id": "",
-                "stance": CombatConstants.STANCE_BALANCED,
-                "stance_preference": stance_pref,
-                "engagement_role": CombatConstants.ENGAGEMENT_ROLE_LINE,
-                "lane_offset": CombatConstants.LANE_OFFSET_DEFAULT,
-                "doctrine_target_commit_id": -1,
-                "doctrine_commit_until": 0.0,
-                "close_block_until_by_target_id": {},
-                "is_party_leader": leader_flags.get("is_party_leader", false),
-                "is_enemy_leader": leader_flags.get("is_enemy_leader", false),
-                "morale_cohesion": morale_c,
-                "campaign_stamina_mult": camp_stamina,
-            }
+    combatants.append(
+        CombatantRegister.build_initial(
+            id, node, side, stats, camp_stamina, morale_c, stance_pref, leader_flags
         )
     )
+    CombatMuscleFatigue.seed_combatant_if_enabled(combatants[id] as Dictionary, entity)
     CombatWeaponForm.seed_combatant_form(self, combatants[id] as Dictionary)
     # Connect health_changed so UI can refresh when consciousness/pain/blood changes
     if entity != null and entity.has_signal("health_changed"):
@@ -715,8 +677,8 @@ static func _is_medical_move(move_id: String) -> bool:
 
 
 ## Track a failed medical action and optionally schedule a retry (buddy pressure coordination).
-## Public API  -  replaces old private `_track_medical_failure_and_maybe_retry` access from MedicalWindUpHandler.
-func _track_medical_failure_and_maybe_retry(
+## Public API — used by MedicalWindUpHandler.
+func track_medical_failure_and_maybe_retry(
     performer: Dictionary, target: Dictionary, part: String, target_cid: int
 ) -> void:
     CombatMedicalCoordination.track_failure_and_maybe_retry(self, performer, target, part, target_cid)

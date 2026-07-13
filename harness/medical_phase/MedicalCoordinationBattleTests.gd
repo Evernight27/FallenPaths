@@ -2,7 +2,7 @@ class_name MedicalCoordinationBattleTests
 extends CombatRegressionHarnessCore
 ## Tier 6.3 medical phase + treatment tests split from CombatRegressionHarness (compile size).
 
-const BattleScene := preload("res://ui/BattleScene.gd")
+const BattleScene := preload("res://ui/battle/BattleScene.gd")
 
 
 static func _run_field_care_tourniquet_before_bandage_parity(failures: PackedStringArray) -> void:
@@ -580,7 +580,7 @@ static func _run_ms_mid_infight_med_depth_suite(failures: PackedStringArray) -> 
 
 static func _run_ms_mid_infight_ally_medical_listing(failures: PackedStringArray) -> void:
     var FootworkTail := preload("res://harness/attention_footwork/AttentionFootworkTail.gd")
-    var MentalStack := preload("res://combat/MentalStackDecider.gd")
+    var MentalStack := preload("res://combat/ai/MentalStackDecider.gd")
     if not CombatConstants.is_feature_ms_mid_infight_med_enabled():
         CombatRegressionHarness._fail(failures, "ms_mid_listing: FEATURE_MS_MID_INFIGHT_MED must be on in production")
         return

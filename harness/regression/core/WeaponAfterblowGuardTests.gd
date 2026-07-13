@@ -362,11 +362,11 @@ static func _run_afterblow_low_hindrance_allow_triggers_resolve_hit(failures: Pa
         _fail(
             failures, "afterblow_allow_hit: missing harness afterblow mult meta (seed=%d)" % _AFTERBLOW_EXECUTE_HIT_SEED
         )
-    elif not is_equal_approx(float(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)), 0.8):
+    elif absf(float(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)) - (1.0 - 7.0 / 30.0)) > 0.001:
         _fail(
             failures,
             (
-                "afterblow_allow_hit: want afterblow_damage_mult 0.8 (hindrance 0.2) got %s (seed=%d)"
+                "afterblow_allow_hit: want afterblow_damage_mult ~0.7667 (hindrance 7/30) got %s (seed=%d)"
                 % [str(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)), _AFTERBLOW_EXECUTE_HIT_SEED]
             )
         )
@@ -438,11 +438,11 @@ static func _run_afterblow_mid_hindrance_rand_cancel(failures: PackedStringArray
 
 
 ## Tier 3.3: middle hindrance + **`randf() >= hindrance`** -> **`_execute_afterblow`** (**`afterblow_damage_mult`
-## 0.55**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
+## ~0.475**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
 
 
 ## Tier 3.3: middle hindrance + **`randf() >= hindrance`** -> **`_execute_afterblow`** (**`afterblow_damage_mult`
-## 0.55**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
+## ~0.475**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
 static func _run_afterblow_mid_hindrance_rand_executes_hit(failures: PackedStringArray) -> void:
     seed(_AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED)
     var mgr: Node = MgrScript.new()
@@ -490,11 +490,11 @@ static func _run_afterblow_mid_hindrance_rand_executes_hit(failures: PackedStrin
                 % _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED
             )
         )
-    elif not is_equal_approx(float(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)), 0.55):
+    elif not is_equal_approx(float(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)), 0.475):
         _fail(
             failures,
             (
-                "afterblow_mid_rand_execute: want afterblow_damage_mult 0.55 got %s (seed=%d)"
+                "afterblow_mid_rand_execute: want afterblow_damage_mult 0.475 got %s (seed=%d)"
                 % [str(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)), _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED]
             )
         )

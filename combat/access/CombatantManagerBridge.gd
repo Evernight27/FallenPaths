@@ -95,7 +95,7 @@ static func _get_entity_wounds() -> GDScript:
 
 static func _get_impact_velocity_model() -> GDScript:
     if _impact_velocity_model_cache == null:
-        _impact_velocity_model_cache = load("res://weapon/ImpactVelocityModel.gd")
+        _impact_velocity_model_cache = load("res://resources/weapons/ImpactVelocityModel.gd")
     return _impact_velocity_model_cache
 
 
@@ -107,43 +107,43 @@ static func _load_entity_medical() -> GDScript:
 
 static func _get_medical_phase() -> GDScript:
     if _medical_phase_cache == null:
-        _medical_phase_cache = load("res://combat/MedicalPhaseController.gd")
+        _medical_phase_cache = load("res://combat/medical/MedicalPhaseController.gd")
     return _medical_phase_cache
 
 
 static func _load_exhaustion() -> GDScript:
     if _exhaustion_cache == null:
-        _exhaustion_cache = load("res://combat/CombatExhaustion.gd")
+        _exhaustion_cache = load("res://combat/flow/CombatExhaustion.gd")
     return _exhaustion_cache
 
 
 static func _get_formation_slots() -> GDScript:
     if _formation_slots_cache == null:
-        _formation_slots_cache = load("res://combat/FormationSlots.gd")
+        _formation_slots_cache = load("res://combat/formation/FormationSlots.gd")
     return _formation_slots_cache
 
 
 static func _get_footwork() -> GDScript:
     if _footwork_cache == null:
-        _footwork_cache = load("res://combat/CombatFootwork.gd")
+        _footwork_cache = load("res://combat/weapon_form/CombatFootwork.gd")
     return _footwork_cache
 
 
 static func _get_state_handlers() -> GDScript:
     if _state_handlers_cache == null:
-        _state_handlers_cache = load("res://combat/CombatStateHandlers.gd")
+        _state_handlers_cache = load("res://combat/flow/CombatStateHandlers.gd")
     return _state_handlers_cache
 
 
 static func _get_mobility_retreat() -> GDScript:
     if _mobility_retreat_cache == null:
-        _mobility_retreat_cache = load("res://combat/CombatMobilityRetreat.gd")
+        _mobility_retreat_cache = load("res://combat/formation/CombatMobilityRetreat.gd")
     return _mobility_retreat_cache
 
 
 static func _get_rout() -> GDScript:
     if _rout_cache == null:
-        _rout_cache = load("res://combat/CombatFormationRout.gd")
+        _rout_cache = load("res://combat/formation/CombatFormationRout.gd")
     return _rout_cache
 
 

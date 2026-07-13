@@ -285,7 +285,7 @@ static func award_form_proficiency(entity: CoreEntity, form: String, raw_amount:
     entity._form_proficiency[fid] = current + raw_amount * gain_mult
 
 
-## Strike-time targeting proficiency: PER on off-focus, INT on preferred part, weapon/form track.
+## Strike-time targeting proficiency: PER on off-focus, INT on preferred part, resources/weapons/form track.
 static func notify_targeting_gains_from_hit(
     entity: CoreEntity,
     weapon_id: String,

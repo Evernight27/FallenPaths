@@ -142,10 +142,10 @@ static func _append_q2_worksheet_snapshot(lines: PackedStringArray) -> void:
 
 static func _append_q2_f5_subjective_checklist(lines: PackedStringArray) -> void:
     lines.append("  [f5_subjective  -  human only]")
-    lines.append("    main.tscn: dev_soak_encounter=ii2b (dev_research_feel optional)")
+    lines.append("    scenes/campaign/main.tscn: dev_soak_encounter=ii2b (dev_research_feel optional)")
     lines.append("    play: deflect timing readable; riposte after deflect; flurry window after bind")
     lines.append("    grep: parry_deflect | parry_bind | riposte_chain | flurry_bind | parry_stats deflect=")
-    lines.append("    helper: .\\scripts\\run_q_feel.ps1 -Track Q2")
+    lines.append("    helper: .\\tools\\ci\\run_q_feel.ps1 -Track Q2")
     lines.append("")
 
 
@@ -424,7 +424,7 @@ static func _append_q1_boundary_checks(
     lines.append(
         "    note=matches .calibration_audit.txt [f5_scenario_headless]; F5 editor adds live duel parry/bind lines"
     )
-    lines.append("    helper: .\\scripts\\run_q_feel.ps1 -Track Q1")
+    lines.append("    helper: .\\tools\\ci\\run_q_feel.ps1 -Track Q1")
     lines.append("")
     return fail
 

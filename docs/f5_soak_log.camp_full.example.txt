@@ -1,7 +1,7 @@
 # Merged Camp §8 close-out sample (smoke all optional camp_* validator tracks).
-# Not one real session — append real F5 chunks: .\scripts\append_f5_soak_log.ps1 -AppendFrom chunk.txt
-# Copy smoke: Copy-Item docs\f5_soak_log.camp_full.example.txt .f5_soak_in.txt
-# Then: .\scripts\validate_f5_soak_log.ps1 ; .\scripts\run_camp_f5_closeout.ps1
+# Not one real session — append real F5 chunks: ./tools/ci/run_playtest.sh append chunk.txt
+# Copy smoke: cp docs/f5_soak_log.camp_full.example.txt .f5_soak_in.txt
+# Then: ./tools/ci/run_playtest.sh validate ; ./tools/ci/run_playtest.sh closeout
 #
 # Step 3 — paid win (production-shaped markers)
 FP_WORLD: contract_victory pay=120 gold=200 renown=1

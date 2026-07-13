@@ -2,7 +2,7 @@ class_name MedicalFieldTreatmentTests
 extends CombatRegressionHarnessCore
 ## Tier 6.3 medical phase + treatment tests split from CombatRegressionHarness (compile size).
 
-const BattleScene := preload("res://ui/BattleScene.gd")
+const BattleScene := preload("res://ui/battle/BattleScene.gd")
 
 
 static func _run_entity_untreated_matches_bridge(failures: PackedStringArray) -> void:

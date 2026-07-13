@@ -1,6 +1,6 @@
 class_name AttentionFootworkCombatUiSnapshotGaugeTests
 extends CombatRegressionHarnessCore
-const WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const WeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .
@@ -907,4 +907,4 @@ static func _run_footwork_disabled_skips_windup_stamp(failures: PackedStringArra
     if atk.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
         CombatRegressionHarness._fail(failures, "footwork_disabled: offset must not stamp when flag off")
 
-## AI target pick: weapon/form limb bias + perception/intelligence scale off-focus exploitation.
+## AI target pick: resources/weapons/form limb bias + perception/intelligence scale off-focus exploitation.

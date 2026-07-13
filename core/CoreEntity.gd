@@ -1,5 +1,8 @@
 class_name CoreEntity
 extends Node2D
+## Entity sim facade: holds tissue / wound / gear state; logic lives in Entity* modules
+## (Wounds, Medical, Healing, Damage, Equipment, PainConsciousness, Proficiency, StatsUtil).
+## Combat reads via CombatantEntityAccess / health entity — see docs/ARCHITECTURE.md.
 ## Stats boosted by training drill (merged into proficiency bonus after each contract). Per-stat.
 """Medical effectiveness from intelligence (100 INT = 1.0; 50 = 0.75, 150 = 1.25). Used for bandage, direct pressure."""
 """Max blood volume scaling from END (100 |' 1.0x; 150 |' 1.25x). Applied in BloodVolumeMl.init_entity_pool."""
@@ -92,6 +95,8 @@ var direct_pressure_held_by: Node = null
 # Optional second ally pressing the same part during stabilizing treatment wind-up (helper holds, medic treats).
 var direct_pressure_assist_held_by: Node = null
 var campaign_afflictions: Array = []
+## Campaign → combat muscle fatigue carry-over (part -> 0..1). Synced by CombatMuscleFatigue.sync_to_player_entity.
+var muscle_fatigue: Dictionary = {}
 var consciousness: float = 100.0  # true consciousness (incapacitation when < 10)
 var effective_consciousness: float = 100.0  # for combat (after pain shock)
 # Optional bleed pacing overrides (default full ATLS drain; future explicit fluid resuscitation may raise recovery).
@@ -516,7 +521,7 @@ func _get_bandage_application_time_seconds_for_part(part: String) -> float:
 func _get_medical_effectiveness() -> float:
     var effective_int: float = float(intelligence)
     if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_int += float(_proficiency_bonus.get("intelligence", 0) or 0)
+        effective_int += float(_proficiency_bonus.get("intelligence", 0))
     var base: float = clampf(effective_int / 100.0, 0.5, 1.5)
     return base * clampf(_campaign_supply_factor, 0.25, 1.5)
 
@@ -532,21 +537,21 @@ func _get_campaign_supply_factor() -> float:
 func _get_endurance_blood_volume_mult() -> float:
     var effective_end: float = float(endurance)
     if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_end += float(_proficiency_bonus.get("endurance", 0) or 0)
+        effective_end += float(_proficiency_bonus.get("endurance", 0))
     return 1.0 + (effective_end - 100) / 400.0
 
 
 func _get_endurance_healing_speed_mult() -> float:
     var effective_end: float = float(endurance)
     if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_end += float(_proficiency_bonus.get("endurance", 0) or 0)
+        effective_end += float(_proficiency_bonus.get("endurance", 0))
     return 1.0 - clampf((effective_end - 100) / 500.0, 0.0, 0.25)
 
 
 func _get_intelligence_contract_bonus_mult() -> float:
     var effective_int: float = float(intelligence)
     if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_int += float(_proficiency_bonus.get("intelligence", 0) or 0)
+        effective_int += float(_proficiency_bonus.get("intelligence", 0))
     return 1.0 + clampf((effective_int - 100) / 500.0, 0.0, 0.15)
 
 
@@ -795,3 +800,8 @@ func _apply_common_seed_defaults():
     offhand_functionality = randf_range(0.6, 1.0)
     CombatLayerTissue.seed_all_layer_states(self)
     TissueEnergyCapacity.seed_entity_energy_pools(self, true)
+
+
+## Camp rest: clear muscle fatigue so it doesn't persist across campaigns.
+func restore_muscle_fatigue_at_camp() -> void:
+    muscle_fatigue.clear()

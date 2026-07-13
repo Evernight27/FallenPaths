@@ -2,7 +2,7 @@ class_name MedicalPhaseFastForward
 extends MedicalPhaseBatchResolve
 
 const Proficiency := preload("res://core/EntityProficiency.gd")
-const AIPicker := preload("res://combat/CombatAIActionPicker.gd")
+const AIPicker := preload("res://combat/ai/CombatAIActionPicker.gd")
 const CombatConstantsScript := preload("res://combat/CombatConstants.gd")
 
 ## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, ally medical actions, campaign

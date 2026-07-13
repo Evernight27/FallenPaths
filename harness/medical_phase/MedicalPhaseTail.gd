@@ -2,7 +2,7 @@ class_name CombatRegressionHarnessMedicalPhaseTail
 extends RefCounted
 ## Tier 6.3 medical phase + treatment tests split from CombatRegressionHarness (compile size).
 
-const BattleScene := preload("res://ui/BattleScene.gd")
+const BattleScene := preload("res://ui/battle/BattleScene.gd")
 
 
 static func run_fast_phase_halt_checks(failures: PackedStringArray) -> void:

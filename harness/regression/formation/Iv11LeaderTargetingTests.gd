@@ -158,6 +158,8 @@ static func _run_iv11_pinch_outnumber_ai_weight_suite(failures: PackedStringArra
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
+    mgr.encounter["campaign_mood_bias_player"] = CombatCampaignMoodBias.MOOD_BIAS_NEUTRAL_THRESHOLD
+    mgr.encounter["campaign_mood_bias_enemy"] = CombatCampaignMoodBias.MOOD_BIAS_NEUTRAL_THRESHOLD
     var leader: Dictionary = {}
     for c in mgr.combatants:
         if not EntityAccess.is_living_on_side(c, "player"):
@@ -226,6 +228,8 @@ static func _run_iv11_enemy_pinch_outnumber_ai_weight_suite(failures: PackedStri
     mgr.register(cmd_ent, "enemy")
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 2, "ranks": 1})
+    mgr.encounter["campaign_mood_bias_player"] = CombatCampaignMoodBias.MOOD_BIAS_NEUTRAL_THRESHOLD
+    mgr.encounter["campaign_mood_bias_enemy"] = CombatCampaignMoodBias.MOOD_BIAS_NEUTRAL_THRESHOLD
     var commander: Dictionary = {}
     for c in mgr.combatants:
         if not EntityAccess.is_living_on_side(c, "enemy"):
@@ -384,7 +388,7 @@ static func _run_iv11_register_enemy_leader_stamp_suite(failures: PackedStringAr
 
 ## IV-11 slice 6: formation diagram **`[Cmd]`** callout for enemy commander only.
 static func _run_iv11_enemy_leader_diagram_callout_suite(failures: PackedStringArray) -> void:
-    var Diagram := preload("res://ui/FormationDiagramBuilder.gd")
+    var Diagram := preload("res://ui/battle/FormationDiagramBuilder.gd")
     var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "player")
@@ -427,7 +431,7 @@ static func _run_iv11_enemy_leader_diagram_callout_suite(failures: PackedStringA
     )
     var tip_hit: bool = false
     for line in tips:
-        if str(line).ends_with(" -  Enemy commander"):
+        if "Enemy commander" in str(line):
             tip_hit = true
             break
     if not tip_hit:
@@ -449,10 +453,10 @@ static func _run_iv11_party_leader_roster_callout_suite(failures: PackedStringAr
     member_ent.is_party_leader = false
     var leader_snap: Dictionary = Snapshot.snapshot_from_member({"name": "Lead", "node_ref": leader_ent})
     var member_snap: Dictionary = Snapshot.snapshot_from_member({"name": "Mate", "node_ref": member_ent})
-    if PartyRowFormatter.format_party_role_suffix(leader_snap) != " . Leader":
+    if PartyRowFormatter.format_party_role_suffix(leader_snap) != " · Leader":
         _fail(
             failures,
-            "iv11_roster: leader want ' . Leader' got '%s'" % PartyRowFormatter.format_party_role_suffix(leader_snap)
+            "iv11_roster: leader want ' · Leader' got '%s'" % PartyRowFormatter.format_party_role_suffix(leader_snap)
         )
     if not PartyRowFormatter.format_party_role_suffix(member_snap).is_empty():
         _fail(failures, "iv11_roster: member must not get leader suffix")

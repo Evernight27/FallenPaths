@@ -276,7 +276,7 @@ static func _run_flee_manager_get_rout_threshold(failures: PackedStringArray) ->
 
 ## Tier 6.2: listed **`flee`** duration hint marks instant resolve (not fall_back seconds).
 static func _run_flee_listed_duration_hint_instant(failures: PackedStringArray) -> void:
-    var MoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
+    var MoveDuration := preload("res://combat/formation/CombatFormationMoveDuration.gd")
     var mgr: Node = CombatRegressionHarness._harness_start_player_only()
     var c: Dictionary = mgr.combatants[0]
     var cid: int = CombatantEntityAccess.id_int(c)
@@ -578,7 +578,7 @@ static func _run_flee_clears_doctrine_commitment(failures: PackedStringArray) ->
 
 ## Tier 6.2: formation diagram omits fled unit from rank/file cells; lists under **Fled:** line.
 static func _run_flee_formation_diagram_omits_fled_from_grid(failures: PackedStringArray) -> void:
-    var Diagram := preload("res://ui/FormationDiagramBuilder.gd")
+    var Diagram := preload("res://ui/battle/FormationDiagramBuilder.gd")
     var mgr: Node = CombatManager.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")

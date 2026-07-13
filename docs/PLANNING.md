@@ -1,6 +1,6 @@
 # Planning model
 
-**Entry:** [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · **Prompts:** [`agent_prompts/README`](../scripts/agent_prompts/README.md) · **Camp:** [`SHIP_PLAN#camp-playtest-acceptance`](SHIP_PLAN.md#camp-playtest-acceptance) · **Expand queue:** [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · **Combat map (section-only):** [`LIVE_PATHS#phase-0-gate`](LIVE_PATHS.md#phase-0-gate).
+**Entry:** [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · **Prompts:** [`agent_prompts/README`](../tools/ci/agent_prompts/README.md) · **Camp:** [`SHIP_PLAN#camp-playtest-acceptance`](SHIP_PLAN.md#camp-playtest-acceptance) · **Expand queue:** [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · **Combat map (section-only):** [`LIVE_PATHS#phase-0-gate`](LIVE_PATHS.md#phase-0-gate).
 
 <a id="three-layers"></a>
 
@@ -8,7 +8,7 @@
 
 | Layer | What | Examples |
 |-------|------|----------|
-| **1. Gate** | Every session | `./scripts/run_all_combat_checks.sh` → `PHASE0: PASS` |
+| **1. Gate** | Every session | `./tools/ci/run_all_combat_checks.sh` → `PHASE0: PASS` |
 | **2. Stream** | Per agent | Combat · Expand · Playtest · Campaign |
 | **3. Milestone** | One row | `Camp-1.4` · `IV-2` · harness `ii2b` |
 
@@ -31,7 +31,7 @@ Session: Gate → one Combat fix → optional Expand/Playtest → Campaign on de
 
 ## Parallel agents
 
-Default: Combat + optional Expand or Playtest. Not parallel: two Expand · same-file · bleed retune. Prompts: [`agent_prompts/README`](../scripts/agent_prompts/README.md).
+Default: Combat + optional Expand or Playtest. Not parallel: two Expand · same-file · bleed retune. Prompts: [`agent_prompts/README`](../tools/ci/agent_prompts/README.md).
 
 | Agent | Stream | Gate |
 |-------|--------|------|
@@ -46,13 +46,14 @@ Default: Combat + optional Expand or Playtest. Not parallel: two Expand · same-
 
 | Owner | Paths |
 |-------|-------|
-| **Campaign** | `world/*`, `main.gd`, `PartyManager.gd`, party/settlement/HUD UI |
-| **Combat** | `combat/*`, `harness/*`, battle UI formatters, `character.gd` (combat hooks) |
+| **Campaign** | `world/*`, `scenes/campaign/*`, `ui/company/*`, party/settlement/HUD |
+| **Combat** | `combat/*`, `harness/*`, `ui/battle/*`, `scenes/battle/*`, `scenes/actors/*` combat hooks |
 | **Combat (WF / PA)** | `CombatWeaponForm`, `CombatFootwork`, `CombatGuardLines`, related UI — maintain only |
-| **Combat (core sim)** | `core/EntityMedical|Wounds|Healing`, `BleedingConstants`, `weapon/*`, `armor/*` |
+| **Combat (core sim)** | `core/EntityMedical|Wounds|Healing`, `BleedingConstants`, `resources/weapons/*`, `resources/armor/*` |
 
-Shared (one agent): `CampaignEncounterBridge`, `CombatFlow` / `BattleEndHandler`, `CoreEntity` signatures, `species/*.tres`.
+Shared (one agent): `CampaignEncounterBridge`, `CombatFlow` / `BattleEndHandler`, `CoreEntity` signatures, `resources/species/*.tres`.
 
+**Not streams:** `tools/combat_tuning/` · `addons/`
 <a id="bridge-rows-camp-2"></a>
 
 Camp-2 bridge ☑ — Campaign leads map↔sim; Combat on stabilize listing. Merge: rebase · Phase 0 · PR prefixes `campaign:` / `combat:`.
@@ -70,19 +71,19 @@ Combat/Expand: [`LIVE_PATHS`](LIVE_PATHS.md) · [§9b](SHIP_PLAN.md#combat-menta
 
 <a id="stream-combat"></a>
 
-**Combat:** [`agent_combat.md`](../scripts/agent_prompts/agent_combat.md) · [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#combat-cognition-pipeline). No player target picker.
+**Combat:** [`agent_combat.md`](../tools/ci/agent_prompts/agent_combat.md) · [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#combat-cognition-pipeline). No player target picker.
 
 <a id="stream-expand"></a>
 
-**Expand:** one §9c row — [`README#expand-reopen`](../scripts/agent_prompts/README.md#expand-reopen).
+**Expand:** one §9c row — [`README#expand-reopen`](../tools/ci/agent_prompts/README.md#expand-reopen).
 
 <a id="stream-playtest"></a>
 
-**Playtest:** [`agent_playtest.md`](../scripts/agent_prompts/agent_playtest.md) · [`scripts/README`](../scripts/README.md).
+**Playtest:** [`agent_playtest.md`](../tools/ci/agent_prompts/agent_playtest.md) · [`tools/ci/README`](../tools/ci/README.md).
 
 <a id="stream-campaign"></a>
 
-**Campaign:** [`agent_campaign.md`](../scripts/agent_prompts/agent_campaign.md).
+**Campaign:** [`agent_campaign.md`](../tools/ci/agent_prompts/agent_campaign.md).
 
 <a id="harness-and-flags"></a>
 
@@ -90,7 +91,7 @@ Combat/Expand: [`LIVE_PATHS`](LIVE_PATHS.md) · [§9b](SHIP_PLAN.md#combat-menta
 
 | Kind | Rule |
 |------|------|
-| Gate | `./scripts/run_all_combat_checks.sh` — do not pipe to `grep` |
+| Gate | `./tools/ci/run_all_combat_checks.sh` — do not pipe to `grep` |
 | `FEATURE_*` | Expand only + harness |
 | Bleed retune | [`LIVE_PATHS` §12](LIVE_PATHS.md#12-tuning-order-keep-research-chain) only |
 | S1–S11 / P3b / BMI | Shipped / deferred unless asked |
@@ -104,4 +105,4 @@ Combat/Expand: [`LIVE_PATHS`](LIVE_PATHS.md) · [§9b](SHIP_PLAN.md#combat-menta
 
 <a id="doc-map"></a>
 
-[`AGENTS_ENTRY`](AGENTS_ENTRY.md) · [`AGENTS_API`](AGENTS_API.md) · [`SHIP_PLAN`](SHIP_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE`](CAMPAIGN_DECISION_GUIDE.md) · [`LIVE_PATHS`](LIVE_PATHS.md) (section-only) · [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md) · [`FEATURE_PRESERVATION`](FEATURE_PRESERVATION.md) · [`scripts/README`](../scripts/README.md) · [`agent_prompts`](../scripts/agent_prompts/README.md).
+[`AGENTS_ENTRY`](AGENTS_ENTRY.md) · [`AGENTS_API`](AGENTS_API.md) · [`ARCHITECTURE`](ARCHITECTURE.md) · [`BRIDGE_CONTRACT`](BRIDGE_CONTRACT.md) · [`SHIP_PLAN`](SHIP_PLAN.md) · [`CAMPAIGN_DECISION_GUIDE`](CAMPAIGN_DECISION_GUIDE.md) · [`LIVE_PATHS`](LIVE_PATHS.md) (section-only) · [`EXPANSION_PLAN`](EXPANSION_PLAN.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md) · [`FEATURE_PRESERVATION`](FEATURE_PRESERVATION.md) · [`tools/ci/README`](../tools/ci/README.md) · [`agent_prompts`](../tools/ci/agent_prompts/README.md).

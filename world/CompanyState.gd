@@ -8,6 +8,8 @@ extends RefCounted
 ##   CompanyCamp.gd     -- camp healing gates/execution, tool repair, field care formatting/status
 ##   CompanyDayCycle.gd -- day tick orchestration (end day request, auto step-tick, provisions, desertion pass)
 ##   CompanyRoster.gd   -- hire/casualty/burial lifecycle, contract management, tutorial/combat meta
+##   CompanyUxCopy.gd   -- end-day / camp-rest / debt HUD copy not owned by the modules above
+## Bridge edge: docs/BRIDGE_CONTRACT.md
 
 const DEFAULT_CAMP_TILE: Vector2i = CampaignTypes.DEFAULT_CAMP_TILE
 
@@ -582,40 +584,19 @@ static func should_show_party_camp_rest_button(world: Node2D) -> bool:
     return CompanyCamp.should_show_party_camp_rest_button(world)
 
 
-## === UI formatting (uses module functions internally) ===
+## === UI formatting (CompanyUxCopy + Economy / DayCycle) ===
 
 
 static func format_end_day_tooltip(world: Node2D) -> String:
-    if world == null:
-        return "Pay wages and consume daily rations."
-    var tips: PackedStringArray = PackedStringArray(
-        [
-            "Pay wages and consume daily rations for each living brother.",
-        ]
-    )
-    for hint in CompanyEconomy.format_hud_economy_hint_lines(get_state(world), count_living_roster(world), world):
-        tips.append(hint)
-    var desertion_hint: String = format_party_desertion_risk_footer(world)
-    if not desertion_hint.is_empty():
-        tips.append(desertion_hint)
-    return " ".join(tips)
+    return CompanyUxCopy.format_end_day_tooltip(world)
 
 
 static func format_camp_rest_tooltip(world: Node2D) -> String:
-    if world == null:
-        return "Heal wounds, advance the day, and boost mood."
-    var tips: PackedStringArray = PackedStringArray(
-        [
-            "Heal all dressed brothers, advance the day, and grant +1 mood (tavern rest).",
-        ]
-    )
-    for hint in CompanyEconomy.format_hud_economy_hint_lines(get_state(world), count_living_roster(world), world):
-        tips.append(hint)
-    return " ".join(tips)
+    return CompanyUxCopy.format_camp_rest_tooltip(world)
 
 
 static func format_new_company_button_label() -> String:
-    return "Start new company (testing)"
+    return CompanyUxCopy.format_new_company_button_label()
 
 
 static func can_offer_new_campaign_from_menu() -> bool:
@@ -632,33 +613,15 @@ static func request_new_campaign(world: Node2D) -> void:
 
 
 static func format_end_day_button_label(world: Node2D = null) -> String:
-    var base: String = "End day"
-    if persistence_uses_disk_autosave():
-        base = "End day (saves progress)"
-    return base + format_wage_day_tick_suffix(world) + format_provisions_day_tick_suffix(world)
+    return CompanyUxCopy.format_end_day_button_label(world)
 
 
 static func format_wage_day_tick_suffix(world: Node2D) -> String:
-    if world == null:
-        return ""
-    var bill: int = compute_next_wage_bill(world)
-    var gold: int = get_gold(world)
-    if gold >= bill:
-        return ""
-    if gold < 0:
-        return " -- wage debt (desertion risk)"
-    return " -- wages short (mood hit if unpaid)"
+    return CompanyUxCopy.format_wage_day_tick_suffix(world)
 
 
 static func format_provisions_day_tick_suffix(world: Node2D) -> String:
-    if world == null or not read_stub_provisions_enabled():
-        return ""
-    var need: int = count_living_roster(world) * FOOD_PER_MEMBER_PER_DAY
-    if need <= 0:
-        return ""
-    if get_food_supplies(world) >= need:
-        return ""
-    return " -- rations short (mood -1)"
+    return CompanyUxCopy.format_provisions_day_tick_suffix(world)
 
 
 static func should_show_next_provisions_hint(world: Node2D) -> bool:
@@ -670,9 +633,7 @@ static func format_next_provisions_hint(world: Node2D) -> String:
 
 
 static func format_hud_provisions_suffix(world: Node2D) -> String:
-    if not should_show_next_provisions_hint(world):
-        return ""
-    return " /  rations short"
+    return CompanyUxCopy.format_hud_provisions_suffix(world)
 
 
 static func format_party_end_day_unavailable_hint(world: Node2D) -> String:
@@ -816,7 +777,7 @@ static func _warn_if_company_insolvent(world: Node) -> void:
 
 
 static func format_company_debt_log(gold: int) -> String:
-    return "Company is in debt (%dg). Low-mood brothers may desert at the next day end." % gold
+    return CompanyUxCopy.format_company_debt_log(gold)
 
 
 static func _warn_if_gold_below_next_wage(world: Node) -> void:

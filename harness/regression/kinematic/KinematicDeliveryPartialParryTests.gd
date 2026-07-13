@@ -298,7 +298,7 @@ static func _kin_expected_pre_armor_cut_blunt(
     var pre_blunt: float = WeaponDamageHelper.compute_blunt_slip_pre_armor(
         weapon, ai, atk_str, arm_mod, cut_ratio, target_mass, float(strike_mods.get("blunt_damage_mult", 1.0))
     )
-    var WF := preload("res://combat/CombatWeaponForm.gd")
+    var WF := preload("res://combat/weapon_form/CombatWeaponForm.gd")
     var stance_mult: float = WF.mod(EntityAccess.form_str(atk), "damage")
     return Vector2(pre_cut * stance_mult, pre_blunt * stance_mult)
 

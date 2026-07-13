@@ -32,4 +32,4 @@ Agents: one §9c row per PR; gate `PHASE0: PASS`.
 <a id="exp-4-advanced-systems"></a>
 <a id="exp-5-full-parity"></a>
 
-**Exp-3 economy UX:** `CompanyState.format_*` helpers — maintain via [`agent_campaign.md`](../scripts/agent_prompts/agent_campaign.md).
+**Exp-3 economy UX:** `CompanyState.format_*` helpers — maintain via [`agent_campaign.md`](../tools/ci/agent_prompts/agent_campaign.md).

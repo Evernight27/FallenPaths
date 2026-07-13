@@ -1,7 +1,7 @@
 class_name CombatConstantsAITargeting
 extends RefCounted
 
-const Footwork := preload("res://combat/CombatConstantsFootwork.gd")
+const Footwork := preload("res://combat/constants/CombatConstantsFootwork.gd")
 
 const AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT := 1.06
 

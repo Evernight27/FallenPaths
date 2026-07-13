@@ -2,7 +2,7 @@ class_name MedicalPhaseGateTests
 extends CombatRegressionHarnessCore
 ## Tier 6.3 medical phase + treatment tests split from CombatRegressionHarness (compile size).
 
-const BattleScene := preload("res://ui/BattleScene.gd")
+const BattleScene := preload("res://ui/battle/BattleScene.gd")
 
 
 static func _free_entity_fixture(n: Node) -> void:

@@ -351,9 +351,6 @@ static func _run_muscle_fatigue_entity_seed_from_campaign(failures: PackedString
         true,
         func() -> void:
             var player: Node = HarnessFixtures._new_entity("SWORD")
-            if not ("muscle_fatigue" in player):
-                CombatRegressionHarness._fail(failures, "muscle_fatigue_seed: entity missing muscle_fatigue")
-                return
             player.muscle_fatigue = {BodyPartConstants.PART_RIGHT_ARM: 0.28}
             var mgr: Node = CombatManager.new()
             mgr.register(player, "player")

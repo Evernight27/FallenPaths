@@ -199,7 +199,7 @@ Kinematic: `ImpactVelocityModel`, `WeaponSwingPhysics`, `AttackResolver` — `_r
 <a id="hit_resolve"></a>
 <a id="strike_avoided"></a>
 
-### F5 combat Output tiers (`main.tscn`)
+### F5 combat Output tiers (`scenes/campaign/main.tscn`)
 
 Editor play session (`OperationalLog.begin_play_session`) layers diagnostics. Grep after each fight: `hit_resolve reason=` · `strike_avoided reason=` · `hit_outcome_stats` · `parry_stats` · `diagram_banner player:` · `diagram_banner enemy:` (II-8) · `engagement_transition` · `encounter_context` · `soak_fight_end` (not verbose `phase_end winner=` — headless D-001 keeps that) · `hit_coverage_hint` (when no hits landed).
 
@@ -221,7 +221,7 @@ Editor play session (`OperationalLog.begin_play_session`) layers diagnostics. Gr
 <a id="enable-per-hit-research_feel-lines"></a>
 <a id="f5-optional-crosswalk-feel-vs-headless"></a>
 
-**Research audit:** `.calibration_audit.txt` · `CombatResearchAnchors.gd` · `_run_research_*` (`RESEARCH_HARNESS_GATE_IDS`, 35 gates). Fail → fix constants/anchors + [`AGENTS_ENTRY` decision log](AGENTS_ENTRY.md#decision-log). **`note`** rows: ignore (`cut_bone_pen_gate_mm`, `forearm_blunt_fracture_anchor_J`, `layer_rupture_subcut_bleed_mult`, `blunt_fracture_scaling`, `human_head_tissue_pct`). **Footing / stances / PA offsets / form weights:** **not** in research audit — harness + F5 soak per [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog). F5: [#playtest-q1](#playtest-q1-research-feel-duel) · `dev_research_feel`+ii2b · [#enable-per-hit-research_feel-lines](#enable-per-hit-research_feel-lines). **§1/§6/§10:** [#bleeding-physics](#bleeding-physics). **Edit:** `BleedingConstants` · `CombatResearchAnchors` · `species/*.tres` · `CombatCalibrationAudit` · [#production-flags](#production-flags). One `FEATURE_*` per PR.
+**Research audit:** `.calibration_audit.txt` · `CombatResearchAnchors.gd` · `_run_research_*` (`RESEARCH_HARNESS_GATE_IDS`, 35 gates). Fail → fix constants/anchors + [`AGENTS_ENTRY` decision log](AGENTS_ENTRY.md#decision-log). **`note`** rows: ignore (`cut_bone_pen_gate_mm`, `forearm_blunt_fracture_anchor_J`, `layer_rupture_subcut_bleed_mult`, `blunt_fracture_scaling`, `human_head_tissue_pct`). **Footing / stances / PA offsets / form weights:** **not** in research audit — harness + F5 soak per [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog). F5: [#playtest-q1](#playtest-q1-research-feel-duel) · `dev_research_feel`+ii2b · [#enable-per-hit-research_feel-lines](#enable-per-hit-research_feel-lines). **§1/§6/§10:** [#bleeding-physics](#bleeding-physics). **Edit:** `BleedingConstants` · `CombatResearchAnchors` · `resources/species/*.tres` · `CombatCalibrationAudit` · [#production-flags](#production-flags). One `FEATURE_*` per PR.
 
 <a id="tier-6--medical--flee"></a>
 <a id="bleeding-units"></a>
@@ -233,7 +233,7 @@ Editor play session (`OperationalLog.begin_play_session`) layers diagnostics. Gr
 
 **Bleeding (D-003):** `BleedingConstants.gd` — [#bleeding-physics](#bleeding-physics).
 
-**Medical phase:** `medical_phase_winner` locks end-combat side; party wipe does not flip winner. Post-victory: losers `[]`; winner medical-only; losers blocked via `MedicalPhaseController.POST_VICTORY_BLOCKED_EVENT_TYPES`. Harness: `_run_medical_phase_winner_*`, `_run_medical_phase_winner_listing_medical_only`. Fast iteration (12 tests): `.\scripts\run_all_combat_checks.ps1 -HarnessMode medical`.
+**Medical phase:** `medical_phase_winner` locks end-combat side; party wipe does not flip winner. Post-victory: losers `[]`; winner medical-only; losers blocked via `MedicalPhaseController.POST_VICTORY_BLOCKED_EVENT_TYPES`. Harness: `_run_medical_phase_winner_*`, `_run_medical_phase_winner_listing_medical_only`. Fast iteration (12 tests): `.\tools\ci\run_all_combat_checks.ps1 -HarnessMode medical`.
 
 <a id="bleeding-physics"></a>
 
@@ -264,7 +264,7 @@ Literal mL · layer tissue · material curves · ATLS consciousness · absolute 
 
 <a id="5-literal-blood-volume-ml"></a>
 
-**Literal mL:** human **75 kg → 5250 mL** · goblin **38 kg → 2660 mL** (`species/*.tres`, `CombatDesignAnchors`).
+**Literal mL:** human **75 kg → 5250 mL** · goblin **38 kg → 2660 mL** (`resources/species/*.tres`, `CombatDesignAnchors`).
 
 <a id="6-gaps-and-recommended-follow-ups"></a>
 
@@ -300,7 +300,7 @@ Continuous 0–100 gauge: fill 25/s WAITING · 8/s RECOVERING · cost at wind-up
 
 ## Muscle fatigue (shipped)
 
-Per-limb exertion pools — **not** composure, **not** whole-body breath. Owner: `combat/CombatMuscleFatigue.gd` · flag `FEATURE_MUSCLE_GROUP_FATIGUE` · harness `harness/CombatRegressionHarnessMuscleFatigueTail.gd`.
+Per-limb exertion pools — **not** composure, **not** whole-body breath. Owner: `combat/flow/CombatMuscleFatigue.gd` · flag `FEATURE_MUSCLE_GROUP_FATIGUE` · harness `harness/CombatRegressionHarnessMuscleFatigueTail.gd`.
 
 <a id="battle-ui"></a>
 
@@ -336,7 +336,7 @@ F5 soak: `turn_ready_gauge`, `tooltip_match=`, `diagram_banner` — trace path *
 
 ## Harness `_run_*` prefixes
 
-**Run:** `.\scripts\run_all_combat_checks.ps1` (full gate) · fast paths: `-HarnessMode regression|d001|sanity|calibration|medical` ([`scripts/README`](../scripts/README.md)).
+**Run:** `.\tools\ci\run_all_combat_checks.ps1` (full gate) · fast paths: `-HarnessMode regression|d001|sanity|calibration|medical` ([`tools/ci/README`](../tools/ci/README.md)).
 
 `grep '_run_' harness/CombatRegressionHarness.gd` (+ tails, `CombatRegressionHarnessSimulation.gd`). **No** `_run_crash_*` / `_run_intrusion_*`.
 
@@ -364,7 +364,7 @@ F5 soak: `turn_ready_gauge`, `tooltip_match=`, `diagram_banner` — trace path *
 
 Headless authoritative: `.d001_headless_signoff.txt` `ok=true`. F5 optional: [`Playtest` stream](PLANNING.md#stream-playtest).
 
-`.\scripts\run_all_combat_checks.ps1` → `FP_HARNESS_OK: AllCombatChecks`. Outputs: `.d001_soak_out.txt`, `.f5_soak_validation.txt`, `.calibration_audit.txt`, `.d001_soak_sanity_out.txt`. `CombatD001SoakRunner` (incl. **ii7** pack-wound + **formation_move_f5** `rotate_file@` greps), `CombatD001SoakSanity`, `CombatF5SoakLogValidator`. Fast paths: `run_all_combat_checks.ps1 -HarnessMode regression|d001|sanity|calibration|medical` ([`scripts/README.md`](../scripts/README.md)). Summary: `print_phase0_status.ps1`. No harness piping to `grep`.
+`.\tools\ci\run_all_combat_checks.ps1` → `FP_HARNESS_OK: AllCombatChecks`. Outputs: `.d001_soak_out.txt`, `.f5_soak_validation.txt`, `.calibration_audit.txt`, `.d001_soak_sanity_out.txt`. `CombatD001SoakRunner` (incl. **ii7** pack-wound + **formation_move_f5** `rotate_file@` greps), `CombatD001SoakSanity`, `CombatF5SoakLogValidator`. Fast paths: `run_all_combat_checks.ps1 -HarnessMode regression|d001|sanity|calibration|medical` ([`tools/ci/README.md`](../tools/ci/README.md)). Summary: `print_phase0_status.ps1`. No harness piping to `grep`.
 
 | # | Headless | F5 glance |
 |---|----------|-----------|
@@ -377,7 +377,7 @@ Headless authoritative: `.d001_headless_signoff.txt` `ok=true`. F5 optional: [`P
 | 8 | **ii1e**/**ii8** | diagram |
 | — | **ii4d** Exh | 3–5 min |
 
-F5 workflow: optional `dev_soak_encounter` → `.f5_soak_in.txt` → `validate_f5_soak_log.ps1` (multi-fight: `append_f5_soak_log.ps1`; Camp-5 status: `run_camp_f5_closeout.ps1`). Validator smoke (no F5): copy `docs/f5_soak_log.camp_wf.example.txt` or `docs/f5_soak_log.camp_full.example.txt` → `.f5_soak_in.txt` (combat-only: `f5_soak_log.example.txt`). Q helpers: `run_q_feel.ps1 -Track Q1|Q2|Camp` · `run_q_audit.ps1 -Track Track`. Mandatory II-2b/5a/5b/5c/4d: headless ☑. Camp-5 human ☑ (2026-06-07) — F5 on demand.
+F5 workflow: optional `dev_soak_encounter` → `.f5_soak_in.txt` → `run_playtest validate` (multi-fight: `run_playtest after-append`; Camp-5 status: `run_playtest closeout`). Validator smoke (no F5): copy `docs/f5_soak_log.camp_wf.example.txt` or `docs/f5_soak_log.camp_full.example.txt` → `.f5_soak_in.txt` (combat-only: `f5_soak_log.example.txt`). Q helpers: `run_q_feel` · `run_q_audit`. Mandatory II-2b/5a/5b/5c/4d: headless ☑. Camp-5 human ☑ (2026-06-07) — F5 on demand.
 
 <a id="integration-archive"></a>
 <a id="run-this-plan-agents-entry"></a>

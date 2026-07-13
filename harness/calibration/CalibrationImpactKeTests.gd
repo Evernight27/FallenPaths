@@ -3,8 +3,8 @@ extends RefCounted
 ## Compare shipped combat numbers to documented physics / medical anchors.
 ## Writes **`.calibration_audit.txt`**; optional gate via **`run_all_combat_checks.gd`**.
 
-const HumanSpecies := preload("res://species/human.tres")
-const GoblinSpecies := preload("res://species/goblin.tres")
+const HumanSpecies := preload("res://resources/species/human.tres")
+const GoblinSpecies := preload("res://resources/species/goblin.tres")
 
 const REPORT_FILENAME := ".calibration_audit.txt"
 const BIND_THRESHOLD := CombatConstants.PARRY_BIND_CONTROL_THRESHOLD

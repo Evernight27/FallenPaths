@@ -1,7 +1,7 @@
 class_name CombatConstantsFormation
 extends RefCounted
 
-const FormationMove := preload("res://combat/CombatConstantsFormationMove.gd")
+const FormationMove := preload("res://combat/constants/CombatConstantsFormationMove.gd")
 
 const AUTO_DOCTRINE_NUMERIC_SUPERIORITY_FRONT_MARGIN := 1
 

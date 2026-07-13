@@ -562,6 +562,9 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
     var exh: String = CombatExhaustion.gauge_tooltip_line(c)
     if not exh.is_empty():
         tips.append(exh)
+    var msc: String = _muscle_fatigue_tooltip_line(c)
+    if not msc.is_empty():
+        tips.append(msc)
     var arc_sur: String = surround_arc_occupancy_tooltip_line(c, manager)
     if not arc_sur.is_empty():
         tips.append(arc_sur)
@@ -635,3 +638,14 @@ static func formation_cell_tooltip_lines(
     if not cmd.is_empty():
         lines.append("%s ' %s" % [display_name, cmd])
     return lines
+
+
+## -- muscle fatigue helpers --------------------------------------------------
+
+
+static func _muscle_fatigue_tooltip_line(c: Dictionary) -> String:
+    var mf: Variant = c.get(CombatConstants.COMBATANT_KEY_MUSCLE_FATIGUE)
+    if not (mf is Dictionary and not mf.is_empty()):
+        return ""
+    var msc := preload("res://combat/flow/CombatMuscleFatigue.gd")
+    return msc.gauge_tooltip_line(c)

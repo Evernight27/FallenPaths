@@ -69,7 +69,7 @@ static func _run_mental_stack_feint_resistance_low_readiness_still_falls_for(fai
 ## ---------------------------------------------------------------------------------------------------------------------
 ## -------------------------------------------------------------------------------------------------------
 static func _run_ms_l7_exhaustion_gradient_offense_weight(failures: PackedStringArray) -> void:
-    var Exhaustion := preload("res://combat/CombatExhaustion.gd")
+    var Exhaustion := preload("res://combat/flow/CombatExhaustion.gd")
     # Verify the extended lerp range: [EXHAUSTION_OFFENSE_DAMP_START=0.25, 0.75].
     # Three exhaustion levels: fresh (0.10), fatigued midpoint (~0.50), exhausted (0.80).
     var mgr: Node = MgrScript.new()

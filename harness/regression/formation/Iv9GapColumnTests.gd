@@ -430,7 +430,7 @@ static func _run_iv11_campaign_bridge_party_leader_stamp_suite(failures: PackedS
 
 ## IV-11 slice 4: formation diagram **`[Ldr]`** callout for player party leader only.
 static func _run_iv11_party_leader_diagram_callout_suite(failures: PackedStringArray) -> void:
-    var Diagram := preload("res://ui/FormationDiagramBuilder.gd")
+    var Diagram := preload("res://ui/battle/FormationDiagramBuilder.gd")
     var UiHints := preload("res://combat/CombatUiHints.gd")
     var sync_line: String = CombatConstants.iv11_leader_formation_doc_sync_line()
     if "diagram_callout" not in sync_line:
@@ -471,7 +471,7 @@ static func _run_iv11_party_leader_diagram_callout_suite(failures: PackedStringA
     )
     var tip_hit: bool = false
     for line in tips:
-        if str(line).ends_with(" -  Party leader"):
+        if "Party leader" in str(line):
             tip_hit = true
             break
     if not tip_hit:

@@ -307,9 +307,17 @@ static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -
 ## True when formation **retreat** (disengage swap, drag/fall_back pair, solo fall_back) is justified by injury or peril
 ## -  not fatigue-only composite fitness.
 static func get_medical_windup_speed_modifier(manager: Node, performer: Dictionary, target: Dictionary) -> float:
+    ## Base INT only (no proficiency). Proficiency-aware callers use get_effective_medical_windup_speed_modifier.
     var perf_entity: Node = get_entity_from_manager(manager, performer)
-    var med_eff: float = get_medical_effectiveness_from_node(perf_entity)
+    var base_int: float = float(CombatConstantsMisc.DEFAULT_STAT_VALUE)
+    if perf_entity != null and "intelligence" in perf_entity:
+        base_int = float(perf_entity.intelligence)
+    var med_eff: float = clampf(
+        base_int / 100.0, CombatConstantsTuning.STAT_EFFECT_MULT_MIN, CombatConstantsTuning.STAT_EFFECT_MULT_MAX
+    )
     med_eff = maxf(0.5, med_eff)
+    if perf_entity != null and perf_entity.has_method("_get_campaign_supply_factor"):
+        med_eff *= clampf(float(perf_entity._get_campaign_supply_factor()), 0.25, 1.5)
     if id_int(performer) == id_int(target):
         var perf: float = get_performance_modifier(performer)
         return maxf(CombatConstantsParry.PERF_MOD_MIN, perf) * med_eff
@@ -334,7 +342,7 @@ static func get_effective_medical_windup_speed_modifier(
     var perf_node = node_variant(performer)
     var eff_int: float = 100.0
     if perf_node != null and "_proficiency_bonus" in perf_node:
-        eff_int = float(perf_node.intelligence or 0) + float(perf_node._proficiency_bonus.get("intelligence", 0) or 0)
+        eff_int = float(perf_node.intelligence) + float(perf_node._proficiency_bonus.get("intelligence", 0))
     else:
         eff_int = float(performer.get("intelligence", CombatConstantsMisc.DEFAULT_STAT_VALUE))
     var med_eff: float = clampf(

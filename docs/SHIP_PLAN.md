@@ -45,7 +45,7 @@ Shipped.
 ## Camp-0 — Release gate
 
 ```bash
-./scripts/run_all_combat_checks.sh
+./tools/ci/run_all_combat_checks.sh
 ```
 Expect **`PHASE0: PASS`**. Always-on.
 
@@ -87,7 +87,7 @@ Headless ship audit + [#camp-playtest-acceptance](#camp-playtest-acceptance) F5.
 
 | Must | Gate |
 |------|------|
-| Phase 0 | `./scripts/run_all_combat_checks.sh` → `PHASE0: PASS` |
+| Phase 0 | `./tools/ci/run_all_combat_checks.sh` → `PHASE0: PASS` |
 | Company loop | `CompanyStateChecks` 406 |
 | F5 §8 | [#camp-playtest-acceptance](#camp-playtest-acceptance) |
 | Mental stack / WF / III-4 Track A | Phase 0 harness + Live Paths |
@@ -105,7 +105,7 @@ Headless ship audit + [#camp-playtest-acceptance](#camp-playtest-acceptance) F5.
 | 3 | Playtest | F5 / validator on demand |
 | 4 | Campaign | Economy UX · optional P2 |
 
-Prompts: [`agent_prompts/README`](../scripts/agent_prompts/README.md).
+Prompts: [`agent_prompts/README`](../tools/ci/agent_prompts/README.md).
 
 <a id="camp-7-session-order"></a>
 
@@ -118,10 +118,9 @@ Historical greenfield weeks — shipped; use [#camp-playtest-acceptance](#camp-p
 ## 8. Playtest acceptance
 
 ```bash
-./scripts/run_campaign_ship_audit.sh
-./scripts/run_q_feel.sh Camp   # or: run_q_feel.ps1 -Track Camp
-./scripts/validate_f5_soak_log.sh
-./scripts/run_camp_f5_closeout.sh --human-signoff
+./tools/ci/run_campaign_ship_audit.sh
+./tools/ci/run_q_feel.sh Camp
+./tools/ci/run_playtest.sh full --human-signoff
 ```
 
 F5: `dev_soak_encounter` empty. Paste Output → `.f5_soak_in.txt`. Smoke: `docs/f5_soak_log.camp_wf.example.txt`.
@@ -142,7 +141,7 @@ Close-out: automated minimum = Phase 0 + ship audit + `wf_m3_*` + camp settlemen
 
 ## 9. Implementation reference
 
-Boot/overworld/battle-end: `main.gd` · `CombatFlow` · `CampaignEncounterBridge`. Cognition: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#combat-cognition-pipeline).
+Boot/overworld/battle-end: `scenes/campaign/main.gd` · `CombatFlow` · `CampaignEncounterBridge`. Cognition: [`LIVE_PATHS#combat-cognition-pipeline`](LIVE_PATHS.md#combat-cognition-pipeline).
 
 <a id="combat-mental-stack-shipped"></a>
 
@@ -263,7 +262,7 @@ Combat/WF pitfalls → [`LIVE_PATHS`](LIVE_PATHS.md).
 
 ## Campaign stream note
 
-Economy UX / optional P2 — [`agent_campaign.md`](../scripts/agent_prompts/agent_campaign.md).
+Economy UX / optional P2 — [`agent_campaign.md`](../tools/ci/agent_prompts/agent_campaign.md).
 
 <a id="decision-log"></a>
 

@@ -1,8 +1,8 @@
 class_name AttentionFootworkAiWeaponFormPickTests
 extends CombatRegressionHarnessCore
 const Bp := preload("res://core/BodyPartConstants.gd")
-const WeaponForm := preload("res://combat/CombatWeaponForm.gd")
-const PathResolver := preload("res://combat/AttackPathResolver.gd")
+const WeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
+const PathResolver := preload("res://combat/strike/AttackPathResolver.gd")
 const CompanyState := preload("res://world/CompanyState.gd")
 const Proficiency := preload("res://core/EntityProficiency.gd")
 

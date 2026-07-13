@@ -1,6 +1,6 @@
 # Minimal Camp §8 + WF-M3 paste for automated close-out smoke (not one real session).
-# Copy: Copy-Item docs\f5_soak_log.camp_wf.example.txt .f5_soak_in.txt
-# Then: .\scripts\validate_f5_soak_log.ps1 ; .\scripts\run_camp_f5_closeout.ps1
+# Copy: cp docs/f5_soak_log.camp_wf.example.txt .f5_soak_in.txt
+# Then: ./tools/ci/run_playtest.sh validate ; ./tools/ci/run_playtest.sh closeout
 # Required for close-out exit 0: wf_m3_* PASS + camp_settlement_continue + camp_company_day
 # Optional (OPTIONAL_MISS ok here): field_care action, paid loss, wage warn, desertion, party_triage — see camp_full.example.txt
 FP_WORLD: settlement_continue pay=120 gold=200 renown=1 tutorial=false

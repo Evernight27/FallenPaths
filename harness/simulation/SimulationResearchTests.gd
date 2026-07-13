@@ -2,8 +2,8 @@ class_name SimulationResearchTests
 extends CombatRegressionHarnessCore
 ## Simulation realism track (S1 - S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
 
-const HumanSpecies := preload("res://species/human.tres")
-const GoblinSpecies := preload("res://species/goblin.tres")
+const HumanSpecies := preload("res://resources/species/human.tres")
+const GoblinSpecies := preload("res://resources/species/goblin.tres")
 
 
 static func _run_mat_energy_arm_capacity_anchor(failures: PackedStringArray) -> void:

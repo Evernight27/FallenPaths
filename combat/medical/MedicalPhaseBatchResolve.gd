@@ -83,7 +83,7 @@ static func _get_company_state() -> GDScript:
 
 static func _get_counter_tempo() -> GDScript:
     if _counter_tempo_cache == null:
-        _counter_tempo_cache = load("res://combat/CounterTempo.gd")
+        _counter_tempo_cache = load("res://combat/strike/CounterTempo.gd")
     return _counter_tempo_cache
 
 
@@ -92,13 +92,13 @@ static func _get_counter_tempo() -> GDScript:
 
 static func _get_wind_up_starter() -> GDScript:
     if _wind_up_starter_cache == null:
-        _wind_up_starter_cache = load("res://combat/AttackWindUpStarter.gd")
+        _wind_up_starter_cache = load("res://combat/strike/AttackWindUpStarter.gd")
     return _wind_up_starter_cache
 
 
 static func _get_process_tick() -> GDScript:
     if _process_tick_cache == null:
-        _process_tick_cache = load("res://combat/CombatProcessTick.gd")
+        _process_tick_cache = load("res://combat/flow/CombatProcessTick.gd")
     return _process_tick_cache
 
 

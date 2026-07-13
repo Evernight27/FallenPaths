@@ -10,7 +10,7 @@
 				"--path",
 				"${workspaceFolder}",
 				"-s",
-				"res://scripts/run_all_combat_checks.gd"
+				"res://tools/ci/run_all_combat_checks.gd"
 			],
 			"options": {
 				"cwd": "${workspaceFolder}",
@@ -61,7 +61,7 @@
 			"label": "Run All Combat Checks (headless)",
 			"type": "shell",
 			"command": "bash",
-			"args": ["${workspaceFolder}/scripts/run_all_combat_checks.sh"],
+			"args": ["${workspaceFolder}/tools/ci/run_all_combat_checks.sh"],
 			"options": {
 				"cwd": "${workspaceFolder}"
 			},
@@ -93,7 +93,7 @@
 					"-ExecutionPolicy",
 					"Bypass",
 					"-File",
-					"${workspaceFolder}/scripts/run_all_combat_checks.ps1"
+					"${workspaceFolder}/tools/ci/run_all_combat_checks.ps1"
 				]
 			}
 		},
@@ -106,7 +106,7 @@
 				"--path",
 				"${workspaceFolder}",
 				"-s",
-				"res://scripts/run_all_combat_checks.gd"
+				"res://tools/ci/run_all_combat_checks.gd"
 			],
 			"options": {
 				"cwd": "${workspaceFolder}",
@@ -150,7 +150,7 @@
 				"--path",
 				"${workspaceFolder}",
 				"-s",
-				"res://scripts/run_all_combat_checks.gd"
+				"res://tools/ci/run_all_combat_checks.gd"
 			],
 			"options": {
 				"cwd": "${workspaceFolder}",
@@ -181,7 +181,7 @@
 			"label": "Validate F5 Soak Log",
 			"type": "shell",
 			"command": "bash",
-			"args": ["${workspaceFolder}/scripts/validate_f5_soak_log.sh"],
+			"args": ["${workspaceFolder}/tools/ci/validate_f5_soak_log.sh"],
 			"options": {
 				"cwd": "${workspaceFolder}"
 			},
@@ -193,7 +193,7 @@
 					"-ExecutionPolicy",
 					"Bypass",
 					"-File",
-					"${workspaceFolder}/scripts/validate_f5_soak_log.ps1"
+					"${workspaceFolder}/tools/ci/validate_f5_soak_log.ps1"
 				]
 			},
 			"presentation": {
@@ -226,7 +226,7 @@
 				"-ExecutionPolicy",
 				"Bypass",
 				"-File",
-				"${workspaceFolder}/scripts/run_all_combat_checks.ps1",
+				"${workspaceFolder}/tools/ci/run_all_combat_checks.ps1",
 				"-ValidateF5"
 			],
 			"options": {
@@ -259,7 +259,7 @@
 				"-ExecutionPolicy",
 				"Bypass",
 				"-File",
-				"${workspaceFolder}/scripts/run_q_feel.ps1",
+				"${workspaceFolder}/tools/ci/run_q_feel.ps1",
 				"-Track",
 				"Q1"
 			],
@@ -282,7 +282,7 @@
 				"-ExecutionPolicy",
 				"Bypass",
 				"-File",
-				"${workspaceFolder}/scripts/run_q_feel.ps1",
+				"${workspaceFolder}/tools/ci/run_q_feel.ps1",
 				"-Track",
 				"Q2"
 			],
