@@ -648,7 +648,7 @@ static func place_player_on_overworld_tile(world: Node2D, tile: Vector2i) -> voi
         return
     var center: Vector2 = overworld_tile_center(tile)
     if player.has_method("_cancel_grid_move_to"):
-        player.call("cancel_grid_move_to", center)
+        player.call("_cancel_grid_move_to", center)
     else:
         player.position = center
     world.set_meta("last_player_tile", tile)

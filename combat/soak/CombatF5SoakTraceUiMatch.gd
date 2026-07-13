@@ -1,9 +1,6 @@
 class_name CombatF5SoakTraceUiMatch
 extends CombatF5SoakTraceRollups
 
-const F5Validator := preload("res://harness/CombatF5SoakLogValidator.gd")
-const ListedActions := preload("res://combat/CombatListedActions.gd")
-
 ## Editor F5 **D-001** traces  -  mirror on-screen battle UI in **`FP_COMBAT`** Output (grep, no human glance).
 ## **`turn_ready_gauge`**: full label via **`BattleUIUpdater`**  -  suffix order **Step -> Grd/Atk -> Form** when
 ## present; content asserts **open**  -  LIVE_PATHS **`#wf-soak-audit-status`** . **`#battle-ui`** .
@@ -12,6 +9,12 @@ const ListedActions := preload("res://combat/CombatListedActions.gd")
 ## **`ingest_trace_line`** (via **`OperationalLog.play_combat`**) feeds **`soak_coverage`** at fight end.
 ## **`ingest_world_trace_line`** (via **`OperationalLog.play_world`**) appends Camp S8 markers for post-medical
 ## supplement.
+
+static var _defer_soak_coverage_for_medical: bool = false
+static var _soak_coverage_deferred_note_logged: bool = false
+static var _last_camp_supplement_key: String = ""
+static var _fight_profile: String = ""
+static var _last_turn_ready_formation_fp_line: String = ""
 
 
 static func _merged_camp_validation_lines() -> PackedStringArray:
@@ -94,11 +97,11 @@ static func _log_soak_coverage_camp_supplement() -> void:
     _last_camp_supplement_key = dedupe_key
     var profiles: PackedStringArray = PackedStringArray(
         [
-            TrackSpecs.PROFILE_ALWAYS,
-            TrackSpecs.PROFILE_CAMP_EA,
+            CombatD001TrackSpecs.PROFILE_ALWAYS,
+            CombatD001TrackSpecs.PROFILE_CAMP_EA,
         ]
     )
-    var result: Dictionary = F5Validator.validate(merged, profiles)
+    var result: Dictionary = CombatF5SoakLogValidator.validate(merged, profiles)
     (
         OperationalLog
         . play_combat(
@@ -173,22 +176,22 @@ static func _log_soak_coverage_camp_supplement() -> void:
 
 
 static func _validator_profiles_for_fight() -> PackedStringArray:
-    var profiles: PackedStringArray = PackedStringArray([TrackSpecs.PROFILE_ALWAYS])
+    var profiles: PackedStringArray = PackedStringArray([CombatD001TrackSpecs.PROFILE_ALWAYS])
     match _fight_profile:
-        SoakPresets.PRESET_II2B_SWORD_DUEL, "ii2b":
-            profiles.append(TrackSpecs.PROFILE_PRESET_II2B)
-        SoakPresets.PRESET_II3_SURROUND, "ii3":
-            profiles.append(TrackSpecs.PROFILE_PRESET_II3)
-        SoakPresets.PRESET_II5_COWERING, "ii5":
-            profiles.append(TrackSpecs.PROFILE_PRESET_II5)
-        SoakPresets.PRESET_II6_AMBIENT_SHOCK, "ii6":
-            profiles.append(TrackSpecs.PROFILE_PRESET_II6)
-        SoakPresets.PRESET_II8_FORMATION, "ii8":
-            profiles.append(TrackSpecs.PROFILE_PRESET_II8)
-        SoakPresets.PRESET_II4D_EXHAUSTION, "ii4d":
-            profiles.append(TrackSpecs.PROFILE_PRESET_II4D)
+        SoakEncounterPresets.PRESET_II2B_SWORD_DUEL, "ii2b":
+            profiles.append(CombatD001TrackSpecs.PROFILE_PRESET_II2B)
+        SoakEncounterPresets.PRESET_II3_SURROUND, "ii3":
+            profiles.append(CombatD001TrackSpecs.PROFILE_PRESET_II3)
+        SoakEncounterPresets.PRESET_II5_COWERING, "ii5":
+            profiles.append(CombatD001TrackSpecs.PROFILE_PRESET_II5)
+        SoakEncounterPresets.PRESET_II6_AMBIENT_SHOCK, "ii6":
+            profiles.append(CombatD001TrackSpecs.PROFILE_PRESET_II6)
+        SoakEncounterPresets.PRESET_II8_FORMATION, "ii8":
+            profiles.append(CombatD001TrackSpecs.PROFILE_PRESET_II8)
+        SoakEncounterPresets.PRESET_II4D_EXHAUSTION, "ii4d":
+            profiles.append(CombatD001TrackSpecs.PROFILE_PRESET_II4D)
         _:
-            profiles.append(TrackSpecs.PROFILE_7V7)
+            profiles.append(CombatD001TrackSpecs.PROFILE_7V7)
     return profiles
 
 
@@ -341,7 +344,7 @@ static func _turn_ui_match_context(
         and fp_line.is_empty()
         and not hold_line.is_empty()
         and (
-            ListedActions.action_list_is_reserve_posture_only(actions)
+            CombatListedActions.action_list_is_reserve_posture_only(actions)
             or CombatF5SoakTraceUiMatch._fight_finish_hold_line_hint_text(hold_line)
         )
     ):

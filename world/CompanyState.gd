@@ -9,7 +9,6 @@ extends RefCounted
 ##   CompanyDayCycle.gd -- day tick orchestration (end day request, auto step-tick, provisions, desertion pass)
 ##   CompanyRoster.gd   -- hire/casualty/burial lifecycle, contract management, tutorial/combat meta
 
-const PartySetup := preload("res://world/PartySetup.gd")
 const DEFAULT_CAMP_TILE: Vector2i = CampaignTypes.DEFAULT_CAMP_TILE
 
 # World meta keys (Sec10) -- re-exported from CampaignTypes for backward compat.

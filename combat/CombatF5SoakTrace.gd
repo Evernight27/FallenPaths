@@ -10,6 +10,29 @@ extends CombatF5SoakTraceUiMatch
 ## **`ingest_world_trace_line`** (via **`OperationalLog.play_world`**) appends Camp S8 markers for post-medical
 ## supplement.
 
+static var _fight_end_logged: bool = false
+static var _medical_phase_intro_logged: bool = false
+static var _research_validate_hint_logged: bool = false
+static var _soak_validate_hint_logged: bool = false
+static var _last_cowering_fall_back_executed_line: String = ""
+static var _last_fled_line: String = ""
+static var _last_ambient_pain_shock_line: String = ""
+static var _last_death_tick_line: String = ""
+static var _last_exhaustion_crossing_line: String = ""
+static var _last_diagram_banner_line: String = ""
+static var _last_diagram_banner_enemy_line: String = ""
+static var _last_gauge_tooltip_formation_fp_line: String = ""
+static var _last_turn_ready_gauge_sig: String = ""
+static var _last_engagement_transition_line: String = ""
+static var _last_strike_avoided_line: String = ""
+static var _last_hit_resolve_line: String = ""
+static var _last_formation_move_pick_line: String = ""
+static var _last_medical_pack_listed_line: String = ""
+static var _last_research_feel_line: String = ""
+static var _last_cowering_fall_back_listed_line: String = ""
+static var _last_fall_back_pick_line: String = ""
+static var _last_medical_action_pick_line: String = ""
+
 
 ## Inspector snapshot at F5 start (grep **`soak_session_plan`**).
 static func log_session_plan(dev_soak_encounter: String, dev_research_feel: bool) -> void:
@@ -74,7 +97,7 @@ static func reset_session_camp_trace() -> void:
 static func prepare_fight_end_log() -> void:
     CombatF5SoakTraceRollups._archive_fight_camp_combat_lines()
     reset_fight_trace_buffer()
-    EngagementDiag.reset_session()
+    CombatEngagementDiagnostics.reset_session()
     _last_diagram_banner_line = ""
     _last_diagram_banner_enemy_line = ""
     _session_counts = {
@@ -190,7 +213,7 @@ static func ingest_world_trace_line(message: String) -> void:
     var s: String = message.strip_edges()
     if s.is_empty():
         return
-    if not TrackSpecs.is_camp_ea_world_trace_line(s):
+    if not CombatD001TrackSpecs.is_camp_ea_world_trace_line(s):
         return
     CombatF5SoakTraceRollups._append_fight_trace_line_direct(s)
     if _session_camp_trace_lines.is_empty() or _session_camp_trace_lines[_session_camp_trace_lines.size() - 1] != s:
@@ -242,13 +265,13 @@ static func log_fight_end_summary(winner: String, entering_medical_phase: bool) 
     CombatF5SoakTraceRollups._log_parry_rollup()
     CombatF5SoakTraceRollups._log_hit_outcome_rollup()
     CombatF5SoakTraceRollups._log_hit_coverage_hint()
-    if _fight_profile in [SoakPresets.PRESET_II2B_SWORD_DUEL, SoakPresets.PRESET_II4D_EXHAUSTION]:
+    if _fight_profile in [SoakEncounterPresets.PRESET_II2B_SWORD_DUEL, SoakEncounterPresets.PRESET_II4D_EXHAUSTION]:
         CombatF5SoakTraceRollups._log_q2_parry_rollup()
-    if _fight_profile == SoakPresets.PRESET_II5_COWERING:
+    if _fight_profile == SoakEncounterPresets.PRESET_II5_COWERING:
         CombatF5SoakTraceRollups._log_q3_ii5_rollup()
-    if _fight_profile == SoakPresets.PRESET_II4D_EXHAUSTION:
+    if _fight_profile == SoakEncounterPresets.PRESET_II4D_EXHAUSTION:
         CombatF5SoakTraceRollups._log_q3_ii4d_rollup()
-    if _fight_profile == SoakPresets.PRESET_II8_FORMATION:
+    if _fight_profile == SoakEncounterPresets.PRESET_II8_FORMATION:
         CombatF5SoakTraceRollups._log_q4_ii8_rollup()
 
 

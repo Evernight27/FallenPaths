@@ -219,8 +219,6 @@ static func compute_and_apply_damage(
     var health_after_cut: float = tgt_entity.body_cutting.get(part, 0.0)
     var health_after_blunt: float = tgt_entity.body_blunt.get(part, 0.0)
     var health_after_bone: float = tgt_entity.bone_health.get(part, 0.0) if tgt_entity.get("bone_health") else 0.0
-    var part_max: int = tgt_entity.body_max.get(part, 0)
-    var part_bone_max: int = tgt_entity.bone_max.get(part, 0) if tgt_entity.get("bone_max") else 0
     var outcome_note: String = outcome
     if outcome == "deflected":
         outcome_note = "deflected (all damage avoided)"
@@ -551,7 +549,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
         CombatDebug.log(
             (
                 "defense %s -> %s block=%s p_a=%.1f c_d=%.1f"
-                % [tgt_name, defense_choice, is_block_parry, parry_p_a, parry_c_d]
+                % [tgt_name, parry_reason, is_block_parry, parry_p_a, parry_c_d]
             )
         )
 

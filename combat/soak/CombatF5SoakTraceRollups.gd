@@ -1,11 +1,6 @@
 class_name CombatF5SoakTraceRollups
 extends RefCounted
 
-const OperationalLog := preload("res://core/OperationalLog.gd")
-const EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
-const TrackSpecs := preload("res://harness/CombatD001TrackSpecs.gd")
-const SoakPresets := preload("res://world/SoakEncounterPresets.gd")
-
 const _CAMP_OPTIONAL_PLAY_HINTS := {
     "camp_field_care": "after messy win grep FP_WORLD field_care: hint on map",
     "camp_field_care_action": "map Party -> bandage or pressure one part (grep FP_WORLD field_care bandage part=)",
@@ -35,37 +30,10 @@ static var _combat_constants_cache: Variant = null
 static var _player_turn_hints_cache: Variant = null
 
 static var _session_counts: Dictionary = {}
-static var _fight_end_logged: bool = false
-static var _defer_soak_coverage_for_medical: bool = false
 static var _soak_coverage_logged: bool = false
-static var _medical_phase_intro_logged: bool = false
-static var _research_validate_hint_logged: bool = false
-static var _soak_validate_hint_logged: bool = false
-static var _soak_coverage_deferred_note_logged: bool = false
-static var _last_camp_supplement_key: String = ""
 static var _session_camp_trace_lines: PackedStringArray = PackedStringArray()
 static var _session_camp_combat_trace_lines: PackedStringArray = PackedStringArray()
-static var _last_cowering_fall_back_executed_line: String = ""
-static var _last_fled_line: String = ""
-static var _last_ambient_pain_shock_line: String = ""
-static var _last_death_tick_line: String = ""
-static var _last_exhaustion_crossing_line: String = ""
-static var _fight_profile: String = ""
 static var _fight_trace_lines: PackedStringArray = PackedStringArray()
-static var _last_diagram_banner_line: String = ""
-static var _last_diagram_banner_enemy_line: String = ""
-static var _last_turn_ready_formation_fp_line: String = ""
-static var _last_gauge_tooltip_formation_fp_line: String = ""
-static var _last_turn_ready_gauge_sig: String = ""
-static var _last_engagement_transition_line: String = ""
-static var _last_strike_avoided_line: String = ""
-static var _last_hit_resolve_line: String = ""
-static var _last_formation_move_pick_line: String = ""
-static var _last_medical_pack_listed_line: String = ""
-static var _last_research_feel_line: String = ""
-static var _last_cowering_fall_back_listed_line: String = ""
-static var _last_fall_back_pick_line: String = ""
-static var _last_medical_action_pick_line: String = ""
 
 
 static func _get_combat_constants() -> GDScript:
