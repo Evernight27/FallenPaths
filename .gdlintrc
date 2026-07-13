@@ -1,0 +1,33 @@
+# gdtoolkit gdlint config (YAML). `gdlint .` — gdtoolkit does not read gdlint.toml.
+# Line wrapping is owned by gdformat (see .gdformatrc); gdlint focuses on defects.
+
+max-line-length: 200
+max-file-lines: 20000
+max-public-methods: 120
+max-returns: 30
+function-arguments-number: 20
+tab-characters: 4
+
+# Preload aliases: `const _Foo := preload(...)` / `var _Bar = preload(...)`.
+load-constant-name: '(_?[A-Z][A-Za-z0-9]*|_?[A-Z][A-Z0-9]*(_[A-Z0-9]+)*)'
+function-preload-variable-name: '_?[A-Z][A-Za-z0-9]*'
+function-variable-name: '_?[a-zA-Z][a-zA-Z0-9]*(_[a-zA-Z0-9]+)*'
+class-variable-name: '_?[a-zA-Z][a-zA-Z0-9]*(_[a-zA-Z0-9]+)*'
+constant-name: '_?[A-Z][A-Za-z0-9]*(_[A-Za-z0-9]+)*'
+function-argument-name: '_?[a-zA-Z][a-zA-Z0-9]*(_[a-zA-Z0-9]+)*'
+# Allow `_7v7_…` soak ids and normal snake_case.
+function-name: '(_on_([A-Z][a-zA-Z0-9]*)+(_[a-zA-Z0-9]+)*|_?[a-zA-Z0-9]+(_[a-zA-Z0-9]+)*)'
+
+excluded_directories:
+  - .git
+  - .godot
+  - .ci-venv
+  - combat_tuning
+
+disable:
+  - class-definitions-order
+  - duplicated-load
+  - no-elif-return
+  - no-else-return
+  - max-line-length
+  - unused-argument

@@ -16,32 +16,32 @@ const SECONDS_PER_DAY: float = 86400.0
 # --- Tissue healing: "duration" = time (seconds) to ~95% healed when using exponential model (deficit *= exp(-t/tau), tau = duration/3) ---
 # Minor: superficial ~3 - 5 days. Moderate: 1 - 2 weeks. Severe: 3 - 6 weeks. Critical: 6+ weeks.
 const TISSUE_HEAL_DURATION_SECONDS: Dictionary = {
-	"minor": 4.0 * SECONDS_PER_DAY,    # ~4 days
-	"moderate": 10.0 * SECONDS_PER_DAY, # ~10 days
-	"severe": 21.0 * SECONDS_PER_DAY,   # ~3 weeks
-	"critical": 42.0 * SECONDS_PER_DAY  # ~6 weeks
+    "minor": 4.0 * SECONDS_PER_DAY,  # ~4 days
+    "moderate": 10.0 * SECONDS_PER_DAY,  # ~10 days
+    "severe": 21.0 * SECONDS_PER_DAY,  # ~3 weeks
+    "critical": 42.0 * SECONDS_PER_DAY  # ~6 weeks
 }
 
 # Part multipliers: longer duration = slower heal (chest/head often slower due to depth/vascularity).
 const TISSUE_PART_DURATION_MULTIPLIERS: Dictionary = {
-	_Bp.PART_HEAD: 1.15,
-	_Bp.PART_CHEST: 1.25,
-	_Bp.PART_RIGHT_ARM: 1.0,
-	_Bp.PART_LEFT_ARM: 1.0,
-	_Bp.PART_RIGHT_LEG: 1.0,
-	_Bp.PART_LEFT_LEG: 1.0
+    _Bp.PART_HEAD: 1.15,
+    _Bp.PART_CHEST: 1.25,
+    _Bp.PART_RIGHT_ARM: 1.0,
+    _Bp.PART_LEFT_ARM: 1.0,
+    _Bp.PART_RIGHT_LEG: 1.0,
+    _Bp.PART_LEFT_LEG: 1.0
 }
 
 # --- Bone healing (simple fracture ~6 - 8 weeks) ---
 const BONE_HEAL_DURATION_SECONDS: float = 42.0 * SECONDS_PER_DAY  # 6 weeks to full
 
 const BONE_PART_DURATION_MULTIPLIERS: Dictionary = {
-	_Bp.PART_HEAD: 1.2,   # skull
-	_Bp.PART_CHEST: 1.3,  # ribs/sternum
-	_Bp.PART_RIGHT_ARM: 1.0,
-	_Bp.PART_LEFT_ARM: 1.0,
-	_Bp.PART_RIGHT_LEG: 1.1,
-	_Bp.PART_LEFT_LEG: 1.1
+    _Bp.PART_HEAD: 1.2,  # skull
+    _Bp.PART_CHEST: 1.3,  # ribs/sternum
+    _Bp.PART_RIGHT_ARM: 1.0,
+    _Bp.PART_LEFT_ARM: 1.0,
+    _Bp.PART_RIGHT_LEG: 1.1,
+    _Bp.PART_LEFT_LEG: 1.1
 }
 
 # --- Blood volume recovery (when not bleeding) ---
@@ -62,20 +62,20 @@ const WOUND_TYPE_FRACTURE: String = "fracture"
 # Bruise: duration to ~95% pain resolution by severity. Minor = small bump (~4 d); moderate - critical = deeper/larger, longer.
 # Minor bruise now comparable to minor cut (4 d); typical "2 weeks" for severe.
 const BRUISE_HEAL_DURATION_BY_SEVERITY: Dictionary = {
-	"minor": 4.0 * SECONDS_PER_DAY,    # ~4 days (small bruise)
-	"moderate": 8.0 * SECONDS_PER_DAY,  # ~8 days
-	"severe": 14.0 * SECONDS_PER_DAY,   # ~2 weeks (typical contusion)
-	"critical": 21.0 * SECONDS_PER_DAY  # ~3 weeks (deep/large contusion)
+    "minor": 4.0 * SECONDS_PER_DAY,  # ~4 days (small bruise)
+    "moderate": 8.0 * SECONDS_PER_DAY,  # ~8 days
+    "severe": 14.0 * SECONDS_PER_DAY,  # ~2 weeks (typical contusion)
+    "critical": 21.0 * SECONDS_PER_DAY  # ~3 weeks (deep/large contusion)
 }
 
 # Per-part multiplier for bruise resolution (scalp/face/trunk can linger; limbs typical).
 const BRUISE_PART_DURATION_MULTIPLIERS: Dictionary = {
-	_Bp.PART_HEAD: 1.2,
-	_Bp.PART_CHEST: 1.1,
-	_Bp.PART_RIGHT_ARM: 1.0,
-	_Bp.PART_LEFT_ARM: 1.0,
-	_Bp.PART_RIGHT_LEG: 1.0,
-	_Bp.PART_LEFT_LEG: 1.0
+    _Bp.PART_HEAD: 1.2,
+    _Bp.PART_CHEST: 1.1,
+    _Bp.PART_RIGHT_ARM: 1.0,
+    _Bp.PART_LEFT_ARM: 1.0,
+    _Bp.PART_RIGHT_LEG: 1.0,
+    _Bp.PART_LEFT_LEG: 1.0
 }
 
 # Crush (blunt with bleeding): same phases as tissue; use tissue duration.
@@ -84,23 +84,26 @@ const BRUISE_PART_DURATION_MULTIPLIERS: Dictionary = {
 # Wound is removed when healing progress >= this (~95% healed). Used by EntityHealing and pain resolution.
 const WOUND_RESOLVED_THRESHOLD: float = 0.95
 
+
 # Returns seconds to ~95% healing (pain resolution) for this wound. Used for per-wound pain decay and "resolved" removal.
 static func get_wound_healing_duration_seconds(part: String, severity: String, injury_type: String) -> float:
-	if injury_type == WOUND_TYPE_BRUISE:
-		var base: float = BRUISE_HEAL_DURATION_BY_SEVERITY.get(severity, 14.0 * SECONDS_PER_DAY)
-		var part_mult: float = BRUISE_PART_DURATION_MULTIPLIERS.get(part, 1.0)
-		return base * part_mult
-	if injury_type == WOUND_TYPE_FRACTURE:
-		return get_bone_heal_duration_seconds(part)
-	# Cut and crush: tissue-based duration (unique per body part and severity)
-	return get_tissue_heal_duration_seconds(part, severity)
+    if injury_type == WOUND_TYPE_BRUISE:
+        var base: float = BRUISE_HEAL_DURATION_BY_SEVERITY.get(severity, 14.0 * SECONDS_PER_DAY)
+        var part_mult: float = BRUISE_PART_DURATION_MULTIPLIERS.get(part, 1.0)
+        return base * part_mult
+    if injury_type == WOUND_TYPE_FRACTURE:
+        return get_bone_heal_duration_seconds(part)
+    # Cut and crush: tissue-based duration (unique per body part and severity)
+    return get_tissue_heal_duration_seconds(part, severity)
+
 
 # --- Helpers ---
 static func get_tissue_heal_duration_seconds(part: String, severity: String) -> float:
-	var base: float = TISSUE_HEAL_DURATION_SECONDS.get(severity, 10.0 * SECONDS_PER_DAY)
-	var part_mult: float = TISSUE_PART_DURATION_MULTIPLIERS.get(part, 1.0)
-	return base * part_mult
+    var base: float = TISSUE_HEAL_DURATION_SECONDS.get(severity, 10.0 * SECONDS_PER_DAY)
+    var part_mult: float = TISSUE_PART_DURATION_MULTIPLIERS.get(part, 1.0)
+    return base * part_mult
+
 
 static func get_bone_heal_duration_seconds(part: String) -> float:
-	var part_mult: float = BONE_PART_DURATION_MULTIPLIERS.get(part, 1.0)
-	return BONE_HEAL_DURATION_SECONDS * part_mult
+    var part_mult: float = BONE_PART_DURATION_MULTIPLIERS.get(part, 1.0)
+    return BONE_HEAL_DURATION_SECONDS * part_mult

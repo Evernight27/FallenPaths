@@ -10,14 +10,16 @@ const PARRY_TELEGRAPH_CONTACT_MULT_BLUNT := 1.12
 const PARRY_TELEGRAPH_FEINT_APPARENT_MULT := 1.22
 const PARRY_TELEGRAPH_PERCEPTION_READ_BONUS := 0.38
 
+
 static func parry_telegraph_contact_mult(contact_type: String) -> float:
-	match contact_type.to_lower():
-		"stab":
-			return PARRY_TELEGRAPH_CONTACT_MULT_STAB
-		"blunt":
-			return PARRY_TELEGRAPH_CONTACT_MULT_BLUNT
-		_:
-			return PARRY_TELEGRAPH_CONTACT_MULT_CUT
+    match contact_type.to_lower():
+        "stab":
+            return PARRY_TELEGRAPH_CONTACT_MULT_STAB
+        "blunt":
+            return PARRY_TELEGRAPH_CONTACT_MULT_BLUNT
+        _:
+            return PARRY_TELEGRAPH_CONTACT_MULT_CUT
+
 
 const WEAPON_EXTENDED_PARRY_MULT := 0.85
 const WEAPON_COMMITTED_ATTACK_PARRY_C_D_MULT := 0.92

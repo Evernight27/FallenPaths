@@ -11,8 +11,7 @@ const CLOSE_SLOTS_PER_TARGET_TIGHT_BONUS := 1
 const CLOSE_SLOTS_FULL_TARGETING_MULT := 0.32
 const CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S := 1.65
 
+
 static func max_close_slots_for_density(density: String) -> int:
-	var bonus: int = (
-		CLOSE_SLOTS_PER_TARGET_TIGHT_BONUS if str(density).strip_edges() == "tight" else 0
-	)
-	return CLOSE_SLOTS_PER_TARGET + bonus
+    var bonus: int = CLOSE_SLOTS_PER_TARGET_TIGHT_BONUS if str(density).strip_edges() == "tight" else 0
+    return CLOSE_SLOTS_PER_TARGET + bonus

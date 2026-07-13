@@ -22,36 +22,40 @@ const SPACING_LOOSE_PX := 28
 ## Ratio of v_separation to h_separation. <1 = ranks closer than files (formation depth < width).
 const RANK_VS_FILE_SPACING_RATIO := 0.65
 
+
 ## Returns preset dict. Default: front line up to `CombatConstants.FORMATION_MAX_FRONT_FILES_DEFAULT`, ranks = ceil(n/files).
 ## Count is clamped to `CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP`. Use for_front_count for an explicit front width.
 static func default_for_count(count: int, density: String = DENSITY_NORMAL) -> Dictionary:
-	if count <= 0:
-		return {"files": 1, "ranks": 1, "density": density}
-	var n: int = mini(count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
-	var files: int = mini(CombatConstants.FORMATION_MAX_FRONT_FILES_DEFAULT, n)
-	var ranks: int = maxi(1, int(ceilf(float(n) / float(files))))
-	return {"files": files, "ranks": ranks, "density": density}
+    if count <= 0:
+        return {"files": 1, "ranks": 1, "density": density}
+    var n: int = mini(count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
+    var files: int = mini(CombatConstants.FORMATION_MAX_FRONT_FILES_DEFAULT, n)
+    var ranks: int = maxi(1, int(ceilf(float(n) / float(files))))
+    return {"files": files, "ranks": ranks, "density": density}
+
 
 ## Returns preset with explicit front-line count. files = front_count, ranks = ceil(count/front_count).
 ## Example: for_front_count(6, 4) -> 4 in rank 0, 2 in rank 1.
 static func for_front_count(count: int, front_count: int, density: String = DENSITY_NORMAL) -> Dictionary:
-	if count <= 0 or front_count <= 0:
-		return {"files": 1, "ranks": 1, "density": density}
-	var n: int = mini(count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
-	var files: int = mini(front_count, n)
-	var ranks: int = maxi(1, int(ceilf(float(n) / float(files))))
-	return {"files": files, "ranks": ranks, "density": density}
+    if count <= 0 or front_count <= 0:
+        return {"files": 1, "ranks": 1, "density": density}
+    var n: int = mini(count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
+    var files: int = mini(front_count, n)
+    var ranks: int = maxi(1, int(ceilf(float(n) / float(files))))
+    return {"files": files, "ranks": ranks, "density": density}
+
 
 ## Returns horizontal (file-to-file) pixel separation for GridContainer from density.
 static func separation_px_from_density(density: String) -> int:
-	match density:
-		DENSITY_TIGHT:
-			return SPACING_TIGHT_PX
-		DENSITY_LOOSE:
-			return SPACING_LOOSE_PX
-		_:
-			return SPACING_NORMAL_PX
+    match density:
+        DENSITY_TIGHT:
+            return SPACING_TIGHT_PX
+        DENSITY_LOOSE:
+            return SPACING_LOOSE_PX
+        _:
+            return SPACING_NORMAL_PX
+
 
 ## Returns vertical (rank-to-rank) pixel separation. Ranks closer than files for formation depth.
 static func v_separation_px_from_density(density: String) -> int:
-	return int(separation_px_from_density(density) * RANK_VS_FILE_SPACING_RATIO)
+    return int(separation_px_from_density(density) * RANK_VS_FILE_SPACING_RATIO)

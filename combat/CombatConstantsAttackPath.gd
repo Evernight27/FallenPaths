@@ -17,7 +17,9 @@ const PARRY_OPPOSITE_DEFLECT_SEVERITY_THRUST := 0.5
 const PARRY_OPPOSITE_DEFLECT_SEVERITY_BLUNT := 0.8
 
 const DEFLECTED_GUARD_FROM_ATTACK: Dictionary = {"high": "low", "low": "high", "left": "right", "right": "left"}
-const LINE_ADJACENTS: Dictionary = {"high": ["left", "right"], "low": ["left", "right"], "left": ["high", "low"], "right": ["high", "low"]}
+const LINE_ADJACENTS: Dictionary = {
+    "high": ["left", "right"], "low": ["left", "right"], "left": ["high", "low"], "right": ["high", "low"]
+}
 const DODGE_END_GUARD_FROM_ATTACK: Dictionary = {"high": "low", "low": "high", "left": "right", "right": "left"}
 const GUARD_DEFAULT := "high"
 
@@ -25,52 +27,89 @@ const GUARD_DEFAULT := "high"
 # Path order = blade travel; early parts = first contact when guard puts limbs in the way.
 # High alignment (same line) = early intercept (arms/limbs); low alignment = blade gets through (center mass).
 const ATTACK_PATH_HIGH: Array = ["left_arm", "right_arm", "head", "chest", "left_leg", "right_leg"]  # descending
-const ATTACK_PATH_LOW: Array = ["left_leg", "right_leg", "left_arm", "right_arm", "chest", "head"]   # rising
-const ATTACK_PATH_LEFT: Array = ["left_arm", "left_leg", "chest", "head", "right_arm", "right_leg"] # from left
-const ATTACK_PATH_RIGHT: Array = ["right_arm", "right_leg", "chest", "head", "left_arm", "left_leg"] # from right
+const ATTACK_PATH_LOW: Array = ["left_leg", "right_leg", "left_arm", "right_arm", "chest", "head"]  # rising
+const ATTACK_PATH_LEFT: Array = ["left_arm", "left_leg", "chest", "head", "right_arm", "right_leg"]  # from left
+const ATTACK_PATH_RIGHT: Array = ["right_arm", "right_leg", "chest", "head", "left_arm", "left_leg"]  # from right
 const ATTACK_PATHS: Dictionary = {
-	"high": ATTACK_PATH_HIGH,
-	"low": ATTACK_PATH_LOW,
-	"left": ATTACK_PATH_LEFT,
-	"right": ATTACK_PATH_RIGHT
+    "high": ATTACK_PATH_HIGH, "low": ATTACK_PATH_LOW, "left": ATTACK_PATH_LEFT, "right": ATTACK_PATH_RIGHT
 }
 
 # Guard-dependent paths: path varies by defender posture.
 const ATTACK_PATHS_BY_GUARD: Dictionary = {
-	"high": {
-		"high": ["left_arm", "right_arm", "head", "chest", "left_leg", "right_leg"],
-		"low": ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"],
-		"left": ["left_arm", "head", "chest", "right_arm", "left_leg", "right_leg"],
-		"right": ["right_arm", "head", "chest", "left_arm", "left_leg", "right_leg"]
-	},
-	"low": {
-		"high": ["left_leg", "right_leg", "left_arm", "right_arm", "chest", "head"],
-		"low": ["left_leg", "right_leg", "left_arm", "right_arm", "chest", "head"],
-		"left": ["left_leg", "left_arm", "right_leg", "chest", "right_arm", "head"],
-		"right": ["right_leg", "right_arm", "left_leg", "chest", "left_arm", "head"]
-	},
-	"left": {
-		"high": ["left_arm", "left_leg", "chest", "head", "right_arm", "right_leg"],
-		"low": ["left_arm", "left_leg", "chest", "head", "right_arm", "right_leg"],
-		"left": ["left_arm", "left_leg", "chest", "head", "right_arm", "right_leg"],
-		"right": ["left_arm", "chest", "left_leg", "head", "right_arm", "right_leg"]
-	},
-	"right": {
-		"high": ["right_arm", "right_leg", "chest", "head", "left_arm", "left_leg"],
-		"low": ["right_arm", "right_leg", "chest", "head", "left_arm", "left_leg"],
-		"left": ["right_arm", "chest", "right_leg", "head", "left_arm", "left_leg"],
-		"right": ["right_arm", "right_leg", "chest", "head", "left_arm", "left_leg"]
-	}
+    "high":
+    {
+        "high": ["left_arm", "right_arm", "head", "chest", "left_leg", "right_leg"],
+        "low": ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"],
+        "left": ["left_arm", "head", "chest", "right_arm", "left_leg", "right_leg"],
+        "right": ["right_arm", "head", "chest", "left_arm", "left_leg", "right_leg"]
+    },
+    "low":
+    {
+        "high": ["left_leg", "right_leg", "left_arm", "right_arm", "chest", "head"],
+        "low": ["left_leg", "right_leg", "left_arm", "right_arm", "chest", "head"],
+        "left": ["left_leg", "left_arm", "right_leg", "chest", "right_arm", "head"],
+        "right": ["right_leg", "right_arm", "left_leg", "chest", "left_arm", "head"]
+    },
+    "left":
+    {
+        "high": ["left_arm", "left_leg", "chest", "head", "right_arm", "right_leg"],
+        "low": ["left_arm", "left_leg", "chest", "head", "right_arm", "right_leg"],
+        "left": ["left_arm", "left_leg", "chest", "head", "right_arm", "right_leg"],
+        "right": ["left_arm", "chest", "left_leg", "head", "right_arm", "right_leg"]
+    },
+    "right":
+    {
+        "high": ["right_arm", "right_leg", "chest", "head", "left_arm", "left_leg"],
+        "low": ["right_arm", "right_leg", "chest", "head", "left_arm", "left_leg"],
+        "left": ["right_arm", "chest", "right_leg", "head", "left_arm", "left_leg"],
+        "right": ["right_arm", "right_leg", "chest", "head", "left_arm", "left_leg"]
+    }
 }
 
 # Diagonal line roll (C: alignment-weighted): weights per (move_id, defender_guard_line).
 const DIAGONAL_WEIGHTS: Dictionary = {
-	"oberhau": {"high": {"high": 0.7, "low": 0.5, "left": 0.55, "right": 0.5}, "low": {"high": 0.6, "low": 0.5, "left": 0.5, "right": 0.5}, "left": {"high": 0.6, "low": 0.5, "left": 0.65, "right": 0.5}, "right": {"high": 0.6, "low": 0.5, "left": 0.5, "right": 0.65}},
-	"oberhau_feint": {"high": {"high": 0.7, "low": 0.5, "left": 0.55, "right": 0.5}, "low": {"high": 0.6, "low": 0.5, "left": 0.5, "right": 0.5}, "left": {"high": 0.6, "low": 0.5, "left": 0.65, "right": 0.5}, "right": {"high": 0.6, "low": 0.5, "left": 0.5, "right": 0.65}},
-	"unterhau": {"high": {"high": 0.5, "low": 0.65, "left": 0.5, "right": 0.5}, "low": {"high": 0.5, "low": 0.7, "left": 0.55, "right": 0.55}, "left": {"high": 0.5, "low": 0.6, "left": 0.65, "right": 0.5}, "right": {"high": 0.5, "low": 0.6, "left": 0.5, "right": 0.65}},
-	"diagonal_chop": {"high": {"high": 0.65, "low": 0.5, "left": 0.7, "right": 0.5}, "low": {"high": 0.5, "low": 0.6, "left": 0.65, "right": 0.55}, "left": {"high": 0.55, "low": 0.5, "left": 0.7, "right": 0.5}, "right": {"high": 0.5, "low": 0.55, "left": 0.5, "right": 0.65}},
-	"slash": {"high": {"high": 0.55, "low": 0.5, "left": 0.65, "right": 0.55}, "low": {"high": 0.5, "low": 0.55, "left": 0.6, "right": 0.55}, "left": {"high": 0.55, "low": 0.5, "left": 0.7, "right": 0.5}, "right": {"high": 0.5, "low": 0.55, "left": 0.5, "right": 0.65}},
-	"side_strike": {"high": {"high": 0.5, "low": 0.5, "left": 0.65, "right": 0.65}, "low": {"high": 0.5, "low": 0.5, "left": 0.6, "right": 0.6}, "left": {"high": 0.55, "low": 0.55, "left": 0.65, "right": 0.5}, "right": {"high": 0.55, "low": 0.55, "left": 0.5, "right": 0.65}}
+    "oberhau":
+    {
+        "high": {"high": 0.7, "low": 0.5, "left": 0.55, "right": 0.5},
+        "low": {"high": 0.6, "low": 0.5, "left": 0.5, "right": 0.5},
+        "left": {"high": 0.6, "low": 0.5, "left": 0.65, "right": 0.5},
+        "right": {"high": 0.6, "low": 0.5, "left": 0.5, "right": 0.65}
+    },
+    "oberhau_feint":
+    {
+        "high": {"high": 0.7, "low": 0.5, "left": 0.55, "right": 0.5},
+        "low": {"high": 0.6, "low": 0.5, "left": 0.5, "right": 0.5},
+        "left": {"high": 0.6, "low": 0.5, "left": 0.65, "right": 0.5},
+        "right": {"high": 0.6, "low": 0.5, "left": 0.5, "right": 0.65}
+    },
+    "unterhau":
+    {
+        "high": {"high": 0.5, "low": 0.65, "left": 0.5, "right": 0.5},
+        "low": {"high": 0.5, "low": 0.7, "left": 0.55, "right": 0.55},
+        "left": {"high": 0.5, "low": 0.6, "left": 0.65, "right": 0.5},
+        "right": {"high": 0.5, "low": 0.6, "left": 0.5, "right": 0.65}
+    },
+    "diagonal_chop":
+    {
+        "high": {"high": 0.65, "low": 0.5, "left": 0.7, "right": 0.5},
+        "low": {"high": 0.5, "low": 0.6, "left": 0.65, "right": 0.55},
+        "left": {"high": 0.55, "low": 0.5, "left": 0.7, "right": 0.5},
+        "right": {"high": 0.5, "low": 0.55, "left": 0.5, "right": 0.65}
+    },
+    "slash":
+    {
+        "high": {"high": 0.55, "low": 0.5, "left": 0.65, "right": 0.55},
+        "low": {"high": 0.5, "low": 0.55, "left": 0.6, "right": 0.55},
+        "left": {"high": 0.55, "low": 0.5, "left": 0.7, "right": 0.5},
+        "right": {"high": 0.5, "low": 0.55, "left": 0.5, "right": 0.65}
+    },
+    "side_strike":
+    {
+        "high": {"high": 0.5, "low": 0.5, "left": 0.65, "right": 0.65},
+        "low": {"high": 0.5, "low": 0.5, "left": 0.6, "right": 0.6},
+        "left": {"high": 0.55, "low": 0.55, "left": 0.65, "right": 0.5},
+        "right": {"high": 0.55, "low": 0.55, "left": 0.5, "right": 0.65}
+    }
 }
 
 # Intercept: alignment 1.0 = hit early parts (indices 0..2); alignment 0.0 = full path (0..5)
@@ -79,10 +118,10 @@ const PATH_INTERCEPT_FULL_MAX := 5
 
 ## Angle (degrees) from defender guard line to attacker attack line.
 const LINE_ANGLE_DEG: Dictionary = {
-	"high": {"high": 0, "low": 90, "left": 45, "right": 45},
-	"low": {"high": 90, "low": 0, "left": 45, "right": 45},
-	"left": {"high": 45, "low": 45, "left": 0, "right": 90},
-	"right": {"high": 45, "low": 45, "left": 90, "right": 0}
+    "high": {"high": 0, "low": 90, "left": 45, "right": 45},
+    "low": {"high": 90, "low": 0, "left": 45, "right": 45},
+    "left": {"high": 45, "low": 45, "left": 0, "right": 90},
+    "right": {"high": 45, "low": 45, "left": 90, "right": 0}
 }
 
 const LINE_TO_ANGLE_DEG: Dictionary = {"high": 0.0, "right": 90.0, "low": 180.0, "left": 270.0}
@@ -110,314 +149,310 @@ const RECOVERY_AGILITY_MIN := 0.7
 const RECOVERY_AGILITY_MAX := 1.3
 
 const WEAK_EXPOSURE_BY_ARCH: Dictionary = {
-	"overhead": 1.0,
-	"heavy_blunt": 0.0,
-	"slash": 0.5,
-	"stab": 0.75,
-	"pommel_strike": 0.0,
-	"quick_slash": 0.3
+    "overhead": 1.0, "heavy_blunt": 0.0, "slash": 0.5, "stab": 0.75, "pommel_strike": 0.0, "quick_slash": 0.3
 }
 const DEFENDER_STRONG_BONUS: float = 0.12
 const PARRY_STRONG_CONTACT_BY_ARCH: Dictionary = {
-	"overhead": 1.12,
-	"heavy_blunt": 1.08,
-	"slash": 1.0,
-	"stab": 1.02,
-	"pommel_strike": 1.0,
-	"quick_slash": 0.95
+    "overhead": 1.12, "heavy_blunt": 1.08, "slash": 1.0, "stab": 1.02, "pommel_strike": 1.0, "quick_slash": 0.95
 }
 
 
 static func _iv6_bubble_pair(parts: Array, before: String, after: String) -> Array:
-	var out: Array = parts.duplicate()
-	var i_before: int = out.find(before)
-	var i_after: int = out.find(after)
-	if i_before < 0 or i_after < 0 or i_before <= i_after:
-		return out
-	out.remove_at(i_before)
-	i_after = out.find(after)
-	out.insert(i_after, before)
-	return out
+    var out: Array = parts.duplicate()
+    var i_before: int = out.find(before)
+    var i_after: int = out.find(after)
+    if i_before < 0 or i_after < 0 or i_before <= i_after:
+        return out
+    out.remove_at(i_before)
+    i_after = out.find(after)
+    out.insert(i_after, before)
+    return out
 
 
 static func _iv6_promote_to_front(parts: Array, part: String) -> Array:
-	var out: Array = parts.duplicate()
-	var idx: int = out.find(part)
-	if idx <= 0:
-		return out
-	out.remove_at(idx)
-	out.insert(0, part)
-	return out
+    var out: Array = parts.duplicate()
+    var idx: int = out.find(part)
+    if idx <= 0:
+        return out
+    out.remove_at(idx)
+    out.insert(0, part)
+    return out
 
 
 static func _iv6_diagonal_path_pool(flank_path: Array, vert_path: Array, zone_part: String) -> Array:
-	var pool: Array = []
-	for part in flank_path:
-		var p: String = str(part)
-		if p != zone_part and p not in pool:
-			pool.append(p)
-	for part in vert_path:
-		var p: String = str(part)
-		if p != zone_part and p not in pool:
-			pool.append(p)
-	return pool
+    var pool: Array = []
+    for part in flank_path:
+        var p: String = str(part)
+        if p != zone_part and p not in pool:
+            pool.append(p)
+    for part in vert_path:
+        var p: String = str(part)
+        if p != zone_part and p not in pool:
+            pool.append(p)
+    return pool
 
 
 static func _iv6_shape_diagonal_pool(pool: Array, guard_oct: String) -> Array:
-	var shaped: Array = pool.duplicate()
-	match guard_oct:
-		_GuardLines.LINE_HIGH_LEFT:
-			shaped = _iv6_bubble_pair(shaped, "head", "right_arm")
-			shaped = _iv6_bubble_pair(shaped, "right_arm", "chest")
-		_GuardLines.LINE_HIGH_RIGHT:
-			shaped = _iv6_bubble_pair(shaped, "head", "left_arm")
-			shaped = _iv6_bubble_pair(shaped, "left_arm", "chest")
-		_GuardLines.LINE_LOW_LEFT, _GuardLines.LINE_LOW_RIGHT:
-			shaped = _iv6_promote_to_front(shaped, "left_leg")
-			shaped = _iv6_promote_to_front(shaped, "right_leg")
-	return shaped
+    var shaped: Array = pool.duplicate()
+    match guard_oct:
+        _GuardLines.LINE_HIGH_LEFT:
+            shaped = _iv6_bubble_pair(shaped, "head", "right_arm")
+            shaped = _iv6_bubble_pair(shaped, "right_arm", "chest")
+        _GuardLines.LINE_HIGH_RIGHT:
+            shaped = _iv6_bubble_pair(shaped, "head", "left_arm")
+            shaped = _iv6_bubble_pair(shaped, "left_arm", "chest")
+        _GuardLines.LINE_LOW_LEFT, _GuardLines.LINE_LOW_RIGHT:
+            shaped = _iv6_promote_to_front(shaped, "left_leg")
+            shaped = _iv6_promote_to_front(shaped, "right_leg")
+    return shaped
 
 
 static func _iv6_diagonal_attack_path(
-	flank_path: Array, vert_path: Array, guard_oct: String, zone_part: String
+    flank_path: Array, vert_path: Array, guard_oct: String, zone_part: String
 ) -> Array:
-	var pool: Array = _iv6_diagonal_path_pool(flank_path, vert_path, zone_part)
-	pool = _iv6_shape_diagonal_pool(pool, guard_oct)
-	var out: Array = []
-	if zone_part != "":
-		out.append(zone_part)
-	for part in pool:
-		out.append(part)
-	return out
+    var pool: Array = _iv6_diagonal_path_pool(flank_path, vert_path, zone_part)
+    pool = _iv6_shape_diagonal_pool(pool, guard_oct)
+    var out: Array = []
+    if zone_part != "":
+        out.append(zone_part)
+    for part in pool:
+        out.append(part)
+    return out
 
 
 static func get_attack_path(attack_line: String, guard_line: String) -> Array:
-	var atk_key: String = str(attack_line).strip_edges()
-	var guard_key: String = str(guard_line).strip_edges()
-	var guard_oct: String = ""
-	if _GuardLines.is_known_line(atk_key):
-		atk_key = _GuardLines.cardinal_for_path_lookup(atk_key)
-	if _GuardLines.is_known_line(guard_key):
-		guard_oct = _GuardLines.normalize_line(guard_key)
-		if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
-			guard_key = _GuardLines.guard_cardinal_for_attack_path(guard_oct)
-		else:
-			guard_key = _GuardLines.cardinal_for_path_lookup(guard_key)
-	var by_guard: Variant = ATTACK_PATHS_BY_GUARD.get(atk_key, {})
-	if not (by_guard is Dictionary and by_guard.has(guard_key)):
-		return ATTACK_PATHS.get(atk_key, ATTACK_PATH_HIGH)
-	var flank_path: Array = (by_guard as Dictionary)[guard_key]
-	if (
-		_FeatureFlags.is_feature_iv6_attack_path_octant_enabled()
-		and _FeatureFlags.is_feature_hema_eight_guard_lines_enabled()
-		and guard_oct != ""
-		and _GuardLines.is_flank_diagonal_guard_line(guard_oct)
-	):
-		var vert_key: String = _GuardLines.cardinal_for_path_lookup(guard_oct)
-		if vert_key != guard_key:
-			var vert_path: Array = (by_guard as Dictionary).get(vert_key, flank_path)
-			var zone: String = _GuardLines.guard_zone_part_for_line(guard_oct)
-			return _iv6_diagonal_attack_path(flank_path, vert_path, guard_oct, zone)
-	return flank_path
+    var atk_key: String = str(attack_line).strip_edges()
+    var guard_key: String = str(guard_line).strip_edges()
+    var guard_oct: String = ""
+    if _GuardLines.is_known_line(atk_key):
+        atk_key = _GuardLines.cardinal_for_path_lookup(atk_key)
+    if _GuardLines.is_known_line(guard_key):
+        guard_oct = _GuardLines.normalize_line(guard_key)
+        if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
+            guard_key = _GuardLines.guard_cardinal_for_attack_path(guard_oct)
+        else:
+            guard_key = _GuardLines.cardinal_for_path_lookup(guard_key)
+    var by_guard: Variant = ATTACK_PATHS_BY_GUARD.get(atk_key, {})
+    if not (by_guard is Dictionary and by_guard.has(guard_key)):
+        return ATTACK_PATHS.get(atk_key, ATTACK_PATH_HIGH)
+    var flank_path: Array = (by_guard as Dictionary)[guard_key]
+    if (
+        _FeatureFlags.is_feature_iv6_attack_path_octant_enabled()
+        and _FeatureFlags.is_feature_hema_eight_guard_lines_enabled()
+        and guard_oct != ""
+        and _GuardLines.is_flank_diagonal_guard_line(guard_oct)
+    ):
+        var vert_key: String = _GuardLines.cardinal_for_path_lookup(guard_oct)
+        if vert_key != guard_key:
+            var vert_path: Array = (by_guard as Dictionary).get(vert_key, flank_path)
+            var zone: String = _GuardLines.guard_zone_part_for_line(guard_oct)
+            return _iv6_diagonal_attack_path(flank_path, vert_path, guard_oct, zone)
+    return flank_path
 
 
 static func get_arc_angle_at_progress(arc_start_deg: float, arc_end_deg: float, progress: float) -> float:
-	var p: float = clampf(progress, 0.0, 1.0)
-	var a: float = fmod(arc_start_deg + 360.0, 360.0)
-	var b: float = fmod(arc_end_deg + 360.0, 360.0)
-	var diff: float = fmod(b - a + 540.0, 360.0) - 180.0
-	return fmod(a + diff * p + 360.0, 360.0)
+    var p: float = clampf(progress, 0.0, 1.0)
+    var a: float = fmod(arc_start_deg + 360.0, 360.0)
+    var b: float = fmod(arc_end_deg + 360.0, 360.0)
+    var diff: float = fmod(b - a + 540.0, 360.0) - 180.0
+    return fmod(a + diff * p + 360.0, 360.0)
 
 
 static func arc_end_deg_for_contact_geometry(pa: Dictionary) -> float:
-	var end: float = pa.get("arc_end_deg", -999.0)
-	if end >= -900.0:
-		return end
-	end = pa.get("arc_intended_deg", -999.0)
-	if end >= -900.0:
-		return end
-	return -999.0
+    var end: float = pa.get("arc_end_deg", -999.0)
+    if end >= -900.0:
+        return end
+    end = pa.get("arc_intended_deg", -999.0)
+    if end >= -900.0:
+        return end
+    return -999.0
 
 
 static func get_attack_angle_at_progress(pa: Dictionary, progress: float) -> float:
-	var start: float = pa.get("arc_start_deg", 0.0)
-	var end: float = arc_end_deg_for_contact_geometry(pa)
-	if end < -900.0:
-		end = line_to_angle("high")
-	return get_arc_angle_at_progress(start, end, progress)
+    var start: float = pa.get("arc_start_deg", 0.0)
+    var end: float = arc_end_deg_for_contact_geometry(pa)
+    if end < -900.0:
+        end = line_to_angle("high")
+    return get_arc_angle_at_progress(start, end, progress)
 
 
 static func angle_diff_deg(a_deg: float, b_deg: float) -> float:
-	var d := fmod(abs(a_deg - b_deg) + 360.0, 360.0)
-	return minf(d, 360.0 - d) if d > 180.0 else d
+    var d := fmod(abs(a_deg - b_deg) + 360.0, 360.0)
+    return minf(d, 360.0 - d) if d > 180.0 else d
 
 
 static func line_to_angle(line: String) -> float:
-	if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
-		return _GuardLines.line_to_angle(line)
-	return LINE_TO_ANGLE_DEG.get(line, 0)
+    if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
+        return _GuardLines.line_to_angle(line)
+    return LINE_TO_ANGLE_DEG.get(line, 0)
 
 
 static func angle_to_nearest_line(angle_deg: float) -> String:
-	if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
-		return _GuardLines.angle_to_line(angle_deg)
-	var a := fmod(angle_deg + 360.0, 360.0)
-	if a < 45.0 or a >= 315.0:
-		return "high"
-	if a < 135.0:
-		return "right"
-	if a < 225.0:
-		return "low"
-	return "left"
+    if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
+        return _GuardLines.angle_to_line(angle_deg)
+    var a := fmod(angle_deg + 360.0, 360.0)
+    if a < 45.0 or a >= 315.0:
+        return "high"
+    if a < 135.0:
+        return "right"
+    if a < 225.0:
+        return "low"
+    return "left"
 
 
 static func get_alignment_from_angles(attack_angle_deg: float, guard_angle_deg: float) -> float:
-	var theta := angle_diff_deg(attack_angle_deg, guard_angle_deg)
-	return maxf(PARRY_ALIGNMENT_FLOOR, cos(theta * PI / 180.0))
+    var theta := angle_diff_deg(attack_angle_deg, guard_angle_deg)
+    return maxf(PARRY_ALIGNMENT_FLOOR, cos(theta * PI / 180.0))
 
 
-static func get_deflected_angle_bilateral(attack_angle_deg: float, guard_angle_deg: float, magnitude_deg: float) -> float:
-	var cw := fmod(attack_angle_deg + magnitude_deg + 360.0, 360.0)
-	var ccw := fmod(attack_angle_deg - magnitude_deg + 360.0, 360.0)
-	var dist_cw := angle_diff_deg(cw, guard_angle_deg)
-	var dist_ccw := angle_diff_deg(ccw, guard_angle_deg)
-	return cw if dist_cw > dist_ccw else ccw
+static func get_deflected_angle_bilateral(
+    attack_angle_deg: float, guard_angle_deg: float, magnitude_deg: float
+) -> float:
+    var cw := fmod(attack_angle_deg + magnitude_deg + 360.0, 360.0)
+    var ccw := fmod(attack_angle_deg - magnitude_deg + 360.0, 360.0)
+    var dist_cw := angle_diff_deg(cw, guard_angle_deg)
+    var dist_ccw := angle_diff_deg(ccw, guard_angle_deg)
+    return cw if dist_cw > dist_ccw else ccw
 
 
 static func get_deflection_magnitude_deg(alignment: float, severity: float, contact_type: String) -> float:
-	var base := (1.0 - alignment) * 90.0 * severity
-	var mult: float = 1.0
-	if contact_type == "stab":
-		mult = 1.15
-	elif contact_type == "blunt":
-		mult = 0.9
-	return base * mult * randf_range(0.9, 1.1)
+    var base := (1.0 - alignment) * 90.0 * severity
+    var mult: float = 1.0
+    if contact_type == "stab":
+        mult = 1.15
+    elif contact_type == "blunt":
+        mult = 0.9
+    return base * mult * randf_range(0.9, 1.1)
 
 
 static func parry_opposite_deflect_severity_threshold(contact_type: String) -> float:
-	var ct: String = contact_type.to_lower().strip_edges()
-	if ct == "stab":
-		return PARRY_OPPOSITE_DEFLECT_SEVERITY_THRUST
-	if ct == "blunt":
-		return PARRY_OPPOSITE_DEFLECT_SEVERITY_BLUNT
-	return PARRY_OPPOSITE_DEFLECT_SEVERITY_CUT
+    var ct: String = contact_type.to_lower().strip_edges()
+    if ct == "stab":
+        return PARRY_OPPOSITE_DEFLECT_SEVERITY_THRUST
+    if ct == "blunt":
+        return PARRY_OPPOSITE_DEFLECT_SEVERITY_BLUNT
+    return PARRY_OPPOSITE_DEFLECT_SEVERITY_CUT
 
 
 static func _adjacent_line_away_from_guard(attack_line: String, guard_angle_deg: float) -> String:
-	var atk_line: String = attack_line
-	var adj_src: Dictionary = LINE_ADJACENTS
-	if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
-		atk_line = _GuardLines.normalize_line(attack_line)
-		adj_src = _GuardLines.LINE_ADJACENTS
-	var adj_raw: Variant = adj_src.get(atk_line, [])
-	if not (adj_raw is Array):
-		return atk_line
-	var adj_arr: Array = adj_raw as Array
-	if adj_arr.is_empty():
-		return atk_line
-	var best_line: String = str(adj_arr[0])
-	var best_dist: float = -1.0
-	for candidate in adj_arr:
-		var line: String = str(candidate)
-		var dist: float = angle_diff_deg(line_to_angle(line), guard_angle_deg)
-		if dist > best_dist:
-			best_dist = dist
-			best_line = line
-	return best_line
+    var atk_line: String = attack_line
+    var adj_src: Dictionary = LINE_ADJACENTS
+    if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
+        atk_line = _GuardLines.normalize_line(attack_line)
+        adj_src = _GuardLines.LINE_ADJACENTS
+    var adj_raw: Variant = adj_src.get(atk_line, [])
+    if not (adj_raw is Array):
+        return atk_line
+    var adj_arr: Array = adj_raw as Array
+    if adj_arr.is_empty():
+        return atk_line
+    var best_line: String = str(adj_arr[0])
+    var best_dist: float = -1.0
+    for candidate in adj_arr:
+        var line: String = str(candidate)
+        var dist: float = angle_diff_deg(line_to_angle(line), guard_angle_deg)
+        if dist > best_dist:
+            best_dist = dist
+            best_line = line
+    return best_line
 
 
 static func get_line_alignment(attack_line: String, guard_line: String) -> float:
-	if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
-		return _GuardLines.alignment_from_lines(
-			_GuardLines.normalize_line(attack_line),
-			_GuardLines.normalize_line(guard_line),
-			PARRY_ALIGNMENT_FLOOR
-		)
-	var def_row: Variant = LINE_ANGLE_DEG.get(guard_line, {})
-	if def_row is Dictionary:
-		var deg: float = def_row.get(attack_line, 90)
-		return maxf(PARRY_ALIGNMENT_FLOOR, cos(deg * PI / 180.0))
-	return PARRY_ALIGNMENT_FLOOR
+    if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
+        return _GuardLines.alignment_from_lines(
+            _GuardLines.normalize_line(attack_line), _GuardLines.normalize_line(guard_line), PARRY_ALIGNMENT_FLOOR
+        )
+    var def_row: Variant = LINE_ANGLE_DEG.get(guard_line, {})
+    if def_row is Dictionary:
+        var deg: float = def_row.get(attack_line, 90)
+        return maxf(PARRY_ALIGNMENT_FLOOR, cos(deg * PI / 180.0))
+    return PARRY_ALIGNMENT_FLOOR
 
 
-static func get_attack_angle_deg(attack_line: String, add_variance: bool = true, move_def: Dictionary = {}, variance_context: Dictionary = {}) -> float:
-	var base := line_to_angle(attack_line)
-	var offset_range: float = move_def.get("angle_offset_deg", 0)
-	if offset_range > 0:
-		base += randf_range(-offset_range, offset_range)
-	if add_variance:
-		var variance: float = float(move_def.get("angle_variance_deg", ANGLE_VARIANCE_DEG))
-		var mult: float = 1.0
-		var stamina_ratio: float = variance_context.get("stamina_ratio", 1.0)
-		if stamina_ratio < 1.0:
-			var sf: float = _Stamina.stamina_factor(stamina_ratio)
-			mult = 1.0 + (ANGLE_VARIANCE_STAMINA_AT_ZERO_MULT - 1.0) * (1.0 - sf)
-		if variance_context.get("off_balance", false):
-			mult *= ANGLE_VARIANCE_OFF_BALANCE_MULT
-		var mass_kg: float = float(variance_context.get("weapon_mass_kg", ANGLE_VARIANCE_MASS_REFERENCE_KG))
-		if mass_kg > 0 and ANGLE_VARIANCE_MASS_REFERENCE_KG > 0:
-			var mass_mult: float = 1.0 + (mass_kg - ANGLE_VARIANCE_MASS_REFERENCE_KG) * ANGLE_VARIANCE_MASS_SCALE
-			mult *= maxf(0.7, mass_mult)
-		variance *= mult
-		base += randf_range(-variance, variance)
-	return fmod(base + 360.0, 360.0)
+static func get_attack_angle_deg(
+    attack_line: String, add_variance: bool = true, move_def: Dictionary = {}, variance_context: Dictionary = {}
+) -> float:
+    var base := line_to_angle(attack_line)
+    var offset_range: float = move_def.get("angle_offset_deg", 0)
+    if offset_range > 0:
+        base += randf_range(-offset_range, offset_range)
+    if add_variance:
+        var variance: float = float(move_def.get("angle_variance_deg", ANGLE_VARIANCE_DEG))
+        var mult: float = 1.0
+        var stamina_ratio: float = variance_context.get("stamina_ratio", 1.0)
+        if stamina_ratio < 1.0:
+            var sf: float = _Stamina.stamina_factor(stamina_ratio)
+            mult = 1.0 + (ANGLE_VARIANCE_STAMINA_AT_ZERO_MULT - 1.0) * (1.0 - sf)
+        if variance_context.get("off_balance", false):
+            mult *= ANGLE_VARIANCE_OFF_BALANCE_MULT
+        var mass_kg: float = float(variance_context.get("weapon_mass_kg", ANGLE_VARIANCE_MASS_REFERENCE_KG))
+        if mass_kg > 0 and ANGLE_VARIANCE_MASS_REFERENCE_KG > 0:
+            var mass_mult: float = 1.0 + (mass_kg - ANGLE_VARIANCE_MASS_REFERENCE_KG) * ANGLE_VARIANCE_MASS_SCALE
+            mult *= maxf(0.7, mass_mult)
+        variance *= mult
+        base += randf_range(-variance, variance)
+    return fmod(base + 360.0, 360.0)
 
 
 static func get_guard_angle_deg(combatant: Dictionary, wobble_context: Dictionary = {}) -> float:
-	var line: String = combatant.get("guard_line", GUARD_DEFAULT)
-	var blend: float = combatant.get("guard_deflect_blend", 0.0)
-	var base_angle: float
-	if blend <= 0.0:
-		base_angle = line_to_angle(line)
-	else:
-		var from_line: String = combatant.get("guard_deflect_from_line", line)
-		var from_a: float = line_to_angle(from_line)
-		var to_a: float = line_to_angle(line)
-		base_angle = lerpf(from_a, to_a, blend)
-	var readiness: float = wobble_context.get("parry_readiness", 1.0)
-	if readiness < 1.0 and GUARD_WOBBLE_MAX_DEG > 0:
-		var wobble: float = GUARD_WOBBLE_MAX_DEG * (1.0 - readiness * GUARD_WOBBLE_READINESS_SCALE)
-		var mass_kg: float = float(wobble_context.get("defender_mass_kg", GUARD_WOBBLE_MASS_REFERENCE_KG))
-		if mass_kg > 0 and GUARD_WOBBLE_MASS_REFERENCE_KG > 0:
-			var mass_mult: float = 1.0 + (mass_kg - GUARD_WOBBLE_MASS_REFERENCE_KG) * GUARD_WOBBLE_MASS_SCALE
-			wobble *= maxf(0.7, mass_mult)
-		base_angle += randf_range(-wobble, wobble)
-	return fmod(base_angle + 360.0, 360.0)
+    var line: String = combatant.get("guard_line", GUARD_DEFAULT)
+    var blend: float = combatant.get("guard_deflect_blend", 0.0)
+    var base_angle: float
+    if blend <= 0.0:
+        base_angle = line_to_angle(line)
+    else:
+        var from_line: String = combatant.get("guard_deflect_from_line", line)
+        var from_a: float = line_to_angle(from_line)
+        var to_a: float = line_to_angle(line)
+        base_angle = lerpf(from_a, to_a, blend)
+    var readiness: float = wobble_context.get("parry_readiness", 1.0)
+    if readiness < 1.0 and GUARD_WOBBLE_MAX_DEG > 0:
+        var wobble: float = GUARD_WOBBLE_MAX_DEG * (1.0 - readiness * GUARD_WOBBLE_READINESS_SCALE)
+        var mass_kg: float = float(wobble_context.get("defender_mass_kg", GUARD_WOBBLE_MASS_REFERENCE_KG))
+        if mass_kg > 0 and GUARD_WOBBLE_MASS_REFERENCE_KG > 0:
+            var mass_mult: float = 1.0 + (mass_kg - GUARD_WOBBLE_MASS_REFERENCE_KG) * GUARD_WOBBLE_MASS_SCALE
+            wobble *= maxf(0.7, mass_mult)
+        base_angle += randf_range(-wobble, wobble)
+    return fmod(base_angle + 360.0, 360.0)
 
 
-static func get_deflected_line_from_angles(attack_angle_deg: float, guard_angle_deg: float, severity: float, contact_type: String, alignment: float) -> String:
-	var atk_line: String = angle_to_nearest_line(attack_angle_deg)
-	var guard_line: String = angle_to_nearest_line(guard_angle_deg)
-	if atk_line == guard_line:
-		return atk_line
-	var opposite_line: String = (
-		_GuardLines.opposite_line(atk_line)
-		if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled()
-		else str(DEFLECTED_GUARD_FROM_ATTACK.get(atk_line, atk_line))
-	)
-	if guard_line == opposite_line:
-		var threshold: float = parry_opposite_deflect_severity_threshold(contact_type)
-		if severity >= threshold:
-			return opposite_line
-		return _adjacent_line_away_from_guard(atk_line, guard_angle_deg)
-	var mag := get_deflection_magnitude_deg(alignment, severity, contact_type)
-	var deflected := get_deflected_angle_bilateral(attack_angle_deg, guard_angle_deg, mag)
-	return angle_to_nearest_line(deflected)
+static func get_deflected_line_from_angles(
+    attack_angle_deg: float, guard_angle_deg: float, severity: float, contact_type: String, alignment: float
+) -> String:
+    var atk_line: String = angle_to_nearest_line(attack_angle_deg)
+    var guard_line: String = angle_to_nearest_line(guard_angle_deg)
+    if atk_line == guard_line:
+        return atk_line
+    var opposite_line: String = (
+        _GuardLines.opposite_line(atk_line)
+        if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled()
+        else str(DEFLECTED_GUARD_FROM_ATTACK.get(atk_line, atk_line))
+    )
+    if guard_line == opposite_line:
+        var threshold: float = parry_opposite_deflect_severity_threshold(contact_type)
+        if severity >= threshold:
+            return opposite_line
+        return _adjacent_line_away_from_guard(atk_line, guard_angle_deg)
+    var mag := get_deflection_magnitude_deg(alignment, severity, contact_type)
+    var deflected := get_deflected_angle_bilateral(attack_angle_deg, guard_angle_deg, mag)
+    return angle_to_nearest_line(deflected)
 
 
-static func get_line_alignment_with_deflect(attack_line: String, combatant: Dictionary, alignment_context: Dictionary = {}, wobble_context: Dictionary = {}) -> float:
-	var atk_a: Variant = alignment_context.get("attack_angle_deg", null)
-	var guard_a: Variant = alignment_context.get("guard_angle_deg", null)
-	if atk_a is float and guard_a is float:
-		return maxf(PARRY_ALIGNMENT_FLOOR, get_alignment_from_angles(float(atk_a), float(guard_a)))
-	guard_a = get_guard_angle_deg(combatant, wobble_context)
-	if atk_a is float:
-		return maxf(PARRY_ALIGNMENT_FLOOR, get_alignment_from_angles(float(atk_a), float(guard_a)))
-	var guard_line: String = combatant.get("guard_line", GUARD_DEFAULT)
-	var blend: float = combatant.get("guard_deflect_blend", 0.0)
-	if blend <= 0.0:
-		return get_line_alignment(attack_line, guard_line)
-	var from_line: String = combatant.get("guard_deflect_from_line", GUARD_DEFAULT)
-	var align_from: float = get_line_alignment(attack_line, from_line)
-	var align_to: float = get_line_alignment(attack_line, guard_line)
-	return lerpf(align_from, align_to, blend)
+static func get_line_alignment_with_deflect(
+    attack_line: String, combatant: Dictionary, alignment_context: Dictionary = {}, wobble_context: Dictionary = {}
+) -> float:
+    var atk_a: Variant = alignment_context.get("attack_angle_deg", null)
+    var guard_a: Variant = alignment_context.get("guard_angle_deg", null)
+    if atk_a is float and guard_a is float:
+        return maxf(PARRY_ALIGNMENT_FLOOR, get_alignment_from_angles(float(atk_a), float(guard_a)))
+    guard_a = get_guard_angle_deg(combatant, wobble_context)
+    if atk_a is float:
+        return maxf(PARRY_ALIGNMENT_FLOOR, get_alignment_from_angles(float(atk_a), float(guard_a)))
+    var guard_line: String = combatant.get("guard_line", GUARD_DEFAULT)
+    var blend: float = combatant.get("guard_deflect_blend", 0.0)
+    if blend <= 0.0:
+        return get_line_alignment(attack_line, guard_line)
+    var from_line: String = combatant.get("guard_deflect_from_line", GUARD_DEFAULT)
+    var align_from: float = get_line_alignment(attack_line, from_line)
+    var align_to: float = get_line_alignment(attack_line, guard_line)
+    return lerpf(align_from, align_to, blend)

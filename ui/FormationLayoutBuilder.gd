@@ -9,159 +9,158 @@ const _FormationSlots := preload("res://combat/FormationSlots.gd")
 ## Formation positions use FormationDiagramBuilder. Kept for tests or alternate UIs.
 ## Reparents existing combatant rows from list parents into GridContainers by (rank, file).
 
+
 ## Converts list containers to formation grids. Remarents rows into grid in (rank, file) order.
 ## Supports re-apply: when grid already exists, extracts rows from it and rebuilds.
 ## manager: CombatManager (has combatants). preset: { files, ranks, density }. side: "player"|"enemy".
 static func apply_formation_layout(
-	manager: Node,
-	list_parent: Control,
-	_id_to_controls: Dictionary,
-	preset: Dictionary,
-	side: String
+    manager: Node, list_parent: Control, _id_to_controls: Dictionary, preset: Dictionary, side: String
 ) -> void:
-	# Use manager's formation dimensions when available  -  CombatManager may override ranks/files
-	# from combatant count (e.g. front_count, or preset.ranks missing), causing preset mismatch.
-	var formation: Dictionary = {}
-	if "formations" in manager and manager.formations is Dictionary:
-		formation = _FormationSlots.formation_record_for_manager(manager, side)
-	var files: int = formation.get("files", preset.get("files", 1))
-	var ranks: int = formation.get("ranks", preset.get("ranks", 1))
-	var density: String = formation.get("density", preset.get("density", "normal"))
-	var h_sep: int = _FormationPreset.separation_px_from_density(density)
-	var v_sep: int = _FormationPreset.v_separation_px_from_density(density)  # Ranks closer than files
+    # Use manager's formation dimensions when available  -  CombatManager may override ranks/files
+    # from combatant count (e.g. front_count, or preset.ranks missing), causing preset mismatch.
+    var formation: Dictionary = {}
+    if "formations" in manager and manager.formations is Dictionary:
+        formation = _FormationSlots.formation_record_for_manager(manager, side)
+    var files: int = formation.get("files", preset.get("files", 1))
+    var ranks: int = formation.get("ranks", preset.get("ranks", 1))
+    var density: String = formation.get("density", preset.get("density", "normal"))
+    var h_sep: int = _FormationPreset.separation_px_from_density(density)
+    var v_sep: int = _FormationPreset.v_separation_px_from_density(density)  # Ranks closer than files
 
-	# Map (rank, file) -> combatant for this side (on field only)
-	var slot_to_combatant: Dictionary = {}
-	# Map (rank, file) -> [combatant] for dead (keep at death position)
-	var slot_to_dead: Dictionary = {}
-	# Fled but still alive  -  off the grid (rows reparented below)
-	var fled_combatants: Array = []
-	var combatants: Array = manager.get_combatants() if manager.has_method("get_combatants") else []
-	for c in combatants:
-		if _EntityAccess.side_str(c) != side:
-			continue
-		var r: int = _EntityAccess.rank_int(c)
-		var f: int = _EntityAccess.file_int(c)
-		var key := Vector2i(r, f)
-		if not _EntityAccess.alive_bool(c, true):
-			if not slot_to_dead.has(key):
-				slot_to_dead[key] = []
-			slot_to_dead[key].append(c)
-			continue
-		if _EntityAccess.has_left_battlefield(c):
-			fled_combatants.append(c)
-			continue
-		slot_to_combatant[key] = c
+    # Map (rank, file) -> combatant for this side (on field only)
+    var slot_to_combatant: Dictionary = {}
+    # Map (rank, file) -> [combatant] for dead (keep at death position)
+    var slot_to_dead: Dictionary = {}
+    # Fled but still alive  -  off the grid (rows reparented below)
+    var fled_combatants: Array = []
+    var combatants: Array = manager.get_combatants() if manager.has_method("get_combatants") else []
+    for c in combatants:
+        if _EntityAccess.side_str(c) != side:
+            continue
+        var r: int = _EntityAccess.rank_int(c)
+        var f: int = _EntityAccess.file_int(c)
+        var key := Vector2i(r, f)
+        if not _EntityAccess.alive_bool(c, true):
+            if not slot_to_dead.has(key):
+                slot_to_dead[key] = []
+            slot_to_dead[key].append(c)
+            continue
+        if _EntityAccess.has_left_battlefield(c):
+            fled_combatants.append(c)
+            continue
+        slot_to_combatant[key] = c
 
-	# Ensure grid covers all occupied slots (combatants may have rank/file beyond preset after plug etc.)
-	for key in slot_to_combatant:
-		ranks = maxi(ranks, key.x + 1)
-		files = maxi(files, key.y + 1)
-	for key in slot_to_dead:
-		ranks = maxi(ranks, key.x + 1)
-		files = maxi(files, key.y + 1)
+    # Ensure grid covers all occupied slots (combatants may have rank/file beyond preset after plug etc.)
+    for key in slot_to_combatant:
+        ranks = maxi(ranks, key.x + 1)
+        files = maxi(files, key.y + 1)
+    for key in slot_to_dead:
+        ranks = maxi(ranks, key.x + 1)
+        files = maxi(files, key.y + 1)
 
-	# Collect ALL rows (alive and dead) for reparenting
-	var id_to_row: Dictionary = {}
-	var grid: GridContainer = null
-	for child in list_parent.get_children():
-		if child.name.begins_with("combat_row_"):
-			var cid = _row_id_from_name(child.name)
-			list_parent.remove_child(child)
-			if cid >= 0:
-				id_to_row[cid] = child
-		elif child is GridContainer and child.name == "FormationGrid_" + side:
-			grid = child
-			for gc in grid.get_children().duplicate():
-				grid.remove_child(gc)
-				# Slot vboxes (our structure) contain combat_row; extract rows from them
-				if gc is VBoxContainer:
-					for inner in gc.get_children().duplicate():
-						gc.remove_child(inner)
-						if inner.name.begins_with("combat_row_"):
-							var cid = _row_id_from_name(inner.name)
-							if cid >= 0:
-								id_to_row[cid] = inner
-					gc.queue_free()
-				elif gc.name.begins_with("combat_row_"):
-					var cid = _row_id_from_name(gc.name)
-					if cid >= 0:
-						id_to_row[cid] = gc
-					# Do not free  -  we keep the row for reparenting
-				else:
-					gc.queue_free()
+    # Collect ALL rows (alive and dead) for reparenting
+    var id_to_row: Dictionary = {}
+    var grid: GridContainer = null
+    for child in list_parent.get_children():
+        if child.name.begins_with("combat_row_"):
+            var cid = _row_id_from_name(child.name)
+            list_parent.remove_child(child)
+            if cid >= 0:
+                id_to_row[cid] = child
+        elif child is GridContainer and child.name == "FormationGrid_" + side:
+            grid = child
+            for gc in grid.get_children().duplicate():
+                grid.remove_child(gc)
+                # Slot vboxes (our structure) contain combat_row; extract rows from them
+                if gc is VBoxContainer:
+                    for inner in gc.get_children().duplicate():
+                        gc.remove_child(inner)
+                        if inner.name.begins_with("combat_row_"):
+                            var cid = _row_id_from_name(inner.name)
+                            if cid >= 0:
+                                id_to_row[cid] = inner
+                    gc.queue_free()
+                elif gc.name.begins_with("combat_row_"):
+                    var cid = _row_id_from_name(gc.name)
+                    if cid >= 0:
+                        id_to_row[cid] = gc
+                    # Do not free  -  we keep the row for reparenting
+                else:
+                    gc.queue_free()
 
-	if grid == null:
-		grid = GridContainer.new()
-		grid.name = "FormationGrid_" + side
-		grid.columns = files
-		grid.add_theme_constant_override("h_separation", h_sep)
-		grid.add_theme_constant_override("v_separation", v_sep)
-		list_parent.add_child(grid)
+    if grid == null:
+        grid = GridContainer.new()
+        grid.name = "FormationGrid_" + side
+        grid.columns = files
+        grid.add_theme_constant_override("h_separation", h_sep)
+        grid.add_theme_constant_override("v_separation", v_sep)
+        list_parent.add_child(grid)
 
-	# Build grid: each slot is a VBox containing [dead rows at this slot] [alive row or placeholder]
-	# Defeated units stay at their death position (rank, file) instead of moving to bottom
-	var insert_idx := 0
-	for rank in range(ranks):
-		for file in range(files):
-			var key := Vector2i(rank, file)
-			var slot_vbox := VBoxContainer.new()
-			slot_vbox.add_theme_constant_override("separation", 2)
-			slot_vbox.name = "formation_slot_%d_%d" % [rank, file]
-			# Dead at this slot first (defeated stay where they fell)
-			var dead_list: Array = slot_to_dead.get(key, [])
-			for dc in dead_list:
-				var row = id_to_row.get(_EntityAccess.id_int(dc), null)
-				if row != null:
-					_modulate_dead_row(row)
-					slot_vbox.add_child(row)
-			# Alive occupant, or placeholder only when slot is truly empty (no dead, no living)
-			var c = slot_to_combatant.get(key, null)
-			if c != null:
-				var row = id_to_row.get(_EntityAccess.id_int(c), null)
-				if row != null:
-					slot_vbox.add_child(row)
-			elif dead_list.is_empty():
-				slot_vbox.add_child(_make_placeholder(rank, file))
-			grid.add_child(slot_vbox)
-			grid.move_child(slot_vbox, insert_idx)
-			insert_idx += 1
+    # Build grid: each slot is a VBox containing [dead rows at this slot] [alive row or placeholder]
+    # Defeated units stay at their death position (rank, file) instead of moving to bottom
+    var insert_idx := 0
+    for rank in range(ranks):
+        for file in range(files):
+            var key := Vector2i(rank, file)
+            var slot_vbox := VBoxContainer.new()
+            slot_vbox.add_theme_constant_override("separation", 2)
+            slot_vbox.name = "formation_slot_%d_%d" % [rank, file]
+            # Dead at this slot first (defeated stay where they fell)
+            var dead_list: Array = slot_to_dead.get(key, [])
+            for dc in dead_list:
+                var row = id_to_row.get(_EntityAccess.id_int(dc), null)
+                if row != null:
+                    _modulate_dead_row(row)
+                    slot_vbox.add_child(row)
+            # Alive occupant, or placeholder only when slot is truly empty (no dead, no living)
+            var c = slot_to_combatant.get(key, null)
+            if c != null:
+                var row = id_to_row.get(_EntityAccess.id_int(c), null)
+                if row != null:
+                    slot_vbox.add_child(row)
+            elif dead_list.is_empty():
+                slot_vbox.add_child(_make_placeholder(rank, file))
+            grid.add_child(slot_vbox)
+            grid.move_child(slot_vbox, insert_idx)
+            insert_idx += 1
 
-	if not fled_combatants.is_empty():
-		var fled_strip := VBoxContainer.new()
-		fled_strip.name = "FormationFledStrip_" + side
-		fled_strip.add_theme_constant_override("separation", 2)
-		var fled_title := Label.new()
-		fled_title.text = "Fled"
-		fled_title.add_theme_font_size_override("font_size", 11)
-		fled_title.add_theme_color_override("font_color", Color(0.62, 0.58, 0.52))
-		fled_strip.add_child(fled_title)
-		for fc in fled_combatants:
-			var frow = id_to_row.get(_EntityAccess.id_int(fc), null)
-			if frow != null:
-				_modulate_fled_row(frow)
-				fled_strip.add_child(frow)
-		list_parent.add_child(fled_strip)
+    if not fled_combatants.is_empty():
+        var fled_strip := VBoxContainer.new()
+        fled_strip.name = "FormationFledStrip_" + side
+        fled_strip.add_theme_constant_override("separation", 2)
+        var fled_title := Label.new()
+        fled_title.text = "Fled"
+        fled_title.add_theme_font_size_override("font_size", 11)
+        fled_title.add_theme_color_override("font_color", Color(0.62, 0.58, 0.52))
+        fled_strip.add_child(fled_title)
+        for fc in fled_combatants:
+            var frow = id_to_row.get(_EntityAccess.id_int(fc), null)
+            if frow != null:
+                _modulate_fled_row(frow)
+                fled_strip.add_child(frow)
+        list_parent.add_child(fled_strip)
 
 
 static func _modulate_fled_row(row: Control) -> void:
-	if row is CanvasItem:
-		row.modulate = Color(0.58, 0.6, 0.64)
+    if row is CanvasItem:
+        row.modulate = Color(0.58, 0.6, 0.64)
 
 
 static func _modulate_dead_row(row: Control) -> void:
-	"""Visually dim defeated units (greyed out) so they're distinct from alive."""
-	if row is CanvasItem:
-		row.modulate = Color(0.65, 0.65, 0.65)
+    """Visually dim defeated units (greyed out) so they're distinct from alive."""
+    if row is CanvasItem:
+        row.modulate = Color(0.65, 0.65, 0.65)
+
 
 static func _row_id_from_name(name: String) -> int:
-	var parts = name.split("_")
-	if parts.size() >= 3:
-		return int(parts[2])
-	return -1
+    var parts = name.split("_")
+    if parts.size() >= 3:
+        return int(parts[2])
+    return -1
+
 
 static func _make_placeholder(rank: int, file: int) -> Control:
-	var placeholder = Control.new()
-	placeholder.custom_minimum_size = Vector2(80, 24)
-	placeholder.name = "formation_slot_%d_%d" % [rank, file]
-	return placeholder
+    var placeholder = Control.new()
+    placeholder.custom_minimum_size = Vector2(80, 24)
+    placeholder.name = "formation_slot_%d_%d" % [rank, file]
+    return placeholder

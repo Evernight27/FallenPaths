@@ -8,8 +8,10 @@ extends RefCounted
 const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
+
 static func _get_entity_access() -> GDScript:
-	return _EntityAccess
+    return _EntityAccess
+
 
 const _AfterblowConstants := preload("res://combat/CombatAfterblowConstants.gd")
 const _TimingConstants := preload("res://combat/CombatConstantsTiming.gd")
@@ -151,45 +153,45 @@ const MOVE_ID_APPLY_DIRECT_PRESSURE := "apply_direct_pressure"
 const MOVE_ID_APPLY_TOURNIQUET := "apply_tourniquet"
 
 const MEDICAL_MOVE_IDS: Array[String] = [
-	MOVE_ID_BANDAGE_SELF,
-	MOVE_ID_PACK_WOUND,
-	MOVE_ID_STABILIZE_WOUND,
-	MOVE_ID_APPLY_DIRECT_PRESSURE,
-	MOVE_ID_APPLY_TOURNIQUET,
+    MOVE_ID_BANDAGE_SELF,
+    MOVE_ID_PACK_WOUND,
+    MOVE_ID_STABILIZE_WOUND,
+    MOVE_ID_APPLY_DIRECT_PRESSURE,
+    MOVE_ID_APPLY_TOURNIQUET,
 ]
 
 
 static func is_medical_move(move_id: String) -> bool:
-	return move_id in MEDICAL_MOVE_IDS
+    return move_id in MEDICAL_MOVE_IDS
 
 
 static func is_direct_pressure_move(move_id: String) -> bool:
-	return move_id == MOVE_ID_APPLY_DIRECT_PRESSURE
+    return move_id == MOVE_ID_APPLY_DIRECT_PRESSURE
 
 
 static func is_wind_up_medical_move(move_id: String) -> bool:
-	return is_medical_move(move_id) and not is_direct_pressure_move(move_id)
+    return is_medical_move(move_id) and not is_direct_pressure_move(move_id)
 
 
-const DRESSING_MEDICAL_MOVE_IDS: Array[String] = [
-	MOVE_ID_BANDAGE_SELF, MOVE_ID_PACK_WOUND, MOVE_ID_STABILIZE_WOUND
-]
+const DRESSING_MEDICAL_MOVE_IDS: Array[String] = [MOVE_ID_BANDAGE_SELF, MOVE_ID_PACK_WOUND, MOVE_ID_STABILIZE_WOUND]
 
 
 static func is_dressing_medical_move(move_id: String) -> bool:
-	return move_id in DRESSING_MEDICAL_MOVE_IDS
+    return move_id in DRESSING_MEDICAL_MOVE_IDS
 
 
 static func is_tourniquet_move(move_id: String) -> bool:
-	return move_id == MOVE_ID_APPLY_TOURNIQUET
+    return move_id == MOVE_ID_APPLY_TOURNIQUET
 
 
 static func is_pack_wound_move(move_id: String) -> bool:
-	return move_id == MOVE_ID_PACK_WOUND
+    return move_id == MOVE_ID_PACK_WOUND
 
 
 static func is_stabilize_wound_move(move_id: String) -> bool:
-	return move_id == MOVE_ID_STABILIZE_WOUND
+    return move_id == MOVE_ID_STABILIZE_WOUND
+
+
 ## Extra pressure pass from the treater while an ally already holds the wound (bandage/pack/tourniquet wind-up). Scales treater medical effectiveness into `EntityMedical._apply_direct_pressure_to_wounds`.
 ## Second rescuer adds this fraction of their compression skill on top of primary hold (buddy pressure, TCCC).
 const DIRECT_PRESSURE_TREATMENT_ASSIST_EFFECTIVENESS_FRACTION := 0.50
@@ -239,18 +241,28 @@ const PARRY_PENETRATION_ANGLE_MIN := _Parry.PARRY_PENETRATION_ANGLE_MIN
 const PARRY_PENETRATION_ALIGNMENT_SCALE := _Parry.PARRY_PENETRATION_ALIGNMENT_SCALE
 const PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD := _Parry.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
 const PARRY_BIND_CONTROL_THRESHOLD := _Parry.PARRY_BIND_CONTROL_THRESHOLD
+
+
 static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry: bool) -> bool:
-	return _Parry.parry_full_stop_reached(c_d, parry_p_a, is_block_parry)
-static func parry_edge_deflect_reached(
-	c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool
-) -> bool:
-	return _Parry.parry_edge_deflect_reached(c_d, parry_p_a, alignment, is_block_parry)
+    return _Parry.parry_full_stop_reached(c_d, parry_p_a, is_block_parry)
+
+
+static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool) -> bool:
+    return _Parry.parry_edge_deflect_reached(c_d, parry_p_a, alignment, is_block_parry)
+
+
 static func parry_bind_control_reached(parry_control: float) -> bool:
-	return _Parry.parry_bind_control_reached(parry_control)
+    return _Parry.parry_bind_control_reached(parry_control)
+
+
 static func iii3_baseline_constants_line() -> String:
-	return _Parry.iii3_baseline_constants_line()
+    return _Parry.iii3_baseline_constants_line()
+
+
 static func p4d_parry_bind_doc_sync_line() -> String:
-	return _Parry.p4d_parry_bind_doc_sync_line()
+    return _Parry.p4d_parry_bind_doc_sync_line()
+
+
 const ARCHETYPES_NEVER_BIND: Array[String] = _Parry.ARCHETYPES_NEVER_BIND
 const PARRY_BIND_RIPOSTE_BY_PART_CONTACT: Dictionary = _Parry.PARRY_BIND_RIPOSTE_BY_PART_CONTACT
 const PARRY_BIND_RIPOSTE_MULT_FALLBACK: float = _Parry.PARRY_BIND_RIPOSTE_MULT_FALLBACK
@@ -285,7 +297,9 @@ const LINE_TO_DEFAULT_PART: Dictionary = _GuardZone.LINE_TO_DEFAULT_PART
 
 ## Re-export counter-tempo, riposte chain, and flurry bind constants.
 const COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART := _CounterTempo.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART
-const COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK := _CounterTempo.COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK
+const COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK := (
+    _CounterTempo.COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK
+)
 const COMBATANT_KEY_COUNTER_WINDOW_UNTIL := _CounterTempo.COMBATANT_KEY_COUNTER_WINDOW_UNTIL
 const ACTION_KEY_COUNTER_TEMPO := _CounterTempo.ACTION_KEY_COUNTER_TEMPO
 const ACTION_KEY_CLOSE_LIST_HINT := _CounterTempo.ACTION_KEY_CLOSE_LIST_HINT
@@ -342,7 +356,9 @@ const POST_STRIKE_MOMENTUM_WEIGHT_BONUS := _MentalStack.POST_STRIKE_MOMENTUM_WEI
 const MENTAL_STACK_LAYER_POSITIONAL_DIS := _MentalStack.MENTAL_STACK_LAYER_POSITIONAL_DIS
 const MENTAL_STACK_LAYER_EXHAUSTION := _MentalStack.MENTAL_STACK_LAYER_EXHAUSTION
 const MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD := _MentalStack.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD
-const MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD := _MentalStack.MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD
+const MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD := (
+    _MentalStack.MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD
+)
 const MENTAL_STACK_SALIENCE_OFFENSE_DAMP_MAX := _MentalStack.MENTAL_STACK_SALIENCE_OFFENSE_DAMP_MAX
 const FOCUS_INTENSITY_DEFAULT := _MentalStack.FOCUS_INTENSITY_DEFAULT
 const ATTENTION_LOAD_TELEGRAPH_WEIGHT := _MentalStack.ATTENTION_LOAD_TELEGRAPH_WEIGHT
@@ -363,172 +379,307 @@ const MEDICAL_AI_WEIGHT_ESCALATION_BONUS := _MentalStack.MEDICAL_AI_WEIGHT_ESCAL
 ## Re-export muscle fatigue key.
 const COMBATANT_KEY_MUSCLE_FATIGUE := _DataKeys.COMBATANT_KEY_MUSCLE_FATIGUE
 
+
 ## Re-export feature flag helpers.
 static func is_feature_combat_attention_enabled() -> bool:
-	return _FeatureFlags.is_feature_combat_attention_enabled()
+    return _FeatureFlags.is_feature_combat_attention_enabled()
+
+
 static func set_feature_combat_attention_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_combat_attention_load(enabled)
+    _FeatureFlags.set_feature_combat_attention_load(enabled)
+
+
 static func is_feature_mental_stack_ai_enabled() -> bool:
-	return _FeatureFlags.is_feature_mental_stack_ai_enabled()
+    return _FeatureFlags.is_feature_mental_stack_ai_enabled()
+
+
 static func set_feature_mental_stack_ai_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_mental_stack_ai_load(enabled)
+    _FeatureFlags.set_feature_mental_stack_ai_load(enabled)
+
+
 static func is_feature_ms_positional_awareness_enabled() -> bool:
-	return _FeatureFlags.is_feature_ms_positional_awareness_enabled()
+    return _FeatureFlags.is_feature_ms_positional_awareness_enabled()
+
+
 static func set_feature_ms_positional_awareness_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_ms_positional_awareness_load(enabled)
+    _FeatureFlags.set_feature_ms_positional_awareness_load(enabled)
+
+
 static func is_feature_ms_l6_rout_enabled() -> bool:
-	return _FeatureFlags.is_feature_ms_l6_rout_enabled()
+    return _FeatureFlags.is_feature_ms_l6_rout_enabled()
+
+
 static func set_feature_ms_l6_rout_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_ms_l6_rout_load(enabled)
+    _FeatureFlags.set_feature_ms_l6_rout_load(enabled)
+
+
 static func is_feature_ms_feint_resistance_enabled() -> bool:
-	return _FeatureFlags.is_feature_ms_feint_resistance_enabled()
+    return _FeatureFlags.is_feature_ms_feint_resistance_enabled()
+
+
 static func set_feature_ms_feint_resistance_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_ms_feint_resistance_load(enabled)
+    _FeatureFlags.set_feature_ms_feint_resistance_load(enabled)
+
+
 static func is_feature_ms_mid_infight_med_enabled() -> bool:
-	return _FeatureFlags.is_feature_ms_mid_infight_med_enabled()
+    return _FeatureFlags.is_feature_ms_mid_infight_med_enabled()
+
+
 static func set_feature_ms_mid_infight_med_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_ms_mid_infight_med_load(enabled)
+    _FeatureFlags.set_feature_ms_mid_infight_med_load(enabled)
+
+
 static func is_feature_ms_medical_escalation_enabled() -> bool:
-	return _FeatureFlags.is_feature_ms_medical_escalation_enabled()
+    return _FeatureFlags.is_feature_ms_medical_escalation_enabled()
+
+
 static func set_feature_ms_medical_escalation_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_ms_medical_escalation_load(enabled)
+    _FeatureFlags.set_feature_ms_medical_escalation_load(enabled)
+
+
 static func is_feature_ms_post_strike_enabled() -> bool:
-	return _FeatureFlags.is_feature_ms_post_strike_enabled()
+    return _FeatureFlags.is_feature_ms_post_strike_enabled()
+
+
 static func set_feature_ms_post_strike_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_ms_post_strike_load(enabled)
+    _FeatureFlags.set_feature_ms_post_strike_load(enabled)
+
+
 static func is_feature_counter_tempo_enabled() -> bool:
-	return _FeatureFlags.is_feature_counter_tempo_enabled()
+    return _FeatureFlags.is_feature_counter_tempo_enabled()
+
+
 static func set_feature_counter_tempo_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_counter_tempo_load(enabled)
+    _FeatureFlags.set_feature_counter_tempo_load(enabled)
+
+
 static func is_feature_flurry_bind_exchange_enabled() -> bool:
-	return _FeatureFlags.is_feature_flurry_bind_exchange_enabled()
+    return _FeatureFlags.is_feature_flurry_bind_exchange_enabled()
+
+
 static func set_feature_flurry_bind_exchange_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_flurry_bind_exchange_load(enabled)
+    _FeatureFlags.set_feature_flurry_bind_exchange_load(enabled)
+
+
 static func is_feature_position_angle_footwork_enabled() -> bool:
-	return _FeatureFlags.is_feature_position_angle_footwork_enabled()
+    return _FeatureFlags.is_feature_position_angle_footwork_enabled()
+
+
 static func set_feature_position_angle_footwork_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_position_angle_footwork_load(enabled)
+    _FeatureFlags.set_feature_position_angle_footwork_load(enabled)
+
+
 static func is_feature_armor_burden_enabled() -> bool:
-	return _FeatureFlags.is_feature_armor_burden_enabled()
+    return _FeatureFlags.is_feature_armor_burden_enabled()
+
+
 static func set_feature_armor_burden_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_armor_burden_load(enabled)
+    _FeatureFlags.set_feature_armor_burden_load(enabled)
+
+
 static func armor_burden_mass_ratio_for_combatant(combatant: Dictionary) -> float:
-	return _FeatureFlags.armor_burden_mass_ratio_for_combatant(combatant)
+    return _FeatureFlags.armor_burden_mass_ratio_for_combatant(combatant)
+
+
 static func armor_burden_action_ready_mult(combatant: Dictionary) -> float:
-	return _FeatureFlags.armor_burden_action_ready_mult(combatant)
+    return _FeatureFlags.armor_burden_action_ready_mult(combatant)
+
+
 static func armor_burden_passive_readiness_mult(combatant: Dictionary) -> float:
-	return _FeatureFlags.armor_burden_passive_readiness_mult(combatant)
+    return _FeatureFlags.armor_burden_passive_readiness_mult(combatant)
+
+
 static func is_feature_initiative_order_enabled() -> bool:
-	return _FeatureFlags.is_feature_initiative_order_enabled()
+    return _FeatureFlags.is_feature_initiative_order_enabled()
+
+
 static func set_feature_initiative_order_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_initiative_order_load(enabled)
+    _FeatureFlags.set_feature_initiative_order_load(enabled)
+
+
 static func compare_combatants_for_initiative_order(a: Dictionary, b: Dictionary) -> bool:
-	return _FeatureFlags.compare_combatants_for_initiative_order(a, b)
+    return _FeatureFlags.compare_combatants_for_initiative_order(a, b)
+
+
 static func is_feature_gap_column_topology_enabled() -> bool:
-	return _FeatureFlags.is_feature_gap_column_topology_enabled()
+    return _FeatureFlags.is_feature_gap_column_topology_enabled()
+
+
 static func set_feature_gap_column_topology_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_gap_column_topology_load(enabled)
+    _FeatureFlags.set_feature_gap_column_topology_load(enabled)
+
+
 static func iv9_gap_column_doc_sync_line() -> String:
-	return _FeatureFlags.iv9_gap_column_doc_sync_line()
+    return _FeatureFlags.iv9_gap_column_doc_sync_line()
+
+
 static func is_feature_subregion_combat_mult_enabled() -> bool:
-	return _FeatureFlags.is_feature_subregion_combat_mult_enabled()
+    return _FeatureFlags.is_feature_subregion_combat_mult_enabled()
+
+
 static func set_feature_subregion_combat_mult_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_subregion_combat_mult_load(enabled)
+    _FeatureFlags.set_feature_subregion_combat_mult_load(enabled)
+
+
 static func is_feature_leader_formation_command_enabled() -> bool:
-	return _FeatureFlags.is_feature_leader_formation_command_enabled()
+    return _FeatureFlags.is_feature_leader_formation_command_enabled()
+
+
 static func set_feature_leader_formation_command_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_leader_formation_command_load(enabled)
+    _FeatureFlags.set_feature_leader_formation_command_load(enabled)
+
+
 static func iv11_leader_formation_doc_sync_line() -> String:
-	return _FeatureFlags.iv11_leader_formation_doc_sync_line()
+    return _FeatureFlags.iv11_leader_formation_doc_sync_line()
+
+
 static func is_feature_iv12_slot_distraction_enabled() -> bool:
-	return _FeatureFlags.is_feature_iv12_slot_distraction_enabled()
+    return _FeatureFlags.is_feature_iv12_slot_distraction_enabled()
+
+
 static func set_feature_iv12_slot_distraction_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_iv12_slot_distraction_load(enabled)
+    _FeatureFlags.set_feature_iv12_slot_distraction_load(enabled)
+
+
 static func iv12_slot_distraction_doc_sync_line() -> String:
-	return _FeatureFlags.iv12_slot_distraction_doc_sync_line()
+    return _FeatureFlags.iv12_slot_distraction_doc_sync_line()
+
+
 static func is_feature_iv13_weapon_reach_zoc_enabled() -> bool:
-	return _FeatureFlags.is_feature_iv13_weapon_reach_zoc_enabled()
+    return _FeatureFlags.is_feature_iv13_weapon_reach_zoc_enabled()
+
+
 static func set_feature_iv13_weapon_reach_zoc_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_iv13_weapon_reach_zoc_load(enabled)
+    _FeatureFlags.set_feature_iv13_weapon_reach_zoc_load(enabled)
+
+
 static func iv13_weapon_reach_zoc_doc_sync_line() -> String:
-	return _FeatureFlags.iv13_weapon_reach_zoc_doc_sync_line()
+    return _FeatureFlags.iv13_weapon_reach_zoc_doc_sync_line()
+
+
 static func is_feature_t44_spatial_band_pa_enabled() -> bool:
-	return _FeatureFlags.is_feature_t44_spatial_band_pa_enabled()
+    return _FeatureFlags.is_feature_t44_spatial_band_pa_enabled()
+
+
 static func set_feature_t44_spatial_band_pa_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_t44_spatial_band_pa_load(enabled)
+    _FeatureFlags.set_feature_t44_spatial_band_pa_load(enabled)
+
+
 static func t44_spatial_band_pa_magnitude_mult(band: String) -> float:
-	return _FeatureFlags.t44_spatial_band_pa_magnitude_mult(band)
+    return _FeatureFlags.t44_spatial_band_pa_magnitude_mult(band)
+
+
 static func is_feature_t44_spatial_file_dodge_bias_enabled() -> bool:
-	return _FeatureFlags.is_feature_t44_spatial_file_dodge_bias_enabled()
+    return _FeatureFlags.is_feature_t44_spatial_file_dodge_bias_enabled()
+
+
 static func set_feature_t44_spatial_file_dodge_bias_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_t44_spatial_file_dodge_bias_load(enabled)
+    _FeatureFlags.set_feature_t44_spatial_file_dodge_bias_load(enabled)
+
+
 static func t44_spatial_file_dodge_wing_mult(file_index: int, formation_files: int) -> float:
-	return _FeatureFlags.t44_spatial_file_dodge_wing_mult(file_index, formation_files)
+    return _FeatureFlags.t44_spatial_file_dodge_wing_mult(file_index, formation_files)
+
+
 static func is_feature_t44_spatial_flurry_pa_enabled() -> bool:
-	return _FeatureFlags.is_feature_t44_spatial_flurry_pa_enabled()
+    return _FeatureFlags.is_feature_t44_spatial_flurry_pa_enabled()
+
+
 static func set_feature_t44_spatial_flurry_pa_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_t44_spatial_flurry_pa_load(enabled)
+    _FeatureFlags.set_feature_t44_spatial_flurry_pa_load(enabled)
+
+
 static func t44_spatial_band_pa_doc_sync_line() -> String:
-	return _FeatureFlags.t44_spatial_band_pa_doc_sync_line()
+    return _FeatureFlags.t44_spatial_band_pa_doc_sync_line()
+
+
 static func t44_spatial_file_dodge_doc_sync_line() -> String:
-	return _FeatureFlags.t44_spatial_file_dodge_doc_sync_line()
+    return _FeatureFlags.t44_spatial_file_dodge_doc_sync_line()
+
+
 static func t44_spatial_flurry_pa_doc_sync_line() -> String:
-	return _FeatureFlags.t44_spatial_flurry_pa_doc_sync_line()
+    return _FeatureFlags.t44_spatial_flurry_pa_doc_sync_line()
+
+
 static func is_feature_hema_eight_guard_lines_enabled() -> bool:
-	return _FeatureFlags.is_feature_hema_eight_guard_lines_enabled()
+    return _FeatureFlags.is_feature_hema_eight_guard_lines_enabled()
+
+
 static func set_feature_hema_eight_guard_lines_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_hema_eight_guard_lines_load(enabled)
+    _FeatureFlags.set_feature_hema_eight_guard_lines_load(enabled)
+
+
 static func is_feature_arm_interpose_enabled() -> bool:
-	return _FeatureFlags.is_feature_arm_interpose_enabled()
+    return _FeatureFlags.is_feature_arm_interpose_enabled()
+
+
 static func set_feature_arm_interpose_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_arm_interpose_load(enabled)
+    _FeatureFlags.set_feature_arm_interpose_load(enabled)
+
+
 static func is_feature_iv6_attack_path_octant_enabled() -> bool:
-	return _FeatureFlags.is_feature_iv6_attack_path_octant_enabled()
+    return _FeatureFlags.is_feature_iv6_attack_path_octant_enabled()
+
+
 static func set_feature_iv6_attack_path_octant_load(enabled: bool) -> void:
-	_FeatureFlags.set_feature_iv6_attack_path_octant_load(enabled)
+    _FeatureFlags.set_feature_iv6_attack_path_octant_load(enabled)
+
+
 static func is_feature_sector_surround_load() -> bool:
-	return _FeatureFlags.is_feature_sector_surround_load()
+    return _FeatureFlags.is_feature_sector_surround_load()
+
+
 static func set_feature_sector_surround_load(on: bool) -> void:
-	_FeatureFlags.set_feature_sector_surround_load(on)
+    _FeatureFlags.set_feature_sector_surround_load(on)
+
+
 static func is_feature_surround_arc_occupancy_enabled() -> bool:
-	return _FeatureFlags.is_feature_surround_arc_occupancy_enabled()
+    return _FeatureFlags.is_feature_surround_arc_occupancy_enabled()
+
+
 static func reset_harness_feature_load_overrides() -> void:
-	_FeatureFlags.reset_harness_feature_load_overrides()
+    _FeatureFlags.reset_harness_feature_load_overrides()
+
 
 ## Phase D: muscle fatigue feature flag.
 const FEATURE_MUSCLE_GROUP_FATIGUE := true
 static var _feature_muscle_group_fatigue_load: int = -1
+
+
 static func is_feature_muscle_group_fatigue_enabled() -> bool:
-	if _feature_muscle_group_fatigue_load >= 0:
-		return _feature_muscle_group_fatigue_load != 0
-	return FEATURE_MUSCLE_GROUP_FATIGUE
+    if _feature_muscle_group_fatigue_load >= 0:
+        return _feature_muscle_group_fatigue_load != 0
+    return FEATURE_MUSCLE_GROUP_FATIGUE
+
+
 static func set_feature_muscle_group_fatigue_load(enabled: bool) -> void:
-	_feature_muscle_group_fatigue_load = 1 if enabled else 0
+    _feature_muscle_group_fatigue_load = 1 if enabled else 0
+
 
 static func is_focus_line_move(move_id: String) -> bool:
-	return move_id in FOCUS_LINE_MOVE_IDS
+    return move_id in FOCUS_LINE_MOVE_IDS
 
 
 static func position_angle_offset_deg_for_attack_line(line: String) -> float:
-	var k: String = line.strip_edges()
-	if is_feature_hema_eight_guard_lines_enabled():
-		return _GuardLines.position_angle_offset_deg_for_line(k)
-	# Fallback for harness/tests with eight-guard flag off — delegate to guard lines module.
-	return _GuardLines.position_angle_offset_deg_for_line(k)
+    var k: String = line.strip_edges()
+    if is_feature_hema_eight_guard_lines_enabled():
+        return _GuardLines.position_angle_offset_deg_for_line(k)
+    # Fallback for harness/tests with eight-guard flag off — delegate to guard lines module.
+    return _GuardLines.position_angle_offset_deg_for_line(k)
 
 
 static func guard_line_for_focus_move_id(move_id: String) -> String:
-	match move_id:
-		MOVE_ID_FOCUS_HIGH:
-			return "high"
-		MOVE_ID_FOCUS_LOW:
-			return "low"
-		MOVE_ID_FOCUS_LEFT:
-			return "left"
-		MOVE_ID_FOCUS_RIGHT:
-			return "right"
-		_:
-			return ""
+    match move_id:
+        MOVE_ID_FOCUS_HIGH:
+            return "high"
+        MOVE_ID_FOCUS_LOW:
+            return "low"
+        MOVE_ID_FOCUS_LEFT:
+            return "left"
+        MOVE_ID_FOCUS_RIGHT:
+            return "right"
+        _:
+            return ""
 
 
 ## Re-export feint constants.
@@ -544,9 +695,13 @@ const PARRY_ALIGNMENT_FLOOR := _AttackPath.PARRY_ALIGNMENT_FLOOR
 const GEOMETRIC_LEAK_MAX := _AttackPath.GEOMETRIC_LEAK_MAX
 const PARRY_GEOMETRY_VARIANCE_BASE := _AttackPath.PARRY_GEOMETRY_VARIANCE_BASE
 
+
 ## Re-export attack path helpers.
-static func _iv6_diagonal_attack_path(flank_path: Array, vert_path: Array, guard_oct: String, zone_part: String) -> Array:
-	return _AttackPath._iv6_diagonal_attack_path(flank_path, vert_path, guard_oct, zone_part)
+static func _iv6_diagonal_attack_path(
+    flank_path: Array, vert_path: Array, guard_oct: String, zone_part: String
+) -> Array:
+    return _AttackPath._iv6_diagonal_attack_path(flank_path, vert_path, guard_oct, zone_part)
+
 
 ## Re-export guard transition constants.
 const GUARD_TRANSITION_COST_SCALE := _Parry.GUARD_TRANSITION_COST_SCALE
@@ -574,32 +729,59 @@ const COMBAT_FLOW_LOG_SUPPRESS_REPEATED := _Debug.COMBAT_FLOW_LOG_SUPPRESS_REPEA
 const COMBAT_VACANCY_RECONCILE_DIRTY_ONLY := _Debug.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY
 const COMBAT_VACANCY_DIRTY_SAFETY_EVERY_N_FRAMES := _Debug.COMBAT_VACANCY_DIRTY_SAFETY_EVERY_N_FRAMES
 const COMBAT_FORMATION_INVARIANT_DEBUG := _Debug.COMBAT_FORMATION_INVARIANT_DEBUG
+
+
 static func set_headless_harness_quiet(on: bool) -> void:
-	_Debug.set_headless_harness_quiet(on)
+    _Debug.set_headless_harness_quiet(on)
+
+
 static func is_headless_harness_quiet() -> bool:
-	return _Debug.is_headless_harness_quiet()
+    return _Debug.is_headless_harness_quiet()
+
+
 static func set_play_session_diagnostic(on: bool) -> void:
-	_Debug.set_play_session_diagnostic(on)
+    _Debug.set_play_session_diagnostic(on)
+
+
 static func play_session_diagnostic_active() -> bool:
-	return _Debug.play_session_diagnostic_active()
+    return _Debug.play_session_diagnostic_active()
+
+
 static func set_combat_hit_summary_override(on: bool) -> void:
-	_Debug.set_combat_hit_summary_override(on)
+    _Debug.set_combat_hit_summary_override(on)
+
+
 static func clear_combat_hit_summary_override() -> void:
-	_Debug.clear_combat_hit_summary_override()
+    _Debug.clear_combat_hit_summary_override()
+
+
 static func combat_hit_summary_active() -> bool:
-	return _Debug.combat_hit_summary_active()
+    return _Debug.combat_hit_summary_active()
+
+
 static func set_combat_dev_verbose_override(on: bool) -> void:
-	_Debug.set_combat_dev_verbose_override(on)
+    _Debug.set_combat_dev_verbose_override(on)
+
+
 static func clear_combat_dev_verbose_override() -> void:
-	_Debug.clear_combat_dev_verbose_override()
+    _Debug.clear_combat_dev_verbose_override()
+
+
 static func combat_dev_verbose_active() -> bool:
-	return _Debug.combat_dev_verbose_active()
+    return _Debug.combat_dev_verbose_active()
+
+
 static func combat_debug_active() -> bool:
-	return _Debug.combat_debug_active()
+    return _Debug.combat_debug_active()
+
+
 static func combat_event_debug_active() -> bool:
-	return _Debug.combat_event_debug_active()
+    return _Debug.combat_event_debug_active()
+
+
 static func combat_event_debug_verbose_active() -> bool:
-	return _Debug.combat_event_debug_verbose_active()
+    return _Debug.combat_event_debug_verbose_active()
+
 
 # Stamina (separate pool): attack/parry consume; refill when idle.
 # Realism target: stamina shapes execution quality without dominating combat length.
@@ -638,72 +820,89 @@ const FEATURE_FIGHT_EXHAUSTION_INDEX := _FeatureFlags.FEATURE_FIGHT_EXHAUSTION_I
 
 
 static func stamina_factor(ratio: float) -> float:
-	return _Stamina.stamina_factor(ratio)
+    return _Stamina.stamina_factor(ratio)
 
 
 static func breath_factor(ratio: float) -> float:
-	return _Stamina.breath_factor(ratio)
+    return _Stamina.breath_factor(ratio)
 
 
 static func stamina_attack_cost_from_intensity(intensity: float) -> float:
-	return _Stamina.stamina_attack_cost_from_intensity(intensity)
+    return _Stamina.stamina_attack_cost_from_intensity(intensity)
 
 
 static func stamina_parry_cost_from_intensity(intensity: float) -> float:
-	return _Stamina.stamina_parry_cost_from_intensity(intensity)
+    return _Stamina.stamina_parry_cost_from_intensity(intensity)
 
 
 static func action_ready_stamina_delay_mult(stamina_ratio: float) -> float:
-	return _Stamina.action_ready_stamina_delay_mult(stamina_ratio)
+    return _Stamina.action_ready_stamina_delay_mult(stamina_ratio)
 
 
 static func is_feature_fight_exhaustion_enabled() -> bool:
-	return _FeatureFlags.is_feature_fight_exhaustion_enabled()
+    return _FeatureFlags.is_feature_fight_exhaustion_enabled()
 
 
 static func set_feature_fight_exhaustion_index_load(on: bool) -> void:
-	_FeatureFlags.set_feature_fight_exhaustion_index_load(on)
+    _FeatureFlags.set_feature_fight_exhaustion_index_load(on)
 
 
 static func exhaustion_performance_mult(exhaustion: float) -> float:
-	return _Stamina.exhaustion_performance_mult(exhaustion)
+    return _Stamina.exhaustion_performance_mult(exhaustion)
 
 
 static func defender_passive_readiness_exhaustion_mult(combatant: Dictionary) -> float:
-	return _Stamina.defender_passive_readiness_exhaustion_mult(combatant)
+    return _Stamina.defender_passive_readiness_exhaustion_mult(combatant)
 
 
 static func apply_parry_bind_riposte_gauge_bonus(defender: Dictionary) -> void:
-	_Stamina.apply_parry_bind_riposte_gauge_bonus(defender)
+    _Stamina.apply_parry_bind_riposte_gauge_bonus(defender)
 
 
 static func defender_passive_readiness_stamina_mult_from_ratio(stamina_ratio: float) -> float:
-	return _Stamina.defender_passive_readiness_stamina_mult_from_ratio(stamina_ratio)
+    return _Stamina.defender_passive_readiness_stamina_mult_from_ratio(stamina_ratio)
 
 
 ## Re-export parry redirect and helper functions.
 static func commitment_fraction_for_pending_attack(pa: Dictionary) -> float:
-	return _Parry.commitment_fraction_for_pending_attack(pa)
+    return _Parry.commitment_fraction_for_pending_attack(pa)
+
+
 static func stats_factor_agi_perc(agi: float, perc: float) -> float:
-	return _Parry.stats_factor_agi_perc(agi, perc)
+    return _Parry.stats_factor_agi_perc(agi, perc)
+
+
 static func glancing_factor(ratio: float, exponent: float = PARRY_GLANCING_EXPONENT) -> float:
-	return _Parry.glancing_factor(ratio, exponent)
-static func compute_parry_redirect_mult(pcfg: Dictionary, agi: float, perc: float, contact_type: String, is_block_parry: bool, m_a: float, m_d: float) -> float:
-	return _Parry.compute_parry_redirect_mult(pcfg, agi, perc, contact_type, is_block_parry, m_a, m_d)
-static func parry_deflect_margin_ratio(c_d_final: float, parry_p_a: float) -> float:
-	return _Parry.parry_deflect_margin_ratio(c_d_final, parry_p_a)
-static func parry_deflect_severity_from_margin_ratio(margin_ratio: float) -> float:
-	return _Parry.parry_deflect_severity_from_margin_ratio(margin_ratio)
-static func parry_control_for_bind_deflect(
-	c_d_final: float,
-	parry_p_a: float,
-	alignment: float,
-	parry_readiness: float,
-	parry_off_balance: bool,
-	late_parry: bool,
-	contact_type: String
+    return _Parry.glancing_factor(ratio, exponent)
+
+
+static func compute_parry_redirect_mult(
+    pcfg: Dictionary, agi: float, perc: float, contact_type: String, is_block_parry: bool, m_a: float, m_d: float
 ) -> float:
-	return _Parry.parry_control_for_bind_deflect(c_d_final, parry_p_a, alignment, parry_readiness, parry_off_balance, late_parry, contact_type)
+    return _Parry.compute_parry_redirect_mult(pcfg, agi, perc, contact_type, is_block_parry, m_a, m_d)
+
+
+static func parry_deflect_margin_ratio(c_d_final: float, parry_p_a: float) -> float:
+    return _Parry.parry_deflect_margin_ratio(c_d_final, parry_p_a)
+
+
+static func parry_deflect_severity_from_margin_ratio(margin_ratio: float) -> float:
+    return _Parry.parry_deflect_severity_from_margin_ratio(margin_ratio)
+
+
+static func parry_control_for_bind_deflect(
+    c_d_final: float,
+    parry_p_a: float,
+    alignment: float,
+    parry_readiness: float,
+    parry_off_balance: bool,
+    late_parry: bool,
+    contact_type: String
+) -> float:
+    return _Parry.parry_control_for_bind_deflect(
+        c_d_final, parry_p_a, alignment, parry_readiness, parry_off_balance, late_parry, contact_type
+    )
+
 
 ## Re-export event queue constants.
 const EVENT_ACTION_READY := _EventQueue.EVENT_ACTION_READY
@@ -789,8 +988,6 @@ const ZOC_GEOMETRIC_EXTENT_MIN := 0.78
 const FORMATION_HIT_REACTION_EXTRA_S := 0.38
 const FORMATION_HIT_CANCEL_INTENSITY := 0.72
 
-
-
 const FEATURE_INCOMING_PARRY_CHOICE := _ParryChoice.FEATURE_INCOMING_PARRY_CHOICE
 const INCOMING_MELEE_PARRY_WINDOW_S := _ParryChoice.INCOMING_MELEE_PARRY_WINDOW_S
 const INCOMING_PARRY_ALL_COMBINED_P_A_BUDGET_MULT := _ParryChoice.INCOMING_PARRY_ALL_COMBINED_P_A_BUDGET_MULT
@@ -800,8 +997,12 @@ const PARRY_TELEGRAPH_CONTACT_MULT_STAB := _ParryChoice.PARRY_TELEGRAPH_CONTACT_
 const PARRY_TELEGRAPH_CONTACT_MULT_BLUNT := _ParryChoice.PARRY_TELEGRAPH_CONTACT_MULT_BLUNT
 const PARRY_TELEGRAPH_FEINT_APPARENT_MULT := _ParryChoice.PARRY_TELEGRAPH_FEINT_APPARENT_MULT
 const PARRY_TELEGRAPH_PERCEPTION_READ_BONUS := _ParryChoice.PARRY_TELEGRAPH_PERCEPTION_READ_BONUS
+
+
 static func parry_telegraph_contact_mult(contact_type: String) -> float:
-	return _ParryChoice.parry_telegraph_contact_mult(contact_type)
+    return _ParryChoice.parry_telegraph_contact_mult(contact_type)
+
+
 const WEAPON_EXTENDED_PARRY_MULT := _ParryChoice.WEAPON_EXTENDED_PARRY_MULT
 const WEAPON_COMMITTED_ATTACK_PARRY_C_D_MULT := _ParryChoice.WEAPON_COMMITTED_ATTACK_PARRY_C_D_MULT
 const WEAPON_EXTENDED_COMMIT_FRACTION := _ParryChoice.WEAPON_EXTENDED_COMMIT_FRACTION
@@ -822,7 +1023,9 @@ const FEATURE_INITIATIVE_ORDER := _FeatureFlags.FEATURE_INITIATIVE_ORDER
 const FEATURE_GAP_COLUMN_TOPOLOGY := _FeatureFlags.FEATURE_GAP_COLUMN_TOPOLOGY
 const FEATURE_SUBREGION_COMBAT_MULT := _FeatureFlags.FEATURE_SUBREGION_COMBAT_MULT
 const FEATURE_LEADER_FORMATION_COMMAND := _FeatureFlags.FEATURE_LEADER_FORMATION_COMMAND
-const AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT := _FeatureFlags.AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT
+const AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT := (
+    _FeatureFlags.AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT
+)
 const AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT := _FeatureFlags.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT
 const AI_LEADER_FORMATION_COMMAND_PINCH_OUTNUMBER_MULT := _FeatureFlags.AI_LEADER_FORMATION_COMMAND_PINCH_OUTNUMBER_MULT
 const AI_FOCUS_LINE_ALREADY_FOCUSED_WEIGHT := _FeatureFlags.AI_FOCUS_LINE_ALREADY_FOCUSED_WEIGHT
@@ -844,10 +1047,16 @@ const T44_SPATIAL_FLURRY_PA_MULT := _FeatureFlags.T44_SPATIAL_FLURRY_PA_MULT
 const T44_SPATIAL_BAND_PA_MULT_CLOSE := _FeatureFlags.T44_SPATIAL_BAND_PA_MULT_CLOSE
 const T44_SPATIAL_BAND_PA_MULT_LONG := _FeatureFlags.T44_SPATIAL_BAND_PA_MULT_LONG
 const T44_SPATIAL_FILE_DODGE_WING_MULT := _FeatureFlags.T44_SPATIAL_FILE_DODGE_WING_MULT
+
+
 static func is_feature_ambient_pain_shock() -> bool:
-	return _FeatureFlags.is_feature_ambient_pain_shock()
+    return _FeatureFlags.is_feature_ambient_pain_shock()
+
+
 static func set_feature_ambient_pain_shock(on: bool) -> void:
-	_FeatureFlags.set_feature_ambient_pain_shock(on)
+    _FeatureFlags.set_feature_ambient_pain_shock(on)
+
+
 ## Re-export formation move constants and helpers from CombatConstantsFormationMove.
 const SURROUND_MAX_SPLIT_DIVISOR := _FormationMove.SURROUND_MAX_SPLIT_DIVISOR
 const SURROUND_AWARENESS_AT_LOW_PERCEPTION := _FormationMove.SURROUND_AWARENESS_AT_LOW_PERCEPTION
@@ -892,20 +1101,36 @@ const MOVE_ID_ORDER_PROBING := _FormationMove.MOVE_ID_ORDER_PROBING
 const MOVE_ID_ORDER_PINCH_CENTER := _FormationMove.MOVE_ID_ORDER_PINCH_CENTER
 const LEADER_FORMATION_COMMAND_MOVE_IDS: Array[String] = _FormationMove.LEADER_FORMATION_COMMAND_MOVE_IDS
 const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = _FormationMove.FORMATION_MOVEMENT_MOVE_IDS
+
+
 static func is_formation_movement_move(move_id: String) -> bool:
-	return _FormationMove.is_formation_movement_move(move_id)
+    return _FormationMove.is_formation_movement_move(move_id)
+
+
 static func is_leader_formation_command_move(move_id: String) -> bool:
-	return _FormationMove.is_leader_formation_command_move(move_id)
+    return _FormationMove.is_leader_formation_command_move(move_id)
+
+
 static func is_formation_reposition_move(move_id: String) -> bool:
-	return _FormationMove.is_formation_reposition_move(move_id)
+    return _FormationMove.is_formation_reposition_move(move_id)
+
+
 static func is_partner_formation_move(move_id: String) -> bool:
-	return _FormationMove.is_partner_formation_move(move_id)
+    return _FormationMove.is_partner_formation_move(move_id)
+
+
 static func is_plug_forward_move(move_id: String) -> bool:
-	return _FormationMove.is_plug_forward_move(move_id)
+    return _FormationMove.is_plug_forward_move(move_id)
+
+
 static func is_formation_pair_move_kind(move_kind: String) -> bool:
-	return _FormationMove.is_formation_pair_move_kind(move_kind)
+    return _FormationMove.is_formation_pair_move_kind(move_kind)
+
+
 static func formation_pair_move_kind_for_menu_move(move_id: String) -> String:
-	return _FormationMove.formation_pair_move_kind_for_menu_move(move_id)
+    return _FormationMove.formation_pair_move_kind_for_menu_move(move_id)
+
+
 ## Tactical rank penetration (0 = at their front line). Not armor RHA penetration.
 const TACTICAL_PENETRATION_DEPTH_MAX := 2
 ## Extra damp when this side has very few standing fighters (duel / skirmish attrition).
@@ -1008,14 +1233,15 @@ const SPEAR_LANE_PROFILE_RESTRICTED := "restricted"
 
 
 static func normalize_spear_lane_profile(raw: Variant) -> String:
-	var s: String = str(raw).strip_edges().to_lower()
-	if s.is_empty() or s == "auto" or s == "default":
-		return SPEAR_LANE_PROFILE_AUTO
-	if s in ["open", "full", "wide", "lanes_open"]:
-		return SPEAR_LANE_PROFILE_OPEN
-	if s in ["restricted", "over_shoulder", "shoulder", "shoulder_only", "tight_lanes"]:
-		return SPEAR_LANE_PROFILE_RESTRICTED
-	return SPEAR_LANE_PROFILE_AUTO
+    var s: String = str(raw).strip_edges().to_lower()
+    if s.is_empty() or s == "auto" or s == "default":
+        return SPEAR_LANE_PROFILE_AUTO
+    if s in ["open", "full", "wide", "lanes_open"]:
+        return SPEAR_LANE_PROFILE_OPEN
+    if s in ["restricted", "over_shoulder", "shoulder", "shoulder_only", "tight_lanes"]:
+        return SPEAR_LANE_PROFILE_RESTRICTED
+    return SPEAR_LANE_PROFILE_AUTO
+
 
 ## Re-export feature flag constants from CombatConstantsFeatureFlags.
 const SURROUND_SECTOR_LOAD_FREE := _FeatureFlags.SURROUND_SECTOR_LOAD_FREE
@@ -1035,7 +1261,6 @@ const SURROUND_ARC_HALF_WIDTH_DEG := _FeatureFlags.SURROUND_ARC_HALF_WIDTH_DEG
 const SURROUND_ARC_OVERLAP_TOLERANCE_DEG := _FeatureFlags.SURROUND_ARC_OVERLAP_TOLERANCE_DEG
 const SURROUND_ARC_BLOCKED_THREAT_WEIGHT_MULT := _FeatureFlags.SURROUND_ARC_BLOCKED_THREAT_WEIGHT_MULT
 
-
 ## Engagement mode (duel / skirmish / formation) from live front-rank state --" see ENGAGEMENT_MODE_* below.
 ## Option 4 pilot: `CombatDoctrine.evaluate_automatic_doctrine` may set **`pinch_center`** from a hollow enemy front (only when formation doctrine is still **default**).
 const FEATURE_AUTOMATIC_DOCTRINE := _FeatureFlags.FEATURE_AUTOMATIC_DOCTRINE
@@ -1046,7 +1271,9 @@ const FEATURE_JOULE_ARMOR_BUDGET := _FeatureFlags.FEATURE_JOULE_ARMOR_BUDGET
 
 
 static func is_joule_armor_budget_active() -> bool:
-	return FEATURE_JOULE_ARMOR_BUDGET
+    return FEATURE_JOULE_ARMOR_BUDGET
+
+
 ## **Dev:** After `CombatManager.start`, `BattleScene` re-equips combatants with **rank > 0** with `SPEAR` (formations unchanged --" same `FormationPreset.default_for_count` as usual). Set **true** only for depth-polearm / spear-lane debugging.
 const DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT := _FeatureFlags.DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT
 ## Engagement-mode names from live front-rank state.
@@ -1103,19 +1330,23 @@ const COHESION_FILL_SCALE := 0.65
 const LINE_DISCIPLINE_STRICT := "strict"
 const LINE_DISCIPLINE_NORMAL := "normal"
 const LINE_DISCIPLINE_LOOSE := "loose"
+
+
 ## Extra (f" enter threshold, f" leave threshold) from `line_discipline_posture_extra_deltas` --" strict = stickier LINE (higher both).
 static func line_discipline_posture_extra_deltas(discipline: String) -> Vector2:
-	var d: String = str(discipline).strip_edges().to_lower()
-	if d == LINE_DISCIPLINE_STRICT:
-		return Vector2(0.03, 0.04)
-	if d == LINE_DISCIPLINE_LOOSE:
-		return Vector2(-0.03, -0.04)
-	return Vector2.ZERO
+    var d: String = str(discipline).strip_edges().to_lower()
+    if d == LINE_DISCIPLINE_STRICT:
+        return Vector2(0.03, 0.04)
+    if d == LINE_DISCIPLINE_LOOSE:
+        return Vector2(-0.03, -0.04)
+    return Vector2.ZERO
 
 
 ## Rank-0 self `fall_back` into an **empty** same-file rear slot: only `loose`. Strict/normal/empty require paired swap/drag/fall_back_pair (replacement in file).
 static func line_discipline_allows_solo_fall_back(discipline: String) -> bool:
-	return str(discipline).strip_edges().to_lower() == LINE_DISCIPLINE_LOOSE
+    return str(discipline).strip_edges().to_lower() == LINE_DISCIPLINE_LOOSE
+
+
 ## Paired disengage (swap_rank / drag / fall_back to rear) and solo fall_back: require real injury (blood this low, no usable arm, or immediate peril) --" not low stamina / composite fitness alone.
 ## ~85 = ATLS Class II (~15% blood lost): wounded, may seek rear rank --" not first-cut nuisance (was 94 / ~6%, too eager).
 const FORMATION_RETREAT_BLOOD_VOLUME_MAX := 85.0
@@ -1151,10 +1382,10 @@ const MOVE_ID_FOCUS_LOW := "focus_low"
 const MOVE_ID_FOCUS_LEFT := "focus_left"
 const MOVE_ID_FOCUS_RIGHT := "focus_right"
 const FOCUS_LINE_MOVE_IDS: Array[String] = [
-	MOVE_ID_FOCUS_HIGH,
-	MOVE_ID_FOCUS_LOW,
-	MOVE_ID_FOCUS_LEFT,
-	MOVE_ID_FOCUS_RIGHT,
+    MOVE_ID_FOCUS_HIGH,
+    MOVE_ID_FOCUS_LOW,
+    MOVE_ID_FOCUS_LEFT,
+    MOVE_ID_FOCUS_RIGHT,
 ]
 const AI_FOCUS_LINE_BASE_WEIGHT := 0.06
 const YOMI_PARRY_DEFLECT_FEINT_LISTING_MULT_PER := 0.035
@@ -1176,67 +1407,69 @@ const COMBATANT_KEY_CONTROLLING_CLOSE_TURN_HINT := "controlling_close_turn_hint"
 ## WF-T1 (2026-06-07): Camp-5 soak confirms parry 0.55 / dodge 0.85 --" tune octant raw table first.
 const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY := 0.55
 const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE := 0.85
+
+
 static func position_angle_defender_offset_deg_for_line(line: String, scale: float) -> float:
-	return position_angle_offset_deg_for_attack_line(line) * scale
+    return position_angle_offset_deg_for_attack_line(line) * scale
 
 
 static func guard_line_for_body_part(part: String) -> String:
-	var p: String = str(part).strip_edges()
-	if p.is_empty():
-		return GUARD_DEFAULT
-	if is_feature_hema_eight_guard_lines_enabled():
-		match p:
-			"head", "neck", "face", "scalp", "chest":
-				return _GuardLines.LINE_HIGH
-			"left_leg":
-				return _GuardLines.LINE_LOW_LEFT
-			"right_leg":
-				return _GuardLines.LINE_LOW_RIGHT
-			"left_arm":
-				return _GuardLines.LINE_LEFT
-			"right_arm":
-				return _GuardLines.LINE_RIGHT
-		for line_key in _GuardLines.LINE_TO_DEFAULT_PART:
-			if str(_GuardLines.LINE_TO_DEFAULT_PART[line_key]) == p:
-				return str(line_key)
-		return _GuardLines.LINE_HIGH
-	match p:
-		"head", "neck", "face", "scalp", "chest":
-			return "high"
-		"left_leg", "right_leg":
-			return "low"
-		"left_arm":
-			return "left"
-		"right_arm":
-			return "right"
-	for line_key in LINE_TO_DEFAULT_PART:
-		if str(LINE_TO_DEFAULT_PART[line_key]) == p:
-			return str(line_key)
-	return GUARD_DEFAULT
+    var p: String = str(part).strip_edges()
+    if p.is_empty():
+        return GUARD_DEFAULT
+    if is_feature_hema_eight_guard_lines_enabled():
+        match p:
+            "head", "neck", "face", "scalp", "chest":
+                return _GuardLines.LINE_HIGH
+            "left_leg":
+                return _GuardLines.LINE_LOW_LEFT
+            "right_leg":
+                return _GuardLines.LINE_LOW_RIGHT
+            "left_arm":
+                return _GuardLines.LINE_LEFT
+            "right_arm":
+                return _GuardLines.LINE_RIGHT
+        for line_key in _GuardLines.LINE_TO_DEFAULT_PART:
+            if str(_GuardLines.LINE_TO_DEFAULT_PART[line_key]) == p:
+                return str(line_key)
+        return _GuardLines.LINE_HIGH
+    match p:
+        "head", "neck", "face", "scalp", "chest":
+            return "high"
+        "left_leg", "right_leg":
+            return "low"
+        "left_arm":
+            return "left"
+        "right_arm":
+            return "right"
+    for line_key in LINE_TO_DEFAULT_PART:
+        if str(LINE_TO_DEFAULT_PART[line_key]) == p:
+            return str(line_key)
+    return GUARD_DEFAULT
 
 
 static func guard_zone_for_guard_line(line: String) -> String:
-	if is_feature_hema_eight_guard_lines_enabled():
-		return _GuardLines.guard_zone_part_for_line(line)
-	return str(LINE_TO_DEFAULT_PART.get(str(line), "head"))
+    if is_feature_hema_eight_guard_lines_enabled():
+        return _GuardLines.guard_zone_part_for_line(line)
+    return str(LINE_TO_DEFAULT_PART.get(str(line), "head"))
 
 
 # Swap rank AI (CombatAIActionPicker): relief only when necessary --" not marginal fitness differences.
 const SWAP_RANK_AI_LOW_WEIGHT := 0.02
 const SWAP_RANK_AI_HIGH_WEIGHT := 1.0
-const SWAP_RANK_AI_LINE_PLUG_WEIGHT := 0.52 # Rear relief when another file has rank-0 hole (III-6 maintain)
-const AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT := 0.62 # Skirmish shuffle when line has rank-0 holes (III-6 maintain)
-const AI_ROTATE_FILE_WHEN_ENGAGEMENT_LISTED_MULT := 0.35 # Prefer strikes/close over shuffle when both are listed
-const AI_ROTATE_FILE_LONG_CLOSE_ONLY_MULT := 1.35 # LONG close-only (no melee) --" shuffle can find angle vs close spam
-const AI_ATTEMPT_CLOSE_LONG_CLOSE_ONLY_MULT := 0.82 # Mapped rank-0 LONG close-only --" rotate can compete
-const AI_ATTEMPT_CLOSE_BIND_CLOSE_MULT := 1.28 # Mapped wing out of reach --" close bind beats wait/shuffle
-const AI_FIGHT_FINISH_TRUSTED_CLOSE_MIN_WEIGHT := 0.58 # Menu-listed close when pair gate fails at pick time (fight-finish tail)
-const AI_ATTEMPT_CLOSE_SPARSE_LINE_MULT := 1.4 # Sparse post-flee front --" close to finish beats shuffle
-const AI_SPARSE_LINE_OFFENSE_MULT := 1.35 # Listed melee on sparse post-flee front --" fight over focus shuffle
-const AI_FOCUS_LINE_SPARSE_ENGAGEMENT_LISTED_MULT := 0.35 # Damp guard retarget when strikes/close are listed
-const AI_WAIT_SPARSE_ENGAGEMENT_LISTED_MULT := 0.45 # Post-flee sparse --" wait below close/strike finish
-const AI_WAIT_MOP_UP_FINISH_MULT := 0.4 # Mop-up winner or last-enemy underdog --" finish fight, don't idle
-const AI_WAIT_NO_STRIKE_MULT := 0.15 # No hostile strikes listed --" prefer flee over endless wait loop
+const SWAP_RANK_AI_LINE_PLUG_WEIGHT := 0.52  # Rear relief when another file has rank-0 hole (III-6 maintain)
+const AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT := 0.62  # Skirmish shuffle when line has rank-0 holes (III-6 maintain)
+const AI_ROTATE_FILE_WHEN_ENGAGEMENT_LISTED_MULT := 0.35  # Prefer strikes/close over shuffle when both are listed
+const AI_ROTATE_FILE_LONG_CLOSE_ONLY_MULT := 1.35  # LONG close-only (no melee) --" shuffle can find angle vs close spam
+const AI_ATTEMPT_CLOSE_LONG_CLOSE_ONLY_MULT := 0.82  # Mapped rank-0 LONG close-only --" rotate can compete
+const AI_ATTEMPT_CLOSE_BIND_CLOSE_MULT := 1.28  # Mapped wing out of reach --" close bind beats wait/shuffle
+const AI_FIGHT_FINISH_TRUSTED_CLOSE_MIN_WEIGHT := 0.58  # Menu-listed close when pair gate fails at pick time (fight-finish tail)
+const AI_ATTEMPT_CLOSE_SPARSE_LINE_MULT := 1.4  # Sparse post-flee front --" close to finish beats shuffle
+const AI_SPARSE_LINE_OFFENSE_MULT := 1.35  # Listed melee on sparse post-flee front --" fight over focus shuffle
+const AI_FOCUS_LINE_SPARSE_ENGAGEMENT_LISTED_MULT := 0.35  # Damp guard retarget when strikes/close are listed
+const AI_WAIT_SPARSE_ENGAGEMENT_LISTED_MULT := 0.45  # Post-flee sparse --" wait below close/strike finish
+const AI_WAIT_MOP_UP_FINISH_MULT := 0.4  # Mop-up winner or last-enemy underdog --" finish fight, don't idle
+const AI_WAIT_NO_STRIKE_MULT := 0.15  # No hostile strikes listed --" prefer flee over endless wait loop
 ## Mobile cowering solo **fall_back** vs **wait** (Tier 6.1 --" no arms, legs OK).
 const COWERING_SOLO_FALL_BACK_AI_WEIGHT := 1.5
 ## Tier 6.2: mobile cowering --" prefer **`flee`** over in-formation **`fall_back`** when both are listed (cannot hold weapon).
@@ -1269,21 +1502,27 @@ const AI_STAMINA_EXHAUSTION_DEEP_MULT := 0.40
 ## IV-7b: step-down offense engage weight (investigated 2026-05; locked 2026-06-08).
 ## Exhaustion ramp: as stamina approaches 0%, offense weight drops further --" exhausted fighters can still defend but should not initiate fresh attacks at full weight.
 static func ai_offense_stamina_weight_mult(stamina_ratio: float) -> float:
-	if stamina_ratio >= AI_STAMINA_ENGAGE_FLOOR_RATIO:
-		return 1.0
-	var w: float = AI_STAMINA_ENGAGE_LOW_MULT
-	if stamina_ratio <= AI_STAMINA_DEEP_EXHAUST_RATIO:
-		w = AI_STAMINA_DEEP_EXHAUST_MULT
-	elif stamina_ratio < AI_STAMINA_EXHAUSTION_DEEP_THRESHOLD:
-		w = lerpf(AI_STAMINA_EXHAUSTION_DEEP_MULT, AI_STAMINA_ENGAGE_LOW_MULT, stamina_ratio / maxf(AI_STAMINA_EXHAUSTION_DEEP_THRESHOLD, 0.001))
-	return w
+    if stamina_ratio >= AI_STAMINA_ENGAGE_FLOOR_RATIO:
+        return 1.0
+    var w: float = AI_STAMINA_ENGAGE_LOW_MULT
+    if stamina_ratio <= AI_STAMINA_DEEP_EXHAUST_RATIO:
+        w = AI_STAMINA_DEEP_EXHAUST_MULT
+    elif stamina_ratio < AI_STAMINA_EXHAUSTION_DEEP_THRESHOLD:
+        w = lerpf(
+            AI_STAMINA_EXHAUSTION_DEEP_MULT,
+            AI_STAMINA_ENGAGE_LOW_MULT,
+            stamina_ratio / maxf(AI_STAMINA_EXHAUSTION_DEEP_THRESHOLD, 0.001)
+        )
+    return w
 
 
 static func iv7b_stamina_engage_doc_sync_line() -> String:
-	return (
-		"IV-7b engage floor: ratio<%.2f -> offense_mult=%.2f"
-		% [AI_STAMINA_ENGAGE_FLOOR_RATIO, AI_STAMINA_ENGAGE_LOW_MULT]
-	)
+    return (
+        "IV-7b engage floor: ratio<%.2f -> offense_mult=%.2f"
+        % [AI_STAMINA_ENGAGE_FLOOR_RATIO, AI_STAMINA_ENGAGE_LOW_MULT]
+    )
+
+
 ## Partner must exceed our composite fitness (perf ff -  blood norm) by at least this much for a routine relief.
 const SWAP_RANK_AI_MIN_FITNESS_GAP := 0.20
 ## Below this our_fitness, treat as dangerously unfit: partner need only be ahead by URGENT_MIN_GAP.
@@ -1330,107 +1569,105 @@ const ENCOUNTER_PROTECTION_CIRCLE_ACTIVE := _Encounter.ENCOUNTER_PROTECTION_CIRC
 const ENCOUNTER_AMBUSHED_SIDE := _Encounter.ENCOUNTER_AMBUSHED_SIDE
 const WORLD_META_COMBAT_ENCOUNTER := _Encounter.WORLD_META_COMBAT_ENCOUNTER
 
+
 ## Tier 1.9: canonical + optional alt string keys on a dict (**`strip_edges`** each); non-empty canonical wins.
 static func formation_doctrine_string_from_dict(source: Dictionary, primary_key: String, alt_key: String) -> String:
-	var s: String = source.get(primary_key, "").strip_edges()
-	if s.is_empty():
-		s = source.get(alt_key, "").strip_edges()
-	return s
+    var s: String = source.get(primary_key, "").strip_edges()
+    if s.is_empty():
+        s = source.get(alt_key, "").strip_edges()
+    return s
 
 
 ## Tier 1.9: encounter doctrine seed --" delegates to **`formation_doctrine_string_from_dict`**.
 static func encounter_formation_doctrine_string(encounter: Dictionary, primary_key: String, alt_key: String) -> String:
-	return formation_doctrine_string_from_dict(encounter, primary_key, alt_key)
+    return formation_doctrine_string_from_dict(encounter, primary_key, alt_key)
 
 
 ## Tier 1.9: baseline depth-spear **doctrine** mults (encounter / preset may override via **`merge_depth_polearm_ai_doctrine_mults`**).
 static func default_depth_polearm_ai_doctrine_mults_dict() -> Dictionary:
-	return {
-		DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB: DEPTH_POLEARM_AI_DOCTRINE_PINCH_STAB_MULT,
-		DEPTH_POLEARM_AI_MULT_KEY_HOLD_STAB: DEPTH_POLEARM_AI_DOCTRINE_HOLD_STAB_MULT,
-		DEPTH_POLEARM_AI_MULT_KEY_PROBING_STAB: DEPTH_POLEARM_AI_DOCTRINE_PROBING_STAB_MULT,
-		DEPTH_POLEARM_AI_MULT_KEY_PINCH_NON_STAB: DEPTH_POLEARM_AI_DOCTRINE_PINCH_NON_STAB_MULT,
-		DEPTH_POLEARM_AI_MULT_KEY_HOLD_NON_STAB: DEPTH_POLEARM_AI_DOCTRINE_HOLD_NON_STAB_MULT,
-		DEPTH_POLEARM_AI_MULT_KEY_PROBING_NON_STAB: DEPTH_POLEARM_AI_DOCTRINE_PROBING_NON_STAB_MULT,
-	}
+    return {
+        DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB: DEPTH_POLEARM_AI_DOCTRINE_PINCH_STAB_MULT,
+        DEPTH_POLEARM_AI_MULT_KEY_HOLD_STAB: DEPTH_POLEARM_AI_DOCTRINE_HOLD_STAB_MULT,
+        DEPTH_POLEARM_AI_MULT_KEY_PROBING_STAB: DEPTH_POLEARM_AI_DOCTRINE_PROBING_STAB_MULT,
+        DEPTH_POLEARM_AI_MULT_KEY_PINCH_NON_STAB: DEPTH_POLEARM_AI_DOCTRINE_PINCH_NON_STAB_MULT,
+        DEPTH_POLEARM_AI_MULT_KEY_HOLD_NON_STAB: DEPTH_POLEARM_AI_DOCTRINE_HOLD_NON_STAB_MULT,
+        DEPTH_POLEARM_AI_MULT_KEY_PROBING_NON_STAB: DEPTH_POLEARM_AI_DOCTRINE_PROBING_NON_STAB_MULT,
+    }
 
 
 static func merge_depth_polearm_ai_doctrine_mults(base: Dictionary, overlay: Variant) -> Dictionary:
-	var out: Dictionary = base.duplicate(true)
-	if overlay == null or not overlay is Dictionary:
-		return out
-	var keys: Array = [
-		DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB,
-		DEPTH_POLEARM_AI_MULT_KEY_HOLD_STAB,
-		DEPTH_POLEARM_AI_MULT_KEY_PROBING_STAB,
-		DEPTH_POLEARM_AI_MULT_KEY_PINCH_NON_STAB,
-		DEPTH_POLEARM_AI_MULT_KEY_HOLD_NON_STAB,
-		DEPTH_POLEARM_AI_MULT_KEY_PROBING_NON_STAB,
-	]
-	var o: Dictionary = overlay as Dictionary
-	for k in keys:
-		if not o.has(k):
-			continue
-		var v: Variant = o[k]
-		var tv: int = typeof(v)
-		var f: float = -1.0
-		if tv == TYPE_FLOAT or tv == TYPE_INT:
-			f = float(v)
-		elif tv == TYPE_STRING and String(v).is_valid_float():
-			f = float(v)
-		if f > 0.0:
-			out[k] = clampf(f, DEPTH_POLEARM_AI_MULT_OVERRIDE_MIN, DEPTH_POLEARM_AI_MULT_OVERRIDE_MAX)
-	return out
+    var out: Dictionary = base.duplicate(true)
+    if overlay == null or not overlay is Dictionary:
+        return out
+    var keys: Array = [
+        DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB,
+        DEPTH_POLEARM_AI_MULT_KEY_HOLD_STAB,
+        DEPTH_POLEARM_AI_MULT_KEY_PROBING_STAB,
+        DEPTH_POLEARM_AI_MULT_KEY_PINCH_NON_STAB,
+        DEPTH_POLEARM_AI_MULT_KEY_HOLD_NON_STAB,
+        DEPTH_POLEARM_AI_MULT_KEY_PROBING_NON_STAB,
+    ]
+    var o: Dictionary = overlay as Dictionary
+    for k in keys:
+        if not o.has(k):
+            continue
+        var v: Variant = o[k]
+        var tv: int = typeof(v)
+        var f: float = -1.0
+        if tv == TYPE_FLOAT or tv == TYPE_INT:
+            f = float(v)
+        elif tv == TYPE_STRING and String(v).is_valid_float():
+            f = float(v)
+        if f > 0.0:
+            out[k] = clampf(f, DEPTH_POLEARM_AI_MULT_OVERRIDE_MIN, DEPTH_POLEARM_AI_MULT_OVERRIDE_MAX)
+    return out
 
 
 ## Encounter side keys --'' ' optional preset overlay (preset wins per field). Empty dict --'' ' use **`FORMATION_FLEE_*`** defaults.
 static func rout_thresholds_for_encounter_and_preset(
-	encounter: Dictionary, preset: Dictionary, formation_id: String
+    encounter: Dictionary, preset: Dictionary, formation_id: String
 ) -> Dictionary:
-	var out: Dictionary = {}
-	var fid: String = str(formation_id)
-	var enc_coh_key: String = (
-		ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_PLAYER
-		if fid == SIDE_PLAYER
-		else ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_ENEMY
-	)
-	var enc_cas_key: String = (
-		ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_PLAYER
-		if fid == SIDE_PLAYER
-		else ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_ENEMY
-	)
-	if encounter.has(enc_coh_key):
-		out[ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX] = clampf(
-			float(encounter[enc_coh_key]), 0.05, 0.95
-		)
-	if encounter.has(enc_cas_key):
-		out[ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN] = clampf(
-			float(encounter[enc_cas_key]), 0.05, 0.90
-		)
-	if preset.has(FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX):
-		out[ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX] = clampf(
-			float(preset[FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX]), 0.05, 0.95
-		)
-	if preset.has(FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN):
-		out[ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN] = clampf(
-			float(preset[FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN]), 0.05, 0.90
-		)
-	return out
+    var out: Dictionary = {}
+    var fid: String = str(formation_id)
+    var enc_coh_key: String = (
+        ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_PLAYER
+        if fid == SIDE_PLAYER
+        else ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_ENEMY
+    )
+    var enc_cas_key: String = (
+        ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_PLAYER
+        if fid == SIDE_PLAYER
+        else ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_ENEMY
+    )
+    if encounter.has(enc_coh_key):
+        out[ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX] = clampf(float(encounter[enc_coh_key]), 0.05, 0.95)
+    if encounter.has(enc_cas_key):
+        out[ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN] = clampf(float(encounter[enc_cas_key]), 0.05, 0.90)
+    if preset.has(FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX):
+        out[ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX] = clampf(
+            float(preset[FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX]), 0.05, 0.95
+        )
+    if preset.has(FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN):
+        out[ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN] = clampf(
+            float(preset[FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN]), 0.05, 0.90
+        )
+    return out
 
 
 ## Defaults --'' ' encounter side --'' ' preset (**`FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS`** wins on overlap).
 static func depth_polearm_ai_doctrine_mults_for_encounter_and_preset(
-	encounter: Dictionary, preset: Dictionary, formation_id: String
+    encounter: Dictionary, preset: Dictionary, formation_id: String
 ) -> Dictionary:
-	var base: Dictionary = default_depth_polearm_ai_doctrine_mults_dict()
-	var enc_key: String = (
-		ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_PLAYER
-		if str(formation_id) == SIDE_PLAYER
-		else ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY
-	)
-	var after_enc: Dictionary = merge_depth_polearm_ai_doctrine_mults(base, encounter.get(enc_key))
-	var preset_overlay: Variant = preset.get(FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS)
-	return merge_depth_polearm_ai_doctrine_mults(after_enc, preset_overlay)
+    var base: Dictionary = default_depth_polearm_ai_doctrine_mults_dict()
+    var enc_key: String = (
+        ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_PLAYER
+        if str(formation_id) == SIDE_PLAYER
+        else ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY
+    )
+    var after_enc: Dictionary = merge_depth_polearm_ai_doctrine_mults(base, encounter.get(enc_key))
+    var preset_overlay: Variant = preset.get(FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS)
+    return merge_depth_polearm_ai_doctrine_mults(after_enc, preset_overlay)
+
 
 ## Re-export distance bands from CombatConstantsDistance.
 const DISTANCE_CLOSE := _Distance.DISTANCE_CLOSE
@@ -1444,36 +1681,55 @@ const DEFENSE_SPACING_PARRY_MULT_LONG := _Footwork.DEFENSE_SPACING_PARRY_MULT_LO
 const DEFENSE_SPACING_DODGE_MULT_CLOSE := _Footwork.DEFENSE_SPACING_DODGE_MULT_CLOSE
 const DEFENSE_SPACING_DODGE_MULT_LONG := _Footwork.DEFENSE_SPACING_DODGE_MULT_LONG
 const DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT := _Footwork.DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT
-const DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE: Dictionary = _Footwork.DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE
+const DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE: Dictionary = (
+    _Footwork.DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE
+)
 const DEFENSE_FOOTWORK_WAITING_DODGE_MULT := _Footwork.DEFENSE_FOOTWORK_WAITING_DODGE_MULT
 const AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT := _Footwork.AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT
 const AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT := _Footwork.AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT
-const AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE := _Footwork.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE
-const AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG := _Footwork.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG
+const AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE := (
+    _Footwork.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_CLOSE
+)
+const AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG := (
+    _Footwork.AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG
+)
 const PASSIVE_PARRY_READINESS_INCOMING_CUT_MULT := _Footwork.PASSIVE_PARRY_READINESS_INCOMING_CUT_MULT
 const PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT := _Footwork.PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT
 const PASSIVE_PARRY_READINESS_INCOMING_BLUNT_MULT := _Footwork.PASSIVE_PARRY_READINESS_INCOMING_BLUNT_MULT
 const FEINT_GUARD_ZONE_READINESS_SPACING_MULT_CLOSE := _Footwork.FEINT_GUARD_ZONE_READINESS_SPACING_MULT_CLOSE
 const FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG := _Footwork.FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG
+
+
 static func normalize_recovery_cause(cause: String) -> String:
-	return _Footwork.normalize_recovery_cause(cause)
+    return _Footwork.normalize_recovery_cause(cause)
+
+
 static func readiness_curve_for_cause(cause: String) -> Array:
-	return _Footwork.readiness_curve_for_cause(cause)
+    return _Footwork.readiness_curve_for_cause(cause)
+
+
 static func defense_footwork_recovering_dodge_mult_for_cause(cause: String) -> float:
-	return _Footwork.defense_footwork_recovering_dodge_mult_for_cause(cause)
+    return _Footwork.defense_footwork_recovering_dodge_mult_for_cause(cause)
+
+
 static func ai_feint_listing_defender_recovering_footwork_mult_for_cause(cause: String) -> float:
-	return _Footwork.ai_feint_listing_defender_recovering_footwork_mult_for_cause(cause)
+    return _Footwork.ai_feint_listing_defender_recovering_footwork_mult_for_cause(cause)
+
+
 static func passive_parry_readiness_incoming_contact_mult(contact_type: String) -> float:
-	return _Footwork.passive_parry_readiness_incoming_contact_mult(contact_type)
+    return _Footwork.passive_parry_readiness_incoming_contact_mult(contact_type)
+
+
 static func defender_distance_band_to_attacker_id(defender: Dictionary, attacker_id: int) -> String:
-	return _Footwork.defender_distance_band_to_attacker_id(defender, attacker_id)
+    return _Footwork.defender_distance_band_to_attacker_id(defender, attacker_id)
+
+
 static func ai_feint_listing_defender_readiness_spacing_mult(defender: Dictionary, attacker_id: int) -> float:
-	return _Footwork.ai_feint_listing_defender_readiness_spacing_mult(defender, attacker_id)
+    return _Footwork.ai_feint_listing_defender_readiness_spacing_mult(defender, attacker_id)
+
+
 static func feint_guard_zone_readiness_spacing_mult(defender: Dictionary, attacker_id: int) -> float:
-	return _Footwork.feint_guard_zone_readiness_spacing_mult(defender, attacker_id)
-
-
-
+    return _Footwork.feint_guard_zone_readiness_spacing_mult(defender, attacker_id)
 
 
 ## Re-export close-slot constants from CombatConstantsCloseSlots.
@@ -1487,8 +1743,10 @@ const CLOSE_SLOTS_PER_TARGET_TIGHT_BONUS := _CloseSlots.CLOSE_SLOTS_PER_TARGET_T
 const CLOSE_SLOTS_FULL_TARGETING_MULT := _CloseSlots.CLOSE_SLOTS_FULL_TARGETING_MULT
 const CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S := _CloseSlots.CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S
 
+
 static func max_close_slots_for_density(density: String) -> int:
-	return _CloseSlots.max_close_slots_for_density(density)
+    return _CloseSlots.max_close_slots_for_density(density)
+
 
 ## Formation doctrine for hybrid targeting (CombatDoctrine / CombatTargetScoring).
 const DOCTRINE_DEFAULT := "default"
@@ -1537,15 +1795,19 @@ const STANCE_MOD_OPPONENT_CLOSE: float = _Stance.STANCE_MOD_OPPONENT_CLOSE
 const STANCE_MOD_OPPONENT_DISENGAGE: float = _Stance.STANCE_MOD_OPPONENT_DISENGAGE
 const DENSITY_CLOSE_MOD: Dictionary = _Stance.DENSITY_CLOSE_MOD
 
+
 ## **Harness-only alias:** see LIVE_PATHS WF-M5. Do not add new production call sites.
 static func get_stance_modifier(stance: String, effect: String) -> float:
-	return _Stance.get_stance_modifier(stance, effect)
+    return _Stance.get_stance_modifier(stance, effect)
+
 
 static func get_density_close_mod(density: String) -> float:
-	return _Stance.get_density_close_mod(density)
+    return _Stance.get_density_close_mod(density)
+
 
 static func get_spacing_from_density(density: String) -> float:
-	return _Stance.get_spacing_from_density(density)
+    return _Stance.get_spacing_from_density(density)
+
 
 ## Re-export attack path tables and geometry from **`CombatConstantsAttackPath`**.
 ## Maintain canonical values in the sub-module, not here.
@@ -1587,64 +1849,73 @@ const GUARD_DEFAULT_ATTACK_PATH := _AttackPath.GUARD_DEFAULT
 
 
 static func get_attack_path(attack_line: String, guard_line: String) -> Array:
-	return _AttackPath.get_attack_path(attack_line, guard_line)
+    return _AttackPath.get_attack_path(attack_line, guard_line)
 
 
 static func get_arc_angle_at_progress(arc_start_deg: float, arc_end_deg: float, progress: float) -> float:
-	return _AttackPath.get_arc_angle_at_progress(arc_start_deg, arc_end_deg, progress)
+    return _AttackPath.get_arc_angle_at_progress(arc_start_deg, arc_end_deg, progress)
 
 
 static func arc_end_deg_for_contact_geometry(pa: Dictionary) -> float:
-	return _AttackPath.arc_end_deg_for_contact_geometry(pa)
+    return _AttackPath.arc_end_deg_for_contact_geometry(pa)
 
 
 static func get_attack_angle_at_progress(pa: Dictionary, progress: float) -> float:
-	return _AttackPath.get_attack_angle_at_progress(pa, progress)
+    return _AttackPath.get_attack_angle_at_progress(pa, progress)
 
 
 static func angle_diff_deg(a_deg: float, b_deg: float) -> float:
-	return _AttackPath.angle_diff_deg(a_deg, b_deg)
+    return _AttackPath.angle_diff_deg(a_deg, b_deg)
 
 
 static func line_to_angle(line: String) -> float:
-	return _AttackPath.line_to_angle(line)
+    return _AttackPath.line_to_angle(line)
 
 
 static func angle_to_nearest_line(angle_deg: float) -> String:
-	return _AttackPath.angle_to_nearest_line(angle_deg)
+    return _AttackPath.angle_to_nearest_line(angle_deg)
 
 
 static func get_alignment_from_angles(attack_angle_deg: float, guard_angle_deg: float) -> float:
-	return _AttackPath.get_alignment_from_angles(attack_angle_deg, guard_angle_deg)
+    return _AttackPath.get_alignment_from_angles(attack_angle_deg, guard_angle_deg)
 
 
-static func get_deflected_angle_bilateral(attack_angle_deg: float, guard_angle_deg: float, magnitude_deg: float) -> float:
-	return _AttackPath.get_deflected_angle_bilateral(attack_angle_deg, guard_angle_deg, magnitude_deg)
+static func get_deflected_angle_bilateral(
+    attack_angle_deg: float, guard_angle_deg: float, magnitude_deg: float
+) -> float:
+    return _AttackPath.get_deflected_angle_bilateral(attack_angle_deg, guard_angle_deg, magnitude_deg)
 
 
 static func get_deflection_magnitude_deg(alignment: float, severity: float, contact_type: String) -> float:
-	return _AttackPath.get_deflection_magnitude_deg(alignment, severity, contact_type)
+    return _AttackPath.get_deflection_magnitude_deg(alignment, severity, contact_type)
 
 
 static func get_line_alignment(attack_line: String, guard_line: String) -> float:
-	return _AttackPath.get_line_alignment(attack_line, guard_line)
+    return _AttackPath.get_line_alignment(attack_line, guard_line)
 
 
-static func get_attack_angle_deg(attack_line: String, add_variance: bool = true, move_def: Dictionary = {}, variance_context: Dictionary = {}) -> float:
-	return _AttackPath.get_attack_angle_deg(attack_line, add_variance, move_def, variance_context)
+static func get_attack_angle_deg(
+    attack_line: String, add_variance: bool = true, move_def: Dictionary = {}, variance_context: Dictionary = {}
+) -> float:
+    return _AttackPath.get_attack_angle_deg(attack_line, add_variance, move_def, variance_context)
 
 
 static func get_guard_angle_deg(combatant: Dictionary, wobble_context: Dictionary = {}) -> float:
-	return _AttackPath.get_guard_angle_deg(combatant, wobble_context)
+    return _AttackPath.get_guard_angle_deg(combatant, wobble_context)
 
 
-static func get_deflected_line_from_angles(attack_angle_deg: float, guard_angle_deg: float, severity: float, contact_type: String, alignment: float) -> String:
-	return _AttackPath.get_deflected_line_from_angles(attack_angle_deg, guard_angle_deg, severity, contact_type, alignment)
+static func get_deflected_line_from_angles(
+    attack_angle_deg: float, guard_angle_deg: float, severity: float, contact_type: String, alignment: float
+) -> String:
+    return _AttackPath.get_deflected_line_from_angles(
+        attack_angle_deg, guard_angle_deg, severity, contact_type, alignment
+    )
 
 
-static func get_line_alignment_with_deflect(attack_line: String, combatant: Dictionary, alignment_context: Dictionary = {}, wobble_context: Dictionary = {}) -> float:
-	return _AttackPath.get_line_alignment_with_deflect(attack_line, combatant, alignment_context, wobble_context)
-
+static func get_line_alignment_with_deflect(
+    attack_line: String, combatant: Dictionary, alignment_context: Dictionary = {}, wobble_context: Dictionary = {}
+) -> float:
+    return _AttackPath.get_line_alignment_with_deflect(attack_line, combatant, alignment_context, wobble_context)
 
 
 ## Re-export general-purpose constants from CombatConstantsMisc.
@@ -1655,25 +1926,29 @@ const PATH_COUNTER_TEMPO := _Misc.PATH_COUNTER_TEMPO
 const SIDE_PLAYER := _Misc.SIDE_PLAYER
 const SIDE_ENEMY := _Misc.SIDE_ENEMY
 
+
 static func clamp_prob(v: float) -> float:
-	return _Misc.clamp_prob(v)
+    return _Misc.clamp_prob(v)
+
 
 static func companion_path(index: int) -> String:
-	return _Misc.companion_path(index)
+    return _Misc.companion_path(index)
+
 
 ## Map medical target_method + success to outcome string (used by MedicalPhaseController + MedicalWindUpHandler).
 static func medical_outcome_string(target_method: String, ok: bool) -> String:
-	match target_method:
-		MOVE_TARGET_APPLY_BANDAGE:
-			return "bandaged" if ok else "bandage_failed"
-		MOVE_TARGET_APPLY_STABILIZE:
-			return "stabilized" if ok else "stabilize_failed"
-		MOVE_TARGET_APPLY_PACKING:
-			return "packed" if ok else "packing_failed"
-		MOVE_TARGET_APPLY_TOURNIQUET:
-			return "tourniquet_applied" if ok else "tourniquet_failed"
-		_:
-			return ""  # caller falls back to wind_up_cfg.get("outcome", med_id)
+    match target_method:
+        MOVE_TARGET_APPLY_BANDAGE:
+            return "bandaged" if ok else "bandage_failed"
+        MOVE_TARGET_APPLY_STABILIZE:
+            return "stabilized" if ok else "stabilize_failed"
+        MOVE_TARGET_APPLY_PACKING:
+            return "packed" if ok else "packing_failed"
+        MOVE_TARGET_APPLY_TOURNIQUET:
+            return "tourniquet_applied" if ok else "tourniquet_failed"
+        _:
+            return ""  # caller falls back to wind_up_cfg.get("outcome", med_id)
+
 
 ## Check if a target_method string matches one of the medical action targets.
 ## Bind pressure: thresholds, durations, costs (CombatBindPressure.gd).
@@ -1692,9 +1967,12 @@ const ANGULAR_ADVANTAGE_DURATION_S := 4.0
 
 ## Check if a target_method string matches one of the medical action targets.
 static func is_medical_target_method(target_method: String) -> bool:
-	return target_method in [
-		MOVE_TARGET_APPLY_BANDAGE,
-		MOVE_TARGET_APPLY_PACKING,
-		MOVE_TARGET_APPLY_STABILIZE,
-		MOVE_TARGET_APPLY_TOURNIQUET,
-	]
+    return (
+        target_method
+        in [
+            MOVE_TARGET_APPLY_BANDAGE,
+            MOVE_TARGET_APPLY_PACKING,
+            MOVE_TARGET_APPLY_STABILIZE,
+            MOVE_TARGET_APPLY_TOURNIQUET,
+        ]
+    )

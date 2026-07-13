@@ -36,7 +36,7 @@ Partial modes tee under repo root (`.harness_out.txt`, `.d001_*`, `.calibration_
 
 ## Other runners
 
-**Bash twins** for most gates. **PowerShell-only:** `run_q_audit.ps1`, `run_fast_phase0.ps1` (`-Full` / `-D001Light`). Prompts: [`agent_prompts/README.md`](agent_prompts/README.md).
+**Bash twins** for most gates. **PowerShell-only:** `run_q_audit.ps1`. **Fast Phase 0:** `run_fast_phase0.sh` / `.ps1` (`--full` / **-Full**; **-D001Light** PS1-only). Prompts: [`agent_prompts/README.md`](agent_prompts/README.md).
 
 **F5 Output grep:** `hit_resolve reason=` · `strike_avoided reason=` · `parry_partial rem=` · `diagram_banner player:` · `engagement_transition` · `encounter_context` · `soak_fight_end`. [`LIVE_PATHS#f5-combat-diagnostic-tiers`](../docs/LIVE_PATHS.md#f5-combat-diagnostic-tiers).
 
@@ -54,7 +54,8 @@ Partial modes tee under repo root (`.harness_out.txt`, `.d001_*`, `.calibration_
 | `run_campaign_ship_audit.ps1` / `.sh` | Camp-3.4/5 standalone; `-TailOnly` skips company checks |
 | `print_phase0_status.ps1` / `.sh` | Summarize Phase 0 / D001 / Camp-5 status |
 | `check_doc_links.ps1` / `.sh` | Doc link + tombstone + `res://` audit |
-| `run_fast_phase0.ps1` | Fast Phase 0 (doc links + company + regression); no `.sh` twin |
+| `run_fast_phase0.sh` / `.ps1` | Fast Phase 0 — doc links + company state + regression; `--full` / **-Full** = full Phase 0; **-D001Light** = PS1 only. CI PRs use the bash twin. |
+| `ci_lint.sh` | Shellcheck + gdlint + gdformat --check (matches CI lint jobs) |
 
 ## Internals
 
@@ -64,6 +65,8 @@ Partial modes tee under repo root (`.harness_out.txt`, `.d001_*`, `.calibration_
 - `F5SoakLogHelpers.ps1` / `f5_soak_log_helpers.sh` — F5 backup, validate, gap merge, preflight
 - `check_doc_links.py` — single implementation (`.sh` / `.ps1` wrappers)
 - `ci_ensure_godot.sh` — CI Godot download
-- `.shellcheckrc` — `shellcheck -x scripts/*.sh`
+- `ci_lint.sh` / `requirements-ci.txt` — shellcheck + gdtoolkit (`gdlint` / `gdformat`)
+- `scripts/.shellcheckrc` — `shellcheck --rcfile=scripts/.shellcheckrc -x scripts/*.sh`
+- `.gdlintrc` / `.gdformatrc` — gdtoolkit configs (YAML; not `*.toml`)
 
 Godot `-s`: `run_all_combat_checks.gd` · `run_company_state_checks.gd` · `run_q_track_audits.gd`. Prefer grep `FP_HARNESS_OK` over Godot exit codes on Windows.

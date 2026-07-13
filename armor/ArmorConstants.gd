@@ -59,185 +59,132 @@ const BLUNT_TRANSMISSION_WARN_MAX: float = 1.0
 # rigidity 0 - 1: area coupling for blunt. Rigid (plate) transmits more with large contact (mace); flexible (cloth) no effect.
 # Cloth: gambeson padding, leg wraps, coif. Williams: 50 J for 16 layers linen. pen=(50/55)^0.6 ' 0.9 mm.
 const LAYER_CLOTH: Dictionary = {
-	"sharp_resistance_rha_mm": 0.9,
-	"blunt_cushion": 0.8,
-	"blunt_transmission": 0.45,
-	"rigidity": 0.0,
-	"durability_loss_rate": 0.22,
-	"sharp_deflect_transmission": 0.16,
-	"mass_kg": 0.45
+    "sharp_resistance_rha_mm": 0.9,
+    "blunt_cushion": 0.8,
+    "blunt_transmission": 0.45,
+    "rigidity": 0.0,
+    "durability_loss_rate": 0.22,
+    "sharp_deflect_transmission": 0.16,
+    "mass_kg": 0.45
 }
 
 # Leather: buff coat, boiled leather. Williams: buff 30 J, cuir-bouilli 20 - 30 J. pen=(30/55)^0.6 ' 0.6 mm.
 const LAYER_LEATHER: Dictionary = {
-	"sharp_resistance_rha_mm": 0.6,
-	"blunt_cushion": 0.5,
-	"blunt_transmission": 0.58,
-	"rigidity": 0.2,
-	"durability_loss_rate": 0.16,
-	"sharp_deflect_transmission": 0.24,
-	"mass_kg": 1.05
+    "sharp_resistance_rha_mm": 0.6,
+    "blunt_cushion": 0.5,
+    "blunt_transmission": 0.58,
+    "rigidity": 0.2,
+    "durability_loss_rate": 0.16,
+    "sharp_deflect_transmission": 0.24,
+    "mass_kg": 1.05
 }
 
 # Mail: chainmail + jack. Williams: 80 - 120 J. pen=(120/55)^0.6 ' 1.5 mm.
 const LAYER_MAIL: Dictionary = {
-	"sharp_resistance_rha_mm": 1.5,
-	"blunt_cushion": 0.2,
-	"blunt_transmission": 0.70,
-	"rigidity": 0.2,
-	"durability_loss_rate": 0.12,
-	"sharp_deflect_transmission": 0.36,
-	"mass_kg": 2.45
+    "sharp_resistance_rha_mm": 1.5,
+    "blunt_cushion": 0.2,
+    "blunt_transmission": 0.70,
+    "rigidity": 0.2,
+    "durability_loss_rate": 0.12,
+    "sharp_deflect_transmission": 0.36,
+    "mass_kg": 2.45
 }
 
 # Plate: medieval steel. Williams: 2 mm=175 J, 3.5 mm'380 J. Rigid -> area coupling (mace > thrust).
 const LAYER_PLATE: Dictionary = {
-	"sharp_resistance_rha_mm": 3.5,
-	"blunt_cushion": 0.0,
-	"blunt_transmission": 0.72,
-	"rigidity": 1.0,
-	"durability_loss_rate": 0.07,
-	"sharp_deflect_transmission": 0.46,
-	"mass_kg": 4.85
+    "sharp_resistance_rha_mm": 3.5,
+    "blunt_cushion": 0.0,
+    "blunt_transmission": 0.72,
+    "rigidity": 1.0,
+    "durability_loss_rate": 0.07,
+    "sharp_deflect_transmission": 0.46,
+    "mass_kg": 4.85
 }
+
 
 # --- Armor piece definitions: one piece per body part, built from cloth/leather/mail/plate only ---
 # Order: outer layer first (e.g. plate), then inner (e.g. cloth). Reflects how soldiers wore kit.
 # Piece IDs by body part for random equipment.
 static func get_armor_options_by_part() -> Dictionary:
-	return {
-		"head": ["KETTLE_HELM", "LEATHER_CAP", "CLOTH_COIF"],
-		"chest": ["CUIRASS", "GAMBESON", "HAUBERK", "LEATHER_CUIRASS"],
-		"right_arm": ["VAMBRACES_RIGHT", "LEATHER_BRACERS_RIGHT", "ARM_WRAPS_RIGHT"],
-		"left_arm": ["VAMBRACES_LEFT", "LEATHER_BRACERS_LEFT", "ARM_WRAPS_LEFT"],
-		"right_leg": ["GREAVES_RIGHT", "LEG_WRAPS_RIGHT", "LEATHER_GREAVES_RIGHT"],
-		"left_leg": ["GREAVES_LEFT", "LEG_WRAPS_LEFT", "LEATHER_GREAVES_LEFT"]
-	}
+    return {
+        "head": ["KETTLE_HELM", "LEATHER_CAP", "CLOTH_COIF"],
+        "chest": ["CUIRASS", "GAMBESON", "HAUBERK", "LEATHER_CUIRASS"],
+        "right_arm": ["VAMBRACES_RIGHT", "LEATHER_BRACERS_RIGHT", "ARM_WRAPS_RIGHT"],
+        "left_arm": ["VAMBRACES_LEFT", "LEATHER_BRACERS_LEFT", "ARM_WRAPS_LEFT"],
+        "right_leg": ["GREAVES_RIGHT", "LEG_WRAPS_RIGHT", "LEATHER_GREAVES_RIGHT"],
+        "left_leg": ["GREAVES_LEFT", "LEG_WRAPS_LEFT", "LEATHER_GREAVES_LEFT"]
+    }
+
 
 # Use get_piece_definition(piece_id) to get a definition with fresh layer copies.
 static func get_piece_definition(piece_id: String) -> Dictionary:
-	var id_normalized := piece_id
-	match piece_id:
-		# Back-compat aliases for older generic right-side IDs.
-		"VAMBRACES":
-			id_normalized = "VAMBRACES_RIGHT"
-		"LEATHER_BRACERS":
-			id_normalized = "LEATHER_BRACERS_RIGHT"
-		"ARM_WRAPS":
-			id_normalized = "ARM_WRAPS_RIGHT"
-		"GREAVES":
-			id_normalized = "GREAVES_RIGHT"
-		"LEG_WRAPS":
-			id_normalized = "LEG_WRAPS_RIGHT"
-		"LEATHER_GREAVES":
-			id_normalized = "LEATHER_GREAVES_RIGHT"
-	var all := _piece_definitions_build()
-	if not all.has(id_normalized):
-		return {}
-	return all[id_normalized].duplicate(true)
+    var id_normalized := piece_id
+    match piece_id:
+        # Back-compat aliases for older generic right-side IDs.
+        "VAMBRACES":
+            id_normalized = "VAMBRACES_RIGHT"
+        "LEATHER_BRACERS":
+            id_normalized = "LEATHER_BRACERS_RIGHT"
+        "ARM_WRAPS":
+            id_normalized = "ARM_WRAPS_RIGHT"
+        "GREAVES":
+            id_normalized = "GREAVES_RIGHT"
+        "LEG_WRAPS":
+            id_normalized = "LEG_WRAPS_RIGHT"
+        "LEATHER_GREAVES":
+            id_normalized = "LEATHER_GREAVES_RIGHT"
+    var all := _piece_definitions_build()
+    if not all.has(id_normalized):
+        return {}
+    return all[id_normalized].duplicate(true)
+
 
 static func _piece_definitions_build() -> Dictionary:
-	return {
-		# Head: helm = plate + cloth (arming cap under metal)
-		"KETTLE_HELM": {
-			"name": "Kettle Helm",
-			"body_part": "head",
-			"layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
-		},
-		"LEATHER_CAP": {
-			"name": "Leather Cap",
-			"body_part": "head",
-			"layers": [LAYER_LEATHER.duplicate()]
-		},
-		"CLOTH_COIF": {
-			"name": "Cloth Coif",
-			"body_part": "head",
-			"layers": [LAYER_CLOTH.duplicate()]
-		},
-		# Chest: cuirass = plate + cloth; hauberk = mail + cloth; gambeson = cloth only
-		"CUIRASS": {
-			"name": "Cuirass",
-			"body_part": "chest",
-			"layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
-		},
-		"GAMBESON": {
-			"name": "Gambeson",
-			"body_part": "chest",
-			"layers": [LAYER_CLOTH.duplicate()]
-		},
-		"HAUBERK": {
-			"name": "Mail Hauberk",
-			"body_part": "chest",
-			"layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]
-		},
-		"LEATHER_CUIRASS": {
-			"name": "Leather Cuirass",
-			"body_part": "chest",
-			"layers": [LAYER_LEATHER.duplicate()]
-		},
-		# Arms: vambraces = plate + cloth; leather bracers = leather; cloth = cloth
-		"VAMBRACES_RIGHT": {
-			"name": "Vambraces (R)",
-			"body_part": "right_arm",
-			"layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
-		},
-		"VAMBRACES_LEFT": {
-			"name": "Vambraces (L)",
-			"body_part": "left_arm",
-			"layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
-		},
-		"LEATHER_BRACERS_RIGHT": {
-			"name": "Leather Bracers (R)",
-			"body_part": "right_arm",
-			"layers": [LAYER_LEATHER.duplicate()]
-		},
-		"LEATHER_BRACERS_LEFT": {
-			"name": "Leather Bracers (L)",
-			"body_part": "left_arm",
-			"layers": [LAYER_LEATHER.duplicate()]
-		},
-		"ARM_WRAPS_RIGHT": {
-			"name": "Arm Wraps (R)",
-			"body_part": "right_arm",
-			"layers": [LAYER_CLOTH.duplicate()]
-		},
-		"ARM_WRAPS_LEFT": {
-			"name": "Arm Wraps (L)",
-			"body_part": "left_arm",
-			"layers": [LAYER_CLOTH.duplicate()]
-		},
-		# Legs: greaves = plate + cloth; leather = leather; cloth = cloth
-		"GREAVES_RIGHT": {
-			"name": "Greaves (R)",
-			"body_part": "right_leg",
-			"layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
-		},
-		"GREAVES_LEFT": {
-			"name": "Greaves (L)",
-			"body_part": "left_leg",
-			"layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
-		},
-		"LEG_WRAPS_RIGHT": {
-			"name": "Leg Wraps (R)",
-			"body_part": "right_leg",
-			"layers": [LAYER_CLOTH.duplicate()]
-		},
-		"LEG_WRAPS_LEFT": {
-			"name": "Leg Wraps (L)",
-			"body_part": "left_leg",
-			"layers": [LAYER_CLOTH.duplicate()]
-		},
-		"LEATHER_GREAVES_RIGHT": {
-			"name": "Leather Greaves (R)",
-			"body_part": "right_leg",
-			"layers": [LAYER_LEATHER.duplicate()]
-		},
-		"LEATHER_GREAVES_LEFT": {
-			"name": "Leather Greaves (L)",
-			"body_part": "left_leg",
-			"layers": [LAYER_LEATHER.duplicate()]
-		}
-	}
+    return {
+        # Head: helm = plate + cloth (arming cap under metal)
+        "KETTLE_HELM":
+        {"name": "Kettle Helm", "body_part": "head", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
+        "LEATHER_CAP": {"name": "Leather Cap", "body_part": "head", "layers": [LAYER_LEATHER.duplicate()]},
+        "CLOTH_COIF": {"name": "Cloth Coif", "body_part": "head", "layers": [LAYER_CLOTH.duplicate()]},
+        # Chest: cuirass = plate + cloth; hauberk = mail + cloth; gambeson = cloth only
+        "CUIRASS":
+        {"name": "Cuirass", "body_part": "chest", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
+        "GAMBESON": {"name": "Gambeson", "body_part": "chest", "layers": [LAYER_CLOTH.duplicate()]},
+        "HAUBERK":
+        {"name": "Mail Hauberk", "body_part": "chest", "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]},
+        "LEATHER_CUIRASS": {"name": "Leather Cuirass", "body_part": "chest", "layers": [LAYER_LEATHER.duplicate()]},
+        # Arms: vambraces = plate + cloth; leather bracers = leather; cloth = cloth
+        "VAMBRACES_RIGHT":
+        {
+            "name": "Vambraces (R)",
+            "body_part": "right_arm",
+            "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
+        },
+        "VAMBRACES_LEFT":
+        {
+            "name": "Vambraces (L)",
+            "body_part": "left_arm",
+            "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
+        },
+        "LEATHER_BRACERS_RIGHT":
+        {"name": "Leather Bracers (R)", "body_part": "right_arm", "layers": [LAYER_LEATHER.duplicate()]},
+        "LEATHER_BRACERS_LEFT":
+        {"name": "Leather Bracers (L)", "body_part": "left_arm", "layers": [LAYER_LEATHER.duplicate()]},
+        "ARM_WRAPS_RIGHT": {"name": "Arm Wraps (R)", "body_part": "right_arm", "layers": [LAYER_CLOTH.duplicate()]},
+        "ARM_WRAPS_LEFT": {"name": "Arm Wraps (L)", "body_part": "left_arm", "layers": [LAYER_CLOTH.duplicate()]},
+        # Legs: greaves = plate + cloth; leather = leather; cloth = cloth
+        "GREAVES_RIGHT":
+        {"name": "Greaves (R)", "body_part": "right_leg", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
+        "GREAVES_LEFT":
+        {"name": "Greaves (L)", "body_part": "left_leg", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
+        "LEG_WRAPS_RIGHT": {"name": "Leg Wraps (R)", "body_part": "right_leg", "layers": [LAYER_CLOTH.duplicate()]},
+        "LEG_WRAPS_LEFT": {"name": "Leg Wraps (L)", "body_part": "left_leg", "layers": [LAYER_CLOTH.duplicate()]},
+        "LEATHER_GREAVES_RIGHT":
+        {"name": "Leather Greaves (R)", "body_part": "right_leg", "layers": [LAYER_LEATHER.duplicate()]},
+        "LEATHER_GREAVES_LEFT":
+        {"name": "Leather Greaves (L)", "body_part": "left_leg", "layers": [LAYER_LEATHER.duplicate()]}
+    }
+
 
 # Default penetration when no weapon is specified (strength-scaled later)
 const DEFAULT_PENETRATION_SHARP: float = 5.0

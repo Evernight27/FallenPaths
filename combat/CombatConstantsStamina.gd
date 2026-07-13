@@ -38,52 +38,52 @@ const FEATURE_FIGHT_EXHAUSTION_INDEX := _FeatureFlags.FEATURE_FIGHT_EXHAUSTION_I
 
 
 static func stamina_factor(ratio: float) -> float:
-	return pow(clampf(ratio, 0.0, 1.0), STAMINA_FACTOR_POWER)
+    return pow(clampf(ratio, 0.0, 1.0), STAMINA_FACTOR_POWER)
 
 
 ## Compat alias of stamina_factor (call sites may use either).
 static func breath_factor(ratio: float) -> float:
-	return stamina_factor(ratio)
+    return stamina_factor(ratio)
 
 
 static func stamina_attack_cost_from_intensity(intensity: float) -> float:
-	return STAMINA_ATTACK_COST_BASE + STAMINA_ATTACK_COST_SCALE * clampf(intensity, 0.0, 1.0)
+    return STAMINA_ATTACK_COST_BASE + STAMINA_ATTACK_COST_SCALE * clampf(intensity, 0.0, 1.0)
 
 
 static func stamina_parry_cost_from_intensity(intensity: float) -> float:
-	return STAMINA_PARRY_COST_BASE + STAMINA_PARRY_COST_SCALE * clampf(intensity, 0.0, 1.0)
+    return STAMINA_PARRY_COST_BASE + STAMINA_PARRY_COST_SCALE * clampf(intensity, 0.0, 1.0)
 
 
 static func action_ready_stamina_delay_mult(stamina_ratio: float) -> float:
-	return lerpf(STAMINA_ACTION_READY_DELAY_AT_ZERO_MULT, 1.0, stamina_factor(stamina_ratio))
+    return lerpf(STAMINA_ACTION_READY_DELAY_AT_ZERO_MULT, 1.0, stamina_factor(stamina_ratio))
 
 
 static func defender_passive_readiness_stamina_mult_from_ratio(stamina_ratio: float) -> float:
-	var st_ratio: float = clampf(stamina_ratio, 0.0, 1.0)
-	return lerpf(STAMINA_AT_ZERO_PARRY_MULT, 1.0, stamina_factor(st_ratio))
+    var st_ratio: float = clampf(stamina_ratio, 0.0, 1.0)
+    return lerpf(STAMINA_AT_ZERO_PARRY_MULT, 1.0, stamina_factor(st_ratio))
 
 
 static func is_feature_fight_exhaustion_enabled() -> bool:
-	return _FeatureFlags.is_feature_fight_exhaustion_enabled()
+    return _FeatureFlags.is_feature_fight_exhaustion_enabled()
 
 
 static func set_feature_fight_exhaustion_index_load(on: bool) -> void:
-	_FeatureFlags.set_feature_fight_exhaustion_index_load(on)
+    _FeatureFlags.set_feature_fight_exhaustion_index_load(on)
 
 
 static func exhaustion_performance_mult(exhaustion: float) -> float:
-	var t: float = pow(clampf(exhaustion, 0.0, EXHAUSTION_MAX), EXHAUSTION_CURVE)
-	return lerpf(1.0, EXHAUSTION_FLOOR_MULT, t)
+    var t: float = pow(clampf(exhaustion, 0.0, EXHAUSTION_MAX), EXHAUSTION_CURVE)
+    return lerpf(1.0, EXHAUSTION_FLOOR_MULT, t)
 
 
 static func defender_passive_readiness_exhaustion_mult(combatant: Dictionary) -> float:
-	if not is_feature_fight_exhaustion_enabled() or combatant.is_empty():
-		return 1.0
-	return exhaustion_performance_mult(combatant.get(COMBATANT_KEY_EXHAUSTION, 0.0))
+    if not is_feature_fight_exhaustion_enabled() or combatant.is_empty():
+        return 1.0
+    return exhaustion_performance_mult(combatant.get(COMBATANT_KEY_EXHAUSTION, 0.0))
 
 
 static func apply_parry_bind_riposte_gauge_bonus(defender: Dictionary) -> void:
-	if defender.is_empty():
-		return
-	var g: float = defender.get("gauge", 0.0)
-	defender["gauge"] = minf(100.0, g + PARRY_BIND_RIPOSTE_GAUGE_BONUS)
+    if defender.is_empty():
+        return
+    var g: float = defender.get("gauge", 0.0)
+    defender["gauge"] = minf(100.0, g + PARRY_BIND_RIPOSTE_GAUGE_BONUS)

@@ -29,7 +29,17 @@ Scripts live in `scripts/`. Godot resolve: [`scripts/README.md#godot-entry`](scr
 ./scripts/run_all_combat_checks.sh
 ```
 
-CI (`.github/workflows/ci.yml`): **doc links** always; **fast Phase 0** on PRs; **full Phase 0** on `main`/`master` push (and `workflow_dispatch`).
+CI (`.github/workflows/ci.yml`):
+
+| Job | When |
+|-----|------|
+| Doc links | always |
+| Shellcheck | always (`scripts/*.sh`) |
+| GDScript lint | always (`gdlint` + `gdformat --check`) |
+| Harness (company + regression) | PRs — this is the unit/regression suite |
+| Phase 0 (full harness) | `main`/`master` push + `workflow_dispatch` |
+
+Local lint: `./scripts/ci_lint.sh` (needs `shellcheck` + `pip install -r requirements-ci.txt`).
 
 ## Code structure
 
@@ -49,8 +59,9 @@ See [`AGENTS.md#code-homes`](AGENTS.md#code-homes).
 
 ## Coding standards
 
-- **Lint:** `gdlint res://` (config: `gdlint.toml`)
-- **Format:** `gdformat res:// --check` (config: `gdformat.toml`, 120 char lines, 4-space indent)
+- **Lint:** `gdlint .` (config: `.gdlintrc`) · **Format:** `gdformat --check .` (config: `.gdformatrc`, 120 cols, 4-space indent)
+- **Shell:** `shellcheck --rcfile=scripts/.shellcheckrc -x scripts/*.sh`
+- **One-shot:** `./scripts/ci_lint.sh`
 - **No raw `get_node()` in combat** — use `CombatantEntityAccess` or specialist modules
 - **No `print()` outside `CombatDebug`** — use `CombatDebug.combat_session()`, `medical_session()`, `flow_log()`
 - **Feature flags:** new cross-cutting features gated behind `FEATURE_*` in `CombatConstantsFeatureFlags.gd`

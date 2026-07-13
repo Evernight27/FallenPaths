@@ -7,4 +7,4 @@ const _QTrack := preload("res://harness/CombatQTrackAudits.gd")
 
 
 func _init() -> void:
-	quit(_QTrack.run_headless())
+    quit(_QTrack.run_headless())

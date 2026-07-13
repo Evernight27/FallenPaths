@@ -30,27 +30,47 @@ const MEDICAL_ITEM_TOURNIQUET: String = "tourniquet"
 
 # Wind-up config (moved from CombatConstants dictionary)
 const MEDICAL_WIND_UP_CONFIG: Dictionary = {
-	"bandage_self": {"duration_method": "get_bandage_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_bandage", "outcome": "bandaged"},
-	"pack_wound": {"duration_method": "get_packing_application_time_seconds_for_part", "duration_takes_part": true, "target_method": "apply_packing", "outcome": "packed"},
-	"stabilize_wound": {
-		"duration_method": "get_stabilize_application_time_seconds_for_part",
-		"duration_takes_part": true,
-		"target_method": "apply_stabilize",
-		"outcome": "stabilized",
-	},
-	"apply_tourniquet": {"duration_method": "get_tourniquet_application_time_seconds", "duration_takes_part": false, "target_method": "apply_tourniquet", "outcome": "tourniquet_applied"}
+    "bandage_self":
+    {
+        "duration_method": "get_bandage_application_time_seconds_for_part",
+        "duration_takes_part": true,
+        "target_method": "apply_bandage",
+        "outcome": "bandaged"
+    },
+    "pack_wound":
+    {
+        "duration_method": "get_packing_application_time_seconds_for_part",
+        "duration_takes_part": true,
+        "target_method": "apply_packing",
+        "outcome": "packed"
+    },
+    "stabilize_wound":
+    {
+        "duration_method": "get_stabilize_application_time_seconds_for_part",
+        "duration_takes_part": true,
+        "target_method": "apply_stabilize",
+        "outcome": "stabilized",
+    },
+    "apply_tourniquet":
+    {
+        "duration_method": "get_tourniquet_application_time_seconds",
+        "duration_takes_part": false,
+        "target_method": "apply_tourniquet",
+        "outcome": "tourniquet_applied"
+    }
 }
+
 
 ## Map medical target_method + success to outcome string.
 static func medical_outcome_string(target_method: String, ok: bool) -> String:
-	match target_method:
-		MOVE_TARGET_APPLY_BANDAGE:
-			return "bandaged" if ok else "bandage_failed"
-		MOVE_TARGET_APPLY_STABILIZE:
-			return "stabilized" if ok else "stabilize_failed"
-		MOVE_TARGET_APPLY_PACKING:
-			return "packed" if ok else "packing_failed"
-		MOVE_TARGET_APPLY_TOURNIQUET:
-			return "tourniquet_applied" if ok else "tourniquet_failed"
-		_:
-			return ""
+    match target_method:
+        MOVE_TARGET_APPLY_BANDAGE:
+            return "bandaged" if ok else "bandage_failed"
+        MOVE_TARGET_APPLY_STABILIZE:
+            return "stabilized" if ok else "stabilize_failed"
+        MOVE_TARGET_APPLY_PACKING:
+            return "packed" if ok else "packing_failed"
+        MOVE_TARGET_APPLY_TOURNIQUET:
+            return "tourniquet_applied" if ok else "tourniquet_failed"
+        _:
+            return ""

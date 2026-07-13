@@ -6,8 +6,8 @@ const _OverworldMap := preload("res://world/OverworldMap.gd")
 
 
 func _tile_coords(pos: Vector2) -> Vector2i:
-	return _OverworldMap.tile_coords_from_pos(pos)
+    return _OverworldMap.tile_coords_from_pos(pos)
 
 
 func _tile_center(tile: Vector2i) -> Vector2:
-	return _OverworldMap.tile_center(tile)
+    return _OverworldMap.tile_center(tile)
