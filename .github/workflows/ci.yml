@@ -35,7 +35,7 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: shellcheck scripts/*.sh
-        # Ubuntu apt shellcheck (0.9) lacks --rcfile=; scripts/.shellcheckrc is auto-discovered per-file.
+        # Ubuntu apt shellcheck is 0.9 (no --rcfile=). Per-file discovery picks up scripts/.shellcheckrc.
         run: shellcheck -x scripts/*.sh
 
   gdscript-lint:
