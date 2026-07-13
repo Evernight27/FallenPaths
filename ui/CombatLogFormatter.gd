@@ -516,8 +516,11 @@ static func format_action_line(
                 var form_note: String = result.get("close_contest_note", "").strip_edges()
                 if not form_note.is_empty():
                     return (
-                        "[color=gray]%s (%s) tried to close on %s (%s)  -  the defender held their measure (%s).[/color"
-                        + "]" % [attacker_name, attacker_side, target_name, target_side, form_note]
+                        (
+                            "[color=gray]%s (%s) tried to close on %s (%s)  -  the defender held their measure (%s)."
+                            + "[/color]"
+                        )
+                        % [attacker_name, attacker_side, target_name, target_side, form_note]
                     )
                 return (
                     "[color=gray]%s (%s) tried to close on %s (%s)  -  the defender held their measure.[/color]"
