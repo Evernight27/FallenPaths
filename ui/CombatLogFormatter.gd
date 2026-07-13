@@ -1,12 +1,13 @@
 class_name CombatLogFormatter
 extends RefCounted
 
-const _CombatConstants := preload("res://combat/CombatConstants.gd")
-
 ## Formats combat action results as BBCode strings for the combat log.
-## Footing: parry clash context may log **`defender_guard_line`**  -  diagnostic only; gauge **`Form`** / **`Grd`** suffixes are **`CombatUiHints`** / **`BattleUIUpdater`**. LIVE_PATHS **`#wf-guard-writers`** · **`#battle-ui`**.
+## Footing: parry clash context may log **`defender_guard_line`**  -  diagnostic only; gauge **`Form`** / **`Grd`**
+## suffixes are **`CombatUiHints`** / **`BattleUIUpdater`**. LIVE_PATHS **`#wf-guard-writers`** · **`#battle-ui`**.
 ## BattleScene calls format_action_line() and appends the result to RichTextLabel.
-## **`parry_deflect`** / **`parry_partial`**: optional **`parry_clash_context`** on **`result`** (from **`action_resolved`** after **`AttackResultApplier`**)  -  play session + calibration show **`rem=`** (follow-through fraction, not blocked damage).
+## **`parry_deflect`** / **`parry_partial`**: optional **`parry_clash_context`** on **`result`** (from
+## **`action_resolved`** after **`AttackResultApplier`**)  -  play session + calibration show **`rem=`** (follow-through
+## fraction, not blocked damage).
 
 
 static func _eff_pct(result: Dictionary) -> int:
@@ -33,11 +34,11 @@ static func _medical_procedure_label(move_id: String, on_self: bool) -> String:
     if on_self:
         return base
     match move_id:
-        _CombatConstants.MOVE_ID_BANDAGE_SELF:
+        CombatConstants.MOVE_ID_BANDAGE_SELF:
             return "bandage (ally)"
-        _CombatConstants.MOVE_ID_PACK_WOUND:
+        CombatConstants.MOVE_ID_PACK_WOUND:
             return "pack wound (ally)"
-        _CombatConstants.MOVE_ID_APPLY_TOURNIQUET:
+        CombatConstants.MOVE_ID_APPLY_TOURNIQUET:
             return "tourniquet (ally)"
         _:
             return "%s (ally)" % base
@@ -152,7 +153,8 @@ static func _tissue_breakdown_suffix(result: Dictionary) -> String:
     )
 
 
-## Human-readable damage from `action_resolved` hit payloads: prefers **`total_physical`** (cut+blunt+bone); falls back to **`dmg`**.
+## Human-readable damage from `action_resolved` hit payloads: prefers **`total_physical`** (cut+blunt+bone); falls back
+## to **`dmg`**.
 static func format_resolved_damage(result: Dictionary) -> String:
     var tp: Variant = result.get("total_physical", null)
     if tp != null:
@@ -169,7 +171,8 @@ static func format_resolved_damage(result: Dictionary) -> String:
     return str(result.get("dmg", 0))
 
 
-## Compact one-line strip on the target row (`BattleScene` `last_hit_label`): outcome-appropriate prefix + part + damage.
+## Compact one-line strip on the target row (`BattleScene` `last_hit_label`): outcome-appropriate prefix + part +
+## damage.
 static func format_last_hit_on_target_row(result: Dictionary) -> String:
     var part: String = result.get("part", "")
     if part.is_empty():
@@ -386,8 +389,8 @@ static func format_action_line(
             return line_pd
         "parry_partial":
             var line_pp: String = (
-                "[color=cyan]%s (%s) partially parried %s (%s)'s attack  -  follow-through may still land (see next hit line).[/color]"
-                % [attacker_name, attacker_side, target_name, target_side]
+                "[color=cyan]%s (%s) partially parried %s (%s)'s attack  -  follow-through may still land (see next hit"
+                + " line).[/color]" % [attacker_name, attacker_side, target_name, target_side]
             )
             var ctx_pp: Variant = result.get("parry_clash_context", null)
             if ctx_pp is Dictionary:
@@ -409,7 +412,7 @@ static func format_action_line(
             )
         "bandaged":
             var on_self_b: bool = _medical_on_self(result, attacker_name, target_name)
-            var med_id_b: String = result.get("medical_move_id", _CombatConstants.MOVE_ID_BANDAGE_SELF)
+            var med_id_b: String = result.get("medical_move_id", CombatConstants.MOVE_ID_BANDAGE_SELF)
             var bandage_verb: String = "bandaged" if on_self_b else _medical_procedure_label(med_id_b, false)
             return _medical_procedure_log_line(
                 true,
@@ -425,7 +428,7 @@ static func format_action_line(
             )
         "bandage_failed":
             var on_self_bf: bool = _medical_on_self(result, attacker_name, target_name)
-            var med_id_bf: String = result.get("medical_move_id", _CombatConstants.MOVE_ID_BANDAGE_SELF)
+            var med_id_bf: String = result.get("medical_move_id", CombatConstants.MOVE_ID_BANDAGE_SELF)
             return _medical_procedure_log_line(
                 false,
                 "",
@@ -439,7 +442,7 @@ static func format_action_line(
             )
         "packed":
             var on_self_p: bool = _medical_on_self(result, attacker_name, target_name)
-            var med_id_p: String = result.get("medical_move_id", _CombatConstants.MOVE_ID_PACK_WOUND)
+            var med_id_p: String = result.get("medical_move_id", CombatConstants.MOVE_ID_PACK_WOUND)
             var pack_verb: String = "packed with linen" if on_self_p else _medical_procedure_label(med_id_p, false)
             return _medical_procedure_log_line(
                 true,
@@ -455,7 +458,7 @@ static func format_action_line(
             )
         "packing_failed":
             var on_self_pf: bool = _medical_on_self(result, attacker_name, target_name)
-            var med_id_pf: String = result.get("medical_move_id", _CombatConstants.MOVE_ID_PACK_WOUND)
+            var med_id_pf: String = result.get("medical_move_id", CombatConstants.MOVE_ID_PACK_WOUND)
             return _medical_procedure_log_line(
                 false,
                 "",
@@ -469,7 +472,7 @@ static func format_action_line(
             )
         "tourniquet_applied":
             var on_self_t: bool = _medical_on_self(result, attacker_name, target_name)
-            var med_id_t: String = result.get("medical_move_id", _CombatConstants.MOVE_ID_APPLY_TOURNIQUET)
+            var med_id_t: String = result.get("medical_move_id", CombatConstants.MOVE_ID_APPLY_TOURNIQUET)
             var tq_verb: String = "applied tourniquet to" if on_self_t else _medical_procedure_label(med_id_t, false)
             return _medical_procedure_log_line(
                 true,
@@ -485,7 +488,7 @@ static func format_action_line(
             )
         "tourniquet_failed":
             var on_self_tf: bool = _medical_on_self(result, attacker_name, target_name)
-            var med_id_tf: String = result.get("medical_move_id", _CombatConstants.MOVE_ID_APPLY_TOURNIQUET)
+            var med_id_tf: String = result.get("medical_move_id", CombatConstants.MOVE_ID_APPLY_TOURNIQUET)
             return _medical_procedure_log_line(
                 false,
                 "",
@@ -513,8 +516,8 @@ static func format_action_line(
                 var form_note: String = result.get("close_contest_note", "").strip_edges()
                 if not form_note.is_empty():
                     return (
-                        "[color=gray]%s (%s) tried to close on %s (%s)  -  the defender held their measure (%s).[/color]"
-                        % [attacker_name, attacker_side, target_name, target_side, form_note]
+                        "[color=gray]%s (%s) tried to close on %s (%s)  -  the defender held their measure (%s).[/color"
+                        + "]" % [attacker_name, attacker_side, target_name, target_side, form_note]
                     )
                 return (
                     "[color=gray]%s (%s) tried to close on %s (%s)  -  the defender held their measure.[/color]"

@@ -1,25 +1,8 @@
 class_name ContractSpawner
 extends RefCounted
 
-## Campaign contract markers (Camp-1.4). Tutorial uses default party width (`FormationPreset.default_for_count`); paid jobs may set `player_front_count`.
-const _ResourcePaths := preload("res://core/ResourcePaths.gd")
-const _EncounterNodeScript := preload("res://world/EncounterNode.gd")
-
-# Runtime preload â€” circular dependency (CompanyState preloads CombatFlow/CampaignPersistence which preload ContractSpawner).
-static var _CompanyState: Variant = null
-
-
-static func _get_company_state() -> GDScript:
-    if ContractSpawner._CompanyState == null:
-        ContractSpawner._CompanyState = load("res://world/CompanyState.gd")
-    return ContractSpawner._CompanyState
-
-
-const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
-const _CombatConstants := preload("res://combat/CombatConstants.gd")
-const _OverworldMap := preload("res://world/OverworldMap.gd")
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-const _OperationalLog := preload("res://core/OperationalLog.gd")
+## Campaign contract markers (Camp-1.4). Tutorial uses default party width (`FormationPreset.default_for_count`); paid
+## jobs may set `player_front_count`.
 const CAMP_TILE := Vector2i(0, 0)
 const TUTORIAL_TILE := Vector2i(1, 0)
 ## Pre-`marker_kind` save compatibility key; stripped in **`build_encounter_config`**.
@@ -71,6 +54,16 @@ const CONTRACT_TEMPLATES: Array = [
     },
 ]
 
+# Runtime preload â€” circular dependency (CompanyState preloads CombatFlow/CampaignPersistence which preload
+# ContractSpawner).
+static var _company_state: Variant = null
+
+
+static func _get_company_state() -> GDScript:
+    if ContractSpawner._company_state == null:
+        ContractSpawner._company_state = load("res://world/CompanyState.gd")
+    return ContractSpawner._company_state
+
 
 static func spawn_campaign_contracts(parent: Node2D, rng: RandomNumberGenerator, enemy_scene: PackedScene) -> void:
     if parent == null or rng == null:
@@ -103,7 +96,7 @@ static func count_paid_contract_markers(parent: Node) -> int:
         return 0
     var n: int = 0
     for child in parent.get_children():
-        if child.get_script() != _EncounterNodeScript:
+        if child.get_script() != EncounterNode:
             continue
         var kind: String = str(child.marker_kind) if "marker_kind" in child else ""
         if kind == "tutorial":
@@ -160,8 +153,8 @@ static func _spawn_paid_deck_wave(parent: Node2D, enemy_scene: PackedScene) -> i
     if placed <= 0:
         return 0
     _get_company_state().set_contract_deck_index(parent, deck_index + 1)
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_world(
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_world(
             (
                 "contract_deck_refresh wave=%d placed=%d renown=%d"
                 % [deck_index + 1, placed, _get_company_state().get_renown(parent)]
@@ -184,9 +177,9 @@ static func spawn_saved_encounter_at_tile(
         return
     var scene := enemy_scene
     if scene == null:
-        scene = _ResourcePaths.get_enemy_scene()
-    var encounter = _EncounterNodeScript.new()
-    encounter.position = _CampaignBridge.overworld_tile_center(tile)
+        scene = ResourcePaths.get_enemy_scene()
+    var encounter = EncounterNode.new()
+    encounter.position = CampaignEncounterBridge.overworld_tile_center(tile)
     if scene != null:
         encounter.enemy_scene = scene
     _stamp_encounter_node(encounter, encounter_config, enemy_count, enemy_formation, contract_marker_label, marker_kind)
@@ -213,8 +206,8 @@ static func build_encounter_config(template: Dictionary) -> Dictionary:
     var out: Dictionary = template.duplicate(true)
     out.erase(COMPATIBILITY_ENCOUNTER_CONFIG_KEY_TRAINING)
     if _get_company_state().is_tutorial_contract(out):
-        out.erase(_CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT)
-        out.erase(_CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION)
+        out.erase(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT)
+        out.erase(CombatConstants.ENCOUNTER_KEY_PLAYER_FORMATION)
     return out
 
 
@@ -272,7 +265,7 @@ static func format_marker_label(template: Dictionary, world: Node = null) -> Str
 
 
 static func _format_player_formation_hint(template: Dictionary) -> String:
-    var front: int = int(template.get(_CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT, 0))
+    var front: int = int(template.get(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT, 0))
     match front:
         7:
             return " Â· 7-wide skirmish line"
@@ -284,15 +277,15 @@ static func _format_player_formation_hint(template: Dictionary) -> String:
 
 static func _format_combat_flavor_hint(template: Dictionary) -> String:
     var bits: PackedStringArray = PackedStringArray()
-    var weapon_id: String = str(template.get(_SoakPresets.ENCOUNTER_KEY_FORCE_WEAPON_ID, "")).strip_edges()
+    var weapon_id: String = str(template.get(SoakEncounterPresets.ENCOUNTER_KEY_FORCE_WEAPON_ID, "")).strip_edges()
     if not weapon_id.is_empty():
         bits.append(weapon_id.to_lower())
-    var doctrine: String = str(template.get(_CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY, "")).strip_edges()
+    var doctrine: String = str(template.get(CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY, "")).strip_edges()
     if doctrine.is_empty():
-        doctrine = str(template.get(_CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT, "")).strip_edges()
+        doctrine = str(template.get(CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT, "")).strip_edges()
     if not doctrine.is_empty():
         bits.append("foes " + doctrine.replace("_", " "))
-    var depth: Variant = template.get(_CombatConstants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY, {})
+    var depth: Variant = template.get(CombatConstants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY, {})
     if depth is Dictionary and not (depth as Dictionary).is_empty():
         bits.append("depth spears")
     if bits.is_empty():
@@ -329,9 +322,9 @@ static func _spawn_contract_at_tile(
 ) -> void:
     var scene := enemy_scene
     if scene == null:
-        scene = _ResourcePaths.get_enemy_scene()
-    var encounter = _EncounterNodeScript.new()
-    encounter.position = _CampaignBridge.overworld_tile_center(tile)
+        scene = ResourcePaths.get_enemy_scene()
+    var encounter = EncounterNode.new()
+    encounter.position = CampaignEncounterBridge.overworld_tile_center(tile)
     if scene != null:
         encounter.enemy_scene = scene
     _stamp_encounter_node(
@@ -350,8 +343,8 @@ static func _encounter_on_tile(parent: Node, tile: Vector2i) -> bool:
         return false
     for child in parent.get_children():
         if (
-            child.get_script() == _EncounterNodeScript
-            and _CampaignBridge.overworld_tile_from_position(child.position) == tile
+            child.get_script() == EncounterNode
+            and CampaignEncounterBridge.overworld_tile_from_position(child.position) == tile
         ):
             return true
     return false
@@ -359,25 +352,25 @@ static func _encounter_on_tile(parent: Node, tile: Vector2i) -> bool:
 
 static func _reserve_tiles(parent: Node) -> Array:
     var used: Array = [CAMP_TILE]
-    var player: Node2D = _CampaignBridge.get_player(parent)
+    var player: Node2D = CampaignEncounterBridge.get_player(parent)
     if player != null:
-        used.append(_CampaignBridge.overworld_tile_from_position(player.position))
+        used.append(CampaignEncounterBridge.overworld_tile_from_position(player.position))
     for child in parent.get_children():
-        if child.get_script() == _EncounterNodeScript:
-            used.append(_CampaignBridge.overworld_tile_from_position(child.position))
+        if child.get_script() == EncounterNode:
+            used.append(CampaignEncounterBridge.overworld_tile_from_position(child.position))
     return used
 
 
 static func _free_contract_tiles(parent: Node, reserved: Array) -> Array:
     var out: Array = []
-    for t in _OverworldMap.all_tiles(parent):
+    for t in OverworldMap.all_tiles(parent):
         if t not in reserved:
             out.append(t)
     return out
 
 
 static func _first_free_tile(parent: Node, reserved: Array) -> Vector2i:
-    for t in _OverworldMap.all_tiles(parent):
+    for t in OverworldMap.all_tiles(parent):
         if t not in reserved:
             return t as Vector2i
     return Vector2i(-1, -1)

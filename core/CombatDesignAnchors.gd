@@ -5,8 +5,6 @@ extends RefCounted
 ## Consumers: `SpeciesResource`, `TissueEnergyCapacity`, `BloodVolumeMl`, `WeaponDamageHelper`,
 ## `MaterialFailureCurves`, `CombatCalibrationAudit`, harness simulation, `CombatResearchAnchors`.
 
-const _Bleeding := preload("res://core/BleedingConstants.gd")
-
 ## Narrative committed-strike KE (J) for arm / leg slots (S1 delivery, S5 derived limbs, M6 pool).
 const DESIGN_KE_ARM_J := 100.0
 const DESIGN_KE_LEG_J := 200.0
@@ -49,7 +47,7 @@ static func reference_tissue_display_for_part(part: String) -> int:
 
 
 static func cut_tissue_ultimate_pen_mm() -> float:
-    return _Bleeding.PENETRATION_DEPTH_SEVERITY_FULL_MM + CUT_TISSUE_ULTIMATE_PEN_OFFSET_MM
+    return BleedingConstants.PENETRATION_DEPTH_SEVERITY_FULL_MM + CUT_TISSUE_ULTIMATE_PEN_OFFSET_MM
 
 
 static func reference_blood_volume_ml_for_mass(reference_mass_kg: float) -> float:

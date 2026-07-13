@@ -3,11 +3,6 @@ extends RefCounted
 
 ## Shared scans over **`get_available_actions`** / **`build()`** output arrays (harness + UI hints).
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
-const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
-const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
-
 
 static func _entry(raw: Variant) -> Dictionary:
     if raw is Dictionary:
@@ -259,14 +254,14 @@ static func long_close_only_offense_menu(manager: Node, c: Dictionary, combatant
         return false
     if action_list_has_hostile_melee_strike(all_actions, combatant_id):
         return false
-    if _EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
+    if EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
         return false
-    var fid: String = _EntityAccess.formation_id_str(c)
-    if _CombatDoctrine.envelop_mop_up_active(manager, fid):
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
+    if CombatDoctrine.envelop_mop_up_active(manager, fid):
         return false
-    if _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid):
+    if CombatFormationFlow.skirmish_line_sparse_after_casualties(manager, fid):
         return false
-    if _EngagementOpposition.wing_lacks_mapped_opposition(manager, c):
+    if EngagementOpposition.wing_lacks_mapped_opposition(manager, c):
         return false
     if not action_list_has_hostile_strike(all_actions, combatant_id):
         return false
@@ -279,7 +274,7 @@ static func long_close_only_offense_menu(manager: Node, c: Dictionary, combatant
         var tid: int = a.get("target_id", -1)
         if tid < 0:
             continue
-        if _EntityAccess.distance_to_opponent_band(c, tid, "") != CombatConstants.DISTANCE_LONG:
+        if CombatantEntityAccess.distance_to_opponent_band(c, tid, "") != CombatConstants.DISTANCE_LONG:
             continue
         return true
     return false

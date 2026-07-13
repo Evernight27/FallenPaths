@@ -3,8 +3,6 @@ extends RefCounted
 
 ## Stamina and exhaustion constants extracted from CombatConstants.gd.
 ## Preload this module when you only need stamina/exhaustion values and helpers.
-const _FeatureFlags := preload("res://combat/CombatConstantsFeatureFlags.gd")
-
 const STAMINA_MAX := 100.0
 const STAMINA_REFILL_RATE := 5.0
 const STAMINA_ATTACK_COST_BASE := 12.0
@@ -34,7 +32,7 @@ const EXHAUSTION_FLOOR_MULT := 0.55
 const EXHAUSTION_UI_SHOW_THRESHOLD := 0.06
 const EXHAUSTION_GAIN_BLOOD_LOSS_MULT := 1.35
 const EXHAUSTION_GAIN_PAIN_SHOCK_MULT := 1.25
-const FEATURE_FIGHT_EXHAUSTION_INDEX := _FeatureFlags.FEATURE_FIGHT_EXHAUSTION_INDEX
+const FEATURE_FIGHT_EXHAUSTION_INDEX := CombatConstantsFeatureFlags.FEATURE_FIGHT_EXHAUSTION_INDEX
 
 
 static func stamina_factor(ratio: float) -> float:
@@ -64,11 +62,11 @@ static func defender_passive_readiness_stamina_mult_from_ratio(stamina_ratio: fl
 
 
 static func is_feature_fight_exhaustion_enabled() -> bool:
-    return _FeatureFlags.is_feature_fight_exhaustion_enabled()
+    return CombatConstantsFeatureFlags.is_feature_fight_exhaustion_enabled()
 
 
 static func set_feature_fight_exhaustion_index_load(on: bool) -> void:
-    _FeatureFlags.set_feature_fight_exhaustion_index_load(on)
+    CombatConstantsFeatureFlags.set_feature_fight_exhaustion_index_load(on)
 
 
 static func exhaustion_performance_mult(exhaustion: float) -> float:

@@ -3,15 +3,14 @@ extends RefCounted
 
 ## Armor piece data model: layer stack, damage mitigation, durability.
 
-const _Bp := preload("res://core/BodyPartConstants.gd")
-
 # One piece of armor per body part. A piece can be composed of multiple layers
 # (e.g. plate + gambeson) to reflect medieval kit. Damage is processed through
 # layers in order: outer first, then inner.
 #
 # SHARP: Penetration model. pen_sharp vs sharp_resistance -> penetrate or stop.
 #        When stopped: fraction transmitted as blunt (sharp_deflect_transmission); durability loss on absorbed share.
-# BLUNT: Transmission-only model. Fraction of damage passes (blunt_transmission); cushion and area coupling reduce it. Durability loss on absorbed share.
+# BLUNT: Transmission-only model. Fraction of damage passes (blunt_transmission); cushion and area coupling reduce it.
+# Durability loss on absorbed share.
 
 var display_name: String = ""
 var body_part: String = ""
@@ -37,7 +36,8 @@ static func create_from_definition(piece_id: String) -> ArmorPiece:
     return piece
 
 
-## Total mass (kg) from layer mass_kg fields  -  sum matches full kit when all pieces equipped (typical harness ~15 - 28 kg).
+## Total mass (kg) from layer mass_kg fields  -  sum matches full kit when all pieces equipped (typical harness ~15 - 28
+## kg).
 ## Body-part scale: same layer defs are reused for vambraces vs cuirass; smaller regions carry less steel/textile.
 func get_total_mass_kg() -> float:
     var t: float = 0.0
@@ -49,13 +49,13 @@ func get_total_mass_kg() -> float:
 
 func _body_part_mass_scale(part: String) -> float:
     match part:
-        _Bp.PART_CHEST:
+        BodyPartConstants.PART_CHEST:
             return 1.0
-        _Bp.PART_HEAD:
+        BodyPartConstants.PART_HEAD:
             return 0.58
-        _Bp.PART_RIGHT_ARM, _Bp.PART_LEFT_ARM:
+        BodyPartConstants.PART_RIGHT_ARM, BodyPartConstants.PART_LEFT_ARM:
             return 0.4
-        _Bp.PART_RIGHT_LEG, _Bp.PART_LEFT_LEG:
+        BodyPartConstants.PART_RIGHT_LEG, BodyPartConstants.PART_LEFT_LEG:
             return 0.48
         _:
             return 0.5
@@ -71,10 +71,12 @@ func _default_mass_kg_for_layer(layer: Dictionary) -> float:
 
 
 # Apply damage through all layers. Returns { damage, damage_type, was_deflected, transmitted_blunt_amount }.
-# When SHARP is stopped by a layer: fraction transmitted as blunt (one layer's transmission); caller adds to blunt and runs once.
+# When SHARP is stopped by a layer: fraction transmitted as blunt (one layer's transmission); caller adds to blunt and
+# runs once.
 # BLUNT: transmission-only. Uses blunt_transmission + cushion (momentum_per_area) + area coupling (rigid layers).
 # blunt_contact_cm: weapon contact for area coupling; < 0 = skip (e.g. unarmed fallback).
-# start_layer_index: when >0, skip outer layers (e.g. 1 after sharp deflected on layer 0 so deflected blunt is not reduced twice).
+# start_layer_index: when >0, skip outer layers (e.g. 1 after sharp deflected on layer 0 so deflected blunt is not
+# reduced twice).
 func apply_damage(
     incoming_damage: float,
     damage_type: String,
@@ -151,14 +153,17 @@ func _process_layer(
             ):
                 push_warning(
                     (
-                        "[Armor] Area coupling factor %.3f outside tuning range [%.2f, %.2f] (contact=%.2f cm, ref=%.2f). Adjust BLUNT_COUPLING_REFERENCE_CM or weapon contact."
-                        % [
-                            area_factor,
-                            ArmorConstants.BLUNT_AREA_FACTOR_WARN_MIN,
-                            ArmorConstants.BLUNT_AREA_FACTOR_WARN_MAX,
-                            blunt_contact_cm,
-                            ref_cm
-                        ]
+                        "[Armor] Area coupling factor %.3f outside tuning range [%.2f, %.2f] (contact=%.2f cm, ref=%.2f"
+                        + (
+                            "). Adjust BLUNT_COUPLING_REFERENCE_CM or weapon contact."
+                            % [
+                                area_factor,
+                                ArmorConstants.BLUNT_AREA_FACTOR_WARN_MIN,
+                                ArmorConstants.BLUNT_AREA_FACTOR_WARN_MAX,
+                                blunt_contact_cm,
+                                ref_cm
+                            ]
+                        )
                     )
                 )
 
@@ -168,12 +173,15 @@ func _process_layer(
         ):
             push_warning(
                 (
-                    "[Armor] Blunt transmission %.3f outside [%.2f, %.2f]. Check layer blunt_transmission, cushion, rigidity, or BLUNT_COUPLING_REFERENCE_CM."
-                    % [
-                        after_transmission / maxf(damage, 0.01),
-                        ArmorConstants.BLUNT_TRANSMISSION_WARN_MIN,
-                        ArmorConstants.BLUNT_TRANSMISSION_WARN_MAX
-                    ]
+                    "[Armor] Blunt transmission %.3f outside [%.2f, %.2f]. Check layer blunt_transmission, cushion, rig"
+                    + (
+                        "idity, or BLUNT_COUPLING_REFERENCE_CM."
+                        % [
+                            after_transmission / maxf(damage, 0.01),
+                            ArmorConstants.BLUNT_TRANSMISSION_WARN_MIN,
+                            ArmorConstants.BLUNT_TRANSMISSION_WARN_MAX
+                        ]
+                    )
                 )
             )
 
@@ -195,7 +203,9 @@ func _is_layer_destroyed(layer: Dictionary) -> bool:
 
 
 func _apply_durability_loss(layer: Dictionary, damage_absorbed: float, damage_type: String = "") -> void:
-    # Threshold: sharp (mm RHA) for penetration toughness; for blunt-origin damage add term from absorption (1 - blunt_transmission) so layers that absorb more blunt require more absorbed damage before wearing (research: energy absorption and degradation linked; padding designed to absorb many small blows).
+    # Threshold: sharp (mm RHA) for penetration toughness; for blunt-origin damage add term from absorption (1 -
+    # blunt_transmission) so layers that absorb more blunt require more absorbed damage before wearing (research: energy
+    # absorption and degradation linked; padding designed to absorb many small blows).
     var sharp_res: float = layer.get(
         ArmorConstants.ARMOR_LAYER_KEY_SHARP_RESISTANCE_RHA_MM, ArmorConstants.DEFAULT_ARMOR_LAYER_SHARP_RESISTANCE
     )

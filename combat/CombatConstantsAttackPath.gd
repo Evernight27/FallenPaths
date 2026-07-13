@@ -4,10 +4,6 @@ extends RefCounted
 ## Attack path tables and geometry functions extracted from CombatConstants.gd.
 ## Canonical source for body-part paths, angles, alignment, deflection logic.
 
-const _GuardLines := preload("res://combat/CombatGuardLines.gd")
-const _FeatureFlags := preload("res://combat/CombatConstantsFeatureFlags.gd")
-const _Stamina := preload("res://combat/CombatConstantsStamina.gd")
-
 const PARRY_ALIGNMENT_FLOOR := 0.15
 const GEOMETRIC_LEAK_MAX := 0.35
 const PARRY_GEOMETRY_VARIANCE_BASE := 0.08
@@ -195,13 +191,13 @@ static func _iv6_diagonal_path_pool(flank_path: Array, vert_path: Array, zone_pa
 static func _iv6_shape_diagonal_pool(pool: Array, guard_oct: String) -> Array:
     var shaped: Array = pool.duplicate()
     match guard_oct:
-        _GuardLines.LINE_HIGH_LEFT:
+        CombatGuardLines.LINE_HIGH_LEFT:
             shaped = _iv6_bubble_pair(shaped, "head", "right_arm")
             shaped = _iv6_bubble_pair(shaped, "right_arm", "chest")
-        _GuardLines.LINE_HIGH_RIGHT:
+        CombatGuardLines.LINE_HIGH_RIGHT:
             shaped = _iv6_bubble_pair(shaped, "head", "left_arm")
             shaped = _iv6_bubble_pair(shaped, "left_arm", "chest")
-        _GuardLines.LINE_LOW_LEFT, _GuardLines.LINE_LOW_RIGHT:
+        CombatGuardLines.LINE_LOW_LEFT, CombatGuardLines.LINE_LOW_RIGHT:
             shaped = _iv6_promote_to_front(shaped, "left_leg")
             shaped = _iv6_promote_to_front(shaped, "right_leg")
     return shaped
@@ -224,28 +220,28 @@ static func get_attack_path(attack_line: String, guard_line: String) -> Array:
     var atk_key: String = str(attack_line).strip_edges()
     var guard_key: String = str(guard_line).strip_edges()
     var guard_oct: String = ""
-    if _GuardLines.is_known_line(atk_key):
-        atk_key = _GuardLines.cardinal_for_path_lookup(atk_key)
-    if _GuardLines.is_known_line(guard_key):
-        guard_oct = _GuardLines.normalize_line(guard_key)
-        if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
-            guard_key = _GuardLines.guard_cardinal_for_attack_path(guard_oct)
+    if CombatGuardLines.is_known_line(atk_key):
+        atk_key = CombatGuardLines.cardinal_for_path_lookup(atk_key)
+    if CombatGuardLines.is_known_line(guard_key):
+        guard_oct = CombatGuardLines.normalize_line(guard_key)
+        if CombatConstantsFeatureFlags.is_feature_hema_eight_guard_lines_enabled():
+            guard_key = CombatGuardLines.guard_cardinal_for_attack_path(guard_oct)
         else:
-            guard_key = _GuardLines.cardinal_for_path_lookup(guard_key)
+            guard_key = CombatGuardLines.cardinal_for_path_lookup(guard_key)
     var by_guard: Variant = ATTACK_PATHS_BY_GUARD.get(atk_key, {})
     if not (by_guard is Dictionary and by_guard.has(guard_key)):
         return ATTACK_PATHS.get(atk_key, ATTACK_PATH_HIGH)
     var flank_path: Array = (by_guard as Dictionary)[guard_key]
     if (
-        _FeatureFlags.is_feature_iv6_attack_path_octant_enabled()
-        and _FeatureFlags.is_feature_hema_eight_guard_lines_enabled()
+        CombatConstantsFeatureFlags.is_feature_iv6_attack_path_octant_enabled()
+        and CombatConstantsFeatureFlags.is_feature_hema_eight_guard_lines_enabled()
         and guard_oct != ""
-        and _GuardLines.is_flank_diagonal_guard_line(guard_oct)
+        and CombatGuardLines.is_flank_diagonal_guard_line(guard_oct)
     ):
-        var vert_key: String = _GuardLines.cardinal_for_path_lookup(guard_oct)
+        var vert_key: String = CombatGuardLines.cardinal_for_path_lookup(guard_oct)
         if vert_key != guard_key:
             var vert_path: Array = (by_guard as Dictionary).get(vert_key, flank_path)
-            var zone: String = _GuardLines.guard_zone_part_for_line(guard_oct)
+            var zone: String = CombatGuardLines.guard_zone_part_for_line(guard_oct)
             return _iv6_diagonal_attack_path(flank_path, vert_path, guard_oct, zone)
     return flank_path
 
@@ -282,14 +278,14 @@ static func angle_diff_deg(a_deg: float, b_deg: float) -> float:
 
 
 static func line_to_angle(line: String) -> float:
-    if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
-        return _GuardLines.line_to_angle(line)
+    if CombatConstantsFeatureFlags.is_feature_hema_eight_guard_lines_enabled():
+        return CombatGuardLines.line_to_angle(line)
     return LINE_TO_ANGLE_DEG.get(line, 0)
 
 
 static func angle_to_nearest_line(angle_deg: float) -> String:
-    if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
-        return _GuardLines.angle_to_line(angle_deg)
+    if CombatConstantsFeatureFlags.is_feature_hema_eight_guard_lines_enabled():
+        return CombatGuardLines.angle_to_line(angle_deg)
     var a := fmod(angle_deg + 360.0, 360.0)
     if a < 45.0 or a >= 315.0:
         return "high"
@@ -337,9 +333,9 @@ static func parry_opposite_deflect_severity_threshold(contact_type: String) -> f
 static func _adjacent_line_away_from_guard(attack_line: String, guard_angle_deg: float) -> String:
     var atk_line: String = attack_line
     var adj_src: Dictionary = LINE_ADJACENTS
-    if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
-        atk_line = _GuardLines.normalize_line(attack_line)
-        adj_src = _GuardLines.LINE_ADJACENTS
+    if CombatConstantsFeatureFlags.is_feature_hema_eight_guard_lines_enabled():
+        atk_line = CombatGuardLines.normalize_line(attack_line)
+        adj_src = CombatGuardLines.LINE_ADJACENTS
     var adj_raw: Variant = adj_src.get(atk_line, [])
     if not (adj_raw is Array):
         return atk_line
@@ -358,9 +354,11 @@ static func _adjacent_line_away_from_guard(attack_line: String, guard_angle_deg:
 
 
 static func get_line_alignment(attack_line: String, guard_line: String) -> float:
-    if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled():
-        return _GuardLines.alignment_from_lines(
-            _GuardLines.normalize_line(attack_line), _GuardLines.normalize_line(guard_line), PARRY_ALIGNMENT_FLOOR
+    if CombatConstantsFeatureFlags.is_feature_hema_eight_guard_lines_enabled():
+        return CombatGuardLines.alignment_from_lines(
+            CombatGuardLines.normalize_line(attack_line),
+            CombatGuardLines.normalize_line(guard_line),
+            PARRY_ALIGNMENT_FLOOR
         )
     var def_row: Variant = LINE_ANGLE_DEG.get(guard_line, {})
     if def_row is Dictionary:
@@ -381,7 +379,7 @@ static func get_attack_angle_deg(
         var mult: float = 1.0
         var stamina_ratio: float = variance_context.get("stamina_ratio", 1.0)
         if stamina_ratio < 1.0:
-            var sf: float = _Stamina.stamina_factor(stamina_ratio)
+            var sf: float = CombatConstantsStamina.stamina_factor(stamina_ratio)
             mult = 1.0 + (ANGLE_VARIANCE_STAMINA_AT_ZERO_MULT - 1.0) * (1.0 - sf)
         if variance_context.get("off_balance", false):
             mult *= ANGLE_VARIANCE_OFF_BALANCE_MULT
@@ -424,8 +422,8 @@ static func get_deflected_line_from_angles(
     if atk_line == guard_line:
         return atk_line
     var opposite_line: String = (
-        _GuardLines.opposite_line(atk_line)
-        if _FeatureFlags.is_feature_hema_eight_guard_lines_enabled()
+        CombatGuardLines.opposite_line(atk_line)
+        if CombatConstantsFeatureFlags.is_feature_hema_eight_guard_lines_enabled()
         else str(DEFLECTED_GUARD_FROM_ATTACK.get(atk_line, atk_line))
     )
     if guard_line == opposite_line:

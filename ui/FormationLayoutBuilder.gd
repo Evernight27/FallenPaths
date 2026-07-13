@@ -1,11 +1,8 @@
 class_name FormationLayoutBuilder
 extends RefCounted
 
-const _FormationPreset := preload("res://combat/FormationPreset.gd")
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
-
-## Optional: rank- - file grid layout for combatant stat rows (not used by BattleScene  -  stats stay in registration order).
+## Optional: rank- - file grid layout for combatant stat rows (not used by BattleScene  -  stats stay in registration
+## order).
 ## Formation positions use FormationDiagramBuilder. Kept for tests or alternate UIs.
 ## Reparents existing combatant rows from list parents into GridContainers by (rank, file).
 
@@ -20,12 +17,12 @@ static func apply_formation_layout(
     # from combatant count (e.g. front_count, or preset.ranks missing), causing preset mismatch.
     var formation: Dictionary = {}
     if "formations" in manager and manager.formations is Dictionary:
-        formation = _FormationSlots.formation_record_for_manager(manager, side)
+        formation = FormationSlots.formation_record_for_manager(manager, side)
     var files: int = formation.get("files", preset.get("files", 1))
     var ranks: int = formation.get("ranks", preset.get("ranks", 1))
     var density: String = formation.get("density", preset.get("density", "normal"))
-    var h_sep: int = _FormationPreset.separation_px_from_density(density)
-    var v_sep: int = _FormationPreset.v_separation_px_from_density(density)  # Ranks closer than files
+    var h_sep: int = FormationPreset.separation_px_from_density(density)
+    var v_sep: int = FormationPreset.v_separation_px_from_density(density)  # Ranks closer than files
 
     # Map (rank, file) -> combatant for this side (on field only)
     var slot_to_combatant: Dictionary = {}
@@ -35,17 +32,17 @@ static func apply_formation_layout(
     var fled_combatants: Array = []
     var combatants: Array = manager.get_combatants() if manager.has_method("get_combatants") else []
     for c in combatants:
-        if _EntityAccess.side_str(c) != side:
+        if CombatantEntityAccess.side_str(c) != side:
             continue
-        var r: int = _EntityAccess.rank_int(c)
-        var f: int = _EntityAccess.file_int(c)
+        var r: int = CombatantEntityAccess.rank_int(c)
+        var f: int = CombatantEntityAccess.file_int(c)
         var key := Vector2i(r, f)
-        if not _EntityAccess.alive_bool(c, true):
+        if not CombatantEntityAccess.alive_bool(c, true):
             if not slot_to_dead.has(key):
                 slot_to_dead[key] = []
             slot_to_dead[key].append(c)
             continue
-        if _EntityAccess.has_left_battlefield(c):
+        if CombatantEntityAccess.has_left_battlefield(c):
             fled_combatants.append(c)
             continue
         slot_to_combatant[key] = c
@@ -108,14 +105,14 @@ static func apply_formation_layout(
             # Dead at this slot first (defeated stay where they fell)
             var dead_list: Array = slot_to_dead.get(key, [])
             for dc in dead_list:
-                var row = id_to_row.get(_EntityAccess.id_int(dc), null)
+                var row = id_to_row.get(CombatantEntityAccess.id_int(dc), null)
                 if row != null:
                     _modulate_dead_row(row)
                     slot_vbox.add_child(row)
             # Alive occupant, or placeholder only when slot is truly empty (no dead, no living)
             var c = slot_to_combatant.get(key, null)
             if c != null:
-                var row = id_to_row.get(_EntityAccess.id_int(c), null)
+                var row = id_to_row.get(CombatantEntityAccess.id_int(c), null)
                 if row != null:
                     slot_vbox.add_child(row)
             elif dead_list.is_empty():
@@ -134,7 +131,7 @@ static func apply_formation_layout(
         fled_title.add_theme_color_override("font_color", Color(0.62, 0.58, 0.52))
         fled_strip.add_child(fled_title)
         for fc in fled_combatants:
-            var frow = id_to_row.get(_EntityAccess.id_int(fc), null)
+            var frow = id_to_row.get(CombatantEntityAccess.id_int(fc), null)
             if frow != null:
                 _modulate_fled_row(frow)
                 fled_strip.add_child(frow)

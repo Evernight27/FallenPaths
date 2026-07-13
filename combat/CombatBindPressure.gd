@@ -3,9 +3,6 @@
 ## A1: Phase 3 — full state derivation, partner tracking, control side.
 extends RefCounted
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
-
 
 ## Derive bind state name from pressure value.
 static func state_from_pressure(pressure: float) -> String:
@@ -68,7 +65,9 @@ static func set_after_parry_bind(target: Dictionary, manager: Node, attacker_id:
         return
     var pressure: float = clampf((control - 0.65) / (1.0 - 0.65), 0.2, 0.8)
     target["bind_pressure_value"] = pressure
-    target["bind_pressure_until"] = _EntityAccess.combat_clock_float(manager) + CombatConstants.BIND_PRESSURE_DURATION_S
+    target["bind_pressure_until"] = (
+        CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.BIND_PRESSURE_DURATION_S
+    )
     target["bind_partner_id"] = attacker_id
     ## A1: control side — winner of parry bind takes inside line.
     var guard_line: String = str(target.get("guard_line", "high"))
@@ -88,7 +87,9 @@ static func set_after_manual_bind(winner: Dictionary, manager: Node, opp_id: int
         return
     var pressure: float = clampf(power_ratio, 0.3, 0.9)
     winner["bind_pressure_value"] = pressure
-    winner["bind_pressure_until"] = _EntityAccess.combat_clock_float(manager) + CombatConstants.BIND_PRESSURE_DURATION_S
+    winner["bind_pressure_until"] = (
+        CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.BIND_PRESSURE_DURATION_S
+    )
     winner["bind_partner_id"] = opp_id
     ## A1: control side — derived from lane offset relative to opponent.
     var w_loa: float = float(winner.get("lane_offset", 0.0))
@@ -108,17 +109,17 @@ static func apply_decay(combatant: Dictionary, manager: Node, delta: float) -> v
     var until: float = float(combatant.get("bind_pressure_until", -1.0))
     if until < 0.0:
         return
-    var now: float = _EntityAccess.combat_clock_float(manager)
+    var now: float = CombatantEntityAccess.combat_clock_float(manager)
     if now >= until:
         _clear_bind_state(combatant)
         return
     var pid: int = get_bind_partner_id(combatant)
     if pid >= 0 and manager != null:
-        var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, pid)
-        if partner.is_empty() or not _EntityAccess.alive_bool(partner):
+        var partner: Dictionary = CombatantEntityAccess.manager_get_combatant_optional(manager, pid)
+        if partner.is_empty() or not CombatantEntityAccess.alive_bool(partner):
             _clear_bind_state(combatant)
             return
-        var band: String = _EntityAccess.distance_to_opponent_band(combatant, pid)
+        var band: String = CombatantEntityAccess.distance_to_opponent_band(combatant, pid)
         if band != CombatConstants.DISTANCE_CLOSE:
             _clear_bind_state(combatant)
             return
@@ -197,9 +198,9 @@ static func resolve_bind_press(manager: Node, attacker_id: int, target_id: int) 
         )
         _schedule_ready(manager, attacker_id)
         return
-    var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
-    var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
-    if atk.is_empty() or tgt.is_empty() or not _EntityAccess.are_alive_opponents(atk, tgt):
+    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
+    var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
+    if atk.is_empty() or tgt.is_empty() or not CombatantEntityAccess.are_alive_opponents(atk, tgt):
         manager.emit_signal(
             "action_resolved",
             attacker_id,
@@ -208,7 +209,7 @@ static func resolve_bind_press(manager: Node, attacker_id: int, target_id: int) 
         )
         _schedule_ready(manager, attacker_id)
         return
-    var band: String = _EntityAccess.distance_to_opponent_band(atk, target_id)
+    var band: String = CombatantEntityAccess.distance_to_opponent_band(atk, target_id)
     if band != CombatConstants.DISTANCE_CLOSE:
         manager.emit_signal(
             "action_resolved",
@@ -218,7 +219,7 @@ static func resolve_bind_press(manager: Node, attacker_id: int, target_id: int) 
         )
         _schedule_ready(manager, attacker_id)
         return
-    var clock: float = _EntityAccess.combat_clock_float(manager)
+    var clock: float = CombatantEntityAccess.combat_clock_float(manager)
     if not is_in_bind(atk, clock):
         manager.emit_signal(
             "action_resolved",
@@ -228,16 +229,16 @@ static func resolve_bind_press(manager: Node, attacker_id: int, target_id: int) 
         )
         _schedule_ready(manager, attacker_id)
         return
-    var atk_skill: float = float(_EntityAccess.stats_dict(atk).get("melee_skill", 5.0))
-    var atk_str: float = float(_EntityAccess.stats_dict(atk).get("strength", 10.0))
-    var tgt_skill: float = float(_EntityAccess.stats_dict(tgt).get("melee_skill", 5.0))
-    var tgt_str: float = float(_EntityAccess.stats_dict(tgt).get("strength", 10.0))
+    var atk_skill: float = float(CombatantEntityAccess.stats_dict(atk).get("melee_skill", 5.0))
+    var atk_str: float = float(CombatantEntityAccess.stats_dict(atk).get("strength", 10.0))
+    var tgt_skill: float = float(CombatantEntityAccess.stats_dict(tgt).get("melee_skill", 5.0))
+    var tgt_str: float = float(CombatantEntityAccess.stats_dict(tgt).get("strength", 10.0))
     var atk_power: float = atk_skill * 2.0 + atk_str
     var tgt_power: float = tgt_skill * 2.0 + tgt_str
     atk_power *= contest_power_mult(atk, clock)
     var roll: float = randf()
     var atk_chance: float = atk_power / maxf(1.0, atk_power + tgt_power)
-    var breath: float = _EntityAccess.breath_float(atk)
+    var breath: float = CombatantEntityAccess.breath_float(atk)
     atk["breath"] = maxf(0.0, breath - CombatConstants.BREATH_BIND_PRESS_COST)
     atk["stamina"] = atk["breath"]
     if roll < atk_chance:
@@ -277,9 +278,9 @@ static func resolve_bind_void(manager: Node, attacker_id: int, target_id: int) -
         )
         _schedule_ready(manager, attacker_id)
         return
-    var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
-    var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
-    if atk.is_empty() or tgt.is_empty() or not _EntityAccess.are_alive_opponents(atk, tgt):
+    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
+    var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
+    if atk.is_empty() or tgt.is_empty() or not CombatantEntityAccess.are_alive_opponents(atk, tgt):
         manager.emit_signal(
             "action_resolved",
             attacker_id,
@@ -288,7 +289,7 @@ static func resolve_bind_void(manager: Node, attacker_id: int, target_id: int) -
         )
         _schedule_ready(manager, attacker_id)
         return
-    var band: String = _EntityAccess.distance_to_opponent_band(atk, target_id)
+    var band: String = CombatantEntityAccess.distance_to_opponent_band(atk, target_id)
     if band != CombatConstants.DISTANCE_CLOSE:
         manager.emit_signal(
             "action_resolved",
@@ -298,7 +299,7 @@ static func resolve_bind_void(manager: Node, attacker_id: int, target_id: int) -
         )
         _schedule_ready(manager, attacker_id)
         return
-    var clock: float = _EntityAccess.combat_clock_float(manager)
+    var clock: float = CombatantEntityAccess.combat_clock_float(manager)
     if not is_in_bind(atk, clock):
         manager.emit_signal(
             "action_resolved",
@@ -308,12 +309,12 @@ static func resolve_bind_void(manager: Node, attacker_id: int, target_id: int) -
         )
         _schedule_ready(manager, attacker_id)
         return
-    var atk_agi: float = float(_EntityAccess.stats_dict(atk).get("agility", 5.0))
-    var tgt_skill: float = float(_EntityAccess.stats_dict(tgt).get("melee_skill", 5.0))
-    var void_power: float = atk_agi * 2.0 + float(_EntityAccess.stats_dict(atk).get("strength", 10.0))
-    var hold_power: float = tgt_skill * 2.0 + float(_EntityAccess.stats_dict(tgt).get("strength", 10.0))
+    var atk_agi: float = float(CombatantEntityAccess.stats_dict(atk).get("agility", 5.0))
+    var tgt_skill: float = float(CombatantEntityAccess.stats_dict(tgt).get("melee_skill", 5.0))
+    var void_power: float = atk_agi * 2.0 + float(CombatantEntityAccess.stats_dict(atk).get("strength", 10.0))
+    var hold_power: float = tgt_skill * 2.0 + float(CombatantEntityAccess.stats_dict(tgt).get("strength", 10.0))
     var void_chance: float = void_power / maxf(1.0, void_power + hold_power)
-    var breath: float = _EntityAccess.breath_float(atk)
+    var breath: float = CombatantEntityAccess.breath_float(atk)
     atk["breath"] = maxf(0.0, breath - CombatConstants.BREATH_BIND_VOID_COST)
     atk["stamina"] = atk["breath"]
     if randf() < void_chance:
@@ -355,9 +356,9 @@ static func resolve_bind_wind(manager: Node, attacker_id: int, target_id: int) -
         )
         _schedule_ready(manager, attacker_id)
         return
-    var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
-    var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
-    if atk.is_empty() or tgt.is_empty() or not _EntityAccess.are_alive_opponents(atk, tgt):
+    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
+    var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
+    if atk.is_empty() or tgt.is_empty() or not CombatantEntityAccess.are_alive_opponents(atk, tgt):
         manager.emit_signal(
             "action_resolved",
             attacker_id,
@@ -366,7 +367,7 @@ static func resolve_bind_wind(manager: Node, attacker_id: int, target_id: int) -
         )
         _schedule_ready(manager, attacker_id)
         return
-    var band: String = _EntityAccess.distance_to_opponent_band(atk, target_id)
+    var band: String = CombatantEntityAccess.distance_to_opponent_band(atk, target_id)
     if band != CombatConstants.DISTANCE_CLOSE:
         manager.emit_signal(
             "action_resolved",
@@ -376,7 +377,7 @@ static func resolve_bind_wind(manager: Node, attacker_id: int, target_id: int) -
         )
         _schedule_ready(manager, attacker_id)
         return
-    var clock: float = _EntityAccess.combat_clock_float(manager)
+    var clock: float = CombatantEntityAccess.combat_clock_float(manager)
     if not is_in_bind(atk, clock):
         manager.emit_signal(
             "action_resolved",
@@ -386,12 +387,12 @@ static func resolve_bind_wind(manager: Node, attacker_id: int, target_id: int) -
         )
         _schedule_ready(manager, attacker_id)
         return
-    var atk_skill: float = float(_EntityAccess.stats_dict(atk).get("melee_skill", 5.0))
-    var tgt_skill: float = float(_EntityAccess.stats_dict(tgt).get("melee_skill", 5.0))
-    var wind_power: float = atk_skill * 3.0 + float(_EntityAccess.stats_dict(atk).get("agility", 5.0))
-    var hold_power: float = tgt_skill * 3.0 + float(_EntityAccess.stats_dict(tgt).get("strength", 10.0))
+    var atk_skill: float = float(CombatantEntityAccess.stats_dict(atk).get("melee_skill", 5.0))
+    var tgt_skill: float = float(CombatantEntityAccess.stats_dict(tgt).get("melee_skill", 5.0))
+    var wind_power: float = atk_skill * 3.0 + float(CombatantEntityAccess.stats_dict(atk).get("agility", 5.0))
+    var hold_power: float = tgt_skill * 3.0 + float(CombatantEntityAccess.stats_dict(tgt).get("strength", 10.0))
     var wind_chance: float = wind_power / maxf(1.0, wind_power + hold_power)
-    var breath: float = _EntityAccess.breath_float(atk)
+    var breath: float = CombatantEntityAccess.breath_float(atk)
     atk["breath"] = maxf(0.0, breath - CombatConstants.BREATH_BIND_WIND_COST)
     atk["stamina"] = atk["breath"]
     if randf() < wind_chance:
@@ -433,4 +434,4 @@ static func _clear_bind_state(c: Dictionary) -> void:
 
 
 static func _schedule_ready(manager: Node, combatant_id: int) -> void:
-    _EventScheduler.schedule_action_ready(manager, combatant_id, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S)
+    CombatEventScheduler.schedule_action_ready(manager, combatant_id, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S)

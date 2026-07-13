@@ -6,20 +6,14 @@ extends RefCounted
 
 ## Aliased to CombatConstants.PATH_MAIN_SCENE for clarity.
 const MAIN_SCENE := CombatConstants.PATH_MAIN_SCENE
-
 # Runtime preload ' circular dependency (CompanyState preloads CombatFlow which preloads CompanyRunEndPanel).
-static var _CompanyState: Variant = null
+static var _company_state: Variant = null
 
 
 static func _get_company_state() -> GDScript:
-    if CompanyRunEndPanel._CompanyState == null:
-        CompanyRunEndPanel._CompanyState = load("res://world/CompanyState.gd")
-    return CompanyRunEndPanel._CompanyState
-
-
-const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _Persistence := preload("res://world/CampaignPersistence.gd")
-const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
+    if CompanyRunEndPanel._company_state == null:
+        CompanyRunEndPanel._company_state = load("res://world/CompanyState.gd")
+    return CompanyRunEndPanel._company_state
 
 
 static func show_and_await(world: Node2D, reason: String, detail: String = ""):
@@ -53,7 +47,7 @@ static func show_and_await(world: Node2D, reason: String, detail: String = ""):
 
     var body := Label.new()
     body.text = format_run_end_body(reason, detail)
-    _RowFormatter.configure_wrapped_label(body)
+    PartyRowFormatter.configure_wrapped_label(body)
     body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     vbox.add_child(body)
 
@@ -64,11 +58,11 @@ static func show_and_await(world: Node2D, reason: String, detail: String = ""):
         func() -> void:
             wait_state["done"] = true
             layer.queue_free()
-            if _OperationalLog.is_play_session_active():
-                _OperationalLog.play_world(format_company_run_end_log(reason))
+            if OperationalLog.is_play_session_active():
+                OperationalLog.play_world(format_company_run_end_log(reason))
             if run_end_logs_reload(reason):
                 if _get_company_state().persistence_clear_slot_on_run_end_reload():
-                    _Persistence.clear_slot()
+                    CampaignPersistence.clear_slot()
                 world.get_tree().change_scene_to_file(MAIN_SCENE)
     )
     vbox.add_child(btn)

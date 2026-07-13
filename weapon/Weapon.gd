@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Weapon data model: create from definition, type info, damage stats.
 
-const _ImpactVelocityModel := preload("res://weapon/ImpactVelocityModel.gd")
+const BLUNT_FALLBACK_CONTACT_CM: float = 3.0
 
 # Template-backed weapon instance. Load from WeaponConstants; can later add
 # durability, quality, modifications for customisable weapons.
@@ -19,14 +19,16 @@ var blade_width: float = 2.0
 var point_width: float = 0.5
 var thrust_head_width: float = 0.0  # Width of head/shaft behind point; used for blunt momentum/area on thrusts.
 var head_diameter: float = 0.0
-# Optional: effective edge width for blunt weapons (flanges/ridges that can break skin). Used for sharp-component penetration on blunt moves.
+# Optional: effective edge width for blunt weapons (flanges/ridges that can break skin). Used for sharp-component
+# penetration on blunt moves.
 var edge_width: float = 0.0
 var melee_range: float = 1.5
 ## Tier 1.9: may strike enemy front rank from home depth when same-file rank 0 is alive (spear lane rules).
 var depth_melee_eligible: bool = false
 # Cut ratio 0-1 for slash/cut (rest blunt). Blunt attacks use archetype; floor MIN_CUT_RATIO so no weapon is 0% cut.
 var blade_cut_ratio: float = 0.75
-# Edge sharpness 0-1: 1 = keen (small effective contact), 0 = dull (wider effective contact). Used for effective edge width in cutting.
+# Edge sharpness 0-1: 1 = keen (small effective contact), 0 = dull (wider effective contact). Used for effective edge
+# width in cutting.
 var sharpness: float = 1.0
 
 # Move pool for this weapon: move_id -> { cooldown, archetype_id }. From def["moves"]; defaults from get_move().
@@ -152,7 +154,7 @@ static func create_from_definition(weapon_id: String) -> Weapon:
 
 ## Resolved impact speed band (m/s) for Tier A - C model. contact_type: stab | cut | blunt.
 func get_impact_velocity_band_m_s(contact_type: String) -> Vector2:
-    return _ImpactVelocityModel.resolve_band_m_s(self, contact_type)
+    return ImpactVelocityModel.resolve_band_m_s(self, contact_type)
 
 
 func get_cooldown(move_id: String) -> float:
@@ -169,7 +171,6 @@ func get_contact_type(move_id: String) -> String:
 
 # Contact area (cm) for this move: stab -> point, cut -> blade, blunt -> head.
 # When blunt but head_diameter is 0 (pommel, poll, butt), use fallback.
-const BLUNT_FALLBACK_CONTACT_CM: float = 3.0
 
 
 func get_contact_width(move_id: String) -> float:
@@ -204,8 +205,10 @@ func get_sharp_contact_cm(move_id: String) -> float:
     return WeaponConstants.BASELINE_CONTACT_CM
 
 
-# Effective sharp contact (cm) for cutting: geometric contact reduced by sharpness (sharper = smaller effective = higher pressure).
-# effective = geometric / (SHARPNESS_FACTOR_MIN + (1 - SHARPNESS_FACTOR_MIN) * sharpness); floored at MIN_CONTACT_WIDTH_CM.
+# Effective sharp contact (cm) for cutting: geometric contact reduced by sharpness (sharper = smaller effective = higher
+# pressure).
+# effective = geometric / (SHARPNESS_FACTOR_MIN + (1 - SHARPNESS_FACTOR_MIN) * sharpness); floored at
+# MIN_CONTACT_WIDTH_CM.
 func get_effective_sharp_contact_cm(move_id: String) -> float:
     var geometric: float = get_sharp_contact_cm(move_id)
     var s: float = clampf(sharpness, 0.0, 1.0)
@@ -215,7 +218,8 @@ func get_effective_sharp_contact_cm(move_id: String) -> float:
 
 
 # Contact (cm) for the BLUNT damage component only. Uses the surface that actually hits for this attack.
-# Stab -> geometric mean of point and thrust_head_width: both tip (initial puncture) and head (follow-through) influence area.
+# Stab -> geometric mean of point and thrust_head_width: both tip (initial puncture) and head (follow-through) influence
+# area.
 # Cut -> slap/flat; blunt -> head or fallback.
 func get_blunt_contact_cm(move_id: String) -> float:
     var ct: String = get_contact_type(move_id)
@@ -298,41 +302,50 @@ func get_parry_part_length_cm() -> float:
 
 
 ## Mass (kg) of the part that strikes for the given contact_type. Without parts, uses total mass.
-func get_striking_part_mass_kg(contact_type: String) -> float:
-    if not has_parts():
-        return mass
-    var ct: String = contact_type.to_lower().strip_edges() if contact_type else WeaponConstants.ATTACK_TYPE_CUT
+func _mass_from_part_entry(p: Dictionary) -> float:
+    var frac: float = p.get("mass_fraction", 1.0)
+    return mass * clampf(frac, 0.0, 1.0)
+
+
+func _striking_mass_for_striking_for(ct: String) -> float:
     for p in parts:
         if p is Dictionary:
             var sf = p.get("striking_for", [])
             if sf is Array:
                 for listed in sf:
                     if str(listed).to_lower().strip_edges() == ct:
-                        var frac: float = p.get("mass_fraction", 1.0)
-                        return mass * clampf(frac, 0.0, 1.0)
+                        return _mass_from_part_entry(p)
+    return -1.0
+
+
+func _striking_mass_for_ids(ids: Array) -> float:
+    for p in parts:
+        if p is Dictionary:
+            var pid: String = _normalize_part_id(p.get("id", ""))
+            if pid in ids:
+                return _mass_from_part_entry(p)
+    return -1.0
+
+
+func get_striking_part_mass_kg(contact_type: String) -> float:
+    if not has_parts():
+        return mass
+    var ct: String = contact_type.to_lower().strip_edges() if contact_type else WeaponConstants.ATTACK_TYPE_CUT
+    var from_listed: float = _striking_mass_for_striking_for(ct)
+    if from_listed >= 0.0:
+        return from_listed
+    var from_fallback: float = -1.0
     match ct:
         WeaponConstants.ATTACK_TYPE_STAB:
-            for p in parts:
-                if p is Dictionary:
-                    var pid: String = _normalize_part_id(p.get("id", ""))
-                    if pid in ["point", "blade", "spike", "head"]:
-                        var frac: float = p.get("mass_fraction", 1.0)
-                        return mass * clampf(frac, 0.0, 1.0)
+            from_fallback = _striking_mass_for_ids(["point", "blade", "spike", "head"])
         WeaponConstants.ATTACK_TYPE_CUT:
-            for p in parts:
-                if p is Dictionary and _normalize_part_id(p.get("id", "")) == "blade":
-                    var frac: float = p.get("mass_fraction", 1.0)
-                    return mass * clampf(frac, 0.0, 1.0)
+            from_fallback = _striking_mass_for_ids(["blade"])
         WeaponConstants.ATTACK_TYPE_BLUNT:
-            for p in parts:
-                if p is Dictionary:
-                    var pid: String = _normalize_part_id(p.get("id", ""))
-                    if pid in ["head", "haft", "shaft"]:
-                        var frac: float = p.get("mass_fraction", 1.0)
-                        return mass * clampf(frac, 0.0, 1.0)
+            from_fallback = _striking_mass_for_ids(["head", "haft", "shaft"])
+    if from_fallback >= 0.0:
+        return from_fallback
     if parts.size() > 0 and parts[0] is Dictionary:
-        var frac: float = parts[0].get("mass_fraction", 1.0)
-        return mass * clampf(frac, 0.0, 1.0)
+        return _mass_from_part_entry(parts[0])
     return mass
 
 

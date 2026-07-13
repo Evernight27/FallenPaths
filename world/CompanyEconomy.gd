@@ -3,24 +3,6 @@ extends RefCounted
 
 ## CompanyEconomy -- state accessors, gold, supplies, wages, renown, provisions, med supply wiring.
 
-const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _CampaignPersistence := preload("res://world/CampaignPersistence.gd")
-const _CompanyHud := preload("res://ui/CompanyHud.gd")
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-const _CombatConstantsMedical := preload("res://combat/CombatConstantsMedical.gd")
-
-# Runtime preload for sibling module ' avoids circular parse-time dependencies
-# (CompanyState preloads CompanyEconomy, so CompanyEconomy must lazy-load CompanyState).
-static var _CompanyState: Variant = null
-
-
-static func _get_state() -> GDScript:
-    if CompanyEconomy._CompanyState == null:
-        CompanyEconomy._CompanyState = load("res://world/CompanyState.gd")
-    return CompanyEconomy._CompanyState
-
-
-## 'Sec12 EA tuning defaults (not decision stubs).
 const DEFAULT_GOLD: int = 500
 const DEFAULT_WAGE_PER_MEMBER: int = 15
 const DEFAULT_MEDICAL_SUPPLIES: int = 15
@@ -43,6 +25,19 @@ const RENOWN_PAY_SCALE: float = 0.05
 const WORLD_META_CAMPAIGN_MED_BATTLE: String = "campaign_med_battle"
 
 const PERSISTENCE_MODE_STR: String = "P2"
+
+# Runtime preload for sibling module ' avoids circular parse-time dependencies
+# (CompanyState preloads CompanyEconomy, so CompanyEconomy must lazy-load CompanyState).
+static var _company_state: Variant = null
+
+
+static func _get_state() -> GDScript:
+    if CompanyEconomy._company_state == null:
+        CompanyEconomy._company_state = load("res://world/CompanyState.gd")
+    return CompanyEconomy._company_state
+
+
+## 'Sec12 EA tuning defaults (not decision stubs).
 
 
 static func persistence_uses_disk_autosave() -> bool:
@@ -315,13 +310,13 @@ static func format_autosave_action_suffix() -> String:
 static func try_autosave(world: Node2D) -> bool:
     if not persistence_uses_disk_autosave() or world == null:
         return false
-    var ok: bool = _CampaignPersistence.save_slot(world)
+    var ok: bool = CampaignPersistence.save_slot(world)
     if ok:
         if world.has_meta(_get_state().WORLD_META_CAMPAIGN_RESTORED_FROM_SAVE):
             world.remove_meta(_get_state().WORLD_META_CAMPAIGN_RESTORED_FROM_SAVE)
         refresh_hud(world)
-    elif _OperationalLog.is_play_session_active():
-        _OperationalLog.warn("campaign_autosave failed -- slot not written")
+    elif OperationalLog.is_play_session_active():
+        OperationalLog.warn("campaign_autosave failed -- slot not written")
     return ok
 
 
@@ -346,17 +341,17 @@ static func wire_party_medical_supply(world: Node2D) -> void:
             }
         )
     )
-    for n in _CampaignBridge.get_fightable_party_nodes(world):
-        var entity: Node = _CampaignBridge.health_entity_from_character(n)
-        if entity != null and entity.has_method("set_campaign_supply_factor"):
-            entity.set_campaign_supply_factor(factor)
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
+        if entity != null and entity.has_method("_set_campaign_supply_factor"):
+            entity._set_campaign_supply_factor(factor)
 
 
 static func on_battle_medical_complete(world: Node, target_method: String, success: bool) -> void:
     if world == null or not success or _get_state().read_stub_med_battle_mode() != "hybrid":
         return
-    for key in _CombatConstantsMedical.MEDICAL_WIND_UP_CONFIG:
-        var cfg: Dictionary = (_CombatConstantsMedical.MEDICAL_WIND_UP_CONFIG as Dictionary).get(key, {}) as Dictionary
+    for key in CombatConstantsMedical.MEDICAL_WIND_UP_CONFIG:
+        var cfg: Dictionary = (CombatConstantsMedical.MEDICAL_WIND_UP_CONFIG as Dictionary).get(key, {}) as Dictionary
         if cfg.get("target_method", "") == target_method:
             consume_medical(world, 1)
             break
@@ -381,7 +376,7 @@ static func _ensure_hud_on_world(world: Node2D) -> void:
         return
     var root: Node = world.get_tree().root
     var overlay: CanvasLayer = _get_or_create_overlay(root)
-    var hud: Control = _CompanyHud.new()
+    var hud: Control = CompanyHud.new()
     overlay.add_child(hud)
     world.set_meta(_get_state().WORLD_META_COMPANY_HUD, hud)
 

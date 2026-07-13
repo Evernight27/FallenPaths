@@ -4,11 +4,6 @@ extends RefCounted
 ## Shared formatting for party/member display (PartyMenu, etc.).
 ## Centralizes body part label layout and blood/bleeding text.
 
-const _Bleeding := preload("res://core/BleedingConstants.gd")
-const _BodyPartQuery := preload("res://core/BodyPartQuery.gd")
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
-
 const ATLS_CLASS_LABELS := {
     1: "Class I (minimal)",
     2: "Class II (moderate)",
@@ -18,16 +13,19 @@ const ATLS_CLASS_LABELS := {
 
 ## Layout for party body part display: pairs per row (head+chest, arms, legs).
 const PART_LINES := [["head", "chest"], ["right_arm", "left_arm"], ["left_leg", "right_leg"]]
+const BODY_LABELS_SHORT := {
+    "head": "Hd", "chest": "Ch", "right_arm": "RA", "left_arm": "LA", "left_leg": "LL", "right_leg": "RL"
+}
 
 
 ## Read-only body stat dicts from a party/battle member row.
 static func read_body_stat_dicts(row: Dictionary) -> Dictionary:
     return {
-        "body_cutting": _EntityAccess.nested_dictionary_read(row, "body_cutting"),
-        "body_blunt": _EntityAccess.nested_dictionary_read(row, "body_blunt"),
-        "body_max": _EntityAccess.nested_dictionary_read(row, "body_max"),
-        "bone_health": _EntityAccess.nested_dictionary_read(row, "bone_health"),
-        "bone_max": _EntityAccess.nested_dictionary_read(row, "bone_max"),
+        "body_cutting": CombatantEntityAccess.nested_dictionary_read(row, "body_cutting"),
+        "body_blunt": CombatantEntityAccess.nested_dictionary_read(row, "body_blunt"),
+        "body_max": CombatantEntityAccess.nested_dictionary_read(row, "body_max"),
+        "bone_health": CombatantEntityAccess.nested_dictionary_read(row, "bone_health"),
+        "bone_max": CombatantEntityAccess.nested_dictionary_read(row, "bone_max"),
     }
 
 
@@ -59,22 +57,22 @@ static func total_body_health_ratio(stats_row: Dictionary) -> float:
 static func body_functionality_ratio(combatant: Dictionary, manager: Node = null) -> float:
     var node: Node = null
     if manager != null:
-        node = _EntityAccess.get_entity_from_manager(manager, combatant)
+        node = CombatantEntityAccess.get_entity_from_manager(manager, combatant)
     if node == null:
-        node = _EntityAccess.scene_node(combatant)
+        node = CombatantEntityAccess.scene_node(combatant)
     if node == null:
-        var perf: float = _EntityAccess.stats_dict(combatant).get("performance_modifier", 1.0)
+        var perf: float = CombatantEntityAccess.stats_dict(combatant).get("performance_modifier", 1.0)
         return clampf(perf, 0.0, 1.0)
     var samples: PackedFloat32Array = PackedFloat32Array(
         [
-            _BodyPartQuery.get_arm_functionality(node, "right_arm"),
-            _BodyPartQuery.get_arm_functionality(node, "left_arm"),
-            _BodyPartQuery.get_leg_functionality(node),
+            BodyPartQuery._get_arm_functionality(node, "right_arm"),
+            BodyPartQuery._get_arm_functionality(node, "left_arm"),
+            BodyPartQuery.get_leg_functionality(node),
         ]
     )
     for part in ["head", "chest"]:
-        if _BodyPartQuery.is_part_physically_operable(node, part):
-            samples.append(_BodyPartQuery.get_bone_functionality_factor(node, part))
+        if BodyPartQuery.is_part_physically_operable(node, part):
+            samples.append(BodyPartQuery._get_bone_functionality_factor(node, part))
         else:
             samples.append(0.0)
     if samples.is_empty():
@@ -98,9 +96,6 @@ static func configure_wrapped_label(lbl: Label) -> void:
 
 
 ## Short labels for cramped battle UI (body bar cells ~56px wide).
-const BODY_LABELS_SHORT := {
-    "head": "Hd", "chest": "Ch", "right_arm": "RA", "left_arm": "LA", "left_leg": "LL", "right_leg": "RL"
-}
 
 
 ## Formats a single body part label: "Part C:cur/max B:cur/max Bo:cur/max".
@@ -172,15 +167,15 @@ static func format_blood_line(bv: float, bleed_rate: float) -> String:
 
 ## Seconds until blood volume crosses **`MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING`** at current bleed (INF if no bleed).
 static func seconds_to_danger_band(blood_volume_pct: float, total_bleeding_rate: float) -> float:
-    return _Bleeding.seconds_to_exsanguination_at_death_threshold(
+    return BleedingConstants.seconds_to_exsanguination_at_death_threshold(
         total_bleeding_rate,
-        clampf(blood_volume_pct, 0.0, _Bleeding.MAX_BLOOD_VOLUME),
-        _Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING
+        clampf(blood_volume_pct, 0.0, BleedingConstants.MAX_BLOOD_VOLUME),
+        BleedingConstants.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING
     )
 
 
 static func format_atls_band_label(blood_volume_pct: float) -> String:
-    var cls: int = _Bleeding.atls_hemorrhage_class_from_remaining_pct(blood_volume_pct)
+    var cls: int = BleedingConstants.atls_hemorrhage_class_from_remaining_pct(blood_volume_pct)
     return "ATLS %s" % ATLS_CLASS_LABELS.get(cls, "Class %d" % cls)
 
 
@@ -199,7 +194,7 @@ static func format_danger_eta_phrase(blood_volume_pct: float, total_bleeding_rat
 
 ## Camp-3.2 triage row: ATLS band + bleed rate + ETA to danger band (party menu).
 static func danger_blood_threshold() -> float:
-    return _Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING
+    return BleedingConstants.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING
 
 
 static func format_triage_line(blood_volume_pct: float, total_bleeding_rate: float) -> String:
@@ -225,7 +220,7 @@ static func format_dressing_gate_line(member: Dictionary) -> String:
     if not member.get("has_untreated_wounds", false):
         return ""
     var bleed: float = member.get("total_bleeding_rate", 0.0)
-    if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
+    if bleed > BleedingConstants.BLEEDING_RATE_EPSILON:
         return ""
     return "Bleeding controlled — bandage/pack/TQ still required before camp rest."
 
@@ -253,7 +248,7 @@ static func format_vitality_status(member: Dictionary) -> String:
 ## Member row needs triage attention on the map (active bleed or undressed wound).
 static func member_needs_triage_attention(member: Dictionary) -> bool:
     var bleed: float = member.get("total_bleeding_rate", 0.0)
-    if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
+    if bleed > BleedingConstants.BLEEDING_RATE_EPSILON:
         return true
     return member.get("has_untreated_wounds", false)
 
@@ -263,7 +258,7 @@ static func member_triage_priority(member: Dictionary) -> float:
     if not member_needs_triage_attention(member):
         return INF
     var bleed: float = member.get("total_bleeding_rate", 0.0)
-    if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
+    if bleed > BleedingConstants.BLEEDING_RATE_EPSILON:
         return seconds_to_danger_band(member.get("blood_volume", 100.0), bleed)
     return -1.0
 
@@ -271,7 +266,7 @@ static func member_triage_priority(member: Dictionary) -> float:
 ## One-line triage summary for banners (settlement worst row, map bleed HUD).
 static func format_member_triage_banner_line(member: Dictionary) -> String:
     var bleed: float = member.get("total_bleeding_rate", 0.0)
-    if bleed > _Bleeding.BLEEDING_RATE_EPSILON:
+    if bleed > BleedingConstants.BLEEDING_RATE_EPSILON:
         return format_triage_line(member.get("blood_volume", 100.0), bleed)
     var dressing: String = format_dressing_gate_line(member)
     return dressing
@@ -283,18 +278,18 @@ static func format_proficiency_bonus_line(member: Dictionary) -> String:
     if not is_instance_valid(node_ref) or not (node_ref is Node):
         return ""
     var node: Node = node_ref as Node
-    var entity: Node = _Bridge.health_entity_from_character(node)
+    var entity: Node = CampaignEncounterBridge.health_entity_from_character(node)
     if entity == null or not "_proficiency_bonus" in entity:
         return ""
     var prof: Dictionary = entity._proficiency_bonus
     var parts := []
-    var _PROF_LABELS := {
+    var prof_labels := {
         "strength": "STR", "agility": "AGI", "intelligence": "INT", "endurance": "END", "perception": "PER"
     }
     for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
         var bonus_val: float = float(prof.get(stat, 0) or 0)
         if bonus_val > 0.0:
-            var label: String = _PROF_LABELS[stat]
+            var label: String = prof_labels[stat]
             parts.append("+%s:%d" % [label, int(bonus_val)])
     if parts.is_empty():
         return ""

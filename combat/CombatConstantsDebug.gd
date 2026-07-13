@@ -2,11 +2,15 @@ class_name CombatConstantsDebug
 extends RefCounted
 
 const COMBAT_DEV_VERBOSE := false
-static var _combat_dev_verbose_override: int = -1
 const COMBAT_DEBUG := false
 const COMBAT_DEBUG_CALIBRATION := false
 const COMBAT_EVENT_DEBUG := false
 const COMBAT_EVENT_DEBUG_VERBOSE := false
+const COMBAT_FLOW_LOG_SUPPRESS_REPEATED := true
+const COMBAT_VACANCY_RECONCILE_DIRTY_ONLY := true
+const COMBAT_VACANCY_DIRTY_SAFETY_EVERY_N_FRAMES := 0
+const COMBAT_FORMATION_INVARIANT_DEBUG := false
+static var _combat_dev_verbose_override: int = -1
 static var _headless_harness_quiet: bool = false
 static var _play_session_diagnostic: bool = false
 static var _combat_hit_summary_override: int = -1
@@ -72,9 +76,3 @@ static func combat_event_debug_active() -> bool:
 
 static func combat_event_debug_verbose_active() -> bool:
     return combat_event_debug_active() and (COMBAT_EVENT_DEBUG_VERBOSE or combat_dev_verbose_active())
-
-
-const COMBAT_FLOW_LOG_SUPPRESS_REPEATED := true
-const COMBAT_VACANCY_RECONCILE_DIRTY_ONLY := true
-const COMBAT_VACANCY_DIRTY_SAFETY_EVERY_N_FRAMES := 0
-const COMBAT_FORMATION_INVARIANT_DEBUG := false

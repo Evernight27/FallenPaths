@@ -1,7 +1,8 @@
 class_name WeightedSample
 extends RefCounted
 
-## Centralized weighted random selection  -  replaces duplicated implementations in BodyPartConstants, AttackPathResolver, CombatHitSubRegion.
+## Centralized weighted random selection  -  replaces duplicated implementations in BodyPartConstants,
+## AttackPathResolver, CombatHitSubRegion.
 ## Single source of truth for accumulate-weights + threshold-pick pattern.
 ## `deterministic` mode uses a stable seed instead of randf() for reproducible results.
 
@@ -18,7 +19,7 @@ static func pick_random(weights: Dictionary, deterministic: bool = false, _stabl
         return weights.keys()[0] if not weights.is_empty() else ""
     var r: float
     if deterministic:
-        var _saved_seed: float = randf()
+        var saved_seed: float = randf()
         # Note: Godot has no built-in seed restore; callers needing full determinism should use pick_deterministic.
         r = randf() * total
     else:

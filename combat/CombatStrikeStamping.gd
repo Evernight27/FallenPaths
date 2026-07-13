@@ -3,9 +3,6 @@ extends RefCounted
 
 ## Tier 3.1: pair geometry + strike measure on attack `pa` / `pending_attack`.
 
-const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
-const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
-
 
 static func strike_measure_ratio_for_weapon_eff_dist(weapon: RefCounted, eff_dist: float) -> float:
     if weapon == null:
@@ -22,17 +19,17 @@ static func strike_measure_ratio_for_attack_pair(
         return 1.0
     var eff: float = stamped_eff_dist
     if eff < 0.01:
-        eff = _PairGeometry.cached_eff_dist(_PairGeometry.effective_pair_geometry(manager, atk, tgt))
+        eff = CombatPairGeometry.cached_eff_dist(CombatPairGeometry.effective_pair_geometry(manager, atk, tgt))
     return strike_measure_ratio_for_weapon_eff_dist(weapon, eff)
 
 
 static func stamp_attack_pair_geometry_on_dict(manager: Node, atk: Dictionary, tgt: Dictionary, pa: Dictionary) -> void:
     if manager == null:
         return
-    var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(manager, atk, tgt)
+    var pair_geom: Dictionary = CombatPairGeometry.effective_pair_geometry(manager, atk, tgt)
     pa["effective_pair_file_spacing_equivalent"] = pair_geom.get("file_spacing_equiv", 0.0)
-    pa["effective_pair_eff_dist"] = _PairGeometry.cached_eff_dist(pair_geom)
-    _DepthPolearm.stamp_depth_flags_on_pa(manager, atk, pa)
+    pa["effective_pair_eff_dist"] = CombatPairGeometry.cached_eff_dist(pair_geom)
+    CombatDepthPolearm.stamp_depth_flags_on_pa(manager, atk, pa)
 
 
 static func stamp_strike_realism_on_pa(

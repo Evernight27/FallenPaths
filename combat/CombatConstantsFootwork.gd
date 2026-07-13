@@ -1,8 +1,6 @@
 class_name CombatConstantsFootwork
 extends RefCounted
 
-const _RecoveryCause := preload("res://combat/CombatConstantsRecoveryCause.gd")
-
 const DEFENSE_SPACING_PARRY_MULT_CLOSE := 1.04
 const DEFENSE_SPACING_PARRY_MULT_LONG := 0.92
 const DEFENSE_SPACING_DODGE_MULT_CLOSE := 0.94
@@ -23,6 +21,8 @@ const AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_MULT_LONG := 0.94
 const PASSIVE_PARRY_READINESS_INCOMING_CUT_MULT := 1.0
 const PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT := 0.88
 const PASSIVE_PARRY_READINESS_INCOMING_BLUNT_MULT := 1.0
+const FEINT_GUARD_ZONE_READINESS_SPACING_MULT_CLOSE := 0.98
+const FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG := 1.04
 
 
 static func normalize_recovery_cause(cause: String) -> String:
@@ -36,7 +36,9 @@ static func normalize_recovery_cause(cause: String) -> String:
 
 static func readiness_curve_for_cause(cause: String) -> Array:
     var k: String = normalize_recovery_cause(cause)
-    return _RecoveryCause.READINESS_BY_CAUSE.get(k, _RecoveryCause.READINESS_BY_CAUSE.get("medical", [0.5, 0.85]))
+    return CombatConstantsRecoveryCause.READINESS_BY_CAUSE.get(
+        k, CombatConstantsRecoveryCause.READINESS_BY_CAUSE.get("medical", [0.5, 0.85])
+    )
 
 
 static func defense_footwork_recovering_dodge_mult_for_cause(cause: String) -> float:
@@ -88,8 +90,6 @@ static func ai_feint_listing_defender_readiness_spacing_mult(defender: Dictionar
 
 
 ## CLOSE slightly harder to read feints (mult < 1), LONG slightly easier (mult > 1).
-const FEINT_GUARD_ZONE_READINESS_SPACING_MULT_CLOSE := 0.98
-const FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG := 1.04
 
 
 static func feint_guard_zone_readiness_spacing_mult(defender: Dictionary, attacker_id: int) -> float:

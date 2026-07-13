@@ -1,38 +1,34 @@
 class_name CombatDebug
 extends RefCounted
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-const _DepthPolearm := preload("res://combat/CombatDepthPolearm.gd")
-const _TargetScoring := preload("res://combat/CombatTargetScoring.gd")
-const _PairGeometry := preload("res://combat/CombatPairGeometry.gd")
-const _MeleeListing := preload("res://combat/CombatMeleeListing.gd")
-
 ## Log tiers: `COMBAT_EVENT_DEBUG` alone --'' ' `flow_log_turn` lists actions + pick. With `COMBAT_EVENT_DEBUG_VERBOSE`,
 ## `get_available_actions` logs the action list once; `flow_log_turn` logs pick + count only (no duplicate list).
 ## `flow_log`: skip_turn, afterblow, close contest, incursion, formation rejects, resolve edge cases.
 ## `COMBAT_DEBUG` --'' ' per-hit / armor / wind-up (`CombatDebug.log`, EntityDamage traces).
 ## Unconditional `[Combat]` lines stay for phase boundaries, deaths, and UI-adjacent events (see grep print("[Combat")).
-## Play session (editor F5): **`combat_session`** / **`world_session`** --'' ' `FP_COMBAT` / `FP_WORLD` on stdout (copy Godot Output).
+## Play session (editor F5): **`combat_session`** / **`world_session`** --'' ' `FP_COMBAT` / `FP_WORLD` on stdout (copy
+## Godot Output).
 ## Invariant / logic faults: **`operational_error`** / **`operational_warn`** (`FP_ERROR` / `FP_WARN`; always on).
 ## Conditional combat logging. Only logs when CombatConstants.COMBAT_DEBUG is true.
 ## calibration_log: logs when COMBAT_DEBUG_CALIBRATION is true (alignment, parry_c_d, variance, etc.).
-## flow_log: verbose pipeline; use `dedupe_key` on poll-heavy paths (see `COMBAT_FLOW_LOG_SUPPRESS_REPEATED`). `clear_flow_log_dedup` on combat start/stop.
+## flow_log: verbose pipeline; use `dedupe_key` on poll-heavy paths (see `COMBAT_FLOW_LOG_SUPPRESS_REPEATED`).
+## `clear_flow_log_dedup` on combat start/stop.
 ## flow_log_turn: logs turn pick line when COMBAT_EVENT_DEBUG alone is true.
 
-const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _EventScheduler := preload("res://combat/CombatEventScheduler.gd")
-const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
+static var _flow_log_last_by_key: Dictionary = {}
+static var _flow_log_event_last_by_key: Dictionary = {}
+static var _last_medical_session_line: String = ""
+static var _last_combat_session_line: String = ""
 
 
 ## Always emitted (grep `FP_ERROR`). Use for should-never-happen combat invariants.
 static func operational_error(msg: String) -> void:
-    _OperationalLog.error(msg)
+    OperationalLog.error(msg)
 
 
 ## Always emitted (grep `FP_WARN`). Use for suspicious but non-fatal state.
 static func operational_warn(msg: String) -> void:
-    _OperationalLog.warn(msg)
+    OperationalLog.warn(msg)
 
 
 ## `[Combat.Flow]` when `COMBAT_EVENT_DEBUG` is on (turn picks use the same tier).
@@ -47,7 +43,8 @@ static func flow_log_event(msg: String, dedupe_key: String = "") -> void:
     print("[Combat.Flow] ", msg)
 
 
-## Stale/blocked picks: flow log + **`skip_turn`**. Pass **`operational=true`** for invariant faults (grep **`FP_WARN`**).
+## Stale/blocked picks: flow log + **`skip_turn`**. Pass **`operational=true`** for invariant faults (grep
+## **`FP_WARN`**).
 static func resolve_action_rejected(
     manager: Node, attacker_id: int, move_id: String, reason: String, operational: bool = false
 ) -> void:
@@ -67,7 +64,7 @@ static func finish_instant_turn_and_schedule_ready(manager: Node, combatant: Dic
     if manager == null or combatant.is_empty():
         return
     combatant.gauge = 0.0
-    _EventScheduler.schedule_action_ready_for_combatant(manager, combatant)
+    CombatEventScheduler.schedule_action_ready_for_combatant(manager, combatant)
 
 
 ## Milestone combat lines during editor play (`FP_COMBAT`); falls back to `[Combat]` elsewhere.
@@ -75,8 +72,8 @@ static func combat_session(msg: String) -> void:
     if msg == _last_combat_session_line:
         return
     _last_combat_session_line = msg
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_combat(msg)
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_combat(msg)
     else:
         print("[Combat] ", msg)
 
@@ -84,7 +81,7 @@ static func combat_session(msg: String) -> void:
 ## Hemostasis / pressure / dressings --" always `FP_COMBAT` in play session (grep `medical` or `FP_COMBAT`).
 static func medical_session(msg: String) -> void:
     var line: String = msg.strip_edges()
-    if _OperationalLog.is_play_session_active() and line == _last_medical_session_line:
+    if OperationalLog.is_play_session_active() and line == _last_medical_session_line:
         return
     _last_medical_session_line = line
     combat_session(line)
@@ -92,8 +89,8 @@ static func medical_session(msg: String) -> void:
 
 ## Overworld / encounter lines during editor play (`FP_WORLD`).
 static func world_session(msg: String) -> void:
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_world(msg)
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_world(msg)
     else:
         print("[World] ", msg)
 
@@ -115,10 +112,6 @@ static func flow_verbose_enabled() -> bool:
 
 
 ## Last message per dedupe key for `COMBAT_FLOW_LOG_SUPPRESS_REPEATED` (cleared on combat start/stop).
-static var _flow_log_last_by_key: Dictionary = {}
-static var _flow_log_event_last_by_key: Dictionary = {}
-static var _last_medical_session_line: String = ""
-static var _last_combat_session_line: String = ""
 
 
 static func clear_flow_log_dedup() -> void:
@@ -128,7 +121,9 @@ static func clear_flow_log_dedup() -> void:
     _last_combat_session_line = ""
 
 
-## Verbose flow. Pass `dedupe_key` for lines that may repeat unchanged every frame (e.g. `get_available_actions`, incursion snapshot); identical consecutive lines for that key are dropped when `COMBAT_FLOW_LOG_SUPPRESS_REPEATED` is on.
+## Verbose flow. Pass `dedupe_key` for lines that may repeat unchanged every frame (e.g. `get_available_actions`,
+## incursion snapshot); identical consecutive lines for that key are dropped when `COMBAT_FLOW_LOG_SUPPRESS_REPEATED` is
+## on.
 static func flow_log(msg: String, dedupe_key: String = "") -> void:
     if not flow_verbose_enabled():
         return
@@ -156,7 +151,7 @@ static func format_actions_compact(actions: Array) -> String:
         var dur_s: String = ""
         var dur_hint: String = a.get("formation_move_duration_hint", "").strip_edges()
         if not dur_hint.is_empty():
-            dur_s = " {%s}" % _FormationMoveDuration.duration_hint_for_turn_display(dur_hint)
+            dur_s = " {%s}" % CombatFormationMoveDuration.duration_hint_for_turn_display(dur_hint)
         var close_hint: String = a.get(CombatConstants.ACTION_KEY_CLOSE_LIST_HINT, "").strip_edges()
         if not close_hint.is_empty():
             dur_s = " {vs %s}" % close_hint if dur_s.is_empty() else dur_s + " vs " + close_hint
@@ -176,21 +171,21 @@ static func _medical_turn_vitals_suffix(manager: Node, choice: Dictionary) -> St
     if not CombatConstants.is_medical_move(mid):
         return ""
     var tid: int = choice.get("target_id", -1)
-    var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
+    var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tid)
     if tgt.is_empty():
         return ""
-    var ent: Node = _EntityAccess.get_entity_from_manager(manager, tgt)
+    var ent: Node = CombatantEntityAccess.get_entity_from_manager(manager, tgt)
     if ent == null:
         return ""
     var part: String = choice.get("target_part", "")
     var bleed: float = (
-        _EntityAccess.entity_bleeding_rate_for_part(manager, tgt, part)
+        CombatantEntityAccess.entity_bleeding_rate_for_part(manager, tgt, part)
         if not part.is_empty()
-        else _EntityAccess.get_total_bleeding_rate_from_node(ent)
+        else CombatantEntityAccess.get_total_bleeding_rate_from_node(ent)
     )
-    var bv: float = _EntityAccess.get_blood_volume_from_node(ent)
+    var bv: float = CombatantEntityAccess.get_blood_volume_from_node(ent)
     var pressure: String = ""
-    if not part.is_empty() and _EntityAccess.entity_has_direct_pressure_on_part(manager, tgt, part):
+    if not part.is_empty() and CombatantEntityAccess.entity_has_direct_pressure_on_part(manager, tgt, part):
         pressure = " pressure=held"
     return " tgt_bv=%.1f tgt_bleed=%.3f%s" % [bv, bleed, pressure]
 
@@ -287,9 +282,9 @@ static func log_available_actions_build(
             medical_count += 1
     var polearm_extra: String = ""
     if not medical_phase:
-        var rpv: int = _EntityAccess.rank_int(c)
-        if rpv > 0 and not _EntityAccess.get_attacking_arm(c).is_empty():
-            var w_pv: Variant = _EntityAccess.get_weapon(c)
+        var rpv: int = CombatantEntityAccess.rank_int(c)
+        if rpv > 0 and not CombatantEntityAccess.get_attacking_arm(c).is_empty():
+            var w_pv: Variant = CombatantEntityAccess.get_weapon(c)
             if w_pv is Weapon and (w_pv as Weapon).depth_melee_eligible:
                 polearm_extra = _format_depth_polearm_melee_context_debug(manager, c, w_pv as Weapon, combatants)
     var counter_filter_note: String = ""
@@ -303,10 +298,10 @@ static func log_available_actions_build(
             )
             % [
                 combatant_id,
-                _EntityAccess.side_str(c),
-                _EntityAccess.state_str(c),
-                _EntityAccess.rank_int(c),
-                _EntityAccess.file_int(c),
+                CombatantEntityAccess.side_str(c),
+                CombatantEntityAccess.state_str(c),
+                CombatantEntityAccess.rank_int(c),
+                CombatantEntityAccess.file_int(c),
                 log_fid,
                 medical_phase,
                 result_actions.size(),
@@ -331,16 +326,16 @@ static func _depth_polearm_opp_debug_line(
     formation_opponent_cache: Dictionary,
     include_threaten: bool
 ) -> String:
-    var oid: int = _EntityAccess.id_int(opp)
-    var pair_geom: Dictionary = _PairGeometry.effective_pair_geometry(
+    var oid: int = CombatantEntityAccess.id_int(opp)
+    var pair_geom: Dictionary = CombatPairGeometry.effective_pair_geometry(
         manager, c, opp, formation_attacker_cache, formation_opponent_cache
     )
-    var eff: float = _PairGeometry.cached_eff_dist(pair_geom)
-    var dist: String = _EntityAccess.distance_to_opponent_band(c, oid)
-    var reach_ok: bool = _PairGeometry.melee_reach_covers_eff_dist(melee_range, eff)
+    var eff: float = CombatPairGeometry.cached_eff_dist(pair_geom)
+    var dist: String = CombatantEntityAccess.distance_to_opponent_band(c, oid)
+    var reach_ok: bool = CombatPairGeometry.melee_reach_covers_eff_dist(melee_range, eff)
     if include_threaten:
-        var line_ok: bool = _DepthPolearm.depth_polearm_valid_line_threat(manager, c, opp, fid_ctx, lane_open)
-        var threaten: bool = reach_ok and line_ok and _MeleeListing.can_melee_threaten(manager, c, opp, pair_geom)
+        var line_ok: bool = CombatDepthPolearm.depth_polearm_valid_line_threat(manager, c, opp, fid_ctx, lane_open)
+        var threaten: bool = reach_ok and line_ok and CombatMeleeListing.can_melee_threaten(manager, c, opp, pair_geom)
         return (
             "opp%d eff=%.2f dist=%s reach_ok=%s line_ok=%s threaten=%s" % [oid, eff, dist, reach_ok, line_ok, threaten]
         )
@@ -350,26 +345,26 @@ static func _depth_polearm_opp_debug_line(
 static func _format_depth_polearm_melee_context_debug(
     manager: Node, c: Dictionary, wpn: Weapon, combatants: Array
 ) -> String:
-    var ctx_actor: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, c)
-    var fid_ctx: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_actor)
-    var lane_open: bool = _DepthPolearm.depth_polearm_lane_open(manager, c, fid_ctx)
-    var front: Dictionary = _DepthPolearm.same_file_living_rank0_ally(manager, c, fid_ctx)
-    var front_id: int = _EntityAccess.id_int(front) if not front.is_empty() else -1
-    var fd_ctx: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_actor)
+    var ctx_actor: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, c)
+    var fid_ctx: String = ZoneOfControl.zone_geometry_fid_from_pack(ctx_actor)
+    var lane_open: bool = CombatDepthPolearm.depth_polearm_lane_open(manager, c, fid_ctx)
+    var front: Dictionary = CombatDepthPolearm.same_file_living_rank0_ally(manager, c, fid_ctx)
+    var front_id: int = CombatantEntityAccess.id_int(front) if not front.is_empty() else -1
+    var fd_ctx: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx_actor)
     var dens: String = str(fd_ctx.get("density", "normal")) if not fd_ctx.is_empty() else "normal"
     var melee_range: float = float(wpn.melee_range)
-    var opp_zone: Dictionary = _ZoneOfControl.zone_geometry_line_context_by_combatant_id(manager)
+    var opp_zone: Dictionary = ZoneOfControl.zone_geometry_line_context_by_combatant_id(manager)
     var bits: PackedStringArray = []
-    for opp in _TargetScoring.ordered_melee_opponents(manager, c, combatants, 0, ctx_actor):
-        var fo: Dictionary = _ZoneOfControl.opponent_formation_for_listing(manager, c, opp, opp_zone, fd_ctx)
+    for opp in CombatTargetScoring.ordered_melee_opponents(manager, c, combatants, 0, ctx_actor):
+        var fo: Dictionary = ZoneOfControl.opponent_formation_for_listing(manager, c, opp, opp_zone, fd_ctx)
         bits.append(_depth_polearm_opp_debug_line(manager, c, opp, melee_range, fid_ctx, lane_open, fd_ctx, fo, true))
     if bits.is_empty():
         for opp in combatants:
-            if not _EntityAccess.is_living_hostile_to(c, opp):
+            if not CombatantEntityAccess.is_living_hostile_to(c, opp):
                 continue
-            if _EntityAccess.rank_int(opp) != 0:
+            if CombatantEntityAccess.rank_int(opp) != 0:
                 continue
-            var fo: Dictionary = _ZoneOfControl.opponent_formation_for_listing(manager, c, opp, opp_zone, fd_ctx)
+            var fo: Dictionary = ZoneOfControl.opponent_formation_for_listing(manager, c, opp, opp_zone, fd_ctx)
             bits.append(
                 _depth_polearm_opp_debug_line(manager, c, opp, melee_range, fid_ctx, lane_open, fd_ctx, fo, false)
             )
@@ -378,10 +373,10 @@ static func _format_depth_polearm_melee_context_debug(
     return (
         " | polearm id=%d %s rank=%d file=%d reach_m=%.2f lane_open=%s front_ally=%d dens=%s || %s"
         % [
-            _EntityAccess.id_int(c),
+            CombatantEntityAccess.id_int(c),
             wpn.display_name,
-            _EntityAccess.rank_int(c),
-            _EntityAccess.file_int(c),
+            CombatantEntityAccess.rank_int(c),
+            CombatantEntityAccess.file_int(c),
             melee_range,
             lane_open,
             front_id,

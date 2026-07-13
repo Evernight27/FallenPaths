@@ -1,17 +1,9 @@
 class_name FormationDiagramBuilder
 extends RefCounted
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _FormationPreset := preload("res://combat/FormationPreset.gd")
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-const _UiHints := preload("res://combat/CombatUiHints.gd")
-const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
-const _UiConstants := preload("res://ui/BattleUIConstants.gd")
-const _CombatConstants := preload("res://combat/CombatConstants.gd")
-
 ## Builds a compact visual formation diagram: rankÃ - file grid with per-unit health bars + names.
-## Cell label suffix order (footing): optional footwork Ã¢â ' **`[HiL]`** guard Ã¢â ' **`[Wrath]`** form — `_cell_label_with_footwork`. LIVE_PATHS **`#battle-ui`** · **`#wf-soak-audit-status`** · **`#wf-footing-doc-map`**.
+## Cell label suffix order (footing): optional footwork Ã¢â ' **`[HiL]`** guard Ã¢â ' **`[Wrath]`** form —
+## `_cell_label_with_footwork`. LIVE_PATHS **`#battle-ui`** · **`#wf-soak-audit-status`** · **`#wf-footing-doc-map`**.
 ## Shows Front (rank 0) and Back (rank 1+) so formation changes (swap rank, etc.) are trackable.
 ## Canonical: PartyRowFormatter.total_body_health_ratio / body_functionality_ratio for bar fill + tint.
 ## Returns the root Control; caller reparents into layout and calls refresh() when formation changes.
@@ -34,7 +26,7 @@ static func create(manager: Node, preset: Dictionary, side: String) -> Control:
     root.add_child(vbox)
 
     var title = Label.new()
-    title.text = "Enemies" if side == _CombatConstants.SIDE_ENEMY else "Party"
+    title.text = "Enemies" if side == CombatConstants.SIDE_ENEMY else "Party"
     title.add_theme_font_size_override("font_size", 14)
     title.add_theme_color_override("font_color", Color(0.9, 0.85, 0.8))
     vbox.add_child(title)
@@ -43,7 +35,7 @@ static func create(manager: Node, preset: Dictionary, side: String) -> Control:
     zoc_line.name = "ZocLine"
     zoc_line.add_theme_font_size_override("font_size", 10)
     zoc_line.add_theme_color_override("font_color", Color(0.55, 0.62, 0.68))
-    _RowFormatter.configure_wrapped_label(zoc_line)
+    PartyRowFormatter.configure_wrapped_label(zoc_line)
     vbox.add_child(zoc_line)
 
     var fled_line = Label.new()
@@ -51,15 +43,15 @@ static func create(manager: Node, preset: Dictionary, side: String) -> Control:
     fled_line.visible = false
     fled_line.add_theme_font_size_override("font_size", 10)
     fled_line.add_theme_color_override("font_color", Color(0.62, 0.58, 0.52))
-    _RowFormatter.configure_wrapped_label(fled_line)
+    PartyRowFormatter.configure_wrapped_label(fled_line)
     vbox.add_child(fled_line)
 
     var grid = GridContainer.new()
     var files: int = preset.get("files", 1)
     var density: String = preset.get("density", "normal")
     grid.columns = files + 1  # +1 for rank label column
-    grid.add_theme_constant_override("h_separation", int(_FormationPreset.separation_px_from_density(density) / 2.0))
-    grid.add_theme_constant_override("v_separation", int(_FormationPreset.v_separation_px_from_density(density) / 2.0))
+    grid.add_theme_constant_override("h_separation", int(FormationPreset.separation_px_from_density(density) / 2.0))
+    grid.add_theme_constant_override("v_separation", int(FormationPreset.v_separation_px_from_density(density) / 2.0))
     grid.name = "FormationDiagramGrid"
     vbox.add_child(grid)
 
@@ -143,24 +135,24 @@ static func _cell_label_with_footwork(base: String, footwork_sources: Array) -> 
             continue
         var oc: Dictionary = raw
         if not got_fw:
-            var fw: String = _UiHints.footwork_diagram_suffix(oc)
+            var fw: String = CombatUiHints.footwork_diagram_suffix(oc)
             if not fw.is_empty():
                 text += fw
                 got_fw = true
         if not got_grd:
-            var grd: String = _UiHints.guard_line_diagram_suffix(oc)
+            var grd: String = CombatUiHints.guard_line_diagram_suffix(oc)
             if not grd.is_empty():
                 text += grd
                 got_grd = true
         if not got_form:
-            var form: String = _UiHints.weapon_form_diagram_suffix(oc)
+            var form: String = CombatUiHints.weapon_form_diagram_suffix(oc)
             if not form.is_empty():
                 text += form
                 got_form = true
         if not got_leader:
-            var ldr: String = _UiHints.party_leader_diagram_suffix(oc)
+            var ldr: String = CombatUiHints.party_leader_diagram_suffix(oc)
             if ldr.is_empty():
-                ldr = _UiHints.enemy_leader_diagram_suffix(oc)
+                ldr = CombatUiHints.enemy_leader_diagram_suffix(oc)
             if not ldr.is_empty():
                 text += ldr
                 got_leader = true
@@ -177,12 +169,12 @@ static func _append_cell_tooltips(cell: Control, combatants: Array, manager: Nod
         if raw is not Dictionary:
             continue
         var oc: Dictionary = raw
-        var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))
-        var stats: Dictionary = _EntityAccess.stats_dict(oc)
-        var hp_pct: int = int(roundf(_RowFormatter.total_body_health_ratio(stats) * 100.0))
-        var fn_pct: int = int(roundf(_RowFormatter.body_functionality_ratio(oc, manager) * 100.0))
+        var nm: String = CombatantEntityAccess.get_display_name(oc, CombatantEntityAccess.id_int(oc))
+        var stats: Dictionary = CombatantEntityAccess.stats_dict(oc)
+        var hp_pct: int = int(roundf(PartyRowFormatter.total_body_health_ratio(stats) * 100.0))
+        var fn_pct: int = int(roundf(PartyRowFormatter.body_functionality_ratio(oc, manager) * 100.0))
         lines.append("%s — body %d%% · function %d%%" % [nm, hp_pct, fn_pct])
-        for line in _UiHints.formation_cell_tooltip_lines(oc, nm, manager):
+        for line in CombatUiHints.formation_cell_tooltip_lines(oc, nm, manager):
             lines.append(line)
     if lines.is_empty():
         return
@@ -191,7 +183,7 @@ static func _append_cell_tooltips(cell: Control, combatants: Array, manager: Nod
 
 static func _formation_health_bar_fill_style(functionality_ratio: float) -> StyleBoxFlat:
     var style := StyleBoxFlat.new()
-    style.bg_color = _RowFormatter.formation_health_bar_fill_color(functionality_ratio)
+    style.bg_color = PartyRowFormatter.formation_health_bar_fill_color(functionality_ratio)
     style.set_corner_radius_all(1)
     return style
 
@@ -200,14 +192,14 @@ static func _make_formation_health_bar(combatant: Dictionary, manager: Node = nu
     var bar := ProgressBar.new()
     bar.min_value = 0.0
     bar.max_value = 100.0
-    var stats: Dictionary = _EntityAccess.stats_dict(combatant)
-    var health_ratio: float = _RowFormatter.total_body_health_ratio(stats)
-    var func_ratio: float = _RowFormatter.body_functionality_ratio(combatant, manager)
+    var stats: Dictionary = CombatantEntityAccess.stats_dict(combatant)
+    var health_ratio: float = PartyRowFormatter.total_body_health_ratio(stats)
+    var func_ratio: float = PartyRowFormatter.body_functionality_ratio(combatant, manager)
     bar.value = health_ratio * 100.0
     bar.show_percentage = false
-    bar.custom_minimum_size = Vector2(0, _UiConstants.FORMATION_HEALTH_BAR_HEIGHT)
+    bar.custom_minimum_size = Vector2(0, BattleUIConstants.FORMATION_HEALTH_BAR_HEIGHT)
     bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    bar.add_theme_stylebox_override("background", _UiConstants.progress_bar_background_style())
+    bar.add_theme_stylebox_override("background", BattleUIConstants.progress_bar_background_style())
     bar.add_theme_stylebox_override("fill", _formation_health_bar_fill_style(func_ratio))
     return bar
 
@@ -251,7 +243,7 @@ static func _build_formation_cell(
             if raw is not Dictionary:
                 continue
             var oc_fb: Dictionary = raw
-            var nm_fb: String = _EntityAccess.get_display_name(oc_fb, _EntityAccess.id_int(oc_fb))
+            var nm_fb: String = CombatantEntityAccess.get_display_name(oc_fb, CombatantEntityAccess.id_int(oc_fb))
             cell.add_child(_make_unit_stack(oc_fb, nm_fb, manager))
             break
     if cell.get_child_count() == 0:
@@ -282,14 +274,14 @@ static func _refresh_internal(diagram_root: Control) -> void:
         if raw_cap is not Dictionary:
             continue
         var cap: Dictionary = raw_cap
-        snap_by_id[_EntityAccess.id_int(cap)] = cap
+        snap_by_id[CombatantEntityAccess.id_int(cap)] = cap
 
     var files: int = preset.get("files", 1)
     var ranks: int = preset.get("ranks", 1)
     var formation: Dictionary = {}
     if "formations" in manager and manager.formations is Dictionary:
-        formation = _FormationSlots.formation_record_for_manager(manager, side)
-    var slot_map: Dictionary = _FormationSlots.formation_nested_dictionary_read(formation, "slots")
+        formation = FormationSlots.formation_record_for_manager(manager, side)
+    var slot_map: Dictionary = FormationSlots.formation_nested_dictionary_read(formation, "slots")
     # Keep diagram bounds synced with actual slot occupancy (not just preset), so deep swaps/plugs remain visible.
     for k in slot_map.keys():
         if k is Vector2i:
@@ -301,15 +293,15 @@ static func _refresh_internal(diagram_root: Control) -> void:
     var slot_to_combatant: Dictionary = {}
     var fled_names: PackedStringArray = PackedStringArray()
     for c in caps:
-        if _EntityAccess.side_str(c) != side:
+        if CombatantEntityAccess.side_str(c) != side:
             continue
-        if _EntityAccess.has_left_battlefield(c) and _EntityAccess.alive_bool(c, true):
-            fled_names.append(_EntityAccess.get_display_name(c, _EntityAccess.id_int(c)))
+        if CombatantEntityAccess.has_left_battlefield(c) and CombatantEntityAccess.alive_bool(c, true):
+            fled_names.append(CombatantEntityAccess.get_display_name(c, CombatantEntityAccess.id_int(c)))
             continue
-        if not _EntityAccess.is_on_battlefield(c):
+        if not CombatantEntityAccess.is_on_battlefield(c):
             continue
-        var r: int = _EntityAccess.rank_int(c)
-        var f: int = _EntityAccess.file_int(c)
+        var r: int = CombatantEntityAccess.rank_int(c)
+        var f: int = CombatantEntityAccess.file_int(c)
         slot_to_combatant[Vector2i(r, f)] = c
     if fled_line != null:
         if fled_names.is_empty():
@@ -323,7 +315,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
     for child in grid.get_children():
         child.free()
 
-    var display_files: Array = _FormationSlots.column_display_files(formation, files)
+    var display_files: Array = FormationSlots.column_display_files(formation, files)
     if display_files.is_empty():
         for fi in range(files):
             display_files.append(fi)
@@ -341,16 +333,16 @@ static func _refresh_internal(diagram_root: Control) -> void:
         for file_idx in display_files:
             var file: int = int(file_idx)
             var key := Vector2i(rank, file)
-            var occ: Array = _FormationSlots.normalize_cell(slot_map.get(key, []))
+            var occ: Array = FormationSlots.normalize_cell(slot_map.get(key, []))
             var footwork_sources: Array = []
             var unit_entries: Array = []
             if not occ.is_empty():
                 for cid in occ:
                     var oc: Variant = snap_by_id.get(int(cid), null)
-                    if oc != null and oc is Dictionary and _EntityAccess.is_on_battlefield(oc):
-                        if _ZoneOfControl.zone_geometry_fid_from_row(manager, oc) != side:
+                    if oc != null and oc is Dictionary and CombatantEntityAccess.is_on_battlefield(oc):
+                        if ZoneOfControl.zone_geometry_fid_from_row(manager, oc) != side:
                             continue
-                        var nm: String = _EntityAccess.get_display_name(oc, _EntityAccess.id_int(oc))
+                        var nm: String = CombatantEntityAccess.get_display_name(oc, CombatantEntityAccess.id_int(oc))
                         unit_entries.append({"combatant": oc, "name": nm})
                         footwork_sources.append(oc)
             if unit_entries.is_empty():
@@ -362,7 +354,7 @@ static func _refresh_internal(diagram_root: Control) -> void:
                         . append(
                             {
                                 "combatant": fc,
-                                "name": _EntityAccess.get_display_name(fc, _EntityAccess.id_int(fc)),
+                                "name": CombatantEntityAccess.get_display_name(fc, CombatantEntityAccess.id_int(fc)),
                             }
                         )
                     )

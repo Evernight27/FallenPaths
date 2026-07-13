@@ -3,33 +3,27 @@ extends RefCounted
 
 ## Line cohesion (0..1) and engagement posture per formation. Spec: docs/LIVE_PATHS.md (Tier 0-1).
 
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
-const _MoraleCohesion := preload("res://combat/CombatMoraleCohesion.gd")
-const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _CombatConstants := preload("res://combat/CombatConstants.gd")
-
 
 static func recompute_all(manager: Node) -> void:
     if manager == null or not manager.get("formations"):
         return
-    _MoraleCohesion.apply_to_formations(manager)
+    CombatMoraleCohesion.apply_to_formations(manager)
     # Single engagement snapshot for fill + raw_mode (avoids repeating full combatant scans per formation).
-    var snap: Dictionary = _EngagementMode.snapshot(manager)
-    # Two-pass: both sides use the same tick's cohesions for opponent-relative posture thresholds (Tier 1.4 asymmetric coupling).
+    var snap: Dictionary = CombatEngagementMode.snapshot(manager)
+    # Two-pass: both sides use the same tick's cohesions for opponent-relative posture thresholds (Tier 1.4 asymmetric
+    # coupling).
     var coh_by_fid: Dictionary = {}
     for fid in ["player", "enemy"]:
-        var form0: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+        var form0: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
         if form0.is_empty():
             continue
         coh_by_fid[fid] = _compute_line_cohesion(manager, fid, form0, snap)
     for fid in ["player", "enemy"]:
-        var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+        var form: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
         if form.is_empty():
             continue
         var coh: float = coh_by_fid.get(fid, 0.0)
-        var opp_fid: String = _EntityAccess.opponent_side_label(fid)
+        var opp_fid: String = CombatantEntityAccess.opponent_side_label(fid)
         var opp_coh: float = coh_by_fid.get(opp_fid, coh)
         var posture: String = _compute_posture(manager, fid, coh, form, opp_coh, snap)
         var prev_c: float = form.get("line_cohesion", -1.0)
@@ -38,9 +32,9 @@ static func recompute_all(manager: Node) -> void:
         form["engagement_posture"] = posture
         var changed: bool = absf(prev_c - coh) > 0.004 or prev_p != posture
         if changed:
-            _EntityAccess.manager_notify_engagement_state_changed(manager, fid, coh, posture)
+            CombatantEntityAccess.manager_notify_engagement_state_changed(manager, fid, coh, posture)
 
-    _CombatDoctrine.evaluate_automatic_doctrine(manager)
+    CombatDoctrine.evaluate_automatic_doctrine(manager)
 
 
 static func _avg_numeric_values_clamped_0_1(values: Array) -> float:
@@ -53,18 +47,18 @@ static func _avg_numeric_values_clamped_0_1(values: Array) -> float:
 
 
 static func _avg_lane_stress(form: Dictionary) -> float:
-    var ls: Dictionary = _FormationSlots.formation_nested_dictionary_read(form, "lane_stress_by_file")
+    var ls: Dictionary = FormationSlots.formation_nested_dictionary_read(form, "lane_stress_by_file")
     return _avg_numeric_values_clamped_0_1(ls.values())
 
 
 static func _compute_line_cohesion(manager: Node, fid: String, form: Dictionary, snap: Dictionary) -> float:
     var front_fill: float = 0.0
-    if fid == _CombatConstants.SIDE_PLAYER:
+    if fid == CombatConstants.SIDE_PLAYER:
         front_fill = snap.get("player_front_fill", 0.0)
-    elif fid == _CombatConstants.SIDE_ENEMY:
+    elif fid == CombatConstants.SIDE_ENEMY:
         front_fill = snap.get("enemy_front_fill", 0.0)
     else:
-        var n_front: int = _EngagementMode.count_front_rank_alive(manager, fid)
+        var n_front: int = CombatEngagementMode.count_front_rank_alive(manager, fid)
         var files: int = maxi(1, int(form.get("files", 1)))
         front_fill = clampf(float(n_front) / float(files), 0.0, 1.0)
     var lane_stress_avg: float = _avg_lane_stress(form)

@@ -1,18 +1,13 @@
 class_name CombatDoctrine
 extends RefCounted
 
-## Per-formation **intent** (doctrine): steers hybrid targeting weights + ordering via `CombatTargetScoring` / `CombatAIActionPicker`.
-## Pincer roles (**`PINCER_ROLE_*`**) when **`DOCTRINE_PINCH_CENTER`** + wider files than opponent: center pins, flank wings close/flank.
-## III-4 **3e** post-rout mop-up: `envelop_mop_up_active`, `envelop_close_allowed`, `hold_line_close_pick_eligible`, `fight_finish_tail_active`, `sparse_line_prefer_finish_over_shuffle`, `should_suppress_skirmish_rotate_file`.
+## Per-formation **intent** (doctrine): steers hybrid targeting weights + ordering via `CombatTargetScoring` /
+## `CombatAIActionPicker`.
+## Pincer roles (**`PINCER_ROLE_*`**) when **`DOCTRINE_PINCH_CENTER`** + wider files than opponent: center pins, flank
+## wings close/flank.
+## III-4 **3e** post-rout mop-up: `envelop_mop_up_active`, `envelop_close_allowed`, `hold_line_close_pick_eligible`,
+## `fight_finish_tail_active`, `sparse_line_prefer_finish_over_shuffle`, `should_suppress_skirmish_rotate_file`.
 ## Orthogonal to engagement-mode / posture targeting weights on melee/close listing.
-
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _TacticalCombat := preload("res://combat/TacticalCombat.gd")
-const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
-const _ListedActions := preload("res://combat/CombatListedActions.gd")
-const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
 
 const PINCER_ROLE_NONE := ""
 const PINCER_ROLE_CENTER := "center"
@@ -46,7 +41,7 @@ static func clear_commitments_for_side(manager: Node, formation_id: String) -> v
     if manager == null:
         return
     for c in manager.combatants:
-        if _EntityAccess.formation_id_str(c) != formation_id:
+        if CombatantEntityAccess.formation_id_str(c) != formation_id:
             continue
         clear_combatant_doctrine_commitment(c)
         c["close_block_until_by_target_id"] = {}
@@ -61,12 +56,14 @@ static func clear_combatant_doctrine_commitment(c: Dictionary) -> void:
     c["close_block_until_by_target_id"] = {}
 
 
-## True when the **opposing** formation--'"'s front rank has a **hollow center**: middle file(s) empty with at least one living rank-0 on both wings (`files >= 3`). Rank-0 on **`combatant_on_zone_geometry_fid`**. Used for automatic pinch doctrine; exposed for harness.
+## True when the **opposing** formation--'"'s front rank has a **hollow center**: middle file(s) empty with at least one
+## living rank-0 on both wings (`files >= 3`). Rank-0 on **`combatant_on_zone_geometry_fid`**. Used for automatic pinch
+## doctrine; exposed for harness.
 static func enemy_line_hollow_center_for_pinch(manager: Node, our_formation_id: String) -> bool:
     if manager == null:
         return false
-    var opp_fid: String = _EntityAccess.opponent_side_label(str(our_formation_id))
-    var fd: Dictionary = _FormationSlots.formation_record_for_manager(manager, opp_fid)
+    var opp_fid: String = CombatantEntityAccess.opponent_side_label(str(our_formation_id))
+    var fd: Dictionary = FormationSlots.formation_record_for_manager(manager, opp_fid)
     if fd.is_empty():
         return false
     var nfiles: int = maxi(1, int(fd.get("files", 1)))
@@ -77,13 +74,13 @@ static func enemy_line_hollow_center_for_pinch(manager: Node, our_formation_id: 
     for i in nfiles:
         has_r0[i] = false
     for c in manager.combatants:
-        if not _EntityAccess.is_standing_combatant(c):
+        if not CombatantEntityAccess.is_standing_combatant(c):
             continue
-        if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, c, opp_fid):
+        if not ZoneOfControl.combatant_on_zone_geometry_fid(manager, c, opp_fid):
             continue
-        if _EntityAccess.rank_int(c) != 0:
+        if CombatantEntityAccess.rank_int(c) != 0:
             continue
-        var fi: int = _EntityAccess.file_int(c)
+        var fi: int = CombatantEntityAccess.file_int(c)
         if fi >= 0 and fi < nfiles:
             has_r0[fi] = true
     if (nfiles & 1) == 1:
@@ -123,11 +120,11 @@ static func living_rank0_front_count(manager: Node, formation_id: String) -> int
     var fid: String = str(formation_id)
     var n: int = 0
     for c in manager.combatants:
-        if not _EntityAccess.is_standing_combatant(c):
+        if not CombatantEntityAccess.is_standing_combatant(c):
             continue
-        if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, c, fid):
+        if not ZoneOfControl.combatant_on_zone_geometry_fid(manager, c, fid):
             continue
-        if _EntityAccess.rank_int(c) != 0:
+        if CombatantEntityAccess.rank_int(c) != 0:
             continue
         n += 1
     return n
@@ -138,9 +135,9 @@ static func numeric_superiority_for_pinch(manager: Node, our_formation_id: Strin
     if manager == null:
         return false
     var our_fid: String = str(our_formation_id)
-    var opp_fid: String = _EntityAccess.opponent_side_label(our_fid)
-    var our_form: Dictionary = _FormationSlots.formation_record_for_manager(manager, our_fid)
-    var opp_form: Dictionary = _FormationSlots.formation_record_for_manager(manager, opp_fid)
+    var opp_fid: String = CombatantEntityAccess.opponent_side_label(our_fid)
+    var our_form: Dictionary = FormationSlots.formation_record_for_manager(manager, our_fid)
+    var opp_form: Dictionary = FormationSlots.formation_record_for_manager(manager, opp_fid)
     if our_form.is_empty() or opp_form.is_empty():
         return false
     var our_files: int = maxi(1, int(our_form.get("files", 1)))
@@ -152,7 +149,9 @@ static func numeric_superiority_for_pinch(manager: Node, our_formation_id: Strin
     return our_front >= opp_front + int(CombatConstants.AUTO_DOCTRINE_NUMERIC_SUPERIORITY_FRONT_MARGIN)
 
 
-## Option 4 pilot (`CombatConstants.FEATURE_AUTOMATIC_DOCTRINE`): **default** doctrine |' **pinch_center** when hollow enemy front or numeric superiority (p4c). Does not override player-set **hold** / **pinch**; does not auto-revert. Single call site: `CombatFormationEngagement.recompute_all`.
+## Option 4 pilot (`CombatConstants.FEATURE_AUTOMATIC_DOCTRINE`): **default** doctrine |' **pinch_center** when hollow
+## enemy front or numeric superiority (p4c). Does not override player-set **hold** / **pinch**; does not auto-revert.
+## Single call site: `CombatFormationEngagement.recompute_all`.
 static func evaluate_automatic_doctrine(manager: Node) -> void:
     if manager == null or not CombatConstants.FEATURE_AUTOMATIC_DOCTRINE:
         return
@@ -167,7 +166,7 @@ static func evaluate_automatic_doctrine(manager: Node) -> void:
         if reason.is_empty():
             continue
         manager.set_formation_doctrine(fid, CombatConstants.DOCTRINE_PINCH_CENTER)
-        _TacticalCombat.record_automatic_doctrine_pinch(manager, fid, reason)
+        TacticalCombat.record_automatic_doctrine_pinch(manager, fid, reason)
 
 
 ## True when **`DOCTRINE_PINCH_CENTER`** and our formation spans more files than the opponent (7v3 skirmish pincer).
@@ -177,9 +176,9 @@ static func pincer_outnumber_active(manager: Node, formation_id: String) -> bool
     var our_fid: String = str(formation_id)
     if doctrine_for_fid(manager, our_fid) != CombatConstants.DOCTRINE_PINCH_CENTER:
         return false
-    var opp_fid: String = _EntityAccess.opponent_side_label(our_fid)
-    var our_form: Dictionary = _FormationSlots.formation_record_for_manager(manager, our_fid)
-    var opp_form: Dictionary = _FormationSlots.formation_record_for_manager(manager, opp_fid)
+    var opp_fid: String = CombatantEntityAccess.opponent_side_label(our_fid)
+    var our_form: Dictionary = FormationSlots.formation_record_for_manager(manager, our_fid)
+    var opp_form: Dictionary = FormationSlots.formation_record_for_manager(manager, opp_fid)
     if our_form.is_empty() or opp_form.is_empty():
         return false
     return int(our_form.get("files", 1)) > int(opp_form.get("files", 1))
@@ -189,20 +188,20 @@ static func pincer_outnumber_active(manager: Node, formation_id: String) -> bool
 static func pincer_role_for_combatant(manager: Node, c: Dictionary) -> String:
     if manager == null or c.is_empty():
         return PINCER_ROLE_NONE
-    if _EntityAccess.rank_int(c) != 0:
+    if CombatantEntityAccess.rank_int(c) != 0:
         return PINCER_ROLE_NONE
-    var fid: String = _EntityAccess.formation_id_str(c)
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
     if not pincer_outnumber_active(manager, fid):
         return PINCER_ROLE_NONE
-    var our_form: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
-    var opp_form: Dictionary = _FormationSlots.formation_record_for_manager(
-        manager, _EntityAccess.opponent_side_label(fid)
+    var our_form: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
+    var opp_form: Dictionary = FormationSlots.formation_record_for_manager(
+        manager, CombatantEntityAccess.opponent_side_label(fid)
     )
     if our_form.is_empty() or opp_form.is_empty():
         return PINCER_ROLE_NONE
     var our_files: int = maxi(1, int(our_form.get("files", 1)))
     var opp_files: int = maxi(1, int(opp_form.get("files", 1)))
-    var our_file: int = _EntityAccess.file_int(c)
+    var our_file: int = CombatantEntityAccess.file_int(c)
     var edge_margin: int = maxi(1, int((our_files - opp_files) / 2.0))
     var dist_from_near_edge: int = mini(our_file, our_files - 1 - our_file)
     if dist_from_near_edge < edge_margin:
@@ -224,13 +223,13 @@ static func preferred_pincer_flank_enemy_id(manager: Node, wing: Dictionary) -> 
         return -1
     if pincer_role_for_combatant(manager, wing) != PINCER_ROLE_FLANK_WING:
         return -1
-    var our_form: Dictionary = _FormationSlots.formation_record_for_manager(
-        manager, _EntityAccess.formation_id_str(wing)
+    var our_form: Dictionary = FormationSlots.formation_record_for_manager(
+        manager, CombatantEntityAccess.formation_id_str(wing)
     )
     if our_form.is_empty():
         return -1
     var our_files: int = maxi(1, int(our_form.get("files", 1)))
-    var our_file: int = _EntityAccess.file_int(wing)
+    var our_file: int = CombatantEntityAccess.file_int(wing)
     var pick_min_file: bool = our_file <= (our_files - 1 - our_file)
     var best_id: int = -1
     var best_file: int = 999999 if pick_min_file else -999999
@@ -238,18 +237,18 @@ static func preferred_pincer_flank_enemy_id(manager: Node, wing: Dictionary) -> 
         if raw is not Dictionary:
             continue
         var opp: Dictionary = raw as Dictionary
-        if not _EntityAccess.is_living_hostile_to(wing, opp):
+        if not CombatantEntityAccess.is_living_hostile_to(wing, opp):
             continue
-        if _EntityAccess.rank_int(opp) != 0:
+        if CombatantEntityAccess.rank_int(opp) != 0:
             continue
-        var ef: int = _EntityAccess.file_int(opp)
+        var ef: int = CombatantEntityAccess.file_int(opp)
         if pick_min_file:
             if ef < best_file:
                 best_file = ef
-                best_id = _EntityAccess.id_int(opp)
+                best_id = CombatantEntityAccess.id_int(opp)
         elif ef > best_file:
             best_file = ef
-            best_id = _EntityAccess.id_int(opp)
+            best_id = CombatantEntityAccess.id_int(opp)
     return best_id
 
 
@@ -263,16 +262,16 @@ static func pincer_close_arc_spread_mult(manager: Node, actor: Dictionary, opp: 
     var pref: int = preferred_pincer_flank_enemy_id(manager, actor)
     if pref < 0:
         return 1.0
-    var opp_file: int = _EntityAccess.file_int(opp)
-    var our_form: Dictionary = _FormationSlots.formation_record_for_manager(
-        manager, _EntityAccess.formation_id_str(actor)
+    var opp_file: int = CombatantEntityAccess.file_int(opp)
+    var our_form: Dictionary = FormationSlots.formation_record_for_manager(
+        manager, CombatantEntityAccess.formation_id_str(actor)
     )
     if our_form.is_empty():
         return 1.0
     var pref_enemy: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, pref)
     if pref_enemy.is_empty():
         return 1.0
-    var pref_file: int = _EntityAccess.file_int(pref_enemy)
+    var pref_file: int = CombatantEntityAccess.file_int(pref_enemy)
     var file_offset: int = absi(opp_file - pref_file)
     if file_offset <= 0:
         return 1.0
@@ -286,11 +285,11 @@ static func _pincer_wing_has_active_commitment(manager: Node, c: Dictionary) -> 
         return false
     if manager == null:
         return true
-    var clock: float = _EntityAccess.combat_clock_float(manager)
+    var clock: float = CombatantEntityAccess.combat_clock_float(manager)
     if clock > c.get("doctrine_commit_until", 0.0):
         return false
-    var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
-    return not tgt.is_empty() and _EntityAccess.is_standing_combatant(tgt)
+    var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tid)
+    return not tgt.is_empty() and CombatantEntityAccess.is_standing_combatant(tgt)
 
 
 ## When a **center** fighter commits, stamp matching **flank_wing** allies toward outer enemy files (pincer mop-up).
@@ -299,20 +298,22 @@ static func propagate_pincer_wing_commitments_from_center(
 ) -> void:
     if manager == null or center_id < 0:
         return
-    var center: Dictionary = _EntityAccess.manager_get_combatant(manager, center_id)
+    var center: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, center_id)
     if center.is_empty():
         return
     if pincer_role_for_combatant(manager, center) != PINCER_ROLE_CENTER:
         return
-    var fid: String = _EntityAccess.formation_id_str(center)
-    var until: float = _EntityAccess.combat_clock_float(manager) + CombatConstants.DOCTRINE_COMMITMENT_DURATION_S
+    var fid: String = CombatantEntityAccess.formation_id_str(center)
+    var until: float = (
+        CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.DOCTRINE_COMMITMENT_DURATION_S
+    )
     for raw in manager.combatants:
         if raw is not Dictionary:
             continue
         var wing := raw as Dictionary
-        if _EntityAccess.formation_id_str(wing) != fid:
+        if CombatantEntityAccess.formation_id_str(wing) != fid:
             continue
-        if _EntityAccess.rank_int(wing) != 0:
+        if CombatantEntityAccess.rank_int(wing) != 0:
             continue
         if pincer_role_for_combatant(manager, wing) != PINCER_ROLE_FLANK_WING:
             continue
@@ -332,7 +333,7 @@ static func envelop_mop_up_active(manager: Node, formation_id: String) -> bool:
     var our_fid: String = formation_id.strip_edges()
     if our_fid.is_empty():
         return false
-    var opp_fid: String = _EntityAccess.opponent_side_label(our_fid)
+    var opp_fid: String = CombatantEntityAccess.opponent_side_label(our_fid)
     var our_active: int = _standing_active_count_for_side(manager, our_fid)
     var opp_active: int = _standing_active_count_for_side(manager, opp_fid)
     if opp_active > int(CombatConstants.ENVELOP_MOP_UP_MAX_ENEMY_ACTIVE):
@@ -342,15 +343,19 @@ static func envelop_mop_up_active(manager: Node, formation_id: String) -> bool:
     return our_active > opp_active
 
 
-## Mental stack L4b / trusted close: sparse rank-0, envelop mop-up (any rank), or last-enemy underdog with listed offense.
+## Mental stack L4b / trusted close: sparse rank-0, envelop mop-up (any rank), or last-enemy underdog with listed
+## offense.
 static func fight_finish_tail_active(manager: Node, c: Dictionary, actions: Array, combatant_id: int) -> bool:
     if manager == null or c.is_empty() or combatant_id < 0:
         return false
-    if not _ListedActions.action_list_has_hostile_strike(actions, combatant_id):
+    if not CombatListedActions.action_list_has_hostile_strike(actions, combatant_id):
         return false
-    var fid: String = _EntityAccess.formation_id_str(c)
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
     return (
-        (_EntityAccess.rank_int(c) == 0 and _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid))
+        (
+            CombatantEntityAccess.rank_int(c) == 0
+            and CombatFormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
+        )
         or mop_up_underdog_active(manager, c)
         or envelop_mop_up_active(manager, fid)
     )
@@ -360,10 +365,10 @@ static func fight_finish_tail_active(manager: Node, c: Dictionary, actions: Arra
 static func mop_up_underdog_active(manager: Node, c: Dictionary) -> bool:
     if manager == null or c.is_empty():
         return false
-    var fid: String = _EntityAccess.formation_id_str(c)
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
     if fid.is_empty():
         return false
-    return envelop_mop_up_active(manager, _EntityAccess.opponent_side_label(fid))
+    return envelop_mop_up_active(manager, CombatantEntityAccess.opponent_side_label(fid))
 
 
 ## Close listing/resolve when band/reach disagree (MID/CLOSE band, out of swing range) during envelop.
@@ -371,10 +376,10 @@ static func mop_up_underdog_active(manager: Node, c: Dictionary) -> bool:
 static func envelop_close_allowed(manager: Node, attacker: Dictionary, defender_id: int) -> bool:
     if manager == null or attacker.is_empty() or defender_id < 0:
         return false
-    var fid: String = _EntityAccess.formation_id_str(attacker)
+    var fid: String = CombatantEntityAccess.formation_id_str(attacker)
     if envelop_mop_up_active(manager, fid):
         return true
-    var band: String = _EntityAccess.distance_to_opponent_band(attacker, defender_id)
+    var band: String = CombatantEntityAccess.distance_to_opponent_band(attacker, defender_id)
     if band != CombatConstants.DISTANCE_LONG:
         return false
     if not pincer_flank_wing_should_close_at_long(manager, attacker):
@@ -387,14 +392,17 @@ static func envelop_close_allowed(manager: Node, attacker: Dictionary, defender_
 static func hold_line_close_pick_eligible(manager: Node, c: Dictionary) -> bool:
     if manager == null or c.is_empty():
         return false
-    if _EngagementOpposition.wing_lacks_mapped_opposition(manager, c):
+    if EngagementOpposition.wing_lacks_mapped_opposition(manager, c):
         return true
     if pincer_flank_wing_should_close_at_long(manager, c):
         return true
-    if _EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
+    if EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
         return true
-    var fid: String = _EntityAccess.formation_id_str(c)
-    if _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid) and _EntityAccess.rank_int(c) == 0:
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
+    if (
+        CombatFormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
+        and CombatantEntityAccess.rank_int(c) == 0
+    ):
         return true
     return envelop_mop_up_active(manager, fid)
 
@@ -405,15 +413,15 @@ static func sparse_line_prefer_finish_over_shuffle(
 ) -> bool:
     if manager == null or c.is_empty():
         return false
-    var cid: int = combatant_id if combatant_id >= 0 else _EntityAccess.id_int(c)
+    var cid: int = combatant_id if combatant_id >= 0 else CombatantEntityAccess.id_int(c)
     if fight_finish_tail_active(manager, c, actions, cid):
         return true
-    var fid: String = _EntityAccess.formation_id_str(c)
-    if not _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid):
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
+    if not CombatFormationFlow.skirmish_line_sparse_after_casualties(manager, fid):
         return false
-    if _ListedActions.action_list_has_hostile_melee_strike(actions, cid):
+    if CombatListedActions.action_list_has_hostile_melee_strike(actions, cid):
         return true
-    if _EntityAccess.rank_int(c) == 0 and _sparse_rank0_opponent_in_close_or_mid_band(manager, c):
+    if CombatantEntityAccess.rank_int(c) == 0 and _sparse_rank0_opponent_in_close_or_mid_band(manager, c):
         return true
     return false
 
@@ -424,22 +432,22 @@ static func sparse_line_prefer_finish_over_shuffle(
 static func should_suppress_skirmish_rotate_file(manager: Node, c: Dictionary, actions: Array) -> bool:
     if manager == null or c.is_empty():
         return false
-    var cid: int = _EntityAccess.id_int(c)
-    var fid: String = _EntityAccess.formation_id_str(c)
+    var cid: int = CombatantEntityAccess.id_int(c)
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
     if envelop_mop_up_active(manager, fid):
-        return not _ListedActions.action_list_has_hostile_melee_strike(actions, cid)
+        return not CombatListedActions.action_list_has_hostile_melee_strike(actions, cid)
     if (
-        _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
-        and _ListedActions.action_list_has_hostile_strike(actions, cid)
+        CombatFormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
+        and CombatListedActions.action_list_has_hostile_strike(actions, cid)
     ):
         return true
     if (
-        _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
-        and _EntityAccess.rank_int(c) == 0
+        CombatFormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
+        and CombatantEntityAccess.rank_int(c) == 0
         and _sparse_rank0_opponent_in_close_or_mid_band(manager, c)
     ):
         return true
-    if _EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
+    if EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
         return true
     return false
 
@@ -447,16 +455,16 @@ static func should_suppress_skirmish_rotate_file(manager: Node, c: Dictionary, a
 static func _sparse_rank0_opponent_in_close_or_mid_band(manager: Node, c: Dictionary) -> bool:
     if manager == null or c.is_empty():
         return false
-    var opp_side: String = _EntityAccess.opponent_side_for(c)
+    var opp_side: String = CombatantEntityAccess.opponent_side_for(c)
     if opp_side.is_empty():
         return false
     for raw in manager.combatants:
         if raw is not Dictionary:
             continue
         var opp := raw as Dictionary
-        if not _EntityAccess.is_living_on_side(opp, opp_side):
+        if not CombatantEntityAccess.is_living_on_side(opp, opp_side):
             continue
-        var band: String = _EntityAccess.distance_to_opponent_band(c, _EntityAccess.id_int(opp))
+        var band: String = CombatantEntityAccess.distance_to_opponent_band(c, CombatantEntityAccess.id_int(opp))
         if band == CombatConstants.DISTANCE_CLOSE or band == CombatConstants.DISTANCE_MID:
             return true
     return false
@@ -473,9 +481,9 @@ static func _standing_active_count_for_side(manager: Node, side: String) -> int:
         if raw is not Dictionary:
             continue
         var c := raw as Dictionary
-        if not _EntityAccess.is_standing_combatant(c):
+        if not CombatantEntityAccess.is_standing_combatant(c):
             continue
-        if _EntityAccess.formation_id_str(c) != fid:
+        if CombatantEntityAccess.formation_id_str(c) != fid:
             continue
         n += 1
     return n

@@ -1,7 +1,8 @@
 class_name CombatFormationRout
 extends RefCounted
 
-## Rout / abandon-field policy: ties **`flee`** to formation **`line_cohesion`** (morale, fill, lane stress) and side **casualty ratio**.
+## Rout / abandon-field policy: ties **`flee`** to formation **`line_cohesion`** (morale, fill, lane stress) and side
+## **casualty ratio**.
 ## **Read order:** standing baseline --'' stress/casualty queries --'' `abandonment_warranted` --'' AI/tooltip helpers.
 const FORMATION_FLEE_LEADER_BLOOD_MIN := 27.5
 
@@ -12,26 +13,16 @@ static func is_party_leader_combatant(c: Dictionary) -> bool:
 
 ## Canonical: **`CombatantEntityAccess.flee_abandonment_warranted`** delegates here.
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _ListedActions := preload("res://combat/CombatListedActions.gd")
-
 
 static func _get_entity_access() -> GDScript:
-    return _EntityAccess
-
-
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _VacancyPlugs := preload("res://combat/CombatFormationVacancyPlugs.gd")
-const _FormationFlee := preload("res://combat/CombatFormationFlee.gd")
-const _FormationMoveListing := preload("res://combat/CombatFormationMoveListing.gd")
-const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
+    return CombatantEntityAccess
 
 
 ## True 1v1 engagement mode (see **`CombatEngagementMode.engagement_mode`**).
 static func is_true_duel(manager: Node) -> bool:
     if manager == null:
         return false
-    return _EngagementMode.engagement_mode(manager) == "duel"
+    return CombatEngagementMode.engagement_mode(manager) == "duel"
 
 
 ## Armed duelists fight to the death; flee is blocked for MS-L5/L6/L9 pools.
@@ -57,10 +48,10 @@ static func stamp_standing_counts_at_start(manager: Node) -> void:
     if manager == null or not manager.get("formations"):
         return
     for fid in [CombatConstants.SIDE_PLAYER, CombatConstants.SIDE_ENEMY]:
-        var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+        var form: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
         if form.is_empty():
             continue
-        var side: String = _FormationSlots.formation_side_str(form, fid)
+        var side: String = FormationSlots.formation_side_str(form, fid)
         form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = standing_count_for_side(manager, side)
 
 
@@ -70,7 +61,7 @@ static func ensure_rout_baseline(manager: Node) -> void:
         return
     var need_stamp: bool = false
     for fid in [CombatConstants.SIDE_PLAYER, CombatConstants.SIDE_ENEMY]:
-        var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+        var form: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
         if form.is_empty():
             continue
         if form.get(CombatConstants.FORMATION_KEY_STANDING_AT_START, 0) <= 0:
@@ -116,7 +107,7 @@ static func formation_record_for_combatant(manager: Node, c: Dictionary) -> Dict
     var fid: String = _get_entity_access().formation_id_str(c)
     if fid.is_empty():
         return {}
-    return _FormationSlots.formation_record_for_manager(manager, fid)
+    return FormationSlots.formation_record_for_manager(manager, fid)
 
 
 static func _threshold_float(
@@ -175,7 +166,7 @@ static func casualty_ratio_for_combatant(manager: Node, c: Dictionary) -> float:
     if start_n <= 0:
         return 0.0
     var fid: String = _get_entity_access().formation_id_str(c)
-    var side: String = _FormationSlots.formation_side_str(form, fid)
+    var side: String = FormationSlots.formation_side_str(form, fid)
     var now_n: int = standing_count_for_side(manager, side)
     return clampf(1.0 - float(now_n) / float(start_n), 0.0, 1.0)
 
@@ -254,7 +245,8 @@ static func abandonment_warranted(manager: Node, c: Dictionary) -> bool:
     return false
 
 
-## AI pick multiplier from formation stress (not raw combatant `morale_cohesion` '"" that already feeds `line_cohesion`).
+## AI pick multiplier from formation stress (not raw combatant `morale_cohesion` '"" that already feeds
+## `line_cohesion`).
 static func flee_ai_pick_mult(manager: Node, c: Dictionary) -> float:
     var coh: float = line_cohesion_for_combatant(manager, c)
     var cas: float = casualty_ratio_for_combatant(manager, c)
@@ -287,13 +279,13 @@ static func casualty_percent_for_formation(manager: Node, formation_id: String) 
     if manager == null or formation_id.is_empty():
         return 0
     ensure_rout_baseline(manager)
-    var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, formation_id)
+    var form: Dictionary = FormationSlots.formation_record_for_manager(manager, formation_id)
     if form.is_empty():
         return 0
     var start_n: int = form.get(CombatConstants.FORMATION_KEY_STANDING_AT_START, 0)
     if start_n <= 0:
         return 0
-    var side: String = _FormationSlots.formation_side_str(form, formation_id)
+    var side: String = FormationSlots.formation_side_str(form, formation_id)
     var now_n: int = standing_count_for_side(manager, side)
     return int(round(clampf(1.0 - float(now_n) / float(start_n), 0.0, 1.0) * 100.0))
 
@@ -346,15 +338,15 @@ static func rout_hint_when_flee_listed(manager: Node, c: Dictionary, actions: Ar
     if _get_entity_access().get_attacking_arm(c).is_empty():
         return ""
     var cid: int = _get_entity_access().id_int(c)
-    if not _ListedActions.actions_include_self_target_move(actions, cid, CombatConstants.MOVE_ID_FLEE):
+    if not CombatListedActions.actions_include_self_target_move(actions, cid, CombatConstants.MOVE_ID_FLEE):
         return ""
     var coh_pct: int = int(round(line_cohesion_for_combatant(manager, c) * 100.0))
     var cas_pct: int = int(round(casualty_ratio_for_combatant(manager, c) * 100.0))
     if formation_stressed_for_rout(manager, c):
         if side_holding_field(manager, c):
             return (
-                "Flee leaves the field (cohesion %d%%, casualties %d%%) - your side still has numbers; fall back when listed."
-                % [coh_pct, cas_pct]
+                "Flee leaves the field (cohesion %d%%, casualties %d%%) - your side still has numbers; fall back when l"
+                + "isted." % [coh_pct, cas_pct]
             )
         return (
             "Flee leaves the field (cohesion %d%%, casualties %d%%) - fall back stays in formation when listed."
@@ -365,7 +357,7 @@ static func rout_hint_when_flee_listed(manager: Node, c: Dictionary, actions: Ar
 
 ## MS-L6: fight-finish / sparse-finish / mop-up offense defer rout to L4b or salience utility pick.
 static func rout_layer_blocked(manager: Node, c: Dictionary, actions: Array, combatant_id: int) -> bool:
-    return _VacancyPlugs.formation_plug_layer_blocked(manager, c, actions, combatant_id)
+    return CombatFormationVacancyPlugs.formation_plug_layer_blocked(manager, c, actions, combatant_id)
 
 
 ## MS-L6: formation stress on a losing side, or personal abandon-field crisis.
@@ -397,9 +389,12 @@ static func filter_rout_disengage_actions(manager: Node, c: Dictionary, combatan
         var mid: String = str(a.get("move_id", ""))
         if not duel_flee_allowed_for_action(manager, c, mid):
             continue
-        if mid == CombatConstants.MOVE_ID_FLEE and _FormationFlee.flee_action_legal(manager, c):
+        if mid == CombatConstants.MOVE_ID_FLEE and CombatFormationFlee.flee_action_legal(manager, c):
             out.append(a)
-        elif mid == CombatConstants.MOVE_ID_FALL_BACK and _FormationMoveListing.solo_fall_back_action_legal(manager, c):
+        elif (
+            mid == CombatConstants.MOVE_ID_FALL_BACK
+            and CombatFormationMoveListing.solo_fall_back_action_legal(manager, c)
+        ):
             out.append(a)
     return out
 

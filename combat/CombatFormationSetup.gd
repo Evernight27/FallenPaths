@@ -3,10 +3,6 @@ extends RefCounted
 
 ## Build side formations from presets and assign rank/file from spawn order.
 
-const _FormationPreset := preload("res://combat/FormationPreset.gd")
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-
 
 static func build_formations_and_assign_slots(
     manager: Node, player_formation: Dictionary, enemy_formation: Dictionary
@@ -14,16 +10,16 @@ static func build_formations_and_assign_slots(
     var player_count: int = 0
     var enemy_count: int = 0
     for c in manager.combatants:
-        if _EntityAccess.is_player_side(c):
+        if CombatantEntityAccess.is_player_side(c):
             player_count += 1
         else:
             enemy_count += 1
     var p_preset: Dictionary = player_formation
     var e_preset: Dictionary = enemy_formation
     if p_preset.is_empty():
-        p_preset = _FormationPreset.default_for_count(player_count)
+        p_preset = FormationPreset.default_for_count(player_count)
     if e_preset.is_empty():
-        e_preset = _FormationPreset.default_for_count(enemy_count)
+        e_preset = FormationPreset.default_for_count(enemy_count)
     var p_files: int = p_preset.get("front_count", p_preset.get("files", 1))
     var p_ranks: int = p_preset.get("ranks", 1)
     var e_files: int = e_preset.get("front_count", e_preset.get("files", 1))
@@ -77,14 +73,14 @@ static func build_formations_and_assign_slots(
     var pi: int = 0
     var ei: int = 0
     for c in manager.combatants:
-        if _EntityAccess.is_player_side(c):
+        if CombatantEntityAccess.is_player_side(c):
             var r: int = int(floorf(pi / float(p_files)))
             var f: int = pi % p_files
             c.rank = r
             c.file = f
             c.formation_id = CombatConstants.SIDE_PLAYER
-            _FormationSlots.slot_set_single(
-                _FormationSlots.formation_slots_dict(form_player), Vector2i(r, f), _EntityAccess.id_int(c)
+            FormationSlots.slot_set_single(
+                FormationSlots.formation_slots_dict(form_player), Vector2i(r, f), CombatantEntityAccess.id_int(c)
             )
             pi += 1
         else:
@@ -93,14 +89,14 @@ static func build_formations_and_assign_slots(
             c.rank = r2
             c.file = f2
             c.formation_id = CombatConstants.SIDE_ENEMY
-            _FormationSlots.slot_set_single(
-                _FormationSlots.formation_slots_dict(form_enemy), Vector2i(r2, f2), _EntityAccess.id_int(c)
+            FormationSlots.slot_set_single(
+                FormationSlots.formation_slots_dict(form_enemy), Vector2i(r2, f2), CombatantEntityAccess.id_int(c)
             )
             ei += 1
-    _FormationSlots.normalize_formation_slots(form_player)
-    _FormationSlots.normalize_formation_slots(form_enemy)
-    _FormationSlots.refresh_gap_column_topology(form_player)
-    _FormationSlots.refresh_gap_column_topology(form_enemy)
+    FormationSlots.normalize_formation_slots(form_player)
+    FormationSlots.normalize_formation_slots(form_enemy)
+    FormationSlots.refresh_gap_column_topology(form_player)
+    FormationSlots.refresh_gap_column_topology(form_enemy)
     # ZoC/bands: `CombatManager.start()` runs opposition seed + vacancy reconcile + one-shot recompute (III-4 PR2).
 
 

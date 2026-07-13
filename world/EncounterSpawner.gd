@@ -1,12 +1,6 @@
 class_name EncounterSpawner
 extends RefCounted
 
-const _ResourcePaths := preload("res://core/ResourcePaths.gd")
-const _EncounterNodeScript := preload("res://world/EncounterNode.gd")
-const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
-const _OverworldMap := preload("res://world/OverworldMap.gd")
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-
 ## Spawns encounter markers on the world map. One square per encounter.
 ## Enemies are spawned when combat starts (EncounterNode.spawn_enemies).
 ## Matches FF/DQ style: map shows one icon per encounter; unit count is separate.
@@ -16,9 +10,9 @@ static func spawn_encounters(
     parent: Node, rng: RandomNumberGenerator, num_encounters: int, enemies_per_encounter: int, enemy_scene: PackedScene
 ) -> void:
     var excluded_tiles: Array = []
-    var player: Node2D = _CampaignBridge.get_player(parent)
+    var player: Node2D = CampaignEncounterBridge.get_player(parent)
     if player != null:
-        excluded_tiles.append(_CampaignBridge.overworld_tile_from_position(player.position))
+        excluded_tiles.append(CampaignEncounterBridge.overworld_tile_from_position(player.position))
     for i in num_encounters:
         var used_tile = _spawn_encounter_marker(parent, rng, enemies_per_encounter, excluded_tiles, enemy_scene)
         if used_tile != null:
@@ -30,12 +24,12 @@ static func _spawn_encounter_marker(
 ) -> Variant:
     var scene = enemy_scene
     if scene == null:
-        scene = _ResourcePaths.get_enemy_scene()
+        scene = ResourcePaths.get_enemy_scene()
     if scene == null:
         return null
     var tries = 0
     while tries < 100:
-        var tile: Vector2i = _OverworldMap.random_tile(rng, parent)
+        var tile: Vector2i = OverworldMap.random_tile(rng, parent)
         tries += 1
         var skip = false
         for et in excluded_tiles:
@@ -44,8 +38,8 @@ static func _spawn_encounter_marker(
                 break
         if skip:
             continue
-        var tile_center = _CampaignBridge.overworld_tile_center(tile)
-        var encounter = _EncounterNodeScript.new()
+        var tile_center = CampaignEncounterBridge.overworld_tile_center(tile)
+        var encounter = EncounterNode.new()
         encounter.position = tile_center
         encounter.enemy_count = mini(enemy_count, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP)
         encounter.enemy_scene = scene
@@ -67,16 +61,16 @@ static func spawn_soak_encounter_marker(
         return null
     var scene := enemy_scene
     if scene == null:
-        scene = _ResourcePaths.get_enemy_scene()
+        scene = ResourcePaths.get_enemy_scene()
     if scene == null:
         return null
     var skip: Array = excluded_tiles.duplicate()
-    var player: Node2D = _CampaignBridge.get_player(parent)
+    var player: Node2D = CampaignEncounterBridge.get_player(parent)
     if player != null:
-        skip.append(_CampaignBridge.overworld_tile_from_position(player.position))
+        skip.append(CampaignEncounterBridge.overworld_tile_from_position(player.position))
     for child in parent.get_children():
-        if child.get_script() == _EncounterNodeScript:
-            skip.append(_CampaignBridge.overworld_tile_from_position(child.position))
+        if child.get_script() == EncounterNode:
+            skip.append(CampaignEncounterBridge.overworld_tile_from_position(child.position))
     var candidates: Array = []
     for pt in preferred_tiles:
         if pt is Vector2i and pt not in skip:
@@ -86,13 +80,13 @@ static func spawn_soak_encounter_marker(
         if tries < candidates.size():
             tile = candidates[tries] as Vector2i
         else:
-            tile = _OverworldMap.random_tile(rng, parent)
+            tile = OverworldMap.random_tile(rng, parent)
         if tile in skip:
             continue
-        var encounter = _EncounterNodeScript.new()
-        encounter.position = _CampaignBridge.overworld_tile_center(tile)
+        var encounter = EncounterNode.new()
+        encounter.position = CampaignEncounterBridge.overworld_tile_center(tile)
         encounter.enemy_scene = scene
-        if not _SoakPresets.apply_preset(encounter, preset_id):
+        if not SoakEncounterPresets.apply_preset(encounter, preset_id):
             return null
         parent.add_child(encounter)
         return tile

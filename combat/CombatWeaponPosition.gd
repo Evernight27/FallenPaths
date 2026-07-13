@@ -2,22 +2,21 @@ class_name CombatWeaponPosition
 extends RefCounted
 
 ## Defender blade reach for passive parry capacity (near body vs extended).
-## III-3: **`parry_deflect`** / **`parry_partial`** normalize to **`attack_deflect`** -> near-body recovery (full **`parry_c_d`**).
-## Footing: wind-up extension / recovery timing  -  **not** L3 **`guard_line`** or Tier 4.4 PA step. LIVE_PATHS **`#wf-pick-vs-strike`** (strike-time parry capacity).
-
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
+## III-3: **`parry_deflect`** / **`parry_partial`** normalize to **`attack_deflect`** -> near-body recovery (full
+## **`parry_c_d`**).
+## Footing: wind-up extension / recovery timing  -  **not** L3 **`guard_line`** or Tier 4.4 PA step. LIVE_PATHS
+## **`#wf-pick-vs-strike`** (strike-time parry capacity).
 
 
 ## True when the combatant's weapon is in a guard/near-body posture (full parry capacity).
 static func is_weapon_near_body(combatant: Dictionary) -> bool:
     if combatant.is_empty():
         return true
-    var st: String = _EntityAccess.state_str(combatant)
+    var st: String = CombatantEntityAccess.state_str(combatant)
     if st == CombatConstants.STATE_WAITING:
         return true
     if st == CombatConstants.STATE_WIND_UP:
-        var pa: Dictionary = _EntityAccess.nested_dictionary_read(combatant, "pending_attack")
+        var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(combatant, "pending_attack")
         if pa.is_empty():
             return true
         var wind_up: float = pa.get("wind_up_duration", combatant.get("state_duration", 0.5))
@@ -47,15 +46,15 @@ static func commit_fraction_from_move_def(move_def: Dictionary) -> float:
         return clampf(from_move, 0.0, 1.0)
     var contact_type: String = move_def.get("contact_type", "").strip_edges()
     var arch_id: String = move_def.get("archetype_id", "").strip_edges()
-    if contact_type == _WeaponConstants.ATTACK_TYPE_STAB:
+    if contact_type == WeaponConstants.ATTACK_TYPE_STAB:
         return CombatConstants.WEAPON_COMMIT_FRACTION_STAB
-    if contact_type == _WeaponConstants.ATTACK_TYPE_BLUNT:
+    if contact_type == WeaponConstants.ATTACK_TYPE_BLUNT:
         return CombatConstants.WEAPON_COMMIT_FRACTION_BLUNT
-    if arch_id == _WeaponConstants.ARCHETYPE_OVERHEAD:
+    if arch_id == WeaponConstants.ARCHETYPE_OVERHEAD:
         return CombatConstants.WEAPON_COMMIT_FRACTION_OVERHEAD
-    if arch_id == _WeaponConstants.ARCHETYPE_QUICK_SLASH:
+    if arch_id == WeaponConstants.ARCHETYPE_QUICK_SLASH:
         return CombatConstants.WEAPON_COMMIT_FRACTION_QUICK
-    if contact_type == _WeaponConstants.ATTACK_TYPE_CUT:
+    if contact_type == WeaponConstants.ATTACK_TYPE_CUT:
         return CombatConstants.WEAPON_COMMIT_FRACTION_CUT
     return CombatConstants.WEAPON_EXTENDED_COMMIT_FRACTION
 
@@ -65,7 +64,7 @@ static func _commit_fraction_for_weapon_extension(pa: Dictionary) -> float:
         return clampf(float(pa["weapon_extension_commit_fraction"]), 0.0, 1.0)
     var mid: String = pa.get(CombatConstants.PA_KEY_ATTACK_TYPE, "").strip_edges()
     if not mid.is_empty():
-        return commit_fraction_from_move_def(_WeaponConstants.get_move(mid))
+        return commit_fraction_from_move_def(WeaponConstants.get_move(mid))
     return CombatConstants.WEAPON_EXTENDED_COMMIT_FRACTION
 
 

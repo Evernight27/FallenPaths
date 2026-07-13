@@ -6,8 +6,6 @@ extends RefCounted
 ## Tier C: optional per-weapon overrides in Weapon.impact_velocity_bands[contact] = Vector2 or {min,max}.
 ## Move ids map to contact via WeaponConstants.contact_type_for_move_id(move_id).
 
-const _W := preload("res://weapon/WeaponConstants.gd")
-
 const ABS_VELOCITY_MIN_M_S := 2.0
 const ABS_VELOCITY_MAX_M_S := 30.0
 
@@ -22,7 +20,8 @@ static var _default_bands: Dictionary = {
     "AXE": {"stab": Vector2(4.0, 15.0), "cut": Vector2(5.5, 20.0), "blunt": Vector2(5.5, 19.0)},
     "MACE": {"stab": Vector2(6.0, 18.0), "cut": Vector2(7.0, 20.0), "blunt": Vector2(7.0, 20.5)},
     "DAGGER": {"stab": Vector2(4.0, 18.0), "cut": Vector2(5.5, 20.0), "blunt": Vector2(4.0, 14.0)},
-    "SPEAR": {"stab": Vector2(5.0, 20.0), "cut": Vector2(5.5, 17.5), "blunt": Vector2(5.5, 12.0)}  # vmax reduced from 17.5 (Tuning T3.2): shaft mass distribution limits tip speed on off-axis pole_swing.
+    # vmax reduced from 17.5 (Tuning T3.2): shaft mass distribution limits tip speed on off-axis pole_swing.
+    "SPEAR": {"stab": Vector2(5.0, 20.0), "cut": Vector2(5.5, 17.5), "blunt": Vector2(5.5, 12.0)}
 }
 
 
@@ -41,9 +40,9 @@ static func _tier_a_default_band(weapon_type: String, contact_type: String) -> V
     var band: Variant = by_weapon.get(ct, null)
     if band is Vector2:
         return band
-    if by_weapon.has(_W.ATTACK_TYPE_CUT):
-        return by_weapon[_W.ATTACK_TYPE_CUT]
-    return Vector2(_W.VELOCITY_MIN_M_S, _W.VELOCITY_MAX_M_S)
+    if by_weapon.has(WeaponConstants.ATTACK_TYPE_CUT):
+        return by_weapon[WeaponConstants.ATTACK_TYPE_CUT]
+    return Vector2(WeaponConstants.VELOCITY_MIN_M_S, WeaponConstants.VELOCITY_MAX_M_S)
 
 
 static func _tier_c_override(weapon: RefCounted, contact_type: String) -> Vector2:
@@ -89,9 +88,9 @@ static func strike_radius_m(weapon: RefCounted, contact_type: String) -> float:
                 if sf is Array and ct in sf:
                     total_len_cm += pd.get("length_cm", 0.0)
         if total_len_cm > 0.0:
-            if ct == _W.ATTACK_TYPE_CUT or ct == _W.ATTACK_TYPE_BLUNT:
+            if ct == WeaponConstants.ATTACK_TYPE_CUT or ct == WeaponConstants.ATTACK_TYPE_BLUNT:
                 return clampf((total_len_cm / 100.0) * 0.58, 0.22, 1.05)
-            if ct == _W.ATTACK_TYPE_STAB:
+            if ct == WeaponConstants.ATTACK_TYPE_STAB:
                 var mr: float = (
                     float(weapon.melee_range) if (weapon.melee_range is float or weapon.melee_range is int) else 1.5
                 )

@@ -1,19 +1,9 @@
 class_name CompanyHud
 extends PanelContainer
-
 ## Overworld company resource strip (Camp-1.1 HUD '. Camp-1.2 wage hint). Parent: tree root **`UIOverlayLayer`**.
 
 # Runtime preload ' circular dependency (CompanyState preloads CompanyHud).
 static var _company_state_cache: Variant = null
-
-
-static func _get_company_state() -> GDScript:
-    if _company_state_cache == null:
-        _company_state_cache = load("res://world/CompanyState.gd")
-    return _company_state_cache
-
-
-const _MapBleedPolicy := preload("res://world/MapBleedPolicy.gd")
 
 var _gold_label: Label
 var _med_label: Label
@@ -24,6 +14,12 @@ var _wage_hint_label: Label
 var _bleed_hint_label: Label
 var _renown_label: Label
 var _persistence_label: Label
+
+
+static func _get_company_state() -> GDScript:
+    if _company_state_cache == null:
+        _company_state_cache = load("res://world/CompanyState.gd")
+    return _company_state_cache
 
 
 func _init() -> void:
@@ -134,7 +130,7 @@ func refresh_from_state(
     if _bleed_hint_label != null:
         var bleed_hint: String = ""
         if world is Node2D:
-            bleed_hint = _MapBleedPolicy.hud_bleed_hint(world)
+            bleed_hint = MapBleedPolicy.hud_bleed_hint(world)
         _bleed_hint_label.visible = not bleed_hint.is_empty()
         if not bleed_hint.is_empty():
             _bleed_hint_label.text = bleed_hint

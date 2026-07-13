@@ -4,18 +4,6 @@ extends RefCounted
 ## CompanyMood -- mood management, stance preferences, desertion risk.
 ## Extracted from CompanyState.gd (B3 / XCamp-3.8).
 
-const _CombatWeaponForm := preload("res://combat/CombatWeaponForm.gd")
-
-# Runtime preload -- circular dependency (CompanyState preloads CompanyMood).
-static var _CompanyState: Variant = null
-
-
-static func _get_state() -> GDScript:
-    if CompanyMood._CompanyState == null:
-        CompanyMood._CompanyState = load("res://world/CompanyState.gd")
-    return CompanyMood._CompanyState
-
-
 const MOOD_DEFAULT: float = 50.0
 const MOOD_ANGRY_THRESHOLD: float = 15.0
 const MOOD_DESERTION_CHANCE: float = 0.05
@@ -26,6 +14,15 @@ const MOOD_NOT_FED_DELTA: float = -1.0
 const MOOD_BATTLE_WON_DELTA: float = 0.35
 const MOOD_STANCE_WALL_THRESHOLD: float = 25.0
 const MOOD_STANCE_WRATH_THRESHOLD: float = 70.0
+
+# Runtime preload -- circular dependency (CompanyState preloads CompanyMood).
+static var _company_state: Variant = null
+
+
+static func _get_state() -> GDScript:
+    if CompanyMood._company_state == null:
+        CompanyMood._company_state = load("res://world/CompanyState.gd")
+    return CompanyMood._company_state
 
 
 static func adjust_member_mood(world: Node, member_name: String, delta: float) -> void:
@@ -57,10 +54,10 @@ static func apply_camp_rest_mood(world: Node) -> void:
 
 static func stance_preference_for_campaign_mood(mood: float) -> String:
     if mood <= MOOD_STANCE_WALL_THRESHOLD:
-        return _CombatWeaponForm.FORM_WALL
+        return CombatWeaponForm.FORM_WALL
     if mood >= MOOD_STANCE_WRATH_THRESHOLD:
-        return _CombatWeaponForm.FORM_WRATH
-    return _CombatWeaponForm.FORM_BALANCED
+        return CombatWeaponForm.FORM_WRATH
+    return CombatWeaponForm.FORM_BALANCED
 
 
 static func _apply_not_fed_mood(world: Node) -> void:

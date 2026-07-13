@@ -1,9 +1,8 @@
 class_name CombatD001TrackSpecs
 extends RefCounted
 
-## Shared **D-001** grep needles for **`CombatD001SoakRunner`** (headless) and **`CombatF5SoakLogValidator`** (F5 paste).
-
-const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
+## Shared **D-001** grep needles for **`CombatD001SoakRunner`** (headless) and **`CombatF5SoakLogValidator`** (F5
+## paste).
 
 const PROFILE_ALWAYS := "always"
 const PROFILE_7V7 := "7v7"
@@ -24,7 +23,9 @@ const NEEDLE_ENGAGEMENT_FORMATION := "engagement mode=Formation line"
 const NEEDLE_ENGAGEMENT_DUEL := "engagement mode=Duel"
 const NEEDLE_PARRY_TRACE := "parry_"
 ## III-4 **3e**  -  combat-phase mop-up with listed strikes (shared by headless + F5 validator).
-const REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED := "engagement_debug turn .* mop_up=true .* (menu=strikes_listed|strikes=[1-9])"
+const REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED := (
+    "engagement_debug turn .* mop_up=true .* (menu=strikes_listed|stri" + "kes=[1-9])"
+)
 ## III-6 maintain  -  rank-0 gap or incap plug-forward pick (`line_plug_pick=1`; log sets `line_plug=true` for both).
 const REGEX_ENGAGEMENT_DEBUG_LINE_PLUG_PICK := "engagement_debug turn .* line_plug=true .* line_plug_pick=1"
 ## MS-L5  -  mental-stack plug layer stamped on rank-0 gap / incap plug picks.
@@ -39,47 +40,61 @@ const REGEX_ENGAGEMENT_DEBUG_SPARSE_FIGHT_LAYER := "engagement_debug turn .* lay
 const NEEDLE_ENGAGEMENT_DEBUG_POST_STRIKE_LAYER := "layer=post_strike"
 ## MS-L9: positional awareness layer stamped on surrounded-disengage picks.
 const NEEDLE_ENGAGEMENT_DEBUG_POSITIONAL_DIS_LAYER := "layer=positional_dis"
+const _HEADLESS_ONLY_CHECK_IDS: Dictionary = {
+    "soak_tag": true,
+    "soak_setup": true,
+    "fight_enter": true,
+    "party_count": true,
+    "no_script_error": true,
+    "no_fp_error": true,
+    "no_crash_success_log": true,
+}
 
 
 static func headless_checks_for_preset(preset_id: String) -> Array:
-    var checks: Array = _headless_policy_checks()
+    var checks: Array = CombatD001TrackSpecsPartA._headless_policy_checks()
     checks.append({"id": "soak_tag", "needle": "soak=%s" % preset_id, "min": 1})
-    checks.append_array(_headless_preset_checks(preset_id))
+    checks.append_array(CombatD001TrackSpecsPartA._headless_preset_checks(preset_id))
     return checks
 
 
 static func detect_profiles(normalized: PackedStringArray) -> PackedStringArray:
     var profiles: PackedStringArray = PackedStringArray([PROFILE_ALWAYS])
     var blob: String = "\n".join(normalized)
-    if _blob_has(blob, ["soak_fight_enter preset=ii2b", "soak=ii2b", "dev_soak=ii2b"]):
+    if CombatD001TrackSpecsPartB._blob_has(blob, ["soak_fight_enter preset=ii2b", "soak=ii2b", "dev_soak=ii2b"]):
         profiles.append(PROFILE_PRESET_II2B)
-    if _blob_has(blob, ["soak_fight_enter preset=ii3", "soak=ii3"]):
+    if CombatD001TrackSpecsPartB._blob_has(blob, ["soak_fight_enter preset=ii3", "soak=ii3"]):
         profiles.append(PROFILE_PRESET_II3)
-    if _blob_has(blob, ["soak_fight_enter preset=ii5", "soak=ii5"]):
+    if CombatD001TrackSpecsPartB._blob_has(blob, ["soak_fight_enter preset=ii5", "soak=ii5"]):
         profiles.append(PROFILE_PRESET_II5)
-    if _blob_has(blob, ["soak_fight_enter preset=ii6", "soak=ii6"]):
+    if CombatD001TrackSpecsPartB._blob_has(blob, ["soak_fight_enter preset=ii6", "soak=ii6"]):
         profiles.append(PROFILE_PRESET_II6)
-    if _blob_has(blob, ["soak_fight_enter preset=ii8", "soak=ii8"]):
+    if CombatD001TrackSpecsPartB._blob_has(blob, ["soak_fight_enter preset=ii8", "soak=ii8"]):
         profiles.append(PROFILE_PRESET_II8)
-    if _blob_has(blob, ["soak_fight_enter preset=ii4d", "soak=ii4d", "dev_soak=ii4d"]):
+    if CombatD001TrackSpecsPartB._blob_has(blob, ["soak_fight_enter preset=ii4d", "soak=ii4d", "dev_soak=ii4d"]):
         profiles.append(PROFILE_PRESET_II4D)
-    if _blob_has(blob, ["soak_fight_enter preset=ii_envelop", "soak=ii_envelop", "dev_soak=ii_envelop"]):
+    if CombatD001TrackSpecsPartB._blob_has(
+        blob, ["soak_fight_enter preset=ii_envelop", "soak=ii_envelop", "dev_soak=ii_envelop"]
+    ):
         profiles.append(PROFILE_PRESET_II_ENVELOP)
-    if _camp_ea_profile_active(normalized):
+    if CombatD001TrackSpecsPartA._camp_ea_profile_active(normalized):
         profiles.append(PROFILE_CAMP_EA)
     if (
-        _blob_has(blob, ["soak_fight_enter tile=red", "tile=red"])
+        CombatD001TrackSpecsPartB._blob_has(blob, ["soak_fight_enter tile=red", "tile=red"])
         or (
-            not _blob_has(
-                blob,
-                [
-                    "soak_fight_enter preset=",
-                    "soak=ii2b",
-                    "soak=ii3",
-                    "soak=ii5",
-                    "soak=ii6",
-                    "soak=ii8",
-                ]
+            not (
+                CombatD001TrackSpecsPartB
+                . _blob_has(
+                    blob,
+                    [
+                        "soak_fight_enter preset=",
+                        "soak=ii2b",
+                        "soak=ii3",
+                        "soak=ii5",
+                        "soak=ii6",
+                        "soak=ii8",
+                    ]
+                )
             )
             and normalized.size() > 80
         )
@@ -104,52 +119,57 @@ static func validator_tracks(active_profiles: PackedStringArray) -> Array:
     var have: Dictionary = {}
     for p in active_profiles:
         have[p] = true
-    tracks.append_array(_validator_always_tracks())
-    if _profile_set_includes_trace_profiles(active_profiles):
-        tracks.append_array(_validator_f5_trace_tracks())
+    tracks.append_array(CombatD001TrackSpecsPartA._validator_always_tracks())
+    if CombatD001TrackSpecsPartB._profile_set_includes_trace_profiles(active_profiles):
+        tracks.append_array(CombatD001TrackSpecsPartA._validator_f5_trace_tracks())
     if have.has(PROFILE_7V7):
-        tracks.append_array(_validator_7v7_tracks())
+        tracks.append_array(CombatD001TrackSpecsPartA._validator_7v7_tracks())
     if have.has(PROFILE_PRESET_II2B):
-        tracks.append_array(_validator_ii2b_tracks())
+        tracks.append_array(CombatD001TrackSpecsPartA._validator_ii2b_tracks())
     if have.has(PROFILE_PRESET_II3):
-        tracks.append_array(_validator_ii3_tracks())
+        tracks.append_array(CombatD001TrackSpecsPartA._validator_ii3_tracks())
     if have.has(PROFILE_PRESET_II5):
-        tracks.append_array(_validator_ii5_tracks())
+        tracks.append_array(CombatD001TrackSpecsPartA._validator_ii5_tracks())
     if have.has(PROFILE_PRESET_II6):
-        tracks.append_array(_validator_ii6_tracks())
+        tracks.append_array(CombatD001TrackSpecsPartA._validator_ii6_tracks())
     if have.has(PROFILE_PRESET_II8):
-        tracks.append_array(_validator_ii8_tracks())
+        tracks.append_array(CombatD001TrackSpecsPartB._validator_ii8_tracks())
     if have.has(PROFILE_PRESET_II4D):
-        tracks.append_array(_validator_ii4d_tracks())
+        tracks.append_array(CombatD001TrackSpecsPartB._validator_ii4d_tracks())
     if have.has(PROFILE_PRESET_II_ENVELOP):
-        tracks.append_array(_validator_ii_envelop_tracks())
-    tracks.append_array(_validator_wf_footing_tracks())
-    tracks.append_array(_validator_iv11_tracks())
-    tracks.append_array(_validator_mental_stack_layers_tracks())
+        tracks.append_array(CombatD001TrackSpecsPartB._validator_ii_envelop_tracks())
+    tracks.append_array(CombatD001TrackSpecsPartB._validator_wf_footing_tracks())
+    tracks.append_array(CombatD001TrackSpecsPartB._validator_iv11_tracks())
+    tracks.append_array(CombatD001TrackSpecsPartB._validator_mental_stack_layers_tracks())
     if have.has(PROFILE_7V7) or have.has(PROFILE_CAMP_EA) or have.has(PROFILE_PRESET_II_ENVELOP):
-        tracks.append_array(_validator_mopup_strike_finish_tracks())
-        tracks.append_array(_validator_line_plug_pick_tracks())
+        tracks.append_array(CombatD001TrackSpecsPartB._validator_mopup_strike_finish_tracks())
+        tracks.append_array(CombatD001TrackSpecsPartB._validator_line_plug_pick_tracks())
     if have.has(PROFILE_CAMP_EA):
-        tracks.append_array(_validator_camp_ea_tracks())
-    return tracks.filter(func(spec: Dictionary) -> bool: return _track_applies(spec, active_profiles))
+        tracks.append_array(CombatD001TrackSpecsPartB._validator_camp_ea_tracks())
+    return tracks.filter(
+        func(spec: Dictionary) -> bool: return CombatD001TrackSpecsPartB._track_applies(spec, active_profiles)
+    )
+
+
+## Maps headless preset id -> validator profile id (`preset_ii2b`, `7v7`, ...).
 
 
 ## Maps headless preset id -> validator profile id (`preset_ii2b`, `7v7`, ...).
 static func preset_id_to_profile(preset_id: String) -> String:
     match preset_id:
-        _SoakPresets.PRESET_II2B_SWORD_DUEL:
+        SoakEncounterPresets.PRESET_II2B_SWORD_DUEL:
             return PROFILE_PRESET_II2B
-        _SoakPresets.PRESET_II3_SURROUND:
+        SoakEncounterPresets.PRESET_II3_SURROUND:
             return PROFILE_PRESET_II3
-        _SoakPresets.PRESET_II5_COWERING:
+        SoakEncounterPresets.PRESET_II5_COWERING:
             return PROFILE_PRESET_II5
-        _SoakPresets.PRESET_II6_AMBIENT_SHOCK:
+        SoakEncounterPresets.PRESET_II6_AMBIENT_SHOCK:
             return PROFILE_PRESET_II6
-        _SoakPresets.PRESET_II8_FORMATION:
+        SoakEncounterPresets.PRESET_II8_FORMATION:
             return PROFILE_PRESET_II8
-        _SoakPresets.PRESET_II4D_EXHAUSTION:
+        SoakEncounterPresets.PRESET_II4D_EXHAUSTION:
             return PROFILE_PRESET_II4D
-        _SoakPresets.PRESET_II_ENVELOP:
+        SoakEncounterPresets.PRESET_II_ENVELOP:
             return PROFILE_PRESET_II_ENVELOP
         "7v7":
             return PROFILE_7V7
@@ -157,21 +177,24 @@ static func preset_id_to_profile(preset_id: String) -> String:
 
 
 ## Synthetic log markers so **`detect_profiles`** recognizes a preset in harness alignment tests.
+
+
+## Synthetic log markers so **`detect_profiles`** recognizes a preset in harness alignment tests.
 static func synthetic_profile_markers(preset_id: String) -> PackedStringArray:
     match preset_id:
-        _SoakPresets.PRESET_II2B_SWORD_DUEL:
+        SoakEncounterPresets.PRESET_II2B_SWORD_DUEL:
             return PackedStringArray(["soak_fight_enter preset=ii2b", "soak=ii2b"])
-        _SoakPresets.PRESET_II3_SURROUND:
+        SoakEncounterPresets.PRESET_II3_SURROUND:
             return PackedStringArray(["soak_fight_enter preset=ii3"])
-        _SoakPresets.PRESET_II5_COWERING:
+        SoakEncounterPresets.PRESET_II5_COWERING:
             return PackedStringArray(["soak_fight_enter preset=ii5"])
-        _SoakPresets.PRESET_II6_AMBIENT_SHOCK:
+        SoakEncounterPresets.PRESET_II6_AMBIENT_SHOCK:
             return PackedStringArray(["soak_setup ii6", "soak=ii6"])
-        _SoakPresets.PRESET_II8_FORMATION:
+        SoakEncounterPresets.PRESET_II8_FORMATION:
             return PackedStringArray(["soak_fight_enter preset=ii8"])
-        _SoakPresets.PRESET_II4D_EXHAUSTION:
+        SoakEncounterPresets.PRESET_II4D_EXHAUSTION:
             return PackedStringArray(["soak_fight_enter preset=ii4d", "soak=ii4d"])
-        _SoakPresets.PRESET_II_ENVELOP:
+        SoakEncounterPresets.PRESET_II_ENVELOP:
             return PackedStringArray(["soak_fight_enter preset=ii_envelop", "soak=ii_envelop"])
         "7v7":
             return PackedStringArray(["soak_fight_enter tile=red 7v7", "soak=7v7"])
@@ -184,6 +207,9 @@ static func synthetic_profile_markers(preset_id: String) -> PackedStringArray:
                 ]
             )
     return PackedStringArray()
+
+
+## Grep needles that activate **`camp_ea`** profile (F5 paste + world trace ingest).
 
 
 ## Grep needles that activate **`camp_ea`** profile (F5 paste + world trace ingest).
@@ -216,7 +242,12 @@ static func is_camp_ea_world_trace_line(s: String) -> bool:
     return false
 
 
-## Combat **`FP_COMBAT`** lines merged across F5 fights for in-session camp supplement (prior fights cleared per-fight trace).
+## Combat **`FP_COMBAT`** lines merged across F5 fights for in-session camp supplement (prior fights cleared per-fight
+## trace).
+
+
+## Combat **`FP_COMBAT`** lines merged across F5 fights for in-session camp supplement (prior fights cleared per-fight
+## trace).
 static func is_camp_ea_combat_trace_line(s: String) -> bool:
     var line: String = s.strip_edges()
     if line.is_empty():
@@ -226,6 +257,9 @@ static func is_camp_ea_combat_trace_line(s: String) -> bool:
     if not line.begins_with("engagement_debug "):
         return false
     return "mop_up=true" in line or "line_plug=true" in line
+
+
+## Lines ignored when inferring **`camp_ea`** from pasted F5 / headless capture (matches validator skip rules).
 
 
 ## Lines ignored when inferring **`camp_ea`** from pasted F5 / headless capture (matches validator skip rules).
@@ -244,15 +278,6 @@ static func skip_profile_detection_line(line: String) -> bool:
     return false
 
 
-static func _camp_ea_profile_active(normalized: PackedStringArray) -> bool:
-    for line in normalized:
-        if skip_profile_detection_line(line):
-            continue
-        if is_camp_ea_world_trace_line(line):
-            return true
-    return false
-
-
 ## Union of validator track needles (+ alts) for active profiles.
 static func validator_needle_union(active_profiles: PackedStringArray) -> PackedStringArray:
     var out: PackedStringArray = PackedStringArray()
@@ -268,6 +293,9 @@ static func validator_needle_union(active_profiles: PackedStringArray) -> Packed
 
 
 ## True when a required headless needle is matched by some validator track (substring either way).
+
+
+## True when a required headless needle is matched by some validator track (substring either way).
 static func headless_needle_covered_by_validator(headless_needle: String, validator_needles: PackedStringArray) -> bool:
     if headless_needle.is_empty():
         return true
@@ -278,21 +306,14 @@ static func headless_needle_covered_by_validator(headless_needle: String, valida
 
 
 ## Headless runner checks with no F5-validator analogue (policy, soak tags, setup lines).
-const _HEADLESS_ONLY_CHECK_IDS: Dictionary = {
-    "soak_tag": true,
-    "soak_setup": true,
-    "fight_enter": true,
-    "party_count": true,
-    "no_script_error": true,
-    "no_fp_error": true,
-    "no_crash_success_log": true,
-}
+
+## Returns failures when a required headless check has no validator counterpart for its profile.
 
 
 ## Returns failures when a required headless check has no validator counterpart for its profile.
 static func headless_validator_coverage_failures() -> PackedStringArray:
     var failures: PackedStringArray = PackedStringArray()
-    var preset_ids: PackedStringArray = _SoakPresets.D001_PRESET_RUN_ORDER.duplicate()
+    var preset_ids: PackedStringArray = SoakEncounterPresets.D001_PRESET_RUN_ORDER.duplicate()
     preset_ids.append("7v7")
     for preset_id in preset_ids:
         var profile: String = preset_id_to_profile(preset_id)
@@ -362,6 +383,9 @@ static func grep_stats(normalized: PackedStringArray, count_needle: Callable, _c
 
 
 ## Lines for all preset fights (multi-rep duel sim + optional **`soak_setup`** smoke tail) from a capture blob.
+
+
+## Lines for all preset fights (multi-rep duel sim + optional **`soak_setup`** smoke tail) from a capture blob.
 static func slice_lines_for_soak_preset(lines: PackedStringArray, preset_id: String) -> PackedStringArray:
     var soak_tag: String = "soak=%s" % preset_id
     var setup_tag: String = "soak_setup %s" % preset_id
@@ -374,7 +398,7 @@ static func slice_lines_for_soak_preset(lines: PackedStringArray, preset_id: Str
                 capturing = true
                 out.append(line)
                 continue
-            var other_soak: String = _encounter_soak_id_from_line(line)
+            var other_soak: String = CombatD001TrackSpecsPartA._encounter_soak_id_from_line(line)
             if capturing and not other_soak.is_empty() and other_soak != preset_id:
                 capturing = false
             continue
@@ -383,18 +407,6 @@ static func slice_lines_for_soak_preset(lines: PackedStringArray, preset_id: Str
         if capturing:
             out.append(line)
     return out
-
-
-static func _encounter_soak_id_from_line(line: String) -> String:
-    var key: String = "encounter[soak="
-    var idx: int = line.find(key)
-    if idx < 0:
-        return ""
-    var tail: String = line.substr(idx + key.length())
-    var end: int = tail.find("]")
-    if end < 0:
-        return ""
-    return tail.substr(0, end)
 
 
 ## Grep counts for **III-3** worksheet prefill (headless  -  not II-2b feel sign-off).
@@ -443,20 +455,29 @@ static func parry_stats_summary_line(stats: Dictionary) -> String:
 
 
 ## Rollup from **`CombatF5SoakTrace`** session counters at **`soak_fight_end`** (grep **`hit_outcome_stats`**).
+
+
+## Rollup from **`CombatF5SoakTrace`** session counters at **`soak_fight_end`** (grep **`hit_outcome_stats`**).
 static func hit_outcome_stats_summary_line(session_counts: Dictionary) -> String:
     return (
-        "hit_outcome_stats hit=%d glancing=%d negligible=%d deflected=%d other=%d resolve=%d avoided_miss=%d avoided_dodge=%d"
-        % [
-            int(session_counts.get("hit_outcome_hit", 0)),
-            int(session_counts.get("hit_outcome_glancing", 0)),
-            int(session_counts.get("hit_outcome_negligible", 0)),
-            int(session_counts.get("hit_outcome_deflected", 0)),
-            int(session_counts.get("hit_outcome_other", 0)),
-            int(session_counts.get("hit_resolve", 0)),
-            int(session_counts.get("strike_avoided_miss", 0)),
-            int(session_counts.get("strike_avoided_dodge", 0)),
-        ]
+        "hit_outcome_stats hit=%d glancing=%d negligible=%d deflected=%d other=%d resolve=%d avoided_miss=%d avoided_do"
+        + (
+            "dge=%d"
+            % [
+                int(session_counts.get("hit_outcome_hit", 0)),
+                int(session_counts.get("hit_outcome_glancing", 0)),
+                int(session_counts.get("hit_outcome_negligible", 0)),
+                int(session_counts.get("hit_outcome_deflected", 0)),
+                int(session_counts.get("hit_outcome_other", 0)),
+                int(session_counts.get("hit_resolve", 0)),
+                int(session_counts.get("strike_avoided_miss", 0)),
+                int(session_counts.get("strike_avoided_dodge", 0)),
+            ]
+        )
     )
+
+
+## Parse **`FP_COMBAT: parry_stats deflect=N ...`** rollup (headless II-2b worksheet).
 
 
 ## Parse **`FP_COMBAT: parry_stats deflect=N ...`** rollup (headless II-2b worksheet).
@@ -518,6 +539,9 @@ static func ii2b_plausibility_failures(stats: Dictionary) -> PackedStringArray:
     if partial > partial_cap:
         failures.append("partial leaks too high vs clean outcomes (partial=%d cap=%d)" % [partial, partial_cap])
     return failures
+
+
+## Grep band crossings for **II-4d** headless sign-off (F5 3 - 5 min feel remains optional).
 
 
 ## Grep band crossings for **II-4d** headless sign-off (F5 3 - 5 min feel remains optional).
@@ -595,6 +619,9 @@ static func ii2b_worksheet_prefill_text(stats: Dictionary, headless_signed: bool
 
 
 ## Mandatory **D-001** tracks satisfied by headless runner (no F5).
+
+
+## Mandatory **D-001** tracks satisfied by headless runner (no F5).
 static func headless_mandatory_signoff_failures(preset_results: Dictionary) -> PackedStringArray:
     var failures: PackedStringArray = PackedStringArray()
     for track_id in ["ii2b", "ii5a", "ii5b", "ii5c"]:
@@ -604,716 +631,11 @@ static func headless_mandatory_signoff_failures(preset_results: Dictionary) -> P
             continue
         if not bool(pr.get("ok", false)):
             failures.append("%s: %s" % [track_id, str(pr.get("summary", "not ok"))])
-    var ii2b: Dictionary = preset_results.get(_SoakPresets.PRESET_II2B_SWORD_DUEL, {}) as Dictionary
+    var ii2b: Dictionary = preset_results.get(SoakEncounterPresets.PRESET_II2B_SWORD_DUEL, {}) as Dictionary
     if not bool(ii2b.get("ii2b_plausibility_ok", false)):
         for msg in ii2b.get("ii2b_plausibility_failures", PackedStringArray()) as PackedStringArray:
             failures.append("ii2b_plausibility: %s" % msg)
     return failures
-
-
-static func _headless_policy_checks() -> Array:
-    return [
-        {"id": "no_script_error", "needle": "SCRIPT_ERROR", "min": 0, "max": 0},
-        {"id": "no_fp_error", "needle": "FP_ERROR", "min": 0, "max": 0},
-        {"id": "no_crash_success_log", "needle": "crash_success", "min": 0, "max": 0},
-    ]
-
-
-static func _headless_preset_checks(preset_id: String) -> Array:
-    match preset_id:
-        _SoakPresets.PRESET_II2B_SWORD_DUEL:
-            return [
-                {"id": "duel_mode", "needle": NEEDLE_ENGAGEMENT_DUEL, "min": 1},
-                {"id": "parry_trace", "needle": NEEDLE_PARRY_TRACE, "min": 1},
-                {"id": "parry_deflect_or_bind", "needle": "parry_deflect", "min": 1, "optional": true},
-                {"id": "parry_bind", "needle": "parry_bind", "min": 1, "optional": true},
-                {"id": "riposte", "needle": "riposte_chain", "min": 1, "optional": true},
-                {"id": "flurry", "needle": "flurry_bind", "min": 1, "optional": true},
-            ]
-        _SoakPresets.PRESET_II3_SURROUND:
-            return [
-                {"id": "arc_overlap", "needle": "ui_hint Arc overlap", "min": 1},
-                {"id": "parry_trace", "needle": NEEDLE_PARRY_TRACE, "min": 1},
-            ]
-        _SoakPresets.PRESET_II5_COWERING:
-            return [
-                {"id": "soak_setup", "needle": "soak_setup ii5", "min": 1},
-                {"id": "cowering_listed", "needle": "cowering_fall_back listed", "min": 1},
-                {"id": "cowering_executed", "needle": "cowering_fall_back executed", "min": 1},
-            ]
-        _SoakPresets.PRESET_II6_AMBIENT_SHOCK:
-            return [
-                {"id": "soak_setup", "needle": "soak_setup ii6", "min": 1},
-                {"id": "ambient", "needle": "ambient_pain_shock", "min": 1},
-                {
-                    "id": "ambient_companion",
-                    "needle": "ambient_pain_shock Companion",
-                    "min": 1,
-                    "optional": true,
-                },
-            ]
-        _SoakPresets.PRESET_II8_FORMATION:
-            return [
-                {"id": "formation_mode", "needle": NEEDLE_ENGAGEMENT_FORMATION, "min": 1},
-                {"id": "diagram_banner", "needle": NEEDLE_DIAGRAM_BANNER, "min": 1},
-                {"id": "turn_ready_gauge", "needle": NEEDLE_TURN_READY_GAUGE, "min": 1},
-                {"id": "tooltip_match_ok", "needle": NEEDLE_TOOLTIP_OK, "min": 1},
-            ]
-        _SoakPresets.PRESET_II4D_EXHAUSTION:
-            return [
-                {"id": "duel_mode", "needle": NEEDLE_ENGAGEMENT_DUEL, "min": 1},
-                {"id": "exhaustion_25", "needle": "exhaustion", "min": 1},
-                {"id": "exhaustion_band", "needle": "crossed 25", "min": 1},
-            ]
-        _SoakPresets.PRESET_II_ENVELOP:
-            return [
-                {"id": "soak_setup", "needle": "soak_setup ii_envelop", "min": 1},
-                {"id": "skirmish_mode", "needle": "engagement mode=Skirmish", "min": 1},
-                {
-                    "id": "wing_engagement",
-                    "needle": "attempt_close@",
-                    "min": 1,
-                    "alt_needles": ["Stack hold_line", "rotate_file@", "hit_resolve "],
-                },
-                {"id": "ii_envelop_hit", "needle": "hit_resolve ", "min": 1},
-                {
-                    "id": "ii_envelop_mopup",
-                    "needle": "mop_up=true",
-                    "min": 1,
-                    "alt_needles": ["soak_setup ii_envelop_mopup"],
-                },
-                {
-                    "id": "ii_envelop_mopup_rotate_suppress",
-                    "needle": "rotate_suppress=true",
-                    "min": 1,
-                    "optional": true,
-                },
-                {
-                    "id": "ii_envelop_mopup_hold_hint",
-                    "needle": "Mop-up",
-                    "min": 1,
-                    "optional": true,
-                    "alt_needles": ["hold_line_hint_ok", "finish the last enemy"],
-                },
-                {
-                    "id": "ii_envelop_mopup_strike_finish",
-                    "regex": REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED,
-                    "min": 1,
-                    "optional": true,
-                    "when_ok_at_least": "mop_up=true",
-                },
-                {
-                    "id": "ii_envelop_sparse_post_flee",
-                    "needle": "fight_finish=true",
-                    "min": 1,
-                    "optional": true,
-                    "alt_needles":
-                    [
-                        "soak_setup ii_envelop_sparse_post_flee fight_finish_ok",
-                        "soak_setup ii_envelop_sparse_post_flee hold_line_hint_ok",
-                        "soak_setup 7v7_sparse_formation hold_line_hint_ok",
-                    ],
-                },
-                {
-                    "id": "ii_envelop_sparse_close_band",
-                    "regex": REGEX_ENGAGEMENT_DEBUG_SPARSE_CLOSE_BAND,
-                    "min": 1,
-                    "optional": true,
-                    "alt_needles":
-                    [
-                        "soak_setup ii_envelop_sparse_close_band rotate_suppress_ok",
-                        "ii_envelop_sparse_close_band: PASS",
-                    ],
-                },
-                {
-                    "id": "ii_envelop_sparse_fight_layer",
-                    "regex": REGEX_ENGAGEMENT_DEBUG_SPARSE_FIGHT_LAYER,
-                    "min": 1,
-                    "optional": true,
-                    "alt_needles": ["soak_setup ii_envelop_sparse_post_flee fight_finish_ok"],
-                },
-                {
-                    "id": "ii_line_plug_swap",
-                    "regex": REGEX_ENGAGEMENT_DEBUG_LINE_PLUG_PICK,
-                    "min": 1,
-                    "optional": true,
-                    "alt_needles": ["soak_setup ii_line_plug engagement_debug_ok"],
-                },
-                {
-                    "id": "ii_line_plug_formation_layer",
-                    "needle": NEEDLE_ENGAGEMENT_DEBUG_FORMATION_PLUG_LAYER,
-                    "min": 1,
-                    "optional": true,
-                    "when_ok_at_least": "line_plug_pick=1",
-                    "alt_needles": ["soak_setup ii_line_plug engagement_debug_ok"],
-                },
-            ]
-        "7v7":
-            return [
-                {"id": "fight_enter", "needle": "soak_fight_enter tile=red", "min": 1},
-                {"id": "party_count", "needle": "party_entering_combat count=7", "min": 1},
-                {"id": "formation_mode", "needle": NEEDLE_ENGAGEMENT_FORMATION, "min": 1},
-                {"id": "turn_ready_gauge", "needle": NEEDLE_TURN_READY_GAUGE, "min": 5},
-                {"id": "tooltip_ok", "needle": NEEDLE_TOOLTIP_OK, "min": 3},
-                {"id": "diagram_banner", "needle": NEEDLE_DIAGRAM_BANNER, "min": 1},
-                {
-                    "id": "formation_moves",
-                    "needle": "rotate_file",
-                    "min": 1,
-                    "optional": true,
-                    "alt_needles": ["swap_rank"],
-                },
-                {"id": "arc_overlap", "needle": "ui_hint Arc overlap", "min": 1, "optional": true},
-                {"id": "parry_trace", "needle": NEEDLE_PARRY_TRACE, "min": 1, "optional": true},
-                {"id": "fight_end", "needle": NEEDLE_SOAK_FIGHT_END, "min": 1},
-                {"id": "medical_phase", "needle": "medical_phase", "min": 1, "optional": true},
-                {"id": "medical_action_pick", "needle": "medical_action pick", "min": 1, "optional": true},
-            ]
-    return []
-
-
-static func _validator_always_tracks() -> Array:
-    return [
-        {"id": "no_script_error", "needle": "SCRIPT ERROR", "max": 0, "profiles": [PROFILE_ALWAYS]},
-        {"id": "no_fp_error", "needle": "FP_ERROR:", "max": 0, "profiles": [PROFILE_ALWAYS]},
-        {"id": "no_crash_success", "needle": "crash_success", "max": 0, "profiles": [PROFILE_ALWAYS]},
-    ]
-
-
-static func _validator_f5_trace_tracks() -> Array:
-    return [
-        {
-            "id": "turn_ready_gauge",
-            "needle": NEEDLE_TURN_READY_GAUGE,
-            "min": 1,
-            "profiles": [PROFILE_7V7, PROFILE_PRESET_II8],
-        },
-        {
-            "id": "gauge_stm_ready",
-            "regex": "turn_ready_gauge .* label=.*Stm .*Ready",
-            "min": 1,
-            "profiles": [PROFILE_7V7, PROFILE_PRESET_II8],
-        },
-        {
-            "id": "tooltip_match_ok",
-            "needle": NEEDLE_TOOLTIP_OK,
-            "min": 1,
-            "profiles": [PROFILE_7V7, PROFILE_PRESET_II8],
-        },
-        {
-            "id": "tooltip_mismatch_low",
-            "needle": "tooltip_match=mismatch",
-            "max": 0,
-            "profiles": [PROFILE_7V7, PROFILE_PRESET_II8],
-            "when_ok_at_least": "tooltip_match_ok",
-        },
-        {
-            "id": "diagram_banner",
-            "needle": NEEDLE_DIAGRAM_BANNER,
-            "min": 1,
-            "profiles": [PROFILE_7V7, PROFILE_PRESET_II8],
-            "optional": true,
-        },
-    ]
-
-
-static func _validator_7v7_tracks() -> Array:
-    return [
-        {
-            "id": "7v7_formation_mode",
-            "needle": NEEDLE_ENGAGEMENT_FORMATION,
-            "min": 1,
-            "profiles": [PROFILE_7V7],
-            "optional": true,
-        },
-        {
-            "id": "formation_moves",
-            "needle": "rotate_file",
-            "min": 1,
-            "profiles": [PROFILE_7V7],
-            "optional": true,
-            "alt_needles": ["swap_rank"],
-        },
-        {
-            "id": "medical_phase",
-            "needle": "medical_phase",
-            "min": 1,
-            "profiles": [PROFILE_7V7],
-            "optional": true,
-        },
-        {
-            "id": "medical_action_pick",
-            "needle": "medical_action pick",
-            "min": 1,
-            "profiles": [PROFILE_7V7],
-            "optional": true,
-        },
-        {
-            "id": "medical_pack_pick",
-            "needle": "medical_pack_wound pick",
-            "min": 1,
-            "profiles": [PROFILE_7V7],
-            "optional": true,
-            "alt_needles":
-            [
-                "medical_action pick move=pack_wound",
-                "medical_pack_wound listed",
-            ],
-        },
-        {
-            "id": "exhaustion_bands",
-            "needle": "exhaustion",
-            "min": 1,
-            "profiles": [PROFILE_7V7],
-            "optional": true,
-        },
-        {
-            "id": "soak_fight_end",
-            "needle": NEEDLE_SOAK_FIGHT_END,
-            "min": 1,
-            "profiles": [PROFILE_7V7],
-            "optional": true,
-        },
-        {
-            "id": "engagement_transition",
-            "needle": "engagement_transition",
-            "min": 1,
-            "profiles": [PROFILE_7V7],
-            "optional": true,
-        },
-        {
-            "id": "phase_end",
-            "needle": "phase_end winner=",
-            "min": 1,
-            "profiles": [PROFILE_7V7],
-            "optional": true,
-        },
-        {
-            "id": "parry_trace",
-            "needle": NEEDLE_PARRY_TRACE,
-            "min": 1,
-            "profiles": [PROFILE_7V7],
-            "optional": true,
-        },
-    ]
-
-
-static func _validator_ii2b_tracks() -> Array:
-    return [
-        {"id": "ii2b_duel", "needle": NEEDLE_ENGAGEMENT_DUEL, "min": 1, "profiles": [PROFILE_PRESET_II2B]},
-        {"id": "ii2b_parry", "needle": NEEDLE_PARRY_TRACE, "min": 1, "profiles": [PROFILE_PRESET_II2B]},
-        {
-            "id": "ii2b_bind_or_flurry",
-            "needle": "parry_bind",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II2B],
-            "optional": true,
-            "alt_needles": ["flurry_bind", "parry_deflect", "riposte_chain"],
-        },
-    ]
-
-
-static func _validator_ii3_tracks() -> Array:
-    return [
-        {"id": "ii3_arc_overlap", "needle": "Arc overlap", "min": 1, "profiles": [PROFILE_PRESET_II3]},
-        {
-            "id": "ii3_parry",
-            "needle": NEEDLE_PARRY_TRACE,
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II3],
-            "optional": true,
-        },
-    ]
-
-
-static func _validator_ii5_tracks() -> Array:
-    return [
-        {
-            "id": "ii5_cowering_listed",
-            "needle": "cowering_fall_back listed",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II5],
-        },
-        {
-            "id": "ii5_cowering_executed",
-            "needle": "cowering_fall_back executed",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II5],
-            "optional": true,
-            "alt_needles": ["fall_back pick", "cowering_fall_back pick"],
-        },
-    ]
-
-
-static func _validator_ii6_tracks() -> Array:
-    return [
-        {"id": "ii6_setup", "needle": "soak_setup ii6", "min": 1, "profiles": [PROFILE_PRESET_II6]},
-        {"id": "ii6_ambient", "needle": "ambient_pain_shock", "min": 1, "profiles": [PROFILE_PRESET_II6]},
-        {
-            "id": "ii6_companion",
-            "needle": "ambient_pain_shock Companion",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II6],
-            "optional": true,
-            "alt_needles": ["ambient_pain_shock Main", "ambient_pain_shock Character"],
-        },
-    ]
-
-
-static func _validator_ii8_tracks() -> Array:
-    return [
-        {
-            "id": "ii8_formation_mode",
-            "needle": NEEDLE_ENGAGEMENT_FORMATION,
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II8],
-        },
-        {
-            "id": "ii8_diagram_banner",
-            "needle": NEEDLE_DIAGRAM_BANNER,
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II8],
-            "optional": true,
-        },
-    ]
-
-
-static func _validator_ii4d_tracks() -> Array:
-    return [
-        {
-            "id": "ii4d_duel",
-            "needle": NEEDLE_ENGAGEMENT_DUEL,
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II4D],
-            "optional": true,
-        },
-        {
-            "id": "ii4d_exhaustion",
-            "needle": "crossed 25",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II4D],
-            "optional": true,
-            "alt_needles": ["exhaustion"],
-        },
-    ]
-
-
-static func _validator_ii_envelop_tracks() -> Array:
-    return [
-        {
-            "id": "ii_envelop_setup",
-            "needle": "soak_setup ii_envelop",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP]
-        },
-        {
-            "id": "ii_envelop_skirmish",
-            "needle": "engagement mode=Skirmish",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-        },
-        {
-            "id": "ii_envelop_wing",
-            "needle": "attempt_close@",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-            "alt_needles": ["Stack hold_line", "rotate_file@", "hit_resolve "],
-        },
-        {
-            "id": "ii_envelop_hit",
-            "needle": "hit_resolve ",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-        },
-        {
-            "id": "ii_envelop_mopup",
-            "needle": "mop_up=true",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-            "alt_needles": ["soak_setup ii_envelop_mopup"],
-        },
-        {
-            "id": "ii_envelop_mopup_rotate_suppress",
-            "needle": "rotate_suppress=true",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-            "optional": true,
-        },
-        {
-            "id": "ii_envelop_mopup_hold_hint",
-            "needle": "Mop-up",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-            "optional": true,
-            "alt_needles": ["hold_line_hint_ok", "finish the last enemy"],
-        },
-        {
-            "id": "ii_envelop_mopup_strike_finish",
-            "regex": REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED,
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-            "optional": true,
-            "when_ok_at_least": "mop_up=true",
-        },
-        {
-            "id": "ii_envelop_sparse_post_flee",
-            "needle": "fight_finish=true",
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-            "optional": true,
-            "alt_needles": ["soak_setup ii_envelop_sparse_post_flee fight_finish_ok"],
-        },
-        {
-            "id": "ii_envelop_sparse_close_band",
-            "regex": REGEX_ENGAGEMENT_DEBUG_SPARSE_CLOSE_BAND,
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-            "optional": true,
-            "alt_needles":
-            [
-                "soak_setup ii_envelop_sparse_close_band rotate_suppress_ok",
-                "ii_envelop_sparse_close_band: PASS",
-            ],
-        },
-        {
-            "id": "ii_envelop_sparse_fight_layer",
-            "regex": REGEX_ENGAGEMENT_DEBUG_SPARSE_FIGHT_LAYER,
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-            "optional": true,
-            "alt_needles": ["soak_setup ii_envelop_sparse_post_flee fight_finish_ok"],
-        },
-        {
-            "id": "ii_line_plug_swap",
-            "regex": REGEX_ENGAGEMENT_DEBUG_LINE_PLUG_PICK,
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-            "optional": true,
-            "alt_needles": ["soak_setup ii_line_plug engagement_debug_ok"],
-        },
-        {
-            "id": "ii_line_plug_formation_layer",
-            "needle": NEEDLE_ENGAGEMENT_DEBUG_FORMATION_PLUG_LAYER,
-            "min": 1,
-            "profiles": [PROFILE_PRESET_II_ENVELOP],
-            "optional": true,
-            "when_ok_at_least": "line_plug_pick=1",
-            "alt_needles": ["soak_setup ii_line_plug engagement_debug_ok"],
-        },
-    ]
-
-
-static func _validator_wf_footing_tracks() -> Array:
-    ## WF-M3 F5 paste checks  -  gated on **`turn_ready_gauge`** presence (Camp-5 human footing).
-    return [
-        {
-            "id": "wf_m3_turn_ready_form",
-            "regex": "turn_ready_gauge .* label=.* Form ",
-            "min": 1,
-            "profiles": [PROFILE_ALWAYS],
-            "when_ok_at_least": "turn_ready_gauge",
-        },
-        {
-            "id": "wf_m3_grd_before_form",
-            "regex": "turn_ready_gauge .* label=.*(?:Grd|Atk) .+ Form ",
-            "min": 1,
-            "profiles": [PROFILE_ALWAYS],
-            "when_ok_at_least": "turn_ready_gauge",
-        },
-        {
-            "id": "wf_m3_form_switch",
-            "needle": "form_switch id=",
-            "min": 1,
-            "profiles": [PROFILE_ALWAYS],
-            "optional": true,
-        },
-        {
-            "id": "wf_m3_idle_step_leak",
-            "regex": "turn_ready_gauge .* label=Stm [0-9]+% . Ready . Step",
-            "max": 0,
-            "profiles": [PROFILE_ALWAYS],
-            "when_ok_at_least": "turn_ready_gauge",
-            "optional": true,
-        },
-        {
-            "id": "wf_controlling_close_hint",
-            "needle": "controlling_close_list ",
-            "min": 1,
-            "profiles": [PROFILE_ALWAYS],
-            "optional": true,
-        },
-    ]
-
-
-static func _validator_iv11_tracks() -> Array:
-    ## IV-11 slice 10: optional F5 grep when **`FEATURE_LEADER_FORMATION_COMMAND`** exercised in soak.
-    return [
-        {
-            "id": "iv11_leader_order",
-            "needle": "leader_order=",
-            "min": 1,
-            "profiles": [PROFILE_ALWAYS],
-            "optional": true,
-        },
-    ]
-
-
-static func _validator_mopup_strike_finish_tracks() -> Array:
-    ## III-4 **3e**  -  listed strikes during mop-up (7v7 campaign fights + Camp paste).
-    return [
-        {
-            "id": "camp_mopup_strike_finish",
-            "regex": REGEX_ENGAGEMENT_DEBUG_MOPUP_STRIKES_LISTED,
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA, PROFILE_7V7],
-            "optional": true,
-            "when_ok_at_least": "mop_up=true",
-        },
-    ]
-
-
-static func _validator_line_plug_pick_tracks() -> Array:
-    ## III-6 maintain  -  F5 / Camp paste when rear plugs rank-0 gap (`line_plug_pick=1`).
-    return [
-        {
-            "id": "camp_line_plug_pick",
-            "regex": REGEX_ENGAGEMENT_DEBUG_LINE_PLUG_PICK,
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA, PROFILE_7V7, PROFILE_PRESET_II_ENVELOP],
-            "optional": true,
-            "when_ok_at_least": "line_plug=true",
-        },
-    ]
-
-
-static func _validator_mental_stack_layers_tracks() -> Array:
-    ## MS-L8 (post-strike) and MS-L9 (positional awareness)  -  optional F5 grep when FEATURE flags active.
-    return [
-        {
-            "id": "ms_l8_post_strike_layer",
-            "needle": NEEDLE_ENGAGEMENT_DEBUG_POST_STRIKE_LAYER,
-            "min": 1,
-            "profiles": [PROFILE_ALWAYS],
-            "optional": true,
-        },
-        {
-            "id": "ms_l9_positional_dis_layer",
-            "needle": NEEDLE_ENGAGEMENT_DEBUG_POSITIONAL_DIS_LAYER,
-            "min": 1,
-            "profiles": [PROFILE_ALWAYS],
-            "optional": true,
-        },
-    ]
-
-
-static func _validator_camp_ea_tracks() -> Array:
-    return [
-        {
-            "id": "camp_settlement_continue",
-            "needle": "settlement_continue",
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA],
-            "optional": true,
-            "alt_needles": ["contract_victory pay="],
-        },
-        {
-            "id": "camp_company_day",
-            "needle": "company_day_advanced",
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA],
-            "optional": true,
-        },
-        {
-            "id": "camp_field_care",
-            "needle": "field_care:",
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA],
-            "optional": true,
-        },
-        {
-            "id": "camp_field_care_action",
-            "needle": "field_care bandage part=",
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA],
-            "optional": true,
-            "alt_needles":
-            [
-                "field_care pressure part=",
-                "field_care stabilize part=",
-            ],
-        },
-        {
-            "id": "camp_paid_loss",
-            "regex": "company_run_end reason=contract_failed.*reload=true",
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA],
-            "optional": true,
-        },
-        {
-            "id": "camp_tutorial_soft_loss",
-            "needle": "reason=tutorial_failed reload=false",
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA],
-            "optional": true,
-        },
-        {
-            "id": "camp_wage_warn",
-            "needle": "company_wages: gold=",
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA],
-            "optional": true,
-            "alt_needles": ["Wages short  -  paid"],
-        },
-        {
-            "id": "camp_desertion",
-            "needle": "desertion summary=",
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA],
-            "optional": true,
-        },
-        {
-            "id": "camp_run_end",
-            "needle": "company_run_end reason=",
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA],
-            "optional": true,
-        },
-        {
-            "id": "camp_party_triage",
-            "needle": "party_triage_open living=",
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA],
-            "optional": true,
-        },
-        {
-            "id": "camp_medical_exit",
-            "needle": "campaign_medical_exit",
-            "min": 1,
-            "profiles": [PROFILE_CAMP_EA],
-            "optional": true,
-        },
-    ]
-
-
-static func _profile_set_includes_trace_profiles(profiles: PackedStringArray) -> bool:
-    for p in profiles:
-        if p == PROFILE_7V7 or p == PROFILE_PRESET_II8:
-            return true
-    return false
-
-
-static func _track_applies(spec: Dictionary, active_profiles: PackedStringArray) -> bool:
-    for p in spec.get("profiles", []) as Array:
-        if str(p) in active_profiles:
-            return true
-    return false
-
-
-static func _blob_has(blob: String, needles: Array) -> bool:
-    for n in needles:
-        if str(n) in blob:
-            return true
-    return false
 
 
 ## Lines inside **`[preset] pass=...`** block from **`.d001_soak_out.txt`** (harness report, not raw FP_COMBAT).

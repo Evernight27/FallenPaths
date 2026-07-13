@@ -4,20 +4,17 @@ extends RefCounted
 ## M6: J-internal tissue capacity '??" display `body_cutting` / `body_blunt` (production on).
 ## One J reservoir per part; cut and blunt displays debit independently (severance parity with HP path).
 
-const _Bleeding := preload("res://core/BleedingConstants.gd")
-const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
-
 
 static func is_active(force: bool = false) -> bool:
-    return force or _Bleeding.FEATURE_TISSUE_ENERGY_POOL
+    return force or BleedingConstants.FEATURE_TISSUE_ENERGY_POOL
 
 
 static func design_ke_j_for_part(part: String) -> float:
-    return _DesignAnchors.design_ke_j_for_part(part)
+    return CombatDesignAnchors.design_ke_j_for_part(part)
 
 
 static func capacity_j_for_part(part: String, body_max_tissue: int) -> float:
-    var display_ref: float = float(_DesignAnchors.reference_tissue_display_for_part(part))
+    var display_ref: float = float(CombatDesignAnchors.reference_tissue_display_for_part(part))
     var tissue_max: float = maxf(1.0, float(body_max_tissue))
     return design_ke_j_for_part(part) * (tissue_max / display_ref)
 
@@ -53,7 +50,7 @@ static func seed_entity_energy_pools(entity: Node, from_species_apply: bool = tr
         return
     entity.tissue_energy_capacity_j = {}
     entity.tissue_energy_remaining_j = {}
-    if not from_species_apply or not _Bleeding.FEATURE_TISSUE_ENERGY_POOL:
+    if not from_species_apply or not BleedingConstants.FEATURE_TISSUE_ENERGY_POOL:
         return
     if not entity.has_method("_get_body_part_list"):
         return

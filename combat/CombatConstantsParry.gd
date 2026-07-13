@@ -34,47 +34,11 @@ const PARRY_REDIRECT_THRUST_BONUS := 0.22
 const PARRY_REDIRECT_BLUNT_PENALTY := 0.12
 const PARRY_CUT_TO_BLUNT_SHIFT := 0.28
 const PARRY_PENETRATION_ANGLE_MIN := 0.72
-const PARRY_PENETRATION_ALIGNMENT_SCALE := 0.5  # Legacy: replaced by cosine obliquity model (AttackResolver.penetration_oblique_angle_factor). Kept for harness regression tests.
+# Legacy: replaced by cosine obliquity model (AttackResolver.penetration_oblique_angle_factor). Kept for harness
+# regression tests.
+const PARRY_PENETRATION_ALIGNMENT_SCALE := 0.5
 const PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD := 0.6
 const PARRY_BIND_CONTROL_THRESHOLD := 0.65
-
-
-static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry: bool) -> bool:
-    return is_block_parry and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
-
-
-static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool) -> bool:
-    if is_block_parry:
-        return false
-    return alignment >= PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
-
-
-static func parry_bind_control_reached(parry_control: float) -> bool:
-    return parry_control >= PARRY_BIND_CONTROL_THRESHOLD
-
-
-static func iii3_baseline_constants_line() -> String:
-    return (
-        "III-3 constants: unchanged baseline (PARRY_DEFLECT_THRESHOLD=%.2f PARRY_BIND_CONTROL_THRESHOLD=%.2f)"
-        % [PARRY_DEFLECT_THRESHOLD, PARRY_BIND_CONTROL_THRESHOLD]
-    )
-
-
-static func p4d_parry_bind_doc_sync_line() -> String:
-    var blade: Dictionary = PARRY_BIND_RIPOSTE_BY_PART_CONTACT["blade"] as Dictionary
-    var shaft: Dictionary = PARRY_BIND_RIPOSTE_BY_PART_CONTACT["shaft"] as Dictionary
-    return (
-        "P4d bind sync: blade stab=%.2f cut=%.2f shaft blunt=%.2f fallback=%.2f gauge_bonus=%.0f"
-        % [
-            float(blade["stab"]),
-            float(blade["cut"]),
-            float(shaft["blunt"]),
-            PARRY_BIND_RIPOSTE_MULT_FALLBACK,
-            PARRY_BIND_RIPOSTE_GAUGE_BONUS,
-        ]
-    )
-
-
 const ARCHETYPES_NEVER_BIND: Array[String] = ["pommel_strike", "heavy_blunt"]
 const PARRY_BIND_RIPOSTE_BY_PART_CONTACT: Dictionary = {
     "blade": {"stab": 0.55, "cut": 0.78},
@@ -82,8 +46,7 @@ const PARRY_BIND_RIPOSTE_BY_PART_CONTACT: Dictionary = {
     "haft": {"stab": 0.55, "cut": 0.78}
 }
 const PARRY_BIND_RIPOSTE_MULT_FALLBACK: float = 0.78
-const _Stamina := preload("res://combat/CombatConstantsStamina.gd")
-const PARRY_BIND_RIPOSTE_GAUGE_BONUS := float(_Stamina.PARRY_BIND_RIPOSTE_GAUGE_BONUS)
+const PARRY_BIND_RIPOSTE_GAUGE_BONUS := float(CombatConstantsStamina.PARRY_BIND_RIPOSTE_GAUGE_BONUS)
 const PARRY_LATE_CONTROL_FACTOR := 0.6
 const PARRY_OFF_BALANCE_CONTROL_FACTOR := 0.7
 const PARRY_THRUST_CONTROL_MULT := 0.85
@@ -120,6 +83,42 @@ const FEINT_TELEGRAPH_DODGE_EVAL_BIAS := 0.55
 const PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS := "_harness_feint_dodge_eval_bias"
 const FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_CLOSE := 1.08
 const FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_LONG := 0.88
+
+
+static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry: bool) -> bool:
+    return is_block_parry and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
+
+
+static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool) -> bool:
+    if is_block_parry:
+        return false
+    return alignment >= PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
+
+
+static func parry_bind_control_reached(parry_control: float) -> bool:
+    return parry_control >= PARRY_BIND_CONTROL_THRESHOLD
+
+
+static func iii3_baseline_constants_line() -> String:
+    return (
+        "III-3 constants: unchanged baseline (PARRY_DEFLECT_THRESHOLD=%.2f PARRY_BIND_CONTROL_THRESHOLD=%.2f)"
+        % [PARRY_DEFLECT_THRESHOLD, PARRY_BIND_CONTROL_THRESHOLD]
+    )
+
+
+static func p4d_parry_bind_doc_sync_line() -> String:
+    var blade: Dictionary = PARRY_BIND_RIPOSTE_BY_PART_CONTACT["blade"] as Dictionary
+    var shaft: Dictionary = PARRY_BIND_RIPOSTE_BY_PART_CONTACT["shaft"] as Dictionary
+    return (
+        "P4d bind sync: blade stab=%.2f cut=%.2f shaft blunt=%.2f fallback=%.2f gauge_bonus=%.0f"
+        % [
+            float(blade["stab"]),
+            float(blade["cut"]),
+            float(shaft["blunt"]),
+            PARRY_BIND_RIPOSTE_MULT_FALLBACK,
+            PARRY_BIND_RIPOSTE_GAUGE_BONUS,
+        ]
+    )
 
 
 static func commitment_fraction_for_pending_attack(pa: Dictionary) -> float:

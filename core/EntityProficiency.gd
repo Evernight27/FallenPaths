@@ -1,28 +1,5 @@
 class_name EntityProficiency
 extends RefCounted
-
-## XCamp-4: use-based stat proficiency system.
-## Static methods for stat gain rates, decay calculation, and training application.
-## All public mutation methods check CompanyState.read_stub_proficiency_enabled() at entry.
-##
-## Gain tiers (diminishing returns): 0-5 = 1.0x, 6-10 = 0.7x, 11-20 = 0.4x, 21-30 = 0.2x, 31+ = 0.1x.
-## Decay tiers (per-stat calibrated): 11-15 = -0.03/day, 16-20 = -0.05/day, 21-25 = -0.08/day, 26+ = -0.12/day.
-## Gain and decay use separate thresholds  -  gain follows a "proficiency level" model (novice|'elite),
-## decay follows a "bonus magnitude" model calibrated for how quickly different magnitudes erode.
-## Decay only applies to bonuses > 10.0  -  characters below +11 don't lose ground on basic training.
-
-# Runtime preload ' circular dependency (CompanyState preloads CompanyCamp/Roster which preload EntityProficiency).
-static var _CompanyState: Variant = null
-
-
-static func _get_company_state() -> GDScript:
-    if EntityProficiency._CompanyState == null:
-        EntityProficiency._CompanyState = load("res://world/CompanyState.gd")
-    return EntityProficiency._CompanyState
-
-
-const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
-
 # --- Gain rate multipliers (diminishing returns by proficiency level) ---
 const PROFICIENCY_NOVICE_MAX: int = 5
 const PROFICIENCY_PROFICIENT_MAX: int = 10
@@ -46,36 +23,6 @@ const DECAY_MULT_AGI: float = 1.3
 const DECAY_MULT_PER: float = 0.8
 const DECAY_MULT_STR: float = 0.5
 const DECAY_MULT_INT: float = 0.4
-
-
-# --- Stance/form gain modifiers  -  derived from CombatWeaponForm._FORM_DEFS ---
-## Maps form pressure class to stat training bonus profile.
-## Aggressive forms |' strength bonus (overwhelming force).
-## Defensive forms |' endurance bonus (durability under pressure).
-## Controlling forms |' intelligence bonus (reading the fight).
-## Neutral Ox |' agility + perception (thrust precision).
-## Neutral Plow |' mixed endurance/agility (methodical spacing).
-## Tempest is aggressive but gets unique STR/AGI treatment  -  checked before pressure match.
-static func stance_mods_for_form(form: String) -> Dictionary:
-    if form.is_empty():
-        return {}
-    var normalized: String = _WeaponForm.normalize_form(form)
-    if normalized == _WeaponForm.FORM_TEMPEST:
-        return {"strength": 1.18, "endurance": 1.0, "agility": 1.10}
-    if normalized == _WeaponForm.FORM_OX:
-        return {"strength": 1.10, "endurance": 1.0, "agility": 1.10, "perception": 1.10}
-    if normalized == _WeaponForm.FORM_PLOW:
-        return {"strength": 1.0, "endurance": 1.20, "agility": 1.05}
-    if _WeaponForm.pressure_class_is(form, "aggressive"):
-        return {"strength": 1.25, "endurance": 1.0}
-    if _WeaponForm.pressure_class_is(form, "defensive"):
-        return {"strength": 1.0, "endurance": 1.25}
-    if _WeaponForm.pressure_class_is(form, "controlling"):
-        return {"strength": 1.05, "endurance": 1.05, "intelligence": 1.15}
-    return {"strength": 1.0, "endurance": 1.0}
-
-
-# --- Weapon type learning curve modifiers (keys match Weapon.weapon_type) ---
 const WEAPON_CURVES: Dictionary = {
     "SWORD": {"strength": 0.8, "agility": 0.9},
     "AXE": {"strength": 1.2, "agility": 0.95},
@@ -101,7 +48,7 @@ const GAIN_MELEE_HIT_BASE: float = 0.3
 const GAIN_MELEE_HIT_MAX_DMG_CONTRIB: float = 2.0
 const GAIN_SEVERE_WOUND_BASE: float = 0.5
 const GAIN_STRIKE_ATTEMPTED_BASE: float = 0.15
-const GAIN_DODGE_EVaded_BASE: float = 0.4
+const GAIN_DODGE_EVADED_BASE: float = 0.4
 const GAIN_DODGE_OUTNUMBERED_BONUS: float = 0.2
 const GAIN_WINDUP_COMPLETED_AGI_BASE: float = 0.1
 const GAIN_MEDICAL_ACTION_BASE: float = 0.5
@@ -138,6 +85,55 @@ const MEDICAL_ITEM_MULT: Dictionary = {
     "pack": 1.2,
     "tourniquet": 1.5,
 }
+
+## XCamp-4: use-based stat proficiency system.
+## Static methods for stat gain rates, decay calculation, and training application.
+## All public mutation methods check CompanyState.read_stub_proficiency_enabled() at entry.
+##
+## Gain tiers (diminishing returns): 0-5 = 1.0x, 6-10 = 0.7x, 11-20 = 0.4x, 21-30 = 0.2x, 31+ = 0.1x.
+## Decay tiers (per-stat calibrated): 11-15 = -0.03/day, 16-20 = -0.05/day, 21-25 = -0.08/day, 26+ = -0.12/day.
+## Gain and decay use separate thresholds  -  gain follows a "proficiency level" model (novice|'elite),
+## decay follows a "bonus magnitude" model calibrated for how quickly different magnitudes erode.
+## Decay only applies to bonuses > 10.0  -  characters below +11 don't lose ground on basic training.
+
+# Runtime preload ' circular dependency (CompanyState preloads CompanyCamp/Roster which preload EntityProficiency).
+static var _company_state: Variant = null
+
+
+static func _get_company_state() -> GDScript:
+    if EntityProficiency._company_state == null:
+        EntityProficiency._company_state = load("res://world/CompanyState.gd")
+    return EntityProficiency._company_state
+
+
+# --- Stance/form gain modifiers  -  derived from CombatWeaponForm._FORM_DEFS ---
+## Maps form pressure class to stat training bonus profile.
+## Aggressive forms |' strength bonus (overwhelming force).
+## Defensive forms |' endurance bonus (durability under pressure).
+## Controlling forms |' intelligence bonus (reading the fight).
+## Neutral Ox |' agility + perception (thrust precision).
+## Neutral Plow |' mixed endurance/agility (methodical spacing).
+## Tempest is aggressive but gets unique STR/AGI treatment  -  checked before pressure match.
+static func stance_mods_for_form(form: String) -> Dictionary:
+    if form.is_empty():
+        return {}
+    var normalized: String = CombatWeaponForm.normalize_form(form)
+    if normalized == CombatWeaponForm.FORM_TEMPEST:
+        return {"strength": 1.18, "endurance": 1.0, "agility": 1.10}
+    if normalized == CombatWeaponForm.FORM_OX:
+        return {"strength": 1.10, "endurance": 1.0, "agility": 1.10, "perception": 1.10}
+    if normalized == CombatWeaponForm.FORM_PLOW:
+        return {"strength": 1.0, "endurance": 1.20, "agility": 1.05}
+    if CombatWeaponForm.pressure_class_is(form, "aggressive"):
+        return {"strength": 1.25, "endurance": 1.0}
+    if CombatWeaponForm.pressure_class_is(form, "defensive"):
+        return {"strength": 1.0, "endurance": 1.25}
+    if CombatWeaponForm.pressure_class_is(form, "controlling"):
+        return {"strength": 1.05, "endurance": 1.05, "intelligence": 1.15}
+    return {"strength": 1.0, "endurance": 1.0}
+
+
+# --- Weapon type learning curve modifiers (keys match Weapon.weapon_type) ---
 
 
 ## Called during combat  -  adds to proficiency bonus with diminishing returns and weapon-form modifiers.
@@ -201,7 +197,7 @@ static func normalize_weapon_id(weapon_id: String) -> String:
 
 
 static func normalize_form_id(form: String) -> String:
-    return _WeaponForm.normalize_form(form)
+    return CombatWeaponForm.normalize_form(form)
 
 
 static func weapon_proficiency_value(entity: CoreEntity, weapon_id: String) -> float:
@@ -241,7 +237,7 @@ static func proficiency_occurrence_mult(entity: CoreEntity, weapon_id: String, f
         return 1.0
     var wt: float = weapon_proficiency_tier(entity, weapon_id)
     var ft: float = form_proficiency_tier(entity, form)
-    var sig: float = _WeaponForm.action_weight_mult(normalize_form_id(form), move_id, weapon_id)
+    var sig: float = CombatWeaponForm.action_weight_mult(normalize_form_id(form), move_id, weapon_id)
     var boost: float = 1.0 + wt * 0.12 + ft * 0.08
     if sig > 1.05:
         boost += (sig - 1.0) * ft * 0.35
@@ -355,8 +351,8 @@ static func apply_decay(entity: CoreEntity, current_day_index: int) -> void:
         var bv: float = 100.0
         if "blood_volume" in entity:
             bv = float(entity.blood_volume)
-        elif entity.has_method("get_blood_volume"):
-            bv = float(entity.get_blood_volume())
+        elif entity.has_method("_get_blood_volume"):
+            bv = float(entity._get_blood_volume())
         if bv < 40.0:
             daily_decay *= 0.5
 
@@ -368,11 +364,11 @@ static func apply_decay(entity: CoreEntity, current_day_index: int) -> void:
 static func merge_training_pending(entity: CoreEntity) -> void:
     if not _get_company_state().read_stub_proficiency_enabled():
         return
-    if entity == null or not entity.has_method("get_training_pending"):
+    if entity == null or not entity.has_method("_get_training_pending"):
         return
 
     for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
-        var tp_dict: Dictionary = entity.get_training_pending()
+        var tp_dict: Dictionary = entity._get_training_pending()
         var pending: float = 0.0
         if stat in tp_dict:
             pending = float(tp_dict[stat])
@@ -382,7 +378,7 @@ static func merge_training_pending(entity: CoreEntity) -> void:
             if stat in prof_dict:
                 current = float(prof_dict[stat])
             entity._proficiency_bonus[stat] = current + pending
-            entity.set_training_pending_value(stat, 0.0)
+            entity._set_training_pending_value(stat, 0.0)
 
 
 ## Returns the gain rate multiplier for current proficiency level (float version  -  no truncation).

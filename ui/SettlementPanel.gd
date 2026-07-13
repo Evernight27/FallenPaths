@@ -3,7 +3,6 @@ extends RefCounted
 
 ## Post-victory settlement (Camp-1.5). Pay, wound summary, roster cleanup (Camp-1.8 K3).
 
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
 # Runtime preload â€” circular dependency (CompanyState preloads CombatFlow â†’ SettlementPanel).
 static var _company_state_cache: Variant = null
 
@@ -12,13 +11,6 @@ static func _get_company_state() -> GDScript:
     if _company_state_cache == null:
         _company_state_cache = load("res://world/CompanyState.gd")
     return _company_state_cache
-
-
-const _ContractSpawner := preload("res://world/ContractSpawner.gd")
-const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
-const _MapFieldCare := preload("res://world/MapFieldCare.gd")
-const _CampaignAfflictions := preload("res://world/CampaignAfflictions.gd")
 
 
 static func show_and_await(world: Node2D):
@@ -36,10 +28,10 @@ static func show_and_await(world: Node2D):
     layer.layer = 200
     layer.name = "SettlementLayer"
     world.get_tree().root.add_child(layer)
-    var _layer_exited := {"done": false}
+    var layer_exited := {"done": false}
     layer.tree_exited.connect(
         func() -> void:
-            _layer_exited["done"] = true
+            layer_exited["done"] = true
             _disable_overworld_input(world, true)
     )
 
@@ -91,19 +83,19 @@ static func show_and_await(world: Node2D):
             _apply_victory_mood_boost(world)
             layer.queue_free()
             _get_company_state().clear_active_contract(world)
-            var enemy_scene: PackedScene = _CampaignBridge.resolve_enemy_scene(world)
-            _ContractSpawner.try_refresh_contract_deck(world, enemy_scene)
+            var enemy_scene: PackedScene = CampaignEncounterBridge.resolve_enemy_scene(world)
+            ContractSpawner.try_refresh_contract_deck(world, enemy_scene)
             _get_company_state().refresh_hud(world)
-            _CampaignBridge.sync_overworld_player_grid_anchor(world)
+            CampaignEncounterBridge.sync_overworld_player_grid_anchor(world)
             _disable_overworld_input(world, true)
             _get_company_state().try_autosave(world)
-            if _OperationalLog.is_play_session_active():
-                _OperationalLog.play_world(format_settlement_continue_log(world, contract, pay))
+            if OperationalLog.is_play_session_active():
+                OperationalLog.play_world(format_settlement_continue_log(world, contract, pay))
     )
     vbox.add_child(continue_btn)
 
-    var roster_rows: Array = _CampaignBridge.party_member_snapshots(world)
-    var worst: Dictionary = _RowFormatter.worst_triage_from_member_rows(roster_rows)
+    var roster_rows: Array = CampaignEncounterBridge.party_member_snapshots(world)
+    var worst: Dictionary = PartyRowFormatter.worst_triage_from_member_rows(roster_rows)
     if not worst.is_empty():
         var warn := Label.new()
         warn.text = (
@@ -113,7 +105,7 @@ static func show_and_await(world: Node2D):
                 str(worst.get("triage_line", "")),
             ]
         )
-        _RowFormatter.configure_wrapped_label(warn)
+        PartyRowFormatter.configure_wrapped_label(warn)
         warn.add_theme_color_override("font_color", Color(0.95, 0.55, 0.35))
         vbox.add_child(warn)
 
@@ -129,14 +121,14 @@ static func show_and_await(world: Node2D):
     for aff_line in affliction_lines:
         var aff_lbl := Label.new()
         aff_lbl.text = "Scarred \u2014 " + aff_line
-        _RowFormatter.configure_wrapped_label(aff_lbl)
+        PartyRowFormatter.configure_wrapped_label(aff_lbl)
         aff_lbl.add_theme_color_override("font_color", Color(0.75, 0.65, 0.95))
         vbox.add_child(aff_lbl)
-    var scarred: int = _CampaignAfflictions.count_scarred_brothers(world)
+    var scarred: int = CampaignAfflictions.count_scarred_brothers(world)
     if scarred > 0 and affliction_lines.is_empty():
         var scar_summary := Label.new()
         scar_summary.text = ("Company scars: %d brother(s) carry permanent injuries (Party for details)." % scarred)
-        _RowFormatter.configure_wrapped_label(scar_summary)
+        PartyRowFormatter.configure_wrapped_label(scar_summary)
         scar_summary.add_theme_color_override("font_color", Color(0.7, 0.62, 0.88))
         vbox.add_child(scar_summary)
 
@@ -144,7 +136,7 @@ static func show_and_await(world: Node2D):
     for line in memorials:
         var mem := Label.new()
         mem.text = line
-        _RowFormatter.configure_wrapped_label(mem)
+        PartyRowFormatter.configure_wrapped_label(mem)
         mem.add_theme_color_override("font_color", Color(0.85, 0.55, 0.45))
         vbox.add_child(mem)
 
@@ -152,7 +144,7 @@ static func show_and_await(world: Node2D):
     if not burial_debt_warn.is_empty():
         var burial_warn_lbl := Label.new()
         burial_warn_lbl.text = burial_debt_warn
-        _RowFormatter.configure_wrapped_label(burial_warn_lbl)
+        PartyRowFormatter.configure_wrapped_label(burial_warn_lbl)
         burial_warn_lbl.add_theme_color_override("font_color", Color(0.95, 0.75, 0.35))
         vbox.add_child(burial_warn_lbl)
 
@@ -160,14 +152,14 @@ static func show_and_await(world: Node2D):
     for line in burial_lines:
         var burial_lbl := Label.new()
         burial_lbl.text = line
-        _RowFormatter.configure_wrapped_label(burial_lbl)
+        PartyRowFormatter.configure_wrapped_label(burial_lbl)
         burial_lbl.add_theme_color_override("font_color", Color(0.82, 0.72, 0.55))
         vbox.add_child(burial_lbl)
 
-    if _CampaignBridge.party_has_untreated_wounds(world):
+    if CampaignEncounterBridge.party_has_untreated_wounds(world):
         var care_hint := Label.new()
         care_hint.text = _get_company_state().format_settlement_field_care_hint(world)
-        _RowFormatter.configure_wrapped_label(care_hint)
+        PartyRowFormatter.configure_wrapped_label(care_hint)
         care_hint.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
         vbox.add_child(care_hint)
 
@@ -188,7 +180,7 @@ static func show_and_await(world: Node2D):
         vbox, _get_company_state().format_settlement_low_mood_stance_hint(world), Color(0.75, 0.82, 0.95)
     )
     _append_settlement_hint_if_set(
-        vbox, _ContractSpawner.format_settlement_deck_refresh_hint(world), Color(0.72, 0.85, 0.95)
+        vbox, ContractSpawner.format_settlement_deck_refresh_hint(world), Color(0.72, 0.85, 0.95)
     )
 
     if _get_company_state().persistence_uses_disk_autosave():
@@ -198,11 +190,11 @@ static func show_and_await(world: Node2D):
             if _get_company_state().persistence_restore_on_main_restart()
             else "Progress autosaves when you continue."
         )
-        _RowFormatter.configure_wrapped_label(save_hint)
+        PartyRowFormatter.configure_wrapped_label(save_hint)
         save_hint.add_theme_color_override("font_color", Color(0.65, 0.78, 0.88))
         vbox.add_child(save_hint)
 
-    while not wait_state.get("done", false) and not _layer_exited.get("done", false):
+    while not wait_state.get("done", false) and not layer_exited.get("done", false):
         if not is_instance_valid(world):
             break
         await world.get_tree().process_frame
@@ -215,7 +207,7 @@ static func _append_settlement_hint_if_set(
         return
     var lbl := Label.new()
     lbl.text = text
-    _RowFormatter.configure_wrapped_label(lbl)
+    PartyRowFormatter.configure_wrapped_label(lbl)
     lbl.add_theme_color_override("font_color", color)
     parent.add_child(lbl)
 
@@ -280,60 +272,60 @@ static func _append_member_vitals_labels(parent: VBoxContainer, m: Dictionary, w
     var bv: float = m.get("blood_volume", 100.0)
     var bleed: float = m.get("total_bleeding_rate", 0.0)
     var blood_lbl := Label.new()
-    blood_lbl.text = _RowFormatter.format_blood_line(bv, bleed)
+    blood_lbl.text = PartyRowFormatter.format_blood_line(bv, bleed)
     if bleed > 0.0:
         blood_lbl.add_theme_color_override("font_color", Color(0.9, 0.35, 0.35))
     parent.add_child(blood_lbl)
-    var triage_line: String = _RowFormatter.format_triage_line(bv, bleed)
+    var triage_line: String = PartyRowFormatter.format_triage_line(bv, bleed)
     if not triage_line.is_empty():
         var triage_lbl := Label.new()
         triage_lbl.text = triage_line
-        _RowFormatter.configure_wrapped_label(triage_lbl)
-        if bleed > 0.0 or bv <= _RowFormatter.danger_blood_threshold():
+        PartyRowFormatter.configure_wrapped_label(triage_lbl)
+        if bleed > 0.0 or bv <= PartyRowFormatter.danger_blood_threshold():
             triage_lbl.add_theme_color_override("font_color", Color(0.95, 0.55, 0.35))
         parent.add_child(triage_lbl)
-    var dressing_gate: String = _RowFormatter.format_dressing_gate_line(m)
+    var dressing_gate: String = PartyRowFormatter.format_dressing_gate_line(m)
     if not dressing_gate.is_empty():
         var dress_gate_lbl := Label.new()
         dress_gate_lbl.text = dressing_gate
-        _RowFormatter.configure_wrapped_label(dress_gate_lbl)
+        PartyRowFormatter.configure_wrapped_label(dress_gate_lbl)
         dress_gate_lbl.add_theme_color_override("font_color", Color(0.85, 0.78, 0.5))
         parent.add_child(dress_gate_lbl)
     var untreated: Variant = m.get("untreated_parts", [])
     if untreated is PackedStringArray and (untreated as PackedStringArray).size() > 0:
         var wound_lbl := Label.new()
-        wound_lbl.text = "Needs dressing: " + _MapFieldCare.format_part_list(untreated)
-        _RowFormatter.configure_wrapped_label(wound_lbl)
+        wound_lbl.text = "Needs dressing: " + MapFieldCare.format_part_list(untreated)
+        PartyRowFormatter.configure_wrapped_label(wound_lbl)
         wound_lbl.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
         parent.add_child(wound_lbl)
     if world != null:
-        var next_action: String = _MapFieldCare.format_next_field_care_action(world, m)
+        var next_action: String = MapFieldCare.format_next_field_care_action(world, m)
         if not next_action.is_empty():
             var next_lbl := Label.new()
             next_lbl.text = next_action
-            _RowFormatter.configure_wrapped_label(next_lbl)
+            PartyRowFormatter.configure_wrapped_label(next_lbl)
             next_lbl.add_theme_color_override("font_color", Color(0.75, 0.88, 0.95))
             parent.add_child(next_lbl)
     var afflictions: Variant = m.get("affliction_labels", [])
     if afflictions is PackedStringArray and (afflictions as PackedStringArray).size() > 0:
         var aff_names := Label.new()
         aff_names.text = "Afflictions: " + ", ".join(afflictions)
-        _RowFormatter.configure_wrapped_label(aff_names)
+        PartyRowFormatter.configure_wrapped_label(aff_names)
         aff_names.add_theme_color_override("font_color", Color(0.75, 0.65, 0.95))
         parent.add_child(aff_names)
-    var status_line: String = _RowFormatter.format_vitality_status(m)
+    var status_line: String = PartyRowFormatter.format_vitality_status(m)
     if not status_line.is_empty():
         var status_lbl := Label.new()
         status_lbl.text = status_line
-        _RowFormatter.configure_wrapped_label(status_lbl)
+        PartyRowFormatter.configure_wrapped_label(status_lbl)
         if m.get("has_untreated_wounds", false) or m.get("is_unconscious", false):
             status_lbl.add_theme_color_override("font_color", Color(0.95, 0.75, 0.35))
         parent.add_child(status_lbl)
-    var aff_fx: String = _RowFormatter.format_affliction_effects_line(m)
+    var aff_fx: String = PartyRowFormatter.format_affliction_effects_line(m)
     if not aff_fx.is_empty():
         var aff_lbl := Label.new()
         aff_lbl.text = aff_fx
-        _RowFormatter.configure_wrapped_label(aff_lbl)
+        PartyRowFormatter.configure_wrapped_label(aff_lbl)
         aff_lbl.add_theme_color_override("font_color", Color(0.75, 0.65, 0.95))
         parent.add_child(aff_lbl)
 

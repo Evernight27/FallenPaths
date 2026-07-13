@@ -1,0 +1,2 @@
+class_name CompanyStateChecksHarnessPartCPartA
+extends CompanyStateChecksHarnessPartCPartAPartB

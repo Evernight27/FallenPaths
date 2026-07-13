@@ -1,13 +1,11 @@
 class_name CombatHitSubRegion
 extends RefCounted
 
-const _Bleeding := preload("res://core/BleedingConstants.gd")
-const _WeightedSample := preload("res://core/WeightedSample.gd")
-const _Bp := preload("res://core/BodyPartConstants.gd")
-
 ## Deterministic anatomy site on a hit part (S2). Path intercept + attack line bias; no combat RNG.
-## IV-10: **`combat_damage_mult`** scales post-armor mechanical cut/blunt (delegates **`BleedingConstants.get_severity_modifier`**).
-## Footing: **`attack_line`** biases site pick; **`guard_line`** arg unused at resolve --" not L3 drift or PA geometry. LIVE_PATHS **`#wf-layer-labels`**.
+## IV-10: **`combat_damage_mult`** scales post-armor mechanical cut/blunt (delegates
+## **`BleedingConstants.get_severity_modifier`**).
+## Footing: **`attack_line`** biases site pick; **`guard_line`** arg unused at resolve --" not L3 drift or PA geometry.
+## LIVE_PATHS **`#wf-layer-labels`**.
 
 
 ## IV-10 doc-sync line (harness / calibration audit).
@@ -24,7 +22,7 @@ static func combat_damage_mult(part: String, sub_region: String) -> float:
         return 1.0
     if sub_region.is_empty():
         return 1.0
-    return _Bleeding.get_severity_modifier(part, sub_region)
+    return BleedingConstants.get_severity_modifier(part, sub_region)
 
 
 static func resolve_sub_region(
@@ -35,7 +33,7 @@ static func resolve_sub_region(
     _move_id: String,
     path_intercept_index: int
 ) -> String:
-    var subs: Array = _Bleeding.SUB_REGIONS.get(part, [])
+    var subs: Array = BleedingConstants.SUB_REGIONS.get(part, [])
     if subs.is_empty():
         return ""
     var height_bias: float = _height_bias_from_attack_line(attack_line, alignment_context)
@@ -49,9 +47,9 @@ static func resolve_sub_region(
 
 ## Hash-weighted pick from SUB_REGION_WEIGHTS (stable; not randf).
 static func fallback_sub_region(part: String, stable_seed: int = 0) -> String:
-    var weights: Dictionary = _Bleeding.SUB_REGION_WEIGHTS.get(part, {})
+    var weights: Dictionary = BleedingConstants.SUB_REGION_WEIGHTS.get(part, {})
     if weights.is_empty():
-        var subs: Array = _Bleeding.SUB_REGIONS.get(part, [])
+        var subs: Array = BleedingConstants.SUB_REGIONS.get(part, [])
         return str(subs[0]) if not subs.is_empty() else ""
     return _weighted_pick_deterministic(weights, stable_seed)
 
@@ -66,7 +64,7 @@ static func _stable_unit(stable_seed: int) -> float:
 
 static func _weighted_pick_deterministic(weights: Dictionary, stable_seed: int) -> String:
     var unit_fn: Callable = _stable_unit.bind(stable_seed)
-    return _WeightedSample.pick_deterministic(weights, unit_fn)
+    return WeightedSample.pick_deterministic(weights, unit_fn)
 
 
 static func _intercept_norm(path_intercept_index: int) -> float:
@@ -102,17 +100,17 @@ static func _height_bias_from_attack_line(attack_line: String, alignment_context
 
 static func _sub_region_for_part(part: String, site_t: float, move_id: String) -> String:
     match part:
-        _Bp.PART_HEAD:
+        BodyPartConstants.PART_HEAD:
             if site_t < 0.38:
                 return "scalp"
             if site_t < 0.72:
                 return "face"
             return "neck"
-        _Bp.PART_CHEST:
+        BodyPartConstants.PART_CHEST:
             return "abdominal" if site_t >= 0.55 else "thoracic"
-        _Bp.PART_RIGHT_ARM, _Bp.PART_LEFT_ARM:
+        BodyPartConstants.PART_RIGHT_ARM, BodyPartConstants.PART_LEFT_ARM:
             return _sub_region_for_limb(site_t, move_id)
-        _Bp.PART_RIGHT_LEG, _Bp.PART_LEFT_LEG:
+        BodyPartConstants.PART_RIGHT_LEG, BodyPartConstants.PART_LEFT_LEG:
             if site_t < 0.28:
                 return "thigh"
             if site_t < 0.48:

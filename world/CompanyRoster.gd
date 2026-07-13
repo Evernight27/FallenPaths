@@ -3,11 +3,11 @@ extends RefCounted
 
 ## CompanyRoster -- hire, burial, casualty cleanup, contract lifecycle.
 
-const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-
 # Runtime preload -- circular dependency (CompanyState preloads CompanyRoster).
 static var _company_state_cache: Variant = null
+static var _company_economy_cache: Variant = null
+static var _party_setup_cache: Variant = null
+static var _company_camp_cache: Variant = null
 
 
 static func _get_state() -> GDScript:
@@ -16,25 +16,16 @@ static func _get_state() -> GDScript:
     return _company_state_cache
 
 
-static var _company_economy_cache: Variant = null
-
-
 static func _get_economy() -> GDScript:
     if _company_economy_cache == null:
         _company_economy_cache = load("res://world/CompanyEconomy.gd")
     return _company_economy_cache
 
 
-static var _party_setup_cache: Variant = null
-
-
 static func _get_party_setup() -> GDScript:
     if _party_setup_cache == null:
         _party_setup_cache = load("res://world/PartySetup.gd")
     return _party_setup_cache
-
-
-static var _company_camp_cache: Variant = null
 
 
 static func _get_company_camp() -> GDScript:
@@ -109,8 +100,8 @@ static func try_hire_rookie(world: Node2D, rng: RandomNumberGenerator = null, fr
         return false
     _get_state().refresh_hud(world)
     _get_state().try_autosave(world)
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_world(
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_world(
             (
                 "hire_rookie name=%s gold=%d living=%d"
                 % [hired.name, _get_state().get_gold(world), _get_state().count_living_roster(world)]
@@ -166,8 +157,8 @@ static func apply_contract_victory_pay(world: Node) -> int:
         return 0
     mark_tutorial_completed(world)
     if is_tutorial_contract(contract):
-        if _OperationalLog.is_play_session_active():
-            _OperationalLog.play_world(
+        if OperationalLog.is_play_session_active():
+            OperationalLog.play_world(
                 "contract_victory tutorial -- no pay (type=%s)" % contract.get("contract_type", "")
             )
         return 0
@@ -182,8 +173,8 @@ static func apply_contract_victory_pay(world: Node) -> int:
     _get_state().set_medical_supplies(
         world, _get_state().get_medical_supplies(world) + _get_state().CONTRACT_VICTORY_MED_RESUPPLY
     )
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_world(
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_world(
             (
                 "contract_victory pay=%d gold=%d renown=%d med_resupply=%d med=%d"
                 % [
@@ -196,9 +187,9 @@ static func apply_contract_victory_pay(world: Node) -> int:
             )
         )
         if world is Node2D:
-            if _CampaignBridge.party_has_untreated_wounds(world as Node2D):
+            if CampaignEncounterBridge.party_has_untreated_wounds(world as Node2D):
                 var budget: Dictionary = CompanyState.triage_med_budget(world as Node2D)
-                _OperationalLog.play_world(
+                OperationalLog.play_world(
                     (
                         "contract_victory triage parts_need=%d med_shortfall=%d"
                         % [budget.get("parts_need", 0), budget.get("med_shortfall", 0)]
@@ -251,8 +242,8 @@ static func apply_settlement_burial_costs(world: Node2D) -> PackedStringArray:
     state["gold"] = state.get("gold", 0) - cost
     _get_state()._write_state(world, state)
     lines.append("Burial costs: -%dg (%d fallen -- %dg)" % [cost, deaths, _get_state().BURIAL_GOLD_COST])
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_world(
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_world(
             "burial_cost deaths=%d cost=%d gold=%d" % [deaths, cost, _get_state().get_gold(world)]
         )
     return lines
@@ -356,10 +347,10 @@ static func get_map_bleed_mult(world: Node) -> float:
 
 static func _apply_int_contract_bonus(world: Node) -> float:
     var best_mult: float = 1.0
-    for n in _CampaignBridge.get_fightable_party_nodes(world):
-        var entity: Node = _CampaignBridge.health_entity_from_character(n)
-        if entity != null and entity.has_method("get_intelligence_contract_bonus_mult"):
-            var m: float = entity.get_intelligence_contract_bonus_mult()
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
+        if entity != null and entity.has_method("_get_intelligence_contract_bonus_mult"):
+            var m: float = entity._get_intelligence_contract_bonus_mult()
             if m > best_mult:
                 best_mult = m
     return best_mult

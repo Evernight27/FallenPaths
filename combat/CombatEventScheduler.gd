@@ -2,10 +2,9 @@ class_name CombatEventScheduler
 extends RefCounted
 
 ## Sorted event queue, ACTION_READY scheduling, and back-rank recheck after formation changes.
-## Placement snapshot + back-rank recheck use **`ZoneOfControl.zone_geometry_for_combatant`** (same fid as formation dict reads).
+## Placement snapshot + back-rank recheck use **`ZoneOfControl.zone_geometry_for_combatant`** (same fid as formation
+## dict reads).
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
 # Runtime preload '" circular dependency (MedicalPhaseController preloads CombatEventScheduler).
 static var _medical_phase_cache: Variant = null
 
@@ -14,9 +13,6 @@ static func _get_medical_phase() -> GDScript:
     if _medical_phase_cache == null:
         _medical_phase_cache = load("res://combat/MedicalPhaseController.gd")
     return _medical_phase_cache
-
-
-const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
 
 
 static func compare_events(manager: Node, a: Variant, b: Variant) -> bool:
@@ -30,13 +26,17 @@ static func compare_events(manager: Node, a: Variant, b: Variant) -> bool:
     var at_b: float = bd.get("resolve_at", 0.0)
     if at_a != at_b:
         return at_a < at_b
-    var ca: Dictionary = _EntityAccess.manager_get_combatant(manager, int(ad.get("combatant_id", -1)))
-    var cb: Dictionary = _EntityAccess.manager_get_combatant(manager, int(bd.get("combatant_id", -1)))
+    var ca: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, int(ad.get("combatant_id", -1)))
+    var cb: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, int(bd.get("combatant_id", -1)))
     var agi_a: int = (
-        int(_EntityAccess.stats_dict(ca).get("agility", CombatConstants.DEFAULT_STAT_VALUE)) if not ca.is_empty() else 0
+        int(CombatantEntityAccess.stats_dict(ca).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
+        if not ca.is_empty()
+        else 0
     )
     var agi_b: int = (
-        int(_EntityAccess.stats_dict(cb).get("agility", CombatConstants.DEFAULT_STAT_VALUE)) if not cb.is_empty() else 0
+        int(CombatantEntityAccess.stats_dict(cb).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
+        if not cb.is_empty()
+        else 0
     )
     if agi_a != agi_b:
         return agi_a > agi_b
@@ -62,7 +62,7 @@ static func get_next_action_ready_at(manager: Node, combatant_id: int) -> float:
         var evd: Dictionary = ev as Dictionary
         if evd.get("type", "") == CombatConstants.EVENT_ACTION_READY and evd.get("combatant_id", -1) == combatant_id:
             var at: float = evd.get("resolve_at", 0.0)
-            if at > _EntityAccess.combat_clock_float(manager) and (best < 0.0 or at < best):
+            if at > CombatantEntityAccess.combat_clock_float(manager) and (best < 0.0 or at < best):
                 best = at
     return best
 
@@ -73,7 +73,7 @@ static func build_next_action_ready_times(manager: Node) -> Dictionary:
     var best_by_id: Dictionary = {}
     if manager == null:
         return best_by_id
-    var clk: float = _EntityAccess.combat_clock_float(manager)
+    var clk: float = CombatantEntityAccess.combat_clock_float(manager)
     for ev in manager.event_queue:
         if ev is not Dictionary:
             continue
@@ -236,17 +236,17 @@ static func schedule_action_ready(manager: Node, combatant_id: int, delay_s: flo
     var ev: Dictionary = {
         "type": CombatConstants.EVENT_ACTION_READY,
         "combatant_id": combatant_id,
-        "resolve_at": _EntityAccess.combat_clock_plus(manager, delay_s),
+        "resolve_at": CombatantEntityAccess.combat_clock_plus(manager, delay_s),
         "data": {},
     }
     cancel_pending_action_ready(manager, combatant_id)
     if _get_medical_phase().should_block_scheduled_event(manager, ev):
         return
-    var c_ready: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
+    var c_ready: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, combatant_id)
     if (
         not c_ready.is_empty()
-        and _MobilityRetreat.cannot_commit_melee(c_ready)
-        and not _EntityAccess.can_flee_or_fall_back(c_ready)
+        and CombatMobilityRetreat.cannot_commit_melee(c_ready)
+        and not CombatantEntityAccess.can_flee_or_fall_back(c_ready)
     ):
         return
     schedule_event(manager, ev)
@@ -257,19 +257,19 @@ static func schedule_action_ready_for_combatant(manager: Node, c: Dictionary, de
     if manager == null or c.is_empty():
         return
     var delay: float = delay_s if delay_s >= 0.0 else action_ready_cooldown(c)
-    schedule_action_ready(manager, _EntityAccess.id_int(c), delay)
+    schedule_action_ready(manager, CombatantEntityAccess.id_int(c), delay)
 
 
 static func action_ready_cooldown(c: Dictionary) -> float:
-    var agi: float = float(_EntityAccess.stats_dict(c).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
+    var agi: float = float(CombatantEntityAccess.stats_dict(c).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
     var cooldown: float = CombatConstants.COOLDOWN_ACTION_READY_BASE * (100.0 / maxf(50.0, agi))
     var off_until: float = c.get("off_balance_until", -1.0)
     if off_until > CombatTiming.now_seconds():
         cooldown /= CombatConstants.OFF_BALANCE_GAUGE_FILL_MULT
-    var perf_mod: float = _EntityAccess.get_action_bar_performance_modifier(c)
+    var perf_mod: float = CombatantEntityAccess.get_action_bar_performance_modifier(c)
     if perf_mod > 0.0:
         cooldown /= maxf(CombatConstants.PERF_MOD_MIN, perf_mod)
-    var st_ratio: float = _EntityAccess.stamina_ratio(c)
+    var st_ratio: float = CombatantEntityAccess.stamina_ratio(c)
     cooldown *= CombatConstants.action_ready_stamina_delay_mult(st_ratio)
     cooldown *= CombatConstants.armor_burden_action_ready_mult(c)
     return cooldown
@@ -278,7 +278,7 @@ static func action_ready_cooldown(c: Dictionary) -> float:
 static func schedule_initial_action_ready_events(manager: Node) -> void:
     var pending: Array = []
     for c in manager.combatants:
-        if not _EntityAccess.alive_bool(c) or _EntityAccess.is_unconscious(c):
+        if not CombatantEntityAccess.alive_bool(c) or CombatantEntityAccess.is_unconscious(c):
             continue
         if manager.medical_phase and _get_medical_phase().is_losing_side(manager, c):
             continue
@@ -293,82 +293,82 @@ static func schedule_initial_action_ready_events(manager: Node) -> void:
             var delay: float = (
                 action_ready_cooldown(c_stagger) + float(i) * CombatConstants.INITIATIVE_ORDER_STAGGER_STEP_S
             )
-            schedule_action_ready(manager, _EntityAccess.id_int(c_stagger), delay)
+            schedule_action_ready(manager, CombatantEntityAccess.id_int(c_stagger), delay)
         return
     for c in pending:
-        schedule_action_ready(manager, _EntityAccess.id_int(c), action_ready_cooldown(c))
+        schedule_action_ready(manager, CombatantEntityAccess.id_int(c), action_ready_cooldown(c))
 
 
 static func reschedule_back_rank_turns(manager: Node, fid: String) -> void:
     for c in manager.combatants:
-        if not _EntityAccess.alive_bool(c) or not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, c, fid):
+        if not CombatantEntityAccess.alive_bool(c) or not ZoneOfControl.combatant_on_zone_geometry_fid(manager, c, fid):
             continue
         if manager.medical_phase and _get_medical_phase().is_losing_side(manager, c):
             continue
-        if _EntityAccess.rank_int(c) < 1 or _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+        if CombatantEntityAccess.rank_int(c) < 1 or CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
             continue
-        if _EntityAccess.is_unconscious(c):
+        if CombatantEntityAccess.is_unconscious(c):
             continue
-        schedule_action_ready(manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
+        schedule_action_ready(manager, CombatantEntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
 
 
 ## III-6: after rank-0 acts, same-file reserves re-evaluate (depth spear lane / new ZoC bands).
 static func reschedule_same_file_depth_after_front_turn(manager: Node, front_combatant_id: int) -> void:
     if manager == null or front_combatant_id < 0:
         return
-    var front: Dictionary = _EntityAccess.manager_get_combatant(manager, front_combatant_id)
-    if front.is_empty() or _EntityAccess.rank_int(front) != 0:
+    var front: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, front_combatant_id)
+    if front.is_empty() or CombatantEntityAccess.rank_int(front) != 0:
         return
     if manager.medical_phase and _get_medical_phase().is_losing_side(manager, front):
         return
-    var fid: String = _EntityAccess.formation_id_str(front)
+    var fid: String = CombatantEntityAccess.formation_id_str(front)
     if fid.is_empty():
         return
-    var file: int = _EntityAccess.file_int(front)
+    var file: int = CombatantEntityAccess.file_int(front)
     for c in manager.combatants:
-        if not _EntityAccess.is_living_same_side(front, c):
+        if not CombatantEntityAccess.is_living_same_side(front, c):
             continue
-        if _EntityAccess.formation_id_str(c) != fid:
+        if CombatantEntityAccess.formation_id_str(c) != fid:
             continue
-        if _EntityAccess.file_int(c) != file:
+        if CombatantEntityAccess.file_int(c) != file:
             continue
-        if _EntityAccess.rank_int(c) <= 0:
+        if CombatantEntityAccess.rank_int(c) <= 0:
             continue
-        if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+        if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
             continue
-        if _EntityAccess.is_unconscious(c):
+        if CombatantEntityAccess.is_unconscious(c):
             continue
-        schedule_action_ready(manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
+        schedule_action_ready(manager, CombatantEntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
 
 
 ## III-6: after rank>=1 acts, deeper same-file reserves re-evaluate (stacked depth column).
 static func reschedule_same_file_depth_after_reserve_turn(manager: Node, reserve_combatant_id: int) -> void:
     if manager == null or reserve_combatant_id < 0:
         return
-    var actor: Dictionary = _EntityAccess.manager_get_combatant(manager, reserve_combatant_id)
-    if actor.is_empty() or _EntityAccess.rank_int(actor) < 1:
+    var actor: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, reserve_combatant_id)
+    if actor.is_empty() or CombatantEntityAccess.rank_int(actor) < 1:
         return
     if manager.medical_phase and _get_medical_phase().is_losing_side(manager, actor):
         return
-    var fid: String = _EntityAccess.formation_id_str(actor)
+    var fid: String = CombatantEntityAccess.formation_id_str(actor)
     if fid.is_empty():
         return
-    var file: int = _EntityAccess.file_int(actor)
-    var actor_rank: int = _EntityAccess.rank_int(actor)
+    var file: int = CombatantEntityAccess.file_int(actor)
+    var actor_rank: int = CombatantEntityAccess.rank_int(actor)
     for c in manager.combatants:
-        if not _EntityAccess.is_living_same_side(actor, c):
+        if not CombatantEntityAccess.is_living_same_side(actor, c):
             continue
-        if _EntityAccess.formation_id_str(c) != fid:
+        if CombatantEntityAccess.formation_id_str(c) != fid:
             continue
-        if _EntityAccess.file_int(c) != file:
+        if CombatantEntityAccess.file_int(c) != file:
             continue
-        if _EntityAccess.rank_int(c) <= actor_rank:
+        if CombatantEntityAccess.rank_int(c) <= actor_rank:
             continue
-        if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+        if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
             continue
-        if _EntityAccess.is_unconscious(c):
+        if CombatantEntityAccess.is_unconscious(c):
             continue
-        schedule_action_ready(manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
+        schedule_action_ready(manager, CombatantEntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
 
 
 ## III-6: after rank-0 **`rotate_file`** completes, reserves in both swapped file columns re-evaluate.
@@ -384,21 +384,23 @@ static func reschedule_same_file_depth_after_rotate_file(manager: Node, fid: Str
         for c in manager.combatants:
             if c is not Dictionary:
                 continue
-            if _EntityAccess.formation_id_str(c) != fid:
+            if CombatantEntityAccess.formation_id_str(c) != fid:
                 continue
-            if not _EntityAccess.alive_bool(c):
+            if not CombatantEntityAccess.alive_bool(c):
                 continue
-            if _EntityAccess.file_int(c) != file:
+            if CombatantEntityAccess.file_int(c) != file:
                 continue
-            if _EntityAccess.rank_int(c) <= 0:
+            if CombatantEntityAccess.rank_int(c) <= 0:
                 continue
             if manager.medical_phase and _get_medical_phase().is_losing_side(manager, c):
                 continue
-            if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+            if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
                 continue
-            if _EntityAccess.is_unconscious(c):
+            if CombatantEntityAccess.is_unconscious(c):
                 continue
-            schedule_action_ready(manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
+            schedule_action_ready(
+                manager, CombatantEntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S
+            )
 
 
 ## III-6: rank-2+ reserves in a file column re-evaluate after rank shuffle (swap resolve, solo fall_back).
@@ -408,31 +410,31 @@ static func reschedule_same_file_depth_rank2_plus(manager: Node, fid: String, fi
     for c in manager.combatants:
         if c is not Dictionary:
             continue
-        if _EntityAccess.formation_id_str(c) != fid:
+        if CombatantEntityAccess.formation_id_str(c) != fid:
             continue
-        if not _EntityAccess.alive_bool(c):
+        if not CombatantEntityAccess.alive_bool(c):
             continue
-        if _EntityAccess.file_int(c) != file:
+        if CombatantEntityAccess.file_int(c) != file:
             continue
-        if _EntityAccess.rank_int(c) < 2:
+        if CombatantEntityAccess.rank_int(c) < 2:
             continue
         if manager.medical_phase and _get_medical_phase().is_losing_side(manager, c):
             continue
-        if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+        if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
             continue
-        if _EntityAccess.is_unconscious(c):
+        if CombatantEntityAccess.is_unconscious(c):
             continue
-        schedule_action_ready(manager, _EntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
+        schedule_action_ready(manager, CombatantEntityAccess.id_int(c), CombatConstants.READY_DELAY_FORMATION_RECHECK_S)
 
 
 ## Host-line formation record for placement tracking, or `{}` when not on a line grid.
 static func _line_formation_record_for_placement(manager: Node, c: Variant) -> Dictionary:
-    if c == null or not _EntityAccess.alive_bool(c, true):
+    if c == null or not CombatantEntityAccess.alive_bool(c, true):
         return {}
-    var ctx: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, c)
-    if _ZoneOfControl.zone_geometry_fid_from_pack(ctx).is_empty():
+    var ctx: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, c)
+    if ZoneOfControl.zone_geometry_fid_from_pack(ctx).is_empty():
         return {}
-    return _ZoneOfControl.zone_geometry_formation_from_pack(ctx)
+    return ZoneOfControl.zone_geometry_formation_from_pack(ctx)
 
 
 ## Snapshot alive combatants' `(rank, file)` for anyone in a registered formation. Used with
@@ -444,8 +446,8 @@ static func snapshot_rank_file_placements(manager: Node) -> Dictionary:
     for c in manager.combatants:
         if _line_formation_record_for_placement(manager, c).is_empty():
             continue
-        var cid: int = _EntityAccess.id_int(c)
-        out[cid] = Vector2i(_EntityAccess.rank_int(c), _EntityAccess.file_int(c))
+        var cid: int = CombatantEntityAccess.id_int(c)
+        out[cid] = Vector2i(CombatantEntityAccess.rank_int(c), CombatantEntityAccess.file_int(c))
     return out
 
 
@@ -459,8 +461,8 @@ static func ids_with_changed_rank_file_since_snapshot(manager: Node, snap: Dicti
     for c in manager.combatants:
         if _line_formation_record_for_placement(manager, c).is_empty():
             continue
-        var cur := Vector2i(_EntityAccess.rank_int(c), _EntityAccess.file_int(c))
-        var cid2: int = _EntityAccess.id_int(c)
+        var cur := Vector2i(CombatantEntityAccess.rank_int(c), CombatantEntityAccess.file_int(c))
+        var cid2: int = CombatantEntityAccess.id_int(c)
         if not snap.has(cid2):
             changed.append(cid2)
             continue
@@ -475,14 +477,14 @@ static func ids_with_changed_rank_file_since_snapshot(manager: Node, snap: Dicti
 static func reschedule_formation_recheck_for_moved_back_ranks(manager: Node, moved_combatant_ids: Array) -> void:
     for mid in moved_combatant_ids:
         var cid: int = int(mid)
-        var c: Dictionary = _EntityAccess.manager_get_combatant(manager, cid)
-        if c.is_empty() or not _EntityAccess.alive_bool(c, true):
+        var c: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, cid)
+        if c.is_empty() or not CombatantEntityAccess.alive_bool(c, true):
             continue
-        if _EntityAccess.rank_int(c) < 1:
+        if CombatantEntityAccess.rank_int(c) < 1:
             continue
-        if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+        if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
             continue
-        if _EntityAccess.is_unconscious(c):
+        if CombatantEntityAccess.is_unconscious(c):
             continue
         if manager.medical_phase and _get_medical_phase().is_losing_side(manager, c):
             continue

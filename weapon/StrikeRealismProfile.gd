@@ -5,9 +5,6 @@ extends RefCounted
 ## velocity curve exponent (archetype), KE coupling per contact, blunt pressure, obliquity on damage/pen.
 ## All five weapon templates carry `strike_physics` on Weapon; moves may override station via optional move keys.
 
-const _W := preload("res://weapon/WeaponConstants.gd")
-const _StrikeStamping := preload("res://combat/CombatStrikeStamping.gd")
-
 
 static func _phys(weapon: RefCounted) -> Dictionary:
     if weapon == null or not (weapon is Object):
@@ -17,14 +14,14 @@ static func _phys(weapon: RefCounted) -> Dictionary:
 
 
 static func measure_ratio(manager: Node, atk: Dictionary, tgt: Dictionary, weapon: RefCounted) -> float:
-    return _StrikeStamping.strike_measure_ratio_for_attack_pair(manager, atk, tgt, weapon, -1.0)
+    return CombatStrikeStamping.strike_measure_ratio_for_attack_pair(manager, atk, tgt, weapon, -1.0)
 
 
 static func roll_blade_station(weapon: RefCounted, move_id: String, intensity: float) -> float:
     var phys: Dictionary = _phys(weapon)
     var mean: float = phys.get("station_mean", 0.56)
     var spread: float = phys.get("station_spread", 0.11)
-    var md: Dictionary = _W.get_move(move_id)
+    var md: Dictionary = WeaponConstants.get_move(move_id)
     if md.get("impact_station_mean", null) is float or md.get("impact_station_mean", null) is int:
         mean = float(md.impact_station_mean)
     if md.get("impact_station_spread", null) is float or md.get("impact_station_spread", null) is int:
@@ -42,18 +39,18 @@ static func blade_station_from_pa(pa: Dictionary, weapon: RefCounted, move_id: S
 
 
 static func _station_velocity_mult(contact: String, station: float, phys: Dictionary) -> float:
-    if contact == _W.ATTACK_TYPE_CUT:
+    if contact == WeaponConstants.ATTACK_TYPE_CUT:
         var lo: float = phys.get("station_cut_vel_guard", 0.9)
         var hi: float = phys.get("station_cut_vel_tip", 1.08)
         return lerpf(lo, hi, station)
-    if contact == _W.ATTACK_TYPE_STAB:
+    if contact == WeaponConstants.ATTACK_TYPE_STAB:
         return lerpf(0.94, 1.06, station)
     return lerpf(0.96, 1.05, station)
 
 
 static func _measure_velocity_mult(contact: String, meas: float) -> float:
     var t: float = clampf((meas - 0.78) / 0.34, 0.0, 1.0)
-    if contact == _W.ATTACK_TYPE_STAB:
+    if contact == WeaponConstants.ATTACK_TYPE_STAB:
         return lerpf(0.93, 1.04, t)
     return lerpf(0.97, 1.02, t)
 
@@ -62,7 +59,7 @@ static func _measure_velocity_mult(contact: String, meas: float) -> float:
 static func velocity_intent_mult_from_pa(
     pa: Dictionary, weapon: RefCounted, move_id: String, intensity: float, _archetype: Dictionary
 ) -> float:
-    var contact: String = _W.contact_type_for_move_id(move_id)
+    var contact: String = WeaponConstants.contact_type_for_move_id(move_id)
     var phys: Dictionary = _phys(weapon)
     var station: float = blade_station_from_pa(pa, weapon, move_id, intensity)
     var meas: float = pa.get("strike_measure_ratio", 1.0)
@@ -110,7 +107,7 @@ static func compute_strike_modifiers(
     parry_remaining_ratio: float,
     pa: Dictionary
 ) -> Dictionary:
-    var contact: String = _W.contact_type_for_move_id(move_id)
+    var contact: String = WeaponConstants.contact_type_for_move_id(move_id)
     var phys: Dictionary = _phys(weapon)
     var station: float = blade_station_from_pa(pa, weapon, move_id, intensity)
     var eff_ov: float = -1.0
@@ -118,25 +115,27 @@ static func compute_strike_modifiers(
         var ve: Variant = pa.get("effective_pair_eff_dist", null)
         if ve is float or ve is int:
             eff_ov = float(ve)
-    var meas_default: float = _StrikeStamping.strike_measure_ratio_for_attack_pair(manager, atk, tgt, weapon, eff_ov)
+    var meas_default: float = CombatStrikeStamping.strike_measure_ratio_for_attack_pair(
+        manager, atk, tgt, weapon, eff_ov
+    )
     var meas: float = float(pa.get("strike_measure_ratio", meas_default))
     var vel_m: float = _station_velocity_mult(contact, station, phys) * _measure_velocity_mult(contact, meas)
     var coup: float = _coupling(contact, phys)
     var obliq: float = _obliquity_factor(hit_alignment, parry_remaining_ratio)
     var cut_m: float = 1.0
-    if contact == _W.ATTACK_TYPE_CUT:
+    if contact == WeaponConstants.ATTACK_TYPE_CUT:
         cut_m = _station_cut_draw_mult(station) * obliq
-    elif contact == _W.ATTACK_TYPE_STAB:
+    elif contact == WeaponConstants.ATTACK_TYPE_STAB:
         cut_m = lerpf(0.94, 1.05, station) * obliq
     else:
         cut_m = obliq
     var blunt_m: float = obliq * _blunt_pressure_mult(weapon, phys)
-    if contact == _W.ATTACK_TYPE_BLUNT:
+    if contact == WeaponConstants.ATTACK_TYPE_BLUNT:
         blunt_m *= lerpf(0.94, 1.06, station)
     # Extra penetration vs armor from station only; oblique armor already handled in AttackResolver angle_factor.
     var pen_station: float = (
         lerpf(0.94, 1.045, station)
-        if contact == _W.ATTACK_TYPE_STAB
+        if contact == WeaponConstants.ATTACK_TYPE_STAB
         else clampf(lerpf(0.96, 1.028, sin(station * PI)), 0.9, 1.08)
     )
     return {

@@ -4,54 +4,59 @@ extends RefCounted
 ## S6/S9/M3 layer-tissue: flat budget (S6) or yield/rupture sheets (M3) before bone MFB.
 ## Arm stack 2+3 mm: subcut + muscle order-of-magnitude vs upper-limb ultrasound SC fat (~3 - 8 mm, BMI-dependent).
 
-const _Bp := preload("res://core/BodyPartConstants.gd")
-const _Bleeding := preload("res://core/BleedingConstants.gd")
-
 const LAYER_NAME_SUBCUTANEOUS := "subcutaneous"
 const LAYER_NAME_MUSCLE := "muscle"
 
 ## Per-part soft-tissue stack (mm): [subcutaneous, muscle, ...]. Sum replaces the old flat S6 budget model.
 const SOFT_TISSUE_LAYER_STACK_MM_BY_PART: Dictionary = {
-    _Bp.PART_HEAD: [1.5, 2.5],
-    _Bp.PART_CHEST: [3.0, 5.0],
-    _Bp.PART_RIGHT_ARM: [2.0, 3.0],
-    _Bp.PART_LEFT_ARM: [2.0, 3.0],
-    _Bp.PART_RIGHT_LEG: [2.5, 4.5],
-    _Bp.PART_LEFT_LEG: [2.5, 4.5],
+    BodyPartConstants.PART_HEAD: [1.5, 2.5],
+    BodyPartConstants.PART_CHEST: [3.0, 5.0],
+    BodyPartConstants.PART_RIGHT_ARM: [2.0, 3.0],
+    BodyPartConstants.PART_LEFT_ARM: [2.0, 3.0],
+    BodyPartConstants.PART_RIGHT_LEG: [2.5, 4.5],
+    BodyPartConstants.PART_LEFT_LEG: [2.5, 4.5],
 }
 
 ## M3 yield/rupture (mm into layer)  -  budget_mm matches stack slice.
 const LAYER_YIELD_RUPTURE_BY_PART: Dictionary = {
-    _Bp.PART_HEAD:
+    BodyPartConstants.PART_HEAD:
     [
         {"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 0.6, "rupture_pen_mm": 1.5, "budget_mm": 1.5},
         {"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 1.2, "rupture_pen_mm": 2.5, "budget_mm": 2.5},
     ],
-    _Bp.PART_CHEST:
+    BodyPartConstants.PART_CHEST:
     [
         {"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 1.0, "rupture_pen_mm": 2.5, "budget_mm": 3.0},
         {"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 2.0, "rupture_pen_mm": 4.0, "budget_mm": 5.0},
     ],
-    _Bp.PART_RIGHT_ARM:
+    BodyPartConstants.PART_RIGHT_ARM:
     [
         {"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 0.8, "rupture_pen_mm": 2.0, "budget_mm": 2.0},
         {"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 1.5, "rupture_pen_mm": 3.0, "budget_mm": 3.0},
     ],
-    _Bp.PART_LEFT_ARM:
+    BodyPartConstants.PART_LEFT_ARM:
     [
         {"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 0.8, "rupture_pen_mm": 2.0, "budget_mm": 2.0},
         {"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 1.5, "rupture_pen_mm": 3.0, "budget_mm": 3.0},
     ],
-    _Bp.PART_RIGHT_LEG:
+    BodyPartConstants.PART_RIGHT_LEG:
     [
         {"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 0.9, "rupture_pen_mm": 2.2, "budget_mm": 2.5},
         {"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 1.6, "rupture_pen_mm": 3.2, "budget_mm": 4.5},
     ],
-    _Bp.PART_LEFT_LEG:
+    BodyPartConstants.PART_LEFT_LEG:
     [
         {"name": LAYER_NAME_SUBCUTANEOUS, "yield_pen_mm": 0.9, "rupture_pen_mm": 2.2, "budget_mm": 2.5},
         {"name": LAYER_NAME_MUSCLE, "yield_pen_mm": 1.6, "rupture_pen_mm": 3.2, "budget_mm": 4.5},
     ],
+}
+const BLUNT_TISSUE_KE_BUDGET_J_BY_PART: Dictionary = {
+    BodyPartConstants.PART_HEAD: 25.0,
+    BodyPartConstants.PART_CHEST: 35.0,
+    BodyPartConstants.PART_RIGHT_ARM: 22.0,
+    BodyPartConstants.PART_LEFT_ARM: 22.0,
+    BodyPartConstants.PART_RIGHT_LEG: 28.0,
+    BodyPartConstants.PART_LEFT_LEG: 28.0,
 }
 
 static var _harness_force_layer_tissue: bool = false
@@ -59,11 +64,11 @@ static var _harness_force_layer_tissue_curves: bool = false
 
 
 static func is_active(force: bool = false) -> bool:
-    return force or _Bleeding.FEATURE_LAYER_TISSUE or _harness_force_layer_tissue
+    return force or BleedingConstants.FEATURE_LAYER_TISSUE or _harness_force_layer_tissue
 
 
 static func is_curves_active(force: bool = false) -> bool:
-    return force or _Bleeding.FEATURE_LAYER_TISSUE_CURVES or _harness_force_layer_tissue_curves
+    return force or BleedingConstants.FEATURE_LAYER_TISSUE_CURVES or _harness_force_layer_tissue_curves
 
 
 static func is_layer_penetration_active(force_layer: bool = false, force_curves: bool = false) -> bool:
@@ -71,10 +76,12 @@ static func is_layer_penetration_active(force_layer: bool = false, force_curves:
 
 
 static func layer_definitions(part: String) -> Array:
-    var row: Variant = LAYER_YIELD_RUPTURE_BY_PART.get(part, LAYER_YIELD_RUPTURE_BY_PART[_Bp.PART_RIGHT_ARM])
+    var row: Variant = LAYER_YIELD_RUPTURE_BY_PART.get(
+        part, LAYER_YIELD_RUPTURE_BY_PART[BodyPartConstants.PART_RIGHT_ARM]
+    )
     if row is Array:
         return row.duplicate(true)
-    return LAYER_YIELD_RUPTURE_BY_PART[_Bp.PART_RIGHT_ARM].duplicate(true)
+    return LAYER_YIELD_RUPTURE_BY_PART[BodyPartConstants.PART_RIGHT_ARM].duplicate(true)
 
 
 static func seed_layer_state_for_part(part: String) -> Array:
@@ -116,21 +123,13 @@ static func soft_tissue_budget_mm(part: String) -> float:
 
 
 ## J absorbed in muscle/fat before bone sees blunt fracture KE (order-of-magnitude; not FEM).
-const BLUNT_TISSUE_KE_BUDGET_J_BY_PART: Dictionary = {
-    _Bp.PART_HEAD: 25.0,
-    _Bp.PART_CHEST: 35.0,
-    _Bp.PART_RIGHT_ARM: 22.0,
-    _Bp.PART_LEFT_ARM: 22.0,
-    _Bp.PART_RIGHT_LEG: 28.0,
-    _Bp.PART_LEFT_LEG: 28.0,
-}
 
 
 ## Remaining KE reaching bone for blunt MFB when `FEATURE_BLUNT_TISSUE_KE_GATE` is on.
 static func blunt_ke_reaching_bone(part: String, strike_ke_j: float) -> float:
     if strike_ke_j < 0.0:
         return -1.0
-    if not _Bleeding.FEATURE_BLUNT_TISSUE_KE_GATE:
+    if not BleedingConstants.FEATURE_BLUNT_TISSUE_KE_GATE:
         return strike_ke_j
     var budget: float = BLUNT_TISSUE_KE_BUDGET_J_BY_PART.get(part, 24.0)
     return maxf(-1.0, strike_ke_j - budget)
@@ -260,5 +259,5 @@ static func layer_rupture_bleed_mult(entity: Node, part: String) -> float:
     for row: Variant in rows:
         if row is Dictionary:
             if row.get("name", "") == LAYER_NAME_SUBCUTANEOUS and row.get("state", "") == "ruptured":
-                return _Bleeding.LAYER_RUPTURE_SUBCUT_BLEED_MULT
+                return BleedingConstants.LAYER_RUPTURE_SUBCUT_BLEED_MULT
     return 1.0

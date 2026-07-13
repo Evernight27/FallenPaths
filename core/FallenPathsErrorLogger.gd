@@ -7,17 +7,15 @@ extends Logger
 
 # Runtime preload ' circular dependency (OperationalLog preloads FallenPathsErrorLogger).
 static var _operational_log_cache: Variant = null
+static var _script_error_count: int = 0
+
+var _mutex: Mutex = Mutex.new()
 
 
 static func _get_operational_log() -> GDScript:
     if _operational_log_cache == null:
         _operational_log_cache = load("res://core/OperationalLog.gd")
     return _operational_log_cache
-
-
-static var _script_error_count: int = 0
-
-var _mutex: Mutex = Mutex.new()
 
 
 static func reset_script_error_count() -> void:

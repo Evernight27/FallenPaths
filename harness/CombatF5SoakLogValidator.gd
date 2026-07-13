@@ -2,33 +2,32 @@ class_name CombatF5SoakLogValidator
 extends RefCounted
 
 ## Parses pasted **F5 Output** (or **`.f5_soak_in.txt`**) for **D-001** / II-0 grep sign-offs.
-## Headless entry: **`validate_f5_soak_log.ps1`** / **`.sh`** -> **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=f5_validate`) -> **`.f5_soak_validation.txt`**.
+## Headless entry: **`validate_f5_soak_log.ps1`** / **`.sh`** -> **`run_all_combat_checks.gd`**
+## (`FP_HARNESS_MODE=f5_validate`) -> **`.f5_soak_validation.txt`**.
 
-const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _TrackSpecs := preload("res://harness/CombatD001TrackSpecs.gd")
 const REPORT_TAG_BEGIN := "--- FP_F5_SOAK_VALIDATION ---"
 const REPORT_TAG_END := "--- END FP_F5_SOAK_VALIDATION ---"
 const REPORT_FILENAME := ".f5_soak_validation.txt"
 const DEFAULT_INPUT_FILENAME := ".f5_soak_in.txt"
 
-const PROFILE_ALWAYS := _TrackSpecs.PROFILE_ALWAYS
-const PROFILE_7V7 := _TrackSpecs.PROFILE_7V7
-const PROFILE_PRESET_II2B := _TrackSpecs.PROFILE_PRESET_II2B
-const PROFILE_PRESET_II3 := _TrackSpecs.PROFILE_PRESET_II3
-const PROFILE_PRESET_II5 := _TrackSpecs.PROFILE_PRESET_II5
-const PROFILE_PRESET_II6 := _TrackSpecs.PROFILE_PRESET_II6
-const PROFILE_PRESET_II8 := _TrackSpecs.PROFILE_PRESET_II8
-const PROFILE_PRESET_II4D := _TrackSpecs.PROFILE_PRESET_II4D
-const PROFILE_PRESET_II_ENVELOP := _TrackSpecs.PROFILE_PRESET_II_ENVELOP
-const PROFILE_CAMP_EA := _TrackSpecs.PROFILE_CAMP_EA
+const PROFILE_ALWAYS := CombatD001TrackSpecs.PROFILE_ALWAYS
+const PROFILE_7V7 := CombatD001TrackSpecs.PROFILE_7V7
+const PROFILE_PRESET_II2B := CombatD001TrackSpecs.PROFILE_PRESET_II2B
+const PROFILE_PRESET_II3 := CombatD001TrackSpecs.PROFILE_PRESET_II3
+const PROFILE_PRESET_II5 := CombatD001TrackSpecs.PROFILE_PRESET_II5
+const PROFILE_PRESET_II6 := CombatD001TrackSpecs.PROFILE_PRESET_II6
+const PROFILE_PRESET_II8 := CombatD001TrackSpecs.PROFILE_PRESET_II8
+const PROFILE_PRESET_II4D := CombatD001TrackSpecs.PROFILE_PRESET_II4D
+const PROFILE_PRESET_II_ENVELOP := CombatD001TrackSpecs.PROFILE_PRESET_II_ENVELOP
+const PROFILE_CAMP_EA := CombatD001TrackSpecs.PROFILE_CAMP_EA
 
 
 static func validate(lines: PackedStringArray, profiles_override: PackedStringArray = []) -> Dictionary:
     var normalized: PackedStringArray = _normalize_lines(lines)
     var profiles: PackedStringArray = (
-        profiles_override if not profiles_override.is_empty() else _TrackSpecs.detect_profiles(normalized)
+        profiles_override if not profiles_override.is_empty() else CombatD001TrackSpecs.detect_profiles(normalized)
     )
-    var tracks: Array = _TrackSpecs.validator_tracks(profiles)
+    var tracks: Array = CombatD001TrackSpecs.validator_tracks(profiles)
     var track_results: Dictionary = {}
     var failures: PackedStringArray = PackedStringArray()
     var warnings: PackedStringArray = PackedStringArray()
@@ -41,7 +40,7 @@ static func validate(lines: PackedStringArray, profiles_override: PackedStringAr
                 warnings.append("%s: %s" % [id, str(result.get("detail", "fail"))])
             else:
                 failures.append("%s: %s" % [id, str(result.get("detail", "fail"))])
-    var missing_cyan: PackedStringArray = _TrackSpecs.missing_cyan_presets(profiles)
+    var missing_cyan: PackedStringArray = CombatD001TrackSpecs.missing_cyan_presets(profiles)
     var ok: bool = failures.is_empty()
     return {
         "ok": ok,
@@ -94,7 +93,7 @@ static func write_report(result: Dictionary) -> void:
     if f != null:
         f.store_string(body)
         f.close()
-    _OperationalLog.harness_summary("wrote %s" % path)
+    OperationalLog.harness_summary("wrote %s" % path)
     print(body.strip_edges())
 
 
@@ -112,10 +111,10 @@ static func _normalize_lines(lines: PackedStringArray) -> PackedStringArray:
         var s: String = str(raw).strip_edges()
         if s.is_empty() or s.begins_with("#"):
             continue
-        if s.begins_with(_OperationalLog.TAG_COMBAT + ":"):
-            s = s.substr(_OperationalLog.TAG_COMBAT.length() + 1).strip_edges()
-        elif s.begins_with(_OperationalLog.TAG_WORLD + ":"):
-            s = s.substr(_OperationalLog.TAG_WORLD.length() + 1).strip_edges()
+        if s.begins_with(OperationalLog.TAG_COMBAT + ":"):
+            s = s.substr(OperationalLog.TAG_COMBAT.length() + 1).strip_edges()
+        elif s.begins_with(OperationalLog.TAG_WORLD + ":"):
+            s = s.substr(OperationalLog.TAG_WORLD.length() + 1).strip_edges()
         out.append(s)
     return out
 
@@ -207,7 +206,7 @@ static func _count_regex(lines: PackedStringArray, pattern: String) -> int:
         return 0
     var re := RegEx.new()
     if re.compile(pattern) != OK:
-        print(_OperationalLog.tag_line(_OperationalLog.TAG_WARN, "bad regex in track spec: %s" % pattern))
+        print(OperationalLog.tag_line(OperationalLog.TAG_WARN, "bad regex in track spec: %s" % pattern))
         return 0
     var n: int = 0
     for line in lines:
@@ -219,7 +218,7 @@ static func _count_regex(lines: PackedStringArray, pattern: String) -> int:
 
 
 static func _grep_stats(normalized: PackedStringArray) -> Dictionary:
-    return _TrackSpecs.grep_stats(
+    return CombatD001TrackSpecs.grep_stats(
         normalized,
         func(lines: PackedStringArray, needle: String) -> int: return _count_needle(lines, needle),
         func(lines: PackedStringArray, pattern: String) -> int: return _count_regex(lines, pattern)

@@ -3,14 +3,20 @@ extends RefCounted
 
 ## D-persistence P2 ''"" single-slot autosave on settlement continue and **`CompanyState.try_advance_day`** (day tick).
 ## Atomic write: user://fallen_paths_slot0.json.tmp f''' ' slot0.json
-## Canonical: `save_slot` . `apply_save` . `normalize_marker_kind_for_restore` . `begin_harness_isolated_save` (headless harness).
+## Canonical: `save_slot` . `apply_save` . `normalize_marker_kind_for_restore` . `begin_harness_isolated_save` (headless
+## harness).
 
 const SAVE_PATH := "user://fallen_paths_slot0.json"
 const SAVE_TMP_PATH := "user://fallen_paths_slot0.json.tmp"
 const SAVE_VERSION := 2
+const WORLD_META_CONSUMED_CONTRACT_TILES := "consumed_contract_tiles"
+const WORLD_META_CAMP_HEAL_HINT_SHOWN := "camp_heal_hint_shown"
 
 ## Headless harness: isolated slot so editor / parallel Godot do not lock production `user://` path.
 static var _harness_save_path: String = ""
+
+# Runtime preload ''" circular dependency (CompanyState preloads CampaignPersistence).
+static var _company_state: Variant = null
 
 
 static func active_save_path() -> String:
@@ -34,27 +40,10 @@ static func end_harness_isolated_save() -> void:
     _harness_save_path = ""
 
 
-const WORLD_META_CONSUMED_CONTRACT_TILES := "consumed_contract_tiles"
-const WORLD_META_CAMP_HEAL_HINT_SHOWN := "camp_heal_hint_shown"
-
-const _CampaignTypes := preload("res://world/CampaignTypes.gd")
-
-# Runtime preload ''" circular dependency (CompanyState preloads CampaignPersistence).
-static var _CompanyState: Variant = null
-
-
 static func _get_company_state() -> GDScript:
-    if CampaignPersistence._CompanyState == null:
-        CampaignPersistence._CompanyState = load("res://world/CompanyState.gd")
-    return CampaignPersistence._CompanyState
-
-
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-const _ContractSpawner := preload("res://world/ContractSpawner.gd")
-const _EncounterNodeScript := preload("res://world/EncounterNode.gd")
-const _EncounterSpawner := preload("res://world/EncounterSpawner.gd")
-const _OverworldMap := preload("res://world/OverworldMap.gd")
-const _OperationalLog := preload("res://core/OperationalLog.gd")
+    if CampaignPersistence._company_state == null:
+        CampaignPersistence._company_state = load("res://world/CompanyState.gd")
+    return CampaignPersistence._company_state
 
 
 static func has_save() -> bool:
@@ -101,9 +90,9 @@ static func save_slot(world: Node2D) -> bool:
     if not _atomic_write(text):
         push_warning("CampaignPersistence: failed to write %s" % active_save_path())
         return false
-    if _OperationalLog.is_play_session_active():
+    if OperationalLog.is_play_session_active():
         (
-            _OperationalLog
+            OperationalLog
             . play_world(
                 (
                     "campaign_autosave path=%s gold=%d day=%d living=%d"
@@ -147,7 +136,7 @@ static func apply_save(world: Node2D, data: Dictionary, _rng: RandomNumberGenera
         return
     var state: Variant = data.get("company_state", {})
     if state is Dictionary:
-        world.set_meta(_CampaignTypes.WORLD_META_COMPANY_STATE, state.duplicate(true))
+        world.set_meta(CampaignTypes.WORLD_META_COMPANY_STATE, state.duplicate(true))
     var consumed: Variant = data.get("consumed_contract_tiles", [])
     if consumed is Array:
         world.set_meta(WORLD_META_CONSUMED_CONTRACT_TILES, consumed.duplicate(true))
@@ -158,7 +147,7 @@ static func apply_save(world: Node2D, data: Dictionary, _rng: RandomNumberGenera
         world.set_meta("party_formation", pf.duplicate(true))
     _restore_remaining_encounters(world, data.get("remaining_encounters", []), enemy_scene)
     _restore_player_tile(world, data.get("player_tile", []))
-    world.set_meta("camp_tile", _CampaignTypes.DEFAULT_CAMP_TILE)
+    world.set_meta("camp_tile", CampaignTypes.DEFAULT_CAMP_TILE)
     _get_company_state().attach_to_world(world)
     _get_company_state().refresh_hud(world)
 
@@ -203,11 +192,11 @@ static func _atomic_write(text: String) -> bool:
 
 
 static func _player_tile_array(world: Node2D) -> Array:
-    var player: Node2D = _CampaignBridge.get_player(world)
+    var player: Node2D = CampaignEncounterBridge.get_player(world)
     if player == null:
         return [0, 0]
     var pos: Vector2 = player.position
-    var tile: Vector2i = _CampaignBridge.overworld_tile_from_position(pos)
+    var tile: Vector2i = CampaignEncounterBridge.overworld_tile_from_position(pos)
     return [tile.x, tile.y]
 
 
@@ -223,10 +212,10 @@ static func _serialize_remaining_encounters(world: Node2D) -> Array:
     if world == null:
         return out
     for child in world.get_children():
-        if child.get_script() != _EncounterNodeScript:
+        if child.get_script() != EncounterNode:
             continue
         var enc: Node = child
-        var tile: Vector2i = _CampaignBridge.overworld_tile_from_position(enc.position)
+        var tile: Vector2i = CampaignEncounterBridge.overworld_tile_from_position(enc.position)
         (
             out
             . append(
@@ -257,13 +246,13 @@ static func _serialize_roster(world: Node2D) -> Array:
         var node: Node = node_ref as Node
         if node.has_method("is_dead") and node.is_dead():
             continue
-        var entity: Node = _CampaignBridge.health_entity_from_character(node)
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(node)
         (
             out
             . append(
                 {
                     "name": str(member.get("name", node.name)),
-                    "company_mood": float(member.get("company_mood", _CampaignTypes.MOOD_DEFAULT)),
+                    "company_mood": float(member.get("company_mood", CampaignTypes.MOOD_DEFAULT)),
                     "entity": _serialize_entity(entity),
                 }
             )
@@ -289,8 +278,8 @@ static func _serialize_entity(entity: Node) -> Dictionary:
         "training_pending": _deep_dup(entity.training_pending) if "training_pending" in entity else {},
         "last_fought_day": int(entity.last_fought_day) if "last_fought_day" in entity else 0,
         "last_fought_in_combat": bool(entity.last_fought_in_combat) if "last_fought_in_combat" in entity else false,
-        "weapon_id": _EncounterSpawner.weapon_id_from_entity(entity),
-        "armor_by_part": _EncounterSpawner.armor_ids_from_entity(entity),
+        "weapon_id": EncounterSpawner.weapon_id_from_entity(entity),
+        "armor_by_part": EncounterSpawner.armor_ids_from_entity(entity),
     }
     if "blood_volume_ml" in entity:
         out["blood_volume_ml"] = float(entity.blood_volume_ml)
@@ -331,14 +320,14 @@ static func _apply_roster(world: Node2D, roster: Variant) -> void:
         if not saved_by_name.has(name_s):
             continue
         var saved: Dictionary = saved_by_name[name_s]
-        (member as Dictionary)["company_mood"] = float(saved.get("company_mood", _CampaignTypes.MOOD_DEFAULT))
+        (member as Dictionary)["company_mood"] = float(saved.get("company_mood", CampaignTypes.MOOD_DEFAULT))
         var node_ref: Variant = member.get("node_ref")
         if not is_instance_valid(node_ref):
             continue
         var entity_data: Variant = saved.get("entity", {})
         if entity_data is not Dictionary:
             continue
-        var entity: Node = _CampaignBridge.health_entity_from_character(node_ref as Node)
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(node_ref as Node)
         if entity != null:
             _apply_entity(entity, entity_data as Dictionary)
         _apply_equipment(node_ref as Node, entity_data as Dictionary)
@@ -350,7 +339,7 @@ static func _apply_equipment(character: Node, data: Dictionary) -> void:
     var weapon_id: String = data.get("weapon_id", "").strip_edges()
     var armor: Variant = data.get("armor_by_part", {})
     var armor_dict: Dictionary = (armor as Dictionary).duplicate(true) if armor is Dictionary else {}
-    _EncounterSpawner.apply_equipment_snapshot(character, weapon_id, armor_dict)
+    EncounterSpawner.apply_equipment_snapshot(character, weapon_id, armor_dict)
 
 
 static func _apply_entity(entity: Node, data: Dictionary) -> void:
@@ -381,13 +370,13 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
     # XCamp-4: restore proficiency data.
     if data.has("proficiency_bonus"):
         var saved_prof: Dictionary = data.get("proficiency_bonus", {})
-        var _prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
-        for key in _prof_keys:
+        var prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
+        for key in prof_keys:
             entity._proficiency_bonus[key] = float(saved_prof.get(key, 0) or 0)
     if data.has("training_pending"):
         var saved_train: Dictionary = data.get("training_pending", {})
-        var _prof_keys_p := ["strength", "agility", "intelligence", "endurance", "perception"]
-        for key in _prof_keys_p:
+        var prof_keys_p := ["strength", "agility", "intelligence", "endurance", "perception"]
+        for key in prof_keys_p:
             entity.training_pending[key] = float(saved_train.get(key, 0) or 0)
     if data.has("last_fought_day"):
         entity.last_fought_day = data.get("last_fought_day", 0)
@@ -411,7 +400,7 @@ static func _restore_remaining_encounters(world: Node2D, entries: Variant, enemy
     if world == null or entries is not Array:
         return
     for child in world.get_children():
-        if child.get_script() == _EncounterNodeScript:
+        if child.get_script() == EncounterNode:
             child.queue_free()
     for entry in entries:
         if entry is not Dictionary:
@@ -420,12 +409,12 @@ static func _restore_remaining_encounters(world: Node2D, entries: Variant, enemy
         if not (tile_raw is Array) or tile_raw.size() < 2:
             continue
         var tile := Vector2i(int(tile_raw[0]), int(tile_raw[1]))
-        if not _OverworldMap.is_tile_in_bounds(tile, world):
+        if not OverworldMap.is_tile_in_bounds(tile, world):
             continue
         var cfg: Dictionary = entry.get("encounter_config", {})
         var marker_kind: String = normalize_marker_kind_for_restore(entry.get("marker_kind", ""), cfg)
         (
-            _ContractSpawner
+            ContractSpawner
             . spawn_saved_encounter_at_tile(
                 world,
                 tile,
@@ -443,9 +432,9 @@ static func _restore_player_tile(world: Node2D, tile_raw: Variant) -> void:
     if world == null or tile_raw is not Array or (tile_raw as Array).size() < 2:
         return
     var tile := Vector2i(int(tile_raw[0]), int(tile_raw[1]))
-    if not _OverworldMap.is_tile_in_bounds(tile, world):
+    if not OverworldMap.is_tile_in_bounds(tile, world):
         return
-    _CampaignBridge.place_player_on_overworld_tile(world, tile)
+    CampaignEncounterBridge.place_player_on_overworld_tile(world, tile)
 
 
 static func _deep_dup(value: Variant) -> Variant:

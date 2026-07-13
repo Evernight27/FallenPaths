@@ -2,7 +2,8 @@ class_name CombatantDictAccess
 extends RefCounted
 
 ## Nested dict/array helpers for combatant records.
-## Canonical: CombatantEntityAccess.combatant_dict_or_empty · nested_dictionary_* · stats_dict_for_mutation (thin delegates).
+## Canonical: CombatantEntityAccess.combatant_dict_or_empty · nested_dictionary_* · stats_dict_for_mutation (thin
+## delegates).
 
 
 static func combatant_dict_or_empty(v: Variant) -> Dictionary:

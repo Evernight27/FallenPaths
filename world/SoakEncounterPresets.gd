@@ -4,18 +4,6 @@ extends RefCounted
 ## F5 soak encounter markers  -  docs/LIVE_PATHS.md#headless-gate-authoritative (editor-only convenience).
 ## **`emit_f5_soak_guide`** prints **`FP_COMBAT: soak_guide`** lines at session start (grep **`soak_guide`** in Output).
 
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _CombatConstants := preload("res://combat/CombatConstants.gd")
-static var _f5_soak_trace_cache: Variant = null
-
-
-static func _get_f5_soak_trace() -> Variant:
-    if _f5_soak_trace_cache == null:
-        _f5_soak_trace_cache = load("res://combat/CombatF5SoakTrace.gd")
-    return _f5_soak_trace_cache
-
-
 const PRESET_II2B_SWORD_DUEL := "ii2b"
 const PRESET_II3_SURROUND := "ii3"
 const PRESET_II4D_EXHAUSTION := "ii4d"
@@ -50,6 +38,13 @@ const ENCOUNTER_KEY_SOAK_PRESET_ID := "soak_preset_id"
 const ENCOUNTER_KEY_FORCE_WEAPON_ID := "soak_force_weapon_id"
 ## Index into spawned enemy array that receives **`is_enemy_leader`** (default **0**; **-1** = none).
 const ENCOUNTER_KEY_ENEMY_LEADER_INDEX := "enemy_leader_index"
+static var _f5_soak_trace_cache: Variant = null
+
+
+static func _get_f5_soak_trace() -> Variant:
+    if _f5_soak_trace_cache == null:
+        _f5_soak_trace_cache = load("res://combat/CombatF5SoakTrace.gd")
+    return _f5_soak_trace_cache
 
 
 static func apply_preset(encounter: Node, preset_id: String) -> bool:
@@ -123,7 +118,8 @@ static func is_known_preset(preset_id: String) -> bool:
     )
 
 
-## Editor F5: grep **`soak_guide`** after **`FP_SESSION_BEGIN`**  -  scenario targets + Output patterns (no separate test scene).
+## Editor F5: grep **`soak_guide`** after **`FP_SESSION_BEGIN`**  -  scenario targets + Output patterns (no separate
+## test scene).
 static func emit_f5_soak_guide(preset_id: String, marker_tile: Variant = null) -> void:
     if not OS.has_feature("editor"):
         return
@@ -132,18 +128,18 @@ static func emit_f5_soak_guide(preset_id: String, marker_tile: Variant = null) -
         _preset_soak_guide_lines(id, marker_tile) if not id.is_empty() else _general_soak_guide_lines()
     )
     for line in lines:
-        _OperationalLog.play_combat("soak_guide %s" % line)
+        OperationalLog.play_combat("soak_guide %s" % line)
     _emit_d001_human_blocker_checklist(preset_id)
     _emit_d001_run_order_hint(preset_id)
     if not id.is_empty() and marker_tile == null:
-        _OperationalLog.play_combat(
+        OperationalLog.play_combat(
             "soak_guide WARN no cyan marker spawned  -  re-F5 or free a grid tile; preset world setup still applied"
         )
 
 
 ## Editor F5: log once per combat entry (grep **`soak_fight_enter`**).
 static func emit_f5_fight_enter_hint(encounter: Node) -> void:
-    if not OS.has_feature("editor") or not _OperationalLog.is_play_session_active():
+    if not OS.has_feature("editor") or not OperationalLog.is_play_session_active():
         return
     var preset: String = ""
     if encounter != null and "soak_preset_id" in encounter:
@@ -151,17 +147,17 @@ static func emit_f5_fight_enter_hint(encounter: Node) -> void:
     if preset.is_empty():
         _get_f5_soak_trace().set_fight_profile("7v7")
         _get_f5_soak_trace().prepare_fight_end_log()
-        _OperationalLog.play_combat(
+        OperationalLog.play_combat(
             "soak_fight_enter tile=red 7v7  -  play until win/medical; end grep soak_fight_end soak_coverage"
         )
         return
     _get_f5_soak_trace().set_fight_profile(preset)
     _get_f5_soak_trace().prepare_fight_end_log()
-    _OperationalLog.play_combat(
+    OperationalLog.play_combat(
         "soak_fight_enter tile=cyan preset=%s (grep soak=%s on encounter_begin)" % [preset, preset]
     )
     for line in _fight_enter_hint_lines(preset):
-        _OperationalLog.play_combat("soak_fight_enter %s" % line)
+        OperationalLog.play_combat("soak_fight_enter %s" % line)
 
 
 static func _fight_enter_hint_lines(preset_id: String) -> PackedStringArray:
@@ -210,7 +206,7 @@ static func _fight_enter_hint_lines(preset_id: String) -> PackedStringArray:
 static func _emit_d001_run_order_hint(active_preset: String) -> void:
     var order_s: String = " -> ".join(D001_PRESET_RUN_ORDER)
     if active_preset.is_empty():
-        _OperationalLog.play_combat(
+        OperationalLog.play_combat(
             "soak_guide D-001 preset order: %s  -  then 7v7 red tiles for #4 #7 II-5a/b/c" % order_s
         )
         return
@@ -218,9 +214,9 @@ static func _emit_d001_run_order_hint(active_preset: String) -> void:
     if idx < 0:
         return
     if idx + 1 < D001_PRESET_RUN_ORDER.size():
-        _OperationalLog.play_combat("soak_guide D-001 next preset: %s" % D001_PRESET_RUN_ORDER[idx + 1])
+        OperationalLog.play_combat("soak_guide D-001 next preset: %s" % D001_PRESET_RUN_ORDER[idx + 1])
     else:
-        _OperationalLog.play_combat(
+        OperationalLog.play_combat(
             "soak_guide D-001 presets done  -  use 7v7 for formation/medical/gauge II-5a/b/c (#4 #7)"
         )
 
@@ -228,11 +224,27 @@ static func _emit_d001_run_order_hint(active_preset: String) -> void:
 static func _general_soak_guide_lines() -> PackedStringArray:
     return PackedStringArray(
         [
-            "POST one fight  -  copy all Godot Output; grep soak_fight_end | soak_coverage | soak_validate_hint | FP_ERROR | SCRIPT_ERROR",
-            "II-0 general  -  walk any encounter tile (2- - 7v7 on grid) or set main.tscn dev_soak_encounter=ii2b|ii4d|ii3|ii5|ii6|ii8|ii_envelop",
-            "grep FP_COMBAT: hit_resolve reason= | strike_avoided reason= | hit_outcome_stats | parry_stats | ui_hint | parry_deflect | parry_bind | parry_partial rem= | riposte_chain | flurry_bind | counter_tempo",
-            "grep FP_COMBAT: exhaustion | engagement mode= | diagram_banner player: | engagement_debug | opposition offset | engagement_transition | fled id=",
-            "grep FP_COMBAT: cowering_fall_back | ambient_pain_shock | medical | soak= (on encounter_begin when using cyan preset)",
+            (
+                "POST one fight  -  copy all Godot Output; grep soak_fight_end | soak_coverage | "
+                + "soak_validate_hint | FP_ERROR | SCRIPT_ERROR"
+            ),
+            (
+                "II-0 general  -  walk any encounter tile (2- - 7v7 on grid) or set main.tscn "
+                + "dev_soak_encounter=ii2b|ii4d|ii3|ii5|ii6|ii8|ii_envelop"
+            ),
+            (
+                "grep FP_COMBAT: hit_resolve reason= | strike_avoided reason= | hit_outcome_stats | "
+                + "parry_stats | ui_hint | parry_deflect | parry_bind | parry_partial rem= | "
+                + "riposte_chain | flurry_bind | counter_tempo"
+            ),
+            (
+                "grep FP_COMBAT: exhaustion | engagement mode= | diagram_banner player: | "
+                + "engagement_debug | opposition offset | engagement_transition | fled id="
+            ),
+            (
+                "grep FP_COMBAT: cowering_fall_back | ambient_pain_shock | medical | soak= "
+                + "(on encounter_begin when using cyan preset)"
+            ),
             "grep FP_COMBAT: turn_ready_gauge | gauge_tooltip_formation | diagram_banner player: | medical_action pick",
             "no crash/intrusion vocabulary in normal play logs",
         ]
@@ -249,7 +261,10 @@ static func _emit_d001_human_blocker_checklist(active_preset: String) -> void:
             "II-5c gauge: grep turn_ready_gauge label=Stm.*Ready.*Exh.*Grd (any player turn)",
             "II-5a tooltip: grep tooltip_match=ok on formation turns (counter/medical/melee_only are OK)",
             "#8 diagram: grep diagram_banner player:",
-            "#5 fall_back: cyan ii5  -  grep cowering_fall_back listed then pick (grep cowering_fall_back pick|executed)",
+            (
+                "#5 fall_back: cyan ii5  -  grep cowering_fall_back listed then pick "
+                + "(grep cowering_fall_back pick|executed)"
+            ),
             "#6 companion shock: cyan ii6  -  party_entering_combat count=2; grep ambient_pain_shock Companion",
             "#7 medical: grep medical_pack_wound listed then medical_action pick move=pack_wound",
         ]
@@ -268,7 +283,7 @@ static func _emit_d001_human_blocker_checklist(active_preset: String) -> void:
         PRESET_II6_AMBIENT_SHOCK:
             lines.append("#6: this preset  -  soak_setup ii6; do not hit Companion early")
     for line in lines:
-        _OperationalLog.play_combat("soak_guide human %s" % line)
+        OperationalLog.play_combat("soak_guide human %s" % line)
 
 
 static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) -> PackedStringArray:
@@ -287,28 +302,31 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
                 [
                     "preset=ii2b  -  II-0 #1 + D-001 II-2b deflect/bind | %s" % tile_s,
                     "setup: leader-only 1v1 swords; expect FP_COMBAT engagement mode=Duel on encounter_begin soak=ii2b",
-                    "grep: hit_resolve reason= | strike_avoided reason= | parry_deflect | parry_bind | parry_partial rem= | riposte_chain | flurry_bind | counter_tempo",
+                    (
+                        "grep: hit_resolve reason= | strike_avoided reason= | parry_deflect | parry_bind | "
+                        + "parry_partial rem= | riposte_chain | flurry_bind | counter_tempo"
+                    ),
                     "play: exchange until bind/deflect; riposte after deflect; flurry after bind if window opens",
                 ]
             )
-            if _CombatConstants.combat_dev_verbose_active():
-                (
-                    lines_ii2b
-                    . append(
-                        "Q1 research_feel ON  -  grep research_feel | research_validate_hint; crosswalk docs/LIVE_PATHS.md#enable-per-hit-research_feel-lines"
+            if CombatConstants.combat_dev_verbose_active():
+                lines_ii2b.append(
+                    (
+                        "Q1 research_feel ON  -  grep research_feel | research_validate_hint; crosswalk docs/LIVE_PATHS"
+                        + ".md#enable-per-hit-research_feel-lines"
                     )
                 )
             else:
-                (
-                    lines_ii2b
-                    . append(
-                        "Q1 optional: main dev_research_feel=true then re-F5; grep research_feel (pen_mm ke_frac cut/blunt/bone)"
+                lines_ii2b.append(
+                    (
+                        "Q1 optional: main dev_research_feel=true then re-F5; grep research_feel (pen_mm ke_frac cut/bl"
+                        + "unt/bone)"
                     )
                 )
-            (
-                lines_ii2b
-                . append(
-                    "Q2 feel: exchange until bind+deflect; riposte after deflect; flurry after bind  -  grep parry_stats deflect= q2_validate_hint at fight end"
+            lines_ii2b.append(
+                (
+                    "Q2 feel: exchange until bind+deflect; riposte after deflect; flurry after bind  -  grep parry_stat"
+                    + "s deflect= q2_validate_hint at fight end"
                 )
             )
             lines_ii2b.append("Q2 headless: .\\scripts\\run_q_audit.ps1 -Track Q2 after run_all_combat_checks")
@@ -328,7 +346,10 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
                 [
                     "preset=ii3  -  II-0 #3 multi-threat surround | %s" % tile_s,
                     "setup: 4-wide enemy front; surround arc occupancy on",
-                    "grep: ui_hint Arc overlap | parry_* under 2+ front threats | surround_threat in [Combat.Flow] if COMBAT_EVENT_DEBUG_VERBOSE",
+                    (
+                        "grep: ui_hint Arc overlap | parry_* under 2+ front threats | surround_threat in "
+                        + "[Combat.Flow] if COMBAT_EVENT_DEBUG_VERBOSE"
+                    ),
                 ]
             )
         PRESET_II5_COWERING:
@@ -338,7 +359,10 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
                     "setup: leader armless (cowering); loose 2- - 3 party formation",
                     "grep: cowering_fall_back listed | cowering_fall_back executed | ui_hint No arms",
                     "play: on your turn pick fall_back when listed (not flee-only path)",
-                    "Q3 headless: .\\scripts\\run_q_audit.ps1 -Track Track  -  [ii5] cowering_* PASS in .d001_soak_out.txt",
+                    (
+                        "Q3 headless: .\\scripts\\run_q_audit.ps1 -Track Track  -  [ii5] cowering_* PASS in "
+                        + ".d001_soak_out.txt"
+                    ),
                     "Q3 F5 only: confirm fall_back pick UX on world grid (grep q3_validate_hint at fight end)",
                 ]
             )
@@ -357,8 +381,14 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
                     "preset=ii8  -  II-0 #8 skirmish vs LINE labels | %s" % tile_s,
                     "setup: 4 fightable party + 4-wide line + 4 enemies (grep party_entering_combat count=4)",
                     "grep: engagement mode=Formation line | diagram_banner player: | engagement_transition",
-                    "on-screen: centered label above party diagram (Formation line . Line . cohesion)  -  ZoC line below title is separate",
-                    "Q4 headless: [ii8] diagram_banner + tooltip_match_ok PASS  -  F5 optional layout glance (q4_validate_hint)",
+                    (
+                        "on-screen: centered label above party diagram (Formation line . Line . cohesion)  -  "
+                        + "ZoC line below title is separate"
+                    ),
+                    (
+                        "Q4 headless: [ii8] diagram_banner + tooltip_match_ok PASS  -  F5 optional layout glance "
+                        + "(q4_validate_hint)"
+                    ),
                 ]
             )
         PRESET_II_ENVELOP:
@@ -367,8 +397,14 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
                     "preset=ii_envelop  -  III-4 outnumber 7v3 skirmish | %s" % tile_s,
                     "setup: cap=7 party, 7-wide front vs 3 enemies (grep party_entering_combat count=7)",
                     "grep: engagement mode=Skirmish | attempt_close | Stack hold_line | rotate_file@ (opening only)",
-                    "tail (3e mop-up): engagement_debug mop_up=true rotate_suppress=true pick=attempt_close; avoid rotate=1 strikes=0 loops",
-                    "headless: [ii_envelop] pass=true + ii_envelop_mopup: PASS under [ii_envelop] in .d001_soak_out.txt",
+                    (
+                        "tail (3e mop-up): engagement_debug mop_up=true rotate_suppress=true pick=attempt_close; "
+                        + "avoid rotate=1 strikes=0 loops"
+                    ),
+                    (
+                        "headless: [ii_envelop] pass=true + ii_envelop_mopup: PASS under [ii_envelop] in "
+                        + ".d001_soak_out.txt"
+                    ),
                 ]
             )
         _:
@@ -406,8 +442,8 @@ static func _lock_party_formation_on_world(world: Node2D, preset: Dictionary) ->
 static func _apply_ii2b_world(world: Node2D) -> void:
     world.set_meta(WORLD_META_PLAYER_LEADER_ONLY, true)
     _lock_party_formation_on_world(world, {"files": 1, "ranks": 1, "density": FormationPreset.DENSITY_NORMAL})
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_combat("soak_setup ii2b leader-only 1x1 party (grep party_entering_combat count=1)")
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_combat("soak_setup ii2b leader-only 1x1 party (grep party_entering_combat count=1)")
 
 
 static func _apply_ii4d_exhaustion_duel(encounter: Node) -> void:
@@ -421,8 +457,8 @@ static func _apply_ii2b_sword_duel(encounter: Node) -> void:
     encounter.enemy_formation = {"files": 1, "ranks": 1, "density": FormationPreset.DENSITY_NORMAL}
     var cfg: Dictionary = encounter.encounter_config.duplicate(true)
     cfg[ENCOUNTER_KEY_FORCE_WEAPON_ID] = "SWORD"
-    cfg[_CombatConstants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM] = "ox"
-    cfg[_CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM] = "ox"
+    cfg[CombatConstants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM] = "ox"
+    cfg[CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM] = "ox"
     encounter.encounter_config = cfg
 
 
@@ -431,7 +467,7 @@ static func _apply_ii3_surround(encounter: Node) -> void:
     encounter.enemy_count = 4
     encounter.enemy_formation = FormationPreset.for_front_count(4, 4, FormationPreset.DENSITY_NORMAL)
     var cfg: Dictionary = encounter.encounter_config.duplicate(true)
-    cfg[_CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM] = "fool"
+    cfg[CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM] = "fool"
     encounter.encounter_config = cfg
 
 
@@ -459,8 +495,8 @@ static func _apply_ii_envelop(encounter: Node) -> void:
     encounter.enemy_formation = {"files": 3, "ranks": 1, "density": FormationPreset.DENSITY_NORMAL}
     var cfg: Dictionary = encounter.encounter_config.duplicate(true)
     cfg[ENCOUNTER_KEY_FORCE_WEAPON_ID] = "SWORD"
-    cfg[_CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT] = 7
-    cfg[_CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY] = _CombatConstants.DOCTRINE_PINCH_CENTER
+    cfg[CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT] = 7
+    cfg[CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY] = CombatConstants.DOCTRINE_PINCH_CENTER
     encounter.encounter_config = cfg
 
 
@@ -476,8 +512,8 @@ static func _apply_ii5_world(world: Node2D) -> void:
     )
     _destroy_arms_on_character(world, "Character")
     world.set_meta(WORLD_META_SOAK_LEADER_ARMS_DESTROYED, true)
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_combat(
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_combat(
             "soak_setup ii5 leader armless + loose 2x3 (grep cowering_fall_back listed|executed)"
         )
 
@@ -485,8 +521,8 @@ static func _apply_ii5_world(world: Node2D) -> void:
 static func _apply_ii8_world(world: Node2D) -> void:
     world.set_meta(WORLD_META_SOAK_PARTY_FIGHTER_CAP, 4)
     _lock_party_formation_on_world(world, FormationPreset.for_front_count(4, 4, FormationPreset.DENSITY_NORMAL))
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_combat(
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_combat(
             "soak_setup ii8 locked 4-wide line cap=4 fighters (grep party_entering_combat count=4)"
         )
 
@@ -494,19 +530,19 @@ static func _apply_ii8_world(world: Node2D) -> void:
 static func _apply_ii_envelop_world(world: Node2D) -> void:
     world.set_meta(WORLD_META_SOAK_PARTY_FIGHTER_CAP, 7)
     _lock_party_formation_on_world(world, FormationPreset.for_front_count(7, 7, FormationPreset.DENSITY_NORMAL))
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_combat("soak_setup ii_envelop 7-wide vs 3 skirmish (III-4 wing traces in Output)")
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_combat("soak_setup ii_envelop 7-wide vs 3 skirmish (III-4 wing traces in Output)")
 
 
 static func _apply_ii6_world(world: Node2D) -> void:
     world.set_meta(WORLD_META_SOAK_PARTY_FIGHTER_CAP, 2)
     _lock_party_formation_on_world(world, {"files": 2, "ranks": 1, "density": FormationPreset.DENSITY_NORMAL})
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_combat("soak_setup ii6 cap=2 party (grep party_entering_combat count=2)")
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_combat("soak_setup ii6 cap=2 party (grep party_entering_combat count=2)")
 
 
 static func _restore_leader_arms(world: Node2D) -> void:
-    var player: Node2D = _CampaignBridge.get_player(world)
+    var player: Node2D = CampaignEncounterBridge.get_player(world)
     if player == null or not player.has_node("CombatBody"):
         return
     var ent: CoreEntity = player.get_node("CombatBody") as CoreEntity
@@ -539,7 +575,7 @@ static func _destroy_limb_for_soak(entity: CoreEntity, part: String) -> void:
 
 
 static func _wound_companion_for_ambient_shock(world: Node2D) -> void:
-    var player: Node2D = _CampaignBridge.get_player(world)
+    var player: Node2D = CampaignEncounterBridge.get_player(world)
     if player == null or not player.has_node("Companion"):
         return
     var companion: Node = player.get_node("Companion")
@@ -552,7 +588,7 @@ static func _wound_companion_for_ambient_shock(world: Node2D) -> void:
     ent.blood_volume = 58.0
     ent._pain_shock_until_time = -1.0
     ent._ambient_pain_shock_accum = 0.0
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_combat(
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_combat(
             "soak_setup ii6 companion chest wounded bv=%.0f (grep ambient_pain_shock on Companion)" % ent.blood_volume
         )

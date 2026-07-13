@@ -4,14 +4,10 @@ extends RefCounted
 ## Overworld f''' " combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
 ## Canonical: `overworld_tile_from_position` . `overworld_tile_center` . `place_player_on_overworld_tile`.
 
-const _Bleeding := preload("res://core/BleedingConstants.gd")
-const _OverworldMap := preload("res://world/OverworldMap.gd")
-const _EntityWounds := preload("res://core/EntityWounds.gd")
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _FormationPreset := preload("res://combat/FormationPreset.gd")
-const _CampaignTypes := preload("res://world/CampaignTypes.gd")
+const META_ENEMY_FORMATION := "enemy_formation"
 # Runtime preload ''" circular dependency (CompanyState preloads CampaignEncounterBridge).
 static var _company_state_cache: Variant = null
+static var _contract_spawner_cache: Variant = null
 
 
 static func _get_company_state() -> GDScript:
@@ -21,21 +17,12 @@ static func _get_company_state() -> GDScript:
 
 
 # Runtime preload ''" circular dependency (ContractSpawner preloads CampaignEncounterBridge).
-static var _contract_spawner_cache: Variant = null
 
 
 static func _get_contract_spawner() -> GDScript:
     if _contract_spawner_cache == null:
         _contract_spawner_cache = load("res://world/ContractSpawner.gd")
     return _contract_spawner_cache
-
-
-const _Snapshot := preload("res://world/PartyMemberSnapshot.gd")
-const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
-const _MoodBias := preload("res://combat/CombatCampaignMoodBias.gd")
-const _Proficiency := preload("res://core/EntityProficiency.gd")
-const _OperationalLog := preload("res://core/OperationalLog.gd")
-const META_ENEMY_FORMATION := "enemy_formation"
 
 
 ## Cached $Character accessor  -  replaces all `world.$Character` string lookups.
@@ -47,8 +34,8 @@ static func get_player(world: Node2D) -> Node2D:
 
 
 static func clear_battle_kill_log(world: Node) -> void:
-    if world != null and world.has_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
-        world.remove_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG)
+    if world != null and world.has_meta(CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
+        world.remove_meta(CampaignTypes.WORLD_META_BATTLE_KILL_LOG)
 
 
 static func record_battle_kill(
@@ -57,8 +44,8 @@ static func record_battle_kill(
     if world == null or victim_name.is_empty():
         return
     var kill_log: Array = []
-    if world.has_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
-        var raw: Variant = world.get_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG)
+    if world.has_meta(CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
+        var raw: Variant = world.get_meta(CampaignTypes.WORLD_META_BATTLE_KILL_LOG)
         if raw is Array:
             kill_log = raw
     (
@@ -72,13 +59,13 @@ static func record_battle_kill(
             }
         )
     )
-    world.set_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG, kill_log)
+    world.set_meta(CampaignTypes.WORLD_META_BATTLE_KILL_LOG, kill_log)
 
 
 static func _kill_log_entry_for_victim(world: Node, victim_name: String) -> Dictionary:
-    if world == null or not world.has_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
+    if world == null or not world.has_meta(CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
         return {}
-    var raw: Variant = world.get_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG)
+    var raw: Variant = world.get_meta(CampaignTypes.WORLD_META_BATTLE_KILL_LOG)
     if raw is not Array:
         return {}
     for entry in raw:
@@ -193,7 +180,7 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
                 var entity: Node = health_entity_from_character(n)
                 if entity != null and "_proficiency_bonus" in entity and "last_fought_day" in entity:
                     entity.last_fought_in_combat = false
-                    _Proficiency.apply_decay(entity, current_day)
+                    EntityProficiency.apply_decay(entity, current_day)
         clear_transient_combat_meta(world)
         return
     # Camp-2.1: any player victory lifts map bleed block (not only tutorial-tagged contracts).
@@ -209,8 +196,8 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
     sync_overworld_player_grid_anchor(world)
     _log_party_vitality(world, "After battle")
     if party_has_untreated_wounds(world):
-        if _OperationalLog.is_play_session_active():
-            _OperationalLog.play_world(_get_company_state().format_post_fight_field_care_world_log(world))
+        if OperationalLog.is_play_session_active():
+            OperationalLog.play_world(_get_company_state().format_post_fight_field_care_world_log(world))
 
 
 ## XCamp-4: post-combat proficiency processing ''"" update fight day, apply decay, medic INT floor.
@@ -242,7 +229,7 @@ static func _proficiency_post_combat(world: Node2D) -> void:
         if fought and "last_fought_day" in entity:
             entity.last_fought_day = current_day
         # Apply decay (gated by CompanyState.read_stub_proficiency_enabled).
-        _Proficiency.apply_decay(entity, current_day)
+        EntityProficiency.apply_decay(entity, current_day)
 
     # Medic INT floor: only the combatants who actually performed medical actions get a temporary INT boost.
     var medic_actions_by_entity: Dictionary = (
@@ -265,10 +252,13 @@ static func _proficiency_post_combat(world: Node2D) -> void:
                 continue
             var member_entity: Node = health_entity_from_character(node)
             if member_entity == entity_ptr:
-                # Medic INT floor: flat bonus per medical action (not subject to diminishing returns via award_stat_gain).
+                # Medic INT floor: flat bonus per medical action (not subject to diminishing returns via
+                # award_stat_gain).
                 # This is intentional ''"" the medic floor is a guaranteed baseline reward, not practice-based growth.
                 if "_proficiency_bonus" in member_entity:
-                    member_entity._proficiency_bonus["intelligence"] += _Proficiency.GAIN_MEDIC_INT_FLOOR * action_count
+                    member_entity._proficiency_bonus["intelligence"] += (
+                        EntityProficiency.GAIN_MEDIC_INT_FLOOR * action_count
+                    )
                 break
 
 
@@ -297,7 +287,7 @@ static func _compute_average_mood(pm: Variant) -> float:
     var n: int = 0
     for m in pm.members:
         if m is Dictionary:
-            sum += float(m.get("company_mood", _CampaignTypes.MOOD_DEFAULT))
+            sum += float(m.get("company_mood", CampaignTypes.MOOD_DEFAULT))
             n += 1
     if n <= 0:
         return -1.0
@@ -322,10 +312,10 @@ static func apply_campaign_mood_stance_preferences(world: Node2D) -> void:
             continue
         if not ("stance_preference" in node):
             continue
-        var existing: String = _WeaponForm.normalize_form(str(node.get("stance_preference")))
-        if not existing.is_empty() and existing != _WeaponForm.FORM_BALANCED:
+        var existing: String = CombatWeaponForm.normalize_form(str(node.get("stance_preference")))
+        if not existing.is_empty() and existing != CombatWeaponForm.FORM_BALANCED:
             continue
-        var mood: float = float((m as Dictionary).get("company_mood", _CampaignTypes.MOOD_DEFAULT))
+        var mood: float = float((m as Dictionary).get("company_mood", CampaignTypes.MOOD_DEFAULT))
         node.set("stance_preference", _get_company_state().stance_preference_for_campaign_mood(mood))
 
 
@@ -343,9 +333,9 @@ static func apply_campaign_mood_bias_to_encounter(world: Node2D) -> void:
     var enc: Dictionary = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
     if enc is Dictionary:
         var merged: Dictionary = enc.duplicate(true)
-        merged[_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER] = avg_mood
+        merged[CombatCampaignMoodBias.ENCOUNTER_KEY_MOOD_BIAS_PLAYER] = avg_mood
         var enemy_bias: float = enc.get("enemy_mood_bias", 50.0)
-        merged[_MoodBias.ENCOUNTER_KEY_MOOD_BIAS_ENEMY] = clampf(enemy_bias, 0.0, 100.0)
+        merged[CombatCampaignMoodBias.ENCOUNTER_KEY_MOOD_BIAS_ENEMY] = clampf(enemy_bias, 0.0, 100.0)
         world.set_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER, merged)
 
 
@@ -392,7 +382,7 @@ static func member_battle_summary_entry(snap: Dictionary, entity: Node) -> Dicti
         "bleed_rate": bleed_rate,
         "untreated": entity_has_untreated_wounds(entity),
         "untreated_parts": untreated,
-        "worst_atls_band": _Bleeding.atls_hemorrhage_class_from_remaining_pct(blood_pct),
+        "worst_atls_band": BleedingConstants.atls_hemorrhage_class_from_remaining_pct(blood_pct),
         "snapshot": snap_copy,
     }
 
@@ -401,7 +391,7 @@ static func untreated_wound_part_names(entity: Node) -> PackedStringArray:
     var out: PackedStringArray = PackedStringArray()
     if entity == null:
         return out
-    for p in _EntityWounds.sorted_untreated_part_names(entity):
+    for p in EntityWounds.sorted_untreated_part_names(entity):
         out.append(p as String)
     return out
 
@@ -421,7 +411,7 @@ static func build_last_battle_summary(world: Node2D, battle_winner: String = Com
                 continue
             var node: Node = node_ref as Node
             var entity: Node = health_entity_from_character(node)
-            var snap: Dictionary = _Snapshot.snapshot_from_member(member)
+            var snap: Dictionary = PartyMemberSnapshot.snapshot_from_member(member)
             if node.has_method("is_dead") and node.is_dead():
                 var name_s: String = str(member.get("name", node.name))
                 var info: Dictionary = _death_info_from_entity(entity)
@@ -449,14 +439,14 @@ static func build_last_battle_summary(world: Node2D, battle_winner: String = Com
     if not _get_company_state().defeat_should_end_company_run(contract):
         _get_company_state().apply_battle_death_witness_mood(world, deaths.size())
     world.set_meta(
-        _CampaignTypes.WORLD_META_LAST_BATTLE_SUMMARY,
+        CampaignTypes.WORLD_META_LAST_BATTLE_SUMMARY,
         {"deaths": deaths, "members": members, "winner": str(battle_winner)}
     )
 
 
 ## On defeat, party nodes may not yet report `is_dead()`  -  honor battle kill log for roster names.
 static func _merge_roster_kill_log_deaths(world: Node2D, pm: Node, deaths: Array) -> void:
-    if world == null or pm == null or not world.has_meta(_CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
+    if world == null or pm == null or not world.has_meta(CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
         return
     var listed: Dictionary = {}
     for d in deaths:
@@ -577,7 +567,7 @@ static func refresh_party_formation_meta(world: Node2D) -> void:
     var n: int = get_fightable_party_nodes(world).size()
     if n <= 0:
         return
-    var preset: Dictionary = _FormationPreset.default_for_count(n)
+    var preset: Dictionary = FormationPreset.default_for_count(n)
     if world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER):
         var enc_raw: Variant = world.get_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
         if enc_raw is Dictionary:
@@ -595,7 +585,7 @@ static func refresh_party_formation_meta(world: Node2D) -> void:
             ):
                 var front_n: int = enc.get(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT, 0)
                 if front_n > 0:
-                    preset = _FormationPreset.for_front_count(n, front_n)
+                    preset = FormationPreset.for_front_count(n, front_n)
     var prior: Dictionary = world.get_meta("party_formation", {}) if world.has_meta("party_formation") else {}
     if prior.has("density"):
         preset["density"] = prior["density"]
@@ -642,11 +632,11 @@ static func resolve_enemy_scene(world: Node) -> PackedScene:
 
 ## Overworld grid math ''"" delegates to **`OverworldMap`** (not per-world `_tile_coords` hooks).
 static func overworld_tile_from_position(pos: Vector2) -> Vector2i:
-    return _OverworldMap.tile_coords_from_pos(pos)
+    return OverworldMap.tile_coords_from_pos(pos)
 
 
 static func overworld_tile_center(tile: Vector2i) -> Vector2:
-    return _OverworldMap.tile_center(tile)
+    return OverworldMap.tile_center(tile)
 
 
 ## Snap player to tile center, reset movement target, and align **`last_player_tile`** (overworld reject uses this).
@@ -657,7 +647,7 @@ static func place_player_on_overworld_tile(world: Node2D, tile: Vector2i) -> voi
     if player == null:
         return
     var center: Vector2 = overworld_tile_center(tile)
-    if player.has_method("cancel_grid_move_to"):
+    if player.has_method("_cancel_grid_move_to"):
         player.call("cancel_grid_move_to", center)
     else:
         player.position = center
@@ -682,7 +672,7 @@ static func nudge_player_toward_camp_tile(world: Node2D) -> void:
     if player == null:
         return
     var tile: Vector2i = overworld_tile_from_position(player.position)
-    var camp: Vector2i = _CampaignTypes.DEFAULT_CAMP_TILE
+    var camp: Vector2i = CampaignTypes.DEFAULT_CAMP_TILE
     if world.has_meta("camp_tile") and world.get_meta("camp_tile") is Vector2i:
         camp = world.get_meta("camp_tile")
     if tile == camp:
@@ -693,7 +683,7 @@ static func nudge_player_toward_camp_tile(world: Node2D) -> void:
 
 
 static func advance_party_overworld_minute(world: Node2D) -> void:
-    var SECONDS_PER_MOVE: float = 60.0
+    var seconds_per_move: float = 60.0
     if world == null:
         return
     var bleed_mult: float = _get_company_state().get_map_bleed_mult(world)
@@ -715,24 +705,24 @@ static func advance_party_overworld_minute(world: Node2D) -> void:
             continue
         if bleed_mult != 1.0:
             if health.has_method("process_bleeding"):
-                health.process_bleeding(SECONDS_PER_MOVE * bleed_mult)
+                health.process_bleeding(seconds_per_move * bleed_mult)
             if health.has_method("process_blood_loss"):
-                health.process_blood_loss(SECONDS_PER_MOVE * bleed_mult)
-            if health.has_method("process_healing"):
-                health.process_healing(SECONDS_PER_MOVE)
+                health.process_blood_loss(seconds_per_move * bleed_mult)
+            if health.has_method("_process_healing"):
+                health._process_healing(seconds_per_move)
         else:
             if health.has_method("process_bleeding"):
-                health.process_bleeding(SECONDS_PER_MOVE)
+                health.process_bleeding(seconds_per_move)
             if health.has_method("process_blood_loss"):
-                health.process_blood_loss(SECONDS_PER_MOVE)
-            if health.has_method("process_healing"):
-                health.process_healing(SECONDS_PER_MOVE)
+                health.process_blood_loss(seconds_per_move)
+            if health.has_method("_process_healing"):
+                health._process_healing(seconds_per_move)
         if health.has_method("ensure_consciousness_current"):
             health.ensure_consciousness_current()
 
 
 static func entity_has_untreated_wounds(entity: Node) -> bool:
-    return _EntityWounds.entity_has_untreated_wounds(entity)
+    return EntityWounds.entity_has_untreated_wounds(entity)
 
 
 static func party_untreated_part_count(world: Node2D) -> int:
@@ -781,8 +771,8 @@ static func _party_member_snapshots_from_summary(world: Node2D) -> Array:
 static func health_entity_from_character(node: Node) -> Node:
     if node == null:
         return null
-    if node.has_method("get_medical_entity"):
-        var e: Variant = node.get_medical_entity()
+    if node.has_method("_get_medical_entity"):
+        var e: Variant = node._get_medical_entity()
         return e as Node if e is Node else null
     return node
 
@@ -792,7 +782,10 @@ static func _death_info_from_entity(entity: Node) -> Dictionary:
         return {"part": "unknown", "cause": "fallen in battle"}
     if not ("wounds" in entity) or not (entity.wounds is Dictionary):
         var death_cause: String = "fallen in battle"
-        if "blood_volume" in entity and float(entity.blood_volume) <= _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING:
+        if (
+            "blood_volume" in entity
+            and float(entity.blood_volume) <= BleedingConstants.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING
+        ):
             death_cause = "exsanguination"
         return {"part": "unknown", "cause": death_cause, "weapon": "", "killer": ""}
     var worst_part: String = ""
@@ -810,7 +803,7 @@ static func _death_info_from_entity(entity: Node) -> Dictionary:
                 if injury.get("is_arterial", false):
                     arterial = true
     var cause: String = "arterial hemorrhage" if arterial else "hemorrhage"
-    if worst_rate <= 0.0 and float(entity.blood_volume) <= _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING:
+    if worst_rate <= 0.0 and float(entity.blood_volume) <= BleedingConstants.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING:
         cause = "exsanguination"
     return {
         "part": worst_part if not worst_part.is_empty() else "unknown",
@@ -835,8 +828,8 @@ static func _log_party_vitality(world: Node2D, prefix: String) -> void:
         var entity: Node = health_entity_from_character(n)
         if entity == null:
             continue
-        var bleed: float = _EntityAccess.get_total_bleeding_rate_from_node(entity)
-        var bv: float = _EntityAccess.get_blood_volume_from_node(entity)
+        var bleed: float = CombatantEntityAccess.get_total_bleeding_rate_from_node(entity)
+        var bv: float = CombatantEntityAccess.get_blood_volume_from_node(entity)
         var wounded_n: int = 0
         if entity.has_method("get_wounded_parts"):
             wounded_n = entity.get_wounded_parts().size()

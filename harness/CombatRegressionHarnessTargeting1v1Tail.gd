@@ -6,17 +6,8 @@ extends RefCounted
 ## Usage: run() from CombatRegressionHarness.run_all() or invoke run_tuning_all() manually.
 ## Each scenario fires exactly 3 exchanges (player→enemy, enemy→player = 2 attacks each).
 
-const _MgrScript := preload("res://combat/CombatManager.gd")
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
-const _Weapon := preload("res://weapon/Weapon.gd")
-const _AttackResolver := preload("res://combat/AttackResolver.gd")
-const _AttackResultApplier := preload("res://combat/AttackResultApplier.gd")
-const _CombatConstants := preload("res://combat/CombatConstants.gd")
-const _Harness := preload("res://harness/CombatRegressionHarness.gd")
-const _Fixtures := preload("res://harness/HarnessFixtures.gd")
-const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
-const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const PROF_NOVICE := {"strength": 80, "agility": 70, "intelligence": 60, "endurance": 70, "perception": 50}
+const PROF_VETERAN := {"strength": 140, "agility": 130, "intelligence": 120, "endurance": 130, "perception": 110}
 
 
 ## Per-exchange hit record.
@@ -39,26 +30,25 @@ static func _execute_strike(
 
     # Reset both combatants to waiting with balanced form.
     for c in mgr.combatants:
-        if not _EntityAccess.alive_bool(c):
+        if not CombatantEntityAccess.alive_bool(c):
             continue
-        c.state = _CombatConstants.STATE_WAITING
-        var _WF := preload("res://combat/CombatWeaponForm.gd")
-        _WF.assign_form(mgr, c, _WF.FORM_BALANCED, "harness_baseline")
+        c.state = CombatConstants.STATE_WAITING
+        CombatWeaponForm.assign_form(mgr, c, CombatWeaponForm.FORM_BALANCED, "harness_baseline")
 
-    var atk: Dictionary = _EntityAccess.manager_get_combatant(mgr, attacker_id)
-    var tgt: Dictionary = _EntityAccess.manager_get_combatant(mgr, target_id)
+    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, attacker_id)
+    var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, target_id)
     if atk.is_empty() or tgt.is_empty():
         return {"error": "combatants_missing"}
-    if not _EntityAccess.alive_bool(atk):
+    if not CombatantEntityAccess.alive_bool(atk):
         return {"error": "attacker_dead"}
 
     var effective_line: String = attack_line
     if effective_line.is_empty():
         effective_line = (
-            str(_WeaponConstants.get_move(move_id).get("attack_line", "high")) if attack_line.is_empty() else "high"
+            str(WeaponConstants.get_move(move_id).get("attack_line", "high")) if attack_line.is_empty() else "high"
         )
 
-    atk.state = _CombatConstants.STATE_WIND_UP
+    atk.state = CombatConstants.STATE_WIND_UP
     atk.pending_attack = {
         "target_id": target_id,
         "intensity": 0.62,
@@ -68,13 +58,13 @@ static func _execute_strike(
     mgr.recompute_zoc_and_distance()
 
     # Explicitly set distance bands — 1v1 with single-file formations is CLOSE (bind geometry).
-    var atk_dist: Dictionary = _EntityAccess.nested_dictionary_for_mutation(atk, "distance_to")
+    var atk_dist: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(atk, "distance_to")
     atk_dist[target_id] = CombatConstants.DISTANCE_CLOSE
-    var tgt_dist: Dictionary = _EntityAccess.nested_dictionary_for_mutation(tgt, "distance_to")
+    var tgt_dist: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(tgt, "distance_to")
     tgt_dist[attacker_id] = CombatConstants.DISTANCE_CLOSE
 
-    var result := _AttackResolver.resolve_attack(mgr, attacker_id)
-    _AttackResultApplier.apply_result(mgr, attacker_id, result)
+    var result := AttackResolver.resolve_attack(mgr, attacker_id)
+    AttackResultApplier.apply_result(mgr, attacker_id, result)
 
     return {
         "result_dict": result.get("result_dict", {}),
@@ -102,16 +92,16 @@ static func _run_targeting_exchange(
             var action_str: String = str(p_result.get("action", "unknown"))
             # On first attack of each scenario, dump diagnostics to help debug
             if i == 0 and action_str != "hit":
-                var _diag_mgr := data["mgr"] as Node
-                var _diag_atk := _EntityAccess.manager_get_combatant(_diag_mgr, player_id)
+                var diag_mgr := data["mgr"] as Node
+                var diag_atk := CombatantEntityAccess.manager_get_combatant(diag_mgr, player_id)
                 print(
                     (
                         "[Targeting1v1 diag] move=%s action=%s p_attack_type=%s dist_to=%s"
                         % [
                             player_moves[move_idx],
                             action_str,
-                            str(_diag_atk.pending_attack.get("attack_type", "")),
-                            str(_EntityAccess.distance_to_opponent_band(_diag_atk, enemy_id))
+                            str(diag_atk.pending_attack.get("attack_type", "")),
+                            str(CombatantEntityAccess.distance_to_opponent_band(diag_atk, enemy_id))
                         ]
                     )
                 )
@@ -120,8 +110,8 @@ static func _run_targeting_exchange(
             )
 
         # Enemy → Player (only if enemy still alive)
-        var en: Dictionary = _EntityAccess.manager_get_combatant(data["mgr"], enemy_id)
-        if is_instance_valid(en) and _EntityAccess.alive_bool(en):
+        var en: Dictionary = CombatantEntityAccess.manager_get_combatant(data["mgr"], enemy_id)
+        if is_instance_valid(en) and CombatantEntityAccess.alive_bool(en):
             var e_result := _execute_strike(data, enemy_id, player_id, enemy_moves[i % enemy_moves.size()])
             # Enemy records don't affect the primary aim=part validation
             # (they're AI vs AI with no proficiency channel)
@@ -168,23 +158,23 @@ static func _setup_1v1(
     player_stats: Dictionary = {},
     enemy_stats: Dictionary = {}
 ) -> Dictionary:
-    var mgr := _MgrScript.new()
+    var mgr := CombatManager.new()
 
     var p_ent: Node = CoreEntity.new()
     p_ent.apply_species()
     p_ent.dominant_hand = "right_arm"
     p_ent.offhand_functionality = 1.0
-    var pw: Variant = _Weapon.create_from_definition(player_weapon)
+    var pw: Variant = Weapon.create_from_definition(player_weapon)
     if pw != null:
         p_ent.equip_weapon(pw)
-    _Fixtures._track_harness_node(p_ent)
+    HarnessFixtures._track_harness_node(p_ent)
     mgr.register(p_ent, "player")
 
     var e_ent: Node = CoreEntity.new()
     e_ent.apply_species()
     e_ent.dominant_hand = "right_arm"
     e_ent.offhand_functionality = 1.0
-    _Fixtures._track_harness_node(e_ent)
+    HarnessFixtures._track_harness_node(e_ent)
     mgr.register(e_ent, "enemy")
 
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -196,8 +186,8 @@ static func _setup_1v1(
         for stat in enemy_stats:
             e_ent.set(stat, int(enemy_stats[stat]))
 
-    var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
-    var e_id: int = _EntityAccess.id_int(mgr.combatants[1])
+    var p_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
+    var e_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
 
     return {
         "mgr": mgr,
@@ -217,8 +207,6 @@ static func _free_1v1(data: Dictionary) -> void:
 
 
 ## Proficiency levels for targeting validation.
-const PROF_NOVICE := {"strength": 80, "agility": 70, "intelligence": 60, "endurance": 70, "perception": 50}
-const PROF_VETERAN := {"strength": 140, "agility": 130, "intelligence": 120, "endurance": 130, "perception": 110}
 
 # --- Weapon scenarios ---
 
@@ -356,13 +344,12 @@ static func run_sword_ox_form() -> Dictionary:
 
     # Override player form to Ox before exchanges.
     for c in data["mgr"].combatants:
-        if not _EntityAccess.alive_bool(c):
+        if not CombatantEntityAccess.alive_bool(c):
             continue
-        var _WF := preload("res://combat/CombatWeaponForm.gd")
-        if _EntityAccess.id_int(c) == data["p_id"]:
-            _WF.assign_form(data["mgr"], c, _WF.FORM_OX, "harness_ox")
+        if CombatantEntityAccess.id_int(c) == data["p_id"]:
+            CombatWeaponForm.assign_form(data["mgr"], c, CombatWeaponForm.FORM_OX, "harness_ox")
         else:
-            _WF.assign_form(data["mgr"], c, _WF.FORM_BALANCED, "harness_baseline")
+            CombatWeaponForm.assign_form(data["mgr"], c, CombatWeaponForm.FORM_BALANCED, "harness_baseline")
 
     var result := _run_targeting_exchange(
         data, data["p_id"], data["e_id"], ["thrust", "oberhau", "unterhau"], ["thrust", "oberhau"]
@@ -377,13 +364,12 @@ static func run_sword_wrath_form() -> Dictionary:
     var data := _setup_1v1("SWORD", "SWORD", PROF_VETERAN, {})
 
     for c in data["mgr"].combatants:
-        if not _EntityAccess.alive_bool(c):
+        if not CombatantEntityAccess.alive_bool(c):
             continue
-        var _WF := preload("res://combat/CombatWeaponForm.gd")
-        if _EntityAccess.id_int(c) == data["p_id"]:
-            _WF.assign_form(data["mgr"], c, _WF.FORM_WRATH, "harness_wrath")
+        if CombatantEntityAccess.id_int(c) == data["p_id"]:
+            CombatWeaponForm.assign_form(data["mgr"], c, CombatWeaponForm.FORM_WRATH, "harness_wrath")
         else:
-            _WF.assign_form(data["mgr"], c, _WF.FORM_BALANCED, "harness_baseline")
+            CombatWeaponForm.assign_form(data["mgr"], c, CombatWeaponForm.FORM_BALANCED, "harness_baseline")
 
     var result := _run_targeting_exchange(
         data, data["p_id"], data["e_id"], ["thrust", "oberhau", "unterhau"], ["thrust", "oberhau"]
@@ -398,13 +384,12 @@ static func run_sword_fool_form() -> Dictionary:
     var data := _setup_1v1("SWORD", "SWORD", PROF_VETERAN, {})
 
     for c in data["mgr"].combatants:
-        if not _EntityAccess.alive_bool(c):
+        if not CombatantEntityAccess.alive_bool(c):
             continue
-        var _WF := preload("res://combat/CombatWeaponForm.gd")
-        if _EntityAccess.id_int(c) == data["p_id"]:
-            _WF.assign_form(data["mgr"], c, _WF.FORM_FOOL, "harness_fool")
+        if CombatantEntityAccess.id_int(c) == data["p_id"]:
+            CombatWeaponForm.assign_form(data["mgr"], c, CombatWeaponForm.FORM_FOOL, "harness_fool")
         else:
-            _WF.assign_form(data["mgr"], c, _WF.FORM_BALANCED, "harness_baseline")
+            CombatWeaponForm.assign_form(data["mgr"], c, CombatWeaponForm.FORM_BALANCED, "harness_baseline")
 
     var result := _run_targeting_exchange(
         data, data["p_id"], data["e_id"], ["oberhau_feint", "thrust", "unterhau"], ["thrust"]
@@ -416,7 +401,7 @@ static func run_sword_fool_form() -> Dictionary:
 # --- Report formatting ---
 
 
-static func _format_scenario_result(name: String, exchange_result: Dictionary, setup_data: Dictionary) -> Dictionary:
+static func _format_scenario_result(name: String, exchange_result: Dictionary, _setup_data: Dictionary) -> Dictionary:
     var records: Array = exchange_result.get("records", [])
     var aim_dist := _aggregate_aim(records)
     var actual_dist := _aggregate_actual(records)
@@ -514,7 +499,7 @@ static func format_all_reports(reports: Dictionary) -> String:
 
 
 static func _ensure_proficiency_on() -> void:
-    _CompanyState.PROFICIENCY_ENABLED = true
+    CompanyState.proficiency_enabled = true
 
 
 static func run(failures: PackedStringArray) -> void:
@@ -539,7 +524,7 @@ static func run(failures: PackedStringArray) -> void:
         var result: Dictionary = runner.call()
         var total: int = result.get("total_attacks", 0)
         if total == 0:
-            _Harness._fail(failures, "targeting_1v1_%s: no attacks recorded" % name)
+            CombatRegressionHarness._fail(failures, "targeting_1v1_%s: no attacks recorded" % name)
             continue
 
         var matches: Dictionary = result.get("matches", {})
@@ -547,7 +532,7 @@ static func run(failures: PackedStringArray) -> void:
             var action_summary := ""
             for r in result.get("records", []):
                 action_summary += "%s(%s) " % [r.get("move_id", ""), r.get("outcome", "")]
-            _Harness._fail(
+            CombatRegressionHarness._fail(
                 failures, "targeting_1v1_%s: no hits in %d attacks [%s]" % [name, total, action_summary.strip_edges()]
             )
 

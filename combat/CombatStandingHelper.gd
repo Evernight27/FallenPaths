@@ -4,16 +4,14 @@ extends RefCounted
 ## Standing = alive and not incapacitated. Used for winner checks and finding opponents.
 ## Centralizes the logic so _check_for_winner and _find_first_opponent share one definition.
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-
 
 ## Returns dict: side -> count of standing combatants. Combatant is standing if alive and not incapacitated.
 static func get_standing_by_side(combatants: Array) -> Dictionary:
     var standing: Dictionary = {}
     for c in combatants:
-        if not _EntityAccess.is_standing_combatant(c):
+        if not CombatantEntityAccess.is_standing_combatant(c):
             continue
-        var sd: String = _EntityAccess.side_str(c)
+        var sd: String = CombatantEntityAccess.side_str(c)
         standing[sd] = standing.get(sd, 0) + 1
     return standing
 
@@ -22,7 +20,7 @@ static func get_standing_by_side(combatants: Array) -> Dictionary:
 static func get_first_opponent(combatants: Array, side: String) -> Variant:
     var ref: Dictionary = {"side": side}
     for c in combatants:
-        if _EntityAccess.is_living_hostile_to(ref, c):
+        if CombatantEntityAccess.is_living_hostile_to(ref, c):
             return c
     return null
 
@@ -32,7 +30,7 @@ static func get_winner(combatants: Array) -> String:
     var standing: Dictionary = get_standing_by_side(combatants)
     var sides_list: Array = []
     for c in combatants:
-        var sdc: String = _EntityAccess.side_str(c)
+        var sdc: String = CombatantEntityAccess.side_str(c)
         if sdc not in sides_list:
             sides_list.append(sdc)
     if sides_list.size() >= 2:

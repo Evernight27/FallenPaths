@@ -2,12 +2,8 @@ class_name CombatFormationMoveDuration
 extends RefCounted
 
 ## Estimated seconds for formation pair / solo moves (matches **`CombatFormationFlow`** resolve timing).
-## Formation lane footing: **`ZoneOfControl.get_lane_and_footing_duration_multiplier`** --" step-over bodies in file column; **not** blade **`guard_line`** / PA. LIVE_PATHS **`#wf-footing-terminology`**.
-
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-const _Timing := preload("res://combat/CombatTiming.gd")
-const _BattleUIConstants := preload("res://ui/BattleUIConstants.gd")
+## Formation lane footing: **`ZoneOfControl.get_lane_and_footing_duration_multiplier`** --" step-over bodies in file
+## column; **not** blade **`guard_line`** / PA. LIVE_PATHS **`#wf-footing-terminology`**.
 
 ## P4b canonical UI copy (Tier 0.1) --" locked by **`_run_p4b_formation_duration_ui_copy_suite`**.
 const P4B_HINT_PREFIX := "Formation move:"
@@ -53,20 +49,22 @@ static func duration_hint_for_turn_display(hint: String) -> String:
 ## Formation **`fid`** for lane/pressure timing (tactical grid / zone geometry).
 static func _zone_fid_for_lane_timing(manager: Node, c: Dictionary) -> String:
     if manager == null:
-        return _EntityAccess.formation_id_str(c)
-    return _ZoneOfControl.zone_geometry_fid_str(manager, c)
+        return CombatantEntityAccess.formation_id_str(c)
+    return ZoneOfControl.zone_geometry_fid_str(manager, c)
 
 
 static func _agi_scale_s(initiator: Dictionary) -> float:
-    var agi: float = float(_EntityAccess.stats_dict(initiator).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
+    var agi: float = float(
+        CombatantEntityAccess.stats_dict(initiator).get("agility", CombatConstants.DEFAULT_STAT_VALUE)
+    )
     return CombatConstants.BASE_FALL_BACK_S * (100.0 / maxf(50.0, agi))
 
 
 static func _armor_mult(initiator: Dictionary, partner: Dictionary = {}) -> float:
-    var a0: float = _Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(initiator))
+    var a0: float = CombatTiming.armor_mass_duration_multiplier_for_node(CombatantEntityAccess.scene_node(initiator))
     if partner.is_empty():
         return a0
-    var a1: float = _Timing.armor_mass_duration_multiplier_for_node(_EntityAccess.scene_node(partner))
+    var a1: float = CombatTiming.armor_mass_duration_multiplier_for_node(CombatantEntityAccess.scene_node(partner))
     return maxf(a0, a1)
 
 
@@ -76,9 +74,9 @@ static func estimate_adjacent_rank_pair_duration_s(
     if manager == null or initiator.is_empty() or partner.is_empty():
         return CombatConstants.BASE_FALL_BACK_S
     var fid: String = _zone_fid_for_lane_timing(manager, initiator)
-    var f0: int = _EntityAccess.file_int(initiator)
-    var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
-    var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
+    var f0: int = CombatantEntityAccess.file_int(initiator)
+    var lane_foot: float = ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
+    var pressure_mod: float = ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
     var kind_mult: float = (
         CombatConstants.DRAG_BACK_DURATION_MULT if move_kind == CombatConstants.FORMATION_MOVE_KIND_DRAG_BACK else 1.0
     )
@@ -89,9 +87,9 @@ static func estimate_solo_fall_back_duration_s(manager: Node, initiator: Diction
     if manager == null or initiator.is_empty():
         return CombatConstants.BASE_FALL_BACK_S
     var fid: String = _zone_fid_for_lane_timing(manager, initiator)
-    var f: int = _EntityAccess.file_int(initiator)
-    var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
-    var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
+    var f: int = CombatantEntityAccess.file_int(initiator)
+    var lane_foot: float = ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
+    var pressure_mod: float = ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
     return _agi_scale_s(initiator) * lane_foot * pressure_mod * _armor_mult(initiator)
 
 
@@ -99,9 +97,9 @@ static func estimate_rotate_file_duration_s(manager: Node, initiator: Dictionary
     if manager == null or initiator.is_empty() or partner.is_empty():
         return CombatConstants.BASE_FALL_BACK_S
     var fid: String = _zone_fid_for_lane_timing(manager, initiator)
-    var f0: int = _EntityAccess.file_int(initiator)
-    var lane_foot: float = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
-    var pressure_mod: float = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
+    var f0: int = CombatantEntityAccess.file_int(initiator)
+    var lane_foot: float = ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
+    var pressure_mod: float = ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
     return _agi_scale_s(initiator) * lane_foot * pressure_mod * _armor_mult(initiator, partner)
 
 
@@ -144,10 +142,10 @@ static func preview_lane_pressure_for_combatant(manager: Node, c: Dictionary) ->
     var fid: String = _zone_fid_for_lane_timing(manager, c)
     if fid.is_empty():
         return out
-    var f: int = _EntityAccess.file_int(c)
-    out["lane_foot"] = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
-    out["pressure_mod"] = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
-    out["controlling_front"] = (_ZoneOfControl.get_opponent_controlling_disengage_pressure_mult(manager, fid) > 1.01)
+    var f: int = CombatantEntityAccess.file_int(c)
+    out["lane_foot"] = ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
+    out["pressure_mod"] = ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
+    out["controlling_front"] = (ZoneOfControl.get_opponent_controlling_disengage_pressure_mult(manager, fid) > 1.01)
     out["armor_mult"] = _armor_mult(c)
     out["duration_s"] = estimate_solo_fall_back_duration_s(manager, c)
     return out
@@ -179,18 +177,18 @@ static func stamp_listed_action_duration_hint(manager: Node, initiator: Dictiona
     if not CombatConstants.is_formation_movement_move(mid):
         return
     var tid: int = action.get("target_id", -1)
-    var self_id: int = _EntityAccess.id_int(initiator)
+    var self_id: int = CombatantEntityAccess.id_int(initiator)
     var partner: Dictionary = {}
     if tid >= 0 and tid != self_id:
-        partner = _EntityAccess.manager_get_combatant(manager, tid)
+        partner = CombatantEntityAccess.manager_get_combatant(manager, tid)
     var dur: float = CombatConstants.BASE_FALL_BACK_S
     var lane_foot: float = CombatConstants.LANE_MOD_CLEAR
     var pressure_mod: float = CombatConstants.PRESSURE_MOD_NEUTRAL
     var fid: String = _zone_fid_for_lane_timing(manager, initiator)
-    var f0: int = _EntityAccess.file_int(initiator)
+    var f0: int = CombatantEntityAccess.file_int(initiator)
     if not fid.is_empty():
-        lane_foot = _ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
-        pressure_mod = _ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
+        lane_foot = ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
+        pressure_mod = ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
     match mid:
         CombatConstants.MOVE_ID_FALL_BACK:
             if tid == self_id or partner.is_empty():
@@ -215,14 +213,14 @@ static func stamp_listed_action_duration_hint(manager: Node, initiator: Dictiona
     var armor_mult: float = _armor_mult(initiator, partner)
     var controlling_front: bool = false
     if not fid.is_empty():
-        controlling_front = (_ZoneOfControl.get_opponent_controlling_disengage_pressure_mult(manager, fid) > 1.01)
+        controlling_front = (ZoneOfControl.get_opponent_controlling_disengage_pressure_mult(manager, fid) > 1.01)
     var hint: String = format_duration_hint(dur, lane_foot, pressure_mod, armor_mult, controlling_front)
     if not hint.is_empty():
         action["formation_move_duration_hint"] = hint
 
 
 static func _formation_action_display_label(move_id: String) -> String:
-    var labels: Dictionary = _BattleUIConstants.FORMATION_ACTION_LABELS
+    var labels: Dictionary = BattleUIConstants.FORMATION_ACTION_LABELS
     if labels.has(move_id):
         return str(labels[move_id])
     return move_id.replace("_", " ")

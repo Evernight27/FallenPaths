@@ -1,23 +1,18 @@
-extends Resource
-
 class_name SpeciesResource
+extends Resource
 
 ## Species data: body plan, pain reference, stat modifiers.
 
-const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
-const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
-const _BodyPartConstants := preload("res://core/BodyPartConstants.gd")
-
 # Body part max health. Unit dies when head or chest reaches 0.
 # Lists: BodyPartConstants (single source). BodyPartQuery reads BODY_PARTS / VITAL_PARTS from species when set.
-const BODY_PARTS := _BodyPartConstants.BODY_PARTS
-const VITAL_PARTS := _BodyPartConstants.VITAL_PARTS
+const BODY_PARTS := BodyPartConstants.BODY_PARTS
+const VITAL_PARTS := BodyPartConstants.VITAL_PARTS
 const LIMB_PARTS := ["right_arm", "left_arm", "left_leg", "right_leg"]
 ## Narrative KE / reference mass  -  canonical values in `CombatDesignAnchors`.
-const DESIGN_KE_ARM_J := _DesignAnchors.DESIGN_KE_ARM_J
-const DESIGN_KE_LEG_J := _DesignAnchors.DESIGN_KE_LEG_J
-const REFERENCE_ADULT_MASS_KG := _DesignAnchors.REFERENCE_ADULT_MASS_KG
-const REFERENCE_HUMAN_TISSUE_SUM := _DesignAnchors.REFERENCE_HUMAN_TISSUE_SUM
+const DESIGN_KE_ARM_J := CombatDesignAnchors.DESIGN_KE_ARM_J
+const DESIGN_KE_LEG_J := CombatDesignAnchors.DESIGN_KE_LEG_J
+const REFERENCE_ADULT_MASS_KG := CombatDesignAnchors.REFERENCE_ADULT_MASS_KG
+const REFERENCE_HUMAN_TISSUE_SUM := CombatDesignAnchors.REFERENCE_HUMAN_TISSUE_SUM
 ## Tuned so human @ 75 kg matches hand-tuned 12 arm / 16 leg tissue.
 const DERIVED_ARM_TISSUE_FACTOR := 0.60
 const DERIVED_LEG_TISSUE_FACTOR := 0.565
@@ -29,11 +24,13 @@ const DERIVED_BONE_TO_TISSUE_LEG := 12.0 / 16.0
 #   Human: segment-mass (de Leva/Plagenhoef)  -  chest > leg > head = arm.
 #   Goblin: top-heavy, spindly limbs  -  large head/chest share, thin arms/legs.
 #   (Future: e.g. Orc = limb-heavy; Elf = lean limbs, smaller chest.)
-# Mass proportions: clinical segment models; calibration â docs/LIVE_PATHS.md#species-calibration · docs/LIVE_PATHS.md#5-literal-blood-volume-ml.
+# Mass proportions: clinical segment models; calibration â docs/LIVE_PATHS.md#species-calibration ·
+# docs/LIVE_PATHS.md#5-literal-blood-volume-ml.
 @export var name: String = "Unknown"
 @export var head: int = 10  # human ~9% of total; goblin larger share
 @export var chest: int = 30  # human largest; scale per species
-# Tissue/bone integers = combat HP budgets (not kg). Narrative KE anchors (~100 J arm / ~200 J leg) tune DAMAGE_KE_SCALE; see .calibration_audit.txt.
+# Tissue/bone integers = combat HP budgets (not kg). Narrative KE anchors (~100 J arm / ~200 J leg) tune
+# DAMAGE_KE_SCALE; see .calibration_audit.txt.
 # reference_body_mass_kg = adult kg for blunt reduced-mass (WeaponDamageHelper); -1 infers from tissue sum vs human 96.
 @export var right_arm: int = 12
 @export var left_arm: int = 12
@@ -57,10 +54,12 @@ const DERIVED_BONE_TO_TISSUE_LEG := 12.0 / 16.0
 # Blood loss thresholds (0 - 100 remaining %). If < 0, use BleedingConstants defaults (death 35, critical 30).
 # Lets different species be more/less tolerant: e.g. death at 40% = more fragile, 30% = more resilient.
 @export var blood_loss_death_threshold: float = -1.0  # death when remaining <= this; -1 = use global default
-@export var blood_loss_critical_threshold: float = -1.0  # critical state when remaining <= this; -1 = use global default
+# critical state when remaining <= this; -1 = use global default
+@export var blood_loss_critical_threshold: float = -1.0
 ## Reduced-momentum blunt partner mass (kg). When > 0, overrides segment-based mass from body size.
 @export var effective_blunt_target_mass_kg: float = -1.0
-## Adult-scale body mass (kg) for blunt segment masses. -1 = infer from tissue totals vs human reference (see WeaponDamageHelper).
+## Adult-scale body mass (kg) for blunt segment masses. -1 = infer from tissue totals vs human reference (see
+## WeaponDamageHelper).
 @export var reference_body_mass_kg: float = -1.0
 
 # Pain reference for normalized pain (Method B). Typical pain from 1 moderate hit for this species.
@@ -108,7 +107,7 @@ func resolved_reference_mass_kg() -> float:
     var total: int = exported_tissue_sum()
     if total <= 0:
         return REFERENCE_ADULT_MASS_KG
-    return REFERENCE_ADULT_MASS_KG * (float(total) / float(_DesignAnchors.REFERENCE_HUMAN_TISSUE_SUM))
+    return REFERENCE_ADULT_MASS_KG * (float(total) / float(CombatDesignAnchors.REFERENCE_HUMAN_TISSUE_SUM))
 
 
 static func derived_limb_body_max(part: String, reference_mass_kg: float) -> int:
@@ -117,7 +116,7 @@ static func derived_limb_body_max(part: String, reference_mass_kg: float) -> int
     var mass_scale: float = reference_mass_kg / REFERENCE_ADULT_MASS_KG
     var design_ke: float = DESIGN_KE_LEG_J if is_leg_part(part) else DESIGN_KE_ARM_J
     var limb_factor: float = DERIVED_LEG_TISSUE_FACTOR if is_leg_part(part) else DERIVED_ARM_TISSUE_FACTOR
-    var raw: float = _WeaponConstants.DAMAGE_KE_SCALE * sqrt(design_ke) * limb_factor * mass_scale
+    var raw: float = WeaponConstants.DAMAGE_KE_SCALE * sqrt(design_ke) * limb_factor * mass_scale
     return maxi(1, int(round(raw)))
 
 
@@ -177,38 +176,30 @@ func _derived_limb_bone_live(part: String) -> int:
 func get_body_part_max(part: String) -> int:
     if feature_derived_limb_capacity and is_limb_part(part):
         return _derived_limb_tissue_live(part)
-    match part:
-        "head":
-            return head
-        "chest":
-            return chest
-        "right_arm":
-            return right_arm
-        "left_arm":
-            return left_arm
-        "left_leg":
-            return left_leg
-        "right_leg":
-            return right_leg
-    return 0
+    var by_part: Dictionary = {
+        "head": head,
+        "chest": chest,
+        "right_arm": right_arm,
+        "left_arm": left_arm,
+        "left_leg": left_leg,
+        "right_leg": right_leg,
+    }
+    return int(by_part.get(part, 0))
 
 
 func get_bone_max(part: String) -> int:
     if feature_derived_limb_capacity and is_limb_part(part):
         return _derived_limb_bone_live(part)
-    match part:
-        "head":
-            return head_bone
-        "chest":
-            return chest_bone
-        "right_arm":
-            return right_arm_bone
-        "left_arm":
-            return left_arm_bone
-        "left_leg":
-            return left_leg_bone
-        "right_leg":
-            return right_leg_bone
+    var by_part: Dictionary = {
+        "head": head_bone,
+        "chest": chest_bone,
+        "right_arm": right_arm_bone,
+        "left_arm": left_arm_bone,
+        "left_leg": left_leg_bone,
+        "right_leg": right_leg_bone,
+    }
+    if by_part.has(part):
+        return int(by_part[part])
     return maxi(1, int(get_body_part_max(part) / 2.0))
 
 

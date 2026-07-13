@@ -3,9 +3,6 @@ extends RefCounted
 
 ## Bleeding rates, injury types, hemorrhage physics constants.
 
-const _Bp := preload("res://core/BodyPartConstants.gd")
-const _WeightedSample := preload("res://core/WeightedSample.gd")
-
 # Injury-based bleeding: rates by injury type and severity, body part multipliers,
 # blood volume, death from blood loss, clotting, and bandaging.
 # Aligned with clinical sources: ATLS hemorrhage classes (I - IV), arterial vs venous vs capillary
@@ -43,85 +40,94 @@ const BLEEDING_RATES: Dictionary = {
 # --- Body part bleeding multipliers (scalp/face/trunk more vascular; StatPearls / clinical) ---
 # Used as base when no sub-region; with sub-regions, effective mult = part_base * sub_region_mult.
 const BODY_PART_BLEEDING_MULTIPLIERS: Dictionary = {
-    _Bp.PART_HEAD: 1.5,
-    _Bp.PART_CHEST: 1.2,
-    _Bp.PART_RIGHT_ARM: 1.0,
-    _Bp.PART_LEFT_ARM: 1.0,
-    _Bp.PART_RIGHT_LEG: 1.0,
-    _Bp.PART_LEFT_LEG: 1.0
+    BodyPartConstants.PART_HEAD: 1.5,
+    BodyPartConstants.PART_CHEST: 1.2,
+    BodyPartConstants.PART_RIGHT_ARM: 1.0,
+    BodyPartConstants.PART_LEFT_ARM: 1.0,
+    BodyPartConstants.PART_RIGHT_LEG: 1.0,
+    BodyPartConstants.PART_LEFT_LEG: 1.0
 }
 
-# --- Sub-regions per body part (medical: scalp/face/neck, thoracic/abdominal, upper_arm/elbow/forearm/hand, thigh/knee/calf/foot) ---
+# --- Sub-regions per body part (medical: scalp/face/neck, thoracic/abdominal, upper_arm/elbow/forearm/hand,
+# thigh/knee/calf/foot) ---
 # Research: scalp very vascular (StatPearls NBK541038); forearm vessels most injured in UE (StatPearls NBK536925);
 # penetrating neck vascular ~25% (Zone I - III); popliteal blunt, SFA penetrating (lower limb); abdominal zones 1 - 4.
 const SUB_REGIONS: Dictionary = {
-    _Bp.PART_HEAD: ["scalp", "face", "neck"],
-    _Bp.PART_CHEST: ["thoracic", "abdominal"],
-    _Bp.PART_RIGHT_ARM: ["upper_arm", "elbow", "forearm", "hand"],
-    _Bp.PART_LEFT_ARM: ["upper_arm", "elbow", "forearm", "hand"],
-    _Bp.PART_RIGHT_LEG: ["thigh", "knee", "calf", "foot"],
-    _Bp.PART_LEFT_LEG: ["thigh", "knee", "calf", "foot"]
+    BodyPartConstants.PART_HEAD: ["scalp", "face", "neck"],
+    BodyPartConstants.PART_CHEST: ["thoracic", "abdominal"],
+    BodyPartConstants.PART_RIGHT_ARM: ["upper_arm", "elbow", "forearm", "hand"],
+    BodyPartConstants.PART_LEFT_ARM: ["upper_arm", "elbow", "forearm", "hand"],
+    BodyPartConstants.PART_RIGHT_LEG: ["thigh", "knee", "calf", "foot"],
+    BodyPartConstants.PART_LEFT_LEG: ["thigh", "knee", "calf", "foot"]
 }
 # Relative hit probability per sub-region (surface area / exposure). Sum per part can be any; we normalize.
 const SUB_REGION_WEIGHTS: Dictionary = {
-    _Bp.PART_HEAD: {"scalp": 1.2, "face": 1.0, "neck": 0.6},
-    _Bp.PART_CHEST: {"thoracic": 1.0, "abdominal": 1.0},
-    _Bp.PART_RIGHT_ARM: {"upper_arm": 1.0, "elbow": 0.4, "forearm": 1.0, "hand": 0.8},
-    _Bp.PART_LEFT_ARM: {"upper_arm": 1.0, "elbow": 0.4, "forearm": 1.0, "hand": 0.8},
-    _Bp.PART_RIGHT_LEG: {"thigh": 1.0, "knee": 0.5, "calf": 1.0, "foot": 0.6},
-    _Bp.PART_LEFT_LEG: {"thigh": 1.0, "knee": 0.5, "calf": 1.0, "foot": 0.6}
+    BodyPartConstants.PART_HEAD: {"scalp": 1.2, "face": 1.0, "neck": 0.6},
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.0, "abdominal": 1.0},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 1.0, "elbow": 0.4, "forearm": 1.0, "hand": 0.8},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 1.0, "elbow": 0.4, "forearm": 1.0, "hand": 0.8},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.0, "knee": 0.5, "calf": 1.0, "foot": 0.6},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.0, "knee": 0.5, "calf": 1.0, "foot": 0.6}
 }
-# Bleeding multiplier per sub-region (relative to limb baseline 1.0). Scalp bleeds profusely; neck carotid/jugular; forearm most injured in UE.
+# Bleeding multiplier per sub-region (relative to limb baseline 1.0). Scalp bleeds profusely; neck carotid/jugular;
+# forearm most injured in UE.
 const SUB_REGION_BLEEDING_MULTIPLIERS: Dictionary = {
-    _Bp.PART_HEAD: {"scalp": 1.8, "face": 1.4, "neck": 1.6},
-    _Bp.PART_CHEST: {"thoracic": 1.15, "abdominal": 1.25},
-    _Bp.PART_RIGHT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05},
-    _Bp.PART_LEFT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05},
-    _Bp.PART_RIGHT_LEG: {"thigh": 1.1, "knee": 1.2, "calf": 1.05, "foot": 0.95},
-    _Bp.PART_LEFT_LEG: {"thigh": 1.1, "knee": 1.2, "calf": 1.05, "foot": 0.95}
+    BodyPartConstants.PART_HEAD: {"scalp": 1.8, "face": 1.4, "neck": 1.6},
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.15, "abdominal": 1.25},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.1, "knee": 1.2, "calf": 1.05, "foot": 0.95},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.1, "knee": 1.2, "calf": 1.05, "foot": 0.95}
 }
-# Arterial chance multiplier per sub-region (for both cut and crush; crush then scaled by SUB_REGION_BLUNT_ARTERIAL_MODIFIERS).
-# Neck ~25% vascular in penetrating; scalp STA; forearm most injured in UE; SFA (thigh) penetrating, popliteal (knee) blunt.
+# Arterial chance multiplier per sub-region (for both cut and crush; crush then scaled by
+# SUB_REGION_BLUNT_ARTERIAL_MODIFIERS).
+# Neck ~25% vascular in penetrating; scalp STA; forearm most injured in UE; SFA (thigh) penetrating, popliteal (knee)
+# blunt.
 const SUB_REGION_ARTERIAL_MULTIPLIERS: Dictionary = {
-    _Bp.PART_HEAD: {"scalp": 1.2, "face": 1.1, "neck": 1.5},
-    _Bp.PART_CHEST: {"thoracic": 1.15, "abdominal": 1.2},
-    _Bp.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.0, "forearm": 1.2, "hand": 0.9},
-    _Bp.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.0, "forearm": 1.2, "hand": 0.9},
-    _Bp.PART_RIGHT_LEG: {"thigh": 1.15, "knee": 1.15, "calf": 1.0, "foot": 0.85},
-    _Bp.PART_LEFT_LEG: {"thigh": 1.15, "knee": 1.15, "calf": 1.0, "foot": 0.85}
+    BodyPartConstants.PART_HEAD: {"scalp": 1.2, "face": 1.1, "neck": 1.5},
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.15, "abdominal": 1.2},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.0, "forearm": 1.2, "hand": 0.9},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.0, "forearm": 1.2, "hand": 0.9},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.15, "knee": 1.15, "calf": 1.0, "foot": 0.85},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.15, "knee": 1.15, "calf": 1.0, "foot": 0.85}
 }
 # --- Stump (amputation site) bleeding: part-accurate + level variation ---
 # Amputation level: more proximal (closer to torso) = larger vessels = higher stump bleed; distal (hand, foot) = lower.
-# Multiplier applied on top of part + sub_region bleeding rate for critical cut. Slight per-stump variation applied in CoreEntity.
+# Multiplier applied on top of part + sub_region bleeding rate for critical cut. Slight per-stump variation applied in
+# CoreEntity.
 const STUMP_LEVEL_MULTIPLIERS: Dictionary = {
-    _Bp.PART_HEAD: {"scalp": 1.15, "face": 1.0, "neck": 1.25},
-    _Bp.PART_CHEST: {"thoracic": 1.08, "abdominal": 1.12},
-    _Bp.PART_RIGHT_ARM: {"upper_arm": 1.22, "elbow": 1.08, "forearm": 1.0, "hand": 0.88},
-    _Bp.PART_LEFT_ARM: {"upper_arm": 1.22, "elbow": 1.08, "forearm": 1.0, "hand": 0.88},
-    _Bp.PART_RIGHT_LEG: {"thigh": 1.2, "knee": 1.1, "calf": 1.0, "foot": 0.88},
-    _Bp.PART_LEFT_LEG: {"thigh": 1.2, "knee": 1.1, "calf": 1.0, "foot": 0.88}
+    BodyPartConstants.PART_HEAD: {"scalp": 1.15, "face": 1.0, "neck": 1.25},
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.08, "abdominal": 1.12},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 1.22, "elbow": 1.08, "forearm": 1.0, "hand": 0.88},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 1.22, "elbow": 1.08, "forearm": 1.0, "hand": 0.88},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.2, "knee": 1.1, "calf": 1.0, "foot": 0.88},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.2, "knee": 1.1, "calf": 1.0, "foot": 0.88}
 }
 # Stump wounds: arterial chance multiplier (amputation often involves major vessels).
 const STUMP_ARTERIAL_CHANCE_MULTIPLIER: float = 1.4
 
-# Blunt (crush) arterial modifier per sub-region: scales ARTERIAL_CRUSH_MULTIPLIER so cut vs blunt differentiation is region-specific. 1.0 = default; <1 = blunt less often arterial than cut; >1 = blunt relatively more (e.g. knee/popliteal). Research: penetrating 85% neck vascular; thoracic/abdomen penetrating predominates; LE popliteal blunt, SFA penetrating; scalp STA 80% blunt cephalovascular.
+# Blunt (crush) arterial modifier per sub-region: scales ARTERIAL_CRUSH_MULTIPLIER so cut vs blunt differentiation is
+# region-specific. 1.0 = default; <1 = blunt less often arterial than cut; >1 = blunt relatively more (e.g.
+# knee/popliteal). Research: penetrating 85% neck vascular; thoracic/abdomen penetrating predominates; LE popliteal
+# blunt, SFA penetrating; scalp STA 80% blunt cephalovascular.
 const SUB_REGION_BLUNT_ARTERIAL_MODIFIERS: Dictionary = {
-    _Bp.PART_HEAD: {"scalp": 0.9, "face": 0.75, "neck": 0.5},
-    _Bp.PART_CHEST: {"thoracic": 0.5, "abdominal": 0.6},
-    _Bp.PART_RIGHT_ARM: {"upper_arm": 0.85, "elbow": 0.9, "forearm": 1.0, "hand": 0.9},
-    _Bp.PART_LEFT_ARM: {"upper_arm": 0.85, "elbow": 0.9, "forearm": 1.0, "hand": 0.9},
-    _Bp.PART_RIGHT_LEG: {"thigh": 0.6, "knee": 1.25, "calf": 0.9, "foot": 0.9},
-    _Bp.PART_LEFT_LEG: {"thigh": 0.6, "knee": 1.25, "calf": 0.9, "foot": 0.9}
+    BodyPartConstants.PART_HEAD: {"scalp": 0.9, "face": 0.75, "neck": 0.5},
+    BodyPartConstants.PART_CHEST: {"thoracic": 0.5, "abdominal": 0.6},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.85, "elbow": 0.9, "forearm": 1.0, "hand": 0.9},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.85, "elbow": 0.9, "forearm": 1.0, "hand": 0.9},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 0.6, "knee": 1.25, "calf": 0.9, "foot": 0.9},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 0.6, "knee": 1.25, "calf": 0.9, "foot": 0.9}
 }
-# Severity modifier per sub-region: effective_damage = damage * mult when mapping to severity (thin tissue = depth reached sooner).
+# Severity modifier per sub-region: effective_damage = damage * mult when mapping to severity (thin tissue = depth
+# reached sooner).
 # Scalp thin over bone; neck less tissue; abdominal soft; elbow/knee less tissue; hand/foot smaller cross-section.
 const SUB_REGION_SEVERITY_MODIFIERS: Dictionary = {
-    _Bp.PART_HEAD: {"scalp": 1.25, "face": 1.1, "neck": 1.15},
-    _Bp.PART_CHEST: {"thoracic": 1.0, "abdominal": 1.1},
-    _Bp.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.15, "forearm": 1.0, "hand": 1.1},
-    _Bp.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.15, "forearm": 1.0, "hand": 1.1},
-    _Bp.PART_RIGHT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 1.1},
-    _Bp.PART_LEFT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 1.1}
+    BodyPartConstants.PART_HEAD: {"scalp": 1.25, "face": 1.1, "neck": 1.15},
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.0, "abdominal": 1.1},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.15, "forearm": 1.0, "hand": 1.1},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.15, "forearm": 1.0, "hand": 1.1},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 1.1},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 1.1}
 }
 
 # --- Blood volume (percentage 0 - 100). ATLS: Class I <15% loss, II 15 - 30%, III 30 - 40%, IV >40% (fatal). ---
@@ -154,7 +160,8 @@ const PENETRATION_DEPTH_ARTERIAL_DEEP_MULT := 1.12
 
 const MAX_BLOOD_VOLUME: float = 100.0
 # total_bleeding_rate - -  this = blood % lost per second (see docs/LIVE_PATHS.md#bleeding-physics).
-# Derived: buffer (100-35)% / (REFERENCE_UNCONTROLLED_BLEED_RATE - -  48 s) 'permille^ 0.1003; shipped 0.10 within tolerance.
+# Derived: buffer (100-35)% / (REFERENCE_UNCONTROLLED_BLEED_RATE - -  48 s) 'permille^ 0.1003; shipped 0.10 within
+# tolerance.
 # Calibrates TTD to ATLS/CoTCCC untreated major-bleed band (30 - 120 s). Tune lethality here, not raw HP/s alone.
 const BLOOD_LOSS_RATE_MULTIPLIER: float = 0.10
 # Death when remaining blood_volume <= this. 35% remaining = 65% lost (deep Class IV; ATLS IV begins >40% lost).
@@ -162,7 +169,8 @@ const BLOOD_LOSS_DEATH_THRESHOLD: float = 35.0
 # Critical state (UI/effects) when remaining <= this (Class III - IV border).
 const BLOOD_LOSS_CRITICAL_THRESHOLD: float = 30.0
 
-# --- ATLS hemorrhage class (remaining blood %). ATLS 10th ed. loss bands: I <15%, II 15 - 30%, III 31 - 40%, IV >40%. ---
+# --- ATLS hemorrhage class (remaining blood %). ATLS 10th ed. loss bands: I <15%, II 15 - 30%, III 31 - 40%, IV >40%.
+# ---
 const ATLS_CLASS_I_MIN_REMAINING: float = 85.0  # <15% lost
 const ATLS_CLASS_II_MIN_REMAINING: float = 70.0  # 15 - 30% lost
 const ATLS_CLASS_III_MIN_REMAINING: float = 60.0  # 31 - 40% lost (60% remaining = 40% lost upper bound)
@@ -179,11 +187,23 @@ const MEDICAL_TRIAGE_PERIL_SECONDS: float = 30.0
 # Per-severity clotting rate (k) per second. Half-life of rate = ln(2)/k (first-order clot decay).
 # Minor: small cuts stop in seconds - minutes (faster k). Severe/critical: vessel involvement, clot slower.
 const CLOTTING_RATE_BY_SEVERITY: Dictionary = {
-    SEVERITY_MINOR: 0.05, SEVERITY_MODERATE: 0.02, SEVERITY_SEVERE: 0.01, SEVERITY_CRITICAL: 0.005  # half-life ~14 s; ~1.2 min to ~1% rate ("small cuts may stop in seconds")  # half-life ~35 s; ~4 min to ~1% rate (normal wounds 2 - 7 min)  # half-life ~70 s; ~8 min (vessel involvement)  # half-life ~139 s; ~15 min (deep vessel involvement)
+    # half-life ~14 s; ~1.2 min to ~1% rate ("small cuts may stop in seconds")  # half-life ~35 s; ~4 min to ~1% rate
+    # (normal wounds 2 - 7 min)  # half-life ~70 s; ~8 min (vessel involvement)  # half-life ~139 s; ~15 min (deep
+    # vessel involvement)
+    SEVERITY_MINOR: 0.05,
+    SEVERITY_MODERATE: 0.02,
+    SEVERITY_SEVERE: 0.01,
+    SEVERITY_CRITICAL: 0.005
 }
-# Multiplier on clotting rate by severity: minor clots faster (superficial); severe/critical slower (vessel involvement).
+# Multiplier on clotting rate by severity: minor clots faster (superficial); severe/critical slower (vessel
+# involvement).
 const CLOTTING_SEVERITY_MULTIPLIERS: Dictionary = {
-    SEVERITY_MINOR: 1.5, SEVERITY_MODERATE: 1.0, SEVERITY_SEVERE: 0.5, SEVERITY_CRITICAL: 0.25  # minor: effective k higher -> ~9 s half-life ("stop in seconds")  # severe/critical: vessel involvement -> clot slower
+    # minor: effective k higher -> ~9 s half-life ("stop in seconds")  # severe/critical: vessel involvement -> clot
+    # slower
+    SEVERITY_MINOR: 1.5,
+    SEVERITY_MODERATE: 1.0,
+    SEVERITY_SEVERE: 0.5,
+    SEVERITY_CRITICAL: 0.25
 }
 # When bandaged: clotting rate (Option A: tuned for ~2-5 min to hemostasis, research-based).
 const CLOTTING_RATE_STABILIZED: float = 0.006  # per second when bandaged; half-life ~2 min
@@ -192,29 +212,44 @@ const CLOTTING_RATE_STABILIZED: float = 0.006  # per second when bandaged; half-
 const CLOTTING_RATE_UNDER_DIRECT_PRESSURE: float = 0.032
 ## Success mult when dressing completes while compression was still on the part (TCCC: do not release early).
 const TREATMENT_PRESSURE_HELD_SUCCESS_MULT: float = 1.18
-# Rate below this is treated as clotted (removal). Avoids relying on float underflow. MINOR_WOUND_BLEEDING_METHODS Method 4.
+# Rate below this is treated as clotted (removal). Avoids relying on float underflow. MINOR_WOUND_BLEEDING_METHODS
+# Method 4.
 const BLEEDING_RATE_EPSILON: float = 0.001
-# Heuristic: effective clotting rate (per second) for "will they clot before dying?". Used when permanent bleeding is reduced (e.g. partial tourniquet). If perm_rate <= (blood_volume - death_threshold) * this / BLOOD_LOSS_RATE_MULTIPLIER, integrated loss stays below remaining buffer so they survive. Conservative (between severe and critical).
+# Heuristic: effective clotting rate (per second) for "will they clot before dying?". Used when permanent bleeding is
+# reduced (e.g. partial tourniquet). If perm_rate <= (blood_volume - death_threshold) * this /
+# BLOOD_LOSS_RATE_MULTIPLIER, integrated loss stays below remaining buffer so they survive. Conservative (between severe
+# and critical).
 const CLOTTING_SAFE_EFFECTIVE_RATE: float = 0.008
 
 # --- Arterial bleeding chance (research-based) ---
-# Penetrating (cut) wounds: depth/severity correlates with vessel involvement. Soft signs: 1 sign ~10% vascular injury, 2+ ~25%.
-# Penetrating neck: vascular injury in ~25% of penetrating neck trauma (StatPearls, penetrating neck). Blunt = 20-25% of vascular injuries vs penetrating 75-80%.
-# Base chance for CUT by severity (superficial = low, deep/critical = high). Crush uses ARTERIAL_CRUSH_MULTIPLIER (blunt less often arterial).
+# Penetrating (cut) wounds: depth/severity correlates with vessel involvement. Soft signs: 1 sign ~10% vascular injury,
+# 2+ ~25%.
+# Penetrating neck: vascular injury in ~25% of penetrating neck trauma (StatPearls, penetrating neck). Blunt = 20-25% of
+# vascular injuries vs penetrating 75-80%.
+# Base chance for CUT by severity (superficial = low, deep/critical = high). Crush uses ARTERIAL_CRUSH_MULTIPLIER (blunt
+# less often arterial).
 const ARTERIAL_CHANCE_BY_SEVERITY: Dictionary = {
-    SEVERITY_MINOR: 0.01, SEVERITY_MODERATE: 0.06, SEVERITY_SEVERE: 0.14, SEVERITY_CRITICAL: 0.26  # superficial, rarely reaches vessels  # moderate depth  # deep; soft-sign range  # high damage; 25% vascular in penetrating neck / 2+ soft signs
+    # superficial, rarely reaches vessels  # moderate depth  # deep; soft-sign range  # high damage; 25% vascular in
+    # penetrating neck / 2+ soft signs
+    SEVERITY_MINOR: 0.01,
+    SEVERITY_MODERATE: 0.06,
+    SEVERITY_SEVERE: 0.14,
+    SEVERITY_CRITICAL: 0.26
 }
-const ARTERIAL_CRUSH_MULTIPLIER: float = 0.35  # blunt arterial chance = 35% of cut's; literature: penetrating 64-82% of extremity vascular injuries (blunt 18-36%)
-# Body part: neck/head 25% vascular in penetrating; chest major vessels; limbs vascular injury ~1% of extremity trauma but when present = major arteries.
+# blunt arterial chance = 35% of cut's; literature: penetrating 64-82% of extremity vascular injuries (blunt 18-36%)
+const ARTERIAL_CRUSH_MULTIPLIER: float = 0.35
+# Body part: neck/head 25% vascular in penetrating; chest major vessels; limbs vascular injury ~1% of extremity trauma
+# but when present = major arteries.
 const ARTERIAL_BODY_PART_MULTIPLIERS: Dictionary = {
-    _Bp.PART_HEAD: 1.4,  # scalp/face/neck highly vascular; penetrating neck ~25% vascular
-    _Bp.PART_CHEST: 1.2,  # major vessels (aorta, iliac, etc.)
-    _Bp.PART_RIGHT_ARM: 1.0,
-    _Bp.PART_LEFT_ARM: 1.0,
-    _Bp.PART_RIGHT_LEG: 1.0,
-    _Bp.PART_LEFT_LEG: 1.0
+    BodyPartConstants.PART_HEAD: 1.4,  # scalp/face/neck highly vascular; penetrating neck ~25% vascular
+    BodyPartConstants.PART_CHEST: 1.2,  # major vessels (aorta, iliac, etc.)
+    BodyPartConstants.PART_RIGHT_ARM: 1.0,
+    BodyPartConstants.PART_LEFT_ARM: 1.0,
+    BodyPartConstants.PART_RIGHT_LEG: 1.0,
+    BodyPartConstants.PART_LEFT_LEG: 1.0
 }
-# When a wound is arterial: higher bleeding rate and pressure inhibits clotting (2-5 min to exsanguination if uncontrolled).
+# When a wound is arterial: higher bleeding rate and pressure inhibits clotting (2-5 min to exsanguination if
+# uncontrolled).
 const ARTERIAL_BLEEDING_MULTIPLIER: float = 2.0  # arterial bleeds much faster
 const ARTERIAL_CLOTTING_MULTIPLIER: float = 0.15  # arterial pressure inhibits clotting; clot very slowly
 
@@ -222,7 +257,8 @@ const ARTERIAL_CLOTTING_MULTIPLIER: float = 0.15  # arterial pressure inhibits c
 # Research: arterial wounds need direct pressure / tourniquets; simple bandages less effective (pressure inhibits clot).
 # Option A: stronger reduction to compensate for slower clotting (2-5 min to hemostasis).
 const BANDAGE_IMMEDIATE_REDUCTION: float = 0.75  # 75% immediate reduction on success (venous/capillary)
-const BANDAGE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.5  # bandage less effective on arterial (50% of reduction); arterial often needs more than a simple bandage
+# bandage less effective on arterial (50% of reduction); arterial often needs more than a simple bandage
+const BANDAGE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.5
 const BANDAGE_STABILIZATION_DURATION: float = 0.0  # 0 = no expiry; bandage stays effective until wound heals
 # Option B: success rate (research: conventional bandages ~32-70% hemostasis; medical skill affects outcome).
 const BANDAGE_SUCCESS_BASE_CHANCE: float = 0.7  # base success for venous/capillary
@@ -241,8 +277,9 @@ const STABILIZE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.55
 const STABILIZE_IMMEDIATE_REDUCTION: float = 0.45
 
 # --- Wound packing (head/chest; deep cavity; linen/cloth stuffed into wound) ---
-# Medieval: Celsus, Albucasis, Crusades - packing wounds with lint, linen, cloth to control hemorrhage. For junctional/deep wounds where tourniquet cannot be used.
-const PACKING_PARTS: Array = [_Bp.PART_HEAD, _Bp.PART_CHEST]
+# Medieval: Celsus, Albucasis, Crusades - packing wounds with lint, linen, cloth to control hemorrhage. For
+# junctional/deep wounds where tourniquet cannot be used.
+const PACKING_PARTS: Array = [BodyPartConstants.PART_HEAD, BodyPartConstants.PART_CHEST]
 ## Minimum wound severity to offer pack (B): moderate+ / critical / deep only  -  not shallow grazes.
 const PACKING_MIN_SEVERITY_RANK: Dictionary = {
     SEVERITY_MINOR: 0,
@@ -265,21 +302,25 @@ const PACKING_PER_WOUND_EXTRA_SECONDS: float = 3.0
 ## Junctional sub-regions: shallow/moderate bleeds -> pressure/bandage first; pack when severe+ OR arterial
 ## (TCCC junctional / penetrating vascular  -  moderate neck/abd can still be arterial in this model).
 const PACKING_STRICT_SUB_REGIONS: Dictionary = {
-    _Bp.PART_HEAD: ["neck"],
-    _Bp.PART_CHEST: ["abdominal"],
+    BodyPartConstants.PART_HEAD: ["neck"],
+    BodyPartConstants.PART_CHEST: ["abdominal"],
 }
 const PACKING_STRICT_SUB_REGION_MIN_SEVERITY := SEVERITY_SEVERE
 ## Multi-channel cavity (several sub-regions / deep tracks): harder to pack successfully.
 const PACKING_SUCCESS_PER_EXTRA_CHANNEL: float = 0.92
 
 # --- Direct pressure (TCCC / CoTCCC MARCH step 1: direct pressure on compressible hemorrhage) ---
-# Sustained manual compression: venous/capillary near-occlusion; arterial flow reduced but not reliably stopped until clot/dressing.
-# Retained flow fractions = fraction of wound rate still lost while pressure is held (literature: arterial may still ooze ~30 - 50%).
+# Sustained manual compression: venous/capillary near-occlusion; arterial flow reduced but not reliably stopped until
+# clot/dressing.
+# Retained flow fractions = fraction of wound rate still lost while pressure is held (literature: arterial may still
+# ooze ~30 - 50%).
 const DIRECT_PRESSURE_IMMEDIATE_REDUCTION: float = 0.25  # initial placement only; sustained hold dominates
 const DIRECT_PRESSURE_HELD_FLOW_RETAINED_VENOUS: float = 0.10  # ~90% flow reduction (compressible hemorrhage)
 const DIRECT_PRESSURE_HELD_FLOW_RETAINED_ARTERIAL: float = 0.50  # ~50% reduction; systolic pressure fights back
-const DIRECT_PRESSURE_REBOUND_TO_INTRINSIC_MULT: float = 1.0  # release before hemostasis -> return to intrinsic wound rate (do not release early)
-## Partial rebound: when clotting reduced the current rate below base, only bounce back partially (realistic  -  tissue trauma already initiated hemostasis cascade).
+# release before hemostasis -> return to intrinsic wound rate (do not release early)
+const DIRECT_PRESSURE_REBOUND_TO_INTRINSIC_MULT: float = 1.0
+## Partial rebound: when clotting reduced the current rate below base, only bounce back partially (realistic  -  tissue
+## trauma already initiated hemostasis cascade).
 const DIRECT_PRESSURE_REBOUND_PARTIAL_MULT: float = 0.75  # at low clotting: rebound to 75% of intrinsic (not full 100%)
 const DIRECT_PRESSURE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.7  # first-touch trim on arterial wounds (vs bandage 50%)
 # Bleeding rate +/-variance at wound creation (simulates hit in more/less vascular spot).
@@ -289,25 +330,41 @@ const BLEEDING_RATE_VARIANCE_MAX: float = 1.1
 # --- Tourniquet (limb-only; stops arterial/venous flow when applied correctly) ---
 # Only limbs can be tourniqueted; head/chest/junctional need packing/direct pressure. CoTCCC, TCCC guidelines.
 # Historical: tourniquets used since Roman era for amputations; modern TCCC: life-threatening extremity hemorrhage,
-# traumatic amputation, arterial bleeding, uncontrolled bleeding. Bandages/direct pressure first-line for compressible hemorrhage.
-# Tourniquet indicated when: (1) limb bleeding rate >= this threshold (severe), (2) severed limb (stump), or (3) heavily damaged (severe/critical wounds).
-## Deprecated  -  use `BodyPartQuery.is_limb(part)` instead. Kept for backward compat with callers that preload BleedingConstants.
-const LIMB_PARTS: Array = [_Bp.PART_RIGHT_ARM, _Bp.PART_LEFT_ARM, _Bp.PART_RIGHT_LEG, _Bp.PART_LEFT_LEG]
+# traumatic amputation, arterial bleeding, uncontrolled bleeding. Bandages/direct pressure first-line for compressible
+# hemorrhage.
+# Tourniquet indicated when: (1) limb bleeding rate >= this threshold (severe), (2) severed limb (stump), or (3) heavily
+# damaged (severe/critical wounds).
+## Deprecated  -  use `BodyPartQuery.is_limb(part)` instead. Kept for backward compat with callers that preload
+## BleedingConstants.
+const LIMB_PARTS: Array = [
+    BodyPartConstants.PART_RIGHT_ARM,
+    BodyPartConstants.PART_LEFT_ARM,
+    BodyPartConstants.PART_RIGHT_LEG,
+    BodyPartConstants.PART_LEFT_LEG
+]
 # Bleeding rate (abstract HP/s) above which tourniquet is appropriate. Severe cut base = 2.25; moderate = 1.2.
 const TOURNIQUET_BLEEDING_RATE_THRESHOLD: float = 2.0
-# Optional: max duration (seconds) before tourniquet should be released to assess limb; 0 = no expiry. Real-world ~2 h risk for limb.
+# Optional: max duration (seconds) before tourniquet should be released to assess limb; 0 = no expiry. Real-world ~2 h
+# risk for limb.
 const TOURNIQUET_MAX_DURATION_SECONDS: float = 0.0  # 0 = no auto-expiry; set e.g. 7200 (2 h) for limb-ischemia risk
-# Time (seconds) to apply a tourniquet (positioning, tightening); action system should delay effect until this duration has passed.
+# Time (seconds) to apply a tourniquet (positioning, tightening); action system should delay effect until this duration
+# has passed.
 const TOURNIQUET_APPLICATION_TIME_SECONDS: float = 18.0
 # Success rate: tourniquets can fail if not tight enough or poorly placed. Training/medical skill affects outcome.
-# Research: layperson first-attempt ~50% (CAT with video), some devices 17%; without formal training results poor (e.g. "Missing expectations" windlass study). Trained/CoTCCC much higher.
+# Research: layperson first-attempt ~50% (CAT with video), some devices 17%; without formal training results poor (e.g.
+# "Missing expectations" windlass study). Trained/CoTCCC much higher.
 const TOURNIQUET_SUCCESS_BASE_CHANCE: float = 0.85  # base success; medical skill scales this
 # When applied successfully, bleeding reduction scales with application effectiveness (skill/tightness/placement).
-# Perfect application can achieve near-complete occlusion; poor application leaves significant flow. residual_rate = raw_rate * (1 - effectiveness * this).
-const TOURNIQUET_REDUCTION_AT_FULL: float = 0.99  # at 1.0 effectiveness -> 99% reduction; 0.5 effectiveness -> 49.5% (partial occlusion)
-# Partial bleed reduction on failed tourniquet: a failed TQ still partially occludes the vessel (realistic  -  tension was applied, just not sufficient for full hemostasis).
-const TOURNIQUET_FAILED_REDUCTION_MULT: float = 0.30  # failed TQ still reduces bleeding by ~30% of effectiveness * reduction_at_full
-# Escalating retry chance: +15% base success per prior failure on same part (models medic adjusting placement/tightness).
+# Perfect application can achieve near-complete occlusion; poor application leaves significant flow. residual_rate =
+# raw_rate * (1 - effectiveness * this).
+# at 1.0 effectiveness -> 99% reduction; 0.5 effectiveness -> 49.5% (partial occlusion)
+const TOURNIQUET_REDUCTION_AT_FULL: float = 0.99
+# Partial bleed reduction on failed tourniquet: a failed TQ still partially occludes the vessel (realistic  -  tension
+# was applied, just not sufficient for full hemostasis).
+# failed TQ still reduces bleeding by ~30% of effectiveness * reduction_at_full
+const TOURNIQUET_FAILED_REDUCTION_MULT: float = 0.30
+# Escalating retry chance: +15% base success per prior failure on same part (models medic adjusting
+# placement/tightness).
 const TOURNIQUET_RETRY_SUCCESS_BONUS: float = 0.15  # escalating retry bonus per prior failure
 
 # --- Severity thresholds (damage as fraction of part max) ---
@@ -325,10 +382,11 @@ const SEVERITY_ABSOLUTE_BONE_CRITICAL: float = 6.0
 const SEVERITY_ABSOLUTE_BONE_SEVERE: float = 3.0
 const SEVERITY_ABSOLUTE_BONE_MODERATE: float = 1.0
 
-## Documented worst-case single-channel bleed (critical arterial cut, head, no treatment). See docs/LIVE_PATHS.md#bleeding-physics.
+## Documented worst-case single-channel bleed (critical arterial cut, head, no treatment). See
+## docs/LIVE_PATHS.md#bleeding-physics.
 const REFERENCE_UNCONTROLLED_BLEED_RATE: float = (
     BLEEDING_RATES[INJURY_TYPE_CUT][SEVERITY_CRITICAL]
-    * BODY_PART_BLEEDING_MULTIPLIERS[_Bp.PART_HEAD]
+    * BODY_PART_BLEEDING_MULTIPLIERS[BodyPartConstants.PART_HEAD]
     * ARTERIAL_BLEEDING_MULTIPLIER
 )
 
@@ -449,7 +507,8 @@ static func get_bleeding_rate(injury_type: String, severity: String, part: Strin
     return base_rate * mult
 
 
-# Stump (amputation site) bleeding: part + sub_region (level) accurate. Sub_region = where the cut occurred (proximal vs distal).
+# Stump (amputation site) bleeding: part + sub_region (level) accurate. Sub_region = where the cut occurred (proximal vs
+# distal).
 # If sub_region empty, uses 1.0 for level multiplier. Caller should pass get_random_sub_region(part) when level unknown.
 static func get_stump_bleeding_rate(part: String, sub_region: String = "") -> float:
     var base: float = get_bleeding_rate(INJURY_TYPE_CUT, SEVERITY_CRITICAL, part, sub_region)
@@ -470,7 +529,8 @@ static func direct_pressure_held_flow_retained(is_arterial: bool) -> float:
     return DIRECT_PRESSURE_HELD_FLOW_RETAINED_VENOUS
 
 
-# Pick a random sub-region given the body part was hit. Uses SUB_REGION_WEIGHTS[part] so probabilities are relative to that part only. Returns empty string if part has no sub-regions.
+# Pick a random sub-region given the body part was hit. Uses SUB_REGION_WEIGHTS[part] so probabilities are relative to
+# that part only. Returns empty string if part has no sub-regions.
 static func get_random_sub_region(part: String) -> String:
     var subs: Array = SUB_REGIONS.get(part, [])
     var weights: Dictionary = SUB_REGION_WEIGHTS.get(part, {})
@@ -479,7 +539,7 @@ static func get_random_sub_region(part: String) -> String:
     for sub in subs:
         if not weights.has(sub):
             weights[sub] = 1.0
-    return _WeightedSample.pick_random(weights)
+    return WeightedSample.pick_random(weights)
 
 
 static func get_sub_regions(part: String) -> Array:
@@ -493,17 +553,21 @@ static func get_severity_modifier(part: String, sub_region: String) -> float:
     return SUB_REGION_SEVERITY_MODIFIERS.get(part, {}).get(sub_region, 1.0)
 
 
-# Per-severity clotting rate (k per second). Use when not stabilized; arterial applies ARTERIAL_CLOTTING_MULTIPLIER on top.
+# Per-severity clotting rate (k per second). Use when not stabilized; arterial applies ARTERIAL_CLOTTING_MULTIPLIER on
+# top.
 static func get_clotting_rate(severity: String) -> float:
     return CLOTTING_RATE_BY_SEVERITY.get(severity, 0.02)  # 0.02 = moderate default
 
 
-# Multiplier on clotting rate by severity (minor faster, severe/critical slower). Apply in process_bleeding: clotting *= get_clotting_multiplier(sev).
+# Multiplier on clotting rate by severity (minor faster, severe/critical slower). Apply in process_bleeding: clotting *=
+# get_clotting_multiplier(sev).
 static func get_clotting_multiplier(severity: String) -> float:
     return CLOTTING_SEVERITY_MULTIPLIERS.get(severity, 1.0)
 
 
-# Chance (0.0-1.0) that a wound is arterial based on severity, injury type (cut vs crush), body part, and sub-region. Research-based. Crush uses ARTERIAL_CRUSH_MULTIPLIER - -  SUB_REGION_BLUNT_ARTERIAL_MODIFIER for region-specific cut vs blunt differentiation.
+# Chance (0.0-1.0) that a wound is arterial based on severity, injury type (cut vs crush), body part, and sub-region.
+# Research-based. Crush uses ARTERIAL_CRUSH_MULTIPLIER - -  SUB_REGION_BLUNT_ARTERIAL_MODIFIER for region-specific cut
+# vs blunt differentiation.
 static func get_arterial_chance(
     severity: String, injury_type: String, part: String, sub_region: String = "", penetration_to_tissue_mm: float = -1.0
 ) -> float:

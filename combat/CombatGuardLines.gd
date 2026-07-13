@@ -3,7 +3,8 @@ extends RefCounted
 
 ## HEMA Method C: eight diagonal guard/attack lines (45f''deg sectors).
 ## Cardinals remain valid; **`normalize_line`** maps four-line guard ids into eight-line octants.
-## Footing: UI via **`display_short_for_line`**; octant PA step table via **`position_angle_offset_deg_for_line`** when eight-guard flag on --" LIVE_PATHS **`#wf-form-guard-pa-matrix`** . hub **`#wf-tier-44-pa`**.
+## Footing: UI via **`display_short_for_line`**; octant PA step table via **`position_angle_offset_deg_for_line`** when
+## eight-guard flag on --" LIVE_PATHS **`#wf-form-guard-pa-matrix`** . hub **`#wf-tier-44-pa`**.
 
 const LINE_HIGH := "high"
 const LINE_HIGH_RIGHT := "high_right"
@@ -168,7 +169,8 @@ static func default_part_for_line(line: String) -> String:
     return str(LINE_TO_DEFAULT_PART.get(normalize_line(line), "head"))
 
 
-## IV-4: passive **`guard_zone`** / feint read --" flank diagonals cover same limb band as **`guard_cardinal_for_attack_path`** paths.
+## IV-4: passive **`guard_zone`** / feint read --" flank diagonals cover same limb band as
+## **`guard_cardinal_for_attack_path`** paths.
 static func guard_zone_part_for_line(line: String) -> String:
     var norm: String = normalize_line(line)
     match norm:

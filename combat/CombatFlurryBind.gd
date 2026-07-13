@@ -2,11 +2,8 @@ class_name CombatFlurryBind
 extends RefCounted
 
 ## Tier 4.5 bind-exchange pilot: bounded faster wind-ups vs the bind partner after hard bind deflect.
-## Keys: **`flurry_until`**, **`flurry_against_id`**, **`flurry_exchanges_left`**. Gated by **`is_feature_flurry_bind_exchange_enabled`** (production default **on**).
-
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _CombatDebug := preload("res://combat/CombatDebug.gd")
-const _OperationalLog := preload("res://core/OperationalLog.gd")
+## Keys: **`flurry_until`**, **`flurry_against_id`**, **`flurry_exchanges_left`**. Gated by
+## **`is_feature_flurry_bind_exchange_enabled`** (production default **on**).
 
 const KEY_UNTIL := "flurry_until"
 const KEY_AGAINST := "flurry_against_id"
@@ -49,7 +46,7 @@ static func is_active_vs(c: Dictionary, opponent_id: int, combat_clock: float) -
 static func listing_restrict_opponent_id(c: Dictionary, manager: Node) -> int:
     if manager == null or c == null:
         return -1
-    var clk: float = _EntityAccess.combat_clock_float(manager)
+    var clk: float = CombatantEntityAccess.combat_clock_float(manager)
     if not is_active(c, clk):
         return -1
     return c.get(KEY_AGAINST, -1)
@@ -58,10 +55,10 @@ static func listing_restrict_opponent_id(c: Dictionary, manager: Node) -> int:
 static func open_window(manager: Node, combatant_id: int, against_id: int) -> void:
     if not enabled() or manager == null or combatant_id < 0 or against_id < 0:
         return
-    var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
-    if c.is_empty() or not _EntityAccess.is_standing_combatant(c):
+    var c: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, combatant_id)
+    if c.is_empty() or not CombatantEntityAccess.is_standing_combatant(c):
         return
-    var clk: float = _EntityAccess.combat_clock_float(manager)
+    var clk: float = CombatantEntityAccess.combat_clock_float(manager)
     c[KEY_UNTIL] = clk + CombatConstants.FLURRY_BIND_WINDOW_S
     c[KEY_AGAINST] = against_id
     c[KEY_EXCHANGES] = CombatConstants.FLURRY_BIND_MAX_EXCHANGES
@@ -70,13 +67,13 @@ static func open_window(manager: Node, combatant_id: int, against_id: int) -> vo
 static func open_pair_after_bind(manager: Node, defender_id: int, attacker_id: int) -> void:
     open_window(manager, defender_id, attacker_id)
     open_window(manager, attacker_id, defender_id)
-    if not _OperationalLog.is_play_session_active() or manager == null:
+    if not OperationalLog.is_play_session_active() or manager == null:
         return
-    var def: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
-    var atk: Dictionary = _EntityAccess.manager_get_combatant(manager, attacker_id)
-    var def_n: String = _EntityAccess.get_display_name(def, defender_id)
-    var atk_n: String = _EntityAccess.get_display_name(atk, attacker_id)
-    _CombatDebug.combat_session(
+    var def: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, defender_id)
+    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
+    var def_n: String = CombatantEntityAccess.get_display_name(def, defender_id)
+    var atk_n: String = CombatantEntityAccess.get_display_name(atk, attacker_id)
+    CombatDebug.combat_session(
         "flurry_bind opened %s vs %s exchanges=%d" % [def_n, atk_n, CombatConstants.FLURRY_BIND_MAX_EXCHANGES]
     )
 
@@ -93,7 +90,7 @@ static func process_waiting(manager: Node, c: Dictionary) -> void:
         return
     if not c.has(KEY_UNTIL):
         return
-    var clk: float = _EntityAccess.combat_clock_float(manager)
+    var clk: float = CombatantEntityAccess.combat_clock_float(manager)
     is_active(c, clk)
 
 
@@ -114,10 +111,10 @@ static func clear_pair(manager: Node, id_a: int, id_b: int) -> void:
     if manager == null:
         return
     if id_a >= 0:
-        var a: Dictionary = _EntityAccess.manager_get_combatant(manager, id_a)
+        var a: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, id_a)
         if not a.is_empty():
             clear(a)
     if id_b >= 0:
-        var b: Dictionary = _EntityAccess.manager_get_combatant(manager, id_b)
+        var b: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, id_b)
         if not b.is_empty():
             clear(b)

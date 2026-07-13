@@ -4,17 +4,10 @@ extends RefCounted
 ## Stacked-phase integration tests: verify layer precedence when multiple FEATURE flags are active.
 ## Tests that activate multiple phases simultaneously and check MENTAL_STACK_LAYER_* stamps.
 
-const _MgrScript := preload("res://combat/CombatManager.gd")
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _MentalStack := preload("res://combat/MentalStackDecider.gd")
-const _Bleeding := preload("res://core/BleedingConstants.gd")
-const _EntityWounds := preload("res://core/EntityWounds.gd")
-const _EntityMedical := preload("res://core/EntityMedical.gd")
-
 
 ## Helper: set up a minimal manager with two combatants (player + enemy).
 static func _make_two_sided_manager() -> Node:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = CombatManager.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
     return mgr
@@ -22,7 +15,7 @@ static func _make_two_sided_manager() -> Node:
 
 ## Helper: set up a three-combatant manager (2 player + 1 enemy).
 static func _make_three_combatant_manager() -> Node:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = CombatManager.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -31,7 +24,7 @@ static func _make_three_combatant_manager() -> Node:
 
 ## Helper: set up a four-combatant manager (2 player + 2 enemy) for surround scenarios.
 static func _make_four_combatant_manager() -> Node:
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = CombatManager.new()
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -44,7 +37,9 @@ static func _set_immediate_peril(ent: Node) -> void:
     if ent == null:
         return
     ent.blood_volume = 38.0
-    _EntityWounds.add_wound(ent, "chest", _Bleeding.INJURY_TYPE_CUT, 9.0, "thoracic", _Bleeding.SEVERITY_MODERATE)
+    EntityWounds.add_wound(
+        ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
+    )
 
 
 ## Helper: set exhaustion level on a combatant dict and enable the feature.
@@ -61,9 +56,9 @@ static func _run_mental_stack_integration_exhausted_surrounded(failures: PackedS
     var mgr: Node = _make_four_combatant_manager()
     mgr.start({"files": 1, "ranks": 1}, {"files": 2, "ranks": 1})
     var fighter: Dictionary = mgr.combatants[0]
-    var fighter_id: int = _EntityAccess.id_int(fighter)
-    var enemy1_id: int = _EntityAccess.id_int(mgr.combatants[2])
-    var enemy2_id: int = _EntityAccess.id_int(mgr.combatants[3])
+    var fighter_id: int = CombatantEntityAccess.id_int(fighter)
+    var enemy1_id: int = CombatantEntityAccess.id_int(mgr.combatants[2])
+    var enemy2_id: int = CombatantEntityAccess.id_int(mgr.combatants[3])
 
     # Set exhaustion above tunnel threshold.
     fighter[CombatConstants.COMBATANT_KEY_EXHAUSTION] = 0.85
@@ -77,7 +72,7 @@ static func _run_mental_stack_integration_exhausted_surrounded(failures: PackedS
         {"move_id": "thrust", "target_id": enemy1_id, "target_part": "head"},
     ]
 
-    var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+    var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(
             failures, "integration_exhausted_surrounded: expected exhaustion layer pick but got none"
@@ -103,8 +98,8 @@ static func _run_mental_stack_integration_post_strike_surrounded_wounded(failure
     var mgr: Node = _make_four_combatant_manager()
     mgr.start({"files": 1, "ranks": 1}, {"files": 2, "ranks": 1})
     var fighter: Dictionary = mgr.combatants[0]
-    var fighter_id: int = _EntityAccess.id_int(fighter)
-    var enemy1_id: int = _EntityAccess.id_int(mgr.combatants[2])
+    var fighter_id: int = CombatantEntityAccess.id_int(fighter)
+    var enemy1_id: int = CombatantEntityAccess.id_int(mgr.combatants[2])
 
     # Simulate a recent strike stamp (combat_clock is ~0 at start, tolerance is 2.0).
     fighter[CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID] = enemy1_id
@@ -119,7 +114,7 @@ static func _run_mental_stack_integration_post_strike_surrounded_wounded(failure
         {"move_id": "thrust", "target_id": enemy1_id, "target_part": "head"},
     ]
 
-    var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+    var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(
             failures, "integration_post_strike_surrounded: expected post-strike layer pick but got none"
@@ -146,11 +141,11 @@ static func _run_mental_stack_integration_rout_medical_peril(failures: PackedStr
     mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
     var medic: Dictionary = mgr.combatants[0]
     var ally: Dictionary = mgr.combatants[1]
-    var medic_id: int = _EntityAccess.id_int(medic)
-    var ally_id: int = _EntityAccess.id_int(ally)
+    var medic_id: int = CombatantEntityAccess.id_int(medic)
+    var ally_id: int = CombatantEntityAccess.id_int(ally)
 
     # Set up ally in immediate peril (bleeding chest, low blood volume).
-    var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+    var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
     _set_immediate_peril(ally_ent)
 
     # Set medic state for action building.
@@ -163,7 +158,7 @@ static func _run_mental_stack_integration_rout_medical_peril(failures: PackedStr
         {"move_id": CombatConstants.MOVE_ID_PACK_WOUND, "target_id": ally_id, "target_part": "chest"},
     ]
 
-    var picked: Dictionary = _MentalStack.try_pick(actions, medic_id, mgr)
+    var picked: Dictionary = MentalStackDecider.try_pick(actions, medic_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(
             failures, "integration_rout_medical_peril: expected medical layer pick but got none"
@@ -188,8 +183,8 @@ static func _run_mental_stack_integration_feint_exhausted_orthogonal(failures: P
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var attacker: Dictionary = mgr.combatants[0]
     var defender: Dictionary = mgr.combatants[1]
-    var attacker_id: int = _EntityAccess.id_int(attacker)
-    var defender_id: int = _EntityAccess.id_int(defender)
+    var attacker_id: int = CombatantEntityAccess.id_int(attacker)
+    var defender_id: int = CombatantEntityAccess.id_int(defender)
 
     # Set defender to high-readiness (blocks feints on attacker side).
     defender["state"] = CombatConstants.STATE_WAITING
@@ -207,7 +202,7 @@ static func _run_mental_stack_integration_feint_exhausted_orthogonal(failures: P
         {"move_id": "oberhau_feint", "target_id": defender_id, "target_part": "head"},
     ]
 
-    var picked: Dictionary = _MentalStack.try_pick(actions, attacker_id, mgr)
+    var picked: Dictionary = MentalStackDecider.try_pick(actions, attacker_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(
             failures, "integration_feint_exhausted_orthogonal: expected exhaustion layer pick but got none"
@@ -234,11 +229,11 @@ static func _run_mental_stack_integration_medical_escalation_rout(failures: Pack
     mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
     var medic: Dictionary = mgr.combatants[0]
     var ally: Dictionary = mgr.combatants[1]
-    var medic_id: int = _EntityAccess.id_int(medic)
-    var ally_id: int = _EntityAccess.id_int(ally)
+    var medic_id: int = CombatantEntityAccess.id_int(medic)
+    var ally_id: int = CombatantEntityAccess.id_int(ally)
 
     # Set up ally with failed bandage on chest AND immediate peril.
-    var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+    var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
     _set_immediate_peril(ally_ent)
     ally["failed_medical_parts"] = ["chest"]
 
@@ -252,7 +247,7 @@ static func _run_mental_stack_integration_medical_escalation_rout(failures: Pack
         {"move_id": CombatConstants.MOVE_ID_PACK_WOUND, "target_id": ally_id, "target_part": "chest"},
     ]
 
-    var picked: Dictionary = _MentalStack.try_pick(actions, medic_id, mgr)
+    var picked: Dictionary = MentalStackDecider.try_pick(actions, medic_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(
             failures, "integration_medical_escalation_rout: expected medical layer pick but got none"
@@ -293,9 +288,9 @@ static func _run_mental_stack_integration_full_stack_post_strike_surrounded_exha
     mgr.start({"files": 1, "ranks": 1}, {"files": 2, "ranks": 1})
     var fighter: Dictionary = mgr.combatants[0]
     var ally: Dictionary = mgr.combatants[1]
-    var fighter_id: int = _EntityAccess.id_int(fighter)
-    var ally_id: int = _EntityAccess.id_int(ally)
-    var enemy1_id: int = _EntityAccess.id_int(mgr.combatants[2])
+    var fighter_id: int = CombatantEntityAccess.id_int(fighter)
+    var ally_id: int = CombatantEntityAccess.id_int(ally)
+    var enemy1_id: int = CombatantEntityAccess.id_int(mgr.combatants[2])
 
     # Simulate a recent strike stamp.
     fighter[CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID] = enemy1_id
@@ -307,7 +302,7 @@ static func _run_mental_stack_integration_full_stack_post_strike_surrounded_exha
     fighter[CombatConstants.COMBATANT_KEY_EXHAUSTION] = 0.80
 
     # Set up ally in immediate peril with failed bandage on chest  -  triggers L1 medical.
-    var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+    var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
     _set_immediate_peril(ally_ent)
     ally["failed_medical_parts"] = ["chest"]
 
@@ -318,20 +313,17 @@ static func _run_mental_stack_integration_full_stack_post_strike_surrounded_exha
         {"move_id": CombatConstants.MOVE_ID_PACK_WOUND, "target_id": ally_id, "target_part": "chest"},
     ]
 
-    var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+    var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(failures, "integration_full_stack: expected medical layer pick but got none")
     else:
         var layer: String = str(fighter.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_MEDICAL:
-            (
-                CombatRegressionHarness
-                . _fail(
-                    failures,
-                    (
-                        "integration_full_stack: want medical layer got %s (post-strike stamp set but ally peril should route to L1)"
-                        % layer
-                    )
+            CombatRegressionHarness._fail(
+                failures,
+                (
+                    "integration_full_stack: want medical layer got %s (post-strike stamp set but ally peril should"
+                    + " route to L1)" % layer
                 )
             )
 
@@ -353,8 +345,8 @@ static func _run_mental_stack_integration_post_strike_vs_dead_target(failures: P
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var fighter: Dictionary = mgr.combatants[0]
     var enemy: Dictionary = mgr.combatants[1]
-    var fighter_id: int = _EntityAccess.id_int(fighter)
-    var enemy_id: int = _EntityAccess.id_int(enemy)
+    var fighter_id: int = CombatantEntityAccess.id_int(fighter)
+    var enemy_id: int = CombatantEntityAccess.id_int(enemy)
 
     # Simulate a recent strike stamp on the enemy.
     fighter[CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID] = enemy_id
@@ -373,7 +365,7 @@ static func _run_mental_stack_integration_post_strike_vs_dead_target(failures: P
 
     # The stamp is set but the target is dead  -  filter_post_strike_actions returns empty.
     # try_pick should fall through and return {} (no stamp layer).
-    var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+    var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if not picked.is_empty():
         CombatRegressionHarness._fail(
             failures,
@@ -397,8 +389,8 @@ static func _run_mental_stack_integration_post_strike_stamp_expires(failures: Pa
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var fighter: Dictionary = mgr.combatants[0]
     var enemy: Dictionary = mgr.combatants[1]
-    var fighter_id: int = _EntityAccess.id_int(fighter)
-    var enemy_id: int = _EntityAccess.id_int(enemy)
+    var fighter_id: int = CombatantEntityAccess.id_int(fighter)
+    var enemy_id: int = CombatantEntityAccess.id_int(enemy)
 
     # Simulate a stamp set at combat_clock=10.0, but advance clock to 12.5 (> tolerance).
     fighter[CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID] = enemy_id
@@ -415,7 +407,7 @@ static func _run_mental_stack_integration_post_strike_stamp_expires(failures: Pa
 
     # Stamp expired  -  absf(10.0 - 12.5) = 2.5 > POST_STRIKE_MOMENTUM_CLOCK_TOLERANCE (2.0).
     # try_pick should return {} (no stamp, falls through to weighted pick).
-    var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+    var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if not picked.is_empty():
         var layer: String = str(fighter.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         CombatRegressionHarness._fail(
@@ -439,8 +431,8 @@ static func _run_mental_stack_integration_feint_resistance_plus_post_strike(fail
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var attacker: Dictionary = mgr.combatants[0]
     var defender: Dictionary = mgr.combatants[1]
-    var attacker_id: int = _EntityAccess.id_int(attacker)
-    var defender_id: int = _EntityAccess.id_int(defender)
+    var attacker_id: int = CombatantEntityAccess.id_int(attacker)
+    var defender_id: int = CombatantEntityAccess.id_int(defender)
 
     # Set defender to high-readiness (blocks feints on Phase 2).
     defender["state"] = CombatConstants.STATE_WAITING
@@ -460,7 +452,7 @@ static func _run_mental_stack_integration_feint_resistance_plus_post_strike(fail
         {"move_id": "thrust", "target_id": defender_id, "target_part": "head"},
     ]
 
-    var picked: Dictionary = _MentalStack.try_pick(actions, attacker_id, mgr)
+    var picked: Dictionary = MentalStackDecider.try_pick(actions, attacker_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(
             failures, "integration_feint_resistance_plus_post_strike: expected post-strike layer pick but got none"
@@ -495,7 +487,7 @@ static func _run_mental_stack_integration_positional_vs_rout_priority(failures: 
     var mgr: Node = _make_four_combatant_manager()
     mgr.start({"files": 1, "ranks": 1}, {"files": 2, "ranks": 1})
     var fighter: Dictionary = mgr.combatants[0]
-    var fighter_id: int = _EntityAccess.id_int(fighter)
+    var fighter_id: int = CombatantEntityAccess.id_int(fighter)
 
     # Set exhaustion below tunnel threshold (0.50) so L5 doesn't preempt L6/L9.
     fighter[CombatConstants.COMBATANT_KEY_EXHAUSTION] = 0.30
@@ -505,12 +497,17 @@ static func _run_mental_stack_integration_positional_vs_rout_priority(failures: 
     # Set low blood on the entity node so L9 vulnerability check fires.
     # Blood must be below FORMATION_FLEE_BLOOD_VOLUME_MAX (55) to trigger
     # abandonment_warranted -> rout_cognition_pressure -> MS-L6 rout pick.
-    var fighter_ent: Node = _EntityAccess.get_entity_from_manager(mgr, fighter)
+    var fighter_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, fighter)
     if fighter_ent != null:
         fighter_ent.blood_volume = CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX - 5.0
         # Add a chest wound so is_in_immediate_peril also fires (blood + bleed rate).
-        _EntityWounds.add_wound(
-            fighter_ent, "chest", _Bleeding.INJURY_TYPE_CUT, 9.0, "thoracic", _Bleeding.SEVERITY_MODERATE
+        EntityWounds.add_wound(
+            fighter_ent,
+            "chest",
+            BleedingConstants.INJURY_TYPE_CUT,
+            9.0,
+            "thoracic",
+            BleedingConstants.SEVERITY_MODERATE
         )
 
     # Build actions: flee, fall_back, wait + offense.
@@ -518,10 +515,10 @@ static func _run_mental_stack_integration_positional_vs_rout_priority(failures: 
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": fighter_id},
         {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": fighter_id},
         {"move_id": CombatConstants.MOVE_ID_FALL_BACK, "target_id": fighter_id},
-        {"move_id": "thrust", "target_id": _EntityAccess.id_int(mgr.combatants[2]), "target_part": "head"},
+        {"move_id": "thrust", "target_id": CombatantEntityAccess.id_int(mgr.combatants[2]), "target_part": "head"},
     ]
 
-    var picked: Dictionary = _MentalStack.try_pick(actions, fighter_id, mgr)
+    var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
         CombatRegressionHarness._fail(
             failures, "integration_positional_vs_rout_priority: expected rout or positional pick but got none"
@@ -546,10 +543,9 @@ static func _run_mental_stack_integration_positional_vs_rout_priority(failures: 
 ## _escalation_path_has_next_step returns false (no next step available).
 ## Retry bonus applies normally (2.8x). AI retries bandage because escalation is impossible.
 static func _run_mental_stack_integration_medical_escalation_no_path(failures: PackedStringArray) -> void:
-    var _MedWeight := preload("res://combat/CombatMedicalWeighting.gd")
     CombatConstants.set_feature_ms_medical_escalation_load(true)
 
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = CombatManager.new()
     var medic_ent := CombatRegressionHarness._new_entity("SWORD")
     medic_ent.linen_strips_remaining = 0
     mgr.register(medic_ent, "medic")
@@ -557,18 +553,18 @@ static func _run_mental_stack_integration_medical_escalation_no_path(failures: P
     mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
     var medic: Dictionary = mgr.combatants[0]
     var ally: Dictionary = mgr.combatants[1]
-    var medic_id: int = _EntityAccess.id_int(medic)
-    var ally_id: int = _EntityAccess.id_int(ally)
+    var medic_id: int = CombatantEntityAccess.id_int(medic)
+    var ally_id: int = CombatantEntityAccess.id_int(ally)
 
     # Wound the ally's chest  -  blood below death threshold but above peril threshold so entity is alive and in peril.
-    var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+    var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
     if ally_ent != null:
         ally_ent.blood_volume = 40.0
-        _EntityWounds.add_wound(
-            ally_ent, "chest", _Bleeding.INJURY_TYPE_CUT, 9.0, "thoracic", _Bleeding.SEVERITY_MODERATE
+        EntityWounds.add_wound(
+            ally_ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
         )
         # Apply direct pressure so dressings are allowed (bandage requires compression on bleeding wounds).
-        ally_ent.apply_direct_pressure_from_ally("chest", medic_ent)
+        ally_ent._apply_direct_pressure_from_ally("chest", medic_ent)
 
     # Simulate failed bandage on chest  -  but pack/TK are NOT available (no escalation path).
     ally["failed_medical_parts"] = ["chest"]
@@ -579,7 +575,7 @@ static func _run_mental_stack_integration_medical_escalation_no_path(failures: P
     ]
 
     # Compute weight  -  should have retry bonus (2.8x) since escalation is impossible.
-    var w_bandage: float = _MedWeight.compute_weight(actions[0], medic_id, mgr)
+    var w_bandage: float = CombatMedicalWeighting.compute_weight(actions[0], medic_id, mgr)
     if w_bandage < 2.0:
         CombatRegressionHarness._fail(
             failures,
@@ -595,10 +591,9 @@ static func _run_mental_stack_integration_medical_escalation_no_path(failures: P
 ## failed_medical_parts removal on success clears the part.
 ## Subsequent actions on that part return to normal weights  -  no escalation bonus, no suppressed retry.
 static func _run_mental_stack_integration_medical_escalation_success_clears_path(failures: PackedStringArray) -> void:
-    var _MedWeight := preload("res://combat/CombatMedicalWeighting.gd")
     CombatConstants.set_feature_ms_medical_escalation_load(true)
 
-    var mgr: Node = _MgrScript.new()
+    var mgr: Node = CombatManager.new()
     var medic_ent := CombatRegressionHarness._new_entity("SWORD")
     medic_ent.linen_strips_remaining = 0
     mgr.register(medic_ent, "medic")
@@ -606,18 +601,18 @@ static func _run_mental_stack_integration_medical_escalation_success_clears_path
     mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
     var medic: Dictionary = mgr.combatants[0]
     var ally: Dictionary = mgr.combatants[1]
-    var medic_id: int = _EntityAccess.id_int(medic)
-    var ally_id: int = _EntityAccess.id_int(ally)
+    var medic_id: int = CombatantEntityAccess.id_int(medic)
+    var ally_id: int = CombatantEntityAccess.id_int(ally)
 
     # Wound the ally's chest  -  blood below death threshold but above peril threshold so entity is alive and in peril.
-    var ally_ent: Node = _EntityAccess.get_entity_from_manager(mgr, ally)
+    var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
     if ally_ent != null:
         ally_ent.blood_volume = 40.0
-        _EntityWounds.add_wound(
-            ally_ent, "chest", _Bleeding.INJURY_TYPE_CUT, 9.0, "thoracic", _Bleeding.SEVERITY_MODERATE
+        EntityWounds.add_wound(
+            ally_ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
         )
         # Apply direct pressure so dressings are allowed (bandage requires compression on bleeding wounds).
-        ally_ent.apply_direct_pressure_from_ally("chest", medic_ent)
+        ally_ent._apply_direct_pressure_from_ally("chest", medic_ent)
 
     # Simulate failed bandage on chest.
     ally["failed_medical_parts"] = ["chest"]
@@ -629,17 +624,14 @@ static func _run_mental_stack_integration_medical_escalation_success_clears_path
     ]
 
     # Before success: pack should have escalation bonus (higher weight than bandage).
-    var w_pack_before: float = _MedWeight.compute_weight(actions[1], medic_id, mgr)
-    var w_bandage_before: float = _MedWeight.compute_weight(actions[0], medic_id, mgr)
+    var w_pack_before: float = CombatMedicalWeighting.compute_weight(actions[1], medic_id, mgr)
+    var w_bandage_before: float = CombatMedicalWeighting.compute_weight(actions[0], medic_id, mgr)
     if w_pack_before <= w_bandage_before:
-        (
-            CombatRegressionHarness
-            . _fail(
-                failures,
-                (
-                    "integration_med_escalation_success_clears_path: before success, pack weight=%.4f <= bandage weight=%.4f (pack should be boosted)"
-                    % [w_pack_before, w_bandage_before]
-                )
+        CombatRegressionHarness._fail(
+            failures,
+            (
+                "integration_med_escalation_success_clears_path: before success, pack weight=%.4f <= bandage weight"
+                + "=%.4f (pack should be boosted)" % [w_pack_before, w_bandage_before]
             )
         )
 
@@ -651,17 +643,14 @@ static func _run_mental_stack_integration_medical_escalation_success_clears_path
     ally["failed_medical_parts"] = failed
 
     # After success: pack should NOT have escalation bonus anymore.
-    var w_pack_after: float = _MedWeight.compute_weight(actions[1], medic_id, mgr)
-    var w_bandage_after: float = _MedWeight.compute_weight(actions[0], medic_id, mgr)
+    var w_pack_after: float = CombatMedicalWeighting.compute_weight(actions[1], medic_id, mgr)
+    var w_bandage_after: float = CombatMedicalWeighting.compute_weight(actions[0], medic_id, mgr)
     if w_pack_after < 1.0:
-        (
-            CombatRegressionHarness
-            . _fail(
-                failures,
-                (
-                    "integration_med_escalation_success_clears_path: after success, pack weight=%.4f (should still be valid action >= 1.0)"
-                    % w_pack_after
-                )
+        CombatRegressionHarness._fail(
+            failures,
+            (
+                "integration_med_escalation_success_clears_path: after success, pack weight=%.4f (should still be v"
+                + "alid action >= 1.0)" % w_pack_after
             )
         )
 

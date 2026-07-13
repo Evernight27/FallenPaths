@@ -5,8 +5,6 @@ extends RefCounted
 ## Filter function owned here  -  MentalStackDecider calls a single method.
 ## Read order: target alive check -> hostile melee strikes vs struck target -> attempt_close eligibility.
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-
 
 ## Returns a prioritized array for pick_weighted():
 ## 1. Hostile melee strikes vs the struck target (highest priority)
@@ -36,8 +34,8 @@ static func filter_post_strike_actions(
         var tid: int = a.get("target_id", -1)
         if tid != struck_target_id:
             continue
-        var tgt: Dictionary = _EntityAccess.manager_get_combatant(manager, tid)
-        if tgt.is_empty() or not _EntityAccess.alive_bool(tgt):
+        var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tid)
+        if tgt.is_empty() or not CombatantEntityAccess.alive_bool(tgt):
             continue  # target dead  -  defer to other layers
         out.append(a)
 

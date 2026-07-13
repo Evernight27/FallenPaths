@@ -1,13 +1,11 @@
 class_name CombatAttention
 extends RefCounted
 
-## Tier 4.3: salience probes, attention load, combat focus (**`focus_part`**, **`focus_intensity`**), and per-attacker yomi memory.
-## Footing: appends focus **listing** only  -  L3 **`guard_line`** write on focus resolve is **`CombatResolveAction`**. LIVE_PATHS **`#wf-pick-vs-strike`** . **`#wf-guard-writers`**.
+## Tier 4.3: salience probes, attention load, combat focus (**`focus_part`**, **`focus_intensity`**), and per-attacker
+## yomi memory.
+## Footing: appends focus **listing** only  -  L3 **`guard_line`** write on focus resolve is **`CombatResolveAction`**.
+## LIVE_PATHS **`#wf-pick-vs-strike`** . **`#wf-guard-writers`**.
 ## **Read order:** enable/clear -> salience refresh -> focus line listing append -> yomi read/write helpers.
-
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
-const _WeaponForm := preload("res://combat/CombatWeaponForm.gd")
 
 
 static func _counter_tempo() -> GDScript:
@@ -86,7 +84,7 @@ static func focus_effective(c: Dictionary) -> float:
 static func refresh_salience(manager: Node, combatant_id: int) -> void:
     if not enabled() or manager == null or combatant_id < 0:
         return
-    var c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
+    var c: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, combatant_id)
     if c.is_empty():
         return
     var attention_load: float = 0.0
@@ -135,7 +133,7 @@ static func snapshot_ui_hint(c: Dictionary) -> String:
 static func live_ui_hint(manager: Node, c: Dictionary) -> String:
     if not enabled() or manager == null or c.is_empty():
         return ""
-    var cid: int = _EntityAccess.id_int(c)
+    var cid: int = CombatantEntityAccess.id_int(c)
     if cid < 0:
         return ""
     refresh_salience(manager, cid)
@@ -146,12 +144,12 @@ static func live_ui_hint(manager: Node, c: Dictionary) -> String:
 static func refresh_for_waiting_tick(manager: Node, c: Dictionary) -> void:
     if c.is_empty() or manager == null:
         return
-    var cid: int = _EntityAccess.id_int(c)
+    var cid: int = CombatantEntityAccess.id_int(c)
     if cid < 0:
         return
     refresh_salience(manager, cid)
     apply_yomi_focus_drift(manager, c)
-    _WeaponForm.refresh_inferred_forms_for_observer(manager, c)
+    CombatWeaponForm.refresh_inferred_forms_for_observer(manager, c)
     var hint: String = format_attention_ui_hint(c)
     if hint.is_empty():
         c.erase(CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT)
@@ -162,7 +160,7 @@ static func refresh_for_waiting_tick(manager: Node, c: Dictionary) -> void:
 static func is_being_wind_up_targeted(manager: Node, defender_id: int) -> bool:
     if manager == null or defender_id < 0:
         return false
-    var def: Dictionary = _EntityAccess.manager_get_combatant(manager, defender_id)
+    var def: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, defender_id)
     if def.is_empty():
         return false
     if not def.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "").is_empty():
@@ -177,20 +175,20 @@ static func has_actionable_counter_tempo(manager: Node, c: Dictionary) -> bool:
 static func ally_in_immediate_peril(manager: Node, combatant_id: int) -> bool:
     if manager == null or combatant_id < 0:
         return false
-    var self_c: Dictionary = _EntityAccess.manager_get_combatant(manager, combatant_id)
+    var self_c: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, combatant_id)
     if self_c.is_empty():
         return false
     for other in manager.combatants:
         if other == null or other is not Dictionary:
             continue
         var o: Dictionary = other
-        if _EntityAccess.id_int(o) == combatant_id:
+        if CombatantEntityAccess.id_int(o) == combatant_id:
             continue
-        if not _EntityAccess.is_living_same_side(self_c, o):
+        if not CombatantEntityAccess.is_living_same_side(self_c, o):
             continue
-        if not _EntityAccess.is_alive_in_combat(o):
+        if not CombatantEntityAccess.is_alive_in_combat(o):
             continue
-        if _EntityAccess.is_in_immediate_peril(manager, o):
+        if CombatantEntityAccess.is_in_immediate_peril(manager, o):
             return true
     return false
 
@@ -281,7 +279,7 @@ static func record_attack_toward_defender(
         var move_counts: Dictionary = entry.get("move_id_counts", {}) as Dictionary
         move_counts[mid] = move_counts.get(mid, 0) + 1
         entry["move_id_counts"] = move_counts
-        var ct: String = _WeaponConstants.contact_type_for_move_id(mid)
+        var ct: String = WeaponConstants.contact_type_for_move_id(mid)
         var ct_counts: Dictionary = entry.get("contact_type_counts", {}) as Dictionary
         ct_counts[ct] = ct_counts.get(ct, 0) + 1
         entry["contact_type_counts"] = ct_counts
@@ -354,11 +352,11 @@ static func line_count_toward_defender(defender: Dictionary, attacker_id: int, l
 
 ## AI (non party-lead): nudge **`focus_part`** toward attacker's habitual line; mismatched feint telegraph keeps habit.
 static func apply_yomi_focus_drift(manager: Node, c: Dictionary, forced_incoming_attacker_id: int = -1) -> void:
-    if not enabled() or c == null or _EntityAccess.is_formation_telegraph_leader(c):
+    if not enabled() or c == null or CombatantEntityAccess.is_formation_telegraph_leader(c):
         return
     var atk_id: int = forced_incoming_attacker_id
     if atk_id < 0 and manager != null:
-        atk_id = _counter_tempo().call("incoming_attacker_id", manager, _EntityAccess.id_int(c))
+        atk_id = _counter_tempo().call("incoming_attacker_id", manager, CombatantEntityAccess.id_int(c))
     if atk_id < 0:
         return
     var dom: String = dominant_attack_line_toward_defender(c, atk_id)

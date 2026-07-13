@@ -23,8 +23,8 @@ const D001_HEADLESS_SIGNOFF_FILENAME := ".d001_headless_signoff.txt"
 const REPORT_BEGIN := "--- FP_HARNESS_REPORT ---"
 const REPORT_END := "--- END FP_HARNESS_REPORT ---"
 
-const _CombatConstants := preload("res://combat/CombatConstants.gd")
-const _FallenPathsErrorLogger := preload("res://core/FallenPathsErrorLogger.gd")
+const CAPTURE_MAX_LINES: int = 5000
+## F5: suppress consecutive identical **`FP_COMBAT`** bodies (turn_ready double-fire, etc.).
 
 static var _play_session_active: bool = false
 static var _play_session_scene: String = ""
@@ -32,8 +32,6 @@ static var _play_error_logger = null
 static var _capture_enabled: bool = false
 static var _captured_lines: PackedStringArray = PackedStringArray()
 ## Max captured lines before oldest are dropped (prevents unbounded growth in long campaigns).
-const CAPTURE_MAX_LINES: int = 5000
-## F5: suppress consecutive identical **`FP_COMBAT`** bodies (turn_ready double-fire, etc.).
 static var _last_play_combat_body: String = ""
 
 
@@ -56,7 +54,8 @@ static func tag_line(tag: String, message: String) -> String:
     return "%s: %s" % [tag, message.strip_edges()]
 
 
-## Always prints tagged lines to stdout. Godot script/runtime faults are mirrored separately via **`FallenPathsErrorLogger`**.
+## Always prints tagged lines to stdout. Godot script/runtime faults are mirrored separately via
+## **`FallenPathsErrorLogger`**.
 static func set_capture_enabled(on: bool) -> void:
     _capture_enabled = on
     if not on:
@@ -74,13 +73,13 @@ static func get_captured_lines() -> PackedStringArray:
 ## Headless harness: register error logger once and reset SCRIPT_ERROR tally for the run.
 static func ensure_harness_error_logger() -> void:
     if _play_error_logger == null:
-        _play_error_logger = _FallenPathsErrorLogger.new()
+        _play_error_logger = FallenPathsErrorLogger.new()
         OS.add_logger(_play_error_logger)
-    _FallenPathsErrorLogger.reset_script_error_count()
+    FallenPathsErrorLogger.reset_script_error_count()
 
 
 static func harness_script_error_count() -> int:
-    return _FallenPathsErrorLogger.get_script_error_count()
+    return FallenPathsErrorLogger.get_script_error_count()
 
 
 ## Replace the in-memory capture buffer (e.g. multi-rep D-001 duel lines merged after per-rep clears).
@@ -132,7 +131,8 @@ static func play_world(message: String) -> void:
         CombatF5SoakTrace.ingest_world_trace_line(body)
 
 
-## Call from `main.gd` when running under the editor (F5). Enables turn-pick flow logs; all lines go to Output for copy-paste.
+## Call from `main.gd` when running under the editor (F5). Enables turn-pick flow logs; all lines go to Output for
+## copy-paste.
 static func begin_play_session(
     main_scene: String = CombatConstants.PATH_MAIN_SCENE,
     dev_soak_encounter: String = "",
@@ -142,13 +142,13 @@ static func begin_play_session(
     _play_session_active = true
     _play_session_scene = main_scene
     _last_play_combat_body = ""
-    _CombatConstants.set_play_session_diagnostic(true)
+    CombatConstants.set_play_session_diagnostic(true)
     if not dev_hit_summary:
-        _CombatConstants.set_combat_hit_summary_override(false)
+        CombatConstants.set_combat_hit_summary_override(false)
     else:
-        _CombatConstants.clear_combat_hit_summary_override()
+        CombatConstants.clear_combat_hit_summary_override()
     if _play_error_logger == null:
-        _play_error_logger = _FallenPathsErrorLogger.new()
+        _play_error_logger = FallenPathsErrorLogger.new()
         OS.add_logger(_play_error_logger)
     var soak_s: String = dev_soak_encounter.strip_edges().to_lower()
     var soak_note: String = (
@@ -165,15 +165,21 @@ static func begin_play_session(
     emit(
         TAG_SESSION_BEGIN,
         (
-            "%s flow_logs=%s hit_summary=%s per_hit_debug=%s research_feel=%s%s  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR"
-            % [
-                main_scene,
-                _CombatConstants.combat_event_debug_active(),
-                _CombatConstants.combat_hit_summary_active(),
-                _CombatConstants.combat_debug_active(),
-                str(dev_research_feel).to_lower(),
-                soak_note,
-            ]
+            "%s flow_logs=%s hit_summary=%s per_hit_debug=%s research_feel=%s%s  -  copy full Output; "
+            + "grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug "
+            + "opposition offset engagement_transition encounter_context parry_partial rem= "
+            + "hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint F"
+            + (
+                "P_COMBAT FP_ERROR SCRIPT_ERROR"
+                % [
+                    main_scene,
+                    CombatConstants.combat_event_debug_active(),
+                    CombatConstants.combat_hit_summary_active(),
+                    CombatConstants.combat_debug_active(),
+                    str(dev_research_feel).to_lower(),
+                    soak_note,
+                ]
+            )
         )
     )
 
@@ -185,8 +191,8 @@ static func end_play_session() -> void:
     _play_session_active = false
     _play_session_scene = ""
     _last_play_combat_body = ""
-    _CombatConstants.set_play_session_diagnostic(false)
-    _CombatConstants.clear_combat_hit_summary_override()
+    CombatConstants.set_play_session_diagnostic(false)
+    CombatConstants.clear_combat_hit_summary_override()
 
 
 static func play_combat_start(
@@ -241,17 +247,15 @@ static func play_combat_manager_started(
 static func _format_formation_preset(fd: Dictionary) -> String:
     if fd.is_empty():
         return "default"
-    var doc: String = _CombatConstants.formation_doctrine_string_from_dict(
-        fd, _CombatConstants.FORMATION_PRESET_KEY_DOCTRINE, _CombatConstants.FORMATION_PRESET_KEY_DOCTRINE_ALT
+    var doc: String = CombatConstants.formation_doctrine_string_from_dict(
+        fd, CombatConstants.FORMATION_PRESET_KEY_DOCTRINE, CombatConstants.FORMATION_PRESET_KEY_DOCTRINE_ALT
     )
     var doc_s: String = (" doctrine=%s" % doc) if not doc.is_empty() else ""
     var rout_parts: PackedStringArray = PackedStringArray()
-    if fd.has(_CombatConstants.FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX):
-        rout_parts.append("flee_coh_max=%s" % str(fd.get(_CombatConstants.FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX)))
-    if fd.has(_CombatConstants.FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN):
-        rout_parts.append(
-            "flee_cas_min=%s" % str(fd.get(_CombatConstants.FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN))
-        )
+    if fd.has(CombatConstants.FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX):
+        rout_parts.append("flee_coh_max=%s" % str(fd.get(CombatConstants.FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX)))
+    if fd.has(CombatConstants.FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN):
+        rout_parts.append("flee_cas_min=%s" % str(fd.get(CombatConstants.FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN)))
     var rout_s: String = (" " + ", ".join(rout_parts)) if not rout_parts.is_empty() else ""
     return (
         "files=%s ranks=%s density=%s%s%s"
@@ -268,15 +272,15 @@ static func _format_formation_preset(fd: Dictionary) -> String:
 static func _format_encounter(enc: Dictionary) -> String:
     if enc.is_empty():
         return "defaults"
-    var dp: String = _CombatConstants.encounter_formation_doctrine_string(
+    var dp: String = CombatConstants.encounter_formation_doctrine_string(
         enc,
-        _CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER,
-        _CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT
+        CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER,
+        CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT
     )
-    var de: String = _CombatConstants.encounter_formation_doctrine_string(
+    var de: String = CombatConstants.encounter_formation_doctrine_string(
         enc,
-        _CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY,
-        _CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT
+        CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY,
+        CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_ENEMY_ALT
     )
     var parts: PackedStringArray = PackedStringArray()
     if not dp.is_empty():
@@ -284,19 +288,19 @@ static func _format_encounter(enc: Dictionary) -> String:
     if not de.is_empty():
         parts.append("doc_enemy=%s" % de)
     var amb: String = enc.get("ambush_type", "").strip_edges()
-    if not amb.is_empty() and amb != _CombatConstants.AMBUSH_TYPE_NONE:
+    if not amb.is_empty() and amb != CombatConstants.AMBUSH_TYPE_NONE:
         parts.append("ambush=%s" % amb)
-    var ld: String = str(enc.get(_CombatConstants.ENCOUNTER_KEY_LINE_DISCIPLINE, "")).strip_edges()
+    var ld: String = str(enc.get(CombatConstants.ENCOUNTER_KEY_LINE_DISCIPLINE, "")).strip_edges()
     if not ld.is_empty():
         parts.append("line_discipline=%s" % ld)
     var soak: String = enc.get("soak_preset_id", "").strip_edges()
     if not soak.is_empty():
         parts.append("soak=%s" % soak)
     for key in [
-        _CombatConstants.ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_PLAYER,
-        _CombatConstants.ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_ENEMY,
-        _CombatConstants.ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_PLAYER,
-        _CombatConstants.ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_ENEMY,
+        CombatConstants.ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_PLAYER,
+        CombatConstants.ENCOUNTER_KEY_FLEE_LINE_COHESION_MAX_ENEMY,
+        CombatConstants.ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_PLAYER,
+        CombatConstants.ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_ENEMY,
     ]:
         if enc.has(key):
             parts.append("%s=%s" % [key, str(enc.get(key))])
@@ -421,16 +425,19 @@ static func write_d001_soak_report(ok: bool, preset_results: Dictionary, failure
                 lines
                 . append(
                     (
-                        "  parry_stats deflect=%d bind=%d partial=%d riposte=%d counter_tempo=%d flurry_opened=%d flurry=%d"
-                        % [
-                            ps.get("parry_deflect", 0),
-                            ps.get("parry_bind", 0),
-                            ps.get("parry_partial", 0),
-                            ps.get("riposte_chain", 0),
-                            ps.get("counter_tempo", 0),
-                            ps.get("flurry_bind_opened", 0),
-                            ps.get("flurry_bind", 0),
-                        ]
+                        "  parry_stats deflect=%d bind=%d partial=%d riposte=%d counter_tempo=%d flurry_opened=%d flurr"
+                        + (
+                            "y=%d"
+                            % [
+                                ps.get("parry_deflect", 0),
+                                ps.get("parry_bind", 0),
+                                ps.get("parry_partial", 0),
+                                ps.get("riposte_chain", 0),
+                                ps.get("counter_tempo", 0),
+                                ps.get("flurry_bind_opened", 0),
+                                ps.get("flurry_bind", 0),
+                            ]
+                        )
                     )
                 )
             )
@@ -466,27 +473,25 @@ static func write_d001_soak_report(ok: bool, preset_results: Dictionary, failure
 
 ## Markdown-friendly **II-2b** counts for **`.calibration_audit.txt`** / III-3 (not feel sign-off).
 static func write_ii2b_worksheet_prefill(parry_stats: Dictionary, headless_signed: bool) -> void:
-    var _TrackSpecs := preload("res://harness/CombatD001TrackSpecs.gd")
-    var body: String = _TrackSpecs.ii2b_worksheet_prefill_text(parry_stats, headless_signed)
+    var body: String = CombatD001TrackSpecs.ii2b_worksheet_prefill_text(parry_stats, headless_signed)
     var path: String = _project_root().path_join(II2B_WORKSHEET_PREFILL_FILENAME)
     _write_text_file(path, body, false)
     harness_summary("wrote %s" % path)
 
 
 static func write_d001_headless_signoff(run_ok: bool, preset_results: Dictionary, validator_ok: bool) -> void:
-    var _TrackSpecs := preload("res://harness/CombatD001TrackSpecs.gd")
-    var mandatory: PackedStringArray = _TrackSpecs.headless_mandatory_signoff_failures(preset_results)
+    var mandatory: PackedStringArray = CombatD001TrackSpecs.headless_mandatory_signoff_failures(preset_results)
     var signoff_ok: bool = run_ok and validator_ok and mandatory.is_empty()
     var lines: PackedStringArray = PackedStringArray()
     lines.append("--- FP_D001_HEADLESS_SIGNOFF ---")
     lines.append("ok=%s" % str(signoff_ok).to_lower())
     lines.append("policy=headless_only")
     lines.append("validator_ok=%s" % str(validator_ok).to_lower())
-    var _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
+    var SoakPresets := preload("res://world/SoakEncounterPresets.gd")
     for track_id in ["ii2b", "ii5a", "ii5b", "ii5c", "ii4d"]:
         var pr: Dictionary = {}
         if track_id == "ii4d":
-            pr = preset_results.get(_SoakPresets.PRESET_II4D_EXHAUSTION, {}) as Dictionary
+            pr = preset_results.get(SoakPresets.PRESET_II4D_EXHAUSTION, {}) as Dictionary
         else:
             pr = preset_results.get(track_id, {}) as Dictionary
         var passed: bool = pr.get("ok", false)
@@ -510,13 +515,10 @@ static func write_d001_headless_signoff(run_ok: bool, preset_results: Dictionary
 ## Headless D-001 aggregate in F5 paste shape  -  re-run **`validate_f5_soak_log.ps1`** without editor Output.
 static func write_f5_soak_capture(combat_lines: PackedStringArray) -> void:
     var out: PackedStringArray = PackedStringArray()
-    (
-        out
-        . append(
-            (
-                "%s: headless d001 capture (auto from CombatD001SoakRunner  -  validate with scripts/validate_f5_soak_log.ps1)"
-                % TAG_SESSION_BEGIN
-            )
+    out.append(
+        (
+            "%s: headless d001 capture (auto from CombatD001SoakRunner  -  validate with scripts/validate_f5_soak_l"
+            + "og.ps1)" % TAG_SESSION_BEGIN
         )
     )
     for raw in combat_lines:

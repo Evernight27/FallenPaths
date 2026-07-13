@@ -3,11 +3,6 @@ extends RefCounted
 
 ## CompanyCamp -- camp healing gates/execution, tool repair, field care formatting/status.
 
-const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _CombatConstants := preload("res://combat/CombatConstants.gd")
-const _EntityProficiency := preload("res://core/EntityProficiency.gd")
-const _CampaignBridge := preload("res://world/CampaignEncounterBridge.gd")
-
 ## CAMP_HEAL_ENTRY.
 const CAMP_HEAL_ENTRY: String = "both"
 ## CAMP_HEAL_SECONDS.
@@ -19,6 +14,8 @@ const FIELD_CARE_MARCH_CHAIN: String = "pressure (free) -- bandage/pack/TQ"
 
 # Runtime preload -- circular dependency (CompanyState preloads CompanyCamp).
 static var _company_state_cache: Variant = null
+static var _company_economy_cache: Variant = null
+static var _company_mood_cache: Variant = null
 
 
 static func _get_state() -> GDScript:
@@ -27,16 +24,10 @@ static func _get_state() -> GDScript:
     return _company_state_cache
 
 
-static var _company_economy_cache: Variant = null
-
-
 static func _get_economy() -> GDScript:
     if _company_economy_cache == null:
         _company_economy_cache = load("res://world/CompanyEconomy.gd")
     return _company_economy_cache
-
-
-static var _company_mood_cache: Variant = null
 
 
 static func _get_mood() -> GDScript:
@@ -57,21 +48,21 @@ static func format_field_care_march_chain() -> String:
 
 static func _try_apply_decay(world: Node2D) -> void:
     var day_index: int = _get_state().get_day_index(world)
-    for n in _CampaignBridge.get_fightable_party_nodes(world):
-        var entity: Node = _CampaignBridge.health_entity_from_character(n)
-        if entity != null and entity.has_method("get_training_pending"):
-            _EntityProficiency.apply_decay(entity, day_index)
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
+        if entity != null and entity.has_method("_get_training_pending"):
+            EntityProficiency.apply_decay(entity, day_index)
 
 
 static func _try_merge_training_pending(world: Node2D) -> void:
-    for n in _CampaignBridge.get_fightable_party_nodes(world):
-        var entity: Node = _CampaignBridge.health_entity_from_character(n)
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
         if (
             entity != null
-            and entity.has_method("get_training_pending")
-            and entity.has_method("set_training_pending_value")
+            and entity.has_method("_get_training_pending")
+            and entity.has_method("_set_training_pending_value")
         ):
-            _EntityProficiency.merge_training_pending(entity)
+            EntityProficiency.merge_training_pending(entity)
 
 
 static func camp_heal_ready(world: Node2D, from_party_menu: bool = false) -> bool:
@@ -80,7 +71,7 @@ static func camp_heal_ready(world: Node2D, from_party_menu: bool = false) -> boo
 
 static func format_camp_heal_block_reason(world: Node2D, from_party_menu: bool = false) -> String:
     if not _party_bleeding_controlled(world):
-        var parts: int = _CampaignBridge.party_untreated_part_count(world)
+        var parts: int = CampaignEncounterBridge.party_untreated_part_count(world)
         if parts > 0:
             return "Camp rest (%d part(s) need dressing -- Treat next wound or field care above, then retry)" % parts
         return "Camp rest (dress wounds with Treat next wound or field care above first)"
@@ -118,7 +109,7 @@ static func format_field_care_complete_line(world: Node2D) -> String:
 
 
 static func format_settlement_field_care_hint(world: Node2D) -> String:
-    if world == null or not _CampaignBridge.party_has_untreated_wounds(world):
+    if world == null or not CampaignEncounterBridge.party_has_untreated_wounds(world):
         return ""
     var budget: Dictionary = triage_med_budget(world)
     var parts_need: int = budget.get("parts_need", 0)
@@ -142,7 +133,7 @@ static func format_settlement_field_care_hint(world: Node2D) -> String:
 
 
 static func triage_med_budget(world: Node2D) -> Dictionary:
-    var parts_need: int = _CampaignBridge.party_untreated_part_count(world)
+    var parts_need: int = CampaignEncounterBridge.party_untreated_part_count(world)
     var med_left: int = _get_economy().get_medical_supplies(world)
     var field_bandage_med: int = 0
     if med_left >= 1:
@@ -168,16 +159,16 @@ static func format_field_care_shortfall_suffix(world: Node2D) -> String:
 static func compute_field_treatment_effectiveness(entity: Node, world: Node2D, stabilize_floor: bool) -> float:
     var supply: float = _get_economy().compute_medical_supply_factor(world)
     var skill: float = 1.0
-    if entity != null and entity.has_method("get_medical_effectiveness"):
-        skill = float(entity.get_medical_effectiveness())
-        if entity.has_method("get_campaign_supply_factor"):
-            var stamped: float = float(entity.get_campaign_supply_factor())
+    if entity != null and entity.has_method("_get_medical_effectiveness"):
+        skill = float(entity._get_medical_effectiveness())
+        if entity.has_method("_get_campaign_supply_factor"):
+            var stamped: float = float(entity._get_campaign_supply_factor())
             if stamped > 0.001:
                 skill /= stamped
     var eff: float = skill * supply
     if stabilize_floor:
-        return clampf(maxf(eff, _CombatConstants.FIELD_CARE_STABILIZE_FLOOR), 0.25, 2.0)
-    return clampf(eff, _CombatConstants.FIELD_CARE_EFF_MIN, _CombatConstants.FIELD_CARE_EFF_MAX)
+        return clampf(maxf(eff, CombatConstants.FIELD_CARE_STABILIZE_FLOOR), 0.25, 2.0)
+    return clampf(eff, CombatConstants.FIELD_CARE_EFF_MIN, CombatConstants.FIELD_CARE_EFF_MAX)
 
 
 static func format_field_bandage_med_bit(world: Node2D, entity: Node = null) -> String:
@@ -194,7 +185,7 @@ static func format_field_bandage_med_bit(world: Node2D, entity: Node = null) -> 
 static func roster_recently_needed_field_dressing(world: Node2D) -> bool:
     if world == null:
         return false
-    if _CampaignBridge.party_has_untreated_wounds(world):
+    if CampaignEncounterBridge.party_has_untreated_wounds(world):
         return true
     var summary: Dictionary = _get_state().get_last_battle_summary(world)
     var members: Variant = summary.get("members", [])
@@ -216,7 +207,7 @@ static func should_show_party_camp_rest_button(world: Node2D) -> bool:
         return true
     if _get_economy().get_medical_supplies(world) >= 1:
         return true
-    if _CampaignBridge.party_has_untreated_wounds(world):
+    if CampaignEncounterBridge.party_has_untreated_wounds(world):
         return true
     if not _party_bleeding_controlled(world):
         return false
@@ -261,10 +252,10 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
     if not can_offer_camp_heal(world, from_party_menu):
         return false
     if not _party_bleeding_controlled(world):
-        if _OperationalLog.is_play_session_active():
-            var parts: int = _CampaignBridge.party_untreated_part_count(world)
+        if OperationalLog.is_play_session_active():
+            var parts: int = CampaignEncounterBridge.party_untreated_part_count(world)
             var block: String = format_camp_heal_block_reason(world, from_party_menu)
-            _OperationalLog.play_world("camp_heal blocked: %s parts_need=%d" % [block, parts])
+            OperationalLog.play_world("camp_heal blocked: %s parts_need=%d" % [block, parts])
         return false
     if not _get_economy().consume_medical(world, 1):
         return false
@@ -275,9 +266,9 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
     _try_merge_training_pending(world)
     _get_mood().apply_camp_rest_mood(world)
     _get_state().refresh_hud(world)
-    if _OperationalLog.is_play_session_active():
+    if OperationalLog.is_play_session_active():
         (
-            _OperationalLog
+            OperationalLog
             . play_world(
                 (
                     "camp_heal seconds=%.0f mult=%.1f med_left=%d day=%d->%d all_dressed=true mood=+%.0f"
@@ -296,8 +287,8 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
 
 
 static func roster_has_repairable_wounds(world: Node2D) -> bool:
-    for n in _CampaignBridge.get_fightable_party_nodes(world):
-        var entity: Node = _CampaignBridge.health_entity_from_character(n)
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
         if entity == null:
             continue
         if entity.has_method("get_wounded_parts") and not entity.get_wounded_parts().is_empty():
@@ -316,26 +307,26 @@ static func apply_settlement_tool_repair(world: Node2D) -> bool:
         return false
     _advance_party_healing(world, 120.0, 1.5)
     _get_state().refresh_hud(world)
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_world("settlement_repair tools_left=%d" % _get_economy().get_tool_supplies(world))
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_world("settlement_repair tools_left=%d" % _get_economy().get_tool_supplies(world))
     return true
 
 
 static func _party_bleeding_controlled(world: Node2D) -> bool:
-    return not _CampaignBridge.party_has_untreated_wounds(world)
+    return not CampaignEncounterBridge.party_has_untreated_wounds(world)
 
 
 static func _advance_party_healing(world: Node2D, seconds: float, multiplier: float) -> void:
     var effective: float = seconds * multiplier
-    for n in _CampaignBridge.get_fightable_party_nodes(world):
-        var entity: Node = _CampaignBridge.health_entity_from_character(n)
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
         if entity != null:
             if entity.has_method("process_bleeding"):
                 entity.process_bleeding(effective)
             if entity.has_method("process_blood_loss"):
                 entity.process_blood_loss(effective)
-            if entity.has_method("process_healing"):
-                entity.process_healing(effective)
+            if entity.has_method("_process_healing"):
+                entity._process_healing(effective)
         if n.has_method("ensure_consciousness_current"):
             n.ensure_consciousness_current()
 

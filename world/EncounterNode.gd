@@ -1,7 +1,16 @@
 class_name EncounterNode
 extends Node2D
 
-const _ResourcePaths := preload("res://core/ResourcePaths.gd")
+const MARKER_SIZE := Vector2(64.0, 76.0)
+
+## Holds spawn config; enemies are instantiated when combat starts.
+@export var enemy_count: int = 1
+## Copied to world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when combat starts (doctrine, morale, posture,
+## --|).
+@export var encounter_config: Dictionary = {}
+## Optional enemy **`CombatManager.start`** preset; empty |' default for **`enemy_count`**.
+@export var enemy_formation: Dictionary = {}
+## Non-empty when spawned via **`SoakEncounterPresets`** (cyan map marker).
 
 ## Singular map entity representing one encounter. One square on the map.
 ## One visual marker per encounter; unit count is separate (spawned when combat starts).
@@ -10,18 +19,8 @@ const _ResourcePaths := preload("res://core/ResourcePaths.gd")
 var contract_marker_label: String = ""
 ## `tutorial` | `contract` | "" (soak)
 var marker_kind: String = ""
-
-## Holds spawn config; enemies are instantiated when combat starts.
-@export var enemy_count: int = 1
-## Copied to world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when combat starts (doctrine, morale, posture, --|).
-@export var encounter_config: Dictionary = {}
-## Optional enemy **`CombatManager.start`** preset; empty |' default for **`enemy_count`**.
-@export var enemy_formation: Dictionary = {}
-## Non-empty when spawned via **`SoakEncounterPresets`** (cyan map marker).
 var soak_preset_id: String = ""
 var enemy_scene: PackedScene
-
-const MARKER_SIZE := Vector2(64.0, 76.0)
 
 
 func _ready() -> void:
@@ -89,7 +88,7 @@ func is_tutorial_encounter() -> bool:
 func spawn_enemies(parent: Node, rng: RandomNumberGenerator) -> Array:
     var scene = enemy_scene
     if scene == null:
-        scene = _ResourcePaths.get_enemy_scene()
+        scene = ResourcePaths.get_enemy_scene()
     if scene == null:
         return []
     var species_paths := _get_species_paths_for_encounter()

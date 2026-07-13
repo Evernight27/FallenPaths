@@ -1,9 +1,6 @@
 class_name CombatantRowBuilder
 extends RefCounted
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _RowFormatter := preload("res://ui/PartyRowFormatter.gd")
-
 ## Builds the UI row for a combatant: name, gauge, blood/bleeding, consciousness, equipment, body part bars.
 ## Caller adds the row to the appropriate list and stores the returned controls.
 
@@ -62,7 +59,7 @@ static func create_row(id: int, node: Node, list: Control, id_to_controls: Dicti
     blood_row.name = "BloodRow"
     var blood_lbl = Label.new()
     blood_lbl.name = "BloodLabel"
-    blood_lbl.text = _RowFormatter.format_blood_only(100.0)
+    blood_lbl.text = PartyRowFormatter.format_blood_only(100.0)
     blood_lbl.add_theme_font_size_override("font_size", 11)
     blood_lbl.custom_minimum_size = Vector2(70, 0)
     blood_row.add_child(blood_lbl)
@@ -93,17 +90,17 @@ static func create_row(id: int, node: Node, list: Control, id_to_controls: Dicti
     consc_row.add_child(consc_lbl)
     row.add_child(consc_row)
     var equip_parts: Array = []
-    var weapon_name: String = _EntityAccess.get_weapon_display_name_from_node(node)
+    var weapon_name: String = CombatantEntityAccess.get_weapon_display_name_from_node(node)
     if not weapon_name.is_empty():
         equip_parts.append("Weapon: %s" % weapon_name)
-    var armor_names: Array = _EntityAccess.get_armor_summary_from_node(node)
+    var armor_names: Array = CombatantEntityAccess.get_armor_summary_from_node(node)
     if armor_names.size() > 0:
         equip_parts.append("Armor: " + ", ".join(armor_names))
     if equip_parts.size() > 0:
         var equip_lbl = Label.new()
         equip_lbl.name = "EquipLabel"
         equip_lbl.text = "  ".join(equip_parts)
-        _RowFormatter.configure_wrapped_label(equip_lbl)
+        PartyRowFormatter.configure_wrapped_label(equip_lbl)
         equip_lbl.custom_minimum_size = Vector2(0, 0)
         row.add_child(equip_lbl)
     var bars_hbox = HBoxContainer.new()

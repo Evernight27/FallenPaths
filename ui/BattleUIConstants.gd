@@ -29,20 +29,63 @@ const CAMPAIGN_MEDICAL_EXIT_BUTTON_MIN_WIDTH_FINISHING := 300
 const CAMPAIGN_MEDICAL_VICTORY_LOG_LINE := (
     "\n[color=green] -  -  -  Victory. Click "
     + CAMPAIGN_MEDICAL_EXIT_BUTTON_LABEL_PENDING
-    + " to simulate remaining triage time. Any wounds still open after that need Party field care on the map.  -  -  - [/color]\n"
+    + " to simulate remaining triage time. Any wounds still open after that need Party field care on the map.  -  -  - "
+    + "[/color]\n"
 )
-const CAMPAIGN_MEDICAL_FINISHED_LOG_LINE := "\n[color=green] -  -  -  Triage complete. Click Return to camp.  -  -  - [/color]\n"
-const CAMPAIGN_MEDICAL_IDLE_LOG_LINE := "\n[color=green] -  -  -  Triage paused. Click Return to camp and finish medical treatment to leave.  -  -  - [/color]\n"
+const CAMPAIGN_MEDICAL_FINISHED_LOG_LINE := (
+    "\n[color=green] -  -  -  Triage complete. Click Return to camp.  -  -  - [" + "/color]\n"
+)
+const CAMPAIGN_MEDICAL_IDLE_LOG_LINE := (
+    "\n[color=green] -  -  -  Triage paused. Click Return to camp and finish medica"
+    + "l treatment to leave.  -  -  - [/color]\n"
+)
 const CAMPAIGN_MEDICAL_EARLY_EXIT_HINT := (
     "Contract battle  -  click Return to camp and finish medical treatment to simulate remaining "
     + "triage time; use Party field care on the map for any wounds still untreated."
 )
 const CAMPAIGN_MEDICAL_EARLY_EXIT_HINT_READY := "Contract battle  -  triage complete; click Return to camp."
-const CAMPAIGN_MEDICAL_TOOLTIP_EXIT_PENDING := "Return to camp  -  finishes in-progress procedures in battle; undressed wounds need Party field care on the map."
+const CAMPAIGN_MEDICAL_TOOLTIP_EXIT_PENDING := (
+    "Return to camp  -  finishes in-progress procedures in battle; undressed"
+    + " wounds need Party field care on the map."
+)
 const CAMPAIGN_MEDICAL_TOOLTIP_EXIT_READY := "Triage complete  -  click Return to camp."
-const CAMPAIGN_MEDICAL_FAST_FORWARD_INCOMPLETE_HINT := "Some wounds could not be fully dressed in battle  -  open Party on the map for field care."
-const MEDICAL_FAST_FORWARD_LOG_LINE := "\n[color=#aab0c0] -  -  -  Simulating remaining triage time...  -  -  - [/color]\n"
-const CAMPAIGN_MEDICAL_BATCH_LOG_LINE := "\n[color=#aab0c0] -  -  -  Finishing procedures and dressing open wounds...  -  -  - [/color]\n"
+const CAMPAIGN_MEDICAL_FAST_FORWARD_INCOMPLETE_HINT := (
+    "Some wounds could not be fully dressed in battle  -  open Party" + " on the map for field care."
+)
+const MEDICAL_FAST_FORWARD_LOG_LINE := (
+    "\n[color=#aab0c0] -  -  -  Simulating remaining triage time...  -  -  - [/color" + "]\n"
+)
+const CAMPAIGN_MEDICAL_BATCH_LOG_LINE := (
+    "\n[color=#aab0c0] -  -  -  Finishing procedures and dressing open wounds...  " + "-  -  - [/color]\n"
+)
+const MEDICAL_ACTION_LABELS := {
+    CombatConstants.MOVE_ID_BANDAGE_SELF: "Bandaging",
+    CombatConstants.MOVE_ID_PACK_WOUND: "Packing wound",
+    CombatConstants.MOVE_ID_STABILIZE_WOUND: "Stabilizing",
+    CombatConstants.MOVE_ID_APPLY_TOURNIQUET: "Applying tourniquet",
+    CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE: "Direct pressure",
+}
+# Labels when target is an ally (same move_id, different wording)
+const MEDICAL_ACTION_LABELS_ALLY := {
+    CombatConstants.MOVE_ID_BANDAGE_SELF: "Bandaging ally",
+    CombatConstants.MOVE_ID_PACK_WOUND: "Packing ally's wound",
+    CombatConstants.MOVE_ID_STABILIZE_WOUND: "Stabilizing ally",
+    CombatConstants.MOVE_ID_APPLY_TOURNIQUET: "Tourniquet (ally)",
+    CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE: "Direct pressure",
+}
+
+# Formation actions (player turn-ready log + gauge hints  -  Phase 2 **II-5a**)
+const FORMATION_ACTION_LABELS := {
+    CombatConstants.MOVE_ID_SWAP_RANK: "Swap rank",
+    CombatConstants.MOVE_ID_DRAG_BACK: "Drag back (pair)",
+    CombatConstants.MOVE_ID_FALL_BACK: "Fall back",
+    CombatConstants.MOVE_ID_ROTATE_FILE: "Rotate file",
+    CombatConstants.MOVE_ID_FLEE: "Flee",
+    CombatConstants.MOVE_ID_ATTEMPT_CLOSE: "Close distance",
+    CombatConstants.MOVE_ID_ORDER_HOLD_LANE: "Order: Hold lane",
+    CombatConstants.MOVE_ID_ORDER_PROBING: "Order: Probe",
+    CombatConstants.MOVE_ID_ORDER_PINCH_CENTER: "Order: Pinch center",
+}
 
 
 static func medical_exit_processing_log_line(campaign_contract: bool) -> String:
@@ -85,34 +128,6 @@ static func campaign_medical_victory_log_line(can_end_medical_phase: bool) -> St
 
 
 # Human-readable labels for medical actions in the action bar (self-target)
-const MEDICAL_ACTION_LABELS := {
-    CombatConstants.MOVE_ID_BANDAGE_SELF: "Bandaging",
-    CombatConstants.MOVE_ID_PACK_WOUND: "Packing wound",
-    CombatConstants.MOVE_ID_STABILIZE_WOUND: "Stabilizing",
-    CombatConstants.MOVE_ID_APPLY_TOURNIQUET: "Applying tourniquet",
-    CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE: "Direct pressure",
-}
-# Labels when target is an ally (same move_id, different wording)
-const MEDICAL_ACTION_LABELS_ALLY := {
-    CombatConstants.MOVE_ID_BANDAGE_SELF: "Bandaging ally",
-    CombatConstants.MOVE_ID_PACK_WOUND: "Packing ally's wound",
-    CombatConstants.MOVE_ID_STABILIZE_WOUND: "Stabilizing ally",
-    CombatConstants.MOVE_ID_APPLY_TOURNIQUET: "Tourniquet (ally)",
-    CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE: "Direct pressure",
-}
-
-# Formation actions (player turn-ready log + gauge hints  -  Phase 2 **II-5a**)
-const FORMATION_ACTION_LABELS := {
-    CombatConstants.MOVE_ID_SWAP_RANK: "Swap rank",
-    CombatConstants.MOVE_ID_DRAG_BACK: "Drag back (pair)",
-    CombatConstants.MOVE_ID_FALL_BACK: "Fall back",
-    CombatConstants.MOVE_ID_ROTATE_FILE: "Rotate file",
-    CombatConstants.MOVE_ID_FLEE: "Flee",
-    CombatConstants.MOVE_ID_ATTEMPT_CLOSE: "Close distance",
-    CombatConstants.MOVE_ID_ORDER_HOLD_LANE: "Order: Hold lane",
-    CombatConstants.MOVE_ID_ORDER_PROBING: "Order: Probe",
-    CombatConstants.MOVE_ID_ORDER_PINCH_CENTER: "Order: Pinch center",
-}
 
 
 # Progress bar styling for combat UI

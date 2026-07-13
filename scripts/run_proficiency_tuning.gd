@@ -5,8 +5,6 @@ extends SceneTree
 ## Prints per-scenario summary reports + per-round details for tuning
 ## gain constants in EntityProficiency.gd.
 
-const _Tail := preload("res://harness/CombatRegressionHarnessProficiency1v1Tail.gd")
-
 
 func _init() -> void:
     print("=== Proficiency 1v1 Tuning Harness ===")
@@ -17,32 +15,32 @@ func _init() -> void:
     var scenarios := {
         "balanced":
         {
-            "runner": _Tail.run_balanced_1v1,
+            "runner": CombatRegressionHarnessProficiency1v1Tail.run_balanced_1v1,
             "desc": "Sword vs Sword, both ~100 stats",
         },
         "str_heavy":
         {
-            "runner": _Tail.run_str_heavy_player,
+            "runner": CombatRegressionHarnessProficiency1v1Tail.run_str_heavy_player,
             "desc": "Player STR 150, AGI 80; enemy balanced",
         },
         "agi_heavy":
         {
-            "runner": _Tail.run_agi_heavy_player,
+            "runner": CombatRegressionHarnessProficiency1v1Tail.run_agi_heavy_player,
             "desc": "Player AGI 150, PER 120; enemy balanced",
         },
         "spear_vs_sword":
         {
-            "runner": _Tail.run_spear_vs_sword,
+            "runner": CombatRegressionHarnessProficiency1v1Tail.run_spear_vs_sword,
             "desc": "Spear vs Sword, both 100 stats",
         },
         "mace_vs_sword":
         {
-            "runner": _Tail.run_mace_vs_sword,
+            "runner": CombatRegressionHarnessProficiency1v1Tail.run_mace_vs_sword,
             "desc": "Mace vs Sword, both 100 stats",
         },
         "low_perception":
         {
-            "runner": _Tail.run_low_perception_player,
+            "runner": CombatRegressionHarnessProficiency1v1Tail.run_low_perception_player,
             "desc": "Player PER 60 (more misses/dodges)",
         },
     }
@@ -60,10 +58,10 @@ func _init() -> void:
             print("  *** NO ROUNDS PLAYED ***")
             all_ok = false
         else:
-            print(_Tail.format_report(result))
+            print(CombatRegressionHarnessProficiency1v1Tail.format_report(result))
             print("")
             print("Per-round detail:")
-            print(_Tail.format_round_details(result))
+            print(CombatRegressionHarnessProficiency1v1Tail.format_round_details(result))
 
         print("")
         print("---")

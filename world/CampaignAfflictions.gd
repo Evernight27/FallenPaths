@@ -5,19 +5,6 @@ extends RefCounted
 ## Tier RNG from [guide affliction table](../../docs/CAMPAIGN_DECISION_GUIDE.md#affliction-rng-medieval-alignment).
 ## Canonical: `apply_after_victory` . `format_scar_line` . `count_scarred_brothers`.
 
-const _Bleeding := preload("res://core/BleedingConstants.gd")
-const _Bridge := preload("res://world/CampaignEncounterBridge.gd")
-
-# Runtime preload -- circular dependency (CompanyState preloads CampaignAfflictions).
-static var _CompanyState: Variant = null
-
-
-static func _get_company_state() -> GDScript:
-    if CampaignAfflictions._CompanyState == null:
-        CampaignAfflictions._CompanyState = load("res://world/CompanyState.gd")
-    return CampaignAfflictions._CompanyState
-
-
 const AFFLICTION_SLOWED_CIRCULATION := "slowed_circulation"
 const AFFLICTION_OLD_WOUND_ACHE := "old_wound_ache"
 const AFFLICTION_LIMPING_LIMB := "limping_limb"
@@ -42,6 +29,15 @@ const CATALOG_IDS: Array[String] = [
     AFFLICTION_CRACKED_RIBS,
 ]
 
+# Runtime preload -- circular dependency (CompanyState preloads CampaignAfflictions).
+static var _company_state: Variant = null
+
+
+static func _get_company_state() -> GDScript:
+    if CampaignAfflictions._company_state == null:
+        CampaignAfflictions._company_state = load("res://world/CompanyState.gd")
+    return CampaignAfflictions._company_state
+
 
 static func apply_after_victory(world: Node2D, rng: RandomNumberGenerator) -> PackedStringArray:
     var lines: PackedStringArray = PackedStringArray()
@@ -49,16 +45,16 @@ static func apply_after_victory(world: Node2D, rng: RandomNumberGenerator) -> Pa
         return lines
     if world == null or rng == null:
         return lines
-    for n in _Bridge.get_fightable_party_nodes(world):
-        var entity: Node = _Bridge.health_entity_from_character(n)
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
         if entity == null:
             continue
         var roll: Dictionary = _roll_affliction_for_entity(entity, n, rng)
         if roll.is_empty():
             continue
-        if not entity.has_method("add_campaign_affliction"):
+        if not entity.has_method("_add_campaign_affliction"):
             continue
-        if entity.add_campaign_affliction(roll):
+        if entity._add_campaign_affliction(roll):
             var name_s: String = str(n.name)
             lines.append(format_scar_line(name_s, roll))
             _get_company_state().adjust_member_mood(world, name_s, -1.35)
@@ -69,8 +65,8 @@ static func count_scarred_brothers(world: Node2D) -> int:
     if world == null:
         return 0
     var n: int = 0
-    for node in _Bridge.get_fightable_party_nodes(world):
-        var entity: Node = _Bridge.health_entity_from_character(node)
+    for node in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(node)
         if entity == null or not ("campaign_afflictions" in entity):
             continue
         if entity.campaign_afflictions is Array and not (entity.campaign_afflictions as Array).is_empty():
@@ -100,10 +96,10 @@ static func _roll_affliction_for_entity(entity: Node, character: Node, rng: Rand
     if character.has_method("is_unconscious") and character.is_unconscious():
         p = maxf(p, P_STRUCK_DOWN)
         pick = AFFLICTION_SLOWED_CIRCULATION
-    if blood < _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING:
+    if blood < BleedingConstants.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING:
         p = maxf(p, P_PERIL)
         pick = AFFLICTION_SLOWED_CIRCULATION
-    elif blood < _Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING:
+    elif blood < BleedingConstants.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING:
         p = maxf(p, P_DANGER)
         pick = (AFFLICTION_PARTLY_COLLAPSED_LUNG if rng.randf() < P_COLLAPSED_LUNG_SPLIT else AFFLICTION_OLD_WOUND_ACHE)
     if _count_untreated_arterial(entity) >= 2:

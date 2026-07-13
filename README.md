@@ -59,7 +59,8 @@ See [`AGENTS.md#code-homes`](AGENTS.md#code-homes).
 
 ## Coding standards
 
-- **Lint:** `gdlint .` (config: `.gdlintrc`) · **Format:** `gdformat --check .` (config: `.gdformatrc`, 120 cols, 4-space indent)
+- **Lint:** `gdlint .` — gdtoolkit defaults in `.gdlintrc` (only deltas: 120-col lines, 4-space tab width, exclude `.godot`/`.ci-venv`/`combat_tuning`)
+- **Format:** `gdformat --check .` (`.gdformatrc`: 120 cols, 4-space indent)
 - **Shell:** `shellcheck --rcfile=scripts/.shellcheckrc -x scripts/*.sh`
 - **One-shot:** `./scripts/ci_lint.sh`
 - **No raw `get_node()` in combat** — use `CombatantEntityAccess` or specialist modules

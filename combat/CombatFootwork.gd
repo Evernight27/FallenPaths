@@ -3,13 +3,14 @@ extends RefCounted
 
 ## Tier 4.4 pilot: abstract step-on-attack shifts **`attack_angle_deg`** via per-combatant offset (no world positions).
 ## Tier 4.4.2: symmetric defender step on committed parry (guard line) or dodge (eval part line).
-## Lifecycle: **`clear_on_exchange_end`** when **`pending_attack`** drops or exchange aborts; UI via **`offset_visible_for_ui_state`** (**`wind_up`** / **`recovering`** only).
-## Attachment: reads **line keys** only  -  not **`weapon_form`** or stance alias. Hub LIVE_PATHS **`#wf-tier-44-pa`** (stamp / geometry / clear / lookup). Form home via **`assign_form`**; matrix **`#wf-form-guard-pa-matrix`**.
-## Canonical: apply_attack_step_on_windup . apply_defender_step_on_parry . apply_defender_step_on_dodge . attack_eval_step_deg_for_attacker . attack_angle_deg_for_listing_preview . parry_eval_step_deg_for_defender . dodge_eval_step_deg_for_defender . guard_angle_deg . apply_offset_to_angle_deg . clear_on_exchange_end . clear_on_death . reconcile_idle_offset . return_to_waiting . return_to_cowering . CombatUiHints.footwork_hint_text.
-
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _FlurryBind := preload("res://combat/CombatFlurryBind.gd")
+## Lifecycle: **`clear_on_exchange_end`** when **`pending_attack`** drops or exchange aborts; UI via
+## **`offset_visible_for_ui_state`** (**`wind_up`** / **`recovering`** only).
+## Attachment: reads **line keys** only  -  not **`weapon_form`** or stance alias. Hub LIVE_PATHS **`#wf-tier-44-pa`**
+## (stamp / geometry / clear / lookup). Form home via **`assign_form`**; matrix **`#wf-form-guard-pa-matrix`**.
+## Canonical: apply_attack_step_on_windup . apply_defender_step_on_parry . apply_defender_step_on_dodge .
+## attack_eval_step_deg_for_attacker . attack_angle_deg_for_listing_preview . parry_eval_step_deg_for_defender .
+## dodge_eval_step_deg_for_defender . guard_angle_deg . apply_offset_to_angle_deg . clear_on_exchange_end .
+## clear_on_death . reconcile_idle_offset . return_to_waiting . return_to_cowering . CombatUiHints.footwork_hint_text.
 
 
 static func enabled() -> bool:
@@ -20,11 +21,13 @@ static func enabled() -> bool:
 static func offset_visible_for_ui_state(c: Dictionary) -> bool:
     if c == null or c.is_empty():
         return false
-    var st: String = _EntityAccess.state_str(c)
+    var st: String = CombatantEntityAccess.state_str(c)
     return st == CombatConstants.STATE_WIND_UP or st == CombatConstants.STATE_RECOVERING
 
 
-## Attacker PA stamp from **line id** (not form). Scrubs leaked idle keys before fresh stamp. Production callers: LIVE_PATHS **`#wf-pa-stamp-callers`**. Empty line clears offset. Optional **`opponent_id`** / **`manager`** for Tier 4.4 spatial band + flurry magnitude when flags on.
+## Attacker PA stamp from **line id** (not form). Scrubs leaked idle keys before fresh stamp. Production callers:
+## LIVE_PATHS **`#wf-pa-stamp-callers`**. Empty line clears offset. Optional **`opponent_id`** / **`manager`** for Tier
+## 4.4 spatial band + flurry magnitude when flags on.
 static func apply_attack_step_on_windup(
     attacker: Dictionary, attack_line: String, opponent_id: int = -1, manager: Node = null
 ) -> void:
@@ -40,7 +43,9 @@ static func apply_attack_step_on_windup(
     refresh_ui_hint(attacker)
 
 
-## Defender parry PA stamp from live **`guard_line`**. Scrubs leaked idle keys before fresh stamp. **`#wf-pa-stamp-callers`**. Optional **`attacker_id`** / **`manager`** for Tier 4.4 spatial band + flurry magnitude when flags on.
+## Defender parry PA stamp from live **`guard_line`**. Scrubs leaked idle keys before fresh stamp.
+## **`#wf-pa-stamp-callers`**. Optional **`attacker_id`** / **`manager`** for Tier 4.4 spatial band + flurry magnitude
+## when flags on.
 static func apply_defender_step_on_parry(
     defender: Dictionary, guard_line: String, attacker_id: int = -1, manager: Node = null
 ) -> void:
@@ -55,7 +60,9 @@ static func apply_defender_step_on_parry(
     refresh_ui_hint(defender)
 
 
-## Defender dodge PA stamp from body-part -> line. Scrubs leaked idle keys before fresh stamp. **`#wf-pa-stamp-callers`**. Optional **`attacker_id`** for band magnitude; optional **`manager`** for wing-file dodge bias when flag on.
+## Defender dodge PA stamp from body-part -> line. Scrubs leaked idle keys before fresh stamp.
+## **`#wf-pa-stamp-callers`**. Optional **`attacker_id`** for band magnitude; optional **`manager`** for wing-file dodge
+## bias when flag on.
 static func apply_defender_step_on_dodge(
     defender: Dictionary, dodge_eval_part: String, attacker_id: int = -1, manager: Node = null
 ) -> void:
@@ -88,7 +95,8 @@ static func get_ui_hint(c: Dictionary) -> String:
     return format_position_angle_ui_hint(c)
 
 
-## Drop leaked PA keys when idle (**`waiting`** / **`cowering`** / medical)  -  UI already hides; keeps dict + snapshot clean.
+## Drop leaked PA keys when idle (**`waiting`** / **`cowering`** / medical)  -  UI already hides; keeps dict + snapshot
+## clean.
 static func reconcile_idle_offset(c: Dictionary) -> void:
     if c == null or offset_visible_for_ui_state(c):
         return
@@ -180,7 +188,8 @@ static func attack_eval_step_deg_for_attacker(
     return base_off * _t44_attacker_spatial_mult(attacker, opponent_id, manager)
 
 
-## Turn-listing attack angle: live stamp when wind-up/recovering; else **`attack_eval_step_deg_for_attacker`** preview. **`#wf-pick-vs-strike`** . **`CombatAIActionPicker`**.
+## Turn-listing attack angle: live stamp when wind-up/recovering; else **`attack_eval_step_deg_for_attacker`** preview.
+## **`#wf-pick-vs-strike`** . **`CombatAIActionPicker`**.
 static func attack_angle_deg_for_listing_preview(
     attacker: Dictionary, attack_line: String, base_angle_deg: float, opponent_id: int = -1, manager: Node = null
 ) -> float:
@@ -226,7 +235,9 @@ static func dodge_eval_step_deg_for_defender(
     return base_off * _t44_defender_dodge_spatial_mult(defender, attacker_id, manager)
 
 
-## Clears step offset + UI hint. Call when **`pending_attack`** is dropped or an exchange ends without **`AttackResolver`** resolve (abort, skip, recovery, medical halt). All production callers: LIVE_PATHS **`#wf-pa-clear-callers`**.
+## Clears step offset + UI hint. Call when **`pending_attack`** is dropped or an exchange ends without
+## **`AttackResolver`** resolve (abort, skip, recovery, medical halt). All production callers: LIVE_PATHS
+## **`#wf-pa-clear-callers`**.
 static func clear_on_exchange_end(c: Dictionary) -> void:
     clear_position_offset(c)
 
@@ -268,21 +279,23 @@ static func _t44_defender_dodge_spatial_mult(defender: Dictionary, attacker_id: 
 static func _t44_band_pa_magnitude_mult_for_attacker(attacker: Dictionary, opponent_id: int) -> float:
     if not CombatConstants.is_feature_t44_spatial_band_pa_enabled():
         return 1.0
-    var band: String = _EntityAccess.distance_to_opponent_band(attacker, opponent_id, CombatConstants.DISTANCE_MID)
+    var band: String = CombatantEntityAccess.distance_to_opponent_band(
+        attacker, opponent_id, CombatConstants.DISTANCE_MID
+    )
     return CombatConstants.t44_spatial_band_pa_magnitude_mult(band)
 
 
 static func _t44_file_dodge_wing_mult(defender: Dictionary, manager: Node) -> float:
     if manager == null or defender.is_empty():
         return 1.0
-    var fid: String = _EntityAccess.formation_id_str(defender)
+    var fid: String = CombatantEntityAccess.formation_id_str(defender)
     if fid.is_empty():
         return 1.0
-    var formation: Dictionary = _FormationSlots.formation_record_for_manager(manager, fid)
+    var formation: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
     if formation.is_empty():
         return 1.0
     var files: int = maxi(1, int(formation.get("files", 1)))
-    return CombatConstants.t44_spatial_file_dodge_wing_mult(_EntityAccess.file_int(defender), files)
+    return CombatConstants.t44_spatial_file_dodge_wing_mult(CombatantEntityAccess.file_int(defender), files)
 
 
 static func _t44_band_pa_magnitude_mult_for_defender(defender: Dictionary, attacker_id: int) -> float:
@@ -297,7 +310,7 @@ static func _t44_flurry_pa_mult(c: Dictionary, opponent_id: int, manager: Node) 
         return 1.0
     if manager == null or opponent_id < 0 or c.is_empty():
         return 1.0
-    var clk: float = _EntityAccess.combat_clock_float(manager)
-    if not _FlurryBind.is_active_vs(c, opponent_id, clk):
+    var clk: float = CombatantEntityAccess.combat_clock_float(manager)
+    if not CombatFlurryBind.is_active_vs(c, opponent_id, clk):
         return 1.0
     return CombatConstants.T44_SPATIAL_FLURRY_PA_MULT

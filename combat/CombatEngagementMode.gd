@@ -7,15 +7,14 @@ extends RefCounted
 ## - skirmish: thinned/uneven line or one side missing front
 ## - duel: exactly one living fighter per side (`snapshot_is_true_duel`)
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
 const _MODE_FORMATION := "formation"
 const _MODE_SKIRMISH := "skirmish"
 const _MODE_DUEL := "duel"
 const _MODE_CACHE_META := "_engagement_mode_cached"
 
 
-## Clear resolved-mode hysteresis on `CombatManager.start()` (or tests) so a new battle does not inherit prior `formation` stickiness.
+## Clear resolved-mode hysteresis on `CombatManager.start()` (or tests) so a new battle does not inherit prior
+## `formation` stickiness.
 static func clear_resolved_mode_cache(manager: Node) -> void:
     if manager != null and manager.has_meta(_MODE_CACHE_META):
         manager.remove_meta(_MODE_CACHE_META)
@@ -48,15 +47,15 @@ static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
     if manager == null:
         return 0
     var native_side: String = formation_key
-    var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, formation_key)
+    var form: Dictionary = FormationSlots.formation_record_for_manager(manager, formation_key)
     if not form.is_empty():
-        native_side = _FormationSlots.formation_side_str(form, formation_key)
+        native_side = FormationSlots.formation_side_str(form, formation_key)
     for c in manager.combatants:
-        if not _EntityAccess.is_living_on_side(c, native_side):
+        if not CombatantEntityAccess.is_living_on_side(c, native_side):
             continue
-        if _EntityAccess.formation_id_str(c) != formation_key:
+        if CombatantEntityAccess.formation_id_str(c) != formation_key:
             continue
-        if _EntityAccess.rank_int(c) != 0:
+        if CombatantEntityAccess.rank_int(c) != 0:
             continue
         n += 1
     return n
@@ -65,7 +64,7 @@ static func count_front_rank_alive(manager: Node, formation_key: String) -> int:
 static func _front_files_for_side(manager: Node, side: String) -> int:
     if manager == null:
         return 1
-    var form: Dictionary = _FormationSlots.formation_record_for_manager(manager, side)
+    var form: Dictionary = FormationSlots.formation_record_for_manager(manager, side)
     if form.is_empty():
         return 1
     return maxi(1, int(form.get("files", 1)))
@@ -76,7 +75,7 @@ static func count_active_for_side(manager: Node, side: String) -> int:
     if manager == null:
         return 0
     for c in manager.combatants:
-        if not _EntityAccess.is_living_on_side(c, side):
+        if not CombatantEntityAccess.is_living_on_side(c, side):
             continue
         n += 1
     return n

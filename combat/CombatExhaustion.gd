@@ -5,12 +5,6 @@ extends RefCounted
 ## MXm-2: **`performance_mult_for_combatant`** --'' ' parry readiness, wind-up, surround awareness.
 ## MXm-3: **`effective_stamina_max`** / **`effective_stamina_refill_rate`** -- central fatigue + blood cap burst pool.
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _PainConscious := preload("res://core/PainConsciousnessConstants.gd")
-const _CombatDebug := preload("res://combat/CombatDebug.gd")
-const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
-
 const _FP_COMBAT_BANDS: Array[float] = [0.25, 0.5, 0.75]
 
 
@@ -20,16 +14,16 @@ static func apply_exertion_from_stamina_spend(manager: Node, combatant: Dictiona
     if combatant.is_empty() or stamina_spent <= 0.0:
         return
     var exertion: float = stamina_spent * CombatConstants.EXHAUSTION_EXERTION_PER_STAMINA_POINT
-    var stats: Dictionary = _EntityAccess.stats_dict(combatant)
+    var stats: Dictionary = CombatantEntityAccess.stats_dict(combatant)
     var end_stat: float = float(stats.get("endurance", CombatConstants.DEFAULT_STAT_VALUE))
     var end_ratio: float = clampf(end_stat / 100.0, 0.0, 1.0)
     var relief: float = end_ratio * CombatConstants.EXHAUSTION_ENDURANCE_MAX_RELIEF
     exertion *= 1.0 - relief
     exertion *= _medical_exertion_gain_mult(manager, combatant)
-    var cur: float = _EntityAccess.exhaustion_float(combatant)
+    var cur: float = CombatantEntityAccess.exhaustion_float(combatant)
     var prev: float = cur
     var next: float = clampf(cur + exertion, 0.0, CombatConstants.EXHAUSTION_MAX)
-    _EntityAccess.set_exhaustion_float(combatant, next)
+    CombatantEntityAccess.set_exhaustion_float(combatant, next)
     _maybe_log_exhaustion_band_crossing(combatant, prev, next)
     clamp_stamina_to_effective_max(combatant)
 
@@ -38,9 +32,9 @@ static func apply_exertion_from_stamina_spend(manager: Node, combatant: Dictiona
 static func blood_stamina_cap_mult(combatant: Dictionary) -> float:
     if combatant.is_empty():
         return 1.0
-    var blood: float = _EntityAccess.stats_dict(combatant).get("blood_volume", 100.0)
-    var start_t: float = _PainConscious.BLOOD_CONSCIOUSNESS_START_THRESHOLD
-    var floor_t: float = _PainConscious.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD
+    var blood: float = CombatantEntityAccess.stats_dict(combatant).get("blood_volume", 100.0)
+    var start_t: float = PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_START_THRESHOLD
+    var floor_t: float = PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD
     if blood >= start_t:
         return 1.0
     if blood <= floor_t:
@@ -55,7 +49,7 @@ static func effective_stamina_max(combatant: Dictionary) -> float:
     var blood_m: float = blood_stamina_cap_mult(combatant)
     if not CombatConstants.is_feature_fight_exhaustion_enabled():
         return base * blood_m
-    var ex: float = _EntityAccess.exhaustion_float(combatant)
+    var ex: float = CombatantEntityAccess.exhaustion_float(combatant)
     var exh_m: float = lerpf(1.0, CombatConstants.STAMINA_EXHAUSTION_MAX_MULT_FLOOR, ex)
     var camp_m: float = clampf(
         combatant.get("campaign_stamina_mult", 1.0),
@@ -70,7 +64,7 @@ static func effective_stamina_refill_rate(combatant: Dictionary) -> float:
     var rate: float = CombatConstants.STAMINA_REFILL_RATE
     if not CombatConstants.is_feature_fight_exhaustion_enabled():
         return rate
-    var ex: float = _EntityAccess.exhaustion_float(combatant)
+    var ex: float = CombatantEntityAccess.exhaustion_float(combatant)
     return rate * lerpf(CombatConstants.STAMINA_REFILL_EXHAUSTION_MULT_FLOOR, 1.0, 1.0 - ex)
 
 
@@ -79,32 +73,34 @@ static func stamina_ratio(combatant: Dictionary) -> float:
     var cap: float = effective_stamina_max(combatant)
     if cap <= 0.001:
         return 0.0
-    return clampf(_EntityAccess.stamina_float(combatant, 0.0) / cap, 0.0, 1.0)
+    return clampf(CombatantEntityAccess.stamina_float(combatant, 0.0) / cap, 0.0, 1.0)
 
 
 static func clamp_stamina_to_effective_max(combatant: Dictionary) -> void:
     if combatant.is_empty():
         return
     var cap: float = effective_stamina_max(combatant)
-    combatant["stamina"] = minf(_EntityAccess.stamina_float(combatant, 0.0), cap)
+    combatant["stamina"] = minf(CombatantEntityAccess.stamina_float(combatant, 0.0), cap)
 
 
 ## MS-L7: mental stack tunnel --" prefer wait / disengage over new offense.
 ## Fires at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (0.50). The `exhaustion_offense_weight_mult`
 ## function uses the higher **`MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD`** (0.75) for its lerp span,
-## creating a "winded" zone (0.50-0.75) where offense is partially damped but disengage is preferred by layer presentation.
+## creating a "winded" zone (0.50-0.75) where offense is partially damped but disengage is preferred by layer
+## presentation.
 static func exhaustion_tunnel_active(combatant: Dictionary) -> bool:
     if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
         return false
-    return _EntityAccess.exhaustion_float(combatant) >= CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD
+    return CombatantEntityAccess.exhaustion_float(combatant) >= CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD
 
 
 ## Gradual offense damp (below tunnel threshold); stacks with salience damp in **`CombatAIActionPicker`**.
-## Extended lerp range: [0.25, 0.75] --" "fatigued" zone ramps down, "winded" (0.50-0.75) still allows offense (~0.675), "exhausted" (>=0.75) floors at damp floor.
+## Extended lerp range: [0.25, 0.75] --" "fatigued" zone ramps down, "winded" (0.50-0.75) still allows offense (~0.675),
+## "exhausted" (>=0.75) floors at damp floor.
 static func exhaustion_offense_weight_mult(combatant: Dictionary) -> float:
     if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
         return 1.0
-    var ex: float = _EntityAccess.exhaustion_float(combatant)
+    var ex: float = CombatantEntityAccess.exhaustion_float(combatant)
     if ex >= CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD:
         return CombatConstants.EXHAUSTION_OFFENSE_DAMP_FLOOR
     if ex < CombatConstants.EXHAUSTION_OFFENSE_DAMP_START:
@@ -124,7 +120,7 @@ static func exhaustion_offense_weight_mult(combatant: Dictionary) -> float:
 static func performance_mult_for_combatant(combatant: Dictionary) -> float:
     if not CombatConstants.is_feature_fight_exhaustion_enabled():
         return 1.0
-    return CombatConstants.exhaustion_performance_mult(_EntityAccess.exhaustion_float(combatant))
+    return CombatConstants.exhaustion_performance_mult(CombatantEntityAccess.exhaustion_float(combatant))
 
 
 ## Longer wind-up when exhausted (divide duration by performance mult).
@@ -140,17 +136,19 @@ static func process_waiting_recovery(combatant: Dictionary, delta: float) -> voi
         return
     if combatant.is_empty() or delta <= 0.0:
         return
-    var cur: float = _EntityAccess.exhaustion_float(combatant)
+    var cur: float = CombatantEntityAccess.exhaustion_float(combatant)
     if cur <= 0.0:
         return
-    _EntityAccess.set_exhaustion_float(combatant, maxf(0.0, cur - CombatConstants.EXHAUSTION_RECOVERY_RATE * delta))
+    CombatantEntityAccess.set_exhaustion_float(
+        combatant, maxf(0.0, cur - CombatConstants.EXHAUSTION_RECOVERY_RATE * delta)
+    )
 
 
 ## UI gauge suffix text (empty when below **`EXHAUSTION_UI_SHOW_THRESHOLD`** or feature off).
 static func gauge_suffix_text(combatant: Dictionary) -> String:
     if not CombatConstants.is_feature_fight_exhaustion_enabled():
         return ""
-    var ex: float = _EntityAccess.exhaustion_float(combatant)
+    var ex: float = CombatantEntityAccess.exhaustion_float(combatant)
     if ex < CombatConstants.EXHAUSTION_UI_SHOW_THRESHOLD:
         return ""
     return "Exh %d%%" % int(roundf(ex * 100.0))
@@ -172,7 +170,7 @@ static func stamina_cap_tooltip_line(combatant: Dictionary) -> String:
 static func gauge_tooltip_line(combatant: Dictionary) -> String:
     if not CombatConstants.is_feature_fight_exhaustion_enabled():
         return ""
-    var ex: float = _EntityAccess.exhaustion_float(combatant)
+    var ex: float = CombatantEntityAccess.exhaustion_float(combatant)
     if ex < CombatConstants.EXHAUSTION_UI_SHOW_THRESHOLD:
         return ""
     var perf_pct: int = int(roundf(performance_mult_for_combatant(combatant) * 100.0))
@@ -205,11 +203,11 @@ static func _maybe_log_exhaustion_band_crossing(combatant: Dictionary, prev_ex: 
     combatant[CombatConstants.COMBATANT_KEY_EXHAUSTION_FP_BAND_LOGGED] = new_band
     var band_pct: int = int(roundf(_FP_COMBAT_BANDS[new_band] * 100.0))
     var perf_pct: int = int(roundf(performance_mult_for_combatant(combatant) * 100.0))
-    var who: String = _EntityAccess.get_display_name(combatant)
-    if _OperationalLog.play_session_is_editor_f5():
-        _F5SoakTrace.note_exhaustion_crossing(who, band_pct, new_ex * 100.0, perf_pct)
+    var who: String = CombatantEntityAccess.get_display_name(combatant)
+    if OperationalLog.play_session_is_editor_f5():
+        CombatF5SoakTrace.note_exhaustion_crossing(who, band_pct, new_ex * 100.0, perf_pct)
     else:
-        _CombatDebug.combat_session(
+        CombatDebug.combat_session(
             "exhaustion %s crossed %d%% (index %.0f%% perf %d%%)" % [who, band_pct, new_ex * 100.0, perf_pct]
         )
 
@@ -218,14 +216,14 @@ static func _medical_exertion_gain_mult(manager: Node, combatant: Dictionary) ->
     var mult: float = 1.0
     var entity: Node = null
     if manager != null:
-        entity = _EntityAccess.get_health_entity_from_node(manager, _EntityAccess.scene_node(combatant))
+        entity = CombatantEntityAccess.get_health_entity_from_node(manager, CombatantEntityAccess.scene_node(combatant))
     else:
-        entity = _EntityAccess.scene_node(combatant)
+        entity = CombatantEntityAccess.scene_node(combatant)
     if entity == null:
         return mult
     if "blood_volume" in entity:
         var blood: float = entity.blood_volume
-        if blood < _PainConscious.BLOOD_CONSCIOUSNESS_START_THRESHOLD:
+        if blood < PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_START_THRESHOLD:
             mult *= CombatConstants.EXHAUSTION_GAIN_BLOOD_LOSS_MULT
     if "_pain_shock_until_time" in entity:
         var now: float = Time.get_ticks_msec() / 1000.0

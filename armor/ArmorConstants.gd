@@ -3,11 +3,9 @@ extends RefCounted
 
 ## Armor piece definitions, layer config, material properties constants.
 
-const _Combat := preload("res://combat/CombatConstants.gd")
-
 # Damage types (canonical in CombatConstants)
-const DAMAGE_TYPE_SHARP: String = _Combat.DAMAGE_TYPE_SHARP
-const DAMAGE_TYPE_BLUNT: String = _Combat.DAMAGE_TYPE_BLUNT
+const DAMAGE_TYPE_SHARP: String = CombatConstants.DAMAGE_TYPE_SHARP
+const DAMAGE_TYPE_BLUNT: String = CombatConstants.DAMAGE_TYPE_BLUNT
 
 # Armor layer dict keys (canonical strings  -  use ARMOR_LAYER_KEY_*, not literals)
 const ARMOR_LAYER_KEY_DURABILITY := "durability"
@@ -19,12 +17,15 @@ const DEFAULT_ARMOR_LAYER_BLUNT_CUSHION := 0.0
 const ARMOR_LAYER_KEY_RIGIDITY := "rigidity"
 const DEFAULT_ARMOR_LAYER_RIGIDITY := 0.0
 
-# Armor: sharp penetration vs resistance; blunt transmission (no penetration). Durability loss per layer from absorbed damage.
+# Armor: sharp penetration vs resistance; blunt transmission (no penetration). Durability loss per layer from absorbed
+# damage.
 const PENETRATION_DAMAGE_REDUCTION_MAX: float = 0.5
 const DURABILITY_LOSS_RATE: float = 0.1
 
 # Durability: no wear unless absorbed damage meets a minimum. Sharp term: max(flat, sharp_resistance_rha_mm * ratio).
-# For blunt-origin absorbed damage, add (1 - blunt_transmission) * BLUNT_DURABILITY_THRESHOLD_RATIO so layers that absorb more blunt (padding) require more absorbed damage before wearing (research: energy absorption and degradation linked; padding designed to absorb repeated small blows).
+# For blunt-origin absorbed damage, add (1 - blunt_transmission) * BLUNT_DURABILITY_THRESHOLD_RATIO so layers that
+# absorb more blunt (padding) require more absorbed damage before wearing (research: energy absorption and degradation
+# linked; padding designed to absorb repeated small blows).
 const DURABILITY_MIN_DAMAGE_FLAT: float = 0.5
 const DURABILITY_MIN_DAMAGE_RATIO: float = 0.05
 const BLUNT_DURABILITY_THRESHOLD_RATIO: float = 0.5
@@ -32,7 +33,8 @@ const BLUNT_DURABILITY_THRESHOLD_RATIO: float = 0.5
 # --- Generic layer stats (cloth, leather, mail, plate only) ---
 # Sharp resistance: mm RHA equivalent. Nonlinear pen = (KE/55)^0.6 - -  area_factor (Williams).
 # Blunt: transmission-only (no penetration check). Durability uses sharp_resistance_rha_mm and blunt_transmission.
-# Sharp deflect transmission: fraction of damage that becomes blunt when sharp is stopped by layer (plate transmits more, cloth absorbs).
+# Sharp deflect transmission: fraction of damage that becomes blunt when sharp is stopped by layer (plate transmits
+# more, cloth absorbs).
 # Blunt transmission: fraction of blunt damage that passes through layer (transmission-only; no penetration).
 # Durability: wear per damage absorbed; cloth tears fastest, plate lasts. See ARMOR_VALUES_PHYSICS_RESEARCH.md.
 
@@ -56,7 +58,8 @@ const BLUNT_AREA_FACTOR_WARN_MAX: float = 5.0
 const BLUNT_TRANSMISSION_WARN_MIN: float = 0.0
 const BLUNT_TRANSMISSION_WARN_MAX: float = 1.0
 
-# rigidity 0 - 1: area coupling for blunt. Rigid (plate) transmits more with large contact (mace); flexible (cloth) no effect.
+# rigidity 0 - 1: area coupling for blunt. Rigid (plate) transmits more with large contact (mace); flexible (cloth) no
+# effect.
 # Cloth: gambeson padding, leg wraps, coif. Williams: 50 J for 16 layers linen. pen=(50/55)^0.6 ' 0.9 mm.
 const LAYER_CLOTH: Dictionary = {
     "sharp_resistance_rha_mm": 0.9,
@@ -100,6 +103,7 @@ const LAYER_PLATE: Dictionary = {
     "sharp_deflect_transmission": 0.46,
     "mass_kg": 4.85
 }
+const DEFAULT_PENETRATION_SHARP: float = 5.0
 
 
 # --- Armor piece definitions: one piece per body part, built from cloth/leather/mail/plate only ---
@@ -185,6 +189,4 @@ static func _piece_definitions_build() -> Dictionary:
         {"name": "Leather Greaves (L)", "body_part": "left_leg", "layers": [LAYER_LEATHER.duplicate()]}
     }
 
-
 # Default penetration when no weapon is specified (strength-scaled later)
-const DEFAULT_PENETRATION_SHARP: float = 5.0

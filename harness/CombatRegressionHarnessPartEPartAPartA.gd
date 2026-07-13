@@ -1,0 +1,2 @@
+class_name CombatRegressionHarnessPartEPartAPartA
+extends CombatRegressionHarnessPartEPartAPartAPartB

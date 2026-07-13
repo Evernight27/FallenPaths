@@ -1,16 +1,14 @@
 class_name CombatantStatsSync
 extends RefCounted
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-
 # Runtime preload '" circular dependency (CompanyState |' CampaignEncounterBridge |' CombatantStatsSync).
-static var _CompanyState: Variant = null
+static var _company_state: Variant = null
 
 
 static func _get_company_state() -> GDScript:
-    if CombatantStatsSync._CompanyState == null:
-        CombatantStatsSync._CompanyState = load("res://world/CompanyState.gd")
-    return CombatantStatsSync._CompanyState
+    if CombatantStatsSync._company_state == null:
+        CombatantStatsSync._company_state = load("res://world/CompanyState.gd")
+    return CombatantStatsSync._company_state
 
 
 ## Syncs entity health/combat stats into a combatant stats dictionary.
@@ -18,7 +16,8 @@ static func _get_company_state() -> GDScript:
 ## Ensures single source of truth for entity--''stats copy logic.
 
 
-## Copies core body/stats fields from entity to stats dict. Shared by sync_from_entity and sync_from_entity_for_register.
+## Copies core body/stats fields from entity to stats dict. Shared by sync_from_entity and
+## sync_from_entity_for_register.
 static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
     # Body parts (no proficiency involvement)
     if "body_cutting" in entity:
@@ -47,7 +46,8 @@ static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
         stats.perception = _apply_prof_bonus(entity, "perception", entity.perception, prof_active)
 
 
-## Applies proficiency bonus to a single stat value. Returns raw value when stub is off or entity lacks proficiency data.
+## Applies proficiency bonus to a single stat value. Returns raw value when stub is off or entity lacks proficiency
+## data.
 static func _apply_prof_bonus(entity: Node, stat_key: String, base_value: Variant, prof_active: bool) -> int:
     if not prof_active:
         return int(base_value)
@@ -65,12 +65,12 @@ static func sync_from_entity(entity: Node, stats: Dictionary, ensure_consciousne
     if ensure_consciousness and entity.has_method("ensure_consciousness_current"):
         entity.ensure_consciousness_current()
     _copy_core_stats(entity, stats)
-    stats.blood_volume = _EntityAccess.get_blood_volume_from_node(entity)
-    stats.total_bleeding_rate = _EntityAccess.get_total_bleeding_rate_from_node(entity)
-    if entity.has_method("get_total_pain"):
-        stats.total_pain = entity.get_total_pain()
-    if entity.has_method("get_effective_consciousness"):
-        stats.effective_consciousness = entity.get_effective_consciousness()
+    stats.blood_volume = CombatantEntityAccess.get_blood_volume_from_node(entity)
+    stats.total_bleeding_rate = CombatantEntityAccess.get_total_bleeding_rate_from_node(entity)
+    if entity.has_method("_get_total_pain"):
+        stats.total_pain = entity._get_total_pain()
+    if entity.has_method("_get_effective_consciousness"):
+        stats.effective_consciousness = entity._get_effective_consciousness()
     if entity.has_method("get_performance_modifier"):
         stats.performance_modifier = entity.get_performance_modifier()
 

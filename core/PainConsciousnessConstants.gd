@@ -3,8 +3,6 @@ extends RefCounted
 
 ## Pain scale multipliers by body part and sub-region; consciousness thresholds.
 
-const _Bp := preload("res://core/BodyPartConstants.gd")
-
 # Pain and consciousness (Combat Extended - style), adjusted for fallen-paths action-bar combat.
 # Used by CoreEntity and CombatManager for gauge fill, hit chance, and incapacitation.
 
@@ -14,7 +12,8 @@ const _Bp := preload("res://core/BodyPartConstants.gd")
 const USE_NORMALIZED_PAIN: bool = true  # Method B = canonical implementation
 
 # --- Method A: Reference-based thresholds (when USE_NORMALIZED_PAIN = false) ---
-# PAIN_REFERENCE = typical pain from 1 moderate hit. Thresholds = NRS - -  PAIN_PER_NRS. Update when damage scale changes.
+# PAIN_REFERENCE = typical pain from 1 moderate hit. Thresholds = NRS - -  PAIN_PER_NRS. Update when damage scale
+# changes.
 const PAIN_REFERENCE_MODERATE_HIT: float = 6.0
 const PAIN_PER_NRS_POINT: float = 3.0  # total_pain / this 'permille^ NRS; research: NRS 4 = first effect
 const PAIN_MODERATE: float = PAIN_REFERENCE_MODERATE_HIT * 2.0  # ~12: ~2 moderate hits
@@ -32,7 +31,8 @@ const NRS_SEVERE: float = 8.0
 const NRS_INTOLERABLE: float = 10.0
 const NRS_SHOCK: float = 7.0
 # END slope: how much endurance shifts the pain shock threshold per point above 100.
-# +50 END -> +1.0 shock threshold (7->8, ~14% increase on base). Realistic: well-conditioned individuals have higher pain tolerance but pain is neurological, not purely muscular.
+# +50 END -> +1.0 shock threshold (7->8, ~14% increase on base). Realistic: well-conditioned individuals have higher
+# pain tolerance but pain is neurological, not purely muscular.
 const ENDURANCE_PAIN_SHOCK_SLOPE_PER_POINT: float = 0.02
 const PAIN_SHOCK_RISK_PER_POINT_NORMALIZED: float = 0.15  # (effective - 7) * 0.15; 1 over = 15% risk
 # Ambient (sustained pain) shock: periodic roll in combat when effective pain stays above threshold (no new hit).
@@ -43,7 +43,8 @@ const PAIN_SHOCK_AMBIENT_RISK_MULT: float = 0.35
 const PAIN_SHOCK_SUSCEPTIBILITY_MULT_LOW: float = 0.8  # at/below NRS_FIRST_EFFECT
 const PAIN_SHOCK_SUSCEPTIBILITY_MULT_HIGH: float = 1.2  # at/above NRS_SEVERE
 
-# --- Pain -> performance modifier (action bar fill, hit chance, wind-up, etc). Research-aligned; pain impairs function. ---
+# --- Pain -> performance modifier (action bar fill, hit chance, wind-up, etc). Research-aligned; pain impairs function.
+# ---
 const PAIN_PERFORMANCE_NONE: float = 0.0
 const PAIN_PERFORMANCE_MINOR: float = 0.08  # -8% (NRS 4 - 6: first functional impairment)
 const PAIN_PERFORMANCE_MODERATE: float = 0.20  # -20% (NRS 6 - 8: moderate impairment)
@@ -60,18 +61,27 @@ const MOBILITY_FLEE_THRESHOLD: float = 0.2
 # Below START: consciousness modifier ramps down; at FLOOR (death threshold) modifier = 1.0 - REDUCTION_MAX.
 # See BLOOD_LOSS_CONSCIOUSNESS_RESEARCH.md.
 const BLOOD_CONSCIOUSNESS_START_THRESHOLD: float = 85.0  # No effect above this (Class I: <15% lost)
-const BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD: float = 35.0  # Max reduction at/below this (align with BLOOD_LOSS_DEATH_THRESHOLD)
+# Max reduction at/below this (align with BLOOD_LOSS_DEATH_THRESHOLD)
+const BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD: float = 35.0
 const BLOOD_CONSCIOUSNESS_REDUCTION_MAX: float = 0.5  # At floor: modifier = 0.5 (50% of base)
 
 # --- Pain shock (temporary; reduces effective consciousness for combat, not incapacitation). ---
-# Research: Lighter impacts cause brief grogginess; more severe single impacts cause longer confusion/disorientation (Frontiers Neurology 2020, concussion/TBI). Acute stress reaction and traumatic shock duration scale with severity of the triggering insult (ATLS, StatPearls). Duration therefore scales with both cumulative pain and the impact of the move that triggered the shock.
+# Research: Lighter impacts cause brief grogginess; more severe single impacts cause longer confusion/disorientation
+# (Frontiers Neurology 2020, concussion/TBI). Acute stress reaction and traumatic shock duration scale with severity of
+# the triggering insult (ATLS, StatPearls). Duration therefore scales with both cumulative pain and the impact of the
+# move that triggered the shock.
 const PAIN_SHOCK_DURATION_BASE: float = 5.0  # base duration seconds; scaled by pain level and impact
-const PAIN_SHOCK_CONSCIOUSNESS_REDUCTION: float = 50.0  # -50% effective consciousness while in shock (acute stress impairs but does not obliterate function; combined with blood loss/head trauma can approach ~70-80% total reduction)
+# -50% effective consciousness while in shock (acute stress impairs but does not obliterate function; combined with
+# blood loss/head trauma can approach ~70-80% total reduction)
+const PAIN_SHOCK_CONSCIOUSNESS_REDUCTION: float = 50.0
 ## Cooldown between ambient pain shock triggers (prevents repeated re-entry during sustained high pain).
 const PAIN_SHOCK_AMBIENT_COOLDOWN_S: float = 15.0
-# Impact scaling: larger single hit -> longer shock (mechanoporation / acute stress magnitude). Reference damage for 1.0x impact factor; bigger hits multiply duration up to IMPACT_MAX_MULTIPLIER.
-const PAIN_SHOCK_DURATION_IMPACT_REFERENCE: float = 10.0  # damage of triggering hit vs this (e.g. 10 -> 1.0x, 20 -> 2.0x until cap)
-const PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER: float = 2.0  # max duration multiplier from impact (e.g. 2.0 = double duration for a heavy blow)
+# Impact scaling: larger single hit -> longer shock (mechanoporation / acute stress magnitude). Reference damage for
+# 1.0x impact factor; bigger hits multiply duration up to IMPACT_MAX_MULTIPLIER.
+# damage of triggering hit vs this (e.g. 10 -> 1.0x, 20 -> 2.0x until cap)
+const PAIN_SHOCK_DURATION_IMPACT_REFERENCE: float = 10.0
+# max duration multiplier from impact (e.g. 2.0 = double duration for a heavy blow)
+const PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER: float = 2.0
 
 # --- Performance floor (action bar and hit chance never below this). ---
 const MIN_PERFORMANCE_MODIFIER: float = 0.35
@@ -82,22 +92,22 @@ const SEVERITY_PAIN_MULTIPLIERS: Dictionary = {"minor": 0.5, "moderate": 1.0, "s
 # --- Body part pain multipliers (cortical representation + clinical pain salience). ---
 # Head/face/chest more salient; hands high; limbs baseline; feet lower. Research: somatosensory homunculus, wound pain.
 const BODY_PART_PAIN_MULTIPLIERS: Dictionary = {
-    _Bp.PART_HEAD: 1.4,
-    _Bp.PART_CHEST: 1.25,
-    _Bp.PART_RIGHT_ARM: 1.0,
-    _Bp.PART_LEFT_ARM: 1.0,
-    _Bp.PART_RIGHT_LEG: 0.95,
-    _Bp.PART_LEFT_LEG: 0.95
+    BodyPartConstants.PART_HEAD: 1.4,
+    BodyPartConstants.PART_CHEST: 1.25,
+    BodyPartConstants.PART_RIGHT_ARM: 1.0,
+    BodyPartConstants.PART_LEFT_ARM: 1.0,
+    BodyPartConstants.PART_RIGHT_LEG: 0.95,
+    BodyPartConstants.PART_LEFT_LEG: 0.95
 }
 
 # --- Sub-region pain multipliers (hand, face, neck higher; foot lower). ---
 const SUB_REGION_PAIN_MULTIPLIERS: Dictionary = {
-    _Bp.PART_HEAD: {"scalp": 1.3, "face": 1.4, "neck": 1.35},
-    _Bp.PART_CHEST: {"thoracic": 1.2, "abdominal": 1.15},
-    _Bp.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
-    _Bp.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
-    _Bp.PART_RIGHT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9},
-    _Bp.PART_LEFT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9}
+    BodyPartConstants.PART_HEAD: {"scalp": 1.3, "face": 1.4, "neck": 1.35},
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.2, "abdominal": 1.15},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9}
 }
 
 # --- Injury type pain multipliers (fracture/crush often more debilitating than cut). ---
@@ -187,7 +197,8 @@ static func get_combined_performance_modifier(total_pain: float, consciousness: 
     return maxf(MIN_PERFORMANCE_MODIFIER, pain_mod * cons_mod)
 
 
-# Duration (seconds) for pain shock: base * (pain/threshold) * impact_mult. Impact = total damage of the hit that triggered the roll; 0 when shock triggered by bleed/healing (no single move).
+# Duration (seconds) for pain shock: base * (pain/threshold) * impact_mult. Impact = total damage of the hit that
+# triggered the roll; 0 when shock triggered by bleed/healing (no single move).
 # pain_value is either raw total_pain (Method A) or effective_pain (Method B).
 static func get_pain_shock_duration_seconds(pain_value: float, triggering_hit_damage: float) -> float:
     var thresh: float = get_pain_shock_threshold()

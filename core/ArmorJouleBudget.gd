@@ -2,25 +2,21 @@ class_name ArmorJouleBudget
 extends RefCounted
 
 ## Option A pilot: layer-wise KE budget aligned with `ArmorPiece` penetration/transmission (S6).
-## Gameplay scales pre-armor cut/blunt by sqrt(ke_remaining / strike_ke_j) when `CombatConstants.FEATURE_JOULE_ARMOR_BUDGET`.
+## Gameplay scales pre-armor cut/blunt by sqrt(ke_remaining / strike_ke_j) when
+## `CombatConstants.FEATURE_JOULE_ARMOR_BUDGET`.
 ## S10: when joule path is active, `EntityDamage` skips scalar `ArmorPiece.apply_damage` (no double absorption).
-
-const _ArmorConstants := preload("res://armor/ArmorConstants.gd")
-const _ArmorPiece := preload("res://armor/ArmorPiece.gd")
-const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
-const _CombatConstants := preload("res://combat/CombatConstants.gd")
 
 
 ## Delegates to ArmorPiece for sharp penetration math  -  single source of truth.
 static func _sharp_ke_through_layer(ke: float, pen_rha: float, layer: Dictionary) -> Dictionary:
-    return _ArmorPiece.sharp_penetration_math(pen_rha, layer, ke)
+    return ArmorPiece.sharp_penetration_math(pen_rha, layer, ke)
 
 
 ## Delegates to ArmorPiece for blunt transmission math  -  single source of truth.
 static func _blunt_ke_through_layer(
     ke: float, layer: Dictionary, blunt_momentum_per_area: float, blunt_contact_cm: float
 ) -> float:
-    return _ArmorPiece.blunt_transmission_math(ke, layer, blunt_momentum_per_area, blunt_contact_cm)
+    return ArmorPiece.blunt_transmission_math(ke, layer, blunt_momentum_per_area, blunt_contact_cm)
 
 
 static func account_ke_through_armor(
@@ -64,7 +60,7 @@ static func account_ke_through_armor(
 
 
 static func is_active(force_extras: bool = false) -> bool:
-    return force_extras or _CombatConstants.is_joule_armor_budget_active()
+    return force_extras or CombatConstants.is_joule_armor_budget_active()
 
 
 static func _full_transmission(strike_ke_j: float) -> Dictionary:

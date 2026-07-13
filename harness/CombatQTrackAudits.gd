@@ -2,16 +2,10 @@ class_name CombatQTrackAudits
 extends RefCounted
 
 ## Headless Track **Q** proxies (Q1 - Q4) vs **`.d001_soak_out.txt`**  -  writes **`.q_track_audits.txt`**.
-## Q4 **ii8** (`II8_CHECKS`): formation trace gates + WF **` . Form`** / **`[Ox]`** / suffix-order content from D-001 report  -  LIVE_PATHS **`#wf-soak-audit-status`** . **`#battle-ui`**.
+## Q4 **ii8** (`II8_CHECKS`): formation trace gates + WF **` . Form`** / **`[Ox]`** / suffix-order content from D-001
+## report  -  LIVE_PATHS **`#wf-soak-audit-status`** . **`#battle-ui`**.
 ## Entry: **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=q_track`) . **`run_q_feel.ps1 -Headless`**.
 
-const _TrackSpecs := preload("res://harness/CombatD001TrackSpecs.gd")
-const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
-const _Audit := preload("res://harness/CombatCalibrationAudit.gd")
-const _Research := preload("res://core/CombatResearchAnchors.gd")
-const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
-const _BloodVolumeMl := preload("res://core/BloodVolumeMl.gd")
-const _OperationalLog := preload("res://core/OperationalLog.gd")
 const RUNNER_NAME := "QTrackAudits"
 const OUT_PATH := "res://.q_track_audits.txt"
 const D001_PATH := "res://.d001_soak_out.txt"
@@ -33,7 +27,7 @@ const II8_CHECKS: Array = [
 
 static func run_headless() -> int:
     CombatConstants.set_headless_harness_quiet(true)
-    _OperationalLog.harness_begin(RUNNER_NAME)
+    OperationalLog.harness_begin(RUNNER_NAME)
     var lines: PackedStringArray = PackedStringArray()
     lines.append("=== Q track audits (headless proxies, no F5 sign-off) ===")
     lines.append("")
@@ -49,13 +43,13 @@ static func run_headless() -> int:
     print(text)
     var f := FileAccess.open(OUT_PATH, FileAccess.WRITE)
     if f == null:
-        _OperationalLog.harness_fail(RUNNER_NAME, PackedStringArray(["could not write %s" % OUT_PATH]))
+        OperationalLog.harness_fail(RUNNER_NAME, PackedStringArray(["could not write %s" % OUT_PATH]))
         return 1
     f.store_string(text)
     if boundary_fail:
-        _OperationalLog.harness_fail(RUNNER_NAME, PackedStringArray(["BOUNDARY_FAIL"]))
+        OperationalLog.harness_fail(RUNNER_NAME, PackedStringArray(["BOUNDARY_FAIL"]))
         return 1
-    _OperationalLog.harness_ok(RUNNER_NAME)
+    OperationalLog.harness_ok(RUNNER_NAME)
     return 0
 
 
@@ -79,23 +73,25 @@ static func _append_q2(lines: PackedStringArray) -> bool:
         _append_q2_worksheet_snapshot(lines)
         _append_q2_f5_subjective_checklist(lines)
         return true
-    var section: PackedStringArray = _TrackSpecs.d001_report_section_lines(d001, _SoakPresets.PRESET_II2B_SWORD_DUEL)
-    if not _TrackSpecs.d001_report_pass(d001, _SoakPresets.PRESET_II2B_SWORD_DUEL):
+    var section: PackedStringArray = CombatD001TrackSpecs.d001_report_section_lines(
+        d001, SoakEncounterPresets.PRESET_II2B_SWORD_DUEL
+    )
+    if not CombatD001TrackSpecs.d001_report_pass(d001, SoakEncounterPresets.PRESET_II2B_SWORD_DUEL):
         lines.append("  BOUNDARY_FAIL [ii2b] pass=false in d001 report")
         lines.append("")
         _append_q2_worksheet_snapshot(lines)
         _append_q2_f5_subjective_checklist(lines)
         return true
-    var field: String = _TrackSpecs.d001_report_field_line(section, "parry_stats deflect=")
-    var stats: Dictionary = _TrackSpecs.parry_stats_from_summary_line(field) if not field.is_empty() else {}
+    var field: String = CombatD001TrackSpecs.d001_report_field_line(section, "parry_stats deflect=")
+    var stats: Dictionary = CombatD001TrackSpecs.parry_stats_from_summary_line(field) if not field.is_empty() else {}
     if stats.is_empty():
         lines.append("  BOUNDARY_FAIL no parry_stats line in [ii2b] section")
         lines.append("")
         _append_q2_worksheet_snapshot(lines)
         _append_q2_f5_subjective_checklist(lines)
         return true
-    lines.append("  %s" % _TrackSpecs.parry_stats_summary_line(stats))
-    var plaus: PackedStringArray = _TrackSpecs.ii2b_plausibility_failures(stats)
+    lines.append("  %s" % CombatD001TrackSpecs.parry_stats_summary_line(stats))
+    var plaus: PackedStringArray = CombatD001TrackSpecs.ii2b_plausibility_failures(stats)
     if plaus.is_empty():
         lines.append("  ii2b_plausibility=pass (F5 timing feel still optional)")
     else:
@@ -110,10 +106,10 @@ static func _append_q2(lines: PackedStringArray) -> bool:
 static func _append_q2_fixture_checks(lines: PackedStringArray) -> bool:
     lines.append("  [fixtures]")
     var failures: PackedStringArray = PackedStringArray()
-    var good: Dictionary = _TrackSpecs.parry_stats_from_summary_line(
+    var good: Dictionary = CombatD001TrackSpecs.parry_stats_from_summary_line(
         "parry_stats deflect=4 bind=1 partial=7 riposte=5 counter_tempo=0 flurry_opened=1 flurry=1"
     )
-    if not _TrackSpecs.ii2b_plausibility_failures(good).is_empty():
+    if not CombatD001TrackSpecs.ii2b_plausibility_failures(good).is_empty():
         failures.append("balanced d001 sample should pass")
     var bind_heavy: Dictionary = {
         "parry_deflect": 1,
@@ -122,7 +118,7 @@ static func _append_q2_fixture_checks(lines: PackedStringArray) -> bool:
         "riposte_chain": 1,
         "flurry_bind_opened": 1,
     }
-    if _TrackSpecs.ii2b_plausibility_failures(bind_heavy).is_empty():
+    if CombatD001TrackSpecs.ii2b_plausibility_failures(bind_heavy).is_empty():
         failures.append("bind-heavy should fail")
     if failures.is_empty():
         lines.append("    plausibility_gates=ok")
@@ -160,14 +156,16 @@ static func _append_q3_ii5(lines: PackedStringArray) -> bool:
         lines.append("  BOUNDARY_FAIL missing .d001_soak_out.txt")
         lines.append("")
         return true
-    if not _TrackSpecs.d001_report_pass(d001, _SoakPresets.PRESET_II5_COWERING):
+    if not CombatD001TrackSpecs.d001_report_pass(d001, SoakEncounterPresets.PRESET_II5_COWERING):
         lines.append("  BOUNDARY_FAIL [ii5] pass=false")
         lines.append("")
         return true
-    var section: PackedStringArray = _TrackSpecs.d001_report_section_lines(d001, _SoakPresets.PRESET_II5_COWERING)
+    var section: PackedStringArray = CombatD001TrackSpecs.d001_report_section_lines(
+        d001, SoakEncounterPresets.PRESET_II5_COWERING
+    )
     var fail: bool = false
     for cid in II5_CHECKS:
-        if _TrackSpecs.d001_report_check_pass(section, cid):
+        if CombatD001TrackSpecs.d001_report_check_pass(section, cid):
             lines.append("  %s=pass" % cid)
         else:
             lines.append("  BOUNDARY_FAIL %s not PASS in d001 report" % cid)
@@ -184,19 +182,21 @@ static func _append_q3_ii4d(lines: PackedStringArray) -> bool:
         lines.append("  BOUNDARY_FAIL missing .d001_soak_out.txt")
         lines.append("")
         return true
-    if not _TrackSpecs.d001_report_pass(d001, _SoakPresets.PRESET_II4D_EXHAUSTION):
+    if not CombatD001TrackSpecs.d001_report_pass(d001, SoakEncounterPresets.PRESET_II4D_EXHAUSTION):
         lines.append("  BOUNDARY_FAIL [ii4d] pass=false")
         lines.append("")
         return true
-    var section: PackedStringArray = _TrackSpecs.d001_report_section_lines(d001, _SoakPresets.PRESET_II4D_EXHAUSTION)
+    var section: PackedStringArray = CombatD001TrackSpecs.d001_report_section_lines(
+        d001, SoakEncounterPresets.PRESET_II4D_EXHAUSTION
+    )
     var fail: bool = false
     for cid in II4D_CHECKS:
-        if _TrackSpecs.d001_report_check_pass(section, cid):
+        if CombatD001TrackSpecs.d001_report_check_pass(section, cid):
             lines.append("  %s=pass" % cid)
         else:
             lines.append("  BOUNDARY_FAIL %s not PASS in d001 report" % cid)
             fail = true
-    var ex_line: String = _TrackSpecs.d001_report_field_line(section, "exhaustion_stats")
+    var ex_line: String = CombatD001TrackSpecs.d001_report_field_line(section, "exhaustion_stats")
     if not ex_line.is_empty():
         lines.append("  %s" % ex_line)
     lines.append("  f5_only=3-5 min duel pacing (bands already headless)")
@@ -211,14 +211,16 @@ static func _append_q4_ii8(lines: PackedStringArray) -> bool:
         lines.append("  BOUNDARY_FAIL missing .d001_soak_out.txt")
         lines.append("")
         return true
-    if not _TrackSpecs.d001_report_pass(d001, _SoakPresets.PRESET_II8_FORMATION):
+    if not CombatD001TrackSpecs.d001_report_pass(d001, SoakEncounterPresets.PRESET_II8_FORMATION):
         lines.append("  BOUNDARY_FAIL [ii8] pass=false")
         lines.append("")
         return true
-    var section: PackedStringArray = _TrackSpecs.d001_report_section_lines(d001, _SoakPresets.PRESET_II8_FORMATION)
+    var section: PackedStringArray = CombatD001TrackSpecs.d001_report_section_lines(
+        d001, SoakEncounterPresets.PRESET_II8_FORMATION
+    )
     var fail: bool = false
     for cid in II8_CHECKS:
-        if _TrackSpecs.d001_report_check_pass(section, cid):
+        if CombatD001TrackSpecs.d001_report_check_pass(section, cid):
             lines.append("  %s=pass" % cid)
         else:
             lines.append("  BOUNDARY_FAIL %s not PASS in d001 report" % cid)
@@ -235,9 +237,9 @@ static func _append_q4_ii8(lines: PackedStringArray) -> bool:
 
 static func _append_q1_research_feel(lines: PackedStringArray) -> bool:
     lines.append("[Q1 research_feel]")
-    var graze: Dictionary = _Audit.f5_forearm_graze_metrics()
-    var chest: Dictionary = _Audit.f5_armored_chest_metrics()
-    var mace: Dictionary = _Audit.f5_mace_elbow_metrics()
+    var graze: Dictionary = CombatCalibrationAudit.f5_forearm_graze_metrics()
+    var chest: Dictionary = CombatCalibrationAudit.f5_armored_chest_metrics()
+    var mace: Dictionary = CombatCalibrationAudit.f5_mace_elbow_metrics()
     _log_q1_scenario(lines, "forearm_graze", graze, "right_arm", "forearm")
     _log_q1_scenario(lines, "armored_chest_bare", _q1_bare_row_from_chest(chest), "chest", "thoracic")
     _log_q1_scenario(lines, "armored_chest_plate", _q1_armored_row_from_chest(chest), "chest", "thoracic")
@@ -291,9 +293,10 @@ static func _log_q1_scenario(
 
 static func _append_q1_global_benchmarks(lines: PackedStringArray) -> void:
     lines.append("  [global_research_benchmarks]")
-    var ttd: float = _Research.clinical_ttd_seconds(1.0)
+    var ttd: float = CombatResearchAnchors.clinical_ttd_seconds(1.0)
     var ttd_ok: bool = (
-        ttd >= _Research.LITERATURE_TTD_UNTREATED_S_MIN and ttd <= _Research.LITERATURE_TTD_UNTREATED_S_MAX
+        ttd >= CombatResearchAnchors.LITERATURE_TTD_UNTREATED_S_MIN
+        and ttd <= CombatResearchAnchors.LITERATURE_TTD_UNTREATED_S_MAX
     )
     (
         lines
@@ -302,16 +305,17 @@ static func _append_q1_global_benchmarks(lines: PackedStringArray) -> void:
                 "    TTD_uncontrolled_s=%.1f band=%.0f-%.0f verdict=%s"
                 % [
                     ttd,
-                    _Research.LITERATURE_TTD_UNTREATED_S_MIN,
-                    _Research.LITERATURE_TTD_UNTREATED_S_MAX,
+                    CombatResearchAnchors.LITERATURE_TTD_UNTREATED_S_MIN,
+                    CombatResearchAnchors.LITERATURE_TTD_UNTREATED_S_MAX,
                     "pass" if ttd_ok else "FAIL",
                 ]
             )
         )
     )
-    var ke: float = _Research.committed_oberhau_ke_j()
+    var ke: float = CombatResearchAnchors.committed_oberhau_ke_j()
     var ke_ok: bool = (
-        ke >= _Research.LITERATURE_HEMA_COMMITTED_KE_J_MIN and ke <= _Research.LITERATURE_HEMA_COMMITTED_KE_J_MAX
+        ke >= CombatResearchAnchors.LITERATURE_HEMA_COMMITTED_KE_J_MIN
+        and ke <= CombatResearchAnchors.LITERATURE_HEMA_COMMITTED_KE_J_MAX
     )
     (
         lines
@@ -320,22 +324,25 @@ static func _append_q1_global_benchmarks(lines: PackedStringArray) -> void:
                 "    committed_oberhau_ke_J=%.0f band=%.0f-%.0f verdict=%s"
                 % [
                     ke,
-                    _Research.LITERATURE_HEMA_COMMITTED_KE_J_MIN,
-                    _Research.LITERATURE_HEMA_COMMITTED_KE_J_MAX,
+                    CombatResearchAnchors.LITERATURE_HEMA_COMMITTED_KE_J_MIN,
+                    CombatResearchAnchors.LITERATURE_HEMA_COMMITTED_KE_J_MAX,
                     "pass" if ke_ok else "FAIL",
                 ]
             )
         )
     )
-    var ml_max: float = _BloodVolumeMl.REFERENCE_BLOOD_VOLUME_ML_ADULT
-    var per_kg: float = _Research.blood_ml_per_kg_at_reference_mass(_DesignAnchors.REFERENCE_ADULT_MASS_KG)
+    var ml_max: float = BloodVolumeMl.REFERENCE_BLOOD_VOLUME_ML_ADULT
+    var per_kg: float = CombatResearchAnchors.blood_ml_per_kg_at_reference_mass(
+        CombatDesignAnchors.REFERENCE_ADULT_MASS_KG
+    )
     var ml_ok: bool = (
-        absf(per_kg - _Research.LITERATURE_BLOOD_ML_PER_KG_NOMINAL) <= _Research.LITERATURE_BLOOD_ML_PER_KG_TOLERANCE
+        absf(per_kg - CombatResearchAnchors.LITERATURE_BLOOD_ML_PER_KG_NOMINAL)
+        <= CombatResearchAnchors.LITERATURE_BLOOD_ML_PER_KG_TOLERANCE
     )
     lines.append(
         (
             "    blood_ml_max=%.0f ml_per_kg=%.1f want~%.0f verdict=%s"
-            % [ml_max, per_kg, _Research.LITERATURE_BLOOD_ML_PER_KG_NOMINAL, "pass" if ml_ok else "FAIL"]
+            % [ml_max, per_kg, CombatResearchAnchors.LITERATURE_BLOOD_ML_PER_KG_NOMINAL, "pass" if ml_ok else "FAIL"]
         )
     )
 

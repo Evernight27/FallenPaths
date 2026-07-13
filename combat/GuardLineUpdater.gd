@@ -4,13 +4,10 @@ extends RefCounted
 ## Updates combatant guard_line based on weapon use. Physics: blade ends where action ends.
 ## Outcome-dependent: parried blade ends deflected; hit blade ends in attack line; etc.
 ## Call whenever a weapon is used (attack completes, parry deflects, parry partial, etc).
-## Form home guard: **`CombatWeaponForm.assign_form`** -> **`set_guard_from_line(home)`** only at spawn/switch  -  see LIVE_PATHS **`#wf-assign-form-contract`**.
-## Mid-fight drift (focus, hit stagger, deflect, move finish) overrides soft home  -  Tier 4.4 parry step reads live **`guard_line`**, not form catalog  -  **`#wf-guard-writers`** . **`#wf-tier-44-pa`** (geometry).
-
-const _CombatDebug := preload("res://combat/CombatDebug.gd")
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _Attention := preload("res://combat/CombatAttention.gd")
-const _GuardLines := preload("res://combat/CombatGuardLines.gd")
+## Form home guard: **`CombatWeaponForm.assign_form`** -> **`set_guard_from_line(home)`** only at spawn/switch  -  see
+## LIVE_PATHS **`#wf-assign-form-contract`**.
+## Mid-fight drift (focus, hit stagger, deflect, move finish) overrides soft home  -  Tier 4.4 parry step reads live
+## **`guard_line`**, not form catalog  -  **`#wf-guard-writers`** . **`#wf-tier-44-pa`** (geometry).
 
 
 ## Sets combatant guard_line to deflected position (blade was knocked aside by parry).
@@ -19,7 +16,11 @@ const _GuardLines := preload("res://combat/CombatGuardLines.gd")
 ## Bind: parry_control high -> blade stays; else magnitude from alignment/severity.
 ## effective_line_override: use when available (e.g. diagonal roll); else from move.
 ## defender_guard_line: defender's guard at parry.
-## clash_context: optional {parry_control, severity (else derived from margin_ratio via `CombatConstants.parry_deflect_severity_from_margin_ratio`), attack_type (move_id), contact_type (stab|cut|blunt), defender_guard_line, alignment, attack_angle_deg, parry_time_to_react, parry_readiness, late_parry, parry_off_balance, margin_ratio, kinematic_delivery, strike_velocity_m_s, strike_kinetic_energy_j, strike_measure_ratio, ...} for HEMA bind/deflect / calibration.
+## clash_context: optional {parry_control, severity (else derived from margin_ratio via
+## `CombatConstants.parry_deflect_severity_from_margin_ratio`), attack_type (move_id), contact_type (stab|cut|blunt),
+## defender_guard_line, alignment, attack_angle_deg, parry_time_to_react, parry_readiness, late_parry,
+## parry_off_balance, margin_ratio, kinematic_delivery, strike_velocity_m_s, strike_kinetic_energy_j,
+## strike_measure_ratio, ...} for HEMA bind/deflect / calibration.
 static func set_guard_deflected(
     c: Dictionary,
     move_id: String,
@@ -76,7 +77,7 @@ static func set_guard_deflected(
         blend = 1.0 if line != atk_line else 0.0
     else:
         if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
-            line = _GuardLines.opposite_line(atk_line)
+            line = CombatGuardLines.opposite_line(atk_line)
         else:
             line = CombatConstants.DEFLECTED_GUARD_FROM_ATTACK.get(atk_line, atk_line)
         blend = 1.0
@@ -86,14 +87,14 @@ static func set_guard_deflected(
     c["guard_deflect_from_line"] = atk_line
     _sync_guard_zone_from_line(c, line)
     if CombatConstants.combat_debug_active():
-        var name_s: String = _EntityAccess.get_display_name(c)
+        var name_s: String = CombatantEntityAccess.get_display_name(c)
         var kind: String = "bind" if line == atk_line else "deflect"
         var angle_info: String = ""
         if not clash_context.is_empty() and clash_context.get("attack_angle_deg", null) is float:
             var atk_a: float = float(clash_context["attack_angle_deg"])
             var guard_a: float = clash_context.get("guard_angle_deg", CombatConstants.line_to_angle(def_guard))
             angle_info = " [atk=%.0f'deg guard=%.0f'deg]" % [atk_a, guard_a]
-        _CombatDebug.log(
+        CombatDebug.log(
             (
                 "guard_line %s: %s -> %s (%s from %s def_guard=%s blend=%.2f)%s"
                 % [name_s, prev, line, kind, atk_line, def_guard, blend, angle_info]
@@ -117,8 +118,8 @@ static func set_guard_from_move(c: Dictionary, move_id: String, effective_line_o
         c.erase("guard_deflect_from_line")
         _sync_guard_zone_from_line(c, line, true)
         if CombatConstants.combat_debug_active():
-            var name_s: String = _EntityAccess.get_display_name(c)
-            _CombatDebug.log("guard_line %s: %s -> %s (move=%s)" % [name_s, prev, line, move_id])
+            var name_s: String = CombatantEntityAccess.get_display_name(c)
+            CombatDebug.log("guard_line %s: %s -> %s (move=%s)" % [name_s, prev, line, move_id])
 
 
 ## Sets combatant guard_line directly from line (e.g. when we have effective_attack_line from diagonal roll).
@@ -132,8 +133,8 @@ static func set_guard_from_line(c: Dictionary, line: String) -> void:
     c.erase("guard_deflect_from_line")
     _sync_guard_zone_from_line(c, line, true)
     if CombatConstants.combat_debug_active():
-        var name_s: String = _EntityAccess.get_display_name(c)
-        _CombatDebug.log("guard_line %s: %s -> %s (from_line)" % [name_s, prev, line])
+        var name_s: String = CombatantEntityAccess.get_display_name(c)
+        CombatDebug.log("guard_line %s: %s -> %s (from_line)" % [name_s, prev, line])
 
 
 ## Keeps guard_zone consistent with guard_line when blade position changes from outcome.
@@ -141,7 +142,7 @@ static func _sync_guard_zone_from_line(c: Dictionary, line: String, sync_focus: 
     var part: String = CombatConstants.guard_zone_for_guard_line(line)
     if not part.is_empty():
         c["guard_zone"] = part
-        if sync_focus and _Attention.enabled():
-            _Attention.set_focus(c, part)
+        if sync_focus and CombatAttention.enabled():
+            CombatAttention.set_focus(c, part)
         elif str(c.get(CombatConstants.COMBATANT_KEY_FOCUS_PART, "")).is_empty():
-            _Attention.set_focus(c, part)
+            CombatAttention.set_focus(c, part)

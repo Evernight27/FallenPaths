@@ -1,23 +1,10 @@
 class_name CombatPlayerTurnHints
 extends RefCounted
 
-## Player `turn_ready` combat log / UI hints (action-list dependent). Display-only row hints live in **`CombatUiHints`**.
-## Footing: does **not** write **`guard_line`**, **`weapon_form`**, or PA offset -- gauge suffixes via **`BattleUIUpdater`**. LIVE_PATHS **`#battle-ui`**.
-
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _CounterTempo := preload("res://combat/CounterTempo.gd")
-const _ListedActions := preload("res://combat/CombatListedActions.gd")
-const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
-const _EngagementOpposition := preload("res://combat/EngagementOpposition.gd")
-const _MobilityRetreat := preload("res://combat/CombatMobilityRetreat.gd")
-const _UiHints := preload("res://combat/CombatUiHints.gd")
-const _FormationMoveDuration := preload("res://combat/CombatFormationMoveDuration.gd")
-const _FormationRout := preload("res://combat/CombatFormationRout.gd")
-const _FormationFlow := preload("res://combat/CombatFormationFlow.gd")
-const _EngagementMode := preload("res://combat/CombatEngagementMode.gd")
-const _BattleUIConstants := preload("res://ui/BattleUIConstants.gd")
-const _OperationalLog := preload("res://core/OperationalLog.gd")
-const _F5SoakTrace := preload("res://combat/CombatF5SoakTrace.gd")
+## Player `turn_ready` combat log / UI hints (action-list dependent). Display-only row hints live in
+## **`CombatUiHints`**.
+## Footing: does **not** write **`guard_line`**, **`weapon_form`**, or PA offset -- gauge suffixes via
+## **`BattleUIUpdater`**. LIVE_PATHS **`#battle-ui`**.
 
 
 static func clear_formation_listed_turn_hint_on_combatant(c: Dictionary) -> void:
@@ -29,7 +16,7 @@ static func clear_formation_listed_turn_hint_on_combatant(c: Dictionary) -> void
 
 ## One formation **`FP_COMBAT`** line: duration/menu summary + optional rout context when **`flee`** is listed.
 static func formation_and_rout_turn_ready_hint(manager: Node, c: Dictionary, actions: Array) -> String:
-    var form: String = _FormationMoveDuration.formation_turn_ready_ui_hint(actions)
+    var form: String = CombatFormationMoveDuration.formation_turn_ready_ui_hint(actions)
     if manager == null or c.is_empty():
         return form
     var rout: String = rout_hint_when_flee_listed(manager, c, actions)
@@ -41,7 +28,7 @@ static func formation_and_rout_turn_ready_hint(manager: Node, c: Dictionary, act
 
 
 static func _flee_action_display_label() -> String:
-    return str(_BattleUIConstants.FORMATION_ACTION_LABELS.get(CombatConstants.MOVE_ID_FLEE, "Flee"))
+    return str(BattleUIConstants.FORMATION_ACTION_LABELS.get(CombatConstants.MOVE_ID_FLEE, "Flee"))
 
 
 static func _formation_segment_is_flee(segment: String) -> bool:
@@ -94,45 +81,45 @@ static func sync_formation_listed_turn_hint_on_combatant(manager: Node, c: Dicti
 static func hold_line_focus_only_hint(manager: Node, c: Dictionary, actions: Array) -> String:
     if c.is_empty() or actions.is_empty():
         return ""
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return ""
-    var cid: int = _EntityAccess.id_int(c)
-    var fid: String = _EntityAccess.formation_id_str(c)
+    var cid: int = CombatantEntityAccess.id_int(c)
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
     if (
         manager != null
         and not fid.is_empty()
-        and _CombatDoctrine.envelop_mop_up_active(manager, fid)
-        and _ListedActions.action_list_has_hostile_melee_strike(actions, cid)
+        and CombatDoctrine.envelop_mop_up_active(manager, fid)
+        and CombatListedActions.action_list_has_hostile_melee_strike(actions, cid)
     ):
         return "Mop-up -- finish the last enemy with a listed strike."
     if (
         manager != null
-        and _CombatDoctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, cid)
-        and _ListedActions.action_list_has_hostile_melee_strike(actions, cid)
+        and CombatDoctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, cid)
+        and CombatListedActions.action_list_has_hostile_melee_strike(actions, cid)
     ):
         return "Line open after rout -- close in or strike; shuffle won't fill distant gaps."
-    if not _ListedActions.action_list_is_reserve_posture_only(actions):
+    if not CombatListedActions.action_list_is_reserve_posture_only(actions):
         return ""
     if (
         manager != null
         and not fid.is_empty()
-        and _CombatDoctrine.envelop_mop_up_active(manager, fid)
-        and _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
+        and CombatDoctrine.envelop_mop_up_active(manager, fid)
+        and CombatListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
     ):
         return "Mop-up -- finish the last enemy; close in or strike."
-    if _EntityAccess.rank_int(c) >= 1:
+    if CombatantEntityAccess.rank_int(c) >= 1:
         return "Back rank -- no front reach this turn; adjust guard focus lines only."
     if manager != null and _reserve_posture_needs_bind_close(manager, c, actions):
         return "Assigned foe out of reach -- close in to bind."
     if (
         manager != null
-        and _EngagementOpposition.wing_lacks_mapped_opposition(manager, c)
-        and _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
+        and EngagementOpposition.wing_lacks_mapped_opposition(manager, c)
+        and CombatListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
     ):
         return "Wing -- no mapped front; close in or adjust guard focus."
     if (
         manager != null
-        and _CombatDoctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, _EntityAccess.id_int(c))
+        and CombatDoctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, CombatantEntityAccess.id_int(c))
     ):
         return "Line open after rout -- close in or strike; shuffle won't fill distant gaps."
     return ""
@@ -142,15 +129,15 @@ static func hold_line_focus_only_hint(manager: Node, c: Dictionary, actions: Arr
 static func _reserve_posture_needs_bind_close(manager: Node, c: Dictionary, actions: Array) -> bool:
     if manager == null or c.is_empty() or actions.is_empty():
         return false
-    if _EntityAccess.rank_int(c) != 0:
+    if CombatantEntityAccess.rank_int(c) != 0:
         return false
-    if not _ListedActions.action_list_is_reserve_posture_only(actions):
+    if not CombatListedActions.action_list_is_reserve_posture_only(actions):
         return false
-    if not _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE):
+    if not CombatListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ATTEMPT_CLOSE):
         return false
-    if _ListedActions.action_list_has_hostile_melee_strike(actions, _EntityAccess.id_int(c)):
+    if CombatListedActions.action_list_has_hostile_melee_strike(actions, CombatantEntityAccess.id_int(c)):
         return false
-    return _EngagementOpposition.rank0_needs_bind_close_at_long(manager, c)
+    return EngagementOpposition.rank0_needs_bind_close_at_long(manager, c)
 
 
 static func sync_hold_line_focus_only_hint_on_combatant(manager: Node, c: Dictionary, actions: Array) -> void:
@@ -166,7 +153,7 @@ static func sync_hold_line_focus_only_hint_on_combatant(manager: Node, c: Dictio
 static func sync_controlling_close_turn_hint_on_combatant(manager: Node, c: Dictionary, actions: Array) -> void:
     if c.is_empty():
         return
-    var line: String = _UiHints.controlling_defender_close_hint_line(manager, c, actions)
+    var line: String = CombatUiHints.controlling_defender_close_hint_line(manager, c, actions)
     if line.is_empty():
         c.erase(CombatConstants.COMBATANT_KEY_CONTROLLING_CLOSE_TURN_HINT)
     else:
@@ -201,7 +188,7 @@ static func emit_turn_ready_hints(manager: Node, c: Dictionary, actions: Array) 
         manager.notify_combat_ui_hint(form_hint, false)
     var hold_hint: String = hold_line_focus_only_hint(manager, c, actions)
     if not hold_hint.is_empty():
-        _F5SoakTrace.note_mopup_hold_line_listed(c, hold_hint)
+        CombatF5SoakTrace.note_mopup_hold_line_listed(c, hold_hint)
         manager.notify_combat_ui_hint(hold_hint, false)
     var rout_early: String = rout_pressure_early_hint(manager, c, actions)
     if not rout_early.is_empty():
@@ -214,22 +201,22 @@ static func emit_turn_ready_hints(manager: Node, c: Dictionary, actions: Array) 
         manager.notify_combat_ui_hint(plug_fwd, false)
     var rotate_gap: String = skirmish_line_gap_rotate_hint(manager, c, actions)
     if not rotate_gap.is_empty() and hold_hint.is_empty():
-        _F5SoakTrace.note_mopup_hold_line_listed(c, rotate_gap)
+        CombatF5SoakTrace.note_mopup_hold_line_listed(c, rotate_gap)
         manager.notify_combat_ui_hint(rotate_gap, false)
     var wf_hint: String = _weapon_form_turn_ready_hint_if_applicable(c)
     if not wf_hint.is_empty():
         manager.notify_combat_ui_hint(wf_hint, false)
-    var close_ctrl_hint: String = _UiHints.controlling_defender_close_hint_line(manager, c, actions)
+    var close_ctrl_hint: String = CombatUiHints.controlling_defender_close_hint_line(manager, c, actions)
     if not close_ctrl_hint.is_empty():
-        _F5SoakTrace.note_controlling_close_listed(c, close_ctrl_hint)
+        CombatF5SoakTrace.note_controlling_close_listed(c, close_ctrl_hint)
         manager.notify_combat_ui_hint(close_ctrl_hint, false)
 
 
 ## Player-side spawn form identity (read-only -- no in-fight switch).
 static func _weapon_form_turn_ready_hint_if_applicable(c: Dictionary) -> String:
-    if c.is_empty() or not _EntityAccess.is_player_side(c):
+    if c.is_empty() or not CombatantEntityAccess.is_player_side(c):
         return ""
-    var line: String = _UiHints.weapon_form_tooltip_line(c)
+    var line: String = CombatUiHints.weapon_form_tooltip_line(c)
     if line.is_empty():
         return ""
     return line
@@ -239,7 +226,7 @@ static func _weapon_form_turn_ready_hint_if_applicable(c: Dictionary) -> String:
 static func formation_listed_moves_hint_if_applicable(manager: Node, c: Dictionary, actions: Array) -> String:
     if c.is_empty():
         return ""
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return ""
     return formation_and_rout_turn_ready_hint(manager, c, actions)
 
@@ -248,32 +235,37 @@ static func formation_listed_moves_hint_if_applicable(manager: Node, c: Dictiona
 static func rout_hint_when_flee_listed(manager: Node, c: Dictionary, actions: Array) -> String:
     if manager == null or c.is_empty():
         return ""
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return ""
     if manager.medical_phase:
         return ""
-    if _MobilityRetreat.formation_retreat_only_for(c):
+    if CombatMobilityRetreat.formation_retreat_only_for(c):
         return ""
-    return _FormationRout.rout_hint_when_flee_listed(manager, c, actions)
+    return CombatFormationRout.rout_hint_when_flee_listed(manager, c, actions)
 
 
 ## Player hint when the line is wavering but **`flee`** is not listed yet (p4f UX).
 static func rout_pressure_early_hint(manager: Node, c: Dictionary, actions: Array) -> String:
     if manager == null or c.is_empty() or actions.is_empty():
         return ""
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return ""
     if manager.medical_phase:
         return ""
-    if _MobilityRetreat.formation_retreat_only_for(c):
+    if CombatMobilityRetreat.formation_retreat_only_for(c):
         return ""
-    if _ListedActions.actions_include_self_target_move(actions, _EntityAccess.id_int(c), CombatConstants.MOVE_ID_FLEE):
+    if CombatListedActions.actions_include_self_target_move(
+        actions, CombatantEntityAccess.id_int(c), CombatConstants.MOVE_ID_FLEE
+    ):
         return ""
-    if not _FormationRout.formation_stressed_for_rout(manager, c):
+    if not CombatFormationRout.formation_stressed_for_rout(manager, c):
         return ""
-    if _FormationRout.side_holding_field(manager, c) and not _FormationRout.personal_rout_pressure(manager, c):
+    if (
+        CombatFormationRout.side_holding_field(manager, c)
+        and not CombatFormationRout.personal_rout_pressure(manager, c)
+    ):
         return ""
-    var line: String = _FormationRout.rout_pressure_tooltip_line(manager, c)
+    var line: String = CombatFormationRout.rout_pressure_tooltip_line(manager, c)
     if line.is_empty():
         return ""
     return "Line wavering -- %s" % line
@@ -283,20 +275,20 @@ static func rout_pressure_early_hint(manager: Node, c: Dictionary, actions: Arra
 static func front_gap_line_plug_hint(manager: Node, c: Dictionary, actions: Array) -> String:
     if manager == null or c.is_empty() or actions.is_empty():
         return ""
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return ""
     if manager.medical_phase:
         return ""
-    if _EntityAccess.rank_int(c) <= 0:
+    if CombatantEntityAccess.rank_int(c) <= 0:
         return ""
-    var fid: String = _EntityAccess.formation_id_str(c)
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
     if fid.is_empty():
         return ""
-    if not _FormationFlow.formation_line_has_rank0_gap(manager, fid):
+    if not CombatFormationFlow.formation_line_has_rank0_gap(manager, fid):
         return ""
-    if _FormationFlow.skirmish_line_sparse_after_casualties(manager, fid):
+    if CombatFormationFlow.skirmish_line_sparse_after_casualties(manager, fid):
         return ""
-    if not _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_SWAP_RANK):
+    if not CombatListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_SWAP_RANK):
         return ""
     return "Front gap -- swap up to fill the line."
 
@@ -305,27 +297,27 @@ static func front_gap_line_plug_hint(manager: Node, c: Dictionary, actions: Arra
 static func plug_forward_incap_partner_hint(manager: Node, c: Dictionary, actions: Array) -> String:
     if manager == null or c.is_empty() or actions.is_empty():
         return ""
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return ""
     if manager.medical_phase:
         return ""
-    if _EntityAccess.rank_int(c) <= 0:
+    if CombatantEntityAccess.rank_int(c) <= 0:
         return ""
-    if not _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_SWAP_RANK):
+    if not CombatListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_SWAP_RANK):
         return ""
-    var our_rank: int = _EntityAccess.rank_int(c)
+    var our_rank: int = CombatantEntityAccess.rank_int(c)
     for raw in actions:
         if raw is not Dictionary:
             continue
         var a: Dictionary = raw as Dictionary
         if a.get("move_id", "") != CombatConstants.MOVE_ID_SWAP_RANK:
             continue
-        var partner: Dictionary = _EntityAccess.manager_get_combatant_optional(manager, a.get("target_id", -1))
+        var partner: Dictionary = CombatantEntityAccess.manager_get_combatant_optional(manager, a.get("target_id", -1))
         if partner.is_empty():
             continue
-        if _EntityAccess.rank_int(partner) >= our_rank:
+        if CombatantEntityAccess.rank_int(partner) >= our_rank:
             continue
-        if not _EntityAccess.is_incapacitated(partner):
+        if not CombatantEntityAccess.is_incapacitated(partner):
             continue
         return "Partner down -- step up to hold the line."
     return ""
@@ -335,23 +327,23 @@ static func plug_forward_incap_partner_hint(manager: Node, c: Dictionary, action
 static func skirmish_line_gap_rotate_hint(manager: Node, c: Dictionary, actions: Array) -> String:
     if manager == null or c.is_empty() or actions.is_empty():
         return ""
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return ""
     if manager.medical_phase:
         return ""
-    if _EntityAccess.rank_int(c) != 0:
+    if CombatantEntityAccess.rank_int(c) != 0:
         return ""
-    if str(_EngagementMode.engagement_mode(manager)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
+    if str(CombatEngagementMode.engagement_mode(manager)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
         return ""
-    var fid: String = _EntityAccess.formation_id_str(c)
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
     if fid.is_empty():
         return ""
-    if not _FormationFlow.formation_has_rank0_hole(manager, fid):
+    if not CombatFormationFlow.formation_has_rank0_hole(manager, fid):
         return ""
-    var cid: int = _EntityAccess.id_int(c)
-    if _CombatDoctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, cid):
+    var cid: int = CombatantEntityAccess.id_int(c)
+    if CombatDoctrine.sparse_line_prefer_finish_over_shuffle(manager, c, actions, cid):
         return "Line open -- close or strike; adjacent shuffle won't fill distant gaps."
-    if not _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ROTATE_FILE):
+    if not CombatListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_ROTATE_FILE):
         return ""
     return "Line gap -- rotate with an adjacent file to tighten the front."
 
@@ -360,32 +352,32 @@ static func skirmish_line_gap_rotate_hint(manager: Node, c: Dictionary, actions:
 static func surround_arc_overlap_hint_if_applicable(manager: Node, c: Dictionary) -> String:
     if manager == null or c.is_empty():
         return ""
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return ""
-    return _UiHints.surround_arc_occupancy_tooltip_line(c, manager)
+    return CombatUiHints.surround_arc_occupancy_tooltip_line(c, manager)
 
 
 ## F5 soak (**#5**): mobile cowering with **`fall_back`** on the action list.
 static func _log_cowering_fall_back_listed_if_applicable(c: Dictionary, actions: Array) -> void:
-    if not _OperationalLog.is_play_session_active() or c.is_empty():
+    if not OperationalLog.is_play_session_active() or c.is_empty():
         return
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return
-    if _EntityAccess.state_str(c) != CombatConstants.STATE_COWERING:
+    if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_COWERING:
         return
-    if not _EntityAccess.can_flee_or_fall_back(c):
+    if not CombatantEntityAccess.can_flee_or_fall_back(c):
         return
-    var cid: int = _EntityAccess.id_int(c)
-    if not _MobilityRetreat.actions_include_self_target_move(actions, cid, CombatConstants.MOVE_ID_FALL_BACK):
+    var cid: int = CombatantEntityAccess.id_int(c)
+    if not CombatMobilityRetreat.actions_include_self_target_move(actions, cid, CombatConstants.MOVE_ID_FALL_BACK):
         return
-    _F5SoakTrace.note_cowering_fall_back_listed(_EntityAccess.get_display_name(c))
+    CombatF5SoakTrace.note_cowering_fall_back_listed(CombatantEntityAccess.get_display_name(c))
 
 
 ## F5 soak (**#7**): **`pack_wound`** on medical menu (grep before **`medical_pack_wound pick`**).
 static func _log_medical_pack_wound_listed_if_applicable(manager: Node, c: Dictionary, actions: Array) -> void:
-    if not _OperationalLog.is_play_session_active() or manager == null or c.is_empty():
+    if not OperationalLog.is_play_session_active() or manager == null or c.is_empty():
         return
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return
     if not manager.medical_phase:
         return
@@ -395,8 +387,8 @@ static func _log_medical_pack_wound_listed_if_applicable(manager: Node, c: Dicti
         var mid: String = entry.get("move_id", entry.get("id", "")).strip_edges()
         if mid != CombatConstants.MOVE_ID_PACK_WOUND:
             continue
-        _F5SoakTrace.note_medical_pack_listed(
-            _EntityAccess.get_display_name(c), entry.get("target_part", "").strip_edges()
+        CombatF5SoakTrace.note_medical_pack_listed(
+            CombatantEntityAccess.get_display_name(c), entry.get("target_part", "").strip_edges()
         )
         return
 
@@ -405,43 +397,46 @@ static func _log_medical_pack_wound_listed_if_applicable(manager: Node, c: Dicti
 static func cowering_retreat_hint_if_applicable(manager: Node, c: Dictionary, actions: Array) -> String:
     if manager == null or c.is_empty():
         return ""
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return ""
     if manager.medical_phase:
         return ""
-    if not _MobilityRetreat.formation_retreat_only_for(c):
+    if not CombatMobilityRetreat.formation_retreat_only_for(c):
         return ""
-    if not _EntityAccess.can_flee_or_fall_back(c):
+    if not CombatantEntityAccess.can_flee_or_fall_back(c):
         return ""
-    var cid: int = _EntityAccess.id_int(c)
-    var has_flee: bool = _MobilityRetreat.actions_include_self_target_move(actions, cid, CombatConstants.MOVE_ID_FLEE)
-    var has_fall_back: bool = _MobilityRetreat.actions_include_self_target_move(
+    var cid: int = CombatantEntityAccess.id_int(c)
+    var has_flee: bool = CombatMobilityRetreat.actions_include_self_target_move(
+        actions, cid, CombatConstants.MOVE_ID_FLEE
+    )
+    var has_fall_back: bool = CombatMobilityRetreat.actions_include_self_target_move(
         actions, cid, CombatConstants.MOVE_ID_FALL_BACK
     )
-    var has_wait: bool = _ListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_WAIT)
+    var has_wait: bool = CombatListedActions.actions_include_move_id(actions, CombatConstants.MOVE_ID_WAIT)
     if has_flee:
         return "No arms -- flee abandons the fight; fall back keeps you in formation if the rear rank is clear."
     if has_fall_back:
         return "No arms -- fall back is available (rear rank in your file must be clear)."
     if has_wait:
-        return "No arms -- holding position (fall back blocked: movement policy, line discipline, or rear rank occupied)."
+        return "No arms -- holding position (fall back blocked: movement policy, line discipline, or rear rank occupied"
+        ")."
     return ""
 
 
 ## Counter-tempo window with tagged melee listings.
 static func counter_tempo_hint_if_applicable(manager: Node, c: Dictionary, actions: Array) -> String:
-    if manager == null or c.is_empty() or not _CounterTempo.enabled():
+    if manager == null or c.is_empty() or not CounterTempo.enabled():
         return ""
-    if not _EntityAccess.is_player_side(c):
+    if not CombatantEntityAccess.is_player_side(c):
         return ""
     if manager.medical_phase:
         return ""
-    if _EntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
+    if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
         return ""
-    var tempo_ui: String = _UiHints.counter_tempo_hint_key(c, manager)
+    var tempo_ui: String = CombatUiHints.counter_tempo_hint_key(c, manager)
     if tempo_ui != "counter_ready" and tempo_ui != "counter_winding":
         return ""
-    if not _CounterTempo.actions_include_counter_tempo_tagged(actions):
+    if not CounterTempo.actions_include_counter_tempo_tagged(actions):
         return ""
     if tempo_ui == "counter_ready":
         return "Counter window open -- pick a melee action to seize tempo."

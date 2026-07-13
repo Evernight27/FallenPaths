@@ -3,16 +3,13 @@ extends RefCounted
 
 ## Retry tracking, --A"who can treat this ally--?, parts under ally wind-up, and overlap guards (listing + resolve).
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _Bleeding := preload("res://core/BleedingConstants.gd")
-
 
 static func track_failure_and_maybe_retry(
     _manager: Node, performer: Dictionary, target: Dictionary, part: String, target_cid: int
 ) -> void:
     if target == null:
         return
-    var failed: Array = _EntityAccess.nested_array_for_mutation(target, "failed_medical_parts")
+    var failed: Array = CombatantEntityAccess.nested_array_for_mutation(target, "failed_medical_parts")
     if part not in failed:
         failed.append(part)
     performer.pending_retry = {"target_id": target_cid, "part": part}
@@ -21,7 +18,7 @@ static func track_failure_and_maybe_retry(
 static func get_parts_being_treated_on(manager: Node, combatant_id: int) -> Array:
     var out: Array = []
     for other in manager.combatants:
-        if _EntityAccess.state_str(other) != CombatConstants.STATE_MEDICAL_WIND_UP:
+        if CombatantEntityAccess.state_str(other) != CombatConstants.STATE_MEDICAL_WIND_UP:
             continue
         var pm_raw: Variant = other.get("pending_medical", null)
         if pm_raw is not Dictionary:
@@ -41,9 +38,9 @@ static func get_active_windup_treatment_by_other(
     if manager == null or part.is_empty() or target_id < 0:
         return {}
     for other in manager.combatants:
-        if _EntityAccess.id_int(other) == exclude_performer_id:
+        if CombatantEntityAccess.id_int(other) == exclude_performer_id:
             continue
-        if _EntityAccess.state_str(other) != CombatConstants.STATE_MEDICAL_WIND_UP:
+        if CombatantEntityAccess.state_str(other) != CombatConstants.STATE_MEDICAL_WIND_UP:
             continue
         var pm_raw: Variant = other.get("pending_medical", null)
         if pm_raw is not Dictionary:
@@ -54,7 +51,7 @@ static func get_active_windup_treatment_by_other(
         if pm.get("target_part", "") != part:
             continue
         return {
-            "performer_id": _EntityAccess.id_int(other),
+            "performer_id": CombatantEntityAccess.id_int(other),
             "medical_id": pm.get("medical_id", ""),
         }
     return {}
@@ -67,16 +64,16 @@ static func is_part_under_treatment_by_other(manager: Node, performer_id: int, t
 static func part_has_compression_on(manager: Node, target: Dictionary, part: String) -> bool:
     if target.is_empty() or part.is_empty():
         return false
-    return _EntityAccess.entity_has_direct_pressure_on_part(manager, target, part)
+    return CombatantEntityAccess.entity_has_direct_pressure_on_part(manager, target, part)
 
 
 ## Second medic may stack assist only (no takeover) while primary holds compression or wind-up is active.
 static func can_stack_assist_pressure(manager: Node, performer_id: int, target_id: int, part: String) -> bool:
-    var performer: Dictionary = _EntityAccess.manager_get_combatant(manager, performer_id)
-    var target: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
+    var performer: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, performer_id)
+    var target: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
     if performer.is_empty() or target.is_empty():
         return false
-    return _EntityAccess.entity_stack_assist_pressure_eligible(manager, target, performer, part)
+    return CombatantEntityAccess.entity_stack_assist_pressure_eligible(manager, target, performer, part)
 
 
 ## Empty when allowed; otherwise a short reason for resolve reject / debug.
@@ -85,14 +82,14 @@ static func medical_action_coordination_blocked(
 ) -> String:
     if part.is_empty():
         return "empty_part"
-    var target: Dictionary = _EntityAccess.manager_get_combatant(manager, target_id)
+    var target: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
     if target.is_empty():
         return "missing_target"
     if CombatConstants.is_direct_pressure_move(move_id):
         if can_stack_assist_pressure(manager, performer_id, target_id, part):
             return ""
-        var bleed_r: float = _EntityAccess.entity_bleeding_rate_for_part(manager, target, part)
-        if bleed_r <= _Bleeding.BLEEDING_RATE_EPSILON:
+        var bleed_r: float = CombatantEntityAccess.entity_bleeding_rate_for_part(manager, target, part)
+        if bleed_r <= BleedingConstants.BLEEDING_RATE_EPSILON:
             return "no_active_bleed"
         if part_has_compression_on(manager, target, part):
             return "compression_already_held"
@@ -145,8 +142,8 @@ static func filter_ally_medical_actions(
     manager: Node, performer: Dictionary, ally: Dictionary, actions: Array
 ) -> Array:
     var out: Array = []
-    var performer_id: int = _EntityAccess.id_int(performer)
-    var ally_id: int = _EntityAccess.id_int(ally)
+    var performer_id: int = CombatantEntityAccess.id_int(performer)
+    var ally_id: int = CombatantEntityAccess.id_int(ally)
     for raw in actions:
         if raw is not Dictionary:
             continue

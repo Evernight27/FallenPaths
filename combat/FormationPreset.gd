@@ -3,10 +3,19 @@ extends RefCounted
 
 ## Builds formation presets for party and enemy. Used by CombatFlow, BattleScene, CombatManager.
 ## Preset: { files: int, ranks: int, density: String }  -  Option A: files = front-line count, ranks = depth.
-## Optional **discipline** (Tier 1.4): `line_discipline` (`CombatConstants.LINE_DISCIPLINE_*`; formation overrides encounter).
-## Optional **doctrine** (Tier 1.9): **`FORMATION_PRESET_KEY_DOCTRINE`** (`formation_doctrine`) or **`FORMATION_PRESET_KEY_DOCTRINE_ALT`** (`doctrine`) on the preset dict passed to **`CombatManager.start`**  -  overrides encounter doctrine for that side (after encounter canonical + alt read on **`start()`**). Optional **`FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS`** (`depth_polearm_ai_doctrine_mults`)  -  per-side depth-spear AI stab/cut doctrine multipliers; wins over encounter **`depth_polearm_ai_doctrine_mults_*`**. Optional **`FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX`** / **`FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN`**  -  rout gates merged at **`start()`** into **`CombatManager.rout_thresholds_by_fid`** (preset wins over encounter **`ENCOUNTER_KEY_FLEE_*`**).
+## Optional **discipline** (Tier 1.4): `line_discipline` (`CombatConstants.LINE_DISCIPLINE_*`; formation overrides
+## encounter).
+## Optional **doctrine** (Tier 1.9): **`FORMATION_PRESET_KEY_DOCTRINE`** (`formation_doctrine`) or
+## **`FORMATION_PRESET_KEY_DOCTRINE_ALT`** (`doctrine`) on the preset dict passed to **`CombatManager.start`**  -
+## overrides encounter doctrine for that side (after encounter canonical + alt read on **`start()`**). Optional
+## **`FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS`** (`depth_polearm_ai_doctrine_mults`)  -  per-side depth-spear AI
+## stab/cut doctrine multipliers; wins over encounter **`depth_polearm_ai_doctrine_mults_*`**. Optional
+## **`FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX`** / **`FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN`**  -  rout gates
+## merged at **`start()`** into **`CombatManager.rout_thresholds_by_fid`** (preset wins over encounter
+## **`ENCOUNTER_KEY_FLEE_*`**).
 ## Posture: `discipline_posture_*_delta` + hysteresis via `CombatFormationEngagement`. Movement: only `loose` allows
-## rank-0 solo `fall_back` into an empty same-file rear; `strict` / `normal` / empty use paired swap/drag/fall_back_pair only.
+## rank-0 solo `fall_back` into an empty same-file rear; `strict` / `normal` / empty use paired swap/drag/fall_back_pair
+## only.
 ## Fill order: rank 0 first (primary melee), then rank 1, etc. See FORMATION_FILE_DENSITY_SURVIVABILITY_INVESTIGATION.
 ## Density spacing: tight->compact UI, normal->default, loose->wide.
 
@@ -23,7 +32,8 @@ const SPACING_LOOSE_PX := 28
 const RANK_VS_FILE_SPACING_RATIO := 0.65
 
 
-## Returns preset dict. Default: front line up to `CombatConstants.FORMATION_MAX_FRONT_FILES_DEFAULT`, ranks = ceil(n/files).
+## Returns preset dict. Default: front line up to `CombatConstants.FORMATION_MAX_FRONT_FILES_DEFAULT`, ranks =
+## ceil(n/files).
 ## Count is clamped to `CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP`. Use for_front_count for an explicit front width.
 static func default_for_count(count: int, density: String = DENSITY_NORMAL) -> Dictionary:
     if count <= 0:

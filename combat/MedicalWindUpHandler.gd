@@ -2,6 +2,7 @@ class_name MedicalWindUpHandler
 extends RefCounted
 
 static var _entity_access_cache: Variant = null
+static var _company_state: Variant = null
 
 
 static func _get_entity_access() -> GDScript:
@@ -11,25 +12,18 @@ static func _get_entity_access() -> GDScript:
 
 
 # Runtime preload ' circular dependency (CompanyState |' CampaignEncounterBridge |' MedicalWindUpHandler).
-static var _CompanyState: Variant = null
 
 
 static func _get_company_state() -> GDScript:
-    if MedicalWindUpHandler._CompanyState == null:
-        MedicalWindUpHandler._CompanyState = load("res://world/CompanyState.gd")
-    return MedicalWindUpHandler._CompanyState
+    if MedicalWindUpHandler._company_state == null:
+        MedicalWindUpHandler._company_state = load("res://world/CompanyState.gd")
+    return MedicalWindUpHandler._company_state
 
-
-const _CombatDebug := preload("res://combat/CombatDebug.gd")
-const _Footwork := preload("res://combat/CombatFootwork.gd")
-const _Bridge := preload("res://world/CampaignEncounterBridge.gd")  # XCamp-4: medic action recording.
-const _Proficiency := preload("res://core/EntityProficiency.gd")
-const _CombatConstants := preload("res://combat/CombatConstants.gd")
-const _CombatConstantsMedical := preload("res://combat/CombatConstantsMedical.gd")
 
 ## Handles completion of medical wind-up: apply bandage/packing/tourniquet, emit outcome, track retry.
 ## Footing: medic **`clear_on_exchange_end`** before post-care **`STATE_RECOVERING`** - LIVE_PATHS **`#wf-tier-44-pa`**.
-## Manager must have: get_health_entity (via CombatantEntityAccess), _track_medical_failure_and_maybe_retry, emit_signal, get.
+## Manager must have: get_health_entity (via CombatantEntityAccess), _track_medical_failure_and_maybe_retry,
+## emit_signal, get.
 
 
 static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
@@ -47,7 +41,7 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
     # Only apply if target is still alive (may have died during wind-up)
     var tgt_alive: bool = not tgt_c.is_empty() and _get_entity_access().is_alive_in_combat(tgt_c)
     if not tgt_c.is_empty() and tgt_nd != null and tgt_alive and not part.is_empty():
-        var wind_raw: Variant = _CombatConstantsMedical.MEDICAL_WIND_UP_CONFIG.get(med_id, {})
+        var wind_raw: Variant = CombatConstantsMedical.MEDICAL_WIND_UP_CONFIG.get(med_id, {})
         var wind_up_cfg: Dictionary = wind_raw if wind_raw is Dictionary else {}
         var target_method: String = wind_up_cfg.get("target_method", "")
         if not target_method.is_empty():
@@ -91,12 +85,12 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
     if not tgt_c.is_empty() and tgt_cid != _get_entity_access().id_int(c):
         tgt_c.receiving_medical_count = max(0, tgt_c.get("receiving_medical_count", 0) - 1)
         if tgt_c.receiving_medical_count <= 0:
-            _Footwork.return_to_waiting(tgt_c)
+            CombatFootwork.return_to_waiting(tgt_c)
             tgt_c.gauge = 100.0
             tgt_c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
             if _get_entity_access().is_player_side(tgt_c):
                 manager.notify_turn_ready(tgt_cid)
-    _Footwork.clear_on_exchange_end(c)
+    CombatFootwork.clear_on_exchange_end(c)
     c.state = CombatConstants.STATE_RECOVERING
     c.state_timer = 0.0
     c.state_duration = med_rec_dur
@@ -134,13 +128,13 @@ static func _finish_medical_procedure(
     eff: float,
     wind_up_cfg: Dictionary
 ) -> void:
-    var tracked: bool = _CombatConstants.is_medical_target_method(target_method)
+    var tracked: bool = CombatConstants.is_medical_target_method(target_method)
     if tracked:
         var outcome: String = _outcome_for_medical_method(target_method, result, wind_up_cfg, med_id)
         var med_log: String = med_id
         if tgt_cid != _get_entity_access().id_int(c):
             med_log = "%s (ally)" % med_id
-        _CombatDebug.medical_session(
+        CombatDebug.medical_session(
             "Medical complete: %s %s on %s => %s, recovery %.1fs" % [who_m, med_log, part, outcome, med_rec_dur]
         )
         var self_id: int = _get_entity_access().id_int(c)
@@ -171,7 +165,7 @@ static func _finish_medical_procedure(
                 failed.remove_at(idx)
     elif result != false:
         var outcome: String = _outcome_for_medical_method(target_method, result, wind_up_cfg, med_id)
-        _CombatDebug.medical_session(
+        CombatDebug.medical_session(
             "Medical complete: %s %s on %s => recovery %.1fs" % [who_m, med_id, part, med_rec_dur]
         )
         manager.emit_signal(
@@ -198,25 +192,27 @@ static func _proficiency_medical_gains(
     # Determine item type from med_id for INT multiplier.
     var item_type: String = ""
     match med_id:
-        _CombatConstants.MOVE_ID_BANDAGE_SELF, _CombatConstants.MOVE_TARGET_APPLY_BANDAGE:
+        CombatConstants.MOVE_ID_BANDAGE_SELF, CombatConstants.MOVE_TARGET_APPLY_BANDAGE:
             item_type = "bandage"
-        _CombatConstants.MOVE_TARGET_APPLY_PACKING, _CombatConstants.MOVE_TARGET_APPLY_STABILIZE:
+        CombatConstants.MOVE_TARGET_APPLY_PACKING, CombatConstants.MOVE_TARGET_APPLY_STABILIZE:
             item_type = "pack"
-        _CombatConstants.MOVE_ID_APPLY_TOURNIQUET:
+        CombatConstants.MOVE_ID_APPLY_TOURNIQUET:
             item_type = CombatConstants.MEDICAL_ITEM_TOURNIQUET
 
-    var item_mult: float = _Proficiency.get_medical_item_mult(item_type)
-    var base_gain: float = _Proficiency.GAIN_MEDICAL_ACTION_BASE * item_mult
+    var item_mult: float = EntityProficiency.get_medical_item_mult(item_type)
+    var base_gain: float = EntityProficiency.GAIN_MEDICAL_ACTION_BASE * item_mult
 
     # INT gain for medic performing the action.
-    _Proficiency.award_stat_gain(perf_entity, "intelligence", base_gain)
+    EntityProficiency.award_stat_gain(perf_entity, "intelligence", base_gain)
 
     # Patient END gain (exposure to blood peril).
     if tgt_entity != null and "_proficiency_bonus" in tgt_entity:
-        _Proficiency.award_stat_gain(
-            tgt_entity, "endurance", _Proficiency.GAIN_BLOOD_PERIL_BASE * _Proficiency.GAIN_MEDICAL_PATIENT_END_MULT
+        EntityProficiency.award_stat_gain(
+            tgt_entity,
+            "endurance",
+            EntityProficiency.GAIN_BLOOD_PERIL_BASE * EntityProficiency.GAIN_MEDICAL_PATIENT_END_MULT
         )
 
     # Record this medic action for post-combat INT floor bonus (per-entity tracking).
     if world != null:
-        _Bridge.record_medic_action(world, perf_entity)
+        CampaignEncounterBridge.record_medic_action(world, perf_entity)

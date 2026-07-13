@@ -5,7 +5,8 @@ extends RefCounted
 ## Both modules can preload this file without creating a cycle.
 ## Other modules that need these constants should also preload CampaignTypes instead of the original files.
 
-# Default camp tile position on overworld grid (single source of truth  -  both CompanyState and CampaignEncounterBridge reference this).
+# Default camp tile position on overworld grid (single source of truth  -  both CompanyState and CampaignEncounterBridge
+# reference this).
 const DEFAULT_CAMP_TILE: Vector2i = Vector2i(0, 0)
 
 ## Default company mood value used when a member has no explicit mood entry (fallback for averages).

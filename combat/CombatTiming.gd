@@ -4,14 +4,13 @@ extends RefCounted
 ## Combat timing calculations: intensity, wind-up, recovery, velocity curve.
 ## Extracted from CombatManager for reuse by AttackResolver and other systems.
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
 
-
-## Formation move duration: heavier armor slows fall-back / swap / rotate (see **`FORMATION_ARMOR_*`** in **`CombatConstants`**).
+## Formation move duration: heavier armor slows fall-back / swap / rotate (see **`FORMATION_ARMOR_*`** in
+## **`CombatConstants`**).
 static func armor_mass_duration_multiplier_for_node(node: Node) -> float:
     if node == null:
         return 1.0
-    var m: float = _EntityAccess.get_total_armor_mass_kg_from_node(node)
+    var m: float = CombatantEntityAccess.get_total_armor_mass_kg_from_node(node)
     var ref: float = CombatConstants.FORMATION_ARMOR_MASS_REF_KG
     var t: float = clampf(m / ref, 0.0, 1.5)
     return lerpf(1.0, CombatConstants.FORMATION_ARMOR_MAX_SLOW_MULT, t)
@@ -23,7 +22,7 @@ static func now_seconds() -> float:
 
 
 static func intensity_from_stats(c: Dictionary) -> float:
-    var str_val: float = float(_EntityAccess.stats_dict(c).get("strength", CombatConstants.DEFAULT_STAT_VALUE))
+    var str_val: float = float(CombatantEntityAccess.stats_dict(c).get("strength", CombatConstants.DEFAULT_STAT_VALUE))
     var base: float = (
         0.2 + CombatConstants.INTENSITY_STRENGTH_SCALE * (str_val / CombatConstants.INTENSITY_STRENGTH_NORM)
     )
@@ -81,7 +80,8 @@ static func recovery_duration(
                 + (1.0 - sev) * CombatConstants.RECOVERY_GLANCING_SEVERITY_SCALE_S * commitment
             )
         "miss", "dodge":
-            # Commitment scales miss penalty: light stab whiff = short recovery; heavy overhead whiff = long (momentum carries you)
+            # Commitment scales miss penalty: light stab whiff = short recovery; heavy overhead whiff = long (momentum
+            # carries you)
             extra = (
                 CombatConstants.RECOVERY_EXTRA_MISS_BASE_S
                 + CombatConstants.RECOVERY_MISS_COMMITMENT_SCALE_S * commitment

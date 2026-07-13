@@ -3,20 +3,11 @@ extends RefCounted
 
 ## Tier 1.9 (P10): depth-rank spear/polearm lanes, line threat, low-target filtering, attack `pa` lane flags.
 
-const _DataKeys := preload("res://core/DataKeys.gd")
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _ZoneOfControl := preload("res://combat/ZoneOfControl.gd")
-const _FormationSlots := preload("res://combat/FormationSlots.gd")
-const _FileKeyedDict := preload("res://combat/CombatFileKeyedDict.gd")
-const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
-const _CombatDoctrine := preload("res://combat/CombatDoctrine.gd")
-const _Bp := preload("res://core/BodyPartConstants.gd")
-
 
 ## Host-line formation id for melee column / lane checks (same contract as **`zone_geometry_fid_str`**).
 static func actor_host_fid_for_melee_targeting(actor: Dictionary, manager: Variant = null) -> String:
     var mgr: Node = manager as Node if manager is Node else null
-    return _ZoneOfControl.zone_geometry_fid_str(mgr, actor)
+    return ZoneOfControl.zone_geometry_fid_str(mgr, actor)
 
 
 ## Living same-file rank-0 ally on home formation (opens spear / polearm lane from depth).
@@ -24,21 +15,21 @@ static func same_file_living_rank0_ally(manager: Node, c: Dictionary, zone_geome
     if manager == null or c.is_empty():
         return {}
     var fid: String = (
-        zone_geometry_fid if not zone_geometry_fid.is_empty() else _ZoneOfControl.zone_geometry_fid_str(manager, c)
+        zone_geometry_fid if not zone_geometry_fid.is_empty() else ZoneOfControl.zone_geometry_fid_str(manager, c)
     )
     if fid.is_empty():
         return {}
-    var f: int = _EntityAccess.file_int(c)
+    var f: int = CombatantEntityAccess.file_int(c)
     for x in manager.combatants:
-        if not _EntityAccess.is_living_same_side(c, x):
+        if not CombatantEntityAccess.is_living_same_side(c, x):
             continue
-        if not _ZoneOfControl.combatant_on_zone_geometry_fid(manager, x, fid):
+        if not ZoneOfControl.combatant_on_zone_geometry_fid(manager, x, fid):
             continue
-        if _EntityAccess.rank_int(x) != 0:
+        if CombatantEntityAccess.rank_int(x) != 0:
             continue
-        if _EntityAccess.file_int(x) != f:
+        if CombatantEntityAccess.file_int(x) != f:
             continue
-        if _EntityAccess.is_incapacitated(x):
+        if CombatantEntityAccess.is_incapacitated(x):
             continue
         return x
     return {}
@@ -47,11 +38,11 @@ static func same_file_living_rank0_ally(manager: Node, c: Dictionary, zone_geome
 static func depth_polearm_lane_open(manager: Node, c: Dictionary, zone_geometry_fid: String = "") -> bool:
     if manager == null or c.is_empty():
         return false
-    if _EntityAccess.rank_int(c) <= 0:
+    if CombatantEntityAccess.rank_int(c) <= 0:
         return false
-    if _EntityAccess.get_attacking_arm(c).is_empty():
+    if CombatantEntityAccess.get_attacking_arm(c).is_empty():
         return false
-    var w: Variant = _EntityAccess.get_weapon(c)
+    var w: Variant = CombatantEntityAccess.get_weapon(c)
     if w == null or not (w is Weapon) or not (w as Weapon).depth_melee_eligible:
         return false
     return not same_file_living_rank0_ally(manager, c, zone_geometry_fid).is_empty()
@@ -60,11 +51,11 @@ static func depth_polearm_lane_open(manager: Node, c: Dictionary, zone_geometry_
 static func depth_polearm_threatens_line_target(front_rank0_ally: Dictionary, opp: Dictionary) -> bool:
     if front_rank0_ally.is_empty() or opp.is_empty():
         return false
-    if _EntityAccess.rank_int(front_rank0_ally) != 0 or _EntityAccess.rank_int(opp) != 0:
+    if CombatantEntityAccess.rank_int(front_rank0_ally) != 0 or CombatantEntityAccess.rank_int(opp) != 0:
         return false
-    if not _EntityAccess.is_living_hostile_to(front_rank0_ally, opp):
+    if not CombatantEntityAccess.is_living_hostile_to(front_rank0_ally, opp):
         return false
-    var df: int = absi(_EntityAccess.file_int(opp) - _EntityAccess.file_int(front_rank0_ally))
+    var df: int = absi(CombatantEntityAccess.file_int(opp) - CombatantEntityAccess.file_int(front_rank0_ally))
     return df <= int(CombatConstants.DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES)
 
 
@@ -79,7 +70,7 @@ static func depth_polearm_valid_line_threat(
         return false
     var fid: String = zone_geometry_fid
     if fid.is_empty():
-        fid = _ZoneOfControl.zone_geometry_fid_str(manager, attacker)
+        fid = ZoneOfControl.zone_geometry_fid_str(manager, attacker)
     var lane_open: bool = (
         bool(lane_open_known) if lane_open_known != null else depth_polearm_lane_open(manager, attacker, fid)
     )
@@ -94,14 +85,14 @@ static func depth_polearm_has_valid_line_threat_to_any_rank0_hostile(
 ) -> bool:
     if manager == null or attacker.is_empty() or combatants.is_empty():
         return false
-    var fid: String = _ZoneOfControl.zone_geometry_fid_str(manager, attacker)
+    var fid: String = ZoneOfControl.zone_geometry_fid_str(manager, attacker)
     var lane_open: bool = depth_polearm_lane_open(manager, attacker, fid)
     if not lane_open:
         return false
     for opp in combatants:
-        if not _EntityAccess.is_living_hostile_to(attacker, opp):
+        if not CombatantEntityAccess.is_living_hostile_to(attacker, opp):
             continue
-        if _EntityAccess.rank_int(opp) != 0:
+        if CombatantEntityAccess.rank_int(opp) != 0:
             continue
         if depth_polearm_valid_line_threat(manager, attacker, opp, fid, lane_open):
             return true
@@ -120,14 +111,12 @@ static func depth_polearm_lane_allows_low_targets(
     var fid_geom: String = (
         zone_geometry_fid
         if not zone_geometry_fid.is_empty()
-        else _ZoneOfControl.zone_geometry_fid_str(manager, attacker)
+        else ZoneOfControl.zone_geometry_fid_str(manager, attacker)
     )
     if not assume_depth_lane_open:
         if not depth_polearm_lane_open(manager, attacker, fid_geom):
             return true
-    var fd: Dictionary = _ZoneOfControl.formation_for_combatant_cached(
-        manager, attacker, formation_dict_cache, fid_geom
-    )
+    var fd: Dictionary = ZoneOfControl.formation_for_combatant_cached(manager, attacker, formation_dict_cache, fid_geom)
     var prof: String = CombatConstants.SPEAR_LANE_PROFILE_AUTO
     if not fd.is_empty():
         prof = CombatConstants.normalize_spear_lane_profile(
@@ -135,9 +124,9 @@ static func depth_polearm_lane_allows_low_targets(
         )
     if prof == CombatConstants.SPEAR_LANE_PROFILE_OPEN:
         return true
-    var fi: int = _EntityAccess.file_int(attacker)
-    var ls: Dictionary = _FormationSlots.formation_nested_dictionary_read(fd, "lane_stress_by_file")
-    var gap: float = clampf(float(_FileKeyedDict.get_value(ls, fi, 0.0)), 0.0, 1.0)
+    var fi: int = CombatantEntityAccess.file_int(attacker)
+    var ls: Dictionary = FormationSlots.formation_nested_dictionary_read(fd, "lane_stress_by_file")
+    var gap: float = clampf(float(CombatFileKeyedDict.get_value(ls, fi, 0.0)), 0.0, 1.0)
     var lane_stress_opens: bool = gap + 0.0001 >= float(CombatConstants.DEPTH_SPEAR_LANE_STRESS_OPEN_MIN)
     if prof == CombatConstants.SPEAR_LANE_PROFILE_RESTRICTED:
         return lane_stress_opens
@@ -159,21 +148,21 @@ static func depth_polearm_lane_allows_low_targets(
 
 ## Depth spear lane flags on attack **`pa`** (after pair geometry stamped).
 static func stamp_depth_flags_on_pa(manager: Node, atk: Dictionary, pa: Dictionary) -> void:
-    pa[_DataKeys.PA_DEPTH_POLEARM_ATTACK] = false
-    pa[_DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW] = true
+    pa[DataKeys.PA_DEPTH_POLEARM_ATTACK] = false
+    pa[DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW] = true
     pa["depth_polearm_lane_type"] = ""
-    if manager == null or atk.is_empty() or _EntityAccess.rank_int(atk) <= 0:
+    if manager == null or atk.is_empty() or CombatantEntityAccess.rank_int(atk) <= 0:
         return
-    var ctx_stamp: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, atk)
-    var fid_stamp: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_stamp)
+    var ctx_stamp: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, atk)
+    var fid_stamp: String = ZoneOfControl.zone_geometry_fid_from_pack(ctx_stamp)
     if not depth_polearm_lane_open(manager, atk, fid_stamp):
         return
-    pa[_DataKeys.PA_DEPTH_POLEARM_ATTACK] = true
-    var fd_stamp: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_stamp)
+    pa[DataKeys.PA_DEPTH_POLEARM_ATTACK] = true
+    var fd_stamp: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx_stamp)
     if not fd_stamp.is_empty():
         pa["zone_geometry_atk_density"] = str(fd_stamp.get("density", "normal"))
     var allow_low: bool = depth_polearm_lane_allows_low_targets(manager, atk, fid_stamp, fd_stamp, true)
-    pa[_DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW] = allow_low
+    pa[DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW] = allow_low
     pa["depth_polearm_lane_type"] = (
         CombatConstants.DEPTH_POLEARM_LANE_TYPE_OPEN
         if allow_low
@@ -186,24 +175,24 @@ static func depth_polearm_targetable_parts_filter(
 ) -> Array:
     if targetable.is_empty() or manager == null or attacker.is_empty():
         return targetable
-    if stamped_pa.has(_DataKeys.PA_DEPTH_POLEARM_ATTACK):
-        if stamped_pa.get(_DataKeys.PA_DEPTH_POLEARM_ATTACK, false) != true:
+    if stamped_pa.has(DataKeys.PA_DEPTH_POLEARM_ATTACK):
+        if stamped_pa.get(DataKeys.PA_DEPTH_POLEARM_ATTACK, false) != true:
             return targetable
-        if stamped_pa.get(_DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW, true):
+        if stamped_pa.get(DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW, true):
             return targetable
     else:
-        var ctx_filt: Dictionary = _ZoneOfControl.zone_geometry_line_context(manager, attacker)
-        var fid_filt: String = _ZoneOfControl.zone_geometry_fid_from_pack(ctx_filt)
+        var ctx_filt: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, attacker)
+        var fid_filt: String = ZoneOfControl.zone_geometry_fid_from_pack(ctx_filt)
         if not depth_polearm_lane_open(manager, attacker, fid_filt):
             return targetable
-        if _EntityAccess.rank_int(attacker) <= 0:
+        if CombatantEntityAccess.rank_int(attacker) <= 0:
             return targetable
-        var fd_filt: Dictionary = _ZoneOfControl.zone_geometry_formation_from_pack(ctx_filt)
+        var fd_filt: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx_filt)
         if depth_polearm_lane_allows_low_targets(manager, attacker, fid_filt, fd_filt, true):
             return targetable
     var out: Array = []
     for p in targetable:
-        if p == _Bp.PART_LEFT_LEG or p == _Bp.PART_RIGHT_LEG:
+        if p == BodyPartConstants.PART_LEFT_LEG or p == BodyPartConstants.PART_RIGHT_LEG:
             continue
         out.append(p)
     return out if not out.is_empty() else targetable
@@ -225,23 +214,23 @@ static func _depth_polearm_action_weight_mult_internal(
     if manager == null or c.is_empty():
         return 1.0
     var fid_depth: String = (
-        _ZoneOfControl.zone_geometry_fid_from_pack(actor_zone_geometry_line_context)
+        ZoneOfControl.zone_geometry_fid_from_pack(actor_zone_geometry_line_context)
         if not actor_zone_geometry_line_context.is_empty()
         else ""
     )
     if fid_depth.is_empty():
-        fid_depth = _ZoneOfControl.zone_geometry_fid_str(manager, c)
+        fid_depth = ZoneOfControl.zone_geometry_fid_str(manager, c)
     if not depth_polearm_lane_open(manager, c, fid_depth):
         return 1.0
     if not depth_polearm_has_valid_line_threat_to_any_rank0_hostile(manager, c, manager.combatants):
         return 1.0
     if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
         return CombatConstants.DEPTH_POLEARM_AI_ATTEMPT_CLOSE_MULT
-    var ct: String = _WeaponConstants.contact_type_for_move_id(move_id)
-    var fid: String = _EntityAccess.formation_id_str(c)
-    if ct == _WeaponConstants.ATTACK_TYPE_STAB:
+    var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
+    if ct == WeaponConstants.ATTACK_TYPE_STAB:
         var w: float = CombatConstants.DEPTH_POLEARM_AI_STAB_WEIGHT_MULT
-        var doc: String = _CombatDoctrine.doctrine_for_fid(manager, fid)
+        var doc: String = CombatDoctrine.doctrine_for_fid(manager, fid)
         match doc:
             CombatConstants.DOCTRINE_PINCH_CENTER:
                 w *= manager.get_depth_polearm_ai_doctrine_mult(
@@ -256,9 +245,9 @@ static func _depth_polearm_action_weight_mult_internal(
                     fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PROBING_STAB
                 )
         return w
-    if ct == _WeaponConstants.ATTACK_TYPE_CUT or ct == _WeaponConstants.ATTACK_TYPE_BLUNT:
+    if ct == WeaponConstants.ATTACK_TYPE_CUT or ct == WeaponConstants.ATTACK_TYPE_BLUNT:
         var w2: float = CombatConstants.DEPTH_POLEARM_AI_NON_STAB_WEIGHT_MULT
-        var doc2: String = _CombatDoctrine.doctrine_for_fid(manager, fid)
+        var doc2: String = CombatDoctrine.doctrine_for_fid(manager, fid)
         match doc2:
             CombatConstants.DOCTRINE_HOLD_LANE:
                 w2 *= manager.get_depth_polearm_ai_doctrine_mult(

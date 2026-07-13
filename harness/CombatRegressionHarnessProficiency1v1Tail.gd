@@ -7,16 +7,6 @@ extends RefCounted
 ## Tuning: call run_tuning_all() for full report, then adjust gain constants
 ## in EntityProficiency.gd (GAIN_MELEE_HIT_BASE, GAIN_STRIKE_ATTEMPTED_BASE, etc.).
 
-const _MgrScript := preload("res://combat/CombatManager.gd")
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _CompanyState := preload("res://world/CompanyState.gd")
-const _Weapon := preload("res://weapon/Weapon.gd")
-const _AttackResolver := preload("res://combat/AttackResolver.gd")
-const _AttackResultApplier := preload("res://combat/AttackResultApplier.gd")
-const _CombatConstants := preload("res://combat/CombatConstants.gd")
-const _Harness := preload("res://harness/CombatRegressionHarness.gd")
-const _Fixtures := preload("res://harness/HarnessFixtures.gd")
-
 
 ## Per-stat proficiency bonuses for a CoreEntity. Returns {stat: float}.
 static func get_proficiency_snapshot(entity: Node) -> Dictionary:
@@ -49,7 +39,7 @@ static func setup_1v1(
         "strength": 100, "agility": 100, "intelligence": 100, "endurance": 100, "perception": 100
     }
 ) -> Dictionary:
-    var mgr := _MgrScript.new()
+    var mgr := CombatManager.new()
 
     var p_ent: Node = _new_entity(weapon_id)
     for stat in player_stats:
@@ -63,7 +53,7 @@ static func setup_1v1(
 
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 
-    var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+    var p_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
 
     return {
         "mgr": mgr,
@@ -77,7 +67,7 @@ static func setup_1v1(
 static func setup_1v1_mixed_weapons(
     player_weapon: String, enemy_weapon: String, player_stats: Dictionary = {}, enemy_stats: Dictionary = {}
 ) -> Dictionary:
-    var mgr := _MgrScript.new()
+    var mgr := CombatManager.new()
 
     var p_ent: Node = _new_entity(player_weapon)
     for stat in player_stats:
@@ -91,7 +81,7 @@ static func setup_1v1_mixed_weapons(
 
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 
-    var p_id: int = _EntityAccess.id_int(mgr.combatants[0])
+    var p_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
 
     return {
         "mgr": mgr,
@@ -114,19 +104,19 @@ static func _new_entity(weapon_id: String) -> Node:
     e.apply_species()
     e.dominant_hand = "right_arm"
     e.offhand_functionality = 1.0
-    var w: Variant = _Weapon.create_from_definition(weapon_id)
+    var w: Variant = Weapon.create_from_definition(weapon_id)
     if w != null:
         e.equip_weapon(w)
-    _Fixtures._track_harness_node(e)
+    HarnessFixtures._track_harness_node(e)
     return e
 
 
 ## Reset both combatants to WAITING state with balanced form for next strike.
 static func _reset_combatants_to_ready(mgr: Node) -> void:
     for c in mgr.combatants:
-        if not _EntityAccess.alive_bool(c):
+        if not CombatantEntityAccess.alive_bool(c):
             continue
-        c.state = _CombatConstants.STATE_WAITING
+        c.state = CombatConstants.STATE_WAITING
         c["_form_str"] = "balanced"
         c["guard_line"] = "high"
 
@@ -138,22 +128,22 @@ static func execute_player_strike(data: Dictionary, move_id: String = "oberhau")
 
     _reset_combatants_to_ready(mgr)
 
-    var atk: Dictionary = _EntityAccess.manager_get_combatant(mgr, p_id)
-    var enemy: Dictionary = _EntityAccess.manager_get_combatant(mgr, 1)
+    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, p_id)
+    var enemy: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, 1)
     if atk.is_empty() or enemy.is_empty():
         return {"action": "skip"}
-    if not _EntityAccess.alive_bool(atk):
+    if not CombatantEntityAccess.alive_bool(atk):
         return {"action": "dead_attacker"}
 
-    atk.state = _CombatConstants.STATE_WIND_UP
+    atk.state = CombatConstants.STATE_WIND_UP
     atk.pending_attack = {
         "target_id": 1,
         "intensity": 0.62,
         "attack_type": move_id,
     }
 
-    var result := _AttackResolver.resolve_attack(mgr, p_id)
-    _AttackResultApplier.apply_result(mgr, p_id, result)
+    var result := AttackResolver.resolve_attack(mgr, p_id)
+    AttackResultApplier.apply_result(mgr, p_id, result)
     return result
 
 
@@ -164,22 +154,22 @@ static func execute_enemy_strike(data: Dictionary) -> Dictionary:
 
     _reset_combatants_to_ready(mgr)
 
-    var atk: Dictionary = _EntityAccess.manager_get_combatant(mgr, 1)
-    var tgt: Dictionary = _EntityAccess.manager_get_combatant(mgr, p_id)
+    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, 1)
+    var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, p_id)
     if atk.is_empty() or tgt.is_empty():
         return {"action": "skip"}
-    if not _EntityAccess.alive_bool(atk):
+    if not CombatantEntityAccess.alive_bool(atk):
         return {"action": "dead_attacker"}
 
-    atk.state = _CombatConstants.STATE_WIND_UP
+    atk.state = CombatConstants.STATE_WIND_UP
     atk.pending_attack = {
         "target_id": p_id,
         "intensity": 0.62,
         "attack_type": "oberhau",
     }
 
-    var result := _AttackResolver.resolve_attack(mgr, 1)
-    _AttackResultApplier.apply_result(mgr, 1, result)
+    var result := AttackResolver.resolve_attack(mgr, 1)
+    AttackResultApplier.apply_result(mgr, 1, result)
     return result
 
 
@@ -311,7 +301,7 @@ static func format_round_details(result: Dictionary) -> String:
 
 
 static func _ensure_proficiency_on() -> void:
-    _CompanyState.PROFICIENCY_ENABLED = true
+    CompanyState.proficiency_enabled = true
 
 
 static func run_balanced_1v1() -> Dictionary:
@@ -386,7 +376,7 @@ static func run(failures: PackedStringArray) -> void:
         var result: Dictionary = runner.call()
         var total_rounds: int = result.get("total_rounds_played", 0)
         if total_rounds == 0:
-            _Harness._fail(failures, "proficiency_1v1_%s: no rounds played" % name)
+            CombatRegressionHarness._fail(failures, "proficiency_1v1_%s: no rounds played" % name)
             continue
 
         var pgains: Dictionary = result.get("cumulative_player_gains", {})
@@ -395,7 +385,7 @@ static func run(failures: PackedStringArray) -> void:
             total_gain += absf(pgains[stat])
 
         if total_gain < 0.1:
-            _Harness._fail(
+            CombatRegressionHarness._fail(
                 failures,
                 "proficiency_1v1_%s: player gains too low (%.3f over %d rounds)" % [name, total_gain, total_rounds]
             )

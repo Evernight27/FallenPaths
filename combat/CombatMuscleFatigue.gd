@@ -5,12 +5,7 @@ extends RefCounted
 ## Layers on whole-body breath + fight exhaustion — does NOT replace composure (`gauge`) or tissue J pools.
 ## Design: muscle group fatigue (`FEATURE_MUSCLE_GROUP_FATIGUE`). Production default on.
 
-const _EntityAccess := preload("res://combat/CombatantEntityAccess.gd")
-const _WeaponConstants := preload("res://weapon/WeaponConstants.gd")
-const _Bp := preload("res://core/BodyPartConstants.gd")
-const _DataKeys := preload("res://core/DataKeys.gd")
-
-const COMBATANT_KEY_MUSCLE_FATIGUE := _DataKeys.COMBATANT_KEY_MUSCLE_FATIGUE
+const COMBATANT_KEY_MUSCLE_FATIGUE := DataKeys.COMBATANT_KEY_MUSCLE_FATIGUE
 const EXERTION_KIND_ATTACK := "attack"
 const EXERTION_KIND_PARRY := "parry"
 const EXERTION_KIND_FORMATION := "formation"
@@ -23,10 +18,10 @@ static func enabled() -> bool:
 static func tracked_limb_parts() -> PackedStringArray:
     return PackedStringArray(
         [
-            _Bp.PART_RIGHT_ARM,
-            _Bp.PART_LEFT_ARM,
-            _Bp.PART_RIGHT_LEG,
-            _Bp.PART_LEFT_LEG,
+            BodyPartConstants.PART_RIGHT_ARM,
+            BodyPartConstants.PART_LEFT_ARM,
+            BodyPartConstants.PART_RIGHT_LEG,
+            BodyPartConstants.PART_LEFT_LEG,
         ]
     )
 
@@ -57,28 +52,32 @@ static func limb_fatigue(c: Dictionary, part: String) -> float:
 
 
 static func dominant_strike_limb(c: Dictionary, manager: Node = null) -> String:
-    var hand: String = _Bp.PART_RIGHT_ARM
+    var hand: String = BodyPartConstants.PART_RIGHT_ARM
     if manager != null:
-        var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
+        var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, c)
         if entity != null and "dominant_hand" in entity:
             hand = str(entity.dominant_hand)
-    if hand == _Bp.PART_RIGHT_ARM or hand == "right_arm":
-        return _Bp.PART_RIGHT_ARM
-    if hand == _Bp.PART_LEFT_ARM or hand == "left_arm":
-        return _Bp.PART_LEFT_ARM
+    if hand == BodyPartConstants.PART_RIGHT_ARM or hand == "right_arm":
+        return BodyPartConstants.PART_RIGHT_ARM
+    if hand == BodyPartConstants.PART_LEFT_ARM or hand == "left_arm":
+        return BodyPartConstants.PART_LEFT_ARM
     if hand.contains("left"):
-        return _Bp.PART_LEFT_ARM
-    return _Bp.PART_RIGHT_ARM
+        return BodyPartConstants.PART_LEFT_ARM
+    return BodyPartConstants.PART_RIGHT_ARM
 
 
 static func off_strike_limb(dominant_part: String) -> String:
-    return _Bp.PART_LEFT_ARM if dominant_part == _Bp.PART_RIGHT_ARM else _Bp.PART_RIGHT_ARM
+    return (
+        BodyPartConstants.PART_LEFT_ARM
+        if dominant_part == BodyPartConstants.PART_RIGHT_ARM
+        else BodyPartConstants.PART_RIGHT_ARM
+    )
 
 
 static func most_fatigued_limb(c: Dictionary) -> String:
     if not enabled() or c.is_empty():
-        return _Bp.PART_RIGHT_ARM
-    var best_part: String = _Bp.PART_RIGHT_ARM
+        return BodyPartConstants.PART_RIGHT_ARM
+    var best_part: String = BodyPartConstants.PART_RIGHT_ARM
     var best_f: float = -1.0
     for part in tracked_limb_parts():
         var f: float = limb_fatigue(c, part)
@@ -90,13 +89,13 @@ static func most_fatigued_limb(c: Dictionary) -> String:
 
 static func _party_short_label(part: String) -> String:
     match part:
-        _Bp.PART_RIGHT_ARM:
+        BodyPartConstants.PART_RIGHT_ARM:
             return "R arm"
-        _Bp.PART_LEFT_ARM:
+        BodyPartConstants.PART_LEFT_ARM:
             return "L arm"
-        _Bp.PART_RIGHT_LEG:
+        BodyPartConstants.PART_RIGHT_LEG:
             return "R leg"
-        _Bp.PART_LEFT_LEG:
+        BodyPartConstants.PART_LEFT_LEG:
             return "L leg"
         _:
             return part.replace("_", " ")
@@ -139,16 +138,16 @@ static func move_exertion_profile_mult(move_id: String) -> float:
 static func _limb_shares_for_exertion(c: Dictionary, _move_id: String, exertion_kind: String) -> Dictionary:
     var shares: Dictionary = {}
     if exertion_kind == EXERTION_KIND_FORMATION:
-        shares[_Bp.PART_RIGHT_LEG] = 0.5
-        shares[_Bp.PART_LEFT_LEG] = 0.5
+        shares[BodyPartConstants.PART_RIGHT_LEG] = 0.5
+        shares[BodyPartConstants.PART_LEFT_LEG] = 0.5
         return shares
     var dominant: String = dominant_strike_limb(c)
     if exertion_kind == EXERTION_KIND_PARRY:
         shares[dominant] = 1.0
         return shares
-    var weapon = _EntityAccess.get_weapon(c)
+    var weapon = CombatantEntityAccess.get_weapon(c)
     var off_share: float = 0.0
-    if _WeaponConstants.weapon_is_two_handed(weapon):
+    if WeaponConstants.weapon_is_two_handed(weapon):
         off_share = CombatConstants.MUSCLE_FATIGUE_TWO_HANDED_OFF_ARM_SHARE
     shares[dominant] = 1.0 - off_share
     if off_share > 0.0:
@@ -165,7 +164,7 @@ static func apply_exertion_after_breath_spend(
 ) -> void:
     if not enabled() or c.is_empty() or breath_spent <= 0.0:
         return
-    var entity: Node = _EntityAccess.get_entity_from_manager(manager, c) if manager != null else null
+    var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, c) if manager != null else null
     seed_combatant_if_enabled(c, entity)
     var pools: Dictionary = c.get(COMBATANT_KEY_MUSCLE_FATIGUE, {})
     if pools is not Dictionary:
@@ -250,7 +249,9 @@ static func formation_movement_weight_mult(c: Dictionary, move_id: String, _mana
         return 1.0
     if not CombatConstants.is_formation_reposition_move(move_id):
         return 1.0
-    var leg_f: float = maxf(limb_fatigue(c, _Bp.PART_RIGHT_LEG), limb_fatigue(c, _Bp.PART_LEFT_LEG))
+    var leg_f: float = maxf(
+        limb_fatigue(c, BodyPartConstants.PART_RIGHT_LEG), limb_fatigue(c, BodyPartConstants.PART_LEFT_LEG)
+    )
     return lerpf(1.0, CombatConstants.MUSCLE_FATIGUE_FORMATION_DAMP_FLOOR, leg_f)
 
 
@@ -266,7 +267,9 @@ static func parry_capacity_mult(c: Dictionary, manager: Node = null) -> float:
 static func dodge_chance_mult(c: Dictionary, _manager: Node = null) -> float:
     if not enabled() or c.is_empty():
         return 1.0
-    var leg_f: float = maxf(limb_fatigue(c, _Bp.PART_RIGHT_LEG), limb_fatigue(c, _Bp.PART_LEFT_LEG))
+    var leg_f: float = maxf(
+        limb_fatigue(c, BodyPartConstants.PART_RIGHT_LEG), limb_fatigue(c, BodyPartConstants.PART_LEFT_LEG)
+    )
     return lerpf(1.0, CombatConstants.MUSCLE_FATIGUE_DODGE_CHANCE_FLOOR, leg_f)
 
 
@@ -324,11 +327,11 @@ static func sync_to_entities_from_manager(manager: Node) -> void:
         if raw is not Dictionary:
             continue
         var c: Dictionary = raw as Dictionary
-        if _EntityAccess.side_str(c) != CombatConstants.SIDE_PLAYER:
+        if CombatantEntityAccess.side_str(c) != CombatConstants.SIDE_PLAYER:
             continue
-        if not _EntityAccess.alive_bool(c):
+        if not CombatantEntityAccess.alive_bool(c):
             continue
-        var entity: Node = _EntityAccess.get_entity_from_manager(manager, c)
+        var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, c)
         if entity == null or not ("muscle_fatigue" in entity):
             continue
         var pools: Variant = c.get(COMBATANT_KEY_MUSCLE_FATIGUE)
